@@ -54,6 +54,11 @@
 
 2003-09-21  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (simplify_rhs_and_lookup_avail_expr): Break out of
+	optimize_stmt.  Follow the def-use chains back for certain expressions
+	to see if we can simplify the RHS of the current expression based
+	on earlier expressions.
+
 	* tree-ssa-dom.c (optimize_block): Rework code to propagate values
 	into PHI nodes to be more efficient.
 
