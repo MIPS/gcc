@@ -1,5 +1,12 @@
 2003-12-23  Mark Mitchell  <mark@codesourcery.com>
 
+	* g++.dg/lookup/java1.C: Use -fdollars-in-identifiers when
+	compiling.
+	* g++.dg/lookup/java2.C: Likewise.
+	* gcc.dg/cpp/lexident.c: Likewise.
+	
+2003-12-23  Mark Mitchell  <mark@codesourcery.com>
+
 	* g++.dg/abi/macro0.C: New test.
 	* g++.dg/abi/macro1.C: Likewise.
 	* g++.dg/abi/macro2.C: Likewise.
