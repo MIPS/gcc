@@ -35,3 +35,25 @@ Boston, MA 02111-1307, USA.  */
 #define WCHAR_TYPE (TARGET_64BIT ? "int" : "long int")
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
+
+#define SUBTARGET_INSERT_ATTRIBUTES solaris_insert_attributes
+
+#define REGISTER_TARGET_PRAGMAS()				\
+  do {								\
+    c_register_pragma (0, "align", solaris_pragma_align);	\
+    c_register_pragma (0, "init", solaris_pragma_init);		\
+    c_register_pragma (0, "fini", solaris_pragma_fini);		\
+  } while (0)
+
+/* This is how to declare the size of a function.  */
+#undef ASM_DECLARE_FUNCTION_SIZE
+#define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)		\
+  do								\
+    {								\
+      if (!flag_inhibit_size_directive)				\
+        ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);			\
+      solaris_output_init_fini (FILE, DECL);			\
+    }								\
+  while (0)
+
+#define TARGET_INIT_FINI_ATTRIBUTES

@@ -1,0 +1,6 @@
+# Solaris-specific pragmas
+sol2-c.o: $(srcdir)/config/i386/sol2-c.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+  $(TM_H) $(CPPLIB_H) tree.h c-pragma.h $(C_TREE_H) toplev.h $(TM_P_H) \
+  c-incpath.h
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  $(srcdir)/config/i386/sol2-c.c

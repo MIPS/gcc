@@ -1075,6 +1075,11 @@ static void init_ext_80387_constants (void);
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
 
+#ifdef SUBTARGET_INSERT_ATTRIBUTES
+#undef TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
+#endif
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 
@@ -1598,6 +1603,10 @@ const struct attribute_spec ix86_attribute_table[] =
 #endif
   { "ms_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
   { "gcc_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
+#ifdef TARGET_INIT_FINI_ATTRIBUTES
+  { "init",      0, 0, true,  false,  false, NULL },
+  { "fini",      0, 0, true,  false,  false, NULL },
+#endif
   { NULL,        0, 0, false, false, false, NULL }
 };
 

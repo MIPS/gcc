@@ -1,3 +1,19 @@
+2004-07-13  Daniel Jacobowitz  <dan@debian.org>
+
+	* config.gcc (i[34567]86-*-solaris2.1[0-9]): Set tm_p_file,
+	tmake_file, c_target_objs, and cxx_target_objs.
+	* config/i386/i386.c (TARGET_INSERT_ATTRIBUTES): Define to
+	SUBTARGET_INSERT_ATTRIBUTES.
+	(ix86_attribute_table): Include "init" and "fini" if
+	TARGET_INIT_FINI_ATTRIBUTES.
+	* config/i386/sol2-10.h (SUBTARGET_INSERT_ATTRIBUTES)
+	(REGISTER_TARGET_PRAGMAS, ASM_DECLARE_FUNCTION_SIZE)
+	(TARGET_INIT_FINI_ATTRIBUTES): Define.
+	* config/i386/sol2-10-protos.h: New file.
+	* config/i386/sol2-c.c: New file.
+	* config/i386/t-sol2-10: New file.
+	* doc/extend.texi (Solaris Pragmas): New section.
+
 2004-07-12  Daniel Jacobowitz  <dan@debian.org>
 
 	* config.gcc (i[34567]86-*-solaris2*): Handle Solaris 2.10.

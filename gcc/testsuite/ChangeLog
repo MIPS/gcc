@@ -1,3 +1,9 @@
+2004-07-13  Daniel Jacobowitz  <dan@debian.org>
+
+	* gcc.dg/pragma-align-2.c: New testcase.
+	* gcc.dg/pragma-init-fini.c: New testcase.
+	* gcc.dg/pragma-align.c: Run test.  Include i?86-solaris2.1[0-9]*.
+
 2004-07-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR c++/16276
