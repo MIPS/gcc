@@ -258,7 +258,7 @@ make_for_stmt_blocks (t, control_parent, compound_stmt, prev_chain_p)
      
      A condition block avoids a self-referencing edge into the loop header
      (which would create loop carried dependencies for the statements in
-     FOR_INIT_STMT.
+     FOR_INIT_STMT).
 
      An expression block avoids having multiple back edges to the condition
      block.  This, in turn, helps the natural loop recognizer identify only

@@ -329,12 +329,53 @@ dump_c_node (buffer, node, spc)
       NIY;
 
     case STRING_CST:
-      /* FIXME : We have to parse the string and replace new-lines by "\n" 
-	 tabs by "\t", ...  */
-      output_add_string (buffer, "\"");
-      output_add_string (buffer, TREE_STRING_POINTER (node));
-      output_add_string (buffer, "\"");
-      break;
+      {
+	const char *str = TREE_STRING_POINTER (node);
+
+	output_add_string (buffer, "\"");
+	while (*str)
+	  {
+	    if (*str >= ' ')
+	      output_add_character (buffer, *str);
+	    else if (*str == '\n')
+	      output_add_string (buffer, "\\n");
+	    else if (*str == '\t')
+	      output_add_string (buffer, "\\t");
+	    else if (*str == '\"')
+	      output_add_string (buffer, "\\\"");
+	    else if (*str == '\'')
+	      output_add_string (buffer, "\\'");
+	    else if (*str == '\b')
+	      output_add_string (buffer, "\\b");
+	    else if (*str == '\f')
+	      output_add_string (buffer, "\\f");
+	    else if (*str == '\r')
+	      output_add_string (buffer, "\\r");
+	    else if (*str == '\v')
+	      output_add_string (buffer, "\\v");
+	    else if (*str == '\0')
+	      output_add_string (buffer, "\\0");
+	    else if (*str == '\1')
+	      output_add_string (buffer, "\\1");
+	    else if (*str == '\2')
+	      output_add_string (buffer, "\\2");
+	    else if (*str == '\3')
+	      output_add_string (buffer, "\\3");
+	    else if (*str == '\4')
+	      output_add_string (buffer, "\\4");
+	    else if (*str == '\5')
+	      output_add_string (buffer, "\\5");
+	    else if (*str == '\6')
+	      output_add_string (buffer, "\\6");
+	    else if (*str == '\7')
+	      output_add_string (buffer, "\\7");
+	    else
+	      output_add_character (buffer, *str);
+	    str++;
+	  }
+	output_add_string (buffer, "\"");
+	break;
+      }
 
     case FUNCTION_DECL:
       if (!DECL_INITIAL (node))
@@ -1446,6 +1487,9 @@ op_symbol (op)
       
     case BIT_NOT_EXPR:
       return "~";
+
+    case TRUTH_NOT_EXPR:
+      return "!";
       
     case MULT_EXPR:
     case INDIRECT_REF:

@@ -278,6 +278,26 @@ is_simple_binary_expr (t)
 
 /* }}} */
 
+/** {{{ is_simple_condexpr ()
+
+    Return non-zero if T is a SIMPLE conditional expression:
+
+      condexpr
+	      : val
+	      | val relop val  */
+
+int
+is_simple_condexpr (t)
+     tree t;
+{
+  return (is_simple_val (t)
+	  || (is_simple_relop (t)
+	      && is_simple_val (TREE_OPERAND (t, 0))
+	      && is_simple_val (TREE_OPERAND (t, 1))));
+}
+
+/* }}} */
+
 /** {{{ is_simple_binop ()
 
     Return non-zero if T is a SIMPLE binary operator:
@@ -457,7 +477,12 @@ is_simple_const (t)
 	  || TREE_CODE (t) == LABEL_DECL
 	  || TREE_CODE (t) == RESULT_DECL
 	  || TREE_CODE (t) == COMPLEX_CST
+	  /* Additions to original grammar.  Allow some common combinations
+	     of CONVERT_EXPR, SAVE_EXPR and ADDR_EXPR when they only wrap
+	     single constants.  */
 	  || (TREE_CODE (t) == ADDR_EXPR
+	      && is_simple_const (TREE_OPERAND (t, 0)))
+	  || (is_simple_cast_op (t)
 	      && is_simple_const (TREE_OPERAND (t, 0))));
 }
 
@@ -473,10 +498,17 @@ is_simple_id (t)
 {
   return (TREE_CODE (t) == VAR_DECL
 	  || TREE_CODE (t) == FUNCTION_DECL
+	  || TREE_CODE (t) == PARM_DECL
+	  || TREE_CODE (t) == FIELD_DECL
+	  /* Additions to original grammar.  Allow some common combinations
+	     of CONVERT_EXPR, SAVE_EXPR and ADDR_EXPR when they only wrap
+	     single identifiers.  */
 	  || (TREE_CODE (t) == ADDR_EXPR
 	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
-	  || TREE_CODE (t) == PARM_DECL
-	  || TREE_CODE (t) == FIELD_DECL);
+	  || (is_simple_cast_op (t)
+	      && is_simple_id (TREE_OPERAND (t, 0)))
+	  || (TREE_CODE (t) == SAVE_EXPR
+	      && is_simple_id (TREE_OPERAND (t, 0))));
 }
 
 /* }}} */
@@ -569,13 +601,45 @@ int
 is_simple_cast (t)
      tree t;
 {
-  return ((TREE_CODE (t) == NOP_EXPR
-	   || TREE_CODE (t) == CONVERT_EXPR
-           || TREE_CODE (t) == FIX_TRUNC_EXPR
-           || TREE_CODE (t) == FIX_CEIL_EXPR
-           || TREE_CODE (t) == FIX_FLOOR_EXPR
-           || TREE_CODE (t) == FIX_ROUND_EXPR)
-          && is_simple_varname (TREE_OPERAND (t, 0)));
+  return (is_simple_cast_op (t) && is_simple_varname (TREE_OPERAND (t, 0)));
+}
+
+/* }}} */
+
+/** {{{ is_simple_cast_op ()
+
+    Return non-zero if T is a typecast operator.  */
+
+int
+is_simple_cast_op (t)
+     tree t;
+{
+  return (TREE_CODE (t) == NOP_EXPR
+	  || TREE_CODE (t) == CONVERT_EXPR
+          || TREE_CODE (t) == FIX_TRUNC_EXPR
+          || TREE_CODE (t) == FIX_CEIL_EXPR
+          || TREE_CODE (t) == FIX_FLOOR_EXPR
+          || TREE_CODE (t) == FIX_ROUND_EXPR);
+}
+
+/* }}} */
+
+/** {{{ is_simple_exprseq ()
+
+    Return 1 if T is a SIMPLE expression sequence:
+
+      exprseq
+	      : exprseq ',' expr
+	      | expr  */
+
+int
+is_simple_exprseq (t)
+     tree t;
+{
+  return (is_simple_expr (t)
+          || (TREE_CODE (t) == COMPOUND_EXPR
+	      && is_simple_expr (TREE_OPERAND (t, 0))
+	      && is_simple_exprseq (TREE_OPERAND (t, 1))));
 }
 
 /* }}} */

@@ -1,3 +1,64 @@
+2002-04-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* c-pretty-print.c (dump_c_node): Handle escape sequences in strings.
+	(op_symbol): Handle TRUTH_NOT_EXPR.
+	* c-simplify.c: Rename 'after' with 'post' and 'before' with 'pre'
+	everywhere.
+	Re-group some functions and add comments.
+	(simplify_stmt): Update calls to simplify_for_stmt,
+	simplify_while_stmt, simplify_do_stmt and simplify_switch_stmt.
+	Call simplify_if_stmt.
+	Do not test if expression is in SIMPLE form before calling
+	simplify_expr.
+	Call convert_to_stmt_chain to emit statement trees for side effects
+	found while simplifying.
+	(simplify_for_stmt): Re-implement.  Do not change structure of the
+	statement.  Simplify each header expression and emit side effects
+	at sequence points.
+	(simplify_while_stmt): Ditto.
+	(simplify_do_stmt): Ditto.
+	(simplify_switch_stmt): Ditto.
+	(new_simplified_if): Rename to simplify_if_stmt.
+	Call simplify_expr to simplify the conditional.
+	(simplify_if_stmt): New name for new_simplified_if.
+	(simplify_expr): Do not default simple_test_f to is_simple_expr.
+	If simple_test_f is not set, abort.
+	Handle COMPOUND_EXPR, MODIFY_EXPR, TRUTH_ANDIF_EXPR,
+	TRUTH_ORIF_EXPR, SAVE_EXPR and EXPR_WITH_FILE_LOCATION.
+	(simplify_arglist): Rename to simplify_tree_list.
+	(simplify_tree_list): New name for simplify_arglist.
+	(simplify_boolean_expr): New function.
+	(simplify_compound_expr): New function.
+	(tree_build_scope): Use SCOPE_BEGIN_P instead of TREE_LANG_FLAG_0
+	to access scope operands.  Use COMPOUND_BODY instead of
+	TREE_OPERAND to access the body of the compound statement.
+	(add_tree): Use a TREE_LIST container instead of directly chaining the
+	trees.
+	(add_assignment_tree): Rename to add_modify_stmt.  Update all
+	callers.
+	(add_modify_stmt): New name for add_assignment_tree.
+	(insert_before_continue_end): Do nothing it the tree to insert is
+	NULL.
+	(copy_stmt_chain): Rename to deep_copy_list.  Update all callers.
+	(deep_copy_list): New name for copy_stmt_chain.
+	(copy_stmt): Rename to deep_copy_node.  Update all callers.
+	(deep_copy_node): New name for copy_stmt.  Handle TREE_LIST
+	trees.
+	(insert_before_first): New function.
+	(is_binop): Add COMPOUND_EXPR.
+	(convert_to_stmt_chain): New function.
+	* tree-cfg.c (make_for_stmt_blocks): Fix comment.
+	* tree-simple.c (is_simple_condexpr): New function.
+	(is_simple_const): Allow casts of SIMPLE constants.
+	(is_simple_id): Allow casts of SIMPLE identifiers.
+	(is_simple_cast): Call is_simple_cast_op.
+	(is_simple_cast_op): New function.
+	(is_simple_exprseq): New function.
+	* tree-simple.h (deep_copy_list): Declare.
+	(deep_copy_node): Declare.
+	(is_simple_cast_op): Declare.
+	(is_simple_exprseq): Declare.
+
 2002-04-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-simplify.c (simplify_expr): Add arguments simple_tree_f and

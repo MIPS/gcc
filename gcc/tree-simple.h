@@ -27,29 +27,31 @@ extern void insert_before_continue_end PARAMS ((tree, tree, int));
 extern void tree_build_scope           PARAMS ((tree *));
 extern tree create_tmp_var             PARAMS ((tree, tree *));
 extern tree declare_tmp_vars           PARAMS ((tree, tree));
-extern tree copy_stmt_chain            PARAMS ((tree));
-extern tree copy_stmt                  PARAMS ((tree));
+extern tree deep_copy_list             PARAMS ((tree));
+extern tree deep_copy_node             PARAMS ((tree));
 extern tree update_line_number         PARAMS ((tree, int));
 
 /* Validation of SIMPLE trees.  */
-int  is_simple_expr                    PARAMS ((tree));
-int  is_simple_rhs                     PARAMS ((tree));
-int  is_simple_modify_expr             PARAMS ((tree));
-int  is_simple_modify_expr_lhs         PARAMS ((tree));
-int  is_simple_binary_expr             PARAMS ((tree));
-int  is_simple_binop                   PARAMS ((tree));
-int  is_simple_relop                   PARAMS ((tree));
-int  is_simple_unary_expr              PARAMS ((tree));
-int  is_simple_call_expr               PARAMS ((tree));
-int  is_simple_arglist                 PARAMS ((tree));
-int  is_simple_const                   PARAMS ((tree));
-int  is_simple_id                      PARAMS ((tree));
-int  is_simple_varname                 PARAMS ((tree));
-int  is_simple_val                     PARAMS ((tree));
-int  is_simple_arrayref                PARAMS ((tree));
-int  is_simple_compref                 PARAMS ((tree));
-int  is_simple_compref_lhs             PARAMS ((tree));
-int  is_simple_cast                    PARAMS ((tree));
+int is_simple_expr                     PARAMS ((tree));
+int is_simple_rhs                      PARAMS ((tree));
+int is_simple_modify_expr              PARAMS ((tree));
+int is_simple_modify_expr_lhs          PARAMS ((tree));
+int is_simple_binary_expr              PARAMS ((tree));
+int is_simple_condexpr                 PARAMS ((tree));
+int is_simple_binop                    PARAMS ((tree));
+int is_simple_relop                    PARAMS ((tree));
+int is_simple_unary_expr               PARAMS ((tree));
+int is_simple_call_expr                PARAMS ((tree));
+int is_simple_arglist                  PARAMS ((tree));
+int is_simple_const                    PARAMS ((tree));
+int is_simple_id                       PARAMS ((tree));
+int is_simple_varname                  PARAMS ((tree));
+int is_simple_val                      PARAMS ((tree));
+int is_simple_arrayref                 PARAMS ((tree));
+int is_simple_compref                  PARAMS ((tree));
+int is_simple_compref_lhs              PARAMS ((tree));
+int is_simple_cast                     PARAMS ((tree));
+int is_simple_cast_op                  PARAMS ((tree));
+int is_simple_exprseq                  PARAMS ((tree));
 
 #endif /* _TREE_SIMPLE_H */
-
