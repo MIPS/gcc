@@ -1,4 +1,9 @@
+1999-12-08  Geoff Keating  <geoffk@cygnus.com>
+
+	* config/rs6000/rs6000.md (nonlocal_goto_receiver): Turn into
+	define_expand/define_insn pair, and handle restore of the
+	SVR4 -fpic register.
+
 1999-12-17  Geoff Keating  <geoffk@cygnus.com>
 
 	* New branch for PPC work.
-
