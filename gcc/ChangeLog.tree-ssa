@@ -1,5 +1,10 @@
 2003-10-14  Richard Henderson  <rth@redhat.com>
 
+	* c-tree.h (C_LANG_TREE_NODE_CHAIN_NEXT): New.
+	(union lang_tree_node): Use it for chain_next annotation.
+
+2003-10-14  Richard Henderson  <rth@redhat.com>
+
 	* c-common.c: Include tree-iterator.h.
 	(c_expand_expr): Kill warn_unused_result checks.
 	(c_warn_unused_result): New.

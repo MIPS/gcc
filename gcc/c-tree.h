@@ -46,13 +46,20 @@ struct lang_identifier GTY(())
 
 union lang_tree_node 
   GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
-       chain_next ("TREE_CODE (&%h.generic) == INTEGER_TYPE ? (union lang_tree_node *)TYPE_NEXT_VARIANT (&%h.generic) : (union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
+       chain_next ("C_LANG_TREE_NODE_CHAIN_NEXT (&%h.generic)")))
 {
   union tree_node GTY ((tag ("0"), 
 			desc ("tree_node_structure (&%h)"))) 
     generic;
   struct lang_identifier GTY ((tag ("1"))) identifier;
 };
+
+/* For gc purposes, return the most likely link for the longest chain.  */
+#define C_LANG_TREE_NODE_CHAIN_NEXT(T)				\
+  ((union lang_tree_node *)					\
+   (TREE_CODE (T) == INTEGER_TYPE ? TYPE_NEXT_VARIANT (T)	\
+    : TREE_CODE (T) == COMPOUND_EXPR ? TREE_OPERAND (T, 1)	\
+    : TREE_CHAIN (T)))
 
 /* Language-specific declaration information.  */
 
