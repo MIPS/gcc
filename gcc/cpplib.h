@@ -389,6 +389,7 @@ struct cpp_options
 /* Call backs.  */
 struct cpp_callbacks
 {
+    void (*read_pch) PARAMS ((cpp_reader *, int, const char *));
     void (*file_change) PARAMS ((cpp_reader *, const struct line_map *));
     void (*include) PARAMS ((cpp_reader *, unsigned int,
 			     const unsigned char *, const cpp_token *));

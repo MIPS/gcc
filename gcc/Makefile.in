@@ -724,7 +724,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-format.o c-semantics.o c-dump.o \
-  libcpp.a $(C_TARGET_OBJS)
+  libcpp.a $(C_TARGET_OBJS) 
 
 # Language-specific object files for C.
 C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
@@ -1967,7 +1967,8 @@ PREPROCESSOR_DEFINES = \
 
 LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o \
 		cpphash.o cpperror.o cppinit.o cppdefault.o \
-		hashtable.o line-map.o mkdeps.o prefix.o version.o mbchar.o
+		hashtable.o line-map.o mkdeps.o prefix.o version.o mbchar.o 
+		
 
 LIBCPP_DEPS =	$(CPPLIB_H) cpphash.h line-map.h hashtable.h intl.h \
 		$(OBSTACK_H) $(SYSTEM_H)

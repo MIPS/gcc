@@ -45,6 +45,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "output.h"
 #include "target.h"
+#include "rtl.h"
+#include "real.h"
 #include "treepch.h"
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -4983,14 +4985,14 @@ DBM * datafile = NULL;
 const char *datafilename = "testtree";
 size_t current_id = 1;
 splay_tree read_trees = NULL;
+splay_tree read_rtls = NULL;
+splay_tree written_rtl = NULL;
 splay_tree written_trees = NULL;
 splay_tree written_pointers = NULL;
-static int pickle_string PARAMS ((const char *));
 static char * pickle_tree PARAMS ((tree));
 static tree unpickle_tree PARAMS ((tree));
-static const char * unpickle_string  PARAMS ((int));
 #define VARRAY_BYTES(x) ((sizeof (struct varray_head_tag) - sizeof (varray_data)) + (x->num_elements * x->element_size))
-static int 
+int 
 pickle_string (s)
      const char *s;
 {
@@ -5004,7 +5006,7 @@ pickle_string (s)
   store_to_db (&id, sizeof (int), (void *)s, strlen (s) + 1);
   return id;
 } 
-static const char *
+const char *
 unpickle_string (id)
 	int id;
 {
@@ -5037,6 +5039,131 @@ read_tree_varray (id)
   if (result)
     return (varray_type) result->value;
   ret = unpickle_tree_varray (id);
+  return ret;
+}
+static rtx
+unpickle_rtl (id)
+	rtx id;
+{
+  int i;
+  const char *format;
+  rtx result;
+  datum key, data;
+  if (id == 0)
+    return NULL_RTX;
+  key.dptr = (char *) &id;
+  key.dsize = sizeof (int);
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort();
+  result = rtx_alloc (GET_CODE ((rtx) data.dptr));
+  memcpy (result, data.dptr, data.dsize);
+  format = GET_RTX_FORMAT (GET_CODE (result));
+  for (i = 0; i < GET_RTX_LENGTH (GET_CODE (result)); ++i)
+    {
+      switch (format[i])
+	{
+	case '\0':
+	  return 0;
+	case 'e':
+	case 'u':
+	 XEXP (result, i) = read_rtl (XEXP (result, i));
+	 break;
+	case 'V':
+	case 'E':
+	 if (XVEC (result, i) != 0)
+	   {
+	     int j;
+	     for (j = 0; j < XVECLEN (result, i); ++j)
+	       {
+		 XVECEXP (result, i, j) = read_rtl (XVECEXP (result, i, j));
+	       }
+	   }
+	 break;
+	case 'S':
+	case 's':
+	 if (XSTR (result, i) != 0)
+	   {
+	     XSTR (result, i) = unpickle_string ((int)XSTR (result, i));
+	   }
+	 break;
+	case 't':
+	 if (XTREE (result, i) != 0)
+	   {
+	     XTREE (result, i) = read_tree (XTREE (result, i));
+	   }
+	 break;
+    case '0':
+      switch (GET_CODE (result))
+	{
+	case JUMP_INSN:
+	case LABEL_REF:
+	case CONST_DOUBLE:
+	  X0EXP (result, i) = read_rtl (X0EXP (result, i));
+	  break;
+	case CODE_LABEL:
+	  if (i != 3)
+	    X0EXP (result, i) = read_rtl (X0EXP (result, i));
+	  break;
+	case MEM:
+	case REG:
+	case SCRATCH:
+	case ADDR_DIFF_VEC:
+	  break;
+
+	case NOTE:
+	  switch (NOTE_LINE_NUMBER (result))
+	    {
+	    case NOTE_INSN_RANGE_BEG:
+	    case NOTE_INSN_RANGE_END:
+	    case NOTE_INSN_LIVE:
+	    case NOTE_INSN_EXPECTED_VALUE:
+	    X0EXP (result, i) = read_rtl (X0EXP (result, i));
+	      break;
+	    case NOTE_INSN_BLOCK_BEG:
+	    case NOTE_INSN_BLOCK_END:
+	      if (X0TREE (result, i) != 0)
+		{
+		  X0TREE (result, i) = read_tree (X0TREE (result, i));
+		}
+	      break;
+	    case NOTE_INSN_DELETED_LABEL:
+	      if (X0STR (result, i) != 0)
+		{
+		  X0STR (result, i) = unpickle_string ((int)X0STR (result, i));
+		}
+	      break;
+	    default:
+	      if (NOTE_LINE_NUMBER (result) >= 0)
+		if (X0STR (result, i) != 0)
+		  {
+		    X0STR (result, i) =  unpickle_string ((int)X0STR (result, i));
+		  }
+	      break;
+	    }
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+	}
+    }
+  return result;
+}
+rtx 
+read_rtl (id)
+	rtx id;
+{
+  splay_tree_node result;
+  rtx ret;
+  if (id == 0)
+    return NULL_RTX;
+  if (read_rtls == NULL)
+    read_rtls = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  result = splay_tree_lookup (read_rtls, (splay_tree_key) id);
+  if (result)
+    return (rtx) result->value;
+  ret = unpickle_rtl (id);
   return ret;
 }
 tree
@@ -5095,6 +5222,12 @@ unpickle_tree (id)
     abort();
   if (TREE_CODE ((tree) data.dptr) == TREE_VEC)
     buffer = make_tree_vec (TREE_VEC_LENGTH ((tree) data.dptr));
+  else if (TREE_CODE ((tree) data.dptr) == IDENTIFIER_NODE)
+    {
+      buffer = make_lang_type (TREE_CODE ((tree) data.dptr));
+      memcpy (buffer, data.dptr, data.dsize);
+      buffer = get_identifier (unpickle_string (IDENTIFIER_POINTER (buffer)));
+    }
   else
     buffer = make_lang_type (TREE_CODE ((tree) data.dptr));
   splay_tree_insert (read_trees, (splay_tree_key) id, 
@@ -5119,8 +5252,11 @@ unpickle_tree (id)
       break;
     case 'x':
       if (TREE_CODE (buffer) == IDENTIFIER_NODE)
-	IDENTIFIER_POINTER (buffer) = (const char *)
-	  unpickle_string ((int)IDENTIFIER_POINTER (buffer));
+	{
+	  IDENTIFIER_POINTER (buffer) = (const char *)
+	    unpickle_string ((int)IDENTIFIER_POINTER (buffer));
+
+	}
       else if (TREE_CODE (buffer) == TREE_LIST)
 	{
 	  TREE_PURPOSE (buffer) = read_tree (TREE_PURPOSE (buffer));
@@ -5156,8 +5292,9 @@ unpickle_tree (id)
 	      || DECL_EXTERNAL (buffer) 
 	      || TREE_PUBLIC (buffer))))
 	DECL_ASSEMBLER_NAME (buffer);
+      if (DECL_RTL_SET_P (buffer))
+	buffer->decl.rtl = read_rtl (buffer->decl.rtl);
       /*FIXME: if it's PARM_DECL, u2 is  an RTL */
-      /*FIXME: Handle lang specific */
       break;
     case 't':
       TYPE_VALUES (buffer) = read_tree (TYPE_VALUES (buffer));
@@ -5175,7 +5312,6 @@ unpickle_tree (id)
       TYPE_NONCOPIED_PARTS (buffer) = 
 	read_tree (TYPE_NONCOPIED_PARTS (buffer));
       TYPE_CONTEXT (buffer) = read_tree (TYPE_CONTEXT (buffer));
-      /* FIXME: Handle lang_specific */
       break;
     case 'b':
 	{
@@ -5281,6 +5417,8 @@ pickle_tree (t)
       DECL_MACHINE_ATTRIBUTES (buffer) = 
 	(tree) write_tree (&DECL_MACHINE_ATTRIBUTES (buffer));
       DECL_VINDEX (buffer) = (tree) write_tree (&DECL_VINDEX (buffer));
+      if (DECL_RTL_SET_P (t))
+	buffer->decl.rtl = (rtx) write_rtl (&buffer->decl.rtl);
 #if 0
       if (DECL_ASSEMBLER_NAME_SET_P (t))
 	DECL_ASSEMBLER_NAME (buffer) = (tree) write_tree (&DECL_ASSEMBLER_NAME (buffer));
@@ -5361,12 +5499,13 @@ write_tree_varray (v)
   char *buffer;
   if (!v)
     return 0;
-  if (ggc_set_mark (v))
+  if (ggc_marked_p (v))
     {
       result = splay_tree_lookup (written_pointers, (splay_tree_key) v);
       if (result)
 	return result->value;
     }
+  ggc_test_and_set_mark (v);
   id = current_id++;
   splay_tree_insert (written_pointers, (splay_tree_key)v, id);
   buffer = pickle_tree_varray (v);
@@ -5387,22 +5526,151 @@ write_tree (tp)
   if (written_trees == NULL)
     written_trees = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   if (datafile == NULL)
-    datafile = dbm_open ((char *)datafilename, O_RDWR | O_CREAT, 0666);
+      datafile = dbm_open ((char *)datafilename, O_RDWR | O_CREAT, 0666);
   if (datafile == NULL)
-    abort();
+    return 0;
   /* Skip empty subtrees.  */
   if (!*tp)
     return 0;
-  if (ggc_set_mark (*tp))
+  if (ggc_marked_p (*tp))
     {
       result = splay_tree_lookup (written_trees, (splay_tree_key)*tp);
       if (result)
 	return result->value;
     }
+  ggc_test_and_set_mark (*tp);
   id = current_id++;	
   splay_tree_insert (written_trees, (splay_tree_key)(*tp), id);
   buffer = pickle_tree (*tp);
   store_to_db (&id, sizeof (int), buffer, tree_size (*tp));
+  free (buffer);
+  return id;
+}
+static char *
+pickle_rtl (rtl)
+	rtx rtl;
+{
+  int i;
+  const char *format;
+  rtx buffer = xmalloc (sizeof (struct rtx_def) + (GET_RTX_LENGTH (GET_CODE (rtl)) - 1) * sizeof (rtunion));
+  memcpy (buffer, rtl, sizeof (struct rtx_def) + (GET_RTX_LENGTH (GET_CODE (rtl)) - 1) * sizeof (rtunion));
+  format = GET_RTX_FORMAT (GET_CODE (rtl));
+  for (i = 0; i < GET_RTX_LENGTH (GET_CODE (rtl)); ++i)
+    {
+      switch (format[i])
+	{
+	case '\0':
+	  return 0;
+	case 'e':
+	case 'u':
+	 XEXP (buffer, i) = (rtx) write_rtl (&XEXP (buffer, i));
+	 break;
+	case 'V':
+	case 'E':
+	 if (XVEC (buffer, i) != 0)
+	   {
+	     int j;
+	     for (j = 0; j < XVECLEN (buffer, i); ++j)
+	       {
+		 XVECEXP (buffer, i, j) = (rtx) write_rtl (&XVECEXP (buffer, i, j));
+	       }
+	   }
+	 break;
+	case 'S':
+	case 's':
+	 if (XSTR (buffer, i) != 0)
+	   {
+	     XSTR (buffer, i) = (const char *) pickle_string (XSTR (buffer, i));
+	   }
+	 break;
+	case 't':
+	 if (XTREE (buffer, i) != 0)
+	   {
+	     XTREE (buffer, i) = (tree) write_tree (&XTREE (buffer, i));
+	   }
+	 break;
+    case '0':
+      switch (GET_CODE (rtl))
+	{
+	case JUMP_INSN:
+	case LABEL_REF:
+	case CONST_DOUBLE:
+	  X0EXP (buffer, i) = (rtx) write_rtl (&X0EXP (buffer, i));
+	  break;
+	case CODE_LABEL:
+	  if (i != 3)
+	    X0EXP (buffer, i) = (rtx) write_rtl (&X0EXP (buffer, i));
+	  break;
+	case MEM:
+	case REG:
+	case SCRATCH:
+	case ADDR_DIFF_VEC:
+	  break;
+
+	case NOTE:
+	  switch (NOTE_LINE_NUMBER (rtl))
+	    {
+	    case NOTE_INSN_RANGE_BEG:
+	    case NOTE_INSN_RANGE_END:
+	    case NOTE_INSN_LIVE:
+	    case NOTE_INSN_EXPECTED_VALUE:
+	    X0EXP (buffer, i) = (rtx) write_rtl (&X0EXP (buffer, i));
+	      break;
+	    case NOTE_INSN_BLOCK_BEG:
+	    case NOTE_INSN_BLOCK_END:
+	      if (X0TREE (buffer, i) != 0)
+		{
+		  X0TREE (buffer, i) = (tree) write_tree (&X0TREE (buffer, i));
+		}
+	      break;
+	    case NOTE_INSN_DELETED_LABEL:
+	      if (X0STR (buffer, i) != 0)
+		{
+		  X0STR (buffer, i) = (const char *) pickle_string (X0STR (buffer, i));
+		}
+	      break;
+	    default:
+	      if (NOTE_LINE_NUMBER (rtl) >= 0)
+		if (X0STR (buffer, i) != 0)
+		  {
+		    X0STR (buffer, i) = (const char *) pickle_string (X0STR (buffer, i));
+		  }
+	      break;
+	    }
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+	}
+    }
+  return (char *)buffer;
+}
+	 
+
+
+int
+write_rtl (rtlp)
+	rtx *rtlp;
+{
+  size_t id;
+  splay_tree_node result;
+  char *buffer;
+  if (written_rtl == NULL)
+    written_rtl = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
+  if (!*rtlp)
+    return 0;
+  if (ggc_marked_p (*rtlp))
+    {
+	result  = splay_tree_lookup (written_rtl, (splay_tree_key) *rtlp);
+	if (result)
+	  return result->value;
+    }
+  ggc_test_and_set_mark (*rtlp);
+  id = current_id++;
+  splay_tree_insert (written_rtl, (splay_tree_key) (*rtlp), id);
+  buffer = pickle_rtl (*rtlp);
+  store_to_db (&id, sizeof (int), buffer, sizeof (struct rtx_def) + (GET_RTX_LENGTH (GET_CODE (*rtlp)) - 1) * sizeof (rtunion));
   free (buffer);
   return id;
 }

@@ -25,7 +25,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "cpphash.h"
 #include "obstack.h"
-
+#include "treepch.h"
 /* Chained list of answers to an assertion.  */
 struct answer
 {
@@ -1729,6 +1729,21 @@ cpp_set_callbacks (pfile, cb)
   pfile->cb = *cb;
 }
 
+struct include_file
+{
+  const char *name;		/* actual path name of file */
+  const cpp_hashnode *cmacro;	/* macro, if any, preventing reinclusion.  */
+  const struct search_path *foundhere;
+				/* location in search path where file was
+				   found, for #include_next and sysp.  */
+  const unsigned char *buffer;	/* pointer to cached file contents */
+  struct stat st;		/* copy of stat(2) data for file */
+  int fd;			/* fd open on file (short term storage only) */
+  int err_no;			/* errno obtained if opening a file failed */
+  unsigned short include_count;	/* number of times file has been read */
+  unsigned short refcnt;	/* number of stacked buffers using this file */
+  unsigned char mapped;		/* file buffer is mmapped */
+};
 /* Push a new buffer on the buffer stack.  Returns the new buffer; it
    doesn't fail.  It does not generate a file change call back; that
    is the responsibility of the caller.  */
@@ -1787,7 +1802,9 @@ _cpp_pop_buffer (pfile)
   pfile->buffer = buffer->prev;
 
   if (buffer->inc)
-    _cpp_pop_file_buffer (pfile, buffer->inc);
+    {
+      _cpp_pop_file_buffer (pfile, buffer->inc);
+    }
 
   obstack_free (&pfile->buffer_ob, buffer);
 }

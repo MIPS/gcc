@@ -44,6 +44,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "debug.h"
 #include "treepch.h"
+#include "hashtab.h"
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
 { NORMAL,			/* Ordinary declaration */
@@ -6628,12 +6629,6 @@ finish_function (nested)
 
   /* Tie off the statement tree for this function.  */
   finish_stmt_tree (&DECL_SAVED_TREE (fndecl));
-    {
-      tree temp;
-      temp = read_tree ((tree) write_tree (&fndecl));
-      temp = temp+1;
-      temp = temp-1;
-    }
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
@@ -7191,3 +7186,143 @@ build_void_list_node ()
   tree t = build_tree_list (NULL_TREE, void_type_node);
   return t;
 }
+int def_len = 0;
+int *def_table=NULL;
+static int
+write_defs (pfile, hn, nothing)
+	cpp_reader *pfile;
+	cpp_hashnode *hn;
+	void *nothing;
+{
+  switch (hn->type)
+    {
+    case NT_MACRO:
+      if (hn->flags & NODE_BUILTIN)
+	{
+	  return 1;
+	}
+    case NT_VOID:
+	{
+	  def_len++;
+	  def_table = xrealloc (def_table, sizeof (int) * def_len);
+	  def_table[def_len-1] = pickle_string ((const char *)hn->ident.str);
+	}
+      return 1;
+    case NT_ASSERTION:
+      return 1;
+    default:
+      abort();
+
+    }
+}
+	  
+void lang_write_pch ()
+{
+  size_t id;
+  int i;
+  const char *keyname;
+  tree globals;
+  tree cgt_table[CTI_MAX];
+  for (i = 0; i < CTI_MAX; i++)
+	cgt_table[i] = write_tree (&c_global_trees[i]);
+  keyname = "c_global_trees";
+  store_to_db ((void *)keyname, strlen (keyname) + 1, cgt_table, CTI_MAX * sizeof (tree));
+  globals = global_binding_level->names;
+  id = write_tree (&globals);
+  keyname =  "global_binding_level->names";
+  store_to_db ((void *)keyname, strlen (keyname) + 1, &id, sizeof (size_t));
+  globals = global_binding_level->tags;
+  id = write_tree (&globals);
+  keyname =  "global_binding_level->tags";
+  store_to_db ((void *)keyname, strlen (keyname) + 1, &id, sizeof (size_t));
+  globals = static_ctors;
+  id = write_tree (&globals);
+  keyname =  "static_ctors";
+  store_to_db ((void *)keyname, strlen (keyname) + 1, &id, sizeof (size_t));
+  globals = static_dtors;
+  id = write_tree (&globals);
+  keyname =  "static_dtors";
+  store_to_db ((void *)keyname, strlen (keyname) + 1, &id, sizeof (size_t));
+  def_len = 0;
+  def_table = 0;
+  cpp_forall_identifiers (parse_in, write_defs, NULL);
+  keyname = "defs";
+  store_to_db ((void *)keyname, strlen (keyname) + 1, def_table, def_len * sizeof (int));
+  free (def_table);
+  keyname = "defslen";
+  store_to_db ((void *)keyname, strlen (keyname) + 1, &def_len, sizeof (size_t));
+}
+void lang_read_pch (pfile, fd, self)
+	cpp_reader *pfile;
+	int fd;
+	const char *self;
+{
+  int i;
+  size_t id;
+  datum key, data;
+  const char *keyname;
+  tree cgt_table[CTI_MAX];
+  datafilename = self;
+  if (datafile == NULL)
+      datafile = dbm_open ((char *)datafilename, O_RDWR, 0666);
+  keyname = "c_global_trees";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort();
+  memcpy (cgt_table, data.dptr, data.dsize);
+  for (i = 0; i < CTI_MAX; i++)
+     c_global_trees[i] = read_tree (cgt_table[i]); 
+  keyname = "global_binding_level->names";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort();
+  global_binding_level->names = read_tree ((tree)*(tree *)data.dptr);
+  keyname = "global_binding_level->tags";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort();
+  global_binding_level->tags = read_tree ((tree)*(tree *)data.dptr);
+  keyname = "static_ctors";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort();
+  static_ctors = read_tree ((tree)*(tree *)data.dptr);
+  keyname = "static_dtors";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort();
+  static_dtors = read_tree ((tree)*(tree *)data.dptr);
+  keyname = "defslen";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort ();
+  def_len = *(int *)data.dptr;
+  def_table = xmalloc (def_len * sizeof (int));
+  keyname = "defs";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort ();
+  memcpy (def_table, data.dptr, data.dsize);
+  for (i = 0; i < def_len; i++)
+    {
+    const char *tempstr;
+    tempstr = unpickle_string (def_table[i]);
+    cpp_lookup (parse_in, (unsigned char *)tempstr, strlen (tempstr));
+    }
+  free (def_table);
+}
+

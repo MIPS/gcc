@@ -322,6 +322,7 @@ typedef tree (*walk_tree_fn)                    PARAMS ((tree *,
 							 int *,
 							 void *));
 
+extern void lang_read_pch     PARAMS ((cpp_reader *, int, const char *));
 extern stmt_tree current_stmt_tree              PARAMS ((void));
 extern tree *current_scope_stmt_stack           PARAMS ((void));
 extern void begin_stmt_tree                     PARAMS ((tree *));

@@ -68,7 +68,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "integrate.h"
 #include "debug.h"
 #include "target.h"
-
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
 #endif

@@ -35,7 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-tree.h"
 #include "c-lex.h"
 #include "cpplib.h"
-
+#include "treepch.h"
 static int c_tree_printer PARAMS ((output_buffer *));
 static int c_missing_noreturn_ok_p PARAMS ((tree));
 static void c_init PARAMS ((void));
@@ -221,10 +221,25 @@ finish_cdtor (body)
 #endif
 
 /* Called at end of parsing, but before end-of-file processing.  */
-
 void
 finish_file ()
 {
+  char *ch = malloc (5000);
+  memset (ch, 0, 5000);
+  strcpy (ch, input_filename);
+  ch = strcat (ch, ".pch");
+  datafilename = strdup(ch);
+  lang_write_pch ();
+  free (ch);
+  if (written_pointers)
+    splay_tree_delete (written_pointers);
+  if (written_trees)
+    splay_tree_delete (written_trees);
+  if (written_rtl)
+    splay_tree_delete (written_rtl);
+  written_pointers = written_trees = written_rtl = NULL;
+  current_id = 0;
+
 #ifndef ASM_OUTPUT_CONSTRUCTOR
   if (static_ctors)
     {
@@ -263,6 +278,8 @@ finish_file ()
 	dump_end (TDI_all, stream);
       }
   }
+  if (datafile)
+      dbm_close (datafile);
 }
 
 /* Called during diagnostic message formatting process to print a

@@ -155,6 +155,11 @@ void ggc_collect PARAMS ((void));
    pointers in this data structure should not be traversed.  */
 int ggc_set_mark PARAMS ((const void *));
 
+/* Return 1 if P has been marked, zero otherwise. 
+   P must have been allocated by the GC allocator; it mustn't point to
+   static objects, stack variables, or memory allocated with malloc.  */
+extern int ggc_marked_p			PARAMS ((const void *));
+
 /* Callbacks to the languages.  */
 
 /* This is the language's opportunity to mark nodes held through

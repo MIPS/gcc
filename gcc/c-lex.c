@@ -128,6 +128,7 @@ init_c_lex (filename)
   cb->ident = cb_ident;
   cb->file_change = cb_file_change;
   cb->def_pragma = cb_def_pragma;
+  cb->read_pch = lang_read_pch;
 
   /* Set the debug callbacks if we can use them.  */
   if (debug_info_level == DINFO_LEVEL_VERBOSE

@@ -214,6 +214,9 @@
 /* Define if you have the <malloc.h> header file.  */
 #undef HAVE_MALLOC_H
 
+/* Define if you have the <mdbm.h> header file.  */
+#undef HAVE_MDBM_H
+
 /* Define if you have the <nl_types.h> header file.  */
 #undef HAVE_NL_TYPES_H
 
