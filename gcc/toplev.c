@@ -2157,7 +2157,6 @@ compile_file (name)
     }
 
   /* Initialize data in various passes.  */
-
   init_obstacks ();
   name = init_parse (name);
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL

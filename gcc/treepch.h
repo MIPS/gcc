@@ -13,6 +13,7 @@ extern void lang_pickle_tree PARAMS ((tree, tree));
 extern void lang_unpickle_tree PARAMS ((tree));
 extern splay_tree read_trees;
 extern splay_tree written_trees;
+extern splay_tree written_pointers;
 extern size_t current_id;
 extern const char *datafilename;
 extern DBM *datafile;

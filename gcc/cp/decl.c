@@ -1963,14 +1963,14 @@ pickle_lang_function (t, p)
     return 0;
   if (ggc_set_mark (p))
     {
-      result = splay_tree_lookup (written_trees, (splay_tree_key)p);
+      result = splay_tree_lookup (written_pointers, (splay_tree_key)p);
       if (result)
 	return result->value;
     }
   id = current_id++;
   new = (struct cp_language_function *)xmalloc (sizeof (struct cp_language_function));
   memcpy (new, p, sizeof (struct cp_language_function));
-  splay_tree_insert (written_trees, (splay_tree_key) p, id);
+  splay_tree_insert (written_pointers, (splay_tree_key) p, id);
   pickle_c_language_function (&new->base);
   new->x_ctor_label = (tree) write_tree (&new->x_ctor_label);
   new->x_dtor_label = (tree) write_tree (&new->x_dtor_label);
@@ -1994,15 +1994,15 @@ pickle_decl_lang_specific (t, ld)
   splay_tree_node result;
   if (ggc_set_mark (ld))
     {
-      result = splay_tree_lookup (written_trees, (splay_tree_key)ld);
+      result = splay_tree_lookup (written_pointers, (splay_tree_key)ld);
       if (result)
 	return result->value;
     }
   id = current_id++;
   new = (struct lang_decl *)xmalloc (sizeof (struct lang_decl));
   memcpy (new, ld, sizeof (struct lang_decl));
-  splay_tree_insert (written_trees, (splay_tree_key)ld, id);
-  new->decl_flags.base.saved_tree = (tree) write_tree (&new->decl_flags.base.saved_tree);
+  splay_tree_insert (written_pointers, (splay_tree_key)ld, id);
+  new->decl_flags.base.saved_tree = (tree) write_tree (&((&new->decl_flags.base)->saved_tree));
   if (!DECL_GLOBAL_CTOR_P (t)
       && !DECL_GLOBAL_DTOR_P (t)
       && !DECL_THUNK_P (t)
@@ -2014,7 +2014,7 @@ pickle_decl_lang_specific (t, ld)
     new->decl_flags.u.template_info = (tree) write_tree (&new->decl_flags.u.template_info);
   else
     new->decl_flags.u.level = 
-(struct binding_level *)pickle_binding_level (&new->decl_flags.u.level);
+(struct binding_level *)pickle_binding_level (&NAMESPACE_LEVEL (t));
   if (CAN_HAVE_FULL_LANG_DECL_P (t))
     {
       new->befriending_classes = (tree) write_tree (&new->befriending_classes);
@@ -2023,6 +2023,7 @@ pickle_decl_lang_specific (t, ld)
       new->inlined_fns = (tree) write_tree (&new->inlined_fns);
       if (TREE_CODE (t) == TYPE_DECL)
 	new->u.sorted_fields = (tree) write_tree (&new->u.sorted_fields);
+
     }
   store_to_db (&id, sizeof (int), new, sizeof (struct lang_decl));
   free (new);
@@ -2076,14 +2077,14 @@ pickle_binding_level (arg)
     return 0;
 //  if (ggc_set_mark (lvl))
  //   {
-      result = splay_tree_lookup (written_trees, (splay_tree_key)lvl);
+      result = splay_tree_lookup (written_pointers, (splay_tree_key)lvl);
       if (result)
 	return result->value;
   //  }
   id = current_id++;
   new = xmalloc (sizeof (struct binding_level));
   memcpy (new, lvl, sizeof (struct binding_level));
-  splay_tree_insert (written_trees, (splay_tree_key)lvl, id);
+  splay_tree_insert (written_pointers, (splay_tree_key)lvl, id);
   new->names = (tree) write_tree (&new->names);
   new->tags = (tree) write_tree (&new->tags);
   new->usings = (tree) write_tree (&new->usings);
@@ -2148,7 +2149,6 @@ lang_pickle_tree  (t, oldt)
     TEMPLATE_PARM_DECL (t) = (tree) write_tree (&TEMPLATE_PARM_DECL (t));
   else if (TREE_CODE_CLASS (code) == 'd')
     {
-#if 0
       struct lang_decl *ld = DECL_LANG_SPECIFIC (t);
       if (ld)
 	{
@@ -2156,12 +2156,11 @@ lang_pickle_tree  (t, oldt)
 	    if (TREE_CODE (t) == FUNCTION_DECL
 		&& !DECL_PENDING_INLINE_P (oldt))
 	      { 
-//		DECL_SAVED_FUNCTION_DATA (t) = (struct cp_language_function *)pickle_lang_function (t, (struct cp_language_function *)DECL_SAVED_FUNCTION_DATA (t));
+		DECL_SAVED_FUNCTION_DATA (t) = (struct cp_language_function *)pickle_lang_function (t, (struct cp_language_function *)DECL_SAVED_FUNCTION_DATA (t));
 	      }
 	  DECL_LANG_SPECIFIC (t) = 
 	    (struct lang_decl *)pickle_decl_lang_specific (oldt, DECL_LANG_SPECIFIC (t));
 	}
-#endif
     }
     else if (TREE_CODE_CLASS (code) == 't')
       {
@@ -2174,7 +2173,7 @@ lang_pickle_tree  (t, oldt)
 	    splay_tree_node result;
 	    if (ggc_set_mark (lt))
 	      {
-		result = splay_tree_lookup (written_trees, (splay_tree_key) lt);
+		result = splay_tree_lookup (written_pointers, (splay_tree_key) lt);
 		if (result)
 		  TYPE_LANG_SPECIFIC (t) = (struct lang_type *)result->value;
 		return;
@@ -2182,7 +2181,7 @@ lang_pickle_tree  (t, oldt)
 	    id = current_id++;
 	    new = xmalloc (sizeof (struct lang_type));
 	    memcpy (new, lt, sizeof (struct lang_type));
-	    splay_tree_insert (written_trees, (splay_tree_key)lt, id);
+	    splay_tree_insert (written_pointers, (splay_tree_key)lt, id);
 	    new->primary_base = (tree) write_tree (&new->primary_base);
 	    new->vfields = (tree) write_tree (&new->vfields);
 	    new->vbases = (tree) write_tree (&new->vbases);

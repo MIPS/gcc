@@ -744,7 +744,6 @@ build_complex (type, real, imag)
     = TREE_CONSTANT_OVERFLOW (real) | TREE_CONSTANT_OVERFLOW (imag);
   return t;
 }
-
 /* Build a newly constructed TREE_VEC node of length LEN.  */
 
 tree
@@ -4985,6 +4984,7 @@ const char *datafilename = "testtree";
 size_t current_id = 1;
 splay_tree read_trees = NULL;
 splay_tree written_trees = NULL;
+splay_tree written_pointers = NULL;
 static int pickle_string PARAMS ((const char *));
 static char * pickle_tree PARAMS ((tree));
 static tree unpickle_tree PARAMS ((tree));
@@ -4996,11 +4996,11 @@ pickle_string (s)
 {
   int id;
   splay_tree_node result;
-  result = splay_tree_lookup (written_trees, (splay_tree_key)s);
+  result = splay_tree_lookup (written_pointers, (splay_tree_key)s);
   if (result)
     return result->value;
   id = current_id++;	
-  splay_tree_insert (written_trees, (splay_tree_key)s, id);
+  splay_tree_insert (written_pointers, (splay_tree_key)s, id);
   store_to_db (&id, sizeof (int), (void *)s, strlen (s) + 1);
   return id;
 } 
@@ -5357,12 +5357,12 @@ write_tree_varray (v)
     return 0;
   if (ggc_set_mark (v))
     {
-      result = splay_tree_lookup (written_trees, (splay_tree_key) v);
+      result = splay_tree_lookup (written_pointers, (splay_tree_key) v);
       if (result)
 	return result->value;
     }
   id = current_id++;
-  splay_tree_insert (written_trees, (splay_tree_key)v, id);
+  splay_tree_insert (written_pointers, (splay_tree_key)v, id);
   buffer = pickle_tree_varray (v);
   store_to_db (&id, sizeof (int), buffer, VARRAY_BYTES (v));
   free (buffer);
@@ -5376,6 +5376,8 @@ write_tree (tp)
   int id;
   splay_tree_node result;
   char *buffer;
+  if (written_pointers == NULL)
+    written_pointers = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   if (written_trees == NULL)
     written_trees = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   if (datafile == NULL)
@@ -5392,7 +5394,7 @@ write_tree (tp)
 	return result->value;
     }
   id = current_id++;	
-  splay_tree_insert (written_trees, (splay_tree_key)*tp, id);
+  splay_tree_insert (written_trees, (splay_tree_key)(*tp), id);
   buffer = pickle_tree (*tp);
   store_to_db (&id, sizeof (int), buffer, tree_size (*tp));
   free (buffer);
