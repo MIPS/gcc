@@ -318,9 +318,7 @@ struct c_language_function GTY(()) {
 
 /* Language-specific hooks.  */
 
-extern void (*lang_expand_stmt) (tree);
 extern int (*lang_gimplify_stmt) (tree *, tree *);
-extern void (*lang_expand_decl_stmt) (tree);
 extern void (*lang_expand_function_end) (void);
 
 /* Callback that determines if it's ok for a function to have no
@@ -340,7 +338,6 @@ extern void finish_stmt_tree (tree *);
 
 extern tree walk_stmt_tree (tree *, walk_tree_fn, void *);
 extern void prep_stmt (tree);
-extern void expand_stmt (tree);
 extern void expand_stmt_toplev (tree);
 extern tree c_begin_if_stmt (void);
 extern tree c_begin_while_stmt (void);
@@ -1162,24 +1159,6 @@ extern bool statement_code_p[MAX_TREE_CODES];
       statement_code_p[STMT_CODES[i]] = true;			\
   } while (0)
 
-extern void genrtl_do_pushlevel (void);
-extern void genrtl_goto_stmt (tree);
-extern void genrtl_expr_stmt (tree);
-extern void genrtl_expr_stmt_value (tree, int, int);
-extern void genrtl_decl_stmt (tree);
-extern void genrtl_if_stmt (tree);
-extern void genrtl_while_stmt (tree);
-extern void genrtl_do_stmt (tree);
-extern void genrtl_return_stmt (tree);
-extern void genrtl_for_stmt (tree);
-extern void genrtl_break_stmt (void);
-extern void genrtl_continue_stmt (void);
-extern void genrtl_scope_stmt (tree);
-extern void genrtl_switch_stmt (tree);
-extern void genrtl_case_label (tree);
-extern void genrtl_compound_stmt (tree);
-extern void genrtl_asm_stmt (int, tree, tree, tree, tree, int);
-extern void genrtl_cleanup_stmt (tree);
 extern int stmts_are_full_exprs_p (void);
 extern int anon_aggr_type_p (tree);
 
@@ -1197,7 +1176,6 @@ extern int anon_aggr_type_p (tree);
 
 extern void emit_local_var (tree);
 extern void make_rtl_for_local_static (tree);
-extern tree expand_cond (tree);
 extern tree c_expand_return (tree);
 extern tree do_case (tree, tree);
 extern tree build_stmt (enum tree_code, ...);
@@ -1322,7 +1300,5 @@ extern void objc_mark_locals_volatile (void *);
 extern void init_pp_output (FILE *);
 extern void preprocess_file (cpp_reader *);
 extern void pp_file_change (const struct line_map *);
-
-extern tree find_reachable_label (tree);
 
 #endif /* ! GCC_C_COMMON_H */

@@ -57,10 +57,6 @@
 static tree maybe_convert_cond (tree);
 static tree simplify_aggr_init_exprs_r (tree *, int *, void *);
 static void emit_associated_thunks (tree);
-static void genrtl_try_block (tree);
-static void genrtl_eh_spec_block (tree);
-static void genrtl_handler (tree);
-static void cp_expand_stmt (tree);
 static tree finalize_nrv_r (tree *, int *, void *);
 
 
@@ -776,56 +772,6 @@ finish_switch_stmt (tree switch_stmt)
   do_poplevel ();
 }
 
-/* Generate the RTL for T, which is a TRY_BLOCK.  */
-
-static void 
-genrtl_try_block (tree t)
-{
-  if (CLEANUP_P (t))
-    {
-      expand_eh_region_start ();
-      expand_stmt (TRY_STMTS (t));
-      expand_eh_region_end_cleanup (TRY_HANDLERS (t));
-    }
-  else
-    {
-      if (!FN_TRY_BLOCK_P (t)) 
-	emit_line_note (input_location);
-
-      expand_eh_region_start ();
-      expand_stmt (TRY_STMTS (t));
-
-      if (FN_TRY_BLOCK_P (t))
-	{
-	  expand_start_all_catch ();
-	  in_function_try_handler = 1;
-	  expand_stmt (TRY_HANDLERS (t));
-	  in_function_try_handler = 0;
-	  expand_end_all_catch ();
-	}
-      else 
-	{
-	  expand_start_all_catch ();  
-	  expand_stmt (TRY_HANDLERS (t));
-	  expand_end_all_catch ();
-	}
-    }
-}
-
-/* Generate the RTL for T, which is an EH_SPEC_BLOCK.  */
-
-static void 
-genrtl_eh_spec_block (tree t)
-{
-  expand_eh_region_start ();
-  expand_stmt (EH_SPEC_STMTS (t));
-  expand_eh_region_end_allowed (EH_SPEC_RAISES (t),
-				build_call (call_unexpected_node,
-					    tree_cons (NULL_TREE,
-						       build_exc_ptr (),
-						       NULL_TREE)));
-}
-
 /* Begin a try-block.  Returns a newly-created TRY_BLOCK if
    appropriate.  */
 
@@ -911,19 +857,6 @@ finish_function_handler_sequence (tree try_block)
   in_function_try_handler = 0;
   RECHAIN_STMTS (try_block, TRY_HANDLERS (try_block));
   check_handlers (TRY_HANDLERS (try_block));
-}
-
-/* Generate the RTL for T, which is a HANDLER.  */
-
-static void
-genrtl_handler (tree t)
-{
-  genrtl_do_pushlevel ();
-  if (!processing_template_decl)
-    expand_start_catch (HANDLER_TYPE (t));
-  expand_stmt (HANDLER_BODY (t));
-  if (!processing_template_decl)
-    expand_end_catch ();
 }
 
 /* Begin a handler.  Returns a HANDLER if appropriate.  */
@@ -2670,35 +2603,6 @@ finish_typeof (tree expr)
   return type;
 }
 
-/* Generate RTL for the statement T, and its substatements, and any
-   other statements at its nesting level.  */
-
-static void
-cp_expand_stmt (tree t)
-{
-  switch (TREE_CODE (t))
-    {
-    case TRY_BLOCK:
-      genrtl_try_block (t);
-      break;
-
-    case EH_SPEC_BLOCK:
-      genrtl_eh_spec_block (t);
-      break;
-
-    case HANDLER:
-      genrtl_handler (t);
-      break;
-
-    case USING_STMT:
-      break;
-    
-    default:
-      abort ();
-      break;
-    }
-}
-
 /* Called from expand_body via walk_tree.  Replace all AGGR_INIT_EXPRs
    with equivalent CALL_EXPRs.  */
 
@@ -3069,7 +2973,6 @@ cxx_expand_function_start (void)
 void
 init_cp_semantics (void)
 {
-  lang_expand_stmt = cp_expand_stmt;
 }
 
 #include "gt-cp-semantics.h"

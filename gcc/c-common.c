@@ -4197,88 +4197,15 @@ finish_label_address_expr (tree label)
 }
 
 /* Hook used by expand_expr to expand language-specific tree codes.  */
+/* The only things that should go here are bits needed to expand 
+   constant initalizers.  Everything else should be handled by the
+   gimplification routines.  */
 
 rtx
 c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
-     /* Actually enum_modifier.  */
 {
   switch (TREE_CODE (exp))
     {
-    case STMT_EXPR:
-      {
-	tree rtl_expr;
-	rtx result;
-	bool preserve_result = false;
-	bool return_target = false;
-
-	/* Since expand_expr_stmt calls free_temp_slots after every
-	   expression statement, we must call push_temp_slots here.
-	   Otherwise, any temporaries in use now would be considered
-	   out-of-scope after the first EXPR_STMT from within the
-	   STMT_EXPR.  */
-	push_temp_slots ();
-	rtl_expr = expand_start_stmt_expr (!STMT_EXPR_NO_SCOPE (exp));
-
-	/* If we want the result of this expression, find the last
-           EXPR_STMT in the COMPOUND_STMT and mark it as addressable.  */
-	if (target != const0_rtx
-	    && TREE_CODE (STMT_EXPR_STMT (exp)) == COMPOUND_STMT
-	    && TREE_CODE (COMPOUND_BODY (STMT_EXPR_STMT (exp))) == SCOPE_STMT)
-	  {
-	    tree expr = COMPOUND_BODY (STMT_EXPR_STMT (exp));
-	    tree last = TREE_CHAIN (expr);
-
-	    while (TREE_CHAIN (last))
-	      {
-		expr = last;
-		last = TREE_CHAIN (last);
-	      }
-
-	    if (TREE_CODE (last) == SCOPE_STMT
-		&& TREE_CODE (expr) == EXPR_STMT)
-	      {
-		if (target && TREE_CODE (EXPR_STMT_EXPR (expr)) == VAR_DECL
-		    && DECL_RTL_IF_SET (EXPR_STMT_EXPR (expr)) == target)
-		  /* If the last expression is a variable whose RTL is the
-		     same as our target, just return the target; if it
-		     isn't valid expanding the decl would produce different
-		     RTL, and store_expr would try to do a copy.  */
-		  return_target = true;
-		else
-		  {
-		    /* Otherwise, note that we want the value from the last
-		       expression.  */
-		    TREE_ADDRESSABLE (expr) = 1;
-		    preserve_result = true;
-		  }
-	      }
-	  }
-
-	expand_stmt (STMT_EXPR_STMT (exp));
-	expand_end_stmt_expr (rtl_expr);
-
-	result = expand_expr (rtl_expr, target, tmode, modifier);
-	if (return_target)
-	  result = target;
-	else if (preserve_result && GET_CODE (result) == MEM)
-	  {
-	    if (GET_MODE (result) != BLKmode)
-	      result = copy_to_reg (result);
-	    else
-	      preserve_temp_slots (result);
-	  }
-
-	/* If the statment-expression does not have a scope, then the
-	   new temporaries we created within it must live beyond the
-	   statement-expression.  */
-	if (STMT_EXPR_NO_SCOPE (exp))
-	  preserve_temp_slots (NULL_RTX);
-
-	pop_temp_slots ();
-	return result;
-      }
-      break;
-
     case COMPOUND_LITERAL_EXPR:
       {
 	/* Initialize the anonymous variable declared in the compound
@@ -4291,9 +4218,6 @@ c_expand_expr (tree exp, rtx target, enum machine_mode tmode, int modifier)
     default:
       abort ();
     }
-
-  abort ();
-  return NULL;
 }
 
 /* Hook used by safe_from_p to handle language-specific tree codes.  */

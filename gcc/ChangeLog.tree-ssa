@@ -1,3 +1,19 @@
+2004-01-01  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (c_expand_expr): Don't handle STMT_EXPR.
+	* c-objc-common.c (c_objc_common_finish_file): Use expand_expr.
+	* c-semantics.c (lang_expand_stmt, lang_expand_decl_stmt,
+	expand_cond, genrtl_do_pushlevel, genrtl_goto_stmt, genrtl_expr_stmt,
+	genrtl_expr_stmt_value, genrtl_decl_stmt, genrtl_if_stmt, 
+	genrtl_while_stmt, genrtl_do_stmt_1, genrtl_do_stmt,
+	genrtl_return_stmt, genrtl_for_stmt, genrtl_break_stmt,
+	genrtl_continue_stmt, genrtl_scope_stmt, genrtl_switch_stmt,
+	genrtl_case_label, genrtl_compound_stmt, genrtl_asm_stmt,
+	genrtl_cleanup_stmt, expand_stmt, find_reachable_label,
+	find_reachable_label_1, expand_unreachable_if_stmt, 
+	expand_unreachable_stmt): Remove.
+	* c-common.h: Update.
+
 2003-12-31  Richard Henderson  <rth@redhat.com>
 
 	* c-mudflap.c (mflang_register_call): Remove.

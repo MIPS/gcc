@@ -1,3 +1,11 @@
+2004-01-01  Richard Henderson  <rth@redhat.com>
+
+	* expr.c (cxx_expand_expr): Don't handle THROW_EXPR, or
+	MUST_NOT_THROW_EXPR.
+	* semantics.c (genrtl_try_block, genrtl_eh_spec_block,
+	genrtl_handler, cp_expand_stmt): Remove.
+	(init_cp_semantics): Don't set lang_expand_stmt.
+
 2003-12-31  Richard Henderson  <rth@redhat.com>
 
 	* cp-mudflap.c (mflang_register_call): Remove.
