@@ -12,6 +12,14 @@
 This chapter describes some aspects of the design and implementation
 of the @code{g77} front end.
 
+To find about things that are ``To Be Determined'' or ``To Be Done'',
+search for the string TBD.
+If you want to help by working on one or more of these items,
+email me at @email{@value{email-burley}}.
+If you're planning to do more than just research issues and offer comments,
+see @uref{http://egcs.cygnus.com/contribute.html} for steps you might
+need to take first.
+
 @menu
 * Overview of Translation Process::
 * Philosophy of Code Generation::
@@ -152,8 +160,8 @@ Details on the transformational phases follow.
 * std.c::
 * ste.c::
 
-* Gotchas::
-* To Do::
+* Gotchas (Transforming)::
+* TBD (Transforming)::
 @end menu
 
 @node g77stripcard
@@ -174,8 +182,22 @@ old source (perhaps as the default for @file{.f} files?)---is not
 yet determined.
 
 In the meantime, it might as well be implemented as a typical UNIX pipe.
-Anyone who wants to work on this, email me at
-@email{@value{email-burley}}.
+
+It should accept a @samp{-fline-length-@var{n}} option,
+with the default line length set to 72.
+
+When the text it strips off the end of a line is not blank
+(not spaces and tabs),
+it should insert an additional comment line
+(beginning with @samp{!},
+so it works for both fixed-form and free-form files)
+containing the text,
+following the stripped line.
+The inserted comment should have a prefix of some kind,
+TBD, that distinguishes the comment as representing stripped text.
+Users could use that to @code{sed} out such lines, if they wished---it
+seems silly to provide a command-line option to delete information
+when it can be so easily filtered out by another program.
 
 @node lex.c
 @subsection lex.c
@@ -205,8 +227,9 @@ rather than ignoring everything past a particular column
 
 The implication here is that there shouldn't @emph{be}
 anything past that last column, other than whitespace or
-commentary, because users using typical editors won't
-necessarily know just where the last column is.
+commentary, because users using typical editors
+(or viewing output as typically printed)
+won't necessarily know just where the last column is.
 
 Code that has ``garbage'' beyond the last column
 (almost certainly only fixed-form code with a punched-card legacy,
@@ -233,14 +256,87 @@ Linefeeds (ASCII code 10)
 mark the ends of lines.
 
 @item
-Carriage returns (ASCII code 13)
-are accepted when they immediately precede or follow
-linefeeds, in which case they are ignored.
+A carriage return (ASCII code 13)
+is accept if it immediately precedes a linefeed,
+in which case it is ignored.
 
-Otherwise, they are rejected (with a diagnostic).
+Otherwise, it is rejected (with a diagnostic).
 
 @item
+Any other characters other than the above
+that are not part of the GNU Fortran Character Set
+(@pxref{Character Set})
+are rejected with a diagnostic.
 
+This includes backspaces, form feeds, and the like.
+
+(It might make sense to allow a form feed in column 1
+as long as that's the only character on a line.
+It certainly wouldn't seem to cost much in terms of performance.)
+
+@item
+The end of the input stream (EOF)
+ends the current line.
+
+@item
+The distinction between uppercase and lowercase letters
+will be preserved.
+
+It will be up to subsequent phases to decide to fold case.
+
+Current plans are to permit any casing for Fortran (reserved) keywords
+while preserving casing for user-defined names.
+(This might not be made the default for @file{.f} files, though.)
+
+Preserving case seems necessary to provide more direct access
+to facilities outside of @code{g77}, such as to C or Pascal code.
+
+Names of intrinsics will probably be matchable in any case,
+However, there probably won't be any option to require
+a particular mixed-case appearance of intrinsics
+(as there was for @code{g77} prior to version 0.6),
+because that's painful to maintain,
+and probably nobody uses it.
+
+(How @samp{external SiN; r = sin(x)} would be handled is TBD.
+I think old @code{g77} might already handle that pretty elegantly,
+but whether we can cope with allowing the same fragment to reference
+a @emph{different} procedure, even with the same interface,
+via @samp{s = SiN(r)}, needs to be determined.
+If it can't, we need to make sure that when code introduces
+a user-defined name, any intrinsic matching that name
+using a case-insensitive comparison
+is ``turned off''.)
+
+@item
+Backslashes in @code{CHARACTER} and Hollerith constants
+are not allowed.
+
+This avoids the confusion introduced by some Fortran compiler vendors
+providing C-like interpretation of backslashes,
+while others provide straight-through interpretation.
+
+Some kind of lexical construct will be provided to allow
+flagging of a @code{CHARACTER}
+(but probably not a Hollerith)
+constant that permits backslashes.
+It'll necessarily be a prefix, such as:
+
+@smallexample
+PRINT *, C'This line has a backspace \b here.'
+PRINT *, F'This line has a straight backslash \ here.'
+@end smallexample
+
+Further, command-line options might be provided to specify that
+one prefix or the other is to be assumed as the default
+for @code{CHARACTER} constants.
+
+However, it seems more helpful for @code{g77} to provide a program
+that converts prefix all constants
+(or just those containing backslashes)
+with the desired designation,
+so printouts of code can be read
+without knowing the compile-time options used when compiling it.
 @end itemize
 
 The above implements nearly exactly what is specified by
@@ -249,6 +345,48 @@ and
 @ref{Lines},
 except it also provides automatic conversion of tabs
 and ignoring of newline-related carriage returns.
+
+It also effects the ``pure visual'' model,
+by which is meant that a user viewing his code
+in a typical text editor
+(assuming it's not preprocessed via @code{g77stripcard} or similar)
+doesn't need any special knowledge
+of whether spaces on the screen are really tabs,
+whether lines end immediately after the last visible non-space character
+or after a number of spaces and tabs that follow it,
+or whether the last line in the file is ended by a newline.
+
+Most editors don't make these distinctions,
+the ANSI FORTRAN 77 standard doesn't require them to,
+and it permits a standard-conforming compiler
+to define a method for transforming source code to
+``standard form'' however it wants.
+
+So, GNU Fortran defines it such that users have the best chance
+of having the code be interpreted the way it looks on the screen
+of the typical editor.
+
+(Fancy editors should @emph{never} be required to correctly read code
+written in classic two-dimensional-plaintext form.
+By correct reading I mean ability to read it, book-like, without
+mistaking text ignored by the compiler for program code and vice versa,
+and without having to count beyond the first several columns.
+The vague meaning of ASCII TAB, among other things, complicates
+this somewhat, but as long as ``everyone'', including the editor,
+other tools, and printer, agrees about the every-eighth-column convention,
+the GNU Fortran ``pure visual'' model meets these requirements.
+Any language or user-visible source form
+requiring special tagging of tabs,
+the ends of lines after spaces/tabs,
+and so on, is broken by this definition.
+Fortunately, Fortran @emph{itself} is not broken,
+even if most vendor-supplied defaults for their Fortran compilers @emph{are}
+in this regard.)
+
+Further, this model provides a clean interface
+to whatever preprocessors or code-generators are used
+to produce input to this phase of @code{g77}.
+Mainly, they need not worry about long lines.
 
 @node sta.c
 @subsection sta.c
@@ -276,8 +414,8 @@ It is about the weirder aspects of transforming Fortran,
 however that's defined,
 into a more modern, canonical form.
 
-@node To Do (Transforming)
-@subsection To Do (Transforming)
+@node TBD (Transforming)
+@subsection TBD (Transforming)
 
 Continue researching gotchas, designing the transformational process,
 and implementing it.
