@@ -293,16 +293,6 @@ fcaller-saves
 Common
 Save registers around function calls
 
-; APPLE LOCAL begin coalescing  turly
-fcoalesce
-Common
-Coalesce duplicate C++ functions and data
-
-fcoalesce-templates
-Common
-Coalesce duplicate C++ templates
-; APPLE LOCAL end coalescing  turly
-
 fcommon
 Common
 Do not put uninitialized globals in the common section
@@ -370,12 +360,6 @@ Enable exception handling
 fexpensive-optimizations
 Common
 Perform a number of minor, expensive optimizations
-
-; APPLE LOCAL begin coalescing  turly
-fexport-coalesced
-Common
-EXPERIMENTAL: Export coalesced symbols from dylibs
-; APPLE LOCAL end coalescing  turly
 
 ffast-math
 Common
@@ -903,12 +887,6 @@ Add extra commentary to assembler output
 fvpt
 Common
 Use expression value profiles in optimizations
-
-; APPLE LOCAL begin coalescing  turly
-fweak-coalesced
-Common
-Use the OS X 10.2 'weak_definitions' attribute when coalescing
-; APPLE LOCAL end coalescing  turly
 
 fweb
 Common
