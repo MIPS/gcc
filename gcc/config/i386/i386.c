@@ -1044,6 +1044,11 @@ override_options ()
 	ix86_cpu = processor_alias_table[i].processor;
 	break;
       }
+
+  if (TARGET_64BIT
+      && (ix86_arch != PROCESSOR_ATHLON || ix86_cpu != PROCESSOR_ATHLON))
+    error ("CPU you selected does not support x86-64 instruction set");
+
   if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
     x86_prefetch_sse = true;
   if (i == pta_size)
