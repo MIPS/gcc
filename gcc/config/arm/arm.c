@@ -4696,7 +4696,7 @@ arm_find_barrier (search_start_insn, search_start_address, min_address,
      unsigned long max_address;
      unsigned long *paddress, *pinserted;
 {
-  rtx barrier;
+  rtx barrier = NULL;
   rtx other_placement = 0;
   rtx from, label;
   unsigned long count = 0;
@@ -4727,21 +4727,17 @@ arm_find_barrier (search_start_insn, search_start_address, min_address,
 	{
 	  if (code == BARRIER)
 	    {
+	      /* We have found a barrier.  Remember where we found it, but 
+		 continue looking; we might find another one later on.  */
 	      *paddress = search_start_address + count;
-
-	      if (rtl_dump_file)
-		fprintf (rtl_dump_file,
-			 ";; Found barrier for minipool at insn %d; address %ld\n",
-			 INSN_UID (from), search_start_address + count);
-
-	      return from;
+	      barrier = from;
 	    }
 
 	  if (other_placement == 0)
 	    other_placement = from, other_count = count + size;
 
-	  /* See whether this may be a good place to insert a BARRIER if we can't
-	     find one.  */
+	  /* See whether this may be a good place to insert a BARRIER
+	     if we can't find one.  */
 	  if (code == JUMP_INSN && GET_CODE (other_placement) != JUMP_INSN
 	      && (count + size + (TARGET_THUMB ? 2 : 4) + search_start_address
 		  < max_address))
@@ -4756,6 +4752,16 @@ arm_find_barrier (search_start_insn, search_start_address, min_address,
 
       count += size;
       from = NEXT_INSN (tmp);
+    }
+
+  if (barrier != NULL)
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file,
+		 ";; Found barrier for minipool at insn %d; address %ld\n",
+		 INSN_UID (barrier), *paddress);
+
+      return barrier;
     }
 
   /* We didn't find a barrier in time to dump our stuff, so make one.  */

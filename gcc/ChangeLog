@@ -1,3 +1,8 @@
+2000-02-10  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (find_barrier): Find the last barrier within the allowed 
+	range.
+
 2000-02-09  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm-protos.h: Replace PROTO with PARAMS.
