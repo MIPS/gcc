@@ -1096,15 +1096,15 @@ cleanup_cond_expr_graph (bb)
 }
 
 
-/* If the switch condition of the SWITCH_EXPR node in block BB is constant,
-   disconnect all the subgraphs for all the case labels that will never be
-   taken.  FIXME  Must also update DFA/SSA information.  */
+/* If the switch condition of the SWITCH_EXPR node in block SWITCH_BB is
+   constant, disconnect all the subgraphs for all the case labels that will
+   never be taken.  FIXME  Must also update DFA/SSA information.  */
 
 static void
-cleanup_switch_expr_graph (bb)
-     basic_block bb;
+cleanup_switch_expr_graph (switch_bb)
+     basic_block switch_bb;
 {
-  tree switch_expr = first_stmt (bb);
+  tree switch_expr = first_stmt (switch_bb);
   edge e;
 
 #if defined ENABLE_CHECKING
@@ -1112,20 +1112,17 @@ cleanup_switch_expr_graph (bb)
     abort ();
 #endif
 
-  disconnect_unreachable_case_labels (bb);
+  disconnect_unreachable_case_labels (switch_bb);
 
   /* If the switch() has a default label, remove the fallthru edge that was
      created when we processed the entry block for the switch() statement.  */
-  for (e = bb->succ; e; e = e->succ_next)
+  for (e = switch_bb->succ; e; e = e->succ_next)
     {
-      basic_block bb = e->dest;
-      tree t = first_stmt (bb);
-
-      if (TREE_CODE (t) == CASE_LABEL_EXPR && CASE_LOW (t) == NULL_TREE)
+      tree t = first_stmt (e->dest);
+      if (t && TREE_CODE (t) == CASE_LABEL_EXPR && CASE_LOW (t) == NULL_TREE)
 	{
-	  basic_block entry_bb = parent_block (bb);
-	  basic_block chain_bb = successor_block (entry_bb);
-	  edge e = find_edge (entry_bb, chain_bb);
+	  basic_block chain_bb = successor_block (switch_bb);
+	  edge e = find_edge (switch_bb, chain_bb);
 	  if (e)
 	    remove_edge (e);
 	  break;
@@ -1781,7 +1778,7 @@ first_stmt (bb)
   gimple_stmt_iterator i;
   tree t;
 
-  if (bb == NULL || bb->index == INVALID_BLOCK)
+  if (bb == NULL || bb->index < 0)
     return NULL_TREE;
 
   i = gsi_start_bb (bb);

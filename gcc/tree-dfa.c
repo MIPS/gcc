@@ -252,7 +252,7 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
     {
       struct clobber_data_d clobber_data;
 
-      TREE_NOT_GIMPLE (parent_stmt) = 1;
+      mark_not_simple (parent_stmt_p);
       clobber_data.bb = bb;
       clobber_data.parent_stmt_p = parent_stmt_p;
       walk_tree (parent_stmt_p, clobber_vars_r, &clobber_data, NULL);

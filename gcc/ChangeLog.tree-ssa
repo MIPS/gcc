@@ -1,3 +1,11 @@
+2002-11-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (cleanup_switch_expr_graph): Handle edges going to
+	EXIT_BLOCK_PTR.
+	(first_stmt): Return NULL for ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR and
+	INVALID_BLOCK.
+	* tree-dfa.c (find_refs_in_expr): Call mark_not_simple.
+
 2002-11-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-ssa.o, tree-cfg.o, tree-dfa.o): Add dependency
