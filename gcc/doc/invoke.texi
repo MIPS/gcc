@@ -3365,7 +3365,7 @@ by appending @file{.pre} to the source file name.
 
 @item copyprop
 @opindex fdump-tree-copyprop
-Dum trees after copy propagation pass.  The file name is made by
+Dump trees after copy propagation pass.  The file name is made by
 appending @file{.copyprop} to the source file name.
 
 @item dce

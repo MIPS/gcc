@@ -1,3 +1,7 @@
+2003-03-01  Diego Novillo  <dnovillo@redhat.com>
+
+	* doc/invoke.texi: Fix typo.
+
 2003-02-28  Aldy Hernandez  <aldyh@redhat.com>
             Diego Novillo  <dnovillo@redhat.com>
 
