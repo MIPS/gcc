@@ -2186,7 +2186,7 @@ typedef struct
 
 #ifdef TARGET_UNWIND_INFO
 #define ARM_EABI_UNWIND_TABLES \
-  (!USING_SJLJ_EXCEPTIONS && flag_exceptions && flag_unwind_tables)
+  ((!USING_SJLJ_EXCEPTIONS && flag_exceptions) || flag_unwind_tables)
 #else
 #define ARM_EABI_UNWIND_TABLES 0
 #endif
