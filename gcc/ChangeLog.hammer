@@ -1,3 +1,7 @@
+2003-10-06  Josef Zlomek  <zlomekj@suse.cz>
+
+	* cfgrtl.c (delete_insn): Decrease LABEL_NUSES for all REG_LABEL notes.
+
 2003-10-02  Josef Zlomek  <zlomekj@suse.cz>
 
 	* cgraph.c (cgraph_node): Use INSERT instead of 1 in
