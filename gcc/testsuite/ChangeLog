@@ -1,3 +1,7 @@
+2005-01-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/i386-asm-4.c: New test.
+
 2004-11-28  James A. Morrison  <ja2morri@csclub.uwaterloo.ca>
 
 	PR ada/18302
