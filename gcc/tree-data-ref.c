@@ -512,8 +512,9 @@ estimate_niter_from_size_of_data (struct loop *loop,
 
   array_size = TYPE_SIZE (TREE_TYPE (opnd0));
   element_size = TYPE_SIZE (TREE_TYPE (TREE_TYPE (opnd0)));
-  if (array_size == NULL_TREE 
-      || element_size == NULL_TREE)
+  if (array_size == NULL_TREE
+      || TREE_CODE (array_size) != INTEGER_CST
+      || TREE_CODE (element_size) != INTEGER_CST)
     return;
 
   data_size = fold (build2 (EXACT_DIV_EXPR, integer_type_node, 
