@@ -4458,19 +4458,33 @@ move_outgoing_edges (basic_block bb1, basic_block bb2)
       old_edge = bb2->succ;
       new_edge = make_edge (bb1, old_edge->dest, old_edge->flags);
 
-      /* Update PHI nodes at BB2's successor.  The arguments that used to
-	 come from BB2 now come from BB1.  */
-      for (phi = phi_nodes (old_edge->dest); phi; phi = TREE_CHAIN (phi))
+      /* If make_edge created a new edge, then we need to update the PHI
+	 node at BB2's successor.  The arguments that used to come from
+	 BB2 now come from BB1.
+
+	 If make_edge did not create a new edge, then we already had an
+	 edge from BB1 to BB2's successor.  In this case we want to
+	 remove the edge and remove its alternative from BB2's successor's
+	 PHI nodes, hence we use ssa_remove_edge.  */
+      if (new_edge)
 	{
-	  int i;
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	    if (PHI_ARG_EDGE (phi, i) == old_edge)
-	      PHI_ARG_EDGE (phi, i) = new_edge;
+	  for (phi = phi_nodes (old_edge->dest); phi; phi = TREE_CHAIN (phi))
+	    {
+	      int i;
+	      for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+		if (PHI_ARG_EDGE (phi, i) == old_edge)
+		  PHI_ARG_EDGE (phi, i) = new_edge;
+	    }
+
+	  /* Note that we shouldn't call ssa_remove_edge here because we've
+	     already dealt with PHI nodes.  */
+	  remove_edge (old_edge);
+	}
+      else
+	{
+	  ssa_remove_edge (old_edge);
 	}
 
-      /* Note that we shouldn't call ssa_remove_edge here because we've
-	 already dealt with PHI nodes.  */
-      remove_edge (old_edge);
     }
 
   /* BB2's dominator children are now BB1's.  Also, remove BB2 as a

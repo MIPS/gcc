@@ -1,3 +1,8 @@
+2003-07-28  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (move_outgoing_edges): Correctly handle case where
+	an edge already exists from BB1 to BB2's successor.
+
 2003-07-27  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree.h (EREF_TEMP): Rename to EPHI_TEMP.
