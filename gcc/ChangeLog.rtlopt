@@ -1,3 +1,13 @@
+2003-04-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-iv.c (real_reg_mode, extend_type): New static variables.
+	(iv_simplify_subreg, determine_real_reg_mode, fill_real_reg_modes):
+	New static functions.
+	(gen_value_at, iv_simplify_subreg, iv_simplify_rtx,
+	init_suitable_codes, substitute_into_expr, simulate_set,
+	initialize_iv_analysis, finalize_iv_analysis): Support subregs.
+	(get_reg_value_at): Don't try to be overly clever about constants.
+
 2003-04-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* dominance.c (create_fq_dominators): Do not allocate unnecessary
