@@ -76,18 +76,22 @@
 	__fctidz, __fctid, __fcfid, __nop): New.
 
 2004-10-07  Robert Bowdidge <bowdidge@apple.com>
+
         * build_gcc: remove directories /usr/libexec/gcc/darwin/arch/4.0  and
         /usr/lib/gcc/darwin/arch/4.0 that are no longer needed.
 
 2004-10-07  Robert Bowdidge <bowdidge@apple.com>
+
 	* build_gcc: Remove earlier patch for copying cpp into 
 	/usr/libexec/blah.  /usr/bin/cpp will now use gcc -E to do preprocessing
         rather than each compiler's cpp.
 
 2004-09-27  Robert Bowdidge <bowdidge@apple.com>
+
 	* build_gcc: change cp -r to cp -R to ensure we copy symbolic links
        
 2004-09-27  Robert Bowdidge <bowdidge@apple.com>
+
 	* build_gcc: set install names and dependent library references
         to the major name for each of the gcc-produced dylibs.
 
@@ -105,6 +109,7 @@
 	then add back for compilation proper.
 
 2004-09-23  Robert Bowdidge <bowdidge@apple.com>
+
 	Change build_gcc so it continues to put cpp in 
         /usr/libexec/gcc/darwin/(architecture)/(version).
 	This is neeed so /usr/bin/cpp will continue to work when changing
