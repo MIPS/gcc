@@ -1,3 +1,8 @@
+2005-01-25  Stan Shebs  <shebs@apple.com>
+
+	Radar 3220997
+	* g++.dg/align-test-1.C: Fix old problems, add 64-bit cases.
+
 2005-01-25  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3961973 (Part 3)
