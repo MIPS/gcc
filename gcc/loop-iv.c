@@ -122,15 +122,13 @@ dump_iv_info (FILE *file, struct rtx_iv *iv)
 static void
 assign_luids (basic_block bb)
 {
-  unsigned i, uid;
+  unsigned i = 0, uid;
   rtx insn;
 
-  for (i = 0, insn = BB_HEAD (bb);
-       insn != NEXT_INSN (BB_END (bb));
-       insn = NEXT_INSN (insn), i++)
+  FOR_BB_INSNS (bb, insn)
     {
       uid = INSN_UID (insn);
-      insn_info[uid].luid = i;
+      insn_info[uid].luid = i++;
       insn_info[uid].prev_def = NULL_RTX;
       insn_info[uid].iv.analysed = false;
     }
@@ -254,9 +252,7 @@ mark_sets (basic_block bb, bool dom)
 {
   rtx insn, set, def;
 
-  for (insn = BB_HEAD (bb);
-       insn != NEXT_INSN (BB_END (bb));
-       insn = NEXT_INSN (insn))
+  FOR_BB_INSNS (bb, insn)
     {
       if (!INSN_P (insn))
 	continue;
@@ -1210,7 +1206,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	    }
 	}
 
-      for (; insn != PREV_INSN (BB_HEAD (e->src)); insn = PREV_INSN (insn))
+      FOR_BB_INSNS_REVERSE (e->src, insn)
 	{
 	  if (!INSN_P (insn))
 	    continue;
@@ -1619,8 +1615,10 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
 
   if (GET_CODE (desc->niter_expr) == CONST_INT)
     {
+      unsigned HOST_WIDEST_INT val = INTVAL (desc->niter_expr);
+
       desc->const_iter = true;
-      desc->niter_max = desc->niter = INTVAL (desc->niter_expr);
+      desc->niter_max = desc->niter = val & GET_MODE_MASK (desc->mode);
     }
   else if (!desc->niter_max)
     desc->niter_max = determine_max_iter (desc);
@@ -1723,6 +1721,27 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
 	}
     }
 
+#if 0
+    {
+      /* Check that we do not lose wrto older version.  */
+      struct loop_desc odesc;
+      if (simple_loop_p (loop, &odesc) && !odesc.strange)
+	{
+	  if (!desc->simple_p)
+	    abort ();
+
+	  if (odesc.const_iter)
+	    {
+	      if (!desc->const_iter)
+		abort ();
+
+	      if (desc->niter != odesc.niter)
+		abort ();
+	    }
+	}
+    }
+#endif
+
   if (rtl_dump_file)
     {
       if (desc->simple_p)
@@ -1763,4 +1782,37 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
     }
 
   free (body);
+}
+
+/* Creates a simple loop description of LOOP if it was not computed
+   already.  */
+
+struct niter_desc *
+get_simple_loop_desc (struct loop *loop)
+{
+  struct niter_desc *desc = simple_loop_desc (loop);
+
+  if (desc)
+    return desc;
+
+  desc = xmalloc (sizeof (struct niter_desc));
+  iv_analysis_loop_init (loop);
+  find_simple_exit (loop, desc);
+  loop->aux = desc;
+
+  return desc;
+}
+
+/* Releases simple loop description for LOOP.  */
+
+void
+free_simple_loop_desc (struct loop *loop)
+{
+  struct niter_desc *desc = simple_loop_desc (loop);
+
+  if (!desc)
+    return;
+
+  free (desc);
+  loop->aux = NULL;
 }

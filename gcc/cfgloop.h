@@ -39,6 +39,7 @@ struct lpt_decision
 /* Description of loop for simple loop unrolling.  */
 struct loop_desc
 {
+  bool strange;
   int postincr;		/* 1 if increment/decrement is done after loop exit condition.  */
   rtx stride;		/* Value added to VAR in each iteration.  */
   rtx var;		/* Loop control variable.  */
@@ -76,11 +77,6 @@ struct loop
 
   /* For loop unrolling/peeling decision.  */
   struct lpt_decision lpt_decision;
-
-  /* Simple loop description.  */
-  int simple;
-  struct loop_desc desc;
-  int has_desc;
 
   /* Number of loop insns.  */
   unsigned ninsns;
@@ -289,6 +285,7 @@ extern unsigned get_loop_level (const struct loop *);
 extern basic_block *get_loop_body (const struct loop *);
 extern basic_block *get_loop_body_in_dom_order (const struct loop *);
 extern edge *get_loop_exit_edges (const struct loop *, unsigned *);
+extern unsigned num_loop_branches (const struct loop *);
 
 extern edge loop_preheader_edge (const struct loop *);
 extern edge loop_latch_edge (const struct loop *);
@@ -394,6 +391,15 @@ extern void find_simple_exit (struct loop *, struct niter_desc *);
 extern void iv_number_of_iterations (struct loop *, rtx, rtx,
 				     struct niter_desc *);
 extern void iv_analysis_done (void);
+
+extern struct niter_desc *get_simple_loop_desc (struct loop *loop);
+extern void free_simple_loop_desc (struct loop *loop);
+
+static inline struct niter_desc *
+simple_loop_desc (struct loop *loop)
+{
+  return loop->aux;
+}
 
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init (FILE *);

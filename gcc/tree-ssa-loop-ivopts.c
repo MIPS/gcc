@@ -2851,7 +2851,14 @@ create_new_iv (struct iv_cand *cand)
   initial = force_gimple_operand (base, &stmts,
 				  SSA_NAME_VAR (cand->var_before), false);
   if (stmts)
-    bsi_insert_on_edge_immediate (loop_preheader_edge (current_loop), stmts);
+    {
+      basic_block new_bb;
+      edge pe = loop_preheader_edge (current_loop);
+      
+      new_bb = bsi_insert_on_edge_immediate (pe, stmts);
+      if (new_bb)
+	add_bb_to_loop (new_bb, new_bb->pred->src->loop_father);
+    }
 
   stmt = create_phi_node (cand->var_before, current_loop->header);
   SSA_NAME_DEF_STMT (cand->var_before) = stmt;

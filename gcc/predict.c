@@ -540,7 +540,7 @@ predict_loops (struct loops *loops_info, bool simpleloops)
       unsigned j;
       int exits;
       struct loop *loop = loops_info->parray[i];
-      struct loop_desc desc;
+      struct niter_desc desc;
       unsigned HOST_WIDE_INT niter;
 
       flow_loop_scan (loop, LOOP_EXIT_EDGES);
@@ -548,7 +548,10 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 
       if (simpleloops)
 	{
-	  if (simple_loop_p (loop, &desc) && desc.const_iter)
+	  iv_analysis_loop_init (loop);
+	  find_simple_exit (loop, &desc);
+
+	  if (desc.simple_p && desc.const_iter)
 	    {
 	      int prob;
 	      niter = desc.niter + 1;
@@ -606,6 +609,9 @@ predict_loops (struct loops *loops_info, bool simpleloops)
 		   / exits);
 	}
     }
+      
+  if (simpleloops)
+    iv_analysis_done ();
 }
 
 /* Statically estimate the probability that a branch will be taken and produce

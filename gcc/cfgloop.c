@@ -1061,6 +1061,27 @@ get_loop_exit_edges (const struct loop *loop, unsigned int *n_edges)
   return edges;
 }
 
+/* Counts the number of conditional branches inside LOOP.  */
+
+unsigned
+num_loop_branches (const struct loop *loop)
+{
+  unsigned i, n;
+  basic_block * body;
+
+  if (loop->latch == EXIT_BLOCK_PTR)
+    abort ();
+
+  body = get_loop_body (loop);
+  n = 0;
+  for (i = 0; i < loop->num_nodes; i++)
+    if (body[i]->succ && body[i]->succ->succ_next)
+      n++;
+  free (body);
+
+  return n;
+}
+
 /* Adds basic block BB to LOOP.  */
 void
 add_bb_to_loop (basic_block bb, struct loop *loop)

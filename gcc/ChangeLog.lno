@@ -1,3 +1,42 @@
+2004-01-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* basic-block.h (FOR_BB_INSNS, FOR_BB_INSNS_REVERSE): New macros.
+	* cfgloop.c (num_loop_branches): New function.
+	* cfgloop.h (struct loop_desc): Add field strange.
+	(struct loop): Remove fields simple, desc, has_desc.
+	(num_loop_branches, get_simple_loop_desc, free_simple_loop_desc):
+	Declare.
+	(simple_loop_desc): New inline function.
+	* cfgloopanal.c (count_loop_iterations): Set field strange.
+	(simple_loop_exit_p): Initialize postincr properly.
+	* loop-iv.c (assign_luids, mark_sets, simplify_using_initial_values):
+	Use FOR_BB_INSNS/FOR_BB_INSNS_REVERSE.
+	(iv_number_of_iterations): Restrict the number of iterations to the
+	actual mode.
+	(find_simple_exit): Check results with the old simple loop analyser.
+	(get_simple_loop_desc, free_simple_loop_desc): New functions.
+	* loop-unroll.c (loop_exit_at_end_p): New function.
+	(unroll_and_peel_loops, peel_loops_completely,
+	decide_unrolling_and_peeling, decide_peel_once_rolling,
+	decide_peel_completely, peel_loop_completely,
+	decide_unroll_constant_iterations, unroll_loop_constant_iterations,
+	decide_unroll_runtime_iterations, unroll_loop_runtime_iterations,
+	decide_peel_simple, decide_unroll_stupid): Use new iv analysis.
+	* predict.c (predict_loops): Use new iv analysis.
+
+	* tree-ssa-loop.c (copy_loop_headers): Predict entry edge from
+	copied loop header to be taken.
+
+	* tree-cfg.c (tree_find_edge_insert_loc,
+	bsi_insert_on_edge_immediate): Return the newly created block.
+	(bsi_commit_edge_inserts_1): Add parameter to
+	tree_find_edge_insert_loc call.
+	* tree-flow.h (bsi_insert_on_edge_immediate): Declaration changed.
+	* tree-ssa-loop-ivopts.c (create_new_iv): Update loop for newly
+	created block.
+
+	* cfg.c (unlink_block): Clean prev_bb and next_bb fields.
+
 2004-01-29  Devang Patel  <dpatel@apple.com>
 
 	* cfglayout.h (loopify): Add new bool parameter.

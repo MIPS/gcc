@@ -196,6 +196,10 @@ copy_loop_headers (void)
 	  loop->latch = loop->header;
 	  loop->header = new_header;
 
+	  /* Predict the loop to be entered.  */
+	  predict_edge_def (loop_preheader_edge (loop), PRED_LOOP_HEADER,
+			    TAKEN);
+
 	  /* Ensure that the latch has just a single successor.  */
 	  loop_split_edge_with (loop_latch_edge (loop), NULL);
 	}

@@ -724,6 +724,8 @@ count_loop_iterations (struct loop_desc *desc, rtx init, rtx lim)
   if (!INTEGRAL_MODE_P (mode))
     return NULL;
 
+  desc->strange = false;
+
   init = copy_rtx (init ? init : desc->var);
   lim = copy_rtx (lim ? lim : desc->lim);
 
@@ -813,16 +815,22 @@ count_loop_iterations (struct loop_desc *desc, rtx init, rtx lim)
       /* Handle strange tests specially.  */
       if (cond == EQ || cond == GE || cond == GT || cond == GEU
 	  || cond == GTU)
-	return count_strange_loop_iterations (init, lim, cond, desc->postincr,
-					      stride, mode, desc->inner_mode);
+	{
+	  desc->strange = true;
+	  return count_strange_loop_iterations (init, lim, cond, desc->postincr,
+						stride, mode, desc->inner_mode);
+	}
       exp = simplify_gen_binary (MINUS, mode, lim, init);
     }
   else
     {
       if (cond == EQ || cond == LE || cond == LT || cond == LEU
 	  || cond == LTU)
-	return count_strange_loop_iterations (init, lim, cond, desc->postincr,
-					      stride, mode, desc->inner_mode);
+	{
+	  desc->strange = true;
+	  return count_strange_loop_iterations (init, lim, cond, desc->postincr,
+						stride, mode, desc->inner_mode);
+	}
       exp = simplify_gen_binary (MINUS, mode, init, lim);
       stride = simplify_gen_unary (NEG, mode, stride, mode);
     }
@@ -967,7 +975,7 @@ simple_loop_exit_p (struct loop *loop, edge exit_edge,
 {
   basic_block mod_bb, exit_bb;
   int fallthru_out;
-  rtx condition;
+  rtx condition, at, insn;
   edge ei, e;
 
   exit_bb = exit_edge->src;
@@ -994,7 +1002,7 @@ simple_loop_exit_p (struct loop *loop, edge exit_edge,
 
   /* Condition must be a simple comparison in that one of operands
      is register and the other one is invariant.  */
-  if (!(condition = get_condition (BB_END (exit_bb), NULL, false)))
+  if (!(condition = get_condition (BB_END (exit_bb), &at, false)))
     return false;
 
   if (!simple_condition_p (loop, condition, invariant_regs, desc))
@@ -1006,7 +1014,24 @@ simple_loop_exit_p (struct loop *loop, edge exit_edge,
     return false;
 
   /* OK, it is simple loop.  Now just fill in remaining info.  */
-  desc->postincr = !dominated_by_p (CDI_DOMINATORS, exit_bb, mod_bb);
+  if (exit_bb == mod_bb)
+    {
+      /* It might be that we are incremented in the middle of the
+	 condition.  */
+
+      insn = single_set_regs[REGNO (desc->var)];
+      desc->postincr = true;
+      for (; insn != NEXT_INSN (BB_END (mod_bb)); insn = NEXT_INSN (insn))
+	if (insn == at)
+	  {
+	    desc->postincr = false;
+	    break;
+	  }
+    }
+  else
+    {
+      desc->postincr = !dominated_by_p (CDI_DOMINATORS, exit_bb, mod_bb);
+    }
   desc->neg = !fallthru_out;
 
   /* Find initial value of var and alternative values for lim.  */
