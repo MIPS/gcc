@@ -95,10 +95,11 @@
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
-#include "basic-block.h"
-#include "output.h"
+#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "reload.h"
+#include "basic-block.h"
+#include "output.h"
 #include "sbitmap.h"
 #include "alloc-pool.h"
 #include "fibheap.h"
@@ -109,7 +110,8 @@ enum location_type
 {
   LT_USE,	/* Location is used in instruction.  */
   LT_SET,	/* Location is set by instruction.  */
-  LT_CLOBBER	/* Location is clobbered by instruction.  */
+  LT_CLOBBER,	/* Location is clobbered by instruction.  */
+  LT_CALL_INSN	/* Actually this is not a location, it is a call insn.  */
 };
 
 /* Where shall the note be emitted?  BEFORE or AFTER the instruction.  */
@@ -859,7 +861,7 @@ static bool
 compute_bb_dataflow (bb)
      basic_block bb;
 {
-  int i, n;
+  int i, n, r;
   bool changed;
 
   attrs old_out[FIRST_PSEUDO_REGISTER];
@@ -883,7 +885,14 @@ compute_bb_dataflow (bb)
     {
       rtx loc = VTI (bb)->locs[i].loc;
 
-      if (GET_CODE (loc) == REG)
+      if (VTI (bb)->locs[i].type == LT_CALL_INSN)
+	{
+	  /* Kill the registers which do not survive function call.  */
+	  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
+	    if (TEST_HARD_REG_BIT (call_used_reg_set, r))
+	      attrs_list_clear (&out[r]);
+	}
+      else if (GET_CODE (loc) == REG)
 	{
 	  attrs_list_clear (&out[REGNO (loc)]);
 	  if (VTI (bb)->locs[i].type == LT_USE
@@ -900,7 +909,6 @@ compute_bb_dataflow (bb)
 	       && MEM_EXPR (loc)
 	       && track_expr_p (MEM_EXPR (loc)))
 	{
-	  int j;
 	  tree decl = MEM_EXPR (loc);
 	  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 
@@ -912,8 +920,8 @@ compute_bb_dataflow (bb)
 		 has several equivalent locations keep only the memory
 		 location.  So remove variable's occurrences from registers.
 	       */
-	      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
-		attrs_list_delete (&out[j], decl, offset);
+	      for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
+		attrs_list_delete (&out[r], decl, offset);
 	      attrs_htab_insert (VTI (bb)->mem_out, decl, offset, loc);
 	    }
 	}
@@ -1396,7 +1404,24 @@ process_bb (bb)
       rtx insn = VTI (bb)->locs[i].insn;
       rtx loc = VTI (bb)->locs[i].loc;
 
-      if (GET_CODE (loc) == REG)
+      if (VTI (bb)->locs[i].type == LT_CALL_INSN)
+	{
+	  int r;
+	  
+	  /* Kill the registers which do not survive function call.  */
+	  for (r = 0; r < FIRST_PSEUDO_REGISTER; r++)
+	    if (TEST_HARD_REG_BIT (call_used_reg_set, r))
+	      {
+		/* Emit the notes before call insn because when user
+		   changes frame in debugger the registers already do not have
+		   original values.  */
+		for (l = reg[r]; l; l = l->next)
+		  delete_location_part (l->decl, l->offset, insn,
+					EMIT_NOTE_BEFORE_INSN);
+		attrs_list_clear (&reg[r]);
+	      }
+	}
+      else if (GET_CODE (loc) == REG)
 	{
 	  tree decl = REG_EXPR (loc);
 	  HOST_WIDE_INT offset = REG_OFFSET (loc);
@@ -1431,6 +1456,9 @@ process_bb (bb)
 					EMIT_NOTE_AFTER_INSN);
 		attrs_list_clear (&reg[REGNO (loc)]);
 		break;
+
+	      default:
+		break;
 	    }
 	}
       else if (GET_CODE (loc) == MEM
@@ -1458,6 +1486,9 @@ process_bb (bb)
 	      case LT_CLOBBER:
 		process_bb_delete (reg, mem, true, decl, offset, insn,
 				   EMIT_NOTE_AFTER_INSN);
+		break;
+
+	      default:
 		break;
 	    }
 	}
@@ -1650,7 +1681,7 @@ var_tracking_initialize ()
     {
       rtx insn;
 
-      /* Count the number of stores.  */
+      /* Count the number of locations.  */
       VTI (bb)->n_locs = 0;
       for (insn = bb->head; insn != NEXT_INSN (bb->end);
 	   insn = NEXT_INSN (insn))
@@ -1659,10 +1690,15 @@ var_tracking_initialize ()
 	    {
 	      note_all_uses (PATTERN (insn), count_uses, insn);
 	      note_stores (PATTERN (insn), count_stores, insn);
+	      if (GET_CODE (insn) == CALL_INSN)
+		VTI (bb)->n_locs++;
 	    }
 	}
 
-      /* Add the stores to the array.  */
+      /* Add the locations to the array.  Order them so that the locations
+	 which cause emitting a note before insn are before locations
+	 which cause emitting a note after insn, and the uses are before
+	 stores in each group.  */
       VTI (bb)->locs = xmalloc (VTI (bb)->n_locs
 				* sizeof (struct location_def));
       VTI (bb)->n_locs = 0;
@@ -1673,32 +1709,21 @@ var_tracking_initialize ()
 	    {
 	      int n1, n2;
 
-	      n1 = VTI (bb)->n_locs;
 	      note_all_uses (PATTERN (insn), add_uses, insn);
-	      note_stores (PATTERN (insn), add_stores, insn);
-	      n2 = VTI (bb)->n_locs - 1;
-
-	      /* Order the locations so that the locations of type LT_USE are
-		 before others.  */
-	      while (n1 < n2)
+	      if (GET_CODE (insn) == CALL_INSN)
 		{
-		  while (n1 < n2 && VTI (bb)->locs[n1].type == LT_USE)
-		    n1++;
-		  while (n1 < n2 && VTI (bb)->locs[n2].type != LT_USE)
-		    n2--;
-		  if (n1 < n2)
-		    {
-		      location sw;
+		  location *l = VTI (bb)->locs + VTI (bb)->n_locs++;
 
-		      sw = VTI (bb)->locs[n1];
-		      VTI (bb)->locs[n1] = VTI (bb)->locs[n2];
-		      VTI (bb)->locs[n2] = sw;
-		    }
+		  l->loc = NULL_RTX;
+		  l->insn = insn;
+		  l->type = LT_CALL_INSN;
 		}
 
-	      /* Now the LT_USEs are first, order the rest so that LT_SETs are
-		 before LT_CLOBBERs.  */
+	      n1 = VTI (bb)->n_locs;
+	      note_stores (PATTERN (insn), add_stores, insn);
 	      n2 = VTI (bb)->n_locs - 1;
+	      /* Order the stores so that the locations of type LT_SET are
+		 before LT_CLOBBER.  */
 	      while (n1 < n2)
 		{
 		  while (n1 < n2 && VTI (bb)->locs[n1].type == LT_SET)

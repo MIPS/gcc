@@ -1,5 +1,12 @@
 2003-02-26  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (LT_CALL_INSN): New element of enum location_type.
+	(compute_bb_dataflow): Delete registers destroyed by called function.
+	(process_bb): Likewise.
+	(var_tracking_initialize): Add the call insn to the list of locations.
+
+2003-02-26  Josef Zlomek  <zlomekj@suse.cz>
+
 	* rtl.h (note_all_uses): New extern function.
 	* rtlanal.c (note_all_uses): New function.
 	* var-tracking.c (count_uses, add_uses): Changed type of parameter loc.
