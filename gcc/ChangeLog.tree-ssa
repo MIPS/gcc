@@ -1,3 +1,14 @@
+2004-02-11  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (OBJS-common): Add tree-ssa-forwprop.o
+	(tree-ssa-forwprop.o): Add dependencies.
+	* timevar.def (TV_TREE_FORWPROP): New timevar.
+	* tree-optimize.c (init_tree_optimization_passes): Link in
+	the forward propagation pass.
+	* tree-pass.h (pass_forwprop): Declare.
+	* tree-ssa-forwprop.c: New file with forward propagation pass.
+	* doc/invoke.texi: Document dump for forward propagation pass.
+
 2004-02-11  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa.c (rewrite_out_of_ssa): Don't use coalesce list until new

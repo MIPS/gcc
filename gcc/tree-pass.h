@@ -118,6 +118,7 @@ extern struct tree_opt_pass pass_early_warn_uninitialized;
 extern struct tree_opt_pass pass_late_warn_uninitialized;
 extern struct tree_opt_pass pass_warn_function_return;
 extern struct tree_opt_pass pass_phiopt;
+extern struct tree_opt_pass pass_forwprop;
 
 
 #endif /* GCC_TREE_PASS_H */
