@@ -4981,14 +4981,15 @@ build_common_tree_nodes_2 (short_double)
   TYPE_MODE (V8QI_type_node) = V8QImode;
   finish_vector_type (V8QI_type_node);
 }
-DBM * datafile = NULL;
-const char *datafilename = "testtree";
+DBMP datafile = NULL;
+const char *datafilename = NULL;
 size_t current_id = 1;
 splay_tree read_trees = NULL;
 splay_tree read_rtls = NULL;
 splay_tree written_rtl = NULL;
 splay_tree written_trees = NULL;
 splay_tree written_pointers = NULL;
+splay_tree written_strings = NULL;
 static char * pickle_tree PARAMS ((tree));
 static tree unpickle_tree PARAMS ((tree));
 #define VARRAY_BYTES(x) ((sizeof (struct varray_head_tag) - sizeof (varray_data)) + (x->num_elements * x->element_size))
@@ -4998,11 +4999,15 @@ pickle_string (s)
 {
   int id;
   splay_tree_node result;
-  result = splay_tree_lookup (written_pointers, (splay_tree_key)s);
+
+  if (written_strings == NULL)
+    written_strings = splay_tree_new ((splay_tree_compare_fn) strcmp, 
+				      (splay_tree_delete_key_fn) free, NULL);
+  result = splay_tree_lookup (written_strings, (splay_tree_key)s);
   if (result)
     return result->value;
   id = current_id++;	
-  splay_tree_insert (written_pointers, (splay_tree_key)s, id);
+  splay_tree_insert (written_strings, (splay_tree_key)xstrdup(s), id);
   store_to_db (&id, sizeof (int), (void *)s, strlen (s) + 1);
   return id;
 } 
@@ -5226,7 +5231,7 @@ unpickle_tree (id)
     {
       buffer = make_lang_type (TREE_CODE ((tree) data.dptr));
       memcpy (buffer, data.dptr, data.dsize);
-      buffer = get_identifier (unpickle_string (IDENTIFIER_POINTER (buffer)));
+      buffer = get_identifier (unpickle_string ((int)IDENTIFIER_POINTER (buffer)));
     }
   else
     buffer = make_lang_type (TREE_CODE ((tree) data.dptr));
@@ -5291,7 +5296,10 @@ unpickle_tree (id)
 	  && (TREE_STATIC (buffer) 
 	      || DECL_EXTERNAL (buffer) 
 	      || TREE_PUBLIC (buffer))))
-	DECL_ASSEMBLER_NAME (buffer);
+	{
+	  SET_DECL_ASSEMBLER_NAME (buffer, 0);
+	  DECL_ASSEMBLER_NAME (buffer);
+	}
       if (DECL_RTL_SET_P (buffer))
 	buffer->decl.rtl = read_rtl (buffer->decl.rtl);
       /*FIXME: if it's PARM_DECL, u2 is  an RTL */
@@ -5526,7 +5534,7 @@ write_tree (tp)
   if (written_trees == NULL)
     written_trees = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   if (datafile == NULL)
-      datafile = dbm_open ((char *)datafilename, O_RDWR | O_CREAT, 0666);
+      datafile = dbm_open ((char *)datafilename, O_RDWR, 0666);
   if (datafile == NULL)
     return 0;
   /* Skip empty subtrees.  */

@@ -41,6 +41,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "tm_p.h"
 #include "cpplib.h"
+#include "cpphash.h"
 #include "target.h"
 #include "debug.h"
 #include "treepch.h"
@@ -7186,8 +7187,8 @@ build_void_list_node ()
   tree t = build_tree_list (NULL_TREE, void_type_node);
   return t;
 }
-int def_len = 0;
-int *def_table=NULL;
+static int def_len = 0;
+static int *def_table=NULL;
 static int
 write_defs (pfile, hn, nothing)
 	cpp_reader *pfile;
@@ -7215,7 +7216,74 @@ write_defs (pfile, hn, nothing)
 
     }
 }
-	  
+/* This structure represents a macro definition on disk.  */
+struct macrodef_struct 
+{
+  unsigned short name_length;
+  unsigned short flags;
+  unsigned char *defn;
+  unsigned int definition_length;
+};
+static struct macrodef_struct *mac_table;
+static int mac_len = 0;
+/* This is how we write out a macro definition.  
+   Suitable for being called by cpp_forall_identifiers.  */
+
+static int
+write_macdef (pfile, hn, file_p)
+     cpp_reader *pfile;
+     cpp_hashnode *hn;
+     void *file_p;
+{
+  FILE *f = (FILE *) file_p;
+  switch (hn->type)
+    {
+    case NT_VOID:
+      if (! (hn->flags & NODE_POISONED))
+	return 1;
+      
+    case NT_MACRO:
+      if ((hn->flags & NODE_BUILTIN))
+	return 1;
+
+      {
+	struct macrodef_struct s;
+	const unsigned char *defn;
+
+	s.name_length = hn->ident.len;
+	s.flags = hn->flags & NODE_POISONED;
+
+	if (hn->type == NT_MACRO)
+	  defn = cpp_macro_definition (pfile, hn);
+	else
+	  defn = (const unsigned char *)"";
+
+	s.definition_length = ustrlen (defn);
+	s.defn = (unsigned char *)pickle_string ((const char *) defn);	
+	mac_len++;
+	mac_table = xrealloc (mac_table, sizeof (struct macrodef_struct) * mac_len);
+	mac_table[mac_len-1] = s;
+      }
+      return 1;
+      
+    case NT_ASSERTION:
+      /* Not currently implemented.  */
+      return 1;
+
+    default:
+      abort ();
+    }
+}
+static off_t asm_file_startpos;
+static off_t asm_file_end;
+extern char *asm_file_name;
+void init_pch ()
+{
+  if (freopen (asm_file_name, "a+", asm_out_file) != asm_out_file)
+    fatal_error (asm_file_name);
+  asm_file_startpos = ftello (asm_out_file);
+}
+
 void lang_write_pch ()
 {
   size_t id;
@@ -7223,8 +7291,20 @@ void lang_write_pch ()
   const char *keyname;
   tree globals;
   tree cgt_table[CTI_MAX];
+  char md5sum[16];
+  off_t written;
+  char *buf;
+  unsigned long asm_size;
+  if (!datafilename)
+    {
+      return;
+    }
+  if (!parse_in->buffer->inc)
+    return;
+  if (datafile == NULL)
+      datafile = dbm_open ((char *)datafilename, O_WRONLY | O_CREAT, 0666);
   for (i = 0; i < CTI_MAX; i++)
-	cgt_table[i] = write_tree (&c_global_trees[i]);
+	cgt_table[i] = (tree)write_tree (&c_global_trees[i]);
   keyname = "c_global_trees";
   store_to_db ((void *)keyname, strlen (keyname) + 1, cgt_table, CTI_MAX * sizeof (tree));
   globals = global_binding_level->names;
@@ -7251,6 +7331,28 @@ void lang_write_pch ()
   free (def_table);
   keyname = "defslen";
   store_to_db ((void *)keyname, strlen (keyname) + 1, &def_len, sizeof (size_t));
+  mac_len = 0;
+  mac_table = 0;
+  cpp_forall_identifiers (parse_in, write_macdef, NULL);
+  keyname = "macs";
+  store_to_db ((void *)keyname, strlen (keyname) + 1, mac_table, mac_len * sizeof (struct macrodef_struct));
+  free (mac_table);
+  keyname = "macslen";
+  store_to_db ((void *)keyname, strlen (keyname) + 1, &mac_len, sizeof (size_t));
+  fflush (asm_out_file);
+  asm_file_end = ftello (asm_out_file);
+  asm_size = asm_file_end - asm_file_startpos;
+  if (asm_size)
+  {
+	  buf = xcalloc (asm_size + 1, 1);
+	  if (fseeko (asm_out_file, asm_file_startpos, SEEK_SET) != 0)
+		  fatal_error (datafilename);
+	  if ((written = fread (buf, asm_size, 1, asm_out_file)) != 1)
+		  fatal_error (datafilename);
+	  keyname = "asm_file_output";
+	  store_to_db ((void *)keyname, strlen (keyname) + 1, buf, strlen (buf) );
+	  free (buf);
+  }
 }
 void lang_read_pch (pfile, fd, self)
 	cpp_reader *pfile;
@@ -7262,9 +7364,18 @@ void lang_read_pch (pfile, fd, self)
   datum key, data;
   const char *keyname;
   tree cgt_table[CTI_MAX];
+  struct lexer_state old_state;
+  struct macrodef_struct m;
+  size_t namelen = 80;
+  U_CHAR *name = xcalloc (namelen,1);
+  old_state = pfile->state;
+
+  pfile->state.in_directive = 0;
+  pfile->state.prevent_expansion = 1;
+  pfile->state.angled_headers = 0;
   datafilename = self;
   if (datafile == NULL)
-      datafile = dbm_open ((char *)datafilename, O_RDWR, 0666);
+      datafile = dbm_open ((char *)datafilename, O_RDONLY, 0666);
   keyname = "c_global_trees";
   key.dptr = (void *)keyname;
   key.dsize = strlen (keyname) + 1;
@@ -7321,8 +7432,75 @@ void lang_read_pch (pfile, fd, self)
     {
     const char *tempstr;
     tempstr = unpickle_string (def_table[i]);
-    cpp_lookup (parse_in, (unsigned char *)tempstr, strlen (tempstr));
+    cpp_lookup (pfile, (unsigned char *)tempstr, strlen (tempstr));
     }
   free (def_table);
+  keyname = "macslen";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (!data.dptr)
+    abort ();
+  mac_len = *(int *)data.dptr;
+  mac_table = xmalloc (mac_len * sizeof (struct macrodef_struct));
+  keyname = "macs";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (data.dptr)
+    {
+      memcpy (mac_table, data.dptr, data.dsize);
+      for (i = 0; i < mac_len; i++)
+	{
+	  cpp_hashnode *h;
+	  m = mac_table[i];
+	  m.defn = (unsigned char *)unpickle_string ((int)m.defn);
+	  _cpp_define_builtin (pfile, (const char *)m.defn);
+#if 0
+	  if (namelen < m.name_length)
+	    {
+	      free (name);
+	      namelen = m.name_length + 80;
+	      name = xcalloc (namelen,1);
+	    }
+	  memset ((char *)name, 0, namelen);
+	  strncpy ((char *)name, (const char *)m.defn, m.name_length);
+	  h = cpp_lookup (pfile, name, m.name_length);
+	  if (m.definition_length != h->ident.len)
+	    {
+	      m.defn += h->ident.len;
+	      m.definition_length -= h->ident.len;
+	      if (m.flags & NODE_POISONED)
+		h->flags |= NODE_POISONED | NODE_DIAGNOSTIC;
+	      else
+		{
+		  if (cpp_push_buffer (pfile, m.defn, m.definition_length, 0,1) != NULL)
+		    {
+		      pfile->buffer->from_stage3 = 1;
+		      if (!_cpp_create_definition (pfile, h))
+			abort();
+		      _cpp_pop_buffer (pfile);
+		    }
+		  else
+		    abort();
+
+		}
+	    }
+#endif
+	}
+    }
+  pfile->state = old_state;
+  keyname = "asm_file_output";
+  key.dptr = (void *)keyname;
+  key.dsize = strlen (keyname) + 1;
+  data = dbm_fetch (datafile, key);
+  if (data.dptr != NULL)
+  {
+	  fwrite (data.dptr, data.dsize, 1, asm_out_file);
+  }
+
+ 
+  free (mac_table);
+  free (name);
 }
 

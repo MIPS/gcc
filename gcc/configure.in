@@ -677,8 +677,9 @@ CFLAGS="$saved_CFLAGS"
 gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG
 AC_CHECKING(for database support)
 
-AC_CHECK_HEADERS(mdbm.h sdbm.h gdbm.h, [break])
-AC_SEARCH_LIBS(dbm_open, sdbm gdbm, [AC_DEFINE(HAVE_DBM)])
+AC_CHECK_HEADERS(gdbm.h mdbm.h sdbm.h, [break])
+AC_SEARCH_LIBS(gdbm_open,  gdbm, [AC_DEFINE(HAVE_DBM)])
+AC_SEARCH_LIBS(dbm_open,  sdbm, [AC_DEFINE(HAVE_DBM)])
 AC_SEARCH_LIBS(mdbm_open, mdbm, [AC_DEFINE(HAVE_DBM)])
 # File extensions
 manext='.1'

@@ -2,10 +2,18 @@
 #ifdef HAVE_MDBM_H
 #define NDBM_COMPAT
 #include "mdbm.h"
+#define DBMP DBM *
 #elif HAVE_SDBM_H
 #include "sdbm.h"
 #elif HAVE_GDBM_H
 #include "gdbm.h"
+#define dbm_open(a, b, c) gdbm_open(a, 4096, GDBM_WRCREAT, c, 0)
+#define dbm_store gdbm_store
+#define dbm_fetch gdbm_fetch
+#define DBM_REPLACE GDBM_REPLACE
+#define dbm_close gdbm_close
+#undef DBMP
+#define DBMP GDBM_FILE
 #endif
 #include "varray.h"
 extern int write_rtl PARAMS ((rtx *));
@@ -22,8 +30,9 @@ extern splay_tree read_trees;
 extern splay_tree written_trees;
 extern splay_tree written_pointers;
 extern splay_tree written_rtl;
+extern splay_tree written_strings;
 extern splay_tree read_rtls;
 extern size_t current_id;
 extern const char *datafilename;
-extern DBM *datafile;
+extern DBMP datafile;
 extern void store_to_db PARAMS ((void *, size_t, void *, size_t));

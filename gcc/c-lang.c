@@ -242,7 +242,9 @@ finish_file ()
     splay_tree_delete (written_trees);
   if (written_rtl)
     splay_tree_delete (written_rtl);
-  written_pointers = written_trees = written_rtl = NULL;
+  if (written_strings)
+    splay_tree_delete (written_strings);
+  written_strings = written_pointers = written_trees = written_rtl = NULL;
   current_id = 0;
 
 #ifndef ASM_OUTPUT_CONSTRUCTOR
@@ -285,8 +287,8 @@ finish_file ()
   }
   if (datafile)
     {
-      datafile = NULL;
       dbm_close (datafile);
+      datafile = NULL;
     }
 }
 

@@ -352,11 +352,11 @@ stack_include_file (pfile, inc)
         inc->fd = -1;
 	return false;
 #if 0
-        fp = cpp_push_buffer (pfile, (unsigned char *)"", 0,  0, inc->nominal_fname);
+        fp = cpp_push_buffer (pfile, (unsigned char *)"", 0,  0, inc->name);
 #else
-//        fp = cpp_push_buffer (pfile, (unsigned char *)"", 0,  0, 0);
+        fp = cpp_push_buffer (pfile, (unsigned char *)"", 0,  0, 0);
 #endif
- //       fp->rlimit = fp->buf;
+       fp->rlimit = fp->buf;
       }
     else
       {

@@ -2308,6 +2308,7 @@ compile_file (name)
 
   init_final (main_input_filename);
   init_branch_prob (dump_base_name);
+  init_pch ();
 
   timevar_push (TV_PARSE);
 
