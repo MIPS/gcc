@@ -3500,6 +3500,7 @@ enum tree_dump_index
   TDI_gimple,			/* dump each function after gimplifying it.  */
   TDI_useless,			/* dump after cleaning useless bits.  */
   TDI_eh,			/* dump after lowering eh.  */
+  TDI_lower,			/* dump after lowering containers.  */
   TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
