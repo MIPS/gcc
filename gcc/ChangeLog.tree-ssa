@@ -1,3 +1,16 @@
+2003-03-20  Jeff Law  <law@redhat.com>
+
+	* gimplify.c (simplify_return_expr): Tighten condition for
+	converting the RHS of a MODIFY_EXPR in a RETURN_EXPR to a
+	simple_val.  Allow returning a RESULT_DECL directly.
+	* tree-dfa.c (get_expr_operands): A RESULT_DECL can have
+	interesting operands.
+	(clobber_vars_r): Handle RESULT_DECLs.
+	(compute_may_aliases): Initialize and free vla_htab.
+	(find_vla_decls): Pass vla_htab to walk_tree.
+	(find_vla_decls_r): Likewise.
+	* tree.h (SSA_DECL_P): Accept RESULT_DECLs.
+
 2003-03-19  Jeff Law  <law@redhat.com>
 
 	* gimplify.c (simplify_return_expr): Only allow simple values

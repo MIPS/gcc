@@ -827,7 +827,7 @@ simplify_bind_expr (expr_p, pre_p)
    re-written to return the temporary.
 
    PRE_P points to the list where side effects that must happen before
-       STMT should be stored.  */
+   STMT should be stored.  */
 
 static void
 simplify_return_expr (stmt, pre_p)
@@ -854,7 +854,12 @@ simplify_return_expr (stmt, pre_p)
 	}
 
       simplify_expr (&ret_expr, pre_p, NULL, is_simple_stmt, fb_none);
-      if (TREE_CODE (ret_expr) != MODIFY_EXPR)
+
+      /* When compiling C++ code, RET_EXPR can be a RESULT_DECL, which
+         is a legitimate return value.  */
+      if (TREE_CODE (ret_expr) == RESULT_DECL)
+	TREE_OPERAND (stmt, 0) = ret_expr;
+      else if (TREE_CODE (ret_expr) != MODIFY_EXPR)
 	{
 	  /* We're returning a value that is not necessarily a bitwise
 	     copy.  As in the previous case, move the expression to before
@@ -863,15 +868,19 @@ simplify_return_expr (stmt, pre_p)
 	  TREE_OPERAND (stmt, 0) = NULL_TREE;
 	}
       else
-	{
-	  /* We want the RHS to be a simple value as that makes conversion
-	     of TRY_FINALLY_EXPRs into TRY_CATCH_EXPRs much simpler as
-	     we do not have to worry about having a CALL_EXPR on the RHS
-	     of a MODIFY_EXPR which appears in a RETURN_EXPR.  */
+        {
+	  /* We want the RHS to be a value as that makes conversion
+	     of TRY_FINALLY_EXPRs into TRY_CATCH_EXPRs simple.  The
+	     only RHS which needs special handling is CALL_EXPRs.
+
+	     Therefore, if the RHS is a CALL_EXPR, then simplify the
+	     RHS to a simple_val.  Otherwise allow any simple_rhs.  */
 	  simplify_expr (&TREE_OPERAND (ret_expr, 1), pre_p, NULL,
-			 is_simple_val, fb_rvalue);
+			 (TREE_CODE (TREE_OPERAND (ret_expr, 1)) == CALL_EXPR
+			  ? is_simple_val : is_simple_rhs),
+			 fb_rvalue);
 	  TREE_OPERAND (stmt, 0) = ret_expr;
-	}
+        }
     }
 }
 

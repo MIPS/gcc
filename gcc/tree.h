@@ -1646,6 +1646,7 @@ struct tree_type GTY(())
 #define SSA_DECL_P(DECL) \
 	(TREE_CODE (DECL) == VAR_DECL	\
 	 || TREE_CODE (DECL) == PARM_DECL \
+	 || TREE_CODE (DECL) == RESULT_DECL \
 	 || (TREE_CODE (DECL) == SSA_NAME \
 	     && (TREE_CODE (SSA_NAME_VAR (DECL)) == VAR_DECL \
 		 || TREE_CODE (SSA_NAME_VAR (DECL)) == PARM_DECL)))
