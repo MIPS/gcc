@@ -284,11 +284,17 @@ public class GdkGraphics extends Graphics
   native public void drawRect(int x, int y, int width, int height);
   native public void fillRect (int x, int y, int width, int height);
 
-  native void drawString (String str, int x, int y, String fname, int style, int size);
+  GdkFontPeer getFontPeer() 
+  {
+    return (GdkFontPeer) getFont().getPeer(); 
+  }
+
+  native void drawString (GdkFontPeer f, String str, int x, int y);
   public void drawString (String str, int x, int y)
   {
-    drawString (str, x, y, font.getName(), font.getStyle(), font.getSize());
+    drawString(getFontPeer(), str, x, y);
   }
+  
 
   public void drawString (AttributedCharacterIterator ci, int x, int y)
   {
@@ -405,7 +411,7 @@ public class GdkGraphics extends Graphics
 		  color.getGreen () ^ xorColor.getGreen (),
 		  color.getBlue  () ^ xorColor.getBlue ());
   }
-
+  
   public void setFont (Font font)
   {
     this.font = font;

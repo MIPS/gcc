@@ -178,9 +178,6 @@ libgcj_la_LINK = $(LIBLINK)
 # Gtk/Cairo JNI sources.
 if GTK_CAIRO
 gtk_cairo_c_source_files = \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeer.c \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkClasspathFontPeerMetrics.c \
-jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics2D.c
 else
 gtk_cairo_c_source_files = 
@@ -189,7 +186,10 @@ endif
 ## Gtk JNI sources.
 gtk_c_source_files = \
 $(gtk_cairo_c_source_files) \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkTextLayout.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontMetrics.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkFontPeer.c \
+jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGlyphVector.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkGraphics.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GdkPixbufDecoder.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GtkButtonPeer.c \
@@ -231,9 +231,9 @@ jni/classpath/primlib.c
 
 ## Java sources for Gtk peers.
 gtk_awt_peer_sources = \
-gnu/java/awt/peer/gtk/GdkClasspathFontPeer.java \
-gnu/java/awt/peer/gtk/GdkClasspathFontPeerMetrics.java \
+gnu/java/awt/peer/gtk/GdkTextLayout.java \
 gnu/java/awt/peer/gtk/GdkFontMetrics.java \
+gnu/java/awt/peer/gtk/GdkFontPeer.java \
 gnu/java/awt/peer/gtk/GdkGlyphVector.java \
 gnu/java/awt/peer/gtk/GdkGraphics.java \
 gnu/java/awt/peer/gtk/GdkGraphics2D.java \
@@ -251,7 +251,6 @@ gnu/java/awt/peer/gtk/GtkContainerPeer.java \
 gnu/java/awt/peer/gtk/GtkDialogPeer.java \
 gnu/java/awt/peer/gtk/GtkEmbeddedWindowPeer.java \
 gnu/java/awt/peer/gtk/GtkFileDialogPeer.java \
-gnu/java/awt/peer/gtk/GtkFontPeer.java \
 gnu/java/awt/peer/gtk/GtkFramePeer.java	\
 gnu/java/awt/peer/gtk/GtkGenericPeer.java \
 gnu/java/awt/peer/gtk/GtkImage.java \
@@ -970,6 +969,7 @@ gnu/java/awt/image/XBMDecoder.java \
 gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
 gnu/java/awt/peer/ClasspathFontPeer.java \
+gnu/java/awt/peer/ClasspathTextLayoutPeer.java \
 java/awt/AWTError.java \
 java/awt/AWTEvent.java \
 java/awt/AWTEventMulticaster.java \
