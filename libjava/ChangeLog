@@ -1,5 +1,30 @@
 2004-05-06  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
+	(gtkWidgetRequestFocus): Mark protected.
+	(GtkComponentPeer): Only set the peer's bounds if its component
+	is valid.
+	* java/awt/Component.java (static): Set the default keyboard
+	focus manager.
+	(requestFocus(), requestFocus(boolean), requestFocusInWindow(),
+	requestFocusInWindow(temporary)): Don't request focus if the
+	component is not showing.  Get tree lock before traversing
+	component hierarchy.
+	* java/awt/DefaultKeyboardFocusManager.java (dispatchEvent):
+	Only set the global focus owner if it is not a Window.
+	(processKeyEvent): Consume keystrokes associated with the focus
+	traversal keystroke.
+	(focusPreviousComponent, focusNextComponent, upFocusCycle,
+	downFocusCycle): Call requestFocusInWindow instead of
+	requestFocus.
+	* java/awt/EventDispatchThread.java (run): Move setting of
+	default keyboard focus manager to Component.java.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkComponentPeer.c
+	(awt_keycode_to_keysym): New function.
+	(gtkWidgetDispatchKeyEvent): Finish implementation.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkEvents.c
+	(pre_event_handler): Add FIXME comment.
+
 	* gnu/java/awt/peer/gtk/GtkTextAreaPeer.java,
 	jni/gtk-peer/gnu_java_awt_peer_gtk_GtkTextAreaPeer.c
 	(gtkWidgetRequestFocus): New method.

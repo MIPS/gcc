@@ -1066,6 +1066,9 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
     case GDK_KEY_PRESS:
         if (GTK_IS_WINDOW (widget))
           {
+            /*            GdkEventKey *keyevent = (GdkEventKey *) event; */
+            /*            g_printerr ("key press event: sent: %d  time: %d  state: %d  keyval: %d  length: %d  string: %s  hardware_keycode: %d  group: %d\n", keyevent->send_event, keyevent->time, keyevent->state, keyevent->keyval, keyevent->length, keyevent->string, keyevent->hardware_keycode, keyevent->group); */
+
             (*gdk_env)->CallVoidMethod (gdk_env, peer,
                                         postKeyEventID,
                                         (jint) AWT_KEY_PRESSED,
@@ -1074,6 +1077,11 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
                                         keysym_to_awt_keycode (event),
                                         keyevent_to_awt_keychar (event),
                                         keysym_to_awt_keylocation (event));
+            /* FIXME: generation of key typed events needs to be moved
+               to GtkComponentPeer.postKeyEvent.  If the key in a key
+               press event is not an "action" key
+               (KeyEvent.isActionKey) and is not a modifier key, then
+               it should generate a key typed event. */
             return TRUE;
           }
         else
@@ -1093,12 +1101,7 @@ pre_event_handler (GtkWidget *widget, GdkEvent *event, jobject peer)
             return TRUE;
         }
       else
-        {
-          /* We generated this event after Java processed the
-             corresponding event on the window. */
-          if (event->key.send_event)
-            return FALSE;
-        }
+        return FALSE;
       break;
     default:
       break;

@@ -162,7 +162,8 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
       {
         Component target = (Component) e.getSource ();
 
-        if (e.id == FocusEvent.FOCUS_GAINED)
+        if (e.id == FocusEvent.FOCUS_GAINED
+            && !(target instanceof Window))
           {
             if (((FocusEvent) e).isTemporary ())
               setGlobalFocusOwner (target);
@@ -170,7 +171,9 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
               setGlobalPermanentFocusOwner (target);
           }
 
-        target.dispatchEvent (e);
+        if (!(target instanceof Window))
+          target.dispatchEvent (e);
+
         return true;
       }
     else if (e instanceof KeyEvent)
@@ -245,8 +248,6 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
     if (postProcessKeyEvent (e))
       return true;
 
-    // FIXME: how do we "pass the event to the peers for processing"?
-
     // Always return true.
     return true;
   }
@@ -312,7 +313,14 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
 
   public void processKeyEvent (Component comp, KeyEvent e)
   {
-    AWTKeyStroke keystroke = AWTKeyStroke.getAWTKeyStrokeForEvent (e);
+    AWTKeyStroke eventKeystroke = AWTKeyStroke.getAWTKeyStrokeForEvent (e);
+    // For every focus traversal keystroke, we need to also consume
+    // the other two key event types for the same key (e.g. if
+    // KEY_PRESSED TAB is a focus traversal keystroke, we also need to
+    // consume KEY_RELEASED and KEY_TYPED TAB key events).
+    AWTKeyStroke oppositeKeystroke = AWTKeyStroke.getAWTKeyStroke (e.getKeyCode (),
+                                                                   e.getModifiers (),
+                                                                   !(e.id == KeyEvent.KEY_RELEASED));
 
     Set forwardKeystrokes = comp.getFocusTraversalKeys (KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS);
     Set backwardKeystrokes = comp.getFocusTraversalKeys (KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS);
@@ -321,27 +329,33 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
     if (comp instanceof Container)
       downKeystrokes = comp.getFocusTraversalKeys (KeyboardFocusManager.DOWN_CYCLE_TRAVERSAL_KEYS);
 
-    if (forwardKeystrokes.contains (keystroke))
+    if (forwardKeystrokes.contains (eventKeystroke))
       {
         focusNextComponent (comp);
         e.consume ();
       }
-    else if (backwardKeystrokes.contains (keystroke))
+    else if (backwardKeystrokes.contains (eventKeystroke))
       {
         focusPreviousComponent (comp);
         e.consume ();
       }
-    else if (upKeystrokes.contains (keystroke))
+    else if (upKeystrokes.contains (eventKeystroke))
       {
         upFocusCycle (comp);
         e.consume ();
       }
     else if (comp instanceof Container
-             && downKeystrokes.contains (keystroke))
+             && downKeystrokes.contains (eventKeystroke))
       {
         downFocusCycle ((Container) comp);
         e.consume ();
       }
+    else if (forwardKeystrokes.contains (oppositeKeystroke)
+             || backwardKeystrokes.contains (oppositeKeystroke)
+             || upKeystrokes.contains (oppositeKeystroke)
+             || (comp instanceof Container &&
+                 downKeystrokes.contains (oppositeKeystroke)))
+      e.consume ();
   }
 
   protected void enqueueKeyEvents (long after, Component untilFocused)
@@ -397,7 +411,7 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
     FocusTraversalPolicy policy = focusCycleRoot.getFocusTraversalPolicy ();
 
     Component previous = policy.getComponentBefore (focusCycleRoot, focusComp);
-    previous.requestFocus ();
+    previous.requestFocusInWindow ();
   }
 
   public void focusNextComponent (Component comp)
@@ -407,7 +421,7 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
     FocusTraversalPolicy policy = focusCycleRoot.getFocusTraversalPolicy ();
 
     Component next = policy.getComponentAfter (focusCycleRoot, focusComp);
-    next.requestFocus ();
+    next.requestFocusInWindow ();
   }
 
   public void upFocusCycle (Component comp)
@@ -419,13 +433,13 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
       {
         FocusTraversalPolicy policy = focusCycleRoot.getFocusTraversalPolicy ();
         Component defaultComponent = policy.getDefaultComponent (focusCycleRoot);
-        defaultComponent.requestFocus ();
+        defaultComponent.requestFocusInWindow ();
       }
     else
       {
         Container parentFocusCycleRoot = focusCycleRoot.getFocusCycleRootAncestor ();
 
-        focusCycleRoot.requestFocus ();
+        focusCycleRoot.requestFocusInWindow ();
         setGlobalCurrentFocusCycleRoot (parentFocusCycleRoot);
       }
   }
@@ -439,7 +453,7 @@ public class DefaultKeyboardFocusManager extends KeyboardFocusManager
       {
         FocusTraversalPolicy policy = cont.getFocusTraversalPolicy ();
         Component defaultComponent = policy.getDefaultComponent (cont);
-        defaultComponent.requestFocus ();
+        defaultComponent.requestFocusInWindow ();
         setGlobalCurrentFocusCycleRoot (cont);
       }
   }

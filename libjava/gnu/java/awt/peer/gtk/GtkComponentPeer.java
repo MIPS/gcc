@@ -93,7 +93,7 @@ public class GtkComponentPeer extends GtkGenericPeer
   native void gtkWidgetSetCursor (int type);
   native void gtkWidgetSetBackground (int red, int green, int blue);
   native void gtkWidgetSetForeground (int red, int green, int blue);
-  native void gtkWidgetRequestFocus ();
+  native protected void gtkWidgetRequestFocus ();
   native void gtkWidgetDispatchKeyEvent (int id, long when, int mods,
                                          int keyCode, char keyChar, int keyLocation);
   native void gtkSetFont (String name, int style, int size);
@@ -143,10 +143,14 @@ public class GtkComponentPeer extends GtkGenericPeer
                                                      awtComponent.getX(), 
                                                      awtComponent.getY(),
                                                      dims[0], dims[1]);
-      }      
-      Rectangle bounds = awtComponent.getBounds ();
-      setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
+      }
 
+      if (awtComponent.isValid ())
+        {
+          Rectangle bounds = awtComponent.getBounds ();
+
+          setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
+        }
     } catch (RuntimeException ex) { ; }
   }
 
@@ -476,7 +480,7 @@ public class GtkComponentPeer extends GtkGenericPeer
 			       int keyCode, char keyChar, int keyLocation)
   {
     q.postEvent (new KeyEvent (awtComponent, id, when, mods,
-    			       keyCode, keyChar, keyLocation));
+                               keyCode, keyChar, keyLocation));
   }
 
   protected void postFocusEvent (int id, boolean temporary)

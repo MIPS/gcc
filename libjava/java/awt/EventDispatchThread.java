@@ -57,9 +57,6 @@ class EventDispatchThread extends Thread
 
   public void run()
   {
-    // Set the default KeyboardFocusManager.
-    KeyboardFocusManager.setCurrentKeyboardFocusManager (null);
-
     while (true)
       {
         try

@@ -571,6 +571,8 @@ public abstract class Component
   {
     incrementalDraw = Boolean.getBoolean ("awt.image.incrementalDraw");
     redrawRate = Long.getLong ("awt.image.redrawrate");
+    // Set the default KeyboardFocusManager.
+    KeyboardFocusManager.setCurrentKeyboardFocusManager (null);
   }
 
   // Public and protected API.
@@ -3635,7 +3637,7 @@ public abstract class Component
    * that its top-level ancestor become the focused Window.
    *
    * For the request to be granted, the Component must be focusable,
-   * displayable and visible and the top-level Window to which it
+   * displayable and showing and the top-level Window to which it
    * belongs must be focusable.  If the request is initially denied on
    * the basis that the top-level Window is not focusable, the request
    * will be remembered and granted when the Window does become
@@ -3657,36 +3659,38 @@ public abstract class Component
   public void requestFocus ()
   {
     if (isDisplayable ()
-	&& isVisible ()
+	&& isShowing ()
 	&& isFocusable ())
       {
-	// FIXME: need to get the tree lock here.
-	// Find this Component's top-level ancestor.
-        Container parent = getParent ();
+        synchronized (getTreeLock ())
+          {
+            // Find this Component's top-level ancestor.
+            Container parent = getParent ();
 
-        while (parent != null
-	       && !(parent instanceof Window))
-	  parent = parent.getParent ();
+            while (parent != null
+                   && !(parent instanceof Window))
+              parent = parent.getParent ();
 
-	Window toplevel = (Window) parent;
-	if (toplevel.isFocusableWindow ())
-	  {
-	    if (peer != null)
-	      // This call will cause a FOCUS_GAINED event to be
-	      // posted to the system event queue if the native
-	      // windowing system grants the focus request.
-	      peer.requestFocus ();
-	    else
-	      {
-		// Either our peer hasn't been created yet or we're a
-		// lightweight component.  In either case we want to
-		// post a FOCUS_GAINED event.
-		EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
-		eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED));
-	      }
-	  }
-	else
-	  pendingFocusRequest = new FocusEvent(this, FocusEvent.FOCUS_GAINED);
+            Window toplevel = (Window) parent;
+            if (toplevel.isFocusableWindow ())
+              {
+                if (peer != null)
+                  // This call will cause a FOCUS_GAINED event to be
+                  // posted to the system event queue if the native
+                  // windowing system grants the focus request.
+                  peer.requestFocus ();
+                else
+                  {
+                    // Either our peer hasn't been created yet or we're a
+                    // lightweight component.  In either case we want to
+                    // post a FOCUS_GAINED event.
+                    EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
+                    eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED));
+                  }
+              }
+            else
+              pendingFocusRequest = new FocusEvent(this, FocusEvent.FOCUS_GAINED);
+          }
       }
   }
 
@@ -3695,7 +3699,7 @@ public abstract class Component
    * that its top-level ancestor become the focused Window.
    *
    * For the request to be granted, the Component must be focusable,
-   * displayable and visible and the top-level Window to which it
+   * displayable and showing and the top-level Window to which it
    * belongs must be focusable.  If the request is initially denied on
    * the basis that the top-level Window is not focusable, the request
    * will be remembered and granted when the Window does become
@@ -3728,39 +3732,41 @@ public abstract class Component
   protected boolean requestFocus (boolean temporary)
   {
     if (isDisplayable ()
-	&& isVisible ()
+	&& isShowing ()
 	&& isFocusable ())
       {
-	// FIXME: need to get the tree lock here.
-	// Find this Component's top-level ancestor.
-        Container parent = getParent ();
+        synchronized (getTreeLock ())
+          {
+            // Find this Component's top-level ancestor.
+            Container parent = getParent ();
 
-        while (parent != null
-	       && !(parent instanceof Window))
-	  parent = parent.getParent ();
+            while (parent != null
+                   && !(parent instanceof Window))
+              parent = parent.getParent ();
 
-	Window toplevel = (Window) parent;
-	if (toplevel.isFocusableWindow ())
-	  {
-	    if (peer != null)
-	      // This call will cause a FOCUS_GAINED event to be
-	      // posted to the system event queue if the native
-	      // windowing system grants the focus request.
-	      peer.requestFocus ();
-	    else
-	      {
-		// Either our peer hasn't been created yet or we're a
-		// lightweight component.  In either case we want to
-		// post a FOCUS_GAINED event.
-		EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
-		eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
-	      }
-	  }
-	else
-	  // FIXME: need to add a focus listener to our top-level
-	  // ancestor, so that we can post this event when it becomes
-	  // the focused window.
-	  pendingFocusRequest = new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary);
+            Window toplevel = (Window) parent;
+            if (toplevel.isFocusableWindow ())
+              {
+                if (peer != null)
+                  // This call will cause a FOCUS_GAINED event to be
+                  // posted to the system event queue if the native
+                  // windowing system grants the focus request.
+                  peer.requestFocus ();
+                else
+                  {
+                    // Either our peer hasn't been created yet or we're a
+                    // lightweight component.  In either case we want to
+                    // post a FOCUS_GAINED event.
+                    EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
+                    eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                  }
+              }
+            else
+              // FIXME: need to add a focus listener to our top-level
+              // ancestor, so that we can post this event when it becomes
+              // the focused window.
+              pendingFocusRequest = new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary);
+          }
       }
     // Always return true.
     return true;
@@ -3771,7 +3777,7 @@ public abstract class Component
    * its top-level ancestor is the currently focused Window.  A
    * <code>FOCUS_GAINED</code> event will be fired if and only if this
    * request is successful. To be successful, the component must be
-   * displayable, visible, and focusable, and its ancestor top-level
+   * displayable, showing, and focusable, and its ancestor top-level
    * Window must be focused.
    *
    * If the return value is false, the request is guaranteed to fail.
@@ -3799,7 +3805,7 @@ public abstract class Component
    * its top-level ancestor is the currently focused Window.  A
    * <code>FOCUS_GAINED</code> event will be fired if and only if this
    * request is successful. To be successful, the component must be
-   * displayable, visible, and focusable, and its ancestor top-level
+   * displayable, showing, and focusable, and its ancestor top-level
    * Window must be focused.
    *
    * If the return value is false, the request is guaranteed to fail.
@@ -3826,39 +3832,47 @@ public abstract class Component
 
     Window focusedWindow = manager.getFocusedWindow ();
 
-    if (focusedWindow != null)
+    if (isDisplayable ()
+	&& isShowing ()
+	&& isFocusable ())
       {
-	// FIXME: get tree lock here.
-	Container parent = getParent ();
+        if (focusedWindow != null)
+          {
+            synchronized (getTreeLock ())
+              {
+                Container parent = getParent ();
 
-	while (parent != null
-	       && !(parent instanceof Window))
-	  parent = parent.getParent ();
+                while (parent != null
+                       && !(parent instanceof Window))
+                  parent = parent.getParent ();
 
-	Window toplevel = (Window) parent;
+                Window toplevel = (Window) parent;
 
-	// Check if top-level ancestor is currently focused window.
-	if (focusedWindow == toplevel)
-	  {
-	    if (peer != null)
-	      // This call will cause a FOCUS_GAINED event to be
-	      // posted to the system event queue if the native
-	      // windowing system grants the focus request.
-	      peer.requestFocus ();
-	    else
-	      {
-		// Either our peer hasn't been created yet or we're a
-		// lightweight component.  In either case we want to
-		// post a FOCUS_GAINED event.
-		EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
-		eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
-	      }
-	  }
-	else
-	  return false;
+                // Check if top-level ancestor is currently focused window.
+                if (focusedWindow == toplevel)
+                  {
+                    if (peer != null)
+                      // This call will cause a FOCUS_GAINED event to be
+                      // posted to the system event queue if the native
+                      // windowing system grants the focus request.
+                      peer.requestFocus ();
+                    else
+                      {
+                        // Either our peer hasn't been created yet or we're a
+                        // lightweight component.  In either case we want to
+                        // post a FOCUS_GAINED event.
+                        EventQueue eq = Toolkit.getDefaultToolkit ().getSystemEventQueue ();
+                        eq.postEvent (new FocusEvent(this, FocusEvent.FOCUS_GAINED, temporary));
+                      }
+                  }
+                else
+                  return false;
+              }
+          }
+
+        return true;
       }
-
-    return true;
+    return false;
   }
 
   /**
