@@ -497,7 +497,7 @@ Change when template instances are emitted
 
 ; APPLE LOCAL begin Altivec 3837840
 faltivec
-C ObjC C++ ObjC++ Var(flag_disable_opts_for_faltivec)
+C ObjC C++ ObjC++ Var(flag_faltivec)
 Enable Altivec
 ; APPLE LOCAL end Altivec 3837840
 

@@ -1,3 +1,12 @@
+2005-02-01  Devang Patel  <dpatel@apple.com>
+
+	Radar 3983593
+
+	* c-pch.c (pch_matching[]): Add -faltivec.
+	* c.opt (faltivec): Use flag_altivec as variable.
+	* toplev.c (flag_disable_opts_for_faltivec): New.
+	* flags.h (flag_disable_opts_for_faltivec): Same.
+
 2005-01-31  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3978168

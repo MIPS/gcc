@@ -324,4 +324,7 @@ extern int predictive_compilation;
 
 extern int disable_typechecking_for_spec_flag;
 
+/* APPLE LOCAL Altivec */
+extern int flag_disable_opts_for_faltivec;
+
 #endif /* ! GCC_FLAGS_H */

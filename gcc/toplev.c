@@ -290,6 +290,9 @@ int flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
 int flag_writable_strings = 0;
 /* APPLE LOCAL end fwritable strings  */
 
+/* APPLE LOCAL Altivec */
+int flag_disable_opts_for_faltivec = 0;
+
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
    2 means C99-like requirements for complex divide (not yet implemented).  */
