@@ -63,7 +63,7 @@ public class GtkListPeer extends GtkComponentPeer
   native void gtkSetFont (String name, int style, int size);
   native void gtkWidgetRequestFocus ();
 
-  native void getSize (int rows, int dims[]);
+  native void getSize (int rows, int visibleRows, int dims[]);
 
   public GtkListPeer (List list)
   {
@@ -109,7 +109,8 @@ public class GtkListPeer extends GtkComponentPeer
   {
     int dims[] = new int[2];
 
-    getSize (rows, dims);
+    int visibleRows = ((List) awtComponent).getRows();
+    getSize (rows, visibleRows, dims);
     return new Dimension (dims[0], dims[1]);
   }
 
@@ -117,7 +118,8 @@ public class GtkListPeer extends GtkComponentPeer
   {
     int dims[] = new int[2];
 
-    getSize (rows, dims);
+    int visibleRows = ((List) awtComponent).getRows();
+    getSize (rows, visibleRows, dims);
     return new Dimension (dims[0], dims[1]);
   }
 

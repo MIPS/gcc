@@ -145,12 +145,8 @@ public class GtkComponentPeer extends GtkGenericPeer
                                                      dims[0], dims[1]);
       }
 
-      if (awtComponent.isValid ())
-        {
-          Rectangle bounds = awtComponent.getBounds ();
-
-          setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
-        }
+      Rectangle bounds = awtComponent.getBounds ();
+      setBounds (bounds.x, bounds.y, bounds.width, bounds.height);
     } catch (RuntimeException ex) { ; }
   }
 

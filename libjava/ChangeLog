@@ -1,3 +1,17 @@
+2004-05-25  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkComponentPeer.java
+	(GtkComponentPeer): Set bounds regardless of whether awtComponent
+	is valid.
+	* gnu/java/awt/peer/gtk/GtkListPeer.java
+	(getSize): Change native method declaration.
+	(minimumSize): Pass visible row count into getSize().
+	(preferredSize): Likewise.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkListPeer.c
+	(Java_gnu_java_awt_peer_gtk_GtkListPeer_getSize): Use scroll window's
+	natural size. Use visible row count to determine the final height
+	value to return.
+
 2004-05-21  Graydon Hoare  <graydon@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java 

@@ -348,31 +348,42 @@ Java_gnu_java_awt_peer_gtk_GtkListPeer_deselect
 
 JNIEXPORT void JNICALL
 Java_gnu_java_awt_peer_gtk_GtkListPeer_getSize
-  (JNIEnv *env, jobject obj, jint rows, jintArray jdims)
+  (JNIEnv *env, jobject obj, jint rows, jint visible_rows, jintArray jdims)
 {
   void *ptr;
   jint *dims;
-  GtkTreeView *list;
-  GtkTreeModel *list_store;
-  GtkScrolledWindow *sw;
-  GtkRequisition req;
+  GtkRequisition current_req;
+  GtkRequisition natural_req;
 
   dims = (*env)->GetIntArrayElements (env, jdims, NULL);
   dims[0] = dims[1] = 0;
-
-  if (rows < 3)
-    rows = 3;
 
   ptr = NSA_GET_PTR (env, obj);
 
   gdk_threads_enter ();
 
-  sw = GTK_SCROLLED_WINDOW (ptr);
-  list = TREE_VIEW_FROM_SW (ptr);
-  list_store = gtk_tree_view_get_model (list);
-  gtk_widget_size_request (GTK_WIDGET (sw), &req);
-  dims[1] = req.height;
-  dims[0] = req.width;
+  /* Save the widget's current size request. */
+  gtk_widget_size_request (GTK_WIDGET (ptr), &current_req);
+      
+  /* Get the widget's "natural" size request. */
+  gtk_widget_set_size_request (GTK_WIDGET (ptr), -1, -1);
+  gtk_widget_size_request (GTK_WIDGET (ptr), &natural_req);
+
+  /* Reset the widget's size request. */
+  gtk_widget_set_size_request (GTK_WIDGET (ptr),
+                               current_req.width, current_req.height);
+
+  dims[0] = natural_req.width;
+
+  /* Calculate the final height, by comparing the number of rows
+     in the list to the number of rows requested by the caller.
+     FIXME: Is there a GTK method that counts the number of rows
+     in the list? If so, we don't need to bring visible_rows from
+     the Java peer. */
+  if (rows == visible_rows)
+    dims[1] = natural_req.height;
+  else
+    dims[1] = natural_req.height / visible_rows * rows;
 
   gdk_threads_leave ();
 
