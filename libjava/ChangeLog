@@ -1,3 +1,18 @@
+2004-06-15  Graydon Hoare  <graydon@redhat.com>
+
+	* javax/swing/ImageIcon.java (ImageIcon): New constructor.
+	* javax/swing/JFrame.java (defaultLookAndFeelDecorated): New property.
+	* javax/swing/JViewport.java 
+	(getExtentSize): Return size rather than preferred size.
+	(toViewCoordinates): New methods.
+	(getViewSize): Return size rather than preferred size.
+	(setViewSize): Note view size as set.
+	* javax/swing/ViewportLayout.java (layoutContainer): Reimplement.
+	* javax/swing/plaf/basic/BasicScrollBarUI.java 
+	(getPreferredSize): Don't redo layout.
+	* javax/swing/plaf/basic/BasicViewportUI.java 
+	(paint): Translate image properly and eat exceptions.
+
 2004-06-15  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/JTabbedPane.java

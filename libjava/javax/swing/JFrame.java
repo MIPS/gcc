@@ -61,10 +61,21 @@ public class JFrame extends Frame implements WindowConstants, RootPaneContainer
 {
   private static final long serialVersionUID = -3362141868504252139L;
   
-    protected  AccessibleContext accessibleContext;
+  protected  AccessibleContext accessibleContext;
+  
+  private int close_action = HIDE_ON_CLOSE;    
+  
+  private static boolean defaultLookAndFeelDecorated = false;    
 
-    private int close_action = HIDE_ON_CLOSE;    
-    
+  public static void setDefaultLookAndFeelDecorated(boolean d)
+  {
+    defaultLookAndFeelDecorated = d;
+  }
+
+  public static boolean isDefaultLookAndFeelDecorated()
+  {
+    return defaultLookAndFeelDecorated;
+  }
 
     /***************************************************
      *

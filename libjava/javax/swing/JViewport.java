@@ -135,9 +135,21 @@ public class JViewport extends JComponent
   public Dimension getExtentSize()
   {
     if (extentSize == null)
-      return getPreferredSize();
+      return toViewCoordinates(getSize());
     else
       return extentSize;
+  }
+
+  public Dimension toViewCoordinates(Dimension size)
+  {
+    return size;
+  }
+
+  public Point toViewCoordinates(Point p)
+  {
+    Point pos = getViewPosition();
+    return new Point(p.x + pos.x,
+                     p.y + pos.y);
   }
 
   public void setExtentSize(Dimension newSize)
@@ -148,10 +160,10 @@ public class JViewport extends JComponent
 
   public Dimension getViewSize()
   {
-    if (viewSize == null)
-      return getView().getPreferredSize();
-    else
+    if (isViewSizeSet)
       return viewSize;
+    else
+      return getView().getSize();
   }
 
 
@@ -160,9 +172,16 @@ public class JViewport extends JComponent
     viewSize = newSize;
     Component view = getView();
     if (view != null)
-      view.setSize(newSize);
+      view.setSize(viewSize);
+    isViewSizeSet = true;
     fireStateChanged();
   }
+
+  /**
+   * Get the viewport's position in view space. Despite confusing name,
+   * this really does return the viewport's (0,0) position in view space,
+   * not the view's position.
+   */
 
   public Point getViewPosition()
   {

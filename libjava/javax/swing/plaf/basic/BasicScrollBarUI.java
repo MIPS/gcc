@@ -791,7 +791,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
    */
   public Dimension getPreferredSize(JComponent c)
   {
-    layoutContainer(scrollbar);
+    calculatePreferredSize();
     return preferredSize;
   }
 

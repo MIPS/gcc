@@ -66,6 +66,11 @@ public class ImageIcon
   {
   }
 
+  public ImageIcon(URL url)
+  {
+    image = Toolkit.getDefaultToolkit().getImage(url);
+  }
+
   public ImageIcon(String file, String descr)
   {
     this.file = file;
