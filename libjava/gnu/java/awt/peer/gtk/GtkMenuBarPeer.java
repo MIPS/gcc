@@ -66,12 +66,14 @@ public class GtkMenuBarPeer extends GtkMenuComponentPeer
       mc.setFont (new Font ("Dialog", Font.PLAIN, 12));
   }
 
+  // FIXME: remove this method or replace it with one that does
+  // something useful.
+  /* In Gnome, help menus are no longer right flushed. */
   native void nativeSetHelpMenu(MenuPeer menuPeer);
 
-  /* In Gnome, help menus are no longer right flushed. */
   public void addHelpMenu (Menu menu)
   {
-    nativeSetHelpMenu((MenuPeer) menu.getPeer());
+    // nativeSetHelpMenu((MenuPeer) menu.getPeer());
   }
 
   native public void delMenu (int index);

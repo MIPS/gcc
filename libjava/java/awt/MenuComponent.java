@@ -40,6 +40,7 @@ package java.awt;
 
 import java.awt.peer.MenuComponentPeer;
 import java.io.Serializable;
+import javax.accessibility.AccessibleContext;
 
 // FIXME: Java 1.0 event model unimplemented
 
@@ -64,14 +65,27 @@ private static final long serialVersionUID = -4536902356223894379L;
  * Instance Variables
  */
 
-  // FIXME: missing serialized fields `nameExplicitlySet',
-  // `newEventsOnly', and `accessibleContext'.
-
 // The font for this component
 private Font font;
 
 // The name of the component
 private String name;
+
+  /*
+   * @serial true if the name has been explicitly set
+   */
+  private boolean nameExplicitlySet;
+
+  /*
+   * @serial Unused in this implementation but present in Sun's
+   * serialization spec.
+   */
+  private boolean newEventsOnly;
+
+  /*
+   * @serial a menu component's accessible context
+   */
+  private AccessibleContext accessibleContext;
 
 // The parent of this component
 transient MenuContainer parent;

@@ -134,11 +134,11 @@ setHelpMenu(Menu menu)
     menu.parent.remove (menu);
   menu.parent = this;
 
+  MenuBarPeer peer = (MenuBarPeer) getPeer ();
   if (peer != null)
     {
       menu.addNotify();
-      MenuBarPeer mp = (MenuBarPeer) peer;
-      mp.addHelpMenu (menu);
+      peer.addHelpMenu (menu);
     }
 }
 
@@ -233,8 +233,7 @@ getMenuCount()
 public int
 countMenus()
 {
-  // FIXME: How does the help menu fit in here?
-  return menus.size ();
+  return menus.size () + (getHelpMenu () == null ? 0 : 1);
 }
 
 /*************************************************************************/

@@ -1,3 +1,24 @@
+2004-09-09  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFramePeer.java (setMenuBar): Set menu
+	bar's width.
+	* gnu/java/awt/peer/gtk/GtkMenuBarPeer.java (nativeSetHelpMenu):
+	Add FIXME comment.
+	(addHelpMenu): Elide call to nativeSetHelpMenu.
+	* java/awt/Menu.java (isTearOff): Rename to tearOff.
+	(menuSerializedDataVersion): Initialize to 1.
+	(separatorLabel): Mark transient.
+	(insert(MenuItem,int)): Implement.
+	* java/awt/MenuBar.java (setHelpMenu): Call getPeer to retrieve
+	peer.
+	(countMenus): Count help menu.
+	* java/awt/MenuComponent.java (nameExplicitlySet, newEventsOnly,
+	accessibleContext): Add fields.
+	* java/awt/MenuItem.java: Remove event mask FIXME.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMenuItemPeer.c
+	(gtkWidgetModifyFont): Only set font if label is non-NULL.
+	(setLabel): Don't treat "-" specially.
+
 2004-09-08  Kim Ho  <kho@redhat.com>
 
 	* javax/swing/colorchooser/DefaultHSBChooserPanel.java:
