@@ -1,3 +1,8 @@
+2003-01-10  Andrew Haley  <aph@redhat.com>
+
+	* config/i386/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Rename
+	registers to be in correct order.  Add rip.
+
 2003-01-15  Stephane Carrez  <stcarrez@nerim.fr>
 
 	* config/m68hc11/m68hc11.md ("return"): Use emit_jump_insn to emit
