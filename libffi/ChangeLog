@@ -1,3 +1,12 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-10-25  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR other/18138
+	* testsuite/lib/libffi-dg.exp: Accept more than one multilib libgcc.
+
 2004-08-10  Andrew Haley  <aph@redhat.com>
 
 	* src/x86/ffi64.c (ffi_prep_args ): 8-align all stack arguments.

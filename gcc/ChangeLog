@@ -1,7 +1,132 @@
+2004-11-04  Release Manager
+
+	* GCC 3.4.3 released.
+
+2004-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/18129
+	* varasm.c (copy_constant): Don't copy STRING_CSTs if
+	flag_writable_strings.
+	(build_constant_desc): Call copy_constant unconditionally.
+
+2004-10-30  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/17581
+	* cselib.c (cselib_process_insn): The last instruction of a libcall
+	block, with the REG_RETVAL note, should be considered in the libcall.
+	* gcse.c (do_local_cprop): Allow constants to be propagated outside
+	of libcall blocks.
+	(adjust_libcall_notes): Use simplify_replace_rtx instead of
+	replace_rtx to avoid creating invalid RTL in REG_RETVAL notes.
+
+2004-10-27  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR other/18186
+	* common.opt (--param): Fix spelling of parameter.
+
+2004-10-27  Andreas Krebbel  <krebbel1@de.ibm.com>
+
+	* config/s390/s390.md ("*subdf3_cc"): Replaced plus by minus.
+
+2004-10-26  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR bootstrap/15747
+	* doc/install.texi (mips-sgi-irix5): Document that /bin/sh has been
+	reported to hang during bootstrap and that CONFIG_SHELL=/bin/ksh
+	can be used to work around this.
+
+2004-10-26  Roger Sayle  <roger@eyesopen.com>
+	    John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport 3.4 regression fix from mainline
+	* cse.c: Change encoding of quantity numbers to avoid undefined
+	pointer arithmetic on qty_table.
+	(REGNO_QTY_VALID_P): A quantity is now valid if it isn't negative.
+	(get_cse_reg_info): Initialize reg_qty to a unique negative value.
+	(new_basic_block): Assign "real" quantity numbers from zero.
+	(delete_reg_equiv): Do nothing if quantity is invalid.  Reset the
+	REG_QTY to its unique negative value.
+	(merge_equiv_classes): Calculate need_rehash if quantity is valid.
+	(cse_main): Don't include max_reg when determining max_qty.
+	(cse_basic_block): Avoid subtracting a large offset from qty_table,
+	which causes undefined C99 behaviour.  Only allocate needed memory.
+
+2004-10-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (rtl_for_decl_location): Avoid segfault if
+	DECL_INCOMING_RTL is NULL.
+
+2004-10-21  Eric Christopher  <echristo@redhat.com>
+
+	* config/rs6000/rs6000.c (setup_incoming_varargs): Align DFmode
+	saves.
+
+2004-10-22  Bernardo Innocenti  <bernie@develer.com>
+
+	Backport from the mainline:
+	2004-10-22  Peter Barada  <peter@the-baradas.com>
+	* config/m68k/m68k.h (HARD_REGNO_RENAME_OK): New macro.
+	* config/m68k/m68k.c (m68k_hard regno_rename_ok): Disallow
+	renaming of non-live registers in interrupt functions.
+	* config/m68k/m68k-protos.h (m68k_hard_regno_rename_ok): Add prototype.
+
+2004-10-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	* config/arc/lib1funcs.asm (___umulsidi3): Fix typo.
+
+2004-10-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR 18004.
+	* expmed.c (store_bit_field): Pass original 'value' before
+	recursing.
+
+2004-10-21  Ramana Radhakrishnan  <ramana.radhakrishnan@codito.com>
+
+	* config/arc/lib1funcs.asm (___umulsidi3): Correct usage of flags.
+
+	PR target/17317
+	* config/arc/arc.h (REGNO_OK_FOR_BASE_P,REGNO_OK_FOR_INDEX_P,
+	REG_OK_FOR_BASE, REG_OK_FOR_INDEX): Consider blink(r31) as a valid
+	base and index register for loads.
+
+	* config/arc/t-arc: Fix multilib handling.
+
+2004-10-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/17684
+	* Makefile.in (clean): Remove libgcc_s$(SHLIB_EXT).1.stage?.
+	(stage1-start): Remove and copy libunwind.a and
+	libunwind*$(SHLIB_EXT) instead of libunwind*.
+	(stage2-start): Likewise.
+	(stage3-start): Likewise.
+	(stage4-start): Likewise.
+	(stageprofile-start): Likewise.
+	(stagefeedback-start): Likewise.
+
+	* config/alpha/t-osf4 (SHLIB_LINK): Use a temporary file for
+	the shared library to be created and don't remove the existing
+	shared library.
+	* config/arm/t-netbsd (SHLIB_LINK): Likewise.
+	* config/mips/t-iris5-6 (SHLIB_LINK): Likewise.
+	* config/pa/t-hpux-shlib (SHLIB_LINK): Likewise.
+	* config/sh/t-linux (SHLIB_LINK): Likewise.
+	* config/t-libunwind-elf (SHLIBUNWIND_LINK): Likewise.
+	* config/t-slibgcc-darwin (SHLIB_LINK): Likewise.
+	* config/t-slibgcc-elf-ver (SHLIB_LINK): Likewise.
+	* config/t-slibgcc-sld (SHLIB_LINK): Likewise.
+
+	* mklibgcc.in (libgcc-stage-start): Also move "*${objext}s"
+	files.
+
 2004-10-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.md (addqi_1_slp): Test for incdec_operand
 	operand 1 instead of 2
+
+2004-10-17  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/rs6000/sysv4.h (LINK_OS_FREEBSD_SPEC): Sync '-p' handling with
+	other FreeBSD platforms.
 
 2004-10-14  Richard Henderson  <rth@redhat.com>
 
@@ -304,10 +429,10 @@
 	* config/alpha/qrnnd.asm: Mark for noexecstack.
 
 2004-09-30  Richard Henderson  <rth@redhat.com>
- 
+
 	* unwind-dw2.c (_Unwind_GetGR): Honor DWARF_ZERO_REG.
 	* doc/tm.texi (DWARF_ZERO_REG): New.
- 
+
 	* config/alpha/alpha.c (alpha_sa_mask, alpha_expand_prologue,
 	alpha_expand_epilogue): Revert 2003-09-30 change to store zero.
 	* config/alpha/alpha.h (DWARF_ZERO_REG): New.
@@ -534,7 +659,7 @@
 
 	* version.c (version_string): Restore pre-release marker.
 	* doc/include/gcc-common.texi: Set version to 3.4.3.
-	
+
 2004-09-06  Release Manager
 
 	* GCC 3.4.2 released.
@@ -592,7 +717,7 @@
 
 	* config/ns32k/ns32k.h (TRANSFER_FROM_TRAMPOLINE): Remove.
 	(TRAMPOLINE_TEMPLATE): Merge code from __trampoline inline.
-	                                                                        
+
 2004-09-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgcc-std.ver (GCC_3.4.2): Export also __trampoline_setup.
@@ -780,7 +905,7 @@
 	one and two.
 
 2004-08-24  Richard Henderson  <rth@redhat.com>
-	                                                                        
+
 	PR target/16298
 	* config/i386/i386.c (legitimate_constant_p): Rework to not accept
 	random codes within CONST.
