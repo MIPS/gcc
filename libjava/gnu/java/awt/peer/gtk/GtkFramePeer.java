@@ -143,11 +143,15 @@ public class GtkFramePeer extends GtkWindowPeer
 
     setTitle (frame.getTitle ());
     setResizable (frame.isResizable ());
+    setIconImage(frame.getIconImage());
   }
 
+  native void nativeSetIconImage (GdkPixbufDecoder decoder);
   public void setIconImage (Image image) 
   {
-      /* TODO: Waiting on Toolkit Image routines */
+      GtkImage img = (GtkImage) image;
+      if (img.isLoaded() && img.getSource() instanceof GdkPixbufDecoder)
+        nativeSetIconImage((GdkPixbufDecoder) img.getSource());
   }
 
   public Graphics getGraphics ()

@@ -44,6 +44,8 @@ exception statement from your version. */
 #include <gdk/gdkx.h>
 #include <X11/Xatom.h>
 
+struct state_table *native_pixbufdecoder_state_table;
+
 /* FIXME: we're currently seeing the double-activation that occurs
    with metacity and GTK.  See
    http://bugzilla.gnome.org/show_bug.cgi?id=140977 for details. */
@@ -531,6 +533,29 @@ Java_gnu_java_awt_peer_gtk_GtkFramePeer_gtkLayoutSetVisible
     gtk_widget_show (GTK_WIDGET (layout));
   else
     gtk_widget_hide (GTK_WIDGET (layout));
+
+  gdk_threads_leave ();
+}
+
+JNIEXPORT void JNICALL
+Java_gnu_java_awt_peer_gtk_GtkFramePeer_nativeSetIconImage
+  (JNIEnv *env, jobject obj, jobject decoder)
+{
+  void *ptr;
+  GdkPixbufLoader *loader = NULL;
+  GdkPixbuf *pixbuf = NULL;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  loader = get_state (env, decoder, native_pixbufdecoder_state_table);
+  g_assert (loader != NULL);
+
+  gdk_threads_enter ();
+
+  pixbuf = gdk_pixbuf_loader_get_pixbuf (loader);
+  g_assert (pixbuf != NULL);
+
+  gtk_window_set_icon (GTK_WINDOW (ptr), pixbuf);
 
   gdk_threads_leave ();
 }
