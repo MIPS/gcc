@@ -202,6 +202,14 @@ do {							\
 #define PRETEND_OUTGOING_VARARGS_NAMED 0
 #endif
 
+/* Define to nonzero if complex arguments should be split into their
+   corresponding components.  */
+#ifndef SPLIT_COMPLEX_ARGS
+#define SPLIT_COMPLEX_ARGS 0
+#endif
+tree split_complex_types (tree);
+tree split_complex_values (tree);
+
 /* Nonzero if we do not know how to pass TYPE solely in registers.  */
 extern bool default_must_pass_in_stack PARAMS((enum machine_mode, tree));
 #ifndef MUST_PASS_IN_STACK

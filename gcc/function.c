@@ -294,6 +294,7 @@ static void prepare_function_start PARAMS ((void));
 static void do_clobber_return_reg PARAMS ((rtx, void *));
 static void do_use_return_reg PARAMS ((rtx, void *));
 static void instantiate_virtual_regs_lossage PARAMS ((rtx));
+static tree split_complex_args PARAMS ((tree));
 
 /* The declarations we know about must not get garbage collected.
    We do not want callgraph datastructure to be saved via PCH code
@@ -4350,7 +4351,7 @@ assign_parms (fndecl)
      given as a constant and a tree-expression.  */
   struct args_size stack_args_size;
   tree fntype = TREE_TYPE (fndecl);
-  tree fnargs = DECL_ARGUMENTS (fndecl);
+  tree fnargs = DECL_ARGUMENTS (fndecl), orig_fnargs;
   /* This is used for the arg pointer when referring to stack args.  */
   rtx internal_arg_pointer;
   /* This is a dummy PARM_DECL that we used for the function result if
@@ -4404,8 +4405,13 @@ assign_parms (fndecl)
       fnargs = function_result_decl;
     }
 
+  orig_fnargs = fnargs;
+
   max_parm_reg = LAST_VIRTUAL_REGISTER + 1;
   parm_reg_stack_loc = (rtx *) ggc_alloc_cleared (max_parm_reg * sizeof (rtx));
+
+  if (SPLIT_COMPLEX_ARGS)
+    fnargs = split_complex_args (fnargs);
 
 #ifdef REG_PARM_STACK_SPACE
 #ifdef MAYBE_REG_PARM_STACK_SPACE
@@ -5215,29 +5221,52 @@ assign_parms (fndecl)
 
 	  SET_DECL_RTL (parm, stack_parm);
 	}
+    }
 
-      /* If this "parameter" was the place where we are receiving the
-	 function's incoming structure pointer, set up the result.  */
-      if (parm == function_result_decl)
+  if (SPLIT_COMPLEX_ARGS && fnargs != orig_fnargs)
+    {
+      for (parm = orig_fnargs; parm; parm = TREE_CHAIN (parm))
 	{
-	  tree result = DECL_RESULT (fndecl);
-	  rtx addr = DECL_RTL (parm);
-	  rtx x;
-
-#ifdef POINTERS_EXTEND_UNSIGNED
-	  if (GET_MODE (addr) != Pmode)
-	    addr = convert_memory_address (Pmode, addr);
-#endif
-
-	  x = gen_rtx_MEM (DECL_MODE (result), addr);
-	  set_mem_attributes (x, result, 1);
-	  SET_DECL_RTL (result, x);
+	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE)
+	    {
+	      SET_DECL_RTL (parm,
+			    gen_rtx_CONCAT (DECL_MODE (parm),
+					    DECL_RTL (fnargs),
+					    DECL_RTL (TREE_CHAIN (fnargs))));
+	      DECL_INCOMING_RTL (parm)
+		= gen_rtx_CONCAT (DECL_MODE (parm),
+				  DECL_INCOMING_RTL (fnargs),
+				  DECL_INCOMING_RTL (TREE_CHAIN (fnargs)));
+	      fnargs = TREE_CHAIN (fnargs);
+	    }
+	  else
+	    {
+	      SET_DECL_RTL (parm, DECL_RTL (fnargs));
+	      DECL_INCOMING_RTL (parm) = DECL_INCOMING_RTL (fnargs);
+	    }
+	  fnargs = TREE_CHAIN (fnargs);
 	}
     }
 
   /* Output all parameter conversion instructions (possibly including calls)
      now that all parameters have been copied out of hard registers.  */
   emit_insn (conversion_insns);
+
+  /* If we are receiving a struct value address as the first argument, set up
+     the RTL for the function result. As this might require code to convert
+     the transmitted address to Pmode, we do this here to ensure that possible
+     preliminary conversions of the address have been emitted already.  */
+  if (function_result_decl)
+    {
+      tree result = DECL_RESULT (fndecl);
+      rtx addr = DECL_RTL (function_result_decl);
+      rtx x;
+
+      addr = convert_memory_address (Pmode, addr);
+      x = gen_rtx_MEM (DECL_MODE (result), addr);
+      set_mem_attributes (x, result, 1);
+      SET_DECL_RTL (result, x);
+    }
 
   last_parm_insn = get_last_insn ();
 
@@ -5317,6 +5346,55 @@ assign_parms (fndecl)
 	  current_function_return_rtx = real_decl_rtl;
 	}
     }
+}
+
+/* If ARGS contains entries with complex types, split the entry into two
+   entries of the component type.  Return a new list of substitutions are
+   needed, else the old list.  */
+
+static tree
+split_complex_args (tree args)
+{
+  tree p;
+
+  /* Before allocating memory, check for the common case of no complex.  */
+  for (p = args; p; p = TREE_CHAIN (p))
+    if (TREE_CODE (TREE_TYPE (p)) == COMPLEX_TYPE)
+      goto found;
+  return args;
+
+ found:
+  args = copy_list (args);
+
+  for (p = args; p; p = TREE_CHAIN (p))
+    {
+      tree type = TREE_TYPE (p);
+      if (TREE_CODE (type) == COMPLEX_TYPE)
+	{
+	  tree decl;
+	  tree subtype = TREE_TYPE (type);
+
+	  /* Rewrite the PARM_DECL's type with its component.  */
+	  TREE_TYPE (p) = subtype;
+	  DECL_ARG_TYPE (p) = TREE_TYPE (DECL_ARG_TYPE (p));
+	  DECL_MODE (p) = VOIDmode;
+	  DECL_SIZE (p) = NULL;
+	  DECL_SIZE_UNIT (p) = NULL;
+	  layout_decl (p, 0);
+
+	  /* Build a second synthetic decl.  */
+	  decl = build_decl (PARM_DECL, NULL_TREE, subtype);
+	  DECL_ARG_TYPE (decl) = DECL_ARG_TYPE (p);
+	  layout_decl (decl, 0);
+
+	  /* Splice it in; skip the new decl.  */
+	  TREE_CHAIN (decl) = TREE_CHAIN (p);
+	  TREE_CHAIN (p) = decl;
+	  p = decl;
+	}
+    }
+
+  return args;
 }
 
 /* Indicate whether REGNO is an incoming argument to the current function
