@@ -2457,7 +2457,10 @@ rest_of_type_compilation (type, toplev)
 #ifdef DWARF2_DEBUGGING_INFO
   if ((write_symbols == DWARF2_DEBUG
        || write_symbols == VMS_AND_DWARF2_DEBUG)
-      && toplev)
+      && toplev
+      /* Broken declarations of enum types with attributes have this
+	 set to NULL, don't segfault on this.  */
+      && TYPE_STUB_DECL (type))
     dwarf2out_decl (TYPE_STUB_DECL (type));
 #endif
   timevar_pop (TV_SYMOUT);

@@ -1,3 +1,8 @@
+2004-04-21  Michael Matz  <matz@suse.de>
+
+	* toplev.c (rest_of_type_compilation): Check for TYPE_STUB_DECL
+	being NULL.
+
 2004-04-20  Josef Zlomek  <zlomekj@suse.cz>
 
 	* function.c (assign_parms): Force
