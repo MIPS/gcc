@@ -427,27 +427,27 @@ estimate_probability (loops_info)
       int j;
       int exits;
       struct loop *loop = loops_info->parray[i];
+      struct loop_desc desc;
 
       flow_loop_scan (loops_info, loop, LOOP_EXIT_EDGES);
       exits = loop->num_exits;
+
+      if (simple_loop_p (loops_info, loop, &desc)
+	  && desc.const_iter)
+	{
+	  predict_edge (desc.in_edge, PRED_CFG_LOOP_ITERATIONS,
+			REG_BR_PROB_BASE
+			- (REG_BR_PROB_BASE + (desc.niter + 1) /2)
+			/ (desc.niter + 1));
+	}
 
       bbs = get_loop_body (loop);
       for (j = 0; j < loop->num_nodes; j++)
 	{
 	  int header_found = 0;
 	  edge e;
-	  struct loop_desc desc;
 
 	  bb = bbs[j];
-
-	  if (simple_loop_p (loops_info, loop, &desc)
-	      && desc.const_iter)
-	    {
-	      predict_edge (desc.in_edge, PRED_CFG_LOOP_ITERATIONS,
-			    REG_BR_PROB_BASE
-			    - (REG_BR_PROB_BASE + (desc.niter + 1) /2)
-			    / (desc.niter + 1));
-	    }
 
 	  /* Bypass loop heuristics on continue statement.  These
 	     statements construct loops via "non-loop" constructs
