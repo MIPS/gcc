@@ -34,4 +34,6 @@
 // System-specific #define, typedefs, corrections, etc, go here.  This
 // file will come before all others.
 
+#define _GLIBCPP_NO_LONG_DOUBLE_IO 1
+
 #endif

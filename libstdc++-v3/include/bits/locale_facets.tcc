@@ -559,7 +559,13 @@ namespace std
       string __xtrc;
       __xtrc.reserve(32);
       __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
+#ifdef  _GLIBCPP_NO_LONG_DOUBLE_IO
+      double __vd;
+      __convert_to_v(__xtrc.c_str(), __vd, __err, _S_c_locale);
+      __v = static_cast<long double>(__vd);	
+#else
       __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
+#endif
       return __beg;
     }
 
@@ -901,7 +907,14 @@ namespace std
     num_put<_CharT, _OutIter>::
     do_put(iter_type __s, ios_base& __io, char_type __fill, 
 	   long double __v) const
-    { return _M_convert_float(__s, __io, __fill, 'L', __v); }
+    {
+#ifdef  _GLIBCPP_NO_LONG_DOUBLE_IO
+      return _M_convert_float(__s, __io, __fill, char_type(),
+			      static_cast<double>(__v));
+#else
+      return _M_convert_float(__s, __io, __fill, 'L', __v);
+#endif
+   }
 
   template<typename _CharT, typename _OutIter>
     _OutIter
@@ -927,7 +940,29 @@ namespace std
       return __s;
     }
 
+#ifdef  _GLIBCPP_NO_LONG_DOUBLE_IO
+  template<typename _CharT, typename _InIter>
+    _InIter
+    money_get<_CharT, _InIter>::
+    do_get(iter_type __beg, iter_type __end, bool __intl, ios_base& __io, 
+	   ios_base::iostate& __err, long double& __units) const
+    { 
+      string_type __str;
+      __beg = this->do_get(__beg, __end, __intl, __io, __err, __str); 
+      double __dunits;
+	
+      const int __n = numeric_limits<double>::digits10;
+      char* __cs = static_cast<char*>(__builtin_alloca(__n));
+      const locale __loc = __io.getloc();
+      const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc); 
+      const _CharT* __wcs = __str.c_str();
+      __ctype.narrow(__wcs, __wcs + __str.size() + 1, char(), __cs);      
+      __convert_to_v(__cs, __dunits, __err, _S_c_locale);
+      __units = static_cast<long double>(__dunits);	
+      return __beg;
+    }
 
+#else //  _GLIBCPP_NO_LONG_DOUBLE_IO
   template<typename _CharT, typename _InIter>
     _InIter
     money_get<_CharT, _InIter>::
@@ -946,6 +981,7 @@ namespace std
       __convert_to_v(__cs, __units, __err, _S_c_locale);
       return __beg;
     }
+#endif //  _GLIBCPP_NO_LONG_DOUBLE_IO
 
   template<typename _CharT, typename _InIter>
     _InIter
@@ -1143,6 +1179,43 @@ namespace std
       return __beg; 
     }
 
+#ifdef  _GLIBCPP_NO_LONG_DOUBLE_IO
+  template<typename _CharT, typename _OutIter>
+    _OutIter
+    money_put<_CharT, _OutIter>::
+    do_put(iter_type __s, bool __intl, ios_base& __io, char_type __fill,
+	   long double __units) const
+    { 
+      const locale __loc = __io.getloc();
+      const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
+      double __dunits = static_cast<double>(__units);	
+#ifdef _GLIBCPP_USE_C99
+      // First try a buffer perhaps big enough.
+      int __cs_size = 64;
+      char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
+      int __len = __convert_from_v(__cs, __cs_size, "%.01f", __dunits, 
+				   _S_c_locale);
+      // If the buffer was not large enough, try again with the correct size.
+      if (__len >= __cs_size)
+	{
+	  __cs_size = __len + 1;
+	  __cs = static_cast<char*>(__builtin_alloca(__cs_size));
+	  __len = __convert_from_v(__cs, __cs_size, "%.01f", __dunits, 
+				   _S_c_locale);
+	}
+#else
+      // max_exponent10 + 1 for the integer part, + 4 for sign, decimal point,
+      // decimal digit, '\0'. 
+      const int __cs_size = numeric_limits<double>::max_exponent10 + 5;
+      char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
+      int __len = __convert_from_v(__cs, 0, "%.01f", __dunits, _S_c_locale);
+#endif
+      _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __cs_size));
+      __ctype.widen(__cs, __cs + __len, __ws);
+      string_type __digits(__ws);
+      return this->do_put(__s, __intl, __io, __fill, __digits); 
+    }
+#else  //  _GLIBCPP_NO_LONG_DOUBLE_IO
   template<typename _CharT, typename _OutIter>
     _OutIter
     money_put<_CharT, _OutIter>::
@@ -1177,6 +1250,7 @@ namespace std
       string_type __digits(__ws);
       return this->do_put(__s, __intl, __io, __fill, __digits); 
     }
+#endif //  _GLIBCPP_NO_LONG_DOUBLE_IO
 
   template<typename _CharT, typename _OutIter>
     _OutIter
@@ -1987,6 +2061,7 @@ namespace std
       return __ret;
     }
 #endif
+
 
   // Construct correctly padded string, as per 22.2.2.2.2
   // Assumes 

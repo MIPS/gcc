@@ -573,8 +573,16 @@ namespace std
 
     // For long long types.
     if (__modl)
+#ifndef __MINGW32__
       *__fptr++ = __modl;
-
+#else
+      {
+	__fptr--;
+	*__fptr++ = 'I';
+	*__fptr++ = '6';
+	*__fptr++ = '4';
+      }
+#endif
     ios_base::fmtflags __bsefield = __flags & ios_base::basefield;
     if (__bsefield == ios_base::hex)
       *__fptr++ = (__flags & ios_base::uppercase) ? 'X' : 'x';
