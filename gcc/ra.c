@@ -1440,7 +1440,7 @@ undef_to_size_word (undefined)
 	      | (u << word);
 	  *undefined = u;
 	  /* Size remains the same, only the begin is moved up move bytes.  */
-	  return tab.size_word + word;
+	  return tab.size_word + BL_TO_WORD (word, 0);
 	}
 	break;
     }
@@ -8603,16 +8603,13 @@ init_ra (void)
 
   for (i = 0; i < NUM_MACHINE_MODES; i++)
     {
-      int reg;
+      int reg, size;
       CLEAR_HARD_REG_SET (rs);
       for (reg = 0; reg < FIRST_PSEUDO_REGISTER;)
-	if (HARD_REGNO_MODE_OK (reg, i))
+	if (HARD_REGNO_MODE_OK (reg, i)
+	    /* Ignore VOIDmode and similar things.  */
+	    && (size = HARD_REGNO_NREGS (reg, i)) != 0)
 	  {
-	    int size = HARD_REGNO_NREGS (reg, i);
-	    /* If it's OK for a register, it also should fill at
-	       least one.  */
-	    if (!size)
-	      abort ();
 	    while (size-- && reg < FIRST_PSEUDO_REGISTER)
 	      {
 		SET_HARD_REG_BIT (rs, reg);
