@@ -1,4 +1,20 @@
-2002-02-18  Jeff Law  <law@redhat.com>
+2001-02-19  Jeff Law  <law@redhat.com>
+
+	* fold-const.c (fold_negate_const): New function.  Broken out of
+	the generic fold code.
+	(fold_abs_const, fold_relational_const): Likewise.
+	(fold_relational_hi_lo): Likewise.
+	(nondestructive_fold_unary, nondestructive_fold_binary): Likewise.
+	(fold): Use fold_negate_const, fold_abs_const, fold_relational_const,
+	and fold_relational_hi_lo.
+	* tree.h (nondestructive_fold_unary): Declare.
+	(nondestructive_fold_binary): Declare.
+	* tree-ssa-ccp.c (ccp_fold): New function.
+	(add_control_edge): Fix trivial formatting bug.
+	(evaluate_stmt): Rework to use ccp_fold instead of copying
+	statements.
+
+2001-02-18  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-ccp.c (visit_assignment): For simple copies, copy the
 	lattice values.

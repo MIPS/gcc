@@ -89,6 +89,11 @@ static tree decode_field_reference PARAMS ((tree, HOST_WIDE_INT *,
 					    HOST_WIDE_INT *,
 					    enum machine_mode *, int *,
 					    int *, tree *, tree *));
+static tree fold_negate_const	PARAMS ((tree, tree));
+static tree fold_abs_const	PARAMS ((tree, tree));
+static tree fold_relational_const PARAMS ((enum tree_code, tree, tree, tree));
+static tree fold_relational_hi_lo PARAMS ((enum tree_code *, tree *,
+					   tree *, tree *));
 static int all_ones_mask_p	PARAMS ((tree, int));
 static tree sign_bit_p		PARAMS ((tree, tree));
 static int simple_operand_p	PARAMS ((tree));
@@ -4576,6 +4581,676 @@ fold_real_zero_addition_p (type, addend, negate)
 }
 
 
+/* Return the tree for neg (ARG0) when ARG0 is known to be either
+   an integer constant or real constant.
+
+   TYPE is the type of the result.  */
+
+static tree
+fold_negate_const (arg0, type)
+     tree arg0;
+     tree type;
+{
+  tree t = NULL_TREE;
+
+  if (TREE_CODE (arg0) == INTEGER_CST)
+    {
+      unsigned HOST_WIDE_INT low;
+      HOST_WIDE_INT high;
+      int overflow = neg_double (TREE_INT_CST_LOW (arg0),
+				 TREE_INT_CST_HIGH (arg0),
+				 &low, &high);
+      t = build_int_2 (low, high);
+      TREE_TYPE (t) = type;
+      TREE_OVERFLOW (t)
+	= (TREE_OVERFLOW (arg0)
+	   | force_fit_type (t, overflow && !TREE_UNSIGNED (type)));
+      TREE_CONSTANT_OVERFLOW (t)
+	= TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg0);
+    }
+  else if (TREE_CODE (arg0) == REAL_CST)
+    t = build_real (type, REAL_VALUE_NEGATE (TREE_REAL_CST (arg0)));
+#ifdef ENABLE_CHECKING
+  else
+    abort ();
+#endif
+    
+  return t;
+}
+
+/* Return the tree for abs (ARG0) when ARG0 is known to be either
+   an integer constant or real constant.
+
+   TYPE is the type of the result.  */
+
+static tree
+fold_abs_const (arg0, type)
+     tree arg0;
+     tree type;
+{
+  tree t = NULL_TREE;
+
+  if (TREE_CODE (arg0) == INTEGER_CST)
+    {
+      /* If the value is unsigned, then the absolute value is
+	 the same as the ordinary value.  */
+      if (TREE_UNSIGNED (type))
+	return arg0;
+      /* Similarly, if the value is non-negative.  */
+      else if (INT_CST_LT (integer_minus_one_node, arg0))
+	return arg0;
+      /* If the value is negative, then the absolute value is
+	 its negation.  */
+      else
+	{
+	  unsigned HOST_WIDE_INT low;
+	  HOST_WIDE_INT high;
+	  int overflow = neg_double (TREE_INT_CST_LOW (arg0),
+				     TREE_INT_CST_HIGH (arg0),
+				     &low, &high);
+	  t = build_int_2 (low, high);
+	  TREE_TYPE (t) = type;
+	  TREE_OVERFLOW (t)
+	    = (TREE_OVERFLOW (arg0)
+	       | force_fit_type (t, overflow));
+	  TREE_CONSTANT_OVERFLOW (t)
+	    = TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg0);
+	  return t;
+	}
+    }
+  else if (TREE_CODE (arg0) == REAL_CST)
+    {
+      if (REAL_VALUE_NEGATIVE (TREE_REAL_CST (arg0)))
+	return build_real (type, REAL_VALUE_NEGATE (TREE_REAL_CST (arg0)));
+      else
+	return arg0;
+    }
+#ifdef ENABLE_CHECKING
+  else
+    abort ();
+#endif
+    
+  return t;
+}
+
+/* Given CODE, a relational operator, the target type, TYPE and two
+   constant operands OP0 and OP1, return the result of the
+   relational operation.  If the result is not a compile time
+   constant, then return NULL_TREE.  */
+
+static tree
+fold_relational_const (code, type, op0, op1)
+     enum tree_code code;
+     tree type;
+     tree op0;
+     tree op1;
+{
+  tree tem;
+  int invert;
+
+  /* From here on, the only cases we handle are when the result is
+     known to be a constant.
+
+     To compute GT, swap the arguments and do LT.
+     To compute GE, do LT and invert the result.
+     To compute LE, swap the arguments, do LT and invert the result.
+     To compute NE, do EQ and invert the result.
+
+     Therefore, the code below must handle only EQ and LT.  */
+
+  if (code == LE_EXPR || code == GT_EXPR)
+    {
+      tem = op0, op0 = op1, op1 = tem;
+      code = swap_tree_comparison (code);
+    }
+
+  /* Note that it is safe to invert for real values here because we
+     will check below in the one case that it matters.  */
+
+  tem = NULL_TREE;
+  invert = 0;
+  if (code == NE_EXPR || code == GE_EXPR)
+    {
+      invert = 1;
+      code = invert_tree_comparison (code);
+    }
+
+  /* Compute a result for LT or EQ if args permit;
+     Otherwise return T.  */
+  if (TREE_CODE (op0) == INTEGER_CST && TREE_CODE (op1) == INTEGER_CST)
+    {
+      if (code == EQ_EXPR)
+        tem = build_int_2 (tree_int_cst_equal (op0, op1), 0);
+      else
+        tem = build_int_2 ((TREE_UNSIGNED (TREE_TYPE (op0))
+			    ? INT_CST_LT_UNSIGNED (op0, op1)
+			    : INT_CST_LT (op0, op1)),
+			   0);
+    }
+
+  /* Two real constants can be compared explicitly.  */
+  else if (TREE_CODE (op0) == REAL_CST && TREE_CODE (op1) == REAL_CST)
+    {
+      /* If either operand is a NaN, the result is false with two
+	 exceptions: First, an NE_EXPR is true on NaNs, but that case
+	 is already handled correctly since we will be inverting the
+	 result for NE_EXPR.  Second, if we had inverted a LE_EXPR
+	 or a GE_EXPR into a LT_EXPR, we must return true so that it
+	 will be inverted into false.  */
+
+      if (REAL_VALUE_ISNAN (TREE_REAL_CST (op0))
+          || REAL_VALUE_ISNAN (TREE_REAL_CST (op1)))
+        tem = build_int_2 (invert && code == LT_EXPR, 0);
+
+      else if (code == EQ_EXPR)
+        tem = build_int_2 (REAL_VALUES_EQUAL (TREE_REAL_CST (op0),
+					      TREE_REAL_CST (op1)),
+			   0);
+      else
+        tem = build_int_2 (REAL_VALUES_LESS (TREE_REAL_CST (op0),
+					     TREE_REAL_CST (op1)),
+			   0);
+    }
+
+  if (tem == NULL_TREE)
+    return NULL_TREE;
+
+  if (invert)
+    TREE_INT_CST_LOW (tem) ^= 1;
+
+  TREE_TYPE (tem) = type;
+  if (TREE_CODE (type) == BOOLEAN_TYPE)
+    return (*lang_hooks.truthvalue_conversion) (tem);
+  return tem;
+}
+
+/* See if we are applying CODE, a relational to the highest or lowest
+   possible integer of TYPE.  If so, then the result is a compile
+   time constant.  */
+
+static tree
+fold_relational_hi_lo (code_p, type_p, op0_p, op1_p)
+     enum tree_code *code_p;
+     tree *type_p;
+     tree *op0_p;
+     tree *op1_p;
+{
+  tree type = *type_p;
+  tree op0 = *op0_p;
+  tree op1 = *op1_p;
+  enum tree_code code = *code_p;
+  int width = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (op1)));
+
+  if (TREE_CODE (op1) == INTEGER_CST
+      && ! TREE_CONSTANT_OVERFLOW (op1)
+      && width <= HOST_BITS_PER_WIDE_INT
+      && (INTEGRAL_TYPE_P (TREE_TYPE (op1))
+	  || POINTER_TYPE_P (TREE_TYPE (op1))))
+    {
+      unsigned HOST_WIDE_INT signed_max;
+      unsigned HOST_WIDE_INT max, min;
+
+      signed_max = ((unsigned HOST_WIDE_INT) 1 << (width - 1)) - 1;
+
+      if (TREE_UNSIGNED (TREE_TYPE (op1)))
+        {
+          max = ((unsigned HOST_WIDE_INT) 2 << (width - 1)) - 1;
+	  min = 0;
+	}
+      else
+        {
+          max = signed_max;
+	  min = ((unsigned HOST_WIDE_INT) -1 << (width - 1));
+	}
+
+      if (TREE_INT_CST_HIGH (op1) == 0
+	  && TREE_INT_CST_LOW (op1) == max)
+	switch (code)
+	  {
+	  case GT_EXPR:
+	    return omit_one_operand (type,
+				     convert (type, integer_zero_node),
+				     op0);
+	  case GE_EXPR:
+	    *code_p = EQ_EXPR;
+	    break;
+	  case LE_EXPR:
+	    return omit_one_operand (type,
+				     convert (type, integer_one_node),
+				     op0);
+	  case LT_EXPR:
+	    *code_p = NE_EXPR;
+	    break;
+
+	  /* The GE_EXPR and LT_EXPR cases above are not normally
+	     reached because of  previous transformations.  */
+
+	  default:
+	    break;
+	  }
+      else if (TREE_INT_CST_HIGH (op1) == 0
+	       && TREE_INT_CST_LOW (op1) == max - 1)
+	switch (code)
+	  {
+	  case GT_EXPR:
+	    *code_p = EQ_EXPR;
+	    *op1_p = const_binop (PLUS_EXPR, op1, integer_one_node, 0);
+	    break;
+	  case LE_EXPR:
+	    *code_p = NE_EXPR;
+	    *op1_p = const_binop (PLUS_EXPR, op1, integer_one_node, 0);
+	    break;
+	  default:
+	    break;
+	  }
+      else if (TREE_INT_CST_HIGH (op1) == (min ? -1 : 0)
+	       && TREE_INT_CST_LOW (op1) == min)
+       switch (code)
+	  {
+	  case LT_EXPR:
+	    return omit_one_operand (type,
+				     convert (type, integer_zero_node),
+				     op0);
+	  case LE_EXPR:
+	    *code_p = EQ_EXPR;
+	    break;
+
+	  case GE_EXPR:
+	    return omit_one_operand (type,
+				     convert (type, integer_one_node),
+				     op0);
+	  case GT_EXPR:
+	    *code_p = NE_EXPR;
+	    break;
+
+	  default:
+	    break;
+	  }
+      else if (TREE_INT_CST_HIGH (op1) == (min ? -1 : 0)
+	       && TREE_INT_CST_LOW (op1) == min + 1)
+	switch (code)
+	  {
+	  case GE_EXPR:
+	    *code_p = NE_EXPR;
+	    *op1_p = const_binop (MINUS_EXPR, op1, integer_one_node, 0);
+	    break;
+	  case LT_EXPR:
+	    *code_p = EQ_EXPR;
+	    *op1_p = const_binop (MINUS_EXPR, op1, integer_one_node, 0);
+	    break;
+	  default:
+	    break;
+	  }
+
+      else if (TREE_INT_CST_HIGH (op1) == 0
+	       && TREE_INT_CST_LOW (op1) == signed_max
+	       && TREE_UNSIGNED (TREE_TYPE (op1))
+	       /* signed_type does not work on pointer types.  */
+	       && INTEGRAL_TYPE_P (TREE_TYPE (op1)))
+	{
+	  /* The following case also applies to X < signed_max+1
+	     and X >= signed_max+1 because previous transformations.  */
+	  if (code == LE_EXPR || code == GT_EXPR)
+	    {
+	      tree st0, st1, exp, retval;
+	      st0 = (*lang_hooks.types.signed_type) (TREE_TYPE (op0));
+	      st1 = (*lang_hooks.types.signed_type) (TREE_TYPE (op1));
+
+	      exp = build (LE_EXPR ? GE_EXPR: LT_EXPR,
+			   type,
+			   convert (st0, op0),
+			   convert (st1, integer_zero_node));
+
+	      retval = nondestructive_fold_binary (TREE_CODE (exp),
+			      			   TREE_TYPE (exp),
+						   TREE_OPERAND (exp, 0),
+						   TREE_OPERAND (exp, 1));
+	      return (retval ? retval : exp);
+	    }
+	}
+    }
+
+  return NULL_TREE;
+}
+
+/* Given the components of a binary expression CODE, TYPE, OP0 and OP1,
+   attempt to fold the expression without modifying TYPE, OP0 or OP1.
+
+   If simplification was possible, return the simplified tree.  if
+   no simplification is possible return NULL_TREE.
+
+   Note this is primarily designed to be called after gimplification
+   of the tree structures and when at least one operand is a constant.
+   As a result of those simplifying assumptions this routine is far
+   simpler than the generic fold routine.  */
+
+tree
+nondestructive_fold_binary (code, type, op0, op1)
+     enum tree_code code;
+     tree type;
+     tree op0;
+     tree op1;
+{
+  int wins = 1;
+  tree subop0;
+  tree subop1;
+  tree tem;
+
+  /* If this is a commutative operation, and ARG0 is a constant, move it
+     to ARG1 to reduce the number of tests below.  */
+  if ((code == PLUS_EXPR || code == MULT_EXPR || code == MIN_EXPR
+       || code == MAX_EXPR || code == BIT_IOR_EXPR || code == BIT_XOR_EXPR
+       || code == BIT_AND_EXPR)
+      && (TREE_CODE (op0) == INTEGER_CST || TREE_CODE (op0) == REAL_CST))
+    {
+      tem = op0;
+      op0 = op1;
+      op1 = tem;
+    }
+
+  /* If either operand is a complex type, extract its real component.  */
+  if (TREE_CODE (op0) == COMPLEX_CST)
+    subop0 = TREE_REALPART (op0);
+  else
+    subop0 = op0;
+
+  if (TREE_CODE (op1) == COMPLEX_CST)
+    subop1 = TREE_REALPART (op1);
+  else
+    subop1 = op1;
+
+  /* Note if either argument is not a real or integer constant.
+     With a few exceptions, simplification is limited to cases
+     where both arguments are constants.  */
+  if ((TREE_CODE (subop0) != INTEGER_CST
+       && TREE_CODE (subop0) != REAL_CST)
+      || (TREE_CODE (subop1) != INTEGER_CST
+	  && TREE_CODE (subop1) != REAL_CST))
+    wins = 0;
+
+  switch (code)
+    {
+    case PLUS_EXPR:
+    case BIT_XOR_EXPR:
+
+    binary:
+      if (!wins)
+	return NULL_TREE;
+
+      /* Both arguments are constants.  Simplify.  */
+      tem = const_binop (code, op0, op1, 0);
+      if (tem != NULL_TREE)
+	{
+	  /* The return value should always have the same type as
+	     the original expression.  */
+	  if (TREE_TYPE (tem) != type)
+	    tem = convert (type, tem);
+
+	  return tem;
+	}
+      return NULL_TREE;
+      
+    case MINUS_EXPR:
+      /* Fold &x - &x.  This can happen from &x.foo - &x.
+         This is unsafe for certain floats even in non-IEEE formats.
+         In IEEE, it is unsafe because it does wrong for NaNs.
+         Also note that operand_equal_p is always false if an
+         operand is volatile.  */
+      if (! FLOAT_TYPE_P (type) && operand_equal_p (op0, op1, 0))
+	return convert (type, integer_zero_node);
+
+      goto binary;
+
+    case MULT_EXPR:
+    case BIT_AND_EXPR:
+      /* Special case multiplication or bitwise AND where one argument
+	 is zero.  */
+      if (! FLOAT_TYPE_P (type) && integer_zerop (op1))
+	return omit_one_operand (type, op1, op0);
+      else
+        if (!HONOR_NANS (TYPE_MODE (TREE_TYPE (op0)))
+	    && !HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (op0)))
+	    && real_zerop (op1))
+	  return omit_one_operand (type, op1, op0);
+
+      goto binary;
+
+    case BIT_IOR_EXPR:
+      /* Special case when we know the result will be all ones.  */
+      if (integer_all_onesp (op1))
+	return omit_one_operand (type, op1, op0);
+
+      goto binary;
+	
+    case TRUNC_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case TRUNC_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case RDIV_EXPR:
+      /* Division by zero is undefined.  */
+      if (integer_zerop (op1))
+      	return NULL_TREE;
+
+      if (TREE_CODE (op1) == REAL_CST
+	  && !MODE_HAS_INFINITIES (TYPE_MODE (TREE_TYPE (op1)))
+	  && real_zerop (op1))
+	return NULL_TREE;
+
+      goto binary;
+
+    case MIN_EXPR:
+      if (INTEGRAL_TYPE_P (type)
+	  && operand_equal_p (op1, TYPE_MIN_VALUE (type), 1))
+	return omit_one_operand (type, op1, op0);
+
+      goto binary;
+
+    case MAX_EXPR:
+      if (INTEGRAL_TYPE_P (type)
+	  && TYPE_MAX_VALUE (type)
+	  && operand_equal_p (op1, TYPE_MAX_VALUE (type), 1))
+	return omit_one_operand (type, op1, op0);
+
+      goto binary;
+
+    case RSHIFT_EXPR:
+      /* Optimize -1 >> x for arithmetic right shifts.  */
+      if (integer_all_onesp (op0) && ! TREE_UNSIGNED (type))
+	return omit_one_operand (type, op0, op1);
+      /* ... fall through ...  */
+
+    case LSHIFT_EXPR:
+      if (integer_zerop (op0))
+	return omit_one_operand (type, op0, op1);
+
+      /* Since negative shift count is not well-defined, don't
+	 try to compute it in the compiler.  */
+      if (TREE_CODE (op1) == INTEGER_CST && tree_int_cst_sgn (op1) < 0)
+	return NULL_TREE;
+
+      goto binary;
+
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
+      /* -1 rotated either direction by any amount is still -1.  */
+      if (integer_all_onesp (op0))
+	return omit_one_operand (type, op0, op1);
+
+      /* 0 rotated either direction by any amount is still zero.  */
+      if (integer_zerop (op0))
+	return omit_one_operand (type, op0, op1);
+
+      goto binary;
+
+    case BIT_ANDTC_EXPR:
+      if (integer_zerop (op0))
+	return omit_one_operand (type, op0, op1);
+
+      goto binary;
+
+    case COMPLEX_EXPR:
+      if (wins)
+	return build_complex (type, op0, op1);
+      return NULL_TREE;
+
+    case LT_EXPR:
+    case LE_EXPR:
+    case GT_EXPR:
+    case GE_EXPR:
+    case EQ_EXPR:
+    case NE_EXPR:
+      /* If one arg is a real or integer constant, put it last.  */
+      if ((TREE_CODE (op0) == INTEGER_CST
+	   && TREE_CODE (op1) != INTEGER_CST)
+	  || (TREE_CODE (op0) == REAL_CST
+	      && TREE_CODE (op0) != REAL_CST))
+	{
+	  tree temp;
+
+	  temp = op0;
+	  op0 = op1;
+	  op1 = temp;
+	  code = swap_tree_comparison (code);
+	}
+
+      /* Change X >= C to X > (C - 1) and X < C to X <= (C - 1) if C > 0.
+	 This transformation affects the cases which are handled in later
+	 optimizations involving comparisons with non-negative constants.  */
+      if (TREE_CODE (op1) == INTEGER_CST
+	  && TREE_CODE (op0) != INTEGER_CST
+	  && tree_int_cst_sgn (op1) > 0)
+	{
+	  switch (code)
+	    {
+	    case GE_EXPR:
+	      code = GT_EXPR;
+	      op1 = const_binop (MINUS_EXPR, op1, integer_one_node, 0);
+	      break;
+
+	    case LT_EXPR:
+	      code = LE_EXPR;
+	      op1 = const_binop (MINUS_EXPR, op1, integer_one_node, 0);
+	      break;
+
+	    default:
+	      break;
+	    }
+	}
+
+      
+      tem = fold_relational_hi_lo (&code, &type, &op0, &op1);
+      if (tem)
+	return tem;
+
+      if (!wins)
+	return NULL_TREE;
+
+      return fold_relational_const (code, type, op0, op1);
+
+    case RANGE_EXPR:
+      /* This could probably be handled.  */
+
+    default:
+      return NULL_TREE;
+    }
+
+
+}
+
+/* Given the components of a unary expression CODE, TYPE and OP0,
+   attempt to fold the expression without modifying TYPE or OP0. 
+
+   If simplification was possible, return the simplified tree.  if
+   no simplification is possible return NULL_TREE.
+
+   Note this is primarily designed to be called after gimplification
+   of the tree structures and when op0 is a constant.  As a result
+   of those simplifying assumptions this routine is far simpler than
+   the generic fold routine.  */
+
+tree
+nondestructive_fold_unary (code, type, op0)
+     enum tree_code code;
+     tree type;
+     tree op0;
+{
+  tree t;
+
+  /* Make sure we have a suitable constant argument.  */
+  if (code == NOP_EXPR || code == FLOAT_EXPR || code == CONVERT_EXPR)
+    {
+      tree subop;
+
+      if (TREE_CODE (op0) == COMPLEX_CST)
+	subop = TREE_REALPART (op0);
+      else
+	subop = op0;
+
+      if (TREE_CODE (subop) != INTEGER_CST && TREE_CODE (subop) != REAL_CST)
+	return NULL_TREE;
+    }
+
+  switch (code)
+    {
+    case NOP_EXPR:
+    case FLOAT_EXPR:
+    case CONVERT_EXPR:
+    case FIX_TRUNC_EXPR:
+
+      /* Other kinds of FIX are not handled properly by fold_convert.  */
+
+      if (TREE_TYPE (op0) == type)
+	return op0;
+
+      return fold_convert (build1 (code, type, op0), op0);
+
+    case NEGATE_EXPR:
+      if (TREE_CODE (op0) == INTEGER_CST || TREE_CODE (op0) == REAL_CST)
+	return fold_negate_const (op0, type);
+      else
+	return NULL_TREE;
+
+    case ABS_EXPR:
+      if (TREE_CODE (op0) == INTEGER_CST || TREE_CODE (op0) == REAL_CST)
+	return fold_abs_const (op0, type);
+      else
+	return NULL_TREE;
+
+    case BIT_NOT_EXPR:
+      t = build_int_2 (~ TREE_INT_CST_LOW (op0), ~ TREE_INT_CST_HIGH (op0));
+      TREE_TYPE (t) = type;
+      force_fit_type (t, 0);
+      TREE_OVERFLOW (t) = TREE_OVERFLOW (op0);
+      TREE_CONSTANT_OVERFLOW (t) = TREE_CONSTANT_OVERFLOW (op0);
+      return t;
+
+    case REALPART_EXPR:
+      if (TREE_CODE (op0) == COMPLEX_CST)
+	return TREE_REALPART (op0);
+      else
+	return NULL_TREE;
+
+    case IMAGPART_EXPR:
+      if (TREE_CODE (op0) == COMPLEX_CST)
+	return TREE_IMAGPART (op0);
+      else
+	return NULL_TREE;
+
+    case FFS_EXPR:
+    case CLZ_EXPR:
+    case CTZ_EXPR:
+    case POPCOUNT_EXPR:
+    case PARITY_EXPR:
+    default:
+      return NULL_TREE;
+    }
+}
+
 /* Perform constant folding and related simplification of EXPR.
    The related simplifications include x*1 => x, x*0 => 0, etc.,
    and application of the associative law.
@@ -4595,7 +5270,6 @@ fold (expr)
   tree arg0 = NULL_TREE, arg1 = NULL_TREE;
   enum tree_code code = TREE_CODE (t);
   int kind = TREE_CODE_CLASS (code);
-  int invert;
   /* WINS will be nonzero when the switch is done
      if all operands are constant.  */
   int wins = 1;
@@ -5016,26 +5690,10 @@ fold (expr)
       return t;
 
     case NEGATE_EXPR:
-      if (wins)
-	{
-	  if (TREE_CODE (arg0) == INTEGER_CST)
-	    {
-	      unsigned HOST_WIDE_INT low;
-	      HOST_WIDE_INT high;
-	      int overflow = neg_double (TREE_INT_CST_LOW (arg0),
-					 TREE_INT_CST_HIGH (arg0),
-					 &low, &high);
-	      t = build_int_2 (low, high);
-	      TREE_TYPE (t) = type;
-	      TREE_OVERFLOW (t)
-		= (TREE_OVERFLOW (arg0)
-		   | force_fit_type (t, overflow && !TREE_UNSIGNED (type)));
-	      TREE_CONSTANT_OVERFLOW (t)
-		= TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg0);
-	    }
-	  else if (TREE_CODE (arg0) == REAL_CST)
-	    t = build_real (type, REAL_VALUE_NEGATE (TREE_REAL_CST (arg0)));
-	}
+      if (wins
+	  && (TREE_CODE (arg0) == INTEGER_CST
+	      || TREE_CODE (arg0) == REAL_CST))
+	return fold_negate_const (arg0, type);
       else if (TREE_CODE (arg0) == NEGATE_EXPR)
 	return TREE_OPERAND (arg0, 0);
       /* Convert -((double)float) into (double)(-float).  */
@@ -5057,42 +5715,9 @@ fold (expr)
       return t;
 
     case ABS_EXPR:
-      if (wins)
-	{
-	  if (TREE_CODE (arg0) == INTEGER_CST)
-	    {
-	      /* If the value is unsigned, then the absolute value is
-		 the same as the ordinary value.  */
-	      if (TREE_UNSIGNED (type))
-		return arg0;
-	      /* Similarly, if the value is non-negative.  */
-	      else if (INT_CST_LT (integer_minus_one_node, arg0))
-		return arg0;
-	      /* If the value is negative, then the absolute value is
-		 its negation.  */
-	      else
-		{
-		  unsigned HOST_WIDE_INT low;
-		  HOST_WIDE_INT high;
-		  int overflow = neg_double (TREE_INT_CST_LOW (arg0),
-					     TREE_INT_CST_HIGH (arg0),
-					     &low, &high);
-		  t = build_int_2 (low, high);
-		  TREE_TYPE (t) = type;
-		  TREE_OVERFLOW (t)
-		    = (TREE_OVERFLOW (arg0)
-		       | force_fit_type (t, overflow));
-		  TREE_CONSTANT_OVERFLOW (t)
-		    = TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg0);
-		}
-	    }
-	  else if (TREE_CODE (arg0) == REAL_CST)
-	    {
-	      if (REAL_VALUE_NEGATIVE (TREE_REAL_CST (arg0)))
-		t = build_real (type,
-				REAL_VALUE_NEGATE (TREE_REAL_CST (arg0)));
-	    }
-	}
+      if (wins
+	  && (TREE_CODE (arg0) == INTEGER_CST || TREE_CODE (arg0) == REAL_CST))
+	return fold_abs_const (arg0, type);
       else if (TREE_CODE (arg0) == ABS_EXPR || TREE_CODE (arg0) == NEGATE_EXPR)
 	return build1 (ABS_EXPR, type, TREE_OPERAND (arg0, 0));
       /* Convert fabs((double)float) into (double)fabsf(float).  */
@@ -6281,141 +6906,16 @@ fold (expr)
 	    }
 	}
 
-      /* Comparisons with the highest or lowest possible integer of
-	 the specified size will have known values.  */
-      {
-	int width = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (arg1)));
+      t1 = fold_relational_hi_lo (&code, &type, &arg0, &arg1);
 
-	if (TREE_CODE (arg1) == INTEGER_CST
-	    && ! TREE_CONSTANT_OVERFLOW (arg1)
-	    && width <= HOST_BITS_PER_WIDE_INT
-	    && (INTEGRAL_TYPE_P (TREE_TYPE (arg1))
-		|| POINTER_TYPE_P (TREE_TYPE (arg1))))
-	  {
-	    unsigned HOST_WIDE_INT signed_max;
-	    unsigned HOST_WIDE_INT max, min;
-
-	    signed_max = ((unsigned HOST_WIDE_INT) 1 << (width - 1)) - 1;
-
-	    if (TREE_UNSIGNED (TREE_TYPE (arg1)))
-	      {
-	        max = ((unsigned HOST_WIDE_INT) 2 << (width - 1)) - 1;
-		min = 0;
-	      }
-	    else
-	      {
-	        max = signed_max;
-		min = ((unsigned HOST_WIDE_INT) -1 << (width - 1));
-	      }
-
-	    if (TREE_INT_CST_HIGH (arg1) == 0
-		&& TREE_INT_CST_LOW (arg1) == max)
-	      switch (code)
-		{
-		case GT_EXPR:
-		  return omit_one_operand (type,
-					   convert (type, integer_zero_node),
-					   arg0);
-		case GE_EXPR:
-		  code = EQ_EXPR;
-		  TREE_SET_CODE (t, EQ_EXPR);
-		  break;
-		case LE_EXPR:
-		  return omit_one_operand (type,
-					   convert (type, integer_one_node),
-					   arg0);
-		case LT_EXPR:
-		  code = NE_EXPR;
-		  TREE_SET_CODE (t, NE_EXPR);
-		  break;
-
-		/* The GE_EXPR and LT_EXPR cases above are not normally
-		   reached because of  previous transformations.  */
-
-		default:
-		  break;
-		}
-	    else if (TREE_INT_CST_HIGH (arg1) == 0
-		     && TREE_INT_CST_LOW (arg1) == max - 1)
-	      switch (code)
-		{
-		case GT_EXPR:
-		  code = EQ_EXPR;
-		  arg1 = const_binop (PLUS_EXPR, arg1, integer_one_node, 0);
-		  t = build (code, type, TREE_OPERAND (t, 0), arg1);
-		  break;
-		case LE_EXPR:
-		  code = NE_EXPR;
-		  arg1 = const_binop (PLUS_EXPR, arg1, integer_one_node, 0);
-		  t = build (code, type, TREE_OPERAND (t, 0), arg1);
-		  break;
-		default:
-		  break;
-		}
-	    else if (TREE_INT_CST_HIGH (arg1) == (min ? -1 : 0)
-		     && TREE_INT_CST_LOW (arg1) == min)
-	      switch (code)
-		{
-		case LT_EXPR:
-		  return omit_one_operand (type,
-					   convert (type, integer_zero_node),
-					   arg0);
-		case LE_EXPR:
-		  code = EQ_EXPR;
-		  TREE_SET_CODE (t, EQ_EXPR);
-		  break;
-
-		case GE_EXPR:
-		  return omit_one_operand (type,
-					   convert (type, integer_one_node),
-					   arg0);
-		case GT_EXPR:
-		  code = NE_EXPR;
-		  TREE_SET_CODE (t, NE_EXPR);
-		  break;
-
-		default:
-		  break;
-		}
-	    else if (TREE_INT_CST_HIGH (arg1) == (min ? -1 : 0)
-		     && TREE_INT_CST_LOW (arg1) == min + 1)
-	      switch (code)
-		{
-		case GE_EXPR:
-		  code = NE_EXPR;
-		  arg1 = const_binop (MINUS_EXPR, arg1, integer_one_node, 0);
-		  t = build (code, type, TREE_OPERAND (t, 0), arg1);
-		  break;
-		case LT_EXPR:
-		  code = EQ_EXPR;
-		  arg1 = const_binop (MINUS_EXPR, arg1, integer_one_node, 0);
-		  t = build (code, type, TREE_OPERAND (t, 0), arg1);
-		  break;
-		default:
-		  break;
-		}
-
-	    else if (TREE_INT_CST_HIGH (arg1) == 0
-		     && TREE_INT_CST_LOW (arg1) == signed_max
-		     && TREE_UNSIGNED (TREE_TYPE (arg1))
-		     /* signed_type does not work on pointer types.  */
-		     && INTEGRAL_TYPE_P (TREE_TYPE (arg1)))
-	      {
-		/* The following case also applies to X < signed_max+1
-		   and X >= signed_max+1 because previous transformations.  */
-		if (code == LE_EXPR || code == GT_EXPR)
-		  {
-		    tree st0, st1;
-		    st0 = (*lang_hooks.types.signed_type) (TREE_TYPE (arg0));
-		    st1 = (*lang_hooks.types.signed_type) (TREE_TYPE (arg1));
-		    return fold
-		      (build (code == LE_EXPR ? GE_EXPR: LT_EXPR,
-			      type, convert (st0, arg0),
-			      convert (st1, integer_zero_node)));
-		  }
-	      }
-	  }
-      }
+      /* If fold_relational_hi_lo returns non-null, then it folded the
+         relational into a constant.  So just return it.  Otherwise,
+	 rebuild the expression since the underlying components may have
+	 changed.  */
+      if (t1)
+	return t1;
+      else
+	t = build (code, type, TREE_OPERAND (t, 0), arg1);
 
       /* If this is an EQ or NE comparison of a constant with a PLUS_EXPR or
 	 a MINUS_EXPR of a constant, we can convert it into a comparison with
@@ -6791,92 +7291,9 @@ fold (expr)
 				integer_zero_node));
 	}
 
-      /* From here on, the only cases we handle are when the result is
-	 known to be a constant.
-
-	 To compute GT, swap the arguments and do LT.
-	 To compute GE, do LT and invert the result.
-	 To compute LE, swap the arguments, do LT and invert the result.
-	 To compute NE, do EQ and invert the result.
-
-	 Therefore, the code below must handle only EQ and LT.  */
-
-      if (code == LE_EXPR || code == GT_EXPR)
-	{
-	  tem = arg0, arg0 = arg1, arg1 = tem;
-	  code = swap_tree_comparison (code);
-	}
-
-      /* Note that it is safe to invert for real values here because we
-	 will check below in the one case that it matters.  */
-
-      t1 = NULL_TREE;
-      invert = 0;
-      if (code == NE_EXPR || code == GE_EXPR)
-	{
-	  invert = 1;
-	  code = invert_tree_comparison (code);
-	}
-
-      /* Compute a result for LT or EQ if args permit;
-	 otherwise return T.  */
-      if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
-	{
-	  if (code == EQ_EXPR)
-	    t1 = build_int_2 (tree_int_cst_equal (arg0, arg1), 0);
-	  else
-	    t1 = build_int_2 ((TREE_UNSIGNED (TREE_TYPE (arg0))
-			       ? INT_CST_LT_UNSIGNED (arg0, arg1)
-			       : INT_CST_LT (arg0, arg1)),
-			      0);
-	}
-
-#if 0 /* This is no longer useful, but breaks some real code.  */
-      /* Assume a nonexplicit constant cannot equal an explicit one,
-	 since such code would be undefined anyway.
-	 Exception: on sysvr4, using #pragma weak,
-	 a label can come out as 0.  */
-      else if (TREE_CODE (arg1) == INTEGER_CST
-	       && !integer_zerop (arg1)
-	       && TREE_CONSTANT (arg0)
-	       && TREE_CODE (arg0) == ADDR_EXPR
-	       && code == EQ_EXPR)
-	t1 = build_int_2 (0, 0);
-#endif
-      /* Two real constants can be compared explicitly.  */
-      else if (TREE_CODE (arg0) == REAL_CST && TREE_CODE (arg1) == REAL_CST)
-	{
-	  /* If either operand is a NaN, the result is false with two
-	     exceptions: First, an NE_EXPR is true on NaNs, but that case
-	     is already handled correctly since we will be inverting the
-	     result for NE_EXPR.  Second, if we had inverted a LE_EXPR
-	     or a GE_EXPR into a LT_EXPR, we must return true so that it
-	     will be inverted into false.  */
-
-	  if (REAL_VALUE_ISNAN (TREE_REAL_CST (arg0))
-	      || REAL_VALUE_ISNAN (TREE_REAL_CST (arg1)))
-	    t1 = build_int_2 (invert && code == LT_EXPR, 0);
-
-	  else if (code == EQ_EXPR)
-	    t1 = build_int_2 (REAL_VALUES_EQUAL (TREE_REAL_CST (arg0),
-						 TREE_REAL_CST (arg1)),
-			      0);
-	  else
-	    t1 = build_int_2 (REAL_VALUES_LESS (TREE_REAL_CST (arg0),
-						TREE_REAL_CST (arg1)),
-			      0);
-	}
-
-      if (t1 == NULL_TREE)
-	return t;
-
-      if (invert)
-	TREE_INT_CST_LOW (t1) ^= 1;
-
-      TREE_TYPE (t1) = type;
-      if (TREE_CODE (type) == BOOLEAN_TYPE)
-	return (*lang_hooks.truthvalue_conversion) (t1);
-      return t1;
+      /* Both ARG0 and ARG1 are known to be constants at this point.  */
+      t1 = fold_relational_const (code, type, arg0, arg1);
+      return (t1 == NULL_TREE ? t : t1);
 
     case COND_EXPR:
       /* Pedantic ANSI C says that a conditional expression is never an lvalue,

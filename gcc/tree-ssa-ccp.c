@@ -99,6 +99,7 @@ static varray_type ssa_edges;
 static void initialize			PARAMS ((void));
 static void finalize			PARAMS ((void));
 static void visit_phi_node		PARAMS ((tree));
+static tree ccp_fold			PARAMS ((tree));
 static value cp_lattice_meet		PARAMS ((value, value));
 static void visit_stmt			PARAMS ((tree));
 static void visit_cond_stmt		PARAMS ((tree));
@@ -534,6 +535,7 @@ visit_assignment (stmt)
       /* Evaluate the statement.  */
       val = evaluate_stmt (stmt);
     }
+
   /* FIXME: Hack.  If this was a definition of a bitfield, we need to widen
      the constant value into the type of the destination variable.  This
      should not be necessary if GCC represented bitfields properly.  */
@@ -621,8 +623,120 @@ add_control_edge (e)
   VARRAY_PUSH_GENERIC_PTR (cfg_edges, e);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Adding edge (%d -> %d) to worklist\n\n", e->src->index,
-	     e->dest->index);
+    fprintf (dump_file, "Adding edge (%d -> %d) to worklist\n\n",
+	     e->src->index, e->dest->index);
+}
+
+
+/* CCP specific front-end to the non-destructive constant folding routines.
+
+   Attempt to simplify the RHS of STMT knowing that one or more
+   operands are constants.
+
+   If simplification is possible, return the simplified RHS,
+   otherwise return the original RHS.  */
+
+static tree
+ccp_fold (stmt)
+     tree stmt;
+{
+  tree rhs = get_rhs (stmt);
+  enum tree_code code = TREE_CODE (rhs);
+  int kind = TREE_CODE_CLASS (code);
+  tree retval;
+
+  /* If the RHS is just a variable, then that variable must now have
+     a constant value that we can return directly.  */
+  if (TREE_CODE (rhs) == SSA_NAME)
+    return get_value (rhs)->const_val;
+
+  /* Unary operators.  Note that we know the single operand must
+     be a constant.  So this should almost always return a
+     simplified RHS.  */
+  if (kind == '1')
+    {
+      /* Handle unary operators which can appear in GIMPLE form.  */
+      tree op0 = TREE_OPERAND (rhs, 0);
+
+      /* Simplify the operand down to a constant.  */
+      if (TREE_CODE (op0) == SSA_NAME)
+	{
+	  value *val = get_value (op0);
+	  if (val->lattice_val == CONSTANT)
+	    op0 = get_value (op0)->const_val;
+	}
+
+      retval = nondestructive_fold_unary (code, TREE_TYPE (rhs), op0);
+
+      /* If we could not fold the expression, but the arguments are all
+         constants and simple values, then build and return the new
+	 expression. 
+
+	 In some cases the new expression is still something we can
+	 use as a replacement for an argument.  This happens with
+	 NOP conversions of types for example.
+
+	 In other cases the new expression can not be used as a
+	 replacement for an argument (as it would create non-gimple
+	 code).  But the new expression can still be used to derive
+	 other constants.  */
+      if (! retval && really_constant_p (op0))
+	return build1 (code, TREE_TYPE (rhs), op0);
+    }
+
+  /* Binary and comparison operators.  We know one or both of the
+     operands are constants.  */
+  else if (kind == '2' || kind == '<')
+    {
+      /* Handle binary and comparison operators that can appear in
+         GIMPLE form.  */
+      tree op0 = TREE_OPERAND (rhs, 0);
+      tree op1 = TREE_OPERAND (rhs, 1);
+
+      /* Simplify the operands down to constants when appropriate.  */
+      if (TREE_CODE (op0) == SSA_NAME)
+	{
+	  value *val = get_value (op0);
+	  if (val->lattice_val == CONSTANT)
+	    op0 = val->const_val;
+	}
+
+      if (TREE_CODE (op1) == SSA_NAME)
+	{
+	  value *val = get_value (op1);
+	  if (val->lattice_val == CONSTANT)
+	    op1 = val->const_val;
+	}
+
+      retval = nondestructive_fold_binary (code, TREE_TYPE (rhs), op0, op1);
+
+      /* If we could not fold the expression, but the arguments are all
+         constants and simple values, then build and return the new
+	 expression. 
+
+	 In some cases the new expression is still something we can
+	 use as a replacement for an argument.  This happens with
+	 NOP conversions of types for example.
+
+	 In other cases the new expression can not be used as a
+	 replacement for an argument (as it would create non-gimple
+	 code).  But the new expression can still be used to derive
+	 other constants.  */
+      if (! retval
+	  && really_constant_p (op0)
+	  && really_constant_p (op1))
+	return build (code, TREE_TYPE (rhs), op0, op1);
+    }
+  else
+    return rhs;
+
+  /* If we got a simplified form and the type of the simplified form
+     is the same type as the original, then return the simplified form.  */
+  if (retval && TREE_TYPE (retval) == TREE_TYPE (rhs))
+    return retval;
+
+  /* No simplification was possible.  */
+  return rhs;
 }
 
 
@@ -633,24 +747,18 @@ evaluate_stmt (stmt)
      tree stmt;
 {
   value val;
-  tree simplified, copy;
+  tree simplified;
 
   val.lattice_val = VARYING;
   val.const_val = NULL_TREE;
 
+  /* If one or more operands has been determined to be a constant,
+     then fold the expression.  */
   if (may_fold_p (stmt))
-    {
-      /* Evaluate a copy of the original statement with operands
-         replaced with their current constant value.  */
-      copy = copy_stmt (stmt);
-      replace_uses_in (copy);
-      fold_stmt (copy);
-    }
+    simplified = ccp_fold (stmt);
   else
-    copy = stmt;
+    simplified = get_rhs (stmt);
 
-  /* Extract the folded value from the statement.  */
-  simplified = get_rhs (copy);
   if (simplified && really_constant_p (simplified))
     {
       val.lattice_val = CONSTANT;
@@ -661,7 +769,7 @@ evaluate_stmt (stmt)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "Statement evaluates to ");
-      print_generic_stmt (dump_file, copy, TDF_SLIM);
+      print_generic_stmt (dump_file, simplified, TDF_SLIM);
       fprintf (dump_file, " which is ");
       if (val.lattice_val == CONSTANT)
 	{
@@ -675,7 +783,6 @@ evaluate_stmt (stmt)
 
       fprintf (dump_file, "\n");
     }
-
 
   return val;
 }
