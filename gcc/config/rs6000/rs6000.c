@@ -2761,6 +2761,8 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
     return false;
   if (!INT_REG_OK_FOR_BASE_P (XEXP (x, 0), strict))
     return false;
+  if (TARGET_E500_DOUBLE && mode == DFmode)
+    return false;
   x = XEXP (x, 1);
 
   if (TARGET_ELF || TARGET_MACHO)
@@ -2899,8 +2901,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	   && GET_CODE (x) != CONST_INT
 	   && GET_CODE (x) != CONST_DOUBLE 
 	   && CONSTANT_P (x)
-	   && ((TARGET_HARD_FLOAT && TARGET_FPRS)
-	       || (mode != DFmode || TARGET_E500_DOUBLE))
+	   && ((TARGET_HARD_FLOAT && TARGET_FPRS) || mode != DFmode)
 	   && mode != DImode 
 	   && mode != TImode)
     {
@@ -4279,15 +4280,50 @@ function_arg_advance (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
 }
 
-/* Determine where to put a SIMD argument on the SPE.  */
+static rtx
+spe_build_register_parallel (enum machine_mode mode, int gregno)
+{
+  rtx r1, r2;
+  enum machine_mode inner;
+  unsigned int inner_bytes;
 
+  if (mode == DFmode)
+    {
+      inner = SImode;
+      inner_bytes = 4;
+    }
+  else
+    abort ();
+
+  r1 = gen_rtx_REG (inner, gregno);
+  r1 = gen_rtx_EXPR_LIST (SImode, r1, const0_rtx);
+  r2 = gen_rtx_REG (inner, gregno + 1);
+  r2 = gen_rtx_EXPR_LIST (SImode, r2, GEN_INT (inner_bytes));
+  return gen_rtx_PARALLEL (mode, gen_rtvec (2, r1, r2));
+}
+
+/* Determine where to put a SIMD argument on the SPE.  */
 static rtx
 rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode, 
 			 tree type)
 {
+  int gregno = cum->sysv_gregno;
+
+  /* On E500 v2, double arithmetic is done on the full 64-bit GPR, but
+     are passed and returned in a pair of GPRs for ABI compatability.  */
+  if (TARGET_E500_DOUBLE && mode == DFmode)
+    {
+      /* Doubles go in an odd/even register pair (r5/r6, etc).  */
+      gregno += (1 - gregno) & 1;
+
+      /* We do not split between registers and stack.  */
+      if (gregno + 1 > GP_ARG_MAX_REG)
+	return NULL_RTX;
+
+      return spe_build_register_parallel (mode, gregno);
+    }
   if (cum->stdarg)
     {
-      int gregno = cum->sysv_gregno;
       int n_words = rs6000_arg_size (mode, type);
 
       /* SPE vectors are put in odd registers.  */
@@ -4310,8 +4346,8 @@ rs6000_spe_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     }
   else
     {
-      if (cum->sysv_gregno <= GP_ARG_MAX_REG)
-	return gen_rtx_REG (mode, cum->sysv_gregno);
+      if (gregno <= GP_ARG_MAX_REG)
+	return gen_rtx_REG (mode, gregno);
       else
 	return NULL_RTX;
     }
@@ -4490,7 +4526,9 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	  return gen_rtx_REG (part_mode, GP_ARG_MIN_REG + align_words);
 	}
     }
-  else if (TARGET_SPE_ABI && TARGET_SPE && SPE_VECTOR_MODE (mode))
+  else if (TARGET_SPE_ABI && TARGET_SPE
+	   && (SPE_VECTOR_MODE (mode)
+	       || (TARGET_E500_DOUBLE && mode == DFmode)))
     return rs6000_spe_function_arg (cum, mode, type);
   else if (abi == ABI_V4)
     {
@@ -11200,9 +11238,15 @@ spe_func_has_64bit_regs_p (void)
 	  rtx i;
 
 	  i = PATTERN (insn);
-	  if (GET_CODE (i) == SET
-	      && SPE_VECTOR_MODE (GET_MODE (SET_SRC (i))))
-	    return true;
+	  if (GET_CODE (i) == SET)
+	    {
+	      enum machine_mode mode = GET_MODE (SET_SRC (i));
+
+	      if (SPE_VECTOR_MODE (mode))
+		return true;
+	      if (TARGET_E500_DOUBLE && mode == DFmode)
+		return true;
+	    }
 	}
     }
 
@@ -16347,6 +16391,8 @@ rs6000_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
   else if (TREE_CODE (valtype) == VECTOR_TYPE
 	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI)
     regno = ALTIVEC_ARG_RETURN;
+  else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT && mode == DFmode)
+    return spe_build_register_parallel (DFmode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
 
@@ -16368,6 +16414,8 @@ rs6000_libcall_value (enum machine_mode mode)
     regno = ALTIVEC_ARG_RETURN;
   else if (COMPLEX_MODE_P (mode) && targetm.calls.split_complex_arg)
     return rs6000_complex_function_value (mode);
+  else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT && mode == DFmode)
+    return spe_build_register_parallel (DFmode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
 
