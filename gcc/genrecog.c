@@ -407,18 +407,14 @@ add_to_sequence (pattern, last, position, insn_type, top)
 	{
 	  struct decision_head *place = last;
 
-	  for (i = 0; i < XVECLEN (pattern, 0); i++)
+	  for (i = 0; i < (size_t) XVECLEN (pattern, 0); i++)
 	    {
 	      /* Which insn we're looking at is represented by A-Z. We don't
 	         ever use 'A', however; it is always implied. */
 	      if (i > 0)
-		{
-		  newpos[depth] = 'A' + i;
-		}
+		newpos[depth] = 'A' + i;
 	      else
-		{
-		  newpos[depth] = 0;
-		}
+		newpos[depth] = 0;
 	      new = add_to_sequence (XVECEXP (pattern, 0, i),
 				     place, newpos, insn_type, 0);
 	      place = &new->success;
@@ -1120,7 +1116,7 @@ write_subroutine (tree, type)
   if (type == RECOG)
     printf (", pnum_clobbers");
   else if (type == PEEPHOLE2)
-    printf (", _last_insn");
+    printf (", _plast_insn");
 
   printf (")\n");
   /* The peephole2 pass uses the insn argument to determine which
@@ -1129,7 +1125,7 @@ write_subroutine (tree, type)
   if (type == RECOG)
     printf ("     int *pnum_clobbers ATTRIBUTE_UNUSED;\n");
   else if (type == PEEPHOLE2)
-    printf ("     rtx *_last_insn ATTRIBUTE_UNUSED;\n");
+    printf ("     rtx *_plast_insn ATTRIBUTE_UNUSED;\n");
 
   printf ("{\n");
   printf ("  register rtx *ro = &recog_operand[0];\n");
@@ -1139,9 +1135,13 @@ write_subroutine (tree, type)
     printf ("x%d ATTRIBUTE_UNUSED, ", i);
 
   printf ("x%d ATTRIBUTE_UNUSED;\n", max_depth);
+  if (type == PEEPHOLE2)
+    printf ("  register rtx _last_insn = insn;\n");
   printf ("  %s tem ATTRIBUTE_UNUSED;\n", IS_SPLIT (type) ? "rtx" : "int");
   write_tree (tree, "", NULL_PTR, 1, type);
-  printf (" ret0: return %d;\n}\n\n", IS_SPLIT (type) ? 0 : -1);
+  if (type == PEEPHOLE2)
+    printf (" ret1:\n  *_plast_insn = _last_insn;\n  return tem;\n");
+  printf (" ret0:\n  return %d;\n}\n\n", IS_SPLIT (type) ? 0 : -1);
 }
 
 /* This table is used to indent the recog_* functions when we are inside
@@ -1543,19 +1543,12 @@ write_tree_1 (tree, prevpos, afterward, type)
 	    }
 	  else if (type == PEEPHOLE2)
 	    {
-	      /* We want to set *_last_insn to point to the last
-		 insn matched. */
 	      printf ("%s{\n", indents[inner_indent]);
 	      inner_indent += 2;
-	      for (i = depth - 1; i >= 0; i--)
-		{
-		  if (tree->position[i] >= 'A' && tree->position[i] <= 'Z')
-		    break;
-		}
-	      if (i == -1)
-		printf ("%s*_last_insn = insn;\n", indents[inner_indent]);
-	      printf ("%sreturn gen_peephole2_%d (insn, operands);\n",
+
+	      printf ("%stem = gen_peephole2_%d (insn, operands);\n",
 		      indents[inner_indent], p->insn_code_number);
+	      printf ("%sif (tem != 0) goto ret1;\n", indents[inner_indent]);
 	      inner_indent -= 2;
 	      printf ("%s}\n", indents[inner_indent]);
 	    }
@@ -1708,7 +1701,7 @@ write_tree (tree, prevpos, afterward, initial, type)
       break;
     case PEEPHOLE2:
       name_prefix = "peephole2";
-      call_suffix = ", _last_insn";
+      call_suffix = ", _plast_insn";
       break;
     case RECOG:
       name_prefix = "recog";
@@ -1765,11 +1758,25 @@ change_state (oldpos, newpos, indent, afterward)
   int odepth = strlen (oldpos);
   int depth = odepth;
   int ndepth = strlen (newpos);
+  int basedepth;
+  int old_has_insn, new_has_insn;
 
   /* Pop up as many levels as necessary.  */
 
   while (strncmp (oldpos, newpos, depth))
     --depth;
+  basedepth = depth;
+
+  /* Make sure to reset the _last_insn pointer when popping back up.  */
+  for (old_has_insn = odepth - 1; old_has_insn >= 0; --old_has_insn)
+    if (oldpos[old_has_insn] >= 'A' && oldpos[old_has_insn] <= 'Z')
+      break;
+  for (new_has_insn = odepth - 1; new_has_insn >= 0; --new_has_insn)
+    if (newpos[new_has_insn] >= 'A' && newpos[new_has_insn] <= 'Z')
+      break;
+
+  if (old_has_insn >= 0 && new_has_insn < 0)
+    printf ("%s_last_insn = insn;\n", indents[indent]);
 
   /* Go down to desired level.  */
 
@@ -1778,19 +1785,28 @@ change_state (oldpos, newpos, indent, afterward)
       /* It's a different insn from the first one. */
       if (newpos[depth] >= 'A' && newpos[depth] <= 'Z')
 	{
-	  printf ("%sx%d = recog_next_insn (insn, %d, _last_insn);\n", 
-		  indents[indent],
-		  depth + 1,
-		  newpos[depth] - 'A');
-
-	  printf ("%sif (x%d == NULL_RTX)\n",
-		  indents[indent],
-		  depth + 1);
-
-	  if (afterward)
-	    printf ("%sgoto L%d;\n", indents[indent + 2], afterward->number);
+	  /* We can only fail if we're moving down the tree.  */
+	  if (old_has_insn >= 0 && oldpos[old_has_insn] >= newpos[depth])
+	    {
+	      printf ("%s_last_insn = recog_next_insn (insn, %d);\n", 
+		      indents[indent], newpos[depth] - 'A');
+	    }
 	  else
-	    printf ("%sgoto ret0;\n", indents[indent + 2]);
+	    {
+	      printf ("%stem = recog_next_insn (insn, %d);\n", 
+		      indents[indent], newpos[depth] - 'A');
+
+	      printf ("%sif (tem == NULL_RTX)\n", indents[indent]);
+	      if (afterward)
+		printf ("%sgoto L%d;\n", indents[indent + 2],
+			afterward->number);
+	      else
+		printf ("%sgoto ret0;\n", indents[indent + 2]);
+
+	      printf ("%s_last_insn = tem;\n", indents[indent]);
+	    }
+	  printf ("%sx%d = PATTERN (_last_insn);\n",
+		  indents[indent], depth + 1);
 	}
       else if (newpos[depth] >= 'a' && newpos[depth] <= 'z')
 	printf ("%sx%d = XVECEXP (x%d, 0, %d);\n",

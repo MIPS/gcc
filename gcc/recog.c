@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "toplev.h"
 #include "basic-block.h"
+#include "output.h"
 #include "resource.h"
 
 #ifndef STACK_PUSH_CODE
@@ -2690,15 +2691,14 @@ split_block_insns (b, do_split)
     }
 }
 
-/* Return the pattern for the Nth non-note insn after INSN (and set
-   NEWINSN to point to the actual insn), or return NULL_RTX if it does
-   not exist.  Used by the recognizer to find the next insn to match
-   in a multi-insn pattern.  */
+#ifdef HAVE_peephole2
+/* Return the Nth non-note insn after INSN, or return NULL_RTX if it does
+   not exist.  Used by the recognizer to find the next insn to match in a
+   multi-insn pattern.  */
 rtx
-recog_next_insn (insn, n, newinsn)
+recog_next_insn (insn, n)
      rtx insn;
      int n;
-     rtx *newinsn;
 {
   while (insn != NULL_RTX && n > 0)
     {
@@ -2708,14 +2708,12 @@ recog_next_insn (insn, n, newinsn)
   if (insn == NULL_RTX)
     return insn;
 
-  if (GET_CODE (insn) != INSN && GET_CODE (insn) != JUMP_INSN)
+  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
     return NULL_RTX;
 
-  *newinsn = insn;
-  return PATTERN (insn);
+  return insn;
 }
-
-#ifdef HAVE_peephole2
+
 /* Perform the peephole2 optimization pass. */
 void
 peephole2_optimize (dump_file)

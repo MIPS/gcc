@@ -1,3 +1,15 @@
+1999-08-27  Richard Henderson  <rth@cygnus.com>
+
+	* genrecog.c (add_to_sequence): Cast XVECLEN to size_t.
+	(write_subroutine) [PEEPHOLE2]: New local var _last_insn; rename
+	the parameter _plast_insn.  New top-level exit label ret1.
+	(write_tree_1): Allow peephole2 generator to fail.  Use ret1.
+	(write_tree): Adjust parameter list.
+	(change_state): Keep _last_insn up to date.  Adjust call to
+	recog_next_insn.  Keep data in sync when it fails.
+	* recog.c (recog_next_insn): Remove _last_insn parameter.
+	* recog.h (recog_next_insn): Update declaration.
+
 1999-07-27  Bernd Schmidt  <bernds@cygnus.co.uk>
 
 	Merge deletion of constrain_asm_operands into this branch:
