@@ -1,3 +1,10 @@
+2003-12-11  Diego Novillo  <dnovillo@redhat.com>
+
+	* opts.c (decode_options): Do not enable the tree loop optimizer by
+	default.
+	* tree-ssa-loop.c (tree_ssa_loop_opt): Remove ENABLE_CHECKING
+	guards.
+
 2003-12-10  Richard Henderson  <rth@redhat.com>
 
 	* builtins.c (expand_builtin_profile_func): New.
