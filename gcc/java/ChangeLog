@@ -1,5 +1,10 @@
 2004-10-29  Andrew Haley  <aph@redhat.com>
 
+	* jcf-parse.c (give_name_to_class): Remove line that was
+	incorrectly merged.
+
+2004-10-29  Andrew Haley  <aph@redhat.com>
+
 	* jcf-parse.c (set_source_filename): Add code to build new sfname.
 
 2004-10-20  Andrew Haley  <aph@redhat.com>

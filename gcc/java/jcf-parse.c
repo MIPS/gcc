@@ -459,7 +459,6 @@ give_name_to_class (JCF *jcf, int i)
       }
 #else
       input_location = DECL_SOURCE_LOCATION (TYPE_NAME (this_class));
-      file_start_location = input_location;
       if (main_input_filename == NULL && jcf == main_jcf)
 	main_input_filename = input_filename;
 #endif
