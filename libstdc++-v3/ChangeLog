@@ -1,3 +1,155 @@
+2004-08-18  Matthias Klose  <doko@debian.org>
+
+	* config/abi/hppa-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+	* config/abi/i386-linux-gnu/baseline_symbols.txt: New.
+	* config/abi/powerpc-linux-gnu/baseline_symbols.txt: New.
+
+2004-08-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/alpha-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
+2004-08-17  Paolo Carlini  <pcarlini@suse.de>
+
+	* config/abi/ia64-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
+2004-08-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/abi/i486-linux-gnu/baseline_symbols.txt: Update to 3.4.0.
+
+2004-08-16  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/indirect_array.h: Trivial formatting fixes.
+	* include/bits/valarray_after.h: Likewise.
+	* include/bits/valarray_array.h: Likewise.
+	* src/valarray-inst.cc: Likewise.
+
+2004-08-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_stringstream/rdbuf/char/2832.cc: Remove junk.
+	* testsuite/27_io/basic_stringstream/str/char/1.cc: Likewise.
+	* testsuite/27_io/basic_stringstream/str/char/3.cc: Likewise.
+
+	* testsuite/27_io/basic_stringstream/rdbuf/wchar_t/2832.cc: New.
+	* testsuite/27_io/basic_stringstream/str/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_stringstream/str/wchar_t/2.cc: Likewise.
+	* testsuite/27_io/basic_stringstream/str/wchar_t/3.cc: Likewise.
+	* testsuite/27_io/basic_stringstream/str/wchar_t/4.cc: Likewise.
+
+2004-08-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/deque.tcc: Trivial formatting fixes.
+
+2004-08-15  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/deque.tcc: Trivial formatting fixes.
+
+	* include/bits/locale_facets.tcc (num_get<>::do_get(&bool)):
+	Remove unneded typedef.
+
+	* include/bits/locale_facets.tcc: Very minor tweaks.
+
+	* testsuite/22_locale/time_put/put/wchar_t/1.cc: Use proper
+	type for the fill argument.
+	* testsuite/22_locale/time_put/put/wchar_t/10.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/2.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/3.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/4.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/5.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/6.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/7.cc: Likewise.
+	* testsuite/22_locale/time_put/put/wchar_t/8.cc: Likewise.
+
+2004-08-13  Paolo Carlini  <pcarlini@suse.de>
+	
+	* src/debug.cc (_Error_formatter::_M_print_string): Fix thinko,
+	memmove is not needed, memcpy suffices.
+
+2004-08-13  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_fstream.h (class basic_ifstream,
+	class basic_ofstream, class basic_fstream): Add const overloads
+	of is_open, as per DR 365 [WP].
+	* docs/html/ext/howto.html: Add an entry for DR 365.
+
+2004-08-12  Paolo Carlini  <pcarlini@suse.de>
+
+	* configure.ac: Specify version 1.8.5 in AM_INIT_AUTOMAKE.
+
+2004-08-12  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/16956
+	* include/bits/sstream.tcc (basic_stringbuf<>::seekoff): Add __off
+	to the returned value, reorganize a bit.
+	* testsuite/27_io/basic_stringbuf/seekoff/char/16956.cc: New.
+	* testsuite/27_io/basic_stringbuf/seekoff/wchar_t/16956.cc: New.
+
+	* testsuite/27_io/basic_stringbuf/seekoff/char/1.cc: Remove junk.
+	* testsuite/27_io/basic_stringbuf/seekoff/wchar_t/1.cc: Likewise.
+	* testsuite/27_io/basic_stringbuf/seekpos/char/1.cc: Likewise.
+	* testsuite/27_io/basic_stringbuf/seekpos/wchar_t/1.cc: Likewise.
+
+2004-08-12  Paul Brook  <paul@codesourcery.com>
+
+	* config/cpu/arm/cxxabi_tweaks.h: Define __cxa_vec_ctor_return and
+	_GLIBCXX_CXA_VEC_CTOR_RETURN.
+	* config/cpu/generic/cxxabi_tweaks.h: Ditto.
+	* libsupc++/cxxabi.h (__cxa_vec_ctor, __cxa_vec_cctor): Use
+	__cxa_vec_ctor_return.
+	* libsupc++/vec.cc (__cxa_vec_ctor, __cxa_vec_cctor): Ditto.
+	Use _GLIBCXX_CXA_VEC_CTOR_RETURN.
+
+2004-08-12  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Makefile.in, aclocal.m4, configure, include/Makefile.in,
+	libmath/Makefile.in, libsupc++/Makefile.in, po/Makefile.in,
+	src/Makefile.in, testsuite/Makefile.in: Regenerate
+
+2004-08-12  Jan Beulich  <jbeulich@novell.com>
+
+	* config/locale/generic/ctype_members.cc
+	(ctype<wchar_t>::_M_convert_to_wmask): Default case must not use 0 as
+	initializer for return value, as that is invalid for enumerated	types.
+	* config/locale/gnu/ctype_members.cc
+	(ctype<wchar_t>::_M_convert_to_wmask): Likewise.
+
+2004-08-11  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/basic_stringbuf/sbumpc/wchar_t/1.cc: Fix typo.
+
+2004-08-11  Paolo Carlini  <pcarlini@suse.de>
+	
+	* testsuite/27_io/basic_stringbuf/imbue/char/1.cc: Declare test
+	variable.
+	* testsuite/27_io/basic_stringbuf/imbue/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/in_avail/char/1.cc: Remove junk.
+	* testsuite/27_io/basic_stringbuf/in_avail/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sbumpc/char/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sbumpc/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/setbuf/char/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/setbuf/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sgetc/char/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sgetc/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sgetn/char/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sgetn/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/snextc/char/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/snextc/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sputbackc/char/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sputbackc/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sputc/char/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sputc/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sputn/char/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sputn/wchar_t/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sungetc/char/1.cc: Ditto.
+	* testsuite/27_io/basic_stringbuf/sungetc/wchar_t/1.cc: Ditto.
+
+2004-08-11  Paolo Carlini  <pcarlini@suse.de>
+	    Petur Runolfsson  <peturr02@ru.is>
+
+	PR libstdc++/16959
+	* src/ios_init.cc (ios_base::sync_with_stdio): Make sure the
+	standard streams are constructed.
+	* testsuite/27_io/ios_base/sync_with_stdio/16959.cc: New.
+
 2004-08-09  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/stl_bvector.h: Trivial formatting fixes.

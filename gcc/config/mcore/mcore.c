@@ -172,6 +172,8 @@ static bool       mcore_return_in_memory	(tree, tree);
 #define TARGET_ATTRIBUTE_TABLE 		mcore_attribute_table
 #undef  TARGET_ASM_UNIQUE_SECTION
 #define TARGET_ASM_UNIQUE_SECTION 	mcore_unique_section
+#undef  TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
 #undef  TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO 	mcore_encode_section_info
 #undef  TARGET_STRIP_NAME_ENCODING
@@ -913,7 +915,7 @@ mcore_is_dead (rtx first, rtx reg)
 	}
     }
 
-  /* No conclusive evidence either way, we can not take the chance
+  /* No conclusive evidence either way, we cannot take the chance
      that control flow hid the use from us -- "I'm not dead yet".  */
   return 0;
 }
@@ -1880,7 +1882,7 @@ block_move_sequence (rtx dest, rtx dst_mem, rtx src, rtx src_mem,
 #endif
 			  gen_rtx_PLUS (Pmode, src, GEN_INT (offset_ld)));
 	  
-	  RTX_UNCHANGING_P (srcp) = RTX_UNCHANGING_P (src_mem);
+	  MEM_READONLY_P (srcp) = MEM_READONLY_P (src_mem);
 	  MEM_VOLATILE_P (srcp) = MEM_VOLATILE_P (src_mem);
 	  MEM_IN_STRUCT_P (srcp) = 1;
 	  emit_insn (gen_rtx_SET (VOIDmode, temp[next], srcp));
@@ -1900,7 +1902,7 @@ block_move_sequence (rtx dest, rtx dst_mem, rtx src, rtx src_mem,
 #endif
 			  gen_rtx_PLUS (Pmode, dest, GEN_INT (offset_st)));
 	  
-	  RTX_UNCHANGING_P (dstp) = RTX_UNCHANGING_P (dst_mem);
+	  MEM_READONLY_P (dstp) = MEM_READONLY_P (dst_mem);
 	  MEM_VOLATILE_P (dstp) = MEM_VOLATILE_P (dst_mem);
 	  MEM_IN_STRUCT_P (dstp) = 1;
 	  emit_insn (gen_rtx_SET (VOIDmode, dstp, temp[phase]));

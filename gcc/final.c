@@ -1705,7 +1705,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
 	case NOTE_INSN_EXPECTED_VALUE:
-	case NOTE_DISABLE_SCHED_OF_BLOCK:
+	case NOTE_INSN_DISABLE_SCHED_OF_BLOCK:
 	  break;
 
 	case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
@@ -1729,9 +1729,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	     are writing to appropriately.  */
 	  
 	  if (flag_reorder_blocks_and_partition
-	      && in_unlikely_text_section()
 	      && !scan_ahead_for_unlikely_executed_note (insn))
-	    text_section ();
+	    function_section (current_function_decl);
 
 #ifdef TARGET_UNWIND_INFO
 	  targetm.asm_out.unwind_emit (asm_out_file, insn);
@@ -1924,7 +1923,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	 basic blocks into separate sections of the .o file, we need
 	 to ensure the jump table ends up in the correct section...  */
       
-      if (flag_reorder_blocks_and_partition)
+      if (flag_reorder_blocks_and_partition
+	  && targetm.have_named_sections)
 	{
 	  rtx tmp_table, tmp_label;
 	  if (LABEL_P (insn)
@@ -1934,11 +1934,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 	    }
 	  else if (scan_ahead_for_unlikely_executed_note (insn)) 
 	    unlikely_text_section ();
-	  else 
-	    {
-	      if (in_unlikely_text_section ())
-		text_section ();
-	    }
+	  else if (in_unlikely_text_section ())
+	    function_section (current_function_decl);
 	}
 
       if (app_on)
@@ -1967,7 +1964,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize ATTRIBUTE_UNUSED,
 		{
 		  int log_align;
 
-		  readonly_data_section ();
+		  targetm.asm_out.function_rodata_section (current_function_decl);
 
 #ifdef ADDR_VEC_ALIGN
 		  log_align = ADDR_VEC_ALIGN (NEXT_INSN (insn));

@@ -35,6 +35,10 @@
 #define TARGET_TOC 0
 #define TARGET_NO_TOC 1
 
+/* Override the default rs6000 definition.  */
+#undef  PTRDIFF_TYPE
+#define PTRDIFF_TYPE (TARGET_64BIT ? "long int" : "int")
+
 /* Darwin switches.  */
 /* Use dynamic-no-pic codegen (no picbase reg; not suitable for shlibs.)  */
 #define MASK_MACHO_DYNAMIC_NO_PIC 0x00800000
@@ -48,7 +52,8 @@
 #define TARGET_OS_CPP_BUILTINS()                \
   do                                            \
     {                                           \
-      builtin_define ("__ppc__");               \
+      if (!TARGET_64BIT) builtin_define ("__ppc__");   \
+      if (TARGET_64BIT) builtin_define ("__ppc64__");  \
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
       builtin_define ("__MACH__");              \
@@ -60,6 +65,10 @@
 /*  */
 #undef	SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES						\
+  { "64",     MASK_64BIT | MASK_POWERPC64, \
+        N_("Generate 64-bit code") }, \
+  { "32",     - (MASK_64BIT | MASK_POWERPC64), \
+        N_("Generate 32-bit code") }, \
   {"dynamic-no-pic",	MASK_MACHO_DYNAMIC_NO_PIC,			\
       N_("Generate code suitable for executables (NOT shared libs)")},	\
   {"no-dynamic-no-pic",	-MASK_MACHO_DYNAMIC_NO_PIC, ""},
@@ -86,7 +95,23 @@ do {									\
         warning ("-fpic is not supported; -fPIC assumed");		\
         flag_pic = 2;							\
       }									\
+									\
+    /* Handle -mfix-and-continue.  */					\
+    if (darwin_fix_and_continue_switch)					\
+      {									\
+	const char *base = darwin_fix_and_continue_switch;		\
+	while (base[-1] != 'm') base--;					\
+									\
+	if (*darwin_fix_and_continue_switch != '\0')			\
+	  error ("invalid option `%s'", base);				\
+	darwin_fix_and_continue = (base[0] != 'n');			\
+      }									\
   }									\
+  if (TARGET_64BIT && ! TARGET_POWERPC64)				\
+    {									\
+      target_flags |= MASK_POWERPC64;					\
+      warning ("-m64 requires PowerPC64 architecture, enabling");	\
+    }									\
 } while(0)
 
 /* Darwin has 128-bit long double support in libc in 10.4 and later.
@@ -120,11 +145,16 @@ do {									\
 #define SUBTARGET_EXTRA_SPECS			\
   { "darwin_arch", "ppc" },
 
-/* The "-faltivec" option should have been called "-maltivec" all along.  */
+/* The "-faltivec" option should have been called "-maltivec" all
+   along.  -ffix-and-continue and -findirect-data is for compatibility
+   for old compilers.  */
+
 #define SUBTARGET_OPTION_TRANSLATE_TABLE				\
-  { "-faltivec", "-maltivec -include altivec.h" },	\
-  { "-fno-altivec", "-mno-altivec" },	\
-  { "-Waltivec-long-deprecated",	"-mwarn-altivec-long" }, \
+  { "-ffix-and-continue", "-mfix-and-continue" },			\
+  { "-findirect-data", "-mfix-and-continue" },				\
+  { "-faltivec", "-maltivec -include altivec.h" },			\
+  { "-fno-altivec", "-mno-altivec" },					\
+  { "-Waltivec-long-deprecated",	"-mwarn-altivec-long" },	\
   { "-Wno-altivec-long-deprecated", "-mno-warn-altivec-long" }
 
 /* Make both r2 and r3 available for allocation.  */
@@ -154,10 +184,8 @@ do {									\
 
 /* These are used by -fbranch-probabilities */
 #define HOT_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
-#define NORMAL_TEXT_SECTION_NAME "__TEXT,__text,regular,pure_instructions"
 #define UNLIKELY_EXECUTED_TEXT_SECTION_NAME \
                               "__TEXT,__unlikely,regular,pure_instructions"
-#define SECTION_FORMAT_STRING ".section %s\n\t.align 2\n"
 
 /* Define cutoff for using external functions to save floating point.
    Currently on Darwin, always use inline stores.  */
@@ -252,10 +280,12 @@ do {									\
 
 #define RS6000_MCOUNT "*mcount"
 
-/* Default processor: a G4.  */
+/* Default processor: G4, and G5 for 64-bit.  */
 
 #undef PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT  PROCESSOR_PPC7400
+#undef PROCESSOR_DEFAULT64
+#define PROCESSOR_DEFAULT64  PROCESSOR_POWER4
 
 /* Default target flag settings.  Despite the fact that STMW/LMW
    serializes, it's still a big code size win to use them.  Use FSEL by
@@ -350,3 +380,21 @@ extern const char *darwin_one_byte_bool;
   }
 
 #define HAS_MD_FALLBACK_FRAME_STATE_FOR 1
+
+#undef SUBTARGET_OPTIONS
+#define	SUBTARGET_OPTIONS \
+  {"fix-and-continue", &darwin_fix_and_continue_switch,			\
+   N_("Generate code suitable for fast turn around debugging"), 0},	\
+  {"no-fix-and-continue", &darwin_fix_and_continue_switch,		\
+   N_("Don't generate code suitable for fast turn around debugging"), 0}
+
+extern int darwin_fix_and_continue;
+extern const char *darwin_fix_and_continue_switch;
+
+/* True, iff we're generating fast turn around debugging code.  When
+   true, we arrange for function prologues to start with 4 nops so
+   that gdb may insert code to redirect them, and for data to accessed
+   indirectly.  The runtime uses this indirection to forward
+   references for data to the original instance of that data.  */
+
+#define TARGET_FIX_AND_CONTINUE (darwin_fix_and_continue)

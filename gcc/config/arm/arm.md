@@ -117,6 +117,8 @@
    (VUNSPEC_WCMP_EQ  11) ; Used by the iWMMXt WCMPEQ instructions
    (VUNSPEC_WCMP_GTU 12) ; Used by the iWMMXt WCMPGTU instructions
    (VUNSPEC_WCMP_GT  13) ; Used by the iwMMXT WCMPGT instructions
+   (VUNSPEC_EH_RETURN 20); Use to overrite the return address for exception
+			 ; handling.
   ]
 )
 
@@ -447,7 +449,7 @@
     {
       arm_split_constant (PLUS, SImode, NULL_RTX,
 	                  INTVAL (operands[2]), operands[0], operands[1],
-			  (no_new_pseudos ? 0 : preserve_subexpressions_p ()));
+			  optimize && !no_new_pseudos);
       DONE;
     }
   "
@@ -933,9 +935,7 @@
         {
           arm_split_constant (MINUS, SImode, NULL_RTX,
 	                      INTVAL (operands[1]), operands[0],
-	  		      operands[2],
-			      (no_new_pseudos ? 0
-			       :  preserve_subexpressions_p ()));
+	  		      operands[2], optimize && !no_new_pseudos);
           DONE;
 	}
       else /* TARGET_THUMB */
@@ -1510,9 +1510,8 @@
         {
           arm_split_constant (AND, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0],
-			      operands[1],
-			      (no_new_pseudos
-			       ? 0 : preserve_subexpressions_p ()));
+			      operands[1], optimize && !no_new_pseudos);
+
           DONE;
         }
     }
@@ -2165,8 +2164,7 @@
         {
           arm_split_constant (IOR, SImode, NULL_RTX,
 	                      INTVAL (operands[2]), operands[0], operands[1],
-			      (no_new_pseudos
-			      ? 0 : preserve_subexpressions_p ()));
+			      optimize && !no_new_pseudos);
           DONE;
 	}
       else /* TARGET_THUMB */
@@ -4254,8 +4252,7 @@
         {
            arm_split_constant (SET, SImode, NULL_RTX,
 	                       INTVAL (operands[1]), operands[0], NULL_RTX,
-			      (no_new_pseudos ? 0
-			       : preserve_subexpressions_p ()));
+			       optimize && !no_new_pseudos);
           DONE;
         }
     }
@@ -4460,7 +4457,7 @@
   "flag_pic"
   "
 {
-  arm_finalize_pic (0);
+  arm_load_pic_register ();
   DONE;
 }")
 
@@ -4651,7 +4648,7 @@
 	      emit_insn (gen_movsi (reg, GEN_INT (val)));
 	      operands[1] = gen_lowpart (HImode, reg);
 	    }
-	  else if (arm_arch4 && !no_new_pseudos && optimize > 0
+	  else if (arm_arch4 && optimize && !no_new_pseudos
 		   && GET_CODE (operands[1]) == MEM)
 	    {
 	      rtx reg = gen_reg_rtx (SImode);
@@ -5261,8 +5258,8 @@
   operands[3]
     = arm_gen_load_multiple (REGNO (operands[0]), INTVAL (operands[2]),
 			     force_reg (SImode, XEXP (operands[1], 0)),
-			     TRUE, FALSE, RTX_UNCHANGING_P(operands[1]),
-			     MEM_IN_STRUCT_P(operands[1]),
+			     TRUE, FALSE, MEM_READONLY_P (operands[1]),
+			     MEM_IN_STRUCT_P (operands[1]),
 	                     MEM_SCALAR_P (operands[1]));
   "
 )
@@ -5383,8 +5380,8 @@
   operands[3]
     = arm_gen_store_multiple (REGNO (operands[1]), INTVAL (operands[2]),
 			      force_reg (SImode, XEXP (operands[0], 0)),
-			      TRUE, FALSE, RTX_UNCHANGING_P (operands[0]),
-			      MEM_IN_STRUCT_P(operands[0]), 
+			      TRUE, FALSE, MEM_READONLY_P (operands[0]),
+			      MEM_IN_STRUCT_P (operands[0]), 
 	                      MEM_SCALAR_P (operands[0]));
   "
 )
@@ -6440,10 +6437,10 @@
        case 1:
 	 output_asm_insn (\"cmn\t%1, %2\", operands);
 	 break;
-       case 3:
+       case 2:
 	 output_asm_insn (\"add\t%0, %1, %2\", operands);
 	 break;
-       case 4:
+       case 3:
 	 output_asm_insn (\"add\t%0, %0, %2\", operands);
 	 break;
        }
@@ -9703,9 +9700,11 @@
 )
 
 (define_expand "epilogue"
-  [(unspec_volatile [(return)] VUNSPEC_EPILOGUE)]
+  [(clobber (const_int 0))]
   "TARGET_EITHER"
   "
+  if (current_function_calls_eh_return)
+    emit_insn (gen_prologue_use (gen_rtx_REG (Pmode, 2)));
   if (TARGET_THUMB)
     thumb_expand_epilogue ();
   else if (USE_RETURN_INSN (FALSE))
@@ -10222,6 +10221,53 @@
   [(unspec:SI [(match_operand:SI 0 "register_operand" "")] UNSPEC_PROLOGUE_USE)]
   ""
   "%@ %0 needed for prologue"
+)
+
+
+;; Patterns for exception handling
+
+(define_expand "eh_return"
+  [(use (match_operand 0 "general_operand" ""))]
+  "TARGET_EITHER"
+  "
+  {
+    if (TARGET_ARM)
+      emit_insn (gen_arm_eh_return (operands[0]));
+    else
+      emit_insn (gen_thumb_eh_return (operands[0]));
+    DONE;
+  }"
+)
+				   
+;; We can't expand this before we know where the link register is stored.
+(define_insn_and_split "arm_eh_return"
+  [(unspec_volatile [(match_operand:SI 0 "s_register_operand" "r")]
+		    VUNSPEC_EH_RETURN)
+   (clobber (match_scratch:SI 1 "=&r"))]
+  "TARGET_ARM"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+  "
+  {
+    arm_set_return_address (operands[0], operands[1]);
+    DONE;
+  }"
+)
+
+(define_insn_and_split "thumb_eh_return"
+  [(unspec_volatile [(match_operand:SI 0 "s_register_operand" "l")]
+		    VUNSPEC_EH_RETURN)
+   (clobber (match_scratch:SI 1 "=&l"))]
+  "TARGET_THUMB"
+  "#"
+  "&& reload_completed"
+  [(const_int 0)]
+  "
+  {
+    thumb_set_return_address (operands[0], operands[1]);
+    DONE;
+  }"
 )
 
 ;; Load the FPA co-processor patterns

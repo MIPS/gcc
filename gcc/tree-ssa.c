@@ -437,18 +437,6 @@ verify_flow_sensitive_alias_info (void)
 	  goto err;
 	}
 
-      if (pi->pt_anything && (pi->pt_malloc || pi->pt_vars))
-	{
-	  error ("Pointers that point to anything should not point to malloc or other vars");
-	  goto err;
-	}
-      
-      if (pi->pt_malloc && pi->pt_vars)
-	{
-	  error ("Pointers pointing to malloc get a unique tag and cannot point to other vars");
-	  goto err;
-	}
-
       if (pi->name_mem_tag
 	  && !pi->pt_malloc
 	  && (pi->pt_vars == NULL
@@ -930,13 +918,13 @@ propagate_into_addr (tree stmt, tree var, tree *x, tree repl)
       || TREE_OPERAND (*x, 0) != var)
     return;
 
-  modify_stmt (stmt);
   if (TREE_TYPE (*x) == TREE_TYPE (addr_var))
     {
       *x = addr_var;
       mark_new_vars_to_rename (stmt, vars_to_rename);
       return;
     }
+
 
   /* Frontends sometimes produce expressions like *&a instead of a[0].
      Create a temporary variable to handle this case.  */

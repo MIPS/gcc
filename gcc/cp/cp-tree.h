@@ -3990,7 +3990,7 @@ extern void maybe_process_partial_specialization (tree);
 extern void maybe_check_template_type           (tree);
 extern tree most_specialized_instantiation      (tree);
 extern void print_candidates                    (tree);
-extern int instantiate_pending_templates        (void);
+extern void instantiate_pending_templates       (int);
 extern tree tsubst_default_argument             (tree, tree, tree);
 extern tree tsubst_copy_and_build               (tree, tree, tsubst_flags_t, tree, bool);
 extern tree most_general_template		(tree);
@@ -4166,7 +4166,7 @@ extern tree finish_template_type                (tree, tree, int);
 extern tree finish_base_specifier               (tree, tree, bool);
 extern void finish_member_declaration           (tree);
 extern void check_multiple_declarators          (void);
-extern void qualified_name_lookup_error		(tree, tree);
+extern void qualified_name_lookup_error		(tree, tree, tree);
 extern tree finish_id_expression                (tree, tree, tree,
 						 cp_id_kind *, tree *,
 						 bool, bool, bool *, 

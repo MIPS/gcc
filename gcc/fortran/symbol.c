@@ -25,6 +25,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "gfortran.h"
 #include "parse.h"
@@ -1560,7 +1561,7 @@ done:
    symbols are kept in a singly linked list so that we can commit or
    undo the changes at a later time.
 
-   A symtree may point to a symbol node outside of it's namespace.  In
+   A symtree may point to a symbol node outside of its namespace.  In
    this case, that symbol has been used as a host associated variable
    at some previous time.  */
 
@@ -1613,6 +1614,8 @@ gfc_get_namespace (gfc_namespace * parent)
 	  ts->kind = gfc_default_real_kind ();
 	}
     }
+
+  ns->refs = 1;
 
   return ns;
 }
@@ -2227,6 +2230,11 @@ gfc_free_namespace (gfc_namespace * ns)
 
   if (ns == NULL)
     return;
+
+  ns->refs--;
+  if (ns->refs > 0)
+    return;
+  assert (ns->refs == 0);
 
   gfc_free_statements (ns->code);
 

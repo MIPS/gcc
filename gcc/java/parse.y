@@ -543,8 +543,8 @@ static GTY(()) tree src_parse_roots[1];
 			if_then_else_statement_nsi while_statement_nsi
 			for_statement_nsi statement_expression_list for_init
 			for_update statement_expression expression_statement
-			primary_no_new_array expression primary
-			array_creation_expression array_type
+			primary_no_new_array expression primary array_type
+			array_creation_initialized array_creation_uninitialized
 			class_instance_creation_expression field_access
 			method_invocation array_access something_dot_new
 			argument_list postfix_expression while_expression
@@ -1945,7 +1945,8 @@ finally:
 /* 19.12 Production from 15: Expressions  */
 primary:
 	primary_no_new_array
-|	array_creation_expression
+|	array_creation_uninitialized
+|	array_creation_initialized
 ;
 
 primary_no_new_array:
@@ -2106,7 +2107,7 @@ argument_list:
 		{yyerror ("Missing term"); RECOVER;}
 ;
 
-array_creation_expression:
+array_creation_uninitialized:
 	NEW_TK primitive_type dim_exprs
 		{ $$ = build_newarray_node ($2, $3, 0); }
 |	NEW_TK class_or_interface_type dim_exprs
@@ -2115,9 +2116,16 @@ array_creation_expression:
 		{ $$ = build_newarray_node ($2, $3, pop_current_osb (ctxp));}
 |	NEW_TK class_or_interface_type dim_exprs dims
 		{ $$ = build_newarray_node ($2, $3, pop_current_osb (ctxp));}
+|	NEW_TK error CSB_TK
+		{yyerror ("'[' expected"); DRECOVER ("]");}
+|	NEW_TK error OSB_TK
+		{yyerror ("']' expected"); RECOVER;}
+;
+
+array_creation_initialized:
         /* Added, JDK1.1 anonymous array. Initial documentation rule
            modified */
-|	NEW_TK class_or_interface_type dims array_initializer
+	NEW_TK class_or_interface_type dims array_initializer
 		{
 		  char *sig;
 		  int osb = pop_current_osb (ctxp);
@@ -2271,6 +2279,8 @@ array_access:
 		{ $$ = build_array_ref ($2.location, $1, $3); }
 |	primary_no_new_array OSB_TK expression CSB_TK
 		{ $$ = build_array_ref ($2.location, $1, $3); }
+|	array_creation_initialized OSB_TK expression CSB_TK
+		{ $$ = build_array_ref ($2.location, $1, $3); }
 |	name OSB_TK error
 		{
 		  yyerror ("Missing term and ']' expected");
@@ -2287,6 +2297,16 @@ array_access:
 		  DRECOVER(array_access);
 		}
 |	primary_no_new_array OSB_TK expression error
+		{
+		  yyerror ("']' expected");
+		  DRECOVER(array_access);
+		}
+|	array_creation_initialized OSB_TK error
+		{
+		  yyerror ("Missing term and ']' expected");
+		  DRECOVER(array_access);
+		}
+|	array_creation_initialized OSB_TK expression error
 		{
 		  yyerror ("']' expected");
 		  DRECOVER(array_access);
@@ -4822,8 +4842,8 @@ static char *
 constructor_circularity_msg (tree from, tree to)
 {
   static char string [4096];
-  char *t = xstrdup (lang_printable_name (from, 0));
-  sprintf (string, "`%s' invokes `%s'", t, lang_printable_name (to, 0));
+  char *t = xstrdup (lang_printable_name (from, 2));
+  sprintf (string, "`%s' invokes `%s'", t, lang_printable_name (to, 2));
   free (t);
   return string;
 }
@@ -4855,7 +4875,7 @@ verify_constructor_circularity (tree meth, tree current)
 		  java_error_count--;
 		}
 	    }
-	  t = xstrdup (lang_printable_name (meth, 0));
+	  t = xstrdup (lang_printable_name (meth, 2));
 	  parse_error_context (TREE_PURPOSE (c),
 			       "%s: recursive invocation of constructor `%s'",
 			       constructor_circularity_msg (current, meth), t);
@@ -5402,13 +5422,7 @@ craft_constructor (tree class_decl, tree args)
   tree decl, ctor_name;
   char buffer [80];
 
-  /* The constructor name is <init> unless we're dealing with an
-     anonymous class, in which case the name will be fixed after having
-     be expanded. */
-  if (ANONYMOUS_CLASS_P (class_type))
-    ctor_name = DECL_NAME (class_decl);
-  else
-    ctor_name = init_identifier_node;
+  ctor_name = init_identifier_node;
 
   /* If we're dealing with an inner class constructor, we hide the
      this$<n> decl in the name field of its parameter declaration. */
@@ -6080,7 +6094,7 @@ get_printable_method_name (tree decl)
       DECL_NAME (decl) = DECL_NAME (TYPE_NAME (DECL_CONTEXT (decl)));
     }
 
-  to_return = lang_printable_name (decl, 0);
+  to_return = lang_printable_name (decl, 2);
   if (DECL_CONSTRUCTOR_P (decl))
     DECL_NAME (decl) = name;
 
@@ -6187,7 +6201,7 @@ check_abstract_method_definitions (int do_interface, tree class_decl,
 	    (lookup_cl (class_decl),
 	     "Class `%s' doesn't define the abstract method `%s %s' from %s `%s'. This method must be defined or %s `%s' must be declared abstract",
 	     IDENTIFIER_POINTER (DECL_NAME (class_decl)),
-	     t, lang_printable_name (method, 0),
+	     t, lang_printable_name (method, 2),
 	     (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))) ?
 	      "interface" : "class"),
 	     IDENTIFIER_POINTER (ccn),
@@ -6365,7 +6379,7 @@ java_check_regular_methods (tree class_decl)
 	  char *t = xstrdup (lang_printable_name (class, 0));
 	  parse_error_context
 	    (method_wfl, "Method `%s' can't be static in inner class `%s'. Only members of interfaces and top-level classes can be static",
-	     lang_printable_name (method, 0), t);
+	     lang_printable_name (method, 2), t);
 	  free (t);
 	}
 
@@ -6387,7 +6401,7 @@ java_check_regular_methods (tree class_decl)
 	  tree found_decl = TYPE_NAME (DECL_CONTEXT (found));
 	  parse_error_context (method_wfl, "Class `%s' must override `%s' with a public method in order to implement interface `%s'",
 			       IDENTIFIER_POINTER (DECL_NAME (class_decl)),
-			       lang_printable_name (method, 0),
+			       lang_printable_name (method, 2),
 			       IDENTIFIER_POINTER (DECL_NAME (found_decl)));
 	}
 
@@ -6396,11 +6410,11 @@ java_check_regular_methods (tree class_decl)
       if (TREE_TYPE (TREE_TYPE (found)) != TREE_TYPE (TREE_TYPE (method)))
 	{
 	  char *t = xstrdup
-	    (lang_printable_name (TREE_TYPE (TREE_TYPE (found)), 0));
+	    (lang_printable_name (TREE_TYPE (TREE_TYPE (found)), 2));
 	  parse_error_context
 	    (method_wfl,
 	     "Method `%s' was defined with return type `%s' in class `%s'",
-	     lang_printable_name (found, 0), t,
+	     lang_printable_name (found, 2), t,
 	     IDENTIFIER_POINTER
 	       (DECL_NAME (TYPE_NAME (DECL_CONTEXT (found)))));
 	  free (t);
@@ -6418,7 +6432,7 @@ java_check_regular_methods (tree class_decl)
 	    (method_wfl,
 	     "%s methods can't be overridden. Method `%s' is %s in class `%s'",
 	     (METHOD_FINAL (found) ? "Final" : "Static"),
-	     lang_printable_name (found, 0),
+	     lang_printable_name (found, 2),
 	     (METHOD_FINAL (found) ? "final" : "static"),
 	     IDENTIFIER_POINTER
 	       (DECL_NAME (TYPE_NAME (DECL_CONTEXT (found)))));
@@ -6431,7 +6445,7 @@ java_check_regular_methods (tree class_decl)
 	  parse_error_context
 	    (method_wfl,
 	     "Instance methods can't be overridden by a static method. Method `%s' is an instance method in class `%s'",
-	     lang_printable_name (found, 0),
+	     lang_printable_name (found, 2),
 	     IDENTIFIER_POINTER
 	       (DECL_NAME (TYPE_NAME (DECL_CONTEXT (found)))));
 	  continue;
@@ -6453,7 +6467,7 @@ java_check_regular_methods (tree class_decl)
 	{
 	  parse_error_context
 	    (method_wfl,
-	     "Methods can't be overridden to be more private. Method `%s' is not %s in class `%s'", lang_printable_name (method, 0),
+	     "Methods can't be overridden to be more private. Method `%s' is not %s in class `%s'", lang_printable_name (method, 2),
 	     (METHOD_PUBLIC (method) ? "public" :
 	      (METHOD_PRIVATE (method) ? "private" : "protected")),
 	     IDENTIFIER_POINTER (DECL_NAME
@@ -6596,7 +6610,7 @@ check_throws_clauses (tree method, tree method_wfl, tree found)
 	  parse_error_context
 	    (method_wfl, "Invalid checked exception class `%s' in `throws' clause.  The exception must be a subclass of an exception thrown by `%s' from class `%s'",
 	     IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (TREE_VALUE (mthrows)))),
-	     lang_printable_name (found, 0),
+	     lang_printable_name (found, 2),
 	     IDENTIFIER_POINTER
 	     (DECL_NAME (TYPE_NAME (DECL_CONTEXT (found)))));
 	}
@@ -6623,11 +6637,11 @@ java_check_abstract_methods (tree interface_decl)
       if (found)
 	{
 	  char *t;
-	  t = xstrdup (lang_printable_name (TREE_TYPE (TREE_TYPE (found)), 0));
+	  t = xstrdup (lang_printable_name (TREE_TYPE (TREE_TYPE (found)), 2));
 	  parse_error_context
 	    (DECL_FUNCTION_WFL (found),
 	     "Method `%s' was defined with return type `%s' in class `%s'",
-	     lang_printable_name (found, 0), t,
+	     lang_printable_name (found, 2), t,
 	     IDENTIFIER_POINTER
 	       (DECL_NAME (TYPE_NAME (DECL_CONTEXT (found)))));
 	  free (t);
@@ -6653,7 +6667,7 @@ java_check_abstract_methods (tree interface_decl)
 		(lookup_cl (sub_interface_method),
 		 "Interface `%s' inherits method `%s' from interface `%s'. This method is redefined with a different return type in interface `%s'",
 		 IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (interface))),
-		 lang_printable_name (found, 0),
+		 lang_printable_name (found, 2),
 		 IDENTIFIER_POINTER
 		   (DECL_NAME (TYPE_NAME
 			       (DECL_CONTEXT (sub_interface_method)))),
@@ -7220,7 +7234,7 @@ check_inner_class_access (tree decl, tree enclosing_decl, tree cl)
 
   parse_error_context (cl, "Nested %s %s is %s; cannot be accessed from here",
 		       (CLASS_INTERFACE (decl) ? "interface" : "class"),
-		       lang_printable_name (decl, 0), access);
+		       lang_printable_name (decl, 2), access);
 }
 
 /* Accessibility check for top-level classes. If CLASS_NAME is in a
@@ -8815,7 +8829,7 @@ fix_constructors (tree mdecl)
 	  parse_error_context
 	    (lookup_cl (TYPE_NAME (class_type)),
 	     "No constructor matching `%s' found in class `%s'",
-	     lang_printable_name (mdecl, 0), n);
+	     lang_printable_name (mdecl, 2), n);
 	  DECL_NAME (mdecl) = save;
 	}
 
@@ -10277,7 +10291,7 @@ patch_method_invocation (tree patch, tree primary, tree where, int from_super,
 	    }
 	  if (list && !METHOD_STATIC (list))
 	    {
-	      char *fct_name = xstrdup (lang_printable_name (list, 0));
+	      char *fct_name = xstrdup (lang_printable_name (list, 2));
 	      parse_error_context
 		(identifier_wfl,
 		 "Can't make static reference to method `%s %s' in class `%s'",
@@ -10910,12 +10924,10 @@ lookup_method_invoke (int lc, tree cl, tree class, tree name, tree arg_list)
 
   if (lc && ANONYMOUS_CLASS_P (class))
     {
-      tree saved_current_class;
       tree mdecl = craft_constructor (TYPE_NAME (class), atl);
-      saved_current_class = current_class;
-      current_class = class;
-      fix_constructors (mdecl);
-      current_class = saved_current_class;
+      /* The anonymous class may have already been laid out, so make sure
+         the new constructor is laid out here.  */
+      layout_class_method (class, CLASSTYPE_SUPER (class), mdecl, NULL_TREE);
     }
 
   /* Find all candidates and then refine the list, searching for the
@@ -13322,10 +13334,10 @@ patch_binop (tree node, tree wfl_op1, tree wfl_op2)
       /* Shift int only up to 0x1f and long up to 0x3f */
       if (prom_type == int_type_node)
 	op2 = fold (build2 (BIT_AND_EXPR, int_type_node, op2,
-			    build_int_2 (0x1f, 0)));
+			    build_int_cst (NULL_TREE, 0x1f, 0)));
       else
 	op2 = fold (build2 (BIT_AND_EXPR, int_type_node, op2,
-			    build_int_2 (0x3f, 0)));
+			    build_int_cst (NULL_TREE, 0x3f, 0)));
 
       /* The >>> operator is a >> operating on unsigned quantities */
       if (code == URSHIFT_EXPR && ! flag_emit_class_files)
@@ -14020,12 +14032,12 @@ patch_unaryop (tree node, tree wfl_op)
 	     both operands, if really necessary */
 	  if (JINTEGRAL_TYPE_P (op_type))
 	    {
-	      value = build_int_2 (1, 0);
-	      TREE_TYPE (value) = TREE_TYPE (node) = op_type;
+	      value = build_int_cst (op_type, 1, 0);
+	      TREE_TYPE (node) = op_type;
 	    }
 	  else
 	    {
-	      value = build_int_2 (1, 0);
+	      value = build_int_cst (NULL_TREE, 1, 0);
 	      TREE_TYPE (node) =
 		binary_numeric_promotion (op_type,
 					  TREE_TYPE (value), &op, &value);
@@ -14251,8 +14263,7 @@ patch_cast (tree node, tree wfl_op)
 static tree
 build_null_of_type (tree type)
 {
-  tree node = build_int_2 (0, 0);
-  TREE_TYPE (node) = promote_type (type);
+  tree node = build_int_cst (promote_type (type), 0, 0);
   return node;
 }
 
@@ -14333,7 +14344,8 @@ static tree
 build_newarray_node (tree type, tree dims, int extra_dims)
 {
   tree node = build3 (NEW_ARRAY_EXPR, NULL_TREE, type,
-		      nreverse (dims), build_int_2 (extra_dims, 0));
+		      nreverse (dims),
+		      build_int_cst (NULL_TREE, extra_dims, 0));
   return node;
 }
 
@@ -14432,7 +14444,8 @@ patch_newarray (tree node)
 		 tree_cons (NULL_TREE,
 			    build_class_ref (TREE_TYPE (array_type)),
 			    tree_cons (NULL_TREE,
-				       build_int_2 (ndims, 0), dims )),
+				       build_int_cst (NULL_TREE,
+						      ndims, 0), dims )),
 		 NULL_TREE);
 }
 
@@ -14648,13 +14661,13 @@ patch_return (tree node)
 	  parse_error_context (wfl_operator,
 			       "`return' with%s value from `%s %s'",
 			       (error_found == 1 ? "" : "out"),
-			       t, lang_printable_name (meth, 0));
+			       t, lang_printable_name (meth, 2));
 	  free (t);
 	}
       else
 	parse_error_context (wfl_operator,
 			     "`return' with value from constructor `%s'",
-			     lang_printable_name (meth, 0));
+			     lang_printable_name (meth, 2));
       return error_mark_node;
     }
 

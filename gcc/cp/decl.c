@@ -2963,10 +2963,8 @@ cxx_init_decl_processing (void)
   java_char_type_node = record_builtin_java_type ("__java_char", -16);
   java_boolean_type_node = record_builtin_java_type ("__java_boolean", -1);
 
-  integer_two_node = build_int_2 (2, 0);
-  TREE_TYPE (integer_two_node) = integer_type_node;
-  integer_three_node = build_int_2 (3, 0);
-  TREE_TYPE (integer_three_node) = integer_type_node;
+  integer_two_node = build_int_cst (NULL_TREE, 2, 0);
+  integer_three_node = build_int_cst (NULL_TREE, 3, 0);
 
   record_builtin_type (RID_BOOL, "bool", boolean_type_node);
   truthvalue_type_node = boolean_type_node;
@@ -4499,7 +4497,7 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
     check_for_uninitialized_const_var (decl);
 
   if (init && init != error_mark_node)
-    init_code = build (INIT_EXPR, type, decl, init);
+    init_code = build2 (INIT_EXPR, type, decl, init);
 
   return init_code;
 }
@@ -5254,8 +5252,9 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	{
 	  int eltsize
 	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
-	  maxindex = build_int_2 ((TREE_STRING_LENGTH (initial_value)
-				   / eltsize) - 1, 0);
+	  maxindex = build_int_cst (NULL_TREE,
+				    (TREE_STRING_LENGTH (initial_value)
+				     / eltsize) - 1, 0);
 	}
       else if (TREE_CODE (initial_value) == CONSTRUCTOR)
 	{
@@ -5279,14 +5278,14 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	    initial_value = NULL_TREE;
 
 	  /* Prevent further error messages.  */
-	  maxindex = build_int_2 (0, 0);
+	  maxindex = build_int_cst (NULL_TREE, 0, 0);
 	}
     }
 
   if (!maxindex)
     {
       if (do_default)
-	maxindex = build_int_2 (0, 0);
+	maxindex = build_int_cst (NULL_TREE, 0, 0);
       value = 2;
     }
 
@@ -10077,8 +10076,8 @@ finish_constructor_body (void)
       add_stmt (build_stmt (LABEL_EXPR, cdtor_label));
 
       val = DECL_ARGUMENTS (current_function_decl);
-      val = build (MODIFY_EXPR, TREE_TYPE (val),
-		   DECL_RESULT (current_function_decl), val);
+      val = build2 (MODIFY_EXPR, TREE_TYPE (val),
+		    DECL_RESULT (current_function_decl), val);
       /* Return the address of the object.  */
       exprstmt = build_stmt (RETURN_EXPR, val);
       add_stmt (exprstmt);
@@ -10161,9 +10160,9 @@ finish_destructor_body (void)
 	 /*global_p=*/false, NULL_TREE);
 
       if_stmt = begin_if_stmt ();
-      finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
-				  current_in_charge_parm,
-				  integer_one_node),
+      finish_if_stmt_cond (build2 (BIT_AND_EXPR, integer_type_node,
+				   current_in_charge_parm,
+				   integer_one_node),
 			   if_stmt);
       finish_expr_stmt (exprstmt);
       finish_then_clause (if_stmt);
@@ -10175,8 +10174,8 @@ finish_destructor_body (void)
       tree val;
 
       val = DECL_ARGUMENTS (current_function_decl);
-      val = build (MODIFY_EXPR, TREE_TYPE (val),
-		   DECL_RESULT (current_function_decl), val);
+      val = build2 (MODIFY_EXPR, TREE_TYPE (val),
+		    DECL_RESULT (current_function_decl), val);
       /* Return the address of the object.  */
       exprstmt = build_stmt (RETURN_EXPR, val);
       add_stmt (exprstmt);

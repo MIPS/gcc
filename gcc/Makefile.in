@@ -605,15 +605,6 @@ GCC_PARTS=$(GCC_PASSES) $(LIBGCC) $(EXTRA_PROGRAMS) $(COLLECT2) $(EXTRA_PARTS)
 # Directory to link to, when using the target `maketest'.
 DIR = ../gcc
 
-# Flags to use when cross-building GCC.
-# Prefix to apply to names of object files when using them
-# to run on the machine we are compiling on.
-BUILD_PREFIX = @BUILD_PREFIX@
-# Prefix to apply to names of object files when compiling them
-# to run on the machine we are compiling on.
-# The default for this variable is chosen to keep these rules
-# out of the way of the other rules for compiling the same source files.
-BUILD_PREFIX_1 = @BUILD_PREFIX_1@
 # Native compiler for the build machine and its switches.
 CC_FOR_BUILD = @CC_FOR_BUILD@
 BUILD_CFLAGS= @BUILD_CFLAGS@ -DGENERATOR_FILE
@@ -682,7 +673,8 @@ HOOKS_H = hooks.h
 LANGHOOKS_DEF_H = langhooks-def.h $(HOOKS_H)
 TARGET_DEF_H = target-def.h $(HOOKS_H)
 MACHMODE_H = machmode.h mode-classes.def insn-modes.h
-RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H) input.h statistics.h
+RTL_BASE_H = rtl.h rtl.def $(MACHMODE_H) reg-notes.def insn-notes.def \
+  input.h statistics.h
 RTL_H = $(RTL_BASE_H) genrtl.h
 PARAMS_H = params.h params.def
 TREE_H = tree.h tree.def $(MACHMODE_H) tree-check.h builtins.def \
@@ -729,7 +721,7 @@ TREE_FLOW_H = tree-flow.h tree-flow-inline.h tree-ssa-operands.h \
 TREE_SSA_LIVE_H = tree-ssa-live.h $(PARTITION_H)
 PRETTY_PRINT_H = pretty-print.h input.h $(OBSTACK_H)
 DIAGNOSTIC_H = diagnostic.h diagnostic.def $(PRETTY_PRINT_H)
-C_PRETTY_PRINT_H = $(PRETTY_PRINT_H) $(C_COMMON_H) $(TREE_H)
+C_PRETTY_PRINT_H = c-pretty-print.h $(PRETTY_PRINT_H) $(C_COMMON_H) $(TREE_H)
 SCEV_H = tree-scalar-evolution.h $(GGC_H) tree-chrec.h
 
 #
@@ -762,7 +754,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
 
 # How to link with both our special library facilities
 # and the system's installed libraries.
-LIBS = @LIBS@ $(CPPLIB) $(LIBIBERTY) $(LIBINTL) $(LIBICONV) $(BANSHEELIB)
+LIBS = @LIBS@ $(CPPLIB) $(LIBINTL) $(LIBICONV) $(BANSHEELIB) $(LIBIBERTY)
 
 # Any system libraries needed just for GNAT.
 SYSLIBS = @GNAT_LIBEXC@
@@ -774,14 +766,13 @@ LDEXP_LIB = @LDEXP_LIB@
 # even if we are cross-building GCC.
 BUILD_LIBS = $(BUILD_LIBIBERTY)
 
-BUILD_RTL = $(BUILD_PREFIX)rtl.o read-rtl.o \
-		ggc-none.o min-insn-modes.o
+BUILD_RTL = build-rtl.o read-rtl.o ggc-none.o min-insn-modes.o
 BUILD_SUPPORT = gensupport.o insn-conditions.o
 BUILD_EARLY_SUPPORT = gensupport.o dummy-conditions.o
 
-BUILD_PRINT = print-rtl1.o
-BUILD_ERRORS = $(BUILD_PREFIX)errors.o
-BUILD_VARRAY = $(BUILD_PREFIX)varray.o
+BUILD_PRINT = build-print-rtl.o
+BUILD_ERRORS = errors.o
+BUILD_VARRAY = build-varray.o
 
 # Specify the directories to be searched for header files.
 # Both . and srcdir are used, in that order,
@@ -816,8 +807,6 @@ export AR_CREATE_FOR_TARGET
 export AR_FLAGS_FOR_TARGET
 export AR_EXTRACT_FOR_TARGET
 export AWK
-export BUILD_PREFIX
-export BUILD_PREFIX_1
 export DESTDIR
 export GCC_FOR_TARGET
 export INCLUDES
@@ -899,6 +888,7 @@ OBJS-common = \
  tree-ssa-dom.o domwalk.o tree-tailcall.o gimple-low.o tree-iterator.o	   \
  tree-phinodes.o tree-ssanames.o tree-sra.o tree-complex.o tree-ssa-loop.o \
  tree-ssa-loop-niter.o tree-ssa-loop-manip.o tree-ssa-threadupdate.o	   \
+ tree-vectorizer.o						 	   \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	  	   \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
  cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
@@ -911,18 +901,21 @@ OBJS-common = \
  haifa-sched.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o insn-modes.o	   \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	   \
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o  	   \
- loop.o modulo-sched.o							   \
- optabs.o options.o opts.o params.o postreload.o predict.o		   \
+ loop.o modulo-sched.o optabs.o options.o opts.o			   \
+ params.o postreload.o postreload-gcse.o predict.o			   \
+ insn-preds.o integrate.o intl.o jump.o langhooks.o lcm.o lists.o 	   \
+ local-alloc.o loop.o modulo-sched.o optabs.o options.o opts.o		   \
+ params.o postreload.o postreload-gcse.o predict.o			   \
  print-rtl.o print-tree.o value-prof.o var-tracking.o			   \
  profile.o ra.o ra-build.o ra-colorize.o ra-debug.o ra-rewrite.o	   \
  real.o recog.o reg-stack.o regclass.o regmove.o regrename.o		   \
  reload.o reload1.o reorg.o resource.o rtl.o rtlanal.o rtl-error.o	   \
  sbitmap.o sched-deps.o sched-ebb.o sched-rgn.o sched-vis.o sdbout.o	   \
- simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o 	 	  \
+ simplify-rtx.o sreal.o stmt.o stor-layout.o stringpool.o		   \
  targhooks.o timevar.o toplev.o tracer.o tree.o tree-dump.o unroll.o	   \
  varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
- rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o
+ rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o
 
 OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \
@@ -937,7 +930,8 @@ BACKEND = main.o @TREEBROWSER@ libbackend.a $(CPPLIB)
 # Files to be copied away after each stage in building.
 STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
- insn-attr.h insn-attrtab.c insn-opinit.c insn-constants.h tm-preds.h \
+ insn-attr.h insn-attrtab.c insn-opinit.c insn-preds.c insn-constants.h \
+ tm-preds.h \
  tree-check.h insn-conditions.c min-insn-modes.c insn-modes.c insn-modes.h \
  s-flags s-config s-codes s-mlib s-genrtl s-modes s-gtype gtyp-gen.h \
  s-gtyp-gen s-output s-recog s-emit s-extract s-peep s-check s-conditions \
@@ -1370,7 +1364,8 @@ c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(
     langhooks.h
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) $(C_PRETTY_PRINT_H) $(DIAGNOSTIC_H) \
-    $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-c.h
+    $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-c.h \
+    c-objc-common.h
 stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
     $(GGC_H) $(C_COMMON_H)
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
@@ -1380,9 +1375,9 @@ c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 c-ppoutput.o : c-ppoutput.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
     $(C_COMMON_H) $(TREE_H) $(CPPLIB_H) $(srcdir)/../libcpp/internal.h $(TM_P_H) $(C_PRAGMA_H)
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
-    $(C_TREE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) $(EXPR_H) $(C_TREE_H) \
+    $(C_TREE_H) $(RTL_H) insn-config.h $(INTEGRATE_H) $(EXPR_H) \
     $(FLAGS_H) toplev.h tree-inline.h $(DIAGNOSTIC_H) $(VARRAY_H) \
-    langhooks.h $(GGC_H) $(TARGET_H) cgraph.h
+    langhooks.h $(GGC_H) $(TARGET_H) cgraph.h $(C_PRETTY_PRINT_H) c-objc-common.h
 c-aux-info.o : c-aux-info.c  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(C_TREE_H) $(FLAGS_H) toplev.h
 c-convert.o : c-convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
@@ -1737,6 +1732,10 @@ tree-data-ref.o: tree-data-ref.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
    tree-data-ref.h $(SCEV_H) tree-pass.h lambda.h
+tree-vectorizer.o: tree-vectorizer.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
+   $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-pass.h \
+   tree-vectorizer.h tree-data-ref.h $(SCEV_H)
 tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 	$(RTL_H) $(TREE_GIMPLE_H) $(TM_H) coretypes.h bitmap.h $(GGC_H)
 tree-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
@@ -1796,7 +1795,7 @@ rtl.o : rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) $(RTL_H) real.h \
 	$(CC) -c $(ALL_CFLAGS) -DGENERATOR_FILE $(ALL_CPPFLAGS) $(INCLUDES) $< $(OUTPUT_OPTION)
 
 print-rtl.o : print-rtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-    $(RTL_H) $(TREE_H) hard-reg-set.h $(BASIC_BLOCK_H) real.h
+    $(RTL_H) $(TREE_H) hard-reg-set.h $(BASIC_BLOCK_H) real.h $(FLAGS_H)
 rtlanal.o : rtlanal.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) toplev.h \
    $(RTL_H) hard-reg-set.h $(TM_P_H) insn-config.h $(RECOG_H) real.h $(FLAGS_H) \
    $(BASIC_BLOCK_H) $(REGS_H) output.h target.h function.h
@@ -1975,7 +1974,8 @@ cfgrtl.o : cfgrtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(GGC_H) $(TM_P_H) insn-config.h $(EXPR_H)
 cfganal.o : cfganal.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
-   $(BASIC_BLOCK_H) hard-reg-set.h insn-config.h $(RECOG_H) $(GGC_H) $(TM_P_H)
+   $(BASIC_BLOCK_H) hard-reg-set.h insn-config.h $(RECOG_H) $(GGC_H) $(TM_P_H) \
+   $(TIMEVAR_H)
 cfgbuild.o : cfgbuild.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS_H) \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(GGC_H)
@@ -2052,6 +2052,10 @@ postreload.o : postreload.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H)
    $(EXPR_H) $(OPTABS_H) reload.h $(REGS_H) hard-reg-set.h insn-config.h \
    $(BASIC_BLOCK_H) $(RECOG_H) output.h function.h toplev.h cselib.h $(TM_P_H) \
    except.h $(TREE_H)
+postreload-gcse.o : postreload-gcse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(RTL_H) $(REGS_H) hard-reg-set.h $(FLAGS_H) real.h insn-config.h $(GGC_H) \
+   $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) function.h output.h toplev.h $(TM_P_H) \
+   except.h $(TREE_H)
 caller-save.o : caller-save.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(FLAGS_H) $(REGS_H) hard-reg-set.h insn-config.h $(BASIC_BLOCK_H) function.h \
    $(RECOG_H) reload.h $(EXPR_H) toplev.h $(TM_P_H)
@@ -2127,6 +2131,7 @@ ifcvt.o : ifcvt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REGS_H) toplev.h $(FLAGS_H) insn-config.h function.h $(RECOG_H) $(TARGET_H) \
    $(BASIC_BLOCK_H) $(EXPR_H) output.h except.h $(TM_P_H) real.h $(OPTABS_H) \
    $(CFGLOOP_H)
+lambda-mat.o : lambda-mat.c lambda.h $(GGC_H) $(SYSTEM_H) $(CONFIG_H) $(TM_H)
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(PARAMS_H) toplev.h
 hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(HOOKS_H)
 pretty-print.o: $(CONFIG_H) $(SYSTEM_H) pretty-print.c $(PRETTY_PRINT_H)
@@ -2165,7 +2170,7 @@ libbackend.o : $(OBJS-common:.o=.c) $(out_file) \
 
 .PRECIOUS: insn-config.h insn-flags.h insn-codes.h insn-constants.h \
   insn-emit.c insn-recog.c insn-extract.c insn-output.c insn-peep.c \
-  insn-attr.h insn-attrtab.c
+  insn-attr.h insn-attrtab.c insn-preds.c
 
 # The following pair of rules has this effect:
 # genconfig is run only if the md has changed since genconfig was last run;
@@ -2204,8 +2209,7 @@ insn-conditions.o : insn-conditions.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
   insn-constants.h
 	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) insn-conditions.c
 
-dummy-conditions.o : dummy-conditions.c $(BCONFIG_H) $(SYSTEM_H) \
-  coretypes.h $(GTM_H) gensupport.h
+dummy-conditions.o : dummy-conditions.c
 
 insn-flags.h: s-flags ; @true
 s-flags : $(md_file) genflags$(build_exeext)
@@ -2339,12 +2343,18 @@ s-modes: genmodes$(build_exeext)
 	$(SHELL) $(srcdir)/../move-if-change tmp-modes.c insn-modes.c
 	$(STAMP) s-modes
 
-tm-preds.h: s-preds; @true
+insn-preds.c tm-preds.h: s-preds; @true
 
-s-preds: genpreds$(build_exeext)
-	$(RUN_GEN) ./genpreds$(build_exeext) > tmp-preds.h
+s-preds: $(md_file) genpreds$(build_exeext)
+	$(RUN_GEN) ./genpreds$(build_exeext) -h $(md_file) > tmp-preds.h
 	$(SHELL) $(srcdir)/../move-if-change tmp-preds.h tm-preds.h
+	$(RUN_GEN) ./genpreds$(build_exeext) $(md_file) > tmp-preds.c
+	$(SHELL) $(srcdir)/../move-if-change tmp-preds.c insn-preds.c
 	$(STAMP) s-preds
+
+insn-preds.o : insn-preds.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+  $(RTL_H) $(TREE_H) insn-config.h $(RECOG_H) real.h output.h $(FLAGS_H) \
+  function.h hard-reg-set.h $(RESOURCE_H) $(TM_P_H) toplev.h reload.h
 
 GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(CPP_ID_DATA_H) $(host_xm_file_list) \
@@ -2453,7 +2463,7 @@ genobjs=$(genprognames:%=%.o) read-rtl.o gensupport.o genattrtab.o \
         genautomata.o gengenrtl.o genmodes.o genpreds.o gengtype.o \
 	genconstants.o gen-protos.o scan.o fix-header.o scan-decls.o \
 	gencheck.o dummy-conditions.o genconditions.o errors.o ggc-none.o \
-	min-insn-modes.o
+	min-insn-modes.o build-rtl.o build-print-rtl.o build-varray.o
 
 $(genprogs): %$(build_exeext): %.o  $(BUILD_RTL) $(BUILD_SUPPORT) \
 			       $(BUILD_PRINT) $(BUILD_ERRORS) \
@@ -2462,7 +2472,7 @@ $(genprogs): %$(build_exeext): %.o  $(BUILD_RTL) $(BUILD_SUPPORT) \
 		$< $(BUILD_RTL) $(BUILD_SUPPORT) $(BUILD_PRINT) \
 		$(BUILD_ERRORS) $(BUILD_LIBS)
 
-$(genobjs): %.o : %.c
+$(genobjs): %.o :  # dependencies provided by explicit rule later
 	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
 	    $< $(OUTPUT_OPTION)
 
@@ -2538,11 +2548,14 @@ genmodes$(build_exeext) : genmodes.o $(BUILD_ERRORS) $(BUILD_LIBDEPS)
 genmodes.o : genmodes.c $(BCONFIG_H) $(SYSTEM_H) errors.h $(HASHTAB_H) \
 	     machmode.def $(extra_modes_file)
 
-genpreds$(build_exeext) : genpreds.o $(BUILD_LIBDEPS)
+genpreds$(build_exeext) : genpreds.o $(BUILD_RTL) $(BUILD_EARLY_SUPPORT) \
+  $(BUILD_PRINT) $(BUILD_ERRORS) $(BUILD_LIBDEPS)
 	$(CC_FOR_BUILD) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o $@ \
-	 genpreds.o $(BUILD_LIBS)
+	 genpreds.o $(BUILD_RTL) $(BUILD_EARLY_SUPPORT) $(BUILD_PRINT) \
+	 $(BUILD_ERRORS) $(BUILD_LIBS)
 
-genpreds.o : genpreds.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H)
+genpreds.o : genpreds.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H) coretypes.h \
+	$(GTM_H) errors.h gensupport.h $(OBSTACK_H)
 
 gengtype$(build_exeext) : gengtype.o gengtype-lex.o gengtype-yacc.o \
   $(BUILD_LIBDEPS)
@@ -2576,34 +2589,16 @@ genconditions$(build_exeext) : genconditions.o $(BUILD_EARLY_SUPPORT) \
 
 genconditions.o : genconditions.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H) \
 	coretypes.h $(GTM_H) errors.h
+
 errors.o : errors.c $(BCONFIG_H) $(SYSTEM_H) errors.h
 ggc-none.o : ggc-none.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GGC_H)
 min-insn-modes.o : min-insn-modes.c $(BCONFIG_H) system.h $(MACHMODE_H)
-
-#
-# Compile the libraries to be used by gen*.
-# If we are not cross-building, gen* use the same .o's that cc1 will use,
-# and BUILD_PREFIX_1 is `loser-', just to ensure these rules don't conflict
-# with the rules for rtl.o, etc.
-$(BUILD_PREFIX_1)rtl.o: $(srcdir)/rtl.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H) $(RTL_H) \
+build-rtl.o: rtl.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H) $(RTL_H) \
   real.h $(GGC_H) errors.h
-	rm -f $(BUILD_PREFIX)rtl.c
-	sed -e 's/config[.]h/bconfig.h/' $(srcdir)/rtl.c > $(BUILD_PREFIX)rtl.c
-	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) $(BUILD_PREFIX)rtl.c $(OUTPUT_OPTION)
-
-print-rtl1.o: $(srcdir)/print-rtl.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h \
-  $(GTM_H) $(RTL_H) $(TREE_H) hard-reg-set.h $(BASIC_BLOCK_H)
-	rm -f print-rtl1.c
-	sed -e 's/config[.]h/bconfig.h/' $(srcdir)/print-rtl.c > print-rtl1.c
-	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) print-rtl1.c $(OUTPUT_OPTION)
-
-$(BUILD_PREFIX_1)varray.o: varray.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H) varray.h \
-  $(RTL_H) $(GGC_H) $(TREE_H) bitmap.h errors.h
-	rm -f $(BUILD_PREFIX)varray.c
-	sed -e 's/config[.]h/bconfig.h/' $(srcdir)/varray.c > \
-		$(BUILD_PREFIX)varray.c
-	$(CC_FOR_BUILD) -c $(BUILD_CFLAGS) $(BUILD_CPPFLAGS) $(INCLUDES) \
-		$(BUILD_PREFIX)varray.c $(OUTPUT_OPTION)
+build-print-rtl.o: print-rtl.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h \
+  $(GTM_H) $(RTL_BASE_H)
+build-varray.o: varray.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H) \
+  varray.h $(RTL_BASE_H) $(GGC_H) $(TREE_H) bitmap.h errors.h
 
 #
 # Remake internationalization support.
@@ -3009,8 +3004,6 @@ mostlyclean: lang.mostlyclean
 	-rm -f $(STAGESTUFF)
 	-rm -f *$(coverageexts)
 	-rm -rf libgcc
-# Delete the temporary source copies for cross compilation.
-	-rm -f $(BUILD_PREFIX_1)rtl.c $(BUILD_PREFIX_1)varray.c print-rtl1.c
 # Delete the temp files made in the course of building libgcc.a.
 	-rm -f xlimits.h
 # Delete other built files.
@@ -3609,7 +3602,7 @@ STAGEPROFILE_FLAGS_TO_PASS = \
 # Files never linked into the final executable produces warnings about missing
 # profile.
 STAGEFEEDBACK_FLAGS_TO_PASS = \
-	CFLAGS="$(BOOT_CFLAGS) -fprofile-use"
+	CFLAGS="$(BOOT_CFLAGS) -fprofile-use -freorder-blocks-and-partition"
 
 # Only build the C compiler for stage1, because that is the only one that
 # we can guarantee will build with the native compiler, and also it is the

@@ -660,7 +660,7 @@ start_fname_decls (void)
 
       if (decl)
 	{
-	  saved = tree_cons (decl, build_int_2 (ix, 0), saved);
+	  saved = tree_cons (decl, build_int_cst (NULL_TREE, ix, 0), saved);
 	  *fname_vars[ix].decl = NULL_TREE;
 	}
     }
@@ -835,7 +835,8 @@ fix_string_type (tree value)
   const int nchars_max = flag_isoc99 ? 4095 : 509;
   int length = TREE_STRING_LENGTH (value);
   int nchars;
-
+  tree e_type, i_type;
+  
   /* Compute the number of elements, for the array type.  */
   nchars = wide_flag ? length / wchar_bytes : length;
 
@@ -843,23 +844,15 @@ fix_string_type (tree value)
     pedwarn ("string length `%d' is greater than the length `%d' ISO C%d compilers are required to support",
 	     nchars - 1, nchars_max, flag_isoc99 ? 99 : 89);
 
+  e_type = wide_flag ? wchar_type_node : char_type_node;
   /* Create the array type for the string constant.
      -Wwrite-strings says make the string constant an array of const char
      so that copying it to a non-const pointer will get a warning.
      For C++, this is the standard behavior.  */
   if (flag_const_strings)
-    {
-      tree elements
-	= build_type_variant (wide_flag ? wchar_type_node : char_type_node,
-			      1, 0);
-      TREE_TYPE (value)
-	= build_array_type (elements,
-			    build_index_type (build_int_2 (nchars - 1, 0)));
-    }
-  else
-    TREE_TYPE (value)
-      = build_array_type (wide_flag ? wchar_type_node : char_type_node,
-			  build_index_type (build_int_2 (nchars - 1, 0)));
+    e_type = build_type_variant (e_type, 1, 0);
+  i_type = build_index_type (build_int_cst (NULL_TREE, nchars - 1, 0));
+  TREE_TYPE (value) = build_array_type (e_type, i_type);
 
   TREE_CONSTANT (value) = 1;
   TREE_INVARIANT (value) = 1;
@@ -1997,10 +1990,14 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 
       if (TREE_TYPE (primop1) != *restype_ptr)
 	{
-	  tree tmp = convert (*restype_ptr, primop1);
-	  TREE_OVERFLOW (tmp) = TREE_OVERFLOW (primop1);
-	  TREE_CONSTANT_OVERFLOW (tmp) = TREE_CONSTANT_OVERFLOW (primop1);
-	  primop1 = tmp;
+	  /* Convert primop1 to target type, but do not introduce
+	     additional overflow.  We know primop1 is an int_cst.  */
+	  tree tmp = build_int_cst (*restype_ptr,
+				    TREE_INT_CST_LOW (primop1),
+				    TREE_INT_CST_HIGH (primop1));
+
+	  primop1 = force_fit_type (tmp, 0, TREE_OVERFLOW (primop1),
+				    TREE_CONSTANT_OVERFLOW (primop1));
 	}
       if (type != *restype_ptr)
 	{
@@ -2110,7 +2107,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	{
 	  /* Don't forget to evaluate PRIMOP0 if it has side effects.  */
 	  if (TREE_SIDE_EFFECTS (primop0))
-	    return build (COMPOUND_EXPR, TREE_TYPE (val), primop0, val);
+	    return build2 (COMPOUND_EXPR, TREE_TYPE (val), primop0, val);
 	  return val;
 	}
 
@@ -2194,8 +2191,8 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	    {
 	      /* Don't forget to evaluate PRIMOP0 if it has side effects.  */
 	      if (TREE_SIDE_EFFECTS (primop0))
-		return build (COMPOUND_EXPR, TREE_TYPE (value),
-			      primop0, value);
+		return build2 (COMPOUND_EXPR, TREE_TYPE (value),
+			       primop0, value);
 	      return value;
 	    }
 	}
@@ -2290,7 +2287,7 @@ pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
 				    convert (TREE_TYPE (intop), size_exp), 1));
 
   /* Create the sum or difference.  */
-  return fold (build (resultcode, result_type, ptrop, intop));
+  return fold (build2 (resultcode, result_type, ptrop, intop));
 }
 
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
@@ -2356,8 +2353,8 @@ c_common_truthvalue_conversion (tree expr)
 	  break;
 
 	if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 0)))
-	  return build (COMPOUND_EXPR, truthvalue_type_node,
-			TREE_OPERAND (expr, 0), truthvalue_true_node);
+	  return build2 (COMPOUND_EXPR, truthvalue_type_node,
+			 TREE_OPERAND (expr, 0), truthvalue_true_node);
 	else
 	  return truthvalue_true_node;
       }
@@ -2380,14 +2377,16 @@ c_common_truthvalue_conversion (tree expr)
       /* These don't change whether an object is zero or nonzero, but
 	 we can't ignore them if their second arg has side-effects.  */
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
-	return build (COMPOUND_EXPR, truthvalue_type_node, TREE_OPERAND (expr, 1),
-		      lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0)));
+	return build2 (COMPOUND_EXPR, truthvalue_type_node,
+		       TREE_OPERAND (expr, 1),
+		       lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0)));
       else
 	return lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case COND_EXPR:
       /* Distribute the conversion into the arms of a COND_EXPR.  */
-      return fold (build (COND_EXPR, truthvalue_type_node, TREE_OPERAND (expr, 0),
+      return fold (build3 (COND_EXPR, truthvalue_type_node,
+		TREE_OPERAND (expr, 0),
 		lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 1)),
 		lang_hooks.truthvalue_conversion (TREE_OPERAND (expr, 2))));
 
@@ -3002,7 +3001,9 @@ c_common_nodes_and_builtins (void)
 
   record_builtin_type (RID_VOID, NULL, void_type_node);
 
-  void_zero_node = build_int_2 (0, 0);
+  void_zero_node = make_node (INTEGER_CST);
+  TREE_INT_CST_LOW (void_zero_node) = 0;
+  TREE_INT_CST_HIGH (void_zero_node) = 0;
   TREE_TYPE (void_zero_node) = void_type_node;
 
   void_list_node = build_void_list_node ();
@@ -3851,22 +3852,24 @@ boolean_increment (enum tree_code code, tree arg)
   switch (code)
     {
     case PREINCREMENT_EXPR:
-      val = build (MODIFY_EXPR, TREE_TYPE (arg), arg, true_res);
+      val = build2 (MODIFY_EXPR, TREE_TYPE (arg), arg, true_res);
       break;
     case POSTINCREMENT_EXPR:
-      val = build (MODIFY_EXPR, TREE_TYPE (arg), arg, true_res);
+      val = build2 (MODIFY_EXPR, TREE_TYPE (arg), arg, true_res);
       arg = save_expr (arg);
-      val = build (COMPOUND_EXPR, TREE_TYPE (arg), val, arg);
-      val = build (COMPOUND_EXPR, TREE_TYPE (arg), arg, val);
+      val = build2 (COMPOUND_EXPR, TREE_TYPE (arg), val, arg);
+      val = build2 (COMPOUND_EXPR, TREE_TYPE (arg), arg, val);
       break;
     case PREDECREMENT_EXPR:
-      val = build (MODIFY_EXPR, TREE_TYPE (arg), arg, invert_truthvalue (arg));
+      val = build2 (MODIFY_EXPR, TREE_TYPE (arg), arg,
+		    invert_truthvalue (arg));
       break;
     case POSTDECREMENT_EXPR:
-      val = build (MODIFY_EXPR, TREE_TYPE (arg), arg, invert_truthvalue (arg));
+      val = build2 (MODIFY_EXPR, TREE_TYPE (arg), arg,
+		    invert_truthvalue (arg));
       arg = save_expr (arg);
-      val = build (COMPOUND_EXPR, TREE_TYPE (arg), val, arg);
-      val = build (COMPOUND_EXPR, TREE_TYPE (arg), arg, val);
+      val = build2 (COMPOUND_EXPR, TREE_TYPE (arg), val, arg);
+      val = build2 (COMPOUND_EXPR, TREE_TYPE (arg), arg, val);
       break;
     default:
       abort ();
@@ -3892,10 +3895,11 @@ static void
 c_init_attributes (void)
 {
   /* Fill in the built_in_attributes array.  */
-#define DEF_ATTR_NULL_TREE(ENUM)		\
+#define DEF_ATTR_NULL_TREE(ENUM)				\
   built_in_attributes[(int) ENUM] = NULL_TREE;
-#define DEF_ATTR_INT(ENUM, VALUE)					     \
-  built_in_attributes[(int) ENUM] = build_int_2 (VALUE, VALUE < 0 ? -1 : 0);
+#define DEF_ATTR_INT(ENUM, VALUE)				\
+  built_in_attributes[(int) ENUM] = build_int_cst		\
+	(NULL_TREE, VALUE, VALUE < 0 ? -1 : 0);
 #define DEF_ATTR_IDENT(ENUM, STRING)				\
   built_in_attributes[(int) ENUM] = get_identifier (STRING);
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)	\
@@ -4074,6 +4078,7 @@ handle_used_attribute (tree *pnode, tree name, tree ARG_UNUSED (args),
       || (TREE_CODE (node) == VAR_DECL && TREE_STATIC (node)))
     {
       TREE_USED (node) = 1;
+      DECL_PRESERVE_P (node) = 1;
     }
   else
     {
@@ -4352,6 +4357,8 @@ handle_section_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 
   if (targetm.have_named_sections)
     {
+      user_defined_section_attribute = true;
+
       if ((TREE_CODE (decl) == FUNCTION_DECL
 	   || TREE_CODE (decl) == VAR_DECL)
 	  && TREE_CODE (TREE_VALUE (args)) == STRING_CST)

@@ -135,7 +135,7 @@ var_union (var_map map, tree var1, tree var2)
 
       /* If there is no root_var set, or its not a user variable, set the
 	 root_var to this one.  */
-      if (!root_var || is_gimple_tmp_var (root_var))
+      if (!root_var || (DECL_P (root_var) && DECL_IGNORED_P (root_var)))
         {
 	  other_var = root_var;
 	  root_var = var2;
@@ -1046,7 +1046,7 @@ type_var_init (var_map map)
       	  || TREE_CODE (t) == PARM_DECL 
 	  || (DECL_P (t)
 	      && (DECL_REGISTER (t)
-		  || !DECL_ARTIFICIAL (t)
+		  || !DECL_IGNORED_P (t)
 		  || DECL_RTL_SET_P (t))))
         continue;
 

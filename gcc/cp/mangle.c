@@ -1183,9 +1183,9 @@ write_integer_cst (const tree cst)
 	}
       
       type = c_common_signed_or_unsigned_type (1, TREE_TYPE (cst));
-      base = build_int_2 (chunk, 0);
-      n = build_int_2 (TREE_INT_CST_LOW (cst), TREE_INT_CST_HIGH (cst));
-      TREE_TYPE (n) = TREE_TYPE (base) = type;
+      base = build_int_cst (type, chunk, 0);
+      n = build_int_cst (type,
+			 TREE_INT_CST_LOW (cst), TREE_INT_CST_HIGH (cst));
 
       if (sign < 0)
 	{
@@ -1194,14 +1194,14 @@ write_integer_cst (const tree cst)
 	}
       do
 	{
-	  tree d = fold (build (FLOOR_DIV_EXPR, type, n, base));
-	  tree tmp = fold (build (MULT_EXPR, type, d, base));
+	  tree d = fold (build2 (FLOOR_DIV_EXPR, type, n, base));
+	  tree tmp = fold (build2 (MULT_EXPR, type, d, base));
 	  unsigned c;
 
 	  done = integer_zerop (d);
-	  tmp = fold (build (MINUS_EXPR, type, n, tmp));
+	  tmp = fold (build2 (MINUS_EXPR, type, n, tmp));
 	  c = hwint_to_ascii (TREE_INT_CST_LOW (tmp), 10, ptr,
-				done ? 1 : chunk_digits);
+			      done ? 1 : chunk_digits);
 	  ptr -= c;
 	  count += c;
 	  n = d;

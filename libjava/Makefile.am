@@ -93,17 +93,25 @@ JAVAC = $(GCJ_WITH_FLAGS) -C
 GCC_UNWIND_INCLUDE = @GCC_UNWIND_INCLUDE@
 
 WARNINGS = -Wextra -Wall
-## We need _GNU_SOURCE defined for some Linux builds.  It doesn't hurt
-## to always define it.
-AM_CXXFLAGS = -fno-rtti -fnon-call-exceptions $(THREADCXXFLAGS) \
-## Some systems don't allow `$' in identifiers by default, so we force it.
+## Some systems don't allow `$' in identifiers by default, so we force
+## it with -fdollars-in-identifiers.  -Wswitch-enum detects bugs in
+## the verifier implementation, and maybe other places.  We need
+## _GNU_SOURCE defined for some Linux builds.  It doesn't hurt to
+## always define it.  Some systems, including Linux, need
+## -D_FILE_OFFSET_BITS=64 to enable > 2GB file support.
+AM_CXXFLAGS = \
+	-fno-rtti \
+	-fnon-call-exceptions \
+	$(THREADCXXFLAGS) \
 	-fdollars-in-identifiers \
-## Detect bugs in the verifier implementation, and maybe other places.
 	-Wswitch-enum \
-## Some systems, including Linux, need this to enable > 2GB file support.
 	-D_FILE_OFFSET_BITS=64 \
-	@LIBGCJ_CXXFLAGS@ @X_CFLAGS@ $(WARNINGS) -D_GNU_SOURCE \
-	-DPREFIX="\"$(prefix)\"" -DLIBDIR="\"$(libdir)\"" \
+	@LIBGCJ_CXXFLAGS@ \
+	@X_CFLAGS@ \
+	$(WARNINGS) \
+	-D_GNU_SOURCE \
+	-DPREFIX="\"$(prefix)\"" \
+	-DLIBDIR="\"$(libdir)\"" \
 	-DBOOT_CLASS_PATH="\"$(jardir)/$(jar_DATA)\"" \
 	-DJAVA_EXT_DIRS="\"$(jardir)/ext\""
 if USING_GCC
@@ -134,7 +142,7 @@ INCLUDES = -I$(top_srcdir) -Iinclude -I$(top_srcdir)/include \
 nat_files = $(nat_source_files:.cc=.lo)
 xlib_nat_files = $(xlib_nat_source_files:.cc=.lo)
 ## Objects from C sources in subdirs.
-c_files = $(c_source_files:.c=.lo)
+math_c_files = $(math_c_source_files:.c=.lo)
 extra_cc_files = $(extra_cc_source_files:.cc=.lo)
 ## Objects from gtk-related C sources in subdirs.
 gtk_c_files = $(gtk_c_source_files:.c=.lo)
@@ -149,14 +157,14 @@ libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 	resolve.cc defineclass.cc interpret.cc verify.cc \
 	$(nat_source_files)
 EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
-	win32-threads.cc posix.cc win32.cc $(c_source_files) \
+	win32-threads.cc posix.cc win32.cc $(math_c_source_files) \
 	$(extra_cc_source_files) $(java_source_files) $(built_java_source_files)
 libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(javao_files) \
-	$(c_files) $(extra_cc_files) $(GCOBJS) $(THREADOBJS) \
+	$(math_c_files) $(extra_cc_files) $(GCOBJS) $(THREADOBJS) \
 	$(PLATFORMOBJS) $(LIBLTDL) $(LIBFFI) $(ZLIBS) $(GCLIBS) \
 	$(propertyo_files)
 
-libgcj_la_LIBADD = $(javao_files) $(c_files) $(extra_cc_files) $(GCOBJS) \
+libgcj_la_LIBADD = $(javao_files) $(math_c_files) $(extra_cc_files) $(GCOBJS) \
 	$(THREADOBJS) $(PLATFORMOBJS) $(propertyo_files)
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
@@ -462,13 +470,13 @@ $(nat_files) $(xlib_nat_files): %.lo: %.cc
 	@-mv $(@:.lo=.pp) $(@:.lo=.d)
 
 ## FIXME: see above
-$(c_files): %.lo: %.c
+$(math_c_files): %.lo: %.c
 	$(LTCOMPILE) -c -o $@ $<
 
 $(extra_cc_files): %.lo: %.cc
 	$(LTCXXCOMPILE) -c -o $@ $<
 
-$(c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
+$(math_c_files): java/lang/fdlibm.h java/lang/ieeefp.h java/lang/mprec.h
 
 ## FIXME: see above
 ## These JNI C files are shared with GNU Classpath which needs PEDANTIC_CFLAGS.
@@ -532,7 +540,8 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/net/PlainSocketImpl$$SocketInputStream.h \
 	gnu/java/net/PlainSocketImpl$$SocketOutputStream.h \
 	gnu/java/nio/PipeImpl$$SinkChannelImpl.h \
-	gnu/java/nio/PipeImpl$$SourceChannelImpl.h
+	gnu/java/nio/PipeImpl$$SourceChannelImpl.h \
+	$(PLATFORM_INNER_NAT_HDRS)
 
 nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
 nat_headers_install = $(ordinary_nat_headers)
@@ -641,6 +650,11 @@ gnu/java/nio/PipeImpl$$SinkChannelImpl.h: gnu/java/nio/PipeImpl.class
 gnu/java/nio/PipeImpl$$SourceChannelImpl.h: gnu/java/nio/PipeImpl.class
 	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
 	'gnu/java/nio/PipeImpl$$SourceChannelImpl'
+
+## Only used by PosixProcess.java
+java/lang/ConcreteProcess$$ProcessManager.h: java/lang/ConcreteProcess.class
+	$(GCJH) -classpath '' -bootclasspath $(top_builddir) \
+	'java/lang/ConcreteProcess$$ProcessManager'
 
 ## Headers we maintain by hand and which we want to install.
 extra_headers = java/lang/Object.h java/lang/Class.h
@@ -2922,7 +2936,7 @@ $(javax_source_files)
 java_source_files = $(special_java_source_files) $(ordinary_java_source_files)
 
 ## Math library: C, not C++
-c_source_files = \
+math_c_source_files = \
   java/lang/dtoa.c        java/lang/k_rem_pio2.c  java/lang/s_tan.c       \
   java/lang/e_acos.c      java/lang/k_sin.c       java/lang/strtod.c      \
   java/lang/e_asin.c      java/lang/k_tan.c       java/lang/w_acos.c      \
@@ -2938,8 +2952,6 @@ c_source_files = \
   java/lang/k_cos.c       java/lang/s_sin.c       java/lang/sf_fabs.c
 
 extra_cc_source_files = $(EXTRA_CC_FILES)
-
-#java/awt/natToolkit.cc
 
 ## This lists all the C++ source files in subdirectories.
 nat_source_files = \

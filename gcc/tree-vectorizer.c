@@ -527,12 +527,7 @@ vect_can_force_dr_alignment_p (tree decl, unsigned int alignment)
   if (TREE_STATIC (decl))
     return (alignment <= MAX_OFILE_ALIGNMENT);
   else
-    /* This is not 100% correct.  The absolute correct stack alignment
-       is STACK_BOUNDARY.  We're supposed to hope, but not assume, that
-       PREFERRED_STACK_BOUNDARY is honored by all translation units.
-       However, until someone implements forced stack alignment, SSE
-       isn't really usable without this.  */  
-    return (alignment <= PREFERRED_STACK_BOUNDARY); 
+    return (alignment <= STACK_BOUNDARY);
 }
 
 
@@ -1565,8 +1560,7 @@ vect_transform_loop (loop_vec_info loop_vinfo,
   /* 1) Make sure the loop header has exactly two entries
      2) Make sure we have a preheader basic block.  */
 
-  if (!loop->header->pred->pred_next
-      || loop->header->pred->pred_next->pred_next)
+  if (EDGE_COUNT (loop->header->preds) != 2)
     abort ();
 
   loop_split_edge_with (loop_preheader_edge (loop), NULL);

@@ -1,3 +1,175 @@
+2004-08-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17068
+	* pt.c (dependent_template_p): Treat IDENTIFIER_NODEs as
+	dependent.
+
+2004-08-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16246
+	* pt.c (unify): Tidy ARRAY_TYPE handling.  Make sure that non-type
+	arguments have the same type as the corresponding parameter.
+
+	PR c++/16215
+	* parser.c (cp_parser_name_lookup_error): If parser->object_scope
+	is set use it for diagnostic purposes.
+	(cp_parser_pseudo_destructor_name): Remove special-case error
+	message.
+
+	PR c++/15871
+	* semantics.c (expand_or_defer_fn): Honor -fkeep-inline-functions.
+
+	PR c++/16965
+	* cp-tree.h (qualified_name_lookup_error): Add parameter.
+	* name-lookup.c (do_class_using_decl): Restrict set of entities
+	passed to cp_emit_debug_info_for_using more carefully.
+	(lookup_qualified_name): Allow lookup_member to return sets of
+	ambiguous entries.
+	* parser.c (cp_parser_lookup_name): Add ambiguous_p parameter.
+	(cp_parser_primary_expression): Handle ambiguous lookups.
+	(cp_parser_template_name): Adjust use of cp_parser_lookup_name.
+	(cp_parser_template_argument): Likewise.
+	(cp_parser_elaborate_type_specifier): Likewise.
+	(cp_parser_namespace_name): Likewise.
+	(cp_parser_class_name): Likewise.
+	(cp_parser_lookup_name_simple): Likewise.
+	* pt.c (tsubst_qualified_id): Handle ambiguous results.
+	(tsubst_expr): Likewise.
+	* semantics.c (qualified_name_lookup_error): Add decl paramter.
+	For ambiguous lookups, print candidates.
+
+2004-08-16  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/6749
+	* pt.c (instantiate_pending_templates): Add int parameter.  Don't
+	return anything.
+	* cp-tree.h (instantiate_pending_templates): Adjust prototype.
+	* decl2.c (finish_file): Adjust call to
+	instantiate_pending_templates.
+
+2004-08-15  Roger Sayle  <roger@eyesopen.com>
+
+	* call.c (build_vfield_ref, build_call, build_conditional_expr,
+	convert_arg_to_ellipsis, build_x_va_arg, build_over_call,
+	build_java_interface_fn_ref, build_special_member_call,
+	build_new_method_call, initialize_reference): Replace calls to
+	build with calls to buildN.
+	* class.c (build_base_path, convert_to_base_statically,
+	build_vfn_ref, instantiate_type, dfs_accumulate_vtbl_inits,
+	build_vtbl_initializer): Likewise.
+	* cp-gimplify.c (genericize_try_block, genericize_catch_block,
+	gimplify_if_stmt, cp_genericize_r): Likewise.
+	* cvt.c (convert_to_void): Likewise.
+	* decl.c (check_initializer, finish_constructor_body,
+	finish_destructor_body): Likewise.
+	* error.c (dump_expr): Likewise.
+	* except.c (build_exc_ptr, expand_start_catch_block, build_throw):
+	Likewise.
+	* init.c (perform_member_init, expand_virtual_init,
+	expand_cleanup_for_base, build_init, expand_default_init,
+	build_offset_ref, decl_constant_value, build_new, build_new_1,
+	build_vec_delete_1, build_vec_init, build_delete,
+	push_base_cleanups, build_vec_delete): Likewise.
+	* mangle.c (write_integer_cst): Likewise.
+	* method.c (thunk_adjust, do_build_copy_constructor,
+	do_build_assign_ref): Likewise.
+	* pt.c (lookup_template_function, tsubst, tsubst_copy_and_build,
+	unify, build_non_dependent_expr): Likewise.
+	* rtti.c (build_headof, build_typeid, ifnonnull,
+	build_dyanmic_cast_1, tinfo_base_init): Likewise.
+	* semantics.c (begin_compound_stmt, finish_call_expr,
+	finish_pseudo_destructor_expr, finish_id_expression,
+	simplify_aggr_init_expr, finalize_nrv_r): Likewise.
+	* tree.c (build_target_expr, build_cplus_new, array_type_nelts_top,
+	array_type_nelts_total, stabilize_call): Likewise.
+	* typeck.c (decay_conversion, build_class_member_access_expr,
+	lookup_destructor, build_ptrmemfunc_access_expr, build_array_ref,
+	get_member_function_from_ptrfunc, build_binary_op, pointer_diff,
+	build_x_unary_op, build_unary_op, unary_complex_lvalue,
+	build_compound_expr, build_modify_expr, expand_ptrmemfunc_cst,
+	check_return_expr): Likewise.
+	* typeck2.c (split_nonconstant_1, split_nonconstant_init_1,
+	split_nonconstant_init, store_init_value, build_m_component_ref):
+	Likewise.
+
+2004-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* call.c (convert_class_to_reference,
+	build_user_type_conversion_1, convert_like_real,
+	build_java_interface_fn_ref, build_special_member_call): Use
+	build_int_cst.
+	* class.c (build_vtbl_initializer): Likewise.
+	* cp-gimplify.c (cp_gimplify_expr): Likewise.
+	* cvt.c (cp_convert_to_pointer): Likewise.
+	* decl.c (cxx_init_decl_processing, complete_array_type): Likewise.
+	* decl2.c (start_static_initialization_or_destruction,
+	generate_ctor_or_dtor_function): Likewise.
+	* except.c (build_throw): Likewise.
+	* lex.c (cxx_init): Likewise.
+	* mangle.c (write_integer_cst): Likewise.
+	* rtti.c (build_headof, get_tinfo_decl_dynamic,
+	build_dynamic_cast_1, ptr_initializer, ptm_initializer,
+	get_pseudo_ti_init): Likewise.
+	* search.c (get_dynamic_cast_base_type): Likewise.
+	* tree.c (build_shared_int_cst): Likewise.
+
+2004-08-12  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16273
+	* class.c (count_depth_data): New type.
+	(dfs_depth_post): New function.
+	(dfs_depth_q): Likewise.
+	(find_final_overrider_data_s): Change type of vpath.
+	Add vpath_list.
+	(dfs_find_final_overrider_1): New function.
+	(dfs_find_final_overrider): Use it.
+	(dfs_find_final_overrider_q): Adjust use of vpath.
+	(dfs_find_final_overrider_post): Likewise.
+	(find_final_overrider): Use dfs_depth.  Allocate and deallocate
+	vpath_list.
+
+2004-08-12 Jan Beulich <jbeulich@novell.com>
+
+	* parser.c (cp_parser_asm_definition): Properly consume scope operator
+	tokens preceding the clobbers. Don't check for scope operator
+	following inputs. Simplify inputs handling to match that now used for
+	clobbers.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16698
+	* except.c (build_throw): Allocate cleanup_type and the function
+	for __cxa_throw separately.
+
+	PR c++/16853
+	* call.c (standard_conversion): Do not accept conversions between
+	pointers to members if the class types are unrelated.
+
+	PR c++/16618
+	* parser.c (cp_parser_builtin_offsetof): Cast to "const volatile
+	char &" instead of just "char &".
+
+	PR c++/16870
+	* pt.c (tsubst): Just return the unknown_type_node.
+
+2004-08-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16964
+	* parser.c (cp_parser_class_specifier): Robustify.
+
+	PR c++/16904
+	* pt.c (tsubst_copy_and_build): Complain about invalid
+	qualification.
+
+	PR c++/16929
+	* pt.c (tsubst_default_argument): Clear out current_class_ptr and
+	current_class_ref while tsubsting.
+	
+2004-08-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16971
+	* parser.c (cp_parser_init_declarator): Robustify.
+
 2004-08-06  Richard Sandiford  <rsandifo@redhat.com>
 
 	* typeck2.c (process_init_constructor): Guard the missing field warning

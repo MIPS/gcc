@@ -60,6 +60,8 @@ extern enum processor_type s390_arch;
 extern enum processor_flags s390_arch_flags;
 extern const char *s390_arch_string;
 
+extern const char *s390_backchain_string;
+
 #define TARGET_CPU_IEEE_FLOAT \
 	(s390_arch_flags & PF_IEEE_FLOAT)
 #define TARGET_CPU_ZARCH \
@@ -89,7 +91,6 @@ extern const char *s390_arch_string;
 extern int target_flags;
 
 #define MASK_HARD_FLOAT            0x01
-#define MASK_BACKCHAIN             0x02
 #define MASK_SMALL_EXEC            0x04
 #define MASK_DEBUG_ARG             0x08
 #define MASK_64BIT                 0x10
@@ -100,7 +101,6 @@ extern int target_flags;
 
 #define TARGET_HARD_FLOAT          (target_flags & MASK_HARD_FLOAT)
 #define TARGET_SOFT_FLOAT          (!(target_flags & MASK_HARD_FLOAT))
-#define TARGET_BACKCHAIN           (target_flags & MASK_BACKCHAIN)
 #define TARGET_SMALL_EXEC          (target_flags & MASK_SMALL_EXEC)
 #define TARGET_DEBUG_ARG           (target_flags & MASK_DEBUG_ARG)
 #define TARGET_64BIT               (target_flags & MASK_64BIT)
@@ -109,6 +109,9 @@ extern int target_flags;
 #define TARGET_TPF_PROFILING       (target_flags & MASK_TPF_PROFILING)
 #define TARGET_NO_FUSED_MADD       (target_flags & MASK_NO_FUSED_MADD)
 #define TARGET_FUSED_MADD	   (! TARGET_NO_FUSED_MADD)
+
+#define TARGET_BACKCHAIN           (s390_backchain_string[0] == '1')
+#define TARGET_KERNEL_BACKCHAIN    (s390_backchain_string[0] == '2')
 
 /* ??? Once this actually works, it could be made a runtime option.  */
 #define TARGET_IBM_FLOAT           0
@@ -123,8 +126,6 @@ extern int target_flags;
 #define TARGET_SWITCHES                                                  \
 { { "hard-float",      1, N_("Use hardware fp")},                        \
   { "soft-float",     -1, N_("Don't use hardware fp")},                  \
-  { "backchain",       2, N_("Set backchain")},                          \
-  { "no-backchain",   -2, N_("Don't set backchain (faster, but debug harder")},\
   { "small-exec",      4, N_("Use bras for executable < 64k")},          \
   { "no-small-exec",  -4, N_("Don't use bras")},                         \
   { "debug",           8, N_("Additional debug prints")},                \
@@ -146,6 +147,12 @@ extern int target_flags;
     N_("Schedule code for given CPU"), 0},                      \
   { "arch=",            &s390_arch_string,                      \
     N_("Generate code for given CPU"), 0},                      \
+  { "backchain",        &s390_backchain_string,                 \
+    N_("Set backchain"), "1"},                                  \
+  { "no-backchain",     &s390_backchain_string,                 \
+    N_("Do not set backchain"), ""},                            \
+  { "kernel-backchain", &s390_backchain_string,                 \
+    N_("Set backchain appropriate for the linux kernel"), "2"}, \
 }
 
 /* Support for configure-time defaults.  */
@@ -559,9 +566,13 @@ extern int current_function_outgoing_args_size;
    For frames farther back, we use the stack slot where
    the corresponding RETURN_REGNUM register was saved.  */
 
-#define DYNAMIC_CHAIN_ADDRESS(FRAME)						\
-  ((FRAME) != hard_frame_pointer_rtx ? (FRAME) :				\
-   plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET))
+#define DYNAMIC_CHAIN_ADDRESS(FRAME)                                            \
+  (TARGET_BACKCHAIN ?                                                           \
+   ((FRAME) != hard_frame_pointer_rtx ? (FRAME) :				\
+    plus_constant (arg_pointer_rtx, -STACK_POINTER_OFFSET)) :                   \
+    ((FRAME) != hard_frame_pointer_rtx ?                                        \
+     plus_constant ((FRAME), STACK_POINTER_OFFSET - UNITS_PER_WORD) :           \
+     plus_constant (arg_pointer_rtx, -UNITS_PER_WORD)))
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)						\
   s390_return_addr_rtx ((COUNT), DYNAMIC_CHAIN_ADDRESS ((FRAME)))
@@ -813,6 +824,10 @@ CUMULATIVE_ARGS;
    return the mode to be used for the comparison.  */
 #define SELECT_CC_MODE(OP, X, Y) s390_select_ccmode ((OP), (X), (Y))
 
+/* Canonicalize a comparison from one we don't have to one we do have.  */
+#define CANONICALIZE_COMPARISON(CODE, OP0, OP1) \
+  s390_canonicalize_comparison (&(CODE), &(OP0), &(OP1))
+
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  Note that we can't use "rtx" here
    since it hasn't been defined!  */
@@ -840,9 +855,14 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS 1
 
+/* An integer expression for the size in bits of the largest integer machine
+   mode that should actually be used.  We allow pairs of registers.  */ 
+#define MAX_FIXED_MODE_SIZE GET_MODE_BITSIZE (TARGET_64BIT ? TImode : DImode)
+
 /* The maximum number of bytes that a single instruction can move quickly
    between memory and registers or between two memory locations.  */
 #define MOVE_MAX (TARGET_64BIT ? 16 : 8)
+#define MOVE_MAX_PIECES (TARGET_64BIT ? 8 : 4)
 #define MAX_MOVE_MAX 16
 
 /* Determine whether to use move_by_pieces or block move insn.  */
@@ -854,6 +874,11 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 #define CLEAR_BY_PIECES_P(SIZE, ALIGN)		\
   ( (SIZE) == 1 || (SIZE) == 2 || (SIZE) == 4	\
     || (TARGET_64BIT && (SIZE) == 8) )
+
+/* This macro is used to determine whether store_by_pieces should be
+   called to "memset" storage with byte values other than zero, or
+   to "memcpy" storage when the source is a constant string.  */
+#define STORE_BY_PIECES_P(SIZE, ALIGN) MOVE_BY_PIECES_P (SIZE, ALIGN)
 
 /* Don't perform CSE on function addresses.  */
 #define NO_FUNCTION_CSE

@@ -1,3 +1,160 @@
+2004-08-18  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/17081
+	* java/net/URI.java (string): New field. Make all other fields
+	transient.
+	(readObject): Implemented.
+	(writeObject): Implemented.
+	(URI): Set 'string'.
+
+2004-08-18  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/17079
+	* java/util/logging/Handler.java (isLoggable): Accept record if its
+	log level equals the threshold level. From Robin Green.
+
+2004-08-18  David Daney  <ddaney@avtrex.com>
+
+	* java/lang/natPosixProcess.cc (waitForSignal): Use sigsuspend 
+	instead of sigwait.
+
+2004-08-17  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am (AM_CXXFLAGS): Reformatted to make it more ease to read.
+	* Makefile.in: Regenerated.
+
+2004-08-16  Tom Tromey  <tromey@redhat.com>
+
+	PR java/8473:
+	* testsuite/libjava.jacks/jacks.xfail: Removed passing test.
+
+2004-08-16  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am
+	(math_c_files): Renamed from c_files.
+	(math_c_source_files): Renamed from c_source_files.
+	* Makefile.in,
+	gcj/Makefile.in,
+	include/Makefile.in,
+	testsuite/Makefile.in: Regenerated.
+
+2004-08-16  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* configure.in (AC_CONF_SUBDIRS): Use literal for ltdl directory
+	to avoid autoconf warning.
+	* configure: Rebuilt.
+
+2004-08-14  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* java/net/natInetAddressPosix.cc (lookup): Reflect rename of 
+	localhostAddress to loopbackAddress.
+	* java/net/natInetAddressWin32.cc (lookup): Likewise.
+
+2004-08-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* configure.in (GCINCS): Don't use "boehm-cflags". Instead, -I 
+	boehm-gc's include dirs.
+	* configure: Rebuilt.
+	* include/boehm-gc.h: Include gc_config.h.
+
+2004-08-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* java/net/InetAddress.java (loopbackAddress): Renamed from 
+	localhostAddress.
+	(getByName): Return loopback address for null hostname, without
+	security check. Use lookup(), not getAllByName.
+	(getAllByName): Return loopback address for null hostname, without
+	security check.
+	* java/net/natInetAddressPosix.cc (lookup): Don't perform security
+	check here.
+
+2004-08-13  Bryce McKinlay  <mckinlay@redhat.com>
+
+	PR libgcj/17020
+	Reported by Robin Green.
+	* defineclass.cc (handleField): Don't throw exception on unrecognised
+	modifier. Add FIXME comments for spec compliance.
+	(handleMethod): Likewise.
+
+2004-08-10  Hans Boehm <Hans.Boehm@hp.com>
+
+	PR libgcj/16662
+	* java/lang/natObject.cc (LOCK_LOG, LOG): Add debug tracing.
+	(Almost everywhere): add LOG calls, fix, add comments.
+	(_Jv_MonitorEnter): Replace masking of LOCKED bit with assertion.
+	Add explicit check for LOCKED bit in slow case (PR 16662).
+	(_Jv_MonitorExit): Add casts in debug-only code.
+	Always release LOCKED bit before throwing exception.
+	(_Jv_ObjectCheckMonitor): Lock may be held if lightweight lock
+	isn't.  Handle easy cases without lock acquisition.
+	(Object::wait): Use NotifyAll for lock inflation.
+
+2004-08-12  David Daney  <ddaney@avtrex.com>
+
+	* testsuite/libjava.lang/Process_1.java: New test.
+	* testsuite/libjava.lang/Process_2.java: New test.
+	* testsuite/libjava.lang/Process_3.java: New test.
+	* testsuite/libjava.lang/Process_4.java: New test.
+	* testsuite/libjava.lang/Process_5.java: New test.
+	* testsuite/libjava.lang/Process_6.java: New test.
+	* testsuite/libjava.lang/Process_1.out: Expected result.
+	* testsuite/libjava.lang/Process_2.out: Expected result.
+	* testsuite/libjava.lang/Process_3.out: Expected result.
+	* testsuite/libjava.lang/Process_4.out: Expected result.
+	* testsuite/libjava.lang/Process_5.out: Expected result.
+	* testsuite/libjava.lang/Process_6.out: Expected result.
+
+2004-08-12  David Daney  <ddaney@avtrex.com>
+
+	PR libgcj/11801
+	* java/lang/PosixProcess.java: Rewrote.
+	* java/lang/natPosixProcess.cc: Rewrote.
+	* java/lang/Runtime.java (execInternal): Declare throws IOException.
+	* gcj/javaprims.h (ConcreteProcess$ProcessManager): Declare.
+	* posix-threads.cc (block_sigchld) New function.
+	(_Jv_ThreadRegister) Use it.
+	(_Jv_ThreadStart) Use it.
+	* configure.in (PLATFORM_INNER_NAT_HDRS): New AC_SUBST() used in...
+	* Makefile.am: ... to specify extra native headers.
+	* configure: Regenerated.
+	* include/config.h: Regenerated.
+	* Makefile.in: Regenerated.
+	* gcj/Makefile.in: Regenerated.
+	* include/Makefile.in: Regenerated.
+	* testsuite/Makefile.in: Regenerated.
+
+2004-08-12  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/16867
+	* testsuite/libjava.lang/PR16867.java: New test.
+
+2004-08-09  Per Bothner  <per@bothner.com>
+
+	* gcj/javaprims.h (_Jv_Utf8Const): Change struct to a class,
+	with private fields and access methods.
+	(_Jv_NewStringUTF, _Jv_hashUtf8String): New function declarations.
+	* gcj/cni.h (_Jv_NewStringUTF): Move to javaprims.h.
+	* prims.cc (_Jv_Utf8COnst::init): New method implementation.
+	( _Jv_makeUtf8Const): Rewrite using new constructors.
+	(hashUtf8String): Rename to +_Jv_hashUtf8String and make non-static.
+	* defineclass.cc: Use new _Utf8Const access/convenience methods.
+	* jni.cc: Likewise.
+	* resolve.cc: Likewise.
+	* gcj/field.h: Likewise.
+	* include/jvm.h: Likewise.
+	* java/lang/Class.h: Likewise.
+	* java/lang/natClass.cc: Likwise.
+	* java/lang/natClassLoader.cc: Likewise
+	* java/lang/reflect/natMethod.cc: Likewise
+	* verify.cc: Likewise.
+	(_Jv_BytecodeVerifier::make_utf8_const):  Optimize.
+	(~_Jv_BytecodeVerifier):  Don't need second _Jv_Free call.
+
+2004-08-10  Andrew Haley  <aph@redhat.com>
+
+	* testsuite/libjava.lang/err14.java: New file.
+	* testsuite/libjava.lang/err14.out: New file.
+
 2004-08-05  Andreas Tobler  <a.tobler@schweiz.ch>
 
 	* Makefile.am: Fix missing rename from x_nat_headers to 

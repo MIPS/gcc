@@ -524,12 +524,16 @@
 ;; Say that we have annulled true branches, since this gives smaller and
 ;; faster code when branches are predicted as not taken.
 
+;; ??? The non-annulled condition should really be "in_delay_slot",
+;; but insns that can be filled in non-annulled get priority over insns
+;; that can only be filled in anulled.
+
 (define_delay
   (and (eq_attr "type" "cbranch")
        (ne (symbol_ref "TARGET_SH2") (const_int 0)))
   ;; SH2e has a hardware bug that pretty much prohibits the use of
   ;; annuled delay slots.
-  [(eq_attr "in_delay_slot" "yes") (and (eq_attr "cond_delay_slot" "yes")
+  [(eq_attr "cond_delay_slot" "yes") (and (eq_attr "cond_delay_slot" "yes")
 					(not (eq_attr "cpu" "sh2e"))) (nil)])
 
 ;; -------------------------------------------------------------------------
@@ -6762,7 +6766,7 @@
   PUT_MODE (gotsym, Pmode);
   insn = emit_insn (gen_symGOT_load (operands[0], gotsym));
 
-  RTX_UNCHANGING_P (SET_SRC (PATTERN (insn))) = 1;
+  MEM_READONLY_P (SET_SRC (PATTERN (insn))) = 1;
 
   DONE;
 }")
@@ -7307,7 +7311,7 @@ mov.l\\t1f,r0\\n\\
     {
       rtx r18 = gen_rtx_REG (DImode, PR_MEDIA_REG);
 
-      if (! call_used_regs[TR0_REG] || fixed_regs[TR0_REG])
+      if (! call_really_used_regs[TR0_REG] || fixed_regs[TR0_REG])
 	abort ();
       tr_regno = TR0_REG;
       tr = gen_rtx_REG (DImode, tr_regno);

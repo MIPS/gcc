@@ -60,28 +60,9 @@ int
 java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
 		    tree *post_p ATTRIBUTE_UNUSED)
 {
-  char code_class = TREE_CODE_CLASS(TREE_CODE (*expr_p));
+  enum tree_code code = TREE_CODE (*expr_p);
 
-  /* Java insists on strict left-to-right evaluation of expressions.
-     A problem may arise if a variable used in the LHS of a binary
-     operation is altered by an assignment to that value in the RHS
-     before we've performed the operation.  So, we always copy every
-     LHS to a temporary variable.  
-
-     FIXME: Are there any other cases where we should do this?
-     Parameter lists, maybe?  Or perhaps that's unnecessary because
-     the front end already generates SAVE_EXPRs.  */
-  if (code_class == '2')
-    {
-      tree lhs = TREE_OPERAND (*expr_p, 0);
-      enum gimplify_status stat 
-	= gimplify_expr (&lhs, pre_p, post_p, is_gimple_tmp_var, fb_rvalue);
-      if (stat == GS_ERROR)
-	return stat;
-      TREE_OPERAND (*expr_p, 0) = lhs;
-    }
-
-  switch (TREE_CODE (*expr_p))
+  switch (code)
     {
     case BLOCK:
       *expr_p = java_gimplify_block (*expr_p);
@@ -150,6 +131,25 @@ java_gimplify_expr (tree *expr_p, tree *pre_p ATTRIBUTE_UNUSED,
       abort ();
 
     default:
+      /* Java insists on strict left-to-right evaluation of expressions.
+	 A problem may arise if a variable used in the LHS of a binary
+	 operation is altered by an assignment to that value in the RHS
+	 before we've performed the operation.  So, we always copy every
+	 LHS to a temporary variable.  
+
+	 FIXME: Are there any other cases where we should do this?
+	 Parameter lists, maybe?  Or perhaps that's unnecessary because
+	 the front end already generates SAVE_EXPRs.  */
+
+      if (TREE_CODE_CLASS (code) == '2' || TREE_CODE_CLASS (code) == '<')
+	{
+	  enum gimplify_status stat 
+	    = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
+			     is_gimple_formal_tmp_var, fb_rvalue);
+	  if (stat == GS_ERROR)
+	    return stat;
+	}
+
       return GS_UNHANDLED;
     }
 
@@ -242,22 +242,16 @@ java_gimplify_new_array_init (tree exp)
   tree data_field = lookup_field (&array_type, get_identifier ("data"));
   tree element_type = TYPE_ARRAY_ELEMENT (array_type);
   HOST_WIDE_INT ilength = java_array_type_length (array_type);
-  tree length = build_int_2 (ilength, 0);
+  tree length = build_int_cst (NULL_TREE, ilength, 0);
   tree init = TREE_OPERAND (exp, 0);
   tree values = CONSTRUCTOR_ELTS (init);
 
   tree array_ptr_type = build_pointer_type (array_type);
-  tree block = build0 (BLOCK, array_ptr_type);
-  tree tmp = build_decl (VAR_DECL, get_identifier ("<tmp>"), array_ptr_type);
-  tree array = build_decl (VAR_DECL, get_identifier ("<array>"),
-			   array_ptr_type);
+  tree tmp = create_tmp_var (array_ptr_type, "array");
   tree body = build2 (MODIFY_EXPR, array_ptr_type, tmp,
 		      build_new_array (element_type, length));
 
   int index = 0;
-
-  DECL_CONTEXT (array) = current_function_decl;
-  DECL_CONTEXT (tmp) = current_function_decl;
 
   /* FIXME: try to allocate array statically?  */
   while (values != NULL_TREE)
@@ -269,19 +263,14 @@ java_gimplify_new_array_init (tree exp)
 			 data_field, NULL_TREE);
       tree assignment = build2 (MODIFY_EXPR, element_type,
 				build4 (ARRAY_REF, element_type, lhs,
-					build_int_2 (index++, 0),
+					build_int_cst (NULL_TREE, index++, 0),
 					NULL_TREE, NULL_TREE),
 				TREE_VALUE (values));
       body = build2 (COMPOUND_EXPR, element_type, body, assignment);
       values = TREE_CHAIN (values);
     }
 
-  body = build2 (COMPOUND_EXPR, array_ptr_type, body,
-		 build2 (MODIFY_EXPR, array_ptr_type, array, tmp));
-  TREE_CHAIN (tmp) = array;
-  BLOCK_VARS (block) = tmp;
-  BLOCK_EXPR_BODY (block) = body;
-  return java_gimplify_block (block);
+  return build2 (COMPOUND_EXPR, array_ptr_type, body, tmp);
 }
 
 static tree

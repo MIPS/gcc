@@ -899,7 +899,8 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT offset,
 			      NULL_RTX, 1, OPTAB_LIB_WIDEN);
       if (bitpos > 0)
 	value = expand_shift (LSHIFT_EXPR, mode, value,
-			      build_int_2 (bitpos, 0), NULL_RTX, 1);
+			      build_int_cst (NULL_TREE,
+					     bitpos, 0), NULL_RTX, 1);
     }
 
   /* Now clear the chosen bits in OP0,
@@ -1327,10 +1328,14 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
       /* Signed bit field: sign-extend with two arithmetic shifts.  */
       target = expand_shift (LSHIFT_EXPR, mode, target,
-			     build_int_2 (GET_MODE_BITSIZE (mode) - bitsize, 0),
+			     build_int_cst (NULL_TREE,
+					    GET_MODE_BITSIZE (mode) - bitsize,
+					    0),
 			     NULL_RTX, 0);
       return expand_shift (RSHIFT_EXPR, mode, target,
-			   build_int_2 (GET_MODE_BITSIZE (mode) - bitsize, 0),
+			   build_int_cst (NULL_TREE,
+					  GET_MODE_BITSIZE (mode) - bitsize,
+					  0),
 			   NULL_RTX, 0);
     }
 
@@ -1735,7 +1740,7 @@ extract_fixed_bit_field (enum machine_mode tmode, rtx op0,
 	{
 	  /* If the field does not already start at the lsb,
 	     shift it so it does.  */
-	  tree amount = build_int_2 (bitpos, 0);
+	  tree amount = build_int_cst (NULL_TREE, bitpos, 0);
 	  /* Maybe propagate the target for the shift.  */
 	  /* But not if we will return it--could confuse integrate.c.  */
 	  rtx subtarget = (target != 0 && REG_P (target) ? target : 0);
@@ -1775,14 +1780,16 @@ extract_fixed_bit_field (enum machine_mode tmode, rtx op0,
   if (GET_MODE_BITSIZE (mode) != (bitsize + bitpos))
     {
       tree amount
-	= build_int_2 (GET_MODE_BITSIZE (mode) - (bitsize + bitpos), 0);
+	= build_int_cst (NULL_TREE,
+			 GET_MODE_BITSIZE (mode) - (bitsize + bitpos), 0);
       /* Maybe propagate the target for the shift.  */
       rtx subtarget = (target != 0 && REG_P (target) ? target : 0);
       op0 = expand_shift (LSHIFT_EXPR, mode, op0, amount, subtarget, 1);
     }
 
   return expand_shift (RSHIFT_EXPR, mode, op0,
-		       build_int_2 (GET_MODE_BITSIZE (mode) - bitsize, 0),
+		       build_int_cst (NULL_TREE,
+				      GET_MODE_BITSIZE (mode) - bitsize, 0),
 		       target, 0);
 }
 
@@ -1930,13 +1937,15 @@ extract_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 	{
 	  if (bitsize != bitsdone)
 	    part = expand_shift (LSHIFT_EXPR, word_mode, part,
-				 build_int_2 (bitsize - bitsdone, 0), 0, 1);
+				 build_int_cst (NULL_TREE,
+						bitsize - bitsdone, 0), 0, 1);
 	}
       else
 	{
 	  if (bitsdone != thissize)
 	    part = expand_shift (LSHIFT_EXPR, word_mode, part,
-				 build_int_2 (bitsdone - thissize, 0), 0, 1);
+				 build_int_cst (NULL_TREE,
+						bitsdone - thissize, 0), 0, 1);
 	}
 
       if (first)
@@ -1955,10 +1964,12 @@ extract_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
     return result;
   /* Signed bit field: sign-extend with two arithmetic shifts.  */
   result = expand_shift (LSHIFT_EXPR, word_mode, result,
-			 build_int_2 (BITS_PER_WORD - bitsize, 0),
+			 build_int_cst (NULL_TREE,
+					BITS_PER_WORD - bitsize, 0),
 			 NULL_RTX, 0);
   return expand_shift (RSHIFT_EXPR, word_mode, result,
-		       build_int_2 (BITS_PER_WORD - bitsize, 0), NULL_RTX, 0);
+		       build_int_cst (NULL_TREE,
+				      BITS_PER_WORD - bitsize, 0), NULL_RTX, 0);
 }
 
 /* Add INC into TARGET.  */
@@ -2075,10 +2086,9 @@ expand_shift (enum tree_code code, enum machine_mode mode, rtx shifted,
 	      tree type = TREE_TYPE (amount);
 	      tree new_amount = make_tree (type, op1);
 	      tree other_amount
-		= fold (build2 (MINUS_EXPR, type,
-				convert (type,
-					 build_int_2 (GET_MODE_BITSIZE (mode),
-						      0)),
+		= fold (build2 (MINUS_EXPR, type, convert
+				(type, build_int_cst
+				 (NULL_TREE, GET_MODE_BITSIZE (mode), 0)),
 				amount));
 
 	      shifted = force_reg (mode, shifted);
@@ -2537,25 +2547,26 @@ expand_mult_const (enum machine_mode mode, rtx op0, HOST_WIDE_INT val,
   for (opno = 1; opno < alg->ops; opno++)
     {
       int log = alg->log[opno];
-      int preserve = preserve_subexpressions_p ();
-      rtx shift_subtarget = preserve ? 0 : accum;
+      rtx shift_subtarget = optimize ? 0 : accum;
       rtx add_target
 	= (opno == alg->ops - 1 && target != 0 && variant != add_variant
-	   && ! preserve)
+	   && !optimize)
 	  ? target : 0;
-      rtx accum_target = preserve ? 0 : accum;
+      rtx accum_target = optimize ? 0 : accum;
 
       switch (alg->op[opno])
 	{
 	case alg_shift:
 	  accum = expand_shift (LSHIFT_EXPR, mode, accum,
-				build_int_2 (log, 0), NULL_RTX, 0);
+				build_int_cst (NULL_TREE, log, 0),
+				NULL_RTX, 0);
 	  val_so_far <<= log;
 	  break;
 
 	case alg_add_t_m2:
 	  tem = expand_shift (LSHIFT_EXPR, mode, op0,
-			      build_int_2 (log, 0), NULL_RTX, 0);
+			      build_int_cst (NULL_TREE, log, 0),
+			      NULL_RTX, 0);
 	  accum = force_operand (gen_rtx_PLUS (mode, accum, tem),
 				 add_target ? add_target : accum_target);
 	  val_so_far += (HOST_WIDE_INT) 1 << log;
@@ -2563,7 +2574,8 @@ expand_mult_const (enum machine_mode mode, rtx op0, HOST_WIDE_INT val,
 
 	case alg_sub_t_m2:
 	  tem = expand_shift (LSHIFT_EXPR, mode, op0,
-			      build_int_2 (log, 0), NULL_RTX, 0);
+			      build_int_cst (NULL_TREE, log, 0),
+			      NULL_RTX, 0);
 	  accum = force_operand (gen_rtx_MINUS (mode, accum, tem),
 				 add_target ? add_target : accum_target);
 	  val_so_far -= (HOST_WIDE_INT) 1 << log;
@@ -2571,7 +2583,8 @@ expand_mult_const (enum machine_mode mode, rtx op0, HOST_WIDE_INT val,
 
 	case alg_add_t2_m:
 	  accum = expand_shift (LSHIFT_EXPR, mode, accum,
-				build_int_2 (log, 0), shift_subtarget,
+				build_int_cst (NULL_TREE, log, 0),
+				shift_subtarget,
 				0);
 	  accum = force_operand (gen_rtx_PLUS (mode, accum, op0),
 				 add_target ? add_target : accum_target);
@@ -2580,7 +2593,8 @@ expand_mult_const (enum machine_mode mode, rtx op0, HOST_WIDE_INT val,
 
 	case alg_sub_t2_m:
 	  accum = expand_shift (LSHIFT_EXPR, mode, accum,
-				build_int_2 (log, 0), shift_subtarget, 0);
+				build_int_cst (NULL_TREE, log, 0),
+				shift_subtarget, 0);
 	  accum = force_operand (gen_rtx_MINUS (mode, accum, op0),
 				 add_target ? add_target : accum_target);
 	  val_so_far = (val_so_far << log) - 1;
@@ -2588,7 +2602,8 @@ expand_mult_const (enum machine_mode mode, rtx op0, HOST_WIDE_INT val,
 
 	case alg_add_factor:
 	  tem = expand_shift (LSHIFT_EXPR, mode, accum,
-			      build_int_2 (log, 0), NULL_RTX, 0);
+			      build_int_cst (NULL_TREE, log, 0),
+			      NULL_RTX, 0);
 	  accum = force_operand (gen_rtx_PLUS (mode, accum, tem),
 				 add_target ? add_target : accum_target);
 	  val_so_far += val_so_far << log;
@@ -2596,10 +2611,11 @@ expand_mult_const (enum machine_mode mode, rtx op0, HOST_WIDE_INT val,
 
 	case alg_sub_factor:
 	  tem = expand_shift (LSHIFT_EXPR, mode, accum,
-			      build_int_2 (log, 0), NULL_RTX, 0);
+			      build_int_cst (NULL_TREE, log, 0),
+			      NULL_RTX, 0);
 	  accum = force_operand (gen_rtx_MINUS (mode, tem, accum),
-				 (add_target ? add_target
-				  : preserve ? 0 : tem));
+				 (add_target
+				  ? add_target : (optimize ? 0 : tem)));
 	  val_so_far = (val_so_far << log) - val_so_far;
 	  break;
 
@@ -2891,7 +2907,8 @@ expand_mult_highpart_adjust (enum machine_mode mode, rtx adj_operand, rtx op0,
   enum rtx_code adj_code = unsignedp ? PLUS : MINUS;
 
   tem = expand_shift (RSHIFT_EXPR, mode, op0,
-		      build_int_2 (GET_MODE_BITSIZE (mode) - 1, 0),
+		      build_int_cst (NULL_TREE,
+				     GET_MODE_BITSIZE (mode) - 1, 0),
 		      NULL_RTX, 0);
   tem = expand_and (mode, tem, op1, NULL_RTX);
   adj_operand
@@ -2899,7 +2916,8 @@ expand_mult_highpart_adjust (enum machine_mode mode, rtx adj_operand, rtx op0,
 		     adj_operand);
 
   tem = expand_shift (RSHIFT_EXPR, mode, op1,
-		      build_int_2 (GET_MODE_BITSIZE (mode) - 1, 0),
+		      build_int_cst (NULL_TREE,
+				     GET_MODE_BITSIZE (mode) - 1, 0),
 		      NULL_RTX, 0);
   tem = expand_and (mode, tem, op0, NULL_RTX);
   target = force_operand (gen_rtx_fmt_ee (adj_code, mode, adj_operand, tem),
@@ -2920,7 +2938,8 @@ extract_high_half (enum machine_mode mode, rtx op)
 
   wider_mode = GET_MODE_WIDER_MODE (mode);
   op = expand_shift (RSHIFT_EXPR, wider_mode, op,
-		     build_int_2 (GET_MODE_BITSIZE (mode), 0), 0, 1);
+		     build_int_cst (NULL_TREE,
+				    GET_MODE_BITSIZE (mode), 0), 0, 1);
   return convert_modes (mode, wider_mode, op, 0);
 }
 
@@ -3183,7 +3202,7 @@ expand_sdiv_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
   int logd;
 
   logd = floor_log2 (d);
-  shift = build_int_2 (logd, 0);
+  shift = build_int_cst (NULL_TREE, logd, 0);
 
   if (d == 2 && BRANCH_COST >= 1)
     {
@@ -3230,7 +3249,8 @@ expand_sdiv_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
 			     NULL_RTX, 0, OPTAB_LIB_WIDEN);
       else
 	temp = expand_shift (RSHIFT_EXPR, mode, temp,
-			     build_int_2 (ushift, 0), NULL_RTX, 1);
+			     build_int_cst (NULL_TREE, ushift, 0),
+			     NULL_RTX, 1);
       temp = expand_binop (mode, add_optab, temp, op0, NULL_RTX,
 			   0, OPTAB_LIB_WIDEN);
       return expand_shift (RSHIFT_EXPR, mode, temp, shift, NULL_RTX, 0);
@@ -3506,7 +3526,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			  return gen_lowpart (mode, remainder);
 		      }
 		    quotient = expand_shift (RSHIFT_EXPR, compute_mode, op0,
-					     build_int_2 (pre_shift, 0),
+					     build_int_cst (NULL_TREE,
+							    pre_shift, 0),
 					     tquotient, 1);
 		  }
 		else if (size <= HOST_BITS_PER_WIDE_INT)
@@ -3562,15 +3583,18 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			    t2 = force_operand (gen_rtx_MINUS (compute_mode,
 							       op0, t1),
 						NULL_RTX);
-			    t3 = expand_shift (RSHIFT_EXPR, compute_mode, t2,
-					       build_int_2 (1, 0), NULL_RTX,1);
+			    t3 = expand_shift
+			      (RSHIFT_EXPR, compute_mode, t2,
+			       build_int_cst (NULL_TREE, 1, 0),
+			       NULL_RTX,1);
 			    t4 = force_operand (gen_rtx_PLUS (compute_mode,
 							      t1, t3),
 						NULL_RTX);
-			    quotient
-			      = expand_shift (RSHIFT_EXPR, compute_mode, t4,
-					      build_int_2 (post_shift - 1, 0),
-					      tquotient, 1);
+			    quotient = expand_shift
+			      (RSHIFT_EXPR, compute_mode, t4,
+			       build_int_cst (NULL_TREE,
+					      post_shift - 1, 0),
+			       tquotient, 1);
 			  }
 			else
 			  {
@@ -3580,9 +3604,10 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 				|| post_shift >= BITS_PER_WORD)
 			      goto fail1;
 
-			    t1 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
-					       build_int_2 (pre_shift, 0),
-					       NULL_RTX, 1);
+			    t1 = expand_shift
+			      (RSHIFT_EXPR, compute_mode, op0,
+			       build_int_cst (NULL_TREE, pre_shift, 0),
+			       NULL_RTX, 1);
 			    extra_cost
 			      = (shift_cost[compute_mode][pre_shift]
 				 + shift_cost[compute_mode][post_shift]);
@@ -3591,10 +3616,11 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 						       max_cost - extra_cost);
 			    if (t2 == 0)
 			      goto fail1;
-			    quotient
-			      = expand_shift (RSHIFT_EXPR, compute_mode, t2,
-					      build_int_2 (post_shift, 0),
-					      tquotient, 1);
+			    quotient = expand_shift
+			      (RSHIFT_EXPR, compute_mode, t2,
+			       build_int_cst (NULL_TREE,
+					      post_shift, 0),
+			       tquotient, 1);
 			  }
 		      }
 		  }
@@ -3700,10 +3726,14 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 						   max_cost - extra_cost);
 			if (t1 == 0)
 			  goto fail1;
-			t2 = expand_shift (RSHIFT_EXPR, compute_mode, t1,
-					   build_int_2 (post_shift, 0), NULL_RTX, 0);
-			t3 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
-					   build_int_2 (size - 1, 0), NULL_RTX, 0);
+			t2 = expand_shift
+			  (RSHIFT_EXPR, compute_mode, t1,
+			   build_int_cst (NULL_TREE, post_shift, 0),
+			   NULL_RTX, 0);
+			t3 = expand_shift
+			  (RSHIFT_EXPR, compute_mode, op0,
+			   build_int_cst (NULL_TREE, size - 1, 0),
+			   NULL_RTX, 0);
 			if (d < 0)
 			  quotient
 			    = force_operand (gen_rtx_MINUS (compute_mode,
@@ -3735,12 +3765,14 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			t2 = force_operand (gen_rtx_PLUS (compute_mode,
 							  t1, op0),
 					    NULL_RTX);
-			t3 = expand_shift (RSHIFT_EXPR, compute_mode, t2,
-					   build_int_2 (post_shift, 0),
-					   NULL_RTX, 0);
-			t4 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
-					   build_int_2 (size - 1, 0),
-					   NULL_RTX, 0);
+			t3 = expand_shift
+			  (RSHIFT_EXPR, compute_mode, t2,
+			   build_int_cst (NULL_TREE, post_shift, 0),
+			   NULL_RTX, 0);
+			t4 = expand_shift
+			  (RSHIFT_EXPR, compute_mode, op0,
+			   build_int_cst (NULL_TREE, size - 1, 0),
+			   NULL_RTX, 0);
 			if (d < 0)
 			  quotient
 			    = force_operand (gen_rtx_MINUS (compute_mode,
@@ -3794,9 +3826,10 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			if (remainder)
 			  return gen_lowpart (mode, remainder);
 		      }
-		    quotient = expand_shift (RSHIFT_EXPR, compute_mode, op0,
-					     build_int_2 (pre_shift, 0),
-					     tquotient, 0);
+		    quotient = expand_shift
+		      (RSHIFT_EXPR, compute_mode, op0,
+		       build_int_cst (NULL_TREE, pre_shift, 0),
+		       tquotient, 0);
 		  }
 		else
 		  {
@@ -3810,9 +3843,10 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 		    if (post_shift < BITS_PER_WORD
 			&& size - 1 < BITS_PER_WORD)
 		      {
-			t1 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
-					   build_int_2 (size - 1, 0),
-					   NULL_RTX, 0);
+			t1 = expand_shift
+			  (RSHIFT_EXPR, compute_mode, op0,
+			   build_int_cst (NULL_TREE, size - 1, 0),
+			   NULL_RTX, 0);
 			t2 = expand_binop (compute_mode, xor_optab, op0, t1,
 					   NULL_RTX, 0, OPTAB_WIDEN);
 			extra_cost = (shift_cost[compute_mode][post_shift]
@@ -3823,9 +3857,10 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 						   max_cost - extra_cost);
 			if (t3 != 0)
 			  {
-			    t4 = expand_shift (RSHIFT_EXPR, compute_mode, t3,
-					       build_int_2 (post_shift, 0),
-					       NULL_RTX, 1);
+			    t4 = expand_shift
+			      (RSHIFT_EXPR, compute_mode, t3,
+			       build_int_cst (NULL_TREE, post_shift, 0),
+			       NULL_RTX, 1);
 			    quotient = expand_binop (compute_mode, xor_optab,
 						     t4, t1, tquotient, 0,
 						     OPTAB_WIDEN);
@@ -3840,8 +3875,10 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 						  op0, constm1_rtx), NULL_RTX);
 		t2 = expand_binop (compute_mode, ior_optab, op0, t1, NULL_RTX,
 				   0, OPTAB_WIDEN);
-		nsign = expand_shift (RSHIFT_EXPR, compute_mode, t2,
-				      build_int_2 (size - 1, 0), NULL_RTX, 0);
+		nsign = expand_shift
+		  (RSHIFT_EXPR, compute_mode, t2,
+		   build_int_cst (NULL_TREE, size - 1, 0),
+		   NULL_RTX, 0);
 		t3 = force_operand (gen_rtx_MINUS (compute_mode, t1, nsign),
 				    NULL_RTX);
 		t4 = expand_divmod (0, TRUNC_DIV_EXPR, compute_mode, t3, op1,
@@ -3955,7 +3992,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 		rtx t1, t2, t3;
 		unsigned HOST_WIDE_INT d = INTVAL (op1);
 		t1 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
-				   build_int_2 (floor_log2 (d), 0),
+				   build_int_cst (NULL_TREE,
+						  floor_log2 (d), 0),
 				   tquotient, 1);
 		t2 = expand_binop (compute_mode, and_optab, op0,
 				   GEN_INT (d - 1),
@@ -4053,7 +4091,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 		rtx t1, t2, t3;
 		unsigned HOST_WIDE_INT d = INTVAL (op1);
 		t1 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
-				   build_int_2 (floor_log2 (d), 0),
+				   build_int_cst (NULL_TREE,
+						  floor_log2 (d), 0),
 				   tquotient, 0);
 		t2 = expand_binop (compute_mode, and_optab, op0,
 				   GEN_INT (d - 1),
@@ -4175,7 +4214,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	    pre_shift = floor_log2 (d & -d);
 	    ml = invert_mod2n (d >> pre_shift, size);
 	    t1 = expand_shift (RSHIFT_EXPR, compute_mode, op0,
-			       build_int_2 (pre_shift, 0), NULL_RTX, unsignedp);
+			       build_int_cst (NULL_TREE, pre_shift, 0),
+			       NULL_RTX, unsignedp);
 	    quotient = expand_mult (compute_mode, t1,
 				    gen_int_mode (ml, compute_mode),
 				    NULL_RTX, 1);
@@ -4209,7 +4249,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	      }
 	    tem = plus_constant (op1, -1);
 	    tem = expand_shift (RSHIFT_EXPR, compute_mode, tem,
-				build_int_2 (1, 0), NULL_RTX, 1);
+				build_int_cst (NULL_TREE, 1, 0),
+				NULL_RTX, 1);
 	    do_cmp_and_jump (remainder, tem, LEU, compute_mode, label);
 	    expand_inc (quotient, const1_rtx);
 	    expand_dec (remainder, op1);
@@ -4234,12 +4275,14 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	    abs_rem = expand_abs (compute_mode, remainder, NULL_RTX, 1, 0);
 	    abs_op1 = expand_abs (compute_mode, op1, NULL_RTX, 1, 0);
 	    tem = expand_shift (LSHIFT_EXPR, compute_mode, abs_rem,
-				build_int_2 (1, 0), NULL_RTX, 1);
+				build_int_cst (NULL_TREE, 1, 0),
+				NULL_RTX, 1);
 	    do_cmp_and_jump (tem, abs_op1, LTU, compute_mode, label);
 	    tem = expand_binop (compute_mode, xor_optab, op0, op1,
 				NULL_RTX, 0, OPTAB_WIDEN);
 	    mask = expand_shift (RSHIFT_EXPR, compute_mode, tem,
-				build_int_2 (size - 1, 0), NULL_RTX, 0);
+				 build_int_cst (NULL_TREE, size - 1, 0),
+				 NULL_RTX, 0);
 	    tem = expand_binop (compute_mode, xor_optab, mask, const1_rtx,
 				NULL_RTX, 0, OPTAB_WIDEN);
 	    tem = expand_binop (compute_mode, sub_optab, tem, mask,
@@ -4337,10 +4380,24 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	target = 0;
 
       if (quotient == 0)
-	/* No divide instruction either.  Use library for remainder.  */
-	remainder = sign_expand_binop (compute_mode, umod_optab, smod_optab,
-				       op0, op1, target,
-				       unsignedp, OPTAB_LIB_WIDEN);
+	{
+	  /* No divide instruction either.  Use library for remainder.  */
+	  remainder = sign_expand_binop (compute_mode, umod_optab, smod_optab,
+					 op0, op1, target,
+					 unsignedp, OPTAB_LIB_WIDEN);
+	  /* No remainder function.  Try a quotient-and-remainder
+	     function, keeping the remainder.  */
+	  if (!remainder)
+	    {
+	      remainder = gen_reg_rtx (compute_mode);
+	      if (!expand_twoval_binop_libfunc 
+		  (unsignedp ? udivmod_optab : sdivmod_optab,
+		   op0, op1,
+		   NULL_RTX, remainder,
+		   unsignedp ? UMOD : MOD))
+		remainder = NULL_RTX;
+	    }
+	}
       else
 	{
 	  /* We divided.  Now finish doing X - Y * (X / Y).  */
@@ -4368,20 +4425,23 @@ make_tree (tree type, rtx x)
   switch (GET_CODE (x))
     {
     case CONST_INT:
-      t = build_int_2 (INTVAL (x),
-		       (TYPE_UNSIGNED (type)
-			&& (GET_MODE_BITSIZE (TYPE_MODE (type))
-			    < HOST_BITS_PER_WIDE_INT))
-		       || INTVAL (x) >= 0 ? 0 : -1);
-      TREE_TYPE (t) = type;
-      return t;
+      {
+	HOST_WIDE_INT hi = 0;
 
+	if (INTVAL (x) < 0
+	    && !(TYPE_UNSIGNED (type)
+		 && (GET_MODE_BITSIZE (TYPE_MODE (type))
+		     < HOST_BITS_PER_WIDE_INT)))
+	  hi = -1;
+      
+	t = build_int_cst (type, INTVAL (x), hi);
+	
+	return t;
+      }
+      
     case CONST_DOUBLE:
       if (GET_MODE (x) == VOIDmode)
-	{
-	  t = build_int_2 (CONST_DOUBLE_LOW (x), CONST_DOUBLE_HIGH (x));
-	  TREE_TYPE (t) = type;
-	}
+	t = build_int_cst (type, CONST_DOUBLE_LOW (x), CONST_DOUBLE_HIGH (x));
       else
 	{
 	  REAL_VALUE_TYPE d;
@@ -4768,8 +4828,7 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
       compare_mode = insn_data[(int) icode].operand[0].mode;
       subtarget = target;
       pred = insn_data[(int) icode].operand[0].predicate;
-      if (preserve_subexpressions_p ()
-	  || ! (*pred) (subtarget, compare_mode))
+      if (optimize || ! (*pred) (subtarget, compare_mode))
 	subtarget = gen_reg_rtx (compare_mode);
 
       pattern = GEN_FCN (icode) (subtarget);
@@ -4802,7 +4861,7 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 	  /* If we want to keep subexpressions around, don't reuse our
 	     last target.  */
 
-	  if (preserve_subexpressions_p ())
+	  if (optimize)
 	    subtarget = 0;
 
 	  /* Now normalize to the proper value in COMPARE_MODE.  Sometimes
@@ -4847,10 +4906,10 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
   delete_insns_since (last);
 
-  /* If expensive optimizations, use different pseudo registers for each
-     insn, instead of reusing the same pseudo.  This leads to better CSE,
-     but slows down the compiler, since there are more pseudos */
-  subtarget = (!flag_expensive_optimizations
+  /* If optimizing, use different pseudo registers for each insn, instead
+     of reusing the same pseudo.  This leads to better CSE, but slows
+     down the compiler, since there are more pseudos */
+  subtarget = (!optimize
 	       && (target_mode == mode)) ? target : NULL_RTX;
 
   /* If we reached here, we can't do this with a scc insn.  However, there

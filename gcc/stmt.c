@@ -1491,16 +1491,6 @@ warn_if_unused_value (tree exp, location_t locus)
       return 1;
     }
 }
-
-/* Return nonzero if we should preserve sub-expressions as separate
-   pseudos.  We never do so if we aren't optimizing.  We always do so
-   if -fexpensive-optimizations.  */
-
-int
-preserve_subexpressions_p (void)
-{
-  return optimize && (cfun || flag_expensive_optimizations);
-}
 
 
 /* Generate RTL to return from the current function, with no value.
@@ -1556,7 +1546,7 @@ shift_return_value (rtx val)
       if (shift > 0)
 	val = expand_shift (LSHIFT_EXPR, GET_MODE (target),
 			    gen_lowpart (GET_MODE (target), val),
-			    build_int_2 (shift, 0), target, 1);
+			    build_int_cst (NULL_TREE, shift, 0), target, 1);
     }
   return val;
 }
@@ -1635,8 +1625,6 @@ expand_return (tree retval)
       expand_null_return ();
       return;
     }
-  else if (TREE_CODE (retval) == RESULT_DECL)
-    retval_rhs = retval;
   else if ((TREE_CODE (retval) == MODIFY_EXPR
 	    || TREE_CODE (retval) == INIT_EXPR)
 	   && TREE_CODE (TREE_OPERAND (retval, 0)) == RESULT_DECL)
@@ -1646,6 +1634,11 @@ expand_return (tree retval)
 
   result_rtl = DECL_RTL (DECL_RESULT (current_function_decl));
 
+  /* If we are returning the RESULT_DECL, then the value has already
+     been stored into it, so we don't have to do anything special.  */
+  if (TREE_CODE (retval_rhs) == RESULT_DECL)
+    expand_value_return (result_rtl);
+
   /* If the result is an aggregate that is being returned in one (or more)
      registers, load the registers here.  The compiler currently can't handle
      copying a BLKmode value into registers.  We could put this code in a
@@ -1653,9 +1646,9 @@ expand_return (tree retval)
      call/return), but until this feature is generally usable it is kept here
      (and in expand_call).  */
 
-  if (retval_rhs != 0
-      && TYPE_MODE (TREE_TYPE (retval_rhs)) == BLKmode
-      && REG_P (result_rtl))
+  else if (retval_rhs != 0
+	   && TYPE_MODE (TREE_TYPE (retval_rhs)) == BLKmode
+	   && REG_P (result_rtl))
     {
       int i;
       unsigned HOST_WIDE_INT bitpos, xbitpos;
@@ -1963,8 +1956,6 @@ expand_decl (tree decl)
 	    mark_reg_pointer (DECL_RTL (decl),
 			      TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
 	}
-
-      maybe_set_unchanging (DECL_RTL (decl), decl);
     }
 
   else if (TREE_CODE (DECL_SIZE_UNIT (decl)) == INTEGER_CST
@@ -2042,40 +2033,6 @@ expand_decl (tree decl)
     }
 }
 
-/* Emit code to allocate T_SIZE bytes of dynamic stack space for ALLOC.  */
-void
-expand_stack_alloc (tree alloc, tree t_size)
-{
-  rtx address, dest, size;
-  tree var, type;
-
-  if (TREE_CODE (alloc) != ADDR_EXPR)
-    abort ();
-  var = TREE_OPERAND (alloc, 0);
-  if (TREE_CODE (var) != VAR_DECL)
-    abort ();
-
-  type = TREE_TYPE (var);
-
-  /* Compute the variable's size, in bytes.  */
-  size = expand_expr (t_size, NULL_RTX, VOIDmode, 0);
-  free_temp_slots ();
-
-  /* Allocate space on the stack for the variable.  */
-  address = XEXP (DECL_RTL (var), 0);
-  dest = allocate_dynamic_stack_space (size, address, TYPE_ALIGN (type));
-  if (dest != address)
-    emit_move_insn (address, dest);
-
-  /* Indicate the alignment we actually gave this variable.  */
-#ifdef STACK_BOUNDARY
-  DECL_ALIGN (var) = STACK_BOUNDARY;
-#else
-  DECL_ALIGN (var) = BIGGEST_ALIGNMENT;
-#endif
-  DECL_USER_ALIGN (var) = 0;
-}
-
 /* Emit code to save the current value of stack.  */
 rtx
 expand_stack_save (void)
@@ -2597,7 +2554,7 @@ expand_case (tree exp)
 	      if (TREE_CODE (index_expr) != INTEGER_CST)
 		{
 		  index_expr
-		    = build_int_2 (INTVAL (index),
+		    = build_int_cst (NULL_TREE, INTVAL (index),
 				   unsignedp || INTVAL (index) >= 0 ? 0 : -1);
 		  index_expr = convert (index_type, index_expr);
 		}
@@ -2769,7 +2726,8 @@ static int
 estimate_case_costs (case_node_ptr node)
 {
   tree min_ascii = integer_minus_one_node;
-  tree max_ascii = convert (TREE_TYPE (node->high), build_int_2 (127, 0));
+  tree max_ascii = convert (TREE_TYPE (node->high),
+			    build_int_cst (NULL_TREE, 127, 0));
   case_node_ptr n;
   int i;
 

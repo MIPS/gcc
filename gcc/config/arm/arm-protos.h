@@ -27,15 +27,15 @@
 extern void arm_override_options (void);
 extern int use_return_insn (int, rtx);
 extern int arm_regno_class (int);
-extern void arm_finalize_pic (int);
+extern void arm_load_pic_register (void);
 extern int arm_volatile_func (void);
 extern const char *arm_output_epilogue (rtx);
 extern void arm_expand_prologue (void);
 extern const char *arm_strip_name_encoding (const char *);
 extern void arm_asm_output_labelref (FILE *, const char *);
 extern unsigned long arm_current_func_type (void);
-extern unsigned int arm_compute_initial_elimination_offset (unsigned int,
-							    unsigned int);
+extern HOST_WIDE_INT arm_compute_initial_elimination_offset (unsigned int,
+							     unsigned int);
 extern HOST_WIDE_INT thumb_compute_initial_elimination_offset (unsigned int,
 							       unsigned int);
 
@@ -151,6 +151,7 @@ extern int arm_is_longcall_p (rtx, int, int);
 extern int    arm_emit_vector_const (FILE *, rtx);
 extern const char * arm_output_load_gr (rtx *);
 extern const char *vfp_output_fstmx (rtx *);
+extern void arm_set_return_address (rtx, rtx);
 
 #if defined TREE_CODE
 extern rtx arm_function_arg (CUMULATIVE_ARGS *, enum machine_mode, tree, int);
@@ -194,6 +195,7 @@ extern int thumb_go_if_legitimate_address (enum machine_mode, rtx);
 extern rtx arm_return_addr (int, rtx);
 extern void thumb_reload_out_hi (rtx *);
 extern void thumb_reload_in_hi (rtx *);
+extern void thumb_set_return_address (rtx, rtx);
 #endif
 
 /* Defined in pe.c.  */

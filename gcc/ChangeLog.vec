@@ -1,3 +1,7 @@
+2004-08-19  Ben Elliston  <bje@au.ibm.com>
+
+	* Merge with edge-vector-mergepoint-20040819.
+
 2004-08-18  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-ssa-dom.c (record_equivalences_from_incoming_edge):

@@ -120,6 +120,7 @@ struct store_by_pieces
 };
 
 static unsigned HOST_WIDE_INT move_by_pieces_ninsns (unsigned HOST_WIDE_INT,
+						     unsigned int,
 						     unsigned int);
 static void move_by_pieces_1 (rtx (*) (rtx, ...), enum machine_mode,
 			      struct move_by_pieces *);
@@ -174,21 +175,25 @@ static bool float_extend_from_mem[NUM_MACHINE_MODES][NUM_MACHINE_MODES];
    to perform a structure copy.  */
 #ifndef MOVE_BY_PIECES_P
 #define MOVE_BY_PIECES_P(SIZE, ALIGN) \
-  (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) MOVE_RATIO)
+  (move_by_pieces_ninsns (SIZE, ALIGN, MOVE_MAX_PIECES + 1) \
+   < (unsigned int) MOVE_RATIO)
 #endif
 
 /* This macro is used to determine whether clear_by_pieces should be
    called to clear storage.  */
 #ifndef CLEAR_BY_PIECES_P
 #define CLEAR_BY_PIECES_P(SIZE, ALIGN) \
-  (move_by_pieces_ninsns (SIZE, ALIGN) < (unsigned int) CLEAR_RATIO)
+  (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
+   < (unsigned int) CLEAR_RATIO)
 #endif
 
 /* This macro is used to determine whether store_by_pieces should be
    called to "memset" storage with byte values other than zero, or
    to "memcpy" storage when the source is a constant string.  */
 #ifndef STORE_BY_PIECES_P
-#define STORE_BY_PIECES_P(SIZE, ALIGN)	MOVE_BY_PIECES_P (SIZE, ALIGN)
+#define STORE_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
+   < (unsigned int) MOVE_RATIO)
 #endif
 
 /* This array records the insn_code of insns to perform block moves.  */
@@ -641,8 +646,9 @@ convert_move (rtx to, rtx from, int unsignedp)
 
 	  /* No suitable intermediate mode.
 	     Generate what we need with	shifts.  */
-	  shift_amount = build_int_2 (GET_MODE_BITSIZE (to_mode)
-				      - GET_MODE_BITSIZE (from_mode), 0);
+	  shift_amount = build_int_cst (NULL_TREE,
+					GET_MODE_BITSIZE (to_mode)
+					- GET_MODE_BITSIZE (from_mode), 0);
 	  from = gen_lowpart (to_mode, force_reg (from_mode, from));
 	  tmp = expand_shift (LSHIFT_EXPR, to_mode, from, shift_amount,
 			      to, unsignedp);
@@ -882,7 +888,7 @@ move_by_pieces (rtx to, rtx from, unsigned HOST_WIDE_INT len,
      copy addresses to registers (to make displacements shorter)
      and use post-increment if available.  */
   if (!(data.autinc_from && data.autinc_to)
-      && move_by_pieces_ninsns (len, align) > 2)
+      && move_by_pieces_ninsns (len, align, max_size) > 2)
     {
       /* Find the mode of the largest move...  */
       for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
@@ -920,9 +926,22 @@ move_by_pieces (rtx to, rtx from, unsigned HOST_WIDE_INT len,
 	data.to_addr = copy_addr_to_reg (to_addr);
     }
 
-  if (! SLOW_UNALIGNED_ACCESS (word_mode, align)
-      || align > MOVE_MAX * BITS_PER_UNIT || align >= BIGGEST_ALIGNMENT)
-    align = MOVE_MAX * BITS_PER_UNIT;
+  tmode = mode_for_size (MOVE_MAX_PIECES * BITS_PER_UNIT, MODE_INT, 1);
+  if (align >= GET_MODE_ALIGNMENT (tmode))
+    align = GET_MODE_ALIGNMENT (tmode);
+  else
+    {
+      enum machine_mode xmode;
+
+      for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT), xmode = tmode;
+	   tmode != VOIDmode;
+	   xmode = tmode, tmode = GET_MODE_WIDER_MODE (tmode))
+	if (GET_MODE_SIZE (tmode) > MOVE_MAX_PIECES
+	    || SLOW_UNALIGNED_ACCESS (tmode, align))
+	  break;
+
+      align = MAX (align, GET_MODE_ALIGNMENT (xmode));
+    }
 
   /* First move what we can in the largest integer mode, then go to
      successively smaller modes.  */
@@ -983,18 +1002,32 @@ move_by_pieces (rtx to, rtx from, unsigned HOST_WIDE_INT len,
    ALIGN (in bits) is maximum alignment we can assume.  */
 
 static unsigned HOST_WIDE_INT
-move_by_pieces_ninsns (unsigned HOST_WIDE_INT l, unsigned int align)
+move_by_pieces_ninsns (unsigned HOST_WIDE_INT l, unsigned int align,
+		       unsigned int max_size)
 {
   unsigned HOST_WIDE_INT n_insns = 0;
-  unsigned HOST_WIDE_INT max_size = MOVE_MAX + 1;
+  enum machine_mode tmode;
 
-  if (! SLOW_UNALIGNED_ACCESS (word_mode, align)
-      || align > MOVE_MAX * BITS_PER_UNIT || align >= BIGGEST_ALIGNMENT)
-    align = MOVE_MAX * BITS_PER_UNIT;
+  tmode = mode_for_size (MOVE_MAX_PIECES * BITS_PER_UNIT, MODE_INT, 1);
+  if (align >= GET_MODE_ALIGNMENT (tmode))
+    align = GET_MODE_ALIGNMENT (tmode);
+  else
+    {
+      enum machine_mode tmode, xmode;
+
+      for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT), xmode = tmode;
+	   tmode != VOIDmode;
+	   xmode = tmode, tmode = GET_MODE_WIDER_MODE (tmode))
+	if (GET_MODE_SIZE (tmode) > MOVE_MAX_PIECES
+	    || SLOW_UNALIGNED_ACCESS (tmode, align))
+	  break;
+
+      align = MAX (align, GET_MODE_ALIGNMENT (xmode));
+    }
 
   while (max_size > 1)
     {
-      enum machine_mode mode = VOIDmode, tmode;
+      enum machine_mode mode = VOIDmode;
       enum insn_code icode;
 
       for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
@@ -1325,16 +1358,6 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size)
 		      call_expr, arg_list, NULL_TREE);
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
-
-  /* If we are initializing a readonly value, show the above call clobbered
-     it. Otherwise, a load from it may erroneously be hoisted from a loop, or
-     the delay slot scheduler might overlook conflicts and take nasty
-     decisions.  */
-  if (RTX_UNCHANGING_P (dst))
-    add_function_usage_to
-      (last_call_insn (), gen_rtx_EXPR_LIST (VOIDmode,
-					     gen_rtx_CLOBBER (VOIDmode, dst),
-					     NULL_RTX));
 
   return retval;
 }
@@ -1680,7 +1703,8 @@ emit_group_load (rtx dst, rtx orig_src, tree type ATTRIBUTE_UNUSED, int ssize)
 
       if (shift)
 	tmps[i] = expand_shift (LSHIFT_EXPR, mode, tmps[i],
-				build_int_2 (shift, 0), tmps[i], 0);
+				build_int_cst (NULL_TREE,
+					       shift, 0), tmps[i], 0);
     }
 
   /* Copy the extracted pieces into the proper (probable) hard regs.  */
@@ -1791,7 +1815,8 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 	    {
 	      int shift = (bytelen - (ssize - bytepos)) * BITS_PER_UNIT;
 	      tmps[i] = expand_shift (RSHIFT_EXPR, mode, tmps[i],
-				      build_int_2 (shift, 0), tmps[i], 0);
+				      build_int_cst (NULL_TREE,
+						     shift, 0), tmps[i], 0);
 	    }
 	  bytelen = ssize - bytepos;
 	}
@@ -1980,7 +2005,8 @@ can_store_by_pieces (unsigned HOST_WIDE_INT len,
 		     rtx (*constfun) (void *, HOST_WIDE_INT, enum machine_mode),
 		     void *constfundata, unsigned int align)
 {
-  unsigned HOST_WIDE_INT max_size, l;
+  unsigned HOST_WIDE_INT l;
+  unsigned int max_size;
   HOST_WIDE_INT offset = 0;
   enum machine_mode mode, tmode;
   enum insn_code icode;
@@ -1993,9 +2019,22 @@ can_store_by_pieces (unsigned HOST_WIDE_INT len,
   if (! STORE_BY_PIECES_P (len, align))
     return 0;
 
-  if (! SLOW_UNALIGNED_ACCESS (word_mode, align)
-      || align > MOVE_MAX * BITS_PER_UNIT || align >= BIGGEST_ALIGNMENT)
-    align = MOVE_MAX * BITS_PER_UNIT;
+  tmode = mode_for_size (STORE_MAX_PIECES * BITS_PER_UNIT, MODE_INT, 1);
+  if (align >= GET_MODE_ALIGNMENT (tmode))
+    align = GET_MODE_ALIGNMENT (tmode);
+  else
+    {
+      enum machine_mode xmode;
+
+      for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT), xmode = tmode;
+	   tmode != VOIDmode;
+	   xmode = tmode, tmode = GET_MODE_WIDER_MODE (tmode))
+	if (GET_MODE_SIZE (tmode) > STORE_MAX_PIECES
+	    || SLOW_UNALIGNED_ACCESS (tmode, align))
+	  break;
+
+      align = MAX (align, GET_MODE_ALIGNMENT (xmode));
+    }
 
   /* We would first store what we can in the largest integer mode, then go to
      successively smaller modes.  */
@@ -2148,7 +2187,7 @@ store_by_pieces_1 (struct store_by_pieces *data ATTRIBUTE_UNUSED,
 		   unsigned int align ATTRIBUTE_UNUSED)
 {
   rtx to_addr = XEXP (data->to, 0);
-  unsigned HOST_WIDE_INT max_size = STORE_MAX_PIECES + 1;
+  unsigned int max_size = STORE_MAX_PIECES + 1;
   enum machine_mode mode = VOIDmode, tmode;
   enum insn_code icode;
 
@@ -2168,7 +2207,7 @@ store_by_pieces_1 (struct store_by_pieces *data ATTRIBUTE_UNUSED,
      copy addresses to registers (to make displacements shorter)
      and use post-increment if available.  */
   if (!data->autinc_to
-      && move_by_pieces_ninsns (data->len, align) > 2)
+      && move_by_pieces_ninsns (data->len, align, max_size) > 2)
     {
       /* Determine the main mode we'll be using.  */
       for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
@@ -2195,9 +2234,22 @@ store_by_pieces_1 (struct store_by_pieces *data ATTRIBUTE_UNUSED,
 	data->to_addr = copy_addr_to_reg (to_addr);
     }
 
-  if (! SLOW_UNALIGNED_ACCESS (word_mode, align)
-      || align > MOVE_MAX * BITS_PER_UNIT || align >= BIGGEST_ALIGNMENT)
-    align = MOVE_MAX * BITS_PER_UNIT;
+  tmode = mode_for_size (STORE_MAX_PIECES * BITS_PER_UNIT, MODE_INT, 1);
+  if (align >= GET_MODE_ALIGNMENT (tmode))
+    align = GET_MODE_ALIGNMENT (tmode);
+  else
+    {
+      enum machine_mode xmode;
+
+      for (tmode = GET_CLASS_NARROWEST_MODE (MODE_INT), xmode = tmode;
+	   tmode != VOIDmode;
+	   xmode = tmode, tmode = GET_MODE_WIDER_MODE (tmode))
+	if (GET_MODE_SIZE (tmode) > STORE_MAX_PIECES
+	    || SLOW_UNALIGNED_ACCESS (tmode, align))
+	  break;
+
+      align = MAX (align, GET_MODE_ALIGNMENT (xmode));
+    }
 
   /* First store what we can in the largest integer mode, then go to
      successively smaller modes.  */
@@ -2390,12 +2442,6 @@ clear_storage_via_libcall (rtx object, rtx size)
 		      call_expr, arg_list, NULL_TREE);
 
   retval = expand_expr (call_expr, NULL_RTX, VOIDmode, 0);
-
-  /* If we are initializing a readonly value, show the above call
-     clobbered it.  Otherwise, a load from it may erroneously be
-     hoisted from a loop.  */
-  if (RTX_UNCHANGING_P (object))
-    emit_insn (gen_rtx_CLOBBER (VOIDmode, object));
 
   return retval;
 }
@@ -3383,16 +3429,12 @@ emit_push_insn (rtx x, enum machine_mode mode, tree type, rtx size,
 static rtx
 get_subtarget (rtx x)
 {
-  return ((x == 0
+  return (optimize
+          || x == 0
 	   /* Only registers can be subtargets.  */
 	   || !REG_P (x)
-	   /* If the register is readonly, it can't be set more than once.  */
-	   || RTX_UNCHANGING_P (x)
 	   /* Don't use hard regs to avoid extending their life.  */
 	   || REGNO (x) < FIRST_PSEUDO_REGISTER
-	   /* Avoid subtargets inside loops,
-	      since they hide some invariant expressions.  */
-	   || preserve_subexpressions_p ())
 	  ? 0 : x);
 }
 
@@ -3497,18 +3539,6 @@ expand_assignment (tree to, tree from, int want_value)
 	  MEM_VOLATILE_P (to_rtx) = 1;
 	}
 
-      if (TREE_CODE (to) == COMPONENT_REF
-	  && TREE_READONLY (TREE_OPERAND (to, 1))
-	  /* We can't assert that a MEM won't be set more than once
-	     if the component is not addressable because another
-	     non-addressable component may be referenced by the same MEM.  */
-	  && ! (MEM_P (to_rtx) && ! can_address_p (to)))
-	{
-	  if (to_rtx == orig_to_rtx)
-	    to_rtx = copy_rtx (to_rtx);
-	  RTX_UNCHANGING_P (to_rtx) = 1;
-	}
-
       if (MEM_P (to_rtx) && ! can_address_p (to))
 	{
 	  if (to_rtx == orig_to_rtx)
@@ -3611,8 +3641,8 @@ expand_assignment (tree to, tree from, int want_value)
 				      NULL_RTX);
 		  binop = xor_optab;
 		}
-	      value = expand_shift (LSHIFT_EXPR, GET_MODE (str_rtx),
-				    value, build_int_2 (bitpos1, 0),
+	      value = expand_shift (LSHIFT_EXPR, GET_MODE (str_rtx), value,
+				    build_int_cst (NULL_TREE,bitpos1, 0),
 				    NULL_RTX, 1);
 	      result = expand_binop (GET_MODE (str_rtx), binop, str_rtx,
 				     value, str_rtx, 1, OPTAB_WIDEN);
@@ -4409,15 +4439,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		   || ((HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (target))
 		       == size)))
 	{
-	  rtx xtarget = target;
-
-	  if (readonly_fields_p (type))
-	    {
-	      xtarget = copy_rtx (xtarget);
-	      RTX_UNCHANGING_P (xtarget) = 1;
-	    }
-
-	  clear_storage (xtarget, GEN_INT (size));
+	  clear_storage (target, GEN_INT (size));
 	  cleared = 1;
 	}
 
@@ -4490,14 +4512,6 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 				       highest_pow2_factor (offset));
 	    }
 
-	  if (TREE_READONLY (field))
-	    {
-	      if (MEM_P (to_rtx))
-		to_rtx = copy_rtx (to_rtx);
-
-	      RTX_UNCHANGING_P (to_rtx) = 1;
-	    }
-
 #ifdef WORD_REGISTER_OPERATIONS
 	  /* If this initializes a field that is smaller than a word, at the
 	     start of a word, try to widen it to a full word.
@@ -4523,7 +4537,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	      if (BYTES_BIG_ENDIAN)
 		value
 		  = fold (build2 (LSHIFT_EXPR, type, value,
-				  build_int_2 (BITS_PER_WORD - bitsize, 0)));
+				  build_int_cst (NULL_TREE,
+						 BITS_PER_WORD - bitsize, 0)));
 	      bitsize = BITS_PER_WORD;
 	      mode = word_mode;
 	    }
@@ -5258,7 +5273,8 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 				   gen_int_mode (width_mask, tmode),
 				   NULL_RTX);
 
-	      count = build_int_2 (GET_MODE_BITSIZE (tmode) - bitsize, 0);
+	      count = build_int_cst (NULL_TREE,
+				     GET_MODE_BITSIZE (tmode) - bitsize, 0);
 	      temp = expand_shift (LSHIFT_EXPR, tmode, temp, count, 0, 0);
 	      return expand_shift (RSHIFT_EXPR, tmode, temp, count, 0, 0);
 	    }
@@ -6002,20 +6018,8 @@ expand_var (tree var)
       ? !TREE_ASM_WRITTEN (var)
       : !DECL_RTL_SET_P (var))
     {
-      if (TREE_CODE (var) == VAR_DECL && DECL_DEFER_OUTPUT (var))
-	{
-	  /* Prepare a mem & address for the decl.  */
-	  rtx x;
-
-	  if (TREE_STATIC (var))
-	    abort ();
-
-	  x = gen_rtx_MEM (DECL_MODE (var),
-			   gen_reg_rtx (Pmode));
-
-	  set_mem_attributes (x, var, 1);
-	  SET_DECL_RTL (var, x);
-	}
+      if (TREE_CODE (var) == VAR_DECL && DECL_VALUE_EXPR (var))
+	/* Should be ignored.  */;
       else if (lang_hooks.expand_decl (var))
 	/* OK.  */;
       else if (TREE_CODE (var) == VAR_DECL && !TREE_STATIC (var))
@@ -6605,12 +6609,6 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	temp = gen_rtx_MEM (mode, op0);
 	set_mem_attributes (temp, exp, 0);
 
-	/* If we are writing to this object and its type is a record with
-	   readonly fields, we must mark it as readonly so it will
-	   conflict with readonly references to those fields.  */
-	if (modifier == EXPAND_WRITE && readonly_fields_p (type))
-	  RTX_UNCHANGING_P (temp) = 1;
-
 	return temp;
       }
 
@@ -6766,8 +6764,9 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		    else
 		      {
 			tree count
-			  = build_int_2 (GET_MODE_BITSIZE (imode) - bitsize,
-					 0);
+			  = build_int_cst (NULL_TREE,
+					   GET_MODE_BITSIZE (imode) - bitsize,
+					   0);
 
 			op0 = expand_shift (LSHIFT_EXPR, imode, op0, count,
 					    target, 0);
@@ -8232,7 +8231,8 @@ reduce_to_bit_field_precision (rtx exp, rtx target, tree type)
     }
   else
     {
-      tree count = build_int_2 (GET_MODE_BITSIZE (GET_MODE (exp)) - prec, 0);
+      tree count = build_int_cst (NULL_TREE,
+				  GET_MODE_BITSIZE (GET_MODE (exp)) - prec, 0);
       exp = expand_shift (LSHIFT_EXPR, GET_MODE (exp), exp, count, target, 0);
       return expand_shift (RSHIFT_EXPR, GET_MODE (exp), exp, count, target, 0);
     }
@@ -8737,9 +8737,7 @@ do_tablejump (rtx index, enum machine_mode mode, rtx range, rtx table_label,
 #endif
     index = memory_address_noforce (CASE_VECTOR_MODE, index);
   temp = gen_reg_rtx (CASE_VECTOR_MODE);
-  vector = gen_rtx_MEM (CASE_VECTOR_MODE, index);
-  RTX_UNCHANGING_P (vector) = 1;
-  MEM_NOTRAP_P (vector) = 1;
+  vector = gen_const_mem (CASE_VECTOR_MODE, index);
   convert_move (temp, vector, 0);
 
   emit_jump_insn (gen_tablejump (temp, table_label));

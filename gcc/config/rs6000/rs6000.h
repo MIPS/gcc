@@ -916,6 +916,10 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define SPE_ACC_REGNO		111
 #define SPEFSCR_REGNO		112
 
+#define FIRST_SAVED_ALTIVEC_REGNO (FIRST_ALTIVEC_REGNO+20)
+#define FIRST_SAVED_FP_REGNO    (14+32)
+#define FIRST_SAVED_GP_REGNO 13
+
 /* List the order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.
 
@@ -1030,6 +1034,9 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define VECTOR_MODE_SUPPORTED_P(MODE)			\
         ((TARGET_SPE && SPE_VECTOR_MODE (MODE))		\
 	 || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (MODE)))
+
+#define UNITS_PER_SIMD_WORD     \
+        (TARGET_ALTIVEC ? 16 : (TARGET_SPE ? 8 : 0) )
 
 /* Value is TRUE if hard register REGNO can hold a value of
    machine-mode MODE.  */
@@ -2103,6 +2110,12 @@ do {								\
 
 /* #define FIXUNS_TRUNC_LIKE_FIX_TRUNC */
 
+/* An integer expression for the size in bits of the largest integer machine
+   mode that should actually be used.  */
+
+/* Allow pairs of registers to be used, which is the intent of the default.  */
+#define MAX_FIXED_MODE_SIZE GET_MODE_BITSIZE (TARGET_POWERPC64 ? TImode : DImode)
+
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
 #define MOVE_MAX (! TARGET_POWERPC64 ? 4 : 8)
@@ -2120,7 +2133,7 @@ do {								\
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Define if loading short immediate values into registers sign extends.  */
@@ -2523,7 +2536,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 #define PREDICATE_CODES							   \
   {"any_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,		   \
-		   LABEL_REF, SUBREG, REG, MEM, PARALLEL}},		   \
+		   LABEL_REF, SUBREG, REG, MEM}},			   \
+  {"any_parallel_operand", {PARALLEL}},					   \
   {"zero_constant", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	   \
 		    LABEL_REF, SUBREG, REG, MEM}},			   \
   {"short_cint_operand", {CONST_INT}},					   \
@@ -2574,7 +2588,13 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 		     CONST_DOUBLE, SYMBOL_REF}},			   \
   {"load_multiple_operation", {PARALLEL}},				   \
   {"store_multiple_operation", {PARALLEL}},				   \
+  {"lmw_operation", {PARALLEL}},					   \
+  {"stmw_operation", {PARALLEL}},					   \
   {"vrsave_operation", {PARALLEL}},					   \
+  {"save_world_operation", {PARALLEL}},                                    \
+  {"restore_world_operation", {PARALLEL}},                                 \
+  {"mfcr_operation", {PARALLEL}},					   \
+  {"mtcrf_operation", {PARALLEL}},					   \
   {"branch_comparison_operator", {EQ, NE, LE, LT, GE,			   \
 				  GT, LEU, LTU, GEU, GTU,		   \
 				  UNORDERED, ORDERED,			   \

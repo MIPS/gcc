@@ -1037,10 +1037,10 @@ bb_has_well_behaved_predecessors (basic_block bb)
 {
   edge pred;
 
-  if (! bb->pred)
+  if (EDGE_COUNT (bb->preds) == 0)
     return false;
 
-  for (pred = bb->pred; pred != NULL; pred = pred->pred_next)
+  FOR_EACH_EDGE (pred, bb->preds)
     {
       if ((pred->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (pred))
 	return false;
@@ -1048,6 +1048,7 @@ bb_has_well_behaved_predecessors (basic_block bb)
       if (JUMP_TABLE_DATA_P (BB_END (pred->src)))
 	return false;
     }
+  END_FOR_EACH_EDGE;
   return true;
 }
 
@@ -1097,7 +1098,7 @@ eliminate_partially_redundant_load (basic_block bb, rtx insn,
     return;
 
   /* Check potential for replacing load with copy for predecessors.  */
-  for (pred = bb->pred; pred; pred = pred->pred_next)
+  FOR_EACH_EDGE (pred, bb->preds)
     {
       rtx next_pred_bb_end;
 
@@ -1159,6 +1160,7 @@ eliminate_partially_redundant_load (basic_block bb, rtx insn,
 	    rollback_unoccr = unoccr;
 	}
     }
+  END_FOR_EACH_EDGE;
 
   if (/* No load can be replaced by copy.  */
       npred_ok == 0

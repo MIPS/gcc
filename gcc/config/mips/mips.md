@@ -53,6 +53,8 @@
    (UNSPEC_ADDRESS_FIRST	100)
 
    (FAKE_CALL_REGNO		79)])
+
+(include "predicates.md")
 
 ;; ....................
 ;;
@@ -111,6 +113,7 @@
 ;; fmul		floating point multiply
 ;; fmadd	floating point multiply-add
 ;; fdiv		floating point divide
+;; frdiv	floating point reciprocal divide
 ;; fabs		floating point absolute value
 ;; fneg		floating point negation
 ;; fcmp		floating point compare
@@ -120,7 +123,7 @@
 ;; multi	multiword sequence (or user asm statements)
 ;; nop		no operation
 (define_attr "type"
-  "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,prefetch,prefetchx,condmove,xfer,mthilo,mfhilo,const,arith,shift,slt,clz,trap,imul,imadd,idiv,fmove,fadd,fmul,fmadd,fdiv,fabs,fneg,fcmp,fcvt,fsqrt,frsqrt,multi,nop"
+  "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,prefetch,prefetchx,condmove,xfer,mthilo,mfhilo,const,arith,shift,slt,clz,trap,imul,imadd,idiv,fmove,fadd,fmul,fmadd,fdiv,frdiv,fabs,fneg,fcmp,fcvt,fsqrt,frsqrt,multi,nop"
   (cond [(eq_attr "jal" "!unset") (const_string "call")
 	 (eq_attr "got" "load") (const_string "load")]
 	(const_string "unknown")))
@@ -364,7 +367,7 @@
   [(set_attr "type"	"trap")])
 
 (define_expand "conditional_trap"
-  [(trap_if (match_operator 0 "cmp_op"
+  [(trap_if (match_operator 0 "comparison_operator"
 			    [(match_dup 2) (match_dup 3)])
 	    (match_operand 1 "const_int_operand"))]
   "ISA_HAS_COND_TRAP"
@@ -379,7 +382,7 @@
 })
 
 (define_insn ""
-  [(trap_if (match_operator 0 "trap_cmp_op"
+  [(trap_if (match_operator 0 "trap_comparison_operator"
                             [(match_operand:SI 1 "reg_or_0_operand" "dJ")
                              (match_operand:SI 2 "arith_operand" "dI")])
 	    (const_int 0))]
@@ -388,7 +391,7 @@
   [(set_attr "type"	"trap")])
 
 (define_insn ""
-  [(trap_if (match_operator 0 "trap_cmp_op"
+  [(trap_if (match_operator 0 "trap_comparison_operator"
                             [(match_operand:DI 1 "reg_or_0_operand" "dJ")
                              (match_operand:DI 2 "arith_operand" "dI")])
 	    (const_int 0))]
@@ -446,7 +449,7 @@
 (define_insn ""
   [(set (reg:SI 29)
 	(plus:SI (reg:SI 29)
-		 (match_operand:SI 0 "small_int" "I")))]
+		 (match_operand:SI 0 "const_arith_operand" "")))]
   "TARGET_MIPS16"
   "addu\t%$,%$,%0"
   [(set_attr "type"	"arith")
@@ -458,7 +461,7 @@
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(plus:SI (reg:SI 29)
-		 (match_operand:SI 1 "small_int" "I")))]
+		 (match_operand:SI 1 "const_arith_operand" "")))]
   "TARGET_MIPS16"
   "addu\t%0,%$,%1"
   [(set_attr "type"	"arith")
@@ -581,7 +584,7 @@
 (define_insn ""
   [(set (reg:DI 29)
 	(plus:DI (reg:DI 29)
-		 (match_operand:DI 0 "small_int" "I")))]
+		 (match_operand:DI 0 "const_arith_operand" "")))]
   "TARGET_MIPS16 && TARGET_64BIT"
   "daddu\t%$,%$,%0"
   [(set_attr "type"	"arith")
@@ -593,7 +596,7 @@
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(plus:DI (reg:DI 29)
-		 (match_operand:DI 1 "small_int" "I")))]
+		 (match_operand:DI 1 "const_arith_operand" "")))]
   "TARGET_MIPS16 && TARGET_64BIT"
   "daddu\t%0,%$,%1"
   [(set_attr "type"	"arith")
@@ -1902,7 +1905,19 @@
 	(neg:DF (plus:DF (mult:DF (match_operand:DF 1 "register_operand" "f")
 				  (match_operand:DF 2 "register_operand" "f"))
 			 (match_operand:DF 3 "register_operand" "f"))))]
-  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FUSED_MADD"
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT
+   && TARGET_FUSED_MADD && HONOR_SIGNED_ZEROS (DFmode)"
+  "nmadd.d\t%0,%3,%1,%2"
+  [(set_attr "type"	"fmadd")
+   (set_attr "mode"	"DF")])
+
+(define_insn ""
+  [(set (match_operand:DF 0 "register_operand" "=f")
+	(minus:DF (mult:DF (neg:DF (match_operand:DF 1 "register_operand" "f"))
+				   (match_operand:DF 2 "register_operand" "f"))
+		  (match_operand:DF 3 "register_operand" "f")))]
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT
+   && TARGET_FUSED_MADD && !HONOR_SIGNED_ZEROS (DFmode)"
   "nmadd.d\t%0,%3,%1,%2"
   [(set_attr "type"	"fmadd")
    (set_attr "mode"	"DF")])
@@ -1912,27 +1927,63 @@
 	(neg:SF (plus:SF (mult:SF (match_operand:SF 1 "register_operand" "f")
 				  (match_operand:SF 2 "register_operand" "f"))
 			 (match_operand:SF 3 "register_operand" "f"))))]
-  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_FUSED_MADD"
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_FUSED_MADD
+   && HONOR_SIGNED_ZEROS (SFmode)"
+  "nmadd.s\t%0,%3,%1,%2"
+  [(set_attr "type"	"fmadd")
+   (set_attr "mode"	"SF")])
+
+(define_insn ""
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(minus:SF (mult:SF (neg:SF (match_operand:SF 1 "register_operand" "f"))
+			   (match_operand:SF 2 "register_operand" "f"))
+		  (match_operand:SF 3 "register_operand" "f")))]
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_FUSED_MADD
+   && !HONOR_SIGNED_ZEROS (SFmode)"
   "nmadd.s\t%0,%3,%1,%2"
   [(set_attr "type"	"fmadd")
    (set_attr "mode"	"SF")])
 
 (define_insn ""
   [(set (match_operand:DF 0 "register_operand" "=f")
+	(neg:DF (minus:DF (mult:DF (match_operand:DF 2 "register_operand" "f")
+				   (match_operand:DF 3 "register_operand" "f"))
+			  (match_operand:DF 1 "register_operand" "f"))))]
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT
+   && TARGET_FUSED_MADD && HONOR_SIGNED_ZEROS (DFmode)"
+  "nmsub.d\t%0,%1,%2,%3"
+  [(set_attr "type"	"fmadd")
+   (set_attr "mode"	"DF")])
+
+(define_insn ""
+  [(set (match_operand:DF 0 "register_operand" "=f")
 	(minus:DF (match_operand:DF 1 "register_operand" "f")
 		  (mult:DF (match_operand:DF 2 "register_operand" "f")
 			   (match_operand:DF 3 "register_operand" "f"))))]
-  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT && TARGET_FUSED_MADD"
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT
+   && TARGET_FUSED_MADD && !HONOR_SIGNED_ZEROS (DFmode)"
   "nmsub.d\t%0,%1,%2,%3"
   [(set_attr "type"	"fmadd")
    (set_attr "mode"	"DF")])
 
 (define_insn ""
   [(set (match_operand:SF 0 "register_operand" "=f")
+	(neg:SF (minus:SF (mult:SF (match_operand:SF 2 "register_operand" "f")
+				   (match_operand:SF 3 "register_operand" "f"))
+			  (match_operand:SF 1 "register_operand" "f"))))]
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_FUSED_MADD
+   && HONOR_SIGNED_ZEROS (SFmode)"
+  "nmsub.s\t%0,%1,%2,%3"
+  [(set_attr "type"	"fmadd")
+   (set_attr "mode"	"SF")])
+
+(define_insn ""
+  [(set (match_operand:SF 0 "register_operand" "=f")
 	(minus:SF (match_operand:SF 1 "register_operand" "f")
 		  (mult:SF (match_operand:SF 2 "register_operand" "f")
 			   (match_operand:SF 3 "register_operand" "f"))))]
-  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_FUSED_MADD"
+  "ISA_HAS_NMADD_NMSUB && TARGET_HARD_FLOAT && TARGET_FUSED_MADD
+   && !HONOR_SIGNED_ZEROS (SFmode)"
   "nmsub.s\t%0,%1,%2,%3"
   [(set_attr "type"	"fmadd")
    (set_attr "mode"	"SF")])
@@ -1947,11 +1998,11 @@
 
 (define_expand "divdf3"
   [(set (match_operand:DF 0 "register_operand")
-	(div:DF (match_operand:DF 1 "reg_or_const_float_1_operand")
+	(div:DF (match_operand:DF 1 "reg_or_1_operand")
 		(match_operand:DF 2 "register_operand")))]
   "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
 {
-  if (const_float_1_operand (operands[1], DFmode))
+  if (const_1_operand (operands[1], DFmode))
     if (!(ISA_HAS_FP4 && flag_unsafe_math_optimizations))
       operands[1] = force_reg (DFmode, operands[1]);
 })
@@ -1997,11 +2048,11 @@
 ;; precision is OK (i.e., flag_unsafe_math_optimizations is set).
 (define_expand "divsf3"
   [(set (match_operand:SF 0 "register_operand")
-	(div:SF (match_operand:SF 1 "reg_or_const_float_1_operand")
+	(div:SF (match_operand:SF 1 "reg_or_1_operand")
 		(match_operand:SF 2 "register_operand")))]
   "TARGET_HARD_FLOAT && (!TARGET_FIX_SB1 || flag_unsafe_math_optimizations)"
 {
-  if (const_float_1_operand (operands[1], SFmode))
+  if (const_1_operand (operands[1], SFmode))
     if (!(ISA_HAS_FP4 && flag_unsafe_math_optimizations))
       operands[1] = force_reg (SFmode, operands[1]);
 })
@@ -2033,7 +2084,7 @@
 ;; "divdf3" comment for details).
 (define_insn ""
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(div:DF (match_operand:DF 1 "const_float_1_operand" "")
+	(div:DF (match_operand:DF 1 "const_1_operand" "")
 		(match_operand:DF 2 "register_operand" "f")))]
   "ISA_HAS_FP4 && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT && flag_unsafe_math_optimizations"
 {
@@ -2042,7 +2093,7 @@
   else
     return "recip.d\t%0,%2";
 }
-  [(set_attr "type"	"fdiv")
+  [(set_attr "type"	"frdiv")
    (set_attr "mode"	"DF")
    (set (attr "length")
         (if_then_else (ne (symbol_ref "TARGET_FIX_SB1") (const_int 0))
@@ -2053,7 +2104,7 @@
 ;; "divdf3" comment for details).
 (define_insn ""
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(div:SF (match_operand:SF 1 "const_float_1_operand" "")
+	(div:SF (match_operand:SF 1 "const_1_operand" "")
 		(match_operand:SF 2 "register_operand" "f")))]
   "ISA_HAS_FP4 && TARGET_HARD_FLOAT && flag_unsafe_math_optimizations"
 {
@@ -2062,7 +2113,7 @@
   else
     return "recip.s\t%0,%2";
 }
-  [(set_attr "type"	"fdiv")
+  [(set_attr "type"	"frdiv")
    (set_attr "mode"	"SF")
    (set (attr "length")
         (if_then_else (ne (symbol_ref "TARGET_FIX_SB1") (const_int 0))
@@ -2168,7 +2219,7 @@
 ;; "divdf3" comment for details).
 (define_insn ""
   [(set (match_operand:DF 0 "register_operand" "=f")
-	(div:DF (match_operand:DF 1 "const_float_1_operand" "")
+	(div:DF (match_operand:DF 1 "const_1_operand" "")
 		(sqrt:DF (match_operand:DF 2 "register_operand" "f"))))]
   "ISA_HAS_FP4 && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT && flag_unsafe_math_optimizations"
 {
@@ -2188,8 +2239,48 @@
 ;; "divdf3" comment for details).
 (define_insn ""
   [(set (match_operand:SF 0 "register_operand" "=f")
-	(div:SF (match_operand:SF 1 "const_float_1_operand" "")
+	(div:SF (match_operand:SF 1 "const_1_operand" "")
 		(sqrt:SF (match_operand:SF 2 "register_operand" "f"))))]
+  "ISA_HAS_FP4 && TARGET_HARD_FLOAT && flag_unsafe_math_optimizations"
+{
+  if (TARGET_FIX_SB1)
+    return "rsqrt.s\t%0,%2\;mov.s\t%0,%0";
+  else
+    return "rsqrt.s\t%0,%2";
+}
+  [(set_attr "type"	"frsqrt")
+   (set_attr "mode"	"SF")
+   (set (attr "length")
+        (if_then_else (ne (symbol_ref "TARGET_FIX_SB1") (const_int 0))
+                      (const_int 8)
+                      (const_int 4)))])
+
+;; This pattern works around the early SB-1 rev2 core "F1" erratum (see
+;; "divdf3" comment for details).
+(define_insn ""
+  [(set (match_operand:DF 0 "register_operand" "=f")
+	(sqrt:DF (div:DF (match_operand:DF 1 "const_1_operand" "")
+			 (match_operand:DF 2 "register_operand" "f"))))]
+  "ISA_HAS_FP4 && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT && flag_unsafe_math_optimizations"
+{
+  if (TARGET_FIX_SB1)
+    return "rsqrt.d\t%0,%2\;mov.d\t%0,%0";
+  else
+    return "rsqrt.d\t%0,%2";
+}
+  [(set_attr "type"	"frsqrt")
+   (set_attr "mode"	"DF")
+   (set (attr "length")
+        (if_then_else (ne (symbol_ref "TARGET_FIX_SB1") (const_int 0))
+                      (const_int 8)
+                      (const_int 4)))])
+
+;; This pattern works around the early SB-1 rev2 core "F1" erratum (see
+;; "divdf3" comment for details).
+(define_insn ""
+  [(set (match_operand:SF 0 "register_operand" "=f")
+	(sqrt:SF (div:SF (match_operand:SF 1 "const_1_operand" "")
+			 (match_operand:SF 2 "register_operand" "f"))))]
   "ISA_HAS_FP4 && TARGET_HARD_FLOAT && flag_unsafe_math_optimizations"
 {
   if (TARGET_FIX_SB1)
@@ -2743,8 +2834,9 @@ dsrl\t%3,%3,1\n\
 
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=d")
-        (truncate:SI (ashiftrt:DI (match_operand:DI 1 "register_operand" "d")
-                                  (match_operand:DI 2 "small_int" "I"))))]
+        (truncate:SI
+	  (ashiftrt:DI (match_operand:DI 1 "register_operand" "d")
+                       (match_operand:DI 2 "const_arith_operand" ""))))]
   "TARGET_64BIT && !TARGET_MIPS16 && INTVAL (operands[2]) >= 32"
   "dsra\t%0,%1,%2"
   [(set_attr "type" "shift")
@@ -4245,7 +4337,7 @@ dsrl\t%3,%3,1\n\
 ;; into a GPR takes a single movcc, moving elsewhere takes
 ;; two.  We can leave these cases to the generic reload code.
 (define_expand "reload_incc"
-  [(set (match_operand:CC 0 "fcc_register_operand" "=z")
+  [(set (match_operand:CC 0 "fcc_reload_operand" "=z")
 	(match_operand:CC 1 "general_operand" ""))
    (clobber (match_operand:TF 2 "register_operand" "=&f"))]
   "ISA_HAS_8CC && TARGET_HARD_FLOAT"
@@ -4255,7 +4347,7 @@ dsrl\t%3,%3,1\n\
 })
 
 (define_expand "reload_outcc"
-  [(set (match_operand:CC 0 "fcc_register_operand" "=z")
+  [(set (match_operand:CC 0 "fcc_reload_operand" "=z")
 	(match_operand:CC 1 "register_operand" ""))
    (clobber (match_operand:TF 2 "register_operand" "=&f"))]
   "ISA_HAS_8CC && TARGET_HARD_FLOAT"
@@ -5457,7 +5549,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_fp"
   [(set (pc)
         (if_then_else
-         (match_operator:CC 0 "cmp_op"
+         (match_operator:CC 0 "comparison_operator"
                             [(match_operand:CC 2 "register_operand" "z")
 			     (const_int 0)])
          (label_ref (match_operand 1 "" ""))
@@ -5477,7 +5569,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_fp_inverted"
   [(set (pc)
         (if_then_else
-         (match_operator:CC 0 "cmp_op"
+         (match_operator:CC 0 "comparison_operator"
                             [(match_operand:CC 2 "register_operand" "z")
 			     (const_int 0)])
          (pc)
@@ -5499,7 +5591,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_zero"
   [(set (pc)
 	(if_then_else
-         (match_operator:SI 0 "cmp_op"
+         (match_operator:SI 0 "comparison_operator"
 			    [(match_operand:SI 2 "register_operand" "d")
 			     (const_int 0)])
         (label_ref (match_operand 1 "" ""))
@@ -5519,7 +5611,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_zero_inverted"
   [(set (pc)
 	(if_then_else
-         (match_operator:SI 0 "cmp_op"
+         (match_operator:SI 0 "comparison_operator"
 		            [(match_operand:SI 2 "register_operand" "d")
 			     (const_int 0)])
         (pc)
@@ -5539,7 +5631,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_zero_di"
   [(set (pc)
 	(if_then_else
-         (match_operator:DI 0 "cmp_op"
+         (match_operator:DI 0 "comparison_operator"
 		            [(match_operand:DI 2 "register_operand" "d")
 			     (const_int 0)])
         (label_ref (match_operand 1 "" ""))
@@ -5559,7 +5651,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_zero_di_inverted"
   [(set (pc)
 	(if_then_else
-         (match_operator:DI 0 "cmp_op"
+         (match_operator:DI 0 "comparison_operator"
 			    [(match_operand:DI 2 "register_operand" "d")
 			     (const_int 0)])
         (pc)
@@ -5581,7 +5673,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_equality"
   [(set (pc)
 	(if_then_else
-         (match_operator:SI 0 "equality_op"
+         (match_operator:SI 0 "equality_operator"
 		   	    [(match_operand:SI 2 "register_operand" "d")
 			     (match_operand:SI 3 "register_operand" "d")])
          (label_ref (match_operand 1 "" ""))
@@ -5601,7 +5693,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_equality_di"
   [(set (pc)
 	(if_then_else
-         (match_operator:DI 0 "equality_op"
+         (match_operator:DI 0 "equality_operator"
 			    [(match_operand:DI 2 "register_operand" "d")
 			     (match_operand:DI 3 "register_operand" "d")])
         (label_ref (match_operand 1 "" ""))
@@ -5621,7 +5713,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_equality_inverted"
   [(set (pc)
 	(if_then_else
-         (match_operator:SI 0 "equality_op"
+         (match_operator:SI 0 "equality_operator"
 		   	    [(match_operand:SI 2 "register_operand" "d")
 			     (match_operand:SI 3 "register_operand" "d")])
          (pc)
@@ -5641,7 +5733,7 @@ dsrl\t%3,%3,1\n\
 (define_insn "branch_equality_di_inverted"
   [(set (pc)
 	(if_then_else
-         (match_operator:DI 0 "equality_op"
+         (match_operator:DI 0 "equality_operator"
 			    [(match_operand:DI 2 "register_operand" "d")
 			     (match_operand:DI 3 "register_operand" "d")])
         (pc)
@@ -5662,9 +5754,10 @@ dsrl\t%3,%3,1\n\
 
 (define_insn ""
   [(set (pc)
-	(if_then_else (match_operator:SI 0 "equality_op"
-					 [(match_operand:SI 1 "register_operand" "d,t")
-					  (const_int 0)])
+	(if_then_else
+	 (match_operator:SI 0 "equality_operator"
+			    [(match_operand:SI 1 "register_operand" "d,t")
+			     (const_int 0)])
 	(match_operand 2 "pc_or_label_operand" "")
 	(match_operand 3 "pc_or_label_operand" "")))]
   "TARGET_MIPS16"
@@ -5690,9 +5783,10 @@ dsrl\t%3,%3,1\n\
 
 (define_insn ""
   [(set (pc)
-	(if_then_else (match_operator:DI 0 "equality_op"
-					 [(match_operand:DI 1 "register_operand" "d,t")
-					  (const_int 0)])
+	(if_then_else
+	 (match_operator:DI 0 "equality_operator"
+			    [(match_operand:DI 1 "register_operand" "d,t")
+			     (const_int 0)])
 	(match_operand 2 "pc_or_label_operand" "")
 	(match_operand 3 "pc_or_label_operand" "")))]
   "TARGET_MIPS16"
@@ -7265,9 +7359,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=d,d")
 	(if_then_else:SI
-	 (match_operator 4 "equality_op"
-			 [(match_operand:SI 1 "register_operand" "d,d")
-			  (const_int 0)])
+	 (match_operator:SI 4 "equality_operator"
+			    [(match_operand:SI 1 "register_operand" "d,d")
+			     (const_int 0)])
 	 (match_operand:SI 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:SI 3 "reg_or_0_operand" "0,dJ")))]
   "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
@@ -7280,9 +7374,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=d,d")
 	(if_then_else:SI
-	 (match_operator 4 "equality_op"
-			 [(match_operand:DI 1 "register_operand" "d,d")
-			  (const_int 0)])
+	 (match_operator:DI 4 "equality_operator"
+			    [(match_operand:DI 1 "register_operand" "d,d")
+			     (const_int 0)])
 	 (match_operand:SI 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:SI 3 "reg_or_0_operand" "0,dJ")))]
   "ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE"
@@ -7295,10 +7389,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=d,d")
 	(if_then_else:SI
-	 (match_operator 3 "equality_op" [(match_operand:CC 4
-							    "register_operand"
-							    "z,z")
-					  (const_int 0)])
+	 (match_operator:CC 3 "equality_operator"
+			    [(match_operand:CC 4 "register_operand" "z,z")
+			     (const_int 0)])
 	 (match_operand:SI 1 "reg_or_0_operand" "dJ,0")
 	 (match_operand:SI 2 "reg_or_0_operand" "0,dJ")))]
   "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT"
@@ -7311,9 +7404,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=d,d")
 	(if_then_else:DI
-	 (match_operator 4 "equality_op"
-			 [(match_operand:SI 1 "register_operand" "d,d")
-			  (const_int 0)])
+	 (match_operator:SI 4 "equality_operator"
+			    [(match_operand:SI 1 "register_operand" "d,d")
+			     (const_int 0)])
 	 (match_operand:DI 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:DI 3 "reg_or_0_operand" "0,dJ")))]
   "(ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE) && TARGET_64BIT"
@@ -7326,9 +7419,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=d,d")
 	(if_then_else:DI
-	 (match_operator 4 "equality_op"
-			 [(match_operand:DI 1 "register_operand" "d,d")
-			  (const_int 0)])
+	 (match_operator:DI 4 "equality_operator"
+			    [(match_operand:DI 1 "register_operand" "d,d")
+			     (const_int 0)])
 	 (match_operand:DI 2 "reg_or_0_operand" "dJ,0")
 	 (match_operand:DI 3 "reg_or_0_operand" "0,dJ")))]
   "(ISA_HAS_CONDMOVE || ISA_HAS_INT_CONDMOVE) && TARGET_64BIT"
@@ -7341,10 +7434,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:DI 0 "register_operand" "=d,d")
 	(if_then_else:DI
-	 (match_operator 3 "equality_op" [(match_operand:CC 4
-							    "register_operand"
-							    "z,z")
-					  (const_int 0)])
+	 (match_operator:CC 3 "equality_operator"
+			    [(match_operand:CC 4 "register_operand" "z,z")
+			     (const_int 0)])
 	 (match_operand:DI 1 "reg_or_0_operand" "dJ,0")
 	 (match_operand:DI 2 "reg_or_0_operand" "0,dJ")))]
   "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT && TARGET_64BIT"
@@ -7357,9 +7449,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:SF 0 "register_operand" "=f,f")
 	(if_then_else:SF
-	 (match_operator 4 "equality_op"
-			 [(match_operand:SI 1 "register_operand" "d,d")
-			  (const_int 0)])
+	 (match_operator:SI 4 "equality_operator"
+			    [(match_operand:SI 1 "register_operand" "d,d")
+			     (const_int 0)])
 	 (match_operand:SF 2 "register_operand" "f,0")
 	 (match_operand:SF 3 "register_operand" "0,f")))]
   "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT"
@@ -7372,9 +7464,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:SF 0 "register_operand" "=f,f")
 	(if_then_else:SF
-	 (match_operator 4 "equality_op"
-			 [(match_operand:DI 1 "register_operand" "d,d")
-			  (const_int 0)])
+	 (match_operator:DI 4 "equality_operator"
+			    [(match_operand:DI 1 "register_operand" "d,d")
+			     (const_int 0)])
 	 (match_operand:SF 2 "register_operand" "f,0")
 	 (match_operand:SF 3 "register_operand" "0,f")))]
   "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT"
@@ -7387,10 +7479,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:SF 0 "register_operand" "=f,f")
 	(if_then_else:SF
-	 (match_operator 3 "equality_op" [(match_operand:CC 4
-							    "register_operand"
-							    "z,z")
-					  (const_int 0)])
+	 (match_operator:CC 3 "equality_operator"
+			    [(match_operand:CC 4 "register_operand" "z,z")
+			     (const_int 0)])
 	 (match_operand:SF 1 "register_operand" "f,0")
 	 (match_operand:SF 2 "register_operand" "0,f")))]
   "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT"
@@ -7403,9 +7494,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:DF 0 "register_operand" "=f,f")
 	(if_then_else:DF
-	 (match_operator 4 "equality_op"
-			 [(match_operand:SI 1 "register_operand" "d,d")
-			  (const_int 0)])
+	 (match_operator:SI 4 "equality_operator"
+			    [(match_operand:SI 1 "register_operand" "d,d")
+			     (const_int 0)])
 	 (match_operand:DF 2 "register_operand" "f,0")
 	 (match_operand:DF 3 "register_operand" "0,f")))]
   "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
@@ -7418,9 +7509,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:DF 0 "register_operand" "=f,f")
 	(if_then_else:DF
-	 (match_operator 4 "equality_op"
-			 [(match_operand:DI 1 "register_operand" "d,d")
-			  (const_int 0)])
+	 (match_operator:DI 4 "equality_operator"
+			    [(match_operand:DI 1 "register_operand" "d,d")
+			     (const_int 0)])
 	 (match_operand:DF 2 "register_operand" "f,0")
 	 (match_operand:DF 3 "register_operand" "0,f")))]
   "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"
@@ -7433,10 +7524,9 @@ dsrl\t%3,%3,1\n\
 (define_insn ""
   [(set (match_operand:DF 0 "register_operand" "=f,f")
 	(if_then_else:DF
-	 (match_operator 3 "equality_op" [(match_operand:CC 4
-							    "register_operand"
-							    "z,z")
-					  (const_int 0)])
+	 (match_operator:CC 3 "equality_operator"
+			    [(match_operand:CC 4 "register_operand" "z,z")
+			     (const_int 0)])
 	 (match_operand:DF 1 "register_operand" "f,0")
 	 (match_operand:DF 2 "register_operand" "0,f")))]
   "ISA_HAS_CONDMOVE && TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT"

@@ -429,7 +429,6 @@ substitute_and_fold (void)
 	    {
 	      bool changed = fold_stmt (bsi_stmt_ptr (i));
 	      stmt = bsi_stmt(i);
-	      modify_stmt (stmt);
 	      /* If we folded a builtin function, we'll likely
 		 need to rename VDEFs.  */
 	      if (replaced_address || changed)
@@ -438,6 +437,8 @@ substitute_and_fold (void)
 		  if (maybe_clean_eh_stmt (stmt))
 		    tree_purge_dead_eh_edges (bb);
 		}
+	      else
+		modify_stmt (stmt);
 	    }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1153,7 +1154,8 @@ widen_bitfield (tree val, tree field, tree var)
 	mask |= ((HOST_WIDE_INT) 1) << i;
 
       wide_val = build (BIT_AND_EXPR, TREE_TYPE (var), val, 
-			fold_convert (TREE_TYPE (var), build_int_2 (mask, 0)));
+			fold_convert (TREE_TYPE (var),
+				      build_int_cst (NULL_TREE, mask, 0)));
     }
   else
     {
@@ -1164,7 +1166,8 @@ widen_bitfield (tree val, tree field, tree var)
 	mask |= ((HOST_WIDE_INT) 1) << (var_size - i - 1);
 
       wide_val = build (BIT_IOR_EXPR, TREE_TYPE (var), val,
-			fold_convert (TREE_TYPE (var), build_int_2 (mask, 0)));
+			fold_convert (TREE_TYPE (var),
+				      build_int_cst (NULL_TREE, mask, 0)));
     }
 
   return fold (wide_val);
@@ -1700,7 +1703,7 @@ maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
 	  || lrem || hrem)
 	return NULL_TREE;
 
-      idx = build_int_2 (lquo, hquo);
+      idx = build_int_cst (NULL_TREE, lquo, hquo);
     }
 
   /* Assume the low bound is zero.  If there is a domain type, get the

@@ -901,7 +901,7 @@ extern const enum reg_class reg_class_from_letter[];
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
@@ -968,6 +968,7 @@ switch_to_section (enum in_section section, tree decl)		\
   switch (section)						\
     {								\
       case in_text: text_section (); break;			\
+      case in_unlikely_executed_text: unlikely_text_section (); break;   \
       case in_data: data_section (); break;			\
       case in_named: named_section (decl, NULL, 0); break;	\
       SUBTARGET_SWITCH_SECTIONS      				\

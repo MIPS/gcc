@@ -36,7 +36,7 @@ AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
 # Determine the noncanonical target name, for directory use.
-_GCC_TOPLEV_NONCANONICAL_TARGET
+ACX_NONCANONICAL_TARGET
 
 # Determine the target- and build-specific subdirectories
 GCC_TOPLEV_SUBDIRS
@@ -756,64 +756,57 @@ gcc_AC_PROG_CMP_IGNORE_INITIAL
 # See if we have the mktemp command.
 AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 
-# Do we have a single-tree copy of texinfo?
-if test -f $srcdir/../texinfo/Makefile.in; then
-  MAKEINFO='$(objdir)/../texinfo/makeinfo/makeinfo'
-  gcc_cv_prog_makeinfo_modern=yes
-  AC_MSG_RESULT([Using makeinfo from the unified source tree.])
-else
-  # See if makeinfo has been installed and is modern enough
-  # that we can use it.
-  gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
+MISSING="${CONFIG_SHELL-/bin/sh} $srcdir/../missing"
+
+# See if makeinfo has been installed and is modern enough
+# that we can use it.
+gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
   [4.[2-9]*])
-fi
-
 if test $gcc_cv_prog_makeinfo_modern = no; then
+  MAKEINFO="$MISSING makeinfo"
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.
 *** Info documentation will not be built.])
   BUILD_INFO=
 else
-  BUILD_INFO=info		AC_SUBST(BUILD_INFO)
+  BUILD_INFO=info
 fi
+AC_SUBST(BUILD_INFO)
 
 # Is pod2man recent enough to regenerate manpages?
 AC_MSG_CHECKING([for recent Pod::Man])
 if (perl -e 'use 1.10 Pod::Man') >/dev/null 2>&1; then
   AC_MSG_RESULT(yes)
-  GENERATED_MANPAGES=generated-manpages		AC_SUBST(GENERATED_MANPAGES)
+  GENERATED_MANPAGES=generated-manpages
 else
   AC_MSG_RESULT(no)
   GENERATED_MANPAGES=
 fi
+AC_SUBST(GENERATED_MANPAGES)
 
 # How about lex?
 dnl Don't use AC_PROG_LEX; we insist on flex.
 dnl LEXLIB is not useful in gcc.
-if test x${build} = x${host} && test -f $srcdir/../flex/skel.c; then
-  FLEX='$(objdir)/../flex/flex'
-else
-  AC_CHECK_PROG(FLEX, flex, flex, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing flex)
-fi
+AC_CHECK_PROGS([FLEX], flex, [$MISSING flex])
 
 # Bison?
-# The -L switch is so bison can find its skeleton file.
-if test x${build} = x${host} && test -f $srcdir/../bison/bison.simple; then
-  BISON='$(objdir)/../bison/bison -L $(srcdir)/../bison/'
-else
-  AC_CHECK_PROG(BISON, bison, bison, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing bison)
-fi
+AC_CHECK_PROGS([BISON], bison, [$MISSING bison])
+
+# Binutils are not build modules, unlike bison/flex/makeinfo.  So we
+# check for build == host before using them.
 
 # NM
-if test x${build} = x${host} && test -f $srcdir/../binutils/nm.c; then
+if test x${build} = x${host} && test -f $srcdir/../binutils/nm.c \
+  && test -d ../binutils ; then
   NM='$(objdir)/../binutils/nm-new'
 else
   AC_CHECK_PROG(NM, nm, nm, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing nm)
 fi
 
 # AR
-if test x${build} = x${host} && test -f $srcdir/../binutils/ar.c; then
+if test x${build} = x${host} && test -f $srcdir/../binutils/ar.c \
+  && test -d ../binutils ; then
   AR='$(objdir)/../binutils/ar'
 else
   AC_CHECK_PROG(AR, ar, ar, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing ar)
@@ -1649,11 +1642,8 @@ AC_SUBST(inhibit_libc)
 # Also, we cannot run fixincludes or fix-header.
 
 # These are the normal (build=host) settings:
-BUILD_PREFIX=			AC_SUBST(BUILD_PREFIX)
-BUILD_PREFIX_1=ignore-		AC_SUBST(BUILD_PREFIX_1)
 CC_FOR_BUILD='$(CC)'		AC_SUBST(CC_FOR_BUILD)
 BUILD_CFLAGS='$(ALL_CFLAGS)'	AC_SUBST(BUILD_CFLAGS)
-
 STMP_FIXINC=stmp-fixinc		AC_SUBST(STMP_FIXINC)
 
 # Possibly disable fixproto, on a per-target basis.
@@ -1670,8 +1660,6 @@ AC_SUBST(STMP_FIXPROTO)
 # And these apply if build != host, or we are generating coverage data
 if test x$build != x$host || test "x$coverage_flags" != x
 then
-    BUILD_PREFIX=build-
-    BUILD_PREFIX_1=build-
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
@@ -3195,7 +3183,6 @@ AC_SUBST(tm_p_include_list)
 AC_SUBST(xm_file_list)
 AC_SUBST(xm_include_list)
 AC_SUBST(xm_defines)
-AC_SUBST(target_noncanonical)
 AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(target_cpu_default)

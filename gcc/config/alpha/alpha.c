@@ -519,527 +519,12 @@ zap_mask (HOST_WIDE_INT value)
   return 1;
 }
 
-/* Returns 1 if OP is either the constant zero or a register.  If a
-   register, it must be in the proper mode unless MODE is VOIDmode.  */
+/* Return true if OP is valid for a particular TLS relocation. 
+   We are already guaranteed that OP is a CONST.  */
 
 int
-reg_or_0_operand (rtx op, enum machine_mode mode)
+tls_symbolic_operand_1 (rtx op, int size, int unspec)
 {
-  return op == CONST0_RTX (mode) || register_operand (op, mode);
-}
-
-/* Return 1 if OP is a constant in the range of 0-63 (for a shift) or
-   any register.  */
-
-int
-reg_or_6bit_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT
-	   && (unsigned HOST_WIDE_INT) INTVAL (op) < 64)
-	  || register_operand (op, mode));
-}
-
-
-/* Return 1 if OP is an 8-bit constant or any register.  */
-
-int
-reg_or_8bit_operand (rtx op, enum machine_mode mode)
-{
-  return ((GET_CODE (op) == CONST_INT
-	   && (unsigned HOST_WIDE_INT) INTVAL (op) < 0x100)
-	  || register_operand (op, mode));
-}
-
-/* Return 1 if OP is a constant or any register.  */
-
-int
-reg_or_const_int_operand (rtx op, enum machine_mode mode)
-{
-  return GET_CODE (op) == CONST_INT || register_operand (op, mode);
-}
-
-/* Return 1 if OP is an 8-bit constant.  */
-
-int
-cint8_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return ((GET_CODE (op) == CONST_INT
-	   && (unsigned HOST_WIDE_INT) INTVAL (op) < 0x100));
-}
-
-/* Return 1 if the operand is a valid second operand to an add insn.  */
-
-int
-add_operand (rtx op, enum machine_mode mode)
-{
-  if (GET_CODE (op) == CONST_INT)
-    /* Constraints I, J, O and P are covered by K.  */
-    return (CONST_OK_FOR_LETTER_P (INTVAL (op), 'K')
-	    || CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'));
-
-  return register_operand (op, mode);
-}
-
-/* Return 1 if the operand is a valid second operand to a sign-extending
-   add insn.  */
-
-int
-sext_add_operand (rtx op, enum machine_mode mode)
-{
-  if (GET_CODE (op) == CONST_INT)
-    return (CONST_OK_FOR_LETTER_P (INTVAL (op), 'I')
-	    || CONST_OK_FOR_LETTER_P (INTVAL (op), 'O'));
-
-  return reg_not_elim_operand (op, mode);
-}
-
-/* Return 1 if OP is the constant 4 or 8.  */
-
-int
-const48_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (op) == CONST_INT
-	  && (INTVAL (op) == 4 || INTVAL (op) == 8));
-}
-
-/* Return 1 if OP is a valid first operand to an AND insn.  */
-
-int
-and_operand (rtx op, enum machine_mode mode)
-{
-  if (GET_CODE (op) == CONST_DOUBLE && GET_MODE (op) == VOIDmode)
-    return (zap_mask (CONST_DOUBLE_LOW (op))
-	    && zap_mask (CONST_DOUBLE_HIGH (op)));
-
-  if (GET_CODE (op) == CONST_INT)
-    return ((unsigned HOST_WIDE_INT) INTVAL (op) < 0x100
-	    || (unsigned HOST_WIDE_INT) ~ INTVAL (op) < 0x100
-	    || zap_mask (INTVAL (op)));
-
-  return register_operand (op, mode);
-}
-
-/* Return 1 if OP is a valid first operand to an IOR or XOR insn.  */
-
-int
-or_operand (rtx op, enum machine_mode mode)
-{
-  if (GET_CODE (op) == CONST_INT)
-    return ((unsigned HOST_WIDE_INT) INTVAL (op) < 0x100
-	    || (unsigned HOST_WIDE_INT) ~ INTVAL (op) < 0x100);
-
-  return register_operand (op, mode);
-}
-
-/* Return 1 if OP is a constant that is the width, in bits, of an integral
-   mode smaller than DImode.  */
-
-int
-mode_width_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (op) == CONST_INT
-	  && (INTVAL (op) == 8 || INTVAL (op) == 16
-	      || INTVAL (op) == 32 || INTVAL (op) == 64));
-}
-
-/* Return 1 if OP is a constant that is the width of an integral machine mode
-   smaller than an integer.  */
-
-int
-mode_mask_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (op) == CONST_INT)
-    {
-      HOST_WIDE_INT value = INTVAL (op);
-
-      if (value == 0xff)
-	return 1;
-      if (value == 0xffff)
-	return 1;
-      if (value == 0xffffffff)
-	return 1;
-      if (value == -1)
-	return 1;
-    }
-  else if (HOST_BITS_PER_WIDE_INT == 32 && GET_CODE (op) == CONST_DOUBLE)
-    {
-      if (CONST_DOUBLE_LOW (op) == 0xffffffff && CONST_DOUBLE_HIGH (op) == 0)
-	return 1;
-    }
-
-  return 0;
-}
-
-/* Return 1 if OP is a multiple of 8 less than 64.  */
-
-int
-mul8_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (op) == CONST_INT
-	  && (unsigned HOST_WIDE_INT) INTVAL (op) < 64
-	  && (INTVAL (op) & 7) == 0);
-}
-
-/* Return 1 if OP is the zero constant for MODE.  */
-
-int
-const0_operand (rtx op, enum machine_mode mode)
-{
-  return op == CONST0_RTX (mode);
-}
-
-/* Return 1 if OP is a hard floating-point register.  */
-
-int
-hard_fp_register_operand (rtx op, enum machine_mode mode)
-{
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
-    return 0;
-
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  return GET_CODE (op) == REG && REGNO_REG_CLASS (REGNO (op)) == FLOAT_REGS;
-}
-
-/* Return 1 if OP is a hard general register.  */
-
-int
-hard_int_register_operand (rtx op, enum machine_mode mode)
-{
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
-    return 0;
-
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-  return GET_CODE (op) == REG && REGNO_REG_CLASS (REGNO (op)) == GENERAL_REGS;
-}
-
-/* Return 1 if OP is a register or a constant integer.  */
-
-
-int
-reg_or_cint_operand (rtx op, enum machine_mode mode)
-{
-     return (GET_CODE (op) == CONST_INT
-	     || register_operand (op, mode));
-}
-
-/* Return 1 if OP is something that can be reloaded into a register;
-   if it is a MEM, it need not be valid.  */
-
-int
-some_operand (rtx op, enum machine_mode mode)
-{
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
-    return 0;
-
-  switch (GET_CODE (op))
-    {
-    case REG:
-    case MEM:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_VECTOR:
-    case LABEL_REF:
-    case SYMBOL_REF:
-    case CONST:
-    case HIGH:
-      return 1;
-
-    case SUBREG:
-      return some_operand (SUBREG_REG (op), VOIDmode);
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
-/* Likewise, but don't accept constants.  */
-
-int
-some_ni_operand (rtx op, enum machine_mode mode)
-{
-  if (GET_MODE (op) != mode && mode != VOIDmode)
-    return 0;
-
-  if (GET_CODE (op) == SUBREG)
-    op = SUBREG_REG (op);
-
-  return (GET_CODE (op) == REG || GET_CODE (op) == MEM);
-}
-
-/* Return 1 if OP is a valid operand for the source of a move insn.  */
-
-int
-input_operand (rtx op, enum machine_mode mode)
-{
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
-    return 0;
-
-  if (GET_MODE_CLASS (mode) == MODE_FLOAT && GET_MODE (op) != mode)
-    return 0;
-
-  switch (GET_CODE (op))
-    {
-    case LABEL_REF:
-    case SYMBOL_REF:
-    case CONST:
-      if (TARGET_EXPLICIT_RELOCS)
-	{
-	  /* We don't split symbolic operands into something unintelligable
-	     until after reload, but we do not wish non-small, non-global
-	     symbolic operands to be reconstructed from their high/lo_sum
-	     form.  */
-	  return (small_symbolic_operand (op, mode)
-		  || global_symbolic_operand (op, mode)
-		  || gotdtp_symbolic_operand (op, mode)
-		  || gottp_symbolic_operand (op, mode));
-	}
-
-      /* This handles both the Windows/NT and OSF cases.  */
-      return mode == ptr_mode || mode == DImode;
-
-    case HIGH:
-      return (TARGET_EXPLICIT_RELOCS
-	      && local_symbolic_operand (XEXP (op, 0), mode));
-
-    case REG:
-      return 1;
-
-    case SUBREG:
-      if (register_operand (op, mode))
-	return 1;
-      /* ... fall through ...  */
-    case MEM:
-      return ((TARGET_BWX || (mode != HImode && mode != QImode))
-	      && general_operand (op, mode));
-
-    case CONST_DOUBLE:
-    case CONST_VECTOR:
-      return op == CONST0_RTX (mode);
-
-    case CONST_INT:
-      return mode == QImode || mode == HImode || add_operand (op, mode);
-
-    default:
-      break;
-    }
-
-  return 0;
-}
-
-/* Return 1 if OP is a SYMBOL_REF for a function known to be in this
-   file, and in the same section as the current function.  */
-
-int
-samegp_function_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (GET_CODE (op) != SYMBOL_REF)
-    return false;
-
-  /* Easy test for recursion.  */
-  if (op == XEXP (DECL_RTL (current_function_decl), 0))
-    return true;
-
-  /* Functions that are not local can be overridden, and thus may
-     not share the same gp.  */
-  if (! SYMBOL_REF_LOCAL_P (op))
-    return false;
-
-  /* If -msmall-data is in effect, assume that there is only one GP
-     for the module, and so any local symbol has this property.  We
-     need explicit relocations to be able to enforce this for symbols
-     not defined in this unit of translation, however.  */
-  if (TARGET_EXPLICIT_RELOCS && TARGET_SMALL_DATA)
-    return true;
-
-  /* Functions that are not external are defined in this UoT,
-     and thus must share the same gp.  */
-  return ! SYMBOL_REF_EXTERNAL_P (op);
-}
-
-/* Return 1 if OP is a SYMBOL_REF for which we can make a call via bsr.  */
-
-int
-direct_call_operand (rtx op, enum machine_mode mode)
-{
-  tree op_decl, cfun_sec, op_sec;
-
-  /* Must share the same GP.  */
-  if (!samegp_function_operand (op, mode))
-    return false;
-
-  /* If profiling is implemented via linker tricks, we can't jump
-     to the nogp alternate entry point.  Note that current_function_profile
-     would not be correct, since that doesn't indicate if the target
-     function uses profiling.  */
-  /* ??? TARGET_PROFILING_NEEDS_GP isn't really the right test,
-     but is approximately correct for the OSF ABIs.  Don't know
-     what to do for VMS, NT, or UMK.  */
-  if (!TARGET_PROFILING_NEEDS_GP && profile_flag)
-    return false;
-
-  /* Must be a function.  In some cases folks create thunks in static
-     data structures and then make calls to them.  If we allow the
-     direct call, we'll get an error from the linker about !samegp reloc
-     against a symbol without a .prologue directive.  */
-  if (!SYMBOL_REF_FUNCTION_P (op))
-    return false;
-  
-  /* Must be "near" so that the branch is assumed to reach.  With
-     -msmall-text, this is assumed true of all local symbols.  Since
-     we've already checked samegp, locality is already assured.  */
-  if (TARGET_SMALL_TEXT)
-    return true;
-
-  /* Otherwise, a decl is "near" if it is defined in the same section.  */
-  if (flag_function_sections)
-    return false;
-
-  op_decl = SYMBOL_REF_DECL (op);
-  if (DECL_ONE_ONLY (current_function_decl)
-      || (op_decl && DECL_ONE_ONLY (op_decl)))
-    return false;
-
-  cfun_sec = DECL_SECTION_NAME (current_function_decl);
-  op_sec = op_decl ? DECL_SECTION_NAME (op_decl) : NULL;
-  return ((!cfun_sec && !op_sec)
-	  || (cfun_sec && op_sec
-	      && strcmp (TREE_STRING_POINTER (cfun_sec),
-		         TREE_STRING_POINTER (op_sec)) == 0));
-}
-
-/* Return true if OP is a LABEL_REF, or SYMBOL_REF or CONST referencing
-   a (non-tls) variable known to be defined in this file.  */
-
-int
-local_symbolic_operand (rtx op, enum machine_mode mode)
-{
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
-    return 0;
-
-  if (GET_CODE (op) == LABEL_REF)
-    return 1;
-
-  if (GET_CODE (op) == CONST
-      && GET_CODE (XEXP (op, 0)) == PLUS
-      && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT)
-    op = XEXP (XEXP (op, 0), 0);
-
-  if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
-
-  return SYMBOL_REF_LOCAL_P (op) && !SYMBOL_REF_TLS_MODEL (op);
-}
-
-/* Return true if OP is a SYMBOL_REF or CONST referencing a variable
-   known to be defined in this file in the small data area.  */
-
-int
-small_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (! TARGET_SMALL_DATA)
-    return 0;
-
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
-    return 0;
-
-  if (GET_CODE (op) == CONST
-      && GET_CODE (XEXP (op, 0)) == PLUS
-      && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT)
-    op = XEXP (XEXP (op, 0), 0);
-
-  if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
-
-  /* ??? There's no encode_section_info equivalent for the rtl
-     constant pool, so SYMBOL_FLAG_SMALL never gets set.  */
-  if (CONSTANT_POOL_ADDRESS_P (op))
-    return GET_MODE_SIZE (get_pool_mode (op)) <= g_switch_value;
-
-  return (SYMBOL_REF_LOCAL_P (op)
-	  && SYMBOL_REF_SMALL_P (op)
-	  && SYMBOL_REF_TLS_MODEL (op) == 0);
-}
-
-/* Return true if OP is a SYMBOL_REF or CONST referencing a variable
-   not known (or known not) to be defined in this file.  */
-
-int
-global_symbolic_operand (rtx op, enum machine_mode mode)
-{
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
-    return 0;
-
-  if (GET_CODE (op) == CONST
-      && GET_CODE (XEXP (op, 0)) == PLUS
-      && GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST_INT)
-    op = XEXP (XEXP (op, 0), 0);
-
-  if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
-
-  return !SYMBOL_REF_LOCAL_P (op) && !SYMBOL_REF_TLS_MODEL (op);
-}
-
-/* Return 1 if OP is a valid operand for the MEM of a CALL insn.  */
-
-int
-call_operand (rtx op, enum machine_mode mode)
-{
-  if (mode != Pmode)
-    return 0;
-
-  if (GET_CODE (op) == REG)
-    {
-      if (TARGET_ABI_OSF)
-	{
-	  /* Disallow virtual registers to cope with pathological test cases
-	     such as compile/930117-1.c in which the virtual reg decomposes
-	     to the frame pointer.  Which is a hard reg that is not $27.  */
-	  return (REGNO (op) == 27 || REGNO (op) > LAST_VIRTUAL_REGISTER);
-	}
-      else
-	return 1;
-    }
-  if (TARGET_ABI_UNICOSMK)
-    return 0;
-  if (GET_CODE (op) == SYMBOL_REF)
-    return 1;
-
-  return 0;
-}
-
-/* Returns 1 if OP is a symbolic operand, i.e. a symbol_ref or a label_ref,
-   possibly with an offset.  */
-
-int
-symbolic_operand (rtx op, enum machine_mode mode)
-{
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
-    return 0;
-  if (GET_CODE (op) == SYMBOL_REF || GET_CODE (op) == LABEL_REF)
-    return 1;
-  if (GET_CODE (op) == CONST
-      && GET_CODE (XEXP (op,0)) == PLUS
-      && GET_CODE (XEXP (XEXP (op,0), 0)) == SYMBOL_REF
-      && GET_CODE (XEXP (XEXP (op,0), 1)) == CONST_INT)
-    return 1;
-  return 0;
-}
-
-/* Return true if OP is valid for a particular TLS relocation.  */
-
-static int
-tls_symbolic_operand_1 (rtx op, enum machine_mode mode, int size, int unspec)
-{
-  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
-    return 0;
-
-  if (GET_CODE (op) != CONST)
-    return 0;
   op = XEXP (op, 0);
 
   if (GET_CODE (op) != UNSPEC || XINT (op, 1) != unspec)
@@ -1073,160 +558,12 @@ tls_symbolic_operand_1 (rtx op, enum machine_mode mode, int size, int unspec)
     }
 }
 
-/* Return true if OP is valid for 16-bit DTP relative relocations.  */
+/* Used by aligned_memory_operand and unaligned_memory_operand to
+   resolve what reload is going to do with OP if it's a register.  */
 
-int
-dtp16_symbolic_operand (rtx op, enum machine_mode mode)
+rtx
+resolve_reload_operand (rtx op)
 {
-  return tls_symbolic_operand_1 (op, mode, 16, UNSPEC_DTPREL);
-}
-
-/* Return true if OP is valid for 32-bit DTP relative relocations.  */
-
-int
-dtp32_symbolic_operand (rtx op, enum machine_mode mode)
-{
-  return tls_symbolic_operand_1 (op, mode, 32, UNSPEC_DTPREL);
-}
-
-/* Return true if OP is valid for 64-bit DTP relative relocations.  */
-
-int
-gotdtp_symbolic_operand (rtx op, enum machine_mode mode)
-{
-  return tls_symbolic_operand_1 (op, mode, 64, UNSPEC_DTPREL);
-}
-
-/* Return true if OP is valid for 16-bit TP relative relocations.  */
-
-int
-tp16_symbolic_operand (rtx op, enum machine_mode mode)
-{
-  return tls_symbolic_operand_1 (op, mode, 16, UNSPEC_TPREL);
-}
-
-/* Return true if OP is valid for 32-bit TP relative relocations.  */
-
-int
-tp32_symbolic_operand (rtx op, enum machine_mode mode)
-{
-  return tls_symbolic_operand_1 (op, mode, 32, UNSPEC_TPREL);
-}
-
-/* Return true if OP is valid for 64-bit TP relative relocations.  */
-
-int
-gottp_symbolic_operand (rtx op, enum machine_mode mode)
-{
-  return tls_symbolic_operand_1 (op, mode, 64, UNSPEC_TPREL);
-}
-
-/* Return 1 if OP is a valid Alpha comparison operator.  Here we know which
-   comparisons are valid in which insn.  */
-
-int
-alpha_comparison_operator (rtx op, enum machine_mode mode)
-{
-  enum rtx_code code = GET_CODE (op);
-
-  if (mode != GET_MODE (op) && mode != VOIDmode)
-    return 0;
-
-  return (code == EQ || code == LE || code == LT
-	  || code == LEU || code == LTU);
-}
-
-/* Return 1 if OP is a valid Alpha comparison operator against zero. 
-   Here we know which comparisons are valid in which insn.  */
-
-int
-alpha_zero_comparison_operator (rtx op, enum machine_mode mode)
-{
-  enum rtx_code code = GET_CODE (op);
-
-  if (mode != GET_MODE (op) && mode != VOIDmode)
-    return 0;
-
-  return (code == EQ || code == NE || code == LE || code == LT
-	  || code == LEU || code == LTU);
-}
-
-/* Return 1 if OP is a valid Alpha swapped comparison operator.  */
-
-int
-alpha_swapped_comparison_operator (rtx op, enum machine_mode mode)
-{
-  enum rtx_code code;
-
-  if ((mode != GET_MODE (op) && mode != VOIDmode)
-      || !COMPARISON_P (op))
-    return 0;
-
-  code = swap_condition (GET_CODE (op));
-  return (code == EQ || code == LE || code == LT
-	  || code == LEU || code == LTU);
-}
-
-/* Return 1 if OP is a signed comparison operation.  */
-
-int
-signed_comparison_operator (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  enum rtx_code code = GET_CODE (op);
-
-  if (mode != GET_MODE (op) && mode != VOIDmode)
-    return 0;
-
-  return (code == EQ || code == NE
-	  || code == LE || code == LT
-	  || code == GE || code == GT);
-}
-
-/* Return 1 if OP is a valid Alpha floating point comparison operator.
-   Here we know which comparisons are valid in which insn.  */
-
-int
-alpha_fp_comparison_operator (rtx op, enum machine_mode mode)
-{
-  enum rtx_code code = GET_CODE (op);
-
-  if (mode != GET_MODE (op) && mode != VOIDmode)
-    return 0;
-
-  return (code == EQ || code == LE || code == LT || code == UNORDERED);
-}
-
-/* Return 1 if this is a divide or modulus operator.  */
-
-int
-divmod_operator (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  enum rtx_code code = GET_CODE (op);
-
-  return (code == DIV || code == MOD || code == UDIV || code == UMOD);
-}
-
-/* Return 1 if this is a float->int conversion operator.  */
-
-int
-fix_operator (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  enum rtx_code code = GET_CODE (op);
-
-  return (code == FIX || code == UNSIGNED_FIX);
-}
-
-/* Return 1 if this memory address is a known aligned register plus
-   a constant.  It must be a valid address.  This means that we can do
-   this as an aligned reference plus some offset.
-
-   Take into account what reload will do.  */
-
-int
-aligned_memory_operand (rtx op, enum machine_mode mode)
-{
-  rtx base;
-
   if (reload_in_progress)
     {
       rtx tmp = op;
@@ -1240,171 +577,7 @@ aligned_memory_operand (rtx op, enum machine_mode mode)
 	    return 0;
 	}
     }
-
-  if (GET_CODE (op) != MEM)
-    return 0;
-  if (MEM_ALIGN (op) >= 32)
-    return 1;
-  op = XEXP (op, 0);
-
-  /* LEGITIMIZE_RELOAD_ADDRESS creates (plus (plus reg const_hi) const_lo)
-     sorts of constructs.  Dig for the real base register.  */
-  if (reload_in_progress
-      && GET_CODE (op) == PLUS
-      && GET_CODE (XEXP (op, 0)) == PLUS)
-    base = XEXP (XEXP (op, 0), 0);
-  else
-    {
-      if (! memory_address_p (mode, op))
-	return 0;
-      base = (GET_CODE (op) == PLUS ? XEXP (op, 0) : op);
-    }
-
-  return (GET_CODE (base) == REG && REGNO_POINTER_ALIGN (REGNO (base)) >= 32);
-}
-
-/* Similar, but return 1 if OP is a MEM which is not alignable.  */
-
-int
-unaligned_memory_operand (rtx op, enum machine_mode mode)
-{
-  rtx base;
-
-  if (reload_in_progress)
-    {
-      rtx tmp = op;
-      if (GET_CODE (tmp) == SUBREG)
-	tmp = SUBREG_REG (tmp);
-      if (GET_CODE (tmp) == REG
-	  && REGNO (tmp) >= FIRST_PSEUDO_REGISTER)
-	{
-	  op = reg_equiv_memory_loc[REGNO (tmp)];
-	  if (op == 0)
-	    return 0;
-	}
-    }
-
-  if (GET_CODE (op) != MEM)
-    return 0;
-  if (MEM_ALIGN (op) >= 32)
-    return 0;
-  op = XEXP (op, 0);
-
-  /* LEGITIMIZE_RELOAD_ADDRESS creates (plus (plus reg const_hi) const_lo)
-     sorts of constructs.  Dig for the real base register.  */
-  if (reload_in_progress
-      && GET_CODE (op) == PLUS
-      && GET_CODE (XEXP (op, 0)) == PLUS)
-    base = XEXP (XEXP (op, 0), 0);
-  else
-    {
-      if (! memory_address_p (mode, op))
-	return 0;
-      base = (GET_CODE (op) == PLUS ? XEXP (op, 0) : op);
-    }
-
-  return (GET_CODE (base) == REG && REGNO_POINTER_ALIGN (REGNO (base)) < 32);
-}
-
-/* Return 1 if OP is either a register or an unaligned memory location.  */
-
-int
-reg_or_unaligned_mem_operand (rtx op, enum machine_mode mode)
-{
-  return register_operand (op, mode) || unaligned_memory_operand (op, mode);
-}
-
-/* Return 1 if OP is any memory location.  During reload a pseudo matches.  */
-
-int
-any_memory_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return (GET_CODE (op) == MEM
-	  || (GET_CODE (op) == SUBREG && GET_CODE (SUBREG_REG (op)) == REG)
-	  || (reload_in_progress && GET_CODE (op) == REG
-	      && REGNO (op) >= FIRST_PSEUDO_REGISTER)
-	  || (reload_in_progress && GET_CODE (op) == SUBREG
-	      && GET_CODE (SUBREG_REG (op)) == REG
-	      && REGNO (SUBREG_REG (op)) >= FIRST_PSEUDO_REGISTER));
-}
-
-/* Returns 1 if OP is not an eliminable register.
-
-   This exists to cure a pathological abort in the s8addq (et al) patterns,
-
-	long foo () { long t; bar(); return (long) &t * 26107; }
-
-   which run afoul of a hack in reload to cure a (presumably) similar
-   problem with lea-type instructions on other targets.  But there is
-   one of us and many of them, so work around the problem by selectively
-   preventing combine from making the optimization.  */
-
-int
-reg_not_elim_operand (rtx op, enum machine_mode mode)
-{
-  rtx inner = op;
-  if (GET_CODE (op) == SUBREG)
-    inner = SUBREG_REG (op);
-  if (inner == frame_pointer_rtx || inner == arg_pointer_rtx)
-    return 0;
-
-  return register_operand (op, mode);
-}
-
-/* Return 1 is OP is a memory location that is not a reference (using
-   an AND) to an unaligned location.  Take into account what reload
-   will do.  */
-
-int
-normal_memory_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  if (reload_in_progress)
-    {
-      rtx tmp = op;
-      if (GET_CODE (tmp) == SUBREG)
-	tmp = SUBREG_REG (tmp);
-      if (GET_CODE (tmp) == REG
-	  && REGNO (tmp) >= FIRST_PSEUDO_REGISTER)
-	{
-	  op = reg_equiv_memory_loc[REGNO (tmp)];
-
-	  /* This may not have been assigned an equivalent address if it will
-	     be eliminated.  In that case, it doesn't matter what we do.  */
-	  if (op == 0)
-	    return 1;
-	}
-    }
-
-  return GET_CODE (op) == MEM && GET_CODE (XEXP (op, 0)) != AND;
-}
-
-/* Accept a register, but not a subreg of any kind.  This allows us to
-   avoid pathological cases in reload wrt data movement common in 
-   int->fp conversion.  */
-
-int
-reg_no_subreg_operand (rtx op, enum machine_mode mode)
-{
-  if (GET_CODE (op) != REG)
-    return 0;
-  return register_operand (op, mode);
-}
-
-/* Recognize an addition operation that includes a constant.  Used to
-   convince reload to canonize (plus (plus reg c1) c2) during register
-   elimination.  */
-
-int
-addition_operation (rtx op, enum machine_mode mode)
-{
-  if (GET_MODE (op) != mode && mode != VOIDmode)
-    return 0;
-  if (GET_CODE (op) == PLUS
-      && register_operand (XEXP (op, 0), mode)
-      && GET_CODE (XEXP (op, 1)) == CONST_INT
-      && CONST_OK_FOR_LETTER_P (INTVAL (XEXP (op, 1)), 'K'))
-    return 1;
-  return 0;
+  return op;
 }
 
 /* Implements CONST_OK_FOR_LETTER_P.  Return true if the value matches
@@ -1984,6 +1157,10 @@ alpha_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
    small symbolic operand until after reload.  At which point we need
    to replace (mem (symbol_ref)) with (mem (lo_sum $29 symbol_ref))
    so that sched2 has the proper dependency information.  */
+/* 
+  {"some_small_symbolic_operand", {SET, PARALLEL, PREFETCH, UNSPEC,	\
+				   UNSPEC_VOLATILE}},
+*/
 
 static int
 some_small_symbolic_operand_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
@@ -2412,48 +1589,27 @@ secondary_reload_class (enum reg_class class, enum machine_mode mode,
 /* Subfunction of the following function.  Update the flags of any MEM
    found in part of X.  */
 
-static void
-alpha_set_memflags_1 (rtx x, int in_struct_p, int volatile_p, int unchanging_p)
+static int
+alpha_set_memflags_1 (rtx *xp, void *data)
 {
-  int i;
+  rtx x = *xp, orig = (rtx) data;
 
-  switch (GET_CODE (x))
-    {
-    case SEQUENCE:
-      abort ();
+  if (GET_CODE (x) != MEM)
+    return 0;
 
-    case PARALLEL:
-      for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
-	alpha_set_memflags_1 (XVECEXP (x, 0, i), in_struct_p, volatile_p,
-			      unchanging_p);
-      break;
+  MEM_VOLATILE_P (x) = MEM_VOLATILE_P (orig);
+  MEM_IN_STRUCT_P (x) = MEM_IN_STRUCT_P (orig);
+  MEM_SCALAR_P (x) = MEM_SCALAR_P (orig);
+  MEM_NOTRAP_P (x) = MEM_NOTRAP_P (orig);
+  MEM_READONLY_P (x) = MEM_READONLY_P (orig);
 
-    case INSN:
-      alpha_set_memflags_1 (PATTERN (x), in_struct_p, volatile_p,
-			    unchanging_p);
-      break;
+  /* Sadly, we cannot use alias sets because the extra aliasing
+     produced by the AND interferes.  Given that two-byte quantities
+     are the only thing we would be able to differentiate anyway,
+     there does not seem to be any point in convoluting the early
+     out of the alias check.  */
 
-    case SET:
-      alpha_set_memflags_1 (SET_DEST (x), in_struct_p, volatile_p,
-			    unchanging_p);
-      alpha_set_memflags_1 (SET_SRC (x), in_struct_p, volatile_p,
-			    unchanging_p);
-      break;
-
-    case MEM:
-      MEM_IN_STRUCT_P (x) = in_struct_p;
-      MEM_VOLATILE_P (x) = volatile_p;
-      RTX_UNCHANGING_P (x) = unchanging_p;
-      /* Sadly, we cannot use alias sets because the extra aliasing
-	 produced by the AND interferes.  Given that two-byte quantities
-	 are the only thing we would be able to differentiate anyway,
-	 there does not seem to be any point in convoluting the early
-	 out of the alias check.  */
-      break;
-
-    default:
-      break;
-    }
+  return -1;
 }
 
 /* Given INSN, which is an INSN list or the PATTERN of a single insn
@@ -2465,22 +1621,26 @@ alpha_set_memflags_1 (rtx x, int in_struct_p, int volatile_p, int unchanging_p)
 void
 alpha_set_memflags (rtx insn, rtx ref)
 {
-  int in_struct_p, volatile_p, unchanging_p;
+  rtx *base_ptr;
 
   if (GET_CODE (ref) != MEM)
     return;
 
-  in_struct_p = MEM_IN_STRUCT_P (ref);
-  volatile_p = MEM_VOLATILE_P (ref);
-  unchanging_p = RTX_UNCHANGING_P (ref);
-
   /* This is only called from alpha.md, after having had something 
      generated from one of the insn patterns.  So if everything is
      zero, the pattern is already up-to-date.  */
-  if (! in_struct_p && ! volatile_p && ! unchanging_p)
+  if (!MEM_VOLATILE_P (ref)
+      && !MEM_IN_STRUCT_P (ref)
+      && !MEM_SCALAR_P (ref)
+      && !MEM_NOTRAP_P (ref)
+      && !MEM_READONLY_P (ref))
     return;
 
-  alpha_set_memflags_1 (insn, in_struct_p, volatile_p, unchanging_p);
+  if (INSN_P (insn))
+    base_ptr = &PATTERN (insn);
+  else
+    base_ptr = &insn;
+  for_each_rtx (base_ptr, alpha_set_memflags_1, (void *) ref);
 }
 
 /* Internal routine for alpha_emit_set_const to check for N or below insns.  */
@@ -3161,13 +2321,13 @@ alpha_emit_conditional_branch (enum rtx_code code)
 	  /* When we are not as concerned about non-finite values, and we
 	     are comparing against zero, we can branch directly.  */
 	  if (op1 == CONST0_RTX (DFmode))
-	    cmp_code = NIL, branch_code = code;
+	    cmp_code = UNKNOWN, branch_code = code;
 	  else if (op0 == CONST0_RTX (DFmode))
 	    {
 	      /* Undo the swap we probably did just above.  */
 	      tem = op0, op0 = op1, op1 = tem;
 	      branch_code = swap_condition (cmp_code);
-	      cmp_code = NIL;
+	      cmp_code = UNKNOWN;
 	    }
 	}
       else
@@ -3187,7 +2347,7 @@ alpha_emit_conditional_branch (enum rtx_code code)
 	{
 	  /* Whee.  Compare and branch against 0 directly.  */
 	  if (op1 == const0_rtx)
-	    cmp_code = NIL, branch_code = code;
+	    cmp_code = UNKNOWN, branch_code = code;
 
 	  /* If the constants doesn't fit into an immediate, but can
  	     be generated by lda/ldah, we adjust the argument and
@@ -3220,7 +2380,7 @@ alpha_emit_conditional_branch (enum rtx_code code)
 
   /* Emit an initial compare instruction, if necessary.  */
   tem = op0;
-  if (cmp_code != NIL)
+  if (cmp_code != UNKNOWN)
     {
       tem = gen_reg_rtx (cmp_mode);
       emit_move_insn (tem, gen_rtx_fmt_ee (cmp_code, cmp_mode, op0, op1));
@@ -3281,7 +2441,7 @@ alpha_emit_setcc (enum rtx_code code)
   /* The general case: fold the comparison code to the types of compares
      that we have, choosing the branch as necessary.  */
 
-  cmp_code = NIL;
+  cmp_code = UNKNOWN;
   switch (code)
     {
     case EQ:  case LE:  case LT:  case LEU:  case LTU:
@@ -3325,7 +2485,7 @@ alpha_emit_setcc (enum rtx_code code)
     }
 
   /* Emit an initial compare instruction, if necessary.  */
-  if (cmp_code != NIL)
+  if (cmp_code != UNKNOWN)
     {
       enum machine_mode mode = fp_p ? DFmode : DImode;
 
@@ -5752,7 +4912,7 @@ alpha_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt,
       temp = expand_binop (DImode, sub_optab, fnaddr, temp, temp, 1,
 			   OPTAB_WIDEN);
       temp = expand_shift (RSHIFT_EXPR, Pmode, temp,
-		           build_int_2 (2, 0), NULL_RTX, 1);
+		           build_int_cst (NULL_TREE, 2, 0), NULL_RTX, 1);
       temp = expand_and (SImode, gen_lowpart (SImode, temp),
 			 GEN_INT (0x3fff), 0);
 
@@ -5983,7 +5143,7 @@ rtx
 function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
 		enum machine_mode mode)
 {
-  unsigned int regnum;
+  unsigned int regnum, dummy;
   enum mode_class class;
 
 #ifdef ENABLE_CHECKING
@@ -5998,8 +5158,7 @@ function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
   switch (class)
     {
     case MODE_INT:
-      /* Do the same thing as PROMOTE_MODE.  */
-      mode = DImode;
+      PROMOTE_MODE (mode, dummy, valtype);
       /* FALLTHRU */
 
     case MODE_COMPLEX_INT:
@@ -6206,12 +5365,13 @@ alpha_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
 			    valist, offset_field, NULL_TREE);
 
       t = make_tree (ptr_type_node, virtual_incoming_args_rtx);
-      t = build (PLUS_EXPR, ptr_type_node, t, build_int_2 (offset, 0));
+      t = build (PLUS_EXPR, ptr_type_node, t,
+		 build_int_cst (NULL_TREE, offset, 0));
       t = build (MODIFY_EXPR, TREE_TYPE (base_field), base_field, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
-      t = build_int_2 (NUM_ARGS * UNITS_PER_WORD, 0);
+      t = build_int_cst (NULL_TREE, NUM_ARGS * UNITS_PER_WORD, 0);
       t = build (MODIFY_EXPR, TREE_TYPE (offset_field), offset_field, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
@@ -6227,7 +5387,7 @@ alpha_gimplify_va_arg_1 (tree type, tree base, tree offset, tree *pre_p)
      reserved for the registers.  */
   if (targetm.calls.must_pass_in_stack (TYPE_MODE (type), type))
     {
-      t = fold_convert (TREE_TYPE (offset), build_int_2 (6*8, 0));
+      t = build_int_cst (TREE_TYPE (offset), 6*8, 0);
       t = build (MODIFY_EXPR, TREE_TYPE (offset), offset,
 		 build (MAX_EXPR, TREE_TYPE (offset), offset, t));
       gimplify_and_add (t, pre_p);
@@ -6256,7 +5416,7 @@ alpha_gimplify_va_arg_1 (tree type, tree base, tree offset, tree *pre_p)
     {
       tree fpaddend, cond, fourtyeight;
 
-      fourtyeight = fold_convert (TREE_TYPE (addend), build_int_2 (6*8, 0));
+      fourtyeight = build_int_cst (TREE_TYPE (addend), 6*8, 0);
       fpaddend = fold (build (MINUS_EXPR, TREE_TYPE (addend),
 			      addend, fourtyeight));
       cond = fold (build (LT_EXPR, boolean_type_node, addend, fourtyeight));
@@ -10086,6 +9246,8 @@ alpha_init_libfuncs (void)
 # define TARGET_SECTION_TYPE_FLAGS unicosmk_section_type_flags
 # undef TARGET_ASM_UNIQUE_SECTION
 # define TARGET_ASM_UNIQUE_SECTION unicosmk_unique_section
+#undef TARGET_ASM_FUNCTION_RODATA_SECTION
+#define TARGET_ASM_FUNCTION_RODATA_SECTION default_no_function_rodata_section
 # undef TARGET_ASM_GLOBALIZE_LABEL
 # define TARGET_ASM_GLOBALIZE_LABEL hook_void_FILEptr_constcharptr
 # undef TARGET_MUST_PASS_IN_STACK

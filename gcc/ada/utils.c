@@ -481,6 +481,9 @@ gnat_install_builtins ()
   gnat_define_builtin ("__builtin_clzll", ftype, BUILT_IN_CLZLL, "clzll",
 		       true);
 
+  /* The init_trampoline and adjust_trampoline builtins aren't used directly.
+     They are inserted during lowering of nested functions.  */
+
   tmp = tree_cons (NULL_TREE, ptr_void_type_node, void_list_node);
   tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
   tmp = tree_cons (NULL_TREE, ptr_void_type_node, tmp);
@@ -493,21 +496,24 @@ gnat_install_builtins ()
   gnat_define_builtin ("__builtin_adjust_trampoline", ftype,
 		       BUILT_IN_ADJUST_TRAMPOLINE, "adjust_trampoline", true);
 
-  tmp = tree_cons (NULL_TREE, ptr_void_type_node, void_list_node);
-  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
-  ftype = build_function_type (ptr_void_type_node, tmp);
-  gnat_define_builtin ("__builtin_stack_alloc", ftype, BUILT_IN_STACK_ALLOC,
-		       "stack_alloc", false);
+  /* The stack_save, stack_restore, and alloca builtins aren't used directly.
+     They are inserted during gimplification to implement variable sized stack
+     allocation.  */
 
-  /* The stack_save and stack_restore builtins aren't used directly.  They
-     are inserted during gimplification to implement stack_alloc calls.  */
   ftype = build_function_type (ptr_void_type_node, void_list_node);
   gnat_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
 		       "stack_save", false);
+
   tmp = tree_cons (NULL_TREE, ptr_void_type_node, void_list_node);
   ftype = build_function_type (void_type_node, tmp);
   gnat_define_builtin ("__builtin_stack_restore", ftype,
 		       BUILT_IN_STACK_RESTORE, "stack_restore", false);
+
+  tmp = tree_cons (NULL_TREE, size_type_node, void_list_node);
+  ftype = build_function_type (ptr_void_type_node, tmp);
+  gnat_define_builtin ("__builtin_alloca", ftype, BUILT_IN_ALLOCA,
+		       "alloca", false);
+
 }
 
 /* Create the predefined scalar types such as `integer_type_node' needed
@@ -574,7 +580,7 @@ init_gigi_decls (tree long_long_float_type, tree exception_type)
   /* Make the types and functions used for exception processing.    */
   jmpbuf_type
     = build_array_type (gnat_type_for_mode (Pmode, 0),
-			build_index_type (build_int_2 (5, 0)));
+			build_index_type (build_int_cst (NULL_TREE, 5, 0)));
   create_type_decl (get_identifier ("JMPBUF_T"), jmpbuf_type, NULL,
 		    false, true, Empty);
   jmpbuf_ptr_type = build_pointer_type (jmpbuf_type);

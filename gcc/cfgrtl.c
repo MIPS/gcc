@@ -56,6 +56,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "cfglayout.h"
 #include "expr.h"
+#include "target.h"
 
 
 /* The labels mentioned in non-jump rtl.  Valid during find_basic_blocks.  */
@@ -488,6 +489,7 @@ rtl_split_block (basic_block bb, void *insnp)
 
   /* Create the new basic block.  */
   new_bb = create_basic_block (NEXT_INSN (insn), BB_END (bb), bb);
+  new_bb->partition = bb->partition;
   BB_END (bb) = insn;
 
   /* Redirect the outgoing edges.  */
@@ -685,7 +687,8 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
      and cold sections.  */
   
   if (flag_reorder_blocks_and_partition
-      && find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX))
+      && (find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX)
+	  || (src->partition != target->partition)))
     return NULL;
 
   /* Verify that all targets will be TARGET.  */
@@ -1111,7 +1114,8 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
       /* Make sure new block ends up in correct hot/cold section.  */
 
       jump_block->partition = e->src->partition;
-      if (flag_reorder_blocks_and_partition)
+      if (flag_reorder_blocks_and_partition
+	  && targetm.have_named_sections)
 	{
 	  if (e->src->partition == COLD_PARTITION)
 	    {
@@ -1129,7 +1133,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target)
 	    }
 	  if (JUMP_P (BB_END (jump_block))
 	      && !any_condjump_p (BB_END (jump_block))
-	      && EDGE_SUCC (jump_block, 0)->crossing_edge)
+	      && (EDGE_SUCC (jump_block, 0)->flags & EDGE_CROSSING))
 	    REG_NOTES (BB_END (jump_block)) = gen_rtx_EXPR_LIST 
 	      (REG_CROSSING_JUMP, NULL_RTX, 
 	       REG_NOTES (BB_END (jump_block)));
@@ -1382,9 +1386,13 @@ rtl_split_edge (edge edge_in)
 	  && NOTE_LINE_NUMBER (before) == NOTE_INSN_LOOP_END)
 	before = NEXT_INSN (before);
       bb = create_basic_block (before, NULL, edge_in->src);
+      bb->partition = edge_in->src->partition;
     }
   else
-    bb = create_basic_block (before, NULL, edge_in->dest->prev_bb);
+    {
+      bb = create_basic_block (before, NULL, edge_in->dest->prev_bb);
+      bb->partition = edge_in->dest->partition;
+    }
 
   /* ??? This info is likely going to be out of date very soon.  */
   if (edge_in->dest->global_live_at_start)
@@ -1623,13 +1631,11 @@ commit_one_edge_insertion (edge e, int watch_calls)
 	  bb = split_edge (e);
 	  after = BB_END (bb);
 
-	  /* If we are partitioning hot/cold basic blocks, we must make sure
-	     that the new basic block ends up in the correct section.  */
-
-	  bb->partition = e->src->partition;
 	  if (flag_reorder_blocks_and_partition
+	      && targetm.have_named_sections
 	      && e->src != ENTRY_BLOCK_PTR
-	      && e->src->partition == COLD_PARTITION)
+	      && e->src->partition == COLD_PARTITION
+	      && !(e->flags & EDGE_CROSSING))
 	    {
 	      rtx bb_note, new_note, cur_insn;
 
@@ -1648,7 +1654,7 @@ commit_one_edge_insertion (edge e, int watch_calls)
 	      NOTE_BASIC_BLOCK (new_note) = bb;
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
-		  && EDGE_SUCC (bb, 0)->crossing_edge)
+  		  && (EDGE_SUCC (bb, 0)->flags & EDGE_CROSSING))
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	      if (after == bb_note)
@@ -2013,8 +2019,11 @@ rtl_verify_flow_info_1 (void)
 	  if (e->flags & EDGE_FALLTHRU)
 	    {
 	      n_fallthru++, fallthru = e;
-	      if (e->crossing_edge)
-		{ 
+	      if ((e->flags & EDGE_CROSSING)
+		  || (e->src->partition != e->dest->partition
+		      && e->src != ENTRY_BLOCK_PTR
+		      && e->dest != EXIT_BLOCK_PTR))
+	    { 
 		  error ("Fallthru edge crosses section boundary (bb %i)",
 			 e->src->index);
 		  err = 1;
@@ -2867,6 +2876,18 @@ cfg_layout_split_edge (edge e)
     create_basic_block (e->src != ENTRY_BLOCK_PTR
 			? NEXT_INSN (BB_END (e->src)) : get_insns (),
 			NULL_RTX, e->src);
+
+  /* ??? This info is likely going to be out of date very soon, but we must
+     create it to avoid getting an ICE later.  */
+  if (e->dest->global_live_at_start)
+    {
+      new_bb->global_live_at_start = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      new_bb->global_live_at_end = OBSTACK_ALLOC_REG_SET (&flow_obstack);
+      COPY_REG_SET (new_bb->global_live_at_start,
+		    e->dest->global_live_at_start);
+      COPY_REG_SET (new_bb->global_live_at_end,
+		    e->dest->global_live_at_start);
+    }
 
   new_e = make_edge (new_bb, e->dest, EDGE_FALLTHRU);
   redirect_edge_and_branch_force (e, new_bb);

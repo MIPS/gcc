@@ -147,8 +147,6 @@ struct edge_def GTY(())
   int probability;		/* biased by REG_BR_PROB_BASE */
   gcov_type count;		/* Expected number of executions calculated
 				   in profile.c  */
-  bool crossing_edge;           /* Crosses between hot and cold sections, when
-				   we do partitioning.  */
 };
 
 typedef struct edge_def *edge;
@@ -179,7 +177,10 @@ struct edge_stack
 					   predicate is zero.  */
 #define EDGE_EXECUTABLE		4096	/* Edge is executable.  Only
 					   valid during SSA-CCP.  */
-#define EDGE_ALL_FLAGS		8191
+#define EDGE_CROSSING		8192    /* Edge crosses between hot
+					   and cold sections, when we
+					   do partitioning.  */
+#define EDGE_ALL_FLAGS	       16383
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -449,6 +450,7 @@ extern void flow_preorder_transversal_compute (int *);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(basic_block, void *),
 			       basic_block *, int, void *);
+extern void compute_dominance_frontiers (bitmap *);
 extern void dump_edge_info (FILE *, edge, int);
 extern void brief_dump_cfg (FILE *);
 extern void clear_edges (void);
