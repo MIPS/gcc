@@ -1,3 +1,10 @@
+2004-09-06  Andrew Haley  <aph@redhat.com>
+
+	* verify.c (merge_types): Return Object for all merges of
+	interfaces.
+	* expr.c (add_type_assertion): Don't generate assertions when
+	source type is array of Object.
+		
 2004-09-03  Andrew Haley  <aph@redhat.com>
 
 	* class.c (finish_class): Nullify TYPE_VERIFY_METHOD.

@@ -442,7 +442,13 @@ add_type_assertion (tree source_type, tree target_type)
   tree arg;
 
   if (TYPE_ARRAY_P (source_type))
-    source_type = build_java_array_type (TYPE_ARRAY_ELEMENT (source_type), -1);
+    {
+      // FIXME: This is just a placeholder for merged types.  We need to
+      // do something more real than this.
+      if (TYPE_ARRAY_ELEMENT (source_type) == object_type_node)
+	return;      
+      source_type = build_java_array_type (TYPE_ARRAY_ELEMENT (source_type), -1);
+    }
   if (TYPE_ARRAY_P (target_type))
     target_type = build_java_array_type (TYPE_ARRAY_ELEMENT (target_type), -1);
 

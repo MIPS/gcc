@@ -243,31 +243,10 @@ merge_types (tree type1, tree type2)
 	  return object_ptr_type_node;
 	}
 
-      if (CLASS_INTERFACE (TYPE_NAME (tt1)))
+      if (CLASS_INTERFACE (TYPE_NAME (tt1))
+	  || (CLASS_INTERFACE (TYPE_NAME (tt2))))
 	{
-	  /* FIXME: should see if two interfaces have a common
-	     superinterface.  */
-	  if (CLASS_INTERFACE (TYPE_NAME (tt2)))
-	    {
-	      /* This is a kludge, but matches what Sun's verifier does.
-		 It can be tricked, but is safe as long as type errors
-		 (i.e. interface method calls) are caught at run-time. */
-	      return object_ptr_type_node;
-	    }
-	  else
-	    {
-	      if (can_widen_reference_to (tt2, tt1))
-		return type1;
-	      else
-		return object_ptr_type_node;
-	    }
-	}
-      else if (CLASS_INTERFACE (TYPE_NAME (tt2)))
-	{
-	  if (can_widen_reference_to (tt1, tt2))
-	    return type2;
-	  else
-	    return object_ptr_type_node;
+	  return object_ptr_type_node;
 	}
 
       type1 = tt1;
