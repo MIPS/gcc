@@ -525,10 +525,10 @@ gfc_conv_integer_power (gfc_se * se, tree lhs, tree rhs)
       tmp = gfc_finish_block (&block);
 
       /* Select the appropriate action.  */
-      cond = build (EQ_EXPR, TREE_TYPE (rhs), rhs, integer_zero_node);
+      cond = build (EQ_EXPR, boolean_type_node, rhs, integer_zero_node);
       tmp = build_v (COND_EXPR, cond, tmp, neg_stmt);
 
-      cond = build (GT_EXPR, TREE_TYPE (rhs), rhs, integer_zero_node);
+      cond = build (GT_EXPR, boolean_type_node, rhs, integer_zero_node);
       tmp = build_v (COND_EXPR, cond, pos_stmt, tmp);
       gfc_add_expr_to_block (&se->pre, tmp);
     }

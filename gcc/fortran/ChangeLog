@@ -1,3 +1,8 @@
+2003-10-20  Paul Brook  <paul@nowt.org>
+
+	* trans-expr.c (gfc_conv_integer_power): Use boolean_type_node.
+	* trans-stmt.c (gfc_trans_do_while): Ditto.
+
 2003-10-17  Paul Brook  <paul@nowt.org>
 
 	* simplify.c (gfc_simplify_shape): Use gfc_array_dimen_size.
