@@ -577,6 +577,7 @@ make_cond_expr_edges (bb)
   tree entry = first_stmt (bb);
   basic_block successor_bb, then_bb, else_bb;
   tree predicate;
+  bool always_true, always_false;
 
 #if defined ENABLE_CHECKING
   if (TREE_CODE (entry) != COND_EXPR)
@@ -590,7 +591,7 @@ make_cond_expr_edges (bb)
 
   /* Create the following edges.
 
-	      COND_EXPR
+	     COND_EXPR
 		/ \
 	       /   \
 	    THEN   ELSE
@@ -599,10 +600,12 @@ make_cond_expr_edges (bb)
      conditional can be statically computed.  */
   predicate = COND_EXPR_COND (entry);
 
-  if (simple_cst_equal (predicate, integer_one_node) == 1)
+  always_true = (simple_cst_equal (predicate, integer_one_node) == 1);
+  if (always_true)
     else_bb = NULL;
 
-  if (simple_cst_equal (predicate, integer_zero_node) == 1)
+  always_false = (simple_cst_equal (predicate, integer_zero_node) == 1);
+  if (always_false)
     then_bb = NULL;
 
   if (then_bb)
@@ -610,6 +613,11 @@ make_cond_expr_edges (bb)
 
   if (else_bb)
     make_edge (bb, else_bb, EDGE_FALSE_VALUE);
+
+  /* If the conditional is always true or false, return.  The only edge we
+     needed to add has been already created above.  */
+  if (always_true || always_false)
+    return;
 
   /* If conditional is missing one of the clauses, make an edge between the
      entry block and the first block outside the conditional.  */
@@ -743,6 +751,9 @@ tree_delete_bb (bb)
     {
       fprintf (dump_file, "Removed unreachable basic block %d\n", bb->index);
       tree_dump_bb (dump_file, "", bb, 0);
+      if (TREE_CODE (first_stmt (bb)) != BIND_EXPR)
+	fprintf (dump_file, "WARNING: Block %d has executable statements.\n",
+	         bb->index);
       fprintf (dump_file, "\n");
       dump_end (TDI_cfg, dump_file);
     }
@@ -1272,15 +1283,20 @@ first_exec_stmt (entry_p)
       STRIP_WFL (stmt);
       STRIP_NOPS (stmt);
 
-      /* Dive into BIND_EXPR bodies.  */
+      /* Dive into BIND_EXPR bodies.  If the body is empty, keep going with
+	 the statement following the BIND_EXPR node.  */
       if (TREE_CODE (stmt) == BIND_EXPR)
-	return first_exec_stmt (&BIND_EXPR_BODY (stmt));
+	{
+	  tree *first = first_exec_stmt (&BIND_EXPR_BODY (stmt));
+	  if (first)
+	    return first;
+	}
 
       /* Don't consider empty_stmt_node to be executable.  Note that we
 	 actually return the container for the executable statement, not
 	 the statement itself.  This is to allow the caller to start
 	 iterating from this point.  */
-      else if (stmt != empty_stmt_node)
+      else if (is_exec_stmt (stmt))
 	return gsi_container (i);
     }
 

@@ -1,3 +1,36 @@
+2002-10-16  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (make_cond_expr_edges): If the conditional has known
+	value, only make the edge to the corresponding branch.
+	(tree_delete_bb): Write a warning to the dump file when removing
+	blocks with executable statements.
+	(first_exec_stmt): Skip over empty BIND_EXPR blocks.
+
+	* tree-dfa.c (find_refs_in_expr): Don't look for references in non
+	GIMPLE statements.
+	(remove_tree_ann): Clear the annotation with memset.
+	(collect_dfa_stats_r): Don't call tree_annotation.
+	(find_may_aliases_for): Avoid adding the same alias more than once.
+	(may_alias_p): Fix comment grammar.
+
+	* tree-flow-inline.h (is_exec_stmt): New function.
+	* tree-flow.h (FOR_EACH_REF): Guard against NULL lists.
+	(FOR_EACH_REF_REV): Likewise.
+	(is_exec_stmt): Declare.
+
+	* tree-ssa-ccp.c (visit_phi_node): Reformat debug dumping output.
+	(visit_expression_for): Move check for clobbering definitions
+	before check for NULL expressions.
+	(visit_condexpr_for): Reformat debug dumping output.
+	(set_lattice_value): Remove stale comments.
+	(replace_uses_in): Don't clear TF_FOLDED flag from expression.
+
+	* tree-ssa.c (add_phi_node): If possible, associate the PHI node to
+	a statement.
+	(create_default_def): Create initial declarations for static
+	variables with DECL_INITIAL set.
+	(delete_tree_ssa): Remove annotations from variables.
+
 2002-10-16  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-alias-type.c (alias_tvar_new_with_aterm): New function.

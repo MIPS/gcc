@@ -796,8 +796,13 @@ add_phi_node (bb, var)
   if (VARRAY_TREE (added, bb->index) != var)
     {
       tree_ref phi;
+      tree *stmt_p;
 
-      phi = create_ref (var, V_PHI, bb, NULL_TREE, NULL_TREE, NULL, false);
+      /* If the basic block is not empty, associate the PHI node to its
+	 first executable statement.  This is for debugging convenience.
+	 This way, the PHI node will have line number information.  */
+      stmt_p = !bb_empty_p (bb) ? bb->head_tree_p : NULL;
+      phi = create_ref (var, V_PHI, bb, stmt_p, NULL, NULL, false);
       add_ref_to_list_begin (bb_refs (bb), phi);
 
       VARRAY_TREE (added, bb->index) = var;
@@ -912,7 +917,13 @@ set_alias_imm_reaching_def (ref, i, may_rdef)
 /* Create a default definition for VAR.  This is called when the SSA
    builder needs to get the current reaching definition for a PHI node or a
    V_USE reference and finds it to be NULL.  In the case of a V_USE
-   reference, this means that the variable may be used uninitialized.  */
+   reference, this means that the variable may be used uninitialized.
+
+   If the variable is static and DECL_INITIAL is set, then an initializing
+   definition is created.  This makes a difference when doing constant
+   propagation.  If we are initializing a read-only static variable, then
+   we can assume that DECL_INITIAL will be the constant value for the
+   variable.  */
 
 static tree_ref
 create_default_def (var)
@@ -921,11 +932,17 @@ create_default_def (var)
   basic_block decl_bb;
   tree_ref def;
   size_t i;
+  HOST_WIDE_INT mod;
 
   decl_bb = ENTRY_BLOCK_PTR->succ->dest;
 
+  if (TREE_STATIC (var) && DECL_INITIAL (var))
+    mod = M_INITIAL;
+  else
+    mod = M_DEFAULT;
+
   /* Create a default definition and set it to be CURRDEF(var).  */
-  def = create_ref (var, V_DEF | M_DEFAULT, decl_bb, NULL, NULL, NULL, false);
+  def = create_ref (var, V_DEF | mod, decl_bb, NULL, NULL, NULL, false);
   add_ref_to_list_begin (bb_refs (decl_bb), def);
   set_currdef_for (var, def);
 
@@ -982,8 +999,14 @@ void
 delete_tree_ssa (fnbody)
      tree fnbody;
 {
+  unsigned long int i;
+
   /* Remove annotations from every tree in the function.  */
   walk_tree (&fnbody, remove_annotations_r, NULL, NULL);
+
+  /* Remove annotations from every referenced variable.  */
+  for (i = 0; i < num_referenced_vars; i++)
+    remove_tree_ann (referenced_var (i));
 
   num_referenced_vars = 0;
   referenced_vars = NULL;

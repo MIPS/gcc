@@ -636,4 +636,11 @@ gsi_start_bb (bb)
   return gsi_start (tp);
 }
 
+static inline bool
+is_exec_stmt (t)
+     tree t;
+{
+  return (t && t != empty_stmt_node);
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

@@ -423,12 +423,8 @@ visit_phi_node (phi_node)
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "\n    Examining argument #%d: ", i);
-	  dump_ref (dump_file, "", phi_arg_def (arg), 0, 1);
-	  fprintf (dump_file, "    incoming via basic block %d\n",
-	           e->src->index);
-	  fprintf (dump_file, "    Edge (%d -> %d) is %sexecutable\n",
-	           e->src->index, e->dest->index,
+	  fprintf (dump_file, "\n    Argument #%d (%d -> %d %sexecutable)\n",
+	           i, e->src->index, e->dest->index,
 		   (e->flags & EDGE_EXECUTABLE) ? "" : "not ");
 	}
 
@@ -436,11 +432,29 @@ visit_phi_node (phi_node)
 	 the existing value of the PHI node and the current PHI argument.  */
       if (e->flags & EDGE_EXECUTABLE)
 	{
-	  tree_ref rdef = phi_arg_def (arg);
-	  phi_val = cp_lattice_meet (phi_val, values[ref_id (rdef)]);
+	  tree_ref rdef;
+	  value rdef_val;
+	  
+	  rdef = phi_arg_def (arg);
+	  rdef_val = values[ref_id (rdef)];
+	  phi_val = cp_lattice_meet (phi_val, rdef_val);
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      dump_ref (dump_file, "\t", phi_arg_def (arg), 0, 0);
+	      dump_lattice_value (dump_file, "\tValue: ", rdef_val);
+	      fprintf (dump_file, "\n");
+	    }
+
 	  if (phi_val.lattice_val == VARYING)
 	    break;
 	}
+    }
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      dump_lattice_value (dump_file, "\n    PHI node value: ", phi_val);
+      fprintf (dump_file, "\n\n");
     }
 
   set_lattice_value (phi_node, phi_val);
@@ -516,6 +530,13 @@ visit_expression_for (ref)
     abort ();
 #endif
 
+  /* First examine the reference to see if it's a special definition
+     (clobbering, partial or may-def), mark it varying and add SSA edges
+     that may be coming out of it.  */
+  if ((ref_type (ref) & V_DEF)
+      && ref_type (ref) & (M_CLOBBER | M_PARTIAL | M_MAY | M_RELOCATE))
+    def_to_varying (ref);
+
   expr = ref_expr (ref);
   
   /* No need to do anything if the reference is not associated with an
@@ -530,14 +551,6 @@ visit_expression_for (ref)
       dump_ref (dump_file, "\nfor reference: ", ref, 0, 0);
     }
   
-  /* First examine the reference to see if it's a special definition
-     (clobbering, partial or may-def), mark it varying and add SSA edges
-     that may be coming out of it.  */
-  if ((ref_type (ref) & V_DEF)
-      && ref_type (ref) & (M_CLOBBER | M_PARTIAL | M_MAY | M_RELOCATE))
-    def_to_varying (ref);
-
-
   /* Now examine the expression.  If the expression produces an output
      value, evaluate the expression to see if the lattice value of its
      output has changed.  */
@@ -620,8 +633,11 @@ visit_condexpr_for (ref)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
+      tree t = ref_stmt (ref);
+      STRIP_WFL (t);
+      STRIP_NOPS (t);
       fprintf (dump_file, "Predicate is for a control statement: %s\n",
-	  tree_code_name[TREE_CODE (ref_stmt (ref))]);
+	       tree_code_name[TREE_CODE (t)]);
       dump_lattice_value (dump_file, "value: ", val);
       fprintf (dump_file, "\n");
     }
@@ -981,7 +997,7 @@ set_lattice_value (def, val)
 
 
 /* Replace USE reference in the expression EXPR with their immediate reaching
-   definition.  Mark EXPR for folding (used in substitute_and_fold).  */
+   definition.  */
 
 static void
 replace_uses_in (expr)
@@ -1027,9 +1043,6 @@ replace_uses_in (expr)
 	  restore_ref_operand (use);
 	}
     }
-
-  /* The expression has not been folded already.  */
-  clear_tree_flag (expr, TF_FOLDED);
 }
 
 

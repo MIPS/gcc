@@ -115,7 +115,7 @@ extern const HOST_WIDE_INT M_PARTIAL;
 /* M_INITIAL modifies a V_DEF reference to indicate that the definition is
    an initial static value for the variable.  Multiple executions of this
    reference do not produce multiple definitions of the variable.  This is
-   used to model static variables in C.  For instance,
+   used to model initialization of static variables.  For instance,
 
    		static int counter = 0;
 
@@ -171,9 +171,11 @@ typedef struct ref_list_priv *ref_list;
   for (TMP = FROM, REF = TMP->ref;  TMP != TO; TMP = TMP->DIR, REF = (TMP ? TMP->ref : NULL))
 
 #define FOR_EACH_REF(REF, TMP, LIST)				\
+  if (LIST)							\
   FOR_REF_BETWEEN (REF, TMP, LIST->first, LIST->last->next, next)
 
 #define FOR_EACH_REF_REV(REF, TMP, LIST)			\
+  if (LIST)							\
   FOR_REF_BETWEEN (REF, TMP, LIST->last, LIST->first->prev, prev)
 
 
@@ -513,6 +515,7 @@ static inline void set_indirect_var	PARAMS ((tree, tree));
 static inline tree may_alias		PARAMS ((tree, size_t));
 static inline size_t num_may_alias	PARAMS ((tree));
 static inline int get_lineno		PARAMS ((tree));
+static inline bool is_exec_stmt		PARAMS ((tree));
 
 /*---------------------------------------------------------------------------
 		  Block annotations stored in basic_block.aux

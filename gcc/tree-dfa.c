@@ -259,8 +259,8 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
 
   /* If this reference is associated with a non SIMPLE expression, then we
      mark the parent expression non SIMPLE and recursively clobber every
-     variable referenced by PARENT_EXPR.  */
-  if (parent_expr && TREE_NOT_GIMPLE (expr))
+     variable referenced by PARENT_EXPR.  FIXME: TREE_NOT_GIMPLE must die.  */
+  if (parent_stmt && parent_expr && TREE_NOT_GIMPLE (expr))
     {
       struct clobber_data_d clobber_data;
 
@@ -272,6 +272,13 @@ find_refs_in_expr (expr_p, ref_type, bb, parent_stmt_p, parent_expr_p)
       walk_tree (parent_expr_p, clobber_vars_r, &clobber_data, NULL);
       return;
     }
+
+  /* If the parent statement is marked not-gimple, don't do anything.  This
+     means that in a previous iteration we encountered a non-gimple
+     sub-expression which already clobbered all the variables in the
+     statement.  FIXME: TREE_NOT_GIMPLE must die.  */
+  if (parent_stmt && TREE_NOT_GIMPLE (parent_stmt))
+    return;
 
   /* If we found a _DECL node, create a reference to it and return.  */
   if (code == VAR_DECL || code == PARM_DECL)
@@ -950,21 +957,18 @@ void
 remove_tree_ann (t)
      tree t;
 {
-  tree expr;
   tree_ann ann;
 
   /* NOTE: We can't call tree_annotation here, because it always returns
      the annotation of wrapped trees.  If T is a WFL node, we will remove
      the same annotation twice.  */
-  ann = (tree_ann *)t->common.aux;
-  if (ann == NULL)
-    return;
-
-  ann->bb = NULL;
-  delete_ref_list (ann->refs);
-  ann->currdef = NULL;
-  ann->output_ref = NULL;
-  t->common.aux = NULL;
+  ann = (tree_ann)t->common.aux;
+  if (ann)
+    {
+      delete_ref_list (ann->refs);
+      memset ((void *) ann, 0, sizeof (*ann));
+      t->common.aux = NULL;
+    }
 }
 
 
@@ -1492,7 +1496,9 @@ collect_dfa_stats_r (tp, walk_subtrees, data)
   tree t = *tp;
   struct dfa_stats_d *dfa_stats_p = (struct dfa_stats_d *)data;
 
-  ann = tree_annotation (t);
+  /* Don't call tree_annotation here because it strips the WFL and NOPS
+     wrappers from T.  */
+  ann = (tree_ann)t->common.aux;
   if (ann)
     {
       dfa_stats_p->num_tree_anns++;
@@ -1730,7 +1736,9 @@ find_may_aliases_for (ptr)
       tree var = referenced_var (i);
       tree var_sym = get_base_symbol (var);
 
-      if (may_alias_p (ptr, var_sym))
+      if (may_alias_p (ptr, var_sym)
+	  /* Avoid adding duplicate aliases.  */
+	  && get_alias_index (ptr, var_sym) == -1)
 	{
 	  add_may_alias (ptr, var_sym);
 	  add_may_alias (var_sym, ptr);
@@ -1751,7 +1759,7 @@ may_alias_p (ptr, var_sym)
   tree ptr_sym = get_base_symbol (ptr);
 
   /* GLOBAL_VAR aliases every global variable and locals that have had
-     its address taken.  */
+     their addresses taken.  */
   if (ptr == global_var
       && var_sym != global_var
       && (TREE_ADDRESSABLE (var_sym)
