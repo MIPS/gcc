@@ -266,8 +266,8 @@ struct cpp_fragment
   unsigned was_reused : 1;
   /*unsigned int valid : 1;*/
   void *start_marker;		/* Returned from front-end - kludge. */
-  unsigned int start_line;
-  unsigned int end_line;
+  fileline start_line;
+  fileline end_line;
   const unsigned char *end_next_line;
   struct cpp_macro_note *macro_notes;
   int macro_notes_count;

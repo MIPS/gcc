@@ -1,3 +1,8 @@
+2003-10-29  Per Bothner  <per@bothner.com>
+
+	* cpphash.h (struct cpp_fragment):  Fields start_line and end_line
+	are fileline instances.
+
 2003-10-18  Per Bothner  <per@bothner.com>
 
 	* c-lex.c (src_line):   Remove unneeded static variable.
