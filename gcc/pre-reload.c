@@ -2554,7 +2554,8 @@ scan_alternative (this_alt, constraints, modified, address_reloaded,
 		    || ! flag_pic
 		    || LEGITIMATE_PIC_OPERAND_P (operand))
 #endif
-		&& GENERAL_REGS == ALL_REGS)
+		&& (GENERAL_REGS == ALL_REGS
+		    || GET_CODE (operand) != REG))
 	      win = 1;
 	    /* Drop through into 'r' case.  */
 
