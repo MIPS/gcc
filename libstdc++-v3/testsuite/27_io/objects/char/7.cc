@@ -32,6 +32,11 @@
 #include <sys/stat.h>
 #include <testsuite_hooks.h>
 
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 // Check that cout.flush() is called when last ios_base::Init is destroyed.
 void test07()
 {
@@ -76,3 +81,5 @@ main()
   test07();
   return 0;
 }
+
+#endif // _NEWLIB_VERSION

@@ -31,6 +31,11 @@
 #include <sys/stat.h>
 #include <testsuite_hooks.h>
 
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 class UnderBuf : public std::filebuf
 {
 public:
@@ -102,3 +107,5 @@ int main()
   test16();
   return 0;
 }
+
+#endif // _NEWLIB_VERSION

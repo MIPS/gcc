@@ -30,6 +30,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 // Check that cin.rdbuf()->sputbackc() puts characters back to stdin.
 // If cin.rdbuf() is a filebuf, this succeeds when stdin is a regular
 // file, but fails otherwise, hence the named fifo.
@@ -86,3 +91,5 @@ int main()
   test01();
   return 0;
 }
+
+#endif // _NEWLIB_VERSION

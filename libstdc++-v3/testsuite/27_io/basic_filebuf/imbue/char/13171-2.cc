@@ -26,6 +26,13 @@
 
 #include <testsuite_hooks.h>
 
+// { dg-do run }
+
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 // libstdc++/13171
 void test01()
 {
@@ -67,3 +74,5 @@ int main()
   test01();
   return 0;
 }
+
+#endif // _NEWLIB_VERSION

@@ -34,6 +34,11 @@
 #include <sys/stat.h>
 #include <testsuite_hooks.h>
 
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 // libstdc++/9507
 void test_06()
 {
@@ -67,4 +72,4 @@ main()
   return 0;
 }
 
-
+#endif // _NEWLIB_VERSION

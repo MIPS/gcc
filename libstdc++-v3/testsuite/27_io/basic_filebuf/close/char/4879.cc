@@ -35,6 +35,11 @@
 #include <sys/stat.h>
 #include <testsuite_hooks.h>
 
+#ifdef _NEWLIB_VERSION
+// Newlib does not have mkfifo.
+int main () {}
+#else // _NEWLIB_VERSION
+
 // libstdc++/2913, libstdc++/4879
 // John Fardo  <jfardo@laurelnetworks.com>, Brad Garcia <garsh@attbi.com>
 void
@@ -97,4 +102,4 @@ main()
   return 0;
 }
 
-
+#endif // _NEWLIB_VERSION

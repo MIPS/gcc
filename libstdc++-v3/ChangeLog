@@ -1,3 +1,14 @@
+2003-12-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* 27_io/basic_filebuf/close/char/4879.cc: Skip on newlib targets.
+	* 27_io/basic_filebuf/close/char/9964.cc: Likewise.
+	* 27_io/basic_filebuf/imbue/char/13171-2.cc: Likewise.
+	* 27_io/basic_filebuf/open/char/9507.cc: Likewise.
+	* 27_io/basic_filebuf/showmanyc/char/9533-1.cc: Likewise.
+	* 27_io/basic_filebuf/underflow/char/10097.cc: Likewise.
+	* 27_io/objects/char/7.cc: Likewise.
+	* 27_io/objects/char/9661-1.cc: Likewise.
+
 2003-12-23  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* include/ext/new_allocator.h (new_allocator): Proper allocator class.
