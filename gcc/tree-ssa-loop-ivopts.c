@@ -2557,7 +2557,7 @@ determine_set_costs (void)
       tree var3 = create_tmp_var_raw (integer_ptr_type_node, "ivtmp");
 
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (GENERAL_REGNO_P (i)
+	if (TEST_HARD_REG_BIT (reg_class_contents[GENERAL_REGS], i)
 	    && !fixed_regs[i])
 	  avail_regs++;
 

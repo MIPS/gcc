@@ -1,5 +1,10 @@
 2004-01-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-ssa-loop-ivopts.c (determine_set_costs): Do not use
+	GENERAL_REGNO_P.
+
+2004-01-25  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-ssa-loop-ivopts.c: New file.
 	* Makefile.in (tree-ssa-loop-ivopts.o): Add.
 	* expr.c (expand_expr_1): Handle expand_expr_1.
