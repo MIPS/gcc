@@ -1,3 +1,9 @@
+2004-05-06  Caroline Tice <ctice@apple.com
+
+	* config/rs6000/rs6000.c (rs6000_override_options):  Modify to
+	not turn on hot/cold partitioning in the presence of exception
+	handling.
+
 2004-05-06  Dale Johannesen  <dalej@apple.com>
 
 	* Merge from lno branch as of 04-24.  Files changed:
