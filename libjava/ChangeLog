@@ -1,5 +1,9 @@
 2004-11-08  Tom Tromey  <tromey@redhat.com>
 
+	* java/lang/natClass.cc (_Jv_IsAssignableFromSlow): Ensure
+	supers installed.
+	* link.cc (verify_type_assertions): Don't link supers.
+
 	* include/jvm.h (_Jv_Linker::search_method_in_class): Declare.
 	* include/java-interp.h (class _Jv_InterpClass)
 	<_Jv_PrepareMissingMethods>: No longer `friend'.

@@ -1147,6 +1147,10 @@ _Jv_IsAssignableFromSlow (jclass target, jclass source)
   if (target == &java::lang::Object::class$)
     return true;
 
+  // Ensure that the classes have their supers installed.
+  _Jv_Linker::wait_for_state (source, JV_STATE_LOADING);
+  _Jv_Linker::wait_for_state (target, JV_STATE_LOADING);
+
   do
     {
       if (source == target)
