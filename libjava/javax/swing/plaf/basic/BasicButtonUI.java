@@ -311,11 +311,7 @@ public class BasicButtonUI extends ButtonUI
     Icon i = currentIcon(b);
 
     if (i != null)
-      {
-        int x = iconRect.x;
-        int y = iconRect.y;
-        i.paintIcon(c, g, x, y);
-      }
+      i.paintIcon(c, g, iconRect.x, iconRect.y);
   }
 
   /**
@@ -369,9 +365,18 @@ public class BasicButtonUI extends ButtonUI
     Font f = c.getFont();
     g.setFont(f);
     FontMetrics fm = g.getFontMetrics(f);
-    g.setColor(c.getForeground());
-    BasicGraphicsUtils.drawString(g, text, 0,
-                                  textRect.x, 
-                                  textRect.y + fm.getAscent());
+
+    if (c.isEnabled())
+      {
+	g.setColor(c.getForeground());
+	g.drawString(text, textRect.x, textRect.y + fm.getAscent());
+      }
+    else
+      {
+	g.setColor(c.getBackground().brighter());
+	g.drawString(text, textRect.x, textRect.y + fm.getAscent());
+	g.setColor(c.getBackground().darker());
+	g.drawString(text, textRect.x + 1, textRect.y + fm.getAscent() + 1);
+      }
   } 
 }
