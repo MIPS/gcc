@@ -26,9 +26,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Nonzero iff an error has occurred.  */
 static int hit_error = 0;
 
+static void gen_rtx_next PARAMS ((void));
+static void write_rtx_next PARAMS ((void));
 static void open_base_files PARAMS ((void));
 static void close_output_files PARAMS ((void));
-
 
 /* Report an error at POS, printing MSG.  */
 
@@ -333,6 +334,65 @@ note_variable (s, t, o, pos)
   variables = n;
 }
 
+enum rtx_code {
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   ENUM ,
+#include "rtl.def"
+#undef DEF_RTL_EXPR
+    NUM_RTX_CODE
+};
+
+/* We really don't care how long a CONST_DOUBLE is.  */
+#define CONST_DOUBLE_FORMAT "ww"
+static const char * const rtx_format[NUM_RTX_CODE] = {
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   FORMAT ,
+#include "rtl.def"
+#undef DEF_RTL_EXPR
+};
+
+static char rtx_next[NUM_RTX_CODE];
+
+/* Generate the contents of the rtx_next array.  This really doesn't belong
+   in gengtype at all, but it's needed for adjust_field_rtx_def.  */
+
+static void
+gen_rtx_next ()
+{
+  int i;
+  for (i = 0; i < NUM_RTX_CODE; i++)
+    {
+      int k;
+      
+      rtx_next[i] = -1;
+      if (strncmp (rtx_format[i], "iuu", 3) == 0)
+	rtx_next[i] = 2;
+      else if (i == COND_EXEC || i == SET || i == EXPR_LIST || i == INSN_LIST)
+	rtx_next[i] = 1;
+      else 
+	for (k = strlen (rtx_format[i]) - 1; k >= 0; k--)
+	  if (rtx_format[i][k] == 'e' || rtx_format[i][k] == 'u')
+	    rtx_next[i] = k;
+    }
+}
+
+/* Write out the contents of the rtx_next array.  */
+static void
+write_rtx_next ()
+{
+  outf_p f = get_output_file_with_visibility (NULL);
+  int i;
+  
+  oprintf (f, "\n/* Used to implement the RTX_NEXT macro.  */\n");
+  oprintf (f, "const unsigned char rtx_next[NUM_RTX_CODE] = {\n");
+  for (i = 0; i < NUM_RTX_CODE; i++)
+    if (rtx_next[i] == -1)
+      oprintf (f, "  0,\n");
+    else
+      oprintf (f, 
+	       "  offsetof (struct rtx_def, fld) + %d * sizeof (rtunion),\n",
+	       rtx_next[i]);
+  oprintf (f, "};\n");
+}
+
 /* Handle `special("rtx_def")'.  This is a special case for field
    `fld' of struct rtx_def, which is an array of unions whose values
    are based in a complex way on the type of RTL.  */
@@ -348,21 +408,8 @@ adjust_field_rtx_def (t, opt)
   type_p rtx_tp, rtvec_tp, tree_tp, mem_attrs_tp, note_union_tp, scalar_tp;
   type_p bitmap_tp, basic_block_tp;
 
-  enum rtx_code {
-#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   ENUM ,
-#include "rtl.def"
-#undef DEF_RTL_EXPR
-    NUM_RTX_CODE
-  };
   static const char * const rtx_name[NUM_RTX_CODE] = {
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   NAME ,
-#include "rtl.def"
-#undef DEF_RTL_EXPR
-  };
-  /* We really don't care how long a CONST_DOUBLE is.  */
-#define CONST_DOUBLE_FORMAT "ww"
-  static const char * const rtx_format[NUM_RTX_CODE] = {
-#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   FORMAT ,
 #include "rtl.def"
 #undef DEF_RTL_EXPR
   };
@@ -430,7 +477,7 @@ adjust_field_rtx_def (t, opt)
 	  pair_p old_subf = subfields;
 	  type_p t;
 	  const char *subname;
-	  
+
 	  switch (rtx_format[i][aindex])
 	    {
 	    case '*':
@@ -533,6 +580,14 @@ adjust_field_rtx_def (t, opt)
 	  else if (t == basic_block_tp)
 	    {
 	      /* We don't presently GC basic block structures... */
+	      subfields->opt = xmalloc (sizeof (*subfields->opt));
+	      subfields->opt->next = nodot;
+	      subfields->opt->name = "skip";
+	      subfields->opt->info = NULL;
+	    }
+	  else if ((size_t) rtx_next[i] == aindex)
+	    {
+	      /* The 'next' field will be marked by the chain_next option.  */
 	      subfields->opt = xmalloc (sizeof (*subfields->opt));
 	      subfields->opt->next = nodot;
 	      subfields->opt->name = "skip";
@@ -1022,8 +1077,6 @@ oprintf VPARAMS ((outf_p o, const char *format, ...))
 
 /* Open the global header file and the language-specific header files.  */
 
-static void open_base_files PARAMS((void));
-
 static void
 open_base_files ()
 {
@@ -1298,6 +1351,7 @@ static void write_gc_structure_fields
 static void write_gc_marker_routine_for_structure PARAMS ((type_p, type_p, 
 							   type_p *));
 static void write_gc_types PARAMS ((type_p structures, type_p param_structs));
+static void write_enum_defn PARAMS ((type_p structures, type_p param_structs));
 static void put_mangled_filename PARAMS ((outf_p , const char *));
 static void finish_root_table PARAMS ((struct flist *flp, const char *pfx, 
 				       const char *tname, const char *lastname,
@@ -1373,7 +1427,7 @@ output_mangled_typename (of, t)
       }
       break;
     case TYPE_ARRAY:
-      abort;
+      abort ();
     }
 }
 
@@ -1791,6 +1845,9 @@ write_gc_marker_routine_for_structure (orig_s, s, param)
   outf_p f;
   const char *fn = s->u.s.line.file;
   int i;
+  const char *chain_next = NULL;
+  const char *chain_prev = NULL;
+  options_p opt;
   
   /* This is a hack, and not the good kind either.  */
   for (i = NUM_PARAM - 1; i >= 0; i--)
@@ -1800,7 +1857,16 @@ write_gc_marker_routine_for_structure (orig_s, s, param)
   
   f = get_output_file_with_visibility (fn);
   
-  oprintf (f, "%c", '\n');
+  for (opt = s->u.s.opt; opt; opt = opt->next)
+    if (strcmp (opt->name, "chain_next") == 0)
+      chain_next = (const char *) opt->info;
+    else if (strcmp (opt->name, "chain_prev") == 0)
+      chain_prev = (const char *) opt->info;
+
+  if (chain_prev != NULL && chain_next == NULL)
+    error_at_line (&s->u.s.line, "chain_prev without chain_next");
+
+  oprintf (f, "\n");
   oprintf (f, "void\n");
   if (param == NULL)
     oprintf (f, "gt_ggc_mx_%s", s->u.s.tag);
@@ -1812,17 +1878,55 @@ write_gc_marker_routine_for_structure (orig_s, s, param)
   oprintf (f, " (x_p)\n");
   oprintf (f, "      void *x_p;\n");
   oprintf (f, "{\n");
-  oprintf (f, "  %s %s * const x = (%s %s *)x_p;\n",
+  oprintf (f, "  %s %s * %sx = (%s %s *)x_p;\n",
 	   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
+	   chain_next == NULL ? "const " : "",
 	   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
-  oprintf (f, "  if (! ggc_test_and_set_mark (x))\n");
-  oprintf (f, "    return;\n");
+  if (chain_next != NULL)
+    oprintf (f, "  %s %s * xlimit = x;\n",
+	     s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
+  if (chain_next == NULL)
+    oprintf (f, "  if (ggc_test_and_set_mark (x))\n");
+  else
+    {
+      oprintf (f, "  while (ggc_test_and_set_mark (xlimit))\n");
+      oprintf (f, "   xlimit = (");
+      output_escaped_param (f, chain_next, "*xlimit", "*xlimit", 
+			    "chain_next", &s->u.s.line);
+      oprintf (f, ");\n");
+      if (chain_prev != NULL)
+	{
+	  oprintf (f, "  if (x != xlimit)\n");
+	  oprintf (f, "    for (;;)\n");
+	  oprintf (f, "      {\n");
+	  oprintf (f, "        %s %s * const xprev = (",
+		   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
+	  output_escaped_param (f, chain_prev, "*x", "*x",
+				"chain_prev", &s->u.s.line);
+	  oprintf (f, ");\n");
+	  oprintf (f, "        if (xprev == NULL) break;\n");
+	  oprintf (f, "        x = xprev;\n");
+	  oprintf (f, "        ggc_set_mark (xprev);\n");
+	  oprintf (f, "      }\n");
+	}
+      oprintf (f, "  while (x != xlimit)\n");
+    }
+  oprintf (f, "    {\n");
   
   gc_counter = 0;
   write_gc_structure_fields (f, s, "(*x)", "not valid postage",
-			     s->u.s.opt, 2, &s->u.s.line, s->u.s.bitmap,
+			     s->u.s.opt, 6, &s->u.s.line, s->u.s.bitmap,
 			     param);
   
+  if (chain_next != NULL)
+    {
+      oprintf (f, "      x = (");
+      output_escaped_param (f, chain_next, "*x", "*x",
+			    "chain_next", &s->u.s.line);
+      oprintf (f, ");\n");
+    }
+
+  oprintf (f, "  }\n");
   oprintf (f, "}\n");
 }
 
@@ -1923,6 +2027,41 @@ write_gc_types (structures, param_structs)
       }
 }
 
+/* Write out the 'enum' definition for gt_types_enum.  */
+
+static void
+write_enum_defn (structures, param_structs)
+     type_p structures;
+     type_p param_structs;
+{
+  type_p s;
+  
+  oprintf (header_file, "\n/* Enumeration of types known.  */\n");
+  oprintf (header_file, "enum gt_types_enum {\n");
+  for (s = structures; s; s = s->next)
+    if (s->gc_used == GC_POINTED_TO
+	|| s->gc_used == GC_MAYBE_POINTED_TO)
+      {
+	if (s->gc_used == GC_MAYBE_POINTED_TO
+	    && s->u.s.line.file == NULL)
+	  continue;
+
+	oprintf (header_file, " gt_ggc_e_");
+	output_mangled_typename (header_file, s);
+	oprintf (header_file, ", \n");
+      }
+  for (s = param_structs; s; s = s->next)
+    if (s->gc_used == GC_POINTED_TO)
+      {
+	oprintf (header_file, " gt_e_");
+	output_mangled_typename (header_file, s);
+	oprintf (header_file, ", \n");
+      }
+  oprintf (header_file, " gt_types_enum_last\n");
+  oprintf (header_file, "};\n");
+}
+
+
 /* Mangle FN and print it to F.  */
 
 static void
@@ -2009,7 +2148,7 @@ finish_root_table (flp, pfx, lastname, tname, name)
       if (bitmap & 1)
 	{
 	  oprintf (base_files[fnum], "  NULL\n");
-	  oprintf (base_files[fnum], "};\n\n");
+	  oprintf (base_files[fnum], "};\n");
 	}
   }
 }
@@ -2399,6 +2538,8 @@ main(argc, argv)
   static struct fileloc pos = { __FILE__, __LINE__ };
   unsigned j;
   
+  gen_rtx_next ();
+
   srcdir_len = strlen (srcdir);
 
   do_typedef ("CUMULATIVE_ARGS",
@@ -2439,8 +2580,10 @@ main(argc, argv)
   set_gc_used (variables);
 
   open_base_files ();
+  write_enum_defn (structures, param_structs);
   write_gc_types (structures, param_structs);
   write_gc_roots (variables);
+  write_rtx_next ();
   close_output_files ();
 
   return (hit_error != 0);

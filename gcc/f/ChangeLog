@@ -1,3 +1,7 @@
+2002-08-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* com.c (union lang_tree_node): Add chain_next option.
+
 2002-07-01  Roger Sayle  <roger@eyesopen.com>
 
 	* f/com.c (builtin_function): Accept additional parameter.

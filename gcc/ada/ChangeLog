@@ -1,3 +1,7 @@
+2002-08-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* ada-tree.h (union lang_tree_node): Add chain_next option.
+
 2002-07-15  Florian Weimer  <fw@deneb.enyo.de>
 
 	* make.adb (Add_Switch): Make Generic_Position a procedure.  The

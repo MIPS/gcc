@@ -1,3 +1,7 @@
+2002-08-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* cp-tree.h (union lang_tree_node): Add chain_next option.
+
 2002-07-22  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/7347, c++/7348

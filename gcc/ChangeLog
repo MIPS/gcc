@@ -1,5 +1,24 @@
 2002-08-03  Geoffrey Keating  <geoffk@redhat.com>
 
+	* rtl.h (rtx_next): Declare.
+	(struct rtx_def): Add chain_next and chain_prev options.
+	(RTX_NEXT): New.
+	(RTX_PREV): New.
+	* gengtype.c (enum rtx_code): Make global.
+	(rtx_format): Make global.
+	(rtx_next): New.
+	(gen_rtx_next): New.
+	(write_rtx_next): New.
+	(adjust_field_rtx_def): Skip fields marked by chain_next.
+	(open_base_files): Delete redundant prototype.
+	(write_enum_defn): New.
+	(output_mangled_typename): Correct abort call.
+	(write_gc_marker_routine_for_structure): Handle chain_next and
+	chain_prev options.
+	(finish_root_table): Don't output redundant \n.
+	(main): Call gen_rtx_next, write_rtx_next, write_enum_defn.
+	* c-tree.h (union lang_tree_node): Add chain_next option.
+
 	* gengenrtl.c: Delete unnecessary rtl_obstack declaration.
 
 2002-07-25  Geoffrey Keating  <geoffk@redhat.com>
