@@ -2635,6 +2635,11 @@ cw_asm_unary_expr:
                   if (TREE_CODE ($2.value) == COMPONENT_REF
                       && DECL_C_BIT_FIELD (TREE_OPERAND ($2.value, 1)))
                     error ("`sizeof' applied to a bit-field");
+		  else if (TREE_CODE ($2.value) == IDENTIFIER_NODE)
+		    {
+		      undeclared_variable ($2.value);
+		      $2.value = error_mark_node;
+		    }
                   $$.value = c_sizeof (TREE_TYPE ($2.value));
                   $$.original_code = ERROR_MARK; }
 	| sizeof '(' typename ')'  %prec HYPERUNARY
