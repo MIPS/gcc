@@ -514,8 +514,7 @@ rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
     {
       tree result = PHI_RESULT (phi);
 
-      register_new_def (SSA_NAME_VAR (result), result,
-			&bd->block_defs, currdefs);
+      register_new_def (result, &bd->block_defs, currdefs);
     }
 }
 
@@ -780,8 +779,7 @@ rewrite_stmt (struct dom_walk_data *walk_data,
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (*def_p), *def_p,
-			&bd->block_defs, currdefs);
+      register_new_def (*def_p, &bd->block_defs, currdefs);
     }
 
   /* Register new virtual definitions made by the statement.  */
@@ -795,8 +793,7 @@ rewrite_stmt (struct dom_walk_data *walk_data,
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (SSA_NAME_VAR (VDEF_RESULT (vdefs, i)), 
-			VDEF_RESULT (vdefs, i), &bd->block_defs, currdefs);
+      register_new_def (VDEF_RESULT (vdefs, i), &bd->block_defs, currdefs);
     }
 }
 
@@ -812,14 +809,14 @@ rewrite_operand (tree *op_p)
 }
 
 
-/* Register DEF to be a new definition for variable VAR and push VAR's
-   current reaching definition into the stack pointed by BLOCK_DEFS_P.
-   IS_REAL_OPERAND is true when DEF is a real definition.  */
+/* Register DEF (an SSA_NAME) to be a new definition for its underlying
+   variable (SSA_NAME_VAR (DEF)) and push VAR's current reaching definition
+   into the stack pointed by BLOCK_DEFS_P.  */
 
 void
-register_new_def (tree var, tree def,
-		  varray_type *block_defs_p, varray_type table)
+register_new_def (tree def, varray_type *block_defs_p, varray_type table)
 {
+  tree var = SSA_NAME_VAR (def);
   tree currdef = get_value_for (var, table);
 
   if (! *block_defs_p)

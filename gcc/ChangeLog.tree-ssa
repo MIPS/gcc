@@ -1,3 +1,18 @@
+2004-03-23  Jeff Law  <law@redhat.com>
+
+	* tree-into-ssa.c (register_new_def): Lose unnecessary VAR argument,
+	instead derive VAR from DEF argument.
+	(rewrite_initialize_block, rewrite_stmt, rewrite_operand): Corresponding
+	changes.
+	* tree-ssa-dom.c (register_definitions_for_stmt): Corresponding changes.
+	(record_equivalences_from_phis): Likewise.
+	(restore_currdefs_to_original_value): New, extracted from ...
+	(dom_opt_finalize_block): Use restore_currdefs_to_original_value.
+	Restore currdefs after threading across a true edge.
+	(thread_across_edge): Register new defintions when we walk through
+	a PHI node or real statement.
+	* tree-flow.h (register_new_def): Updated.
+
 2004-03-23  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-dce.c (find_obviously_necessary_stmts,
