@@ -6094,6 +6094,10 @@ finish_function ()
       && current_function_returns_null)
     warning ("this function may return with or without a value");
 
+  /* Store the end of the function, so that we get good line number
+     info for the epilogue.  */
+  cfun->function_end_locus = input_location;
+
   /* Genericize before inlining.  */
   if (!flag_disable_gimple)
     c_genericize (fndecl);

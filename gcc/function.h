@@ -406,6 +406,9 @@ struct function GTY(())
      final flowgraph size.  */
   int max_jumptable_ents;
 
+  /* Line number of the end of the function.  */
+  location_t function_end_locus;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address

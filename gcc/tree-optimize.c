@@ -339,6 +339,11 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
      zero.  */
   immediate_size_expand = 1;
 
+  /* Make sure the locus is set to the end of the function, so that 
+     epilogue line numbers and warnings are set properly.  */
+  if (cfun->function_end_locus.file)
+    input_location = cfun->function_end_locus;
+
   /* Allow language dialects to perform special processing.  */
   (*lang_hooks.rtl_expand.end) ();
 

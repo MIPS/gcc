@@ -14047,6 +14047,10 @@ finish_function (int flags)
       && (DECL_INLINE (fndecl) || processing_template_decl))
     warning ("no return statement in function returning non-void");
 
+  /* Store the end of the function, so that we get good line number
+     info for the epilogue.  */
+  cfun->function_end_locus = input_location;
+
   /* Genericize before inlining.  */
   if (!flag_disable_gimple && !processing_template_decl)
     c_genericize (fndecl);

@@ -1,5 +1,10 @@
 2003-09-30  Richard Henderson  <rth@redhat.com>
 
+	* function.h (struct function): Add function_end_locus.
+	* c-decl.c (finish_function): Set it.
+	* tree-optimize.c (tree_rest_of_compilation): Set input_location
+	to function_end_locus before expand_function_end.
+
 	* tree-optimize.c (optimize_function_tree): Move calls to
 	remove_useless_stmts_and_vars and lower_eh_constructs ...
 	(tree_rest_of_compilation): ... here.

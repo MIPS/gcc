@@ -1,3 +1,7 @@
+2003-09-30  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (finish_function): Set cfun->function_end_locus.
+
 2003-09-24  Jason Merrill  <jason@redhat.com>
 
 	* class.c, decl.c, decl2.c, error.c, init.c, lex.c, method.c,
