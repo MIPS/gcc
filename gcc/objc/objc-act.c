@@ -272,7 +272,8 @@ static void really_start_method (tree, tree);
 static void really_start_method (tree, struct c_arg_info *);
 #endif
 static int objc_types_are_equivalent (tree, tree);
-static int comp_proto_with_proto (tree, tree);
+/* APPLE LOCAL Objective-C */
+static int comp_proto_with_proto (tree, tree, int);
 static tree get_arg_type_list (tree, int, int);
 static void objc_push_parm (tree);
 #ifdef OBJCPLUS
@@ -5578,6 +5579,22 @@ check_duplicates (hash hsh, int methods, int is_class)
 	     different types.  */
 	  attr loop;
 
+	  /* APPLE LOCAL begin Objective-C */
+	  /* But just how different are those types?  If
+	     -Wno-strict-selector-match is specified, we shall not complain
+	     if the differences are solely among ObjC pointer types
+	     (including 'id' and 'Class').  */
+	  if (!warn_strict_selector_match)
+	    {
+	      for (loop = hsh->list; loop; loop = loop->next)
+		if (!comp_proto_with_proto (meth, loop->value, 0))
+		  goto issue_warning;
+
+	      return meth;
+	    }
+
+	 issue_warning:
+	  /* APPLE LOCAL end Objective-C */
 	  warning ("multiple %s named `%c%s' found",
 		   methods ? "methods" : "selectors",
 		   (is_class ? '+' : '-'),
@@ -6416,9 +6433,11 @@ add_method_to_hash_list (hash *hash_list, tree method)
     {
       /* Check types against those; if different, add to a list.  */
       attr loop;
-      int already_there = comp_proto_with_proto (method, hsh->key);
+      /* APPLE LOCAL Objective-C */
+      int already_there = comp_proto_with_proto (method, hsh->key, 1);
       for (loop = hsh->list; !already_there && loop; loop = loop->next)
-	already_there |= comp_proto_with_proto (method, loop->value);
+	/* APPLE LOCAL Objective-C */
+	already_there |= comp_proto_with_proto (method, loop->value, 1);
       if (!already_there)
 	hash_add_attr (hsh, method);
     }
@@ -6454,7 +6473,8 @@ objc_add_method (tree class, tree method, int is_class)
 	 definition errors).  */
       if ((TREE_CODE (class) == CLASS_INTERFACE_TYPE
 	   || TREE_CODE (class) == CATEGORY_INTERFACE_TYPE)
-	  && !comp_proto_with_proto (method, mth))
+	  /* APPLE LOCAL Objective-C */
+	  && !comp_proto_with_proto (method, mth, 1))
 	error ("duplicate declaration of method `%c%s'",
 		is_class ? '+' : '-', 
 		IDENTIFIER_POINTER (METHOD_SEL_NAME (mth)));
@@ -7861,11 +7881,15 @@ objc_types_are_equivalent (tree type1, tree type2)
   return 0;
 }
 
+/* APPLE LOCAL begin Objective-C */
 /* Return 1 if PROTO1 is equivalent to PROTO2
-   for purposes of method overloading.  */
+   for purposes of method overloading.  Ordinarily, the type signatures
+   should match up exactly, unless STRICT is zero, in which case we
+   shall allow "harmless" (ABI-wise) differences in ObjC pointer types.  */
 
 static int
-comp_proto_with_proto (tree proto1, tree proto2)
+comp_proto_with_proto (tree proto1, tree proto2, int strict)
+/* APPLE LOCAL end Objective-C */
 {
   tree type1, type2;
 
@@ -7878,7 +7902,12 @@ comp_proto_with_proto (tree proto1, tree proto2)
   type1 = TREE_VALUE (TREE_TYPE (proto1));
   type2 = TREE_VALUE (TREE_TYPE (proto2));
 
-  if (!objc_types_are_equivalent (type1, type2))
+  /* APPLE LOCAL begin Objective-C */
+  if (!objc_types_are_equivalent (type1, type2)
+      && (strict
+	  || !objc_is_object_ptr (type1)
+	  || !objc_is_object_ptr (type2)))
+  /* APPLE LOCAL end Objective-C */
     return 0;
 
   /* Compare argument types.  */
@@ -7887,7 +7916,12 @@ comp_proto_with_proto (tree proto1, tree proto2)
        type1 && type2;
        type1 = TREE_CHAIN (type1), type2 = TREE_CHAIN (type2))
     {
-      if (!objc_types_are_equivalent (TREE_VALUE (type1), TREE_VALUE (type2)))
+      /* APPLE LOCAL begin Objective-C */
+      if (!objc_types_are_equivalent (TREE_VALUE (type1), TREE_VALUE (type2))
+	  && (strict
+	      || !objc_is_object_ptr (TREE_VALUE (type1))
+	      || !objc_is_object_ptr (TREE_VALUE (type2))))
+      /* APPLE LOCAL end Objective-C */
 	return 0;
     }
 
@@ -8038,7 +8072,8 @@ really_start_method (tree method,
 
       if (proto)
 	{
-	  if (!comp_proto_with_proto (method, proto))
+	  /* APPLE LOCAL Objective-C */
+	  if (!comp_proto_with_proto (method, proto, 1))
 	    {
 	      char type = (TREE_CODE (method) == INSTANCE_METHOD_DECL ? '-' : '+');
 

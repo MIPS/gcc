@@ -1,3 +1,8 @@
+2005-01-30  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3962013
+	* c.opt (Wstrict-selector-match): New option.
+
 2005-01-28 Fariborz Jahanian <fjahanian@apple.com>
 
 	Radar 3979484

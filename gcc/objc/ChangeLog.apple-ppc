@@ -1,3 +1,14 @@
+2005-01-30  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3962013
+	* objc-act.c (comp_proto_with_proto): Add a STRICT parameter
+	to allow for relaxed type comparisons.
+	(check_duplicates): If '-Wno-strict-selector-match' is specified,
+	do not warn about multiple method signatures if they differ only
+	in their ObjC types.
+	(add_method_to_hash_list, objc_add_method, really_start_method):
+	Adjust calls to comp_proto_with_proto().
+
 2005-01-27  Matt Austern  <austern@apple.com>
 
 	Radar 3971445

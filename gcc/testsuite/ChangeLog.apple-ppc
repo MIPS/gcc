@@ -1,3 +1,11 @@
+2005-01-30  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3962013
+	* obj-c++.dg/method-3.mm: New.
+	* obj-c++.dg/method-4.mm: New.
+	* objc.dg/method-16.m: New.
+	* objc.dg/method-7.m: Add '-Wstrict-selector-match'.
+
 2005-01-27  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3974393
