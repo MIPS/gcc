@@ -1,3 +1,11 @@
+2004-02-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (TEXI_GCCINT_FILES): Add cfg.texi and tree-ssa.texi
+	* tree-ssa-alias.c (compute_may_aliases): Update documentation.
+	* doc/gccint.texi: Add node for Tree SSA documentation.
+	Include tree-ssa.texi.
+	* doc/tree-ssa.texi: New file.
+
 2004-02-23  Dale Johannesen <dalej@apple.com>
 
 	* config/rs6000/rs6000.md:  Roll in changes from mainline:

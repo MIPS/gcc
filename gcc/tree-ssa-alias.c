@@ -272,21 +272,10 @@ tree global_var;
    inserted in the code.  Resulting in increased memory consumption and
    compilation time.
 
-   When the set of may aliases for a pointer grows beyond a certain number of
-   elements (configurable with --param max-alias-set-size), instead of adding
-   new variables to the may-alias set, the new variables are made to share the
-   same alias set as the original pointer.  For instance, suppose that pointer
-   'p' may point to variables 'a', 'b', 'c', 'd', 'e', 'f' and 'g'. After alias
-   analysis, the alias sets will be as follows:
-
-	may-alias(p) = { a, b, c, d, e }
-	may-alias(f) = { a, b, c, d, e }
-	may-alias(g) = { a, b, c, d, e }
-
-   Notice that this grouping causes variables 'f' and 'g' to be aliased to
-   variables they can't possibly alias to.  This causes loss of precision,
-   but prevents excessive compile times by reducing the number of virtual
-   operands.  */
+   When the number of virtual operands needed to represent aliased
+   loads and stores grows too large (configurable with @option{--param
+   max-aliased-vops}), alias sets are grouped to avoid severe
+   compile-time slow downs and memory consumption.  See group_aliases.  */
 
 static void
 compute_may_aliases (void)

@@ -2824,7 +2824,7 @@ TEXI_GCCINT_FILES = gccint.texi gcc-common.texi contribute.texi makefile.texi \
 	 c-tree.texi rtl.texi md.texi tm.texi hostconfig.texi fragments.texi \
 	 configfiles.texi collect2.texi headerdirs.texi funding.texi gnu.texi \
 	 gpl.texi fdl.texi contrib.texi languages.texi sourcebuild.texi \
-	 gty.texi libgcc.texi
+	 gty.texi libgcc.texi cfg.texi tree-ssa.texi
 
 TEXI_GCCINSTALL_FILES = install.texi install-old.texi fdl.texi
 
