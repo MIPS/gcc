@@ -1,3 +1,42 @@
+Sat Oct 19 22:02:28 2002  Alexandre Oliva  <aoliva@redhat.com>
+	Angela Marie Thomas  <angela@releasedominatrix.com>
+	Brendan Kehoe  <brendan@zen.org>
+	Nick Clifton  <nickc@redhat.com>
+	Andrew Haley  <aph@redhat.com>
+
+	* configure.in (--with-sysroot): New.  Don't inhibit libc if
+	given.  AC_SUBST TARGET_SYSTEM_ROOT, TARGET_SYSTEM_ROOT_DEFINE
+	and CROSS_SYSTEM_HEADER_DIR.
+	* configure: Rebuilt.
+	* Makefile.in (CROSS_SYSTEM_HEADER_DIR): Set in configure.
+	(TARGET_SYSTEM_ROOT): New.
+	(DRIVER_DEFINES): Define CROSS_INCLUDE_DIR from
+	CROSS_SYSTEM_HEADER_DIR.
+	(install-gcc-tooldir): New target.
+	(stmp-fixinc): Do not create $(libsubdir), but rather bail out
+	if SYSTEM_HEADER_DIR does not exist and it's not the default
+	sys-include directory.
+	(deduced.h, stmp-fixproto): Quote SYSTEM_HEADER_DIR properly.
+	(install-mkheaders): Likewise.
+	* gcc.c (target_system_root): New variable.
+	(add_sysrooted_prefix): New function.
+	(process_command): Recompute run-time target_system_root from
+	gcc_exec_prefix, keeping it unchanged if the relocated sysroot
+	does not exist.
+	(do_spec_1): Process 'R' spec.
+	(main): Add md_exec_prefix to exec_prefixes regardless of
+	startfile_prefix_spec.  Use add_sysrooted_prefix for
+	startfile_prefixes, and don't skip the default ones when cross
+	compiling with sysroot enabled.  Removed unused case of
+	non-absolute standard_startfile_prefix.
+	* config/interix.h: Remove the only potential, yet disabled,
+	occurrence of non-absolute (empty) standard_startfile_prefix.
+	* config/sh/linux.h (LIB_SPEC): Add -rpath-link in non-static
+	linking.
+	* config/mips/linux.h (LIB_SPEC): Define as in sh/linux.h.
+	* doc/install.texi (--with-sysroot): Document.
+	(--with-headers, --with-libs): Deprecate.
+
 Thu Oct 17 17:40:05 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (pentium4_cost): Fix according to Intel recommendations.
