@@ -1123,6 +1123,8 @@ javax/swing/ListModel.java \
 javax/swing/ListSelectionModel.java \
 javax/swing/LookAndFeel.java \
 javax/swing/Scrollable.java \
+javax/swing/Spring.java \
+javax/swing/SpringLayout.java \
 javax/swing/SwingConstants.java \
 javax/swing/SwingUtilities.java \
 javax/swing/Timer.java \
@@ -3210,6 +3212,7 @@ javax/swing/JTree.lo javax/swing/JViewport.lo javax/swing/JWindow.lo \
 javax/swing/KeyStroke.lo javax/swing/ListCellRenderer.lo \
 javax/swing/ListModel.lo javax/swing/ListSelectionModel.lo \
 javax/swing/LookAndFeel.lo javax/swing/Scrollable.lo \
+javax/swing/Spring.lo javax/swing/SpringLayout.lo \
 javax/swing/SwingConstants.lo javax/swing/SwingUtilities.lo \
 javax/swing/Timer.lo javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
 javax/swing/UnsupportedLookAndFeelException.lo \
@@ -5182,6 +5185,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/ScrollPaneLayout.P .deps/javax/swing/Scrollable.P \
 .deps/javax/swing/SingleSelectionModel.P \
 .deps/javax/swing/SizeRequirements.P .deps/javax/swing/SizeSequence.P \
+.deps/javax/swing/Spring.P .deps/javax/swing/SpringLayout.P \
 .deps/javax/swing/SwingConstants.P .deps/javax/swing/SwingUtilities.P \
 .deps/javax/swing/Timer.P .deps/javax/swing/ToolTipManager.P \
 .deps/javax/swing/UIDefaults.P .deps/javax/swing/UIManager.P \
