@@ -1,11 +1,100 @@
-2003-09-16  Jakub Jelinek  <jakub@redhat.com>
+2003-09-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
-	* configure.in: Move 2003-09-09 check earlier.
-	* configure: Rebuilt.
+	PR optimization/12340
+	* loop.h (struct induction): Document the new semantics
+	of the 'same' field for bivs.
+	* unroll.c (biv_total_increment): Don't count the same
+	biv increment several times.
+	(loop_iterations) [GENERAL_INDUCT]: Likewise.
 
-2003-09-15  Alexandre Oliva  <aoliva@redhat.com>
+2003-09-26  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
-	* cpplib.c (do_pragma): Remove unnecessary cb_line_change.
+	PR bootstrap/12358
+	* pa.c (output_bvb): Fix typo.
+
+2003-09-24  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cpplib.c (do_pragma): Reintroduce cb_line_change call in the
+	code path that calls a handler.
+
+2003-09-23  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/t-darwin (crt2.o): Add stmp-int-hdrs to dependencies.
+
+	* config/rs6000/rs6000.c (function_arg_pass_by_reference): Don't
+	pass zero-size arrays by reference.
+	(rs6000_va_arg): Likewise.
+
+2003-09-22	Joel Sherrill <joel@oarcorp.com>
+
+	* combine.c, config/mips/t-elf, config/c4x/rtems.h: Revert patches
+	which should not have been committed with other RTEMS changes.
+
+2003-09-22  Olivier Hainque  <hainque@act-europe.fr>
+
+	PR target/9786
+	* reg-stack.c (convert_regs_1): Purge possible dead eh edges
+	after potential deletion of trapping insn. Avoids later ICE
+	from call to fixup_abnormal_edges.
+	(convert_regs_2): Stack the current block successors before
+	processing this block, that is, before the potential deletion of
+	dead edges by convert_regs_1, because these edges have been used
+	to initialize the predecessors count.
+
+2003-09-21  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/12301
+	* reorg.c (stop_search_p): Return 1 for insns that can
+	throw internally.
+
+2003-09-19  Joel Sherrill <joel@oarcorp.com>
+
+	* config/m68k/t-m68kbare, config/m68k/t-rtems: Change 68681 to
+	68881.
+
+2003-09-19  Ralf Corsepius <corsepiu@faw.uni-ulm.de>
+
+	* config/m68k/t-rtems (m68k-*-rtems*): New.
+	* config.gcc: Use config/m68k/t-rtems.
+
+2003-09-19  Ralf Corsepius <corsepiu@faw.uni-ulm.de>
+
+	* config/mips/t-rtems: New.
+	* config.gcc (mips*-*-rtems*): Use config/mips/t-rtems.
+
+2003-09-19  T. Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
+            Eric Botcazou <ebotcazou@libertysurf.fr>
+
+	PR target/12166
+	* config/sparc/sol2-c1.asm (start): Set __Argv if GCRT1.
+
+2003-09-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR target/11184
+	* builtins.c (expand_builtin_apply): Use convert_memory_address
+	before returning the value.
+
+2003-09-17  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in (gcc_cv_as_hidden): Only disable if no GNU ld
+	detected.
+	* configure: Regenerate.
+	Fixes PR target/12248.
+
+2003-09-17  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_expand_mov): Do gen_movdi_er_maybe_g
+	always during initial code generation.
+	* config/alpha/alpha.md (movdi_er_maybe_g): Don't conditionalize 
+	on flag_inline_functions.
+
+2003-09-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/11646
+	* cfgrtl.c (purge_dead_edges) [JUMP_INSN]: Rematerialize the
+	EDGE_ABNORMAL flag for EH edges.
+	* toplev.c (rest_of_compilation): Delete unreachable blocks
+	if dead edges were purged after the first CSE pass.
 
 2003-09-16  Jakub Jelinek  <jakub@redhat.com>
 
@@ -17,6 +106,10 @@
 	* config/sh/linux.h (LINK_GCC_C_SEQUENCE_SPEC): Define.
 	* config/sparc/linux.h (LINK_GCC_C_SEQUENCE_SPEC): Define.
 	* config/sparc/linux64.h (LINK_GCC_C_SEQUENCE_SPEC): Define.
+
+2003-09-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cpplib.c (do_pragma): Remove unnecessary cb_line_change.
 
 2003-09-14  Alexandre Oliva  <aoliva@redhat.com>
 
@@ -18211,3 +18304,4 @@ cp:
 	* mips.h (FUNCTION_ARG_REGNO_P): Fix parentheses.
 
 See ChangeLog.7 for earlier changes.
+

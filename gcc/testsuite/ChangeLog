@@ -1,3 +1,51 @@
+2003-09-29  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/unroll1.C: Change unsigned to __SIZE_TYPE__.
+
+2003-09-27  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/unroll1.C: New test.
+
+2003-09-24  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.dg/cpp/Wunknown-pragmas-1.c: New test.
+
+2003-09-23  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-abi-1.c: New file.
+
+2003-09-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/reg-stack2.C: New test.
+
+2003-09-21  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	* g++.dg/eh/delayslot1.C: New test.
+
+2003-09-19  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* g++.dg/init/array11.C: Change unsigned to __SIZE_TYPE__
+	so that it will not complain on LP64 targets.
+
+2003-09-18  Mark Mitchell  <mark@codesourcery.com>
+
+	PR target/11184
+	* gcc.dg/builtin-apply1.c: New test.
+
+2003-09-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/11991
+	* g++.dg/rtti/typeid3.C: New test.
+
+2003-09-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/12266
+	* g++.dg/overload/template1.C: New test.
+
+2003-09-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/opt/cfg3.C: New test.
+
 2003-09-14  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/3907
@@ -15174,3 +15222,4 @@ rlsruhe.de>
 	correspond to c-torture	1.11.
 
 	* New file.
+
