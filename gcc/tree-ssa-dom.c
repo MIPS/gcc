@@ -1197,7 +1197,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
   /* If we have a single predecessor (ignoring loop backedges), then extract
      EDGE_FLAGS from the single incoming edge.  Otherwise just return as
      there is nothing to do.  */
-  if (EDGE_COUNT (bb->preds) == 1
+  if (EDGE_COUNT (bb->preds) >= 1
       && parent_block_last_stmt)
     {
       edge e = single_incoming_edge_ignoring_loop_edges (bb);

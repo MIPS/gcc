@@ -1,3 +1,8 @@
+2004-08-18  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-ssa-dom.c (record_equivalences_from_incoming_edge):
+	Extract edge flags with one _or_more_ edges.
+
 2004-08-18  Ben Elliston  <bje@au.ibm.com>
 
 	* Merge with edge-vector-mergepoint-20040810.
