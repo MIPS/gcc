@@ -341,6 +341,20 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   if (*expr_p == NULL_TREE)
     return 1;
 
+  /* Go ahead and strip type nops before we test our predicate.  */
+  STRIP_MAIN_TYPE_NOPS (*expr_p);
+
+  /* Avoid gimplifying an expression that is already in gimple form
+     according to our predicate.
+
+     Unfortunately the predicate is_simple_stmt always returns
+     true, regardless of the structure of the underlying tree, so
+     if that is our predicate, then we bypass this test and 
+     force gimplification of the expression.  FIXME, someone
+     should fix is_simple_stmt.  */
+  if (simple_test_f != is_simple_stmt && (*simple_test_f) (*expr_p))
+    return 1;
+
   saved_input_filename = NULL;	/* [GIMPLE] Avoid uninitialized use warning.  */
   saved_lineno = -1;		/* [GIMPLE] Avoid uninitialized use warning.  */
 

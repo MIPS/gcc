@@ -180,7 +180,7 @@ Boston, MA 02111-1307, USA.  */
 
    This is an extension to SIMPLE.  Perhaps CONSTRUCTORs should be
    eliminated entirely?  */
-   
+
 int
 is_simple_constructor (t)
      tree t;
@@ -190,8 +190,9 @@ is_simple_constructor (t)
   if (TREE_CODE (t) != CONSTRUCTOR)
     return 0;
 
-  if (TREE_STATIC (t))
-    return 1;
+  /* We used to return nonzero if TREE_STATIC (t) was set.  This
+     is wrong as we want to look inside constructors for static
+     variables for things like label addresses.  */
 
   for (elt_list = CONSTRUCTOR_ELTS (t); elt_list;
        elt_list = TREE_CHAIN (elt_list))
@@ -566,6 +567,11 @@ int
 is_simple_addr_expr_arg (t)
      tree t;
 {
+  /* If we're taking the address of a label for the first time, then
+     this expression is not in gimple form.  */
+  if (TREE_CODE (t) == LABEL_DECL && ! FORCED_LABEL (t))
+    return 0;
+
   return (is_simple_varname (t) || is_simple_call_expr (t));
 }
 

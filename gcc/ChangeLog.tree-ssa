@@ -1,3 +1,12 @@
+2003-05-22  Jeff Law  <law@redhat.com>
+
+	* gimplify.c (simplify_expr): Avoid gimplifying expressions which
+	are already in gimple form.
+	* tree-simple.c (is_simple_constructor): No longer treat TREE_STATIC
+	constructors specially.
+	(is_simple_addr_expr_arg): If we're taking the address of a label
+	for the first time, then the ADDR_EXPR is not in gimple form.
+
 2003-05-22  Jason Merrill  <jason@redhat.com>
 
 	* tree-cfg.c (compute_reachable_eh): Don't skip cleanups.
