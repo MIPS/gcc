@@ -109,6 +109,7 @@ extern struct tree_opt_pass pass_lim;
 extern struct tree_opt_pass pass_unswitch;
 extern struct tree_opt_pass pass_iv_canon;
 extern struct tree_opt_pass pass_record_bounds;
+extern struct tree_opt_pass pass_mark_maybe_inf_loops;
 extern struct tree_opt_pass pass_elim_checks;
 extern struct tree_opt_pass pass_vectorize;
 extern struct tree_opt_pass pass_complete_unroll;

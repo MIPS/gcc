@@ -64,6 +64,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-pass.h"
 #include "timevar.h"
 #include "flags.h"
+#include "function.h"
 
 static struct stmt_stats
 {
@@ -461,10 +462,14 @@ find_obviously_necessary_stmts (struct edge_list *el)
       bb->flags &= ~BB_VISITED;
     }
 
-  if (el)
+  /* Prevent the possibly infinite loops from being removed.  Provided
+     that mark_maybe_infinite_loops was run, this happens automatically,
+     since fake builtin call statements were inserted on back edges
+     of loops for that it is not able to prove that they stop.  */
+  if (el && !cfun->marked_maybe_inf_loops)
     {
-      /* Prevent the loops from being removed.  We must keep the infinite loops,
-	 and we currently do not have a means to recognize the finite ones.  */
+      mark_dfs_back_edges ();
+
       FOR_EACH_BB (bb)
 	{
 	  for (e = bb->succ; e; e = e->succ_next)
@@ -862,8 +867,6 @@ perform_tree_ssa_dce (bool aggressive, bool no_cfg_changes)
       el = create_edge_list ();
       find_all_control_dependences (el);
       timevar_pop (TV_CONTROL_DEPENDENCES);
-
-      mark_dfs_back_edges ();
     }
 
   find_obviously_necessary_stmts (el);

@@ -331,6 +331,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_record_bounds);
   NEXT_PASS (pass_loop_test);
   NEXT_PASS (pass_elim_checks);
+  NEXT_PASS (pass_mark_maybe_inf_loops);
   NEXT_PASS (pass_vectorize);
   NEXT_PASS (pass_complete_unroll);
   NEXT_PASS (pass_linear_transform);

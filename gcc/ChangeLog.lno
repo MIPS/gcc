@@ -1,3 +1,27 @@
+2004-07-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-ssa-loop.o, tree-ssa-dce.o): Add function.h
+	dependency.
+	* builtins.c (expand_builtin): Handle BUILT_IN_MAYBE_INFINITE_LOOP.
+	* builtins.def (BUILT_IN_MAYBE_INFINITE_LOOP): New builtin.
+	* function.h (struct function): Add marked_maybe_inf_loops field.
+	* timevar.def (TV_MARK_MILOOPS): New timevar.
+	* tree-flow.h (mark_maybe_infinite_loops): Declare.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	pass_mark_maybe_inf_loops.
+	* tree-pass.h (pass_mark_maybe_inf_loops): Declare.
+	* tree-ssa-dce.c: Include function.h.
+	(find_obviously_necessary_stmts): Mark back edges only if they were
+	not marked already.
+	(perform_tree_ssa_dce): Do not call mark_dfs_back_edges here.
+	* tree-ssa-loop-niter.c (unmark_surely_finite_loop,
+	mark_maybe_infinite_loops): New functions.
+	* tree-ssa-loop.c: Include function.h.
+	(tree_mark_maybe_inf_loops, gate_tree_mark_maybe_inf_loops,
+	pass_mark_maybe_inf_loops): New pass.
+	* tree-ssa-operands.c (function_ignores_memory_p): Add
+	BUILT_IN_MAYBE_INFINITE_LOOP.
+
 2004-07-12  Sebastian Pop  <pop@cri.ensmp.fr>
 
 	* Makefile.in (tree-scalar-evolution.o): Remove dependences on 

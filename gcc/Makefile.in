@@ -1666,7 +1666,7 @@ tree-eh.o : tree-eh.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
 tree-ssa-loop.o : tree-ssa-loop.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) tree-inline.h \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
-   tree-pass.h flags.h $(SCEV_H) tree-vectorizer.h
+   tree-pass.h flags.h $(SCEV_H) tree-vectorizer.h function.h
 tree-ssa-loop-ch.o : tree-ssa-loop-ch.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(CFGLOOP_H) tree-inline.h \
    output.h diagnostic.h $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -1934,7 +1934,7 @@ lcm.o : lcm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    $(BASIC_BLOCK_H) $(TM_P_H) $(DF_H) function.h
 tree-ssa-dce.o : tree-ssa-dce.c $(CONFIG_H) system.h errors.h $(TREE_H) \
     $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h $(TIMEVAR_H) $(TM_H) \
-    coretypes.h $(TREE_DUMP_H) tree-pass.h flags.h
+    coretypes.h $(TREE_DUMP_H) tree-pass.h flags.h function.h
 tree-ssa-ccp.o : tree-ssa-ccp.c $(CONFIG_H) system.h errors.h $(TREE_H) \
     $(RTL_H) $(TM_P_H) $(TREE_FLOW_H) diagnostic.h tree-inline.h \
     $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_GIMPLE_H) \

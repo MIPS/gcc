@@ -40,6 +40,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-scalar-evolution.h"
 #include "tree-data-ref.h"
 #include "tree-vectorizer.h"
+#include "function.h"
 
 /* The loop tree currently optimized.  */
 
@@ -287,6 +288,41 @@ struct tree_opt_pass pass_loop_test =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   0					/* todo_flags_finish */
+};
+
+/* Marks loops that cannot be removed in DCE, since they are possibly
+   infinite.  */
+
+static void
+tree_mark_maybe_inf_loops (void)
+{
+  if (!current_loops)
+    return;
+
+  cfun->marked_maybe_inf_loops = 1;
+  mark_maybe_infinite_loops (current_loops);
+}
+
+static bool
+gate_tree_mark_maybe_inf_loops (void)
+{
+  return (flag_tree_dce != 0 && optimize >= 2);
+}
+
+struct tree_opt_pass pass_mark_maybe_inf_loops = 
+{
+  "miloops",				/* name */
+  gate_tree_mark_maybe_inf_loops,	/* gate */
+  tree_mark_maybe_inf_loops,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_MARK_MILOOPS,  			/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func                	/* todo_flags_finish */
 };
 
 /* Removal of redundant checks.  */

@@ -606,6 +606,7 @@ void tree_ssa_lim (struct loops *loops);
 void tree_ssa_iv_optimize (struct loops *);
 void tree_ssa_prefetch_arrays (struct loops *);
 void canonicalize_induction_variables (struct loops *loops);
+void mark_maybe_infinite_loops (struct loops *);
 bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int, sbitmap,
 					 edge, edge *,

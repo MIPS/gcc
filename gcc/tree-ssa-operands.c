@@ -896,6 +896,7 @@ function_ignores_memory_p (tree expr)
   switch (fcode)
     {
       case BUILT_IN_PREFETCH:
+      case BUILT_IN_MAYBE_INFINITE_LOOP:
 	return true;
 
       default:

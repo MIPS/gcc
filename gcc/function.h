@@ -502,6 +502,9 @@ struct function GTY(())
 
   /* Nonzero if code to initialize arg_pointer_save_area has been emitted.  */
   unsigned int arg_pointer_save_area_init : 1;
+
+  /* Nonzero if the loops that are possibly infinite are marked.  */
+  unsigned int marked_maybe_inf_loops : 1;
 };
 
 /* The function currently being compiled.  */

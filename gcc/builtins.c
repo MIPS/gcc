@@ -6194,6 +6194,10 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	return target;
       break;
 
+    case BUILT_IN_MAYBE_INFINITE_LOOP:
+      /* This is just a fake statement that expands to nothing.  */
+      return const0_rtx;
+
     default:	/* just do library call, if unknown builtin */
       if (!DECL_ASSEMBLER_NAME_SET_P (fndecl))
 	error ("built-in function `%s' not currently supported",
