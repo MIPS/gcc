@@ -300,8 +300,7 @@ iv_analysis_loop_init (struct loop *loop)
   for (b = 0; b < loop->num_nodes; b++)
     {
       assign_luids (body[b]);
-      mark_sets (body[b], dominated_by_p (CDI_DOMINATORS, loop->latch,
-					  body[b]));
+      mark_sets (body[b], just_once_each_iteration_p (loop, body[b]));
     }
 
   free (body);

@@ -255,7 +255,7 @@ struct tree_opt_pass pass_ch =
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  TV_TREE_LOOP,				/* tv_id */
+  TV_TREE_CH,				/* tv_id */
   PROP_cfg,				/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */

@@ -1,3 +1,43 @@
+2004-02-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* Makefile.in (tree-ssa-loop-ivopts.o): Add RECOG_H and insn-config.h
+	dependency.
+	* loop-iv.c (iv_analysis_loop_init): Ensure we only care about
+	increments that are done just once each iteration.
+	* timevar.def (TV_TREE_LOOP_IVOPTS, TV_TREE_CH): New.
+	* tree-ssa-loop-ivopts.c: Include insn-config.h and recog.h.
+	(INFTY): Increase.
+	(struct iv_use): Add choices, n_choices, min_cost_cand and selected
+	fields.  Rename field best_cost to min_cost.
+	(CONSIDER_ALL_CANDIDATES_BOUND): Decrease.
+	(dump_use): Dump new fields.
+	(dump_uses, cst_and_fits_in_hwi, int_cst_value, build_int_cst,
+	divide, strip_offset, add_cost, multiply_by_cost, get_address_cost,
+	force_var_cost, peel_address, ptr_difference_const,
+	split_address_cost, ptr_difference_cost, difference_cost,
+	get_computation_cost): New functions.
+	(find_induction_variables): Formating changes.
+	(record_use): Initialize new fields.
+	(add_old_ivs_candidates): Do not add invariants.
+	(set_use_iv_cost): Set min_cost.
+	(get_use_iv_cost): Fix.
+	(get_computation): Use less memory.
+	(determine_use_iv_cost_generic, determine_use_iv_cost_address,
+	determine_use_iv_cost_condition, determine_iv_cost): Use
+	new cost estimation functions.
+	(compute_iv_set_cost): Removed.
+	(struct undo_record): New.
+	(use_with_min_choices, min_remaining_cost, undo_changes,
+	execute_removal, add_forbidden_ivs, try_candidate, set_cost,
+	get_initial_solution): New functions.
+	(find_optimal_iv_set_1, find_optimal_iv_set): Made more effective.
+	(create_new_ivs, rewrite_use_nonlinear_expr, rewrite_use_address):
+	Unshare created expressions.
+	(free_loop_data): Free new structures.
+	(tree_ssa_iv_optimize_loop): Remove garbage collection.
+	(tree_ssa_iv_optimize): Use TV_TREE_LOOP_IVOPTS timevar.
+	* tree-ssa-loop.c (pass_ch): Use TV_TREE_CH timevar.
+
 2004-02-02  Steven Bosscher  <stevenb@suse.de>
 
 	* common.opt: Re-order some options in ASCII collating order.
