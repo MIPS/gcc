@@ -1,3 +1,26 @@
+2004-02-16  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (OBJS-common): Add tree-ssa-dse.o
+	(tree-ssa-dse.o): Add dependencies.
+	* common.opt (ftree-dse): New option.
+	* flags.h (flag_tree_dse): New.
+	(flag_tree_dom): Fix comments.
+	* opts.c (decode_options): Turn on flag_tree_dse.
+	(common_handle_option): Handle  OPT_ftree_dse.
+	* timevar.def (TV_TREE_PHIOPT): Update text.
+	(TV_TREE_DSE): New timevar.
+	* toplev.c (flag_tree_dse): New.
+	(flag_tree_dom): Fix comments.
+	(lang_independent_options): Add -ftree-dse.
+	* tree-dfa.c (redirect_immediate_use): New function.
+	(redirect_immediate_uses): New function.
+	* tree-flow.h (stmt_ann_d): Add UID field.
+	(redirect_immediate_uses): Declare.
+	* tree-optimize.c (init_tree_optimization_passes): Link in DSE pass.
+	* tree-pass.h (pass_dse): Declare.
+	* tree-ssa-dse.c: New file implementing DSE.
+	* doc/invoke.texi: Document new option.
+
 2004-02-16  Richard Henderson  <rth@redhat.com>
 
 	* tree-nested.c: New file.

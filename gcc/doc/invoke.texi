@@ -254,6 +254,7 @@ in the following sections.
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
 -fdump-tree-dom@r{[}-@var{n}@r{]} @gol
+-fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-loop@r{[}-@var{n}@r{]} -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
@@ -307,7 +308,7 @@ in the following sections.
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
--ftree-dominator-opts @gol
+-ftree-dominator-opts -ftree-dse @gol
 -ftree-loop-optimize -ftree-sra @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -3520,6 +3521,11 @@ file name is made by appending @file{.sra} to the source file name.
 @opindex fdump-tree-dom
 Dump each function after applying dominator tree optimizations.  The file
 name is made by appending @file{.dom} to the source file name.
+
+@item dse
+@opindex fdump-tree-dse
+Dump each function after applying dead store elimination.  The file
+name is made by appending @file{.dse} to the source file name.
 
 @item phiopt
 @opindex fdump-tree-phiopt

@@ -120,6 +120,7 @@ extern struct tree_opt_pass pass_warn_function_return;
 extern struct tree_opt_pass pass_phiopt;
 extern struct tree_opt_pass pass_forwprop;
 extern struct tree_opt_pass pass_redundant_phi;
+extern struct tree_opt_pass pass_dse;
 
 
 #endif /* GCC_TREE_PASS_H */
