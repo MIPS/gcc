@@ -37,7 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Check if a C++ type is safe for aliasing.
    Return TRUE if T safe for aliasing FALSE otherwise.  */
 
-static bool
+bool
 ok_to_generate_alias_set_for_type (tree t)
 {
   if (TYPE_PTRMEMFUNC_P (t))

@@ -23,8 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_CP_OBJCP_COMMON
 
 /* In cp-objcp-common.c.  */
-static bool ok_to_generate_alias_set_for_type (tree);
-
+extern bool ok_to_generate_alias_set_for_type (tree);
 extern HOST_WIDE_INT cxx_get_alias_set (tree);
 extern bool cxx_warn_unused_global_decl (tree);
 extern tree cp_expr_size (tree);
