@@ -8,7 +8,7 @@
 	(expand_load_internal): Don't set DECL_CONTEXT and
 	VAR_LANG_DECL_SPECIFIC.
 	(expand_byte_code): Set input_location.line.
-	* decl.c (push_jvm_slot): Remove unused var rtl;
+	* decl.c (push_jvm_slot): Remove unused var rtl.
 	(update_aliases): New function.
 	(push_jvm_slot): Instead of sharing RTL between decls, set a new
 	decl to the value of whatever is in this slot beforehand.
