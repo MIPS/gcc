@@ -349,6 +349,22 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		continue;
 
 	      prob = e->probability;
+
+	      /* ??? I believe that even in the case we are not duplicating we
+		 should be looking for most frequent edge here.  Consider the
+		 case where BB itself is frequent, but the edge is not.  In
+		 that case we should find another frequent predecesor and not
+		 join it into the current trace.
+
+		 Honza.  */
+
+	      if (RBI (e->dest)->visited
+		  && RBI (e->dest)->visited != *n_traces
+		  && RBI (e->dest)->duplicated != *n_traces
+		  && !copy_bb_p (e->dest, *n_traces, size_can_grow))
+		continue;
+	      freq = EDGE_FREQUENCY (e);
+#if 0
 	      if (RBI (e->dest)->visited
 		  && RBI (e->dest)->visited != *n_traces
 		  && RBI (e->dest)->duplicated != *n_traces)
@@ -365,6 +381,7 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 	        {
 		  freq = e->dest->frequency;
 		}
+#endif
 
 	      /* Edge that cannot be fallthru or improbable or infrequent
 		 successor (ie. it is unsuitable successor).  */
@@ -436,9 +453,34 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		  break;
 		}
 	      else if (RBI (best_edge->dest)->visited == *n_traces)
-		/* BEST_EDGE->DEST is in current trace.  */
+		/* BEST_EDGE->DEST is in current trace, this means that we've
+		   hit the loop.  There is nothing we can do to make the
+		   trace sequentional except for loop peeling we are not
+		   supposed to do.
+
+		   Still attempt to avoid unconditional jump inside the loop.
+		   This may happen in case we are seeing an edge with single
+		   destination or conditional jump that is not reversible.
+
+		   Then we may perform loop rotation or duplicate part of the
+		   loop body till next conditional jump.  */
 		{
-		  if (best_edge->dest != bb && best_edge->dest->index != 0)
+		  edge other_edge;
+		  for (other_edge = bb->succ; other_edge;
+		       other_edge = other_edge->succ_next)
+		    if ((other_edge->flags & EDGE_CAN_FALLTHRU)
+			&& other_edge != best_edge)
+		      break;
+
+		  /* In the case the edge is already not a fallthru, or there
+		     is other edge we can make fallhtru, we are happy.  */
+		  if (!(best_edge->flags & EDGE_FALLTHRU) || other_edge)
+		    ;
+		  /* ??? I think we should check here how much work we need
+		     if we decide to duplicate the code - ie when we will hit
+		     the first block that may be cheap end of the loop.  */
+		  else if (best_edge->dest != bb
+			   && best_edge->dest != ENTRY_BLOCK_PTR->next_bb)
 		    {
 		      if (EDGE_FREQUENCY (best_edge) 
 			  > 4 * best_edge->dest->frequency / 5
@@ -463,6 +505,9 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 					 "Rotating loop %d - %d\n",
 					 best_edge->dest->index, bb->index);
 
+			      /* ??? Again here, we need to find the basic block
+			         that is sensible end of the loop, not rotate
+				 to random one.  */
 			      if (best_edge->dest == trace->first)
 				{
 				  RBI (bb)->next = trace->first;
@@ -494,10 +539,15 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 
 		  /* Terminate the trace.  */
 		  trace->last = bb;
+
+		  /* ??? We may consider continuing the trace with other_edge.
+		     Honza.  */
 		  break;
 		}
 	      else if (RBI (best_edge->dest)->visited)
 		{
+		  /* ??? Why disqualify first/last BB?  This should be already
+		     checked by cfg_layout_can_duplicate_bb_p.  */
 		  if (best_edge->dest->index > 0 
 		      && best_edge->dest->index < original_last_basic_block
 		      && start_of_trace[best_edge->dest->index] >= 0)
