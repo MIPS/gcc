@@ -139,7 +139,7 @@ static void compute_global_livein	PARAMS ((bitmap, bitmap));
 static void set_def_block		PARAMS ((tree, basic_block));
 static void set_livein_block		PARAMS ((tree, basic_block));
 static void insert_phi_nodes		PARAMS ((bitmap *, sbitmap));
-static void rewrite_block		PARAMS ((basic_block));
+static void rewrite_block		PARAMS ((basic_block, tree));
 static void rewrite_stmt		PARAMS ((block_stmt_iterator,
 						 varray_type *,
 						 varray_type *));
@@ -159,6 +159,7 @@ static int var_value_eq			PARAMS ((const void *, const void *));
 static void def_blocks_free		PARAMS ((void *));
 static int debug_def_blocks_r		PARAMS ((void **, void *));
 static tree lookup_avail_expr		PARAMS ((tree, varray_type *));
+static tree get_eq_expr_value		PARAMS ((tree));
 static hashval_t avail_expr_hash	PARAMS ((const void *));
 static int avail_expr_eq		PARAMS ((const void *, const void *));
 static struct def_blocks_d *get_def_blocks_for PARAMS ((tree));
@@ -168,6 +169,18 @@ static void htab_statistics		PARAMS ((FILE *, htab_t));
 #if 1
 static bool var_is_live			PARAMS ((tree, basic_block));
 #endif
+
+/* Return nonzero if RHS may be copy propagated into subsequent
+   uses of LHS.  */
+#define MAY_COPYPROP_P(LHS, RHS)					\
+    (TREE_CODE (RHS) == SSA_NAME					\
+     /* Don't copy propagate assignments of the form T = *P.  It	\
+        increases the amount of indirect memory references.  */		\
+     && ! (TREE_CODE (SSA_NAME_VAR (LHS)) != INDIRECT_REF		\
+	   && TREE_CODE (SSA_NAME_VAR (RHS)) == INDIRECT_REF)		\
+     /* FIXME.  For now, don't propagate pointers if they haven't been	\
+        dereferenced (see update_indirect_ref_vuses).  */		\
+     && (!POINTER_TYPE_P (TREE_TYPE (RHS)) || indirect_ref (RHS)))
 
 
 /* Main entry point to the SSA builder.  FNDECL is the gimplified function
@@ -293,7 +306,7 @@ rewrite_into_ssa (fndecl)
 
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
-  rewrite_block (ENTRY_BLOCK_PTR);
+  rewrite_block (ENTRY_BLOCK_PTR, NULL_TREE);
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 
   /* Free allocated memory.  */
@@ -607,11 +620,19 @@ insert_phi_nodes (dfs, globals)
       This step also removes all the expressions added to the AVAIL_EXPRS
       table during renaming.  This is because the expressions made
       available to block BB and its dominator children are not valid for
-      blocks above BB in the dominator tree.  */
+      blocks above BB in the dominator tree.
+
+   EQ_EXPR_VALUE is an assignment expression created when BB's immediate
+   dominator ends in a COND_EXPR statement whose predicate is of the form
+   'VAR == VALUE', where VALUE may be another variable or a constant. 
+   This is used to propagate VALUE on the THEN_CLAUSE of that conditional.
+   This assignment is inserted in CONST_AND_COPIES so that the copy and
+   constant propagator can find more propagation opportunities.  */
 
 static void
-rewrite_block (bb)
+rewrite_block (bb, eq_expr_value)
      basic_block bb;
+     tree eq_expr_value;
 {
   edge e;
   varray_type block_defs, block_avail_exprs;
@@ -619,6 +640,7 @@ rewrite_block (bb)
   unsigned long i;
   block_stmt_iterator si;
   tree phi;
+  tree prev_value = NULL_TREE;
 
   /* Initialize the local stacks.
      
@@ -638,6 +660,15 @@ rewrite_block (bb)
 
   if (tree_ssa_dump_file && (tree_ssa_dump_flags & TDF_DETAILS))
     fprintf (tree_ssa_dump_file, "\n\nRenaming block #%d\n\n", bb->index);
+
+  if (eq_expr_value)
+    {
+      prev_value = get_value_for (TREE_OPERAND (eq_expr_value, 0),
+				  const_and_copies);
+      set_value_for (TREE_OPERAND (eq_expr_value, 0),
+		     TREE_OPERAND (eq_expr_value, 1),
+		     const_and_copies);
+    }
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -672,7 +703,24 @@ rewrite_block (bb)
   /* Step 4.  Recursively search the dominator children of BB.  */
   children = dom_children (bb);
   if (children)
-    EXECUTE_IF_SET_IN_BITMAP (children, 0, i, rewrite_block (BASIC_BLOCK (i)));
+    {
+      if (bb->flags & BB_CONTROL_EXPR)
+	{
+	  tree last = last_stmt (bb);
+	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
+	    {
+	      if (BASIC_BLOCK (i)->pred->flags & EDGE_TRUE_VALUE)
+		rewrite_block (BASIC_BLOCK (i), get_eq_expr_value (last));
+	      else
+		rewrite_block (BASIC_BLOCK (i), NULL_TREE);
+	    });
+	}
+      else
+	{
+	  EXECUTE_IF_SET_IN_BITMAP (children, 0, i,
+	    rewrite_block (BASIC_BLOCK (i), NULL_TREE));
+	}
+    }
 
   /* Step 5.  Restore the current reaching definition for each variable
      referenced in the block (in reverse order).  */
@@ -701,6 +749,16 @@ rewrite_block (bb)
       tree stmt = VARRAY_TOP_TREE (block_avail_exprs);
       VARRAY_POP (block_avail_exprs);
       htab_remove_elt (avail_exprs, stmt);
+    }
+
+  if (eq_expr_value)
+    {
+      struct var_value_d vm;
+      vm.var = TREE_OPERAND (eq_expr_value, 0);
+      if (prev_value)
+	set_value_for (vm.var, prev_value, const_and_copies);
+      else
+	htab_remove_elt (const_and_copies, &vm);
     }
 }
 
@@ -1267,17 +1325,7 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
       rhs = TREE_OPERAND (stmt, 1);
       if (may_optimize_p)
 	{
-	  bool may_copyprop_p =
-	    (TREE_CODE (rhs) == SSA_NAME
-	     /* Don't copy propagate assignments of the form T = *P.  It
-		increases the amount of indirect memory references.  */
-	     && ! (TREE_CODE (SSA_NAME_VAR (*def_p)) != INDIRECT_REF
-	           && TREE_CODE (SSA_NAME_VAR (rhs)) == INDIRECT_REF)
-	     /* FIXME.  For now, don't propagate pointers if they haven't been
-	        dereferenced (see update_indirect_ref_vuses).  */
-	     && (!POINTER_TYPE_P (TREE_TYPE (rhs)) || indirect_ref (rhs)));
-
-	  if (may_copyprop_p
+	  if (MAY_COPYPROP_P (*def_p, rhs)
 	      || (TREE_CONSTANT (rhs) && is_simple_val (rhs)))
 	    set_value_for (*def_p, rhs, const_and_copies);
 	}
@@ -1348,7 +1396,7 @@ register_new_def (var, def, block_defs_p)
   tree currdef = get_value_for (var, currdefs);
 
   /* If the current reaching definition is NULL or a constant, push the
-     variable itself so that rewrite_blocks knows what variable is
+     variable itself so that rewrite_block knows what variable is
      associated with this NULL reaching def when unwinding the
      *BLOCK_DEFS_P stack.  */
   if (currdef == NULL_TREE)
@@ -1721,6 +1769,41 @@ lookup_avail_expr (stmt, block_avail_exprs_p)
   /* Return the LHS of the assignment so that it can be used as the current
      definition of another variable.  */
   return TREE_OPERAND ((tree) *slot, 0);
+}
+
+
+/* Given a conditional statement IF_STMT, return the assignment 'X = Y', if
+   the conditional is of the form 'X == Y'.  If the conditional is of the
+   form 'X'.  The assignment 'X = 1' is returned.  */
+
+static tree
+get_eq_expr_value (if_stmt)
+     tree if_stmt;
+{
+  tree cond, value;
+
+  cond = COND_EXPR_COND (if_stmt);
+
+  /* If the conditional is a single variable 'X', return 'X = 1'.  */
+  if (SSA_VAR_P (cond))
+    return build (MODIFY_EXPR, TREE_TYPE (cond), cond, integer_one_node);
+
+  /* If the conditional is of the form 'X == Y', return 'X = Y'.  */
+  else if (TREE_CODE (cond) == EQ_EXPR
+	   && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
+	   && (TREE_CONSTANT (TREE_OPERAND (cond, 1))
+	       || (TREE_CODE (TREE_OPERAND (cond, 1)) == SSA_NAME
+		   && MAY_COPYPROP_P (TREE_OPERAND (cond, 0),
+				      TREE_OPERAND (cond, 1)))))
+    value = build (MODIFY_EXPR, TREE_TYPE (cond),
+		   TREE_OPERAND (cond, 0),
+		   TREE_OPERAND (cond, 1));
+
+  /* Return nothing for any other conditional.  */
+  else
+    value = NULL_TREE;
+
+  return value;
 }
 
 

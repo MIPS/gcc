@@ -1,5 +1,18 @@
 2003-03-28  Diego Novillo  <dnovillo@redhat.com>
 
+	* tree-ssa.c (rewrite_block): Add new argument 'eq_expr_value'. 
+	Update all users.
+	If 'eq_expr_value' is given, use it to register a new
+	value for the variable given on the LHS.
+	If the block ends in a conditional expression of the form 'X == Y',
+	propagate 'X = Y' into the THEN_CLAUSE.
+	(MAY_COPYPROP_P): Define.
+	(rewrite_stmt): Call it.
+	(register_new_def): Fix comment.
+	(get_eq_expr_value): New function.
+
+2003-03-28  Diego Novillo  <dnovillo@redhat.com>
+
 	* basic-block.h (BB_COMPOUND_ENTRY): Remove.  Update all users
 	everywhere.
 	* tree-cfg.c: Minor fixes to various comments.
