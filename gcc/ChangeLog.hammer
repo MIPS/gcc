@@ -1,3 +1,7 @@
+Wed Feb 19 17:09:48 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* toplev.c (rest_of_compilation): Do unswitching before tracing.
+
 Wed Feb 19 14:41:02 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/execute/990208-1.c:  Add noinline attributes as needed.

@@ -3089,6 +3089,34 @@ rest_of_compilation (decl)
       count_or_remove_death_notes (NULL, 1);
     }
 
+  /* Perform loop optimalizations.  */
+  if (flag_unswitch_loops)
+    {
+      struct loops *loops;
+      timevar_push (TV_LOOP);
+      open_dump_file (DFI_loop2, decl);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+
+      loops = loop_optimizer_init (rtl_dump_file);
+
+      if (loops)
+	{
+	  unswitch_loops (loops);
+          loop_optimizer_finalize (loops, rtl_dump_file);
+	}
+
+      
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      delete_trivially_dead_insns (insns, max_reg_num ());
+      reg_scan (insns, max_reg_num (), 0);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+      close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
+      timevar_pop (TV_LOOP);
+      ggc_collect ();
+    }
+
   if (optimize >= 0)
     {
       open_dump_file (DFI_ce1, decl);
@@ -3123,7 +3151,7 @@ rest_of_compilation (decl)
     }
 
   /* Perform loop optimalizations.  */
-  if (optimize > 0)
+  if (flag_peel_loops || flag_unroll_loops)
     {
       struct loops *loops;
       timevar_push (TV_LOOP);
@@ -3135,15 +3163,10 @@ rest_of_compilation (decl)
 
       if (loops)
 	{
-	  /* Here will go optimalizations.  */
-	  if (flag_unswitch_loops)
-	    unswitch_loops (loops);
-
- 	  if (flag_peel_loops || flag_unroll_loops)
- 	    unroll_and_peel_loops (loops,
-		(flag_peel_loops ? UAP_PEEL : 0) |
-		(flag_unroll_loops ? UAP_UNROLL : 0) |
-		(flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
+	  unroll_and_peel_loops (loops,
+	      (flag_peel_loops ? UAP_PEEL : 0) |
+	      (flag_unroll_loops ? UAP_UNROLL : 0) |
+	      (flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
 
 	  loop_optimizer_finalize (loops, rtl_dump_file);
 	}
