@@ -779,7 +779,8 @@ gcse_main (f, file)
     }
 
   life_analysis (get_insns (), rtl_dump_file,
-		 PROP_DEATH_NOTES);
+		 PROP_DEATH_NOTES | PROP_EQUAL_NOTES | PROP_SCAN_DEAD_CODE
+		 | PROP_KILL_DEAD_CODE);
 
   /* See what modes support reg/reg copy operations.  */
   if (! can_copy_init_p)
@@ -831,7 +832,9 @@ gcse_main (f, file)
       changed = one_cprop_pass (pass + 1, 0);
 
       update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-					PROP_DEATH_NOTES);
+					PROP_DEATH_NOTES | PROP_EQUAL_NOTES
+					| PROP_SCAN_DEAD_CODE
+				       	| PROP_KILL_DEAD_CODE);
       if (optimize_size)
 	changed |= one_classic_gcse_pass (pass + 1);
       else
@@ -876,7 +879,9 @@ gcse_main (f, file)
 	  max_gcse_regno = max_reg_num ();
 	  alloc_gcse_mem (f);
 	  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-					    PROP_DEATH_NOTES);
+					    PROP_DEATH_NOTES | PROP_EQUAL_NOTES
+					    | PROP_SCAN_DEAD_CODE
+					    | PROP_KILL_DEAD_CODE);
 	  changed |= one_code_hoisting_pass ();
 	  free_gcse_mem ();
 
@@ -4657,7 +4662,8 @@ can_insert_insn_end_bb_p (expr, bb)
 			     bb->global_live_at_end);
 
   live = INITIALIZE_REG_SET (live_head);
-  pbi = init_propagate_block_info (bb, live, NULL, NULL, 0);
+  pbi = init_propagate_block_info (bb, live, NULL, NULL, PROP_EQUAL_NOTES);
+  COPY_REG_SET (live, bb->global_live_at_end);
   for (insn = bb->end; insn != last; insn = PREV_INSN (insn))
     propagate_one_insn (pbi, insn);
   retval = can_hoist_insn_p (expr->insn, SET_DEST (single_set (expr->insn)),

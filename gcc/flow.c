@@ -1657,6 +1657,7 @@ propagate_one_insn (pbi, insn)
     ;
   else
     {
+      rtx note;
       /* Any regs live at the time of a call instruction must not go
 	 in a register clobbered by calls.  Find all regs now live and
 	 record this for them.  */
@@ -1712,6 +1713,10 @@ propagate_one_insn (pbi, insn)
       /* Record uses.  */
       if (! insn_is_dead)
 	mark_used_regs (pbi, PATTERN (insn), NULL_RTX, insn);
+      if ((flags & PROP_EQUAL_NOTES)
+	  && ((note = find_reg_note (insn, REG_EQUAL, NULL_RTX))
+	      || (note = find_reg_note (insn, REG_EQUIV, NULL_RTX))))
+	mark_used_regs (pbi, XEXP (note, 0), NULL_RTX, insn);
 
       /* Sometimes we may have inserted something before INSN (such as a move)
 	 when we make an auto-inc.  So ensure we will scan those insns.  */
@@ -3640,6 +3645,8 @@ mark_used_regs (pbi, x, cond, insn)
   int flags = pbi->flags;
 
  retry:
+  if (!x)
+    return;
   code = GET_CODE (x);
   switch (code)
     {

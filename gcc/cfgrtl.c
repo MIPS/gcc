@@ -1307,7 +1307,10 @@ commit_one_edge_insertion (e, watch_calls)
 				       PATTERN (next_insert_after)))
 		insert_after = next_insert_after;
 	    }
-	  after = insert_after;
+	  if (insert_after == e->src->end)
+	    after = e->dest->head;
+	  else
+	    after = insert_after;
 	  bb = e->dest;
 	}
     }

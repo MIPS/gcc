@@ -815,7 +815,7 @@ cfg_layout_duplicate_bb (bb, e)
       n->probability = s->probability;
       if (new_count)
 	/* Take care for overflows!  */
-	n->count = s->count * 10000 / (bb->count * 10000 / new_count);
+	n->count = s->count * (new_count * 10000 / bb->count) / 10000;
       else
 	n->count = 0;
       s->count -= n->count;
