@@ -1,4 +1,6 @@
-2003-11-13  Jeff Law  <law@redhat.com
+2003-11-13  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (bsi_replace): Restore accidentally removed code.
 
 	* tree-cfg.c (cfg_remove_useless_stmts_bb): Also detect useless
 	var->var copies created by the out-of-ssa translation.

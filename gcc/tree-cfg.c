@@ -2437,6 +2437,9 @@ bsi_move_to_bb_end (block_stmt_iterator *from, basic_block bb)
 void
 bsi_replace (const block_stmt_iterator *bsi, tree stmt)
 {
+  SET_EXPR_LOCUS (stmt, EXPR_LOCUS (bsi_stmt (*bsi)));
+  set_bb_for_stmt (stmt, bsi->bb);
+
   *bsi_stmt_ptr (*bsi) = stmt;
   modify_stmt (stmt);
 }
