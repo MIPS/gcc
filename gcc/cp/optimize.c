@@ -95,7 +95,7 @@ optimize_function (tree fn)
 	}
 
       /* Invoke the SSA tree optimizer.  */
-      if (optimize >= 1 && 0)
+      if (optimize >= 1)
 	optimize_function_tree (fn);
     }
 

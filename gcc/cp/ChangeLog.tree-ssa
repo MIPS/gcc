@@ -1,3 +1,8 @@
+2003-04-21  Jeff Law  <law@redhat.com>
+	
+	* optimize.c (optimize_function_tree): Do run the tree-ssa
+	optimizers.
+
 2003-04-16  Jeff Law  <law@redhat.com>
 
 	* optimize.c (optimize_function): No longer check
