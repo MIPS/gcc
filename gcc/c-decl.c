@@ -6551,7 +6551,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 	}
 
       /* Invoke the SSA tree optimizer.  */
-      if (optimize >= 1)
+      if (optimize >= 1 && !flag_disable_tree_ssa)
 	optimize_function_tree (fndecl);
     }
 

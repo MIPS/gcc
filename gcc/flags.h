@@ -659,6 +659,9 @@ extern int flag_mudflap;
 /* Disable tree simplification.  */
 extern int flag_disable_simple;
 
+/* Disable SSA optimizations on trees.  */
+extern int flag_disable_tree_ssa;
+
 /* Enable SSA-PRE on trees.  */
 extern int flag_tree_pre;
 

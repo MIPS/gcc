@@ -890,6 +890,9 @@ int flag_new_regalloc = 0;
 /* Disable tree simplification.  */
 int flag_disable_simple = 0;
 
+/* Disable SSA on trees optimizations.  */
+int flag_disable_tree_ssa = 0;
+
 /* Enable the SSA-PRE tree optimization.  */
 int flag_tree_pre = 0;
 
@@ -1220,6 +1223,8 @@ static const lang_independent_options f_options[] =
    N_("Use graph coloring register allocation.") },
   { "disable-simple", &flag_disable_simple, 1,
    N_("Do not re-write trees into SIMPLE form") },
+  { "disable-tree-ssa", &flag_disable_tree_ssa, 1,
+   N_("Disable SSA optimizations on trees") },
   { "tree-pre", &flag_tree_pre, 1,
    N_("Enable SSA-PRE optimization on trees") },
   { "tree-ccp", &flag_tree_ccp, 1,

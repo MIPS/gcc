@@ -1,5 +1,13 @@
 2003-01-28  Diego Novillo  <dnovillo@redhat.com>
 
+	* flags.h (flag_disable_tree_ssa): New flag.
+	* c-decl.c (c_expand_body): Use it.
+	* toplev.c: Declare it.
+	(f_options): Add help text for -fdisable-tree-ssa.
+	* doc/invoke.texi: Add documentation for -fdisable-tree-ssa.
+
+2003-01-28  Diego Novillo  <dnovillo@redhat.com>
+
 	* Makefile.in (TREE_FLOW_H): Add dependency on $(HASHTAB_H)
 	(OBJS): Temporarily remove tree-ssa-pre.o.
 	(tree-ssa.o, c-decl.o): Add dependency on $(TREE_DUMP_H).

@@ -299,7 +299,7 @@ in the following sections.
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
 -ftrapv -funroll-all-loops  -funroll-loops  @gol
 -fdisable-simple  -funroll-all-loops  -funroll-loops  @gol
--ftree-pre -ftree-ccp  -ftree-dce @gol
+-ftree-pre  -ftree-ccp  -ftree-dce  -fdisable-tree-ssa @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -4037,6 +4037,10 @@ default.
 Do not re-write trees into SIMPLE form.  This switch also disables
 tree-based optimizations.  @emph{Note:} This option is only useful when
 debugging the tree simplification pass in GCC.
+
+@item -fdisable-tree-ssa
+Do not apply SSA optimizations to the tree representation.  @emph{Note:}
+This option is only useful when debugging the tree SSA optimizers in GCC.
 
 @item -ftree-pre
 Perform Partial Redundancy Elimination (PRE) on trees.  @emph{Note:} This
