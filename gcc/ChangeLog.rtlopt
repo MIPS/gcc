@@ -1,3 +1,7 @@
+2003-01-16  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloop.c (flow_loops_find): Fix handling of abnormal edges.
+
 2003-01-15  Josef Zlomek  <zlomekj@suse.cz>
 
 	* bb-reorder.c (bb_to_key): Priority of the basic block is computed
