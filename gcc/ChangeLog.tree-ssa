@@ -1,3 +1,7 @@
+2003-08-29  Daniel Berlin  <dberlin@dberlin.org>
+
+	* opts.c (decode_options): Turn on SSAPRE by default.
+	
 2003-08-29  Jason Merrill  <jason@redhat.com>
 
 	* builtins.c (simplify_builtin): Make sure that the replacement
