@@ -781,16 +781,13 @@ evaluate_expr_for (ref)
   value val;
   struct ref_list_node *tmp;
   varref r;
-  tree expr, simplified;
+  tree var, expr, simplified;
   ref_list refs;
 
-  /* Make a deep copy of the expression, but get the expression references
-     first because deep copies do not copy the 'aux' field.  */
   refs = TREE_REFS (VARREF_EXPR (ref));
   expr = VARREF_EXPR (ref);
+  var = VARREF_SYM (ref);
 
-  /* If any USE reference in the expression is known to be VARYING or
-     UNDEFINED, then the expression is not a constant.  */
   val.lattice_val = VARYING;
   val.const_value = NULL_TREE;
 
@@ -799,9 +796,11 @@ evaluate_expr_for (ref)
      constant only when considering reference 'a.b'.  Although that
      expression also defines symbol 'a', we cannot assign the value 5 to
      symbol 'a'.  */
-  if (TREE_TYPE (expr) != TREE_TYPE (VARREF_SYM (ref)))
+  if (TREE_TYPE (expr) != TREE_TYPE (var))
     goto dont_fold;
 
+  /* If any USE reference in the expression is known to be VARYING or
+     UNDEFINED, then the expression is not a constant.  */
   FOR_EACH_REF (r, tmp, refs)
     {
       unsigned int id;
@@ -837,6 +836,7 @@ evaluate_expr_for (ref)
 	}
     }
 
+
   /* Fold the expression and return its value.  Being a SIMPLE expression,
      EXPR can only be an assignment, an RHS or a conditional expression.
 
@@ -858,7 +858,7 @@ evaluate_expr_for (ref)
   FOR_EACH_REF (r, tmp, refs)
     {
       if (VARREF_TYPE (r) == VARUSE)
-	*(VARREF_OPERAND_P (r)) = VARREF_SYM (r);
+	*(VARREF_OPERAND_P (r)) = var;
     }
 
 dont_fold:

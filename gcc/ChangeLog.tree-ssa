@@ -1,3 +1,8 @@
+2002-08-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (evaluate_expr_for): keep VARREF_SYM in a local
+	variable.
+
 2002-08-16  Diego Novillo  <dnovillo@redhat.com>
 
 	* basic-block.h (BB_CONTROL_EXPR): Update value.
