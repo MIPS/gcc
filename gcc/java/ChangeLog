@@ -1,3 +1,8 @@
+2004-10-05  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* verify-impl.c, verify-glue.c, verify.h: New files.
+	* Make-lang.in: Add rules for verify-impl.o and verify-glue.o.
+
 2004-09-24  Andrew Haley  <aph@redhat.com>
 
 	* decl.c (check_local_unnamed_variable): Always use the PARM_DECL
