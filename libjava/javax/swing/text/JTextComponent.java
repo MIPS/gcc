@@ -351,7 +351,18 @@ public abstract class JTextComponent extends JComponent
    */
   public String getText()
   {
-    return getDocument().getText(0, getDocument().getLength());
+    if (doc == null)
+      return null;
+
+    try
+      {
+	return doc.getText(0, doc.getLength());
+      }
+    catch (BadLocationException e)
+      {
+	// This should never happen.
+	return "";
+      }
   }
 
   /**
@@ -391,12 +402,14 @@ public abstract class JTextComponent extends JComponent
 
   public TextUI getUI()
   {
-    return (TextUI) UIManager.getUI(this);
+    return (TextUI) ui;
   }
 
   public void updateUI()
   {
-    setUI(getUI());
+    setUI((TextUI) UIManager.getUI(this));
+    invalidate();
+    repaint();
   }
 
   public Dimension getPreferredScrollableViewportSize()

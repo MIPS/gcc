@@ -145,6 +145,13 @@ public abstract class AbstractDocument
 
   public interface AttributeContext
   {
+    AttributeSet addAttribute(AttributeSet old, Object name, Object value);
+    AttributeSet addAttributes(AttributeSet old, AttributeSet attributes);
+    AttributeSet getEmptySet();
+    void reclaim(AttributeSet attributes);
+    AttributeSet removeAttribute(AttributeSet old, Object name);
+    AttributeSet removeAttributes(AttributeSet old, AttributeSet attributes);
+    AttributeSet removeAttributes(AttributeSet old, Enumeration names);
   }
 
   public class BranchElement extends AbstractElement

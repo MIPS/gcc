@@ -189,7 +189,7 @@ public class JFormattedTextField extends JTextField
 
   public String getUIClassID ()
   {
-    throw new InternalError ("not implemented");
+    return "FormattedTextFieldUI";
   }
 
   public Object getValue ()

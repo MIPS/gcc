@@ -223,6 +223,8 @@ public class JRootPane extends JComponent
     }
   }
 
+  private static final long serialVersionUID = 8690748000348575668L;
+  
   protected Component glassPane;
   protected JLayeredPane layeredPane;
   protected JMenuBar menuBar;

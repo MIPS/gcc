@@ -1,3 +1,41 @@
+2004-06-18  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JButton.java: Reformatted.
+	* javax/swing/JFormattedTextField.java
+	(getUIClassID): Implemented.
+	* javax/swing/JRootPane.java
+	(serialVersionUID): New constant.
+	* javax/swing/JTextField.java
+	(align): New field.
+	(JTextField): Simplified.
+	(getUIClassID): New method.
+	(getActionListeners): Added @since tag.
+	(setColumns): Invalidate layout and repaint.
+	(getHorizontalAlignment): New method.
+	(setHorizontalAlignment): New method.
+	(selectAll): Removed.
+	* javax/swing/SwingUtilities.java
+	(getAncestorOfClass): Removed redundant @see tag.
+	(isLeftMouseButton): Fixed implementation.
+	(isMiddleMouseButton): Likewise.
+	(isRightMouseButton): Likewise.
+	* javax/swing/text/AbstractDocument.java
+	(AttributeContext.addAttribute): New method.
+	(AttributeContext.addAttributes): New method.
+	(AttributeContext.getEmptySet): New method.
+	(AttributeContext.reclaim): New method.
+	(AttributeContext.removeAttribute): New method.
+	(AttributeContext.removeAttributes): New method.
+	* javax/swing/text/Document.java
+	(createPosition): Throws BadLocationException.
+	(getText): Likewise.
+	(remove): Likewise.
+	* javax/swing/text/JTextComponent.java
+	(getText): Return null if no document is set. Catch
+	BadLocationException.
+	(getUI): Return ui.
+	(updateUI): Simplified.
+
 2004-06-17  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JToolBar.java

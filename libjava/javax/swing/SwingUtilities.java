@@ -197,8 +197,6 @@ public class SwingUtilities implements SwingConstants
    *
    * @see #getAncestorOfClass
    * @see #windowForComponent
-   * @see 
-   * 
    */
   public static Container getAncestorOfClass(Class c, Component comp)
   {
@@ -859,8 +857,8 @@ public class SwingUtilities implements SwingConstants
    */
   public static boolean isLeftMouseButton(MouseEvent event)
   {
-    return ((event.getModifiers() & InputEvent.BUTTON1_DOWN_MASK)
-	     == InputEvent.BUTTON1_DOWN_MASK);
+    return ((event.getModifiers() & InputEvent.BUTTON1_MASK)
+	     == InputEvent.BUTTON1_MASK);
   }
 
   /**
@@ -872,8 +870,8 @@ public class SwingUtilities implements SwingConstants
    */
   public static boolean isMiddleMouseButton(MouseEvent event)
   {
-    return ((event.getModifiers() & InputEvent.BUTTON2_DOWN_MASK)
-	     == InputEvent.BUTTON2_DOWN_MASK);
+    return ((event.getModifiers() & InputEvent.BUTTON2_MASK)
+	     == InputEvent.BUTTON2_MASK);
   }
 
   /**
@@ -885,7 +883,7 @@ public class SwingUtilities implements SwingConstants
    */
   public static boolean isRightMouseButton(MouseEvent event)
   {
-    return ((event.getModifiers() & InputEvent.BUTTON3_DOWN_MASK)
-	     == InputEvent.BUTTON3_DOWN_MASK);
+    return ((event.getModifiers() & InputEvent.BUTTON3_MASK)
+	     == InputEvent.BUTTON3_MASK);
   }
 }
