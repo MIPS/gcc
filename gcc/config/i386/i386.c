@@ -14468,24 +14468,26 @@ x86_machine_dependent_reorg (first)
 
     if (!returnjump_p (ret) || !maybe_hot_bb_p (bb))
       continue;
-    prev = prev_active_insn (ret);
-    /* Empty functions get branch misspredict even when the jump destination
-       is not visible to us.  */
-    if (!prev && cfun->function_frequency > FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
-      insert = 1;
+    for (prev = PREV_INSN (ret); prev; prev = PREV_INSN (prev))
+      if (active_insn_p (prev) || GET_CODE (prev) == CODE_LABEL)
+	break;
     if (prev && GET_CODE (prev) == CODE_LABEL)
       {
 	edge e;
 	for (e = bb->pred; e; e = e->pred_next)
-	  if (EDGE_FREQUENCY (e) && e->src->index > 0
+	  if (EDGE_FREQUENCY (e) && e->src->index >= 0
 	      && !(e->flags & EDGE_FALLTHRU))
 	    insert = 1;
       }
     if (!insert)
       {
-	prev = prev_real_insn (ret);
+	prev = prev_active_insn (ret);
 	if (prev && GET_CODE (prev) == JUMP_INSN
 	    && any_condjump_p (prev))
+	  insert = 1;
+	/* Empty functions get branch misspredict even when the jump destination
+	   is not visible to us.  */
+	if (!prev && cfun->function_frequency > FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
 	  insert = 1;
       }
     if (insert)

@@ -1,3 +1,7 @@
+Sat Nov  9 00:10:54 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_machine_dependent_reorg): Fix even more side cases.
+
 2002-11-08  Roger Sayle  <roger@eyesopen.com>
 
 	* real.c (real_sqrt): Update comment with bibliographic reference.
