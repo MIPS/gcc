@@ -1,6 +1,13 @@
 2004-05-01  Tobias Schlüter <tobias.schlueter@physik.uni-muenchen.de>
 
 	PR fortran/13940
+	* primary.c: Include system.h and flags.h, needed for pedantic.
+	(match_boz_constant): Allow "x" for hexadecimal constants, warn if
+	pedantic is set.
+
+2004-05-01  Tobias Schlüter <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/13940
 	* match.c (match_data_constant): Handle case where
 	gfc_find_symbol	sets sym to NULL
 

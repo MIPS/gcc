@@ -21,6 +21,9 @@ Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
+#include "system.h"
+#include "flags.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include "gfortran.h"
@@ -249,6 +252,11 @@ match_boz_constant (gfc_expr ** result)
       radix = 8;
       rname = "octal";
       break;
+    case 'x':
+      if (pedantic)
+       gfc_warning_now ("Hexadecimal constant at %C uses non-standard "
+                        "syntax. Use \"Z\" instead.");
+      /* Fall through.  */
     case 'z':
       radix = 16;
       rname = "hexadecimal";
