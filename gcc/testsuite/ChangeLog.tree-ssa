@@ -1,5 +1,12 @@
 2004-03-02  Diego Novillo  <dnovillo@redhat.com>
 
+	* testsuite/gcc.dg/tree-ssa/20030815-1.c: Expect 1 type cast.
+	* testsuite/gcc.dg/tree-ssa/ssa-dce-1.c: Check after aliasing.
+	* testsuite/gcc.dg/tree-ssa/ssa-dce-2.c: Likewise.
+	* testsuite/gcc.dg/tree-ssa/ssa-dom-cse-1.c: Likewise.
+
+2004-03-02  Diego Novillo  <dnovillo@redhat.com>
+
 	* gcc.dg/tree-ssa/20040302-1.c: New test.
 
 2004-02-10  Jeff Law  <law@redhat.com>
