@@ -1,3 +1,20 @@
+2002-11-22  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* invoke.texi: Explain the purpose of -fmove-all-movables,
+	-freduce-all-givs and -frerun-loop-opts better.
+
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-18  Release Manager
+
+	* GCC 3.2.1 Released.
+
 2002-10-28  Andris Pavenis  <pavenis@latnet.lv>
             Toon Moene  <toon@moene.indiv.nluug.nl>
 

@@ -1,3 +1,34 @@
+2002-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021124-1.c: New test.
+
+2002-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/execute/loop-2e.x: Let the testcase
+	XFAIL for all x86 processors.
+	* gcc.c-torture/execute/loop-3c.x: Likewise.
+
+2002-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021123-4.c: New test.
+
+2002-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021123-2.c: New test.
+	* gcc.c-torture/compile/20021123-3.c: New test.
+
+2002-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20021123-1.c: New test.
+
+2002-11-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-unroll-1.c: New test.
+
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
 2002-11-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c-torture/execute/20021118-3.c: New test.

@@ -1,3 +1,7 @@
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
 Thu Sep 12 12:44:37 2002  Nicola Pero  <n.pero@mi.flashnet.it>
 
 	* sendmsg.c (nil_method): Declare not to take a variable number of

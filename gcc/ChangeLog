@@ -1,3 +1,78 @@
+2002-11-25  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	PR c/8639
+	* fold-const.c (extract_muldiv): Don't propagate division unless
+	both arguments are multiples of C.
+
+2002-11-24  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8275
+
+	Merge from mainline:
+	2002-09-19  Dale Johannesen <dalej@apple.com>
+
+	* combine.c (make_extraction): Don't create
+	invalid subreg.
+
+2002-11-23  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	2002-09-26  Theodore A. Roth  <troth@verinet.com>
+	* config/avr/avr.c: Eliminate use of _PC_ in pc relative insns.
+	* config/avr/avr.md: Ditto.
+
+2002-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8588
+	* optabs.c (expand_binop): Convert CONST_INTs in shift
+	operations too.
+
+2002-11-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8518
+	* c-decl.c (duplicate_decls): Outline the second definition
+	of an extern inline function in all cases.
+
+2002-11-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR c/8439
+	* recog.c (validate_replace_rtx_1) [PLUS]: Simplify only
+	if there is something new to be simplified.
+
+2002-11-22  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* c-decl.c (c_init_decl_processing): Move generation of
+	decls for g77_integer_type_node and friends from here ...
+	* c-common.c (c_common_nodes_and_builtins): ... to here.
+
+2002-11-22  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/8599
+
+	Merge from mainline:
+	2002-11-04  Dale Johannesen  <dalej@apple.com>
+
+	* doloop.c (doloop_modify_runtime):  Fix loop count computation
+	for unrolled loops.
+	* loop.c (loop_invariant_p):  Support calling from unroller.
+
+2002-11-22  Daniel Jacobowitz  <drow@mvista.com>
+
+	* config/sh/sh.md (ashrdi3+1, ashrdi3+2): Predicate on
+	reload_completed.
+
+2002-11-21  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa-protos.h (xtensa_copy_incoming_a7): Declare.
+	* config/xtensa/xtensa.c (struct machine_function): Add
+	incoming_a7_copied flag.
+	(xtensa_copy_incoming_a7): Define.
+	(xtensa_emit_move_sequence): Use xtensa_copy_incoming_a7.
+	* config/xtensa/xtensa.md (movdi, movsf, movdf): Ditto.
+
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
 2002-11-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* varasm.c (output_constant_pool): For pool constants in mergeable

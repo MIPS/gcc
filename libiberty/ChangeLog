@@ -1,3 +1,7 @@
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
 2002-10-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* config.table: Use mh-s390pic for s390x too.

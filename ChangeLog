@@ -1,3 +1,28 @@
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-19  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-18  Release Manager
+
+	* GCC 3.2.1 Released.
+
+2002-11-18  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* MAINTAINERS: Complete James Dennett's entry.
+
+2002-11-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2002-11-14  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* MAINTAINERS: Remove from write-after-approval-list, uniformize
+	email. 
+
 2002-11-08  Neil Booth  <neil@daikokuya.co.uk>
 
 	* MAINTAINERS: Fix email address.
