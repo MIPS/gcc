@@ -112,7 +112,6 @@ static FILE *dump_file;
 static int dump_flags;
 
 struct expr_info;
-static inline void append_eref_to_block (tree, basic_block);
 static void clear_all_eref_arrays (void);
 static inline bool expr_lexically_eq (const tree, const tree);
 static void free_expr_info (struct expr_info *);
@@ -137,8 +136,6 @@ static void rename_1 (struct expr_info *);
 static void process_delayed_rename (struct expr_info *, tree, tree);
 static void assign_new_class (tree, varray_type *, varray_type *);
 static void insert_occ_in_preorder_dt_order (struct expr_info *);
-static void insert_euse_in_preorder_dt_order_1 (struct expr_info *,
-						basic_block);
 static void insert_euse_in_preorder_dt_order (struct expr_info *);
 static bool ephi_has_unsafe_arg (tree);
 static void reset_down_safe (tree, int);
@@ -242,7 +239,8 @@ static inline bool injured_real_occ_phi_opnd (struct expr_info *,
 					      tree, basic_block, int);
 static void compute_du_info (struct expr_info *);
 static void add_ephi_use (tree, tree, int);
-static void insert_one_operand (struct expr_info *, tree, int, tree, edge);
+static void insert_one_operand (struct expr_info *, tree, int, tree, edge, 
+				tree **);
 static bool split_critical_edges (void);
 static void collect_expressions (basic_block, varray_type *);
 static int build_dfn_array (basic_block, int);
@@ -747,16 +745,6 @@ set_var_phis (struct expr_info *ei, tree phi)
     }
 }
 
-/* Append REF to the array of expression references for BB.  */
-
-static inline void
-append_eref_to_block (tree ref, basic_block bb)
-{
-  bb_ann_t ann = bb_ann (bb);
-  if (ann->erefs == NULL)
-    VARRAY_GENERIC_PTR_NOGC_INIT (ann->erefs, 1, "Expression references");
-  VARRAY_PUSH_TREE (ann->erefs, ref);
-}
 
 /* Clear all the expression reference arrays.  */
 
@@ -766,12 +754,9 @@ clear_all_eref_arrays (void)
   basic_block bb;
   bb_ann_t ann;
   
-  FOR_EACH_BB (bb)
+  FOR_ALL_BB (bb)
     {
       ann = bb_ann (bb);
-      if (ann->erefs)
-	VARRAY_FREE (ann->erefs);
-      ann->erefs = NULL;
       if (ann->ephi_nodes)
 	{
 	  free (ann->ephi_nodes);
@@ -1027,7 +1012,6 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 	    tree killexpr  = VARRAY_TREE (ei->kills, i);
 	    tree killname = ei->expr;
 	    newref = create_expr_ref (ei, killname, EKILL_NODE, block, killexpr);
-	    append_eref_to_block (newref, block);
 	    VARRAY_PUSH_TREE (ei->euses_dt_order, newref);
 	  }
 	else if (VARRAY_TREE (ei->lefts, i) != NULL)
@@ -1037,7 +1021,6 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 	    occurname = ei->expr;
 	    newref = create_expr_ref (ei, occurname, EUSE_NODE, block,
 				      occurexpr);
-	    append_eref_to_block (newref, block);
 	    EUSE_DEF (newref) = NULL_TREE;
 	    EUSE_LVAL (newref) = true;
 	    EREF_CLASS (newref) = -1;
@@ -1052,7 +1035,6 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 	    occurname = ei->expr;
 	    newref = create_expr_ref (ei, occurname, EUSE_NODE, block,
 				      occurexpr);
-	    append_eref_to_block (newref, block);
 	    EUSE_DEF (newref) = NULL_TREE;
 	    EREF_CLASS (newref) = -1;
 	    EUSE_PHIOP (newref) = false;
@@ -1062,7 +1044,7 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
       }
 
 
-  FOR_EACH_BB (block)
+  FOR_ALL_BB (block)
   {
     /* Insert the phi operand occurrences's in the heap at the
        successors.*/
@@ -1077,7 +1059,6 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 		tree newref = create_expr_ref (ei, 0, EUSE_NODE, block, NULL);
 		curr_phi_pred = newref;
 		VARRAY_PUSH_TREE (ei->euses_dt_order, newref);
-		append_eref_to_block (newref, block);
 		EUSE_DEF (newref) = NULL_TREE;
 		EREF_CLASS (newref) = -1;
 		EUSE_PHIOP (newref) = true;
@@ -1105,7 +1086,6 @@ insert_occ_in_preorder_dt_order (struct expr_info *ei)
 	    newref = create_expr_ref (ei, ei->expr, EEXIT_NODE, 
 				      block,
 				      NULL);
-	    append_eref_to_block (newref, block);
 	    VARRAY_PUSH_TREE (ei->euses_dt_order, newref);
 	  }
       }
@@ -1872,49 +1852,28 @@ compute_will_be_avail (struct expr_info *ei)
   compute_stops (ei);  
 }
 
-/* Insert the expressions in preorder DT order into ei->euses_dt_order.  */
-
-static void
-insert_euse_in_preorder_dt_order_1 (struct expr_info *ei, basic_block block)
-{
-  bb_ann_t ann = bb_ann (block);
-  size_t i;
-
-  if (ephi_at_block (block) != NULL_TREE)
-      VARRAY_PUSH_TREE (ei->euses_dt_order, ephi_at_block (block));
-      
-  if (ann->erefs)
-    {
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->erefs); i++)
-	{
-	  tree ref = VARRAY_TREE (ann->erefs, i);
-	  if (!ref)
-	    continue;
-	  
-	  if (TREE_CODE (ref) == EUSE_NODE)
-	    VARRAY_PUSH_TREE (ei->euses_dt_order, ref);
-#ifdef ENABLE_CHECKING
-	  else if (TREE_CODE (ref) == EPHI_NODE)
-	    abort ();
-#endif
-
-	}
-    }
-
-  if (dom_children (block))
-    EXECUTE_IF_SET_IN_BITMAP (dom_children (block), 0, i,
-    {
-      insert_euse_in_preorder_dt_order_1 (ei, BASIC_BLOCK (i));
-    });
-}
-
 /* Insert the expressions into ei->euses_dt_order in preorder dt order.  */
 
 static void
 insert_euse_in_preorder_dt_order (struct expr_info *ei)
 {
-  VARRAY_CLEAR (ei->euses_dt_order);
-  insert_euse_in_preorder_dt_order_1 (ei, ENTRY_BLOCK_PTR->next_bb);
+  varray_type new_euses_dt_order;
+  size_t i;
+  VARRAY_GENERIC_PTR_NOGC_INIT (new_euses_dt_order, 1, "EUSEs");
+
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
+    {
+      tree ref = VARRAY_TREE (ei->euses_dt_order, i);
+      if (TREE_CODE (ref) == EUSE_NODE || TREE_CODE (ref) == EPHI_NODE)
+	VARRAY_PUSH_TREE (new_euses_dt_order, ref);
+    }
+  VARRAY_FREE (ei->euses_dt_order);
+  ei->euses_dt_order = new_euses_dt_order;
+  qsort (ei->euses_dt_order->data.tree, 
+	 VARRAY_ACTIVE_SIZE (ei->euses_dt_order), 
+	 sizeof (tree),
+	 eref_compare);
+
 }
 
 /* Determine if we can insert operand OPND_INDX of EPHI.  */
@@ -2044,7 +2003,7 @@ reaching_def (tree var, tree currstmt, basic_block bb, tree ignore)
 
 static void
 insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx, 
-		    tree x, edge succ)
+		    tree x, edge succ, tree **avdefsp)
 {
   tree expr;
   tree temp = ei->temp;
@@ -2083,7 +2042,11 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   EPHI_ARG_DEF (ephi, opnd_indx)
     = create_expr_ref (ei, ei->expr, EUSE_NODE, bb, 0);
   EUSE_DEF (x) = EPHI_ARG_DEF (ephi, opnd_indx);
-  append_eref_to_block (EPHI_ARG_DEF (ephi, opnd_indx), bb);
+  VARRAY_PUSH_TREE (ei->euses_dt_order, EPHI_ARG_DEF (ephi, opnd_indx));
+  qsort (ei->euses_dt_order->data.tree, 
+	 VARRAY_ACTIVE_SIZE (ei->euses_dt_order), 
+	 sizeof (tree),
+	 eref_compare);
   EREF_TEMP (EUSE_DEF (x)) = newtemp;
   EREF_RELOAD (EUSE_DEF (x)) = false;
   EREF_SAVE (EUSE_DEF (x)) = false;
@@ -2094,6 +2057,9 @@ insert_one_operand (struct expr_info *ei, tree ephi, int opnd_indx,
   EUSE_INSERTED (x) = true;
   EREF_CLASS (x) = class_count++;
   EREF_CLASS (EUSE_DEF (x)) = class_count++;
+  *avdefsp = xrealloc (*avdefsp, sizeof (tree) * (class_count + 1));
+  (*avdefsp)[class_count - 2] = x;
+  (*avdefsp)[class_count - 1] = EUSE_DEF (x);
   pre_stats.saves++;
 }
 
@@ -2165,7 +2131,8 @@ finalize_1 (struct expr_info *ei)
 #endif
 		  if (can_insert (ephi, opnd_indx))
 		    {
-		      insert_one_operand (ei, ephi, opnd_indx, x, succ);
+		      insert_one_operand (ei, ephi, opnd_indx, x, succ, 
+					  &avdefs);
 		    }
 		  else
 		    {
@@ -2480,7 +2447,6 @@ finalize_2 (struct expr_info *ei)
 	  set_save (ei, EUSE_DEF (ref));
 	}
     }
-  
   /* ESSA Minimization.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
     {
@@ -3045,21 +3011,15 @@ pre_expression (struct expr_info *slot, void *data, sbitmap vars_to_rename)
   rename_1 (ei);
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      basic_block bb;
-      bb_ann_t ann;
       size_t i;
       fprintf (dump_file, "Occurrences for expression ");
       print_generic_expr (dump_file, ei->expr, 0);
       fprintf (dump_file, " after Rename 2\n");
-      FOR_EACH_BB (bb)
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (ei->euses_dt_order); i++)
 	{
-	  ann = bb_ann (bb);
-	  if (ann->erefs)
-	    for (i = 0; i < VARRAY_ACTIVE_SIZE (ann->erefs); i++)
-	      {
-		print_generic_expr (dump_file, VARRAY_TREE (ann->erefs, i), 1);
-		fprintf (dump_file, "\n");
-	      }
+	  print_generic_expr (dump_file, 
+			      VARRAY_TREE (ei->euses_dt_order, i), 1);
+	  fprintf (dump_file, "\n");
 	}
     }
   compute_down_safety (ei);
@@ -3126,7 +3086,7 @@ split_critical_edges (void)
   basic_block bb;
   edge e;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+  FOR_ALL_BB (bb)
     {
       for (e = bb->succ; e ; e = e->succ_next)
 	if (EDGE_CRITICAL_P (e) && !(e->flags & EDGE_ABNORMAL))
@@ -3255,9 +3215,13 @@ tree_perform_ssapre (tree fndecl, enum tree_dump_index phase)
   size_t k;
   int i;
   sbitmap vars_to_rename;
-  
-  
+ 
   split_critical_edges ();  
+
+  if (ENTRY_BLOCK_PTR->succ->dest->pred->pred_next)
+    if (!(ENTRY_BLOCK_PTR->succ->flags & EDGE_ABNORMAL))
+      tree_split_edge (ENTRY_BLOCK_PTR->succ);
+ 
   timevar_push (TV_TREE_PRE);
   dump_file = dump_begin (phase, &dump_flags);
   euse_node_pool = create_alloc_pool ("EUSE node pool", 

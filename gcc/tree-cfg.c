@@ -759,7 +759,7 @@ cleanup_tree_cfg (void)
     {
       basic_block bb;
       
-      FOR_EACH_BB (bb)
+      FOR_ALL_BB (bb)
 	clear_dom_children (bb);
     }
 

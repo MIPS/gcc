@@ -311,9 +311,6 @@ struct bb_ann_d
   /* Chain of EPHI nodes created in this block.  */
   tree ephi_nodes;
   
-  /* EUSE/ELEFT/EKILL/EPHI nodes created in this block.  */
-  varray_type erefs;
-
   /* Number of predecessors for this block.  This is only valid during
      SSA rewriting.  It is not maintained after conversion into SSA form.  */
   int num_preds;

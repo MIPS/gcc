@@ -1,3 +1,30 @@
+2003-11-24  Daniel Berlin  <dberlin@dberlin.org>
+
+	Fix PR/13163
+	* tree-ssa-pre.c (append_eref_to_block): Delete.
+	(insert_euse_in_preorder_dt_order_1): Ditto.
+	(insert_one_operand): Take an extra argument, because
+	avdefs may need to be changed.
+	(clear_all_eref_arrays): Use FOR_ALL_BB.
+	(insert_occ_in_preorder_dt_order): Stop appending to bb eref arrays.
+	Use FOR_ALL_BB.
+	(insert_euse_in_preorder_dt_order): Rewrite to just build a new varray
+	with only the EPHI's and EUSE's, and then sort it.
+	(pre_expression): Don't use bb based erefs array when printing
+	expressions.
+	(split_critical_edges): Just use FOR_ALL_BB.
+	(tree_perform_ssapre): Pre-split entry block successor edge if the
+	successor block has multiple preds.
+	
+	* tree-flow.h (struct bb_ann_d): Remove erefs varray.
+
+2003-11-24  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-cfg.c (cleanup_tree_cfg): FOR_EACH_BB -> FOR_ALL_BB when
+	clearing dom children, because the entry block has dom_children
+	too.
+	* tree-ssa.c (build_dominator_tree): Ditto.
+
 2003-11-24  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-cfg.c (compute_dominance_frontiers_1,

@@ -494,7 +494,7 @@ build_dominator_tree (dominance_info idom)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_ALL_BB (bb)
     clear_dom_children (bb);
 
   /* Using the immediate dominators, build a dominator tree.  */
