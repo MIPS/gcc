@@ -97,6 +97,13 @@ esac
 ORIGDIR=`${PWDCMD}`
 export ORIGDIR
 FIXINCL=${ORIGDIR}/fixinc/fixincl
+if [ ! -x $FIXINCL ] ; then
+  FIXINCL=${ORIGDIR}/fixincl
+  if [ ! -x $FIXINCL ] ; then
+    echo "Cannot find working fixincl" >&2
+    exit 1
+  fi
+fi
 export FIXINCL
 
 # Make LIB absolute only if needed to avoid problems with the amd.
@@ -470,11 +477,3 @@ then echo fixincludes is done ; fi
 done
 #
 # # # # # # # # # # # # # # # # # # # # #
-
-if [ x${INSTALL_ASSERT_H} != x ] && [ -f ${srcdir}/assert.h ]
-then
-  cd $ORIGDIR
-  rm -f include/assert.h
-  cp ${srcdir}/assert.h include/assert.h || exit 1
-  chmod a+r include/assert.h
-fi

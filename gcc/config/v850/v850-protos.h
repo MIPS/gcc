@@ -72,9 +72,7 @@ extern rtx    v850_va_arg                   PARAMS ((tree, tree));
 #endif /* TREE_CODE */
 
 #ifdef TREE_CODE
-extern int    v850_valid_machine_decl_attribute  PARAMS ((tree, tree, tree));
 extern void   v850_encode_data_area         PARAMS ((tree));
-extern void   v850_set_default_decl_attr    PARAMS ((tree));
 extern int    v850_interrupt_function_p     PARAMS ((tree));
 extern void   v850_output_aligned_bss       PARAMS ((FILE *, tree, const char *, int, int));
 extern void   v850_output_common            PARAMS ((FILE *, tree, const char *, int, int));
@@ -85,7 +83,7 @@ extern int    function_arg_partial_nregs    PARAMS ((CUMULATIVE_ARGS *, Mmode, t
 #endif
 #endif
 
-#ifdef _C_PRAGMA_H
+#ifdef GCC_C_PRAGMA_H
 extern void ghs_pragma_section		    PARAMS ((cpp_reader *));
 extern void ghs_pragma_interrupt	    PARAMS ((cpp_reader *));
 extern void ghs_pragma_starttda		    PARAMS ((cpp_reader *));
@@ -98,4 +96,4 @@ extern void ghs_pragma_endzda		    PARAMS ((cpp_reader *));
 
 #undef  Mmode
 
-#endif /* v850-protos.h */
+#endif /* ! GCC_V850_PROTOS_H */

@@ -1,5 +1,6 @@
 /* Subroutines used for code generation on the Mitsubishi M32R cpu.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -27,7 +28,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
@@ -35,7 +35,10 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "recog.h"
 #include "toplev.h"
+#include "ggc.h"
 #include "m32r-protos.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -56,8 +59,25 @@ enum m32r_sdata m32r_sdata;
 int m32r_sched_odd_word_p;
 
 /* Forward declaration.  */
-static void init_reg_tables			PARAMS ((void));
+static void  init_reg_tables			PARAMS ((void));
+static void  block_move_call			PARAMS ((rtx, rtx, rtx));
+static int   m32r_is_insn			PARAMS ((rtx));
+static int   m32r_valid_decl_attribute		PARAMS ((tree, tree,
+							 tree, tree));
+static void  m32r_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void  m32r_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_VALID_DECL_ATTRIBUTE
+#define TARGET_VALID_DECL_ATTRIBUTE m32r_valid_decl_attribute
 
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE m32r_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE m32r_output_function_epilogue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* Called by OVERRIDE_OPTIONS to initialize various things.  */
 
 void
@@ -240,8 +260,8 @@ init_idents PARAMS ((void))
 
 /* Return nonzero if IDENTIFIER is a valid decl attribute.  */
 
-int
-m32r_valid_machine_decl_attribute (type, attributes, identifier, args)
+static int
+m32r_valid_decl_attribute (type, attributes, identifier, args)
      tree type ATTRIBUTE_UNUSED;
      tree attributes ATTRIBUTE_UNUSED;
      tree identifier;
@@ -266,26 +286,6 @@ m32r_valid_machine_decl_attribute (type, attributes, identifier, args)
     return 1;
 
   return 0;
-}
-
-/* Return zero if TYPE1 and TYPE are incompatible, one if they are compatible,
-   and two if they are nearly compatible (which causes a warning to be
-   generated).  */
-
-int
-m32r_comp_type_attributes (type1, type2)
-     tree type1 ATTRIBUTE_UNUSED;
-     tree type2 ATTRIBUTE_UNUSED;
-{
-  return 1;
-}
-
-/* Set the default attributes for TYPE.  */
-
-void
-m32r_set_default_type_attributes (type)
-     tree type ATTRIBUTE_UNUSED;
-{
 }
 
 /* A C statement or statements to switch to the appropriate
@@ -373,7 +373,7 @@ m32r_encode_section_info (decl)
       if (TREE_CODE_CLASS (TREE_CODE (decl)) == 'd'
 	  && DECL_SECTION_NAME (decl) != NULL_TREE)
 	{
-	  char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+	  char *name = (char *) TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
 	  if (! strcmp (name, ".sdata") || ! strcmp (name, ".sbss"))
 	    {
 #if 0 /* ??? There's no reason to disallow this, is there?  */
@@ -437,6 +437,7 @@ m32r_encode_section_info (decl)
       const char *str = XSTR (XEXP (rtl, 0), 0);
       int len = strlen (str);
       char *newstr = ggc_alloc (len + 2);
+
       strcpy (newstr + 1, str);
       *newstr = prefix;
       XSTR (XEXP (rtl, 0), 0) = newstr;
@@ -745,7 +746,7 @@ move_src_operand (op, mode)
 	 loadable with one insn, and split the rest into two.  The instances
 	 where this would help should be rare and the current way is
 	 simpler.  */
-      return INT32_P (INTVAL (op));
+      return UINT32_P (INTVAL (op));
     case LABEL_REF :
       return TARGET_ADDR24;
     case CONST_DOUBLE :
@@ -1270,8 +1271,8 @@ gen_split_move_double (operands)
 	{
 	  /* If the high-address word is used in the address, we must load it
 	     last.  Otherwise, load it first.  */
-	  rtx addr = XEXP (src, 0);
-	  int reverse = (refers_to_regno_p (dregno, dregno+1, addr, 0) != 0);
+	  int reverse
+	    = (refers_to_regno_p (dregno, dregno + 1, XEXP (src, 0), 0) != 0);
 
 	  /* We used to optimize loads from single registers as
 
@@ -1286,15 +1287,13 @@ gen_split_move_double (operands)
 	     which saves 2 bytes and doesn't force longword alignment.  */
 	  emit_insn (gen_rtx_SET (VOIDmode,
 				  operand_subword (dest, reverse, TRUE, mode),
-				  change_address (src, SImode,
-						  plus_constant (addr,
-								 reverse * UNITS_PER_WORD))));
+				  adjust_address (src, SImode,
+						  reverse * UNITS_PER_WORD)));
 
 	  emit_insn (gen_rtx_SET (VOIDmode,
 				  operand_subword (dest, !reverse, TRUE, mode),
-				  change_address (src, SImode,
-						  plus_constant (addr,
-								 (!reverse) * UNITS_PER_WORD))));
+				  adjust_address (src, SImode,
+						  !reverse * UNITS_PER_WORD)));
 	}
 
       else
@@ -1315,15 +1314,12 @@ gen_split_move_double (operands)
      which saves 2 bytes and doesn't force longword alignment.  */
   else if (GET_CODE (dest) == MEM && GET_CODE (src) == REG)
     {
-      rtx addr = XEXP (dest, 0);
-
       emit_insn (gen_rtx_SET (VOIDmode,
-			      change_address (dest, SImode, addr),
+			      adjust_address (dest, SImode, 0),
 			      operand_subword (src, 0, TRUE, mode)));
 
       emit_insn (gen_rtx_SET (VOIDmode,
-			      change_address (dest, SImode,
-					      plus_constant (addr, UNITS_PER_WORD)),
+			      adjust_address (dest, SImode, UNITS_PER_WORD),
 			      operand_subword (src, 1, TRUE, mode)));
     }
 
@@ -1346,9 +1342,11 @@ function_arg_partial_nregs (cum, mode, type, named)
      int named ATTRIBUTE_UNUSED;
 {
   int ret;
-  int size = (((mode == BLKmode && type)
-	       ? int_size_in_bytes (type)
-	       : GET_MODE_SIZE (mode)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+  unsigned int size =
+    (((mode == BLKmode && type)
+      ? (unsigned int) int_size_in_bytes (type)
+      : GET_MODE_SIZE (mode)) + UNITS_PER_WORD - 1)
+    / UNITS_PER_WORD;
 
   if (*cum >= M32R_MAX_PARM_REGS)
     ret = 0;
@@ -1402,7 +1400,7 @@ m32r_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       regblock = gen_rtx_MEM (BLKmode,
 			      plus_constant (arg_pointer_rtx,
 					     FIRST_PARM_OFFSET (0)));
-      MEM_ALIAS_SET (regblock) = get_varargs_alias_set ();
+      set_mem_alias_set (regblock, get_varargs_alias_set ());
       move_block_from_reg (first_reg_offset, regblock,
 			   size, size * UNITS_PER_WORD);
 
@@ -1560,7 +1558,6 @@ m32r_sched_reorder (stream, verbose, ready, n_ready)
       for (i = n_ready-1; i >= 0; i--)
 	{
 	  rtx insn = ready[i];
-	  enum rtx_code code;
 
 	  if (! m32r_is_insn (insn))
 	    {
@@ -1605,7 +1602,7 @@ m32r_sched_reorder (stream, verbose, ready, n_ready)
       if (new_tail+1 != new_head)
 	abort ();
 
-      bcopy ((char *) new_head, (char *) ready, sizeof (rtx) * n_ready);
+      memcpy (ready, new_head, sizeof (rtx) * n_ready);
       if (stream)
 	{
 #ifdef HAIFA
@@ -1616,7 +1613,6 @@ m32r_sched_reorder (stream, verbose, ready, n_ready)
 	  for (i = 0; i < n_ready; i++)
 	    {
 	      rtx insn = ready[i];
-	      enum rtx_code code;
 
 	      fprintf (stream, " %d", INSN_UID (ready[i]));
 
@@ -1973,10 +1969,10 @@ m32r_expand_prologue ()
    Note, if this is changed, you need to mirror the changes in
    m32r_compute_frame_size which calculates the prolog size.  */
 
-void
+static void
 m32r_output_function_prologue (file, size)
      FILE * file;
-     int    size;
+     HOST_WIDE_INT size;
 {
   enum m32r_function_type fn_type = m32r_compute_function_type (current_function_decl);
 
@@ -2003,10 +1999,10 @@ m32r_output_function_prologue (file, size)
 /* Do any necessary cleanup after a function to restore stack, frame,
    and regs. */
 
-void
+static void
 m32r_output_function_epilogue (file, size)
      FILE * file;
-     int    size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   int regno;
   int noepilogue = FALSE;
@@ -2609,12 +2605,12 @@ emit_cond_move (operands, insn)
     }
 
   sprintf (buffer, "mvfc %s, cbr", dest);
-  
+
   /* If the true value was '0' then we need to invert the results of the move.  */
   if (INTVAL (operands [2]) == 0)
     sprintf (buffer + strlen (buffer), "\n\txor3 %s, %s, #1",
 	     dest, dest);
-  
+
   return buffer;
 }
 
@@ -2778,7 +2774,7 @@ m32r_expand_block_move (operands)
    operands[3] is a temp register.
    operands[4] is a temp register.  */
 
-char *
+void
 m32r_output_block_move (insn, operands)
      rtx insn ATTRIBUTE_UNUSED;
      rtx operands[];
@@ -2892,8 +2888,6 @@ m32r_output_block_move (insn, operands)
 
       first_time = 0;
     }
-
-  return "";
 }
 
 /* Return true if op is an integer constant, less than or equal to

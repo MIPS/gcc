@@ -30,7 +30,6 @@ Boston, MA 02111-1307, USA.  */
 	output_file_directive (FILE, main_input_filename);		\
 	if (target_flags & MASK_INTEL_SYNTAX)				\
 	  fputs ("\t.intel_syntax\n", FILE);				\
-	fprintf (FILE, "\t.version\t\"01.01\"\n");			\
   } while (0)
 
 #undef TARGET_VERSION
@@ -56,7 +55,8 @@ Boston, MA 02111-1307, USA.  */
 #define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 #undef DBX_REGISTER_NUMBER
-#define DBX_REGISTER_NUMBER(n)  svr4_dbx_register_map[n]
+#define DBX_REGISTER_NUMBER(n) \
+  (TARGET_64BIT ? dbx64_register_map[n] : svr4_dbx_register_map[n])
 
 /* Output assembler code to FILE to call the profiler.
    To the best of my knowledge, no Linux libc has required the label
@@ -72,6 +72,15 @@ Boston, MA 02111-1307, USA.  */
   else									\
     fprintf (FILE, "\tcall\tmcount\n");					\
 }
+
+/* True if it is possible to profile code that does not have a frame
+   pointer.  
+
+   The GLIBC version of mcount for the x86 assumes that there is a
+   frame, so we cannot allow profiling without a frame pointer.  */
+
+#undef TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
+#define TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER false
 
 #undef SIZE_TYPE
 #define SIZE_TYPE "unsigned int"
@@ -143,9 +152,6 @@ Boston, MA 02111-1307, USA.  */
 	%{static:-static}}}"
 #endif
 
-/* Get perform_* macros to build libgcc.a.  */
-#include "i386/perform.h"
-
 /* A C statement (sans semicolon) to output to the stdio stream
    FILE the assembler definition of uninitialized global DECL named
    NAME whose size is SIZE bytes and alignment is ALIGN bytes.
@@ -169,3 +175,116 @@ Boston, MA 02111-1307, USA.  */
     }									\
   } while (0)
 #endif
+
+#if defined(__PIC__) && defined (USE_GNULIBC_1)
+/* This is a kludge. The i386 GNU/Linux dynamic linker needs ___brk_addr,
+   __environ and atexit (). We have to make sure they are in the .dynsym
+   section. We accomplish it by making a dummy call here. This
+   code is never reached.  */
+         
+#define CRT_END_INIT_DUMMY		\
+  do					\
+    {					\
+      extern void *___brk_addr;		\
+      extern char **__environ;		\
+					\
+      ___brk_addr = __environ;		\
+      atexit (0);			\
+    }					\
+  while (0)
+#endif
+
+/* Handle special EH pointer encodings.  Absolute, pc-relative, and
+   indirect are handled automatically.  */
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE) \
+  do {									\
+    if ((SIZE) == 4 && ((ENCODING) & 0x70) == DW_EH_PE_datarel)		\
+      {									\
+        fputs (UNALIGNED_INT_ASM_OP, FILE);				\
+        assemble_name (FILE, XSTR (ADDR, 0));				\
+	fputs (((ENCODING) & DW_EH_PE_indirect ? "@GOT" : "@GOTOFF"), FILE); \
+        goto DONE;							\
+      }									\
+  } while (0)
+
+/* Used by crtstuff.c to initialize the base of data-relative relocations.
+   These are GOT relative on x86, so return the pic register.  */
+#ifdef __PIC__
+#define CRT_GET_RFIB_DATA(BASE)			\
+  {						\
+    register void *ebx_ __asm__("ebx");		\
+    BASE = ebx_;				\
+  }
+#else
+#define CRT_GET_RFIB_DATA(BASE)						\
+  __asm__ ("call\t.LPR%=\n"						\
+	   ".LPR%=:\n\t"						\
+	   "popl\t%0\n\t"						\
+	   /* Due to a GAS bug, this cannot use EAX.  That encodes	\
+	      smaller than the traditional EBX, which results in the	\
+	      offset being off by one.  */				\
+	   "addl\t$_GLOBAL_OFFSET_TABLE_+[.-.LPR%=],%0"			\
+	   : "=d"(BASE))
+#endif
+
+/* Do code reading to identify a signal frame, and set the frame
+   state data appropriately.  See unwind-dw2.c for the structs.  */
+
+#ifdef IN_LIBGCC2
+#include <signal.h>
+#include <sys/ucontext.h>
+#endif
+
+#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
+  do {									\
+    unsigned char *pc_ = (CONTEXT)->ra;					\
+    struct sigcontext *sc_;						\
+    long new_cfa_;							\
+									\
+    /* popl %eax ; movl $__NR_sigreturn,%eax ; int $0x80  */		\
+    if (*(unsigned short *)(pc_+0) == 0xb858				\
+	&& *(unsigned int *)(pc_+2) == 119				\
+	&& *(unsigned short *)(pc_+6) == 0x80cd)			\
+      sc_ = (CONTEXT)->cfa + 4;						\
+    /* movl $__NR_rt_sigreturn,%eax ; int $0x80  */			\
+    else if (*(unsigned char *)(pc_+0) == 0xb8				\
+	     && *(unsigned int *)(pc_+1) == 173				\
+	     && *(unsigned short *)(pc_+5) == 0x80cd)			\
+      {									\
+	struct rt_sigframe {						\
+	  int sig;							\
+	  struct siginfo *pinfo;					\
+	  void *puc;							\
+	  struct siginfo info;						\
+	  struct ucontext uc;						\
+	} *rt_ = (CONTEXT)->cfa;					\
+	sc_ = (struct sigcontext *) &rt_->uc.uc_mcontext;		\
+      }									\
+    else								\
+      break;								\
+									\
+    new_cfa_ = sc_->esp;						\
+    (FS)->cfa_how = CFA_REG_OFFSET;					\
+    (FS)->cfa_reg = 4;							\
+    (FS)->cfa_offset = new_cfa_ - (long) (CONTEXT)->cfa;		\
+									\
+    /* The SVR4 register numbering macros aren't usable in libgcc.  */	\
+    (FS)->regs.reg[0].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[0].loc.offset = (long)&sc_->eax - new_cfa_;		\
+    (FS)->regs.reg[3].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[3].loc.offset = (long)&sc_->ebx - new_cfa_;		\
+    (FS)->regs.reg[1].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[1].loc.offset = (long)&sc_->ecx - new_cfa_;		\
+    (FS)->regs.reg[2].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[2].loc.offset = (long)&sc_->edx - new_cfa_;		\
+    (FS)->regs.reg[6].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[6].loc.offset = (long)&sc_->esi - new_cfa_;		\
+    (FS)->regs.reg[7].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[7].loc.offset = (long)&sc_->edi - new_cfa_;		\
+    (FS)->regs.reg[5].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[5].loc.offset = (long)&sc_->ebp - new_cfa_;		\
+    (FS)->regs.reg[8].how = REG_SAVED_OFFSET;				\
+    (FS)->regs.reg[8].loc.offset = (long)&sc_->eip - new_cfa_;		\
+    (FS)->retaddr_column = 8;						\
+    goto SUCCESS;							\
+  } while (0)

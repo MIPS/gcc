@@ -191,6 +191,7 @@ Boston, MA 02111-1307, USA.  */
 #include "input.h"
 #include "rtl.h"
 #include "toplev.h"
+#include "diagnostic.h"
 
 #define IS_UNKNOWN_TYPE(type) (TYPE_SIZE(type)==0)
 #define BUILTIN_NESTING_LEVEL (-1)
@@ -3016,6 +3017,9 @@ set_block (block)
      register tree block;
 {
   current_scope->this_block = block;
+  current_scope->decls = chainon (current_scope->decls, BLOCK_VARS (block));
+  current_scope->blocks = chainon (current_scope->blocks,
+				   BLOCK_SUBBLOCKS (block));
 }
 
 /* Record a decl-node X as belonging to the current lexical scope.

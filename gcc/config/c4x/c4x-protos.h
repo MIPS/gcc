@@ -50,8 +50,6 @@ extern void c4x_external_ref (const char *);
 extern void c4x_file_end (FILE *);
 
 #ifdef TREE_CODE
-extern void c4x_set_default_attributes PARAMS ((tree, tree *));
-
 extern void c4x_function_arg_advance PARAMS ((CUMULATIVE_ARGS *, 
 					      enum machine_mode, tree, int));
 
@@ -60,8 +58,6 @@ extern struct rtx_def *c4x_function_arg PARAMS ((CUMULATIVE_ARGS *,
 						 int));
 
 extern void c4x_encode_section_info PARAMS ((tree));
-
-extern int c4x_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
 
 #endif /* TREE_CODE */
 
@@ -73,10 +69,10 @@ extern void c4x_va_start PARAMS ((int, tree, rtx));
 
 extern struct rtx_def *c4x_va_arg PARAMS ((tree, tree));
 
-extern rtx c4x_expand_builtin PARAMS((tree, rtx, rtx,
-				      enum machine_mode, int));
+extern rtx c4x_expand_builtin PARAMS ((tree, rtx, rtx,
+				       enum machine_mode, int));
 
-extern void c4x_init_builtins PARAMS((tree));
+extern void c4x_init_builtins PARAMS ((void));
 
 #endif /* TREE_CODE and RTX_CODE*/
 
@@ -303,7 +299,7 @@ extern enum machine_mode c4x_caller_save_map[];
 extern int c4x_rpts_cycles;	        /* Max cycles for RPTS.  */
 extern int c4x_cpu_version;		/* Cpu version C30/31/32/40/44.  */
 
-#ifdef _C_PRAGMA_H
+#ifdef GCC_C_PRAGMA_H
 extern void c4x_pr_CODE_SECTION		PARAMS ((cpp_reader *));
 extern void c4x_pr_DATA_SECTION		PARAMS ((cpp_reader *));
 extern void c4x_pr_FUNC_IS_PURE		PARAMS ((cpp_reader *));
@@ -313,4 +309,4 @@ extern void c4x_pr_ignored		PARAMS ((cpp_reader *));
 extern void c4x_init_pragma		PARAMS ((int (*) (tree *)));
 #endif
 
-#endif
+#endif /* ! GCC_C4X_PROTOS_H */

@@ -21,6 +21,7 @@
 #
 # g++ support library routines
 #
+load_lib prune.exp
 
 #
 # GXX_UNDER_TEST is the compiler under test.
@@ -63,13 +64,14 @@ proc g++_version { } {
 # provide new versions of g++_include_flags and g++_link_flags (both
 # originally from libgloss.exp) which know about the new gcc tree structure
 #
-proc g++_include_flags { args } {
+proc g++_include_flags { paths } {
     global srcdir
     global HAVE_LIBSTDCXX_V3
+    global TESTING_IN_BUILD_TREE
 
     set flags ""
 
-    if [is_remote host] {
+    if { [is_remote host] || ! [info exists TESTING_IN_BUILD_TREE] } {
       return "${flags}"
     }
 
@@ -78,12 +80,11 @@ proc g++_include_flags { args } {
       append flags "-I${dir} -I${dir}/src "
     }
 
-    set gccpath [get_multilibs]
+    set gccpath ${paths}
 
     if { ${HAVE_LIBSTDCXX_V3} } {
       set odir_v3 [lookfor_file ${gccpath} libstdc++-v3]
-      set sdir_v3 [lookfor_file ${srcdir} libstdc++-v3]
-      append flags [exec sh ${odir_v3}/tests_flags --compiler ${odir_v3} ${sdir_v3}]
+      append flags [exec sh ${odir_v3}/testsuite_flags --build-includes]
     } else {
       set odir_v2 [lookfor_file ${gccpath} libstdc++]
       set sdir_v2 [lookfor_file ${srcdir} libstdc++]
@@ -93,12 +94,12 @@ proc g++_include_flags { args } {
     return "$flags"
 }
 
-proc g++_link_flags { args } {
+proc g++_link_flags { paths } {
     global rootme
     global srcdir
     global ld_library_path
 
-    set gccpath [get_multilibs];
+    set gccpath ${paths}
     set libio_dir ""
     set flags ""
     set ld_library_path "."
@@ -166,12 +167,13 @@ proc g++_init { args } {
     global ALWAYS_CXXFLAGS
     global TOOL_EXECUTABLE TOOL_OPTIONS
     global GXX_UNDER_TEST
+    global TESTING_IN_BUILD_TREE
 
     if ![info exists GXX_UNDER_TEST] then {
 	if [info exists TOOL_EXECUTABLE] {
 	    set GXX_UNDER_TEST $TOOL_EXECUTABLE;
 	} else {
-	    if [is_remote host] {
+	    if { [is_remote host] || ! [info exists TESTING_IN_BUILD_TREE] } {
 		set GXX_UNDER_TEST [transform c++]
 	    } else {
 		set GXX_UNDER_TEST [findfile $base_dir/../g++ "$base_dir/../g++ -B$base_dir/../" [findfile $base_dir/g++ "$base_dir/g++ -B$base_dir/" [transform c++]]]
@@ -212,8 +214,13 @@ proc g++_init { args } {
     set ALWAYS_CXXFLAGS ""
 
     if ![is_remote host] {
-	lappend ALWAYS_CXXFLAGS "additional_flags=[g++_include_flags]";
-	lappend ALWAYS_CXXFLAGS "ldflags=[g++_link_flags]";
+	if [info exists TOOL_OPTIONS] {
+	    lappend ALWAYS_CXXFLAGS "additional_flags=[g++_include_flags [get_multilibs ${TOOL_OPTIONS}] ]";
+	    lappend ALWAYS_CXXFLAGS "ldflags=[g++_link_flags [get_multilibs ${TOOL_OPTIONS}] ]";
+	} else {
+	    lappend ALWAYS_CXXFLAGS "additional_flags=[g++_include_flags [get_multilibs] ]";
+	    lappend ALWAYS_CXXFLAGS "ldflags=[g++_link_flags [get_multilibs] ]";
+	}
     }
 
     if [info exists TOOL_OPTIONS] {
@@ -281,14 +288,6 @@ if { [info procs runtest_file_p] == "" } then {
 	    }
 	}
 	return 1
-    }
-}
-
-# Provide a definition of this if missing (delete after next dejagnu release).
-
-if { [info procs prune_warnings] == "" } then {
-    proc prune_warnings { text } {
-	return $text
     }
 }
 

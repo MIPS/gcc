@@ -5,12 +5,12 @@
 // Subject:  An error!
 // Message-ID: <9311160259.AA03353@pi14.arc.umn.edu>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <assert.h>
-#include <fstream.h>
-#include <iostream.h>
-#include <math.h>
+#include <cstdlib>
+#include <cstdio>
+#include <cassert>
+#include <fstream>
+#include <iostream>
+#include <cmath>
 
 #define ANSI_C
 
@@ -79,7 +79,7 @@ class Vector
 
 	double assign( int, double );
 
-	friend ostream& operator<<( ostream&, const Vector& m );
+	friend std::ostream& operator<<(std::ostream&, const Vector& m );
 	
 	private:
 
@@ -142,7 +142,7 @@ operator=( const Vector &A )
 double Vector::
 operator()( int row ) const
 {
-	assert( r );
+	assert(r != 0);
 
 	return *r->vec;
 }
@@ -150,7 +150,7 @@ operator()( int row ) const
 VecElem Vector::
 operator()( int r )
 {
-	assert(r);
+	assert(r != 0);
 
 	return VecElem( *this, r );
 }
@@ -159,13 +159,13 @@ operator()( int r )
 double Vector::
 assign( int rownum, double d )
 {
-	assert(r);
+	assert(r != 0);
 
 	if( rownum > row() || rownum <= 0 ) {
-		cerr << "Warning: trying to assign out of bounds" << endl;
-		cerr << "row " << rownum << endl;
-		cerr << "Vector size " << row() << endl;
-		abort();
+	  std::cerr << "Warning: trying to assign out of bounds" << std::endl;
+	  std::cerr << "row " << rownum << std::endl;
+	  std::cerr << "Vector size " << row() << std::endl;
+	  std::abort();
 	}
 
 	if( r->count == 1 ) {
@@ -232,8 +232,9 @@ VecElem( Vector &vec, int r )
 	: v(vec), row(r)
 {
 	if( r < 1 || r > vec.row() ) {
-		cerr << "Trying to access vector element out of bounds" << endl;
-		abort();
+	  std::cerr << "Trying to access vector element out of bounds";
+	  std::cerr << std::endl;
+	  std::abort();
 	}
 }
 
@@ -245,7 +246,7 @@ VecElem( const VecElem &elem )
 VecElem::
 operator double()
 {
-	assert( v.r->vec );
+	assert( v.r->vec != 0 );
 	return *v.r->vec;
 };
 
@@ -268,9 +269,9 @@ int main()
 	int i, j;
 
 	if (makeforms (cen,a,b) != 10)
-	  { printf ("FAIL\n"); return 1; }
+	  { std::printf ("FAIL\n"); return 1; }
 	else
-	  printf ("PASS\n");
+	  std::printf ("PASS\n");
 
 
 }
@@ -280,4 +281,6 @@ makeforms( Vector cen, Vector **a, Vector **b)
 {
 	return 10;
 }
+
+
 

@@ -84,11 +84,13 @@ static assume_compiled_node *find_assume_compiled_node
 
 static assume_compiled_node *assume_compiled_tree;
 
-static tree class_roots[4] = { NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE };
+static tree class_roots[5]
+= { NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE };
 #define registered_class class_roots[0]
 #define fields_ident class_roots[1]  /* get_identifier ("fields") */
 #define info_ident class_roots[2]  /* get_identifier ("info") */
 #define class_list class_roots[3]
+#define class_dtable_decl class_roots[4]
 
 /* Return the node that most closely represents the class whose name
    is IDENT.  Start the search from NODE.  Return NULL if an
@@ -392,6 +394,14 @@ set_super_info (access_flags, this_class, super_class, interfaces_count)
       CLASS_HAS_SUPER (this_class) = 1;
     }
 
+  set_class_decl_access_flags (access_flags, class_decl);
+}
+
+void
+set_class_decl_access_flags (access_flags, class_decl)
+     int access_flags;
+     tree class_decl;
+{
   if (access_flags & ACC_PUBLIC)    CLASS_PUBLIC (class_decl) = 1;
   if (access_flags & ACC_FINAL)     CLASS_FINAL (class_decl) = 1;
   if (access_flags & ACC_SUPER)     CLASS_SUPER (class_decl) = 1;
@@ -616,9 +626,9 @@ init_test_hash_newfunc (entry, table, string)
   return (struct hash_entry *) ret;
 }
 
-/* Hash table helpers. Also reused in find_applicable_accessible_methods_list
-   (parse.y). The hash of a tree node is it's pointer value,
-   comparison is direct. */
+/* Hash table helpers. Also reused in find_applicable_accessible_methods_list 
+   (parse.y). The hash of a tree node is its pointer value, comparison
+   is direct. */
 
 unsigned long
 java_hash_hash_tree_node (k)
@@ -627,7 +637,7 @@ java_hash_hash_tree_node (k)
   return (long) k;
 }
 
-boolean
+bool
 java_hash_compare_tree_node (k1, k2)
      hash_table_key k1;
      hash_table_key k2;
@@ -805,7 +815,6 @@ build_utf8_ref (name)
   const char * name_ptr = IDENTIFIER_POINTER(name);
   int name_len = IDENTIFIER_LENGTH(name);
   char buf[60];
-  char *buf_ptr;
   tree ctype, field = NULL_TREE, str_type, cinit, string;
   static int utf8_count = 0;
   int name_hash;
@@ -831,23 +840,8 @@ build_utf8_ref (name)
   FINISH_RECORD_CONSTRUCTOR (cinit);
   TREE_CONSTANT (cinit) = 1;
 
-  /* Build a unique identifier based on buf. */
+  /* Generate a unique-enough identifier.  */
   sprintf(buf, "_Utf%d", ++utf8_count);
-  buf_ptr = &buf[strlen (buf)];
-  if (name_len > 0 && name_ptr[0] >= '0' && name_ptr[0] <= '9')
-    *buf_ptr++ = '_';
-  while (--name_len >= 0)
-    {
-      unsigned char c = *name_ptr++;
-      if (c & 0x80)
-	continue;
-      if (!ISALPHA(c) && !ISDIGIT(c))
-	c = '_';
-      *buf_ptr++ = c;
-      if (buf_ptr >= buf + 50)
-	break;
-    }
-  *buf_ptr = '\0';
 
   decl = build_decl (VAR_DECL, get_identifier (buf), utf8const_type);
   /* FIXME get some way to force this into .text, not .data. */
@@ -897,8 +891,9 @@ build_class_ref (type)
 	      TREE_PUBLIC (decl) = 1;
 	      DECL_IGNORED_P (decl) = 1;
 	      DECL_ARTIFICIAL (decl) = 1;
-	      DECL_ASSEMBLER_NAME (decl) = 
-		java_mangle_class_field (&temporary_obstack, type);
+	      SET_DECL_ASSEMBLER_NAME (decl, 
+				       java_mangle_class_field
+				       (&temporary_obstack, type));
 	      make_decl_rtl (decl, NULL);
 	      pushdecl_top_level (decl);
 	      if (is_compiled == 1)
@@ -981,11 +976,11 @@ build_static_field_ref (fdecl)
   int is_compiled = is_compiled_class (fclass);
   if (is_compiled)
     {
-      if (DECL_RTL (fdecl) == 0)
+      if (!DECL_RTL_SET_P (fdecl))
 	{
-	  make_decl_rtl (fdecl, NULL);
 	  if (is_compiled == 1)
 	    DECL_EXTERNAL (fdecl) = 1;
+	  make_decl_rtl (fdecl, NULL);
 	}
       return fdecl;
     }
@@ -1144,7 +1139,7 @@ make_method_value (mdecl)
 #define ACC_TRANSLATED          0x4000
   int accflags = get_access_flags_from_decl (mdecl) | ACC_TRANSLATED;
   code = null_pointer_node;
-  if (DECL_RTL (mdecl))
+  if (DECL_RTL_SET_P (mdecl))
     code = build1 (ADDR_EXPR, nativecode_ptr_type_node, mdecl);
   START_RECORD_CONSTRUCTOR (minit, method_type_node);
   PUSH_FIELD_VALUE (minit, "name",
@@ -1218,7 +1213,7 @@ get_dispatch_table (type, this_class_addr)
 	}
       else
 	{
-	  if (DECL_RTL (method) == 0)
+	  if (!DECL_RTL_SET_P (method))
 	    make_decl_rtl (method, NULL);
 	  method = build1 (ADDR_EXPR, nativecode_ptr_type_node, method);
 	}
@@ -1347,6 +1342,19 @@ make_class_data (type)
       DECL_IGNORED_P (dtable_decl) = 1;
       TREE_PUBLIC (dtable_decl) = 1;
       rest_of_decl_compilation (dtable_decl, (char*) 0, 1, 0);
+      if (type == class_type_node)
+	class_dtable_decl = dtable_decl;
+    }
+
+  if (class_dtable_decl == NULL_TREE)
+    {
+      class_dtable_decl = build_dtable_decl (class_type_node);
+      TREE_STATIC (class_dtable_decl) = 1;
+      DECL_ARTIFICIAL (class_dtable_decl) = 1;
+      DECL_IGNORED_P (class_dtable_decl) = 1;
+      if (is_compiled_class (class_type_node) != 2)
+	DECL_EXTERNAL (class_dtable_decl) = 1;
+      rest_of_decl_compilation (class_dtable_decl, (char*) 0, 1, 0);
     }
 
   super = CLASSTYPE_SUPER (type);
@@ -1439,6 +1447,7 @@ make_class_data (type)
   PUSH_FIELD_VALUE (cons, "ancestors", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "idt", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "arrayclass", null_pointer_node);
+  PUSH_FIELD_VALUE (cons, "protectionDomain", null_pointer_node);
 
   FINISH_RECORD_CONSTRUCTOR (cons);
 
@@ -1512,7 +1521,7 @@ is_compiled_class (class)
     return 2;
 
   seen_in_zip = (TYPE_JCF (class) && JCF_SEEN_IN_ZIP (TYPE_JCF (class)));
-  if (CLASS_FROM_CURRENTLY_COMPILED_SOURCE_P (class) || seen_in_zip)
+  if (CLASS_FROM_CURRENTLY_COMPILED_P (class) || seen_in_zip)
     {
       /* The class was seen in the current ZIP file and will be
 	 available as a compiled class in the future but may not have
@@ -1677,7 +1686,7 @@ layout_class (this_class)
 	  return;
 	}
       if (TYPE_SIZE (this_class) == NULL_TREE)
-	push_super_field (this_class, super_class);
+	push_super_field (this_class, maybe_super_class);
     }
 
   for (field = TYPE_FIELDS (this_class);
@@ -1686,8 +1695,9 @@ layout_class (this_class)
       if (FIELD_STATIC (field))
 	{
 	  /* Set DECL_ASSEMBLER_NAME to something suitably mangled. */
-	  DECL_ASSEMBLER_NAME (field) = 
-	    java_mangle_decl (&temporary_obstack, field);
+	  SET_DECL_ASSEMBLER_NAME (field,
+				   java_mangle_decl
+				   (&temporary_obstack, field));
 	}
     }
 
@@ -1782,8 +1792,9 @@ layout_class_method (this_class, super_class, method_decl, dtable_count)
   TREE_PUBLIC (method_decl) = 1;
 
   /* This is a good occasion to mangle the method's name */
-  DECL_ASSEMBLER_NAME (method_decl) = 
-    java_mangle_decl (&temporary_obstack, method_decl);
+  SET_DECL_ASSEMBLER_NAME (method_decl,
+			   java_mangle_decl (&temporary_obstack, 
+					     method_decl));
   /* We don't generate a RTL for the method if it's abstract, or if
      it's an interface method that isn't clinit. */
   if (! METHOD_ABSTRACT (method_decl) 
@@ -1863,7 +1874,7 @@ emit_register_classes ()
   tree t;
 
   init_decl = build_decl (FUNCTION_DECL, init_name, init_type);
-  DECL_ASSEMBLER_NAME (init_decl) = init_name;
+  SET_DECL_ASSEMBLER_NAME (init_decl, init_name);
   TREE_STATIC (init_decl) = 1;
   current_function_decl = init_decl;
   DECL_RESULT (init_decl) = build_decl(RESULT_DECL, NULL_TREE, void_type_node);

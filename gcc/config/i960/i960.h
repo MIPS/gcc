@@ -131,6 +131,10 @@ Boston, MA 02111-1307, USA.  */
   fprintf (asm_out_file, "\t.type\t0x%x;", A)
 
 /* Handle pragmas for compatibility with Intel's compilers.  */
+
+extern int i960_maxbitalignment;
+extern int i960_last_maxbitalignment;
+
 #define REGISTER_TARGET_PRAGMAS(PFILE) do {			\
   cpp_register_pragma (PFILE, 0, "align", i960_pr_align);	\
   cpp_register_pragma (PFILE, 0, "noalign", i960_pr_noalign);	\
@@ -499,7 +503,7 @@ extern int target_flags;
    ? bitsize_int (128) : round_up (COMPUTED, SPECIFIED))
 #define ROUND_TYPE_SIZE_UNIT(TYPE, COMPUTED, SPECIFIED)		\
   ((TREE_CODE (TYPE) == REAL_TYPE && TYPE_MODE (TYPE) == XFmode)	\
-   ? bitsize_int (16) : round_up (COMPUTED, SPECIFIED))
+   ? size_int (16) : round_up (COMPUTED, SPECIFIED))
 
 
 /* Standard register usage.  */
@@ -617,7 +621,12 @@ extern int target_flags;
 /* ??? It isn't clear to me why this is here.  Perhaps because of a bug (since
    fixed) in the definition of INITIAL_FRAME_POINTER_OFFSET which would have
    caused this to fail.  */
-#define FRAME_POINTER_REQUIRED (! leaf_function_p ())
+/* ??? Must check current_function_has_nonlocal_goto, otherwise frame pointer
+  elimination messes up nonlocal goto sequences.  I think this works for other
+  targets because they use indirect jumps for the return which disables fp
+  elimination.  */
+#define FRAME_POINTER_REQUIRED \
+  (! leaf_function_p () || current_function_has_nonlocal_goto)
 
 /* Definitions for register eliminations.
 
@@ -988,16 +997,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)	\
   i960_function_name_declare (FILE, NAME, DECL)
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) i960_function_prologue ((FILE), (SIZE))
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -1010,18 +1009,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
    No definition is equivalent to always zero.  */
 
 #define	EXIT_IGNORE_STACK 1
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) i960_function_epilogue (FILE, SIZE)
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1521,21 +1508,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
 	( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
 	  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL	007
-#define TARGET_BS	010
-#define TARGET_TAB	011
-#define TARGET_NEWLINE	012
-#define TARGET_VT	013
-#define TARGET_FF	014
-#define TARGET_CR	015
 
 /* Output assembler code to FILE to initialize this source file's
    basic block profiling info, if that has not already been done.  */

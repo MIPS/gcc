@@ -31,9 +31,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "insn-flags.h"
-#include "insn-codes.h"
 #include "function.h"
+#include "except.h"
 #include "expr.h"
 #include "recog.h"
 #include "reload.h"
@@ -724,17 +723,35 @@ expand_binop (mode, binoptab, op0, op1, target, unsignedp, methods)
 	}
 
       /* In case the insn wants input operands in modes different from
-	 the result, convert the operands.  */
+	 the result, convert the operands.  It would seem that we
+	 don't need to convert CONST_INTs, but we do, so that they're
+	 a properly sign-extended for their modes; we choose the
+	 widest mode between mode and mode[01], so that, in a widening
+	 operation, we call convert_modes with different FROM and TO
+	 modes, which ensures the value is sign-extended.  Shift
+	 operations are an exception, because the second operand needs
+	 not be extended to the mode of the result.  */
 
-      if (GET_MODE (op0) != VOIDmode
-	  && GET_MODE (op0) != mode0
+      if (GET_MODE (op0) != mode0
 	  && mode0 != VOIDmode)
-	xop0 = convert_to_mode (mode0, xop0, unsignedp);
+	xop0 = convert_modes (mode0,
+			      GET_MODE (op0) != VOIDmode
+			      ? GET_MODE (op0)
+			      : GET_MODE_SIZE (mode) > GET_MODE_SIZE (mode0)
+			      ? mode
+			      : mode0,
+			      xop0, unsignedp);
 
-      if (GET_MODE (xop1) != VOIDmode
-	  && GET_MODE (xop1) != mode1
+      if (GET_MODE (xop1) != mode1
 	  && mode1 != VOIDmode)
-	xop1 = convert_to_mode (mode1, xop1, unsignedp);
+	xop1 = convert_modes (mode1,
+			      GET_MODE (op1) != VOIDmode
+			      ? GET_MODE (op1)
+			      : (GET_MODE_SIZE (mode) > GET_MODE_SIZE (mode1)
+				 && ! shift_op)
+			      ? mode
+			      : mode1,
+			      xop1, unsignedp);
 
       /* Now, if insn's predicates don't allow our operands, put them into
 	 pseudo regs.  */
@@ -1975,12 +1992,10 @@ expand_twoval_binop (binoptab, op0, op1, targ0, targ1, unsignedp)
 	    {
 	      register rtx t0 = gen_reg_rtx (wider_mode);
 	      register rtx t1 = gen_reg_rtx (wider_mode);
+	      rtx cop0 = convert_modes (wider_mode, mode, op0, unsignedp);
+	      rtx cop1 = convert_modes (wider_mode, mode, op1, unsignedp);
 
-	      if (expand_twoval_binop (binoptab,
-				       convert_modes (wider_mode, mode, op0,
-						      unsignedp),
-				       convert_modes (wider_mode, mode, op1,
-						      unsignedp),
+	      if (expand_twoval_binop (binoptab, cop0, cop1,
 				       t0, t1, unsignedp))
 		{
 		  convert_move (targ0, t0, unsignedp);
@@ -2805,24 +2820,36 @@ emit_libcall_block (insns, target, result, equiv)
      into a MEM later.  Protect the libcall block from this change.  */
   if (! REG_P (target) || REG_USERVAR_P (target))
     target = gen_reg_rtx (GET_MODE (target));
-
+  
+  /* If we're using non-call exceptions, a libcall corresponding to an
+     operation that may trap may also trap.  */
+  if (flag_non_call_exceptions && may_trap_p (equiv))
+    {
+      for (insn = insns; insn; insn = NEXT_INSN (insn))
+	if (GET_CODE (insn) == CALL_INSN)
+	  {
+	    rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
+	    
+	    if (note != 0 && INTVAL (XEXP (note, 0)) <= 0)
+	      remove_note (insn, note);
+	  }
+    }
+  else
   /* look for any CALL_INSNs in this sequence, and attach a REG_EH_REGION
      reg note to indicate that this call cannot throw or execute a nonlocal
      goto (unless there is already a REG_EH_REGION note, in which case
-     we update it).  Also set the CONST_CALL_P flag.  */
-
-  for (insn = insns; insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == CALL_INSN)
-      {
-	rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
-
-	CONST_CALL_P (insn) = 1;
-	if (note != 0)
-	  XEXP (note, 0) = GEN_INT (-1);
-	else
-	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, GEN_INT (-1),
-						REG_NOTES (insn));
-      }
+     we update it).  */
+    for (insn = insns; insn; insn = NEXT_INSN (insn))
+      if (GET_CODE (insn) == CALL_INSN)
+	{
+	  rtx note = find_reg_note (insn, REG_EH_REGION, NULL_RTX);
+	
+	  if (note != 0)
+	    XEXP (note, 0) = GEN_INT (-1);
+	  else
+	    REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EH_REGION, GEN_INT (-1),
+						  REG_NOTES (insn));
+	}
 
   /* First emit all insns that set pseudos.  Remove them from the list as
      we go.  Avoid insns that set pseudos which were referenced in previous
@@ -3271,21 +3298,18 @@ emit_cmp_and_jump_insns (x, y, comparison, size, mode, unsignedp, align, label)
      unsigned int align;
      rtx label;
 {
-  rtx op0;
-  rtx op1;
-	  
-  if ((CONSTANT_P (x) && ! CONSTANT_P (y))
-      || (GET_CODE (x) == CONST_INT && GET_CODE (y) != CONST_INT))
+  rtx op0 = x, op1 = y;
+
+  /* Swap operands and condition to ensure canonical RTL.  */
+  if (swap_commutative_operands_p (x, y))
     {
-      /* Swap operands and condition to ensure canonical RTL.  */
-      op0 = y;
-      op1 = x;
+      /* If we're not emitting a branch, this means some caller
+         is out of sync.  */
+      if (! label)
+	abort ();
+
+      op0 = y, op1 = x;
       comparison = swap_condition (comparison);
-    }
-  else
-    {
-      op0 = x;
-      op1 = y;
     }
 
 #ifdef HAVE_cc0
@@ -3593,12 +3617,12 @@ emit_conditional_move (target, code, op0, op1, cmode, op2, op3, mode,
 {
   rtx tem, subtarget, comparison, insn;
   enum insn_code icode;
+  enum rtx_code reversed;
 
   /* If one operand is constant, make it the second one.  Only do this
      if the other operand is not constant as well.  */
 
-  if ((CONSTANT_P (op0) && ! CONSTANT_P (op1))
-      || (GET_CODE (op0) == CONST_INT && GET_CODE (op1) != CONST_INT))
+  if (swap_commutative_operands_p (op0, op1))
     {
       tem = op0;
       op0 = op1;
@@ -3617,15 +3641,14 @@ emit_conditional_move (target, code, op0, op1, cmode, op2, op3, mode,
   if (cmode == VOIDmode)
     cmode = GET_MODE (op0);
 
-  if (((CONSTANT_P (op2) && ! CONSTANT_P (op3))
-       || (GET_CODE (op2) == CONST_INT && GET_CODE (op3) != CONST_INT))
-      && (GET_MODE_CLASS (GET_MODE (op1)) != MODE_FLOAT
-	  || TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT || flag_fast_math))
+  if (swap_commutative_operands_p (op2, op3)
+      && ((reversed = reversed_comparison_code_parts (code, op0, op1, NULL))
+          != UNKNOWN))
     {
       tem = op2;
       op2 = op3;
       op3 = tem;
-      code = reverse_condition (code);
+      code = reversed;
     }
 
   if (mode == VOIDmode)
@@ -3742,10 +3765,28 @@ gen_add2_insn (x, y)
 }
 
 int
-have_add2_insn (mode)
-     enum machine_mode mode;
+have_add2_insn (x, y)
+     rtx x, y;
 {
-  return add_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing;
+  int icode;
+
+  if (GET_MODE (x) == VOIDmode)
+    abort ();
+
+  icode = (int) add_optab->handlers[(int) GET_MODE (x)].insn_code; 
+
+  if (icode == CODE_FOR_nothing)
+    return 0;
+
+  if (! ((*insn_data[icode].operand[0].predicate)
+	 (x, insn_data[icode].operand[0].mode))
+      || ! ((*insn_data[icode].operand[1].predicate)
+	    (x, insn_data[icode].operand[1].mode))
+      || ! ((*insn_data[icode].operand[2].predicate)
+	    (y, insn_data[icode].operand[2].mode)))
+    return 0;
+
+  return 1;
 }
 
 /* Generate and return an insn body to subtract Y from X.  */
@@ -3768,10 +3809,28 @@ gen_sub2_insn (x, y)
 }
 
 int
-have_sub2_insn (mode)
-     enum machine_mode mode;
+have_sub2_insn (x, y)
+     rtx x, y;
 {
-  return sub_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing;
+  int icode;
+
+  if (GET_MODE (x) == VOIDmode)
+    abort ();
+
+  icode = (int) sub_optab->handlers[(int) GET_MODE (x)].insn_code; 
+
+  if (icode == CODE_FOR_nothing)
+    return 0;
+
+  if (! ((*insn_data[icode].operand[0].predicate)
+	 (x, insn_data[icode].operand[0].mode))
+      || ! ((*insn_data[icode].operand[1].predicate)
+	    (x, insn_data[icode].operand[1].mode))
+      || ! ((*insn_data[icode].operand[2].predicate)
+	    (y, insn_data[icode].operand[2].mode)))
+    return 0;
+
+  return 1;
 }
 
 /* Generate the body of an instruction to copy Y into X.
@@ -3823,16 +3882,14 @@ gen_move_insn (x, y)
 	  x = gen_lowpart_common (tmode, x1);
 	  if (x == 0 && GET_CODE (x1) == MEM)
 	    {
-	      x = gen_rtx_MEM (tmode, XEXP (x1, 0));
-	      MEM_COPY_ATTRIBUTES (x, x1);
+	      x = adjust_address_nv (x1, tmode, 0);
 	      copy_replacements (x1, x);
 	    }
 
 	  y = gen_lowpart_common (tmode, y1);
 	  if (y == 0 && GET_CODE (y1) == MEM)
 	    {
-	      y = gen_rtx_MEM (tmode, XEXP (y1, 0));
-	      MEM_COPY_ATTRIBUTES (y, y1);
+	      y = adjust_address_nv (y1, tmode, 0);
 	      copy_replacements (y1, y);
 	    }
 	}
@@ -4295,7 +4352,9 @@ expand_fix (to, from, unsignedp)
 				 NULL_RTX, 0, OPTAB_LIB_WIDEN);
 	  expand_fix (to, target, 0);
 	  target = expand_binop (GET_MODE (to), xor_optab, to,
-				 GEN_INT ((HOST_WIDE_INT) 1 << (bitsize - 1)),
+				 GEN_INT (trunc_int_for_mode
+					  ((HOST_WIDE_INT) 1 << (bitsize - 1),
+					   GET_MODE (to))),
 				 to, 1, OPTAB_LIB_WIDEN);
 
 	  if (target != to)
@@ -4753,18 +4812,16 @@ init_optabs ()
   trunctfdf2_libfunc = init_one_libfunc ("__trunctfdf2");
 
   memcpy_libfunc = init_one_libfunc ("memcpy");
+  memmove_libfunc = init_one_libfunc ("memmove");
   bcopy_libfunc = init_one_libfunc ("bcopy");
   memcmp_libfunc = init_one_libfunc ("memcmp");
   bcmp_libfunc = init_one_libfunc ("__gcc_bcmp");
   memset_libfunc = init_one_libfunc ("memset");
   bzero_libfunc = init_one_libfunc ("bzero");
 
-  throw_libfunc = init_one_libfunc ("__throw");
-  rethrow_libfunc = init_one_libfunc ("__rethrow");
-  sjthrow_libfunc = init_one_libfunc ("__sjthrow");
-  sjpopnthrow_libfunc = init_one_libfunc ("__sjpopnthrow");
-  terminate_libfunc = init_one_libfunc ("__terminate");
-  eh_rtime_match_libfunc = init_one_libfunc ("__eh_rtime_match");
+  unwind_resume_libfunc = init_one_libfunc (USING_SJLJ_EXCEPTIONS
+					    ? "_Unwind_SjLj_Resume"
+					    : "_Unwind_Resume");
 #ifndef DONT_USE_BUILTIN_SETJMP
   setjmp_libfunc = init_one_libfunc ("__builtin_setjmp");
   longjmp_libfunc = init_one_libfunc ("__builtin_longjmp");
@@ -4772,6 +4829,9 @@ init_optabs ()
   setjmp_libfunc = init_one_libfunc ("setjmp");
   longjmp_libfunc = init_one_libfunc ("longjmp");
 #endif
+  unwind_sjlj_register_libfunc = init_one_libfunc ("_Unwind_SjLj_Register");
+  unwind_sjlj_unregister_libfunc
+    = init_one_libfunc ("_Unwind_SjLj_Unregister");
 
   eqhf2_libfunc = init_one_libfunc ("__eqhf2");
   nehf2_libfunc = init_one_libfunc ("__nehf2");
@@ -4887,23 +4947,6 @@ init_optabs ()
   ggc_add_root (optab_table, OTI_MAX, sizeof(optab), mark_optab);
   ggc_add_rtx_root (libfunc_table, LTI_MAX);
 }
-
-#ifdef BROKEN_LDEXP
-
-/* SCO 3.2 apparently has a broken ldexp.  */
-
-double
-ldexp(x,n)
-     double x;
-     int n;
-{
-  if (n > 0)
-    while (n--)
-      x *= 2;
-
-  return x;
-}
-#endif /* BROKEN_LDEXP */
 
 #ifdef HAVE_conditional_trap
 /* The insn generating function can not take an rtx_code argument.

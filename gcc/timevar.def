@@ -39,6 +39,10 @@ DEFTIMEVAR (TV_GC                    , "garbage collection")
 /* Time spent generating dump files.  */
 DEFTIMEVAR (TV_DUMP                  , "dump files")
 
+/* Time spent by constructing CFG.  */
+DEFTIMEVAR (TV_CFG                   , "cfg construction")
+/* Time spent by cleaning up CFG.  */
+DEFTIMEVAR (TV_CLEANUP_CFG           , "cfg cleanup")
 /* Timing in various stages of the compiler.  */
 DEFTIMEVAR (TV_CPP		     , "preprocessing")
 DEFTIMEVAR (TV_LEX		     , "lexical analysis")
@@ -70,7 +74,8 @@ DEFTIMEVAR (TV_REORDER_BLOCKS        , "reorder blocks")
 DEFTIMEVAR (TV_SHORTEN_BRANCH        , "shorten branches")
 DEFTIMEVAR (TV_REG_STACK             , "reg stack")
 DEFTIMEVAR (TV_TO_SSA                , "convert to SSA")
-DEFTIMEVAR (TV_DEAD_CODE_ELIM        , "eliminate dead code")
+DEFTIMEVAR (TV_SSA_CCP               , "SSA CCP")
+DEFTIMEVAR (TV_SSA_DCE               , "SSA aggressive DCE")
 DEFTIMEVAR (TV_FROM_SSA              , "convert from SSA")
 DEFTIMEVAR (TV_FINAL                 , "final")
 DEFTIMEVAR (TV_SYMOUT                , "symout")

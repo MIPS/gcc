@@ -1,6 +1,6 @@
 /* Definitions for C parsing and type checking.
    Copyright (C) 1987, 1993, 1994, 1995, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -19,8 +19,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef _C_TREE_H
-#define _C_TREE_H
+#ifndef GCC_C_TREE_H
+#define GCC_C_TREE_H
 
 #include "c-common.h"
 
@@ -36,18 +36,20 @@ Boston, MA 02111-1307, USA.  */
 
 struct lang_identifier
 {
-  struct tree_identifier ignore;
+  struct c_common_identifier ignore;
   tree global_value, local_value, label_value, implicit_decl;
   tree error_locus, limbo_value;
-  enum rid rid_code;
 };
 
-/* Wrapping c_lang_decl in another struct is an unfortunate
-   necessity.  */
+/* Language-specific declaration information.  */
 
 struct lang_decl
 {
   struct c_lang_decl base;
+  /* The return types and parameter types may have variable size.
+     This is a list of any SAVE_EXPRs that need to be evaluated to
+     compute those sizes.  */
+  tree pending_sizes;
 };
 
 /* Macros for access to language-specific slots in an identifier.  */
@@ -83,9 +85,6 @@ struct lang_decl
    TREE_USED          to record that such a decl was used.
    TREE_ADDRESSABLE   to record that the address of such a decl was used.  */
 
-/* Nonzero means reject anything that ANSI standard C forbids.  */
-extern int pedantic;
-
 /* In a RECORD_TYPE or UNION_TYPE, nonzero if any component is read-only.  */
 #define C_TYPE_FIELDS_READONLY(type) TREE_LANG_FLAG_1 (type)
 
@@ -101,8 +100,6 @@ extern int pedantic;
    and C_RID_YYCODE is the token number wanted by Yacc.  */
 
 #define C_IS_RESERVED_WORD(id) TREE_LANG_FLAG_0 (id)
-#define C_RID_CODE(id) \
-  (((struct lang_identifier *) (id))->rid_code)
 
 /* In a RECORD_TYPE, a sorted array of the fields of the type.  */
 struct lang_type
@@ -148,7 +145,6 @@ extern void maybe_objc_check_decl		PARAMS ((tree));
 extern void finish_file				PARAMS ((void));
 extern int maybe_objc_comptypes                 PARAMS ((tree, tree, int));
 extern tree maybe_building_objc_message_expr    PARAMS ((void));
-extern tree maybe_objc_method_name		PARAMS ((tree));
 extern int recognize_objc_keyword		PARAMS ((void));
 extern tree lookup_objc_ivar			PARAMS ((tree));
 
@@ -159,10 +155,8 @@ extern int yyparse_1				PARAMS ((void));
 /* in c-aux-info.c */
 extern void gen_aux_info_record                 PARAMS ((tree, int, int, int));
 
-/* in c-convert.c */
-extern tree convert                             PARAMS ((tree, tree));
-
 /* in c-decl.c */
+extern tree build_array_declarator              PARAMS ((tree, tree, int, int));
 extern tree build_enumerator                    PARAMS ((tree, tree));
 
 #define c_build_type_variant(TYPE, CONST_P, VOLATILE_P)		  \
@@ -174,7 +168,6 @@ extern void c_mark_varargs                      PARAMS ((void));
 extern void check_for_loop_decls                PARAMS ((void));
 extern tree check_identifier                    PARAMS ((tree, tree));
 extern void clear_parm_order                    PARAMS ((void));
-extern tree combine_parm_decls                  PARAMS ((tree, tree, int));
 extern int  complete_array_type                 PARAMS ((tree, tree, int));
 extern void declare_parm_level                  PARAMS ((int));
 extern tree define_label                        PARAMS ((const char *, int,
@@ -186,50 +179,36 @@ extern tree finish_enum                         PARAMS ((tree, tree, tree));
 extern void finish_function                     PARAMS ((int));
 extern tree finish_struct                       PARAMS ((tree, tree, tree));
 extern tree get_parm_info                       PARAMS ((int));
-extern tree getdecls                            PARAMS ((void));
-extern tree gettags                             PARAMS ((void));
-extern int  global_bindings_p                   PARAMS ((void));
 extern tree grokfield                           PARAMS ((const char *, int, tree, tree, tree));
 extern tree groktypename                        PARAMS ((tree));
 extern tree groktypename_in_parm_context        PARAMS ((tree));
 extern tree implicitly_declare                  PARAMS ((tree));
 extern void implicit_decl_warning               PARAMS ((tree));
 extern int  in_parm_level_p                     PARAMS ((void));
-extern void init_decl_processing                PARAMS ((void));
-extern void insert_block                        PARAMS ((tree));
 extern void keep_next_level                     PARAMS ((void));
 extern int  kept_level_p                        PARAMS ((void));
-extern tree lookup_label                        PARAMS ((tree));
 extern tree lookup_name                         PARAMS ((tree));
 extern tree lookup_name_current_level		PARAMS ((tree));
 extern tree lookup_name_current_level_global	PARAMS ((tree));
-extern tree maybe_build_cleanup                 PARAMS ((tree));
 extern void parmlist_tags_warning               PARAMS ((void));
 extern void pending_xref_error                  PARAMS ((void));
 extern void mark_c_function_context             PARAMS ((struct function *));
 extern void push_c_function_context             PARAMS ((struct function *));
 extern void pop_c_function_context              PARAMS ((struct function *));
 extern void pop_label_level                     PARAMS ((void));
-extern tree poplevel                            PARAMS ((int, int, int));
-extern void print_lang_decl                     PARAMS ((FILE *, tree, int));
-extern void print_lang_identifier               PARAMS ((FILE *, tree, int));
-extern void print_lang_type                     PARAMS ((FILE *, tree, int));
 extern void push_label_level                    PARAMS ((void));
 extern void push_parm_decl                      PARAMS ((tree));
-extern tree pushdecl                            PARAMS ((tree));
 extern tree pushdecl_top_level                  PARAMS ((tree));
-extern void pushlevel                           PARAMS ((int));
 extern void pushtag                             PARAMS ((tree, tree));
-extern void set_block                           PARAMS ((tree));
+extern tree set_array_declarator_type           PARAMS ((tree, tree, int));
 extern tree shadow_label                        PARAMS ((tree));
 extern void shadow_record_fields                PARAMS ((tree));
 extern void shadow_tag                          PARAMS ((tree));
 extern void shadow_tag_warned                   PARAMS ((tree, int));
 extern tree start_enum                          PARAMS ((tree));
-extern int  start_function                      PARAMS ((tree, tree, tree,
-							 tree));
+extern int  start_function                      PARAMS ((tree, tree, tree));
 extern tree start_decl                          PARAMS ((tree, tree, int,
-							 tree, tree));
+							 tree));
 extern tree start_struct                        PARAMS ((enum tree_code, tree));
 extern void store_parm_decls                    PARAMS ((void));
 extern tree xref_tag                            PARAMS ((enum tree_code, tree));
@@ -238,7 +217,6 @@ extern void c_expand_decl_stmt                  PARAMS ((tree));
 
 /* in c-typeck.c */
 extern tree require_complete_type		PARAMS ((tree));
-extern void incomplete_type_error		PARAMS ((tree, tree));
 extern int comptypes				PARAMS ((tree, tree));
 extern tree c_sizeof                            PARAMS ((tree));
 extern tree c_sizeof_nowarn                     PARAMS ((tree));
@@ -249,15 +227,13 @@ extern tree build_component_ref                 PARAMS ((tree, tree));
 extern tree build_indirect_ref                  PARAMS ((tree, const char *));
 extern tree build_array_ref                     PARAMS ((tree, tree));
 extern tree build_external_ref			PARAMS ((tree, int));
-extern tree build_function_call                 PARAMS ((tree, tree));
 extern tree parser_build_binary_op              PARAMS ((enum tree_code,
 							 tree, tree));
-extern int lvalue_or_else			PARAMS ((tree, const char *));
 extern void readonly_warning			PARAMS ((tree, const char *));
-extern int mark_addressable			PARAMS ((tree));
 extern tree build_conditional_expr              PARAMS ((tree, tree, tree));
 extern tree build_compound_expr                 PARAMS ((tree));
-extern tree build_c_cast                        PARAMS ((tree, tree));
+extern tree c_cast_expr				PARAMS ((tree, tree));
+extern tree build_c_cast	                PARAMS ((tree, tree));
 extern tree build_modify_expr                   PARAMS ((tree, enum tree_code,
 							 tree));
 extern void store_init_value                    PARAMS ((tree, tree));
@@ -275,6 +251,7 @@ extern void pedwarn_c99				PARAMS ((const char *, ...))
 							ATTRIBUTE_PRINTF_1;
 extern tree c_start_case                        PARAMS ((tree));
 extern void c_finish_case                       PARAMS ((void));
+extern tree simple_asm_stmt			PARAMS ((tree));
 extern tree build_asm_stmt			PARAMS ((tree, tree, tree,
 							 tree, tree));
 
@@ -382,12 +359,7 @@ extern int system_header_p;
 /* Warn about implicit declarations.  1 = warning, 2 = error.  */
 extern int mesg_implicit_function_declaration;
 
-/* Nonzero enables objc features.  */
-
-#define doing_objc_thang \
-  (c_language == clk_objective_c)
-
 /* In c-decl.c */
 extern void finish_incomplete_decl PARAMS ((tree));
 
-#endif /* not _C_TREE_H */
+#endif /* ! GCC_C_TREE_H */

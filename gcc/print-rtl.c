@@ -47,8 +47,6 @@ const char * reg_names[] = REGISTER_NAMES;
 
 static FILE *outfile;
 
-static const char xspaces[] = "                                                                                                                                                                ";
-
 static int sawclose = 0;
 
 static int indent;
@@ -91,9 +89,8 @@ print_rtx (in_rtx)
       if (flag_simple)
 	fputc (' ', outfile);
       else
-	fprintf (outfile, "\n%s%s",
-		 print_rtx_head,
-		 (xspaces + (sizeof xspaces - 1 - indent * 2)));
+	fprintf (outfile, "\n%s%*s",
+		 print_rtx_head, indent * 2, "");
       sawclose = 0;
     }
 
@@ -166,16 +163,25 @@ print_rtx (in_rtx)
   for (; i < GET_RTX_LENGTH (GET_CODE (in_rtx)); i++)
     switch (*format_ptr++)
       {
+	const char *str;
+
+      case 'T':
+	str = XTMPL (in_rtx, i);
+	goto string;
+
       case 'S':
       case 's':
-	if (XSTR (in_rtx, i) == 0)
+	str = XSTR (in_rtx, i);
+      string:
+
+	if (str == 0)
 	  fputs (dump_for_graph ? " \\\"\\\"" : " \"\"", outfile);
 	else
 	  {
 	    if (dump_for_graph)
-	      fprintf (outfile, " (\\\"%s\\\")", XSTR (in_rtx, i));
+	      fprintf (outfile, " (\\\"%s\\\")", str);
 	    else
-	      fprintf (outfile, " (\"%s\")", XSTR (in_rtx, i));
+	      fprintf (outfile, " (\"%s\")", str);
 	  }
 	sawclose = 1;
 	break;
@@ -282,9 +288,8 @@ print_rtx (in_rtx)
 	indent += 2;
 	if (sawclose)
 	  {
-	    fprintf (outfile, "\n%s%s",
-                     print_rtx_head,
-		     (xspaces + (sizeof xspaces - 1 - indent * 2)));
+	    fprintf (outfile, "\n%s%*s",
+                     print_rtx_head, indent * 2, "");
 	    sawclose = 0;
 	  }
 	fputs ("[ ", outfile);
@@ -300,9 +305,8 @@ print_rtx (in_rtx)
 	    indent -= 2;
 	  }
 	if (sawclose)
-	  fprintf (outfile, "\n%s%s",
-                   print_rtx_head,
-		   (xspaces + (sizeof xspaces - 1 - indent * 2)));
+	  fprintf (outfile, "\n%s%*s",
+                   print_rtx_head, indent * 2, "");
 
 	fputs ("] ", outfile);
 	sawclose = 1;
@@ -322,50 +326,59 @@ print_rtx (in_rtx)
 	break;
 
       case 'i':
-	{
-	  register int value = XINT (in_rtx, i);
-	  const char *name;
+	if (i == 5 && GET_CODE (in_rtx) == NOTE)
+	  {
+	    /* This field is only used for NOTE_INSN_DELETED_LABEL, and
+	       other times often contains garbage from INSN->NOTE death.  */
+	    if (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_DELETED_LABEL)
+	      fprintf (outfile, " %d",  XINT (in_rtx, i));
+	  }
+	else
+	  {
+	    register int value = XINT (in_rtx, i);
+	    const char *name;
 
-	  if (GET_CODE (in_rtx) == REG && value < FIRST_PSEUDO_REGISTER)
-	    {
-	      fputc (' ', outfile);
-	      DEBUG_PRINT_REG (in_rtx, 0, outfile);
-	    }
-	  else if (GET_CODE (in_rtx) == REG && value <= LAST_VIRTUAL_REGISTER)
-	    {
-	      if (value == VIRTUAL_INCOMING_ARGS_REGNUM)
-		fprintf (outfile, " %d virtual-incoming-args", value);
-	      else if (value == VIRTUAL_STACK_VARS_REGNUM)
-		fprintf (outfile, " %d virtual-stack-vars", value);
-	      else if (value == VIRTUAL_STACK_DYNAMIC_REGNUM)
-		fprintf (outfile, " %d virtual-stack-dynamic", value);
-	      else if (value == VIRTUAL_OUTGOING_ARGS_REGNUM)
-		fprintf (outfile, " %d virtual-outgoing-args", value);
-	      else if (value == VIRTUAL_CFA_REGNUM)
-		fprintf (outfile, " %d virtual-cfa", value);
-	      else
-		fprintf (outfile, " %d virtual-reg-%d", value,
-			 value-FIRST_VIRTUAL_REGISTER);
-	    }
-	  else if (flag_dump_unnumbered
-		   && (is_insn || GET_CODE (in_rtx) == NOTE))
-	    fputc ('#', outfile);
-	  else
-	    fprintf (outfile, " %d", value);
+	    if (GET_CODE (in_rtx) == REG && value < FIRST_PSEUDO_REGISTER)
+	      {
+		fputc (' ', outfile);
+		DEBUG_PRINT_REG (in_rtx, 0, outfile);
+	      }
+	    else if (GET_CODE (in_rtx) == REG
+		     && value <= LAST_VIRTUAL_REGISTER)
+	      {
+		if (value == VIRTUAL_INCOMING_ARGS_REGNUM)
+		  fprintf (outfile, " %d virtual-incoming-args", value);
+		else if (value == VIRTUAL_STACK_VARS_REGNUM)
+		  fprintf (outfile, " %d virtual-stack-vars", value);
+		else if (value == VIRTUAL_STACK_DYNAMIC_REGNUM)
+		  fprintf (outfile, " %d virtual-stack-dynamic", value);
+		else if (value == VIRTUAL_OUTGOING_ARGS_REGNUM)
+		  fprintf (outfile, " %d virtual-outgoing-args", value);
+		else if (value == VIRTUAL_CFA_REGNUM)
+		  fprintf (outfile, " %d virtual-cfa", value);
+		else
+		  fprintf (outfile, " %d virtual-reg-%d", value,
+			   value-FIRST_VIRTUAL_REGISTER);
+	      }
+	    else if (flag_dump_unnumbered
+		     && (is_insn || GET_CODE (in_rtx) == NOTE))
+	      fputc ('#', outfile);
+	    else
+	      fprintf (outfile, " %d", value);
 
-	  if (is_insn && &INSN_CODE (in_rtx) == &XINT (in_rtx, i)
-	      && XINT (in_rtx, i) >= 0
-	      && (name = get_insn_name (XINT (in_rtx, i))) != NULL)
-	    fprintf (outfile, " {%s}", name);
-	  sawclose = 0;
-	}
+	    if (is_insn && &INSN_CODE (in_rtx) == &XINT (in_rtx, i)
+		&& XINT (in_rtx, i) >= 0
+		&& (name = get_insn_name (XINT (in_rtx, i))) != NULL)
+	      fprintf (outfile, " {%s}", name);
+	    sawclose = 0;
+	  }
 	break;
 
       /* Print NOTE_INSN names rather than integer codes.  */
 
       case 'n':
-	if (XINT (in_rtx, i) >= NOTE_INSN_BIAS
-	    && XINT (in_rtx, i) < NOTE_INSN_MAX)
+	if (XINT (in_rtx, i) >= (int) NOTE_INSN_BIAS
+	    && XINT (in_rtx, i) < (int) NOTE_INSN_MAX)
 	  fprintf (outfile, " %s", GET_NOTE_INSN_NAME (XINT (in_rtx, i)));
 	else
 	  fprintf (outfile, " %d", XINT (in_rtx, i));

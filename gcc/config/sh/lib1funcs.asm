@@ -25,7 +25,7 @@ along with this program; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-!! libgcc1 routines for the Hitachi SH cpu.
+!! libgcc routines for the Hitachi SH cpu.
 !! Contributed by Steve Chamberlain.
 !! sac@cygnus.com
 
@@ -845,7 +845,7 @@ GLOBAL(movstrSI12_i4):
 !
 
 GLOBAL(mulsi3):
-	mulu    r4,r5		! multiply the lsws  macl=bb*dd
+	mulu.w  r4,r5		! multiply the lsws  macl=bb*dd
 	mov     r5,r3		! r3 = ccdd
 	swap.w  r4,r2		! r2 = bbaa
 	xtrct   r2,r3		! r3 = aacc
@@ -855,9 +855,9 @@ GLOBAL(mulsi3):
 	sts     macl,r0
 
 hiset:	sts	macl,r0		! r0 = bb*dd
-	mulu	r2,r5		! brewing macl = aa*dd
+	mulu.w	r2,r5		! brewing macl = aa*dd
 	sts	macl,r1
-	mulu	r3,r4		! brewing macl = cc*bb
+	mulu.w	r3,r4		! brewing macl = cc*bb
 	sts	macl,r2
 	add	r1,r2
 	shll16	r2
@@ -1217,18 +1217,23 @@ GLOBAL(ic_invalidate):
 	ocbwb	@r4
 	mova	0f,r0
 	mov.w	1f,r1
+/* Compute how many cache lines 0f is away from r4.  */
 	sub	r0,r4
 	and	r1,r4
-	add	#4,r4
+/* Prepare to branch to 0f plus the cache-line offset.  */
+	add	# 0f - 1f,r4
 	braf	r4
 	nop
 1:
 	.short	0x1fe0
-	nop
+	.p2align 5
+/* This must be aligned to the beginning of a cache line.  */
 0:
-	.rept	2048
+	.rept	256 /* There are 256 cache lines of 32 bytes.  */
 	rts
+	.rept	15
 	nop
+	.endr
 	.endr
 #endif /* SH4 */
 #endif /* L_ic_invalidate */

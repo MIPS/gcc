@@ -18,8 +18,8 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
-#ifndef __MCORE__H
-#define __MCORE__H
+#ifndef GCC_MCORE_H
+#define GCC_MCORE_H
 
 /* RBE: need to move these elsewhere.  */
 #undef	LIKE_PPC_ABI 
@@ -35,15 +35,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Run-time Target Specification.  */
 #define TARGET_MCORE
 
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-#undef  VALID_MACHINE_DECL_ATTRIBUTE
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-  mcore_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-
-#define MERGE_MACHINE_DECL_ATTRIBUTES(OLD, NEW) \
-  mcore_merge_machine_decl_attributes (OLD, NEW)
+/* Get tree.c to declare a target-specific specialization of
+   merge_decl_attributes.  */
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES
 
 /* Support the __declspec keyword by turning them into attributes.
    We currently only support: dllexport and dllimport.
@@ -1400,19 +1394,6 @@ extern long mcore_current_compilation_timestamp;
 #undef  ENCODE_SECTION_INFO
 #define ENCODE_SECTION_INFO(DECL) mcore_encode_section_info (DECL)
 
-/* The assembler's parentheses characters.  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Target characters.  */
-#define TARGET_BELL	007
-#define TARGET_BS	010
-#define TARGET_TAB	011
-#define TARGET_NEWLINE	012
-#define TARGET_VT	013
-#define TARGET_FF	014
-#define TARGET_CR	015
-
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
    For `%' followed by punctuation, CODE is the punctuation and X is null.  */
@@ -1451,4 +1432,4 @@ extern long mcore_current_compilation_timestamp;
   { "mcore_store_multiple_operation",	{ PARALLEL }},			\
   { "mcore_call_address_operand",	{ REG, SUBREG, CONST_INT }},	\
 
-#endif /* __MCORE__H */
+#endif /* ! GCC_MCORE_H */

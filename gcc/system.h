@@ -1,6 +1,6 @@
 /* Get common system includes and various definitions and declarations based
    on autoconf macros.
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -20,8 +20,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#ifndef __GCC_SYSTEM_H__
-#define __GCC_SYSTEM_H__
+#ifndef GCC_SYSTEM_H
+#define GCC_SYSTEM_H
 
 /* This is the location of the online document giving information how
    to report bugs. If you change this string, also check for strings
@@ -41,6 +41,10 @@ Boston, MA 02111-1307, USA.  */
 # else
 #   define va_copy(d,s)  ((d) = (s))
 # endif
+#endif
+
+#ifdef HAVE_STDDEF_H
+# include <stddef.h>
 #endif
 
 #include <stdio.h>
@@ -80,16 +84,11 @@ extern int fputs_unlocked PARAMS ((const char *, FILE *));
    replacement instead.  */
 #include <safe-ctype.h>
 
-/* Define a default escape character; it's different for EBCDIC.  */
-#ifndef TARGET_ESC
-#define TARGET_ESC 033
-#endif
-
 #include <sys/types.h>
 
 #include <errno.h>
 
-#ifndef errno
+#if !defined (errno) && defined (HAVE_DECL_ERRNO) && !HAVE_DECL_ERRNO
 extern int errno;
 #endif
 
@@ -108,11 +107,25 @@ extern int errno;
 
 #ifdef HAVE_STDLIB_H
 # include <stdlib.h>
-# ifdef USE_C_ALLOCA
-/* Note that systems that use glibc have a <stdlib.h> that includes
-   <alloca.h> that defines alloca, so let USE_C_ALLOCA override this. */
-# undef alloca
 #endif
+
+/* If we don't have an overriding definition, set SUCCESS_EXIT_CODE and
+   FATAL_EXIT_CODE to EXIT_SUCCESS and EXIT_FAILURE respectively,
+   or 0 and 1 if those macros are not defined.  */
+#ifndef SUCCESS_EXIT_CODE
+# ifdef EXIT_SUCCESS
+#  define SUCCESS_EXIT_CODE EXIT_SUCCESS
+# else
+#  define SUCCESS_EXIT_CODE 0
+# endif
+#endif
+
+#ifndef FATAL_EXIT_CODE
+# ifdef EXIT_FAILURE
+#  define FATAL_EXIT_CODE EXIT_FAILURE
+# else
+#  define FATAL_EXIT_CODE 1
+# endif
 #endif
 
 #ifdef HAVE_UNISTD_H
@@ -127,33 +140,8 @@ extern int errno;
 # include <limits.h>
 #endif
 
-/* Find HOST_WIDEST_INT and set its bit size, type and print macros.
-   It will be the largest integer mode supported by the host which may
-   (or may not) be larger than HOST_WIDE_INT.  This must appear after
-   <limits.h> since we only use `long long' if its bigger than a
-   `long' and also if it is supported by macros in limits.h.  For old
-   hosts which don't have a limits.h (and thus won't include it in
-   stage2 cause we don't rerun configure) we assume gcc supports long
-   long.)  Note, you won't get these defined if you don't include
-   {ht}config.h before this file to set the HOST_BITS_PER_* macros. */
-
-#ifndef HOST_WIDEST_INT
-# if defined (HOST_BITS_PER_LONG) && defined (HOST_BITS_PER_LONGLONG)
-#  if (HOST_BITS_PER_LONGLONG > HOST_BITS_PER_LONG) && (defined (LONG_LONG_MAX) || defined (LONGLONG_MAX) || defined (LLONG_MAX) || defined (__GNUC__))
-#   define HOST_BITS_PER_WIDEST_INT HOST_BITS_PER_LONGLONG
-#   define HOST_WIDEST_INT long long
-#   define HOST_WIDEST_INT_PRINT_DEC "%lld"
-#   define HOST_WIDEST_INT_PRINT_UNSIGNED "%llu"
-#   define HOST_WIDEST_INT_PRINT_HEX "0x%llx"
-#  else
-#   define HOST_BITS_PER_WIDEST_INT HOST_BITS_PER_LONG
-#   define HOST_WIDEST_INT long
-#   define HOST_WIDEST_INT_PRINT_DEC "%ld"
-#   define HOST_WIDEST_INT_PRINT_UNSIGNED "%lu"
-#   define HOST_WIDEST_INT_PRINT_HEX "0x%lx"
-#  endif /*(long long>long) && (LONG_LONG_MAX||LONGLONG_MAX||LLONG_MAX||GNUC)*/
-# endif /* defined(HOST_BITS_PER_LONG) && defined(HOST_BITS_PER_LONGLONG) */
-#endif /* ! HOST_WIDEST_INT */
+/* Get definitions of HOST_WIDE_INT and HOST_WIDEST_INT.  */
+#include "hwint.h"
 
 /* Infrastructure for defining missing _MAX and _MIN macros.  Note that
    macros defined with these cannot be used in #if.  */
@@ -246,16 +234,6 @@ extern int errno;
    are defined to 0 then we must provide the relevant declaration
    here.  These checks will be in the undefined state while configure
    is running so be careful to test "defined (HAVE_DECL_*)".  */
-
-#ifndef bcopy
-# ifdef HAVE_BCOPY
-#  if defined (HAVE_DECL_BCOPY) && !HAVE_DECL_BCOPY
-extern void bcopy PARAMS ((const PTR, PTR, size_t));
-#  endif
-# else /* ! HAVE_BCOPY */
-#  define bcopy(src,dst,len) memmove((dst),(src),(len))
-# endif
-#endif
 
 #if defined (HAVE_DECL_ATOF) && !HAVE_DECL_ATOF
 extern double atof PARAMS ((const char *));
@@ -355,19 +333,12 @@ extern void abort PARAMS ((void));
   ((GCC_VERSION >= 2007) || (__STDC_VERSION__ >= 199901L))
 #endif
 
-/* Define a STRINGIFY macro that's right for ANSI or traditional C.
-   Note: if the argument passed to STRINGIFY is itself a macro, eg
-   #define foo bar, STRINGIFY(foo) will produce "foo", not "bar".
-   Although the __STDC__ case could be made to expand this via a layer
-   of indirection, the traditional C case can not do so.  Therefore
-   this behavior is not supported. */
-#ifndef STRINGIFY
-# ifdef HAVE_STRINGIZE
-#  define STRINGIFY(STRING) #STRING
-# else
-#  define STRINGIFY(STRING) "STRING"
-# endif
-#endif /* ! STRINGIFY */
+/* 1 if we have _Bool.  */
+#ifndef HAVE__BOOL
+# define HAVE__BOOL \
+   ((GCC_VERSION >= 3000) || (__STDC_VERSION__ >= 199901L))
+#endif
+
 
 #if HAVE_SYS_STAT_H
 # include <sys/stat.h>
@@ -480,14 +451,7 @@ extern void abort PARAMS ((void));
 
 /* Get libiberty declarations. */
 #include "libiberty.h"
-
-/* Make sure that ONLY_INT_FIELDS has an integral value.  */
-#ifdef ONLY_INT_FIELDS
-#undef ONLY_INT_FIELDS
-#define ONLY_INT_FIELDS 1
-#else
-#define ONLY_INT_FIELDS 0
-#endif 
+#include "symcat.h"
 
 /* Provide a default for the HOST_BIT_BUCKET.
    This suffices for POSIX-like hosts.  */
@@ -496,12 +460,10 @@ extern void abort PARAMS ((void));
 #define HOST_BIT_BUCKET "/dev/null"
 #endif
 
-/* Enumerated bitfields are safe to use unless we've been explictly told
-   otherwise or if they are signed. */
- 
-#define USE_ENUM_BITFIELDS (__GNUC__ || (!ONLY_INT_FIELDS && ENUM_BITFIELDS_ARE_UNSIGNED))
+/* Be conservative and only use enum bitfields with GCC.
+   FIXME: provide a complete autoconf test for buggy enum bitfields.  */
 
-#if USE_ENUM_BITFIELDS
+#if (GCC_VERSION > 2000)
 #define ENUM_BITFIELD(TYPE) enum TYPE
 #else
 #define ENUM_BITFIELD(TYPE) unsigned int
@@ -521,11 +483,6 @@ extern void abort PARAMS ((void));
 #define UNION_INIT_ZERO
 #endif
 
-/* GCC now gives implicit declaration warnings for undeclared builtins.  */
-#if defined(__GNUC__) && defined (__SIZE_TYPE__)
-extern void *alloca (__SIZE_TYPE__);
-#endif
-
 /* Various error reporting routines want to use __FUNCTION__.  */
 #if (GCC_VERSION < 2007)
 #ifndef __FUNCTION__
@@ -533,4 +490,66 @@ extern void *alloca (__SIZE_TYPE__);
 #endif /* ! __FUNCTION__ */
 #endif
 
-#endif /* __GCC_SYSTEM_H__ */
+/* Provide some sort of boolean type.  We use stdbool.h if it's
+  available.  This is dead last because various system headers might
+  mess us up.  */
+#undef bool
+#undef true
+#undef false
+#undef TRUE
+#undef FALSE
+
+#ifdef HAVE_STDBOOL_H
+# include <stdbool.h>
+#else
+# if !HAVE__BOOL
+typedef char _Bool;
+# endif
+# define bool _Bool
+# define true 1
+# define false 0
+#endif
+
+#define TRUE true
+#define FALSE false
+
+/* As the last action in this file, we poison the identifiers that
+   shouldn't be used.  Note, luckily gcc-3.0's token-based integrated
+   preprocessor won't trip on poisoned identifiers that arrive from
+   the expansion of macros.  E.g. #define strrchr rindex, won't error
+   if rindex is poisoned after this directive is issued and later on
+   strrchr is called.
+
+   Note: We define bypass macros for the few cases where we really
+   want to use the libc memory allocation routines.  Otherwise we
+   insist you use the "x" versions from libiberty.  */
+
+#define really_call_malloc malloc
+#define really_call_calloc calloc
+#define really_call_realloc realloc
+
+#if (GCC_VERSION >= 3000)
+
+/* Note autoconf checks for prototype declarations and includes
+   system.h while doing so.  Only poison these tokens if actually
+   compiling gcc, so that the autoconf declaration tests for malloc
+   etc don't spuriously fail.  */
+#ifdef IN_GCC
+#undef malloc
+#undef realloc
+#undef calloc
+#undef strdup
+ #pragma GCC poison malloc realloc calloc strdup
+#endif /* IN_GCC */
+
+/* Note: not all uses of the `index' token (e.g. variable names and
+   structure members) have been eliminated.  */
+#undef bcopy
+#undef bzero
+#undef bcmp
+#undef rindex
+ #pragma GCC poison bcopy bzero bcmp rindex
+
+#endif /* GCC >= 3.0 */
+
+#endif /* ! GCC_SYSTEM_H */

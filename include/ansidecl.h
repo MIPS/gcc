@@ -1,5 +1,6 @@
 /* ANSI and traditional C compatability macros
-   Copyright 1991, 1992, 1996, 1999 Free Software Foundation, Inc.
+   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000
+   Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
 This program is free software; you can redistribute it and/or modify
@@ -160,7 +161,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #endif	/* ANSI C.  */
 
-
 /* Using MACRO(x,y) in cpp #if conditionals does not work with some
    older preprocessors.  Thus we can't define something like this:
 
@@ -228,5 +228,24 @@ So instead we use the macro below and test it against specific values.  */
 #if GCC_VERSION < 2008
 #define __extension__
 #endif
+
+/* Bootstrap support: Autoconf will possibly define the `inline' or
+   `const' keywords as macros, however this is only valid for the
+   stage1 compiler.  If we detect a modern version of gcc,
+   unconditionally reset the values.  This makes sure the right thing
+   happens in stage2 and later.  We need to do this very early;
+   i.e. before any header files that might use these keywords.
+   Otherwise conflicts might occur.  */
+
+#if (GCC_VERSION >= 2007)
+# ifdef __STDC__
+#  undef const
+# endif
+# undef inline
+# define inline __inline__  /* __inline__ prevents -pedantic warnings */
+# ifndef HAVE_LONG_DOUBLE
+#  define HAVE_LONG_DOUBLE 1
+# endif
+#endif /* GCC >= 2.7 */
 
 #endif	/* ansidecl.h	*/

@@ -41,6 +41,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "intl.h"
 #include "ggc.h"
+#include "target.h"
 
 /* Nonzero if we've already printed a "missing braces around initializer"
    message within this initializer.  */
@@ -205,7 +206,7 @@ common_type (t1, t2)
     return t1;
 
   /* Merge the attributes.  */
-  attributes = merge_machine_type_attributes (t1, t2);
+  attributes = (*targetm.merge_type_attributes) (t1, t2);
 
   /* Treat an enum type as the unsigned integer type of the same width.  */
 
@@ -482,12 +483,8 @@ comptypes (type1, type2)
   if (TYPE_MAIN_VARIANT (t1) == TYPE_MAIN_VARIANT (t2))
     return 1;
 
-#ifndef COMP_TYPE_ATTRIBUTES
-#define COMP_TYPE_ATTRIBUTES(t1,t2)	1
-#endif
-
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
-  if (! (attrval = COMP_TYPE_ATTRIBUTES (t1, t2)))
+  if (! (attrval = (*targetm.comp_type_attributes) (t1, t2)))
      return 0;
 
   /* 1 if no need for warning yet, 2 if warning cause has been seen.  */
@@ -651,7 +648,8 @@ type_lists_compatible_p (args1, args2)
 	  if (simple_type_promotes_to (TREE_VALUE (args1)) != NULL_TREE)
 	    return 0;
 	}
-      else if (! (newval = comptypes (TREE_VALUE (args1), TREE_VALUE (args2))))
+      else if (! (newval = comptypes (TYPE_MAIN_VARIANT (TREE_VALUE (args1)), 
+				      TYPE_MAIN_VARIANT (TREE_VALUE (args2)))))
 	{
 	  /* Allow  wait (union {union wait *u; int *i} *)
 	     and  wait (union wait *)  to be compatible.  */
@@ -954,14 +952,14 @@ default_conversion (exp)
   if (TREE_CODE (exp) == COMPONENT_REF
       && DECL_C_BIT_FIELD (TREE_OPERAND (exp, 1))
       /* If it's thinner than an int, promote it like a
-	 C_PROMOTING_INTEGER_TYPE_P, otherwise leave it alone.  */
+	 c_promoting_integer_type_p, otherwise leave it alone.  */
       && 0 > compare_tree_int (DECL_SIZE (TREE_OPERAND (exp, 1)),
 			       TYPE_PRECISION (integer_type_node)))
     return convert (flag_traditional && TREE_UNSIGNED (type)
 		    ? unsigned_type_node : integer_type_node,
 		    exp);
 
-  if (C_PROMOTING_INTEGER_TYPE_P (type))
+  if (c_promoting_integer_type_p (type))
     {
       /* Traditionally, unsignedness is preserved in default promotions.
          Also preserve unsignedness if not really getting any wider.  */
@@ -972,9 +970,6 @@ default_conversion (exp)
 
       return convert (integer_type_node, exp);
     }
-
-  if (code == BOOLEAN_TYPE)
-    return convert (integer_type_node, exp);
 
   if (flag_traditional && !flag_allow_single_precision
       && TYPE_MAIN_VARIANT (type) == float_type_node)
@@ -1676,19 +1671,25 @@ convert_arguments (typelist, values, name, fundecl)
 	    {
 	      /* Optionally warn about conversions that
 		 differ from the default conversions.  */
-	      if (warn_conversion)
+	      if (warn_conversion || warn_traditional)
 		{
 		  int formal_prec = TYPE_PRECISION (type);
 
 		  if (INTEGRAL_TYPE_P (type)
 		      && TREE_CODE (TREE_TYPE (val)) == REAL_TYPE)
 		    warn_for_assignment ("%s as integer rather than floating due to prototype", (char *) 0, name, parmnum + 1);
+		  if (INTEGRAL_TYPE_P (type)
+		      && TREE_CODE (TREE_TYPE (val)) == COMPLEX_TYPE)
+		    warn_for_assignment ("%s as integer rather than complex due to prototype", (char *) 0, name, parmnum + 1);
 		  else if (TREE_CODE (type) == COMPLEX_TYPE
 			   && TREE_CODE (TREE_TYPE (val)) == REAL_TYPE)
 		    warn_for_assignment ("%s as complex rather than floating due to prototype", (char *) 0, name, parmnum + 1);
 		  else if (TREE_CODE (type) == REAL_TYPE
 			   && INTEGRAL_TYPE_P (TREE_TYPE (val)))
 		    warn_for_assignment ("%s as floating rather than integer due to prototype", (char *) 0, name, parmnum + 1);
+		  else if (TREE_CODE (type) == COMPLEX_TYPE
+			   && INTEGRAL_TYPE_P (TREE_TYPE (val)))
+		    warn_for_assignment ("%s as complex rather than integer due to prototype", (char *) 0, name, parmnum + 1);
 		  else if (TREE_CODE (type) == REAL_TYPE
 			   && TREE_CODE (TREE_TYPE (val)) == COMPLEX_TYPE)
 		    warn_for_assignment ("%s as floating rather than complex due to prototype", (char *) 0, name, parmnum + 1);
@@ -1703,8 +1704,10 @@ convert_arguments (typelist, values, name, fundecl)
 		      if (formal_prec == TYPE_PRECISION (float_type_node))
 			warn_for_assignment ("%s as `float' rather than `double' due to prototype", (char *) 0, name, parmnum + 1);
 		    }
-		  /* Detect integer changing in width or signedness.  */
-		  else if (INTEGRAL_TYPE_P (type)
+		  /* Detect integer changing in width or signedness.
+		     These warnings are only activated with
+		     -Wconversion, not with -Wtraditional.  */
+		  else if (warn_conversion && INTEGRAL_TYPE_P (type)
 			   && INTEGRAL_TYPE_P (TREE_TYPE (val)))
 		    {
 		      tree would_have_been = default_conversion (val);
@@ -1761,9 +1764,7 @@ convert_arguments (typelist, values, name, fundecl)
 						fundecl, name, parmnum + 1);
 	      
 	      if (PROMOTE_PROTOTYPES
-		  && (TREE_CODE (type) == INTEGER_TYPE
-		      || TREE_CODE (type) == ENUMERAL_TYPE
-		      || TREE_CODE (type) == BOOLEAN_TYPE)
+		  && INTEGRAL_TYPE_P (type)
 		  && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
 		parmval = default_conversion (parmval);
 	    }
@@ -2468,22 +2469,12 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	      /* We can shorten only if the shift count is less than the
 		 number of bits in the smaller type size.  */
 	      && compare_tree_int (op1, TYPE_PRECISION (TREE_TYPE (arg0))) < 0
-	      /* If arg is sign-extended and then unsigned-shifted,
-		 we can simulate this with a signed shift in arg's type
-		 only if the extended result is at least twice as wide
-		 as the arg.  Otherwise, the shift could use up all the
-		 ones made by sign-extension and bring in zeros.
-		 We can't optimize that case at all, but in most machines
-		 it never happens because available widths are 2**N.  */
-	      && (!TREE_UNSIGNED (final_type)
-		  || unsigned_arg
-		  || (2 * TYPE_PRECISION (TREE_TYPE (arg0))
-		      <= TYPE_PRECISION (result_type))))
+	      /* We cannot drop an unsigned shift after sign-extension.  */
+	      && (!TREE_UNSIGNED (final_type) || unsigned_arg))
 	    {
 	      /* Do an unsigned shift if the operand was zero-extended.  */
 	      result_type
-		= signed_or_unsigned_type (unsigned_arg,
-					   TREE_TYPE (arg0));
+		= signed_or_unsigned_type (unsigned_arg, TREE_TYPE (arg0));
 	      /* Convert value-to-be-shifted to that type.  */
 	      if (TREE_TYPE (op0) != result_type)
 		op0 = convert (result_type, op0);
@@ -3639,6 +3630,10 @@ internal_build_compound_expr (list, first_p)
 
   if (TREE_CHAIN (list) == 0)
     {
+      /* Convert arrays to pointers when there really is a comma operator.  */
+      if (!first_p && TREE_CODE (TREE_TYPE (TREE_VALUE (list))) == ARRAY_TYPE)
+	TREE_VALUE (list) = default_conversion (TREE_VALUE (list));
+
 #if 0 /* If something inside inhibited lvalueness, we should not override.  */
       /* Consider (x, y+0), which is not an lvalue since y+0 is not.  */
 
@@ -3651,14 +3646,6 @@ internal_build_compound_expr (list, first_p)
       if (!first_p && integer_zerop (TREE_VALUE (list)))
 	return non_lvalue (TREE_VALUE (list));
       return TREE_VALUE (list);
-    }
-
-  if (TREE_CHAIN (list) != 0 && TREE_CHAIN (TREE_CHAIN (list)) == 0)
-    {
-      /* Convert arrays to pointers when there really is a comma operator.  */
-      if (TREE_CODE (TREE_TYPE (TREE_VALUE (TREE_CHAIN (list)))) == ARRAY_TYPE)
-	TREE_VALUE (TREE_CHAIN (list))
-	  = default_conversion (TREE_VALUE (TREE_CHAIN (list)));
     }
 
   rest = internal_build_compound_expr (TREE_CHAIN (list), FALSE);
@@ -3720,7 +3707,7 @@ build_c_cast (type, expr)
       return error_mark_node;
     }
 
-  if (type == TREE_TYPE (value))
+  if (type == TYPE_MAIN_VARIANT (TREE_TYPE (value)))
     {
       if (pedantic)
 	{
@@ -3866,6 +3853,24 @@ build_c_cast (type, expr)
 
   return value;
 }
+
+/* Interpret a cast of expression EXPR to type TYPE.  */
+tree
+c_cast_expr (type, expr)
+     tree type, expr;
+{
+  int saved_wsp = warn_strict_prototypes;
+
+  /* This avoids warnings about unprototyped casts on
+     integers.  E.g. "#define SIG_DFL (void(*)())0".  */
+  if (TREE_CODE (expr) == INTEGER_CST)
+    warn_strict_prototypes = 0;
+  type = groktypename (type);
+  warn_strict_prototypes = saved_wsp;
+
+  return build_c_cast (type, expr);
+}
+
 
 /* Build an assignment expression of lvalue LHS from value RHS.
    MODIFYCODE is the code for a binary operator that we use
@@ -4675,6 +4680,8 @@ digest_init (type, init, require_constant, constructor_constant)
   if (TREE_CODE (init) == NON_LVALUE_EXPR)
     inside_init = TREE_OPERAND (init, 0);
 
+  inside_init = fold (inside_init);
+
   /* Initialization of an array of chars from a string constant
      optionally enclosed in braces.  */
 
@@ -4770,14 +4777,21 @@ digest_init (type, init, require_constant, constructor_constant)
 	  if (flag_pedantic_errors)
 	    inside_init = error_mark_node;
 	}
-      else if (require_constant && ! TREE_CONSTANT (inside_init))
+      else if (require_constant 
+	       && (!TREE_CONSTANT (inside_init)
+		   /* This test catches things like `7 / 0' which
+		      result in an expression for which TREE_CONSTANT
+		      is true, but which is not actually something
+		      that is a legal constant.  We really should not
+		      be using this function, because it is a part of
+		      the back-end.  Instead, the expression should
+		      already have been turned into ERROR_MARK_NODE.  */
+		   || !initializer_constant_valid_p (inside_init,
+						     TREE_TYPE (inside_init))))
 	{
 	  error_init ("initializer element is not constant");
 	  inside_init = error_mark_node;
 	}
-      else if (require_constant
-	       && initializer_constant_valid_p (inside_init, TREE_TYPE (inside_init)) == 0)
-	pedwarn ("initializer element is not computable at load time");
 
       return inside_init;
     }
@@ -6760,6 +6774,33 @@ process_init_element (value)
   constructor_range_stack = 0;
 }
 
+/* Build a simple asm-statement, from one string literal.  */
+tree
+simple_asm_stmt (expr)
+     tree expr;
+{
+  STRIP_NOPS (expr);
+
+  if (TREE_CODE (expr) == ADDR_EXPR)
+    expr = TREE_OPERAND (expr, 0);
+
+  if (TREE_CODE (expr) == STRING_CST)
+    {
+      tree stmt;
+
+      if (TREE_CHAIN (expr))
+	expr = combine_strings (expr);
+      stmt = add_stmt (build_stmt (ASM_STMT, NULL_TREE, expr,
+				   NULL_TREE, NULL_TREE,
+				   NULL_TREE));
+      ASM_INPUT_P (stmt) = 1;
+      return stmt;
+    }
+
+  error ("argument of `asm' is not a constant string");
+  return NULL_TREE;
+}
+
 /* Build an asm-statement, whose components are a CV_QUALIFIER, a
    STRING, some OUTPUTS, some INPUTS, and some CLOBBERS.  */
 
@@ -7023,8 +7064,7 @@ c_start_case (exp)
       code = TREE_CODE (TREE_TYPE (exp));
       type = TREE_TYPE (exp);
 
-      if (code != INTEGER_TYPE 
-	  && code != ENUMERAL_TYPE 
+      if (! INTEGRAL_TYPE_P (type)
 	  && code != ERROR_MARK)
 	{
 	  error ("switch quantity not an integer");

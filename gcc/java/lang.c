@@ -37,6 +37,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "flags.h"
 #include "xref.h"
 #include "ggc.h"
+#include "diagnostic.h"
 
 struct string_option
 {
@@ -50,14 +51,14 @@ static void java_init_options PARAMS ((void));
 static int java_decode_option PARAMS ((int, char **));
 static void put_decl_string PARAMS ((const char *, int));
 static void put_decl_node PARAMS ((tree));
-static void java_dummy_print PARAMS ((const char *));
-static void lang_print_error PARAMS ((const char *));
+static void java_dummy_print PARAMS ((diagnostic_context *, const char *));
+static void lang_print_error PARAMS ((diagnostic_context *, const char *));
 static int process_option_with_no PARAMS ((char *,
 					   struct string_option *,
 					   int));
 
-#ifndef OBJECT_SUFFIX
-# define OBJECT_SUFFIX ".o"
+#ifndef TARGET_OBJECT_SUFFIX
+# define TARGET_OBJECT_SUFFIX ".o"
 #endif
 
 /* Table indexed by tree code giving a string containing a character
@@ -98,12 +99,11 @@ int compiling_from_source;
 
 const char * const language_string = "GNU Java";
 
-/* Nonzero if we should make is_compiled_class always return 1 for
-   appropriate classes that we're referencing.  */
-
-int flag_assume_compiled = 1;
-
 int flag_emit_class_files = 0;
+
+/* Nonzero if input file is a file with a list of filenames to compile. */
+
+int flag_filelist_file = 0;
 
 /* When non zero, we emit xref strings. Values of the flag for xref
    backends are defined in xref_flag_table, xref.c.  */
@@ -134,16 +134,17 @@ int flag_jni = 0;
    file.  */
 int flag_newer = 1;
 
+/* When non zero, generate checks for references to NULL.  */
+int flag_check_references = 0;
+
 /* The encoding of the source file.  */
 const char *current_encoding = NULL;
 
 /* When non zero, report the now deprecated empty statements.  */
 int flag_extraneous_semicolon;
 
-/* From gcc/flags.h, and indicates if exceptions are turned on or not.  */
-
-extern int flag_new_exceptions;
-extern int flag_exceptions;
+/* When non zero, always check for a non gcj generated classes archive.  */
+int flag_force_classes_archive_check;
 
 /* Table of language-dependent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
@@ -156,10 +157,13 @@ lang_f_options[] =
 {
   {"emit-class-file", &flag_emit_class_files, 1},
   {"emit-class-files", &flag_emit_class_files, 1},
+  {"filelist-file", &flag_filelist_file, 1},
   {"use-divide-subroutine", &flag_use_divide_subroutine, 1},
   {"use-boehm-gc", &flag_use_boehm_gc, 1},
   {"hash-synchronization", &flag_hash_synchronization, 1},
-  {"jni", &flag_jni, 1}
+  {"jni", &flag_jni, 1},
+  {"check-references", &flag_check_references, 1},
+  {"force-classes-archive-check", &flag_force_classes_archive_check, 1}
 };
 
 static struct string_option
@@ -400,7 +404,7 @@ init_parse (filename)
 	      else
 		{
 		  char *buf = (char *) xmalloc (dot - filename +
-						3 + sizeof (OBJECT_SUFFIX));
+						3 + sizeof (TARGET_OBJECT_SUFFIX));
 		  strncpy (buf, filename, dot - filename);
 
 		  /* If emitting class files, we might have multiple
@@ -413,7 +417,7 @@ init_parse (filename)
 		    jcf_dependency_set_target (NULL);
 		  else
 		    {
-		      strcpy (buf + (dot - filename), OBJECT_SUFFIX);
+		      strcpy (buf + (dot - filename), TARGET_OBJECT_SUFFIX);
 		      jcf_dependency_set_target (buf);
 		    }
 
@@ -584,7 +588,8 @@ lang_printable_name_wls (decl, v)
    is the value of the hook print_error_function, called from toplev.c. */
 
 static void
-lang_print_error (file)
+lang_print_error (context, file)
+     diagnostic_context *context __attribute__((__unused__));
      const char *file;
 {
   static tree last_error_function_context = NULL_TREE;
@@ -643,8 +648,6 @@ java_init ()
   print_error_function = lang_print_error;
   lang_expand_expr = java_lang_expand_expr;
 
-  flag_exceptions = 1;
-
   /* Append to Gcc tree node definition arrays */
 
   memcpy (tree_code_type + (int) LAST_AND_UNUSED_TREE_CODE,
@@ -667,7 +670,8 @@ java_init ()
    function prototypes.  */
 
 static void
-java_dummy_print (s)
+java_dummy_print (c, s)
+     diagnostic_context *c __attribute__ ((__unused__));
      const char *s __attribute__ ((__unused__));
 {
 }
@@ -691,8 +695,9 @@ void lang_init_source (level)
 static void
 java_init_options ()
 {
-  flag_new_exceptions = 1;
   flag_bounds_check = 1;
+  flag_exceptions = 1;
+  flag_non_call_exceptions = 1;
 }
 
 const char *

@@ -222,6 +222,7 @@ output_prologue ()
   printf ("#include \"flags.h\"\n");
   printf ("#include \"ggc.h\"\n");
   printf ("#include \"rtl.h\"\n");
+  printf ("#include \"expr.h\"\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"function.h\"\n");
   printf ("#include \"regs.h\"\n");
@@ -229,9 +230,7 @@ output_prologue ()
   printf ("#include \"real.h\"\n");
   printf ("#include \"insn-config.h\"\n\n");
   printf ("#include \"conditions.h\"\n");
-  printf ("#include \"insn-flags.h\"\n");
   printf ("#include \"insn-attr.h\"\n\n");
-  printf ("#include \"insn-codes.h\"\n\n");
   printf ("#include \"recog.h\"\n\n");
   printf ("#include \"toplev.h\"\n");
   printf ("#include \"output.h\"\n");
@@ -241,13 +240,14 @@ output_prologue ()
 /* We need to define all predicates used.  Keep a list of those we
    have defined so far.  There normally aren't very many predicates
    used, so a linked list should be fast enough.  */
+struct predicate { const char *name; struct predicate *next; };
 
 static void
 output_predicate_decls ()
 {
-  struct predicate { const char *name; struct predicate *next; } *predicates = 0;
+  struct predicate *predicates = 0;
   register struct operand_data *d;
-  struct predicate *p;
+  struct predicate *p, *next;
 
   for (d = odata; d; d = d->next)
     if (d->predicate && d->predicate[0])
@@ -260,7 +260,7 @@ output_predicate_decls ()
 	  {
 	    printf ("extern int %s PARAMS ((rtx, enum machine_mode));\n",
 		    d->predicate);
-	    p = (struct predicate *) alloca (sizeof (struct predicate));
+	    p = (struct predicate *) xmalloc (sizeof (struct predicate));
 	    p->name = d->predicate;
 	    p->next = predicates;
 	    predicates = p;
@@ -268,6 +268,11 @@ output_predicate_decls ()
       }
 
   printf ("\n\n");
+  for (p = predicates; p; p = next)
+    {
+      next = p->next;
+      free (p);
+    }
 }
 
 static void
@@ -803,7 +808,7 @@ gen_insn (insn, lineno)
   validate_insn_operands (d);
   validate_insn_alternatives (d);
   place_operands (d);
-  process_template (d, XSTR (insn, 3));
+  process_template (d, XTMPL (insn, 3));
 }
 
 /* Look at a define_peephole just read.  Assign its code number.
@@ -844,7 +849,7 @@ gen_peephole (peep, lineno)
 
   validate_insn_alternatives (d);
   place_operands (d);
-  process_template (d, XSTR (peep, 2));
+  process_template (d, XTMPL (peep, 2));
 }
 
 /* Process a define_expand just read.  Assign its code number,

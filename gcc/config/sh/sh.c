@@ -27,7 +27,6 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
-#include "insn-flags.h"
 #include "expr.h"
 #include "function.h"
 #include "regs.h"
@@ -38,11 +37,16 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "c-pragma.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
 #define MSW (TARGET_LITTLE_ENDIAN ? 1 : 0)
 #define LSW (TARGET_LITTLE_ENDIAN ? 0 : 1)
+
+/* Set to 1 by expand_prologue() when the function is an interrupt handler.  */
+int current_function_interrupt;
 
 /* ??? The pragma interrupt support will not work for SH3.  */
 /* This is set by #pragma interrupt and #pragma trapa, and causes gcc to
@@ -148,6 +152,22 @@ static void push_regs PARAMS ((int, int));
 static int calc_live_regs PARAMS ((int *, int *));
 static void mark_use PARAMS ((rtx, rtx *));
 static HOST_WIDE_INT rounded_frame_size PARAMS ((int));
+static rtx mark_constant_pool_use PARAMS ((rtx));
+static int sh_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
+static void sh_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void sh_insert_attributes PARAMS ((tree, tree *));
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_VALID_DECL_ATTRIBUTE
+#define TARGET_VALID_DECL_ATTRIBUTE sh_valid_decl_attribute
+
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE sh_output_function_epilogue
+
+#undef TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES sh_insert_attributes
+
+struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Print the operand address in x to the stream.  */
 
@@ -171,7 +191,7 @@ print_operand_address (stream, x)
 	switch (GET_CODE (index))
 	  {
 	  case CONST_INT:
-	    fprintf (stream, "@(%d,%s)", INTVAL (index),
+	    fprintf (stream, "@(%d,%s)", (int) INTVAL (index),
 		     reg_names[true_regnum (base)]);
 	    break;
 
@@ -202,6 +222,7 @@ print_operand_address (stream, x)
       break;
 
     default:
+      x = mark_constant_pool_use (x);
       output_addr_const (stream, x);
       break;
     }
@@ -262,6 +283,7 @@ print_operand (stream, x, code)
 	fprintf (stream, "\n\tnop");
       break;
     case 'O':
+      x = mark_constant_pool_use (x);
       output_addr_const (stream, x);
       break;
     case 'R':
@@ -280,7 +302,7 @@ print_operand (stream, x, code)
 	case MEM:
 	  if (GET_CODE (XEXP (x, 0)) != PRE_DEC
 	      && GET_CODE (XEXP (x, 0)) != POST_INC)
-	    x = adj_offsettable_operand (x, 4);
+	    x = adjust_address (x, SImode, 4);
 	  print_operand_address (stream, XEXP (x, 0));
 	  break;
 	default:
@@ -667,7 +689,7 @@ output_movedouble (insn, operands, mode)
       if (GET_CODE (inside) == REG)
 	ptrreg = REGNO (inside);
       else if (GET_CODE (inside) == SUBREG)
-	ptrreg = REGNO (SUBREG_REG (inside)) + SUBREG_WORD (inside);
+	ptrreg = subreg_regno (inside);
       else if (GET_CODE (inside) == PLUS)
 	{
 	  ptrreg = REGNO (XEXP (inside, 0));
@@ -842,6 +864,9 @@ output_branch (logic, insn, operands)
     case 2:
       return logic ? "bt%.\t%l0" : "bf%.\t%l0";
     default:
+      /* There should be no longer branches now - that would
+	 indicate that something has destroyed the branches set
+	 up in machine_dependent_reorg.  */
       abort ();
     }
 }
@@ -905,8 +930,8 @@ output_file_start (file)
 {
   output_file_directive (file, main_input_filename);
 
-  /* Switch to the data section so that the coffsem symbol and the
-     gcc2_compiled. symbol aren't in the text section.  */
+  /* Switch to the data section so that the coffsem symbol
+     isn't in the text section.  */
   data_section ();
 
   if (TARGET_LITTLE_ENDIAN)
@@ -1144,13 +1169,13 @@ gen_ashift_hi (type, n, reg)
 	 gen_ashift_hi is only called in contexts where we know that the
 	 sign extension works out correctly.  */
       {
-	int word = 0;
+	int offset = 0;
 	if (GET_CODE (reg) == SUBREG)
 	  {
-	    word = SUBREG_WORD (reg);
+	    offset = SUBREG_BYTE (reg);
 	    reg = SUBREG_REG (reg);
 	  }
-	gen_ashift (type, n, gen_rtx_SUBREG (SImode, reg, word));
+	gen_ashift (type, n, gen_rtx_SUBREG (SImode, reg, offset));
 	break;
       }
     case ASHIFT:
@@ -1439,7 +1464,7 @@ shl_and_kind (left_rtx, mask_rtx, attrp)
 	}
     }
   /* Try to use a scratch register to hold the AND operand.  */
-  can_ext = ((mask << left) & 0xe0000000) == 0;
+  can_ext = ((mask << left) & ((unsigned HOST_WIDE_INT)3 << 30)) == 0;
   for (i = 0; i <= 2; i++)
     {
       if (i > right)
@@ -1921,6 +1946,7 @@ typedef struct
 {
   rtx value;			/* Value in table.  */
   rtx label;			/* Label of value.  */
+  rtx wend;			/* End of window.  */
   enum machine_mode mode;	/* Mode of value.  */
 } pool_node;
 
@@ -1931,6 +1957,8 @@ typedef struct
 #define MAX_POOL_SIZE (1020/4)
 static pool_node pool_vector[MAX_POOL_SIZE];
 static int pool_size;
+static rtx pool_window_label;
+static int pool_window_last;
 
 /* ??? If we need a constant in HImode which is the truncated value of a
    constant we need in SImode, we could combine the two entries thus saving
@@ -1951,7 +1979,7 @@ add_constant (x, mode, last_value)
      rtx last_value;
 {
   int i;
-  rtx lab;
+  rtx lab, new, ref, newref;
 
   /* First see if we've already got it.  */
   for (i = 0; i < pool_size; i++)
@@ -1966,15 +1994,25 @@ add_constant (x, mode, last_value)
 	    }
 	  if (rtx_equal_p (x, pool_vector[i].value))
 	    {
-	      lab = 0;
+	      lab = new = 0;
 	      if (! last_value
 		  || ! i
 		  || ! rtx_equal_p (last_value, pool_vector[i-1].value))
 		{
-		  lab = pool_vector[i].label;
-		  if (! lab)
-		    pool_vector[i].label = lab = gen_label_rtx ();
+		  new = gen_label_rtx ();
+		  LABEL_REFS (new) = pool_vector[i].label;
+		  pool_vector[i].label = lab = new;
 		}
+	      if (lab && pool_window_label)
+		{
+		  newref = gen_rtx_LABEL_REF (VOIDmode, pool_window_label);
+		  ref = pool_vector[pool_window_last].wend;
+		  LABEL_NEXTREF (newref) = ref;
+		  pool_vector[pool_window_last].wend = newref;
+		}
+	      if (new)
+		pool_window_label = new;
+	      pool_window_last = i;
 	      return lab;
 	    }
 	}
@@ -1988,6 +2026,17 @@ add_constant (x, mode, last_value)
     lab = gen_label_rtx ();
   pool_vector[pool_size].mode = mode;
   pool_vector[pool_size].label = lab;
+  pool_vector[pool_size].wend = NULL_RTX;
+  if (lab && pool_window_label)
+    {
+      newref = gen_rtx_LABEL_REF (VOIDmode, pool_window_label);
+      ref = pool_vector[pool_window_last].wend;
+      LABEL_NEXTREF (newref) = ref;
+      pool_vector[pool_window_last].wend = newref;
+    }
+  if (lab)
+    pool_window_label = lab;
+  pool_window_last = pool_size;
   pool_size++;
   return lab;
 }
@@ -2000,6 +2049,7 @@ dump_table (scan)
 {
   int i;
   int need_align = 1;
+  rtx lab, ref;
 
   /* Do two passes, first time dump out the HI sized constants.  */
 
@@ -2014,8 +2064,15 @@ dump_table (scan)
 	      scan = emit_insn_after (gen_align_2 (), scan);
 	      need_align = 0;
 	    }
-	  scan = emit_label_after (p->label, scan);
-	  scan = emit_insn_after (gen_consttable_2 (p->value), scan);
+	  for (lab = p->label; lab; lab = LABEL_REFS (lab))
+	    scan = emit_label_after (lab, scan);
+	  scan = emit_insn_after (gen_consttable_2 (p->value, const0_rtx),
+				  scan);
+	  for (ref = p->wend; ref; ref = LABEL_NEXTREF (ref))
+	    {
+	      lab = XEXP (ref, 0);
+	      scan = emit_insn_after (gen_consttable_window_end (lab), scan);
+	    }
 	}
     }
 
@@ -2037,9 +2094,10 @@ dump_table (scan)
 	      scan = emit_label_after (gen_label_rtx (), scan);
 	      scan = emit_insn_after (gen_align_4 (), scan);
 	    }
-	  if (p->label)
-	    scan = emit_label_after (p->label, scan);
-	  scan = emit_insn_after (gen_consttable_4 (p->value), scan);
+	  for (lab = p->label; lab; lab = LABEL_REFS (lab))
+	    scan = emit_label_after (lab, scan);
+	  scan = emit_insn_after (gen_consttable_4 (p->value, const0_rtx),
+				  scan);
 	  break;
 	case DFmode:
 	case DImode:
@@ -2049,19 +2107,31 @@ dump_table (scan)
 	      scan = emit_label_after (gen_label_rtx (), scan);
 	      scan = emit_insn_after (gen_align_4 (), scan);
 	    }
-	  if (p->label)
-	    scan = emit_label_after (p->label, scan);
-	  scan = emit_insn_after (gen_consttable_8 (p->value), scan);
+	  for (lab = p->label; lab; lab = LABEL_REFS (lab))
+	    scan = emit_label_after (lab, scan);
+	  scan = emit_insn_after (gen_consttable_8 (p->value, const0_rtx),
+				  scan);
 	  break;
 	default:
 	  abort ();
 	  break;
+	}
+
+      if (p->mode != HImode)
+	{
+	  for (ref = p->wend; ref; ref = LABEL_NEXTREF (ref))
+	    {
+	      lab = XEXP (ref, 0);
+	      scan = emit_insn_after (gen_consttable_window_end (lab), scan);
+	    }
 	}
     }
 
   scan = emit_insn_after (gen_consttable_end (), scan);
   scan = emit_barrier_after (scan);
   pool_size = 0;
+  pool_window_label = NULL_RTX;
+  pool_window_last = 0;
 }
 
 /* Return non-zero if constant would be an ok source for a
@@ -2517,7 +2587,11 @@ regs_used (x, is_dest)
 	  break;
 	if (REGNO (y) < 16)
 	  return (((1 << HARD_REGNO_NREGS (0, GET_MODE (x))) - 1)
-		  << (REGNO (y) + SUBREG_WORD (x) + is_dest));
+		  << (REGNO (y) +
+		      subreg_regno_offset (REGNO (y),
+					   GET_MODE (y),
+					   SUBREG_BYTE (x),
+					   GET_MODE (x)) + is_dest));
 	return 0;
       }
     case SET:
@@ -2720,7 +2794,7 @@ struct far_branch
 
 static void gen_far_branch PARAMS ((struct far_branch *));
 enum mdep_reorg_phase_e mdep_reorg_phase;
-void
+static void
 gen_far_branch (bp)
      struct far_branch *bp;
 {
@@ -2824,7 +2898,7 @@ barrier_align (barrier_or_label)
 	 the table to the minimum for proper code alignment.  */
       return ((TARGET_SMALLCODE
 	       || (XVECLEN (pat, 1) * GET_MODE_SIZE (GET_MODE (pat))
-		   <= 1 << (CACHE_LOG - 2)))
+		   <= (unsigned)1 << (CACHE_LOG - 2)))
 	      ? 1 : CACHE_LOG);
     }
 
@@ -2856,7 +2930,7 @@ barrier_align (barrier_or_label)
 	 investigation.  Skip to the insn before it.  */
       prev = prev_real_insn (prev);
 
-      for (slot = 2, credit = 1 << (CACHE_LOG - 2) + 2;
+      for (slot = 2, credit = (1 << (CACHE_LOG - 2)) + 2;
 	   credit >= 0 && prev && GET_CODE (prev) == INSN;
 	   prev = prev_real_insn (prev))
 	{
@@ -2887,7 +2961,14 @@ barrier_align (barrier_or_label)
 	      /* If relax_delay_slots() decides NEXT was redundant
 		 with some previous instruction, it will have
 		 redirected PREV's jump to the following insn.  */
-	      || JUMP_LABEL (prev) == next_nonnote_insn (next)))
+	      || JUMP_LABEL (prev) == next_nonnote_insn (next)
+	      /* There is no upper bound on redundant instructions that
+		 might have been skipped, but we must not put an alignment
+		 where none had been before.  */
+	      || (INSN_CODE (NEXT_INSN (NEXT_INSN (PREV_INSN (prev))))
+		  == CODE_FOR_block_branch_redirect)
+	      || (INSN_CODE (NEXT_INSN (NEXT_INSN (PREV_INSN (prev))))
+		  == CODE_FOR_indirect_jump_scratch)))
 	{
 	  rtx pat = PATTERN (prev);
 	  if (GET_CODE (pat) == PARALLEL)
@@ -3261,7 +3342,10 @@ machine_dependent_reorg (first)
 		      mode = HImode;
 		      while (GET_CODE (dst) == SUBREG)
 			{
-			  offset += SUBREG_WORD (dst);
+			  offset += subreg_regno_offset (REGNO (SUBREG_REG (dst)),
+							 GET_MODE (SUBREG_REG (dst)),
+							 SUBREG_BYTE (dst),
+							 GET_MODE (dst));
 			  dst = SUBREG_REG (dst);
 			}
 		      dst = gen_rtx_REG (HImode, REGNO (dst) + offset);
@@ -3933,7 +4017,7 @@ rounded_frame_size (pushed)
   HOST_WIDE_INT size = get_frame_size ();
   HOST_WIDE_INT align = STACK_BOUNDARY / BITS_PER_UNIT;
 
-  return (size + pushed + align - 1 & -align) - pushed;
+  return ((size + pushed + align - 1) & -align) - pushed;
 }
 
 void
@@ -3943,6 +4027,11 @@ sh_expand_prologue ()
   int d, i;
   int live_regs_mask2;
   int save_flags = target_flags;
+
+  current_function_interrupt
+    = lookup_attribute ("interrupt_handler",
+			DECL_MACHINE_ATTRIBUTES (current_function_decl))
+    != NULL_TREE;
 
   /* We have pretend args if we had an object sent partially in registers
      and partially on the stack, e.g. a large structure.  */
@@ -3987,7 +4076,23 @@ sh_expand_prologue ()
   push_regs (live_regs_mask, live_regs_mask2);
 
   if (flag_pic && regs_ever_live[PIC_OFFSET_TABLE_REGNUM])
-    emit_insn (gen_GOTaddr2picreg ());
+    {
+      rtx insn = get_last_insn ();
+      rtx last = emit_insn (gen_GOTaddr2picreg ());
+
+      /* Mark these insns as possibly dead.  Sometimes, flow2 may
+	 delete all uses of the PIC register.  In this case, let it
+	 delete the initialization too.  */
+      do
+	{
+	  insn = NEXT_INSN (insn);
+
+	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
+						const0_rtx,
+						REG_NOTES (insn));
+	}
+      while (insn != last);
+    }
 
   if (target_flags != save_flags)
     {
@@ -4097,10 +4202,10 @@ sh_need_epilogue ()
 
 /* Clear variables at function end.  */
 
-void
-function_epilogue (stream, size)
-     FILE *stream ATTRIBUTE_UNUSED;
-     int size ATTRIBUTE_UNUSED;
+static void
+sh_output_function_epilogue (file, size)
+     FILE *file ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   trap_exit = pragma_interrupt = pragma_trapa = pragma_nosave_low_regs = 0;
   sh_need_epilogue_known = 0;
@@ -4119,7 +4224,8 @@ sh_builtin_saveregs ()
   /* Number of SFmode float regs to save.  */
   int n_floatregs = MAX (0, NPARM_REGS (SFmode) - first_floatreg);
   rtx regbuf, fpregs;
-  int bufsize, regno, alias_set;
+  int bufsize, regno;
+  HOST_WIDE_INT alias_set;
 
   /* Allocate block of memory for the regs. */
   /* ??? If n_intregs + n_floatregs == 0, should we allocate at least 1 byte?
@@ -4128,17 +4234,15 @@ sh_builtin_saveregs ()
 
   regbuf = assign_stack_local (BLKmode, bufsize, 0);
   alias_set = get_varargs_alias_set ();
-  MEM_ALIAS_SET (regbuf) = alias_set;
+  set_mem_alias_set (regbuf, alias_set);
 
   /* Save int args.
      This is optimized to only save the regs that are necessary.  Explicitly
      named args need not be saved.  */
   if (n_intregs > 0)
     move_block_from_reg (BASE_ARG_REG (SImode) + first_intreg,
-			 change_address (regbuf, BLKmode,
-					 plus_constant (XEXP (regbuf, 0),
-							(n_floatregs
-							 * UNITS_PER_WORD))), 
+			 adjust_address (regbuf, BLKmode,
+					 n_floatregs * UNITS_PER_WORD),
 			 n_intregs, n_intregs * UNITS_PER_WORD);
 
   /* Save float args.
@@ -4161,7 +4265,7 @@ sh_builtin_saveregs ()
 	  emit_insn (gen_addsi3 (fpregs, fpregs,
 				 GEN_INT (-2 * UNITS_PER_WORD)));
 	  mem = gen_rtx_MEM (DFmode, fpregs);
-	  MEM_ALIAS_SET (mem) = alias_set;
+	  set_mem_alias_set (mem, alias_set);
 	  emit_move_insn (mem, 
 			  gen_rtx (REG, DFmode, BASE_ARG_REG (DFmode) + regno));
 	}
@@ -4170,7 +4274,7 @@ sh_builtin_saveregs ()
 	{
 	  emit_insn (gen_addsi3 (fpregs, fpregs, GEN_INT (- UNITS_PER_WORD)));
 	  mem = gen_rtx_MEM (SFmode, fpregs);
-	  MEM_ALIAS_SET (mem) = alias_set;
+	  set_mem_alias_set (mem, alias_set);
 	  emit_move_insn (mem,
 			  gen_rtx (REG, SFmode, BASE_ARG_REG (SFmode) + regno
 						- (TARGET_LITTLE_ENDIAN != 0)));
@@ -4180,9 +4284,10 @@ sh_builtin_saveregs ()
     for (regno = NPARM_REGS (SFmode) - 1; regno >= first_floatreg; regno--)
       {
         rtx mem;
+
 	emit_insn (gen_addsi3 (fpregs, fpregs, GEN_INT (- UNITS_PER_WORD)));
 	mem = gen_rtx_MEM (SFmode, fpregs);
-	MEM_ALIAS_SET (mem) = alias_set;
+	set_mem_alias_set (mem, alias_set);
 	emit_move_insn (mem,
 			gen_rtx_REG (SFmode, BASE_ARG_REG (SFmode) + regno));
       }
@@ -4473,13 +4578,7 @@ initial_elimination_offset (from, to)
 
   if (from == RETURN_ADDRESS_POINTER_REGNUM
       && (to == FRAME_POINTER_REGNUM || to == STACK_POINTER_REGNUM))
-    {
-      int i, n = total_saved_regs_space;
-      for (i = PR_REG-1; i >= 0; i--)
-	if (live_regs_mask & (1 << i))
-	  n -= 4;
-      return n + total_auto_space;
-    }
+    return UNITS_PER_WORD + total_auto_space;
 
   abort ();
 }
@@ -4510,11 +4609,10 @@ sh_pr_nosave_low_regs (pfile)
 
 /* Generate 'handle_interrupt' attribute for decls */
 
-void
-sh_pragma_insert_attributes (node, attributes, prefix)
+static void
+sh_insert_attributes (node, attributes)
      tree node;
      tree * attributes;
-     tree * prefix ATTRIBUTE_UNUSED;
 {
   if (! pragma_interrupt
       || TREE_CODE (node) != FUNCTION_DECL)
@@ -4544,8 +4642,8 @@ sh_pragma_insert_attributes (node, attributes, prefix)
    trap_exit -- use a trapa to exit an interrupt function instead of
    an rte instruction.  */
 
-int
-sh_valid_machine_decl_attribute (decl, attributes, attr, args)
+static int
+sh_valid_decl_attribute (decl, attributes, attr, args)
      tree decl;
      tree attributes ATTRIBUTE_UNUSED;
      tree attr;
@@ -5013,7 +5111,7 @@ reg_unused_after (reg, insn)
   return 1;
 }
 
-extern struct obstack permanent_obstack;
+#include "ggc.h"
 
 rtx
 get_fpscr_rtx ()
@@ -5181,8 +5279,6 @@ static rtx
 get_free_reg (regs_live)
      HARD_REG_SET regs_live;
 {
-  rtx reg;
-
   if (! TEST_HARD_REG_BIT (regs_live, 1))
     return gen_rtx_REG (Pmode, 1);
 
@@ -5204,8 +5300,10 @@ fpscr_set_from_mem (mode, regs_live)
   enum attr_fp_mode fp_mode = mode;
   rtx addr_reg = get_free_reg (regs_live);
 
-  emit_insn ((fp_mode == (TARGET_FPU_SINGLE ? FP_MODE_SINGLE : FP_MODE_DOUBLE)
-	      ? gen_fpu_switch1 : gen_fpu_switch0) (addr_reg));
+  if (fp_mode == (enum attr_fp_mode) NORMAL_MODE (FP_MODE))
+    emit_insn (gen_fpu_switch1 (addr_reg));
+  else
+    emit_insn (gen_fpu_switch0 (addr_reg));
 }
 
 /* Is the given character a logical line separator for the assembler?  */
@@ -5244,7 +5342,7 @@ sh_insn_length_adjustment (insn)
 	template = XSTR (body, 0);
       else if (asm_noperands (body) >= 0)
 	template
-	  = decode_asm_operands (body, NULL_PTR, NULL_PTR, NULL_PTR, NULL_PTR);
+	  = decode_asm_operands (body, NULL, NULL, NULL, NULL);
       else
 	return 0;
       do
@@ -5327,7 +5425,7 @@ nonpic_symbol_mentioned_p (x)
 rtx
 legitimize_pic_address (orig, mode, reg)
      rtx orig;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
      rtx reg;
 {
   if (GET_CODE (orig) == LABEL_REF
@@ -5351,4 +5449,69 @@ legitimize_pic_address (orig, mode, reg)
       return reg;
     }
   return orig;
+}
+
+/* Mark the use of a constant in the literal table. If the constant
+   has multiple labels, make it unique.  */
+static rtx mark_constant_pool_use (x)
+     rtx x;
+{
+  rtx insn, lab, pattern;
+
+  if (x == NULL)
+    return x;
+
+  switch (GET_CODE (x))
+    {
+    case LABEL_REF:
+      x = XEXP (x, 0);
+    case CODE_LABEL:
+      break;
+    default:
+      return x;
+    }
+
+  /* Get the first label in the list of labels for the same constant
+     and delete another labels in the list.  */
+  lab = x;
+  for (insn = PREV_INSN (x); insn; insn = PREV_INSN (insn))
+    {
+      if (GET_CODE (insn) != CODE_LABEL
+	  || LABEL_REFS (insn) != NEXT_INSN (insn))
+	break;
+      lab = insn;
+    }
+
+  for (insn = LABEL_REFS (lab); insn; insn = LABEL_REFS (insn))
+    INSN_DELETED_P (insn) = 1;
+
+  /* Mark constants in a window.  */
+  for (insn = NEXT_INSN (x); insn; insn = NEXT_INSN (insn))
+    {
+      if (GET_CODE (insn) != INSN)
+	continue;
+
+      pattern = PATTERN (insn);
+      if (GET_CODE (pattern) != UNSPEC_VOLATILE)
+	continue;
+
+      switch (XINT (pattern, 1))
+	{
+	case UNSPECV_CONST2:
+	case UNSPECV_CONST4:
+	case UNSPECV_CONST8:
+	  XVECEXP (pattern, 0, 1) = const1_rtx;
+	  break;
+	case UNSPECV_WINDOW_END:
+	  if (XVECEXP (pattern, 0, 0) == x)
+	    return lab;
+	  break;
+	case UNSPECV_CONST_END:
+	  return lab;
+	default:
+	  break;
+	}
+    }
+
+  return lab;
 }

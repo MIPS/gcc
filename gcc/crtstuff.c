@@ -30,7 +30,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* This file is a bit like libgcc1.c/libgcc2.c in that it is compiled
+/* This file is a bit like libgcc2.c in that it is compiled
    multiple times and yields multiple .o files.
 
    This file is useful on target machines where the object file format
@@ -55,19 +55,20 @@ Boston, MA 02111-1307, USA.  */
    compiled for the target, and hence definitions concerning only the host
    do not apply.  */
 
+/* We include auto-host.h here to get HAVE_GAS_HIDDEN.  This is
+   supposedly valid even though this is a "target" file.  */
 #include "auto-host.h"
-#include "tm.h"
+#include "tconfig.h"
 #include "tsystem.h"
-
-#include "frame.h"
+#include "unwind-dw2-fde.h"
 
 #ifndef CRT_CALL_STATIC_FUNCTION
 # define CRT_CALL_STATIC_FUNCTION(func) func ()
 #endif
 
 /* We do not want to add the weak attribute to the declarations of these
-   routines in frame.h because that will cause the definition of these
-   symbols to be weak as well.
+   routines in unwind-dw2-fde.h because that will cause the definition of
+   these symbols to be weak as well.
 
    This exposes a core issue, how to handle creating weak references vs
    how to create weak definitions.  Either we have to have the definition
@@ -89,8 +90,12 @@ Boston, MA 02111-1307, USA.  */
    be weak in this file if at all possible.  */
 extern void __register_frame_info (void *, struct object *)
 				  TARGET_ATTRIBUTE_WEAK;
-
+extern void __register_frame_info_bases (void *, struct object *,
+					 void *, void *)
+				  TARGET_ATTRIBUTE_WEAK;
 extern void *__deregister_frame_info (void *)
+				     TARGET_ATTRIBUTE_WEAK;
+extern void *__deregister_frame_info_bases (void *)
 				     TARGET_ATTRIBUTE_WEAK;
 
 #ifndef OBJECT_FORMAT_MACHO
@@ -189,9 +194,10 @@ static void
 __do_global_dtors_aux (void)
 {
   static func_ptr *p = __DTOR_LIST__ + 1;
-  static int completed = 0;
+  static int completed;
+  func_ptr f;
 
-  if (completed)
+  if (__builtin_expect (completed, 0))
     return;
 
 #ifdef CRTSTUFFS_O
@@ -199,16 +205,24 @@ __do_global_dtors_aux (void)
     __cxa_finalize (__dso_handle);
 #endif
 
-  while (*p)
+  while ((f = *p))
     {
       p++;
-      (*(p-1)) ();
+      f ();
     }
 
 #ifdef EH_FRAME_SECTION_ASM_OP
+#if defined(CRT_GET_RFIB_TEXT) || defined(CRT_GET_RFIB_DATA)
+  /* If we used the new __register_frame_info_bases interface,
+     make sure that we deregister from the same place.  */
+  if (__deregister_frame_info_bases)
+    __deregister_frame_info_bases (__EH_FRAME_BEGIN__);
+#else
   if (__deregister_frame_info)
     __deregister_frame_info (__EH_FRAME_BEGIN__);
 #endif
+#endif
+
   completed = 1;
 }
 
@@ -235,8 +249,24 @@ static void
 frame_dummy (void)
 {
   static struct object object;
+#if defined(CRT_GET_RFIB_TEXT) || defined(CRT_GET_RFIB_DATA)
+  void *tbase, *dbase;
+#ifdef CRT_GET_RFIB_TEXT
+  CRT_GET_RFIB_TEXT (tbase);
+#else
+  tbase = 0;
+#endif
+#ifdef CRT_GET_RFIB_DATA
+  CRT_GET_RFIB_DATA (dbase);
+#else
+  dbase = 0;
+#endif
+  if (__register_frame_info_bases)
+    __register_frame_info_bases (__EH_FRAME_BEGIN__, &object, tbase, dbase);
+#else
   if (__register_frame_info)
     __register_frame_info (__EH_FRAME_BEGIN__, &object);
+#endif
 }
 
 static void __attribute__ ((__unused__))
@@ -316,9 +346,9 @@ static func_ptr __DTOR_LIST__[];
 void
 __do_global_dtors (void)
 {
-  func_ptr *p;
-  for (p = __DTOR_LIST__ + 1; *p; p++)
-    (*p) ();
+  func_ptr *p, f;
+  for (p = __DTOR_LIST__ + 1; (f = *p); p++)
+    f ();
 
 #ifdef EH_FRAME_SECTION_ASM_OP
   if (__deregister_frame_info)
@@ -413,20 +443,8 @@ init_dummy (void)
   FORCE_INIT_SECTION_ALIGN;
 #endif
   asm (TEXT_SECTION_ASM_OP);
-
-/* This is a kludge. The i386 GNU/Linux dynamic linker needs ___brk_addr,
-   __environ and atexit (). We have to make sure they are in the .dynsym
-   section. We accomplish it by making a dummy call here. This
-   code is never reached.  */
- 
-#if defined(__linux__) && defined(__PIC__) && defined(__i386__)
-  {
-    extern void *___brk_addr;
-    extern char **__environ;
-
-    ___brk_addr = __environ;
-    atexit (0);
-  }
+#ifdef CRT_END_INIT_DUMMY
+  CRT_END_INIT_DUMMY;
 #endif
 }
 

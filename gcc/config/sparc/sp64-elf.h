@@ -119,38 +119,6 @@ crtbegin.o%s \
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
-/* Stabs doesn't use this, and it confuses a simulator.  */
-/* ??? Need to see what DWARF needs, if anything.  */
-#undef ASM_IDENTIFY_GCC
-#define ASM_IDENTIFY_GCC(FILE)
+/* Define the names of various pseudo-ops used by the Sparc/svr4 assembler.  */
 
-/* Define the names of various pseudo-ops used by the Sparc/svr4 assembler.
-   ??? If ints are 64 bits then UNALIGNED_INT_ASM_OP (defined elsewhere) is
-   misnamed.  These should all refer to explicit sizes (half/word/xword?),
-   anything other than short/int/long/etc.  */
-
-#define UNALIGNED_LONGLONG_ASM_OP	"\t.uaxword\t"
-
-/* DWARF stuff.  */
-
-#define ASM_OUTPUT_DWARF_ADDR(FILE, LABEL) \
-do {								\
-  fprintf ((FILE), "%s", UNALIGNED_LONGLONG_ASM_OP);		\
-  assemble_name ((FILE), (LABEL));				\
-  fprintf ((FILE), "\n");					\
-} while (0)
-
-#define ASM_OUTPUT_DWARF_ADDR_CONST(FILE, RTX) \
-do {								\
-  fprintf ((FILE), "%s", UNALIGNED_LONGLONG_ASM_OP);		\
-  output_addr_const ((FILE), (RTX));				\
-  fputc ('\n', (FILE));						\
-} while (0)
-
-/* ??? Not sure if this should be 4 or 8 bytes.  4 works for now.  */
-#define ASM_OUTPUT_DWARF_REF(FILE, LABEL) \
-do {								\
-  fprintf ((FILE), "%s", UNALIGNED_INT_ASM_OP);			\
-  assemble_name ((FILE), (LABEL));				\
-  fprintf ((FILE), "\n");					\
-} while (0)
+#define UNALIGNED_DOUBLE_INT_ASM_OP	"\t.uaxword\t"

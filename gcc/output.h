@@ -1,7 +1,7 @@
 /* Declarations for insn-output.c.  These functions are defined in recog.c,
    final.c, and varasm.c.
    Copyright (C) 1987, 1991, 1994, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -35,7 +35,7 @@ extern void app_enable		PARAMS ((void));
    Called from varasm.c before most kinds of output.  */
 extern void app_disable		PARAMS ((void));
 
-/* Return the number of slots filled in the current 
+/* Return the number of slots filled in the current
    delayed branch sequence (we don't count the insn needing the
    delay slot).   Zero if not in a delayed branch sequence.  */
 extern int dbr_sequence_length	PARAMS ((void));
@@ -62,7 +62,7 @@ extern void final_start_function  PARAMS ((rtx, FILE *, int));
 /* Output assembler code for the end of a function.
    For clarity, args are same as those of `final_start_function'
    even though not all of them are needed.  */
-extern void final_end_function  PARAMS ((rtx, FILE *, int));
+extern void final_end_function  PARAMS ((void));
 
 /* Output assembler code for some insns: all or part of a function.  */
 extern void final		PARAMS ((rtx, FILE *, int, int));
@@ -116,6 +116,11 @@ extern void split_double	PARAMS ((rtx, rtx *, rtx *));
 /* Return nonzero if this function has no function calls.  */
 extern int leaf_function_p	PARAMS ((void));
 
+/* Return 1 if branch is an forward branch.
+   Uses insn_shuid array, so it works only in the final pass.  May be used by
+   output templates to add branch prediction hints, for example.  */
+extern int final_forward_branch_p PARAMS ((rtx));
+
 /* Return 1 if this function uses only the registers that can be
    safely renumbered.  */
 extern int only_leaf_regs_used	PARAMS ((void));
@@ -131,11 +136,8 @@ extern const char *get_insn_template PARAMS ((int, rtx));
 extern void allocate_for_life_analysis	PARAMS ((void));
 extern int regno_uninitialized		PARAMS ((int));
 extern int regno_clobbered_at_setjmp	PARAMS ((int));
-extern void dump_flow_info		PARAMS ((FILE *));
 extern void find_basic_blocks		PARAMS ((rtx, int, FILE *));
-extern void cleanup_cfg			PARAMS ((rtx));
-extern void free_basic_block_vars     PARAMS ((int));
-extern void set_block_num             PARAMS ((rtx, int));
+extern void cleanup_cfg			PARAMS ((int));
 extern void check_function_return_warnings PARAMS ((void));
 #endif
 
@@ -312,7 +314,7 @@ extern void assemble_name		PARAMS ((FILE *, const char *));
 extern int assemble_integer		PARAMS ((rtx, int, int));
 extern int assemble_eh_integer		PARAMS ((rtx, int, int));
 
-#ifdef EMUSHORT
+#ifdef REAL_VALUE_TYPE
 /* Assemble the floating-point constant D into an object of size MODE.  */
 extern void assemble_real		PARAMS ((REAL_VALUE_TYPE,
 					       enum machine_mode));
@@ -362,10 +364,6 @@ extern tree initializer_constant_valid_p	PARAMS ((tree, tree));
 extern void output_constant		PARAMS ((tree, int));
 #endif
 
-/* When outputting assembler code, indicates which alternative
-   of the constraints was actually satisfied.  */
-extern int which_alternative;
-
 #ifdef RTX_CODE
 /* When outputting delayed branch sequences, this rtx holds the
    sequence being output.  It is null when no delayed branch
@@ -376,13 +374,8 @@ extern int which_alternative;
 extern rtx final_sequence;
 #endif
 
-/* Nonzero means generate position-independent code.
-   This is not fully implemented yet.  */
-
-extern int flag_pic;
-
-/* The line number of the beginning of the current function.
-   sdbout.c needs this so that it can output relative linenumbers.  */
+/* The line number of the beginning of the current function.  Various
+   md code needs this so that it can output relative linenumbers.  */
 
 #ifdef SDB_DEBUGGING_INFO /* Avoid undef sym in certain broken linkers.  */
 extern int sdb_begin_function_line;
@@ -460,3 +453,9 @@ extern const char *user_label_prefix;
 /* Assign unique numbers to labels generated for profiling.  */
 
 extern int profile_label_no;
+
+/* Default target function prologue and epilogue assembler output.  */
+extern void default_function_pro_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+
+/* Default target hook that outputs nothing to a stream.  */
+extern void no_asm_to_stream PARAMS ((FILE *));

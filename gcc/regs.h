@@ -24,12 +24,28 @@ Boston, MA 02111-1307, USA.  */
 
 #define REG_BYTES(R) mode_size[(int) GET_MODE (R)]
 
-/* Get the number of consecutive hard regs required to hold the REG rtx R.
+/* Get the number of consecutive hard regs required to hold the REG or
+   SUBREG rtx R.
    When something may be an explicit hard reg, REG_SIZE is the only
-   valid way to get this value.  You cannot get it from the regno.  */
+   valid way to get this value.  You cannot get it from the regno.
 
+   A target may override this definition, the case where you would do
+   this is where there are registers which are smaller than WORD_SIZE
+   such as the SFmode registers on sparc64.  */
+
+#ifndef REG_SIZE
 #define REG_SIZE(R) \
   ((mode_size[(int) GET_MODE (R)] + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+#endif
+
+/* When you only have the mode of a pseudo register before it has a hard
+   register chosen for it, this reports the size of each hard register
+   a pseudo in such a mode would get allocated to.  Like REG_SIZE, a
+   target may override this.  */
+
+#ifndef REGMODE_NATURAL_SIZE
+#define REGMODE_NATURAL_SIZE(MODE)	UNITS_PER_WORD
+#endif
 
 #ifndef SMALL_REGISTER_CLASSES
 #define SMALL_REGISTER_CLASSES 0
@@ -51,6 +67,7 @@ typedef struct reg_info_def
 
 				/* fields set by flow_analysis */
   int refs;			/* # of times (REG n) is used or set */
+  int freq;			/* # estimated frequency (REG n) is used or set */
   int deaths;			/* # of times (REG n) dies */
   int live_length;		/* # of instructions (REG n) is live */
   int calls_crossed;		/* # of calls (REG n) is live across */
@@ -61,10 +78,13 @@ typedef struct reg_info_def
 
 extern varray_type reg_n_info;
 
-/* Indexed by n, gives number of times (REG n) is used or set.
-   References within loops may be counted more times.  */
+/* Indexed by n, gives number of times (REG n) is used or set.  */
 
 #define REG_N_REFS(N) (VARRAY_REG (reg_n_info, N)->refs)
+
+/* Estimate frequency of references to register N.  */
+
+#define REG_FREQ(N) (VARRAY_REG (reg_n_info, N)->freq)
 
 /* Indexed by n, gives number of times (REG n) is set.
    ??? both regscan and flow allocate space for this.  We should settle
@@ -192,7 +212,7 @@ extern int caller_save_needed;
 
 /* Select a register mode required for caller save of hard regno REGNO.  */
 #ifndef HARD_REGNO_CALLER_SAVE_MODE
-#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS) \
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
   choose_hard_reg_mode (REGNO, NREGS)
 #endif
 

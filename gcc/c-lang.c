@@ -59,7 +59,10 @@ c_post_options ()
 static void
 c_init_options ()
 {
-  parse_in = cpp_create_reader (CLK_GNUC89);
+  /* Make identifier nodes long enough for the language-specific slots.  */
+  set_identifier_size (sizeof (struct lang_identifier));
+
+  parse_in = cpp_create_reader (ident_hash, CLK_GNUC89);
 
   /* Mark as "unspecified".  */
   flag_bounds_check = -1;
@@ -85,7 +88,7 @@ c_init ()
   mark_lang_status = &mark_c_function_context;
   lang_expand_expr = &c_expand_expr;
   lang_safe_from_p = &c_safe_from_p;
-  lang_printer = &c_tree_printer;
+  diagnostic_format_decoder (global_dc) = &c_tree_printer;
   lang_expand_decl_stmt = &c_expand_decl_stmt;
   lang_missing_noreturn_ok_p = &c_missing_noreturn_ok_p;
 
@@ -145,13 +148,6 @@ maybe_objc_comptypes (lhs, rhs, reflexive)
 }
 
 tree
-maybe_objc_method_name (decl)
-    tree decl ATTRIBUTE_UNUSED;
-{
-  return 0;
-}
-
-tree
 maybe_building_objc_message_expr ()
 {
   return 0;
@@ -191,7 +187,7 @@ start_cdtor (method_type)
 		  build_nt (CALL_EXPR, fnname,
 			    tree_cons (NULL_TREE, NULL_TREE, void_list_node_1),
 			    NULL_TREE),
-		  NULL_TREE, NULL_TREE);
+		  NULL_TREE);
   store_parm_decls ();
 
   current_function_cannot_inline
@@ -256,9 +252,17 @@ finish_file ()
 
   if (back_end_hook)
     (*back_end_hook) (getdecls ());
+  
+  {
+    int flags;
+    FILE *stream = dump_begin (TDI_all, &flags);
 
-  if (flag_dump_translation_unit)
-    dump_node_to_file (getdecls (), flag_dump_translation_unit);
+    if (stream)
+      {
+	dump_node (getdecls (), flags & ~TDF_SLIM, stream);
+	dump_end (TDI_all, stream);
+      }
+  }
 }
 
 /* Called during diagnostic message formatting process to print a

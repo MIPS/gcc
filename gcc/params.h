@@ -27,10 +27,13 @@ Boston, MA 02111-1307, USA.
    place.  The values of the parameters can be set on the
    command-line, thereby providing a way to control the amount of
    effort spent on particular optimization passes, or otherwise tune
-   the behavior of the compiler.  */
+   the behavior of the compiler.
 
-#ifndef PARAMS_H
-#define PARAMS_H
+   Since their values can be set on the command-line, these parameters
+   should not be used for non-dynamic memory allocation.  */
+
+#ifndef GCC_PARAMS_H
+#define GCC_PARAMS_H
 
 /* No parameter shall have this value.  */
 
@@ -45,6 +48,8 @@ typedef struct param_info
   const char *option;
   /* The associated value.  */
   int value;
+  /* A short description of the option.  */
+   const char *help;
 } param_info;
 
 /* An array containing the compiler parameters and their current
@@ -81,5 +86,12 @@ typedef enum compiler_param
 /* Macros for the various parameters.  */
 #define MAX_INLINE_INSNS \
   PARAM_VALUE (PARAM_MAX_INLINE_INSNS)
-
-#endif /* PARAMS_H */
+#define MAX_DELAY_SLOT_INSN_SEARCH \
+  PARAM_VALUE (PARAM_MAX_DELAY_SLOT_INSN_SEARCH)
+#define MAX_DELAY_SLOT_LIVE_SEARCH \
+  PARAM_VALUE (PARAM_MAX_DELAY_SLOT_LIVE_SEARCH)
+#define MAX_GCSE_MEMORY \
+  ((size_t) PARAM_VALUE (PARAM_MAX_GCSE_MEMORY))
+#define MAX_GCSE_PASSES \
+  PARAM_VALUE (PARAM_MAX_GCSE_PASSES)
+#endif /* ! GCC_PARAMS_H */

@@ -818,32 +818,6 @@ enum reg_class {
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   ((MODE) == VOIDmode ? GEN_INT ((CUM)) : 0)
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) 					\
-{									\
-  int size = ((SIZE) + 7) & -8;						\
-  if (size != 0)							\
-    fprintf (FILE, "\tsub.w #%d,sp\n", size);				\
-}
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE)					\
-{									\
-  /* Follow function with a zero to stop c34 icache prefetching. */	\
-  fprintf (FILE, "\tds.h 0\n");						\
-}
-
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.  */
 
@@ -1442,21 +1416,6 @@ enum reg_class {
 
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)	\
   asm_declare_function_name (FILE, NAME, DECL)
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;

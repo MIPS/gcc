@@ -26,11 +26,10 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "insn-config.h"
 #include "insn-attr.h"
-#include "insn-flags.h"
-#include "insn-codes.h"
 #include "hard-reg-set.h"
 #include "recog.h"
 #include "regs.h"
+#include "expr.h"
 #include "function.h"
 #include "flags.h"
 #include "real.h"
@@ -57,8 +56,8 @@ Boston, MA 02111-1307, USA.  */
 
 static void validate_replace_rtx_1	PARAMS ((rtx *, rtx, rtx, rtx));
 static rtx *find_single_use_1		PARAMS ((rtx, rtx *));
-static rtx *find_constant_term_loc	PARAMS ((rtx *));
 static void validate_replace_src_1 	PARAMS ((rtx *, void *));
+static rtx split_insn			PARAMS ((rtx));
 
 /* Nonzero means allow operands to be volatile.
    This should be 0 if you are generating rtl, such as if you are calling
@@ -117,7 +116,7 @@ recog_memoized_1 (insn)
      rtx insn;
 {
   if (INSN_CODE (insn) < 0)
-    INSN_CODE (insn) = recog (PATTERN (insn), insn, NULL_PTR);
+    INSN_CODE (insn) = recog (PATTERN (insn), insn, 0);
   return INSN_CODE (insn);
 }
 
@@ -151,7 +150,7 @@ check_asm_operands (x)
   operands = (rtx *) alloca (noperands * sizeof (rtx));
   constraints = (const char **) alloca (noperands * sizeof (char *));
 
-  decode_asm_operands (x, operands, NULL_PTR, constraints, NULL_PTR);
+  decode_asm_operands (x, operands, NULL, constraints, NULL);
 
   for (i = 0; i < noperands; i++)
     {
@@ -183,7 +182,7 @@ static int changes_allocated;
 
 static int num_changes = 0;
 
-/* Validate a proposed change to OBJECT.  LOC is the location in the rtl for
+/* Validate a proposed change to OBJECT.  LOC is the location in the rtl
    at which NEW will be placed.  If OBJECT is zero, no validation is done,
    the change is simply made.
 
@@ -270,7 +269,7 @@ insn_invalid_p (insn)
   int icode = recog (pat, insn,
 		     (GET_CODE (pat) == SET
 		      && ! reload_completed && ! reload_in_progress)
-		     ? &num_clobbers : NULL_PTR);
+		     ? &num_clobbers : 0);
   int is_asm = icode < 0 && asm_noperands (PATTERN (insn)) >= 0;
 
   
@@ -316,6 +315,7 @@ int
 apply_change_group ()
 {
   int i;
+  rtx last_validated = NULL_RTX;
 
   /* The changes have been applied and all INSN_CODEs have been reset to force
      rerecognition.
@@ -330,7 +330,9 @@ apply_change_group ()
     {
       rtx object = changes[i].object;
 
-      if (object == 0)
+      /* if there is no object to test or if it is the same as the one we
+         already tested, ignore it.  */
+      if (object == 0 || object == last_validated)
 	continue;
 
       if (GET_CODE (object) == MEM)
@@ -376,6 +378,7 @@ apply_change_group ()
 		  but this shouldn't occur.  */
 
 	       validate_change (object, &PATTERN (object), newpat, 1);
+	       continue;
 	     }
 	  else if (GET_CODE (pat) == USE || GET_CODE (pat) == CLOBBER)
 	    /* If this insn is a CLOBBER or USE, it is always valid, but is
@@ -384,6 +387,7 @@ apply_change_group ()
 	  else
 	    break;
 	}
+      last_validated = object;
     }
 
   if (i == num_changes)
@@ -437,10 +441,18 @@ validate_replace_rtx_1 (loc, from, to, object)
   register const char *fmt;
   register rtx x = *loc;
   enum rtx_code code;
+  enum machine_mode op0_mode = VOIDmode;
+  int prev_changes = num_changes;
+  rtx new;
 
   if (!x)
     return;
+
   code = GET_CODE (x);
+  fmt = GET_RTX_FORMAT (code);
+  if (fmt[0] == 'e')
+    op0_mode = GET_MODE (XEXP (x, 0));
+
   /* X matches FROM if it is the same rtx or they are both referring to the
      same register in the same mode.  Avoid calling rtx_equal_p unless the
      operands look similar.  */
@@ -456,220 +468,101 @@ validate_replace_rtx_1 (loc, from, to, object)
       return;
     }
 
-  /* For commutative or comparison operations, try replacing each argument
-     separately and seeing if we made any changes.  If so, put a constant
-     argument last.*/
-  if (GET_RTX_CLASS (code) == '<' || GET_RTX_CLASS (code) == 'c')
-    {
-      int prev_changes = num_changes;
+  /* Call ourseves recursivly to perform the replacements.  */
 
-      validate_replace_rtx_1 (&XEXP (x, 0), from, to, object);
-      validate_replace_rtx_1 (&XEXP (x, 1), from, to, object);
-      if (prev_changes != num_changes && CONSTANT_P (XEXP (x, 0)))
-	{
-	  validate_change (object, loc,
-			   gen_rtx_fmt_ee (GET_RTX_CLASS (code) == 'c' ? code
-					   : swap_condition (code),
-					   GET_MODE (x), XEXP (x, 1),
-					   XEXP (x, 0)),
-			   1);
-	  x = *loc;
-	  code = GET_CODE (x);
-	}
+  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+    {
+      if (fmt[i] == 'e')
+	validate_replace_rtx_1 (&XEXP (x, i), from, to, object);
+      else if (fmt[i] == 'E')
+	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
+	  validate_replace_rtx_1 (&XVECEXP (x, i, j), from, to, object);
     }
 
-  /* Note that if CODE's RTX_CLASS is "c" or "<" we will have already
-     done the substitution, otherwise we won't.  */
+  /* In case we didn't substituted, there is nothing to do.  */
+  if (num_changes == prev_changes)
+    return;
+
+  /* Allow substituted expression to have different mode.  This is used by
+     regmove to change mode of pseudo register.  */
+  if (fmt[0] == 'e' && GET_MODE (XEXP (x, 0)) != VOIDmode)
+    op0_mode = GET_MODE (XEXP (x, 0));
+
+  /* Do changes needed to keep rtx consistent.  Don't do any other
+     simplifications, as it is not our job.  */
+
+  if ((GET_RTX_CLASS (code) == '<' || GET_RTX_CLASS (code) == 'c')
+      && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
+    {
+      validate_change (object, loc,
+		       gen_rtx_fmt_ee (GET_RTX_CLASS (code) == 'c' ? code
+				       : swap_condition (code),
+				       GET_MODE (x), XEXP (x, 1),
+				       XEXP (x, 0)), 1);
+      x = *loc;
+      code = GET_CODE (x);
+    }
 
   switch (code)
     {
     case PLUS:
       /* If we have a PLUS whose second operand is now a CONST_INT, use
-	 plus_constant to try to simplify it.  */
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT && XEXP (x, 1) == to)
-	validate_change (object, loc, plus_constant (XEXP (x, 0), INTVAL (to)),
-			 1);
-      return;
-
-    case MINUS:
-      if (GET_CODE (to) == CONST_INT && XEXP (x, 1) == from)
-	{
-	  validate_change (object, loc,
-			   plus_constant (XEXP (x, 0), - INTVAL (to)),
-			   1);
-	  return;
-	}
+         plus_constant to try to simplify it.
+         ??? We may want later to remove this, once simplification is
+         separated from this function.  */
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+	validate_change (object, loc,
+			 plus_constant (XEXP (x, 0), INTVAL (XEXP (x, 1))), 1);
       break;
-      
+    case MINUS:
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT
+	  || GET_CODE (XEXP (x, 1)) == CONST_DOUBLE)
+	validate_change (object, loc,
+			 simplify_gen_binary
+			 (PLUS, GET_MODE (x), XEXP (x, 0),
+			  simplify_gen_unary (NEG,
+					      op0_mode, XEXP (x, 1),
+					      op0_mode)), 1);
+      break;
     case ZERO_EXTEND:
     case SIGN_EXTEND:
-      /* In these cases, the operation to be performed depends on the mode
-	 of the operand.  If we are replacing the operand with a VOIDmode
-	 constant, we lose the information.  So try to simplify the operation
-	 in that case.  */
-      if (GET_MODE (to) == VOIDmode
-	  && (rtx_equal_p (XEXP (x, 0), from)
-	      || (GET_CODE (XEXP (x, 0)) == SUBREG
-		  && rtx_equal_p (SUBREG_REG (XEXP (x, 0)), from))))
+      if (GET_MODE (XEXP (x, 0)) == VOIDmode)
 	{
-	  rtx new = NULL_RTX;
-
-	  /* If there is a subreg involved, crop to the portion of the
-	     constant that we are interested in.  */
-	  if (GET_CODE (XEXP (x, 0)) == SUBREG)
-	    {
-	      if (GET_MODE_SIZE (GET_MODE (XEXP (x, 0))) <= UNITS_PER_WORD)
-		to = operand_subword (to, SUBREG_WORD (XEXP (x, 0)),
-				      0, GET_MODE (from));
-	      else if (GET_MODE_CLASS (GET_MODE (from)) == MODE_INT
-		       && (GET_MODE_BITSIZE (GET_MODE (XEXP (x, 0)))
-			   <= HOST_BITS_PER_WIDE_INT))
-		{
-		  int i = SUBREG_WORD (XEXP (x, 0)) * BITS_PER_WORD;
-		  HOST_WIDE_INT valh;
-		  unsigned HOST_WIDE_INT vall;
-
-		  if (GET_CODE (to) == CONST_INT)
-		    {
-		      vall = INTVAL (to);
-		      valh = (HOST_WIDE_INT) vall < 0 ? ~0 : 0;
-		    }
-		  else
-		    {
-		      vall = CONST_DOUBLE_LOW (to);
-		      valh = CONST_DOUBLE_HIGH (to);
-		    }
-
-		  if (WORDS_BIG_ENDIAN)
-		    i = (GET_MODE_BITSIZE (GET_MODE (from))
-			 - GET_MODE_BITSIZE (GET_MODE (XEXP (x, 0))) - i);
-		  if (i > 0 && i < HOST_BITS_PER_WIDE_INT)
-		    vall = vall >> i | valh << (HOST_BITS_PER_WIDE_INT - i);
-		  else if (i >= HOST_BITS_PER_WIDE_INT)
-		    vall = valh >> (i - HOST_BITS_PER_WIDE_INT);
-		  to = GEN_INT (trunc_int_for_mode (vall,
-						    GET_MODE (XEXP (x, 0))));
-		}
-	      else
-		to = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
-	    }
-
-	  /* If the above didn't fail, perform the extension from the
-	     mode of the operand (and not the mode of FROM).  */
-	  if (to)
-	    new = simplify_unary_operation (code, GET_MODE (x), to,
-					    GET_MODE (XEXP (x, 0)));
-
+	  new = simplify_gen_unary (code, GET_MODE (x), XEXP (x, 0),
+				    op0_mode);
 	  /* If any of the above failed, substitute in something that
 	     we know won't be recognized.  */
 	  if (!new)
 	    new = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
-
 	  validate_change (object, loc, new, 1);
-	  return;
 	}
       break;
-	
     case SUBREG:
-      /* In case we are replacing by constant, attempt to simplify it to non-SUBREG
-         expression.  We can't do this later, since the information about inner mode
-         may be lost.  */
-      if (CONSTANT_P (to) && rtx_equal_p (SUBREG_REG (x), from))
-        {
-	  if (GET_MODE_SIZE (GET_MODE (x)) == UNITS_PER_WORD
-	      && GET_MODE_SIZE (GET_MODE (from)) > UNITS_PER_WORD
-	      && GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
-	    {
-	      rtx temp = operand_subword (to, SUBREG_WORD (x),
-					  0, GET_MODE (from));
-	      if (temp)
-		{
-		  validate_change (object, loc, temp, 1);
-		  return;
-		}
-	    }
-	  if (subreg_lowpart_p (x))
-	    {
-	      rtx new =  gen_lowpart_if_possible (GET_MODE (x), to);
-	      if (new)
-		{
-		  validate_change (object, loc, new, 1);
-		  return;
-		}
-	    }
+      /* All subregs possible to simplify should be simplified.  */
+      new = simplify_subreg (GET_MODE (x), SUBREG_REG (x), op0_mode,
+			     SUBREG_BYTE (x));
 
-	  /* A paradoxical SUBREG of a VOIDmode constant is the same constant,
-	     since we are saying that the high bits don't matter.  */
-	  if (GET_MODE (to) == VOIDmode
-	      && GET_MODE_SIZE (GET_MODE (x)) > GET_MODE_SIZE (GET_MODE (from)))
-	    {
-	      validate_change (object, loc, to, 1);
-	      return;
-	    }
-        }
-
-      /* Changing mode twice with SUBREG => just change it once,
-	 or not at all if changing back to starting mode.  */
-      if (GET_CODE (to) == SUBREG
-	  && rtx_equal_p (SUBREG_REG (x), from))
-	{
-	  if (GET_MODE (x) == GET_MODE (SUBREG_REG (to))
-	      && SUBREG_WORD (x) == 0 && SUBREG_WORD (to) == 0)
-	    {
-	      validate_change (object, loc, SUBREG_REG (to), 1);
-	      return;
-	    }
-
-	  validate_change (object, loc,
-			   gen_rtx_SUBREG (GET_MODE (x), SUBREG_REG (to),
-					   SUBREG_WORD (x) + SUBREG_WORD (to)), 1);
-	  return;
-	}
-
-      /* If we have a SUBREG of a register that we are replacing and we are
-	 replacing it with a MEM, make a new MEM and try replacing the
-	 SUBREG with it.  Don't do this if the MEM has a mode-dependent address
-	 or if we would be widening it.  */
-
-      if (GET_CODE (from) == REG
-	  && GET_CODE (to) == MEM
-	  && rtx_equal_p (SUBREG_REG (x), from)
-	  && ! mode_dependent_address_p (XEXP (to, 0))
-	  && ! MEM_VOLATILE_P (to)
-	  && GET_MODE_SIZE (GET_MODE (x)) <= GET_MODE_SIZE (GET_MODE (to)))
-	{
-	  int offset = SUBREG_WORD (x) * UNITS_PER_WORD;
-	  enum machine_mode mode = GET_MODE (x);
-	  rtx new;
-
-	  if (BYTES_BIG_ENDIAN)
-	    offset += (MIN (UNITS_PER_WORD,
-			    GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
-		       - MIN (UNITS_PER_WORD, GET_MODE_SIZE (mode)));
-
-	  new = gen_rtx_MEM (mode, plus_constant (XEXP (to, 0), offset));
-	  MEM_COPY_ATTRIBUTES (new, to);
-	  validate_change (object, loc, new, 1);
-	  return;
-	}
+      /* Subregs of VOIDmode operands are incorect.  */
+      if (!new && GET_MODE (SUBREG_REG (x)) == VOIDmode)
+	new = gen_rtx_CLOBBER (GET_MODE (x), const0_rtx);
+      if (new)
+	validate_change (object, loc, new, 1);
       break;
-
     case ZERO_EXTRACT:
     case SIGN_EXTRACT:
       /* If we are replacing a register with memory, try to change the memory
-	 to be the mode required for memory in extract operations (this isn't
-	 likely to be an insertion operation; if it was, nothing bad will
-	 happen, we might just fail in some cases).  */
+         to be the mode required for memory in extract operations (this isn't
+         likely to be an insertion operation; if it was, nothing bad will
+         happen, we might just fail in some cases).  */
 
-      if (GET_CODE (from) == REG && GET_CODE (to) == MEM
-	  && rtx_equal_p (XEXP (x, 0), from)
+      if (GET_CODE (XEXP (x, 0)) == MEM
 	  && GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && GET_CODE (XEXP (x, 2)) == CONST_INT
-	  && ! mode_dependent_address_p (XEXP (to, 0))
-	  && ! MEM_VOLATILE_P (to))
+	  && !mode_dependent_address_p (XEXP (XEXP (x, 0), 0))
+	  && !MEM_VOLATILE_P (XEXP (x, 0)))
 	{
 	  enum machine_mode wanted_mode = VOIDmode;
-	  enum machine_mode is_mode = GET_MODE (to);
+	  enum machine_mode is_mode = GET_MODE (XEXP (x, 0));
 	  int pos = INTVAL (XEXP (x, 2));
 
 #ifdef HAVE_extzv
@@ -696,17 +589,16 @@ validate_replace_rtx_1 (loc, from, to, object)
 	      int offset = pos / BITS_PER_UNIT;
 	      rtx newmem;
 
-		  /* If the bytes and bits are counted differently, we
-		     must adjust the offset.  */
+	      /* If the bytes and bits are counted differently, we
+	         must adjust the offset.  */
 	      if (BYTES_BIG_ENDIAN != BITS_BIG_ENDIAN)
-		offset = (GET_MODE_SIZE (is_mode) - GET_MODE_SIZE (wanted_mode)
-			  - offset);
+		offset =
+		  (GET_MODE_SIZE (is_mode) - GET_MODE_SIZE (wanted_mode) -
+		   offset);
 
 	      pos %= GET_MODE_BITSIZE (wanted_mode);
 
-	      newmem = gen_rtx_MEM (wanted_mode,
-				    plus_constant (XEXP (to, 0), offset));
-	      MEM_COPY_ATTRIBUTES (newmem, to);
+	      newmem = adjust_address_nv (XEXP (x, 0), wanted_mode, offset);
 
 	      validate_change (object, &XEXP (x, 2), GEN_INT (pos), 1);
 	      validate_change (object, &XEXP (x, 0), newmem, 1);
@@ -714,24 +606,9 @@ validate_replace_rtx_1 (loc, from, to, object)
 	}
 
       break;
-      
+
     default:
       break;
-    }
-      
-  /* For commutative or comparison operations we've already performed
-     replacements.  Don't try to perform them again.  */
-  if (GET_RTX_CLASS (code) != '<' && GET_RTX_CLASS (code) != 'c')
-    {
-      fmt = GET_RTX_FORMAT (code);
-      for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-        {
-          if (fmt[i] == 'e')
-            validate_replace_rtx_1 (&XEXP (x, i), from, to, object);
-          else if (fmt[i] == 'E')
-            for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-              validate_replace_rtx_1 (&XVECEXP (x, i, j), from, to, object);
-        }
     }
 }
 
@@ -1042,7 +919,6 @@ general_operand (op, mode)
      enum machine_mode mode;
 {
   register enum rtx_code code = GET_CODE (op);
-  int mode_altering_drug = 0;
 
   if (mode == VOIDmode)
     mode = GET_MODE (op);
@@ -1052,6 +928,10 @@ general_operand (op, mode)
   if (GET_MODE (op) == VOIDmode && mode != VOIDmode
       && GET_MODE_CLASS (mode) != MODE_INT
       && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
+    return 0;
+
+  if (GET_CODE (op) == CONST_INT
+      && trunc_int_for_mode (INTVAL (op), mode) != INTVAL (op))
     return 0;
 
   if (CONSTANT_P (op))
@@ -1077,14 +957,18 @@ general_operand (op, mode)
 	  && GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op))))
 	return 0;
 #endif
+      /* Avoid memories with nonzero SUBREG_BYTE, as offsetting the memory
+         may result in incorrect reference.  We should simplify all valid
+         subregs of MEM anyway.  But allow this after reload because we
+	 might be called from cleanup_subreg_operands. 
+
+	 ??? This is a kludge.  */
+      if (!reload_completed && SUBREG_BYTE (op) != 0
+	  && GET_CODE (SUBREG_REG (op)) == MEM)
+        return 0;
 
       op = SUBREG_REG (op);
       code = GET_CODE (op);
-#if 0
-      /* No longer needed, since (SUBREG (MEM...))
-	 will load the MEM into a reload reg in the MEM's own mode.  */
-      mode_altering_drug = 1;
-#endif
     }
 
   if (code == REG)
@@ -1115,8 +999,6 @@ general_operand (op, mode)
   return 0;
 
  win:
-  if (mode_altering_drug)
-    return ! mode_dependent_address_p (XEXP (op, 0));
   return 1;
 }
 
@@ -1237,6 +1119,10 @@ immediate_operand (op, mode)
       && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
     return 0;
 
+  if (GET_CODE (op) == CONST_INT
+      && trunc_int_for_mode (INTVAL (op), mode) != INTVAL (op))
+    return 0;
+
   /* Accept CONSTANT_P_RTX, since it will be gone by CSE1 and
      result in 0/1.  It seems a safe assumption that this is
      in range for everyone.  */
@@ -1257,9 +1143,16 @@ immediate_operand (op, mode)
 int
 const_int_operand (op, mode)
      register rtx op;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
+     enum machine_mode mode;
 {
-  return GET_CODE (op) == CONST_INT;
+  if (GET_CODE (op) != CONST_INT)
+    return 0;
+
+  if (mode != VOIDmode
+      && trunc_int_for_mode (INTVAL (op), mode) != INTVAL (op))
+    return 0;
+
+  return 1;
 }
 
 /* Returns 1 if OP is an operand that is a constant integer or constant
@@ -1308,6 +1201,10 @@ nonmemory_operand (op, mode)
 	  && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
 	return 0;
 
+      if (GET_CODE (op) == CONST_INT
+	  && trunc_int_for_mode (INTVAL (op), mode) != INTVAL (op))
+	return 0;
+
       return ((GET_MODE (op) == VOIDmode || GET_MODE (op) == mode
 	      || mode == VOIDmode)
 #ifdef LEGITIMATE_PIC_OPERAND_P
@@ -1350,6 +1247,12 @@ push_operand (op, mode)
      rtx op;
      enum machine_mode mode;
 {
+  unsigned int rounded_size = GET_MODE_SIZE (mode);
+
+#ifdef PUSH_ROUNDING
+  rounded_size = PUSH_ROUNDING (rounded_size);
+#endif
+
   if (GET_CODE (op) != MEM)
     return 0;
 
@@ -1358,8 +1261,25 @@ push_operand (op, mode)
 
   op = XEXP (op, 0);
 
-  if (GET_CODE (op) != STACK_PUSH_CODE)
-    return 0;
+  if (rounded_size == GET_MODE_SIZE (mode))
+    {
+      if (GET_CODE (op) != STACK_PUSH_CODE)
+	return 0;
+    }
+  else
+    {
+      if (GET_CODE (op) != PRE_MODIFY
+	  || GET_CODE (XEXP (op, 1)) != PLUS
+	  || XEXP (XEXP (op, 1), 0) != XEXP (op, 0)
+	  || GET_CODE (XEXP (XEXP (op, 1), 1)) != CONST_INT
+#ifdef STACK_GROWS_DOWNWARD
+	  || INTVAL (XEXP (XEXP (op, 1), 1)) != - (int) rounded_size
+#else
+	  || INTVAL (XEXP (XEXP (op, 1), 1)) != rounded_size
+#endif
+	  )
+	return 0;
+    }
 
   return XEXP (op, 0) == stack_pointer_rtx;
 }
@@ -1446,12 +1366,8 @@ indirect_operand (op, mode)
   if (! reload_completed
       && GET_CODE (op) == SUBREG && GET_CODE (SUBREG_REG (op)) == MEM)
     {
-      register int offset = SUBREG_WORD (op) * UNITS_PER_WORD;
+      register int offset = SUBREG_BYTE (op);
       rtx inner = SUBREG_REG (op);
-
-      if (BYTES_BIG_ENDIAN)
-	offset -= (MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (op)))
-		   - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (inner))));
 
       if (mode != VOIDmode && GET_MODE (op) != mode)
 	return 0;
@@ -1910,7 +1826,7 @@ asm_operand_ok (op, constraint)
    return the location (type rtx *) of the pointer to that constant term.
    Otherwise, return a null pointer.  */
 
-static rtx *
+rtx *
 find_constant_term_loc (p)
      rtx *p;
 {
@@ -2047,9 +1963,13 @@ offsettable_address_p (strictp, mode, y)
   /* The offset added here is chosen as the maximum offset that
      any instruction could need to add when operating on something
      of the specified mode.  We assume that if Y and Y+c are
-     valid addresses then so is Y+d for all 0<d<c.  */
-
-  z = plus_constant_for_output (y, mode_sz - 1);
+     valid addresses then so is Y+d for all 0<d<c.  adjust_address will
+     go inside a LO_SUM here, so we do so as well.  */
+  if (GET_CODE (y) == LO_SUM)
+    z = gen_rtx_LO_SUM (GET_MODE (y), XEXP (y, 0),
+			plus_constant (XEXP (y, 1), mode_sz - 1));
+  else
+    z = plus_constant (y, mode_sz - 1);
 
   /* Use QImode because an odd displacement may be automatically invalid
      for any wider mode.  But it should be valid for a single byte.  */
@@ -2095,53 +2015,6 @@ mode_independent_operand (op, mode)
   /* Label `lose' might (not) be used via GO_IF_MODE_DEPENDENT_ADDRESS. */
  lose: ATTRIBUTE_UNUSED_LABEL
   return 0;
-}
-
-/* Given an operand OP that is a valid memory reference which
-   satisfies offsettable_memref_p, return a new memory reference whose
-   address has been adjusted by OFFSET.  OFFSET should be positive and
-   less than the size of the object referenced.  */
-
-rtx
-adj_offsettable_operand (op, offset)
-     rtx op;
-     int offset;
-{
-  register enum rtx_code code = GET_CODE (op);
-
-  if (code == MEM) 
-    {
-      register rtx y = XEXP (op, 0);
-      register rtx new;
-
-      if (CONSTANT_ADDRESS_P (y))
-	{
-	  new = gen_rtx_MEM (GET_MODE (op),
-			     plus_constant_for_output (y, offset));
-	  MEM_COPY_ATTRIBUTES (new, op);
-	  return new;
-	}
-
-      if (GET_CODE (y) == PLUS)
-	{
-	  rtx z = y;
-	  register rtx *const_loc;
-
-	  op = copy_rtx (op);
-	  z = XEXP (op, 0);
-	  const_loc = find_constant_term_loc (&z);
-	  if (const_loc)
-	    {
-	      *const_loc = plus_constant_for_output (*const_loc, offset);
-	      return op;
-	    }
-	}
-
-      new = gen_rtx_MEM (GET_MODE (op), plus_constant_for_output (y, offset));
-      MEM_COPY_ATTRIBUTES (new, op);
-      return new;
-    }
-  abort ();
 }
 
 /* Like extract_insn, but save insn extracted and don't extract again, when
@@ -2461,7 +2334,10 @@ constrain_operands (strict)
 	    {
 	      if (GET_CODE (SUBREG_REG (op)) == REG
 		  && REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER)
-		offset = SUBREG_WORD (op);
+		offset = subreg_regno_offset (REGNO (SUBREG_REG (op)),
+					      GET_MODE (SUBREG_REG (op)),
+					      SUBREG_BYTE (op),
+					      GET_MODE (op));
 	      op = SUBREG_REG (op);
 	    }
 
@@ -2779,6 +2655,66 @@ reg_fits_class_p (operand, class, offset, mode)
   return 0;
 }
 
+/* Split single instruction.  Helper function for split_all_insns.
+   Return last insn in the sequence if succesfull, or NULL if unsuccesfull.  */
+static rtx
+split_insn (insn)
+     rtx insn;
+{
+  rtx set;
+  if (!INSN_P (insn))
+    ;
+  /* Don't split no-op move insns.  These should silently
+     disappear later in final.  Splitting such insns would
+     break the code that handles REG_NO_CONFLICT blocks.  */
+
+  else if ((set = single_set (insn)) != NULL && set_noop_p (set))
+    {
+      /* Nops get in the way while scheduling, so delete them
+         now if register allocation has already been done.  It
+         is too risky to try to do this before register
+         allocation, and there are unlikely to be very many
+         nops then anyways.  */
+      if (reload_completed)
+	{
+	  PUT_CODE (insn, NOTE);
+	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+	  NOTE_SOURCE_FILE (insn) = 0;
+	}
+    }
+  else
+    {
+      /* Split insns here to get max fine-grain parallelism.  */
+      rtx first = PREV_INSN (insn);
+      rtx last = try_split (PATTERN (insn), insn, 1);
+
+      if (last != insn)
+	{
+	  /* try_split returns the NOTE that INSN became.  */
+	  PUT_CODE (insn, NOTE);
+	  NOTE_SOURCE_FILE (insn) = 0;
+	  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+
+	  /* ??? Coddle to md files that generate subregs in post-
+	     reload splitters instead of computing the proper 
+	     hard register.  */
+	  if (reload_completed && first != last)
+	    {
+	      first = NEXT_INSN (first);
+	      while (1)
+		{
+		  if (INSN_P (first))
+		    cleanup_subreg_operands (first);
+		  if (first == last)
+		    break;
+		  first = NEXT_INSN (first);
+		}
+	    }
+	  return last;
+	}
+    }
+  return NULL_RTX;
+}
 /* Split all insns in the function.  If UPD_LIFE, update life info after.  */
 
 void
@@ -2788,6 +2724,22 @@ split_all_insns (upd_life)
   sbitmap blocks;
   int changed;
   int i;
+
+  if (!upd_life)
+    {
+      rtx next, insn;
+
+      for (insn = get_insns (); insn ; insn = next)
+	{
+	  rtx last;
+
+	  /* Can't use `next_real_insn' because that might go across
+	     CODE_LABELS and short-out basic blocks.  */
+	  next = NEXT_INSN (insn);
+	  last = split_insn (insn);
+	}
+      return;
+    }
 
   blocks = sbitmap_alloc (n_basic_blocks);
   sbitmap_zero (blocks);
@@ -2800,82 +2752,26 @@ split_all_insns (upd_life)
 
       for (insn = bb->head; insn ; insn = next)
 	{
-	  rtx set;
+	  rtx last;
 
 	  /* Can't use `next_real_insn' because that might go across
 	     CODE_LABELS and short-out basic blocks.  */
 	  next = NEXT_INSN (insn);
-	  if (! INSN_P (insn))
-	    ;
-
-	  /* Don't split no-op move insns.  These should silently
-	     disappear later in final.  Splitting such insns would
-	     break the code that handles REG_NO_CONFLICT blocks.  */
-
-	  else if ((set = single_set (insn)) != NULL
-		   && rtx_equal_p (SET_SRC (set), SET_DEST (set)))
+	  last = split_insn (insn);
+	  if (last)
 	    {
-	      /* Nops get in the way while scheduling, so delete them
-		 now if register allocation has already been done.  It
-		 is too risky to try to do this before register
-		 allocation, and there are unlikely to be very many
-		 nops then anyways.  */
-	      if (reload_completed)
-		{
-		  PUT_CODE (insn, NOTE);
-		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-		  NOTE_SOURCE_FILE (insn) = 0;
-		}
-	    }
-	  else
-	    {
-	      /* Split insns here to get max fine-grain parallelism.  */
-	      rtx first = PREV_INSN (insn);
-	      rtx last = try_split (PATTERN (insn), insn, 1);
-
-	      if (last != insn)
-		{
-		  SET_BIT (blocks, i);
-		  changed = 1;
-
-		  /* try_split returns the NOTE that INSN became.  */
-		  PUT_CODE (insn, NOTE);
-		  NOTE_SOURCE_FILE (insn) = 0;
-		  NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
-
-		  /* ??? Coddle to md files that generate subregs in post-
-		     reload splitters instead of computing the proper 
-		     hard register.  */
-		  if (reload_completed && first != last)
-		    {
-		      first = NEXT_INSN (first);
-		      while (1)
-			{
-			  if (INSN_P (first))
-			    cleanup_subreg_operands (first);
-			  if (first == last)
-			    break;
-			  first = NEXT_INSN (first);
-			}
-		    }
-
-		  if (insn == bb->end)
-		    {
-		      bb->end = last;
-		      break;
-		    }
-		}
+	      SET_BIT (blocks, i);
+	      changed = 1;
+	      if (insn == bb->end)
+		bb->end = last;
+	      insn = last;
 	    }
 
 	  if (insn == bb->end)
 	    break;
 	}
 
-      /* ??? When we're called from just after reload, the CFG is in bad
-	 shape, and we may have fallen off the end.  This could be fixed
-	 by having reload not try to delete unreachable code.  Otherwise
-	 assert we found the end insn.  */
-      if (insn == NULL && upd_life)
+      if (insn == NULL)
 	abort ();
     }
 

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Intel 860
-   Copyright (C) 1989, 1991, 1997, 1998, 1999, 2000
+   Copyright (C) 1989, 1991, 1997, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
    Derived from sparc.c.
 
@@ -36,13 +36,14 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "recog.h"
 #include "insn-attr.h"
 #include "function.h"
 #include "expr.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 static rtx find_addr_reg PARAMS ((rtx));
 static int reg_clobbered_p PARAMS ((rtx, rtx));
@@ -50,6 +51,8 @@ static const char *singlemove_string PARAMS ((rtx *));
 static const char *load_opcode PARAMS ((enum machine_mode, const char *, rtx));
 static const char *store_opcode PARAMS ((enum machine_mode, const char *, rtx));
 static void output_size_for_block_move PARAMS ((rtx, rtx, rtx));
+static void i860_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void i860_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 #ifndef I860_REG_PREFIX
 #define I860_REG_PREFIX ""
@@ -60,6 +63,14 @@ const char *i860_reg_prefix = I860_REG_PREFIX;
 /* Save information from a "cmpxx" operation until the branch is emitted.  */
 
 rtx i860_compare_op0, i860_compare_op1;
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE i860_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE i860_output_function_epilogue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Return non-zero if this pattern, can be evaluated safely, even if it
    was not asked for.  */
@@ -341,7 +352,7 @@ single_insn_src_p (op, mode)
       return 1;
 
     case SUBREG:
-      if (SUBREG_WORD (op) != 0)
+      if (SUBREG_BYTE (op) != 0)
 	return 0;
       return single_insn_src_p (SUBREG_REG (op), mode);
 
@@ -638,14 +649,14 @@ output_move_double (operands)
   if (optype0 == REGOP)
     latehalf[0] = gen_rtx_REG (SImode, REGNO (operands[0]) + 1);
   else if (optype0 == OFFSOP)
-    latehalf[0] = adj_offsettable_operand (operands[0], 4);
+    latehalf[0] = adjust_address (operands[0], SImode, 4);
   else
     latehalf[0] = operands[0];
 
   if (optype1 == REGOP)
     latehalf[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
   else if (optype1 == OFFSOP)
-    latehalf[1] = adj_offsettable_operand (operands[1], 4);
+    latehalf[1] = adjust_address (operands[1], SImode, 4);
   else if (optype1 == CNSTOP)
     {
       if (GET_CODE (operands[1]) == CONST_DOUBLE)
@@ -703,7 +714,7 @@ output_move_double (operands)
 	  xops[1] = operands[0];
 	  output_asm_insn ("adds %1,%0,%1", xops);
 	  operands[1] = gen_rtx_MEM (DImode, operands[0]);
-	  latehalf[1] = adj_offsettable_operand (operands[1], 4);
+	  latehalf[1] = adjust_address (operands[1], SImode, 4);
 	  addreg1 = 0;
 	  highest_first = 1;
 	}
@@ -1452,7 +1463,7 @@ output_delayed_branch (template, operands, insn)
 	 We must do this after outputting the branch insn,
 	 since operands may just be a pointer to `recog_data.operand'.  */
       INSN_CODE (delay_insn) = insn_code_number
-	= recog (pat, delay_insn, NULL_PTR);
+	= recog (pat, delay_insn, NULL);
       if (insn_code_number == -1)
 	abort ();
 
@@ -1552,7 +1563,6 @@ sfmode_constant_to_ulong (x)
 }
 
 /* This function generates the assembly code for function entry.
-   The macro FUNCTION_PROLOGUE in i860.h is defined to call this function.
 
    ASM_FILE is a stdio stream to output the code to.
    SIZE is an int: how many units of temporary storage to allocate.
@@ -1658,14 +1668,14 @@ char *current_function_original_name;
 static int must_preserve_r1;
 static unsigned must_preserve_bytes;
 
-void
-function_prologue (asm_file, local_bytes)
+static void
+i860_output_function_prologue (asm_file, local_bytes)
      register FILE *asm_file;
-     register unsigned local_bytes;
+     register HOST_WIDE_INT local_bytes;
 {
-  register unsigned frame_lower_bytes;
-  register unsigned frame_upper_bytes;
-  register unsigned total_fsize;
+  register HOST_WIDE_INT frame_lower_bytes;
+  register HOST_WIDE_INT frame_upper_bytes;
+  register HOST_WIDE_INT total_fsize;
   register unsigned preserved_reg_bytes = 0;
   register unsigned i;
   register unsigned preserved_so_far = 0;
@@ -1924,7 +1934,6 @@ function_prologue (asm_file, local_bytes)
 }
 
 /* This function generates the assembly code for function exit.
-   The macro FUNCTION_EPILOGUE in i860.h is defined to call this function.
 
    ASM_FILE is a stdio stream to output the code to.
    SIZE is an int: how many units of temporary storage to allocate.
@@ -1980,14 +1989,14 @@ typedef struct TDESC {
 	unsigned int negative_frame_size;	/* same as frame_lower_bytes */
 } TDESC;
 
-void
-function_epilogue (asm_file, local_bytes)
+static void
+i860_output_function_epilogue (asm_file, local_bytes)
      register FILE *asm_file;
-     register unsigned local_bytes;
+     register HOST_WIDE_INT local_bytes;
 {
-  register unsigned frame_upper_bytes;
-  register unsigned frame_lower_bytes;
-  register unsigned preserved_reg_bytes = 0;
+  register HOST_WIDE_INT frame_upper_bytes;
+  register HOST_WIDE_INT frame_lower_bytes;
+  register HOST_WIDE_INT preserved_reg_bytes = 0;
   register unsigned i;
   register unsigned restored_so_far = 0;
   register unsigned int_restored;

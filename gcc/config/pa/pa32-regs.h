@@ -174,7 +174,7 @@
      ? GET_MODE_SIZE (MODE) <= 4 || ((REGNO) & 1) == 0			\
    /* Make wide modes be in aligned registers. */			\
    : (GET_MODE_SIZE (MODE) <= UNITS_PER_WORD				\
-      || (GET_MODE_SIZE (MODE) <= 2 * UNITS_PER_WORD && ((REGNO) & 1) == 0)))
+      || (GET_MODE_SIZE (MODE) <= 4 * UNITS_PER_WORD && ((REGNO) & 1) == 0)))
 
 /* How to renumber registers for dbx and gdb.
 
@@ -186,7 +186,12 @@
 
 #define DBX_REGISTER_NUMBER(REGNO) \
   ((REGNO) <= 31 ? (REGNO) :						\
-   ((REGNO) > 31 && (REGNO) <= 87 ? (REGNO) + 40 : 32))
+   ((REGNO) <= 87 ? (REGNO) + 40 : 32))
+
+/* We must not use the DBX register numbers for the DWARF 2 CFA column
+   numbers because that maps to numbers beyond FIRST_PSEUDO_REGISTER.
+   Instead use the identity mapping.  */
+#define DWARF_FRAME_REGNUM(REG) REG
 
 /* Define the classes of registers for register constraints in the
    machine description.  Also define ranges of constants.

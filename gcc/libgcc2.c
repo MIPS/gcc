@@ -76,7 +76,7 @@ __addvsi3 (Wtype a, Wtype b)
     abort ();
 
   return w;
-} 
+}
 #endif
 
 #ifdef L_addvdi3
@@ -1069,7 +1069,7 @@ __floatdidf (DWtype u)
 
 /* Define codes for all the float formats that we know of.  Note
    that this is copied from real.h.  */
-   
+
 #define UNKNOWN_FLOAT_FORMAT 0
 #define IEEE_FLOAT_FORMAT 1
 #define VAX_FLOAT_FORMAT 2
@@ -1238,241 +1238,17 @@ __gcc_bcmp (const unsigned char *s1, const unsigned char *s2, size_t size)
 }
 
 #endif
-
-#ifdef L__dummy
-void
-__dummy (void) {}
-#endif
-
-#ifdef L_varargs
-#ifdef __i860__
-#if defined(__svr4__) || defined(__alliant__)
-	asm ("	.text");
-	asm ("	.align	4");
-
-/* The Alliant needs the added underscore.  */
-	asm (".globl	__builtin_saveregs");
-asm ("__builtin_saveregs:");
-	asm (".globl	___builtin_saveregs");
-asm ("___builtin_saveregs:");
-
-        asm ("	andnot	0x0f,%sp,%sp");	/* round down to 16-byte boundary */
-	asm ("	adds	-96,%sp,%sp");  /* allocate stack space for reg save
-					   area and also for a new va_list
-					   structure */
-	/* Save all argument registers in the arg reg save area.  The
-	   arg reg save area must have the following layout (according
-	   to the svr4 ABI):
-
-		struct {
-		  union  {
-		    float freg[8];
-		    double dreg[4];
-		  } float_regs;
-		  long	ireg[12];
-		};
-	*/
-
-	asm ("	fst.q	%f8,  0(%sp)"); /* save floating regs (f8-f15)  */
-	asm ("	fst.q	%f12,16(%sp)"); 
-
-	asm ("	st.l	%r16,32(%sp)"); /* save integer regs (r16-r27) */
-	asm ("	st.l	%r17,36(%sp)"); 
-	asm ("	st.l	%r18,40(%sp)");
-	asm ("	st.l	%r19,44(%sp)");
-	asm ("	st.l	%r20,48(%sp)");
-	asm ("	st.l	%r21,52(%sp)");
-	asm ("	st.l	%r22,56(%sp)");
-	asm ("	st.l	%r23,60(%sp)");
-	asm ("	st.l	%r24,64(%sp)");
-	asm ("	st.l	%r25,68(%sp)");
-	asm ("	st.l	%r26,72(%sp)");
-	asm ("	st.l	%r27,76(%sp)");
-
-	asm ("	adds	80,%sp,%r16");  /* compute the address of the new
-					   va_list structure.  Put in into
-					   r16 so that it will be returned
-					   to the caller.  */
-
-	/* Initialize all fields of the new va_list structure.  This
-	   structure looks like:
-
-		typedef struct {
-		    unsigned long	ireg_used;
-		    unsigned long	freg_used;
-		    long		*reg_base;
-		    long		*mem_ptr;
-		} va_list;
-	*/
-
-	asm ("	st.l	%r0, 0(%r16)"); /* nfixed */
-	asm ("	st.l	%r0, 4(%r16)"); /* nfloating */
-	asm ("  st.l    %sp, 8(%r16)"); /* __va_ctl points to __va_struct.  */
-	asm ("	bri	%r1");		/* delayed return */
-	asm ("	st.l	%r28,12(%r16)"); /* pointer to overflow args */
-
-#else /* not __svr4__ */
-#if defined(__PARAGON__)
-	/*
-	 *	we'll use SVR4-ish varargs but need SVR3.2 assembler syntax,
-	 *	and we stand a better chance of hooking into libraries
-	 *	compiled by PGI.  [andyp@ssd.intel.com]
-	 */
-	asm ("	.text");
-	asm ("	.align	4");
-	asm (".globl	__builtin_saveregs");
-asm ("__builtin_saveregs:");
-	asm (".globl	___builtin_saveregs");
-asm ("___builtin_saveregs:");
-
-        asm ("	andnot	0x0f,sp,sp");	/* round down to 16-byte boundary */
-	asm ("	adds	-96,sp,sp");	/* allocate stack space for reg save
-					   area and also for a new va_list
-					   structure */
-	/* Save all argument registers in the arg reg save area.  The
-	   arg reg save area must have the following layout (according
-	   to the svr4 ABI):
-
-		struct {
-		  union  {
-		    float freg[8];
-		    double dreg[4];
-		  } float_regs;
-		  long	ireg[12];
-		};
-	*/
-
-	asm ("	fst.q	f8,  0(sp)");
-	asm ("	fst.q	f12,16(sp)"); 
-	asm ("	st.l	r16,32(sp)");
-	asm ("	st.l	r17,36(sp)"); 
-	asm ("	st.l	r18,40(sp)");
-	asm ("	st.l	r19,44(sp)");
-	asm ("	st.l	r20,48(sp)");
-	asm ("	st.l	r21,52(sp)");
-	asm ("	st.l	r22,56(sp)");
-	asm ("	st.l	r23,60(sp)");
-	asm ("	st.l	r24,64(sp)");
-	asm ("	st.l	r25,68(sp)");
-	asm ("	st.l	r26,72(sp)");
-	asm ("	st.l	r27,76(sp)");
-
-	asm ("	adds	80,sp,r16");  /* compute the address of the new
-					   va_list structure.  Put in into
-					   r16 so that it will be returned
-					   to the caller.  */
-
-	/* Initialize all fields of the new va_list structure.  This
-	   structure looks like:
-
-		typedef struct {
-		    unsigned long	ireg_used;
-		    unsigned long	freg_used;
-		    long		*reg_base;
-		    long		*mem_ptr;
-		} va_list;
-	*/
-
-	asm ("	st.l	r0, 0(r16)"); /* nfixed */
-	asm ("	st.l	r0, 4(r16)"); /* nfloating */
-	asm ("  st.l    sp, 8(r16)"); /* __va_ctl points to __va_struct.  */
-	asm ("	bri	r1");		/* delayed return */
-	asm ("	 st.l	r28,12(r16)"); /* pointer to overflow args */
-#else /* not __PARAGON__ */
-	asm ("	.text");
-	asm ("	.align	4");
-
-	asm (".globl	___builtin_saveregs");
-	asm ("___builtin_saveregs:");
-	asm ("	mov	sp,r30");
-	asm ("	andnot	0x0f,sp,sp");
-	asm ("	adds	-96,sp,sp");  /* allocate sufficient space on the stack */
-
-/* Fill in the __va_struct.  */
-	asm ("	st.l	r16, 0(sp)"); /* save integer regs (r16-r27) */
-	asm ("	st.l	r17, 4(sp)"); /* int	fixed[12] */
-	asm ("	st.l	r18, 8(sp)");
-	asm ("	st.l	r19,12(sp)");
-	asm ("	st.l	r20,16(sp)");
-	asm ("	st.l	r21,20(sp)");
-	asm ("	st.l	r22,24(sp)");
-	asm ("	st.l	r23,28(sp)");
-	asm ("	st.l	r24,32(sp)");
-	asm ("	st.l	r25,36(sp)");
-	asm ("	st.l	r26,40(sp)");
-	asm ("	st.l	r27,44(sp)");
-
-	asm ("	fst.q	f8, 48(sp)"); /* save floating regs (f8-f15) */
-	asm ("	fst.q	f12,64(sp)"); /* int floating[8] */
-
-/* Fill in the __va_ctl.  */
-	asm ("  st.l    sp, 80(sp)"); /* __va_ctl points to __va_struct.  */
-	asm ("	st.l	r28,84(sp)"); /* pointer to more args */
-	asm ("	st.l	r0, 88(sp)"); /* nfixed */
-	asm ("	st.l	r0, 92(sp)"); /* nfloating */
-
-	asm ("	adds	80,sp,r16");  /* return address of the __va_ctl.  */
-	asm ("	bri	r1");
-	asm ("	mov	r30,sp");
-				/* recover stack and pass address to start 
-				   of data.  */
-#endif /* not __PARAGON__ */
-#endif /* not __svr4__ */
-#else /* not __i860__ */
-#ifdef __sparc__
-	asm (".global __builtin_saveregs");
-	asm ("__builtin_saveregs:");
-	asm (".global ___builtin_saveregs");
-	asm ("___builtin_saveregs:");
-#ifdef NEED_PROC_COMMAND
-	asm (".proc 020");
-#endif
-	asm ("st %i0,[%fp+68]");
-	asm ("st %i1,[%fp+72]");
-	asm ("st %i2,[%fp+76]");
-	asm ("st %i3,[%fp+80]");
-	asm ("st %i4,[%fp+84]");
-	asm ("retl");
-	asm ("st %i5,[%fp+88]");
-#ifdef NEED_TYPE_COMMAND
-	asm (".type __builtin_saveregs,#function");
-	asm (".size __builtin_saveregs,.-__builtin_saveregs");
-#endif
-#else /* not __sparc__ */
-#if defined(__MIPSEL__) | defined(__R3000__) | defined(__R2000__) | defined(__mips__)
-
-  asm ("	.text");
-#ifdef __mips16
-  asm ("	.set nomips16");
-#endif
-  asm ("	.ent __builtin_saveregs");
-  asm ("	.globl __builtin_saveregs");
-  asm ("__builtin_saveregs:");
-  asm ("	sw	$4,0($30)");
-  asm ("	sw	$5,4($30)");
-  asm ("	sw	$6,8($30)");
-  asm ("	sw	$7,12($30)");
-  asm ("	j	$31");
-  asm ("	.end __builtin_saveregs");
-#else /* not __mips__, etc.  */
-
-void * ATTRIBUTE_NORETURN
-__builtin_saveregs ()
-{
-  abort ();
-}
-
-#endif /* not __mips__ */
-#endif /* not __sparc__ */
-#endif /* not __i860__ */
-#endif
 
+/* __eprintf used to be used by GCC's private version of <assert.h>.
+   We no longer provide that header, but this routine remains in libgcc.a
+   for binary backward compatibility.  Note that it is not included in
+   the shared version of libgcc.  */
 #ifdef L_eprintf
 #ifndef inhibit_libc
 
 #undef NULL /* Avoid errors if stdio.h and our stddef.h mismatch.  */
 #include <stdio.h>
-/* This is used by the `assert' macro.  */
+
 void
 __eprintf (const char *string, const char *expression,
 	   unsigned int line, const char *filename)
@@ -1487,12 +1263,19 @@ __eprintf (const char *string, const char *expression,
 
 #ifdef L_bb
 
+#if LONG_TYPE_SIZE == GCOV_TYPE_SIZE
+typedef long gcov_type;
+#else
+typedef long long gcov_type;
+#endif
+
+
 /* Structure emitted by -a  */
 struct bb
 {
   long zero_word;
   const char *filename;
-  long *counts;
+  gcov_type *counts;
   long ncounts;
   struct bb *next;
   const unsigned long *addresses;
@@ -1528,13 +1311,13 @@ char *ctime PARAMS ((const time_t *));
 
 static struct bb *bb_head;
 
-static int num_digits (long value, int base) __attribute__ ((const));
+static int num_digits (long long value, int base) __attribute__ ((const));
 
 /* Return the number of digits needed to print a value */
-/* __inline__ */ static int num_digits (long value, int base)
+/* __inline__ */ static int num_digits (long long value, int base)
 {
   int minus = (value < 0 && base != 16);
-  unsigned long v = (minus) ? -value : value;
+  unsigned long long v = (minus) ? -value : value;
   int ret = minus;
 
   do
@@ -1623,7 +1406,7 @@ __bb_exit_func (void)
 	  else
 	    {
 	      long n_counts = 0;
-	      
+
 	      if (ungetc (firstchar, da_file) == EOF)
 		rewind (da_file);
 	      if (__read_long (&n_counts, da_file, 8) != 0)
@@ -1639,9 +1422,9 @@ __bb_exit_func (void)
 
 		  for (i = 0; i < n_counts; i++)
 		    {
-		      long v = 0;
+		      gcov_type v = 0;
 
-		      if (__read_long (&v, da_file, 8) != 0)
+		      if (__read_gcov_type (&v, da_file, 8) != 0)
 			{
 			  fprintf (stderr, "arc profiling: Can't read output file %s.\n",
 				   ptr->filename);
@@ -1663,20 +1446,20 @@ __bb_exit_func (void)
 	     That way we can easily verify that the proper source/executable/
 	     data file combination is being used from gcov.  */
 
-	  if (__write_long (ptr->ncounts, da_file, 8) != 0)
+	  if (__write_gcov_type (ptr->ncounts, da_file, 8) != 0)
 	    {
-	      
+
 	      fprintf (stderr, "arc profiling: Error writing output file %s.\n",
 		       ptr->filename);
 	    }
 	  else
 	    {
 	      int j;
-	      long *count_ptr = ptr->counts;
+	      gcov_type *count_ptr = ptr->counts;
 	      int ret = 0;
 	      for (j = ptr->ncounts; j > 0; j--)
 		{
-		  if (__write_long (*count_ptr, da_file, 8) != 0)
+		  if (__write_gcov_type (*count_ptr, da_file, 8) != 0)
 		    {
 		      ret=1;
 		      break;
@@ -1687,7 +1470,7 @@ __bb_exit_func (void)
 		fprintf (stderr, "arc profiling: Error writing output file %s.\n",
 			 ptr->filename);
 	    }
-	  
+
 	  if (fclose (da_file) == EOF)
 	    fprintf (stderr, "arc profiling: Error closing output file %s.\n",
 		     ptr->filename);
@@ -1729,7 +1512,7 @@ __bb_exit_func (void)
 	  int file_p	= (func_p && ptr->filenames);
 	  int addr_p	= (ptr->addresses != 0);
 	  long ncounts	= ptr->ncounts;
-	  long cnt_max  = 0;
+	  gcov_type cnt_max  = 0;
 	  long line_max = 0;
 	  long addr_max = 0;
 	  int file_len	= 0;
@@ -1781,10 +1564,17 @@ __bb_exit_func (void)
 	  /* Now print out the basic block information.  */
 	  for (i = 0; i < ncounts; i++)
 	    {
+#if LONG_TYPE_SIZE == GCOV_TYPE_SIZE
 	      fprintf (file,
 		       "    Block #%*d: executed %*ld time(s)",
 		       blk_len, i+1,
 		       cnt_len, ptr->counts[i]);
+#else
+	      fprintf (file,
+		       "    Block #%*d: executed %*lld time(s)",
+		       blk_len, i+1,
+		       cnt_len, ptr->counts[i]);
+#endif
 
 	      if (addr_p)
 		fprintf (file, " address= 0x%.*lx", addr_len,
@@ -1894,7 +1684,7 @@ struct {
   struct bb *blocks;
 } __bb;
 
-/* Vars to store addrs of source and destination basic blocks 
+/* Vars to store addrs of source and destination basic blocks
    of a jump.  */
 
 static unsigned long bb_src = 0;
@@ -1944,7 +1734,7 @@ gopen (char *fn, char *mode)
   if (mode[1])
     return (FILE *) 0;
 
-  if (mode[0] != 'r' && mode[0] != 'w') 
+  if (mode[0] != 'r' && mode[0] != 'w')
     return (FILE *) 0;
 
   p = fn + strlen (fn)-1;
@@ -2008,7 +1798,7 @@ __bb_exit_trace_func (void)
   FILE *file = fopen ("bb.out", "a");
   struct bb_func *f;
   struct bb *b;
-        
+
   if (!file)
     perror ("bb.out");
 
@@ -2049,7 +1839,7 @@ __bb_exit_trace_func (void)
                     goto found;
                 }
             }
-  
+
           if (!printed_something)
             {
               fprintf (file, "Functions in `bb.in' not executed during basic block profiling on %s\n", ctime ((void *) &time_value));
@@ -2060,7 +1850,7 @@ __bb_exit_trace_func (void)
           if (p->filename)
               fprintf (file, " of file %s", p->filename);
           fprintf (file, "\n" );
-  
+
 found:        ;
         }
 
@@ -2080,7 +1870,7 @@ found:        ;
             }
           return;
         }
-    
+
       else if (file)
         {
           long time_value;
@@ -2089,13 +1879,13 @@ found:        ;
           unsigned long cnt_max  = 0;
           int cnt_len;
           int addr_len;
-    
+
           /* This is somewhat type incorrect, but it avoids worrying about
              exactly where time.h is included from.  It should be ok unless
              a void * differs from other pointer formats, or if sizeof (long)
              is < sizeof (time_t).  It would be nice if we could assume the
              use of rationale standards here.  */
-    
+
           time ((void *) &time_value);
           fprintf (file, "Basic block jump tracing");
 
@@ -2119,36 +1909,36 @@ found:        ;
             }
 
           fprintf (file, " finished on %s\n", ctime ((void *) &time_value));
-    
+
           for (i = 0; i < BB_BUCKETS; i++)
             {
                struct bb_edge *bucket = bb_hashbuckets[i];
                for ( ; bucket; bucket = bucket->next )
                  {
-                   if (addr_max < bucket->src_addr) 
+                   if (addr_max < bucket->src_addr)
                      addr_max = bucket->src_addr;
-                   if (addr_max < bucket->dst_addr) 
+                   if (addr_max < bucket->dst_addr)
                      addr_max = bucket->dst_addr;
-                   if (cnt_max < bucket->count) 
+                   if (cnt_max < bucket->count)
                      cnt_max = bucket->count;
                  }
             }
           addr_len = num_digits (addr_max, 16);
           cnt_len  = num_digits (cnt_max, 10);
-    
+
           for ( i = 0; i < BB_BUCKETS; i++)
             {
                struct bb_edge *bucket = bb_hashbuckets[i];
                for ( ; bucket; bucket = bucket->next )
                  {
                    fprintf (file,
-	"Jump from block 0x%.*lx to block 0x%.*lx executed %*lu time(s)\n", 
-                            addr_len, bucket->src_addr, 
-                            addr_len, bucket->dst_addr, 
+	"Jump from block 0x%.*lx to block 0x%.*lx executed %*lu time(s)\n",
+                            addr_len, bucket->src_addr,
+                            addr_len, bucket->dst_addr,
                             cnt_len, bucket->count);
                  }
             }
-  
+
           fprintf (file, "\n");
 
         }
@@ -2220,14 +2010,14 @@ __bb_init_prg (void)
 	buf[i--] = '\0';
 
       p = buf;
-      if (*p == '-') 
-        { 
-          m = TRACE_OFF; 
-          p++; 
+      if (*p == '-')
+        {
+          m = TRACE_OFF;
+          p++;
         }
-      else 
-        { 
-          m = TRACE_ON; 
+      else
+        {
+          m = TRACE_ON;
         }
       if (!strcmp (p, "__bb_trace__"))
         bb_mode |= 1;
@@ -2237,7 +2027,7 @@ __bb_init_prg (void)
         bb_mode |= 4;
       else if (!strcmp (p, "__bb_showret__"))
         bb_mode |= 8;
-      else 
+      else
         {
           struct bb_func *f = (struct bb_func *) malloc (sizeof (struct bb_func));
           if (f)
@@ -2272,7 +2062,7 @@ __bb_init_prg (void)
     }
   fclose (file);
 
-#ifdef HAVE_POPEN 
+#ifdef HAVE_POPEN
 
   if (bb_mode & 1)
       bb_tracefile = gopen ("bbtrace.gz", "w");
@@ -2286,7 +2076,7 @@ __bb_init_prg (void)
 
   if (bb_mode & 2)
     {
-      bb_hashbuckets = (struct bb_edge **) 
+      bb_hashbuckets = (struct bb_edge **)
                    malloc (BB_BUCKETS * sizeof (struct bb_edge *));
       if (bb_hashbuckets)
 	/* Use a loop here rather than calling bzero to avoid having to
@@ -2333,7 +2123,7 @@ __bb_trace_func (void)
 	= & bb_hashbuckets[ (((int) bb_src*8) ^ (int) bb_dst) % BB_BUCKETS ];
       bucket = *startbucket;
 
-      for (bucket = *startbucket; bucket; 
+      for (bucket = *startbucket; bucket;
            oldnext = &(bucket->next), bucket = *oldnext)
         {
           if (bucket->src_addr == bb_src
@@ -2396,7 +2186,7 @@ __bb_trace_func_ret (void)
 	= & bb_hashbuckets[ (((int) bb_dst * 8) ^ (int) bb_src) % BB_BUCKETS ];
       bucket = *startbucket;
 
-      for (bucket = *startbucket; bucket; 
+      for (bucket = *startbucket; bucket;
            oldnext = &(bucket->next), bucket = *oldnext)
         {
           if (bucket->src_addr == bb_dst
@@ -2510,9 +2300,9 @@ __bb_init_trace_func (struct bb *blocks, unsigned long blockno)
   MACHINE_STATE_SAVE("3")
 
   if (!blocks->zero_word)
-    { 
+    {
       if (!trace_init)
-        { 
+        {
           trace_init = 1;
           __bb_init_prg ();
         }
@@ -2579,7 +2369,7 @@ void
 __clear_cache (char *beg __attribute__((__unused__)),
 	       char *end __attribute__((__unused__)))
 {
-#ifdef CLEAR_INSN_CACHE 
+#ifdef CLEAR_INSN_CACHE
   CLEAR_INSN_CACHE (beg, end);
 #else
 #ifdef INSN_CACHE_SIZE
@@ -2643,7 +2433,7 @@ __clear_cache (char *beg __attribute__((__unused__)),
   /* Compute the cache alignment of the place to stop clearing.  */
 #if 0  /* This is not needed for gcc's purposes.  */
   /* If the block to clear is bigger than a cache plane,
-     we clear the entire cache, and OFFSET is already correct.  */ 
+     we clear the entire cache, and OFFSET is already correct.  */
   if (end < beg + INSN_CACHE_PLANE_SIZE)
 #endif
     offset = (((int) (end + INSN_CACHE_LINE_WIDTH - 1)
@@ -2731,8 +2521,8 @@ mprotect (char *addr, int len, int prot)
 
 #endif /* WINNT && ! __CYGWIN__ && ! _UWIN */
 
-#ifdef TRANSFER_FROM_TRAMPOLINE 
-TRANSFER_FROM_TRAMPOLINE 
+#ifdef TRANSFER_FROM_TRAMPOLINE
+TRANSFER_FROM_TRAMPOLINE
 #endif
 
 #if defined (NeXT) && defined (__MACH__)
@@ -2767,7 +2557,7 @@ __enable_execute_stack (char *addr)
 #else
   __clear_cache ((int) addr, (int) eaddr);
 #endif
-} 
+}
 
 #endif /* defined (NeXT) && defined (__MACH__) */
 
@@ -2813,7 +2603,7 @@ __enable_execute_stack (void)
   int save_errno;
   static unsigned long lowest = USRSTACK;
   unsigned long current = (unsigned long) &save_errno & -NBPC;
-  
+
   /* Ignore errno being set. memctl sets errno to EINVAL whenever the
      address is seen as 'negative'. That is the case with the stack.   */
 
@@ -2867,7 +2657,7 @@ __clear_insn_cache (void)
   errno changing without explicitly calling any system-call. */
   save_errno = errno;
 
-  /* Keep it simple : memctl (MCT_TEXT) always fully clears the insn cache. 
+  /* Keep it simple : memctl (MCT_TEXT) always fully clears the insn cache.
      No need to use an address derived from _start or %sp, as 0 works also. */
   memctl(0, 4096, MCT_TEXT);
   errno = save_errno;
@@ -2952,7 +2742,7 @@ cacheflush (char *beg, int size, int flag)
    code to run constructors.  In that case, we need to handle EH here, too.  */
 
 #ifdef EH_FRAME_SECTION
-#include "frame.h"
+#include "unwind-dw2-fde.h"
 extern unsigned char __EH_FRAME_BEGIN__[];
 #endif
 
@@ -3095,7 +2885,7 @@ atexit (func_ptr func)
 extern void _cleanup (void);
 extern void _exit (int) __attribute__ ((__noreturn__));
 
-void 
+void
 exit (int status)
 {
   if (atexit_chain)
@@ -3129,1221 +2919,3 @@ atexit (func_ptr func)
 #endif /* NEED_ATEXIT */
 
 #endif /* L_exit */
-
-#ifdef L_eh
-
-#include "gthr.h"
-
-/* Shared exception handling support routines.  */
-
-void
-__default_terminate (void)
-{
-  abort ();
-}
-
-static __terminate_func_ptr __terminate_func =
-  __default_terminate;
-
-void __attribute__((__noreturn__))
-__terminate (void)
-{
-  (*__terminate_func)();
-}
-
-__terminate_func_ptr
-__terminate_set_func (__terminate_func_ptr newfunc)
-{
-  __terminate_func_ptr oldfunc = __terminate_func;
-
-  __terminate_func = newfunc;
-  return (oldfunc);
-}
-
-void *
-__throw_type_match (void *catch_type, void *throw_type, void *obj)
-{
-#if 0
- printf ("__throw_type_match (): catch_type = %s, throw_type = %s\n",
-	 catch_type, throw_type);
-#endif
- if (strcmp ((const char *)catch_type, (const char *)throw_type) == 0)
-   return obj;
- return 0;
-}
-
-void
-__empty (void)
-{
-}
-
-
-/* Include definitions of EH context and table layout */
-
-#include "eh-common.h"
-#ifndef inhibit_libc
-#include <stdio.h>
-#endif
-
-/* Allocate and return a new EH context structure. */
-
-#if __GTHREADS
-static void *
-new_eh_context (void)
-{
-  struct eh_full_context {
-    struct eh_context c;
-    void *top_elt[2];
-  } *ehfc = (struct eh_full_context *) malloc (sizeof *ehfc);
-
-  if (! ehfc)
-    __terminate ();
-
-  memset (ehfc, 0, sizeof *ehfc);
-
-  ehfc->c.dynamic_handler_chain = (void **) ehfc->top_elt;
-
-  /* This should optimize out entirely.  This should always be true,
-     but just in case it ever isn't, don't allow bogus code to be
-     generated.  */
-
-  if ((void*)(&ehfc->c) != (void*)ehfc)
-    __terminate ();
-
-  return &ehfc->c;
-}
-
-static __gthread_key_t eh_context_key;
-
-/* Destructor for struct eh_context. */
-static void
-eh_context_free (void *ptr)
-{
-  __gthread_key_dtor (eh_context_key, ptr);
-  if (ptr)
-    free (ptr);
-}
-#endif
-
-/* Pointer to function to return EH context. */
-
-static struct eh_context *eh_context_initialize (void);
-static struct eh_context *eh_context_static (void);
-#if __GTHREADS
-static struct eh_context *eh_context_specific (void);
-#endif
-
-static struct eh_context *(*get_eh_context) (void) = &eh_context_initialize;
-
-/* Routine to get EH context.
-   This one will simply call the function pointer. */
-
-void *
-__get_eh_context (void)
-{
-  return (void *) (*get_eh_context) ();
-}
-
-/* Get and set the language specific info pointer. */
-
-void **
-__get_eh_info (void)
-{
-  struct eh_context *eh = (*get_eh_context) ();
-  return &eh->info;
-}
-
-#ifdef DWARF2_UNWIND_INFO
-static int dwarf_reg_size_table_initialized = 0;
-static char dwarf_reg_size_table[DWARF_FRAME_REGISTERS];
-
-static void
-init_reg_size_table (void)
-{
-  __builtin_init_dwarf_reg_size_table (dwarf_reg_size_table);
-  dwarf_reg_size_table_initialized = 1;
-}
-#endif
-
-#if __GTHREADS
-static void
-eh_threads_initialize (void)
-{
-  /* Try to create the key.  If it fails, revert to static method,
-     otherwise start using thread specific EH contexts. */
-  if (__gthread_key_create (&eh_context_key, &eh_context_free) == 0)
-    get_eh_context = &eh_context_specific;
-  else
-    get_eh_context = &eh_context_static;
-}
-#endif /* no __GTHREADS */
-
-/* Initialize EH context.
-   This will be called only once, since we change GET_EH_CONTEXT
-   pointer to another routine. */
-
-static struct eh_context *
-eh_context_initialize (void)
-{
-#if __GTHREADS
-
-  static __gthread_once_t once = __GTHREAD_ONCE_INIT;
-  /* Make sure that get_eh_context does not point to us anymore.
-     Some systems have dummy thread routines in their libc that
-     return a success (Solaris 2.6 for example). */
-  if (__gthread_once (&once, eh_threads_initialize) != 0
-      || get_eh_context == &eh_context_initialize)
-    {
-      /* Use static version of EH context. */
-      get_eh_context = &eh_context_static;
-    }
-#ifdef DWARF2_UNWIND_INFO
-  {
-    static __gthread_once_t once_regsizes = __GTHREAD_ONCE_INIT;
-    if (__gthread_once (&once_regsizes, init_reg_size_table) != 0
-	|| ! dwarf_reg_size_table_initialized)
-      init_reg_size_table ();
-  }
-#endif
-
-#else /* no __GTHREADS */
-
-  /* Use static version of EH context. */
-  get_eh_context = &eh_context_static;
-
-#ifdef DWARF2_UNWIND_INFO
-  init_reg_size_table ();
-#endif
-
-#endif /* no __GTHREADS */
-
-  return (*get_eh_context) ();
-}
-
-/* Return a static EH context. */
-
-static struct eh_context *
-eh_context_static (void)
-{
-  static struct eh_context eh;
-  static int initialized;
-  static void *top_elt[2];
-
-  if (! initialized)
-    {
-      initialized = 1;
-      memset (&eh, 0, sizeof eh);
-      eh.dynamic_handler_chain = top_elt;
-    }
-  return &eh;
-}
-
-#if __GTHREADS
-/* Return a thread specific EH context. */
-
-static struct eh_context *
-eh_context_specific (void)
-{
-  struct eh_context *eh;
-  eh = (struct eh_context *) __gthread_getspecific (eh_context_key);
-  if (! eh)
-    {
-      eh = new_eh_context ();
-      if (__gthread_setspecific (eh_context_key, (void *) eh) != 0)
-	__terminate ();
-    }
-
-  return eh;
-}
-#endif /* __GTHREADS */
-
-/* Support routines for alloc/free during exception handling */
-
-/* __eh_alloc and __eh_free attempt allocation using malloc, but fall back to
-   the small arena in the eh_context. This is needed because throwing an
-   out-of-memory exception would fail otherwise. The emergency space is
-   allocated in blocks of size EH_ALLOC_ALIGN, the
-   minimum allocation being two blocks. A bitmask indicates which blocks
-   have been allocated. To indicate the size of an allocation, the bit for
-   the final block is not set. Hence each allocation is a run of 1s followed
-   by a zero. */
-void *
-__eh_alloc (size_t size)
-{
-  void *p;
-  
-  if (!size)
-    abort();
-  p = malloc (size);
-  if (p == 0)
-    {
-      struct eh_context *eh = __get_eh_context ();
-      unsigned blocks = (size + EH_ALLOC_ALIGN - 1) / EH_ALLOC_ALIGN;
-      unsigned real_mask = eh->alloc_mask | (eh->alloc_mask << 1);
-      unsigned our_mask;
-      unsigned ix;
-      
-      if (blocks > EH_ALLOC_SIZE / EH_ALLOC_ALIGN)
-        __terminate ();
-      blocks += blocks == 1;
-      our_mask = (1 << blocks) - 1;
-      
-      for (ix = EH_ALLOC_SIZE / EH_ALLOC_ALIGN - blocks; ix; ix--)
-	if (! ((real_mask >> ix) & our_mask))
-	  {
-	    /* found some space */
-	    p = &eh->alloc_buffer[ix * EH_ALLOC_ALIGN];
-	    eh->alloc_mask |= (our_mask >> 1) << ix;
-	    return p;
-	  }
-      __terminate ();
-    }
-  return p;
-}
-
-/* Free the memory for an cp_eh_info and associated exception, given
-   a pointer to the cp_eh_info.  */
-void
-__eh_free (void *p)
-{
-  struct eh_context *eh = __get_eh_context ();
-
-  ptrdiff_t  diff = (char *)p - &eh->alloc_buffer[0];
-  if (diff >= 0 && diff < EH_ALLOC_SIZE)
-    {
-      unsigned mask = eh->alloc_mask;
-      unsigned bit = 1 << (diff / EH_ALLOC_ALIGN);
-      
-      do
-	{
-	  mask ^= bit;
-	  bit <<= 1;
-	}
-      while (mask & bit);
-      eh->alloc_mask = mask;
-    }
-  else
-    free (p);
-}
-
-/* Support routines for setjmp/longjmp exception handling.  */
-
-/* Calls to __sjthrow are generated by the compiler when an exception
-   is raised when using the setjmp/longjmp exception handling codegen
-   method.  */
-
-#ifdef DONT_USE_BUILTIN_SETJMP
-extern void longjmp (void *, int);
-#endif
-
-/* Routine to get the head of the current thread's dynamic handler chain
-   use for exception handling. */
-
-void ***
-__get_dynamic_handler_chain (void)
-{
-  struct eh_context *eh = (*get_eh_context) ();
-  return &eh->dynamic_handler_chain;
-}
-
-/* This is used to throw an exception when the setjmp/longjmp codegen
-   method is used for exception handling.
-
-   We call __terminate if there are no handlers left.  Otherwise we run the
-   cleanup actions off the dynamic cleanup stack, and pop the top of the
-   dynamic handler chain, and use longjmp to transfer back to the associated
-   handler.  */
-
-void
-__sjthrow (void)
-{
-  struct eh_context *eh = (*get_eh_context) ();
-  void ***dhc = &eh->dynamic_handler_chain;
-  void *jmpbuf;
-  void (*func)(void *, int);
-  void *arg;
-  /* The cleanup chain is one word into the buffer.  Get the cleanup chain. */
-  void ***cleanup = (void***)&(*dhc)[1];
-
-  /* If there are any cleanups in the chain, run them now.  */
-  if (cleanup[0])
-    {
-      double store[200];
-      void **buf = (void**)store;
-      buf[1] = 0;
-      buf[0] = (*dhc);
-
-      /* try { */
-#ifdef DONT_USE_BUILTIN_SETJMP
-      if (! setjmp (&buf[2]))
-#else
-      if (! __builtin_setjmp (&buf[2]))
-#endif
-	{
-	  *dhc = buf;
-	  while (cleanup[0])
-	    {
-	      func = (void(*)(void*, int))cleanup[0][1];
-	      arg = (void*)cleanup[0][2];
-
-	      /* Update this before running the cleanup.  */
-	      cleanup[0] = (void **)cleanup[0][0];
-
-	      (*func)(arg, 2);
-	    }
-	  *dhc = buf[0];
-	}
-      /* catch (...) */
-      else
-	{
-	  __terminate ();
-	}
-    }
-  
-  /* We must call terminate if we try and rethrow an exception, when
-     there is no exception currently active and when there are no
-     handlers left.  */
-  if (! eh->info || (*dhc)[0] == 0)
-    __terminate ();
-    
-  /* Find the jmpbuf associated with the top element of the dynamic
-     handler chain.  The jumpbuf starts two words into the buffer.  */
-  jmpbuf = &(*dhc)[2];
-
-  /* Then we pop the top element off the dynamic handler chain.  */
-  *dhc = (void**)(*dhc)[0];
-
-  /* And then we jump to the handler.  */
-
-#ifdef DONT_USE_BUILTIN_SETJMP
-  longjmp (jmpbuf, 1);
-#else
-  __builtin_longjmp (jmpbuf, 1);
-#endif
-}
-
-/* Run cleanups on the dynamic cleanup stack for the current dynamic
-   handler, then pop the handler off the dynamic handler stack, and
-   then throw.  This is used to skip the first handler, and transfer
-   control to the next handler in the dynamic handler stack.  */
-
-void
-__sjpopnthrow (void)
-{
-  struct eh_context *eh = (*get_eh_context) ();
-  void ***dhc = &eh->dynamic_handler_chain;
-  void (*func)(void *, int);
-  void *arg;
-  /* The cleanup chain is one word into the buffer.  Get the cleanup chain. */
-  void ***cleanup = (void***)&(*dhc)[1];
-
-  /* If there are any cleanups in the chain, run them now.  */
-  if (cleanup[0])
-    {
-      double store[200];
-      void **buf = (void**)store;
-      buf[1] = 0;
-      buf[0] = (*dhc);
-
-      /* try { */
-#ifdef DONT_USE_BUILTIN_SETJMP
-      if (! setjmp (&buf[2]))
-#else
-      if (! __builtin_setjmp (&buf[2]))
-#endif
-	{
-	  *dhc = buf;
-	  while (cleanup[0])
-	    {
-	      func = (void(*)(void*, int))cleanup[0][1];
-	      arg = (void*)cleanup[0][2];
-
-	      /* Update this before running the cleanup.  */
-	      cleanup[0] = (void **)cleanup[0][0];
-
-	      (*func)(arg, 2);
-	    }
-	  *dhc = buf[0];
-	}
-      /* catch (...) */
-      else
-	{
-	  __terminate ();
-	}
-    }
-
-  /* Then we pop the top element off the dynamic handler chain.  */
-  *dhc = (void**)(*dhc)[0];
-
-  __sjthrow ();
-}
-
-/* Support code for all exception region-based exception handling.  */
-
-int
-__eh_rtime_match (void *rtime)
-{
-  void *info;
-  __eh_matcher matcher;
-  void *ret;
-
-  info = *(__get_eh_info ());
-  matcher = ((__eh_info *)info)->match_function;
-  if (! matcher)
-    {
-#ifndef inhibit_libc
-      fprintf (stderr, "Internal Compiler Bug: No runtime type matcher.");
-#endif
-      return 0;
-    }
-  ret = (*matcher) (info, rtime, (void *)0);
-  return (ret != NULL);
-}
-
-/* This value identifies the place from which an exception is being
-   thrown.  */
-
-#ifdef EH_TABLE_LOOKUP
-
-EH_TABLE_LOOKUP
-
-#else
-
-#ifdef DWARF2_UNWIND_INFO
-
-/* Return the table version of an exception descriptor */
-
-short 
-__get_eh_table_version (exception_descriptor *table) 
-{
-  return table->lang.version;
-}
-
-/* Return the originating table language of an exception descriptor */
-
-short 
-__get_eh_table_language (exception_descriptor *table)
-{
-  return table->lang.language;
-}
-
-/* This routine takes a PC and a pointer to the exception region TABLE for
-   its translation unit, and returns the address of the exception handler
-   associated with the closest exception table handler entry associated
-   with that PC, or 0 if there are no table entries the PC fits in.
-
-   In the advent of a tie, we have to give the last entry, as it represents
-   an inner block.  */
-
-static void *
-old_find_exception_handler (void *pc, old_exception_table *table)
-{
-  if (table)
-    {
-      int pos;
-      int best = -1;
-
-      /* We can't do a binary search because the table isn't guaranteed
-         to be sorted from function to function.  */
-      for (pos = 0; table[pos].start_region != (void *) -1; ++pos)
-        {
-          if (table[pos].start_region <= pc && table[pos].end_region > pc)
-            {
-              /* This can apply.  Make sure it is at least as small as
-                 the previous best.  */
-              if (best == -1 || (table[pos].end_region <= table[best].end_region
-                        && table[pos].start_region >= table[best].start_region))
-                best = pos;
-            }
-          /* But it is sorted by starting PC within a function.  */
-          else if (best >= 0 && table[pos].start_region > pc)
-            break;
-        }
-      if (best != -1)
-        return table[best].exception_handler;
-    }
-
-  return (void *) 0;
-}
-
-/* find_exception_handler finds the correct handler, if there is one, to
-   handle an exception.
-   returns a pointer to the handler which controlled should be transferred
-   to, or NULL if there is nothing left.
-   Parameters:
-   PC - pc where the exception originates. If this is a rethrow, 
-        then this starts out as a pointer to the exception table
-	entry we wish to rethrow out of.
-   TABLE - exception table for the current module.
-   EH_INFO - eh info pointer for this exception.
-   RETHROW - 1 if this is a rethrow. (see incoming value of PC).
-   CLEANUP - returned flag indicating whether this is a cleanup handler.
-*/
-static void *
-find_exception_handler (void *pc, exception_descriptor *table, 
-                        __eh_info *eh_info, int rethrow, int *cleanup)
-{
-
-  void *retval = NULL;
-  *cleanup = 1;
-  if (table)
-    {
-      int pos = 0;
-      /* The new model assumed the table is sorted inner-most out so the
-         first region we find which matches is the correct one */
-
-      exception_table *tab = &(table->table[0]);
-
-      /* Subtract 1 from the PC to avoid hitting the next region */
-      if (rethrow) 
-        {
-          /* pc is actually the region table entry to rethrow out of */
-          pos = ((exception_table *) pc) - tab;
-          pc = ((exception_table *) pc)->end_region - 1;
-
-          /* The label is always on the LAST handler entry for a region, 
-             so we know the next entry is a different region, even if the
-             addresses are the same. Make sure its not end of table tho. */
-          if (tab[pos].start_region != (void *) -1)
-            pos++;
-        }
-      else
-        pc--;
-      
-      /* We can't do a binary search because the table is in inner-most
-         to outermost address ranges within functions */
-      for ( ; tab[pos].start_region != (void *) -1; pos++)
-        { 
-          if (tab[pos].start_region <= pc && tab[pos].end_region > pc)
-            {
-              if (tab[pos].match_info)
-                {
-                  __eh_matcher matcher = eh_info->match_function;
-                  /* match info but no matcher is NOT a match */
-                  if (matcher) 
-                    {
-                      void *ret = (*matcher)((void *) eh_info, 
-                                             tab[pos].match_info, table);
-                      if (ret) 
-                        {
-                          if (retval == NULL)
-                            retval = tab[pos].exception_handler;
-                          *cleanup = 0;
-                          break;
-                        }
-                    }
-                }
-              else
-                {
-                  if (retval == NULL)
-                    retval = tab[pos].exception_handler;
-                }
-            }
-        }
-    }
-  return retval;
-}
-#endif /* DWARF2_UNWIND_INFO */
-#endif /* EH_TABLE_LOOKUP */
-
-#ifdef DWARF2_UNWIND_INFO
-/* Support code for exception handling using static unwind information.  */
-
-#include "frame.h"
-
-/* This type is used in get_reg and put_reg to deal with ABIs where a void*
-   is smaller than a word, such as the Irix 6 n32 ABI.  We cast twice to
-   avoid a warning about casting between int and pointer of different
-   sizes.  */
-
-typedef int ptr_type __attribute__ ((mode (pointer)));
-
-typedef struct
-{
-  word_type *reg[DWARF_FRAME_REGISTERS];
-} saved_regs_t;
-
-#ifdef INCOMING_REGNO
-/* Is the saved value for register REG in frame UDATA stored in a register
-   window in the previous frame?  */
-
-/* ??? The Sparc INCOMING_REGNO references TARGET_FLAT.  This allows us
-   to use the macro here.  One wonders, though, that perhaps TARGET_FLAT
-   compiled functions won't work with the frame-unwind stuff here.  
-   Perhaps the entireity of in_reg_window should be conditional on having
-   seen a DW_CFA_GNU_window_save?  */
-#define target_flags 0
-
-static int
-in_reg_window (int reg, frame_state *udata)
-{
-  if (udata->saved[reg] == REG_SAVED_REG)
-    return INCOMING_REGNO (reg) == reg;
-  if (udata->saved[reg] != REG_SAVED_OFFSET)
-    return 0;
-
-#ifdef STACK_GROWS_DOWNWARD
-  return udata->reg_or_offset[reg] > 0;
-#else
-  return udata->reg_or_offset[reg] < 0;
-#endif
-}
-#else
-static inline int
-in_reg_window (int reg __attribute__ ((__unused__)),
-	       frame_state *udata __attribute__ ((__unused__)))
-{
-  return 0;
-}
-#endif /* INCOMING_REGNO */
-
-/* Get the address of register REG as saved in UDATA, where SUB_UDATA is a
-   frame called by UDATA or 0.  */
-
-static word_type *
-get_reg_addr (unsigned reg, frame_state *udata, frame_state *sub_udata)
-{
-  while (udata->saved[reg] == REG_SAVED_REG)
-    {
-      reg = udata->reg_or_offset[reg];
-      if (in_reg_window (reg, udata))
-	{
-          udata = sub_udata;
-	  sub_udata = NULL;
-	}
-    }
-  if (udata->saved[reg] == REG_SAVED_OFFSET)
-    return (word_type *)(udata->cfa + udata->reg_or_offset[reg]);
-  else
-    /* We don't have a saved copy of this register.  */
-    return NULL;
-}
-
-/* Get the value of register REG as saved in UDATA, where SUB_UDATA is a
-   frame called by UDATA or 0.  */
-
-static inline void *
-get_reg (unsigned reg, frame_state *udata, frame_state *sub_udata)
-{
-  return (void *)(ptr_type) *get_reg_addr (reg, udata, sub_udata);
-}
-
-/* Overwrite the saved value for register REG in frame UDATA with VAL.  */
-
-static inline void
-put_reg (unsigned reg, void *val, frame_state *udata)
-{
-  *get_reg_addr (reg, udata, NULL) = (word_type)(ptr_type) val;
-}
-
-/* Copy the saved value for register REG from PTREG to frame
-   TARGET_UDATA.  Unlike the previous two functions, this can handle
-   registers that are not one word large.  */
-
-static void
-copy_reg (unsigned reg, word_type *preg, frame_state *target_udata)
-{
-  word_type *ptreg = get_reg_addr (reg, target_udata, NULL);
-  memcpy (ptreg, preg, dwarf_reg_size_table [reg]);
-}
-
-/* Retrieve the return address for frame UDATA.  */
-
-static inline void *
-get_return_addr (frame_state *udata, frame_state *sub_udata)
-{
-  return __builtin_extract_return_addr
-    (get_reg (udata->retaddr_column, udata, sub_udata));
-}
-
-/* Overwrite the return address for frame UDATA with VAL.  */
-
-static inline void
-put_return_addr (void *val, frame_state *udata)
-{
-  val = __builtin_frob_return_addr (val);
-  put_reg (udata->retaddr_column, val, udata);
-}
-
-/* Given the current frame UDATA and its return address PC, return the
-   information about the calling frame in CALLER_UDATA and update the
-   register array in SAVED_REGS.  */
-
-static void *
-next_stack_level (void *pc, frame_state *udata, frame_state *caller_udata,
-		  saved_regs_t *saved_regs)
-{
-  int i;
-  word_type *p;
-
-  /* Collect all of the registers for the current frame.  */
-  for (i = 0; i < DWARF_FRAME_REGISTERS; i++)
-    if (udata->saved[i])
-      saved_regs->reg[i] = get_reg_addr (i, udata, caller_udata);
-
-  caller_udata = __frame_state_for (pc, caller_udata);
-  if (! caller_udata)
-    return 0;
-
-  /* Now go back to our caller's stack frame.  If our caller's CFA was
-     saved in a register in this stack frame or a previous one, restore it;
-     otherwise, assume CFA register is SP and restore it to our CFA value
-     (which is defined to be the value of SP in the caller's frame).  */
-
-  p = saved_regs->reg[caller_udata->cfa_reg];
-  if (p)
-    caller_udata->cfa = (void *)(ptr_type)*p;
-  else
-    caller_udata->cfa = udata->cfa;
- 
-  if (caller_udata->indirect)
-    caller_udata->cfa = * (void **) ((unsigned char *)caller_udata->cfa 
-				     + caller_udata->base_offset);
-  caller_udata->cfa += caller_udata->cfa_offset;
-
-  return caller_udata;
-}
-
-/* Hook to call before __terminate if only cleanup handlers remain. */
-void 
-__unwinding_cleanup (void)
-{
-}
-
-/* throw_helper performs some of the common grunt work for a throw. This
-   routine is called by throw and rethrows. This is pretty much split 
-   out from the old __throw routine. An addition has been added which allows
-   for a dummy call to a routine __unwinding_cleanup() when there are nothing
-   but cleanups remaining. This allows a debugger to examine the state
-   at which the throw was executed, before any cleanups, rather than
-   at the terminate point after the stack has been unwound.
-
-   EH is the current eh_context structure.
-   PC is the address of the call to __throw.
-   MY_UDATA is the unwind information for __throw.
-   OFFSET_P is where we return the SP adjustment offset.  */
-
-static void *
-throw_helper (struct eh_context *eh, void *pc, frame_state *my_udata,
-	      long *offset_p)
-{
-  frame_state ustruct2, *udata = &ustruct2;
-  frame_state ustruct;
-  frame_state *sub_udata = &ustruct;
-  void *saved_pc = pc;
-  void *handler;
-  void *handler_p = 0;
-  void *pc_p = 0;
-  void *callee_cfa = 0;
-  frame_state saved_ustruct;
-  int new_eh_model;
-  int cleanup = 0;
-  int only_cleanup = 0;
-  int rethrow = 0;
-  int saved_state = 0;
-  long args_size;
-  saved_regs_t saved_regs, cleanup_regs;
-  __eh_info *eh_info = (__eh_info *)eh->info;
-  int i;
-
-  memset (saved_regs.reg, 0, sizeof saved_regs.reg);
-  memset (sub_udata->saved, REG_UNSAVED, sizeof sub_udata->saved);
-
-  /* Do we find a handler based on a re-throw PC? */
-  if (eh->table_index != (void *) 0)
-    rethrow = 1;
-
-  memcpy (udata, my_udata, sizeof (*udata));
-
-  handler = (void *) 0;
-  for (;;)
-    { 
-      frame_state *p = udata;
-
-      udata = next_stack_level (pc, udata, sub_udata, &saved_regs);
-      sub_udata = p;
-
-      /* If we couldn't find the next frame, we lose.  */
-      if (! udata)
-	break;
-
-      if (udata->eh_ptr == NULL)
-        new_eh_model = 0;
-      else
-        new_eh_model = (((exception_descriptor *)(udata->eh_ptr))->
-			runtime_id_field == NEW_EH_RUNTIME);
-
-      if (rethrow) 
-        {
-          rethrow = 0;
-          handler = find_exception_handler (eh->table_index, udata->eh_ptr, 
-					    eh_info, 1, &cleanup);
-          eh->table_index = (void *)0;
-        }
-      else
-        if (new_eh_model)
-          handler = find_exception_handler (pc, udata->eh_ptr, eh_info, 
-                                            0, &cleanup);
-        else
-          handler = old_find_exception_handler (pc, udata->eh_ptr);
-
-      /* If we found one, we can stop searching, if its not a cleanup. 
-         for cleanups, we save the state, and keep looking. This allows
-         us to call a debug hook if there are nothing but cleanups left. */
-      if (handler)
-	{
-	  /* sub_udata now refers to the frame called by the handler frame.  */
-
-	  if (cleanup)
-	    {
-	      if (!saved_state)
-		{
-		  saved_ustruct = *udata;
-		  cleanup_regs = saved_regs;
-		  handler_p = handler;
-		  pc_p = pc;
-		  saved_state = 1;
-		  only_cleanup = 1;
-		  /* Save the CFA of the frame called by the handler
-                     frame.  */
-		  callee_cfa = sub_udata->cfa;
-		}
-	    }
-	  else
-	    {
-	      only_cleanup = 0;
-	      if (!saved_state)
-		callee_cfa = sub_udata->cfa;
-	      break;
-	    }
-	}
-
-      /* Otherwise, we continue searching.  We subtract 1 from PC to avoid
-	 hitting the beginning of the next region.  */
-      pc = get_return_addr (udata, sub_udata) - 1;
-    }
-
-  if (saved_state) 
-    {
-      udata = &saved_ustruct;
-      saved_regs = cleanup_regs;
-      handler = handler_p;
-      pc = pc_p;
-      if (only_cleanup)
-        __unwinding_cleanup ();
-    }
-
-  /* If we haven't found a handler by now, this is an unhandled
-     exception.  */
-  if (! handler) 
-    __terminate();
-
-  eh->handler_label = handler;
-
-  args_size = udata->args_size;
-
-  /* We adjust SP by the difference between __throw's CFA and the CFA for
-     the frame called by the handler frame, because those CFAs correspond
-     to the SP values at the two call sites.  We need to further adjust by
-     the args_size of the handler frame itself to get the handler frame's
-     SP from before the args were pushed for that call.  */
-#ifdef STACK_GROWS_DOWNWARD
-  *offset_p = callee_cfa - my_udata->cfa + args_size;
-#else
-  *offset_p = my_udata->cfa - callee_cfa - args_size;
-#endif
-		       
-  /* If we found a handler in the throw context there's no need to
-     unwind.  */
-  if (pc != saved_pc)
-    {
-      /* Copy saved register values into our register save slots.  */
-      for (i = 0; i < DWARF_FRAME_REGISTERS; i++)
-	if (i != udata->retaddr_column && saved_regs.reg[i])
-	  copy_reg (i, saved_regs.reg[i], my_udata);
-    }
-
-  return handler;
-}
-
-
-/* We first search for an exception handler, and if we don't find
-   it, we call __terminate on the current stack frame so that we may
-   use the debugger to walk the stack and understand why no handler
-   was found.
-
-   If we find one, then we unwind the frames down to the one that
-   has the handler and transfer control into the handler.  */
-
-/*extern void __throw(void) __attribute__ ((__noreturn__));*/
-
-void
-__throw (void)
-{
-  struct eh_context *eh = (*get_eh_context) ();
-  void *pc, *handler;
-  long offset;
-
-  /* XXX maybe make my_ustruct static so we don't have to look it up for
-     each throw.  */
-  frame_state my_ustruct, *my_udata = &my_ustruct;
-
-  /* This is required for C++ semantics.  We must call terminate if we
-     try and rethrow an exception, when there is no exception currently
-     active.  */
-  if (! eh->info)
-    __terminate ();
-    
-  /* Start at our stack frame.  */
-label:
-  my_udata = __frame_state_for (&&label, my_udata);
-  if (! my_udata)
-    __terminate ();
-
-  /* We need to get the value from the CFA register. */
-  my_udata->cfa = __builtin_dwarf_cfa ();
-
-  /* Do any necessary initialization to access arbitrary stack frames.
-     On the SPARC, this means flushing the register windows.  */
-  __builtin_unwind_init ();
-
-  /* Now reset pc to the right throw point.  The return address points to
-     the instruction after the call to __throw; we subtract 1 so that pc
-     points into the call insn itself.  Since we work with PC ranges (as
-     opposed to specific call sites), it isn't important for it to point to
-     the very beginning of the call insn, and making it do so would be
-     hard on targets with variable length call insns.  */
-  pc = __builtin_extract_return_addr (__builtin_return_address (0)) - 1;
-
-  handler = throw_helper (eh, pc, my_udata, &offset);
-
-  /* Now go!  */
-
-  __builtin_eh_return ((void *)eh, offset, handler);
-
-  /* Epilogue:  restore the handler frame's register values and return
-     to the stub.  */
-}
-
-/*extern void __rethrow(void *) __attribute__ ((__noreturn__));*/
-
-void
-__rethrow (void *index)
-{
-  struct eh_context *eh = (*get_eh_context) ();
-  void *pc, *handler;
-  long offset;
-
-  /* XXX maybe make my_ustruct static so we don't have to look it up for
-     each throw.  */
-  frame_state my_ustruct, *my_udata = &my_ustruct;
-
-  /* This is required for C++ semantics.  We must call terminate if we
-     try and rethrow an exception, when there is no exception currently
-     active.  */
-  if (! eh->info)
-    __terminate ();
-
-  /* This is the table index we want to rethrow from. The value of
-     the END_REGION label is used for the PC of the throw, and the
-     search begins with the next table entry. */
-  eh->table_index = index;
-    
-  /* Start at our stack frame.  */
-label:
-  my_udata = __frame_state_for (&&label, my_udata);
-  if (! my_udata)
-    __terminate ();
-
-  /* We need to get the value from the CFA register. */
-  my_udata->cfa = __builtin_dwarf_cfa ();
-
-  /* Do any necessary initialization to access arbitrary stack frames.
-     On the SPARC, this means flushing the register windows.  */
-  __builtin_unwind_init ();
-
-  /* Now reset pc to the right throw point.  The return address points to
-     the instruction after the call to __throw; we subtract 1 so that pc
-     points into the call insn itself.  Since we work with PC ranges (as
-     opposed to specific call sites), it isn't important for it to point to
-     the very beginning of the call insn, and making it do so would be
-     hard on targets with variable length call insns.  */
-  pc = __builtin_extract_return_addr (__builtin_return_address (0)) - 1;
-
-  handler = throw_helper (eh, pc, my_udata, &offset);
-
-  /* Now go!  */
-
-  __builtin_eh_return ((void *)eh, offset, handler);
-
-  /* Epilogue:  restore the handler frame's register values and return
-     to the stub.  */
-}
-#endif /* DWARF2_UNWIND_INFO */
-
-#ifdef IA64_UNWIND_INFO
-#include "frame.h"
-
-/* Return handler to which we want to transfer control, NULL if we don't
-   intend to handle this exception here.  */
-void *
-__ia64_personality_v1 (void *pc, old_exception_table *table)
-{
-  if (table)
-    {
-      int pos;
-      int best = -1;
-
-      for (pos = 0; table[pos].start_region != (void *) -1; ++pos)
-        {
-          if (table[pos].start_region <= pc && table[pos].end_region > pc)
-            {
-              /* This can apply.  Make sure it is at least as small as
-                 the previous best.  */
-              if (best == -1 || (table[pos].end_region <= table[best].end_region
-                        && table[pos].start_region >= table[best].start_region))
-                best = pos;
-            }
-          /* It is sorted by starting PC within a function.  */
-          else if (best >= 0 && table[pos].start_region > pc)
-            break;
-        }
-      if (best != -1)
-        return table[best].exception_handler;
-    }
-  return (void *) 0;
-}
-
-static void
-ia64_throw_helper (ia64_frame_state *throw_frame, ia64_frame_state *caller,
-		   void *throw_bsp, void *throw_sp)
-{
-  void *throw_pc = __builtin_return_address (0);
-  unwind_info_ptr *info;
-  void *pc, *handler = NULL;
-  void *pc_base;
-  int frame_count;
-  void *bsp;
-
-  __builtin_ia64_flushrs ();      /*  Make the local register stacks available.  */
-
-  /* Start at our stack frame, get our state.  */
-  __build_ia64_frame_state (throw_pc, throw_frame, throw_bsp, throw_sp,
-			    &pc_base);
-
-  /* Now we have to find the proper frame for pc, and see if there
-     is a handler for it. if not, we keep going back frames until
-     we do find one. Otherwise we call uncaught ().  */
-
-  frame_count = 0;
-  memcpy (caller, throw_frame, sizeof (*caller));
-  while (!handler)
-    {
-      void *(*personality) (void *, old_exception_table *);
-      void *eh_table;
-
-      frame_count++;
-      /* We only care about the RP right now, so we dont need to keep
-         any other information about a call frame right now.  */
-      pc = __get_real_reg_value (&caller->rp) - 1;
-      bsp = __calc_caller_bsp ((long)__get_real_reg_value (&caller->pfs),
-			       caller->my_bsp);
-      info = __build_ia64_frame_state (pc, caller, bsp, caller->my_psp,
-				       &pc_base);
-
-      /* If we couldn't find the next frame, we lose.  */
-      if (! info)
-	break;
-
-      personality = __get_personality (info); 
-      /* TODO Haven't figured out how to actually load the personality address
-         yet, so just always default to the one we expect for now.  */
-      if (personality != 0)
-	personality = __ia64_personality_v1;
-      eh_table = __get_except_table (info);
-      /* If there is no personality routine, we'll keep unwinding.  */
-      if (personality)
-	/* Pass a segment relative PC address to the personality routine,
-	   because the unwind_info section uses segrel relocs.  */
-	handler = personality ((void *)(pc - pc_base), eh_table);
-    }
-  
-  if (!handler)
-    __terminate ();
-
-  /* Handler is a segment relative address, so we must adjust it here.  */
-  handler += (long) pc_base;
-
-  /* If we found a handler, we need to unwind the stack to that point.
-     We do this by copying saved values from previous frames into the
-     save slot for the throw_frame saved slots.  when __throw returns,
-     it'll pickup the correct values.  */
-  
-  /* Start with where __throw saved things, and copy each saved register
-     of each previous frame until we get to the one before we're 
-     throwing back to.  */
-  memcpy (caller, throw_frame, sizeof (*caller));
-  for ( ; frame_count > 0; frame_count--)
-    {
-      pc = __get_real_reg_value (&caller->rp) - 1;
-      bsp = __calc_caller_bsp ((long)__get_real_reg_value (&caller->pfs),
-			       caller->my_bsp);
-      __build_ia64_frame_state (pc, caller, bsp, caller->my_psp, &pc_base);
-      /* Any regs that were saved can be put in the throw frame now.  */
-      /* We don't want to copy any saved register from the 
-         target destination, but we do want to load up it's frame.  */
-      if (frame_count > 1)
-	__copy_saved_reg_state (throw_frame, caller);
-    }
-
-  /* Set return address of the throw frame to the handler. */
-  __set_real_reg_value (&throw_frame->rp, handler);
-
-  /* TODO, do we need to do anything to make the values we wrote 'stick'? */
-  /* DO we need to go through the whole loadrs seqeunce?  */
-}
-
-
-void
-__throw ()
-{
-  register void *stack_pointer __asm__("r12");
-  struct eh_context *eh = (*get_eh_context) ();
-  ia64_frame_state my_frame;
-  ia64_frame_state originator;	/* For the context handler is in.  */
-  void *bsp, *tmp_bsp;
-  long offset;
-
-  /* This is required for C++ semantics.  We must call terminate if we
-     try and rethrow an exception, when there is no exception currently
-     active.  */
-  if (! eh->info)
-    __terminate ();
-
-  __builtin_unwind_init ();
-
-  /* We have to call another routine to actually process the frame 
-     information, which will force all of __throw's local registers into
-     backing store.  */
-
-  /* Get the value of ar.bsp while we're here.  */
-
-  bsp = __builtin_ia64_bsp ();
-  ia64_throw_helper (&my_frame, &originator, bsp, stack_pointer);
-
-  /* Now we have to fudge the bsp by the amount in our (__throw)
-     frame marker, since the return is going to adjust it by that much. */
-
-  tmp_bsp = __calc_caller_bsp ((long)__get_real_reg_value (&my_frame.pfs), 
-			     my_frame.my_bsp);
-  offset = (char *)my_frame.my_bsp - (char *)tmp_bsp;
-  tmp_bsp = (char *)originator.my_bsp + offset;
-
-  __builtin_eh_return (tmp_bsp, offset, originator.my_sp);
-
-  /* The return address was already set by throw_helper.  */
-}
-
-#endif /* IA64_UNWIND_INFO  */
-
-#endif /* L_eh */

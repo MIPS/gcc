@@ -370,7 +370,8 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 
 /* If a structure has a floating point field then force structure
    to have BLKMODE.  */
-#define STRUCT_FORCE_BLK(FIELD) (TREE_CODE (TREE_TYPE (FIELD)) == REAL_TYPE)
+#define MEMBER_TYPE_FORCES_BLK(FIELD) \
+  (TREE_CODE (TREE_TYPE (FIELD)) == REAL_TYPE)
 
 /* Number of bits in the high and low parts of a two stage
    load of an immediate constant.  */
@@ -629,12 +630,16 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 
 #define CLASS_LIKELY_SPILLED_P(CLASS) ((CLASS) == INDEX_REGS)
 
-/* CCmode is wrongly defined in machmode.def  It should have a size
-   of UNITS_PER_WORD.  */
+/* CCmode is wrongly defined in machmode.def.  It should have a size
+   of UNITS_PER_WORD.  HFmode is 40-bits and thus fits within a single
+   extended precision register.  Similarly, HCmode fits within two
+   extended precision registers.  */
 
 #define HARD_REGNO_NREGS(REGNO, MODE)				\
-(((MODE) == CCmode || (MODE) == CC_NOOVmode) ? 1 : ((MODE) == HFmode) ? 1 : \
-((GET_MODE_SIZE(MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+(((MODE) == CCmode || (MODE) == CC_NOOVmode) ? 1 : \
+ ((MODE) == HFmode) ? 1 : \
+ ((MODE) == HCmode) ? 2 : \
+ ((GET_MODE_SIZE(MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 
 /* A C expression that is nonzero if the hard register REGNO is preserved
@@ -648,7 +653,7 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 
 /* Specify the modes required to caller save a given hard regno.  */
 
-#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS) (c4x_caller_save_map[REGNO])
+#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) (c4x_caller_save_map[REGNO])
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE) c4x_hard_regno_mode_ok(REGNO, MODE)
 
@@ -1729,7 +1734,7 @@ CUMULATIVE_ARGS;
       	  X = gen_rtx_LO_SUM (GET_MODE (X),				\
 			      gen_rtx_HIGH (GET_MODE (X), X), X);	\
           i = push_reload (XEXP (X, 0), NULL_RTX,			\
-			   &XEXP (X, 0), NULL_PTR,			\
+			   &XEXP (X, 0), NULL,				\
 		           DP_REG, GET_MODE (X), VOIDmode, 0, 0,	\
 		           OPNUM, TYPE);				\
           /* The only valid reg is DP. This is a fixed reg and will	\
@@ -1752,7 +1757,7 @@ CUMULATIVE_ARGS;
       if (! TARGET_SMALL)						\
 	{								\
           int i = push_reload (XEXP (X, 0), NULL_RTX,			\
-			       &XEXP (X, 0), NULL_PTR,			\
+			       &XEXP (X, 0), NULL,			\
 		               DP_REG, GET_MODE (X), VOIDmode, 0, 0,	\
 		               OPNUM, TYPE);				\
           /* The only valid reg is DP. This is a fixed reg and will	\
@@ -2162,6 +2167,10 @@ dtors_section ()							\
 
 
 /* Overall Framework of an Assembler File.  */
+/* We need to have a data section we can identify so that we can set
+   the DP register back to a data pointer in the small memory model.
+   This is only required for ISRs if we are paranoid that someone
+   may have quietly changed this register on the sly.  */
 
 #define ASM_FILE_START(FILE)					\
 {								\
@@ -2184,17 +2193,8 @@ dtors_section ()							\
       }								\
     else							\
       output_quoted_string (FILE, main_input_filename);		\
-    fprintf (FILE, "\n");					\
+    fputs ("\n\t.data\ndata_sec:\n", FILE);			\
 }
-
-/* We need to have a data section we can identify so that we can set
-   the DP register back to a data pointer in the small memory model.
-   This is only required for ISRs if we are paranoid that someone
-   may have quietly changed this register on the sly.  */
-
-#define ASM_IDENTIFY_GCC(FILE) \
-    if (! TARGET_TI) fputs ("gcc2_compiled.:\n", FILE);	\
-      fputs ("\t.data\ndata_sec:\n", FILE);
 
 #define ASM_COMMENT_START ";"
 
@@ -2252,10 +2252,6 @@ dtors_section ()							\
   fprintf (FILE, "\t.word\t0%xh\n", (VALUE))
 
 #define ASM_OUTPUT_ASCII(FILE, PTR, LEN) c4x_output_ascii (FILE, PTR, LEN)
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 
 /* Output and Generation of Labels.  */
 
@@ -2443,12 +2439,6 @@ do {						\
   c4x_init_pragma (&c_lex);						\
 } while (0)
 
-#define SET_DEFAULT_DECL_ATTRIBUTES(DECL, ATTRIBUTES) \
-  c4x_set_default_attributes (DECL, &ATTRIBUTES)
-
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, NAME, ARGS) \
-  (c4x_valid_type_attribute_p (TYPE, ATTRIBUTES, NAME, ARGS))
-
 /* Assembler Commands for Alignment.  */
 
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
@@ -2513,17 +2503,6 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
      fprintf (asm_out_file,				\
 	      "%s\t.val\t.%s\t.scl\t-1%s\t.endef\n",	\
 	      SDB_DELIM, SDB_DELIM, SDB_DELIM); } while (0)
-
-
-/* Define results of standard character escape sequences.  */
-
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* This is the kind of divide that is easiest to do in the general case.  */
 
@@ -2765,10 +2744,3 @@ enum c4x_builtins
   C4X_BUILTIN_FRIEEE,	/*	frieee	   (only C4x)	*/
   C4X_BUILTIN_RCPF	/*	fast_invf  (only C4x)	*/
 };
-
-#define MD_INIT_BUILTINS do { \
-    c4x_init_builtins (void_list_node); \
-  } while (0)
-
-#define MD_EXPAND_BUILTIN(EXP, TARGET, SUBTARGET, MODE, IGNORE) \
-    c4x_expand_builtin ((EXP), (TARGET), (SUBTARGET), (MODE), (IGNORE))

@@ -1,8 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
-   hosting on Windows NT 3.x, using a Unix style C library and tools,
-   as distinct from winnt.h, which is used to build GCC for use with a
-   windows style library and tool set and uses the Microsoft tools.
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000
+   hosting on Windows32, using a Unix style C library and tools.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -28,6 +26,9 @@ Boston, MA 02111-1307, USA. */
 #define SDB_DEBUGGING_INFO 
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
+#define TARGET_EXECUTABLE_SUFFIX ".exe"
+
+#include <stdio.h>
 #include "i386/gas.h"
 #include "dbxcoff.h"
 
@@ -61,6 +62,33 @@ Boston, MA 02111-1307, USA. */
 { "no-nop-fun-dllimport", -MASK_NOP_FUN_DLLIMPORT, "" }, \
 { "threads",		  0, N_("Use Mingw-specific thread support") },
 
+#undef CPP_PREDEFINES
+#define CPP_PREDEFINES "-D_X86_=1 -Asystem=winnt"
+
+#ifdef CROSS_COMPILE
+#define CYGWIN_INCLUDES "-idirafter " CYGWIN_CROSS_DIR "/include"
+#define W32API_INC "-idirafter " CYGWIN_CROSS_DIR "/include/w32api"
+#define W32API_LIB "-L" CYGWIN_CROSS_DIR "/lib/w32api/"
+#define CYGWIN_LIB CYGWIN_CROSS_DIR "/lib"
+#define MINGW_LIBS "-L" CYGWIN_CROSS_DIR "/lib/mingw"
+#define MINGW_INCLUDES "-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++-3 "\
+		       "-isystem " CYGWIN_CROSS_DIR "/include/mingw/g++ "\
+		       "-idirafter " CYGWIN_CROSS_DIR "/include/mingw"
+#else
+#define CYGWIN_INCLUDES "-isystem /usr/local/include -idirafter /usr/include"
+#define W32API_INC "-idirafter /usr/include/w32api"
+#define W32API_LIB "-L/usr/lib/w32api/"
+#define CYGWIN_LIB "/usr/lib"
+#define MINGW_LIBS "-L/usr/local/lib/mingw -L/usr/lib/mingw"
+#define MINGW_INCLUDES "-isystem /usr/include/mingw/g++-3 "\
+		       "-isystem /usr/include/mingw/g++ "\
+		       "-isystem /usr/local/include/mingw" \
+		       "-idirafter /usr/include/mingw"
+#endif
+
+/* Get tree.c to declare a target-specific specialization of
+   merge_decl_attributes.  */
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES
 
 /* Support the __declspec keyword by turning them into attributes.
    We currently only support: dllimport and dllexport.
@@ -70,36 +98,6 @@ Boston, MA 02111-1307, USA. */
    is that args are not accumulated: each new appearance would clobber any
    existing args.  */
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D_X86_=1 -Asystem=winnt"
-
-/* Normally, -lgcc is not needed since everything in it is in the DLL, but we
-   want to allow things to be added to it when installing new versions of
-   GCC without making a new CYGWIN.DLL, so we leave it.  Profiling is handled
-   by calling the init function from the prologue. */
-
-#undef LIBGCC_SPEC
-#define LIBGCC_SPEC "%{mno-cygwin: %{mthreads:-lmingwthrd} -lmingw32} -lgcc %{mno-cygwin:-lmoldname -lmsvcrt}"
-
-#ifdef CROSS_COMPILE
-#define CYGWIN_INCLUDES "-idirafter " CYGWIN_CROSS_DIR "/include"
-#define CYGWIN_W32API "-I" CYGWIN_CROSS_DIR "/include/w32api"
-#define CYGWIN_LIB CYGWIN_CROSS_DIR "/lib"
-#define MINGW_LIBS "-L" CYGWIN_CROSS_DIR "/lib/mingw"
-#define MINGW_INCLUDES "-I" CYGWIN_CROSS_DIR "/include/mingw"
-#else
-#define CYGWIN_INCLUDES "-isystem /usr/local/include -idirafter /usr/include"
-#define CYGWIN_W32API "-I/usr/include/w32api"
-#define CYGWIN_LIB "/usr/lib"
-#define MINGW_LIBS "-L/usr/local/lib/mingw -L/usr/lib/mingw"
-#define MINGW_INCLUDES "-isystem /usr/local/include/mingw -idirafter /usr/include/mingw"
-#endif
-
-#undef STARTFILE_SPEC
-#define STARTFILE_SPEC "%{shared|mdll: %{mno-cygwin:dllcrt2%O%s}} \
-  %{!shared: %{!mdll: %{!mno-cygwin:crt0%O%s} %{mno-cygwin:" MINGW_LIBS " mingw/crt2%O%s} \
-  %{pg:gcrt0%O%s}}}"
-
 #undef CPP_SPEC
 #define CPP_SPEC "%(cpp_cpu) %{posix:-D_POSIX_SOURCE} \
   -D__stdcall=__attribute__((__stdcall__)) \
@@ -108,16 +106,29 @@ Boston, MA 02111-1307, USA. */
     -D_cdecl=__attribute__((__cdecl__))} \
   -D__declspec(x)=__attribute__((x)) \
   -D__i386__ -D__i386 \
-  %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ -Dunix -D__unix__ -D__unix \
-    " CYGWIN_INCLUDES "} \
-  %{mno-win32: %{mno-cygwin: %emno-cygwin and mno-win32 are not compatible}} \
-  %{mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ -DWINNT -D__MSVCRT__ \
-    -D__MINGW32__=0.3 %{mthreads:-D_MT} " MINGW_INCLUDES CYGWIN_W32API "\
-    -iwithprefixbefore ../../../../mingw/include/g++-3 \
-    -iwithprefixbefore ../../../../mingw/include \
-    -iwithprefixbefore ../../../../mingw32/include/g++-3 \
-    -iwithprefixbefore ../../../../mingw32/include } \
-   %{!mno-win32:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ -DWINNT " CYGWIN_W32API "}"
+  %{mno-win32:%{mno-cygwin: %emno-cygwin and mno-win32 are not compatible}} \
+  %{mno-cygwin:-D__MSVCRT__ -D__MINGW32__ %{mthreads:-D_MT} "\
+    MINGW_INCLUDES "} \
+  %{!mno-cygwin:-D__CYGWIN32__ -D__CYGWIN__ -Dunix -D__unix__ -D__unix "\
+    CYGWIN_INCLUDES "}\
+  %{mwin32|mno-cygwin:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ -DWINNT}\
+  %{!mno-win32:" W32API_INC "}\
+"
+
+#undef STARTFILE_SPEC
+#define STARTFILE_SPEC "\
+  %{shared|mdll: %{mno-cygwin:" MINGW_LIBS " mingw/dllcrt2%O%s}}\
+  %{!shared: %{!mdll: %{!mno-cygwin:crt0%O%s} %{mno-cygwin:" MINGW_LIBS " mingw/crt2%O%s}\
+  %{pg:gcrt0%O%s}}}\
+"
+
+/* Normally, -lgcc is not needed since everything in it is in the DLL, but we
+   want to allow things to be added to it when installing new versions of
+   GCC without making a new CYGWIN.DLL, so we leave it.  Profiling is handled
+   by calling the init function from the prologue. */
+
+#undef LIBGCC_SPEC
+#define LIBGCC_SPEC "%{mno-cygwin: %{mthreads:-lmingwthrd} -lmingw32} -lgcc %{mno-cygwin:-lmoldname -lmsvcrt}"
 
 /* This macro defines names of additional specifications to put in the specs
    that can be used in various specifications like CC1_SPEC.  Its definition
@@ -140,20 +151,23 @@ Boston, MA 02111-1307, USA. */
    ld, but that doesn't work just yet.  */
 
 #undef LIB_SPEC
-#define LIB_SPEC "%{pg:-lgmon} \
+#define LIB_SPEC "\
+  %{pg:-lgmon} \
   %{!mno-cygwin:-lcygwin} \
   %{mno-cygwin:%{mthreads:-lmingwthrd} -lmingw32} \
   %{mwindows:-lgdi32 -lcomdlg32} \
   -luser32 -lkernel32 -ladvapi32 -lshell32"
 
-#define LINK_SPEC "%{mwindows:--subsystem windows} \
+#define LINK_SPEC W32API_LIB "\
+  %{mwindows:--subsystem windows} \
   %{mconsole:--subsystem console} \
   %{shared: %{mdll: %eshared and mdll are not compatible}} \
   %{shared: --shared} %{mdll:--dll} \
   %{static:-Bstatic} %{!static:-Bdynamic} \
   %{shared|mdll: -e \
     %{mno-cygwin:_DllMainCRTStartup@12} \
-    %{!mno-cygwin:__cygwin_dll_entry@12}}"
+    %{!mno-cygwin:__cygwin_dll_entry@12}}\
+  --dll-search-prefix=cyg"
 
 #undef MATH_LIBRARY
 #define MATH_LIBRARY ""
@@ -168,31 +182,8 @@ Boston, MA 02111-1307, USA. */
 /* Enable parsing of #pragma pack(push,<n>) and #pragma pack(pop).  */
 #define HANDLE_PRAGMA_PACK_PUSH_POP 1
 
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
 union tree_node;
 #define TREE union tree_node *
-
-#undef VALID_MACHINE_DECL_ATTRIBUTE
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-  i386_pe_valid_decl_attribute_p (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-extern int i386_pe_valid_decl_attribute_p PARAMS ((TREE, TREE, TREE, TREE));
-
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-#undef VALID_MACHINE_TYPE_ATTRIBUTE
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, IDENTIFIER, ARGS) \
-  i386_pe_valid_type_attribute_p (TYPE, ATTRIBUTES, IDENTIFIER, ARGS)
-extern int i386_pe_valid_type_attribute_p PARAMS ((TREE, TREE, TREE, TREE));
-
-extern union tree_node *i386_pe_merge_decl_attributes PARAMS ((TREE, TREE));
-#define MERGE_MACHINE_DECL_ATTRIBUTES(OLD, NEW) \
-  i386_pe_merge_decl_attributes ((OLD), (NEW))
-extern TREE i386_pe_merge_decl_attributes PARAMS ((TREE, TREE));
 
 /* Used to implement dllexport overriding dllimport semantics.  It's also used
    to handle vtables - the first pass won't do anything because
@@ -227,6 +218,7 @@ ctor_section ()							\
       in_section = in_ctor;					\
     }								\
 }
+void ctor_section PARAMS ((void));
 
 #define DTOR_SECTION_FUNCTION					\
 void								\
@@ -238,6 +230,7 @@ dtor_section ()							\
       in_section = in_dtor;					\
     }								\
 }
+void dtor_section PARAMS ((void));
 
 #define DRECTVE_SECTION_FUNCTION \
 void									\
@@ -249,6 +242,7 @@ drectve_section ()							\
       in_section = in_drectve;						\
     }									\
 }
+void drectve_section PARAMS ((void));
 
 /* Switch to SECTION (an `enum in_section').
 
@@ -257,6 +251,7 @@ drectve_section ()							\
    ASM_DECLARE_OBJECT_NAME and then switch back to the original section
    afterwards.  */
 #define SWITCH_TO_SECTION_FUNCTION 				\
+void switch_to_section PARAMS ((enum in_section, tree));        \
 void 								\
 switch_to_section (section, decl) 				\
      enum in_section section; 					\
@@ -277,7 +272,7 @@ switch_to_section (section, decl) 				\
 #define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)	\
   do {						\
     ctor_section ();				\
-    fprintf (FILE, "%s\t", ASM_LONG);		\
+    fputs (ASM_LONG, FILE);			\
     assemble_name (FILE, NAME);			\
     fprintf (FILE, "\n");			\
   } while (0)
@@ -285,7 +280,7 @@ switch_to_section (section, decl) 				\
 #define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       	\
   do {						\
     dtor_section ();                   		\
-    fprintf (FILE, "%s\t", ASM_LONG);		\
+    fputs (ASM_LONG, FILE);			\
     assemble_name (FILE, NAME);			\
     fprintf (FILE, "\n");			\
   } while (0)
@@ -359,7 +354,7 @@ do {									\
 #undef ASM_OUTPUT_LABELREF
 #define ASM_OUTPUT_LABELREF(STREAM, NAME)  		\
   fprintf (STREAM, "%s%s", USER_LABEL_PREFIX, 		\
-           I386_PE_STRIP_ENCODING (NAME))		\
+	   I386_PE_STRIP_ENCODING (NAME))		\
 
 /* Output a common block.  */
 #undef ASM_OUTPUT_COMMON
@@ -393,9 +388,9 @@ do {							\
 
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387 and needs stack probes */
-#undef TARGET_DEFAULT
+#undef TARGET_SUBTARGET_DEFAULT
 
-#define TARGET_DEFAULT \
+#define TARGET_SUBTARGET_DEFAULT \
    (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_STACK_PROBE) 
 
 /* This is how to output an assembler line
@@ -446,11 +441,11 @@ do {									\
   else									\
     {									\
       type = SECT_RW;							\
-      if (TREE_CODE (DECL) == VAR_DECL					\
-          && lookup_attribute ("shared", DECL_MACHINE_ATTRIBUTES (DECL))) \
-        mode = "ws";							\
+      if (DECL && TREE_CODE (DECL) == VAR_DECL				\
+	  && lookup_attribute ("shared", DECL_MACHINE_ATTRIBUTES (DECL))) \
+	mode = "ws";							\
       else								\
-        mode = "w";							\
+	mode = "w";							\
     }									\
 									\
   if (s == 0)								\
@@ -463,12 +458,12 @@ do {									\
       sections = s;							\
       fprintf (STREAM, ".section\t%s,\"%s\"\n", NAME, mode);		\
       /* Functions may have been compiled at various levels of		\
-         optimization so we can't use `same_size' here.  Instead,	\
-         have the linker pick one.  */					\
+	 optimization so we can't use `same_size' here.  Instead,	\
+	 have the linker pick one.  */					\
       if ((DECL) && DECL_ONE_ONLY (DECL))				\
-        fprintf (STREAM, "\t.linkonce %s\n",				\
-	         TREE_CODE (DECL) == FUNCTION_DECL			\
-	         ? "discard" : "same_size");				\
+	fprintf (STREAM, "\t.linkonce %s\n",				\
+		 TREE_CODE (DECL) == FUNCTION_DECL			\
+		 ? "discard" : "same_size");				\
     }									\
   else									\
     {									\
@@ -518,9 +513,6 @@ do {									\
 #undef ASM_COMMENT_START
 #define ASM_COMMENT_START " #"
 
-/* DWARF2 Unwinding doesn't work with exception handling yet. */
-#define DWARF2_UNWIND_INFO 0
-
 /* Don't assume anything about the header files. */
 #define NO_IMPLICIT_EXTERN_C
 
@@ -529,25 +521,19 @@ do {									\
       && MAIN_NAME_P (DECL_NAME (current_function_decl)))		\
      {									\
       emit_call_insn (gen_rtx (CALL, VOIDmode, 				\
-        gen_rtx_MEM (FUNCTION_MODE,					\
+	gen_rtx_MEM (FUNCTION_MODE,					\
 		     gen_rtx_SYMBOL_REF (Pmode, "_monstartup")),	\
 	const0_rtx));							\
      }
 
 /* External function declarations.  */
 
-#ifndef PARAMS
-#if defined (USE_PROTOTYPES) ? USE_PROTOTYPES : defined (__STDC__)
-#define PARAMS(ARGS) ARGS
-#else
-#define PARAMS(ARGS) ()
-#endif
-#endif
-
-extern void i386_pe_record_external_function PARAMS ((char *));
-/* extern void i386_pe_declare_function_type PARAMS ((FILE *, char *, int)); */
-extern void i386_pe_record_exported_symbol PARAMS ((char *, int));
-/* extern void i386_pe_asm_file_end PARAMS ((FILE *)); */
+extern void i386_pe_record_external_function PARAMS ((const char *));
+extern void i386_pe_declare_function_type PARAMS ((FILE *, const char *, int));
+extern void i386_pe_record_exported_symbol PARAMS ((const char *, int));
+extern void i386_pe_asm_file_end PARAMS ((FILE *));
+extern int i386_pe_dllexport_name_p PARAMS ((const char *));
+extern int i386_pe_dllimport_name_p PARAMS ((const char *));
 
 /* For Win32 ABI compatibility */
 #undef DEFAULT_PCC_STRUCT_RETURN
@@ -566,10 +552,6 @@ extern void i386_pe_record_exported_symbol PARAMS ((char *, int));
 /* Enable alias attribute support.  */
 #ifndef SET_ASM_OP
 #define SET_ASM_OP "\t.set\t"
-#endif
-
-#ifndef INT_ASM_OP
-#define INT_ASM_OP "\t.long\t"
 #endif
 
 #undef MD_STARTFILE_PREFIX

@@ -38,7 +38,18 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "cpplib.h"
 #include "cpphash.h"
-#include "symcat.h"
+
+/* MULTIBYTE_CHARS support only works for native compilers.
+   ??? Ideally what we want is to model widechar support after
+   the current floating point support.  */
+#ifdef CROSS_COMPILE
+#undef MULTIBYTE_CHARS
+#endif
+
+#ifdef MULTIBYTE_CHARS
+#include "mbchar.h"
+#include <locale.h>
+#endif
 
 /* Tokens with SPELL_STRING store their spelling in the token list,
    and it's length in the token->val.name.len.  */
@@ -87,9 +98,12 @@ static void save_comment PARAMS ((cpp_reader *, cpp_token *, const U_CHAR *));
 static void lex_percent PARAMS ((cpp_buffer *, cpp_token *));
 static void lex_dot PARAMS ((cpp_reader *, cpp_token *));
 static int name_p PARAMS ((cpp_reader *, const cpp_string *));
+static int maybe_read_ucs PARAMS ((cpp_reader *, const unsigned char **,
+				   const unsigned char *, unsigned int *));
 
 static cpp_chunk *new_chunk PARAMS ((unsigned int));
 static int chunk_suitable PARAMS ((cpp_pool *, cpp_chunk *, unsigned int));
+static unsigned int hex_digit_value PARAMS ((unsigned int));
 
 /* Utility routine:
 
@@ -104,7 +118,7 @@ cpp_ideq (token, string)
   if (token->type != CPP_NAME)
     return 0;
 
-  return !ustrcmp (token->val.node->name, (const U_CHAR *) string);
+  return !ustrcmp (NODE_NAME (token->val.node), (const U_CHAR *) string);
 }
 
 /* Call when meeting a newline.  Returns the character after the newline
@@ -462,22 +476,14 @@ parse_identifier (pfile, c)
 {
   cpp_hashnode *result;
   cpp_buffer *buffer = pfile->buffer;
-  unsigned char *dest, *limit;
-  unsigned int r = 0, saw_dollar = 0;
-
-  dest = POOL_FRONT (&pfile->ident_pool);
-  limit = POOL_LIMIT (&pfile->ident_pool);
+  unsigned int saw_dollar = 0, len;
+  struct obstack *stack = &pfile->hash_table->stack;
 
   do
     {
       do
 	{
-	  /* Need room for terminating null.  */
-	  if (dest + 1 >= limit)
-	    limit = _cpp_next_chunk (&pfile->ident_pool, 0, &dest);
-
-	  *dest++ = c;
-	  r = HASHSTEP (r, c);
+	  obstack_1grow (stack, c);
 
 	  if (c == '$')
 	    saw_dollar++;
@@ -507,18 +513,20 @@ parse_identifier (pfile, c)
     cpp_pedwarn (pfile, "'$' character(s) in identifier");
 
   /* Identifiers are null-terminated.  */
-  *dest = '\0';
+  len = obstack_object_size (stack);
+  obstack_1grow (stack, '\0');
 
   /* This routine commits the memory if necessary.  */
-  result = _cpp_lookup_with_hash (pfile,
-				  dest - POOL_FRONT (&pfile->ident_pool), r);
+  result = (cpp_hashnode *)
+    ht_lookup (pfile->hash_table, obstack_finish (stack), len, HT_ALLOCED);
 
   /* Some identifiers require diagnostics when lexed.  */
   if (result->flags & NODE_DIAGNOSTIC && !pfile->skipping)
     {
       /* It is allowed to poison the same identifier twice.  */
       if ((result->flags & NODE_POISONED) && !pfile->state.poisoned_ok)
-	cpp_error (pfile, "attempt to use poisoned \"%s\"", result->name);
+	cpp_error (pfile, "attempt to use poisoned \"%s\"",
+		   NODE_NAME (result));
 
       /* Constraint 6.10.3.5: __VA_ARGS__ should only appear in the
 	 replacement list of a variadic macro.  */
@@ -629,10 +637,11 @@ unescaped_terminator_p (pfile, dest)
 }
 
 /* Parses a string, character constant, or angle-bracketed header file
-   name.  Handles embedded trigraphs and escaped newlines.
+   name.  Handles embedded trigraphs and escaped newlines.  The stored
+   string is guaranteed NUL-terminated, but it is not guaranteed that
+   this is the first NUL since embedded NULs are preserved.
 
-   Multi-line strings are allowed, but they are deprecated within
-   directives.  */
+   Multi-line strings are allowed, but they are deprecated.  */
 static void
 parse_string (pfile, token, terminator)
      cpp_reader *pfile;
@@ -651,14 +660,21 @@ parse_string (pfile, token, terminator)
   for (;;)
     {
       if (buffer->cur == buffer->rlimit)
+	c = EOF;
+      else
+	c = *buffer->cur++;
+
+    have_char:
+      /* We need space for the terminating NUL.  */
+      if (dest >= limit)
+	limit = _cpp_next_chunk (pool, 0, &dest);
+
+      if (c == EOF)
 	{
-	  c = EOF;
 	  unterminated (pfile, terminator);
 	  break;
 	}
-      c = *buffer->cur++;
 
-    have_char:
       /* Handle trigraphs, escaped newlines etc.  */
       if (c == '?' || c == '\\')
 	c = skip_escaped_newlines (buffer, c);
@@ -686,15 +702,13 @@ parse_string (pfile, token, terminator)
 	      break;
 	    }
 
+	  cpp_pedwarn (pfile, "multi-line string literals are deprecated");
 	  if (pfile->mlstring_pos.line == 0)
-	    {
-	      pfile->mlstring_pos = pfile->lexer_pos;
-	      if (CPP_PEDANTIC (pfile))
-		cpp_pedwarn (pfile, "multi-line string constant");
-	    }
+	    pfile->mlstring_pos = pfile->lexer_pos;
 	      
-	  handle_newline (buffer, c);  /* Stores to read_ahead.  */
-	  c = '\n';
+	  c = handle_newline (buffer, c);
+	  *dest++ = '\n';
+	  goto have_char;
 	}
       else if (c == '\0')
 	{
@@ -702,25 +716,16 @@ parse_string (pfile, token, terminator)
 	    cpp_warning (pfile, "null character(s) preserved in literal");
 	}
 
-      /* No terminating null for strings - they could contain nulls.  */
-      if (dest >= limit)
-	limit = _cpp_next_chunk (pool, 0, &dest);
       *dest++ = c;
-
-      /* If we had a new line, the next character is in read_ahead.  */
-      if (c != '\n')
-	continue;
-      c = buffer->read_ahead;
-      if (c != EOF)
-	goto have_char;
     }
 
   /* Remember the next character.  */
   buffer->read_ahead = c;
+  *dest = '\0';
 
   token->val.str.text = POOL_FRONT (pool);
   token->val.str.len = dest - token->val.str.text;
-  POOL_COMMIT (pool, token->val.str.len);
+  POOL_COMMIT (pool, token->val.str.len + 1);
 }
 
 /* The stored comment includes the comment start and any terminator.  */
@@ -876,9 +881,11 @@ _cpp_lex_token (pfile, result)
   switch (c)
     {
     case EOF:
-      /* Non-empty files should end in a newline.  Ignore for command
-	 line and _Pragma buffers.  */
-      if (pfile->lexer_pos.col != 0 && !buffer->from_stage3)
+      /* Non-empty files should end in a newline.  Checking "bol" too
+	  prevents multiple warnings when hitting the EOF more than
+	  once, like in a directive.  Don't warn for command line and
+	  _Pragma buffers.  */
+      if (pfile->lexer_pos.col != 0 && !bol && !buffer->from_stage3)
 	cpp_pedwarn (pfile, "no newline at end of file");
       pfile->state.next_bol = 1;
       pfile->skipping = 0;	/* In case missing #endif.  */
@@ -994,7 +1001,7 @@ _cpp_lex_token (pfile, result)
 	ACCEPT_CHAR (CPP_DIV_EQ);
       if (c != '/' && c != '*')
 	break;
-
+      
       if (c == '*')
 	{
 	  if (skip_block_comment (pfile))
@@ -1021,7 +1028,7 @@ _cpp_lex_token (pfile, result)
 	    }
 
 	  /* Skip_line_comment updates buffer->read_ahead.  */
-	  if (skip_line_comment (pfile))
+	  if (skip_line_comment (pfile) && CPP_OPTION (pfile, warn_comments))
 	    cpp_warning_with_line (pfile, pfile->lexer_pos.line,
 				   pfile->lexer_pos.col,
 				   "multi-line comment");
@@ -1174,38 +1181,36 @@ _cpp_lex_token (pfile, result)
 
       result->type = CPP_HASH;
     do_hash:
-      if (bol)
+      if (!bol)
+	break;
+      /* 6.10.3 paragraph 11: If there are sequences of preprocessing
+	 tokens within the list of arguments that would otherwise act
+	 as preprocessing directives, the behavior is undefined.
+
+	 This implementation will report a hard error, terminate the
+	 macro invocation, and proceed to process the directive.  */
+      if (pfile->state.parsing_args)
 	{
-	  if (pfile->state.parsing_args)
-	    {
-	      /* 6.10.3 paragraph 11: If there are sequences of
-		 preprocessing tokens within the list of arguments that
-		 would otherwise act as preprocessing directives, the
-		 behavior is undefined.
+	  if (pfile->state.parsing_args == 2)
+	    cpp_error (pfile,
+		       "directives may not be used inside a macro argument");
 
-		 This implementation will report a hard error, terminate
-		 the macro invocation, and proceed to process the
-		 directive.  */
-	      cpp_error (pfile,
-			 "directives may not be used inside a macro argument");
+	  /* Put a '#' in lookahead, return CPP_EOF for parse_arg.  */
+	  buffer->extra_char = buffer->read_ahead;
+	  buffer->read_ahead = '#';
+	  pfile->state.next_bol = 1;
+	  result->type = CPP_EOF;
 
-	      /* Put a '#' in lookahead, return CPP_EOF for parse_arg.  */
-	      buffer->extra_char = buffer->read_ahead;
-	      buffer->read_ahead = '#';
-	      pfile->state.next_bol = 1;
-	      result->type = CPP_EOF;
-
-	      /* Get whitespace right - newline_in_args sets it.  */
-	      if (pfile->lexer_pos.col == 1)
-		result->flags &= ~(PREV_WHITE | AVOID_LPASTE);
-	    }
-	  else
-	    {
-	      /* This is the hash introducing a directive.  */
-	      if (_cpp_handle_directive (pfile, result->flags & PREV_WHITE))
-		goto done_directive; /* bol still 1.  */
-	      /* This is in fact an assembler #.  */
-	    }
+	  /* Get whitespace right - newline_in_args sets it.  */
+	  if (pfile->lexer_pos.col == 1)
+	    result->flags &= ~(PREV_WHITE | AVOID_LPASTE);
+	}
+      else
+	{
+	  /* This is the hash introducing a directive.  */
+	  if (_cpp_handle_directive (pfile, result->flags & PREV_WHITE))
+	    goto done_directive; /* bol still 1.  */
+	  /* This is in fact an assembler #.  */
 	}
       break;
 
@@ -1246,29 +1251,8 @@ _cpp_lex_token (pfile, result)
     case '}': result->type = CPP_CLOSE_BRACE; break;
     case ';': result->type = CPP_SEMICOLON; break;
 
-    case '@':
-      if (CPP_OPTION (pfile, objc))
-	{
-	  /* In Objective C, '@' may begin keywords or strings, like
-	     @keyword or @"string".  It would be nice to call
-	     get_effective_char here and test the result.  However, we
-	     would then need to pass 2 characters to parse_identifier,
-	     making it ugly and slowing down its main loop.  Instead,
-	     we assume we have an identifier, and recover if not.  */
-	  result->type = CPP_NAME;
-	  result->val.node = parse_identifier (pfile, c);
-	  if (result->val.node->length != 1)
-	    break;
-
-	  /* OK, so it wasn't an identifier.  Maybe a string?  */
-	  if (buffer->read_ahead == '"')
-	    {
-	      c = '"';
-	      ACCEPT_CHAR (CPP_OSTRING);
-	      goto make_string;
-	    }
-	}
-      goto random_char;
+      /* @ is a punctuator in Objective C.  */
+    case '@': result->type = CPP_ATSIGN; break;
 
     random_char:
     default:
@@ -1295,9 +1279,9 @@ cpp_token_len (token)
 
   switch (TOKEN_SPELL (token))
     {
-    default:		len = 0;			break;
-    case SPELL_STRING:	len = token->val.str.len;	break;
-    case SPELL_IDENT:	len = token->val.node->length;	break;
+    default:		len = 0;				break;
+    case SPELL_STRING:	len = token->val.str.len;		break;
+    case SPELL_IDENT:	len = NODE_LEN (token->val.node);	break;
     }
   /* 1 for whitespace, 4 for comment delimeters.  */
   return len + 5;
@@ -1321,7 +1305,8 @@ cpp_spell_token (pfile, token, buffer)
 	unsigned char c;
 
 	if (token->flags & DIGRAPH)
-	  spelling = digraph_spellings[token->type - CPP_FIRST_DIGRAPH];
+	  spelling
+	    = digraph_spellings[(int) token->type - (int) CPP_FIRST_DIGRAPH];
 	else if (token->flags & NAMED_OP)
 	  goto spell_ident;
 	else
@@ -1334,8 +1319,8 @@ cpp_spell_token (pfile, token, buffer)
 
     case SPELL_IDENT:
       spell_ident:
-      memcpy (buffer, token->val.node->name, token->val.node->length);
-      buffer += token->val.node->length;
+      memcpy (buffer, NODE_NAME (token->val.node), NODE_LEN (token->val.node));
+      buffer += NODE_LEN (token->val.node);
       break;
 
     case SPELL_STRING:
@@ -1345,7 +1330,6 @@ cpp_spell_token (pfile, token, buffer)
 	  {
 	  case CPP_STRING:	left = '"';  right = '"';  tag = '\0'; break;
 	  case CPP_WSTRING:	left = '"';  right = '"';  tag = 'L';  break;
-	  case CPP_OSTRING:	left = '"';  right = '"';  tag = '@';  break;
 	  case CPP_CHAR:	left = '\''; right = '\''; tag = '\0'; break;
     	  case CPP_WCHAR:	left = '\''; right = '\''; tag = 'L';  break;
 	  case CPP_HEADER_NAME:	left = '<';  right = '>';  tag = '\0'; break;
@@ -1413,7 +1397,8 @@ cpp_output_token (token, fp)
 	const unsigned char *spelling;
 
 	if (token->flags & DIGRAPH)
-	  spelling = digraph_spellings[token->type - CPP_FIRST_DIGRAPH];
+	  spelling
+	    = digraph_spellings[(int) token->type - (int) CPP_FIRST_DIGRAPH];
 	else if (token->flags & NAMED_OP)
 	  goto spell_ident;
 	else
@@ -1425,7 +1410,7 @@ cpp_output_token (token, fp)
 
     spell_ident:
     case SPELL_IDENT:
-      ufputs (token->val.node->name, fp);
+      ufputs (NODE_NAME (token->val.node), fp);
     break;
 
     case SPELL_STRING:
@@ -1435,7 +1420,6 @@ cpp_output_token (token, fp)
 	  {
 	  case CPP_STRING:	left = '"';  right = '"';  tag = '\0'; break;
 	  case CPP_WSTRING:	left = '"';  right = '"';  tag = 'L';  break;
-	  case CPP_OSTRING:	left = '"';  right = '"';  tag = '@';  break;
 	  case CPP_CHAR:	left = '\''; right = '\''; tag = '\0'; break;
     	  case CPP_WCHAR:	left = '\''; right = '\''; tag = 'L';  break;
 	  case CPP_HEADER_NAME:	left = '<';  right = '>';  tag = '\0'; break;
@@ -1484,26 +1468,6 @@ _cpp_equiv_tokens (a, b)
   return 0;
 }
 
-#if 0
-/* Compare two token lists.  */
-int
-_cpp_equiv_toklists (a, b)
-     const struct toklist *a, *b;
-{
-  unsigned int i, count;
-
-  count = a->limit - a->first;
-  if (count != (b->limit - b->first))
-    return 0;
-
-  for (i = 0; i < count; i++)
-    if (! _cpp_equiv_tokens (&a->first[i], &b->first[i]))
-      return 0;
-
-  return 1;
-}
-#endif
-
 /* Determine whether two tokens can be pasted together, and if so,
    what the resulting token is.  Returns CPP_EOF if the tokens cannot
    be pasted, or the appropriate type for the merged token if they
@@ -1523,8 +1487,8 @@ cpp_can_paste (pfile, token1, token2, digraph)
   if (token2->flags & NAMED_OP)
     b = CPP_NAME;
 
-  if (a <= CPP_LAST_EQ && b == CPP_EQ)
-    return a + (CPP_EQ_EQ - CPP_EQ);
+  if ((int) a <= (int) CPP_LAST_EQ && b == CPP_EQ)
+    return (enum cpp_ttype) ((int) a + ((int) CPP_EQ_EQ - (int) CPP_EQ));
 
   switch (a)
     {
@@ -1603,13 +1567,6 @@ cpp_can_paste (pfile, token1, token2, digraph)
 	return CPP_NUMBER;
       break;
 
-    case CPP_OTHER:
-      if (CPP_OPTION (pfile, objc) && token1->val.c == '@')
-	{
-	  if (b == CPP_NAME)	return CPP_NAME;
-	  if (b == CPP_STRING)	return CPP_OSTRING;
-	}
-
     default:
       break;
     }
@@ -1637,12 +1594,12 @@ cpp_avoid_paste (pfile, token1, token2)
 
   c = EOF;
   if (token2->flags & DIGRAPH)
-    c = digraph_spellings[b - CPP_FIRST_DIGRAPH][0];
+    c = digraph_spellings[(int) b - (int) CPP_FIRST_DIGRAPH][0];
   else if (token_spellings[b].category == SPELL_OPERATOR)
     c = token_spellings[b].name[0];
 
   /* Quickly get everything that can paste with an '='.  */
-  if (a <= CPP_LAST_EQ && c == '=')
+  if ((int) a <= (int) CPP_LAST_EQ && c == '=')
     return 1;
 
   switch (a)
@@ -1692,6 +1649,348 @@ cpp_output_line (pfile, fp)
     }
 
   putc ('\n', fp);
+}
+
+/* Returns the value of a hexadecimal digit.  */
+static unsigned int
+hex_digit_value (c)
+     unsigned int c;
+{
+  if (c >= 'a' && c <= 'f')
+    return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F')
+    return c - 'A' + 10;
+  if (c >= '0' && c <= '9')
+    return c - '0';
+  abort ();
+}
+
+/* Parse a '\uNNNN' or '\UNNNNNNNN' sequence.  Returns 1 to indicate
+   failure if cpplib is not parsing C++ or C99.  Such failure is
+   silent, and no variables are updated.  Otherwise returns 0, and
+   warns if -Wtraditional.
+
+   [lex.charset]: The character designated by the universal character
+   name \UNNNNNNNN is that character whose character short name in
+   ISO/IEC 10646 is NNNNNNNN; the character designated by the
+   universal character name \uNNNN is that character whose character
+   short name in ISO/IEC 10646 is 0000NNNN.  If the hexadecimal value
+   for a universal character name is less than 0x20 or in the range
+   0x7F-0x9F (inclusive), or if the universal character name
+   designates a character in the basic source character set, then the
+   program is ill-formed.
+
+   We assume that wchar_t is Unicode, so we don't need to do any
+   mapping.  Is this ever wrong?
+
+   PC points to the 'u' or 'U', PSTR is points to the byte after PC,
+   LIMIT is the end of the string or charconst.  PSTR is updated to
+   point after the UCS on return, and the UCS is written into PC.  */
+
+static int
+maybe_read_ucs (pfile, pstr, limit, pc)
+     cpp_reader *pfile;
+     const unsigned char **pstr;
+     const unsigned char *limit;
+     unsigned int *pc;
+{
+  const unsigned char *p = *pstr;
+  unsigned int code = 0;
+  unsigned int c = *pc, length;
+
+  /* Only attempt to interpret a UCS for C++ and C99.  */
+  if (! (CPP_OPTION (pfile, cplusplus) || CPP_OPTION (pfile, c99)))
+    return 1;
+
+  if (CPP_WTRADITIONAL (pfile))
+    cpp_warning (pfile, "the meaning of '\\%c' varies with -traditional", c);
+
+  length = (c == 'u' ? 4: 8);
+
+  if ((size_t) (limit - p) < length)
+    {
+      cpp_error (pfile, "incomplete universal-character-name");
+      /* Skip to the end to avoid more diagnostics.  */
+      p = limit;
+    }
+  else
+    {
+      for (; length; length--, p++)
+	{
+	  c = *p;
+	  if (ISXDIGIT (c))
+	    code = (code << 4) + hex_digit_value (c);
+	  else
+	    {
+	      cpp_error (pfile,
+			 "non-hex digit '%c' in universal-character-name", c);
+	      /* We shouldn't skip in case there are multibyte chars.  */
+	      break;
+	    }
+	}
+    }
+
+#ifdef TARGET_EBCDIC
+  cpp_error (pfile, "universal-character-name on EBCDIC target");
+  code = 0x3f;  /* EBCDIC invalid character */
+#else
+ /* True extended characters are OK.  */
+  if (code >= 0xa0
+      && !(code & 0x80000000)
+      && !(code >= 0xD800 && code <= 0xDFFF))
+    ;
+  /* The standard permits $, @ and ` to be specified as UCNs.  We use
+     hex escapes so that this also works with EBCDIC hosts.  */
+  else if (code == 0x24 || code == 0x40 || code == 0x60)
+    ;
+  /* Don't give another error if one occurred above.  */
+  else if (length == 0)
+    cpp_error (pfile, "universal-character-name out of range");
+#endif
+
+  *pstr = p;
+  *pc = code;
+  return 0;
+}
+
+/* Interpret an escape sequence, and return its value.  PSTR points to
+   the input pointer, which is just after the backslash.  LIMIT is how
+   much text we have.  MASK is a bitmask for the precision for the
+   destination type (char or wchar_t).  TRADITIONAL, if true, does not
+   interpret escapes that did not exist in traditional C.
+
+   Handles all relevant diagnostics.  */
+
+unsigned int
+cpp_parse_escape (pfile, pstr, limit, mask, traditional)
+     cpp_reader *pfile;
+     const unsigned char **pstr;
+     const unsigned char *limit;
+     unsigned HOST_WIDE_INT mask;
+     int traditional;
+{
+  int unknown = 0;
+  const unsigned char *str = *pstr;
+  unsigned int c = *str++;
+
+  switch (c)
+    {
+    case '\\': case '\'': case '"': case '?': break;
+    case 'b': c = TARGET_BS;	  break;
+    case 'f': c = TARGET_FF;	  break;
+    case 'n': c = TARGET_NEWLINE; break;
+    case 'r': c = TARGET_CR;	  break;
+    case 't': c = TARGET_TAB;	  break;
+    case 'v': c = TARGET_VT;	  break;
+
+    case '(': case '{': case '[': case '%':
+      /* '\(', etc, are used at beginning of line to avoid confusing Emacs.
+	 '\%' is used to prevent SCCS from getting confused.  */
+      unknown = CPP_PEDANTIC (pfile);
+      break;
+
+    case 'a':
+      if (CPP_WTRADITIONAL (pfile))
+	cpp_warning (pfile, "the meaning of '\\a' varies with -traditional");
+      if (!traditional)
+	c = TARGET_BELL;
+      break;
+
+    case 'e': case 'E':
+      if (CPP_PEDANTIC (pfile))
+	cpp_pedwarn (pfile, "non-ISO-standard escape sequence, '\\%c'", c);
+      c = TARGET_ESC;
+      break;
+      
+    case 'u': case 'U':
+      unknown = maybe_read_ucs (pfile, &str, limit, &c);
+      break;
+
+    case 'x':
+      if (CPP_WTRADITIONAL (pfile))
+	cpp_warning (pfile, "the meaning of '\\x' varies with -traditional");
+
+      if (!traditional)
+	{
+	  unsigned int i = 0, overflow = 0;
+	  int digits_found = 0;
+
+	  while (str < limit)
+	    {
+	      c = *str;
+	      if (! ISXDIGIT (c))
+		break;
+	      str++;
+	      overflow |= i ^ (i << 4 >> 4);
+	      i = (i << 4) + hex_digit_value (c);
+	      digits_found = 1;
+	    }
+
+	  if (!digits_found)
+	    cpp_error (pfile, "\\x used with no following hex digits");
+
+	  if (overflow | (i != (i & mask)))
+	    {
+	      cpp_pedwarn (pfile, "hex escape sequence out of range");
+	      i &= mask;
+	    }
+	  c = i;
+	}
+      break;
+
+    case '0':  case '1':  case '2':  case '3':
+    case '4':  case '5':  case '6':  case '7':
+      {
+	unsigned int i = c - '0';
+	int count = 0;
+
+	while (str < limit && ++count < 3)
+	  {
+	    c = *str;
+	    if (c < '0' || c > '7')
+	      break;
+	    str++;
+	    i = (i << 3) + c - '0';
+	  }
+
+	if (i != (i & mask))
+	  {
+	    cpp_pedwarn (pfile, "octal escape sequence out of range");
+	    i &= mask;
+	  }
+	c = i;
+      }
+      break;
+
+    default:
+      unknown = 1;
+      break;
+    }
+
+  if (unknown)
+    {
+      if (ISGRAPH (c))
+	cpp_pedwarn (pfile, "unknown escape sequence '\\%c'", c);
+      else
+	cpp_pedwarn (pfile, "unknown escape sequence: '\\%03o'", c);
+    }
+
+  if (c > mask)
+    cpp_pedwarn (pfile, "escape sequence out of range for character");
+
+  *pstr = str;
+  return c;
+}
+
+#ifndef MAX_CHAR_TYPE_SIZE
+#define MAX_CHAR_TYPE_SIZE CHAR_TYPE_SIZE
+#endif
+
+#ifndef MAX_WCHAR_TYPE_SIZE
+#define MAX_WCHAR_TYPE_SIZE WCHAR_TYPE_SIZE
+#endif
+
+/* Interpret a (possibly wide) character constant in TOKEN.
+   WARN_MULTI warns about multi-character charconsts, if not
+   TRADITIONAL.  TRADITIONAL also indicates not to interpret escapes
+   that did not exist in traditional C.  PCHARS_SEEN points to a
+   variable that is filled in with the number of characters seen.  */
+HOST_WIDE_INT
+cpp_interpret_charconst (pfile, token, warn_multi, traditional, pchars_seen)
+     cpp_reader *pfile;
+     const cpp_token *token;
+     int warn_multi;
+     int traditional;
+     unsigned int *pchars_seen;
+{
+  const unsigned char *str = token->val.str.text;
+  const unsigned char *limit = str + token->val.str.len;
+  unsigned int chars_seen = 0;
+  unsigned int width, max_chars, c;
+  unsigned HOST_WIDE_INT mask;
+  HOST_WIDE_INT result = 0;
+
+#ifdef MULTIBYTE_CHARS
+  (void) local_mbtowc (NULL, NULL, 0);
+#endif
+
+  /* Width in bits.  */
+  if (token->type == CPP_CHAR)
+    width = MAX_CHAR_TYPE_SIZE;
+  else
+    width = MAX_WCHAR_TYPE_SIZE;
+
+  if (width < HOST_BITS_PER_WIDE_INT)
+    mask = ((unsigned HOST_WIDE_INT) 1 << width) - 1;
+  else
+    mask = ~0;
+  max_chars = HOST_BITS_PER_WIDE_INT / width;
+
+  while (str < limit)
+    {
+#ifdef MULTIBYTE_CHARS
+      wchar_t wc;
+      int char_len;
+
+      char_len = local_mbtowc (&wc, str, limit - str);
+      if (char_len == -1)
+	{
+	  cpp_warning (pfile, "ignoring invalid multibyte character");
+	  c = *str++;
+	}
+      else
+	{
+	  str += char_len;
+	  c = wc;
+	}
+#else
+      c = *str++;
+#endif
+
+      if (c == '\\')
+	c = cpp_parse_escape (pfile, &str, limit, mask, traditional);
+
+#ifdef MAP_CHARACTER
+      if (ISPRINT (c))
+	c = MAP_CHARACTER (c);
+#endif
+      
+      /* Merge character into result; ignore excess chars.  */
+      if (++chars_seen <= max_chars)
+	{
+	  if (width < HOST_BITS_PER_WIDE_INT)
+	    result = (result << width) | (c & mask);
+	  else
+	    result = c;
+	}
+    }
+
+  if (chars_seen == 0)
+    cpp_error (pfile, "empty character constant");
+  else if (chars_seen > max_chars)
+    {
+      chars_seen = max_chars;
+      cpp_warning (pfile, "character constant too long");
+    }
+  else if (chars_seen > 1 && !traditional && warn_multi)
+    cpp_warning (pfile, "multi-character character constant");
+
+  /* If char type is signed, sign-extend the constant.  The
+     __CHAR_UNSIGNED__ macro is set by the driver if appropriate.  */
+  if (token->type == CPP_CHAR && chars_seen)
+    {
+      unsigned int nbits = chars_seen * width;
+      unsigned int mask = (unsigned int) ~0 >> (HOST_BITS_PER_INT - nbits);
+
+      if (pfile->spec_nodes.n__CHAR_UNSIGNED__->type == NT_MACRO
+	  || ((result >> (nbits - 1)) & 1) == 0)
+	result &= mask;
+      else
+	result |= ~mask;
+    }
+
+  *pchars_seen = chars_seen;
+  return result;
 }
 
 /* Memory pools.  */

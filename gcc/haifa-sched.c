@@ -144,7 +144,6 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "insn-config.h"
 #include "insn-attr.h"
-#include "insn-flags.h"
 #include "except.h"
 #include "toplev.h"
 #include "recog.h"
@@ -719,38 +718,43 @@ static int
 priority (insn)
      rtx insn;
 {
-  int this_priority;
   rtx link;
 
   if (! INSN_P (insn))
     return 0;
 
-  if ((this_priority = INSN_PRIORITY (insn)) == 0)
+  if (! INSN_PRIORITY_KNOWN (insn))
     {
+      int this_priority = 0;
+
       if (INSN_DEPEND (insn) == 0)
 	this_priority = insn_cost (insn, 0, 0);
       else
-	for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
-	  {
-	    rtx next;
-	    int next_priority;
+	{
+	  for (link = INSN_DEPEND (insn); link; link = XEXP (link, 1))
+	    {
+	      rtx next;
+	      int next_priority;
 
-	    if (RTX_INTEGRATED_P (link))
-	      continue;
+	      if (RTX_INTEGRATED_P (link))
+		continue;
 
-	    next = XEXP (link, 0);
+	      next = XEXP (link, 0);
 
-	    /* Critical path is meaningful in block boundaries only.  */
-	    if (! (*current_sched_info->contributes_to_priority) (next, insn))
-	      continue;
+	      /* Critical path is meaningful in block boundaries only.  */
+	      if (! (*current_sched_info->contributes_to_priority) (next, insn))
+		continue;
 
-	    next_priority = insn_cost (insn, link, next) + priority (next);
-	    if (next_priority > this_priority)
-	      this_priority = next_priority;
-	  }
+	      next_priority = insn_cost (insn, link, next) + priority (next);
+	      if (next_priority > this_priority)
+		this_priority = next_priority;
+	    }
+	}
       INSN_PRIORITY (insn) = this_priority;
+      INSN_PRIORITY_KNOWN (insn) = 1;
     }
-  return this_priority;
+
+  return INSN_PRIORITY (insn);
 }
 
 /* Macros and functions for keeping the priority queue sorted, and
@@ -1901,8 +1905,6 @@ sched_init (dump_file)
 
   /* Initialize issue_rate.  */
   issue_rate = ISSUE_RATE;
-
-  split_all_insns (1);
 
   /* We use LUID 0 for the fake insn (UID 0) which holds dependencies for
      pseudos which do not cross calls.  */

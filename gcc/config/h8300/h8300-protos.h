@@ -61,8 +61,6 @@ extern int nshift_operator PARAMS ((rtx, enum machine_mode));
 #ifdef TREE_CODE
 extern struct rtx_def *function_arg PARAMS ((CUMULATIVE_ARGS *,
 					     enum machine_mode, tree, int));
-extern int h8300_valid_machine_decl_attribute PARAMS ((tree, tree, tree,
-						       tree));
 extern int h8300_funcvec_function_p PARAMS ((tree));
 extern int h8300_eightbit_data_p PARAMS ((tree));
 extern int h8300_tiny_data_p PARAMS ((tree));
@@ -70,17 +68,15 @@ extern void h8300_encode_label PARAMS ((tree));
 #endif /* TREE_CODE */
 
 extern void h8300_init_once PARAMS ((void));
-extern void function_prologue PARAMS ((FILE *, int));
-extern void function_epilogue PARAMS ((FILE *, int));
 extern void asm_file_start PARAMS ((FILE *));
 extern void asm_file_end PARAMS ((FILE *));
 extern int ok_for_bclr PARAMS ((HOST_WIDE_INT));
 extern int small_power_of_two PARAMS ((HOST_WIDE_INT));
 extern int initial_offset PARAMS ((int, int));
 
-#ifdef _C_PRAGMA_H
+#ifdef GCC_C_PRAGMA_H
 extern void h8300_pr_interrupt PARAMS ((cpp_reader *));
 extern void h8300_pr_saveall PARAMS ((cpp_reader *));
 #endif
 
-#endif /* GCC_H8300_PROTOS_H */
+#endif /* ! GCC_H8300_PROTOS_H */

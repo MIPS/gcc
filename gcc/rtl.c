@@ -1,5 +1,5 @@
-/* Allocate and read RTL for GNU C Compiler.
-   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000
+/* RTL utility routines.
+   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -19,19 +19,12 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
 #include "real.h"
-#include "bitmap.h"
 #include "ggc.h"
-#include "obstack.h"
-#include "toplev.h"
-#include "hashtab.h"
-
-#define	obstack_chunk_alloc	xmalloc
-#define	obstack_chunk_free	free
+#include "errors.h"
 
 
 /* Calculate the format for CONST_DOUBLE.  This depends on the relative
@@ -124,11 +117,8 @@ const char * const rtx_name[] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  NAME,
 
-const char * const mode_name[(int) MAX_MACHINE_MODE + 1] = {
+const char * const mode_name[] = {
 #include "machmode.def"
-  /* Add an extra field to avoid a core dump if someone tries to convert
-     MAX_MACHINE_MODE to a string.   */
-  ""
 };
 
 #undef DEF_MACHMODE
@@ -137,7 +127,7 @@ const char * const mode_name[(int) MAX_MACHINE_MODE + 1] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  CLASS,
 
-const enum mode_class mode_class[(int) MAX_MACHINE_MODE] = {
+const enum mode_class mode_class[] = {
 #include "machmode.def"
 };
 
@@ -148,7 +138,7 @@ const enum mode_class mode_class[(int) MAX_MACHINE_MODE] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  BITSIZE,
 
-const unsigned int mode_bitsize[(int) MAX_MACHINE_MODE] = {
+const unsigned int mode_bitsize[] = {
 #include "machmode.def"
 };
 
@@ -159,7 +149,7 @@ const unsigned int mode_bitsize[(int) MAX_MACHINE_MODE] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  SIZE,
 
-const unsigned int mode_size[(int) MAX_MACHINE_MODE] = {
+const unsigned int mode_size[] = {
 #include "machmode.def"
 };
 
@@ -170,7 +160,7 @@ const unsigned int mode_size[(int) MAX_MACHINE_MODE] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  UNIT,
 
-const unsigned int mode_unit_size[(int) MAX_MACHINE_MODE] = {
+const unsigned int mode_unit_size[] = {
 #include "machmode.def"		/* machine modes are documented here */
 };
 
@@ -183,7 +173,7 @@ const unsigned int mode_unit_size[(int) MAX_MACHINE_MODE] = {
 #define DEF_MACHMODE(SYM, NAME, CLASS, BITSIZE, SIZE, UNIT, WIDER)  \
   (unsigned char) WIDER,
 
-const unsigned char mode_wider_mode[(int) MAX_MACHINE_MODE] = {
+const unsigned char mode_wider_mode[] = {
 #include "machmode.def"		/* machine modes are documented here */
 };
 
@@ -194,7 +184,7 @@ const unsigned char mode_wider_mode[(int) MAX_MACHINE_MODE] = {
 
 /* Indexed by machine mode, gives mask of significant bits in mode.  */
 
-const unsigned HOST_WIDE_INT mode_mask_array[(int) MAX_MACHINE_MODE] = {
+const unsigned HOST_WIDE_INT mode_mask_array[] = {
 #include "machmode.def"
 };
 
@@ -238,6 +228,8 @@ const char * const rtx_format[] = {
          prints the string
      "S" like "s", but optional:
 	 the containing rtx may end before this operand
+     "T" like "s", but treated specially by the RTL reader;
+         only found in machine description patterns.
      "e" a pointer to an rtl expression
          prints the expression
      "E" a pointer to a vector that points to a number of rtl expressions
@@ -291,16 +283,6 @@ const char * const reg_note_name[] =
   "REG_EH_RETHROW", "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
   "REG_NON_LOCAL_GOTO"
 };
-
-static htab_t md_constants;
-
-static void fatal_with_file_and_line PARAMS ((FILE *, const char *, ...))
-  ATTRIBUTE_PRINTF_2 ATTRIBUTE_NORETURN;
-static void fatal_expected_char PARAMS ((FILE *, int, int)) ATTRIBUTE_NORETURN;
-static void read_name		PARAMS ((char *, FILE *));
-static unsigned def_hash PARAMS ((const void *));
-static int def_name_eq_p PARAMS ((const void *, const void *));
-static void read_constants PARAMS ((FILE *infile, char *tmp_char));
 
 
 /* Allocate an rtx vector of N elements.
@@ -435,6 +417,7 @@ copy_rtx (orig)
 	case 'i':
 	case 's':
 	case 'S':
+	case 'T':
 	case 'u':
 	case '0':
 	  /* These are left unchanged.  */
@@ -689,593 +672,6 @@ rtx_equal_p (x, y)
   return 1;
 }
 
-/* Subroutines of read_rtx.  */
-
-/* The current line number for the file.  */
-int read_rtx_lineno = 1;
-
-/* The filename for aborting with file and line.  */
-const char *read_rtx_filename = "<unknown>";
-
-static void
-fatal_with_file_and_line VPARAMS ((FILE *infile, const char *msg, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  FILE *infile;
-  const char *msg;
-#endif
-  va_list ap;
-  char context[64];
-  size_t i;
-  int c;
-
-  VA_START (ap, msg);
-
-#ifndef ANSI_PROTOTYPES
-  infile = va_arg (ap, FILE *);
-  msg = va_arg (ap, const char *);
-#endif
-
-  fprintf (stderr, "%s:%d: ", read_rtx_filename, read_rtx_lineno);
-  vfprintf (stderr, msg, ap);
-  putc ('\n', stderr);
-
-  /* Gather some following context.  */
-  for (i = 0; i < sizeof(context)-1; ++i)
-    {
-      c = getc (infile);
-      if (c == EOF)
-	break;
-      if (c == '\r' || c == '\n')
-	break;
-      context[i] = c;
-    }
-  context[i] = '\0';
-
-  fprintf (stderr, "%s:%d: following context is `%s'\n",
-	   read_rtx_filename, read_rtx_lineno, context);
-
-  va_end (ap);
-  exit (1);
-}
-
-/* Dump code after printing a message.  Used when read_rtx finds
-   invalid data.  */
-
-static void
-fatal_expected_char (infile, expected_c, actual_c)
-     FILE *infile;
-     int expected_c, actual_c;
-{
-  fatal_with_file_and_line (infile, "expected character `%c', found `%c'",
-			    expected_c, actual_c);
-}
-
-/* Read chars from INFILE until a non-whitespace char
-   and return that.  Comments, both Lisp style and C style,
-   are treated as whitespace.
-   Tools such as genflags use this function.  */
-
-int
-read_skip_spaces (infile)
-     FILE *infile;
-{
-  register int c;
-  while (1)
-    {
-      c = getc (infile);
-      switch (c)
-	{
-	case '\n':
-	  read_rtx_lineno++;
-	  break;
-
-	case ' ': case '\t': case '\f': case '\r':
-	  break;
-
-	case ';':
-	  do
-	    c = getc (infile);
-	  while (c != '\n' && c != EOF);
-	  read_rtx_lineno++;
-	  break;
-
-	case '/':
-	  {
-	    register int prevc;
-	    c = getc (infile);
-	    if (c != '*')
-	      fatal_expected_char (infile, '*', c);
-
-	    prevc = 0;
-	    while ((c = getc (infile)) && c != EOF)
-	      {
-		if (c == '\n')
-		   read_rtx_lineno++;
-	        else if (prevc == '*' && c == '/')
-		  break;
-	        prevc = c;
-	      }
-	  }
-	  break;
-
-	default:
-	  return c;
-	}
-    }
-}
-
-/* Read an rtx code name into the buffer STR[].
-   It is terminated by any of the punctuation chars of rtx printed syntax.  */
-
-static void
-read_name (str, infile)
-     char *str;
-     FILE *infile;
-{
-  register char *p;
-  register int c;
-
-  c = read_skip_spaces(infile);
-
-  p = str;
-  while (1)
-    {
-      if (c == ' ' || c == '\n' || c == '\t' || c == '\f')
-	break;
-      if (c == ':' || c == ')' || c == ']' || c == '"' || c == '/'
-	  || c == '(' || c == '[')
-	{
-	  ungetc (c, infile);
-	  break;
-	}
-      *p++ = c;
-      c = getc (infile);
-    }
-  if (p == str)
-    fatal_with_file_and_line (infile, "missing name or number");
-  if (c == '\n')
-    read_rtx_lineno++;
-
-  *p = 0;
-
-  if (md_constants)
-    {
-      /* Do constant expansion.  */
-      struct md_constant *def;
-
-      p = str;
-      do
-	{
-	  struct md_constant tmp_def;
-
-	  tmp_def.name = p;
-	  def = htab_find (md_constants, &tmp_def);
-	  if (def)
-	    p = def->value;
-	} while (def);
-      if (p != str)
-	strcpy (str, p);
-    }
-}
-
-/* Provide a version of a function to read a long long if the system does
-   not provide one.  */
-#if HOST_BITS_PER_WIDE_INT > HOST_BITS_PER_LONG && !defined(HAVE_ATOLL) && !defined(HAVE_ATOQ)
-HOST_WIDE_INT
-atoll(p)
-    const char *p;
-{
-  int neg = 0;
-  HOST_WIDE_INT tmp_wide;
-
-  while (ISSPACE(*p))
-    p++;
-  if (*p == '-')
-    neg = 1, p++;
-  else if (*p == '+')
-    p++;
-
-  tmp_wide = 0;
-  while (ISDIGIT(*p))
-    {
-      HOST_WIDE_INT new_wide = tmp_wide*10 + (*p - '0');
-      if (new_wide < tmp_wide)
-	{
-	  /* Return INT_MAX equiv on overflow.  */
-	  tmp_wide = (~(unsigned HOST_WIDE_INT)0) >> 1;
-	  break;
-	}
-      tmp_wide = new_wide;
-      p++;
-    }
-
-  if (neg)
-    tmp_wide = -tmp_wide;
-  return tmp_wide;
-}
-#endif
-
-/* Given a constant definition, return a hash code for its name.  */
-static unsigned
-def_hash (def)
-     const void *def;
-{
-  unsigned result, i;
-  const char *string = ((const struct md_constant *)def)->name;
-
-  for (result = i = 0;*string++ != '\0'; i++)
-    result += ((unsigned char) *string << (i % CHAR_BIT));
-  return result;
-}
-
-/* Given two constant definitions, return true if they have the same name.  */
-static int
-def_name_eq_p (def1, def2)
-     const void *def1, *def2;
-{
-  return ! strcmp (((const struct md_constant *)def1)->name,
-		   ((const struct md_constant *)def2)->name);
-}
-
-/* INFILE is a FILE pointer to read text from.  TMP_CHAR is a buffer suitable
-   to read a name or number into.  Process a define_constants directive,
-   starting with the optional space after the "define_constants".  */
-static void
-read_constants (infile, tmp_char)
-     FILE *infile;
-     char *tmp_char;
-{
-  int c;
-  htab_t defs;
-
-  c = read_skip_spaces (infile);
-  if (c != '[')
-    fatal_expected_char (infile, '[', c);
-  defs = md_constants;
-  if (! defs)
-    defs = htab_create (32, def_hash, def_name_eq_p, (htab_del) 0);
-  /* Disable constant expansion during definition processing.  */
-  md_constants = 0;
-  while ( (c = read_skip_spaces (infile)) != ']')
-    {
-      struct md_constant *def;
-      void **entry_ptr;
-
-      if (c != '(')
-	fatal_expected_char (infile, '(', c);
-      def = xmalloc (sizeof (struct md_constant));
-      def->name = tmp_char;
-      read_name (tmp_char, infile);
-      entry_ptr = htab_find_slot (defs, def, TRUE);
-      if (! *entry_ptr)
-	def->name = xstrdup (tmp_char);
-      c = read_skip_spaces (infile);
-      ungetc (c, infile);
-      read_name (tmp_char, infile);
-      if (! *entry_ptr)
-	{
-	  def->value = xstrdup (tmp_char);
-	  *entry_ptr = def;
-	}
-      else
-	{
-	  def = *entry_ptr;
-	  if (strcmp (def->value, tmp_char))
-	    fatal_with_file_and_line (infile,
-				      "redefinition of %s, was %s, now %s",
-				      def->name, def->value, tmp_char);
-	}
-      c = read_skip_spaces (infile);
-      if (c != ')')
-	fatal_expected_char (infile, ')', c);
-    }
-  md_constants = defs;
-  c = read_skip_spaces (infile);
-  if (c != ')')
-    fatal_expected_char (infile, ')', c);
-}
-
-/* For every constant definition, call CALLBACK with two arguments:
-   a pointer a pointer to the constant definition and INFO.
-   Stops when CALLBACK returns zero.  */
-void
-traverse_md_constants (callback, info)
-     htab_trav callback;
-     void *info;
-{
-  if (md_constants)
-    htab_traverse (md_constants, callback, info);
-}
-
-/* Read an rtx in printed representation from INFILE
-   and return an actual rtx in core constructed accordingly.
-   read_rtx is not used in the compiler proper, but rather in
-   the utilities gen*.c that construct C code from machine descriptions.  */
-
-rtx
-read_rtx (infile)
-     FILE *infile;
-{
-  register int i, j, list_counter;
-  RTX_CODE tmp_code;
-  register const char *format_ptr;
-  /* tmp_char is a buffer used for reading decimal integers
-     and names of rtx types and machine modes.
-     Therefore, 256 must be enough.  */
-  char tmp_char[256];
-  rtx return_rtx;
-  register int c;
-  int tmp_int;
-  HOST_WIDE_INT tmp_wide;
-
-  /* Obstack used for allocating RTL objects.  */
-  static struct obstack rtl_obstack;
-  static int initialized;
-
-  /* Linked list structure for making RTXs: */
-  struct rtx_list
-    {
-      struct rtx_list *next;
-      rtx value;		/* Value of this node.  */
-    };
-
-  if (!initialized) {
-    _obstack_begin (&rtl_obstack,0, 0,
-		    (void *(*) PARAMS ((long))) xmalloc,
-		    (void (*) PARAMS ((void *))) free);
-    initialized = 1;
-  }
-
-again:
-  c = read_skip_spaces (infile); /* Should be open paren.  */
-  if (c != '(')
-    fatal_expected_char (infile, '(', c);
-
-  read_name (tmp_char, infile);
-
-  tmp_code = UNKNOWN;
-
-  if (! strcmp (tmp_char, "define_constants"))
-    {
-      read_constants (infile, tmp_char);
-      goto again;
-    }
-  for (i = 0; i < NUM_RTX_CODE; i++)
-    if (! strcmp (tmp_char, GET_RTX_NAME (i)))
-      {
-	tmp_code = (RTX_CODE) i;	/* get value for name */
-	break;
-      }
-
-  if (tmp_code == UNKNOWN)
-    fatal_with_file_and_line (infile, "unknown rtx code `%s'", tmp_char);
-
-  /* (NIL) stands for an expression that isn't there.  */
-  if (tmp_code == NIL)
-    {
-      /* Discard the closeparen.  */
-      while ((c = getc (infile)) && c != ')')
-	;
-
-      return 0;
-    }
-
-  /* If we end up with an insn expression then we free this space below.  */
-  return_rtx = rtx_alloc (tmp_code);
-  format_ptr = GET_RTX_FORMAT (GET_CODE (return_rtx));
-
-  /* If what follows is `: mode ', read it and
-     store the mode in the rtx.  */
-
-  i = read_skip_spaces (infile);
-  if (i == ':')
-    {
-      read_name (tmp_char, infile);
-      for (j = 0; j < NUM_MACHINE_MODES; j++)
-	if (! strcmp (GET_MODE_NAME (j), tmp_char))
-	  break;
-
-      if (j == MAX_MACHINE_MODE)
-	fatal_with_file_and_line (infile, "unknown mode `%s'", tmp_char);
-
-      PUT_MODE (return_rtx, (enum machine_mode) j);
-    }
-  else
-    ungetc (i, infile);
-
-  for (i = 0; i < GET_RTX_LENGTH (GET_CODE (return_rtx)); i++)
-    switch (*format_ptr++)
-      {
-	/* 0 means a field for internal use only.
-	   Don't expect it to be present in the input.  */
-      case '0':
-	break;
-
-      case 'e':
-      case 'u':
-	XEXP (return_rtx, i) = read_rtx (infile);
-	break;
-
-      case 'V':
-	/* 'V' is an optional vector: if a closeparen follows,
-	   just store NULL for this element.  */
-	c = read_skip_spaces (infile);
-	ungetc (c, infile);
-	if (c == ')')
-	  {
-	    XVEC (return_rtx, i) = 0;
-	    break;
- 	  }
-	/* Now process the vector.  */
-
-      case 'E':
-	{
-	  register struct rtx_list *next_rtx, *rtx_list_link;
-	  struct rtx_list *list_rtx = NULL;
-
-	  c = read_skip_spaces (infile);
-	  if (c != '[')
-	    fatal_expected_char (infile, '[', c);
-
-	  /* add expressions to a list, while keeping a count */
-	  next_rtx = NULL;
-	  list_counter = 0;
-	  while ((c = read_skip_spaces (infile)) && c != ']')
-	    {
-	      ungetc (c, infile);
-	      list_counter++;
-	      rtx_list_link = (struct rtx_list *)
-		alloca (sizeof (struct rtx_list));
-	      rtx_list_link->value = read_rtx (infile);
-	      if (next_rtx == 0)
-		list_rtx = rtx_list_link;
-	      else
-		next_rtx->next = rtx_list_link;
-	      next_rtx = rtx_list_link;
-	      rtx_list_link->next = 0;
-	    }
-	  /* get vector length and allocate it */
-	  XVEC (return_rtx, i) = (list_counter
-				  ? rtvec_alloc (list_counter) : NULL_RTVEC);
-	  if (list_counter > 0)
-	    {
-	      next_rtx = list_rtx;
-	      for (j = 0; j < list_counter; j++,
-		   next_rtx = next_rtx->next)
-		XVECEXP (return_rtx, i, j) = next_rtx->value;
-	    }
-	  /* close bracket gotten */
-	}
-	break;
-
-      case 'S':
-	/* 'S' is an optional string: if a closeparen follows,
-	   just store NULL for this element.  */
-	c = read_skip_spaces (infile);
-	ungetc (c, infile);
-	if (c == ')')
-	  {
-	    XSTR (return_rtx, i) = 0;
-	    break;
-	  }
-
-      case 's':
-	{
-	  int saw_paren = 0;
-	  register char *stringbuf;
-	  int saw_anything = 0;
-
-	  c = read_skip_spaces (infile);
-	  if (c == '(')
-	    {
-	      saw_paren = 1;
-	      c = read_skip_spaces (infile);
-	    }
-	  if (c != '"')
-	    fatal_expected_char (infile, '"', c);
-
-	  while (1)
-	    {
-	      c = getc (infile); /* Read the string  */
-	      if (c == '\n')
-		read_rtx_lineno++;
-	      if (c == '\\')
-		{
-		  c = getc (infile);	/* Read the string  */
-		  /* \; makes stuff for a C string constant containing
-		     newline and tab.  */
-		  if (c == ';')
-		    {
-		      obstack_grow (&rtl_obstack, "\\n\\t", 4);
-		      continue;
-		    }
-		  if (c == '\n')
-		    read_rtx_lineno++;
-		}
-	      else if (c == '"')
-		break;
-
-	      obstack_1grow (&rtl_obstack, c);
-	      saw_anything = 1;
-	    }
-
-	  /* For insn patterns, we want to provide a default name
-	     based on the file and line, like "*foo.md:12", if the
-	     given name is blank.  These are only for define_insn and
-	     define_insn_and_split, to aid debugging.  */
-	  if (!saw_anything
-	      && i == 0
-	      && (GET_CODE (return_rtx) == DEFINE_INSN
-		  || GET_CODE (return_rtx) == DEFINE_INSN_AND_SPLIT))
-	    {
-	      char line_name[20];
-	      const char *fn = (read_rtx_filename ? read_rtx_filename : "rtx");
-	      const char *slash;
-	      for (slash = fn; *slash; slash ++)
-		if (*slash == '/' || *slash == '\\' || *slash == ':')
-		  fn = slash + 1;
-	      obstack_1grow (&rtl_obstack, '*');
-	      obstack_grow (&rtl_obstack, fn, strlen (fn));
-	      sprintf (line_name, ":%d", read_rtx_lineno);
-	      obstack_grow (&rtl_obstack, line_name, strlen (line_name));
-	    }
-
-	  obstack_1grow (&rtl_obstack, 0);
-	  stringbuf = (char *) obstack_finish (&rtl_obstack);
-
-	  if (saw_paren)
-	    {
-	      c = read_skip_spaces (infile);
-	      if (c != ')')
-		fatal_expected_char (infile, ')', c);
-	    }
-	  XSTR (return_rtx, i) = stringbuf;
-	}
-	break;
-
-      case 'w':
-	read_name (tmp_char, infile);
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
-	tmp_wide = atoi (tmp_char);
-#else
-#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
-	tmp_wide = atol (tmp_char);
-#else
-	/* Prefer atoll over atoq, since the former is in the ISO C99 standard.
-	   But prefer not to use our hand-rolled function above either.  */
-#if defined(HAVE_ATOLL) || !defined(HAVE_ATOQ)
-	tmp_wide = atoll (tmp_char);
-#else
-	tmp_wide = atoq (tmp_char);
-#endif
-#endif
-#endif
-	XWINT (return_rtx, i) = tmp_wide;
-	break;
-
-      case 'i':
-      case 'n':
-	read_name (tmp_char, infile);
-	tmp_int = atoi (tmp_char);
-	XINT (return_rtx, i) = tmp_int;
-	break;
-
-      default:
-	fprintf (stderr,
-		 "switch format wrong in rtl.read_rtx(). format was: %c.\n",
-		 format_ptr[-1]);
-	fprintf (stderr, "\tfile position: %ld\n", ftell (infile));
-	abort ();
-      }
-
-  c = read_skip_spaces (infile);
-  if (c != ')')
-    fatal_expected_char (infile, ')', c);
-
-  return return_rtx;
-}
-
 #if defined ENABLE_RTL_CHECKING && (GCC_VERSION >= 2007)
 void
 rtl_check_failed_bounds (r, n, file, line, func)
@@ -1285,9 +681,10 @@ rtl_check_failed_bounds (r, n, file, line, func)
     int line;
     const char *func;
 {
-  error ("RTL check: access of elt %d of `%s' with last elt %d",
-	 n, GET_RTX_NAME (GET_CODE (r)), GET_RTX_LENGTH (GET_CODE (r))-1);
-  fancy_abort (file, line, func);
+  internal_error
+    ("RTL check: access of elt %d of `%s' with last elt %d in %s, at %s:%d",
+     n, GET_RTX_NAME (GET_CODE (r)), GET_RTX_LENGTH (GET_CODE (r)) - 1,
+     func, trim_filename (file), line);
 }
 
 void
@@ -1299,9 +696,10 @@ rtl_check_failed_type1 (r, n, c1, file, line, func)
     int line;
     const char *func;
 {
-  error ("RTL check: expected elt %d type '%c', have '%c' (rtx %s)",
-	 n, c1, GET_RTX_FORMAT (GET_CODE (r))[n], GET_RTX_NAME (GET_CODE (r)));
-  fancy_abort (file, line, func);
+  internal_error
+    ("RTL check: expected elt %d type '%c', have '%c' (rtx %s) in %s, at %s:%d",
+     n, c1, GET_RTX_FORMAT (GET_CODE (r))[n], GET_RTX_NAME (GET_CODE (r)),
+     func, trim_filename (file), line);
 }
 
 void
@@ -1314,10 +712,10 @@ rtl_check_failed_type2 (r, n, c1, c2, file, line, func)
     int line;
     const char *func;
 {
-  error ("RTL check: expected elt %d type '%c' or '%c', have '%c' (rtx %s)",
-	 n, c1, c2,
-	 GET_RTX_FORMAT (GET_CODE (r))[n], GET_RTX_NAME (GET_CODE(r)));
-  fancy_abort (file, line, func);
+  internal_error
+    ("RTL check: expected elt %d type '%c' or '%c', have '%c' (rtx %s) in %s, at %s:%d",
+     n, c1, c2, GET_RTX_FORMAT (GET_CODE (r))[n], GET_RTX_NAME (GET_CODE (r)),
+     func, trim_filename (file), line);
 }
 
 void
@@ -1328,9 +726,9 @@ rtl_check_failed_code1 (r, code, file, line, func)
     int line;
     const char *func;
 {
-  error ("RTL check: expected code `%s', have `%s'",
- 	 GET_RTX_NAME (code), GET_RTX_NAME (GET_CODE (r)));
-  fancy_abort (file, line, func);
+  internal_error ("RTL check: expected code `%s', have `%s' in %s, at %s:%d",
+		  GET_RTX_NAME (code), GET_RTX_NAME (GET_CODE (r)), func,
+		  trim_filename (file), line);
 }
 
 void
@@ -1341,10 +739,10 @@ rtl_check_failed_code2 (r, code1, code2, file, line, func)
     int line;
     const char *func;
 {
-  error ("RTL check: expected code `%s' or `%s', have `%s'",
- 	 GET_RTX_NAME (code1), GET_RTX_NAME (code2),
-	 GET_RTX_NAME (GET_CODE (r)));
-  fancy_abort (file, line, func);
+  internal_error
+    ("RTL check: expected code `%s' or `%s', have `%s' in %s, at %s:%d",
+     GET_RTX_NAME (code1), GET_RTX_NAME (code2), GET_RTX_NAME (GET_CODE (r)),
+     func, trim_filename (file), line);
 }
 
 /* XXX Maybe print the vector?  */
@@ -1356,8 +754,8 @@ rtvec_check_failed_bounds (r, n, file, line, func)
     int line;
     const char *func;
 {
-  error ("RTL check: access of elt %d of vector with last elt %d",
-	 n, GET_NUM_ELEM (r)-1);
-  fancy_abort (file, line, func);
+  internal_error
+    ("RTL check: access of elt %d of vector with last elt %d in %s, at %s:%d",
+     n, GET_NUM_ELEM (r) - 1, func, trim_filename (file), line);
 }
 #endif /* ENABLE_RTL_CHECKING */

@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Motorola 88000.
-   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
-   Free Software Foundation, Inc. 
+   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001 Free Software Foundation, Inc. 
    Contributed by Michael Tiemann (tiemann@mcc.com)
    Currently maintained by (gcc@dg-rtp.dg.com)
 
@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "tree.h"
@@ -40,6 +39,8 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 extern int flag_traditional;
 extern FILE *asm_out_file;
@@ -61,6 +62,23 @@ rtx m88k_compare_op0;		/* cmpsi operand 0 */
 rtx m88k_compare_op1;		/* cmpsi operand 1 */
 
 enum processor_type m88k_cpu;	/* target cpu */
+
+static void m88k_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void m88k_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void m88k_output_function_end_prologue PARAMS ((FILE *));
+static void m88k_output_function_begin_epilogue PARAMS ((FILE *));
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE m88k_output_function_prologue
+#undef TARGET_ASM_FUNCTION_END_PROLOGUE
+#define TARGET_ASM_FUNCTION_END_PROLOGUE m88k_output_function_end_prologue
+#undef TARGET_ASM_FUNCTION_BEGIN_EPILOGUE
+#define TARGET_ASM_FUNCTION_BEGIN_EPILOGUE m88k_output_function_begin_epilogue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE m88k_output_function_epilogue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Determine what instructions are needed to manufacture the integer VALUE
    in the given MODE.  */
@@ -363,7 +381,7 @@ legitimize_address (pic, orig, reg, scratch)
 	  if (GET_CODE (addr) == CONST_INT)
 	    {
 	      if (ADD_INT (addr))
-		return plus_constant_for_output (base, INTVAL (addr));
+		return plus_constant (base, INTVAL (addr));
 	      else if (! reload_in_progress && ! reload_completed)
 		addr = force_reg (Pmode, addr);
 	      /* We can't create any new registers during reload, so use the
@@ -1573,9 +1591,8 @@ output_file_start (file, f_options, f_len, W_options, W_len)
       && TARGET_SVR4)
     fprintf (file, "%s\n", REQUIRES_88110_ASM_OP);
   output_file_directive (file, main_input_filename);
-  /* Switch to the data section so that the coffsem symbol and the
-     gcc2_compiled. symbol aren't in the text section.  */
-  data_section ();
+  /* Switch to the data section so that the coffsem symbol
+     isn't in the text section.  */
   ASM_COFFSEM (file);
 
   if (TARGET_IDENTIFY_REVISION)
@@ -1607,7 +1624,7 @@ output_ascii (file, opcode, max, p, size)
      FILE *file;
      const char *opcode;
      int max;
-     const unsigned char *p;
+     const char *p;
      int size;
 {
   int i;
@@ -1618,7 +1635,7 @@ output_ascii (file, opcode, max, p, size)
   fprintf (file, "%s\"", opcode);
   for (i = 0; i < size; i++)
     {
-      register int c = p[i];
+      register int c = (unsigned char) p[i];
 
       if (num > max)
 	{
@@ -1777,7 +1794,8 @@ static int  prologue_marked;
   (((BYTES) + (STACK_UNIT_BOUNDARY - 1)) & ~(STACK_UNIT_BOUNDARY - 1))
 
 /* Establish the position of the FP relative to the SP.  This is done
-   either during FUNCTION_PROLOGUE or by INITIAL_ELIMINATION_OFFSET.  */
+   either during output_function_prologue() or by
+   INITIAL_ELIMINATION_OFFSET.  */
 
 void
 m88k_layout_frame ()
@@ -1931,10 +1949,10 @@ uses_arg_area_p ()
   return 0;
 }
 
-void
-m88k_begin_prologue (stream, size)
+static void
+m88k_output_function_prologue (stream, size)
      FILE *stream ATTRIBUTE_UNUSED;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   if (TARGET_OMIT_LEAF_FRAME_POINTER && ! quiet_flag && leaf_function_p ())
     fprintf (stderr, "$");
@@ -1942,8 +1960,8 @@ m88k_begin_prologue (stream, size)
   m88k_prologue_done = 1;	/* it's ok now to put out ln directives */
 }
 
-void
-m88k_end_prologue (stream)
+static void
+m88k_output_function_end_prologue (stream)
      FILE *stream;
 {
   if (TARGET_OCS_DEBUG_INFO && !prologue_marked)
@@ -2012,15 +2030,15 @@ m88k_expand_prologue ()
 }
 
 /* This function generates the assembly code for function exit,
-   on machines that need it.  Args are same as for FUNCTION_PROLOGUE.
+   on machines that need it.
 
    The function epilogue should not depend on the current stack pointer!
    It should use the frame pointer only, if there is a frame pointer.
    This is mandatory because of alloca; we also take advantage of it to
    omit stack adjustments before returning.  */
 
-void
-m88k_begin_epilogue (stream)
+static void
+m88k_output_function_begin_epilogue (stream)
      FILE *stream;
 {
   if (TARGET_OCS_DEBUG_INFO && !epilogue_marked && prologue_marked)
@@ -2030,10 +2048,10 @@ m88k_begin_epilogue (stream)
   epilogue_marked = 1;
 }
 
-void
-m88k_end_epilogue (stream, size)
+static void
+m88k_output_function_epilogue (stream, size)
      FILE *stream;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   rtx insn = get_last_insn ();
 
@@ -2594,24 +2612,20 @@ m88k_builtin_saveregs ()
   variable_args_p = 1;
 
   fixed = 0;
-  if (CONSTANT_P (current_function_arg_offset_rtx))
-    {
-      fixed = (XINT (current_function_arg_offset_rtx, 0)
-	       + argadj) / UNITS_PER_WORD;
-    }
+  if (GET_CODE (current_function_arg_offset_rtx) == CONST_INT)
+    fixed = ((INTVAL (current_function_arg_offset_rtx) + argadj)
+	     / UNITS_PER_WORD);
 
   /* Allocate the register space, and store it as the __va_reg member.  */
   addr = assign_stack_local (BLKmode, 8 * UNITS_PER_WORD, -1);
-  MEM_ALIAS_SET (addr) = get_varargs_alias_set ();
+  set_mem_alias_set (addr, get_varargs_alias_set ());
   RTX_UNCHANGING_P (addr) = 1;
   RTX_UNCHANGING_P (XEXP (addr, 0)) = 1;
 
   /* Now store the incoming registers.  */
   if (fixed < 8)
     {
-      dest = change_address (addr, Pmode,
-			     plus_constant (XEXP (addr, 0),
-					    fixed * UNITS_PER_WORD));
+      dest = adjust_address (addr, Pmode, fixed * UNITS_PER_WORD);
       move_block_from_reg (2 + fixed, dest, 8 - fixed,
 			   UNITS_PER_WORD * (8 - fixed));
 

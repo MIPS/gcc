@@ -21,7 +21,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hconfig.h"
 #include "system.h"
 
-#define DEFTREECODE(SYM, NAME, TYPE, LEN)   STRINGIFY(SYM),
+#define DEFTREECODE(SYM, NAME, TYPE, LEN)   STRINGX(SYM),
 
 const char *tree_codes[] = {
 #include "tree.def"
@@ -35,7 +35,7 @@ static void usage PARAMS ((void));
 static void
 usage ()
 {
-  fprintf (stderr,"Usage: gencheck\n");
+  fputs ("Usage: gencheck\n", stderr);
 }
 
 extern int main PARAMS ((int, char **));
@@ -57,13 +57,17 @@ main (argc, argv)
       return (1);
     }
 
-  printf ("/* This file is generated using gencheck. Do not edit. */\n");
+  puts ("/* This file is generated using gencheck. Do not edit. */\n");
+  puts ("#ifndef GCC_TREE_CHECK_H");
+  puts ("#define GCC_TREE_CHECK_H\n");
+
   for (i = 0; tree_codes[i]; i++)
     {
       printf ("#define %s_CHECK(t)\tTREE_CHECK (t, %s)\n",
 	      tree_codes[i], tree_codes[i]);
     }
 
+  puts ("\n#endif /* GCC_TREE_CHECK_H */");
   return 0;
 }
 
@@ -75,7 +79,7 @@ PTR
 xmalloc (nbytes)
   size_t nbytes;
 {
-  register PTR tmp = (PTR) malloc (nbytes);
+  register PTR tmp = (PTR) really_call_malloc (nbytes);
 
   if (!tmp)
     {

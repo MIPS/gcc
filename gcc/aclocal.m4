@@ -1,4 +1,17 @@
-Fdnl See whether we can include both string.h and strings.h.
+dnl See if stdbool.h properly defines bool and true/false.
+AC_DEFUN(gcc_AC_HEADER_STDBOOL,
+[AC_CACHE_CHECK([for working stdbool.h],
+  ac_cv_header_stdbool_h,
+[AC_TRY_COMPILE([#include <stdbool.h>],
+[bool foo = false;],
+ac_cv_header_stdbool_h=yes, ac_cv_header_stdbool_h=no)])
+if test $ac_cv_header_stdbool_h = yes; then
+  AC_DEFINE(HAVE_STDBOOL_H, 1,
+  [Define if you have a working <stdbool.h> header file.])
+fi
+])
+
+dnl See whether we can include both string.h and strings.h.
 AC_DEFUN(gcc_AC_HEADER_STRING,
 [AC_CACHE_CHECK([whether string.h and strings.h may both be included],
   gcc_cv_header_string,
@@ -57,8 +70,8 @@ done
 dnl Automatically generate config.h entries via autoheader.
 if test x = y ; then
   patsubst(translit([$1], [a-z], [A-Z]), [\w+],
-    AC_DEFINE([HAVE_DECL_\&], 1,
-      [Define to 1 if we found this declaration otherwise define to 0.]))dnl
+    [AC_DEFINE([HAVE_DECL_\&], 1,
+      [Define to 1 if we found this declaration otherwise define to 0.])])dnl
 fi
 ])
 
@@ -193,7 +206,20 @@ switch (0) case 0: case (sizeof(long double) >= sizeof(double)):;],
 gcc_cv_c_long_double=yes, gcc_cv_c_long_double=no)
 fi])
 if test $gcc_cv_c_long_double = yes; then
-  AC_DEFINE(HAVE_LONG_DOUBLE)
+  AC_DEFINE(HAVE_LONG_DOUBLE, 1, 
+      [Define if your compiler supports the \`long double' type.])
+fi
+])
+
+dnl Check whether _Bool is built-in.
+AC_DEFUN(gcc_AC_C__BOOL,
+[AC_CACHE_CHECK(for built-in _Bool, gcc_cv_c__bool,
+[AC_TRY_COMPILE(,
+[_Bool foo;],
+gcc_cv_c__bool=yes, gcc_cv_c__bool=no)
+])
+if test $gcc_cv_c__bool = yes; then
+  AC_DEFINE(HAVE__BOOL, 1, [Define if the \`_Bool' type is built-in.])
 fi
 ])
 
@@ -566,7 +592,6 @@ AC_DEFUN(AM_GNU_GETTEXT,
    AC_REQUIRE([AC_C_INLINE])dnl
    AC_REQUIRE([AC_TYPE_OFF_T])dnl
    AC_REQUIRE([AC_TYPE_SIZE_T])dnl
-   AC_REQUIRE([AC_FUNC_ALLOCA])dnl
 
    AC_CHECK_HEADERS([argz.h limits.h locale.h nl_types.h malloc.h string.h \
 unistd.h sys/param.h])
@@ -1111,7 +1136,9 @@ if test -n "[$]$1"; then
 [changequote(<<,>>)dnl
   ac_prog_version=`<<$>>$1 $3 2>&1 |
                    sed -n 's/^.*patsubst(<<$4>>,/,\/).*$/\1/p'`
+changequote([,])dnl
   echo "configure:__oline__: version of $2 is $ac_prog_version" >&AC_FD_CC
+changequote(<<,>>)dnl
   case $ac_prog_version in
     '')     gcc_cv_prog_$2_modern=no;;
     <<$5>>)
@@ -1122,5 +1149,323 @@ changequote([,])dnl
 ])
 else
   gcc_cv_prog_$2_modern=no
+fi
+])
+
+dnl Determine if enumerated bitfields are unsigned.   ISO C says they can 
+dnl be either signed or unsigned.
+dnl
+AC_DEFUN(gcc_AC_C_ENUM_BF_UNSIGNED,
+[AC_CACHE_CHECK(for unsigned enumerated bitfields, gcc_cv_enum_bf_unsigned,
+[AC_TRY_RUN(#include <stdlib.h>
+enum t { BLAH = 128 } ;
+struct s_t { enum t member : 8; } s ;
+int main(void)
+{            
+        s.member = BLAH;
+        if (s.member < 0) exit(1);
+        exit(0);
+
+}, gcc_cv_enum_bf_unsigned=yes, gcc_cv_enum_bf_unsigned=no, gcc_cv_enum_bf_unsigned=yes)])
+if test $gcc_cv_enum_bf_unsigned = yes; then
+  AC_DEFINE(ENUM_BITFIELDS_ARE_UNSIGNED, 1,
+    [Define if enumerated bitfields are treated as unsigned values.])
+fi])
+
+dnl Host type sizes probe.
+dnl By Kaveh R. Ghazi.  One typo fixed since.
+dnl
+AC_DEFUN([gcc_AC_COMPILE_CHECK_SIZEOF],
+[changequote(<<, >>)dnl
+dnl The name to #define.
+define(<<AC_TYPE_NAME>>, translit(sizeof_$1, [a-z *], [A-Z_P]))dnl
+dnl The cache variable name.
+define(<<AC_CV_NAME>>, translit(ac_cv_sizeof_$1, [ *], [_p]))dnl
+changequote([, ])dnl
+AC_MSG_CHECKING(size of $1)
+AC_CACHE_VAL(AC_CV_NAME,
+[for ac_size in 4 8 1 2 16 $3 ; do # List sizes in rough order of prevalence.
+  AC_TRY_COMPILE([#include "confdefs.h"
+#include <sys/types.h>
+$2
+], [switch (0) case 0: case (sizeof ($1) == $ac_size):;], AC_CV_NAME=$ac_size)
+  if test x$AC_CV_NAME != x ; then break; fi
+done
+])
+if test x$AC_CV_NAME = x ; then
+  AC_MSG_ERROR([cannot determine a size for $1])
+fi
+AC_MSG_RESULT($AC_CV_NAME)
+AC_DEFINE_UNQUOTED(AC_TYPE_NAME, $AC_CV_NAME, [The number of bytes in type $1])
+undefine([AC_TYPE_NAME])dnl
+undefine([AC_CV_NAME])dnl
+])
+
+dnl Probe number of bits in a byte.
+dnl Note C89 requires CHAR_BIT >= 8.
+dnl
+AC_DEFUN(gcc_AC_C_CHAR_BIT,
+[AC_CACHE_CHECK(for CHAR_BIT, gcc_cv_decl_char_bit,
+[AC_EGREP_CPP(found,
+[#ifdef HAVE_LIMITS_H
+#include <limits.h>
+#endif
+#ifdef CHAR_BIT
+found
+#endif], gcc_cv_decl_char_bit=yes, gcc_cv_decl_char_bit=no)
+])
+if test $gcc_cv_decl_char_bit = no; then
+  AC_CACHE_CHECK(number of bits in a byte, gcc_cv_c_nbby,
+[i=8
+ gcc_cv_c_nbby=
+ while test $i -lt 65; do
+   AC_TRY_COMPILE(,
+     [switch(0) {
+  case (unsigned char)((unsigned long)1 << $i) == ((unsigned long)1 << $i):
+  case (unsigned char)((unsigned long)1<<($i-1)) == ((unsigned long)1<<($i-1)):
+  ; }], 
+     [gcc_cv_c_nbby=$i; break])
+   i=`expr $i + 1`
+ done
+ test -z "$gcc_cv_c_nbby" && gcc_cv_c_nbby=failed
+])
+if test $gcc_cv_c_nbby = failed; then
+  AC_MSG_ERROR(cannot determine number of bits in a byte)
+else
+  AC_DEFINE_UNQUOTED(CHAR_BIT, $gcc_cv_c_nbby,
+  [Define as the number of bits in a byte, if \`limits.h' doesn't.])
+fi
+fi])
+
+dnl Checking for long long.
+dnl By Caolan McNamara <caolan@skynet.ie>
+dnl Added check for __int64, Zack Weinberg <zackw@stanford.edu>
+dnl
+AC_DEFUN([gcc_AC_C_LONG_LONG],
+[AC_CACHE_CHECK(for long long int, ac_cv_c_long_long,
+  [AC_TRY_COMPILE(,[long long int i;],
+         ac_cv_c_long_long=yes,
+         ac_cv_c_long_long=no)])
+  if test $ac_cv_c_long_long = yes; then
+    AC_DEFINE(HAVE_LONG_LONG, 1,
+      [Define if your compiler supports the \`long long' type.])
+  fi
+AC_CACHE_CHECK(for __int64, ac_cv_c___int64,
+  [AC_TRY_COMPILE(,[__int64 i;],
+	ac_cv_c___int64=yes,
+	ac_cv_c___int64=no)])
+  if test $ac_cv_c___int64 = yes; then
+    AC_DEFINE(HAVE___INT64, 1,
+      [Define if your compiler supports the \`__int64' type.])
+  fi
+])
+
+dnl Host character set probe.
+dnl The EBCDIC values match the table in config/i370/i370.c;
+dnl there are other versions of EBCDIC but GCC won't work with them.
+dnl
+AC_DEFUN([gcc_AC_C_CHARSET],
+[AC_CACHE_CHECK(execution character set, ac_cv_c_charset,
+  [AC_EGREP_CPP(ASCII,
+[#if '\n' == 0x0A && ' ' == 0x20 && '0' == 0x30 \
+   && 'A' == 0x41 && 'a' == 0x61 && '!' == 0x21
+ASCII
+#endif], ac_cv_c_charset=ASCII)
+  if test x${ac_cv_c_charset+set} != xset; then
+    AC_EGREP_CPP(EBCDIC,
+[#if '\n' == 0x15 && ' ' == 0x40 && '0' == 0xF0 \
+   && 'A' == 0xC1 && 'a' == 0x81 && '!' == 0x5A
+EBCDIC
+#endif], ac_cv_c_charset=EBCDIC)
+  fi
+  if test x${ac_cv_c_charset+set} != xset; then
+    ac_cv_c_charset=unknown
+  fi])
+if test $ac_cv_c_charset = unknown; then
+  AC_MSG_ERROR([*** Cannot determine host character set.])
+elif test $ac_cv_c_charset = EBCDIC; then
+  AC_DEFINE(HOST_EBCDIC, 1,
+  [Define if the host execution character set is EBCDIC.])
+fi])
+
+dnl Utility macro used by next two tests.
+dnl AC_EXAMINE_OBJECT(C source code,
+dnl	commands examining object file,
+dnl	[commands to run if compile failed]):
+dnl
+dnl Compile the source code to an object file; then convert it into a
+dnl printable representation.  All unprintable characters and
+dnl asterisks (*) are replaced by dots (.).  All white space is
+dnl deleted.  Newlines (ASCII 0x10) in the input are preserved in the
+dnl output, but runs of newlines are compressed to a single newline.
+dnl Finally, line breaks are forcibly inserted so that no line is
+dnl longer than 80 columns and the file ends with a newline.  The
+dnl result of all this processing is in the file conftest.dmp, which
+dnl may be examined by the commands in the second argument.
+dnl
+AC_DEFUN([gcc_AC_EXAMINE_OBJECT],
+[AC_LANG_SAVE
+AC_LANG_C
+dnl Next bit cribbed from AC_TRY_COMPILE.
+cat > conftest.$ac_ext <<EOF
+[#line __oline__ "configure"
+#include "confdefs.h"
+$1
+]EOF
+if AC_TRY_EVAL(ac_compile); then
+  od -c conftest.o |
+    sed ['s/^[0-7]*[ 	]*/ /
+	  s/\*/./g
+	  s/ \\n/*/g
+	  s/ [0-9][0-9][0-9]/./g
+	  s/  \\[^ ]/./g'] |
+    tr -d '
+ ' | tr -s '*' '
+' | fold | sed '$a\
+' > conftest.dmp
+  $2
+ifelse($3, , , else
+  $3
+)dnl
+fi
+rm -rf conftest*
+AC_LANG_RESTORE])
+
+dnl Host endianness probe.
+dnl This tests byte-within-word endianness.  GCC actually needs
+dnl to know word-within-larger-object endianness.  They are the
+dnl same on all presently supported hosts.
+dnl Differs from AC_C_BIGENDIAN in that it does not require
+dnl running a program on the host, and it defines the macro we
+dnl want to see.
+dnl
+AC_DEFUN([gcc_AC_C_COMPILE_ENDIAN],
+[AC_CACHE_CHECK(byte ordering, ac_cv_c_compile_endian,
+[ac_cv_c_compile_endian=unknown
+gcc_AC_EXAMINE_OBJECT([
+#ifdef HAVE_LIMITS_H
+# include <limits.h>
+#endif
+/* This structure must have no internal padding.  */
+  struct {
+    char prefix[sizeof "\nendian:" - 1];
+    short word;
+    char postfix[2];
+ } tester = {
+    "\nendian:",
+#if SIZEOF_SHORT == 4
+    ('A' << (CHAR_BIT * 3)) | ('B' << (CHAR_BIT * 2)) |
+#endif
+    ('A' << CHAR_BIT) | 'B',
+    'X', '\n'
+};],
+ [if   grep 'endian:AB' conftest.dmp >/dev/null 2>&1; then
+    ac_cv_c_compile_endian=big-endian
+  elif grep 'endian:BA' conftest.dmp >/dev/null 2>&1; then
+    ac_cv_c_compile_endian=little-endian
+  fi])
+])
+if test $ac_cv_c_compile_endian = unknown; then
+  AC_MSG_ERROR([*** unable to determine endianness])
+elif test $ac_cv_c_compile_endian = big-endian; then
+  AC_DEFINE(HOST_WORDS_BIG_ENDIAN, 1,
+  [Define if the host machine stores words of multi-word integers in
+   big-endian order.])
+fi
+])
+
+dnl Floating point format probe.
+dnl The basic concept is the same as the above: grep the object
+dnl file for an interesting string.  We have to watch out for
+dnl rounding changing the values in the object, however; this is
+dnl handled by ignoring the least significant byte of the float.
+dnl
+dnl Does not know about VAX G-float or C4x idiosyncratic format.
+dnl It does know about PDP-10 idiosyncratic format, but this is
+dnl not presently supported by GCC.  S/390 "binary floating point"
+dnl is in fact IEEE (but maybe we should have that in EBCDIC as well
+dnl as ASCII?)
+dnl
+AC_DEFUN([gcc_AC_C_FLOAT_FORMAT],
+[AC_CACHE_CHECK(floating point format, ac_cv_c_float_format,
+[gcc_AC_EXAMINE_OBJECT(
+[/* This will not work unless sizeof(double) == 8.  */
+extern char sizeof_double_must_be_8 [sizeof(double) == 8 ? 1 : -1];
+
+/* This structure must have no internal padding.  */
+struct possibility {
+  char prefix[8];
+  double candidate;
+  char postfix[8];
+};
+
+#define C(cand) { "\nformat:", cand, ":tamrof\n" }
+struct possibility table [] =
+{
+  C( 3.25724264705901305206e+01), /* @@IEEEFP - IEEE 754 */
+  C( 3.53802595280598432000e+18), /* D__float - VAX */
+  C( 5.32201830133125317057e-19), /* D.PDP-10 - PDP-10 - the dot is 0x13a */
+  C( 1.77977764695171661377e+10), /* IBMHEXFP - s/390 format, ascii */
+  C(-5.22995989424860458374e+10)  /* IBMHEXFP - s/390 format, EBCDIC */
+};],
+ [if   grep 'format:.@IEEEF.:tamrof' conftest.dmp >/dev/null 2>&1; then
+    ac_cv_c_float_format='IEEE (big-endian)'
+  elif grep 'format:.I@@PFE.:tamrof' conftest.dmp >/dev/null 2>&1; then
+    ac_cv_c_float_format='IEEE (big-endian)'
+  elif grep 'format:.FEEEI@.:tamrof' conftest.dmp >/dev/null 2>&1; then
+    ac_cv_c_float_format='IEEE (little-endian)'
+  elif grep 'format:.EFP@@I.:tamrof' conftest.dmp >/dev/null 2>&1; then
+    ac_cv_c_float_format='IEEE (little-endian)'
+  elif grep 'format:.__floa.:tamrof' conftest.dmp >/dev/null 2>&1; then
+    ac_cv_c_float_format='VAX D-float'
+  elif grep 'format:..PDP-1.:tamrof' conftest.dmp >/dev/null 2>&1; then
+    ac_cv_c_float_format='PDP-10'
+  elif grep 'format:.BMHEXF.:tamrof' conftest.dmp >/dev/null 2>&1; then
+    ac_cv_c_float_format='IBM 370 hex'
+  else
+    AC_MSG_ERROR(Unknown floating point format)
+  fi],
+  [AC_MSG_ERROR(compile failed)])
+])
+# IEEE is the default format.  If the float endianness isn't the same
+# as the integer endianness, we have to set FLOAT_WORDS_BIG_ENDIAN
+# (which is a tristate: yes, no, default).  This is only an issue with
+# IEEE; the other formats are only supported by a few machines each,
+# all with the same endianness.
+format=
+fbigend=
+case $ac_cv_c_float_format in
+    'IEEE (big-endian)' )
+	if test $ac_cv_c_compile_endian = little-endian; then
+	    fbigend=1
+	fi
+	;;
+    'IEEE (little-endian)' )
+	if test $ac_cv_c_compile_endian = big-endian; then
+	    fbigend=0
+	fi
+	;;
+    'VAX D-float' )
+	format=VAX_FLOAT_FORMAT
+	;;
+    'PDP-10' )
+	format=PDP10_FLOAT_FORMAT
+	;;
+    'IBM 370 hex' )
+	format=IBM_FLOAT_FORMAT
+	;;
+esac
+if test -n "$format"; then
+	AC_DEFINE_UNQUOTED(HOST_FLOAT_FORMAT, $format,
+  [Define to the floating point format of the host machine, if not IEEE.])
+fi
+if test -n "$fbigend"; then
+	AC_DEFINE_UNQUOTED(HOST_FLOAT_WORDS_BIG_ENDIAN, $fbigend,
+  [Define to 1 if the host machine stores floating point numbers in
+   memory with the word containing the sign bit at the lowest address,
+   or to 0 if it does it the other way around.
+
+   This macro should not be defined if the ordering is the same as for
+   multi-word integers.])
 fi
 ])

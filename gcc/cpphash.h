@@ -19,11 +19,12 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
    that need to be visible across files.  It's called cpphash.h for
    historical reasons.  */
 
-#ifndef __GCC_CPPHASH__
-#define __GCC_CPPHASH__
+#ifndef GCC_CPPHASH_H
+#define GCC_CPPHASH_H
 
-struct directive;		/* These are deliberately incomplete.  */
-struct htab;
+#include "hashtable.h"
+
+struct directive;		/* Deliberately incomplete.  */
 
 /* Test if a sign is valid within a preprocessing number.  */
 #define VALID_SIGN(c, prevc) \
@@ -72,29 +73,32 @@ struct cpp_pool
   unsigned int locks;
 };
 
-/* List of directories to look for include files in. */
-struct file_name_list
+/* List of directories to look for include files in.  */
+struct search_path
 {
-  struct file_name_list *next;
-  struct file_name_list *alloc; /* for the cache of
-				   current directory entries */
-  char *name;
-  unsigned int nlen;
+  struct search_path *next;
+
+  /* NOTE: NAME may not be null terminated for the case of the current
+     file's directory!  */
+  const char *name;
+  unsigned int len;
   /* We use these to tell if the directory mentioned here is a duplicate
-     of an earlier directory on the search path. */
+     of an earlier directory on the search path.  */
   ino_t ino;
   dev_t dev;
-  /* If the following is nonzero, it is a C-language system include
-     directory.  */
+  /* Non-zero if it is a system include directory.  */
   int sysp;
-  /* Mapping of file names for this directory.
-     Only used on MS-DOS and related platforms. */
+  /* Mapping of file names for this directory.  Only used on MS-DOS
+     and related platforms.  */
   struct file_name_map *name_map;
 };
 
 /* Multiple-include optimisation.  */
 enum mi_state {MI_FAILED = 0, MI_OUTSIDE};
 enum mi_ind {MI_IND_NONE = 0, MI_IND_NOT};
+
+/* #include types.  */
+enum include_type {IT_INCLUDE, IT_INCLUDE_NEXT, IT_IMPORT, IT_CMDLINE};
 
 typedef struct toklist toklist;
 struct toklist
@@ -180,9 +184,6 @@ struct cpp_buffer
   /* Filename specified with #line command.  */
   const char *nominal_fname;
 
-  /* Actual directory of this file, used only for "" includes */
-  struct file_name_list *actual_dir;
-
   /* Pointer into the include table.  Used for include_next and
      to record control macros. */
   struct include_file *inc;
@@ -225,8 +226,16 @@ struct cpp_buffer
      containing files that matches the current status.  */
   unsigned char include_stack_listed;
 
+  /* Nonzero means that the directory to start searching for ""
+     include files has been calculated and stored in "dir" below.  */
+  unsigned char search_cached;
+
   /* Buffer type.  */
   ENUM_BITFIELD (cpp_buffer_type) type : 8;
+
+  /* The directory of the this buffer's file.  Its NAME member is not
+     allocated, so we don't need to worry about freeing it.  */
+  struct search_path dir;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -291,15 +300,8 @@ struct cpp_reader
   /* Current depth in #include directives.  */
   unsigned int include_depth;
 
-  /* Hash table of macros and assertions.  See cpphash.c.  */
-  struct htab *hashtab;
-
   /* Tree of other included files.  See cppfiles.c.  */
   struct splay_tree_s *all_include_files;
-
-  /* Chain of `actual directory' file_name_list entries, for ""
-     inclusion.  */
-  struct file_name_list *actual_dirs;
 
   /* Current maximum length of directory names in the search path
      for include files.  (Altered as we get more of them.)  */
@@ -314,11 +316,11 @@ struct cpp_reader
 
   /* Obstack holding all macro hash nodes.  This never shrinks.
      See cpphash.c */
-  struct obstack *hash_ob;
+  struct obstack hash_ob;
 
   /* Obstack holding buffer and conditional structures.  This is a
-     real stack.  See cpplib.c */
-  struct obstack *buffer_ob;
+     real stack.  See cpplib.c.  */
+  struct obstack buffer_ob;
 
   /* Pragma table - dynamic, because a library user can add to the
      list of recognized pragmas.  */
@@ -326,6 +328,9 @@ struct cpp_reader
 
   /* Call backs.  */
   struct cpp_callbacks cb;
+
+  /* Identifier hash table.  */ 
+  struct ht *hash_table;
 
   /* User visible options.  */
   struct cpp_options opts;
@@ -337,12 +342,15 @@ struct cpp_reader
   /* We're printed a warning recommending against using #import.  */
   unsigned char import_warning;
 
-  /* True after cpp_start_read completes.  Used to inhibit some
-     warnings while parsing the command line.  */
-  unsigned char done_initializing;
-
   /* True if we are skipping a failed conditional group.  */
   unsigned char skipping;
+
+  /* Whether to print our version number.  Done this way so
+     we don't get it twice for -v -version.  */
+  unsigned char print_version;
+
+  /* Whether cpplib owns the hashtable.  */
+  unsigned char our_hashtable;
 };
 
 /* Character classes.  Based on the more primitive macros in safe-ctype.h.
@@ -374,19 +382,14 @@ extern unsigned char _cpp_trigraph_map[UCHAR_MAX + 1];
 
 /* Macros.  */
 
-#define CPP_PREV_BUFFER(BUFFER) ((BUFFER)->prev)
 #define CPP_PRINT_DEPS(PFILE) CPP_OPTION (PFILE, print_deps)
 #define CPP_IN_SYSTEM_HEADER(PFILE) \
   (CPP_BUFFER (PFILE) && CPP_BUFFER (PFILE)->sysp)
 #define CPP_PEDANTIC(PF) CPP_OPTION (PF, pedantic)
 #define CPP_WTRADITIONAL(PF) CPP_OPTION (PF, warn_traditional)
 
-/* Hash step.  The hash calculation is duplicated in cpp_lookup and
-   parse_name.  */
-#define HASHSTEP(r, c) ((r) * 67 + (c - 113));
-
 /* In cpperror.c  */
-enum error_type { WARNING = 0, PEDWARN, ERROR, FATAL, ICE };
+enum error_type { WARNING = 0, WARNING_SYSHDR, PEDWARN, ERROR, FATAL, ICE };
 extern int _cpp_begin_message PARAMS ((cpp_reader *, enum error_type,
 				       const char *, const cpp_lexer_pos *));
 
@@ -400,18 +403,17 @@ extern void _cpp_push_token		PARAMS ((cpp_reader *, const cpp_token *,
 						 const cpp_lexer_pos *));
 
 /* In cpphash.c */
-extern void _cpp_init_hashtable		PARAMS ((cpp_reader *));
-extern void _cpp_cleanup_hashtable	PARAMS ((cpp_reader *));
-extern cpp_hashnode *_cpp_lookup_with_hash PARAMS ((cpp_reader*, size_t,
-						    unsigned int));
+extern void _cpp_init_hashtable		PARAMS ((cpp_reader *, hash_table *));
+extern void _cpp_destroy_hashtable	PARAMS ((cpp_reader *));
 
 /* In cppfiles.c */
 extern void _cpp_fake_include		PARAMS ((cpp_reader *, const char *));
 extern void _cpp_never_reread		PARAMS ((struct include_file *));
-extern void _cpp_simplify_pathname	PARAMS ((char *));
+extern char *_cpp_simplify_pathname	PARAMS ((char *));
 extern int _cpp_read_file		PARAMS ((cpp_reader *, const char *));
-extern void _cpp_execute_include	PARAMS ((cpp_reader *,
-						 const cpp_token *, int, int));
+extern int _cpp_execute_include		PARAMS ((cpp_reader *,
+						 const cpp_token *,
+						 enum include_type));
 extern int _cpp_compare_file_date       PARAMS ((cpp_reader *,
 						 const cpp_token *));
 extern void _cpp_report_missing_guards	PARAMS ((cpp_reader *));
@@ -441,8 +443,7 @@ extern int _cpp_test_assertion PARAMS ((cpp_reader *, int *));
 extern int _cpp_handle_directive PARAMS ((cpp_reader *, int));
 extern void _cpp_define_builtin	PARAMS ((cpp_reader *, const char *));
 extern void _cpp_do__Pragma	PARAMS ((cpp_reader *));
-extern void _cpp_init_stacks	PARAMS ((cpp_reader *));
-extern void _cpp_cleanup_stacks	PARAMS ((cpp_reader *));
+extern void _cpp_init_directives PARAMS ((cpp_reader *));
 extern void _cpp_init_internal_pragmas PARAMS ((cpp_reader *));
 extern void _cpp_do_file_change PARAMS ((cpp_reader *, enum cpp_fc_reason,
 					 const char *, unsigned int));
@@ -513,4 +514,4 @@ ufputs (s, f)
   return fputs ((const char *)s, f);
 }
 
-#endif
+#endif /* ! GCC_CPPHASH_H */

@@ -1131,8 +1131,8 @@
   operands[5] = addr0;
   operands[6] = addr1;
 
-  operands[0] = change_address (operands[0], VOIDmode, addr0);
-  operands[1] = change_address (operands[1], VOIDmode, addr1);
+  operands[0] = replace_equiv_address (operands[0], VOIDmode, addr0);
+  operands[1] = replace_equiv_address (operands[1], VOIDmode, addr1);
 }")
 
 (define_insn ""
@@ -1258,7 +1258,7 @@
   "
 {
 	operands[2] = gen_reg_rtx (HImode);
-	operands[3] = gen_rtx_SUBREG (QImode, operands[2], 1);
+	operands[3] = gen_rtx_SUBREG (QImode, operands[2], GET_MODE_SIZE (QImode));
 }")
 
 ;;(define_insn "extendqihi2"
@@ -1308,7 +1308,7 @@
   "
 {
 	operands[2] = gen_reg_rtx (HImode);
-	operands[3] = gen_rtx_SUBREG (QImode, operands[2], 1);
+	operands[3] = gen_rtx_SUBREG (QImode, operands[2], GET_MODE_SIZE (QImode));
 }")
 
 
@@ -1467,7 +1467,7 @@
 	    rtx stack_slot;
 	    
 	    stack_slot = assign_stack_temp (QImode, GET_MODE_SIZE(QImode), 0);
-	    stack_slot = change_address (stack_slot, VOIDmode, XEXP (stack_slot, 0));
+	    stack_slot = validize_mem (stack_slot);
 	    emit_move_insn (stack_slot, operands[2]);
 	    operands[2] = stack_slot;
 	  }
@@ -1592,7 +1592,7 @@
 	      rtx stack_slot;
 	    
 	      stack_slot = assign_stack_temp (QImode, GET_MODE_SIZE(QImode), 0);
-	      stack_slot = change_address (stack_slot, VOIDmode, XEXP (stack_slot, 0));
+	      stack_slot = validize_mem (stack_slot);
 	      emit_move_insn (stack_slot, operands[2]);
 	      operands[2] = stack_slot;
 	    }
@@ -1729,16 +1729,18 @@
 	emit_barrier ();
 	emit_label (label1);
 
-	if (GET_CODE(operands[2]) != MEM)
+	if (GET_CODE (operands[2]) != MEM)
 	  {
 	    rtx stack_slot;
 	    
 	    stack_slot = assign_stack_temp (QImode, GET_MODE_SIZE(QImode), 0);
-	    stack_slot = change_address (stack_slot, VOIDmode, XEXP (stack_slot, 0));
+	    stack_slot = validize_mem (stack_slot);
 	    emit_move_insn (stack_slot, operands[2]);
 	    operands[2] = stack_slot;
 	  }
-	emit_insn (gen_match_ashlhi3_nobmu (operands[0], operands[1], operands[2]));
+
+	emit_insn (gen_match_ashlhi3_nobmu (operands[0], operands[1],
+					    operands[2]));
 	emit_label (label2);
 	DONE;
 #endif

@@ -268,10 +268,6 @@ enum direction {none, upward, downward};  /* Value has this type.  */
    A few optabs, such as move_optab and cmp_optab, are used
    by special code.  */
 
-/* Everything that uses expr.h needs to define enum insn_code
-   but we don't list it in the Makefile dependencies just for that.  */
-#include "insn-codes.h"
-
 typedef struct optab
 {
   enum rtx_code code;
@@ -283,16 +279,7 @@ typedef struct optab
 
 /* Given an enum insn_code, access the function to construct
    the body of that kind of insn.  */
-#ifdef FUNCTION_CONVERSION_BUG
-/* Some compilers fail to convert a function properly to a
-   pointer-to-function when used as an argument.
-   So produce the pointer-to-function directly.
-   Luckily, these compilers seem to work properly when you
-   call the pointer-to-function.  */
-#define GEN_FCN(CODE) (insn_data[(int) (CODE)].genfun)
-#else
 #define GEN_FCN(CODE) (*insn_data[(int) (CODE)].genfun)
-#endif
 
 /* Enumeration of valid indexes into optab_table.  */
 enum optab_index
@@ -493,20 +480,19 @@ enum libfunc_index
   LTI_trunctfdf2,
 
   LTI_memcpy,
+  LTI_memmove,
   LTI_bcopy,
   LTI_memcmp,
   LTI_bcmp,
   LTI_memset,
   LTI_bzero,
 
-  LTI_throw,
-  LTI_rethrow,
-  LTI_sjthrow,
-  LTI_sjpopnthrow,
-  LTI_terminate,
+  LTI_unwind_resume,
+  LTI_eh_personality,
   LTI_setjmp,
   LTI_longjmp,
-  LTI_eh_rtime_match,
+  LTI_unwind_sjlj_register,
+  LTI_unwind_sjlj_unregister,
 
   LTI_eqhf2,
   LTI_nehf2,
@@ -626,20 +612,20 @@ extern rtx libfunc_table[LTI_MAX];
 #define trunctfdf2_libfunc	(libfunc_table[LTI_trunctfdf2])
 
 #define memcpy_libfunc	(libfunc_table[LTI_memcpy])
+#define memmove_libfunc	(libfunc_table[LTI_memmove])
 #define bcopy_libfunc	(libfunc_table[LTI_bcopy])
 #define memcmp_libfunc	(libfunc_table[LTI_memcmp])
 #define bcmp_libfunc	(libfunc_table[LTI_bcmp])
 #define memset_libfunc	(libfunc_table[LTI_memset])
 #define bzero_libfunc	(libfunc_table[LTI_bzero])
 
-#define throw_libfunc	(libfunc_table[LTI_throw])
-#define rethrow_libfunc	(libfunc_table[LTI_rethrow])
-#define sjthrow_libfunc	(libfunc_table[LTI_sjthrow])
-#define sjpopnthrow_libfunc	(libfunc_table[LTI_sjpopnthrow])
-#define terminate_libfunc	(libfunc_table[LTI_terminate])
+#define unwind_resume_libfunc	(libfunc_table[LTI_unwind_resume])
+#define eh_personality_libfunc	(libfunc_table[LTI_eh_personality])
 #define setjmp_libfunc	(libfunc_table[LTI_setjmp])
 #define longjmp_libfunc	(libfunc_table[LTI_longjmp])
-#define eh_rtime_match_libfunc	(libfunc_table[LTI_eh_rtime_match])
+#define unwind_sjlj_register_libfunc (libfunc_table[LTI_unwind_sjlj_register])
+#define unwind_sjlj_unregister_libfunc \
+  (libfunc_table[LTI_unwind_sjlj_unregister])
 
 #define eqhf2_libfunc	(libfunc_table[LTI_eqhf2])
 #define nehf2_libfunc	(libfunc_table[LTI_nehf2])
@@ -855,8 +841,8 @@ int can_conditionally_move_p PARAMS ((enum machine_mode mode));
 extern rtx gen_add2_insn PARAMS ((rtx, rtx));
 extern rtx gen_sub2_insn PARAMS ((rtx, rtx));
 extern rtx gen_move_insn PARAMS ((rtx, rtx));
-extern int have_add2_insn PARAMS ((enum machine_mode));
-extern int have_sub2_insn PARAMS ((enum machine_mode));
+extern int have_add2_insn PARAMS ((rtx, rtx));
+extern int have_sub2_insn PARAMS ((rtx, rtx));
 
 /* Return the INSN_CODE to use for an extend operation.  */
 extern enum insn_code can_extend_p PARAMS ((enum machine_mode,
@@ -918,10 +904,12 @@ extern rtx gen_cond_trap PARAMS ((enum rtx_code, rtx, rtx, rtx));
 /* Functions from builtins.c:  */
 #ifdef TREE_CODE
 extern rtx expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
-extern tree expand_tree_builtin PARAMS ((tree, tree, tree));
 extern void std_expand_builtin_va_start PARAMS ((int, tree, rtx));
 extern rtx std_expand_builtin_va_arg PARAMS ((tree, tree));
 extern rtx expand_builtin_va_arg PARAMS ((tree, tree));
+extern void default_init_builtins PARAMS ((void));
+extern rtx default_expand_builtin PARAMS ((tree, rtx, rtx,
+					   enum machine_mode, int));
 #endif
 
 extern void expand_builtin_setjmp_setup PARAMS ((rtx, rtx));
@@ -1039,9 +1027,6 @@ extern rtx emit_move_insn_1 PARAMS ((rtx, rtx));
 /* Push a block of length SIZE (perhaps variable)
    and return an rtx to address the beginning of the block.  */
 extern rtx push_block PARAMS ((rtx, int, int));
-
-/* Make an operand to push something on the stack.  */
-extern rtx gen_push_operand PARAMS ((void));
 
 #ifdef TREE_CODE
 /* Generate code to push something onto the stack, given its mode and type.  */
@@ -1165,8 +1150,29 @@ extern rtx memory_address_noforce PARAMS ((enum machine_mode, rtx));
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address changed to ADDR.
    (VOIDmode means don't change the mode.
-   NULL for ADDR means don't change the address.)  */
-extern rtx change_address PARAMS ((rtx, enum machine_mode, rtx));
+   NULL for ADDR means don't change the address.)
+   VALIDATE is nonzero if the returned memory location is required to be
+   valid.  */
+extern rtx change_address_1 PARAMS ((rtx, enum machine_mode, rtx, int));
+
+#define change_address(MEMREF, MODE, ADDR) \
+  change_address_1 (MEMREF, MODE, ADDR, 1)
+
+/* Return a memory reference like MEMREF, but with its mode changed
+   to MODE and its address offset by OFFSET bytes.  */
+extern rtx adjust_address PARAMS ((rtx, enum machine_mode, HOST_WIDE_INT));
+
+/* Likewise, but the reference is not required to be valid.  */
+extern rtx adjust_address_nv PARAMS ((rtx, enum machine_mode, HOST_WIDE_INT));
+
+/* Return a memory reference like MEMREF, but with its address changed to
+   ADDR.  The caller is asserting that the actual piece of memory pointed
+   to is the same, just the form of the address is being changed, such as
+   by putting something into a register.  */
+extern rtx replace_equiv_address PARAMS ((rtx, rtx));
+
+/* Likewise, but the reference is not required to be valid.  */
+extern rtx replace_equiv_address_nv PARAMS ((rtx, rtx));
 
 /* Return a memory reference like MEMREF, but which is known to have a
    valid address.  */
@@ -1186,9 +1192,6 @@ extern void set_mem_attributes PARAMS ((rtx, tree, int));
 
 /* Assemble the static constant template for function entry trampolines.  */
 extern rtx assemble_trampoline_template PARAMS ((void));
-
-/* Return 1 if two rtx's are equivalent in structure and elements.  */
-extern int rtx_equal_p PARAMS ((rtx, rtx));
 
 /* Given rtx, return new rtx whose address won't be affected by
    any side effects.  It has been copied to a new temporary reg.  */

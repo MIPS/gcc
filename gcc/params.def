@@ -24,14 +24,16 @@ Boston, MA 02111-1307, USA.
 /* This file contains definitions for language-independent
    parameters.  The DEFPARAM macro takes 4 arguments:
 
-     - The enumeral corresonding to this parameter.
+     - The enumeral corresponding to this parameter.
 
      - The name that can be used to set this parameter using the 
        command-line option `--param <name>=<value>'.
 
      - A help string explaining how the parameter is used.
 
-     - A default value for the parameter.  */
+     - A default value for the parameter.
+
+   Be sure to add an entry to invoke.texi summarizing the parameter.  */
 
 /* The maximum number of instructions accepted for inlining a
    function.  Increasing values mean more agressive inlining.
@@ -44,6 +46,39 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS,
 	  "The maximum number of instructions in a function that is eligible for inlining",
 	  10000)
 
+/* The maximum number of instructions to consider when looking for an
+   instruction to fill a delay slot.  If more than this arbitrary
+   number of instructions is searched, the time savings from filling
+   the delay slot will be minimal so stop searching.  Increasing
+   values mean more aggressive optimization, making the compile time
+   increase with probably small improvement in executable run time.  */
+DEFPARAM (PARAM_MAX_DELAY_SLOT_INSN_SEARCH,
+	  "max-delay-slot-insn-search",
+	  "The maximum number of instructions to consider to fill a delay slot",
+	  100)
+
+/* When trying to fill delay slots, the maximum number of instructions
+   to consider when searching for a block with valid live register
+   information.  Increasing this arbitrarily chosen value means more
+   aggressive optimization, increasing the compile time.  This
+   parameter should be removed when the delay slot code is rewritten
+   to maintain the control-flow graph.  */
+DEFPARAM(PARAM_MAX_DELAY_SLOT_LIVE_SEARCH,
+	 "max-delay-slot-live-search",
+	 "The maximum number of instructions to consider to find accurate live register information",
+	 333)
+
+/* The GCSE optimization will be disabled if it would require
+   significantly more memory than this value.  */
+DEFPARAM(PARAM_MAX_GCSE_MEMORY,
+	 "max-gcse-memory",
+	 "The maximum amount of memory to be allocated by GCSE",
+	 50 * 1024 * 1024)
+/* The number of repetitions of copy/const prop and PRE to run. */
+DEFPARAM(PARAM_MAX_GCSE_PASSES,
+	"max-gcse-passes",
+	"The maximum number of passes to make when doing GCSE",
+	1)
 /*
 Local variables:
 mode:c

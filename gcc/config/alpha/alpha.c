@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000 Free Software Foundation, Inc. 
+   2000, 2001 Free Software Foundation, Inc. 
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
@@ -43,6 +42,9 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "tm_p.h"
+#include "integrate.h"
+#include "target.h"
+#include "target-def.h"
 
 /* External data.  */
 extern int rtx_equal_function_value_matters;
@@ -115,12 +117,6 @@ static void alpha_sa_mask
   PARAMS ((unsigned long *imaskP, unsigned long *fmaskP));
 static int alpha_does_function_need_gp
   PARAMS ((void));
-static void alpha_init_machine_status
-  PARAMS ((struct function *p));
-static void alpha_mark_machine_status
-  PARAMS ((struct function *p));
-static void alpha_free_machine_status
-  PARAMS ((struct function *p));
 static int alpha_ra_ever_killed
   PARAMS ((void));
 static rtx set_frame_related_p
@@ -133,9 +129,11 @@ static void alpha_emit_xfloating_libcall
   PARAMS ((const char *, rtx, rtx[], int, rtx));
 static rtx alpha_emit_xfloating_compare
   PARAMS ((enum rtx_code, rtx, rtx));
+static void alpha_output_function_end_prologue
+  PARAMS ((FILE *));
 
 /* Get the number of args of a function in one of two ways.  */
-#ifdef OPEN_VMS
+#if TARGET_ABI_OPEN_VMS
 #define NUM_ARGS current_function_args_info.num_args
 #else
 #define NUM_ARGS current_function_args_info
@@ -143,6 +141,18 @@ static rtx alpha_emit_xfloating_compare
 
 #define REG_PV 27
 #define REG_RA 26
+
+/* Initialize the GCC target structure.  */
+#if TARGET_ABI_OPEN_VMS
+   static int vms_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
+#  undef TARGET_VALID_DECL_ATTRIBUTE
+#  define TARGET_VALID_DECL_ATTRIBUTE vms_valid_decl_attribute_p
+#endif
+
+#undef TARGET_ASM_FUNCTION_END_PROLOGUE
+#define TARGET_ASM_FUNCTION_END_PROLOGUE alpha_output_function_end_prologue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Parse target option strings. */
 
@@ -343,13 +353,21 @@ override_options ()
   if (!g_switch_set)
     g_switch_value = 8;
 
+  /* Align labels and loops for optimal branching.  */
+  /* ??? Kludge these by not doing anything if we don't optimize and also if
+     we are writing ECOFF symbols to work around a bug in DEC's assembler. */
+  if (optimize > 0 && write_symbols != SDB_DEBUG)
+    {
+      if (align_loops <= 0)
+	align_loops = 16;
+      if (align_jumps <= 0)
+	align_jumps = 16;
+    }
+  if (align_functions <= 0)
+    align_functions = 16;
+
   /* Acquire a unique set number for our register saves and restores.  */
   alpha_sr_alias_set = new_alias_set ();
-
-  /* Set up function hooks.  */
-  init_machine_status = alpha_init_machine_status;
-  mark_machine_status = alpha_mark_machine_status;
-  free_machine_status = alpha_free_machine_status;
 }
 
 /* Returns 1 if VALUE is a mask that contains full bytes of zero or ones.  */
@@ -722,9 +740,17 @@ call_operand (op, mode)
   if (mode != Pmode)
     return 0;
 
-  return (GET_CODE (op) == SYMBOL_REF
-	  || (GET_CODE (op) == REG
-	      && (TARGET_OPEN_VMS || TARGET_WINDOWS_NT || REGNO (op) == 27)));
+  if (GET_CODE (op) == SYMBOL_REF)
+    return 1;
+  if (GET_CODE (op) == REG)
+    {
+      if (TARGET_ABI_OSF)
+	return REGNO (op) == 27;
+      else
+	return 1;
+    }
+
+  return 0;
 }
 
 /* Return 1 if OP is a valid Alpha comparison operator.  Here we know which
@@ -1041,10 +1067,67 @@ addition_operation (op, mode)
 int
 direct_return ()
 {
-  return (! TARGET_OPEN_VMS && reload_completed && alpha_sa_size () == 0
+  return (! TARGET_ABI_OPEN_VMS
+	  && reload_completed
+	  && alpha_sa_size () == 0
 	  && get_frame_size () == 0
 	  && current_function_outgoing_args_size == 0
 	  && current_function_pretend_args_size == 0);
+}
+
+/* Return the ADDR_VEC associated with a tablejump insn.  */
+
+rtx
+alpha_tablejump_addr_vec (insn)
+     rtx insn;
+{
+  rtx tmp;
+
+  tmp = JUMP_LABEL (insn);
+  if (!tmp)
+    return NULL_RTX;
+  tmp = NEXT_INSN (tmp);
+  if (!tmp)
+    return NULL_RTX;
+  if (GET_CODE (tmp) == JUMP_INSN
+      && GET_CODE (PATTERN (tmp)) == ADDR_DIFF_VEC)
+    return PATTERN (tmp);
+  return NULL_RTX;
+}
+
+/* Return the label of the predicted edge, or CONST0_RTX if we don't know.  */
+
+rtx
+alpha_tablejump_best_label (insn)
+     rtx insn;
+{
+  rtx jump_table = alpha_tablejump_addr_vec (insn);
+  rtx best_label = NULL_RTX;
+
+  /* ??? Once the CFG doesn't keep getting completely rebuilt, look
+     there for edge frequency counts from profile data.  */
+
+  if (jump_table)
+    {
+      int n_labels = XVECLEN (jump_table, 1);
+      int best_count = -1;
+      int i, j;
+
+      for (i = 0; i < n_labels; i++)
+	{
+	  int count = 1;
+
+	  for (j = i + 1; j < n_labels; j++)
+	    if (XEXP (XVECEXP (jump_table, 1, i), 0)
+		== XEXP (XVECEXP (jump_table, 1, j), 0))
+	      count++;
+
+	  if (count > best_count)
+	    best_count = count, best_label = XVECEXP (jump_table, 1, i);
+	}
+    }
+
+  return best_label ? best_label : const0_rtx;
 }
 
 /* REF is an alignable memory location.  Place an aligned SImode
@@ -1084,7 +1167,7 @@ get_aligned_mem (ref, paligned_mem, pbitnum)
 
   /* Sadly, we cannot use alias sets here because we may overlap other
      data in a different alias set.  */
-  MEM_ALIAS_SET (*paligned_mem) = 0;
+  set_mem_alias_set (*paligned_mem, 0);
 
   *pbitnum = GEN_INT ((offset & 3) * 8);
 }
@@ -1211,7 +1294,6 @@ alpha_set_memflags_1 (x, in_struct_p, volatile_p, unchanging_p)
 	 are the only thing we would be able to differentiate anyway,
 	 there does not seem to be any point in convoluting the early
 	 out of the alias check.  */
-      /* MEM_ALIAS_SET (x) = alias_set; */
       break;
 
     default:
@@ -1678,7 +1760,7 @@ alpha_emit_conditional_branch (code)
   if (alpha_compare.fp_p)
     {
       cmp_mode = DFmode;
-      if (flag_fast_math)
+      if (flag_unsafe_math_optimizations)
 	{
 	  /* When we are not as concerned about non-finite values, and we
 	     are comparing against zero, we can branch directly.  */
@@ -1879,7 +1961,7 @@ alpha_emit_conditional_move (cmp, mode)
     = (GET_MODE (op0) == VOIDmode ? DImode : GET_MODE (op0));
   enum machine_mode cmp_op_mode = fp_p ? DFmode : DImode;
   enum machine_mode cmov_mode = VOIDmode;
-  int local_fast_math = flag_fast_math;
+  int local_fast_math = flag_unsafe_math_optimizations;
   rtx tem;
 
   /* Zero the operands.  */
@@ -2139,7 +2221,7 @@ alpha_lookup_xfloating_lib_func (code)
      knowledge of the G_floating routines.  */
   if (TARGET_FLOAT_VAX)
     {
-      if (TARGET_OPEN_VMS)
+      if (TARGET_ABI_OPEN_VMS)
 	{
 	  if (code == FLOAT_EXTEND)
 	    return "OTS$CVT_FLOAT_G_X";
@@ -2155,7 +2237,7 @@ alpha_lookup_xfloating_lib_func (code)
 	}
     }
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     ops = vms_xfloating_ops;
   else
     ops = osf_xfloating_ops;
@@ -2324,10 +2406,10 @@ alpha_emit_xfloating_compare (code, op0, op1)
   operands[1] = op1;
   out = gen_reg_rtx (DImode);
 
-  /* ??? Strange equiv cause what's actually returned is -1,0,1, not a
-     proper boolean value.  */
-  alpha_emit_xfloating_libcall (func, out, operands, 2, 
-				gen_rtx_COMPARE (TFmode, op0, op1));
+  /* ??? Strange mode for equiv because what's actually returned
+     is -1,0,1, not a proper boolean value.  */
+  alpha_emit_xfloating_libcall (func, out, operands, 2,
+				gen_rtx_fmt_ee (code, CCmode, op0, op1));
 
   return out;
 }
@@ -2383,9 +2465,8 @@ alpha_split_tfmode_pair (operands)
     }
   else if (GET_CODE (operands[1]) == MEM)
     {
-      operands[3] = change_address (operands[1], DImode,
-				    plus_constant (XEXP (operands[1], 0), 8));
-      operands[2] = change_address (operands[1], DImode, NULL_RTX);
+      operands[3] = adjust_address (operands[1], DImode, 8);
+      operands[2] = adjust_address (operands[1], DImode, 0);
     }
   else if (operands[1] == CONST0_RTX (TFmode))
     operands[2] = operands[3] = const0_rtx;
@@ -2399,9 +2480,8 @@ alpha_split_tfmode_pair (operands)
     }
   else if (GET_CODE (operands[0]) == MEM)
     {
-      operands[1] = change_address (operands[0], DImode,
-				    plus_constant (XEXP (operands[0], 0), 8));
-      operands[0] = change_address (operands[0], DImode, NULL_RTX);
+      operands[1] = adjust_address (operands[0], DImode, 8);
+      operands[0] = adjust_address (operands[0], DImode, 0);
     }
   else
     abort ();
@@ -2503,7 +2583,7 @@ alpha_expand_unaligned_load (tgt, mem, size, ofs, sign)
 			gen_rtx_AND (DImode, 
 				     plus_constant (XEXP (mem, 0), ofs),
 				     GEN_INT (-8)));
-  MEM_ALIAS_SET (tmp) = 0;
+  set_mem_alias_set (tmp, 0);
   emit_move_insn (meml, tmp);
 
   tmp = change_address (mem, DImode,
@@ -2511,7 +2591,7 @@ alpha_expand_unaligned_load (tgt, mem, size, ofs, sign)
 				     plus_constant (XEXP (mem, 0),
 						    ofs + size - 1),
 				     GEN_INT (-8)));
-  MEM_ALIAS_SET (tmp) = 0;
+  set_mem_alias_set (tmp, 0);
   emit_move_insn (memh, tmp);
 
   if (sign && size == 2)
@@ -2584,14 +2664,14 @@ alpha_expand_unaligned_store (dst, src, size, ofs)
 			 gen_rtx_AND (DImode, 
 				      plus_constant (XEXP (dst, 0), ofs),
 				      GEN_INT (-8)));
-  MEM_ALIAS_SET (meml) = 0;
+  set_mem_alias_set (meml, 0);
 
   memh = change_address (dst, DImode,
 			 gen_rtx_AND (DImode, 
 				      plus_constant (XEXP (dst, 0),
 						     ofs+size-1),
 				      GEN_INT (-8)));
-  MEM_ALIAS_SET (memh) = 0;
+  set_mem_alias_set (memh, 0);
 
   emit_move_insn (dsth, memh);
   emit_move_insn (dstl, meml);
@@ -2680,8 +2760,7 @@ alpha_expand_unaligned_load_words (out_regs, smem, words, ofs)
   data_regs[words] = gen_reg_rtx (DImode);
 
   if (ofs != 0)
-    smem = change_address (smem, GET_MODE (smem),
-			   plus_constant (XEXP (smem, 0), ofs));
+    smem = adjust_address (smem, GET_MODE (smem), ofs);
   
   /* Load up all of the source data.  */
   for (i = 0; i < words; ++i)
@@ -2690,7 +2769,7 @@ alpha_expand_unaligned_load_words (out_regs, smem, words, ofs)
 			    gen_rtx_AND (DImode,
 					 plus_constant (XEXP(smem,0), 8*i),
 					 im8));
-      MEM_ALIAS_SET (tmp) = 0;
+      set_mem_alias_set (tmp, 0);
       emit_move_insn (data_regs[i], tmp);
     }
 
@@ -2698,7 +2777,7 @@ alpha_expand_unaligned_load_words (out_regs, smem, words, ofs)
 			gen_rtx_AND (DImode,
 				     plus_constant (XEXP(smem,0), 8*words - 1),
 				     im8));
-  MEM_ALIAS_SET (tmp) = 0;
+  set_mem_alias_set (tmp, 0);
   emit_move_insn (data_regs[words], tmp);
 
   /* Extract the half-word fragments.  Unfortunately DEC decided to make
@@ -2757,22 +2836,20 @@ alpha_expand_unaligned_store_words (data_regs, dmem, words, ofs)
   st_tmp_2 = gen_reg_rtx(DImode);
   
   if (ofs != 0)
-    dmem = change_address (dmem, GET_MODE (dmem),
-			   plus_constant (XEXP (dmem, 0), ofs));
-  
+    dmem = adjust_address (dmem, GET_MODE (dmem), ofs);
 
   st_addr_2 = change_address (dmem, DImode,
 			      gen_rtx_AND (DImode,
 					   plus_constant (XEXP(dmem,0),
 							  words*8 - 1),
 				       im8));
-  MEM_ALIAS_SET (st_addr_2) = 0;
+  set_mem_alias_set (st_addr_2, 0);
 
   st_addr_1 = change_address (dmem, DImode,
 			      gen_rtx_AND (DImode, 
 					   XEXP (dmem, 0),
 					   im8));
-  MEM_ALIAS_SET (st_addr_1) = 0;
+  set_mem_alias_set (st_addr_1, 0);
 
   /* Load up the destination end bits.  */
   emit_move_insn (st_tmp_2, st_addr_2);
@@ -2815,7 +2892,7 @@ alpha_expand_unaligned_store_words (data_regs, dmem, words, ofs)
 				gen_rtx_AND (DImode,
 					     plus_constant(XEXP (dmem,0), i*8),
 					     im8));
-      MEM_ALIAS_SET (tmp) = 0;
+      set_mem_alias_set (tmp, 0);
       emit_move_insn (tmp, data_regs ? ins_tmps[i-1] : const0_rtx);
     }
   emit_move_insn (st_addr_1, st_tmp_1);
@@ -2921,8 +2998,8 @@ alpha_expand_block_move (operands)
 	}
 
       /* No appropriate mode; fall back on memory.  */
-      orig_src = change_address (orig_src, GET_MODE (orig_src),
-				 copy_addr_to_reg (XEXP (orig_src, 0)));
+      orig_src = replace_equiv_address (orig_src,
+					copy_addr_to_reg (XEXP (orig_src, 0)));
       src_align = GET_MODE_BITSIZE (GET_MODE (tmp));
     }
 
@@ -2936,9 +3013,7 @@ alpha_expand_block_move (operands)
 
       for (i = 0; i < words; ++i)
 	emit_move_insn (data_regs[nregs + i],
-			change_address (orig_src, DImode,
-					plus_constant (XEXP (orig_src, 0), 
-						       ofs + i * 8)));
+			adjust_address (orig_src, DImode, ofs + i * 8));
 
       nregs += words;
       bytes -= words * 8;
@@ -2954,9 +3029,7 @@ alpha_expand_block_move (operands)
 
       for (i = 0; i < words; ++i)
 	emit_move_insn (data_regs[nregs + i],
-			change_address (orig_src, SImode,
-					plus_constant (XEXP (orig_src, 0),
-						       ofs + i * 4)));
+			adjust_address (orig_src, SImode, ofs + i * 4));
 
       nregs += words;
       bytes -= words * 4;
@@ -2992,10 +3065,7 @@ alpha_expand_block_move (operands)
 	{
 	  do {
 	    data_regs[nregs++] = tmp = gen_reg_rtx (HImode);
-	    emit_move_insn (tmp,
-			    change_address (orig_src, HImode,
-					    plus_constant (XEXP (orig_src, 0),
-							   ofs)));
+	    emit_move_insn (tmp, adjust_address (orig_src, HImode, ofs));
 	    bytes -= 2;
 	    ofs += 2;
 	  } while (bytes >= 2);
@@ -3012,10 +3082,7 @@ alpha_expand_block_move (operands)
   while (bytes > 0)
     {
       data_regs[nregs++] = tmp = gen_reg_rtx (QImode);
-      emit_move_insn (tmp,
-		      change_address (orig_src, QImode,
-				      plus_constant (XEXP (orig_src, 0),
-						     ofs)));
+      emit_move_insn (tmp, adjust_address (orig_src, QImode, ofs));
       bytes -= 1;
       ofs += 1;
     }
@@ -3075,8 +3142,8 @@ alpha_expand_block_move (operands)
 
       /* No appropriate mode; fall back on memory.  We can speed things
 	 up by recognizing extra alignment information.  */
-      orig_dst = change_address (orig_dst, GET_MODE (orig_dst),
-				 copy_addr_to_reg (XEXP (orig_dst, 0)));
+      orig_dst = replace_equiv_address (orig_dst,
+					copy_addr_to_reg (XEXP (orig_dst, 0)));
       dst_align = GET_MODE_BITSIZE (GET_MODE (tmp));
     }
 
@@ -3085,9 +3152,7 @@ alpha_expand_block_move (operands)
     {
       while (i < nregs && GET_MODE (data_regs[i]) == DImode)
 	{
-	  emit_move_insn (change_address (orig_dst, DImode,
-					  plus_constant (XEXP (orig_dst, 0),
-							 ofs)),
+	  emit_move_insn (adjust_address (orig_dst, DImode, ofs),
 			  data_regs[i]);
 	  ofs += 8;
 	  i++;
@@ -3103,13 +3168,9 @@ alpha_expand_block_move (operands)
 	  tmp = expand_binop (DImode, lshr_optab, data_regs[i], GEN_INT (32),
 			      NULL_RTX, 1, OPTAB_WIDEN);
 
-	  emit_move_insn (change_address (orig_dst, SImode,
-					  plus_constant (XEXP (orig_dst, 0),
-							 ofs)),
+	  emit_move_insn (adjust_address (orig_dst, SImode, ofs),
 			  gen_lowpart (SImode, data_regs[i]));
-	  emit_move_insn (change_address (orig_dst, SImode,
-					  plus_constant (XEXP (orig_dst, 0),
-							 ofs + 4)),
+	  emit_move_insn (adjust_address (orig_dst, SImode, ofs + 4),
 			  gen_lowpart (SImode, tmp));
 	  ofs += 8;
 	  i++;
@@ -3117,9 +3178,7 @@ alpha_expand_block_move (operands)
 
       while (i < nregs && GET_MODE (data_regs[i]) == SImode)
 	{
-	  emit_move_insn (change_address(orig_dst, SImode,
-					 plus_constant (XEXP (orig_dst, 0),
-							ofs)),
+	  emit_move_insn (adjust_address (orig_dst, SImode, ofs),
 			  data_regs[i]);
 	  ofs += 4;
 	  i++;
@@ -3157,10 +3216,7 @@ alpha_expand_block_move (operands)
   if (dst_align >= 16)
     while (i < nregs && GET_MODE (data_regs[i]) == HImode)
       {
-	emit_move_insn (change_address (orig_dst, HImode,
-					plus_constant (XEXP (orig_dst, 0),
-						       ofs)),
-			data_regs[i]);
+	emit_move_insn (adjust_address (orig_dst, HImode, ofs), data_regs[i]);
 	i++;
 	ofs += 2;
       }
@@ -3174,10 +3230,7 @@ alpha_expand_block_move (operands)
 
   while (i < nregs && GET_MODE (data_regs[i]) == QImode)
     {
-      emit_move_insn (change_address (orig_dst, QImode,
-				      plus_constant (XEXP (orig_dst, 0),
-						     ofs)),
-		      data_regs[i]);
+      emit_move_insn (adjust_address (orig_dst, QImode, ofs), data_regs[i]);
       i++;
       ofs += 1;
     }
@@ -3242,8 +3295,7 @@ alpha_expand_block_clear (operands)
 	}
 
       /* No appropriate mode; fall back on memory.  */
-      orig_dst = change_address (orig_dst, GET_MODE (orig_dst),
-				 copy_addr_to_reg (tmp));
+      orig_dst = replace_equiv_address (orig_dst, copy_addr_to_reg (tmp));
       align = GET_MODE_BITSIZE (GET_MODE (XEXP (tmp, 0)));
     }
 
@@ -3264,10 +3316,8 @@ alpha_expand_block_clear (operands)
 	  rtx mem, tmp;
 	  HOST_WIDE_INT mask;
 
-	  mem = change_address (orig_dst, mode,
-				plus_constant (XEXP (orig_dst, 0),
-					       ofs - inv_alignofs));
-	  MEM_ALIAS_SET (mem) = 0;
+	  mem = adjust_address (orig_dst, mode, ofs - inv_alignofs);
+	  set_mem_alias_set (mem, 0);
 
 	  mask = ~(~(HOST_WIDE_INT)0 << (inv_alignofs * 8));
 	  if (bytes < alignofs)
@@ -3292,30 +3342,21 @@ alpha_expand_block_clear (operands)
 
       if (TARGET_BWX && (alignofs & 1) && bytes >= 1)
 	{
-	  emit_move_insn (change_address (orig_dst, QImode,
-					  plus_constant (XEXP (orig_dst, 0),
-						         ofs)),
-			  const0_rtx);
+	  emit_move_insn (adjust_address (orig_dst, QImode, ofs), const0_rtx);
 	  bytes -= 1;
 	  ofs += 1;
 	  alignofs -= 1;
 	}
       if (TARGET_BWX && align >= 16 && (alignofs & 3) == 2 && bytes >= 2)
 	{
-	  emit_move_insn (change_address (orig_dst, HImode,
-					  plus_constant (XEXP (orig_dst, 0),
-						         ofs)),
-			  const0_rtx);
+	  emit_move_insn (adjust_address (orig_dst, HImode, ofs), const0_rtx);
 	  bytes -= 2;
 	  ofs += 2;
 	  alignofs -= 2;
 	}
       if (alignofs == 4 && bytes >= 4)
 	{
-	  emit_move_insn (change_address (orig_dst, SImode,
-					  plus_constant (XEXP (orig_dst, 0),
-						         ofs)),
-			  const0_rtx);
+	  emit_move_insn (adjust_address (orig_dst, SImode, ofs), const0_rtx);
 	  bytes -= 4;
 	  ofs += 4;
 	  alignofs = 0;
@@ -3337,10 +3378,8 @@ alpha_expand_block_clear (operands)
       words = bytes / 8;
 
       for (i = 0; i < words; ++i)
-	emit_move_insn (change_address(orig_dst, DImode,
-				       plus_constant (XEXP (orig_dst, 0),
-						      ofs + i * 8)),
-			  const0_rtx);
+	emit_move_insn (adjust_address(orig_dst, DImode, ofs + i * 8),
+			const0_rtx);
 
       bytes -= words * 8;
       ofs += words * 8;
@@ -3351,22 +3390,20 @@ alpha_expand_block_clear (operands)
 
   if (align >= 32 && bytes > 16)
     {
-      emit_move_insn (change_address (orig_dst, SImode,
-				      plus_constant (XEXP (orig_dst, 0), ofs)),
-		      const0_rtx);
+      emit_move_insn (adjust_address (orig_dst, SImode, ofs), const0_rtx);
       bytes -= 4;
       ofs += 4;
 
       words = bytes / 8;
       for (i = 0; i < words; ++i)
 	{
-	  rtx mem;
-	  mem = change_address (orig_dst, DImode,
-				gen_rtx_AND (DImode,
-					     plus_constant (XEXP (orig_dst, 0),
-							    ofs + i*8),
-					     GEN_INT (-8)));
-	  MEM_ALIAS_SET (mem) = 0;
+	  rtx mem
+	    = change_address (orig_dst, DImode,
+			      gen_rtx_AND (DImode,
+					   plus_constant (XEXP (orig_dst, 0),
+							  ofs + i*8),
+					   GEN_INT (-8)));
+	  set_mem_alias_set (mem, 0);
 	  emit_move_insn (mem, const0_rtx);
 	}
 
@@ -3386,9 +3423,7 @@ alpha_expand_block_clear (operands)
       words = bytes / 4;
 
       for (i = 0; i < words; ++i)
-	emit_move_insn (change_address (orig_dst, SImode,
-					plus_constant (XEXP (orig_dst, 0),
-						       ofs + i * 4)),
+	emit_move_insn (adjust_address (orig_dst, SImode, ofs + i * 4),
 			const0_rtx);
 
       bytes -= words * 4;
@@ -3426,9 +3461,8 @@ alpha_expand_block_clear (operands)
 	  rtx mem, tmp;
 	  HOST_WIDE_INT mask;
 
-	  mem = change_address (orig_dst, DImode,
-				plus_constant (XEXP (orig_dst, 0), ofs));
-	  MEM_ALIAS_SET (mem) = 0;
+	  mem = adjust_address (orig_dst, DImode, ofs);
+	  set_mem_alias_set (mem, 0);
 
 	  mask = ~(HOST_WIDE_INT)0 << (bytes * 8);
 
@@ -3443,9 +3477,8 @@ alpha_expand_block_clear (operands)
 	  rtx mem, tmp;
 	  HOST_WIDE_INT mask;
 
-	  mem = change_address (orig_dst, SImode,
-				plus_constant (XEXP (orig_dst, 0), ofs));
-	  MEM_ALIAS_SET (mem) = 0;
+	  mem = adjust_address (orig_dst, SImode, ofs);
+	  set_mem_alias_set (mem, 0);
 
 	  mask = ~(HOST_WIDE_INT)0 << (bytes * 8);
 
@@ -3470,9 +3503,7 @@ alpha_expand_block_clear (operands)
       if (align >= 16)
 	{
 	  do {
-	    emit_move_insn (change_address (orig_dst, HImode,
-					    plus_constant (XEXP (orig_dst, 0),
-							   ofs)),
+	    emit_move_insn (adjust_address (orig_dst, HImode, ofs),
 			    const0_rtx);
 	    bytes -= 2;
 	    ofs += 2;
@@ -3488,10 +3519,7 @@ alpha_expand_block_clear (operands)
 
   while (bytes > 0)
     {
-      emit_move_insn (change_address (orig_dst, QImode,
-				      plus_constant (XEXP (orig_dst, 0),
-						     ofs)),
-		      const0_rtx);
+      emit_move_insn (adjust_address (orig_dst, QImode, ofs), const0_rtx);
       bytes -= 1;
       ofs += 1;
     }
@@ -3649,35 +3677,6 @@ alpha_adjust_cost (insn, link, dep_insn, cost)
 
 /* Functions to save and restore alpha_return_addr_rtx.  */
 
-static void
-alpha_init_machine_status (p)
-     struct function *p;
-{
-  p->machine =
-    (struct machine_function *) xcalloc (1, sizeof (struct machine_function));
-}
-
-static void
-alpha_mark_machine_status (p)
-     struct function *p;
-{
-  struct machine_function *machine = p->machine;
-
-  if (machine)
-    {
-      ggc_mark_rtx (machine->eh_epilogue_sp_ofs);
-      ggc_mark_rtx (machine->ra_rtx);
-    }
-}
-
-static void
-alpha_free_machine_status (p)
-     struct function *p;
-{
-  free (p->machine);
-  p->machine = NULL;
-}
-
 /* Start the ball rolling with RETURN_ADDR_RTX.  */
 
 rtx
@@ -3685,27 +3684,19 @@ alpha_return_addr (count, frame)
      int count;
      rtx frame ATTRIBUTE_UNUSED;
 {
-  rtx init, reg;
-
   if (count != 0)
     return const0_rtx;
 
-  reg = cfun->machine->ra_rtx;
-  if (reg == NULL)
-    {
-      /* No rtx yet.  Invent one, and initialize it from $26 in
-	 the prologue.  */
-      reg = gen_reg_rtx (Pmode);
-      cfun->machine->ra_rtx = reg;
-      init = gen_rtx_SET (VOIDmode, reg, gen_rtx_REG (Pmode, REG_RA));
+  return get_hard_reg_initial_val (Pmode, REG_RA);
+}
 
-      /* Emit the insn to the prologue with the other argument copies.  */
-      push_topmost_sequence ();
-      emit_insn_after (init, get_insns ());
-      pop_topmost_sequence ();
-    }
+/* Return or create a pseudo containing the gp value for the current
+   function.  Needed only if TARGET_LD_BUGGY_LDGP.  */
 
-  return reg;
+rtx
+alpha_gp_save_rtx ()
+{
+  return get_hard_reg_initial_val (DImode, 29);
 }
 
 static int
@@ -3717,7 +3708,7 @@ alpha_ra_ever_killed ()
   if (current_function_is_thunk)
     return 0;
 #endif
-  if (!cfun->machine->ra_rtx)
+  if (!has_hard_reg_initial_val (Pmode, REG_RA))
     return regs_ever_live[REG_RA];
 
   push_topmost_sequence ();
@@ -4100,7 +4091,8 @@ print_operand_address (file, addr)
     basereg = REGNO (addr);
   else if (GET_CODE (addr) == SUBREG
 	   && GET_CODE (SUBREG_REG (addr)) == REG)
-    basereg = REGNO (SUBREG_REG (addr)) + SUBREG_WORD (addr);
+    basereg = REGNO (SUBREG_REG (addr))
+	      + SUBREG_BYTE (addr) / GET_MODE_SIZE (GET_MODE (addr));
   else if (GET_CODE (addr) == CONST_INT)
     offset = INTVAL (addr);
   else
@@ -4130,7 +4122,7 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt, fnofs, cxtofs, jmpofs)
 {
   rtx temp, temp1, addr;
   /* VMS really uses DImode pointers in memory at this point.  */
-  enum machine_mode mode = TARGET_OPEN_VMS ? Pmode : ptr_mode;
+  enum machine_mode mode = TARGET_ABI_OPEN_VMS ? Pmode : ptr_mode;
 
 #ifdef POINTERS_EXTEND_UNSIGNED
   fnaddr = convert_memory_address (mode, fnaddr);
@@ -4199,7 +4191,14 @@ function_arg (cum, mode, type, named)
   int basereg;
   int num_args;
 
-#ifndef OPEN_VMS
+#if TARGET_ABI_OPEN_VMS
+  if (mode == VOIDmode)
+    return alpha_arg_info_reg_val (cum);
+
+  num_args = cum.num_args;
+  if (num_args >= 6 || MUST_PASS_IN_STACK (mode, type))
+    return NULL_RTX;
+#else
   if (cum >= 6)
     return NULL_RTX;
   num_args = cum;
@@ -4211,14 +4210,7 @@ function_arg (cum, mode, type, named)
     return NULL_RTX;
   else if (FUNCTION_ARG_PASS_BY_REFERENCE (cum, mode, type, named))
     basereg = 16;
-#else
-  if (mode == VOIDmode)
-    return alpha_arg_info_reg_val (cum);
-
-  num_args = cum.num_args;
-  if (num_args >= 6 || MUST_PASS_IN_STACK (mode, type))
-    return NULL_RTX;
-#endif /* OPEN_VMS */
+#endif /* TARGET_ABI_OPEN_VMS */
   else if (TARGET_FPREGS
 	   && (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
 	       || GET_MODE_CLASS (mode) == MODE_FLOAT))
@@ -4234,7 +4226,7 @@ alpha_build_va_list ()
 {
   tree base, ofs, record, type_decl;
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     return ptr_type_node;
 
   record = make_lang_type (RECORD_TYPE);
@@ -4271,7 +4263,7 @@ alpha_va_start (stdarg_p, valist, nextarg)
   if (TREE_CODE (TREE_TYPE (valist)) == ERROR_MARK)
     return;
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     std_expand_builtin_va_start (stdarg_p, valist, nextarg);
 
   /* For Unix, SETUP_INCOMING_VARARGS moves the starting address base
@@ -4317,8 +4309,9 @@ alpha_va_arg (valist, type)
   tree t;
   tree offset_field, base_field, addr_tree, addend;
   tree wide_type, wide_ofs;
+  int indirect = 0;
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     return std_expand_builtin_va_arg (valist, type);
 
   tsize = ((TREE_INT_CST_LOW (TYPE_SIZE (type)) / BITS_PER_UNIT + 7) / 8) * 8;
@@ -4335,7 +4328,13 @@ alpha_va_arg (valist, type)
   wide_ofs = save_expr (build1 (CONVERT_EXPR, wide_type, offset_field));
 
   addend = wide_ofs;
-  if (FLOAT_TYPE_P (type))
+
+  if (TYPE_MODE (type) == TFmode || TYPE_MODE (type) == TCmode)
+    {
+      indirect = 1;
+      tsize = UNITS_PER_WORD;
+    }
+  else if (FLOAT_TYPE_P (type))
     {
       tree fpaddend, cond;
 
@@ -4360,6 +4359,12 @@ alpha_va_arg (valist, type)
 		    offset_field, build_int_2 (tsize, 0)));
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+  if (indirect)
+    {
+      addr = force_reg (Pmode, addr);
+      addr = gen_rtx_MEM (Pmode, addr);
+    }
 
   return addr;
 }
@@ -4403,7 +4408,7 @@ alpha_sa_mask (imaskP, fmaskP)
   if (!current_function_is_thunk)
 #endif
     {
-      if (TARGET_OPEN_VMS && vms_is_stack_procedure)
+      if (TARGET_ABI_OPEN_VMS && vms_is_stack_procedure)
 	imask |= (1L << HARD_FRAME_POINTER_REGNUM);
 
       /* One for every register we have to save.  */
@@ -4416,6 +4421,18 @@ alpha_sa_mask (imaskP, fmaskP)
 	    else
 	      fmask |= (1L << (i - 32));
 	  }
+
+      /* We need to restore these for the handler.  */
+      if (current_function_calls_eh_return)
+	{
+	  for (i = 0; ; ++i)
+	    {
+	      unsigned regno = EH_RETURN_DATA_REGNO (i);
+	      if (regno == INVALID_REGNUM)
+		break;
+	      imask |= 1L << regno;
+	    }
+	}
 
       if (imask || fmask || alpha_ra_ever_killed ())
 	imask |= (1L << REG_RA);
@@ -4444,7 +4461,7 @@ alpha_sa_size ()
 	  sa_size++;
     }
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     {
       /* Start by assuming we can use a register procedure if we don't
 	 make any calls (REG_RA not used) or need to save any
@@ -4510,7 +4527,9 @@ alpha_using_fp ()
   return vms_unwind_regno == HARD_FRAME_POINTER_REGNUM;
 }
 
-int
+#if TARGET_ABI_OPEN_VMS
+
+static int
 vms_valid_decl_attribute_p (decl, attributes, identifier, args)
      tree decl ATTRIBUTE_UNUSED;
      tree attributes ATTRIBUTE_UNUSED;
@@ -4522,13 +4541,15 @@ vms_valid_decl_attribute_p (decl, attributes, identifier, args)
   return 0;
 }
 
+#endif
+
 static int
 alpha_does_function_need_gp ()
 {
   rtx insn;
 
   /* We never need a GP for Windows/NT or VMS.  */
-  if (TARGET_WINDOWS_NT || TARGET_OPEN_VMS)
+  if (TARGET_ABI_WINDOWS_NT || TARGET_ABI_OPEN_VMS)
     return 0;
 
   if (TARGET_PROFILING_NEEDS_GP && profile_flag)
@@ -4637,7 +4658,7 @@ alpha_expand_prologue ()
   sa_size = alpha_sa_size ();
 
   frame_size = get_frame_size ();
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     frame_size = ALPHA_ROUND (sa_size 
 			      + (vms_is_stack_procedure ? 8 : 0)
 			      + frame_size
@@ -4648,7 +4669,7 @@ alpha_expand_prologue ()
 		  + ALPHA_ROUND (frame_size
 				 + current_function_pretend_args_size));
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     reg_offset = 8;
   else
     reg_offset = ALPHA_ROUND (current_function_outgoing_args_size);
@@ -4656,7 +4677,7 @@ alpha_expand_prologue ()
   alpha_sa_mask (&imask, &fmask);
 
   /* Emit an insn to reload GP, if needed.  */
-  if (!TARGET_OPEN_VMS && !TARGET_WINDOWS_NT)
+  if (TARGET_ABI_OSF)
     {
       alpha_function_needs_gp = alpha_does_function_need_gp ();
       if (alpha_function_needs_gp)
@@ -4726,7 +4747,7 @@ alpha_expand_prologue ()
 	  emit_move_insn (last, const0_rtx);
 	}
 
-      if (TARGET_WINDOWS_NT)
+      if (TARGET_ABI_WINDOWS_NT)
 	{
 	  /* For NT stack unwind (done by 'reverse execution'), it's
 	     not OK to take the result of a loop, even though the value
@@ -4781,10 +4802,10 @@ alpha_expand_prologue ()
     }
     
   /* Save regs in stack order.  Beginning with VMS PV.  */
-  if (TARGET_OPEN_VMS && vms_is_stack_procedure)
+  if (TARGET_ABI_OPEN_VMS && vms_is_stack_procedure)
     {
       mem = gen_rtx_MEM (DImode, stack_pointer_rtx);
-      MEM_ALIAS_SET (mem) = alpha_sr_alias_set;
+      set_mem_alias_set (mem, alpha_sr_alias_set);
       FRP (emit_move_insn (mem, gen_rtx_REG (DImode, REG_PV)));
     }
 
@@ -4792,7 +4813,7 @@ alpha_expand_prologue ()
   if (imask & (1L << REG_RA))
     {
       mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
-      MEM_ALIAS_SET (mem) = alpha_sr_alias_set;
+      set_mem_alias_set (mem, alpha_sr_alias_set);
       FRP (emit_move_insn (mem, gen_rtx_REG (DImode, REG_RA)));
       imask &= ~(1L << REG_RA);
       reg_offset += 8;
@@ -4803,7 +4824,7 @@ alpha_expand_prologue ()
     if (imask & (1L << i))
       {
 	mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
-	MEM_ALIAS_SET (mem) = alpha_sr_alias_set;
+	set_mem_alias_set (mem, alpha_sr_alias_set);
 	FRP (emit_move_insn (mem, gen_rtx_REG (DImode, i)));
 	reg_offset += 8;
       }
@@ -4812,12 +4833,12 @@ alpha_expand_prologue ()
     if (fmask & (1L << i))
       {
 	mem = gen_rtx_MEM (DFmode, plus_constant (sa_reg, reg_offset));
-	MEM_ALIAS_SET (mem) = alpha_sr_alias_set;
+	set_mem_alias_set (mem, alpha_sr_alias_set);
 	FRP (emit_move_insn (mem, gen_rtx_REG (DFmode, i+32)));
 	reg_offset += 8;
       }
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     {
       if (!vms_is_stack_procedure)
 	/* Register frame procedures fave the fp.  */
@@ -4891,7 +4912,7 @@ alpha_start_function (file, fnname, decl)
   sa_size = alpha_sa_size ();
 
   frame_size = get_frame_size ();
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     frame_size = ALPHA_ROUND (sa_size 
 			      + (vms_is_stack_procedure ? 8 : 0)
 			      + frame_size
@@ -4902,7 +4923,7 @@ alpha_start_function (file, fnname, decl)
 		  + ALPHA_ROUND (frame_size
 				 + current_function_pretend_args_size));
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     reg_offset = 8;
   else
     reg_offset = ALPHA_ROUND (current_function_outgoing_args_size);
@@ -4927,7 +4948,7 @@ alpha_start_function (file, fnname, decl)
     }
 
   /* Issue function start and label.  */
-  if (TARGET_OPEN_VMS || !flag_inhibit_size_directive)
+  if (TARGET_ABI_OPEN_VMS || !flag_inhibit_size_directive)
     {
       fputs ("\t.ent ", file);
       assemble_name (file, fnname);
@@ -4935,8 +4956,7 @@ alpha_start_function (file, fnname, decl)
 
       /* If the function needs GP, we'll write the "..ng" label there.
 	 Otherwise, do it here.  */
-      if (! TARGET_OPEN_VMS && ! TARGET_WINDOWS_NT
-	  && ! alpha_function_needs_gp)
+      if (TARGET_ABI_OSF && ! alpha_function_needs_gp)
 	{
 	  putc ('$', file);
 	  assemble_name (file, fnname);
@@ -4945,15 +4965,15 @@ alpha_start_function (file, fnname, decl)
     }
 
   strcpy (entry_label, fnname);
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     strcat (entry_label, "..en");
   ASM_OUTPUT_LABEL (file, entry_label);
   inside_function = TRUE;
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     fprintf (file, "\t.base $%d\n", vms_base_regno);
 
-  if (!TARGET_OPEN_VMS && TARGET_IEEE_CONFORMANT
+  if (!TARGET_ABI_OPEN_VMS && TARGET_IEEE_CONFORMANT
       && !flag_inhibit_size_directive)
     {
       /* Set flags in procedure descriptor to request IEEE-conformant
@@ -4969,7 +4989,7 @@ alpha_start_function (file, fnname, decl)
   /* Describe our frame.  If the frame size is larger than an integer,
      print it as zero to avoid an assembler error.  We won't be
      properly describing such a frame, but that's the best we can do.  */
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     {
       fprintf (file, "\t.frame $%d,", vms_unwind_regno);
       fprintf (file, HOST_WIDE_INT_PRINT_DEC,
@@ -4989,7 +5009,7 @@ alpha_start_function (file, fnname, decl)
     }
 
   /* Describe which registers were spilled.  */
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     {
       if (imask)
         /* ??? Does VMS care if mask contains ra?  The old code did'nt
@@ -5023,7 +5043,7 @@ alpha_start_function (file, fnname, decl)
 	}
     }
 
-#ifdef OPEN_VMS
+#if TARGET_ABI_OPEN_VMS
   /* Ifdef'ed cause readonly_section and link_section are only
      available then.  */
   readonly_section ();
@@ -5049,13 +5069,13 @@ alpha_start_function (file, fnname, decl)
 
 /* Emit the .prologue note at the scheduled end of the prologue.  */
 
-void
-output_end_prologue (file)
+static void
+alpha_output_function_end_prologue (file)
      FILE *file;
 {
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     fputs ("\t.prologue\n", file);
-  else if (TARGET_WINDOWS_NT)
+  else if (TARGET_ABI_WINDOWS_NT)
     fputs ("\t.prologue 0\n", file);
   else if (!flag_inhibit_size_directive)
     fprintf (file, "\t.prologue %d\n", alpha_function_needs_gp);
@@ -5090,7 +5110,7 @@ alpha_expand_epilogue ()
   sa_size = alpha_sa_size ();
 
   frame_size = get_frame_size ();
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     frame_size = ALPHA_ROUND (sa_size 
 			      + (vms_is_stack_procedure ? 8 : 0)
 			      + frame_size
@@ -5101,25 +5121,29 @@ alpha_expand_epilogue ()
 		  + ALPHA_ROUND (frame_size
 				 + current_function_pretend_args_size));
 
-  if (TARGET_OPEN_VMS)
+  if (TARGET_ABI_OPEN_VMS)
     reg_offset = 8;
   else
     reg_offset = ALPHA_ROUND (current_function_outgoing_args_size);
 
   alpha_sa_mask (&imask, &fmask);
 
-  fp_is_frame_pointer = ((TARGET_OPEN_VMS && vms_is_stack_procedure)
-			 || (!TARGET_OPEN_VMS && frame_pointer_needed));
+  fp_is_frame_pointer = ((TARGET_ABI_OPEN_VMS && vms_is_stack_procedure)
+			 || (!TARGET_ABI_OPEN_VMS && frame_pointer_needed));
   fp_offset = 0;
   sa_reg = stack_pointer_rtx;
 
-  eh_ofs = cfun->machine->eh_epilogue_sp_ofs;
+  if (current_function_calls_eh_return)
+    eh_ofs = EH_RETURN_STACKADJ_RTX;
+  else
+    eh_ofs = NULL_RTX;
+
   if (sa_size)
     {
       /* If we have a frame pointer, restore SP from it.  */
-      if ((TARGET_OPEN_VMS
+      if ((TARGET_ABI_OPEN_VMS
 	   && vms_unwind_regno == HARD_FRAME_POINTER_REGNUM)
-	  || (!TARGET_OPEN_VMS && frame_pointer_needed))
+	  || (!TARGET_ABI_OPEN_VMS && frame_pointer_needed))
 	FRP (emit_move_insn (stack_pointer_rtx, hard_frame_pointer_rtx));
 
       /* Cope with very large offsets to the register save area.  */
@@ -5141,12 +5165,11 @@ alpha_expand_epilogue ()
 	  
       /* Restore registers in order, excepting a true frame pointer. */
 
+      mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, reg_offset));
       if (! eh_ofs)
-	{
-	  mem = gen_rtx_MEM (DImode, plus_constant(sa_reg, reg_offset));
-	  MEM_ALIAS_SET (mem) = alpha_sr_alias_set;
-          FRP (emit_move_insn (gen_rtx_REG (DImode, REG_RA), mem));
-	}
+        set_mem_alias_set (mem, alpha_sr_alias_set);
+      FRP (emit_move_insn (gen_rtx_REG (DImode, REG_RA), mem));
+
       reg_offset += 8;
       imask &= ~(1L << REG_RA);
 
@@ -5158,7 +5181,7 @@ alpha_expand_epilogue ()
 	    else
 	      {
 		mem = gen_rtx_MEM (DImode, plus_constant(sa_reg, reg_offset));
-		MEM_ALIAS_SET (mem) = alpha_sr_alias_set;
+		set_mem_alias_set (mem, alpha_sr_alias_set);
 		FRP (emit_move_insn (gen_rtx_REG (DImode, i), mem));
 	      }
 	    reg_offset += 8;
@@ -5168,7 +5191,7 @@ alpha_expand_epilogue ()
 	if (fmask & (1L << i))
 	  {
 	    mem = gen_rtx_MEM (DFmode, plus_constant(sa_reg, reg_offset));
-	    MEM_ALIAS_SET (mem) = alpha_sr_alias_set;
+	    set_mem_alias_set (mem, alpha_sr_alias_set);
 	    FRP (emit_move_insn (gen_rtx_REG (DFmode, i+32), mem));
 	    reg_offset += 8;
 	  }
@@ -5226,10 +5249,10 @@ alpha_expand_epilogue ()
 	{
 	  emit_insn (gen_blockage ());
 	  mem = gen_rtx_MEM (DImode, plus_constant (sa_reg, fp_offset));
-	  MEM_ALIAS_SET (mem) = alpha_sr_alias_set;
+	  set_mem_alias_set (mem, alpha_sr_alias_set);
 	  FRP (emit_move_insn (hard_frame_pointer_rtx, mem));
 	}
-      else if (TARGET_OPEN_VMS)
+      else if (TARGET_ABI_OPEN_VMS)
 	{
 	  emit_insn (gen_blockage ());
 	  FRP (emit_move_insn (hard_frame_pointer_rtx,
@@ -5243,7 +5266,7 @@ alpha_expand_epilogue ()
     }
   else 
     {
-      if (TARGET_OPEN_VMS && !vms_is_stack_procedure)
+      if (TARGET_ABI_OPEN_VMS && !vms_is_stack_procedure)
         {
           emit_insn (gen_blockage ());
           FRP (emit_move_insn (hard_frame_pointer_rtx,
@@ -6286,26 +6309,24 @@ check_float_value (mode, d, overflow)
       memcpy (&r, d, sizeof (REAL_VALUE_TYPE));
       if (REAL_VALUES_LESS (fvptr[0], r))
 	{
-	  bcopy ((char *) &fvptr[0], (char *) d,
-		 sizeof (REAL_VALUE_TYPE));
+	  memcpy (d, &fvptr[0], sizeof (REAL_VALUE_TYPE));
 	  return 1;
 	}
       else if (REAL_VALUES_LESS (r, fvptr[1]))
 	{
-	  bcopy ((char *) &fvptr[1], (char *) d,
-		 sizeof (REAL_VALUE_TYPE));
+	  memcpy (d, &fvptr[1], sizeof (REAL_VALUE_TYPE));
 	  return 1;
 	}
       else if (REAL_VALUES_LESS (dconst0, r)
 		&& REAL_VALUES_LESS (r, fvptr[2]))
 	{
-	  bcopy ((char *) &dconst0, (char *) d, sizeof (REAL_VALUE_TYPE));
+	  memcpy (d, &dconst0, sizeof (REAL_VALUE_TYPE));
 	  return 1;
 	}
       else if (REAL_VALUES_LESS (r, dconst0)
 		&& REAL_VALUES_LESS (fvptr[3], r))
 	{
-	  bcopy ((char *) &dconst0, (char *) d, sizeof (REAL_VALUE_TYPE));
+	  memcpy (d, &dconst0, sizeof (REAL_VALUE_TYPE));
 	  return 1;
 	}
     }
@@ -6313,7 +6334,7 @@ check_float_value (mode, d, overflow)
   return 0;
 }
 
-#if OPEN_VMS
+#if TARGET_ABI_OPEN_VMS
 
 /* Return the VMS argument type corresponding to MODE.  */
 
@@ -6509,4 +6530,4 @@ alpha_need_linkage (name, is_local)
   return NULL_RTX;
 }
 
-#endif /* OPEN_VMS */
+#endif /* TARGET_ABI_OPEN_VMS */

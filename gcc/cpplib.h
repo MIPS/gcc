@@ -20,17 +20,18 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  In other words, you are welcome to use, share and improve this program.
  You are forbidden to forbid anyone else to use, share and improve
  what you give them.   Help stamp out software-hoarding!  */
-#ifndef __GCC_CPPLIB__
-#define __GCC_CPPLIB__
+#ifndef GCC_CPPLIB_H
+#define GCC_CPPLIB_H
 
 #include <sys/types.h>
+#include "hashtable.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* For complex reasons, cpp_reader is also typedefed in c-pragma.h.  */
-#ifndef _C_PRAGMA_H
+#ifndef GCC_C_PRAGMA_H
 typedef struct cpp_reader cpp_reader;
 #endif
 typedef struct cpp_buffer cpp_buffer;
@@ -45,6 +46,7 @@ typedef struct cpp_callbacks cpp_callbacks;
 
 struct answer;
 struct file_name_map_list;
+struct ht;
 
 /* The first two groups, apart from '=', can appear in preprocessor
    expressions.  This allows a lookup table to be implemented in
@@ -119,6 +121,7 @@ struct file_name_map_list;
   OP(CPP_SCOPE,		"::")			\
   OP(CPP_DEREF_STAR,	"->*")			\
   OP(CPP_DOT_STAR,	".*")			\
+  OP(CPP_ATSIGN,	"@")  /* used in Objective C */ \
 \
   TK(CPP_NAME,		SPELL_IDENT)	/* word */			\
   TK(CPP_INT,		SPELL_STRING)	/* 23 */			\
@@ -131,7 +134,6 @@ struct file_name_map_list;
 \
   TK(CPP_STRING,	SPELL_STRING)	/* "string" */			\
   TK(CPP_WSTRING,	SPELL_STRING)	/* L"string" */			\
-  TK(CPP_OSTRING,	SPELL_STRING)	/* @"string" - Objective C */	\
   TK(CPP_HEADER_NAME,	SPELL_STRING)	/* <stdio.h> in #include */	\
 \
   TK(CPP_COMMENT,	SPELL_STRING)	/* Only if output comments.  */ \
@@ -177,7 +179,7 @@ struct cpp_token
 
   union
   {
-    struct cpp_hashnode *node;	/* An identifier.  */
+    cpp_hashnode *node;		/* An identifier.  */
     struct cpp_string str;	/* A string, or number.  */
     unsigned int arg_no;	/* Argument no. for a CPP_MACRO_ARG.  */
     unsigned char c;		/* Character represented by CPP_OTHER.  */
@@ -240,8 +242,8 @@ struct cpp_options
   const char *deps_file;
 
   /* Search paths for include files.  */
-  struct file_name_list *quote_include;	 /* First dir to search for "file" */
-  struct file_name_list *bracket_include;/* First dir to search for <file> */
+  struct search_path *quote_include;	/* "" */
+  struct search_path *bracket_include;  /* <> */
 
   /* Map between header names and file names, used only on DOS where
      file names are limited in length.  */
@@ -444,6 +446,7 @@ enum cpp_buffer_type {BUF_FAKE, BUF_FILE, BUF_BUILTIN,
 #define NODE_POISONED	(1 << 1)	/* Poisoned identifier.  */
 #define NODE_BUILTIN	(1 << 2)	/* Builtin macro.  */
 #define NODE_DIAGNOSTIC (1 << 3)	/* Possible diagnostic when lexed.  */
+#define NODE_WARN	(1 << 4)	/* Warn if redefined or undefined.  */
 
 /* Different flavors of hash node.  */
 enum node_type
@@ -462,26 +465,25 @@ enum builtin_type
   BT_BASE_FILE,			/* `__BASE_FILE__' */
   BT_INCLUDE_LEVEL,		/* `__INCLUDE_LEVEL__' */
   BT_TIME,			/* `__TIME__' */
-  BT_STDC,			/* `__STDC__' */
-  BT_WEAK                       /* Whether or not G++ supports weak 
-				   symbols.  */
+  BT_STDC			/* `__STDC__' */
 };
 
-/* There is a slot in the hashnode for use by front ends when integrated
-   with cpplib.  It holds a tree (see tree.h) but we mustn't drag that
-   header into every user of cpplib.h.  cpplib does not do anything with
-   this slot except clear it when a new node is created.  */
-union tree_node;
+#define CPP_HASHNODE(HNODE)	((cpp_hashnode *) (HNODE))
+#define HT_NODE(NODE)		((ht_identifier *) (NODE))
+#define NODE_LEN(NODE)		HT_LEN (&(NODE)->ident)
+#define NODE_NAME(NODE)		HT_STR (&(NODE)->ident)
 
+/* The common part of an identifier node shared amongst all 3 C front
+   ends.  Also used to store CPP identifiers, which are a superset of
+   identifiers in the grammatical sense.  */
 struct cpp_hashnode
 {
-  const unsigned char *name;		/* Null-terminated name.  */
-  unsigned int hash;			/* Cached hash value.  */
-  unsigned short length;		/* Length of name excluding null.  */
+  struct ht_identifier ident;
   unsigned short arg_index;		/* Macro argument index.  */
   unsigned char directive_index;	/* Index into directive table.  */
-  ENUM_BITFIELD(node_type) type : 8;	/* Node type.  */
-  unsigned char flags;			/* Node flags.  */
+  unsigned char rid_code;		/* Rid code - for front ends.  */
+  ENUM_BITFIELD(node_type) type : 8;	/* CPP node type.  */
+  unsigned char flags;			/* CPP flags.  */
 
   union
   {
@@ -492,8 +494,12 @@ struct cpp_hashnode
   } value;
 };
 
-/* Call this first to get a handle to pass to other functions.  */
-extern cpp_reader *cpp_create_reader PARAMS ((enum c_lang));
+/* Call this first to get a handle to pass to other functions.  If you
+   want cpplib to manage its own hashtable, pass in a NULL pointer.
+   Or you can pass in an initialised hash table that cpplib will use;
+   this technique is used by the C front ends.  */
+extern cpp_reader *cpp_create_reader PARAMS ((struct ht *,
+					      enum c_lang));
 
 /* Call this to release the handle.  Any use of the handle after this
    function returns is invalid.  Returns cpp_errors (pfile).  */
@@ -543,6 +549,11 @@ extern const cpp_lexer_pos *cpp_get_line PARAMS ((cpp_reader *));
 extern const unsigned char *cpp_macro_definition PARAMS ((cpp_reader *,
 						  const cpp_hashnode *));
 
+/* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
+extern HOST_WIDE_INT
+cpp_interpret_charconst PARAMS ((cpp_reader *, const cpp_token *,
+				 int, int, unsigned int *));
+
 extern void cpp_define PARAMS ((cpp_reader *, const char *));
 extern void cpp_assert PARAMS ((cpp_reader *, const char *));
 extern void cpp_undef  PARAMS ((cpp_reader *, const char *));
@@ -590,21 +601,28 @@ extern int cpp_ideq			PARAMS ((const cpp_token *,
 extern void cpp_output_line		PARAMS ((cpp_reader *, FILE *));
 extern void cpp_output_token		PARAMS ((const cpp_token *, FILE *));
 extern const char *cpp_type2name	PARAMS ((enum cpp_ttype));
+extern unsigned int cpp_parse_escape	PARAMS ((cpp_reader *,
+						 const unsigned char **,
+						 const unsigned char *,
+						 unsigned HOST_WIDE_INT, int));
 
 /* In cpphash.c */
+
+/* Lookup an identifier in the hashtable.  Puts the identifier in the
+   table if it is not already there.  */
 extern cpp_hashnode *cpp_lookup		PARAMS ((cpp_reader *,
-						 const unsigned char *, size_t));
+						 const unsigned char *,
+						 unsigned int));
+
+typedef int (*cpp_cb) PARAMS ((cpp_reader *, cpp_hashnode *, void *));
 extern void cpp_forall_identifiers	PARAMS ((cpp_reader *,
-						 int (*) PARAMS ((cpp_reader *,
-								  cpp_hashnode *,
-								  void *)),
-						 void *));
+						 cpp_cb, void *));
 
 /* In cppmacro.c */
 extern void cpp_scan_buffer_nooutput	PARAMS ((cpp_reader *, int));
 extern void cpp_start_lookahead		PARAMS ((cpp_reader *));
 extern void cpp_stop_lookahead		PARAMS ((cpp_reader *, int));
-extern int  cpp_sys_objmacro_p		PARAMS ((cpp_reader *));
+extern int  cpp_sys_macro_p		PARAMS ((cpp_reader *));
 
 /* In cppfiles.c */
 extern int cpp_included	PARAMS ((cpp_reader *, const char *));
@@ -613,4 +631,5 @@ extern void cpp_make_system_header PARAMS ((cpp_reader *, int, int));
 #ifdef __cplusplus
 }
 #endif
-#endif /* __GCC_CPPLIB__ */
+
+#endif /* ! GCC_CPPLIB_H */

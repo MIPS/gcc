@@ -29,7 +29,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387.  */
 
-#define TARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
+#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
 
 /* The ELF ABI for the i386 says that records and unions are returned
    in memory.  */
@@ -56,9 +56,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 do { long value;							\
      REAL_VALUE_TO_TARGET_SINGLE ((VALUE), value);			\
      if (sizeof (int) == sizeof (long))					\
-         fprintf((FILE), "%s\t0x%x\n", ASM_LONG, value);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, value);			\
      else								\
-         fprintf((FILE), "%s\t0x%lx\n", ASM_LONG, value);		\
+         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value);			\
    } while (0)
 
 /* This is how to output assembly code to define a `double' constant.
@@ -72,13 +72,13 @@ do { long value[2];							\
      REAL_VALUE_TO_TARGET_DOUBLE ((VALUE), value);			\
      if (sizeof (int) == sizeof (long))					\
        {								\
-         fprintf((FILE), "%s\t0x%x\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s\t0x%x\n", ASM_LONG, value[1]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[0]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[1]);		\
        }								\
      else								\
        {								\
-         fprintf((FILE), "%s\t0x%lx\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s\t0x%lx\n", ASM_LONG, value[1]);		\
+         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[0]);		\
+         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[1]);		\
        }								\
    } while (0)
 
@@ -89,30 +89,21 @@ do { long value[3];							\
      REAL_VALUE_TO_TARGET_LONG_DOUBLE ((VALUE), value);			\
      if (sizeof (int) == sizeof (long))					\
        {								\
-         fprintf((FILE), "%s\t0x%x\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s\t0x%x\n", ASM_LONG, value[1]);		\
-         fprintf((FILE), "%s\t0x%x\n", ASM_LONG, value[2]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[0]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[1]);		\
+         fprintf((FILE), "%s0x%x\n", ASM_LONG, value[2]);		\
        }								\
      else								\
        {								\
-         fprintf((FILE), "%s\t0x%lx\n", ASM_LONG, value[0]);		\
-         fprintf((FILE), "%s\t0x%lx\n", ASM_LONG, value[1]);		\
-         fprintf((FILE), "%s\t0x%lx\n", ASM_LONG, value[2]);		\
+         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[0]);		\
+         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[1]);		\
+         fprintf((FILE), "%s0x%lx\n", ASM_LONG, value[2]);		\
        }								\
    } while (0)
 
-/* Output at beginning of assembler file.  */
-/* The .file command should always begin the output.  */
-
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)						\
-  do {									\
-	output_file_directive (FILE, main_input_filename);		\
-	fprintf (FILE, "\t.version\t\"01.01\"\n");			\
-  } while (0)
-
 #undef DBX_REGISTER_NUMBER
-#define DBX_REGISTER_NUMBER(n)  svr4_dbx_register_map[n]
+#define DBX_REGISTER_NUMBER(n) \
+  (TARGET_64BIT ? dbx64_register_map[n] : svr4_dbx_register_map[n])
 
 /* The routine used to output sequences of byte values.  We use a special
    version of this for most svr4 targets because doing so makes the

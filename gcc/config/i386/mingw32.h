@@ -1,8 +1,6 @@
 /* Operating system specific defines to be used when targeting GCC for
-   hosting on Windows32, using GNU tools and the Windows32 API Library,
-   as distinct from winnt.h, which is used to build GCC for use with a
-   windows style library and tool set and uses the Microsoft tools.
-   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   hosting on Windows32, using GNU tools and the Windows32 API Library.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -25,6 +23,8 @@ Boston, MA 02111-1307, USA. */
    specs.  */
 
 #include "i386/cygwin.h"
+
+#define TARGET_EXECUTABLE_SUFFIX ".exe"
 
 /* Please keep changes to CPP_PREDEFINES in sync with i386/crtdll. The
    only difference between the two should be __MSVCRT__ needed to 

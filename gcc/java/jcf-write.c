@@ -111,7 +111,7 @@ struct chunk
 struct jcf_block
 {
   /* For blocks that that are defined, the next block (in pc order).
-     For blocks that are the not-yet-defined end label of a LABELED_BLOCK_EXPR
+     For blocks that are not-yet-defined the end label of a LABELED_BLOCK_EXPR
      or a cleanup expression (from a WITH_CLEANUP_EXPR),
      this is the next (outer) such end label, in a stack headed by
      labeled_blocks in jcf_partial. */
@@ -131,8 +131,8 @@ struct jcf_block
 
   int linenumber;
 
-  /* After finish_jcf_block is called, The actual instructions
-     contained in this block.  Before than NULL, and the instructions
+  /* After finish_jcf_block is called, the actual instructions
+     contained in this block.  Before that NULL, and the instructions
      are in state->bytecode. */
   union {
     struct chunk *chunk;
@@ -346,10 +346,11 @@ static char *make_class_file_name PARAMS ((tree));
 static unsigned char *append_synthetic_attribute PARAMS ((struct jcf_partial *));
 static void append_innerclasses_attribute PARAMS ((struct jcf_partial *, tree));
 static void append_innerclasses_attribute_entry PARAMS ((struct jcf_partial *, tree, tree));
+static void append_gcj_attribute PARAMS ((struct jcf_partial *, tree));
 
 /* Utility macros for appending (big-endian) data to a buffer.
    We assume a local variable 'ptr' points into where we want to
-   write next, and we assume enoygh space has been allocated. */
+   write next, and we assume enough space has been allocated. */
 
 #ifdef ENABLE_JC1_CHECKING
 static int CHECK_PUT PARAMS ((void *, struct jcf_partial *, int));
@@ -1405,7 +1406,7 @@ generate_bytecode_return (exp, state)
   if (returns_void)
     {
       op = OPCODE_return;
-      call_cleanups (NULL_PTR, state);
+      call_cleanups (NULL, state);
     }
   else
     {
@@ -1419,7 +1420,7 @@ generate_bytecode_return (exp, state)
 	      localvar_alloc (state->return_value_decl, state);
 	    }
 	  emit_store (state->return_value_decl, state);
-	  call_cleanups (NULL_PTR, state);
+	  call_cleanups (NULL, state);
 	  emit_load (state->return_value_decl, state);
 	  /* If we call localvar_free (state->return_value_decl, state),
 	     then we risk the save decl erroneously re-used in the
@@ -1720,7 +1721,7 @@ generate_bytecode_insns (exp, target, state)
 	      {
 		push_int_const (sw_state.cases->offset, state);
 		emit_if (sw_state.cases->label,
-			 OPCODE_ifeq, OPCODE_ifne, state);
+			 OPCODE_if_icmpeq, OPCODE_if_icmpne, state);
 	      }
 	    emit_goto (sw_state.default_label, state);
 	  }
@@ -2009,6 +2010,8 @@ generate_bytecode_insns (exp, target, state)
 		    if (TREE_CODE (rhs) == MINUS_EXPR)
 		      value = -value;
 		    emit_iinc (lhs, value, state);
+		    if (target != IGNORE_TARGET)
+		      emit_load (lhs, state);
 		    break;
 		  }
 	      }
@@ -2308,6 +2311,8 @@ generate_bytecode_insns (exp, target, state)
 	  abort ();
 	generate_bytecode_insns (try_clause, IGNORE_TARGET, state);
 	end_label = get_jcf_label_here (state);
+	if (end_label == start_label)
+	  break;
 	if (CAN_COMPLETE_NORMALLY (try_clause))
 	  emit_goto (finished_label, state);
 	while (clause != NULL_TREE)
@@ -2329,61 +2334,53 @@ generate_bytecode_insns (exp, target, state)
       break;
     case TRY_FINALLY_EXPR:
       {
-	struct jcf_block *finished_label, *finally_label, *start_label;
+	struct jcf_block *finished_label,
+	  *finally_label, *start_label, *end_label;
 	struct jcf_handler *handler;
-	int worthwhile_finally = 1;
 	tree try_block = TREE_OPERAND (exp, 0);
 	tree finally = TREE_OPERAND (exp, 1);
-	tree return_link, exception_decl;
+	tree return_link = NULL_TREE, exception_decl = NULL_TREE;
 
-	finally_label = start_label = NULL;
-	return_link = exception_decl = NULL_TREE;
-	finished_label = gen_jcf_label (state);
+	tree exception_type;
 
-	/* If the finally clause happens to be empty, set a flag so we
-           remember to just skip it. */
-	if (BLOCK_EXPR_BODY (finally) == empty_stmt_node)
-	  worthwhile_finally = 0;
-
-	if (worthwhile_finally)
-	  {
-	    tree exception_type;
-	    return_link = build_decl (VAR_DECL, NULL_TREE,
-				      return_address_type_node);
-	    exception_type = build_pointer_type (throwable_type_node);
-	    exception_decl = build_decl (VAR_DECL, NULL_TREE, exception_type);
-
-	    finally_label = gen_jcf_label (state);
-	    start_label = get_jcf_label_here (state);
-	    finally_label->pc = PENDING_CLEANUP_PC;
-	    finally_label->next = state->labeled_blocks;
-	    state->labeled_blocks = finally_label;
-	    state->num_finalizers++;
-	  }
+	finally_label = gen_jcf_label (state);
+	start_label = get_jcf_label_here (state);
+	finally_label->pc = PENDING_CLEANUP_PC;
+	finally_label->next = state->labeled_blocks;
+	state->labeled_blocks = finally_label;
+	state->num_finalizers++;
 
 	generate_bytecode_insns (try_block, target, state);
+	if (state->labeled_blocks != finally_label)
+	  abort();
+	state->labeled_blocks = finally_label->next;
+	end_label = get_jcf_label_here (state);
 
-	if (worthwhile_finally)
+	if (end_label == start_label)
 	  {
-	    if (state->labeled_blocks != finally_label)
-	      abort();
-	    state->labeled_blocks = finally_label->next;
-	    emit_jsr (finally_label, state);
+	    state->num_finalizers--;
+	    define_jcf_label (finally_label, state);
+	    generate_bytecode_insns (finally, IGNORE_TARGET, state);
+	    break;
 	  }
 
-	if (CAN_COMPLETE_NORMALLY (try_block)
-	    && TREE_CODE (try_block) == BLOCK
-	    && BLOCK_EXPR_BODY (try_block) != empty_stmt_node)
-	  emit_goto (finished_label, state);
+	return_link = build_decl (VAR_DECL, NULL_TREE,
+				  return_address_type_node);
+	finished_label = gen_jcf_label (state);
+
+
+	if (CAN_COMPLETE_NORMALLY (try_block))
+	  {
+	    emit_jsr (finally_label, state);
+	    emit_goto (finished_label, state);
+	  }
 
 	/* Handle exceptions. */
 
-	if (!worthwhile_finally)
-	  break;
-
+	exception_type = build_pointer_type (throwable_type_node);
+	exception_decl = build_decl (VAR_DECL, NULL_TREE, exception_type);
 	localvar_alloc (return_link, state);
-	handler = alloc_handler (start_label, NULL_PTR, state);
-	handler->end_label = handler->handler_label;
+	handler = alloc_handler (start_label, end_label, state);
 	handler->type = NULL_TREE;
 	localvar_alloc (exception_decl, state);
 	NOTE_PUSH (1);
@@ -2393,7 +2390,6 @@ generate_bytecode_insns (exp, target, state)
 	RESERVE (1);
 	OP1 (OPCODE_athrow);
 	NOTE_POP (1);
-	localvar_free (exception_decl, state);
 
 	/* The finally block.  First save return PC into return_link. */
 	define_jcf_label (finally_label, state);
@@ -2402,6 +2398,7 @@ generate_bytecode_insns (exp, target, state)
 
 	generate_bytecode_insns (finally, IGNORE_TARGET, state);
 	maybe_wide (OPCODE_ret, DECL_LOCAL_INDEX (return_link), state);
+	localvar_free (exception_decl, state);
 	localvar_free (return_link, state);
 	define_jcf_label (finished_label, state);
       }
@@ -2453,6 +2450,9 @@ generate_bytecode_insns (exp, target, state)
 	    state->code_SP = save_SP;
 	  }
       }
+      break;
+    case JAVA_EXC_OBJ_EXPR:
+      NOTE_PUSH (1);  /* Pushed by exception system. */
       break;
     case NEW_CLASS_EXPR:
       {
@@ -2516,8 +2516,7 @@ generate_bytecode_insns (exp, target, state)
 	  }
 	else if (f == soft_monitorenter_node
 		 || f == soft_monitorexit_node
-		 || f == throw_node[0]
-		 || f == throw_node[1])
+		 || f == throw_node)
 	  {
 	    if (f == soft_monitorenter_node)
 	      op = OPCODE_monitorenter;
@@ -2529,11 +2528,6 @@ generate_bytecode_insns (exp, target, state)
 	    RESERVE (1);
 	    OP1 (op);
 	    NOTE_POP (1);
-	    break;
-	  }
-	else if (exp == soft_exceptioninfo_call_node)
-	  {
-	    NOTE_PUSH (1);  /* Pushed by exception system. */
 	    break;
 	  }
 	for ( ;  x != NULL_TREE;  x = TREE_CHAIN (x))
@@ -2553,7 +2547,7 @@ generate_bytecode_insns (exp, target, state)
 	  NOTE_POP (1);  /* Pop implicit this. */
 	if (TREE_CODE (f) == FUNCTION_DECL && DECL_CONTEXT (f) != NULL_TREE)
 	  {
-	    tree saved_context = NULL_TREE;
+	    tree context = DECL_CONTEXT (f);
 	    int index, interface = 0;
 	    RESERVE (5);
 	    if (METHOD_STATIC (f))
@@ -2561,24 +2555,24 @@ generate_bytecode_insns (exp, target, state)
 	    else if (DECL_CONSTRUCTOR_P (f) || CALL_USING_SUPER (exp)
 		|| METHOD_PRIVATE (f))
 	      OP1 (OPCODE_invokespecial);
-	    else if (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (f))))
-	      {
-		OP1 (OPCODE_invokeinterface);
-		interface = 1;
-	      }
 	    else
-	      OP1 (OPCODE_invokevirtual);
-	    if (interface)
 	      {
-		saved_context = DECL_CONTEXT (f);
-		DECL_CONTEXT (f) = 
-		  TREE_TYPE (TREE_TYPE (TREE_VALUE (TREE_OPERAND (exp, 1))));
+		if (CLASS_INTERFACE (TYPE_NAME (context)))
+		  {
+		    tree arg1 = TREE_VALUE (TREE_OPERAND (exp, 1));
+		    context = TREE_TYPE (TREE_TYPE (arg1));
+		    if (CLASS_INTERFACE (TYPE_NAME (context)))
+		      interface = 1;
+		  }
+		if (interface)
+		  OP1 (OPCODE_invokeinterface);
+		else
+		  OP1 (OPCODE_invokevirtual);
 	      }
-	    index = find_methodref_index (&state->cpool, f);
+	    index = find_methodref_with_class_index (&state->cpool, f, context);
 	    OP2 (index);
 	    if (interface)
 	      {
-		DECL_CONTEXT (f) = saved_context;
 		if (nargs <= 0)
 		  abort ();
 
@@ -2891,11 +2885,7 @@ generate_classfile (clas, state)
 			      build_java_signature (TREE_TYPE (part)));
       PUT2(i);
       have_value = DECL_INITIAL (part) != NULL_TREE 
-	&& FIELD_STATIC (part)
-	&& (TREE_CODE (DECL_INITIAL (part)) == STRING_CST
-	    || (TREE_CODE (DECL_INITIAL (part)) == INTEGER_CST
-		&& TREE_CODE (TREE_TYPE (DECL_INITIAL (part))) != POINTER_TYPE)
-	    || TREE_CODE (DECL_INITIAL (part)) == REAL_CST);
+	&& FIELD_STATIC (part) && CONSTANT_VALUE_P (DECL_INITIAL (part));
       if (have_value)
 	attr_count++;
 
@@ -3108,8 +3098,11 @@ generate_classfile (clas, state)
     }
   ptr = append_chunk (NULL, 10, state);
 
-  i = ((INNER_CLASS_TYPE_P (clas) 
-	|| DECL_INNER_CLASS_LIST (TYPE_NAME (clas))) ? 2 : 1);
+  i = 1;		/* Source file always exists as an attribute */
+  if (INNER_CLASS_TYPE_P (clas) || DECL_INNER_CLASS_LIST (TYPE_NAME (clas)))
+    i++;
+  if (clas == object_type_node)
+    i++;
   PUT2 (i);			/* attributes_count */
 
   /* generate the SourceFile attribute. */
@@ -3124,6 +3117,7 @@ generate_classfile (clas, state)
   PUT4 (2);
   i = find_utf8_constant (&state->cpool, get_identifier (source_file));
   PUT2 (i);
+  append_gcj_attribute (state, clas);
   append_innerclasses_attribute (state, clas);
 
   /* New finally generate the contents of the constant pool chunk. */
@@ -3153,6 +3147,24 @@ append_synthetic_attribute (state)
   PUT4 (0);		/* Attribute length */
 
   return ptr;
+}
+
+static void
+append_gcj_attribute (state, class)
+     struct jcf_partial *state;
+     tree class;
+{
+  unsigned char *ptr;
+  int i;
+
+  if (class != object_type_node)
+    return;
+
+  ptr = append_chunk (NULL, 6, state); /* 2+4 */
+  i = find_utf8_constant (&state->cpool, 
+			  get_identifier ("gnu.gcj.gcj-compiled"));
+  PUT2 (i);			/* Attribute string index */
+  PUT4 (0);			/* Attribute length */
 }
 
 static void

@@ -1,3 +1,207 @@
+2001-07-17  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* com.c (lang_print_error_function): Argument context
+	is unused.
+
+2001-07-14  Tim Josling  <tej@melbpc.org.au>
+
+	* com.c (ffecom_overlap_): Remove references to EXPON_EXPR.
+	(ffecom_tree_canonize_ref_): Likewise.
+
+2001-07-10  James Smaby  <jsmaby@virgo.umeche.maine.edu>
+
+	* intdoc.in: Fix the definition of COMPLEX ABS.
+	Remove `the' where inappropriate.
+	* intdoc.texi: Rebuilt.
+
+2001-07-04  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* g77.texi: Use gpl.texi and funding.texi.  Remove Look and Feel
+	section.  Add Funding Free Software to invariant sections.
+	* Make-lang.in ($(srcdir)/f/g77.info, f/g77.dvi): Update
+	dependencies and use doc/include in search path.
+
+2001-06-28  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* Make-lang.in (f/com.o): Depend on diagnostic.h
+	* com.c: #include diagnostic.h
+	(lang_print_error_function): Take a 'diagnostic_context *'.
+
+Wed Jun 13 11:22:39 2001  Mark Mitchell  <mark@codesourcery.com>
+
+	* BUGS: Remove.
+	* NEWS: Likewise.
+
+2001-06-10  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77install.texi: Remove.
+	* Make-lang.in: Remove all mention of g77install.texi.
+	* g77.texi: Add documentation on how to get output always
+	flushed and how to increase the maximum unit number.
+	Remove all mention of g77install.texi.
+	* bugs.texi: Add documentation on how to change the threshold
+	for putting local arrays on the stack.
+
+2001-06-03  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* root.texi: Fix typo in patches e-mail address.
+
+2001-06-03  Toon Moene  <toon@moene.indiv.nluug.nl>
+	    Jan van Male  <jan.vanmale@fenk.wau.nl>
+
+	* root.texi: Define `help' and `patches' mailing list
+	addresses.
+	* news.texi: Remove `prerelease' from 0.5.26
+	* g77.texi: Use two spaces between command options, eliminate
+	some 'overfull hboxes'.  Use help and patches mailing list
+	addresses where appropriate.
+
+2001-06-02  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* g77.texi: Move contents to just after title page.
+
+2001-06-02  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* com.c (ffecom_init_0): Make CHARACTER*1 unsigned.
+
+2001-05-23  Theodore Papadopoulo  <Theodore.Papadopoulo@sophia.inria.fr>
+
+	* Make-lang.in ($(srcdir)/f/g77.info): Added dependencies on
+	fdl.texi.
+	(f/g77.dvi): Use TEXI2DVI instead of custom tex calls.  Create the
+	dvi file in the f directory.
+
+2001-05-25  Sam TH  <sam@uchicago.edu>
+
+	* bad.h: Fix header include guards.
+	* bit.h bld.h com.h data.h equiv.h expr.h global.h
+	implic.h info.h intrin.h lab.h lex.h malloc.h name.h
+	proj.h src.h st.h sta.h stb.h stc.h std.h ste.h
+	storag.h stp.h str.h sts.h stt.h stu.h stv.h stw.h
+	symbol.h target.h top.h type.h version.h 
+	where.h: Likewise.
+
+2001-05-22  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77.texi: Update last-changed date.
+	* news.texi: Update copyright years, last-changed date.
+	* bugs.texi: Update copyright years, last-changed date.
+
+2001-05-22  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77.texi: Update maintenance information for
+	GNU Fortran.  Remove all mention of -fdebug-kludge.
+	* news.texi: Make more news in 0.5.26 `user visible
+	changes'. Acknowledge work by important contributors.
+	* bugs.texi: Remove all mention of -fdebug-kludge.
+
+2001-05-20  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* Make-lang.in (f/g77.dvi): Include $(srcdir) in TEXINPUTS.
+
+2001-05-19  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* Make-lang.in: Have $(MAKEINFO) look into the parent
+	directory for includes.
+	* g77.texi: Use the GFDL.
+
+Sun May 13 12:25:06 2001  Mark Mitchell  <mark@codesourcery.com>
+
+	* Make-lang.in: Replace all uses of `touch' with $(STAMP).
+
+Wed May  2 10:20:08 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c: NULL_PTR -> NULL.
+
+Sun Apr 22 20:18:01 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (ffecom_subscript_check_): Use concat in lieu of
+	xmalloc/sprintf.
+
+2001-04-21  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Update release information for 0.5.27.
+
+Thu Apr 19 12:49:24 2001  Mark Mitchell  <mark@codesourcery.com>
+
+	* top.c (ffe_decode_option): Do not permit language-independent
+	processing for -ffixed-line-length.
+
+Thu Apr 12 17:57:55 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* bad.c (inhibit_warnings): Delete redundant declaration.
+
+	* com.c (skip_redundant_dir_prefix): Likewise.
+
+	* com.h (mark_addressable): Likewise.
+
+2001-04-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* lex.c (ffelex_hash_): Avoid eating one whole line after
+	#line.
+
+Mon Apr  2 22:38:09 2001  Toon Moene <toon@moene.indiv.nluug.nl>
+
+	* com.c (duplicate_decls): Fix thinko in lazy DECL_RTL patch
+	of 2001-03-04.
+
+Tue Mar 27 17:40:08 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in: Depend on $(SYSTEM_H), not system.h.
+
+Mon Mar 26 18:13:30 2001  Mark Mitchell  <mark@codesourcery.com>
+
+	* com.c (duplicate_decls): Don't copy DECL_FRAME_SIZE.
+
+Mon Mar 19 15:05:39 2001  Mark Mitchell  <mark@codesourcery.com>
+
+	* com.c (builtin_function): Use SET_DECL_ASSEMBLER_NAME.
+
+Wed Mar 14 09:29:27 2001  Mark Mitchell  <mark@codesourcery.com>
+
+	* com.c (ffecom_member_phase_2): Use COPY_DECL_RTL,
+	DECL_RTL_SET_P, etc.
+	(duplicate_decls): Likewise.
+	(start_decl): Likewise.
+	
+Fri Mar  9 22:52:55 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* fini.c (main): Use really_call_malloc, not malloc.
+
+Thu Mar  8 13:27:47 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c: Don't rely on the POSIX macro to define autoconf stuff.
+
+2001-03-07  Brad Lucier  <lucier@math.purdue.edu>
+
+	* g77.texi: Document new options -funsafe-math-optimizations
+	and -fno-trapping-math.  Revise documentation for -ffast-math.
+
+2001-03-01  Zack Weinberg  <zackw@stanford.edu>
+
+	* proj.h: Delete 'bool' type.  Don't include stddef.h here.
+	* com.c: Rename variables named 'true' and/or 'false'.
+	* intdoc.c: Delete 'bool' type.
+
+2001-03-01  Zack Weinberg  <zackw@stanford.edu>
+
+	* lang-specs.h: Add zero initializer for cpp_spec field to all
+	array elements.
+
+2001-02-24  Zack Weinberg  <zackw@stanford.edu>
+
+	* com.c: Don't define STDC_HEADERS, autoconf handles it.
+
+Fri Feb 23 15:28:39 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* com.c (set_block): Set NAMES and BLOCKS from BLOCK.
+
+2001-02-19  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* version.c, root.texi: Update GCC version number to 3.1.  Update
+	G77 version number to 0.5.27.
+	* BUGS, NEWS: Regenerate.
+
 Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* com.c (ffecom_init_0): Call fatal_error instead of fatal.

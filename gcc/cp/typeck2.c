@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "toplev.h"
 #include "output.h"
+#include "diagnostic.h"
 
 static tree process_init_constructor PARAMS ((tree, tree, tree *));
 
@@ -470,6 +471,11 @@ digest_init (type, init, tail)
 				  && TREE_VALUE (init) == error_mark_node))
     return error_mark_node;
 
+  if (TREE_CODE (init) == ERROR_MARK)
+    /* __PRETTY_FUNCTION__'s initializer is a bogus expression inside
+       a template function. This gets substituted during instantiation. */
+    return init;
+  
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
   if (TREE_CODE (init) == NON_LVALUE_EXPR)
     init = TREE_OPERAND (init, 0);
@@ -1058,7 +1064,7 @@ build_x_arrow (datum)
     last_rval = default_conversion (rval);
 
   if (TREE_CODE (TREE_TYPE (last_rval)) == POINTER_TYPE)
-    return build_indirect_ref (last_rval, NULL_PTR);
+    return build_indirect_ref (last_rval, NULL);
 
   if (types_memoized)
     error ("result of `operator->()' yields non-pointer result");

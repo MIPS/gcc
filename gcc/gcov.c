@@ -1,7 +1,7 @@
 /* Gcov.c: prepend line execution counts and branch probabilities to a
    source file.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by James E. Wilson of Cygnus Support.
    Mangled by Bob Manson of Cygnus Support.
 
@@ -48,6 +48,7 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #undef abort
 
+typedef HOST_WIDEST_INT gcov_type;
 #include "gcov-io.h"
 
 /* The .bb file format consists of several lists of 4-byte integers
@@ -104,7 +105,7 @@ struct sourcefile *sources;
 struct adj_list {
   int source;
   int target;
-  int arc_count;
+  gcov_type arc_count;
   unsigned int count_valid : 1;
   unsigned int on_tree : 1;
   unsigned int fake : 1;
@@ -123,9 +124,9 @@ struct adj_list {
 struct bb_info {
   struct adj_list *succ;
   struct adj_list *pred;
-  int succ_count;
-  int pred_count;
-  int exec_count;
+  gcov_type succ_count;
+  gcov_type pred_count;
+  gcov_type exec_count;
   unsigned int count_valid : 1;
   unsigned int on_tree : 1;
 #if 0
@@ -139,8 +140,8 @@ struct bb_info {
 
 struct arcdata
 {
-  int hits;
-  int total;
+  gcov_type hits;
+  gcov_type total;
   int call_insn;
   struct arcdata *next;
 };
@@ -217,7 +218,7 @@ static char *object_directory = 0;
 
 /* Output the number of times a branch was taken as opposed to the percentage
    of times it was taken.  Turned on by the -c option */
-   
+
 static int output_branch_counts = 0;
 
 /* Forward declarations.  */
@@ -437,7 +438,7 @@ open_files ()
       fnotice (stderr, "Could not open data file %s.\n", da_file_name);
       fnotice (stderr, "Assuming that all execution counts are zero.\n");
     }
-    
+
   bbg_file = fopen (bbg_file_name, "rb");
   if (bbg_file == NULL)
     {
@@ -579,8 +580,8 @@ create_program_flow_graph (bptr)
     for (arcptr = bb_graph[i].succ; arcptr; arcptr = arcptr->succ_next)
       if (! arcptr->on_tree)
 	{
-	  long tmp_count = 0;
-	  if (da_file && __read_long (&tmp_count, da_file, 8))
+	  gcov_type tmp_count = 0;
+	  if (da_file && __read_gcov_type (&tmp_count, da_file, 8))
 	    abort();
 
 	  arcptr->arc_count = tmp_count;
@@ -589,12 +590,13 @@ create_program_flow_graph (bptr)
 	  bb_graph[arcptr->target].pred_count--;
 	}
 }
-  
+
 static void
 solve_program_flow_graph (bptr)
      struct bb_info_list *bptr;
 {
-  int passes, changes, total;
+  int passes, changes;
+  gcov_type total;
   int i;
   struct adj_list *arcptr;
   struct bb_info *bb_graph;
@@ -705,7 +707,7 @@ solve_program_flow_graph (bptr)
 	    }
 	}
     }
-	      
+
   /* If the graph has been correctly solved, every block will have a
      succ and pred count of zero.  */
   for (i = 0; i < num_blocks; i++)
@@ -770,7 +772,7 @@ read_files ()
 
   bb_data = (char *) xmalloc ((unsigned) buf.st_size);
   fread (bb_data, sizeof (char), buf.st_size, bb_file);
-  
+
   fclose (bb_file);
   if (da_file)
     fclose (da_file);
@@ -888,7 +890,7 @@ calculate_branch_probs (current_graph, block_num, branch_probs, last_line_num)
 
       if (arcptr->fall_through)
 	continue;
-		      
+
       a_ptr = (struct arcdata *) xmalloc (sizeof (struct arcdata));
       a_ptr->total = total;
       if (total == 0)
@@ -975,7 +977,7 @@ output_data ()
   int this_file;
   /* An array indexed by line number which indicates how many times that line
      was executed.  */
-  long *line_counts;
+  gcov_type *line_counts;
   /* An array indexed by line number which indicates whether the line was
      present in the bb file (i.e. whether it had code associate with it).
      Lines never executed are those which both exist, and have zero execution
@@ -1035,12 +1037,12 @@ output_data ()
       else
 	source_file_name = s_ptr->name;
 
-      line_counts = (long *) xcalloc (sizeof (long), s_ptr->maxlineno);
+      line_counts = (gcov_type *) xcalloc (sizeof (gcov_type), s_ptr->maxlineno);
       line_exists = xcalloc (1, s_ptr->maxlineno);
       if (output_branch_probs)
 	branch_probs = (struct arcdata **)
 	  xcalloc (sizeof (struct arcdata *), s_ptr->maxlineno);
-      
+
       /* There will be a zero at the beginning of the bb info, before the
 	 first list of line numbers, so must initialize block_num to 0.  */
       block_num = 0;
@@ -1064,7 +1066,7 @@ output_data ()
 		  this_file = 0;
 		else
 		  this_file = 1;
-	      
+
 		/* Scan past the file name.  */
 		do {
 		  count++;
@@ -1137,7 +1139,7 @@ output_data ()
 			     function_name);
 		    abort ();
 		  }
-		  
+
 		if (output_branch_probs && this_file)
 		  calculate_branch_probs (current_graph, block_num,
 					  branch_probs, last_line_num);
@@ -1244,7 +1246,7 @@ output_data ()
 	  /* Now the statistics are ready.  Read in the source file one line
 	     at a time, and output that line to the gcov file preceded by
 	     its execution count if non zero.  */
-      
+
 	  source_file = fopen (source_file_name, "r");
 	  if (source_file == NULL)
 	    {
@@ -1264,7 +1266,7 @@ output_data ()
 	  if (output_long_names && strcmp (cptr, input_file_name))
 	    {
 	      gcov_file_name = xmalloc (count + 7 + strlen (input_file_name));
-	      
+
 	      cptr = strrchr (input_file_name, '/');
 	      if (cptr)
 		strcpy (gcov_file_name, cptr + 1);
@@ -1324,8 +1326,12 @@ output_data ()
 	      if (line_exists[count])
 		{
 		  if (line_counts[count])
-		    fprintf (gcov_file, "%12ld    %s", line_counts[count],
-			     string);
+		    {
+		      char c[20];
+		      sprintf (c, HOST_WIDEST_INT_PRINT_DEC, (HOST_WIDEST_INT)line_counts[count]);
+		      fprintf (gcov_file, "%12s    %s", c,
+			       string);
+		    }
 		  else
 		    fprintf (gcov_file, "      ######    %s", string);
 		}
@@ -1355,11 +1361,13 @@ output_data ()
 			      {
 				if (output_branch_counts)
 				  fnotice (gcov_file,
-				           "call %d returns = %d\n",
+				           "call %d returns = "
+					   HOST_WIDEST_INT_PRINT_DEC "\n",
 				           i, a_ptr->total - a_ptr->hits);
 			        else
                                   fnotice (gcov_file,
-				           "call %d returns = %d%%\n",
+				           "call %d returns = "
+					   HOST_WIDEST_INT_PRINT_DEC "%%\n",
 				            i, 100 - ((a_ptr->hits * 100) +
                                            (a_ptr->total >> 1))/a_ptr->total);
 			      }
@@ -1373,11 +1381,13 @@ output_data ()
 			    {
 			      if (output_branch_counts)
 			        fnotice (gcov_file,
-				         "branch %d taken = %d\n",
+				         "branch %d taken = "
+					 HOST_WIDEST_INT_PRINT_DEC "\n",
                                          i, a_ptr->hits);
 			      else
                                 fnotice (gcov_file,
-                                         "branch %d taken = %d%%\n", i,
+                                         "branch %d taken = "
+					 HOST_WIDEST_INT_PRINT_DEC "%%\n", i,
                                          ((a_ptr->hits * 100) +
                                           (a_ptr->total >> 1))/
                                           a_ptr->total);

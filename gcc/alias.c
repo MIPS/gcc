@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
 This file is part of GNU CC.
@@ -25,7 +25,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "tm_p.h"
 #include "function.h"
-#include "insn-flags.h"
 #include "expr.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -88,13 +87,15 @@ typedef struct alias_set_entry
 
 static int rtx_equal_for_memref_p	PARAMS ((rtx, rtx));
 static rtx find_symbolic_term		PARAMS ((rtx));
-static rtx get_addr			PARAMS ((rtx));
+rtx get_addr				PARAMS ((rtx));
 static int memrefs_conflict_p		PARAMS ((int, rtx, int, rtx,
 						 HOST_WIDE_INT));
 static void record_set			PARAMS ((rtx, rtx, void *));
 static rtx find_base_term		PARAMS ((rtx));
 static int base_alias_check		PARAMS ((rtx, rtx, enum machine_mode,
 						 enum machine_mode));
+static int handled_component_p		PARAMS ((tree));
+static int can_address_p		PARAMS ((tree));
 static rtx find_base_value		PARAMS ((rtx));
 static int mems_in_disjoint_alias_sets_p PARAMS ((rtx, rtx));
 static int insert_subset_children       PARAMS ((splay_tree_node, void*));
@@ -277,6 +278,24 @@ alias_sets_conflict_p (set1, set2)
   return 0;
 }
 
+/* Set the alias set of MEM to SET.  */
+
+void
+set_mem_alias_set (mem, set)
+     rtx mem;
+     HOST_WIDE_INT set;
+{
+  /* We would like to do this test but can't yet since when converting a
+     REG to a MEM, the alias set field is undefined.  */
+#if 0
+  /* If the new and old alias sets don't conflict, something is wrong.  */
+  if (!alias_sets_conflict_p (set, MEM_ALIAS_SET (mem)))
+    abort ();
+#endif
+
+  MEM_ALIAS_SET (mem) = set;
+}
+
 /* Return 1 if TYPE is a RECORD_TYPE, UNION_TYPE, or QUAL_UNION_TYPE and has
    has any readonly fields.  If any of the fields have types that
    contain readonly fields, return true as well.  */
@@ -309,6 +328,12 @@ int
 objects_must_conflict_p (t1, t2)
      tree t1, t2;
 {
+  /* If neither has a type specified, we don't know if they'll conflict
+     because we may be using them to store objects of various types, for
+     example the argument and local variables areas of inlined functions.  */
+  if (t1 == 0 && t2 == 0)
+    return 0;
+
   /* If one or the other has readonly fields or is readonly,
      then they may not conflict.  */
   if ((t1 != 0 && readonly_fields_p (t1))
@@ -394,6 +419,59 @@ find_base_decl (t)
     }
 }
 
+/* Return 1 if T is an expression that get_inner_reference handles.  */
+
+static int
+handled_component_p (t)
+     tree t;
+{
+  switch (TREE_CODE (t))
+    {
+    case BIT_FIELD_REF:
+    case COMPONENT_REF:
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case NON_LVALUE_EXPR:
+      return 1;
+
+    case NOP_EXPR:
+    case CONVERT_EXPR:
+      return (TYPE_MODE (TREE_TYPE (t))
+	      == TYPE_MODE (TREE_TYPE (TREE_OPERAND (t, 0))));
+
+    default:
+      return 0;
+    }
+}
+
+/* Return 1 if all the nested component references handled by
+   get_inner_reference in T are such that we can address the object in T.  */
+
+static int
+can_address_p (t)
+     tree t;
+{
+  /* If we're at the end, it is vacuously addressable.  */
+  if (! handled_component_p (t))
+    return 1;
+
+  /* Bitfields are never addressable.  */
+  else if (TREE_CODE (t) == BIT_FIELD_REF)
+    return 0;
+
+  else if (TREE_CODE (t) == COMPONENT_REF
+	   && ! DECL_NONADDRESSABLE_P (TREE_OPERAND (t, 1))
+	   && can_address_p (TREE_OPERAND (t, 0)))
+    return 1;
+
+  else if ((TREE_CODE (t) == ARRAY_REF || TREE_CODE (t) == ARRAY_RANGE_REF)
+	   && ! TYPE_NONALIASED_COMPONENT (TREE_TYPE (TREE_OPERAND (t, 0)))
+	   && can_address_p (TREE_OPERAND (t, 0)))
+    return 1;
+
+  return 0;
+}
+
 /* Return the alias set for T, which may be either a type or an
    expression.  Call language-specific routine for help, if needed.  */
 
@@ -433,35 +511,9 @@ get_alias_set (t)
       /* Now loop the same way as get_inner_reference and get the alias
 	 set to use.  Pick up the outermost object that we could have
 	 a pointer to.  */
-      while (1)
-	{
-	  /* Unnamed bitfields are not an addressable object.  */
-	  if (TREE_CODE (t) == BIT_FIELD_REF)
-	    ;
-	  else if (TREE_CODE (t) == COMPONENT_REF)
-	    {
-	      if (! DECL_NONADDRESSABLE_P (TREE_OPERAND (t, 1)))
-		/* Stop at an adressable decl.  */
-		break;
-	    }
-	  else if (TREE_CODE (t) == ARRAY_REF)
-	    {
-	      if (! TYPE_NONALIASED_COMPONENT
-		  (TREE_TYPE (TREE_OPERAND (t, 0))))
-		/* Stop at an addresssable array element.  */
-		break;
-	    }
-	  else if (TREE_CODE (t) != NON_LVALUE_EXPR
-		   && ! ((TREE_CODE (t) == NOP_EXPR
-		      || TREE_CODE (t) == CONVERT_EXPR)
-		     && (TYPE_MODE (TREE_TYPE (t))
-			 == TYPE_MODE (TREE_TYPE (TREE_OPERAND (t, 0))))))
-	    /* Stop if not one of above and not mode-preserving conversion. */
-	    break;
+      while (handled_component_p (t) && ! can_address_p (t))
+	t = TREE_OPERAND (t, 0);
 
-	  t = TREE_OPERAND (t, 0);
-	}
-		   
       if (TREE_CODE (t) == INDIRECT_REF)
 	{
 	  /* Check for accesses through restrict-qualified pointers.  */
@@ -925,12 +977,10 @@ canon_rtx (x)
 
       if (x0 != XEXP (x, 0) || x1 != XEXP (x, 1))
 	{
-	  /* We can tolerate LO_SUMs being offset here; these
-	     rtl are used for nothing other than comparisons.  */
 	  if (GET_CODE (x0) == CONST_INT)
-	    return plus_constant_for_output (x1, INTVAL (x0));
+	    return plus_constant (x1, INTVAL (x0));
 	  else if (GET_CODE (x1) == CONST_INT)
-	    return plus_constant_for_output (x0, INTVAL (x1));
+	    return plus_constant (x0, INTVAL (x1));
 	  return gen_rtx_PLUS (GET_MODE (x), x0, x1);
 	}
     }
@@ -940,17 +990,8 @@ canon_rtx (x)
      MEM alone, but need to return the canonicalized MEM with
      all the flags with their original values.  */
   else if (GET_CODE (x) == MEM)
-    {
-      rtx addr = canon_rtx (XEXP (x, 0));
+    x = replace_equiv_address_nv (x, canon_rtx (XEXP (x, 0)));
 
-      if (addr != XEXP (x, 0))
-	{
-	  rtx new = gen_rtx_MEM (GET_MODE (x), addr);
-
-	  MEM_COPY_ATTRIBUTES (new, x);
-	  x = new;
-	}
-    }
   return x;
 }
 
@@ -1275,11 +1316,11 @@ base_alias_check (x, y, x_mode, y_mode)
 	return 1;
       if (GET_CODE (x) == AND
 	  && (GET_CODE (XEXP (x, 1)) != CONST_INT
-	      || GET_MODE_UNIT_SIZE (y_mode) < -INTVAL (XEXP (x, 1))))
+	      || (int) GET_MODE_UNIT_SIZE (y_mode) < -INTVAL (XEXP (x, 1))))
 	return 1;
       if (GET_CODE (y) == AND
 	  && (GET_CODE (XEXP (y, 1)) != CONST_INT
-	      || GET_MODE_UNIT_SIZE (x_mode) < -INTVAL (XEXP (y, 1))))
+	      || (int) GET_MODE_UNIT_SIZE (x_mode) < -INTVAL (XEXP (y, 1))))
 	return 1;
       /* Differing symbols never alias.  */
       return 0;
@@ -1307,7 +1348,7 @@ base_alias_check (x, y, x_mode, y_mode)
    it unchanged unless it is a value; in the latter case we call cselib to get
    a more useful rtx.  */
 
-static rtx
+rtx
 get_addr (x)
      rtx x;
 {
@@ -1732,6 +1773,63 @@ true_dependence (mem, mem_mode, x, varies)
 					      varies);
 }
 
+/* Canonical true dependence: X is read after store in MEM takes place.
+   Variant of true_dependece which assumes MEM has already been 
+   canonicalized (hence we no longer do that here).  
+   The mem_addr argument has been added, since true_dependence computed 
+   this value prior to canonicalizing.  */
+
+int
+canon_true_dependence (mem, mem_mode, mem_addr, x, varies)
+     rtx mem, mem_addr, x;
+     enum machine_mode mem_mode;
+     int (*varies) PARAMS ((rtx, int));
+{
+  register rtx x_addr;
+
+  if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
+    return 1;
+
+  if (DIFFERENT_ALIAS_SETS_P (x, mem))
+    return 0;
+
+  /* If X is an unchanging read, then it can't possibly conflict with any
+     non-unchanging store.  It may conflict with an unchanging write though,
+     because there may be a single store to this address to initialize it.
+     Just fall through to the code below to resolve the case where we have
+     both an unchanging read and an unchanging write.  This won't handle all
+     cases optimally, but the possible performance loss should be
+     negligible.  */
+  if (RTX_UNCHANGING_P (x) && ! RTX_UNCHANGING_P (mem))
+    return 0;
+
+  x_addr = get_addr (XEXP (x, 0));
+
+  if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
+    return 0;
+
+  x_addr = canon_rtx (x_addr);
+  if (! memrefs_conflict_p (GET_MODE_SIZE (mem_mode), mem_addr,
+			    SIZE_FOR_MODE (x), x_addr, 0))
+    return 0;
+
+  if (aliases_everything_p (x))
+    return 1;
+
+  /* We cannot use aliases_everyting_p to test MEM, since we must look
+     at MEM_MODE, rather than GET_MODE (MEM).  */
+  if (mem_mode == QImode || GET_CODE (mem_addr) == AND)
+    return 1;
+
+  /* In true_dependence we also allow BLKmode to alias anything.  Why
+     don't we do this in anti_dependence and output_dependence?  */
+  if (mem_mode == BLKmode || GET_MODE (x) == BLKmode)
+    return 1;
+
+  return ! fixed_scalar_and_varying_struct_p (mem, x, mem_addr, x_addr,
+					      varies);
+}
+
 /* Returns non-zero if a write to X might alias a previous read from
    (or, if WRITEP is non-zero, a write to) MEM.  */
 
@@ -1847,7 +1945,7 @@ nonlocal_mentioned_p (x)
 	{
 	  /* Global registers are not local.  */
 	  if (REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER
-	      && global_regs[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)])
+	      && global_regs[subreg_regno (x)])
 	    return 1;
 	  return 0;
 	}
@@ -2242,6 +2340,7 @@ init_alias_analysis ()
 			   && REG_N_SETS (regno) == 1)
 			  || (note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) != 0)
 		      && GET_CODE (XEXP (note, 0)) != EXPR_LIST
+		      && ! rtx_varies_p (XEXP (note, 0), 1)
 		      && ! reg_overlap_mentioned_p (SET_DEST (set), XEXP (note, 0)))
 		    {
 		      reg_known_value[regno] = XEXP (note, 0);
@@ -2255,11 +2354,9 @@ init_alias_analysis ()
 			   && GET_CODE (XEXP (src, 1)) == CONST_INT)
 		    {
 		      rtx op0 = XEXP (src, 0);
-		      if (reg_known_value[REGNO (op0)])
-			op0 = reg_known_value[REGNO (op0)];
+		      op0 = reg_known_value[REGNO (op0)];
 		      reg_known_value[regno]
-			= plus_constant_for_output (op0,
-						    INTVAL (XEXP (src, 1)));
+			= plus_constant (op0, INTVAL (XEXP (src, 1)));
 		      reg_known_equiv_p[regno] = 0;
 		    }
 		  else if (REG_N_SETS (regno) == 1

@@ -27,7 +27,6 @@
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
@@ -39,6 +38,8 @@
 #include "function.h"
 #include "recog.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Maximal allowed offset for an address in the LD command */
 #define MAX_LD_OFFSET(MODE) (64 - (signed)GET_MODE_SIZE (MODE))
@@ -57,6 +58,10 @@ static int    compare_sign_p       PARAMS ((rtx insn));
 static int    reg_was_0            PARAMS ((rtx insn, rtx op));
 static int    io_address_p         PARAMS ((rtx x, int size));
 void          debug_hard_reg_set   PARAMS ((HARD_REG_SET set));
+static int    avr_valid_type_attribute PARAMS ((tree, tree, tree, tree));
+static int    avr_valid_decl_attribute PARAMS ((tree, tree, tree, tree));
+static void   avr_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void   avr_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Allocate registers from r25 to r8 for parameters for function calls */
 #define FIRST_CUM_REG 26
@@ -166,7 +171,20 @@ static const struct mcu_type_s avr_mcu_types[] = {
 };
 
 int avr_case_values_threshold = 30000;
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE avr_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE avr_output_function_epilogue
+#undef TARGET_VALID_DECL_ATTRIBUTE
+#define TARGET_VALID_DECL_ATTRIBUTE avr_valid_decl_attribute
 
+#undef TARGET_VALID_TYPE_ATTRIBUTE
+#define TARGET_VALID_TYPE_ATTRIBUTE avr_valid_type_attribute
+
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 void
 avr_override_options ()
 {
@@ -526,10 +544,10 @@ out_set_stack_ptr (file, before, after)
 
 /* Output function prologue */
 
-void
-function_prologue (file, size)
+static void
+avr_output_function_prologue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   int reg;
   int interrupt_func_p;
@@ -663,10 +681,10 @@ function_prologue (file, size)
 
 /* Output function epilogue */
 
-void
-function_epilogue (file, size)
+static void
+avr_output_function_epilogue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   int reg;
   int interrupt_func_p;
@@ -798,12 +816,14 @@ function_epilogue (file, size)
    machine for a memory operand of mode MODE.  */
 
 int
+int
 legitimate_address_p (mode, x, strict)
      enum machine_mode mode;
      rtx x;
      int strict;
 {
-  int r = 0;
+  enum reg_class r = NO_REGS;
+  
   if (TARGET_ALL_DEBUG)
     {
       fprintf (stderr, "mode: (%s) %s %s %s %s:",
@@ -825,9 +845,9 @@ legitimate_address_p (mode, x, strict)
     }
   if (REG_P (x) && (strict ? REG_OK_FOR_BASE_STRICT_P (x)
                     : REG_OK_FOR_BASE_NOSTRICT_P (x)))
-    r = 'R';
+    r = POINTER_REGS;
   else if (CONSTANT_ADDRESS_P (x))
-    r = 'S';
+    r = ALL_REGS;
   else if (GET_CODE (x) == PLUS
            && REG_P (XEXP (x, 0))
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT
@@ -839,26 +859,26 @@ legitimate_address_p (mode, x, strict)
 	  if (! strict
 	      || REGNO (XEXP (x,0)) == REG_Y
 	      || REGNO (XEXP (x,0)) == REG_Z)
-	      r = 'Q';
+	    r = BASE_POINTER_REGS;
 	  if (XEXP (x,0) == frame_pointer_rtx
 	      || XEXP (x,0) == arg_pointer_rtx)
-	    r = 'Q';
+	    r = BASE_POINTER_REGS;
 	}
       else if (frame_pointer_needed && XEXP (x,0) == frame_pointer_rtx)
-	r = 'U';
+	r = POINTER_Y_REGS;
     }
   else if ((GET_CODE (x) == PRE_DEC || GET_CODE (x) == POST_INC)
            && REG_P (XEXP (x, 0))
            && (strict ? REG_OK_FOR_BASE_STRICT_P (XEXP (x, 0))
                : REG_OK_FOR_BASE_NOSTRICT_P (XEXP (x, 0))))
     {
-      r = 'T';
+      r = POINTER_REGS;
     }
   if (TARGET_ALL_DEBUG)
     {
       fprintf (stderr, "   ret = %c\n", r);
     }
-  return r;
+  return r == NO_REGS ? 0 : (int)r;
 }
 
 /* Attempts to replace X with a valid
@@ -4665,8 +4685,8 @@ class_likely_spilled_p (c)
 
 /* Only `progmem' attribute valid for type.  */
 
-int
-valid_machine_type_attribute(type, attributes, identifier, args)
+static int
+avr_valid_type_attribute (type, attributes, identifier, args)
      tree type ATTRIBUTE_UNUSED;
      tree attributes ATTRIBUTE_UNUSED;
      tree identifier;
@@ -4685,8 +4705,8 @@ valid_machine_type_attribute(type, attributes, identifier, args)
    prologue interrupts are enabled;
    naked     - don't generate function prologue/epilogue and `ret' command.  */
 
-int
-valid_machine_decl_attribute (decl, attributes, attr, args)
+static int
+avr_valid_decl_attribute (decl, attributes, attr, args)
      tree decl;
      tree attributes ATTRIBUTE_UNUSED;
      tree attr;

@@ -1,3 +1,1506 @@
+2001-07-10  Daniel Berlin  <dan@cgsoftware.com>
+
+	* optimize.c (inlinable_function_p): Add heuristics to control
+	code growth.  
+	Add heuristic to inline anything where the cost to call is more
+	than the cost to inline.
+
+2001-07-13  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* decl2.c (cplus_decl_attributes): Take a pointer to the node to
+	which attributes are to be attached, and a flags argument.  Update
+	call to decl_attributes.
+	(grokfield): Update call to decl_attributes.
+	* class.c (finish_struct): Update call to cplus_decl_attributes.
+	* cp-tree.h (cplus_decl_attributes): Update prototype.
+	* decl.c (start_decl, grokdeclarator, start_function): Update
+	calls to decl_attributes and cplus_decl_attributes.
+	* friend.c (do_friend): Update call to cplus_decl_attributes.
+	* parse.y (parse_bitfield): Update call to cplus_decl_attributes.
+
+2001-07-12  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (make_rtl_for_nonlocal_decl): Set DECL_C_HARD_REGISTER
+	for `register' variables with an asm-specification.
+
+2001-07-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* semantics.c (finish_asm_stmt): Mark the output operands
+	to an asm addressable, if necessary.
+
+2001-07-11  Ben Elliston  <bje@redhat.com>
+
+	* Revert this change -- there is a subtle bug.
+
+	PR c++/80
+	* decl.c (finish_enum): New "attributes" argument; pass it to
+	cplus_decl_attributes.  Use a narrower type if the enum is packed.
+	* cp-tree.h (finish_enum): Adjust prototype.
+	* parse.y (enum_head): New non-terminal.
+	(structsp): Use it. Enums now may be preceded or followed by
+	optional attributes -- pass their chained tree to finish_enum().
+	* pt.c (tsubst_enum): Pass NULL_TREE for the new argument.
+
+2001-07-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* pt.c (tsubst_decl): Set DECL_CONTEXT for namespace-scope
+	variables.
+
+2001-07-10  Jason Merrill  <jason_merrill@redhat.com>
+
+	* semantics.c (cp_expand_stmt): Fix for null
+	current_function_return_value.
+
+2001-07-10  Jan van Male  <jan.vanmale@fenk.wau.nl>
+
+	* call.c (build_op_delete_call): Initialize fn.
+	(convert_like_real): Delete conditional.
+	(joust): Initialize *w and *l.
+	* class.c: Add prototype for binfo_ctor_vtable.
+	(get_primary_binfo): Initialize result.
+	* init.c (build_java_class_ref): Initialize name.
+
+2001-07-09  Erik Rozendaal  <dlr@acm.org>
+
+	* typeck.c (unary_complex_lvalue): Do not duplicate the
+	argument to modify, pre-, or post-increment when used as an
+	lvalue and when the argument has side-effects.
+
+2001-07-08  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* decl.c (start_decl): Don't call SET_DEFAULT_DECL_ATTRIBUTES.
+	(start_function): Don't call SET_DEFAULT_DECL_ATTRIBUTES.  Call
+	cplus_decl_attributes even if attrs is NULL.
+	* friend.c (do_friend): Don't call SET_DEFAULT_DECL_ATTRIBUTES.
+
+2001-07-08  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* decl.c (grokdeclarator), decl2.c (cplus_decl_attributes): Update
+	calls to decl_attributes.
+
+2001-07-06  Ira Ruben   <ira@apple.com>
+
+	* cp-tree.def (TEMPLATE_DECL): Update comment. DECL_RESULT should
+	be DECL_TEMPLATE_RESULT.
+
+2001-07-05  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* cp-tree.h (copy_template_template_parm): Rename to ...
+	(bind_template_template_parm): ... here.
+	* tree.c (copy_template_template_parm): Rename to ...
+	(bind_template_template_parm): ... here.  Remove the case when
+	NEWARGS is NULL_TREE.
+	(copy_tree_r): Don't copy TEMPLATE_TEMPLATE_PARM and
+	BOUND_TEMPLATE_TEMPLATE_PARM.
+	* pt.c (lookup_template_class): Adjust.
+
+2001-07-05  Jason Merrill  <jason_merrill@redhat.com>
+
+	* cvt.c (convert_lvalue): New fn.
+	* cp-tree.h: Declare it.
+	* method.c (do_build_assign_ref): Use it.
+	(do_build_copy_constructor): Convert parm to base types
+	before calling base constructors.
+
+	* typeck.c (check_return_expr): Check DECL_ALIGN instead of
+	DECL_USER_ALIGN.  Check flag_elide_constructors instead of
+	optimize.
+	* semantics.c (cp_expand_stmt): Don't destroy the named return value.
+
+2001-07-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* optimize.c (optimize_inline_calls): New function, broken out
+	of ...
+	(optimize_function): ... here. Call it. Don't inline if it is
+	a thunk.
+	(dump_function): Print name of dump flag causing this dump.
+	* semantics.c (expand_body): Move thunk inline check to
+	optimize_function.
+
+2001-06-29  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* typeck.c (COMP_TYPE_ATTRIBUTES): Don't define.
+	(comptypes): Use target.comp_type_attributes.
+
+2001-06-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (flag_dump_class_layout): Remove unneeded declaration.
+
+2001-06-28  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* error.c (lang_print_error_function): Add a `diagnostic_context *'
+	parameter. Tweak.
+
+2001-06-27  Neil Booth  <neil@cat.daikokuya.demon.co.uk>
+
+	* decl2.c (import_export_class): Update.
+
+2001-06-26  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* error.c (init_error): Adjust settings.
+
+2001-06-26  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* error.c (init_error): Adjust settings.
+
+2001-06-19  Richard Sandiford  <rsandifo@redhat.com>
+
+	* except.c (initialize_handler_parm): Expect __cxa_begin_catch to
+	return pointers to data members by reference rather than by value.
+
+2001-06-18  Jason Merrill  <jason_merrill@redhat.com>
+
+	Implement the Named Return Value optimization.
+	* cp-tree.h (struct cp_language_function): Add x_return_value.
+	(current_function_return_value): Now a macro.
+	* decl.c: Don't define it.
+	(define_label, finish_case_label): Don't clear it.
+	(init_decl_processing): Don't register it with GC.
+	* semantics.c (genrtl_finish_function): Don't check it for
+	no_return_label.  Copy the RTL from the return value to
+	current_function_return_value and walk, calling...
+	(nullify_returns_r): ...this new fn.
+	* typeck.c (check_return_expr): Set current_function_return_value.
+
+2001-06-15  Jason Merrill  <jason_merrill@redhat.com>
+
+	* class.c (dfs_accumulate_vtbl_inits): Just point to the base we're
+	sharing a ctor vtable with.  Merge code for cases 1 and 2.
+	(binfo_ctor_vtable): New fn.
+	(build_vtt_inits, dfs_build_secondary_vptr_vtt_inits): Use it.
+
+2001-06-14  Jason Merrill  <jason_merrill@redhat.com>
+
+	* class.c (dfs_find_final_overrider): Fix logic.
+
+	* class.c (update_vtable_entry_for_fn): Uncomment optimization to use
+	virtual thunk instead of non-virtual.
+	(get_matching_virtual): Uncomment.
+
+	* pt.c (unify): Don't recurse between the POINTER_TYPE and the
+	OFFSET_TYPE.  If we're adding cv-quals, the extra ones would be on
+	PARM, not ARG.
+
+2001-06-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (dfs_accumulate_vtbl_inits): For case 2 & 3, make sure
+	we've not emerged from the hierarchy of RTTI_BINFO on reaching
+	a non-virtual base.
+
+2001-06-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* NEWS: Update release number.
+
+2001-06-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3130, c++/3131, c++/3132
+	* cp-tree.h (BINFO_UNSHARED_MARKED): New #define.
+	* class.c (force_canonical_binfo_r): Move
+	BINFO_UNSHARED_MARKED, BINFO_LOST_PRIMARY_P. Don't move
+	virtual bases unless they're primary and what they're primary
+	too has been moved.
+	(dfs_unshared_virtual_bases): Use BINFO_UNSHARED_MARKED. Cope
+	with morally virtual bases. Duplicate BINFO_LOST_PRIMARY_P and
+	BINFO_PRIMARY_BASE_OF. Clear BINFO_VTABLE for all but the most
+	derived binfo.
+	(mark_primary_bases): Use BINFO_UNSHARED_MARKED.
+	(layout_nonempty_base_or_field): Add most derived type
+	parameter. Adjust.
+	(layout_empty_base): Likewise.
+	(build_base_field): Likewise.
+	(build_base_fields): Likewise.
+	(propagate_binfo_offsets): Add most derived type
+	parameter. Skip non canonical virtual bases too.
+	(dfs_set_offset_for_unshared_vbases): Don't skip primary
+	bases. Do skip canonical bases.
+	(layout_virtual_bases): Adjust.
+	(layout_class_type): Adjust.
+	(dfs_get_primary_binfo): Build list of virtual primary base
+	candidates.
+	(get_primary_binfo): Check that the shared virtual primary
+	base candidate was found first.
+	(accumulate_vtbl_inits): Don't do anything for non-vptr
+	containing binfos. For case 1 primary virtual bases, keep
+	checking that we've not emerged from the hierarchy of RTTI_BINFO.
+
+2001-06-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/3089
+	* class.c (dfs_accumulate_vtbl_inits): Always walk down the
+	hierarchy looking for primary bases for a ctor
+	vtable. Recursively call oneself, if we meet our primary via
+	this route and haven't met it yet via inheritance graph order.
+
+2001-06-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* lang-options.h: Emit documentation for -fno-honor-std, not
+	-fhonor-std.
+
+2001-06-10  Alexandre Oliva  <aoliva@redhat.com>
+
+	* typeck.c (get_member_function_from_ptrfunc) [vbit_in_delta]:
+	Don't clobber delta.
+	(expand_ptrmemfunc_cst) [ptrmemfunc_vbit_in_delta]: Adjust pfn.
+
+2001-06-10  Mark Mitchell <mark@codesourcery.com>
+	    Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* Make-lang.in (cp/call.o): Depend on diagnostic.h
+	(cp/typeck.o): Depend on diagnostic.h
+	(cp/typeck2.o): Depend on diagnostic.h
+	(cp/repo.o): Depend on dignostic.h
+	* typeck.c: #include diagnostic.h
+	(convert_for_initialization): Remove extern declaration for
+	warningcount and errorcount.
+
+	* call.c: #include diagnostic.h
+	(convert_like_real): Remove extern declaration for warnincount and
+	errorcount.
+
+	* repo.c: #include diagnostic.h
+	* typeck2.c: #include diagnostic.h
+
+2001-06-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (duplicate_decls): Fix DECL_TEMPLATE_RESULT thinko
+	in previous change.
+
+2001-06-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/2929
+	* friend.c (do_friend): Use push_decl_namespace for classes at
+	namespace scope.
+
+2001-06-08  Nathan Sidwell  <nathan@codesourcery.com>
+	    Jason Merrill <jason_merrill@redhat.com>
+
+	PR c++/3061
+	* class.c (build_secondary_vtable): Use assert, rather than an error
+	message.
+	(dfs_fixup_binfo_vtbls): BINFO_VTABLE might be NULL.
+	(dfs_accumulate_vtbl_inits): A lost primary virtual base may
+	be between ORIG_BINFO and RTTI_BINFO, but neither of them.
+	Don't set BINFO_VTABLE for a primary virtual base.
+
+2001-06-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (duplicate_decls): Update source position information
+	when a template function is defined.
+
+2001-06-07  Phil Edwards  <pme@sources.redhat.com>
+
+	* lang-specs.h:  Move -D_GNU_SOURCE to config/linux.h.
+
+2001-06-07  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/2914
+	* decl.c (pushtag): Don't push into a complete type's scope.
+
+2001-06-06  Jason Merrill  <jason_merrill@redhat.com>
+
+	* cp-tree.h (THUNK_GENERATE_WITH_VTABLE_P): Lose.
+	(struct lang_decl_flags): Lose generate_with_vtable_p.
+	(BV_GENERATE_THUNK_WITH_VTABLE_P): Lose.
+	* class.c (copy_virtuals): Adjust.
+	* decl2.c (mark_vtable_entries): Adjust.
+	* method.c (make_thunk, build_vtable_entry): Adjust.
+	* class.c (update_vtable_entry_for_fn): Only look as far as the
+	first defining class.
+	(build_vtbl_initializer): Put nothing in the slot for a function only
+	defined in a lost primary virtual base.
+	(add_vcall_offset_vtbl_entries_1): Use the same code for
+	the lost primary case and the normal case.
+	(dfs_unshared_virtual_bases): Don't lose a non-virtual primary base.
+	(get_vfield_offset, get_derived_offset): Lose.
+	(dfs_find_final_overrider): Use look_for_overrides_here.
+	(get_matching_virtual): New fn.
+	* semantics.c (emit_associated_thunks): Check BV_USE_VCALL_INDEX_P,
+	not BV_VCALL_INDEX.
+	* search.c (look_for_overrides_here): Split out from...
+	(look_for_overrides_r): Here.
+
+	* class.c (find_final_overrider): Return error_mark_node on error.
+
+	* decl2.c (key_method): #if 0 accidental change.
+
+2001-06-06  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* call.c (convert_default_arg): Use INTEGRAL_TYPE_P.
+	(build_over_call): Likewise.
+	* decl.c (grokparms): Likewise.
+	* pt.c (tsubst_decl): Likewise.
+	* typeck.c (convert_arguments): Likewise.
+
+2001-06-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* semantics.c (begin_class_definition): Robustify.
+
+	* pt.c (instantiate_decl): Tell the repository code about the
+	clones, not the cloned functions.
+	* repo.c (repo_template_used): Explicitly instantiate the cloned
+	function, not the clones.
+
+2001-06-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* call.c (build_user_type_conversion_1): Set ICS_USER_FLAG and
+	ICS_BAD_FLAG on created conversion.
+	(compare_ics): Break out rank.
+
+2001-06-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (xref_tag): Remove extraneous %s on dependent name
+	lookup warning.
+
+2001-06-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (layout_vtable_decl): Fix off by one error on
+	build_index_type.
+	(build_vtt): Likewise.
+	(build_ctor_vtbl_group): Likewise.
+
+2001-06-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (maybe_indent_hierarchy): New function.
+	(dump_class_hierarchy_r): Add flags. Dump extra binfo
+	information, if enabled. Use maybe_indent_hierarchy. Adjust
+	output format.
+	(dump_class_hierarchy): Adjust prototype. Adjust output format.
+	(dump_array, dump_vtable, dump_vtt): New functions.
+	(finish_struct_1): Adjust hierarchy dumping.
+	(initialize_vtable): Call dump_vtable.
+	(build_vtt): Call dump_vtt.
+	(build_ctor_vtbl_group): Call dump_vtable.
+	* decl2.c (flag_dump_class_layout): Remove.
+	(cxx_decode_option): Remove dump translation unit
+	and dump class hierarchy check. Call dump_switch_p.
+	(finish_file): Adjust dumping.
+	(dump.c): Only dump base classes if not TDF_SLIM.
+	Only dump namespace members if not TDF_SLIM.
+	* optimize.c (dump_function): New function.
+	(optimize_function): Call dump_function.
+	* semantics.c (expand_body): Use dump_enabled_p.
+
+2001-06-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR g++/2936
+	Part missed from first commit
+	* decl2.c (finish_anon_union): Copy context.
+
+2001-05-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR g++/2936
+	* optimize.c (remap_decl): Remap anonymous aggregate members too.
+
+2001-05-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR g++/2823
+	* semantics.c (expand_body): Don't optimize thunks.
+
+2001-05-25  Sam TH  <sam@uchicago.edu>
+
+	* cp-tree.h lex.h: Fix header include guards.
+
+2001-05-25  Mark Mitchell <mark@codesourcery.com>
+
+	* decl.c (init_decl_processing): Tweak.
+
+2001-05-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (duplicate_decls): Tidy.
+	(init_decl_processing): Always set flag_no_builtin.
+
+2001-05-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/2184
+	* decl2.c (do_local_using_decl): Push the decls, even in a
+	template.
+
+2001-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* optimize.c (initialize_inlined_parameters): Don't set
+	TREE_READONLY for a VAR_DECL taking the place of an inlined
+	PARM_DECL.
+
+2001-05-22  Jason Merrill  <jason_merrill@redhat.com>
+
+	* class.c, cp-tree.h, rtti.c: Remove com_interface attribute support.
+	* tree.c (cp_valid_lang_attribute): Warn about use of com_interface
+	attribute.
+
+2001-05-22  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* parse.y: Refer to compound literals as such, not as
+	constructor-expressions.
+
+2001-05-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (build_op_delete_call): Ignore exception-specifications
+	when looking for matching delete operators.
+	* init.c (build_new_1): Compute whether or not the allocation
+	function used is a placement allocation function or not, and
+	communicate this information to build_op_delete_call.
+
+2001-05-21  Jason Merrill  <jason_merrill@redhat.com>
+
+	* class.c (build_vtable_entry_ref): Lose vtbl parm.  Fix for new abi.
+	(build_vtbl_ref): Adjust.
+	(dfs_accumulate_vtbl_inits): Set TREE_CONSTANT on the vtable address.
+	* decl2.c (lang_f_options): Remove huge-objects, vtable-thunks.
+	Re-add vtable-gc.
+	(unsupported_options): Correspondingly.
+
+	* decl2.c (maybe_make_one_only): Check flag_weak, not
+	supports_one_only().
+
+	* cp-tree.def (START_CATCH_STMT): Lose.
+	* dump.c (cp_dump_tree): Don't dump it.  Do dump HANDLER_PARMS.
+	* tree.c (cp_statement_code_p): Don't case it.
+	* semantics.c (cp_expand_stmt): Likewise.
+	* cp-tree.h (START_CATCH_TYPE): Lose.
+	(HANDLER_TYPE): New.
+	* except.c (expand_start_catch_block): Don't start any blocks.
+	Return the type.
+	(expand_end_catch_block): Don't end any blocks.
+	* parse.y (handler): Don't pass anything from finish_handler_parms
+	to finish_handler.
+	* pt.c (tsubst_expr): Likewise.
+	* semantics.c (begin_handler): Call note_level_for_catch here.
+	(finish_handler_parms): Don't return anything.
+	(genrtl_catch_block, begin_catch_block): Lose.
+	(genrtl_handler): Call expand_start_catch here.
+
+2001-05-18  Jason Merrill  <jason_merrill@redhat.com>
+
+	* class.c (build_vtable): Set DECL_ASSEMBLER_NAME for vtables here.
+	(get_vtable_decl, build_vtt): Not here.
+
+2001-05-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/2781
+	* optimize.c (update_cloned_parm): Copy addressability and other
+	flags.
+
+2001-05-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	* pt.c (determine_specialization): Ignore artificial functions.
+
+2001-05-20  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-tree.h (struct lang_identifier, C_RID_YYCODE): Update.
+	(C_RID_CODE): Remove.
+	* lex.c (cxx_init_options): Call set_identifier_size.  Update.
+	(init_parse): Don't do it here.
+
+2001-05-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* decl2.c (finish_objects): Use the original SYMBOL_REF from the
+	function declaration to avoid stripping the symbol's attributes.
+
+2001-05-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (pushdecl): Adjust error string.
+	(xref_tag): Adjust friend class injection warning. Remove the
+	inherited name from the class shadowed scope.
+
+2001-05-17  Mark Mitchell  <mark@codesourcery.com>
+
+	* except.c (cp_protect_cleanup_actions): New function.
+	(init_exception_processing): Don't set protect_cleanup_actions
+	here.  Do set lang_protect_cleanup_actions.
+
+2001-05-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* spew.c (read_token): Call yyerror on all unexpected tokens.
+
+2001-05-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* init.c (member_init_ok_or_else): Take a tree rather than
+	string for name.
+	(expand_member_init): Adjust.
+
+2001-05-14  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	* decl.c (duplicate_decls): Suppress warning about duplicate
+        decls if the first decl is a friend.
+
+2001-05-12  Zack Weinberg  <zackw@stanford.edu>
+
+	* except.c (choose_personality_routine): Export.  Add
+	explanatory comment.  Take an enum languages, not a boolean.
+	(initialize_handler_parm): Adjust to match.
+	* cp-tree.h: Prototype choose_personality_routine.
+	* lex.c (handle_pragma_java_exceptions): New function.
+	(init_cp_pragma): Register #pragma GCC java_exceptions.
+
+2001-05-12  Neil Booth  <neil@cat.daikokuya.demon.co.uk>
+
+	* method.c (build_mangled_C99_name): Remove unused prototype.
+
+2001-05-12  Alexandre Oliva  <aoliva@redhat.com>
+
+	* cp-tree.h (ptrmemfunc_vbit_where_t): Declare type.
+	* typeck.c (get_member_function_from_ptrfunc,
+	build_ptrmemfunc, expand_ptrmemfunc_cst): Take
+	TARGET_PTRMEMFUNC_VBIT_LOCATION into account.
+
+	Reverted Geoff Keating's 2001-05-03's patch.
+
+2001-05-11  Ira Ruben	<ira@apple.com>
+
+	* cp/cp-tree.h (C_EXP_ORIGINAL_CODE): Delete; declared in c-common.h.
+
+2001-05-11  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-tree.h (finish_label_expr, lookup_label): Delete.
+	* parse.y: Update for '&&'; don't issue warning here.
+	* semantics.c (finish_label_expr): Delete.
+
+2001-05-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* splay-tree.h (splay_tree_max): New function.
+	(splay_tree_min): Likewise.
+
+2001-05-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* cp-tree.h (enum cp_tree_index): Add CPTI_PFN_VFLAG_IDENTIFIER.
+	(pfn_vflag_identifier): Define.
+	Update comment about layout of pointer functions.
+	(build_ptrmemfunc1): Update prototype.
+	(expand_ptrmemfunc_cst): Update prototype.
+	* decl.c (initialize_predefined_identifiers): Initialize
+	pfn_vflag_identifier.
+	(build_ptrmemfunc_type): When FUNCTION_BOUNDARY < 16, add
+	an extra field to the type.
+	* expr.c (cplus_expand_constant): Pass 'flag' between
+	expand_ptrmemfunc_cst and build_ptrmemfunc1.
+	* typeck.c (get_member_function_from_ptrfunc): When
+	FUNCTION_BOUNDARY < 16, look at additional field to determine
+	if a pointer-to-member is a real pointer or a vtable offset.
+	(build_ptrmemfunc1): Add new parameter to contain extra field.
+	(build_ptrmemfunc): Pass the extra field around.
+	(expand_ptrmemfunc_cst): Add new parameter to return extra field.
+	(pfn_from_ptrmemfunc): Ignore the extra field.
+
+2001-05-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (flag_inline_trees): Update documentation.
+	* decl.c (init_decl_processing): Adjust handling of
+	flag_inline_functions and flag_inline_trees to support -O3.
+	(grokfndecl): Set DECL_INLINE on all functions if that's what
+	the user requested.
+	(save_function_data): Clear DECL_INLINE in
+	current_function_cannot_inline is non-NULL.
+	* decl2.c (flag_inline_trees): Update documentation.
+
+2001-05-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* dump.c (cp_dump_tree, USING_STMT case): New case.
+	* tree.c (cp_statement_code_p): Add USING_STMT.
+	* decl2.c (do_using_directive): Add the using directive statement.
+
+	* tree.c (walk_tree): Reformat an if block.
+
+2001-05-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (compute_array_index_type): Don't try to do anything with
+	the indices when processing a template.
+
+2001-05-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* call.c: NULL_PTR -> NULL.
+	* class.c: Likewise.
+	* cvt.c: Likewise.
+	* decl.c: Likewise.
+	* decl2.c: Likewise.
+	* except.c: Likewise.
+	* init.c: Likewise.
+	* rtti.c: Likewise.
+	* search.c: Likewise.
+	* tree.c: Likewise.
+	* typeck.c: Likewise.
+	* typeck2.c: Likewise.
+
+2001-05-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (do_using_directive): Revert previous patch.
+
+2001-05-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.def (USING_STMT): New statement node.
+	* cp-tree.h (USING_STMT_NAMESPACE): New macro.
+	* decl2.c (do_using_directive): Add USING_STMT to statement
+	tree. Don't emit errors when processing template decl.
+	* pt.c (tsubst_expr, USING_STMT case): New case.
+	* semantics.c (cp_expand_stmt, USING_STMT case): New case.
+
+2001-05-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* call.c (build_new_op): Convert args from reference here.
+	(build_conditional_expr): Don't convert here.
+
+2001-05-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* spew.c (last_token_id): New static variable.
+	(read_token): Set it here.
+	(yyerror): Use it here.
+
+2001-04-30  Richard Henderson  <rth@redhat.com>
+
+        * cvt.c: Downcase C_PROMOTING_INTEGER_TYPE_P invocations.
+	* decl.c: Likewise.
+
+2001-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* gxxint.texi: Remove.
+	* Make-lang.in: Remove all traces of gxxint.texi.
+
+Mon Apr 30 16:14:10 2001  Mark P Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (start_static_initialization_or_destruction): Correct
+	logic to handle the -fno-use-cxa-atexit case.
+
+2001-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* optimize.c (update_cloned_parm): New function.
+	(maybe_clone_body): Use it.  Update the `this' parameter too.
+
+2001-04-29  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* decl2.c (unsupported_options): Add new-abi.
+	* lang-options.h: Remove no longer supported options.
+
+2001-04-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* except.c (can_convert_eh): Don't check template parms,
+	typename types etc.
+
+2001-04-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* optimize.c (maybe_clone_body): Copy parameter names and locations.
+
+2001-04-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (adjust_clone_args): Prototype new function.
+	* class.c (adjust_clone_args): New function.
+	* decl.c (start_function): Call it for in charge ctors.
+
+2001-04-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* method.c (use_thunk): Make sure that thunks really are emitted
+	when requested.
+
+2001-04-26  Nathan Sidwell <nathan@codesourcery.com>
+
+	* mangle.c (write_chars): New macro.
+	(hwint_to_ascii): New function
+	(write_number): Use it.
+	(write_integer_cst): Deal with really big numbers.
+
+2001-04-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* optimize.c (maybe_clone_body): Copy TREE_PUBLIC before emitting
+	the clone.
+
+2001-04-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (grokdeclarator): Set context of namespace scope
+	TYPE_DECLS.
+
+2001-04-24  Zack Weinberg  <zackw@stanford.edu>
+
+	* cp/optimize.c: Include hashtab.h.
+	(struct inline_data): Add tree_pruner.
+	(expand_call_inline, expand_calls_inline): Use it when calling
+	walk_tree.
+	(optimize_function): Initialize and free tree_pruner.
+
+2001-04-24  Nathan Sidwell <nathan@codesourcery.com>
+
+	Lazy __FUNCTION__ generation.
+	* cp-tree.def (FUNCTION_NAME): Remove.
+	* cp-tree.h (function_name_declared_p): Remove.
+	(cp_fname_init): Prototype.
+	* decl.c (init_decl_processing): Don't generate __FUNCTION__ et al ids,
+	don't call declare_function_name. Call start_fname_decls.
+	(cp_make_fname_decl): Adjust parameters. Generate the name. Don't
+	clobber the line number.
+	(cp_fname_init): New function.
+	(start_function): Call start_fname_decls.
+	(finish_function): Call finish_fname_decls.
+	* lex.c (reswords): Add slots for __FUNCTION__ et al.
+	(rid_to_yy): Add mappings for __FUNCTION__ et al.
+	* optimize.c (maybe_clone_body): Remove function_name_declared_p.
+	* parse.y (VAR_FUNC_NAME): New token.
+	(primary): Add VAR_FUNC_NAME.
+	* pt.c (tsubst_decl): Adjust a DECL_PRETTY_FUNCTION_P's
+	generation.
+	(tsubst, FUNCTION_NAME case): Remove.
+	(tsubst_copy, FUNCTION_NAME case): Remove.
+	(tsubst_expr, DECL_STMT case): Be careful with a
+	DECL_PRETTY_FUNCTION_P.
+	(instantiate_decl): Remove function_name_declared_p.
+	* semantics.c (begin_compound_statement): Don't call
+	declare_function_name here.
+	(setup_vtbl_ptr). Don't save & restore function_name_declared_p.
+	(finish_translation_unit): Call finish_fname_decls.
+	(expand_body): Remove function_name_declared_p.
+	* typeck2.c (digest_init): Allow any ERROR_MARK.
+
+2001-04-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* pt.c (tsubst_decl): Use VOID_TYPE_P.
+	* semantics.c: Fix some typos.
+
+2001-04-23  Phil Edwards  <pme@sources.redhat.com>
+
+	* cp/decl2.c (flag_honor_std):  Always initialize to 1.
+
+2001-04-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* xref.c (GNU_xref_file): Use concat in lieu of xmalloc/sprintf.
+
+2001-04-23  Jason Merrill  <jason_merrill@redhat.com>
+
+	* except.c (build_throw): Wrap the initialization of the exception
+	object in a MUST_NOT_THROW_EXPR.
+	(do_free_exception): #if 0.
+
+2001-04-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (finish_enum): Change prototype.
+	* decl.c (finish_enum): Reorganize.
+	* parse.y (structsp): Adjust calls to finish_enum.
+
+2001-04-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tree.c (cp_tree_equal): Adjust final switch formatting. Add
+	't' case.
+
+2001-04-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (dfs_unshared_virtual_bases): Add ATTRIBUTE_UNUSED.
+	(layout_empty_base): Return at end flag.
+	(build_base_field): Likewise.
+	(build_base_fields): Likewise.
+	(layout_virtual_bases): Don't add 1 to eoc value.
+	(end_of_class): Use full size for empty bases.
+	(layout_class_type): Clear CLASSNEARLY_EMPTY_P if we appended
+	empty bases. Don't add 1 to eoc value. Only add trailing padding
+	if we're an empty class with no empty bases.
+	(dump_class_hierarchy): Dump size and alignment.
+
+2001-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* call.c (maybe_handle_ref_bind): Copy ICS_USER_FLAG and
+	ICS_BAD_FLAG.
+
+2001-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* search.c (lookup_field_r): If looking for type and non-TYPE_DECL
+	is found, look first if name does not match the structure name.
+
+2001-04-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (DECL_LANGUAGE): Don't assume DECL_LANG_SPECIFIC is
+	set.
+	(SET_DECL_LANGUAGE): New macro.
+	* decl.c (duplicate_decls): Use SET_DECL_LANGUAGE.
+	(pushdecl): Likewise.
+	(build_library_fn_1): Likewise.
+	(build_cp_library_fn): Likewise.
+	(grokfndecl): Likewise.
+	(grokvardecl): Mark `extern "C"' variables as having C linkage.
+	* decl2.c (grokclassfn): Use SET_DECL_LANGUAGE.
+	* lex.c (retrofit_lang_decl): Likewise.
+	* mangle.c (mangle_decl_string): Don't mangle the names of
+	variables declared with C language linkage.
+	* semantics.c (finish_member_declaration): Use SET_DECL_LANGUAGE.
+
+2001-04-18  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* semantics.c (simplify_aggr_init_exprs_r): Don't restore
+	flag_access_control from uninitialized storage.
+
+2001-04-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (TYPE_PTRMEM_CLASS_TYPE): Improve documentation.
+	* mangle.c (write_pointer_to_member_type): Fix mangling of
+	pointers to cv-qualified member function types.
+
+	* init.c (build_delete): Create a SAVE_EXPR for the address if
+	we're going to use it more than once.
+
+2001-04-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (DELTA2_FROM_PTRMEMFUNC): Remove.
+	(expand_ptremfunc_cst): Change prototype.
+	(delta2_from_ptrmemfunc): Remove.
+	* expr.c (cplus_expand_constant): Adjust call to
+	expand_ptrmemfunc_cst.
+	* typeck.c (build_ptrmemfunc1): Simplify.
+	(build_ptrmemfunc): Make sure that casting a PTRMEM_CST still
+	results in a constant.
+	(expand_ptrmemfunc_cst): Remove idx and delta2 parameters.
+	(delta2_from_ptrmemfunc): Remove.
+	(pfn_from_ptrmemfunc): Adjust call to expand_ptrmemfunc_cst.
+
+2001-04-12  Jason Merrill  <jason_merrill@redhat.com>
+
+	* cp-tree.h (decl_namespace_list): New macro.
+	(struct saved_scope): Add decl_ns_list.
+	* decl.c (mark_saved_scope): Mark it.
+	* decl2.c: Lose static decl_namespace_list.
+	(init_decl2): Don't save it.
+
+2001-04-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cp-tree.h (warn_return_type, yylex): Delete redundant
+	declarations.
+
+	* decl.c (current_class_depth, global_namespace): Likewise.
+
+	* decl2.c (current_class_depth, flag_gnu_xref): Likewise
+
+	* repo.c (flag_use_repository): Likewise.
+
+2001-04-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cp-tree.h (pedantic, convert, global_bindings_p, insert_block,
+	set_block, pushdecl, getdecls, gettags, init_decl_processing,
+	maybe_build_cleanup, copy_lang_decl, prep_stmt, lvalue_p,
+	lvalue_or_else, print_lang_statistics, comp_target_types,
+	unsigned_type, signed_type, signed_or_unsigned_type,
+	build_function_call, mark_addressable, incomplete_type_error):
+	Delete redundant declarations.
+
+2001-04-11  Jason Merrill  <jason_merrill@redhat.com>
+
+	* cp-tree.h (TYPE_LINKAGE_IDENTIFIER): New macro.
+	(TYPE_ANONYMOUS_P): New macro.
+	(TAGGED_TYPE_P): New macro.
+	* decl.c (check_tag_decl): Use TYPE_ANONYMOUS_P.
+	(grokfndecl, grokvardecl, grokdeclarator): Likewise.
+	* tree.c (no_linkage_helper): Likewise.
+	* semantics.c (begin_class_definition): Likewise.
+	* pt.c (convert_template_argument): Likewise.
+	* lex.c (check_for_missing_semicolon): Likewise.
+
+2001-04-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (dfs_unshared_virtual_bases): New function.
+	(mark_primary_bases): Call it.
+	(check_bases): Ignore virtual bases when determining
+	nearly-emptiness.
+
+2001-04-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* method.c (make_thunk): Clear DECL_CLONED_FUNCTION.
+
+2001-04-11  Mark Mitchell  <mark@codesourcery.com>
+
+	* optimize.c (maybe_clone_body): Copy DECL_NUM_STMTS from the
+	cloned function to the clone.
+
+2001-04-11  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in (cp/semantics.o): Depend on $(EXPR_H).
+
+	* semantics.c: Include expr.h.
+
+2001-04-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* method.c (implicitly_declare_fn): Commonize code for copy ctor
+	and assignment op. Set TREE_USED for parameter.
+
+2001-04-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (find_final_overrider_data): Add `candidates'.
+	(dfs_find_final_overrider): Don't issue error messages
+	prematurely.
+	(find_final_overrider): Issue error messages here.
+	(build_base_field): Don't warn about amgibuous direct bases here.
+	(warn_about_ambiguous_direct_bases): New function.
+	(layout_class_type): Use it.
+
+2001-04-10  Richard Henderson  <rth@redhat.com>
+
+	* typeck.c (build_array_ref): Push the array reference inside
+	COMPOUND_EXPR and COND_EXPR.
+
+2001-04-05  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (DECL_THIS_INLINE): Rename to DECL_DECLARED_INLINE_P.
+	* decl.c (duplicate_decls): Adjust accordingly.
+	(maybe_commonize_var): Likewise.
+	(grokfndecl): Likewise.
+	(start_function): Likewise.
+	(start_method): Likewise.
+	* decl2.c (key_method): Likewise.
+	(import_export_decl): Likewise.
+	* method.c (implicitly_declare_fn): Likewise.
+	* optimize.c (maybe_clone_body): Likewise.
+
+2001-04-05  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* lang-specs.h: Add __DEPRECATED.
+
+Thu Apr  5 16:54:29 2001  J"orn Rennecke <amylaar@redhat.com>
+
+	* search.c (get_dynamic_cast_base_type): When building a new
+	constant, set its type to ssizetype.
+
+2001-04-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* optimize.c (expand_call_inline): Only add newly inlined statements
+	into inlined_stmts.
+
+2001-04-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (OPERATOR_ASSIGN_FORMAT): Remove.
+	(OPERATOR_FORMAT): Likewise.
+	(OPERATOR_TYPENAME_FORMAT): Likewise.
+	* operators.def: Remove old name-mangling information.
+	* decl.c (grok_op_properties): Adjust accordingly.
+	* lex.c (init_operators): Likewise.
+	* rtti.c (get_tinfo_decl): Issue error messages about types that
+	have variable size.
+
+2001-04-03  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (import_export_decl): Don't call import_export_class
+	when processing an inline member function.
+	* semantics.c (expand_body): Call import_export_decl before
+	emitting inline functions.
+
+2001-03-28  Richard Henderson  <rth@redhat.com>
+
+	IA-64 ABI Exception Handling:
+	* cp-tree.def (EH_SPEC_BLOCK): New.
+	(MUST_NOT_THROW_EXPR): New.
+	* cp-tree.h: Update changed function declarations.
+	(CPTI_PUSH_EXCEPTION_IDENTIFIER): Remove.
+	(CPTI_CALL_UNEXPECTED): New.
+	(struct cp_language_function): Rename x_eh_spec_try_block
+	to x_eh_spec_block.
+	(EH_SPEC_STMTS, EH_SPEC_RAISES): New.
+	* decl.c (current_binding_level): If no current function
+	bindings, revert to scope_chain.
+	(initialize_predefined_identifiers): Remove __cp_push_exception.
+	(store_parm_decls): Use begin_eh_spec_block.
+	(finish_function): Use finish_eh_spec_block.
+	(mark_lang_function): Update for name changes.
+	* decl2.c (finish_file): No mark_all_runtime_matches.
+	* dump.c (cp_dump_tree): Handle new tree codes.
+	* error.c (dump_expr) [BIND_EXPR]: Fix typo.
+	* except.c (catch_language_init, catch_language): Remove.
+	(init_exception_processing): Don't set language code.
+	Initialize call_unexpected_node, protect_cleanup_actions,
+	eh_personality_libfunc, lang_eh_runtime_type.
+	(call_eh_info, push_eh_info, get_eh_info, get_eh_value): Remove.
+	(get_eh_type, get_eh_caught, get_eh_handlers): Remove.
+	(prepare_eh_type): Split out type canonicalizations ...
+	(build_eh_type_type): ... from here.
+	(build_eh_type_type_ref): Remove.
+	(mark_all_runtime_matches): Remove.
+	(build_exc_ptr): New.
+	(do_begin_catch, do_end_catch): New.
+	(do_pop_exception): Remove.
+	(build_terminate_handler): Remove.
+	(choose_personality_routine): Split out language choice from ...
+	(initialize_handler_parm): ... here.
+	Use MUST_NOT_THROW_EXPR.
+	(expand_start_catch_block): Use do_begin_catch.  Simplify Java
+	exception object handling.
+	(expand_start_eh_spec, expand_end_eh_spec): Remove.
+	(expand_exception_blocks, alloc_eh_object): Remove.
+	(begin_eh_spec_block, finish_eh_spec_block): New.
+	(do_allocate_exception, do_free_exception): New.
+	(expand_throw): Merge into ...
+	(build_throw): ... here.  Update for abi.
+	* expr.c (cplus_expand_expr): No expand_internal_throw.
+	Handle MUST_NOT_THROW_EXPR.
+	* pt.c (tsubst_expr): Handle EH_SPEC_BLOCK.
+	* semantics.c (*) Update for except.h name changes.
+	(genrtl_try_block): No protect_with_terminate.
+	(genrtl_eh_spec_block): New.
+	(genrtl_handler): Don't emit the goto here.
+	(cp_expand_stmt): Handle EH_SPEC_BLOCK.
+	(genrtl_finish_function): Don't expand_exception_blocks.
+	* tree.c (cp_statement_code_p): Handle EH_SPEC_BLOCK.
+
+2001-03-28  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (struct named_label_list): Rename eh_region to
+	in_try_scope, add in_catch_scope.
+	(struct binding_level): Rename eh_region to is_try_scope,
+	add is_catch_scope.
+	(note_level_for_try): Rename from note_level_for_eh.
+	(note_level_for_catch): New.
+	(poplevel): Copy both is_try_scope and is_catch_scope to
+	the named_label_list struct.
+	(check_previous_goto_1): Don't check for catch block via
+	DECL_ARTIFICIAL; use in_try_scope instead.
+	(check_goto): Likewise.
+	* cp-tree.h (note_level_for_try, note_level_for_catch): Declare.
+	* except.c (expand_start_catch_block): Call note_level_for_catch.
+	* semantics.c (begin_compound_stmt): Update for note_level_for_try.
+
+2001-03-27  Richard Henderson  <rth@redhat.com>
+
+	* except.c: Use USING_SJLJ_EXCEPTIONS instead of
+	exceptions_via_longjmp.
+
+2001-03-27  Phil Edwards  <pme@sources.redhat.com>
+
+	* pt.c (check_default_tmpl_args):  Make error messages clearer.
+
+2001-03-26  Phil Edwards  <pme@sources.redhat.com>
+
+	* error.c:  Also undefine 'A' macro used for cp_printers definition.
+
+2001-03-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Make-lang.in: Depend on $(SYSTEM_H), not system.h.
+
+2001-03-26  Mike Yang <yang@research.att.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* dump.c (dump_access): New function.
+	(cp_dump_tree): Use it.  Dump basetype information for class
+	types.
+
+2001-03-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.in (optimize.o): Depend on params.h.
+	(duplicate_decls): Copy DECL_NUM_STMTS, not DECL_FRAME_SIZE.
+	(init_decl_processing): Set flag_no_inline when doing
+	inlining-on-trees.
+	* optimize.c: Include params.h.
+	(struct inline_data): Improve documentation of FNS.  Add
+	FIRST_INLINED_FN, INLINED_STMTS, and CLONING_P.
+	(INSNS_PER_STMT): New macro.
+	(remap_block): Use CLONING_P.
+	(inlinable_function_p): Don't inline big functions.
+	(expand_call_inline): Keep track of how much inlining we've done.
+	(optimize_function): Set FIRST_INLINED_FN.
+	(maybe_clone_body): Set CLONING_P.
+	* semantics.c (simplify_aggr_init_exprs_r): Fix typing problems in
+	tree nodes.
+	(genrtl_finish_function): Clear DECL_DEFER_OUTPUT before calling
+	rest_of_compilation.  Clear DECL_RTL for local variables
+	afterwards.
+	(clear_decl_rtl): New function.
+
+2001-03-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Implement DR 209
+	* cp-tree.h (skip_type_access_control,
+	reset_type_access_control): Prototype.
+	* decl.c (grokdeclarator): Access of friends is not checked.
+	* parse.y (component_decl_list): Reset type access control.
+	* semantics.c (decl_type_access_control): Clear
+	current_type_lookups.
+	(save_type_access_control): Don't save if not deferring.
+	(skip_type_access_control, reset_type_access_control): New
+	functions.
+	(begin_class_definition): Do type access control for basetypes.
+	Start deferred access control.
+	(finish_class_definition): Resume immediate access control if
+	this is a local class.
+
+2001-03-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* class.c (add_method): Use memcpy/memmove, not bcopy.
+
+	* decl.c (duplicate_decls): Likewise.
+
+2001-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* mangle.c (write_discriminator): Use `_0' for discriminator 1,
+	not `_'.
+
+2001-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (local_names): Define.
+	(push_local_name): New.
+	(grok_reference_init): Return init if initializing static reference
+	variable with non-constant instead of emitting it.
+	Move expand_static_init call to cp_finish_decl.
+	(layout_var_decl): Call push_local_name.
+	(maybe_commonize_var): Allow inlining functions even if they have
+	static local variables, use comdat_linkage for them if flag_weak.
+	(check_initializer): Call obscure_complex_init if
+	grok_reference_init returned non-zero.
+	(save_function_data): Clear x_local_names.
+	(pop_cp_function_context): Free x_local_names.
+	(mark_inlined_fns): Remove.
+	(mark_lang_function): Mark x_local_names.
+	(lang_mark_tree): Don't mark DECL_ACCESS for DECL_DISCRIMINATOR_P.
+	Mark inlined_fns as tree, remove call to mark_inlined_fns.
+	* class.c (alter_access): Ensure DECL_ACCESS is never set if
+	DECL_DISCRIMINATOR_P.
+	* cp-tree.h (cp_language_function): Add x_local_names.
+	(lang_decl_flags): Add discriminator into u2.
+	(lang_decl_inlined_fns): Remove.
+	(lang_decl): inlined_fns is now a TREE_VEC.
+	(DECL_DISCRIMINATOR_P, DECL_DISCRIMINATOR): Define.
+	* optimize.c (inlinable_function_p): DECL_INLINED_FNS is now a
+	TREE_VEC, not a custom structure.
+	(optimize_function): Likewise.
+	* mangle.c (discriminator_for_local_entity): Discriminate among
+	VAR_DECL local entities.
+	* search.c (dfs_access_in_type): If DECL_DISCRIMINATOR_P, DECL_ACCESS
+	is not valid.
+
+2001-03-22  Bryce McKinlay  <bryce@albatross.co.nz>
+
+	Add support for Java interface method calls.
+	* cp-tree.h (struct lang_type): Add java_interface flag.
+	(TYPE_JAVA_INTERFACE): New macro.
+	* tree.c (cp_valid_lang_attribute): Handle "java_interface" attribute
+	by setting TYPE_JAVA_INTERFACE.
+	* call.c (java_iface_lookup_fn): New static.
+	(build_over_call): If calling a method declared in a
+	TYPE_JAVA_INTERFACE, call build_java_interface_fn_ref to generate the
+	expression which resolves the function address.
+	(build_java_interface_fn_ref): New function.
+
+2001-03-22  Richard Henderson  <rth@redhat.com>
+
+	* Make-lang.in (cp/except.o): Don't depend on insn-flags.h.
+	* except.c: Don't include it.
+
+2001-03-22  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+	    based on an idea from Joe Buck <jbuck@synopsys.com>
+
+	* parse.y (bad_decl, template_arg_list_ignore, arg_list_ignore):
+	New nonterminals.
+	(data_def, component_decl): Add reductions to bad_decl.
+
+2001-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* method.c (do_build_assign_ref): Don't use build_modify_expr for
+	anonymous aggregates, since they don't have assignment operator
+	method.
+	* decl.c (fixup_anonymous_aggr): Disallow ctors, dtors and copy
+	assignment operators for anonymous structure fields.
+
+2001-03-21  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (instantiate_decl): Abort if we see a member constant
+	instantiation that doesn't already have its initializer.
+	Downgrade explicit instantiation without definition to pedwarn.
+
+	* cp-tree.h (DECL_TINFO_FN_P, SET_DECL_TINFO_FN_P): Remove.
+	* class.c (build_vtable_entry): Don't check DECL_TINFO_FN_P.
+	(import_export_decl): Check tinfo_decl_p, not DECL_TINFO_FN_P.
+
+	* cp-tree.h (CLASSTYPE_VTABLE_NEEDS_WRITING): Remove.
+	(pending_vtables): Remove.
+	* decl2.c (pending_vtables): Remove.
+	(import_export_vtable): Use CLASSTYPE_INTERFACE_ONLY, not
+	CLASSTYPE_VTABLE_NEEDS_WRITING.
+	(import_export_class): Likewise.
+	(init_decl2): Don't mark pending_vtables.
+	* lex.c (handle_pragma_vtable): Just sorry.
+	* pt.c (instantiate_class_template): Don't mess with
+	CLASSTYPE_VTABLE_NEEDS_WRITING.
+	(mark_class_instantiated): Likewise.
+	* ptree.c (print_lang_type): Don't print it.
+	* semantics.c (begin_class_definition): Don't set it.
+
+	* pt.c (template_tail): Replace with last_pending_template.
+	(maybe_templates, maybe_template_tail): Remove.
+	(add_pending_template): Adjust.
+	(instantiate_pending_templates): Adjust.
+
+	* cp-tree.h (struct saved_scope): Remove lang_stack field.
+	(current_lang_stack): Remove.
+	* decl.c (maybe_push_to_top_level): Don't initialize it.
+	(duplicate_decls): Use current_lang_depth.
+	(xref_basetypes): Likewise.
+	* class.c (current_lang_depth): New fn.
+	(push_lang_context): Use more varray functionality.
+	(pop_lang_context): Likewise.
+
+	* error.c (GLOBAL_THING): Always use '__'.
+
+2001-03-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (build_clone): Clear DECL_ASSEMBLER_NAME.
+
+	* mangle.c (mangle_decl_string): Mangle the names of overloaded
+	operators, even when they have `extern "C"' linkage.
+
+2001-03-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (get_vtable_decl): Use SET_DECL_ASSEMBLER_NAME,
+	COPY_DECL_ASSEMBLER_NAME, etc.  Don't set DECL_ASSEMBLER_NAME
+	where it's not necessary.
+	(add_method): Remove optimization involving comparison of
+	DECL_ASSEMBLER_NAME.
+	(build_vtbl_or_vbase_field): Use SET_DECL_ASSEMBLER_NAME,
+	COPY_DECL_ASSEMBLER_NAME, etc.  Don't set DECL_ASSEMBLER_NAME
+	where it's not necessary.
+	(check_methods): Likewise.
+	(build_clone): Likewise.
+	(built_vtt): Likewise.
+	* cp-tree.h (DECL_NEEDED_P): Likewise.
+	* decl.c (pushtag): Likewise.
+	(duplicate_decls): Likewise.
+	(pushdecl): Likewise.
+	(builtin_function): Likewise.
+	(build_library_fn_1): Set DECL_LANGUAGE for library functions.
+	(build_cp_library_fn): Likewise.
+	(maybe_commonize_var): Use SET_DECL_ASSEMBLER_NAME,
+	COPY_DECL_ASSEMBLER_NAME, etc.  Don't set DECL_ASSEMBLER_NAME
+	where it's not necessary.
+	(make_rtl_for_nonlocal_decl): Likewise.
+	(cp_finish_decl): Likewise.
+	(grokfndecl): Likewise.
+	(grokvardecl): Likewise.
+	(grokdeclarator): Likewise.
+	(start_function): Likewise.
+	(cp_missing_return_ok_p): Likewise.
+	* decl2.c (grokclassfn): Likewise.
+	(check_classfn): Likewise.
+	(finish_static_data_member_decl): Likewise.
+	(grokfield): Likewise.
+	* error.c (GLOBAL_IORD_P): Remove.
+	(dump_global_iord): Improve output.
+	(dump_decl): Avoid using DECL_ASSEMBLER_NAME.
+	* except.c (nothrow_libfn_p): Summarily reject any function not in
+	namespace-scope.
+	* init.c (build_java_class_ref): Don't explicitly set
+	DECL_ASSEMBLER_NAME after calling mangle_decl.
+	* mangle.c (mangle_decl_string): Handle extern "C" functions.
+	(mangle_decl): Set the DECL_ASSEMBLER_NAME for the decl.
+	* method.c (set_mangled_name_for_decl): Don't explicitly set
+	DECL_ASSEMBLER_NAME after calling mangle_decl.
+	(make_thunk): Explicitly set the DECL_ASSEMBLER_NAME and
+	IDENTIFIER_GLOBAL_VALUE for the thunk.
+	* pt.c (set_mangled_name_for_template_decl): Remove.
+	(check_explicit_specialization): Don't use it.
+	(looup_template_class): Don't set DECL_ASSEMBLER_NAME.
+	(tsubst_friend_function): Likewise.
+	(tsubst_decl): Likewise.
+	(regenerate_decl_from_template): Use COPY_DECL_ASSEMBLER_NAME.
+	* rtti.c (get_tinfo_decl): Use SET_DECL_ASSEMBLER_NAME,
+	COPY_DECL_ASSEMBLER_NAME, etc.  Don't set DECL_ASSEMBLER_NAME
+	where it's not necessary.
+	(tinfo_base_init): Likewise.
+	(create_real_tinfo_var): Likewise.
+	* search.c (looup_field_1): Likewise.
+	* semantics.c (finish_named_return_value): Likewise.
+	* tree.c (init_tree): Set lang_set_decl_assembler_name.
+
+2001-03-15  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	Correct semantics restrictions checking in throw-expression.
+	* except.c (is_admissible_throw_operand): New function.
+	(build_throw): Use it.
+
+2001-03-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (cp_make_fnname_decl): Set DECL_IGNORED_P on __FUNCTION__
+	and its ilk.
+
+2001-03-14  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (build_clone): Use COPY_DECL_RTL, DECL_RTL_SET_P, etc.
+	* cp-tree.h (DECL_IN_MEMORY_P): Likewise.
+	* decl.c (duplicate_decls): Likewise.
+	(builtin_function): Likewise.
+	(build_library_fn): Likewise.
+	(build_cp_library_fn): Likewise.
+	(check_initializer): Likewise.
+	(cp_finish_decl): Likewise.
+	* decl2.c (grokfield): Likewise.
+	(grok_function_init): Remove #if 0'd code.
+	(finish_anon_union): Use COPY_DECL_RTL, DECL_RTL_SET_P, etc.
+	* friend.c (do_friend): Likewise.
+	* init.c (get_temp_regvar): Likewise.
+	* method.c (make_thunk): Likewise.
+	* pt.c (tsubst_friend_function): Likewise.
+	(tsubst_decl): Likewise.
+	(regenerate_decl_from_template): Likewise.
+	* semantics.c (genrtl_named_return_value): Likewise.
+	(expand_body): Likewise.
+	(genrtl_finish_function): Likewise.
+	* tree.c (cp_tree_equal): Likewise.
+
+2001-03-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* call.c (convert_like_real): Add extra semantics to INNER
+	parameter. Don't convert to temporary if a user conversion
+	gives us an lvalue that we're about to bind to a reference.
+	Set INNER to indicate pending reference binding on recursive
+	calls.
+
+2001-03-10  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp/lex.c: Delete duplicate pending_lang_change.
+
+2001-03-10  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp/lex.c (handle_pragma_interface, handle_pragma_implementation):
+	Similarly.
+	* cp/repo.c (get_base_filename, open_repo_file): Similarly.
+	* cp/cp-tree.h: Remove file_name_nondirectory prototype.
+
+2001-03-09  Zack Weinberg  <zackw@stanford.edu>
+
+	* Make-lang.in: Add dependencies on $(TM_P_H) as appropriate.
+
+2001-03-08  Stan Shebs  <shebs@apple.com>
+
+	* cp-tree.h (set_identifier_local_value): Remove unused decl.
+
+2001-03-06  Zack Weinberg  <zackw@stanford.edu>
+
+	* spew.c: Remove references to CPP_OSTRING.
+
+2001-03-06  Andrew Haley  <aph@redhat.com>
+
+	* typeck.c (convert_arguments): Check that we have an fndecl.
+
+2001-03-05  Andrew Haley  <aph@redhat.com>
+
+	* typeck.c (convert_arguments): Don't do ellipsis conversion for
+	__built_in_constant_p.
+
+2001-03-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* typeck.c (build_static_cast): Allow enum to enum conversions
+	as per DR 128.
+
+2001-03-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (check_field_decls): Pointers to member do not a
+	non-pod struct make, as per DR 148.
+
+2001-03-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* call.c (joust): cp_pedwarn when using gnu extension concerning
+	worst conversion sequences.
+
+2001-03-01  Zack Weinberg  <zackw@stanford.edu>
+
+	* decl.c: Replace all uses of 'boolean' with 'bool'.
+
+2001-03-01  Zack Weinberg  <zackw@stanford.edu>
+
+	* lang-specs.h: Add zero initializer for cpp_spec field to
+	all array elements that need one.  Don't put an #ifdef inside
+	the initializer list; set a default for CPLUSPLUS_CPP_SPEC and
+	use it.
+
+2001-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Implement using decls inside template functions.
+	* decl2.c (validate_nonmember_using_decl): Don't special case
+	fake_std_node in the global namespace. Don't reject early when
+	processing a template.
+	(do_local_using_decl): Add to statement tree. Don't do further
+	processing when building a template.
+	* pt.c (tsubst_expr, DECL_STMT case): Deal with USING_DECLs.
+
+2001-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl2.c (do_nonmember_using_decl): Don't complain if we find
+	same function. Do complain about ambiguating extern "C"
+	declarations.
+
+2001-02-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Remove floating point and complex type template constant parms.
+	* pt.c (convert_nontype_argument): Remove REAL_TYPE and
+	COMPLEX_TYPE extensions.
+	(invalid_nontype_parm_type_p): Likewise.
+
+2001-02-27  Jeffrey Oldham  <oldham@codesourcery.com>
+
+	* except.c (call_eh_info): Revert "match_function"'s type.
+
+2001-02-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Fix ctor vtable vcall offsets.
+	* class.c (struct vtbl_init_data_s): Add rtti_binfo member.
+	(build_rtt_vtbl_entries): Lose RTTI_BINFO parameter.
+	(get_matching_base): Remove.
+	(get_original_base): New function.
+	(build_vtbl_initializer): Initialize vid.rtti_binfo.
+	Use a virtual thunk for a ctor vtable with an index
+	(add_vcall_offset_vtbl_entries_1): Check if binfo has lost a
+	primary base within a constructor vtable. Only set
+	BV_VCALL_INDEX when not a constructor vtable. Adjust vcall offset
+	when primary base has been lost.
+	* cp-tree.h (BINFO_VIRTUALS): Remove ambiguity from comment.
+
+2001-02-26  Jeffrey Oldham  <oldham@codesourcery.com>
+
+	* call.c (joust): Ensure more_specialized()'s argument length
+	parameter has correct value for constructors.
+
+2001-02-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* except.c (call_eh_info): Cleanup generation of cp_eh_info struct.
+
+	* decl.c (mark_inlined_fns): Prototype.
+
+2001-02-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* spew.c (yylex): Correct handling of friends.
+
+2001-02-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* mangle.c (write_encoding): Pass write_function_type the
+	FUNCTION_DECL for the function being encoded.
+	(write_function_type): Pass it along to write_bare_function_type.
+	(write_bare_function_type): Pass it along to write_method_parms.
+	(write_method_parms): Don't mangle the compiler-generated
+	parameters to a constructor or destructor.
+
+2001-02-22  Andreas Jaeger  <aj@suse.de>
+
+	* optimize.c: Include toplev.h for
+	note_deferral_of_defined_inline_function prototype.
+
+2001-02-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (struct lang_decl_inlined_fns): New.
+	(struct lang_decls): Add inlined_fns.
+	(DECL_INLINED_FNS): New macro.
+	* optimize.c (struct inline_data): Add inlined_fns.
+	(declare_return_variable): Use VARRAY_ACTIVE_SIZE macro.
+	(inlinable_function_p): Likewise, fix typo in comment,
+	function is not inlinable if it already inlined function currently
+	being optimized.
+	(expand_call_inline): Add fn to inlined_fns if neccessary.
+	(optimize_function): Initialize inlined_fns.
+	Save inlined_fns into DECL_INLINED_FNS after expanding inlines.
+	* decl.c (mark_inlined_fns): New function.
+	(lang_mark_tree): Call it.
+
+2001-02-21  Jason Merrill  <jason@redhat.com>
+
+	* cp-tree.h (struct lang_decl_flags): Remove uninlinable flag.
+	(DECL_UNINLINABLE): Move to middle-end.
+
+	* class.c (clone_function_decl): Set DECL_ABSTRACT on original fn.
+	* decl.c (duplicate_decls): Preserve DECL_ABSTRACT.
+	* class.c (build_clone): Set DECL_ABSTRACT_ORIGIN for the clone.
+	* optimize.c (maybe_clone_body): Set DECL_ABSTRACT_ORIGIN for the
+	parms and outer BLOCK.  note_deferral_of_defined_inline_function.
+
+	* method.c (implicitly_declare_fn): Don't set DECL_ARTIFICIAL on
+	second parm of op=.
+
+2001-02-19  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (set_decl_namespace): Allow explicit instantiations in
+	any namespace.
+
 2001-02-18  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	* optimize.c (expand_call_inline): Don't walk subtrees of type
@@ -21,7 +1524,7 @@
 	appropriate.
 	(start_function): Set current_vtt_parm.
 	(lang_mark_tree): Don't mark vtt_parm.
-	* decl2.c (maybe_retrofit_in_chrg): Do add the VTT parm to 
+	* decl2.c (maybe_retrofit_in_chrg): Do add the VTT parm to
 	DECL_ARGUMENTS.  Set DECL_HAS_VTT_PARM_P.
 	* class.c (build_clone): Maybe remove the VTT parm.
 	* optimize.c (maybe_clone_body): Set up the VTT parm.
@@ -76,7 +1579,7 @@
 
 	* decl2.c (build_artificial_parm): Set TREE_READONLY.
 
-	* decl.c (bad_specifiers): Allow throw specs on things with 
+	* decl.c (bad_specifiers): Allow throw specs on things with
 	pointer-to-function or -member-function type.
 	* init.c (build_default_init): Don't use a CONSTRUCTOR to initialize
 	a pmf.
@@ -185,7 +1688,7 @@
 	non-virtual destructor.
 	* init.c (build_delete): Explicitly call `operator delete' when
 	deleting an object with a non-virtual destructor.
-	
+
 2001-02-13  Jason Merrill  <jason@redhat.com>
 
 	* lang-specs.h: Add more __EXCEPTIONS.
@@ -216,7 +1719,7 @@
 	* decl2.c (flag_vtable_thunks): Always set it to 1.
 	(flag_new_abi): Likewise.
 	* lang-specs.h: Remove conditional on ENABLE_NEW_GXX_ABI.
-	
+
 	* Makefile.in (g++spec.o): Fix typo.
 
 2001-02-09  Jason Merrill  <jason@redhat.com>
@@ -240,7 +1743,7 @@
 	* typeck2.c (friendly_abort): Don't say anything if we have
 	earlier errors or sorries.
 
-	* decl.c (check_tag_decl): Notice attempts to redefine bool and 
+	* decl.c (check_tag_decl): Notice attempts to redefine bool and
 	wchar_t.  Ignore if in_system_header.
 
 	* decl.c (maybe_push_cleanup_level): New fn...
@@ -250,7 +1753,7 @@
 
 2001-02-07  Mark Mitchell  <mark@codesourcery.com>
 
-	* lang-specs.h: Use CPLUSPLUS_CPP_SPEC for the preprocessor 
+	* lang-specs.h: Use CPLUSPLUS_CPP_SPEC for the preprocessor
 	spec.
 
 2001-02-06  Nathan Sidwell  <nathan@codesourcery.com>
@@ -370,7 +1873,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(typeinfo_in_lib_p): New function.
 	(synthesize_tinfo_var): Use it.
 	(create_real_tinfo_var): Likewise.
-	
+
 2001-02-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* decl.c (push_class_binding): Use context_for_name_lookup instead
@@ -585,9 +2088,9 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2001-01-16 Daniel Berlin <dberlin@redhat.com>
 
-        * cvt.c (ocp_convert): Handle vector type conversion
-        * typeck2.c (digest_init): Handle vector type initializations
-		
+	* cvt.c (ocp_convert): Handle vector type conversion
+	* typeck2.c (digest_init): Handle vector type initializations
+
 2001-01-16  Phil Edwards  <pme@sources.redhat.com>
 
 	* g++spec.c:  Don't add libraries needlessly if -fsyntax-only
@@ -756,7 +2259,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	DECL_INITIALIZED_IN_CLASS_P.
 	(instantiate_class_template): Likewise.
 	(instantiate_decl): Check DECL_INITIALIZED_IN_CLASS_P.
-	
+
 	* class.c (finish_struct): Constify saved_filename.
 
 2001-01-08  Nathan Sidwell  <nathan@codesourcery.com>
@@ -774,14 +2277,14 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	Don't set TREE_VALUE on the class_shadowed list.
 
 2001-01-07  Alexandre Petit-Bianco  <apbianco@cygnus.com>
- 
-	* decl2.c (acceptable_java_type): Allow references too. 
+
+	* decl2.c (acceptable_java_type): Allow references too.
 	* init.c (build_java_class_ref): When using the new ABI, search
 	`class$' and have it mangled with `mangle_decl.'
 	* mangle.c (write_java_integer_type_codes): New function.
 	(write_builtin_type): Detect and mangle Java integer and real
 	types.
- 
+
 2001-01-07  Mark Mitchell  <mark@codesourcery.com>
 
 	* decl2.c (grokfield): Don't accept `asm' specifiers for
@@ -793,7 +2296,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2001-01-07  Neil Booth  <neil@daikokuya.demon.co.uk>
 
-        * cp/decl2.c (cxx_post_options): Call cpp_post_options.
+	* cp/decl2.c (cxx_post_options): Call cpp_post_options.
 
 2001-01-05  Nathan Sidwell  <nathan@codesourcery.com>
 
@@ -838,7 +2341,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(implicitly_declare_fn): Generate the exception spec too.
 	* search.c (check_final_overrider): Check artificial functions
 	too.
-	* typeck2.c (merge_exception_specifiers): New function.	
+	* typeck2.c (merge_exception_specifiers): New function.
 
 2001-01-03  Jason Merrill  <jason@redhat.com>
 
@@ -878,7 +2381,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(tsubst_template_parms): Use size_int, not build_int_2.
 	(tsubst): Likewise.
 	* rtti.c (get_vmi_pseudo_type_info): Likewise.
-	
+
 2001-01-02  Richard Henderson  <rth@redhat.com>
 
 	* parse.y (asm): Set ASM_INPUT_P.
@@ -896,7 +2399,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* typeck.c (build_unary_op): Restore old &a.f diagnostic code.
 	* cvt.c (convert_to_void): Use type_unknown_p.
 
-	* typeck.c (strip_all_pointer_quals): Also strip quals from 
+	* typeck.c (strip_all_pointer_quals): Also strip quals from
 	pointer-to-member types.
 
 	* Make-lang.in (cp/TAGS): Use --no-globals.  Ignore parse.c, and treat
@@ -1070,8 +2573,7 @@ Sun Feb  4 15:52:44 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* class.c (check_field_decls): Don't special case anonymous
 	fields in error messages.
-	(note_name_declared_inpwdpwd
-	_class): Use %D on diagnostic.
+	(note_name_declared_in_class): Use %D on diagnostic.
 
 	* tree.c (pod_type_p): Use strip_array_types.
 	(cp_valid_lang_attribute): Likewise.

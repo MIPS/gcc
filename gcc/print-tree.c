@@ -325,7 +325,9 @@ print_node (file, prefix, node, indent)
 	fputs (" common", file);
       if (DECL_EXTERNAL (node))
 	fputs (" external", file);
-      if (DECL_REGISTER (node))
+      if (DECL_REGISTER (node) && TREE_CODE (node) != FIELD_DECL
+	  && TREE_CODE (node) != FUNCTION_DECL
+	  && TREE_CODE (node) != LABEL_DECL)
 	fputs (" regdecl", file);
       if (DECL_NONLOCAL (node))
 	fputs (" nonlocal", file);
@@ -339,14 +341,20 @@ print_node (file, prefix, node, indent)
 	fputs (" built-in", file);
       if (TREE_CODE (node) == FUNCTION_DECL && DECL_BUILT_IN_NONANSI (node))
 	fputs (" built-in-nonansi", file);
+      if (TREE_CODE (node) == FUNCTION_DECL && DECL_NO_STATIC_CHAIN (node))
+	fputs (" no-static-chain", file);
 
       if (TREE_CODE (node) == FIELD_DECL && DECL_PACKED (node))
 	fputs (" packed", file);
       if (TREE_CODE (node) == FIELD_DECL && DECL_BIT_FIELD (node))
 	fputs (" bit-field", file);
+      if (TREE_CODE (node) == FIELD_DECL && DECL_NONADDRESSABLE_P (node))
+	fputs (" nonaddressable", file);
 
       if (TREE_CODE (node) == LABEL_DECL && DECL_TOO_LATE (node))
 	fputs (" too-late", file);
+      if (TREE_CODE (node) == LABEL_DECL && DECL_ERROR_ISSUED (node))
+	fputs (" error-issued", file);
 
       if (TREE_CODE (node) == VAR_DECL && DECL_IN_TEXT_SECTION (node))
 	fputs (" in-text-section", file);
@@ -400,11 +408,6 @@ print_node (file, prefix, node, indent)
 		       DECL_OFFSET_ALIGN (node));
 	    }
 	}
-      else if (DECL_INLINE (node))
-	{
-	  fprintf (file, " frame_size ");
-	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, DECL_FRAME_SIZE (node));
-	}
       else if (DECL_BUILT_IN (node))
 	{
 	  if (DECL_BUILT_IN_CLASS (node) == BUILT_IN_MD)
@@ -441,7 +444,7 @@ print_node (file, prefix, node, indent)
 
       print_lang_decl (file, node, indent);
 
-      if (DECL_RTL (node) != 0)
+      if (DECL_RTL_SET_P (node))
 	{
 	  indent_to (file, indent + 4);
 	  print_rtl (file, DECL_RTL (node));

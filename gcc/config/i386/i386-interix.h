@@ -40,8 +40,8 @@ Boston, MA 02111-1307, USA.  */
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387 and needs stack probes
    We also align doubles to 64-bits for MSVC default compatability */
-#undef TARGET_DEFAULT
-#define TARGET_DEFAULT \
+#undef TARGET_SUBTARGET_DEFAULT
+#define TARGET_SUBTARGET_DEFAULT \
    (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_STACK_PROBE | \
     MASK_ALIGN_DOUBLE)
 
@@ -361,8 +361,6 @@ dtors_section ()							\
 	   (DECL) && TREE_READONLY (DECL) ? "a" : "aw")
 #endif
 
-#define INT_ASM_OP		"\t.long\t"
-
 /* The MS compilers take alignment as a number of bytes, so we do as well */
 #undef ASM_OUTPUT_ALIGN
 #define ASM_OUTPUT_ALIGN(FILE,LOG) \
@@ -432,7 +430,8 @@ while (0)
 
 #undef DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(n) \
-((n) == 0 ? 0 \
+(TARGET_64BIT ? dbx64_register_map[n] \
+ : (n) == 0 ? 0 \
  : (n) == 1 ? 2 \
  : (n) == 2 ? 1 \
  : (n) == 3 ? 3 \

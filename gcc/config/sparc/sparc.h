@@ -435,7 +435,7 @@ extern int target_flags;
 #define MASK_FPU 1
 #define TARGET_FPU (target_flags & MASK_FPU)
 
-/* Nonzero if we should use FUNCTION_EPILOGUE.  Otherwise, we
+/* Nonzero if we should use function_epilogue().  Otherwise, we
    use fast return insns, but lose some generality.  */
 #define MASK_EPILOGUE 2
 #define TARGET_EPILOGUE (target_flags & MASK_EPILOGUE)
@@ -584,9 +584,9 @@ extern int target_flags;
      N_("Do not use hardware fp") },					\
     {"soft-float", MASK_FPU_SET,			NULL },		\
     {"epilogue", MASK_EPILOGUE,						\
-     N_("Use FUNCTION_EPILOGUE") },					\
+     N_("Use function_epilogue()") },					\
     {"no-epilogue", -MASK_EPILOGUE,					\
-     N_("Do not use FUNCTION_EPILOGUE") }, 				\
+     N_("Do not use function_epilogue()") }, 				\
     {"unaligned-doubles", MASK_UNALIGNED_DOUBLES,			\
      N_("Assume possible double misalignment") },			\
     {"no-unaligned-doubles", -MASK_UNALIGNED_DOUBLES,			\
@@ -1146,25 +1146,34 @@ while (0)
        : (GET_MODE_SIZE (MODE) + 3) / 4)				\
    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
-/* A subreg in 64 bit mode will have the wrong offset for a floating point
-   register.  The least significant part is at offset 1, compared to 0 for
-   integer registers.  This only applies when FMODE is a larger mode.
-   We also need to handle a special case of TF-->DF conversions.  */
-#define ALTER_HARD_SUBREG(TMODE, WORD, FMODE, REGNO)			\
-     (TARGET_ARCH64							\
-      && (REGNO) >= SPARC_FIRST_FP_REG					\
-      && (REGNO) <= SPARC_LAST_V9_FP_REG				\
-      && (TMODE) == SImode						\
-      && !((FMODE) == QImode || (FMODE) == HImode)			\
-      ? ((REGNO) + 1)							\
-      : ((TMODE) == DFmode && (FMODE) == TFmode)			\
-        ? ((REGNO) + ((WORD) * 2))					\
-        : ((REGNO) + (WORD)))
+/* Due to the ARCH64 descrepancy above we must override these
+   next two macros too.  */
+#define REG_SIZE(R) \
+  (TARGET_ARCH64							\
+   && ((GET_CODE (R) == REG						\
+        && ((REGNO (R) >= FIRST_PSEUDO_REGISTER				\
+	     && FLOAT_MODE_P (GET_MODE (R)))				\
+	    || (REGNO (R) < FIRST_PSEUDO_REGISTER			\
+		&& REGNO (R) >= 32)))					\
+       || (GET_CODE (R) == SUBREG					\
+	   && ((REGNO (SUBREG_REG (R)) >= FIRST_PSEUDO_REGISTER		\
+	     && FLOAT_MODE_P (GET_MODE (SUBREG_REG (R))))		\
+	    || (REGNO (SUBREG_REG (R)) < FIRST_PSEUDO_REGISTER		\
+		&& REGNO (SUBREG_REG (R)) >= 32))))			\
+   ? (GET_MODE_SIZE (GET_MODE (R)) + 3) / 4				\
+   : (GET_MODE_SIZE (GET_MODE (R)) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+
+#define REGMODE_NATURAL_SIZE(MODE) \
+  ((TARGET_ARCH64 && FLOAT_MODE_P (MODE)) ? 4 : UNITS_PER_WORD)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    See sparc.c for how we initialize this.  */
 extern int *hard_regno_mode_classes;
 extern int sparc_mode_class[];
+
+/* ??? Because of the funny way we pass parameters we should allow certain
+   ??? types of float/complex values to be in integer registers during
+   ??? RTL generation.  This only matters on arch32.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
   ((hard_regno_mode_classes[REGNO] & sparc_mode_class[MODE]) != 0)
 
@@ -1920,26 +1929,6 @@ do {									\
 } while (0)
 #endif
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-/* On SPARC, move-double insns between fpu and cpu need an 8-byte block
-   of memory.  If any fpu reg is used in the function, we allocate
-   such a block here, at the bottom of the frame, just in case it's needed.
-
-   If this function is a leaf procedure, then we may choose not
-   to do a "save" insn.  The decision about whether or not
-   to do this is made in regclass.c.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) \
-  (TARGET_FLAT ? sparc_flat_output_function_prologue (FILE, (int)SIZE) \
-   : output_function_prologue (FILE, (int)SIZE, \
-			       current_function_uses_only_leaf_regs))
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -2119,21 +2108,6 @@ LFLGRET"ID":\n\
  (get_frame_size () != 0	\
   || current_function_calls_alloca || current_function_outgoing_args_size)
 
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) \
-  (TARGET_FLAT ? sparc_flat_output_function_epilogue (FILE, (int)SIZE) \
-   : output_function_epilogue (FILE, (int)SIZE, \
-			       current_function_uses_only_leaf_regs))
-
 #define DELAY_SLOTS_FOR_EPILOGUE \
   (TARGET_FLAT ? sparc_flat_epilogue_delay_slots () : 1)
 #define ELIGIBLE_FOR_EPILOGUE_DELAY(trial, slots_filled) \
@@ -2235,7 +2209,10 @@ LFLGRET"ID":\n\
    bias if present.  */
 #define INCOMING_FRAME_SP_OFFSET SPARC_STACK_BIAS
 
-#define DOESNT_NEED_UNWINDER (! TARGET_FLAT)
+/* Describe how we implement __builtin_eh_return.  */
+#define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 24 : INVALID_REGNUM)
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, 1)	/* %g1 */
+#define EH_RETURN_HANDLER_RTX	gen_rtx_REG (Pmode, 31)	/* %i7 */
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -2593,7 +2570,7 @@ do {                                                                    \
     {									\
       X = gen_rtx_LO_SUM (GET_MODE (X),					\
 			  gen_rtx_HIGH (GET_MODE (X), X), X);		\
-      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,	\
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,		\
                    BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	\
                    OPNUM, TYPE);					\
       goto WIN;								\
@@ -3244,21 +3221,6 @@ do {									\
   fprintf (FILE, "\t or\t%%g1, %%g0, %%o7\n");				\
 } while (0)
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
-
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   ((CHAR) == '#' || (CHAR) == '*' || (CHAR) == '^' || (CHAR) == '(' || (CHAR) == '_')
 
@@ -3397,6 +3359,3 @@ do {									\
 
 #define DONT_ACCESS_GBLS_AFTER_EPILOGUE (flag_pic)
 
-/* Defined in flags.h, but insn-emit.c does not include flags.h.  */
-
-extern int flag_pic;

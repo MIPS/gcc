@@ -41,12 +41,6 @@ Boston, MA 02111-1307, USA.  */
   { "marm", "mlittle-endian", "msoft-float", "mapcs-32", "mno-thumb-interwork" }
 #endif
 
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-  arm_valid_machine_decl_attribute (DECL, IDENTIFIER, ARGS)
-
 /* This is COFF, but prefer stabs.  */
 #define SDB_DEBUGGING_INFO
 
@@ -57,13 +51,6 @@ Boston, MA 02111-1307, USA.  */
 /* A C statement to output assembler commands which will identify the
    object file as having been compiled with GNU CC (or another GNU
    compiler).  */
-/* Define this to NULL so we don't get anything.
-   We have ASM_IDENTIFY_LANGUAGE.
-   Also, when using stabs, gcc2_compiled must be a stabs entry, not an
-   ordinary symbol, or gdb won't see it.  The stabs entry must be
-   before the N_SO in order for gdb to find it.  */
-#define ASM_IDENTIFY_GCC(STREAM) 				\
-  fprintf (STREAM, "%sgcc2_compiled.:\n", LOCAL_LABEL_PREFIX )
 
 /* This outputs a lot of .req's to define alias for various registers.
    Let's try to avoid this.  */

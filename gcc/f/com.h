@@ -27,8 +27,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Allow multiple inclusion to work. */
 
-#ifndef _H_f_com
-#define _H_f_com
+#ifndef GCC_F_COM_H
+#define GCC_F_COM_H
 
 /* Simple definitions and enumerations. */
 
@@ -314,11 +314,6 @@ tree ffecom_truth_value (tree expr);
 tree ffecom_truth_value_invert (tree expr);
 tree ffecom_type_expr (ffebld expr);
 tree ffecom_which_entrypoint_decl (void);
-
-/* These need to be in the front end with exactly these interfaces,
-   as they're called by the back end.  */
-
-int mark_addressable (tree expr);
 #endif	/* FFECOM_targetCURRENT == FFECOM_targetGCC */
 
 /* Define macros. */
@@ -352,4 +347,4 @@ int mark_addressable (tree expr);
 
 /* End of #include file. */
 
-#endif
+#endif /* ! GCC_F_COM_H */

@@ -935,16 +935,6 @@ extern const char *a29k_function_name;
   a29k_function_name = NAME; \
   a29k_compute_reg_names ();
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE)  output_prolog (FILE, SIZE)
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -956,18 +946,6 @@ extern const char *a29k_function_name;
    No definition is equivalent to always zero.  */
 
 #define EXIT_IGNORE_STACK 1
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE)	output_epilog (FILE, SIZE)
 
 /* Define the number of delay slots needed for the function epilogue.
 
@@ -1589,21 +1567,6 @@ extern int a29k_debug_reg_map[];
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
-
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
    For `%' followed by punctuation, CODE is the punctuation and X is null.  */
@@ -1635,7 +1598,6 @@ extern int a29k_debug_reg_map[];
   {"cint_16_operand", {CONST_INT}},				\
   {"long_const_operand", {CONST_INT, CONST, CONST_DOUBLE,	\
 			  LABEL_REF, SYMBOL_REF}},		\
-  {"shift_constant_operand", {CONST_INT, ASHIFT}},		\
   {"const_0_operand", {CONST_INT, ASHIFT}},			\
   {"const_8_operand", {CONST_INT, ASHIFT}},			\
   {"const_16_operand", {CONST_INT, ASHIFT}},			\

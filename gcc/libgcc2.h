@@ -19,34 +19,13 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef __LIBGCC2_H__
-#define __LIBGCC2_H__
-
-typedef void (*__terminate_func_ptr)(void) __attribute__ ((__noreturn__));
+#ifndef GCC_LIBGCC2_H
+#define GCC_LIBGCC2_H
 
 extern int __gcc_bcmp (const unsigned char *, const unsigned char *, size_t);
-extern void *__builtin_saveregs (void);
-extern void __dummy (void);
 extern void __clear_cache (char *, char *);
-extern void __pure_virtual (void) __attribute__ ((__noreturn__));
-extern void __terminate (void) __attribute__ ((__noreturn__));
-extern __terminate_func_ptr __terminate_set_func (__terminate_func_ptr);
-extern void __default_terminate (void) __attribute__ ((__noreturn__));
-extern void *__throw_type_match (void *, void *, void *);
-extern void __empty (void);
-extern void *__get_eh_context (void);
-extern void **__get_eh_info (void);
-extern void ***__get_dynamic_handler_chain (void);
-extern int __eh_rtime_match (void *);
-extern void __unwinding_cleanup (void);
-extern void __rethrow (void *);
-extern void __throw (void);
-extern void __sjthrow (void) __attribute__ ((__noreturn__));
-extern void __sjpopnthrow (void) __attribute__ ((__noreturn__));
 extern void __eprintf (const char *, const char *, unsigned int, const char *)
   __attribute__ ((__noreturn__));
-extern void *__eh_alloc (size_t);
-extern void __eh_free (void *);
 
 struct bb;
 extern void __bb_exit_func (void);
@@ -319,4 +298,4 @@ typedef union
 
 #include "longlong.h"
 
-#endif /* __LIBGCC2_H__ */
+#endif /* ! GCC_LIBGCC2_H */

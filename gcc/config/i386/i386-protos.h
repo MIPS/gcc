@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler for IA-32.
-   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999, 2000
-   Free Software Foundation, Inc.
+   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
+   2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -40,8 +40,15 @@ extern void ix86_output_block_profiler PARAMS ((FILE *, int));
 extern int ix86_aligned_p PARAMS ((rtx));
 
 extern int standard_80387_constant_p PARAMS ((rtx));
+extern int standard_sse_constant_p PARAMS ((rtx));
 extern int symbolic_reference_mentioned_p PARAMS ((rtx));
 
+extern int x86_64_general_operand PARAMS ((rtx, enum machine_mode));
+extern int x86_64_szext_general_operand PARAMS ((rtx, enum machine_mode));
+extern int x86_64_nonmemory_operand PARAMS ((rtx, enum machine_mode));
+extern int x86_64_szext_nonmemory_operand PARAMS ((rtx, enum machine_mode));
+extern int x86_64_immediate_operand PARAMS ((rtx, enum machine_mode));
+extern int x86_64_zext_immediate_operand PARAMS ((rtx, enum machine_mode));
 extern int const_int_1_operand PARAMS ((rtx, enum machine_mode));
 extern int symbolic_operand PARAMS ((rtx, enum machine_mode));
 extern int pic_symbolic_operand PARAMS ((rtx, enum machine_mode));
@@ -73,6 +80,9 @@ extern int long_memory_operand PARAMS ((rtx, enum machine_mode));
 extern int aligned_operand PARAMS ((rtx, enum machine_mode));
 extern enum machine_mode ix86_cc_mode PARAMS ((enum rtx_code, rtx, rtx));
 
+extern int ix86_expand_movstr PARAMS ((rtx, rtx, rtx, rtx));
+extern int ix86_expand_clrstr PARAMS ((rtx, rtx, rtx));
+extern int ix86_expand_strlen PARAMS ((rtx, rtx, rtx, rtx));
 
 extern int legitimate_pic_address_disp_p PARAMS ((rtx));
 extern int legitimate_address_p PARAMS ((enum machine_mode, rtx, int));
@@ -108,11 +118,11 @@ extern void ix86_expand_branch PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_setcc PARAMS ((enum rtx_code, rtx));
 extern int ix86_expand_int_movcc PARAMS ((rtx[]));
 extern int ix86_expand_fp_movcc PARAMS ((rtx[]));
-extern int ix86_split_long_move PARAMS ((rtx[]));
+extern void x86_initialize_trampoline PARAMS ((rtx, rtx, rtx));
+extern void ix86_split_long_move PARAMS ((rtx[]));
 extern void ix86_split_ashldi PARAMS ((rtx *, rtx));
 extern void ix86_split_ashrdi PARAMS ((rtx *, rtx));
 extern void ix86_split_lshrdi PARAMS ((rtx *, rtx));
-extern void ix86_expand_strlensi_unroll_1 PARAMS ((rtx, rtx, rtx));
 extern int ix86_address_cost PARAMS ((rtx));
 extern rtx ix86_find_base_term PARAMS ((rtx));
 
@@ -127,9 +137,13 @@ extern int ix86_sched_reorder PARAMS ((FILE *, int, rtx *, int, int));
 extern int ix86_variable_issue PARAMS ((FILE *, int, rtx, int));
 extern enum machine_mode ix86_fp_compare_mode PARAMS ((enum rtx_code));
 
+extern int x86_64_sign_extended_value PARAMS ((rtx));
+extern int x86_64_zero_extended_value PARAMS ((rtx));
+
 extern rtx ix86_force_to_memory PARAMS ((enum machine_mode, rtx));
 extern void ix86_free_from_memory PARAMS ((enum machine_mode));
-extern void ix86_split_fp_branch PARAMS ((rtx, rtx, rtx, rtx, rtx, rtx));
+extern void ix86_split_fp_branch PARAMS ((enum rtx_code code, rtx,
+					  rtx, rtx, rtx, rtx));
 extern int ix86_hard_regno_mode_ok PARAMS ((int, enum machine_mode));
 extern int ix86_register_move_cost PARAMS ((enum machine_mode, enum reg_class,
 					    enum reg_class));
@@ -140,6 +154,10 @@ extern enum reg_class ix86_preferred_reload_class PARAMS ((rtx,
 							   enum reg_class));
 extern int ix86_memory_move_cost PARAMS ((enum machine_mode, enum reg_class,
 					  int));
+extern void ix86_set_move_mem_attrs PARAMS ((rtx, rtx, rtx, rtx, rtx));
+extern void emit_i387_cw_initialization PARAMS ((rtx, rtx));
+extern bool ix86_fp_jump_nontrivial_p PARAMS ((enum rtx_code));
+
 
 #ifdef TREE_CODE
 extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx));
@@ -147,20 +165,19 @@ extern rtx function_arg PARAMS ((CUMULATIVE_ARGS *, enum machine_mode, tree, int
 extern void function_arg_advance PARAMS ((CUMULATIVE_ARGS *, enum machine_mode,
 					tree, int));
 extern void ix86_init_builtins PARAMS ((void));
+extern void ix86_init_mmx_sse_builtins PARAMS ((void));
 extern rtx ix86_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int));
 #endif
 
 #endif
 
 #ifdef TREE_CODE
-extern int ix86_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
-extern int ix86_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
-extern int ix86_comp_type_attributes PARAMS ((tree, tree));
 extern int ix86_return_pops_args PARAMS ((tree, tree, int));
 
 extern int ix86_data_alignment PARAMS ((tree, int));
 extern int ix86_local_alignment PARAMS ((tree, int));
 extern int ix86_constant_alignment PARAMS ((tree, int));
+extern int ix86_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+extern int i386_pe_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
+extern int i386_pe_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
 #endif
-
-

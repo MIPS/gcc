@@ -1,5 +1,5 @@
 /* Define control and data flow tables, and regsets.
-   Copyright (C) 1987, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,13 +18,18 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef _BASIC_BLOCK_H
-#define _BASIC_BLOCK_H 1
+#ifndef GCC_BASIC_BLOCK_H
+#define GCC_BASIC_BLOCK_H 
 
 #include "bitmap.h"
 #include "sbitmap.h"
 #include "varray.h"
 #include "partition.h"
+
+#ifndef TREE_CODE
+union tree_node;
+#define tree union tree_node *
+#endif
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -94,7 +99,7 @@ do {									\
 #define EXECUTE_IF_AND_IN_REG_SET(REGSET1, REGSET2, MIN, REGNUM, CODE) \
   EXECUTE_IF_AND_IN_BITMAP (REGSET1, REGSET2, MIN, REGNUM, CODE)
 
-/* Allocate a register set with oballoc.  */
+/* Allocate a register set with xmalloc. (Compatibility macro)  */
 #define OBSTACK_ALLOC_REG_SET(OBSTACK) BITMAP_OBSTACK_ALLOC (OBSTACK)
 
 /* Initialize a register set.  Returns the new register set.  */
@@ -110,6 +115,9 @@ do {									\
    or extended.  For the linked list allocation, nothing needs to
    be done, other than zero the statistics on the first allocation.  */
 #define MAX_REGNO_REG_SET(NUM_REGS, NEW_P, RENUMBER_P) 
+
+/* Type we use to hold basic block counters.  Should be at least 64bit.  */
+typedef HOST_WIDEST_INT gcov_type;
 
 /* Control flow edge information.  */
 typedef struct edge_def {
@@ -127,7 +135,7 @@ typedef struct edge_def {
 
   int flags;			/* see EDGE_* below  */
   int probability;		/* biased by REG_BR_PROB_BASE */
-  int count;			/* Expected number of executions calculated
+  gcov_type count;		/* Expected number of executions calculated
 				   in profile.c  */
 } *edge;
 
@@ -141,7 +149,20 @@ typedef struct edge_def {
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
 
-/* Basic blocks need not start with a label nor end with a jump insn.
+/* A basic block is a sequence of instructions with only entry and
+   only one exit.  If any one of the instructions are executed, they
+   will all be executed, and in sequence from first to last.
+
+   There may be COND_EXEC instructions in the basic block.  The
+   COND_EXEC *instructions* will be executed -- but if the condition
+   is false the conditionally executed *expressions* will of course
+   not be executed.  We don't consider the conditionally executed
+   expression (which might have side-effects) to be in a separate
+   basic block because the program counter will always be at the same
+   location after the COND_EXEC instruction, regardless of whether the
+   condition is true or not.
+
+   Basic blocks need not start with a label nor end with a jump insn.
    For example, a previous basic block may just "conditionally fall"
    into the succeeding basic block, and the last basic block need not
    end with a jump insn.  Block 0 is a descendant of the entry block.
@@ -158,15 +179,28 @@ typedef struct basic_block_def {
   /* The first and last insns of the block.  */
   rtx head, end;
 
+  /* The first and last trees of the block.  */
+  tree head_tree;
+  tree end_tree;
+
   /* The edges into and out of the block.  */
   edge pred, succ;
 
-  /* Liveness info.  Note that in SSA form, global_live_at_start does
-     not reflect the use of regs in phi functions, since the liveness
-     of these regs may depend on which edge was taken into the block.  */
+  /* Liveness info.  */
+
+  /* The registers that are modified within this in block.  */
   regset local_set;
+  /* The registers that are conditionally modified within this block.
+     In other words, registers that are set only as part of a
+     COND_EXEC.  */
   regset cond_local_set;
+  /* The registers that are live on entry to this block.
+
+     Note that in SSA form, global_live_at_start does not reflect the
+     use of regs in phi functions, since the liveness of these regs
+     may depend on which edge was taken into the block.  */
   regset global_live_at_start;
+  /* The registers that are live on exit from this block.  */
   regset global_live_at_end;
 
   /* Auxiliary info specific to a pass.  */
@@ -174,15 +208,18 @@ typedef struct basic_block_def {
 
   /* The index of this block.  */
   int index;
-  /* The loop depth of this block plus one.  */
+
+  /* The loop depth of this block.  */
   int loop_depth;
 
-  /* The active eh region before head and after end.  */
-  int eh_beg, eh_end;
-
-  int count;		/* Expected number of executions: calculated in
-                           profile.c */
+  /* Expected number of executions: calculated in profile.c.  */
+  gcov_type count;
+ 
+  /* Expected frequency.  Normalized to be in range 0 to BB_FREQ_MAX.  */
+  int frequency;
 } *basic_block;
+ 
+#define BB_FREQ_MAX 10000
 
 /* Number of basic blocks in the current function.  */
 
@@ -219,6 +256,9 @@ extern regset regs_live_at_setjmp;
 #define BLOCK_HEAD(B)      (BASIC_BLOCK (B)->head)
 #define BLOCK_END(B)       (BASIC_BLOCK (B)->end)
 
+#define BLOCK_HEAD_TREE(B) (BASIC_BLOCK (B)->head_tree)
+#define BLOCK_END_TREE(B) (BASIC_BLOCK (B)->end_tree)
+
 /* Special block numbers [markers] for entry and exit.  */
 #define ENTRY_BLOCK (-1)
 #define EXIT_BLOCK (-2)
@@ -238,7 +278,7 @@ extern varray_type basic_block_for_insn;
 extern void compute_bb_for_insn		PARAMS ((int));
 extern void update_bb_for_insn		PARAMS ((basic_block));
 extern void set_block_for_insn		PARAMS ((rtx, basic_block));
-extern void set_block_num		PARAMS ((rtx, int));
+extern void set_block_for_new_insns	PARAMS ((rtx, basic_block));
 
 extern void free_basic_block_vars	PARAMS ((int));
 
@@ -262,6 +302,11 @@ extern int flow_delete_block		PARAMS ((basic_block));
 extern void merge_blocks_nomove		PARAMS ((basic_block, basic_block));
 extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
 						 basic_block));
+extern int flow_depth_first_order_compute	PARAMS ((int *, int *));
+extern void dump_edge_info		PARAMS ((FILE *, edge, int));
+extern void clear_edges			PARAMS ((void));
+extern void mark_critical_edges		PARAMS ((void));
+extern rtx first_insn_after_basic_block_note	PARAMS ((basic_block));
 
 /* Structure to hold information for each natural loop.  */
 struct loop
@@ -400,7 +445,7 @@ struct loops
   struct loop *array;
 
   /* Pointer to root of loop heirachy tree.  */
-  struct loop *tree;
+  struct loop *tree_root;
 
   /* Information derived from the CFG.  */
   struct cfg
@@ -457,6 +502,14 @@ struct edge_list
 /* Number of edges in the compressed edge list.  */
 #define NUM_EDGES(el)			((el)->num_edges)
 
+/* BB is assumed to contain conditional jump.  Return the fallthru edge.  */
+#define FALLTHRU_EDGE(bb)		((bb)->succ->flags & EDGE_FALLTHRU \
+					 ? (bb)->succ : (bb)->succ->succ_next)
+
+/* BB is assumed to contain conditional jump.  Return the branch edge.  */
+#define BRANCH_EDGE(bb)			((bb)->succ->flags & EDGE_FALLTHRU \
+					 ? (bb)->succ->succ_next : (bb)->succ)
+
 struct edge_list * create_edge_list	PARAMS ((void));
 void free_edge_list			PARAMS ((struct edge_list *));
 void print_edge_list			PARAMS ((FILE *, struct edge_list *));
@@ -482,6 +535,13 @@ enum update_life_extent
 #define PROP_AUTOINC		32	/* Create autoinc mem references.  */
 #define PROP_FINAL		63	/* All of the above.  */
 
+#define CLEANUP_EXPENSIVE	1	/* Do relativly expensive optimizations
+					   except for edge forwarding */
+#define CLEANUP_CROSSJUMP	2	/* Do crossjumping.  */
+#define CLEANUP_POST_REGSTACK	4	/* We run after reg-stack and need
+					   to care REG_DEAD notes.  */
+#define CLEANUP_PRE_SIBCALL	8	/* Do not get confused by code hidden
+					   inside call_placeholders..  */
 /* Flags for loop discovery.  */
 
 #define LOOP_TREE		1 	/* Build loop hierarchy tree.  */
@@ -535,7 +595,9 @@ extern void debug_bb_n			PARAMS ((int));
 extern void dump_regset			PARAMS ((regset, FILE *));
 extern void debug_regset		PARAMS ((regset));
 extern void allocate_reg_life_data      PARAMS ((void));
-extern int flow_depth_first_order_compute PARAMS ((int *, int *)); 
+extern void allocate_bb_life_data	PARAMS ((void));
+extern void find_unreachable_blocks	PARAMS ((void));
+
 /* This function is always defined so it can be called from the
    debugger, and it is declared extern so we don't get warnings about
    it being unused. */
@@ -580,4 +642,4 @@ enum cdi_direction
 extern void calculate_dominance_info	PARAMS ((int *, sbitmap *,
 						 enum cdi_direction));
 
-#endif /* _BASIC_BLOCK_H */
+#endif /* GCC_BASIC_BLOCK_H */

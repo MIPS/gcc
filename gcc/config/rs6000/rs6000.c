@@ -28,7 +28,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
@@ -38,10 +37,13 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "function.h"
 #include "output.h"
+#include "basic-block.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "hashtab.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
@@ -122,8 +124,10 @@ static void toc_hash_mark_table PARAMS ((void *));
 static int constant_pool_expr_1 PARAMS ((rtx, int *, int *));
 static void rs6000_free_machine_status PARAMS ((struct function *));
 static void rs6000_init_machine_status PARAMS ((struct function *));
-static void rs6000_mark_machine_status PARAMS ((struct function *));
 static int rs6000_ra_ever_killed PARAMS ((void));
+static int rs6000_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
+static void rs6000_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void rs6000_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -161,7 +165,18 @@ static char alt_reg_names[][8] =
 #ifndef MASK_STRICT_ALIGN
 #define MASK_STRICT_ALIGN 0
 #endif
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_VALID_TYPE_ATTRIBUTE
+#define TARGET_VALID_TYPE_ATTRIBUTE rs6000_valid_type_attribute_p
 
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE rs6000_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE rs6000_output_function_epilogue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* Override command line options.  Mostly we process the processor
    type and sometimes adjust other TARGET_ options.  */
 
@@ -404,7 +419,6 @@ rs6000_override_options (default_cpu)
 
   /* Arrange to save and restore machine status around nested functions.  */
   init_machine_status = rs6000_init_machine_status;
-  mark_machine_status = rs6000_mark_machine_status;
   free_machine_status = rs6000_free_machine_status;
 }
 
@@ -674,7 +688,7 @@ reg_or_arith_cint_operand (op, mode)
 	     || (GET_CODE (op) == CONST_INT
 #if HOST_BITS_PER_WIDE_INT != 32
 		 && ((unsigned HOST_WIDE_INT) (INTVAL (op) + 0x80000000)
-		     < 0x100000000u)
+		     < (unsigned HOST_WIDE_INT) 0x100000000ll)
 #endif
 		 ));
 }
@@ -754,8 +768,10 @@ num_insns_constant_wide (value)
 #if HOST_BITS_PER_WIDE_INT == 64
   else if (TARGET_POWERPC64)
     {
-      unsigned HOST_WIDE_INT low  = value & 0xffffffff;
+      HOST_WIDE_INT low  = value & 0xffffffff;
       HOST_WIDE_INT high = value >> 32;
+
+      low = (low ^ 0x80000000) - 0x80000000;  /* sign extend */
 
       if (high == 0 && (low & 0x80000000) == 0)
 	return 2;
@@ -782,7 +798,14 @@ num_insns_constant (op, mode)
      enum machine_mode mode;
 {
   if (GET_CODE (op) == CONST_INT)
-    return num_insns_constant_wide (INTVAL (op));
+    {
+#if HOST_BITS_PER_WIDE_INT == 64
+      if (mask64_operand (op, mode))
+	    return 2;
+      else
+#endif
+	return num_insns_constant_wide (INTVAL (op));
+    }
 
   else if (GET_CODE (op) == CONST_DOUBLE && mode == SFmode)
     {
@@ -905,6 +928,15 @@ easy_fp_constant (op, mode)
     abort ();
 }
 
+/* Return 1 if the operand is 0.0.  */
+int
+zero_fp_constant (op, mode)
+     register rtx op;
+     register enum machine_mode mode;
+{
+  return GET_MODE_CLASS (mode) == MODE_FLOAT && op == CONST0_RTX (mode);
+}
+
 /* Return 1 if the operand is in volatile memory.  Note that during the
    RTL generation phase, memory_operand does not return TRUE for
    volatile memory references.  So this function allows us to
@@ -966,7 +998,7 @@ add_operand (op, mode)
 {
   return (reg_or_short_operand (op, mode)
 	  || (GET_CODE (op) == CONST_INT
-	      && CONST_OK_FOR_LETTER_P (INTVAL(op), 'L')));
+	      && CONST_OK_FOR_LETTER_P (INTVAL (op), 'L')));
 }
 
 /* Return 1 if OP is a constant but not a valid add_operand.  */
@@ -978,7 +1010,7 @@ non_add_cint_operand (op, mode)
 {
   return (GET_CODE (op) == CONST_INT
 	  && (unsigned HOST_WIDE_INT) (INTVAL (op) + 0x8000) >= 0x10000
-	  && ! CONST_OK_FOR_LETTER_P (INTVAL(op), 'L'));
+	  && ! CONST_OK_FOR_LETTER_P (INTVAL (op), 'L'));
 }
 
 /* Return 1 if the operand is a non-special register or a constant that
@@ -996,13 +1028,7 @@ logical_operand (op, mode)
     return 1;
 
   if (GET_CODE (op) == CONST_INT)
-    {
-      opl = INTVAL (op) & GET_MODE_MASK (mode);
-      if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
-	oph = 0;
-      else
-	oph = INTVAL (op) >> (HOST_BITS_PER_WIDE_INT - 1);
-    }
+    opl = INTVAL (op);
   else if (GET_CODE (op) == CONST_DOUBLE)
     {
       if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
@@ -1010,13 +1036,21 @@ logical_operand (op, mode)
 
       opl = CONST_DOUBLE_LOW (op);
       oph = CONST_DOUBLE_HIGH (op);
+
+      if (oph != ((unsigned HOST_WIDE_INT)0
+		  - ((opl & ((unsigned HOST_WIDE_INT)1
+			     << (HOST_BITS_PER_WIDE_INT - 1))) != 0)))
+	return 0;
     }
   else
     return 0;
 
-  return (oph == 0
-	  && ((opl & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0
-	      || (opl & ~ (unsigned HOST_WIDE_INT) 0xffff0000) == 0));
+  /* This must really be SImode, not MODE.  */
+  if (opl != (unsigned HOST_WIDE_INT) trunc_int_for_mode (opl, SImode))
+    return 0;
+
+  return ((opl & 0xffff) == 0
+	  || (opl & ~ (unsigned HOST_WIDE_INT) 0xffff) == 0);
 }
 
 /* Return 1 if C is a constant that is not a logical operand (as
@@ -1527,6 +1561,19 @@ rs6000_legitimize_address (x, oldx, mode)
       emit_insn (gen_elf_high (reg, (x)));
       return gen_rtx_LO_SUM (Pmode, reg, (x));
     }
+  else if (TARGET_MACHO && TARGET_32BIT && TARGET_NO_TOC
+	   && ! flag_pic
+	   && GET_CODE (x) != CONST_INT
+	   && GET_CODE (x) != CONST_DOUBLE 
+	   && CONSTANT_P (x)
+	   && (TARGET_HARD_FLOAT || mode != DFmode)
+	   && mode != DImode 
+	   && mode != TImode)
+    {
+      rtx reg = gen_reg_rtx (Pmode);
+      emit_insn (gen_macho_high (reg, (x)));
+      return gen_rtx_LO_SUM (Pmode, reg, (x));
+    }
   else if (TARGET_TOC 
 	   && CONSTANT_POOL_EXPR_P (x)
 	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), Pmode))
@@ -1535,6 +1582,58 @@ rs6000_legitimize_address (x, oldx, mode)
     }
   else
     return NULL_RTX;
+}
+
+/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
+   that is a valid memory address for an instruction.
+   The MODE argument is the machine mode for the MEM expression
+   that wants to use this address.
+
+   On the RS/6000, there are four valid address: a SYMBOL_REF that
+   refers to a constant pool entry of an address (or the sum of it
+   plus a constant), a short (16-bit signed) constant plus a register,
+   the sum of two registers, or a register indirect, possibly with an
+   auto-increment.  For DFmode and DImode with an constant plus register,
+   we must ensure that both words are addressable or PowerPC64 with offset
+   word aligned.
+
+   For modes spanning multiple registers (DFmode in 32-bit GPRs,
+   32-bit DImode, TImode), indexed addressing cannot be used because
+   adjacent memory cells are accessed by adding word-sized offsets
+   during assembly output.  */
+int
+rs6000_legitimate_address (mode, x, reg_ok_strict)
+    enum machine_mode mode;
+    rtx x;
+    int reg_ok_strict;
+{
+  if (LEGITIMATE_INDIRECT_ADDRESS_P (x, reg_ok_strict))
+    return 1;
+  if ((GET_CODE (x) == PRE_INC || GET_CODE (x) == PRE_DEC)
+      && TARGET_UPDATE
+      && LEGITIMATE_INDIRECT_ADDRESS_P (XEXP (x, 0), reg_ok_strict))
+    return 1;
+  if (LEGITIMATE_SMALL_DATA_P (mode, x))
+    return 1;
+  if (LEGITIMATE_CONSTANT_POOL_ADDRESS_P (x))
+    return 1;
+  /* If not REG_OK_STRICT (before reload) let pass any stack offset.  */
+  if (! reg_ok_strict
+      && GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 0)) == REG
+      && XEXP (x, 0) == virtual_stack_vars_rtx
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    return 1;
+  if (LEGITIMATE_OFFSET_ADDRESS_P (mode, x, reg_ok_strict))
+    return 1;
+  if (mode != TImode
+      && (TARGET_HARD_FLOAT || TARGET_POWERPC64 || mode != DFmode)
+      && (TARGET_POWERPC64 || mode != DImode)
+      && LEGITIMATE_INDEXED_ADDRESS_P (x, reg_ok_strict))
+    return 1;
+  if (LEGITIMATE_LO_SUM_ADDRESS_P (mode, x, reg_ok_strict))
+    return 1;
+  return 0;
 }
 
 /* Emit a move from SOURCE to DEST in mode MODE.  */
@@ -1645,7 +1744,8 @@ rs6000_emit_move (dest, source, mode)
 	  return;
 	}
 
-      if (TARGET_ELF && TARGET_NO_TOC && ! flag_pic
+      if ((TARGET_ELF || DEFAULT_ABI == ABI_DARWIN)
+	  && TARGET_NO_TOC && ! flag_pic
 	  && mode == Pmode
 	  && CONSTANT_P (operands[1])
 	  && GET_CODE (operands[1]) != HIGH
@@ -1671,6 +1771,13 @@ rs6000_emit_move (dest, source, mode)
 	      operands[1] = new_ref;
 	    }
 
+	  if (DEFAULT_ABI == ABI_DARWIN)
+	    {
+	      emit_insn (gen_macho_high (target, operands[1]));
+	      emit_insn (gen_macho_low (operands[0], target, operands[1]));
+	      return;
+	    }
+
 	  emit_insn (gen_elf_high (target, operands[1]));
 	  emit_insn (gen_elf_low (operands[0], target, operands[1]));
 	  return;
@@ -1689,17 +1796,16 @@ rs6000_emit_move (dest, source, mode)
 	}
       else if (mode == Pmode
 	       && CONSTANT_P (operands[1])
- 	       && (((HOST_BITS_PER_WIDE_INT != 32 
- 		     || GET_CODE (operands[1]) != CONST_INT)
- 		    && ! easy_fp_constant (operands[1], mode))
- 		   || (GET_CODE (operands[0]) == REG
- 		       && FP_REGNO_P (REGNO (operands[0]))))
+	       && ((GET_CODE (operands[1]) != CONST_INT
+		    && ! easy_fp_constant (operands[1], mode))
+		   || (GET_CODE (operands[1]) == CONST_INT
+		       && num_insns_constant (operands[1], mode) > 2)
+		   || (GET_CODE (operands[0]) == REG
+		       && FP_REGNO_P (REGNO (operands[0]))))
 	       && GET_CODE (operands[1]) != HIGH
 	       && ! LEGITIMATE_CONSTANT_POOL_ADDRESS_P (operands[1])
 	       && ! TOC_RELATIVE_EXPR_P (operands[1]))
 	{
-	  int special_constant_p = 0;
-
 	  /* Emit a USE operation so that the constant isn't deleted if
 	     expensive optimizations are turned on because nobody
 	     references it.  This should only be done for operands that
@@ -1708,6 +1814,21 @@ rs6000_emit_move (dest, source, mode)
 	     For now, we just handle the obvious case.  */
 	  if (GET_CODE (operands[1]) != LABEL_REF)
 	    emit_insn (gen_rtx_USE (VOIDmode, operands[1]));
+
+	  /* Darwin uses a special PIC legitimizer.  */
+	  if (DEFAULT_ABI == ABI_DARWIN && flag_pic)
+	    {
+#if TARGET_MACHO
+	      rtx temp_reg = ((reload_in_progress || reload_completed)
+			      ? operands[0] : NULL);
+
+	      operands[1] =
+		rs6000_machopic_legitimize_pic_address (operands[1], mode,
+								    temp_reg);
+#endif
+	      emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+	      return;
+	    }
 
 	  /* If we are to limit the number of things we put in the TOC and
 	     this is a symbol plus a constant we can add in one insn,
@@ -1735,22 +1856,15 @@ rs6000_emit_move (dest, source, mode)
 	  operands[1] = force_const_mem (mode, operands[1]);
 
 	  if (TARGET_TOC 
-	      && CONSTANT_POOL_EXPR_P (XEXP (operands[1], 0)))
+	      && CONSTANT_POOL_EXPR_P (XEXP (operands[1], 0))
+	      && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (
+			get_pool_constant (XEXP (operands[1], 0)),
+			get_pool_mode (XEXP (operands[1], 0))))
 	    {
-	      rtx constant;
-	      enum machine_mode cmode;
-
-	      constant = get_pool_constant (XEXP (operands[1], 0));
-	      cmode = get_pool_mode (XEXP (operands[1], 0));
-	      special_constant_p = 
-		ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (constant, cmode);
-	    }
-
-	  if (special_constant_p)
-	    {
-	      operands[1] = gen_rtx_MEM (mode,
-					 create_TOC_reference (XEXP (operands[1], 0)));
-	      MEM_ALIAS_SET (operands[1]) = get_TOC_alias_set ();	
+	      operands[1]
+		= gen_rtx_MEM (mode,
+			       create_TOC_reference (XEXP (operands[1], 0)));
+	      set_mem_alias_set (operands[1], get_TOC_alias_set ());
 	      RTX_UNCHANGING_P (operands[1]) = 1;
 	    }
 	}
@@ -1760,14 +1874,16 @@ rs6000_emit_move (dest, source, mode)
       if (GET_CODE (operands[0]) == MEM
 	  && GET_CODE (XEXP (operands[0], 0)) != REG
 	  && ! reload_in_progress)
-	operands[0] = change_address (operands[0], TImode,
-				      copy_addr_to_reg (XEXP (operands[0], 0)));
+	operands[0]
+	  = replace_equiv_address (operands[0],
+				   copy_addr_to_reg (XEXP (operands[0], 0)));
 
       if (GET_CODE (operands[1]) == MEM
 	  && GET_CODE (XEXP (operands[1], 0)) != REG
 	  && ! reload_in_progress)
-	operands[1] = change_address (operands[1], TImode,
-				      copy_addr_to_reg (XEXP (operands[1], 0)));
+	operands[1]
+	  = replace_equiv_address (operands[1],
+				   copy_addr_to_reg (XEXP (operands[1], 0)));
       break;
 
     default:
@@ -1780,8 +1896,7 @@ rs6000_emit_move (dest, source, mode)
   if (GET_CODE (operands[1]) == MEM
       && ! memory_address_p (mode, XEXP (operands[1], 0))
       && ! reload_in_progress)
-    operands[1] = change_address (operands[1], mode,
-				  XEXP (operands[1], 0));
+    operands[1] = adjust_address (operands[1], mode, 0);
 
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
   return;
@@ -1914,7 +2029,7 @@ function_arg_advance (cum, mode, type, named)
 	    {
 	      if (mode == DFmode)
 	        cum->words += cum->words & 1;
-	      cum->words += RS6000_ARG_SIZE (mode, type, 1);
+	      cum->words += RS6000_ARG_SIZE (mode, type);
 	    }
 	}
       else
@@ -1927,7 +2042,7 @@ function_arg_advance (cum, mode, type, named)
 	      || mode == TFmode)
 	    n_words = 1;
 	  else 
-	    n_words = RS6000_ARG_SIZE (mode, type, 1);
+	    n_words = RS6000_ARG_SIZE (mode, type);
 
 	  /* Long long is put in odd registers.  */
 	  if (n_words == 2 && (gregno & 1) == 0)
@@ -1962,14 +2077,10 @@ function_arg_advance (cum, mode, type, named)
     {
       int align = (TARGET_32BIT && (cum->words & 1) != 0
 		   && function_arg_boundary (mode, type) == 64) ? 1 : 0;
-      cum->words += align;
+      cum->words += align + RS6000_ARG_SIZE (mode, type);
 
-      if (named)
-	{
-	  cum->words += RS6000_ARG_SIZE (mode, type, named);
-	  if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_HARD_FLOAT)
-	    cum->fregno++;
-	}
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT && TARGET_HARD_FLOAT)
+	cum->fregno++;
 
       if (TARGET_DEBUG_ARG)
 	{
@@ -2010,7 +2121,7 @@ function_arg (cum, mode, type, named)
      CUMULATIVE_ARGS *cum;
      enum machine_mode mode;
      tree type;
-     int named;
+     int named ATTRIBUTE_UNUSED;
 {
   enum rs6000_abi abi = DEFAULT_ABI;
 
@@ -2054,7 +2165,7 @@ function_arg (cum, mode, type, named)
 	      || mode == TFmode)
 	    n_words = 1;
 	  else 
-	    n_words = RS6000_ARG_SIZE (mode, type, 1);
+	    n_words = RS6000_ARG_SIZE (mode, type);
 
 	  /* Long long is put in odd registers.  */
 	  if (n_words == 2 && (gregno & 1) == 0)
@@ -2072,9 +2183,6 @@ function_arg (cum, mode, type, named)
       int align = (TARGET_32BIT && (cum->words & 1) != 0
 	           && function_arg_boundary (mode, type) == 64) ? 1 : 0;
       int align_words = cum->words + align;
-
-      if (! named)
-	return NULL_RTX;
 
       if (type && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
         return NULL_RTX;
@@ -2097,7 +2205,7 @@ function_arg (cum, mode, type, named)
 				((align_words >= GP_ARG_NUM_REG)
 				 ? NULL_RTX
 				 : (align_words
-				    + RS6000_ARG_SIZE (mode, type, named)
+				    + RS6000_ARG_SIZE (mode, type)
 				    > GP_ARG_NUM_REG
 				    /* If this is partially on the stack, then
 				       we only include the portion actually
@@ -2127,11 +2235,8 @@ function_arg_partial_nregs (cum, mode, type, named)
      CUMULATIVE_ARGS *cum;
      enum machine_mode mode;
      tree type;
-     int named;
+     int named ATTRIBUTE_UNUSED;
 {
-  if (! named)
-    return 0;
-
   if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
     return 0;
 
@@ -2142,7 +2247,7 @@ function_arg_partial_nregs (cum, mode, type, named)
     }
 
   if (cum->words < GP_ARG_NUM_REG
-      && GP_ARG_NUM_REG < (cum->words + RS6000_ARG_SIZE (mode, type, named)))
+      && GP_ARG_NUM_REG < (cum->words + RS6000_ARG_SIZE (mode, type)))
     {
       int ret = GP_ARG_NUM_REG - cum->words;
       if (ret && TARGET_DEBUG_ARG)
@@ -2209,23 +2314,22 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
   int reg_size = TARGET_32BIT ? 4 : 8;
   rtx save_area = NULL_RTX, mem;
   int first_reg_offset, set;
+  tree fntype;
+  int stdarg_p;
+
+  fntype = TREE_TYPE (current_function_decl);
+  stdarg_p = (TYPE_ARG_TYPES (fntype) != 0
+	      && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
+		  != void_type_node));
+
+  /* For varargs, we do not want to skip the dummy va_dcl argument.
+     For stdargs, we do want to skip the last named argument.  */
+  next_cum = *cum;
+  if (stdarg_p)
+    function_arg_advance (&next_cum, mode, type, 1);
 
   if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
     {
-      tree fntype;
-      int stdarg_p;
-
-      fntype = TREE_TYPE (current_function_decl);
-      stdarg_p = (TYPE_ARG_TYPES (fntype) != 0
-		  && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
-		      != void_type_node));
-
-      /* For varargs, we do not want to skip the dummy va_dcl argument.
-         For stdargs, we do want to skip the last named argument.  */
-      next_cum = *cum;
-      if (stdarg_p)
-	function_arg_advance (&next_cum, mode, type, 1);
-
       /* Indicate to allocate space on the stack for varargs save area.  */
       /* ??? Does this really have to be located at a magic spot on the
 	 stack, or can we allocate this with assign_stack_local instead.  */
@@ -2238,12 +2342,12 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
     }
   else
     {
+      first_reg_offset = next_cum.words;
       save_area = virtual_incoming_args_rtx;
       cfun->machine->sysv_varargs_p = 0;
 
-      first_reg_offset = cum->words;
       if (MUST_PASS_IN_STACK (mode, type))
-	first_reg_offset += RS6000_ARG_SIZE (TYPE_MODE (type), type, 1);
+	first_reg_offset += RS6000_ARG_SIZE (TYPE_MODE (type), type);
     }
 
   set = get_varargs_alias_set ();
@@ -2252,7 +2356,7 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       mem = gen_rtx_MEM (BLKmode,
 		         plus_constant (save_area,
 					first_reg_offset * reg_size)),
-      MEM_ALIAS_SET (mem) = set;
+      set_mem_alias_set (mem, set);
 
       move_block_from_reg
 	(GP_ARG_MIN_REG + first_reg_offset, mem,
@@ -2284,7 +2388,7 @@ setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       while (fregno <= FP_ARG_V4_MAX_REG)
 	{
 	  mem = gen_rtx_MEM (DFmode, plus_constant (save_area, off));
-          MEM_ALIAS_SET (mem) = set;
+          set_mem_alias_set (mem, set);
 	  emit_move_insn (mem, gen_rtx_REG (DFmode, fregno));
 	  fregno++;
 	  off += 8;
@@ -2372,8 +2476,15 @@ rs6000_va_start (stdarg_p, valist, nextarg)
   n_fpr = current_function_args_info.fregno - FP_ARG_MIN_REG;
 
   if (TARGET_DEBUG_ARG)
-    fprintf (stderr, "va_start: words = %d, n_gpr = %d, n_fpr = %d\n",
-	     words, n_gpr, n_fpr);
+    {
+      fputs ("va_start: words = ", stderr);
+      fprintf (stderr, HOST_WIDE_INT_PRINT_DEC, words);
+      fputs (", n_gpr = ", stderr);
+      fprintf (stderr, HOST_WIDE_INT_PRINT_DEC, n_gpr);
+      fputs (", n_fpr = ", stderr);
+      fprintf (stderr, HOST_WIDE_INT_PRINT_DEC, n_fpr);
+      putc ('\n', stderr);
+    }
 
   t = build (MODIFY_EXPR, TREE_TYPE (gpr), gpr, build_int_2 (n_gpr, 0));
   TREE_SIDE_EFFECTS (t) = 1;
@@ -2582,7 +2693,7 @@ rs6000_va_arg (valist, type)
   if (indirect_p)
     {
       r = gen_rtx_MEM (Pmode, addr_rtx);
-      MEM_ALIAS_SET (r) = get_varargs_alias_set ();
+      set_mem_alias_set (r, get_varargs_alias_set ());
       emit_move_insn (addr_rtx, r);
     }
 
@@ -3081,14 +3192,14 @@ lmw_operation (op, mode)
       || count != 32 - (int) dest_regno)
     return 0;
 
-  if (LEGITIMATE_INDIRECT_ADDRESS_P (src_addr))
+  if (LEGITIMATE_INDIRECT_ADDRESS_P (src_addr, 0))
     {
       offset = 0;
       base_regno = REGNO (src_addr);
       if (base_regno == 0)
 	return 0;
     }
-  else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, src_addr))
+  else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, src_addr, 0))
     {
       offset = INTVAL (XEXP (src_addr, 1));
       base_regno = REGNO (XEXP (src_addr, 0));
@@ -3111,12 +3222,12 @@ lmw_operation (op, mode)
 	  || GET_MODE (SET_SRC (elt)) != SImode)
 	return 0;
       newaddr = XEXP (SET_SRC (elt), 0);
-      if (LEGITIMATE_INDIRECT_ADDRESS_P (newaddr))
+      if (LEGITIMATE_INDIRECT_ADDRESS_P (newaddr, 0))
 	{
 	  newoffset = 0;
 	  addr_reg = newaddr;
 	}
-      else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, newaddr))
+      else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, newaddr, 0))
 	{
 	  addr_reg = XEXP (newaddr, 0);
 	  newoffset = INTVAL (XEXP (newaddr, 1));
@@ -3159,14 +3270,14 @@ stmw_operation (op, mode)
       || count != 32 - (int) src_regno)
     return 0;
 
-  if (LEGITIMATE_INDIRECT_ADDRESS_P (dest_addr))
+  if (LEGITIMATE_INDIRECT_ADDRESS_P (dest_addr, 0))
     {
       offset = 0;
       base_regno = REGNO (dest_addr);
       if (base_regno == 0)
 	return 0;
     }
-  else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, dest_addr))
+  else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, dest_addr, 0))
     {
       offset = INTVAL (XEXP (dest_addr, 1));
       base_regno = REGNO (XEXP (dest_addr, 0));
@@ -3189,12 +3300,12 @@ stmw_operation (op, mode)
 	  || GET_MODE (SET_DEST (elt)) != SImode)
 	return 0;
       newaddr = XEXP (SET_DEST (elt), 0);
-      if (LEGITIMATE_INDIRECT_ADDRESS_P (newaddr))
+      if (LEGITIMATE_INDIRECT_ADDRESS_P (newaddr, 0))
 	{
 	  newoffset = 0;
 	  addr_reg = newaddr;
 	}
-      else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, newaddr))
+      else if (LEGITIMATE_OFFSET_ADDRESS_P (SImode, newaddr, 0))
 	{
 	  addr_reg = XEXP (newaddr, 0);
 	  newoffset = INTVAL (XEXP (newaddr, 1));
@@ -3238,9 +3349,10 @@ validate_condition_mode (code, mode)
 	  || code == UNGE || code == UNLE))
     abort();
   
-  /* These should never be generated except for fast_math.  */
+  /* These should never be generated except for 
+     flag_unsafe_math_optimizations.  */
   if (mode == CCFPmode
-      && ! flag_fast_math
+      && ! flag_unsafe_math_optimizations
       && (code == LE || code == GE
 	  || code == UNEQ || code == LTGT
 	  || code == UNGT || code == UNLT))
@@ -3352,6 +3464,15 @@ boolean_or_operator (op, mode)
 {
   enum rtx_code code = GET_CODE (op);
   return (code == IOR || code == XOR);
+}
+
+int
+min_max_operator (op, mode)
+    rtx op;
+    enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  enum rtx_code code = GET_CODE (op);
+  return (code == SMIN || code == SMAX || code == UMIN || code == UMAX);
 }
 
 /* Return 1 if ANDOP is a mask that has no bits on that are not in the
@@ -3500,17 +3621,22 @@ secondary_reload_class (class, mode, in)
 {
   int regno;
 
-#if TARGET_ELF
-  /* We can not copy a symbolic operand directly into anything other than
-     BASE_REGS for TARGET_ELF.  So indicate that a register from BASE_REGS
-     is needed as an intermediate register.  */
-  if (class != BASE_REGS
-      && (GET_CODE (in) == SYMBOL_REF
-	  || GET_CODE (in) == HIGH
-	  || GET_CODE (in) == LABEL_REF
-	  || GET_CODE (in) == CONST))
-    return BASE_REGS;
-#endif
+  if (TARGET_ELF || (DEFAULT_ABI == ABI_DARWIN && flag_pic))
+    {
+      /* We cannot copy a symbolic operand directly into anything
+         other than BASE_REGS for TARGET_ELF.  So indicate that a
+         register from BASE_REGS is needed as an intermediate
+         register.
+         
+	 On Darwin, pic addresses require a load from memory, which
+	 needs a base register.  */
+      if (class != BASE_REGS
+          && (GET_CODE (in) == SYMBOL_REF
+              || GET_CODE (in) == HIGH
+              || GET_CODE (in) == LABEL_REF
+              || GET_CODE (in) == CONST))
+        return BASE_REGS;
+    }
 
   if (GET_CODE (in) == REG)
     {
@@ -3638,14 +3764,6 @@ rs6000_init_machine_status (p)
      struct function *p;
 {
   p->machine = (machine_function *) xcalloc (1, sizeof (machine_function));
-}
-
-static void
-rs6000_mark_machine_status (p)
-     struct function *p;
-{
-  if (p->machine)
-    ggc_mark_rtx (p->machine->ra_rtx);
 }
 
 static void
@@ -3884,11 +4002,13 @@ print_operand (file, x, code)
 	     we have already done it, we can just use an offset of word.  */
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
-	    output_address (plus_constant_for_output (XEXP (XEXP (x, 0), 0),
-						      UNITS_PER_WORD));
+	    output_address (plus_constant (XEXP (XEXP (x, 0), 0),
+					   UNITS_PER_WORD));
 	  else
-	    output_address (plus_constant_for_output (XEXP (x, 0),
-						      UNITS_PER_WORD));
+	    output_address (XEXP (adjust_address_nv (x, SImode,
+						     UNITS_PER_WORD),
+				  0));
+
 	  if (small_data_operand (x, GET_MODE (x)))
 	    fprintf (file, "@%s(%s)", SMALL_DATA_RELOC,
 		     reg_names[SMALL_DATA_REG]);
@@ -4252,7 +4372,7 @@ print_operand (file, x, code)
 
     case 'X':
       if (GET_CODE (x) == MEM
-	  && LEGITIMATE_INDEXED_ADDRESS_P (XEXP (x, 0)))
+	  && LEGITIMATE_INDEXED_ADDRESS_P (XEXP (x, 0), 0))
 	putc ('x', file);
       return;
 
@@ -4266,7 +4386,7 @@ print_operand (file, x, code)
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 8));
 	  else
-	    output_address (plus_constant (XEXP (x, 0), 8));
+	    output_address (XEXP (adjust_address_nv (x, SImode, 8), 0));
 	  if (small_data_operand (x, GET_MODE (x)))
 	    fprintf (file, "@%s(%s)", SMALL_DATA_RELOC,
 		     reg_names[SMALL_DATA_REG]);
@@ -4296,6 +4416,7 @@ print_operand (file, x, code)
 	    case ABI_V4:
 	    case ABI_AIX_NODESC:
 	    case ABI_SOLARIS:
+	    case ABI_DARWIN:
 	      break;
 	    }
 	}
@@ -4316,7 +4437,7 @@ print_operand (file, x, code)
 	      || GET_CODE (XEXP (x, 0)) == PRE_DEC)
 	    output_address (plus_constant (XEXP (XEXP (x, 0), 0), 12));
 	  else
-	    output_address (plus_constant (XEXP (x, 0), 12));
+	    output_address (XEXP (adjust_address_nv (x, SImode, 12), 0));
 	  if (small_data_operand (x, GET_MODE (x)))
 	    fprintf (file, "@%s(%s)", SMALL_DATA_RELOC,
 		     reg_names[SMALL_DATA_REG]);
@@ -4454,9 +4575,9 @@ rs6000_generate_compare (code)
 					   rs6000_compare_op1)));
   
   /* Some kinds of FP comparisons need an OR operation;
-     except that for fast_math we don't bother.  */
+     except for flag_unsafe_math_optimizations we don't bother.  */
   if (rs6000_compare_fp_p
-      && ! flag_fast_math
+      && ! flag_unsafe_math_optimizations
       && (code == LE || code == GE
 	  || code == UNEQ || code == LTGT
 	  || code == UNGT || code == UNLT))
@@ -4583,12 +4704,18 @@ output_cbranch (op, label, reversed, insn)
     {
       /* Not all of these are actually distinct opcodes, but
 	 we distinguish them for clarity of the resulting assembler.  */
-    case NE: ccode = "ne"; break;
-    case EQ: ccode = "eq"; break;
-    case GE: case GEU: ccode = "ge"; break;
-    case GT: case GTU: ccode = "gt"; break;
-    case LE: case LEU: ccode = "le"; break;
-    case LT: case LTU: ccode = "lt"; break;
+    case NE: case LTGT:
+      ccode = "ne"; break;
+    case EQ: case UNEQ:
+      ccode = "eq"; break;
+    case GE: case GEU: 
+      ccode = "ge"; break;
+    case GT: case GTU: case UNGT: 
+      ccode = "gt"; break;
+    case LE: case LEU: 
+      ccode = "le"; break;
+    case LT: case LTU: case UNLT: 
+      ccode = "lt"; break;
     case UNORDERED: ccode = "un"; break;
     case ORDERED: ccode = "nu"; break;
     case UNGE: ccode = "nl"; break;
@@ -4631,12 +4758,187 @@ output_cbranch (op, label, reversed, insn)
       /* If the branch distance was too far, we may have to use an
 	 unconditional branch to go the distance.  */
       if (need_longbranch)
-	s += sprintf (s, ",%c$+8 ; b %s", '%', label);
+	s += sprintf (s, ",%c$+8\n\tb %s", '%', label);
       else
 	s += sprintf (s, ",%s", label);
     }
 
   return string;
+}
+
+/* Emit a conditional move: move TRUE_COND to DEST if OP of the
+   operands of the last comparison is nonzero/true, FALSE_COND if it
+   is zero/false.  Return 0 if the hardware has no such operation.  */
+int
+rs6000_emit_cmove (dest, op, true_cond, false_cond)
+     rtx dest;
+     rtx op;
+     rtx true_cond;
+     rtx false_cond;
+{
+  enum rtx_code code = GET_CODE (op);
+  rtx op0 = rs6000_compare_op0;
+  rtx op1 = rs6000_compare_op1;
+  REAL_VALUE_TYPE c1;
+  enum machine_mode mode = GET_MODE (op0);
+  rtx temp;
+
+  /* First, work out if the hardware can do this at all, or
+     if it's too slow...  */
+  /* If the comparison is an integer one, since we only have fsel
+     it'll be cheaper to use a branch.  */
+  if (! rs6000_compare_fp_p)
+    return 0;
+
+  /* Eliminate half of the comparisons by switching operands, this
+     makes the remaining code simpler.  */
+  if (code == UNLT || code == UNGT || code == UNORDERED || code == NE
+      || code == LTGT || code == LT)
+    {
+      code = reverse_condition_maybe_unordered (code);
+      temp = true_cond;
+      true_cond = false_cond;
+      false_cond = temp;
+    }
+
+  /* UNEQ and LTGT take four instructions for a comparison with zero,
+     it'll probably be faster to use a branch here too.  */
+  if (code == UNEQ)
+    return 0;
+  
+  if (GET_CODE (op1) == CONST_DOUBLE)
+    REAL_VALUE_FROM_CONST_DOUBLE (c1, op1);
+    
+  /* We're going to try to implement comparions by performing
+     a subtract, then comparing against zero.  Unfortunately,
+     Inf - Inf is NaN which is not zero, and so if we don't
+     know that the the operand is finite and the comparison
+     would treat EQ different to UNORDERED, we can't do it.  */
+  if (! flag_unsafe_math_optimizations
+      && code != GT && code != UNGE
+      && (GET_CODE (op1) != CONST_DOUBLE || target_isinf (c1))
+      /* Constructs of the form (a OP b ? a : b) are safe.  */
+      && ((! rtx_equal_p (op0, false_cond) && ! rtx_equal_p (op1, false_cond))
+	  || (! rtx_equal_p (op0, true_cond) 
+	      && ! rtx_equal_p (op1, true_cond))))
+    return 0;
+  /* At this point we know we can use fsel.  */
+
+  /* Reduce the comparison to a comparison against zero.  */
+  temp = gen_reg_rtx (mode);
+  emit_insn (gen_rtx_SET (VOIDmode, temp,
+			  gen_rtx_MINUS (mode, op0, op1)));
+  op0 = temp;
+  op1 = CONST0_RTX (mode);
+
+  /* If we don't care about NaNs we can reduce some of the comparisons
+     down to faster ones.  */
+  if (flag_unsafe_math_optimizations)
+    switch (code)
+      {
+      case GT:
+	code = LE;
+	temp = true_cond;
+	true_cond = false_cond;
+	false_cond = temp;
+	break;
+      case UNGE:
+	code = GE;
+	break;
+      case UNEQ:
+	code = EQ;
+	break;
+      default:
+	break;
+      }
+
+  /* Now, reduce everything down to a GE.  */
+  switch (code)
+    {
+    case GE:
+      break;
+
+    case LE:
+      temp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
+      op0 = temp;
+      break;
+
+    case ORDERED:
+      temp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_ABS (mode, op0)));
+      op0 = temp;
+      break;
+
+    case EQ:
+      temp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, 
+			      gen_rtx_NEG (mode,
+					   gen_rtx_ABS (mode, op0))));
+      op0 = temp;
+      break;
+
+    case UNGE:
+      temp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp,
+			      gen_rtx_IF_THEN_ELSE (mode, 
+						    gen_rtx_GE (VOIDmode,
+								op0, op1),
+						    true_cond, false_cond)));
+      false_cond = temp;
+      true_cond = false_cond;
+
+      temp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
+      op0 = temp;
+      break;
+
+    case GT:
+      temp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp,
+			      gen_rtx_IF_THEN_ELSE (mode, 
+						    gen_rtx_GE (VOIDmode,
+								op0, op1),
+						    true_cond, false_cond)));
+      true_cond = temp;
+      false_cond = true_cond;
+
+      temp = gen_reg_rtx (mode);
+      emit_insn (gen_rtx_SET (VOIDmode, temp, gen_rtx_NEG (mode, op0)));
+      op0 = temp;
+      break;
+
+    default:
+      abort ();
+    }
+
+  emit_insn (gen_rtx_SET (VOIDmode, dest,
+			  gen_rtx_IF_THEN_ELSE (mode, 
+						gen_rtx_GE (VOIDmode,
+							    op0, op1),
+						true_cond, false_cond)));
+  return 1;
+}
+
+void
+rs6000_emit_minmax (dest, code, op0, op1)
+     rtx dest;
+     enum rtx_code code;
+     rtx op0;
+     rtx op1;
+{
+  enum machine_mode mode = GET_MODE (op0);
+  rtx target;
+  if (code == SMAX || code == UMAX)
+    target = emit_conditional_move (dest, GE, op0, op1, mode, 
+				    op0, op1, mode, 0);
+  else
+    target = emit_conditional_move (dest, GE, op0, op1, mode, 
+				    op1, op0, mode, 0);
+  if (target == NULL_RTX)
+    abort ();
+  if (target != dest)
+    emit_move_insn (dest, target);
 }
 
 /* This page contains routines that are used to determine what the function
@@ -4655,8 +4957,10 @@ first_reg_to_save ()
     if (regs_ever_live[first_reg] 
 	&& (! call_used_regs[first_reg]
 	    || (first_reg == PIC_OFFSET_TABLE_REGNUM
-		&& (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
-		&& flag_pic == 1)))
+		&& (((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+		     && flag_pic == 1)
+		    || (DEFAULT_ABI == ABI_DARWIN
+			&& flag_pic)))))
       break;
 
   if (profile_flag)
@@ -4665,7 +4969,7 @@ first_reg_to_save ()
 	 before/after the .__mcount call plus an additional register
 	 for the static chain, if needed; use registers from 30 down to 22
 	 to do this.  */
-      if (DEFAULT_ABI == ABI_AIX)
+      if (DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN)
 	{
 	  int last_parm_reg, profile_first_reg;
 
@@ -4683,6 +4987,12 @@ first_reg_to_save ()
 	     Skip reg 31 which may contain the frame pointer.  */
 	  profile_first_reg = (33 - last_parm_reg
 			       - (current_function_needs_context ? 1 : 0));
+#if TARGET_MACHO
+          /* Need to skip another reg to account for R31 being PICBASE
+             (when flag_pic is set) or R30 being used as the frame
+             pointer (when flag_pic is not set).  */
+          --profile_first_reg;
+#endif
 	  /* Do not save frame pointer if no parameters needs to be saved.  */
 	  if (profile_first_reg == 31)
 	    profile_first_reg = 32;
@@ -4699,6 +5009,12 @@ first_reg_to_save ()
 	    first_reg = 30;
 	}
     }
+
+#if TARGET_MACHO
+  if (flag_pic && current_function_uses_pic_offset_table &&
+      (first_reg > PIC_OFFSET_TABLE_REGNUM))
+    return PIC_OFFSET_TABLE_REGNUM;
+#endif
 
   return first_reg;
 }
@@ -4722,7 +5038,7 @@ first_fp_reg_to_save ()
    complicated by having two separate calling sequences, the AIX calling
    sequence and the V.4 calling sequence.
 
-   AIX stack frames look like:
+   AIX (and Darwin/Mac OS) stack frames look like:
 							  32-bit  64-bit
 	SP---->	+---------------------------------------+
 		| back chain to caller			| 0	  0
@@ -4808,6 +5124,7 @@ rs6000_stack_info ()
   rs6000_stack_t *info_ptr = &info;
   int reg_size = TARGET_POWERPC64 ? 8 : 4;
   enum rs6000_abi abi;
+  int ehrd_size;
   int total_raw_size;
 
   /* Zero all fields portably */
@@ -4820,8 +5137,10 @@ rs6000_stack_info ()
   info_ptr->first_gp_reg_save = first_reg_to_save ();
   /* Assume that we will have to save PIC_OFFSET_TABLE_REGNUM, 
      even if it currently looks like we won't.  */
-  if (flag_pic == 1 
-      && (abi == ABI_V4 || abi == ABI_SOLARIS)
+  if (((flag_pic == 1
+	&& (abi == ABI_V4 || abi == ABI_SOLARIS))
+       || (flag_pic &&
+	   abi == ABI_DARWIN))
       && info_ptr->first_gp_reg_save > PIC_OFFSET_TABLE_REGNUM)
     info_ptr->gp_size = reg_size * (32 - PIC_OFFSET_TABLE_REGNUM);
   else
@@ -4844,6 +5163,7 @@ rs6000_stack_info ()
 	  && !FP_SAVE_INLINE (info_ptr->first_fp_reg_save))
       || (abi == ABI_V4 && current_function_calls_alloca)
       || (abi == ABI_SOLARIS && current_function_calls_alloca)
+      || (DEFAULT_ABI == ABI_DARWIN && flag_pic && current_function_uses_pic_offset_table)
       || info_ptr->calls_p)
     {
       info_ptr->lr_save_p = 1;
@@ -4860,6 +5180,19 @@ rs6000_stack_info ()
 	info_ptr->cr_size = reg_size;
     }
 
+  /* If the current function calls __builtin_eh_return, then we need
+     to allocate stack space for registers that will hold data for
+     the exception handler.  */
+  if (current_function_calls_eh_return)
+    {
+      unsigned int i;
+      for (i = 0; EH_RETURN_DATA_REGNO (i) != INVALID_REGNUM; ++i)
+	continue;
+      ehrd_size = i * UNITS_PER_WORD;
+    }
+  else
+    ehrd_size = 0;
+
   /* Determine various sizes */
   info_ptr->reg_size     = reg_size;
   info_ptr->fixed_size   = RS6000_SAVE_AREA;
@@ -4868,9 +5201,12 @@ rs6000_stack_info ()
   info_ptr->parm_size    = RS6000_ALIGN (current_function_outgoing_args_size, 8);
   info_ptr->save_size    = RS6000_ALIGN (info_ptr->fp_size
 				  + info_ptr->gp_size
+				  + ehrd_size
 				  + info_ptr->cr_size
 				  + info_ptr->lr_size
 				  + info_ptr->toc_size, 8);
+  if (DEFAULT_ABI == ABI_DARWIN)
+    info_ptr->save_size = RS6000_ALIGN (info_ptr->save_size, 16);
 
   /* Calculate the offsets */
   switch (abi)
@@ -4881,8 +5217,10 @@ rs6000_stack_info ()
 
     case ABI_AIX:
     case ABI_AIX_NODESC:
+    case ABI_DARWIN:
       info_ptr->fp_save_offset   = - info_ptr->fp_size;
       info_ptr->gp_save_offset   = info_ptr->fp_save_offset - info_ptr->gp_size;
+      info_ptr->ehrd_offset      = info_ptr->gp_save_offset - ehrd_size;
       info_ptr->cr_save_offset   = reg_size; /* first word when 64-bit.  */
       info_ptr->lr_save_offset   = 2*reg_size;
       break;
@@ -4893,6 +5231,7 @@ rs6000_stack_info ()
       info_ptr->gp_save_offset   = info_ptr->fp_save_offset - info_ptr->gp_size;
       info_ptr->cr_save_offset   = info_ptr->gp_save_offset - info_ptr->cr_size;
       info_ptr->toc_save_offset  = info_ptr->cr_save_offset - info_ptr->toc_size;
+      info_ptr->ehrd_offset      = info_ptr->toc_save_offset - ehrd_size;
       info_ptr->lr_save_offset   = reg_size;
       break;
     }
@@ -4925,7 +5264,7 @@ rs6000_stack_info ()
 
   else
     info_ptr->push_p = (frame_pointer_needed
-			|| write_symbols != NO_DEBUG
+			|| (abi != ABI_DARWIN && write_symbols != NO_DEBUG)
 			|| ((total_raw_size - info_ptr->fixed_size)
 			    > (TARGET_32BIT ? 220 : 288)));
 
@@ -4968,6 +5307,7 @@ debug_stack_info (info)
     case ABI_NONE:	 abi_string = "NONE";		break;
     case ABI_AIX:	 abi_string = "AIX";		break;
     case ABI_AIX_NODESC: abi_string = "AIX";		break;
+    case ABI_DARWIN:	 abi_string = "Darwin";		break;
     case ABI_V4:	 abi_string = "V.4";		break;
     case ABI_SOLARIS:	 abi_string = "Solaris";	break;
     }
@@ -5057,8 +5397,6 @@ rs6000_return_addr (count, frame)
      int count;
      rtx frame;
 {
-  rtx init, reg;
-
   /* Currently we don't optimize very well between prolog and body code and
      for PIC code the code can be actually quite bad, so don't try to be
      too clever here.  */
@@ -5076,23 +5414,7 @@ rs6000_return_addr (count, frame)
 					 RETURN_ADDRESS_OFFSET)));
     }
 
-  reg = cfun->machine->ra_rtx;
-  if (reg == NULL)
-    {
-      /* No rtx yet.  Invent one, and initialize it from LR in
-         the prologue.  */
-      reg = gen_reg_rtx (Pmode);
-      cfun->machine->ra_rtx = reg;
-      init = gen_rtx_SET (VOIDmode, reg,
-			  gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
-
-      /* Emit the insn to the prologue with the other argument copies.  */
-      push_topmost_sequence ();
-      emit_insn_after (init, get_insns ());
-      pop_topmost_sequence ();
-    }
-
-  return reg;
+  return get_hard_reg_initial_val (Pmode, LINK_REGISTER_REGNUM);
 }
 
 static int
@@ -5104,7 +5426,8 @@ rs6000_ra_ever_killed ()
   if (current_function_is_thunk)
     return 0;
 #endif
-  if (!cfun->machine->ra_rtx || cfun->machine->ra_needs_full_frame)
+  if (!has_hard_reg_initial_val (Pmode, LINK_REGISTER_REGNUM)
+      || cfun->machine->ra_needs_full_frame)
     return regs_ever_live[LINK_REGISTER_REGNUM];
 
   push_topmost_sequence ();
@@ -5351,7 +5674,7 @@ rs6000_emit_eh_toc_restore (stacksize)
   rtx loop_exit = gen_label_rtx ();
   
   mem = gen_rtx_MEM (Pmode, hard_frame_pointer_rtx);
-  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+  set_mem_alias_set (mem, rs6000_sr_alias_set);
   emit_move_insn (bottom_of_stack, mem);
 
   top_of_stack = expand_binop (Pmode, add_optab, 
@@ -5367,7 +5690,7 @@ rs6000_emit_eh_toc_restore (stacksize)
     abort();
   emit_move_insn (opcode, insn_after_throw);
   
-  emit_note (NULL_PTR, NOTE_INSN_LOOP_BEG);
+  emit_note (NULL, NOTE_INSN_LOOP_BEG);
   emit_label (loop_start);
   
   do_compare_rtx_and_jump (opcode, tocompare, NE, 1,
@@ -5385,7 +5708,7 @@ rs6000_emit_eh_toc_restore (stacksize)
 			   loop_exit);
 
   mem = gen_rtx_MEM (Pmode, bottom_of_stack);
-  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+  set_mem_alias_set (mem, rs6000_sr_alias_set);
   emit_move_insn (bottom_of_stack, mem);
   
   mem = gen_rtx_MEM (Pmode, 
@@ -5394,22 +5717,22 @@ rs6000_emit_eh_toc_restore (stacksize)
   emit_move_insn (opcode_addr, mem);
   emit_move_insn (opcode, gen_rtx_MEM (SImode, opcode_addr));
 
-  emit_note (NULL_PTR, NOTE_INSN_LOOP_CONT);
+  emit_note (NULL, NOTE_INSN_LOOP_CONT);
   emit_jump (loop_start);
-  emit_note (NULL_PTR, NOTE_INSN_LOOP_END);
+  emit_note (NULL, NOTE_INSN_LOOP_END);
   emit_label (loop_exit);
 }
 #endif /* TARGET_AIX */
 
-/* This ties together stack memory 
-   (MEM with an alias set of rs6000_sr_alias_set)
-   and the change to the stack pointer.  */
+/* This ties together stack memory (MEM with an alias set of
+   rs6000_sr_alias_set) and the change to the stack pointer.  */
+
 static void
 rs6000_emit_stack_tie ()
 {
-  rtx mem;
-  mem = gen_rtx_MEM (BLKmode, gen_rtx_REG (Pmode, STACK_POINTER_REGNUM));
-  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+  rtx mem = gen_rtx_MEM (BLKmode, gen_rtx_REG (Pmode, STACK_POINTER_REGNUM));
+
+  set_mem_alias_set (mem, rs6000_sr_alias_set);
   emit_insn (gen_stack_tie (mem));
 }
 
@@ -5585,7 +5908,7 @@ rs6000_frame_related (insn, reg, val, reg2, rreg)
 /* Emit function prologue as insns.  */
 
 void
-rs6000_emit_prologue()
+rs6000_emit_prologue ()
 {
   rs6000_stack_t *info = rs6000_stack_info ();
   enum machine_mode reg_mode = TARGET_POWERPC64 ? DImode : SImode;
@@ -5650,7 +5973,7 @@ rs6000_emit_prologue()
 					  + sp_offset 
 					  + 8*i));
 	    mem = gen_rtx_MEM (DFmode, addr);
-	    MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+	    set_mem_alias_set (mem, rs6000_sr_alias_set);
 
 	    insn = emit_move_insn (mem, reg);
 	    rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
@@ -5682,7 +6005,7 @@ rs6000_emit_prologue()
 			       GEN_INT (info->fp_save_offset 
 					+ sp_offset + 8*i));
 	  mem = gen_rtx_MEM (DFmode, addr);
-	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+	  set_mem_alias_set (mem, rs6000_sr_alias_set);
 
 	  RTVEC_ELT (p, i + 2) = gen_rtx_SET (VOIDmode, mem, reg);
 	}
@@ -5708,7 +6031,7 @@ rs6000_emit_prologue()
 					+ sp_offset 
 					+ reg_size * i));
 	  mem = gen_rtx_MEM (reg_mode, addr);
-	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+	  set_mem_alias_set (mem, rs6000_sr_alias_set);
 
 	  RTVEC_ELT (p, i) = gen_rtx_SET (VOIDmode, mem, reg);
 	}
@@ -5723,8 +6046,10 @@ rs6000_emit_prologue()
 	if ((regs_ever_live[info->first_gp_reg_save+i] 
 	     && ! call_used_regs[info->first_gp_reg_save+i])
 	    || (i+info->first_gp_reg_save == PIC_OFFSET_TABLE_REGNUM
-		&& (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
-		&& flag_pic == 1))
+		&& (((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+		     && flag_pic == 1)
+		    || (DEFAULT_ABI == ABI_DARWIN
+			&& flag_pic))))
 	  {
 	    rtx addr, reg, mem;
 	    reg = gen_rtx_REG (reg_mode, info->first_gp_reg_save + i);
@@ -5733,12 +6058,39 @@ rs6000_emit_prologue()
 					  + sp_offset 
 					  + reg_size * i));
 	    mem = gen_rtx_MEM (reg_mode, addr);
-	    MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+	    set_mem_alias_set (mem, rs6000_sr_alias_set);
 
 	    insn = emit_move_insn (mem, reg);
 	    rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
 				  NULL_RTX, NULL_RTX);
 	  }
+    }
+
+  /* ??? There's no need to emit actual instructions here, but it's the
+     easiest way to get the frame unwind information emitted.  */
+  if (current_function_calls_eh_return)
+    {
+      unsigned int i, regno;
+
+      for (i = 0; ; ++i)
+	{
+	  rtx addr, reg, mem;
+
+	  regno = EH_RETURN_DATA_REGNO (i);
+	  if (regno == INVALID_REGNUM)
+	    break;
+
+	  reg = gen_rtx_REG (reg_mode, regno);
+	  addr = plus_constant (frame_reg_rtx,
+				info->ehrd_offset + sp_offset
+				+ reg_size * (int) i);
+	  mem = gen_rtx_MEM (reg_mode, addr);
+	  set_mem_alias_set (mem, rs6000_sr_alias_set);
+
+	  insn = emit_move_insn (mem, reg);
+	  rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
+				NULL_RTX, NULL_RTX);
+	}
     }
 
   /* Save lr if we used it.  */
@@ -5762,7 +6114,8 @@ rs6000_emit_prologue()
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->cr_save_offset + sp_offset));
       rtx mem = gen_rtx_MEM (SImode, addr);
-      MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+      set_mem_alias_set (mem, rs6000_sr_alias_set);
 
       /* If r12 was used to hold the original sp, copy cr into r0 now
 	 that it's free.  */
@@ -5804,8 +6157,9 @@ rs6000_emit_prologue()
        it.  We use R11 for this purpose because emit_load_toc_table
        can use register 0.  This allows us to use a plain 'blr' to return
        from the procedure more often.  */
-    int save_LR_around_toc_setup = (TARGET_ELF && flag_pic != 0 && 
-				    ! info->lr_save_p);
+    int save_LR_around_toc_setup = (TARGET_ELF && flag_pic != 0
+				    && ! info->lr_save_p
+				    && EXIT_BLOCK_PTR->pred != NULL);
     if (save_LR_around_toc_setup)
       emit_move_insn (gen_rtx_REG (Pmode, 11), 
 		      gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
@@ -5816,14 +6170,26 @@ rs6000_emit_prologue()
       emit_move_insn (gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM), 
 		      gen_rtx_REG (Pmode, 11));
   }
+
+  if (DEFAULT_ABI == ABI_DARWIN
+      && flag_pic && current_function_uses_pic_offset_table)
+    {
+      rtx dest = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
+
+      rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (dest)));
+
+      rs6000_maybe_dead (
+	emit_move_insn (gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM),
+			gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)));
+    }
 }
 
 
 /* Write function prologue.  */
-void
-output_prolog (file, size)
+static void
+rs6000_output_function_prologue (file, size)
      FILE *file;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   rs6000_stack_t *info = rs6000_stack_info ();
 
@@ -5876,7 +6242,7 @@ output_prolog (file, size)
    need special notes to explain where r11 is in relation to the stack.  */
 
 void
-rs6000_emit_epilogue(sibcall)
+rs6000_emit_epilogue (sibcall)
      int sibcall;
 {
   rs6000_stack_t *info;
@@ -5895,6 +6261,7 @@ rs6000_emit_epilogue(sibcall)
   using_load_multiple = (TARGET_MULTIPLE && ! TARGET_POWERPC64
 			 && info->first_gp_reg_save < 31);
   restoring_FPRs_inline = (sibcall
+			   || current_function_calls_eh_return
 			   || info->first_fp_reg_save == 64
 			   || FP_SAVE_INLINE (info->first_fp_reg_save));
   use_backchain_to_restore_sp = (frame_pointer_needed 
@@ -5939,7 +6306,8 @@ rs6000_emit_epilogue(sibcall)
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->lr_save_offset + sp_offset));
       rtx mem = gen_rtx_MEM (Pmode, addr);
-      MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+      set_mem_alias_set (mem, rs6000_sr_alias_set);
 
       emit_move_insn (gen_rtx_REG (Pmode, 0), mem);
     }
@@ -5950,7 +6318,8 @@ rs6000_emit_epilogue(sibcall)
       rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx,
 			       GEN_INT (info->cr_save_offset + sp_offset));
       rtx mem = gen_rtx_MEM (SImode, addr);
-      MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+      set_mem_alias_set (mem, rs6000_sr_alias_set);
 
       emit_move_insn (gen_rtx_REG (SImode, 12), mem);
     }
@@ -5960,6 +6329,28 @@ rs6000_emit_epilogue(sibcall)
     emit_move_insn (gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM),
 		    gen_rtx_REG (Pmode, 0));
   
+  /* Load exception handler data registers, if needed.  */
+  if (current_function_calls_eh_return)
+    {
+      unsigned int i, regno;
+
+      for (i = 0; ; ++i)
+	{
+	  rtx addr, mem;
+
+	  regno = EH_RETURN_DATA_REGNO (i);
+	  if (regno == INVALID_REGNUM)
+	    break;
+
+	  addr = plus_constant (frame_reg_rtx,
+				info->ehrd_offset + sp_offset
+				+ reg_size * (int) i);
+	  mem = gen_rtx_MEM (reg_mode, addr);
+	  set_mem_alias_set (mem, rs6000_sr_alias_set);
+
+	  emit_move_insn (gen_rtx_REG (reg_mode, regno), mem);
+	}
+    }
   
   /* Restore GPRs.  This is done as a PARALLEL if we are using
      the load-multiple instructions.  */
@@ -5974,7 +6365,8 @@ rs6000_emit_epilogue(sibcall)
 					    + sp_offset 
 					    + reg_size * i));
 	  rtx mem = gen_rtx_MEM (reg_mode, addr);
-	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+	  set_mem_alias_set (mem, rs6000_sr_alias_set);
 
 	  RTVEC_ELT (p, i) = 
 	    gen_rtx_SET (VOIDmode,
@@ -5988,15 +6380,18 @@ rs6000_emit_epilogue(sibcall)
       if ((regs_ever_live[info->first_gp_reg_save+i] 
 	   && ! call_used_regs[info->first_gp_reg_save+i])
 	  || (i+info->first_gp_reg_save == PIC_OFFSET_TABLE_REGNUM
-	      && (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
-	      && flag_pic == 1))
+	      && (((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_SOLARIS)
+		   && flag_pic == 1)
+		  || (DEFAULT_ABI == ABI_DARWIN
+		      && flag_pic))))
 	{
 	  rtx addr = gen_rtx_PLUS (Pmode, frame_reg_rtx, 
 				   GEN_INT (info->gp_save_offset 
 					    + sp_offset 
 					    + reg_size * i));
 	  rtx mem = gen_rtx_MEM (reg_mode, addr);
-	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+
+	  set_mem_alias_set (mem, rs6000_sr_alias_set);
 
 	  emit_move_insn (gen_rtx_REG (reg_mode, 
 				       info->first_gp_reg_save + i),
@@ -6015,7 +6410,7 @@ rs6000_emit_epilogue(sibcall)
 					+ sp_offset 
 					+ 8*i));
 	  mem = gen_rtx_MEM (DFmode, addr);
-	  MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+	  set_mem_alias_set (mem, rs6000_sr_alias_set);
 
 	  emit_move_insn (gen_rtx_REG (DFmode, 
 				       info->first_fp_reg_save + i),
@@ -6095,6 +6490,14 @@ rs6000_emit_epilogue(sibcall)
 	}
     }
 
+  if (current_function_calls_eh_return)
+    {
+      rtx sa = EH_RETURN_STACKADJ_RTX;
+      emit_insn (Pmode == SImode
+		 ? gen_addsi3 (sp_reg_rtx, sp_reg_rtx, sa)
+		 : gen_adddi3 (sp_reg_rtx, sp_reg_rtx, sa));
+    }
+
   if (!sibcall)
     {
       rtvec p;
@@ -6129,7 +6532,7 @@ rs6000_emit_epilogue(sibcall)
 	      addr = gen_rtx_PLUS (Pmode, sp_reg_rtx,
 				   GEN_INT (info->fp_save_offset + 8*i));
 	      mem = gen_rtx_MEM (DFmode, addr);
-	      MEM_ALIAS_SET (mem) = rs6000_sr_alias_set;
+	      set_mem_alias_set (mem, rs6000_sr_alias_set);
 
 	      RTVEC_ELT (p, i+3) = 
 		gen_rtx_SET (VOIDmode,
@@ -6144,10 +6547,10 @@ rs6000_emit_epilogue(sibcall)
 
 /* Write function epilogue.  */
 
-void
-output_epilog (file, size)
+static void
+rs6000_output_function_epilogue (file, size)
      FILE *file;
-     int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   rs6000_stack_t *info = rs6000_stack_info ();
 
@@ -6405,8 +6808,8 @@ output_epilog (file, size)
 
    The effect must be as if FUNCTION had been called directly with the adjusted
    first argument.  This macro is responsible for emitting all of the code for
-   a thunk function; `FUNCTION_PROLOGUE' and `FUNCTION_EPILOGUE' are not
-   invoked.
+   a thunk function; output_function_prologue() and output_function_epilogue()
+   are not invoked.
 
    The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
    extracted from it.)  It might possibly be useful on some targets, but
@@ -6555,6 +6958,17 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
 	  if (flag_pic) fputs ("@plt", file);
 	  putc ('\n', file);
 	  break;
+
+#if TARGET_MACHO
+	case ABI_DARWIN:
+	  fprintf (file, "\tb %s", prefix);
+	  if (flag_pic && !machopic_name_defined_p (fname))
+	    assemble_name (file, machopic_stub_name (fname));
+	  else
+	    assemble_name (file, fname);
+	  putc ('\n', file);
+	  break;
+#endif
 	}
     }
 }
@@ -7155,6 +7569,28 @@ output_profile_hook (labelno)
       emit_library_call (init_one_libfunc (RS6000_MCOUNT), 0, VOIDmode, 1,
                          fun, Pmode);
     }
+  else if (DEFAULT_ABI == ABI_DARWIN)
+    {
+      const char *mcount_name = RS6000_MCOUNT;
+      int caller_addr_regno = LINK_REGISTER_REGNUM;
+
+      /* Be conservative and always set this, at least for now.  */
+      current_function_uses_pic_offset_table = 1;
+
+#if TARGET_MACHO
+      /* For PIC code, set up a stub and collect the caller's address
+	 from r0, which is where the prologue puts it.  */
+      if (flag_pic)
+	{
+	  mcount_name = machopic_stub_name (mcount_name);
+	  if (current_function_uses_pic_offset_table)
+	    caller_addr_regno = 0;
+	}
+#endif
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mcount_name),
+			 0, VOIDmode, 1,
+			 gen_rtx_REG (Pmode, caller_addr_regno), Pmode);
+    }
 }
 
 /* Write function profiler code. */
@@ -7164,9 +7600,6 @@ output_function_profiler (file, labelno)
   FILE *file;
   int labelno;
 {
-  /* The last used parameter register.  */
-  int last_parm_reg;
-  int i, j;
   char buf[100];
 
   ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
@@ -7225,6 +7658,7 @@ output_function_profiler (file, labelno)
       break;
 
     case ABI_AIX:
+    case ABI_DARWIN:
       /* Don't do anything, done in output_profile_hook (). */
       break;
 
@@ -7412,24 +7846,10 @@ rs6000_initialize_trampoline (addr, fnaddr, cxt)
 
 
 /* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
-int
-rs6000_valid_decl_attribute_p (decl, attributes, identifier, args)
-     tree decl ATTRIBUTE_UNUSED;
-     tree attributes ATTRIBUTE_UNUSED;
-     tree identifier ATTRIBUTE_UNUSED;
-     tree args ATTRIBUTE_UNUSED;
-{
-  return 0;
-}
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
    with arguments ARGS is a valid machine specific attribute for TYPE.
    The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
 
-int
+static int
 rs6000_valid_type_attribute_p (type, attributes, identifier, args)
      tree type;
      tree attributes ATTRIBUTE_UNUSED;
@@ -7447,29 +7867,6 @@ rs6000_valid_type_attribute_p (type, attributes, identifier, args)
     return (args == NULL_TREE);
 
   return 0;
-}
-
-/* If defined, a C expression whose value is zero if the attributes on
-   TYPE1 and TYPE2 are incompatible, one if they are compatible, and
-   two if they are nearly compatible (which causes a warning to be
-   generated).  */
-
-int
-rs6000_comp_type_attributes (type1, type2)
-     tree type1 ATTRIBUTE_UNUSED;
-     tree type2 ATTRIBUTE_UNUSED;
-{
-  return 1;
-}
-
-/* If defined, a C statement that assigns default attributes to newly
-   defined TYPE.  */
-
-void
-rs6000_set_default_type_attributes (type)
-     tree type ATTRIBUTE_UNUSED;
-{
-  return;
 }
 
 /* Return a reference suitable for calling a function with the
@@ -7763,4 +8160,328 @@ rs6000_add_gc_roots ()
   toc_hash_table = htab_create (1021, toc_hash_function, toc_hash_eq, NULL);
   ggc_add_root (&toc_hash_table, 1, sizeof (toc_hash_table), 
 		toc_hash_mark_table);
+
+#if TARGET_MACHO
+  machopic_add_gc_roots ();
+#endif
 }
+
+#if TARGET_MACHO
+
+#if 0
+/* Returns 1 if OP is either a symbol reference or a sum of a symbol
+   reference and a constant.  */
+
+int
+symbolic_operand (op)
+     register rtx op;
+{
+  switch (GET_CODE (op))
+    {
+    case SYMBOL_REF:
+    case LABEL_REF:
+      return 1;
+    case CONST:
+      op = XEXP (op, 0);
+      return (GET_CODE (op) == SYMBOL_REF ||
+	      (GET_CODE (XEXP (op, 0)) == SYMBOL_REF
+	       || GET_CODE (XEXP (op, 0)) == LABEL_REF)
+	      && GET_CODE (XEXP (op, 1)) == CONST_INT);
+    default:
+      return 0;
+    }
+}
+#endif
+
+#ifdef RS6000_LONG_BRANCH
+
+static tree stub_list = 0;
+
+/* ADD_COMPILER_STUB adds the compiler generated stub for handling 
+   procedure calls to the linked list.  */
+
+void 
+add_compiler_stub (label_name, function_name, line_number)
+     tree label_name;
+     tree function_name;
+     int line_number;
+{
+  tree stub = build_tree_list (function_name, label_name);
+  TREE_TYPE (stub) = build_int_2 (line_number, 0);
+  TREE_CHAIN (stub) = stub_list;
+  stub_list = stub;
+}
+
+#define STUB_LABEL_NAME(STUB)     TREE_VALUE (STUB)
+#define STUB_FUNCTION_NAME(STUB)  TREE_PURPOSE (STUB)
+#define STUB_LINE_NUMBER(STUB)    TREE_INT_CST_LOW (TREE_TYPE (STUB))
+
+/* OUTPUT_COMPILER_STUB outputs the compiler generated stub for handling 
+   procedure calls from the linked list and initializes the linked list.  */
+
+void output_compiler_stub ()
+{
+  char tmp_buf[256];
+  char label_buf[256];
+  char *label;
+  tree tmp_stub, stub;
+
+  if (!flag_pic)
+    for (stub = stub_list; stub; stub = TREE_CHAIN (stub))
+      {
+	fprintf (asm_out_file,
+		 "%s:\n", IDENTIFIER_POINTER(STUB_LABEL_NAME(stub)));
+
+#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
+	if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
+	  fprintf (asm_out_file, "\t.stabd 68,0,%d\n", STUB_LINE_NUMBER(stub));
+#endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
+
+	if (IDENTIFIER_POINTER (STUB_FUNCTION_NAME (stub))[0] == '*')
+	  strcpy (label_buf,
+		  IDENTIFIER_POINTER (STUB_FUNCTION_NAME (stub))+1);
+	else
+	  {
+	    label_buf[0] = '_';
+	    strcpy (label_buf+1,
+		    IDENTIFIER_POINTER (STUB_FUNCTION_NAME (stub)));
+	  }
+
+	strcpy (tmp_buf, "lis r12,hi16(");
+	strcat (tmp_buf, label_buf);
+	strcat (tmp_buf, ")\n\tori r12,r12,lo16(");
+	strcat (tmp_buf, label_buf);
+	strcat (tmp_buf, ")\n\tmtctr r12\n\tbctr");
+	output_asm_insn (tmp_buf, 0);
+
+#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
+	if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
+	  fprintf(asm_out_file, "\t.stabd 68,0,%d\n", STUB_LINE_NUMBER (stub));
+#endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
+      }
+
+  stub_list = 0;
+}
+
+/* NO_PREVIOUS_DEF checks in the link list whether the function name is
+   already there or not.  */
+
+int no_previous_def (function_name)
+     tree function_name;
+{
+  tree stub;
+  for (stub = stub_list; stub; stub = TREE_CHAIN (stub))
+    if (function_name == STUB_FUNCTION_NAME (stub))
+      return 0;
+  return 1;
+}
+
+/* GET_PREV_LABEL gets the label name from the previous definition of
+   the function.  */
+
+tree get_prev_label (function_name)
+     tree function_name;
+{
+  tree stub;
+  for (stub = stub_list; stub; stub = TREE_CHAIN (stub))
+    if (function_name == STUB_FUNCTION_NAME (stub))
+      return STUB_LABEL_NAME (stub);
+  return 0;
+}
+
+/* INSN is either a function call or a millicode call.  It may have an
+   unconditional jump in its delay slot.  
+
+   CALL_DEST is the routine we are calling.  */
+
+char *
+output_call (insn, call_dest, operand_number)
+     rtx insn;
+     rtx call_dest;
+     int operand_number;
+{
+  static char buf[256];
+  if (GET_CODE (call_dest) == SYMBOL_REF && TARGET_LONG_BRANCH && !flag_pic)
+    {
+      tree labelname;
+      tree funname = get_identifier (XSTR (call_dest, 0));
+      
+      if (no_previous_def (funname))
+	{
+	  int line_number;
+	  rtx label_rtx = gen_label_rtx ();
+	  char *label_buf, temp_buf[256];
+	  ASM_GENERATE_INTERNAL_LABEL (temp_buf, "L",
+				       CODE_LABEL_NUMBER (label_rtx));
+	  label_buf = temp_buf[0] == '*' ? temp_buf + 1 : temp_buf;
+	  labelname = get_identifier (label_buf);
+	  for (; insn && GET_CODE (insn) != NOTE; insn = PREV_INSN (insn));
+	  if (insn)
+	    line_number = NOTE_LINE_NUMBER (insn);
+	  add_compiler_stub (labelname, funname, line_number);
+	}
+      else
+	labelname = get_prev_label (funname);
+
+      sprintf (buf, "jbsr %%z%d,%.246s",
+	       operand_number, IDENTIFIER_POINTER (labelname));
+      return buf;
+    }
+  else
+    {
+      sprintf (buf, "bl %%z%d", operand_number);
+      return buf;
+    }
+}
+
+#endif /* RS6000_LONG_BRANCH */
+
+#define GEN_LOCAL_LABEL_FOR_SYMBOL(BUF,SYMBOL,LENGTH,N)		\
+  do {								\
+    const char *symbol_ = (SYMBOL);				\
+    char *buffer_ = (BUF);					\
+    if (symbol_[0] == '"')					\
+      {								\
+        sprintf(buffer_, "\"L%d$%s", (N), symbol_+1);		\
+      }								\
+    else if (name_needs_quotes(symbol_))			\
+      {								\
+        sprintf(buffer_, "\"L%d$%s\"", (N), symbol_);		\
+      }								\
+    else							\
+      {								\
+        sprintf(buffer_, "L%d$%s", (N), symbol_);		\
+      }								\
+  } while (0)
+
+
+/* Generate PIC and indirect symbol stubs.  */
+
+void
+machopic_output_stub (file, symb, stub)
+     FILE *file;
+     const char *symb, *stub;
+{
+  unsigned int length;
+  char *binder_name, *symbol_name, *lazy_ptr_name;
+  char *local_label_0, *local_label_1, *local_label_2;
+  static int label = 0;
+
+  /* Lose our funky encoding stuff so it doesn't contaminate the stub.  */
+  STRIP_NAME_ENCODING (symb, symb);
+
+  label += 1;
+
+  length = strlen (stub);
+  binder_name = alloca (length + 32);
+  GEN_BINDER_NAME_FOR_STUB (binder_name, stub, length);
+
+  length = strlen (symb);
+  symbol_name = alloca (length + 32);
+  GEN_SYMBOL_NAME_FOR_SYMBOL (symbol_name, symb, length);
+
+  lazy_ptr_name = alloca (length + 32);
+  GEN_LAZY_PTR_NAME_FOR_SYMBOL (lazy_ptr_name, symb, length);
+
+  local_label_0 = alloca (length + 32);
+  GEN_LOCAL_LABEL_FOR_SYMBOL (local_label_0, symb, length, 0);
+
+  local_label_1 = alloca (length + 32);
+  GEN_LOCAL_LABEL_FOR_SYMBOL (local_label_1, symb, length, 1);
+
+  local_label_2 = alloca (length + 32);
+  GEN_LOCAL_LABEL_FOR_SYMBOL (local_label_2, symb, length, 2);
+
+  if (flag_pic == 2)
+    machopic_picsymbol_stub_section ();
+  else
+    machopic_symbol_stub_section ();
+
+  fprintf (file, "%s:\n", stub);
+  fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
+
+  if (flag_pic == 2)
+    {
+      fprintf (file, "\tmflr r0\n");
+      fprintf (file, "\tbcl 20,31,%s\n", local_label_0);
+      fprintf (file, "%s:\n\tmflr r11\n", local_label_0);
+      fprintf (file, "\taddis r11,r11,ha16(%s-%s)\n",
+	       lazy_ptr_name, local_label_0);
+      fprintf (file, "\tmtlr r0\n");
+      fprintf (file, "\tlwz r12,lo16(%s-%s)(r11)\n",
+	       lazy_ptr_name, local_label_0);
+      fprintf (file, "\tmtctr r12\n");
+      fprintf (file, "\taddi r11,r11,lo16(%s-%s)\n",
+	       lazy_ptr_name, local_label_0);
+      fprintf (file, "\tbctr\n");
+    }
+  else
+    fprintf (file, "non-pure not supported\n");
+  
+  machopic_lazy_symbol_ptr_section ();
+  fprintf (file, "%s:\n", lazy_ptr_name);
+  fprintf (file, "\t.indirect_symbol %s\n", symbol_name);
+  fprintf (file, "\t.long dyld_stub_binding_helper\n");
+}
+
+/* Legitimize PIC addresses.  If the address is already
+   position-independent, we return ORIG.  Newly generated
+   position-independent addresses go into a reg.  This is REG if non
+   zero, otherwise we allocate register(s) as necessary.  */
+
+#define SMALL_INT(X) ((unsigned) (INTVAL(X) + 0x4000) < 0x8000)
+
+rtx
+rs6000_machopic_legitimize_pic_address (orig, mode, reg)
+     rtx orig;
+     enum machine_mode mode;
+     rtx reg;
+{
+  rtx base, offset;
+
+  if (reg == NULL && ! reload_in_progress && ! reload_completed)
+    reg = gen_reg_rtx (Pmode);
+
+  if (GET_CODE (orig) == CONST)
+    {
+      if (GET_CODE (XEXP (orig, 0)) == PLUS
+	  && XEXP (XEXP (orig, 0), 0) == pic_offset_table_rtx)
+	return orig;
+
+      if (GET_CODE (XEXP (orig, 0)) == PLUS)
+	{
+	  base = rs6000_machopic_legitimize_pic_address (XEXP (XEXP (orig, 0), 0),
+							 Pmode, reg);
+	  offset = rs6000_machopic_legitimize_pic_address (XEXP (XEXP (orig, 0), 1),
+							   Pmode, reg);
+	}
+      else
+	abort ();
+
+      if (GET_CODE (offset) == CONST_INT)
+	{
+	  if (SMALL_INT (offset))
+	    return plus_constant (base, INTVAL (offset));
+	  else if (! reload_in_progress && ! reload_completed)
+	    offset = force_reg (Pmode, offset);
+	  else
+	    abort ();
+	}
+      return gen_rtx (PLUS, Pmode, base, offset);
+    }
+
+  /* Fall back on generic machopic code.  */
+  return machopic_legitimize_pic_address (orig, mode, reg);
+}
+
+/* This is just a placeholder to make linking work without having to
+   add this to the generic Darwin EXTRA_SECTIONS.  If -mcall-aix is
+   ever needed for Darwin (not too likely!) this would have to get a
+   real definition.  */
+
+void
+toc_section ()
+{
+}
+
+#endif /* TARGET_MACHO */

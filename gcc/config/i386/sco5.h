@@ -54,13 +54,10 @@ Boston, MA 02111-1307, USA.  */
 #define INT_ASM_OP			"\t.long\t"
 
 #undef ASM_SHORT
-#define ASM_SHORT			"\t.value"
+#define ASM_SHORT			"\t.value\t"
 
 #undef ASM_LONG
-#define ASM_LONG			"\t.long"
-
-#undef ASM_DOUBLE
-#define ASM_DOUBLE			"\t.double"
+#define ASM_LONG			"\t.long\t"
 
 #undef TYPE_ASM_OP
 #define TYPE_ASM_OP			"\t.type\t"
@@ -210,15 +207,6 @@ do {									\
   fprintf ((FILE), "\t.version\t\"01.01\"\n");				\
 } while (0)
 
-#undef ASM_FILE_END
-#define ASM_FILE_END(FILE)						\
-do {									\
-     ix86_asm_file_end (FILE);						\
-     if (!flag_no_ident)						\
-	fprintf ((FILE), "%s\"GCC: (GNU) %s\"\n",			\
-		 IDENT_ASM_OP, version_string);				\
-} while (0)
-
 #undef ASM_FINISH_DECLARE_OBJECT
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
@@ -250,9 +238,9 @@ do {									\
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
 do {									\
   if (TARGET_ELF)							\
-    fprintf (FILE, "%s _GLOBAL_OFFSET_TABLE_+[.-%s%d]\n", ASM_LONG, LPREFIX, VALUE); \
+    fprintf (FILE, "%s_GLOBAL_OFFSET_TABLE_+[.-%s%d]\n", ASM_LONG, LPREFIX, VALUE); \
   else									\
-    fprintf (FILE, "\t.word %s%d-%s%d\n", LPREFIX,VALUE,LPREFIX,REL);	\
+    fprintf (FILE, "%s%s%d-%s%d\n", ASM_LONG, LPREFIX,VALUE,LPREFIX,REL); \
 } while (0)
 
 #undef ASM_OUTPUT_ALIGNED_COMMON
@@ -428,7 +416,7 @@ do {									\
     fprintf (FILE, "\n");						\
   } else {								\
     fini_section ();                   					\
-    fprintf (FILE, "%s\t ", ASM_LONG);					\
+    fprintf (FILE, "%s", INT_ASM_OP);					\
     assemble_name (FILE, NAME);              				\
     fprintf (FILE, "\n"); }						\
   } while (0)
@@ -708,8 +696,8 @@ dtors_section ()							\
   && strcmp (STR, "Tdata") && strcmp (STR, "Ttext")			\
   && strcmp (STR, "Tbss"))
 
-#undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
+#undef TARGET_SUBTARGET_DEFAULT
+#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
 
 #undef HANDLE_SYSV_PRAGMA
 #define HANDLE_SYSV_PRAGMA 1
@@ -963,3 +951,44 @@ do {									\
 } while (0)
 # endif /* ! _SCO_ELF */
 #endif /* CRT_BEGIN !! CRT_END */
+
+/* Handle special EH pointer encodings.  Absolute, pc-relative, and
+   indirect are handled automatically.  */
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE) \
+  do {									\
+    if ((SIZE) == 4 && ((ENCODING) & 0x70) == DW_EH_PE_datarel)		\
+      {									\
+        fputs (UNALIGNED_INT_ASM_OP, FILE);				\
+        assemble_name (FILE, XSTR (ADDR, 0));				\
+	fputs (((ENCODING) & DW_EH_PE_indirect ? "@GOT" : "@GOTOFF"), FILE); \
+        goto DONE;							\
+      }									\
+  } while (0)
+
+/* Used by crtstuff.c to initialize the base of data-relative relocations.
+   These are GOT relative on x86, so return the pic register.  */
+#ifdef __PIC__
+#define CRT_GET_RFIB_DATA(BASE)			\
+  {						\
+    register void *ebx_ __asm__("ebx");		\
+    BASE = ebx_;				\
+  }
+#else
+#define CRT_GET_RFIB_DATA(BASE)						\
+  __asm__ ("call\t.LPR%=\n"						\
+	   ".LPR%=:\n\t"						\
+	   "popl\t%0\n\t"						\
+	   /* Due to a GAS bug, this cannot use EAX.  That encodes	\
+	      smaller than the traditional EBX, which results in the	\
+	      offset being off by one.  */				\
+	   "addl\t$_GLOBAL_OFFSET_TABLE_+[.-.LPR%=],%0"			\
+	   : "=d"(BASE))
+#endif
+
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.  */
+#undef ASM_PREFERRED_EH_DATA_FORMAT
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)			\
+  (flag_pic ? (GLOBAL ? DW_EH_PE_indirect : 0) | DW_EH_PE_datarel	\
+   : DW_EH_PE_absptr)

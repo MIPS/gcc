@@ -101,14 +101,12 @@ extern int bitpos PARAMS ((unsigned int));
 extern int is_mask PARAMS ((unsigned int));
 extern int bitstr PARAMS ((unsigned int, int *, int *));
 extern int compute_frame_size PARAMS ((int));
-extern void i960_function_prologue PARAMS ((FILE *, unsigned int));
 extern void output_function_profiler PARAMS ((FILE *, int));
-extern void i960_function_epilogue PARAMS ((FILE *, unsigned int));
 extern void i960_scan_opcode PARAMS ((const char *));
 
-#ifdef _C_PRAGMA_H
+#ifdef GCC_C_PRAGMA_H
 extern void i960_pr_align PARAMS ((cpp_reader *));
 extern void i960_pr_noalign PARAMS ((cpp_reader *));
 #endif
 
-#endif /* i960-protos.h */
+#endif /* ! GCC_I960_PROTOS_H  */

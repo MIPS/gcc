@@ -122,11 +122,6 @@ build_headof (exp)
 
   if (!TYPE_POLYMORPHIC_P (type))
     return exp;
-  if (CLASSTYPE_COM_INTERFACE (type))
-    {
-      cp_error ("RTTI not supported for COM interface type `%T'", type);
-      return error_mark_node;
-    }
 
   /* If we don't have rtti stuff, get to a sub-object that does.  */
   if (!CLASSTYPE_VFIELDS (TREE_TYPE (TREE_TYPE (exp))))
@@ -139,7 +134,7 @@ build_headof (exp)
      the vptr.  */
   index = build_int_2 (-2, -1);
 
-  aref = build_vtbl_ref (build_indirect_ref (exp, NULL_PTR), index);
+  aref = build_vtbl_ref (build_indirect_ref (exp, NULL), index);
 
   if (flag_vtable_thunks)
     offset = aref;
@@ -222,18 +217,13 @@ get_tinfo_decl_dynamic (exp)
 
       if (! flag_rtti)
 	error ("taking dynamic typeid of object with -fno-rtti");
-      if (CLASSTYPE_COM_INTERFACE (type))
-	{
-	  cp_error ("RTTI not supported for COM interface type `%T'", type);
-	  return error_mark_node;
-	}
 
       /* If we don't have rtti stuff, get to a sub-object that does.  */
       if (! CLASSTYPE_VFIELDS (type))
 	{
       	  exp = build_unary_op (ADDR_EXPR, exp, 0);
 	  exp = build_headof_sub (exp);
-	  exp = build_indirect_ref (exp, NULL_PTR);
+	  exp = build_indirect_ref (exp, NULL);
 	}
 
       /* The RTTI information is at index -1.  */
@@ -325,6 +315,14 @@ get_tinfo_decl (type)
   tree name;
   tree d;
 
+  if (COMPLETE_TYPE_P (type) 
+      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    {
+      cp_error ("cannot create type information for type `%T' because its size is variable", 
+		type);
+      return error_mark_node;
+    }
+
   if (TREE_CODE (type) == OFFSET_TYPE)
     type = TREE_TYPE (type);
   if (TREE_CODE (type) == METHOD_TYPE)
@@ -340,7 +338,7 @@ get_tinfo_decl (type)
     {
       /* The tinfo decl is the type_info object itself.  We make all
          tinfo objects look as type_info, even though they will end up
-         being a subclass of that when emitted.  This means the we'll
+         being a subclass of that when emitted.  This means that we'll
          erroneously think we know the dynamic type -- be careful in the
          runtime.  */
       d = build_lang_decl (VAR_DECL, name, tinfo_decl_type);
@@ -354,7 +352,7 @@ get_tinfo_decl (type)
       TREE_PUBLIC (d) = 1;
       if (flag_weak || !typeinfo_in_lib_p (d))
 	comdat_linkage (d);
-      DECL_ASSEMBLER_NAME (d) = DECL_NAME (d);
+      SET_DECL_ASSEMBLER_NAME (d, name);
       cp_finish_decl (d, NULL_TREE, NULL_TREE, 0);
 
       pushdecl_top_level (d);
@@ -837,8 +835,8 @@ tinfo_base_init (desc, target)
     comdat_linkage (name_decl);
     /* The new ABI specifies the external name of the string
        containing the type's name.  */
-    DECL_ASSEMBLER_NAME (name_decl) 
-      = mangle_typeinfo_string_for_type (target);
+    SET_DECL_ASSEMBLER_NAME (name_decl,
+			     mangle_typeinfo_string_for_type (target));
     DECL_INITIAL (name_decl) = name_string;
     cp_finish_decl (name_decl, name_string, NULL_TREE, 0);
     pushdecl_top_level (name_decl);
@@ -1243,7 +1241,7 @@ create_real_tinfo_var (target_type, name, type, init, non_public)
       if (flag_weak || !typeinfo_in_lib_p (target_type))
 	comdat_linkage (decl);
     }
-  DECL_ASSEMBLER_NAME (decl) = name;
+  SET_DECL_ASSEMBLER_NAME (decl, name);
   DECL_INITIAL (decl) = init;
   cp_finish_decl (decl, init, NULL_TREE, 0);
   pushdecl_top_level (decl);

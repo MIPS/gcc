@@ -86,7 +86,7 @@ enum m88k_instruction {
 enum processor_type {
   PROCESSOR_M88100,
   PROCESSOR_M88110,
-  PROCESSOR_M88000,
+  PROCESSOR_M88000
 };
 
 /* Recast the cpu class to be the cpu attribute.  */
@@ -1046,12 +1046,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   m88k_va_arg (valist, type)
 
-/* Generate the assembly code for function entry. */
-#define FUNCTION_PROLOGUE(FILE, SIZE) m88k_begin_prologue(FILE, SIZE)
-
-/* Perform special actions at the point where the prologue ends.  */
-#define FUNCTION_END_PROLOGUE(FILE) m88k_end_prologue(FILE)
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  Redefined in sysv3.h, sysv4.h and
    dgux.h.  */
@@ -1082,12 +1076,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
    functions that have frame pointers.
    No definition is equivalent to always zero.  */
 #define EXIT_IGNORE_STACK (1)
-
-/* Generate the assembly code for function exit. */
-#define FUNCTION_EPILOGUE(FILE, SIZE) m88k_end_epilogue(FILE, SIZE)
-
-/* Perform special actions at the point where the epilogue begins.  */
-#define FUNCTION_BEGIN_EPILOGUE(FILE) m88k_begin_epilogue(FILE)
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms
@@ -2233,20 +2221,6 @@ do {									 \
 
 /* Length in instructions of the code output by ASM_OUTPUT_REG_POP.  */
 #define REG_POP_LENGTH 2
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Macros to deal with OCS debug information */
 

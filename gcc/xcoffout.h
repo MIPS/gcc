@@ -172,6 +172,15 @@ extern const char *xcoff_lastfile;
     }							\
 }
 
+/* .stabx has the type in a different place.  */
+#if 0  /* Do not emit any marker for XCOFF until assembler allows XFT_CV.  */
+#define DBX_OUTPUT_GCC_MARKER(FILE) \
+  fprintf ((FILE), "%s\"%s\",0,%d,0\n", ASM_STABS_OP, STABS_GCC_MARKER, \
+	   stab_to_sclass (N_GSYM))
+#else
+#define DBX_OUTPUT_GCC_MARKER(FILE)
+#endif
+
 /* Do not break .stabs pseudos into continuations.  */
 #define DBX_CONTIN_LENGTH 0
 
@@ -190,11 +199,12 @@ extern const char *xcoff_lastfile;
 
 extern int stab_to_sclass			PARAMS ((int));
 #ifdef BUFSIZ
-extern void xcoffout_begin_function		PARAMS ((FILE *, int));
-extern void xcoffout_begin_block		PARAMS ((FILE *, int, int));
-extern void xcoffout_end_epilogue		PARAMS ((FILE *));
-extern void xcoffout_end_function		PARAMS ((FILE *, int));
-extern void xcoffout_end_block			PARAMS ((FILE *, int, int));
+extern void xcoffout_begin_prologue		PARAMS ((unsigned int,
+							 const char *));
+extern void xcoffout_begin_block		PARAMS ((unsigned, unsigned));
+extern void xcoffout_end_epilogue		PARAMS ((void));
+extern void xcoffout_end_function		PARAMS ((unsigned int));
+extern void xcoffout_end_block			PARAMS ((unsigned, unsigned));
 #endif /* BUFSIZ */
 
 #ifdef TREE_CODE
@@ -206,6 +216,7 @@ extern void xcoffout_declare_function		PARAMS ((FILE *, tree, const char *));
 
 #ifdef RTX_CODE
 #ifdef BUFSIZ
-extern void xcoffout_source_line		PARAMS ((FILE *, const char *, rtx));
+extern void xcoffout_source_line		PARAMS ((unsigned int,
+							 const char *));
 #endif /* BUFSIZ */
 #endif /* RTX_CODE */

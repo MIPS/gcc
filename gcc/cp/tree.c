@@ -1031,12 +1031,13 @@ cp_statement_code_p (code)
     {
     case SUBOBJECT:
     case CLEANUP_STMT:
-    case START_CATCH_STMT:
     case CTOR_STMT:
     case CTOR_INITIALIZER:
     case RETURN_INIT:
     case TRY_BLOCK:
     case HANDLER:
+    case EH_SPEC_BLOCK:
+    case USING_STMT:
       return 1;
 
     default:
@@ -1111,47 +1112,33 @@ build_exception_variant (type, raises)
   return v;
 }
 
-/* Given a TEMPLATE_TEMPLATE_PARM or BOUND_TEMPLATE_TEMPLATE_PARM
-   node T, create a new one together with its 
-   lang_specific field and its corresponding *_DECL node.
-   If NEWARGS is not NULL_TREE, this parameter is bound with new set of
+/* Given a TEMPLATE_TEMPLATE_PARM node T, create a new
+   BOUND_TEMPLATE_TEMPLATE_PARM bound with NEWARGS as its template
    arguments.  */
 
 tree
-copy_template_template_parm (t, newargs)
+bind_template_template_parm (t, newargs)
      tree t;
      tree newargs;
 {
   tree decl = TYPE_NAME (t);
   tree t2;
 
-  if (newargs == NULL_TREE)
-    {
-      t2 = make_aggr_type (TREE_CODE (t));
-      decl = copy_decl (decl);
+  t2 = make_aggr_type (BOUND_TEMPLATE_TEMPLATE_PARM);
+  decl = build_decl (TYPE_DECL, DECL_NAME (decl), NULL_TREE);
 
-      /* No need to copy these.  */
-      TEMPLATE_TYPE_PARM_INDEX (t2) = TEMPLATE_TYPE_PARM_INDEX (t);
-      TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t2) 
-	= TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t);
-    }
-  else
-    {
-      t2 = make_aggr_type (BOUND_TEMPLATE_TEMPLATE_PARM);
-      decl = build_decl (TYPE_DECL, DECL_NAME (decl), NULL_TREE);
-
-      /* These nodes have to be created to reflect new TYPE_DECL and template
-         arguments.  */
-      TEMPLATE_TYPE_PARM_INDEX (t2) = copy_node (TEMPLATE_TYPE_PARM_INDEX (t));
-      TEMPLATE_PARM_DECL (TEMPLATE_TYPE_PARM_INDEX (t2)) = decl;
-      TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t2)
-	= tree_cons (TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (t), 
-			  newargs, NULL_TREE);
-    }
+  /* These nodes have to be created to reflect new TYPE_DECL and template
+     arguments.  */
+  TEMPLATE_TYPE_PARM_INDEX (t2) = copy_node (TEMPLATE_TYPE_PARM_INDEX (t));
+  TEMPLATE_PARM_DECL (TEMPLATE_TYPE_PARM_INDEX (t2)) = decl;
+  TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t2)
+    = tree_cons (TEMPLATE_TEMPLATE_PARM_TEMPLATE_DECL (t), 
+		 newargs, NULL_TREE);
 
   TREE_TYPE (decl) = t2;
   TYPE_NAME (t2) = decl;
   TYPE_STUB_DECL (t2) = decl;
+  TYPE_SIZE (t2) = 0;
 
   return t2;
 }
@@ -1187,16 +1174,18 @@ walk_tree (tp, func, data, htab)
   if (!*tp)
     return NULL_TREE;
 
-  if (htab) {
-    void **slot;
-    /* Don't walk the same tree twice, if the user has requested that we
-       avoid doing so. */
-    if (htab_find (htab, *tp))
-      return NULL_TREE;
-    /* If we haven't already seen this node, add it to the table. */
-    slot = htab_find_slot (htab, *tp, INSERT);
-    *slot = *tp;
-  }
+  if (htab)
+    {
+      void **slot;
+      
+      /* Don't walk the same tree twice, if the user has requested
+         that we avoid doing so. */
+      if (htab_find (htab, *tp))
+	return NULL_TREE;
+      /* If we haven't already seen this node, add it to the table. */
+      slot = htab_find_slot (htab, *tp, INSERT);
+      *slot = *tp;
+    }
 
   /* Call the function.  */
   walk_subtrees = 1;
@@ -1501,7 +1490,7 @@ no_linkage_helper (tp, walk_subtrees, data)
   if (TYPE_P (t)
       && (CLASS_TYPE_P (t) || TREE_CODE (t) == ENUMERAL_TYPE)
       && (decl_function_context (TYPE_MAIN_DECL (t))
-	  || ANON_AGGRNAME_P (TYPE_IDENTIFIER (t))))
+	  || TYPE_ANONYMOUS_P (t)))
     return t;
   return NULL_TREE;
 }
@@ -1561,10 +1550,6 @@ copy_tree_r (tp, walk_subtrees, data)
       if (TREE_CODE (*tp) == SCOPE_STMT)
 	SCOPE_STMT_BLOCK (*tp) = NULL_TREE;
     }
-  else if (code == TEMPLATE_TEMPLATE_PARM
-	   || code == BOUND_TEMPLATE_TEMPLATE_PARM)
-    /* These must be copied specially.  */
-    *tp = copy_template_template_parm (*tp, NULL_TREE);
   else if (TREE_CODE_CLASS (code) == 't')
     /* There's no need to copy types, or anything beneath them.  */
     *walk_subtrees = 0;
@@ -1955,10 +1940,10 @@ cp_tree_equal (t1, t2)
 	 as being equivalent to anything.  */
       if ((TREE_CODE (TREE_OPERAND (t1, 0)) == VAR_DECL
 	   && DECL_NAME (TREE_OPERAND (t1, 0)) == NULL_TREE
-	   && DECL_RTL (TREE_OPERAND (t1, 0)) == 0)
+	   && !DECL_RTL_SET_P (TREE_OPERAND (t1, 0)))
 	  || (TREE_CODE (TREE_OPERAND (t2, 0)) == VAR_DECL
 	      && DECL_NAME (TREE_OPERAND (t2, 0)) == NULL_TREE
-	      && DECL_RTL (TREE_OPERAND (t2, 0)) == 0))
+	      && !DECL_RTL_SET_P (TREE_OPERAND (t2, 0))))
 	cmp = 1;
       else
 	cmp = cp_tree_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
@@ -2007,21 +1992,27 @@ cp_tree_equal (t1, t2)
 
   switch (TREE_CODE_CLASS (code1))
     {
-      int i;
     case '1':
     case '2':
     case '<':
     case 'e':
     case 'r':
     case 's':
-      cmp = 1;
-      for (i = 0; i < TREE_CODE_LENGTH (code1); ++i)
-	{
-	  cmp = cp_tree_equal (TREE_OPERAND (t1, i), TREE_OPERAND (t2, i));
-	  if (cmp <= 0)
-	    return cmp;
-	}
-      return cmp;
+      {
+	int i;
+	
+	cmp = 1;
+	for (i = 0; i < TREE_CODE_LENGTH (code1); ++i)
+	  {
+	    cmp = cp_tree_equal (TREE_OPERAND (t1, i), TREE_OPERAND (t2, i));
+	    if (cmp <= 0)
+	      return cmp;
+	  }
+	return cmp;
+      }
+    
+      case 't':
+	return same_type_p (t1, t2) ? 1 : 0;
     }
 
   return -1;
@@ -2130,7 +2121,7 @@ build_dummy_object (type)
      tree type;
 {
   tree decl = build1 (NOP_EXPR, build_pointer_type (type), void_zero_node);
-  return build_indirect_ref (decl, NULL_PTR);
+  return build_indirect_ref (decl, NULL);
 }
 
 /* We've gotten a reference to a member of TYPE.  Return *this if appropriate,
@@ -2212,14 +2203,22 @@ cp_valid_lang_attribute (attr_name, attr_args, decl, type)
   tree decl ATTRIBUTE_UNUSED;
   tree type ATTRIBUTE_UNUSED;
 {
-  if (is_attribute_p ("com_interface", attr_name))
+  if (is_attribute_p ("java_interface", attr_name))
     {
-      if (! flag_vtable_thunks)
+      if (attr_args != NULL_TREE
+	  || decl != NULL_TREE
+	  || ! CLASS_TYPE_P (type)
+	  || ! TYPE_FOR_JAVA (type))
 	{
-	  error ("`com_interface' only supported with -fvtable-thunks");
+	  error ("`java_interface' attribute can only be applied to Java class definitions");
 	  return 0;
 	}
-
+      TYPE_JAVA_INTERFACE (type) = 1;
+      return 1;
+    }
+  if (is_attribute_p ("com_interface", attr_name))
+    {
+      static int warned;
       if (attr_args != NULL_TREE
 	  || decl != NULL_TREE
 	  || ! CLASS_TYPE_P (type)
@@ -2229,6 +2228,9 @@ cp_valid_lang_attribute (attr_name, attr_args, decl, type)
 	  return 0;
 	}
 
+      if (! warned++)
+	warning ("\
+`com_interface' is obsolete; g++ vtables are now COM-compatible by default");
       return 1;
     }
   else if (is_attribute_p ("init_priority", attr_name))
@@ -2319,6 +2321,7 @@ init_tree ()
   make_lang_type_fn = cp_make_lang_type;
   lang_unsave = cp_unsave;
   lang_statement_code_p = cp_statement_code_p;
+  lang_set_decl_assembler_name = mangle_decl;
   list_hash_table = htab_create (31, list_hash, list_hash_eq, NULL);
   ggc_add_root (&list_hash_table, 1, 
 		sizeof (list_hash_table),

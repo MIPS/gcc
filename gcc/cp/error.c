@@ -116,7 +116,8 @@ static void dump_scope PARAMS ((tree, int));
 static void dump_template_parms PARAMS ((tree, int, int));
 
 static const char *function_category PARAMS ((tree));
-static void lang_print_error_function PARAMS ((const char *));
+static void lang_print_error_function PARAMS ((diagnostic_context *,
+                                               const char *));
 static void maybe_print_instantiation_context PARAMS ((output_buffer *));
 static void print_instantiation_full_context PARAMS ((output_buffer *));
 static void print_instantiation_partial_context PARAMS ((output_buffer *, tree,
@@ -175,6 +176,7 @@ cp_printer * cp_printers[256] =
   o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, /* 0x60 */
   o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, o, /* 0x70 */
 };
+#undef A
 #undef C
 #undef D
 #undef E
@@ -190,13 +192,12 @@ cp_printer * cp_printers[256] =
 void
 init_error ()
 {
-  init_output_buffer (scratch_buffer, /* prefix */NULL, /* line-width */0);
-  
   print_error_function = lang_print_error_function;
-  lang_diagnostic_starter = cp_diagnostic_starter;
-  lang_diagnostic_finalizer = cp_diagnostic_finalizer;
-
-  lang_printer = cp_tree_printer;
+  diagnostic_starter (global_dc) = cp_diagnostic_starter;
+  diagnostic_finalizer (global_dc) = cp_diagnostic_finalizer;
+  diagnostic_format_decoder (global_dc) = cp_tree_printer;
+  
+  init_output_buffer (scratch_buffer, /* prefix */NULL, /* line-width */0);
 }
 
 /* Dump a scope, if deemed necessary.  */
@@ -873,29 +874,17 @@ ident_fndecl (t)
   return NULL_TREE;
 }
 
-#ifndef NO_DOLLAR_IN_LABEL
-#  define GLOBAL_THING "_GLOBAL_$"
-#else
-#  ifndef NO_DOT_IN_LABEL
-#    define GLOBAL_THING "_GLOBAL_."
-#  else
-#    define GLOBAL_THING "_GLOBAL__"
-#  endif
-#endif
-
-#define GLOBAL_IORD_P(NODE) \
-  ! strncmp (IDENTIFIER_POINTER(NODE), GLOBAL_THING, sizeof (GLOBAL_THING) - 1)
+#define GLOBAL_THING "_GLOBAL__"
 
 static void
 dump_global_iord (t)
      tree t;
 {
-  const char *name = IDENTIFIER_POINTER (t);
   const char *p = NULL;
 
-  if (name [sizeof (GLOBAL_THING) - 1] == 'I')
+  if (DECL_GLOBAL_CTOR_P (t))
     p = "initializers";
-  else if (name [sizeof (GLOBAL_THING) - 1] == 'D')
+  else if (DECL_GLOBAL_DTOR_P (t))
     p = "destructors";
   else
     my_friendly_abort (352);
@@ -1041,8 +1030,8 @@ dump_decl (t, flags)
       /* Fall through.  */
 
     case FUNCTION_DECL:
-      if (GLOBAL_IORD_P (DECL_ASSEMBLER_NAME (t)))
-	dump_global_iord (DECL_ASSEMBLER_NAME (t));
+      if (DECL_GLOBAL_CTOR_P (t) || DECL_GLOBAL_DTOR_P (t))
+	dump_global_iord (t);
       else if (! DECL_LANG_SPECIFIC (t))
 	print_identifier (scratch_buffer, "<internal>");
       else
@@ -2115,7 +2104,7 @@ dump_expr (t, flags)
       break;
 
     case BIND_EXPR:
-      output_add_character (scratch_buffer, '}');
+      output_add_character (scratch_buffer, '{');
       dump_expr (TREE_OPERAND (t, 1), flags & ~TFF_EXPR_IN_PARENS);
       output_add_character (scratch_buffer, '}');
       break;
@@ -2482,16 +2471,17 @@ cv_to_string (p, v)
 }
 
 static void
-lang_print_error_function (file)
+lang_print_error_function (context, file)
+     diagnostic_context *context;
      const char *file;
 {
   output_state os;
 
-  default_print_error_function (file);
-  os = output_buffer_state (diagnostic_buffer);
-  output_set_prefix (diagnostic_buffer, file);
-  maybe_print_instantiation_context (diagnostic_buffer);
-  output_buffer_state (diagnostic_buffer) = os;
+  default_print_error_function (context, file);
+  os = output_buffer_state (context);
+  output_set_prefix ((output_buffer *)context, file);
+  maybe_print_instantiation_context ((output_buffer *)context);
+  output_buffer_state (context) = os;
 }
 
 static void

@@ -39,6 +39,26 @@ Boston, MA 02111-1307, USA.  */
    we avoid creating such labels.  */
 #define DWARF2_GENERATE_TEXT_SECTION_LABEL 0
 
+/* wchar_t is defined differently with and without -mabi=64.  */
+
+#define NO_BUILTIN_WCHAR_TYPE
+
+#undef WCHAR_TYPE
+#define WCHAR_TYPE (Pmode == DImode ? "int" : "long int")
+
+#undef WCHAR_TYPE_SIZE
+#define WCHAR_TYPE_SIZE 32
+
+/* Same for wint_t.  */
+
+#define NO_BUILTIN_WINT_TYPE
+
+#undef WINT_TYPE
+#define WINT_TYPE (Pmode == DImode ? "int" : "long int")
+
+#undef WINT_TYPE_SIZE
+#define WINT_TYPE_SIZE 32
+
 /* For Irix 6, -mabi=64 implies TARGET_LONG64.  */
 /* This is handled in override_options.  */
 
@@ -57,10 +77,12 @@ Boston, MA 02111-1307, USA.  */
 
 #undef SUBTARGET_CPP_SIZE_SPEC
 #define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=n32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=64: -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
-%{!mabi*: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}"
+%{mabi=32|mabi=n32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int \
+-D__WCHAR_TYPE__=long\\ int -D__WINT_TYPE__=long\\ int} \
+%{mabi=64: -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int \
+-D__WCHAR_TYPE__=int -D__WINT_TYPE__=int} \
+%{!mabi*: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int \
+-D__WCHAR_TYPE__=long\\ int -D__WINT_TYPE__=long\\ int}"
 
 /* We must make -mips3 do what -mlong64 used to do.  */
 /* ??? If no mipsX option given, but a mabi=X option is, then should set
@@ -128,16 +150,13 @@ Boston, MA 02111-1307, USA.  */
 #undef MACHINE_TYPE
 #define MACHINE_TYPE "SGI running IRIX 6.x"
 
-/* The Irix 6.0.1 assembler doesn't like labels in the text section, so
-   just avoid emitting them.  */
-#define ASM_IDENTIFY_GCC(x) ((void)0)
-#define ASM_IDENTIFY_LANGUAGE(x) ((void)0)
-
 /* Irix 5 stuff that we don't need for Irix 6.  */
 /* ??? We do need this for the -mabi=32 switch though.  */
 #undef ASM_OUTPUT_UNDEF_FUNCTION
 #undef ASM_OUTPUT_EXTERNAL_LIBCALL
 #undef ASM_DECLARE_FUNCTION_SIZE
+#undef UNALIGNED_SHORT_ASM_OP
+#undef UNALIGNED_INT_ASM_OP
 
 /* Stuff we need for Irix 6 that isn't in Irix 5.  */
 
@@ -188,38 +207,27 @@ Boston, MA 02111-1307, USA.  */
 #define TYPE_ASM_OP	"\t.type\t"
 #define SIZE_ASM_OP	"\t.size\t"
 
-/* This is how we tell the assembler that a symbol is weak.  */
-
-#define ASM_OUTPUT_WEAK_ALIAS(FILE,NAME,VALUE)	\
- do {						\
-  ASM_GLOBALIZE_LABEL (FILE, NAME);		\
-  fputs ("\t.weakext\t", FILE);			\
-  assemble_name (FILE, NAME);			\
-  if (VALUE)					\
-    {						\
-      fputc (' ', FILE);			\
-      assemble_name (FILE, VALUE);		\
-    }						\
-  fputc ('\n', FILE);				\
- } while (0)
-
-#define ASM_WEAKEN_LABEL(FILE,NAME) ASM_OUTPUT_WEAK_ALIAS(FILE,NAME,0)
-
 /* Irix assembler does not support the init_priority C++ attribute.  */
 #undef SUPPORTS_INIT_PRIORITY
 #define SUPPORTS_INIT_PRIORITY 0
+
+/* A linker error can empirically be avoided by removing duplicate
+   library search directories.  */
+#define LINK_ELIMINATE_DUPLICATE_LDIRECTORIES 1
 
 #define POPSECTION_ASM_OP	"\t.popsection"
 
 #define DEBUG_INFO_SECTION	".debug_info,0x7000001e,0,0,1"
 #define DEBUG_LINE_SECTION	".debug_line,0x7000001e,0,0,1"
-#define SFNAMES_SECTION		".debug_sfnames,0x7000001e,0,0,1"
-#define SRCINFO_SECTION		".debug_srcinfo,0x7000001e,0,0,1"
-#define MACINFO_SECTION		".debug_macinfo,0x7000001e,0,0,1"
-#define PUBNAMES_SECTION	".debug_pubnames,0x7000001e,0,0,1"
-#define ARANGES_SECTION		".debug_aranges,0x7000001e,0,0,1"
-#define FRAME_SECTION		".debug_frame,0x7000001e,0x08000000,0,1"
-#define ABBREV_SECTION		".debug_abbrev,0x7000001e,0,0,1"
+#define DEBUG_SFNAMES_SECTION	".debug_sfnames,0x7000001e,0,0,1"
+#define DEBUG_SRCINFO_SECTION	".debug_srcinfo,0x7000001e,0,0,1"
+#define DEBUG_MACINFO_SECTION	".debug_macinfo,0x7000001e,0,0,1"
+#define DEBUG_PUBNAMES_SECTION	".debug_pubnames,0x7000001e,0,0,1"
+#define DEBUG_ARANGES_SECTION	".debug_aranges,0x7000001e,0,0,1"
+#define DEBUG_FRAME_SECTION	".debug_frame,0x7000001e,0x08000000,0,1"
+#define DEBUG_ABBREV_SECTION	".debug_abbrev,0x7000001e,0,0,1"
+#define DEBUG_LOC_SECTION	".debug_loc,0x7000001e,0,0,1"
+#define DEBUG_STR_SECTION	".debug_str,0x7000001e,0,0,1"
 
 /* ??? If no mabi=X option give, but a mipsX option is, then should depend
    on the mipsX option.  */
@@ -269,9 +277,12 @@ Boston, MA 02111-1307, USA.  */
 #if _MIPS_SZPTR == 64
 #define CTORS_SECTION_ASM_OP "\t.section\t.ctors,1,2,0,8"
 #define DTORS_SECTION_ASM_OP "\t.section\t.dtors,1,2,0,8"
+#define EH_FRAME_SECTION_ASM_OP "\t.section\t.eh_frame,1,2,0,8"
 #else /* _MIPS_SZPTR != 64 */
 #define CTORS_SECTION_ASM_OP "\t.section\t.ctors,1,2,0,4"
 #define DTORS_SECTION_ASM_OP "\t.section\t.dtors,1,2,0,4"
+#define EH_FRAME_SECTION_ASM_OP "\t.section\t.eh_frame,1,2,0,4"
+
 #endif /* _MIPS_SZPTR == 64 */
 
 #else /* ! (defined (CRT_BEGIN) || defined (CRT_END)) */
@@ -281,11 +292,9 @@ Boston, MA 02111-1307, USA.  */
   (Pmode == DImode ? "\t.section\t.ctors,1,2,0,8" : "\t.section\t.ctors,1,2,0,4")
 #define DTORS_SECTION_ASM_OP \
   (Pmode == DImode ? "\t.section\t.dtors,1,2,0,8" : "\t.section\t.dtors,1,2,0,4")
+#define EH_FRAME_SECTION_ASM_OP \
+  (Pmode == DImode ? "\t.section\t.eh_frame,1,2,0,8" : "\t.section\t.eh_frame,1,2,0,4")
 #endif /* defined (CRT_BEGIN) || defined (CRT_END) */
-
-/* dwarf2out will handle padding this data properly.  We definitely don't
-   want it 8-byte aligned on n32.  */
-#define EH_FRAME_SECTION_ASM_OP "\t.section\t.eh_frame,1,2,0,1"
 
 /* A default list of other sections which we might be "in" at any given
    time.  For targets that use additional sections (e.g. .tdesc) you

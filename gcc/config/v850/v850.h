@@ -298,23 +298,12 @@ extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
 
 /* Define this if move instructions will actually fail to work
    when given unaligned data.  */
-#ifndef STRICT_ALIGNMENT 
-#define STRICT_ALIGNMENT TARGET_V850
-#endif
+#define STRICT_ALIGNMENT 1
 
 /* Define this as 1 if `char' should by default be signed; else as 0.
 
    On the NEC V850, loads do sign extension, so make this default. */
 #define DEFAULT_SIGNED_CHAR 1
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Standard register usage.  */
 
@@ -789,10 +778,6 @@ extern int current_function_anonymous_args;
    No definition is equivalent to always zero.  */
 
 #define EXIT_IGNORE_STACK 1
-
-/* Initialize data used by insn expanders.  This is called from insn_emit,
-   once for every function before code is generated.  */
-#define INIT_EXPANDERS  v850_init_expanders ()
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -1305,12 +1290,6 @@ do { char dstr[30];					\
 #define ASM_OUTPUT_BYTE(FILE, VALUE)  \
   fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.  */
 
@@ -1501,16 +1480,6 @@ do { char dstr[30];					\
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
 
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-  v850_valid_machine_decl_attribute (DECL, IDENTIFIER, ARGS)
-
-/* A C statement that assigns default attributes to a newly created DECL.  */
-#define SET_DEFAULT_DECL_ATTRIBUTES(decl, attr) \
-     v850_set_default_decl_attr (decl)
-
 /* Tell compiler we want to support GHS pragmas */
 #define REGISTER_TARGET_PRAGMAS(PFILE) do {				  \
   cpp_register_pragma_space (PFILE, "ghs");				  \
@@ -1635,4 +1604,4 @@ extern union tree_node * GHS_current_section_names [(int) COUNT_OF_GHS_SECTION_K
 { "register_is_ok_for_epilogue",{ REG }},				\
 { "not_power_of_two_operand",	{ CONST_INT }},
   
-#endif /* v850.h */
+#endif /* ! GCC_V850_H */

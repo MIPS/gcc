@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "ggc.h"
 #include "rtl.h"
+#include "expr.h"
 #include "output.h"
 #include "timevar.h"
 
@@ -46,8 +47,6 @@ void (*lang_expand_stmt) PARAMS ((tree));
    defined, it is assumed that declarations other than those for
    variables and labels do not require any RTL generation.  */
 void (*lang_expand_decl_stmt) PARAMS ((tree));
-
-static tree prune_unused_decls PARAMS ((tree *, int *, void *));
 
 /* Create an empty statement tree rooted at T.  */
 
@@ -72,9 +71,15 @@ add_stmt (t)
   /* Add T to the statement-tree.  */
   TREE_CHAIN (last_tree) = t;
   last_tree = t;
+  
   /* When we expand a statement-tree, we must know whether or not the
-     statements are full-expresions.  We record that fact here.  */
+     statements are full-expressions.  We record that fact here.  */
   STMT_IS_FULL_EXPR_P (last_tree) = stmts_are_full_exprs_p ();
+
+  /* Keep track of the number of statements in this function.  */
+  if (current_function_decl)
+    ++DECL_NUM_STMTS (current_function_decl);
+
   return t;
 }
 
@@ -99,7 +104,7 @@ add_decl_stmt (decl)
    returns a new TREE_LIST representing the top of the SCOPE_STMT
    stack.  The TREE_PURPOSE is the new SCOPE_STMT.  If BEGIN_P is
    zero, returns a TREE_LIST whose TREE_VALUE is the new SCOPE_STMT,
-   and whose TREE_PURPOSE is the matching SCOPE_STMT iwth
+   and whose TREE_PURPOSE is the matching SCOPE_STMT with
    SCOPE_BEGIN_P set.  */
 
 tree
@@ -107,8 +112,9 @@ add_scope_stmt (begin_p, partial_p)
      int begin_p;
      int partial_p;
 {
+  tree *stack_ptr = current_scope_stmt_stack ();
   tree ss;
-  tree top;
+  tree top = *stack_ptr;
 
   /* Build the statement.  */
   ss = build_stmt (SCOPE_STMT, NULL_TREE);
@@ -118,79 +124,19 @@ add_scope_stmt (begin_p, partial_p)
   /* Keep the scope stack up to date.  */
   if (begin_p)
     {
-      *current_scope_stmt_stack () 
-	= tree_cons (ss, NULL_TREE, *current_scope_stmt_stack ());
-      top = *current_scope_stmt_stack ();
+      top = tree_cons (ss, NULL_TREE, top);
+      *stack_ptr = top;
     }
   else
     {
-      top = *current_scope_stmt_stack ();
       TREE_VALUE (top) = ss;
-      *current_scope_stmt_stack () = TREE_CHAIN (top);
+      *stack_ptr = TREE_CHAIN (top);
     }
 
   /* Add the new statement to the statement-tree.  */
   add_stmt (ss);
 
   return top;
-}
-
-/* Remove declarations of internal variables that are not used from a
-   stmt tree.  To qualify, the variable must have a name and must have
-   a zero DECL_SOURCE_LINE.  We tried to remove all variables for
-   which TREE_USED was false, but it turns out that there's tons of
-   variables for which TREE_USED is false but that are still in fact
-   used.  */
-
-static tree
-prune_unused_decls (tp, walk_subtrees, data)
-     tree *tp;
-     int *walk_subtrees ATTRIBUTE_UNUSED;
-     void *data ATTRIBUTE_UNUSED;
-{
-  tree t = *tp;
-
-  if (t == NULL_TREE)
-    {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
-
-  if (TREE_CODE (t) == DECL_STMT)
-    {
-      tree d = DECL_STMT_DECL (t);
-      if (!TREE_USED (d) && DECL_NAME (d) && DECL_SOURCE_LINE (d) == 0)
-	{
-	  *tp = TREE_CHAIN (t);
-	  /* Recurse on the new value of tp, otherwise we will skip
-	     the next statement.  */
-	  return prune_unused_decls (tp, walk_subtrees, data);
-	}
-    }
-  else if (TREE_CODE (t) == SCOPE_STMT)
-    {
-      /* Remove all unused decls from the BLOCK of this SCOPE_STMT.  */
-      tree block = SCOPE_STMT_BLOCK (t);
-
-      if (block)
-	{
-	  tree *vp;
-
-	  for (vp = &BLOCK_VARS (block); *vp; )
-	    {
-	      tree v = *vp;
-	      if (! TREE_USED (v) && DECL_NAME (v) && DECL_SOURCE_LINE (v) == 0)
-		*vp = TREE_CHAIN (v);  /* drop */
-	      else
-		vp = &TREE_CHAIN (v);  /* advance */
-	    }
-	  /* If there are now no variables, the entire BLOCK can be dropped.
-	     (This causes SCOPE_NULLIFIED_P (t) to be true.)  */
-	  if (BLOCK_VARS (block) == NULL_TREE)
-	    SCOPE_STMT_BLOCK (t) = NULL_TREE;
-	}
-    }
-  return NULL_TREE;
 }
 
 /* Finish the statement tree rooted at T.  */
@@ -205,9 +151,6 @@ finish_stmt_tree (t)
   stmt = TREE_CHAIN (*t);
   *t = stmt;
   last_tree = NULL_TREE;
-
-  /* Remove unused decls from the stmt tree.  */
-  walk_stmt_tree (t, prune_unused_decls, NULL);
 
   if (cfun && stmt)
     {
@@ -313,7 +256,7 @@ emit_local_var (decl)
      tree decl;
 {
   /* Create RTL for this variable.  */
-  if (!DECL_RTL (decl))
+  if (!DECL_RTL_SET_P (decl))
     {
       if (DECL_C_HARD_REGISTER (decl))
 	/* The user specified an assembler name for this variable.
@@ -417,15 +360,7 @@ genrtl_decl_stmt (t)
 				DECL_ANON_UNION_ELEMS (decl));
     }
   else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
-    {
-      if (DECL_ARTIFICIAL (decl) && ! TREE_USED (decl))
-	/* Do not emit unused decls. This is not just an
-	   optimization. We really do not want to emit
-	   __PRETTY_FUNCTION__ etc, if they're never used.  */
-	DECL_IGNORED_P (decl) = 1;
-      else
-	make_rtl_for_local_static (decl);
-    }
+    make_rtl_for_local_static (decl);
   else if (TREE_CODE (decl) == LABEL_DECL 
 	   && C_DECLARED_LABEL_FLAG (decl))
     declare_nonlocal_label (decl);
@@ -525,7 +460,15 @@ void
 genrtl_return_stmt (stmt)
      tree stmt;
 {
-  tree expr = RETURN_EXPR (stmt);
+  tree expr;
+
+  /* If RETURN_NULLIFIED_P is set, the frontend has arranged to set up
+     the return value separately, so just return the return value
+     itself.  This is used for the C++ named return value optimization.  */
+  if (RETURN_NULLIFIED_P (stmt))
+    expr = DECL_RESULT (current_function_decl);
+  else
+    expr = RETURN_EXPR (stmt);
 
   emit_line_note (input_filename, lineno);
   if (!expr)
@@ -626,11 +569,12 @@ void
 genrtl_scope_stmt (t)
      tree t;
 {
+  tree block = SCOPE_STMT_BLOCK (t);
+
   if (!SCOPE_NO_CLEANUPS_P (t))
     {
       if (SCOPE_BEGIN_P (t))
-	expand_start_bindings_and_block (2 * SCOPE_NULLIFIED_P (t),
-					 SCOPE_STMT_BLOCK (t));
+	expand_start_bindings_and_block (2 * SCOPE_NULLIFIED_P (t), block);
       else if (SCOPE_END_P (t))
 	expand_end_bindings (NULL_TREE, !SCOPE_NULLIFIED_P (t), 0);
     }
@@ -640,7 +584,27 @@ genrtl_scope_stmt (t)
 			    (SCOPE_BEGIN_P (t) 
 			     ? NOTE_INSN_BLOCK_BEG
 			     : NOTE_INSN_BLOCK_END));
-      NOTE_BLOCK (note) = SCOPE_STMT_BLOCK (t);
+      NOTE_BLOCK (note) = block;
+    }
+
+  /* If we're at the end of a scope that contains inlined nested
+     functions, we have to decide whether or not to write them out.  */
+  if (block && SCOPE_END_P (t))
+    {
+      tree fn;
+
+      for (fn = BLOCK_VARS (block); fn; fn = TREE_CHAIN (fn))
+	{
+	  if (TREE_CODE (fn) == FUNCTION_DECL 
+	      && DECL_CONTEXT (fn) == current_function_decl
+	      && !TREE_ASM_WRITTEN (fn)
+	      && TREE_ADDRESSABLE (fn))
+	    {
+	      push_function_context ();
+	      output_inline_function (fn);
+	      pop_function_context ();
+	    }
+	}
     }
 }
 
@@ -710,7 +674,17 @@ void
 genrtl_compound_stmt (t)
     tree t;
 {
+#ifdef ENABLE_CHECKING
+  struct nesting *n = current_nesting_level ();
+#endif
+
   expand_stmt (COMPOUND_BODY (t));
+
+#ifdef ENABLE_CHECKING
+  /* Make sure that we've pushed and popped the same number of levels.  */
+  if (n != current_nesting_level ())
+    abort ();
+#endif
 }
 
 /* Generate the RTL for an ASM_STMT. */
@@ -857,8 +831,8 @@ expand_stmt (t)
 	}
 
       /* Restore saved state.  */
-      current_stmt_tree ()->stmts_are_full_exprs_p = 
-	saved_stmts_are_full_exprs_p;
+      current_stmt_tree ()->stmts_are_full_exprs_p
+	= saved_stmts_are_full_exprs_p;
 
       /* Go on to the next statement in this scope.  */
       t = TREE_CHAIN (t);

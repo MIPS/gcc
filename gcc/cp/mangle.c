@@ -153,6 +153,7 @@ static void write_prefix PARAMS ((tree));
 static void write_template_prefix PARAMS ((tree));
 static void write_unqualified_name PARAMS ((tree));
 static void write_source_name PARAMS ((tree));
+static int hwint_to_ascii PARAMS ((unsigned HOST_WIDE_INT, unsigned int, char *, unsigned));
 static void write_number PARAMS ((unsigned HOST_WIDE_INT, int,
 				  unsigned int));
 static void write_integer_cst PARAMS ((tree));
@@ -163,8 +164,8 @@ static void write_type PARAMS ((tree));
 static int write_CV_qualifiers_for_type PARAMS ((tree));
 static void write_builtin_type PARAMS ((tree));
 static void write_function_type PARAMS ((tree));
-static void write_bare_function_type PARAMS ((tree, int));
-static void write_method_parms PARAMS ((tree, int));
+static void write_bare_function_type PARAMS ((tree, int, tree));
+static void write_method_parms PARAMS ((tree, int, tree));
 static void write_class_enum_type PARAMS ((tree));
 static void write_template_args PARAMS ((tree));
 static void write_expression PARAMS ((tree));
@@ -197,6 +198,10 @@ static void write_java_integer_type_codes PARAMS ((tree));
    representation.  */
 #define write_char(CHAR)                                              \
   obstack_1grow (&G.name_obstack, (CHAR))
+
+/* Append a sized buffer to the end of the mangled representation. */
+#define write_chars(CHAR, LEN)                                        \
+  obstack_grow (&G.name_obstack, (CHAR), (LEN))
 
 /* Append a NUL-terminated string to the end of the mangled
    representation.  */
@@ -653,7 +658,8 @@ write_encoding (decl)
 				(!DECL_CONSTRUCTOR_P (decl)
 				 && !DECL_DESTRUCTOR_P (decl)
 				 && !DECL_CONV_FN_P (decl)
-				 && decl_is_template_id (decl, NULL)));
+				 && decl_is_template_id (decl, NULL)),
+				decl);
     }
 }
 
@@ -1012,6 +1018,38 @@ write_source_name (identifier)
   write_identifier (IDENTIFIER_POINTER (identifier));
 }
 
+/* Convert NUMBER to ascii using base BASE and generating at least
+   MIN_DIGITS characters. BUFFER points to the _end_ of the buffer
+   into which to store the characters. Returns the number of
+   characters generated (these will be layed out in advance of where
+   BUFFER points).  */
+
+static int
+hwint_to_ascii (number, base, buffer, min_digits)
+     unsigned HOST_WIDE_INT number;
+     unsigned int base;
+     char *buffer;
+     unsigned min_digits;
+{
+  static const char base_digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  unsigned digits = 0;
+  
+  while (number)
+    {
+      unsigned HOST_WIDE_INT d = number / base;
+      
+      *--buffer = base_digits[number - d * base];
+      digits++;
+      number = d;
+    }
+  while (digits < min_digits)
+    {
+      *--buffer = base_digits[0];
+      digits++;
+    }
+  return digits;
+}
+
 /* Non-terminal <number>.
 
      <number> ::= [n] </decimal integer/>  */
@@ -1022,50 +1060,91 @@ write_number (number, unsigned_p, base)
      int unsigned_p;
      unsigned int base;
 {
-  static const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  unsigned HOST_WIDE_INT n;
-  unsigned HOST_WIDE_INT m = 1;
+  char buffer[sizeof (HOST_WIDE_INT) * 8];
+  unsigned count = 0;
 
   if (!unsigned_p && (HOST_WIDE_INT) number < 0)
     {
       write_char ('n');
       number = -((HOST_WIDE_INT) number);
     }
-  
-  /* Figure out how many digits there are.  */
-  n = number;
-  while (n >= base)
-    {
-      n /= base;
-      m *= base;
-    }
-
-  /* Write them out.  */
-  while (m > 0)
-    {
-      int digit = number / m;
-      write_char (digits[digit]);
-      number -= digit * m;
-      m /= base;
-    }
-
-  my_friendly_assert (number == 0, 20000407);
+  count = hwint_to_ascii (number, base, buffer + sizeof (buffer), 1);
+  write_chars (buffer + sizeof (buffer) - count, count);
 }
 
-/* Write out an integeral CST in decimal.  */
+/* Write out an integral CST in decimal. Most numbers are small, and
+   representable in a HOST_WIDE_INT. Occasionally we'll have numbers
+   bigger than that, which we must deal with. */
 
 static inline void
 write_integer_cst (cst)
      tree cst;
 {
-  if (tree_int_cst_sgn (cst) >= 0) 
+  int sign = tree_int_cst_sgn (cst);
+
+  if (TREE_INT_CST_HIGH (cst) + (sign < 0))
     {
-      if (TREE_INT_CST_HIGH (cst) != 0)
-	sorry ("mangling very large integers");
-      write_unsigned_number (TREE_INT_CST_LOW (cst));
+      /* A bignum. We do this in chunks, each of which fits in a
+	 HOST_WIDE_INT. */
+      char buffer[sizeof (HOST_WIDE_INT) * 8 * 2];
+      unsigned HOST_WIDE_INT chunk;
+      unsigned chunk_digits;
+      char *ptr = buffer + sizeof (buffer);
+      unsigned count = 0;
+      tree n, base, type;
+      int done;
+
+      /* HOST_WIDE_INT must be at least 32 bits, so 10^9 is
+	 representable. */
+      chunk = 1000000000;
+      chunk_digits = 9;
+      
+      if (sizeof (HOST_WIDE_INT) >= 8)
+	{
+	  /* It is at least 64 bits, so 10^18 is representable. */
+	  chunk_digits = 18;
+	  chunk *= chunk;
+	}
+      
+      type = signed_or_unsigned_type (1, TREE_TYPE (cst));
+      base = build_int_2 (chunk, 0);
+      n = build_int_2 (TREE_INT_CST_LOW (cst), TREE_INT_CST_HIGH (cst));
+      TREE_TYPE (n) = TREE_TYPE (base) = type;
+
+      if (sign < 0)
+	{
+	  write_char ('n');
+	  n = fold (build1 (NEGATE_EXPR, type, n));
+	}
+      do
+	{
+	  tree d = fold (build (FLOOR_DIV_EXPR, type, n, base));
+	  tree tmp = fold (build (MULT_EXPR, type, d, base));
+	  unsigned c;
+	  
+	  done = integer_zerop (d);
+	  tmp = fold (build (MINUS_EXPR, type, n, tmp));
+	  c = hwint_to_ascii (TREE_INT_CST_LOW (tmp), 10, ptr,
+				done ? 1 : chunk_digits);
+	  ptr -= c;
+	  count += c;
+	  n = d;
+	}
+      while (!done);
+      write_chars (ptr, count);
     }
-  else
-    write_signed_number (tree_low_cst (cst, 0));
+  else 
+    {
+      /* A small num.  */
+      unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (cst);
+      
+      if (sign < 0)
+	{
+	  write_char ('n');
+	  low = -low;
+	}
+      write_unsigned_number (low);
+    }
 }
 
 /* Non-terminal <identifier>.
@@ -1153,16 +1232,17 @@ discriminator_for_local_entity (entity)
   /* Assume this is the only local entity with this name.  */
   discriminator = 0;
 
-  /* For now, we don't discriminate amongst local variables.  */
-  if (TREE_CODE (entity) != TYPE_DECL)
-    return 0;
-
-  /* Scan the list of local classes.  */
-  entity = TREE_TYPE (entity);
-  for (type = &VARRAY_TREE (local_classes, 0); *type != entity; ++type)
-    if (TYPE_IDENTIFIER (*type) == TYPE_IDENTIFIER (entity)
-	&& TYPE_CONTEXT (*type) == TYPE_CONTEXT (entity))
-      ++discriminator;
+  if (DECL_DISCRIMINATOR_P (entity) && DECL_LANG_SPECIFIC (entity))
+    discriminator = DECL_DISCRIMINATOR (entity);
+  else if (TREE_CODE (entity) == TYPE_DECL)
+    {
+      /* Scan the list of local classes.  */
+      entity = TREE_TYPE (entity);
+      for (type = &VARRAY_TREE (local_classes, 0); *type != entity; ++type)
+        if (TYPE_IDENTIFIER (*type) == TYPE_IDENTIFIER (entity)
+            && TYPE_CONTEXT (*type) == TYPE_CONTEXT (entity))
+	  ++discriminator;
+    }  
 
   return discriminator;
 }
@@ -1194,10 +1274,7 @@ write_discriminator (discriminator)
   if (discriminator > 0)
     {
       write_char ('_');
-      /* The number is omitted for discriminator == 1.  Beyond 1, the
-	 numbering starts at 0.  */
-      if (discriminator > 1)
-	write_unsigned_number (discriminator - 2);
+      write_unsigned_number (discriminator - 1);
     }
 }
 
@@ -1530,20 +1607,23 @@ write_function_type (type)
        extern "C" function_t f; // Vice versa.
 
      See [dcl.link].  */
-  write_bare_function_type (type, /*include_return_type_p=*/1);
+  write_bare_function_type (type, /*include_return_type_p=*/1, 
+			    /*decl=*/NULL);
   write_char ('E');
 }
 
-/* Non-terminal <bare-function-type>.  NODE is a FUNCTION_DECL or a
+/* Non-terminal <bare-function-type>.  TYPE is a FUNCTION_TYPE or
    METHOD_TYPE.  If INCLUDE_RETURN_TYPE is non-zero, the return value
-   is mangled before the parameter types.
+   is mangled before the parameter types.  If non-NULL, DECL is
+   FUNCTION_DECL for the function whose type is being emitted.
 
      <bare-function-type> ::= </signature/ type>+  */
 
 static void
-write_bare_function_type (type, include_return_type_p)
+write_bare_function_type (type, include_return_type_p, decl)
      tree type;
      int include_return_type_p;
+     tree decl;
 {
   MANGLE_TRACE_TREE ("bare-function-type", type);
 
@@ -1553,19 +1633,25 @@ write_bare_function_type (type, include_return_type_p)
 
   /* Now mangle the types of the arguments.  */
   write_method_parms (TYPE_ARG_TYPES (type), 
-		      TREE_CODE (type) == METHOD_TYPE);
+		      TREE_CODE (type) == METHOD_TYPE,
+		      decl);
 }
 
 /* Write the mangled representation of a method parameter list of
-   types given in PARM_LIST.  If METHOD_P is non-zero, the function is 
-   considered a non-static method, and the this parameter is omitted.  */
+   types given in PARM_TYPES.  If METHOD_P is non-zero, the function is 
+   considered a non-static method, and the this parameter is omitted.
+   If non-NULL, DECL is the FUNCTION_DECL for the function whose
+   parameters are being emitted.  */
 
 static void
-write_method_parms (parm_list, method_p)
-     tree parm_list;
+write_method_parms (parm_types, method_p, decl)
+     tree decl;
+     tree parm_types;
      int method_p;
 {
-  tree first_parm;
+  tree first_parm_type;
+  tree parm_decl = decl ? DECL_ARGUMENTS (decl) : NULL_TREE;
+
   /* Assume this parameter type list is variable-length.  If it ends
      with a void type, then it's not.  */
   int varargs_p = 1;
@@ -1573,28 +1659,39 @@ write_method_parms (parm_list, method_p)
   /* If this is a member function, skip the first arg, which is the
      this pointer.  
        "Member functions do not encode the type of their implicit this
-       parameter."  */
+       parameter."  
+  
+     Similarly, there's no need to mangle artificial parameters, like
+     the VTT parameters for constructors and destructors.  */
   if (method_p)
-    parm_list = TREE_CHAIN (parm_list);
-
-  for (first_parm = parm_list; 
-       parm_list; 
-       parm_list = TREE_CHAIN (parm_list))
     {
-      tree parm = TREE_VALUE (parm_list);
+      parm_types = TREE_CHAIN (parm_types);
+      parm_decl = parm_decl ? TREE_CHAIN (parm_decl) : NULL_TREE;
 
+      while (parm_decl && DECL_ARTIFICIAL (parm_decl))
+	{
+	  parm_types = TREE_CHAIN (parm_types);
+	  parm_decl = TREE_CHAIN (parm_decl);
+	}
+    }
+
+  for (first_parm_type = parm_types; 
+       parm_types; 
+       parm_types = TREE_CHAIN (parm_types))
+    {
+      tree parm = TREE_VALUE (parm_types);
       if (parm == void_type_node)
 	{
 	  /* "Empty parameter lists, whether declared as () or
 	     conventionally as (void), are encoded with a void parameter
 	     (v)."  */
-	  if (parm_list == first_parm)
+	  if (parm_types == first_parm_type)
 	    write_type (parm);
 	  /* If the parm list is terminated with a void type, it's
 	     fixed-length.  */
 	  varargs_p = 0;
 	  /* A void type better be the last one.  */
-	  my_friendly_assert (TREE_CHAIN (parm_list) == NULL, 20000523);
+	  my_friendly_assert (TREE_CHAIN (parm_types) == NULL, 20000523);
 	}
       else
 	write_type (parm);
@@ -1909,7 +2006,24 @@ write_pointer_to_member_type (type)
      tree type;
 {
   write_char ('M');
-  write_type (TYPE_PTRMEM_CLASS_TYPE (type));
+  /* For a pointer-to-function member, the class type may be
+     cv-qualified, bug that won't be reflected in
+     TYPE_PTRMEM_CLASS_TYPE.  So, we go fishing around in
+     TYPE_PTRMEM_POINTED_TO_TYPE instead.  */
+  if (TYPE_PTRMEMFUNC_P (type))
+    {
+      tree fn_type;
+      tree this_type;
+
+      fn_type = TYPE_PTRMEM_POINTED_TO_TYPE (type);
+      /* The first parameter must be a POINTER_TYPE pointing to the
+	 `this' parameter.  */
+      this_type = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (fn_type)));
+      write_type (this_type);
+    }
+  /* For a pointer-to-data member, things are simpler.  */
+  else
+    write_type (TYPE_PTRMEM_CLASS_TYPE (type));
   write_type (TYPE_PTRMEM_POINTED_TO_TYPE (type));
 }
 
@@ -2048,6 +2162,17 @@ mangle_decl_string (decl)
 
   if (TREE_CODE (decl) == TYPE_DECL)
     write_type (TREE_TYPE (decl));
+  else if (/* The names of `extern "C"' functions are not mangled.  */
+	   (DECL_EXTERN_C_FUNCTION_P (decl)
+	    /* But overloaded operator names *are* mangled.  */
+	    && !DECL_OVERLOADED_OPERATOR_P (decl))
+	   /* The names of global variables aren't mangled either.  */
+	   || (TREE_CODE (decl) == VAR_DECL
+	       && CP_DECL_CONTEXT (decl) == global_namespace)
+	   /* And neither are `extern "C"' variables.  */
+	   || (TREE_CODE (decl) == VAR_DECL
+	       && DECL_EXTERN_C_P (decl)))
+    write_string (IDENTIFIER_POINTER (DECL_NAME (decl)));
   else
     {
       write_mangled_name (decl);
@@ -2068,11 +2193,13 @@ mangle_decl_string (decl)
 
 /* Create an identifier for the external mangled name of DECL.  */
 
-tree
+void
 mangle_decl (decl)
      tree decl;
 {
-  return get_identifier (mangle_decl_string (decl));
+  tree id = get_identifier (mangle_decl_string (decl));
+
+  SET_DECL_ASSEMBLER_NAME (decl, id);
 }
 
 /* Generate the mangled representation of TYPE.  */

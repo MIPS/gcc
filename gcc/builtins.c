@@ -30,15 +30,15 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "except.h"
 #include "function.h"
-#include "insn-flags.h"
-#include "insn-codes.h"
 #include "insn-config.h"
 #include "expr.h"
 #include "recog.h"
 #include "output.h"
 #include "typeclass.h"
 #include "toplev.h"
+#include "predict.h"
 #include "tm_p.h"
+#include "target.h"
 
 #define CALLED_AS_BUILT_IN(NODE) \
    (!strncmp (IDENTIFIER_POINTER (DECL_NAME (NODE)), "__builtin_", 10))
@@ -59,7 +59,7 @@ Boston, MA 02111-1307, USA.  */
 const char *const built_in_class_names[4]
   = {"NOT_BUILT_IN", "BUILT_IN_FRONTEND", "BUILT_IN_MD", "BUILT_IN_NORMAL"};
 
-#define DEF_BUILTIN(x) STRINGIFY(x),
+#define DEF_BUILTIN(X, N, C, T, LT, B, F, NA) STRINGX(X),
 const char *const built_in_names[(int) END_BUILTINS] =
 {
 #include "builtins.def"
@@ -68,12 +68,7 @@ const char *const built_in_names[(int) END_BUILTINS] =
 
 /* Setup an array of _DECL trees, make sure each element is
    initialized to NULL_TREE.  */
-#define DEF_BUILTIN(x) NULL_TREE,
-tree built_in_decls[(int) END_BUILTINS] =
-{
-#include "builtins.def"
-};
-#undef DEF_BUILTIN
+tree built_in_decls[(int) END_BUILTINS];
 
 tree (*lang_type_promotes_to) PARAMS ((tree));
 
@@ -432,7 +427,7 @@ expand_builtin_return_addr (fndecl_code, count, tem)
 #endif
       tem = memory_address (Pmode, tem);
       tem = gen_rtx_MEM (Pmode, tem);
-      MEM_ALIAS_SET (tem) = get_frame_alias_set ();
+      set_mem_alias_set (tem, get_frame_alias_set ());
       tem = copy_to_reg (tem);
     }
 
@@ -448,7 +443,7 @@ expand_builtin_return_addr (fndecl_code, count, tem)
   tem = memory_address (Pmode,
 			plus_constant (tem, GET_MODE_SIZE (Pmode)));
   tem = gen_rtx_MEM (Pmode, tem);
-  MEM_ALIAS_SET (tem) = get_frame_alias_set ();
+  set_mem_alias_set (tem, get_frame_alias_set ());
 #endif
   return tem;
 }
@@ -489,11 +484,11 @@ expand_builtin_setjmp_setup (buf_addr, receiver_label)
 #endif
 
   mem = gen_rtx_MEM (Pmode, buf_addr);
-  MEM_ALIAS_SET (mem) = setjmp_alias_set;
+  set_mem_alias_set (mem, setjmp_alias_set);
   emit_move_insn (mem, BUILTIN_SETJMP_FRAME_VALUE);
 
   mem = gen_rtx_MEM (Pmode, plus_constant (buf_addr, GET_MODE_SIZE (Pmode))),
-  MEM_ALIAS_SET (mem) = setjmp_alias_set;
+  set_mem_alias_set (mem, setjmp_alias_set);
 
   emit_move_insn (validize_mem (mem),
 		  force_reg (Pmode, gen_rtx_LABEL_REF (Pmode, receiver_label)));
@@ -501,7 +496,7 @@ expand_builtin_setjmp_setup (buf_addr, receiver_label)
   stack_save = gen_rtx_MEM (sa_mode,
 			    plus_constant (buf_addr,
 					   2 * GET_MODE_SIZE (Pmode)));
-  MEM_ALIAS_SET (stack_save) = setjmp_alias_set;
+  set_mem_alias_set (stack_save, setjmp_alias_set);
   emit_stack_save (SAVE_NONLOCAL, &stack_save, NULL_RTX);
 
   /* If there is further processing to do, do it.  */
@@ -690,8 +685,9 @@ expand_builtin_longjmp (buf_addr, value)
 
       stack = gen_rtx_MEM (sa_mode, plus_constant (buf_addr,
 						   2 * GET_MODE_SIZE (Pmode)));
-      MEM_ALIAS_SET (fp) = MEM_ALIAS_SET (lab) = MEM_ALIAS_SET (stack)
-	= setjmp_alias_set;
+      set_mem_alias_set (fp, setjmp_alias_set);
+      set_mem_alias_set (lab, setjmp_alias_set);
+      set_mem_alias_set (stack, setjmp_alias_set);
 
       /* Pick up FP, label, and SP from the block and jump.  This code is
 	 from expand_goto in stmt.c; see there for detailed comments.  */
@@ -720,12 +716,17 @@ expand_builtin_longjmp (buf_addr, value)
      __builtin_setjmp target in the same function.  However, we've
      already cautioned the user that these functions are for
      internal exception handling use only.  */
-  for (insn = get_last_insn ();
-       GET_CODE (insn) != JUMP_INSN;
-       insn = PREV_INSN (insn))
-    continue;
-  REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO, const0_rtx,
-				      REG_NOTES (insn));
+  for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
+    {
+      if (GET_CODE (insn) == JUMP_INSN)
+	{
+	  REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO, const0_rtx,
+					      REG_NOTES (insn));
+	  break;
+	}
+      else if (GET_CODE (insn) == CALL_INSN)
+        break;
+    }
 }
 
 /* Get a MEM rtx for expression EXP which is the address of an operand
@@ -756,9 +757,8 @@ get_memory_rtx (exp)
     return mem;
 
   set_mem_attributes (mem, exp, 0);
-
   /* memcpy, memset and other builtin stringops can alias with anything. */
-  MEM_ALIAS_SET (mem) = 0;
+  set_mem_alias_set (mem, 0);
   return mem;
 }
 
@@ -948,8 +948,7 @@ result_vector (savep, result)
 	if (size % align != 0)
 	  size = CEIL (size, align) * align;
 	reg = gen_rtx_REG (mode, savep ? regno : INCOMING_REGNO (regno));
-	mem = change_address (result, mode,
-			      plus_constant (XEXP (result, 0), size));
+	mem = adjust_address (result, mode, size);
 	savevec[nelts++] = (savep
 			    ? gen_rtx_SET (VOIDmode, mem, reg)
 			    : gen_rtx_SET (VOIDmode, reg, mem));
@@ -990,15 +989,12 @@ expand_builtin_apply_args_1 ()
 
 	tem = gen_rtx_REG (mode, INCOMING_REGNO (regno));
 
-	emit_move_insn (change_address (registers, mode,
-					plus_constant (XEXP (registers, 0),
-						       size)),
-			tem);
+	emit_move_insn (adjust_address (registers, mode, size), tem);
 	size += GET_MODE_SIZE (mode);
       }
 
   /* Save the arg pointer to the block.  */
-  emit_move_insn (change_address (registers, Pmode, XEXP (registers, 0)),
+  emit_move_insn (adjust_address (registers, Pmode, 0),
 		  copy_to_reg (virtual_incoming_args_rtx));
   size = GET_MODE_SIZE (Pmode);
 
@@ -1006,9 +1002,7 @@ expand_builtin_apply_args_1 ()
      "invisible" first argument.  */
   if (struct_value_incoming_rtx)
     {
-      emit_move_insn (change_address (registers, Pmode,
-				      plus_constant (XEXP (registers, 0),
-						     size)),
+      emit_move_insn (adjust_address (registers, Pmode, size),
 		      copy_to_reg (struct_value_incoming_rtx));
       size += GET_MODE_SIZE (Pmode);
     }
@@ -1125,11 +1119,7 @@ expand_builtin_apply (function, arguments, argsize)
 	if (size % align != 0)
 	  size = CEIL (size, align) * align;
 	reg = gen_rtx_REG (mode, regno);
-	emit_move_insn (reg,
-			change_address (arguments, mode,
-					plus_constant (XEXP (arguments, 0),
-						       size)));
-
+	emit_move_insn (reg, adjust_address (arguments, mode, size));
 	use_reg (&call_fusage, reg);
 	size += GET_MODE_SIZE (mode);
       }
@@ -1140,10 +1130,7 @@ expand_builtin_apply (function, arguments, argsize)
   if (struct_value_rtx)
     {
       rtx value = gen_reg_rtx (Pmode);
-      emit_move_insn (value,
-		      change_address (arguments, Pmode,
-				      plus_constant (XEXP (arguments, 0),
-						     size)));
+      emit_move_insn (value, adjust_address (arguments, Pmode, size));
       emit_move_insn (struct_value_rtx, value);
       if (GET_CODE (struct_value_rtx) == REG)
 	  use_reg (&call_fusage, struct_value_rtx);
@@ -1187,9 +1174,7 @@ expand_builtin_apply (function, arguments, argsize)
 				      gen_rtx_MEM (FUNCTION_MODE, function),
 				      const0_rtx, NULL_RTX, const0_rtx));
 
-      emit_move_insn (change_address (result, GET_MODE (valreg),
-				      XEXP (result, 0)),
-		      valreg);
+      emit_move_insn (adjust_address (result, GET_MODE (valreg), 0), valreg);
     }
   else
 #endif
@@ -1265,10 +1250,7 @@ expand_builtin_return (result)
 	if (size % align != 0)
 	  size = CEIL (size, align) * align;
 	reg = gen_rtx_REG (mode, INCOMING_REGNO (regno));
-	emit_move_insn (reg,
-			change_address (result, mode,
-					plus_constant (XEXP (result, 0),
-						       size)));
+	emit_move_insn (reg, adjust_address (result, mode, size));
 
 	push_to_sequence (call_fusage);
 	emit_insn (gen_rtx_USE (VOIDmode, reg));
@@ -1406,11 +1388,17 @@ expand_builtin_mathfn (exp, target, subtarget)
 
   switch (DECL_FUNCTION_CODE (fndecl))
     {
-     case BUILT_IN_SIN:
+    case BUILT_IN_SIN:
+    case BUILT_IN_SINF:
+    case BUILT_IN_SINL:
       builtin_optab = sin_optab; break;
-     case BUILT_IN_COS:
+    case BUILT_IN_COS:
+    case BUILT_IN_COSF:
+    case BUILT_IN_COSL:
       builtin_optab = cos_optab; break;
-     case BUILT_IN_FSQRT:
+    case BUILT_IN_FSQRT:
+    case BUILT_IN_SQRTF:
+    case BUILT_IN_SQRTL:
       builtin_optab = sqrt_optab; break;
      default:
       abort ();
@@ -1430,10 +1418,10 @@ expand_builtin_mathfn (exp, target, subtarget)
       return 0;
     }
 
-  /* Check the results by default.  But if flag_fast_math is turned on,
-     then assume sqrt will always be called with valid arguments.  */
+  /* If errno must be maintained and if we are not allowing unsafe
+     math optimizations, check the result.  */
 
-  if (flag_errno_math && ! flag_fast_math)
+  if (flag_errno_math && ! flag_unsafe_math_optimizations)
     {
       rtx lab1;
 
@@ -2977,7 +2965,7 @@ expand_builtin_va_arg (valist, type)
     }
 
   result = gen_rtx_MEM (TYPE_MODE (type), addr);
-  MEM_ALIAS_SET (result) = get_varargs_alias_set ();
+  set_mem_alias_set (result, get_varargs_alias_set ());
 
   return result;
 }
@@ -3037,9 +3025,9 @@ expand_builtin_va_copy (arglist)
 
       /* "Dereference" to BLKmode memories.  */
       dstb = gen_rtx_MEM (BLKmode, dstb);
-      MEM_ALIAS_SET (dstb) = get_alias_set (TREE_TYPE (TREE_TYPE (dst)));
+      set_mem_alias_set (dstb, get_alias_set (TREE_TYPE (TREE_TYPE (dst))));
       srcb = gen_rtx_MEM (BLKmode, srcb);
-      MEM_ALIAS_SET (srcb) = get_alias_set (TREE_TYPE (TREE_TYPE (src)));
+      set_mem_alias_set (srcb, get_alias_set (TREE_TYPE (TREE_TYPE (src))));
 
       /* Copy.  */
       emit_block_move (dstb, srcb, size, TYPE_ALIGN (va_list_type_node));
@@ -3228,8 +3216,9 @@ expand_builtin_fputs (arglist, ignore)
 		      VOIDmode, EXPAND_NORMAL);
 }
 
-/* Expand a call to __builtin_expect.  We return our argument and
-   emit a NOTE_INSN_EXPECTED_VALUE note.  */
+/* Expand a call to __builtin_expect.  We return our argument and emit a
+   NOTE_INSN_EXPECTED_VALUE note.  This is the expansion of __builtin_expect in
+   a non-jump context.  */
 
 static rtx
 expand_builtin_expect (arglist, target)
@@ -3269,6 +3258,131 @@ expand_builtin_expect (arglist, target)
 
   return target;
 }
+
+/* Like expand_builtin_expect, except do this in a jump context.  This is
+   called from do_jump if the conditional is a __builtin_expect.  Return either
+   a SEQUENCE of insns to emit the jump or NULL if we cannot optimize
+   __builtin_expect.  We need to optimize this at jump time so that machines
+   like the PowerPC don't turn the test into a SCC operation, and then jump
+   based on the test being 0/1.  */
+
+rtx
+expand_builtin_expect_jump (exp, if_false_label, if_true_label)
+     tree exp;
+     rtx if_false_label;
+     rtx if_true_label;
+{
+  tree arglist = TREE_OPERAND (exp, 1);
+  tree arg0 = TREE_VALUE (arglist);
+  tree arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+  rtx ret = NULL_RTX;
+
+  /* Only handle __builtin_expect (test, 0) and
+     __builtin_expect (test, 1).  */
+  if (TREE_CODE (TREE_TYPE (arg1)) == INTEGER_TYPE
+      && TREE_CODE (arg1) == INTEGER_CST
+      && (TREE_INT_CST_LOW (arg1) == 0 || TREE_INT_CST_LOW (arg1) == 1)
+      && TREE_INT_CST_HIGH (arg1) == 0)
+    {
+      int j;
+      int num_jumps = 0;
+
+      /* If we fail to locate an appropriate conditional jump, we'll
+	 fall back to normal evaluation.  Ensure that the expression
+	 can be re-evaluated.  */
+      switch (unsafe_for_reeval (arg0))
+	{
+	case 0: /* Safe.  */
+	  break;
+
+	case 1: /* Mildly unsafe.  */
+	  arg0 = unsave_expr (arg0);
+	  break;
+
+	case 2: /* Wildly unsafe.  */
+	  return NULL_RTX;
+	}
+
+      /* Expand the jump insns.  */
+      start_sequence ();
+      do_jump (arg0, if_false_label, if_true_label);
+      ret = gen_sequence ();
+      end_sequence ();
+
+      /* Now that the __builtin_expect has been validated, go through and add
+	 the expect's to each of the conditional jumps.  If we run into an
+	 error, just give up and generate the 'safe' code of doing a SCC
+	 operation and then doing a branch on that.  */
+      for (j = 0; j < XVECLEN (ret, 0); j++)
+	{
+	  rtx insn = XVECEXP (ret, 0, j);
+	  rtx pattern;
+
+	  if (GET_CODE (insn) == JUMP_INSN && any_condjump_p (insn)
+	      && (pattern = pc_set (insn)) != NULL_RTX)
+	    {
+	      rtx ifelse = SET_SRC (pattern);
+	      rtx label;
+	      int taken;
+
+	      if (GET_CODE (ifelse) != IF_THEN_ELSE)
+		continue;
+
+	      if (GET_CODE (XEXP (ifelse, 1)) == LABEL_REF)
+		{
+		  taken = 1;
+		  label = XEXP (XEXP (ifelse, 1), 0);
+		}
+	      /* An inverted jump reverses the probabilities.  */
+	      else if (GET_CODE (XEXP (ifelse, 2)) == LABEL_REF)
+		{
+		  taken = 0;
+		  label = XEXP (XEXP (ifelse, 2), 0);
+		}
+	      /* We shouldn't have to worry about conditional returns during
+		 the expansion stage, but handle it gracefully anyway.  */
+	      else if (GET_CODE (XEXP (ifelse, 1)) == RETURN)
+		{
+		  taken = 1;
+		  label = NULL_RTX;
+		}
+	      /* An inverted return reverses the probabilities.  */
+	      else if (GET_CODE (XEXP (ifelse, 2)) == RETURN)
+		{
+		  taken = 0;
+		  label = NULL_RTX;
+		}
+	      else
+		continue;
+
+	      /* If the test is expected to fail, reverse the
+		 probabilities.  */
+	      if (TREE_INT_CST_LOW (arg1) == 0)
+		taken = 1 - taken;
+
+	      /* If we are jumping to the false label, reverse the
+		 probabilities.  */
+	      if (label == NULL_RTX)
+		;		/* conditional return */
+	      else if (label == if_false_label)
+		taken = 1 - taken;
+	      else if (label != if_true_label)
+		continue;
+
+	      num_jumps++;
+	      predict_insn_def (insn, PRED_BUILTIN_EXPECT, taken);
+	    }
+	}
+
+      /* If no jumps were modified, fail and do __builtin_expect the normal
+	 way.  */
+      if (num_jumps == 0)
+	ret = NULL_RTX;
+    }
+
+  return ret;
+}
+
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -3288,16 +3402,15 @@ expand_builtin (exp, target, subtarget, mode, ignore)
   tree arglist = TREE_OPERAND (exp, 1);
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
 
-#ifdef MD_EXPAND_BUILTIN
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
-    return MD_EXPAND_BUILTIN (exp, target, subtarget, mode, ignore);
-#endif
+    return (*targetm.expand_builtin) (exp, target, subtarget, mode, ignore);
   
   /* When not optimizing, generate calls to library functions for a certain
      set of builtins.  */
   if (! optimize && ! CALLED_AS_BUILT_IN (fndecl)
       && (fcode == BUILT_IN_SIN || fcode == BUILT_IN_COS
-	  || fcode == BUILT_IN_FSQRT || fcode == BUILT_IN_MEMSET
+	  || fcode == BUILT_IN_FSQRT || fcode == BUILT_IN_SQRTF
+	  || fcode == BUILT_IN_SQRTL || fcode == BUILT_IN_MEMSET
 	  || fcode == BUILT_IN_MEMCPY || fcode == BUILT_IN_MEMCMP
 	  || fcode == BUILT_IN_BCMP || fcode == BUILT_IN_BZERO
 	  || fcode == BUILT_IN_INDEX || fcode == BUILT_IN_RINDEX
@@ -3316,23 +3429,41 @@ expand_builtin (exp, target, subtarget, mode, ignore)
   switch (fcode)
     {
     case BUILT_IN_ABS:
+    case BUILT_IN_LABS:
+    case BUILT_IN_LLABS:
+    case BUILT_IN_IMAXABS:
     case BUILT_IN_FABS:
+    case BUILT_IN_FABSF:
+    case BUILT_IN_FABSL:
       /* build_function_call changes these into ABS_EXPR.  */
       abort ();
 
     case BUILT_IN_CONJ:
+    case BUILT_IN_CONJF:
+    case BUILT_IN_CONJL:
     case BUILT_IN_CREAL:
+    case BUILT_IN_CREALF:
+    case BUILT_IN_CREALL:
     case BUILT_IN_CIMAG:
+    case BUILT_IN_CIMAGF:
+    case BUILT_IN_CIMAGL:
       /* expand_tree_builtin changes these into CONJ_EXPR, REALPART_EXPR
 	 and IMAGPART_EXPR.  */
       abort ();
 
     case BUILT_IN_SIN:
+    case BUILT_IN_SINF:
+    case BUILT_IN_SINL:
     case BUILT_IN_COS:
-      /* Treat these like sqrt, but only if the user asks for them.  */
-      if (! flag_fast_math)
+    case BUILT_IN_COSF:
+    case BUILT_IN_COSL:
+      /* Treat these like sqrt only if unsafe math optimizations are allowed,
+	 because of possible accuracy problems.  */
+      if (! flag_unsafe_math_optimizations)
 	break;
     case BUILT_IN_FSQRT:
+    case BUILT_IN_SQRTF:
+    case BUILT_IN_SQRTL:
       target = expand_builtin_mathfn (exp, target, subtarget);
       if (target)
 	return target;
@@ -3606,9 +3737,12 @@ expand_builtin (exp, target, subtarget, mode, ignore)
       return expand_builtin_extract_return_addr (TREE_VALUE (arglist));
     case BUILT_IN_EH_RETURN:
       expand_builtin_eh_return (TREE_VALUE (arglist),
-				TREE_VALUE (TREE_CHAIN (arglist)),
-				TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist))));
+				TREE_VALUE (TREE_CHAIN (arglist)));
       return const0_rtx;
+#ifdef EH_RETURN_DATA_REGNO
+    case BUILT_IN_EH_RETURN_DATA_REGNO:
+      return expand_builtin_eh_return_data_regno (arglist);
+#endif
     case BUILT_IN_VARARGS_START:
       return expand_builtin_va_start (0, arglist);
     case BUILT_IN_STDARG_START:
@@ -3761,4 +3895,24 @@ validate_arglist VPARAMS ((tree arglist, ...))
     }
     arglist = TREE_CHAIN (arglist);
   } while (1);
+}
+
+/* Default version of target-specific builtin setup that does nothing.  */
+
+void
+default_init_builtins ()
+{
+}
+
+/* Default target-specific builtin expander that does nothing.  */
+
+rtx
+default_expand_builtin (exp, target, subtarget, mode, ignore)
+     tree exp ATTRIBUTE_UNUSED;
+     rtx target ATTRIBUTE_UNUSED;
+     rtx subtarget ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     int ignore ATTRIBUTE_UNUSED;
+{
+  return NULL_RTX;
 }

@@ -21,14 +21,20 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
+/* For C++ we need to ensure that __LANGUAGE_C_PLUS_PLUS is defined independent
+   of the source file extension.  */
+#define CPLUSPLUS_CPP_SPEC "\
+-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus \
+%(cpp) \
+"
+
 /* Write out the correct language type definition for the header files.  
    Unless we have assembler language, write out the symbols for C.  */
 #define CPP_SPEC "\
 %{!undef:\
 %{.S:-D__LANGUAGE_ASSEMBLY__ -D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY }}\
-%{.cc|.cxx|.C:-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus }\
 %{.m:-D__LANGUAGE_OBJECTIVE_C__ -D__LANGUAGE_OBJECTIVE_C }\
-%{!.S:%{!.cc:%{!.cxx:%{!.C:%{!.m:-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C }}}}}}\
+%{!.S:%{!.cc:%{!.cxx:%{!.cpp:%{!.cp:%{!.c++:%{!.C:%{!.m:-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C }}}}}}}}}\
 %{mieee:-D_IEEE_FP }\
 %{mieee-with-inexact:-D_IEEE_FP -D_IEEE_FP_INEXACT }}\
 %(cpp_cpu) %(cpp_subtarget)"
@@ -167,12 +173,9 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #define TARGET_SUPPORT_ARCH	(target_flags & MASK_SUPPORT_ARCH)
 
 /* These are for target os support and cannot be changed at runtime.  */
-#ifndef TARGET_WINDOWS_NT
-#define TARGET_WINDOWS_NT 0
-#endif
-#ifndef TARGET_OPEN_VMS
-#define TARGET_OPEN_VMS 0
-#endif
+#define TARGET_ABI_WINDOWS_NT 0
+#define TARGET_ABI_OPEN_VMS 0
+#define TARGET_ABI_OSF (!TARGET_ABI_WINDOWS_NT && !TARGET_ABI_OPEN_VMS)
 
 #ifndef TARGET_AS_CAN_SUBTRACT_LABELS
 #define TARGET_AS_CAN_SUBTRACT_LABELS TARGET_GAS
@@ -185,6 +188,9 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #endif
 #ifndef TARGET_PROFILING_NEEDS_GP
 #define TARGET_PROFILING_NEEDS_GP 0
+#endif
+#ifndef TARGET_LD_BUGGY_LDGP
+#define TARGET_LD_BUGGY_LDGP 0
 #endif
 
 /* Macro to define tables used to set the flags.
@@ -392,23 +398,6 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 /* Define to enable software floating point emulation. */
 #define REAL_ARITHMETIC
 
-/* The following #defines are used when compiling the routines in
-   libgcc1.c.  Since the Alpha calling conventions require single
-   precision floats to be passed in the floating-point registers
-   (rather than in the general registers) we have to build the
-   libgcc1.c routines in such a way that they know the actual types
-   of their formal arguments and the actual types of their return
-   values.  Otherwise, gcc will generate calls to the libgcc1.c
-   routines, passing arguments in the floating-point registers,
-   but the libgcc1.c routines will expect their arguments on the
-   stack (where the Alpha calling conventions require structs &
-   unions to be passed).  */
-
-#define FLOAT_VALUE_TYPE	double
-#define INTIFY(FLOATVAL)	(FLOATVAL)
-#define FLOATIFY(INTVAL)	(INTVAL)
-#define FLOAT_ARG_TYPE		double
-
 /* Define the size of `int'.  The default is the same as the word size.  */
 #define INT_TYPE_SIZE 32
 
@@ -494,7 +483,7 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 #define STACK_BOUNDARY 64
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
-#define FUNCTION_BOUNDARY 128
+#define FUNCTION_BOUNDARY 32
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 64
@@ -504,22 +493,6 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 
 /* A bitfield declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* Align loop starts for optimal branching.  
-
-   ??? Kludge this and the next macro for the moment by not doing anything if
-   we don't optimize and also if we are writing ECOFF symbols to work around
-   a bug in DEC's assembler. */
-
-#define LOOP_ALIGN(LABEL) \
-  (optimize > 0 && write_symbols != SDB_DEBUG ? 4 : 0)
-
-/* This is how to align an instruction for optimal branching.  On
-   Alpha we'll get better performance by aligning on an octaword
-   boundary.  */
-
-#define LABEL_ALIGN_AFTER_BARRIER(FILE)	\
-  (optimize > 0 && write_symbols != SDB_DEBUG ? 4 : 0)
 
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 128
@@ -1209,17 +1182,6 @@ struct alpha_compare
 
 extern struct alpha_compare alpha_compare;
 
-/* Machine specific function data.  */
-
-struct machine_function
-{
-  /* An offset to apply to the stack pointer when unwinding from EH.  */
-  struct rtx_def *eh_epilogue_sp_ofs;
-
-  /* If non-null, this rtx holds the return address for the function.  */
-  struct rtx_def *ra_rtx;
-};
-
 /* Make (or fake) .linkage entry for function call.
    IS_LOCAL is 0 if name is used in call, 1 if name is used in definition.  */
 
@@ -1237,10 +1199,6 @@ struct machine_function
 #define ASM_DECLARE_FUNCTION_SIZE(FILE,NAME,DECL) \
   alpha_end_function(FILE,NAME,DECL)
    
-/* This macro notes the end of the prologue.  */
-
-#define FUNCTION_END_PROLOGUE(FILE)  output_end_prologue (FILE)
-
 /* Output any profiling code before the prologue.  */
 
 #define PROFILE_BEFORE_PROLOGUE 1
@@ -1342,6 +1300,13 @@ do {						\
 /* Before the prologue, RA lives in $26. */
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (Pmode, 26)
 #define DWARF_FRAME_RETURN_COLUMN DWARF_FRAME_REGNUM (26)
+
+/* Describe how we implement __builtin_eh_return.  */
+#define EH_RETURN_DATA_REGNO(N)	((N) < 4 ? (N) + 16 : INVALID_REGNUM)
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, 28)
+#define EH_RETURN_HANDLER_RTX \
+  gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx, \
+				     current_function_outgoing_args_size))
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1579,7 +1544,7 @@ do {									\
       && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT			\
       && GET_CODE (XEXP (X, 1)) == CONST_INT)				\
     {									\
-      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,	\
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,	\
 		   BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	\
 		   OPNUM, TYPE);					\
       goto WIN;								\
@@ -1607,7 +1572,7 @@ do {									\
 				      GEN_INT (high)),			\
 			GEN_INT (low));					\
 	  								\
-      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,	\
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,	\
 		   BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	\
 		   OPNUM, TYPE);					\
       goto WIN;								\
@@ -1926,15 +1891,6 @@ do {									\
 
 /* Control the assembler format that we output.  */
 
-/* We don't emit these labels, so as to avoid getting linker errors about
-   missing exception handling info.  If we emit a gcc_compiled. label into
-   text, and the file has no code, then the DEC assembler gives us a zero
-   sized text section with no associated exception handling info.  The
-   DEC linker sees this text section, and gives a warning saying that
-   the exception handling info is missing.  */
-#define ASM_IDENTIFY_GCC(x)
-#define ASM_IDENTIFY_LANGUAGE(x)
-
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -2188,7 +2144,7 @@ literal_section ()						\
 /* This is how to output an element of a case-vector that is relative.  */
 
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
-  fprintf (FILE, "\t.%s $L%d\n", TARGET_WINDOWS_NT ? "long" : "gprel32", \
+  fprintf (FILE, "\t.%s $L%d\n", TARGET_ABI_WINDOWS_NT ? "long" : "gprel32", \
 	   (VALUE))
 
 /* This is how to output an assembler line
@@ -2228,12 +2184,6 @@ literal_section ()						\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.  */
 /* ??? This is only used with the v2 ABI, and alpha.c makes assumptions
@@ -2244,7 +2194,7 @@ do {									\
   const char *fn_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0);	\
   int reg;								\
 									\
-  if (! TARGET_OPEN_VMS && ! TARGET_WINDOWS_NT)				\
+  if (TARGET_ABI_OSF)							\
     fprintf (FILE, "\tldgp $29,0($27)\n");				\
 									\
   /* Mark end of prologue.  */						\
@@ -2272,15 +2222,6 @@ do {									\
 } while (0)
 #endif
 
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

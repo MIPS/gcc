@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2 and libobjc.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -26,8 +26,8 @@ Boston, MA 02111-1307, USA.  */
    This exception does not however invalidate any other reasons why
    the executable file might be covered by the GNU General Public License.  */
 
-#ifndef __gthr_posix_h
-#define __gthr_posix_h
+#ifndef GCC_GTHR_POSIX_H
+#define GCC_GTHR_POSIX_H
 
 /* POSIX threads specific definitions.
    Easy, since the interface is just one-to-one mapping. */
@@ -67,10 +67,17 @@ typedef pthread_mutex_t __gthread_mutex_t;
 #pragma weak pthread_mutex_init
 #pragma weak pthread_mutex_destroy
 #pragma weak pthread_self
+#pragma weak sched_get_priority_max
+#pragma weak sched_get_priority_min
 #pragma weak sched_yield
+#pragma weak pthread_attr_destroy
+#pragma weak pthread_attr_init
+#pragma weak pthread_attr_setdetachstate
+#pragma weak pthread_getschedparam
+#pragma weak pthread_setschedparam
 #endif
 
-static void *__gthread_active_ptr = &pthread_create;
+static void *__gthread_active_ptr = (void *) &pthread_create;
 
 static inline int
 __gthread_active_p (void)
@@ -124,8 +131,8 @@ __gthread_objc_init_thread_system(void)
             return 0;
         }
     }
-  else
-    return -1;
+
+  return -1;
 }
 
 /* Close the threads subsystem. */
@@ -153,7 +160,7 @@ __gthread_objc_thread_detach(void (*func)(void *), void *arg)
     return NULL;
  
   if ( !(pthread_create(&new_thread_handle, NULL, (void *)func, arg)) )
-    thread_id = *(objc_thread_t *)&new_thread_handle;
+    thread_id = (objc_thread_t) new_thread_handle;
   else
     thread_id = NULL;
   
@@ -241,13 +248,9 @@ static inline objc_thread_t
 __gthread_objc_thread_id(void)
 {
   if (__gthread_active_p ())
-    {
-      pthread_t self = pthread_self();
-
-      return *(objc_thread_t *)&self;
-    }
+    return (objc_thread_t) pthread_self();
   else
-    return (objc_thread_t)1;
+    return (objc_thread_t) 1;
 }
 
 /* Sets the thread's local storage pointer. */
@@ -495,4 +498,4 @@ __gthread_mutex_unlock (__gthread_mutex_t *mutex)
 
 #endif /* _LIBOBJC */
 
-#endif /* not __gthr_posix_h */
+#endif /* ! GCC_GTHR_POSIX_H */

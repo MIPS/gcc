@@ -21,6 +21,11 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+
+/* Define a symbol indicating that we are using elfos.h.
+   Some CPU specific configuration files use this.  */
+#define USING_ELFOS_H
+
 /* The prefix to add to user-visible assembler symbols.
 
    For ELF systems the convention is *not* to prepend a leading
@@ -94,22 +99,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
   fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
-/* Attach a special .ident directive to the end of the file to identify
-   the version of GCC which compiled this code.  The format of the
-   .ident string is patterned after the ones produced by native svr4
-   C compilers.  */
-
 #define IDENT_ASM_OP "\t.ident\t"
-
-#undef ASM_FILE_END
-#define ASM_FILE_END(FILE)				\
-  do							\
-    {				 			\
-      if (!flag_no_ident)				\
-	fprintf ((FILE), "%s\"GCC: (GNU) %s\"\n",	\
-		 IDENT_ASM_OP, version_string);		\
-    }							\
-  while (0)
 
 #undef  ASM_BYTE_OP
 #define ASM_BYTE_OP	"\t.byte\t"
@@ -358,22 +348,19 @@ dtors_section ()						\
       const char *name;						\
       char *string;						\
       const char *prefix;					\
-      static const char *prefixes[/*4*/3][2] =			\
+      static const char *prefixes[4][2] =			\
       {								\
 	{ ".text.",   ".gnu.linkonce.t." },			\
 	{ ".rodata.", ".gnu.linkonce.r." },			\
-	{ ".data.",   ".gnu.linkonce.d." }			\
-	/* Do not generate unique sections for uninitialised 	\
-	   data since we do not have support for this in the    \
-	   linker scripts yet...				\
-        ,{ ".bss.",    ".gnu.linkonce.b." }  */			\
+	{ ".data.",   ".gnu.linkonce.d." },			\
+	{ ".bss.",    ".gnu.linkonce.b." }			\
       };							\
       								\
       if (TREE_CODE (DECL) == FUNCTION_DECL)			\
 	sec = 0;						\
-  /*  else if (DECL_INITIAL (DECL) == 0				\
+      else if (DECL_INITIAL (DECL) == 0				\
 	       || DECL_INITIAL (DECL) == error_mark_node)	\
-        sec =  3; */						\
+        sec =  3;						\
       else if (DECL_READONLY_SECTION (DECL, RELOC))		\
 	sec = 1;						\
       else							\
@@ -494,6 +481,7 @@ dtors_section ()						\
    or a constant of some sort.  RELOC indicates whether forming
    the initial value of DECL requires link-time relocations.  */
 
+#undef SELECT_SECTION
 #define SELECT_SECTION(DECL, RELOC)				\
 {								\
   if (TREE_CODE (DECL) == STRING_CST)				\

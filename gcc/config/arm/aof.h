@@ -220,8 +220,6 @@ do					\
   fputs ("\tEND\n", (STREAM));		\
 } while (0);
 
-#define ASM_IDENTIFY_GCC(STREAM) fputs ("|gcc2_compiled.|\n", (STREAM))
-
 #define ASM_COMMENT_START ";"
 
 #define ASM_APP_ON ""
@@ -283,9 +281,6 @@ do {							\
 }
 
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == '\n')
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
 
 /* Output of Uninitialized Variables */
 

@@ -23,12 +23,10 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef __MIPS_PROTOS_H__
-#define __MIPS_PROTOS_H__
+#ifndef GCC_MIPS_PROTOS_H
+#define GCC_MIPS_PROTOS_H
 
 extern HOST_WIDE_INT	compute_frame_size PARAMS ((HOST_WIDE_INT));
-extern void		function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
-extern void		function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 extern void		mips_asm_file_end PARAMS ((FILE *));
 extern void		mips_asm_file_start PARAMS ((FILE *));
 extern int		mips_can_use_return_insn PARAMS ((void));
@@ -41,6 +39,7 @@ extern void		mips_output_float PARAMS ((FILE *, REAL_VALUE_TYPE));
 #endif /* REAL_VALUE_TYPE */
 extern void		mips_output_filename PARAMS ((FILE *, const char *));
 extern void		mips_output_lineno PARAMS ((FILE *, int));
+extern void		mips_output_ascii PARAMS ((FILE *, const char *, size_t));
 extern void		mips_order_regs_for_local_alloc PARAMS ((void));
 extern struct rtx_def *	mips16_gp_pseudo_reg PARAMS ((void));
 #ifdef ASM_OUTPUT_UNDEF_FUNCTION
@@ -157,4 +156,4 @@ extern int		m16_usym8_4 PARAMS ((rtx, enum machine_mode));
 extern int		m16_usym5_4 PARAMS ((rtx, enum machine_mode));
 #endif /* RTX_CODE */
 
-#endif /* __MIPS_PROTOS_H__ */
+#endif /* ! GCC_MIPS_PROTOS_H */

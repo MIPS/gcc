@@ -1,5 +1,5 @@
 /* Configuration for GNU C-compiler for Intel 80386 running DJGPP.
-   Copyright (C) 1988, 1996, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,14 +18,10 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#define __MSDOS__ 1
-
-#include "i386/xm-i386.h"
-
 /* Use semicolons to separate elements of a path.  */
 #define PATH_SEPARATOR ';'
 
-#define EXECUTABLE_SUFFIX ".exe"
+#define HOST_EXECUTABLE_SUFFIX ".exe"
 
 /* Even though we support "/", allow "\" since everybody tests both.  */
 #define DIR_SEPARATOR '/'
@@ -110,4 +106,3 @@ Boston, MA 02111-1307, USA.  */
     if (strchr (PATH, DIR_SEPARATOR_2) == NULL) \
       return PATH; \
   } while (0)
-

@@ -23,8 +23,8 @@ Java and all Java-based marks are trademarks or registered trademarks
 of Sun Microsystems, Inc. in the United States and other countries.
 The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
-#ifndef JV_LANG_H
-#define JV_LANG_H
+#ifndef GCC_JAVA_PARSE_H
+#define GCC_JAVA_PARSE_H
 
 #include "lex.h"
 
@@ -494,7 +494,6 @@ typedef struct _jdep {
 #define JDEP_DECL(J)          ((J)->decl)
 #define JDEP_DECL_WFL(J)      ((J)->decl)
 #define JDEP_KIND(J)          ((J)->kind)
-#define JDEP_SOLV(J)          ((J)->solv)
 #define JDEP_WFL(J)           ((J)->wfl)
 #define JDEP_MISC(J)          ((J)->misc)
 #define JDEP_ENCLOSING(J)     ((J)->enclosing)
@@ -603,10 +602,6 @@ typedef struct _jdeplist {
 #define GET_CURRENT_BLOCK(F) ((F) ? DECL_FUNCTION_BODY ((F)) :	\
 			     current_static_block)
 
-/* For an artificial BLOCK (created to house a local variable declaration not
-   at the start of an existing block), the parent block;  otherwise NULL. */
-#define BLOCK_EXPR_ORIGIN(NODE) BLOCK_ABSTRACT_ORIGIN(NODE)
-
 /* Merge an other line to the source line number of a decl. Used to
    remember function's end. */
 #define DECL_SOURCE_LINE_MERGE(DECL,NO) DECL_SOURCE_LINE(DECL) |= (NO << 16)
@@ -666,21 +661,13 @@ typedef struct _jdeplist {
   build_new_invocation (wfl_string_buffer, 				      \
 			(ARG ? build_tree_list (NULL, (ARG)) : NULL_TREE))
 
-/* For exception handling, build diverse function calls */
-#define BUILD_ASSIGN_EXCEPTION_INFO(WHERE, TO)		\
-  {							\
-    (WHERE) = build (MODIFY_EXPR, void_type_node, (TO),	\
-		     soft_exceptioninfo_call_node);	\
-    TREE_SIDE_EFFECTS (WHERE) = 1;			\
-  }
-
-#define BUILD_THROW(WHERE, WHAT)					    \
-  {									    \
-    (WHERE) = 								    \
-      build (CALL_EXPR, void_type_node,					    \
-	     build_address_of (throw_node[exceptions_via_longjmp ? 1 : 0]), \
-	     build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);		    \
-    TREE_SIDE_EFFECTS ((WHERE)) = 1;					    \
+#define BUILD_THROW(WHERE, WHAT)				\
+  {								\
+    (WHERE) = 							\
+      build (CALL_EXPR, void_type_node,				\
+	     build_address_of (throw_node),			\
+	     build_tree_list (NULL_TREE, (WHAT)), NULL_TREE);	\
+    TREE_SIDE_EFFECTS ((WHERE)) = 1;				\
   }
 
 /* Set wfl_operator for the most accurate error location */
@@ -717,15 +704,14 @@ typedef struct _jdeplist {
 #define REGISTER_IMPORT(WHOLE, NAME)					\
 {									\
   IS_A_SINGLE_IMPORT_CLASSFILE_NAME_P ((NAME)) = 1;			\
-  ctxp->import_list = chainon (ctxp->import_list, 			\
-			       build_tree_list ((WHOLE), (NAME)));	\
+  ctxp->import_list = tree_cons ((WHOLE), (NAME), ctxp->import_list);	\
 }
 
 /* Macro to access the osb (opening square bracket) count */
 #define CURRENT_OSB(C) (C)->osb_number [(C)->osb_depth]
 
 /* Macro for the xreferencer */
-#define DECL_END_SOURCE_LINE(DECL)       DECL_FRAME_SIZE (DECL)
+#define DECL_END_SOURCE_LINE(DECL)       (DECL_CHECK (DECL)->decl.u1.i)
 #define DECL_INHERITED_SOURCE_LINE(DECL) (DECL_CHECK (DECL)->decl.u2.i)
      
 /* Parser context data structure. */
@@ -779,10 +765,6 @@ struct parser_ctxt {
   int interface_number;		    /* # itfs declared to extend an itf def */
 
   tree package;			    /* Defined package ID */
-
-  /* Those two list are saved accross file traversal */
-  tree  incomplete_class;	    /* List of non-complete classes */
-  tree  gclass_list;		    /* All classes seen from source code */
 
   /* These two lists won't survive file traversal */
   tree  class_list;		    /* List of classes in a CU */
@@ -862,8 +844,11 @@ struct parser_ctxt {
 	      (TREE_TYPE (DECL_CONTEXT                                        \
 			  (TYPE_NAME (TREE_TYPE (TREE_TYPE (current_this))))),\
 	       TREE_TYPE (DECL_CONTEXT (TYPE_NAME (T)))))                     \
-       /* We don't have a this. */					      \
-       || !current_this))
+       /* We don't have a this, which is OK if the current function is        \
+	  static. */                                                          \
+       || (!current_this						      \
+	   && current_function_decl                                           \
+           && ! METHOD_STATIC (current_function_decl))))
 
 /* Push macro. First argument to PUSH_CPC is a DECL_TYPE, second
    argument is the unqualified currently parsed class name.  */
@@ -947,4 +932,8 @@ ATTRIBUTE_NORETURN
 #endif
 ;
 extern void java_expand_classes PARAMS ((void));
-#endif
+
+extern struct parser_ctxt *ctxp;
+struct parser_ctxt *ctxp_for_generation;
+
+#endif /* ! GCC_JAVA_PARSE_H */

@@ -98,7 +98,7 @@ struct rtx_definition
   const char *enumname, *name, *format;
 };
 
-#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { STRINGIFY(ENUM), NAME, FORMAT },
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { STRINGX(ENUM), NAME, FORMAT },
 
 struct rtx_definition defs[] = 
 {  
@@ -208,6 +208,7 @@ special_rtx (idx)
   return (strcmp (defs[idx].enumname, "CONST_INT") == 0
 	  || strcmp (defs[idx].enumname, "CONST_DOUBLE") == 0
 	  || strcmp (defs[idx].enumname, "REG") == 0
+	  || strcmp (defs[idx].enumname, "SUBREG") == 0
 	  || strcmp (defs[idx].enumname, "MEM") == 0);
 }
 
@@ -351,7 +352,10 @@ genheader ()
 {
   int i;
   const char **fmt;
-  
+
+  puts ("#ifndef GCC_GENRTL_H");
+  puts ("#define GCC_GENRTL_H\n");
+
   for (fmt = formats; *fmt; ++fmt)
     gendecl (*fmt);
 
@@ -360,6 +364,8 @@ genheader ()
   for (i = 0; i < NUM_RTX_CODE; i++)
     if (! special_format (defs[i].format))
       genmacro (i);
+
+  puts ("\n#endif /* GCC_GENRTL_H */");
 }
 
 /* Generate the text of the code file we write, genrtl.c.  */
@@ -389,7 +395,7 @@ PTR
 xmalloc (nbytes)
   size_t nbytes;
 {
-  register PTR tmp = (PTR) malloc (nbytes);
+  register PTR tmp = (PTR) really_call_malloc (nbytes);
 
   if (!tmp)
     {
@@ -420,6 +426,8 @@ main (argc, argv)
   else
     gencode ();
 
-  fflush (stdout);
-  return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
+  if (ferror (stdout) || fflush (stdout) || fclose (stdout))
+    return FATAL_EXIT_CODE;
+
+  return SUCCESS_EXIT_CODE;
 }

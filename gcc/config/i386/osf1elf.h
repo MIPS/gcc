@@ -8,6 +8,8 @@
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (i386 OSF/1)");
 
+#define TARGET_OSF1ELF
+
 /* WORD_SWITCH_TAKES_ARG defined in svr4 is not correct. We also
  need an extra -soname */
 #undef WORD_SWITCH_TAKES_ARG
@@ -85,21 +87,6 @@
 #undef  LIBGCC_SPEC
 #define LIBGCC_SPEC "%{!shared:%{!symbolic:libgcc.a%s}}"
 
-/* A C statement to output assembler commands which will identify the object
-  file as having been compile with GNU CC. We don't need or want this for
-  OSF1. */
-#undef ASM_IDENTIFY_GCC
-#define ASM_IDENTIFY_GCC(FILE)
-
-/* Identify the front-end which produced this file.  To keep symbol
-   space down, and not confuse kdb, only do this if the language is
-   not C.  */
-#define ASM_IDENTIFY_LANGUAGE(STREAM)                                   \
-{                                                                       \
-  if (strcmp (lang_identify (), "c") != 0)                              \
-    output_lang_identify (STREAM);                                      \
-}
-
 /* Specify size_t, ptrdiff_t, and wchar_t types.  */
 #undef  SIZE_TYPE
 #undef  PTRDIFF_TYPE
@@ -148,41 +135,6 @@
 #else
 #define OSF_PROFILE_BEFORE_PROLOGUE 0
 #endif
-#undef	FUNCTION_PROLOGUE
-#define FUNCTION_PROLOGUE(FILE, SIZE)					\
-do									\
-  {									\
-    char *prefix = "";			\
-    char *lprefix = LPREFIX;						\
-    int labelno = profile_label_no;					\
-									\
-    if (profile_flag && OSF_PROFILE_BEFORE_PROLOGUE)			\
-      {									\
-	if (!flag_pic)				\
-	  {								\
-	    fprintf (FILE, "\tmovl $%sP%d,%%edx\n", lprefix, labelno);	\
-	    fprintf (FILE, "\tcall *%s_mcount_ptr\n", prefix);		\
-	  }								\
-									\
-	else								\
-	  {								\
-	    static int call_no = 0;					\
-									\
-	    fprintf (FILE, "\tcall %sPc%d\n", lprefix, call_no);	\
-	    fprintf (FILE, "%sPc%d:\tpopl %%eax\n", lprefix, call_no);	\
-	    fprintf (FILE, "\taddl $_GLOBAL_OFFSET_TABLE_+[.-%sPc%d],%%eax\n", \
-		     lprefix, call_no++);				\
-	    fprintf (FILE, "\tleal %sP%d@GOTOFF(%%eax),%%edx\n",	\
-		     lprefix, labelno);					\
-	    fprintf (FILE, "\tmovl %s_mcount_ptr@GOT(%%eax),%%eax\n",	\
-		     prefix);						\
-	    fprintf (FILE, "\tcall *(%%eax)\n");			\
-	  }								\
-      }									\
-									\
-    function_prologue (FILE, SIZE);					\
-  }									\
-while (0)
 
 /* A C statement or compound statement to output to FILE some assembler code to
    call the profiling subroutine `mcount'.  Before calling, the assembler code

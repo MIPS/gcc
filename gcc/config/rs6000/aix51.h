@@ -21,9 +21,6 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#include "rs6000/rs6000.h"
-#include "rs6000/aix.h"
-
 /* AIX V5 and above support 64-bit executables.  */
 #undef  SUBSUBTARGET_SWITCHES
 #define SUBSUBTARGET_SWITCHES					\
@@ -106,13 +103,13 @@ do {									\
 -D_AIX -D_AIX32 -D_AIX41 -D_AIX43 -D_AIX51 -Asystem=unix -Asystem=aix"
 
 #undef CPP_SPEC
-#define CPP_SPEC "%{posix: -D_POSIX_SOURCE} \
-  %{ansi: -D_ANSI_C_SOURCE} \
-  %{!maix64: -D__WCHAR_TYPE__="short unsigned int"} \
-  %{maix64: -D__64BIT__ -D_ARCH_PPC -D__WCHAR_TYPE__="unsigned int" \
-    -D__LONG_MAX__=9223372036854775807L} \
-  %{mpe: -I/usr/lpp/ppe.poe/include} \
-  %{pthread: -D_THREAD_SAFE} \
+#define CPP_SPEC "%{posix: -D_POSIX_SOURCE}\
+  %{ansi: -D_ANSI_C_SOURCE}\
+  %{!maix64: -D__WCHAR_TYPE__=short\\ unsigned\\ int}\
+  %{maix64: -D__64BIT__ -D_ARCH_PPC -D__LONG_MAX__=9223372036854775807L \
+    -D__WCHAR_TYPE__=unsigned\\ int}\
+  %{mpe: -I/usr/lpp/ppe.poe/include}\
+  %{pthread: -D_THREAD_SAFE}\
   %(cpp_cpu)"
 
 /* The GNU C++ standard library requires that these macros be 
@@ -123,9 +120,9 @@ do {									\
    -D_XOPEN_SOURCE_EXTENDED=1                   \
    -D_LARGE_FILE_API                            \
    -D_ALL_SOURCE                                \
-   %{!maix64: -D__WCHAR_TYPE__="short unsigned int"} \
-   %{maix64: -D__64BIT__ -D_ARCH_PPC -D__WCHAR_TYPE__="unsigned int" \
-     -D__LONG_MAX__=9223372036854775807L} \
+   %{!maix64: -D__WCHAR_TYPE__=short\\ unsigned\\ int}\
+   %{maix64: -D__64BIT__ -D_ARCH_PPC -D__LONG_MAX__=9223372036854775807L \
+     -D__WCHAR_TYPE__=unsigned\\ int}\
    %{mpe: -I/usr/lpp/ppe.poe/include}\
    %{pthread: -D_THREAD_SAFE}\
    %(cpp_cpu)"
@@ -205,6 +202,10 @@ do {									\
        %{pthread:%{pg:gcrt0_r%O%s}%{!pg:%{p:mcrt0_r%O%s}%{!p:crt0_r%O%s}}}\
        %{!pthread:%{pg:gcrt0%O%s}%{!pg:%{p:mcrt0%O%s}%{!p:crt0%O%s}}}}}}"
 
+/* Since there are separate multilibs for pthreads, determine the
+   thread model based on the command-line arguments.  */
+#define THREAD_MODEL_SPEC "%{pthread:posix}%{!pthread:single}"
+
 /* AIX V5 typedefs ptrdiff_t as "long" while earlier releases used "int".  */
 
 #undef PTRDIFF_TYPE
@@ -213,6 +214,7 @@ do {									\
 /* __WCHAR_TYPE__ is dynamic, so do not define it statically.  */
 #define NO_BUILTIN_WCHAR_TYPE
 #undef WCHAR_TYPE
+#undef WCHAR_TYPE_SIZE
 
 /* Width of wchar_t in bits.  */
 #define WCHAR_TYPE_SIZE (!TARGET_64BIT ? 16 : 32)

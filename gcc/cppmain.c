@@ -74,7 +74,7 @@ main (argc, argv)
   general_init (argv[0]);
 
   /* Contruct a reader with default language GNU C89.  */
-  pfile = cpp_create_reader (CLK_GNUC89);
+  pfile = cpp_create_reader (NULL, CLK_GNUC89);
   options = cpp_get_options (pfile);
   
   do_preprocessing (argc, argv);
@@ -238,6 +238,13 @@ scan_buffer (pfile)
 		       == AVOID_LPASTE
 		   && cpp_avoid_paste (pfile, &tokens[1 - index], token))
 	    token->flags |= PREV_WHITE;
+	  /* Special case '# <directive name>': insert a space between
+	     the # and the token.  This will prevent it from being
+	     treated as a directive when this code is re-preprocessed.
+	     XXX Should do this only at the beginning of a line, but how?  */
+	  else if (token->type == CPP_NAME && token->val.node->directive_index
+		   && tokens[1 - index].type == CPP_HASH)
+	    token->flags |= PREV_WHITE;
 
 	  cpp_output_token (token, print.outf);
 	  print.printed = 1;
@@ -271,9 +278,6 @@ printer_init (pfile)
   print.lineno = 0;
   print.printed = 0;
 
-  if (options->out_fname == NULL)
-    options->out_fname = "";
-  
   if (options->out_fname[0] == '\0')
     print.outf = stdout;
   else
@@ -350,7 +354,7 @@ cb_ident (pfile, str)
      const cpp_string * str;
 {
   maybe_print_line (cpp_get_line (pfile)->output_line);
-  fprintf (print.outf, "#ident \"%.*s\"\n", (int) str->len, str->text);
+  fprintf (print.outf, "#ident \"%s\"\n", str->text);
   print.lineno++;
 }
 
@@ -360,11 +364,13 @@ cb_define (pfile, node)
      cpp_hashnode *node;
 {
   maybe_print_line (cpp_get_line (pfile)->output_line);
-  fprintf (print.outf, "#define %s", node->name);
+  fputs ("#define ", print.outf);
 
   /* -dD command line option.  */
   if (options->dump_macros == dump_definitions)
     fputs ((const char *) cpp_macro_definition (pfile, node), print.outf);
+  else
+    fputs ((const char *) NODE_NAME (node), print.outf);
 
   putc ('\n', print.outf);
   print.lineno++;
@@ -376,7 +382,7 @@ cb_undef (pfile, node)
      cpp_hashnode *node;
 {
   maybe_print_line (cpp_get_line (pfile)->output_line);
-  fprintf (print.outf, "#undef %s\n", node->name);
+  fprintf (print.outf, "#undef %s\n", NODE_NAME (node));
   print.lineno++;
 }
 
@@ -442,7 +448,7 @@ dump_macro (pfile, node, v)
 {
   if (node->type == NT_MACRO && !(node->flags & NODE_BUILTIN))
     {
-      fprintf (print.outf, "#define %s", node->name);
+      fputs ("#define ", print.outf);
       fputs ((const char *) cpp_macro_definition (pfile, node), print.outf);
       putc ('\n', print.outf);
       print.lineno++;

@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1996, 1997, 1998, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -18,7 +18,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#define OPEN_VMS 1
+#define TARGET_OBJECT_SUFFIX ".obj"
+#define TARGET_EXECUTABLE_SUFFIX ".exe"
 
 /* This enables certain macros in alpha.h, which will make an indirect
    reference to an external symbol an invalid address.  This needs to be
@@ -66,8 +67,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_FP|MASK_FPREGS|MASK_GAS)
-#undef TARGET_OPEN_VMS
-#define TARGET_OPEN_VMS 1
+#undef TARGET_ABI_OPEN_VMS
+#define TARGET_ABI_OPEN_VMS 1
 
 #undef TARGET_NAME   
 #define TARGET_NAME "OpenVMS/Alpha"
@@ -388,9 +389,6 @@ do {									\
     fprintf (FILE, "\n");				\
   } while (0)
 
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, NAME, ARGS) \
-  (vms_valid_decl_attribute_p (DECL, ATTRIBUTES, NAME, ARGS))
-
 #undef SDB_DEBUGGING_INFO
 #undef MIPS_DEBUGGING_INFO
 #undef DBX_DEBUGGING_INFO
@@ -470,3 +468,6 @@ do {									\
 #define DIR_SEPARATOR ']'
 
 #define PREFIX "GNU_ROOT:"
+
+/* XXX Really? Even with modern CRTL? */
+#define NEED_ATEXIT

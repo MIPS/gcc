@@ -61,6 +61,7 @@ static void handle_pragma_vtable PARAMS ((cpp_reader *));
 static void handle_pragma_unit PARAMS ((cpp_reader *));
 static void handle_pragma_interface PARAMS ((cpp_reader *));
 static void handle_pragma_implementation PARAMS ((cpp_reader *));
+static void handle_pragma_java_exceptions PARAMS ((cpp_reader *));
 static void cxx_init PARAMS ((void));
 static void cxx_finish PARAMS ((void));
 static void cxx_init_options PARAMS ((void));
@@ -83,10 +84,6 @@ static void init_operators PARAMS ((void));
 #endif
 
 #include "cpplib.h"
-
-/* Pending language change.
-   Positive is push count, negative is pop count.  */
-int pending_lang_change = 0;
 
 extern int yychar;		/*  the lookahead symbol		*/
 extern YYSTYPE yylval;		/*  the semantic value of the		*/
@@ -261,7 +258,10 @@ cxx_post_options ()
 static void
 cxx_init_options ()
 {
-  parse_in = cpp_create_reader (CLK_GNUCXX);
+  /* Make identifier nodes long enough for the language-specific slots.  */
+  set_identifier_size (sizeof (struct lang_identifier));
+
+  parse_in = cpp_create_reader (ident_hash, CLK_GNUCXX);
 
   /* Default exceptions on.  */
   flag_exceptions = 1;
@@ -269,10 +269,10 @@ cxx_init_options ()
   flag_bounds_check = -1;
   /* By default wrap lines at 80 characters.  Is getenv ("COLUMNS")
      preferable?  */
-  diagnostic_message_length_per_line = 80;
+  diagnostic_line_cutoff (global_dc) = 80;
   /* By default, emit location information once for every
      diagnostic message.  */
-  set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_ONCE);
+  diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
 }
 
 static void
@@ -317,7 +317,7 @@ operator_name_info_t assignment_operator_name_info[(int) LAST_CPLUS_TREE_CODE];
 
 /* Initialize data structures that keep track of operator names.  */
 
-#define DEF_OPERATOR(NAME, C, NM, OM, AR, AP) \
+#define DEF_OPERATOR(NAME, C, M, AR, AP) \
  CONSTRAINT (C, sizeof "operator " + sizeof NAME <= 256);
 #include "operators.def"
 #undef DEF_OPERATOR
@@ -329,7 +329,7 @@ init_operators ()
   char buffer[256];
   struct operator_name_info_t *oni;
 
-#define DEF_OPERATOR(NAME, CODE, NEW_MANGLING, OLD_MANGLING, ARITY, ASSN_P) \
+#define DEF_OPERATOR(NAME, CODE, MANGLING, ARITY, ASSN_P)		    \
   sprintf (buffer, ISALPHA (NAME[0]) ? "operator %s" : "operator%s", NAME); \
   identifier = get_identifier (buffer);					    \
   IDENTIFIER_OPNAME_P (identifier) = 1;					    \
@@ -339,7 +339,7 @@ init_operators ()
 	 : &operator_name_info[(int) CODE]);				    \
   oni->identifier = identifier;						    \
   oni->name = NAME;							    \
-  oni->mangled_name = NEW_MANGLING;
+  oni->mangled_name = MANGLING;
 
 #include "operators.def"
 #undef DEF_OPERATOR
@@ -406,6 +406,8 @@ CONSTRAINT(ridbits_fit, RID_LAST_MODIFIER < sizeof(unsigned long) * CHAR_BIT);
 static const struct resword reswords[] =
 {
   { "_Complex",		RID_COMPLEX,	0 },
+  { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
+  { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
   { "__alignof", 	RID_ALIGNOF,	0 },
   { "__alignof__",	RID_ALIGNOF,	0 },
   { "__asm",		RID_ASM,	0 },
@@ -418,6 +420,7 @@ static const struct resword reswords[] =
   { "__const",		RID_CONST,	0 },
   { "__const__",	RID_CONST,	0 },
   { "__extension__",	RID_EXTENSION,	0 },
+  { "__func__",		RID_C99_FUNCTION_NAME,	0 },
   { "__imag",		RID_IMAGPART,	0 },
   { "__imag__",		RID_IMAGPART,	0 },
   { "__inline",		RID_INLINE,	0 },
@@ -589,6 +592,10 @@ const short rid_to_yy[RID_MAX] =
   /* RID_PTREXTENT */	0,
   /* RID_PTRVALUE */	0,
 
+  /* RID_FUNCTION_NAME */	VAR_FUNC_NAME,
+  /* RID_PRETTY_FUNCTION_NAME */ VAR_FUNC_NAME,
+  /* RID_c99_FUNCTION_NAME */	VAR_FUNC_NAME,
+
   /* C++ */
   /* RID_BOOL */	TYPESPEC,
   /* RID_WCHAR */	TYPESPEC,
@@ -684,14 +691,14 @@ init_cp_pragma ()
   cpp_register_pragma (parse_in, "GCC", "interface", handle_pragma_interface);
   cpp_register_pragma (parse_in, "GCC", "implementation",
 		       handle_pragma_implementation);
+  cpp_register_pragma (parse_in, "GCC", "java_exceptions",
+		       handle_pragma_java_exceptions);
 }
 
 const char *
 init_parse (filename)
      const char *filename;
 {
-  /* Make identifier nodes long enough for the language-specific slots.  */
-  set_identifier_size (sizeof (struct lang_identifier));
   decl_printable_name = lang_printable_name;
 
   input_filename = "<internal>";
@@ -1015,7 +1022,7 @@ check_for_missing_semicolon (type)
        && yychar != SELFNAME)
       || yychar == 0  /* EOF */)
     {
-      if (ANON_AGGRNAME_P (TYPE_IDENTIFIER (type)))
+      if (TYPE_ANONYMOUS_P (type))
 	error ("semicolon missing after %s declaration",
 	       TREE_CODE (type) == ENUMERAL_TYPE ? "enum" : "struct");
       else
@@ -1082,12 +1089,8 @@ static void
 handle_pragma_vtable (dfile)
      cpp_reader *dfile ATTRIBUTE_UNUSED;
 {
-  tree vtbl = parse_strconst_pragma ("vtable", 0);
-
-  if (vtbl && vtbl != (tree)-1)
-    pending_vtables = tree_cons (NULL_TREE,
-				 get_identifier (TREE_STRING_POINTER (vtbl)),
-				 pending_vtables);
+  parse_strconst_pragma ("vtable", 0);
+  sorry ("#pragma vtable no longer supported");
 }
 
 static void
@@ -1109,7 +1112,7 @@ handle_pragma_interface (dfile)
   if (fname == (tree)-1)
     return;
   else if (fname == 0)
-    main_filename = file_name_nondirectory (input_filename);
+    main_filename = lbasename (input_filename);
   else
     main_filename = TREE_STRING_POINTER (fname);
 
@@ -1158,7 +1161,7 @@ handle_pragma_implementation (dfile)
 	main_filename = main_input_filename;
       else
 	main_filename = input_filename;
-      main_filename = file_name_nondirectory (main_filename);
+      main_filename = lbasename (main_filename);
     }
   else
     {
@@ -1180,6 +1183,18 @@ handle_pragma_implementation (dfile)
       ifiles->next = impl_file_chain;
       impl_file_chain = ifiles;
     }
+}
+
+/* Indicate that this file uses Java-personality exception handling.  */
+static void
+handle_pragma_java_exceptions (dfile)
+     cpp_reader *dfile ATTRIBUTE_UNUSED;
+{
+  tree x;
+  if (c_lex (&x) != CPP_EOF)
+    warning ("junk at end of #pragma GCC java_exceptions");
+
+  choose_personality_routine (lang_java);
 }
 
 void
@@ -1517,11 +1532,11 @@ retrofit_lang_decl (t)
 
   DECL_LANG_SPECIFIC (t) = ld;
   if (current_lang_name == lang_name_cplusplus)
-    DECL_LANGUAGE (t) = lang_cplusplus;
+    SET_DECL_LANGUAGE (t, lang_cplusplus);
   else if (current_lang_name == lang_name_c)
-    DECL_LANGUAGE (t) = lang_c;
+    SET_DECL_LANGUAGE (t, lang_c);
   else if (current_lang_name == lang_name_java)
-    DECL_LANGUAGE (t) = lang_java;
+    SET_DECL_LANGUAGE (t, lang_java);
   else my_friendly_abort (64);
 
 #ifdef GATHER_STATISTICS
@@ -1595,7 +1610,6 @@ cp_make_lang_type (code)
        TYPE_ALIAS_SET is initialized to -1 by default, so we must
        clear it here.  */
     TYPE_ALIAS_SET (t) = 0;
-
   /* We need to allocate a TYPE_BINFO even for TEMPLATE_TYPE_PARMs
      since they can be virtual base types, and we then need a
      canonical binfo for them.  Ideally, this would be done lazily for

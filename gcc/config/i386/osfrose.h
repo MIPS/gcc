@@ -23,9 +23,6 @@ Boston, MA 02111-1307, USA.  */
 #include "halfpic.h"
 #include "i386/gstabs.h"
 
-/* Get perform_* macros to build libgcc.a.  */
-#include "i386/perform.h"
-
 #define OSF_OS
 
 #undef  WORD_SWITCH_TAKES_ARG
@@ -186,18 +183,6 @@ Boston, MA 02111-1307, USA.  */
 #undef LONG_DOUBLE_TYPE_SIZE
 #define LONG_DOUBLE_TYPE_SIZE 64
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.
-
-   We override it here to allow for the new profiling code to go before
-   the prologue and the old mcount code to go after the prologue (and
-   after %ebx has been set up for ELF shared library support).  */
-
 #define OSF_PROFILE_BEFORE_PROLOGUE					\
   (!TARGET_MCOUNT							\
    && !current_function_needs_context					\
@@ -205,56 +190,6 @@ Boston, MA 02111-1307, USA.  */
        || !frame_pointer_needed						\
        || (!current_function_uses_pic_offset_table			\
 	   && !current_function_uses_const_pool)))
-
-#undef	FUNCTION_PROLOGUE
-#define FUNCTION_PROLOGUE(FILE, SIZE)					\
-do									\
-  {									\
-    char *prefix = (TARGET_UNDERSCORES) ? "_" : "";			\
-    char *lprefix = LPREFIX;						\
-    int labelno = profile_label_no;					\
-									\
-    if (profile_flag && OSF_PROFILE_BEFORE_PROLOGUE)			\
-      {									\
-	if (!flag_pic && !HALF_PIC_P ())				\
-	  {								\
-	    fprintf (FILE, "\tmovl $%sP%d,%%edx\n", lprefix, labelno);	\
-	    fprintf (FILE, "\tcall *%s_mcount_ptr\n", prefix);		\
-	  }								\
-									\
-	else if (HALF_PIC_P ())						\
-	  {								\
-	    rtx symref;							\
-									\
-	    HALF_PIC_EXTERNAL ("_mcount_ptr");				\
-	    symref = HALF_PIC_PTR (gen_rtx_SYMBOL_REF (Pmode,		\
-						       "_mcount_ptr"));	\
-									\
-	    fprintf (FILE, "\tmovl $%sP%d,%%edx\n", lprefix, labelno);	\
-	    fprintf (FILE, "\tmovl %s%s,%%eax\n", prefix,		\
-		     XSTR (symref, 0));					\
-	    fprintf (FILE, "\tcall *(%%eax)\n");			\
-	  }								\
-									\
-	else								\
-	  {								\
-	    static int call_no = 0;					\
-									\
-	    fprintf (FILE, "\tcall %sPc%d\n", lprefix, call_no);	\
-	    fprintf (FILE, "%sPc%d:\tpopl %%eax\n", lprefix, call_no);	\
-	    fprintf (FILE, "\taddl $_GLOBAL_OFFSET_TABLE_+[.-%sPc%d],%%eax\n", \
-		     lprefix, call_no++);				\
-	    fprintf (FILE, "\tleal %sP%d@GOTOFF(%%eax),%%edx\n",	\
-		     lprefix, labelno);					\
-	    fprintf (FILE, "\tmovl %s_mcount_ptr@GOT(%%eax),%%eax\n",	\
-		     prefix);						\
-	    fprintf (FILE, "\tcall *(%%eax)\n");			\
-	  }								\
-      }									\
-									\
-    function_prologue (FILE, SIZE);					\
-  }									\
-while (0)
 
 /* A C statement or compound statement to output to FILE some assembler code to
    call the profiling subroutine `mcount'.  Before calling, the assembler code
@@ -740,11 +675,6 @@ do									\
   }									\
 while (0)
 
-/* Attach a special .ident directive to the end of the file to identify
-   the version of GCC which compiled this code.  The format of the
-   .ident string is patterned after the ones produced by native svr4
-   C compilers.  */
-
 #define IDENT_ASM_OP "\t.ident\t"
 
 /* Allow #sccs in preprocessor.  */
@@ -759,98 +689,6 @@ do									\
     if (HALF_PIC_P ())							\
       HALF_PIC_FINISH (STREAM);						\
     ix86_asm_file_end (STREAM);						\
-    if (!flag_no_ident)							\
-      {									\
-	char *fstart = main_input_filename;				\
-	char *fname;							\
-									\
-	if (!fstart)							\
-	  fstart = "<no file>";						\
-									\
-	fname = fstart + strlen (fstart) - 1;				\
-	while (fname > fstart && *fname != '/')				\
-	  fname--;							\
-									\
-	if (*fname == '/')						\
-	  fname++;							\
-									\
-	fprintf ((STREAM), "%s\"GCC: (GNU) %s %s -O%d",			\
-		 IDENT_ASM_OP, version_string, fname, optimize);	\
-									\
-	if (write_symbols == PREFERRED_DEBUGGING_TYPE)			\
-	  fprintf ((STREAM), " -g%d", (int)debug_info_level);		\
-									\
-	else if (write_symbols == DBX_DEBUG)				\
-	  fprintf ((STREAM), " -gstabs%d", (int)debug_info_level);	\
-									\
-	else if (write_symbols == DWARF_DEBUG)				\
-	  fprintf ((STREAM), " -gdwarf%d", (int)debug_info_level);	\
-									\
-	else if (write_symbols != NO_DEBUG)				\
-	  fprintf ((STREAM), " -g??%d", (int)debug_info_level);		\
-									\
-	if (flag_omit_frame_pointer)					\
-	  fprintf ((STREAM), " -fomit-frame-pointer");			\
-									\
-	if (flag_strength_reduce)					\
-	  fprintf ((STREAM), " -fstrength-reduce");			\
-									\
-	if (flag_unroll_loops)						\
-	  fprintf ((STREAM), " -funroll-loops");			\
-									\
-	if (flag_schedule_insns)					\
-	  fprintf ((STREAM), " -fschedule-insns");			\
-									\
-	if (flag_schedule_insns_after_reload)				\
-	  fprintf ((STREAM), " -fschedule-insns2");			\
-									\
-	if (flag_force_mem)						\
-	  fprintf ((STREAM), " -fforce-mem");				\
-									\
-	if (flag_force_addr)						\
-	  fprintf ((STREAM), " -fforce-addr");				\
-									\
-	if (flag_inline_functions)					\
-	  fprintf ((STREAM), " -finline-functions");			\
-									\
-	if (flag_caller_saves)						\
-	  fprintf ((STREAM), " -fcaller-saves");			\
-									\
-	if (flag_pic)							\
-	  fprintf ((STREAM), (flag_pic > 1) ? " -fPIC" : " -fpic");	\
-									\
-	if (flag_inhibit_size_directive)				\
-	  fprintf ((STREAM), " -finhibit-size-directive");		\
-									\
-	if (flag_gnu_linker)						\
-	  fprintf ((STREAM), " -fgnu-linker");				\
-									\
-	if (profile_flag)						\
-	  fprintf ((STREAM), " -p");					\
-									\
-	if (profile_block_flag)						\
-	  fprintf ((STREAM), " -a");					\
-									\
-	if (TARGET_IEEE_FP)						\
-	  fprintf ((STREAM), " -mieee-fp");				\
-									\
-	if (TARGET_HALF_PIC)						\
-	  fprintf ((STREAM), " -mhalf-pic");				\
-									\
-	if (!TARGET_MOVE)						\
-	  fprintf ((STREAM), " -mno-move");				\
-									\
-	if (TARGET_386)							\
-	  fprintf ((STREAM), " -m386");					\
-									\
-	else if (TARGET_486)						\
-	  fprintf ((STREAM), " -m486");					\
-									\
-	else								\
-	  fprintf ((STREAM), " -munknown-machine");			\
-									\
-	fprintf ((STREAM), (TARGET_ELF) ? " -melf\"\n" : " -mrose\"\n"); \
-      }									\
   }									\
 while (0)
 
@@ -865,21 +703,6 @@ while (0)
    by hand, rather than passing the argument '-lgcc' to tell the linker
    to do the search */
 #define LINK_LIBGCC_SPECIAL
-
-/* A C statement to output assembler commands which will identify the object
-  file as having been compile with GNU CC. We don't need or want this for
-  OSF1. GDB doesn't need it and kdb doesn't like it */
-#define ASM_IDENTIFY_GCC(FILE)
-
-/* Identify the front-end which produced this file.  To keep symbol
-   space down, and not confuse kdb, only do this if the language is
-   not C.  */
-
-#define ASM_IDENTIFY_LANGUAGE(STREAM)					\
-{									\
-  if (strcmp (lang_identify (), "c") != 0)				\
-    output_lang_identify (STREAM);					\
-}
 
 /* Generate calls to memcpy, etc., not bcopy, etc. */
 #define TARGET_MEM_FUNCTIONS

@@ -60,7 +60,7 @@ C++ c++: cc1plus$(exeext)
 # Tell GNU make to ignore these if they exist.
 .PHONY: C++ c++
 
-g++spec.o: $(srcdir)/cp/g++spec.c system.h $(GCC_H) $(CONFIG_H)
+g++spec.o: $(srcdir)/cp/g++spec.c $(SYSTEM_H) $(GCC_H) $(CONFIG_H)
 	(SHLIB_LINK='$(SHLIB_LINK)' \
 	SHLIB_MULTILIB='$(SHLIB_MULTILIB)'; \
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(DRIVER_DEFINES) \
@@ -129,14 +129,8 @@ c++.all.cross: g++-cross$(exeext) $(DEMANGLER_PROG)
 c++.start.encap: g++$(exeext)
 c++.rest.encap: $(DEMANGLER_PROG)
 
-c++.info: $(srcdir)/cp/g++int.info
+c++.info: 
 c++.dvi:
-
-$(srcdir)/cp/g++int.info: $(srcdir)/cp/gxxint.texi
-	if [ x$(BUILD_INFO) = xinfo ]; then \
-	  rm -f $(srcdir)/cp/g++int.info*; \
-	  cd $(srcdir)/cp && $(MAKEINFO) -o g++int.info gxxint.texi; \
-	else true; fi
 
 #
 # Install hooks:
@@ -185,22 +179,7 @@ c++.install-common: installdirs
 	  fi ; \
 	fi
 
-c++.install-info: c++.info installdirs
-	if [ -f cc1plus$(exeext) ] ; then \
-	  if [ -f $(srcdir)/cp/g++int.info ]; then \
-	    rm -f $(infodir)/g++int.info*; \
-	    for f in $(srcdir)/cp/g++int.info*; do \
-	      realfile=`echo $$f | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
-	      $(INSTALL_DATA) $$f $(infodir)/$$realfile; \
-	    done; \
-	    chmod a-x $(infodir)/g++int.info*; \
-	  else true; fi; \
-	else true; fi
-	-if [ -f cc1plus$(exeext) ] && [ -f $(infodir)/g++int.info ]; then \
-	  if $(SHELL) -c 'install-info --version' >/dev/null 2>&1; then \
-	    install-info --dir-file=$(infodir)/dir $(infodir)/g++int.info; \
-	  else true; fi; \
-	else true; fi
+c++.install-info: 
 
 c++.install-man: installdirs $(srcdir)/cp/g++.1
 	-if [ -f cc1plus$(exeext) ] ; then \
@@ -224,7 +203,6 @@ c++.uninstall:
 	-rm -rf $(bindir)/$(DEMANGLER_CROSS_NAME)$(exeext)
 	-rm -rf $(man1dir)/$(GXX_INSTALL_NAME)$(manext)
 	-rm -rf $(man1dir)/$(GXX_CROSS_NAME)$(manext)
-	-rm -rf $(infodir)/g++int.info*
 #
 # Clean hooks:
 # A lot of the ancillary files are deleted by the main makefile.
@@ -239,7 +217,6 @@ c++.distclean:
 c++.extraclean:
 c++.maintainer-clean:
 	-rm -f $(srcdir)/cp/parse.c $(srcdir)/cp/parse.h
-	-rm -f $(srcdir)/cp/g++int.info*
 #
 # Stage hooks:
 # The main makefile has already created stage?/cp.
@@ -256,48 +233,55 @@ c++.stage4: stage4-start
 #
 # .o: .h dependencies.
 CXX_TREE_H = $(TREE_H) cp/cp-tree.h c-common.h cp/cp-tree.def c-common.def \
-	function.h varray.h system.h $(CONFIG_H) \
+	function.h varray.h $(SYSTEM_H) $(CONFIG_H) $(TARGET_H) \
 	$(srcdir)/../include/hashtab.h $(srcdir)/../include/splay-tree.h
 
 cp/spew.o: cp/spew.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h toplev.h
 cp/lex.o: cp/lex.c $(CXX_TREE_H) cp/parse.h flags.h cp/lex.h c-pragma.h \
-  toplev.h output.h mbchar.h $(GGC_H) input.h diagnostic.h cp/operators.def
+  toplev.h output.h mbchar.h $(GGC_H) input.h diagnostic.h cp/operators.def \
+  $(TM_P_H)
 cp/decl.o: cp/decl.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h stack.h \
-  output.h $(EXPR_H) except.h toplev.h hash.h $(GGC_H) $(RTL_H) cp/operators.def
+  output.h $(EXPR_H) except.h toplev.h hash.h $(GGC_H) $(RTL_H) \
+  cp/operators.def $(TM_P_H)
 cp/decl2.o: cp/decl2.c $(CXX_TREE_H) flags.h cp/lex.h cp/decl.h $(EXPR_H) \
   output.h except.h toplev.h dwarf2out.h dwarfout.h $(GGC_H) $(RTL_H)
-cp/typeck2.o: cp/typeck2.c $(CXX_TREE_H) flags.h toplev.h output.h
-cp/typeck.o: cp/typeck.c $(CXX_TREE_H) flags.h $(RTL_H) $(EXPR_H) toplev.h 
+cp/typeck2.o: cp/typeck2.c $(CXX_TREE_H) flags.h toplev.h output.h $(TM_P_H) \
+   diagnostic.h
+cp/typeck.o: cp/typeck.c $(CXX_TREE_H) flags.h $(RTL_H) $(EXPR_H) toplev.h \
+   diagnostic.h
 cp/class.o: cp/class.c $(CXX_TREE_H) flags.h toplev.h $(RTL_H)
-cp/call.o: cp/call.c $(CXX_TREE_H) flags.h toplev.h $(RTL_H) $(EXPR_H) $(GGC_H)
+cp/call.o: cp/call.c $(CXX_TREE_H) flags.h toplev.h $(RTL_H) $(EXPR_H) \
+     $(GGC_H) diagnostic.h
 cp/friend.o: cp/friend.c $(CXX_TREE_H) flags.h $(RTL_H) toplev.h $(EXPR_H)
 cp/init.o: cp/init.c $(CXX_TREE_H) flags.h $(RTL_H) $(EXPR_H) toplev.h \
   $(GGC_H) except.h
-cp/method.o: cp/method.c $(CXX_TREE_H) toplev.h $(GGC_H) $(RTL_H) $(EXPR_H)
+cp/method.o: cp/method.c $(CXX_TREE_H) toplev.h $(GGC_H) $(RTL_H) $(EXPR_H) \
+  $(TM_P_H)
 cp/cvt.o: cp/cvt.c $(CXX_TREE_H) cp/decl.h flags.h toplev.h convert.h
 cp/search.o: cp/search.c $(CXX_TREE_H) stack.h flags.h toplev.h $(RTL_H)
 cp/tree.o: cp/tree.c $(CXX_TREE_H) flags.h toplev.h $(GGC_H) $(RTL_H) \
   insn-config.h integrate.h
-cp/ptree.o: cp/ptree.c $(CXX_TREE_H) system.h
+cp/ptree.o: cp/ptree.c $(CXX_TREE_H) $(SYSTEM_H)
 cp/rtti.o: cp/rtti.c $(CXX_TREE_H) flags.h toplev.h
 cp/except.o: cp/except.c $(CXX_TREE_H) flags.h $(RTL_H) except.h toplev.h \
-  cp/cfns.h $(EXPR_H) insn-flags.h cp/decl.h $(OBSTACK_H)
-cp/expr.o: cp/expr.c $(CXX_TREE_H) $(RTL_H) flags.h $(EXPR_H) toplev.h except.h
+  cp/cfns.h $(EXPR_H) cp/decl.h $(OBSTACK_H)
+cp/expr.o: cp/expr.c $(CXX_TREE_H) $(RTL_H) flags.h $(EXPR_H) toplev.h \
+  except.h $(TM_P_H)
 cp/xref.o: cp/xref.c $(CXX_TREE_H) input.h toplev.h
 cp/pt.o: cp/pt.c $(CXX_TREE_H) cp/decl.h cp/parse.h cp/lex.h toplev.h \
   $(GGC_H) $(RTL_H) except.h
 cp/error.o: cp/error.c $(CXX_TREE_H) toplev.h diagnostic.h
 cp/errfn.o: cp/errfn.c $(CXX_TREE_H) toplev.h
-cp/repo.o: cp/repo.c $(CXX_TREE_H) toplev.h $(GGC_H)
+cp/repo.o: cp/repo.c $(CXX_TREE_H) toplev.h $(GGC_H) diagnostic.h
 cp/semantics.o: cp/semantics.c $(CXX_TREE_H) cp/lex.h except.h toplev.h \
-  flags.h $(GGC_H) output.h $(RTL_H) $(TIMEVAR_H)
+  flags.h $(GGC_H) output.h $(RTL_H) $(TIMEVAR_H) $(EXPR_H)
 cp/dump.o: cp/dump.c $(CXX_TREE_H) c-dump.h
 cp/optimize.o: cp/optimize.c $(CXX_TREE_H) rtl.h integrate.h insn-config.h \
-  input.h
+  input.h params.h
 cp/mangle.o: cp/mangle.c $(CXX_TREE_H) toplev.h
 
 cp/parse.o: cp/parse.c $(CXX_TREE_H) flags.h cp/lex.h except.h output.h \
-	system.h toplev.h $(GGC_H)
+	$(SYSTEM_H) toplev.h $(GGC_H)
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(BIG_SWITCHFLAG) \
 		$(srcdir)/cp/parse.c $(OUTPUT_OPTION)
 #

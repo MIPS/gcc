@@ -997,7 +997,7 @@ exact_real_inverse (mode, r)
     {
       /* Don't do the optimization if there was an arithmetic error.  */
 fail:
-      set_float_handler (NULL_PTR);
+      set_float_handler (NULL);
       return 0;
     }
   set_float_handler (float_error);
@@ -1040,7 +1040,7 @@ fail:
 #endif
 
   /* Output the reciprocal and return success flag.  */
-  set_float_handler (NULL_PTR);
+  set_float_handler (NULL);
   *r = y.d;
   return 1;
 }
@@ -1051,11 +1051,11 @@ fail:
 
 REAL_VALUE_TYPE
 real_hex_to_f (s, mode)
-   char *s;
+   const char *s;
    enum machine_mode mode;
 {
   REAL_VALUE_TYPE ip;
-  char *p = s;
+  const char *p = s;
   unsigned HOST_WIDE_INT low, high;
   int shcount, nrmcount, k;
   int sign, expsign, isfloat;
@@ -1311,7 +1311,7 @@ negate_expr (t)
 
     case MINUS_EXPR:
       /* - (A - B) -> B - A  */
-      if (! FLOAT_TYPE_P (type) || flag_fast_math)
+      if (! FLOAT_TYPE_P (type) || flag_unsafe_math_optimizations)
 	return convert (type,
 			fold (build (MINUS_EXPR, TREE_TYPE (t),
 				     TREE_OPERAND (t, 1),
@@ -2022,6 +2022,7 @@ fold_convert (t, arg1)
 	  /* If we are trying to make a sizetype for a small integer, use
 	     size_int to pick up cached types to reduce duplicate nodes.  */
 	  if (TREE_CODE (type) == INTEGER_TYPE && TYPE_IS_SIZETYPE (type)
+	      && !TREE_CONSTANT_OVERFLOW (arg1)
 	      && compare_tree_int (arg1, 10000) < 0)
 	    return size_int_type_wide (TREE_INT_CST_LOW (arg1), type);
 
@@ -2395,6 +2396,7 @@ operand_equal_p (arg0, arg1, only_const)
 
 	case COMPONENT_REF:
 	case ARRAY_REF:
+	case ARRAY_RANGE_REF:
 	  return (operand_equal_p (TREE_OPERAND (arg0, 0),
 				   TREE_OPERAND (arg1, 0), 0)
 		  && operand_equal_p (TREE_OPERAND (arg0, 1),
@@ -2718,7 +2720,9 @@ invert_truthvalue (arg)
   if (TREE_CODE_CLASS (code) == '<')
     {
       if (FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 0)))
-	  && !flag_fast_math && code != NE_EXPR && code != EQ_EXPR)
+	  && !flag_unsafe_math_optimizations
+	  && code != NE_EXPR 
+	  && code != EQ_EXPR)
 	return build1 (TRUTH_NOT_EXPR, type, arg);
       else
 	return build (invert_tree_comparison (code), type,
@@ -4487,7 +4491,12 @@ extract_muldiv (t, c, code, wide_type)
 	 constant.  */
       t1 = extract_muldiv (op0, c, code, wide_type);
       t2 = extract_muldiv (op1, c, code, wide_type);
-      if (t1 != 0 && t2 != 0)
+      if (t1 != 0 && t2 != 0
+	  && (code == MULT_EXPR
+	      /* If not multiplication, we can only do this if either operand
+		 is divisible by c.  */
+	      || multiple_of_p (ctype, op0, c)
+	      || multiple_of_p (ctype, op1, c)))
 	return fold (build (tcode, ctype, convert (ctype, t1),
 			    convert (ctype, t2)));
 
@@ -4689,16 +4698,16 @@ count_cond (expr, lim)
      tree expr;
      int lim;
 {
-  int true, false;
+  int ctrue, cfalse;
 
   if (TREE_CODE (expr) != COND_EXPR)
     return 0;
   else if (lim <= 0)
     return 0;
 
-  true = count_cond (TREE_OPERAND (expr, 1), lim - 1);
-  false = count_cond (TREE_OPERAND (expr, 2), lim - 1 - true);
-  return MIN (lim, 1 + true + false);
+  ctrue = count_cond (TREE_OPERAND (expr, 1), lim - 1);
+  cfalse = count_cond (TREE_OPERAND (expr, 2), lim - 1 - ctrue);
+  return MIN (lim, 1 + ctrue + cfalse);
 }
 
 /* Transform `a + (b ? x : y)' into `x ? (a + b) : (a + y)'.
@@ -4856,7 +4865,7 @@ fold (expr)
 
   /* Don't try to process an RTL_EXPR since its operands aren't trees.
      Likewise for a SAVE_EXPR that's already been evaluated.  */
-  if (code == RTL_EXPR || (code == SAVE_EXPR && SAVE_EXPR_RTL (t)) != 0)
+  if (code == RTL_EXPR || (code == SAVE_EXPR && SAVE_EXPR_RTL (t) != 0))
     return t;
 
   /* Return right away if a constant.  */
@@ -4895,7 +4904,7 @@ fold (expr)
     }
   else if (IS_EXPR_CODE_CLASS (kind) || kind == 'r')
     {
-      register int len = TREE_CODE_LENGTH (code);
+      register int len = first_rtl_op (code);
       register int i;
       for (i = 0; i < len; i++)
 	{
@@ -5256,7 +5265,7 @@ fold (expr)
 
       /* Convert - (a - b) to (b - a) for non-floating-point.  */
       else if (TREE_CODE (arg0) == MINUS_EXPR
-	       && (! FLOAT_TYPE_P (type) || flag_fast_math))
+	       && (! FLOAT_TYPE_P (type) || flag_unsafe_math_optimizations))
 	return build (MINUS_EXPR, type, TREE_OPERAND (arg0, 1),
 		      TREE_OPERAND (arg0, 0));
 
@@ -5267,8 +5276,16 @@ fold (expr)
 	{
 	  if (TREE_CODE (arg0) == INTEGER_CST)
 	    {
-	      if (! TREE_UNSIGNED (type)
-		  && TREE_INT_CST_HIGH (arg0) < 0)
+	      /* If the value is unsigned, then the absolute value is
+		 the same as the ordinary value.  */
+	      if (TREE_UNSIGNED (type))
+		return arg0;
+	      /* Similarly, if the value is non-negative.  */
+	      else if (INT_CST_LT (integer_minus_one_node, arg0))
+		return arg0;
+	      /* If the value is negative, then the absolute value is
+		 its negation.  */
+	      else
 		{
 		  unsigned HOST_WIDE_INT low;
 		  HOST_WIDE_INT high;
@@ -5451,7 +5468,7 @@ fold (expr)
 	}
       /* In IEEE floating point, x+0 may not equal x.  */
       else if ((TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-		|| flag_fast_math)
+		|| flag_unsafe_math_optimizations)
 	       && real_zerop (arg1))
 	return non_lvalue (convert (type, arg0));
       /* x+(-0) equals x, even for IEEE.  */
@@ -5535,11 +5552,11 @@ fold (expr)
 	 parentheses.  Rather than remember where the parentheses were, we
 	 don't associate floats at all.  It shouldn't matter much.  However,
 	 associating multiplications is only very slightly inaccurate, so do
-	 that if -ffast-math is specified.  */
+	 that if -funsafe-math-optimizations is specified.  */
 
       if (! wins
 	  && (! FLOAT_TYPE_P (type)
-	      || (flag_fast_math && code != MULT_EXPR)))
+	      || (flag_unsafe_math_optimizations && code == MULT_EXPR)))
 	{
 	  tree var0, con0, lit0, var1, con1, lit1;
 
@@ -5616,7 +5633,7 @@ fold (expr)
 	}
 
       else if (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-	       || flag_fast_math)
+	       || flag_unsafe_math_optimizations)
 	{
 	  /* Except with IEEE floating point, 0-x equals -x.  */
 	  if (! wins && real_zerop (arg0))
@@ -5632,7 +5649,7 @@ fold (expr)
 	 Also note that operand_equal_p is always false if an operand
 	 is volatile.  */
 
-      if ((! FLOAT_TYPE_P (type) || flag_fast_math)
+      if ((! FLOAT_TYPE_P (type) || flag_unsafe_math_optimizations)
 	  && operand_equal_p (arg0, arg1, 0))
 	return convert (type, integer_zero_node);
 
@@ -5671,7 +5688,7 @@ fold (expr)
 	{
 	  /* x*0 is 0, except for IEEE floating point.  */
 	  if ((TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
-	       || flag_fast_math)
+	       || flag_unsafe_math_optimizations)
 	      && real_zerop (arg1))
 	    return omit_one_operand (type, arg1, arg0);
 	  /* In IEEE floating point, x*1 is not equivalent to x for snans.
@@ -5828,12 +5845,12 @@ fold (expr)
 
       /* If ARG1 is a constant, we can convert this to a multiply by the
 	 reciprocal.  This does not have the same rounding properties,
-	 so only do this if -ffast-math.  We can actually always safely
-	 do it if ARG1 is a power of two, but it's hard to tell if it is
-	 or not in a portable manner.  */
+	 so only do this if -funsafe-math-optimizations.  We can actually
+	 always safely do it if ARG1 is a power of two, but it's hard to
+	 tell if it is or not in a portable manner.  */
       if (TREE_CODE (arg1) == REAL_CST)
 	{
-	  if (flag_fast_math
+	  if (flag_unsafe_math_optimizations
 	      && 0 != (tem = const_binop (code, build_real (type, dconst1),
 					  arg1, 0)))
 	    return fold (build (MULT_EXPR, type, arg0, tem));
@@ -6597,7 +6614,9 @@ fold (expr)
 	    else if (TREE_INT_CST_HIGH (arg1) == 0
 		      && (TREE_INT_CST_LOW (arg1)
 			  == ((unsigned HOST_WIDE_INT) 1 << (width - 1)) - 1)
-		      && TREE_UNSIGNED (TREE_TYPE (arg1)))
+		      && TREE_UNSIGNED (TREE_TYPE (arg1))
+			 /* signed_type does not work on pointer types.  */
+		      && INTEGRAL_TYPE_P (TREE_TYPE (arg1)))
 
 	      switch (TREE_CODE (t))
 		{
@@ -6893,7 +6912,7 @@ fold (expr)
       if (TREE_CODE_CLASS (TREE_CODE (arg0)) == '<'
 	  && (TARGET_FLOAT_FORMAT != IEEE_FLOAT_FORMAT
 	      || ! FLOAT_TYPE_P (TREE_TYPE (TREE_OPERAND (arg0, 0)))
-	      || flag_fast_math)
+	      || flag_unsafe_math_optimizations)
 	  && operand_equal_for_comparison_p (TREE_OPERAND (arg0, 0),
 					     arg1, TREE_OPERAND (arg0, 1)))
 	{
@@ -7280,6 +7299,25 @@ multiple_of_p (type, top, bottom)
       return (multiple_of_p (type, TREE_OPERAND (top, 0), bottom)
 	      && multiple_of_p (type, TREE_OPERAND (top, 1), bottom));
 
+    case LSHIFT_EXPR:
+      if (TREE_CODE (TREE_OPERAND (top, 1)) == INTEGER_CST)
+	{
+	  tree op1, t1;
+
+	  op1 = TREE_OPERAND (top, 1);
+	  /* const_binop may not detect overflow correctly,
+	     so check for it explicitly here.  */
+	  if (TYPE_PRECISION (TREE_TYPE (size_one_node))
+	      > TREE_INT_CST_LOW (op1)
+	      && TREE_INT_CST_HIGH (op1) == 0
+	      && 0 != (t1 = convert (type,
+				     const_binop (LSHIFT_EXPR, size_one_node,
+						  op1, 0)))
+	      && ! TREE_OVERFLOW (t1))
+	    return multiple_of_p (type, t1, bottom);
+	}
+      return 0;
+
     case NOP_EXPR:
       /* Can't handle conversions from non-integral or wider integral type.  */
       if ((TREE_CODE (TREE_TYPE (TREE_OPERAND (top, 0))) != INTEGER_TYPE)
@@ -7293,9 +7331,10 @@ multiple_of_p (type, top, bottom)
       return multiple_of_p (type, TREE_OPERAND (top, 0), bottom);
 
     case INTEGER_CST:
-      if ((TREE_CODE (bottom) != INTEGER_CST)
-	  || (tree_int_cst_sgn (top) < 0)
-	  || (tree_int_cst_sgn (bottom) < 0))
+      if (TREE_CODE (bottom) != INTEGER_CST
+	  || (TREE_UNSIGNED (type)
+	      && (tree_int_cst_sgn (top) < 0
+		  || tree_int_cst_sgn (bottom) < 0)))
 	return 0;
       return integer_zerop (const_binop (TRUNC_MOD_EXPR,
 					 top, bottom, 0));
@@ -7313,11 +7352,24 @@ tree_expr_nonnegative_p (t)
 {
   switch (TREE_CODE (t))
     {
+    case ABS_EXPR:
+    case FFS_EXPR:
+      return 1;
     case INTEGER_CST:
       return tree_int_cst_sgn (t) >= 0;
     case COND_EXPR:
       return tree_expr_nonnegative_p (TREE_OPERAND (t, 1))
 	&& tree_expr_nonnegative_p (TREE_OPERAND (t, 2));
+    case COMPOUND_EXPR:
+      return tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
+    case MIN_EXPR:
+      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0))
+        && tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
+    case MAX_EXPR:
+      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0))
+        || tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
+    case MODIFY_EXPR:
+      return tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
     case BIND_EXPR:
       return tree_expr_nonnegative_p (TREE_OPERAND (t, 1));
     case RTL_EXPR:

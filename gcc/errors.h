@@ -1,5 +1,5 @@
 /* Basic error reporting routines.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -22,17 +22,20 @@ Boston, MA 02111-1307, USA.  */
    in the generator programs; eventually we would like to use them in
    cc1 too, but that's a longer term project.  */
 
-#ifndef __GCC_ERRORS_H__
-#define __GCC_ERRORS_H__
+#ifndef GCC_ERRORS_H
+#define GCC_ERRORS_H
 
-extern void warning PARAMS ((const char *format, ...)) ATTRIBUTE_PRINTF_1;
-extern void error   PARAMS ((const char *format, ...)) ATTRIBUTE_PRINTF_1;
-extern void fatal   PARAMS ((const char *format, ...))
+extern void warning PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
+extern void error   PARAMS ((const char *, ...)) ATTRIBUTE_PRINTF_1;
+extern void fatal   PARAMS ((const char *, ...))
     ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
-extern void fancy_abort PARAMS ((const char *file, int line, const char *func))
+extern void internal_error   PARAMS ((const char *, ...))
+    ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
+extern const char *trim_filename   PARAMS ((const char *));
+extern void fancy_abort PARAMS ((const char *, int, const char *))
     ATTRIBUTE_NORETURN;
 
 extern int have_error;
 extern const char *progname;
     
-#endif
+#endif /* ! GCC_ERRORS_H */

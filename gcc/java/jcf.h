@@ -23,8 +23,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 /* Written by Per Bothner <bothner@cygnus.com>, February 1996. */
 
-#ifndef JCF_H
-#define JCF_H
+#ifndef GCC_JCF_H
+#define GCC_JCF_H
 #include "javaop.h"
 #ifndef DEFUN
 #if defined (__STDC__)
@@ -63,10 +63,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #define JCF_word JCF_u4
 #endif
 
-#define JCF_ZIP    1
-#define JCF_CLASS  2
-#define JCF_SOURCE 3
-
 struct JCF;
 typedef int (*jcf_filbuf_t) PARAMS ((struct JCF*, int needed));
 
@@ -92,7 +88,9 @@ typedef struct JCF {
   unsigned char *buffer_end;
   unsigned char *read_ptr;
   unsigned char *read_end;
-  int java_source;
+  int java_source : 1;
+  int right_zip : 1;
+  int finished : 1;
   jcf_filbuf_t filbuf;
   void *read_state;
   const char *filename;
@@ -147,7 +145,8 @@ typedef struct JCF {
   CPOOL_FINISH(&(JCF)->cpool); \
   if ((JCF)->buffer) FREE ((JCF)->buffer); \
   if ((JCF)->filename) FREE ((char *) (JCF)->filename); \
-  if ((JCF)->classname) FREE ((char *) (JCF)->classname); }
+  if ((JCF)->classname) FREE ((char *) (JCF)->classname); \
+  (JCF)->finished = 1; }
   
 #define CPOOL_INIT(CPOOL) \
   ((CPOOL)->capacity = 0, (CPOOL)->count = 0, (CPOOL)->tags = 0, (CPOOL)->data = 0)
@@ -157,7 +156,8 @@ typedef struct JCF {
 #define JCF_ZERO(JCF)  \
   ((JCF)->buffer = (JCF)->buffer_end = (JCF)->read_ptr = (JCF)->read_end = 0,\
    (JCF)->read_state = 0, (JCF)->filename = (JCF)->classname = 0, \
-   CPOOL_INIT(&(JCF)->cpool), (JCF)->java_source = 0)
+   CPOOL_INIT(&(JCF)->cpool), (JCF)->java_source = 0, (JCF)->zipd = 0, \
+   (JCF)->finished = 0)
 
 /* Given that PTR points to a 2-byte unsigned integer in network
    (big-endian) byte-order, return that integer. */
@@ -281,4 +281,4 @@ extern int jcf_path_is_zipfile PARAMS ((void *));
 extern int jcf_path_is_system PARAMS ((void *));
 extern int jcf_path_max_len PARAMS ((void));
 
-#endif
+#endif /* ! GCC_JCF_H */

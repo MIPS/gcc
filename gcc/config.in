@@ -1,14 +1,7 @@
-/* config.in.  Generated automatically from configure.in by autoheader.  */
-
-/* Define if using alloca.c.  */
-#undef C_ALLOCA
+/* config.in.  Generated automatically from configure.in by autoheader 2.13.  */
 
 /* Define to empty if the keyword does not work.  */
 #undef const
-
-/* Define to one of _getb67, GETB67, getb67 for Cray-2 and Cray-YMP systems.
-   This function is required for alloca.c support on those systems.  */
-#undef CRAY_STACKSEG_END
 
 /* Define to the type of elements in the array set by `getgroups'.
    Usually this is either `int' or `gid_t'.  */
@@ -17,17 +10,8 @@
 /* Define to `int' if <sys/types.h> doesn't define.  */
 #undef gid_t
 
-/* Define if you have alloca, as a function or macro.  */
-#undef HAVE_ALLOCA
-
-/* Define if you have <alloca.h> and it should be used (not on Ultrix).  */
-#undef HAVE_ALLOCA_H
-
 /* Define if you don't have vprintf but do have _doprnt.  */
 #undef HAVE_DOPRNT
-
-/* Define if the `long double' type works.  */
-#undef HAVE_LONG_DOUBLE
 
 /* Define if you have the ANSI # stringizing operator in cpp. */
 #undef HAVE_STRINGIZE
@@ -55,15 +39,6 @@
 
 /* Define to `unsigned' if <sys/types.h> doesn't define.  */
 #undef size_t
-
-/* If using the C implementation of alloca, define if you know the
-   direction of stack growth for your system; otherwise it will be
-   automatically deduced at run-time.
- STACK_DIRECTION > 0 => grows toward higher addresses
- STACK_DIRECTION < 0 => grows toward lower addresses
- STACK_DIRECTION = 0 => direction of growth unknown
- */
-#undef STACK_DIRECTION
 
 /* Define if you have the ANSI C header files.  */
 #undef STDC_HEADERS
@@ -120,11 +95,11 @@
 /* Define if you have the atoq function.  */
 #undef HAVE_ATOQ
 
-/* Define if you have the bcopy function.  */
-#undef HAVE_BCOPY
-
 /* Define if you have the bsearch function.  */
 #undef HAVE_BSEARCH
+
+/* Define if you have the clock function.  */
+#undef HAVE_CLOCK
 
 /* Define if you have the dcgettext function.  */
 #undef HAVE_DCGETTEXT
@@ -158,6 +133,9 @@
 
 /* Define if you have the kill function.  */
 #undef HAVE_KILL
+
+/* Define if you have the lstat function.  */
+#undef HAVE_LSTAT
 
 /* Define if you have the munmap function.  */
 #undef HAVE_MUNMAP
@@ -210,6 +188,9 @@
 /* Define if you have the sysconf function.  */
 #undef HAVE_SYSCONF
 
+/* Define if you have the times function.  */
+#undef HAVE_TIMES
+
 /* Define if you have the <argz.h> header file.  */
 #undef HAVE_ARGZ_H
 
@@ -236,9 +217,6 @@
 
 /* Define if you have the <nl_types.h> header file.  */
 #undef HAVE_NL_TYPES_H
-
-/* Define if you have the <stab.h> header file.  */
-#undef HAVE_STAB_H
 
 /* Define if you have the <stddef.h> header file.  */
 #undef HAVE_STDDEF_H
@@ -312,20 +290,68 @@
    character sets for source code. */
 #undef MULTIBYTE_CHARS
 
+/* Define if your compiler understands volatile. */
+#undef HAVE_VOLATILE
+
+/* Define if your compiler supports the `long double' type. */
+#undef HAVE_LONG_DOUBLE
+
+/* Define if your compiler supports the `long long' type. */
+#undef HAVE_LONG_LONG
+
+/* Define if your compiler supports the `__int64' type. */
+#undef HAVE___INT64
+
+/* Define if the `_Bool' type is built-in. */
+#undef HAVE__BOOL
+
+/* The number of bytes in type short */
+#undef SIZEOF_SHORT
+
+/* The number of bytes in type int */
+#undef SIZEOF_INT
+
+/* The number of bytes in type long */
+#undef SIZEOF_LONG
+
+/* The number of bytes in type long long */
+#undef SIZEOF_LONG_LONG
+
+/* The number of bytes in type __int64 */
+#undef SIZEOF___INT64
+
+/* Define if the host execution character set is EBCDIC. */
+#undef HOST_EBCDIC
+
 /* Always define this when using the GNU C Library */
 #undef _GNU_SOURCE
 
-/* Define if your compiler understands volatile. */
-#undef HAVE_VOLATILE
+/* Define if you have a working <stdbool.h> header file. */
+#undef HAVE_STDBOOL_H
 
 /* Define if you can safely include both <string.h> and <strings.h>. */
 #undef STRING_WITH_STRINGS
 
+/* Define as the number of bits in a byte, if `limits.h' doesn't. */
+#undef CHAR_BIT
+
+/* Define if the host machine stores words of multi-word integers in
+   big-endian order. */
+#undef HOST_WORDS_BIG_ENDIAN
+
+/* Define to the floating point format of the host machine, if not IEEE. */
+#undef HOST_FLOAT_FORMAT
+
+/* Define to 1 if the host machine stores floating point numbers in
+   memory with the word containing the sign bit at the lowest address,
+   or to 0 if it does it the other way around.
+
+   This macro should not be defined if the ordering is the same as for
+   multi-word integers. */
+#undef HOST_FLOAT_WORDS_BIG_ENDIAN
+
 /* Define if you have a working <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
-
-/* Define if enumerated bitfields are treated as unsigned values. */
-#undef ENUM_BITFIELDS_ARE_UNSIGNED
 
 /* Define if printf supports %p. */
 #undef HAVE_PRINTF_PTR
@@ -338,9 +364,6 @@
 
 /* Define if read-only mmap of a plain file works. */
 #undef HAVE_MMAP_FILE
-
-/* Define to 1 if we found this declaration otherwise define to 0. */
-#undef HAVE_DECL_BCOPY
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_GETENV
@@ -379,6 +402,9 @@
 #undef HAVE_DECL_ENVIRON
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
+#undef HAVE_DECL_ERRNO
+
+/* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_MALLOC
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
@@ -397,6 +423,9 @@
 #undef HAVE_DECL_GETOPT
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
+#undef HAVE_DECL_CLOCK
+
+/* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_GETRLIMIT
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
@@ -404,6 +433,15 @@
 
 /* Define to 1 if we found this declaration otherwise define to 0. */
 #undef HAVE_DECL_GETRUSAGE
+
+/* Define to 1 if we found this declaration otherwise define to 0. */
+#undef HAVE_DECL_TIMES
+
+/* Define if <sys/times.h> defines struct tms. */
+#undef HAVE_STRUCT_TMS
+
+/* Define if <time.h> defines clock_t. */
+#undef HAVE_CLOCK_T
 
 /* Define if host mkdir takes a single argument. */
 #undef MKDIR_TAKES_ONE_ARG
@@ -431,6 +469,12 @@
 /* Define if your assembler supports .hidden. */
 #undef HAVE_GAS_HIDDEN
 
+/* Define if your assembler supports .uleb128. */
+#undef HAVE_AS_LEB128
+
+/* Define if your assembler mis-optimizes .eh_frame data. */
+#undef USE_AS_TRADITIONAL_FORMAT
+
 /* Define if your assembler supports .register. */
 #undef HAVE_AS_REGISTER_PSEUDO_OP
 
@@ -443,11 +487,12 @@
 /* Define if your assembler supports offsetable %lo(). */
 #undef HAVE_AS_OFFSETABLE_LO10
 
-/* Define if your assembler supports dwarf2 .file/.loc directives. */
+/* Define if your assembler supports dwarf2 .file/.loc directives,
+   and preserves file table indicies exactly as given. */
 #undef HAVE_AS_DWARF2_DEBUG_LINE
 
-/* Define to 1 if you want to enable namespaces (-fhonor-std) by default. */
-#undef ENABLE_STD_NAMESPACE
+/* Define 0/1 to force the choice for exception handling model. */
+#undef CONFIG_SJLJ_EXCEPTIONS
 
 
 /* Bison unconditionally undefines `const' if neither `__STDC__' nor

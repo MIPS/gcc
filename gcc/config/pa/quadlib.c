@@ -30,6 +30,19 @@ Boston, MA 02111-1307, USA.  */
 int _U_Qfcmp (long double a, long double b, int);
 long _U_Qfcnvfxt_quad_to_sgl (long double);
 
+int _U_Qfeq (long double, long double);
+int _U_Qfne (long double, long double);
+int _U_Qfgt (long double, long double);
+int _U_Qfge (long double, long double);
+int _U_Qflt (long double, long double);
+int _U_Qfle (long double, long double);
+int _U_Qfcomp (long double, long double);
+long double _U_Qfneg (long double);
+#ifdef __LP64__
+int __U_Qfcnvfxt_quad_to_sgl (long double);
+#endif
+unsigned int _U_Qfcnvfxt_quad_to_usgl(long double);
+
 int
 _U_Qfeq (long double a, long double b)
 {
@@ -92,3 +105,12 @@ __U_Qfcnvfxt_quad_to_sgl (long double a)
   return _U_Qfcnvfxt_quad_to_sgl (a) >> 32;
 }
 #endif
+
+/* HP only has signed conversion in library, so need to synthesize an
+   unsigned version */
+unsigned int
+_U_Qfcnvfxt_quad_to_usgl(long double a)
+{
+  extern long long _U_Qfcnvfxt_quad_to_dbl (long double a);
+  return (unsigned int) _U_Qfcnvfxt_quad_to_dbl (a);
+}

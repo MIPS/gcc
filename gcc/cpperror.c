@@ -33,8 +33,11 @@ static void print_containing_files	PARAMS ((cpp_buffer *));
 static void print_location		PARAMS ((cpp_reader *,
 						 const char *,
 						 const cpp_lexer_pos *));
+
+/* Don't remove the blank before do, as otherwise the exgettext
+   script will mistake this as a function definition */
 #define v_message(msgid, ap) \
-do { vfprintf (stderr, _(msgid), ap); putc ('\n', stderr); } while (0)
+ do { vfprintf (stderr, _(msgid), ap); putc ('\n', stderr); } while (0)
 
 /* Print the file names and line numbers of the #include
    commands which led to the current file.  */
@@ -124,8 +127,6 @@ print_location (pfile, filename, pos)
 
       if (filename == 0)
 	filename = buffer->nominal_fname;
-      if (*filename == '\0')
-	filename = _("<stdin>");
 
       if (line == 0)
 	fprintf (stderr, "%s: ", filename);
@@ -159,6 +160,7 @@ _cpp_begin_message (pfile, code, file, pos)
       if (CPP_IN_SYSTEM_HEADER (pfile)
 	  && ! CPP_OPTION (pfile, warn_system_headers))
 	return 0;
+    case WARNING_SYSHDR:
       if (CPP_OPTION (pfile, warnings_are_errors)
 	  || (code == PEDWARN && CPP_OPTION (pfile, pedantic_errors)))
 	{

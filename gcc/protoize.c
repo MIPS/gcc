@@ -25,6 +25,9 @@ Boston, MA 02111-1307, USA.  */
 
 #include <setjmp.h>
 #include <signal.h>
+#if ! defined( SIGCHLD ) && defined( SIGCLD )
+#  define SIGCHLD SIGCLD
+#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -275,7 +278,7 @@ static const char * const other_var_style = "stdarg";
 static const char * const other_var_style = "varargs";
 /* Note that this is a string containing the expansion of va_alist.
    But in `main' we discard all but the first token.  */
-static const char *varargs_style_indicator = STRINGIFY (va_alist);
+static const char *varargs_style_indicator = STRINGX (va_alist);
 #endif /* !defined (UNPROTOIZE) */
 
 /* The following two types are used to create hash tables.  In this program,
@@ -4582,6 +4585,12 @@ main (argc, argv)
   }
 #endif
   pname = pname ? pname+1 : argv[0];
+
+#ifdef SIGCHLD
+  /* We *MUST* set SIGCHLD to SIG_DFL so that the wait4() call will
+     receive the signal.  A different setting is inheritable */
+  signal (SIGCHLD, SIG_DFL);
+#endif
 
 /* LC_CTYPE determines the character set used by the terminal so it has be set
    to output messages correctly.  */

@@ -42,7 +42,7 @@ static tree build_vec_delete_1 PARAMS ((tree, tree, tree, special_function_kind,
 static void perform_member_init PARAMS ((tree, tree, int));
 static void sort_base_init PARAMS ((tree, tree, tree *, tree *));
 static tree build_builtin_delete_call PARAMS ((tree));
-static int member_init_ok_or_else PARAMS ((tree, tree, const char *));
+static int member_init_ok_or_else PARAMS ((tree, tree, tree));
 static void expand_virtual_init PARAMS ((tree, tree));
 static tree sort_member_init PARAMS ((tree, tree));
 static tree initializing_context PARAMS ((tree));
@@ -750,7 +750,7 @@ emit_base_init (mem_init_list, base_init_list)
 	{
 	  member = convert_pointer_to_real (base_binfo, current_class_ptr);
 	  expand_aggr_init_1 (base_binfo, NULL_TREE,
-			      build_indirect_ref (member, NULL_PTR), init,
+			      build_indirect_ref (member, NULL), init,
 			      LOOKUP_NORMAL);
 	}
 
@@ -880,7 +880,7 @@ expand_virtual_init (binfo, decl)
 
   /* Compute the location of the vtpr.  */
   decl = convert_pointer_to_real (vtype_binfo, decl);
-  vtbl_ptr = build_vfield_ref (build_indirect_ref (decl, NULL_PTR), vtype);
+  vtbl_ptr = build_vfield_ref (build_indirect_ref (decl, NULL), vtype);
   if (vtbl_ptr == error_mark_node)
     return;
 
@@ -925,7 +925,7 @@ expand_aggr_vbase_init_1 (binfo, exp, addr, init_list)
      tree binfo, exp, addr, init_list;
 {
   tree init = purpose_member (binfo, init_list);
-  tree ref = build_indirect_ref (addr, NULL_PTR);
+  tree ref = build_indirect_ref (addr, NULL);
 
   if (init)
     init = TREE_VALUE (init);
@@ -1043,19 +1043,19 @@ static int
 member_init_ok_or_else (field, type, member_name)
      tree field;
      tree type;
-     const char *member_name;
+     tree member_name;
 {
   if (field == error_mark_node)
     return 0;
   if (field == NULL_TREE || initializing_context (field) != type)
     {
-      cp_error ("class `%T' does not have any field named `%s'", type,
+      cp_error ("class `%T' does not have any field named `%D'", type,
 		member_name);
       return 0;
     }
   if (TREE_STATIC (field))
     {
-      cp_error ("field `%#D' is static; only point of initialization is its declaration",
+      cp_error ("field `%#D' is static; the only point of initialization is its definition",
 		field);
       return 0;
     }
@@ -1162,7 +1162,7 @@ expand_member_init (exp, name, init)
     try_member:
       field = lookup_field (type, name, 1, 0);
 
-      if (! member_init_ok_or_else (field, type, IDENTIFIER_POINTER (name)))
+      if (! member_init_ok_or_else (field, type, name))
 	return NULL_TREE;
 
       init = build_tree_list (field, init);
@@ -1593,7 +1593,7 @@ build_member_call (type, name, parmlist)
 	{
 	  tree newtype = build_qualified_type (type, TYPE_QUALS (oldtype));
 	  decl = convert_force (build_pointer_type (newtype), olddecl, 0);
-	  decl = build_indirect_ref (decl, NULL_PTR);
+	  decl = build_indirect_ref (decl, NULL);
 	}
     }
 
@@ -1926,7 +1926,7 @@ resolve_offset_ref (exp)
 	return error_mark_node;
 
       expr = build (COMPONENT_REF, TREE_TYPE (member),
-		    build_indirect_ref (addr, NULL_PTR), member);
+		    build_indirect_ref (addr, NULL), member);
       return convert_from_reference (expr);
     }
 
@@ -2200,7 +2200,7 @@ tree
 build_java_class_ref (type)
      tree type;
 {
-  tree name, class_decl;
+  tree name = NULL_TREE, class_decl;
   static tree CL_suffix = NULL_TREE;
   if (CL_suffix == NULL_TREE)
     CL_suffix = get_identifier("class$");
@@ -2219,7 +2219,8 @@ build_java_class_ref (type)
     for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
       if (DECL_NAME (field) == CL_suffix)
 	{
-	  name = mangle_decl (field);
+	  mangle_decl (field);
+	  name = DECL_ASSEMBLER_NAME (field);
 	  break;
 	}
     if (!field)
@@ -2236,7 +2237,7 @@ build_java_class_ref (type)
       DECL_ARTIFICIAL (class_decl) = 1;
       DECL_IGNORED_P (class_decl) = 1;
       pushdecl_top_level (class_decl);
-      make_decl_rtl (class_decl, NULL_PTR);
+      make_decl_rtl (class_decl, NULL);
     }
   return class_decl;
 }
@@ -2292,6 +2293,9 @@ build_new_1 (exp)
      beginning of the storage allocated for an array-new expression in
      order to store the number of elements.  */
   tree cookie_size = NULL_TREE;
+  /* True if the function we are calling is a placement allocation
+     function.  */
+  bool placement_allocation_fn_p;
 
   placement = TREE_OPERAND (exp, 0);
   type = TREE_OPERAND (exp, 1);
@@ -2417,8 +2421,25 @@ build_new_1 (exp)
   if (alloc_call == error_mark_node)
     return error_mark_node;
 
-  if (alloc_call == NULL_TREE)
-    abort ();
+  /* The ALLOC_CALL should be a CALL_EXPR, and the first operand
+     should be the address of a known FUNCTION_DECL.  */
+  my_friendly_assert (TREE_CODE (alloc_call) == CALL_EXPR, 20000521);
+  t = TREE_OPERAND (alloc_call, 0);
+  my_friendly_assert (TREE_CODE (t) == ADDR_EXPR, 20000521);
+  t = TREE_OPERAND (t, 0);
+  my_friendly_assert (TREE_CODE (t) == FUNCTION_DECL, 20000521);
+  /* Now, check to see if this function is actually a placement
+     allocation function.  This can happen even when PLACEMENT is NULL
+     because we might have something like:
+
+       struct S { void* operator new (size_t, int i = 0); };
+
+     A call to `new S' will get this allocation function, even though
+     there is no explicit placement argument.  If there is more than
+     one argument, or there are variable arguments, then this is a
+     placement allocation function.  */
+  placement_allocation_fn_p 
+    = (type_num_arguments (TREE_TYPE (t)) > 1 || varargs_function_p (t));
 
   /*        unless an allocation function is declared with an empty  excep-
      tion-specification  (_except.spec_),  throw(), it indicates failure to
@@ -2463,7 +2484,7 @@ build_new_1 (exp)
 	 elements.  */
       cookie = build (MINUS_EXPR, build_pointer_type (sizetype),
 		      alloc_node, size_in_bytes (sizetype));
-      cookie = build_indirect_ref (cookie, NULL_PTR);
+      cookie = build_indirect_ref (cookie, NULL);
 
       cookie_expr = build (MODIFY_EXPR, void_type_node, cookie, nelts);
       TREE_SIDE_EFFECTS (cookie_expr) = 1;
@@ -2475,7 +2496,7 @@ build_new_1 (exp)
   init_expr = NULL_TREE;
   if (TYPE_NEEDS_CONSTRUCTING (type) || init)
     {
-      init_expr = build_indirect_ref (alloc_node, NULL_PTR);
+      init_expr = build_indirect_ref (alloc_node, NULL);
 
       if (init == void_zero_node)
 	init = build_default_init (full_type);
@@ -2535,7 +2556,8 @@ build_new_1 (exp)
 	  flags |= LOOKUP_SPECULATIVELY;
 
 	  cleanup = build_op_delete_call (dcode, alloc_node, size, flags,
-					  alloc_call);
+					  (placement_allocation_fn_p 
+					   ? alloc_call : NULL_TREE));
 
 	  /* Ack!  First we allocate the memory.  Then we set our sentry
 	     variable to true, and expand a cleanup that deletes the memory
@@ -2779,7 +2801,7 @@ get_temp_regvar (type, init)
   if (building_stmt_tree ())
     add_decl_stmt (decl);
   if (!building_stmt_tree ())
-    DECL_RTL (decl) = assign_temp (type, 2, 0, 1);
+    SET_DECL_RTL (decl, assign_temp (type, 2, 0, 1));
   finish_expr_stmt (build_modify_expr (decl, INIT_EXPR, init));
 
   return decl;
@@ -3154,7 +3176,6 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 {
   tree member;
   tree expr;
-  tree ref;
 
   if (addr == error_mark_node)
     return error_mark_node;
@@ -3183,7 +3204,6 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 
       /* throw away const and volatile on target type of addr */
       addr = convert_force (build_pointer_type (type), addr, 0);
-      ref = build_indirect_ref (addr, NULL_PTR);
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -3208,8 +3228,6 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 	addr = save_expr (addr);
 
       addr = convert_force (build_pointer_type (type), addr, 0);
-
-      ref = build_indirect_ref (addr, NULL_PTR);
     }
 
   my_friendly_assert (IS_AGGR_TYPE (type), 220);
@@ -3238,6 +3256,8 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 	 delete'.  */
       if (use_global_delete && auto_delete == sfk_deleting_destructor)
 	{
+	  /* We will use ADDR multiple times so we must save it.  */
+	  addr = save_expr (addr);
 	  /* Delete the object. */
 	  do_delete = build_builtin_delete_call (addr);
 	  /* Otherwise, treat this like a complete object destructor
@@ -3250,7 +3270,9 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
       else if (!DECL_VIRTUAL_P (CLASSTYPE_DESTRUCTORS (type))
 	       && auto_delete == sfk_deleting_destructor)
 	{
-	  /* Buidl the call.  */
+	  /* We will use ADDR multiple times so we must save it.  */
+	  addr = save_expr (addr);
+	  /* Build the call.  */
 	  do_delete = build_op_delete_call (DELETE_EXPR,
 					    addr,
 					    c_sizeof_nowarn (type),
@@ -3260,7 +3282,8 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
 	  auto_delete = sfk_complete_destructor;
 	}
 
-      expr = build_dtor_call (ref, auto_delete, flags);
+      expr = build_dtor_call (build_indirect_ref (addr, NULL),
+			      auto_delete, flags);
       if (do_delete)
 	expr = build (COMPOUND_EXPR, void_type_node, expr, do_delete);
 
@@ -3284,6 +3307,7 @@ build_delete (type, addr, auto_delete, flags, use_global_delete)
       int i, n_baseclasses = CLASSTYPE_N_BASECLASSES (type);
       tree base_binfo = n_baseclasses > 0 ? TREE_VEC_ELT (binfos, 0) : NULL_TREE;
       tree exprstmt = NULL_TREE;
+      tree ref = build_indirect_ref (addr, NULL);
 
       /* Set this again before we call anything, as we might get called
 	 recursively.  */
@@ -3401,7 +3425,7 @@ build_vec_delete (base, maxindex, auto_delete_vec, use_global_delete)
 			   build_pointer_type (sizetype),
 			   base,
 			   TYPE_SIZE_UNIT (sizetype));
-      maxindex = build_indirect_ref (cookie_addr, NULL_PTR);
+      maxindex = build_indirect_ref (cookie_addr, NULL);
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {

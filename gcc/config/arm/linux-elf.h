@@ -1,5 +1,6 @@
 /* Definitions for ARM running Linux-based GNU systems using ELF
-   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001 
+   Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org>
 
 This file is part of GNU CC.
@@ -25,35 +26,12 @@ Boston, MA 02111-1307, USA.  */
 /* Do not assume anything about header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
-#ifndef SUBTARGET_DEFAULT_APCS26
 /* Default is to use APCS-32 mode.  */
-# define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_MMU_TRAPS)
-# ifdef SUBTARGET_OLD_LINKER
-#  define SUBTARGET_EXTRA_LINK_SPEC	\
-	" %{mapcs-26:-m elf32arm26} %{!mapcs-26:-m elf32arm}"
-# else	/* new linker */
-#  define SUBTARGET_EXTRA_LINK_SPEC	\
-	" %{mapcs-26:-m armelf_linux26} %{!mapcs-26:-m armelf_linux} -p"
-# endif
-# define SUBTARGET_EXTRA_ASM_SPEC	\
-	" %{mapcs-26:-mapcs-26} %{!mapcs-26:-mapcs-32}"
-# define MULTILIB_DEFAULTS \
+#define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_MMU_TRAPS)
+#define SUBTARGET_EXTRA_LINK_SPEC " -m armelf_linux -p"
+#define MULTILIB_DEFAULTS \
 	{ "marm", "mlittle-endian", "mhard-float", "mapcs-32", "mno-thumb-interwork" }
-# define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"
-#else	/* default is APCS-26 */
-# define TARGET_DEFAULT (ARM_FLAG_MMU_TRAPS)
-# ifdef SUBTARGET_OLD_LINKER
-#  define SUBTARGET_EXTRA_LINK_SPEC	\
-	" %{mapcs-32:-m elf32arm} %{!mapcs-32:-m elf32arm26}"
-# else	/* new linker */
-#  define SUBTARGET_EXTRA_LINK_SPEC	\
-	" %{mapcs-32:-m armelf_linux} %{!mapcs-32:-m armelf_linux26} -p"
-# endif
-# define SUBTARGET_EXTRA_ASM_SPEC	\
-	" %{mapcs-32:-mapcs-32} %{!mapcs-32:-mapcs-26}"
-# define MULTILIB_DEFAULTS \
-	{ "marm", "mlittle-endian", "mhard-float", "mapcs-26", "mno-thumb-interwork" }
-#endif
+#define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"
 
 /* This was defined in linux.h.  Define it here also. */
 #undef  DEFAULT_VTABLE_THUNKS
@@ -114,27 +92,11 @@ Boston, MA 02111-1307, USA.  */
 #define USER_LABEL_PREFIX 	""	/* For ELF the default is no underscores */
 #define LOCAL_LABEL_PREFIX 	"."
 
-/* Attach a special .ident directive to the end of the file to identify
-   the version of GCC which compiled this code.  */
 #define IDENT_ASM_OP 	"\t.ident\t"
 
 /* Output #ident as a .ident.  */
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
   fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
-  
-#ifdef IDENTIFY_WITH_IDENT
-#define ASM_IDENTIFY_GCC(FILE) /* nothing */
-#define ASM_IDENTIFY_LANGUAGE(FILE)			\
- fprintf (FILE, "%s\"GCC (%s) %s\"\n", IDENT_ASM_OP,	\
-	 lang_identify (), version_string)
-#else
-#define ASM_FILE_END(FILE)					\
-do {				 				\
-     if (!flag_no_ident)					\
-	fprintf ((FILE), "%s\"GCC: (GNU) %s\"\n",		\
-		 IDENT_ASM_OP, version_string);			\
-   } while (0)
-#endif
 
 /* Support const sections and the ctors and dtors sections for g++.
    Note that there appears to be two different ways to support const

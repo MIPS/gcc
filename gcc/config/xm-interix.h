@@ -1,5 +1,5 @@
 /* Configuration for GNU compiler for processor running Interix
-   Copyright (C) 1993, 1995, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1995, 1999, 2001 Free Software Foundation, Inc.
    Donn Terry, Softway Systems, Inc,
    from code
       Contributed by Douglas B. Rupp (drupp@cs.washington.edu)
@@ -20,25 +20,6 @@ You should have received a copy of the GNU General Public License
 along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
-
-#ifndef USG
-#define USG 1
-#endif
-
-#ifndef ONLY_INT_FIELDS
-#ifndef __GNUC__
-#define ONLY_INT_FIELDS 1
-#endif
-#endif
-
-#ifndef USE_PROTOTYPES
-#define USE_PROTOTYPES 1
-#endif
-
-/* If not compiled with GNU C, use the portable alloca.  */
-#ifndef __GNUC__
-#define USE_C_ALLOCA 1
-#endif
 
 /* Our strategy for finding global constructors is a bit different, although
    not a lot. */

@@ -33,18 +33,6 @@ Note:
 
 */
 
-#undef GCC_VERSION
-#if 1 /* def N_*/
-# define GCC_VERSION 2096
-#else
-# define GCC_VERSION 2095
-
-/* NLS support in 2.96 */
-# define N_(X) X
-#endif
-
-#include "elfos.h"
-
 /*****************************************************************************
 **
 ** Controlling the Compilation Driver, `gcc'
@@ -77,7 +65,8 @@ Note:
 "%{mshort:-D__HAVE_SHORT_INT__ -D__INT__=16 -D__INT_MAX__=32767}\
  %{!mshort:-D__INT__=32 -D__INT_MAX__=2147483647}\
  %{m68hc12:-Dmc6812 -DMC6812 -Dmc68hc12}\
- %{!m68hc12:-Dmc6811 -DMC6811 -Dmc68hc11}"
+ %{!m68hc12:-Dmc6811 -DMC6811 -Dmc68hc11}\
+ %{fshort-double:-D__HAVE_SHORT_DOUBLE__}"
 #endif
 
 #undef STARTFILE_SPEC
@@ -86,21 +75,8 @@ Note:
 /* Names to predefine in the preprocessor for this target machine.  */
 #define CPP_PREDEFINES		"-Dmc68hc1x"
 
-
-#ifndef IN_LIBGCC2
-#  include <stdio.h>
-#endif
-
-#include "gansidecl.h"
-
-#if GCC_VERSION == 2095
-#ifndef PARAMS
-#if defined(ANSI_PROTOTYPES) || defined(__cplusplus)
-#define PARAMS(args) args
-#else
-#define PARAMS(args) ()
-#endif
-#endif
+/* As an embedded target, we have no libc.  */
+#define inhibit_libc
 
 /* Forward type declaration for prototypes definitions.
    rtx_ptr is equivalent to rtx. Can't use the same name. */
@@ -113,9 +89,7 @@ typedef union tree_node *tree_ptr;
 /* We can't declare enum machine_mode forward nor include 'machmode.h' here.
    Prototypes defined here will use an int instead. It's better than no
    prototype at all. */
-
 typedef int enum_machine_mode;
-#endif
 
 /*****************************************************************************
 **
@@ -234,6 +208,25 @@ extern const char *m68hc11_soft_reg_count;
    `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
 
 #define OVERRIDE_OPTIONS	m68hc11_override_options ();
+
+
+/* Define cost parameters for a given processor variant.  */
+struct processor_costs {
+  int add;		/* cost of an add instruction */
+  int logical;          /* cost of a logical instruction */
+  int shift_var;
+  int shiftQI_const[8];
+  int shiftHI_const[16];
+  int multQI;
+  int multHI;
+  int multSI;
+  int divQI;
+  int divHI;
+  int divSI;
+};
+
+/* Costs for the current processor.  */
+extern struct processor_costs *m68hc11_cost;
 
 
 /* target machine storage layout */
@@ -352,15 +345,6 @@ extern const char *m68hc11_soft_reg_count;
    where TARGET_SHORT is not available.  */
 #define WCHAR_TYPE              "short int"
 #define WCHAR_TYPE_SIZE         16
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL		007
-#define TARGET_BS		010
-#define TARGET_TAB		011
-#define TARGET_NEWLINE		012
-#define TARGET_VT		013
-#define TARGET_FF		014
-#define TARGET_CR		015
 
 
 /* Standard register usage.  */
@@ -722,6 +706,9 @@ enum reg_class
 #define Y_REGNO_P(REGNO)        ((REGNO) == HARD_Y_REGNUM)
 #define Y_REG_P(X)              (REG_P (X) && Y_REGNO_P (REGNO (X)))
 
+#define Z_REGNO_P(REGNO)        ((REGNO) == HARD_Z_REGNUM)
+#define Z_REG_P(X)              (REG_P (X) && Z_REGNO_P (REGNO (X)))
+
 #define SP_REGNO_P(REGNO)       ((REGNO) == HARD_SP_REGNUM)
 #define SP_REG_P(X)             (REG_P (X) && SP_REGNO_P (REGNO (X)))
 
@@ -795,9 +782,6 @@ extern enum reg_class m68hc11_tmp_regs_class;
     (C) == 'z' ? Z_REGS : NO_REGS)
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)	preferred_reload_class(X,CLASS)
-
-
-#define LIMIT_RELOAD_CLASS(MODE, CLASS) limit_reload_class(MODE,CLASS)
 
 #define SMALL_REGISTER_CLASSES 1
 
@@ -891,8 +875,7 @@ extern enum reg_class m68hc11_tmp_regs_class;
    If FRAME_GROWS_DOWNWARD, this is the offset to the END of the
    first local allocated.  Otherwise, it is the offset to the BEGINNING
    of the first local allocated.  */
-extern int m68hc11_sp_correction;
-#define STARTING_FRAME_OFFSET		m68hc11_sp_correction
+#define STARTING_FRAME_OFFSET		0
 
 /* Offset of first parameter from the argument pointer register value.  */
 
@@ -907,6 +890,12 @@ extern int m68hc11_sp_correction;
    Before the prologue, RA is at 0(sp). */
 #define INCOMING_RETURN_ADDR_RTX \
     gen_rtx_MEM (VOIDmode, gen_rtx_REG (VOIDmode, STACK_POINTER_REGNUM))
+
+/* After the prologue, RA is at 0(AP) in the current frame.  */
+#define RETURN_ADDR_RTX(COUNT, FRAME)					\
+  ((COUNT) == 0								\
+   ? gen_rtx_MEM (Pmode, arg_pointer_rtx)                               \
+   : 0)
 
 /* Before the prologue, the top of the frame is at 2(sp).  */
 #define INCOMING_FRAME_SP_OFFSET        2
@@ -943,7 +932,7 @@ extern int m68hc11_sp_correction;
 #define ARG_POINTER_REGNUM		SOFT_AP_REGNUM
 
 /* Register in which static-chain is passed to a function.  */
-#define STATIC_CHAIN_REGNUM	        SOFT_REG_FIRST
+#define STATIC_CHAIN_REGNUM	        SOFT_Z_REGNUM
 
 
 /* Definitions for register eliminations.
@@ -985,8 +974,6 @@ extern int m68hc11_sp_correction;
 
 #define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)			\
     { OFFSET = m68hc11_initial_elimination_offset (FROM, TO); }
-
-/* LONGJMP_RESTORE_FROM_STACK */
 
 
 /* Passing Function Arguments on the Stack.  */
@@ -1104,8 +1091,6 @@ typedef struct m68hc11_args
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   m68hc11_va_arg (valist, type)
 
-#define FUNCTION_EPILOGUE(FILE, SIZE)	m68hc11_function_epilogue(FILE, SIZE)
-
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
    For args passed entirely in registers or entirely in memory, zero.
@@ -1194,51 +1179,18 @@ typedef struct m68hc11_args
     asm ("puly");	       \
   }
 
-/* Output assembler code for a block containing the constant parts
-   of a trampoline, leaving space for the variable parts.  */
-#define TRAMPOLINE_TEMPLATE(FILE) { \
-  fprintf (FILE, "\t.bogus\t\t; TRAMPOLINE_TEMPLATE unimplemented\n"); }
-
 /* Length in units of the trampoline for entering a nested function.  */
-#define TRAMPOLINE_SIZE		0
+#define TRAMPOLINE_SIZE		(TARGET_M6811 ? 11 : 9)
 
 /* A C statement to initialize the variable parts of a trampoline.
    ADDR is an RTX for the address of the trampoline; FNADDR is an
    RTX for the address of the nested function; STATIC_CHAIN is an
    RTX for the static chain value that should be passed to the
    function when it is called.  */
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) { \
-	}
+#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
+  m68hc11_initialize_trampoline ((TRAMP), (FNADDR), (CXT))
+
 
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, NAME, ARGS) \
-  (m68hc11_valid_decl_attribute_p (DECL, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, NAME, ARGS) \
-  (m68hc11_valid_type_attribute_p (TYPE, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is zero if the attributes on
-   TYPE1 and TYPE2 are incompatible, one if they are compatible, and
-   two if they are nearly compatible (which causes a warning to be
-   generated).  */
-
-#define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) \
-  (m68hc11_comp_type_attributes (TYPE1, TYPE2))
-
-/* If defined, a C statement that assigns default attributes to newly
-   defined TYPE.  */
-
-#define SET_DEFAULT_TYPE_ATTRIBUTES(TYPE) \
-  (m68hc11_set_default_type_attributes (TYPE))
-
 /* Define this macro if references to a symbol must be treated
    differently depending on something about the variable or function
    named by the symbol (such as what section it is in).
@@ -1297,11 +1249,7 @@ extern enum reg_class m68hc11_index_reg_class;
 
 
 /* Internal macro, return 1 if REGNO is a valid base register.  */
-#if GCC_VERSION == 2095
-# define REG_VALID_P(REGNO) ((REGNO) >= 0)
-#else
-# define REG_VALID_P(REGNO) (1)	/* ? */
-#endif
+#define REG_VALID_P(REGNO) (1)	/* ? */
 
 extern unsigned char m68hc11_reg_valid_for_base[FIRST_PSEUDO_REGISTER];
 #define REG_VALID_FOR_BASE_P(REGNO) \
@@ -1487,22 +1435,54 @@ extern unsigned char m68hc11_reg_valid_for_index[FIRST_PSEUDO_REGISTER];
 
 /* Compute the cost of computing a constant rtl expression RTX whose rtx-code
    is CODE.  The body of this macro is a portion of a switch statement.  If
-   the code is computed here, return it with a return statement. Otherwise,
-   break from the switch.  */
-#define CONST_COSTS(RTX,CODE,OUTER_CODE) \
- case CONST_INT:			 \
-    if (RTX == const0_rtx) return 0;	 \
- case CONST:				 \
-    return 0;                            \
- case LABEL_REF:			 \
- case SYMBOL_REF:			 \
-   return 1;				 \
- case CONST_DOUBLE:			 \
+   the code is computed here, return it with a return statement.  Otherwise,
+   break from the switch.
+
+   Constants are cheap.  Moving them in registers must be avoided
+   because most instructions do not handle two register operands.  */
+#define CONST_COSTS(RTX,CODE,OUTER_CODE)			\
+ case CONST_INT:						\
+     /* Logical and arithmetic operations with a constant  */	\
+     /* operand are better because they are not supported  */	\
+     /* with two registers.  */					\
+     /* 'clr' is slow */					\
+   if ((OUTER_CODE) == SET && (RTX) == const0_rtx)		\
+     /* After reload, the reload_cse pass checks the cost */    \
+     /* to change a SET into a PLUS.  Make const0 cheap.  */    \
+     return 1 - reload_completed;				\
+   else								\
+     return 0;							\
+ case CONST:							\
+ case LABEL_REF:						\
+ case SYMBOL_REF:						\
+   if ((OUTER_CODE) == SET)					\
+      return 1 - reload_completed;				\
+   return 0;							\
+ case CONST_DOUBLE:						\
    return 0;
 
-#define DEFAULT_RTX_COSTS(X,CODE,OUTER_CODE)		\
-    return m68hc11_rtx_costs (X, CODE, OUTER_CODE);
-
+#define RTX_COSTS(X,CODE,OUTER_CODE)				\
+ case ROTATE:							\
+ case ROTATERT:							\
+ case ASHIFT:							\
+ case LSHIFTRT:							\
+ case ASHIFTRT:							\
+ case MINUS:							\
+ case PLUS:							\
+ case AND:							\
+ case XOR:							\
+ case IOR:							\
+ case UDIV:							\
+ case DIV:							\
+ case MOD:							\
+ case MULT:							\
+ case NEG:							\
+ case SIGN_EXTEND:						\
+ case NOT:							\
+ case COMPARE:							\
+ case ZERO_EXTEND:						\
+ case IF_THEN_ELSE:						\
+   return m68hc11_rtx_costs (X, CODE, OUTER_CODE);
 
 /* An expression giving the cost of an addressing mode that contains
    ADDRESS.  If not defined, the cost is computed from the ADDRESS
@@ -1553,7 +1533,7 @@ do {                                                                    \
       && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT			\
       && GET_CODE (XEXP (X, 1)) == CONST_INT)				\
     {									\
-      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,       \
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,           \
                    BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,        \
                    OPNUM, TYPE);                                        \
       goto WIN;                                                         \
@@ -1576,7 +1556,7 @@ do {                                                                    \
                                       GEN_INT (high)),                  \
                         GEN_INT (low));                                 \
                                                                         \
-      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,       \
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,           \
                    BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,        \
                    OPNUM, TYPE);                                        \
       goto WIN;                                                         \
@@ -1665,13 +1645,6 @@ do { long l;						\
 
 #define ASM_OUTPUT_BYTE(FILE,VALUE)			\
   fprintf ((FILE), "%s0x%x\n", ASM_BYTE_OP, (VALUE))
-
-
-/* Define the parentheses used to group arithmetic operations in assembler
- * code.  
- */
-#define ASM_OPEN_PAREN		"("
-#define ASM_CLOSE_PAREN		")"
 
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
@@ -1882,14 +1855,3 @@ extern int debug_m6811;
 extern int z_replacement_completed;
 extern int current_function_interrupt;
 extern int current_function_trap;
-
-#if GCC_VERSION == 2095
-extern rtx_ptr iy_reg;
-extern rtx_ptr iy_reg;
-extern rtx_ptr d_reg;
-extern rtx_ptr m68hc11_soft_tmp_reg;
-extern rtx_ptr m68hc11_compare_op0;
-extern rtx_ptr m68hc11_compare_op1;
-extern long m68hc11_min_offset;
-extern long m68hc11_max_offset;
-#endif

@@ -30,10 +30,12 @@ Boston, MA 02111-1307, USA.  */
 #define OBJECT_XCOFF 1
 #define OBJECT_ELF 2
 #define OBJECT_PEF 3
+#define OBJECT_MACHO 4
 
 #define TARGET_ELF (TARGET_OBJECT_FORMAT == OBJECT_ELF)
 #define TARGET_AIX (TARGET_OBJECT_FORMAT == OBJECT_XCOFF)
 #define TARGET_MACOS (TARGET_OBJECT_FORMAT == OBJECT_PEF)
+#define TARGET_MACHO (TARGET_OBJECT_FORMAT == OBJECT_MACHO)
 
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION ;
@@ -861,6 +863,10 @@ extern int rs6000_debug_arg;		/* debug argument handling */
       && flag_pic == 1)							\
     fixed_regs[PIC_OFFSET_TABLE_REGNUM]					\
       = call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
+  if (DEFAULT_ABI == ABI_DARWIN && flag_pic)				\
+    global_regs[PIC_OFFSET_TABLE_REGNUM]				\
+      = fixed_regs[PIC_OFFSET_TABLE_REGNUM]				\
+        = call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
 }
 
 /* Specify the registers used for certain standard purposes.
@@ -1159,7 +1165,8 @@ enum rs6000_abi {
   ABI_AIX,			/* IBM's AIX */
   ABI_AIX_NODESC,		/* AIX calling sequence minus function descriptors */
   ABI_V4,			/* System V.4/eabi */
-  ABI_SOLARIS			/* Solaris */
+  ABI_SOLARIS,			/* Solaris */
+  ABI_DARWIN			/* Apple's Darwin (OS X kernel) */
 };
 
 extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
@@ -1180,6 +1187,7 @@ typedef struct rs6000_stack {
   int cr_save_offset;		/* offset to save CR from initial SP */
   int toc_save_offset;		/* offset to save the TOC pointer */
   int varargs_save_offset;	/* offset to save the varargs registers */
+  int ehrd_offset;		/* offset to EH return data */
   int reg_size;			/* register size (4 or 8) */
   int varargs_size;		/* size to hold V.4 args passed in regs */
   int vars_size;		/* variable save area size */
@@ -1209,13 +1217,14 @@ typedef struct rs6000_stack {
 
 /* Size of the outgoing register save area */
 #define RS6000_REG_SAVE ((DEFAULT_ABI == ABI_AIX			\
-			  || DEFAULT_ABI == ABI_AIX_NODESC)		\
+			  || DEFAULT_ABI == ABI_AIX_NODESC		\
+			  || DEFAULT_ABI == ABI_DARWIN)			\
 			 ? (TARGET_64BIT ? 64 : 32)			\
 			 : 0)
 
 /* Size of the fixed area on the stack */
 #define RS6000_SAVE_AREA \
-  (((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_AIX_NODESC) ? 24 : 8)	\
+  (((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_AIX_NODESC || DEFAULT_ABI == ABI_DARWIN) ? 24 : 8)	\
    << (TARGET_64BIT ? 1 : 0))
 
 /* MEM representing address to save the TOC register */
@@ -1350,7 +1359,8 @@ typedef struct rs6000_stack {
 #define	FP_ARG_AIX_MAX_REG 45
 #define	FP_ARG_V4_MAX_REG  40
 #define	FP_ARG_MAX_REG ((DEFAULT_ABI == ABI_AIX				\
-			 || DEFAULT_ABI == ABI_AIX_NODESC)		\
+			 || DEFAULT_ABI == ABI_AIX_NODESC		\
+			 || DEFAULT_ABI == ABI_DARWIN)			\
 			? FP_ARG_AIX_MAX_REG : FP_ARG_V4_MAX_REG)
 #define FP_ARG_NUM_REG (FP_ARG_MAX_REG - FP_ARG_MIN_REG + 1)
 
@@ -1384,8 +1394,6 @@ typedef struct machine_function
 {
   /* Whether a System V.4 varargs area was created.  */
   int sysv_varargs_p;
-  /* Set if a return address rtx for loading from LR was created.  */
-  struct rtx_def *ra_rtx;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
 } machine_function;
@@ -1422,9 +1430,8 @@ typedef struct rs6000_args
 /* Define intermediate macro to compute the size (in registers) of an argument
    for the RS/6000.  */
 
-#define RS6000_ARG_SIZE(MODE, TYPE, NAMED)				\
-(! (NAMED) ? 0								\
- : (MODE) != BLKmode							\
+#define RS6000_ARG_SIZE(MODE, TYPE)					\
+((MODE) != BLKmode							\
  ? (GET_MODE_SIZE (MODE) + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD	\
  : ((unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) 			\
     + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
@@ -1540,15 +1547,9 @@ typedef struct rs6000_args
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   rs6000_va_arg (valist, type)
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) output_prolog (FILE, SIZE)
+/* Define this macro to be a nonzero value if the location where a function
+   argument is passed depends on whether or not it is a named argument.  */
+#define STRICT_ARGUMENT_NAMING 1
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -1569,20 +1570,11 @@ typedef struct rs6000_args
    and frame pointer registers are already be assumed to be used as
    needed.  */
 
-#define	EPILOGUE_USES(REGNO)	\
-  (reload_completed && (REGNO) == LINK_REGISTER_REGNUM)
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) output_epilog (FILE, SIZE)
+#define	EPILOGUE_USES(REGNO)					\
+  ((reload_completed && (REGNO) == LINK_REGISTER_REGNUM)	\
+   || (current_function_calls_eh_return				\
+       && TARGET_AIX						\
+       && (REGNO) == TOC_REGISTER))
 
 /* TRAMPOLINE_TEMPLATE deleted */
 
@@ -1596,35 +1588,6 @@ typedef struct rs6000_args
 
 #define INITIALIZE_TRAMPOLINE(ADDR, FNADDR, CXT)		\
   rs6000_initialize_trampoline (ADDR, FNADDR, CXT)
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, NAME, ARGS) \
-  (rs6000_valid_decl_attribute_p (DECL, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, NAME, ARGS) \
-  (rs6000_valid_type_attribute_p (TYPE, ATTRIBUTES, NAME, ARGS))
-
-/* If defined, a C expression whose value is zero if the attributes on
-   TYPE1 and TYPE2 are incompatible, one if they are compatible, and
-   two if they are nearly compatible (which causes a warning to be
-   generated).  */
-
-#define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) \
-  (rs6000_comp_type_attributes (TYPE1, TYPE2))
-
-/* If defined, a C statement that assigns default attributes to newly
-   defined TYPE.  */
-
-#define SET_DEFAULT_TYPE_ATTRIBUTES(TYPE) \
-  (rs6000_set_default_type_attributes (TYPE))
-
 
 /* Definitions for __builtin_return_address and __builtin_frame_address.
    __builtin_return_address (0) should give link register (65), enable
@@ -1641,6 +1604,7 @@ typedef struct rs6000_args
    abi's store the return address.  */
 #define RETURN_ADDRESS_OFFSET						\
  ((DEFAULT_ABI == ABI_AIX						\
+   || DEFAULT_ABI == ABI_DARWIN						\
    || DEFAULT_ABI == ABI_AIX_NODESC)	? (TARGET_32BIT ? 8 : 16) :	\
   (DEFAULT_ABI == ABI_V4						\
    || DEFAULT_ABI == ABI_SOLARIS)	? (TARGET_32BIT ? 4 : 8) :	\
@@ -1772,26 +1736,28 @@ typedef struct rs6000_args
    After reload, it makes no difference, since pseudo regs have
    been eliminated by then.  */
 
-#ifndef REG_OK_STRICT
+#ifdef REG_OK_STRICT
+# define REG_OK_STRICT_FLAG 1
+#else
+# define REG_OK_STRICT_FLAG 0
+#endif
 
 /* Nonzero if X is a hard reg that can be used as an index
-   or if it is a pseudo reg.  */
-#define REG_OK_FOR_INDEX_P(X)			\
-  (REGNO (X) <= 31 || REGNO (X) == 67 || REGNO (X) >= FIRST_PSEUDO_REGISTER)
+   or if it is a pseudo reg in the non-strict case.  */
+#define INT_REG_OK_FOR_INDEX_P(X, STRICT)			\
+  ((! (STRICT)							\
+    && (REGNO (X) <= 31						\
+	|| REGNO (X) == ARG_POINTER_REGNUM			\
+	|| REGNO (X) >= FIRST_PSEUDO_REGISTER))			\
+   || ((STRICT) && REGNO_OK_FOR_INDEX_P (REGNO (X))))
 
 /* Nonzero if X is a hard reg that can be used as a base reg
-   or if it is a pseudo reg.  */
-#define REG_OK_FOR_BASE_P(X)					 \
-  (REGNO (X) > 0 && REG_OK_FOR_INDEX_P (X))
+   or if it is a pseudo reg in the non-strict case.  */
+#define INT_REG_OK_FOR_BASE_P(X, STRICT)			\
+  (REGNO (X) > 0 && INT_REG_OK_FOR_INDEX_P (X, (STRICT)))
 
-#else
-
-/* Nonzero if X is a hard reg that can be used as an index.  */
-#define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
-/* Nonzero if X is a hard reg that can be used as a base reg.  */
-#define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
-
-#endif
+#define REG_OK_FOR_INDEX_P(X) INT_REG_OK_FOR_INDEX_P (X, REG_OK_STRICT_FLAG)
+#define REG_OK_FOR_BASE_P(X)  INT_REG_OK_FOR_BASE_P (X, REG_OK_STRICT_FLAG)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
    that is a valid memory address for an instruction.
@@ -1828,68 +1794,51 @@ typedef struct rs6000_args
    && (GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == CONST)		\
    && small_data_operand (X, MODE))
 
-#define LEGITIMATE_ADDRESS_INTEGER_P(X,OFFSET)				\
+#define LEGITIMATE_ADDRESS_INTEGER_P(X, OFFSET)				\
  (GET_CODE (X) == CONST_INT						\
   && (unsigned HOST_WIDE_INT) (INTVAL (X) + (OFFSET) + 0x8000) < 0x10000)
 
-#define LEGITIMATE_OFFSET_ADDRESS_P(MODE,X)		\
- (GET_CODE (X) == PLUS					\
-  && GET_CODE (XEXP (X, 0)) == REG			\
-  && REG_OK_FOR_BASE_P (XEXP (X, 0))			\
-  && LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 0)	\
-  && (((MODE) != DFmode && (MODE) != DImode)		\
-      || (TARGET_32BIT					\
-	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 4) \
-	  : ! (INTVAL (XEXP (X, 1)) & 3)))		\
-  && ((MODE) != TImode					\
-      || (TARGET_32BIT					\
-	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 12) \
-	  : (LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 8) \
+#define LEGITIMATE_OFFSET_ADDRESS_P(MODE, X, STRICT)		\
+ (GET_CODE (X) == PLUS						\
+  && GET_CODE (XEXP (X, 0)) == REG				\
+  && INT_REG_OK_FOR_BASE_P (XEXP (X, 0), (STRICT))		\
+  && LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 0)		\
+  && (((MODE) != DFmode && (MODE) != DImode)			\
+      || (TARGET_32BIT						\
+	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 4) 	\
+	  : ! (INTVAL (XEXP (X, 1)) & 3)))			\
+  && ((MODE) != TImode						\
+      || (TARGET_32BIT						\
+	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 12) 	\
+	  : (LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 8) 	\
 	     && ! (INTVAL (XEXP (X, 1)) & 3)))))
 
-#define LEGITIMATE_INDEXED_ADDRESS_P(X)		\
- (GET_CODE (X) == PLUS				\
-  && GET_CODE (XEXP (X, 0)) == REG		\
-  && GET_CODE (XEXP (X, 1)) == REG		\
-  && ((REG_OK_FOR_BASE_P (XEXP (X, 0))		\
-       && REG_OK_FOR_INDEX_P (XEXP (X, 1)))	\
-      || (REG_OK_FOR_BASE_P (XEXP (X, 1))	\
-	  && REG_OK_FOR_INDEX_P (XEXP (X, 0)))))
+#define LEGITIMATE_INDEXED_ADDRESS_P(X, STRICT)			\
+ (GET_CODE (X) == PLUS						\
+  && GET_CODE (XEXP (X, 0)) == REG				\
+  && GET_CODE (XEXP (X, 1)) == REG				\
+  && ((INT_REG_OK_FOR_BASE_P (XEXP (X, 0), (STRICT))		\
+       && INT_REG_OK_FOR_INDEX_P (XEXP (X, 1), (STRICT)))	\
+      || (INT_REG_OK_FOR_BASE_P (XEXP (X, 1), (STRICT))		\
+	  && INT_REG_OK_FOR_INDEX_P (XEXP (X, 0), (STRICT)))))
 
-#define LEGITIMATE_INDIRECT_ADDRESS_P(X)	\
-  (GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))
+#define LEGITIMATE_INDIRECT_ADDRESS_P(X, STRICT)		\
+  (GET_CODE (X) == REG && INT_REG_OK_FOR_BASE_P (X, (STRICT)))
 
-#define LEGITIMATE_LO_SUM_ADDRESS_P(MODE, X)		\
-  (TARGET_ELF						\
-   && ! flag_pic && ! TARGET_TOC			\
-   && (MODE) != DImode					\
-   && (MODE) != TImode					\
-   && (TARGET_HARD_FLOAT || (MODE) != DFmode)		\
-   && GET_CODE (X) == LO_SUM				\
-   && GET_CODE (XEXP (X, 0)) == REG			\
-   && REG_OK_FOR_BASE_P (XEXP (X, 0))			\
+#define LEGITIMATE_LO_SUM_ADDRESS_P(MODE, X, STRICT)		\
+  (TARGET_ELF							\
+   && ! flag_pic && ! TARGET_TOC				\
+   && (MODE) != DImode						\
+   && (MODE) != TImode						\
+   && (TARGET_HARD_FLOAT || (MODE) != DFmode)			\
+   && GET_CODE (X) == LO_SUM					\
+   && GET_CODE (XEXP (X, 0)) == REG				\
+   && INT_REG_OK_FOR_BASE_P (XEXP (X, 0), (STRICT))		\
    && CONSTANT_P (XEXP (X, 1)))
 
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
-{ if (LEGITIMATE_INDIRECT_ADDRESS_P (X))		\
-    goto ADDR;						\
-  if ((GET_CODE (X) == PRE_INC || GET_CODE (X) == PRE_DEC) \
-      && TARGET_UPDATE					\
-      && LEGITIMATE_INDIRECT_ADDRESS_P (XEXP (X, 0)))	\
-    goto ADDR;						\
-  if (LEGITIMATE_SMALL_DATA_P (MODE, X))		\
-    goto ADDR;						\
-  if (LEGITIMATE_CONSTANT_POOL_ADDRESS_P (X))		\
-    goto ADDR;						\
-  if (LEGITIMATE_OFFSET_ADDRESS_P (MODE, X))		\
-    goto ADDR;						\
-  if ((MODE) != TImode					\
-      && (TARGET_HARD_FLOAT || TARGET_POWERPC64 || (MODE) != DFmode) \
-      && (TARGET_POWERPC64 || (MODE) != DImode)		\
-      && LEGITIMATE_INDEXED_ADDRESS_P (X))		\
-    goto ADDR;						\
-  if (LEGITIMATE_LO_SUM_ADDRESS_P (MODE, X))		\
-    goto ADDR;						\
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)			\
+{ if (rs6000_legitimate_address (MODE, X, REG_OK_STRICT_FLAG))	\
+    goto ADDR;							\
 }
 
 /* Try machine-dependent ways of modifying an illegitimate address
@@ -1941,7 +1890,7 @@ do {									     \
       && GET_CODE (XEXP (XEXP (X, 0), 1)) == CONST_INT			     \
       && GET_CODE (XEXP (X, 1)) == CONST_INT)				     \
     {									     \
-      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,	     \
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,		     \
                    BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	     \
                    OPNUM, TYPE);					     \
       goto WIN;								     \
@@ -1969,7 +1918,7 @@ do {									     \
                                       GEN_INT (high)),			     \
                         GEN_INT (low));					     \
 									     \
-      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,	     \
+      push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,		     \
                    BASE_REG_CLASS, GET_MODE (X), VOIDmode, 0, 0,	     \
                    OPNUM, TYPE);					     \
       goto WIN;								     \
@@ -2316,12 +2265,6 @@ extern int rs6000_compare_fp_p;
 
 #define TARGET_MEM_FUNCTIONS
 
-/* Define the name of the section to use for the exception tables.
-   TODO: test and see if we can use read_only_data_section, if so,
-   remove this.  */
-
-#define EXCEPTION_SECTION data_section
-
 /* Flag to say the TOC is initialized */
 extern int toc_initialized;
 
@@ -2628,12 +2571,6 @@ do {									\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* Pick up the return address upon entry to a procedure. Used for
    dwarf2 unwind information.  This also enables the table driven
    mechanism.  */
@@ -2641,14 +2578,9 @@ do {									\
 #define INCOMING_RETURN_ADDR_RTX   gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)
 #define DWARF_FRAME_RETURN_COLUMN  DWARF_FRAME_REGNUM (LINK_REGISTER_REGNUM)
 
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
+/* Describe how we implement __builtin_eh_return.  */
+#define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 3 : INVALID_REGNUM)
+#define EH_RETURN_STACKADJ_RTX  gen_rtx_REG (Pmode, 10)
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
@@ -2683,6 +2615,7 @@ do {									\
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},			   \
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},			   \
   {"easy_fp_constant", {CONST_DOUBLE}},					   \
+  {"zero_fp_constant", {CONST_DOUBLE}},					   \
   {"reg_or_mem_operand", {SUBREG, MEM, REG}},				   \
   {"lwa_operand", {SUBREG, MEM, REG}},					   \
   {"volatile_mem_operand", {MEM}},					   \
@@ -2718,7 +2651,8 @@ do {									\
   {"trap_comparison_operator", {EQ, NE, LE, LT, GE,			   \
 				GT, LEU, LTU, GEU, GTU}},		   \
   {"boolean_operator", {AND, IOR, XOR}},				   \
-  {"boolean_or_operator", {IOR, XOR}},
+  {"boolean_or_operator", {IOR, XOR}},					   \
+  {"min_max_operator", {SMIN, SMAX, UMIN, UMAX}},
 
 /* uncomment for disabling the corresponding default options */
 /* #define  MACHINE_no_sched_interblock */

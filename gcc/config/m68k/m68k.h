@@ -921,6 +921,11 @@ extern enum reg_class regno_reg_class[];
    On the 5200 (coldfire), sp@- in a byte insn pushes just a byte.  */
 #define PUSH_ROUNDING(BYTES) (TARGET_5200 ? BYTES : ((BYTES) + 1) & ~1)
 
+/* We want to avoid trying to push bytes. */
+#define MOVE_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN) < MOVE_RATIO \
+    && (((SIZE) >=16 && (ALIGN) >= 16) || (TARGET_5200)))
+
 /* Offset of first parameter from the argument pointer register value.  */
 #define FIRST_PARM_OFFSET(FNDECL) 8
 
@@ -1044,9 +1049,6 @@ extern enum reg_class regno_reg_class[];
 		      ? int_size_in_bytes (TYPE)		\
 		      : GET_MODE_SIZE (MODE))))  		\
  ? 2 - (CUM) / 4 : 0)
-
-/* Generate the assembly code for function entry. */
-#define FUNCTION_PROLOGUE(FILE, SIZE) output_function_prologue(FILE, SIZE)
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -1223,9 +1225,6 @@ while(0)
 
 #define EXIT_IGNORE_STACK 1
 
-/* Generate the assembly code for function exit. */
-#define FUNCTION_EPILOGUE(FILE, SIZE) output_function_epilogue (FILE, SIZE)
-  
 /* This is a hook for other tm files to change.  */
 /* #define FUNCTION_EXTRA_EPILOGUE(FILE, SIZE) */
 
@@ -2027,21 +2026,6 @@ do { long l;						\
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Output a float value (represented as a C double) as an immediate operand.
    This macro is a 68k-specific macro.  */

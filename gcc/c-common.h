@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #define GCC_C_COMMON_H
 
 #include "splay-tree.h"
+#include "cpplib.h"
 
 /* Usage of TREE_LANG_FLAG_?:
    0: COMPOUND_STMT_NO_SCOPE (in COMPOUND_STMT).
@@ -31,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
       SCOPE_BEGIN_P (in SCOPE_STMT)
       DECL_PRETTY_FUNCTION_P (in VAR_DECL)
       NEW_FOR_SCOPE_P (in FOR_STMT)
+      RETURN_NULLIFIED_P (in RETURN_STMT)
       ASM_INPUT_P (in ASM_STMT)
    1: C_DECLARED_LABEL_FLAG (in LABEL_DECL)
       STMT_IS_FULL_EXPR_P (in _STMT)
@@ -75,6 +77,9 @@ enum rid
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_PTRBASE,
   RID_PTREXTENT, RID_PTRVALUE,
 
+  /* Too many ways of getting the name of a function as a string */
+  RID_FUNCTION_NAME, RID_PRETTY_FUNCTION_NAME, RID_C99_FUNCTION_NAME,
+
   /* C++ */
   RID_BOOL,     RID_WCHAR,    RID_CLASS,
   RID_PUBLIC,   RID_PRIVATE,  RID_PROTECTED,
@@ -102,8 +107,21 @@ enum rid
   RID_MAX,
 
   RID_FIRST_MODIFIER = RID_STATIC,
-  RID_LAST_MODIFIER = RID_ONEWAY
+  RID_LAST_MODIFIER = RID_ONEWAY,
+
+  RID_FIRST_AT = RID_AT_ENCODE,
+  RID_LAST_AT = RID_AT_IMPLEMENTATION,
+  RID_FIRST_PQ = RID_IN,
+  RID_LAST_PQ = RID_ONEWAY
 };
+
+#define OBJC_IS_AT_KEYWORD(rid) \
+  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_AT && \
+   (unsigned int)(rid) <= (unsigned int)RID_LAST_AT)
+
+#define OBJC_IS_PQ_KEYWORD(rid) \
+  ((unsigned int)(rid) >= (unsigned int)RID_FIRST_PQ && \
+   (unsigned int)(rid) <= (unsigned int)RID_LAST_PQ)
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
@@ -144,24 +162,31 @@ enum c_tree_index
     CTI_C_BOOL_FALSE,
     CTI_DEFAULT_FUNCTION_TYPE,
 
-    CTI_VOID_FTYPE,
-    CTI_VOID_FTYPE_PTR,
-    CTI_INT_FTYPE_INT,
-    CTI_PTR_FTYPE_SIZETYPE,
-
     CTI_G77_INTEGER_TYPE,
     CTI_G77_UINTEGER_TYPE,
     CTI_G77_LONGINT_TYPE,
     CTI_G77_ULONGINT_TYPE,
 
-    /* These are not types, but we have to look them up all the time.  */
-    CTI_FUNCTION_ID,
-    CTI_PRETTY_FUNCTION_ID,
-    CTI_FUNC_ID,
-
+    /* These are not types, but we have to look them up all the time. */
+    CTI_FUNCTION_NAME_DECL,
+    CTI_PRETTY_FUNCTION_NAME_DECL,
+    CTI_C99_FUNCTION_NAME_DECL,
+    CTI_SAVED_FUNCTION_NAME_DECLS,
+    
     CTI_VOID_ZERO,
 
     CTI_MAX
+};
+
+#define C_RID_CODE(id)	(((struct c_common_identifier *) (id))->rid_code)
+
+/* Identifier part common to the C front ends.  Inherits from
+   tree_identifier, despite appearances.  */
+struct c_common_identifier
+{
+  struct tree_common common;
+  struct cpp_hashnode node;
+  ENUM_BITFIELD(rid) rid_code: CHAR_BIT;
 };
 
 #define wchar_type_node			c_global_trees[CTI_WCHAR_TYPE]
@@ -191,10 +216,6 @@ enum c_tree_index
 #define const_string_type_node		c_global_trees[CTI_CONST_STRING_TYPE]
 
 #define default_function_type		c_global_trees[CTI_DEFAULT_FUNCTION_TYPE]
-#define void_ftype			c_global_trees[CTI_VOID_FTYPE]
-#define void_ftype_ptr			c_global_trees[CTI_VOID_FTYPE_PTR]
-#define int_ftype_int			c_global_trees[CTI_INT_FTYPE_INT]
-#define ptr_ftype_sizetype		c_global_trees[CTI_PTR_FTYPE_SIZETYPE]
 
 /* g77 integer types, which which must be kept in sync with f/com.h */
 #define g77_integer_type_node		c_global_trees[CTI_G77_INTEGER_TYPE]
@@ -202,9 +223,10 @@ enum c_tree_index
 #define g77_longint_type_node		c_global_trees[CTI_G77_LONGINT_TYPE]
 #define g77_ulongint_type_node		c_global_trees[CTI_G77_ULONGINT_TYPE]
 
-#define function_id_node		c_global_trees[CTI_FUNCTION_ID]
-#define pretty_function_id_node		c_global_trees[CTI_PRETTY_FUNCTION_ID]
-#define func_id_node			c_global_trees[CTI_FUNC_ID]
+#define function_name_decl_node		c_global_trees[CTI_FUNCTION_NAME_DECL]
+#define pretty_function_name_decl_node	c_global_trees[CTI_PRETTY_FUNCTION_NAME_DECL]
+#define c99_function_name_decl_node		c_global_trees[CTI_C99_FUNCTION_NAME_DECL]
+#define saved_function_name_decls	c_global_trees[CTI_SAVED_FUNCTION_NAME_DECLS]
 
 /* A node for `((void) 0)'.  */
 #define void_zero_node                  c_global_trees[CTI_VOID_ZERO]
@@ -260,9 +282,6 @@ struct language_function {
   struct stmt_tree_s x_stmt_tree;
   /* The stack of SCOPE_STMTs for the current function.  */
   tree x_scope_stmt_stack;
-  /* Nonzero if __FUNCTION__ and its ilk have been declared in this
-     function.  */
-  int x_function_name_declared_p;
 };
 
 /* When building a statement-tree, this is the last statement added to
@@ -336,6 +355,13 @@ struct c_lang_decl {
 #define DECL_SAVED_TREE(NODE)						    \
   (((struct c_lang_decl *) DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (NODE))) \
    ->saved_tree)
+
+/* In a FUNCTION_DECL for which DECL_BUILT_IN does not hold, this is
+     the approximate number of statements in this function.  There is
+     no need for this number to be exact; it is only used in various
+     heuristics regarding optimization.  */
+#define DECL_NUM_STMTS(NODE) \
+  (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 
 extern void c_mark_lang_decl                    PARAMS ((struct c_lang_decl *));
 
@@ -415,11 +441,6 @@ extern int flag_no_builtin;
 
 extern int flag_no_nonansi_builtin;
 
-/* If non-NULL, dump the tree structure for the entire translation
-   unit to this file.  */
-
-extern const char *flag_dump_translation_unit;
-
 /* Nonzero means warn about suggesting putting in ()'s.  */
 
 extern int warn_parentheses;
@@ -461,20 +482,41 @@ extern int warn_long_long;
    what operator was specified for it.  */
 #define C_EXP_ORIGINAL_CODE(exp) ((enum tree_code) TREE_COMPLEXITY (exp))
 
-/* Pointer to function to generate the VAR_DECL for __FUNCTION__ etc.
+/* Pointer to function to lazily generate the VAR_DECL for __FUNCTION__ etc.
    ID is the identifier to use, NAME is the string.
    TYPE_DEP indicates whether it depends on type of the function or not
    (i.e. __PRETTY_FUNCTION__).  */
 
-extern tree (*make_fname_decl)                  PARAMS ((tree, const char *, int));
+extern tree (*make_fname_decl)                  PARAMS ((tree, int));
 
 extern tree identifier_global_value		PARAMS ((tree));
 extern void record_builtin_type			PARAMS ((enum rid,
 							 const char *, tree));
 extern tree build_void_list_node		PARAMS ((void));
+extern void start_fname_decls			PARAMS ((void));
+extern void finish_fname_decls			PARAMS ((void));
+extern const char *fname_as_string		PARAMS ((int));
+extern tree fname_decl				PARAMS ((unsigned, tree));
+extern const char *fname_string			PARAMS ((unsigned));
 
-extern void declare_function_name		PARAMS ((void));
-extern void decl_attributes			PARAMS ((tree, tree, tree));
+/* Flags that may be passed in the third argument of decl_attributes.  */
+enum attribute_flags
+{
+  /* The type passed in is the type of a DECL, and any attributes that
+     should be passed in again to be applied to the DECL rather than the
+     type should be returned.  */
+  ATTR_FLAG_DECL_NEXT = 1,
+  /* The type passed in is a function return type, and any attributes that
+     should be passed in again to be applied to the function type rather
+     than the return type should be returned.  */
+  ATTR_FLAG_FUNCTION_NEXT = 2,
+  /* The type passed in is an array element type, and any attributes that
+     should be passed in again to be applied to the array type rather
+     than the element type should be returned.  */
+  ATTR_FLAG_ARRAY_NEXT = 4
+};
+
+extern tree decl_attributes			PARAMS ((tree *, tree, int));
 extern void init_function_format_info		PARAMS ((void));
 extern void check_function_format		PARAMS ((int *, tree, tree, tree));
 extern void set_Wformat				PARAMS ((int));
@@ -507,11 +549,6 @@ extern char *get_directive_line			PARAMS ((void));
    See if the operands have both been converted from subword integer types
    and, if so, perhaps change them both back to their original type.  */
 extern tree shorten_compare			PARAMS ((tree *, tree *, tree *, enum tree_code *));
-/* Prepare expr to be an argument of a TRUTH_NOT_EXPR,
-   or validate its data type for an `if' or `while' statement or ?..: exp. */
-extern tree truthvalue_conversion		PARAMS ((tree));
-extern tree type_for_mode			PARAMS ((enum machine_mode, int));
-extern tree type_for_size			PARAMS ((unsigned, int));
 
 extern unsigned int min_precision		PARAMS ((tree, int));
 
@@ -526,17 +563,7 @@ extern tree build_va_arg			PARAMS ((tree, tree));
 
 extern void c_common_lang_init			PARAMS ((void));
 
-/* Nonzero if the type T promotes to itself.
-   ANSI C states explicitly the list of types that promote;
-   in particular, short promotes to int even if they have the same width.  */
-#define C_PROMOTING_INTEGER_TYPE_P(t)				\
-  (TREE_CODE ((t)) == INTEGER_TYPE				\
-   && (TYPE_MAIN_VARIANT (t) == char_type_node			\
-       || TYPE_MAIN_VARIANT (t) == signed_char_type_node	\
-       || TYPE_MAIN_VARIANT (t) == unsigned_char_type_node	\
-       || TYPE_MAIN_VARIANT (t) == short_integer_type_node	\
-       || TYPE_MAIN_VARIANT (t) == short_unsigned_type_node))
-
+extern bool c_promoting_integer_type_p		PARAMS ((tree));
 extern int self_promoting_args_p		PARAMS ((tree));
 extern tree simple_type_promotes_to		PARAMS ((tree));
 extern tree strip_array_types                   PARAMS ((tree));
@@ -566,9 +593,11 @@ extern tree strip_array_types                   PARAMS ((tree));
 #define DO_COND(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 0)
 #define DO_BODY(NODE)           TREE_OPERAND (DO_STMT_CHECK (NODE), 1)
 
-/* RETURN_STMT accessor. This gives the expression associated with a
-   return statement. */
+/* RETURN_STMT accessors. These give the expression associated with a
+   return statement, and whether it should be ignored when expanding
+   (as opposed to inlining).  */
 #define RETURN_EXPR(NODE)       TREE_OPERAND (RETURN_STMT_CHECK (NODE), 0)
+#define RETURN_NULLIFIED_P(NODE) TREE_LANG_FLAG_0 (RETURN_STMT_CHECK (NODE))
 
 /* EXPR_STMT accessor. This gives the expression associated with an
    expression statement. */
@@ -786,6 +815,12 @@ extern tree c_add_case_label                    PARAMS ((splay_tree,
 
 extern tree build_function_call			PARAMS ((tree, tree));
 
+extern tree finish_label_address_expr		PARAMS ((tree));
+
+/* Same function prototype, but the C and C++ front ends have
+   different implementations.  Used in c-common.c.  */
+extern tree lookup_label			PARAMS ((tree));
+
 /* If this variable is defined to a non-NULL value, it will be called
    after the file has been completely parsed.  The argument will be
    the GLOBAL_NAMESPACE in C++, or the list of top-level declarations
@@ -805,6 +840,22 @@ extern int c_unsafe_for_reeval			PARAMS ((tree));
 
 /* In dump.c */
 
+/* Different tree dump places. */
+enum tree_dump_index
+{
+  TDI_all,			/* dump the whole translation unit */
+  TDI_class,			/* dump class heirarchy */
+  TDI_original,			/* dump each function before optimizing it */
+  TDI_optimized,		/* dump each function after optimizing it */
+  TDI_inlined,			/* dump each function after inlining
+				   within it. */
+  TDI_end
+};
+
+/* Bit masks to control tree dumping. */
+#define TDF_ADDRESS	(1 << 0)	/* dump node addresses */
+#define TDF_SLIM	(1 << 1)	/* don't go wild following links */
+
 typedef struct dump_info *dump_info_p;
 
 /* A callback function used dump language-specific parts of tree
@@ -815,7 +866,13 @@ typedef int (*dump_tree_fn) PARAMS ((dump_info_p, tree));
 
 extern dump_tree_fn lang_dump_tree;
 
-extern void dump_node_to_file                   PARAMS ((tree, const char *));
+extern int dump_flag			PARAMS ((dump_info_p, int, tree));
+extern int dump_enabled_p		PARAMS ((enum tree_dump_index));
+extern FILE *dump_begin			PARAMS ((enum tree_dump_index, int *));
+extern void dump_end			PARAMS ((enum tree_dump_index, FILE *));
+extern void dump_node			PARAMS ((tree, int, FILE *));
+extern int dump_switch_p                PARAMS ((const char *));
+extern const char *dump_flag_name	PARAMS ((enum tree_dump_index));
 
 /* Information recorded about each file examined during compilation.  */
 
@@ -829,4 +886,4 @@ struct c_fileinfo
 struct c_fileinfo *get_fileinfo			PARAMS ((const char *));
 extern void dump_time_statistics		PARAMS ((void));
 
-#endif
+#endif /* ! GCC_C_COMMON_H */

@@ -27,7 +27,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "config.h"
 #include "system.h"
 #include "obstack.h"
-#include "gansidecl.h"
 #include "jcf.h"
 #include "tree.h"
 #include "java-tree.h"
@@ -168,5 +167,6 @@ do_mangle_classname (string)
     }
   append_gpp_mangled_name (&ptr [-count], count);
   obstack_grow (mangle_obstack, "6class$E", 8);
+  obstack_1grow (mangle_obstack, '\0');
   return obstack_finish (mangle_obstack);
 }

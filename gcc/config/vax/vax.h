@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  Vax version.
    Copyright (C) 1987, 1988, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -19,6 +19,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#define VMS_TARGET 0
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
@@ -452,31 +453,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) 0
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate,
-   adjusted by STARTING_FRAME_OFFSET to accommodate vms.h.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE)     \
-{ register int regno;						\
-  register int mask = 0;					\
-  register int size = SIZE - STARTING_FRAME_OFFSET;		\
-  extern char call_used_regs[];					\
-  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
-    if (regs_ever_live[regno] && !call_used_regs[regno])	\
-       mask |= 1 << regno;					\
-  fprintf (FILE, "\t.word 0x%x\n", mask);			\
-  MAYBE_VMS_FUNCTION_PROLOGUE(FILE)				\
-  if ((size) >= 64) fprintf (FILE, "\tmovab %d(sp),sp\n", -size);\
-  else if (size) fprintf (FILE, "\tsubl2 $%d,sp\n", (size)); }
-
-/* vms.h redefines this.  */
-#define MAYBE_VMS_FUNCTION_PROLOGUE(FILE)
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -509,13 +485,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    No definition is equivalent to always zero.  */
 
 #define EXIT_IGNORE_STACK 1
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.  */
-
-/* #define FUNCTION_EPILOGUE(FILE, SIZE)  */
 
 /* Store in the variable DEPTH the initial difference between the
    frame pointer reg contents and the stack pointer reg contents,
@@ -865,6 +834,10 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
+/* When a prototype says `char' or `short', really pass an `int'.
+   (On the vax, this is required for system-library compatibility.)  */
+#define PROMOTE_PROTOTYPES 1
+
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
@@ -982,7 +955,30 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 	CC_STATUS_INIT;						\
       else if (GET_CODE (SET_DEST (EXP)) != ZERO_EXTRACT	\
 	       && GET_CODE (SET_DEST (EXP)) != PC)		\
-	{ cc_status.flags = 0;					\
+	{							\
+	  cc_status.flags = 0;					\
+	  /* The integer operations below don't set carry or	\
+	     set it in an incompatible way.  That's ok though	\
+	     as the Z bit is all we need when doing unsigned	\
+	     comparisons on the result of these insns (since	\
+	     they're always with 0).  Set CC_NO_OVERFLOW to	\
+	     generate the correct unsigned branches.  */	\
+	  switch (GET_CODE (SET_SRC (EXP)))			\
+	    {							\
+	    case NEG:						\
+	      if (GET_MODE_CLASS (GET_MODE (EXP)) == MODE_FLOAT)\
+	 	break;						\
+	    case AND:						\
+	    case IOR:						\
+	    case XOR:						\
+	    case NOT:						\
+	    case MEM:						\
+	    case REG:						\
+	      cc_status.flags = CC_NO_OVERFLOW;			\
+	      break;						\
+	    default:						\
+	      break;						\
+	    }							\
 	  cc_status.value1 = SET_DEST (EXP);			\
 	  cc_status.value2 = SET_SRC (EXP); } }			\
   else if (GET_CODE (EXP) == PARALLEL				\
@@ -1018,8 +1014,17 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Control the assembler format that we output.  */
 
 /* Output at beginning of assembler file.  */
+/* When debugging, we want to output an extra dummy label so that gas
+   can distinguish between D_float and G_float prior to processing the
+   .stabs directive identifying type double.  */
 
-#define ASM_FILE_START(FILE) fprintf (FILE, "#NO_APP\n");
+#define ASM_FILE_START(FILE) \
+  do {								\
+    fputs (ASM_APP_OFF, FILE);					\
+    if (write_symbols == DBX_DEBUG)				\
+      fprintf (FILE, "___vax_%c_doubles:\n", ASM_DOUBLE_CHAR);	\
+  } while (0)
+
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
@@ -1208,17 +1213,6 @@ do { char dstr[30];							\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
-/* When debugging, we want to output an extra dummy label so that gas
-   can distinguish between D_float and G_float prior to processing the
-   .stabs directive identifying type double.  */
-
-#define ASM_IDENTIFY_LANGUAGE(FILE)	\
-  do {								\
-    output_lang_identify (FILE);				\
-    if (write_symbols == DBX_DEBUG)				\
-      fprintf (FILE, "___vax_%c_doubles:\n", ASM_DOUBLE_CHAR);	\
-  } while (0)
-
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.
 	.mask	^m<r2,r3,r4,r5,r6,r7,r8,r9,r10,r11>	#conservative entry mask
@@ -1233,21 +1227,6 @@ do {						\
   assemble_name (FILE,  XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0)); \
   fprintf (FILE, "+2\n");			\
 } while (0)
-
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;

@@ -28,7 +28,8 @@ Boston, MA 02111-1307, USA.  */
   fputs (" (Hitachi SH)", stderr);
 
 /* Unfortunately, insn-attrtab.c doesn't include insn-codes.h.  We can't
-  include it here, because hconfig.h is also included by gencodes.c .  */
+   include it here, because hconfig.h is also included by gencodes.c .  */
+/* ??? No longer true.  */
 extern int code_for_indirect_jump_scratch;
 
 /* Generate SDB debugging information.  */
@@ -1216,11 +1217,6 @@ extern int current_function_anonymous_args;
 
 #define EXIT_IGNORE_STACK 1
 
-/* Generate the assembly code for function exit
-   Just dump out any accumulated constant table.  */
-
-#define FUNCTION_EPILOGUE(STREAM, SIZE)  function_epilogue ((STREAM), (SIZE))
-
 /* 
    On the SH, the trampoline looks like
    2 0002 D202     	   	mov.l	l2,r2
@@ -1400,7 +1396,7 @@ extern int current_function_anonymous_args;
   ((GET_CODE (X) == REG && REG_OK_FOR_INDEX_P (X))	\
    || (GET_CODE (X) == SUBREG				\
        && GET_CODE (SUBREG_REG (X)) == REG		\
-       && SUBREG_OK_FOR_INDEX_P (SUBREG_REG (X), SUBREG_WORD (X))))
+       && SUBREG_OK_FOR_INDEX_P (SUBREG_REG (X), SUBREG_BYTE (X))))
 
 /* Jump to LABEL if X is a valid address RTX.  This must also take
    REG_OK_STRICT into account when deciding about valid registers, but it uses
@@ -1542,7 +1538,7 @@ extern int current_function_anonymous_args;
       if (TARGET_SH3E && MODE == SFmode)				\
 	{								\
 	  X = copy_rtx (X);						\
-	  push_reload (index_rtx, NULL_RTX, &XEXP (X, 1), NULL_PTR,	\
+	  push_reload (index_rtx, NULL_RTX, &XEXP (X, 1), NULL,		\
 		       INDEX_REG_CLASS, Pmode, VOIDmode, 0, 0, (OPNUM),	\
 		       (TYPE));						\
 	  goto WIN;							\
@@ -1564,7 +1560,7 @@ extern int current_function_anonymous_args;
 	  sum = gen_rtx (PLUS, Pmode, XEXP (X, 0),			\
 			 GEN_INT (offset_base));			\
 	  X = gen_rtx (PLUS, Pmode, sum, GEN_INT (offset - offset_base));\
-	  push_reload (sum, NULL_RTX, &XEXP (X, 0), NULL_PTR,	\
+	  push_reload (sum, NULL_RTX, &XEXP (X, 0), NULL,		\
 		       BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, (OPNUM),	\
 		       (TYPE));						\
 	  goto WIN;							\
@@ -1582,7 +1578,7 @@ extern int current_function_anonymous_args;
       /* Because this address is so complex, we know it must have	\
 	 been created by LEGITIMIZE_RELOAD_ADDRESS before; thus,	\
 	 it is already unshared, and needs no further unsharing.  */	\
-      push_reload (XEXP ((X), 0), NULL_RTX, &XEXP ((X), 0), NULL_PTR,	\
+      push_reload (XEXP ((X), 0), NULL_RTX, &XEXP ((X), 0), NULL,	\
 		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, (OPNUM), (TYPE));\
       goto WIN;								\
     }									\
@@ -1792,6 +1788,13 @@ do									\
   }									\
 while (0)
 
+/* We can't directly access anything that contains a symbol,
+   nor can we indirect via the constant pool.  */
+#define LEGITIMATE_PIC_OPERAND_P(X)				\
+	(! nonpic_symbol_mentioned_p (X)			\
+	 && (! CONSTANT_POOL_ADDRESS_P (X)			\
+	     || ! nonpic_symbol_mentioned_p (get_pool_constant (X))))
+
 #define SYMBOLIC_CONST_P(X)	\
 ((GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == LABEL_REF)	\
   && nonpic_symbol_mentioned_p (X))
@@ -1858,7 +1861,7 @@ while (0)
 #define ASM_APP_ON  		""
 #define ASM_APP_OFF  		""
 #define FILE_ASM_OP 		"\t.file\n"
-#define IDENT_ASM_OP 		"\t.ident\n"
+#define IDENT_ASM_OP 		"\t.ident\t"
 #define SET_ASM_OP		"\t.set\t"
 
 /* How to change between sections.  */
@@ -2158,19 +2161,6 @@ do { char dstr[30];					\
 ( fputs ("\t.lcomm ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
   fprintf ((FILE), ",%d\n", (SIZE)))
-
-/* The assembler's parentheses characters.  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Target characters.  */
-#define TARGET_BELL	007
-#define TARGET_BS	010
-#define TARGET_TAB	011
-#define TARGET_NEWLINE	012
-#define TARGET_VT	013
-#define TARGET_FF	014
-#define TARGET_CR	015
 
 /* A C statement to be executed just prior to the output of
    assembler code for INSN, to modify the extracted operands so
@@ -2291,18 +2281,13 @@ extern enum mdep_reorg_phase_e mdep_reorg_phase;
 
 extern int pragma_interrupt;
 
+/* Set when processing a function with interrupt attribute.  */
+
+extern int current_function_interrupt;
+
 /* Set to an RTX containing the address of the stack to switch to
    for interrupt functions.  */
 extern struct rtx_def *sp_switch;
-
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-sh_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-
-#define PRAGMA_INSERT_ATTRIBUTES(node, pattr, prefix_attr) \
-  sh_pragma_insert_attributes (node, pattr, prefix_attr)
 
 extern int rtx_equal_function_value_matters;
 extern struct rtx_def *fpscr_rtx;
@@ -2456,4 +2441,4 @@ do {									\
 1:	.long	" USER_LABEL_PREFIX #func " - 0b\n\
 2:")
 
-#endif /* sh.h */
+#endif /* ! GCC_SH_H */

@@ -124,6 +124,9 @@ extern int eq_neq_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int insn_refs_are_delayed PARAMS ((rtx));
 #endif /* RTX_CODE */
 
+/* Prototype function used in macro ASM_OUTPUT_MI_THUNK.  */
+extern void pa_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+
 /* Prototype function used in macro CONST_OK_FOR_LETTER_P. */
 extern int zdepi_cint_p PARAMS ((unsigned HOST_WIDE_INT));
 
@@ -132,8 +135,6 @@ extern struct rtx_def *hppa_builtin_saveregs PARAMS ((void));
 extern void output_deferred_plabels PARAMS ((FILE *));
 extern void override_options PARAMS ((void));
 extern void output_ascii PARAMS ((FILE *, const unsigned char *, int));
-extern void output_function_prologue PARAMS ((FILE *, int));
-extern void output_function_epilogue PARAMS ((FILE *, int));
 extern int compute_frame_size PARAMS ((int, int *));
 extern int and_mask_p PARAMS ((unsigned HOST_WIDE_INT));
 extern int cint_ok_for_move PARAMS ((HOST_WIDE_INT));

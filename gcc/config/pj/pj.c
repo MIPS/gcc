@@ -89,7 +89,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
@@ -100,6 +99,8 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "basic-block.h"
 #include "ggc.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Compare insns in pj.md store the information needed to generate
    branch instructions here.  */
@@ -123,7 +124,11 @@ static int nfakes;
 /* Whether anything has been printed to the current assembly output
    line. */
 int pj_stuff_on_line;
+
+/* Initialize the GCC target structure.  */
 
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* printf to the asm_out_file, with special format control characters
    for decoding operands.  
 

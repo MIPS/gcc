@@ -19,6 +19,9 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#ifndef GCC_C_DUMP_H
+#define GCC_C_DUMP_H
+
 /* Flags used with queue functions.  */
 #define DUMP_NONE     0
 #define DUMP_BINFO    1
@@ -50,6 +53,10 @@ struct dump_info
 {
   /* The stream on which to dump the information.  */
   FILE *stream;
+  /* The original node. */
+  tree node;
+  /* User flags. */
+  int flags;
   /* The next unused node index.  */
   unsigned int index;
   /* The next column.  */
@@ -70,6 +77,8 @@ struct dump_info
 #define dump_child(field, child) \
   queue_and_dump_index (di, field, child, DUMP_NONE)
 
+extern void dump_pointer
+  PARAMS ((dump_info_p, const char *, void *));
 extern void dump_int 
   PARAMS ((dump_info_p, const char *, int));
 extern void dump_string 
@@ -82,3 +91,5 @@ extern void queue_and_dump_index
   PARAMS ((dump_info_p, const char *, tree, int));
 extern void queue_and_dump_type 
   PARAMS ((dump_info_p, tree));
+
+#endif /* ! GCC_C_DUMP_H */

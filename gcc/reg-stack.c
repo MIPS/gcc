@@ -161,12 +161,12 @@
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "flags.h"
-#include "insn-flags.h"
 #include "toplev.h"
 #include "recog.h"
 #include "output.h"
 #include "basic-block.h"
 #include "varray.h"
+#include "reload.h"
 
 #ifdef STACK_REGS
 
@@ -303,7 +303,7 @@ stack_regs_mentioned (insn)
   unsigned int uid, max;
   int test;
 
-  if (! INSN_P (insn))
+  if (! INSN_P (insn) || !stack_regs_mentioned_data)
     return 0;
 
   uid = INSN_UID (insn);
@@ -419,6 +419,16 @@ reg_to_stack (first, file)
   int max_uid;
   block_info bi;
 
+  /* Clean up previous run.  */
+  if (stack_regs_mentioned_data)
+    {
+      VARRAY_FREE (stack_regs_mentioned_data);
+      stack_regs_mentioned_data = 0;
+    }
+
+  if (!optimize)
+    split_all_insns (0);
+
   /* See if there is something to do.  Flow analysis is quite
      expensive so we might save some compilation time.  */
   for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
@@ -429,7 +439,8 @@ reg_to_stack (first, file)
 
   /* Ok, floating point instructions exist.  If not optimizing, 
      build the CFG and run life analysis.  */
-  find_basic_blocks (first, max_reg_num (), file);
+  if (!optimize)
+    find_basic_blocks (first, max_reg_num (), file);
   count_or_remove_death_notes (NULL, 1);
   life_analysis (first, file, PROP_DEATH_NOTES);
 
@@ -475,14 +486,8 @@ reg_to_stack (first, file)
   VARRAY_CHAR_INIT (stack_regs_mentioned_data, max_uid + 1,
 		    "stack_regs_mentioned cache");
 
-  if (convert_regs (file) && optimize)
-    {
-      jump_optimize (first, JUMP_CROSS_JUMP_DEATH_MATTERS,
-		     !JUMP_NOOP_MOVES, !JUMP_AFTER_REGSCAN);
-    }
+  convert_regs (file);
 
-  /* Clean up.  */
-  VARRAY_FREE (stack_regs_mentioned_data);
   free (bi);
 }
 
@@ -558,7 +563,11 @@ get_true_reg (pat)
 	  rtx subreg;
 	  if (FP_REG_P (subreg = SUBREG_REG (*pat)))
 	    {
-	      *pat = FP_MODE_REG (REGNO (subreg) + SUBREG_WORD (*pat),
+	      int regno_off = subreg_regno_offset (REGNO (subreg),
+						   GET_MODE (subreg),
+						   SUBREG_BYTE (*pat),
+						   GET_MODE (*pat));
+	      *pat = FP_MODE_REG (REGNO (subreg) + regno_off,
 				  GET_MODE (subreg));
 	    default:
 	      return pat;
@@ -658,7 +667,20 @@ check_asm_stack_operands (insn)
 	    malformed_asm = 1;
 	  }
         else
-	  reg_used_as_output[REGNO (recog_data.operand[i])] = 1;
+	  {
+	    int j;
+
+	    for (j = 0; j < n_clobbers; j++)
+	      if (REGNO (recog_data.operand[i]) == REGNO (clobber_reg[j]))
+		{
+		  error_for_asm (insn, "Output constraint %d cannot be specified together with \"%s\" clobber",
+				 i, reg_names [REGNO (clobber_reg[j])]);
+		  malformed_asm = 1;
+		  break;
+		}
+	    if (j == n_clobbers)
+	      reg_used_as_output[REGNO (recog_data.operand[i])] = 1;
+	  }
       }
 
 
@@ -785,12 +807,8 @@ stack_result (decl)
   if (aggregate_value_p (DECL_RESULT (decl)))
     return 0;
 
-  result = DECL_RTL (DECL_RESULT (decl));
-  /* ?!?  What is this code supposed to do?  Can this code actually
-     trigger if we kick out aggregates above?  */
-  if (result != 0
-      && ! (GET_CODE (result) == REG
-	    && REGNO (result) < FIRST_PSEUDO_REGISTER))
+  result = DECL_RTL_IF_SET (DECL_RESULT (decl));
+  if (result != 0)
     {
 #ifdef FUNCTION_OUTGOING_VALUE
       result
@@ -907,6 +925,23 @@ emit_pop_insn (insn, regstack, reg, where)
   rtx pop_insn, pop_rtx;
   int hard_regno;
 
+  /* For complex types take care to pop both halves.  These may survive in
+     CLOBBER and USE expressions.  */
+  if (COMPLEX_MODE_P (GET_MODE (reg)))
+    {
+      rtx reg1 = FP_MODE_REG (REGNO (reg), DFmode);
+      rtx reg2 = FP_MODE_REG (REGNO (reg) + 1, DFmode);
+
+      pop_insn = NULL_RTX;
+      if (get_hard_regnum (regstack, reg1) >= 0)
+         pop_insn = emit_pop_insn (insn, regstack, reg1, where);
+      if (get_hard_regnum (regstack, reg2) >= 0)
+         pop_insn = emit_pop_insn (insn, regstack, reg2, where);
+      if (!pop_insn)
+	abort ();
+      return pop_insn;
+    }
+
   hard_regno = get_hard_regnum (regstack, reg);
 
   if (hard_regno < FIRST_STACK_REG)
@@ -974,6 +1009,7 @@ emit_swap_insn (insn, regstack, reg)
       while (tmp != limit)
 	{
 	  if (GET_CODE (tmp) == CODE_LABEL
+	      || GET_CODE (tmp) == CALL_INSN
 	      || NOTE_INSN_BASIC_BLOCK_P (tmp)
 	      || (GET_CODE (tmp) == INSN
 		  && stack_regs_mentioned (tmp)))
@@ -995,14 +1031,15 @@ emit_swap_insn (insn, regstack, reg)
 	 swap with, omit the swap.  */
 
       if (GET_CODE (i1dest) == REG && REGNO (i1dest) == FIRST_STACK_REG
-	  && GET_CODE (i1src) == REG && REGNO (i1src) == hard_regno - 1
+	  && GET_CODE (i1src) == REG
+	  && REGNO (i1src) == (unsigned) hard_regno - 1
 	  && find_regno_note (i1, REG_DEAD, FIRST_STACK_REG) == NULL_RTX)
 	return;
 
       /* If the previous insn wrote to the reg we are to swap with,
 	 omit the swap.  */
 
-      if (GET_CODE (i1dest) == REG && REGNO (i1dest) == hard_regno
+      if (GET_CODE (i1dest) == REG && REGNO (i1dest) == (unsigned) hard_regno
 	  && GET_CODE (i1src) == REG && REGNO (i1src) == FIRST_STACK_REG
 	  && find_regno_note (i1, REG_DEAD, FIRST_STACK_REG) == NULL_RTX)
 	return;
@@ -1119,7 +1156,8 @@ move_for_stack_reg (insn, regstack, pat)
 	  regstack->top--;
 	  CLEAR_HARD_REG_BIT (regstack->reg_set, REGNO (src));
 	}
-      else if (GET_MODE (src) == XFmode && regstack->top < REG_STACK_SIZE - 1)
+      else if ((GET_MODE (src) == XFmode || GET_MODE (src) == TFmode)
+	       && regstack->top < REG_STACK_SIZE - 1)
 	{
 	  /* A 387 cannot write an XFmode value to a MEM without
 	     clobbering the source reg.  The output code can handle
@@ -1129,9 +1167,12 @@ move_for_stack_reg (insn, regstack, pat)
 	     stack is not full, and then write the value to memory via
 	     a pop.  */
 	  rtx push_rtx, push_insn;
-	  rtx top_stack_reg = FP_MODE_REG (FIRST_STACK_REG, XFmode);
+	  rtx top_stack_reg = FP_MODE_REG (FIRST_STACK_REG, GET_MODE (src));
 
-	  push_rtx = gen_movxf (top_stack_reg, top_stack_reg);
+	  if (GET_MODE (src) == TFmode)
+	    push_rtx = gen_movtf (top_stack_reg, top_stack_reg);
+	  else
+	    push_rtx = gen_movxf (top_stack_reg, top_stack_reg);
 	  push_insn = emit_insn_before (push_rtx, insn);
 	  REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_DEAD, top_stack_reg,
 						REG_NOTES (insn));
@@ -1447,6 +1488,15 @@ subst_stack_regs_pat (insn, regstack, pat)
 		    PATTERN (insn) = pat;
 		    move_for_stack_reg (insn, regstack, pat);
 		  }
+		if (! note && COMPLEX_MODE_P (GET_MODE (*dest))
+		    && get_hard_regnum (regstack, FP_MODE_REG (REGNO (*dest), DFmode)) == -1)
+		  {
+		    pat = gen_rtx_SET (VOIDmode,
+				       FP_MODE_REG (REGNO (*dest) + 1, SFmode),
+				       nan);
+		    PATTERN (insn) = pat;
+		    move_for_stack_reg (insn, regstack, pat);
+		  }
 	      }
 	  }
 	break;
@@ -1454,7 +1504,7 @@ subst_stack_regs_pat (insn, regstack, pat)
 
     case SET:
       {
-	rtx *src1 = (rtx *) NULL_PTR, *src2;
+	rtx *src1 = (rtx *) 0, *src2;
 	rtx src1_note, src2_note;
 	rtx pat_src;
 
@@ -1925,7 +1975,7 @@ subst_asm_stack_regs (insn, regstack)
 	if (regno < 0)
 	  abort ();
 
-	if (regno != REGNO (recog_data.operand[i]))
+	if ((unsigned int) regno != REGNO (recog_data.operand[i]))
 	  {
 	    /* recog_data.operand[i] is not in the right place.  Find
 	       it and swap it with whatever is already in I's place.
@@ -2027,7 +2077,7 @@ subst_asm_stack_regs (insn, regstack)
 
       for (j = 0; j < n_outputs; j++)
 	if (STACK_REG_P (recog_data.operand[j])
-	    && REGNO (recog_data.operand[j]) == i)
+	    && REGNO (recog_data.operand[j]) == (unsigned) i)
 	  {
 	    regstack->reg[++regstack->top] = i;
 	    SET_HARD_REG_BIT (regstack->reg_set, i);
@@ -2557,10 +2607,15 @@ convert_regs_1 (file, block)
 	    }
 	}
 
-      /* Care for EH edges specially.  The normal return path may return
-	 a value in st(0), but the EH path will not, and there's no need
-	 to add popping code to the edge.  */
-      if (e->flags & (EDGE_EH | EDGE_ABNORMAL_CALL))
+      /* Care for non-call EH edges specially.  The normal return path have
+	 values in registers.  These will be popped en masse by the unwind
+	 library.  */
+      if ((e->flags & (EDGE_EH | EDGE_ABNORMAL_CALL)) == EDGE_EH)
+	target_stack->top = -1;
+
+      /* Other calls may appear to have values live in st(0), but the
+	 abnormal return path will not have actually loaded the values.  */
+      else if (e->flags & EDGE_ABNORMAL_CALL)
 	{
 	  /* Assert that the lifetimes are as we expect -- one value
 	     live at st(0) on the end of the source block, and no

@@ -167,6 +167,7 @@ enum unroll_types
 #include "toplev.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "predict.h"
 
 /* This controls which loops are unrolled, and by how much we unroll
    them.  */
@@ -201,7 +202,7 @@ static int *splittable_regs_updates;
 static void init_reg_map PARAMS ((struct inline_remap *, int));
 static rtx calculate_giv_inc PARAMS ((rtx, rtx, unsigned int));
 static rtx initial_reg_note_copy PARAMS ((rtx, struct inline_remap *));
-static void final_reg_note_copy PARAMS ((rtx, struct inline_remap *));
+static void final_reg_note_copy PARAMS ((rtx *, struct inline_remap *));
 static void copy_loop_body PARAMS ((struct loop *, rtx, rtx,
 				    struct inline_remap *, rtx, int,
 				    enum unroll_types, rtx, rtx, rtx, rtx));
@@ -962,6 +963,7 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 	      emit_cmp_and_jump_insns (initial_value, final_value,
 				       neg_inc ? LE : GE,
 				       NULL_RTX, mode, 0, 0, labels[1]);
+	      predict_insn_def (get_last_insn (), PRED_LOOP_CONDITION, NOT_TAKEN);
 	      JUMP_LABEL (get_last_insn ()) = labels[1];
 	      LABEL_NUSES (labels[1])++;
 	    }
@@ -1007,6 +1009,8 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 				       labels[i]);
 	      JUMP_LABEL (get_last_insn ()) = labels[i];
 	      LABEL_NUSES (labels[i])++;
+	      predict_insn (get_last_insn (), PRED_LOOP_PRECONDITIONING,
+			    REG_BR_PROB_BASE / (unroll_number - i));
 	    }
 
 	  /* If the increment is greater than one, then we need another branch,
@@ -1666,13 +1670,13 @@ initial_reg_note_copy (notes, map)
     return 0;
 
   copy = rtx_alloc (GET_CODE (notes));
-  PUT_MODE (copy, GET_MODE (notes));
+  PUT_REG_NOTE_KIND (copy, REG_NOTE_KIND (notes));
 
   if (GET_CODE (notes) == EXPR_LIST)
     XEXP (copy, 0) = copy_rtx_and_substitute (XEXP (notes, 0), map, 0);
   else if (GET_CODE (notes) == INSN_LIST)
     /* Don't substitute for these yet.  */
-    XEXP (copy, 0) = XEXP (notes, 0);
+    XEXP (copy, 0) = copy_rtx (XEXP (notes, 0));
   else
     abort ();
 
@@ -1684,15 +1688,38 @@ initial_reg_note_copy (notes, map)
 /* Fixup insn references in copied REG_NOTES.  */
 
 static void
-final_reg_note_copy (notes, map)
-     rtx notes;
+final_reg_note_copy (notesp, map)
+     rtx *notesp;
      struct inline_remap *map;
 {
-  rtx note;
+  while (*notesp)
+    {
+      rtx note = *notesp;
+      
+      if (GET_CODE (note) == INSN_LIST)
+	{
+	  /* Sometimes, we have a REG_WAS_0 note that points to a
+	     deleted instruction.  In that case, we can just delete the
+	     note.  */
+	  if (REG_NOTE_KIND (note) == REG_WAS_0)
+	    {
+	      *notesp = XEXP (note, 1);
+	      continue;
+	    }
+	  else
+	    {
+	      rtx insn = map->insn_map[INSN_UID (XEXP (note, 0))];
 
-  for (note = notes; note; note = XEXP (note, 1))
-    if (GET_CODE (note) == INSN_LIST)
-      XEXP (note, 0) = map->insn_map[INSN_UID (XEXP (note, 0))];
+	      /* If we failed to remap the note, something is awry.  */
+	      if (!insn)
+		abort ();
+
+	      XEXP (note, 0) = insn;
+	    }
+	}
+
+      notesp = &XEXP (note, 1);
+    }
 }
 
 /* Copy each instruction in the loop, substituting from map as appropriate.
@@ -2219,7 +2246,7 @@ copy_loop_body (loop, copy_start, copy_end, map, exit_label, last_iteration,
       if ((GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN
 	   || GET_CODE (insn) == CALL_INSN)
 	  && map->insn_map[INSN_UID (insn)])
-	final_reg_note_copy (REG_NOTES (map->insn_map[INSN_UID (insn)]), map);
+	final_reg_note_copy (&REG_NOTES (map->insn_map[INSN_UID (insn)]), map);
     }
   while (insn != copy_end);
 
@@ -3451,7 +3478,8 @@ loop_iterations (loop)
   rtx comparison, comparison_value;
   rtx iteration_var, initial_value, increment, final_value;
   enum rtx_code comparison_code;
-  HOST_WIDE_INT abs_inc;
+  HOST_WIDE_INT inc;
+  unsigned HOST_WIDE_INT abs_inc;
   unsigned HOST_WIDE_INT abs_diff;
   int off_by_one;
   int increment_dir;
@@ -3951,16 +3979,27 @@ loop_iterations (loop)
      so correct for that.  Note that abs_diff and n_iterations are
      unsigned, because they can be as large as 2^n - 1.  */
 
-  abs_inc = INTVAL (increment);
-  if (abs_inc > 0)
-    abs_diff = INTVAL (final_value) - INTVAL (initial_value);
-  else if (abs_inc < 0)
+  inc = INTVAL (increment);
+  if (inc > 0)
+    {
+      abs_diff = INTVAL (final_value) - INTVAL (initial_value);
+      abs_inc = inc;
+    }
+  else if (inc < 0)
     {
       abs_diff = INTVAL (initial_value) - INTVAL (final_value);
-      abs_inc = -abs_inc;
+      abs_inc = -inc;
     }
   else
     abort ();
+
+  /* Given that iteration_var is going to iterate over its own mode,
+     not HOST_WIDE_INT, disregard higher bits that might have come
+     into the picture due to sign extension of initial and final
+     values.  */
+  abs_diff &= ((unsigned HOST_WIDE_INT)1
+	       << (GET_MODE_BITSIZE (GET_MODE (iteration_var)) - 1)
+	       << 1) - 1;
 
   /* For NE tests, make sure that the iteration variable won't miss
      the final value.  If abs_diff mod abs_incr is not zero, then the

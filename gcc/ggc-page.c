@@ -826,11 +826,11 @@ release_pages ()
 }
 
 /* This table provides a fast way to determine ceil(log_2(size)) for
-   allocation requests.  The minimum allocation size is four bytes.  */
+   allocation requests.  The minimum allocation size is eight bytes.  */
 
 static unsigned char size_lookup[257] = 
-{ 
-  2, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 
+{
+  3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 
   4, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 
   5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 
   6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 
@@ -999,16 +999,6 @@ ggc_set_mark (p)
     fprintf (G.debug_file, "Marking %p\n", p);
 
   return 0;
-}
-
-/* Mark P, but check first that it was allocated by the collector.  */
-
-void
-ggc_mark_if_gcable (p)
-     const void *p;
-{
-  if (p && ggc_allocated_p (p))
-    ggc_set_mark (p);
 }
 
 /* Return the size of the gc-able object P.  */
@@ -1456,7 +1446,7 @@ ggc_print_statistics ()
   /* Collect some information about the various sizes of 
      allocation.  */
   fprintf (stderr, "\n%-5s %10s  %10s  %10s\n",
-	   "Log", "Allocated", "Used", "Overhead");
+	   "Size", "Allocated", "Used", "Overhead");
   for (i = 0; i < NUM_ORDERS; ++i)
     {
       page_entry *p;
@@ -1482,7 +1472,7 @@ ggc_print_statistics ()
 	  overhead += (sizeof (page_entry) - sizeof (long)
 		       + BITMAP_SIZE (OBJECTS_PER_PAGE (i) + 1));
 	}
-      fprintf (stderr, "%-5d %10ld%c %10ld%c %10ld%c\n", i,
+      fprintf (stderr, "%-5d %10ld%c %10ld%c %10ld%c\n", OBJECT_SIZE (i),
 	       SCALE (allocated), LABEL (allocated),
 	       SCALE (in_use), LABEL (in_use),
 	       SCALE (overhead), LABEL (overhead));

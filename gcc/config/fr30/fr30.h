@@ -27,9 +27,6 @@ Boston, MA 02111-1307, USA.  */
 /* Set up System V.4 (aka ELF) defaults.  */
 #include "svr4.h"
 
-/* Include prototyping macros */
-#include "gansidecl.h"
-
 /*}}}*/ 
 /*{{{  Driver configuration.  */ 
 
@@ -343,14 +340,6 @@ extern int target_flags;
    should be signed or unsigned by default.  The user can always override this
    default with the options `-fsigned-char' and `-funsigned-char'.  */
 #define DEFAULT_SIGNED_CHAR 1
-
-#define TARGET_BELL     0x7	/*  '\a'  */
-#define TARGET_BS	0x8	/*  '\b'  */
-#define TARGET_TAB	0x9	/*  '\t'  */
-#define TARGET_NEWLINE	0xa	/*  '\n'  */
-#define TARGET_VT	0xb	/*  '\v'  */
-#define TARGET_FF	0xc	/*  '\f'  */
-#define TARGET_CR	0xd	/*  '\r'  */
 
 /*}}}*/ 
 /*{{{  REGISTER BASICS.  */ 
@@ -1514,15 +1503,6 @@ do										\
    to assemble a single byte containing the number VALUE.  */
 #define ASM_OUTPUT_BYTE(STREAM, VALUE) \
   fprintf (STREAM, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
-
-/* These macros are defined as C string constant, describing the syntax in the
-   assembler for grouping arithmetic expressions.  The following definitions
-   are correct for most assemblers:
-
-        #define ASM_OPEN_PAREN "("
-        #define ASM_CLOSE_PAREN ")"  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
 
 /*}}}*/ 
 /*{{{  Output and Generation of Labels.  */ 

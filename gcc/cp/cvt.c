@@ -594,8 +594,22 @@ convert_from_reference (val)
   if (TREE_CODE (type) == OFFSET_TYPE)
     type = TREE_TYPE (type);
   if (TREE_CODE (type) == REFERENCE_TYPE)
-    return build_indirect_ref (val, NULL_PTR);
+    return build_indirect_ref (val, NULL);
   return val;
+}
+
+/* Implicitly convert the lvalue EXPR to another lvalue of type TOTYPE,
+   preserving cv-qualification.  */
+
+tree
+convert_lvalue (totype, expr)
+     tree totype, expr;
+{
+  totype = cp_build_qualified_type (totype, TYPE_QUALS (TREE_TYPE (expr)));
+  totype = build_reference_type (totype);
+  expr = convert_to_reference (totype, expr, CONV_IMPLICIT, LOOKUP_NORMAL,
+			       NULL_TREE);
+  return convert_from_reference (expr);
 }
 
 /* Call this when we know (for any reason) that expr is not, in fact,
@@ -1258,7 +1272,7 @@ type_promotes_to (type)
       else
 	type = totype;
     }
-  else if (C_PROMOTING_INTEGER_TYPE_P (type))
+  else if (c_promoting_integer_type_p (type))
     {
       /* Retain unsignedness if really not getting bigger.  */
       if (TREE_UNSIGNED (type)

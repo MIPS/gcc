@@ -37,6 +37,7 @@ Boston, MA 02111-1307, USA.  */
 #include "intl.h"
 #include "tm_p.h"
 #include "splay-tree.h"
+#include "debug.h"
 
 /* MULTIBYTE_CHARS support only works for native compilers.
    ??? Ideally what we want is to model widechar support after
@@ -53,8 +54,8 @@ Boston, MA 02111-1307, USA.  */
 #define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ((ENV_VALUE) = getenv (ENV_NAME))
 #endif
 
-/* The original file name, before changing "-" to "stdin".  */
-static const char *orig_filename;
+/* The input filename as understood by CPP, where "" represents stdin.  */
+static const char *cpp_filename;
 
 /* We may keep statistics about how long which files took to compile.  */
 static int header_time, body_time;
@@ -79,14 +80,10 @@ int c_header_level;	 /* depth in C headers - C++ only */
 /* Nonzero tells yylex to ignore \ in string constants.  */
 static int ignore_escape_flag;
 
-static const char *readescape	PARAMS ((const char *, const char *,
-					 unsigned int *));
-static const char *read_ucs 	PARAMS ((const char *, const char *,
-					 unsigned int *, int));
 static void parse_float		PARAMS ((PTR));
 static tree lex_number		PARAMS ((const char *, unsigned int));
 static tree lex_string		PARAMS ((const char *, unsigned int, int));
-static tree lex_charconst	PARAMS ((const char *, unsigned int, int));
+static tree lex_charconst	PARAMS ((const cpp_token *));
 static void update_header_times	PARAMS ((const char *));
 static int dump_one_header	PARAMS ((splay_tree_node, void *));
 static void cb_ident		PARAMS ((cpp_reader *, const cpp_string *));
@@ -101,8 +98,6 @@ init_c_lex (filename)
 {
   struct cpp_callbacks *cb;
   struct c_fileinfo *toplevel;
-
-  orig_filename = filename;
 
   /* Set up filename timing.  Must happen before cpp_start_read.  */
   file_info_tree = splay_tree_new ((splay_tree_compare_fn)strcmp,
@@ -136,8 +131,11 @@ init_c_lex (filename)
       cb->undef = cb_undef;
     }
 
+
   if (filename == 0 || !strcmp (filename, "-"))
-    filename = "stdin";
+    filename = "stdin", cpp_filename = "";
+  else
+    cpp_filename = filename;
 
   /* Start it at 0.  */
   lineno = 0;
@@ -151,7 +149,7 @@ init_c_lex (filename)
 int
 yyparse()
 {
-  if (! cpp_start_read (parse_in, orig_filename))
+  if (! cpp_start_read (parse_in, cpp_filename))
     return 1;			/* cpplib has emitted an error.  */
 
   return yyparse_1();
@@ -252,7 +250,7 @@ cb_file_change (pfile, fc)
 	  lineno = fc->from.lineno;
 	  push_srcloc (fc->to.filename, 1);
 	  input_file_stack->indent_level = indent_level;
-	  debug_start_source_file (fc->to.filename);
+	  (*debug_hooks->start_source_file) (fc->from.lineno, fc->to.filename);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
 	    ++c_header_level;
@@ -290,7 +288,7 @@ cb_file_change (pfile, fc)
 	    }
 #endif
 	  pop_srcloc ();
-	  debug_end_source_file (input_file_stack->line);
+	  (*debug_hooks->end_source_file) (input_file_stack->line);
 	}
       else
 	error ("leaving more files than we entered");
@@ -337,240 +335,18 @@ cb_define (pfile, node)
      cpp_reader *pfile;
      cpp_hashnode *node;
 {
-  debug_define (lineno, (const char *) cpp_macro_definition (pfile, node));
+  (*debug_hooks->define) (cpp_get_line (pfile)->line,
+			  (const char *) cpp_macro_definition (pfile, node));
 }
 
 /* #undef callback for DWARF and DWARF2 debug info.  */
 static void
 cb_undef (pfile, node)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     cpp_reader *pfile;
      cpp_hashnode *node;
 {
-  debug_undef (lineno, (const char *) node->name);
-}
-
-/* Parse a '\uNNNN' or '\UNNNNNNNN' sequence.
-
-   [lex.charset]: The character designated by the universal-character-name 
-   \UNNNNNNNN is that character whose character short name in ISO/IEC 10646
-   is NNNNNNNN; the character designated by the universal-character-name
-   \uNNNN is that character whose character short name in ISO/IEC 10646 is
-   0000NNNN. If the hexadecimal value for a universal character name is
-   less than 0x20 or in the range 0x7F-0x9F (inclusive), or if the
-   universal character name designates a character in the basic source
-   character set, then the program is ill-formed.
-
-   We assume that wchar_t is Unicode, so we don't need to do any
-   mapping.  Is this ever wrong?  */
-
-static const char *
-read_ucs (p, limit, cptr, length)
-     const char *p;
-     const char *limit;
-     unsigned int *cptr;
-     int length;
-{
-  unsigned int code = 0;
-  int c;
-
-  for (; length; --length)
-    {
-      if (p >= limit)
-	{
-	  error ("incomplete universal-character-name");
-	  break;
-	}
-
-      c = *p++;
-      if (! ISXDIGIT (c))
-	{
-	  error ("non hex digit '%c' in universal-character-name", c);
-	  p--;
-	  break;
-	}
-
-      code <<= 4;
-      if (c >= 'a' && c <= 'f')
-	code += c - 'a' + 10;
-      if (c >= 'A' && c <= 'F')
-	code += c - 'A' + 10;
-      if (c >= '0' && c <= '9')
-	code += c - '0';
-    }
-
-#ifdef TARGET_EBCDIC
-  sorry ("universal-character-name on EBCDIC target");
-  *cptr = 0x3f;  /* EBCDIC invalid character */
-  return p;
-#endif
-
-  if (code > 0x9f && !(code & 0x80000000))
-    /* True extended character, OK.  */;
-  else if (code >= 0x20 && code < 0x7f)
-    {
-      /* ASCII printable character.  The C character set consists of all of
-	 these except $, @ and `.  We use hex escapes so that this also
-	 works with EBCDIC hosts.  */
-      if (code != 0x24 && code != 0x40 && code != 0x60)
-	error ("universal-character-name used for '%c'", code);
-    }
-  else
-    error ("invalid universal-character-name");
-
-  *cptr = code;
-  return p;
-}
-
-/* Read an escape sequence and write its character equivalent into *CPTR.
-   P is the input pointer, which is just after the backslash.  LIMIT
-   is how much text we have.
-   Returns the updated input pointer.  */
-
-static const char *
-readescape (p, limit, cptr)
-     const char *p;
-     const char *limit;
-     unsigned int *cptr;
-{
-  unsigned int c, code, count;
-  unsigned firstdig = 0;
-  int nonnull;
-
-  if (p == limit)
-    {
-      /* cpp has already issued an error for this.  */
-      *cptr = 0;
-      return p;
-    }
-
-  c = *p++;
-
-  switch (c)
-    {
-    case 'x':
-      if (warn_traditional && !in_system_header)
-	warning ("the meaning of `\\x' varies with -traditional");
-
-      if (flag_traditional)
-	{
-	  *cptr = 'x';
-	  return p;
-	}
-
-      code = 0;
-      count = 0;
-      nonnull = 0;
-      while (p < limit)
-	{
-	  c = *p++;
-	  if (! ISXDIGIT (c))
-	    {
-	      p--;
-	      break;
-	    }
-	  code *= 16;
-	  if (c >= 'a' && c <= 'f')
-	    code += c - 'a' + 10;
-	  if (c >= 'A' && c <= 'F')
-	    code += c - 'A' + 10;
-	  if (c >= '0' && c <= '9')
-	    code += c - '0';
-	  if (code != 0 || count != 0)
-	    {
-	      if (count == 0)
-		firstdig = code;
-	      count++;
-	    }
-	  nonnull = 1;
-	}
-      if (! nonnull)
-	{
-	  warning ("\\x used with no following hex digits");
-	  *cptr = 'x';
-	  return p;
-	}
-      else if (count == 0)
-	/* Digits are all 0's.  Ok.  */
-	;
-      else if ((count - 1) * 4 >= TYPE_PRECISION (integer_type_node)
-	       || (count > 1
-		   && (((unsigned)1
-			<< (TYPE_PRECISION (integer_type_node)
-			    - (count - 1) * 4))
-		       <= firstdig)))
-	pedwarn ("hex escape out of range");
-      *cptr = code;
-      return p;
-
-    case '0':  case '1':  case '2':  case '3':  case '4':
-    case '5':  case '6':  case '7':
-      code = 0;
-      for (count = 0; count < 3; count++)
-	{
-	  if (c < '0' || c > '7')
-	    {
-	      p--;
-	      break;
-	    }
-	  code = (code * 8) + (c - '0');
-	  if (p == limit)
-	    break;
-	  c = *p++;
-	}
-
-      if (count == 3)
-	p--;
-
-      *cptr = code;
-      return p;
-
-    case '\\': case '\'': case '"': case '?':
-      *cptr = c;
-      return p;
-
-    case 'n': *cptr = TARGET_NEWLINE;	return p;
-    case 't': *cptr = TARGET_TAB;	return p;
-    case 'r': *cptr = TARGET_CR;	return p;
-    case 'f': *cptr = TARGET_FF;	return p;
-    case 'b': *cptr = TARGET_BS;	return p;
-    case 'v': *cptr = TARGET_VT;	return p;
-    case 'a':
-      if (warn_traditional && !in_system_header)
-	warning ("the meaning of '\\a' varies with -traditional");
-      *cptr = flag_traditional ? c : TARGET_BELL;
-      return p;
-
-      /* Warnings and support checks handled by read_ucs().  */
-    case 'u': case 'U':
-      if (c_language != clk_cplusplus && !flag_isoc99)
-	break;
-
-      if (warn_traditional && !in_system_header)
-	warning ("the meaning of '\\%c' varies with -traditional", c);
-
-      return read_ucs (p, limit, cptr, c == 'u' ? 4 : 8);
-      
-    case 'e': case 'E':
-      if (pedantic)
-	pedwarn ("non-ISO-standard escape sequence, '\\%c'", c);
-      *cptr = TARGET_ESC; return p;
-
-      /* '\(', etc, are used at beginning of line to avoid confusing Emacs.
-	 '\%' is used to prevent SCCS from getting confused.  */
-    case '(': case '{': case '[': case '%':
-      if (pedantic)
-	pedwarn ("unknown escape sequence '\\%c'", c);
-      *cptr = c;
-      return p;
-    }
-
-  if (ISGRAPH (c))
-    pedwarn ("unknown escape sequence '\\%c'", c);
-  else
-    pedwarn ("unknown escape sequence: '\\' followed by char 0x%x", c);
-
-  *cptr = c;
-  return p;
+  (*debug_hooks->undef) (cpp_get_line (pfile)->line,
+			 (const char *) NODE_NAME (node));
 }
 
 #if 0 /* not yet */
@@ -992,11 +768,11 @@ c_lex (value)
       if (ISGRAPH (tok.val.c))
 	error ("stray '%c' in program", tok.val.c);
       else
-	error ("stray '\\%#o' in program", tok.val.c);
+	error ("stray '\\%o' in program", tok.val.c);
       goto retry;
       
     case CPP_NAME:
-      *value = get_identifier ((const char *)tok.val.node->name);
+      *value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok.val.node));
       break;
 
     case CPP_INT:
@@ -1007,13 +783,11 @@ c_lex (value)
 
     case CPP_CHAR:
     case CPP_WCHAR:
-      *value = lex_charconst ((const char *)tok.val.str.text,
-			      tok.val.str.len, tok.type == CPP_WCHAR);
+      *value = lex_charconst (&tok);
       break;
 
     case CPP_STRING:
     case CPP_WSTRING:
-    case CPP_OSTRING:
       *value = lex_string ((const char *)tok.val.str.text,
 			   tok.val.str.len, tok.type == CPP_WSTRING);
       break;
@@ -1093,9 +867,7 @@ lex_number (str, len)
 
       if (c == '.')
 	{
-	  if (base == 16 && pedantic && !flag_isoc99)
-	    pedwarn ("floating constant may not be in radix 16");
-	  else if (floatflag == AFTER_POINT)
+	  if (floatflag == AFTER_POINT)
 	    ERROR ("too many decimal points in floating constant");
 	  else if (floatflag == AFTER_EXPON)
 	    ERROR ("decimal point in exponent - impossible!");
@@ -1191,6 +963,9 @@ lex_number (str, len)
       struct pf_args args;
       char *copy;
 
+      if (base == 16 && pedantic && !flag_isoc99)
+	pedwarn ("floating constant may not be in radix 16");
+
       if (base == 16 && floatflag != AFTER_EXPON)
 	ERROR ("hexadecimal floating constant has no exponent");
 
@@ -1226,7 +1001,7 @@ lex_number (str, len)
 	    if (fflag)
 	      ERROR ("more than one 'f' suffix on floating constant");
 	    else if (warn_traditional && !in_system_header
-		     && ! cpp_sys_objmacro_p (parse_in))
+		     && ! cpp_sys_macro_p (parse_in))
 	      warning ("traditional C rejects the 'f' suffix");
 
 	    fflag = 1;
@@ -1236,7 +1011,7 @@ lex_number (str, len)
 	    if (lflag)
 	      ERROR ("more than one 'l' suffix on floating constant");
 	    else if (warn_traditional && !in_system_header
-		     && ! cpp_sys_objmacro_p (parse_in))
+		     && ! cpp_sys_macro_p (parse_in))
 	      warning ("traditional C rejects the 'l' suffix");
 
 	    lflag = 1;
@@ -1312,7 +1087,7 @@ lex_number (str, len)
 	      if (spec_unsigned)
 		error ("two 'u' suffixes on integer constant");
 	      else if (warn_traditional && !in_system_header
-		       && ! cpp_sys_objmacro_p (parse_in))
+		       && ! cpp_sys_macro_p (parse_in))
 		warning ("traditional C rejects the 'u' suffix");
 
 	      spec_unsigned = 1;
@@ -1524,7 +1299,7 @@ lex_string (str, len, wide)
 
 #ifdef MULTIBYTE_CHARS
   /* Reset multibyte conversion state.  */
-  (void) local_mbtowc (NULL_PTR, NULL_PTR, 0);
+  (void) local_mbtowc (NULL, NULL, 0);
 #endif
 
   while (p < limit)
@@ -1551,10 +1326,15 @@ lex_string (str, len, wide)
 
       if (c == '\\' && !ignore_escape_flag)
 	{
-	  p = readescape (p, limit, &c);
-	  if (width < HOST_BITS_PER_INT
-	      && (unsigned) c >= ((unsigned)1 << width))
-	    pedwarn ("escape sequence out of range for character");
+	  unsigned int mask;
+
+	  if (width < HOST_BITS_PER_INT)
+	    mask = ((unsigned int) 1 << width) - 1;
+	  else
+	    mask = ~0;
+	  c = cpp_parse_escape (parse_in, (const unsigned char **) &p,
+				(const unsigned char *) limit,
+				mask, flag_traditional);
 	}
 	
       /* Add this single character into the buffer either as a wchar_t
@@ -1607,113 +1387,36 @@ lex_string (str, len, wide)
   return value;
 }
 
+/* Converts a (possibly wide) character constant token into a tree.  */
 static tree
-lex_charconst (str, len, wide)
-     const char *str;
-     unsigned int len;
-     int wide;
+lex_charconst (token)
+     const cpp_token *token;
 {
-  const char *limit = str + len;
-  int result = 0;
-  int num_chars = 0;
-  int chars_seen = 0;
-  unsigned width = TYPE_PRECISION (char_type_node);
-  int max_chars;
-  unsigned int c;
+  HOST_WIDE_INT result;
   tree value;
-
-#ifdef MULTIBYTE_CHARS
-  int longest_char = local_mb_cur_max ();
-  (void) local_mbtowc (NULL_PTR, NULL_PTR, 0);
-#endif
-
-  max_chars = TYPE_PRECISION (integer_type_node) / width;
-  if (wide)
-    width = WCHAR_TYPE_SIZE;
-
-  while (str < limit)
-    {
-#ifdef MULTIBYTE_CHARS
-      wchar_t wc;
-      int char_len;
-
-      char_len = local_mbtowc (&wc, str, limit - str);
-      if (char_len == -1)
-	{
-	  warning ("Ignoring invalid multibyte character");
-	  char_len = 1;
-	  c = *str++;
-	}
-      else
-	{
-	  str += char_len;
-	  c = wc;
-	}
-#else
-      c = *str++;
-#endif
-
-      ++chars_seen;
-      if (c == '\\')
-	{
-	  str = readescape (str, limit, &c);
-	  if (width < HOST_BITS_PER_INT
-	      && (unsigned) c >= ((unsigned)1 << width))
-	    pedwarn ("escape sequence out of range for character");
-	}
-#ifdef MAP_CHARACTER
-      if (ISPRINT (c))
-	c = MAP_CHARACTER (c);
-#endif
-      
-      /* Merge character into result; ignore excess chars.  */
-      num_chars += (width / TYPE_PRECISION (char_type_node));
-      if (num_chars < max_chars + 1)
-	{
-	  if (width < HOST_BITS_PER_INT)
-	    result = (result << width) | (c & ((1 << width) - 1));
-	  else
-	    result = c;
-	}
-    }
-
-  if (chars_seen == 0)
-    error ("empty character constant");
-  else if (num_chars > max_chars)
-    {
-      num_chars = max_chars;
-      error ("character constant too long");
-    }
-  else if (chars_seen != 1 && ! flag_traditional && warn_multichar)
-    warning ("multi-character character constant");
-
-  /* If char type is signed, sign-extend the constant.  */
-  if (! wide)
-    {
-      int num_bits = num_chars * width;
-      if (num_bits == 0)
-	/* We already got an error; avoid invalid shift.  */
-	value = build_int_2 (0, 0);
-      else if (TREE_UNSIGNED (char_type_node)
-	       || ((result >> (num_bits - 1)) & 1) == 0)
-	value = build_int_2 (result & (~(unsigned HOST_WIDE_INT) 0
-				       >> (HOST_BITS_PER_WIDE_INT - num_bits)),
-			     0);
-      else
-	value = build_int_2 (result | ~(~(unsigned HOST_WIDE_INT) 0
-					>> (HOST_BITS_PER_WIDE_INT - num_bits)),
-			     -1);
-      /* In C, a character constant has type 'int'; in C++, 'char'.  */
-      if (chars_seen <= 1 && c_language == clk_cplusplus)
-	TREE_TYPE (value) = char_type_node;
-      else
-	TREE_TYPE (value) = integer_type_node;
-    }
-  else
+  unsigned int chars_seen;
+ 
+  result = cpp_interpret_charconst (parse_in, token, warn_multichar,
+ 				    flag_traditional, &chars_seen);
+  if (token->type == CPP_WCHAR)
     {
       value = build_int_2 (result, 0);
       TREE_TYPE (value) = wchar_type_node;
     }
-
+  else
+    {
+      if (result < 0)
+ 	value = build_int_2 (result, -1);
+      else
+ 	value = build_int_2 (result, 0);
+ 
+      /* In C, a character constant has type 'int'.
+ 	 In C++ 'char', but multi-char charconsts have type 'int'.  */
+      if (c_language == clk_cplusplus && chars_seen <= 1)
+ 	TREE_TYPE (value) = char_type_node;
+      else
+ 	TREE_TYPE (value) = integer_type_node;
+    }
+ 
   return value;
 }

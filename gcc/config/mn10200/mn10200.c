@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Matsushita MN10200 series
-   Copyright (C) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GNU CC.
@@ -28,7 +28,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
@@ -39,6 +38,8 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Global registers known to hold the value zero.
 
@@ -64,7 +65,11 @@ static void count_tst_insns PARAMS ((int *));
 
 /* Note whether or not we need an out of line epilogue.  */
 static int out_of_line_epilogue;
+
+/* Initialize the GCC target structure.  */
 
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* Indicate this file was compiled by gcc and what optimization
    level was used.  */
 void
@@ -163,8 +168,7 @@ print_operand (file, x, code)
 	    break;
 
 	  case SUBREG:
-	    fprintf (file, "%s",
-		     reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)]);
+	    fprintf (file, "%s", reg_names[subreg_regno (x)]);
 	    break;
 
 	  case CONST_DOUBLE:
@@ -213,7 +217,7 @@ print_operand (file, x, code)
 	  {
 	  case MEM:
 	    fputc ('(', file);
-	    x = adj_offsettable_operand (x, 2);
+	    x = adjust_address (x, HImode, 2);
 	    output_address (XEXP (x, 0));
 	    fputc (')', file);
 	    break;
@@ -223,8 +227,7 @@ print_operand (file, x, code)
 	    break;
 
 	  case SUBREG:
-	    fprintf (file, "%s",
-		     reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)] + 1);
+	    fprintf (file, "%s", reg_names[subreg_regno (x) + 1]);
 	    break;
 
 	  case CONST_DOUBLE:
@@ -323,8 +326,7 @@ print_operand (file, x, code)
 	    break;
 
 	  case SUBREG:
-	    fprintf (file, "%s",
-		     reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)]);
+	    fprintf (file, "%s", reg_names[subreg_regno (x)]);
 	    break;
 
 	  case CONST_INT:

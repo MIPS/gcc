@@ -66,30 +66,8 @@ do {								\
     }								\
 } while (0)
 
-/* Attach a special .ident directive to the end of the file to identify
-   the version of GCC which compiled this code.  The format of the
-   .ident string is patterned after the ones produced by native svr4
-   C compilers.  */
-
 #undef  IDENT_ASM_OP
 #define IDENT_ASM_OP "\t.ident\t"
-
-#ifdef IDENTIFY_WITH_IDENT
-#undef  ASM_IDENTIFY_GCC
-#define ASM_IDENTIFY_GCC(FILE) /* nothing */
-#undef  ASM_IDENTIFY_LANGUAGE
-#define ASM_IDENTIFY_LANGUAGE(FILE)			\
- fprintf(FILE, "%s\"GCC (%s) %s\"\n", IDENT_ASM_OP,	\
-	 lang_identify(), version_string)
-#else
-#undef  ASM_FILE_END
-#define ASM_FILE_END(FILE)					\
-do {				 				\
-     if (!flag_no_ident)					\
-	fprintf ((FILE), "%s\"GCC: (GNU) %s\"\n",		\
-		 IDENT_ASM_OP, version_string);			\
-   } while (0)
-#endif
 
 /* Allow #sccs in preprocessor.  */
 #define SCCS_DIRECTIVE
@@ -480,6 +458,8 @@ void FN ()					\
     }						\
   while (0)
 
+#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
+
 #define UNIQUE_SECTION_P(DECL)   (DECL_ONE_ONLY (DECL))
 
 #undef  UNIQUE_SECTION
@@ -697,7 +677,8 @@ void FN ()					\
 
 #undef	ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "%{shared:crtendS.o%s}%{!shared:crtend.o%s} crtn.o%s"
+  "%{ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
+   %{shared:crtendS.o%s}%{!shared:crtend.o%s} crtn.o%s"
 
 /* We support #pragma.  */
 #define HANDLE_SYSV_PRAGMA
@@ -707,3 +688,14 @@ void FN ()					\
 #undef UNALIGNED_SHORT_ASM_OP
 #undef UNALIGNED_INT_ASM_OP
 #undef UNALIGNED_DOUBLE_INT_ASM_OP
+
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.
+
+   Since application size is already constrained to <2GB by the form of
+   the ldgp relocation, we can use a 32-bit pc-relative relocation to
+   static data.  Dynamic data is accessed indirectly to allow for read
+   only EH sections.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)       \
+  (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4)

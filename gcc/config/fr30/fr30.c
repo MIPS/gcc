@@ -1,7 +1,5 @@
-/*{{{  Introduction */ 
-
 /* FR30 specific functions.
-   Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
 This file is part of GNU CC.
@@ -32,7 +30,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
@@ -43,6 +40,8 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "function.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 /*}}}*/
 /*{{{  Function Prologues & Epilogues */ 
@@ -137,7 +136,11 @@ static struct fr30_frame_info 	zero_frame_info;
 #if UNITS_PER_WORD == 4
 #define WORD_ALIGN(SIZE) (((SIZE) + 3) & ~3)
 #endif
-     
+
+/* Initialize the GCC target structure.  */
+
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* Returns the number of bytes offset between FROM_REG and TO_REG
    for the current function.  As a side effect it fills in the 
    current_frame_info structure, if the data is available.  */
@@ -201,7 +204,7 @@ fr30_compute_frame_size (from_reg, to_reg)
 
 /* Called after register allocation to add any instructions needed for the
    prologue.  Using a prologue insn is favored compared to putting all of the
-   instructions in the FUNCTION_PROLOGUE macro, since it allows the scheduler
+   instructions in output_function_prologue(), since it allows the scheduler
    to intermix instructions with the saves of the caller saved registers.  In
    some cases, it might be necessary to emit a barrier instruction as the last
    insn to prevent such scheduling.  */
@@ -330,7 +333,7 @@ fr30_expand_prologue ()
 
 /* Called after register allocation to add any instructions needed for the
    epilogue.  Using a epilogue insn is favored compared to putting all of the
-   instructions in the FUNCTION_EPILOGUE macro, since it allows the scheduler
+   instructions in output_function_epilogue(), since it allows the scheduler
    to intermix instructions with the restores of the caller saved registers.
    In some cases, it might be necessary to emit a barrier instruction as the
    first insn to prevent such scheduling.  */
@@ -1003,9 +1006,12 @@ fr30_move_double (operands)
 
 	  if (reverse)
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, dest1, change_address (src, SImode, addr)));
-	      emit_insn (gen_rtx_SET (SImode, dest0, gen_rtx_REG (SImode, REGNO (addr))));
-	      emit_insn (gen_rtx_SET (SImode, dest0, plus_constant (dest0, UNITS_PER_WORD)));
+	      emit_insn (gen_rtx_SET (VOIDmode, dest1,
+				      adjust_address (src, SImode, 0)));
+	      emit_insn (gen_rtx_SET (SImode, dest0,
+				      gen_rtx_REG (SImode, REGNO (addr))));
+	      emit_insn (gen_rtx_SET (SImode, dest0,
+				      plus_constant (dest0, UNITS_PER_WORD)));
 
 	      new_mem = gen_rtx_MEM (SImode, dest0);
 	      MEM_COPY_ATTRIBUTES (new_mem, src);
@@ -1014,9 +1020,12 @@ fr30_move_double (operands)
 	    }
 	  else
 	    {
-	      emit_insn (gen_rtx_SET (VOIDmode, dest0, change_address (src, SImode, addr)));
-	      emit_insn (gen_rtx_SET (SImode, dest1, gen_rtx_REG (SImode, REGNO (addr))));
-	      emit_insn (gen_rtx_SET (SImode, dest1, plus_constant (dest1, UNITS_PER_WORD)));
+	      emit_insn (gen_rtx_SET (VOIDmode, dest0,
+				      adjust_address (src, SImode, 0)));
+	      emit_insn (gen_rtx_SET (SImode, dest1,
+				      gen_rtx_REG (SImode, REGNO (addr))));
+	      emit_insn (gen_rtx_SET (SImode, dest1,
+				      plus_constant (dest1, UNITS_PER_WORD)));
 
 	      new_mem = gen_rtx_MEM (SImode, dest1);
 	      MEM_COPY_ATTRIBUTES (new_mem, src);
@@ -1049,12 +1058,14 @@ fr30_move_double (operands)
       src0 = operand_subword (src, 0, TRUE, mode);
       src1 = operand_subword (src, 1, TRUE, mode);
       
-      emit_insn (gen_rtx_SET (VOIDmode, change_address (dest, SImode, addr), src0));
+      emit_insn (gen_rtx_SET (VOIDmode, adjust_address (dest, SImode, 0),
+			      src0));
 
-      if (REGNO (addr) == STACK_POINTER_REGNUM)
-	emit_insn (gen_rtx_SET (VOIDmode, change_address (dest, SImode, plus_constant (stack_pointer_rtx, UNITS_PER_WORD)), src1));
-      else if (REGNO (addr) == FRAME_POINTER_REGNUM)
-	emit_insn (gen_rtx_SET (VOIDmode, change_address (dest, SImode, plus_constant (frame_pointer_rtx, UNITS_PER_WORD)), src1));
+      if (REGNO (addr) == STACK_POINTER_REGNUM
+	  || REGNO (addr) == FRAME_POINTER_REGNUM)
+	emit_insn (gen_rtx_SET (VOIDmode,
+				adjust_address (dest, SImode, UNITS_PER_WORD),
+				src1));
       else
 	{
 	  rtx new_mem;
@@ -1082,10 +1093,3 @@ fr30_move_double (operands)
 
   return val;
 }
-
-/*}}}*/
-
-/* Local Variables: */
-/* folded-file: t   */
-/* End:		    */
-

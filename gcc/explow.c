@@ -1,6 +1,6 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
    Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -32,8 +32,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hard-reg-set.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "insn-flags.h"
-#include "insn-codes.h"
 
 #if !defined PREFERRED_STACK_BOUNDARY && defined STACK_BOUNDARY
 #define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
@@ -80,6 +78,7 @@ plus_constant_wide (x, c)
      register HOST_WIDE_INT c;
 {
   register RTX_CODE code;
+  rtx y;
   register enum machine_mode mode;
   register rtx tem;
   int all_constant = 0;
@@ -91,6 +90,8 @@ plus_constant_wide (x, c)
 
   code = GET_CODE (x);
   mode = GET_MODE (x);
+  y = x;
+
   switch (code)
     {
     case CONST_INT:
@@ -161,22 +162,24 @@ plus_constant_wide (x, c)
 	  x = XEXP (x, 0);
 	  goto restart;
 	}
-      else if (CONSTANT_P (XEXP (x, 0)))
-	{
-	  x = gen_rtx_PLUS (mode,
-			    plus_constant (XEXP (x, 0), c),
-			    XEXP (x, 1));
-	  c = 0;
-	}
       else if (CONSTANT_P (XEXP (x, 1)))
 	{
-	  x = gen_rtx_PLUS (mode,
-			    XEXP (x, 0),
-			    plus_constant (XEXP (x, 1), c));
+	  x = gen_rtx_PLUS (mode, XEXP (x, 0), plus_constant (XEXP (x, 1), c));
+	  c = 0;
+	}
+      else if (find_constant_term_loc (&y))
+	{
+	  /* We need to be careful since X may be shared and we can't
+	     modify it in place.  */
+	  rtx copy = copy_rtx (x);
+	  rtx *const_loc = find_constant_term_loc (&copy);
+
+	  *const_loc = plus_constant (*const_loc, c);
+	  x = copy;
 	  c = 0;
 	}
       break;
-      
+
     default:
       break;
     }
@@ -190,25 +193,6 @@ plus_constant_wide (x, c)
     return gen_rtx_CONST (mode, x);
   else
     return x;
-}
-
-/* This is the same as `plus_constant', except that it handles LO_SUM.
-
-   This function should be used via the `plus_constant_for_output' macro.  */
-
-rtx
-plus_constant_for_output_wide (x, c)
-     register rtx x;
-     register HOST_WIDE_INT c;
-{
-  register enum machine_mode mode = GET_MODE (x);
-
-  if (GET_CODE (x) == LO_SUM)
-    return gen_rtx_LO_SUM (mode, XEXP (x, 0),
-			   plus_constant_for_output (XEXP (x, 1), c));
-
-  else
-    return plus_constant (x, c);
 }
 
 /* If X is a sum, return a new sum like X but lacking any constant terms.
@@ -303,7 +287,13 @@ rtx
 expr_size (exp)
      tree exp;
 {
-  tree size = size_in_bytes (TREE_TYPE (exp));
+  tree size;
+
+  if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
+      && DECL_SIZE_UNIT (exp) != 0)
+    size = DECL_SIZE_UNIT (exp);
+  else
+    size = size_in_bytes (TREE_TYPE (exp));
 
   if (TREE_CODE (size) != INTEGER_CST
       && contains_placeholder_p (size))
@@ -615,10 +605,12 @@ validize_mem (ref)
 {
   if (GET_CODE (ref) != MEM)
     return ref;
-  if (memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (! (flag_force_addr && CONSTANT_ADDRESS_P (XEXP (ref, 0)))
+      && memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
     return ref;
+
   /* Don't alter REF itself, since that is probably a stack slot.  */
-  return change_address (ref, GET_MODE (ref), XEXP (ref, 0));
+  return replace_equiv_address (ref, XEXP (ref, 0));
 }
 
 /* Given REF, either a MEM or a REG, and T, either the type of X or
@@ -669,7 +661,7 @@ set_mem_attributes (ref, t, objectp)
      here, because, in C and C++, the fact that a location is accessed
      through a const expression does not mean that the value there can
      never change.  */
-  MEM_ALIAS_SET (ref) = get_alias_set (t);
+  set_mem_alias_set (ref, get_alias_set (t));
   MEM_VOLATILE_P (ref) = TYPE_VOLATILE (type);
   MEM_IN_STRUCT_P (ref) = AGGREGATE_TYPE_P (type);
 
@@ -704,6 +696,7 @@ set_mem_attributes (ref, t, objectp)
   if (DECL_P (t))
     MEM_SCALAR_P (ref) = 1;
   else if (TREE_CODE (t) == COMPONENT_REF || TREE_CODE (t) == ARRAY_REF
+	   || TREE_CODE (t) == ARRAY_RANGE_REF
 	   || TREE_CODE (t) == BIT_FIELD_REF)
     MEM_IN_STRUCT_P (ref) = 1;
 }
@@ -717,21 +710,13 @@ rtx
 stabilize (x)
      rtx x;
 {
-  register rtx addr;
 
-  if (GET_CODE (x) != MEM)
+  if (GET_CODE (x) != MEM
+      || ! rtx_unstable_p (XEXP (x, 0)))
     return x;
 
-  addr = XEXP (x, 0);
-  if (rtx_unstable_p (addr))
-    {
-      rtx temp = force_reg (Pmode, copy_all_regs (addr));
-      rtx mem = gen_rtx_MEM (GET_MODE (x), temp);
-
-      MEM_COPY_ATTRIBUTES (mem, x);
-      return mem;
-    }
-  return x;
+  return
+    replace_equiv_address (x, force_reg (Pmode, copy_all_regs (XEXP (x, 0))));
 }
 
 /* Copy the value or contents of X to a new temp reg and return that reg.  */
@@ -1627,13 +1612,13 @@ probe_stack_range (first, size)
 	  || REGNO (test_addr) < FIRST_PSEUDO_REGISTER)
 	test_addr = force_reg (Pmode, test_addr);
 
-      emit_note (NULL_PTR, NOTE_INSN_LOOP_BEG);
+      emit_note (NULL, NOTE_INSN_LOOP_BEG);
       emit_jump (test_lab);
 
       emit_label (loop_lab);
       emit_stack_probe (test_addr);
 
-      emit_note (NULL_PTR, NOTE_INSN_LOOP_CONT);
+      emit_note (NULL, NOTE_INSN_LOOP_CONT);
 
 #ifdef STACK_GROWS_DOWNWARD
 #define CMP_OPCODE GTU
@@ -1652,7 +1637,7 @@ probe_stack_range (first, size)
       emit_cmp_and_jump_insns (test_addr, last_addr, CMP_OPCODE,
 			       NULL_RTX, Pmode, 1, 0, loop_lab);
       emit_jump (end_lab);
-      emit_note (NULL_PTR, NOTE_INSN_LOOP_END);
+      emit_note (NULL, NOTE_INSN_LOOP_END);
       emit_label (end_lab);
 
       emit_stack_probe (last_addr);

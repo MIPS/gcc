@@ -664,11 +664,6 @@ struct cum_arg
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
   function_arg (&CUM, MODE, TYPE, NAMED)
 
-/* Generate assembly output for the start of a function.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) \
-  function_prologue (FILE, SIZE)
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -709,14 +704,6 @@ struct cum_arg
    No definition is equivalent to always zero.  */
 
 #define EXIT_IGNORE_STACK 0
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) \
-  function_epilogue (FILE, SIZE)
 
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.  
@@ -846,12 +833,6 @@ struct cum_arg
 
 /* Extra constraints.  */
 
-/* 'T' if valid for dec.[wl] on H8/300H and H8/S.  Note that, for
-   inc.[wl], we can use 'K', which has already been defined.  */
-#define OK_FOR_T(OP)				\
-  (GET_CODE (OP) == CONST_INT			\
-   && (INTVAL (OP) == -1 || INTVAL (OP) == -2))
-
 /* Nonzero if X is a constant address suitable as an 8-bit absolute on
    the H8/300H, which is a special case of the 'R' operand.  */
 
@@ -881,8 +862,7 @@ struct cum_arg
        && GET_CODE (XEXP (OP, 0)) == CONST_INT))
 
 #define EXTRA_CONSTRAINT(OP, C)			\
-  ((C) == 'T' ? OK_FOR_T (OP) :			\
-   (C) == 'U' ? OK_FOR_U (OP) :			\
+  ((C) == 'U' ? OK_FOR_U (OP) :			\
    0)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
@@ -1005,12 +985,6 @@ struct cum_arg
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
 
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-h8300_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-
 #define ADJUST_INSN_LENGTH(INSN, LENGTH) \
   LENGTH += h8300_adjust_insn_length (INSN, LENGTH);
 
@@ -1067,8 +1041,6 @@ h8300_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
 #define CC_NO_CARRY CC_NO_OVERFLOW
 
 /* Control the assembler format that we output.  */
-
-#define ASM_IDENTIFY_GCC(FILE) /* nothing */
 
 /* Output at beginning/end of assembler file.  */
 
@@ -1415,21 +1387,6 @@ readonly_data ()							\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
-
 /* Print an instruction operand X on file FILE.
    Look in h8300.c for details.  */
 
@@ -1487,4 +1444,4 @@ readonly_data ()							\
 
 #define MOVE_RATIO 3
 
-#endif /* GCC_H8300_H */
+#endif /* ! GCC_H8300_H */

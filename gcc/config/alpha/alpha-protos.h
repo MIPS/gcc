@@ -28,7 +28,6 @@ extern int alpha_pv_save_size PARAMS ((void));
 extern int alpha_using_fp PARAMS ((void));
 extern void alpha_write_verstamp PARAMS ((FILE *));
 extern void alpha_expand_prologue PARAMS ((void));
-extern void output_end_prologue PARAMS ((FILE *));
 extern void alpha_expand_epilogue PARAMS ((void));
 extern void alpha_output_filename PARAMS ((FILE *, const char *));
 extern void alpha_output_lineno PARAMS ((FILE *, int));
@@ -71,6 +70,8 @@ extern int normal_memory_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_no_subreg_operand PARAMS ((rtx, enum machine_mode));
 extern int addition_operation PARAMS ((rtx, enum machine_mode));
 
+extern rtx alpha_tablejump_addr_vec PARAMS ((rtx));
+extern rtx alpha_tablejump_best_label PARAMS ((rtx));
 extern void get_aligned_mem PARAMS ((rtx, rtx *, rtx *));
 extern rtx get_unaligned_address PARAMS ((rtx, int));
 extern enum reg_class secondary_reload_class PARAMS ((enum reg_class,
@@ -100,6 +101,7 @@ extern int alpha_expand_block_move PARAMS ((rtx []));
 extern int alpha_expand_block_clear PARAMS ((rtx []));
 extern int alpha_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 extern rtx alpha_return_addr PARAMS ((int, rtx));
+extern rtx alpha_gp_save_rtx PARAMS ((void));
 extern void print_operand PARAMS ((FILE *, rtx, int));
 extern void print_operand_address PARAMS ((FILE *, rtx));
 extern void alpha_initialize_trampoline PARAMS ((rtx, rtx, rtx, int, int, int));
@@ -111,7 +113,7 @@ extern int check_float_value PARAMS ((enum machine_mode,
 				     REAL_VALUE_TYPE *, int));
 #endif
 
-#if OPEN_VMS
+#if TARGET_ABI_OPEN_VMS
 #ifdef HAVE_MACHINE_MODES
 extern enum avms_arg_type alpha_arg_type PARAMS ((enum machine_mode));
 #endif
@@ -121,7 +123,7 @@ extern rtx alpha_arg_info_reg_val PARAMS ((CUMULATIVE_ARGS));
 #ifdef BUFSIZ
 extern void alpha_write_linkage PARAMS ((FILE *));
 #endif
-#endif /* OPEN_VMS */
+#endif /* TARGET_ABI_OPEN_VMS */
 
 #ifdef RTX_CODE
 extern rtx alpha_need_linkage PARAMS ((const char *, int));
@@ -135,7 +137,6 @@ extern rtx alpha_va_arg PARAMS ((tree, tree));
 extern rtx function_arg PARAMS ((CUMULATIVE_ARGS, enum machine_mode,
 				 tree, int));
 #endif
-extern int vms_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
 extern void alpha_start_function PARAMS ((FILE *, const char *, tree));
 extern void alpha_end_function PARAMS ((FILE *, const char *, tree));
 #endif /* TREE CODE */

@@ -57,6 +57,7 @@ static void expand_java_array_length PARAMS ((void));
 static tree build_java_monitor PARAMS ((tree, tree));
 static void expand_java_pushc PARAMS ((int, tree));
 static void expand_java_return PARAMS ((tree));
+static void expand_load_internal PARAMS ((int, tree, int));
 static void expand_java_NEW PARAMS ((tree));
 static void expand_java_INSTANCEOF PARAMS ((tree));
 static void expand_java_CHECKCAST PARAMS ((tree));
@@ -355,24 +356,17 @@ pop_type_0 (type, messagep)
       else if (CLASS_INTERFACE (TYPE_NAME (TREE_TYPE (type))))
 	return object_ptr_type_node;
     }
+
+  /* lang_printable_name uses a static buffer, so we must save the result
+     from calling it the first time.  */
   {
-    const char *str1 = "expected type '";
-    const char *str3 = "' but stack contains '";
-    const char *str5 = "'";
-    int len1 = strlen (str1);
-    int len2 = strlen (lang_printable_name (type, 0));
-    int len3 = strlen (str3);
-    int len4 = strlen (lang_printable_name (t, 0));
-    int len5 = strlen (str5);
-    char *msg = xmalloc (len1 + len2 + len3 + len4 + len5 + 1);
-    *messagep = msg;
-    strcpy (msg, str1);  msg += len1;
-    strcpy (msg, lang_printable_name (type, 0));  msg += len2;
-    strcpy (msg, str3);  msg += len3;
-    strcpy (msg, lang_printable_name (t, 0));  msg += len4;
-    strcpy (msg, str5);
-    return type;
+    char *temp = xstrdup (lang_printable_name (type, 0));
+    *messagep = concat ("expected type '", temp,
+			"' but stack contains '", lang_printable_name (t, 0),
+			"'", NULL);
+    free (temp);
   }
+  return type;
 }
 
 /* Pop a type from the type stack.
@@ -387,7 +381,7 @@ pop_type (type)
   type = pop_type_0 (type, &message);
   if (message != NULL)
     {
-      error (message);
+      error ("%s", message);
       free (message);
     }
   return type;
@@ -600,7 +594,7 @@ build_java_athrow (node)
 
   call = build (CALL_EXPR,
 		void_type_node,
-		build_address_of (throw_node[exceptions_via_longjmp ? 1 : 0]),
+		build_address_of (throw_node),
 		build_tree_list (NULL_TREE, node),
 		NULL_TREE);
   TREE_SIDE_EFFECTS (call) = 1;
@@ -710,36 +704,46 @@ build_java_array_length_access (node)
   length = java_array_type_length (type);
   if (length >= 0)
     return build_int_2 (length, 0);
-
-  return fold (build1 (INDIRECT_REF,
-		       int_type_node,
+  return fold (build1 (INDIRECT_REF, int_type_node,
 		       fold (build (PLUS_EXPR, ptr_type_node,
-				    node, 
+				    java_check_reference (node, 1), 
 				    JAVA_ARRAY_LENGTH_OFFSET(node)))));
 }
 
-/* Optionally checks an array against the NULL pointer, eventually throwing a
-   NullPointerException. It could replace signal handling, but tied to NULL.
-   ARG1: the pointer to check, ARG2: the expression to use if
-   the pointer is non-null and ARG3 the type that should be returned.   */
+/* Optionally checks a reference against the NULL pointer.  ARG1: the
+   expr, ARG2: we should check the reference.  Don't generate extra
+   checks if we're not generating code.  */
+
+tree 
+java_check_reference (expr, check)
+     tree expr;
+     int check;
+{
+  if (!flag_syntax_only && check)
+    {
+      tree cond;
+      expr = save_expr (expr);
+      cond = build (COND_EXPR, void_type_node,
+		    build (EQ_EXPR, boolean_type_node, expr, null_pointer_node),
+		    build (CALL_EXPR, void_type_node, 
+			   build_address_of (soft_nullpointer_node),
+			   NULL_TREE, NULL_TREE),
+		    empty_stmt_node);
+      expr = build (COMPOUND_EXPR, TREE_TYPE (expr), cond, expr);
+    }
+
+  return expr;
+}
+
+/* Reference an object: just like an INDIRECT_REF, but with checking.  */
 
 tree
-build_java_arraynull_check (node, expr, type)
-    tree node ATTRIBUTE_UNUSED;
-    tree expr;
-    tree type ATTRIBUTE_UNUSED;
+build_java_indirect_ref (type, expr, check)
+     tree type;
+     tree expr;
+     int check;
 {
-#if 0
-  static int java_array_access_throws_null_exception = 0;
-  node = ???;
-  if (java_array_access_throws_null_exception)
-      return (build (COND_EXPR, 
-		     type,
-		     build (EQ_EXPR, int_type_node, node, null_pointer_node),
-		     build_java_athrow (node), expr ));
-  else
-#endif
-      return (expr);
+  return build1 (INDIRECT_REF, type, java_check_reference (expr, check));
 }
 
 static tree
@@ -792,15 +796,15 @@ build_java_arrayaccess (array, type, index)
 	  TREE_SIDE_EFFECTS( throw ) = 1;
 	}
     }
-
+  
   node = build1 (INDIRECT_REF, type, 
 		 fold (build (PLUS_EXPR, ptr_type_node, 
-			      array, 
+			      java_check_reference (array, flag_check_references), 
 			      (throw ? build (COMPOUND_EXPR, int_type_node, 
 					      throw, arith )
 			             : arith))));
-
-  return (fold (build_java_arraynull_check (array, node, type)));
+  
+  return node;
 }
 
 /* Makes sure that INDEXED_TYPE is appropriate. If not, make it from
@@ -1008,7 +1012,7 @@ expand_java_array_length ()
   tree array  = pop_value (ptr_type_node);
   tree length = build_java_array_length_access (array);
 
-  push_value (build_java_arraynull_check (array, length, int_type_node));
+  push_value (length);
 }
 
 /* Emit code for the call to _Jv_Monitor{Enter,Exit}. CALL can be
@@ -1083,6 +1087,32 @@ expand_java_return (type)
     }
 }
 
+static void
+expand_load_internal (index, type, pc)
+     int index;
+     tree type;
+     int pc;
+{
+  tree copy;
+  tree var = find_local_variable (index, type, pc);
+
+  /* Now VAR is the VAR_DECL (or PARM_DECL) that we are going to push
+     on the stack.  If there is an assignment to this VAR_DECL between
+     the stack push and the use, then the wrong code could be
+     generated.  To avoid this we create a new local and copy our
+     value into it.  Then we push this new local on the stack.
+     Hopefully this all gets optimized out.  */
+  copy = build_decl (VAR_DECL, NULL_TREE, type);
+  DECL_CONTEXT (copy) = current_function_decl;
+  layout_decl (copy, 0);
+  DECL_REGISTER (copy) = 1;
+  expand_decl (copy);
+  MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (copy);
+  DECL_INITIAL (copy) = var;
+  expand_decl_init (copy);
+  push_value (copy);
+}
+
 tree
 build_address_of (value)
      tree value;
@@ -1118,7 +1148,8 @@ build_get_class (value)
   return build (COMPONENT_REF, class_ptr_type,
 		build1 (INDIRECT_REF, dtable_type,
 			build (COMPONENT_REF, dtable_ptr_type,
-			       build1 (INDIRECT_REF, object_type_node, value),
+			       build_java_indirect_ref (object_type_node, value,
+							flag_check_references),
 			       vtable_field)),
 		class_field);
 }
@@ -1485,8 +1516,8 @@ build_field_ref (self_value, self_class, name)
 #ifdef JAVA_USE_HANDLES
       self_value = unhand_expr (self_value);
 #endif
-      self_value = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (self_value)),
-			   self_value);
+      self_value = build_java_indirect_ref (TREE_TYPE (TREE_TYPE (self_value)),
+					    self_value, flag_check_references);
       return fold (build (COMPONENT_REF, TREE_TYPE (field_decl),
 			  self_value, field_decl));
     }
@@ -1658,7 +1689,7 @@ tree
 build_class_init (clas, expr)
      tree clas, expr;
 {
-  tree init, call;
+  tree init;
   struct init_test_hash_entry *ite;
   if (inherits_from_p (current_class, clas))
     return expr;
@@ -1689,14 +1720,14 @@ build_class_init (clas, expr)
 		    build_tree_list (NULL_TREE, build_class_ref (clas)),
 		    NULL_TREE);
       TREE_SIDE_EFFECTS (init) = 1;
-      call = build (COMPOUND_EXPR, TREE_TYPE (expr), init, 
-		    build (MODIFY_EXPR, boolean_type_node,
-			   ite->init_test_decl, boolean_true_node));
-      TREE_SIDE_EFFECTS (call) = 1;
       init = build (COND_EXPR, void_type_node,
 		    build (EQ_EXPR, boolean_type_node, 
 			   ite->init_test_decl, boolean_false_node),
-		    call, integer_zero_node);
+		    init, integer_zero_node);
+      TREE_SIDE_EFFECTS (init) = 1;
+      init = build (COMPOUND_EXPR, TREE_TYPE (expr), init, 
+		    build (MODIFY_EXPR, boolean_type_node,
+			   ite->init_test_decl, boolean_true_node));
       TREE_SIDE_EFFECTS (init) = 1;
     }
 
@@ -1780,7 +1811,8 @@ invoke_build_dtable (is_invoke_interface, arg_list)
   
   if (dtable_ident == NULL_TREE)
     dtable_ident = get_identifier ("vtable");
-  dtable = build1 (INDIRECT_REF, object_type_node, objectref );
+  dtable = build_java_indirect_ref (object_type_node, objectref, 
+				    flag_check_references);
   dtable = build (COMPONENT_REF, dtable_ptr_type, dtable,
 		  lookup_field (&object_type_node, dtable_ident));
 
@@ -1829,7 +1861,7 @@ build_invokeinterface (dtable, method)
       ggc_add_tree_root (&class_ident, 1);
     }
 
-  dtable = build1 (INDIRECT_REF, dtable_type, dtable);
+  dtable = build_java_indirect_ref (dtable_type, dtable, flag_check_references);
   dtable = build (COMPONENT_REF, class_ptr_type, dtable,
 		  lookup_field (&dtable_type, class_ident));
 
@@ -1875,7 +1907,7 @@ expand_invoke (opcode, method_ref_index, nargs)
   const char *self_name
     = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (self_type)));
   tree call, func, method, arg_list, method_type;
-  tree cond = NULL_TREE;
+  tree check = NULL_TREE;
 
   if (! CLASS_LOADED_P (self_type))
     {
@@ -1957,7 +1989,7 @@ expand_invoke (opcode, method_ref_index, nargs)
 	 the new `self' expression once.  */
       tree save_arg = save_expr (TREE_VALUE (arg_list));
       TREE_VALUE (arg_list) = save_arg;
-      cond = build (EQ_EXPR, boolean_type_node, save_arg, null_pointer_node);
+      check = java_check_reference (save_arg, 1);
       func = build_known_method_ref (method, method_type, self_type,
 				     method_signature, arg_list);
     }
@@ -1974,20 +2006,9 @@ expand_invoke (opcode, method_ref_index, nargs)
   call = build (CALL_EXPR, TREE_TYPE (method_type), func, arg_list, NULL_TREE);
   TREE_SIDE_EFFECTS (call) = 1;
 
-  if (cond != NULL_TREE)
+  if (check != NULL_TREE)
     {
-      /* We have to make the `then' branch a compound expression to
-	 make the types turn out right.  This seems bizarre.  */
-      call = build (COND_EXPR, TREE_TYPE (call), cond,
-		    build (COMPOUND_EXPR, TREE_TYPE (call),
-			   build (CALL_EXPR, void_type_node,
-				  build_address_of (soft_nullpointer_node),
-				  NULL_TREE, NULL_TREE),
-			   (FLOAT_TYPE_P (TREE_TYPE (call))
-			    ? build_real (TREE_TYPE (call), dconst0)
-			    : build1 (CONVERT_EXPR, TREE_TYPE (call),
-				      integer_zero_node))),
-		    call);
+      call = build (COMPOUND_EXPR, TREE_TYPE (call), check, call);
       TREE_SIDE_EFFECTS (call) = 1;
     }
 
@@ -2357,9 +2378,9 @@ get_primitive_array_vtable (tree elt)
 struct rtx_def *
 java_lang_expand_expr (exp, target, tmode, modifier)
      register tree exp;
-     rtx target ATTRIBUTE_UNUSED;
-     enum machine_mode tmode ATTRIBUTE_UNUSED;
-     enum expand_modifier modifier ATTRIBUTE_UNUSED;
+     rtx target;
+     enum machine_mode tmode;
+     enum expand_modifier modifier;
 {
   tree current;
 
@@ -2428,8 +2449,9 @@ java_lang_expand_expr (exp, target, tmode, modifier)
 	    init = init_decl;
 	  }
 	expand_assignment (build (COMPONENT_REF, TREE_TYPE (data_fld),
-				  build1 (INDIRECT_REF, array_type, 
-					  array_decl), data_fld), init, 0, 0);
+				  build_java_indirect_ref (array_type, 
+					  array_decl, flag_check_references), 
+				  data_fld), init, 0, 0);
 	return tmp;
       }
     case BLOCK:
@@ -2500,18 +2522,20 @@ java_lang_expand_expr (exp, target, tmode, modifier)
       for (current = TREE_OPERAND (exp, 1); current; 
 	   current = TREE_CHAIN (current))
 	{
-	  tree type;
 	  tree catch = TREE_OPERAND (current, 0);
 	  tree decl = BLOCK_EXPR_DECLS (catch);
-	  type = (decl ? TREE_TYPE (TREE_TYPE (decl)) : NULL_TREE);
-	  start_catch_handler (prepare_eh_table_type (type));
-	  expand_expr_stmt (TREE_OPERAND (current, 0));
+	  tree type = (decl ? TREE_TYPE (TREE_TYPE (decl)) : NULL_TREE);
 
-	  expand_resume_after_catch ();
-	  end_catch_handler ();
+	  expand_start_catch (type);
+	  expand_expr_stmt (TREE_OPERAND (current, 0));
+	  expand_end_catch ();
 	}
       expand_end_all_catch ();
       return const0_rtx;
+
+    case JAVA_EXC_OBJ_EXPR:
+      return expand_expr (build_exception_object_ref (TREE_TYPE (exp)),
+			  target, tmode, modifier);
 
     default:
       internal_error ("Can't expand %s", tree_code_name [TREE_CODE (exp)]);
@@ -2810,7 +2834,7 @@ process_jvm_instruction (PC, byte_ops, length)
   if (instruction_bits [PC] & BCODE_EXCEPTION_TARGET)
     {
       tree type = pop_type (ptr_type_node);
-      push_value (build1 (NOP_EXPR, type, soft_exceptioninfo_call_node));
+      push_value (build (JAVA_EXC_OBJ_EXPR, type));
     }
 
   switch (byte_ops[PC++])
@@ -2844,7 +2868,7 @@ process_jvm_instruction (PC, byte_ops, length)
 
 /* internal macro added for use by the WIDE case */
 #define LOAD_INTERNAL(OPTYPE, OPVALUE) \
-  push_value (find_local_variable (OPVALUE, type_map[OPVALUE], oldpc));
+  expand_load_internal (OPVALUE, type_map[OPVALUE], oldpc);
 
 /* Push local variable onto the opcode stack. */
 #define LOAD(OPERAND_TYPE, OPERAND_VALUE) \
@@ -3266,16 +3290,31 @@ force_evaluation_order (node)
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (node, 1)))
 	TREE_OPERAND (node, 0) = save_expr (TREE_OPERAND (node, 0));
     }
-  else if (TREE_CODE (node) == CALL_EXPR || TREE_CODE (node) == NEW_CLASS_EXPR)
+  else if (TREE_CODE (node) == CALL_EXPR
+           || TREE_CODE (node) == NEW_CLASS_EXPR
+           || (TREE_CODE (node) == COMPOUND_EXPR
+               && TREE_CODE (TREE_OPERAND (node, 0)) == CALL_EXPR
+               && TREE_CODE (TREE_OPERAND (node, 1)) == SAVE_EXPR)) 
     {
       tree arg, cmp;
 
       if (!TREE_OPERAND (node, 1))
 	return node;
 
+      arg = node;
+      
+      /* Position arg properly, account for wrapped around ctors. */
+      if (TREE_CODE (node) == COMPOUND_EXPR)
+        arg = TREE_OPERAND (node, 0);
+      
+      arg = TREE_OPERAND (arg, 1);
+      
+      /* Not having a list of argument here is an error. */ 
+      if (TREE_CODE (arg) != TREE_LIST)
+        abort ();
+
       /* This reverses the evaluation order. This is a desired effect. */
-      for (cmp = NULL_TREE, arg = TREE_OPERAND (node, 1); 
-	   arg; arg = TREE_CHAIN (arg))
+      for (cmp = NULL_TREE; arg; arg = TREE_CHAIN (arg))
 	{
 	  tree saved = save_expr (force_evaluation_order (TREE_VALUE (arg)));
 	  cmp = (cmp == NULL_TREE ? saved :

@@ -44,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "hashtab.h"
 #include "output.h"
+#include "target.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -182,9 +183,43 @@ void (*lang_unsave_expr_now) PARAMS ((tree));
 /* If non-null, these are language-specific helper functions for
    unsafe_for_reeval.  Return negative to not handle some tree.  */
 int (*lang_unsafe_for_reeval) PARAMS ((tree));
+
+/* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of thing
+   that the assembler should talk about, set DECL_ASSEMBLER_NAME to an
+   appropriate IDENTIFIER_NODE.  Otherwise, set it to the
+   ERROR_MARK_NODE to ensure that the assembler does not talk about
+   it.  */
+void (*lang_set_decl_assembler_name)     PARAMS ((tree));
 
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
+
+/* Set the DECL_ASSEMBLER_NAME for DECL.  */
+void
+set_decl_assembler_name (decl)
+     tree decl;
+{
+  /* The language-independent code should never use the
+     DECL_ASSEMBLER_NAME for lots of DECLs.  Only FUNCTION_DECLs and
+     VAR_DECLs for variables with static storage duration need a real
+     DECL_ASSEMBLER_NAME.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      || (TREE_CODE (decl) == VAR_DECL 
+	  && (TREE_STATIC (decl) 
+	      || DECL_EXTERNAL (decl) 
+	      || TREE_PUBLIC (decl))))
+    /* By default, assume the name to use in assembly code is the
+       same as that used in the source language.  (That's correct
+       for C, and GCC used to set DECL_ASSEMBLER_NAME to the same
+       value as DECL_NAME in build_decl, so this choice provides
+       backwards compatibility with existing front-ends.  */
+    SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
+  else
+    /* Nobody should ever be asking for the DECL_ASSEMBLER_NAME of
+       these DECLs -- unless they're in language-dependent code, in
+       which case lang_set_decl_assembler_name should handle things.  */
+    abort ();
+}
 
 /* Init the principal obstacks.  */
 
@@ -199,26 +234,9 @@ init_obstacks ()
   ggc_add_root (&type_hash_table, 1, sizeof type_hash_table, mark_type_hash);
   ggc_add_tree_root (global_trees, TI_MAX);
   ggc_add_tree_root (integer_types, itk_none);
-}
 
-void
-gcc_obstack_init (obstack)
-     struct obstack *obstack;
-{
-  /* Let particular systems override the size of a chunk.  */
-#ifndef OBSTACK_CHUNK_SIZE
-#define OBSTACK_CHUNK_SIZE 0
-#endif
-  /* Let them override the alloc and free routines too.  */
-#ifndef OBSTACK_CHUNK_ALLOC
-#define OBSTACK_CHUNK_ALLOC xmalloc
-#endif
-#ifndef OBSTACK_CHUNK_FREE
-#define OBSTACK_CHUNK_FREE free
-#endif
-  _obstack_begin (obstack, OBSTACK_CHUNK_SIZE, 0,
-		  (void *(*) PARAMS ((long))) OBSTACK_CHUNK_ALLOC,
-		  (void (*) PARAMS ((void *))) OBSTACK_CHUNK_FREE);
+  /* Set lang_set_decl_set_assembler_name to a default value.  */
+  lang_set_decl_assembler_name = set_decl_assembler_name;
 }
 
 
@@ -404,8 +422,8 @@ make_node (code)
       DECL_SOURCE_FILE (t) =
 	(input_filename) ? input_filename : "<built-in>";
       DECL_UID (t) = next_decl_uid++;
-      /* Note that we have not yet computed the alias set for this
-	 declaration.  */
+
+      /* We have not yet computed the alias set for this declaration.  */
       DECL_POINTER_ALIAS_SET (t) = -1;
       break;
 
@@ -414,12 +432,12 @@ make_node (code)
       TYPE_ALIGN (t) = char_type_node ? TYPE_ALIGN (char_type_node) : 0;
       TYPE_USER_ALIGN (t) = 0;
       TYPE_MAIN_VARIANT (t) = t;
+
+      /* Default to no attributes for type, but let target change that.  */
       TYPE_ATTRIBUTES (t) = NULL_TREE;
-#ifdef SET_DEFAULT_TYPE_ATTRIBUTES
-      SET_DEFAULT_TYPE_ATTRIBUTES (t);
-#endif
-      /* Note that we have not yet computed the alias set for this
-	 type.  */
+      (*targetm.set_default_type_attributes) (t);
+
+      /* We have not yet computed the alias set for this type.  */
       TYPE_ALIAS_SET (t) = -1;
       break;
 
@@ -1501,6 +1519,7 @@ staticp (arg)
 #endif
 
     case ARRAY_REF:
+    case ARRAY_RANGE_REF:
       if (TREE_CODE (TYPE_SIZE (TREE_TYPE (arg))) == INTEGER_CST
 	  && TREE_CODE (TREE_OPERAND (arg, 1)) == INTEGER_CST)
 	return staticp (TREE_OPERAND (arg, 0));
@@ -2192,6 +2211,12 @@ stabilize_reference (ref)
 			 stabilize_reference_1 (TREE_OPERAND (ref, 1)));
       break;
 
+    case ARRAY_RANGE_REF:
+      result = build_nt (ARRAY_RANGE_REF,
+			 stabilize_reference (TREE_OPERAND (ref, 0)),
+			 stabilize_reference_1 (TREE_OPERAND (ref, 1)));
+      break;
+
     case COMPOUND_EXPR:
       /* We cannot wrap the first expression in a SAVE_EXPR, as then
 	 it wouldn't be ignored.  This matters when dealing with
@@ -2557,7 +2582,6 @@ build_decl (code, name, type)
    as the type can suppress useless errors in the use of this variable.  */
 
   DECL_NAME (t) = name;
-  DECL_ASSEMBLER_NAME (t) = name;
   TREE_TYPE (t) = type;
 
   if (code == VAR_DECL || code == PARM_DECL || code == RESULT_DECL)
@@ -2683,67 +2707,101 @@ build_type_attribute_variant (ttype, attribute)
   return ttype;
 }
 
-/* Return a 1 if ATTR_NAME and ATTR_ARGS is valid for either declaration DECL
-   or type TYPE and 0 otherwise.  Validity is determined the configuration
-   macros VALID_MACHINE_DECL_ATTRIBUTE and VALID_MACHINE_TYPE_ATTRIBUTE.  */
+/* Default value of targetm.valid_decl_attribute_p and
+   targetm.valid_type_attribute_p that always returns false.  */
+
+int
+default_valid_attribute_p PARAMS ((attr_name, attr_args, decl, type))
+     tree attr_name ATTRIBUTE_UNUSED;
+     tree attr_args ATTRIBUTE_UNUSED;
+     tree decl ATTRIBUTE_UNUSED;
+     tree type ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
+/* Default value of targetm.comp_type_attributes that always returns 1.  */
+
+int
+default_comp_type_attributes (type1, type2)
+     tree type1 ATTRIBUTE_UNUSED;
+     tree type2 ATTRIBUTE_UNUSED;
+{
+  return 1;
+}
+
+/* Default version of targetm.set_default_type_attributes that always does
+   nothing.  */
+
+void
+default_set_default_type_attributes (type)
+     tree type ATTRIBUTE_UNUSED;
+{
+}
+
+/* Default version of targetm.insert_attributes that always does nothing.  */
+void
+default_insert_attributes (decl, attr_ptr)
+     tree decl ATTRIBUTE_UNUSED;
+     tree *attr_ptr ATTRIBUTE_UNUSED;
+{
+}
+
+/* Return 1 if ATTR_NAME and ATTR_ARGS is valid for either declaration
+   DECL or type TYPE and 0 otherwise.  Validity is determined the
+   target functions valid_decl_attribute and valid_machine_attribute.  */
 
 int
 valid_machine_attribute (attr_name, attr_args, decl, type)
-  tree attr_name;
-  tree attr_args ATTRIBUTE_UNUSED;
-  tree decl ATTRIBUTE_UNUSED;
-  tree type ATTRIBUTE_UNUSED;
+     tree attr_name;
+     tree attr_args;
+     tree decl;
+     tree type;
 {
-  int validated = 0;
-#ifdef VALID_MACHINE_DECL_ATTRIBUTE
-  tree decl_attr_list = decl != 0 ? DECL_MACHINE_ATTRIBUTES (decl) : 0;
-#endif
-#ifdef VALID_MACHINE_TYPE_ATTRIBUTE
-  tree type_attr_list = TYPE_ATTRIBUTES (type);
-#endif
+  tree type_attrs;
 
   if (TREE_CODE (attr_name) != IDENTIFIER_NODE)
     abort ();
 
-#ifdef VALID_MACHINE_DECL_ATTRIBUTE
-  if (decl != 0
-      && VALID_MACHINE_DECL_ATTRIBUTE (decl, decl_attr_list, attr_name,
+  if (decl)
+    {
+      tree decl_attrs = DECL_MACHINE_ATTRIBUTES (decl);
+
+      if ((*targetm.valid_decl_attribute) (decl, decl_attrs, attr_name,
+					   attr_args))
+	{
+	  tree attr = lookup_attribute (IDENTIFIER_POINTER (attr_name),
+					decl_attrs);
+
+	  if (attr != NULL_TREE)
+	    {
+	      /* Override existing arguments.  Declarations are unique
+		 so we can modify this in place.  */
+	      TREE_VALUE (attr) = attr_args;
+	    }
+	  else
+	    {
+	      decl_attrs = tree_cons (attr_name, attr_args, decl_attrs);
+	      decl = build_decl_attribute_variant (decl, decl_attrs);
+	    }
+
+	  /* Don't apply the attribute to both the decl and the type.  */
+	  return 1;
+	}
+    }
+
+  type_attrs = TYPE_ATTRIBUTES (type);
+  if ((*targetm.valid_type_attribute) (type, type_attrs, attr_name,
 				       attr_args))
     {
       tree attr = lookup_attribute (IDENTIFIER_POINTER (attr_name),
-				    decl_attr_list);
+				    type_attrs);
 
       if (attr != NULL_TREE)
 	{
-	  /* Override existing arguments.  Declarations are unique so we can
-	     modify this in place.  */
-	  TREE_VALUE (attr) = attr_args;
-	}
-      else
-	{
-	  decl_attr_list = tree_cons (attr_name, attr_args, decl_attr_list);
-	  decl = build_decl_attribute_variant (decl, decl_attr_list);
-	}
-
-      validated = 1;
-    }
-#endif
-
-#ifdef VALID_MACHINE_TYPE_ATTRIBUTE
-  if (validated)
-    /* Don't apply the attribute to both the decl and the type.  */
-    ;
-  else if (VALID_MACHINE_TYPE_ATTRIBUTE (type, type_attr_list, attr_name,
-					 attr_args))
-    {
-      tree attr = lookup_attribute (IDENTIFIER_POINTER (attr_name),
-				    type_attr_list);
-
-      if (attr != NULL_TREE)
-	{
-	  /* Override existing arguments.
-	     ??? This currently works since attribute arguments are not
-	     included in `attribute_hash_list'.  Something more complicated
+	  /* Override existing arguments.  ??? This currently
+	     works since attribute arguments are not included in
+	     `attribute_hash_list'.  Something more complicated
 	     may be needed in the future.  */
 	  TREE_VALUE (attr) = attr_args;
 	}
@@ -2752,41 +2810,40 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
 	  /* If this is part of a declaration, create a type variant,
 	     otherwise, this is part of a type definition, so add it
 	     to the base type.  */
-	  type_attr_list = tree_cons (attr_name, attr_args, type_attr_list);
+	  type_attrs = tree_cons (attr_name, attr_args, type_attrs);
 	  if (decl != 0)
-	    type = build_type_attribute_variant (type, type_attr_list);
+	    type = build_type_attribute_variant (type, type_attrs);
 	  else
-	    TYPE_ATTRIBUTES (type) = type_attr_list;
+	    TYPE_ATTRIBUTES (type) = type_attrs;
 	}
 
-      if (decl != 0)
+      if (decl)
 	TREE_TYPE (decl) = type;
 
-      validated = 1;
+      return 1;
     }
-
-  /* Handle putting a type attribute on pointer-to-function-type by putting
-     the attribute on the function type.  */
+  /* Handle putting a type attribute on pointer-to-function-type
+     by putting the attribute on the function type.  */
   else if (POINTER_TYPE_P (type)
 	   && TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE
-	   && VALID_MACHINE_TYPE_ATTRIBUTE (TREE_TYPE (type), type_attr_list,
-					    attr_name, attr_args))
+	   && (*targetm.valid_type_attribute) (TREE_TYPE (type), type_attrs,
+					       attr_name, attr_args))
     {
       tree inner_type = TREE_TYPE (type);
-      tree inner_attr_list = TYPE_ATTRIBUTES (inner_type);
+      tree inner_attrs = TYPE_ATTRIBUTES (inner_type);
       tree attr = lookup_attribute (IDENTIFIER_POINTER (attr_name),
-				    type_attr_list);
+				    type_attrs);
 
       if (attr != NULL_TREE)
 	TREE_VALUE (attr) = attr_args;
       else
 	{
-	  inner_attr_list = tree_cons (attr_name, attr_args, inner_attr_list);
+	  inner_attrs = tree_cons (attr_name, attr_args, inner_attrs);
 	  inner_type = build_type_attribute_variant (inner_type,
-						     inner_attr_list);
+						     inner_attrs);
 	}
 
-      if (decl != 0)
+      if (decl)
 	TREE_TYPE (decl) = build_pointer_type (inner_type);
       else
 	{
@@ -2796,11 +2853,10 @@ valid_machine_attribute (attr_name, attr_args, decl, type)
 	  TREE_TYPE (type) = inner_type;
 	}
 
-      validated = 1;
+      return 1;
     }
-#endif
 
-  return validated;
+  return 0;
 }
 
 /* Return non-zero if IDENT is a valid name for attribute ATTR,
@@ -2915,34 +2971,83 @@ merge_attributes (a1, a2)
 }
 
 /* Given types T1 and T2, merge their attributes and return
-   the result.  */
+  the result.  */
 
 tree
-merge_machine_type_attributes (t1, t2)
+merge_type_attributes (t1, t2)
      tree t1, t2;
 {
-#ifdef MERGE_MACHINE_TYPE_ATTRIBUTES
-  return MERGE_MACHINE_TYPE_ATTRIBUTES (t1, t2);
-#else
   return merge_attributes (TYPE_ATTRIBUTES (t1),
 			   TYPE_ATTRIBUTES (t2));
-#endif
 }
 
 /* Given decls OLDDECL and NEWDECL, merge their attributes and return
    the result.  */
 
 tree
-merge_machine_decl_attributes (olddecl, newdecl)
+merge_decl_attributes (olddecl, newdecl)
      tree olddecl, newdecl;
 {
-#ifdef MERGE_MACHINE_DECL_ATTRIBUTES
-  return MERGE_MACHINE_DECL_ATTRIBUTES (olddecl, newdecl);
-#else
   return merge_attributes (DECL_MACHINE_ATTRIBUTES (olddecl),
 			   DECL_MACHINE_ATTRIBUTES (newdecl));
-#endif
 }
+
+#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+
+/* Specialization of merge_decl_attributes for various Windows targets.
+
+   This handles the following situation:
+
+     __declspec (dllimport) int foo;
+     int foo;
+
+   The second instance of `foo' nullifies the dllimport.  */
+
+tree
+merge_dllimport_decl_attributes (old, new)
+     tree old;
+     tree new;
+{
+  tree a;
+  int delete_dllimport_p;
+
+  old = DECL_MACHINE_ATTRIBUTES (old);
+  new = DECL_MACHINE_ATTRIBUTES (new);
+
+  /* What we need to do here is remove from `old' dllimport if it doesn't
+     appear in `new'.  dllimport behaves like extern: if a declaration is
+     marked dllimport and a definition appears later, then the object
+     is not dllimport'd.  */
+  if (lookup_attribute ("dllimport", old) != NULL_TREE
+      && lookup_attribute ("dllimport", new) == NULL_TREE)
+    delete_dllimport_p = 1;
+  else
+    delete_dllimport_p = 0;
+
+  a = merge_attributes (old, new);
+
+  if (delete_dllimport_p)
+    {
+      tree prev,t;
+
+      /* Scan the list for dllimport and delete it.  */
+      for (prev = NULL_TREE, t = a; t; prev = t, t = TREE_CHAIN (t))
+	{
+	  if (is_attribute_p ("dllimport", TREE_PURPOSE (t)))
+	    {
+	      if (prev == NULL_TREE)
+		a = TREE_CHAIN (a);
+	      else
+		TREE_CHAIN (prev) = TREE_CHAIN (t);
+	      break;
+	    }
+	}
+    }
+
+  return a;
+}
+
+#endif /* TARGET_DLLIMPORT_DECL_ATTRIBUTES  */
 
 /* Set the type qualifiers for TYPE to TYPE_QUALS, which is a bitmask
    of the various TYPE_QUAL values.  */
@@ -2957,31 +3062,47 @@ set_type_quals (type, type_quals)
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
 }
 
-/* Given a type node TYPE and a TYPE_QUALIFIER_SET, return a type for
-   the same kind of data as TYPE describes.  Variants point to the
-   "main variant" (which has no qualifiers set) via TYPE_MAIN_VARIANT,
-   and it points to a chain of other variants so that duplicate
-   variants are never made.  Only main variants should ever appear as
-   types of expressions.  */
+/* Return a version of the TYPE, qualified as indicated by the
+   TYPE_QUALS, if one exists.  If no qualified version exists yet,
+   return NULL_TREE.  */
+
+tree
+get_qualified_type (type, type_quals)
+     tree type;
+     int type_quals;
+{
+  tree t;
+
+  /* Search the chain of variants to see if there is already one there just
+     like the one we need to have.  If so, use that existing one.  We must
+     preserve the TYPE_NAME, since there is code that depends on this.  */
+  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type))
+      return t;
+
+  return NULL_TREE;
+}
+
+/* Like get_qualified_type, but creates the type if it does not
+   exist.  This function never returns NULL_TREE.  */
 
 tree
 build_qualified_type (type, type_quals)
      tree type;
      int type_quals;
 {
-  register tree t;
+  tree t;
 
-  /* Search the chain of variants to see if there is already one there just
-     like the one we need to have.  If so, use that existing one.  We must
-     preserve the TYPE_NAME, since there is code that depends on this.  */
+  /* See if we already have the appropriate qualified variant.  */
+  t = get_qualified_type (type, type_quals);
 
-  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type))
-      return t;
+  /* If not, build it.  */
+  if (!t)
+    {
+      t = build_type_copy (type);
+      set_type_quals (t, type_quals);
+    }
 
-  /* We need a new one.  */
-  t = build_type_copy (type);
-  set_type_quals (t, type_quals);
   return t;
 }
 
@@ -3302,6 +3423,28 @@ type_list_equal (l1, l2)
   return t1 == t2;
 }
 
+/* Returns the number of arguments to the FUNCTION_TYPE or METHOD_TYPE
+   given by TYPE.  If the argument list accepts variable arguments,
+   then this function counts only the ordinary arguments.  */
+
+int
+type_num_arguments (type)
+     tree type;
+{
+  int i = 0;
+  tree t;
+
+  for (t = TYPE_ARG_TYPES (type); t; t = TREE_CHAIN (t))
+    /* If the function does not take a variable number of arguments,
+       the last element in the list will have type `void'.  */
+    if (VOID_TYPE_P (TREE_VALUE (t)))
+      break;
+    else
+      ++i;
+
+  return i;
+}
+
 /* Nonzero if integer constants T1 and T2
    represent the same constant value.  */
 
@@ -3518,10 +3661,10 @@ simple_cst_equal (t1, t2)
 	 as being equivalent to anything.  */
       if ((TREE_CODE (TREE_OPERAND (t1, 0)) == VAR_DECL
 	   && DECL_NAME (TREE_OPERAND (t1, 0)) == NULL_TREE
-	   && DECL_RTL (TREE_OPERAND (t1, 0)) == 0)
+	   && !DECL_RTL_SET_P (TREE_OPERAND (t1, 0)))
 	  || (TREE_CODE (TREE_OPERAND (t2, 0)) == VAR_DECL
 	      && DECL_NAME (TREE_OPERAND (t2, 0)) == NULL_TREE
-	      && DECL_RTL (TREE_OPERAND (t2, 0)) == 0))
+	      && !DECL_RTL_SET_P (TREE_OPERAND (t2, 0))))
 	cmp = 1;
       else
 	cmp = simple_cst_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
@@ -4412,15 +4555,7 @@ dump_tree_statistics ()
 
 #define FILE_FUNCTION_PREFIX_LEN 9
 
-#ifndef NO_DOLLAR_IN_LABEL
-#define FILE_FUNCTION_FORMAT "_GLOBAL_$%s$%s"
-#else /* NO_DOLLAR_IN_LABEL */
-#ifndef NO_DOT_IN_LABEL
-#define FILE_FUNCTION_FORMAT "_GLOBAL_.%s.%s"
-#else /* NO_DOT_IN_LABEL */
 #define FILE_FUNCTION_FORMAT "_GLOBAL__%s_%s"
-#endif	/* NO_DOT_IN_LABEL */
-#endif	/* NO_DOLLAR_IN_LABEL */
 
 /* Appends 6 random characters to TEMPLATE to (hopefully) avoid name
    clashes in cases where we can't reliably choose a unique name.
@@ -4663,9 +4798,9 @@ tree_check_failed (node, code, file, line, function)
      int line;
      const char *function;
 {
-  error ("Tree check: expected %s, have %s",
-	 tree_code_name[code], tree_code_name[TREE_CODE (node)]);
-  fancy_abort (file, line, function);
+  internal_error ("Tree check: expected %s, have %s in %s, at %s:%d",
+		  tree_code_name[code], tree_code_name[TREE_CODE (node)],
+		  function, trim_filename (file), line);
 }
 
 /* Similar to above, except that we check for a class of tree
@@ -4679,10 +4814,10 @@ tree_class_check_failed (node, cl, file, line, function)
      int line;
      const char *function;
 {
-  error ("Tree check: expected class '%c', have '%c' (%s)",
-	 cl, TREE_CODE_CLASS (TREE_CODE (node)),
-	 tree_code_name[TREE_CODE (node)]);
-  fancy_abort (file, line, function);
+  internal_error
+    ("Tree check: expected class '%c', have '%c' (%s) in %s, at %s:%d",
+     cl, TREE_CODE_CLASS (TREE_CODE (node)),
+     tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
 
 #endif /* ENABLE_TREE_CHECKING */
@@ -4751,17 +4886,13 @@ build_common_tree_nodes (signed_char)
   intHI_type_node = make_signed_type (GET_MODE_BITSIZE (HImode));
   intSI_type_node = make_signed_type (GET_MODE_BITSIZE (SImode));
   intDI_type_node = make_signed_type (GET_MODE_BITSIZE (DImode));
-#if HOST_BITS_PER_WIDE_INT >= 64
   intTI_type_node = make_signed_type (GET_MODE_BITSIZE (TImode));
-#endif
 
   unsigned_intQI_type_node = make_unsigned_type (GET_MODE_BITSIZE (QImode));
   unsigned_intHI_type_node = make_unsigned_type (GET_MODE_BITSIZE (HImode));
   unsigned_intSI_type_node = make_unsigned_type (GET_MODE_BITSIZE (SImode));
   unsigned_intDI_type_node = make_unsigned_type (GET_MODE_BITSIZE (DImode));
-#if HOST_BITS_PER_WIDE_INT >= 64
   unsigned_intTI_type_node = make_unsigned_type (GET_MODE_BITSIZE (TImode));
-#endif
 }
 
 /* Call this function after calling build_common_tree_nodes and set_sizetype.
@@ -4832,7 +4963,16 @@ build_common_tree_nodes_2 (short_double)
   {
     tree t;
     BUILD_VA_LIST_TYPE (t);
-    va_list_type_node = build_type_copy (t);
+
+    /* Many back-ends define record types without seting TYPE_NAME.
+       If we copied the record type here, we'd keep the original
+       record type without a name.  This breaks name mangling.  So,
+       don't copy record types and let c_common_nodes_and_builtins()
+       declare the type to be __builtin_va_list.  */
+    if (TREE_CODE (t) != RECORD_TYPE)
+      t = build_type_copy (t);
+
+    va_list_type_node = t;
   }
 
   V4SF_type_node = make_node (VECTOR_TYPE);

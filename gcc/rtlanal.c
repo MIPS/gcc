@@ -30,6 +30,7 @@ Boston, MA 02111-1307, USA.  */
 static void set_of_1		PARAMS ((rtx, rtx, void *));
 static void insn_dependent_p_1	PARAMS ((rtx, rtx, void *));
 static int computed_jump_p_1	PARAMS ((rtx));
+static int operand_preference	PARAMS ((rtx));
 
 /* Bit flags that specify the machine subtype we are compiling for.
    Bits are tested using macros TARGET_... defined in the tm.h file
@@ -58,6 +59,7 @@ rtx_unstable_p (x)
     case QUEUED:
       return 1;
 
+    case ADDRESSOF:
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
@@ -163,8 +165,10 @@ rtx_varies_p (x, for_alias)
 
     case LO_SUM:
       /* The operand 0 of a LO_SUM is considered constant
-	 (in fact is it related specifically to operand 1).  */
-      return rtx_varies_p (XEXP (x, 1), for_alias);
+	 (in fact it is related specifically to operand 1)
+	 during alias analysis.  */
+      return (! for_alias && rtx_varies_p (XEXP (x, 0), for_alias))
+	     || rtx_varies_p (XEXP (x, 1), for_alias);
       
     case ASM_OPERANDS:
       if (MEM_VOLATILE_P (x))
@@ -205,19 +209,23 @@ rtx_addr_can_trap_p (x)
   switch (code)
     {
     case SYMBOL_REF:
+      return SYMBOL_REF_WEAK (x);
+
     case LABEL_REF:
-      /* SYMBOL_REF is problematic due to the possible presence of
-	 a #pragma weak, but to say that loads from symbols can trap is
-	 *very* costly.  It's not at all clear what's best here.  For
-	 now, we ignore the impact of #pragma weak.  */
       return 0;
 
     case REG:
       /* As in rtx_varies_p, we have to use the actual rtx, not reg number.  */
-      return ! (x == frame_pointer_rtx || x == hard_frame_pointer_rtx
-		|| x == stack_pointer_rtx
-		/* The arg pointer varies if it is not a fixed register.  */
-		|| (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM]));
+      if (x == frame_pointer_rtx || x == hard_frame_pointer_rtx
+	  || x == stack_pointer_rtx
+	  /* The arg pointer varies if it is not a fixed register.  */
+	  || (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM]))
+	return 0;
+      /* All of the virtual frame registers are stack references.  */
+      if (REGNO (x) >= FIRST_VIRTUAL_REGISTER
+	  && REGNO (x) <= LAST_VIRTUAL_REGISTER)
+	return 0;
+      return 1;
 
     case CONST:
       return rtx_addr_can_trap_p (XEXP (x, 0));
@@ -232,8 +240,16 @@ rtx_addr_can_trap_p (x)
 		    && CONSTANT_P (XEXP (x, 1))));
 
     case LO_SUM:
+    case PRE_MODIFY:
       return rtx_addr_can_trap_p (XEXP (x, 1));
-      
+
+    case PRE_DEC:
+    case PRE_INC:
+    case POST_DEC:
+    case POST_INC:
+    case POST_MODIFY:
+      return rtx_addr_can_trap_p (XEXP (x, 0));
+
     default:
       break;
     }
@@ -461,6 +477,8 @@ no_labels_between_p (beg, end)
      rtx beg, end;
 {
   register rtx p;
+  if (beg == end)
+    return 0;
   for (p = NEXT_INSN (beg); p != end; p = NEXT_INSN (p))
     if (GET_CODE (p) == CODE_LABEL)
       return 0;
@@ -964,6 +982,42 @@ multiple_sets (insn)
   return 0;
 }
 
+/* Return nonzero if the destination of SET equals the source
+   and there are no side effects.  */
+
+int
+set_noop_p (set)
+     rtx set;
+{
+  rtx src = SET_SRC (set);
+  rtx dst = SET_DEST (set);
+
+  if (side_effects_p (src) || side_effects_p (dst))
+    return 0;
+
+  if (GET_CODE (dst) == MEM && GET_CODE (src) == MEM)
+    return rtx_equal_p (dst, src);
+
+  if (GET_CODE (dst) == SIGN_EXTRACT
+      || GET_CODE (dst) == ZERO_EXTRACT)
+    return rtx_equal_p (XEXP (dst, 0), src)
+	   && ! BYTES_BIG_ENDIAN && XEXP (dst, 2) == const0_rtx;
+
+  if (GET_CODE (dst) == STRICT_LOW_PART)
+    dst = XEXP (dst, 0);
+
+  if (GET_CODE (src) == SUBREG && GET_CODE (dst) == SUBREG)
+    {
+      if (SUBREG_BYTE (src) != SUBREG_BYTE (dst))
+	return 0;
+      src = SUBREG_REG (src);
+      dst = SUBREG_REG (dst);
+    }
+
+  return (GET_CODE (src) == REG && GET_CODE (dst) == REG
+	  && REGNO (src) == REGNO (dst));
+}
+
 /* Return the last thing that X was assigned from before *PINSN.  If VALID_TO
    is not NULL_RTX then verify that the object is not modified up to VALID_TO.
    If the object was modified, if we hit a partial assignment to X, or hit a
@@ -1067,7 +1121,7 @@ refers_to_regno_p (regno, endregno, x, loc)
       if (GET_CODE (SUBREG_REG (x)) == REG
 	  && REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int inner_regno = REGNO (SUBREG_REG (x)) + SUBREG_WORD (x);
+	  unsigned int inner_regno = subreg_regno (x);
 	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
 			     ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
@@ -1154,7 +1208,7 @@ reg_overlap_mentioned_p (x, in)
     case SUBREG:
       regno = REGNO (SUBREG_REG (x));
       if (regno < FIRST_PSEUDO_REGISTER)
-	regno += SUBREG_WORD (x);
+	regno = subreg_regno (x);
       goto do_reg;
 
     case REG:
@@ -1162,7 +1216,7 @@ reg_overlap_mentioned_p (x, in)
     do_reg:
       endregno = regno + (regno < FIRST_PSEUDO_REGISTER
 			  ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
-      return refers_to_regno_p (regno, endregno, in, NULL_PTR);
+      return refers_to_regno_p (regno, endregno, in, (rtx*)0);
 
     case MEM:
       {
@@ -2020,6 +2074,11 @@ may_trap_p (x)
 	return 1;
       break;
 
+    case NEG:
+    case ABS:
+      /* These operations don't trap even with floating point.  */
+      break;
+
     default:
       /* Any floating arithmetic may trap.  */
       if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
@@ -2202,26 +2261,9 @@ replace_regs (x, reg_map, nregs, replace_dest)
 	  && GET_CODE (reg_map[REGNO (SUBREG_REG (x))]) == SUBREG)
 	{
 	  rtx map_val = reg_map[REGNO (SUBREG_REG (x))];
-	  rtx map_inner = SUBREG_REG (map_val);
-
-	  if (GET_MODE (x) == GET_MODE (map_inner))
-	    return map_inner;
-	  else
-	    {
-	      /* We cannot call gen_rtx here since we may be linked with
-		 genattrtab.c.  */
-	      /* Let's try clobbering the incoming SUBREG and see
-		 if this is really safe.  */
-	      SUBREG_REG (x) = map_inner;
-	      SUBREG_WORD (x) += SUBREG_WORD (map_val);
-	      return x;
-#if 0
-	      rtx new = rtx_alloc (SUBREG);
-	      PUT_MODE (new, GET_MODE (x));
-	      SUBREG_REG (new) = map_inner;
-	      SUBREG_WORD (new) = SUBREG_WORD (x) + SUBREG_WORD (map_val);
-#endif
-	    }
+	  return simplify_gen_subreg (GET_MODE (x), map_val,
+				      GET_MODE (SUBREG_REG (x)), 
+				      SUBREG_BYTE (x));
 	}
       break;
 
@@ -2379,11 +2421,11 @@ for_each_rtx (x, f, data)
 {
   int result;
   int length;
-  const char* format;
+  const char *format;
   int i;
 
   /* Call F on X.  */
-  result = (*f)(x, data);
+  result = (*f) (x, data);
   if (result == -1)
     /* Do not traverse sub-expressions.  */
     return 0;
@@ -2464,6 +2506,53 @@ regno_use_in (regno, x)
   return NULL_RTX;
 }
 
+/* Return a value indicating whether OP, an operand of a commutative
+   operation, is preferred as the first or second operand.  The higher
+   the value, the stronger the preference for being the first operand.
+   We use negative values to indicate a preference for the first operand
+   and positive values for the second operand.  */
+
+static int
+operand_preference (op)
+     rtx op;
+{
+  /* Constants always come the second operand.  Prefer "nice" constants.  */
+  if (GET_CODE (op) == CONST_INT)
+    return -5;
+  if (GET_CODE (op) == CONST_DOUBLE)
+    return -4;
+  if (CONSTANT_P (op))
+    return -3;
+
+  /* SUBREGs of objects should come second.  */
+  if (GET_CODE (op) == SUBREG
+      && GET_RTX_CLASS (GET_CODE (SUBREG_REG (op))) == 'o')
+    return -2;
+
+  /* If only one operand is a `neg', `not',
+    `mult', `plus', or `minus' expression, it will be the first
+    operand.  */
+  if (GET_CODE (op) == NEG || GET_CODE (op) == NOT
+      || GET_CODE (op) == MULT || GET_CODE (op) == PLUS
+      || GET_CODE (op) == MINUS)
+    return 2;
+
+  /* Complex expressions should be the first, so decrease priority
+     of objects.  */
+  if (GET_RTX_CLASS (GET_CODE (op)) == 'o')
+    return -1;
+  return 0;
+}
+
+/* Return 1 iff it is neccesary to swap operands of commutative operation
+   in order to canonicalize expression.  */
+
+int
+swap_commutative_operands_p (x, y)
+     rtx x, y;
+{
+  return operand_preference (x) < operand_preference (y);
+}
 
 /* Return 1 if X is an autoincrement side effect and the register is
    not the stack pointer.  */
@@ -2591,4 +2680,66 @@ loc_mentioned_in_p (loc, in)
 	    return 1;
     }
   return 0;
+}
+
+/* This function returns the regno offset of a subreg expression.
+   xregno - A regno of an inner hard subreg_reg (or what will become one).
+   xmode  - The mode of xregno.
+   offset - The byte offset.
+   ymode  - The mode of a top level SUBREG (or what may become one).
+   RETURN - The regno offset which would be used.  
+   This function can be overridden by defining SUBREG_REGNO_OFFSET,
+   taking the same parameters.  */
+unsigned int
+subreg_regno_offset (xregno, xmode, offset, ymode)
+     unsigned int xregno;
+     enum machine_mode xmode;
+     unsigned int offset;
+     enum machine_mode ymode;
+{
+  unsigned ret;
+  int nregs_xmode, nregs_ymode;
+  int mode_multiple, nregs_multiple;
+  int y_offset;
+
+/* Check for an override, and use it instead.  */
+#ifdef SUBREG_REGNO_OFFSET
+  ret = SUBREG_REGNO_OFFSET (xregno, xmode, offset, ymode)
+#else
+  if (xregno >= FIRST_PSEUDO_REGISTER)
+    abort ();
+
+  nregs_xmode = HARD_REGNO_NREGS (xregno, xmode);
+  nregs_ymode = HARD_REGNO_NREGS (xregno, ymode);
+  if (offset == 0 || nregs_xmode == nregs_ymode)
+    return 0;
+  
+  /* size of ymode must not be greater than the size of xmode.  */
+  mode_multiple = GET_MODE_SIZE (xmode) / GET_MODE_SIZE (ymode);
+  if (mode_multiple == 0)
+    abort ();
+
+  y_offset = offset / GET_MODE_SIZE (ymode);
+  nregs_multiple =  nregs_xmode / nregs_ymode;
+  ret = (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
+#endif
+
+  return ret;
+}
+
+/* Return the final regno that a subreg expression refers to. */
+unsigned int 
+subreg_regno (x)
+     rtx x;
+{
+  unsigned int ret;
+  rtx subreg = SUBREG_REG (x);
+  int regno = REGNO (subreg);
+
+  ret = regno + subreg_regno_offset (regno, 
+				     GET_MODE (subreg), 
+				     SUBREG_BYTE (x),
+				     GET_MODE (x));
+  return ret;
+
 }

@@ -30,6 +30,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "tree.h"
 #include "java-tree.h"
 #include "parse.h"
+#include "toplev.h"
 
 static void mark_reference_fields PARAMS ((tree,
 					   unsigned HOST_WIDE_INT *,
@@ -48,7 +49,7 @@ static void set_bit PARAMS ((unsigned HOST_WIDE_INT *,
 	    (((((env) << LOG_MAX_MARK_PROCS) | (proc_index)) << DS_TAG_BITS) \
 	    | DS_PROC)
    Here DS_PROC == 2.  */
-#define PROCEDURE_OBJECT_DESCRIPTOR integer_two_node
+#define PROCEDURE_OBJECT_DESCRIPTOR build_int_2 (2, 0)
 
 /* Treat two HOST_WIDE_INT's as a contiguous bitmap, with bit 0 being
    the least significant.  This function sets bit N in the bitmap.  */
@@ -228,5 +229,6 @@ get_boehm_type_descriptor (tree type)
   else
     value = PROCEDURE_OBJECT_DESCRIPTOR;
 
+  TREE_TYPE (value) = type_for_mode (ptr_mode, 1);
   return value;
 }

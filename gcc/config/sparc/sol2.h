@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler, for SPARC running Solaris 2
-   Copyright 1992, 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright 1992, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@netcom.com).
    Additional changes by David V. Henkel-Wallace (gumby@cygnus.com).
 
@@ -23,6 +24,14 @@ Boston, MA 02111-1307, USA.  */
 /* Supposedly the same as vanilla sparc svr4, except for the stuff below: */
 #include "sparc/sysv4.h"
 
+/* Solaris 2 uses a wint_t different from the default. This is required
+   by the SCD 2.4.1, p. 6-83, Figure 6-66.  */
+#undef	WINT_TYPE
+#define	WINT_TYPE "long int"
+
+#undef	WINT_TYPE_SIZE
+#define	WINT_TYPE_SIZE BITS_PER_WORD
+
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES \
 "-Dsparc -Dsun -Dunix -D__svr4__ -D__SVR4 \
@@ -33,6 +42,14 @@ Boston, MA 02111-1307, USA.  */
 %{pthreads:-D_REENTRANT -D_PTHREADS} \
 %{!pthreads:%{threads:-D_REENTRANT -D_SOLARIS_THREADS}} \
 %{compat-bsd:-iwithprefixbefore ucbinclude -I/usr/ucbinclude} \
+"
+
+/* For C++ we need to add some additional macro definitions required
+   by the C++ standard library.  */
+#define CPLUSPLUS_CPP_SPEC "\
+-D_XOPEN_SOURCE=500 -D_LARGEFILE_SOURCE=1 -D_LARGEFILE64_SOURCE=1 \
+-D__EXTENSIONS__ \
+%(cpp) \
 "
 
 /* The sun bundled assembler doesn't accept -Yd, (and neither does gas).

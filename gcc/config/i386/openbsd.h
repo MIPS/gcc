@@ -23,16 +23,13 @@ Boston, MA 02111-1307, USA.  */
 
 #include <i386/gstabs.h>
 
-/* Get perform_* macros to build libgcc.a.  */
-#include <i386/perform.h>
-
 /* Get generic OpenBSD definitions.  */
 #define OBSD_OLD_GAS
 #include <openbsd.h>
 
 /* This goes away when the math-emulator is fixed */
-#undef TARGET_DEFAULT
-#define TARGET_DEFAULT \
+#undef TARGET_SUBTARGET_DEFAULT
+#define TARGET_SUBTARGET_DEFAULT \
   (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS | MASK_NO_FANCY_MATH_387)
 
 /* Run-time target specifications */
@@ -114,6 +111,8 @@ Boston, MA 02111-1307, USA.  */
    configuration files...  */
 #define DWARF2_UNWIND_INFO 0
 
+#undef ASM_PREFERRED_EH_DATA_FORMAT
+
 /* Assembler format: alignment output.  */
 
 /* A C statement to output to the stdio stream FILE an assembler
@@ -134,7 +133,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Note that we pick up ASM_OUTPUT_MI_THUNK from unix.h.  */
 
-/* This is the pseudo-op used to generate a 32-bit word of data with a
-   specific value in some section.  */
+#undef ASM_COMMENT_START
+#define ASM_COMMENT_START ";#"
 
-#define INT_ASM_OP "\t.long\t"

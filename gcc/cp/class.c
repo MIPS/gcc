@@ -66,12 +66,15 @@ typedef struct vtbl_init_data_s
 {
   /* The base for which we're building initializers.  */
   tree binfo;
-  /* The binfo for the most-derived type.  */
+  /* The type of the most-derived type.  */
   tree derived;
+  /* The binfo for the dynamic type. This will be TYPE_BINFO (derived),
+     unless ctor_vtbl_p is true.  */
+  tree rtti_binfo;
   /* The negative-index vtable initializers built up so far.  These
      are in order from least negative index to most negative index.  */
   tree inits;
-  /* The last (i.e., most negative entry in INITS.  */
+  /* The last (i.e., most negative) entry in INITS.  */
   tree* last_init;
   /* The binfo for the virtual base for which we're building
      vcall offset initializers.  */
@@ -104,9 +107,8 @@ varray_type local_classes;
 static tree get_vfield_name PARAMS ((tree));
 static void finish_struct_anon PARAMS ((tree));
 static tree build_vbase_pointer PARAMS ((tree, tree));
-static tree build_vtable_entry PARAMS ((tree, tree, tree, int));
+static tree build_vtable_entry PARAMS ((tree, tree, tree));
 static tree get_vtable_name PARAMS ((tree));
-static tree get_derived_offset PARAMS ((tree, tree));
 static tree get_basefndecls PARAMS ((tree, tree));
 static int build_primary_vtable PARAMS ((tree, tree));
 static int build_secondary_vtable PARAMS ((tree, tree));
@@ -133,7 +135,7 @@ static tree add_implicitly_declared_members PARAMS ((tree, int, int, int));
 static tree fixed_type_or_null PARAMS ((tree, int *, int *));
 static tree resolve_address_of_overloaded_function PARAMS ((tree, tree, int,
 							  int, int, tree));
-static void build_vtable_entry_ref PARAMS ((tree, tree, tree));
+static void build_vtable_entry_ref PARAMS ((tree, tree));
 static tree build_vtbl_initializer PARAMS ((tree, tree, tree, tree, int *));
 static int count_fields PARAMS ((tree));
 static int add_fields_to_vec PARAMS ((tree, tree, int));
@@ -141,10 +143,10 @@ static void check_bitfield_decl PARAMS ((tree));
 static void check_field_decl PARAMS ((tree, tree, int *, int *, int *, int *));
 static void check_field_decls PARAMS ((tree, tree *, int *, int *, int *, 
 				     int *));
-static void build_base_field PARAMS ((record_layout_info, tree, int *,
-				      splay_tree));
-static void build_base_fields PARAMS ((record_layout_info, int *,
-				       splay_tree));
+static bool build_base_field PARAMS ((record_layout_info, tree, int *,
+				     splay_tree, tree));
+static bool build_base_fields PARAMS ((record_layout_info, int *,
+				      splay_tree, tree));
 static tree build_vbase_pointer_fields PARAMS ((record_layout_info, int *));
 static tree build_vtbl_or_vbase_field PARAMS ((tree, tree, tree, tree, tree,
 					       int *));
@@ -157,7 +159,7 @@ static void layout_class_type PARAMS ((tree, int *, int *, tree *, tree *));
 static void fixup_pending_inline PARAMS ((tree));
 static void fixup_inline_methods PARAMS ((tree));
 static void set_primary_base PARAMS ((tree, tree, int *));
-static void propagate_binfo_offsets PARAMS ((tree, tree));
+static void propagate_binfo_offsets PARAMS ((tree, tree, tree));
 static void layout_virtual_bases PARAMS ((tree, splay_tree));
 static tree dfs_set_offset_for_unshared_vbases PARAMS ((tree, void *));
 static void build_vbase_offset_vtbl_entries PARAMS ((tree, vtbl_init_data *));
@@ -168,25 +170,30 @@ static void layout_vtable_decl PARAMS ((tree, int));
 static tree dfs_find_final_overrider PARAMS ((tree, void *));
 static tree find_final_overrider PARAMS ((tree, tree, tree));
 static int make_new_vtable PARAMS ((tree, tree));
-static void dump_class_hierarchy_r PARAMS ((FILE *, tree, tree, int));
-extern void dump_class_hierarchy PARAMS ((const char *, tree));
+static int maybe_indent_hierarchy PARAMS ((FILE *, int, int));
+static void dump_class_hierarchy_r PARAMS ((FILE *, int, tree, tree, int));
+static void dump_class_hierarchy PARAMS ((tree));
+static void dump_array PARAMS ((FILE *, tree));
+static void dump_vtable PARAMS ((tree, tree, tree));
+static void dump_vtt PARAMS ((tree, tree));
 static tree build_vtable PARAMS ((tree, tree, tree));
 static void initialize_vtable PARAMS ((tree, tree));
 static void initialize_array PARAMS ((tree, tree));
 static void layout_nonempty_base_or_field PARAMS ((record_layout_info,
 						   tree, tree,
-						   splay_tree));
+						   splay_tree, tree));
 static unsigned HOST_WIDE_INT end_of_class PARAMS ((tree, int));
-static void layout_empty_base PARAMS ((tree, tree, splay_tree));
+static bool layout_empty_base PARAMS ((tree, tree, splay_tree, tree));
 static void accumulate_vtbl_inits PARAMS ((tree, tree, tree, tree, tree));
 static tree dfs_accumulate_vtbl_inits PARAMS ((tree, tree, tree, tree,
 					       tree));
 static void set_vindex PARAMS ((tree, int *));
-static void build_rtti_vtbl_entries PARAMS ((tree, tree, vtbl_init_data *));
+static void build_rtti_vtbl_entries PARAMS ((tree, vtbl_init_data *));
 static void build_vcall_and_vbase_vtbl_entries PARAMS ((tree, 
 							vtbl_init_data *));
 static void force_canonical_binfo_r PARAMS ((tree, tree, tree, tree));
 static void force_canonical_binfo PARAMS ((tree, tree, tree, tree));
+static tree dfs_unshared_virtual_bases PARAMS ((tree, void *));
 static void mark_primary_bases PARAMS ((tree));
 static tree mark_primary_virtual_base PARAMS ((tree, tree, tree));
 static void clone_constructors_and_destructors PARAMS ((tree));
@@ -195,21 +202,22 @@ static void update_vtable_entry_for_fn PARAMS ((tree, tree, tree, tree *));
 static tree copy_virtuals PARAMS ((tree));
 static void build_ctor_vtbl_group PARAMS ((tree, tree));
 static void build_vtt PARAMS ((tree));
+static tree binfo_ctor_vtable PARAMS ((tree));
 static tree *build_vtt_inits PARAMS ((tree, tree, tree *, tree *));
 static tree dfs_build_secondary_vptr_vtt_inits PARAMS ((tree, void *));
 static tree dfs_ctor_vtable_bases_queue_p PARAMS ((tree, void *data));
 static tree dfs_fixup_binfo_vtbls PARAMS ((tree, void *));
-static tree get_matching_base PARAMS ((tree, tree));
+static tree get_original_base PARAMS ((tree, tree));
 static tree dfs_get_primary_binfo PARAMS ((tree, void*));
 static int record_subobject_offset PARAMS ((tree, tree, splay_tree));
 static int check_subobject_offset PARAMS ((tree, tree, splay_tree));
 static int walk_subobject_offsets PARAMS ((tree, subobject_offset_fn,
-					   tree, splay_tree, int));
+					   tree, splay_tree, tree, int));
 static void record_subobject_offsets PARAMS ((tree, tree, splay_tree, int));
 static int layout_conflict_p PARAMS ((tree, tree, splay_tree, int));
 static int splay_tree_compare_integer_csts PARAMS ((splay_tree_key k1,
 						    splay_tree_key k2));
-
+static void warn_about_ambiguous_direct_bases PARAMS ((tree));
 
 /* Macros for dfs walking during vtt construction. See
    dfs_ctor_vtable_bases_queue_p, dfs_build_secondary_vptr_vtt_inits
@@ -412,7 +420,7 @@ build_vbase_path (code, type, expr, path, nonnull)
 		      tree binfo = get_binfo (last, TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (nonnull_expr))), 0);
 		      nonnull_expr = convert_pointer_to_real (binfo, nonnull_expr);
 		    }
-		  ind = build_indirect_ref (nonnull_expr, NULL_PTR);
+		  ind = build_indirect_ref (nonnull_expr, NULL);
 		  nonnull_expr = build_vbase_pointer (ind, last_virtual);
 		  if (nonnull == 0
 		      && TREE_CODE (type) == POINTER_TYPE
@@ -514,22 +522,20 @@ build_vbase_path (code, type, expr, path, nonnull)
           "i"((long)&vtbl[idx].pfn - (long)&vtbl[0])); */
 
 static void
-build_vtable_entry_ref (basetype, vtbl, idx)
-     tree basetype, vtbl, idx;
+build_vtable_entry_ref (basetype, idx)
+     tree basetype, idx;
 {
   static char asm_stmt[] = ".vtable_entry %c0, %c1";
   tree s, i, i2;
+  tree vtable = get_vtbl_decl_for_binfo (TYPE_BINFO (basetype));
+  tree first_fn = TYPE_BINFO_VTABLE (basetype);
 
-  s = build_unary_op (ADDR_EXPR, 
-		      get_vtbl_decl_for_binfo (TYPE_BINFO (basetype)), 
-		      0);
+  s = build_unary_op (ADDR_EXPR, vtable, 0);
   s = build_tree_list (build_string (1, "s"), s);
 
-  i = build_array_ref (vtbl, idx);
-  if (!flag_vtable_thunks)
-    i = build_component_ref (i, pfn_identifier, vtable_entry_type, 0);
+  i = build_array_ref (first_fn, idx);
   i = build_c_cast (ptrdiff_type_node, build_unary_op (ADDR_EXPR, i, 0));
-  i2 = build_array_ref (vtbl, build_int_2(0,0));
+  i2 = build_array_ref (vtable, build_int_2 (0,0));
   i2 = build_c_cast (ptrdiff_type_node, build_unary_op (ADDR_EXPR, i2, 0));
   i = cp_build_binary_op (MINUS_EXPR, i, i2);
   i = build_tree_list (build_string (1, "i"), i);
@@ -617,7 +623,7 @@ build_vtbl_ref (instance, idx)
   assemble_external (vtbl);
 
   if (flag_vtable_gc)
-    build_vtable_entry_ref (basetype, vtbl, idx);
+    build_vtable_entry_ref (basetype, idx);
 
   aref = build_array_ref (vtbl, idx);
 
@@ -678,37 +684,6 @@ get_vtt_name (type)
   return mangle_vtt_for_type (type);
 }
 
-/* Return the offset to the main vtable for a given base BINFO.  */
-
-tree
-get_vfield_offset (binfo)
-     tree binfo;
-{
-  return
-    size_binop (PLUS_EXPR, byte_position (TYPE_VFIELD (BINFO_TYPE (binfo))),
-		BINFO_OFFSET (binfo));
-}
-
-/* Get the offset to the start of the original binfo that we derived
-   this binfo from.  If we find TYPE first, return the offset only
-   that far.  The shortened search is useful because the this pointer
-   on method calling is expected to point to a DECL_CONTEXT (fndecl)
-   object, and not a baseclass of it.   */
-
-static tree
-get_derived_offset (binfo, type)
-     tree binfo, type;
-{
-  tree offset1 = get_vfield_offset (TYPE_BINFO (BINFO_TYPE (binfo)));
-  tree offset2;
-
-  while (!same_type_p (BINFO_TYPE (binfo), type))
-    binfo = get_primary_binfo (binfo);
-
-  offset2 = get_vfield_offset (TYPE_BINFO (BINFO_TYPE (binfo)));
-  return size_binop (MINUS_EXPR, offset1, offset2);
-}
-
 /* Create a VAR_DECL for a primary or secondary vtable for CLASS_TYPE.
    (For a secondary vtable for B-in-D, CLASS_TYPE should be D, not B.)
    Use NAME for the name of the vtable, and VTABLE_TYPE for its type.  */
@@ -722,13 +697,13 @@ build_vtable (class_type, name, vtable_type)
   tree decl;
 
   decl = build_lang_decl (VAR_DECL, name, vtable_type);
+  /* vtable names are already mangled; give them their DECL_ASSEMBLER_NAME
+     now to avoid confusion in mangle_decl.  */
+  SET_DECL_ASSEMBLER_NAME (decl, name);
   DECL_CONTEXT (decl) = class_type;
   DECL_ARTIFICIAL (decl) = 1;
   TREE_STATIC (decl) = 1;
-#ifndef WRITABLE_VTABLES
-  /* Make them READONLY by default. (mrs) */
   TREE_READONLY (decl) = 1;
-#endif
   DECL_VIRTUAL_P (decl) = 1;
   import_export_vtable (decl, class_type, 0);
 
@@ -790,12 +765,11 @@ copy_virtuals (binfo)
     {
       BV_VCALL_INDEX (t) = NULL_TREE;
       BV_USE_VCALL_INDEX_P (t) = 0;
-      BV_GENERATE_THUNK_WITH_VTABLE_P (t) = 0;
     }
 
   return copies;
 }
-      
+
 /* Build the primary virtual function table for TYPE.  If BINFO is
    non-NULL, build the vtable starting with the initial approximation
    that it is the same as the one which is the head of the association
@@ -893,20 +867,8 @@ build_secondary_vtable (binfo, for_type)
   /* Make fresh virtual list, so we can smash it later.  */
   BINFO_VIRTUALS (binfo) = copy_virtuals (binfo);
 
-  if (TREE_VIA_VIRTUAL (binfo))
-    {
-      tree binfo1 = binfo_for_vbase (BINFO_TYPE (binfo), for_type);
-
-      /* XXX - This should never happen, if it does, the caller should
-	 ensure that the binfo is from for_type's binfos, not from any
-	 base type's.  We can remove all this code after a while.  */
-      if (binfo1 != binfo)
-	warning ("internal inconsistency: binfo offset error for rtti");
-
-      offset = BINFO_OFFSET (binfo1);
-    }
-  else
-    offset = BINFO_OFFSET (binfo);
+  my_friendly_assert (binfo == CANONICAL_BINFO (binfo, for_type), 20010605);
+  offset = BINFO_OFFSET (binfo);
 
   /* In the new ABI, secondary vtables are laid out as part of the
      same structure as the primary vtable.  */
@@ -1018,9 +980,11 @@ make_new_vtable (t, binfo)
 {
   if (binfo == TYPE_BINFO (t))
     /* In this case, it is *type*'s vtable we are modifying.  We start
-       with the approximation that it's vtable is that of the
+       with the approximation that its vtable is that of the
        immediate base class.  */
-    return build_primary_vtable (TYPE_BINFO (DECL_CONTEXT (TYPE_VFIELD (t))), 
+    /* ??? This actually passes TYPE_BINFO (t), not the primary base binfo,
+       since we've updated DECL_CONTEXT (TYPE_VFIELD (t)) by now.  */
+    return build_primary_vtable (TYPE_BINFO (DECL_CONTEXT (TYPE_VFIELD (t))),
 				 t);
   else
     /* This is our very own copy of `basetype' to play with.  Later,
@@ -1071,7 +1035,12 @@ modify_vtable_entry (t, binfo, fndecl, delta, virtuals)
       BV_FN (v) = fndecl;
 
       /* Now assign virtual dispatch information, if unset.  We can
-	 dispatch this, through any overridden base function.  */
+	 dispatch this through any overridden base function.
+
+	 FIXME this can choose a secondary vtable if the primary is not
+	 also lexically first, leading to useless conversions.
+	 In the V3 ABI, there's no reason for DECL_VIRTUAL_CONTEXT to
+	 ever be different from DECL_CONTEXT.  */
       if (TREE_CODE (DECL_VINDEX (fndecl)) != INTEGER_CST)
 	{
 	  DECL_VINDEX (fndecl) = DECL_VINDEX (base_fndecl);
@@ -1214,9 +1183,8 @@ add_method (type, method, error_p)
 	    new_len = len + 1;
 
 	  new_vec = make_tree_vec (new_len);
-	  bcopy ((PTR) &TREE_VEC_ELT (method_vec, 0),
-		 (PTR) &TREE_VEC_ELT (new_vec, 0),
-		 len * sizeof (tree));
+	  memcpy (&TREE_VEC_ELT (new_vec, 0), &TREE_VEC_ELT (method_vec, 0),
+		  len * sizeof (tree));
 	  len = new_len;
 	  method_vec = CLASSTYPE_METHOD_VEC (type) = new_vec;
 	}
@@ -1253,9 +1221,9 @@ add_method (type, method, error_p)
 	      /* We know the last slot in the vector is empty
 		 because we know that at this point there's room
 		 for a new function.  */
-	      bcopy ((PTR) &TREE_VEC_ELT (method_vec, slot),
-		     (PTR) &TREE_VEC_ELT (method_vec, slot + 1),
-		     (len - slot - 1) * sizeof (tree));
+	      memmove (&TREE_VEC_ELT (method_vec, slot + 1),
+		       &TREE_VEC_ELT (method_vec, slot),
+		       (len - slot - 1) * sizeof (tree));
 	      TREE_VEC_ELT (method_vec, slot) = NULL_TREE;
 	    }
 	}
@@ -1307,17 +1275,9 @@ add_method (type, method, error_p)
 				  fn, method);
 		    }
 		}
-
-	      /* Since this is an ordinary function in a
-		 non-template class, it's mangled name can be used
-		 as a unique identifier.  This technique is only
-		 an optimization; we would get the same results if
-		 we just used decls_match here.  */
-	      if (DECL_ASSEMBLER_NAME (fn) 
-		  != DECL_ASSEMBLER_NAME (method))
-		continue;
 	    }
-	  else if (!decls_match (fn, method))
+
+	  if (!decls_match (fn, method))
 	    continue;
 
 	  /* There has already been a declaration of this method
@@ -1462,6 +1422,9 @@ alter_access (t, fdecl, access)
   if (!DECL_LANG_SPECIFIC (fdecl))
     retrofit_lang_decl (fdecl);
 
+  if (DECL_DISCRIMINATOR_P (fdecl))
+    abort ();
+
   elem = purpose_member (t, DECL_ACCESS (fdecl));
   if (elem)
     {
@@ -1598,12 +1561,12 @@ check_bases (t, cant_have_default_ctor_p, cant_have_const_ctor_p,
 {
   int n_baseclasses;
   int i;
-  int seen_nearly_empty_base_p;
+  int seen_non_virtual_nearly_empty_base_p;
   tree binfos;
 
   binfos = TYPE_BINFO_BASETYPES (t);
   n_baseclasses = CLASSTYPE_N_BASECLASSES (t);
-  seen_nearly_empty_base_p = 0;
+  seen_non_virtual_nearly_empty_base_p = 0;
 
   /* An aggregate cannot have baseclasses.  */
   CLASSTYPE_NON_AGGREGATE (t) |= (n_baseclasses != 0);
@@ -1664,19 +1627,23 @@ check_bases (t, cant_have_default_ctor_p, cant_have_const_ctor_p,
                         basetype);
 	}
 
-      /* If the base class is not empty or nearly empty, then this
-	 class cannot be nearly empty.  */
-      if (!CLASSTYPE_NEARLY_EMPTY_P (basetype) && !is_empty_class (basetype))
-	CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
-      /* And if there is more than one nearly empty base, then the
-	 derived class is not nearly empty either.  */
-      else if (CLASSTYPE_NEARLY_EMPTY_P (basetype) 
-	       && seen_nearly_empty_base_p)
-	CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
-      /* If this is the first nearly empty base class, then remember
-	 that we saw it.  */
+      if (TREE_VIA_VIRTUAL (base_binfo))
+	/* A virtual base does not effect nearly emptiness. */
+	;
       else if (CLASSTYPE_NEARLY_EMPTY_P (basetype))
-	seen_nearly_empty_base_p = 1;
+	{
+	  if (seen_non_virtual_nearly_empty_base_p)
+	    /* And if there is more than one nearly empty base, then the
+	       derived class is not nearly empty either.  */
+	    CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
+	  else
+	    /* Remember we've seen one. */
+	    seen_non_virtual_nearly_empty_base_p = 1;
+	}
+      else if (!is_empty_class (basetype))
+	/* If the base class is not empty or nearly empty, then this
+	   class cannot be nearly empty.  */
+	CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
 
       /* A lot of properties from the bases also apply to the derived
 	 class.  */
@@ -1690,18 +1657,6 @@ check_bases (t, cant_have_default_ctor_p, cant_have_const_ctor_p,
       TYPE_OVERLOADS_ARRAY_REF (t) |= TYPE_OVERLOADS_ARRAY_REF (basetype);
       TYPE_OVERLOADS_ARROW (t) |= TYPE_OVERLOADS_ARROW (basetype);
       TYPE_POLYMORPHIC_P (t) |= TYPE_POLYMORPHIC_P (basetype);
-
-      /* Derived classes can implicitly become COMified if their bases
-	 are COM.  */
-      if (CLASSTYPE_COM_INTERFACE (basetype))
-	CLASSTYPE_COM_INTERFACE (t) = 1;
-      else if (i == 0 && CLASSTYPE_COM_INTERFACE (t))
-	{
-	  cp_error 
-	    ("COM interface type `%T' with non-COM leftmost base class `%T'",
-	     t, basetype);
-	  CLASSTYPE_COM_INTERFACE (t) = 0;
-	}
     }
 }
 
@@ -1722,6 +1677,10 @@ force_canonical_binfo_r (to, from, type, mappings)
   BINFO_INDIRECT_PRIMARY_P (to)
           = BINFO_INDIRECT_PRIMARY_P (from);
   BINFO_INDIRECT_PRIMARY_P (from) = 0;
+  BINFO_UNSHARED_MARKED (to) = BINFO_UNSHARED_MARKED (from);
+  BINFO_UNSHARED_MARKED (from) = 0;
+  BINFO_LOST_PRIMARY_P (to) = BINFO_LOST_PRIMARY_P (from);
+  BINFO_LOST_PRIMARY_P (from) = 0;
   if (BINFO_PRIMARY_P (from))
     {
       tree primary = BINFO_PRIMARY_BASE_OF (from);
@@ -1735,7 +1694,8 @@ force_canonical_binfo_r (to, from, type, mappings)
       BINFO_PRIMARY_BASE_OF (to) = primary;
       BINFO_PRIMARY_BASE_OF (from) = NULL_TREE;
     }
-  my_friendly_assert (same_type_p (BINFO_TYPE (to), BINFO_TYPE (from)), 20010104);
+  my_friendly_assert (same_type_p (BINFO_TYPE (to), BINFO_TYPE (from)),
+		      20010104);
   mappings = tree_cons (from, to, mappings);
   for (i = 0; i != n_baseclasses; i++)
     {
@@ -1744,9 +1704,10 @@ force_canonical_binfo_r (to, from, type, mappings)
       
       if (TREE_VIA_VIRTUAL (from_binfo))
         {
-          tree shared_binfo = binfo_for_vbase (BINFO_TYPE (from_binfo), type);
-          
-          if (shared_binfo == from_binfo)
+	  if (BINFO_PRIMARY_P (from_binfo) &&
+	      purpose_member (BINFO_PRIMARY_BASE_OF (from_binfo), mappings))
+	    /* This base is a primary of some binfo we have already
+	       reseated. We must reseat this one too.  */
             force_canonical_binfo (to_binfo, from_binfo, type, mappings);
         }
       else
@@ -1810,10 +1771,52 @@ mark_primary_virtual_base (binfo, base_binfo, type)
   delta = size_diffop (BINFO_OFFSET (binfo), BINFO_OFFSET (base_binfo));
   if (!integer_zerop (delta))
     {
-      propagate_binfo_offsets (base_binfo, delta);
+      propagate_binfo_offsets (base_binfo, delta, type);
       BINFO_OFFSET (base_binfo) = BINFO_OFFSET (binfo);
     }
   return base_binfo;
+}
+
+/* If BINFO is an unmarked virtual binfo for a class with a primary virtual
+   base, then BINFO has no primary base in this graph.  Called from
+   mark_primary_bases.  DATA is the most derived type. */
+
+static tree dfs_unshared_virtual_bases (binfo, data)
+     tree binfo;
+     void *data;
+{
+  tree t = (tree) data;
+  
+  if (!BINFO_UNSHARED_MARKED (binfo)
+      && CLASSTYPE_HAS_PRIMARY_BASE_P (BINFO_TYPE (binfo)))
+    {
+      /* This morally virtual base has a primary base when it
+         is a complete object. We need to locate the shared instance
+         of this binfo in the type dominated by T. We duplicate the
+         primary base information from there to here.  */
+      tree vbase;
+      tree unshared_base;
+      
+      for (vbase = binfo; !TREE_VIA_VIRTUAL (vbase);
+	   vbase = BINFO_INHERITANCE_CHAIN (vbase))
+	continue;
+      unshared_base = get_original_base (binfo,
+					 binfo_for_vbase (BINFO_TYPE (vbase),
+							  t));
+      my_friendly_assert (unshared_base != binfo, 20010612);
+      BINFO_LOST_PRIMARY_P (binfo) = BINFO_LOST_PRIMARY_P (unshared_base);
+      if (!BINFO_LOST_PRIMARY_P (binfo))
+	      BINFO_PRIMARY_BASE_OF (get_primary_binfo (binfo)) = binfo;
+    }
+  
+  if (binfo != TYPE_BINFO (t))
+    /* The vtable fields will have been copied when duplicating the
+       base binfos. That information is bogus, make sure we don't try
+       and use it. */
+    BINFO_VTABLE (binfo) = NULL_TREE;
+  
+  BINFO_UNSHARED_MARKED (binfo) = 0;
+  return NULL;
 }
 
 /* Set BINFO_PRIMARY_BASE_OF for all binfos in the hierarchy
@@ -1841,7 +1844,13 @@ mark_primary_bases (type)
 
       if (base_binfo)
         BINFO_PRIMARY_BASE_OF (base_binfo) = binfo;
+      
+      BINFO_UNSHARED_MARKED (binfo) = 1;
     }
+  /* There could remain unshared morally virtual bases which were not visited
+     in the inheritance graph walk. These bases will have lost their
+     virtual primary base (should they have one). We must now find them. */
+  dfs_walk (TYPE_BINFO (type), dfs_unshared_virtual_bases, NULL, type);
 }
 
 /* Make the BINFO the primary base of T.  */
@@ -2423,7 +2432,7 @@ duplicate_tag_error (t)
   SET_IS_AGGR_TYPE (t, 1);
 }
 
-/* Make the BINFO's vtablehave N entries, including RTTI entries,
+/* Make BINFO's vtable have N entries, including RTTI entries,
    vbase and vcall offsets, etc.  Set its type and call the backend
    to lay it out.  */
 
@@ -2432,13 +2441,11 @@ layout_vtable_decl (binfo, n)
      tree binfo;
      int n;
 {
-  tree itype;
   tree atype;
   tree vtable;
 
-  itype = size_int (n);
   atype = build_cplus_array_type (vtable_entry_type, 
-				  build_index_type (itype));
+				  build_index_type (size_int (n - 1)));
   layout_type (atype);
 
   /* We may have to grow the vtable.  */
@@ -2497,6 +2504,9 @@ typedef struct find_final_overrider_data_s {
   tree most_derived_type;
   /* The final overriding function.  */
   tree overriding_fn;
+  /* The functions that we thought might be final overriders, but
+     aren't.  */
+  tree candidates;
   /* The BINFO for the class in which the final overriding function
      appears.  */
   tree overriding_base;
@@ -2527,13 +2537,8 @@ dfs_find_final_overrider (binfo, data)
 	   path; 
 	   path = TREE_CHAIN (path))
 	{
-	  for (method = TYPE_METHODS (BINFO_TYPE (TREE_VALUE (path)));
-	       method;
-	       method = TREE_CHAIN (method))
-	    if (DECL_VIRTUAL_P (method) 
-		&& same_signature_p (method, ffod->fn))
-	      break;
-
+	  method = look_for_overrides_here (BINFO_TYPE (TREE_VALUE (path)),
+					    ffod->fn);
 	  if (method)
 	    break;
 	}
@@ -2555,49 +2560,91 @@ dfs_find_final_overrider (binfo, data)
 		break;
 	      }
 
-	  if (ffod->overriding_fn && ffod->overriding_fn != method)
-	    {
-	      /* We've found a different overrider along a different
-		 path.  That can be OK if the new one overrides the
-		 old one.  Consider:
-	      
-	           struct S { virtual void f(); };
-	           struct T : public virtual S { virtual void f(); };
-	           struct U : public virtual S, public virtual T {};
-	      
-	         Here `T::f' is the final overrider for `S::f'.  */
-	      if (strictly_overrides (method, ffod->overriding_fn))
-		{
-		  ffod->overriding_fn = method;
-		  ffod->overriding_base = TREE_VALUE (path);
-		}
-	      else if (!strictly_overrides (ffod->overriding_fn, method))
-		{
-		  cp_error ("no unique final overrider for `%D' in `%T'", 
-			    ffod->most_derived_type,
-			    ffod->fn);
-		  cp_error ("candidates are: `%#D'", ffod->overriding_fn);
-		  cp_error ("                `%#D'", method);
-		  return error_mark_node;
-		}
-	    }
-	  else if (ffod->overriding_base
-		   && (!tree_int_cst_equal 
-		       (BINFO_OFFSET (TREE_VALUE (path)),
-			BINFO_OFFSET (ffod->overriding_base))))
-	    {
-	      /* We've found two instances of the same base that
-		 provide overriders.  */
-	      cp_error ("no unique final overrider for `%D' since there two instances of `%T' in `%T'", 
-			ffod->fn,
-			BINFO_TYPE (ffod->overriding_base),
-			ffod->most_derived_type);
-	      return error_mark_node;
-	    }
-	  else
+	  /* If we didn't already have an overrider, or any
+	     candidates, then this function is the best candidate so
+	     far.  */
+	  if (!ffod->overriding_fn && !ffod->candidates)
 	    {
 	      ffod->overriding_fn = method;
 	      ffod->overriding_base = TREE_VALUE (path);
+	    }
+	  else if (ffod->overriding_fn)
+	    {
+	      /* We had a best overrider; let's see how this compares.  */
+
+	      if (ffod->overriding_fn == method
+		  && (tree_int_cst_equal 
+		      (BINFO_OFFSET (TREE_VALUE (path)),
+		       BINFO_OFFSET (ffod->overriding_base))))
+		/* We found the same overrider we already have, and in the
+		   same place; it's still the best.  */;
+	      else if (strictly_overrides (ffod->overriding_fn, method))
+		/* The old function overrides this function; it's still the
+		   best.  */;
+	      else if (strictly_overrides (method, ffod->overriding_fn))
+		{
+		  /* The new function overrides the old; it's now the
+		     best.  */
+		  ffod->overriding_fn = method;
+		  ffod->overriding_base = TREE_VALUE (path);
+		}
+	      else
+		{
+		  /* Ambiguous.  */
+		  ffod->candidates 
+		    = build_tree_list (NULL_TREE,
+				       ffod->overriding_fn);
+		  if (method != ffod->overriding_fn)
+		    ffod->candidates 
+		      = tree_cons (NULL_TREE, method, ffod->candidates);
+		  ffod->overriding_fn = NULL_TREE;
+		  ffod->overriding_base = NULL_TREE;
+		}
+	    }
+	  else
+	    {
+	      /* We had a list of ambiguous overrides; let's see how this
+		 new one compares.  */
+
+	      tree candidates;
+	      bool incomparable = false;
+
+	      /* If there were previous candidates, and this function
+		 overrides all of them, then it is the new best
+		 candidate.  */
+	      for (candidates = ffod->candidates;
+		   candidates;
+		   candidates = TREE_CHAIN (candidates))
+		{
+		  /* If the candidate overrides the METHOD, then we
+		     needn't worry about it any further.  */
+		  if (strictly_overrides (TREE_VALUE (candidates),
+					  method))
+		    {
+		      method = NULL_TREE;
+		      break;
+		    }
+
+		  /* If the METHOD doesn't override the candidate,
+		     then it is incomporable.  */
+		  if (!strictly_overrides (method,
+					   TREE_VALUE (candidates)))
+		    incomparable = true;
+		}
+
+	      /* If METHOD overrode all the candidates, then it is the
+		 new best candidate.  */
+	      if (!candidates && !incomparable)
+		{
+		  ffod->overriding_fn = method;
+		  ffod->overriding_base = TREE_VALUE (path);
+		  ffod->candidates = NULL_TREE;
+		}
+	      /* If METHOD didn't override all the candidates, then it
+		 is another candidate.  */
+	      else if (method && incomparable)
+		ffod->candidates 
+		  = tree_cons (NULL_TREE, method, ffod->candidates);
 	    }
 	}
     }
@@ -2631,7 +2678,7 @@ find_final_overrider (t, binfo, fn)
        struct T : virtual public R { virtual void f (); };
        struct U : public S, public T { };
 
-     is not -- there's no way  to decide whether to put `S::f' or
+     is not -- there's no way to decide whether to put `S::f' or
      `T::f' in the vtable for `R'.  
      
      The solution is to look at all paths to BINFO.  If we find
@@ -2641,19 +2688,43 @@ find_final_overrider (t, binfo, fn)
   ffod.most_derived_type = t;
   ffod.overriding_fn = NULL_TREE;
   ffod.overriding_base = NULL_TREE;
+  ffod.candidates = NULL_TREE;
 
-  if (dfs_walk (TYPE_BINFO (t),
-		dfs_find_final_overrider,
-		NULL,
-		&ffod))
-    return error_mark_node;
+  dfs_walk (TYPE_BINFO (t),
+	    dfs_find_final_overrider,
+	    NULL,
+	    &ffod);
+
+  /* If there was no winner, issue an error message.  */
+  if (!ffod.overriding_fn)
+    {
+      cp_error ("no unique final overrider for `%D' in `%T'", fn, t);
+      return error_mark_node;
+    }
 
   return build_tree_list (ffod.overriding_fn, ffod.overriding_base);
 }
 
-/* Update a entry in the vtable for BINFO, which is in the hierarchy
-   dominated by T.  FN has been overridden in BINFO; VIRTUALS points
-   to the corresponding position in the BINFO_VIRTUALS list.  */
+/* Returns the function from the BINFO_VIRTUALS entry in T which matches
+   the signature of FUNCTION_DECL FN, or NULL_TREE if none.  In other words,
+   the function that the slot in T's primary vtable points to.  */
+
+static tree get_matching_virtual PARAMS ((tree, tree));
+static tree
+get_matching_virtual (t, fn)
+     tree t, fn;
+{
+  tree f;
+
+  for (f = BINFO_VIRTUALS (TYPE_BINFO (t)); f; f = TREE_CHAIN (f))
+    if (same_signature_p (BV_FN (f), fn))
+      return BV_FN (f);
+  return NULL_TREE;
+}
+
+/* Update an entry in the vtable for BINFO, which is in the hierarchy
+   dominated by T.  FN has been overriden in BINFO; VIRTUALS points to the
+   corresponding position in the BINFO_VIRTUALS list.  */
 
 static void
 update_vtable_entry_for_fn (t, binfo, fn, virtuals)
@@ -2666,93 +2737,87 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
   tree overrider;
   tree delta;
   tree virtual_base;
-  int generate_thunk_with_vtable_p;
+  tree first_defn;
 
-  /* Find the function which originally caused this vtable
-     entry to be present.  */
-  b = binfo;
-  while (1)
+  /* Find the nearest primary base (possibly binfo itself) which defines
+     this function; this is the class the caller will convert to when
+     calling FN through BINFO.  */
+  for (b = binfo; ; b = get_primary_binfo (b))
     {
-      tree primary_base;
-      tree f;
-
-      primary_base = get_primary_binfo (b);
-      if (!primary_base)
+      if (look_for_overrides_here (BINFO_TYPE (b), fn))
 	break;
-
-      for (f = BINFO_VIRTUALS (TYPE_BINFO (BINFO_TYPE (primary_base)));
-	   f;
-	   f = TREE_CHAIN (f))
-	if (same_signature_p (BV_FN (f), fn))
-	  break;
-
-      if (!f)
-	break;
-
-      fn = BV_FN (f);
-      b = primary_base;
     }
+  first_defn = b;
 
   /* Find the final overrider.  */
   overrider = find_final_overrider (t, b, fn);
   if (overrider == error_mark_node)
     return;
 
-  /* Compute the constant adjustment to the `this' pointer.  The
-     `this' pointer, when this function is called, will point at the
-     class whose vtable this is.  */
-  delta = size_binop (PLUS_EXPR,
-		      get_derived_offset (binfo,
-					  DECL_VIRTUAL_CONTEXT (fn)),
-		      BINFO_OFFSET (binfo));
-
   /* Assume that we will produce a thunk that convert all the way to
      the final overrider, and not to an intermediate virtual base.  */
   virtual_base = NULL_TREE;
-
-  /* Assume that we will always generate thunks with the vtables that
-     reference them.  */
-  generate_thunk_with_vtable_p = 1;
 
   /* Under the new ABI, we will convert to an intermediate virtual
      base first, and then use the vcall offset located there to finish
      the conversion.  */
   while (b)
     {
-      /* If we find BINFO, then the final overrider is in a class
-	 derived from BINFO, so the thunks can be generated with
-	 the final overrider.  */
-      if (!virtual_base
-	  && same_type_p (BINFO_TYPE (b), BINFO_TYPE (binfo)))
-	generate_thunk_with_vtable_p = 0;
-
-	  /* If we find the final overrider, then we can stop
-	     walking.  */
+      /* If we find the final overrider, then we can stop
+	 walking.  */
       if (same_type_p (BINFO_TYPE (b), 
 		       BINFO_TYPE (TREE_VALUE (overrider))))
 	break;
 
-	  /* If we find a virtual base, and we haven't yet found the
-	     overrider, then there is a virtual base between the
-	     declaring base and the final overrider.  */
+      /* If we find a virtual base, and we haven't yet found the
+	 overrider, then there is a virtual base between the
+	 declaring base (first_defn) and the final overrider.  */
       if (!virtual_base && TREE_VIA_VIRTUAL (b))
-	{
-	  generate_thunk_with_vtable_p = 1;
-	  virtual_base = b;
-	}
+	virtual_base = b;
 
       b = BINFO_INHERITANCE_CHAIN (b);
     }
 
+  /* Compute the constant adjustment to the `this' pointer.  The
+     `this' pointer, when this function is called, will point at BINFO
+     (or one of its primary bases, which are at the same offset).  */
+
   if (virtual_base)
     /* The `this' pointer needs to be adjusted to the nearest virtual
        base.  */
-    delta = size_diffop (BINFO_OFFSET (virtual_base), delta);
+    delta = size_diffop (BINFO_OFFSET (virtual_base),
+			 BINFO_OFFSET (binfo));
   else
-    /* The `this' pointer needs to be adjusted from pointing to
-       BINFO to pointing at the base where the final overrider
-       appears.  */
-    delta = size_diffop (BINFO_OFFSET (TREE_VALUE (overrider)), delta);
+    {
+      /* The `this' pointer needs to be adjusted from pointing to
+	 BINFO to pointing at the base where the final overrider
+	 appears.  */
+      delta = size_diffop (BINFO_OFFSET (TREE_VALUE (overrider)),
+			   BINFO_OFFSET (binfo));
+
+      if (! integer_zerop (delta))
+	{
+	  /* We'll need a thunk.  But if we have a (perhaps formerly)
+	     primary virtual base, we have a vcall slot for this function,
+	     so we can use it rather than create a non-virtual thunk.  */
+
+	  b = get_primary_binfo (first_defn);
+	  for (; b; b = get_primary_binfo (b))
+	    {
+	      tree f = get_matching_virtual (BINFO_TYPE (b), fn);
+	      if (!f)
+		/* b doesn't have this function; no suitable vbase.  */
+		break;
+	      if (TREE_VIA_VIRTUAL (b))
+		{
+		  /* Found one; we can treat ourselves as a virtual base.  */
+		  virtual_base = binfo;
+		  delta = size_zero_node;
+		  break;
+		}
+	    }
+	}
+    }
 
   modify_vtable_entry (t, 
 		       binfo, 
@@ -2762,8 +2827,6 @@ update_vtable_entry_for_fn (t, binfo, fn, virtuals)
 
   if (virtual_base)
     BV_USE_VCALL_INDEX_P (*virtuals) = 1;
-  if (generate_thunk_with_vtable_p)
-    BV_GENERATE_THUNK_WITH_VTABLE_P (*virtuals) = 1;
 }
 
 /* Called from modify_all_vtables via dfs_walk.  */
@@ -2774,9 +2837,9 @@ dfs_modify_vtables (binfo, data)
      void *data;
 {
   if (/* There's no need to modify the vtable for a non-virtual
-         primary base; we're not going to use that vtable anyhow
-         (virtual primary bases can become non-primary in a
-         class derivation of this one.) */
+         primary base; we're not going to use that vtable anyhow.
+	 We do still need to do this for virtual primary bases, as they
+	 could become non-primary in a construction vtable.  */
       (!BINFO_PRIMARY_P (binfo) || TREE_VIA_VIRTUAL (binfo))
       /* Similarly, a base without a vtable needs no modification.  */
       && CLASSTYPE_VFIELDS (BINFO_TYPE (binfo)))
@@ -3591,10 +3654,9 @@ check_field_decls (t, access_decls, empty_p,
       if (DECL_MUTABLE_P (x) || TYPE_HAS_MUTABLE_P (type))
 	CLASSTYPE_HAS_MUTABLE (t) = 1;
 
-      if (! pod_type_p (type)
-	  /* For some reason, pointers to members are POD types themselves,
-	     but are not allowed in POD structs.  Silly.  */
-	  || TYPE_PTRMEM_P (type) || TYPE_PTRMEMFUNC_P (type))
+      if (! pod_type_p (type))
+        /* DR 148 now allows pointers to members (which are POD themselves),
+           to be allowed in POD structs.  */
 	CLASSTYPE_NON_POD_P (t) = 1;
 
       /* If any field is const, the structure type is pseudo-const.  */
@@ -3691,7 +3753,7 @@ build_vtbl_or_vbase_field (name, assembler_name, type, class_type, fcontext,
 
   /* Build the FIELD_DECL.  */
   field = build_decl (FIELD_DECL, name, type);
-  DECL_ASSEMBLER_NAME (field) = assembler_name;
+  SET_DECL_ASSEMBLER_NAME (field, assembler_name);
   DECL_VIRTUAL_P (field) = 1;
   DECL_ARTIFICIAL (field) = 1;
   DECL_FIELD_CONTEXT (field) = class_type;
@@ -3761,19 +3823,29 @@ check_subobject_offset (type, offset, offsets)
 /* Walk through all the subobjects of TYPE (located at OFFSET).  Call
    F for every subobject, passing it the type, offset, and table of
    OFFSETS.  If VBASES_P is non-zero, then even virtual non-primary
-   bases should be traversed; otherwise, they are ignored.  If F
-   returns a non-zero value, the traversal ceases, and that value is
-   returned.  Otherwise, returns zero.  */
+   bases should be traversed; otherwise, they are ignored.  
+
+   If MAX_OFFSET is non-NULL, then subobjects with an offset greater
+   than MAX_OFFSET will not be walked.
+
+   If F returns a non-zero value, the traversal ceases, and that value
+   is returned.  Otherwise, returns zero.  */
 
 static int
-walk_subobject_offsets (type, f, offset, offsets, vbases_p)
+walk_subobject_offsets (type, f, offset, offsets, max_offset, vbases_p)
      tree type;
      subobject_offset_fn f;
      tree offset;
      splay_tree offsets;
+     tree max_offset;
      int vbases_p;
 {
   int r = 0;
+
+  /* If this OFFSET is bigger than the MAX_OFFSET, then we should
+     stop.  */
+  if (max_offset && INT_CST_LT (max_offset, offset))
+    return 0;
 
   if (CLASS_TYPE_P (type))
     {
@@ -3801,6 +3873,7 @@ walk_subobject_offsets (type, f, offset, offsets, vbases_p)
 						  offset,
 						  BINFO_OFFSET (binfo)),
 				      offsets,
+				      max_offset,
 				      vbases_p);
 	  if (r)
 	    return r;
@@ -3816,6 +3889,7 @@ walk_subobject_offsets (type, f, offset, offsets, vbases_p)
 						    offset,
 						    DECL_FIELD_OFFSET (field)),
 					offsets,
+					max_offset,
 					/*vbases_p=*/1);
 	    if (r)
 	      return r;
@@ -3835,11 +3909,17 @@ walk_subobject_offsets (type, f, offset, offsets, vbases_p)
 				      f,
 				      offset,
 				      offsets,
+				      max_offset,
 				      /*vbases_p=*/1);
 	  if (r)
 	    return r;
 	  offset = size_binop (PLUS_EXPR, offset, 
 			       TYPE_SIZE_UNIT (TREE_TYPE (type)));
+	  /* If this new OFFSET is bigger than the MAX_OFFSET, then
+	     there's no point in iterating through the remaining
+	     elements of the array.  */
+	  if (max_offset && INT_CST_LT (max_offset, offset))
+	    break;
 	}
     }
 
@@ -3858,7 +3938,7 @@ record_subobject_offsets (type, offset, offsets, vbases_p)
      int vbases_p;
 {
   walk_subobject_offsets (type, record_subobject_offset, offset,
-			  offsets, vbases_p);
+			  offsets, /*max_offset=*/NULL_TREE, vbases_p);
 }
 
 /* Returns non-zero if any of the empty subobjects of TYPE (located at
@@ -3872,22 +3952,34 @@ layout_conflict_p (type, offset, offsets, vbases_p)
      splay_tree offsets;
      int vbases_p;
 {
+  splay_tree_node max_node;
+
+  /* Get the node in OFFSETS that indicates the maximum offset where
+     an empty subobject is located.  */
+  max_node = splay_tree_max (offsets);
+  /* If there aren't any empty subobjects, then there's no point in
+     performing this check.  */
+  if (!max_node)
+    return 0;
+
   return walk_subobject_offsets (type, check_subobject_offset, offset,
-				 offsets, vbases_p);
+				 offsets, (tree) (max_node->key),
+				 vbases_p);
 }
 
 /* DECL is a FIELD_DECL corresponding either to a base subobject of a
    non-static data member of the type indicated by RLI.  BINFO is the
    binfo corresponding to the base subobject, OFFSETS maps offsets to
-   types already located at those offsets.  This function determines
-   the position of the DECL.  */
+   types already located at those offsets.  T is the most derived
+   type.  This function determines the position of the DECL.  */
 
 static void
-layout_nonempty_base_or_field (rli, decl, binfo, offsets)
+layout_nonempty_base_or_field (rli, decl, binfo, offsets, t)
      record_layout_info rli;
      tree decl;
      tree binfo;
      splay_tree offsets;
+     tree t;
 {
   tree offset = NULL_TREE;
   tree type = TREE_TYPE (decl);
@@ -3944,26 +4036,29 @@ layout_nonempty_base_or_field (rli, decl, binfo, offsets)
 	break;
     }
 
-  /* Now that we know where it wil be placed, update its
+  /* Now that we know where it will be placed, update its
      BINFO_OFFSET.  */
   if (binfo && CLASS_TYPE_P (BINFO_TYPE (binfo)))
     propagate_binfo_offsets (binfo, 
-			     convert (ssizetype, offset));
+			     convert (ssizetype, offset), t);
 }
 
 /* Layout the empty base BINFO.  EOC indicates the byte currently just
    past the end of the class, and should be correctly aligned for a
    class of the type indicated by BINFO; OFFSETS gives the offsets of
-   the empty bases allocated so far.  */
+   the empty bases allocated so far. T is the most derived
+   type.  Return non-zero iff we added it at the end. */
 
-static void
-layout_empty_base (binfo, eoc, offsets)
+static bool
+layout_empty_base (binfo, eoc, offsets, t)
      tree binfo;
      tree eoc;
      splay_tree offsets;
+     tree t;
 {
   tree alignment;
   tree basetype = BINFO_TYPE (binfo);
+  bool atend = false;
   
   /* This routine should only be used for empty classes.  */
   my_friendly_assert (is_empty_class (basetype), 20000321);
@@ -3978,7 +4073,8 @@ layout_empty_base (binfo, eoc, offsets)
     {
       /* That didn't work.  Now, we move forward from the next
 	 available spot in the class.  */
-      propagate_binfo_offsets (binfo, convert (ssizetype, eoc));
+      atend = true;
+      propagate_binfo_offsets (binfo, convert (ssizetype, eoc), t);
       while (1) 
 	{
 	  if (!layout_conflict_p (BINFO_TYPE (binfo),
@@ -3989,30 +4085,35 @@ layout_empty_base (binfo, eoc, offsets)
 	    break;
 
 	  /* There's overlap here, too.  Bump along to the next spot.  */
-	  propagate_binfo_offsets (binfo, alignment);
+	  propagate_binfo_offsets (binfo, alignment, t);
 	}
     }
+  return atend;
 }
 
 /* Build a FIELD_DECL for the base given by BINFO in the class
    indicated by RLI.  If the new object is non-empty, clear *EMPTY_P.
    *BASE_ALIGN is a running maximum of the alignments of any base
-   class.  OFFSETS gives the location of empty base subobjects.  */
+   class.  OFFSETS gives the location of empty base subobjects.  T is
+   the most derived type.  Return non-zero if the new object cannot be
+   nearly-empty. */
 
-static void
-build_base_field (rli, binfo, empty_p, offsets)
+static bool
+build_base_field (rli, binfo, empty_p, offsets, t)
      record_layout_info rli;
      tree binfo;
      int *empty_p;
      splay_tree offsets;
+     tree t;
 {
   tree basetype = BINFO_TYPE (binfo);
   tree decl;
+  bool atend = false;
 
   if (!COMPLETE_TYPE_P (basetype))
     /* This error is now reported in xref_tag, thus giving better
        location information.  */
-    return;
+    return atend;
   
   decl = build_decl (FIELD_DECL, NULL_TREE, basetype);
   DECL_ARTIFICIAL (decl) = 1;
@@ -4031,7 +4132,7 @@ build_base_field (rli, binfo, empty_p, offsets)
       /* Try to place the field.  It may take more than one try if we
 	 have a hard time placing the field without putting two
 	 objects of the same type at the same address.  */
-      layout_nonempty_base_or_field (rli, decl, binfo, offsets);
+      layout_nonempty_base_or_field (rli, decl, binfo, offsets, t);
     }
   else
     {
@@ -4041,43 +4142,40 @@ build_base_field (rli, binfo, empty_p, offsets)
 	 byte-aligned.  */
       eoc = tree_low_cst (rli_size_unit_so_far (rli), 0);
       eoc = CEIL (eoc, DECL_ALIGN_UNIT (decl)) * DECL_ALIGN_UNIT (decl);
-      layout_empty_base (binfo, size_int (eoc), offsets);
+      atend |= layout_empty_base (binfo, size_int (eoc), offsets, t);
     }
 
-  /* Check for inaccessible base classes.  If the same base class
-     appears more than once in the hierarchy, but isn't virtual, then
-     it's ambiguous.  */
-  if (get_base_distance (basetype, rli->t, 0, NULL) == -2)
-    cp_warning ("direct base `%T' inaccessible in `%T' due to ambiguity",
-		basetype, rli->t);
-  
   /* Record the offsets of BINFO and its base subobjects.  */
   record_subobject_offsets (BINFO_TYPE (binfo), 
 			    BINFO_OFFSET (binfo),
 			    offsets, 
 			    /*vbases_p=*/0);
+  return atend;
 }
 
 /* Layout all of the non-virtual base classes.  Record empty
-   subobjects in OFFSETS.  */
+   subobjects in OFFSETS.  T is the most derived type.  Return
+   non-zero if the type cannot be nearly empty.  */
 
-static void
-build_base_fields (rli, empty_p, offsets)
+static bool
+build_base_fields (rli, empty_p, offsets, t)
      record_layout_info rli;
      int *empty_p;
      splay_tree offsets;
+     tree t;
 {
   /* Chain to hold all the new FIELD_DECLs which stand in for base class
      subobjects.  */
   tree rec = rli->t;
   int n_baseclasses = CLASSTYPE_N_BASECLASSES (rec);
   int i;
+  bool atend = 0;
 
   /* Under the new ABI, the primary base class is always allocated
      first.  */
   if (CLASSTYPE_HAS_PRIMARY_BASE_P (rec))
     build_base_field (rli, CLASSTYPE_PRIMARY_BINFO (rec), 
-		      empty_p, offsets);
+		      empty_p, offsets, t);
 
   /* Now allocate the rest of the bases.  */
   for (i = 0; i < n_baseclasses; ++i)
@@ -4098,8 +4196,9 @@ build_base_fields (rli, empty_p, offsets)
 	  && !BINFO_PRIMARY_P (base_binfo))
 	continue;
 
-      build_base_field (rli, base_binfo, empty_p, offsets);
+      atend |= build_base_field (rli, base_binfo, empty_p, offsets, t);
     }
+  return atend;
 }
 
 /* Go through the TYPE_METHODS of T issuing any appropriate
@@ -4118,7 +4217,8 @@ check_methods (t)
       GNU_xref_member (current_class_name, x);
 
       /* If this was an evil function, don't keep it in class.  */
-      if (IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (x)))
+      if (DECL_ASSEMBLER_NAME_SET_P (x) 
+	  && IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (x)))
 	continue;
 
       check_for_override (x, t);
@@ -4179,9 +4279,10 @@ build_clone (fn, name)
   clone = copy_decl (fn);
   /* Remember where this function came from.  */
   DECL_CLONED_FUNCTION (clone) = fn;
+  DECL_ABSTRACT_ORIGIN (clone) = fn;
   /* Reset the function name.  */
   DECL_NAME (clone) = name;
-  DECL_ASSEMBLER_NAME (clone) = DECL_NAME (clone);
+  SET_DECL_ASSEMBLER_NAME (clone, NULL_TREE);
   /* There's no pending inline data for this function.  */
   DECL_PENDING_INLINE_INFO (clone) = NULL;
   DECL_PENDING_INLINE_P (clone) = 0;
@@ -4258,11 +4359,8 @@ build_clone (fn, name)
 	}
     }
 
-  /* Mangle the function name.  */
-  set_mangled_name_for_decl (clone);
-
   /* Create the RTL for this function.  */
-  DECL_RTL (clone) = NULL_RTX;
+  SET_DECL_RTL (clone, NULL_RTX);
   rest_of_decl_compilation (clone, NULL, /*top_level=*/1, at_eof);
   
   /* Make it easy to find the CLONE given the FN.  */
@@ -4338,6 +4436,83 @@ clone_function_decl (fn, update_method_vec_p)
       clone = build_clone (fn, base_dtor_identifier);
       if (update_method_vec_p)
 	add_method (DECL_CONTEXT (clone), clone, /*error_p=*/0);
+    }
+
+  /* Note that this is an abstract function that is never emitted.  */
+  DECL_ABSTRACT (fn) = 1;
+}
+
+/* DECL is an in charge constructor, which is being defined. This will
+   have had an in class declaration, from whence clones were
+   declared. An out-of-class definition can specify additional default
+   arguments. As it is the clones that are involved in overload
+   resolution, we must propagate the information from the DECL to its
+   clones. */
+
+void
+adjust_clone_args (decl)
+     tree decl;
+{
+  tree clone;
+  
+  for (clone = TREE_CHAIN (decl); clone && DECL_CLONED_FUNCTION (clone);
+       clone = TREE_CHAIN (clone))
+    {
+      tree orig_clone_parms = TYPE_ARG_TYPES (TREE_TYPE (clone));
+      tree orig_decl_parms = TYPE_ARG_TYPES (TREE_TYPE (decl));
+      tree decl_parms, clone_parms;
+
+      clone_parms = orig_clone_parms;
+      
+      /* Skip the 'this' parameter. */
+      orig_clone_parms = TREE_CHAIN (orig_clone_parms);
+      orig_decl_parms = TREE_CHAIN (orig_decl_parms);
+
+      if (DECL_HAS_IN_CHARGE_PARM_P (decl))
+	orig_decl_parms = TREE_CHAIN (orig_decl_parms);
+      if (DECL_HAS_VTT_PARM_P (decl))
+	orig_decl_parms = TREE_CHAIN (orig_decl_parms);
+      
+      clone_parms = orig_clone_parms;
+      if (DECL_HAS_VTT_PARM_P (clone))
+	clone_parms = TREE_CHAIN (clone_parms);
+      
+      for (decl_parms = orig_decl_parms; decl_parms;
+	   decl_parms = TREE_CHAIN (decl_parms),
+	     clone_parms = TREE_CHAIN (clone_parms))
+	{
+	  my_friendly_assert (same_type_p (TREE_TYPE (decl_parms),
+					   TREE_TYPE (clone_parms)), 20010424);
+	  
+	  if (TREE_PURPOSE (decl_parms) && !TREE_PURPOSE (clone_parms))
+	    {
+	      /* A default parameter has been added. Adjust the
+		 clone's parameters. */
+	      tree exceptions = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (clone));
+	      tree basetype = TYPE_METHOD_BASETYPE (TREE_TYPE (clone));
+	      tree type;
+
+	      clone_parms = orig_decl_parms;
+
+	      if (DECL_HAS_VTT_PARM_P (clone))
+		{
+		  clone_parms = tree_cons (TREE_PURPOSE (orig_clone_parms),
+					   TREE_VALUE (orig_clone_parms),
+					   clone_parms);
+		  TREE_TYPE (clone_parms) = TREE_TYPE (orig_clone_parms);
+		}
+	      type = build_cplus_method_type (basetype,
+					      TREE_TYPE (TREE_TYPE (clone)),
+					      clone_parms);
+	      if (exceptions)
+		type = build_exception_variant (type, exceptions);
+	      TREE_TYPE (clone) = type;
+	      
+	      clone_parms = NULL_TREE;
+	      break;
+	    }
+	}
+      my_friendly_assert (!clone_parms, 20010424);
     }
 }
 
@@ -4595,9 +4770,10 @@ fixup_inline_methods (type)
    OFFSET, which is a type offset, is number of bytes.  */
 
 static void
-propagate_binfo_offsets (binfo, offset)
+propagate_binfo_offsets (binfo, offset, t)
      tree binfo;
      tree offset;
+     tree t;
 {
   int i;
   tree primary_binfo;
@@ -4618,9 +4794,9 @@ propagate_binfo_offsets (binfo, offset)
     {
       tree base_binfo;
 
-      /* On the first through the loop, do the primary base.  Because
-	 the primary base need not be an immediate base, we must
-	 handle the primary base specially.  */
+      /* On the first time through the loop, do the primary base.
+	 Because the primary base need not be an immediate base, we
+	 must handle the primary base specially.  */
       if (i == -1) 
 	{
 	  if (!primary_binfo) 
@@ -4636,12 +4812,13 @@ propagate_binfo_offsets (binfo, offset)
 	    continue;
 	}
 
-      /* Skip virtual bases that aren't our primary base.  */
+      /* Skip virtual bases that aren't our canonical primary base.  */
       if (TREE_VIA_VIRTUAL (base_binfo)
-	  && BINFO_PRIMARY_BASE_OF (base_binfo) != binfo)
+	  && (BINFO_PRIMARY_BASE_OF (base_binfo) != binfo
+	      || base_binfo != binfo_for_vbase (BINFO_TYPE (base_binfo), t)))
 	continue;
 
-      propagate_binfo_offsets (base_binfo, offset);
+      propagate_binfo_offsets (base_binfo, offset, t);
     }
 }
 
@@ -4655,15 +4832,18 @@ dfs_set_offset_for_unshared_vbases (binfo, data)
   /* If this is a virtual base, make sure it has the same offset as
      the shared copy.  If it's a primary base, then we know it's
      correct.  */
-  if (TREE_VIA_VIRTUAL (binfo) && !BINFO_PRIMARY_P (binfo))
+  if (TREE_VIA_VIRTUAL (binfo))
     {
       tree t = (tree) data;
       tree vbase;
       tree offset;
       
       vbase = binfo_for_vbase (BINFO_TYPE (binfo), t);
-      offset = size_diffop (BINFO_OFFSET (vbase), BINFO_OFFSET (binfo));
-      propagate_binfo_offsets (binfo, offset);
+      if (vbase != binfo)
+	{
+	  offset = size_diffop (BINFO_OFFSET (vbase), BINFO_OFFSET (binfo));
+	  propagate_binfo_offsets (binfo, offset, t);
+	}
     }
 
   return NULL_TREE;
@@ -4698,7 +4878,7 @@ layout_virtual_bases (t, offsets)
   TYPE_ALIGN (t) = MAX (TYPE_ALIGN (t), BITS_PER_UNIT);
 
   /* Go through the virtual bases, allocating space for each virtual
-     base that is not already a primary base class.  Under the new
+     base that is not already a primary base class.  Under the old
      ABI, these are allocated according to a depth-first left-to-right
      postorder traversal; in the new ABI, inheritance graph order is
      used instead.  */
@@ -4733,7 +4913,7 @@ layout_virtual_bases (t, offsets)
 	  if (is_empty_class (basetype))
 	    layout_empty_base (vbase,
 			       size_int (CEIL (dsize, BITS_PER_UNIT)),
-			       offsets);
+			       offsets, t);
 	  else
 	    {
 	      tree offset;
@@ -4744,7 +4924,7 @@ layout_virtual_bases (t, offsets)
 					     BINFO_OFFSET (vbase)));
 
 	      /* And compute the offset of the virtual base.  */
-	      propagate_binfo_offsets (vbase, offset);
+	      propagate_binfo_offsets (vbase, offset, t);
 	      /* Every virtual baseclass takes a least a UNIT, so that
 		 we can take it's address and get something different
 		 for each base.  */
@@ -4772,7 +4952,7 @@ layout_virtual_bases (t, offsets)
      multiple such bases at the same location.  */
   eoc = end_of_class (t, /*include_virtuals_p=*/1);
   if (eoc * BITS_PER_UNIT > dsize)
-    dsize = (eoc + 1) * BITS_PER_UNIT;
+    dsize = eoc * BITS_PER_UNIT;
 
   /* Now, make sure that the total size of the type is a multiple of
      its alignment.  */
@@ -4811,6 +4991,7 @@ end_of_class (t, include_virtuals_p)
     {
       tree base_binfo;
       tree offset;
+      tree size;
       unsigned HOST_WIDE_INT end_of_base;
 
       base_binfo = BINFO_BASETYPE (TYPE_BINFO (t), i);
@@ -4820,15 +5001,48 @@ end_of_class (t, include_virtuals_p)
 	  && !BINFO_PRIMARY_P (base_binfo))
 	continue;
 
+      if (is_empty_class (BINFO_TYPE (base_binfo)))
+	/* An empty class has zero CLASSTYPE_SIZE_UNIT, but we need to
+	   allocate some space for it. It cannot have virtual bases,
+	   so TYPE_SIZE_UNIT is fine.  */
+	size = TYPE_SIZE_UNIT (BINFO_TYPE (base_binfo));
+      else
+	size = CLASSTYPE_SIZE_UNIT (BINFO_TYPE (base_binfo));
       offset = size_binop (PLUS_EXPR, 
 			   BINFO_OFFSET (base_binfo),
-			   CLASSTYPE_SIZE_UNIT (BINFO_TYPE (base_binfo)));
+			   size);
       end_of_base = tree_low_cst (offset, /*pos=*/1);
       if (end_of_base > result)
 	result = end_of_base;
     }
 
   return result;
+}
+
+/* Warn about direct bases of T that are inaccessible because they are
+   ambiguous.  For example:
+
+     struct S {};
+     struct T : public S {};
+     struct U : public S, public T {};
+
+   Here, `(S*) new U' is not allowed because there are two `S'
+   subobjects of U.  */
+
+static void
+warn_about_ambiguous_direct_bases (t)
+     tree t;
+{
+  int i;
+
+  for (i = 0; i < CLASSTYPE_N_BASECLASSES (t); ++i)
+    {
+      tree basetype = TYPE_BINFO_BASETYPE (t, i);
+
+      if (get_base_distance (basetype, t, 0, NULL) == -2)
+	cp_warning ("direct base `%T' inaccessible in `%T' due to ambiguity",
+		    basetype, t);
+    }
 }
 
 /* Compare two INTEGER_CSTs K1 and K2.  */
@@ -4888,7 +5102,9 @@ layout_class_type (t, empty_p, vfuns_p,
   /* Build FIELD_DECLs for all of the non-virtual base-types.  */
   empty_base_offsets = splay_tree_new (splay_tree_compare_integer_csts, 
 				       NULL, NULL);
-  build_base_fields (rli, empty_p, empty_base_offsets);
+  if (build_base_fields (rli, empty_p, empty_base_offsets, t))
+    CLASSTYPE_NEARLY_EMPTY_P (t) = 0;
+  
   /* Add pointers to all of our virtual base-classes.  */
   TYPE_FIELDS (t) = chainon (build_vbase_pointer_fields (rli, empty_p),
 			     TYPE_FIELDS (t));
@@ -4948,7 +5164,7 @@ layout_class_type (t, empty_p, vfuns_p,
 	padding = NULL_TREE;
 
       layout_nonempty_base_or_field (rli, field, NULL_TREE,
-				     empty_base_offsets);
+				     empty_base_offsets, t);
 
       /* If we needed additional padding after this field, add it
 	 now.  */
@@ -4965,7 +5181,7 @@ layout_class_type (t, empty_p, vfuns_p,
 	  DECL_USER_ALIGN (padding_field) = 0;
 	  layout_nonempty_base_or_field (rli, padding_field,
 					 NULL_TREE, 
-					 empty_base_offsets);
+					 empty_base_offsets, t);
 	}
     }
 
@@ -4978,7 +5194,7 @@ layout_class_type (t, empty_p, vfuns_p,
   if (TREE_CODE (rli_size_unit_so_far (rli)) == INTEGER_CST
       && compare_tree_int (rli_size_unit_so_far (rli), eoc) < 0)
     {
-      rli->offset = size_binop (MAX_EXPR, rli->offset, size_int (eoc + 1));
+      rli->offset = size_binop (MAX_EXPR, rli->offset, size_int (eoc));
       rli->bitpos = bitsize_zero_node;
     }
 
@@ -4987,7 +5203,7 @@ layout_class_type (t, empty_p, vfuns_p,
      if it has basetypes.  Therefore, we add the fake field after all
      the other fields; if there are already FIELD_DECLs on the list,
      their offsets will not be disturbed.  */
-  if (*empty_p)
+  if (!eoc && *empty_p)
     {
       tree padding;
 
@@ -5035,6 +5251,10 @@ layout_class_type (t, empty_p, vfuns_p,
      virtual function table.  As a side-effect, this will remove the
      base subobject fields.  */
   layout_virtual_bases (t, empty_base_offsets);
+
+  /* Warn about direct bases that can't be talked about due to
+     ambiguity.  */
+  warn_about_ambiguous_direct_bases (t);
 
   /* Clean up.  */
   splay_tree_delete (empty_base_offsets);
@@ -5114,14 +5334,7 @@ finish_struct_1 (t)
   layout_class_type (t, &empty, &vfuns,
 		     &new_virtuals, &overridden_virtuals);
 
-  if (flag_dump_class_layout)
-    dump_class_hierarchy (*flag_dump_class_layout
-                          ? flag_dump_class_layout : NULL,
-                          t);
-  
-  /* Set up the DECL_FIELD_BITPOS of the vfield if we need to, as we
-     might need to know it for setting up the offsets in the vtable
-     (or in thunks) below.  */
+  /* Make sure that we get our own copy of the vfield FIELD_DECL.  */
   vfield = TYPE_VFIELD (t);
   if (vfield != NULL_TREE
       && DECL_FIELD_CONTEXT (vfield) != t)
@@ -5206,14 +5419,9 @@ finish_struct_1 (t)
   /* Complete the rtl for any static member objects of the type we're
      working on.  */
   for (x = TYPE_FIELDS (t); x; x = TREE_CHAIN (x))
-    {
-      if (TREE_CODE (x) == VAR_DECL && TREE_STATIC (x)
-	  && TREE_TYPE (x) == t)
-	{
-	  DECL_MODE (x) = TYPE_MODE (t);
-	  make_decl_rtl (x, NULL);
-	}
-    }
+    if (TREE_CODE (x) == VAR_DECL && TREE_STATIC (x)
+	&& TREE_TYPE (x) == t)
+      DECL_MODE (x) = TYPE_MODE (t);
 
   /* Done with FIELDS...now decide whether to sort these for
      faster lookups later.
@@ -5279,6 +5487,8 @@ finish_struct_1 (t)
 
   maybe_suppress_debug_info (t);
 
+  dump_class_hierarchy (t);
+  
   /* Finish debugging output for this type.  */
   rest_of_type_compilation (t, ! LOCAL_CLASS_P (t));
 }
@@ -5329,7 +5539,7 @@ finish_struct (t, attributes)
      as necessary.  */
   unreverse_member_declarations (t);
 
-  cplus_decl_attributes (t, attributes, NULL_TREE);
+  cplus_decl_attributes (&t, attributes, NULL_TREE, 0);
 
   /* Nadger the current location so that diagnostics point to the start of
      the struct, not the end.  */
@@ -5765,6 +5975,14 @@ pop_nested_class ()
     pop_nested_class ();
 }
 
+/* Returns the number of extern "LANG" blocks we are nested within.  */
+
+int
+current_lang_depth ()
+{
+  return VARRAY_ACTIVE_SIZE (current_lang_base);
+}
+
 /* Set global variables CURRENT_LANG_NAME to appropriate value
    so that behavior of name-mangling machinery is correct.  */
 
@@ -5772,15 +5990,7 @@ void
 push_lang_context (name)
      tree name;
 {
-  *current_lang_stack++ = current_lang_name;
-  if (current_lang_stack - &VARRAY_TREE (current_lang_base, 0)
-      >= (ptrdiff_t) VARRAY_SIZE (current_lang_base))
-    {
-      size_t old_size = VARRAY_SIZE (current_lang_base);
-
-      VARRAY_GROW (current_lang_base, old_size + 10);
-      current_lang_stack = &VARRAY_TREE (current_lang_base, old_size);
-    }
+  VARRAY_PUSH_TREE (current_lang_base, current_lang_name);
 
   if (name == lang_name_cplusplus)
     {
@@ -5815,10 +6025,8 @@ push_lang_context (name)
 void
 pop_lang_context ()
 {
-  /* Clear the current entry so that garbage collector won't hold on
-     to it.  */
-  *current_lang_stack = NULL_TREE;
-  current_lang_name = *--current_lang_stack;
+  current_lang_name = VARRAY_TOP_TREE (current_lang_base);
+  VARRAY_POP (current_lang_base);
 }
 
 /* Type instantiation routines.  */
@@ -6555,36 +6763,43 @@ get_vtbl_decl_for_binfo (binfo)
   return decl;
 }
 
-/* Called from get_primary_binfo via dfs_walk.  */
+/* Called from get_primary_binfo via dfs_walk.  DATA is a TREE_LIST
+   who's TREE_PURPOSE is the TYPE of the required primary base and
+   who's TREE_VALUE is a list of candidate binfos that we fill in. */
 
 static tree
 dfs_get_primary_binfo (binfo, data)
      tree binfo;
      void *data;
 {
-  tree primary_base = (tree) data;
+  tree cons = (tree) data;
+  tree primary_base = TREE_PURPOSE (cons);
 
   if (TREE_VIA_VIRTUAL (binfo) 
-      && same_type_p (BINFO_TYPE (binfo), BINFO_TYPE (primary_base)))
-    return binfo;
+      && same_type_p (BINFO_TYPE (binfo), primary_base))
+    /* This is the right type of binfo, but it might be an unshared
+       instance, and the shared instance is later in the dfs walk.  We
+       must keep looking.  */
+    TREE_VALUE (cons) = tree_cons (NULL, binfo, TREE_VALUE (cons));
   
   return NULL_TREE;
 }
 
-/* Returns the binfo for the primary base of BINFO.  Note that in a
-   complex hierarchy the resulting BINFO may not actually *be*
-   primary.  In particular if the resulting BINFO is a virtual base,
-   and it occurs elsewhere in the hierarchy, then this occurrence may
-   not actually be a primary base in the complete object.  Check
-   BINFO_PRIMARY_P to be sure.  */
+/* Returns the unshared binfo for the primary base of BINFO.  Note
+   that in a complex hierarchy the resulting BINFO may not actually
+   *be* primary.  In particular if the resulting BINFO is a virtual
+   base, and it occurs elsewhere in the hierarchy, then this
+   occurrence may not actually be a primary base in the complete
+   object.  Check BINFO_PRIMARY_P to be sure.  */
 
 tree
 get_primary_binfo (binfo)
      tree binfo;
 {
   tree primary_base;
-  tree result;
-
+  tree result = NULL_TREE;
+  tree virtuals;
+  
   primary_base = CLASSTYPE_PRIMARY_BINFO (BINFO_TYPE (binfo));
   if (!primary_base)
     return NULL_TREE;
@@ -6612,10 +6827,62 @@ get_primary_binfo (binfo)
 
   /* For a primary virtual base, we have to scan the entire hierarchy
      rooted at BINFO; the virtual base could be an indirect virtual
-     base.  */
-  result = dfs_walk (binfo, dfs_get_primary_binfo, NULL, primary_base);
-  my_friendly_assert (result != NULL_TREE, 20000730);
+     base.  There could be more than one instance of the primary base
+     in the hierarchy, and if one is the canonical binfo we want that
+     one.  If it exists, it should be the first one we find, but as a
+     consistency check we find them all and make sure.  */
+  virtuals = build_tree_list (BINFO_TYPE (primary_base), NULL_TREE);
+  dfs_walk (binfo, dfs_get_primary_binfo, NULL, virtuals);
+  virtuals = TREE_VALUE (virtuals);
+  
+  /* We must have found at least one instance.  */
+  my_friendly_assert (virtuals, 20010612);
+
+  if (TREE_CHAIN (virtuals))
+    {
+      /* We found more than one instance of the base. We must make
+         sure that, if one is the canonical one, it is the first one
+         we found. As the chain is in reverse dfs order, that means
+         the last on the list.  */
+      tree complete_binfo;
+      tree canonical;
+      
+      for (complete_binfo = binfo;
+	   BINFO_INHERITANCE_CHAIN (complete_binfo);
+	   complete_binfo = BINFO_INHERITANCE_CHAIN (complete_binfo))
+	continue;
+      canonical = binfo_for_vbase (BINFO_TYPE (primary_base),
+				   BINFO_TYPE (complete_binfo));
+      
+      for (; virtuals; virtuals = TREE_CHAIN (virtuals))
+	{
+	  result = TREE_VALUE (virtuals);
+
+	  if (canonical == result)
+	    {
+	      /* This is the unshared instance. Make sure it was the
+		 first one found.  */
+	      my_friendly_assert (!TREE_CHAIN (virtuals), 20010612);
+	      break;
+	    }
+	}
+    }
+  else
+    result = TREE_VALUE (virtuals);
   return result;
+}
+
+/* If INDENTED_P is zero, indent to INDENT. Return non-zero. */
+
+static int
+maybe_indent_hierarchy (stream, indent, indented_p)
+     FILE *stream;
+     int indent;
+     int indented_p;
+{
+  if (!indented_p)
+    fprintf (stream, "%*s", indent, "");
+  return 1;
 }
 
 /* Dump the offsets of all the bases rooted at BINFO (in the hierarchy
@@ -6623,17 +6890,20 @@ get_primary_binfo (binfo)
    the top level; it is incremented recursively.  */
 
 static void
-dump_class_hierarchy_r (stream, t, binfo, indent)
+dump_class_hierarchy_r (stream, flags, t, binfo, indent)
      FILE *stream;
+     int flags;
      tree t;
      tree binfo;
      int indent;
 {
   int i;
-
-  fprintf (stream, "%*s0x%lx (%s) ", indent, "",
-	   (unsigned long) binfo,
-	   type_as_string (binfo, TFF_PLAIN_IDENTIFIER));
+  int indented = 0;
+  
+  indented = maybe_indent_hierarchy (stream, indent, 0);
+  fprintf (stream, "%s (0x%lx) ",
+	   type_as_string (binfo, TFF_PLAIN_IDENTIFIER),
+	   (unsigned long) binfo);
   fprintf (stream, HOST_WIDE_INT_PRINT_DEC,
 	   tree_low_cst (BINFO_OFFSET (binfo), 0));
   if (is_empty_class (BINFO_TYPE (binfo)))
@@ -6643,48 +6913,174 @@ dump_class_hierarchy_r (stream, t, binfo, indent)
   if (TREE_VIA_VIRTUAL (binfo))
     {
       tree canonical = binfo_for_vbase (BINFO_TYPE (binfo), t);
-      
+
+      fprintf (stream, " virtual");
       if (canonical == binfo)
-        fprintf (stream, " virtual-canonical");
+        fprintf (stream, " canonical");
       else
-        fprintf (stream, " virtual-non-canonical");
+        fprintf (stream, " non-canonical");
     }
-  if (BINFO_PRIMARY_P (binfo))
-    fprintf (stream, " primary-for 0x%lx (%s)",
-             (unsigned long)BINFO_PRIMARY_BASE_OF (binfo),
-             type_as_string (BINFO_PRIMARY_BASE_OF (binfo), TFF_PLAIN_IDENTIFIER));
-  if (BINFO_LOST_PRIMARY_P (binfo))
-    fprintf (stream, " lost-primary");
   fprintf (stream, "\n");
 
+  indented = 0;
+  if (BINFO_PRIMARY_BASE_OF (binfo))
+    {
+      indented = maybe_indent_hierarchy (stream, indent + 3, indented);
+      fprintf (stream, " primary-for %s (0x%lx)",
+	       type_as_string (BINFO_PRIMARY_BASE_OF (binfo),
+			       TFF_PLAIN_IDENTIFIER),
+	       (unsigned long)BINFO_PRIMARY_BASE_OF (binfo));
+    }
+  if (BINFO_LOST_PRIMARY_P (binfo))
+    {
+      indented = maybe_indent_hierarchy (stream, indent + 3, indented);
+      fprintf (stream, " lost-primary");
+    }
+  if (indented)
+    fprintf (stream, "\n");
+
+  if (!(flags & TDF_SLIM))
+    {
+      int indented = 0;
+      
+      if (BINFO_SUBVTT_INDEX (binfo))
+	{
+	  indented = maybe_indent_hierarchy (stream, indent + 3, indented);
+	  fprintf (stream, " subvttidx=%s",
+		   expr_as_string (BINFO_SUBVTT_INDEX (binfo),
+				   TFF_PLAIN_IDENTIFIER));
+	}
+      if (BINFO_VPTR_INDEX (binfo))
+	{
+	  indented = maybe_indent_hierarchy (stream, indent + 3, indented);
+	  fprintf (stream, " vptridx=%s",
+		   expr_as_string (BINFO_VPTR_INDEX (binfo),
+				   TFF_PLAIN_IDENTIFIER));
+	}
+      if (BINFO_VPTR_FIELD (binfo))
+	{
+	  indented = maybe_indent_hierarchy (stream, indent + 3, indented);
+	  fprintf (stream, " vbaseoffset=%s",
+		   expr_as_string (BINFO_VPTR_FIELD (binfo),
+				   TFF_PLAIN_IDENTIFIER));
+	}
+      if (BINFO_VTABLE (binfo))
+	{
+	  indented = maybe_indent_hierarchy (stream, indent + 3, indented);
+	  fprintf (stream, " vptr=%s",
+		   expr_as_string (BINFO_VTABLE (binfo),
+				   TFF_PLAIN_IDENTIFIER));
+	}
+      
+      if (indented)
+	fprintf (stream, "\n");
+    }
+  
+
   for (i = 0; i < BINFO_N_BASETYPES (binfo); ++i)
-    dump_class_hierarchy_r (stream, t, BINFO_BASETYPE (binfo, i), indent + 2);
+    dump_class_hierarchy_r (stream, flags,
+			    t, BINFO_BASETYPE (binfo, i),
+			    indent + 2);
 }
 
 /* Dump the BINFO hierarchy for T.  */
 
-void
-dump_class_hierarchy (name, t)
-     const char *name;
+static void
+dump_class_hierarchy (t)
      tree t;
 {
-  FILE *stream = stderr;
+  int flags;
+  FILE *stream = dump_begin (TDI_class, &flags);
+
+  if (!stream)
+    return;
   
-  if (name)
-    {
-      static int append = 0;
-      
-      stream = fopen (name, append++ ? "a" : "w");
-      if (!stream)
-        error ("could not open dump file `%s'", name);
-      return;
-    }
-  fprintf (stream, "%s\n",
-           type_as_string (t, TFF_PLAIN_IDENTIFIER));
-  dump_class_hierarchy_r (stream, t, TYPE_BINFO (t), 0);
+  fprintf (stream, "Class %s\n", type_as_string (t, TFF_PLAIN_IDENTIFIER));
+  fprintf (stream, "   size=%lu align=%lu\n",
+	   (unsigned long)(tree_low_cst (TYPE_SIZE (t), 0) / BITS_PER_UNIT),
+	   (unsigned long)(TYPE_ALIGN (t) / BITS_PER_UNIT));
+  dump_class_hierarchy_r (stream, flags, t, TYPE_BINFO (t), 0);
   fprintf (stream, "\n");
-  if (name)
-    fclose (stream);
+  dump_end (TDI_class, stream);
+}
+
+static void
+dump_array (stream, decl)
+     FILE *stream;
+     tree decl;
+{
+  tree inits;
+  int ix;
+  HOST_WIDE_INT elt;
+  tree size = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (decl)));
+
+  elt = (tree_low_cst (TYPE_SIZE (TREE_TYPE (TREE_TYPE (decl))), 0)
+	 / BITS_PER_UNIT);
+  fprintf (stream, "%s:", decl_as_string (decl, TFF_PLAIN_IDENTIFIER));
+  fprintf (stream, " %s entries",
+	   expr_as_string (size_binop (PLUS_EXPR, size, size_one_node),
+			   TFF_PLAIN_IDENTIFIER));
+  fprintf (stream, "\n");
+
+  for (ix = 0, inits = TREE_OPERAND (DECL_INITIAL (decl), 1);
+       inits; ix++, inits = TREE_CHAIN (inits))
+    fprintf (stream, "%-4d  %s\n", ix * elt,
+	     expr_as_string (TREE_VALUE (inits), TFF_PLAIN_IDENTIFIER));
+}
+
+static void
+dump_vtable (t, binfo, vtable)
+     tree t;
+     tree binfo;
+     tree vtable;
+{
+  int flags;
+  FILE *stream = dump_begin (TDI_class, &flags);
+
+  if (!stream)
+    return;
+
+  if (!(flags & TDF_SLIM))
+    {
+      int ctor_vtbl_p = TYPE_BINFO (t) != binfo;
+      
+      fprintf (stream, "%s for %s",
+	       ctor_vtbl_p ? "Construction vtable" : "Vtable",
+	       type_as_string (binfo, TFF_PLAIN_IDENTIFIER));
+      if (ctor_vtbl_p)
+	{
+	  if (!TREE_VIA_VIRTUAL (binfo))
+	    fprintf (stream, " (0x%lx instance)", (unsigned long)binfo);
+	  fprintf (stream, " in %s", type_as_string (t, TFF_PLAIN_IDENTIFIER));
+	}
+      fprintf (stream, "\n");
+      dump_array (stream, vtable);
+      fprintf (stream, "\n");
+    }
+  
+  dump_end (TDI_class, stream);
+}
+
+static void
+dump_vtt (t, vtt)
+     tree t;
+     tree vtt;
+{
+  int flags;
+  FILE *stream = dump_begin (TDI_class, &flags);
+
+  if (!stream)
+    return;
+
+  if (!(flags & TDF_SLIM))
+    {
+      fprintf (stream, "VTT for %s\n",
+	       type_as_string (t, TFF_PLAIN_IDENTIFIER));
+      dump_array (stream, vtt);
+      fprintf (stream, "\n");
+    }
+  
+  dump_end (TDI_class, stream);
 }
 
 /* Virtual function table initialization.  */
@@ -6767,6 +7163,7 @@ initialize_vtable (binfo, inits)
   layout_vtable_decl (binfo, list_length (inits));
   decl = get_vtbl_decl_for_binfo (binfo);
   initialize_array (decl, inits);
+  dump_vtable (BINFO_TYPE (binfo), binfo, decl);
 }
 
 /* Initialize DECL (a declaration for a namespace-scope array) with
@@ -6791,7 +7188,8 @@ initialize_array (decl, inits)
    
    This holds
    1 - primary virtual pointer for complete object T
-   2 - secondary VTTs for each direct non-virtual base of T which requires a VTT
+   2 - secondary VTTs for each direct non-virtual base of T which requires a
+       VTT
    3 - secondary virtual pointers for each direct or indirect base of T which
        has virtual bases or is reachable via a virtual path from T.
    4 - secondary VTTs for each direct or indirect virtual base of T.
@@ -6817,41 +7215,67 @@ build_vtt (t)
     return;
 
   /* Figure out the type of the VTT.  */
-  type = build_index_type (size_int (list_length (inits)));
+  type = build_index_type (size_int (list_length (inits) - 1));
   type = build_cplus_array_type (const_ptr_type_node, type);
 				 
   /* Now, build the VTT object itself.  */
   vtt = build_vtable (t, get_vtt_name (t), type);
   pushdecl_top_level (vtt);
   initialize_array (vtt, inits);
+
+  dump_vtt (t, vtt);
 }
 
-/* The type corresponding to BINFO is a base class of T, but BINFO is
-   in the base class hierarchy of a class derived from T.  Return the
-   base, in T's hierarchy, that corresponds to BINFO.  */
+/* The type corresponding to BASE_BINFO is a base of the type of BINFO, but
+   from within some heirarchy which is inherited from the type of BINFO.
+   Return BASE_BINFO's equivalent binfo from the hierarchy dominated by
+   BINFO.  */
 
 static tree
-get_matching_base (binfo, t)
+get_original_base (base_binfo, binfo)
+     tree base_binfo;
      tree binfo;
-     tree t;
 {
   tree derived;
-  int i;
-
-  if (same_type_p (BINFO_TYPE (binfo), t))
+  int ix;
+  
+  if (same_type_p (BINFO_TYPE (base_binfo), BINFO_TYPE (binfo)))
     return binfo;
+  if (TREE_VIA_VIRTUAL (base_binfo))
+    return binfo_for_vbase (BINFO_TYPE (base_binfo), BINFO_TYPE (binfo));
+  derived = get_original_base (BINFO_INHERITANCE_CHAIN (base_binfo), binfo);
+  
+  for (ix = 0; ix != BINFO_N_BASETYPES (derived); ix++)
+    if (same_type_p (BINFO_TYPE (base_binfo),
+                     BINFO_TYPE (BINFO_BASETYPE (derived, ix))))
+      return BINFO_BASETYPE (derived, ix);
+  my_friendly_abort (20010223);
+  return NULL;
+}
 
-  if (TREE_VIA_VIRTUAL (binfo))
-    return binfo_for_vbase (BINFO_TYPE (binfo), t);
+/* When building a secondary VTT, BINFO_VTABLE is set to a TREE_LIST with
+   PURPOSE the RTTI_BINFO, VALUE the real vtable pointer for this binfo,
+   and CHAIN the vtable pointer for this binfo after construction is
+   complete.  VALUE can also be another BINFO, in which case we recurse. */
 
-  derived = get_matching_base (BINFO_INHERITANCE_CHAIN (binfo), t);
-  for (i = 0; i < BINFO_N_BASETYPES (derived); ++i)
-    if (same_type_p (BINFO_TYPE (BINFO_BASETYPE (derived, i)),
-		     BINFO_TYPE (binfo)))
-      return BINFO_BASETYPE (derived, i);
+static tree
+binfo_ctor_vtable (binfo)
+     tree binfo;
+{
+  tree vt;
 
-  my_friendly_abort (20000628);
-  return NULL_TREE;
+  while (1)
+    {
+      vt = BINFO_VTABLE (binfo);
+      if (TREE_CODE (vt) == TREE_LIST)
+	vt = TREE_VALUE (vt);
+      if (TREE_CODE (vt) == TREE_VEC)
+	binfo = vt;
+      else
+	break;
+    }
+
+  return vt;
 }
 
 /* Recursively build the VTT-initializer for BINFO (which is in the
@@ -6890,9 +7314,7 @@ build_vtt_inits (binfo, t, inits, index)
     }
 
   /* Add the address of the primary vtable for the complete object.  */
-  init = BINFO_VTABLE (binfo);
-  if (TREE_CODE (init) == TREE_LIST)
-    init = TREE_VALUE (init);
+  init = binfo_ctor_vtable (binfo);
   *inits = build_tree_list (NULL_TREE, init);
   inits = &TREE_CHAIN (*inits);
   if (top_level_p)
@@ -7029,9 +7451,7 @@ dfs_build_secondary_vptr_vtt_inits (binfo, data)
       while (BINFO_PRIMARY_BASE_OF (binfo))
         binfo = BINFO_PRIMARY_BASE_OF (binfo);
     }
-  init = BINFO_VTABLE (binfo);
-  if (TREE_CODE (init) == TREE_LIST)
-    init = TREE_VALUE (init);
+  init = binfo_ctor_vtable (binfo);
   TREE_VALUE (l) = tree_cons (NULL_TREE, init, TREE_VALUE (l));
 
   return NULL_TREE;
@@ -7079,7 +7499,8 @@ dfs_fixup_binfo_vtbls (binfo, data)
 
   /* If we scribbled the construction vtable vptr into BINFO, clear it
      out now.  */
-  if (TREE_CODE (BINFO_VTABLE (binfo)) == TREE_LIST
+  if (BINFO_VTABLE (binfo)
+      && TREE_CODE (BINFO_VTABLE (binfo)) == TREE_LIST
       && (TREE_PURPOSE (BINFO_VTABLE (binfo)) 
 	  == TREE_VALUE ((tree) data)))
     BINFO_VTABLE (binfo) = TREE_CHAIN (BINFO_VTABLE (binfo));
@@ -7102,7 +7523,7 @@ build_ctor_vtbl_group (binfo, t)
   tree id;
   tree vbase;
 
-  /* See if we've already create this construction vtable group.  */
+  /* See if we've already created this construction vtable group.  */
   id = mangle_ctor_vtbl_for_type (t, binfo);
   if (IDENTIFIER_GLOBAL_VALUE (id))
     return;
@@ -7135,13 +7556,14 @@ build_ctor_vtbl_group (binfo, t)
   inits = TREE_VALUE (list);
 
   /* Figure out the type of the construction vtable.  */
-  type = build_index_type (size_int (list_length (inits)));
+  type = build_index_type (size_int (list_length (inits) - 1));
   type = build_cplus_array_type (vtable_entry_type, type);
   TREE_TYPE (vtbl) = type;
 
   /* Initialize the construction vtable.  */
   pushdecl_top_level (vtbl);
   initialize_array (vtbl, inits);
+  dump_vtable (t, binfo, vtbl);
 }
 
 /* Add the vtbl initializers for BINFO (and its bases other than
@@ -7169,6 +7591,10 @@ accumulate_vtbl_inits (binfo, orig_binfo, rtti_binfo, t, inits)
 				   BINFO_TYPE (orig_binfo)),
 		      20000517);
 
+  /* If it doesn't have a vptr, we don't do anything. */
+  if (!TYPE_CONTAINS_VPTR_P (BINFO_TYPE (binfo)))
+    return;
+  
   /* If we're building a construction vtable, we're not interested in
      subobjects that don't require construction vtables.  */
   if (ctor_vtbl_p 
@@ -7220,49 +7646,56 @@ dfs_accumulate_vtbl_inits (binfo, orig_binfo, rtti_binfo, t, l)
   if (ctor_vtbl_p
       && TREE_VIA_VIRTUAL (orig_binfo) && BINFO_PRIMARY_P (orig_binfo))
     {
-      /* In the hierarchy of BINFO_TYPE (RTTI_BINFO), this is a primary
-         virtual base.  If it is not the same primary in the hierarchy of T,
-         we'll need to generate a ctor vtable for it, to place at its
-         location in T.  If it is the same primary, we still need a VTT
-         entry for the vtable, but that must be the base it is a
-         primary for within the sub-hierarchy of RTTI_BINFO.  */
-      tree parent;
-      tree best_primary = NULL;
-      tree primary_for;
-      
-      my_friendly_assert (BINFO_PRIMARY_P (binfo), 20010131);
+      /* In the hierarchy of BINFO_TYPE (RTTI_BINFO), this is a
+	 primary virtual base.  If it is not the same primary in
+	 the hierarchy of T, we'll need to generate a ctor vtable
+	 for it, to place at its location in T.  If it is the same
+	 primary, we still need a VTT entry for the vtable, but it
+	 should point to the ctor vtable for the base it is a
+	 primary for within the sub-hierarchy of RTTI_BINFO.
+	      
+	 There are three possible cases:
+	      
+	 1) We are in the same place.
+	 2) We are a primary base within a lost primary virtual base of
+	 RTTI_BINFO.
+	 3) We are primary to something not a base of RTTI_BINFO.  */
+	  
+      tree b = BINFO_PRIMARY_BASE_OF (binfo);
+      tree last = NULL_TREE;
 
-      for (primary_for = BINFO_PRIMARY_BASE_OF (binfo);
-           primary_for;
-           primary_for = BINFO_PRIMARY_BASE_OF (primary_for))
-        {
-          for (parent = primary_for;
-               parent;
-               parent = BINFO_INHERITANCE_CHAIN (parent))
-             {
-               if (parent == rtti_binfo)
-                 {
-                   best_primary = primary_for;
-                   break;
-                 }
-             }
-           if (!parent)
-             break;
-        }
-      if (best_primary)
-        {
-          vtbl = BINFO_VTABLE (best_primary);
-          if (TREE_CODE (vtbl) == TREE_LIST)
-            {
-              my_friendly_assert (TREE_PURPOSE (vtbl) == rtti_binfo,
-                                  20010126);
-              vtbl = TREE_VALUE (vtbl);
-            }
-        }
+      /* First, look through the bases we are primary to for RTTI_BINFO
+	 or a virtual base.  */
+      for (; b; b = BINFO_PRIMARY_BASE_OF (b))
+	{
+	  last = b;
+	  if (TREE_VIA_VIRTUAL (b) || b == rtti_binfo)
+	    break;
+	}
+      /* If we run out of primary links, keep looking down our
+	 inheritance chain; we might be an indirect primary.  */
+      if (b == NULL_TREE)
+	for (b = last; b; b = BINFO_INHERITANCE_CHAIN (b))
+	  if (TREE_VIA_VIRTUAL (b) || b == rtti_binfo)
+	    break;
+
+      /* If we found RTTI_BINFO, this is case 1.  If we found a virtual
+	 base B and it is a base of RTTI_BINFO, this is case 2.  In
+	 either case, we share our vtable with LAST, i.e. the
+	 derived-most base within B of which we are a primary.  */
+      if (b == rtti_binfo
+	  || (b && binfo_for_vbase (BINFO_TYPE (b),
+				    BINFO_TYPE (rtti_binfo))))
+	/* Just set our BINFO_VTABLE to point to LAST, as we may not have
+	   set LAST's BINFO_VTABLE yet.  We'll extract the actual vptr in
+	   binfo_ctor_vtable after everything's been set up.  */
+	vtbl = last;
+
+      /* Otherwise, this is case 3 and we get our own.  */
     }
   else if (!BINFO_NEW_VTABLE_MARKED (orig_binfo, BINFO_TYPE (rtti_binfo)))
     return inits;
-  
+
   if (!vtbl)
     {
       tree index;
@@ -7277,6 +7710,7 @@ dfs_accumulate_vtbl_inits (binfo, orig_binfo, rtti_binfo, t, l)
       vtbl = build1 (ADDR_EXPR, 
 		     vtbl_ptr_type_node,
 		     vtbl);
+      TREE_CONSTANT (vtbl) = 1;
       index = size_binop (PLUS_EXPR,
 			  size_int (non_fn_entries),
 			  size_int (list_length (TREE_VALUE (l))));
@@ -7287,23 +7721,21 @@ dfs_accumulate_vtbl_inits (binfo, orig_binfo, rtti_binfo, t, l)
       TREE_CONSTANT (vtbl) = 1;
     }
 
-  if (!ctor_vtbl_p)
-    {
-      /* For an ordinary vtable, set BINFO_VTABLE.  */
-      BINFO_VTABLE (binfo) = vtbl;
-      if (BINFO_PRIMARY_P (binfo) && TREE_VIA_VIRTUAL (binfo))
-        inits = NULL_TREE;
-    }
-  else
+  if (ctor_vtbl_p)
     /* For a construction vtable, we can't overwrite BINFO_VTABLE.
        So, we make a TREE_LIST.  Later, dfs_fixup_binfo_vtbls will
        straighten this out.  */
     BINFO_VTABLE (binfo) = tree_cons (rtti_binfo, vtbl, BINFO_VTABLE (binfo));
+  else if (BINFO_PRIMARY_P (binfo) && TREE_VIA_VIRTUAL (binfo))
+    inits = NULL_TREE;
+  else
+     /* For an ordinary vtable, set BINFO_VTABLE.  */
+    BINFO_VTABLE (binfo) = vtbl;
 
   return inits;
 }
 
-/* Construct the initializer for BINFOs virtual function table.  BINFO
+/* Construct the initializer for BINFO's virtual function table.  BINFO
    is part of the hierarchy dominated by T.  If we're building a
    construction vtable, the ORIG_BINFO is the binfo we should use to
    find the actual function pointers to put in the vtable - but they
@@ -7334,7 +7766,7 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
      tree rtti_binfo;
      int *non_fn_entries_p;
 {
-  tree v;
+  tree v, b;
   tree vfun_inits;
   tree vbase;
   vtbl_init_data vid;
@@ -7343,6 +7775,7 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
   memset (&vid, 0, sizeof (vid));
   vid.binfo = binfo;
   vid.derived = t;
+  vid.rtti_binfo = rtti_binfo;
   vid.last_init = &vid.inits;
   vid.primary_vtbl_p = (binfo == TYPE_BINFO (t));
   vid.ctor_vtbl_p = !same_type_p (BINFO_TYPE (rtti_binfo), t);
@@ -7350,7 +7783,7 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
   vid.index = ssize_int (-3);
 
   /* Add entries to the vtable for RTTI.  */
-  build_rtti_vtbl_entries (binfo, rtti_binfo, &vid);
+  build_rtti_vtbl_entries (binfo, &vid);
 
   /* Create an array for keeping track of the functions we've
      processed.  When we see multiple functions with the same
@@ -7380,7 +7813,7 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
       tree fn;
       tree pfn;
       tree init;
-
+      
       /* Pull the offset for `this', and the function to call, out of
 	 the list.  */
       delta = BV_DELTA (v);
@@ -7391,7 +7824,7 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
 	  my_friendly_assert (vcall_index != NULL_TREE, 20000621);
 	}
       else
-	vcall_index = NULL_TREE;
+        vcall_index = NULL_TREE;
 
       fn = BV_FN (v);
       my_friendly_assert (TREE_CODE (delta) == INTEGER_CST, 19990727);
@@ -7407,9 +7840,35 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
       pfn = build1 (ADDR_EXPR, vfunc_ptr_type_node, fn);
       /* The address of a function can't change.  */
       TREE_CONSTANT (pfn) = 1;
+
       /* Enter it in the vtable.  */
-      init = build_vtable_entry (delta, vcall_index, pfn,
-				 BV_GENERATE_THUNK_WITH_VTABLE_P (v));
+      init = build_vtable_entry (delta, vcall_index, pfn);
+
+      /* If the only definition of this function signature along our
+	 primary base chain is from a lost primary, this vtable slot will
+	 never be used, so just zero it out.  This is important to avoid
+	 requiring extra thunks which cannot be generated with the function.
+
+	 We could also handle this in update_vtable_entry_for_fn; doing it
+	 here means we zero out unused slots in ctor vtables as well,
+	 rather than filling them with erroneous values (though harmless,
+	 apart from relocation costs).  */
+      if (fn != abort_fndecl)
+	for (b = binfo; ; b = get_primary_binfo (b))
+	  {
+	    /* We found a defn before a lost primary; go ahead as normal.  */
+	    if (look_for_overrides_here (BINFO_TYPE (b), fn))
+	      break;
+
+	    /* The nearest definition is from a lost primary; clear the
+	       slot.  */
+	    if (BINFO_LOST_PRIMARY_P (b))
+	      {
+		init = size_zero_node;
+		break;
+	      }
+	  }
+
       /* And add it to the chain of initializers.  */
       vfun_inits = tree_cons (NULL_TREE, init, vfun_inits);
     }
@@ -7425,7 +7884,7 @@ build_vtbl_initializer (binfo, orig_binfo, t, rtti_binfo, non_fn_entries_p)
   return chainon (vid.inits, vfun_inits);
 }
 
-/* Sets vid->inits to be the initializers for the vbase and vcall
+/* Adds to vid->inits the initializers for the vbase and vcall
    offsets in BINFO, which is in the hierarchy dominated by T.  */
 
 static void
@@ -7533,8 +7992,8 @@ build_vbase_offset_vtbl_entries (binfo, vid)
 }
 
 /* Adds the initializers for the vcall offset entries in the vtable
-   for BINFO (which is part of the class hierarchy dominated by T) to
-   VID->INITS.  */
+   for BINFO (which is part of the class hierarchy dominated by VID->DERIVED)
+   to VID->INITS.  */
 
 static void
 build_vcall_offset_vtbl_entries (binfo, vid)
@@ -7554,22 +8013,20 @@ build_vcall_offset_vtbl_entries (binfo, vid)
      vtable.  For example:
 
        class A { virtual void f (); };
-       class B : virtual public A { };
-       class C: virtual public A, public B {};
-      
-     Now imagine:
+       class B1 : virtual public A { virtual void f (); };
+       class B2 : virtual public A { virtual void f (); };
+       class C: public B1, public B2 { virtual void f (); };
 
-       B* b = new C;
-       b->f();
-
-     The location of `A' is not at a fixed offset relative to `B'; the
-     offset depends on the complete object derived from `B'.  So, 
-     `B' vtable contains an entry for `f' that indicates by what
-     amount the `this' pointer for `B' needs to be adjusted to arrive
-     at `A'.  
+     A C object has a primary base of B1, which has a primary base of A.  A
+     C also has a secondary base of B2, which no longer has a primary base
+     of A.  So the B2-in-C construction vtable needs a secondary vtable for
+     A, which will adjust the A* to a B2* to call f.  We have no way of
+     knowing what (or even whether) this offset will be when we define B2,
+     so we store this "vcall offset" in the A sub-vtable and look it up in
+     a "virtual thunk" for B2::f.
 
      We need entries for all the functions in our primary vtable and
-     in our non-virtual bases vtables.  */
+     in our non-virtual bases' secondary vtables.  */
   vid->vbase = binfo;
   /* Now, walk through the non-virtual bases, adding vcall offsets.  */
   add_vcall_offset_vtbl_entries_r (binfo, vid);
@@ -7586,7 +8043,9 @@ add_vcall_offset_vtbl_entries_r (binfo, vid)
   tree primary_binfo;
 
   /* Don't walk into virtual bases -- except, of course, for the
-     virtual base for which we are building vcall offsets.  */
+     virtual base for which we are building vcall offsets.  Any
+     primary virtual base will have already had its offsets generated
+     through the recursion in build_vcall_and_vbase_vtbl_entries.  */
   if (TREE_VIA_VIRTUAL (binfo) && vid->vbase != binfo)
     return;
   
@@ -7620,27 +8079,30 @@ add_vcall_offset_vtbl_entries_1 (binfo, vid)
   tree base_virtuals;
   tree orig_virtuals;
   tree binfo_inits;
-  /* If BINFO is a primary base, this is the least derived class of
-     BINFO that is not a primary base.  */
+  /* If BINFO is a primary base, the most derived class which has BINFO as
+     a primary base; otherwise, just BINFO.  */
   tree non_primary_binfo;
 
   binfo_inits = NULL_TREE;
 
-  /* We might be a primary base class.  Go up the inheritance
-     hierarchy until we find the class of which we are a primary base:
+  /* We might be a primary base class.  Go up the inheritance hierarchy
+     until we find the most derived class of which we are a primary base:
      it is the BINFO_VIRTUALS there that we need to consider.  */
   non_primary_binfo = binfo;
   while (BINFO_INHERITANCE_CHAIN (non_primary_binfo))
     {
       tree b;
 
-      /* If we have reached a virtual base, then it must be the
-	 virtual base for which we are building vcall offsets.  In
-	 turn, the virtual base must be a (possibly indirect) primary
-	 base of the class that we are initializing, or we wouldn't
-	 care about its vtable offsets.  */
+      /* If we have reached a virtual base, then it must be vid->vbase,
+	 because we ignore other virtual bases in
+	 add_vcall_offset_vtbl_entries_r.  In turn, it must be a primary
+	 base (possibly multi-level) of vid->binfo, or we wouldn't
+	 have called build_vcall_and_vbase_vtbl_entries for it.  But it
+	 might be a lost primary, so just skip down to vid->binfo.  */
       if (TREE_VIA_VIRTUAL (non_primary_binfo))
 	{
+	  if (non_primary_binfo != vid->vbase)
+	    abort ();
 	  non_primary_binfo = vid->binfo;
 	  break;
 	}
@@ -7650,6 +8112,12 @@ add_vcall_offset_vtbl_entries_1 (binfo, vid)
 	break;
       non_primary_binfo = b;
     }
+
+  if (vid->ctor_vtbl_p)
+    /* For a ctor vtable we need the equivalent binfo within the hierarchy
+       where rtti_binfo is the most derived type.  */
+    non_primary_binfo = get_original_base
+          (non_primary_binfo, TYPE_BINFO (BINFO_TYPE (vid->rtti_binfo)));
 
   /* Make entries for the rest of the virtuals.  */
   for (base_virtuals = BINFO_VIRTUALS (binfo),
@@ -7665,15 +8133,15 @@ add_vcall_offset_vtbl_entries_1 (binfo, vid)
       tree base;
       tree base_binfo;
       size_t i;
+      tree vcall_offset;
 
       /* Find the declaration that originally caused this function to
-	 be present.  */
+	 be present in BINFO_TYPE (binfo).  */
       orig_fn = BV_FN (orig_virtuals);
 
-      /* We do not need an entry if this function is declared in a
-	 virtual base (or one of its virtual bases), and not
-	 overridden in the section of the hierarchy dominated by the
-	 virtual base for which we are building vcall offsets.  */
+      /* When processing BINFO, we only want to generate vcall slots for
+	 function slots introduced in BINFO.  So don't try to generate
+	 one if the function isn't even defined in BINFO.  */
       if (!same_type_p (DECL_CONTEXT (orig_fn), BINFO_TYPE (binfo)))
 	continue;
 
@@ -7695,31 +8163,39 @@ add_vcall_offset_vtbl_entries_1 (binfo, vid)
 	      || (DECL_DESTRUCTOR_P (BV_FN (derived_entry))
 		  && DECL_DESTRUCTOR_P (fn)))
 	    {
-	      BV_VCALL_INDEX (derived_virtuals) 
-		= BV_VCALL_INDEX (derived_entry);
+	      if (!vid->ctor_vtbl_p)
+  	        BV_VCALL_INDEX (derived_virtuals) 
+		  = BV_VCALL_INDEX (derived_entry);
 	      break;
 	    }
 	}
       if (i != VARRAY_ACTIVE_SIZE (vid->fns))
 	continue;
 
-      /* The FN comes from BASE.  So, we must calculate the adjustment
-	 from the virtual base that derived from BINFO to BASE.  */
+      /* The FN comes from BASE.  So, we must calculate the adjustment from
+	 vid->vbase to BASE.  We can just look for BASE in the complete
+	 object because we are converting from a virtual base, so if there
+	 were multiple copies, there would not be a unique final overrider
+	 and vid->derived would be ill-formed.  */
       base = DECL_CONTEXT (fn);
       base_binfo = get_binfo (base, vid->derived, /*protect=*/0);
 
       /* Compute the vcall offset.  */
-      *vid->last_init 
-	= (build_tree_list 
-	   (NULL_TREE,
-	    fold (build1 (NOP_EXPR, vtable_entry_type,
-			  size_diffop (BINFO_OFFSET (base_binfo),
-				       BINFO_OFFSET (vid->vbase))))));
+      /* As mentioned above, the vbase we're working on is a primary base of
+	 vid->binfo.  But it might be a lost primary, so its BINFO_OFFSET
+         might be wrong, so we just use the BINFO_OFFSET from vid->binfo.  */
+      vcall_offset = BINFO_OFFSET (vid->binfo);
+      vcall_offset = size_diffop (BINFO_OFFSET (base_binfo),
+		                  vcall_offset);
+      vcall_offset = fold (build1 (NOP_EXPR, vtable_entry_type,
+    			           vcall_offset));
+      
+      *vid->last_init = build_tree_list (NULL_TREE, vcall_offset);
       vid->last_init = &TREE_CHAIN (*vid->last_init);
 
       /* Keep track of the vtable index where this vcall offset can be
 	 found.  For a construction vtable, we already made this
-	 annotation when we build the original vtable.  */
+	 annotation when we built the original vtable.  */
       if (!vid->ctor_vtbl_p)
 	BV_VCALL_INDEX (derived_virtuals) = vid->index;
 
@@ -7734,12 +8210,11 @@ add_vcall_offset_vtbl_entries_1 (binfo, vid)
 
 /* Return vtbl initializers for the RTTI entries coresponding to the
    BINFO's vtable.  The RTTI entries should indicate the object given
-   by RTTI_BINFO.  */
+   by VID->rtti_binfo.  */
 
 static void
-build_rtti_vtbl_entries (binfo, rtti_binfo, vid)
+build_rtti_vtbl_entries (binfo, vid)
      tree binfo;
-     tree rtti_binfo;
      vtbl_init_data *vid;
 {
   tree b;
@@ -7750,11 +8225,7 @@ build_rtti_vtbl_entries (binfo, rtti_binfo, vid)
   tree init;
 
   basetype = BINFO_TYPE (binfo);
-  t = BINFO_TYPE (rtti_binfo);
-
-  /* For a COM object there is no RTTI entry.  */
-  if (CLASSTYPE_COM_INTERFACE (basetype))
-    return;
+  t = BINFO_TYPE (vid->rtti_binfo);
 
   /* To find the complete object, we will first convert to our most
      primary base, and then add the offset in the vtbl to that value.  */
@@ -7768,7 +8239,7 @@ build_rtti_vtbl_entries (binfo, rtti_binfo, vid)
       my_friendly_assert (BINFO_PRIMARY_BASE_OF (primary_base) == b, 20010127);
       b = primary_base;
     }
-  offset = size_diffop (BINFO_OFFSET (rtti_binfo), BINFO_OFFSET (b));
+  offset = size_diffop (BINFO_OFFSET (vid->rtti_binfo), BINFO_OFFSET (b));
 
   /* The second entry is the address of the typeinfo object.  */
   if (flag_rtti)
@@ -7798,18 +8269,17 @@ build_rtti_vtbl_entries (binfo, rtti_binfo, vid)
 
 /* Build an entry in the virtual function table.  DELTA is the offset
    for the `this' pointer.  VCALL_INDEX is the vtable index containing
-   the vcall offset; zero if none.  ENTRY is the virtual function
+   the vcall offset; NULL_TREE if none.  ENTRY is the virtual function
    table entry itself.  It's TREE_TYPE must be VFUNC_PTR_TYPE_NODE,
    but it may not actually be a virtual function table pointer.  (For
    example, it might be the address of the RTTI object, under the new
    ABI.)  */
 
 static tree
-build_vtable_entry (delta, vcall_index, entry, generate_with_vtable_p)
+build_vtable_entry (delta, vcall_index, entry)
      tree delta;
      tree vcall_index;
      tree entry;
-     int generate_with_vtable_p;
 {
   if (flag_vtable_thunks)
     {
@@ -7817,11 +8287,9 @@ build_vtable_entry (delta, vcall_index, entry, generate_with_vtable_p)
 
       fn = TREE_OPERAND (entry, 0);
       if ((!integer_zerop (delta) || vcall_index != NULL_TREE)
-	  && fn != abort_fndecl
-	  && !DECL_TINFO_FN_P (fn))
+	  && fn != abort_fndecl)
 	{
-	  entry = make_thunk (entry, delta, vcall_index,
-			      generate_with_vtable_p);
+	  entry = make_thunk (entry, delta, vcall_index);
 	  entry = build1 (ADDR_EXPR, vtable_entry_type, entry);
 	  TREE_READONLY (entry) = 1;
 	  TREE_CONSTANT (entry) = 1;

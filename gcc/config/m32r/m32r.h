@@ -484,15 +484,6 @@ extern enum m32r_sdata m32r_sdata;
 #define PTRDIFF_TYPE "long int"
 #define WCHAR_TYPE "short unsigned int"
 #define WCHAR_TYPE_SIZE 16
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Standard register usage.  */
 
@@ -753,15 +744,13 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define INT8_P(X) ((X) >= -0x80 && (X) <= 0x7f)
 #define INT16_P(X) ((X) >= -0x8000 && (X) <= 0x7fff)
 #define CMP_INT16_P(X) ((X) >= -0x7fff && (X) <= 0x8000)
-#define UINT16_P(X) (((unsigned HOST_WIDE_INT)(X)) <= 0xffff)
 #define UPPER16_P(X) (((X) & 0xffff) == 0				\
 		      && ((X) >> 16) >= -0x8000				\
 		      && ((X) >> 16) <= 0x7fff)
-#define UINT24_P(X) (((unsigned HOST_WIDE_INT) (X)) < 0x1000000)
-#define INT32_P(X) (((X) >= -(HOST_WIDE_INT) 0x80000000			\
-		     && (X) <= (HOST_WIDE_INT) 0x7fffffff)		\
-		    || (unsigned HOST_WIDE_INT) (X) <= 0xffffffff)
-#define UINT5_P(X) ((X) >= 0 && (X) < 32)
+#define UINT16_P(X) (((unsigned HOST_WIDE_INT) (X)) <= 0x0000ffff)
+#define UINT24_P(X) (((unsigned HOST_WIDE_INT) (X)) <= 0x00ffffff)
+#define UINT32_P(X) (((unsigned HOST_WIDE_INT) (X)) <= 0xffffffff)
+#define UINT5_P(X)  ((X) >= 0 && (X) < 32)
 #define INVERTED_SIGNED_8BIT(VAL) ((VAL) >= -127 && (VAL) <= 128)
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)					\
@@ -1046,19 +1035,11 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
 /* Round arg MODE/TYPE up to the next word boundary.  */
 #define ROUND_ADVANCE_ARG(MODE, TYPE) \
   ((MODE) == BLKmode				\
-   ? ROUND_ADVANCE (int_size_in_bytes (TYPE))	\
+   ? ROUND_ADVANCE ((unsigned int) int_size_in_bytes (TYPE))	\
    : ROUND_ADVANCE (GET_MODE_SIZE (MODE)))
 
 /* Round CUM up to the necessary point for argument MODE/TYPE.  */
-#if 0
-#define ROUND_ADVANCE_CUM(CUM, MODE, TYPE) \
-((((MODE) == BLKmode ? TYPE_ALIGN (TYPE) : GET_MODE_BITSIZE (MODE)) \
-  > BITS_PER_WORD)	\
- ? ((CUM) + 1 & ~1)	\
- : (CUM))
-#else
 #define ROUND_ADVANCE_CUM(CUM, MODE, TYPE) (CUM)
-#endif
 
 /* Return boolean indicating arg of type TYPE and mode MODE will be passed in
    a reg.  This includes arguments that have to be passed by reference as the
@@ -1209,33 +1190,11 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
    init_emit, once for each function, before code is generated.  */
 #define INIT_EXPANDERS m32r_init_expanders ()
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
-#define FUNCTION_PROLOGUE(FILE, SIZE) \
-m32r_output_function_prologue (FILE, SIZE)
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
    No definition is equivalent to always zero.  */
 #define EXIT_IGNORE_STACK 1
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-#define FUNCTION_EPILOGUE(FILE, SIZE) \
-m32r_output_function_epilogue (FILE, SIZE)
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -1820,10 +1779,6 @@ do {							\
 #define ASM_OUTPUT_BYTE(FILE, VALUE)				\
   fprintf (FILE, "%s0x%x\n", ASM_BYTE_OP, (VALUE))
 
-/* The assembler's parentheses characters.  */
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* This is how to output the definition of a user-level label named NAME,
    such as the label on a static function or variable NAME.  */
 /* On the M32R we need to ensure the next instruction starts on a 32 bit
@@ -2130,22 +2085,6 @@ extern char m32r_punct_chars[];
 
 /* A function address in a call instruction.  */
 #define FUNCTION_MODE SImode
-
-/* A C expression whose value is nonzero if IDENTIFIER with arguments ARGS
-   is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-m32r_valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-
-/* A C expression that returns zero if the attributes on TYPE1 and TYPE2 are
-   incompatible, one if they are compatible, and two if they are
-   nearly compatible (which causes a warning to be generated).  */
-#define COMP_TYPE_ATTRIBUTES(TYPE1, TYPE2) \
-  m32r_comp_type_attributes (TYPE1, TYPE2)
-
-/* Give newly defined TYPE some default attributes.  */
-#define SET_DEFAULT_TYPE_ATTRIBUTES(TYPE) \
-  m32r_set_default_type_attributes (TYPE)
 
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  Note that we can't use "rtx" here

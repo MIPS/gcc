@@ -64,7 +64,6 @@ MAKEOVERRIDES =
 TARGETLIB = libiberty.a
 
 LIBOBJS = @LIBOBJS@
-ALLOCA = @ALLOCA@
 
 # A configuration can specify extra .o files that should be included,
 # even if they are in libc. (Perhaps the libc version is buggy.)
@@ -118,37 +117,37 @@ install-info: install-info-subdir
 clean-info: clean-info-subdir
 dvi: dvi-subdir
 
-# Include files that are in this directory.
-HFILES = alloca-conf.h
-
 # NOTE: If you add new files to the library, add them to this list
 # (alphabetical), and add them to REQUIRED_OFILES or funcs in
 # configure.in.
 CFILES = asprintf.c alloca.c argv.c atexit.c basename.c bcmp.c bcopy.c	      \
 	bzero.c calloc.c choose-temp.c clock.c concat.c cplus-dem.c	      \
-        cp-demangle.c dyn-string.c fdmatch.c fnmatch.c getcwd.c		      \
+        cp-demangle.c dyn-string.c fdmatch.c fnmatch.c ffs.c getcwd.c	      \
 	getpwd.c getopt.c getopt1.c getpagesize.c getruntime.c		      \
-	floatformat.c hashtab.c hex.c index.c insque.c md5.c memchr.c         \
+	floatformat.c hashtab.c hex.c index.c insque.c lbasename.c            \
+	md5.c make-temp-file.c memchr.c					      \
 	memcmp.c memcpy.c memmove.c memset.c mkstemps.c objalloc.c obstack.c  \
-	partition.c pexecute.c putenv.c random.c rename.c rindex.c setenv.c   \
+	partition.c pexecute.c putenv.c random.c			      \
+	regex.c rename.c rindex.c setenv.c				      \
 	sigsetmask.c safe-ctype.c sort.c spaces.c splay-tree.c strcasecmp.c   \
 	strncasecmp.c strchr.c strdup.c strerror.c strncmp.c strrchr.c        \
 	strsignal.c strstr.c strtod.c strtol.c strtoul.c tmpnam.c vasprintf.c \
 	vfork.c vfprintf.c vprintf.c vsprintf.c waitpid.c xatexit.c xexit.c   \
-	xmalloc.c xmemdup.c xstrdup.c xstrerror.c
+	xmalloc.c xmemdup.c xstrdup.c xstrerror.c ternary.c
 
 # These are always included in the library.
-REQUIRED_OFILES = argv.o choose-temp.o concat.o cplus-dem.o cp-demangle.o     \
-	dyn-string.o fdmatch.o fnmatch.o getopt.o getopt1.o getpwd.o          \
-	getruntime.o hashtab.o hex.o floatformat.o md5.o objalloc.o obstack.o \
-	partition.o pexecute.o safe-ctype.o sort.o spaces.o splay-tree.o      \
-	strerror.o strsignal.o xatexit.o xexit.o xmalloc.o xmemdup.o          \
-	xstrdup.o xstrerror.o
+REQUIRED_OFILES = argv.o alloca.o choose-temp.o concat.o cplus-dem.o          \
+	cp-demangle.o dyn-string.o fdmatch.o fnmatch.o getopt.o getopt1.o     \
+	getpwd.o getruntime.o hashtab.o hex.o floatformat.o lbasename.o       \
+        md5.o make-temp-file.o objalloc.o				      \
+	obstack.o partition.o pexecute.o regex.o safe-ctype.o sort.o spaces.o \
+	splay-tree.o strerror.o strsignal.o xatexit.o xexit.o xmalloc.o       \
+	xmemdup.o xstrdup.o xstrerror.o ternary.o
 
-$(TARGETLIB): $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS) $(ALLOCA)
+$(TARGETLIB): $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS)
 	-rm -f $(TARGETLIB)
 	$(AR) $(AR_FLAGS) $(TARGETLIB) \
-	  $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS) $(ALLOCA)
+	  $(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS)
 	$(RANLIB) $(TARGETLIB)
 
 INSTALL_DEST = @INSTALL_DEST@
@@ -197,8 +196,8 @@ stamp-picdir:
 
 etags tags: TAGS etags-subdir
 
-TAGS: $(CFILES) $(HFILES)
-	etags `for i in $(HFILES) $(CFILES); do echo $(srcdir)/$$i ; done`
+TAGS: $(CFILES)
+	etags `for i in $(CFILES); do echo $(srcdir)/$$i ; done`
 
 # The standalone demangler (c++filt) has been moved to binutils.
 demangle:
@@ -207,7 +206,7 @@ demangle:
 	@false
 
 ls:
-	@echo Makefile $(HFILES) $(CFILES)
+	@echo Makefile $(CFILES)
 
 # Need to deal with profiled libraries, too.
 
@@ -243,7 +242,6 @@ stamp-h: config.in config.status
 config.status: $(srcdir)/configure $(srcdir)/config.table
 	$(SHELL) ./config.status --recheck
 
-
 all-subdir check-subdir installcheck-subdir info-subdir	\
 install-info-subdir clean-info-subdir dvi-subdir install-subdir	\
 etags-subdir mostlyclean-subdir clean-subdir distclean-subdir \
@@ -254,11 +252,11 @@ maintainer-clean-subdir:
 	  cd $$dir && $(MAKE) $$target; \
 	done
 
-$(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS) $(ALLOCA): stamp-picdir
+$(REQUIRED_OFILES) $(EXTRA_OFILES) $(LIBOBJS): stamp-picdir
 
-alloca.o: config.h
+alloca.o: config.h $(INCDIR)/libiberty.h
 atexit.o: config.h
-argv.o: config.h alloca-conf.h $(INCDIR)/libiberty.h
+argv.o: config.h $(INCDIR)/libiberty.h
 basename.o: $(INCDIR)/libiberty.h
 choose-temp.o: config.h
 clock.o: config.h
@@ -276,12 +274,15 @@ getpwd.o: config.h $(INCDIR)/libiberty.h
 getruntime.o: config.h $(INCDIR)/libiberty.h
 hex.o: $(INCDIR)/libiberty.h
 floatformat.o: $(INCDIR)/floatformat.h
+lbasename.o: $(INCDIR)/libiberty.h
+make-temp-file.o: config.h
 mkstemps.o: config.h
 md5.o: config.h
 objalloc.o: config.h $(INCDIR)/objalloc.h
 obstack.o: config.h $(INCDIR)/obstack.h
 partition.o: config.h $(INCDIR)/partition.h
 pexecute.o: config.h $(INCDIR)/libiberty.h
+regex.o: $(INCDIR)/xregex.h $(INCDIR)/xregex2.h
 rename.o: config.h
 setenv.o: config.h
 sort.o: config.h $(INCDIR)/sort.h $(INCDIR)/ansidecl.h
@@ -291,6 +292,7 @@ strerror.o: config.h $(INCDIR)/libiberty.h
 strsignal.o: config.h $(INCDIR)/libiberty.h
 strtol.o: config.h
 strtoul.o: config.h
+ternary.o: config.h $(INCDIR)/ternary.h $(INCDIR)/libiberty.h
 vasprintf.o: config.h
 xatexit.o: $(INCDIR)/libiberty.h
 xexit.o: config.h $(INCDIR)/libiberty.h

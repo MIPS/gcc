@@ -85,6 +85,10 @@ struct qty
 
   int n_refs;
 
+  /* The frequency of uses of quantity Q.  */
+
+  int freq;
+
   /* Insn number (counting from head of basic block)
      where quantity Q was born.  -1 if birth has not been recorded.  */
 
@@ -321,6 +325,7 @@ alloc_qty (regno, mode, size, birth)
   qty[qtyno].min_class = reg_preferred_class (regno);
   qty[qtyno].alternate_class = reg_alternate_class (regno);
   qty[qtyno].n_refs = REG_N_REFS (regno);
+  qty[qtyno].freq = REG_FREQ (regno);
   qty[qtyno].changes_mode = REG_CHANGES_MODE (regno);
 }
 
@@ -1005,7 +1010,7 @@ update_equiv_regs ()
 	  reg_equiv[regno].loop_depth = loop_depth;
 
 	  /* Don't mess with things live during setjmp.  */
-	  if (REG_LIVE_LENGTH (regno) >= 0)
+	  if (REG_LIVE_LENGTH (regno) >= 0 && optimize)
 	    {
 	      /* Note that the statement below does not affect the priority
 		 in local-alloc!  */
@@ -1127,6 +1132,7 @@ update_equiv_regs ()
 
 		  remove_death (regno, insn);
 		  REG_N_REFS (regno) = 0;
+		  REG_FREQ (regno) = 0;
 		  PUT_CODE (equiv_insn, NOTE);
 		  NOTE_LINE_NUMBER (equiv_insn) = NOTE_INSN_DELETED;
 		  NOTE_SOURCE_FILE (equiv_insn) = 0;
@@ -1697,7 +1703,7 @@ block_alloc (b)
    QTY_CMP_PRI is also used by qty_sugg_compare.  */
 
 #define QTY_CMP_PRI(q)		\
-  ((int) (((double) (floor_log2 (qty[q].n_refs) * qty[q].n_refs * qty[q].size) \
+  ((int) (((double) (floor_log2 (qty[q].n_refs) * qty[q].freq * qty[q].size) \
 	  / (qty[q].death - qty[q].birth)) * 10000))
 
 static int
@@ -1813,25 +1819,49 @@ combine_regs (usedreg, setreg, may_save_copy, insn_number, insn, already_dead)
     {
       if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (usedreg))) > UNITS_PER_WORD)
 	may_save_copy = 0;
-      offset += SUBREG_WORD (usedreg);
+      if (REGNO (SUBREG_REG (usedreg)) < FIRST_PSEUDO_REGISTER)
+	offset += subreg_regno_offset (REGNO (SUBREG_REG (usedreg)),
+				       GET_MODE (SUBREG_REG (usedreg)),
+				       SUBREG_BYTE (usedreg),
+				       GET_MODE (usedreg));
+      else
+	offset += (SUBREG_BYTE (usedreg)
+		   / REGMODE_NATURAL_SIZE (GET_MODE (usedreg)));
       usedreg = SUBREG_REG (usedreg);
     }
   if (GET_CODE (usedreg) != REG)
     return 0;
   ureg = REGNO (usedreg);
-  usize = REG_SIZE (usedreg);
+  if (ureg < FIRST_PSEUDO_REGISTER)
+    usize = HARD_REGNO_NREGS (ureg, GET_MODE (usedreg));
+  else
+    usize = ((GET_MODE_SIZE (GET_MODE (usedreg))
+	      + (REGMODE_NATURAL_SIZE (GET_MODE (usedreg)) - 1))
+	     / REGMODE_NATURAL_SIZE (GET_MODE (usedreg)));
 
   while (GET_CODE (setreg) == SUBREG)
     {
       if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (setreg))) > UNITS_PER_WORD)
 	may_save_copy = 0;
-      offset -= SUBREG_WORD (setreg);
+      if (REGNO (SUBREG_REG (setreg)) < FIRST_PSEUDO_REGISTER)
+	offset -= subreg_regno_offset (REGNO (SUBREG_REG (setreg)),
+				       GET_MODE (SUBREG_REG (setreg)),
+				       SUBREG_BYTE (setreg),
+				       GET_MODE (setreg));
+      else
+	offset -= (SUBREG_BYTE (setreg)
+		   / REGMODE_NATURAL_SIZE (GET_MODE (setreg)));
       setreg = SUBREG_REG (setreg);
     }
   if (GET_CODE (setreg) != REG)
     return 0;
   sreg = REGNO (setreg);
-  ssize = REG_SIZE (setreg);
+  if (sreg < FIRST_PSEUDO_REGISTER)
+    ssize = HARD_REGNO_NREGS (sreg, GET_MODE (setreg));
+  else
+    ssize = ((GET_MODE_SIZE (GET_MODE (setreg))
+	      + (REGMODE_NATURAL_SIZE (GET_MODE (setreg)) - 1))
+	     / REGMODE_NATURAL_SIZE (GET_MODE (setreg)));
 
   /* If UREG is a pseudo-register that hasn't already been assigned a
      quantity number, it means that it is not local to this block or dies
@@ -1942,6 +1972,7 @@ combine_regs (usedreg, setreg, may_save_copy, insn_number, insn, already_dead)
       /* Update info about quantity SQTY.  */
       qty[sqty].n_calls_crossed += REG_N_CALLS_CROSSED (sreg);
       qty[sqty].n_refs += REG_N_REFS (sreg);
+      qty[sqty].freq += REG_FREQ (sreg);
       if (usize < ssize)
 	{
 	  register int i;
@@ -2032,7 +2063,11 @@ reg_is_born (reg, birth)
   register int regno;
 
   if (GET_CODE (reg) == SUBREG)
-    regno = REGNO (SUBREG_REG (reg)) + SUBREG_WORD (reg);
+    {
+      regno = REGNO (SUBREG_REG (reg));
+      if (regno < FIRST_PSEUDO_REGISTER)
+	regno = subreg_hard_regno (reg, 1);
+    }
   else
     regno = REGNO (reg);
 

@@ -22,12 +22,12 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
-#include "insn-flags.h"
 #include "flags.h"
 #include "expr.h"
 #include "loop.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
+#include "toplev.h"
 #include "tm_p.h"
 
 

@@ -27,25 +27,11 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "function.h"
 #include "regs.h"
-#include "insn-flags.h"
 #include "toplev.h"
 #include "output.h"
 #include "tm_p.h"
 #include "timevar.h"
 #include "sbitmap.h"
-
-#ifndef ACCUMULATE_OUTGOING_ARGS
-#define ACCUMULATE_OUTGOING_ARGS 0
-#endif
-
-/* Supply a default definition for PUSH_ARGS.  */
-#ifndef PUSH_ARGS
-#ifdef PUSH_ROUNDING
-#define PUSH_ARGS	!ACCUMULATE_OUTGOING_ARGS
-#else
-#define PUSH_ARGS	0
-#endif
-#endif
 
 #if !defined FUNCTION_OK_FOR_SIBCALL
 #define FUNCTION_OK_FOR_SIBCALL(DECL) 1
@@ -71,6 +57,10 @@ Boston, MA 02111-1307, USA.  */
 
 #ifndef PUSH_ARGS_REVERSED
 #define PUSH_ARGS_REVERSED 0
+#endif
+
+#ifndef STACK_POINTER_OFFSET
+#define STACK_POINTER_OFFSET    0
 #endif
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
@@ -218,7 +208,6 @@ static void compute_argument_addresses		PARAMS ((struct arg_data *,
 static rtx rtx_for_function_call		PARAMS ((tree, tree));
 static void load_register_parameters		PARAMS ((struct arg_data *,
 							 int, rtx *, int));
-static int libfunc_nothrow			PARAMS ((rtx));
 static rtx emit_library_call_value_1 		PARAMS ((int, rtx, rtx,
 							 enum libcall_type,
 							 enum machine_mode,
@@ -1477,6 +1466,8 @@ precompute_arguments (flags, num_actuals, args)
     if ((flags & (ECF_CONST | ECF_PURE))
 	|| calls_function (args[i].tree_value, !ACCUMULATE_OUTGOING_ARGS))
       {
+	enum machine_mode mode;
+
 	/* If this is an addressable type, we cannot pre-evaluate it.  */
 	if (TREE_ADDRESSABLE (TREE_TYPE (args[i].tree_value)))
 	  abort ();
@@ -1496,11 +1487,11 @@ precompute_arguments (flags, num_actuals, args)
 	args[i].initial_value = args[i].value
 	  = protect_from_queue (args[i].value, 0);
 
-	if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) != args[i].mode)
+	mode = TYPE_MODE (TREE_TYPE (args[i].tree_value));
+	if (mode != args[i].mode)
 	  {
 	    args[i].value
-	      = convert_modes (args[i].mode,
-			       TYPE_MODE (TREE_TYPE (args[i].tree_value)),
+	      = convert_modes (args[i].mode, mode,
 			       args[i].value, args[i].unsignedp);
 #ifdef PROMOTE_FOR_CALL_ONLY
 	    /* CSE will replace this only if it contains args[i].value
@@ -1510,8 +1501,7 @@ precompute_arguments (flags, num_actuals, args)
 		&& GET_MODE_CLASS (args[i].mode) == MODE_INT)
 	      {
 		args[i].initial_value
-		  = gen_rtx_SUBREG (TYPE_MODE (TREE_TYPE (args[i].tree_value)),
-				    args[i].value, 0);
+		  = gen_lowpart_SUBREG (mode, args[i].value);
 		SUBREG_PROMOTED_VAR_P (args[i].initial_value) = 1;
 		SUBREG_PROMOTED_UNSIGNED_P (args[i].initial_value)
 		  = args[i].unsignedp;
@@ -1636,8 +1626,8 @@ compute_argument_addresses (args, argblock, num_actuals)
 	     outgoing arguments and we cannot allow reordering of reads
 	     from function arguments with stores to outgoing arguments
 	     of sibling calls.  */
-	  MEM_ALIAS_SET (args[i].stack) = 0;
-	  MEM_ALIAS_SET (args[i].stack_slot) = 0;
+	  set_mem_alias_set (args[i].stack, 0);
+	  set_mem_alias_set (args[i].stack_slot, 0);
 	}
     }
 }
@@ -2384,8 +2374,8 @@ expand_call (exp, target, ignore)
   args = (struct arg_data *) alloca (num_actuals * sizeof (struct arg_data));
   memset ((char *) args, 0, num_actuals * sizeof (struct arg_data));
 
-  /* Build up entries inthe ARGS array, compute the size of the arguments
-     into ARGS_SIZE, etc.  */
+  /* Build up entries in the ARGS array, compute the size of the
+     arguments into ARGS_SIZE, etc.  */
   initialize_argument_information (num_actuals, args, &args_size,
 				   n_named_args, actparms, fndecl,
 				   &args_so_far, reg_parm_stack_space,
@@ -2526,8 +2516,9 @@ expand_call (exp, target, ignore)
 	      {
 		tree var = build_decl (VAR_DECL, NULL_TREE,
 				       TREE_TYPE (args[i].tree_value));
-		DECL_RTL (var) = expand_expr (args[i].tree_value, NULL_RTX,
-					      VOIDmode, EXPAND_NORMAL);
+		SET_DECL_RTL (var,
+			      expand_expr (args[i].tree_value, NULL_RTX,
+					   VOIDmode, EXPAND_NORMAL));
 		args[i].tree_value = var;
 	      }
 	      break;
@@ -3286,13 +3277,25 @@ expand_call (exp, target, ignore)
 	{
 	  tree type = TREE_TYPE (exp);
 	  int unsignedp = TREE_UNSIGNED (type);
+	  int offset = 0;
 
 	  /* If we don't promote as expected, something is wrong.  */
 	  if (GET_MODE (target)
 	      != promote_mode (type, TYPE_MODE (type), &unsignedp, 1))
 	    abort ();
 
-	  target = gen_rtx_SUBREG (TYPE_MODE (type), target, 0);
+	if ((WORDS_BIG_ENDIAN || BYTES_BIG_ENDIAN)
+	    && GET_MODE_SIZE (GET_MODE (target))
+	       > GET_MODE_SIZE (TYPE_MODE (type)))
+	  {
+	    offset = GET_MODE_SIZE (GET_MODE (target))
+		     - GET_MODE_SIZE (TYPE_MODE (type));
+	    if (! BYTES_BIG_ENDIAN)
+	      offset = (offset / UNITS_PER_WORD) * UNITS_PER_WORD;
+	    else if (! WORDS_BIG_ENDIAN)
+	      offset %= UNITS_PER_WORD;
+	  }
+	  target = gen_rtx_SUBREG (TYPE_MODE (type), target, offset);
 	  SUBREG_PROMOTED_VAR_P (target) = 1;
 	  SUBREG_PROMOTED_UNSIGNED_P (target) = unsignedp;
 	}
@@ -3457,25 +3460,9 @@ expand_call (exp, target, ignore)
   return target;
 }
 
-/* Returns nonzero if FUN is the symbol for a library function which can
-   not throw.  */
-
-static int
-libfunc_nothrow (fun)
-     rtx fun;
-{
-  if (fun == throw_libfunc
-      || fun == rethrow_libfunc
-      || fun == sjthrow_libfunc
-      || fun == sjpopnthrow_libfunc)
-    return 0;
-
-  return 1;
-}
-
 /* Output a library call to function FUN (a SYMBOL_REF rtx).
    The RETVAL parameter specifies whether return value needs to be saved, other
-   parameters are documented in the emit_library_call function bellow.  */
+   parameters are documented in the emit_library_call function below.  */
 static rtx
 emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
      int retval;
@@ -3514,9 +3501,10 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
   rtx valreg;
   int pcc_struct_value = 0;
   int struct_value_size = 0;
-  int flags = 0;
+  int flags;
   int reg_parm_stack_space = 0;
   int needed;
+  rtx before_call;
 
 #ifdef REG_PARM_STACK_SPACE
   /* Define the boundary of the register parm stack space that needs to be
@@ -3537,14 +3525,30 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 #endif
 #endif
 
-  if (fn_type == LCT_CONST_MAKE_BLOCK)
-    flags |= ECF_CONST;
-  else if (fn_type == LCT_PURE_MAKE_BLOCK)
-    flags |= ECF_PURE;
-  fun = orgfun;
+  /* By default, library functions can not throw.  */
+  flags = ECF_NOTHROW;
 
-  if (libfunc_nothrow (fun))
-    flags |= ECF_NOTHROW;
+  switch (fn_type)
+    {
+    case LCT_NORMAL:
+    case LCT_CONST:
+    case LCT_PURE:
+      /* Nothing to do here.  */
+      break;
+    case LCT_CONST_MAKE_BLOCK:
+      flags |= ECF_CONST;
+      break;
+    case LCT_PURE_MAKE_BLOCK:
+      flags |= ECF_PURE;
+      break;
+    case LCT_NORETURN:
+      flags |= ECF_NORETURN;
+      break;
+    case LCT_THROW:
+      flags = ECF_NORETURN;
+      break;
+    }
+  fun = orgfun;
 
 #ifdef PREFERRED_STACK_BOUNDARY
   /* Ensure current function's preferred stack boundary is at least
@@ -3820,11 +3824,15 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	       highest_outgoing_arg_in_use - initial_highest_arg_in_use);
       needed = 0;
 
-      /* The address of the outgoing argument list must not be copied to a
-	 register here, because argblock would be left pointing to the
-	 wrong place after the call to allocate_dynamic_stack_space below.  */
+      /* We must be careful to use virtual regs before they're instantiated,
+         and real regs afterwards.  Loop optimization, for example, can create
+	 new libcalls after we've instantiated the virtual regs, and if we
+	 use virtuals anyway, they won't match the rtl patterns.  */
 
-      argblock = virtual_outgoing_args_rtx;
+      if (virtuals_instantiated)
+	argblock = plus_constant (stack_pointer_rtx, STACK_POINTER_OFFSET);
+      else
+	argblock = virtual_outgoing_args_rtx;
     }
   else
     {
@@ -4054,6 +4062,8 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
     abort ();
 #endif
 
+  before_call = get_last_insn ();
+
   /* We pass the old value of inhibit_defer_pop + 1 to emit_call_1, which
      will set inhibit_defer_pop to that value.  */
   /* The return type is needed to decide how many bytes the function pops.
@@ -4070,6 +4080,34 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	       FUNCTION_ARG (args_so_far, VOIDmode, void_type_node, 1),
 	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags);
+
+  /* For calls to `setjmp', etc., inform flow.c it should complain
+     if nonvolatile values are live.  For functions that cannot return,
+     inform flow that control does not fall through.  */
+
+  if (flags & (ECF_RETURNS_TWICE | ECF_NORETURN | ECF_LONGJMP))
+    {
+      /* The barrier or NOTE_INSN_SETJMP note must be emitted
+	 immediately after the CALL_INSN.  Some ports emit more than
+	 just a CALL_INSN above, so we must search for it here.  */
+
+      rtx last = get_last_insn ();
+      while (GET_CODE (last) != CALL_INSN)
+	{
+	  last = PREV_INSN (last);
+	  /* There was no CALL_INSN?  */
+	  if (last == before_call)
+	    abort ();
+	}
+
+      if (flags & ECF_RETURNS_TWICE)
+	{
+	  emit_note_after (NOTE_INSN_SETJMP, last);
+	  current_function_calls_setjmp = 1;
+	}
+      else
+	emit_barrier_after (last);
+    }
 
   /* Now restore inhibit_defer_pop to its actual original value.  */
   OK_DEFER_POP;
@@ -4593,9 +4631,9 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
           {
 	    rtx size_rtx1 = GEN_INT (reg_parm_stack_space - arg->offset.constant);
 	    emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), size_rtx1,
-		            TYPE_ALIGN (TREE_TYPE (pval)) / BITS_PER_UNIT, 
-			    partial, reg, excess, argblock, 
-			    ARGS_SIZE_RTX (arg->offset), reg_parm_stack_space,
+		            TYPE_ALIGN (TREE_TYPE (pval)), partial, reg,
+			    excess, argblock, ARGS_SIZE_RTX (arg->offset),
+			    reg_parm_stack_space,
 		            ARGS_SIZE_RTX (arg->alignment_pad));
 
 	    size_rtx = GEN_INT (INTVAL(size_rtx) - reg_parm_stack_space);

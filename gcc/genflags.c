@@ -156,16 +156,16 @@ gen_proto (insn)
 	gen_macro (name, num, 5);
     }
 
-  printf ("extern rtx gen_%-*s PARAMS ((", max_id_len, name);
+  printf ("extern struct rtx_def *gen_%-*s PARAMS ((", max_id_len, name);
 
   if (num == 0)
     printf ("void");
   else
     {
       while (num-- > 1)
-	printf ("rtx, ");
+	printf ("struct rtx_def *, ");
 
-      printf ("rtx");
+      printf ("struct rtx_def *");
     }
 
   printf ("));\n");
@@ -233,8 +233,10 @@ main (argc, argv)
   if (init_md_reader (argv[1]) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
   
-  printf ("/* Generated automatically by the program `genflags'\n\
-from the machine description file `md'.  */\n\n");
+  puts ("/* Generated automatically by the program `genflags'");
+  puts ("   from the machine description file `md'.  */\n");
+  puts ("#ifndef GCC_INSN_FLAGS_H");
+  puts ("#define GCC_INSN_FLAGS_H\n");
 
   /* Read the machine description.  */
 
@@ -254,11 +256,16 @@ from the machine description file `md'.  */\n\n");
   obstack_grow (&obstack, &dummy, sizeof (rtx));
   insns = (rtx *) obstack_finish (&obstack);
 
+  printf ("struct rtx_def;\n");
   for (insn_ptr = insns; *insn_ptr; insn_ptr++)
     gen_proto (*insn_ptr);
 
-  fflush (stdout);
-  return (ferror (stdout) != 0 ? FATAL_EXIT_CODE : SUCCESS_EXIT_CODE);
+  puts("\n#endif /* GCC_INSN_FLAGS_H */");
+
+  if (ferror (stdout) || fflush (stdout) || fclose (stdout))
+    return FATAL_EXIT_CODE;
+
+  return SUCCESS_EXIT_CODE;
 }
 
 /* Define this so we can link with print-rtl.o to get debug_rtx function.  */

@@ -49,7 +49,8 @@ Boston, MA 02111-1307, USA.  */
 #define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 #undef DBX_REGISTER_NUMBER
-#define DBX_REGISTER_NUMBER(n)  svr4_dbx_register_map[n]
+#define DBX_REGISTER_NUMBER(n) \
+  (TARGET_64BIT ? dbx64_register_map[n] : svr4_dbx_register_map[n])
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
@@ -132,9 +133,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend.o%s crtn.o%s"
-
-/* Get perform_* macros to build libgcc.a.  */
-#include "i386/perform.h"
 
 /* A C statement (sans semicolon) to output to the stdio stream
    FILE the assembler definition of uninitialized global DECL named
@@ -264,15 +262,3 @@ Boston, MA 02111-1307, USA.  */
    without user intervention.  For instance, under Microsoft Windows
    symbols must be explicitly imported from shared libraries (DLLs).  */
 #define MULTIPLE_SYMBOL_SPACES
-
-/* A C statement to output assembler commands which will identify the object
-   file as having been compiled with GNU CC.  This isn't needed for BeOS
-   because we use DWARF and DWARF has an DW_AT_producer tag that does the
-   same thing.  BeOS debuggers, like bdb, that don't know about this hack
-   can get confused when they find two symbols with the same address, and
-   print the wrong one (gcc2_compiled) in things like backtraces.  The most
-   likely ill effect of disabling this is that a BeOS port of gdb would not
-   be able to tell that an executable was compiled with gcc if there was no
-   DWARF info. */
-#undef ASM_IDENTIFY_GCC
-#define ASM_IDENTIFY_GCC(FILE) 

@@ -182,7 +182,7 @@ parse_bitfield (declarator, attributes, width)
      tree declarator, attributes, width;
 {
   tree d = grokbitfield (declarator, current_declspecs, width);
-  cplus_decl_attributes (d, attributes, prefix_attributes);
+  cplus_decl_attributes (&d, attributes, prefix_attributes, 0);
   decl_type_access_control (d);
   return d;
 }
@@ -258,6 +258,10 @@ cp_parse_init ()
 /* Character or numeric constants.
    yylval is the node for the constant.  */
 %token CONSTANT
+
+/* __func__, __FUNCTION__ or __PRETTY_FUNCTION__.
+   yylval contains an IDENTIFIER_NODE which indicates which one.  */
+%token VAR_FUNC_NAME
 
 /* String constants in raw form.
    yylval is a STRING_CST node.  */
@@ -733,6 +737,7 @@ datadef:
 	| error ';'
 	| error '}'
 	| ';'
+	| bad_decl
 	;
 
 ctor_initializer_opt:
@@ -1219,9 +1224,7 @@ unary_expr:
                 { $$ = finish_unary_op_expr ($1, $2); }
 	/* Refer to the address of a label as a pointer.  */
 	| ANDAND identifier
-		{ if (pedantic)
-		    pedwarn ("ISO C++ forbids `&&'");
-  		  $$ = finish_label_address_expr ($2); }
+		{ $$ = finish_label_address_expr ($2); }
 	| SIZEOF unary_expr  %prec UNARY
 		{ $$ = expr_sizeof ($2); }
 	| SIZEOF '(' type_id ')'  %prec HYPERUNARY
@@ -1335,8 +1338,8 @@ cast_expr:
 		  tree init = build_nt (CONSTRUCTOR, NULL_TREE,
 					nreverse ($3)); 
 		  if (pedantic)
-		    pedwarn ("ISO C++ forbids constructor-expressions");
-		  /* Indicate that this was a GNU C constructor expression.  */
+		    pedwarn ("ISO C++ forbids compound literals");
+		  /* Indicate that this was a C99 compound literal.  */
 		  TREE_HAS_CONSTRUCTOR (init) = 1;
 
 		  $$ = reparse_absdcl_as_casts ($$, init);
@@ -1554,6 +1557,12 @@ primary:
 		    TREE_TYPE ($$) = build_cplus_array_type
 		      (TREE_TYPE (TREE_TYPE ($$)),
 		       TYPE_DOMAIN (TREE_TYPE ($$)));
+		}
+	| VAR_FUNC_NAME
+		{
+		  $$ = fname_decl (C_RID_CODE ($$), $$);
+		  if (processing_template_decl)
+		    $$ = build_min_nt (LOOKUP_EXPR, DECL_NAME ($$));
 		}
 	| '(' expr ')'
 		{ $$ = finish_parenthesized_expr ($2); }
@@ -2236,7 +2245,8 @@ structsp:
 		{ $<ttype>$ = current_enum_type;
 		  current_enum_type = start_enum ($2); }
 	  enumlist_opt '}'
-		{ $$.t = finish_enum (current_enum_type);
+		{ $$.t = current_enum_type;
+		  finish_enum (current_enum_type);
 		  $$.new_type_flag = 1;
 		  current_enum_type = $<ttype>4;
 		  check_for_missing_semicolon ($$.t); }
@@ -2244,7 +2254,8 @@ structsp:
 		{ $<ttype>$ = current_enum_type;
 		  current_enum_type = start_enum (make_anon_name ()); }
 	  enumlist_opt '}'
-                { $$.t = finish_enum (current_enum_type);
+                { $$.t = current_enum_type;
+		  finish_enum (current_enum_type);
 		  $$.new_type_flag = 1;
 		  current_enum_type = $<ttype>3;
 		  check_for_missing_semicolon ($$.t); }
@@ -2547,11 +2558,13 @@ component_decl_list:
 		{ 
 		  finish_member_declaration ($1);
 		  current_aggr = NULL_TREE;
+		  reset_type_access_control ();
 		}
 	| component_decl_list component_decl
 		{ 
 		  finish_member_declaration ($2);
 		  current_aggr = NULL_TREE;
+		  reset_type_access_control ();
 		}
 	;
 
@@ -2590,6 +2603,8 @@ component_decl:
 		  $$ = finish_member_class_template ($2.t); 
 		  finish_template_decl ($1);
 		}
+	| bad_decl
+		{ $$ = NULL_TREE; }
 	;
 
 component_decl_1:
@@ -3503,11 +3518,11 @@ handler_seq:
 
 handler:
 	  CATCH
-                { $<ttype>$ = begin_handler(); }
+                { $<ttype>$ = begin_handler (); }
           handler_args
-                { $<ttype>$ = finish_handler_parms ($3, $<ttype>2); }
+                { finish_handler_parms ($3, $<ttype>2); }
 	  compstmt
-                { finish_handler ($<ttype>4, $<ttype>2); }
+                { finish_handler ($<ttype>2); }
 	;
 
 type_specifier_seq:
@@ -3759,6 +3774,26 @@ bad_parm:
 		    cp_error ("  perhaps you want `typename %E' to make it a type", $$);
 		  $$ = build_tree_list (integer_type_node, $$);
 		}
+	;
+
+bad_decl:
+          IDENTIFIER template_arg_list_ignore IDENTIFIER arg_list_ignore ';'
+		{
+                  cp_error("'%D' is used as a type, but is not defined as a type.", $1);
+                  $3 = error_mark_node;
+		}
+        ;
+
+template_arg_list_ignore:
+          '<' template_arg_list_opt template_close_bracket
+		{ }
+	| /* empty */
+	;
+
+arg_list_ignore:
+          '(' nonnull_exprlist ')'
+		{ }
+	| /* empty */
 	;
 
 exception_specification_opt:

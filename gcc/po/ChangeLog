@@ -1,3 +1,72 @@
+Mon Jul  9 13:27:15 2001  Jeffrey A Law  (law@cygnus.com)
+
+        * POTFILES.in: Add ssa-ccp.c
+
+Thu Jun 28 16:11:30 2001  Jeffrey A Law  (law@cygnus.com)
+
+	* POTFILES.in: Add df.c and df.h
+
+Tue Jun 19 08:03:43 2001  Jeffrey A Law  (law@cygnus.com)
+
+	* POTFILES.in: Replace dce.c with ssa-dce.c.
+
+2001-06-15  Dennis Bjorklund  <db@zigo.dhs.org>
+
+	* sv.po: Updated.  Approximately 1100 of 3600 strings translated.
+
+2001-06-11  Zack Weinberg  <zackw@stanford.edu>
+
+	* POTFILES.in: Comment out config/float-*.
+	No need to regenerate gcc.pot.
+
+2001-06-11  Zack Weinberg  <zackw@stanford.edu>
+
+	* gcc.pot: Regenerate, again.  You go away for five minutes
+	and someone tweaks the messages on you.
+	* cat-id-tbl.c: Regenerate this too.
+
+2001-06-11  Zack Weinberg  <zackw@stanford.edu>
+
+	* Makefile.in.in: Take --defines switch off of xgettext   
+	command line.                                           
+	* POTFILES.in: Massive update, removing all dead files and
+	adding approximately 300 files which had been left out.
+	Clarify comments on what should and should not appear here.
+
+	* gcc.pot: Regenerate.
+
+2001-05-23  Zack Weinberg  <zackw@stanford.edu>
+
+	* POTFILES.in: Remove config/rs6000/xm-darwin.h and
+	config/pa/pa-gas.h.
+
+2001-05-16  Zack Weinberg  <zackw@stanford.edu>
+
+	* POTFILES.in: Remove libgcc1-test.c and libgcc1.c.
+
+2001-05-13  Mark Mitchell  <mark@codesourcery.com>
+
+	* Makefile.in.in (STAMP): New macro.
+	Replace all uses of `touch' with $(STAMP).
+
+2001-05-11  Zack Weinberg  <zackw@stanford.edu>
+
+	* POTFILES.in: Remove assert.h.
+
+2001-05-07  Zack Weinberg  <zackw@stanford.edu>
+
+	* POTFILES.in: Remove config/i386/sco.h, config/i386/sco4.h,
+	config/i386/sco4dbx.h, and config/i386/scodbx.h.
+
+2001-04-04  Zack Weinberg  <zackw@stanford.edu>
+
+	* POTFILES.in: Remove config/romp/xm-romp.h.
+
+2001-04-03  Zack Weinberg  <zackw@stanford.edu>
+
+	* POTFILES.in: Remove all the files deleted by the xm-host.h
+	purge, also frame.c, frame-dwarf2.c, and gansidecl.h.
+
 2001-01-30  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* Makefile.in.in (distclean): Also remove *.gmo during `make

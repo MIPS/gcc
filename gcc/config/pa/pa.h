@@ -71,12 +71,6 @@ enum architecture_type
 };
 
 struct rtx_def;
-/* A C structure for machine-specific, per-function data.
-   This is added to the cfun structure.  */
-typedef struct machine_function
-{
-  struct rtx_def *pic_offset_table_save_rtx;
-} machine_function;
 
 /* For -march= option.  */
 extern const char *pa_arch_string;
@@ -106,13 +100,9 @@ extern int target_flags;
 #define MASK_DISABLE_FPREGS 2
 #define TARGET_DISABLE_FPREGS (target_flags & MASK_DISABLE_FPREGS)
 
-/* Generate code which assumes that calls through function pointers will
-   never cross a space boundary.  Such assumptions are generally safe for
-   building kernels and statically linked executables.  Code compiled with
-   this option will fail miserably if the executable is dynamically linked
-   or uses nested functions!
-
-   This is also used to trigger aggressive unscaled index addressing.  */
+/* Generate code which assumes that all space register are equivalent.
+   Triggers aggressive unscaled index addressing and faster
+   builtin_return_address.  */
 #define MASK_NO_SPACE_REGS 4
 #define TARGET_NO_SPACE_REGS (target_flags & MASK_NO_SPACE_REGS)
 
@@ -148,7 +138,12 @@ extern int target_flags;
 #define MASK_LONG_LOAD_STORE 512
 #define TARGET_LONG_LOAD_STORE (target_flags & MASK_LONG_LOAD_STORE)
 
-/* Use a faster sequence for indirect calls.  */
+/* Use a faster sequence for indirect calls.  This assumes that calls
+   through function pointers will never cross a space boundary, and
+   that the executable is not dynamically linked.  Such assumptions
+   are generally safe for building kernels and statically linked
+   executables.  Code compiled with this option will fail miserably if
+   the executable is dynamically linked or uses nested functions!  */
 #define MASK_FAST_INDIRECT_CALLS 1024
 #define TARGET_FAST_INDIRECT_CALLS (target_flags & MASK_FAST_INDIRECT_CALLS)
 
@@ -168,6 +163,11 @@ extern int target_flags;
 /* Generate code for the HPPA 2.0 architecture in 64bit mode.  */
 #ifndef TARGET_64BIT
 #define TARGET_64BIT 0
+#endif
+
+/* Generate code for ELF32 ABI. */
+#ifndef TARGET_ELF32
+#define TARGET_ELF32 0
 #endif
 
 /* Macro to define tables used to set the flags.
@@ -323,6 +323,17 @@ extern int target_flags;
 %{!ansi: -D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__} \
 %{threads: -D_REENTRANT -D_DCE_THREADS}"
 
+#define CPLUSPLUS_CPP_SPEC "\
+-D_HPUX_SOURCE -D_HIUX_SOURCE -D__STDC_EXT__ \
+%{mpa-risc-1-0:%(cpp_pa10)} \
+%{mpa-risc-1-1:%(cpp_pa11)} \
+%{msnake:%(cpp_pa11)} \
+%{mpa-risc-2-0:%(cpp_pa20)} \
+%{!mpa-risc-1-0:%{!mpa-risc-1-1:%{!mpa-risc-2-0:%{!msnake:%(cpp_cpu_default)}}}} \
+%{m64bit:%(cpp_64bit)} \
+%{!m64bit:%(cpp_64bit_default)} \
+%{threads: -D_REENTRANT -D_DCE_THREADS}"
+
 /* Defines for a K&R CC */
 
 #define CC1_SPEC "%{pg:} %{p:}"
@@ -398,7 +409,7 @@ extern int target_flags;
    But on a machine with 16-bit registers, this would be 16.  */
 #define BITS_PER_WORD (TARGET_64BIT ? 64 : 32)
 #define MAX_BITS_PER_WORD 64
-#define MAX_LONG_TYPE_SIZE 64
+#define MAX_LONG_TYPE_SIZE 32
 #define MAX_WCHAR_TYPE_SIZE 32
 
 /* Width of a word, in units (bytes).  */
@@ -500,10 +511,9 @@ extern int target_flags;
 #define PIC_OFFSET_TABLE_REGNUM (TARGET_64BIT ? 27 : 19)
 #define PIC_OFFSET_TABLE_REG_CALL_CLOBBERED 1
 
-/* Register into which we save the PIC_OFFSET_TABLE_REGNUM so that it
-   can be restored across function calls.  */
-#define PIC_OFFSET_TABLE_SAVE_RTX (cfun->machine->pic_offset_table_save_rtx)
-extern void hppa_init_pic_save PARAMS ((void));
+/* Function to return the rtx used to save the pic offset table register
+   across function calls.  */
+extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
@@ -515,6 +525,12 @@ extern void hppa_init_pic_save PARAMS ((void));
 /* Register in which address to store a structure value
    is passed to a function.  */
 #define STRUCT_VALUE_REGNUM 28
+
+/* Describe how we implement __builtin_eh_return.  */
+#define EH_RETURN_DATA_REGNO(N)	\
+  ((N) < 3 ? (N) + 20 : (N) == 4 ? 31 : INVALID_REGNUM)
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, 29)
+#define EH_RETURN_HANDLER_RTX	gen_rtx_REG (Pmode, 2)
 
 /* The letters I, J, K, L and M in a register constraint string
    can be used to stand for particular ranges of immediate operands.
@@ -534,16 +550,16 @@ extern void hppa_init_pic_save PARAMS ((void));
    */
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)  \
-  ((C) == 'I' ? VAL_11_BITS_P (VALUE)				\
-   : (C) == 'J' ? VAL_14_BITS_P (VALUE)				\
-   : (C) == 'K' ? zdepi_cint_p (VALUE)				\
-   : (C) == 'L' ? VAL_5_BITS_P (VALUE)				\
-   : (C) == 'M' ? (VALUE) == 0					\
-   : (C) == 'N' ? (((VALUE) & (unsigned long)0x7ff) == 0	\
-		   && (VALUE) == ((((VALUE) & 0xffffffff) ^ (~0x7fffffff)) \
-				  + 0x80000000))		\
-   : (C) == 'O' ? (((VALUE) & ((VALUE) + (long)1)) == 0)	\
-   : (C) == 'P' ? and_mask_p (VALUE)				\
+  ((C) == 'I' ? VAL_11_BITS_P (VALUE)					\
+   : (C) == 'J' ? VAL_14_BITS_P (VALUE)					\
+   : (C) == 'K' ? zdepi_cint_p (VALUE)					\
+   : (C) == 'L' ? VAL_5_BITS_P (VALUE)					\
+   : (C) == 'M' ? (VALUE) == 0						\
+   : (C) == 'N' ? (((VALUE) & (((HOST_WIDE_INT) -1 << 31) | 0x7ff)) == 0 \
+		   || (((VALUE) & (((HOST_WIDE_INT) -1 << 31) | 0x7ff))	\
+		       == (HOST_WIDE_INT) -1 << 31))			\
+   : (C) == 'O' ? (((VALUE) & ((VALUE) + 1)) == 0)			\
+   : (C) == 'P' ? and_mask_p (VALUE)					\
    : 0)
 
 /* Similar, but for floating or large integer constants, and defining letters
@@ -855,7 +871,7 @@ extern enum cmp_type hppa_branch_type;
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
 { const char *target_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0); \
   STRIP_NAME_ENCODING (target_name, target_name); \
-  output_function_prologue (FILE, 0); \
+  pa_output_function_prologue (FILE, 0); \
   if (VAL_14_BITS_P (DELTA)) \
     fprintf (FILE, "\tb %s\n\tldo %d(%%r26),%%r26\n", target_name, DELTA); \
   else \
@@ -864,35 +880,13 @@ extern enum cmp_type hppa_branch_type;
   fprintf (FILE, "\n\t.EXIT\n\t.PROCEND\n"); \
 }
 
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
+/* On HPPA, we emit profiling code as rtl via PROFILE_HOOK rather than
+   as assembly via FUNCTION_PROFILER.  */
 
-/* On HP-PA, move-double insns between fpu and cpu need an 8-byte block
-   of memory.  If any fpu reg is used in the function, we allocate
-   such a block here, at the bottom of the frame, just in case it's needed.
+#define FUNCTION_PROFILER(FILE, LABEL) /* nothing */
 
-   If this function is a leaf procedure, then we may choose not
-   to do a "save" insn.  The decision about whether or not
-   to do this is made in regclass.c.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) \
-  output_function_prologue (FILE, SIZE)
-
-/* Output assembler code to FILE to increment profiler label # LABELNO
-   for profiling a function entry.
-
-   Because HPUX _mcount is so different, we actually emit the
-   profiling code in function_prologue. This just stores LABELNO for
-   that. */
-
-#define PROFILE_BEFORE_PROLOGUE
-#define FUNCTION_PROFILER(FILE, LABELNO) \
-{ extern int hp_profile_labelno; hp_profile_labelno = (LABELNO);}
+#define PROFILE_HOOK(label_no) hppa_profile_hook (label_no)
+void hppa_profile_hook PARAMS ((int label_no));
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -904,20 +898,6 @@ extern int may_call_alloca;
 #define EXIT_IGNORE_STACK	\
  (get_frame_size () != 0	\
   || current_function_calls_alloca || current_function_outgoing_args_size)
-
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE)			\
-  output_function_epilogue (FILE, SIZE)
 
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.\
@@ -1107,28 +1087,20 @@ extern int may_call_alloca;
 
    ?!? For now also reject CONST_DOUBLES in 64bit mode.  This will need
    further work.  */
-#ifdef NEW_HP_ASSEMBLER
-#define LEGITIMATE_CONSTANT_P(X)  		\
-  ((GET_MODE_CLASS (GET_MODE (X)) != MODE_FLOAT	\
-    || (X) == CONST0_RTX (GET_MODE (X)))	\
-   && !(TARGET_64BIT && GET_CODE (X) == CONST_DOUBLE) \
-   && !(TARGET_64BIT && GET_CODE (X) == CONST_INT \
-	&& !(cint_ok_for_move (INTVAL (X))	\
-	     || ((INTVAL (X) & 0xffffffff80000000L) == 0xffffffff80000000L) \
-	     || ((INTVAL (X) & 0xffffffff00000000L) == 0x0000000000000000L))) \
-   && !function_label_operand (X, VOIDmode))
-#else
-#define LEGITIMATE_CONSTANT_P(X)  		\
-  ((GET_MODE_CLASS (GET_MODE (X)) != MODE_FLOAT	\
-    || (X) == CONST0_RTX (GET_MODE (X)))	\
-   && (GET_CODE (X) != LABEL_REF || TARGET_GAS)\
-   && !(TARGET_64BIT && GET_CODE (X) == CONST_DOUBLE) \
-   && !(TARGET_64BIT && GET_CODE (X) == CONST_INT \
-	&& !(cint_ok_for_move (INTVAL (X))	\
-	     || ((INTVAL (X) & 0xffffffff80000000L) == 0xffffffff80000000L) \
-	     || ((INTVAL (X) & 0xffffffff00000000L) == 0x0000000000000000L))) \
-   && !function_label_operand (X, VOIDmode))
+#ifndef NEW_HP_ASSEMBLER
+#define NEW_HP_ASSEMBLER 0
 #endif
+#define LEGITIMATE_CONSTANT_P(X)				\
+  ((GET_MODE_CLASS (GET_MODE (X)) != MODE_FLOAT			\
+    || (X) == CONST0_RTX (GET_MODE (X)))			\
+   && (NEW_HP_ASSEMBLER || TARGET_GAS || GET_CODE (X) != LABEL_REF)	\
+   && !(TARGET_64BIT && GET_CODE (X) == CONST_DOUBLE)		\
+   && !(TARGET_64BIT && GET_CODE (X) == CONST_INT		\
+	&& !(HOST_BITS_PER_WIDE_INT <= 32			\
+	     || (INTVAL (X) >= (HOST_WIDE_INT) -1 << 31		\
+		 && INTVAL (X) < (HOST_WIDE_INT) 1 << 32)	\
+	     || cint_ok_for_move (INTVAL (X))))			\
+   && !function_label_operand (X, VOIDmode))
 
 /* Subroutine for EXTRA_CONSTRAINT.
 
@@ -1187,8 +1159,15 @@ extern int may_call_alloca;
 		|| GET_CODE (XEXP (XEXP (OP, 0), 1)) == MULT)))\
    : ((C) == 'U' ?					\
       (GET_CODE (OP) == CONST_INT && INTVAL (OP) == 63)	\
+   : ((C) == 'A' ?					\
+      (GET_CODE (OP) == MEM				\
+       && GET_CODE (XEXP (OP, 0)) == LO_SUM		\
+       && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG	\
+       && REG_OK_FOR_BASE_P (XEXP (XEXP (OP, 0), 0))	\
+       && GET_CODE (XEXP (XEXP (OP, 0), 1)) == UNSPEC		\
+       && GET_MODE (XEXP (OP, 0)) == Pmode)			\
    : ((C) == 'S' ?					\
-      (GET_CODE (OP) == CONST_INT && INTVAL (OP) == 31) : 0)))))
+      (GET_CODE (OP) == CONST_INT && INTVAL (OP) == 31) : 0))))))
 	
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
@@ -1262,16 +1241,7 @@ extern int may_call_alloca;
   else if (GET_CODE (X) == PLUS)			\
     {							\
       rtx base = 0, index = 0;				\
-      if (flag_pic && XEXP (X, 0) == pic_offset_table_rtx)\
-	{						\
-	  if (GET_CODE (XEXP (X, 1)) == REG		\
-	      && REG_OK_FOR_BASE_P (XEXP (X, 1)))	\
-	    goto ADDR;					\
-	  else if (flag_pic == 1			\
-		   && GET_CODE (XEXP (X, 1)) == SYMBOL_REF)\
-	    goto ADDR;					\
-	}						\
-      else if (REG_P (XEXP (X, 0))			\
+      if (REG_P (XEXP (X, 0))				\
 	  && REG_OK_FOR_BASE_P (XEXP (X, 0)))		\
 	base = XEXP (X, 0), index = XEXP (X, 1);	\
       else if (REG_P (XEXP (X, 1))			\
@@ -1333,7 +1303,11 @@ extern int may_call_alloca;
   else if (GET_CODE (X) == LO_SUM			\
 	   && GET_CODE (XEXP (X, 0)) == REG             \
 	   && REG_OK_FOR_BASE_P (XEXP (X, 0))		\
-	   && GET_CODE (XEXP (X, 1)) == UNSPEC)		\
+	   && GET_CODE (XEXP (X, 1)) == UNSPEC		\
+	   && (TARGET_SOFT_FLOAT			\
+	       || TARGET_PA_20				\
+	       || ((MODE) != SFmode			\
+		   && (MODE) != DFmode)))		\
     goto ADDR;						\
 }
 
@@ -1717,8 +1691,8 @@ while (0)
 
    Millicode calls always expect their arguments in the integer argument
    registers, and always return their result in %r29 (ret1).  They
-   are expected to clobber their arguments, %r1, %r29, and %r31 and
-   nothing else.
+   are expected to clobber their arguments, %r1, %r29, and the return
+   pointer which is %r31 on 32-bit and %r2 on 64-bit, and nothing else.
 
    This macro tells reorg that the references to arguments and
    millicode calls do not appear to happen until after the millicode call.
@@ -1836,8 +1810,6 @@ while (0)
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
   output_ascii ((FILE), (P), (SIZE))
 
-#define ASM_OUTPUT_REG_PUSH(FILE,REGNO)
-#define ASM_OUTPUT_REG_POP(FILE,REGNO)
 /* This is how to output an element of a case-vector that is absolute.
    Note that this method makes filling these branch delay slots
    impossible.  */
@@ -1900,23 +1872,8 @@ while (0)
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 12),	\
   sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* All HP assemblers use "!" to separate logical lines.  */
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == '!')
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   ((CHAR) == '@' || (CHAR) == '#' || (CHAR) == '*' || (CHAR) == '^')
@@ -1963,9 +1920,7 @@ while (0)
 	fputs ("R'", FILE);						\
       else if (flag_pic == 0)						\
 	fputs ("RR'", FILE);						\
-      else if (flag_pic == 1)						\
-	abort ();							\
-      else if (flag_pic == 2)						\
+      else								\
 	fputs ("RT'", FILE);						\
       output_global_address (FILE, XEXP (addr, 1), 0);			\
       fputs ("(", FILE);						\

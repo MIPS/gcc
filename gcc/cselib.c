@@ -566,8 +566,6 @@ hash_rtx (x, mode, create)
   const char *fmt;
   unsigned int hash = 0;
 
-  /* repeat is used to turn tail-recursion into iteration.  */
- repeat:
   code = GET_CODE (x);
   hash += (unsigned) code + (unsigned) GET_MODE (x);
 
@@ -579,12 +577,11 @@ hash_rtx (x, mode, create)
       if (! e)
 	return 0;
 
-      hash += e->value;
-      return hash;
+      return e->value;
 
     case CONST_INT:
       hash += ((unsigned) CONST_INT << 7) + (unsigned) mode + INTVAL (x);
-      return hash ? hash : CONST_INT;
+      return hash ? hash : (unsigned int) CONST_INT;
 
     case CONST_DOUBLE:
       /* This is like the general case, except that it only counts
@@ -596,18 +593,18 @@ hash_rtx (x, mode, create)
       else
 	hash += ((unsigned) CONST_DOUBLE_LOW (x)
 		 + (unsigned) CONST_DOUBLE_HIGH (x));
-      return hash ? hash : CONST_DOUBLE;
+      return hash ? hash : (unsigned int) CONST_DOUBLE;
 
       /* Assume there is only one rtx object for any given label.  */
     case LABEL_REF:
       hash
 	+= ((unsigned) LABEL_REF << 7) + (unsigned long) XEXP (x, 0);
-      return hash ? hash : LABEL_REF;
+      return hash ? hash : (unsigned int) LABEL_REF;
 
     case SYMBOL_REF:
       hash
 	+= ((unsigned) SYMBOL_REF << 7) + (unsigned long) XSTR (x, 0);
-      return hash ? hash : SYMBOL_REF;
+      return hash ? hash : (unsigned int) SYMBOL_REF;
 
     case PRE_DEC:
     case PRE_INC:
@@ -638,18 +635,8 @@ hash_rtx (x, mode, create)
       if (fmt[i] == 'e')
 	{
 	  rtx tem = XEXP (x, i);
-	  unsigned int tem_hash;
+	  unsigned int tem_hash = hash_rtx (tem, 0, create);
 
-	  /* If we are about to do the last recursive call
-	     needed at this level, change it into iteration.
-	     This function  is called enough to be worth it.  */
-	  if (i == 0)
-	    {
-	      x = tem;
-	      goto repeat;
-	    }
-
-	  tem_hash = hash_rtx (tem, 0, create);
 	  if (tem_hash == 0)
 	    return 0;
 
@@ -681,7 +668,7 @@ hash_rtx (x, mode, create)
 	abort ();
     }
 
-  return hash ? hash : 1 + GET_CODE (x);
+  return hash ? hash : 1 + (unsigned int) GET_CODE (x);
 }
 
 /* Create a new value structure for VALUE and initialize it.  The mode of the
@@ -719,7 +706,6 @@ add_mem_for_addr (addr_elt, mem_elt, x)
      cselib_val *addr_elt, *mem_elt;
      rtx x;
 {
-  rtx new;
   struct elt_loc_list *l;
 
   /* Avoid duplicates.  */
@@ -728,11 +714,10 @@ add_mem_for_addr (addr_elt, mem_elt, x)
 	&& CSELIB_VAL_PTR (XEXP (l->loc, 0)) == addr_elt)
       return;
 
-  new = gen_rtx_MEM (GET_MODE (x), addr_elt->u.val_rtx);
-  MEM_COPY_ATTRIBUTES (new, x);
-
   addr_elt->addr_list = new_elt_list (addr_elt->addr_list, mem_elt);
-  mem_elt->locs = new_elt_loc_list (mem_elt->locs, new);
+  mem_elt->locs
+    = new_elt_loc_list (mem_elt->locs,
+			replace_equiv_address_nv (x, addr_elt->u.val_rtx));
 }
 
 /* Subroutine of cselib_lookup.  Return a value for X, which is a MEM rtx.

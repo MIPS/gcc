@@ -29,10 +29,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "cpplib.h"
 #include "cpphash.h"
 
-#ifndef STDC_0_IN_SYSTEM_HEADERS
-#define STDC_0_IN_SYSTEM_HEADERS 0 /* Boolean macro.  */
-#endif
-
 struct cpp_macro
 {
   cpp_hashnode **params;	/* Parameters, if any.  */
@@ -92,9 +88,8 @@ static void free_lookahead PARAMS ((cpp_lookahead *));
 /* #define directive parsing and handling.  */
 
 static cpp_token *lex_expansion_token PARAMS ((cpp_reader *, cpp_macro *));
-static int check_macro_redefinition PARAMS ((cpp_reader *,
-					     const cpp_hashnode *,
-					     const cpp_macro *));
+static int warn_of_redefinition PARAMS ((cpp_reader *, const cpp_hashnode *,
+					 const cpp_macro *));
 static int save_parameter PARAMS ((cpp_reader *, cpp_macro *, cpp_hashnode *));
 static int parse_params PARAMS ((cpp_reader *, cpp_macro *));
 static void check_trad_stringification PARAMS ((cpp_reader *,
@@ -110,11 +105,12 @@ make_string_token (pool, token, text, len)
      const U_CHAR *text;
      unsigned int len;
 {
-  U_CHAR *buf = _cpp_pool_alloc (pool, len * 4);
+  U_CHAR *buf = _cpp_pool_alloc (pool, len * 4 + 1);
 
   token->type = CPP_STRING;
   token->val.str.text = buf;
   token->val.str.len = quote_string (buf, text, len) - buf;
+  buf[token->val.str.len] = '\0';
   token->flags = 0;
 }
 
@@ -184,11 +180,8 @@ builtin_macro (pfile, token)
 
     case BT_STDC:
       {
-	int stdc = 1;
-
-	if (STDC_0_IN_SYSTEM_HEADERS && CPP_IN_SYSTEM_HEADER (pfile)
-	    && pfile->spec_nodes.n__STRICT_ANSI__->type == NT_VOID)
-	  stdc = 0;
+	int stdc = (!CPP_IN_SYSTEM_HEADER (pfile)
+		    || pfile->spec_nodes.n__STRICT_ANSI__->type != NT_VOID);
 	make_number_token (pfile, token, stdc);
       }
       break;
@@ -217,12 +210,8 @@ builtin_macro (pfile, token)
       *token = node->value.builtin == BT_DATE ? pfile->date: pfile->time;
       break;
 
-    case BT_WEAK:
-      make_number_token (pfile, token, SUPPORTS_ONE_ONLY);
-      break;
-
     default:
-      cpp_ice (pfile, "invalid builtin macro \"%s\"", node->name);
+      cpp_ice (pfile, "invalid builtin macro \"%s\"", NODE_NAME (node));
       break;
     }
 
@@ -303,13 +292,12 @@ stringify_arg (pfile, arg)
       unsigned int len = cpp_token_len (token);
 
       escape_it = (token->type == CPP_STRING || token->type == CPP_WSTRING
-		   || token->type == CPP_CHAR || token->type == CPP_WCHAR
-		   || token->type == CPP_OSTRING);
+		   || token->type == CPP_CHAR || token->type == CPP_WCHAR);
 
       if (escape_it)
 	/* Worst case is each char is octal.  */
 	len *= 4;
-      len++;			/* Room for initial space.  */
+      len += 2;			/* Room for initial space and final NUL.  */
 
       dest = &start[total_len];
       if (dest + len > POOL_LIMIT (pool))
@@ -347,7 +335,9 @@ stringify_arg (pfile, arg)
       total_len--;
     }
 
-  POOL_COMMIT (pool, total_len);
+  /* Null terminate, and commit the memory.  */
+  start[total_len] = '\0';
+  POOL_COMMIT (pool, total_len + 1);
 
   arg->stringified = xnew (cpp_token);
   arg->stringified->flags = 0;
@@ -548,7 +538,7 @@ parse_args (pfile, node)
   if (type == CPP_EOF)
     {
       cpp_error (pfile, "unterminated argument list invoking macro \"%s\"",
-		 node->name);
+		 NODE_NAME (node));
       error = 1;
     }
   else if (argc < macro->paramc)
@@ -570,7 +560,7 @@ parse_args (pfile, node)
 	{
 	  cpp_error (pfile,
 		     "macro \"%s\" requires %u arguments, but only %u given",
-		     node->name, macro->paramc, argc);
+		     NODE_NAME (node), macro->paramc, argc);
 	  error = 1;
 	}
     }
@@ -581,7 +571,7 @@ parse_args (pfile, node)
 	{
 	  cpp_error (pfile,
 		     "macro \"%s\" passed %u arguments, but takes just %u",
-		     node->name, argc, macro->paramc);
+		     NODE_NAME (node), argc, macro->paramc);
 	  error = 1;
 	}
     }
@@ -614,24 +604,26 @@ funlike_invocation_p (pfile, node, list)
   cpp_start_lookahead (pfile);
   cpp_get_token (pfile, &maybe_paren);
   cpp_stop_lookahead (pfile, maybe_paren.type == CPP_OPEN_PAREN);
+  pfile->state.parsing_args = 2;
 
   if (maybe_paren.type == CPP_OPEN_PAREN)
     args = parse_args (pfile, node);
   else if (CPP_WTRADITIONAL (pfile) && ! node->value.macro->syshdr)
     cpp_warning (pfile,
 	 "function-like macro \"%s\" must be used with arguments in traditional C",
-		 node->name);
+		 NODE_NAME (node));
 
   /* Restore original context.  */
   pfile->context = orig;
   pfile->state.prevent_expansion--;
   pfile->state.parsing_args = 0;
 
+  /* Reset the position in case of failure.  If success, the macro's
+     expansion appears where the name would have.  */
+  pfile->lexer_pos = macro_pos;
+
   if (args)
     {
-      /* The macro's expansion appears where the name would have.  */
-      pfile->lexer_pos = macro_pos;
-
       if (node->value.macro->paramc > 0)
 	{
 	  /* Don't save tokens during pre-expansion.  */
@@ -1000,12 +992,12 @@ cpp_get_token (pfile, token)
    defined in a system header.  Just checks the macro at the top of
    the stack.  Used for diagnostic suppression.  */
 int
-cpp_sys_objmacro_p (pfile)
+cpp_sys_macro_p (pfile)
      cpp_reader *pfile;
 {
   cpp_macro *macro = pfile->context->macro;
 
-  return macro && ! macro->fun_like && macro->syshdr;
+  return macro && macro->syshdr;
 }
 
 /* Read each token in, until EOF.  Directives are transparently
@@ -1178,9 +1170,9 @@ _cpp_push_token (pfile, token, pos)
 
 /* #define directive parsing and handling.  */
 
-/* Returns non-zero if a macro redefinition is trivial.  */
+/* Returns non-zero if a macro redefinition warning is required.  */
 static int
-check_macro_redefinition (pfile, node, macro2)
+warn_of_redefinition (pfile, node, macro2)
      cpp_reader *pfile;
      const cpp_hashnode *node;
      const cpp_macro *macro2;
@@ -1188,9 +1180,15 @@ check_macro_redefinition (pfile, node, macro2)
   const cpp_macro *macro1;
   unsigned int i;
 
-  if (node->type != NT_MACRO || node->flags & NODE_BUILTIN)
-    return ! pfile->done_initializing;
+  /* Some redefinitions need to be warned about regardless.  */
+  if (node->flags & NODE_WARN)
+    return 1;
 
+  if (! CPP_PEDANTIC (pfile))
+    return 0;
+
+  /* Redefinition of a macro is allowed if and only if the old and new
+     definitions are the same.  (6.10.3 paragraph 2). */
   macro1 = node->value.macro;
 
   /* The quick failures.  */
@@ -1198,19 +1196,19 @@ check_macro_redefinition (pfile, node, macro2)
       || macro1->paramc != macro2->paramc
       || macro1->fun_like != macro2->fun_like
       || macro1->variadic != macro2->variadic)
-    return 0;
+    return 1;
 
   /* Check each token.  */
   for (i = 0; i < macro1->count; i++)
     if (! _cpp_equiv_tokens (&macro1->expansion[i], &macro2->expansion[i]))
-      return 0;
+      return 1;
 
   /* Check parameter spellings.  */
   for (i = 0; i < macro1->paramc; i++)
     if (macro1->params[i] != macro2->params[i])
-      return 0;
+      return 1;
 
-  return 1;
+  return 0;
 }
 
 /* Free the definition of hashnode H.  */
@@ -1236,7 +1234,7 @@ save_parameter (pfile, macro, node)
   /* Constraint 6.10.3.6 - duplicate parameter names.  */
   if (node->arg_index)
     {
-      cpp_error (pfile, "duplicate macro parameter \"%s\"", node->name);
+      cpp_error (pfile, "duplicate macro parameter \"%s\"", NODE_NAME (node));
       return 1;
     }
 
@@ -1472,19 +1470,15 @@ _cpp_create_definition (pfile, node)
   /* Commit the memory.  */
   POOL_COMMIT (&pfile->macro_pool, macro->count * sizeof (cpp_token));
 
-  /* Redefinition of a macro is allowed if and only if the old and new
-     definitions are the same.  (6.10.3 paragraph 2). */
   if (node->type != NT_VOID)
     {
-      if (CPP_PEDANTIC (pfile)
-	  && !check_macro_redefinition (pfile, node, macro))
+      if (warn_of_redefinition (pfile, node, macro))
 	{
 	  cpp_pedwarn_with_line (pfile, pfile->directive_pos.line,
 				 pfile->directive_pos.col,
-				 "\"%s\" redefined", node->name);
+				 "\"%s\" redefined", NODE_NAME (node));
 
-	  if (pfile->done_initializing && node->type == NT_MACRO
-	      && !(node->flags & NODE_BUILTIN))
+	  if (node->type == NT_MACRO && !(node->flags & NODE_BUILTIN))
 	    cpp_pedwarn_with_file_and_line (pfile,
 					    node->value.macro->file,
 					    node->value.macro->line, 1,
@@ -1496,6 +1490,8 @@ _cpp_create_definition (pfile, node)
   /* Enter definition in hash table.  */
   node->type = NT_MACRO;
   node->value.macro = macro;
+  if (! ustrncmp (NODE_NAME (node), DSC ("__STDC_")))
+    node->flags |= NODE_WARN;
 
  cleanup:
 
@@ -1541,20 +1537,22 @@ check_trad_stringification (pfile, macro, string)
 	{
 	  const cpp_hashnode *node = macro->params[i];
 
-	  if (node->length == len && !memcmp (p, node->name, len))
+	  if (NODE_LEN (node) == len
+	      && !memcmp (p, NODE_NAME (node), len))
 	    {
 	      cpp_warning (pfile,
 	   "macro argument \"%s\" would be stringified with -traditional.",
-			   node->name);
+			   NODE_NAME (node));
 	      break;
 	    }
 	}
     }
 }
 
-/* Returns the expansion of a macro, in a format suitable to be read
-   back in again, and therefore also for DWARF 2 debugging info.
-   Caller is expected to generate the "#define NAME" bit.  The
+/* Returns the name, arguments and expansion of a macro, in a format
+   suitable to be read back in again, and therefore also for DWARF 2
+   debugging info.  e.g. "PASTE(X, Y) X ## Y", or "MACNAME EXPANSION".
+   Caller is expected to generate the "#define" bit if needed.  The
    returned text is temporary, and automatically freed later.  */
 
 const unsigned char *
@@ -1568,17 +1566,18 @@ cpp_macro_definition (pfile, node)
 
   if (node->type != NT_MACRO || (node->flags & NODE_BUILTIN))
     {
-      cpp_ice (pfile, "invalid hash type %d in dump_definition", node->type);
+      cpp_ice (pfile, "invalid hash type %d in cpp_macro_definition", node->type);
       return 0;
     }
 
   /* Calculate length.  */
-  len = 1;			/* ' ' */
+  len = NODE_LEN (node) + 1;			/* ' ' */
   if (macro->fun_like)
     {
-      len += 3;		/* "()" plus possible final "." of ellipsis.  */
+      len += 3;		/* "()" plus possible final "." of named
+			   varargs (we have + 2 below).  */
       for (i = 0; i < macro->paramc; i++)
-	len += macro->params[i]->length + 2; /* ", " */
+	len += NODE_LEN (macro->params[i]) + 2; /* ", " */
     }
 
   for (i = 0; i < macro->count; i++)
@@ -1586,7 +1585,7 @@ cpp_macro_definition (pfile, node)
       cpp_token *token = &macro->expansion[i];
 
       if (token->type == CPP_MACRO_ARG)
-	len += macro->params[token->val.arg_no - 1]->length;
+	len += NODE_LEN (macro->params[token->val.arg_no - 1]);
       else
 	len += cpp_token_len (token); /* Includes room for ' '.  */
       if (token->flags & STRINGIFY_ARG)
@@ -1600,7 +1599,11 @@ cpp_macro_definition (pfile, node)
       pfile->macro_buffer = (U_CHAR *) xrealloc (pfile->macro_buffer, len);
       pfile->macro_buffer_len = len;
     }
+
+  /* Fill in the buffer.  Start with the macro name.  */
   buffer = pfile->macro_buffer;
+  memcpy (buffer, NODE_NAME (node), NODE_LEN (node));
+  buffer += NODE_LEN (node);
 
   /* Parameter names.  */
   if (macro->fun_like)
@@ -1612,8 +1615,8 @@ cpp_macro_definition (pfile, node)
 
 	  if (param != pfile->spec_nodes.n__VA_ARGS__)
 	    {
-	      memcpy (buffer, param->name, param->length);
-	      buffer += param->length;
+	      memcpy (buffer, NODE_NAME (param), NODE_LEN (param));
+	      buffer += NODE_LEN (param);
 	    }
 
 	  if (i + 1 < macro->paramc)
@@ -1639,8 +1642,9 @@ cpp_macro_definition (pfile, node)
 
 	  if (token->type == CPP_MACRO_ARG)
 	    {
-	      len = macro->params[token->val.arg_no - 1]->length;
-	      memcpy (buffer, macro->params[token->val.arg_no - 1]->name, len);
+	      len = NODE_LEN (macro->params[token->val.arg_no - 1]);
+	      memcpy (buffer,
+		      NODE_NAME (macro->params[token->val.arg_no - 1]), len);
 	      buffer += len;
 	    }
 	  else

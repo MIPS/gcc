@@ -1,6 +1,6 @@
 /* Configuration for GNU C-compiler for hosting on Windows32.
    using GNU tools and the Windows32 API Library.
-   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -19,18 +19,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. */
 
-#ifndef USG
-#define USG 1
-#endif
-
-#ifndef ONLY_INT_FIELD
-#define ONLY_INT_FIELDS 1
-#endif
-
-#ifndef USE_PROTOTYPES
-#define USE_PROTOTYPES 1
-#endif
-
 #define environ _environ
 
 /* Even though we support "/", allow "\" since everybody tests both.  */
@@ -41,7 +29,7 @@ Boston, MA 02111-1307, USA. */
    like Cygwin does.  */
 #define HAVE_DOS_BASED_FILE_SYSTEM
 
-#define EXECUTABLE_SUFFIX ".exe"
+#define HOST_EXECUTABLE_SUFFIX ".exe"
 
 #undef PATH_SEPARATOR
 #define PATH_SEPARATOR ';'

@@ -1,5 +1,5 @@
 /* Function integration definitions for GNU C-Compiler
-   Copyright (C) 1990, 1995, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1995, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -47,6 +47,10 @@ struct inline_remap
   /* Mapping from old registers to new registers.
      It is allocated and deallocated in `expand_inline_function' */
   rtx *reg_map;
+#if defined (LEAF_REGISTERS) && defined (LEAF_REG_REMAP)
+  /* Mapping from old leaf registers to new leaf registers.  */
+  rtx leaf_reg_map[FIRST_PSEUDO_REGISTER][NUM_MACHINE_MODES];
+#endif
   /* Mapping from old code-labels to new code-labels.
      The first element of this map is label_map[min_labelno].  */
   rtx *label_map;
@@ -93,6 +97,9 @@ struct inline_remap
   /* Likewise, this is the copied constraints vector.  */
   rtvec copy_asm_constraints_vector;
 
+  /* Target of a return insn, if needed and inlining.  */
+  rtx local_return_label;
+
   /* Indications for regs being pointers and their alignment.  */
   unsigned char *regno_pointer_align;
   rtx *x_regno_reg_rtx;
@@ -121,6 +128,22 @@ struct inline_remap
 /* Return a copy of an rtx (as needed), substituting pseudo-register,
    labels, and frame-pointer offsets as necessary.  */
 extern rtx copy_rtx_and_substitute PARAMS ((rtx, struct inline_remap *, int));
+
+/* Return a pseudo that corresponds to the value in the specified hard
+   reg as of the start of the function (for inlined functions, the
+   value at the start of the parent function).  */
+extern rtx get_hard_reg_initial_val		PARAMS ((enum machine_mode, int));
+/* Likewise, but for a different than the current function, or
+   arbitrary expression.  */
+extern rtx get_func_hard_reg_initial_val	PARAMS ((struct function *, rtx));
+/* Likewise, but iff someone else has caused it to become allocated.  */
+extern rtx has_func_hard_reg_initial_val	PARAMS ((struct function *, rtx));
+/* Likewise, but for common cases.  */
+extern rtx has_hard_reg_initial_val		PARAMS ((enum machine_mode, int));
+/* This is for GC.  */
+extern void mark_hard_reg_initial_vals		PARAMS ((struct function *));
+/* Called from rest_of_compilation.  */
+extern void emit_initial_value_sets		PARAMS ((void));
 
 /* Copy a declaration when one function is substituted inline into
    another.  */

@@ -649,10 +649,6 @@ maybe ac0 ? - as option someday! */
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
-/* This macro generates the assembly code for function entry. */
-#define FUNCTION_PROLOGUE(FILE, SIZE) \
-    output_function_prologue(FILE, SIZE);
-
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
@@ -668,15 +664,6 @@ extern int may_call_alloca;
 
 #define EXIT_IGNORE_STACK	1
 
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-*/
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) \
-    output_function_epilogue(FILE, SIZE);
-  
 #define INITIAL_FRAME_POINTER_OFFSET(DEPTH_VAR)	\
 {								\
   int offset, regno;		      				\
@@ -1196,21 +1183,6 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "["
-#define ASM_CLOSE_PAREN "]"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
-
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
    For `%' followed by punctuation, CODE is the punctuation and X is null.
@@ -1244,10 +1216,6 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 (                                                       	\
   fprintf (FILE, "\tmov (sp)+, %s\n", reg_names[REGNO])     	\
 )
-
-
-#define ASM_IDENTIFY_GCC(FILE)			\
-    fprintf(FILE, "gcc_compiled:\n")
 
 /* trampoline - how should i do it in separate i+d ? 
    have some allocate_trampoline magic??? 
@@ -1398,4 +1366,3 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
 
 
 #define COMPARE_FLAG_MODE HImode
-

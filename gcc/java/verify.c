@@ -294,8 +294,6 @@ type_stack_dup (size, offset)
 {
   tree type[4];
   int index;
-  if (size + offset > stack_pointer)
-    error ("stack underflow - dup* operation");
   for (index = 0;  index < size + offset; index++)
     {
       type[index] = stack_type_map[stack_pointer - 1];
@@ -413,7 +411,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
   int PC;
   int oldpc = 0; /* PC of start of instruction. */
   int prevpc = 0;  /* If >= 0, PC of previous instruction. */
-  const char *message;
+  const char *message = 0;
   char *pmessage;
   int i;
   int index;
@@ -903,9 +901,15 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	case OPCODE_putfield:  is_putting = 1;  is_static = 0;  goto field;
 	field:
 	  {
-	    int index = IMMEDIATE_u2;
-	    tree field_signature = COMPONENT_REF_SIGNATURE (&current_jcf->cpool, index);
-	    tree field_type = get_type_from_signature (field_signature);
+	    tree field_signature, field_type;
+	    index = IMMEDIATE_u2;
+	    if (index <= 0 || index >= JPOOL_SIZE(current_jcf))
+	      VERIFICATION_ERROR_WITH_INDEX ("bad constant pool index %d");
+	    if (JPOOL_TAG (current_jcf, index) != CONSTANT_Fieldref)
+	      VERIFICATION_ERROR
+		("field instruction does not reference a Fieldref");
+	    field_signature = COMPONENT_REF_SIGNATURE (&current_jcf->cpool, index);
+	    field_type = get_type_from_signature (field_signature);
 	    if (is_putting)
 	      POP_TYPE (field_type, "incorrect type for field");
 	    if (! is_static)
@@ -923,12 +927,18 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	case OPCODE_new:
 	  PUSH_TYPE (get_class_constant (jcf, IMMEDIATE_u2));
 	  break;
-	case OPCODE_dup:     type_stack_dup (1, 0);  break;
-	case OPCODE_dup_x1:  type_stack_dup (1, 1);  break;
-	case OPCODE_dup_x2:  type_stack_dup (1, 2);  break;
-	case OPCODE_dup2:    type_stack_dup (2, 0);  break;
-	case OPCODE_dup2_x1: type_stack_dup (2, 1);  break;
-	case OPCODE_dup2_x2: type_stack_dup (2, 2);  break;
+	case OPCODE_dup:     wide = 1; index = 0;  goto dup;
+	case OPCODE_dup_x1:  wide = 1; index = 1;  goto dup;
+	case OPCODE_dup_x2:  wide = 1; index = 2;  goto dup;
+	case OPCODE_dup2:    wide = 2; index = 0;  goto dup;
+	case OPCODE_dup2_x1: wide = 2; index = 1;  goto dup;
+	case OPCODE_dup2_x2: wide = 2; index = 2;  goto dup;
+	dup:
+	  if (wide + index > stack_pointer)
+	    VERIFICATION_ERROR ("stack underflow - dup* operation");
+	  type_stack_dup (wide, index);
+	  wide = 0;
+	  break;
 	case OPCODE_pop:  index = 1;  goto pop;
 	case OPCODE_pop2: index = 2;  goto pop;
 	pop:
@@ -955,7 +965,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	  index = IMMEDIATE_u2;  goto ldc;
 	ldc:
 	  if (index <= 0 || index >= JPOOL_SIZE(current_jcf))
-	    VERIFICATION_ERROR ("bad constant pool index in ldc");
+	    VERIFICATION_ERROR_WITH_INDEX ("bad constant pool index %d in ldc");
 	  int_value = -1;
 	  switch (JPOOL_TAG (current_jcf, index) & ~CONSTANT_ResolvedFlag)
 	    {
@@ -984,13 +994,32 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	case OPCODE_invokestatic:
 	case OPCODE_invokeinterface:
 	  {
-	    int index = IMMEDIATE_u2;
-	    tree sig = COMPONENT_REF_SIGNATURE (&current_jcf->cpool, index);
-	    tree self_type = get_class_constant
+	    tree sig, method_name, method_type, self_type;
+	    int self_is_interface, tag;
+	    index = IMMEDIATE_u2;
+	    if (index <= 0 || index >= JPOOL_SIZE(current_jcf))
+	      VERIFICATION_ERROR_WITH_INDEX
+		("bad constant pool index %d for invoke");
+	    tag = JPOOL_TAG (current_jcf, index);
+	    if (op_code == OPCODE_invokeinterface)
+	      {
+		if (tag != CONSTANT_InterfaceMethodref)
+		  VERIFICATION_ERROR
+		    ("invokeinterface does not reference an InterfaceMethodref");
+	      }
+	    else
+	      {
+		if (tag != CONSTANT_Methodref)
+		  VERIFICATION_ERROR ("invoke does not reference a Methodref");
+	      }
+	    sig = COMPONENT_REF_SIGNATURE (&current_jcf->cpool, index);
+	    self_type = get_class_constant
 	      (current_jcf, COMPONENT_REF_CLASS_INDEX (&current_jcf->cpool,
 						       index));
-	    tree method_name = COMPONENT_REF_NAME (&current_jcf->cpool, index);
-	    tree method_type;
+	    if (! CLASS_LOADED_P (self_type))
+	      load_class (self_type, 1);
+	    self_is_interface = CLASS_INTERFACE (TYPE_NAME (self_type));
+	    method_name = COMPONENT_REF_NAME (&current_jcf->cpool, index);
 	    method_type = parse_signature_string (IDENTIFIER_POINTER (sig),
 						  IDENTIFIER_LENGTH (sig));
 	    if (TREE_CODE (method_type) != FUNCTION_TYPE)
@@ -1023,7 +1052,14 @@ verify_jvm_instructions (jcf, byte_ops, length)
 		  if (!nargs || notZero)
 		      VERIFICATION_ERROR 
 		        ("invalid argument number in invokeinterface");
-		  break;		  
+		  /* If we verify/resolve the constant pool, as we should,
+		     this test (and the one just following) are redundant.  */
+		  if (! self_is_interface)
+		    VERIFICATION_ERROR ("invokeinterface calls method not in interface");
+		  break;
+		default:
+		  if (self_is_interface)
+		    VERIFICATION_ERROR ("method in interface called");
 		}
 	      }
 
@@ -1133,7 +1169,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 
 	case OPCODE_athrow:
 	  /* FIXME: athrow also empties the stack. */
-	  pop_type (throwable_type_node);
+	  POP_TYPE (throwable_type_node, "missing throwable at athrow" );
 	  INVALIDATE_PC;
 	  break;
 
@@ -1152,7 +1188,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	  {
 	    jint low, high;
 
-	    pop_type (int_type_node);
+	    POP_TYPE (int_type_node, "missing int for tableswitch");
 	    while (PC%4)
 	      {
 	        if (byte_ops[PC++])
@@ -1175,7 +1211,7 @@ verify_jvm_instructions (jcf, byte_ops, length)
 	  {
 	    jint npairs, last = 0, not_registered = 1;
 
-	    pop_type (int_type_node);
+	    POP_TYPE (int_type_node, "missing int for lookupswitch");
 	    while (PC%4)
 	      {
 	        if (byte_ops[PC++])

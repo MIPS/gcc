@@ -227,7 +227,8 @@ extern const char *ia64_fixed_range_string;
    `cc1'.  It can also specify how to translate options you give to GNU CC into
    options for GNU CC to pass to the `cc1'.  */
 
-/* #define CC1_SPEC "" */
+#undef CC1_SPEC
+#define CC1_SPEC "%{G*}"
 
 /* A C string constant that tells the GNU CC driver program options to pass to
    `cc1plus'.  It can also specify how to translate options you give to GNU CC
@@ -469,7 +470,8 @@ while (0)
 
 /* Tell real.c that this is the 80-bit Intel extended float format
    packaged in a 128-bit entity.  */
-#define INTEL_EXTENDED_IEEE_FORMAT
+
+#define INTEL_EXTENDED_IEEE_FORMAT 1
 
 /* An expression whose value is 1 or 0, according to whether the type `char'
    should be signed or unsigned by default.  The user can always override this
@@ -503,22 +505,6 @@ while (0)
    the constant value that is the largest value that `WCHAR_TYPE_SIZE' can have
    at run-time.  This is used in `cpp'.  */
 /* #define MAX_WCHAR_TYPE_SIZE */
-
-/* A C constant expression for the integer value for escape sequence
-   `\a'.  */
-#define TARGET_BELL 0x7
-
-/* C constant expressions for the integer values for escape sequences
-   `\b', `\t' and `\n'.  */
-#define TARGET_BS	0x8
-#define TARGET_TAB	0x9
-#define TARGET_NEWLINE	0xa
-
-/* C constant expressions for the integer values for escape sequences
-   `\v', `\f' and `\r'.  */
-#define TARGET_VT	0xb
-#define TARGET_FF	0xc
-#define TARGET_CR	0xd
 
 
 /* Register Basics */
@@ -823,7 +809,7 @@ while (0)
   ((REGNO) == PR_REG (0) && (MODE) == DImode ? 64			\
    : PR_REGNO_P (REGNO) && (MODE) == BImode ? 2				\
    : PR_REGNO_P (REGNO) && (MODE) == CCImode ? 1			\
-   : FR_REGNO_P (REGNO) && (MODE) == TFmode ? 1				\
+   : FR_REGNO_P (REGNO) && (MODE) == TFmode && INTEL_EXTENDED_IEEE_FORMAT ? 1 \
    : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* A C expression that is nonzero if it is permissible to store a value of mode
@@ -832,7 +818,10 @@ while (0)
 
 #define HARD_REGNO_MODE_OK(REGNO, MODE)				\
   (FR_REGNO_P (REGNO) ?						\
-     GET_MODE_CLASS (MODE) != MODE_CC && (MODE) != TImode && (MODE) != BImode \
+     GET_MODE_CLASS (MODE) != MODE_CC &&			\
+     (MODE) != TImode &&					\
+     (MODE) != BImode &&					\
+     ((MODE) != TFmode || INTEL_EXTENDED_IEEE_FORMAT) 		\
    : PR_REGNO_P (REGNO) ?					\
      (MODE) == BImode || GET_MODE_CLASS (MODE) == MODE_CC	\
    : GR_REGNO_P (REGNO) ? (MODE) != CCImode && (MODE) != TFmode	\
@@ -1382,11 +1371,15 @@ do {									\
 /* If defined, a C expression that gives the alignment boundary, in bits, of an
    argument with the specified mode and type.  */
 
-/* Arguments larger than 64 bits require 128 bit alignment.  */
+/* Arguments with alignment larger than 8 bytes start at the next even
+   boundary.  See ia64_function_arg.  */
 
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE) \
-  (((((MODE) == BLKmode ? int_size_in_bytes (TYPE) : GET_MODE_SIZE (MODE)) \
-     + UNITS_PER_WORD - 1) / UNITS_PER_WORD) > 1 ? 128 : PARM_BOUNDARY)
+  (((TYPE) ? (TYPE_ALIGN (TYPE) > 8 * BITS_PER_UNIT)		\
+    : (((((MODE) == BLKmode					\
+	  ? int_size_in_bytes (TYPE) : GET_MODE_SIZE (MODE))	\
+	 + UNITS_PER_WORD - 1) / UNITS_PER_WORD) > 1))		\
+    ? 128 : PARM_BOUNDARY)
 
 /* A C expression that is nonzero if REGNO is the number of a hard register in
    which function arguments are sometimes passed.  This does *not* include
@@ -1418,8 +1411,9 @@ do {									\
 
 #define LIBCALL_VALUE(MODE) \
   gen_rtx_REG (MODE,							\
-	       ((GET_MODE_CLASS (MODE) == MODE_FLOAT			\
-		 || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)	\
+	       (((GET_MODE_CLASS (MODE) == MODE_FLOAT			\
+		 || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT) &&	\
+		      ((MODE) != TFmode || INTEL_EXTENDED_IEEE_FORMAT))	\
 		? FR_RET_FIRST : GR_RET_FIRST))
 
 /* A C expression that is nonzero if REGNO is the number of a hard register in
@@ -1464,16 +1458,6 @@ do {									\
 
 /* Function Entry and Exit */
 
-/* A C compound statement that outputs the assembler code for entry to a
-   function.  */
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) \
-  ia64_function_prologue (FILE, SIZE)
-
-/* This macro notes the end of the prologue.  */
-
-#define FUNCTION_END_PROLOGUE(FILE)  ia64_output_end_prologue (FILE)
-
 /* Define this macro as a C expression that is nonzero if the return
    instruction or the function epilogue ignores the value of the stack pointer;
    in other words, if it is safe to delete an instruction to adjust the stack
@@ -1485,12 +1469,6 @@ do {									\
    used by the epilogue or the `return' pattern.  */
 
 #define EPILOGUE_USES(REGNO) ia64_epilogue_uses (REGNO)
-
-/* A C compound statement that outputs the assembler code for exit from a
-   function.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) \
-  ia64_function_epilogue (FILE, SIZE)
 
 /* Output at beginning of assembler file.  */
 
@@ -1703,12 +1681,6 @@ do {									\
   ia64_initialize_trampoline((ADDR), (FNADDR), (STATIC_CHAIN))
 
 /* Implicit Calls to Library Routines */
-
-/* ??? The ia64 linux kernel requires that we use the standard names for
-   divide and modulo routines.  However, if we aren't careful, lib1funcs.asm
-   will be overridden by libgcc2.c.  We avoid this by using different names
-   for lib1funcs.asm modules, e.g. __divdi3 vs _divdi3.  Since lib1funcs.asm
-   goes into libgcc.a first, the linker will find it first.  */
 
 /* Define this macro if GNU CC should generate calls to the System V (and ANSI
    C) library functions `memcpy' and `memset' rather than the BSD functions
@@ -2144,30 +2116,11 @@ do {									\
 } while (0)
 
 
-/* Output EH data to the unwind segment. */
-#define ASM_OUTPUT_EH_CHAR(FILE, VALUE)					\
-		ASM_OUTPUT_XDATA_CHAR(FILE, ".IA_64.unwind_info", VALUE)
-
-#define ASM_OUTPUT_EH_SHORT(FILE, VALUE)				\
-		ASM_OUTPUT_XDATA_SHORT(FILE, ".IA_64.unwind_info", VALUE)
-
-#define ASM_OUTPUT_EH_INT(FILE, VALUE)					\
-		ASM_OUTPUT_XDATA_INT(FILE, ".IA_64.unwind_info", VALUE)
-
-#define ASM_OUTPUT_EH_DOUBLE_INT(FILE, VALUE)				\
-		ASM_OUTPUT_XDATA_DOUBLE_INT(FILE, ".IA_64.unwind_info", VALUE)
-
 /* A C statement to output to the stdio stream STREAM an assembler instruction
    to assemble a single byte containing the number VALUE.  */
 
 #define ASM_OUTPUT_BYTE(STREAM, VALUE) \
   fprintf (STREAM, "%s0x%x\n", ASM_BYTE_OP, (int)(VALUE) & 0xff)
-
-/* These macros are defined as C string constant, describing the syntax in the
-   assembler for grouping arithmetic expressions.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
 
 
 /* Output of Uninitialized Variables.  */
@@ -2468,26 +2421,6 @@ do {									\
 
 /* Assembler Commands for Exception Regions.  */
 
-/* ??? This entire section of ia64.h needs to be implemented and then cleaned
-   up.  */
-
-/* A C expression to output text to mark the start of an exception region.
-
-   This macro need not be defined on most platforms.  */
-/* #define ASM_OUTPUT_EH_REGION_BEG() */
-
-/* A C expression to output text to mark the end of an exception region.
-
-   This macro need not be defined on most platforms.  */
-/* #define ASM_OUTPUT_EH_REGION_END() */
-
-/* A C expression to switch to the section in which the main exception table is
-   to be placed.  The default is a section named `.gcc_except_table' on machines
-   that support named sections via `ASM_OUTPUT_SECTION_NAME', otherwise if `-fpic'
-   or `-fPIC' is in effect, the `data_section', otherwise the
-   `readonly_data_section'.  */
-/* #define EXCEPTION_SECTION() */
-
 /* If defined, a C string constant for the assembler operation to switch to the
    section for exception handling frame unwind information.  If not defined,
    GNU CC will provide a default definition if the target supports named
@@ -2498,40 +2431,33 @@ do {									\
    information and the default definition does not work.  */
 #define EH_FRAME_SECTION_ASM_OP "\t.section\t.IA_64.unwind,\"aw\""
 
-/* A C expression that is nonzero if the normal exception table output should
-   be omitted.
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)	\
+  (((CODE) == 1 ? DW_EH_PE_textrel : DW_EH_PE_datarel)	\
+   | ((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_udata8)
 
-   This macro need not be defined on most platforms.  */
-/* #define OMIT_EH_TABLE() */
-
-/* Alternate runtime support for looking up an exception at runtime and finding
-   the associated handler, if the default method won't work.
-
-   This macro need not be defined on most platforms.  */
-/* #define EH_TABLE_LOOKUP() */
-
-/* A C expression that decides whether or not the current function needs to
-   have a function unwinder generated for it.  See the file `except.c' for
-   details on when to define this, and how.  */
-/* #define DOESNT_NEED_UNWINDER */
-
-/* An rtx used to mask the return address found via RETURN_ADDR_RTX, so that it
-   does not contain any extraneous set bits in it.  */
-/* #define MASK_RETURN_ADDR */
-
-/* Define this macro to 0 if your target supports DWARF 2 frame unwind
-   information, but it does not yet work with exception handling.  Otherwise,
-   if your target supports this information (if it defines
-   `INCOMING_RETURN_ADDR_RTX' and either `UNALIGNED_INT_ASM_OP' or
-   `OBJECT_FORMAT_ELF'), GCC will provide a default definition of 1.
-
-   If this macro is defined to 1, the DWARF 2 unwinder will be the default
-   exception handling mechanism; otherwise, setjmp/longjmp will be used by
-   default.
-
-   If this macro is defined to anything, the DWARF 2 unwinder will be used
-   instead of inline unwinders and __unwind_function in the non-setjmp case.  */
-/* #define DWARF2_UNWIND_INFO */
+/* Handle special EH pointer encodings.  Absolute, pc-relative, and
+   indirect are handled automatically.  */
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE) \
+  do {									\
+    const char *reltag = NULL;						\
+    if (((ENCODING) & 0xF0) == DW_EH_PE_textrel)			\
+      reltag = "@segrel(";						\
+    else if (((ENCODING) & 0xF0) == DW_EH_PE_datarel)			\
+      reltag = "@gprel(";						\
+    if (reltag)								\
+      {									\
+	fputs (((SIZE) == 4 ? UNALIGNED_INT_ASM_OP			\
+	        : (SIZE) == 8 ? UNALIGNED_DOUBLE_INT_ASM_OP		\
+		: (abort (), "")), FILE);				\
+	fputs (reltag, FILE);						\
+	assemble_name (FILE, XSTR (ADDR, 0));				\
+	fputc (')', FILE);						\
+	goto DONE;							\
+      }									\
+  } while (0)
 
 
 /* Assembler Commands for Alignment.  */
@@ -2595,10 +2521,13 @@ do {									\
 /* Section names for DWARF2 debug info.  */
 
 #define DEBUG_INFO_SECTION	".debug_info, \"\", \"progbits\""
-#define ABBREV_SECTION		".debug_abbrev, \"\", \"progbits\""
-#define ARANGES_SECTION		".debug_aranges, \"\", \"progbits\""
+#define DEBUG_ABBREV_SECTION	".debug_abbrev, \"\", \"progbits\""
+#define DEBUG_ARANGES_SECTION	".debug_aranges, \"\", \"progbits\""
+#define DEBUG_MACINFO_SECTION	".debug_macinfo, \"\", \"progbits\""
 #define DEBUG_LINE_SECTION	".debug_line, \"\", \"progbits\""
-#define PUBNAMES_SECTION	".debug_pubnames, \"\", \"progbits\""
+#define DEBUG_LOC_SECTION	".debug_loc, \"\", \"progbits\""
+#define DEBUG_PUBNAMES_SECTION	".debug_pubnames, \"\", \"progbits\""
+#define DEBUG_STR_SECTION	".debug_str, \"\", \"progbits\""
 
 /* C string constants giving the pseudo-op to use for a sequence of
    2, 4, and 8 byte unaligned constants.  dwarf2out.c needs these.  */
@@ -2632,12 +2561,31 @@ do {									\
    add brackets around the label.  */
 
 #define ASM_OUTPUT_DEBUG_LABEL(FILE, PREFIX, NUM) \
-  do							\
-    {							\
-      fprintf (FILE, "[.%s%d:]\n", PREFIX, NUM);	\
-    }							\
-  while (0)
+  fprintf (FILE, "[.%s%d:]\n", PREFIX, NUM)
 
+/* Use section-relative relocations for debugging offsets.  Unlike other
+   targets that fake this by putting the section VMA at 0, IA-64 has 
+   proper relocations for them.  */
+#define ASM_OUTPUT_DWARF_OFFSET(FILE, SIZE, LABEL)	\
+  do {							\
+    fputs (((SIZE) == 4 ? UNALIGNED_INT_ASM_OP		\
+	    : (SIZE) == 8 ? UNALIGNED_DOUBLE_INT_ASM_OP	\
+	    : (abort (), "")), FILE);			\
+    fputs ("@secrel(", FILE);				\
+    assemble_name (FILE, LABEL);			\
+    fputc (')', FILE);					\
+  } while (0)
+
+/* Emit a PC-relative relocation.  */
+#define ASM_OUTPUT_DWARF_PCREL(FILE, SIZE, LABEL)	\
+  do {							\
+    fputs (((SIZE) == 4 ? UNALIGNED_INT_ASM_OP		\
+	    : (SIZE) == 8 ? UNALIGNED_DOUBLE_INT_ASM_OP	\
+	    : (abort (), "")), FILE);			\
+    fputs ("@pcrel(", FILE);				\
+    assemble_name (FILE, LABEL);			\
+    fputc (')', FILE);					\
+  } while (0)
 
 /* Cross Compilation and Floating Point.  */
 
@@ -2780,13 +2728,6 @@ do {									\
 
 #define HANDLE_SYSV_PRAGMA
 
-/* If defined, a C expression whose value is nonzero if IDENTIFIER with
-   arguments ARGS is a valid machine specific attribute for TYPE.  The
-   attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, IDENTIFIER, ARGS) \
-  ia64_valid_type_attribute (TYPE, ATTRIBUTES, IDENTIFIER, ARGS)
-
 /* In rare cases, correct code generation requires extra machine dependent
    processing between the second jump optimization pass and delayed branch
    scheduling.  On those machines, define this macro as a C statement to act on
@@ -2823,10 +2764,10 @@ do {									\
   ia64_sched_init (DUMP, SCHED_VERBOSE, MAX_READY)
 
 #define MD_SCHED_REORDER(DUMP, SCHED_VERBOSE, READY, N_READY, CLOCK, CIM) \
-  (CIM) = ia64_sched_reorder (DUMP, SCHED_VERBOSE, READY, &N_READY, 0)
+  (CIM) = ia64_sched_reorder (DUMP, SCHED_VERBOSE, READY, &N_READY, 0, CLOCK)
 
 #define MD_SCHED_REORDER2(DUMP, SCHED_VERBOSE, READY, N_READY, CLOCK, CIM) \
-  (CIM) = ia64_sched_reorder2 (DUMP, SCHED_VERBOSE, READY, &N_READY, 1)
+  (CIM) = ia64_sched_reorder2 (DUMP, SCHED_VERBOSE, READY, &N_READY, CLOCK)
 
 #define MD_SCHED_FINISH(DUMP, SCHED_VERBOSE) \
   ia64_sched_finish (DUMP, SCHED_VERBOSE)
@@ -2838,8 +2779,9 @@ do {									\
 extern int ia64_final_schedule;
 
 #define IA64_UNWIND_INFO	1
-#define HANDLER_SECTION fprintf (asm_out_file, "\t.personality\t__ia64_personality_v1\n\t.handlerdata\n");
 #define IA64_UNWIND_EMIT(f,i)	process_for_unwind_directive (f,i)
+
+#define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 15 : INVALID_REGNUM)
 
 /* This function contains machine specific function data.  */
 struct machine_function
@@ -2916,12 +2858,5 @@ enum ia64_builtins
 enum fetchop_code {
   IA64_ADD_OP, IA64_SUB_OP, IA64_OR_OP, IA64_AND_OP, IA64_XOR_OP, IA64_NAND_OP
 };
-
-#define MD_INIT_BUILTINS do { \
-    ia64_init_builtins (); \
-  } while (0)
-
-#define MD_EXPAND_BUILTIN(EXP, TARGET, SUBTARGET, MODE, IGNORE) \
-    ia64_expand_builtin ((EXP), (TARGET), (SUBTARGET), (MODE), (IGNORE))
 
 /* End of ia64.h */

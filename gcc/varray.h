@@ -19,14 +19,14 @@
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#ifndef _VARRAY_H_
-#define _VARRAY_H_
+#ifndef GCC_VARRAY_H
+#define GCC_VARRAY_H
 
 #ifndef HOST_WIDE_INT
 #include "machmode.h"
 #endif
 
-#ifndef __GCC_SYSTEM_H__
+#ifndef GCC_SYSTEM_H
 #include "system.h"
 #endif
 
@@ -77,7 +77,6 @@ typedef union varray_data_tag {
   struct const_equiv_data const_equiv[1];
   struct basic_block_def *bb[1];
   struct elt_list       *te[1];
-  struct i_g_node        *ig[1];  
 } varray_data;
 
 /* Virtual array of pointers header.  */
@@ -157,10 +156,7 @@ extern varray_type varray_init	PARAMS ((size_t, size_t, const char *));
 #define VARRAY_ELT_LIST_INIT(va, num, name) \
   va = varray_init (num, sizeof (struct elt_list *), name)
 
-#define VARRAY_IGNODE_INIT(va, num, name) \
-  va = varray_init (num, sizeof (struct i_g_node *), name)
-
- /* Free up memory allocated by the virtual array, but do not free any of the
+/* Free up memory allocated by the virtual array, but do not free any of the
    elements involved.  */
 #define VARRAY_FREE(vp) \
   do { if (vp) { free (vp); vp = (varray_type)0; } } while (0)
@@ -230,7 +226,6 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_CONST_EQUIV(VA, N)	VARRAY_CHECK (VA, N, const_equiv)
 #define VARRAY_BB(VA, N)		VARRAY_CHECK (VA, N, bb)
 #define VARRAY_ELT_LIST(VA, N)		VARRAY_CHECK (VA, N, te)
-#define VARRAY_IGNODE(VA, N)            VARRAY_CHECK (VA, N, ig)
 
 /* Push a new element on the end of VA, extending it if necessary.  */
 #define VARRAY_PUSH_CHAR(VA, X)		VARRAY_PUSH (VA, c, X)
@@ -253,7 +248,6 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_PUSH_REG(VA, X)		VARRAY_PUSH (VA, reg, X)
 #define VARRAY_PUSH_CONST_EQUIV(VA, X)	VARRAY_PUSH (VA, const_equiv, X)
 #define VARRAY_PUSH_BB(VA, X)		VARRAY_PUSH (VA, bb, X)
-#define VARRAY_PUSH_IG(VA, X)           VARRAY_PUSH (VA, ig, X)
 
 /* Return the last element of VA.  */
 #define VARRAY_TOP_CHAR(VA)		VARRAY_TOP (VA, c)
@@ -266,8 +260,8 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_TOP_ULONG(VA)	        VARRAY_TOP (VA, ul)
 #define VARRAY_TOP_WIDE_INT(VA)	        VARRAY_TOP (VA, hint)
 #define VARRAY_TOP_UWIDE_INT(VA)	VARRAY_TOP (VA, uhint)
-#define VARRAY_TOP_GENERIC_PTR(VA,N)	VARRAY_TOP (VA, generic)
-#define VARRAY_TOP_CHAR_PTR(VA,N)	VARRAY_TOP (VA, cptr)
+#define VARRAY_TOP_GENERIC_PTR(VA)	VARRAY_TOP (VA, generic)
+#define VARRAY_TOP_CHAR_PTR(VA)		VARRAY_TOP (VA, cptr)
 #define VARRAY_TOP_RTX(VA)		VARRAY_TOP (VA, rtx)
 #define VARRAY_TOP_RTVEC(VA)	        VARRAY_TOP (VA, rtvec)
 #define VARRAY_TOP_TREE(VA)		VARRAY_TOP (VA, tree)
@@ -276,5 +270,5 @@ extern void varray_check_failed PARAMS ((varray_type, size_t,
 #define VARRAY_TOP_REG(VA)		VARRAY_TOP (VA, reg)
 #define VARRAY_TOP_CONST_EQUIV(VA)	VARRAY_TOP (VA, const_equiv)
 #define VARRAY_TOP_BB(VA)		VARRAY_TOP (VA, bb)
-#define VARRAY_TOP_IG(VA)               VARRAY_TOP (VA, ig)
-#endif /* _VARRAY_H_ */
+
+#endif /* ! GCC_VARRAY_H */

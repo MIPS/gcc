@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on intel 80960.
-   Copyright (C) 1992, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1992, 1995, 1996, 1997, 1998, 1999, 2000, 2001
    Free Software Foundation, Inc.
    Contributed by Steven McGeady, Intel Corp.
    Additional Work by Glenn Colon-Bonet, Jonathan Shapiro, Andy Wilson
@@ -31,12 +31,10 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
-#include "insn-codes.h"
 #include "expr.h"
 #include "except.h"
 #include "function.h"
@@ -46,6 +44,11 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "c-lex.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
+
+static void i960_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void i960_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 /* Save the operands last given to a compare for use when we
    generate a scc or bcc insn.  */
@@ -55,8 +58,8 @@ rtx i960_compare_op0, i960_compare_op1;
 /* Used to implement #pragma align/noalign.  Initialized by OVERRIDE_OPTIONS
    macro in i960.h.  */
 
-static int i960_maxbitalignment;
-static int i960_last_maxbitalignment;
+int i960_maxbitalignment;
+int i960_last_maxbitalignment;
 
 /* Used to implement switching between MEM and ALU insn types, for better
    C series performance.  */
@@ -88,136 +91,15 @@ static int ret_label = 0;
 ((TYPE_ARG_TYPES (TREE_TYPE (FNDECL)) != 0						      \
   && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (TREE_TYPE (FNDECL)))) != void_type_node))    \
  || current_function_varargs)
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE i960_output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE i960_output_function_epilogue
 
-/* Handle pragmas for compatibility with Intel's compilers.  */
-
-/* NOTE: ic960 R3.0 pragma align definition:
-
-   #pragma align [(size)] | (identifier=size[,...])
-   #pragma noalign [(identifier)[,...]]
-     
-   (all parens are optional)
-     
-   - size is [1,2,4,8,16]
-   - noalign means size==1
-   - applies only to component elements of a struct (and union?)
-   - identifier applies to structure tag (only)
-   - missing identifier means next struct
-     
-   - alignment rules for bitfields need more investigation.
-
-   This implementation only handles the case of no identifiers.  */
-
-void
-i960_pr_align (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-{
-  tree number;
-  enum cpp_ttype type;
-  int align;
-
-  type = c_lex (&number);
-  if (type == CPP_OPEN_PAREN)
-    type = c_lex (&number);
-  if (type == CPP_NAME)
-    {
-      warning ("sorry, not implemented: #pragma align NAME=SIZE");
-      return;
-    }
-  if (type != CPP_NUMBER)
-    {
-      warning ("malformed #pragma align - ignored");
-      return;
-    }
-
-  align = TREE_INT_CST_LOW (number);
-  switch (align)
-    {
-    case 0:
-      /* Return to last alignment.  */
-      align = i960_last_maxbitalignment / 8;
-      /* Fall through.  */
-    case 16:
-    case 8:
-    case 4:
-    case 2:
-    case 1:
-      i960_last_maxbitalignment = i960_maxbitalignment;
-      i960_maxbitalignment = align * 8;
-      break;
-      
-    default:
-      /* Silently ignore bad values.  */
-      break;
-    }
-}
-
-void
-i960_pr_noalign (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
-{
-  enum cpp_ttype type;
-  tree number;
-
-  type = c_lex (&number);
-  if (type == CPP_OPEN_PAREN)
-    type = c_lex (&number);
-  if (type == CPP_NAME)
-    {
-      warning ("sorry, not implemented: #pragma noalign NAME");
-      return;
-    }
-
-  i960_last_maxbitalignment = i960_maxbitalignment;
-  i960_maxbitalignment = 8;
-}
-
-int
-process_pragma (p_getc, p_ungetc, pname)
-     int (*  p_getc) PARAMS ((void));
-     void (* p_ungetc) PARAMS ((int));
-     const char *pname;
-{
-  register int c;
-  char buf[20];
-  char *s = buf;
-  int align;
-
-  /* Should be pragma 'far' or equivalent for callx/balx here.  */
-  if (strcmp (pname, "align") != 0)
-    return 0;
-  
-  do
-    {
-      c = p_getc ();
-    }
-  while (c == ' ' || c == '\t');
-
-  if (c == '(')
-    c = p_getc ();
-  
-  while (c >= '0' && c <= '9')
-    {
-      if (s < buf + sizeof buf - 1)
-	*s++ = c;
-      c = p_getc ();
-    }
-  
-  *s = '\0';
-
-  /* We had to read a non-numerical character to get out of the
-     while loop---often a newline.  So, we have to put it back to
-     make sure we continue to parse everything properly.  */
-  
-  p_ungetc (c);
-
-  align = atoi (buf);
-
-  
-  
-  return 1;
-}
-
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 /* Initialize variables before compiling any files.  */
 
 void
@@ -291,7 +173,7 @@ fp_arith_operand (op, mode)
   return (register_operand (op, mode) || fp_literal (op, mode));
 }
 
-/* Return true is OP is a register or a valid signed integer literal.  */
+/* Return true if OP is a register or a valid signed integer literal.  */
 
 int
 signed_arith_operand (op, mode)
@@ -715,8 +597,10 @@ i960_output_move_double (dst, src)
 	  operands[1] = src;
 	  operands[2] = gen_rtx_REG (Pmode, REGNO (dst) + 1);
 	  operands[3] = gen_rtx_MEM (word_mode, operands[2]);
-	  operands[4] = adj_offsettable_operand (operands[3], UNITS_PER_WORD);
-	  output_asm_insn ("lda	%1,%2\n\tld	%3,%0\n\tld	%4,%D0", operands);
+	  operands[4] = adjust_address (operands[3], word_mode,
+					UNITS_PER_WORD);
+	  output_asm_insn
+	    ("lda	%1,%2\n\tld	%3,%0\n\tld	%4,%D0", operands);
 	  return "";
 	}
       else
@@ -728,7 +612,7 @@ i960_output_move_double (dst, src)
       if (REGNO (src) & 1)
 	{
 	  operands[0] = dst;
-	  operands[1] = adj_offsettable_operand (dst, UNITS_PER_WORD);
+	  operands[1] = adjust_address (dst, word_mode, UNITS_PER_WORD);
 	  if (! memory_address_p (word_mode, XEXP (operands[1], 0)))
 	    abort ();
 	  operands[2] = src;
@@ -751,7 +635,7 @@ i960_output_move_double_zero (dst)
 
   operands[0] = dst;
     {
-      operands[1] = adj_offsettable_operand (dst, 4);
+      operands[1] = adjust_address (dst, word_mode, 4);
       output_asm_insn ("st	g14,%0\n\tst	g14,%1", operands);
     }
   return "";
@@ -805,9 +689,12 @@ i960_output_move_quad (dst, src)
 	  operands[1] = src;
 	  operands[2] = gen_rtx_REG (Pmode, REGNO (dst) + 3);
 	  operands[3] = gen_rtx_MEM (word_mode, operands[2]);
-	  operands[4] = adj_offsettable_operand (operands[3], UNITS_PER_WORD);
-	  operands[5] = adj_offsettable_operand (operands[4], UNITS_PER_WORD);
-	  operands[6] = adj_offsettable_operand (operands[5], UNITS_PER_WORD);
+	  operands[4]
+	    = adjust_address (operands[3], word_mode, UNITS_PER_WORD);
+	  operands[5]
+	    = adjust_address (operands[4], word_mode, UNITS_PER_WORD);
+	  operands[6]
+	    = adjust_address (operands[5], word_mode, UNITS_PER_WORD);
 	  output_asm_insn ("lda	%1,%2\n\tld	%3,%0\n\tld	%4,%D0\n\tld	%5,%E0\n\tld	%6,%F0", operands);
 	  return "";
 	}
@@ -820,9 +707,9 @@ i960_output_move_quad (dst, src)
       if (REGNO (src) & 3)
 	{
 	  operands[0] = dst;
-	  operands[1] = adj_offsettable_operand (dst, UNITS_PER_WORD);
-	  operands[2] = adj_offsettable_operand (dst, 2*UNITS_PER_WORD);
-	  operands[3] = adj_offsettable_operand (dst, 3*UNITS_PER_WORD);
+	  operands[1] = adjust_address (dst, word_mode, UNITS_PER_WORD);
+	  operands[2] = adjust_address (dst, word_mode, 2 * UNITS_PER_WORD);
+	  operands[3] = adjust_address (dst, word_mode, 3 * UNITS_PER_WORD);
 	  if (! memory_address_p (word_mode, XEXP (operands[3], 0)))
 	    abort ();
 	  operands[4] = src;
@@ -845,9 +732,9 @@ i960_output_move_quad_zero (dst)
 
   operands[0] = dst;
     {
-      operands[1] = adj_offsettable_operand (dst, 4);
-      operands[2] = adj_offsettable_operand (dst, 8);
-      operands[3] = adj_offsettable_operand (dst, 12);
+      operands[1] = adjust_address (dst, word_mode, 4);
+      operands[2] = adjust_address (dst, word_mode, 8);
+      operands[3] = adjust_address (dst, word_mode, 12);
       output_asm_insn ("st	g14,%0\n\tst	g14,%1\n\tst	g14,%2\n\tst	g14,%3", operands);
     }
   return "";
@@ -1381,16 +1268,16 @@ i960_split_reg_group (reg_groups, nw, subgroup_length)
 
 /* Output code for the function prologue.  */
 
-void
-i960_function_prologue (file, size)
+static void
+i960_output_function_prologue (file, size)
      FILE *file;
-     unsigned int size;
+     HOST_WIDE_INT size;
 {
   register int i, j, nr;
   int n_saved_regs = 0;
   int n_remaining_saved_regs;
-  int lvar_size;
-  int actual_fsize, offset;
+  HOST_WIDE_INT lvar_size;
+  HOST_WIDE_INT actual_fsize, offset;
   int gnw, lnw;
   struct reg_group *g, *l;
   char tmpstr[1000];
@@ -1474,7 +1361,7 @@ i960_function_prologue (file, size)
 	lnw = i960_split_reg_group (l, lnw, g->length);
     }
 
-  actual_fsize = compute_frame_size (size);
+  actual_fsize = compute_frame_size (size) + 4 * n_remaining_saved_regs;
 #if 0
   /* ??? The 1.2.1 compiler does this also.  This is meant to round the frame
      size up to the nearest multiple of 16.  I don't know whether this is
@@ -1526,7 +1413,7 @@ i960_function_prologue (file, size)
 
   /* Take hardware register save area created by the call instruction
      into account, but store them before the argument block area.  */
-  lvar_size = actual_fsize - compute_frame_size (0) - n_saved_regs * 4;
+  lvar_size = actual_fsize - compute_frame_size (0) - n_remaining_saved_regs * 4;
   offset = STARTING_FRAME_OFFSET + lvar_size;
   /* Save registers on stack if needed.  */
   /* ??? Is it worth to use the same algorithm as one for saving
@@ -1659,10 +1546,10 @@ output_function_profiler (file, labelno)
 
 /* Output code for the function epilogue.  */
 
-void
-i960_function_epilogue (file, size)
+static void
+i960_output_function_epilogue (file, size)
      FILE *file;
-     unsigned int size ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT size ATTRIBUTE_UNUSED;
 {
   if (i960_leaf_ret_reg >= 0)
     {
@@ -2694,9 +2581,8 @@ i960_setup_incoming_varargs (cum, mode, type, pretend_size, no_rtl)
       /* ??? Note that we unnecessarily store one extra register for stdarg
 	 fns.  We could optimize this, but it's kept as for now.  */
       regblock = gen_rtx_MEM (BLKmode,
-			  plus_constant (arg_pointer_rtx,
-					 first_reg * 4));
-      MEM_ALIAS_SET (regblock) = get_varargs_alias_set ();
+			      plus_constant (arg_pointer_rtx, first_reg * 4));
+      set_mem_alias_set (regblock, get_varargs_alias_set ());
       move_block_from_reg (first_reg, regblock,
 			   NPARM_REGS - first_reg,
 			   (NPARM_REGS - first_reg) * UNITS_PER_WORD);

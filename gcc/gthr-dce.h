@@ -1,6 +1,6 @@
 
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -26,8 +26,8 @@ Boston, MA 02111-1307, USA.  */
    This exception does not however invalidate any other reasons why
    the executable file might be covered by the GNU General Public License.  */
 
-#ifndef __gthr_dce_h
-#define __gthr_dce_h
+#ifndef GCC_GTHR_DCE_H
+#define GCC_GTHR_DCE_H
 
 /* DCE threads interface.
    DCE threads are based on POSIX threads draft 4, and many things
@@ -36,6 +36,12 @@ Boston, MA 02111-1307, USA.  */
 #define __GTHREADS 1
 
 #include <pthread.h>
+
+#ifdef __cplusplus
+#define UNUSED(x) x
+#else
+#define UNUSED(x) x __attribute__((unused))
+#endif
 
 typedef pthread_key_t __gthread_key_t;
 typedef pthread_once_t __gthread_once_t;
@@ -73,7 +79,7 @@ typedef pthread_mutex_t __gthread_mutex_t;
 #pragma weak pthread_yield
 #endif
 
-static void *__gthread_active_ptr = &pthread_create;
+static void *__gthread_active_ptr = (void *) &pthread_create;
 
 static inline int
 __gthread_active_p (void)
@@ -412,17 +418,26 @@ __gthread_key_create (__gthread_key_t *key, void (*dtor) (void *))
 }
 
 static inline int
-__gthread_key_dtor (__gthread_key_t key, void *ptr)
+__gthread_key_dtor (UNUSED (__gthread_key_t key), UNUSED (void *ptr))
 {
   /* Nothing needed. */
   return 0;
 }
 
+#if defined (__PTHREAD_LIBRARY_VERSION_1) && __PTHREAD_LIBRARY_VERSION_1 >= 1
 static inline int
 __gthread_key_delete (__gthread_key_t key)
 {
   return pthread_key_delete (key);
 }
+#else
+static inline int
+__gthread_key_delete (UNUSED (__gthread_key_t key))
+{
+  /* Operation is not supported.  */
+  return -1;
+}
+#endif
 
 static inline void *
 __gthread_getspecific (__gthread_key_t key)
@@ -469,4 +484,6 @@ __gthread_mutex_unlock (__gthread_mutex_t *mutex)
 
 #endif /* _LIBOBJC */
 
-#endif /* not __gthr_dce_h */
+#undef UNUSED
+
+#endif /* ! GCC_GTHR_DCE_H */

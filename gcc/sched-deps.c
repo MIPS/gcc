@@ -1,7 +1,7 @@
 /* Instruction scheduling pass.  This file computes dependencies between
    instructions.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000 Free Software Foundation, Inc.
+   1999, 2000, 2001 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -197,7 +197,6 @@ add_dependence (insn, elem, dep_type)
 {
   rtx link, next;
   int present_p;
-  enum reg_note present_dep_type;
   rtx cond1, cond2;
 
   /* Don't depend an insn on itself.  */
@@ -271,10 +270,13 @@ add_dependence (insn, elem, dep_type)
      dramatically for some code.  */
   if (true_dependency_cache != NULL)
     {
+      enum reg_note present_dep_type = 0;
+
       if (anti_dependency_cache == NULL || output_dependency_cache == NULL)
 	abort ();
       if (TEST_BIT (true_dependency_cache[INSN_LUID (insn)], INSN_LUID (elem)))
-	present_dep_type = 0;
+	/* Do nothing (present_set_type is already 0).  */
+	;
       else if (TEST_BIT (anti_dependency_cache[INSN_LUID (insn)],
 			 INSN_LUID (elem)))
 	present_dep_type = REG_DEP_ANTI;
@@ -616,7 +618,9 @@ sched_analyze_1 (deps, x, insn)
 		SET_REGNO_REG_SET (reg_pending_clobbers, r);
 
 	      /* Function calls clobber all call_used regs.  */
-	      if (global_regs[r] || (code == SET && call_used_regs[r]))
+	      if (global_regs[r]
+		  || (code == SET
+		      && TEST_HARD_REG_BIT (regs_invalidated_by_call, r)))
 		for (u = deps->last_function_call; u; u = XEXP (u, 1))
 		  add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
 	    }
@@ -972,6 +976,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
      rtx loop_notes;
 {
   register RTX_CODE code = GET_CODE (x);
+  int schedule_barrier_found = 0;
   rtx link;
   int i;
 
@@ -1021,24 +1026,13 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 
   if (GET_CODE (insn) == JUMP_INSN)
     {
-      rtx next, u, pending, pending_mem;
+      rtx next;
       next = next_nonnote_insn (insn);
       if (next && GET_CODE (next) == BARRIER)
-	{
-	  for (i = 0; i < deps->max_reg; i++)
-	    {
-	      struct deps_reg *reg_last = &deps->reg_last[i];
-
-	      for (u = reg_last->uses; u; u = XEXP (u, 1))
-		add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
-	      for (u = reg_last->sets; u; u = XEXP (u, 1))
-		add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
-	      for (u = reg_last->clobbers; u; u = XEXP (u, 1))
-		add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
-	    }
-	}
+	schedule_barrier_found = 1;
       else
 	{
+	  rtx pending, pending_mem, u;
 	  regset_head tmp;
 	  INIT_REG_SET (&tmp);
 
@@ -1053,34 +1047,46 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	    });
 
 	  CLEAR_REG_SET (&tmp);
-	}
-      pending = deps->pending_write_insns;
-      pending_mem = deps->pending_write_mems;
-      while (pending)
-	{
-	  add_dependence (insn, XEXP (pending, 0), 0);
 
-	  pending = XEXP (pending, 1);
-	  pending_mem = XEXP (pending_mem, 1);
-	}
+	  /* All memory writes and volatile reads must happen before the
+	     jump.  Non-volatile reads must happen before the jump iff
+	     the result is needed by the above register used mask.  */
 
-      for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
-	add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
+	  pending = deps->pending_write_insns;
+	  pending_mem = deps->pending_write_mems;
+	  while (pending)
+	    {
+	      add_dependence (insn, XEXP (pending, 0), REG_DEP_OUTPUT);
+	      pending = XEXP (pending, 1);
+	      pending_mem = XEXP (pending_mem, 1);
+	    }
+
+	  pending = deps->pending_read_insns;
+	  pending_mem = deps->pending_read_mems;
+	  while (pending)
+	    {
+	      if (MEM_VOLATILE_P (XEXP (pending_mem, 0)))
+		add_dependence (insn, XEXP (pending, 0), REG_DEP_OUTPUT);
+	      pending = XEXP (pending, 1);
+	      pending_mem = XEXP (pending_mem, 1);
+	    }
+
+	  for (u = deps->last_pending_memory_flush; u; u = XEXP (u, 1))
+	    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
+	}
     }
 
   /* If there is a {LOOP,EHREGION}_{BEG,END} note in the middle of a basic
      block, then we must be sure that no instructions are scheduled across it.
      Otherwise, the reg_n_refs info (which depends on loop_depth) would
      become incorrect.  */
-
   if (loop_notes)
     {
-      int schedule_barrier_found = 0;
       rtx link;
 
       /* Update loop_notes with any notes from this insn.  Also determine
 	 if any of the notes on the list correspond to instruction scheduling
-	 barriers (loop, eh & setjmp notes, but not range notes.  */
+	 barriers (loop, eh & setjmp notes, but not range notes).  */
       link = loop_notes;
       while (XEXP (link, 1))
 	{
@@ -1095,30 +1101,36 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	}
       XEXP (link, 1) = REG_NOTES (insn);
       REG_NOTES (insn) = loop_notes;
+    }
 
-      /* Add dependencies if a scheduling barrier was found.  */
-      if (schedule_barrier_found)
+  /* If this instruction can throw an exception, then moving it changes
+     where block boundaries fall.  This is mighty confusing elsewhere. 
+     Therefore, prevent such an instruction from being moved.  */
+  if (flag_non_call_exceptions && can_throw_internal (insn))
+    schedule_barrier_found = 1;
+
+  /* Add dependencies if a scheduling barrier was found.  */
+  if (schedule_barrier_found)
+    {
+      rtx u;
+
+      for (i = 0; i < deps->max_reg; i++)
 	{
-	  for (i = 0; i < deps->max_reg; i++)
-	    {
-	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      rtx u;
+	  struct deps_reg *reg_last = &deps->reg_last[i];
 
-	      for (u = reg_last->uses; u; u = XEXP (u, 1))
-		add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
-	      for (u = reg_last->sets; u; u = XEXP (u, 1))
-		add_dependence (insn, XEXP (u, 0), 0);
-	      for (u = reg_last->clobbers; u; u = XEXP (u, 1))
-		add_dependence (insn, XEXP (u, 0), 0);
+	  for (u = reg_last->uses; u; u = XEXP (u, 1))
+	    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
+	  for (u = reg_last->sets; u; u = XEXP (u, 1))
+	    add_dependence (insn, XEXP (u, 0), 0);
+	  for (u = reg_last->clobbers; u; u = XEXP (u, 1))
+	    add_dependence (insn, XEXP (u, 0), 0);
 
-	      if (GET_CODE (PATTERN (insn)) != COND_EXEC)
-		free_INSN_LIST_list (&reg_last->uses);
-	    }
-	  reg_pending_sets_all = 1;
-
-	  flush_pending_lists (deps, insn, 0);
+	  if (GET_CODE (PATTERN (insn)) != COND_EXEC)
+	    free_INSN_LIST_list (&reg_last->uses);
 	}
+      flush_pending_lists (deps, insn, 0);
 
+      reg_pending_sets_all = 1;
     }
 
   /* Accumulate clobbers until the next set so that it will be output
@@ -1531,14 +1543,14 @@ free_dependency_caches ()
 {
   if (true_dependency_cache)
     {
-      free (true_dependency_cache);
+      sbitmap_vector_free (true_dependency_cache);
       true_dependency_cache = NULL;
-      free (anti_dependency_cache);
+      sbitmap_vector_free (anti_dependency_cache);
       anti_dependency_cache = NULL;
-      free (output_dependency_cache);
+      sbitmap_vector_free (output_dependency_cache);
       output_dependency_cache = NULL;
 #ifdef ENABLE_CHECKING
-      free (forward_dependency_cache);
+      sbitmap_vector_free (forward_dependency_cache);
       forward_dependency_cache = NULL;
 #endif
     }

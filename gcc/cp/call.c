@@ -34,6 +34,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "expr.h"
 #include "ggc.h"
+#include "diagnostic.h"
 
 extern int inhibit_warnings;
 
@@ -45,6 +46,7 @@ static int equal_functions PARAMS ((tree, tree));
 static int joust PARAMS ((struct z_candidate *, struct z_candidate *, int));
 static int compare_ics PARAMS ((tree, tree));
 static tree build_over_call PARAMS ((struct z_candidate *, tree, int));
+static tree build_java_interface_fn_ref PARAMS ((tree, tree));
 #define convert_like(CONV, EXPR) convert_like_real (CONV, EXPR, NULL_TREE, 0, 0)
 #define convert_like_with_context(CONV, EXPR, FN, ARGNO) convert_like_real (CONV, EXPR, FN, ARGNO, 0)
 static tree convert_like_real PARAMS ((tree, tree, tree, int, int));
@@ -146,7 +148,7 @@ build_field_call (basetype_path, instance_ptr, name, parms)
     {
       /* If it's a field, try overloading operator (),
 	 or calling if the field is a pointer-to-function.  */
-      instance = build_indirect_ref (instance_ptr, NULL_PTR);
+      instance = build_indirect_ref (instance_ptr, NULL);
       instance = build_component_ref_1 (instance, field, 0);
 
       if (instance == error_mark_node)
@@ -308,7 +310,7 @@ build_scoped_method_call (exp, basetype, name, parms)
       if (TREE_CODE (exp) == INDIRECT_REF)
 	decl = build_indirect_ref
 	  (convert_pointer_to_real
-	   (binfo, build_unary_op (ADDR_EXPR, exp, 0)), NULL_PTR);
+	   (binfo, build_unary_op (ADDR_EXPR, exp, 0)), NULL);
       else
 	decl = build_scoped_ref (exp, basetype);
 
@@ -2520,9 +2522,10 @@ build_user_type_conversion_1 (totype, expr, flags)
      (DECL_CONSTRUCTOR_P (cand->fn)
       ? totype : non_reference (TREE_TYPE (TREE_TYPE (cand->fn)))),
      expr, build_ptr_wrapper (cand));
-  ICS_USER_FLAG (cand->second_conv) = 1;
+  
+  ICS_USER_FLAG (cand->second_conv) = ICS_USER_FLAG (*p) = 1;
   if (cand->viable == -1)
-    ICS_BAD_FLAG (cand->second_conv) = 1;
+    ICS_BAD_FLAG (cand->second_conv) = ICS_BAD_FLAG (*p) = 1;
 
   return cand;
 }
@@ -2891,11 +2894,6 @@ build_conditional_expr (arg1, arg2, arg3)
       || TREE_TYPE (arg3) == error_mark_node)
     return error_mark_node;
 
-  /* Convert from reference types to ordinary types; no expressions
-     really have reference type in C++.  */
-  arg2 = convert_from_reference (arg2);
-  arg3 = convert_from_reference (arg3);
-     
   /* [expr.cond]
 
      If either the second or the third operand has type (possibly
@@ -3243,6 +3241,12 @@ build_new_op (code, flags, arg1, arg2, arg3)
   if (arg3 && TREE_CODE (arg3) == OFFSET_REF)
     arg3 = resolve_offset_ref (arg3);
 
+  arg1 = convert_from_reference (arg1);
+  if (arg2)
+    arg2 = convert_from_reference (arg2);
+  if (arg3)
+    arg3 = convert_from_reference (arg3);
+  
   if (code == COND_EXPR)
     {
       if (arg2 == NULL_TREE
@@ -3518,7 +3522,7 @@ builtin:
 
     case MEMBER_REF:
       return build_m_component_ref
-	(build_indirect_ref (arg1, NULL_PTR), arg2);
+	(build_indirect_ref (arg1, NULL), arg2);
 
       /* The caller will deal with these.  */
     case ADDR_EXPR:
@@ -3543,7 +3547,7 @@ builtin:
      used to determine what the corresponding new looked like.
    SIZE is the size of the memory block to be deleted.
    FLAGS are the usual overloading flags.
-   PLACEMENT is the corresponding placement new call, or 0.  */
+   PLACEMENT is the corresponding placement new call, or NULL_TREE.  */
 
 tree
 build_op_delete_call (code, addr, size, flags, placement)
@@ -3551,7 +3555,8 @@ build_op_delete_call (code, addr, size, flags, placement)
      tree addr, size, placement;
      int flags;
 {
-  tree fn, fns, fnname, fntype, argtypes, args, type;
+  tree fn = NULL_TREE;
+  tree fns, fnname, fntype, argtypes, args, type;
   int pass;
 
   if (addr == error_mark_node)
@@ -3618,23 +3623,50 @@ build_op_delete_call (code, addr, size, flags, placement)
 	argtypes = tree_cons (NULL_TREE, ptr_type_node,
 			      tree_cons (NULL_TREE, sizetype, 
 					 void_list_node));
-
       fntype = build_function_type (void_type_node, argtypes);
-      fn = instantiate_type (fntype, fns, itf_no_attributes);
 
-      if (fn != error_mark_node)
+      /* Go through the `operator delete' functions looking for one
+	 with a matching type.  */
+      for (fn = BASELINK_P (fns) ? TREE_VALUE (fns) : fns; 
+	   fn; 
+	   fn = OVL_NEXT (fn))
 	{
-	  /* Member functions.  */
-	  if (BASELINK_P (fns))
-	    enforce_access (type, fn);
+	  tree t;
 
-	  if (pass == 0)
-	    args = tree_cons (NULL_TREE, addr, args);
-	  else
-	    args = tree_cons (NULL_TREE, addr, 
-			      build_tree_list (NULL_TREE, size));
-	  return build_function_call (fn, args);
+	  /* Exception specifications on the `delete' operator do not
+	     matter.  */
+	  t = build_exception_variant (TREE_TYPE (OVL_CURRENT (fn)),
+				       NULL_TREE);
+	  /* We also don't compare attributes.  We're really just
+	     trying to check the types of the first two parameters.  */
+	  if (comptypes (t, fntype, COMPARE_NO_ATTRIBUTES))
+	    break;
 	}
+
+      /* If we found a match, we're done.  */
+      if (fn)
+	break;
+    }
+
+  /* If we have a matching function, call it.  */
+  if (fn)
+    {
+      /* Make sure we have the actual function, and not an
+	 OVERLOAD.  */
+      fn = OVL_CURRENT (fn);
+
+      /* If the FN is a member function, make sure that it is
+	 accessible.  */
+      if (DECL_CLASS_SCOPE_P (fn))
+	enforce_access (type, fn);
+
+      if (pass == 0)
+	args = tree_cons (NULL_TREE, addr, args);
+      else
+	args = tree_cons (NULL_TREE, addr, 
+			  build_tree_list (NULL_TREE, size));
+
+      return build_function_call (fn, args);
     }
 
   /* If we are doing placement delete we do nothing if we don't find a
@@ -3676,7 +3708,8 @@ enforce_access (basetype_path, decl)
 /* Perform the conversions in CONVS on the expression EXPR. 
    FN and ARGNUM are used for diagnostics.  ARGNUM is zero based, -1
    indicates the `this' argument of a method.  INNER is non-zero when
-   being called to continue a conversion chain. */
+   being called to continue a conversion chain. It is negative when a
+   reference binding will be applied, positive otherwise. */
 
 static tree
 convert_like_real (convs, expr, fn, argnum, inner)
@@ -3685,7 +3718,6 @@ convert_like_real (convs, expr, fn, argnum, inner)
      int argnum;
      int inner;
 {
-  extern int warningcount, errorcount;
   int savew, savee;
 
   tree totype = TREE_TYPE (convs);
@@ -3755,7 +3787,8 @@ convert_like_real (convs, expr, fn, argnum, inner)
 	   conversion, but is not considered during overload resolution.
 
 	   If the target is a class, that means call a ctor.  */
-	if (IS_AGGR_TYPE (totype))
+	if (IS_AGGR_TYPE (totype)
+	    && (inner >= 0 || !real_lvalue_p (expr)))
 	  {
 	    savew = warningcount, savee = errorcount;
 	    expr = build_new_method_call
@@ -3804,7 +3837,8 @@ convert_like_real (convs, expr, fn, argnum, inner)
       break;
     };
 
-  expr = convert_like_real (TREE_OPERAND (convs, 0), expr, fn, argnum, 1);
+  expr = convert_like_real (TREE_OPERAND (convs, 0), expr, fn, argnum,
+                            TREE_CODE (convs) == REF_BIND ? -1 : 1);
   if (expr == error_mark_node)
     return error_mark_node;
 
@@ -3838,8 +3872,7 @@ convert_like_real (convs, expr, fn, argnum, inner)
       /* Copy-initialization where the cv-unqualified version of the source
 	 type is the same class as, or a derived class of, the class of the
 	 destination [is treated as direct-initialization].  [dcl.init] */
-      if (fn)
-	savew = warningcount, savee = errorcount;
+      savew = warningcount, savee = errorcount;
       expr = build_new_method_call (NULL_TREE, complete_ctor_identifier,
 				    build_tree_list (NULL_TREE, expr),
 				    TYPE_BINFO (totype),
@@ -4021,14 +4054,18 @@ convert_default_arg (type, arg, fn, parmnum)
       arg = convert_for_initialization (0, type, arg, LOOKUP_NORMAL,
 					"default argument", fn, parmnum);
       if (PROMOTE_PROTOTYPES
-	  && (TREE_CODE (type) == INTEGER_TYPE
-	      || TREE_CODE (type) == ENUMERAL_TYPE)
+	  && INTEGRAL_TYPE_P (type)
 	  && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
 	arg = default_conversion (arg);
     }
 
   return arg;
 }
+
+/* Subroutine of the various build_*_call functions.  Overload resolution
+   has chosen a winning candidate CAND; build up a CALL_EXPR accordingly.
+   ARGS is a TREE_LIST of the unconverted arguments to the call.  FLAGS is a
+   bitmask of various LOOKUP_* flags which apply to the call itself.  */
 
 static tree
 build_over_call (cand, args, flags)
@@ -4133,8 +4170,7 @@ build_over_call (cand, args, flags)
 	}
 
       if (PROMOTE_PROTOTYPES
-	  && (TREE_CODE (type) == INTEGER_TYPE
-	      || TREE_CODE (type) == ENUMERAL_TYPE)
+	  && INTEGRAL_TYPE_P (type)
 	  && (TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)))
 	val = default_conversion (val);
       converted_args = tree_cons (NULL_TREE, val, converted_args);
@@ -4268,7 +4304,10 @@ build_over_call (cand, args, flags)
       if (TREE_SIDE_EFFECTS (*p))
 	*p = save_expr (*p);
       t = build_pointer_type (TREE_TYPE (fn));
-      fn = build_vfn_ref (p, build_indirect_ref (*p, 0), DECL_VINDEX (fn));
+      if (DECL_CONTEXT (fn) && TYPE_JAVA_INTERFACE (DECL_CONTEXT (fn)))
+	fn = build_java_interface_fn_ref (fn, *p);
+      else
+	fn = build_vfn_ref (p, build_indirect_ref (*p, 0), DECL_VINDEX (fn));
       TREE_TYPE (fn) = t;
     }
   else if (DECL_INLINE (fn))
@@ -4301,6 +4340,72 @@ build_over_call (cand, args, flags)
   if (IS_AGGR_TYPE (TREE_TYPE (fn)))
     fn = build_cplus_new (TREE_TYPE (fn), fn);
   return convert_from_reference (fn);
+}
+
+static tree java_iface_lookup_fn;
+
+/* Make an expression which yields the address of the Java interface
+   method FN.  This is achieved by generating a call to libjava's
+   _Jv_LookupInterfaceMethodIdx().  */
+
+static tree
+build_java_interface_fn_ref (fn, instance)
+    tree fn, instance;
+{
+  tree lookup_args, lookup_fn, method, idx;
+  tree klass_ref, iface, iface_ref;
+  int i;
+  
+  if (!java_iface_lookup_fn)
+    {
+      tree endlink = build_void_list_node ();
+      tree t = tree_cons (NULL_TREE, ptr_type_node,
+			  tree_cons (NULL_TREE, ptr_type_node,
+				     tree_cons (NULL_TREE, java_int_type_node,
+						endlink)));
+      java_iface_lookup_fn 
+	= builtin_function ("_Jv_LookupInterfaceMethodIdx",
+			    build_function_type (ptr_type_node, t),
+			    0, NOT_BUILT_IN, NULL);
+      ggc_add_tree_root (&java_iface_lookup_fn, 1);
+    }
+
+  /* Look up the pointer to the runtime java.lang.Class object for `instance'. 
+     This is the first entry in the vtable. */
+  klass_ref = build_vtbl_ref (build_indirect_ref (instance, 0), 
+			      integer_zero_node);
+
+  /* Get the java.lang.Class pointer for the interface being called. */
+  iface = DECL_CONTEXT (fn);
+  iface_ref = lookup_field (iface, get_identifier ("class$"), 0, 0);
+  if (!iface_ref || TREE_CODE (iface_ref) != VAR_DECL
+      || DECL_CONTEXT (iface_ref) != iface)
+    {
+      cp_error ("Could not find class$ field in java interface type `%T'", 
+		iface);
+      return error_mark_node;
+    }
+  iface_ref = build1 (ADDR_EXPR, build_pointer_type (iface), iface_ref);
+  
+  /* Determine the itable index of FN. */
+  i = 1;
+  for (method = TYPE_METHODS (iface); method; method = TREE_CHAIN (method))
+    {
+      if (!DECL_VIRTUAL_P (method))
+        continue;
+      if (fn == method)
+        break;
+      i++;
+    }
+  idx = build_int_2 (i, 0);
+
+  lookup_args = tree_cons (NULL_TREE, klass_ref, 
+			   tree_cons (NULL_TREE, iface_ref,
+				      build_tree_list (NULL_TREE, idx)));
+  lookup_fn = build1 (ADDR_EXPR, 
+		      build_pointer_type (TREE_TYPE (java_iface_lookup_fn)),
+		      java_iface_lookup_fn);
+  return build (CALL_EXPR, ptr_type_node, lookup_fn, lookup_args, NULL_TREE);
 }
 
 /* Returns the value to use for the in-charge parameter when making a
@@ -4663,11 +4768,14 @@ maybe_handle_ref_bind (ics, target_type)
 {
   if (TREE_CODE (*ics) == REF_BIND)
     {
+      tree old_ics = *ics;
       *target_type = TREE_TYPE (TREE_TYPE (*ics));
       *ics = TREE_OPERAND (*ics, 0);
+      ICS_USER_FLAG (*ics) = ICS_USER_FLAG (old_ics);
+      ICS_BAD_FLAG (*ics) = ICS_BAD_FLAG (old_ics);
       return 1;
     }
-  
+
   return 0;
 }
 
@@ -4690,6 +4798,7 @@ compare_ics (ics1, ics2)
   tree deref_from_type2 = NULL_TREE;
   tree deref_to_type1 = NULL_TREE;
   tree deref_to_type2 = NULL_TREE;
+  int rank1, rank2;
 
   /* REF_BINDING is non-zero if the result of the conversion sequence
      is a reference type.   In that case TARGET_TYPE is the
@@ -4719,13 +4828,17 @@ compare_ics (ics1, ics2)
      --a user-defined conversion sequence (_over.ics.user_) is a
        better conversion sequence than an ellipsis conversion sequence
        (_over.ics.ellipsis_).  */
-  if (ICS_RANK (ics1) > ICS_RANK (ics2))
+  rank1 = ICS_RANK (ics1);
+  rank2 = ICS_RANK (ics2);
+  
+  if (rank1 > rank2)
     return -1;
-  else if (ICS_RANK (ics1) < ICS_RANK (ics2))
+  else if (rank1 < rank2)
     return 1;
 
-  if (ICS_RANK (ics1) == BAD_RANK)
+  if (rank1 == BAD_RANK)
     {
+      /* XXX Isn't this an extension? */
       /* Both ICS are bad.  We try to make a decision based on what
 	 would have happenned if they'd been good.  */
       if (ICS_USER_FLAG (ics1) > ICS_USER_FLAG (ics2)
@@ -5030,7 +5143,7 @@ static void
 add_warning (winner, loser)
      struct z_candidate *winner, *loser;
 {
-  winner->warnings = tree_cons (NULL_PTR,
+  winner->warnings = tree_cons (NULL_TREE,
 				build_ptr_wrapper (loser),
 				winner->warnings);
 }
@@ -5221,14 +5334,18 @@ joust (cand1, cand2, warn)
       winner = more_specialized
         (TI_TEMPLATE (cand1->template), TI_TEMPLATE (cand2->template),
          DEDUCE_ORDER,
-         /* Tell the deduction code how many real function arguments we saw,
-	    not counting the implicit 'this' argument.
+         /* Tell the deduction code how many real function arguments
+	    we saw, not counting the implicit 'this' argument.  But,
+	    add_function_candidate() suppresses the "this" argument
+	    for constructors.
 
 	    [temp.func.order]: The presence of unused ellipsis and default
 	    arguments has no effect on the partial ordering of function
 	    templates.  */
          TREE_VEC_LENGTH (cand1->convs)
-         - DECL_NONSTATIC_MEMBER_FUNCTION_P (cand1->fn));
+	 - (DECL_NONSTATIC_MEMBER_FUNCTION_P (cand1->fn)
+	    - DECL_CONSTRUCTOR_P (cand1->fn)));
+      /* HERE */
       if (winner)
         return winner;
     }
@@ -5308,6 +5425,7 @@ tweak:
   if (!pedantic)
     {
       int rank1 = IDENTITY_RANK, rank2 = IDENTITY_RANK;
+      struct z_candidate *w = 0, *l = 0;
 
       for (i = 0; i < len; ++i)
 	{
@@ -5316,11 +5434,22 @@ tweak:
 	  if (ICS_RANK (TREE_VEC_ELT (cand2->convs, i+off2)) > rank2)
 	    rank2 = ICS_RANK (TREE_VEC_ELT (cand2->convs, i+off2));
 	}
-
       if (rank1 < rank2)
-	return 1;
+	winner = 1, w = cand1, l = cand2;
       if (rank1 > rank2)
-	return -1;
+	winner = -1, w = cand2, l = cand1;
+      if (winner)
+        {
+	  if (warn)
+	    {
+	      cp_pedwarn ("choosing `%D' over `%D'", w->fn, l->fn);
+	      cp_pedwarn (
+"  because worst conversion for the former is better than worst conversion for the latter");
+	    }
+	  else
+	    add_warning (w, l);
+          return winner;
+        }
     }
 
   my_friendly_assert (!winner, 20010121);

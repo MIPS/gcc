@@ -1,3 +1,173 @@
+2001-07-10  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* Makefile.in: Add support for regex code.
+	* regex.c: New file.
+
+2001-07-05  Mark Klein  <mklein@dis.com>
+
+	* Makefile.in: Add ffs.c dependency.
+	* configure.in: Add ffs.c.
+	* ffs.c: New file.
+
+2001-06-18  Richard Henderson  <rth@redhat.com>
+
+	* concat.c: Include <sys/types.h>.
+
+2001-06-11  Loren J. Rittle  <ljrittle@acm.org>
+
+	bootstrap/3106
+	* strerror.c (sys_nerr): Hide the OS header version.
+	* strsignal.c (sys_nsig): Likewise.
+
+2001-06-10  Richard Henderson  <rth@redhat.com>
+
+	* concat.c: Include string.h.  Fix int vs size_t usage.
+	Simplify the iteration loops.  Use memcpy.
+
+2001-05-16  Matt Kraai  <kraai@alumni.carnegiemellon.edu>
+
+	* partition.c: Fix misspelling of `implementation'.
+
+2001-05-09  Thiemo Seufer  <seufer@csv.ica.uni-stuttgart.de>
+
+	* md5.c (md5_init_ctx): Declare constants as unsigned.
+	(md5_process_block): Likewise.
+
+2001-05-07  Zack Weinberg  <zackw@stanford.edu>
+
+	* cp-demangle.c (demangle_v3_with_details,
+	is_gnu_v3_mangled_ctor, is_gnu_v3_mangled_dtor): Use K+R style
+	function definition.
+	* ternary.c: Use K+R style function definitions.  Use PTR, not
+	void *.  Make arguments constant where possible.
+
+2001-05-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* splay-tree.h (splay_tree_max): New function.
+	(splay_tree_min): Likewise.
+
+2001-04-15  Daniel Berlin  <dan@cgsoftware.com>
+
+	* ternary.c: New file - Ternary search tree implementation.
+
+	* Makefile.in: Add ternary.o, and ternary.c dependencies.
+
+2001-04-03  Zack Weinberg  <zackw@stanford.edu>
+
+	* make-temp-file.c (try): Inline.
+
+2001-02-28  Richard Henderson  <rth@redhat.com>
+
+	* Makefile.in (make-temp-file.o): Depend on config.h.
+
+2001-03-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* memchr.c (memchr): Adjust condition to avoid infinite loop.
+
+2001-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-demangle.c (demangle_discriminator): `_0' is discriminator #1,
+	`_' not followed by a digit is invalid.
+
+2001-03-22  Jim Blandy  <jimb@redhat.com>
+
+	* cp-demangle.c (string_list_delete): Use dyn_string_delete
+	instead of free, to free the contents as well as the string
+	structure.
+
+2001-03-21  Zack Weinberg  <zackw@stanford.edu>
+
+	* make-temp-file.c: Always default DIR_SEPARATOR to '/'.
+	Don't default P_tmpdir to anything.  Try /var/tmp before
+	/usr/tmp.
+
+2001-03-20  Zack Weinberg  <zackw@stanford.edu>
+
+	* choose-temp.c: Split off make_temp_file, and the code
+	duplicated between it and choose_temp_base, into...
+	* make-temp-file.c: ... here; new file.
+
+	* Makefile.in (CFILES): Add make-temp-file.c.
+	(REQUIRED_OFILES): Add make-temp-file.o.
+
+2001-03-20  Jim Blandy  <jimb@redhat.com>
+
+	* cp-demangle.c (struct demangling_def): New fields:
+	is_constructor and is_destructor.
+	(demangling_new): Initialize them.
+	(demangle_ctor_dtor_name): Set them, if we detect a constructor
+	or destructor.
+	(demangle_v3_with_details, is_gnu_v3_mangled_ctor,
+	is_gnu_v3_mangled_dtor): New functions.
+
+2001-03-20  Jason Merrill  <jason@redhat.com>
+
+	* cplus-dem.c (main): Skip initial $.
+
+2001-03-15  Michael Meissner  <meissner@redhat.com>
+
+	* hashtab.c (higher_prime_number): Silence warning that 4294967291
+	might be a signed integer under pre-ISO C systems.
+
+2001-03-10  Neil Booth  <neil@daikokuya.demon.co.uk>
+	    John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* libiberty/lbasename.c: New file.
+	* libiberty/Makefile.in: Update for lbasename.
+
+2001-03-06  Zack Weinberg  <zackw@stanford.edu>
+
+	* aclocal.m4 (libiberty_AC_FUNC_C_ALLOCA): New.
+	* configure.in: Replace all alloca logic with a simple use of
+	the above new macro.
+	* config.table: Kill *-*-beos* entry.
+	* config/mh-beos: Delete.
+	* configure, config.in: Regenerate.
+
+	* Makefile.in (ALLOCA, HFILES): Kill.
+	(REQUIRED_OFILES): Add alloca.o.
+	(alloca.o): Depend on libiberty.h.
+	(argv.o): Don't depend on alloca-conf.h.
+	* alloca-conf.h: Delete.
+	* alloca.c: Include libiberty.h.  Kill all #ifdef emacs
+	blocks.  Provide the C alloca unconditionally.  Use PTR where
+	appropriate.  Make i00afunc static.
+	* argv.c: Don't include alloca-conf.h.
+
+2001-03-04  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* cplus-dem.c (main): Cast enum style to int.
+
+2001-02-16  Loren J. Rittle  <ljrittle@acm.org>
+
+	* cplus-dem.c (main): Initialize style.
+
+2001-02-02  Phil Edwards  <pme@sources.redhat.com>
+
+	* COPYING.LIB:  Update to LGPL 2.1 from the FSF.
+
+2001-01-31  Bryce McKinlay  <bryce@albatross.co.nz>
+
+	Add support for Java demangling under the v3 ABI:
+	* cp-demangle.c (NAMESPACE_SEPARATOR): New define.
+	(struct demangling_def): Add `style' field.
+	(demangling_new): New parameter `style'. Set it in demangling_t.
+	(demangle_prefix): Use NAMESPACE_SEPARATOR.
+	(demangle_type_ptr): Don't emit pointer symbol if doing Java output.
+	(cp_demangle): New parameter `style'. Pass it to demangling_new().
+	(main): Call cp_demangle with extra parameter.
+	(java_demangle_v3): New function.
+	(java_builtin_type_names): New. Table of primitive type names used
+	for Java demangling.
+	(demangle_builtin_type): Look up in java_builtin_type_names if doing
+	Java output.
+	* cplus-dem.c (cplus_demangle): Use java_demangle_v3 to do Java
+	demangling.
+	(long_options): Remove obsolete `java' option.
+	(main): Remove explicit handling of `java' option. Instead, pass style
+	parameter in cplus_demangle flags as gdb does.
+	* testsuite/demangle.expected: Add some Java test cases.
+
 2000-12-29  DJ Delorie  <dj@redhat.com>
 
 	* fnmatch.c: Make the note about the origins of this file more

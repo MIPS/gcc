@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #undef LIB_SPEC
 #undef ENDFILE_SPEC
 #undef LINK_SPEC
+#define LINK_SPEC "%{mrelax:--relax}"
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC "%{!mno-crt0:%{!shared:%{pg:gcrt0%O%s}%{!pg:%{p:mcrt0%O%s}%{!p:crt0%O%s}}}}"
 
@@ -62,6 +63,7 @@ extern int target_flags;
    { "am33", 		-(0x1), ""},\
    { "no-am33", 	-0x2, ""},	\
    { "no-crt0",		0,    N_("No default crt0.o") }, \
+   { "relax",		0,    N_("Enable linker relaxations") }, \
    { "", TARGET_DEFAULT, NULL}}
 
 #ifndef TARGET_DEFAULT
@@ -128,15 +130,6 @@ extern int target_flags;
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
 
 /* Standard register usage.  */
 
@@ -698,7 +691,9 @@ struct cum_arg {int nbytes; };
 	    && INT_8_BITS (INTVAL (XEXP (XEXP (OP, 0), 1))))))
 	 
 #define EXTRA_CONSTRAINT(OP, C) \
- ((C) == 'R' ? OK_FOR_R (OP) : (C) == 'S' ? GET_CODE (OP) == SYMBOL_REF : 0)
+ ((C) == 'R' ? OK_FOR_R (OP) \
+  : (C) == 'S' ? GET_CODE (OP) == SYMBOL_REF \
+  : 0)
 
 /* Maximum number of registers that can appear in a valid memory address.  */
 
@@ -945,12 +940,6 @@ do { char dstr[30];					\
 #define ASM_OUTPUT_BYTE(FILE, VALUE)  \
   fprintf (FILE, "\t.byte 0x%x\n", (VALUE))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.
    Try to use asm_output_bss to implement this macro.  */
@@ -1049,12 +1038,7 @@ do { char dstr[30];					\
 
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
 
-#define DBX_REGISTER_NUMBER(REGNO) \
-  (REGNO_DATA_P ((REGNO)) ? (0 + (REGNO) - FIRST_DATA_REGNUM) \
-   : REGNO_ADDRESS_P ((REGNO)) ? (4 + (REGNO) - FIRST_ADDRESS_REGNUM) \
-   : REGNO_SP_P ((REGNO)) ? 8 \
-   : REGNO_EXTENDED_P ((REGNO)) ? (15 + (REGNO) - FIRST_EXTENDED_REGNUM) \
-   : -1)
+#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 /* GDB always assumes the current function's frame begins at the value
    of the stack pointer upon entry to the current function.  Accessing

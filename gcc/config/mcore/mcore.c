@@ -1,5 +1,5 @@
 /* Output routines for Motorola MCore processor
-   Copyright (C) 1993, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1999, 2000, 2001 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -23,14 +23,12 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "tree.h"
 #include "tm_p.h"
 #include "assert.h"
-#include "gansidecl.h"
 #include "mcore.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
@@ -41,6 +39,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "function.h"
 #include "ggc.h"
 #include "toplev.h"
+#include "target.h"
+#include "target-def.h"
 
 /* Maximum size we are allowed to grow the stack in a single operation.
    If we want more, we must do it in increments of at most this size.
@@ -130,6 +130,19 @@ static void       mcore_mark_dllexport         PARAMS ((tree));
 static void       mcore_mark_dllimport         PARAMS ((tree));
 static int        mcore_dllexport_p            PARAMS ((tree));
 static int        mcore_dllimport_p            PARAMS ((tree));
+static int        mcore_valid_decl_attribute   PARAMS ((tree, tree,
+							tree, tree));
+
+/* Initialize the GCC target structure.  */
+#ifdef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#undef TARGET_MERGE_DECL_ATTRIBUTES
+#define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
+#endif
+
+#undef TARGET_VALID_DECL_ATTRIBUTE
+#define TARGET_VALID_DECL_ATTRIBUTE mcore_valid_decl_attribute
+
+struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Adjust the stack and return the number of bytes taken to do it.  */
 static void
@@ -296,8 +309,8 @@ mcore_print_operand (stream, x, code)
 	  fputs (reg_names[REGNO (x) + 1], (stream));
 	  break;
 	case MEM:
-	  mcore_print_operand_address (stream,
-				       XEXP (adj_offsettable_operand (x, 4), 0));
+	  mcore_print_operand_address
+	    (stream, XEXP (adjust_address (x, SImode, 4), 0));
 	  break;
 	default:
 	  abort ();
@@ -2634,8 +2647,8 @@ mcore_dependent_simplify_rtx (x, int_op0_mode, last, in_dest, general_simplify)
     {
       int i;
       rtx cond = XEXP(x, 0);
-      rtx true = XEXP(x, 1);
-      rtx false = XEXP(x, 2);
+      rtx true_rtx = XEXP(x, 1);
+      rtx false_rtx = XEXP(x, 2);
       enum rtx_code true_code = GET_CODE (cond);
 
       /* On the mcore, when doing -mcmov-one, we don't want to simplify:
@@ -2648,12 +2661,12 @@ mcore_dependent_simplify_rtx (x, int_op0_mode, last, in_dest, general_simplify)
          not typically help.  see combine.c, line 4217.  BRC  */
 
       if (true_code == NE && XEXP (cond, 1) == const0_rtx
-	  && false == const0_rtx && GET_CODE (true) == CONST_INT
+	  && false_rtx == const0_rtx && GET_CODE (true_rtx) == CONST_INT
 	  && ((1 == nonzero_bits (XEXP (cond, 0), mode)
-	       && (i = exact_log2 (INTVAL (true))) >= 0)
+	       && (i = exact_log2 (INTVAL (true_rtx))) >= 0)
 	      || ((num_sign_bit_copies (XEXP (cond, 0), mode)
 	           == GET_MODE_BITSIZE (mode))
-		  && (i = exact_log2 (- INTVAL (true))) >= 0)))
+		  && (i = exact_log2 (- INTVAL (true_rtx))) >= 0)))
 	{
 	  *general_simplify = 0; 
 	  return x;
@@ -3498,8 +3511,8 @@ mcore_encode_section_info (decl)
    dllexport - for exporting a function/variable that will live in a dll
    dllimport - for importing a function/variable from a dll
    naked     - do not create a function prologue/epilogue.  */
-int
-mcore_valid_machine_decl_attribute (decl, attributes, attr, args)
+static int
+mcore_valid_decl_attribute (decl, attributes, attr, args)
      tree decl;
      tree attributes ATTRIBUTE_UNUSED;
      tree attr;
@@ -3537,57 +3550,6 @@ mcore_valid_machine_decl_attribute (decl, attributes, attr, args)
     }
 
   return 0;
-}
-
-/* Merge attributes in decls OLD and NEW.
-   This handles the following situation:
-
-     __declspec (dllimport) int foo;
-     int foo;
-
-   The second instance of `foo' nullifies the dllimport.  */
-tree
-mcore_merge_machine_decl_attributes (old, new)
-     tree old;
-     tree new;
-{
-  tree a;
-  int delete_dllimport_p;
-
-  old = DECL_MACHINE_ATTRIBUTES (old);
-  new = DECL_MACHINE_ATTRIBUTES (new);
-
-  /* What we need to do here is remove from `old' dllimport if it doesn't
-     appear in `new'.  dllimport behaves like extern: if a declaration is
-     marked dllimport and a definition appears later, then the object
-     is not dllimport'd.  */
-  if (   lookup_attribute ("dllimport", old) != NULL_TREE
-      && lookup_attribute ("dllimport", new) == NULL_TREE)
-    delete_dllimport_p = 1;
-  else
-    delete_dllimport_p = 0;
-
-  a = merge_attributes (old, new);
-
-  if (delete_dllimport_p)
-    {
-      tree prev,t;
-
-      /* Scan the list for dllimport and delete it.  */
-      for (prev = NULL_TREE, t = a; t; prev = t, t = TREE_CHAIN (t))
-	{
-	  if (is_attribute_p ("dllimport", TREE_PURPOSE (t)))
-	    {
-	      if (prev == NULL_TREE)
-		a = TREE_CHAIN (a);
-	      else
-		TREE_CHAIN (prev) = TREE_CHAIN (t);
-	      break;
-	    }
-	}
-    }
-
-  return a;
 }
 
 /* Cover function for UNIQUE_SECTION.  */

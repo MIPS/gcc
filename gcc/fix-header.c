@@ -532,8 +532,8 @@ recognized_function (fname, line, kind, have_arg_list)
     missing_extern_C_count++;
 #endif
 
-  fn = lookup_std_proto ((const char *)fname->val.node->name,
-			 fname->val.node->length);
+  fn = lookup_std_proto ((const char *) NODE_NAME (fname->val.node),
+			 NODE_LEN (fname->val.node));
 
   /* Remove the function from the list of required function.  */
   if (fn)
@@ -621,7 +621,7 @@ read_scan_file (in_fname, argc, argv)
 
   obstack_init (&scan_file_obstack); 
 
-  scan_in = cpp_create_reader (CLK_GNUC89);
+  scan_in = cpp_create_reader (NULL, CLK_GNUC89);
   cb = cpp_get_callbacks (scan_in);
   cb->file_change = cb_file_change;
 

@@ -18,8 +18,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#ifndef __GCC_TOPLEV_H__
-#define __GCC_TOPLEV_H__
+#ifndef GCC_TOPLEV_H
+#define GCC_TOPLEV_H
 
 #ifdef ANSI_PROTOTYPES
 union tree_node;
@@ -31,17 +31,14 @@ struct rtx_def;
 #define skip_leading_substring(whole,  part) \
    (strncmp (whole, part, strlen (part)) ? NULL : whole + strlen (part))
 
+extern int toplev_main			PARAMS ((int argc, char **argv));
 extern int read_integral_parameter	PARAMS ((const char *, const char *,
 						const int));
 extern int count_error			PARAMS ((int));
 extern void strip_off_ending		PARAMS ((char *, int));
-extern char *file_name_nondirectory	PARAMS ((const char *));
 extern void print_time			PARAMS ((const char *, long));
-extern void debug_start_source_file	PARAMS ((const char *));
-extern void debug_end_source_file	PARAMS ((unsigned));
-extern void debug_define		PARAMS ((unsigned, const char *));
-extern void debug_undef			PARAMS ((unsigned, const char *));
 extern int debug_ignore_block		PARAMS ((union tree_node *));
+extern const char *trim_filename	PARAMS ((const char *));
 extern void internal_error		PARAMS ((const char *, ...))
 					       ATTRIBUTE_PRINTF_1
 					       ATTRIBUTE_NORETURN;
@@ -68,6 +65,7 @@ extern void warning			PARAMS ((const char *, ...))
 extern void error			PARAMS ((const char *, ...))
 					       ATTRIBUTE_PRINTF_1;
 extern void fatal_error			PARAMS ((const char *, ...))
+					       ATTRIBUTE_NORETURN
 					       ATTRIBUTE_PRINTF_1;
 extern void pedwarn			PARAMS ((const char *, ...))
 					       ATTRIBUTE_PRINTF_1;
@@ -82,7 +80,6 @@ extern void error_with_file_and_line	PARAMS ((const char *, int,
 					       ATTRIBUTE_PRINTF_3;
 extern void sorry			PARAMS ((const char *, ...))
 					       ATTRIBUTE_PRINTF_1;
-extern void default_print_error_function PARAMS ((const char *));
 extern void report_error_function	PARAMS ((const char *));
 
 extern void rest_of_decl_compilation	PARAMS ((union tree_node *,
@@ -130,11 +127,9 @@ extern void note_deferral_of_defined_inline_function
 					PARAMS ((union tree_node *));
 extern void note_outlining_of_inline_function
 					PARAMS ((union tree_node *));
-extern int errorcount;
-extern int warningcount;
-extern int sorrycount;
 
 extern const char *progname;
+extern const char *dump_base_name;
 
 /* Language-specific hooks.  Can be NULL unless otherwise specified.  */
 struct lang_hooks
@@ -152,7 +147,12 @@ struct lang_hooks
      single option (typically starting with -f or -W or +).  It should
      return the number of command-line arguments it uses if it handles
      the option, or 0 and not complain if it does not recognise the
-     option.  This hook cannot be NULL.  */
+     option.  If this function returns a negative number, then its
+     absolute value is the number of command-line arguments used, but,
+     in addition, no language-independent option processing should be
+     done for this option.
+
+     This hook cannot be NULL.  */
   int (*decode_option) PARAMS ((int, char **));
 
   /* Called when all command line options have been processed.  */
@@ -162,4 +162,23 @@ struct lang_hooks
 /* Each front end provides its own.  */
 extern struct lang_hooks lang_hooks;
 
-#endif /* __GCC_TOPLEV_H */
+/* The hashtable, so that the C front ends can pass it to cpplib.  */
+extern struct ht *ident_hash;
+
+/* These functions can be used by targets to set the flags originally
+   implied by -ffast-math and -fno-fast-math.  */
+
+extern void set_fast_math_flags         PARAMS ((void));
+extern void set_no_fast_math_flags      PARAMS ((void));
+
+/* The following functions accept a wide integer argument.  Rather
+   than having to cast on every function call, we use a macro instead.  */
+
+#ifndef exact_log2
+#define exact_log2(N) exact_log2_wide ((unsigned HOST_WIDE_INT) (N))
+#define floor_log2(N) floor_log2_wide ((unsigned HOST_WIDE_INT) (N))
+#endif
+extern int exact_log2_wide             PARAMS ((unsigned HOST_WIDE_INT));
+extern int floor_log2_wide             PARAMS ((unsigned HOST_WIDE_INT));
+
+#endif /* ! GCC_TOPLEV_H */

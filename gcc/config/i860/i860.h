@@ -557,14 +557,6 @@ struct cumulative_args { int ints, floats; };
       ? PARM_BOUNDARY						\
       : GET_MODE_ALIGNMENT(MODE)))
 
-/* This macro generates the assembly code for function entry.
-
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-*/
-
-#define FUNCTION_PROLOGUE(FILE, SIZE) function_prologue ((FILE), (SIZE))
-
 /* Output a no-op just before the beginning of the function,
    to ensure that there does not appear to be a delayed branch there.
    Such a thing would confuse interrupt recovery.  */
@@ -583,19 +575,6 @@ struct cumulative_args { int ints, floats; };
    No definition is equivalent to always zero.  */
 
 #define EXIT_IGNORE_STACK 1
-
-/* This macro generates the assembly code for function exit.
-
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.
-*/
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) function_epilogue ((FILE), (SIZE))
 
 /* Generate necessary RTL for __builtin_saveregs().  */
 #define EXPAND_BUILTIN_SAVEREGS() \
@@ -1201,21 +1180,6 @@ do { ASM_OUTPUT_ALIGN ((FILE), 2);					\
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
-/* Define the parentheses used to group arithmetic operations
-   in assembler code.  */
-
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
-
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
    For `%' followed by punctuation, CODE is the punctuation and X is null.
@@ -1371,24 +1335,6 @@ extern const char *i860_reg_prefix;
       output_addr_const (FILE, addr);				\
     }								\
 }
-
-/* The following #defines are used when compiling the routines in
-   libgcc1.c.  Since the i860 calling conventions require single
-   precision floats to be passed in the floating-point registers
-   (rather than in the general registers) we have to build the
-   libgcc1.c routines in such a way that they know the actual types
-   of their formal arguments and the actual types of their return
-   values.  Otherwise, gcc will generate calls to the libgcc1.c
-   routines, passing arguments in the floating-point registers,
-   but the libgcc1.c routines will expect their arguments on the
-   stack (where the i860 calling conventions require structs &
-   unions to be passed).  */
-
-#define FLOAT_VALUE_TYPE	float
-#define INTIFY(FLOATVAL)	(FLOATVAL)
-#define FLOATIFY(INTVAL)	(INTVAL)
-#define FLOAT_ARG_TYPE		float
-
 
 /* Optionally define this if you have added predicates to
    `MACHINE.c'.  This macro is called within an initializer of an

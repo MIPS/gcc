@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "diagnostic.h"
 
 static tree repo_get_id PARAMS ((tree));
 static char *extract_string PARAMS ((char **));
@@ -48,7 +49,6 @@ static FILE *repo_file;
 
 static char *old_args, *old_dir, *old_main;
 
-extern int flag_use_repository;
 static struct obstack temporary_obstack;
 extern struct obstack permanent_obstack;
 
@@ -138,7 +138,13 @@ repo_template_used (t)
   else if (DECL_P (t))
     {
       if (IDENTIFIER_REPO_CHOSEN (id))
-	mark_decl_instantiated (t, 0);
+	/* It doesn't make sense to instantiate a clone, so we
+	   instantiate the cloned function instead.  Note that this
+	   approach will not work correctly if collect2 assigns
+	   different clones to different files -- but it shouldn't.  */
+	mark_decl_instantiated (DECL_CLONED_FUNCTION_P (t)
+				? DECL_CLONED_FUNCTION (t) : t, 
+				0);
     }
   else
     my_friendly_abort (1);
@@ -268,7 +274,7 @@ get_base_filename (filename)
       return NULL;
     }
 
-  return file_name_nondirectory (filename);
+  return lbasename (filename);
 }        
 
 static void
@@ -281,7 +287,7 @@ open_repo_file (filename)
   if (s == NULL)
     return;
 
-  p = file_name_nondirectory (s);
+  p = lbasename (s);
   p = strrchr (p, '.');
   if (! p)
     p = s + strlen (s);

@@ -171,7 +171,7 @@ variable_size (size)
   if (immediate_size_expand)
     /* NULL_RTX is not defined; neither is the rtx type. 
        Also, we would like to pass const0_rtx here, but don't have it.  */
-    expand_expr (size, expand_expr (integer_zero_node, NULL_PTR, VOIDmode, 0),
+    expand_expr (size, expand_expr (integer_zero_node, NULL_RTX, VOIDmode, 0),
 		 VOIDmode, 0);
   else if (cfun != 0 && cfun->x_dont_save_pending_sizes_p)
     /* The front-end doesn't want us to keep a list of the expressions
@@ -444,6 +444,18 @@ layout_decl (decl, known_align)
     }
 }
 
+/* Hook for a front-end function that can modify the record layout as needed
+   immediately before it is finalized.  */
+
+void (*lang_adjust_rli) PARAMS ((record_layout_info)) = 0;
+
+void
+set_lang_adjust_rli (f)
+     void (*f) PARAMS ((record_layout_info));
+{
+  lang_adjust_rli = f;
+}
+
 /* Begin laying out type T, which may be a RECORD_TYPE, UNION_TYPE, or
    QUAL_UNION_TYPE.  Return a pointer to a struct record_layout_info which
    is to be passed to all other layout functions for this record.  It is the
@@ -464,7 +476,7 @@ start_record_layout (t)
      declaration, for example) use it -- otherwise, start with a
      one-byte alignment.  */
   rli->record_align = MAX (BITS_PER_UNIT, TYPE_ALIGN (t));
-  rli->unpacked_align = rli->record_align;
+  rli->unpacked_align = rli->unpadded_align = rli->record_align;
   rli->offset_align = MAX (rli->record_align, BIGGEST_ALIGNMENT);
 
 #ifdef STRUCTURE_SIZE_BOUNDARY
@@ -571,8 +583,9 @@ debug_rli (rli)
   print_node_brief (stderr, "\noffset", rli->offset, 0);
   print_node_brief (stderr, " bitpos", rli->bitpos, 0);
 
-  fprintf (stderr, "\nrec_align = %u, unpack_align = %u, off_align = %u\n",
-	   rli->record_align, rli->unpacked_align, rli->offset_align);
+  fprintf (stderr, "\naligns: rec = %u, unpack = %u, unpad = %u, off = %u\n",
+	   rli->record_align, rli->unpacked_align, rli->unpadded_align,
+	   rli->offset_align);
   if (rli->packed_maybe_necessary)
     fprintf (stderr, "packed may be necessary\n");
 
@@ -639,13 +652,18 @@ place_union_field (rli, field)
 
   /* Union must be at least as aligned as any field requires.  */
   rli->record_align = MAX (rli->record_align, desired_align);
+  rli->unpadded_align = MAX (rli->unpadded_align, desired_align);
 
 #ifdef PCC_BITFIELD_TYPE_MATTERS
   /* On the m88000, a bit field of declare type `int' forces the
      entire union to have `int' alignment.  */
   if (PCC_BITFIELD_TYPE_MATTERS && DECL_BIT_FIELD_TYPE (field))
-    rli->record_align = MAX (rli->record_align, 
-			     TYPE_ALIGN (TREE_TYPE (field)));
+    {
+      rli->record_align = MAX (rli->record_align, 
+			       TYPE_ALIGN (TREE_TYPE (field)));
+      rli->unpadded_align = MAX (rli->unpadded_align,
+				 TYPE_ALIGN (TREE_TYPE (field)));
+    }
 #endif
 
   /* We assume the union's size will be a multiple of a byte so we don't
@@ -773,9 +791,9 @@ place_field (rli, field)
 	    type_align = MIN (type_align, BITS_PER_UNIT);
 
 	  rli->record_align = MAX (rli->record_align, type_align);
+	  rli->unpadded_align = MAX (rli->unpadded_align, DECL_ALIGN (field));
 	  if (warn_packed)
-	    rli->unpacked_align = MAX (rli->unpacked_align, 
-				       TYPE_ALIGN (type));
+	    rli->unpacked_align = MAX (rli->unpacked_align, TYPE_ALIGN (type));
 	}
     }
   else
@@ -783,6 +801,7 @@ place_field (rli, field)
     {
       rli->record_align = MAX (rli->record_align, desired_align);
       rli->unpacked_align = MAX (rli->unpacked_align, TYPE_ALIGN (type));
+      rli->unpadded_align = MAX (rli->unpadded_align, DECL_ALIGN (field));
     }
 
   if (warn_packed && DECL_PACKED (field))
@@ -1111,12 +1130,12 @@ compute_record_mode (type)
       if (simple_cst_equal (TYPE_SIZE (type), DECL_SIZE (field)))
 	mode = DECL_MODE (field);
 
-#ifdef STRUCT_FORCE_BLK
+#ifdef MEMBER_TYPE_FORCES_BLK
       /* With some targets, eg. c4x, it is sub-optimal
 	 to access an aligned BLKmode structure as a scalar.  */
-      if (mode == VOIDmode && STRUCT_FORCE_BLK (field))
+      if (mode == VOIDmode && MEMBER_TYPE_FORCES_BLK (field))
 	return;
-#endif /* STRUCT_FORCE_BLK  */
+#endif /* MEMBER_TYPE_FORCES_BLK  */
     }
 
   /* If we only have one real field; use its mode.  This only applies to
@@ -1341,7 +1360,9 @@ layout_type (type)
     case OFFSET_TYPE:
       TYPE_SIZE (type) = bitsize_int (POINTER_SIZE);
       TYPE_SIZE_UNIT (type) = size_int (POINTER_SIZE / BITS_PER_UNIT);
-      TYPE_MODE (type) = ptr_mode;
+      /* A pointer might be MODE_PARTIAL_INT,
+	 but ptrdiff_t must be integral.  */
+      TYPE_MODE (type) = mode_for_size (POINTER_SIZE, MODE_INT, 0);
       break;
 
     case FUNCTION_TYPE:
@@ -1450,6 +1471,9 @@ layout_type (type)
 
 	TYPE_MODE (type) = BLKmode;
 	if (TYPE_SIZE (type) != 0
+#ifdef MEMBER_TYPE_FORCES_BLK
+	    && ! MEMBER_TYPE_FORCES_BLK (type)
+#endif
 	    /* BLKmode elements force BLKmode aggregate;
 	       else extract/store fields may lose.  */
 	    && (TYPE_MODE (TREE_TYPE (type)) != BLKmode
@@ -1492,6 +1516,9 @@ layout_type (type)
 
 	if (TREE_CODE (type) == QUAL_UNION_TYPE)
 	  TYPE_FIELDS (type) = nreverse (TYPE_FIELDS (type));
+
+	if (lang_adjust_rli)
+	  (*lang_adjust_rli) (rli);
 
 	/* Finish laying out the record.  */
 	finish_record_layout (rli);

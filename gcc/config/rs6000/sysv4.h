@@ -433,13 +433,6 @@ do {									\
 #define	MINIMAL_TOC_SECTION_ASM_OP \
   ((TARGET_RELOCATABLE || flag_pic) ? "\t.section\t\".got2\",\"aw\"" : "\t.section\t\".got1\",\"aw\"")
 
-/* Put relocatable data in .data, not .rodata so initialized pointers can be updated.  */
-/* Override elfos.h definition.  */
-#undef	CONST_SECTION_ASM_OP
-#define	CONST_SECTION_ASM_OP \
-  ((TARGET_RELOCATABLE || flag_pic) ? "\t.section\t\".data\"\t# .rodata" : "\t.section\t\".rodata\"")
-
-
 #define	SDATA_SECTION_ASM_OP "\t.section\t\".sdata\",\"aw\""
 #define	SDATA2_SECTION_ASM_OP "\t.section\t\".sdata2\",\"a\""
 #define	SBSS_SECTION_ASM_OP \
@@ -701,9 +694,10 @@ extern int rs6000_pic_labelno;
     the return address.  Hence returning from FUNCTION will return to whoever
     called the current thunk'.
 
-    The effect must be as if FUNCTION had been called directly with the adjusted
-    first argument.  This macro is responsible for emitting all of the code for
-    a thunk function; FUNCTION_PROLOGUE' and FUNCTION_EPILOGUE' are not
+    The effect must be as if FUNCTION had been called directly with
+    the adjusted first argument.  This macro is responsible for
+    emitting all of the code for a thunk function;
+    output_function_prologue() and output_function_epilogue() are not
     invoked.
 
     The THUNK_FNDECL is redundant.  (DELTA and FUNCTION have already been
@@ -868,36 +862,6 @@ do {									\
       fprintf (FILE, "\t.long ");					\
       output_addr_const (FILE, (VALUE));				\
       fprintf (FILE, "\n");						\
-    }									\
-} while (0)
-
-/* This is how to output an assembler line defining an address 
-   constant for the dwarf call unwinding information.
-   For -mrelocatable, we mark all addresses that need to be fixed up
-   in the .fixup section.  */
-
-#define	ASM_OUTPUT_DWARF_ADDR(FILE,LABEL)				\
-do {									\
-  if (TARGET_RELOCATABLE)						\
-    {									\
-      char buf[256];							\
-									\
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LCP", fixuplabelno);		\
-      fixuplabelno++;							\
-      ASM_OUTPUT_LABEL (FILE, buf);					\
-      fprintf (FILE, "\t.%dbyte\t", POINTER_SIZE / BITS_PER_UNIT);	\
-      assemble_name (FILE, LABEL);					\
-      fprintf (FILE, "\n");						\
-      fprintf (FILE, "\t.section \".fixup\",\"aw\"\n");			\
-      ASM_OUTPUT_ALIGN (FILE, 2);					\
-      fprintf (FILE, "\t.long\t");					\
-      assemble_name (FILE, buf);					\
-      fprintf (FILE, "\n\t.previous\n");				\
-    }									\
-  else									\
-    {									\
-      fprintf (FILE, "\t.%dbyte\t", POINTER_SIZE / BITS_PER_UNIT);	\
-      assemble_name (FILE, LABEL);					\
     }									\
 } while (0)
 
@@ -1227,11 +1191,11 @@ do {									\
 
 #define	CPP_SYSV_DEFAULT_SPEC "-D_CALL_SYSV"
 
-#define CPP_ENDIAN_BIG_SPEC "-D_BIG_ENDIAN -D__BIG_ENDIAN__ -Amachine=bigendian"
+#define CPP_ENDIAN_BIG_SPEC "-D_BIG_ENDIAN -D__BIG_ENDIAN__ -Aendian=big"
 
-#define CPP_ENDIAN_LITTLE_SPEC "-D_LITTLE_ENDIAN -D__LITTLE_ENDIAN__ -Amachine=littleendian"
+#define CPP_ENDIAN_LITTLE_SPEC "-D_LITTLE_ENDIAN -D__LITTLE_ENDIAN__ -Aendian=little"
 
-#define CPP_ENDIAN_SOLARIS_SPEC "-D__LITTLE_ENDIAN__ -Amachine=littleendian"
+#define CPP_ENDIAN_SOLARIS_SPEC "-D__LITTLE_ENDIAN__ -Aendian=little"
 
 /* For solaris, don't define _LITTLE_ENDIAN, it conflicts with a header file.  */
 #define	CPP_ENDIAN_SPEC \
@@ -1632,3 +1596,13 @@ do {									\
 	    = init_one_libfunc (SQRTTF_LIBCALL);			\
       }									\
   } while (0)
+
+/* Select a format to encode pointers in exception handling data.  CODE
+   is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
+   true if the symbol may be affected by dynamic relocations.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE,GLOBAL)			     \
+  ((flag_pic || TARGET_RELOCATABLE)					     \
+   ? (((GLOBAL) ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | DW_EH_PE_sdata4) \
+   : DW_EH_PE_absptr)
+
+#define EXCEPTION_SECTION readonly_data_section

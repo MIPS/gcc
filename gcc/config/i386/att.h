@@ -30,10 +30,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* Assembler pseudos to introduce constants of various size.  */
 
-/* #define ASM_BYTE_OP "\t.byte"  Now in svr3.h or svr4.h.  */
-#define ASM_SHORT "\t.value"
-#define ASM_LONG "\t.long"
-#define ASM_DOUBLE "\t.double"
+#define ASM_SHORT "\t.value\t"
+#define ASM_LONG "\t.long\t"
 
 /* How to output an ASCII string constant.  */
 
@@ -56,7 +54,6 @@ do								\
 	output_file_directive (FILE, main_input_filename);		\
 	if (target_flags & MASK_INTEL_SYNTAX)				\
 	  fputs ("\t.intel_syntax\n", FILE);				\
-	fprintf (FILE, "\t.version\t\"01.01\"\n");			\
   } while (0)
 
 /* Do use .optim by default on this machine.  */

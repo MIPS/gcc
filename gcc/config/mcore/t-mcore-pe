@@ -1,8 +1,3 @@
-# Name of assembly file containing libgcc1 functions.
-# This entry must be present, but it can be empty if the target does
-# not need any assembler functions to support its code generation.
-
-CROSS_LIBGCC1 = libgcc1-asm.a
 LIB1ASMSRC    = mcore/lib1.asm
 LIB1ASMFUNCS  = _divsi3 _udivsi3 _modsi3 _umodsi3
 
@@ -28,9 +23,6 @@ TARGET_LIBGCC2_CFLAGS=-O3 -DNO_FLOATLIB_FIXUNSDFSI #-msifilter
 
 # We have values for float.h.
 CROSS_FLOAT_H = $(srcdir)/config/mcore/gfloat.h
-
-# let the library provider supply an <assert.h>
-INSTALL_ASSERT_H=
 
 MULTILIB_OPTIONS     = mbig-endian/mlittle-endian m210/m340
 MULTILIB_DIRNAMES    = big little m210 m340

@@ -67,7 +67,7 @@ Boston, MA 02111-1307, USA.  */
 /* By default, target has a 80387, uses IEEE compatible arithmetic,
    and returns float values in the 387.  */
 
-#define TARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
+#define TARGET_SUBTARGET_DEFAULT (MASK_80387 | MASK_IEEE_FP | MASK_FLOAT_RETURNS)
 
 /* Floating-point return values come in the FP register.  */
 
@@ -106,7 +106,7 @@ do {									    \
     xops[1] = gen_rtx_MEM (SImode, plus_constant (stack_pointer_rtx, 4));   \
   output_asm_insn ("add{l} {%0, %1|%1, %0}", xops);			    \
 									    \
-  if (flag_pic)								    \
+  if (flag_pic && !TARGET_64BIT)					    \
     {									    \
       xops[0] = pic_offset_table_rtx;					    \
       xops[1] = gen_label_rtx ();					    \
@@ -123,6 +123,12 @@ do {									    \
 	               xops);						    \
       asm_fprintf (FILE, "\tpop{l\t%%ebx|\t%%ebx}\n");			    \
       asm_fprintf (FILE, "\tjmp\t{*%%ecx|%%ecx}\n");			    \
+    }									    \
+  else if (flag_pic && TARGET_64BIT)					    \
+    {									    \
+      fprintf (FILE, "\tjmp *");					    \
+      assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	    \
+      fprintf (FILE, "@GOTPCREL(%%RIP)\n");				    \
     }									    \
   else									    \
     {									    \

@@ -29,7 +29,6 @@ extern int    arm_regno_class 		PARAMS ((int));
 extern void   arm_finalize_pic		PARAMS ((int));
 extern int    arm_volatile_func		PARAMS ((void));
 extern const char * arm_output_epilogue	PARAMS ((int));
-extern void   output_func_epilogue	PARAMS ((int));
 extern void   arm_expand_prologue	PARAMS ((void));
 /* Used in arm.md, but defined in output.c.  */
 extern void   assemble_align		PARAMS ((int)); 
@@ -38,10 +37,6 @@ extern unsigned long arm_current_func_type	PARAMS ((void));
 
 #ifdef TREE_CODE
 extern int    arm_return_in_memory	PARAMS ((tree));
-extern int    arm_valid_machine_decl_attribute	PARAMS ((tree, tree, tree));
-extern int    arm_comp_type_attributes	PARAMS ((tree, tree));
-extern int    arm_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
-extern void   arm_set_default_type_attributes	PARAMS ((tree));
 extern void   arm_encode_call_attribute	PARAMS ((tree, int));
 extern int    arm_function_ok_for_sibcall PARAMS ((tree));
 #endif
@@ -127,7 +122,6 @@ extern const char * arithmetic_instr	PARAMS ((rtx, int));
 extern void   output_ascii_pseudo_op	PARAMS ((FILE *, const unsigned char *, int));
 extern const char * output_return_instruction PARAMS ((rtx, int, int));
 extern void   arm_poke_function_name	PARAMS ((FILE *, char *));
-extern void   output_arm_prologue	PARAMS ((FILE *, int));
 extern void   arm_print_operand		PARAMS ((FILE *, rtx, int));
 extern void   arm_print_operand_address	PARAMS ((FILE *, rtx));
 extern void   arm_final_prescan_insn	PARAMS ((rtx));
@@ -164,7 +158,6 @@ extern void   thumb_expand_epilogue	PARAMS ((void));
 extern int    is_called_in_ARM_mode	PARAMS ((tree));
 #endif
 extern int    thumb_shiftable_const	PARAMS ((unsigned HOST_WIDE_INT));
-extern void   output_thumb_prologue	PARAMS ((FILE *));
 #ifdef RTX_CODE
 extern void   thumb_final_prescan_insn	PARAMS ((rtx));
 extern const char * thumb_load_double_from_address
@@ -187,10 +180,6 @@ extern int  arm_dllexport_name_p 	PARAMS ((const char *));
 extern int  arm_dllimport_name_p 	PARAMS ((const char *));
 
 #ifdef TREE_CODE
-extern int  arm_pe_valid_machine_decl_attribute
-					PARAMS ((tree, tree, tree, tree));
-extern tree arm_pe_merge_machine_decl_attributes
-					PARAMS ((tree, tree));
 extern void arm_pe_unique_section 	PARAMS ((tree, int));
 extern void arm_pe_encode_section_info 	PARAMS ((tree));
 extern int  arm_dllexport_p 		PARAMS ((tree));
@@ -205,10 +194,10 @@ extern rtx arm_expand_builtin		PARAMS ((tree, rtx, rtx,
 					       enum machine_mode, int));
 #endif
 
-#ifdef _C_PRAGMA_H  /* included from code that cares about pragmas */
+#ifdef GCC_C_PRAGMA_H  /* included from code that cares about pragmas */
 extern void arm_pr_long_calls		PARAMS ((cpp_reader *));
 extern void arm_pr_no_long_calls	PARAMS ((cpp_reader *));
 extern void arm_pr_long_calls_off	PARAMS ((cpp_reader *));
 #endif
 
-#endif /* GCC_ARM_PROTOS_H */
+#endif /* ! GCC_ARM_PROTOS_H */

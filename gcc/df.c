@@ -595,7 +595,7 @@ df_free (df)
   BITMAP_XFREE (df->all_blocks);
   df->all_blocks = 0;
 
-  obstack_free (&df_ref_obstack, NULL_PTR);
+  obstack_free (&df_ref_obstack, NULL);
 }
 
 /* Local miscellaneous routines.  */

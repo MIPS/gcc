@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
@@ -40,11 +39,15 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "reload.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 static int shift_constant_operand PARAMS ((rtx, enum machine_mode, int));
 static void a29k_set_memflags_1 PARAMS ((rtx, int, int, int, int));
 static void compute_regstack_size PARAMS ((void));
 static void check_epilogue_internal_label PARAMS ((FILE *));
+static void output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
+static void output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 
 #define min(A,B)	((A) < (B) ? (A) : (B))
 
@@ -90,6 +93,14 @@ int a29k_debug_reg_map[FIRST_PSEUDO_REGISTER];
 
 rtx a29k_compare_op0, a29k_compare_op1;
 int a29k_compare_fp_p;
+
+/* Initialize the GCC target structure.  */
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE output_function_prologue
+#undef TARGET_ASM_FUNCTION_EPILOGUE
+#define TARGET_ASM_FUNCTION_EPILOGUE output_function_epilogue
+
+struct gcc_target targetm = TARGET_INITIALIZER;
 
 /* Returns 1 if OP is a 8-bit constant. */
 
@@ -263,9 +274,10 @@ gpc_reg_operand (op, mode)
     regno = REGNO (op);
   else if (GET_CODE (op) == SUBREG && GET_CODE (SUBREG_REG (op)) == REG)
     {
-      regno = REGNO (SUBREG_REG (op));
-      if (regno < FIRST_PSEUDO_REGISTER)
-	regno += SUBREG_WORD (op);
+      if (REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER)
+	regno = subreg_regno (op);
+      else
+	regno = REGNO (SUBREG_REG (op));
     }
   else
     return 0;
@@ -468,7 +480,7 @@ a29k_get_reloaded_address (op)
 {
   if (GET_CODE (op) == SUBREG)
     {
-      if (SUBREG_WORD (op) != 0)
+      if (SUBREG_BYTE (op) != 0)
 	abort ();
 
       op = SUBREG_REG (op);
@@ -1082,6 +1094,7 @@ print_operand (file, x, code)
       else if (a29k_last_prologue_insn)
 	{
 	  fprintf (file, "\n\t%s", a29k_last_prologue_insn);
+	  free (a29k_last_prologue_insn);
 	  a29k_last_prologue_insn = 0;
 	}
       else if (optimize && flag_delayed_branch
@@ -1105,6 +1118,7 @@ print_operand (file, x, code)
 	  if (a29k_last_prologue_insn)
 	    {
 	      fprintf (file, "\n\t%s", a29k_last_prologue_insn);
+	      free (a29k_last_prologue_insn);
 	      a29k_last_prologue_insn = 0;
 	    }
 	  else if (GET_CODE (x) == SYMBOL_REF
@@ -1159,6 +1173,7 @@ print_operand (file, x, code)
 	  if (a29k_last_prologue_insn)
 	    {
 	      fprintf (file, "\n\t%s", a29k_last_prologue_insn);
+	      free (a29k_last_prologue_insn);
 	      a29k_last_prologue_insn = 0;
 	    }
 	  else
@@ -1185,7 +1200,8 @@ print_operand (file, x, code)
       if (GET_MODE (SUBREG_REG (XEXP (x, 0))) == SFmode)
 	fprintf (file, "$float");
       else
-	fprintf (file, "$double%d", SUBREG_WORD (XEXP (x, 0)));
+	fprintf (file, "$double%d", 
+		 (SUBREG_BYTE (XEXP (x, 0)) / GET_MODE_SIZE (GET_MODE (x))));      
       memcpy ((char *) &u,
 	      (char *) &CONST_DOUBLE_LOW (SUBREG_REG (XEXP (x, 0))), sizeof u);
       fprintf (file, "(%.20e)", u.d);
@@ -1283,10 +1299,10 @@ a29k_compute_reg_names ()
 
 /* Output function prolog code to file FILE.  Memory stack size is SIZE.  */
 
-void
-output_prolog (file, size)
+static void
+output_function_prologue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   int i;
   int arg_count = 0;
@@ -1387,7 +1403,7 @@ output_prolog (file, size)
 
 		if (num_delay_slots (insn) > 0)
 		  {
-		    a29k_last_prologue_insn = (char *) oballoc (100);
+		    a29k_last_prologue_insn = (char *) xmalloc (100);
 		    sprintf (a29k_last_prologue_insn, "add lr1,gr1,%d", i);
 		    break;
 		  }
@@ -1404,7 +1420,7 @@ output_prolog (file, size)
   if (size == 0 && a29k_regstack_size == 0 && ! frame_pointer_needed)
     a29k_first_epilogue_insn = 0;
   else
-    a29k_first_epilogue_insn = (char *) oballoc (100);
+    a29k_first_epilogue_insn = (char *) xmalloc (100);
 
   if (frame_pointer_needed)
     sprintf (a29k_first_epilogue_insn, "sll %s,%s,0",
@@ -1455,10 +1471,10 @@ check_epilogue_internal_label (file)
    stack size.  The register stack size is in the variable
    A29K_REGSTACK_SIZE.  */
 
-void
-output_epilog (file, size)
+static void
+output_function_epilogue (file, size)
      FILE *file;
-     int size;
+     HOST_WIDE_INT size;
 {
   rtx insn;
   int locals_unavailable = 0;	/* True until after first insn
@@ -1547,4 +1563,8 @@ output_epilog (file, size)
 		     file, 1, -2, 1);
   else
     fprintf (file, "\tnop\n");
+  
+  if (a29k_first_epilogue_insn)
+    free (a29k_first_epilogue_insn);
+  a29k_first_epilogue_insn = 0;
 }

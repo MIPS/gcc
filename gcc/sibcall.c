@@ -33,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 
 static int identify_call_return_value	PARAMS ((rtx, rtx *, rtx *));
-static rtx skip_copy_to_return_value	PARAMS ((rtx, rtx, rtx));
+static rtx skip_copy_to_return_value	PARAMS ((rtx));
 static rtx skip_use_of_return_value	PARAMS ((rtx, enum rtx_code));
 static rtx skip_stack_adjustment	PARAMS ((rtx));
 static rtx skip_pic_restore		PARAMS ((rtx));
@@ -43,6 +43,7 @@ static int uses_addressof		PARAMS ((rtx));
 static int sequence_uses_addressof	PARAMS ((rtx));
 static void purge_reg_equiv_notes	PARAMS ((void));
 static void purge_mem_unchanging_flag	PARAMS ((rtx));
+static rtx skip_unreturned_value 	PARAMS ((rtx));
 
 /* Examine a CALL_PLACEHOLDER pattern and determine where the call's
    return value is located.  P_HARD_RETURN receives the hard register
@@ -133,11 +134,15 @@ identify_call_return_value (cp, p_hard_return, p_soft_return)
    copy.  Otherwise return ORIG_INSN.  */
 
 static rtx
-skip_copy_to_return_value (orig_insn, hardret, softret)
+skip_copy_to_return_value (orig_insn)
      rtx orig_insn;
-     rtx hardret, softret;
 {
   rtx insn, set = NULL_RTX;
+  rtx hardret, softret;
+
+  /* If there is no return value, we have nothing to do.  */
+  if (! identify_call_return_value (PATTERN (orig_insn), &hardret, &softret))
+    return orig_insn;
 
   insn = next_nonnote_insn (orig_insn);
   if (! insn)
@@ -165,6 +170,30 @@ skip_copy_to_return_value (orig_insn, hardret, softret)
       && SET_SRC (set) == softret)
     return insn;
 
+  /* Recognize the situation when the called function's return value
+     is copied in two steps: first into an intermediate pseudo, then
+     the into the calling functions return value register.  */
+
+  if (REG_P (SET_DEST (set))
+      && SET_SRC (set) == softret)
+    {
+      rtx x = SET_DEST (set);
+
+      insn = next_nonnote_insn (insn);
+      if (! insn)
+	return orig_insn;
+
+      set = single_set (insn);
+      if (! set)
+	return orig_insn;
+
+      if (SET_DEST (set) == current_function_return_rtx
+	  && REG_P (SET_DEST (set))
+	  && OUTGOING_REGNO (REGNO (SET_DEST (set))) == REGNO (hardret)
+	  && SET_SRC (set) == x)
+	return insn;
+    }
+
   /* It did not look like a copy of the return value, so return the
      same insn we were passed.  */
   return orig_insn;
@@ -189,6 +218,35 @@ skip_use_of_return_value (orig_insn, code)
 	  || XEXP (PATTERN (insn), 0) == const0_rtx))
     return insn;
 
+  return orig_insn;
+}
+
+/* In case function does not return value,  we get clobber of pseudo followed
+   by set to hard return value.  */
+static rtx
+skip_unreturned_value (orig_insn)
+     rtx orig_insn;
+{
+  rtx insn = next_nonnote_insn (orig_insn);
+
+  /* Skip possible clobber of pseudo return register.  */
+  if (insn
+      && GET_CODE (insn) == INSN
+      && GET_CODE (PATTERN (insn)) == CLOBBER
+      && REG_P (XEXP (PATTERN (insn), 0))
+      && (REGNO (XEXP (PATTERN (insn), 0)) >= FIRST_PSEUDO_REGISTER))
+    {
+      rtx set_insn = next_nonnote_insn (insn);
+      rtx set;
+      if (!set_insn)
+	return insn;
+      set = single_set (set_insn);
+      if (!set
+	  || SET_SRC (set) != XEXP (PATTERN (insn), 0)
+	  || SET_DEST (set) != current_function_return_rtx)
+	return insn;
+      return set_insn;
+    }
   return orig_insn;
 }
 
@@ -265,8 +323,6 @@ call_ends_block_p (insn, end)
      rtx insn;
      rtx end;
 {
-  rtx hardret, softret;
-
   /* END might be a note, so get the last nonnote insn of the block.  */
   end = next_nonnote_insn (PREV_INSN (end));
 
@@ -277,12 +333,9 @@ call_ends_block_p (insn, end)
   /* Skip over copying from the call's return value pseudo into
      this function's hard return register and if that's the end
      of the block, we're OK.  */
-  if (identify_call_return_value (PATTERN (insn), &hardret, &softret))
-    {
-      insn = skip_copy_to_return_value (insn, hardret, softret);
-      if (insn == end)
-        return 1;
-    }
+  insn = skip_copy_to_return_value (insn);
+  if (insn == end)
+    return 1;
 
   /* Skip any stack adjustment.  */
   insn = skip_stack_adjustment (insn);
@@ -291,6 +344,11 @@ call_ends_block_p (insn, end)
 
   /* Skip over a CLOBBER of the return value as a hard reg.  */
   insn = skip_use_of_return_value (insn, CLOBBER);
+  if (insn == end)
+    return 1;
+
+  /* Skip over a CLOBBER of the return value as a hard reg.  */
+  insn = skip_unreturned_value (insn);
   if (insn == end)
     return 1;
 
@@ -507,15 +565,11 @@ optimize_sibling_and_tail_recursive_calls ()
      ahead and find all the EH labels.  */
   find_exception_handler_labels ();
 
-  /* Run a jump optimization pass to clean up the CFG.  We primarily want
-     this to thread jumps so that it is obvious which blocks jump to the
-     epilouge.  */
-  jump_optimize_minimal (insns);
-
+  rebuild_jump_labels (insns);
   /* We need cfg information to determine which blocks are succeeded
      only by the epilogue.  */
   find_basic_blocks (insns, max_reg_num (), 0);
-  cleanup_cfg (insns);
+  cleanup_cfg (CLEANUP_PRE_SIBCALL);
 
   /* If there are no basic blocks, then there is nothing to do.  */
   if (n_basic_blocks == 0)
@@ -594,11 +648,15 @@ optimize_sibling_and_tail_recursive_calls ()
 
 	  /* See if there are any reasons we can't perform either sibling or
 	     tail call optimizations.  We must be careful with stack slots
-	     which are live at potential optimization sites.  ?!? The first
+	     which are live at potential optimization sites.  ??? The first
 	     test is overly conservative and should be replaced.  */
 	  if (frame_offset
 	      /* Can't take address of local var if used by recursive call.  */
 	      || current_function_uses_addressof
+	      /* Any function that calls setjmp might have longjmp called from
+		 any called function.  ??? We really should represent this
+		 properly in the CFG so that this needn't be special cased.  */
+	      || current_function_calls_setjmp
 	      /* Can't if more than one successor or single successor is not
 		 exit block.  These two tests prevent tail call optimization
 		 in the presense of active exception handlers.  */

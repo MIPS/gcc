@@ -1349,132 +1349,11 @@ extern int avr_reg_order[];
    the frame pointer.  A definition of 0 means that the address is
    passed as an "invisible" first argument.  */
 
-#define FUNCTION_PROLOGUE(FILE, SIZE) function_prologue (FILE, SIZE)
-/* A C compound statement that outputs the assembler code for entry
-   to a function.  The prologue is responsible for setting up the
-   stack frame, initializing the frame pointer register, saving
-   registers that must be saved, and allocating SIZE additional bytes
-   of storage for the local variables.  SIZE is an integer.  FILE is
-   a stdio stream to which the assembler code should be output.
-
-   The label for the beginning of the function need not be output by
-   this macro.  That has already been done when the macro is run.
-
-   To determine which registers to save, the macro can refer to the
-   array `regs_ever_live': element R is nonzero if hard register R is
-   used anywhere within the function.  This implies the function
-   prologue should save register R, provided it is not one of the
-   call-used registers.  (`FUNCTION_EPILOGUE' must likewise use
-   `regs_ever_live'.)
-
-   On machines that have "register windows", the function entry code
-   does not save on the stack the registers that are in the windows,
-   even if they are supposed to be preserved by function calls;
-   instead it takes appropriate steps to "push" the register stack,
-   if any non-call-used registers are used in the function.
-
-   On machines where functions may or may not have frame-pointers, the
-   function entry code must vary accordingly; it must set up the frame
-   pointer if one is wanted, and not otherwise.  To determine whether
-   a frame pointer is in wanted, the macro can refer to the variable
-   `frame_pointer_needed'.  The variable's value will be 1 at run
-   time in a function that needs a frame pointer.  *Note
-   Elimination::.
-
-   The function entry code is responsible for allocating any stack
-   space required for the function.  This stack space consists of the
-   regions listed below.  In most cases, these regions are allocated
-   in the order listed, with the last listed region closest to the
-   top of the stack (the lowest address if `STACK_GROWS_DOWNWARD' is
-   defined, and the highest address if it is not defined).  You can
-   use a different order for a machine if doing so is more convenient
-   or required for compatibility reasons.  Except in cases where
-   required by standard or by a debugger, there is no reason why the
-   stack layout used by GCC need agree with that used by other
-   compilers for a machine.
-
-   * A region of `current_function_pretend_args_size' bytes of
-   uninitialized space just underneath the first argument
-   arriving on the stack.  (This may not be at the very start of
-   the allocated stack region if the calling sequence has pushed
-   anything else since pushing the stack arguments.  But
-   usually, on such machines, nothing else has been pushed yet,
-   because the function prologue itself does all the pushing.)
-   This region is used on machines where an argument may be
-   passed partly in registers and partly in memory, and, in some
-   cases to support the features in `varargs.h' and `stdargs.h'.
-
-   * An area of memory used to save certain registers used by the
-   function.  The size of this area, which may also include
-   space for such things as the return address and pointers to
-   previous stack frames, is machine-specific and usually
-   depends on which registers have been used in the function.
-   Machines with register windows often do not require a save
-   area.
-
-   * A region of at least SIZE bytes, possibly rounded up to an
-   allocation boundary, to contain the local variables of the
-   function.  On some machines, this region and the save area
-   may occur in the opposite order, with the save area closer to
-   the top of the stack.
-
-   * Optionally, when `ACCUMULATE_OUTGOING_ARGS' is defined, a
-   region of `current_function_outgoing_args_size' bytes to be
-   used for outgoing argument lists of the function.  *Note
-   Stack Arguments::.
-
-   Normally, it is necessary for the macros `FUNCTION_PROLOGUE' and
-   `FUNCTION_EPILOGE' to treat leaf functions specially.  The C
-   variable `leaf_function' is nonzero for such a function.  */
-
 #define EPILOGUE_USES(REGNO) 0
 /* Define this macro as a C expression that is nonzero for registers
    are used by the epilogue or the `return' pattern.  The stack and
    frame pointer registers are already be assumed to be used as
    needed.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE) function_epilogue (FILE, SIZE)
-/* A C compound statement that outputs the assembler code for exit
-   from a function.  The epilogue is responsible for restoring the
-   saved registers and stack pointer to their values when the
-   function was called, and returning control to the caller.  This
-   macro takes the same arguments as the macro `FUNCTION_PROLOGUE',
-   and the registers to restore are determined from `regs_ever_live'
-   and `CALL_USED_REGISTERS' in the same way.
-
-   On some machines, there is a single instruction that does all the
-   work of returning from the function.  On these machines, give that
-   instruction the name `return' and do not define the macro
-   `FUNCTION_EPILOGUE' at all.
-
-   Do not define a pattern named `return' if you want the
-   `FUNCTION_EPILOGUE' to be used.  If you want the target switches
-   to control whether return instructions or epilogues are used,
-   define a `return' pattern with a validity condition that tests the
-   target switches appropriately.  If the `return' pattern's validity
-   condition is false, epilogues will be used.
-
-   On machines where functions may or may not have frame-pointers, the
-   function exit code must vary accordingly.  Sometimes the code for
-   these two cases is completely different.  To determine whether a
-   frame pointer is wanted, the macro can refer to the variable
-   `frame_pointer_needed'.  The variable's value will be 1 when
-   compiling a function that needs a frame pointer.
-
-   Normally, `FUNCTION_PROLOGUE' and `FUNCTION_EPILOGUE' must treat
-   leaf functions specially.  The C variable `leaf_function' is
-   nonzero for such a function.  *Note Leaf Functions::.
-
-   On some machines, some functions pop their arguments on exit while
-   others leave that for the caller to do.  For example, the 68020
-   when given `-mrtd' pops arguments in functions that take a fixed
-   number of arguments.
-
-   Your definition of the macro `RETURN_POPS_ARGS' decides which
-   functions pop their own arguments.  `FUNCTION_EPILOGUE' needs to
-   know what was decided.  The variable that is called
-   `current_function_pops_args' is the number of bytes of its
-   arguments that a function should pop.  *Note Scalar Return::.  */
 
 #define STRICT_ARGUMENT_NAMING 1
 /* Define this macro if the location where a function argument is
@@ -1677,22 +1556,22 @@ do {									    \
 	    {								    \
 	      int regno = REGNO (XEXP (X, 0));				    \
 	      rtx mem = make_memloc (X, regno);				    \
-	      push_reload (XEXP (mem,0), NULL_PTR, &XEXP (mem,0), NULL_PTR, \
+	      push_reload (XEXP (mem,0), NULL, &XEXP (mem,0), NULL,         \
 		           POINTER_REGS, Pmode, VOIDmode, 0, 0,		    \
 		           1, ADDR_TYPE (TYPE));			    \
-	      push_reload (mem, NULL_RTX, &XEXP (X, 0), NULL_PTR,	    \
+	      push_reload (mem, NULL_RTX, &XEXP (X, 0), NULL,		    \
 		           BASE_POINTER_REGS, GET_MODE (X), VOIDmode, 0, 0, \
 		           OPNUM, TYPE);				    \
 	      goto WIN;							    \
 	    }								    \
-	  push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL_PTR,	    \
+	  push_reload (XEXP (X, 0), NULL_RTX, &XEXP (X, 0), NULL,	    \
 		       BASE_POINTER_REGS, GET_MODE (X), VOIDmode, 0, 0,	    \
 		       OPNUM, TYPE);					    \
           goto WIN;							    \
 	}								    \
       else if (! (frame_pointer_needed && XEXP (X,0) == frame_pointer_rtx)) \
 	{								    \
-	  push_reload (X, NULL_RTX, &X, NULL_PTR,			    \
+	  push_reload (X, NULL_RTX, &X, NULL,				    \
 		       POINTER_REGS, GET_MODE (X), VOIDmode, 0, 0,	    \
 		       OPNUM, TYPE);					    \
           goto WIN;							    \
@@ -2232,16 +2111,7 @@ progmem_section (void)							      \
    If you do not define this macro, the default is that only the
    character `;' is treated as a logical line separator.  */
 
-#define ASM_OPEN_PAREN "("
-#define ASM_CLOSE_PAREN ")"
-/* These macros are defined as C string constant, describing the
-   syntax in the assembler for grouping arithmetic expressions.  The
-   following definitions are correct for most assemblers:
-
-   #define ASM_OPEN_PAREN "("
-   #define ASM_CLOSE_PAREN ")"
-
-   These macros are provided by `real.h' for writing the definitions of
+/* These macros are provided by `real.h' for writing the definitions of
    `ASM_OUTPUT_DOUBLE' and the like:  */
 
 #define ASM_OUTPUT_COMMON(STREAM, NAME, SIZE, ROUNDED)			   \
@@ -2837,20 +2707,6 @@ extern int avr_case_values_threshold;
    of arguments that the function accepts.  Some people think a larger
    threshold should be used on RISC machines.  */
 
-#define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, IDENTIFIER, ARGS) \
-valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
-/* `VALID_MACHINE_DECL_ATTRIBUTE (DECL, ATTRIBUTES, IDENTIFIER, ARGS)'
-   If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for DECL.
-   The attributes in ATTRIBUTES have previously been assigned to DECL.  */
-
-#define VALID_MACHINE_TYPE_ATTRIBUTE(TYPE, ATTRIBUTES, IDENTIFIER, ARGS) \
-     valid_machine_type_attribute(TYPE, ATTRIBUTES, IDENTIFIER, ARGS)
-/* `VALID_MACHINE_TYPE_ATTRIBUTE (TYPE, ATTRIBUTES, IDENTIFIER, ARGS)'
-   If defined, a C expression whose value is nonzero if IDENTIFIER
-   with arguments ARGS is a valid machine specific attribute for TYPE.
-   The attributes in ATTRIBUTES have previously been assigned to TYPE.  */
-
 #define DOLLARS_IN_IDENTIFIERS 0
 /* Define this macro to control use of the character `$' in identifier
    names.  0 means `$' is not allowed by default; 1 means it is
@@ -2883,17 +2739,6 @@ valid_machine_decl_attribute (DECL, ATTRIBUTES, IDENTIFIER, ARGS)
    For instance, the SH target has only positive offsets in
    addresses.  Thus sorting to put the smallest address first allows
    the most combinations to be found.  */
-
-/* Define results of standard character escape sequences.  */
-#define TARGET_BELL 007
-#define TARGET_BS 010
-#define TARGET_TAB 011
-#define TARGET_NEWLINE 012
-#define TARGET_VT 013
-#define TARGET_FF 014
-#define TARGET_CR 015
-
-
 
 #define TRAMPOLINE_TEMPLATE(FILE) \
   internal_error ("Trampolines not supported\n")
@@ -3256,12 +3101,3 @@ extern struct rtx_def *ldi_reg_rtx;
 
 /* Get the standard ELF stabs definitions.  */
 #include "dbxelf.h"
-
-#undef ASM_IDENTIFY_GCC
-#define ASM_IDENTIFY_GCC(FILE)				\
-do							\
-  {							\
-    if (write_symbols != DBX_DEBUG)			\
-      fputs ("gcc2_compiled.:\n", FILE);		\
-  }							\
-while (0)

@@ -142,12 +142,6 @@ extern int warn_missing_noreturn;
 
 extern int warn_cast_align;
 
-/* Nonzero means warn about any identifiers that match in the first N
-   characters.  The value N is in `id_clash_len'.  */
-
-extern int warn_id_clash;
-extern int id_clash_len;
-
 /* Nonzero means warn about any objects definitions whose size is larger
    than N bytes.  Also want about function definitions whose returned
    values are larger than N bytes. The value N is in `larger_than_size'.  */
@@ -327,21 +321,27 @@ extern int flag_volatile_global;
 
 extern int flag_volatile_static;
 
-/* Nonzero allows GCC to violate some IEEE or ANSI rules regarding math
-   operations in the interest of optimization.  For example it allows
-   GCC to assume arguments to sqrt are nonnegative numbers, allowing
-   faster code for sqrt to be generated. */
-
-extern int flag_fast_math;
-
 /* Nonzero allows GCC to optimize sibling and tail recursive calls.  */
 
 extern int flag_optimize_sibling_calls;
 
 /* Nonzero means the front end generally wants `errno' maintained by math
-   operations, like built-in SQRT, unless overridden by flag_fast_math.  */
+   operations, like built-in SQRT.  */
 
 extern int flag_errno_math;
+
+/* Nonzero means that unsafe floating-point math optimizations are allowed
+   for the sake of speed.  IEEE compliance is not guaranteed, and operations
+   are allowed to assume that their arguments and results are "normal"
+   (e.g., nonnegative for SQRT).  */
+
+extern int flag_unsafe_math_optimizations;
+
+/* Zero means that floating-point math operations cannot generate a
+   (user-visible) trap.  This is the case, for example, in nonstop
+   IEEE 754 arithmetic.  */
+
+extern int flag_trapping_math;
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
@@ -446,11 +446,6 @@ extern int flag_pic;
    exception handling.  */
 
 extern int flag_exceptions;
-
-/* Nonzero means use the new model for exception handling. Replaces 
-   -DNEW_EH_MODEL as a compile option. */
-
-extern int flag_new_exceptions;
 
 /* Nonzero means generate frame unwind info table when supported */
 
@@ -610,6 +605,15 @@ extern enum graph_dump_types graph_dump_format;
 
 extern int flag_no_ident;
 
+/* Nonzero if we want to perform enhanced load motion during gcse.  */
+
+extern int flag_gcse_lm;
+
+/* Nonzero if we want to perform store motion after gcse.  */
+
+extern int flag_gcse_sm;
+
+
 /* Nonzero means we should do dwarf2 duplicate elimination.  */
 
 extern int flag_eliminate_dwarf2_dups;
@@ -618,4 +622,7 @@ extern int flag_eliminate_dwarf2_dups;
    and to print them when we are done.  */
 extern int flag_detailed_statistics;
 
-#endif /* GCC_FLAGS_H */
+/* Nonzero means enable synchronous exceptions for non-call instructions.  */
+extern int flag_non_call_exceptions;
+
+#endif /* ! GCC_FLAGS_H */

@@ -29,6 +29,9 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include <signal.h>
+#if ! defined( SIGCHLD ) && defined( SIGCLD )
+#  define SIGCHLD SIGCLD
+#endif
 
 #ifdef vfork /* Autoconf may define this to fork for us. */
 # define VFORK_STRING "fork"
@@ -160,6 +163,10 @@ int do_collecting = 1;
 #else
 int do_collecting = 0;
 #endif
+
+/* Nonzero if we should suppress the automatic demangling of identifiers
+   in linker error messages.  Set from COLLECT_NO_DEMANGLE.  */
+int no_demangle;
 
 /* Linked lists of constructor and destructor names.  */
 
@@ -288,6 +295,9 @@ static void write_c_file_glob	PARAMS ((FILE *, const char *));
 static void scan_prog_file	PARAMS ((const char *, enum pass));
 #ifdef SCAN_LIBRARIES
 static void scan_libraries	PARAMS ((const char *));
+#endif
+#if LINK_ELIMINATE_DUPLICATE_LDIRECTORIES
+static int is_in_args		PARAMS ((const char *, const char **, const char **));
 #endif
 #ifdef COLLECT_EXPORT_LIST
 static int is_in_list		PARAMS ((const char *, struct id *));
@@ -516,7 +526,6 @@ dump_file (name)
      const char *name;
 {
   FILE *stream = fopen (name, "r");
-  int no_demangle = !! getenv ("COLLECT_NO_DEMANGLE");
 
   if (stream == 0)
     return;
@@ -550,7 +559,7 @@ dump_file (name)
 	      fputs (result, stderr);
 
 	      diff = strlen (word) - strlen (result);
-	      while (diff > 0)
+	      while (diff > 0 && c == ' ')
 		--diff, putc (' ', stderr);
 	      while (diff < 0 && c == ' ')
 		++diff, c = getc (stream);
@@ -586,21 +595,9 @@ is_ctor_dtor (s)
   register const char *orig_s = s;
 
   static struct names special[] = {
-#ifdef NO_DOLLAR_IN_LABEL
-#ifdef NO_DOT_IN_LABEL
     { "GLOBAL__I_", sizeof ("GLOBAL__I_")-1, 1, 0 },
     { "GLOBAL__D_", sizeof ("GLOBAL__D_")-1, 2, 0 },
     { "GLOBAL__F_", sizeof ("GLOBAL__F_")-1, 5, 0 },
-#else
-    { "GLOBAL_.I.", sizeof ("GLOBAL_.I.")-1, 1, 0 },
-    { "GLOBAL_.D.", sizeof ("GLOBAL_.D.")-1, 2, 0 },
-    { "GLOBAL_.F.", sizeof ("GLOBAL_.F.")-1, 5, 0 },
-#endif
-#else
-    { "GLOBAL_$I$", sizeof ("GLOBAL_$I$")-1, 1, 0 },
-    { "GLOBAL_$D$", sizeof ("GLOBAL_$D$")-1, 2, 0 },
-    { "GLOBAL_$F$", sizeof ("GLOBAL_$F$")-1, 5, 0 },
-#endif
     { "GLOBAL__FI_", sizeof ("GLOBAL__FI_")-1, 3, 0 },
     { "GLOBAL__FD_", sizeof ("GLOBAL__FD_")-1, 4, 0 },
 #ifdef CFRONT_LOSSAGE /* Do not collect cfront initialization functions.
@@ -661,8 +658,8 @@ find_a_file (pprefix, name)
   if (debug)
     fprintf (stderr, "Looking for '%s'\n", name);
   
-#ifdef EXECUTABLE_SUFFIX
-  len += strlen (EXECUTABLE_SUFFIX);
+#ifdef HOST_EXECUTABLE_SUFFIX
+  len += strlen (HOST_EXECUTABLE_SUFFIX);
 #endif
 
   temp = xmalloc (len);
@@ -685,11 +682,11 @@ find_a_file (pprefix, name)
 	  return temp;
 	}
 
-#ifdef EXECUTABLE_SUFFIX
+#ifdef HOST_EXECUTABLE_SUFFIX
 	/* Some systems have a suffix for executable files.
 	   So try appending that.  */
       strcpy (temp, name);
-	strcat (temp, EXECUTABLE_SUFFIX);
+	strcat (temp, HOST_EXECUTABLE_SUFFIX);
 	
 	if (access (temp, X_OK) == 0)
 	  return temp;
@@ -711,10 +708,10 @@ find_a_file (pprefix, name)
 	    && access (temp, X_OK) == 0)
 	  return temp;
 
-#ifdef EXECUTABLE_SUFFIX
+#ifdef HOST_EXECUTABLE_SUFFIX
 	/* Some systems have a suffix for executable files.
 	   So try appending that.  */
-	strcat (temp, EXECUTABLE_SUFFIX);
+	strcat (temp, HOST_EXECUTABLE_SUFFIX);
 	
 	if (stat (temp, &st) >= 0
 	    && ! S_ISDIR (st.st_mode)
@@ -864,9 +861,20 @@ main (argc, argv)
   int first_file;
   int num_c_args	= argc+9;
 
+  no_demangle = !! getenv ("COLLECT_NO_DEMANGLE");
+
+  /* Suppress demangling by the real linker, which may be broken.  */
+  putenv (xstrdup ("COLLECT_NO_DEMANGLE="));
+
 #if defined (COLLECT2_HOST_INITIALIZATION)
   /* Perform system dependent initialization, if neccessary.  */
   COLLECT2_HOST_INITIALIZATION;
+#endif
+
+#ifdef SIGCHLD
+  /* We *MUST* set SIGCHLD to SIG_DFL so that the wait4() call will
+     receive the signal.  A different setting is inheritable */
+  signal (SIGCHLD, SIG_DFL);
 #endif
 
 /* LC_CTYPE determines the character set used by the terminal so it has be set
@@ -1180,6 +1188,13 @@ main (argc, argv)
        	    case 'L':
 	      add_prefix (&cmdline_lib_dirs, arg+2);
 	      break;
+#else 
+#if LINK_ELIMINATE_DUPLICATE_LDIRECTORIES
+	    case 'L':
+	      if (is_in_args (arg, (const char **) ld1_argv, ld1-1))
+		--ld1;
+	      break;
+#endif /* LINK_ELIMINATE_DUPLICATE_LDIRECTORIES */
 #endif
 
 	    case 'o':
@@ -1272,9 +1287,8 @@ main (argc, argv)
 
   if (exports.first)
     {
-      char *buf = xmalloc (strlen (export_file) + 5);
-
-      sprintf (buf, "-bE:%s", export_file);
+      char *buf = concat ("-bE:", export_file, NULL);
+      
       *ld1++ = buf;
       *ld2++ = buf;
 
@@ -1438,13 +1452,7 @@ main (argc, argv)
   /* Tell the linker that we have initializer and finalizer functions.  */
 #ifdef LD_INIT_SWITCH
 #ifdef COLLECT_EXPORT_LIST
-  {
-    /* option name + functions + colons + NULL */
-    char *buf = xmalloc (strlen (LD_INIT_SWITCH)
-			 + strlen(initname) + strlen(fininame) + 3);
-    sprintf (buf, "%s:%s:%s", LD_INIT_SWITCH, initname, fininame);
-    *ld2++ = buf;
-  }
+  *ld2++ = concat (LD_INIT_SWITCH, ":", initname, ":", fininame, NULL);
 #else
   *ld2++ = LD_INIT_SWITCH;
   *ld2++ = initname;
@@ -1459,12 +1467,7 @@ main (argc, argv)
       /* If we did not add export flag to link arguments before, add it to
 	 second link phase now.  No new exports should have been added.  */
       if (! exports.first)
-	{
-	  char *buf = xmalloc (strlen (export_file) + 5);
-
-	  sprintf (buf, "-bE:%s", export_file);
-	  *ld2++ = buf;
-	}
+	*ld2++ = concat ("-bE:", export_file, NULL);
 
       add_to_list (&exports, initname);
       add_to_list (&exports, fininame);
@@ -1771,6 +1774,24 @@ write_list (stream, prefix, list)
     }
 }
 
+#if LINK_ELIMINATE_DUPLICATE_LDIRECTORIES
+/* Given a STRING, return nonzero if it occurs in the list in range
+   [ARGS_BEGIN,ARGS_END).  */
+
+static int
+is_in_args (string, args_begin, args_end)
+     const char *string;
+     const char **args_begin;
+     const char **args_end;
+{
+  const char **args_pointer;
+  for (args_pointer = args_begin; args_pointer != args_end; ++args_pointer)
+    if (strcmp (string, *args_pointer) == 0)
+      return 1;
+  return 0;
+}
+#endif /* LINK_ELIMINATE_DUPLICATE_LDIRECTORIES */
+
 #ifdef COLLECT_EXPORT_LIST
 /* This function is really used only on AIX, but may be useful.  */
 static int
@@ -1881,13 +1902,8 @@ write_c_file_stat (stream, name)
     notice ("\nwrite_c_file - output name is %s, prefix is %s\n",
 	    output_file, prefix);
 
-#define INIT_NAME_FORMAT "_GLOBAL__FI_%s"
-  initname = xmalloc (strlen (prefix) + sizeof (INIT_NAME_FORMAT) - 2);
-  sprintf (initname, INIT_NAME_FORMAT, prefix);
-
-#define FINI_NAME_FORMAT "_GLOBAL__FD_%s"
-  fininame = xmalloc (strlen (prefix) + sizeof (FINI_NAME_FORMAT) - 2);
-  sprintf (fininame, FINI_NAME_FORMAT, prefix);
+  initname = concat ("_GLOBAL__FI_", prefix, NULL);
+  fininame = concat ("_GLOBAL__FD_", prefix, NULL);
 
   free (prefix);
 

@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler,
-   for IBM RS/6000 running AIX version 3.1.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   for powerpc machines running Linux.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, 
+   Inc.
    Contributed by Michael Meissner (meissner@cygnus.com).
 
 This file is part of GNU CC.
@@ -32,6 +33,12 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	CPP_OS_DEFAULT_SPEC
 #define CPP_OS_DEFAULT_SPEC "%(cpp_os_linux)"
+
+/* The GNU C++ standard library currently requires _GNU_SOURCE being
+   defined on glibc-based systems. This temporary hack accomplishes this,
+   it should go away as soon as libstdc++-v3 has a real fix.  */
+#undef CPLUSPLUS_CPP_SPEC
+#define CPLUSPLUS_CPP_SPEC "-D_GNU_SOURCE %(cpp)"
 
 #undef LINK_SHLIB_SPEC
 #define LINK_SHLIB_SPEC "%{shared:-shared} %{!shared: %{static:-static}}"
@@ -66,3 +73,58 @@ Boston, MA 02111-1307, USA.  */
 #ifndef USE_GNULIBC_1
 #define DEFAULT_VTABLE_THUNKS 1
 #endif
+
+/* Do code reading to identify a signal frame, and set the frame
+   state data appropriately.  See unwind-dw2.c for the structs.  */
+
+#ifdef IN_LIBGCC2
+#include <signal.h>
+#include <sys/ucontext.h>
+
+enum { SIGNAL_FRAMESIZE = 64 };
+#endif
+
+#define MD_FALLBACK_FRAME_STATE_FOR(CONTEXT, FS, SUCCESS)		\
+  do {									\
+    unsigned char *pc_ = (CONTEXT)->ra;					\
+    struct sigcontext *sc_;						\
+    long new_cfa_;							\
+    int i_;								\
+									\
+    /* li r0, 0x7777; sc  (rt_sigreturn)  */				\
+    /* li r0, 0x6666; sc  (sigreturn)  */				\
+    if (((*(unsigned int *) (pc_+0) == 0x38007777)			\
+	 || (*(unsigned int *) (pc_+0) == 0x38006666))			\
+	&& (*(unsigned int *) (pc_+4)  == 0x44000002))			\
+	sc_ = (CONTEXT)->cfa + SIGNAL_FRAMESIZE;			\
+    else								\
+      break;								\
+    									\
+    new_cfa_ = sc_->regs->gpr[STACK_POINTER_REGNUM];			\
+    (FS)->cfa_how = CFA_REG_OFFSET;					\
+    (FS)->cfa_reg = STACK_POINTER_REGNUM;				\
+    (FS)->cfa_offset = new_cfa_ - (long) (CONTEXT)->cfa;		\
+    									\
+    for (i_ = 0; i_ < 32; i_++)						\
+      if (i_ != STACK_POINTER_REGNUM)					\
+	{	    							\
+	  (FS)->regs.reg[i_].how = REG_SAVED_OFFSET;			\
+	  (FS)->regs.reg[i_].loc.offset 				\
+	    = (long)&(sc_->regs->gpr[i_]) - new_cfa_;			\
+	}								\
+									\
+    (FS)->regs.reg[LINK_REGISTER_REGNUM].how = REG_SAVED_OFFSET;	\
+    (FS)->regs.reg[LINK_REGISTER_REGNUM].loc.offset 			\
+      = (long)&(sc_->regs->link) - new_cfa_;				\
+									\
+    /* The unwinder expects the IP to point to the following insn,	\
+       whereas the kernel returns the address of the actual		\
+       faulting insn.  */						\
+    sc_->regs->nip += 4;  						\
+    (FS)->regs.reg[CR0_REGNO].how = REG_SAVED_OFFSET;			\
+    (FS)->regs.reg[CR0_REGNO].loc.offset 				\
+      = (long)&(sc_->regs->nip) - new_cfa_;				\
+    (FS)->retaddr_column = CR0_REGNO;					\
+    goto SUCCESS;							\
+  } while (0)
+

@@ -192,7 +192,7 @@ DEFUN(read_zip_member, (jcf, zipd, zipf),
 	      jcf->read_ptr = jcf->buffer;
 	      jcf->read_end = jcf->buffer_end;
 	      if (lseek (zipf->fd, zipd->filestart, 0) < 0
-		  || read (zipf->fd, jcf->buffer, zipd->size) != zipd->size)
+		  || read (zipf->fd, jcf->buffer, zipd->size) != (long) zipd->size)
 	        return -2;
 	    }
 	  else
@@ -213,7 +213,7 @@ DEFUN(read_zip_member, (jcf, zipd, zipf),
 	      d_stream.next_in = buffer;
 	      d_stream.avail_in = zipd->size;
 	      if (lseek (zipf->fd, zipd->filestart, 0) < 0
-		  || read (zipf->fd, buffer, zipd->size) != zipd->size)
+		  || read (zipf->fd, buffer, zipd->size) != (long) zipd->size)
 		return -2;
 	      /* Handle NO_HEADER using undocumented zlib feature.
                  This is a very common hack.  */
@@ -405,16 +405,8 @@ DEFUN(find_class, (classname, classname_length, jcf, source_ok),
      up no matter what. FIXME. */
   if (! java && ! class && java_buf.st_mtime > class_buf.st_mtime)
     {
-      char *stripped_class_name = xstrdup (classname);
-      int i = strlen (stripped_class_name);
-      
-      while (stripped_class_name [i] != '.')
-	i--;
-      
-      stripped_class_name [i] = '\0';
       if (flag_newer)
-	warning ("Source file for class `%s' is newer than its matching class file. Source file used instead", stripped_class_name);
-      free (stripped_class_name);
+	warning ("Source file for class `%s' is newer than its matching class file. Source file `%s' used instead", classname, java_buffer);
       class = -1;
     }
 

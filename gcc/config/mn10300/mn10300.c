@@ -1,5 +1,6 @@
 /* Subroutines for insn-output.c for Matsushita MN10300 series
-   Copyright (C) 1996, 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+   Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GNU CC.
@@ -28,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "insn-flags.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
@@ -38,6 +38,8 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "toplev.h"
 #include "tm_p.h"
+#include "target.h"
+#include "target-def.h"
 
 /* The size of the callee register save area.  Right now we save everything
    on entry since it costs us nothing in code size.  It does cost us from a
@@ -48,7 +50,11 @@ Boston, MA 02111-1307, USA.  */
 			+ 4 * regs_ever_live[7] \
 			+ 16 * (regs_ever_live[14] || regs_ever_live[15] \
 				|| regs_ever_live[16] || regs_ever_live[17]))
+
+/* Initialize the GCC target structure.  */
 
+struct gcc_target targetm = TARGET_INITIALIZER;
+
 void
 asm_file_start (file)
      FILE *file;
@@ -144,8 +150,7 @@ print_operand (file, x, code)
 	    break;
 
 	  case SUBREG:
-	    fprintf (file, "%s",
-		     reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)]);
+	    fprintf (file, "%s", reg_names[subreg_regno (x)]);
 	    break;
 
 	  case CONST_DOUBLE:
@@ -195,7 +200,7 @@ print_operand (file, x, code)
 	  {
 	  case MEM:
 	    fputc ('(', file);
-	    x = adj_offsettable_operand (x, 4);
+	    x = adjust_address (x, SImode, 4);
 	    output_address (XEXP (x, 0));
 	    fputc (')', file);
 	    break;
@@ -205,8 +210,7 @@ print_operand (file, x, code)
 	    break;
 
 	  case SUBREG:
-	    fprintf (file, "%s",
-		     reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)] + 1);
+	    fprintf (file, "%s", reg_names[subreg_regno (x) + 1]);
 	    break;
 
 	  case CONST_DOUBLE:
@@ -290,8 +294,7 @@ print_operand (file, x, code)
 	    break;
 
 	  case SUBREG:
-	    fprintf (file, "%s",
-		     reg_names[REGNO (SUBREG_REG (x)) + SUBREG_WORD (x)]);
+	    fprintf (file, "%s", reg_names[subreg_regno (x)]);
 	    break;
 
 	  /* This will only be single precision....  */
@@ -866,12 +869,12 @@ mn10300_builtin_saveregs ()
     offset = current_function_arg_offset_rtx;
 
   mem = gen_rtx_MEM (SImode, current_function_internal_arg_pointer);
-  MEM_ALIAS_SET (mem) = set;
+  set_mem_alias_set (mem, set);
   emit_move_insn (mem, gen_rtx_REG (SImode, 0));
 
   mem = gen_rtx_MEM (SImode,
 		     plus_constant (current_function_internal_arg_pointer, 4));
-  MEM_ALIAS_SET (mem) = set;
+  set_mem_alias_set (mem, set);
   emit_move_insn (mem, gen_rtx_REG (SImode, 1));
 
   return copy_to_reg (expand_binop (Pmode, add_optab,

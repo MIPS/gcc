@@ -23,8 +23,11 @@ Boston, MA 02111-1307, USA.  */
 #define DEFAULT_ABI ABI_AIX
 #define TARGET_OBJECT_FORMAT OBJECT_XCOFF
 
-/* The RS/6000 uses the XCOFF format.  */
+/* The AIX linker will discard static constructors in object files before
+   collect has a chance to see them, so scan the object files directly.  */
+#define COLLECT_EXPORT_LIST
 
+/* The RS/6000 uses the XCOFF format.  */
 #define XCOFF_DEBUGGING_INFO
 
 /* Define if the object format being used is COFF or a superset.  */
@@ -68,7 +71,7 @@ Boston, MA 02111-1307, USA.  */
 /* #define ASM_OUTPUT_DESTRUCTOR(file, name) */
 
 /* The prefix to add to user-visible assembler symbols. */
-#define USER_LABEL_PREFIX "."
+#define USER_LABEL_PREFIX ""
 
 /* Don't turn -B into -L if the argument specifies a relative file name.  */
 #define RELATIVE_PREFIX_NOT_LINKDIR
@@ -402,9 +405,6 @@ toc_section ()						\
    Also, in order to output proper .bs/.es pairs, we need at least one static
    [RW] section emitted.
 
-   We then switch back to text to force the gcc2_compiled. label and the space
-   allocated after it (when profiling) into the text section.
-
    Finally, declare mcount when profiling to make the assembler happy.  */
 
 #define ASM_FILE_START(FILE)					\
@@ -487,12 +487,6 @@ toc_section ()						\
 #define ASM_OUTPUT_SYMBOL_REF(FILE, SYM) \
   rs6000_output_symbol_ref (FILE, SYM)
 
-/* This is how to output a reference to a user-level label named NAME.
-   `assemble_name' uses this.  */
-
-#define ASM_OUTPUT_LABELREF(FILE,NAME)	\
-  fputs (NAME, FILE)
-
 /* This says how to output an external.  */
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
@@ -561,48 +555,9 @@ toc_section ()						\
    use '.long' or '.word', but that aligns to a 4-byte boundary which
    is not what is required.  So we define a million macros...  */
 
-#define ASM_OUTPUT_DWARF_ADDR_VAR(FILE, LABEL, LENGTH)	\
- do {   fprintf ((FILE), "\t.vbyte\t%d,", LENGTH);	\
-        assemble_name (FILE, LABEL);			\
-  } while (0)
-
-#define ASM_OUTPUT_DWARF_DELTA_VAR(FILE, LABEL1, LABEL2, LENGTH)	\
- do {   fprintf ((FILE), "\t.vbyte\t%d,", LENGTH);			\
-        assemble_name (FILE, LABEL1);					\
-        fprintf (FILE, "-");						\
-        assemble_name (FILE, LABEL2);					\
-  } while (0)
-
-#define ASM_OUTPUT_DWARF_DELTA2(FILE, LABEL1, LABEL2)	\
- ASM_OUTPUT_DWARF_DELTA_VAR (FILE, LABEL1, LABEL2, 2)
-
-#define ASM_OUTPUT_DWARF_DELTA4(FILE, LABEL1, LABEL2)	\
- ASM_OUTPUT_DWARF_DELTA_VAR (FILE, LABEL1, LABEL2, 4)
-
-#define ASM_OUTPUT_DWARF_DELTA(FILE, LABEL1, LABEL2)			\
- ASM_OUTPUT_DWARF_DELTA_VAR (FILE, LABEL1, LABEL2, DWARF_OFFSET_SIZE)
-
-#define ASM_OUTPUT_DWARF_ADDR_DELTA(FILE, LABEL1, LABEL2)	\
- ASM_OUTPUT_DWARF_DELTA_VAR (FILE, LABEL1, LABEL2,		\
-			     POINTER_SIZE / BITS_PER_UNIT)
-
-#define ASM_OUTPUT_DWARF_ADDR(FILE, LABEL)				\
- ASM_OUTPUT_DWARF_ADDR_VAR (FILE, LABEL, POINTER_SIZE / BITS_PER_UNIT)
-
-#define ASM_OUTPUT_DWARF_DATA4(FILE, VALUE)			\
-  fprintf ((FILE), "\t.vbyte\t4,0x%x", (unsigned) (VALUE))
-
-#define ASM_OUTPUT_DWARF_DATA2(FILE, VALUE)			\
-  fprintf ((FILE), "\t.vbyte\t2,0x%x", (unsigned) (VALUE))
-
-#define ASM_OUTPUT_DWARF_OFFSET4(FILE, LABEL)	\
-  ASM_OUTPUT_DWARF_ADDR_VAR (FILE, LABEL, 4)
-
-#define ASM_OUTPUT_DWARF_OFFSET(FILE, LABEL)			\
-  ASM_OUTPUT_DWARF_ADDR_VAR (FILE, LABEL, DWARF_OFFSET_SIZE)
-
-/* dwarf2out keys off this, but we don't have to have a real definition.  */
-#define UNALIGNED_INT_ASM_OP bite_me
+#define UNALIGNED_SHORT_ASM_OP		"\t.vbyte\t2,"
+#define UNALIGNED_INT_ASM_OP		"\t.vbyte\t4,"
+#define UNALIGNED_DOUBLE_INT_ASM_OP	"\t.vbyte\t8,"
 
 /* Output before instructions.  */
 #define TEXT_SECTION_ASM_OP "\t.csect .text[PR]"
@@ -632,6 +587,12 @@ toc_section ()						\
        fputs (TREE_STRING_POINTER (DECL_SECTION_NAME (DECL)), ASM_OUT_FILE); \
        putc ('\n', ASM_OUT_FILE);				\
   } while (0)
+
+/* Define the name of the section to use for the exception tables.
+   TODO: test and see if we can use read_only_data_section, if so,
+   remove this.  */
+
+#define EXCEPTION_SECTION data_section
 
 /* __throw will restore its own return address to be the same as the
    return address of the function that the throw is being made to.

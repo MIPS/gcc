@@ -92,10 +92,8 @@
 #include "flags.h"
 #include "output.h"
 #include "function.h"
-#include "except.h"
 #include "toplev.h"
 #include "recog.h"
-#include "insn-flags.h"
 #include "expr.h"
 #include "obstack.h"
 
@@ -213,7 +211,7 @@ skip_insns_after_block (bb)
   if (bb->index + 1 != n_basic_blocks)
     next_head = BASIC_BLOCK (bb->index + 1)->head;
 
-  for (last_insn = bb->end; (insn = NEXT_INSN (last_insn)); last_insn = insn)
+  for (last_insn = insn = bb->end; (insn = NEXT_INSN (insn)); )
     {
       if (insn == next_head)
 	break;
@@ -221,6 +219,7 @@ skip_insns_after_block (bb)
       switch (GET_CODE (insn))
 	{
 	case BARRIER:
+	  last_insn = insn;
 	  continue;
 
 	case NOTE:
@@ -228,11 +227,19 @@ skip_insns_after_block (bb)
 	    {
 	    case NOTE_INSN_LOOP_END:
 	    case NOTE_INSN_BLOCK_END:
+	      last_insn = insn;
+	      continue;
 	    case NOTE_INSN_DELETED:
 	    case NOTE_INSN_DELETED_LABEL:
 	      continue;
 
 	    default:
+	      /* Make line notes attached to the succesor block unless they
+	         are followed by something attached to predecesor block.
+	         These notes remained after removing code in the predecesor
+	         block and thus should be kept together.  */
+	      if (NOTE_LINE_NUMBER (insn) >= 0)
+		continue;
 	      break;
 	    }
 	  break;
@@ -244,6 +251,7 @@ skip_insns_after_block (bb)
 	          || GET_CODE (PATTERN (NEXT_INSN (insn))) == ADDR_DIFF_VEC))
 	    {
 	      insn = NEXT_INSN (insn);
+	      last_insn = insn;
 	      continue;
 	    }
           break;
@@ -396,8 +404,6 @@ make_reorder_chain_1 (bb, prev)
       taken = probability > REG_BR_PROB_BASE / 2;
 
       /* Find the normal taken edge and the normal fallthru edge.
-         Note that there may in fact be other edges due to
-	 asynchronous_exceptions. 
 
 	 Note, conditional jumps with other side effects may not
 	 be fully optimized.  In this case it is possible for
@@ -413,7 +419,7 @@ make_reorder_chain_1 (bb, prev)
 	{
 	  if (e->flags & EDGE_FALLTHRU)
 	    e_fall = e;
-	  if (! (e->flags & EDGE_EH))
+	  else if (! (e->flags & EDGE_EH))
 	    e_taken = e;
 	}
 
@@ -505,6 +511,8 @@ emit_jump_to_block_after (bb, after)
       jump = emit_jump_insn_after (gen_jump (label), after);
       JUMP_LABEL (jump) = label;
       LABEL_NUSES (label) += 1;
+      if (basic_block_for_insn)
+	set_block_for_new_insns (jump, bb);
 
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, "Emitting jump to block %d (%d)\n",
@@ -1356,17 +1364,6 @@ reorder_basic_blocks ()
 
   if (n_basic_blocks <= 1)
     return;
-
-  /* We do not currently handle correct re-placement of EH notes.
-     But that does not matter unless we intend to use them.  */
-  if (flag_exceptions)
-    for (i = 0; i < n_basic_blocks; i++)
-      {
-	edge e;
-	for (e = BASIC_BLOCK (i)->succ; e ; e = e->succ_next)
-	  if (e->flags & EDGE_EH)
-	    return;
-      }
 
   for (i = 0; i < n_basic_blocks; i++)
     BASIC_BLOCK (i)->aux = xcalloc (1, sizeof (struct reorder_block_def));

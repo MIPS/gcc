@@ -84,10 +84,10 @@ DEFTREECODE (EMPTY_CLASS_EXPR, "empty_class_expr", 'e', 0)
 				only done for functions so far
    For class template:
         DECL_INITIAL            associated templates (methods &c)
-        DECL_RESULT             null
+        DECL_TEMPLATE_RESULT    null
    For non-class templates:
 	TREE_TYPE		type of object to be constructed
-        DECL_RESULT             decl for object to be created
+        DECL_TEMPLATE_RESULT    decl for object to be created
                                 (e.g., FUNCTION_DECL with tmpl parms used)
  */
 DEFTREECODE (TEMPLATE_DECL, "template_decl", 'd', 0)
@@ -171,6 +171,9 @@ DEFTREECODE (TYPEOF_TYPE, "typeof_type", 't', 0)
    This is not an alias, but is later expanded into multiple aliases.  */
 DEFTREECODE (USING_DECL, "using_decl", 'd', 0)
 
+/* A using directive. The operand is USING_STMT_NAMESPACE. */     
+DEFTREECODE (USING_STMT, "using_directive", 'e', 1)
+
 /* An un-parsed default argument.  Looks like an IDENTIFIER_NODE.  */
 DEFTREECODE (DEFAULT_ARG, "default_arg", 'x', 2)
 
@@ -200,9 +203,6 @@ DEFTREECODE (WRAPPER, "wrapper", 'x', 1)
    unused.  */
 DEFTREECODE (LOOKUP_EXPR, "lookup_expr", 'e', 1)
 
-/* Used to represent __PRETTY_FUNCTION__ in template bodies.  */
-DEFTREECODE (FUNCTION_NAME, "function_name", 'e', 0)
-
 /* A whole bunch of tree codes for the initial, superficial parsing of
    templates.  */
 DEFTREECODE (MODOP_EXPR, "modop_expr", 'e', 3)
@@ -229,14 +229,19 @@ DEFTREECODE (CTOR_STMT, "ctor_stmt", 'e', 0)
    constructed.  If, after this point, the CLEANUP_DECL goes out of
    scope, the CLEANUP_EXPR must be run.  */
 DEFTREECODE (CLEANUP_STMT, "cleanup_stmt", 'e', 2)
-/* A START_CATCH_STMT marks the beginning of a catch handler for the
-   the START_CATCH_TYPE.  If this is CATCH_ALL_TYPE, then the handler
-   catches all types.  */
-DEFTREECODE (START_CATCH_STMT, "start_catch_stmt", 'e', 0)
 DEFTREECODE (CTOR_INITIALIZER, "ctor_initializer", 'e', 2)
 DEFTREECODE (RETURN_INIT, "return_init", 'e', 2)
 DEFTREECODE (TRY_BLOCK, "try_block", 'e', 2)
+DEFTREECODE (EH_SPEC_BLOCK, "eh_spec_block", 'e', 2)
+/* A HANDLER wraps a catch handler for the HANDLER_TYPE.  If this is
+   CATCH_ALL_TYPE, then the handler catches all types.  The declaration of
+   the catch variable is in HANDLER_PARMS, and the body block in
+   HANDLER_BODY.  */
 DEFTREECODE (HANDLER, "handler", 'e', 2)
+
+/* A MUST_NOT_THROW_EXPR wraps an expression that may not
+   throw, and must call terminate if it does.  */
+DEFTREECODE (MUST_NOT_THROW_EXPR, "must_not_throw_expr", 'e', 1)
 
 DEFTREECODE (TAG_DEFN, "tag_defn", 'e', 0)
 

@@ -29,6 +29,9 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #include <signal.h>
+#if ! defined( SIGCHLD ) && defined( SIGCLD )
+#  define SIGCHLD SIGCLD
+#endif
 #ifndef SEPARATE_FIX_PROC
 #include "server.h"
 #endif
@@ -67,7 +70,7 @@ typedef enum {
 te_verbose  verbose_level = VERB_PROGRESS;
 int have_tty = 0;
 
-#define VLEVEL(l)  (verbose_level >= l)
+#define VLEVEL(l)  ((unsigned int) verbose_level >= (unsigned int) l)
 #define NOT_SILENT VLEVEL(VERB_FIXES)
 
 pid_t process_chain_head = (pid_t) -1;
@@ -217,12 +220,14 @@ initialize ( argc, argv )
   char** argv;
 {
   static const char var_not_found[] =
+#ifndef __STDC__
     "fixincl ERROR:  %s environment variable not defined\n"
-#ifdef __STDC__
+#else
+    "fixincl ERROR:  %s environment variable not defined\n"
     "each of these must be defined:\n"
-#define _ENV_(v,m,n,t) "\t" n "  - " t "\n"
-ENV_TABLE
-#undef _ENV_
+# define _ENV_(v,m,n,t) "\t" n "  - " t "\n"
+  ENV_TABLE
+# undef _ENV_
 #endif
     ;
 
@@ -248,6 +253,12 @@ ENV_TABLE
       fputs ("fixincl ERROR:  too many command line arguments\n", stderr);
       exit (EXIT_FAILURE);
     }
+
+#ifdef SIGCHLD
+  /* We *MUST* set SIGCHLD to SIG_DFL so that the wait4() call will
+     receive the signal.  A different setting is inheritable */
+  signal (SIGCHLD, SIG_DFL);
+#endif
 
 #define _ENV_(v,m,n,t)   { tSCC var[] = n;  \
   v = getenv (var); if (m && (v == NULL)) { \
@@ -908,7 +919,7 @@ fix_with_system (p_fixd, pz_fix_file, pz_file_source, pz_temp_file)
       /*
        *  Now add the fix number and file names that may be needed
        */
-      sprintf (pz_scan, "%ld %s %s %s", p_fixd - fixDescList,
+      sprintf (pz_scan, "%ld \'%s\' \'%s\' \'%s\'", p_fixd - fixDescList,
 	       pz_fix_file, pz_file_source, pz_temp_file);
     }
   else /* NOT an "internal" fix: */
@@ -927,7 +938,7 @@ fix_with_system (p_fixd, pz_fix_file, pz_file_source, pz_temp_file)
          the following bizarre use of 'cat' only works on DOS boxes.
          It causes the file to be dropped into a temporary file for
          'cat' to read (pipes do not work on DOS).  */
-      tSCC   z_cmd_fmt[] = " %s | cat > %s";
+      tSCC   z_cmd_fmt[] = " \'%s\' | cat > \'%s\'";
 #else
       /* Don't use positional formatting arguments because some lame-o
          implementations cannot cope  :-(.  */
