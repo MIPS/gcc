@@ -898,7 +898,7 @@ namespace std
 	char __fbuf[16];
 
 #ifdef _GLIBCPP_USE_C99
-	// First try a buffer perhaps big enough (for sure sufficient
+	// First try a buffer perhaps big enough (probably sufficient
 	// for non-ios_base::fixed outputs)
 	int __cs_size = __max_digits * 3;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
@@ -923,10 +923,10 @@ namespace std
 	// ios_base::fixed outputs may need up to __max_exp+1 chars
 	// for the integer part + up to __prec chars for the
 	// fractional part + 3 chars for sign, decimal point, '\0'. On
-	// the other hand, for non-fixed outputs __max_digits * 3 chars
-	// are largely sufficient.
+	// the other hand, for non-fixed outputs __max_digits * 2 chars
+	// + __prec are largely sufficient.
 	const int __cs_size = __fixed ? __max_exp + __prec + 4 
-	                              : __max_digits * 3;
+	                              : __max_digits * 2 + __prec;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));
 
 	_S_format_float(__io, __fbuf, __mod, __prec);
@@ -1148,6 +1148,7 @@ namespace std
 
       // The tentative returned string is stored here.
       string_type __temp_units;
+      __temp_units.reserve(20);
 
       char_type __c = *__beg;
       char_type __eof = static_cast<char_type>(char_traits<char_type>::eof());
@@ -1184,24 +1185,8 @@ namespace std
 		    }
 		  break;
 		case money_base::sign:		    
-		  // Sign might not exist, or be more than one character long. 
-		  if (__pos_sign.size() && __neg_sign.size())
-		  {
-		    // Sign is mandatory.
-		    if (__c == __pos_sign[0])
-		      {
-			__sign = __pos_sign;
-			__c = *(++__beg);
-		      }
-		    else if (__c == __neg_sign[0])
-		      {
-			__sign = __neg_sign;
-			__c = *(++__beg);
-		      }
-		    else
-		      __testvalid = false;
-		  }
-		  else if (__pos_sign.size() && __c == __pos_sign[0])
+		  // Sign might not exist, or be more than one character long.
+		  if (__pos_sign.size() && __c == __pos_sign[0])
 		    {
 		      __sign = __pos_sign;
 		      __c = *(++__beg);
@@ -1210,6 +1195,11 @@ namespace std
 		    {
 		      __sign = __neg_sign;
 		      __c = *(++__beg);
+		    }		  
+		  else if (__pos_sign.size() && __neg_sign.size())
+		    {
+		      // Sign is mandatory.
+		      __testvalid = false;
 		    }
 		  break;
 		case money_base::value:
@@ -1381,39 +1371,16 @@ namespace std
 	  // Assume valid input, and attempt to format.
 	  // Break down input numbers into base components, as follows:
 	  //   final_value = grouped units + (decimal point) + (digits)
-	  string_type __res;
 	  string_type __value;
-	  const string_type __symbol = __intl ? __mpt.curr_symbol() 
-	    				      : __mpf.curr_symbol();
+	  __value.reserve(20);
 
-	  // Deal with decimal point, decimal digits.
 	  const int __frac = __intl ? __mpt.frac_digits() 
 	    			    : __mpf.frac_digits();
-	  if (__frac > 0)
-	    {
-	      const char_type __d = __intl ? __mpt.decimal_point() 
-					   : __mpf.decimal_point();
-	      if (__end - __beg >= __frac)
-		{
-		  __value = string_type(__end - __frac, __end);
-		  __value.insert(__value.begin(), __d);
-		  __end -= __frac;
-		}
-	      else
-		{
-		  // Have to pad zeros in the decimal position.
-		  __value = string_type(__beg, __end);
-		  int __paddec = __frac - (__end - __beg);
-		  char_type __zero = __ctype.widen('0');
-		  __value.insert(__value.begin(), __paddec, __zero);
-		  __value.insert(__value.begin(), __d);
-		  __beg = __end;
-		}
-	    }
 
 	  // Add thousands separators to non-decimal digits, per
 	  // grouping rules.
-	  if (__beg != __end)
+	  const int __paddec = __frac - (__end - __beg);
+	  if (__paddec < 0)
 	    {
 	      const string __grouping = __intl ? __mpt.grouping() 
 					       : __mpf.grouping();
@@ -1421,23 +1388,48 @@ namespace std
 		{
 		  const char_type __sep = __intl ? __mpt.thousands_sep() 
 		    			         : __mpf.thousands_sep();
-		  const char* __gbeg = __grouping.c_str();
+		  const char* __gbeg = __grouping.data();
 		  const char* __gend = __gbeg + __grouping.size();
 		  const int __n = (__end - __beg) * 2;
 		  _CharT* __ws2 =
        	          static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __n));
 		  _CharT* __ws_end = __add_grouping(__ws2, __sep, __gbeg, 
-						    __gend, __beg, __end);
-		  __value.insert(0, __ws2, __ws_end - __ws2);
+						    __gend, __beg,
+						    __end - __frac);
+		  __value.assign(__ws2, __ws_end - __ws2);
 		}
 	      else
-		__value.insert(0, string_type(__beg, __end));
+		__value.assign(__beg, -__paddec);
 	    }
+
+	  // Deal with decimal point, decimal digits.
+	  if (__frac > 0)
+	    {
+	      const char_type __d = __intl ? __mpt.decimal_point() 
+					   : __mpf.decimal_point();
+	      __value += __d;
+	      if (__paddec <= 0)
+		__value.append(__end - __frac, __frac);
+	      else
+		{
+		  // Have to pad zeros in the decimal position.
+		  const char_type __zero = __ctype.widen('0');
+		  __value.append(__paddec, __zero);
+		  __value.append(__beg, __end - __beg);
+		}
+	    }
+
+	  const string_type __symbol = __intl ? __mpt.curr_symbol() 
+	    				      : __mpf.curr_symbol();
 
 	  // Calculate length of resulting string.
 	  ios_base::fmtflags __f = __io.flags() & ios_base::adjustfield;
 	  size_type __len = __value.size() + __sign.size();
 	  __len += (__io.flags() & ios_base::showbase) ? __symbol.size() : 0;
+
+	  string_type __res;
+	  __res.reserve(__len);
+
 	  bool __testipad = __f == ios_base::internal && __len < __width;
 
 	  // Fit formatted digits into the required pattern.
@@ -1494,7 +1486,7 @@ namespace std
 	    }
 
 	  // Write resulting, fully-formatted string to output iterator.
-	  __s = __write(__s, __res.c_str(), __len);
+	  __s = __write(__s, __res.data(), __len);
 	}
       __io.width(0);
       return __s; 

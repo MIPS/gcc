@@ -1,5 +1,15 @@
 2004-02-22  Paolo Carlini  <pcarlini@suse.de>
 
+	* include/bits/locale_facets.tcc (money_get<>::do_get(string_type&),
+	money_put<>::do_put(const string_type&)): Streamline, use reserve
+	to avoid multiple reallocations.
+
+	* include/bits/locale_facets.tcc (num_put<>::_M_convert_float):
+        Further tweak: in case of non-fixed outputs, __max_digits only
+	provides an estimates of the probable size of the buffer. 
+ 
+2004-02-22  Paolo Carlini  <pcarlini@suse.de>
+
 	PR libstdc++/14220
 	* include/bits/locale_facets.tcc (num_put<>::_M_convert_float):
 	Fix previous commit: in case of non-fixed outputs __max_digits
