@@ -1,5 +1,8 @@
 2003-05-08  Jeff Law  <law@redhat.com>
 
+	* c-simplify.c (simplify_expr_stmt): Make sure to
+	simplify the body of the EXPR_STMT.
+ 
 	* tree-dfa.c (remove_decl): Accept new argument for the block
 	to start the search.
 	* tree-flow.h (remove_decl): Update prototype.

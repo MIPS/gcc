@@ -496,6 +496,10 @@ simplify_expr_stmt (stmt_p)
 	}
     }
 
+  /* Make sure to simplify the body of the statement expression.  */
+  simplify_stmt (&EXPR_STMT_EXPR (*stmt_p));
+  stmt = EXPR_STMT_EXPR (*stmt_p);
+
   if (stmts_are_full_exprs_p ())
     stmt = build1 (CLEANUP_POINT_EXPR, void_type_node, stmt);
   *stmt_p = stmt;
