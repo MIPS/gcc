@@ -306,7 +306,7 @@ static void dataflow_set_union		PARAMS ((dataflow_set *,
 						 dataflow_set *));
 static bool variable_part_different_p	PARAMS ((variable_part *,
 						 variable_part *));
-static bool variable_different_p	PARAMS ((variable, variable));
+static bool variable_different_p	PARAMS ((variable, variable, int));
 static int dataflow_set_different_1	PARAMS ((void **, void *));
 static int dataflow_set_different_2	PARAMS ((void **, void *));
 static bool dataflow_set_different	PARAMS ((dataflow_set *,
@@ -1293,24 +1293,12 @@ dataflow_set_union (dst, src)
 /* Flag whether two dataflow sets being compared contain different data.  */
 static bool dataflow_set_different_value;
 
-/* True if current locations of variable parts should be compared.  */
-static bool compare_current_location;
-
 static bool
 variable_part_different_p (vp1, vp2)
      variable_part *vp1;
      variable_part *vp2;
 {
   location_chain lc1, lc2;
-
-  if (compare_current_location)
-    {
-      if (!((GET_CODE (vp1->cur_loc) == REG
-	     && GET_CODE (vp2->cur_loc) == REG
-	     && REGNO (vp1->cur_loc) == REGNO (vp2->cur_loc))
-	    || rtx_equal_p (vp1->cur_loc, vp2->cur_loc)))
-	return true;
-    }
 
   for (lc1 = vp1->loc_chain; lc1; lc1 = lc1->next)
     {
@@ -1330,14 +1318,15 @@ variable_part_different_p (vp1, vp2)
   return false;
 }
 
-/* Return true if variables VAR1 and VAR2 are different (only the first
-   location in the list of locations is checked for each offset,
-   i.e. when true is returned a note should be emitted).  */
+/* Return true if variables VAR1 and VAR2 are different.
+   If COMPARE_CURRENT_LOCATION is true compare also the cur_loc of each
+   variable part.  */
 
 static bool
-variable_different_p (var1, var2)
+variable_different_p (var1, var2, compare_current_location)
      variable var1;
      variable var2;
+     int compare_current_location;
 {
   int i;
 
@@ -1351,6 +1340,16 @@ variable_different_p (var1, var2)
     {
       if (var1->var_part[i].offset != var2->var_part[i].offset)
 	return true;
+      if (compare_current_location)
+	{
+	  if (!((GET_CODE (var1->var_part[i].cur_loc) == REG
+		 && GET_CODE (var2->var_part[i].cur_loc) == REG
+		 && (REGNO (var1->var_part[i].cur_loc)
+		     == REGNO (var2->var_part[i].cur_loc)))
+		|| rtx_equal_p (var1->var_part[i].cur_loc,
+				var2->var_part[i].cur_loc)))
+	    return true;
+	}
       if (variable_part_different_p (&var1->var_part[i], &var2->var_part[i]))
 	return true;
       if (variable_part_different_p (&var2->var_part[i], &var1->var_part[i]))
@@ -1381,7 +1380,7 @@ dataflow_set_different_1 (slot, data)
       return 0;
     }
 
-  if (variable_different_p (var1, var2))
+  if (variable_different_p (var1, var2, false))
     {
       dataflow_set_different_value = true;
 
@@ -1418,7 +1417,7 @@ dataflow_set_different_2 (slot, data)
 #ifdef ENABLE_CHECKING
   /* If both variables are defined they have been already checked for
      equivalence.  */
-  if (variable_different_p (var1, var2))
+  if (variable_different_p (var1, var2, false))
     abort ();
 #endif
 
@@ -2380,7 +2379,7 @@ emit_notes_for_differences_1 (slot, data)
       empty_var->n_var_parts = 0;
       variable_was_changed (empty_var, NULL);
     }
-  else if (variable_different_p (old_var, new_var))
+  else if (variable_different_p (old_var, new_var, true))
     {
       variable_was_changed (new_var, NULL);
     }
@@ -2846,9 +2845,7 @@ variable_tracking_main ()
 	}
     }
 
-  compare_current_location = false;
   vt_find_locations ();
-  compare_current_location = true;
   vt_emit_notes ();
 
   if (rtl_dump_file)
