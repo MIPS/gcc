@@ -42,6 +42,13 @@ enable_shared=no])
 AC_CHECK_HEADERS(stdint.h execinfo.h signal.h pthread.h dlfcn.h)
 AC_CHECK_FUNCS(backtrace backtrace_symbols gettimeofday signal)
 
+dnl Check for 64-bit stdio calls related to Large File Support
+AC_CHECK_FUNCS(fopen64 fseeko64 ftello64 stat64)
+
+AC_TRY_COMPILE([#include <sys/ipc.h>
+#include <sys/sem.h>],[union semun foo;], [mf_have_semun=1], [mf_have_semun=0])
+AC_DEFINE_UNQUOTED(HAVE_UNION_SEMUN, $mf_have_semun, [union semun defined in sys/ipc.h or sys/sem.h])
+
 AC_LIBTOOL_DLOPEN
 AM_PROG_LIBTOOL
 AC_SUBST(enable_shared)
@@ -93,14 +100,15 @@ int main () { void *p = (void *) & pthread_create; return (int) p; }
 EOF
     oldLIBS="$LIBS"
     LIBS="$LIBS -lpthread"
+    pthread_create_version="\"\""
     AC_MSG_CHECKING(pthread_create symbol version)
     if eval $ac_link 2>&5 && test -s conftest${ac_exeext}; then
       version=`$NM conftest${ac_exeect} | grep 'pthread_create@@' | sed -e 's/^.*@@//'`
       if test "x$version" != "x"; then
         pthread_create_version="\"$version\""
-        AC_MSG_RESULT($pthread_create_version)
       fi
     fi
+    AC_MSG_RESULT($pthread_create_version)
     LIBS="$oldLIBS"
   fi
 fi

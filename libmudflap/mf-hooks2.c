@@ -11,13 +11,16 @@ XXX: libgcc license?
 
 /* These attempt to coax various unix flavours to declare all our
    needed tidbits in the system headers.  */
+#if !defined(__FreeBSD__)
 #define _POSIX_SOURCE
+#endif /* Some BSDs break <sys/socket.h> if this is defined. */
 #define _GNU_SOURCE 
 #define _XOPEN_SOURCE
 #define _BSD_TYPES
 #define __EXTENSIONS__
 
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -557,6 +560,7 @@ WRAPPER2(FILE *, fopen, const char *path, const char *mode)
 }
 #endif
 
+#ifdef HAVE_FOPEN64
 #ifdef WRAP_fopen64
 WRAPPER2(FILE *, fopen64, const char *path, const char *mode)
 {
@@ -580,6 +584,7 @@ WRAPPER2(FILE *, fopen64, const char *path, const char *mode)
 
   return p;
 }
+#endif
 #endif
 
 #ifdef WRAP_fclose
@@ -950,6 +955,7 @@ WRAPPER2(int, fseek, FILE *stream, long offset, int whence)
 }
 #endif
 
+#ifdef HAVE_FSEEKO64
 #ifdef WRAP_fseeko64
 WRAPPER2(int, fseeko64, FILE *stream, off64_t offset, int whence)
 {
@@ -958,6 +964,7 @@ WRAPPER2(int, fseeko64, FILE *stream, off64_t offset, int whence)
     "fseeko64 stream");
   return fseeko64 (stream, offset, whence);
 }
+#endif
 #endif
 
 #ifdef WRAP_ftell
@@ -970,6 +977,7 @@ WRAPPER2(long, ftell, FILE *stream)
 }
 #endif
 
+#ifdef HAVE_FTELLO64
 #ifdef WRAP_ftello64
 WRAPPER2(off64_t, ftello64, FILE *stream)
 {
@@ -978,6 +986,7 @@ WRAPPER2(off64_t, ftello64, FILE *stream)
     "ftello64 stream");
   return ftello64 (stream);
 }
+#endif
 #endif
 
 #ifdef WRAP_rewind
@@ -1025,6 +1034,7 @@ WRAPPER2(int , stat, const char *path, struct stat *buf)
 }
 #endif
 
+#ifdef HAVE_STAT64
 #ifdef WRAP_stat64
 #include <sys/stat.h>
 WRAPPER2(int , stat64, const char *path, struct stat64 *buf)
@@ -1036,6 +1046,7 @@ WRAPPER2(int , stat64, const char *path, struct stat64 *buf)
   MF_VALIDATE_EXTENT (buf, sizeof (*buf), __MF_CHECK_READ, "stat64 buf");
   return stat64 (path, buf);
 }
+#endif
 #endif
 
 #ifdef WRAP_fstat
@@ -1611,7 +1622,7 @@ WRAPPER2(int, semop, int semid, struct sembuf *sops, unsigned nsops)
 #ifdef WRAP_semctl
 #include <sys/ipc.h>
 #include <sys/sem.h>
-#if !defined(__GNU_LIBRARY__) || defined(_SEM_SEMUN_UNDEFINED)
+#if ! HAVE_UNION_SEMUN
 union semun {
 	int val;			/* value for SETVAL */
 	struct semid_ds *buf;		/* buffer for IPC_STAT, IPC_SET */

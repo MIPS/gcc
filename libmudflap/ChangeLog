@@ -1,3 +1,14 @@
+2003-07-29  Frank Ch. Eigler  <fche@redhat.com>
+
+	* configure.in: Add checks for 64-bit LFS functions, struct semun
+	definition, for BSD compatibility.
+	* mf-hooks1.c: Respect BSD checks.  Conditionalize POSIX_SOURCE.
+	* mf-hooks2.c: Ditto.  Include <strings.h> for bcmp* decls.
+	* mf-hooks3.c: Ditto.
+	(pthread_create): Try MAP_ANON on platforms without the MAP_ANONYMOUS
+	mmap flag.
+	* configure, config.h.in: Regenerated.
+
 2003-07-23  Frank Ch. Eigler  <fche@redhat.com>
 
 	Multithreading fixes:

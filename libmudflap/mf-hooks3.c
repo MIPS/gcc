@@ -11,7 +11,9 @@ XXX: libgcc license?
 
 /* These attempt to coax various unix flavours to declare all our
    needed tidbits in the system headers.  */
+#if !defined(__FreeBSD__)
 #define _POSIX_SOURCE
+#endif /* Some BSDs break <sys/socket.h> if this is defined. */
 #define _GNU_SOURCE 
 #define _XOPEN_SOURCE
 #define _BSD_TYPES
@@ -400,7 +402,15 @@ WRAPPER(int, pthread_create, pthread_t *thr, const pthread_attr_t *attr,
 
       override_stack = CALL_REAL (mmap, NULL, override_stacksize, 
 				  PROT_READ|PROT_WRITE, 
-				  MAP_PRIVATE|MAP_ANONYMOUS,
+				  MAP_PRIVATE
+#if defined(MAP_ANONYMOUS)
+				  |MAP_ANONYMOUS
+#elif defined(MAP_ANON)
+				  |MAP_ANON
+#else
+#error "Cannot mmap anonymous memory."
+#endif
+				  ,
 				  0, 0);
       if (override_stack == 0 || override_stack == MAP_FAILED)
 	{
