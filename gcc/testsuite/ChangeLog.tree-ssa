@@ -1,5 +1,7 @@
 2003-07-29  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030729-1.c: New test.
+
 	* gcc.dg/tree-ssa/20030709-1.c: Look at the .optimized output.
 
 	* gcc.dg/tree-ssa/20030711-2.c: There should only be one load
