@@ -498,6 +498,8 @@ lang_clear_identifier (cpp_reader *pfile ATTRIBUTE_UNUSED,
       TYPE_FIELDS (t) = NULL_TREE;
     }
   IDENTIFIER_LABEL_VALUE (tnode) = NULL_TREE;
+  /* These bits should probably only be reset at init_..._eachasm time,
+     not at init_..._eachsrc time.  FIXME. */
   TREE_USED (tnode) = 0;
   TREE_PUBLIC (tnode) = 0;
   TREE_SYMBOL_REFERENCED (tnode) = 0;
