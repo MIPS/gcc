@@ -121,7 +121,7 @@ extern int target_flags;
     {"int32",		8,     N_("Make integers 32 bits wide")},	\
     {"addresses",	64,    NULL},					\
     {"quickcall",	128,						\
-     N_("Use registers for argument passing")},  			\
+     N_("Use registers for argument passing")},			\
     {"no-quickcall",	-128,						\
      N_("Do not use registers for argument passing")},			\
     {"slowbyte",	256,						\
@@ -217,15 +217,15 @@ extern int target_flags;
    See also the macro `Pmode' defined below.  */
 #define POINTER_SIZE (TARGET_H8300H || TARGET_H8300S ? 32 : 16)
 
-#define SHORT_TYPE_SIZE 	16
-#define INT_TYPE_SIZE 		(TARGET_INT32 ? 32 : 16)
-#define LONG_TYPE_SIZE 		32
+#define SHORT_TYPE_SIZE	16
+#define INT_TYPE_SIZE		(TARGET_INT32 ? 32 : 16)
+#define LONG_TYPE_SIZE		32
 #define LONG_LONG_TYPE_SIZE	32
-#define FLOAT_TYPE_SIZE 	32
-#define DOUBLE_TYPE_SIZE 	32
-#define LONG_DOUBLE_TYPE_SIZE 	DOUBLE_TYPE_SIZE
+#define FLOAT_TYPE_SIZE	32
+#define DOUBLE_TYPE_SIZE	32
+#define LONG_DOUBLE_TYPE_SIZE	DOUBLE_TYPE_SIZE
 
-#define MAX_FIXED_MODE_SIZE 	32
+#define MAX_FIXED_MODE_SIZE	32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY (TARGET_H8300H || TARGET_H8300S ? 32 : 16)
@@ -294,10 +294,10 @@ extern int target_flags;
 #define REG_ALLOC_ORDER \
   { 2, 3, 0, 1, 4, 5, 6, 8, 7, 9, 10}
 
-#define CONDITIONAL_REGISTER_USAGE		\
-{						\
-  if (!TARGET_MAC)				\
-    fixed_regs[8] = call_used_regs[8] = 1;	\
+#define CONDITIONAL_REGISTER_USAGE			\
+{							\
+  if (!TARGET_MAC)					\
+    fixed_regs[MAC_REG] = call_used_regs[MAC_REG] = 1;	\
 }
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
@@ -322,19 +322,18 @@ extern int target_flags;
 #define HARD_REGNO_MODE_OK(REGNO, MODE)					\
   (TARGET_H8300								\
    ? ((((REGNO) & 1) == 0) || ((MODE) == HImode) || ((MODE) == QImode))	\
-   : (REGNO) == 8 ? (MODE) == SImode : 1)
+   : (REGNO) == MAC_REG ? (MODE) == SImode : 1)
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
    for any hard reg, then this must be 0 for correct output.  */
-#define MODES_TIEABLE_P(MODE1, MODE2)					\
-  ((MODE1) == (MODE2)							\
-   || ((MODE1) == HImode && (MODE2) == QImode)				\
-   || ((MODE1) == QImode && (MODE2) == HImode)				\
-   || ((TARGET_H8300H || TARGET_H8300S)					\
-       && (((MODE1) == SImode && (MODE2) == HImode)			\
-	   || ((MODE1) == HImode && (MODE2) == SImode))))
+#define MODES_TIEABLE_P(MODE1, MODE2)					  \
+  ((MODE1) == (MODE2)							  \
+   || (((MODE1) == QImode || (MODE1) == HImode				  \
+	|| ((TARGET_H8300H || TARGET_H8300S) && (MODE1) == SImode))	  \
+       &&  ((MODE2) == QImode || (MODE2) == HImode			  \
+	    || ((TARGET_H8300H || TARGET_H8300S) && (MODE2) == SImode))))
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
@@ -344,10 +343,10 @@ extern int target_flags;
 /*#define PC_REGNUM 15*/
 
 /* Register to use for pushing function arguments.  */
-#define STACK_POINTER_REGNUM 7
+#define STACK_POINTER_REGNUM SP_REG
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 6
+#define FRAME_POINTER_REGNUM FP_REG
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms
@@ -356,14 +355,14 @@ extern int target_flags;
 #define FRAME_POINTER_REQUIRED 0
 
 /* Base register for access to arguments of the function.  */
-#define ARG_POINTER_REGNUM 9
+#define ARG_POINTER_REGNUM AP_REG
 
 /* Register in which static-chain is passed to a function.  */
-#define STATIC_CHAIN_REGNUM 3
+#define STATIC_CHAIN_REGNUM SC_REG
 
 /* Fake register that holds the address on the stack of the
    current function's return address.  */
-#define RETURN_ADDRESS_POINTER_REGNUM 10
+#define RETURN_ADDRESS_POINTER_REGNUM RAP_REG
 
 /* A C expression whose value is RTL representing the value of the return
    address for the frame COUNT steps up from the current frame.
@@ -406,11 +405,11 @@ enum reg_class {
    This is an initializer for a vector of HARD_REG_SET
    of length N_REG_CLASSES.  */
 
-#define REG_CLASS_CONTENTS  			\
+#define REG_CLASS_CONTENTS			\
 {      {0},		/* No regs      */	\
-   {0x6ff},		/* GENERAL_REGS */    	\
-   {0x100},		/* MAC_REGS */    	\
-   {0x7ff},		/* ALL_REGS 	*/	\
+   {0x6ff},		/* GENERAL_REGS */ 	\
+   {0x100},		/* MAC_REGS */ 	\
+   {0x7ff},		/* ALL_REGS	*/	\
 }
 
 /* The same information, inverted:
@@ -418,7 +417,7 @@ enum reg_class {
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-#define REGNO_REG_CLASS(REGNO) (REGNO != 8 ? GENERAL_REGS : MAC_REGS)
+#define REGNO_REG_CLASS(REGNO) (REGNO != MAC_REG ? GENERAL_REGS : MAC_REGS)
 
 /* The class value for index registers, and the one for base regs.  */
 
@@ -768,14 +767,13 @@ struct cum_arg
    FNADDR is an RTX for the address of the function's pure code.
    CXT is an RTX for the static chain value for the function.  */
 
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			     \
-{									     \
-  enum machine_mode mode = TARGET_H8300H || TARGET_H8300S ? SImode : HImode; \
-  emit_move_insn (gen_rtx_MEM (mode, plus_constant ((TRAMP), 2)), CXT);	     \
-  emit_move_insn (gen_rtx_MEM (mode, plus_constant ((TRAMP), 6)), FNADDR);   \
-  if (TARGET_H8300H || TARGET_H8300S)					     \
-    emit_move_insn (gen_rtx_MEM (QImode, plus_constant ((TRAMP), 6)),	     \
-		    GEN_INT (0x5A));					     \
+#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			    \
+{									    \
+  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 2)), CXT);    \
+  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 6)), FNADDR); \
+  if (TARGET_H8300H || TARGET_H8300S)					    \
+    emit_move_insn (gen_rtx_MEM (QImode, plus_constant ((TRAMP), 6)),	    \
+		    GEN_INT (0x5A));					    \
 }
 
 /* Addressing modes, and classification of registers for them.  */
@@ -906,9 +904,9 @@ struct cum_arg
    || (GET_CODE (X) == SUBREG && REG_P (SUBREG_REG (X))		\
        && REG_OK_FOR_BASE_P (SUBREG_REG (X))))
 
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)    	\
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR) 	\
   if (RTX_OK_FOR_BASE_P (X)) goto ADDR;			\
-  if (CONSTANT_ADDRESS_P (X)) goto ADDR;    		\
+  if (CONSTANT_ADDRESS_P (X)) goto ADDR; 		\
   if (GET_CODE (X) == PLUS				\
       && CONSTANT_ADDRESS_P (XEXP (X, 1))		\
       && RTX_OK_FOR_BASE_P (XEXP (X, 0))) goto ADDR;
@@ -1007,7 +1005,7 @@ struct cum_arg
    return it with a return statement.  Otherwise, break from the switch.  */
 
 #define DEFAULT_RTX_COSTS(RTX, CODE, OUTER_CODE) \
-  return (const_costs (RTX, CODE));
+  return (const_costs (RTX, CODE, OUTER_CODE));
 
 #define BRANCH_COST 0
 

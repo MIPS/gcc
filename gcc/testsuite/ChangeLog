@@ -1,3 +1,103 @@
+2002-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gcc.c-torture/compile/20020110.c: New test.
+
+2002-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20020219-1.c: New test.
+
+	* gcc.dg/20020219-1.c: New test.
+
+	* gcc.dg/noncompile/20020220-1.c: New test.
+
+	* g++.dg/opt/ptrintsum1.C: New test.
+
+	* gcc.dg/debug/20020220-1.c: New test.
+
+2002-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20020216-1.c: New test.
+
+2002-02-16  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/decl-1.c: Update, new test.
+
+2002-02-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/abi/bitfield1.C: New test.
+	* g++.dg/abi/bitfield2.C: New test.
+
+2002-02-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/attr-nest.c: New test.
+
+2002-02-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/20020215-1.c: New test.
+
+2002-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/dg.exp: Exclude debug subdir, it has its own .exp.
+	* g++.dg/debug/debug.exp: New.
+	* g++.dg/debug/trivial.C: New.
+	* g++.dg/debug/debug1.C: Moved...
+	* g++.dg/other/debug1.C: ...from here.
+	* g++.dg/debug/debug2.C: Moved...
+	* g++.dg/other/debug2.C: ...from here.
+	* g++.dg/debug/debug3.C: Moved...
+	* g++.dg/other/debug3.C: ...from here.
+
+	* gcc.dg/noncompile/20020213-1.c: New test.
+
+2002-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/other/debug3.C: New test.
+
+	* gcc.c-torture/execute/20020213-1.c: New test.
+
+2002-02-13  Richard Smith <richard@ex-parrot.com>
+
+	* g++.old-deja/g++.other/thunk1.C: New test.
+
+2002-02-12  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* g++.dg/warn/weak1.C: weak attributes not supported on cygwin
+
+2002-02-13  Stan Shebs  <shebs@apple.com>
+
+        * gcc.dg/altivec-3.c: New.
+
+2002-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/Wunreachable-1.c: New test.
+	* gcc.dg/Wunreachable-2.c: New test.
+
+2002-02-12  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/c90-const-expr-3.c, gcc.dg/c99-const-expr-3.c: New tests.
+
+2002-02-12  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/decl-1.c: New test.
+
+2002-02-12  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* gcc.dg/c99-flex-array-2.c: Add -std=iso9899:1999 
+
+2002-02-10  Kazu Hirata  <kazu@hxi.com>
+
+	* gcc.c-torture/compile/961203-1.x: Disable on h8300 port.
+	* gcc.c-torture/compile/980506-1.x: Likewise.
+
+2002-02-10  Kazu Hirata  <kazu@hxi.com>
+
+	* gcc.dg/20020210-1.c: New.
+
+2002-02-09  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* g77.f-torture/execute/947.f: New regression test
+	for PR fortran/947.
+
 2002-02-09  Alexandre Oliva  <aoliva@redhat.com>
 
 	* g++.old-deja/g++.abi/ptrmem.C: Lowest bit is significant on SH5.

@@ -44,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target-def.h"
 
 /* Forward declarations.  */
+static const char *byte_reg PARAMS ((rtx, int));
 static int h8300_interrupt_function_p PARAMS ((tree));
 static int h8300_monitor_function_p PARAMS ((tree));
 static int h8300_os_task_function_p PARAMS ((tree));
@@ -143,7 +144,7 @@ h8300_init_once ()
     }
 }
 
-const char *
+static const char *
 byte_reg (x, b)
      rtx x;
      int b;
@@ -571,17 +572,6 @@ o_operand (operand, mode)
 	  && CONST_OK_FOR_O (INTVAL (operand)));
 }
 
-/* Return true if OP is a const valid for a bit set or bit xor instruction.  */
-
-int
-p_operand (operand, mode)
-     rtx operand;
-     enum machine_mode mode ATTRIBUTE_UNUSED;
-{
-  return (GET_CODE (operand) == CONST_INT
-	  && CONST_OK_FOR_P (INTVAL (operand)));
-}
-
 /* Return true if OP is a valid call operand.  */
 
 int
@@ -871,9 +861,10 @@ function_arg (cum, mode, type, named)
 /* Return the cost of the rtx R with code CODE.  */
 
 int
-const_costs (r, c)
+const_costs (r, c, outer_code)
      rtx r;
      enum rtx_code c;
+     enum rtx_code outer_code;
 {
   switch (c)
     {
@@ -881,15 +872,16 @@ const_costs (r, c)
       switch (INTVAL (r))
 	{
 	case 0:
+	  return 0;
 	case 1:
 	case 2:
 	case -1:
 	case -2:
-	  return 0;
+	  return 0 + (outer_code == SET);
 	case 4:
 	case -4:
 	  if (TARGET_H8300H || TARGET_H8300S)
-	    return 0;
+	    return 0 + (outer_code == SET);
 	  else
 	    return 1;
 	default:
@@ -1212,22 +1204,26 @@ print_operand (file, x, code)
 	  break;
 
 	case MEM:
-	  fprintf (file, "@");
-	  output_address (XEXP (x, 0));
+	  {
+	    rtx addr = XEXP (x, 0);
 
-	  /* If this is an 'R' operand (reference into the 8-bit
-	     area), then specify a symbolic address as "foo:8",
-	     otherwise if operand is still in eight bit section, use
-	     "foo:16".  */
-	  if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
-	      && SYMBOL_REF_FLAG (XEXP (x, 0)))
-	    fprintf (file, (code == 'R' ? ":8" : ":16"));
-	  else if (GET_CODE (XEXP (x, 0)) == SYMBOL_REF
-		   && TINY_DATA_NAME_P (XSTR (XEXP (x, 0), 0)))
-	    fprintf (file, ":16");
-	  else if ((code == 'R')
-		   && EIGHTBIT_CONSTANT_ADDRESS_P (XEXP (x, 0)))
-	    fprintf (file, ":8");
+	    fprintf (file, "@");
+	    output_address (addr);
+
+	    /* If this is an 'R' operand (reference into the 8-bit
+	       area), then specify a symbolic address as "foo:8",
+	       otherwise if operand is still in eight bit section, use
+	       "foo:16".  */
+	    if (GET_CODE (addr) == SYMBOL_REF
+		&& SYMBOL_REF_FLAG (addr))
+	      fprintf (file, (code == 'R' ? ":8" : ":16"));
+	    else if (GET_CODE (addr) == SYMBOL_REF
+		     && TINY_DATA_NAME_P (XSTR (addr, 0)))
+	      fprintf (file, ":16");
+	    else if ((code == 'R')
+		     && EIGHTBIT_CONSTANT_ADDRESS_P (addr))
+	      fprintf (file, ":8");
+	  }
 	  break;
 
 	case CONST_INT:
@@ -1438,6 +1434,9 @@ notice_update_cc (body, insn)
       if (cc_status.value1 != 0
 	  && reg_overlap_mentioned_p (recog_data.operand[0], cc_status.value1))
 	cc_status.value1 = 0;
+      if (cc_status.value2 != 0
+	  && reg_overlap_mentioned_p (recog_data.operand[0], cc_status.value2))
+	cc_status.value2 = 0;
       break;
 
     case CC_SET_ZN:
@@ -1456,6 +1455,8 @@ notice_update_cc (body, insn)
       CC_STATUS_INIT;
       cc_status.flags |= CC_NO_CARRY;
       cc_status.value1 = recog_data.operand[0];
+      if (GET_CODE (body) == SET && REG_P (SET_SRC (body)))
+	cc_status.value2 = SET_SRC (body);
       break;
 
     case CC_COMPARE:
@@ -1567,9 +1568,8 @@ output_logical_op (mode, code, operands)
 	     1) the special insn (in case of AND or XOR),
 	     2) the word-wise insn, and
 	     3) The byte-wise insn.  */
-	  if ((TARGET_H8300H || TARGET_H8300S)
-	      && ((det & 0x0000ffff) == 0x0000ffff)
-	      && code != IOR)
+	  if ((det & 0x0000ffff) == 0x0000ffff
+	      && (TARGET_H8300 ? (code == AND) : (code != IOR)))
 	    output_asm_insn ((code == AND)
 			     ? "sub.w\t%f0,%f0" : "not.w\t%f0",
 			     operands);
@@ -1594,9 +1594,8 @@ output_logical_op (mode, code, operands)
 		}
 	    }
 
-	  if ((TARGET_H8300H || TARGET_H8300S)
-	      && ((det & 0xffff0000) == 0xffff0000)
-	      && code != IOR)
+	  if ((det & 0xffff0000) == 0xffff0000
+	      && (TARGET_H8300 ? (code == AND) : (code != IOR)))
 	    output_asm_insn ((code == AND)
 			     ? "sub.w\t%e0,%e0" : "not.w\t%e0",
 			     operands);
@@ -2009,9 +2008,9 @@ static const enum shift_alg shift_alg_hi[3][3][16] = {
     /*  0    1    2    3    4    5    6    7  */
     /*  8    9   10   11   12   13   14   15  */
     { INL, INL, INL, INL, INL, LOP, LOP, SPC,
-      SPC, SPC, SPC, SPC, SPC, LOP, LOP, ROT }, /* SHIFT_ASHIFT   */
+      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_ASHIFT   */
     { INL, INL, INL, INL, INL, LOP, LOP, SPC,
-      SPC, SPC, SPC, SPC, SPC, LOP, LOP, ROT }, /* SHIFT_LSHIFTRT */
+      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_LSHIFTRT */
     { INL, INL, INL, INL, INL, LOP, LOP, SPC,
       SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
   },
@@ -2048,16 +2047,16 @@ static const enum shift_alg shift_alg_si[3][3][32] = {
     /* 24   25   26   27   28   29   30   31  */
     { INL, INL, INL, LOP, LOP, LOP, LOP, LOP,
       SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
-      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
-      LOP, LOP, LOP, LOP, LOP, LOP, LOP, SPC }, /* SHIFT_ASHIFT   */
+      SPC, SPC, SPC, SPC, SPC, LOP, LOP, LOP,
+      SPC, SPC, SPC, SPC, LOP, LOP, LOP, SPC }, /* SHIFT_ASHIFT   */
     { INL, INL, INL, LOP, LOP, LOP, LOP, LOP,
-      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
-      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
-      LOP, LOP, LOP, LOP, LOP, LOP, LOP, SPC }, /* SHIFT_LSHIFTRT */
+      SPC, SPC, LOP, LOP, LOP, LOP, LOP, SPC,
+      SPC, SPC, SPC, LOP, LOP, LOP, LOP, LOP,
+      SPC, SPC, SPC, SPC, SPC, LOP, LOP, SPC }, /* SHIFT_LSHIFTRT */
     { INL, INL, INL, LOP, LOP, LOP, LOP, LOP,
-      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
-      SPC, LOP, LOP, LOP, LOP, LOP, LOP, LOP,
-      LOP, LOP, LOP, LOP, LOP, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
+      SPC, LOP, LOP, LOP, LOP, LOP, LOP, SPC,
+      SPC, SPC, LOP, LOP, LOP, LOP, LOP, LOP,
+      SPC, SPC, SPC, LOP, LOP, LOP, LOP, SPC }, /* SHIFT_ASHIFTRT */
   },
   {
     /* TARGET_H8300H  */
@@ -2279,16 +2278,28 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      goto end;
 	    }
 	}
-      else if (count == 15 && shift_type == SHIFT_ASHIFTRT)
+      else if (count == 15)
 	{
-	  info->special = "shll\t%t0\n\tsubx\t%t0,%t0\n\tmov.b\t%t0,%s0";
-	  goto end;
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
+	      info->special = "bld\t#0,%s0\n\txor\t%s0,%s0\n\txor\t%t0,%t0\n\tbst\t#7,%t0";
+	      goto end;
+	    case SHIFT_LSHIFTRT:
+	      info->special = "bld\t#7,%t0\n\txor\t%s0,%s0\n\txor\t%t0,%t0\n\tbst\t#0,%s0";
+	      goto end;
+	    case SHIFT_ASHIFTRT:
+	      info->special = "shll\t%t0\n\tsubx\t%t0,%t0\n\tmov.b\t%t0,%s0";
+	      goto end;
+	    }
 	}
       abort ();
 
     case SIshift:
-      if (count == 8 && TARGET_H8300)
+      if (TARGET_H8300 && 8 <= count && count <= 9)
 	{
+	  info->remainder = count - 8;
+
 	  switch (shift_type)
 	    {
 	    case SHIFT_ASHIFT:
@@ -2296,6 +2307,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.b\t%x0,%w0\n\tmov.b\t%y0,%x0\n\tmov.b\t%z0,%y0\n\tsub.b\t%z0,%z0";
+	      info->shift1  = "shlr\t%y0\n\trotxr\t%x0\n\trotxr\t%w0";
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      info->special = "mov.b\t%x0,%w0\n\tmov.b\t%y0,%x0\n\tmov.b\t%z0,%y0\n\tshll\t%z0\n\tsubx\t%z0,%z0";
@@ -2317,6 +2329,20 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      goto end;
 	    }
 	}
+      else if (count == 15 && TARGET_H8300)
+	{
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
+	      abort ();
+	    case SHIFT_LSHIFTRT:
+	      info->special = "bld\t#7,%z0\n\tmov.w\t%e0,%f0\n\txor\t%y0,%y0\n\txor\t%z0,%z0\n\trotxl\t%w0,%w0\n\trotxl\t%x0,%x0\n\trotxl\t%y0,%y0";
+	      goto end;
+	    case SHIFT_ASHIFTRT:
+	      info->special = "bld\t#7,%z0\n\tmov.w\t%e0,%f0\n\trotxl\t%w0,%w0\n\trotxl\t%x0,%x0\n\tsubx\t%y0,%y0\n\tsubx\t%z0,%z0";
+	      goto end;
+	    }
+	}
       else if (count == 15 && !TARGET_H8300)
 	{
 	  switch (shift_type)
@@ -2331,7 +2357,7 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	      abort ();
 	    }
 	}
-      else if ((TARGET_H8300 && count == 16)
+      else if ((TARGET_H8300 && 16 <= count && count <= 20)
 	       || (TARGET_H8300H && 16 <= count && count <= 19)
 	       || (TARGET_H8300S && 16 <= count && count <= 21))
 	{
@@ -2341,24 +2367,63 @@ get_shift_alg (shift_type, shift_mode, count, info)
 	    {
 	    case SHIFT_ASHIFT:
 	      info->special = "mov.w\t%f0,%e0\n\tsub.w\t%f0,%f0";
-	      info->shift1  = "shll.l\t%S0";
-	      info->shift2  = "shll.l\t#2,%S0";
+	      if (TARGET_H8300)
+		{
+		  info->shift1 = "add.w\t%e0,%e0";
+		}
+	      else
+		{
+		  info->shift1 = "shll.l\t%S0";
+		  info->shift2 = "shll.l\t#2,%S0";
+		}
 	      goto end;
 	    case SHIFT_LSHIFTRT:
 	      info->special = "mov.w\t%e0,%f0\n\tsub.w\t%e0,%e0";
-	      info->shift1  = "shlr.l\t%S0";
-	      info->shift2  = "shlr.l\t#2,%S0";
+	      if (TARGET_H8300)
+		{
+		  info->shift1 = "shlr\t%x0\n\trotxr\t%w0";
+		}
+	      else
+		{
+		  info->shift1 = "shlr.l\t%S0";
+		  info->shift2 = "shlr.l\t#2,%S0";
+		}
 	      goto end;
 	    case SHIFT_ASHIFTRT:
 	      if (TARGET_H8300)
-		info->special = "mov.w\t%e0,%f0\n\tshll\t%z0\n\tsubx\t%z0,%z0\n\tmov.b\t%z0,%y0";
+		{
+		  info->special = "mov.w\t%e0,%f0\n\tshll\t%z0\n\tsubx\t%z0,%z0\n\tmov.b\t%z0,%y0";
+		  info->shift1  = "shar\t%x0\n\trotxr\t%w0";
+		}
 	      else
-		info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0";
-	      info->shift1 = "shar.l\t%S0";
-	      info->shift2 = "shar.l\t#2,%S0";
+		{
+		  info->special = "mov.w\t%e0,%f0\n\texts.l\t%S0";
+		  info->shift1  = "shar.l\t%S0";
+		  info->shift2  = "shar.l\t#2,%S0";
+		}
 	      goto end;
 	    }
 	}
+      else if (TARGET_H8300 && 24 <= count && count <= 28)
+	{
+	  info->remainder = count - 24;
+ 
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
+	      info->special = "mov.b\t%w0,%z0\n\tsub.b\t%y0,%y0\n\tsub.w\t%f0,%f0";
+	      info->shift1  = "shll.b\t%z0";
+	      goto end;
+	    case SHIFT_LSHIFTRT:
+	      info->special = "mov.b\t%z0,%w0\n\tsub.b\t%x0,%x0\n\tsub.w\t%e0,%e0";
+	      info->shift1  = "shlr.b\t%w0";
+	      goto end;
+	    case SHIFT_ASHIFTRT:
+	      info->special = "mov.b\t%z0,%w0\n\tbld\t#7,%w0\n\tsubx\t%x0,%x0\n\tsubx\t%x0,%x0\n\tsubx\t%x0,%x0";
+	      info->shift1  = "shar.b\t%w0";
+ 	      goto end;
+ 	    }
+ 	}
       else if ((TARGET_H8300H && count == 24)
 	       || (TARGET_H8300S && 24 <= count && count <= 25))
 	{
@@ -3155,10 +3220,21 @@ h8300_adjust_insn_length (insn, length)
 	{
 	  if (val == (val & 0xff)
 	      || val == (val & 0xff00))
-	    return -6;
+	    return 4 - 6;
 
-	  if (val == -4 || val == -2 || val == -1)
-	    return -6;
+	  switch (val & 0xffffffff)
+	    {
+	    case 0xffffffff:
+	    case 0xfffffffe:
+	    case 0xfffffffc:
+	    case 0x0000ffff:
+	    case 0x0000fffe:
+	    case 0xffff0000:
+	    case 0xfffe0000:
+	    case 0x00010000:
+	    case 0x00020000:
+	      return 4 - 6;
+	    }
 	}
     }
 

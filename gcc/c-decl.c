@@ -1548,6 +1548,22 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	  if (! different_binding_level)
 	    TREE_TYPE (olddecl) = oldtype;
 	}
+      else if (TYPE_ARG_TYPES (oldtype) == NULL
+	       && TYPE_ARG_TYPES (newtype) != NULL)
+	{
+	  /* For bcmp, bzero, fputs the builtin type has arguments not
+	     specified.  Use the ones from the prototype so that type checking
+	     is done for them.  */
+	  tree trytype
+	    = build_function_type (TREE_TYPE (oldtype),
+				   TYPE_ARG_TYPES (newtype));
+	  trytype = build_type_attribute_variant (trytype,
+						  TYPE_ATTRIBUTES (oldtype));
+
+	  oldtype = trytype;
+	  if (! different_binding_level)
+	    TREE_TYPE (olddecl) = oldtype;
+	}
       if (!types_match)
 	{
 	  /* If types don't match for a built-in, throw away the built-in.  */
@@ -1674,6 +1690,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 			     && current_binding_level == global_binding_level)
 			    ? "`%s' previously defined here"
 			    : "`%s' previously declared here"));
+	  return 0;
 	}
       else if (TREE_CODE (newdecl) == TYPE_DECL
                && (DECL_IN_SYSTEM_HEADER (olddecl)
@@ -2182,11 +2199,13 @@ pushdecl (x)
 	 not errors.  X11 for instance depends on this.  */
       if (! t && DECL_EXTERNAL (x) && TREE_PUBLIC (x) && ! flag_traditional)
 	{
-	  t = lookup_name (name);
+	  t = IDENTIFIER_GLOBAL_VALUE (name);
 	  /* Type decls at global scope don't conflict with externs declared
 	     inside lexical blocks.  */
-	  if (t && TREE_CODE (t) == TYPE_DECL)
-	    t = 0;
+	  if (! t || TREE_CODE (t) == TYPE_DECL)
+	    /* If there's no visible global declaration, try for an
+               invisible one.  */
+	    t = IDENTIFIER_LIMBO_VALUE (name);
 	  different_binding_level = 1;
 	}
       if (t != 0 && t == error_mark_node)
@@ -4518,9 +4537,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  if (inner_decl == NULL_TREE
 	      || TREE_CODE (inner_decl) == IDENTIFIER_NODE)
 	    attr_flags |= (int) ATTR_FLAG_DECL_NEXT;
-	  if (TREE_CODE (inner_decl) == CALL_EXPR)
+	  else if (TREE_CODE (inner_decl) == CALL_EXPR)
 	    attr_flags |= (int) ATTR_FLAG_FUNCTION_NEXT;
-	  if (TREE_CODE (inner_decl) == ARRAY_REF)
+	  else if (TREE_CODE (inner_decl) == ARRAY_REF)
 	    attr_flags |= (int) ATTR_FLAG_ARRAY_NEXT;
 	  returned_attrs = decl_attributes (&type,
 					    chainon (returned_attrs, attrs),

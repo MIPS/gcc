@@ -3660,6 +3660,7 @@ mark_used_regs (pbi, x, cond, insn)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case PC:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:

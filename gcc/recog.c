@@ -764,6 +764,7 @@ find_single_use_1 (dest, loc)
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CLOBBER:
       return 0;
 
@@ -3316,7 +3317,6 @@ generic_src_operand (op, mode)
       case CONST_INT:
       case CONST_DOUBLE:
       case CONSTANT_P_RTX:
-      case VEC_CONST:
 	/* Accept registers.  */
       case ADDRESSOF:
       case REG:

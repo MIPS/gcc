@@ -3270,10 +3270,10 @@ extern int flag_traditional;
    purposes only.  Since GCC generates assembly language, we have
    no a priori knowledge of how many instruction bytes are generated
    for each source line, and therefore can use only the  DW_LNE_set_address
-   and DW_LNS_fixed_advance_pc line information commands.  */
-#ifndef DWARF_LINE_MIN_INSTR_LENGTH
-#define DWARF_LINE_MIN_INSTR_LENGTH 4
-#endif
+   and DW_LNS_fixed_advance_pc line information commands.
+   Accordingly, we define this as `1', which is "correct enough" for
+   all architectures, and don't let the target override.  */
+#define DWARF_LINE_MIN_INSTR_LENGTH 1
 
 /* Minimum line offset in a special line info. opcode.
    This value was chosen to give a reasonable range of values.  */
@@ -7801,10 +7801,24 @@ mem_loc_descriptor (rtl, mode)
 	 by a different symbol.  */
       if (GET_CODE (rtl) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (rtl))
 	{
-	  rtx tmp = get_pool_constant (rtl);
+	  bool marked;
+	  rtx tmp = get_pool_constant_mark (rtl, &marked);
 
 	  if (GET_CODE (tmp) == SYMBOL_REF)
-	    rtl = tmp;
+	    {
+	      rtl = tmp;
+	      if (CONSTANT_POOL_ADDRESS_P (tmp))
+		get_pool_constant_mark (tmp, &marked);
+	      else
+		marked = true;
+	    }
+
+	  /* If all references to this pool constant were optimized away,
+	     it was not output and thus we can't represent it.
+	     FIXME: might try to use DW_OP_const_value here, though
+	     DW_OP_piece complicates it.  */
+	  if (!marked)
+	    return 0;
 	}
 
       mem_loc_result = new_loc_descr (DW_OP_addr, 0, 0);

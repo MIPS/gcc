@@ -163,6 +163,7 @@ static rtx rs6000_expand_builtin PARAMS ((tree, rtx, rtx, enum machine_mode, int
 static rtx altivec_expand_builtin PARAMS ((tree, rtx));
 static rtx altivec_expand_unop_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_binop_builtin PARAMS ((enum insn_code, tree, rtx));
+static rtx altivec_expand_abs_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_predicate_builtin PARAMS ((enum insn_code, const char *, tree, rtx));
 static rtx altivec_expand_ternop_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_stv_builtin PARAMS ((enum insn_code, tree));
@@ -173,6 +174,7 @@ static void is_altivec_return_reg PARAMS ((rtx, void *));
 int vrsave_operation PARAMS ((rtx, enum machine_mode));
 static rtx generate_set_vrsave PARAMS ((rtx, rs6000_stack_t *, int));
 static void altivec_frame_fixup PARAMS ((rtx, rtx, HOST_WIDE_INT));
+static int easy_vector_constant PARAMS ((rtx));
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -709,6 +711,19 @@ count_register_operand (op, mode)
   return 0;
 }
 
+/* Returns 1 if op is an altivec register.  */
+int
+altivec_register_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  
+  return (register_operand (op, mode)
+	  && (GET_CODE (op) != REG
+	      || REGNO (op) > FIRST_PSEUDO_REGISTER
+	      || ALTIVEC_REGNO_P (REGNO (op))));
+}
+
 int
 xer_operand (op, mode)
      rtx op;
@@ -754,7 +769,7 @@ u_short_cint_operand (op, mode)
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == CONST_INT
-	  && CONST_OK_FOR_LETTER_P (INTVAL (op), 'K'));
+	  && CONST_OK_FOR_LETTER_P (INTVAL (op) & GET_MODE_MASK (mode), 'K'));
 }
 
 /* Return 1 if OP is a CONST_INT that cannot fit in a signed D field.  */
@@ -1178,6 +1193,54 @@ easy_fp_constant (op, mode)
     return 1;
   else
     abort ();
+}
+
+/* Return 1 if the operand is a CONST_INT and can be put into a
+   register with one instruction.  */
+
+static int
+easy_vector_constant (op)
+     rtx op;
+{
+  rtx elt;
+  int units, i;
+
+  if (GET_CODE (op) != CONST_VECTOR)
+    return 0;
+
+  units = CONST_VECTOR_NUNITS (op);
+
+  /* We can generate 0 easily.  Look for that.  */
+  for (i = 0; i < units; ++i)
+    {
+      elt = CONST_VECTOR_ELT (op, i);
+
+      /* We could probably simplify this by just checking for equality
+	 with CONST0_RTX for the current mode, but let's be safe
+	 instead.  */
+
+      if (GET_CODE (elt) == CONST_INT && INTVAL (elt) != 0)
+	return 0;
+
+      if (GET_CODE (elt) == CONST_DOUBLE
+	       && (CONST_DOUBLE_LOW (elt) != 0
+		   || CONST_DOUBLE_HIGH (elt) != 0))
+	return 0;
+    }
+
+  /* We could probably generate a few other constants trivially, but
+     gcc doesn't generate them yet.  FIXME later.  */
+  return 0;
+}
+
+/* Return 1 if the operand is the constant 0.  This works for scalars
+   as well as vectors.  */
+int
+zero_constant (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return op == CONST0_RTX (mode);
 }
 
 /* Return 1 if the operand is 0.0.  */
@@ -1648,8 +1711,8 @@ constant_pool_expr_1 (op, have_sym, have_toc)
 	return 0;
     case PLUS:
     case MINUS:
-      return constant_pool_expr_1 (XEXP (op, 0), have_sym, have_toc) &&
-	constant_pool_expr_1 (XEXP (op, 1), have_sym, have_toc);
+      return (constant_pool_expr_1 (XEXP (op, 0), have_sym, have_toc)
+	      && constant_pool_expr_1 (XEXP (op, 1), have_sym, have_toc));
     case CONST:
       return constant_pool_expr_1 (XEXP (op, 0), have_sym, have_toc);
     case CONST_INT:
@@ -1846,7 +1909,8 @@ rs6000_legitimize_reload_address (x, mode, opnum, type, ind_levels, win)
       && GET_CODE (XEXP (x, 0)) == REG
       && REGNO (XEXP (x, 0)) < FIRST_PSEUDO_REGISTER
       && REG_MODE_OK_FOR_BASE_P (XEXP (x, 0), mode)
-      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+      && GET_CODE (XEXP (x, 1)) == CONST_INT
+      && !ALTIVEC_VECTOR_MODE (mode))
     {
       HOST_WIDE_INT val = INTVAL (XEXP (x, 1));
       HOST_WIDE_INT low = ((val & 0xffff) ^ 0x8000) - 0x8000;
@@ -1877,6 +1941,7 @@ rs6000_legitimize_reload_address (x, mode, opnum, type, ind_levels, win)
 #if TARGET_MACHO
   if (GET_CODE (x) == SYMBOL_REF
       && DEFAULT_ABI == ABI_DARWIN
+      && !ALTIVEC_VECTOR_MODE (mode)
       && flag_pic)
     {
       /* Darwin load of floating point constant.  */
@@ -1895,8 +1960,8 @@ rs6000_legitimize_reload_address (x, mode, opnum, type, ind_levels, win)
     }
 #endif
   if (TARGET_TOC
-	   && CONSTANT_POOL_EXPR_P (x)
-	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), mode))
+      && CONSTANT_POOL_EXPR_P (x)
+      && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (x), mode))
     {
       (x) = create_TOC_reference (x);
       *win = 1;
@@ -2171,9 +2236,10 @@ rs6000_emit_move (dest, source, mode)
 
   /* Handle the case where reload calls us with an invalid address;
      and the case of CONSTANT_P_RTX.  */
-  if (! general_operand (operands[1], mode)
-      || ! nonimmediate_operand (operands[0], mode)
-      || GET_CODE (operands[1]) == CONSTANT_P_RTX)
+  if (!VECTOR_MODE_P (mode)
+      && (! general_operand (operands[1], mode)
+	  || ! nonimmediate_operand (operands[0], mode)
+	  || GET_CODE (operands[1]) == CONSTANT_P_RTX))
     {
       emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
       return;
@@ -2203,8 +2269,8 @@ rs6000_emit_move (dest, source, mode)
     case V8HImode:
     case V4SFmode:
     case V4SImode:
-      /* fixme: aldyh -- allow vector constants when they are implemented.  */
-      if (CONSTANT_P (operands[1]))
+      if (CONSTANT_P (operands[1])
+	  && !easy_vector_constant (operands[1]))
 	operands[1] = force_const_mem (mode, operands[1]);
       break;
       
@@ -3402,6 +3468,19 @@ static const struct builtin_description_predicates bdesc_altivec_preds[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_predicate_v16qi, "*vcmpgtub.", "__builtin_altivec_vcmpgtub_p", ALTIVEC_BUILTIN_VCMPGTUB_P }
 };
 
+/* ABS* opreations.  */
+
+static const struct builtin_description bdesc_abs[] =
+{
+  { MASK_ALTIVEC, CODE_FOR_absv4si2, "__builtin_altivec_abs_v4si", ALTIVEC_BUILTIN_ABS_V4SI },
+  { MASK_ALTIVEC, CODE_FOR_absv8hi2, "__builtin_altivec_abs_v8hi", ALTIVEC_BUILTIN_ABS_V8HI },
+  { MASK_ALTIVEC, CODE_FOR_absv4sf2, "__builtin_altivec_abs_v4sf", ALTIVEC_BUILTIN_ABS_V4SF },
+  { MASK_ALTIVEC, CODE_FOR_absv16qi2, "__builtin_altivec_abs_v16qi", ALTIVEC_BUILTIN_ABS_V16QI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_abss_v4si, "__builtin_altivec_abss_v4si", ALTIVEC_BUILTIN_ABSS_V4SI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_abss_v8hi, "__builtin_altivec_abss_v8hi", ALTIVEC_BUILTIN_ABSS_V8HI },
+  { MASK_ALTIVEC, CODE_FOR_altivec_abss_v16qi, "__builtin_altivec_abss_v16qi", ALTIVEC_BUILTIN_ABSS_V16QI }
+};
+
 /* Simple unary operations: VECb = foo (unsigned literal) or VECb =
    foo (VECa).  */
 
@@ -3451,6 +3530,41 @@ altivec_expand_unop_builtin (icode, arglist, target)
     op0 = copy_to_mode_reg (mode0, op0);
 
   pat = GEN_FCN (icode) (target, op0);
+  if (! pat)
+    return 0;
+  emit_insn (pat);
+
+  return target;
+}
+
+static rtx
+altivec_expand_abs_builtin (icode, arglist, target)
+     enum insn_code icode;
+     tree arglist;
+     rtx target;
+{
+  rtx pat, scratch1, scratch2;
+  tree arg0 = TREE_VALUE (arglist);
+  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  enum machine_mode tmode = insn_data[icode].operand[0].mode;
+  enum machine_mode mode0 = insn_data[icode].operand[1].mode;
+
+  /* If we have invalid arguments, bail out before generating bad rtl.  */
+  if (arg0 == error_mark_node)
+    return NULL_RTX;
+
+  if (target == 0
+      || GET_MODE (target) != tmode
+      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+    target = gen_reg_rtx (tmode);
+
+  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+    op0 = copy_to_mode_reg (mode0, op0);
+
+  scratch1 = gen_reg_rtx (mode0);
+  scratch2 = gen_reg_rtx (mode0);
+
+  pat = GEN_FCN (icode) (target, op0, scratch1, scratch2);
   if (! pat)
     return 0;
   emit_insn (pat);
@@ -3936,6 +4050,12 @@ altivec_expand_builtin (exp, target)
 	return NULL_RTX;
       }
 
+  /* Expand abs* operations.  */
+  d = (struct builtin_description *) bdesc_abs;
+  for (i = 0; i < sizeof (bdesc_abs) / sizeof *d; i++, d++)
+    if (d->code == fcode)
+      return altivec_expand_abs_builtin (d->icode, arglist, target);
+
   /* Handle simple unary operations.  */
   d = (struct builtin_description *) bdesc_1arg;
   for (i = 0; i < sizeof (bdesc_1arg) / sizeof *d; i++, d++)
@@ -4322,6 +4442,18 @@ altivec_init_builtins (void)
 				      tree_cons (NULL_TREE, V4SF_type_node,
 						 endlink)));
 
+  tree v4si_ftype_v4si
+    = build_function_type (V4SI_type_node,
+			   tree_cons (NULL_TREE, V4SI_type_node, endlink));
+
+  tree v8hi_ftype_v8hi
+    = build_function_type (V8HI_type_node,
+			   tree_cons (NULL_TREE, V8HI_type_node, endlink));
+
+  tree v16qi_ftype_v16qi
+    = build_function_type (V16QI_type_node,
+			   tree_cons (NULL_TREE, V16QI_type_node, endlink));
+
   tree v8hi_ftype_v16qi_v16qi
     = build_function_type (V8HI_type_node,
 			   tree_cons (NULL_TREE, V16QI_type_node,
@@ -4466,7 +4598,7 @@ altivec_init_builtins (void)
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvehx", void_ftype_v8hi_int_pvoid, ALTIVEC_BUILTIN_STVEHX);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvewx", void_ftype_v4si_int_pvoid, ALTIVEC_BUILTIN_STVEWX);
   def_builtin (MASK_ALTIVEC, "__builtin_altivec_stvxl", void_ftype_v4si_int_pvoid, ALTIVEC_BUILTIN_STVXL);
-  
+
   /* Add the simple ternary operators.  */
   d = (struct builtin_description *) bdesc_3arg;
   for (i = 0; i < sizeof (bdesc_3arg) / sizeof *d; i++, d++)
@@ -4710,6 +4842,36 @@ altivec_init_builtins (void)
       else
 	abort ();
 
+      def_builtin (d->mask, d->name, type, d->code);
+    }
+
+  /* Initialize the abs* operators.  */
+  d = (struct builtin_description *) bdesc_abs;
+  for (i = 0; i < sizeof (bdesc_abs) / sizeof *d; i++, d++)
+    {
+      enum machine_mode mode0;
+      tree type;
+
+      mode0 = insn_data[d->icode].operand[0].mode;
+
+      switch (mode0)
+	{
+	case V4SImode:
+	  type = v4si_ftype_v4si;
+	  break;
+	case V8HImode:
+	  type = v8hi_ftype_v8hi;
+	  break;
+	case V16QImode:
+	  type = v16qi_ftype_v16qi;
+	  break;
+	case V4SFmode:
+	  type = v4sf_ftype_v4sf;
+	  break;
+	default:
+	  abort ();
+	}
+      
       def_builtin (d->mask, d->name, type, d->code);
     }
 
@@ -5541,7 +5703,7 @@ min_max_operator (op, mode)
 
 /* Return 1 if ANDOP is a mask that has no bits on that are not in the
    mask required to convert the result of a rotate insn into a shift
-   left insn of SHIFTOP bits.  Both are known to be CONST_INT.  */
+   left insn of SHIFTOP bits.  Both are known to be SImode CONST_INT.  */
 
 int
 includes_lshift_p (shiftop, andop)
@@ -5552,7 +5714,7 @@ includes_lshift_p (shiftop, andop)
 
   shift_mask <<= INTVAL (shiftop);
 
-  return (INTVAL (andop) & ~shift_mask) == 0;
+  return (INTVAL (andop) & 0xffffffff & ~shift_mask) == 0;
 }
 
 /* Similar, but for right shift.  */
@@ -5566,7 +5728,7 @@ includes_rshift_p (shiftop, andop)
 
   shift_mask >>= INTVAL (shiftop);
 
-  return (INTVAL (andop) & ~shift_mask) == 0;
+  return (INTVAL (andop) & 0xffffffff & ~shift_mask) == 0;
 }
 
 /* Return 1 if ANDOP is a mask suitable for use with an rldic insn
@@ -6216,7 +6378,7 @@ print_operand (file, x, code)
 			    
     case 'm':
       /* MB value for a mask operand.  */
-      if (! mask_operand (x, VOIDmode))
+      if (! mask_operand (x, SImode))
 	output_operand_lossage ("invalid %%m value");
 
       val = INT_LOWPART (x);
@@ -6251,7 +6413,7 @@ print_operand (file, x, code)
 
     case 'M':
       /* ME value for a mask operand.  */
-      if (! mask_operand (x, VOIDmode))
+      if (! mask_operand (x, SImode))
 	output_operand_lossage ("invalid %%M value");
 
       val = INT_LOWPART (x);
@@ -6381,7 +6543,7 @@ print_operand (file, x, code)
       /* PowerPC64 mask position.  All 0's and all 1's are excluded.
 	 CONST_INT 32-bit mask is considered sign-extended so any
 	 transition must occur within the CONST_INT, not on the boundary.  */
-      if (! mask64_operand (x, VOIDmode))
+      if (! mask64_operand (x, DImode))
 	output_operand_lossage ("invalid %%S value");
 
       val = INT_LOWPART (x);
@@ -9474,6 +9636,8 @@ rs6000_output_function_epilogue (file, size)
 	 Only emit this if the alloca bit was set above.  */
       if (frame_pointer_needed)
 	fputs ("\t.byte 31\n", file);
+
+      fputs ("\t.align 2\n", file);
     }
   return;
 }

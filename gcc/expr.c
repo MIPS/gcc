@@ -4244,6 +4244,14 @@ is_zeros_p (exp)
     case REAL_CST:
       return REAL_VALUES_IDENTICAL (TREE_REAL_CST (exp), dconst0);
 
+    case VECTOR_CST:
+      for (elt = TREE_VECTOR_CST_ELTS (exp); elt;
+	   elt = TREE_CHAIN (elt))
+	if (!is_zeros_p (TREE_VALUE (elt)))
+	  return 0;
+
+      return 1;
+
     case CONSTRUCTOR:
       if (TREE_TYPE (exp) && TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
 	return CONSTRUCTOR_ELTS (exp) == NULL_TREE;
@@ -4528,19 +4536,33 @@ store_constructor (exp, target, cleared, size)
 				   get_alias_set (TREE_TYPE (field)));
 	}
     }
-  else if (TREE_CODE (type) == ARRAY_TYPE)
+  else if (TREE_CODE (type) == ARRAY_TYPE
+	   || TREE_CODE (type) == VECTOR_TYPE)
     {
       tree elt;
       int i;
       int need_to_clear;
       tree domain = TYPE_DOMAIN (type);
       tree elttype = TREE_TYPE (type);
-      int const_bounds_p = (TYPE_MIN_VALUE (domain)
-			    && TYPE_MAX_VALUE (domain)
-			    && host_integerp (TYPE_MIN_VALUE (domain), 0)
-			    && host_integerp (TYPE_MAX_VALUE (domain), 0));
+      int const_bounds_p;
       HOST_WIDE_INT minelt = 0;
       HOST_WIDE_INT maxelt = 0;
+
+      /* Vectors are like arrays, but the domain is stored via an array
+	 type indirectly.  */
+      if (TREE_CODE (type) == VECTOR_TYPE)
+	{
+	  /* Note that although TYPE_DEBUG_REPRESENTATION_TYPE uses
+	     the same field as TYPE_DOMAIN, we are not guaranteed that
+	     it always will.  */
+	  domain = TYPE_DEBUG_REPRESENTATION_TYPE (type);
+	  domain = TYPE_DOMAIN (TREE_TYPE (TYPE_FIELDS (domain)));
+	}
+
+      const_bounds_p = (TYPE_MIN_VALUE (domain)
+			&& TYPE_MAX_VALUE (domain)
+			&& host_integerp (TYPE_MIN_VALUE (domain), 0)
+			&& host_integerp (TYPE_MAX_VALUE (domain), 0));
 
       /* If we have constant bounds for the range of the type, get them.  */
       if (const_bounds_p)
@@ -4602,7 +4624,12 @@ store_constructor (exp, target, cleared, size)
       if (need_to_clear && size > 0)
 	{
 	  if (! cleared)
-	    clear_storage (target, GEN_INT (size));
+	    {
+	      if (REG_P (target))
+		emit_move_insn (target,  CONST0_RTX (GET_MODE (target)));
+	      else
+		clear_storage (target, GEN_INT (size));
+	    }
 	  cleared = 1;
 	}
       else if (REG_P (target))
@@ -4665,6 +4692,7 @@ store_constructor (exp, target, cleared, size)
 
 		      if (GET_CODE (target) == MEM
 			  && !MEM_KEEP_ALIAS_SET_P (target)
+			  && TREE_CODE (type) == ARRAY_TYPE
 			  && TYPE_NONALIASED_COMPONENT (type))
 			{
 			  target = copy_rtx (target);
@@ -4762,6 +4790,7 @@ store_constructor (exp, target, cleared, size)
 		bitpos = (i * tree_low_cst (TYPE_SIZE (elttype), 1));
 
 	      if (GET_CODE (target) == MEM && !MEM_KEEP_ALIAS_SET_P (target)
+		  && TREE_CODE (type) == ARRAY_TYPE
 		  && TYPE_NONALIASED_COMPONENT (type))
 		{
 		  target = copy_rtx (target);
@@ -5711,7 +5740,7 @@ safe_from_p (x, exp, top_p)
 	 are memory and they conflict.  */
       return ! (rtx_equal_p (x, exp_rtl)
 		|| (GET_CODE (x) == MEM && GET_CODE (exp_rtl) == MEM
-		    && true_dependence (exp_rtl, GET_MODE (x), x,
+		    && true_dependence (exp_rtl, VOIDmode, x,
 					rtx_addr_varies_p)));
     }
 

@@ -1,3 +1,54 @@
+2002-02-20  Nic Ferrier  <nferrier@tapsellferrier.co.uk>
+
+	* gcj.texi: Option `--classpath' becomes `--CLASSPATH.'Option 
+	`--CLASSPATH' becomes `--classpath.' 
+	* gjavah.c: Likewise. 
+	* jcf-dump.c: Likewise. 
+	* lang-options.h: Likewise. 
+	* lang.c: Likewise. 
+	* jcf-path.c: Updated comment. 
+	(jcf_path_classpath_arg): Renamed `jcf_path_CLASSPATH_arg.' 
+	(jcf_path_CLASSPATH_arg): Renamed `jcf_path_classpath_arg.' 
+	* jcf.h (jcf_path_CLASSPATH_arg): Ditto. 
+	(jcf_path_CLASSPATH_arg): Ditto. 
+	(classpath_u): Updated leading comment. 
+
+2002-02-20  Per Bothner  <per@bothner.com>
+
+	* builtins.c (check_for_builtin):  New function.
+	(build_call_or_builtin):  Remove.
+	* java-tree.h:  Update accordingly.
+	* expr.c (expand_invoke):  Use build + check_for_builtin instead
+	of build_call_or_builtin.
+	* parse.y (patch_invoke):  Likewise.  This avoids needlessly creating
+	a new CALL_EXPR node, which means we don't lose the CALL_USING_SUPER
+	flag (which had caused jcf-write to incorrectly emit invokevirtual).
+
+2002-02-17  Tom Tromey  <tromey@redhat.com>
+
+	* java-tree.h (TYPE_STRICTFP): New macro.
+	(struct lang_type) [strictfp]: New field.
+	(CLASS_STRICTFP): New macro.
+	(METHOD_STRICTFP): New macro.
+	(struct lang_decl) [strictfp]: New field.
+	* parse.y (method_header): Disallow strictfp constructor or
+	abstract method.
+	(STRICT_TK): Move before MODIFIER_TK.
+	* parse.h (CLASS_MODIFIERS): Added ACC_STRICT.
+	(METHOD_MODIFIERS): Likewise.
+	(INTERFACE_MODIFIERS): Likewise.
+	* jcf-write.c (get_access_flags): Likewise.
+	* class.c (set_class_decl_access_flags): Recognize ACC_STRICT.
+	(add_method_1): Likewise.
+	(get_access_flags_from_decl): Likewise.
+	* jcf-dump.c (print_access_flags): Print in standard order.  Also,
+	recognize strictfp flag.
+	* jcf.h (ACC_STRICT): New define.
+
+2002-02-12  David Billinghurst <Davod.Billinghurst@riotinto.com>
+
+	* class.c(build_utf8_ref): Move declaration of decl_size
+
 2002-02-07  Tom Tromey  <tromey@redhat.com>
 
 	* gcj.texi (Input Options): --CLASSPATH does not suppress system

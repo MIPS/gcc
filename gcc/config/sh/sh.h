@@ -1,4 +1,4 @@
-/* Definitions of target machine for GNU compiler for Hitachi Super-H.
+/* Definitions of target machine for GNU compiler for Hitachi / SuperH SH.
    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
@@ -1421,10 +1421,10 @@ extern const enum reg_class reg_class_from_letter[];
 /* 1 if N is a possible register number for function argument passing.  */
 #define FUNCTION_ARG_REGNO_P(REGNO) \
   (((REGNO) >= FIRST_PARM_REG && (REGNO) < (FIRST_PARM_REG		\
-					    + NPARM_REGS (SImode))	\
+					    + NPARM_REGS (SImode)))	\
    || (TARGET_FPU_ANY                                                   \
        && (REGNO) >= FIRST_FP_PARM_REG && (REGNO) < (FIRST_FP_PARM_REG	\
-						     + NPARM_REGS (SFmode)))))
+						     + NPARM_REGS (SFmode))))
 
 /* Define a data type for recording info about an argument list
    during the scan of that argument list.  This data type should
@@ -1938,13 +1938,18 @@ struct sh_args {
    && ((CUM).arg_count[(int) SH_ARG_INT]			\
        + (int_size_in_bytes (TYPE) + 7) / 8) > NPARM_REGS (SImode))
 
-extern int current_function_anonymous_args;
-
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
 
-#define SETUP_INCOMING_VARARGS(ASF, MODE, TYPE, PAS, ST) \
-  current_function_anonymous_args = ! TARGET_SH5
+/* We actually emit the code in sh_expand_prologue.  We used to use
+   a static variable to flag that we need to emit this code, but that
+   doesn't when inlining, when functions are deferred and then emitted
+   later.  Fortunately, we already have two flags that are part of struct
+   function that tell if a function uses varargs or stdarg.  */
+#define SETUP_INCOMING_VARARGS(ASF, MODE, TYPE, PAS, ST)  do \
+  if (! current_function_varargs && ! current_function_stdarg) \
+    abort (); \
+while (0)
 
 /* Define the `__builtin_va_list' type for the ABI.  */
 #define BUILD_VA_LIST_TYPE(VALIST) \
@@ -3287,8 +3292,6 @@ extern struct rtx_def *fpscr_rtx;
 
 #define MD_CAN_REDIRECT_BRANCH(INSN, SEQ) \
   sh_can_redirect_branch ((INSN), (SEQ))
-
-#define DWARF_LINE_MIN_INSTR_LENGTH 2
 
 #if (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__
 /* SH constant pool breaks the devices in crtstuff.c to control section

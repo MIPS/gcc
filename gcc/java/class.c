@@ -425,6 +425,7 @@ set_class_decl_access_flags (access_flags, class_decl)
   if (access_flags & ACC_STATIC)    CLASS_STATIC (class_decl) = 1;
   if (access_flags & ACC_PRIVATE)   CLASS_PRIVATE (class_decl) = 1;
   if (access_flags & ACC_PROTECTED) CLASS_PROTECTED (class_decl) = 1;
+  if (access_flags & ACC_STRICT)    CLASS_STRICTFP (class_decl) = 1;
 }
 
 /* Return length of inheritance chain of CLAS, where java.lang.Object is 0,
@@ -719,6 +720,7 @@ add_method_1 (handle_class, access_flags, name, function_type)
   if (access_flags & ACC_SYNCHRONIZED) METHOD_SYNCHRONIZED (fndecl) = 1;
   if (access_flags & ACC_ABSTRACT) METHOD_ABSTRACT (fndecl) = 1;
   if (access_flags & ACC_TRANSIENT) METHOD_TRANSIENT (fndecl) = 1;
+  if (access_flags & ACC_STRICT) METHOD_STRICTFP (fndecl) = 1;
   return fndecl;
 }
 
@@ -967,7 +969,7 @@ build_utf8_ref (name)
   char buf[60];
   tree ctype, field = NULL_TREE, str_type, cinit, string;
   static int utf8_count = 0;
-  int name_hash, decl_size;
+  int name_hash;
   tree ref = IDENTIFIER_UTF8_REF (name);
   tree decl;
   if (ref != NULL_TREE)
@@ -1001,18 +1003,21 @@ build_utf8_ref (name)
   TREE_THIS_VOLATILE (decl) = 0;
   DECL_INITIAL (decl) = cinit;
 #ifdef HAVE_GAS_SHF_MERGE
-  /* Ensure decl_size is a multiple of utf8const_type's alignment. */
-  decl_size = (name_len + 5 + TYPE_ALIGN_UNIT (utf8const_type) - 1)
-	       & ~(TYPE_ALIGN_UNIT (utf8const_type) - 1);
-  if (flag_merge_constants && decl_size < 256)
-    {
-      char buf[32];
-      int flags = (SECTION_OVERRIDE
-		   | SECTION_MERGE | (SECTION_ENTSIZE & decl_size));
-      sprintf (buf, ".rodata.jutf8.%d", decl_size);
-      named_section_flags (buf, flags);
-      DECL_SECTION_NAME (decl) = build_string (strlen (buf), buf);
-    }
+  {
+    int decl_size;
+    /* Ensure decl_size is a multiple of utf8const_type's alignment. */
+    decl_size = (name_len + 5 + TYPE_ALIGN_UNIT (utf8const_type) - 1)
+	         & ~(TYPE_ALIGN_UNIT (utf8const_type) - 1);
+    if (flag_merge_constants && decl_size < 256)
+      {
+        char buf[32];
+        int flags = (SECTION_OVERRIDE
+        	   | SECTION_MERGE | (SECTION_ENTSIZE & decl_size));
+        sprintf (buf, ".rodata.jutf8.%d", decl_size);
+        named_section_flags (buf, flags);
+        DECL_SECTION_NAME (decl) = build_string (strlen (buf), buf);
+      }
+  }
 #endif
   TREE_CHAIN (decl) = utf8_decl_list;
   layout_decl (decl, 0);
@@ -1220,6 +1225,8 @@ get_access_flags_from_decl (decl)
 	access_flags |= ACC_PRIVATE;
       if (CLASS_PROTECTED (decl))
 	access_flags |= ACC_PROTECTED;
+      if (CLASS_STRICTFP (decl))
+	access_flags |= ACC_STRICT;
       return access_flags;
     }
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -1242,6 +1249,8 @@ get_access_flags_from_decl (decl)
 	access_flags |= ACC_ABSTRACT;
       if (METHOD_TRANSIENT (decl))
 	access_flags |= ACC_TRANSIENT;
+      if (METHOD_STRICTFP (decl))
+	access_flags |= ACC_STRICT;
       return access_flags;
     }
   abort ();

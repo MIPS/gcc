@@ -1,7 +1,960 @@
-Wed Feb 13 11:03:15 CET 2002  Jan Hubicka  <jh@suse.cz>
+Thu Feb 21 15:35:46 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
-	* flow.c (update_life_info): Call clear_log_links once blocks
-	are computed.
+	* sh.h (current_function_anonymous_args): Remove.
+	(SETUP_INCOMING_VARARGS): Don't set it - just check that one
+	of current_function_varargs and current_function_stdarg is set.
+	* sh.c (sh_expand_prologue): Check current_function_varargs /
+	current_function_stdarg / TARGET_SH5 instead of
+	current_function_anonymous_args.
+
+	* sh64.h (TARGET_VERSION): Define.
+
+2002-02-20  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.h (EPILOGUE_USES): Conditionalize
+	VRSAVE_REGNO on TARGET_ALTIVEC.
+
+2002-02-20  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.c (includes_lshift_p): Mask irrelevant
+	bits of SImode const_int.
+	(includes_rshift_p): Likewise.
+	(print_operand): Call mask_operand and mask64_operand with correct
+	mode. 
+	(rs6000_output_function_epilogue): Pad traceback table to word.
+	* config/rs6000/rs6000.h (MASK_64BIT): Correct comment.
+	(EXTRA_CONSTRAINT, 'S' and 'T'): Call mask_operand and
+	mask64_operand with correct mode.
+	(FUNCTION_ARG_REGNO_P): Correct parentheses.
+
+2002-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/4461
+	* varasm.c (get_pool_constant_mark): New.
+	* rtl.h (get_pool_constant_mark): Add prototype.
+	* dwarf2out.c (mem_loc_descriptor): A pool constant cannot
+	be represented if it has not been output.
+
+2002-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (do_SUBST): Sanity check substitutions of
+	CONST_INTs, and reject them in SUBREGs and ZERO_EXTENDs.
+	(subst): Simplify SUBREG or ZERO_EXTEND instead of SUBSTing a
+	CONST_INT into its operand.
+	(known_cond): Likewise, for ZERO_EXTEND.
+	* simplify-rtx.c (simplify_unary_operation): Fix condition to
+	allow for simplification of wide modes.  Reject CONST_INTs in
+	ZERO_EXTEND when their actual mode is not given.
+
+2002-02-20  Alexandre Oliva  <aoliva@redhat.com>
+
+	* c-decl.c (pushdecl): If no global declaration is found for an
+	extern declaration in block scope, try a limbo one.
+
+2002-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/4401
+	* c-common.c (pointer_int_sum): Moved from...
+	* c-typeck.c (pointer_int_sum): ...here.
+	* c-common.h (pointer_int_sum): Add prototype.
+
+2002-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/5713
+	* c-decl.c (duplicate_decls): Return 0 if issued error about
+	redeclaration.
+
+2002-02-20  Roger Sayle  <roger@eyesopen.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/4389
+	* tree.c (host_integerp): Ensure that the constant integer is
+	representable in a HOST_WIDE_INT or an unsigned HOST_WIDE_INT
+	when pos is zero or non-zero respectively.  Clarify comment.
+	* c-format.c (check_format_info_recurse): Fix host_integerp
+	usage; the pos argument should be zero when assigning to a
+	signed HOST_WIDE_INT.
+
+2002-02-20  Richard Henderson  <rth@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_vector_move): Use the mode
+	of the operand, rather than assuming TImode.
+	(ix86_expand_binop_builtin): Cope with commutative patterns
+	using nonimmediate_operand for both operands.
+	(ix86_expand_timode_binop_builtin): Likewise.
+	(ix86_expand_store_builtin): Validate operand 1.
+	(ix86_expand_unop1_builtin): Likewise.
+
+2002-02-20  Philip Blundell  <philb@gnu.org>
+	
+	PR 5705
+	* config/arm/arm.h (HARD_REGNO_RENAME_OK): New macro.
+
+2002-02-20  Richard Henderson  <rth@redhat.com>
+
+	PR c/5615
+	* expr.h (ARGS_SIZE_TREE): Convert size.var to ssizetype.
+
+2002-02-20  Tom Tromey  <tromey@redhat.com>
+
+	* config/fr30/fr30.h (DWARF_LINE_MIN_INSTR_LENGTH): Removed.
+	* config/sh/sh.h (DWARF_LINE_MIN_INSTR_LENGTH): Removed.
+	* config/pj/pj.h (DWARF_LINE_MIN_INSTR_LENGTH): Removed.
+	* config/cris/cris.h (DWARF_LINE_MIN_INSTR_LENGTH): Removed.
+	* dwarf2out.c (DWARF_LINE_MIN_INSTR_LENGTH): Define
+	unconditionally.
+
+Wed Feb 20 00:03:25 EST 2002 Alan Matsuoka <alanm@redhat.com>
+
+	* config/rs6000/rs6000.h (LEGITIMATE_OFFSET_ADDRESS_P): Look
+	  for (const_int 0) in X not just INTVAL.
+
+2002-02-20  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* doc/extend.texi: Avoid or reduce overfull hboxes.
+
+2002-02-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* expmed.c (store_bit_field): Do not store bit fields using SUBREG
+	operations if the field does not start at a mode boundary.
+
+2001-02-20	Joel Sherrill <joel@OARcorp.com>
+
+	* config/a29k/rtems.h, config/arm/rtems-elf.h, config/h8300/rtems.h,
+	config/mips/rtems.h: Use new style of -Asystem= rather than -Asystem().
+	Also done for -Acpu and -Amachine.
+
+2002-02-20  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cppinit.c (init_dependency_output): Take deps output file
+	from -o if none given with -MF.  Suppress normal output.
+	* gcc.c (cpp_unique_options): Have -M and -MM imply -E.	
+	* doc/cpp.texi, doc/invoke.texi: Update.
+
+2002-02-19  Zack Weinberg  <zack@codesourcery.com>
+
+	* toplev.c (output_quoted_string): Write unprintable
+	characters with octal escapes.
+
+2002-02-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/rs6000.h (CONDITIONAL_REGISTER_USAGE): Set
+	really_call_used[VRSAVE_REGNO] if not Altivec.
+
+2002-02-19  Alan Modra  <amodra@bigpond.net.au>
+	
+	* config/rs6000/rs6000.c (u_short_cint_operand): Mask op with
+	MODE_MASK.
+	(constant_pool_expr_1): Fix formatting.
+	(rs6000_legitimize_reload_address): Likewise.
+
+Tue Feb 19 20:13:57 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* config/sparc/sparc.md (nonlocal_goto): Use hard_frame_pointer_rtx
+	now that we have one.
+
+2002-02-19  Zack Weinberg  <zack@codesourcery.com>
+
+	* tree.h (struct tree_common): Remove aux.  Add unused_0 at
+	end of first block of bitfields (which was only seven bits);
+	rename dummy to unused_1; remove comment which is no longer true.
+
+2002-02-19  Gaute B Strokkenes <gs234@cam.ac.uk>
+
+	* doc/c-tree.texi (Classes, TYPE_BINFO): Fix typo.
+
+2002-02-19  Philip Blundell  <pb@nexus.co.uk>
+
+	PR 5399
+	* config/arm/arm.h (THUMB_LEGITIMATE_CONSTANT_P): Accept anything
+	if generating PIC.
+
+	PR 5054
+	* config/arm/arm.md (call_insn) [TARGET_THUMB]: Use
+	arm_is_longcall_p rather than inspecting call-type cookie
+	directly.
+	(call_value_insn) [TARGET_THUMB]: Likewise.
+
+2002-02-19  Graham Stott  <grahams@redhat.com>
+
+	* config/i386/i386.c (ix86_expand_builtin): Fix typo.
+
+2002-02-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/linux64.h (LINK_OS_LINUX_SPEC): Look in /lib64.
+	({STARTFILE,ENDFILE}_LINUX_SPEC): Define.
+	(FP_SAVE_INLINE): Delete.
+
+	* config/rs6000/sysv4.h (ENDFILE_SPEC): Add crtsaveres.o.
+	* config/rs6000/eabi.asm: Remove ABI save restore routines.
+	* config/rs6000/t-ppccomm: Build crtsavres.o.
+	* config/rs6000/crtsavres.asm: New file.
+
+2002-02-19  Philip Blundell  <philb@gnu.org>
+
+	* config/arm/arm.c (use_return_insn): Don't reject interrupt
+	functions.
+	(arm_compute_save_reg_mask): Save LR for interrupt functions too.
+	(output_return_instruction): Allow interrupt functions to return with
+	ldmfd sp!, {... pc}^.  Use LDR to restore any single register.
+	(arm_expand_prologue): Subtract 4 before stacking LR in an
+	interrupt function.
+
+2002-02-19  Philip Blundell  <pb@nexus.co.uk>
+
+	* config/arm/arm.c (arm_encode_call_attribute): Operate on any
+	decl, not just FUNCTION_DECL.
+	(legitimize_pic_address): Handle local SYMBOL_REF like LABEL_REF.
+	(arm_assemble_integer): Likewise.
+	* config/arm/arm.h (ARM_ENCODE_CALL_TYPE): Allow any decl to be
+	marked local.
+	
+2002-02-19  matthew green  <mrg@eterna.com.au>
+
+	* config.gcc (sparc-*-netbsdelf*): Enable target.
+	(sparc64-*-netbsd*): New target.
+	* config/sparc/netbsd-elf.h: New file.
+	* config/sparc/t-netbsd64: New file.
+
+2002-02-19  Gaute B Strokkenes <gs234@cam.ac.uk>
+
+	* doc/rtl.texi (Flags, MEM_SCALAR_P): Fix typo.
+
+2002-02-19  Ryan T. Sammartino <ryants@shaw.ca>
+
+	* doc/invoke.texi: explicitly list the style guidelines that
+	-Weffc++ checks for.
+
+Tue Feb 19 12:37:23 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* regmove.c (regmove_optimize): Avoid increasing of register pressure.
+
+2002-02-19  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	PR other/5718
+	* gcc.c (cpp_unique_options): Treat -o as indicating object file
+	only if not -E.  If -E, pass -o through to the preprocessor.
+
+2002-02-19  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.h (REGNO_REG_CLASS): Replace a literal
+	register number with an appropriate macro.
+
+2002-02-19  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* doc/rtl.texi (Constants): Close @code tag.
+
+2002-02-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/i386/i386.md ("mmx_uavgv8qi3"): Use const_vector.
+	("mmx_uavgv4hi3"): Same.
+	("pmulhrwv4hi3"): Same.
+
+	* tree-inline.c (walk_tree): Handle vectors.
+
+	* c-common.c (constant_expression_warning): Handle vectors.
+	(overflow_warning): Same.
+
+	* sched-deps.c (sched_analyze_2): Handle vectors.
+
+	* rtlanal.c (rtx_unstable_p): Handle vectors.
+	(rtx_varies_p): Same.
+	(count_occurrences): Same.
+	(regs_set_between_p): Same.
+	(modified_between_p): Same.
+	(modified_in_p): Same.
+	(volatile_insn_p): Same.
+	(volatile_refs_p): Same.
+	(side_effects_p): Same.
+	(may_trap_p): Same.
+	(inequality_comparisons_p): Same.
+	(replace_regs): Same.
+	(computed_jump_p_1): Same.
+
+	* rtl.c (DEF_MACHMODE): Change all definitions to accept 8th
+	argument.
+	(inner_mode_array): New.
+	(copy_rtx): Handle vectors.
+	(copy_most_rtx): Same.
+	(rtx_equal_p): Same.
+	(get_mode_alignment): Adjust for vectors.
+
+	* resource.c (mark_referenced_resources): Handle vectors.
+	(mark_set_resources): Same.
+
+	* reload1.c (eliminate_regs): Handle vectors.
+	(elimination_effects): Same.
+	(scan_paradoxical_subregs): Same.
+
+	* reload.c (subst_reg_equivs): Handle vectors.
+
+	* regrename.c (scan_rtx): Handle vectors.
+
+	* regclass.c (reg_scan_mark_refs): Handle vectors.
+
+	* recog.c (find_single_use_1): Handle vectors.
+
+	* local-alloc.c (equiv_init_varies_p): Handle vectors.
+	(contains_replace_regs): Same.
+	(memref_referenced_p): Same.
+
+	* integrate.c (copy_rtx_and_substitute): Handle vectors.
+	(subst_constants): Same.
+
+	* genattrtab.c (attr_copy_rtx): Handle vectors.
+	(encode_units_mask): Same.
+	(clear_struct_flag): Same.
+	(count_sub_rtxs): Same.
+
+	* gcse.c (want_to_gcse_p): Handle vectors.
+	(oprs_unchanged_p): Same.
+	(hash_expr_1): Same.
+	(oprs_not_set_p): Same.
+	(expr_killed_p): Same.
+	(compute_transp): Same.
+	(store_ops_ok): Same.
+
+	* function.c (purge_addressof_1): Do not allow paradoxical subregs
+	of vectors.
+	(fixup_var_refs_1): Same.
+	(instantiate_virtual_regs_1): Same.
+
+	* fold-const.c (operand_equal_p): Handle vectors.
+	(fold): Same.
+	(rtl_expr_nonnegative_p): Same.
+
+	* flow.c (mark_used_regs): Handle vectors.
+
+	* df.c (df_uses_record): Handle vectors.
+
+	* cselib.c (cselib_subst_to_values): Handle vectors.
+	(cselib_mem_conflict_p): Same.
+	(hash_rtx): Same.
+
+	* cse.c (canon_reg): Handle vectors.
+	(fold_rt): Same.
+	(cse_process_notes): Same.
+	(count_reg_usage): Same.
+	(canon_hash): Same.
+
+	* alias.c (nonlocal_mentioned_p): Add case for CONST_VECTOR.
+
+	* combine.c (mark_used_regs_combine): Add case for CONST_VECTOR.
+
+	* emit-rtl.c (init_emit_once): Generate const0_rtx for vectors.
+	(gen_rtx): Handle CONST_VECTOR.
+	(gen_const_vector_0): New.
+	(copy_rtx_if_shared): CONST_VECTORs can be shared.
+	(reset_used_flags): Same.
+	(copy_insn_1): Same.
+	(initializer_constant_valid_p): Handle VECTOR_CST.
+
+	* doc/c-tree.texi (Expression trees): Document VECTOR_CST.
+
+	* doc/rtl.texi (Constants): Document const_vector.
+	(CONST0_RTX): Update for vectors.
+	(RTL sharing): Same.
+
+	* print-tree.c (print_node): Add case for VECTOR_CST.
+
+	* tree.h (TREE_VECTOR_CST_ELTS): New.
+	(struct tree_vector): New.
+	(union tree_node): Add vector node.
+	(build_vector): Add prototype.
+
+	* tree.def (VECTOR_CST): New.
+
+	* tree.c (build_vector): New.
+
+	* expmed.c (make_tree): Handle CONST_VECTOR.
+
+	* rtl.h (CONSTANT_P): CONST_VECTORs are constants too.
+	(CONST_VECTOR_ELT): New.
+	(CONST_VECTOR_NUNITS): New.
+
+	* machmode.h (GET_MODE_INNER): New.
+	(DEF_MACHMODE): Accept 8th arg.
+
+	* machmode.def: Add 8th argument for vector inner mode.
+	Add inner vector modes for vectors.
+
+	* rtl.def (VEC_CONST): Remove.
+	(CONST_VECTOR): New.
+
+	* expr.c (clear_storage): Allow vectors.
+	(is_zeros_p): Handle VECTOR_CST.
+
+	* varasm.c (output_constant_pool): Handle vectors.
+	(rtx_const): Add veclo and vechi fields.
+	(kind): Add RTX_VECTOR.
+	(decode_rtx_const): Add case for vector.
+
+	* config/rs6000/rs6000-protos.h: Add zero_constant.
+	
+	* config/rs6000/rs6000.c (rs6000_emit_move): Handle vector
+	constants.  Force easy vector constants into memory.
+	(easy_vector_constant): New.
+	(emit_easy_vector_constant): New.
+	(rs6000_legitimize_reload_address): Do not generate bad reloads on
+	darwin.
+
+	* config/rs6000/rs6000.md ("altivec_lvx"): Reflect what
+	instruction does.
+	("altivec_lvxl"): Same.
+	(altivec_lvebx): Same.
+	(altivec_lvehx): Same.
+	(altivec_lvewx): Same.
+	("*movv4si_const0"): New.
+	("*movv4sf_const0"): New.
+	("*movv8hi_const0"): New.
+	("*movv16qi_const0"): New.
+
+2002-02-18  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.c (notice_update_cc): Use
+	cc_status.value2.
+
+2002-02-18  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.md (divmod patterns): Change the
+	constraints for operands[1] to register_operand.
+
+2002-02-18  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300-protos.h: Remove the prototype for
+	p_operand.
+	* config/h8300/h8300.c (p_operand): Remove.
+	* config/h8300/h8300.md: Replace p_operand with
+	const_int_operand.
+
+2002-02-18 Philip Blundell <pb@nexus.co.uk>
+
+	* config/arm/arm.c (arm_compute_save_reg_mask): Fix typo in
+	comment.
+	(output_return_instruction): Allow use of LDR to unstack
+	return addresss even for interrupt handlers or when
+	interworking.  If compiling for ARMv5, use interworking-safe
+	return instructions by default.  Remove duplicated code and
+	lengthy "strcat" sequences.
+
+2002-02-18  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* config/rs6000/sysv4.h (STARTFILE_SPEC): Use crtbeginT.o for -static.
+	(LINK_EH_SPEC): Define.
+	* config/rs6000/t-ppccomm (EXTRA_MULTILIB_PARTS): Add crtbeginT.o.
+
+2002-02-18  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_emit_prologue): Do not set the
+	frame_related flag for call-clobbered registers.
+
+Mon Feb 18 15:07:35 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (classify_argument): Properly classify SSE/MMX modes and VOIDmode.
+	(construct_container): Fix handling of SSE operands.
+	(ix86_expand_builtin): Fix handling of 64bit pointers.
+	(mmx_maskmovq_rex): New pattern.
+
+Mon Feb 18 11:55:55 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* regrename.c (kill_set_value): Handle subregs properly.
+
+2002-02-18  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* objc/objc-act.c (handle_impent): Remove leading '*'
+	from objc_class_name. 
+
+2002-02-17  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (some_small_symbolic_operand,
+	some_small_symbolic_operand_1, split_small_symbolic_operand,
+	split_small_symbolic_operand_1): Rename from *symbolic_mem_op*.
+	Handle small SYMBOL_REFs anywhere, not just inside memories.
+	* config/alpha/alpha-protos.h: Update.
+	* config/alpha/alpha.h (PREDICATE_CODES): Update.
+	* config/alpha/alpha.md (small symbolic operand splitter): Update.
+
+2002-02-17  Roland McGrath  <roland@frob.com>
+
+	* config.gcc (powerpc-*-gnu-gnualtivec*,
+	powerpc-*-gnu*, powerpc64-*-gnu*): New configurations.
+	* config/rs6000/gnu.h: New file.
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS):
+	Grok "gnu" in rs6000_abi_name.
+	(ASM_SPEC, CC1_SPEC, LINK_START_SPEC, LINK_OS_SPEC,
+	CPP_ENDIAN_SPEC, CPP_SPEC, STARTFILE_SPEC, LIB_SPEC, ENDFILE_SPEC):
+	Grok -mcall-gnu analogous to -mcall-linux et al.
+	(LIB_GNU_SPEC, STARTFILE_GNU_SPEC, ENDFILE_GNU_SPEC,
+	LINK_START_GNU_SPEC, LINK_OS_GNU_SPEC, CPP_OS_GNU_SPEC): New macros.
+	(SUBTARGET_EXTRA_SPECS): Add *_os_gnu specs using them.
+
+2002-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/3444:
+	* c-typeck.c (build_binary_op) [BIT_XOR_EXPR]: Remove explicit
+	shortening.
+
+2002-02-17  Philipp Thomas  <pthomas@suse.de>
+
+	* config/cris/cris.h: Undefine STARTFILE_SPEC and
+	ENDFILE_SPEC before (re)defining them.
+
+2002-02-17  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.c: Fix formatting.
+	* config/h8300/h8300.h: Likewise.
+
+2002-02-17  Philipp Thomas  <pthomas@suse.de>
+
+	* doc/tm.texi: Explain why empty strings should not be
+	marked for translation.
+
+2002-02-17  Philipp Thomas  <pthomas@suse.de>
+
+	* final.c (output_operand_lossage): Changed to accept
+	printf style arguments. Change calls where necessary.
+	* output.h (output_operand_lossage): Change declaration
+	accordingly. Update copyright.
+	* config/arc/arc.c config/fr30/fr30.c config/m32r/m32r.c
+	config/m88k/m88k.c : Adapt all calls to output_operand_lossage.
+	Update copyright date where necessary.
+	
+	* config/i386/i386.c (print_operand): Likewise. Remove use of
+	sprintf.
+
+	* config/cris/cris.c (cris_operand_lossage): Likewise.
+	Rename parameter so that exgettext recognizes it as
+	translatable message.
+	(LOSE_AND_RETURN): Rename parameter to msgid.
+
+2002-02-17  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.h (CONDITIONAL_REGISTER_USAGE): Replace a
+	hard coded register number with an appropriate macro.
+	(HARD_REGNO_MODE_OK): Likewise.
+	(ARG_POINTER_REGNUM): Likewise.
+	(STATIC_CHAIN_REGNUM): Likewise.
+	(RETURN_ADDRESS_POINTER_REGNUM): Likewise.
+	* config/h8300/h8300.md (define_constants): Define more
+	register numbers.
+
+2002-02-17  Philipp Thomas  <pthomas@suse.de>
+
+	* config/i386/i386.h: Don't mark empty strings for translation.
+
+2002-02-16  H.J. Lu <hjl@gnu.org>
+
+	* config/mips/linux.h (ASM_PREFERRED_EH_DATA_FORMAT): New.
+
+2002-02-16  Zack Weinberg  <zack@codesourcery.com>
+
+	* cppinit.c (merge_include_chains): Check for brack being
+	NULL before attempting to merge it with qtail.
+
+2002-02-16  Andrew Cagney  <ac131313@redhat.com>
+
+	* config/rs6000/netbsd.h (PREFERRED_DEBUGGING_TYPE): Set to
+	DBX_DEBUG.
+
+2002-02-16  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa/t-pa, pa/t-pro, som.h: Revert last patch.
+
+2002-02-16  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa/t-pa (LIB2FUNCS_EXTRA): Don't build lib2funcs.asm.
+	* pa/t-pro (LIB2FUNCS_EXTRA): Likewise.
+	* som.h (DO_GLOBAL_DTORS_BODY): Delete define.
+
+Sat Feb 16 13:48:50 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* config/alpha/alpha.md (*movsi_nt_vms_nofix): Was *movsi_nt_vms;
+	now only if !TARGET_FIX.
+	(*movsi_nt_vms_fix): New pattern.
+
+2002-02-16  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/alpha/alpha.c: Implement null frame procedure types on VMS.
+	(alpha_procedure_type): Replaces alpha_is_stack_procedure.
+	(alpha_sa_mask, alpha_sa_size): Reflect above change.
+	(alpha_pv_save_size, alpha_expand_prologue): Likewise.
+	(alpha_start_function, alpha_expand_epilogue): Likewise.
+	(unicosmk_gen_dsib): Likewise.
+
+Sat Feb 16 13:39:09 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* expr.c (store_constructor): Handle target REG case for ARRAY_TYPE.
+
+2002-02-16  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (pool_stop_uid, other_chunk, far_away, 
+	check_and_change_labels, s390_final_chunkify): Delete.
+	(s390_split_branches, s390_chunkify_pool): New functions.
+	(s390_function_prologue): Call them.
+	
+	* config/s390/s390.h (S390_REL_MAX): Delete.
+	(S390_CHUNK_MAX, S390_CHUNK_OV): Adjust values.
+
+	* config/s390/s390.md (cjump, icjump, jump): Fix length 
+	attribute calculation.
+
+
+2002-02-15  David Edelsohn  <edelsohn@gnu.org>
+
+	* config/rs6000/linux64.h (STRIP_NAME_ENCODING): Delete.
+	* config/rs6000/ppc-asm.h (JUMP_TARGET): Define for powerpc64.
+
+2002-02-15  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* gcc.c (init_gcc_specs): Revert patch from 2002-02-15.
+	* config/pa/pa-linux.h (LIB_SPEC): Likewise.
+	* config/pa/pa32-linux.h (LINK_COMMAND_SPEC): Likewise.
+
+2002-02-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* c-decl.c (grokdeclarator): Prevent a segfault on unnamed decls.
+
+2002-02-15  Richard Sandiford  <rsandifo@redhat.com>
+
+	* reload.c (find_dummy_reload): Check that an output register
+	is valid for its mode.
+
+2002-02-14  Alexandre Oliva  <aoliva@redhat.com>
+
+	* combine.c (known_cond): After replacing the REG of a SUBREG, try
+	to simplify it.
+
+	* function.c (assign_parms): Demote promoted argument passed by
+	transparent reference.
+
+2001-02-14	Joel Sherrill <joel@OARcorp.com>
+
+	* config/arm/rtems-elf.h, config/h8300/rtems.h: Removed redundant
+	-Acpu() and -Amachine() to eliminate warnings.
+
+2002-02-14  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/linux.h (ASM_OUTPUT_ALIGNED_BSS): New.
+
+2002-02-14  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300-protos.h: Update the prototype for
+	const_costs.
+	* config/h8300/h8300.c (const_costs): Treat SET as a little
+	more expensive operation.
+	* config/h8300/h8300.h (DEFAULT_RTX_COSTS): Update the
+	reference to const_costs.
+
+2002-02-14  Hans-Peter Nilsson  <hp@axis.com>
+
+	* config.gcc (c4x-*-rtems*): Fix typo in tm_file setting.
+
+2002-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/5503:
+	* c-decl.c (duplicate_decls): If builtin type has TYPE_ARG_TYPES NULL,
+	use arguments from newtype.
+
+2002-02-13  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/mips.c (override_options): Add check for march/mipsX
+	on the same command line. Fix error message in cpu processing.
+	Remove architecture and ISA checks.
+
+2002-02-14  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/rs6000/darwin.h (ROUND_TYPE_ALIGN): Adjust for vectors.
+
+        * config/rs6000/sysv4.h (ROUND_TYPE_ALIGN): Add MAX.
+
+2002-02-14  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/rs6000/rs6000.md ("*movv4si_internal"): Add m<-r and r<-r
+        alternatives.
+        ("*movv8hi_internal1"): Same.
+        ("*movv16qi_internal1"): Same.
+        ("*movv4sf_internal1"): Same.
+
+        * config/rs6000/rs6000.c (rs6000_legitimize_reload_address): Do
+        not push_reload for altivec modes.
+
+2002-02-13  Joel Sherrill  <joel@OARcorp.com>
+
+	* config.gcc (a29k-*-rtems), config/a29k/rtems.h: General cleanup across
+	all RTEMS targets including removal of #includes from config/*/rtems*.h
+	file and adding them to tm_file setting. Added xm_defines=POSIX to
+	many targets.
+	* config.gcc (c4x-*-rtems), config/c4x/rtems.h: Ditto.
+	* config.gcc (h8300-*-rtems), config/h8300/rtems.h: Ditto.
+	* config.gcc (hppa1.1-*-rtems), config/pa/rtems.h: Ditto.
+	* config.gcc (i960-*-rtems), config/i960/rtems.h: Ditto.
+	* config.gcc (m68k-*-rtems*), config/m68k/rtems.h,
+	config/m68k/rtemself.h: Ditto.
+	* config.gcc (mips*-*-rtems*), config/mips/rtems.h,
+	config/mips/rtems64.h: Ditto.
+	* config.gcc (powerpc-*-rtems*), config/rs6000/rtems.h: Ditto.
+	* config.gcc (sh-*-rtems*), config/sh/rtems.h, config/sh/rtemself.h:
+	Ditto.
+	* config.gcc (sparc-*-rtems*), config/sparc/rtems.h,
+	config/sparc/rtemself.h: Ditto.
+	* config.gcc (v850-*-rtems*), config/v850/rtems.h: Ditto.
+	* config.gcc (arm-rtems), config/arm/rtems-elf.h: Ditto plus moved
+	arm-rtems stanza closer to other arm-elf targets and made arm-rtems
+	more like arm-elf.
+	* config.gcc (i[34567]86-*-rtems*), config/i386/djgpp-rtems.h,
+	config/i386/rtems.h, config/i386/rtemself.h: Ditto plus i386-rtemself
+	target made more similar to i386-elf.
+	* config/i386/t-rtems-i386: Added soft float support and multilibs.
+	* config/m68k/t-m68kbare: Add 68040 and 68060 as multilib alternatives to
+	be similar to config/m68k/t-m68kelf.
+	* gthr-rtems.h: Encapsulate with extern "C" for C++.
+
+Wed Feb 13 23:41:15 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* regmove.c (kill_value): Handle subregs.
+
+Wed Feb 13 23:34:30 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (mul patterns): Allow memory operand to be first;
+	add expanders where needed; fix constraints.
+	(min?f_nonieee, max?f_nonieee, SSE TImode patterns):
+	Allow memory operand to be the first.
+
+	* i386.c (ix86_prepare_fp_compare_args): Fix condition for swapping
+	operands.
+
+2002-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/5681:
+	* expr.c (safe_from_p): Pass VOIDmode to true_dependence instead of
+	GET_MODE (x).
+
+2002-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR optimization/5547:
+	* config/i386/i386.c (i386_simplify_dwarf_addr): Simplify
+	all valid IA-32 address modes involving non-scaled %ebx and
+	GOT/GOTOFF as displacement.
+
+2002-02-13  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.c (s390_final_chunkify): Re-run shorten_branches
+	after emitting ltorg insns.
+
+	* config/s390/s390.md (*cmpdf_ccs_0, *cmpdf_ccs, *cmpsf_ccs_0,
+	*cmpsf_ccs, truncdfsf2_ieee, *adddf3, *addsf3, *subdf3, *subsf3,
+	*muldf3, *mulsf3, *divdf3, *divsf3, *negdf2, *negsf2, *absdf2,
+	*abssf2): Fix "op_type" attribute.
+
+2002-02-13  Douglas B Rupp  <rupp@gnat.com>
+
+	* mkconfig.sh: Avoid using a subshell redirect.
+	($output.T): Change to $(output)T.
+	(ENABLE_NLS): Remove unneeded undef.
+
+	* config/alpha/vms.h (MD_EXEC_PREFIX, MD_STARTFILE_PREFIX): Define.
+	* config/alpha/x-vms (libsubdir): Define.
+
+	* config/alpha/vms.h (MD_FALLBACK_FRAME_STATE_FOR): Handle
+	register frame procedures. Optimize retrieving context.
+
+	* config/alpha/t-vms (MULTILIB_OPTIONS): Define.
+	(MULTILIB_DIRNAME, LIBGCC, INSTALL_LIBGCC): Likewise.
+	* config/alpha/vms.h (ASM_FILE_START): Write .arch directive.
+
+Wed Feb 13 09:45:08 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* alias.c (find_base_term, case ZERO_EXTEND, case SIGN_EXTEND):
+	Make same change as for find_base_value.
+
+2002-02-13  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.h (MODES_TIEABLE_P): Accept a combination
+	of QImode and SImode.
+
+2002-02-13  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.c (h8300_adjust_insn_length): Correct the
+	length computation of movsi.
+	* config/h8300/h8300.md (movsi_h8300hs): Correct the length.
+
+2002-02-13  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.md (subqi3): Tighten the predicate for
+	operands[2] to register_operand.
+
+Wed Feb 13 10:35:56 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (fop_*_comm_*): allow nonimmediate in the first operand.
+
+2002-02-12  Aldy Hernandez  <aldyh@redhat.com>
+
+        * config/rs6000/rs6000.md: Use predicate altivec_register_operand
+        for altivec_lvx* and altivec_stvx*.
+        ("*movv4si_internal"): Add constraint for loading from GPRs.
+        ("*movv8hi_internal1"): Same.
+        ("*movv16qi_internal1"): Same.
+        ("*movv4sf_internal1"): Same.
+
+        * config/rs6000/rs6000.c (altivec_register_operand): New.
+
+        * config/rs6000/rs6000.h (PREDICATE_CODES): Add
+        altivec_register_operand.
+
+2002-02-13  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/mmix.c (mmix_assemble_integer) <case 4>: Don't
+	handle SYMBOL_REF.
+
+2002-02-13  Stan Shebs  <shebs@apple.com>
+
+        * c-typeck.c (digest_init): Handle vectors.
+        (really_start_incremental_init): Same.
+        (pop_init_level): Same.
+        (process_init_element): Same.
+
+        * varasm.c (output_constant): Same.
+
+        * expr.c (clear_storage): Same.
+        (store_constructor): Same.
+
+2002-02-12  Eric Christopher  <echristo@redhat.com>
+
+	* explow.c (hard_function_value): Add comment explaining
+	signed/unsigned comparison.
+
+2002-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* jump.c (never_reached_warning): Add finish argument.
+	If finish is NULL, stop on CODE_LABEL, otherwise stop before first
+	real insn after end.
+	* rtl.h (never_reached_warning): Adjust prototype.
+	* cse.c (cse_insn): Pass NULL as finish to never_reached_warning.
+	* cfgrtl.c (flow_delete_block): Pass b->end as finish to
+	never_reached_warning.
+
+2002-02-12  Graham Stott  <grahams@redhat.com>
+
+	* config/hp/pa.h (GO_IF_LEGITIMATE_ADDRESS): Fix typos.
+
+2002-02-12  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.c (shift_alg_hi): Improve the 15-bit
+	logical shifts on H8/300.
+	(shift_alg_si): Improve several shifts on H8/300.
+	(get_shift_alg): Likewise.
+
+2002-02-12  Graham Stott  <grahams@redhat.com>
+
+	* config/pa/pa.c (compute_movstrsi_length): Fix typos.
+
+Tue Feb 12 10:12:56 2002  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* alias.c (find_base_value, case ZERO_EXTEND, case SIGN_EXTEND):
+	Handle #ifdef POINTERS_EXTEND_UNSIGNED.
+
+2002-02-11  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/mmix.c (mmix_assemble_integer) <case 1, 2>: Handle
+	non-CONST_INT through default_assemble_integer.
+	<case 4>: Likewise, for non-CONST_INT, non-SYMBOL_REF.
+	<case 8>: Abort for CONST_DOUBLE.
+
+2002-02-11  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* gcc.c (init_gcc_specs): Add static libgcc to link when "-shared"
+	is specified.
+	* config/pa/pa-linux.h (LIB_SPEC): Delete.
+	* config/pa/pa32-linux.h (LINK_COMMAND_SPEC): Delete.
+
+2002-02-11  Andrew Haley  <aph@cambridge.redhat.com>
+
+	* config/stormy16/stormy16.md (zero_extendqihi2): New.
+
+2002-02-11  Alexandre Oliva  <aoliva@redhat.com>
+
+	* regrename.c (regrename_optimize): Don't accept a
+	part-clobbered register if the replaced register is not part
+	clobbered.
+
+	* calls.c (store_one_arg): In the non-BLKmode non-partial case,
+	take padding into account when computing the argument value.
+
+	* config/sh/sh.h (FUNCTION_ARG_REGNO_P): Fix parenthesizing error.
+
+	* combine.c (try_combine): Apply substitutions in
+	CALL_INSN_FUNCTION_USAGE too.
+
+2002-02-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (altivec_init_builtins): Handle
+	__builtin_altivec_abs*.
+	(bdesc_abs): New.
+
+	* config/rs6000/rs6000.h (rs6000_builtins): Add
+	ALTIVEC_BUILTIN_ABS*.
+
+	* config/rs6000/altivec.h: Use const char for builtins expecting
+	literals.
+	(vec_abs): New versions for C and C++.
+	(vec_abss): Same.
+
+2002-02-10  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.h (INITIALIZE_TRAMPOLINE): Simplify by
+	using Pmode.
+
+2002-02-10  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.h (STACK_POINTER_REGNUM): Use the
+	constant definition from h8300.md.
+	(FRAME_POINTER_REGNUM): Likewise.
+	* config/h8300/h8300.md (define_constants): Add FP_REG.
+
+2002-02-10  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.c (print_operand): Remove redundant code.
+
+2002-02-10  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300-protos.h: Remove the prototype for byte_reg.
+	* config/h8300/h8300.c (byte_reg): Make it static.
+
+2002-02-10  Richard Henderson  <rth@redhat.com>
+
+	PR c/5623
+	* c-typeck.c (incomplete_type_error): Handle flexible array members.
+
+2002-02-10  Richard Henderson  <rth@redhat.com>
+
+	PR c++/5624
+	* tree.c (append_random_chars): Don't abort if main_input_filename
+	does not exist.
+
+2002-02-10  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* config/mmix/t-mmix (MULTILIB_EXTRA_OPTS): Disable.
+
+2002-02-10  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.md (pushhi1_h8300): Correct the mode used.
+	(pushhi1): Likewise.
+
+2002-02-10  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa.c (reg_before_reload_operand): Don't accept a SUBREG operand.
+	* pa.h (PREDICATE_CODES): Adjust codes for reg_before_reload_operand.
+
+2002-02-09  David O'Brien  <obrien@FreeBSD.org>
+
+	* config/sparc/freebsd.h(TARGET_DEFAULT): Add MASK_EPILOGUE setting and
+	remove MASK_VIS.
+	(ASM_CPU_DEFAULT_SPEC): Remove.  Default setting is fine.
+
+2002-02-09  Kazu Hirata  <kazu@hxi.com>
+
+	* config/h8300/h8300.c (output_logical_op): Use sub.w to clear
+	a half of an SImode register on H8/300.
 
 Sat Feb  9 18:28:02 CET 2002  Jan Hubicka  <jh@suse.cz>
 
@@ -30,7 +983,7 @@ Sat Feb  9 18:28:02 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* config/sh/sh.c (expand_prologue): Fix mis-applied 2001-11-09's
 	patch.
-	
+
 	Contribute sh64-elf.
 	2002-02-09  Alexandre Oliva  <aoliva@redhat.com>
 	* config/sh/sh.c (TARGET_CANNOT_MODIFY_JUMPS_P): Define to...
@@ -431,7 +1384,7 @@ Sat Feb  9 18:28:02 CET 2002  Jan Hubicka  <jh@suse.cz>
 	2000-12-26  Alexandre Oliva  <aoliva@redhat.com>
 	* config/sh/sh.md (movdi_media split): Don't add REG_LABEL notes.
 	Increment LABEL_NUSES.
-	
+
 	* config/sh/sh.h (SIZE_TYPE): Define as conditional on
 	TARGET_SH5.
 	(SUBTARGET_CPP_SPEC): Arrange for __SIZE_TYPE__ to be always
@@ -536,7 +1489,7 @@ Sat Feb  9 18:28:02 CET 2002  Jan Hubicka  <jh@suse.cz>
 	(call_media, call_value_media, sibcall_media): Use
 	target_reg_operand instead of target_operand.
 	2000-12-13  Alexandre Oliva  <aoliva@redhat.com>
-	* glimits.h (__LONG_MAX__) [SH5 == 64]: Adjust for 64 bits. 
+	* glimits.h (__LONG_MAX__) [SH5 == 64]: Adjust for 64 bits.
 	* config/sh/sh.c (target_reg_operand): Match hardware registers
 	other than branch-target registers.
 	* config/sh/sh.md (zero_extendqidi2): Input operand is %1.
@@ -1210,20 +2163,6 @@ Thu Feb  7 12:14:17 CET 2002  Jan Hubicka  <jh@suse.cz>
 	* Makefile.in (stor-layout.o): Adjust dependencies.
 
 2002-02-05  Jason Merrill  <jason@redhat.com>
-
-	* c-typeck.c (convert_for_assignment): Don't allow conversions
-	between pointers and references.  Only allow lvalues to convert to
-	reference.
-
-	* c-decl.c (finish_function): Warn about a non-void function with
-	no return statement and no abnormal exit.
-	(current_function_returns_abnormally): New variable.
-	(start_function): Clear it.
-	(struct c_language_function): Add returns_abnormally.
-	(push_c_function_context): Save it.
-	(pop_c_function_context): Restore it.
-	* c-tree.h: Declare current_function_returns_abnormally.
-	* c-typeck.c (build_function_call): Set it.
 
 	* collect2.c (dump_file): Pass DMGL_VERBOSE to cplus_demangle.
 

@@ -1,3 +1,59 @@
+2002-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* typeck.c (cp_pointer_int_sum): Renamed from
+	pointer_int_sum, call pointer_int_sum.
+
+2002-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (duplicate_decls): Return 0 if issued error about
+	redeclaration.
+
+2002-02-19  Jason Merrill  <jason@redhat.com>
+
+	ABI change: Mangle `void (A::*)() const' as 
+	M1AKFvvE, not MK1AFvvE.
+	* mangle.c (write_function_type): Write cv-quals for member
+	function type here.
+	(write_pointer_to_member_type): Not here.
+
+2002-02-18  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (do_type_instantiation): Don't pedwarn if in_system_header.
+	(do_decl_instantiation): Likewise.
+
+2002-02-17  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR c++/5685
+	* decl.c (duplicate_decls): Make warning unconditional
+	if duplicate default argument declarations are present.
+
+2002-02-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* typeck.c (build_binary_op) [BIT_XOR_EXPR]: Remove explicit
+	shortening.
+
+2002-02-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (grokdeclarator): Set typedef_decl for all TYPE_DECLs,
+	remove incorrect comment. Move #if 0'd code to common path. Use
+	IMPLICIT_TYPENAME_P. Simplify & reformat ARRAY_TYPE duplication.
+
+2002-02-13  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (builtin_function): Set TREE_THIS_VOLATILE on return fns.
+	(finish_function): Don't warn if current_function_returns_null.
+
+	* typeck2.c (digest_init): Do handle values of vector type.
+
+	* typeck2.c (digest_init, process_init_constructor): Treat vectors
+	like arrays.
+
+2002-02-11  Jason Merrill  <jason@redhat.com>
+
+	* parse.y (reserved_declspecs): Don't handle attributes.
+	(reserved_typespecquals): Handle them here.
+	* Make-lang.in (parse.c): Adjust expected conflicts.
+
 2002-02-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* parse.y (primary, primary_no_id): Use compstmt_or_stmtexpr
@@ -49,7 +105,7 @@
 
 	PR c++/109
 	* decl.c (grokdeclarator): Allow friend declarations from
-	dependant types.
+	dependent types.
 	* decl2.c (handle_class_head): Don't push into template parm contexts.
 	* pt.c (push_template_decl_real): Template parm contexts are never
 	being defined.
@@ -1603,8 +1659,8 @@ Fri Sep 21 08:16:19 2001  J"orn Rennecke <amylaar@redhat.com>
 
 2001-09-15  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
 
-		* Make-lang.in (cp/error.o): Depend on real.h
-		* error.c: #include "real.h"
+	* Make-lang.in (cp/error.o): Depend on real.h
+	* error.c: #include "real.h"
 
 2001-09-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 

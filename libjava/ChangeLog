@@ -1,3 +1,160 @@
+2002-02-19  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/5696:
+	* verify.cc (is_assignable_from_slow): Never call
+	_Jv_IsAssignableFrom.
+	(verify_instructions_0): Added new debug statement.
+	(state::print): Print information about whether local has
+	changed.
+	(state::merge): Don't call note_variable when merging locals.
+	(state::set_exception): Removed old FIXME comment.
+
+2002-02-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* java/net/natPlainDatagramSocketImpl.cc (bind): Call setsockopt to
+	enable SO_BROADCAST.
+
+2002-02-18  Jason Merrill  <jason@redhat.com>
+
+	* name-finder.cc (toHex): Use word mode, not long long.
+
+	* gnu/gcj/convert/natIconv.cc (write): Avoid sign-compare warning.
+
+2002-02-15  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/5695:
+	* verify.cc (is_assignable_from_slow): Check to see if target is
+	an Object before checking to see if source is an interface.
+	(verify_instructions_0) [op_invokeinterface]: Handle case where
+	we're making an interface call on Object.
+
+2002-02-15  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* Makefile.in: Rebuilt with Eric's change below.
+
+	* java/lang/natMath.cc (abs(jdouble), abs(jfloat), round(jfloat),
+	round(jdouble), min(jfloat), max(jfloat), min(jdouble), min(jfloat)):
+	Removed functions which are now implemented in Math.java.
+
+2002-02-14  Eric Blake  <ebb9@email.byu.edu>
+
+	* gcj/javaprims.h (java::lang): Add java::lang::StrictMath.
+	* Makefile.am (core_java_source_files): Add
+	java/lang/StrictMath.java.
+	* java/lang/Math.java: Merge with Classpath.
+	* java/lang/StrictMath.java: New file - merge with Classpath.
+
+2002-02-14  Mark Wielaard  <mark@klomp.org>
+
+	* java/math/BigInteger.java: import gnu.java.math.MPN not the whole
+	package as a workaround for gcj 3.0.x
+
+2002-02-14  Mark Wielaard <mark@klomp.org>
+
+	* java/security/BasicPermission.java: extends with fully qualified
+	classname as workaround for gcj 3.0.4.
+
+2002-02-14  Eric Blake  <ebb9@email.byu.edu>
+
+	* java/net/DatagramSocketImpl.java (setOption, getOption): Work
+	around gcj bug of wrong emitted qualifier for inherited method.
+	* java/net/SocketImpl.java (setOption, getOption): Ditto.
+	* java/util/WeakHashMap.java (WeakEntrySet): Add non-private
+	constructor to reduce amount of emitted bytecode. While this
+	happens to work around a jikes 1.15 bug, it is still a useful
+	patch even for correct compilers.
+	* java/rmi/server/RMIClassLoader.java (MyClassLoader): Ditto.
+	* gnu/java/rmi/server/UnicastRemoteCall.java
+	(DummyObjectOutputStream, DummyObjectInputStream): Ditto.
+
+2002-02-14  Eric Blake  <ebb9@email.byu.edu>
+
+	* java/net/DatagramSocketImpl.java: Reformat (no code changes).
+	* java/net/SocketImpl.java: Ditto.
+	* java/rmi/server/RMIClassLoader.java: Ditto.
+	* gnu/java/rmi/server/UnicastRemoteCall.java: Ditto.
+
+2002-02-14  Mark Wielaard <mark@klomp.org>
+
+	Thanks to Takashi Okamoto
+	* java/util/Arrays.java (ArrayList.indexOf()): this.equals().
+	* java/util/Arrays.java (ArrayList.lastIndexOf()): Likewise.
+	* java/util/WeakHashMap.java (WeakEntry.getEntry()): this.get().
+
+2002-02-13  Todd Stock  <toddastock@yahoo.com>
+
+	Fix for PR libgcj/5670:
+	* verify.cc (is_assignable_from_slow): If `source' is interface,
+	recursively look for merge with `target'.
+
+2002-02-14  Martin Kahlert  <martin.kahlert@infineon.com>
+
+	* include/jni.h: Fix typo.
+
+2002-02-13  Martin Kahlert  <martin.kahlert@infineon.com>
+
+	* jni.cc (_Jv_JNI_AttachCurrentThread): env->locals assigned
+	correctly.
+
+2002-02-13  Todd Stock  <toddastock@yahoo.com>
+
+	Fix for PR libgcj/5671:
+	* verify.cc (state::merge): Handle case where we're merging
+	against an interface.
+
+2002-02-12  Tom Tromey  <tromey@redhat.com>
+
+	* exception.cc (std::abort): Mark as noreturn.
+
+2002-02-12  Adam Megacz <adam@xwt.org>
+
+        * java/lang/Win32Process.java: Filled in a placeholder
+	implementation so Win32 will build.
+
+2002-02-12  Adam Megacz <adam@xwt.org>
+
+        * java/io/natFilePosix.cc: Copied this from natFile.cc.
+	* java/io/natFile.cc: Removed from repository.
+	* configure.in: Added AC_LINK_FILES for natFile${PLATFORM}.
+
+2002-02-12  Adam Megacz <adam@xwt.org>
+
+	* win32.cc: Added two #includes to make win32.cc compile.
+
+2002-02-12  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* boehm.cc (initialized, obj_kind_x, obj_free_list): Removed unused
+	declarations.
+	(_Jv_InitGC): Don't bother locking, as this is always called from a 
+	single-thread. Turn off GC_all_interior_pointers. Remove dead code.
+
+2002-02-11  Adam Megacz <adam@xwt.org>
+
+	* include/win32.h: Added _Jv_platform_gettimeofday.
+	* win32.cc (_Jv_platform_gettimeofday): Added dummy function.
+
+2002-02-11  Adam Megacz <adam@xwt.org>
+
+	* java/io/natFileWin32.cc, java/io/natFileDescriptorWin32.cc:
+	Added #undef STRICT to make windows.h and
+	java/lang/reflect/Modifier.h cooperate.
+
+2002-02-11  Adam Megacz <adam@xwt.org>
+
+	* java/io/natFileWin32.cc: Created a placeholder class with lots
+	of FIXMEs.
+
+2002-02-11  Adam Megacz <adam@xwt.org>
+
+	* exception.cc (_Jv_Throw, PERSONALITY_FUNCTION): Changed
+	std::abort() to simply abort(). Also added "fake" std::abort() so
+	we can #include unwind-pe.h without having to link against
+	libstdc++-v3.
+
+2002-02-10  Andreas Tobler  <toa@pop.agri.ch>
+
+	* interpret.cc (continue1) [insn_f2l]: Use PUSHL, not PUSHI.
+
 2002-02-08  Tom Tromey  <tromey@redhat.com>
 
 	* interpret.cc (convert): New function.

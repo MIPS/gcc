@@ -760,8 +760,8 @@ binfo is given by @code{BINFO_TYPE}.  It is always the case that
 qualifiers.  However, it is not always the case that @code{TYPE_BINFO
 (BINFO_TYPE (y))} is always the same binfo as @code{y}.  The reason is
 that if @code{y} is a binfo representing a base-class @code{B} of a
-derived class @code{D}, then @code{BINFO_TYPE (y)} will be @code{B}, and
-@code{TYPE_INFO (BINFO_TYPE (y))} will be @code{B} as its own
+derived class @code{D}, then @code{BINFO_TYPE (y)} will be @code{B},
+and @code{TYPE_BINFO (BINFO_TYPE (y))} will be @code{B} as its own
 base-class, rather than as a base-class of @code{D}.
 
 The @code{BINFO_BASETYPES} is a @code{TREE_VEC} (@pxref{Containers}).
@@ -1712,6 +1712,7 @@ This macro returns the attributes on the type @var{type}.
 @findex tree_int_cst_equal
 @tindex REAL_CST
 @tindex COMPLEX_CST
+@tindex VECTOR_CST
 @tindex STRING_CST
 @findex TREE_STRING_LENGTH
 @findex TREE_STRING_POINTER
@@ -1857,6 +1858,12 @@ These nodes are used to represent complex number constants, that is a
 @code{__complex__} whose parts are constant nodes.  The
 @code{TREE_REALPART} and @code{TREE_IMAGPART} return the real and the
 imaginary parts respectively.
+
+@item VECTOR_CST
+These nodes are used to represent vector constants, whose parts are
+constant nodes.  Each individual constant node is either an integer or a
+double constant node.  The first operand is a @code{TREE_LIST} of the
+constant nodes and is accessed through @code{TREE_VECTOR_CST_ELTS}.
 
 @item STRING_CST
 These nodes represent string-constants.  The @code{TREE_STRING_LENGTH}

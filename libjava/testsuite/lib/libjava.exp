@@ -1,4 +1,4 @@
-# Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation
+# Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation
 
 load_lib "libgloss.exp"
 
@@ -175,11 +175,15 @@ proc libjava_find_lib {dir name} {
     foreach sub {.libs _libs} {
 	if {$gp != ""} {
 	    if {[file exists $gp/$dir/$sub/lib${name}.a]} then {
-		return "$gp/$dir/lib${name}.la -L$gp/$dir/$sub"
+		# Just return the `-L' option.  The library itself
+		# will be picked up via the spec file.
+		return "-L$gp/$dir/$sub"
 	    }
 	}
+	# Just return the `-L' option.  The library itself will be
+	# picked up via the spec file.
 	set lib [findfile $base_dir/../../$dir/$sub/lib${name}.a \
-		   "$base_dir/../../$dir/lib${name}.la -L$base_dir/../../$dir/$sub" \
+		   "-L$base_dir/../../$dir/$sub" \
 		   ""]
 	if {$lib != ""} {
 	    return $lib
@@ -506,12 +510,13 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
     if {[info exists opts(xfail-output)]} {
 	setup_xfail *-*-*
     }
+    if {[info exists opts(xfail-source-output)]} {
+	setup_xfail *-*-*
+    }
     if { $passed == 1 } {
 	pass "$errname output from source compiled test"
 	eval gcj_cleanup $removeList
     } else {
-	clone_output "expected was $expected"
-	clone_output "output was $output"
 	fail "$errname output from source compiled test"
     }
     close $id;
@@ -733,6 +738,9 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
     if {[info exists opts(xfail-output)]} {
 	setup_xfail *-*-*
     }
+    if {[info exists opts(xfail-byte-output)]} {
+	setup_xfail *-*-*
+    }
     if {$options == "regexp_match"} {
 	if [regexp $expected $output] {
 	    set passed 1;
@@ -746,8 +754,6 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	pass "$errname output from bytecode->native test"
 	eval gcj_cleanup $removeList
     } else {
-	clone_output "expected was $expected"
-	clone_output "output was $output"
 	fail "$errname output from bytecode->native test"
     }
     close $id;
@@ -770,6 +776,10 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 #   `xfail-exec'  exec will fail
 #   `xfail-output'
 #                 output will be wrong
+#   `xfail-byte-output'
+#                 output will be wrong when compiled from bytecode
+#   `xfail-source-output'
+#                 output will be wrong when compiled from source code
 #   `need-threads'
 #                 test relies on thread support
 #

@@ -191,7 +191,7 @@ extern int target_flags;
    function, and one less allocable register.  */
 #define MASK_MINIMAL_TOC	0x00000200
 
-/* Nonzero for the 64bit model: ints, longs, and pointers are 64 bits.  */
+/* Nonzero for the 64bit model: longs and pointers are 64 bits.  */
 #define MASK_64BIT		0x00000400
 
 /* Disable use of FPRs.  */
@@ -638,10 +638,13 @@ extern int rs6000_altivec_abi;
 /* A bitfield declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
-/* Make strings word-aligned so strcpy from constants will be faster.  */
-#define CONSTANT_ALIGNMENT(EXP, ALIGN)  \
-  (TREE_CODE (EXP) == STRING_CST	\
-   && (ALIGN) < BITS_PER_WORD ? BITS_PER_WORD : (ALIGN))
+/* Make strings word-aligned so strcpy from constants will be faster.
+   Make vector constants quadword aligned.  */
+#define CONSTANT_ALIGNMENT(EXP, ALIGN)                           \
+  (TREE_CODE (EXP) == STRING_CST	                         \
+   && (ALIGN) < BITS_PER_WORD                                    \
+   ? BITS_PER_WORD                                               \
+   : (ALIGN))
 
 /* Make arrays of chars word-aligned for the same reasons.
    Align vectors to 128 bits.  */
@@ -967,8 +970,11 @@ extern int rs6000_altivec_abi;
       = call_used_regs[PIC_OFFSET_TABLE_REGNUM]				\
       = call_really_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;		\
   if (! TARGET_ALTIVEC)							\
-    for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)		\
-      fixed_regs[i] = call_used_regs[i] = call_really_used_regs[i] = 1;	\
+    {									\
+      for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)	\
+	fixed_regs[i] = call_used_regs[i] = call_really_used_regs[i] = 1; \
+      call_really_used_regs[VRSAVE_REGNO] = 1;				\
+    }									\
   if (TARGET_ALTIVEC_ABI)						\
     for (i = FIRST_ALTIVEC_REGNO; i < FIRST_ALTIVEC_REGNO + 20; ++i)	\
       call_used_regs[i] = call_really_used_regs[i] = 1;			\
@@ -1199,14 +1205,14 @@ enum reg_class
    'Q' means that is a memory operand that is just an offset from a reg.
    'R' is for AIX TOC entries.
    'S' is a constant that can be placed into a 64-bit mask operand
-   'T' is a consatnt that can be placed into a 32-bit mask operand
+   'T' is a constant that can be placed into a 32-bit mask operand
    'U' is for V.4 small data references.  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
   ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) == REG	\
    : (C) == 'R' ? LEGITIMATE_CONSTANT_POOL_ADDRESS_P (OP)		\
-   : (C) == 'S' ? mask64_operand (OP, VOIDmode)				\
-   : (C) == 'T' ? mask_operand (OP, VOIDmode)				\
+   : (C) == 'S' ? mask64_operand (OP, DImode)				\
+   : (C) == 'T' ? mask_operand (OP, SImode)				\
    : (C) == 'U' ? (DEFAULT_ABI == ABI_V4				\
 		   && small_data_operand (OP, GET_MODE (OP)))		\
    : 0)
@@ -1539,7 +1545,7 @@ typedef struct rs6000_stack {
    On RS/6000, these are r3-r10 and fp1-fp13.
    On AltiVec, v2 - v13 are used for passing vectors.  */
 #define FUNCTION_ARG_REGNO_P(N)						\
-  ((unsigned)(((N) - GP_ARG_MIN_REG) < (unsigned)(GP_ARG_NUM_REG))	\
+  (((unsigned)((N) - GP_ARG_MIN_REG) < (unsigned)(GP_ARG_NUM_REG))	\
    || (TARGET_ALTIVEC &&						\
        (unsigned)((N) - ALTIVEC_ARG_MIN_REG) < (unsigned)(ALTIVEC_ARG_NUM_REG)) \
    || ((unsigned)((N) - FP_ARG_MIN_REG) < (unsigned)(FP_ARG_NUM_REG)))
@@ -1736,7 +1742,7 @@ typedef struct rs6000_args
 
 #define	EPILOGUE_USES(REGNO)					\
   ((reload_completed && (REGNO) == LINK_REGISTER_REGNUM)	\
-   || (REGNO) == VRSAVE_REGNO					\
+   || (TARGET_ALTIVEC && (REGNO) == VRSAVE_REGNO)		\
    || (current_function_calls_eh_return				\
        && TARGET_AIX						\
        && (REGNO) == TOC_REGISTER))
@@ -1968,7 +1974,8 @@ typedef struct rs6000_args
   && GET_CODE (XEXP (X, 0)) == REG				\
   && INT_REG_OK_FOR_BASE_P (XEXP (X, 0), (STRICT))		\
   && LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 0)		\
-  && (! ALTIVEC_VECTOR_MODE (MODE) || INTVAL (X) == 0)		\
+  && (! ALTIVEC_VECTOR_MODE (MODE)                            \
+      || (GET_CODE (XEXP (X,1)) == CONST_INT && INTVAL (XEXP (X,1)) == 0)) \
   && (((MODE) != DFmode && (MODE) != DImode)			\
       || (TARGET_32BIT						\
 	  ? LEGITIMATE_ADDRESS_INTEGER_P (XEXP (X, 1), 4) 	\
@@ -2762,6 +2769,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 				GT, LEU, LTU, GEU, GTU}},		   \
   {"boolean_operator", {AND, IOR, XOR}},				   \
   {"boolean_or_operator", {IOR, XOR}},					   \
+  {"altivec_register_operand", {REG}},	                                   \
   {"min_max_operator", {SMIN, SMAX, UMIN, UMAX}},
 
 /* uncomment for disabling the corresponding default options */
@@ -2971,5 +2979,12 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VCMPGTSW_P,
   ALTIVEC_BUILTIN_VCMPGTUB_P,
   ALTIVEC_BUILTIN_VCMPGTUH_P,
-  ALTIVEC_BUILTIN_VCMPGTUW_P
+  ALTIVEC_BUILTIN_VCMPGTUW_P,
+  ALTIVEC_BUILTIN_ABSS_V4SI,
+  ALTIVEC_BUILTIN_ABSS_V8HI,
+  ALTIVEC_BUILTIN_ABSS_V16QI,
+  ALTIVEC_BUILTIN_ABS_V4SI,
+  ALTIVEC_BUILTIN_ABS_V4SF,
+  ALTIVEC_BUILTIN_ABS_V8HI,
+  ALTIVEC_BUILTIN_ABS_V16QI
 };

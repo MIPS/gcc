@@ -1,3 +1,35 @@
+2002-02-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* lib/libjava.exp: Add "xfail-byte-output" and "xfail-source-output".
+	Don't display expected and actual output for a failed output test.
+
+	* libjava.lang/ArrayStore.java: New file.
+	* libjava.lang/ArrayStore.out: New file.
+	* libjava.lang/ArrayStore.xfail: New file. xfail-byte-output.
+	* libjava.lang/ArrayStore2.java: New file.
+	* libjava.lang/ArrayStore2.out: New file.
+	* libjava.lang/ArrayStore2.xfail: New file. xfail-source-output.
+
+	* libjava.lang/stringconst.xfail: xfail-output -> xfail-source-output.
+
+2002-02-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* libjava.lang/err7.xfail: Removed.
+	* libjava.lang/err8.xfail: Removed.
+	
+	* libjava.lang/ArrayStore.java: New file.
+	* libjava.lang/ArrayStore.out: New file.
+
+2002-02-10  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/5641:
+	* libjava.compile/PR5641.xfail: New file.
+	* libjava.compile/PR5641.java: New file.
+
+2002-02-10  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* lib/libjava.exp (libjava_find_lib): Remove duplicate .la files.
+
 2002-01-05  H.J. Lu <hjl@gnu.org>
 
 	* libjava.jni/jni.exp: Add -I.. for generated header.

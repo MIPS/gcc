@@ -1819,7 +1819,19 @@ classify_argument (mode, type, classes, bit_offset)
     case SCmode:
       classes[0] = X86_64_SSE_CLASS;
       return 1;
+    case V4SFmode:
+    case V4SImode:
+      classes[0] = X86_64_SSE_CLASS;
+      classes[1] = X86_64_SSEUP_CLASS;
+      return 2;
+    case V2SFmode:
+    case V2SImode:
+    case V4HImode:
+    case V8QImode:
+      classes[0] = X86_64_SSE_CLASS;
+      return 1;
     case BLKmode:
+    case VOIDmode:
       return 0;
     default:
       abort ();
@@ -1932,7 +1944,7 @@ construct_container (mode, type, in_return, nintregs, nsseregs, intreg, sse_regn
 	abort ();
       }
   if (n == 2 && class[0] == X86_64_SSE_CLASS && class[1] == X86_64_SSEUP_CLASS)
-    return gen_rtx_REG (TImode, SSE_REGNO (sse_regno));
+    return gen_rtx_REG (mode, SSE_REGNO (sse_regno));
   if (n == 2
       && class[0] == X86_64_X87_CLASS && class[1] == X86_64_X87UP_CLASS)
     return gen_rtx_REG (TFmode, FIRST_STACK_REG);
@@ -5365,7 +5377,7 @@ rtx
 i386_simplify_dwarf_addr (orig_x)
      rtx orig_x;
 {
-  rtx x = orig_x;
+  rtx x = orig_x, y;
 
   if (TARGET_64BIT)
     {
@@ -5377,22 +5389,54 @@ i386_simplify_dwarf_addr (orig_x)
     }
 
   if (GET_CODE (x) != PLUS
-      || GET_CODE (XEXP (x, 0)) != REG
       || GET_CODE (XEXP (x, 1)) != CONST)
+    return orig_x;
+
+  if (GET_CODE (XEXP (x, 0)) == REG
+      && REGNO (XEXP (x, 0)) == PIC_OFFSET_TABLE_REGNUM)
+    /* %ebx + GOT/GOTOFF */
+    y = NULL;
+  else if (GET_CODE (XEXP (x, 0)) == PLUS)
+    {
+      /* %ebx + %reg * scale + GOT/GOTOFF */
+      y = XEXP (x, 0);
+      if (GET_CODE (XEXP (y, 0)) == REG
+	  && REGNO (XEXP (y, 0)) == PIC_OFFSET_TABLE_REGNUM)
+	y = XEXP (y, 1);
+      else if (GET_CODE (XEXP (y, 1)) == REG
+	       && REGNO (XEXP (y, 1)) == PIC_OFFSET_TABLE_REGNUM)
+	y = XEXP (y, 0);
+      else
+	return orig_x;
+      if (GET_CODE (y) != REG
+	  && GET_CODE (y) != MULT
+	  && GET_CODE (y) != ASHIFT)
+	return orig_x;
+    }
+  else
     return orig_x;
 
   x = XEXP (XEXP (x, 1), 0);
   if (GET_CODE (x) == UNSPEC
       && (XINT (x, 1) == 6
 	  || XINT (x, 1) == 7))
-    return XVECEXP (x, 0, 0);
+    {
+      if (y)
+	return gen_rtx_PLUS (Pmode, y, XVECEXP (x, 0, 0));
+      return XVECEXP (x, 0, 0);
+    }
 
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x, 0)) == UNSPEC
       && GET_CODE (XEXP (x, 1)) == CONST_INT
       && (XINT (XEXP (x, 0), 1) == 6
 	  || XINT (XEXP (x, 0), 1) == 7))
-    return gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
+    {
+      x = gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
+      if (y)
+	return gen_rtx_PLUS (Pmode, y, x);
+      return x;
+    }
 
   return orig_x;
 }
@@ -5830,11 +5874,7 @@ print_operand (file, x, code)
 	    return;
 	  }
 	default:
-	  {
-	    char str[50];
-	    sprintf (str, "invalid operand code `%c'", code);
-	    output_operand_lossage (str);
-	  }
+	    output_operand_lossage ("invalid operand code `%c'", code);
 	}
     }
 
@@ -6692,7 +6732,7 @@ ix86_expand_vector_move (mode, operands)
       && !register_operand (operands[1], mode)
       && operands[1] != CONST0_RTX (mode))
     {
-      rtx temp = force_reg (TImode, operands[1]);
+      rtx temp = force_reg (GET_MODE (operands[1]), operands[1]);
       emit_move_insn (operands[0], temp);
       return;
     }
@@ -7105,7 +7145,7 @@ ix86_prepare_fp_compare_args (code, pop0, pop1)
   /* Try to rearrange the comparison to make it cheaper.  */
   if (ix86_fp_comparison_cost (code)
       > ix86_fp_comparison_cost (swap_condition (code))
-      && (GET_CODE (op0) == REG || !reload_completed))
+      && (GET_CODE (op1) == REG || !no_new_pseudos))
     {
       rtx tmp;
       tmp = op0, op0 = op1, op1 = tmp;
@@ -11336,6 +11376,12 @@ ix86_expand_binop_builtin (icode, arglist, target)
   if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
     op1 = copy_to_mode_reg (mode1, op1);
 
+  /* In the commutative cases, both op0 and op1 are nonimmediate_operand,
+     yet one of the two must not be a memory.  This is normally enforced
+     by expanders, but we didn't bother to create one here.  */
+  if (GET_CODE (op0) == MEM && GET_CODE (op1) == MEM)
+    op0 = copy_to_mode_reg (mode0, op0);
+
   pat = GEN_FCN (icode) (target, op0, op1);
   if (! pat)
     return 0;
@@ -11368,6 +11414,12 @@ ix86_expand_timode_binop_builtin (icode, arglist, target)
   if (! (*insn_data[icode].operand[2].predicate) (op1, TImode))
     op1 = copy_to_mode_reg (TImode, op1);
 
+  /* In the commutative cases, both op0 and op1 are nonimmediate_operand,
+     yet one of the two must not be a memory.  This is normally enforced
+     by expanders, but we didn't bother to create one here.  */
+  if (GET_CODE (op0) == MEM && GET_CODE (op1) == MEM)
+    op0 = copy_to_mode_reg (TImode, op0);
+
   pat = GEN_FCN (icode) (target, op0, op1);
   if (! pat)
     return 0;
@@ -11395,6 +11447,10 @@ ix86_expand_store_builtin (icode, arglist)
     op1 = safe_vector_operand (op1, mode1);
 
   op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
+
+  if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
+    op1 = copy_to_mode_reg (mode1, op1);
+
   pat = GEN_FCN (icode) (op0, op1);
   if (pat)
     emit_insn (pat);
@@ -11449,7 +11505,7 @@ ix86_expand_unop1_builtin (icode, arglist, target)
 {
   rtx pat;
   tree arg0 = TREE_VALUE (arglist);
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+  rtx op1, op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
   enum machine_mode tmode = insn_data[icode].operand[0].mode;
   enum machine_mode mode0 = insn_data[icode].operand[1].mode;
 
@@ -11463,8 +11519,12 @@ ix86_expand_unop1_builtin (icode, arglist, target)
 
   if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
     op0 = copy_to_mode_reg (mode0, op0);
-
-  pat = GEN_FCN (icode) (target, op0, op0);
+  
+  op1 = op0;
+  if (! (*insn_data[icode].operand[2].predicate) (op1, mode0))
+    op1 = copy_to_mode_reg (mode0, op1);
+  
+  pat = GEN_FCN (icode) (target, op0, op1);
   if (! pat)
     return 0;
   emit_insn (pat);
@@ -11674,7 +11734,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
       return target;
 
     case IX86_BUILTIN_MASKMOVQ:
-      icode = CODE_FOR_mmx_maskmovq;
+      icode = TARGET_64BIT ? CODE_FOR_mmx_maskmovq_rex : CODE_FOR_mmx_maskmovq;
       /* Note the arg order is different from the operand order.  */
       arg1 = TREE_VALUE (arglist);
       arg2 = TREE_VALUE (TREE_CHAIN (arglist));
@@ -11686,7 +11746,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
 
-      if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
+      if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
       if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
 	op1 = copy_to_mode_reg (mode1, op1);

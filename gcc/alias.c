@@ -728,6 +728,7 @@ find_base_value (src)
      rtx src;
 {
   unsigned int regno;
+
   switch (GET_CODE (src))
     {
     case SYMBOL_REF:
@@ -846,8 +847,6 @@ find_base_value (src)
       if (GET_MODE_SIZE (GET_MODE (src)) < GET_MODE_SIZE (Pmode))
 	break;
       /* Fall through.  */
-    case ZERO_EXTEND:
-    case SIGN_EXTEND:	/* used for NT/Alpha pointers */
     case HIGH:
     case PRE_INC:
     case PRE_DEC:
@@ -856,6 +855,19 @@ find_base_value (src)
     case PRE_MODIFY:
     case POST_MODIFY:
       return find_base_value (XEXP (src, 0));
+
+    case ZERO_EXTEND:
+    case SIGN_EXTEND:	/* used for NT/Alpha pointers */
+      {
+	rtx temp = find_base_value (XEXP (src, 0));
+
+#ifdef POINTERS_EXTEND_UNSIGNED
+	if (temp != 0 && CONSTANT_P (temp) && GET_MODE (temp) != Pmode)
+	  temp = convert_memory_address (Pmode, temp);
+#endif
+
+	return temp;
+      }
 
     default:
       break;
@@ -1230,8 +1242,6 @@ find_base_term (x)
       if (GET_MODE_SIZE (GET_MODE (x)) < GET_MODE_SIZE (Pmode))
         return 0;
       /* Fall through.  */
-    case ZERO_EXTEND:
-    case SIGN_EXTEND:	/* Used for Alpha/NT pointers */
     case HIGH:
     case PRE_INC:
     case PRE_DEC:
@@ -1240,6 +1250,19 @@ find_base_term (x)
     case PRE_MODIFY:
     case POST_MODIFY:
       return find_base_term (XEXP (x, 0));
+
+    case ZERO_EXTEND:
+    case SIGN_EXTEND:	/* Used for Alpha/NT pointers */
+      {
+	rtx temp = find_base_term (XEXP (x, 0));
+
+#ifdef POINTERS_EXTEND_UNSIGNED
+	if (temp != 0 && CONSTANT_P (temp) && GET_MODE (temp) != Pmode)
+	  temp = convert_memory_address (Pmode, temp);
+#endif
+
+	return temp;
+      }
 
     case VALUE:
       val = CSELIB_VAL_PTR (x);
@@ -2253,6 +2276,7 @@ nonlocal_mentioned_p (x)
     case CC0:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST:
     case LABEL_REF:
       return 0;

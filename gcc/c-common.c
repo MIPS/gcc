@@ -702,6 +702,7 @@ constant_expression_warning (value)
      tree value;
 {
   if ((TREE_CODE (value) == INTEGER_CST || TREE_CODE (value) == REAL_CST
+       || TREE_CODE (value) == VECTOR_CST
        || TREE_CODE (value) == COMPLEX_CST)
       && TREE_CONSTANT_OVERFLOW (value) && pedantic)
     pedwarn ("overflow in constant expression");
@@ -735,6 +736,12 @@ overflow_warning (value)
       TREE_OVERFLOW (value) = 0;
       if (skip_evaluation == 0)
 	warning ("floating point overflow in expression");
+    }
+  else if (TREE_CODE (value) == VECTOR_CST && TREE_OVERFLOW (value))
+    {
+      TREE_OVERFLOW (value) = 0;
+      if (skip_evaluation == 0)
+	warning ("vector overflow in expression");
     }
 }
 
@@ -1973,6 +1980,107 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
   *restype_ptr = boolean_type_node;
 
   return 0;
+}
+
+/* Return a tree for the sum or difference (RESULTCODE says which)
+   of pointer PTROP and integer INTOP.  */
+
+tree
+pointer_int_sum (resultcode, ptrop, intop)
+     enum tree_code resultcode;
+     tree ptrop, intop;
+{
+  tree size_exp;
+
+  tree result;
+  tree folded;
+
+  /* The result is a pointer of the same type that is being added.  */
+
+  tree result_type = TREE_TYPE (ptrop);
+
+  if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
+    {
+      if (pedantic || warn_pointer_arith)
+	pedwarn ("pointer of type `void *' used in arithmetic");
+      size_exp = integer_one_node;
+    }
+  else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE)
+    {
+      if (pedantic || warn_pointer_arith)
+	pedwarn ("pointer to a function used in arithmetic");
+      size_exp = integer_one_node;
+    }
+  else if (TREE_CODE (TREE_TYPE (result_type)) == METHOD_TYPE)
+    {
+      if (pedantic || warn_pointer_arith)
+	pedwarn ("pointer to member function used in arithmetic");
+      size_exp = integer_one_node;
+    }
+  else if (TREE_CODE (TREE_TYPE (result_type)) == OFFSET_TYPE)
+    {
+      if (pedantic || warn_pointer_arith)
+	pedwarn ("pointer to a member used in arithmetic");
+      size_exp = integer_one_node;
+    }
+  else
+    size_exp = size_in_bytes (TREE_TYPE (result_type));
+
+  /* If what we are about to multiply by the size of the elements
+     contains a constant term, apply distributive law
+     and multiply that constant term separately.
+     This helps produce common subexpressions.  */
+
+  if ((TREE_CODE (intop) == PLUS_EXPR || TREE_CODE (intop) == MINUS_EXPR)
+      && ! TREE_CONSTANT (intop)
+      && TREE_CONSTANT (TREE_OPERAND (intop, 1))
+      && TREE_CONSTANT (size_exp)
+      /* If the constant comes from pointer subtraction,
+	 skip this optimization--it would cause an error.  */
+      && TREE_CODE (TREE_TYPE (TREE_OPERAND (intop, 0))) == INTEGER_TYPE
+      /* If the constant is unsigned, and smaller than the pointer size,
+	 then we must skip this optimization.  This is because it could cause
+	 an overflow error if the constant is negative but INTOP is not.  */
+      && (! TREE_UNSIGNED (TREE_TYPE (intop))
+	  || (TYPE_PRECISION (TREE_TYPE (intop))
+	      == TYPE_PRECISION (TREE_TYPE (ptrop)))))
+    {
+      enum tree_code subcode = resultcode;
+      tree int_type = TREE_TYPE (intop);
+      if (TREE_CODE (intop) == MINUS_EXPR)
+	subcode = (subcode == PLUS_EXPR ? MINUS_EXPR : PLUS_EXPR);
+      /* Convert both subexpression types to the type of intop,
+	 because weird cases involving pointer arithmetic
+	 can result in a sum or difference with different type args.  */
+      ptrop = build_binary_op (subcode, ptrop,
+			       convert (int_type, TREE_OPERAND (intop, 1)), 1);
+      intop = convert (int_type, TREE_OPERAND (intop, 0));
+    }
+
+  /* Convert the integer argument to a type the same size as sizetype
+     so the multiply won't overflow spuriously.  */
+
+  if (TYPE_PRECISION (TREE_TYPE (intop)) != TYPE_PRECISION (sizetype)
+      || TREE_UNSIGNED (TREE_TYPE (intop)) != TREE_UNSIGNED (sizetype))
+    intop = convert (type_for_size (TYPE_PRECISION (sizetype), 
+				    TREE_UNSIGNED (sizetype)), intop);
+
+  /* Replace the integer argument with a suitable product by the object size.
+     Do this multiplication as signed, then convert to the appropriate
+     pointer type (actually unsigned integral).  */
+
+  intop = convert (result_type,
+		   build_binary_op (MULT_EXPR, intop,
+				    convert (TREE_TYPE (intop), size_exp), 1));
+
+  /* Create the sum or difference.  */
+
+  result = build (resultcode, result_type, ptrop, intop);
+
+  folded = fold (result);
+  if (folded == result)
+    TREE_CONSTANT (folded) = TREE_CONSTANT (ptrop) & TREE_CONSTANT (intop);
+  return folded;
 }
 
 /* Prepare expr to be an argument of a TRUTH_NOT_EXPR,

@@ -387,6 +387,10 @@ reg_before_reload_operand (op, mode)
     register rtx op;
     enum machine_mode mode;
 {
+  /* Don't accept a SUBREG since it will need a reload.  */
+  if (GET_CODE (op) == SUBREG)
+    return 0;
+
   if (register_operand (op, mode))
     return 1;
 
@@ -2393,8 +2397,8 @@ compute_movstrsi_length (insn)
      rtx insn;
 {
   rtx pat = PATTERN (insn);
-  unsigned int align = INTVAL (XEXP (XVECEXP (pat, 0, 6), 0));
-  unsigned long n_bytes = INTVAL (XEXP (XVECEXP (pat, 0, 5), 0));
+  unsigned int align = INTVAL (XEXP (XVECEXP (pat, 0, 7), 0));
+  unsigned long n_bytes = INTVAL (XEXP (XVECEXP (pat, 0, 6), 0));
   unsigned int n_insns = 0;
 
   /* We can't move more than four bytes at a time because the PA

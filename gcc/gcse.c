@@ -1386,6 +1386,7 @@ oprs_unchanged_p (x, insn, avail_p)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case ADDR_VEC:
@@ -1620,6 +1621,22 @@ hash_expr_1 (x, mode, do_not_record_p)
 	hash += ((unsigned int) CONST_DOUBLE_LOW (x)
 		 + (unsigned int) CONST_DOUBLE_HIGH (x));
       return hash;
+
+    case CONST_VECTOR:
+      {
+	int units;
+	rtx elt;
+
+	units = CONST_VECTOR_NUNITS (x);
+
+	for (i = 0; i < units; ++i)
+	  {
+	    elt = CONST_VECTOR_ELT (x, i);
+	    hash += hash_expr_1 (elt, GET_MODE (elt), do_not_record_p);
+	  }
+
+	return hash;
+      }
 
       /* Assume there is only one rtx object for any given label.  */
     case LABEL_REF:
@@ -2750,6 +2767,7 @@ oprs_not_set_p (x, insn)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case ADDR_VEC:
@@ -3083,6 +3101,7 @@ expr_killed_p (x, bb)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case ADDR_VEC:
@@ -3783,6 +3802,7 @@ compute_transp (x, indx, bmap, set_p)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case ADDR_VEC:
@@ -6375,6 +6395,7 @@ store_ops_ok (x, bb)
     case CONST:
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case SYMBOL_REF:
     case LABEL_REF:
     case ADDR_VEC:

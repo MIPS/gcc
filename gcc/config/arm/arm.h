@@ -1027,6 +1027,13 @@ extern const char * structure_size_string;
     16, 17, 18, 19, 20, 21, 22, 23, \
     24, 25, 26			    \
 }
+
+/* Interrupt functions can only use registers that have already been
+   saved by the prologue, even if they would normally be
+   call-clobbered.  */
+#define HARD_REGNO_RENAME_OK(SRC, DST)					\
+	(! IS_INTERRUPT (cfun->machine->func_type) ||			\
+		regs_ever_live[DST])
 
 /* Register and constant classes.  */
 
@@ -1843,7 +1850,8 @@ typedef struct
 #define THUMB_LEGITIMATE_CONSTANT_P(X)	\
  (   GET_CODE (X) == CONST_INT		\
   || GET_CODE (X) == CONST_DOUBLE	\
-  || CONSTANT_ADDRESS_P (X))
+  || CONSTANT_ADDRESS_P (X)		\
+  || flag_pic)
 
 #define LEGITIMATE_CONSTANT_P(X)	\
   (TARGET_ARM ? ARM_LEGITIMATE_CONSTANT_P (X) : THUMB_LEGITIMATE_CONSTANT_P (X))
@@ -1891,9 +1899,9 @@ typedef struct
    or known to be defined in this file then encode a short call flag.
    This macro is used inside the ENCODE_SECTION macro.  */
 #define ARM_ENCODE_CALL_TYPE(decl)					\
-  if (TREE_CODE (decl) == FUNCTION_DECL)				\
+  if (TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')			\
     {									\
-      if (DECL_WEAK (decl))						\
+      if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))	\
         arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);		\
       else if (! TREE_PUBLIC (decl))        				\
         arm_encode_call_attribute (decl, SHORT_CALL_FLAG_CHAR);		\

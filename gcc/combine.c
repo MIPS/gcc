@@ -424,6 +424,33 @@ do_SUBST (into, newval)
   if (oldval == newval)
     return;
 
+  /* We'd like to catch as many invalid transformations here as
+     possible.  Unfortunately, there are way too many mode changes
+     that are perfectly valid, so we'd waste too much effort for
+     little gain doing the checks here.  Focus on catching invalid
+     transformations involving integer constants.  */
+  if (GET_MODE_CLASS (GET_MODE (oldval)) == MODE_INT
+      && GET_CODE (newval) == CONST_INT)
+    {
+      /* Sanity check that we're replacing oldval with a CONST_INT
+	 that is a valid sign-extension for the original mode.  */
+      if (INTVAL (newval) != trunc_int_for_mode (INTVAL (newval),
+						 GET_MODE (oldval)))
+	abort ();
+
+      /* Replacing the operand of a SUBREG or a ZERO_EXTEND with a
+	 CONST_INT is not valid, because after the replacement, the
+	 original mode would be gone.  Unfortunately, we can't tell
+	 when do_SUBST is called to replace the operand thereof, so we
+	 perform this test on oldval instead, checking whether an
+	 invalid replacement took place before we got here.  */
+      if ((GET_CODE (oldval) == SUBREG
+	   && GET_CODE (SUBREG_REG (oldval)) == CONST_INT)
+	  || (GET_CODE (oldval) == ZERO_EXTEND
+	      && GET_CODE (XEXP (oldval, 0)) == CONST_INT))
+	abort ();
+     }
+
   if (undobuf.frees)
     buf = undobuf.frees, undobuf.frees = buf->next;
   else
@@ -1478,6 +1505,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 {
   /* New patterns for I3 and I2, respectively.  */
   rtx newpat, newi2pat = 0;
+  int substed_i2 = 0, substed_i1 = 0;
   /* Indicates need to preserve SET in I1 or I2 in I3 if it is not dead.  */
   int added_sets_1, added_sets_2;
   /* Total number of SETs to put into I3.  */
@@ -1939,6 +1967,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
       subst_low_cuid = INSN_CUID (i2);
       newpat = subst (PATTERN (i3), i2dest, i2src, 0,
 		      ! i1_feeds_i3 && i1dest_in_i1src);
+      substed_i2 = 1;
 
       /* Record whether i2's body now appears within i3's body.  */
       i2_is_used = n_occurrences;
@@ -1963,6 +1992,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
       n_occurrences = 0;
       subst_low_cuid = INSN_CUID (i1);
       newpat = subst (newpat, i1dest, i1src, 0, 0);
+      substed_i1 = 1;
     }
 
   /* Fail if an autoincrement side-effect has been duplicated.  Be careful
@@ -2534,6 +2564,23 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 
     INSN_CODE (i3) = insn_code_number;
     PATTERN (i3) = newpat;
+
+    if (GET_CODE (i3) == CALL_INSN && CALL_INSN_FUNCTION_USAGE (i3))
+      {
+	rtx call_usage = CALL_INSN_FUNCTION_USAGE (i3);
+
+	reset_used_flags (call_usage);
+	call_usage = copy_rtx (call_usage);
+
+	if (substed_i2)
+	  replace_rtx (call_usage, i2dest, i2src);
+
+	if (substed_i1)
+	  replace_rtx (call_usage, i1dest, i1src);
+
+	CALL_INSN_FUNCTION_USAGE (i3) = call_usage;
+      }
+
     if (undobuf.other_insn)
       INSN_CODE (undobuf.other_insn) = other_code_number;
 
@@ -3485,7 +3532,24 @@ subst (x, from, to, in_dest, unique_copy)
 	      if (GET_CODE (new) == CLOBBER && XEXP (new, 0) == const0_rtx)
 		return new;
 
-	      SUBST (XEXP (x, i), new);
+	      if (GET_CODE (new) == CONST_INT && GET_CODE (x) == SUBREG)
+		{
+		  x = simplify_subreg (GET_MODE (x), new,
+				       GET_MODE (SUBREG_REG (x)),
+				       SUBREG_BYTE (x));
+		  if (! x)
+		    abort ();
+		}
+	      else if (GET_CODE (new) == CONST_INT
+		       && GET_CODE (x) == ZERO_EXTEND)
+		{
+		  x = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
+						new, GET_MODE (XEXP (x, 0)));
+		  if (! x)
+		    abort ();
+		}
+	      else
+		SUBST (XEXP (x, i), new);
 	    }
 	}
     }
@@ -7409,6 +7473,50 @@ known_cond (x, cond, reg, val)
 		}
 	    }
 	}
+    }
+  else if (code == SUBREG)
+    {
+      enum machine_mode inner_mode = GET_MODE (SUBREG_REG (x));
+      rtx new, r = known_cond (SUBREG_REG (x), cond, reg, val);
+
+      if (SUBREG_REG (x) != r)
+	{
+	  /* We must simplify subreg here, before we lose track of the
+	     original inner_mode.  */
+	  new = simplify_subreg (GET_MODE (x), r,
+				 inner_mode, SUBREG_BYTE (x));
+	  if (new)
+	    return new;
+	  else
+	    SUBST (SUBREG_REG (x), r);
+	}
+
+      return x;
+    }
+  /* We don't have to handle SIGN_EXTEND here, because even in the
+     case of replacing something with a modeless CONST_INT, a
+     CONST_INT is already (supposed to be) a valid sign extension for
+     its narrower mode, which implies it's already properly
+     sign-extended for the wider mode.  Now, for ZERO_EXTEND, the
+     story is different.  */
+  else if (code == ZERO_EXTEND)
+    {
+      enum machine_mode inner_mode = GET_MODE (XEXP (x, 0));
+      rtx new, r = known_cond (XEXP (x, 0), cond, reg, val);
+
+      if (XEXP (x, 0) != r)
+	{
+	  /* We must simplify the zero_extend here, before we lose
+             track of the original inner_mode.  */
+	  new = simplify_unary_operation (ZERO_EXTEND, GET_MODE (x),
+					  r, inner_mode);
+	  if (new)
+	    return new;
+	  else
+	    SUBST (XEXP (x, 0), r);
+	}
+
+      return x;
     }
 
   fmt = GET_RTX_FORMAT (code);
@@ -11564,6 +11672,7 @@ mark_used_regs_combine (x)
     case CONST_INT:
     case CONST:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case PC:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:

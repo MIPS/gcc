@@ -363,8 +363,12 @@ DEFUN (print_access_flags, (stream, flags, context),
   if (flags & ACC_PUBLIC) fprintf (stream, " public");
   if (flags & ACC_PRIVATE) fprintf (stream, " private");
   if (flags & ACC_PROTECTED) fprintf (stream, " protected");
+  if (flags & ACC_ABSTRACT) fprintf (stream, " abstract");
   if (flags & ACC_STATIC) fprintf (stream, " static");
   if (flags & ACC_FINAL) fprintf (stream, " final");
+  if (flags & ACC_TRANSIENT) fprintf (stream, " transient");
+  if (flags & ACC_VOLATILE) fprintf (stream, " volatile");
+  if (flags & ACC_NATIVE) fprintf (stream, " native");
   if (flags & ACC_SYNCHRONIZED)
     {
       if (context == 'c')
@@ -372,11 +376,8 @@ DEFUN (print_access_flags, (stream, flags, context),
       else
 	fprintf (stream, " synchronized");
     }
-  if (flags & ACC_VOLATILE) fprintf (stream, " volatile");
-  if (flags & ACC_TRANSIENT) fprintf (stream, " transient");
-  if (flags & ACC_NATIVE) fprintf (stream, " native");
   if (flags & ACC_INTERFACE) fprintf (stream, " interface");
-  if (flags & ACC_ABSTRACT) fprintf (stream, " abstract");
+  if (flags & ACC_STRICT) fprintf (stream, " strictfp");
 }
 
 
@@ -772,22 +773,22 @@ DEFUN(process_class, (jcf),
 /* This is used to mark options with no short value.  */
 #define LONG_OPT(Num)  ((Num) + 128)
 
-#define OPT_classpath LONG_OPT (0)
-#define OPT_CLASSPATH LONG_OPT (1)
-#define OPT_HELP      LONG_OPT (2)
-#define OPT_VERSION   LONG_OPT (3)
-#define OPT_JAVAP     LONG_OPT (4)
+#define OPT_classpath     LONG_OPT (0)
+#define OPT_CLASSPATH     LONG_OPT (1)
+#define OPT_HELP          LONG_OPT (2)
+#define OPT_VERSION       LONG_OPT (3)
+#define OPT_JAVAP         LONG_OPT (4)
 
 static const struct option options[] =
 {
-  { "classpath", required_argument, NULL, OPT_classpath },
-  { "CLASSPATH", required_argument, NULL, OPT_CLASSPATH },
-  { "help",      no_argument,       NULL, OPT_HELP },
-  { "verbose",   no_argument,       NULL, 'v' },
-  { "version",   no_argument,       NULL, OPT_VERSION },
-  { "javap",     no_argument,       NULL, OPT_JAVAP },
-  { "print-main", no_argument,      &flag_print_main, 1 },
-  { NULL,        no_argument,       NULL, 0 }
+  { "classpath",     required_argument, NULL, OPT_classpath },
+  { "CLASSPATH",     required_argument, NULL, OPT_CLASSPATH },
+  { "help",          no_argument,       NULL, OPT_HELP },
+  { "verbose",       no_argument,       NULL, 'v' },
+  { "version",       no_argument,       NULL, OPT_VERSION },
+  { "javap",         no_argument,       NULL, OPT_JAVAP },
+  { "print-main",    no_argument,      &flag_print_main, 1 },
+  { NULL,            no_argument,       NULL, 0 }
 };
 
 static void
@@ -805,8 +806,9 @@ help ()
   printf ("  -c                      Disassemble method bodies\n");
   printf ("  --javap                 Generate output in `javap' format\n");
   printf ("\n");
+  printf ("  --CLASSPATH PATH        Set path to find .class files, overriding\n\
+                          built-in class path\n");
   printf ("  --classpath PATH        Set path to find .class files\n");
-  printf ("  --CLASSPATH PATH        Set path to find .class files\n");
   printf ("  -IDIR                   Append directory to class path\n");
   printf ("  -o FILE                 Set output file name\n");
   printf ("\n");

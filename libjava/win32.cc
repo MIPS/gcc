@@ -9,8 +9,10 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
+#include <jvm.h>
 
 #include "platform.h"
+#include <java/lang/ArithmeticException.h>
 
 static LONG CALLBACK
 win32_exception_handler (LPEXCEPTION_POINTERS e)
@@ -35,3 +37,12 @@ _Jv_platform_initialize (void)
   // Install exception handler
   SetUnhandledExceptionFilter (win32_exception_handler);
 }
+
+// gettimeofday implementation.
+void
+_Jv_platform_gettimeofday (struct timeval *tv)
+{
+  // FIXME
+  return;
+}
+

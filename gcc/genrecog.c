@@ -187,7 +187,7 @@ static const struct pred_table
   const RTX_CODE codes[NUM_RTX_CODE];
 } preds[] = {
   {"generic_src_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,
-			   VEC_CONST, LABEL_REF, SUBREG, REG, MEM}},
+			   LABEL_REF, SUBREG, REG, MEM}},
   {"generic_dest_operand", {SUBREG, REG, MEM}},
   {"generic_unary_operator", {NEG, NOT, ABS, SQRT, FFS}},
   {"generic_binary_operator", {SS_PLUS, SS_MINUS, US_PLUS, US_MINUS,

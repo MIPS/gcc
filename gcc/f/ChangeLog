@@ -1,4 +1,19 @@
+2002-02-13  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: List Problem Reports fixed in 3.1.
+
+2002-02-13  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* data.c (ffedata_eval_offset_): Only convert index,
+	low and high bound in data statements to default integer
+	if they are constants.  Use a copy of the data structure.
+
 2002-02-09  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* data.c (ffedata_eval_offset_): Convert non-default integer
+	constants to default integer kind if necessary.
+
+2002-02-09  Toon Moene  <toon@moene.indiv.nlug.nl>
 
 	* invoke.texi: Add a short debugging session
 	as an example to the documentation of -g.
