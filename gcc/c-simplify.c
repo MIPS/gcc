@@ -852,7 +852,7 @@ gimplify_decl_stmt (tree *stmt_p)
   if (TREE_CODE (decl) == TYPE_DECL)
     {
       tree type = TREE_TYPE (decl);
-      if (TREE_CODE (type) == ARRAY_TYPE
+      if (TYPE_SIZE_UNIT (type)
           && !TREE_CONSTANT (TYPE_SIZE_UNIT (type)))
         {
           /* This is a variable-sized array type.  Simplify its size.  */

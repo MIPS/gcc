@@ -1,3 +1,7 @@
+2004-04-23  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* gcc.c-torture/execute/20040423-1.c: New test.
+
 2004-04-22  Bud Davis  <bdavis9659@comcast.net>
 
 	PR fortran/14906
