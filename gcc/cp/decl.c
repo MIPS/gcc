@@ -5797,6 +5797,102 @@ warn_about_implicit_typename_lookup (typename, binding)
     }
 }
 
+/* Issue an error message indicating that the lookup of NAME (an
+   IDENTIFIER_NODE) failed.  */
+
+void
+unqualified_name_lookup_error (name)
+     tree name;
+{
+  if (IDENTIFIER_OPNAME_P (name))
+    {
+      if (name != ansi_opname (ERROR_MARK))
+	cp_error ("`%D' not defined", name);
+    }
+  else if (current_function_decl == 0)
+    cp_error ("`%D' was not declared in this scope", name);
+  else
+    {
+      if (IDENTIFIER_NAMESPACE_VALUE (name) != error_mark_node
+	  || IDENTIFIER_ERROR_LOCUS (name) != current_function_decl)
+	{
+	  static int undeclared_variable_notice;
+	  
+	  cp_error ("`%D' undeclared (first use this function)", name);
+	  
+	  if (! undeclared_variable_notice)
+	    {
+	      error ("(Each undeclared identifier is reported only once for each function it appears in.)");
+	      undeclared_variable_notice = 1;
+	    }
+	}
+      /* Prevent repeated error messages.  */
+      SET_IDENTIFIER_NAMESPACE_VALUE (name, error_mark_node);
+      SET_IDENTIFIER_ERROR_LOCUS (name, current_function_decl);
+    }
+}
+
+/* Check to see whether or not DECL is a variable that would have been
+   in scope under the ARM, but is not in scope under the ANSI/ISO
+   standard.  If so, issue an error message.  If name lookup would
+   work in both cases, but return a different result, this function
+   returns the result of ANSI/ISO lookup.  Otherwise, it returns
+   DECL.  */
+
+tree
+check_for_out_of_scope_variable (decl)
+     tree decl;
+{
+  tree shadowed;
+
+  /* We only care about out of scope variables.  */
+  if (!(TREE_CODE (decl) == VAR_DECL 
+	&& DECL_DEAD_FOR_LOCAL (decl)))
+    return decl;
+
+  shadowed = DECL_SHADOWED_FOR_VAR (decl);
+  while (shadowed != NULL_TREE && TREE_CODE (shadowed) == VAR_DECL
+	 && DECL_DEAD_FOR_LOCAL (shadowed))
+    shadowed = DECL_SHADOWED_FOR_VAR (shadowed);
+  if (!shadowed)
+    shadowed = IDENTIFIER_NAMESPACE_VALUE (DECL_NAME (decl));
+  if (shadowed)
+    {
+      if (!DECL_ERROR_REPORTED (decl))
+	{
+	  cp_warning ("name lookup of `%D' changed",
+		      DECL_NAME (decl));
+	  cp_warning_at ("  matches this `%D' under ISO standard rules",
+			 shadowed);
+	  cp_warning_at ("  matches this `%D' under old rules", decl);
+	  DECL_ERROR_REPORTED (decl) = 1;
+	}
+      return shadowed;
+    }
+
+  /* If we have already complained about this declaration, there's no
+     need to do it again.  */
+  if (DECL_ERROR_REPORTED (decl))
+    return decl;
+
+  DECL_ERROR_REPORTED (decl) = 1;
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
+    {
+      cp_error ("name lookup of `%D' changed for new ISO `for' scoping",
+		DECL_NAME (decl));
+      cp_error_at ("  cannot use obsolete binding at `%D' because it has a destructor", decl);
+      return error_mark_node;
+    }
+  else
+    {
+      cp_pedwarn ("name lookup of `%D' changed for new ISO `for' scoping",
+		  DECL_NAME (decl));
+      cp_pedwarn_at ("  using obsolete binding at `%D'", decl);
+    }
+
+  return decl;
+}
+
 /* Look up NAME (an IDENTIFIER_NODE) in SCOPE (either a NAMESPACE_DECL
    or a class TYPE).  If IS_TYPE_P is TRUE, then ignore non-type
    bindings.  
@@ -5828,6 +5924,44 @@ lookup_qualified_name (scope, name, is_type_p)
     val = lookup_member (scope, name, 0, is_type_p);
 
   return val;
+}
+
+/* Look up the unqualifid NAME and check accessibility.  Return the 
+   declaration found for NAME, or the ERROR_MARK_NODE if lookup 
+   fails.  */
+
+tree
+lookup_unqualified_name_and_check_access (name)
+     tree name;
+{
+  tree decl;
+
+  /* Look it up.  */
+  decl = lookup_name (name, 0);
+  /* If lookup failed, issue an error message.  */
+  if (!decl || (TREE_CODE (decl) == FUNCTION_DECL
+		&& DECL_ANTICIPATED (decl)))
+    {
+      unqualified_name_lookup_error (name);
+      decl = error_mark_node;
+    }
+  /* Otherwise, check the accessibility of DECL.  For an overloaded
+     function, we will check accessibility after overload resolution.  */
+  else if (DECL_P (decl))
+    {
+      tree scope;
+
+      scope =
+	determine_scope_through_which_access_occurs(decl,
+						    NULL_TREE,
+						    NULL_TREE);
+      enforce_access (scope, decl);
+    }
+  /* Remember that this name was used in the class currently being
+     defined, if any.  */
+  maybe_note_name_used_in_class (name, decl);
+
+  return decl;
 }
 
 /* Look up NAME in the current binding level and its superiors in the

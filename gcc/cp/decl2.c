@@ -3741,14 +3741,29 @@ build_expr_from_tree (t)
   switch (TREE_CODE (t))
     {
     case IDENTIFIER_NODE:
-      return do_identifier (t, 0, NULL_TREE);
+      /* An unqualified name -- but not one used as a primary
+	 expression.  */
+      return lookup_unqualified_name_and_check_access (t);
 
     case LOOKUP_EXPR:
+      /* An unqualified name, used as a primary expression.  */
       if (LOOKUP_EXPR_GLOBAL (t))
 	return do_scoped_id (TREE_OPERAND (t, 0), 0);
       else
-	/* FIXME: Break up do_identifier and share it with the parser.  */
-	return do_identifier (TREE_OPERAND (t, 0), 0, NULL_TREE);
+	{
+	  tree name;
+	  tree decl;
+
+	  /* Obtain the NAME.  */
+	  name = TREE_OPERAND (t, 0);
+	  /* Look it up.  */
+	  decl = lookup_unqualified_name_and_check_access (name);
+	  /* Return an expression for the declaration.  */
+	  if (TREE_CODE (decl) == CONST_DECL)
+	    return DECL_INITIAL (decl);
+	  else 
+	    return hack_identifier (decl, name);
+	}
 
     case TEMPLATE_ID_EXPR:
       return (lookup_template_function
@@ -4751,6 +4766,8 @@ arg_assoc (k, n)
     n = TREE_OPERAND (n, 1);
   if (TREE_CODE (n) == OFFSET_REF)
     n = TREE_OPERAND (n, 1);
+  if (BASELINK_P (n))
+    n = BASELINK_FUNCTIONS (n);
   while (TREE_CODE (n) == TREE_LIST)
     n = TREE_VALUE (n);
 

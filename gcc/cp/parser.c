@@ -2239,8 +2239,18 @@ cp_parser_primary_expression (parser, idk)
 	      }
 	    else if (decl == error_mark_node
 		     && !processing_template_decl)
-	      cp_error ("no declaration of `%D' in scope", 
-			id_expression);
+	      {
+		if (!parser->scope)
+		  unqualified_name_lookup_error (id_expression);
+		else
+		  cp_error ("`%D' has not been declared", 
+			    id_expression);
+	      }
+	    /* If DECL is a variable would be out of scope under
+	       ANSI/ISO rules, but in scope in the ARM, name lookup
+	       will succeed.  Issue a diagnostic here.  */
+	    else
+	      decl = check_for_out_of_scope_variable (decl);
 	  }
 
 	/* If we didn't find anything, or what we found was a type,
@@ -6918,31 +6928,45 @@ cp_parser_template_name (parser, template_keyword_p)
 				identifier, 
 				/*check_access=*/true,
 				/*is_type=*/false);
-  /* FIXME: We should not be inserting a TYPE_DECL for the class being
-     declared in a template-class.  */
   decl = maybe_get_template_decl_from_type_decl (decl);
+
   /* If DECL is a template, then the name was a template-name.  */
   if (TREE_CODE (decl) == TEMPLATE_DECL)
-    return decl;
-
-  /* The standard does not explicitly indicate whether a name that
-     names a set of overloaded declarations, some of which are
-     templates, is a template-name.  However, such a name should be a
-     template-name; otherwise, there is no way to form a template-id
-     for the overloaded templates.  */
-  fns = BASELINK_P (decl) ? BASELINK_FUNCTIONS (decl) : decl;
-  if (TREE_CODE (fns) == OVERLOAD)
+    ;
+  else 
     {
-      tree fn;
-
-      for (fn = fns; fn; fn = OVL_NEXT (fn))
-	if (TREE_CODE (OVL_CURRENT (fn)) == TEMPLATE_DECL)
-	  return decl;
+      /* The standard does not explicitly indicate whether a name that
+	 names a set of overloaded declarations, some of which are
+	 templates, is a template-name.  However, such a name should
+	 be a template-name; otherwise, there is no way to form a
+	 template-id for the overloaded templates.  */
+      fns = BASELINK_P (decl) ? BASELINK_FUNCTIONS (decl) : decl;
+      if (TREE_CODE (fns) == OVERLOAD)
+	{
+	  tree fn;
+	  
+	  for (fn = fns; fn; fn = OVL_NEXT (fn))
+	    if (TREE_CODE (OVL_CURRENT (fn)) == TEMPLATE_DECL)
+	      break;
+	}
+      else
+	{
+	  /* Otherwise, the name does not name a template.  */
+	  cp_parser_error (parser, "expected template-name");
+	  return error_mark_node;
+	}
     }
 
-  /* Otherwise, the name does not name a template.  */
-  cp_parser_error (parser, "expected template-name");
-  return error_mark_node;
+  /* If DECL is dependent, and refers to a function, then just return
+     its name; we will look it up again during template instantiation.  */
+  if (DECL_FUNCTION_TEMPLATE_P (decl) || !DECL_P (decl))
+    {
+      tree scope = CP_DECL_CONTEXT (get_first_fn (decl));
+      if (TYPE_P (scope) && cp_parser_dependent_type_p (scope))
+	return identifier;
+    }
+
+  return decl;
 }
 
 /* Parse a template-argument-list.
@@ -9950,7 +9974,7 @@ cp_parser_class_name (parser,
   /* Check to see that it is really the name of a class.  */
   /* FIXME: This accepts typedefs for a class.  Is that OK?  */
   /* FIXME: This accepts template-type-parameters which are
-     class-names, but not type-names.  */
+     type-names, but not class-names.  */
   if (decl == error_mark_node
       || TREE_CODE (decl) != TYPE_DECL
       || !IS_AGGR_TYPE (TREE_TYPE (decl)))
@@ -10091,6 +10115,22 @@ cp_parser_class_head (parser,
   if (class_key == ctk_none)
     return error_mark_node;
 
+  /* If the next token is `::', that is invalid -- but sometimes
+     people do try to write:
+
+       struct ::S {};
+
+     Rather than issuing a parse error, which will cause us to
+     backtrack and try to parse this construct as an
+     elaborated-type-specifier, we just issue an ordinary error.  
+     If this does not turn out to be a definition, we will issue a
+     parse error below.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_SCOPE)) 
+    {
+      cp_error ("global qualification of class name is invalid");
+      cp_lexer_consume_token (parser->lexer);
+    }
+
   /* There is no explicit qualification at this point.  */
   parser->scope = NULL_TREE;
   /* Determine the name of the class.  Begin by looking for an
@@ -10102,25 +10142,34 @@ cp_parser_class_head (parser,
   /* If there was a nested-name-specifier, then there *must* be an
      identifier.  */
   if (nested_name_specifier)
-    /* Although the grammar says `identifier', it really means
-       `class-name'.  You are only allowed to define a class that has
-       already been declared with this syntax.  The proposed
-       resolution for Core Issue 180 says that whever you see `class
-       T::X' you should treat `X' as a type-name.
-
-       It is OK to define an inaccessible class; for example:
-
-         class A { class B; };
-         class A::B {};
-
-       So, we ask cp_parser_class_name not to check accessibility.  */
-    /* FIXME: In fact, it means a class-name that is not a
-       typedef-name.  */
-    type = cp_parser_class_name (parser,
-				 /*typename_keyword_p=*/true,
-				 /*template_keyword_p=*/false,
-				 /*type_p=*/true,
-				 /*check_access_p=*/false);
+    {
+      /* Although the grammar says `identifier', it really means
+	 `class-name'.  You are only allowed to define a class that has
+	 already been declared with this syntax.  The proposed
+	 resolution for Core Issue 180 says that whever you see `class
+	 T::X' you should treat `X' as a type-name.
+	 
+	 It is OK to define an inaccessible class; for example:
+	 
+           class A { class B; };
+           class A::B {};
+	 
+	 So, we ask cp_parser_class_name not to check accessibility.  */
+      /* FIXME: In fact, it means a class-name that is not a
+	 typedef-name.  */
+      type = cp_parser_class_name (parser,
+				   /*typename_keyword_p=*/true,
+				   /*template_keyword_p=*/false,
+				   /*type_p=*/true,
+				   /*check_access_p=*/false);
+      /* If we could not find a corresponding TYPE, treat this
+	 declaration like an erroneous unqualified declaration.  */
+      if (type == error_mark_node)
+	{
+	  nested_name_specifier = NULL_TREE;
+	  id = make_error_name ();
+	}
+    }
   /* Otherwise, the identifier is optional.  */
   else
     {
@@ -11571,7 +11620,10 @@ cp_parser_lookup_name (parser, name, check_access, is_type)
     decl = lookup_name (name, is_type);
 
   /* If the lookup failed, let our caller know.  */
-  if (!decl)
+  if (!decl 
+      || decl == error_mark_node
+      || (TREE_CODE (decl) == FUNCTION_DECL 
+	  && DECL_ANTICIPATED (decl)))
     return error_mark_node;
 
   /* If it's a TREE_LIST, the result of the lookup was ambiguous.  */
@@ -11590,19 +11642,16 @@ cp_parser_lookup_name (parser, name, check_access, is_type)
      overload resolution is done.  */
   if (check_access && DECL_P (decl))
     {
-      tree scope = context_for_name_lookup (decl);
-
-      /* If the SCOPE is a type, then this is a member.  */
-      if (TYPE_P (scope))
+      tree qualifying_type;
+      
+      /* Figure out the type through which DECL is being
+	 accessed.  */
+      qualifying_type 
+	= determine_scope_through_which_access_occurs (decl,
+						       object_type,
+						       parser->scope);
+      if (qualifying_type)
 	{
-	  tree qualifying_type;
-
-	  /* Figure out the type through which DECL is being
-	     accessed.  */
-	  qualifying_type 
-	    = determine_scope_through_which_access_occurs (decl,
-							   object_type,
-							   parser->scope);
 	  /* If we are supposed to defer access checks, just record
 	     the information for later.  */
 	  if (parser->context->deferring_access_checks_p)
@@ -11612,7 +11661,7 @@ cp_parser_lookup_name (parser, name, check_access, is_type)
 	  /* Otherwise, check accessibility now.  */
 	  else
 	    enforce_access (qualifying_type, decl);
-
+	  
 	  /* FIXME: I think we check access on using-declarations in
 	     classes somewhere else.  It is now probably checked 
 	     here.  */

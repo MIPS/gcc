@@ -3,7 +3,7 @@
 // Bug: g++ forgets access decls after the definition.
 // Build don't link:
 
-class inh {
+class inh { // ERROR - inaccessible
         int a;
 protected:
         void myf(int);
@@ -25,5 +25,5 @@ void inh::myf(int i) {
 }
 
 void top_t::myf(int i) {
-        inh::myf(i);
+        inh::myf(i); // ERROR - inaccessible
 }

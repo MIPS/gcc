@@ -1054,6 +1054,39 @@ being processed, and neither @code{DECL_EXTERNAL} nor @code{DECL_STATIC}
 hold, then the reference is to a local variable in a containing
 function, and the back-end must take appropriate action.
 
+During parsing and semantic analysis, functions are represented in
+several different ways.  A single function will be represented by a
+@code{FUNCTON_DECL} or a @code{TEMPLATE_DECL}.  An overloaded function
+(or sometimes even a single function) will be represented by an
+@code{OVERLOAD}.  Each @code{OVL_CURRENT} in the chain will be either
+a @code{FUNCTION_DECL} or a @code{TEMPLATE_DECL}.  
+
+If, in an expression, of the form @code{a->b}, @code{b} is a member
+function, or set of overloaded member functions, a
+@code{COMPONENT_REF} is used to represent the expression.  The second
+operand of the @code{COMPONENT_REF} is a @code{BASELINK}.  The
+@code{BASELINK_SUBOBJECT} indicates the subobject (a binfo) where the
+functions are located, relative to the class in which they are being
+accessed.  For example, in:
+@example
+struct S { void f(); };
+struct T { void g() { f(); } };
+@end example
+the representation of @code{f} will be a @code{COMPONENT_REF}; the
+second operand will be a @code{BASELINK} whose
+@code{BASELINK_SUBOBJECT} is the @code{S}-in-@code{T} subobject.  The
+@code{BASELINK_FUNCTIONS} represent the functions themselves;
+@code{BASELINK_FUNCTIONS} are always a @code{FUNCTION_DECL},
+@code{TEMPLATE_DECL}, or @code{OVERLOAD}.
+
+An expression of the form @code{A::b} where @{b} is a member function,
+or set of overloaded member functions, is represented by an
+@code{OFFSET_REF}.
+
+After parsing and semantic analysis (i.e., at the point that RTL is
+being generated), the only representation used for a function is the
+@code{FUNCTION_DECL} itself.
+
 @menu
 * Function Basics::     Function names, linkage, and so forth.
 * Function Bodies::     The statements that make up a function body.

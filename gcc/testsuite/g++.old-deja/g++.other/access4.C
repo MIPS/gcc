@@ -7,5 +7,5 @@ struct A {
 struct B : private A { };
 
 struct C : public B {
-  int f () { return A::i; }
+  int f () { return A::i; } // ERROR - A is inaccessible
 };

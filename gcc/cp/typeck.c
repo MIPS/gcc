@@ -2662,33 +2662,17 @@ build_x_function_call (function, params, decl)
     {
       tree basetype = NULL_TREE;
 
-      if (TREE_CODE (function) == OVERLOAD)
-	function = OVL_CURRENT (function);
-
-      if (TREE_CODE (function) == FUNCTION_DECL
-	  || DECL_FUNCTION_TEMPLATE_P (function))
+      if (BASELINK_P (function))
+	basetype = BASELINK_SUBOBJECT (function);
+      else if (TREE_CODE (function) == OVERLOAD)
+	basetype = DECL_CONTEXT (OVL_CURRENT (function));
+      else if (TREE_CODE (function) == FUNCTION_DECL)
+	basetype = DECL_CONTEXT (function);
+      else
 	{
-	  basetype = DECL_CONTEXT (function);
-
-	  if (DECL_NAME (function))
-	    function = DECL_NAME (function);
-	  else
-	    function = TYPE_IDENTIFIER (DECL_CONTEXT (function));
-	}
-      else if (TREE_CODE (function) == TREE_LIST)
-	{
-	  my_friendly_assert (TREE_CODE (TREE_VALUE (function))
-			      == FUNCTION_DECL, 312);
-	  basetype = DECL_CONTEXT (TREE_VALUE (function));
-	  function = TREE_PURPOSE (function);
-	}
-      else if (TREE_CODE (function) != IDENTIFIER_NODE)
-	{
-	  if (TREE_CODE (function) == OFFSET_REF)
-	    {
-	      if (TREE_OPERAND (function, 0))
-		decl = TREE_OPERAND (function, 0);
-	    }
+	  if (TREE_CODE (function) == OFFSET_REF
+	      && TREE_OPERAND (function, 0))
+	    decl = TREE_OPERAND (function, 0);
 	  /* Call via a pointer to member function.  */
 	  if (decl == NULL_TREE)
 	    {
@@ -2703,6 +2687,10 @@ build_x_function_call (function, params, decl)
 			      function);
 	  goto do_x_function;
 	}
+
+      /* Put back explicit template arguments, if any.  */
+      if (template_id)
+	function = template_id;
 
       /* this is an abbreviated method call.
          must go through here in case it is a virtual function.
@@ -2723,9 +2711,6 @@ build_x_function_call (function, params, decl)
 	  decl = build_dummy_object (current_class_type);
 	}
 
-      /* Put back explicit template arguments, if any.  */
-      if (template_id)
-        function = template_id;
       return build_method_call (decl, function, params,
 				NULL_TREE, LOOKUP_NORMAL);
     }
@@ -4315,6 +4300,7 @@ build_x_unary_op (code, xarg)
           ptrmem = PTRMEM_OK_P (xarg);
           
           if (!ptrmem && !flag_ms_extensions
+	      && TREE_TYPE (TREE_OPERAND (xarg, 1))
               && TREE_CODE (TREE_TYPE (TREE_OPERAND (xarg, 1))) == METHOD_TYPE)
             /* A single non-static member, make sure we don't allow a
                pointer-to-member.  */

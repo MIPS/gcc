@@ -1,6 +1,6 @@
 // Build don't link:
 
-// Copyright (C) 1999 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2001 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 5 Sep 1999 <nathan@acm.org>
 
 // [over.match] 13.3 tells us where overload resolution occurs.
@@ -73,13 +73,13 @@ int main (int argc, char **argv)
   ptr = (argc ? fna : fn);
   ptr = (argc ? &fna : &fn);
   
-  f;                // WARNING - not a call
+  fn;               // WARNING - not a call
   ovl;              // ERROR - not suitable for overload
   &ovl;             // ERROR - not suitable for overload
-  (void)f;          // ok
+  (void)fn;         // ok
   (void)ovl;        // ERROR - not suitable for overload
   (void)&ovl;       // ERROR - not suitable for overload
-  static_cast<void>(f);          // ok
+  static_cast<void>(fn);         // ok
   static_cast<void>(ovl);        // ERROR - not suitable for overload
   static_cast<void>(&ovl);       // ERROR - not suitable for overload
   ((void)1, f);             // WARNING - not a call XFAIL

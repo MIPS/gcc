@@ -3902,6 +3902,9 @@ extern int nonstatic_local_decl_p               PARAMS ((tree));
 extern tree declare_global_var                  PARAMS ((tree, tree));
 extern void register_dtor_fn                    PARAMS ((tree));
 extern tree cp_fname_init			PARAMS ((const char *));
+extern void unqualified_name_lookup_error       PARAMS ((tree));
+extern tree check_for_out_of_scope_variable     PARAMS ((tree));
+extern tree lookup_unqualified_name_and_check_access PARAMS ((tree));
 
 /* in decl2.c */
 extern void init_decl2				PARAMS ((void));

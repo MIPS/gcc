@@ -202,10 +202,10 @@ DEFTREECODE (BASELINK, "baselink", 'x', 3)
    tree structure.  */
 DEFTREECODE (WRAPPER, "wrapper", 'x', 1)
 
-/* Used to represent deferred name lookup for dependent names while
-   parsing a template declaration.  The first argument is an
-   IDENTIFIER_NODE for the name in question.  The TREE_TYPE is
-   unused.  */
+/* Used to represent deferred name lookup for an unqualified dependent
+   name, used as a primary-expression, while parsing a template
+   declaration.  The first argument is an IDENTIFIER_NODE for the name
+   in question.  The TREE_TYPE is unused.  */
 DEFTREECODE (LOOKUP_EXPR, "lookup_expr", 'e', 1)
 
 /* A whole bunch of tree codes for the initial, superficial parsing of

@@ -2361,6 +2361,7 @@ make_baselink (functions, subobject, naming_subobject, type)
 
   baselink = make_node (BASELINK);
   my_friendly_assert ((TREE_CODE (functions) == FUNCTION_DECL
+		       || TREE_CODE (functions) == TEMPLATE_DECL
 		       || TREE_CODE (functions) == OVERLOAD),
 		      20010809);
   BASELINK_FUNCTIONS (baselink) = functions;

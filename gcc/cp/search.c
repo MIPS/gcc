@@ -1205,9 +1205,10 @@ accessible_p (type, decl)
   return t != NULL_TREE;
 }
 
-/* Returns the scope through which DECL is being accessed.  If
-   OBJECT_TYPE is non-NULL, we have just seen `x->' or `x.'.  If the
-   DECL was named as `A::B' then NESTED_NAME_SPECIFIER is `A'.  */
+/* Returns the scope through which DECL is being accessed, or
+   NULL_TREE if DECL is not a member.  If OBJECT_TYPE is non-NULL, we
+   have just seen `x->' or `x.'.  If the DECL was named as `A::B' then
+   NESTED_NAME_SPECIFIER is `A'.  */
 
 tree
 determine_scope_through_which_access_occurs (decl, 
@@ -1222,6 +1223,9 @@ determine_scope_through_which_access_occurs (decl,
   
   /* Determine the SCOPE of DECL.  */
   scope = context_for_name_lookup (decl);
+  /* If the SCOPE is not a type, then DECL is not a member.  */
+  if (!TYPE_P (scope))
+    return NULL_TREE;
   /* Figure out the type through which DECL is being accessed.  If we
      are processing a `->' or `.' expression, use the type of the
      left-hand side.  */

@@ -6996,9 +6996,6 @@ tsubst_copy (t, args, complain, in_decl)
 	if (t == void_list_node)
 	  return t;
 
-	if (BASELINK_P (t))
-	  return DECL_NAME (get_first_fn (t));
-
 	purpose = TREE_PURPOSE (t);
 	if (purpose)
 	  purpose = tsubst_copy (purpose, args, complain, in_decl);
@@ -7014,6 +7011,12 @@ tsubst_copy (t, args, complain, in_decl)
 	  return t;
 	return tree_cons (purpose, value, chain);
       }
+
+      /* FIXME: This probably isn't right.  If a BASELINK makes it
+	 through to here, then it should be for an non-dependent name,
+	 and so then we should just use it as is.  */
+    case BASELINK:
+      return DECL_NAME (get_first_fn (t));
 
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -7936,8 +7939,8 @@ resolve_overloaded_unification (tparms, targs, parm, arg, strict,
     arg = TREE_OPERAND (arg, 1);
 
   /* Strip baselink information.  */
-  while (TREE_CODE (arg) == TREE_LIST)
-    arg = TREE_VALUE (arg);
+  if (BASELINK_P (arg))
+    arg = BASELINK_FUNCTIONS (arg);
 
   if (TREE_CODE (arg) == TEMPLATE_ID_EXPR)
     {
