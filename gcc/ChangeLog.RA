@@ -1,4 +1,14 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	* ra-build.c (add_additional_conflicts): Prevent strictly partly
+	overlap between copy related webs.  Renamed from ...
+	(add_earlyclobber_conflicts): ... this.
+	(make_webs): Change call to above.
+	* ra-rewrite.c (init_split_costs): Don't ignore refs from copy insns.
+	Handle deficiency in generated split code.
+	(find_splits): Don't split hardregs.
+	(split_insert_load): Deal with modeless slots (constants).
+
+2003-06-30  Michael Matz  <matz@suse.de>
 	* ra-colorize.c (init_split_costs, find_splits): Declare.
 	(unsplit_web): New.
 	(colorize_one_web): Call it.  Call find_split before admitting defeat.

@@ -110,7 +110,7 @@ static void reset_conflicts PARAMS ((void));
 static void check_conflict_numbers PARAMS ((void));
 #endif
 static void conflicts_between_webs PARAMS ((struct df *));
-static void add_earlyclobber_conflicts PARAMS ((void));
+static void add_additional_conflicts PARAMS ((void));
 static void detect_spill_temps PARAMS ((void));
 static int contains_pseudo PARAMS ((rtx));
 static int want_to_remat PARAMS ((rtx x));
@@ -2458,8 +2458,12 @@ conflicts_between_webs (df)
 #endif
 }
 
+/* This adds conflicts from early-clobber operands and those to prevent
+   coalescable webs connected with moves to be colored so that they only
+   partly overlap (instead of becoming fully coalesced).  */
+   
 static void
-add_earlyclobber_conflicts ()
+add_additional_conflicts ()
 {
   rtx insn;
   for (insn = get_insns(); insn; insn = NEXT_INSN (insn))
@@ -2467,6 +2471,7 @@ add_earlyclobber_conflicts ()
       {
 	int uid = INSN_UID (insn);
 	unsigned int n, num_defs = insn_df[uid].num_defs;
+	rtx source, dest;
 	for (n = 0; n < num_defs; n++)
 	  {
 	    struct ref *def = insn_df[uid].defs[n];
@@ -2487,6 +2492,53 @@ add_earlyclobber_conflicts ()
 	      }
 	    else
 	      DF_REF_FLAGS (def) &= ~DF_REF_EARLYCLOBBER;
+	  }
+	if (copy_insn_p (insn, &source, &dest)
+	    && REG_P (source) && REG_P (dest))
+	  {
+	    /* We want to prevent that the source and target web of this
+	       move become strictly partly overlapped.  Because we ignored
+	       this def while constructing conflicts for the source web
+	       this could otherwise happen.  But that would lead to wrong
+	       code if the full source web still is needed.  For instance:
+	         p1:DI <-- p2:DI     ; the copy insn
+		 p2 <-- -p2
+		 use <-- p2
+		 use <-- p1:[SI+0]
+	       here p1:[SI+0] conflicts with p2:DI.  So we could color
+	       p1 with {0,1} and p2 with {1,2}.  But the copy insn would
+	       then become {0,1} <-- {1,2}, thereby overwriting the lowpart
+	       of p2, which still is needed.  We prevent this by
+	       making conflicts between p1 and p2 such, that either only
+	       full overlap (coalescing) or none at all is possible.  */
+	    struct web *sweb = NULL, *dweb = NULL;
+	    struct ref *ref;
+	    for (n = 0; !dweb && n < num_defs; n++)
+	      if (REGNO (dest) == DF_REF_REGNO (ref = insn_df[uid].defs[n]))
+		dweb = def2web[DF_REF_ID (ref)];
+	    for (n = 0; !sweb && n < insn_df[uid].num_uses; n++)
+	      if (REGNO (source) == DF_REF_REGNO (ref = insn_df[uid].uses[n]))
+		sweb = use2web[DF_REF_ID (ref)];
+	    /* We simply let the first real part of one web conflict with
+	       all non-overlapping parts of the second web.  If one web
+	       has no parts there's no need to do this.  */
+	    if (sweb && dweb)
+	      {
+		sweb = sweb->subreg_next;
+		if (sweb)
+		  for (dweb = dweb->subreg_next, source = sweb->orig_x; dweb;
+		       dweb = dweb->subreg_next)
+		    {
+		      dest = dweb->orig_x;
+		      if (SUBREG_BYTE (source) >= (SUBREG_BYTE (dest)
+						   + GET_MODE_SIZE (GET_MODE
+								    (dest)))
+			  || SUBREG_BYTE (dest) >= (SUBREG_BYTE (source)
+						    + GET_MODE_SIZE (GET_MODE
+								     (source))))
+			record_conflict (sweb, dweb);
+		    }
+	      }
 	  }
       }
 }
@@ -3124,7 +3176,7 @@ make_webs (df)
   /* And finally relate them to each other, meaning to record all possible
      conflicts between webs (see the comment there).  */
   conflicts_between_webs (df);
-  add_earlyclobber_conflicts ();
+  add_additional_conflicts ();
   
   if (WEBS (SPILLED))
     return;

@@ -3193,6 +3193,7 @@ init_split_costs ()
     live_at_begin[i] = sbitmap_alloc (num_webs);
   live_at_begin += 2;
   any_splits_found = 0;
+
   FOR_EACH_BB (bb)
     {
       int j;
@@ -3269,11 +3270,19 @@ init_split_costs ()
 			  split_costs[web->id].loads += (4 * (e->dest->frequency + 1)) / 3;
 		    }
 		}
-	      /* Even if it's a copy insn info.num_uses might be zero.
-		 This happens if the source of the copy is a fixed hardreg,
-		 because we don't remember those in info.  */
-	      if (info.num_uses && copy_insn_p (insn, NULL, NULL))
-		reset_web_live_s (live, suplive, use2web[DF_REF_ID (info.uses[0])]);
+	      /* If this would construct a normal conflict graph, this
+		 would be the place where we ignore definitions which copy
+		 from us (i.e. basically we would temporarily make uses
+		 of copy insns dead, so they won't conflict with the def).
+		 But this is a containment graph.  We really need to know
+		 all references.  For instance in this situation:
+		   p1 <- ... //  p2 <- p1 // ... // use <- p1 // use <- p2
+		 If we would ignore the def of p2 for containment in p1 we
+		 would think, that we can split p2 around p1.  But that's
+		 not true.  Hence don't ignore copies.
+		 Remember that if you want to merge the containment graph
+		 creation with the normal conflict graph creation.  */
+		   
 	      /* Ugly hack.  Unused defs need to be handled for the conflict
 	         graph as if there's a use just after the current insn.  I.e
 		 as if they were in fact live.  The real reason is, that simply
@@ -3285,6 +3294,31 @@ init_split_costs ()
 		   checking if they indeed are useless (are not live).  The
 		   effect is the same.  */
 		set_web_live_s (live, suplive, def2web[DF_REF_ID (info.defs[n])]);
+	      /* XXX Argh.  Crap.  We need to make the webs which become live
+		 here due to uses "contain" all the defs in this insn,
+		 although in data-flow sense they don't.  Suppose this
+                 situation (p1 is DImode):
+		   1 p1 <== bla
+		   2 p2 <== bla
+                   3 p1:[SI+0] <== p2
+		   4 use <== p1
+		 Without the following loop, the p2 web wouldn't contain
+		 any refs to p1 (and rightly so).  So we could split p1 around
+		 p2.  Unfortunately our split code inserted only handles full
+		 register, hence we would create a "p1 <= pback" load after
+		 insn 3, thereby overwriting the lower half which just was
+		 set.  This normally isn't an issue with full defs, as there
+		 the two webs wouldn't even conflict, and hence don't have
+		 the problem of spliting one around the other.
+		 The real fix would be to only generate the split loads
+		 and store for the part which actually conflicts with p2,
+		 or which is still live at the point of loads (in the above
+		 case p1:[SI+4]).  For now we simply avoid the situation
+		 by letting the defs be contained in all uses' webs.  */
+
+	      for (n = 0; n < info.num_uses; n++)
+		set_web_live_s (live, suplive, use2web[DF_REF_ID (info.uses[n])]);
+
 	      for (n = 0; n < info.num_defs; n++)
 		{
 		  struct web *web1 = def2web[DF_REF_ID (info.defs[n])];
@@ -3435,7 +3469,8 @@ find_splits (web)
 	    /* Test if we can split web or web2 at all.  */
 	    if (SPILL_SLOT_P (web->regno))
 	      SET_HARD_REG_BIT (wrong_around_color, c1);
-	    if (SPILL_SLOT_P (web2->regno))
+	    if (SPILL_SLOT_P (web2->regno)
+		|| aweb->type == PRECOLORED)
 	      SET_HARD_REG_BIT (wrong_around_name, c1);
 	  }
     }
@@ -3533,8 +3568,11 @@ split_insert_load (web, insn, before, live)
 	if (is_partly_live (live, web))
 	  {
 	    rtx reg = copy_rtx (web->orig_x);
+	    enum machine_mode slot_mode = GET_MODE (whole_slot);
+	    if (slot_mode == VOIDmode)
+	      slot_mode = GET_MODE (aweb->orig_x);
 	    rtx slot = simplify_gen_subreg (GET_MODE (reg), whole_slot,
-					    GET_MODE (whole_slot),
+					    slot_mode,
 					    SUBREG_BYTE (reg));
 	    ra_emit_move_insn (reg, slot);
 	  }
