@@ -239,11 +239,14 @@ calls_function (exp, which)
      int which;
 {
   int val;
+
   calls_function_save_exprs = 0;
   val = calls_function_1 (exp, which);
   calls_function_save_exprs = 0;
   return val;
 }
+
+/* Recursive function to do the work of above function.  */
 
 static int
 calls_function_1 (exp, which)
@@ -252,8 +255,8 @@ calls_function_1 (exp, which)
 {
   register int i;
   enum tree_code code = TREE_CODE (exp);
-  int type = TREE_CODE_CLASS (code);
-  int length = tree_code_length[(int) code];
+  int class = TREE_CODE_CLASS (code);
+  int length = first_rtl_op (code);
 
   /* If this code is language-specific, we don't know what it will do.  */
   if ((int) code >= NUM_TREE_CODES)
@@ -266,16 +269,12 @@ calls_function_1 (exp, which)
 	return 1;
       else if (TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
 	       && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
-		   == FUNCTION_DECL))
-	{
-	  tree fndecl = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
-	  int flags = special_function_p (fndecl, 0);
-	  if (flags & ECF_MAY_BE_ALLOCA)
-	    return 1;
-	}
+		   == FUNCTION_DECL)
+	       && (special_function_p (TREE_OPERAND (TREE_OPERAND (exp, 0), 0),
+				       0)
+		   & ECF_MAY_BE_ALLOCA))
+	return 1;
 
-      /* Third operand is RTL.  */
-      length = 2;
       break;
 
     case SAVE_EXPR:
@@ -291,14 +290,12 @@ calls_function_1 (exp, which)
     case BLOCK:
       {
 	register tree local;
+	register tree subblock;
 
 	for (local = BLOCK_VARS (exp); local; local = TREE_CHAIN (local))
 	  if (DECL_INITIAL (local) != 0
 	      && calls_function_1 (DECL_INITIAL (local), which))
 	    return 1;
-      }
-      {
-	register tree subblock;
 
 	for (subblock = BLOCK_SUBBLOCKS (exp);
 	     subblock;
@@ -307,30 +304,19 @@ calls_function_1 (exp, which)
 	    return 1;
       }
       return 0;
+
     case TREE_LIST:
       for (; exp != 0; exp = TREE_CHAIN (exp))
 	if (calls_function_1 (TREE_VALUE (exp), which))
 	  return 1;
       return 0;
 
-    case METHOD_CALL_EXPR:
-      length = 3;
-      break;
-
-    case WITH_CLEANUP_EXPR:
-      length = 1;
-      break;
-
-    case RTL_EXPR:
-      return 0;
-
     default:
       break;
     }
 
-  /* Only expressions and references can contain calls.  */
-  if (type != 'e' && type != '<' && type != '1' && type != '2' && type != 'r'
-      && type != 'b')
+  /* Only expressions, references, and blocks can contain calls.  */
+  if (! IS_EXPR_CODE_CLASS (class) && class != 'r' && class != 'b')
     return 0;
 
   for (i = 0; i < length; i++)
@@ -450,12 +436,13 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
      int ecf_flags;
 {
   rtx rounded_stack_size_rtx = GEN_INT (rounded_stack_size);
-#if defined (HAVE_call) && defined (HAVE_call_value)
-  rtx struct_value_size_rtx = GEN_INT (struct_value_size);
-#endif
   rtx call_insn;
   int already_popped = 0;
   HOST_WIDE_INT n_popped = RETURN_POPS_ARGS (fndecl, funtype, stack_size);
+#if defined (HAVE_call) && defined (HAVE_call_value)
+  rtx struct_value_size_rtx;
+  struct_value_size_rtx = GEN_INT (struct_value_size);
+#endif
 
   /* Ensure address is valid.  SYMBOL_REF is already valid, so no need,
      and we don't want to load it into a register as an optimization,
@@ -476,12 +463,12 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 	 if possible, for the sake of frame pointer elimination.  */
 
       if (valreg)
-	pat = gen_sibcall_value_pop (valreg,
+	pat = GEN_SIBCALL_VALUE_POP (valreg,
 				     gen_rtx_MEM (FUNCTION_MODE, funexp),
 				     rounded_stack_size_rtx, next_arg_reg,
 				     n_pop);
       else
-	pat = gen_sibcall_pop (gen_rtx_MEM (FUNCTION_MODE, funexp),
+	pat = GEN_SIBCALL_POP (gen_rtx_MEM (FUNCTION_MODE, funexp),
 			       rounded_stack_size_rtx, next_arg_reg, n_pop);
 
       emit_call_insn (pat);
@@ -509,11 +496,11 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 	 if possible, for the sake of frame pointer elimination.  */
 
       if (valreg)
-	pat = gen_call_value_pop (valreg,
+	pat = GEN_CALL_VALUE_POP (valreg,
 				  gen_rtx_MEM (FUNCTION_MODE, funexp),
 				  rounded_stack_size_rtx, next_arg_reg, n_pop);
       else
-	pat = gen_call_pop (gen_rtx_MEM (FUNCTION_MODE, funexp),
+	pat = GEN_CALL_POP (gen_rtx_MEM (FUNCTION_MODE, funexp),
 			    rounded_stack_size_rtx, next_arg_reg, n_pop);
 
       emit_call_insn (pat);
@@ -527,12 +514,12 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
       && HAVE_sibcall && HAVE_sibcall_value)
     {
       if (valreg)
-	emit_call_insn (gen_sibcall_value (valreg,
+	emit_call_insn (GEN_SIBCALL_VALUE (valreg,
 					   gen_rtx_MEM (FUNCTION_MODE, funexp),
 					   rounded_stack_size_rtx,
 					   next_arg_reg, NULL_RTX));
       else
-	emit_call_insn (gen_sibcall (gen_rtx_MEM (FUNCTION_MODE, funexp),
+	emit_call_insn (GEN_SIBCALL (gen_rtx_MEM (FUNCTION_MODE, funexp),
 				     rounded_stack_size_rtx, next_arg_reg,
 				     struct_value_size_rtx));
     }
@@ -543,12 +530,12 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
   if (HAVE_call && HAVE_call_value)
     {
       if (valreg)
-	emit_call_insn (gen_call_value (valreg,
+	emit_call_insn (GEN_CALL_VALUE (valreg,
 					gen_rtx_MEM (FUNCTION_MODE, funexp),
 					rounded_stack_size_rtx, next_arg_reg,
 					NULL_RTX));
       else
-	emit_call_insn (gen_call (gen_rtx_MEM (FUNCTION_MODE, funexp),
+	emit_call_insn (GEN_CALL (gen_rtx_MEM (FUNCTION_MODE, funexp),
 				  rounded_stack_size_rtx, next_arg_reg,
 				  struct_value_size_rtx));
     }
@@ -2407,7 +2394,7 @@ expand_call (exp, target, ignore)
 	    break;
 
 	  case 1: /* Mildly unsafe.  */
-	      args[i].tree_value = unsave_expr (args[i].tree_value);
+	    args[i].tree_value = unsave_expr (args[i].tree_value);
 	    break;
 
 	  case 2: /* Wildly unsafe.  */
@@ -2451,9 +2438,20 @@ expand_call (exp, target, ignore)
 	 made until after RTL generation for the entire function is
 	 complete.  */
       start_sequence ();
-
+      /* If expanding any of the arguments creates cleanups, we can't
+	 do a tailcall.  So, we'll need to pop the pending cleanups
+	 list.  If, however, all goes well, and there are no cleanups
+	 then the call to expand_start_target_temps will have no
+	 effect.  */
+      expand_start_target_temps ();
       if (optimize_tail_recursion (actparms, get_last_insn ()))
-        tail_recursion_insns = get_insns ();
+	{
+	  if (any_pending_cleanups (1))
+	    try_tail_call = try_tail_recursion = 0;
+	  else
+	    tail_recursion_insns = get_insns ();
+	}
+      expand_end_target_temps ();
       end_sequence ();
 
       /* Restore the original pending stack adjustment for the sibling and

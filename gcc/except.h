@@ -354,6 +354,16 @@ extern int exception_table_p			PARAMS ((void));
 /* Outputs the exception table if we have one.  */
 
 extern void output_exception_table		PARAMS ((void));
+extern void output_exception_table_data		PARAMS ((void));
+
+/* Free the exception table.  */
+
+extern void free_exception_table		PARAMS((void));
+
+/* Used by the ia64 unwind format to output data for an individual 
+   function.  */
+
+extern void output_function_exception_table	PARAMS((void));
 
 /* Given a return address in ADDR, determine the address we should use
    to find the corresponding EH region.  */
@@ -429,6 +439,10 @@ extern struct label_node *outer_context_label_stack;
    find_exception_handler_labels for the optimization passes.  */
 
 extern rtx exception_handler_labels;
+
+/* Determine if the given INSN can throw an exception.  */
+
+extern int can_throw                            PARAMS ((rtx));
 
 /* Return nonzero if nothing in this function can throw.  */
 

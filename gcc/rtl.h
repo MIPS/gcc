@@ -1248,6 +1248,7 @@ extern rtx regno_use_in			PARAMS ((unsigned int, rtx));
 extern int auto_inc_p			PARAMS ((rtx));
 extern void remove_node_from_expr_list	PARAMS ((rtx, rtx *));
 extern int insns_safe_to_move_p         PARAMS ((rtx, rtx, rtx *));
+extern int loc_mentioned_in_p		PARAMS ((rtx *, rtx));
 
 /* flow.c */
 
@@ -1523,18 +1524,16 @@ extern int returnjump_p			PARAMS ((rtx));
 extern int onlyjump_p			PARAMS ((rtx));
 extern int sets_cc0_p			PARAMS ((rtx));
 extern int invert_jump_1		PARAMS ((rtx, rtx));
-extern int invert_jump			PARAMS ((rtx, rtx));
+extern int invert_jump			PARAMS ((rtx, rtx, int));
 extern int rtx_renumbered_equal_p	PARAMS ((rtx, rtx));
 extern int true_regnum			PARAMS ((rtx));
 extern int redirect_jump_1		PARAMS ((rtx, rtx));
-extern int redirect_jump		PARAMS ((rtx, rtx));
+extern int redirect_jump		PARAMS ((rtx, rtx, int));
 extern void jump_optimize		PARAMS ((rtx, int, int, int));
 extern void jump_optimize_minimal	PARAMS ((rtx));
 extern void rebuild_jump_labels		PARAMS ((rtx));
 extern void thread_jumps		PARAMS ((rtx, int, int));
-extern int redirect_exp			PARAMS ((rtx *, rtx, rtx, rtx));
 extern int rtx_equal_for_thread_p	PARAMS ((rtx, rtx, rtx));
-extern int invert_exp			PARAMS ((rtx, rtx));
 extern int can_reverse_comparison_p	PARAMS ((rtx, rtx));
 extern void delete_for_peephole		PARAMS ((rtx, rtx));
 extern int condjump_in_parallel_p	PARAMS ((rtx));
@@ -1731,10 +1730,8 @@ extern void init_caller_save		PARAMS ((void));
 
 /* In profile.c */
 extern void init_branch_prob		PARAMS ((const char *));
-#ifdef BUFSIZ
-extern void branch_prob			PARAMS ((rtx, FILE *));
-extern void end_branch_prob		PARAMS ((FILE *));
-#endif
+extern void branch_prob			PARAMS ((void));
+extern void end_branch_prob		PARAMS ((void));
 extern void output_func_start_profiler	PARAMS ((void));
 
 /* In reg-stack.c */
@@ -1826,7 +1823,7 @@ extern void init_alias_once		PARAMS ((void));
 extern void init_alias_analysis		PARAMS ((void));
 extern void end_alias_analysis		PARAMS ((void));
 
-extern void record_base_value		PARAMS ((int, rtx, int));
+extern void record_base_value		PARAMS ((unsigned int, rtx, int));
 extern void record_alias_subset         PARAMS ((int, int));
 extern rtx addr_side_effect_eval	PARAMS ((rtx, int, int));
 

@@ -309,7 +309,8 @@ build_scoped_method_call (exp, basetype, name, parms)
 	  if (! TYPE_HAS_DESTRUCTOR (TREE_TYPE (decl)))
 	    return cp_convert (void_type_node, exp);
 	  
-	  return build_delete (TREE_TYPE (decl), decl, integer_two_node,
+	  return build_delete (TREE_TYPE (decl), decl, 
+			       sfk_complete_destructor,
 			       LOOKUP_NORMAL|LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR,
 			       0);
 	}
@@ -517,7 +518,7 @@ build_method_call (instance, name, parms, basetype_path, flags)
       instance = default_conversion (instance);
       instance_ptr = build_unary_op (ADDR_EXPR, instance, 0);
       return build_delete (build_pointer_type (basetype),
-			   instance_ptr, integer_two_node,
+			   instance_ptr, sfk_complete_destructor,
 			   LOOKUP_NORMAL|LOOKUP_DESTRUCTOR, 0);
     }
 
@@ -2257,7 +2258,7 @@ print_z_candidates (candidates)
     {
       if (TREE_CODE (candidates->fn) == IDENTIFIER_NODE)
 	{
-	  if (candidates->fn == ansi_opname [COND_EXPR])
+	  if (TREE_VEC_LENGTH (candidates->convs) == 3)
 	    cp_error ("%s %D(%T, %T, %T) <builtin>", str, candidates->fn,
 		      TREE_TYPE (TREE_VEC_ELT (candidates->convs, 0)),
 		      TREE_TYPE (TREE_VEC_ELT (candidates->convs, 1)),
@@ -2609,7 +2610,7 @@ build_object_call (obj, args)
       return error_mark_node;
     }
 
-  fns = lookup_fnfields (TYPE_BINFO (type), ansi_opname [CALL_EXPR], 1);
+  fns = lookup_fnfields (TYPE_BINFO (type), ansi_opname (CALL_EXPR), 1);
   if (fns == error_mark_node)
     return error_mark_node;
 
@@ -2689,7 +2690,7 @@ build_object_call (obj, args)
      function, we must be careful not to unconditionally look at
      DECL_NAME here.  */
   if (TREE_CODE (cand->fn) == FUNCTION_DECL
-      && DECL_NAME (cand->fn) == ansi_opname [CALL_EXPR])
+      && DECL_OVERLOADED_OPERATOR_P (cand->fn) == CALL_EXPR)
     return build_over_call (cand, mem_args, LOOKUP_NORMAL);
 
   obj = convert_like_with_context
@@ -2705,8 +2706,12 @@ op_error (code, code2, arg1, arg2, arg3, problem)
      tree arg1, arg2, arg3;
      const char *problem;
 {
-  const char * opname
-    = (code == MODIFY_EXPR ? assignop_tab [code2] : opname_tab [code]);
+  const char * opname;
+
+  if (code == MODIFY_EXPR)
+    opname = assignment_operator_name_info[code2].name;
+  else
+    opname = operator_name_info[code].name;
 
   switch (code)
     {
@@ -2987,7 +2992,7 @@ build_conditional_expr (arg1, arg2, arg3)
       candidates = add_builtin_candidates (candidates, 
 					   COND_EXPR, 
 					   NOP_EXPR,
-					   ansi_opname[COND_EXPR],
+					   ansi_opname (COND_EXPR),
 					   args,
 					   LOOKUP_NORMAL);
 
@@ -3166,10 +3171,10 @@ build_new_op (code, flags, arg1, arg2, arg3)
     {
       code2 = TREE_CODE (arg3);
       arg3 = NULL_TREE;
-      fnname = ansi_assopname[code2];
+      fnname = ansi_assopname (code2);
     }
   else
-    fnname = ansi_opname[code];
+    fnname = ansi_opname (code);
 
   switch (code)
     {
@@ -3314,7 +3319,8 @@ build_new_op (code, flags, arg1, arg2, arg3)
 	     one, then we fall back to the old way of doing things.  */
 	  if (flags & LOOKUP_COMPLAIN)
 	    cp_pedwarn ("no `%D (int)' declared for postfix `%s', trying prefix operator instead",
-			fnname, opname_tab [code]);
+			fnname, 
+			operator_name_info[code].name);
 	  if (code == POSTINCREMENT_EXPR)
 	    code = PREINCREMENT_EXPR;
 	  else
@@ -3354,7 +3360,7 @@ build_new_op (code, flags, arg1, arg2, arg3)
     {
       extern int warn_synth;
       if (warn_synth
-	  && fnname == ansi_opname[MODIFY_EXPR]
+	  && fnname == ansi_assopname (NOP_EXPR)
 	  && DECL_ARTIFICIAL (cand->fn)
 	  && candidates->next
 	  && ! candidates->next->next)
@@ -3516,7 +3522,7 @@ build_op_delete_call (code, addr, size, flags, placement)
     return error_mark_node;
 
   type = TREE_TYPE (TREE_TYPE (addr));
-  fnname = ansi_opname[code];
+  fnname = ansi_opname (code);
 
   if (IS_AGGR_TYPE (type) && ! (flags & LOOKUP_GLOBAL))
     /* In [class.free]
@@ -4137,7 +4143,7 @@ build_over_call (cand, args, flags)
 	  return address;
 	}
     }
-  else if (DECL_NAME (fn) == ansi_opname[MODIFY_EXPR]
+  else if (DECL_OVERLOADED_OPERATOR_P (fn) == NOP_EXPR
 	   && copy_args_p (fn)
 	   && TYPE_HAS_TRIVIAL_ASSIGN_REF (DECL_CONTEXT (fn)))
     {
@@ -4320,6 +4326,32 @@ build_new_method_call (instance, name, args, basetype_path, flags)
 	  /* We want to call the normal constructor function under the
 	     old ABI.  */
 	  name = constructor_p ? ctor_identifier : dtor_identifier;
+	}
+      /* If we're call a subobject constructor or destructor for a
+	 subobject that uses virtual base classes, then we need to
+	 pass down a pointer to a VTT for the subobject.  */
+      else if ((name == base_ctor_identifier
+		|| name == base_dtor_identifier)
+	       && TYPE_USES_VIRTUAL_BASECLASSES (basetype))
+	{
+	  tree vtt;
+	  tree sub_vtt;
+
+	  /* If the current function is a complete object constructor
+	     or destructor, then we fetch the VTT directly.
+	     Otherwise, we look it up using the VTT we were given.  */
+	  vtt = IDENTIFIER_GLOBAL_VALUE (get_vtt_name (current_class_type));
+	  vtt = build_unary_op (ADDR_EXPR, vtt, /*noconvert=*/1);
+	  vtt = build (COND_EXPR, TREE_TYPE (vtt), 
+		       DECL_USE_VTT_PARM (current_function_decl),
+		       DECL_VTT_PARM (current_function_decl),
+		       vtt);
+
+	  sub_vtt = build (PLUS_EXPR, TREE_TYPE (vtt), vtt,
+			   BINFO_SUBVTT_INDEX (basetype_path));
+	  sub_vtt = build_indirect_ref (sub_vtt, NULL);
+
+	  args = tree_cons (NULL_TREE, sub_vtt, args);
 	}
     }
   else
@@ -5097,7 +5129,7 @@ joust (cand1, cand2, warn)
       /* Kludge around broken overloading rules whereby
 	 Integer a, b; test ? a : b; is ambiguous, since there's a builtin
 	 that takes references and another that takes values.  */
-      if (cand1->fn == ansi_opname[COND_EXPR])
+      if (cand1->fn == ansi_opname (COND_EXPR))
 	{
 	  tree c1 = TREE_VEC_ELT (cand1->convs, 1);
 	  tree c2 = TREE_VEC_ELT (cand2->convs, 1);

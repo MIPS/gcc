@@ -957,13 +957,16 @@ int istream::_skip_ws()
 
 ostream& ends(ostream& outs)
 {
-    outs.put('\0');
+    if (outs.opfx())
+	outs.put('\0');
     return outs;
 }
 
 ostream& endl(ostream& outs)
 {
-    return flush(outs.put('\n'));
+    if (outs.opfx())
+        flush(outs.put('\n'));
+    return outs;
 }
 
 istream& lock(istream& ins)

@@ -2242,7 +2242,7 @@ build_component_ref (datum, component, basetype_path, protect)
       /* A field is const (volatile) if the enclosing object, or the
 	 field itself, is const (volatile).  But, a mutable field is
 	 not const, even within a const object.  */
-      if (DECL_LANG_SPECIFIC (field) && DECL_MUTABLE_P (field))
+      if (DECL_MUTABLE_P (field))
 	type_quals &= ~TYPE_QUAL_CONST;
       field_type = cp_build_qualified_type (field_type, type_quals);
     }
@@ -6037,11 +6037,10 @@ get_delta_difference (from, to, force)
   if (to == from)
     return delta;
 
-  /* Should get_base_distance here, so we can check if any thing along the
-     path is virtual, and we need to make sure we stay
-     inside the real binfos when going through virtual bases.
-     Maybe we should replace virtual bases with
-     binfo_member (...CLASSTYPE_VBASECLASSES...)...  (mrs) */
+  /* Should get_base_distance here, so we can check if any thing along
+     the path is virtual, and we need to make sure we stay inside the
+     real binfos when going through virtual bases.  Maybe we should
+     replace virtual bases with BINFO_FOR_VBASE ... (mrs) */
   binfo = get_binfo (from, to, 1);
   if (binfo == error_mark_node)
     {
@@ -6061,7 +6060,7 @@ get_delta_difference (from, to, force)
 	return delta;
       if (binfo_from_vbase (binfo))
 	{
-	  binfo = BINFO_FOR_VBASE (BINFO_TYPE (binfo), from);
+	  binfo = binfo_for_vbase (BINFO_TYPE (binfo), from);
 	  cp_warning ("pointer to member cast to virtual base `%T' will only work if you are very careful", BINFO_TYPE (binfo));
 	}
       delta = BINFO_OFFSET (binfo);
@@ -6888,15 +6887,15 @@ check_return_expr (retval)
     current_function_returns_null = 1;
 
   /* Only operator new(...) throw(), can return NULL [expr.new/13].  */
-  if ((DECL_NAME (current_function_decl) == ansi_opname[(int) NEW_EXPR]
-       || DECL_NAME (current_function_decl) == ansi_opname[(int) VEC_NEW_EXPR])
+  if ((DECL_OVERLOADED_OPERATOR_P (current_function_decl) == NEW_EXPR
+       || DECL_OVERLOADED_OPERATOR_P (current_function_decl) == VEC_NEW_EXPR)
       && !TYPE_NOTHROW_P (TREE_TYPE (current_function_decl))
       && null_ptr_cst_p (retval))
     cp_warning ("`operator new' should throw an exception, not return NULL");
 
   /* Effective C++ rule 15.  See also start_function.  */
   if (warn_ecpp
-      && DECL_NAME (current_function_decl) == ansi_opname[(int) MODIFY_EXPR]
+      && DECL_NAME (current_function_decl) == ansi_assopname(NOP_EXPR)
       && retval != current_class_ref)
     cp_warning ("`operator=' should return a reference to `*this'");
 

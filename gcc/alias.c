@@ -38,8 +38,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* The alias sets assigned to MEMs assist the back-end in determining
    which MEMs can alias which other MEMs.  In general, two MEMs in
-   different alias sets to not alias each other.  There is one
-   exception, however.  Consider something like:
+   different alias sets cannot alias each other, with one important
+   exception.  Consider something like:
 
      struct S {int i; double d; };
 
@@ -53,12 +53,14 @@ Boston, MA 02111-1307, USA.  */
          |/_     _\|
          int    double
 
-   (The arrows are directed and point downwards.)  If, when comparing
-   two alias sets, we can hold one set fixed,  trace the other set
-   downwards, and at some point find the first set, the two MEMs can
-   alias one another.  In this situation we say the alias set for
-   `struct S' is the `superset' and that those for `int' and `double'
-   are `subsets'.  
+   (The arrows are directed and point downwards.)
+    In this situation we say the alias set for `struct S' is the
+   `superset' and that those for `int' and `double' are `subsets'.
+
+   To see whether two alias sets can point to the same memory, we must go
+   down the list of decendents of each and see if there is some alias set
+   in common.  We need not trace past immediate decendents, however, since
+   we propagate all grandchildren up one level.
 
    Alias set zero is implicitly a superset of all other alias sets.
    However, this is no actual entry for alias set zero.  It is an
@@ -70,7 +72,7 @@ typedef struct alias_set_entry
   int alias_set;
 
   /* The children of the alias set.  These are not just the immediate
-     children, but, in fact, all children.  So, if we have:
+     children, but, in fact, all decendents.  So, if we have:
 
        struct T { struct S s; float f; } 
 
@@ -111,9 +113,7 @@ static int nonlocal_reference_p         PARAMS ((rtx));
   mems_in_disjoint_alias_sets_p (MEM1, MEM2)
 
 /* Cap the number of passes we make over the insns propagating alias
-   information through set chains.
-
-   10 is a completely arbitrary choice.  */
+   information through set chains.   10 is a completely arbitrary choice.  */
 #define MAX_ALIAS_LOOP_PASSES 10
    
 /* reg_base_value[N] gives an address to which register N is related.
@@ -164,25 +164,24 @@ static unsigned int reg_known_value_size;
 /* Vector recording for each reg_known_value whether it is due to a
    REG_EQUIV note.  Future passes (viz., reload) may replace the
    pseudo with the equivalent expression and so we account for the
-   dependences that would be introduced if that happens. */
-/* ??? This is a problem only on the Convex.  The REG_EQUIV notes created in
-   assign_parms mention the arg pointer, and there are explicit insns in the
-   RTL that modify the arg pointer.  Thus we must ensure that such insns don't
-   get scheduled across each other because that would invalidate the REG_EQUIV
-   notes.  One could argue that the REG_EQUIV notes are wrong, but solving
-   the problem in the scheduler will likely give better code, so we do it
-   here.  */
+   dependences that would be introduced if that happens.
+
+   The REG_EQUIV notes created in assign_parms may mention the arg
+   pointer, and there are explicit insns in the RTL that modify the
+   arg pointer.  Thus we must ensure that such insns don't get
+   scheduled across each other because that would invalidate the
+   REG_EQUIV notes.  One could argue that the REG_EQUIV notes are
+   wrong, but solving the problem in the scheduler will likely give
+   better code, so we do it here.  */
 char *reg_known_equiv_p;
 
 /* True when scanning insns from the start of the rtl to the
    NOTE_INSN_FUNCTION_BEG note.  */
-
 static int copying_arguments;
 
 /* The splay-tree used to store the various alias set entries.  */
-
 static splay_tree alias_sets;
-
+
 /* Returns a pointer to the alias set entry for ALIAS_SET, if there is
    such an entry, or NULL otherwise.  */
 
@@ -196,8 +195,8 @@ get_alias_set_entry (alias_set)
   return sn != 0 ? ((alias_set_entry) sn->value) : 0;
 }
 
-/* Returns nonzero value if the alias sets for MEM1 and MEM2 are such
-   that the two MEMs cannot alias each other.  */
+/* Returns nonzero if the alias sets for MEM1 and MEM2 are such that
+   the two MEMs cannot alias each other.  */
 
 static int 
 mems_in_disjoint_alias_sets_p (mem1, mem2)
@@ -272,8 +271,7 @@ insert_subset_children (node, data)
    not vice versa.  For example, in C, a store to an `int' can alias a
    structure containing an `int', but not vice versa.  Here, the
    structure would be the SUPERSET and `int' the SUBSET.  This
-   function should be called only once per SUPERSET/SUBSET pair.  At
-   present any given alias set may only be a subset of one superset.  
+   function should be called only once per SUPERSET/SUBSET pair. 
 
    It is illegal for SUPERSET to be zero; everything is implicitly a
    subset of alias set zero.  */
@@ -316,6 +314,48 @@ record_alias_subset (superset, subset)
   /* Enter the SUBSET itself as a child of the SUPERSET.  */
   splay_tree_insert (superset_entry->children, 
 		     (splay_tree_key) subset, 0);
+}
+
+/* Record that component types of TYPE, if any, are part of that type for
+   aliasing purposes.  For record types, we only record component types
+   for fields that are marked addressable.  For array types, we always
+   record the component types, so the front end should not call this
+   function if the individual component aren't addressable.  */
+
+void
+record_component_aliases (type)
+     tree type;
+{
+  int superset = get_alias_set (type);
+  int subset;
+  tree field;
+
+  if (superset == 0)
+    return;
+
+  switch (TREE_CODE (type))
+    {
+    case ARRAY_TYPE:
+    case COMPLEX_TYPE:
+      subset = get_alias_set (TREE_TYPE (type));
+      if (subset != 0)
+	record_alias_subset (superset, subset);
+      break;
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      for (field = TYPE_FIELDS (type); field != 0; field = TREE_CHAIN (field))
+	{
+	  subset = get_alias_set (TREE_TYPE (field));
+	  if (TREE_ADDRESSABLE (field) && subset != 0 && subset != superset)
+	    record_alias_subset (superset, subset);
+	}
+      break;
+
+    default:
+      break;
+    }
 }
 
 /* Inside SRC, the source of a SET, find a base address.  */
@@ -515,26 +555,27 @@ record_set (dest, set, data)
   reg_seen[regno] = 1;
 }
 
-/* Called from loop optimization when a new pseudo-register is created.  */
+/* Called from loop optimization when a new pseudo-register is
+   created.  It indicates that REGNO is being set to VAL.  f INVARIANT
+   is true then this value also describes an invariant relationship
+   which can be used to deduce that two registers with unknown values
+   are different.  */
 
 void
 record_base_value (regno, val, invariant)
-     int regno;
+     unsigned int regno;
      rtx val;
      int invariant;
 {
-  if ((unsigned) regno >= reg_base_value_size)
+  if (regno >= reg_base_value_size)
     return;
 
-  /* If INVARIANT is true then this value also describes an invariant
-     relationship which can be used to deduce that two registers with
-     unknown values are different.  */
   if (invariant && alias_invariant)
     alias_invariant[regno] = val;
 
   if (GET_CODE (val) == REG)
     {
-      if ((unsigned) REGNO (val) < reg_base_value_size)
+      if (REGNO (val) < reg_base_value_size)
 	reg_base_value[regno] = reg_base_value[REGNO (val)];
 
       return;
@@ -1213,14 +1254,12 @@ memrefs_conflict_p (xsize, x, ysize, y, c)
    changed.  A volatile and non-volatile reference can be interchanged
    though. 
 
-   A MEM_IN_STRUCT reference at a non-QImode non-AND varying address can never
-   conflict with a non-MEM_IN_STRUCT reference at a fixed address.   We must
-   allow QImode aliasing because the ANSI C standard allows character
-   pointers to alias anything.  We are assuming that characters are
-   always QImode here.  We also must allow AND addresses, because they may
-   generate accesses outside the object being referenced.  This is used to
-   generate aligned addresses from unaligned addresses, for instance, the
-   alpha storeqi_unaligned pattern.  */
+   A MEM_IN_STRUCT reference at a non-AND varying address can never
+   conflict with a non-MEM_IN_STRUCT reference at a fixed address.  We
+   also must allow AND addresses, because they may generate accesses
+   outside the object being referenced.  This is used to generate
+   aligned addresses from unaligned addresses, for instance, the alpha
+   storeqi_unaligned pattern.  */
 
 /* Read dependence: X is read after read in MEM takes place.  There can
    only be a dependence here if both reads are volatile.  */
@@ -1269,10 +1308,6 @@ static int
 aliases_everything_p (mem)
      rtx mem;
 {
-  if (GET_MODE (mem) == QImode)
-    /* ANSI C says that a `char*' can point to anything.  */
-    return 1;
-
   if (GET_CODE (XEXP (mem, 0)) == AND)
     /* If the address is an AND, its very hard to know at what it is
        actually pointing.  */
@@ -1704,19 +1739,22 @@ init_alias_analysis ()
       /* Walk the insns adding values to the new_reg_base_value array.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	{
-#if defined (HAVE_prologue) || defined (HAVE_epilogue)
-	  if (prologue_epilogue_contains (insn))
-	    continue;
-#endif
 	  if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
 	    {
 	      rtx note, set;
+
+#if defined (HAVE_prologue) || defined (HAVE_epilogue)
+	      if (prologue_epilogue_contains (insn))
+		continue;
+#endif
+
 	      /* If this insn has a noalias note, process it,  Otherwise,
 	         scan for sets.  A simple set will have no side effects
 	         which could change the base value of any other register. */
 
 	      if (GET_CODE (PATTERN (insn)) == SET
-		  && (find_reg_note (insn, REG_NOALIAS, NULL_RTX)))
+		  && REG_NOTES (insn) != 0
+		  && find_reg_note (insn, REG_NOALIAS, NULL_RTX))
 		record_set (SET_DEST (PATTERN (insn)), NULL_RTX, NULL);
 	      else
 		note_stores (PATTERN (insn), record_set, NULL);
@@ -1726,6 +1764,7 @@ init_alias_analysis ()
 	      if (set != 0
 		  && GET_CODE (SET_DEST (set)) == REG
 		  && REGNO (SET_DEST (set)) >= FIRST_PSEUDO_REGISTER
+		  && REG_NOTES (insn) != 0
 		  && (((note = find_reg_note (insn, REG_EQUAL, 0)) != 0
 		       && REG_N_SETS (REGNO (SET_DEST (set))) == 1)
 		      || (note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) != 0)

@@ -160,6 +160,8 @@ enum unroll_types { UNROLL_COMPLETELY, UNROLL_MODULO, UNROLL_NAIVE };
 #include "expr.h"
 #include "loop.h"
 #include "toplev.h"
+#include "hard-reg-set.h"
+#include "basic-block.h"
 
 /* This controls which loops are unrolled, and by how much we unroll
    them.  */
@@ -2035,22 +2037,17 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
 	  if (JUMP_LABEL (insn) == start_label && insn == copy_end
 	      && ! last_iteration)
 	    {
+	      /* Update JUMP_LABEL correctly to make invert_jump working.  */
+	      JUMP_LABEL (copy) = get_label_from_map (map,
+						      CODE_LABEL_NUMBER
+						      (JUMP_LABEL (insn)));
 	      /* This is a branch to the beginning of the loop; this is the
 		 last insn being copied; and this is not the last iteration.
 		 In this case, we want to change the original fall through
 		 case to be a branch past the end of the loop, and the
 		 original jump label case to fall_through.  */
 
-	      if (invert_exp (pattern, copy))
-		{
-		  if (! redirect_exp (&pattern,
-				      get_label_from_map (map,
-							  CODE_LABEL_NUMBER
-							  (JUMP_LABEL (insn))),
-				      exit_label, copy))
-		    abort ();
-		}
-	      else
+	      if (!invert_jump (copy, exit_label, 0))
 		{
 		  rtx jmp;
 		  rtx lab = gen_label_rtx ();
@@ -2062,12 +2059,8 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
 		  jmp = emit_barrier_after (jmp);
 		  emit_label_after (lab, jmp);
 		  LABEL_NUSES (lab) = 0;
-		  if (! redirect_exp (&pattern,
-				      get_label_from_map (map,
-							  CODE_LABEL_NUMBER
-							  (JUMP_LABEL (insn))),
-				      lab, copy))
-		    abort ();
+		  if (!redirect_jump (copy, lab, 0))
+		    abort();
 		}
 	    }
 
@@ -2131,7 +2124,7 @@ copy_loop_body (copy_start, copy_end, map, exit_label, last_iteration,
 
 	  /* If this used to be a conditional jump insn but whose branch
 	     direction is now known, we must do something special.  */
-	  if (condjump_p (insn) && !simplejump_p (insn) && map->last_pc_value)
+	  if (any_condjump_p (insn) && onlyjump_p (insn) && map->last_pc_value)
 	    {
 #ifdef HAVE_cc0
 	      /* If the previous insn set cc0 for us, delete it.  */
@@ -3288,7 +3281,7 @@ reg_dead_after_loop (loop, reg)
 	    {
 	      if (GET_CODE (PATTERN (insn)) == RETURN)
 		break;
-	      else if (! simplejump_p (insn)
+	      else if (!any_uncondjump_p (insn)
 		       /* Prevent infinite loop following infinite loops.  */
 		       || jump_count++ > 20)
 		return 0;

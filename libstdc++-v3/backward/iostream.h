@@ -1,5 +1,5 @@
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -50,6 +50,7 @@ using __STD::wclog;
 #endif
 
 using __STD::endl;
+using __STD::ends;
 #endif /* __STL_USE_NAMESPACES */
 
 #endif /* _CPP_BACKWARD_IOSTREAM_H */

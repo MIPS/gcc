@@ -25,52 +25,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 typedef unsigned char U_CHAR;
 #define U (const U_CHAR *)  /* Intended use: U"string" */
 
-/* The structure of a node in the hash table.  The hash table
-   has entries for all tokens defined by #define commands (type T_MACRO),
-   plus some special tokens like __LINE__ (these each have their own
-   type, and the appropriate code is run when that type of node is seen.
-   It does not contain control words like "#define", which are recognized
-   by a separate piece of code. */
-
-/* different flavors of hash nodes */
-enum node_type
-{
-  T_VOID = 0,	   /* no definition yet */
-  T_SPECLINE,	   /* `__LINE__' */
-  T_DATE,	   /* `__DATE__' */
-  T_FILE,	   /* `__FILE__' */
-  T_BASE_FILE,	   /* `__BASE_FILE__' */
-  T_INCLUDE_LEVEL, /* `__INCLUDE_LEVEL__' */
-  T_TIME,	   /* `__TIME__' */
-  T_STDC,	   /* `__STDC__' */
-  T_CONST,	   /* Constant string, used by `__SIZE_TYPE__' etc */
-  T_XCONST,	   /* Ditto, but the string is malloced memory */
-  T_POISON,	   /* poisoned identifier */
-  T_MACRO,	   /* object-like macro */
-  T_FMACRO,	   /* function-like macro */
-  T_IDENTITY,	   /* macro defined to itself */
-  T_EMPTY,	   /* macro defined to nothing */
-  T_ASSERTION	   /* predicate for #assert */
-};
-
-typedef struct hashnode HASHNODE;
-struct hashnode
-{
-  unsigned int hash;			/* cached hash value */
-  unsigned short length;		/* length of name */
-  ENUM_BITFIELD(node_type) type : 8;	/* node type */
-  char disabled;			/* macro turned off for rescan? */
-
-  union {
-    const U_CHAR *cpval;		/* some predefined macros */
-    const struct object_defn *odefn;	/* #define foo bar */
-    const struct funct_defn *fdefn;	/* #define foo(x) bar(x) */
-    struct predicate *pred;		/* #assert */
-  } value;
-
-  const U_CHAR name[1];			/* name[length] */
-};
-
 /* Structure used for assertion predicates.  */
 struct predicate
 {
@@ -109,17 +63,17 @@ struct ihash
   struct ihash *next_this_file;
 
   /* Location of the file in the include search path.
-     Used for include_next */
+     Used for include_next and to detect redundant includes. */
   struct file_name_list *foundhere;
 
   unsigned int hash;		/* save hash value for future reference */
   const char *nshort;		/* name of file as referenced in #include;
 				   points into name[]  */
-  const U_CHAR *control_macro;	/* macro, if any, preventing reinclusion -
-				   see redundant_include_p */
+  const cpp_hashnode *cmacro;	/* macro, if any, preventing reinclusion.  */
   const char name[1];		/* (partial) pathname of file */
 };
 typedef struct ihash IHASH;
+#define NEVER_REINCLUDE ((const cpp_hashnode *)-1)
 
 /* Character classes.
    If the definition of `numchar' looks odd to you, please look up the
@@ -218,16 +172,18 @@ extern unsigned char _cpp_IStable[256];
 #define ADJACENT_TO_MARK(PFILE) \
  (CPP_BUFFER(PFILE)->cur - CPP_BUFFER(PFILE)->mark == 1)
 
+/* Flags for _cpp_init_toklist.  */
+#define DUMMY_TOKEN     0
+#define NO_DUMMY_TOKEN	1
+
 /* In cpphash.c */
 extern unsigned int _cpp_calc_hash	PARAMS ((const U_CHAR *, size_t));
-extern HASHNODE *_cpp_lookup		PARAMS ((cpp_reader *,
-						 const U_CHAR *, int));
-extern void _cpp_free_definition	PARAMS ((HASHNODE *));
-extern int _cpp_create_definition	PARAMS ((cpp_reader *,
-						 cpp_toklist *, HASHNODE *));
-extern void _cpp_dump_definition	PARAMS ((cpp_reader *, HASHNODE *));
+extern void _cpp_free_definition	PARAMS ((cpp_hashnode *));
+extern int _cpp_create_definition	PARAMS ((cpp_reader *, cpp_toklist *,
+						 cpp_hashnode *));
+extern void _cpp_dump_definition	PARAMS ((cpp_reader *, cpp_hashnode *));
 extern void _cpp_quote_string		PARAMS ((cpp_reader *, const U_CHAR *));
-extern void _cpp_macroexpand		PARAMS ((cpp_reader *, HASHNODE *));
+extern void _cpp_macroexpand		PARAMS ((cpp_reader *, cpp_hashnode *));
 extern void _cpp_init_macro_hash	PARAMS ((cpp_reader *));
 extern void _cpp_dump_macro_hash	PARAMS ((cpp_reader *));
 
@@ -250,8 +206,8 @@ extern void _cpp_expand_to_buffer	PARAMS ((cpp_reader *,
 						 const unsigned char *, int));
 extern int _cpp_parse_assertion		PARAMS ((cpp_reader *));
 extern enum cpp_ttype _cpp_lex_token	PARAMS ((cpp_reader *));
-extern long _cpp_read_and_prescan	PARAMS ((cpp_reader *, cpp_buffer *,
-						 int, size_t));
+extern ssize_t _cpp_prescan		PARAMS ((cpp_reader *, cpp_buffer *,
+						 ssize_t));
 extern void _cpp_init_input_buffer	PARAMS ((cpp_reader *));
 extern void _cpp_grow_token_buffer	PARAMS ((cpp_reader *, long));
 extern enum cpp_ttype _cpp_get_directive_token
@@ -260,7 +216,7 @@ extern enum cpp_ttype _cpp_get_define_token
 					PARAMS ((cpp_reader *));
 extern enum cpp_ttype _cpp_scan_until	PARAMS ((cpp_reader *, cpp_toklist *,
 						 enum cpp_ttype));
-extern void _cpp_init_toklist		PARAMS ((cpp_toklist *));
+extern void _cpp_init_toklist		PARAMS ((cpp_toklist *, int));
 extern void _cpp_clear_toklist		PARAMS ((cpp_toklist *));
 extern void _cpp_free_toklist		PARAMS ((cpp_toklist *));
 extern void _cpp_slice_toklist		PARAMS ((cpp_toklist *,
@@ -271,7 +227,7 @@ extern int _cpp_equiv_tokens		PARAMS ((const cpp_token *,
 						 const cpp_token *));
 extern int _cpp_equiv_toklists		PARAMS ((const cpp_toklist *,
 						 const cpp_toklist *));
-
+extern void _cpp_expand_token_space	PARAMS ((cpp_toklist *, unsigned int));
 
 /* In cpplib.c */
 extern int _cpp_handle_directive	PARAMS ((cpp_reader *));

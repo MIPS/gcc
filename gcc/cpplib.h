@@ -35,6 +35,7 @@ typedef struct cpp_printer cpp_printer;
 typedef struct cpp_token cpp_token;
 typedef struct cpp_toklist cpp_toklist;
 typedef struct cpp_name cpp_name;
+typedef struct cpp_hashnode cpp_hashnode;
 
 /* The first two groups, apart from '=', can appear in preprocessor
    expressions.  This allows a lookup table to be implemented in
@@ -121,11 +122,11 @@ typedef struct cpp_name cpp_name;
   I(CPP_COMMENT,	0)	/* Only if output comments.  */ \
   N(CPP_MACRO_ARG,      0)	/* Macro argument.  */          \
   N(CPP_SUBLIST,        0)	/* Sublist.  */                 \
-  T(CPP_VSPACE,		"\n")	/* End of line.  */		\
   N(CPP_EOF,		0)	/* End of file.  */		\
   N(CPP_HEADER_NAME,	0)	/* <stdio.h> in #include */	\
 \
   /* Obsolete - will be removed when no code uses them still.  */	\
+  T(CPP_VSPACE,		"\n")	/* End of line.  */		\
   N(CPP_HSPACE,		0)	/* Horizontal white space.  */	\
   N(CPP_DIRECTIVE,	0)	/* #define and the like */	\
   N(CPP_MACRO,		0)	/* Like a NAME, but expanded.  */
@@ -168,8 +169,9 @@ struct cpp_name
 
 /* Flags for the cpp_token structure.  */
 #define PREV_WHITESPACE     1	/* If whitespace before this token.  */
-#define DIGRAPH             2	/* If it was a digraph.  */
-#define UNSIGNED_INT        4   /* If int preprocessing token unsigned.  */
+#define BOL		    2   /* Beginning of line.  */
+#define DIGRAPH             4	/* If it was a digraph.  */
+#define UNSIGNED_INT        8   /* If int preprocessing token unsigned.  */
 
 /* A preprocessing token.  This has been carefully packed and should
    occupy 16 bytes on both 32- and 64-bit hosts.  */
@@ -208,11 +210,6 @@ struct cpp_toklist
 
   unsigned int line;		/* starting line number */
 
-  /* Comment copying.  */
-  cpp_token *comments;		/* comment tokens.  */
-  unsigned int comments_used;	/* comment tokens used.  */
-  unsigned int comments_cap;	/* comment token capacity.  */
-
   /* The handler to call after lexing the rest of this line.
      -1 for none */
   short dirno;
@@ -242,7 +239,7 @@ struct cpp_buffer
 
   /* If the buffer is the expansion of a macro, this points to the
      macro's hash table entry.  */
-  struct hashnode *macro;
+  struct cpp_hashnode *macro;
 
   /* Value of if_stack at start of this file.
      Used to prohibit unmatched #endif (etc) in an include file.  */
@@ -512,8 +509,7 @@ struct cpp_reader
      for include files.  (Altered as we get more of them.)  */
   unsigned int max_include_len;
 
-  struct if_stack *if_stack;
-  const unsigned char *potential_control_macro;
+  const cpp_hashnode *potential_control_macro;
 
   /* Token column position adjustment owing to tabs in whitespace.  */
   unsigned int col_adjust;
@@ -558,6 +554,9 @@ struct cpp_reader
   /* True after cpp_start_read completes.  Used to inhibit some
      warnings while parsing the command line.  */
   unsigned char done_initializing;
+
+  /* True if we are skipping a failed conditional group.  */
+  unsigned char skipping;
 };
 
 /* struct cpp_printer encapsulates state used to convert the stream of
@@ -593,6 +592,61 @@ struct cpp_printer
 
 /* Name under which this program was invoked.  */
 extern const char *progname;
+
+/* The structure of a node in the hash table.  The hash table
+   has entries for all tokens defined by #define commands (type T_MACRO),
+   plus some special tokens like __LINE__ (these each have their own
+   type, and the appropriate code is run when that type of node is seen.
+   It does not contain control words like "#define", which are recognized
+   by a separate piece of code. */
+
+/* different flavors of hash nodes */
+enum node_type
+{
+  T_VOID = 0,	   /* no definition yet */
+  T_SPECLINE,	   /* `__LINE__' */
+  T_DATE,	   /* `__DATE__' */
+  T_FILE,	   /* `__FILE__' */
+  T_BASE_FILE,	   /* `__BASE_FILE__' */
+  T_INCLUDE_LEVEL, /* `__INCLUDE_LEVEL__' */
+  T_TIME,	   /* `__TIME__' */
+  T_STDC,	   /* `__STDC__' */
+  T_CONST,	   /* Constant string, used by `__SIZE_TYPE__' etc */
+  T_XCONST,	   /* Ditto, but the string is malloced memory */
+  T_POISON,	   /* poisoned identifier */
+  T_MACRO,	   /* object-like macro */
+  T_FMACRO,	   /* function-like macro */
+  T_IDENTITY,	   /* macro defined to itself */
+  T_EMPTY,	   /* macro defined to nothing */
+  T_ASSERTION	   /* predicate for #assert */
+};
+
+/* There is a slot in the hashnode for use by front ends when integrated
+   with cpplib.  It holds a tree (see tree.h) but we mustn't drag that
+   header into every user of cpplib.h.  cpplib does not do anything with
+   this slot except clear it when a new node is created.  */
+union tree_node;
+
+struct cpp_hashnode
+{
+  unsigned int hash;			/* cached hash value */
+  unsigned short length;		/* length of name */
+  ENUM_BITFIELD(node_type) type : 8;	/* node type */
+  char disabled;			/* macro turned off for rescan? */
+
+  union {
+    const unsigned char *cpval;		/* some predefined macros */
+    const struct object_defn *odefn;	/* #define foo bar */
+    const struct funct_defn *fdefn;	/* #define foo(x) bar(x) */
+    struct predicate *pred;		/* #assert */
+  } value;
+
+  union tree_node *fe_value;		/* front end value */
+
+  const unsigned char name[1];		/* name[length] */
+};
+
+
 
 extern void _cpp_lex_file PARAMS((cpp_reader *));
 extern int cpp_handle_options PARAMS ((cpp_reader *, int, char **));
@@ -656,6 +710,8 @@ extern int cpp_idcmp			PARAMS ((const unsigned char *,
 
 /* In cpphash.c */
 extern int cpp_defined			PARAMS ((cpp_reader *,
+						 const unsigned char *, int));
+extern cpp_hashnode *cpp_lookup		PARAMS ((cpp_reader *,
 						 const unsigned char *, int));
 
 /* In cppfiles.c */

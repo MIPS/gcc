@@ -42,11 +42,11 @@ Boston, MA 02111-1307, USA.  */
 #include "obstack.h"
 #include "function.h"
 #include "expr.h"
+#include "hard-reg-set.h"
 #include "basic-block.h"
 #include "insn-config.h"
 #include "insn-flags.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "recog.h"
 #include "flags.h"
 #include "real.h"
@@ -265,8 +265,8 @@ static void strength_reduce PARAMS ((struct loop *, int, int));
 static void find_single_use_in_loop PARAMS ((rtx, rtx, varray_type));
 static int valid_initial_value_p PARAMS ((rtx, rtx, int, rtx));
 static void find_mem_givs PARAMS ((const struct loop *, rtx, rtx, int, int));
-static void record_biv PARAMS ((struct induction *, rtx, rtx, rtx, rtx, rtx *, 
-				int, int, int));
+static void record_biv PARAMS ((struct induction *, rtx, rtx, rtx, rtx, rtx *,
+				int, int));
 static void check_final_value PARAMS ((const struct loop *,
 				       struct induction *));
 static void record_giv PARAMS ((const struct loop *, struct induction *, 
@@ -275,7 +275,7 @@ static void record_giv PARAMS ((const struct loop *, struct induction *,
 static void update_giv_derive PARAMS ((const struct loop *, rtx));
 static int basic_induction_var PARAMS ((const struct loop *, rtx, 
 					enum machine_mode, rtx, rtx,
-					rtx *, rtx *, rtx **, int *));
+					rtx *, rtx *, rtx **));
 static rtx simplify_giv_expr PARAMS ((const struct loop *, rtx, int *));
 static int general_induction_var PARAMS ((const struct loop *loop, rtx, rtx *,
 					  rtx *, rtx *, int, int *, enum machine_mode));
@@ -668,7 +668,7 @@ scan_loop (loop, flags)
       loop_entry_jump = p;
 
       /* Loop entry must be unconditional jump (and not a RETURN)  */
-      if (simplejump_p (p)
+      if (any_uncondjump_p (p)
 	  && JUMP_LABEL (p) != 0
 	  /* Check to see whether the jump actually
 	     jumps out of the loop (meaning it's no loop).
@@ -1074,7 +1074,7 @@ scan_loop (loop, flags)
 		  followed a by barrier then loop end.  */
                && ! (GET_CODE (p) == JUMP_INSN && JUMP_LABEL (p) == loop->top
 		     && NEXT_INSN (NEXT_INSN (p)) == loop_end
-		     && simplejump_p (p)))
+		     && any_uncondjump_p (p)))
 	maybe_never = 1;
       else if (GET_CODE (p) == NOTE)
 	{
@@ -2569,8 +2569,7 @@ verify_dominator (loop)
 	     which we do not have jump target information in the JUMP_LABEL
 	     field (consider ADDR_VEC and ADDR_DIFF_VEC insns), then clear
 	     LOOP->CONT_DOMINATOR.  */
-	  if ((! condjump_p (insn)
-	       && ! condjump_in_parallel_p (insn))
+	  if (! any_condjump_p (insn)
 	      || label == NULL_RTX)
 	    {
 	      loop->cont_dominator = NULL_RTX;
@@ -2666,7 +2665,7 @@ find_and_verify_loops (f, loops)
 	{
 	  rtx label = JUMP_LABEL (insn);
 
-	  if (! condjump_p (insn) && ! condjump_in_parallel_p (insn))
+	  if (! any_condjump_p (insn))
 	    label = NULL_RTX;
 
 	  loop = current_loop;
@@ -2760,7 +2759,8 @@ find_and_verify_loops (f, loops)
 	/* See if this is an unconditional branch outside the loop.  */
 	if (this_loop
 	    && (GET_CODE (PATTERN (insn)) == RETURN
-		|| (simplejump_p (insn)
+		|| (any_uncondjump_p (insn)
+		    && onlyjump_p (insn)
 		    && (uid_loop[INSN_UID (JUMP_LABEL (insn))]
 			!= this_loop)))
 	    && get_max_uid () < max_uid_for_loop)
@@ -2817,8 +2817,7 @@ find_and_verify_loops (f, loops)
 		/* Just ignore jumps to labels that were never emitted.
 		   These always indicate compilation errors.  */
 		&& INSN_UID (JUMP_LABEL (p)) != 0
-		&& condjump_p (p)
-		&& ! simplejump_p (p)
+		&& any_condjump_p (p) && onlyjump_p (p)
 		&& next_real_insn (JUMP_LABEL (p)) == our_next
 		/* If it's not safe to move the sequence, then we
 		   mustn't try.  */
@@ -2865,86 +2864,86 @@ find_and_verify_loops (f, loops)
 
 		    /* Verify that uid_loop is large enough and that
 		       we can invert P.  */
-		   if (invert_jump (p, new_label))
-		     {
-		       rtx q, r;
+		    if (invert_jump (p, new_label, 1))
+		      {
+			rtx q, r;
 
-		       /* If no suitable BARRIER was found, create a suitable
-			  one before TARGET.  Since TARGET is a fall through
-			  path, we'll need to insert an jump around our block
-			  and a add a BARRIER before TARGET.
+			/* If no suitable BARRIER was found, create a suitable
+			   one before TARGET.  Since TARGET is a fall through
+			   path, we'll need to insert an jump around our block
+			   and a add a BARRIER before TARGET.
 
-			  This creates an extra unconditional jump outside
-			  the loop.  However, the benefits of removing rarely
-			  executed instructions from inside the loop usually
-			  outweighs the cost of the extra unconditional jump
-			  outside the loop.  */
-		       if (loc == 0)
-			 {
-			   rtx temp;
+			   This creates an extra unconditional jump outside
+			   the loop.  However, the benefits of removing rarely
+			   executed instructions from inside the loop usually
+			   outweighs the cost of the extra unconditional jump
+			   outside the loop.  */
+			if (loc == 0)
+			  {
+			    rtx temp;
 
-		           temp = gen_jump (JUMP_LABEL (insn));
-			   temp = emit_jump_insn_before (temp, target);
-			   JUMP_LABEL (temp) = JUMP_LABEL (insn);
-			   LABEL_NUSES (JUMP_LABEL (insn))++;
-			   loc = emit_barrier_before (target);
-			 }
+			    temp = gen_jump (JUMP_LABEL (insn));
+			    temp = emit_jump_insn_before (temp, target);
+			    JUMP_LABEL (temp) = JUMP_LABEL (insn);
+			    LABEL_NUSES (JUMP_LABEL (insn))++;
+			    loc = emit_barrier_before (target);
+			  }
 
-		       /* Include the BARRIER after INSN and copy the
-			  block after LOC.  */
-		       new_label = squeeze_notes (new_label, 
-						  last_insn_to_move);
-		       reorder_insns (new_label, last_insn_to_move, loc);
+			/* Include the BARRIER after INSN and copy the
+			   block after LOC.  */
+			new_label = squeeze_notes (new_label, 
+						   last_insn_to_move);
+			reorder_insns (new_label, last_insn_to_move, loc);
 
-		       /* All those insns are now in TARGET_LOOP.  */
-		       for (q = new_label; 
-			    q != NEXT_INSN (last_insn_to_move);
-			    q = NEXT_INSN (q))
-			 uid_loop[INSN_UID (q)] = target_loop;
+			/* All those insns are now in TARGET_LOOP.  */
+			for (q = new_label; 
+			     q != NEXT_INSN (last_insn_to_move);
+			     q = NEXT_INSN (q))
+			  uid_loop[INSN_UID (q)] = target_loop;
 
-		       /* The label jumped to by INSN is no longer a loop exit.
-			  Unless INSN does not have a label (e.g., it is a
-			  RETURN insn), search loop->exit_labels to find
-			  its label_ref, and remove it.  Also turn off
-			  LABEL_OUTSIDE_LOOP_P bit.  */
-		       if (JUMP_LABEL (insn))
-			 {
-			   for (q = 0,
-				r = this_loop->exit_labels;
-				r; q = r, r = LABEL_NEXTREF (r))
-			     if (XEXP (r, 0) == JUMP_LABEL (insn))
-			       {
-				 LABEL_OUTSIDE_LOOP_P (r) = 0;
-				 if (q)
-				   LABEL_NEXTREF (q) = LABEL_NEXTREF (r);
-				 else
-				   this_loop->exit_labels = LABEL_NEXTREF (r);
-				 break;
-			       }
+			/* The label jumped to by INSN is no longer a loop
+			   exit.  Unless INSN does not have a label (e.g.,
+			   it is a RETURN insn), search loop->exit_labels
+			   to find its label_ref, and remove it.  Also turn
+			   off LABEL_OUTSIDE_LOOP_P bit.  */
+			if (JUMP_LABEL (insn))
+			  {
+			    for (q = 0,
+				   r = this_loop->exit_labels;
+				 r; q = r, r = LABEL_NEXTREF (r))
+			      if (XEXP (r, 0) == JUMP_LABEL (insn))
+				{
+				  LABEL_OUTSIDE_LOOP_P (r) = 0;
+				  if (q)
+				    LABEL_NEXTREF (q) = LABEL_NEXTREF (r);
+				  else
+				    this_loop->exit_labels = LABEL_NEXTREF (r);
+				  break;
+				}
 
-			   for (loop = this_loop; loop && loop != target_loop;
-				loop = loop->outer)
-			     loop->exit_count--;
+			    for (loop = this_loop; loop && loop != target_loop;
+				 loop = loop->outer)
+			      loop->exit_count--;
 
-			   /* If we didn't find it, then something is
-                              wrong.  */
-			   if (! r)
-			     abort ();
-			 }
+			    /* If we didn't find it, then something is
+			       wrong.  */
+			    if (! r)
+			      abort ();
+			  }
 
-		       /* P is now a jump outside the loop, so it must be put
-			  in loop->exit_labels, and marked as such.
-			  The easiest way to do this is to just call
-			  mark_loop_jump again for P.  */
-		       mark_loop_jump (PATTERN (p), this_loop);
+			/* P is now a jump outside the loop, so it must be put
+			   in loop->exit_labels, and marked as such.
+			   The easiest way to do this is to just call
+			   mark_loop_jump again for P.  */
+			mark_loop_jump (PATTERN (p), this_loop);
 
-		       /* If INSN now jumps to the insn after it,
-			  delete INSN.  */
-		       if (JUMP_LABEL (insn) != 0
-			   && (next_real_insn (JUMP_LABEL (insn))
-			       == next_real_insn (insn)))
-			 delete_insn (insn);
-		     }
+			/* If INSN now jumps to the insn after it,
+			   delete INSN.  */
+			if (JUMP_LABEL (insn) != 0
+			    && (next_real_insn (JUMP_LABEL (insn))
+				== next_real_insn (insn)))
+			  delete_insn (insn);
+		      }
 
 		    /* Continue the loop after where the conditional
 		       branch used to jump, since the only branch insn
@@ -3757,7 +3756,7 @@ for_each_insn_in_loop (loop, fncall)
 
 	      if (GET_CODE (insn) == JUMP_INSN
 		  && GET_CODE (PATTERN (insn)) != RETURN
-		  && (!condjump_p (insn)
+		  && (!any_condjump_p (insn)
 		      || (JUMP_LABEL (insn) != 0
 			  && JUMP_LABEL (insn) != loop->scan_start
 			  && !loop_insn_first_p (p, JUMP_LABEL (insn)))))
@@ -3778,8 +3777,9 @@ for_each_insn_in_loop (loop, fncall)
          This can be any kind of jump, since we want to know if insns
          will be executed if the loop is executed.  */
 	  && !(JUMP_LABEL (p) == loop->top
-	     && ((NEXT_INSN (NEXT_INSN (p)) == loop->end && simplejump_p (p))
-		 || (NEXT_INSN (p) == loop->end && condjump_p (p)))))
+	     && ((NEXT_INSN (NEXT_INSN (p)) == loop->end
+		  && any_uncondjump_p (p))
+		 || (NEXT_INSN (p) == loop->end && any_condjump_p (p)))))
 	{
 	  rtx label = 0;
 
@@ -3906,8 +3906,6 @@ strength_reduce (loop, insn_count, flags)
      Make a sanity check against n_times_set.  */
   for (backbl = &loop_iv_list, bl = *backbl; bl; bl = bl->next)
     {
-      int fail = 0;
-
       if (REG_IV_TYPE (bl->regno) != BASIC_INDUCT
 	  /* Above happens if register modified by subreg, etc.  */
 	  /* Make sure it is not recognized as a basic induction var: */
@@ -3915,21 +3913,6 @@ strength_reduce (loop, insn_count, flags)
 	  /* If never incremented, it is invariant that we decided not to
 	     move.  So leave it alone.  */
 	  || ! bl->incremented)
-	fail = 1;
-      else if (bl->biv_count > 1)
-	{
-	  /* ??? If we have multiple increments for this BIV, and any of
-	     them take multiple insns to perform the increment, drop the
-	     BIV, since the bit below that converts the extra increments
-	     into GIVs can't handle the multiple insn increment.  */
-	  
-	  struct induction *v;
-	  for (v = bl->biv; v ; v = v->next_iv)
-	    if (v->multi_insn_incr)
-	      fail = 1;
-	}
-
-      if (fail)
 	{
 	  if (loop_dump_stream)
 	    fprintf (loop_dump_stream, "Reg %d: biv discarded, %s\n",
@@ -4228,6 +4211,7 @@ strength_reduce (loop, insn_count, flags)
 	      HOST_WIDE_INT offset;
 	      rtx set, add_val, old_reg, dest_reg, last_use_insn, note;
 	      int old_regno, new_regno;
+	      rtx next_loc_insn;
 
 	      if (! v->always_executed
 		  || v->maybe_multiple
@@ -4262,7 +4246,17 @@ strength_reduce (loop, insn_count, flags)
 		  VARRAY_GROW (reg_single_usage, nregs);
 		}
     
-	      if (! validate_change (next->insn, next->location, add_val, 0))
+	      /* Some bivs are incremented with a multi-insn sequence.
+		 The first insn contains the add.  */
+	      next_loc_insn = next->insn;
+	      while (! loc_mentioned_in_p (next->location,
+					   PATTERN (next_loc_insn)))
+		next_loc_insn = PREV_INSN (next_loc_insn);
+
+	      if (next_loc_insn == v->insn)
+		abort ();
+
+	      if (! validate_change (next_loc_insn, next->location, add_val, 0))
 		{
 		  vp = &v->next_iv;
 		  continue;
@@ -4274,7 +4268,7 @@ strength_reduce (loop, insn_count, flags)
 	      /* Set last_use_insn so that we can check against it.  */
 
 	      for (last_use_insn = v->insn, p = NEXT_INSN (v->insn);
-		   p != next->insn;
+		   p != next_loc_insn;
 		   p = next_insn_in_loop (loop, p))
 		{
 		  if (!INSN_P (p))
@@ -4294,7 +4288,7 @@ strength_reduce (loop, insn_count, flags)
 		  || ! validate_change (v->insn, &SET_DEST (set), dest_reg, 0))
 		{
 		  /* Change the increment at NEXT back to what it was.  */
-		  if (! validate_change (next->insn, next->location,
+		  if (! validate_change (next_loc_insn, next->location,
 		      next->add_val, 0))
 		    abort ();
 		  vp = &v->next_iv;
@@ -4353,7 +4347,7 @@ strength_reduce (loop, insn_count, flags)
 		 the replaced increment and the next increment, and
 		 remember the last insn that needed a replacement.  */
 	      for (last_use_insn = v->insn, p = NEXT_INSN (v->insn);
-		   p != next->insn;
+		   p != next_loc_insn;
 		   p = next_insn_in_loop (loop, p))
 		{
 		  rtx note;
@@ -4384,7 +4378,7 @@ strength_reduce (loop, insn_count, flags)
 
 	      if (loop_dump_stream)
 		fprintf (loop_dump_stream,
-			 "Increment %d of biv %d converted to giv %d.\n",
+			 "Increment %d of biv %d converted to giv %d.\n\n",
 			 INSN_UID (v->insn), old_regno, new_regno);
 	    }
 	}
@@ -5072,12 +5066,10 @@ check_insn_for_bivs (loop, p, not_every_iteration, maybe_multiple)
 	  && REGNO (dest_reg) >= FIRST_PSEUDO_REGISTER
 	  && REG_IV_TYPE (REGNO (dest_reg)) != NOT_BASIC_INDUCT)
 	{
-	  int multi_insn_incr = 0;
-
 	  if (basic_induction_var (loop, SET_SRC (set),
 				   GET_MODE (SET_SRC (set)),
 				   dest_reg, p, &inc_val, &mult_val,
-				   &location, &multi_insn_incr))
+				   &location))
 	    {
 	      /* It is a possible basic induction variable.
 	         Create and initialize an induction structure for it.  */
@@ -5086,8 +5078,7 @@ check_insn_for_bivs (loop, p, not_every_iteration, maybe_multiple)
 	      = (struct induction *) oballoc (sizeof (struct induction));
 
 	      record_biv (v, p, dest_reg, inc_val, mult_val, location,
-			  not_every_iteration, maybe_multiple,
-			  multi_insn_incr);
+			  not_every_iteration, maybe_multiple);
 	      REG_IV_TYPE (REGNO (dest_reg)) = BASIC_INDUCT;
 	    }
 	  else if (REGNO (dest_reg) < max_reg_before_loop)
@@ -5321,7 +5312,7 @@ find_mem_givs (loop, x, insn, not_every_iteration, maybe_multiple)
 
 static void
 record_biv (v, insn, dest_reg, inc_val, mult_val, location,
-	    not_every_iteration, maybe_multiple, multi_insn_incr)
+	    not_every_iteration, maybe_multiple)
      struct induction *v;
      rtx insn;
      rtx dest_reg;
@@ -5330,7 +5321,6 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
      rtx *location;
      int not_every_iteration;
      int maybe_multiple;
-     int multi_insn_incr;
 {
   struct iv_class *bl;
 
@@ -5344,7 +5334,6 @@ record_biv (v, insn, dest_reg, inc_val, mult_val, location,
   v->always_computable = ! not_every_iteration;
   v->always_executed = ! not_every_iteration;
   v->maybe_multiple = maybe_multiple;
-  v->multi_insn_incr = multi_insn_incr;
 
   /* Add this to the reg's iv_class, creating a class
      if this is the first incrementation of the reg.  */
@@ -5457,7 +5446,6 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
   v->cant_derive = 0;
   v->combined_with = 0;
   v->maybe_multiple = maybe_multiple;
-  v->multi_insn_incr = 0;
   v->maybe_dead = 0;
   v->derive_adjustment = 0;
   v->same = 0;
@@ -5949,8 +5937,7 @@ update_giv_derive (loop, p)
    If we cannot find a biv, we return 0.  */
 
 static int
-basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val,
-		     location, multi_insn_incr)
+basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val, location)
      const struct loop *loop;
      register rtx x;
      enum machine_mode mode;
@@ -5959,7 +5946,6 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val,
      rtx *inc_val;
      rtx *mult_val;
      rtx **location;
-     int *multi_insn_incr;
 {
   register enum rtx_code code;
   rtx *argp, arg;
@@ -6002,13 +5988,17 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val,
       if (SUBREG_PROMOTED_VAR_P (x))
 	return basic_induction_var (loop, SUBREG_REG (x),
 				    GET_MODE (SUBREG_REG (x)),
-				    dest_reg, p, inc_val, mult_val, location,
-				    multi_insn_incr);
+				    dest_reg, p, inc_val, mult_val, location);
       return 0;
 
     case REG:
       /* If this register is assigned in a previous insn, look at its
 	 source, but don't go outside the loop or past a label.  */
+
+      /* If this sets a register to itself, we would repeat any previous
+	 biv increment if we applied this strategy blindly.  */
+      if (rtx_equal_p (dest_reg, x))
+	return 0;
 
       insn = p;
       while (1)
@@ -6036,12 +6026,8 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val,
 				       ? GET_MODE (x)
 				       : GET_MODE (SET_SRC (set))),
 				      dest_reg, insn,
-				      inc_val, mult_val, location,
-				      multi_insn_incr))
-	    {
-	      *multi_insn_incr = 1;
-	      return 1;
-	    }
+				      inc_val, mult_val, location))
+	    return 1;
 	}
       /* ... fall through ...  */
 
@@ -6072,8 +6058,7 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val,
 
     case SIGN_EXTEND:
       return basic_induction_var (loop, XEXP (x, 0), GET_MODE (XEXP (x, 0)),
-				  dest_reg, p, inc_val, mult_val, location,
-				  multi_insn_incr);
+				  dest_reg, p, inc_val, mult_val, location);
 
     case ASHIFTRT:
       /* Similar, since this can be a sign extension.  */
@@ -6086,19 +6071,16 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val,
       if (insn)
 	set = single_set (insn);
 
-      if (set && SET_DEST (set) == XEXP (x, 0)
+      if (! rtx_equal_p (dest_reg, XEXP (x, 0))
+	  && set && SET_DEST (set) == XEXP (x, 0)
 	  && GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && INTVAL (XEXP (x, 1)) >= 0
 	  && GET_CODE (SET_SRC (set)) == ASHIFT
-	  && XEXP (x, 1) == XEXP (SET_SRC (set), 1)
-	  && basic_induction_var (loop, XEXP (SET_SRC (set), 0),
-				  GET_MODE (XEXP (x, 0)),
-				  dest_reg, insn, inc_val, mult_val,
-				  location, multi_insn_incr))
-	{
-	  *multi_insn_incr = 1;
-	  return 1;
-	}
+	  && XEXP (x, 1) == XEXP (SET_SRC (set), 1))
+	return basic_induction_var (loop, XEXP (SET_SRC (set), 0),
+				    GET_MODE (XEXP (x, 0)),
+				    dest_reg, insn, inc_val, mult_val,
+				    location);
       return 0;
 
     default:
@@ -7800,6 +7782,8 @@ check_dbra_loop (loop, insn_count)
   comparison = get_condition_for_loop (loop, jump);
   if (comparison == 0)
     return 0;
+  if (!onlyjump_p (jump))
+    return 0;
 
   /* Try to compute whether the compare/branch at the loop end is one or
      two instructions.  */
@@ -9207,19 +9191,21 @@ get_condition (jump, earliest)
 {
   rtx cond;
   int reverse;
+  rtx set;
 
   /* If this is not a standard conditional jump, we can't parse it.  */
   if (GET_CODE (jump) != JUMP_INSN
-      || ! condjump_p (jump) || simplejump_p (jump))
+      || ! any_condjump_p (jump))
     return 0;
+  set = pc_set (jump);
 
-  cond = XEXP (SET_SRC (PATTERN (jump)), 0);
+  cond = XEXP (SET_SRC (set), 0);
 
   /* If this branches to JUMP_LABEL when the condition is false, reverse
      the condition.  */
   reverse
-    = GET_CODE (XEXP (SET_SRC (PATTERN (jump)), 2)) == LABEL_REF
-      && XEXP (XEXP (SET_SRC (PATTERN (jump)), 2), 0) == JUMP_LABEL (jump);
+    = GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
+      && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump);
 
   return canonicalize_condition (jump, cond, reverse, earliest, NULL_RTX);
 }
@@ -9294,8 +9280,8 @@ insert_bct (loop)
 
   /* Make sure that the last loop insn is a conditional jump.  */
   if (GET_CODE (PREV_INSN (loop_end)) != JUMP_INSN
-      || ! condjump_p (PREV_INSN (loop_end))
-      || simplejump_p (PREV_INSN (loop_end)))
+      || ! onlyjump_p (PREV_INSN (loop_end))
+      || ! any_condjump_p (PREV_INSN (loop_end)))
     {
       if (loop_dump_stream)
 	fprintf (loop_dump_stream,
@@ -9517,12 +9503,15 @@ instrument_loop_bct (loop_start, loop_end, loop_num_iterations)
       /* Insert new comparison on the count register instead of the
 	 old one, generating the needed BCT pattern (that will be
 	 later recognized by assembly generation phase).  */
-      emit_jump_insn_before (gen_decrement_and_branch_on_count (counter_reg,
-								start_label),
-			     loop_end);
+      sequence = emit_jump_insn_before (
+	gen_decrement_and_branch_on_count (counter_reg, start_label),
+	loop_end);
+
+      if (GET_CODE (sequence) != JUMP_INSN)
+	abort ();
+      JUMP_LABEL (sequence) = start_label;
       LABEL_NUSES (start_label)++;
     }
-
 }
 #endif /* HAVE_decrement_and_branch_on_count */
 
@@ -9730,9 +9719,9 @@ load_mems (loop)
 	       && ! (GET_CODE (p) == JUMP_INSN 
 		     && JUMP_LABEL (p) == loop->top
 		     && NEXT_INSN (NEXT_INSN (p)) == loop->end
-		     && simplejump_p (p)))
+		     && any_uncondjump_p (p)))
 	{
-	  if (!condjump_p (p))
+	  if (!any_condjump_p (p))
 	    /* Something complicated.  */
 	    maybe_never = 1;
 	  else

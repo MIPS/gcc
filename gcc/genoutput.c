@@ -158,6 +158,7 @@ struct data
   const char *template;
   int code_number;
   int index_number;
+  int lineno;
   int n_operands;		/* Number of operands this insn recognizes */
   int n_dups;			/* Number times match_dup appears in pattern */
   int n_alternatives;		/* Number of alternatives in each constraint */
@@ -181,10 +182,10 @@ static int compare_operands PARAMS ((struct operand_data *,
 static void place_operands PARAMS ((struct data *));
 static void process_template PARAMS ((struct data *, const char *));
 static void validate_insn_alternatives PARAMS ((struct data *));
-static void gen_insn PARAMS ((rtx));
-static void gen_peephole PARAMS ((rtx));
-static void gen_expand PARAMS ((rtx));
-static void gen_split PARAMS ((rtx));
+static void gen_insn PARAMS ((rtx, int));
+static void gen_peephole PARAMS ((rtx, int));
+static void gen_expand PARAMS ((rtx, int));
+static void gen_split PARAMS ((rtx, int));
 
 const char *
 get_insn_name (index)
@@ -213,7 +214,7 @@ static void
 output_prologue ()
 {
   printf ("/* Generated automatically by the program `genoutput'\n\
-from the machine description file `md'.  */\n\n");
+   from the machine description file `md'.  */\n\n");
 
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
@@ -421,13 +422,18 @@ scan_operands (d, part, this_address_p, this_strict_low)
 	max_opno = opno;
       if (max_opno >= MAX_MAX_OPERANDS)
 	{
-	  error ("Too many operands (%d) in definition %s.\n",
-		 max_opno + 1, get_insn_name (next_index_number));
+	  message_with_line (d->lineno,
+			     "maximum number of operands exceeded");
+	  have_error = 1;
 	  return;
 	}
       if (d->operand[opno].seen)
-	error ("Definition %s specified operand number %d more than once.\n",
-	       get_insn_name (next_index_number), opno);
+	{
+	  message_with_line (d->lineno,
+			     "repeated operand number %d\n", opno);
+	  have_error = 1;
+	}
+
       d->operand[opno].seen = 1;
       d->operand[opno].mode = GET_MODE (part);
       d->operand[opno].strict_low = this_strict_low;
@@ -445,13 +451,18 @@ scan_operands (d, part, this_address_p, this_strict_low)
 	max_opno = opno;
       if (max_opno >= MAX_MAX_OPERANDS)
 	{
-	  error ("Too many operands (%d) in definition %s.\n",
-		 max_opno + 1, get_insn_name (next_index_number));
+	  message_with_line (d->lineno,
+			     "maximum number of operands exceeded");
+	  have_error = 1;
 	  return;
 	}
       if (d->operand[opno].seen)
-	error ("Definition %s specified operand number %d more than once.\n",
-	       get_insn_name (next_index_number), opno);
+	{
+	  message_with_line (d->lineno,
+			     "repeated operand number %d\n", opno);
+	  have_error = 1;
+	}
+
       d->operand[opno].seen = 1;
       d->operand[opno].mode = GET_MODE (part);
       d->operand[opno].strict_low = 0;
@@ -470,13 +481,18 @@ scan_operands (d, part, this_address_p, this_strict_low)
 	max_opno = opno;
       if (max_opno >= MAX_MAX_OPERANDS)
 	{
-	  error ("Too many operands (%d) in definition %s.\n",
-		 max_opno + 1, get_insn_name (next_index_number));
+	  message_with_line (d->lineno,
+			     "maximum number of operands exceeded");
+	  have_error = 1;
 	  return;
 	}
       if (d->operand[opno].seen)
-	error ("Definition %s specified operand number %d more than once.\n",
-	       get_insn_name (next_index_number), opno);
+	{
+	  message_with_line (d->lineno,
+			     "repeated operand number %d\n", opno);
+	  have_error = 1;
+	}
+
       d->operand[opno].seen = 1;
       d->operand[opno].mode = GET_MODE (part);
       d->operand[opno].strict_low = 0;
@@ -695,8 +711,12 @@ validate_insn_alternatives (d)
 	if (n == 0)
 	  n = d->operand[start].n_alternatives;
 	else if (n != d->operand[start].n_alternatives)
-	  error ("wrong number of alternatives in operand %d of insn %s",
-		 start, get_insn_name (d->index_number));
+	  {
+	    message_with_line (d->lineno,
+			       "wrong number of alternatives in operand %d",
+			       start);
+	    have_error = 1;
+	  }
       }
 
   /* Record the insn's overall number of alternatives.  */
@@ -708,14 +728,16 @@ validate_insn_alternatives (d)
    a hairy output action, output a function for now.  */
 
 static void
-gen_insn (insn)
+gen_insn (insn, lineno)
      rtx insn;
+     int lineno;
 {
   register struct data *d = (struct data *) xmalloc (sizeof (struct data));
   register int i;
 
   d->code_number = next_code_number;
   d->index_number = next_index_number;
+  d->lineno = lineno;
   if (XSTR (insn, 0)[0])
     d->name = XSTR (insn, 0);
   else
@@ -747,14 +769,16 @@ gen_insn (insn)
    If the insn has a hairy output action, output it now.  */
 
 static void
-gen_peephole (peep)
+gen_peephole (peep, lineno)
      rtx peep;
+     int lineno;
 {
   register struct data *d = (struct data *) xmalloc (sizeof (struct data));
   register int i;
 
   d->code_number = next_code_number;
   d->index_number = next_index_number;
+  d->lineno = lineno;
   d->name = 0;
 
   /* Build up the list in the same order as the insns are seen
@@ -785,14 +809,16 @@ gen_peephole (peep)
    only for the purposes of `insn_gen_function'.  */
 
 static void
-gen_expand (insn)
+gen_expand (insn, lineno)
      rtx insn;
+     int lineno;
 {
   register struct data *d = (struct data *) xmalloc (sizeof (struct data));
   register int i;
 
   d->code_number = next_code_number;
   d->index_number = next_index_number;
+  d->lineno = lineno;
   if (XSTR (insn, 0)[0])
     d->name = XSTR (insn, 0);
   else
@@ -828,14 +854,16 @@ gen_expand (insn)
    only for reasons of consistency and to simplify genrecog.  */
 
 static void
-gen_split (split)
+gen_split (split, lineno)
      rtx split;
+     int lineno;
 {
   register struct data *d = (struct data *) xmalloc (sizeof (struct data));
   register int i;
 
   d->code_number = next_code_number;
   d->index_number = next_index_number;
+  d->lineno = lineno;
   d->name = 0;
 
   /* Build up the list in the same order as the insns are seen
@@ -895,14 +923,14 @@ main (argc, argv)
 	break;
 
       if (GET_CODE (desc) == DEFINE_INSN)
-	gen_insn (desc);
+	gen_insn (desc, line_no);
       if (GET_CODE (desc) == DEFINE_PEEPHOLE)
-	gen_peephole (desc);
+	gen_peephole (desc, line_no);
       if (GET_CODE (desc) == DEFINE_EXPAND)
-	gen_expand (desc);
+	gen_expand (desc, line_no);
       if (GET_CODE (desc) == DEFINE_SPLIT
  	  || GET_CODE (desc) == DEFINE_PEEPHOLE2)
-	gen_split (desc);
+	gen_split (desc, line_no);
       next_index_number++;
     }
 

@@ -1406,14 +1406,15 @@ preserve the entire contents of a register across a call.
 @findex fixed_regs
 @findex call_used_regs
 @item CONDITIONAL_REGISTER_USAGE
-Zero or more C statements that may conditionally modify four variables
-@code{fixed_regs}, @code{call_used_regs}, @code{global_regs}
-(these three are of type @code{char []}) and @code{reg_class_contents}
-(of type @code{HARD_REG_SET}).
+Zero or more C statements that may conditionally modify five variables
+@code{fixed_regs}, @code{call_used_regs}, @code{global_regs},
+(these three are of type @code{char []}), @code{reg_names} (of type
+@code{const char * []}) and @code{reg_class_contents} (of type
+@code{HARD_REG_SET}).
 Before the macro is called @code{fixed_regs}, @code{call_used_regs}
-and @code{reg_class_contents} have been initialized from 
-@code{FIXED_REGISTERS}, @code{CALL_USED_REGISTERS} and
-@code{REG_CLASS_CONTENTS}, respectively,
+@code{reg_class_contents} and @code{reg_names} have been initialized
+from @code{FIXED_REGISTERS}, @code{CALL_USED_REGISTERS},
+@code{REG_CLASS_CONTENTS} and @code{REGISTER_NAMES}, respectively, 
 @code{global_regs} has been cleared, and any @samp{-ffixed-@var{reg}},
 @samp{-fcall-used-@var{reg}} and @samp{-fcall-saved-@var{reg}} command
 options have been applied.
@@ -2170,6 +2171,7 @@ This describes the stack layout and calling conventions.
 * Function Entry::
 * Profiling::
 * Inlining::
+* Tail Calling::
 @end menu
 
 @node Frame Layout
@@ -3682,6 +3684,24 @@ defines the @samp{FUNCTION_ATTRIBUTE_INLINABLE_P} macro.  This macro
 takes one argument, a @samp{DECL} describing the function.  It should
 return non-zero if the function can be inlined, otherwise it should
 return 0.
+
+@node Tail Calling
+@subsection Permitting tail calls to functions
+@cindex tail calls
+@cindex sibling calls
+
+@table @code
+@findex FUNCTION_OK_FOR_SIBCALL
+@item FUNCTION_OK_FOR_SIBCALL (@var{decl})
+A C expression that evaluates to true if it is ok to perform a sibling
+call to @var{decl}.  
+
+It is not uncommon for limitations of calling conventions to prevent
+tail calls to functions outside the current unit of translation, or
+during PIC compilation.  Use this macro to enforce these restrictions,
+as the @code{sibcall} md pattern can not fail, or fall over to a 
+``normal'' call.
+@end table
 
 @node Varargs
 @section Implementing the Varargs Macros
@@ -7274,7 +7294,7 @@ return non-zero for any @var{entity} that that needs mode-switching.
 If you define this macro, you also have to define
 @code{NUM_MODES_FOR_MODE_SWITCHING}, @code{MODE_NEEDED},
 @code{MODE_PRIORITY_TO_MODE} and @code{EMIT_MODE_SET}.
-@code{MODE_AT_ENTRY} and @code{MODE_USES_IN_EXIT_BLOCK} are optional.
+@code{NORMAL_MODE} is optional.
 
 @findex NUM_MODES_FOR_MODE_SWITCHING
 @item NUM_MODES_FOR_MODE_SWITCHING
@@ -7289,15 +7309,6 @@ In macros that take mode arguments / yield a mode result, modes are
 represented as numbers 0 .. N - 1.  N is used to specify that no mode
 switch is needed / supplied.
 
-@findex MODE_USES_IN_EXIT_BLOCK
-@item MODE_USES_IN_EXIT_BLOCK
-If this macro is defined, it is called for each exit block when mode switching
-optimization is performed.  Its return value should be the pattern of an insn,
-or a sequence of insns.  It is emitted before the return insn / use insns at
-the end of the exit block.
-
-This is done before insns are examined for their need of any mode switching.
-
 @findex MODE_NEEDED
 @item MODE_NEEDED (@var{entity}, @var{insn})
 @var{entity} is an integer specifying a mode-switched entity.  If
@@ -7306,11 +7317,11 @@ return an integer value not larger than the corresponding element in
 NUM_MODES_FOR_MODE_SWITCHING, to denote the mode that @var{entity} must
 be switched into prior to the execution of INSN.
 
-@findex MODE_AT_ENTRY
-@item MODE_AT_ENTRY (@var{entity})
+@findex NORMAL_MODE 
+@item NORMAL_MODE (@var{entity})
 If this macro is defined, it is evaluated for every @var{entity} that needs
 mode switching.  It should evaluate to an integer, which is a mode that
-@var{entity} is assumed to be switched to at function entry.
+@var{entity} is assumed to be switched to at function entry and exit.
 
 @findex MODE_PRIORITY_TO_MODE
 @item MODE_PRIORITY_TO_MODE (@var{entity}, @var{n})

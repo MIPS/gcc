@@ -140,7 +140,8 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 /* Last insn processed by final_scan_insn.  */
-static rtx debug_insn = 0;
+static rtx debug_insn;
+rtx current_output_insn;
 
 /* Line number of last NOTE.  */
 static int last_linenum;
@@ -159,7 +160,7 @@ static const char *last_filename;
 static int count_basic_blocks;
 
 /* Number of instrumented arcs when profile_arc_flag is set.  */
-extern int count_instrumented_arcs;
+extern int count_instrumented_edges;
 
 extern int length_unit_log; /* This is defined in insn-attrtab.c.  */
 
@@ -333,7 +334,7 @@ end_final (filename)
       if (profile_block_flag)
 	size = long_bytes * count_basic_blocks;
       else
-	size = long_bytes * count_instrumented_arcs;
+	size = long_bytes * count_instrumented_edges;
       rounded = size;
 
       rounded += (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1;
@@ -376,8 +377,7 @@ end_final (filename)
       if (profile_block_flag)
 	assemble_integer (GEN_INT (count_basic_blocks), long_bytes, 1);
       else
-	assemble_integer (GEN_INT (count_instrumented_arcs), long_bytes,
-			  1);
+	assemble_integer (GEN_INT (count_instrumented_edges), long_bytes, 1);
 
       /* zero word (link field) */
       assemble_integer (const0_rtx, pointer_bytes, 1);
@@ -1780,7 +1780,7 @@ profile_function (file)
 void
 final_end_function (first, file, optimize)
      rtx first ATTRIBUTE_UNUSED;
-     FILE *file;
+     FILE *file ATTRIBUTE_UNUSED;
      int optimize ATTRIBUTE_UNUSED;
 {
   app_disable ();
@@ -1827,6 +1827,10 @@ final_end_function (first, file, optimize)
 #endif
 
   bb_func_label_num = -1;	/* not in function, nuke label # */
+
+#ifdef IA64_UNWIND_INFO
+  output_function_exception_table ();
+#endif
 
   /* If FUNCTION_EPILOGUE is not defined, then the function body
      itself contains return instructions wherever needed.  */
@@ -2140,8 +2144,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  break;
 
 	case NOTE_INSN_FUNCTION_BEG:
-	  if (write_symbols == NO_DEBUG)
-	    break;
 #if defined(SDB_DEBUGGING_INFO) && defined(MIPS_DEBUGGING_INFO)
 	  /* MIPS stabs require the parameter descriptions to be after the
 	     function entry point rather than before.  */
@@ -2150,7 +2152,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      app_disable ();
 	      sdbout_begin_function (last_linenum);
 	    }
-	  else
 #endif
 #ifdef DWARF_DEBUGGING_INFO
 	  /* This outputs a marker where the function body starts, so it
@@ -2926,7 +2927,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	NOTICE_UPDATE_CC (body, insn);
 #endif
 
-	debug_insn = insn;
+	current_output_insn = debug_insn = insn;
 
 #if defined (DWARF2_UNWIND_INFO)
 	/* If we push arguments, we want to know where the calls are.  */
@@ -2973,6 +2974,9 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	if (prescan > 0)
 	  break;
 
+#ifdef IA64_UNWIND_INFO
+	IA64_UNWIND_EMIT (asm_out_file, insn);
+#endif
 	/* Output assembler code from the template.  */
 
 	output_asm_insn (template, recog_data.operand);
@@ -3005,7 +3009,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	INSN_DELETED_P (insn) = 1;
 #endif
 
-	debug_insn = 0;
+	current_output_insn = debug_insn = 0;
       }
     }
   return NEXT_INSN (insn);
@@ -3925,25 +3929,50 @@ split_double (value, first, second)
 	  /* In this case the CONST_INT holds both target words.
 	     Extract the bits from it into two word-sized pieces.
 	     Sign extend each half to HOST_WIDE_INT.  */
-	  rtx low, high;
-	  /* On machines where HOST_BITS_PER_WIDE_INT == BITS_PER_WORD
-	     the shift below will cause a compiler warning, even though
-	     this code won't be executed.  So put the shift amounts in
-	     variables to avoid the warning.  */
-	  int rshift = HOST_BITS_PER_WIDE_INT - BITS_PER_WORD;
-	  int lshift = HOST_BITS_PER_WIDE_INT - 2 * BITS_PER_WORD;
+	  unsigned HOST_WIDE_INT low, high;
+	  unsigned HOST_WIDE_INT mask, sign_bit, sign_extend;
 
-	  low = GEN_INT ((INTVAL (value) << rshift) >> rshift);
-	  high = GEN_INT ((INTVAL (value) << lshift) >> rshift);
+	  /* Set sign_bit to the most significant bit of a word.  */
+	  sign_bit = 1;
+	  sign_bit <<= BITS_PER_WORD - 1;
+
+	  /* Set mask so that all bits of the word are set.  We could
+	     have used 1 << BITS_PER_WORD instead of basing the
+	     calculation on sign_bit.  However, on machines where
+	     HOST_BITS_PER_WIDE_INT == BITS_PER_WORD, it could cause a
+	     compiler warning, even though the code would never be
+	     executed.  */
+	  mask = sign_bit << 1;
+	  mask--;
+
+	  /* Set sign_extend as any remaining bits.  */
+	  sign_extend = ~mask;
+	  
+	  /* Pick the lower word and sign-extend it.  */
+	  low = INTVAL (value);
+	  low &= mask;
+	  if (low & sign_bit)
+	    low |= sign_extend;
+
+	  /* Pick the higher word, shifted to the least significant
+	     bits, and sign-extend it.  */
+	  high = INTVAL (value);
+	  high >>= BITS_PER_WORD - 1;
+	  high >>= 1;
+	  high &= mask;
+	  if (high & sign_bit)
+	    high |= sign_extend;
+
+	  /* Store the words in the target machine order.  */
 	  if (WORDS_BIG_ENDIAN)
 	    {
-	      *first = high;
-	      *second = low;
+	      *first = GEN_INT (high);
+	      *second = GEN_INT (low);
 	    }
 	  else
 	    {
-	      *first = low;
-	      *second = high;
+	      *first = GEN_INT (low);
+	      *second = GEN_INT (high);
 	    }
 	}
       else
@@ -4028,7 +4057,7 @@ split_double (value, first, second)
       if ((HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
 	   || HOST_BITS_PER_WIDE_INT != BITS_PER_WORD)
 	  && ! flag_pretend_float)
-      abort ();
+	abort ();
 
       if (
 #ifdef HOST_WORDS_BIG_ENDIAN

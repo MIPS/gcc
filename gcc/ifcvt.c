@@ -27,10 +27,10 @@
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
+#include "hard-reg-set.h"
 #include "basic-block.h"
 #include "expr.h"
 #include "output.h"
-#include "hard-reg-set.h"
 #include "tm_p.h"
 
 
@@ -73,6 +73,7 @@ static sbitmap *post_dominators;
 static int count_bb_insns		PARAMS ((basic_block));
 static rtx first_active_insn		PARAMS ((basic_block));
 static int last_active_insn_p		PARAMS ((basic_block, rtx));
+static int seq_contains_jump		PARAMS ((rtx));
 
 static int cond_exec_process_insns	PARAMS ((rtx, rtx, rtx, rtx, int));
 static rtx cond_exec_get_condition	PARAMS ((rtx));
@@ -173,6 +174,24 @@ last_active_insn_p (bb, insn)
 
   return GET_CODE (insn) == JUMP_INSN;
 }
+
+/* It is possible, especially when having dealt with multi-word 
+   arithmetic, for the expanders to have emitted jumps.  Search
+   through the sequence and return TRUE if a jump exists so that
+   we can abort the conversion.  */
+
+static int
+seq_contains_jump (insn)
+     rtx insn;
+{
+  while (insn)
+    {
+      if (GET_CODE (insn) == JUMP_INSN)
+	return 1;
+      insn = NEXT_INSN (insn);
+    }
+  return 0;
+}
 
 /* Go through a bunch of insns, converting them to conditional
    execution format if possible.  Return TRUE if all of the non-note
@@ -247,10 +266,8 @@ cond_exec_get_condition (jump)
 {
   rtx test_if, cond;
 
-  if (condjump_p (jump))
-    test_if = SET_SRC (PATTERN (jump));
-  else if (condjump_in_parallel_p (jump))
-    test_if = SET_SRC (XVECEXP (PATTERN (jump), 0, 0));
+  if (any_condjump_p (jump))
+    test_if = SET_SRC (pc_set (jump));
   else
     return NULL_RTX;
   cond = XEXP (test_if, 0);
@@ -639,6 +656,10 @@ noce_try_store_flag_constants (if_info)
 
       seq = get_insns ();
       end_sequence ();
+
+      if (seq_contains_jump (seq))
+	return FALSE;
+
       emit_insns_before (seq, if_info->cond_earliest);
 
       return TRUE;
@@ -693,6 +714,10 @@ noce_try_store_flag_inc (if_info)
 
 	  seq = get_insns ();
 	  end_sequence ();
+
+	  if (seq_contains_jump (seq))
+	    return FALSE;
+
 	  emit_insns_before (seq, if_info->cond_earliest);
 
 	  return TRUE;
@@ -740,6 +765,10 @@ noce_try_store_flag_mask (if_info)
 
 	  seq = get_insns ();
 	  end_sequence ();
+
+	  if (seq_contains_jump (seq))
+	    return FALSE;
+
 	  emit_insns_before (seq, if_info->cond_earliest);
 
 	  return TRUE;
@@ -1014,14 +1043,17 @@ noce_get_condition (jump, earliest)
      rtx *earliest;
 {
   rtx cond;
+  rtx set;
 
   /* If the condition variable is a register and is MODE_INT, accept it.
      Otherwise, fall back on get_condition.  */
 
-  if (! condjump_p (jump))
+  if (! any_condjump_p (jump))
     return NULL_RTX;
 
-  cond = XEXP (SET_SRC (PATTERN (jump)), 0);
+  set = pc_set (jump);
+
+  cond = XEXP (SET_SRC (set), 0);
   if (GET_CODE (XEXP (cond, 0)) == REG
       && GET_MODE_CLASS (GET_MODE (XEXP (cond, 0))) == MODE_INT)
     {
@@ -1029,8 +1061,8 @@ noce_get_condition (jump, earliest)
 
       /* If this branches to JUMP_LABEL when the condition is false,
 	 reverse the condition.  */
-      if (GET_CODE (XEXP (SET_SRC (PATTERN (jump)), 2)) == LABEL_REF
-	  && XEXP (XEXP (SET_SRC (PATTERN (jump)), 2), 0) == JUMP_LABEL (jump))
+      if (GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
+	  && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump))
 	cond = gen_rtx_fmt_ee (reverse_condition (GET_CODE (cond)),
 			       GET_MODE (cond), XEXP (cond, 0),
 			       XEXP (cond, 1));
@@ -1652,14 +1684,17 @@ find_if_case_2 (test_bb, then_edge, else_edge)
   if (else_bb->pred->pred_next != NULL)
     return FALSE;
 
+  /* THEN is not EXIT.  */
+  if (then_bb->index < 0)
+    return FALSE;
+
   /* ELSE is predicted or SUCC(ELSE) postdominates THEN.  */
   note = find_reg_note (test_bb->end, REG_BR_PROB, NULL_RTX);
   if (note && INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2)
     ;
   else if (else_succ->dest->index < 0
-	   || (then_bb->index >= 0
-	       && TEST_BIT (post_dominators[ORIG_INDEX (then_bb)], 
-			    ORIG_INDEX (else_succ->dest))))
+	   || TEST_BIT (post_dominators[ORIG_INDEX (then_bb)], 
+			ORIG_INDEX (else_succ->dest)))
     ;
   else
     return FALSE;
@@ -1837,7 +1872,7 @@ dead_or_predicable (test_bb, merge_bb, other_bb, new_dest, reversep)
 	    break;
 	}
 
-      if (! condjump_p (jump))
+      if (! any_condjump_p (jump))
 	return FALSE;
 
       /* Find the extent of the conditional.  */
@@ -2034,8 +2069,11 @@ if_convert (life_data_ok)
 	  SET_BIT (update_life_blocks, block_num);
 
       count_or_remove_death_notes (update_life_blocks, 1);
-      update_life_info (update_life_blocks, UPDATE_LIFE_LOCAL,
-			PROP_DEATH_NOTES);
+      /* ??? See about adding a mode that verifies that the initial
+	set of blocks don't let registers come live.  */
+      update_life_info (update_life_blocks, UPDATE_LIFE_GLOBAL,
+			PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
+			| PROP_KILL_DEAD_CODE);
 
       sbitmap_free (update_life_blocks);
     }

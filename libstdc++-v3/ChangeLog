@@ -1,3 +1,160 @@
+2000-05-26  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4 (GLIBCPP_ENABLE_LONG_LONG):  If strtoll isn't
+	  available, force --disable.  Need to flesh this out; make smarter.
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate.
+
+	* mkcheck.in:  Minor tweaks.
+	* docs/download.html:  Fix typo.
+
+2000-05-25  Benjamin Kosnik  <bkoz@milou.soma.redhat.com>
+
+	* inclosure: Change to...
+	* mkinclosure: This.
+	Fix paths to bash.	
+	* mkcshadow: Fix paths to bash.
+	
+	* src/Makefile.am: Tweaks. Do cshadow header trickery at build time.
+	* src/Makefile.in: Regnerate.
+	* acinclude.m4 (GLIBCPP_COMPILER_VERSION): Fix typo.
+	(GLIBCPP_ENABLE_SHADOW): Do a less gross hack.
+	* aclocal.m4: Regenerate.
+	* mkcheck.in (INC_PATH): Tweak. 
+	
+	* configure.in: Enable long long by default.
+	* configure: Regenerate.
+	
+	* mkcheck.in (LIB_PATH): Revert.
+
+2000-05-24   Nathan "I don't write ChangeLog Entries" Myers  <ncm@cantrip.org>
+
+	* config/cpu/i486: New directory.
+	* config/cpu/i486/bits: New directory.
+	* config/cpu/i486/bits/atomicity.h: New file.
+	* config/cpu/i386/bits/atomicity.h (__compare_and_swap): Delete
+	'cmpxchgl' asm.
+	* acinclude.m4 (GLIBCPP_CHECK_CPU): Enable i386.
+	
+2000-05-24  Loren J. Rittle  <ljrittle@acm.org>
+
+        * backward/alloc.h (__default_alloc_template): Only expose
+          implementation-specific symbol, if it exists in the
+          configuration.
+        * backward/iostream.h (ends): Expose symbol.
+        * backward/strstream.h: New file.
+        * backward/stream.h: New file.
+        * backward/ostream.h: New file.
+        * backward/istream.h: New file.
+        * backward/fstream.h: New file.
+        * backward/complex.h: New file.
+        * backward/iomanip.h: New file.
+
+	* mkcheck.in (LIB_PATH): Add -R bits.
+
+	* math/carg.c (carg): Replace __atan2 with atan2.
+
+2000-05-24  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* Makefile.am (TAGS): Construct.
+	* Makefile.in: Rengerate.
+	* src/Makefile.am: Tweak.
+	* src/Makefile.in: Tweak.
+	* configure.in: Tweak.
+
+	* bits/c++config.h: Rename to ...
+	* bits/c++config: This.
+	* mkc++config: Adjust.
+	
+	* m4: Remove.
+	* m4/lc_message.m4: Merge into acinclude.m4.
+	* m4/mathfcts.m4: Same.
+	* m4/stringfcts.m4: Same.
+	* acinclude.m4: Add here.
+	* configure: Regnerate.
+	
+	* acinclude.m4 (GLIBCPP_CHECK_COMPILER_VERSION): Remove
+	OPTLEVEL. Add FMTFLAGS.
+	* aclocal.m4: Regenerate.
+	* src/Makefile.am (AC_CXXFLAGS): Take out OPTLEVEL, as this has
+	been disabled due to higher-level Makefiles running amuck over
+	this bit, and add in FMTFLAGS so that formatting is clear. 
+	* src/Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+	* src/ios.cc (ios_base::sync_with_stdio): Clean up buffers from
+	initialization.
+
+	* docs/download.html: Remove references to Cygwin-specific bits,
+	as this can now be built natively.
+	Update with current information.
+
+2000-05-24  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_COMPILER_VERSION):  If we can use
+	  -fdiagnostics-show-location=once, do so.  Expand AC_LANG_* to
+	  enclose other tests in this macro, including future ones.
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate.
+
+	* docs/faq/index.html:  Update location of libg++ FAQ.
+	* docs/faq/index.txt:  Regenerate.
+
+2000-05-22  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* docs/17_intro/libstdc++-assign.txt: Change Cygnus to FSF.
+
+2000-05-22  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* mkcheck.in:  Tweak for Solaris 8.  Additional minor output comment.
+
+2000-05-22  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4:  If the new pragma isn't supported, don't kill -Werror;
+	  keep -Werror and add -Wno-unknown-pragma.  -Werror Is Good.
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate.
+
+2000-05-19   Nathan C. Myers  <ncm@cantrip.org>
+
+      	* bits/generic_shadow.h: s/swamp/legacy/
+
+2000-05-19  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4:  Clean up comments on newer checks.
+	  (GLIBCPP_CHECK_COMPILER_VERSION):  Check for system_header
+	  pragma support.  Remove WERRORSUPPRESS variable, add WERROR.
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate.
+	* Makefile.in:  Regenerate.
+	* libio/Makefile.in:  Regenerate.
+	* math/Makefile.in:  Regenerate.
+	* src/Makefile.am:  Tell make's WERROR to depend on configure's WERROR.
+	* src/Makefile.in:  Regenerate.
+	* docs/configopts.html:  Document changes to --enable names.
+
+2000-05-18  Chip Salzenberg  <chip@valinux.com>
+
+        * bits/ostream.tcc (_S_pad_char): Function template should not be
+        static.
+        * bits/streambuf.tcc (_S_copy_streambufs): Likewise.
+        * src/string-inst.cc (__destroy_aux): Instantiate for string*.
+
+2000-05-18  Nathan C. Myers  <ncm@cantrip.org>
+
+	* mkcshadow: Change C_Swamp to C_legacy.
+	* shadow/*: Same.
+	* shadow/bits/*: Same.
+	s/C_Swamp/C_legacy/g
+	s/SWAMP/LEGACY/g
+	s/_Shadow/_shadow/g
+
+2000-05-18  Anthony Williams  <anthony@anthonyw.cjb.net> 
+
+	* bits/locale_facets.tcc (num_get::_M_extract): Change char* to
+	const char*.
+	* src/string-inst.cc (string::_S_find): Same.
+	
 2000-05-18  Benjamin Kosnik  <bkoz@gnu.org>
 
 	* acinclude.m4 (GLIBCPP_ENABLE_SHADOW): Change to

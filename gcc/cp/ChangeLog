@@ -1,3 +1,488 @@
+2000-05-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* call.c (joust): Fix handling of overloaded builtin operators.
+
+2000-05-30  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cp-tree.h (DECL_ANTICIPATED): New macro.
+	Document new use of DECL_LANG_FLAG_7.
+	* decl.c (builtin_function): Set DECL_ANTICIPATED on builtins
+	in the user namespace.
+	* lex.c (do_identifier): If the identifier's declaration has
+	DECL_ANTICIPATED on, it has not yet been declared.  But do not
+	replace it with an ordinary implicit declaration.             
+
+	* tinfo2.cc: Include stdlib.h.
+
+2000-05-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (CLASSTYPE_ALIGN_UNIT): New macro.
+	* class.c (layout_empty_base): Use CLASSTYPE_ALIGN_UNIT, not
+	CLASSTYPE_ALIGN.
+
+2000-05-28  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* decl2.c (lang_decode_option): Use skip_leading_substring instead
+	of plain strncmp.
+
+2000-05-28  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* operators.def (<?): Duplicated, should have been...
+	(>?): this.  Fixed.
+
+2000-05-27  Alex Samuel    <samuel@codesourcery.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (ansi_opname): Make it a macro.
+	(ansi_assopname): Likewise.
+	(struct lang_decl_flags): Add assignment_operator_p.
+	(struct lang_decl): Add operator_code.
+	(DECL_VTT_PARM): Adjust.
+	(DECL_OVERLOADED_OPERATOR_P): Return the operator_code for an
+	overloaded operator.
+	(SET_OVERLOADED_OPERATOR_CODE): New macro.
+	(DECL_ASSIGNMENT_OPERATOR_P): New macro.
+	(DECL_ARRAY_DELETE_OPERATOR_P): Adjust.
+	(opname_tab): Remove.
+	(assignop_tab): Likewise.
+	(operator_name_info_t): New type.
+	(operator_name_info): New variable.
+	(assignment_operator_name_info): Likewise.
+	(build_cp_library_fn): Remove declaration.
+	(push_cp_library_fn): Likewise.
+	(operator_name_string): Likewise.
+	(build_decl_overload): Likewise.
+	* call.c (print_z_candidates): Simplify.
+	(build_object_call): Adjust usage of ansi_opname.  Use
+	DECL_OVERLOADED_OPERATOR_P.
+	(op_error): Adjust operator name lookup.
+	(build_conditional_expr): Adjust usage of ansi_opname.
+	(build_new_op): Likewise.
+	(build_op_delete_call): Likewise.
+	(build_over_call): Likewise.
+	(joust): Use DECL_OVERLOADED_OPERATOR_P.
+	* decl.c (duplicate_decls): Copy operator_code.
+	(init_decl_processing): Adjust parameters to push_cp_library_fn.
+	(builtin_function): Adjust parameters to build_library_fn_1.
+	(build_library_fn_1): Accept an overloaded operator code.
+	(build_library_fn): Pass ERROR_MARK.
+	(build_cp_library_fn): Accept an overloaded operator code.
+	(push_cp_library_fn): Likewise.
+	(grokfndecl): Tweak.
+	(grokdeclarator): Simplify code to compute names of overloaded
+	operators.  Adjust use of ansi_opname.
+	(ambi_op_p): Work on tree_codes, not identifiers.
+	(unary_op_p): Likewise.
+	(grok_op_properties): Likewise.
+	(start_function): Use DECL_OVERLOADED_OPERATOR_P.
+	(lang_mark_tree): Don't try to mark the operator_code.
+	* decl2.c (grok_function_init): Use DECL_OVERLOADED_OPERATOR_P.
+	* error.c (dump_decl): Remove special handling for operator
+	names.
+	(dump_function_name): Likewise.
+	(dump_expr): Adjust name lookup of operators.
+	(op_to_string): Simplify.
+	(assop_to_string): Likewise.
+	* init.c (build_new_1): Adjust use of ansi_opname.
+	* lex.c (opname_tab): Remove.
+	(assignop_tab): Likewise.
+	(ansi_opname): Likewise.
+	(ansi_assopname): Likewise.
+	(operator_name_string): Likewise.
+	(reinit_lang_specific): Likewise.
+	(operator_name_info): New variable.
+	(assignment_operator_name_info): Likewise.
+	(init_operators): New function.
+	(init_parse): Use it.
+	(do_identifier): Adjust use of ansi_opname.
+	* method.c (mangle_expression): Don't use ansi_opname for
+	mangling.
+	(build_decl_overload_real): Use DECL_OVERLOADED_OPERATOR_P.
+	(build_decl_overload): Remove.
+	(build_typename_overload): Use OPERATOR_TYPENAME_FORMAT directly.
+	(do_build_assign_ref): Adjust use of ansi_opname.
+	(synthesize_method): Likewise.
+	(implicitly_declare_fn): Likewise.
+	* operators.def: New file.
+	* parse.y (operator): Adjust use of ansi_opname.
+	* pt.c (tsubst_decl): Use IDENTIFIER_OPNAME_P.
+	(set_mangled_name_for_template_decl): Don't play games with
+	current_namespace.
+	(special_function_p): Adjust use of ansi_opname.
+	* typeck.c (check_return_expr): Likewise.
+	* Make-lang.in (cc1plus): Depend on operators.def.
+	* Makefile.in (lex.o): Likewise.
+	(decl.o): Likewise.
+
+2000-05-27  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* Make-lang.in (cplib2.ready): Eradicate.
+
+Sat May 27 11:25:46 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* method.c (mangle_expression): Use TREE_CODE_LENGTH.
+	* tree.c (break_out_calls, build_min_nt): Use TREE_CODE_LENGTH.
+	(built_min, cp_tree_equal): Likewise.
+
+2000-05-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (layout_nonempty_base_or_field): Replace
+	`record_layout_info' with `record_layout_info_s'.
+
+2000-05-26  Jason Merrill  <jason@casey.soma.redhat.com>
+
+	Fix goto checking.
+	* cp-tree.h (struct language_function): x_named_labels is now
+	a struct named_label_list*.
+	* decl.c (struct named_label_use_list): Renamed from...
+	(struct named_label_list): ...this.  New struct.
+	(push_binding_level): Don't set eh_region.
+	(note_level_for_eh): New fn.
+	(pop_label): Take label and old value directly.
+	(pop_labels): Adjust for new named_labels format.
+	(lookup_label): Likewise.
+	(poplevel): Note characteristics of a binding level containing a
+	named label.  Mess with named label lists earlier.
+	(mark_named_label_lists): New fn.
+	(mark_lang_function): Call it.
+	(use_label): New fn, split out from...
+	(make_label_decl): ...here.  Don't call it.
+	(decl_jump_unsafe, check_previous_goto, check_previous_goto_1, 
+	check_previous_gotos): New fns,	split out from...
+	(define_label): ...here.
+	(check_switch_goto): New fn.
+	(define_case_label): Call it.
+	(check_goto): New fn.
+	* semantics.c (finish_goto_stmt): Call it and use_label.
+	(begin_compound_stmt): If we're a try block, call note_level_for_eh.
+	(expand_stmt): Never pass 1 as DONT_JUMP_IN to expand_end_bindings.
+
+2000-05-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (build_vtable_entry_ref): Correct usage of
+	get_vtbl_decl_for_binfo.
+
+	* decl2.c (grokclassfn): Set DECL_LANGUAGE here.
+	* method.c (implicitly_declare_fn): Not here.
+
+2000-05-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (CPTI_PTMD_DESC_TYPE): Rename to ...
+	(CPTI_PTMD_DESC_TYPE): ... here.
+	(ptmd_desc_type_node): Rename to ...
+	(ptm_desc_type_node): ... here.
+	* decl.c: Likewise.
+	* rtti.c (ptmd_initializer): Rename to ...
+	(ptm_initializer): ... here.
+	(sythesize_tinfo_var): Adjust. Deal with pointer to member
+	function.
+	(create_tinfo_types): Adjust.	
+
+2000-05-25  Mark Mitchell  <mark@codesourcery.com>
+
+	Finish implementation of VTTs.
+	* cp-tree.h (cp_tree_index): Add CPTI_VTT_PARM_TYPE and
+	CPTI_VTT_PARM_IDENTIFIER.
+	(vtt_parm_identifier): New macro.
+	(vtt_parm_type): Likewise.
+	(BINFO_SUBVTT_INDEX): Likewise.
+	(BINFO_VPTR_INDEX): Likewise.
+	(struct lang_decl): Add vtt_parm.
+	(DECL_VTT_PARM): New macro.
+	(DECL_USE_VTT_PARM): Likewise.
+	(DECL_NEEDS_VTT_PARM_P): Likewise.
+	(get_vtt_name): Declare.
+	(build_artifical_parm): Likewise.
+	(fixup_all_virtual_upcast_offsets): Likewise.
+	(expand_indirect_vtbls_init): Remove.
+	* call.c (build_new_method_call): Pass the vtt to subobject
+	constructors and destructors.
+	* class.c (get_vtt_name): Give it external linkage.
+	(build_clone): Handle the magic VTT parameters for clones.
+	(clone_function_decl): Fix typo in comment.
+	(build_vtt): Keep track of the indices in the VTTs where various
+	entities are stored.
+	(build_vtt_inits): Likewise.
+	(dfs_build_vtt_inits): Likewise.
+	(build_ctor_vtbl_group): Tweak type of construction vtables.
+	(dfs_accumulate_vtbl_inits): Build vtables for all bases, even
+	primary bases, when building construction vtables.
+	* decl.c (duplicate_decls): Handle DECL_VTT_PARM.
+	(initialize_predefined_identifiers): Add vtt_parm_identifier.
+	(init_decl_processing): Initialize vtt_parm_type.
+	(grokfndecl): Use DECL_OVERLOADED_OPERATOR_P.
+	(lang_mark_tree): Make vtt_parm.
+	* decl2.c (build_artificial_parm): New function.
+	(maybe_retrofit_in_chrg): Use it.  Add VTT parameters.
+	(grokclassfn): Use build_artificial_parm.
+	* init.c (initialize_vtbl_ptrs): Call
+	fixup_all_virtual_upcast_offsets directly.
+	(perform_member_init): Use the complete subobject destructor for
+	member cleanups.
+	(build_vtbl_address): New function.
+	(expand_virtual_init): Handle VTTs.
+	* optimize (maybe_clone_body): Likewise.
+	* search.c (fixup_all_virtual_upcast_offsets): Give it external
+	linkage.
+	(expand_indirect_vtbls_init): Remove.
+	* semantics.c (setup_vtbl_ptr): Fix typos in comment.
+	* tree.c (make_binfo): Make them bigger.
+	
+2000-05-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* inc/cxxabi.h (__pbase_type_info): Define, based on
+	__pointer_type_info.
+	(__pointer_type_info): Derive from __pbase_type_info. Adjust.
+	(__pointer_to_member_type_info): Likewise.
+	* tinfo2.cc (__pbase_type_info::~__pbase_type_info): Implement.
+	(__pointer_to_member_type_info::__is_pointer_p): Remove.
+	(__pointer_type_info::__do_catch): Rename to ...
+	(__pbase_type_info::__do_catch): ... here. Adjust.
+	(__pbase_type_info::__pointer_catch): Implement.
+	(__pointer_type_info::__pointer_catch): Adjust.
+	(__pointer_to_member_type_info::__pointer_catch): Adjust.
+
+2000-05-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tinfo.h (__user_type_info::contained_virtual_p): New
+	predicate.
+	* tinfo.cc (__user_type_info::do_upcast): Fix bug with diamond
+	shaped heirarchy.
+	(__vmi_class_type_info::__do_upcast): Fix bug with NULL pointer to
+	diamond shaped heirarchy. Add early out for mixed diamond and
+	duplicate shaped heirarchy.
+
+2000-05-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (build_delete): Change prototype.
+	(build_vec_delete): Likewise.
+	* call.c (build_scoped_method_call): Use special_function_kind
+	values to indicate the kind of destruction to be done.
+	(build_method_call): Likewise.
+	* decl.c (finish_destructor_body): Likewise.
+	(maybe_build_cleanup_1): Likewise.  Rename to ...
+	(maybe_build_cleanup): ... this.
+	* decl2.c (delete_sanity): Use special_function_kind
+	values to indicate the kind of destruction to be done.
+	(build_cleanup): Likewise.
+	* init.c (perform_member_init): Likewise.
+	(build_vec_delete_1): Likewise.
+	(build_dtor_call): Simplify.
+	(build_delete): Use special_function_kind
+	values to indicate the kind of destruction to be done.
+	(build_vbase_delete): Likewise.
+	(build_vec_delete): Likewise.
+	
+	* init.c (sort_member_init): Fix typo in error message generation
+	code.
+
+Mon May 15 11:46:29 2000  Donald Lindsay  <dlindsay@cygnus.com>
+
+	* semantics.c (begin_class_definition): make the packed
+	attribute be sensitive to the "-fpack-struct" command line flag
+
+2000-05-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Update new-abi upcast algorithm.
+	* inc/cxxabi.h (__class_type_info::__do_upcast): Change
+	prototype and meaning of return value.
+	(__si_class_type_info::__do_upcast): Likewise.
+	(__vmi_class_type_info::__do_upcast): Likewise.
+	* tinfo.cc (__class_type_info::__upcast_result): Replace
+	whole2dst with part2dst. Adjust ctor.
+	(__class_type_info::__do_upcast): Adjust call of worker function.
+	(__class_type_info::__do_upcast): Adjust.
+	(__si_class_type_info::__do_upcast): Adjust. Use parent's
+	__do_upcast.
+	(__vmi_class_type_info::__do_upcast): Likewise. Fix private
+	virtual base in diamond heirarchy bug.
+
+2000-05-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (lang_decl_flags): Rename mutable_flag to uninlinable
+	and bitfield to tinfo_fn_p.
+	(DECL_TINFO_FN_P): Adjust.
+	(SET_DECL_TINFO_FN_P): Likewise.
+	(DECL_MUTABLE_P): Likewise.
+	(DECL_C_BIT_FIELD): Likewise.
+	(SET_DECL_C_BIT_FIELD): Likewise.
+	(CLEAR_DECL_C_BIT_FIELD): Likewise.
+	(DECL_UNINLINABLE): Likewise.
+	* class.c (alter_access): Call retrofit_lang_decl if ncessary.
+	(handle_using_decl): Remove assertion.
+	(build_vtbl_or_vbase_field): Use build_decl, not build_lang_decl,
+	to build FIELD_DECLs.
+	(build_base_field): Likewise.
+	(layout_class_type): Likewise.
+	* decl.c (init_decl_processing): Likewise.
+	(build_ptrmemfunc_type): Likewise.
+	(grokdeclarator): Likewise.
+	* decl2.c (grok_x_components): Likewise.
+	* except.c (call_eh_info): Likewise.
+	* init.c (init_init_processing): Likewise.
+	* rtti.c (expand_class_desc): Likewise.
+	(create_pseudo_type_info): Likewise.
+	(get_vmi_pseudo_type_info): Likewise.
+	(create_tinfo_types): Likewise.
+	* ptree.c (print_lang_decl): Adjust.
+	* typeck.c (build_component_ref): Don't check DECL_LANG_SPECIFIC
+	before checking DECL_MUTABLE_P.
+	
+	* decl2.c (maybe_retrofit_in_chrg): Don't create in-charge
+	parameters for template functions.
+	* pt.c (tsubst_decl): Make sure we call maybe_retrofit_in_chrg for
+	destructors as well as constructors.
+
+2000-05-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (build_ctor_vtbl_group): Set inits.
+	* optimize.c (maybe_clone_body): Set DECL_INLINE and
+	DECL_THIS_INLINE appropriately for clones.
+
+	* cp-tree.h (IDENTIFIER_TYPENAME_P): Use a flag, not strncmp.
+	(DECL_CONV_FN_P): Simplify.
+	(DECL_OPERATOR): Remove.
+	(language_to_string): Declare.
+	* decl.c (duplicate_decls): Fix typo in comment.
+	(grokdeclarator): Adjust use of IDENTIFIER_TYPENAME_P.
+	(grok_op_properties): Use DECL_CONV_FN_P instead of
+	IDENTIFIER_TYPENAME_P.
+	* dump.c (dequeue_and_dump): Dump the language linkage of
+	declarations.
+	* error.c (language_to_string): Give it external linkage.
+	* method.c (build_typename_overload): Set IDENTIFIER_TYPENAME_P.
+	(implicitly_declare_fn): Set DECL_LANGUAGE.
+	* pt.c (check_explicit_specialization): Use DECL_CONV_FN_P, not
+	IDENTIFIER_TYPENAME_P.
+	(tsubst_decl): Likewise.
+	(tsubst_copy): Adjust use of IDENTIFIER_TYPENAME_P.
+	* semantics.c (finish_member_declaration): Don't mark members of
+	classes declared in an extern "C" region as extern "C".
+	
+2000-05-22  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl2.c (qualified_lookup_using_namespace): Look through
+	namespace aliases.
+
+	* decl.c (push_using_decl): Return the old decl on namespace level.
+
+2000-05-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (SET_BINFO_NEW_VTABLE_MARKED): Add sanity checks.
+	(VTT_NAME_PREFIX): New macro.
+	(CTOR_VTBL_NAME_PREFIX): Likewise.
+	(get_ctor_vtbl_name): New function.
+	* class.c (get_vtable_name): Simplify.
+	(get_vtt_name): New function.
+	(get_vtable_decl): Don't set IDENTIFIER_GLOBAL_VALUE.
+	(dfs_mark_primary_bases): Update the CLASSTYPE_VBASECLASSES list
+	when a virtual base becomes primary.
+	(finish_struct_1): Set CLASSTYPE_VFIELDS a little earlier.  Build
+	VTTs.
+	(finish_vtbls): Adjust calls to accumulate_vtbl_inits to pass in
+	additional parameters.
+	(dfs_finish_vtbls): Don't clear BINFO_NEW_VTABLE_MARKED.
+	(initialize_array): New function.
+	(build_vtt): Likewise.
+	(build_vtt_inits): Likewise.
+	(dfs_build_vtt_inits): Likewise.
+	(dfs_fixup_binfo_vtbls): Likewise.
+	(build_ctor_vtbl_group): Likewise.
+	(initialize_vtable): Use initialize_array.
+	(accumulate_vtbl_inits): Reimplement to handle construction
+	vtables.
+	(dfs_accumulate_vtbl_inits): Likewise.
+	(bulid_vtbl_initializer): Adjust parameter name.
+	* method.c (build_typename_overload): Remove #if 0'd code.
+	(get_ctor_vtbl_name): New function.
+	* search.c (dfs_walk_real): Use BINFO_N_BASETYPES.
+	(init_vbase_pointers): Don't mess with the TREE_CHAIN of a binfo.
+	
+	* cp-tree.h (struct lang_type): Remove search_slot.
+	(CLASSTYPE_SEARCH_SLOT): Remove.
+	(emit_base_init): Change prototype.
+	(initialize_vtbl_ptrs): Likewise.
+	(expand_indirect_vtbls_init): Likewise.
+	(clear_search_slots): Remove.
+	* decl.c (lang_mark_tree): Don't mark search_slot.
+	* init.c (initialize_vtbl_ptrs): Simplify.
+	(emit_base_init): Likewise.
+	* search.c (struct vbase_info): Document decl_ptr.
+	(convert_pointer_to_single_level): Remove.
+	(dfs_find_vbases): Remove.
+	(dfs_init_base_pointers): Simplify.
+	(dfs_clear_vbase_slots): Remove.
+	(dfs_vtable_path_unmark): New function.
+	(init_vbase_pointers): Simplify.
+	(expand_upcast_fixups): Don't rely on CLASSTYPE_SEARCH_SLOT.
+	(expand_indirect_vtbls_init): Simplify.  Don't call
+	mark_all_temps_used.
+	* semantics.c (setup_vtbl_ptr): Adjust calls to emit_base_init and
+	initialize_vtbl_ptrs.
+
+2000-05-20  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* except.c: Add static prototypes.
+
+2000-05-20  H.J. Lu  <hjl@gnu.org>
+
+	* Make-lang.in (cplib2.ready): Also depend on cc1plus$(exeext).
+
+2000-05-19  Mark Mitchell  <mark@codesourcery.com>
+
+	Don't create a separate copy of virtual bases for the
+	CLASSTYPE_VBASECLASSES list.
+	* cp-tree.h (CLASSTYPE_VBASECLASSES): Change documentation.
+	(BINFO_FOR_VBASE): Remove.
+	(CANONICAL_BINFO): Adjust.
+	(binfo_for_vbase): New function.
+	* class.c (build_vbase_pointer_fields): Use binfo_for_vbase
+	instead of BINFO_FOR_VBASE.
+	(build_vbase_pointer): Likewise.
+	(build_secondary_vtable): Likewise.
+	(dfs_mark_primary_bases): Likewise.
+	(mark_primary_bases): Likewise.
+	(layout_nonempty_base_or_field): Likewise.
+	(dfs_set_offset_for_shared_vbases): Likewise.
+	(dfs_set_offset_for_unshared_vbases): Likewise.
+	(layout_virtual_bases): Likewise.  Adjust for changes to the
+	CLASSTYPE_VBASECLASSES list.
+	(dump_class_hierarchy_r): Use binfo_for_vbase
+	instead of BINFO_FOR_VBASE.
+	(dump_class_hierarchy): Likewise.
+	(finish_vtbls): Likewise.
+	(build_vtbl_initializer): Adjust for changes to the
+	CLASSTYPE_VBASECLASSES list.
+	(build_vbase_offset_vtbl_entries): Use binfo_for_vbase.
+	* decl.c (finish_destructor_body): Adjust for changes to the
+	CLASSTYPE_VBASECLASSES list.
+	* init.c (sort_base_init): Use binfo_for_vbase.
+	(construct_virtual_bases): Adjust for changes to the
+	CLASSTYPE_VBASECLASSES list.
+	(expand_member_init): Use binfo_for_vbase.
+	(build_vbase_delete):  Adjust for changes to the
+	CLASSTYPE_VBASECLASSES list.
+	* method.c (do_build_copy_constructor): Likewise.
+	* rtti.c (get_base_offset): Use binfo_for_vbase.
+	(expand_class_desc): Remove #if 0'd code.
+	* search.c (struct vbase_info): Remove vbase_types.
+	(get_base_distance):  Use binfo_for_vbase.
+	(lookup_field_queue_p): Use CANONICAL_BINFO.
+	(get_shared_vbase_if_not_primary): Use binfo_for_vbase.
+	(get_pure_virtuals): Adjust for changes to the
+	CLASSTYPE_VBASECLASSES list.
+	(dfs_find_vbases): Use binfo_for_vbase.
+	(dfs_init_vbase_pointers): Likewise.
+	(init_vbase_pointers): Don't initialize vi.vbase_types.
+	(virtual_context): Use binfo_for_vbase.
+	(fixup_all_virtual_upcast_offsets): Adjust for changes to the
+	CLASSTYPE_VBASECLASSES list.
+	(expand_indirect_vtbls_init): Simplify.
+	(dfs_get_vbase_types): Don't replicate virtual bases.
+	(find_vbase_instance): Use binfo_for_vbase.
+	(binfo_for_vbase): New function.
+	* typeck.c (get_delta_difference): Use binfo_for_vbase.
+	
 2000-05-17  Mark Mitchell  <mark@codesourcery.com>
 
 	* decl2.c (finish_anon_union): Generalize error messages to handle

@@ -4087,7 +4087,7 @@ static const short yycheck[] = {     4,
     80,    81,    82,    83,    84,    85,    86,    87,    88
 };
 /* -*-C-*-  Note some compilers choke on comments on `#line' lines.  */
-#line 3 "/usr/share/bison.simple"
+#line 3 "/usr/lib/bison.simple"
 /* This file comes from bison-1.28.  */
 
 /* Skeleton output parser for bison,
@@ -4301,7 +4301,7 @@ __yy_memcpy (char *to, char *from, unsigned int count)
 #endif
 #endif
 
-#line 217 "/usr/share/bison.simple"
+#line 217 "/usr/lib/bison.simple"
 
 /* The user can define YYPARSE_PARAM as the name of an argument to be passed
    into yyparse.  The argument should have type void *.
@@ -4376,7 +4376,7 @@ yyparse(YYPARSE_PARAM_ARG)
 
   int yylen;
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
   if (yydebug)
     fprintf(stderr, "Starting parse\n");
 #endif
@@ -4479,7 +4479,7 @@ yynewstate:
       yylsp = yyls + size - 1;
 #endif
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
       if (yydebug)
 	fprintf(stderr, "Stack size increased to %d\n", yystacksize);
 #endif
@@ -4488,7 +4488,7 @@ yynewstate:
 	YYABORT;
     }
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
   if (yydebug)
     fprintf(stderr, "Entering state %d\n", yystate);
 #endif
@@ -4513,7 +4513,7 @@ yynewstate:
 
   if (yychar == YYEMPTY)
     {
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
       if (yydebug)
 	fprintf(stderr, "Reading a token: ");
 #endif
@@ -4527,7 +4527,7 @@ yynewstate:
       yychar1 = 0;
       yychar = YYEOF;		/* Don't call YYLEX any more */
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
       if (yydebug)
 	fprintf(stderr, "Now at end of input.\n");
 #endif
@@ -4536,7 +4536,7 @@ yynewstate:
     {
       yychar1 = YYTRANSLATE(yychar);
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
       if (yydebug)
 	{
 	  fprintf (stderr, "Next token is %d (%s", yychar, yytname[yychar1]);
@@ -4578,7 +4578,7 @@ yynewstate:
 
   /* Shift the lookahead token.  */
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
   if (yydebug)
     fprintf(stderr, "Shifting token %d (%s), ", yychar, yytname[yychar1]);
 #endif
@@ -4615,12 +4615,7 @@ yyreduce:
   if (yydebug)
     {
       int i;
-#ifdef YYFILE
-      fprintf (stderr, YYFILE ":%d: %s:", yyrline[yyn], yytname[yyr1[yyn]]);
-      for (i = yyprhs[yyn]; yyrhs[i] > 0; i++)
-	fprintf (stderr, " %s", yytname[yyrhs[i]]);
-      fputc ('\n', stderr);
-#else
+
       fprintf (stderr, "Reducing via rule %d (line %d), ",
 	       yyn, yyrline[yyn]);
 
@@ -4628,7 +4623,6 @@ yyreduce:
       for (i = yyprhs[yyn]; yyrhs[i] > 0; i++)
 	fprintf (stderr, "%s ", yytname[yyrhs[i]]);
       fprintf (stderr, " -> %s\n", yytname[yyr1[yyn]]);
-#endif
     }
 #endif
 
@@ -8166,135 +8160,135 @@ case 846:
     break;}
 case 847:
 #line 3683 "parse.y"
-{ yyval.ttype = ansi_opname[MULT_EXPR]; ;
+{ yyval.ttype = ansi_opname (MULT_EXPR); ;
     break;}
 case 848:
 #line 3685 "parse.y"
-{ yyval.ttype = ansi_opname[TRUNC_DIV_EXPR]; ;
+{ yyval.ttype = ansi_opname (TRUNC_DIV_EXPR); ;
     break;}
 case 849:
 #line 3687 "parse.y"
-{ yyval.ttype = ansi_opname[TRUNC_MOD_EXPR]; ;
+{ yyval.ttype = ansi_opname (TRUNC_MOD_EXPR); ;
     break;}
 case 850:
 #line 3689 "parse.y"
-{ yyval.ttype = ansi_opname[PLUS_EXPR]; ;
+{ yyval.ttype = ansi_opname (PLUS_EXPR); ;
     break;}
 case 851:
 #line 3691 "parse.y"
-{ yyval.ttype = ansi_opname[MINUS_EXPR]; ;
+{ yyval.ttype = ansi_opname (MINUS_EXPR); ;
     break;}
 case 852:
 #line 3693 "parse.y"
-{ yyval.ttype = ansi_opname[BIT_AND_EXPR]; ;
+{ yyval.ttype = ansi_opname (BIT_AND_EXPR); ;
     break;}
 case 853:
 #line 3695 "parse.y"
-{ yyval.ttype = ansi_opname[BIT_IOR_EXPR]; ;
+{ yyval.ttype = ansi_opname (BIT_IOR_EXPR); ;
     break;}
 case 854:
 #line 3697 "parse.y"
-{ yyval.ttype = ansi_opname[BIT_XOR_EXPR]; ;
+{ yyval.ttype = ansi_opname (BIT_XOR_EXPR); ;
     break;}
 case 855:
 #line 3699 "parse.y"
-{ yyval.ttype = ansi_opname[BIT_NOT_EXPR]; ;
+{ yyval.ttype = ansi_opname (BIT_NOT_EXPR); ;
     break;}
 case 856:
 #line 3701 "parse.y"
-{ yyval.ttype = ansi_opname[COMPOUND_EXPR]; ;
+{ yyval.ttype = ansi_opname (COMPOUND_EXPR); ;
     break;}
 case 857:
 #line 3703 "parse.y"
-{ yyval.ttype = ansi_opname[yyvsp[0].code]; ;
+{ yyval.ttype = ansi_opname (yyvsp[0].code); ;
     break;}
 case 858:
 #line 3705 "parse.y"
-{ yyval.ttype = ansi_opname[LT_EXPR]; ;
+{ yyval.ttype = ansi_opname (LT_EXPR); ;
     break;}
 case 859:
 #line 3707 "parse.y"
-{ yyval.ttype = ansi_opname[GT_EXPR]; ;
+{ yyval.ttype = ansi_opname (GT_EXPR); ;
     break;}
 case 860:
 #line 3709 "parse.y"
-{ yyval.ttype = ansi_opname[yyvsp[0].code]; ;
+{ yyval.ttype = ansi_opname (yyvsp[0].code); ;
     break;}
 case 861:
 #line 3711 "parse.y"
-{ yyval.ttype = ansi_assopname[yyvsp[0].code]; ;
+{ yyval.ttype = ansi_assopname (yyvsp[0].code); ;
     break;}
 case 862:
 #line 3713 "parse.y"
-{ yyval.ttype = ansi_opname [MODIFY_EXPR]; ;
+{ yyval.ttype = ansi_assopname (NOP_EXPR); ;
     break;}
 case 863:
 #line 3715 "parse.y"
-{ yyval.ttype = ansi_opname[yyvsp[0].code]; ;
+{ yyval.ttype = ansi_opname (yyvsp[0].code); ;
     break;}
 case 864:
 #line 3717 "parse.y"
-{ yyval.ttype = ansi_opname[yyvsp[0].code]; ;
+{ yyval.ttype = ansi_opname (yyvsp[0].code); ;
     break;}
 case 865:
 #line 3719 "parse.y"
-{ yyval.ttype = ansi_opname[POSTINCREMENT_EXPR]; ;
+{ yyval.ttype = ansi_opname (POSTINCREMENT_EXPR); ;
     break;}
 case 866:
 #line 3721 "parse.y"
-{ yyval.ttype = ansi_opname[PREDECREMENT_EXPR]; ;
+{ yyval.ttype = ansi_opname (PREDECREMENT_EXPR); ;
     break;}
 case 867:
 #line 3723 "parse.y"
-{ yyval.ttype = ansi_opname[TRUTH_ANDIF_EXPR]; ;
+{ yyval.ttype = ansi_opname (TRUTH_ANDIF_EXPR); ;
     break;}
 case 868:
 #line 3725 "parse.y"
-{ yyval.ttype = ansi_opname[TRUTH_ORIF_EXPR]; ;
+{ yyval.ttype = ansi_opname (TRUTH_ORIF_EXPR); ;
     break;}
 case 869:
 #line 3727 "parse.y"
-{ yyval.ttype = ansi_opname[TRUTH_NOT_EXPR]; ;
+{ yyval.ttype = ansi_opname (TRUTH_NOT_EXPR); ;
     break;}
 case 870:
 #line 3729 "parse.y"
-{ yyval.ttype = ansi_opname[COND_EXPR]; ;
+{ yyval.ttype = ansi_opname (COND_EXPR); ;
     break;}
 case 871:
 #line 3731 "parse.y"
-{ yyval.ttype = ansi_opname[yyvsp[0].code]; ;
+{ yyval.ttype = ansi_opname (yyvsp[0].code); ;
     break;}
 case 872:
 #line 3733 "parse.y"
-{ yyval.ttype = ansi_opname[COMPONENT_REF]; ;
+{ yyval.ttype = ansi_opname (COMPONENT_REF); ;
     break;}
 case 873:
 #line 3735 "parse.y"
-{ yyval.ttype = ansi_opname[MEMBER_REF]; ;
+{ yyval.ttype = ansi_opname (MEMBER_REF); ;
     break;}
 case 874:
 #line 3737 "parse.y"
-{ yyval.ttype = ansi_opname[CALL_EXPR]; ;
+{ yyval.ttype = ansi_opname (CALL_EXPR); ;
     break;}
 case 875:
 #line 3739 "parse.y"
-{ yyval.ttype = ansi_opname[ARRAY_REF]; ;
+{ yyval.ttype = ansi_opname (ARRAY_REF); ;
     break;}
 case 876:
 #line 3741 "parse.y"
-{ yyval.ttype = ansi_opname[NEW_EXPR]; ;
+{ yyval.ttype = ansi_opname (NEW_EXPR); ;
     break;}
 case 877:
 #line 3743 "parse.y"
-{ yyval.ttype = ansi_opname[DELETE_EXPR]; ;
+{ yyval.ttype = ansi_opname (DELETE_EXPR); ;
     break;}
 case 878:
 #line 3745 "parse.y"
-{ yyval.ttype = ansi_opname[VEC_NEW_EXPR]; ;
+{ yyval.ttype = ansi_opname (VEC_NEW_EXPR); ;
     break;}
 case 879:
 #line 3747 "parse.y"
-{ yyval.ttype = ansi_opname[VEC_DELETE_EXPR]; ;
+{ yyval.ttype = ansi_opname (VEC_DELETE_EXPR); ;
     break;}
 case 880:
 #line 3750 "parse.y"
@@ -8302,11 +8296,11 @@ case 880:
     break;}
 case 881:
 #line 3752 "parse.y"
-{ yyval.ttype = ansi_opname[ERROR_MARK]; ;
+{ yyval.ttype = ansi_opname (ERROR_MARK); ;
     break;}
 }
    /* the action file gets copied in in place of this dollarsign */
-#line 543 "/usr/share/bison.simple"
+#line 543 "/usr/lib/bison.simple"
 
   yyvsp -= yylen;
   yyssp -= yylen;
@@ -8314,7 +8308,7 @@ case 881:
   yylsp -= yylen;
 #endif
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
   if (yydebug)
     {
       short *ssp1 = yyss - 1;
@@ -8421,7 +8415,7 @@ yyerrlab1:   /* here on error raised explicitly by an action */
       if (yychar == YYEOF)
 	YYABORT;
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
       if (yydebug)
 	fprintf(stderr, "Discarding token %d (%s).\n", yychar, yytname[yychar1]);
 #endif
@@ -8454,7 +8448,7 @@ yyerrpop:   /* pop the current state because it cannot handle the error token */
   yylsp--;
 #endif
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
   if (yydebug)
     {
       short *ssp1 = yyss - 1;
@@ -8489,7 +8483,7 @@ yyerrhandle:
   if (yyn == YYFINAL)
     YYACCEPT;
 
-#if YYDEBUG != 0 && !defined YYFILE
+#if YYDEBUG != 0
   if (yydebug)
     fprintf(stderr, "Shifting error token, ");
 #endif

@@ -37,15 +37,44 @@ toolexeclib_LTLIBRARIES = libstdc++.la
 EXTRA_LTLIBRARIES = libinst-string.la libinst-wstring.la
 
 
-WERROR = -Werror
-# OPTIMIZE_CXXFLAGS =  -O3 -fstrict-aliasing -fsquangle -fnew-exceptions \
-#                      -fdata-sections -ffunction-sections \
-#		       -fvtable-gc -Wl,--gc-sections
-# AC_CXXFLAGS = @OPTLEVEL@ @CPUFLAGS@ @EXTRA_CXX_FLAGS@ @DEBUGFLAGS@ 
-AC_CXXFLAGS = @CPUFLAGS@ @EXTRA_CXX_FLAGS@ @DEBUGFLAGS@
-AM_CXXFLAGS = -fno-implicit-templates \
-	      -Wall -Wno-format -W -Wwrite-strings -Winline $(WERROR) \
-	      $(OPTIMIZE_CXXFLAGS) $(AC_CXXFLAGS) 
+# Using these options is probably a good idea for thrill-seekers. Just
+# uncomment the lines below and make, everything else is ready to go...
+# OPTIMIZE_CXXFLAGS = \
+#	-O3 -fstrict-aliasing \
+#	-fdata-sections -ffunction-sections -fvtable-gc -Wl,--gc-sections
+
+# These bits are all figured out from configure. Look in acinclude.m4
+# or configure.in to see how they are set.
+AC_CXXFLAGS = \
+	@WERROR@ @FMTFLAGS@ @CSHADOWFLAGS@ @CPUFLAGS@ \
+	@EXTRA_CXX_FLAGS@ @DEBUGFLAGS@ 
+
+# Need to manually set this option because AC_CXXFLAGS has to be at
+# the end of the compile line so that -O2 can be over-riden as the
+# occasion call for it. (ie, --enable-debug)
+AM_CXXFLAGS = \
+	$(FORMAT_CXXFLAGS) \
+	-fno-implicit-templates \
+	-Wall -Wno-format -W -Wwrite-strings -Winline \
+	$(OPTIMIZE_CXXFLAGS) $(AC_CXXFLAGS) 
+
+
+# Passed down for cross compilers, canadian crosses.
+TOPLEVEL_INCLUDES = -I$(includedir)
+
+LIBIO_INCLUDES = @BUILD_LIBIO_INCLUDE@ -I$(top_srcdir)/libio 
+
+CSHADOW_INCLUDES = @CSHADOWFLAGS@ @CSHADOW_INCLUDES@
+
+CONFIG_INCLUDES = \
+	-I$(top_srcdir)/@cpu_include_dir@ \
+	-I$(top_srcdir)/@ctype_include_dir@
+
+INCLUDES = \
+	-nostdinc++ -I$(top_srcdir) \
+	$(LIBIO_INCLUDES) $(CONFIG_INCLUDES) $(CSHADOW_INCLUDES) \
+	$(TOPLEVEL_INCLUDES)	
+
 
 # Need to explicitly set this so that AM_CXXFLAGS is last. (That way,
 # things like -O2 passed down from the toplevel can be overridden by
@@ -62,16 +91,6 @@ LTCXXCOMPILE = $(LIBTOOL) --mode=compile $(CXX) $(DEFS) $(INCLUDES) \
 # course is impossible.
 CXXLINK = $(LIBTOOL) --mode=link "$(CC)" $(AM_CXXFLAGS) $(LDFLAGS) -o $@
 
-TOPLEVEL_INCLUDES = -I$(includedir)
-LIBIO_INCLUDES = @BUILD_LIBIO_INCLUDE@ -I$(top_srcdir)/libio 
-
-CONFIG_INCLUDES = \
-	-I$(top_srcdir)/@cpu_include_dir@ \
-	-I$(top_srcdir)/@ctype_include_dir@
-
-INCLUDES = \
-	-nostdinc++ -I$(top_srcdir) \
-	$(LIBIO_INCLUDES) $(CONFIG_INCLUDES) $(TOPLEVEL_INCLUDES)	
 
 headers = \
 	bits/cpp_type_traits.h \
@@ -163,10 +182,20 @@ libio_headers =
 endif
 
 generated_headers = \
-	bits/std_limits.h bits/c++config.h bits/c++threads.h bits/c++io.h
+	 $(top_builddir)/bits/std_limits.h $(top_builddir)/bits/c++config.h \
+	 $(top_builddir)/bits/c++threads.h $(top_builddir)/bits/c++io.h
 
 cpu_headers = \
 	 $(top_srcdir)/@cpu_include_dir@/bits/atomicity.h 
+
+
+sources = \
+	limitsMEMBERS.cc c++io.cc \
+	cmath.cc \
+	complex.cc complexf.cc complexl.cc complex_io.cc \
+	stdexcept.cc ios.cc stdstreams.cc strstream.cc \
+	locale.cc localename.cc  \
+	locale-inst.cc stl-inst.cc misc-inst.cc valarray-inst.cc 
 
 string_sources = \
 	stringMAIN.cc stringCTORNC.cc stringCTORAL.cc \
@@ -207,14 +236,6 @@ wstring_sources = \
 	wstringADDCS.cc wstringEXTRACT.cc wstringINSERT.cc wstringGETLINE.cc \
 	wstringSCOPY.cc wstringEQ.cc
 
-sources = \
-	limitsMEMBERS.cc c++io.cc \
-	cmath.cc \
-	complex.cc complexf.cc complexl.cc complex_io.cc \
-	stdexcept.cc ios.cc stdstreams.cc strstream.cc \
-	locale.cc localename.cc  \
-	locale-inst.cc stl-inst.cc misc-inst.cc valarray-inst.cc 
-
 VPATH += $(top_srcdir) $(top_srcdir)/std $(top_srcdir)/src
 VPATH += $(top_srcdir)/@ctype_include_dir@
 
@@ -237,6 +258,24 @@ libstdc___la_LDFLAGS = -version-info 3:0:0 -lm
 libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD)
 
 
+# Make sure cshadow headers are built first.
+if GLIBCPP_USE_CSHADOW
+CSHADOW_H = $(top_builddir)/stamp-cshadow
+else
+CSHADOW_H =
+endif
+
+# Specify that all *.o's depend on this.
+$(libstdc___la_OBJECTS): $(CSHADOW_H)
+
+$(top_builddir)/stamp-cshadow: $(top_srcdir)/mkinclosure \
+                               $(top_srcdir)/mkcshadow
+	$(top_srcdir)/mkinclosure \
+	"-I $(top_builddir)/../../gcc/include -I /usr/include -G machine/ansi.h" | $(top_srcdir)/mkcshadow;
+	rm -f  $(top_builddir)/stamp-cshadow 
+	echo "done" > $(top_builddir)/stamp-cshadow 
+
+
 # We cannot use the default rules to install headers since we cannot
 # statically decide which headers to install.  So we have our own special
 # installation routine here.
@@ -246,7 +285,6 @@ install: myinstallheaders
 
 # NB: As libio_headers may be empty, need this to make sure bash doesn't
 # choke on an empty for... loop by using libio_headers_install
-
 myinstallheaders: $(headers:%=$(myincludep)%)
 	if test -z "$(MULTISUBDIR)"; then \
 	for i in $(std_headers); do \
@@ -254,8 +292,8 @@ myinstallheaders: $(headers:%=$(myincludep)%)
 	        $(INSTALL_DATA) $(top_srcdir)/std/$$i $(myincludep); \
 	done; \
 	for i in $(generated_headers); do \
-	  echo "$(INSTALL_DATA) $(top_builddir)/$$i $(myincludep)bits/"; \
-	        $(INSTALL_DATA) $(top_builddir)/$$i $(myincludep)bits/; \
+	  echo "$(INSTALL_DATA) $$i $(myincludep)bits/"; \
+	        $(INSTALL_DATA) $$i $(myincludep)bits/; \
 	done; \
 	libio_headers_install='$(libio_headers)'; \
 	for i in $$libio_headers_install; do \
@@ -273,10 +311,19 @@ $(headers:%=$(myincludep)%): $(myincludep)%: %
 	$(INSTALL_DATA) $^ $@; \
 	fi;
 
-# For the next time we have to handle misc-inst.cc and locale-inst.cc
-# in a special way since we cannot instantiate all classes due to
-# missing definitions for things like vptrs, type_info bits, etc. when
-# using -fno-implicit-templates. 
+# All the machinations with string instantiations messes up the
+# automake-generated TAGS rule. Make a simple one here.
+TAGS: $(generated_headers) $(cpu_headers) 
+	etags -C $(top_srcdir)/bits/*.h $(top_srcdir)/bits/*.tcc \
+	$(generated_headers) $(cpu_headers) $(libio_headers) \
+	$(top_srcdir)/src/*.cc \
+	$(top_builddir)/src/limitsMEMBERS.cc $(top_builddir)/src/c++io.cc \
+	-o $(top_builddir)/TAGS
+
+# We have to handle misc-inst.cc and locale-inst.cc in a special way
+# since we cannot instantiate all classes due to missing definitions
+# for things like vptrs, type_info bits, etc. when using
+# -fno-implicit-templates.
 misc-inst.o: misc-inst.cc
 	$(CXXCOMPILE) -fimplicit-templates -c $<
 misc-inst.lo: misc-inst.cc
@@ -517,3 +564,4 @@ wstringSCOPY.o \
 wstringEQ.o : string-inst.cc
 	$(CXXCOMPILE) -fimplicit-templates \
 	-c -D`echo $@ | tr -dc '0-9A-Z'` -DC=wchar_t $< -o $@
+

@@ -105,14 +105,14 @@ static void resume_binding_level PARAMS ((struct binding_level *));
 static struct binding_level *make_binding_level PARAMS ((void));
 static void declare_namespace_level PARAMS ((void));
 static void signal_catch PARAMS ((int)) ATTRIBUTE_NORETURN;
+static int decl_jump_unsafe PARAMS ((tree));
 static void storedecls PARAMS ((tree));
 static void require_complete_types_for_parms PARAMS ((tree));
-static int ambi_op_p PARAMS ((tree));
-static int unary_op_p PARAMS ((tree));
+static int ambi_op_p PARAMS ((enum tree_code));
+static int unary_op_p PARAMS ((enum tree_code));
 static tree store_bindings PARAMS ((tree, tree));
 static tree lookup_tag_reverse PARAMS ((tree, tree));
 static tree obscure_complex_init PARAMS ((tree, tree));
-static tree maybe_build_cleanup_1 PARAMS ((tree, tree));
 static tree lookup_name_real PARAMS ((tree, int, int, int));
 static void warn_extern_redeclared_static PARAMS ((tree, tree));
 static void grok_reference_init PARAMS ((tree, tree, tree));
@@ -126,7 +126,7 @@ static void set_identifier_type_value_with_scope
 	PARAMS ((tree, tree, struct binding_level *));
 static void record_builtin_type PARAMS ((enum rid, const char *, tree));
 static void record_unknown_type PARAMS ((tree, const char *));
-static tree build_library_fn_1			PARAMS ((tree, tree));
+static tree build_library_fn_1 PARAMS ((tree, enum tree_code, tree));
 static int member_function_or_else PARAMS ((tree, tree, enum overload_flags));
 static void bad_specifiers PARAMS ((tree, const char *, int, int, int, int,
 				  int));
@@ -152,7 +152,13 @@ static int walk_namespaces_r PARAMS ((tree, walk_namespaces_fn, void *));
 static int walk_globals_r PARAMS ((tree, void *));
 static void add_decl_to_level PARAMS ((tree, struct binding_level *));
 static tree make_label_decl PARAMS ((tree, int));
-static void pop_label PARAMS ((tree));
+static void use_label PARAMS ((tree));
+static void check_previous_goto_1 PARAMS ((tree, struct binding_level *, tree,
+					   const char *, int));
+static void check_previous_goto PARAMS ((struct named_label_use_list *));
+static void check_switch_goto PARAMS ((struct binding_level *));
+static void check_previous_gotos PARAMS ((tree));
+static void pop_label PARAMS ((tree, tree));
 static void pop_labels PARAMS ((tree));
 static void maybe_deduce_size_from_array_init PARAMS ((tree, tree));
 static void layout_var_decl PARAMS ((tree));
@@ -180,6 +186,8 @@ static tree cp_make_fname_decl PARAMS ((tree, const char *, int));
 static void initialize_predefined_identifiers PARAMS ((void));
 static tree check_special_function_return_type 
   PARAMS ((special_function_kind, tree, tree, tree));
+static tree push_cp_library_fn PARAMS ((enum tree_code, tree));
+static tree build_cp_library_fn PARAMS ((tree, enum tree_code, tree));
 
 #if defined (DEBUG_CP_BINDING_LEVELS)
 static void indent PARAMS ((void));
@@ -211,7 +219,7 @@ tree error_mark_list;
 	tree bltn_desc_type_node, ptr_desc_type_node;
 	tree ary_desc_type_node, func_desc_type_node, enum_desc_type_node;
 	tree class_desc_type_node, si_class_desc_type_node, vmi_class_desc_type_node;
-	tree ptmd_desc_type_node;
+	tree ptm_desc_type_node;
 	tree base_desc_type_node;
 #if 0
    Not needed yet?  May be needed one day?
@@ -269,18 +277,18 @@ static int only_namespace_names;
 
 #define original_result_rtx cp_function_chain->x_result_rtx
 
-struct named_label_list
+/* Used only for jumps to as-yet undefined labels, since jumps to
+   defined labels can have their validity checked immediately.  */
+
+struct named_label_use_list
 {
   struct binding_level *binding_level;
   tree names_in_scope;
   tree label_decl;
   const char *filename_o_goto;
   int lineno_o_goto;
-  struct named_label_list *next;
+  struct named_label_use_list *next;
 };
-
-/* Used only for jumps to as-yet undefined labels, since jumps to
-   defined labels can have their validity checked by stmt.c.  */
 
 #define named_label_uses cp_function_chain->x_named_label_uses
 
@@ -305,10 +313,20 @@ static tree last_function_parm_tags;
 tree last_function_parms;
 static tree current_function_parm_tags;
 
-/* A list (chain of TREE_LIST nodes) of all LABEL_DECLs in the function
-   that have names.  Here so we can clear out their names' definitions
-   at the end of the function.  The TREE_VALUE is a LABEL_DECL; the
-   TREE_PURPOSE is the previous binding of the label.  */
+/* A list of all LABEL_DECLs in the function that have names.  Here so
+   we can clear out their names' definitions at the end of the
+   function, and so we can check the validity of jumps to these labels.  */
+
+struct named_label_list
+{
+  struct binding_level *binding_level;
+  tree names_in_scope;
+  tree old_value;
+  tree label_decl;
+  tree bad_decls;
+  int eh_region;
+  struct named_label_list *next;
+};
 
 #define named_labels cp_function_chain->x_named_labels
 
@@ -482,7 +500,9 @@ struct binding_level
        worry about ambiguous (ARM or ISO) scope rules.  */
     unsigned is_for_scope : 1;
 
-    /* True if this level corresponds to an EH region, as for a try block.  */
+    /* True if this level corresponds to an EH region, as for a try block.
+       Currently this information is only available while building the
+       tree structure.  */
     unsigned eh_region : 1;
 
     /* Four bits left for this word.  */
@@ -548,11 +568,6 @@ push_binding_level (newlevel, tag_transparent, keep)
   current_binding_level = newlevel;
   newlevel->tag_transparent = tag_transparent;
   newlevel->more_cleanups_ok = 1;
-
-  /* We are called before expand_start_bindings, but after
-     expand_eh_region_start for a try block; so we check this now,
-     before the EH block is covered up.  */
-  newlevel->eh_region = is_eh_region ();
 
   newlevel->keep = keep;
 #if defined(DEBUG_CP_BINDING_LEVELS)
@@ -928,6 +943,14 @@ note_level_for_for ()
   current_binding_level->is_for_scope = 1;
 }
 
+/* Record that the current binding level represents a try block.  */
+
+void
+note_level_for_eh ()
+{
+  current_binding_level->eh_region = 1;
+}
+
 /* For a binding between a name and an entity at a block scope,
    this is the `struct binding_level' for the block.  */
 #define BINDING_LEVEL(NODE) \
@@ -1181,11 +1204,10 @@ pop_binding (id, decl)
    in a valid manner, and issue any appropriate warnings or errors.  */
 
 static void
-pop_label (link)
-     tree link;
+pop_label (label, old_value)
+     tree label;
+     tree old_value;
 {
-  tree label = TREE_VALUE (link);
-
   if (!processing_template_decl && doing_semantic_analysis_p ())
     {
       if (DECL_INITIAL (label) == NULL_TREE)
@@ -1198,7 +1220,7 @@ pop_label (link)
 	cp_warning_at ("label `%D' defined but not used", label);
     }
 
-  SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), TREE_PURPOSE (link));
+  SET_IDENTIFIER_LABEL_VALUE (DECL_NAME (label), old_value);
 }
 
 /* At the end of a function, all labels declared within the fucntion
@@ -1209,20 +1231,20 @@ static void
 pop_labels (block)
      tree block;
 {
-  tree link;
+  struct named_label_list *link;
 
   /* Clear out the definitions of all label names, since their scopes
      end here.  */
-  for (link = named_labels; link; link = TREE_CHAIN (link))
+  for (link = named_labels; link; link = link->next)
     {
-      pop_label (link);
+      pop_label (link->label_decl, link->old_value);
       /* Put the labels into the "variables" of the top-level block,
 	 so debugger can see them.  */
-      TREE_CHAIN (TREE_VALUE (link)) = BLOCK_VARS (block);
-      BLOCK_VARS (block) = TREE_VALUE (link);
+      TREE_CHAIN (link->label_decl) = BLOCK_VARS (block);
+      BLOCK_VARS (block) = link->label_decl;
     }
 
-  named_labels = NULL_TREE;
+  named_labels = NULL;
 }
 
 /* Exit a binding level.
@@ -1285,6 +1307,40 @@ poplevel (keep, reverse, functionbody)
 
   if (current_binding_level->keep == 1)
     keep = 1;
+
+  /* Any uses of undefined labels, and any defined labels, now operate
+     under constraints of next binding contour.  */
+  if (cfun && !functionbody)
+    {
+      struct binding_level *level_chain;
+      level_chain = current_binding_level->level_chain;
+      if (level_chain)
+	{
+	  struct named_label_use_list *uses;
+	  struct named_label_list *labels;
+	  for (labels = named_labels; labels; labels = labels->next)
+	    if (labels->binding_level == current_binding_level)
+	      {
+		tree decl;
+		if (current_binding_level->eh_region)
+		  labels->eh_region = 1;
+		for (decl = labels->names_in_scope; decl;
+		     decl = TREE_CHAIN (decl))
+		  if (decl_jump_unsafe (decl))
+		    labels->bad_decls = tree_cons (NULL_TREE, decl,
+						   labels->bad_decls);
+		labels->binding_level = level_chain;
+		labels->names_in_scope = level_chain->names;
+	      }
+
+	  for (uses = named_label_uses; uses; uses = uses->next)
+	    if (uses->binding_level == current_binding_level)
+	      {
+		uses->binding_level = level_chain;
+		uses->names_in_scope = level_chain->names;
+	      }
+	}
+    }
 
   /* Get the decls in the order they were written.
      Usually current_binding_level->names is in reverse order.
@@ -1469,7 +1525,7 @@ poplevel (keep, reverse, functionbody)
   for (link = current_binding_level->shadowed_labels;
        link;
        link = TREE_CHAIN (link))
-    pop_label (link);
+    pop_label (TREE_VALUE (link), TREE_PURPOSE (link));
 
   /* There may be OVERLOADs (wrapped in TREE_LISTs) on the BLOCK_VARs
      list if a `using' declaration put them there.  The debugging
@@ -1499,24 +1555,6 @@ poplevel (keep, reverse, functionbody)
 	 because they are found in the FUNCTION_DECL instead.  */
       BLOCK_VARS (block) = 0;
       pop_labels (block);
-    }
-
-  /* Any uses of undefined labels now operate under constraints
-     of next binding contour.  */
-  if (cfun)
-    {
-      struct binding_level *level_chain;
-      level_chain = current_binding_level->level_chain;
-      if (level_chain)
-	{
-	  struct named_label_list *labels;
-	  for (labels = named_label_uses; labels; labels = labels->next)
-	    if (labels->binding_level == current_binding_level)
-	      {
-		labels->binding_level = level_chain;
-		labels->names_in_scope = level_chain->names;
-	      }
-	}
     }
 
   tmp = current_binding_level->keep;
@@ -1952,7 +1990,7 @@ mark_binding_level (arg)
 {
   struct binding_level *lvl = *(struct binding_level **)arg;
 
-  while (lvl)
+  for (; lvl; lvl = lvl->level_chain)
     {
       ggc_mark_tree (lvl->names);
       ggc_mark_tree (lvl->tags);
@@ -1966,9 +2004,28 @@ mark_binding_level (arg)
       ggc_mark_tree (lvl->this_class);
       ggc_mark_tree (lvl->incomplete);
       ggc_mark_tree (lvl->dead_vars_from_for);
-
-      lvl = lvl->level_chain;
     }
+}
+
+static void
+mark_named_label_lists (labs, uses)
+     void *labs;
+     void *uses;
+{
+  struct named_label_list *l = *(struct named_label_list **)labs;
+  struct named_label_use_list *u = *(struct named_label_use_list **)uses;
+
+  for (; l; l = l->next)
+    {
+      ggc_mark (l);
+      mark_binding_level (l->binding_level);
+      ggc_mark_tree (l->old_value);
+      ggc_mark_tree (l->label_decl);
+      ggc_mark_tree (l->bad_decls);
+    }
+
+  for (; u; u = u->next)
+    ggc_mark (u);
 }
 
 /* For debugging.  */
@@ -3126,9 +3183,9 @@ duplicate_decls (newdecl, olddecl)
 	  DECL_THIS_STATIC (olddecl) = 1;
 	  TREE_PUBLIC (olddecl) = 0;
 
-	  /* Make the olddeclaration consistent with the new one so that
-	     all remnants of the builtin-ness of this function will be
-	     banished.  */
+	  /* Make the old declaration consistent with the new one so
+	     that all remnants of the builtin-ness of this function
+	     will be banished.  */
 	  DECL_LANGUAGE (olddecl) = DECL_LANGUAGE (newdecl);
 	  DECL_RTL (olddecl) = DECL_RTL (newdecl);
 	  DECL_ASSEMBLER_NAME (olddecl) = DECL_ASSEMBLER_NAME (newdecl);
@@ -3370,6 +3427,7 @@ duplicate_decls (newdecl, olddecl)
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
       DECL_NEEDS_FINAL_OVERRIDER_P (newdecl) |= DECL_NEEDS_FINAL_OVERRIDER_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
+      DECL_LANG_SPECIFIC (newdecl)->u2 = DECL_LANG_SPECIFIC (olddecl)->u2;
       new_defines_function = DECL_INITIAL (newdecl) != NULL_TREE;
 
       /* Optionally warn about more than one declaration for the same
@@ -4386,9 +4444,10 @@ push_class_level_binding (name, x)
     }
 }
 
-/* Insert another USING_DECL into the current binding level,
-   returning this declaration. If this is a redeclaration,
-   do nothing and return NULL_TREE.  */
+/* Insert another USING_DECL into the current binding level, returning
+   this declaration. If this is a redeclaration, do nothing, and
+   return NULL_TREE if this not in namespace scope (in namespace
+   scope, a using decl might extend any previous bindings).  */
 
 tree
 push_using_decl (scope, name)
@@ -4403,7 +4462,7 @@ push_using_decl (scope, name)
     if (DECL_INITIAL (decl) == scope && DECL_NAME (decl) == name)
       break;
   if (decl)
-    return NULL_TREE;
+    return namespace_bindings_p () ? decl : NULL_TREE;
   decl = build_lang_decl (USING_DECL, name, void_type_node);
   DECL_INITIAL (decl) = scope;
   TREE_CHAIN (decl) = current_binding_level->usings;
@@ -4707,17 +4766,25 @@ make_label_decl (id, local_p)
   /* Record the fact that this identifier is bound to this label.  */
   SET_IDENTIFIER_LABEL_VALUE (id, decl);
 
-  /* Record this label on the list of used labels so that we can check
-     at the end of the function to see whether or not the label was
-     actually defined.  */
-  if ((named_label_uses == NULL || named_label_uses->label_decl != decl)
-      && (named_label_uses == NULL
-	  || named_label_uses->names_in_scope != current_binding_level->names
-	  || named_label_uses->label_decl != decl))
+  return decl;
+}
+
+/* Record this label on the list of used labels so that we can check
+   at the end of the function to see whether or not the label was
+   actually defined, and so we can check when the label is defined whether
+   this use is valid.  */
+
+static void
+use_label (decl)
+     tree decl;
+{
+  if (named_label_uses == NULL
+      || named_label_uses->names_in_scope != current_binding_level->names
+      || named_label_uses->label_decl != decl)
     {
-      struct named_label_list *new_ent;
-      new_ent
-	= (struct named_label_list*)oballoc (sizeof (struct named_label_list));
+      struct named_label_use_list *new_ent;
+      new_ent = ((struct named_label_use_list *)
+		 ggc_alloc (sizeof (struct named_label_use_list)));
       new_ent->label_decl = decl;
       new_ent->names_in_scope = current_binding_level->names;
       new_ent->binding_level = current_binding_level;
@@ -4726,8 +4793,6 @@ make_label_decl (id, local_p)
       new_ent->next = named_label_uses;
       named_label_uses = new_ent;
     }
-
-  return decl;
 }
 
 /* Look for a label named ID in the current function.  If one cannot
@@ -4739,6 +4804,7 @@ lookup_label (id)
      tree id;
 {
   tree decl;
+  struct named_label_list *ent;
 
   /* You can't use labels at global scope.  */
   if (current_function_decl == NULL_TREE)
@@ -4756,12 +4822,17 @@ lookup_label (id)
   /* Record this label on the list of labels used in this function.
      We do this before calling make_label_decl so that we get the
      IDENTIFIER_LABEL_VALUE before the new label is declared.  */
-  named_labels = tree_cons (IDENTIFIER_LABEL_VALUE (id), NULL_TREE,
-			    named_labels);
+  ent = ((struct named_label_list *)
+	 ggc_alloc_obj (sizeof (struct named_label_list), 1));
+  ent->old_value = IDENTIFIER_LABEL_VALUE (id);
+  ent->next = named_labels;
+  named_labels = ent;
+
   /* We need a new label.  */
   decl = make_label_decl (id, /*local_p=*/0);
+
   /* Now fill in the information we didn't have before.  */
-  TREE_VALUE (named_labels) = decl;
+  ent->label_decl = decl;
 
   return decl;
 }
@@ -4788,6 +4859,193 @@ declare_local_label (id)
   return decl;
 }
 
+/* Returns nonzero if it is ill-formed to jump past the declaration of
+   DECL.  Returns 2 if it's also a real problem.  */
+
+static int
+decl_jump_unsafe (decl)
+     tree decl;
+{
+  if (TREE_CODE (decl) != VAR_DECL || TREE_STATIC (decl))
+    return 0;
+
+  if (DECL_INITIAL (decl) == NULL_TREE
+      && pod_type_p (TREE_TYPE (decl)))
+    return 0;
+
+  /* This is really only important if we're crossing an initialization.
+     The POD stuff is just pedantry; why should it matter if the class
+     contains a field of pointer to member type?  */
+  if (DECL_INITIAL (decl)
+      || (TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl))))
+    return 2;
+  return 1;
+}
+
+/* Check that a single previously seen jump to a newly defined label
+   is OK.  DECL is the LABEL_DECL or 0; LEVEL is the binding_level for
+   the jump context; NAMES are the names in scope in LEVEL at the jump
+   context; FILE and LINE are the source position of the jump or 0.  */
+
+static void
+check_previous_goto_1 (decl, level, names, file, line)
+     tree decl;
+     struct binding_level *level;
+     tree names;
+     const char *file;
+     int line;
+{
+  int identified = 0;
+  int saw_eh = 0;
+  struct binding_level *b = current_binding_level;
+  for (; b; b = b->level_chain)
+    {
+      tree new_decls = b->names;
+      tree old_decls = (b == level ? names : NULL_TREE);
+      for (; new_decls != old_decls;
+	   new_decls = TREE_CHAIN (new_decls))
+	{
+	  int problem = decl_jump_unsafe (new_decls);
+	  if (! problem)
+	    continue;
+
+	  if (! identified)
+	    {
+	      if (decl)
+		cp_pedwarn ("jump to label `%D'", decl);
+	      else
+		pedwarn ("jump to case label");
+
+	      if (file)
+		pedwarn_with_file_and_line (file, line, "  from here");
+	      identified = 1;
+	    }
+
+	  if (problem > 1 && DECL_ARTIFICIAL (new_decls))
+	    /* Can't skip init of __exception_info.  */
+	    cp_error_at ("  enters catch block", new_decls);
+	  else if (problem > 1)
+	    cp_error_at ("  crosses initialization of `%#D'",
+			 new_decls);
+	  else
+	    cp_pedwarn_at ("  enters scope of non-POD `%#D'",
+			   new_decls);
+	}
+
+      if (b == level)
+	break;
+      if (b->eh_region && ! saw_eh)
+	{
+	  if (! identified)
+	    {
+	      if (decl)
+		cp_pedwarn ("jump to label `%D'", decl);
+	      else
+		pedwarn ("jump to case label");
+
+	      if (file)
+		pedwarn_with_file_and_line (file, line, "  from here");
+	      identified = 1;
+	    }
+	  error ("  enters try block");
+	  saw_eh = 1;
+	}
+    }
+}
+
+static void
+check_previous_goto (use)
+     struct named_label_use_list *use;
+{
+  check_previous_goto_1 (use->label_decl, use->binding_level,
+			 use->names_in_scope, use->filename_o_goto,
+			 use->lineno_o_goto);
+}
+
+static void
+check_switch_goto (level)
+     struct binding_level *level;
+{
+  check_previous_goto_1 (NULL_TREE, level, level->names, NULL, 0);
+}
+
+/* Check that any previously seen jumps to a newly defined label DECL
+   are OK.  Called by define_label.  */
+
+static void
+check_previous_gotos (decl)
+     tree decl;
+{
+  struct named_label_use_list **usep;
+
+  if (! TREE_USED (decl))
+    return;
+
+  for (usep = &named_label_uses; *usep; )
+    {
+      struct named_label_use_list *use = *usep;
+      if (use->label_decl == decl)
+	{
+	  check_previous_goto (use);
+	  *usep = use->next;
+	}
+      else
+	usep = &(use->next);
+    }
+}
+
+/* Check that a new jump to a label DECL is OK.  Called by
+   finish_goto_stmt.  */
+
+void
+check_goto (decl)
+     tree decl;
+{
+  int identified = 0;
+  tree bad;
+  struct named_label_list *lab;
+
+  /* If the label hasn't been defined yet, defer checking.  */
+  if (! DECL_INITIAL (decl))
+    {
+      use_label (decl);
+      return;
+    }
+
+  for (lab = named_labels; lab; lab = lab->next)
+    if (decl == lab->label_decl)
+      break;
+
+  /* If the label is not on named_labels it's a gcc local label, so
+     it must be in an outer scope, so jumping to it is always OK.  */
+  if (lab == 0)
+    return;
+
+  if ((lab->eh_region || lab->bad_decls) && !identified)
+    {
+      cp_pedwarn_at ("jump to label `%D'", decl);
+      pedwarn ("  from here");
+      identified = 1;
+    }
+
+  for (bad = lab->bad_decls; bad; bad = TREE_CHAIN (bad))
+    {
+      tree b = TREE_VALUE (bad);
+      int u = decl_jump_unsafe (b);
+
+      if (u > 1 && DECL_ARTIFICIAL (b))
+	/* Can't skip init of __exception_info.  */
+	cp_error_at ("  enters catch block", b);
+      else if (u > 1)
+	cp_error_at ("  skips initialization of `%#D'", b);
+      else
+	cp_pedwarn_at ("  enters scope of non-POD `%#D'", b);
+    }
+
+  if (lab->eh_region)
+    error ("  enters try block");
+}
+
 /* Define a label, specifying the location in the source file.
    Return the LABEL_DECL node for the label, if the definition is valid.
    Otherwise return 0.  */
@@ -4799,6 +5057,11 @@ define_label (filename, line, name)
      tree name;
 {
   tree decl = lookup_label (name);
+  struct named_label_list *ent;
+
+  for (ent = named_labels; ent; ent = ent->next)
+    if (ent->label_decl == decl)
+      break;
 
   /* After labels, make any new cleanups go into their
      own new (temporary) binding contour.  */
@@ -4814,104 +5077,17 @@ define_label (filename, line, name)
     }
   else
     {
-      struct named_label_list *uses, *prev;
-      int identified = 0;
-      int saw_eh = 0;
-
       /* Mark label as having been defined.  */
       DECL_INITIAL (decl) = error_mark_node;
       /* Say where in the source.  */
       DECL_SOURCE_FILE (decl) = filename;
       DECL_SOURCE_LINE (decl) = line;
-
-      prev = NULL;
-      uses = named_label_uses;
-      while (uses != NULL)
-	if (uses->label_decl == decl)
-	  {
-	    struct binding_level *b = current_binding_level;
-	    while (b)
-	      {
-		tree new_decls = b->names;
-		tree old_decls = (b == uses->binding_level)
-				  ? uses->names_in_scope : NULL_TREE;
-		while (new_decls != old_decls)
-		  {
-		    if (TREE_CODE (new_decls) == VAR_DECL
-			/* Don't complain about crossing initialization
-			   of internal entities.  They can't be accessed,
-			   and they should be cleaned up
-			   by the time we get to the label.  */
-			&& ! DECL_ARTIFICIAL (new_decls)
-			&& !(DECL_INITIAL (new_decls) == NULL_TREE
-			     && pod_type_p (TREE_TYPE (new_decls))))
-		      {
-			/* This is really only important if we're crossing
-			   an initialization.  The POD stuff is just
-			   pedantry; why should it matter if the class
-			   contains a field of pointer to member type?  */
-			int problem = (DECL_INITIAL (new_decls)
-				       || (TYPE_NEEDS_CONSTRUCTING
-					   (TREE_TYPE (new_decls))));
-
-			if (! identified)
-			  {
-			    if (problem)
-			      {
-				cp_error ("jump to label `%D'", decl);
-				error_with_file_and_line
-				  (uses->filename_o_goto,
-				   uses->lineno_o_goto, "  from here");
-			      }
-			    else
-			      {
-				cp_pedwarn ("jump to label `%D'", decl);
-				pedwarn_with_file_and_line
-				  (uses->filename_o_goto,
-				   uses->lineno_o_goto, "  from here");
-			      }
-			    identified = 1;
-			  }
-
-			if (problem)
-			  cp_error_at ("  crosses initialization of `%#D'",
-				       new_decls);
-			else
-			  cp_pedwarn_at ("  enters scope of non-POD `%#D'",
-					 new_decls);
-		      }
-		    new_decls = TREE_CHAIN (new_decls);
-		  }
-		if (b == uses->binding_level)
-		  break;
-		if (b->eh_region && ! saw_eh)
-		  {
-		    if (! identified)
-		      {
-			cp_error ("jump to label `%D'", decl);
-			error_with_file_and_line
-			  (uses->filename_o_goto,
-			   uses->lineno_o_goto, "  from here");
-			identified = 1;
-		      }
-		    error ("  enters exception handling block");
-		    saw_eh = 1;
-		  }
-		b = b->level_chain;
-	      }
-
-	    if (prev != NULL)
-	      prev->next = uses->next;
-	    else
-	      named_label_uses = uses->next;
-
-	    uses = uses->next;
-	  }
-	else
-	  {
-	    prev = uses;
-	    uses = uses->next;
-	  }
+      if (ent)
+	{
+	  ent->names_in_scope = current_binding_level->names;
+	  ent->binding_level = current_binding_level;
+	}
+      check_previous_gotos (decl);
       current_function_return_value = NULL_TREE;
       return decl;
     }
@@ -4952,8 +5128,6 @@ void
 define_case_label ()
 {
   tree cleanup = last_cleanup_this_contour ();
-  struct binding_level *b = current_binding_level;
-  int identified = 0;
 
   if (! switch_stack)
     /* Don't crash; we'll complain in do_case.  */
@@ -4972,29 +5146,7 @@ define_case_label ()
 	}
     }
 
-  for (; b && b != switch_stack->level; b = b->level_chain)
-    {
-      tree new_decls = b->names;
-      for (; new_decls; new_decls = TREE_CHAIN (new_decls))
-	{
-	  if (TREE_CODE (new_decls) == VAR_DECL
-	      /* Don't complain about crossing initialization
-		 of internal entities.  They can't be accessed,
-		 and they should be cleaned up
-		 by the time we get to the label.  */
-	      && ! DECL_ARTIFICIAL (new_decls)
-	      && ((DECL_INITIAL (new_decls) != NULL_TREE
-		   && DECL_INITIAL (new_decls) != error_mark_node)
-		  || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (new_decls))))
-	    {
-	      if (! identified)
-		error ("jump to case label");
-	      identified = 1;
-	      cp_error_at ("  crosses initialization of `%#D'",
-			   new_decls);
-	    }
-	}
-    }
+  check_switch_goto (switch_stack->level);
 
   /* After labels, make any new cleanups go into their
      own new (temporary) binding contour.  */
@@ -6074,6 +6226,7 @@ initialize_predefined_identifiers ()
     { "__pfn_or_delta2", &pfn_or_delta2_identifier, 0 },
     { "_vptr", &vptr_identifier, 0 },
     { "__cp_push_exception", &cp_push_exception_identifier, 0 },
+    { "__vtt_parm", &vtt_parm_identifier, 0 },
     { NULL, NULL, 0 }
   };
 
@@ -6321,6 +6474,11 @@ init_decl_processing ()
   default_function_type
     = build_function_type (integer_type_node, NULL_TREE);
 
+  ptr_type_node = build_pointer_type (void_type_node);
+  const_ptr_type_node
+    = build_pointer_type (build_qualified_type (void_type_node,
+						TYPE_QUAL_CONST));
+  vtt_parm_type = build_pointer_type (const_ptr_type_node);
   c_common_nodes_and_builtins (1, flag_no_builtin, flag_no_nonansi_builtin);
   lang_type_promotes_to = convert_type_from_ellipsis;
 
@@ -6379,12 +6537,12 @@ init_decl_processing ()
   else
     {
       vtable_entry_type = make_aggr_type (RECORD_TYPE);
-      fields[0] = build_lang_decl (FIELD_DECL, delta_identifier,
-				   delta_type_node);
-      fields[1] = build_lang_decl (FIELD_DECL, index_identifier,
-				   delta_type_node);
-      fields[2] = build_lang_decl (FIELD_DECL, pfn_identifier,
-				   ptr_type_node);
+      fields[0] = build_decl (FIELD_DECL, delta_identifier,
+			      delta_type_node);
+      fields[1] = build_decl (FIELD_DECL, index_identifier,
+			      delta_type_node);
+      fields[2] = build_decl (FIELD_DECL, pfn_identifier,
+			      ptr_type_node);
       finish_builtin_type (vtable_entry_type, VTBL_PTR_TYPE, fields, 2,
 			   double_type_node);
 
@@ -6440,11 +6598,10 @@ init_decl_processing ()
     newtype = build_exception_variant
       (ptr_ftype_sizetype, add_exception_specifier (NULL_TREE, bad_alloc_type_node, -1));
     deltype = build_exception_variant (void_ftype_ptr, empty_except_spec);
-    push_cp_library_fn (ansi_opname[(int) NEW_EXPR], newtype);
-    push_cp_library_fn (ansi_opname[(int) VEC_NEW_EXPR], newtype);
-    global_delete_fndecl = push_cp_library_fn (ansi_opname[(int) DELETE_EXPR],
-					       deltype);
-    push_cp_library_fn (ansi_opname[(int) VEC_DELETE_EXPR], deltype);
+    push_cp_library_fn (NEW_EXPR, newtype);
+    push_cp_library_fn (VEC_NEW_EXPR, newtype);
+    global_delete_fndecl = push_cp_library_fn (DELETE_EXPR, deltype);
+    push_cp_library_fn (VEC_DELETE_EXPR, deltype);
   }
 
   abort_fndecl
@@ -6600,7 +6757,7 @@ builtin_function (name, type, code, class, libname)
      enum built_in_class class;
      const char *libname;
 {
-  tree decl = build_library_fn_1 (get_identifier (name), type);
+  tree decl = build_library_fn_1 (get_identifier (name), ERROR_MARK, type);
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = code;
 
@@ -6613,6 +6770,12 @@ builtin_function (name, type, code, class, libname)
   if (libname)
     DECL_ASSEMBLER_NAME (decl) = get_identifier (libname);
   make_function_rtl (decl);
+
+  /* Warn if a function in the namespace for users
+     is used without an occasion to consider it declared.  */
+  if (name[0] != '_' || name[1] != '_')
+    DECL_ANTICIPATED (decl) = 1;
+
   return decl;
 }
 
@@ -6620,8 +6783,9 @@ builtin_function (name, type, code, class, libname)
    function.  Not called directly.  */
 
 static tree
-build_library_fn_1 (name, type)
+build_library_fn_1 (name, operator_code, type)
      tree name;
+     enum tree_code operator_code;
      tree type;
 {
   tree fn = build_lang_decl (FUNCTION_DECL, name, type);
@@ -6629,6 +6793,7 @@ build_library_fn_1 (name, type)
   TREE_PUBLIC (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
   TREE_NOTHROW (fn) = 1;
+  SET_OVERLOADED_OPERATOR_CODE (fn, operator_code);
   return fn;
 }
 
@@ -6641,19 +6806,20 @@ build_library_fn (name, type)
      tree name;
      tree type;
 {
-  tree fn = build_library_fn_1 (name, type);
+  tree fn = build_library_fn_1 (name, ERROR_MARK, type);
   make_function_rtl (fn);
   return fn;
 }
 
 /* Returns the _DECL for a library function with C++ linkage.  */
 
-tree
-build_cp_library_fn (name, type)
+static tree
+build_cp_library_fn (name, operator_code, type)
      tree name;
+     enum tree_code operator_code;
      tree type;
 {
-  tree fn = build_library_fn_1 (name, type);
+  tree fn = build_library_fn_1 (name, operator_code, type);
   TREE_NOTHROW (fn) = TYPE_NOTHROW_P (type);
   set_mangled_name_for_decl (fn);
   make_function_rtl (fn);
@@ -6679,7 +6845,7 @@ build_cp_library_fn_ptr (name, type)
      const char *name;
      tree type;
 {
-  return build_cp_library_fn (get_identifier (name), type);
+  return build_cp_library_fn (get_identifier (name), ERROR_MARK, type);
 }
 
 /* Like build_library_fn, but also pushes the function so that we will
@@ -6697,12 +6863,14 @@ push_library_fn (name, type)
 /* Like build_cp_library_fn, but also pushes the function so that it
    will be found by normal lookup.  */
 
-tree
-push_cp_library_fn (name, type)
-     tree name;
+static tree
+push_cp_library_fn (operator_code, type)
+     enum tree_code operator_code;
      tree type;
 {
-  tree fn = build_cp_library_fn (name, type);
+  tree fn = build_cp_library_fn (ansi_opname (operator_code), 
+				 operator_code,
+				 type);
   pushdecl (fn);
   return fn;
 }
@@ -9026,24 +9194,24 @@ build_ptrmemfunc_type (type)
     {
       u = make_aggr_type (UNION_TYPE);
       SET_IS_AGGR_TYPE (u, 0);
-      fields[0] = build_lang_decl (FIELD_DECL, pfn_identifier, type);
-      fields[1] = build_lang_decl (FIELD_DECL, delta2_identifier,
-				   delta_type_node);
+      fields[0] = build_decl (FIELD_DECL, pfn_identifier, type);
+      fields[1] = build_decl (FIELD_DECL, delta2_identifier,
+			      delta_type_node);
       finish_builtin_type (u, "__ptrmemfunc_type", fields, 1, ptr_type_node);
       TYPE_NAME (u) = NULL_TREE;
 
-      fields[0] = build_lang_decl (FIELD_DECL, delta_identifier,
-				   delta_type_node);
-      fields[1] = build_lang_decl (FIELD_DECL, index_identifier,
-				   delta_type_node);
-      fields[2] = build_lang_decl (FIELD_DECL, pfn_or_delta2_identifier, u);
+      fields[0] = build_decl (FIELD_DECL, delta_identifier,
+			      delta_type_node);
+      fields[1] = build_decl (FIELD_DECL, index_identifier,
+			      delta_type_node);
+      fields[2] = build_decl (FIELD_DECL, pfn_or_delta2_identifier, u);
       finish_builtin_type (t, "__ptrmemfunc_type", fields, 2, ptr_type_node);
     }
   else
     {
-      fields[0] = build_lang_decl (FIELD_DECL, pfn_identifier, type);
-      fields[1] = build_lang_decl (FIELD_DECL, delta_identifier,
-				   delta_type_node);
+      fields[0] = build_decl (FIELD_DECL, pfn_identifier, type);
+      fields[1] = build_decl (FIELD_DECL, delta_identifier,
+			      delta_type_node);
       finish_builtin_type (t, "__ptrmemfunc_type", fields, 1, ptr_type_node);
     }
 
@@ -9641,20 +9809,20 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 			  dname);
 		name = IDENTIFIER_POINTER (dname);
 	      }
-	    if (! IDENTIFIER_OPNAME_P (dname)
-		/* GNU/Linux headers use '__op'.  Arrgh.  */
-		|| (IDENTIFIER_TYPENAME_P (dname) && ! TREE_TYPE (dname)))
+	    else if (!IDENTIFIER_TYPENAME_P (dname))
 	      name = IDENTIFIER_POINTER (dname);
 	    else
 	      {
-		if (IDENTIFIER_TYPENAME_P (dname))
-		  {
-		    my_friendly_assert (flags == NO_SPECIAL, 154);
-		    flags = TYPENAME_FLAG;
-		    ctor_return_type = TREE_TYPE (dname);
-		    sfk = sfk_conversion;
-		  }
-		name = operator_name_string (dname);
+		my_friendly_assert (flags == NO_SPECIAL, 154);
+		flags = TYPENAME_FLAG;
+		ctor_return_type = TREE_TYPE (dname);
+		sfk = sfk_conversion;
+		if (IDENTIFIER_GLOBAL_VALUE (dname)
+		    && (TREE_CODE (IDENTIFIER_GLOBAL_VALUE (dname)) 
+			== TYPE_DECL))
+		  name = IDENTIFIER_POINTER (dname);
+		else
+		  name = "<invalid operator>";
 	      }
 	    break;
 
@@ -10235,10 +10403,19 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		  else
 		    tmp = TREE_OPERAND (declarator, 0);
 		  op = IDENTIFIER_OPNAME_P (tmp);
+		  if (IDENTIFIER_TYPENAME_P (tmp))
+		    {
+		      if (IDENTIFIER_GLOBAL_VALUE (tmp)
+			  && (TREE_CODE (IDENTIFIER_GLOBAL_VALUE (tmp)) 
+			      == TYPE_DECL))
+			name = IDENTIFIER_POINTER (tmp);
+		      else
+			name = "<invalid operator>";
+		    }
 		}
 	      error ("storage class specified for %s `%s'",
 		     op ? "member operator" : "field",
-		     op ? operator_name_string (tmp) : name);
+		     name);
 	    }
 	  else
 	    {
@@ -11238,10 +11415,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    return void_type_node;
 		  }
 
-		if (declarator == ansi_opname[(int) NEW_EXPR]
-		    || declarator == ansi_opname[(int) VEC_NEW_EXPR]
-		    || declarator == ansi_opname[(int) DELETE_EXPR]
-		    || declarator == ansi_opname[(int) VEC_DELETE_EXPR])
+		if (declarator == ansi_opname (NEW_EXPR)
+		    || declarator == ansi_opname (VEC_NEW_EXPR)
+		    || declarator == ansi_opname (DELETE_EXPR)
+		    || declarator == ansi_opname (VEC_DELETE_EXPR))
 		  {
 		    if (virtualp)
 		      {
@@ -11444,7 +11621,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      }
 	    else
 	      {
-		decl = build_lang_decl (FIELD_DECL, declarator, type);
+		decl = build_decl (FIELD_DECL, declarator, type);
 		if (RIDBIT_SETP (RID_MUTABLE, specbits))
 		  {
 		    DECL_MUTABLE_P (decl) = 1;
@@ -12107,30 +12284,30 @@ grok_ctor_properties (ctype, decl)
   return 1;
 }
 
-/* An operator with this name can be either unary or binary.  */
+/* An operator with this code is unary, but can also be binary.  */
 
 static int
-ambi_op_p (name)
-     tree name;
+ambi_op_p (code)
+     enum tree_code code;
 {
-  return (name == ansi_opname [(int) INDIRECT_REF]
-	  || name == ansi_opname [(int) ADDR_EXPR]
-	  || name == ansi_opname [(int) NEGATE_EXPR]
-	  || name == ansi_opname[(int) POSTINCREMENT_EXPR]
-	  || name == ansi_opname[(int) POSTDECREMENT_EXPR]
-	  || name == ansi_opname [(int) CONVERT_EXPR]);
+  return (code == INDIRECT_REF
+	  || code == ADDR_EXPR
+	  || code == CONVERT_EXPR
+	  || code == NEGATE_EXPR
+	  || code == PREINCREMENT_EXPR
+	  || code == PREDECREMENT_EXPR);
 }
 
 /* An operator with this name can only be unary.  */
 
 static int
-unary_op_p (name)
-     tree name;
+unary_op_p (code)
+     enum tree_code code;
 {
-  return (name == ansi_opname [(int) TRUTH_NOT_EXPR]
-	  || name == ansi_opname [(int) BIT_NOT_EXPR]
-	  || name == ansi_opname [(int) COMPONENT_REF]
-	  || IDENTIFIER_TYPENAME_P (name));
+  return (code == TRUTH_NOT_EXPR
+	  || code == BIT_NOT_EXPR
+	  || code == COMPONENT_REF
+	  || code == TYPE_EXPR);
 }
 
 /* Do a little sanity-checking on how they declared their operator.  */
@@ -12141,43 +12318,87 @@ grok_op_properties (decl, virtualp, friendp)
      int virtualp, friendp;
 {
   tree argtypes = TYPE_ARG_TYPES (TREE_TYPE (decl));
+  tree argtype;
   int methodp = (TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE);
   tree name = DECL_NAME (decl);
+  enum tree_code operator_code;
+  int arity;
+
+  /* Count the number of arguments.  */
+  for (argtype = argtypes, arity = 0;
+       argtype && argtype != void_list_node;
+       argtype = TREE_CHAIN (argtype))
+    ++arity;
 
   if (current_class_type == NULL_TREE)
     friendp = 1;
 
+  if (DECL_CONV_FN_P (decl))
+    operator_code = TYPE_EXPR;
+  else
+    do
+      {
+#define DEF_OPERATOR(NAME, CODE, NEW_MANGLING, OLD_MANGING, ARITY, ASSN_P)  \
+	if (ansi_opname (CODE) == name)					    \
+	  {								    \
+	    operator_code = CODE;					    \
+	    break;							    \
+	  }								    \
+	else if (ansi_assopname (CODE) == name)				    \
+	  {								    \
+	    operator_code = CODE;					    \
+	    DECL_ASSIGNMENT_OPERATOR_P (decl) = 1;			    \
+	    break;							    \
+	  }
+
+#include "operators.def"
+#undef DEF_OPERATOR
+
+	my_friendly_abort (20000527);
+      }
+    while (0);
+  my_friendly_assert (operator_code != LAST_CPLUS_TREE_CODE, 20000526);
+  SET_OVERLOADED_OPERATOR_CODE (decl, operator_code);
+
   if (! friendp)
     {
-      /* [class.copy]
+      switch (operator_code)
+	{
+	case CALL_EXPR:
+	  TYPE_OVERLOADS_CALL_EXPR (current_class_type) = 1;
+	  break;
+	  
+	case ARRAY_REF:
+	  TYPE_OVERLOADS_ARRAY_REF (current_class_type) = 1;
+	  break;
 
-	 A user-declared copy assignment operator X::operator= is a
-	 non-static non-template member function of class X with
-	 exactly one parameter of type X, X&, const X&, volatile X& or
-	 const volatile X&.  */
-      if (name == ansi_opname[(int) MODIFY_EXPR]
-	  && !(DECL_TEMPLATE_INSTANTIATION (decl)
-	       && is_member_template (DECL_TI_TEMPLATE (decl))))
-	;
-      else if (name == ansi_opname[(int) CALL_EXPR])
-	TYPE_OVERLOADS_CALL_EXPR (current_class_type) = 1;
-      else if (name == ansi_opname[(int) ARRAY_REF])
-	TYPE_OVERLOADS_ARRAY_REF (current_class_type) = 1;
-      else if (name == ansi_opname[(int) COMPONENT_REF]
-	       || name == ansi_opname[(int) MEMBER_REF])
-	TYPE_OVERLOADS_ARROW (current_class_type) = 1;
-      else if (name == ansi_opname[(int) NEW_EXPR])
-	TYPE_HAS_NEW_OPERATOR (current_class_type) = 1;
-      else if (name == ansi_opname[(int) DELETE_EXPR])
-	TYPE_GETS_DELETE (current_class_type) |= 1;
-      else if (name == ansi_opname[(int) VEC_NEW_EXPR])
-	TYPE_HAS_ARRAY_NEW_OPERATOR (current_class_type) = 1;
-      else if (name == ansi_opname[(int) VEC_DELETE_EXPR])
-	TYPE_GETS_DELETE (current_class_type) |= 2;
+	case COMPONENT_REF:
+	case MEMBER_REF:
+	  TYPE_OVERLOADS_ARROW (current_class_type) = 1;
+	  break;
+	  
+	case NEW_EXPR:
+	  TYPE_HAS_NEW_OPERATOR (current_class_type) = 1;
+	  break;
+	  
+	case DELETE_EXPR:
+	  TYPE_GETS_DELETE (current_class_type) |= 1;
+	  break;
+	  
+	case VEC_NEW_EXPR:
+	  TYPE_HAS_ARRAY_NEW_OPERATOR (current_class_type) = 1;
+	  break;
+	  
+	case VEC_DELETE_EXPR:
+	  TYPE_GETS_DELETE (current_class_type) |= 2;
+	  break;
+
+	default:
+	  break;
+	}
     }
 
-  if (name == ansi_opname[(int) NEW_EXPR]
-      || name == ansi_opname[(int) VEC_NEW_EXPR])
+  if (operator_code == NEW_EXPR || operator_code == VEC_NEW_EXPR)
     {
       /* When the compiler encounters the definition of A::operator new, it
 	 doesn't look at the class declaration to find out if it's static.  */
@@ -12193,8 +12414,7 @@ grok_op_properties (decl, virtualp, friendp)
       else
 	TREE_TYPE (decl) = coerce_new_type (TREE_TYPE (decl));
     }
-  else if (name == ansi_opname[(int) DELETE_EXPR]
-	   || name == ansi_opname[(int) VEC_DELETE_EXPR])
+  else if (operator_code == DELETE_EXPR || operator_code == VEC_DELETE_EXPR)
     {
       if (methodp)
 	revert_static_member_fn (decl);
@@ -12214,11 +12434,11 @@ grok_op_properties (decl, virtualp, friendp)
 	 an enumeration, or a reference to an enumeration.  13.4.0.6 */
       if (! methodp || DECL_STATIC_FUNCTION_P (decl))
 	{
-	  if (IDENTIFIER_TYPENAME_P (name)
-	      || name == ansi_opname[(int) CALL_EXPR]
-	      || name == ansi_opname[(int) MODIFY_EXPR]
-	      || name == ansi_opname[(int) COMPONENT_REF]
-	      || name == ansi_opname[(int) ARRAY_REF])
+	  if (operator_code == TYPE_EXPR
+	      || operator_code == CALL_EXPR
+	      || operator_code == COMPONENT_REF
+	      || operator_code == ARRAY_REF
+	      || operator_code == NOP_EXPR)
 	    cp_error ("`%D' must be a nonstatic member function", decl);
 	  else
 	    {
@@ -12249,7 +12469,7 @@ grok_op_properties (decl, virtualp, friendp)
 	    }
 	}
 
-      if (name == ansi_opname[(int) CALL_EXPR])
+      if (operator_code == CALL_EXPR)
 	return;			/* No restrictions on args. */
 
       if (IDENTIFIER_TYPENAME_P (name) && ! DECL_TEMPLATE_INFO (decl))
@@ -12279,18 +12499,27 @@ grok_op_properties (decl, virtualp, friendp)
 	    }
 	}
 
-      if (name == ansi_opname[(int) MODIFY_EXPR])
+      if (DECL_ASSIGNMENT_OPERATOR_P (decl) 
+	  && operator_code == NOP_EXPR)
 	{
 	  tree parmtype;
 
-	  if (list_length (argtypes) != 3 && methodp)
+	  if (arity != 2 && methodp)
 	    {
 	      cp_error ("`%D' must take exactly one argument", decl);
 	      return;
 	    }
 	  parmtype = TREE_VALUE (TREE_CHAIN (argtypes));
 
+	  /* [class.copy]
+
+	     A user-declared copy assignment operator X::operator= is
+	     a non-static non-template member function of class X with
+	     exactly one parameter of type X, X&, const X&, volatile
+	     X& or const volatile X&.  */
 	  if (copy_assignment_arg_p (parmtype, virtualp)
+	      && !(DECL_TEMPLATE_INSTANTIATION (decl)
+		   && is_member_template (DECL_TI_TEMPLATE (decl)))
 	      && ! friendp)
 	    {
 	      TYPE_HAS_ASSIGN_REF (current_class_type) = 1;
@@ -12299,19 +12528,55 @@ grok_op_properties (decl, virtualp, friendp)
 		TYPE_HAS_CONST_ASSIGN_REF (current_class_type) = 1;
 	    }
 	}
-      else if (name == ansi_opname[(int) COND_EXPR])
+      else if (operator_code == COND_EXPR)
 	{
 	  /* 13.4.0.3 */
 	  cp_error ("ISO C++ prohibits overloading operator ?:");
 	}
-      else if (ambi_op_p (name))
+      else if (ambi_op_p (operator_code))
 	{
-	  if (list_length (argtypes) == 2)
-	    /* prefix */;
-	  else if (list_length (argtypes) == 3)
+	  if (arity == 1)
+	    /* We pick the one-argument operator codes by default, so
+	       we don't have to change anything.  */
+	    ;
+	  else if (arity == 2)
 	    {
-	      if ((name == ansi_opname[(int) POSTINCREMENT_EXPR]
-		   || name == ansi_opname[(int) POSTDECREMENT_EXPR])
+	      /* If we thought this was a unary operator, we now know
+		 it to be a binary operator.  */
+	      switch (operator_code)
+		{
+		case INDIRECT_REF:
+		  operator_code = MULT_EXPR;
+		  break;
+
+		case ADDR_EXPR:
+		  operator_code = BIT_AND_EXPR;
+		  break;
+
+		case CONVERT_EXPR:
+		  operator_code = PLUS_EXPR;
+		  break;
+
+		case NEGATE_EXPR:
+		  operator_code = MINUS_EXPR;
+		  break;
+
+		case PREINCREMENT_EXPR:
+		  operator_code = POSTINCREMENT_EXPR;
+		  break;
+
+		case PREDECREMENT_EXPR:
+		  operator_code = PREDECREMENT_EXPR;
+		  break;
+
+		default:
+		  my_friendly_abort (20000527);
+		}
+
+	      SET_OVERLOADED_OPERATOR_CODE (decl, operator_code);
+
+	      if ((operator_code == POSTINCREMENT_EXPR
+		   || operator_code == POSTDECREMENT_EXPR)
 		  && ! processing_template_decl
 		  && ! same_type_p (TREE_VALUE (TREE_CHAIN (argtypes)), integer_type_node))
 		{
@@ -12334,15 +12599,18 @@ grok_op_properties (decl, virtualp, friendp)
 
 	  /* More Effective C++ rule 6.  */
 	  if (warn_ecpp
-	      && (name == ansi_opname[(int) POSTINCREMENT_EXPR]
-		  || name == ansi_opname[(int) POSTDECREMENT_EXPR]))
+	      && (operator_code == POSTINCREMENT_EXPR
+		  || operator_code == POSTDECREMENT_EXPR
+		  || operator_code == PREINCREMENT_EXPR
+		  || operator_code == PREDECREMENT_EXPR))
 	    {
 	      tree arg = TREE_VALUE (argtypes);
 	      tree ret = TREE_TYPE (TREE_TYPE (decl));
 	      if (methodp || TREE_CODE (arg) == REFERENCE_TYPE)
 		arg = TREE_TYPE (arg);
 	      arg = TYPE_MAIN_VARIANT (arg);
-	      if (list_length (argtypes) == 2)
+	      if (operator_code == PREINCREMENT_EXPR
+		  || operator_code == PREDECREMENT_EXPR)
 		{
 		  if (TREE_CODE (ret) != REFERENCE_TYPE
 		      || !same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (ret)),
@@ -12357,9 +12625,9 @@ grok_op_properties (decl, virtualp, friendp)
 		}
 	    }
 	}
-      else if (unary_op_p (name))
+      else if (unary_op_p (operator_code))
 	{
-	  if (list_length (argtypes) != 2)
+	  if (arity != 1)
 	    {
 	      if (methodp)
 		cp_error ("`%D' must take `void'", decl);
@@ -12367,9 +12635,9 @@ grok_op_properties (decl, virtualp, friendp)
 		cp_error ("`%D' must take exactly one argument", decl);
 	    }
 	}
-      else /* if (binary_op_p (name)) */
+      else /* if (binary_op_p (operator_code)) */
 	{
-	  if (list_length (argtypes) != 3)
+	  if (arity != 2)
 	    {
 	      if (methodp)
 		cp_error ("`%D' must take exactly one argument", decl);
@@ -12379,20 +12647,20 @@ grok_op_properties (decl, virtualp, friendp)
 
 	  /* More Effective C++ rule 7.  */
 	  if (warn_ecpp
-	      && (name == ansi_opname [TRUTH_ANDIF_EXPR]
-		  || name == ansi_opname [TRUTH_ORIF_EXPR]
-		  || name == ansi_opname [COMPOUND_EXPR]))
+	      && (operator_code == TRUTH_ANDIF_EXPR
+		  || operator_code == TRUTH_ORIF_EXPR
+		  || operator_code == COMPOUND_EXPR))
 	    cp_warning ("user-defined `%D' always evaluates both arguments",
 			decl);
 	}
 
       /* Effective C++ rule 23.  */
       if (warn_ecpp
-	  && list_length (argtypes) == 3
-	  && (name == ansi_opname [PLUS_EXPR]
-	      || name == ansi_opname [MINUS_EXPR]
-	      || name == ansi_opname [TRUNC_DIV_EXPR]
-	      || name == ansi_opname [MULT_EXPR])
+	  && arity == 2
+	  && (operator_code == PLUS_EXPR
+	      || operator_code == MINUS_EXPR
+	      || operator_code == TRUNC_DIV_EXPR
+	      || operator_code == MULT_EXPR)
 	  && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == REFERENCE_TYPE)
 	cp_warning ("`%D' should return by value", decl);
 
@@ -12402,8 +12670,8 @@ grok_op_properties (decl, virtualp, friendp)
         if (TREE_PURPOSE (argtypes))
           {
             TREE_PURPOSE (argtypes) = NULL_TREE;
-            if (name == ansi_opname[(int) POSTINCREMENT_EXPR] 
-                || name == ansi_opname[(int) POSTDECREMENT_EXPR])   
+            if (operator_code == POSTINCREMENT_EXPR
+		|| operator_code == POSTDECREMENT_EXPR)
               {
                 if (pedantic)
                   cp_pedwarn ("`%D' cannot have default arguments", decl);
@@ -13348,7 +13616,7 @@ start_function (declspecs, declarator, attrs, flags)
 
   /* Effective C++ rule 15.  See also c_expand_return.  */
   if (warn_ecpp
-      && DECL_NAME (decl1) == ansi_opname[(int) MODIFY_EXPR]
+      && DECL_OVERLOADED_OPERATOR_P (decl1) == NOP_EXPR
       && TREE_CODE (TREE_TYPE (fntype)) == VOID_TYPE)
     cp_warning ("`operator=' should return a reference to `*this'");
 
@@ -13880,7 +14148,7 @@ finish_destructor_body ()
 
   exprstmt = build_delete (current_class_type,
 			   current_class_ref,
-			   integer_zero_node,
+			   sfk_base_destructor,
 			   LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR|LOOKUP_NORMAL,
 			   0);
 
@@ -13897,26 +14165,34 @@ finish_destructor_body ()
       /* Run destructors for all virtual baseclasses.  */
       if (TYPE_USES_VIRTUAL_BASECLASSES (current_class_type))
 	{
-	  tree vbases = nreverse (copy_list (CLASSTYPE_VBASECLASSES (current_class_type)));
-	  tree if_stmt = begin_if_stmt ();
+	  tree vbases;
+	  tree if_stmt;
+
+	  if_stmt = begin_if_stmt ();
 	  finish_if_stmt_cond (build (BIT_AND_EXPR, integer_type_node,
 				      current_in_charge_parm,
 				      integer_two_node),
 			       if_stmt);
 
-	  while (vbases)
+	  vbases = CLASSTYPE_VBASECLASSES (current_class_type);
+	  /* The CLASSTYPE_VBASECLASSES list is in initialization
+	     order, so we have to march through it in reverse order.  */
+	  for (vbases = nreverse (copy_list (vbases));
+	       vbases;
+	       vbases = TREE_CHAIN (vbases))
 	    {
-	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (BINFO_TYPE (vbases)))
+	      tree vbase = TREE_VALUE (vbases);
+
+	      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (BINFO_TYPE (vbase)))
 		{
 		  tree vb = get_vbase
-		    (BINFO_TYPE (vbases),
+		    (BINFO_TYPE (vbase),
 		     TYPE_BINFO (current_class_type));
 		  finish_expr_stmt
 		    (build_scoped_method_call
 		     (current_class_ref, vb, base_dtor_identifier,
 		      NULL_TREE));
 		}
-	      vbases = TREE_CHAIN (vbases);
 	    }
 
 	  finish_then_clause (if_stmt);
@@ -14540,14 +14816,15 @@ hack_incomplete_structures (type)
     }
 }
 
-/* If DECL is of a type which needs a cleanup, build that cleanup here.
-   See build_delete for information about AUTO_DELETE.  */
+/* If DECL is of a type which needs a cleanup, build that cleanup
+   here.  */
 
-static tree
-maybe_build_cleanup_1 (decl, auto_delete)
-     tree decl, auto_delete;
+tree
+maybe_build_cleanup (decl)
+     tree decl;
 {
   tree type = TREE_TYPE (decl);
+
   if (type != error_mark_node && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
     {
       int flags = LOOKUP_NORMAL|LOOKUP_DESTRUCTOR;
@@ -14566,7 +14843,8 @@ maybe_build_cleanup_1 (decl, auto_delete)
 	  || flag_expensive_optimizations)
 	flags |= LOOKUP_NONVIRTUAL;
 
-      rval = build_delete (TREE_TYPE (rval), rval, auto_delete, flags, 0);
+      rval = build_delete (TREE_TYPE (rval), rval,
+			   sfk_complete_destructor, flags, 0);
 
       if (TYPE_USES_VIRTUAL_BASECLASSES (type)
 	  && ! TYPE_HAS_DESTRUCTOR (type))
@@ -14576,16 +14854,6 @@ maybe_build_cleanup_1 (decl, auto_delete)
       return rval;
     }
   return 0;
-}
-
-/* If DECL is of a type which needs a cleanup, build that cleanup
-   here.  The cleanup does not free the storage with a call a delete.  */
-
-tree
-maybe_build_cleanup (decl)
-     tree decl;
-{
-  return maybe_build_cleanup_1 (decl, integer_two_node);
 }
 
 /* Expand a C++ expression at the statement level.
@@ -14693,7 +14961,6 @@ mark_lang_function (p)
   if (!p)
     return;
 
-  ggc_mark_tree (p->x_named_labels);
   ggc_mark_tree (p->x_ctor_label);
   ggc_mark_tree (p->x_dtor_label);
   ggc_mark_tree (p->x_base_init_list);
@@ -14705,6 +14972,7 @@ mark_lang_function (p)
 
   ggc_mark_rtx (p->x_result_rtx);
 
+  mark_named_label_lists (&p->x_named_labels, &p->x_named_label_uses);
   mark_stmt_tree (&p->x_stmt_tree);
   mark_binding_level (&p->bindings);
 }
@@ -14780,6 +15048,8 @@ lang_mark_tree (t)
 	      ggc_mark_tree (ld->befriending_classes);
 	      ggc_mark_tree (ld->saved_tree);
 	      ggc_mark_tree (ld->cloned_function);
+	      if (!DECL_OVERLOADED_OPERATOR_P (t))
+		ggc_mark_tree (ld->u2.vtt_parm);
 	      if (TREE_CODE (t) == TYPE_DECL)
 		ggc_mark_tree (ld->u.sorted_fields);
 	      else if (TREE_CODE (t) == FUNCTION_DECL
@@ -14799,7 +15069,6 @@ lang_mark_tree (t)
 	  ggc_mark_tree (lt->vfields);
 	  ggc_mark_tree (lt->vbases);
 	  ggc_mark_tree (lt->tags);
-	  ggc_mark_tree (lt->search_slot);
 	  ggc_mark_tree (lt->size);
 	  ggc_mark_tree (lt->pure_virtuals);
 	  ggc_mark_tree (lt->friend_classes);

@@ -394,7 +394,7 @@ parse_assertion (pfile)
      cpp_reader *pfile;
 {
   struct operation op;
-  HASHNODE *hp;
+  cpp_hashnode *hp;
   struct predicate *pred;
   cpp_toklist query;
   enum cpp_ttype type;
@@ -414,7 +414,7 @@ parse_assertion (pfile)
 
   tok = pfile->token_buffer + old_written;
   len = CPP_WRITTEN (pfile) - old_written;
-  hp = _cpp_lookup (pfile, tok, len);
+  hp = cpp_lookup (pfile, tok, len);
 
   /* Look ahead for an open paren.  */
   _cpp_skip_hspace (pfile);
@@ -423,7 +423,7 @@ parse_assertion (pfile)
       if (_cpp_get_directive_token (pfile) != CPP_OPEN_PAREN)
 	CPP_ICE ("impossible token, expecting ( in parse_assertion");
 
-      _cpp_init_toklist (&query);
+      _cpp_init_toklist (&query, NO_DUMMY_TOKEN);
       specific = 1;
       if (_cpp_scan_until (pfile, &query, CPP_CLOSE_PAREN) != CPP_CLOSE_PAREN)
 	SYNTAX_ERROR ("missing close paren on assertion answer");
@@ -843,6 +843,12 @@ _cpp_parse_expr (pfile)
   int result;
   char buff[5];
 
+  /* Save parser state and set it to something sane.  */
+  int save_only_seen_white = pfile->only_seen_white;
+  int save_skipping = pfile->skipping;
+  pfile->only_seen_white = 0;
+  pfile->skipping = 0;
+
   /* We've finished when we try to reduce this.  */
   top->op = FINISHED;
   /* Nifty way to catch missing '('.  */
@@ -1162,5 +1168,7 @@ _cpp_parse_expr (pfile)
   if (stack != init_stack)
     free (stack);
   CPP_SET_WRITTEN (pfile, old_written);
+  pfile->only_seen_white = save_only_seen_white;
+  pfile->skipping = save_skipping;
   return result;
 }

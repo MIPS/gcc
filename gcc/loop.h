@@ -19,7 +19,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "varray.h"
-#include "basic-block.h"
+#include "bitmap.h"
+
 /* Flags passed to loop_optimize.  */
 #define LOOP_UNROLL 1
 #define LOOP_BCT 2
@@ -109,7 +110,6 @@ struct induction
 				   initialized in unrolled loop.  */
   unsigned shared : 1;
   unsigned no_const_addval : 1; /* 1 if add_val does not contain a const. */
-  unsigned multi_insn_incr : 1;	/* 1 if multiple insns updated the biv.  */
   int lifetime;			/* Length of life of this giv */
   rtx derive_adjustment;	/* If nonzero, is an adjustment to be
 				   subtracted from add_val when this giv

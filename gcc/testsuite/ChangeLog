@@ -1,3 +1,110 @@
+2000-05-29  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp-mi.c: Add another case, cpp-mix.h, where the
+	guard macro is already defined when the header is first
+	included.
+	* gcc.dg/cpp-mix.h: New file.
+	* gcc.dg/endif-label.c: Update patterns to match compiler.
+
+	* g++.brendan/complex1.C: Declare abort.
+	* g++.law/refs4.C: Remove XFAIL.
+	* g++.oliva/expr2.C: Declare abort and exit.
+
+2000-05-28  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* gcc.c-torture/execute/20000528-1.c: New test.
+
+	* g++.old-deja/g++.law/refs4.C: Mark as XFAIL.
+	* g++.old-deja/g++.law/temps4.C: Likewise.
+
+	* g++.old-deja/g++.brendan/code-gen4.C: Include stdio.h and
+	stdlib.h.  Call abort() on failure.
+	* g++.old-deja/g++.law/refs4.C: Likewise.
+	* g++.old-deja/g++.law/temps4.C: Likewise.
+	* g++.old-deja/g++.brendan/complex1.C: Don't assume argc is 1.
+	* gcc.c-torture/execute/20000112-1.c: Include string.h.	
+
+2000-05-27  Zack Weinberg  <zack@wolery.cumb.org>
+
+	Relative to g++.dg/special:
+	* conpr-1.C, conpr-2.C, conpr-3.C: Include stdlib.h.
+
+	Relative to g++.old-deja:
+	* g++.brendan/complex1.C, g++.jason/optimize2.C,
+	g++.mike/p9732b.C, g++.other/addrof1.C, g++.other/dyncast5.C,
+	g++.other/init5.C, g++.other/init7.C, g++.other/union2.C,
+	g++.pt/vbase1.C, g++.robertl/eb14.C, g++.robertl/eh990323-1.C,
+	g++.robertl/eh990323-2.C, g++.robertl/eh990323-3.C, 
+	g++.robertl/eh990323-4.C, g++.robertl/eh990323-5.C,
+	g++.robertl/ice990323-2.C: Prototype exit and/or abort.
+
+	* g++.brendan/nest21.C, g++.eh/rethrow3.C, g++.jason/init3.C,
+	g++.law/arm15.C, g++.law/cvt2.C, g++.law/visibility17.C,
+	g++.mike/eh23.C, g++.mike/eh25.C, g++.mike/eh34.C,
+	g++.mike/eh48.C, g++.mike/eh55.C, g++.mike/p2736.C,
+	g++.oliva/new1.C, g++.other/align.C, g++.robertl/eb39.C,
+	g++.robertl/eb54.C, g++.robertl/eb63.C: Include stdlib.h
+	and/or string.h.
+
+	* g++.other/goto1.C: Update expectations for error messages.
+
+2000-05-25  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* gcc.c-torture/compile/20000523-1.c: New test.
+
+2000-05-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.abi/ptrflags.C: Use __pbase_type_info.
+
+2000-05-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.eh/catch11.C: New test.
+	* g++.old-deja/g++.eh/catch12.C: New test.
+
+2000-05-24  Nick Clifton  <nickc@cygnus.com>
+
+	* gcc.c-torture/execute/20000523-1.c: New test.
+
+2000-05-23  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* c-torture/execute/bcp-1.c: Replace abort in arg of
+	__builtin_constant_p with a generic external function.
+
+	* gcc.dg/20000108-1.c, gcc.dg/980211-1.c, gcc.dg/980414-1.c,
+	gcc.dg/990119-1.c, gcc.dg/990409.c, gcc.dg/990424-1.c,
+	gcc.dg/991230-1.c, gcc.dg/clobbers.c, gcc.dg/lineno.c,
+	gcc.dg/noreturn-1.c, gcc.dg/trigraphs.c, gcc.dg/uninit-4.c:
+	Prototype abort and/or exit.
+
+	* gcc.dg/990407-1.c, gcc.dg/strpaste.c,
+	gcc.dg/special/alias-1.c, gcc.dg/special/gcsec-1.c,
+	gcc.dg/special/weak-1.c, gcc.dg/special/weak-2.c,
+	gcc.dg/special/wkali-1.c, gcc.dg/special/wkali-2.c: Include stdlib.h.
+
+2000-05-22  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* gcc.dg/dwarf2-1.c: New test.
+
+2000-05-20  Richard Henderson  <rth@cygnus.com>
+
+	* lib/f-torture.exp (TORTURE_OPTIONS): Add "-O3 -g" and "-O3 -fssa".
+
+2000-05-20  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/20000519-1.c (main): Fixed return value of
+	testcase.
+
+2000-05-19  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.c-torture/execute/20000519-2.c: New test.
+
+2000-05-19  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/20000519-1.c: Testcase from Ulrich Drepper
+	which fails with SSA.
+
+	* lib/c-torture.exp: Also test with -O3 -fssa.
+
 2000-05-18  Michael Meissner  <meissner@redhat.com>
 
 	* gcc.c-torture/compile/920501-1.c: Remove CYGNUS LOCAL markers.

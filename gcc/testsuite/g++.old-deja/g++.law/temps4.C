@@ -6,7 +6,10 @@
 // Subject: elide-constructors (aka return value optimization)
 // Date: Wed, 10 Nov 93 14:43:54 CST
 
+// execution test - XFAIL *-*-*
+
 #include <stdio.h>
+#include <stdlib.h>
 
 class X {
     int i;
@@ -32,7 +35,7 @@ X foo() {
 main() {
     X x = foo();
     if (did_it)
-	printf ("FAIL\n");
+	abort ();
     else
 	printf ("PASS\n");
 }

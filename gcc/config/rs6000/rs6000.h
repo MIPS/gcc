@@ -1056,7 +1056,7 @@ enum reg_class
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)					\
    ( (C) == 'I' ? (unsigned HOST_WIDE_INT) ((VALUE) + 0x8000) < 0x10000	\
-   : (C) == 'J' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff0000u)) == 0	\
+   : (C) == 'J' ? ((VALUE) & (~ (unsigned HOST_WIDE_INT) 0xffff0000u)) == 0 \
    : (C) == 'K' ? ((VALUE) & (~ (HOST_WIDE_INT) 0xffff)) == 0		\
    : (C) == 'L' ? (((VALUE) & 0xffff) == 0				\
 		   && ((VALUE) >> 31 == -1 || (VALUE) >> 31 == 0))	\
@@ -1622,8 +1622,8 @@ typedef struct rs6000_args
 /* The current return address is in link register (65).  The return address
    of anything farther back is accessed normally at an offset of 8 from the
    frame pointer.  */
-#define RETURN_ADDR_RTX(count, frame)			\
-  ((count == -1)					\
+#define RETURN_ADDR_RTX(COUNT, FRAME)			\
+  (((COUNT) == -1)					\
    ? gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM)		\
    : gen_rtx_MEM (Pmode,				\
 		  memory_address			\
@@ -1631,7 +1631,7 @@ typedef struct rs6000_args
 		   plus_constant (copy_to_reg		\
 				  (gen_rtx_MEM (Pmode,	\
 						memory_address (Pmode, \
-								frame))), \
+								(FRAME)))), \
 				  RETURN_ADDRESS_OFFSET))))
 
 /* Definitions for register eliminations.
@@ -1935,8 +1935,8 @@ do {                                                                    \
     {                                                                   \
       HOST_WIDE_INT val = INTVAL (XEXP (X, 1));                         \
       HOST_WIDE_INT low = ((val & 0xffff) ^ 0x8000) - 0x8000;           \
-      HOST_WIDE_INT high                                                \
-        = (((val - low) & 0xffffffffu) ^ 0x80000000u) - 0x80000000u;       \
+      unsigned HOST_WIDE_INT high                                       \
+        = (((val - low) & 0xffffffffu) ^ 0x80000000u) - 0x80000000u;    \
                                                                         \
       /* Check for 32-bit overflow.  */                                 \
       if (high + low != val)                                            \
@@ -2713,7 +2713,7 @@ do {									\
   {"reg_or_neg_short_operand", {SUBREG, REG, CONST_INT}},	\
   {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}}, 	\
   {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}}, 		\
-  {"reg_or_u_cint_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}}, \
+  {"reg_or_logical_cint_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}}, \
   {"got_operand", {SYMBOL_REF, CONST, LABEL_REF}},		\
   {"got_no_const_operand", {SYMBOL_REF, LABEL_REF}},		\
   {"easy_fp_constant", {CONST_DOUBLE}},				\
@@ -2747,7 +2747,8 @@ do {									\
 			       GT, LEU, LTU, GEU, GTU}},	\
   {"trap_comparison_operator", {EQ, NE, LE, LT, GE,		\
 				GT, LEU, LTU, GEU, GTU}},	\
-  {"boolean_operator", {AND, IOR, XOR}},
+  {"boolean_operator", {AND, IOR, XOR}},			\
+  {"boolean_or_operator", {IOR, XOR}},
 
 /* uncomment for disabling the corresponding default options */
 /* #define  MACHINE_no_sched_interblock */

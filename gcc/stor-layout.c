@@ -410,7 +410,7 @@ start_record_layout (t)
      tree t;
 {
   record_layout_info rli 
-    = (record_layout_info) xmalloc (sizeof (struct record_layout_info));
+    = (record_layout_info) xmalloc (sizeof (struct record_layout_info_s));
 
   rli->t = t;
 
@@ -808,7 +808,7 @@ place_field (rli, field)
       && ! DECL_PACKED (field)
       && ! integer_zerop (DECL_SIZE (field))
       && host_integerp (DECL_SIZE (field), 1)
-      && host_integerp (rli->size, 1)
+      && host_integerp (rli->offset, 1)
       && host_integerp (TYPE_SIZE (type), 1))
     {
       unsigned int type_align = TYPE_ALIGN (type);
@@ -932,7 +932,7 @@ finalize_record_size (rli)
   TYPE_SIZE (rli->t) = ROUND_TYPE_SIZE (rli->t, unpadded_size,
 					TYPE_ALIGN (rli->t));
   TYPE_SIZE_UNIT (rli->t)
-    = ROUND_TYPE_SIZE_UNIT (rli->t, unpaded_size_unit,
+    = ROUND_TYPE_SIZE_UNIT (rli->t, unpadded_size_unit,
 			    TYPE_ALIGN (rli->t) / BITS_PER_UNIT);
 #else
   TYPE_SIZE (rli->t) = round_up (unpadded_size, TYPE_ALIGN (rli->t));

@@ -76,7 +76,7 @@ XCFLAGS =
 TCFLAGS =
 CFLAGS = -g @stage1_warn_cflags@
 BOOT_CFLAGS = -O2 $(CFLAGS)
-WARN_CFLAGS = -W -Wall -Wtraditional -pedantic -Wno-long-long -Wwrite-strings
+WARN_CFLAGS = @stage2_warn_cflags@
 LOOSE_CFLAGS = `echo $(CFLAGS)|sed -e 's/-pedantic//g' -e 's/-Wtraditional//g'`
 # These exists to be overridden by the x-* and t-* files, respectively.
 X_CFLAGS =
@@ -159,7 +159,7 @@ USER_H = $(srcdir)/ginclude/stdarg.h $(srcdir)/ginclude/stddef.h \
 # want to set this empty.
 INSTALL_ASSERT_H = install-assert-h
 
-# The GCC to use for compiling libgcc2.a, enquire, and libgcc1-test.
+# The GCC to use for compiling libgcc.a, enquire, and libgcc1-test.
 # Usually the one we just built.
 # Don't use this as a dependency--use $(GCC_PASSES) or $(GCC_PARTS).
 GCC_FOR_TARGET = ./xgcc -B$(build_tooldir)/bin/ -B./ -isystem $(build_tooldir)/include
@@ -349,9 +349,6 @@ LIBGCC1 = libgcc1.a
 # The default rule assumes that libgcc1.a is supplied by the user.
 CROSS_LIBGCC1 = libgcc1.cross
 
-# Specify the rule for actually making libgcc2.a.
-LIBGCC2 = libgcc2.a
-
 # Options to use when compiling libgcc2.a.
 # -g1 causes output of debug info only for file-scope entities.
 # we use this here because that should be enough, and also
@@ -366,6 +363,9 @@ LIBGCC2_INCLUDES =
 
 # Additional target-dependent options for compiling libgcc2.a.
 TARGET_LIBGCC2_CFLAGS =
+
+# Addition sources to handle exceptions; overridden by some targets.
+LIB2ADDEH = $(srcdir)/frame-dwarf2.c
 
 # libgcc1-test target (must also be overridable for a target)
 LIBGCC1_TEST = libgcc1-test
@@ -771,7 +771,7 @@ RECOG_H = recog.h
 EXPR_H = expr.h insn-codes.h
 REGS_H = regs.h varray.h $(MACHMODE_H)
 INTEGRATE_H = integrate.h varray.h
-LOOP_H = loop.h varray.h basic-block.h
+LOOP_H = loop.h varray.h bitmap.h
 GCC_H = gcc.h version.h
 GGC_H = ggc.h varray.h
 TIMEVAR_H = timevar.h timevar.def
@@ -941,19 +941,19 @@ xlimits.h: glimits.h limitx.h limity.h
 #
 # Build libgcc.a.
 
-# Compiling libgcc2.a requires making sure that cc1, etc. have been compiled.
-# But recompiling cc1 should not force recompilation of libgcc2.a.
-# If you want to force recompilation, delete libgcc2.a.
-libgcc2.ready: $(GCC_PASSES) stmp-int-hdrs $(STMP_FIXPROTO)
-	-if [ -f libgcc2.ready ] ; then \
+# Compiling libgcc.a requires making sure that cc1, etc. have been compiled.
+# But recompiling cc1 should not force recompilation of libgcc.a.
+# If you want to force recompilation, delete libgcc.a.
+libgcc.ready: $(GCC_PASSES) $(LANGUAGES) stmp-int-hdrs $(STMP_FIXPROTO)
+	-if [ -f libgcc.ready ] ; then \
 		true; \
 	else \
-		touch libgcc2.ready; \
+		touch libgcc.ready; \
 	fi
 
-LIB2ADD = $(srcdir)/frame.c $(LIB2FUNCS_EXTRA) $(LANG_LIB2FUNCS)
+LIB2ADD = $(LIB2ADDEH) $(LIB2FUNCS_EXTRA) $(LANG_LIB2FUNCS)
 
-libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD)
+libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) xgcc$(exeext)
 	objext='$(objext)' \
 	OLDCC='$(OLDCC)' \
 	LIBGCC1='$(LIBGCC1)' \
@@ -972,7 +972,7 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD)
 	  $(SHELL) mklibgcc > tmp-libgcc.mk
 	$(SHELL) $(srcdir)/move-if-change tmp-libgcc.mk libgcc.mk
 
-libgcc.a: libgcc2.ready libgcc.mk $(FPBIT) $(DPBIT)
+libgcc.a: libgcc.ready libgcc.mk $(FPBIT) $(DPBIT)
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  HOST_PREFIX="$(HOST_PREFIX)" HOST_PREFIX_1="$(HOST_PREFIX_1)" \
 	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
@@ -1003,7 +1003,7 @@ s-mlib: $(srcdir)/genmultilib Makefile
 	touch s-mlib
 
 # Build multiple copies of libgcc.a, one for each target switch.
-stmp-multilib: libgcc2.ready libgcc.mk $(FPBIT) $(DPBIT)
+stmp-multilib: libgcc.ready libgcc.mk $(FPBIT) $(DPBIT)
 	$(MAKE) GCC_FOR_TARGET="$(GCC_FOR_TARGET)" \
 	  HOST_PREFIX="$(HOST_PREFIX)" HOST_PREFIX_1="$(HOST_PREFIX_1)" \
 	  AR_FOR_TARGET="$(AR_FOR_TARGET)" \
@@ -1112,7 +1112,8 @@ c-iterate.o: c-iterate.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) c-tree.h \
 mbchar.o: mbchar.c $(CONFIG_H) system.h mbchar.h
 graph.o: graph.c $(CONFIG_H) system.h toplev.h flags.h output.h $(RTL_H) \
     function.h hard-reg-set.h $(BASIC_BLOCK_H) graph.h
-sbitmap.o: sbitmap.c $(CONFIG_H) system.h $(RTL_H) flags.h $(BASIC_BLOCK_H)
+sbitmap.o: sbitmap.c $(CONFIG_H) system.h $(RTL_H) flags.h hard-reg-set.h \
+    $(BASIC_BLOCK_H)
 
 COLLECT2_OBJS = collect2.o tlink.o hash.o intl.o underscore.o version.o
 collect2$(exeext): $(COLLECT2_OBJS) $(LIBDEPS)
@@ -1236,15 +1237,16 @@ diagnostic.o : diagnostic.c diagnostic.h \
 toplev.o : toplev.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) function.h \
    flags.h input.h insn-attr.h xcoffout.h defaults.h output.h \
    insn-codes.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h dwarfout.h \
-   dwarf2out.h sdbout.h dbxout.h $(EXPR_H) $(BASIC_BLOCK_H) graph.h loop.h \
-   except.h regs.h $(TIMEVAR_H) $(lang_options_files)
+   dwarf2out.h sdbout.h dbxout.h $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) \
+   graph.h loop.h  except.h regs.h $(TIMEVAR_H) $(lang_options_files)
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(MAYBE_USE_COLLECT2) \
 	  -DTARGET_NAME=\"$(target_alias)\" \
 	  -c `echo $(srcdir)/toplev.c | sed 's,^\./,,'`
 
 rtl.o : rtl.c $(CONFIG_H) system.h $(RTL_H) bitmap.h $(GGC_H) toplev.h
 
-print-rtl.o : print-rtl.c $(CONFIG_H) system.h $(RTL_H) $(BASIC_BLOCK_H)
+print-rtl.o : print-rtl.c $(CONFIG_H) system.h $(RTL_H) hard-reg-set.h \
+    $(BASIC_BLOCK_H)
 rtlanal.o : rtlanal.c $(CONFIG_H) system.h $(RTL_H)
 errors.o : errors.c $(CONFIG_H) system.h errors.h
 
@@ -1317,22 +1319,22 @@ sibcall.o : sibcall.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) function.h \
    hard-reg-set.h flags.h insn-config.h $(RECOG_H) $(BASIC_BLOCK_H)
 resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h system.h \
    $(BASIC_BLOCK_H) $(REGS_H) flags.h output.h resource.h function.h toplev.h \
-   insn-attr.h
+   insn-attr.h except.h
 lcm.o : lcm.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) hard-reg-set.h flags.h \
    real.h insn-config.h insn-attr.h $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H)
 ssa.o : ssa.c $(CONFIG_H) system.h $(RTL_H) $(REGS_H) $(BASIC_BLOCK_H) \
    output.h insn-config.h
 conflict.o : conflict.c $(CONFIG_H) system.h $(OBSTACK_H) $(HASHTAB_H) \
-   $(RTL_H) $(BASIC_BLOCK_H)
-profile.o : profile.c $(CONFIG_H) system.h $(RTL_H) flags.h insn-flags.h \
-   gcov-io.h $(TREE_H) output.h $(REGS_H) toplev.h function.h insn-config.h \
-   $(GGC_H)
+   $(RTL_H) hard-reg-set.h $(BASIC_BLOCK_H)
+profile.o : profile.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h \
+   insn-flags.h insn-config.h output.h $(REGS_H) $(EXPR_H) function.h \
+   gcov-io.h toplev.h $(GGC_H) hard-reg-set.h $(BASIC_BLOCK_H)
 loop.o : loop.c $(CONFIG_H) system.h $(RTL_H) flags.h $(LOOP_H) insn-config.h \
    insn-flags.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) real.h \
    $(BASIC_BLOCK_H) function.h toplev.h varray.h except.h cselib.h
 unroll.o : unroll.c $(CONFIG_H) system.h $(RTL_H) insn-config.h function.h \
    $(INTEGRATE_H) $(REGS_H) $(RECOG_H) flags.h $(EXPR_H) $(LOOP_H) toplev.h \
-   varray.h 
+   hard-reg-set.h varray.h $(BASIC_BLOCK_H)
 flow.o : flow.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h insn-config.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    insn-flags.h function.h except.h $(EXPR_H)
@@ -1378,7 +1380,7 @@ final.o : final.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) flags.h intl.h \
    dbxout.h $(BASIC_BLOCK_H)
 recog.o : recog.c $(CONFIG_H) system.h $(RTL_H) function.h $(BASIC_BLOCK_H) \
    $(REGS_H) $(RECOG_H) hard-reg-set.h flags.h insn-config.h insn-attr.h \
-   insn-flags.h insn-codes.h real.h toplev.h output.h resource.h 
+   insn-flags.h insn-codes.h real.h toplev.h output.h
 reg-stack.o : reg-stack.c $(CONFIG_H) system.h $(RTL_H) $(TREE_H) $(RECOG_H) \
    $(REGS_H) hard-reg-set.h flags.h insn-config.h insn-flags.h toplev.h \
    varray.h function.h
@@ -1686,7 +1688,7 @@ $(HOST_PREFIX_1)print-rtl.o: $(srcdir)/print-rtl.c $(CONFIG_H) \
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)print-rtl.c
 
 $(HOST_PREFIX_1)bitmap.o: $(srcdir)/bitmap.c $(CONFIG_H) system.h $(RTL_H) \
-  flags.h $(BASIC_BLOCK_H) $(REGS_H)
+  flags.h bitmap.h
 	rm -f $(HOST_PREFIX)bitmap.c
 	sed -e 's/config[.]h/hconfig.h/' $(srcdir)/bitmap.c > $(HOST_PREFIX)bitmap.c
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(HOST_PREFIX)bitmap.c
@@ -2135,8 +2137,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 # that don't exist in the distribution.
 INTL_CLEAN = intl.clean
 clean: mostlyclean $(INTL_CLEAN) lang.clean
-	-rm -f libgcc.a libgcc1.a libgcc1-asm.a libgcc2.a libgcc2.ready
-	-rm -f libgcc1.null
+	-rm -f libgcc.a libgcc.ready
 	-rm -f *.dvi
 	-rm -f */*.dvi
 	-if [ -f md.pre-cpp ]; then \
@@ -2733,7 +2734,7 @@ bootstrap bootstrap-lean: force
 # Only build the C compiler for stage1, because that is the only one that
 # we can guarantee will build with the native compiler, and also it is the
 # only thing useful for building stage2.
-	$(MAKE) CC="$(CC)" libdir=$(libdir) LANGUAGES="$(BOOT_LANGUAGES)"
+	$(MAKE) CC="$(CC)" libdir=$(libdir) LANGUAGES="$(BOOT_LANGUAGES)" LANG_LIB2FUNCS=
 	$(MAKE) stage1
 	-if test $@ = bootstrap-lean; then cd stage1 ; rm -f $(VOL_FILES); else true; fi
 # This used to define ALLOCA as empty, but that would lead to bad results

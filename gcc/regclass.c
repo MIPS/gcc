@@ -160,9 +160,12 @@ enum reg_class reg_class_subunion[N_REG_CLASSES][N_REG_CLASSES];
 
 enum reg_class reg_class_superunion[N_REG_CLASSES][N_REG_CLASSES];
 
-/* Array containing all of the register names */
+/* Array containing all of the register names.  Unless
+   DEBUG_REGISTER_NAMES is defined, use the copy in print-rtl.c.  */
 
-const char *reg_names[] = REGISTER_NAMES;
+#ifdef DEBUG_REGISTER_NAMES
+const char * reg_names[] = REGISTER_NAMES;
+#endif
 
 /* For each hard register, the widest mode object that it can contain.
    This will be a MODE_INT mode if the register can hold integers.  Otherwise
@@ -199,6 +202,19 @@ static int forbidden_inc_dec_class[N_REG_CLASSES];
 static char *in_inc_dec;
 
 #endif /* FORBIDDEN_INC_DEC_CLASSES */
+
+#ifdef CLASS_CANNOT_CHANGE_SIZE
+
+/* These are the classes containing only registers that can be used in
+   a SUBREG expression that changes the size of the register.  */
+
+static int class_can_change_size[N_REG_CLASSES];
+
+/* Registers, including pseudos, which change size.  */
+
+static regset reg_changes_size;
+
+#endif /* CLASS_CANNOT_CHANGE_SIZE */
 
 #ifdef HAVE_SECONDARY_RELOADS
 
@@ -441,6 +457,22 @@ init_reg_sets_1 ()
 	else
 	  may_move_out_cost[i][j] = cost;
       }
+
+#ifdef CLASS_CANNOT_CHANGE_SIZE
+  {
+    HARD_REG_SET c;
+    COMPL_HARD_REG_SET (c, reg_class_contents[CLASS_CANNOT_CHANGE_SIZE]);
+      
+    for (i = 0; i < N_REG_CLASSES; i++)
+      {
+	GO_IF_HARD_REG_SUBSET (reg_class_contents[i], c, ok_class);
+	class_can_change_size [i] = 0;
+	continue;
+      ok_class:
+	class_can_change_size [i] = 1;
+      }
+    }
+#endif /* CLASS_CANNOT_CHANGE_SIZE */
 }
 
 /* Compute the table of register modes.
@@ -722,7 +754,7 @@ static rtx scan_one_insn	PARAMS ((rtx, int));
 static void record_operand_costs PARAMS ((rtx, struct costs *, struct reg_pref *));
 static void dump_regclass	PARAMS ((FILE *));
 static void record_reg_classes	PARAMS ((int, int, rtx *, enum machine_mode *,
-				       char *, const char **, rtx,
+				       const char **, rtx,
 				       struct costs *, struct reg_pref *));
 static int copy_cost		PARAMS ((rtx, enum machine_mode, 
 				       enum reg_class, int));
@@ -806,7 +838,6 @@ record_operand_costs (insn, op_costs, reg_pref)
 {
   const char *constraints[MAX_RECOG_OPERANDS];
   enum machine_mode modes[MAX_RECOG_OPERANDS];
-  char subreg_changes_size[MAX_RECOG_OPERANDS];
   int i;
 
   for (i = 0; i < recog_data.n_operands; i++)
@@ -814,7 +845,6 @@ record_operand_costs (insn, op_costs, reg_pref)
       constraints[i] = recog_data.constraints[i];
       modes[i] = recog_data.operand_mode[i];
     }
-  memset (subreg_changes_size, 0, sizeof (subreg_changes_size));
 
   /* If we get here, we are set up to record the costs of all the
      operands for this insn.  Start by initializing the costs.
@@ -829,8 +859,11 @@ record_operand_costs (insn, op_costs, reg_pref)
       if (GET_CODE (recog_data.operand[i]) == SUBREG)
 	{
 	  rtx inner = SUBREG_REG (recog_data.operand[i]);
-	  if (GET_MODE_SIZE (modes[i]) != GET_MODE_SIZE (GET_MODE (inner)))
-	    subreg_changes_size[i] = 1;
+#ifdef CLASS_CANNOT_CHANGE_SIZE
+	  if (GET_MODE_SIZE (modes[i]) != GET_MODE_SIZE (GET_MODE (inner))
+	      && GET_CODE (inner) == REG)
+	    SET_REGNO_REG_SET (reg_changes_size, REGNO (inner));
+#endif
 	  recog_data.operand[i] = inner;
 	}
 
@@ -861,12 +894,12 @@ record_operand_costs (insn, op_costs, reg_pref)
 	xconstraints[i] = constraints[i+1];
 	xconstraints[i+1] = constraints[i];
 	record_reg_classes (recog_data.n_alternatives, recog_data.n_operands,
-			    recog_data.operand, modes, subreg_changes_size,
+			    recog_data.operand, modes, 
 			    xconstraints, insn, op_costs, reg_pref);
       }
 
   record_reg_classes (recog_data.n_alternatives, recog_data.n_operands,
-		      recog_data.operand, modes, subreg_changes_size,
+		      recog_data.operand, modes, 
 		      constraints, insn, op_costs, reg_pref);
 }
 
@@ -1014,6 +1047,10 @@ regclass (f, nregs, dump)
 
   costs = (struct costs *) xmalloc (nregs * sizeof (struct costs));
 
+#ifdef CLASS_CANNOT_CHANGE_SIZE
+  reg_changes_size = BITMAP_XMALLOC();
+#endif  
+
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 
   in_inc_dec = (char *) xmalloc (nregs);
@@ -1152,6 +1189,10 @@ regclass (f, nregs, dump)
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 		  || (in_inc_dec[i] && forbidden_inc_dec_class[class])
 #endif
+#ifdef CLASS_CANNOT_CHANGE_SIZE
+		  || (REGNO_REG_SET_P (reg_changes_size, i)
+		      && ! class_can_change_size [class])
+#endif
 		  )
 		;
 	      else if (p->cost[class] < best_cost)
@@ -1177,6 +1218,10 @@ regclass (f, nregs, dump)
 		      > reg_class_size[(int) alt])
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 		  && ! (in_inc_dec[i] && forbidden_inc_dec_class[class])
+#endif
+#ifdef CLASS_CANNOT_CHANGE_SIZE
+		  && ! (REGNO_REG_SET_P (reg_changes_size, i)
+			&& ! class_can_change_size [class])
 #endif
 		  )
 		alt = reg_class_subunion[(int) alt][class];
@@ -1210,6 +1255,9 @@ regclass (f, nregs, dump)
 #ifdef FORBIDDEN_INC_DEC_CLASSES
   free (in_inc_dec);
 #endif
+#ifdef CLASS_CANNOT_CHANGE_SIZE
+  BITMAP_XFREE (reg_changes_size);
+#endif
   free (costs);
 }
 
@@ -1238,13 +1286,12 @@ regclass (f, nregs, dump)
    alternatives.  */
 
 static void
-record_reg_classes (n_alts, n_ops, ops, modes, subreg_changes_size,
+record_reg_classes (n_alts, n_ops, ops, modes,
 		    constraints, insn, op_costs, reg_pref)
      int n_alts;
      int n_ops;
      rtx *ops;
      enum machine_mode *modes;
-     char *subreg_changes_size ATTRIBUTE_UNUSED;
      const char **constraints;
      rtx insn;
      struct costs *op_costs;
@@ -1542,16 +1589,6 @@ record_reg_classes (n_alts, n_ops, ops, modes, subreg_changes_size,
 
 	  constraints[i] = p;
 
-#ifdef CLASS_CANNOT_CHANGE_SIZE
-	  /* If we noted a subreg earlier, and the selected class is a 
-	     subclass of CLASS_CANNOT_CHANGE_SIZE, zap it.  */
-	  if (subreg_changes_size[i]
-	      && (reg_class_subunion[(int) CLASS_CANNOT_CHANGE_SIZE]
-				    [(int) classes[i]]
-		  == CLASS_CANNOT_CHANGE_SIZE))
-	    classes[i] = NO_REGS;
-#endif
-
 	  /* How we account for this operand now depends on whether it is  a
 	     pseudo register or not.  If it is, we first check if any
 	     register classes are valid.  If not, we ignore this alternative,
@@ -1563,13 +1600,13 @@ record_reg_classes (n_alts, n_ops, ops, modes, subreg_changes_size,
 	    {
 	      if (classes[i] == NO_REGS)
 		{
-		    /* We must always fail if the operand is a REG, but
-		       we did not find a suitable class.
-
-		       Otherwise we may perform an uninitialized read
-		       from this_op_costs after the `continue' statement
-		       below.  */
-		    alt_fail = 1;
+		  /* We must always fail if the operand is a REG, but
+		     we did not find a suitable class.
+		     
+		     Otherwise we may perform an uninitialized read
+		     from this_op_costs after the `continue' statement
+		     below.  */
+		  alt_fail = 1;
 		}
 	      else
 		{

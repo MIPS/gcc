@@ -26,6 +26,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "cpphash.h"
 
+#ifdef HAVE_MMAP_FILE
+# include <sys/mman.h>
+#endif
+
 #define PEEKBUF(BUFFER, N) \
   ((BUFFER)->rlimit - (BUFFER)->cur > (N) ? (BUFFER)->cur[N] : EOF)
 #define GETBUF(BUFFER) \
@@ -54,7 +58,6 @@ static void output_line_command	PARAMS ((cpp_reader *, cpp_printer *,
 static void bump_column		PARAMS ((cpp_printer *, unsigned int,
 					 unsigned int));
 static void expand_name_space   PARAMS ((cpp_toklist *, unsigned int));
-static void expand_token_space	PARAMS ((cpp_toklist *));
 static void pedantic_whitespace	PARAMS ((cpp_reader *, U_CHAR *,
 					 unsigned int));
 
@@ -63,7 +66,6 @@ static void pedantic_whitespace	PARAMS ((cpp_reader *, U_CHAR *,
 
 #ifdef NEW_LEXER
 
-static void expand_comment_space PARAMS ((cpp_toklist *));
 void init_trigraph_map PARAMS ((void));
 static unsigned char* trigraph_replace PARAMS ((cpp_reader *, unsigned char *,
 						unsigned char *));
@@ -75,26 +77,27 @@ static void skip_whitespace PARAMS ((cpp_reader *, int));
 static void parse_name PARAMS ((cpp_reader *, cpp_toklist *, cpp_name *));
 static void parse_number PARAMS ((cpp_reader *, cpp_toklist *, cpp_name *));
 static void parse_string2 PARAMS ((cpp_reader *, cpp_toklist *, cpp_name *,
-				  unsigned int));
+				  unsigned int, int));
 static int trigraph_ok PARAMS ((cpp_reader *, const unsigned char *));
-static void save_comment PARAMS ((cpp_toklist *, const unsigned char *,
-				  unsigned int, unsigned int, unsigned int));
+static void save_comment PARAMS ((cpp_toklist *, cpp_token *,
+				  const unsigned char *,
+				  unsigned int, unsigned int));
 void _cpp_lex_line PARAMS ((cpp_reader *, cpp_toklist *));
 
 static void _cpp_output_list PARAMS ((cpp_reader *, cpp_toklist *));
 
-static unsigned char * spell_token PARAMS ((cpp_reader *, cpp_token *,
+static unsigned char * spell_token PARAMS ((cpp_reader *, const cpp_token *,
 					    unsigned char *, int));
 
 typedef unsigned int (* speller) PARAMS ((unsigned char *, cpp_toklist *,
 					  cpp_token *));
 
 /* Macros on a cpp_name.  */
-#define INIT_NAME(list, name) \
-  do {(name).len = 0; \
-      (name).text = (list)->namebuf + (list)->name_used;} while (0)
-
-#define IS_DIRECTIVE(list) (TOK_TYPE (list, 0) == CPP_HASH)
+#define INIT_TOKEN_NAME(list, token) \
+  do {(token)->val.name.len = 0; \
+      (token)->val.name.text = (list)->namebuf + (list)->name_used; \
+      (list)->tokens_used = token - (list)->tokens + 1; \
+  } while (0)
 
 /* Maybe put these in the ISTABLE eventually.  */
 #define IS_HSPACE(c) ((c) == ' ' || (c) == '\t')
@@ -121,18 +124,21 @@ typedef unsigned int (* speller) PARAMS ((unsigned char *, cpp_toklist *,
 
 /* An upper bound on the number of bytes needed to spell a token,
    including preceding whitespace.  */
-#define TOKEN_LEN(token) (5 + (token_spellings[token->type].type > \
-		               SPELL_NONE ? token->val.name.len: 0))
+#define TOKEN_LEN(token) (5 + (token_spellings[(token)->type].type > \
+		               SPELL_NONE ? (token)->val.name.len: 0))
 
 #endif
 
 /* Order here matters.  Those beyond SPELL_NONE store their spelling
    in the token list, and it's length in the token->val.name.len.  */
-#define SPELL_OPERATOR 0
-#define SPELL_CHAR     2	/* FIXME: revert order after transition. */
-#define SPELL_NONE     1
-#define SPELL_IDENT    3
-#define SPELL_STRING   4
+enum spell_type
+{
+  SPELL_OPERATOR = 0,
+  SPELL_NONE,
+  SPELL_CHAR,    /* FIXME: revert order of NONE and CHAR after transition. */
+  SPELL_IDENT,
+  SPELL_STRING
+};
 
 #define T(e, s) {SPELL_OPERATOR, (const U_CHAR *) s},
 #define I(e, s) {SPELL_IDENT, s},
@@ -142,7 +148,7 @@ typedef unsigned int (* speller) PARAMS ((unsigned char *, cpp_toklist *,
 
 static const struct token_spelling
 {
-  U_CHAR type;
+  ENUM_BITFIELD(spell_type) type : CHAR_BIT;
   const U_CHAR *spelling;
 } token_spellings [N_TTYPES + 1] = {TTYPE_TABLE {0, 0} };
 
@@ -187,7 +193,6 @@ cpp_push_buffer (pfile, buffer, length)
 
   new = (cpp_buffer *) xcalloc (1, sizeof (cpp_buffer));
 
-  new->if_stack = pfile->if_stack;
   new->buf = new->cur = buffer;
   new->rlimit = buffer + length;
   new->prev = buf;
@@ -215,14 +220,14 @@ cpp_pop_buffer (pfile)
 	pfile->system_include_depth--;
       if (pfile->potential_control_macro)
 	{
-	  buf->ihash->control_macro = pfile->potential_control_macro;
+	  buf->ihash->cmacro = pfile->potential_control_macro;
 	  pfile->potential_control_macro = 0;
 	}
       pfile->input_stack_listing_current = 0;
     }
   else if (buf->macro)
     {
-      HASHNODE *m = buf->macro;
+      cpp_hashnode *m = buf->macro;
   
       m->disabled = 0;
       if ((m->type == T_FMACRO && buf->mapped)
@@ -518,7 +523,8 @@ cpp_file_buffer (pfile)
 
 /* Token-buffer helper functions.  */
 
-/* Expand a token list's string space.  */
+/* Expand a token list's string space. It is *vital* that
+   list->tokens_used is correct, to get pointer fix-up right.  */
 static void
 expand_name_space (list, len)
      cpp_toklist *list;
@@ -548,43 +554,60 @@ expand_name_space (list, len)
 }
 
 /* Expand the number of tokens in a list.  */
-static void
-expand_token_space (list)
+void
+_cpp_expand_token_space (list, count)
      cpp_toklist *list;
+     unsigned int count;
 {
-  list->tokens_cap *= 2;
+  unsigned int n;
+
+  list->tokens_cap += count;
+  n = list->tokens_cap;
   if (list->flags & LIST_OFFSET)
-    list->tokens--;
+    list->tokens--, n++;
   list->tokens = (cpp_token *)
-    xrealloc (list->tokens, (list->tokens_cap + 1) * sizeof (cpp_token));
+    xrealloc (list->tokens, n * sizeof (cpp_token));
   if (list->flags & LIST_OFFSET)
     list->tokens++;		/* Skip the dummy.  */
 }
 
-/* Initialize a token list.  We allocate an extra token in front of
-   the token list, as this allows us to always peek at the previous
-   token without worrying about underflowing the list.  */
+/* Initialize a token list.  If flags is DUMMY_TOKEN, we allocate
+   an extra token in front of the token list, as this allows the lexer
+   to always peek at the previous token without worrying about
+   underflowing the list, and some initial space.  Otherwise, no
+   token- or name-space is allocated, and there is no dummy token.  */
 void
-_cpp_init_toklist (list)
+_cpp_init_toklist (list, flags)
      cpp_toklist *list;
+     int flags;
 {
-  /* Initialize token space.  Put a dummy token before the start
-     that will fail matches.  */
-  list->tokens_cap = 256;	/* 4K's worth.  */
-  list->tokens = (cpp_token *)
-    xmalloc ((list->tokens_cap + 1) * sizeof (cpp_token));
-  list->tokens[0].type = CPP_EOF;
-  list->tokens++;
+  /* We malloc zero bytes because we may want to realloc later, and
+     some old implementations don't like realloc-ing a null pointer.  */
+  if (flags == NO_DUMMY_TOKEN)
+    {
+      list->tokens_cap = 0;
+      list->tokens = (cpp_token *) malloc (0);
+      list->name_cap = 0;
+      list->flags = 0;
+    }
+  else
+    {
+      /* Initialize token space.  Put a dummy token before the start
+	 that will fail matches.  */
+      list->tokens_cap = 256;	/* 4K's worth.  */
+      list->tokens = (cpp_token *)
+	xmalloc ((list->tokens_cap + 1) * sizeof (cpp_token));
+      list->tokens[0].type = CPP_EOF;
+      list->tokens++;
 
-  /* Initialize name space.  */
-  list->name_cap = 1024;
+      /* Initialize name space.  */
+      list->name_cap = 1024;
+      list->flags = LIST_OFFSET;
+    }
+
+  /* Allocate name space.  */
   list->namebuf = (unsigned char *) xmalloc (list->name_cap);
 
-  /* Only create a comment space on demand.  */
-  list->comments_cap = 0;
-  list->comments = 0;
-
-  list->flags = LIST_OFFSET;
   _cpp_clear_toklist (list);
 }
 
@@ -595,7 +618,6 @@ _cpp_clear_toklist (list)
 {
   list->tokens_used = 0;
   list->name_used = 0;
-  list->comments_used = 0;
   list->dirno = -1;
   list->flags &= LIST_OFFSET;  /* clear all but that one */
 }
@@ -606,8 +628,6 @@ void
 _cpp_free_toklist (list)
      cpp_toklist *list;
 {
-  if (list->comments)
-    free (list->comments);
   if (list->flags & LIST_OFFSET)
     free (list->tokens - 1);	/* Backup over dummy token.  */
   else
@@ -651,9 +671,6 @@ _cpp_slice_toklist (copy, start, finish)
   copy->tokens_used = n;
   copy->name_used = bytes;
   copy->name_cap = bytes;
-  copy->comments = 0;
-  copy->comments_cap = 0;
-  copy->comments_used = 0;
   
   copy->flags = 0;
   copy->dirno = -1;
@@ -700,13 +717,6 @@ _cpp_squeeze_toklist (list)
 	    __ptrextent list->tokens[i].val.name.text += delta;
 #endif
 	  }
-    }
-  
-  if (list->comments_cap)
-    {
-      list->comments = xrealloc (list->comments,
-				 list->comments_used * sizeof (cpp_token));
-      list->comments_cap = list->comments_used;
     }
 }
 
@@ -789,7 +799,7 @@ _cpp_scan_until (pfile, list, stop)
 	continue;
 
       if (list->tokens_used >= list->tokens_cap)
-	expand_token_space (list);
+	_cpp_expand_token_space (list, 256);
       if (list->name_used + len >= list->name_cap)
 	expand_name_space (list, list->name_used + len + 1 - list->name_cap);
 
@@ -802,6 +812,7 @@ _cpp_scan_until (pfile, list, stop)
       list->tokens_used++;
       TOK_TYPE  (list, i) = type;
       TOK_COL   (list, i) = col;
+      TOK_AUX   (list, i) = 0;
       TOK_FLAGS (list, i) = space_before ? PREV_WHITESPACE : 0;
       
       TOK_LEN (list, i) = len;
@@ -1626,9 +1637,9 @@ maybe_macroexpand (pfile, written)
 {
   U_CHAR *macro = pfile->token_buffer + written;
   size_t len = CPP_WRITTEN (pfile) - written;
-  HASHNODE *hp = _cpp_lookup (pfile, macro, len);
+  cpp_hashnode *hp = cpp_lookup (pfile, macro, len);
 
-  /* _cpp_lookup never returns null.  */
+  /* cpp_lookup never returns null.  */
   if (hp->type == T_VOID)
     return 0;
   if (hp->disabled || hp->type == T_IDENTITY)
@@ -1698,6 +1709,12 @@ maybe_macroexpand (pfile, written)
 	not_macro_call:
 	  if (macbuf_whitespace)
 	    CPP_PUTC (pfile, ' ');
+
+	  /* K+R treated this as a hard error.  */
+	  if (CPP_OPTION (pfile, warn_traditional))
+	    cpp_warning (pfile,
+	 "traditional C rejects function macro %s in non-function context",
+			 hp->name);
 	  return 0;
 	}
     }
@@ -1737,6 +1754,7 @@ cpp_get_token (pfile)
 {
   enum cpp_ttype token;
   long written = CPP_WRITTEN (pfile);
+  int macro_buffer;
 
  get_next:
   token = _cpp_lex_token (pfile);
@@ -1744,24 +1762,26 @@ cpp_get_token (pfile)
   switch (token)
     {
     default:
+      if (pfile->skipping)
+	break;
       pfile->potential_control_macro = 0;
       pfile->only_seen_white = 0;
-      return token;
+      break;
+
+    case CPP_HSPACE:
+    case CPP_COMMENT:
+      break;
 
     case CPP_VSPACE:
       if (pfile->only_seen_white == 0)
 	pfile->only_seen_white = 1;
       CPP_BUMP_LINE (pfile);
-      return token;
-
-    case CPP_HSPACE:
-    case CPP_COMMENT:
-      return token;
+      break;
 
     case CPP_HASH:
       pfile->potential_control_macro = 0;
       if (!pfile->only_seen_white)
-	return CPP_HASH;
+	break;
       /* XXX shouldn't have to do this - remove the hash or %: from
 	 the token buffer.  */
       if (CPP_PWRITTEN (pfile)[-1] == '#')
@@ -1770,30 +1790,43 @@ cpp_get_token (pfile)
 	CPP_ADJUST_WRITTEN (pfile, -2);
 
       if (_cpp_handle_directive (pfile))
-	return CPP_DIRECTIVE; 
+	{
+	  token = CPP_DIRECTIVE;
+	  break;
+	}
       pfile->only_seen_white = 0;
       CPP_PUTC (pfile, '#');
-      return CPP_HASH;
+      break;
 
     case CPP_MACRO:
+      if (pfile->skipping)
+	break;
       pfile->potential_control_macro = 0;
       pfile->only_seen_white = 0;
       if (! pfile->no_macro_expand
 	  && maybe_macroexpand (pfile, written))
 	goto get_next;
-      return CPP_NAME;
+      token = CPP_NAME;
+      break;
 
+      /* Do not run this case through the 'skipping' logic.  */
     case CPP_EOF:
       if (CPP_BUFFER (pfile) == NULL)
 	return CPP_EOF;
-      if (CPP_IS_MACRO_BUFFER (CPP_BUFFER (pfile)))
-	{
-	  cpp_pop_buffer (pfile);
-	  goto get_next;
-	}
+      macro_buffer = CPP_IS_MACRO_BUFFER (CPP_BUFFER (pfile));
+
       cpp_pop_buffer (pfile);
+      if (macro_buffer)
+	goto get_next;
       return CPP_EOF;
     }
+  
+  if (pfile->skipping)
+    {
+      CPP_SET_WRITTEN (pfile, written);
+      goto get_next;
+    }
+  return token;
 }
 
 /* Like cpp_get_token, but skip spaces and comments.  */
@@ -1890,13 +1923,9 @@ find_position (start, limit, linep)
   return lbase;
 }
 
-/* The following table is used by _cpp_read_and_prescan.  If we have
+/* The following table is used by _cpp_prescan.  If we have
    designated initializers, it can be constant data; otherwise, it is
    set up at runtime by _cpp_init_input_buffer.  */
-
-#ifndef UCHAR_MAX
-#define UCHAR_MAX 255	/* assume 8-bit bytes */
-#endif
 
 #if (GCC_VERSION >= 2007)
 #define init_chartab()  /* nothing */
@@ -1935,9 +1964,10 @@ END
 #define NORMAL(c) ((chartab[c]) == 0 || (chartab[c]) > SPECCASE_QUESTION)
 #define NONTRI(c) ((c) <= SPECCASE_QUESTION)
 
-/* Read the entire contents of file DESC into buffer BUF.  LEN is how
-   much memory to allocate initially; more will be allocated if
-   necessary.  Convert end-of-line markers (\n, \r, \r\n, \n\r) to
+/* Prescan pass over a file already loaded into BUF.  This is
+   translation phases 1 and 2 (C99 5.1.1.2).
+
+   Convert end-of-line markers (\n, \r, \r\n, \n\r) to
    canonical form (\n).  If enabled, convert and/or warn about
    trigraphs.  Convert backslash-newline to a one-character escape
    (\r) and remove it from "embarrassing" places (i.e. the middle of a
@@ -1958,204 +1988,153 @@ END
    at the end of reload1.c is about 60%.  (reload1.c is 329k.)
 
    If your file has more than one kind of end-of-line marker, you
-   will get messed-up line numbering.
-   
-   So that the cases of the switch statement do not have to concern
-   themselves with the complications of reading beyond the end of the
-   buffer, the buffer is guaranteed to have at least 3 characters in
-   it (or however many are left in the file, if less) on entry to the
-   switch.  This is enough to handle trigraphs and the "\\\n\r" and
-   "\\\r\n" cases.
-   
-   The end of the buffer is marked by a '\\', which, being a special
-   character, guarantees we will exit the fast-scan loops and perform
-   a refill. */
- 
-long
-_cpp_read_and_prescan (pfile, fp, desc, len)
+   will get messed-up line numbering.  */
+
+ssize_t
+_cpp_prescan (pfile, fp, len)
      cpp_reader *pfile;
      cpp_buffer *fp;
-     int desc;
-     size_t len;
+     ssize_t len;
 {
-  U_CHAR *buf = (U_CHAR *) xmalloc (len);
-  U_CHAR *ip, *op, *line_base;
-  U_CHAR *ibase;
+  U_CHAR *buf, *op;
+  const U_CHAR *ibase, *ip, *ilimit;
+  U_CHAR *line_base;
   unsigned long line;
   unsigned int deferred_newlines;
-  size_t offset;
-  int count = 0;
 
-  offset = 0;
-  deferred_newlines = 0;
-  op = buf;
-  line_base = buf;
+  /* Allocate an extra byte in case we must add a trailing \n.  */
+  buf = (U_CHAR *) xmalloc (len + 1);
+  line_base = op = buf;
+  ip = ibase = fp->buf;
+  ilimit = ibase + len;
   line = 1;
-  ibase = pfile->input_buffer + 3;
-  ip = ibase;
-  ip[-1] = '\0';  /* Guarantee no match with \n for SPECCASE_CR */
+  deferred_newlines = 0;
 
   for (;;)
     {
-      U_CHAR *near_buff_end;
+      const U_CHAR *iq;
 
-      count = read (desc, ibase, pfile->input_buffer_len);
-      if (count < 0)
-	goto error;
-      
-      ibase[count] = '\\';  /* Marks end of buffer */
-      if (count)
+      /* Deal with \-newline, potentially in the middle of a token. */
+      if (deferred_newlines)
 	{
-	  near_buff_end = pfile->input_buffer + count;
-	  offset += count;
-	  if (offset > len)
+	  if (op != buf && ! is_space (op[-1]) && op[-1] != '\r')
 	    {
-	      size_t delta_op;
-	      size_t delta_line_base;
-	      len = offset * 2;
-	      if (offset > len)
-		/* len overflowed.
-		   This could happen if the file is larger than half the
-		   maximum address space of the machine. */
-		goto too_big;
-
-	      delta_op = op - buf;
-	      delta_line_base = line_base - buf;
-	      buf = (U_CHAR *) xrealloc (buf, len);
-	      op = buf + delta_op;
-	      line_base = buf + delta_line_base;
+	      /* Previous was not white space.  Skip to white
+		 space, if we can, before outputting the \r's */
+	      iq = ip;
+	      while (iq < ilimit
+		     && *iq != ' '
+		     && *iq != '\t'
+		     && *iq != '\n'
+		     && NORMAL(*iq))
+		iq++;
+	      memcpy (op, ip, iq - ip);
+	      op += iq - ip;
+	      ip += iq - ip;
+	      if (! NORMAL(*ip))
+		goto do_speccase;
 	    }
-	}
-      else
-	{
-	  if (ip == ibase)
-	    break;
-	  /* Allow normal processing of the (at most 2) remaining
-	     characters.  The end-of-buffer marker is still present
-	     and prevents false matches within the switch. */
-	  near_buff_end = ibase - 1;
+	  while (deferred_newlines)
+	    deferred_newlines--, *op++ = '\r';
 	}
 
-      for (;;)
+      /* Copy as much as we can without special treatment. */
+      iq = ip;
+      while (iq < ilimit && NORMAL (*iq)) iq++;
+      memcpy (op, ip, iq - ip);
+      op += iq - ip;
+      ip += iq - ip;
+
+    do_speccase:
+      if (ip >= ilimit)
+	break;
+
+      switch (chartab[*ip++])
 	{
-	  unsigned int span;
-
-	  /* Deal with \-newline, potentially in the middle of a token. */
-	  if (deferred_newlines)
+	case SPECCASE_CR:  /* \r */
+	  if (ip[-2] != '\n')
 	    {
-	      if (op != buf && ! is_space (op[-1]) && op[-1] != '\r')
-		{
-		  /* Previous was not white space.  Skip to white
-		     space, if we can, before outputting the \r's */
-		  span = 0;
-		  while (ip[span] != ' '
-			 && ip[span] != '\t'
-			 && ip[span] != '\n'
-			 && NORMAL(ip[span]))
-		    span++;
-		  memcpy (op, ip, span);
-		  op += span;
-		  ip += span;
-		  if (! NORMAL(ip[0]))
-		    goto do_speccase;
-		}
-	      while (deferred_newlines)
-		deferred_newlines--, *op++ = '\r';
+	      if (ip < ilimit && *ip == '\n')
+		ip++;
+	      *op++ = '\n';
 	    }
+	  break;
 
-	  /* Copy as much as we can without special treatment. */
-	  span = 0;
-	  while (NORMAL (ip[span])) span++;
-	  memcpy (op, ip, span);
-	  op += span;
-	  ip += span;
-
-	do_speccase:
-	  if (ip > near_buff_end) /* Do we have enough chars? */
-	    break;
-	  switch (chartab[*ip++])
+	case SPECCASE_BACKSLASH:  /* \ */
+	backslash:
+	  if (ip < ilimit)
 	    {
-	    case SPECCASE_CR:  /* \r */
-	      if (ip[-2] != '\n')
-		{
-		  if (*ip == '\n')
-		    ip++;
-		  *op++ = '\n';
-		}
-	      break;
-
-	    case SPECCASE_BACKSLASH:  /* \ */
 	      if (*ip == '\n')
 		{
 		  deferred_newlines++;
 		  ip++;
 		  if (*ip == '\r') ip++;
+		  break;
 		}
 	      else if (*ip == '\r')
 		{
 		  deferred_newlines++;
 		  ip++;
 		  if (*ip == '\n') ip++;
+		  break;
 		}
-	      else
-		*op++ = '\\';
+	    }
+
+	  *op++ = '\\';
+	  break;
+
+	case SPECCASE_QUESTION: /* ? */
+	  {
+	    unsigned int d, t;
+
+	    *op++ = '?'; /* Normal non-trigraph case */
+	    if (ip > ilimit - 2 || ip[0] != '?')
+	      break;
+		    
+	    d = ip[1];
+	    t = chartab[d];
+	    if (NONTRI (t))
 	      break;
 
-	    case SPECCASE_QUESTION: /* ? */
+	    if (CPP_OPTION (pfile, warn_trigraphs))
 	      {
-		unsigned int d, t;
-
-		*op++ = '?'; /* Normal non-trigraph case */
-		if (ip[0] != '?')
-		  break;
-		    
-		d = ip[1];
-		t = chartab[d];
-		if (NONTRI (t))
-		  break;
-
-		if (CPP_OPTION (pfile, warn_trigraphs))
-		  {
-		    unsigned long col;
-		    line_base = find_position (line_base, op, &line);
-		    col = op - line_base + 1;
-		    if (CPP_OPTION (pfile, trigraphs))
-		      cpp_warning_with_line (pfile, line, col,
-					     "trigraph ??%c converted to %c", d, t);
-		    else
-		      cpp_warning_with_line (pfile, line, col,
-					     "trigraph ??%c ignored", d);
-		  }
-
-		ip += 2;
+		unsigned long col;
+		line_base = find_position (line_base, op, &line);
+		col = op - line_base + 1;
 		if (CPP_OPTION (pfile, trigraphs))
-		  {
-		    op[-1] = t;	    /* Overwrite '?' */
-		    if (t == '\\')
-		      {
-			op--;
-			*--ip = '\\';
-			goto do_speccase; /* May need buffer refill */
-		      }
-		  }
+		  cpp_warning_with_line (pfile, line, col,
+					 "trigraph ??%c converted to %c", d, t);
 		else
+		  cpp_warning_with_line (pfile, line, col,
+					 "trigraph ??%c ignored", d);
+	      }
+
+	    ip += 2;
+	    if (CPP_OPTION (pfile, trigraphs))
+	      {
+		op[-1] = t;	    /* Overwrite '?' */
+		if (t == '\\')
 		  {
-		    *op++ = '?';
-		    *op++ = d;
+		    op--;
+		    goto backslash;
 		  }
 	      }
-	      break;
-	    }
+	    else
+	      {
+		*op++ = '?';
+		*op++ = d;
+	      }
+	  }
+	  break;
 	}
-      /* Copy previous char plus unprocessed (at most 2) chars
-	 to beginning of buffer, refill it with another
-	 read(), and continue processing */
-      memmove (ip - count - 1, ip - 1, 4 - (ip - near_buff_end));
-      ip -= count;
     }
 
-  if (offset == 0)
-    return 0;
+#ifdef HAVE_MMAP_FILE
+  if (fp->mapped)
+    munmap ((caddr_t) fp->buf, len);
+  else
+#endif
+    free ((PTR) fp->buf);
 
   if (op[-1] != '\n')
     {
@@ -2163,30 +2142,11 @@ _cpp_read_and_prescan (pfile, fp, desc, len)
       line_base = find_position (line_base, op, &line);
       col = op - line_base + 1;
       cpp_warning_with_line (pfile, line, col, "no newline at end of file");
-      if (offset + 1 > len)
-	{
-	  len += 1;
-	  if (offset + 1 > len)
-	    goto too_big;
-	  buf = (U_CHAR *) xrealloc (buf, len);
-	  op = buf + offset;
-	}
       *op++ = '\n';
     }
 
-  fp->buf = ((len - offset < 20) ? buf : (U_CHAR *)xrealloc (buf, op - buf));
+  fp->buf = buf;
   return op - buf;
-
- too_big:
-  cpp_notice (pfile, "%s is too large (>%lu bytes)", fp->ihash->name,
-	      (unsigned long)offset);
-  free (buf);
-  return -1;
-
- error:
-  cpp_error_from_errno (pfile, fp->ihash->name);
-  free (buf);
-  return -1;
 }
 
 /* Allocate pfile->input_buffer, and initialize chartab[]
@@ -2199,7 +2159,7 @@ _cpp_init_input_buffer (pfile)
   U_CHAR *tmp;
 
   init_chartab ();
-  _cpp_init_toklist (&pfile->directbuf);
+  _cpp_init_toklist (&pfile->directbuf, NO_DUMMY_TOKEN);
 
   /* Determine the appropriate size for the input buffer.  Normal C
      source files are smaller than eight K.  */
@@ -2340,24 +2300,6 @@ cpp_idcmp (token, len, string)
 static const unsigned char *digraph_spellings [] = {U"%:", U"%:%:", U"<:",
 						    U":>", U"<%", U"%>"};
 static unsigned char trigraph_map[256];
-
-static void
-expand_comment_space (list)
-     cpp_toklist *list;
-{
-  if (list->comments_cap == 0)
-    {
-      list->comments_cap = 10;
-      list->comments = (cpp_token *)
-	xmalloc (list->comments_cap * sizeof (cpp_token));
-    }
-  else
-    {
-      list->comments_cap *= 2;
-      list->comments = (cpp_token *)
-	xrealloc (list->comments, list->comments_cap);
-    }
-}
 
 void
 init_trigraph_map ()
@@ -2707,11 +2649,12 @@ parse_number (pfile, list, name)
    allowed, except for within directives.  */
 
 static void
-parse_string2 (pfile, list, name, terminator)
+parse_string2 (pfile, list, name, terminator, multiline_ok)
      cpp_reader *pfile;
      cpp_toklist *list;
      cpp_name *name;
      unsigned int terminator;
+     int multiline_ok;
 {
   cpp_buffer *buffer = pfile->buffer;
   register const unsigned char *cur = buffer->cur;
@@ -2771,7 +2714,7 @@ parse_string2 (pfile, list, name, terminator)
 		 extend over multiple lines.  In Standard C, neither
 		 may strings.  We accept multiline strings as an
 		 extension, but not in directives.  */
-	      if (terminator != '"' || IS_DIRECTIVE (list))
+	      if (!multiline_ok)
 		goto unterminated;
 		
 	      cur++;  /* Move forwards again.  */
@@ -2844,32 +2787,28 @@ parse_string2 (pfile, list, name, terminator)
 
 #define COMMENT_START_LEN 2
 static void
-save_comment (list, from, len, tok_no, type)
+save_comment (list, token, from, len, type)
      cpp_toklist *list;
+     cpp_token *token;
      const unsigned char *from;
      unsigned int len;
-     unsigned int tok_no;
      unsigned int type;
 {
-  cpp_token *comment;
   unsigned char *buffer;
   
   len += COMMENT_START_LEN;
 
-  if (list->comments_used == list->comments_cap)
-    expand_comment_space (list);
-
   if (list->name_used + len > list->name_cap)
     expand_name_space (list, len);
 
+  INIT_TOKEN_NAME (list, token);
+  token->type = CPP_COMMENT;
+  token->val.name.len = len;
+
   buffer = list->namebuf + list->name_used;
+  list->name_used += len;
 
-  comment = &list->comments[list->comments_used++];
-  comment->type = CPP_COMMENT;
-  comment->aux = tok_no;
-  comment->val.name.len = len;
-  comment->val.name.text = buffer;
-
+  /* Copy the comment.  */
   if (type == '*')
     {
       *buffer++ = '/';
@@ -2880,16 +2819,15 @@ save_comment (list, from, len, tok_no, type)
       *buffer++ = type;
       *buffer++ = type;
     }
-
   memcpy (buffer, from, len - COMMENT_START_LEN);
-  list->name_used += len;
 }
 
 /*
  *  The tokenizer's main loop.  Returns a token list, representing a
- *  logical line in the input file, terminated with a CPP_VSPACE
- *  token.  On EOF, a token list containing the single CPP_EOF token
- *  is returned.
+ *  logical line in the input file.  On EOF after some tokens have
+ *  been processed, we return immediately.  Then in next call, or if
+ *  EOF occurred at the beginning of a logical line, a single CPP_EOF
+ *  token is placed in the list.
  *
  *  Implementation relies almost entirely on lookback, rather than
  *  looking forwards.  This means that tokenization requires just
@@ -2898,6 +2836,8 @@ save_comment (list, from, len, tok_no, type)
  *  Trigraph overhead is negligible if they are disabled, and low
  *  even when enabled.
  */
+
+#define IS_DIRECTIVE() (list->tokens[first_token].type == CPP_HASH)
 
 void
 _cpp_lex_line (pfile, list)
@@ -2908,7 +2848,9 @@ _cpp_lex_line (pfile, list)
   cpp_buffer *buffer = pfile->buffer;
   register const unsigned char *cur = buffer->cur;
   unsigned char flags = 0;
+  unsigned int first_token = list->tokens_used;
 
+  list->line = CPP_BUF_LINE (buffer);
   pfile->col_adjust = 0;
  expanded:
   token_limit = list->tokens + list->tokens_cap;
@@ -2925,7 +2867,7 @@ _cpp_lex_line (pfile, list)
 	{
 	  /* Step back to get the null warning and tab correction.  */
 	  buffer->cur = cur - 1;
-	  skip_whitespace (pfile, IS_DIRECTIVE (list));
+	  skip_whitespace (pfile, IS_DIRECTIVE ());
 	  cur = buffer->cur;
 
 	  flags = PREV_WHITESPACE;
@@ -2943,27 +2885,31 @@ _cpp_lex_line (pfile, list)
 	{
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
-	  cur--;		/* Backup character.  */
-	  if (PREV_TOKEN_TYPE == CPP_DOT && IMMED_TOKEN ())
-	    {
-	      /* Prepend an immediately previous CPP_DOT token.  */
+	  {
+	    int prev_dot;
+
+	    cur--;		/* Backup character.  */
+	    prev_dot = PREV_TOKEN_TYPE == CPP_DOT && IMMED_TOKEN ();
+	    if (prev_dot)
 	      cur_token--;
-	      if (list->name_cap == list->name_used)
-		auto_expand_name_space (list);
+	    INIT_TOKEN_NAME (list, cur_token);
+	    /* Prepend an immediately previous CPP_DOT token.  */
+	    if (prev_dot)
+	      {
+		if (list->name_cap == list->name_used)
+		  auto_expand_name_space (list);
 
-	      cur_token->val.name.len = 1;
-	      cur_token->val.name.text = list->namebuf + list->name_used;
-	      list->namebuf[list->name_used++] = '.';
-	    }
-	  else
-	    INIT_NAME (list, cur_token->val.name);
+		cur_token->val.name.len = 1;
+		list->namebuf[list->name_used++] = '.';
+	      }
 
-	continue_number:
-	  buffer->cur = cur;
-	  parse_number (pfile, list, &cur_token->val.name);
-	  cur = buffer->cur;
-
-	  PUSH_TOKEN (CPP_NUMBER); /* Number not yet interpreted.  */
+	  continue_number:
+	    cur_token->type = CPP_NUMBER; /* Before parse_number.  */
+	    buffer->cur = cur;
+	    parse_number (pfile, list, &cur_token->val.name);
+	    cur = buffer->cur;
+	    cur_token++;
+	  }
 	  break;
 
 	letter:
@@ -2979,7 +2925,7 @@ _cpp_lex_line (pfile, list)
 	case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
 	case 'Y': case 'Z':
 	  cur--;		     /* Backup character.  */
-	  INIT_NAME (list, cur_token->val.name);
+	  INIT_TOKEN_NAME (list, cur_token);
 	  cur_token->type = CPP_NAME; /* Identifier, macro etc.  */
 
 	continue_name:
@@ -2988,7 +2934,7 @@ _cpp_lex_line (pfile, list)
 	  cur = buffer->cur;
 
 	  /* Find handler for newly created / extended directive.  */
-	  if (IS_DIRECTIVE (list) && cur_token == &list->tokens[1])
+	  if (IS_DIRECTIVE () && cur_token == &list->tokens[first_token + 1])
 	    _cpp_check_directive (list, cur_token);
 	  cur_token++;
 	  break;
@@ -3010,9 +2956,10 @@ _cpp_lex_line (pfile, list)
 
 	do_parse_string:
 	  /* Here c is one of ' " or >.  */
-	  INIT_NAME (list, cur_token->val.name);
+	  INIT_TOKEN_NAME (list, cur_token);
 	  buffer->cur = cur;
-	  parse_string2 (pfile, list, &cur_token->val.name, c);
+	  parse_string2 (pfile, list, &cur_token->val.name, c,
+			 c == '"' && !IS_DIRECTIVE());
 	  cur = buffer->cur;
 	  cur_token++;
 	  break;
@@ -3050,15 +2997,18 @@ _cpp_lex_line (pfile, list)
 			cpp_error_with_line (pfile, list->line,
 					     cur_token[-1].col,
 					     "multi-line comment");
-		      if (!CPP_OPTION (pfile, discard_comments))
-			save_comment (list, cur, buffer->cur - cur,
-				      cur_token - 1 - list->tokens, c);
-		      cur = buffer->cur;
 
 		      /* Back-up to first '-' or '/'.  */
-		      cur_token -= 2;
+		      cur_token--;
+		      if (!CPP_OPTION (pfile, discard_comments)
+			  && (!IS_DIRECTIVE() || list->dirno == 0))
+			save_comment (list, cur_token++, cur,
+				      buffer->cur - cur, c);
+		      cur = buffer->cur;
+
 		      if (!CPP_OPTION (pfile, traditional))
 			flags = PREV_WHITESPACE;
+		      break;
 		    }
 		}
 	    }
@@ -3081,12 +3031,15 @@ _cpp_lex_line (pfile, list)
 		  else if (buffer->cur[-2] != '*')
 		    cpp_warning (pfile,
 				 "comment end '*/' split across lines");
-		  if (!CPP_OPTION (pfile, discard_comments))
-		    save_comment (list, cur, buffer->cur - cur,
-				 cur_token - 1 - list->tokens, c);
+
+		  /* Back up to opening '/'.  */
+		  cur_token--;
+		  if (!CPP_OPTION (pfile, discard_comments)
+		      && (!IS_DIRECTIVE() || list->dirno == 0))
+		    save_comment (list, cur_token++, cur,
+				  buffer->cur - cur, c);
 		  cur = buffer->cur;
 
-		  cur_token--;
 		  if (!CPP_OPTION (pfile, traditional))
 		    flags = PREV_WHITESPACE;
 		  break;
@@ -3129,8 +3082,12 @@ _cpp_lex_line (pfile, list)
 	      buffer->cur = cur;
 	      cpp_warning (pfile, "backslash and newline separated by space");
 	    }
-	  PUSH_TOKEN (CPP_VSPACE);
-	  goto out;
+	  /* Skip vertical space until we have at least one token to
+             return.  */
+	  if (cur_token != &list->tokens[first_token])
+	    goto out;
+	  list->line = CPP_BUF_LINE (buffer);
+	  break;
 
 	case '-':
 	  if (IMMED_TOKEN () && PREV_TOKEN_TYPE == CPP_MINUS)
@@ -3330,39 +3287,23 @@ _cpp_lex_line (pfile, list)
   if (cur_token == token_limit)
     {
       list->tokens_used = cur_token - list->tokens;
-      expand_token_space (list);
+      _cpp_expand_token_space (list, 256);
       goto expanded;
     }
 
-  cur_token->type = CPP_EOF;
   cur_token->flags = flags;
-
-  if (cur_token != &list->tokens[0])
+  if (cur_token == &list->tokens[first_token])
     {
-      /* Next call back will get just a CPP_EOF.  */
-      buffer->cur = cur;
-      cpp_warning (pfile, "no newline at end of file");
-      PUSH_TOKEN (CPP_VSPACE);
+      /* FIXME: move this warning to callers who care.  */
+      if (cur > buffer->buf && !IS_NEWLINE (cur[-1]))
+	cpp_warning (pfile, "no newline at end of file");
+      cur_token++->type = CPP_EOF;
     }
 
  out:
+  list->tokens[first_token].flags |= BOL;
   buffer->cur = cur;
-
   list->tokens_used = cur_token - list->tokens;
-
-  /* FIXME:  take this check out and put it in the caller.
-     list->directive == 0 indicates an unknown directive (but null
-     directive is OK).  This is the first time we can be sure the
-     directive is invalid, and thus warn about it, because it might
-     have been split by escaped newlines.  Also, don't complain about
-     invalid directives in assembly source, we don't know where the
-     comments are, and # may introduce assembler pseudo-ops.  */
-
-  if (IS_DIRECTIVE (list) && list->dirno == -1
-      && list->tokens[1].type != CPP_VSPACE
-      && !CPP_OPTION (pfile, lang_asm))
-    cpp_error_with_line (pfile, list->line, list->tokens[1].col,
-			 "invalid preprocessing directive");
 }
 
 /* Write the spelling of a token TOKEN to BUFFER.  The buffer must
@@ -3374,7 +3315,7 @@ _cpp_lex_line (pfile, list)
 static unsigned char *
 spell_token (pfile, token, buffer, whitespace)
      cpp_reader *pfile;		/* Would be nice to be rid of this...  */
-     cpp_token *token;
+     const cpp_token *token;
      unsigned char *buffer;
      int whitespace;
 {
@@ -3443,7 +3384,7 @@ _cpp_lex_file (pfile)
 
   init_trigraph_map ();
   list = (cpp_toklist *) xmalloc (sizeof (cpp_toklist));
-  _cpp_init_toklist (list);
+  _cpp_init_toklist (list, DUMMY_TOKEN);
 
   for (;;)
     {
@@ -3467,36 +3408,13 @@ _cpp_output_list (pfile, list)
      cpp_reader *pfile;
      cpp_toklist *list;
 {
-  cpp_token *token, *comment, *comment_before = 0;
+  unsigned int i;
 
-  if (list->comments_used > 0)
+  for (i = 0; i < list->tokens_used; i++)
     {
-      comment = &list->comments[0];
-      comment_before = &list->tokens[comment->aux];
+      CPP_RESERVE (pfile, TOKEN_LEN (&list->tokens[i]));
+      pfile->limit = spell_token (pfile, &list->tokens[i], pfile->limit, 1);
     }
-
-  token = &list->tokens[0];
-  do
-    {
-      /* Output comments if -C.  */
-      while (token == comment_before)
-	{
-	  /* Make space for the comment, and copy it out.  */
-	  CPP_RESERVE (pfile, TOKEN_LEN (comment));
-	  pfile->limit = spell_token (pfile, comment, pfile->limit, 0);
-
-	  /* Stop if no comments left, or no more comments appear
-             before the current token.  */
-	  comment++;
-	  if (comment == list->comments + list->comments_used)
-	    break;
-	  comment_before = &list->tokens[comment->aux];
-	}
-
-      CPP_RESERVE (pfile, TOKEN_LEN (token));
-      pfile->limit = spell_token (pfile, token, pfile->limit, 1);
-    }
-  while (token++->type != CPP_VSPACE);
 }
 
 #endif

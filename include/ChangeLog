@@ -1,3 +1,9 @@
+2000-05-23  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* getopt.h (getopt): Also check HAVE_DECL_* when prototyping.
+
+	* libiberty.h (basename): Likewise.
+
 2000-05-18  Greg McGary  <greg@mcgary.org>
 
 	* libiberty.h (ARRAY_SIZE): New macro.

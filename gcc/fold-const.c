@@ -3457,8 +3457,17 @@ make_range (exp, pin_p, plow, phigh)
 	      low = range_binop (PLUS_EXPR, type, n_high, 0,
 				 integer_one_node, 0);
 	      high = range_binop (MINUS_EXPR, type, n_low, 0,
-				 integer_one_node, 0);
-	      in_p = ! in_p;
+				  integer_one_node, 0);
+
+	      /* If the range is of the form +/- [ x+1, x ], we won't
+		 be able to normalize it.  But then, it represents the
+		 whole range or the empty set, so make it
+		 +/- [ -, - ].  */
+	      if (tree_int_cst_equal (n_low, low)
+		  && tree_int_cst_equal (n_high, high))
+		low = high = 0;
+	      else
+		in_p = ! in_p;
 	    }
 	  else
 	    low = n_low, high = n_high;
@@ -4447,6 +4456,10 @@ extract_muldiv (t, c, code, wide_type)
 	 or floor division, by a power of two, so we can treat it that
 	 way unless the multiplier or divisor overflows.  */
       if (TREE_CODE (op1) == INTEGER_CST
+	  /* const_binop may not detect overflow correctly,
+	     so check for it explicitly here.  */
+	  && TYPE_PRECISION (TREE_TYPE (size_one_node)) > TREE_INT_CST_LOW (op1)
+	  && TREE_INT_CST_HIGH (op1) == 0
 	  && 0 != (t1 = convert (ctype,
 				 const_binop (LSHIFT_EXPR, size_one_node,
 					      op1, 0)))

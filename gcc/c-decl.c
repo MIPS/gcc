@@ -2238,7 +2238,7 @@ pushdecl (x)
 	    {
 	      if (type == error_mark_node)
 		break;
-	      if (! TYPE_CONTEXT (type))
+	      if (TYPE_CONTEXT (type))
 		{
 		  warning_with_decl (x, "type of external `%s' is not global");
 		  /* By exiting the loop early, we leave TYPE nonzero,
@@ -5795,8 +5795,7 @@ build_enumerator (name, value)
 			 && TREE_UNSIGNED (type)));
 
   decl = build_decl (CONST_DECL, name, type);
-  DECL_INITIAL (decl) = value;
-  TREE_TYPE (value) = type;
+  DECL_INITIAL (decl) = convert (type, value);
   pushdecl (decl);
 
   return tree_cons (decl, value, NULL_TREE);

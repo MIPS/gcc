@@ -590,6 +590,7 @@ lang_decode_option (argc, argv)
       /* Some kind of -f option.
 	 P's value is the option sans `-f'.
 	 Search for it in the table of options.  */
+      const char *option_value = NULL;
       size_t j;
 
       p += 2;
@@ -639,31 +640,36 @@ lang_decode_option (argc, argv)
 	  flag_new_abi = 0;
 	  flag_do_squangling = 0;
 	}
-      else if (!strncmp (p, "template-depth-", 15))
+      else if ((option_value
+                = skip_leading_substring (p, "template-depth-")))
 	max_tinst_depth
-	  = read_integral_parameter (p + 15, p - 2, max_tinst_depth);
-      else if (!strncmp (p, "name-mangling-version-", 22))
+	  = read_integral_parameter (option_value, p - 2, max_tinst_depth);
+      else if ((option_value
+                = skip_leading_substring (p, "name-mangling-version-")))
 	name_mangling_version 
-	  = read_integral_parameter (p + 22, p - 2, name_mangling_version);
-      else if (!strncmp (p, "message-length=", 15))
+	  = read_integral_parameter (option_value, p - 2, name_mangling_version);
+      else if ((option_value
+                = skip_leading_substring (p, "message-length=")))
 	set_message_length
-	  (read_integral_parameter (p + 15, p - 2,
+	  (read_integral_parameter (option_value, p - 2,
 				    /* default line-wrap length */ 72));
-      else if (!strncmp (p, "diagnostics-show-location=", 26))
+      else if ((option_value
+                = skip_leading_substring (p, "diagnostics-show-location=")))
         {
-          if (!strncmp (p + 26, "once", 4))
+          if (!strcmp (option_value, "once"))
             set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_ONCE);
-          else if (!strncmp (p + 26, "every-line", 10))
+          else if (!strcmp (option_value, "every-line"))
             set_message_prefixing_rule (DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE);
           else
             error ("Unrecognized option `%s'", p - 2);
         }
-      else if (!strncmp (p, "dump-translation-unit-", 22))
+      else if ((option_value
+                = skip_leading_substring (p, "dump-translation-unit-")))
 	{
 	  if (p[22] == '\0')
 	    error ("no file specified with -fdump-translation-unit");
 	  else
-	    flag_dump_translation_unit = p + 22;
+	    flag_dump_translation_unit = option_value;
 	}
       else 
 	{
@@ -914,7 +920,7 @@ grok_x_components (specs)
     return;
 
   fixup_anonymous_aggr (t);
-  finish_member_declaration (build_lang_decl (FIELD_DECL, NULL_TREE, t)); 
+  finish_member_declaration (build_decl (FIELD_DECL, NULL_TREE, t)); 
 
   /* Ignore any inline function definitions in the anonymous union
      since an anonymous union may not have function members.  */
@@ -922,6 +928,22 @@ grok_x_components (specs)
   for (; *p; *p = (*p)->next)
     if (DECL_CONTEXT ((*p)->fndecl) != t)
       break;
+}
+
+/* Returns a PARM_DECL for a parameter of the indicated TYPE, with the
+   indicated NAME.  */
+
+tree
+build_artificial_parm (name, type)
+     tree name;
+     tree type;
+{
+  tree parm;
+
+  parm = build_decl (PARM_DECL, name, type);
+  SET_DECL_ARTIFICIAL (parm);
+  DECL_ARG_TYPE (parm) = type;
+  return parm;
 }
 
 /* Constructors for types with virtual baseclasses need an "in-charge" flag
@@ -944,6 +966,11 @@ maybe_retrofit_in_chrg (fn)
   if (DECL_HAS_IN_CHARGE_PARM_P (fn))
     return;
 
+  /* When processing templates we can't know, in general, whether or
+     not we're going to have virtual baseclasses.  */
+  if (uses_template_parms (fn))
+    return;
+
   /* We don't need an in-charge parameter for constructors that don't
      have virtual bases.  */
   if (DECL_CONSTRUCTOR_P (fn)
@@ -951,10 +978,7 @@ maybe_retrofit_in_chrg (fn)
     return;
 
   /* First add it to DECL_ARGUMENTS...  */
-  parm = build_decl (PARM_DECL, in_charge_identifier, integer_type_node);
-  /* Mark the artificial `__in_chrg' parameter as "artificial".  */
-  SET_DECL_ARTIFICIAL (parm);
-  DECL_ARG_TYPE (parm) = integer_type_node;
+  parm = build_artificial_parm (in_charge_identifier, integer_type_node);
   TREE_READONLY (parm) = 1;
   parms = DECL_ARGUMENTS (fn);
   TREE_CHAIN (parm) = TREE_CHAIN (parms);
@@ -973,6 +997,18 @@ maybe_retrofit_in_chrg (fn)
 
   /* Now we've got the in-charge parameter.  */
   DECL_HAS_IN_CHARGE_PARM_P (fn) = 1;
+
+  /* If this is a subobject constructor or destructor, our caller will
+     pass us a pointer to our VTT.  */
+  if (flag_new_abi && TYPE_USES_VIRTUAL_BASECLASSES (DECL_CONTEXT (fn)))
+    {
+      DECL_VTT_PARM (fn) = build_artificial_parm (vtt_parm_identifier, 
+						  vtt_parm_type);
+      DECL_CONTEXT (DECL_VTT_PARM (fn)) = fn;
+      DECL_USE_VTT_PARM (fn) = build_artificial_parm (NULL_TREE,
+						      boolean_type_node);
+      DECL_CONTEXT (DECL_USE_VTT_PARM (fn)) = fn;
+    }
 }
 
 /* Classes overload their constituent function names automatically.
@@ -1004,6 +1040,10 @@ grokclassfn (ctype, function, flags, quals)
   tree fn_name = DECL_NAME (function);
   int this_quals = TYPE_UNQUALIFIED;
 
+  /* Even within an `extern "C"' block, members get C++ linkage.  See
+     [dcl.link] for details.  */
+  DECL_LANGUAGE (function) = lang_cplusplus;
+
   if (fn_name == NULL_TREE)
     {
       error ("name missing for member function");
@@ -1027,12 +1067,9 @@ grokclassfn (ctype, function, flags, quals)
 	 assigned to.  */
       this_quals |= TYPE_QUAL_CONST;
       qual_type = cp_build_qualified_type (type, this_quals);
-      parm = build_decl (PARM_DECL, this_identifier, qual_type);
+      parm = build_artificial_parm (this_identifier, qual_type);
       c_apply_type_quals_to_decl (this_quals, parm);
 
-      /* Mark the artificial `this' parameter as "artificial".  */
-      SET_DECL_ARTIFICIAL (parm);
-      DECL_ARG_TYPE (parm) = type;
       /* We can make this a register, so long as we don't
 	 accidentally complain if someone tries to take its address.  */
       DECL_REGISTER (parm) = 1;
@@ -1236,7 +1273,8 @@ delete_sanity (exp, size, doing_vec, use_global_delete)
     return build1 (NOP_EXPR, void_type_node, t);
 
   if (doing_vec)
-    return build_vec_delete (t, maxindex, integer_one_node, use_global_delete);
+    return build_vec_delete (t, maxindex, sfk_deleting_destructor,
+			     use_global_delete);
   else
     {
       if (IS_AGGR_TYPE (TREE_TYPE (type))
@@ -1250,7 +1288,7 @@ delete_sanity (exp, size, doing_vec, use_global_delete)
 	    return error_mark_node;
 	}
 
-      return build_delete (type, t, integer_three_node,
+      return build_delete (type, t, sfk_deleting_destructor,
 			   LOOKUP_NORMAL, use_global_delete);
     }
 }
@@ -1928,7 +1966,7 @@ grok_function_init (decl, init)
 	}
 #endif
       DECL_PURE_VIRTUAL_P (decl) = 1;
-      if (DECL_NAME (decl) == ansi_opname [(int) MODIFY_EXPR])
+      if (DECL_OVERLOADED_OPERATOR_P (decl) == NOP_EXPR)
 	{
 	  tree parmtype
 	    = TREE_VALUE (TREE_CHAIN (TYPE_ARG_TYPES (TREE_TYPE (decl))));
@@ -2783,7 +2821,7 @@ build_cleanup (decl)
       temp = build1 (ADDR_EXPR, build_pointer_type (type), decl);
     }
   temp = build_delete (TREE_TYPE (temp), temp,
-		       integer_two_node,
+		       sfk_complete_destructor,
 		       LOOKUP_NORMAL|LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR, 0);
   return temp;
 }
@@ -4402,6 +4440,8 @@ qualified_lookup_using_namespace (name, scope, result, flags)
   /* ... and a list of namespace yet to see. */
   tree todo = NULL_TREE;
   tree usings;
+  /* Look through namespace aliases.  */
+  scope = ORIGINAL_NAMESPACE (scope);
   while (scope && (result != error_mark_node))
     {
       seen = tree_cons (scope, NULL_TREE, seen);

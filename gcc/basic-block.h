@@ -70,13 +70,11 @@ typedef bitmap regset;
 #define REGNO_REG_SET_P(TO, REG) bitmap_bit_p (TO, REG)
 
 /* Copy the hard registers in a register set to the hard register set.  */
+extern void reg_set_to_hard_reg_set PARAMS ((HARD_REG_SET *, bitmap));
 #define REG_SET_TO_HARD_REG_SET(TO, FROM)				\
 do {									\
-  int i_;								\
   CLEAR_HARD_REG_SET (TO);						\
-  for (i_ = 0; i_ < FIRST_PSEUDO_REGISTER; i_++)			\
-    if (REGNO_REG_SET_P (FROM, i_))					\
-      SET_HARD_REG_BIT (TO, i_);					\
+  reg_set_to_hard_reg_set (&TO, FROM);					\
 } while (0)
 
 /* Loop over all registers in REGSET, starting with MIN, setting REGNUM to the
@@ -129,6 +127,8 @@ typedef struct edge_def {
 
   int flags;			/* see EDGE_* below  */
   int probability;		/* biased by REG_BR_PROB_BASE */
+  int count;			/* Expected number of executions calculated
+				   in profile.c  */
 } *edge;
 
 #define EDGE_FALLTHRU		1
@@ -164,6 +164,8 @@ typedef struct basic_block_def {
 
   /* The active eh region before head and after end.  */
   int eh_beg, eh_end;
+
+  int count;		/* Expected number of executions calculated in profile.c  */
 } *basic_block;
 
 /* Number of basic blocks in the current function.  */
@@ -230,6 +232,8 @@ extern void flow_delete_insn_chain	PARAMS ((rtx, rtx));
 extern void make_edge			PARAMS ((sbitmap *, basic_block,
 						 basic_block, int));
 extern void remove_edge			PARAMS ((edge));
+extern void redirect_edge_succ		PARAMS ((edge, basic_block));
+extern void redirect_edge_pred		PARAMS ((edge, basic_block));
 extern void create_basic_block		PARAMS ((int, rtx, rtx, rtx));
 extern int flow_delete_block		PARAMS ((basic_block));
 extern void merge_blocks_nomove		PARAMS ((basic_block, basic_block));

@@ -180,7 +180,7 @@ process_rtx (desc, lineno)
 	split = rtx_alloc (DEFINE_SPLIT);
 
 	i = XVECLEN (desc, 1);
-	XEXP (split, 0) = rtvec_alloc (i);
+	XVEC (split, 0) = rtvec_alloc (i);
 	while (--i >= 0)
 	  {
 	    XVECEXP (split, 0, i) = copy_rtx (XVECEXP (desc, 1, i));
@@ -415,7 +415,8 @@ collect_insn_data (pattern, palt, pmax)
   switch (code)
     {
     case MATCH_OPERAND:
-      *palt = n_alternatives (XSTR (pattern, 2));
+      i = n_alternatives (XSTR (pattern, 2));
+      *palt = (i > *palt ? i : *palt);
       /* FALLTHRU */
 
     case MATCH_OPERATOR:

@@ -49,6 +49,7 @@ extern int mul8_operand PARAMS ((rtx, enum machine_mode));
 extern int fp0_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_fp0_operand PARAMS ((rtx, enum machine_mode));
 extern int hard_fp_register_operand PARAMS ((rtx, enum machine_mode));
+extern int hard_int_register_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_cint_operand PARAMS ((rtx, enum machine_mode));
 extern int some_operand PARAMS ((rtx, enum machine_mode));
 extern int some_ni_operand PARAMS ((rtx, enum machine_mode));
@@ -56,6 +57,7 @@ extern int input_operand PARAMS ((rtx, enum machine_mode));
 extern int current_file_function_operand PARAMS ((rtx, enum machine_mode));
 extern int call_operand PARAMS ((rtx, enum machine_mode));
 extern int alpha_comparison_operator PARAMS ((rtx, enum machine_mode));
+extern int alpha_zero_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int alpha_swapped_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int signed_comparison_operator PARAMS ((rtx, enum machine_mode));
 extern int alpha_fp_comparison_operator PARAMS ((rtx, enum machine_mode));
@@ -82,6 +84,8 @@ extern rtx alpha_emit_set_long_const PARAMS ((rtx, HOST_WIDE_INT,
 extern void alpha_emit_floatuns PARAMS ((rtx[]));
 extern rtx alpha_emit_conditional_branch PARAMS ((enum rtx_code));
 extern rtx alpha_emit_conditional_move PARAMS ((rtx, enum machine_mode));
+extern int alpha_split_conditional_move PARAMS ((enum rtx_code, rtx, rtx,
+						 rtx, rtx));
 extern void alpha_emit_xfloating_arith PARAMS ((enum rtx_code, rtx[]));
 extern void alpha_emit_xfloating_cvt PARAMS ((enum rtx_code, rtx[]));
 extern void alpha_split_tfmode_pair PARAMS ((rtx[]));
@@ -108,11 +112,17 @@ extern int check_float_value PARAMS ((enum machine_mode,
 #ifdef HAVE_MACHINE_MODES
 extern enum avms_arg_type alpha_arg_type PARAMS ((enum machine_mode));
 #endif
+#ifdef RTX_CODE
 extern rtx alpha_arg_info_reg_val PARAMS ((CUMULATIVE_ARGS));
+#endif
+#ifdef BUFSIZ
 extern void alpha_write_linkage PARAMS ((FILE *));
+#endif
 #endif /* OPEN_VMS */
 
-extern void alpha_need_linkage PARAMS ((const char *, int));
+#ifdef RTX_CODE
+extern rtx alpha_need_linkage PARAMS ((const char *, int));
+#endif
 
 #ifdef TREE_CODE
 extern tree alpha_build_va_list PARAMS ((void));

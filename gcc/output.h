@@ -302,6 +302,7 @@ extern void assemble_zeros		PARAMS ((int));
 
 /* Assemble an alignment pseudo op for an ALIGN-bit boundary.  */
 extern void assemble_align		PARAMS ((int));
+extern void assemble_eh_align		PARAMS ((int));
 
 /* Assemble a string constant with the specified C string as contents.  */
 extern void assemble_string		PARAMS ((const char *, int));
@@ -316,6 +317,7 @@ extern void assemble_global		PARAMS ((const char *));
 
 /* Assemble a label named NAME.  */
 extern void assemble_label		PARAMS ((const char *));
+extern void assemble_eh_label		PARAMS ((const char *));
 
 /* Output to FILE a reference to the assembler name of a C-level name NAME.
    If NAME starts with a *, the rest of NAME is output verbatim.
@@ -331,6 +333,7 @@ extern void assemble_name		PARAMS ((FILE *, const char *));
    Return 1 if we were able to output the constant, otherwise 0.  If FORCE is
    non-zero, abort if we can't output the constant.  */
 extern int assemble_integer		PARAMS ((rtx, int, int));
+extern int assemble_eh_integer		PARAMS ((rtx, int, int));
 
 #ifdef EMUSHORT
 /* Assemble the floating-point constant D into an object of size MODE.  */
@@ -451,8 +454,10 @@ extern FILE *rtl_dump_file;
 #endif
 
 /* Nonnull if the insn currently being emitted was a COND_EXEC pattern.  */
-
 extern struct rtx_def *current_insn_predicate;
+
+/* Last insn processed by final_scan_insn.  */
+extern struct rtx_def *current_output_insn;
 
 /* Decide whether DECL needs to be in a writable section.  RELOC is the same
    as for SELECT_SECTION.  */

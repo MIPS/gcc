@@ -1326,6 +1326,8 @@ block_end:
 		    DECL_END_SOURCE_LINE (current_function_decl) = 
 		      EXPR_WFL_ADD_COL ($1.location, 1);		  
 		  $$ = exit_block ();
+		  if (!BLOCK_SUBBLOCKS ($$))
+		    BLOCK_SUBBLOCKS ($$) = empty_stmt_node;
 		}
 ;
 
@@ -6677,7 +6679,10 @@ resolve_package (pkg, next)
 	if ((type_name = resolve_no_layout (acc, NULL_TREE)))
 	  {
 	    type_name = acc;
-	    *next = TREE_CHAIN (current);
+	    /* resolve_package should be used in a loop, hence we
+	       point at this one to naturally process the next one at
+	       the next iteration. */
+	    *next = current;
 	    break;
 	  }
       }
@@ -8599,7 +8604,6 @@ resolve_field_access (qual_wfl, field_decl, field_type)
       is_static = JDECL_P (decl) && FIELD_STATIC (decl);
       if (FIELD_FINAL (decl) 
 	  && JPRIMITIVE_TYPE_P (TREE_TYPE (decl))
-	  && DECL_LANG_SPECIFIC (decl)
 	  && DECL_INITIAL (decl))
 	{
 	  field_ref = DECL_INITIAL (decl);
@@ -8613,7 +8617,7 @@ resolve_field_access (qual_wfl, field_decl, field_type)
 	return error_mark_node;
       if (is_static && !static_final_found 
 	  && !flag_emit_class_files && !flag_emit_xref)
-	field_ref = build_class_init (type_found, field_ref);
+	field_ref = build_class_init (DECL_CONTEXT (decl), field_ref);
     }
   else
     field_ref = decl;
@@ -8891,7 +8895,7 @@ resolve_qualified_expression_name (wfl, found_decl, where_found, type_found)
 	    {
 	      tree list;
 	      *where_found = decl = resolve_no_layout (name, qual_wfl);
-	      /* We wan't to be absolutely that the class is laid
+	      /* We want to be absolutely sure that the class is laid
                  out. We're going to search something inside it. */
 	      *type_found = type = TREE_TYPE (decl);
 	      layout_class (type);
@@ -9997,11 +10001,13 @@ find_applicable_accessible_methods_list (lc, class, name, arglist)
 	for (i = 1; i < n; i++)
 	  {
 	    tree t = BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i));
-	    tree rlist;
 	    if (t != object_type_node)
-	      rlist = find_applicable_accessible_methods_list (lc, t,
-							       name, arglist);
-	    list = chainon (rlist, list);
+	      {
+		tree rlist
+		  = find_applicable_accessible_methods_list (lc, t,
+							     name, arglist);
+		list = chainon (rlist, list);
+	      }
 	  }
 	object_done = 0;
       }
@@ -12346,18 +12352,7 @@ patch_binop (node, wfl_op1, wfl_op2)
 	    }
 	  /* Otherwise we have to invoke instance of to figure it out */
 	  else
-	    {
-	      tree call =
-		build (CALL_EXPR, boolean_type_node,
-		       build_address_of (soft_instanceof_node),
-		       tree_cons 
-		       (NULL_TREE, op1,
-			build_tree_list (NULL_TREE,
-					 build_class_ref (op2_type))),
-		       NULL_TREE);
-	      TREE_SIDE_EFFECTS (call) = TREE_SIDE_EFFECTS (op1);
-	      return call;
-	    }
+	    return build_instanceof (op1, op2_type);
 	}
       /* There is no way the expression operand can be an instance of
 	 the type operand. This is a compile time error. */
@@ -13503,7 +13498,7 @@ array_constructor_check_entry (type, entry)
   
   if (new_value)
     {
-      new_value = maybe_build_primttype_type_ref (new_value, wfl_operator);
+      new_value = maybe_build_primttype_type_ref (new_value, wfl_value);
       TREE_VALUE (entry) = new_value;
     }
 
@@ -14604,8 +14599,6 @@ fold_constant_for_init (node, context)
 
   if (code == INTEGER_CST || code == REAL_CST)
     return convert (TREE_TYPE (context), node);
-  if (TREE_TYPE (node) != NULL_TREE && code != VAR_DECL && code != FIELD_DECL)
-    return NULL_TREE;
 
   switch (code)
     {

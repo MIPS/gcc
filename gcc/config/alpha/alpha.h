@@ -185,6 +185,9 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #ifndef TARGET_HAS_XFLOATING_LIBS
 #define TARGET_HAS_XFLOATING_LIBS 0
 #endif
+#ifndef TARGET_PROFILING_NEEDS_GP
+#define TARGET_PROFILING_NEEDS_GP 0
+#endif
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,
@@ -287,7 +290,7 @@ extern const char *alpha_mlat_string;	/* For -mmemory-latency= */
 
 #ifndef CPP_CPU_DEFAULT_SPEC
 # if TARGET_CPU_DEFAULT & MASK_CPU_EV6
-#  if TARGET_CPU_DEFAULT & MAX_CIX
+#  if TARGET_CPU_DEFAULT & MASK_CIX
 #    define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV67_SPEC
 #  else
 #    define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV6_SPEC
@@ -2270,9 +2273,9 @@ do {									\
 #define PRINT_OPERAND(FILE, X, CODE)  print_operand (FILE, X, CODE)
 
 /* Determine which codes are valid without a following integer.  These must
-   not be alphabetic (the characters are chosen so that
-   PRINT_OPERAND_PUNCT_VALID_P translates into a simple range change when
-   using ASCII).
+   not be alphabetic.
+
+   ~    Generates the name of the current function.
 
    &	Generates fp-rounding mode suffix: nothing for normal, 'c' for
    	chopped, 'm' for minus-infinity, and 'd' for dynamic rounding
@@ -2304,7 +2307,8 @@ do {									\
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
   ((CODE) == '&' || (CODE) == '`' || (CODE) == '\'' || (CODE) == '('	\
-   || (CODE) == ')' || (CODE) == '+' || (CODE) == ',' || (CODE) == '-')
+   || (CODE) == ')' || (CODE) == '+' || (CODE) == ',' || (CODE) == '-'	\
+   || (CODE) == '~')
 
 /* Print a memory address as an operand to reference that memory location.  */
 
@@ -2329,6 +2333,7 @@ do {									\
   {"mode_width_operand", {CONST_INT}},					\
   {"reg_or_fp0_operand", {SUBREG, REG, CONST_DOUBLE}},			\
   {"alpha_comparison_operator", {EQ, LE, LT, LEU, LTU}},		\
+  {"alpha_zero_comparison_operator", {EQ, NE, LE, LT, LEU, LTU}},	\
   {"alpha_swapped_comparison_operator", {EQ, GE, GT, GEU, GTU}},	\
   {"signed_comparison_operator", {EQ, NE, LE, LT, GE, GT}},		\
   {"alpha_fp_comparison_operator", {EQ, LE, LT, UNORDERED}},		\
@@ -2346,6 +2351,7 @@ do {									\
   {"reg_or_unaligned_mem_operand", {SUBREG, REG, MEM}},			\
   {"any_memory_operand", {MEM}},					\
   {"hard_fp_register_operand", {SUBREG, REG}},				\
+  {"hard_int_register_operand", {SUBREG, REG}},				\
   {"reg_not_elim_operand", {SUBREG, REG}},				\
   {"reg_no_subreg_operand", {REG}},					\
   {"addition_operation", {PLUS}},

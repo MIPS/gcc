@@ -322,22 +322,37 @@ AC_CANONICAL_SYSTEM
 # Find the native compiler
 AC_PROG_CC
 AC_PROG_CC_C_O
-if test $ac_cv_prog_cc_${ac_cc}_c_o = no; then
+if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
   NO_MINUS_C_MINUS_O=yes
 fi
 AC_SUBST(NO_MINUS_C_MINUS_O)
 
 gcc_AC_C_LONG_DOUBLE
 
+AC_MSG_CHECKING(whether ${CC-cc} accepts -Wno-long-long)
+echo 'void f(){}' > conftest.c
+if test -z "`${CC-cc} -Wno-long-long -c conftest.c 2>&1`"; then
+  ac_cv_prog_cc_no_long_long=yes
+else
+  ac_cv_prog_cc_no_long_long=no
+fi
+rm -f conftest*
+echo "$ac_t"$ac_cv_prog_cc_no_long_long 1>&6
+
 # If the native compiler is GCC, we can enable warnings even in stage1.  
 # That's useful for people building cross-compilers, or just running a
 # quick `make'.
+stage1_warn_cflags=" -W -Wall -Wtraditional -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes"
+stage2_warn_cflags="$stage1_warn_cflags -pedantic -Wno-long-long"
 if test "x$GCC" = "xyes"; then 
-  stage1_warn_cflags='$(WARN_CFLAGS)'
+  if test $ac_cv_prog_cc_no_long_long = yes; then
+    stage1_warn_cflags="$stage1_warn_cflags -pedantic -Wno-long-long"
+  fi
 else
   stage1_warn_cflags=""
 fi
 AC_SUBST(stage1_warn_cflags)
+AC_SUBST(stage2_warn_cflags)
 
 AC_PROG_MAKE_SET
 
@@ -458,8 +473,7 @@ AC_CHECK_FUNCS(strtoul bsearch putenv popen bcopy bzero bcmp \
 	sysconf isascii gettimeofday strsignal putc_unlocked fputc_unlocked \
 	fputs_unlocked getrusage valloc)
 
-# Make sure wchar_t is available
-#AC_CHECK_TYPE(wchar_t, unsigned int)
+AC_CHECK_TYPE(ssize_t, int)
 
 gcc_AC_FUNC_VFPRINTF_DOPRNT
 gcc_AC_FUNC_PRINTF_PTR
@@ -479,14 +493,14 @@ AC_FUNC_MMAP_FILE
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
-gcc_AC_NEED_DECLARATIONS(bcopy bzero bcmp \
+gcc_AC_CHECK_DECLS(bcopy bzero bcmp \
 	index rindex getenv atol sbrk abort atof getcwd getwd \
 	strsignal putc_unlocked fputs_unlocked strstr environ \
-	malloc realloc calloc free, [
+	malloc realloc calloc free basename getopt, , ,[
 #include "gansidecl.h"
 #include "system.h"])
 
-gcc_AC_NEED_DECLARATIONS(getrlimit setrlimit getrusage, [
+gcc_AC_CHECK_DECLS(getrlimit setrlimit getrusage, , ,[
 #include "gansidecl.h"
 #include "system.h"
 #ifdef HAVE_SYS_RESOURCE_H
@@ -565,6 +579,9 @@ for machine in $build $host $target; do
 	case $machine in
 	alpha*-*-*)
 		cpu_type=alpha
+		;;
+	strongarm*-*-*)
+		cpu_type=arm
 		;;
 	arm*-*-*)
 		cpu_type=arm
@@ -4233,6 +4250,24 @@ then
 	cross_overrides="${topdir}/cross-make"
 fi
 
+# If this is a cross-compiler that does not
+# have its own set of headers then define
+# inhibit_libc
+
+# If this is using newlib, then define inhibit_libc in
+# LIBGCC2_CFLAGS.  This will cause __eprintf to be left out of
+# libgcc.a, but that's OK because newlib should have its own version of
+# assert.h.
+inhibit_libc=
+if [test x$host != x$target] && [test x$with_headers = x]; then
+       inhibit_libc=-Dinhibit_libc
+else
+       if [test x$with_newlib = xyes]; then
+               inhibit_libc=-Dinhibit_libc
+       fi
+fi
+AC_SUBST(inhibit_libc)
+
 # When building gcc with a cross-compiler, we need to fix a few things.
 # This must come after cross-make as we want all.build to override
 # all.cross.
@@ -4604,6 +4639,10 @@ if test x"${enable_languages+set}" != xset; then
 	else
 		enable_languages=all
 	fi
+else
+	if test x"${enable_languages}" = x; then
+		AC_MSG_ERROR([--enable-languages needs at least one argument])
+	fi
 fi
 subdirs=
 for lang in ${srcdir}/*/config-lang.in ..
@@ -4848,16 +4887,6 @@ AC_SUBST(build_canonical)
 AC_SUBST(host_canonical)
 AC_SUBST(target_subdir)
 	
-# If this is using newlib, then define inhibit_libc in
-# LIBGCC2_CFLAGS.  This will cause __eprintf to be left out of
-# libgcc.a, but that's OK because newib should have its own version of
-# assert.h.
-inhibit_libc=
-if test x$with_newlib = xyes; then
-	inhibit_libc=-Dinhibit_libc
-fi
-AC_SUBST(inhibit_libc)
-
 # If $(exec_prefix) exists and is not the same as $(prefix), then compute an
 # absolute path for gcc_tooldir based on inserting the number of up-directory
 # movements required to get from $(exec_prefix) to $(prefix) into the basic

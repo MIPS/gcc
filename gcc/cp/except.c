@@ -54,6 +54,8 @@ static tree build_eh_type_type_ref PARAMS ((tree));
 static tree build_terminate_handler PARAMS ((void));
 static tree alloc_eh_object PARAMS ((tree));
 static int complete_ptr_ref_or_void_ptr_p PARAMS ((tree, tree));
+static int can_convert_eh PARAMS ((tree, tree));
+static void check_handlers_1 PARAMS ((tree, tree));
 static void initialize_handler_parm PARAMS ((tree));
 static tree expand_throw PARAMS ((tree));
 static int decl_is_java_type PARAMS ((tree decl, int err));
@@ -208,13 +210,13 @@ call_eh_info ()
       /* struct cp_eh_info.  This must match exception.cc.  Note that this
 	 type is not pushed anywhere.  */
       t1= make_aggr_type (RECORD_TYPE);
-      fields[0] = build_lang_decl (FIELD_DECL, 
+      fields[0] = build_decl (FIELD_DECL, 
                     get_identifier ("handler_label"), ptr_type_node);
-      fields[1] = build_lang_decl (FIELD_DECL, 
+      fields[1] = build_decl (FIELD_DECL, 
                     get_identifier ("dynamic_handler_chain"), ptr_type_node);
-      fields[2] = build_lang_decl (FIELD_DECL, 
+      fields[2] = build_decl (FIELD_DECL, 
                     get_identifier ("info"), ptr_type_node);
-      fields[3] = build_lang_decl (FIELD_DECL, 
+      fields[3] = build_decl (FIELD_DECL, 
                     get_identifier ("table_index"), ptr_type_node);
       /* N.B.: The fourth field LEN is expected to be
 	 the number of fields - 1, not the total number of fields.  */
@@ -222,32 +224,32 @@ call_eh_info ()
       t1 = build_pointer_type (t1);
 
       t1= make_aggr_type (RECORD_TYPE);
-      fields[0] = build_lang_decl (FIELD_DECL, 
+      fields[0] = build_decl (FIELD_DECL, 
                     get_identifier ("match_function"), ptr_type_node);
-      fields[1] = build_lang_decl (FIELD_DECL, 
+      fields[1] = build_decl (FIELD_DECL, 
                     get_identifier ("language"), short_integer_type_node);
-      fields[2] = build_lang_decl (FIELD_DECL, 
+      fields[2] = build_decl (FIELD_DECL, 
                     get_identifier ("version"), short_integer_type_node);
       /* N.B.: The fourth field LEN is expected to be
 	 the number of fields - 1, not the total number of fields.  */
       finish_builtin_type (t1, "__eh_info", fields, 2, ptr_type_node);
       t = make_aggr_type (RECORD_TYPE);
-      fields[0] = build_lang_decl (FIELD_DECL, 
-				   get_identifier ("eh_info"), t1);
-      fields[1] = build_lang_decl (FIELD_DECL, get_identifier ("value"),
-				   ptr_type_node);
-      fields[2] = build_lang_decl (FIELD_DECL, get_identifier ("type"),
-				   ptr_type_node);
-      fields[3] = build_lang_decl
+      fields[0] = build_decl (FIELD_DECL, 
+			      get_identifier ("eh_info"), t1);
+      fields[1] = build_decl (FIELD_DECL, get_identifier ("value"),
+			      ptr_type_node);
+      fields[2] = build_decl (FIELD_DECL, get_identifier ("type"),
+			      ptr_type_node);
+      fields[3] = build_decl
 	(FIELD_DECL, get_identifier ("cleanup"),
 	 build_pointer_type (build_function_type
 			     (ptr_type_node, tree_cons
 			      (NULL_TREE, ptr_type_node, void_list_node))));
-      fields[4] = build_lang_decl (FIELD_DECL, get_identifier ("caught"),
-				   boolean_type_node);
-      fields[5] = build_lang_decl (FIELD_DECL, get_identifier ("next"),
-				   build_pointer_type (t));
-      fields[6] = build_lang_decl
+      fields[4] = build_decl (FIELD_DECL, get_identifier ("caught"),
+			      boolean_type_node);
+      fields[5] = build_decl (FIELD_DECL, get_identifier ("next"),
+			      build_pointer_type (t));
+      fields[6] = build_decl
 	(FIELD_DECL, get_identifier ("handlers"), long_integer_type_node);
       /* N.B.: The fourth field LEN is expected to be
 	 the number of fields - 1, not the total number of fields.  */

@@ -80,15 +80,14 @@ struct vbase_info
 {
   /* The class dominating the hierarchy.  */
   tree type;
+  /* A pointer to a complete object of the indicated TYPE.  */
   tree decl_ptr;
   tree inits;
-  tree vbase_types;
 };
 
 static tree next_baselink PARAMS ((tree));
 static tree get_vbase_1 PARAMS ((tree, tree, unsigned int *));
 static tree lookup_field_1 PARAMS ((tree, tree));
-static tree convert_pointer_to_single_level PARAMS ((tree, tree));
 static int lookup_fnfields_here PARAMS ((tree, tree));
 static int is_subobject_of_p PARAMS ((tree, tree));
 static int hides PARAMS ((tree, tree));
@@ -108,8 +107,6 @@ static tree marked_pushdecls_p PARAMS ((tree, void *));
 static tree unmarked_pushdecls_p PARAMS ((tree, void *));
 static tree dfs_debug_unmarkedp PARAMS ((tree, void *));
 static tree dfs_debug_mark PARAMS ((tree, void *));
-static tree dfs_find_vbases PARAMS ((tree, void *));
-static tree dfs_clear_vbase_slots PARAMS ((tree, void *));
 static tree dfs_init_vbase_pointers PARAMS ((tree, void *));
 static tree dfs_get_vbase_types PARAMS ((tree, void *));
 static tree dfs_push_type_decls PARAMS ((tree, void *));
@@ -147,11 +144,11 @@ static int protected_accessible_p PARAMS ((tree, tree, tree));
 static int friend_accessible_p PARAMS ((tree, tree, tree));
 static void setup_class_bindings PARAMS ((tree, int));
 static int template_self_reference_p PARAMS ((tree, tree));
-static void fixup_all_virtual_upcast_offsets PARAMS ((tree, tree));
 static tree get_shared_vbase_if_not_primary PARAMS ((tree, void *));
 static tree dfs_find_vbase_instance PARAMS ((tree, void *));
 static tree dfs_get_pure_virtuals PARAMS ((tree, void *));
 static tree dfs_build_inheritance_graph_order PARAMS ((tree, void *));
+static tree dfs_vtable_path_unmark PARAMS ((tree, void *));
 
 /* Allocate a level of searching.  */
 
@@ -491,9 +488,8 @@ get_base_distance (parent, binfo, protect, path_ptr)
      tree, deal with it.  This happens when we are called from
      expand_upcast_fixups.  */
   if (rval == -1 && TREE_CODE (parent) == TREE_VEC
-      && parent == BINFO_FOR_VBASE (BINFO_TYPE (parent), type))
+      && parent == binfo_for_vbase (BINFO_TYPE (parent), type))
     {
-      my_friendly_assert (BINFO_INHERITANCE_CHAIN (parent) == binfo, 980827);
       new_binfo = parent;
       rval = 1;
     }
@@ -1351,10 +1347,7 @@ lookup_field_queue_p (binfo, data)
       && hides (lfi->rval_binfo, binfo))
     return NULL_TREE;
 
-  if (TREE_VIA_VIRTUAL (binfo))
-    return BINFO_FOR_VBASE (BINFO_TYPE (binfo), lfi->type);
-  else
-    return binfo;
+  return CANONICAL_BINFO (binfo, lfi->type);
 }
 
 /* Within the scope of a template class, you can refer to the to the
@@ -1865,7 +1858,7 @@ dfs_walk_real (binfo, prefn, postfn, qfn, data)
 
   /* Process the basetypes.  */
   binfos = BINFO_BASETYPES (binfo);
-  n_baselinks = binfos ? TREE_VEC_LENGTH (binfos): 0;
+  n_baselinks = BINFO_N_BASETYPES (binfo);
   for (i = 0; i < n_baselinks; i++)
     {
       tree base_binfo = TREE_VEC_ELT (binfos, i);
@@ -2230,7 +2223,7 @@ get_shared_vbase_if_not_primary (binfo, data)
 
       /* This is a non-primary virtual base.  If there is no primary
 	 version, get the shared version.  */
-      binfo = BINFO_FOR_VBASE (BINFO_TYPE (binfo), type);
+      binfo = binfo_for_vbase (BINFO_TYPE (binfo), type);
       if (BINFO_VBASE_PRIMARY_P (binfo))
 	return NULL_TREE;
     }
@@ -2344,7 +2337,7 @@ get_pure_virtuals (type)
     {
       tree virtuals;
 
-      for (virtuals = BINFO_VIRTUALS (vbases);
+      for (virtuals = BINFO_VIRTUALS (TREE_VALUE (vbases));
 	   virtuals;
 	   virtuals = TREE_CHAIN (virtuals))
 	{
@@ -2373,40 +2366,6 @@ next_baselink (baselink)
 }
 
 /* DEPTH-FIRST SEARCH ROUTINES.  */
-
-/* This routine converts a pointer to be a pointer of an immediate
-   base class.  The normal convert_pointer_to routine would diagnose
-   the conversion as ambiguous, under MI code that has the base class
-   as an ambiguous base class.  */
-
-static tree
-convert_pointer_to_single_level (to_type, expr)
-     tree to_type, expr;
-{
-  tree derived;
-  tree binfo_of_derived;
-  int i;
-
-  derived = TREE_TYPE (TREE_TYPE (expr));
-  binfo_of_derived = TYPE_BINFO (derived);
-  my_friendly_assert (BINFO_INHERITANCE_CHAIN (binfo_of_derived) == NULL_TREE,
-		      980827);
-  for (i = CLASSTYPE_N_BASECLASSES (derived) - 1; i >= 0; --i)
-    {
-      tree binfo = BINFO_BASETYPE (binfo_of_derived, i);
-      my_friendly_assert (BINFO_INHERITANCE_CHAIN (binfo) == binfo_of_derived,
-			  980827);
-      if (same_type_p (BINFO_TYPE (binfo), to_type))
-	return build_vbase_path (PLUS_EXPR, 
-				 build_pointer_type (to_type), 
-				 expr, binfo, 1);
-    }
-
-  my_friendly_abort (19990607);
-
-  /* NOTREACHED */
-  return NULL_TREE;
-}
 
 tree 
 markedp (binfo, data) 
@@ -2472,39 +2431,6 @@ dfs_unmark (binfo, data)
 }
 
 
-/*  Attach to the type of the virtual base class, the pointer to the
-    virtual base class.  */
-
-static tree
-dfs_find_vbases (binfo, data)
-     tree binfo;
-     void *data;
-{
-  struct vbase_info *vi = (struct vbase_info *) data;
-  tree binfos = BINFO_BASETYPES (binfo);
-  int i, n_baselinks = binfos ? TREE_VEC_LENGTH (binfos) : 0;
-
-  for (i = n_baselinks-1; i >= 0; i--)
-    {
-      tree base_binfo = TREE_VEC_ELT (binfos, i);
-
-      if (TREE_VIA_VIRTUAL (base_binfo)
-	  && CLASSTYPE_SEARCH_SLOT (BINFO_TYPE (base_binfo)) == 0)
-	{
-	  tree vbase = BINFO_TYPE (base_binfo);
-	  tree binfo = binfo_member (vbase, vi->vbase_types);
-	  tree ptr_type = build_pointer_type (vbase);
-
-	  CLASSTYPE_SEARCH_SLOT (vbase)
-	    = build (PLUS_EXPR, ptr_type, vi->decl_ptr,
-		     convert (ptr_type, BINFO_OFFSET (binfo)));
-	}
-    }
-  SET_BINFO_VTABLE_PATH_MARKED (binfo);
-
-  return NULL_TREE;
-}
-
 static tree
 dfs_init_vbase_pointers (binfo, data)
      tree binfo;
@@ -2515,18 +2441,15 @@ dfs_init_vbase_pointers (binfo, data)
   tree fields;
   tree this_vbase_ptr;
 
-  if (BINFO_INHERITANCE_CHAIN (binfo))
-    {
-      this_vbase_ptr = TREE_CHAIN (BINFO_INHERITANCE_CHAIN (binfo));
-      if (TREE_VIA_VIRTUAL (binfo))
-	this_vbase_ptr = CLASSTYPE_SEARCH_SLOT (type);
-      else
-	this_vbase_ptr = convert_pointer_to_single_level (type,
-							  this_vbase_ptr); 
-      TREE_CHAIN (binfo) = this_vbase_ptr;
-    }
-  else
-    this_vbase_ptr = TREE_CHAIN (binfo);
+  /* Don't initialize the same base more than once.  */
+  SET_BINFO_VTABLE_PATH_MARKED (binfo);
+
+  /* We know that VI->DECL_PTR points to the complete object.  So,
+     finding a pointer to this subobject is easy.  */
+  this_vbase_ptr = build (PLUS_EXPR,
+			  build_pointer_type (type),
+			  vi->decl_ptr,
+			  BINFO_OFFSET (binfo));
 
   /* We're going to iterate through all the pointers to virtual
      base-classes.  They come at the beginning of the class.  */
@@ -2545,29 +2468,33 @@ dfs_init_vbase_pointers (binfo, data)
     {
       tree ref = build (COMPONENT_REF, TREE_TYPE (fields),
 			build_indirect_ref (this_vbase_ptr, NULL_PTR), fields);
-      tree init = CLASSTYPE_SEARCH_SLOT (TREE_TYPE (TREE_TYPE (fields)));
-      vi->inits = tree_cons (binfo_member (TREE_TYPE (TREE_TYPE (fields)),
-					   vi->vbase_types),
-			     build_modify_expr (ref, NOP_EXPR, init),
-			     vi->inits);
+      tree init;
+      tree vbase_type;
+      tree vbase_binfo;
+
+      vbase_type = TREE_TYPE (TREE_TYPE (fields));
+      vbase_binfo = binfo_for_vbase (vbase_type, vi->type);
+      init = build (PLUS_EXPR, 
+		    build_pointer_type (vbase_type),
+		    vi->decl_ptr,
+		    BINFO_OFFSET (vbase_binfo));
+      vi->inits 
+	= tree_cons (vbase_binfo,
+		     build_modify_expr (ref, NOP_EXPR, init),
+		     vi->inits);
       fields = TREE_CHAIN (fields);
     }
   
   return NULL_TREE;
 }
 
-/* Sometimes this needs to clear both VTABLE_PATH and NEW_VTABLE.  Other
-   times, just NEW_VTABLE, but optimizer should make both with equal
-   efficiency (though it does not currently).  */
+/* Call CLEAR_BINFO_VTABLE_PATH_MARKED for BINFO.  */
 
 static tree
-dfs_clear_vbase_slots (binfo, data)
+dfs_vtable_path_unmark (binfo, data)
      tree binfo;
      void *data ATTRIBUTE_UNUSED;
 {
-  tree type = BINFO_TYPE (binfo);
-
-  CLASSTYPE_SEARCH_SLOT (type) = 0;
   CLEAR_BINFO_VTABLE_PATH_MARKED (binfo);
   return NULL_TREE;
 }
@@ -2590,22 +2517,22 @@ init_vbase_pointers (type, decl_ptr)
 	 initialization.  */
       vi.type = type;
       vi.decl_ptr = decl_ptr;
-      vi.vbase_types = CLASSTYPE_VBASECLASSES (type);
       vi.inits = NULL_TREE;
 
-      dfs_walk (binfo, dfs_find_vbases, unmarked_vtable_pathp, &vi);
-
       /* Build up a list of the initializers.  */
-      TREE_CHAIN (binfo) = decl_ptr;
       dfs_walk_real (binfo, 
 		     dfs_init_vbase_pointers, 0,
-		     marked_vtable_pathp,
+		     unmarked_vtable_pathp,
 		     &vi);
+      dfs_walk (binfo,
+		dfs_vtable_path_unmark,
+		marked_vtable_pathp,
+		NULL);
 
-      dfs_walk (binfo, dfs_clear_vbase_slots, marked_vtable_pathp, NULL);
       flag_this_is_variable = old_flag;
       return vi.inits;
     }
+
   return 0;
 }
 
@@ -2635,7 +2562,7 @@ virtual_context (fndecl, t, vbase)
 	      /* Not sure if checking path == vbase is necessary here, but just in
 		 case it is.  */
 	      if (TREE_VIA_VIRTUAL (path) || path == vbase)
-		return BINFO_FOR_VBASE (BINFO_TYPE (path), t);
+		return binfo_for_vbase (BINFO_TYPE (path), t);
 	      path = BINFO_INHERITANCE_CHAIN (path);
 	    }
 	}
@@ -2646,7 +2573,7 @@ virtual_context (fndecl, t, vbase)
   while (path)
     {
       if (TREE_VIA_VIRTUAL (path))
-	return BINFO_FOR_VBASE (BINFO_TYPE (path), t);
+	return binfo_for_vbase (BINFO_TYPE (path), t);
       path = BINFO_INHERITANCE_CHAIN (path);
     }
   return 0;
@@ -2669,9 +2596,7 @@ virtual_context (fndecl, t, vbase)
 
    VBASE_OFFSETS is an association list of virtual bases that contains
    offset information for the virtual bases, so the offsets are only
-   calculated once.  The offsets are computed by where we think the
-   vbase should be (as noted by the CLASSTYPE_SEARCH_SLOT) minus where
-   the vbase really is.  */
+   calculated once.  */
 
 static void
 expand_upcast_fixups (binfo, addr, orig_addr, vbase, vbase_addr, t,
@@ -2693,7 +2618,10 @@ expand_upcast_fixups (binfo, addr, orig_addr, vbase, vbase_addr, t,
   delta = purpose_member (vbase, *vbase_offsets);
   if (! delta)
     {
-      delta = CLASSTYPE_SEARCH_SLOT (BINFO_TYPE (vbase));
+      delta = build (PLUS_EXPR,
+		     build_pointer_type (BINFO_TYPE (vbase)),
+		     orig_addr,
+		     BINFO_OFFSET (vbase));
       delta = build (MINUS_EXPR, ptrdiff_type_node, delta, vbase_addr);
       delta = save_expr (delta);
       delta = tree_cons (vbase, delta, *vbase_offsets);
@@ -2772,7 +2700,10 @@ expand_upcast_fixups (binfo, addr, orig_addr, vbase, vbase_addr, t,
 	      if (! vc_delta)
 		{
 		  tree vc_addr = convert_pointer_to_real (vc, orig_addr);
-		  vc_delta = CLASSTYPE_SEARCH_SLOT (BINFO_TYPE (vc));
+		  vc_delta = build (PLUS_EXPR,
+				    build_pointer_type (BINFO_TYPE (vc)),
+				    orig_addr,
+				    BINFO_OFFSET (vc));
 		  vc_delta = build (MINUS_EXPR, ptrdiff_type_node,
 				    vc_delta, vc_addr);
 		  vc_delta = save_expr (vc_delta);
@@ -2838,14 +2769,14 @@ fixup_virtual_upcast_offsets (real_binfo, binfo, init_self, can_elide, addr, ori
 /* Fixup all the virtual upcast offsets for TYPE.  DECL_PTR is the
    address of the sub-object being initialized.  */
 
-static void
-fixup_all_virtual_upcast_offsets (type, decl_ptr)
-     tree type;
+void
+fixup_all_virtual_upcast_offsets (decl_ptr)
      tree decl_ptr;
 {
   tree if_stmt;
   tree in_charge_node;
   tree vbases;
+  tree type;
 
   /* Only tweak the vtables if we're in charge.  */
   in_charge_node = current_in_charge_parm;
@@ -2859,6 +2790,7 @@ fixup_all_virtual_upcast_offsets (type, decl_ptr)
   
   /* Iterate through the virtual bases, fixing up the upcast offset
      for each one.  */
+  type = TREE_TYPE (TREE_TYPE (decl_ptr));
   for (vbases = CLASSTYPE_VBASECLASSES (type);
        vbases;
        vbases = TREE_CHAIN (vbases))
@@ -2873,11 +2805,11 @@ fixup_all_virtual_upcast_offsets (type, decl_ptr)
 	  tree vbase_offsets;
 	  tree addr;
 
-	  vbase = find_vbase_instance (BINFO_TYPE (vbases), type);
+	  vbase = find_vbase_instance (TREE_PURPOSE (vbases), type);
 	  vbase_offsets = NULL_TREE;
-	  addr = convert_pointer_to_vbase (BINFO_TYPE (vbases), decl_ptr);
+	  addr = convert_pointer_to_vbase (TREE_PURPOSE (vbases), decl_ptr);
 	  fixup_virtual_upcast_offsets (vbase,
-					TYPE_BINFO (BINFO_TYPE (vbases)),
+					TYPE_BINFO (TREE_PURPOSE (vbases)),
 					1, 0, addr, decl_ptr,
 					type, vbase, &vbase_offsets);
 	}
@@ -2886,46 +2818,6 @@ fixup_all_virtual_upcast_offsets (type, decl_ptr)
   /* Close out the if-statement.  */
   finish_then_clause (if_stmt);
   finish_if_stmt ();
-}
-
-/* Generate the code needed to initialize all the virtual function
-   table slots of all the virtual baseclasses.  BINFO is the binfo
-   which determines the virtual baseclasses to use.  TRUE_EXP is the
-   true object we are initializing, and DECL_PTR is the pointer to the
-   sub-object we are initializing.  */
-
-void
-expand_indirect_vtbls_init (binfo, decl_ptr)
-     tree binfo;
-     tree decl_ptr;
-{
-  tree type;
-
-  type = BINFO_TYPE (binfo);
-
-  /* This function executes during the finish_function() segment,
-     AFTER the auto variables and temporary stack space has been marked
-     unused...If space is needed for the virtual function tables,
-     some of them might fit within what the compiler now thinks
-     are available stack slots... These values are actually initialized at
-     the beginnning of the function, so when the automatics use their space,
-     they will overwrite the values that are placed here. Marking all
-     temporary space as unavailable prevents this from happening. */
-
-  mark_all_temps_used();
-
-  if (TYPE_USES_VIRTUAL_BASECLASSES (type))
-    {
-      tree vbases = CLASSTYPE_VBASECLASSES (type);
-      struct vbase_info vi;
-      vi.type = type;
-      vi.decl_ptr = decl_ptr;
-      vi.vbase_types = vbases;
-
-      dfs_walk (binfo, dfs_find_vbases, NULL, &vi);
-      fixup_all_virtual_upcast_offsets (type, vi.decl_ptr);
-      dfs_walk (binfo, dfs_clear_vbase_slots, marked_vtable_pathp, &vi);
-    }
 }
 
 /* get virtual base class types.
@@ -2940,17 +2832,10 @@ dfs_get_vbase_types (binfo, data)
   tree type = (tree) data;
 
   if (TREE_VIA_VIRTUAL (binfo))
-    {
-      tree new_vbase = make_binfo (size_zero_node, 
-				   BINFO_TYPE (binfo),
-				   BINFO_VTABLE (binfo),
-				   BINFO_VIRTUALS (binfo));
-      unshare_base_binfos (new_vbase);
-      TREE_VIA_VIRTUAL (new_vbase) = 1;
-      BINFO_INHERITANCE_CHAIN (new_vbase) = TYPE_BINFO (type);
-      TREE_CHAIN (new_vbase) = CLASSTYPE_VBASECLASSES (type);
-      CLASSTYPE_VBASECLASSES (type) = new_vbase;
-    }
+    CLASSTYPE_VBASECLASSES (type)
+      = tree_cons (BINFO_TYPE (binfo), 
+		   binfo, 
+		   CLASSTYPE_VBASECLASSES (type));
   SET_BINFO_MARKED (binfo);
   return NULL_TREE;
 }
@@ -3022,7 +2907,7 @@ find_vbase_instance (base, type)
 {
   tree instance;
 
-  instance = BINFO_FOR_VBASE (base, type);
+  instance = binfo_for_vbase (base, type);
   if (!BINFO_VBASE_PRIMARY_P (instance))
     return instance;
 
@@ -3526,4 +3411,18 @@ binfo_from_vbase (binfo)
 	return 1;
     }
   return 0;
+}
+
+/* Returns the BINFO (if any) for the virtual baseclass T of the class
+   C from the CLASSTYPE_VBASECLASSES list.  */
+
+tree
+binfo_for_vbase (basetype, classtype)
+     tree basetype;
+     tree classtype;
+{
+  tree binfo;
+
+  binfo = purpose_member (basetype, CLASSTYPE_VBASECLASSES (classtype));
+  return binfo ? TREE_VALUE (binfo) : NULL_TREE;
 }

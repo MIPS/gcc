@@ -290,7 +290,7 @@ static tree *get_block_vector   PARAMS ((tree, int *));
 static void record_insns	PARAMS ((rtx, varray_type *)) ATTRIBUTE_UNUSED;
 static int contains		PARAMS ((rtx, varray_type));
 #ifdef HAVE_return
-static void emit_return_into_block PARAMS ((basic_block));
+static void emit_return_into_block PARAMS ((basic_block, rtx));
 #endif
 static void put_addressof_into_stack PARAMS ((rtx, struct hash_table *));
 static boolean purge_addressof_1 PARAMS ((rtx *, rtx, int, int, 
@@ -6319,14 +6319,25 @@ diddle_return_value (doit, arg)
      void *arg;
 {
   rtx outgoing = current_function_return_rtx;
+  int pcc;
 
   if (! outgoing)
     return;
 
-  if (GET_CODE (outgoing) == REG
-      && REGNO (outgoing) >= FIRST_PSEUDO_REGISTER)
+  pcc = (current_function_returns_struct
+         || current_function_returns_pcc_struct);
+
+  if ((GET_CODE (outgoing) == REG
+       && REGNO (outgoing) >= FIRST_PSEUDO_REGISTER)
+      || pcc)
     {
       tree type = TREE_TYPE (DECL_RESULT (current_function_decl));
+
+      /* A PCC-style return returns a pointer to the memory in which
+	 the structure is stored.  */
+      if (pcc)
+	type = build_pointer_type (type);
+
 #ifdef FUNCTION_OUTGOING_VALUE
       outgoing = FUNCTION_OUTGOING_VALUE (type, current_function_decl);
 #else
@@ -6337,6 +6348,7 @@ diddle_return_value (doit, arg)
       if (GET_MODE (outgoing) == BLKmode)
 	PUT_MODE (outgoing,
 		  GET_MODE (DECL_RTL (DECL_RESULT (current_function_decl))));
+      REG_FUNCTION_VALUE_P (outgoing) = 1;
     }
 
   if (GET_CODE (outgoing) == REG)
@@ -6786,19 +6798,24 @@ sibcall_epilogue_contains (insn)
    block_for_insn appropriately.  */
 
 static void
-emit_return_into_block (bb)
+emit_return_into_block (bb, line_note)
      basic_block bb;
+     rtx line_note;
 {
   rtx p, end;
 
-  end = emit_jump_insn_after (gen_return (), bb->end);
   p = NEXT_INSN (bb->end); 
+  end = emit_jump_insn_after (gen_return (), bb->end);
+  if (line_note)
+    emit_line_note_after (NOTE_SOURCE_FILE (line_note),
+			  NOTE_LINE_NUMBER (line_note), bb->end);
+
   while (1)
     {
       set_block_for_insn (p, bb);
-      if (p == end)
+      if (p == bb->end)
 	break;
-      p = NEXT_INSN (p);
+      p = PREV_INSN (p);
     }
   bb->end = end;
 }
@@ -6812,15 +6829,19 @@ void
 thread_prologue_and_epilogue_insns (f)
      rtx f ATTRIBUTE_UNUSED;
 {
-  int insertted = 0;
+  int inserted = 0;
   edge e;
   rtx seq;
+#ifdef HAVE_prologue
+  rtx prologue_end = NULL_RTX;
+#endif
+#if defined (HAVE_epilogue) || defined(HAVE_return)
+  rtx epilogue_end = NULL_RTX;
+#endif
 
 #ifdef HAVE_prologue
   if (HAVE_prologue)
     {
-      rtx insn;
-
       start_sequence ();
       seq = gen_prologue();
       emit_insn (seq);
@@ -6829,26 +6850,7 @@ thread_prologue_and_epilogue_insns (f)
       if (GET_CODE (seq) != SEQUENCE)
 	seq = get_insns ();
       record_insns (seq, &prologue);
-      emit_note (NULL, NOTE_INSN_PROLOGUE_END);
-
-      /* GDB handles `break f' by setting a breakpoint on the first
-	 line note *after* the prologue.  That means that we should
-	 insert a line note here; otherwise, if the next line note
-	 comes part way into the next block, GDB will skip all the way
-	 to that point.  */
-      insn = next_nonnote_insn (f);
-      while (insn)
-	{
-	  if (GET_CODE (insn) == NOTE 
-	      && NOTE_LINE_NUMBER (insn) >= 0)
-	    {
-	      emit_line_note_force (NOTE_SOURCE_FILE (insn),
-				    NOTE_LINE_NUMBER (insn));
-	      break;
-	    }
-
-	  insn = PREV_INSN (insn);
-	}
+      prologue_end = emit_note (NULL, NOTE_INSN_PROLOGUE_END);
 
       seq = gen_sequence ();
       end_sequence ();
@@ -6862,7 +6864,7 @@ thread_prologue_and_epilogue_insns (f)
 	    abort ();
 
 	  insert_insn_on_edge (seq, ENTRY_BLOCK_PTR->succ);
-	  insertted = 1;
+	  inserted = 1;
 	}
       else
 	emit_insn_after (seq, f);
@@ -6908,6 +6910,19 @@ thread_prologue_and_epilogue_insns (f)
 
       if (last->head == label && GET_CODE (label) == CODE_LABEL)
 	{
+          rtx epilogue_line_note = NULL_RTX;
+
+	  /* Locate the line number associated with the closing brace,
+	     if we can find one.  */
+	  for (seq = get_last_insn ();
+	       seq && ! active_insn_p (seq);
+	       seq = PREV_INSN (seq))
+	    if (GET_CODE (seq) == NOTE && NOTE_LINE_NUMBER (seq) > 0)
+	      {
+		epilogue_line_note = seq;
+		break;
+	      }
+
 	  for (e = last->pred; e ; e = e_next)
 	    {
 	      basic_block bb = e->src;
@@ -6925,7 +6940,7 @@ thread_prologue_and_epilogue_insns (f)
 		 with a simple return instruction.  */
 	      if (simplejump_p (jump))
 		{
-		  emit_return_into_block (bb);
+		  emit_return_into_block (bb, epilogue_line_note);
 		  flow_delete_insn (jump);
 		}
 
@@ -6957,29 +6972,17 @@ thread_prologue_and_epilogue_insns (f)
 		continue;
 
 	      /* Fix up the CFG for the successful change we just made.  */
-	      remove_edge (e);
-	      make_edge (NULL, bb, EXIT_BLOCK_PTR, 0);
+	      redirect_edge_succ (e, EXIT_BLOCK_PTR);
 	    }
 
 	  /* Emit a return insn for the exit fallthru block.  Whether
 	     this is still reachable will be determined later.  */
 
 	  emit_barrier_after (last->end);
-	  emit_return_into_block (last);
+	  emit_return_into_block (last, epilogue_line_note);
+	  epilogue_end = last->end;
+          goto epilogue_done;
 	}
-      else 
-	{
-	  /* The exit block wasn't empty.  We have to use insert_insn_on_edge,
-	     as it may be the exit block can go elsewhere as well
-	     as exiting.  */
-	  start_sequence ();
-	  emit_jump_insn (gen_return ());
-	  seq = gen_sequence ();
-	  end_sequence ();
-	  insert_insn_on_edge (seq, e);
-	  insertted = 1;
-	}
-      goto epilogue_done;
     }
 #endif
 #ifdef HAVE_epilogue
@@ -6997,7 +7000,7 @@ thread_prologue_and_epilogue_insns (f)
 	goto epilogue_done;
 
       start_sequence ();
-      emit_note (NULL, NOTE_INSN_EPILOGUE_BEG);
+      epilogue_end = emit_note (NULL, NOTE_INSN_EPILOGUE_BEG);
 
       seq = gen_epilogue ();
       emit_jump_insn (seq);
@@ -7011,12 +7014,12 @@ thread_prologue_and_epilogue_insns (f)
       end_sequence();
 
       insert_insn_on_edge (seq, e);
-      insertted = 1;
+      inserted = 1;
     }
 #endif
 epilogue_done:
 
-  if (insertted)
+  if (inserted)
     commit_edge_insertions ();
 
 #ifdef HAVE_sibcall_epilogue
@@ -7047,6 +7050,73 @@ epilogue_done:
 	 avoid getting rid of sibcall epilogue insns.  */
       record_insns (GET_CODE (seq) == SEQUENCE
 		    ? seq : newinsn, &sibcall_epilogue);
+    }
+#endif
+
+#ifdef HAVE_prologue
+  if (prologue_end)
+    {
+      rtx insn, prev;
+
+      /* GDB handles `break f' by setting a breakpoint on the first
+	 line note after the prologue.  Which means (1) that if
+	 there are line number notes before where we inserted the
+	 prologue we should move them, and (2) we should generate a
+	 note before the end of the first basic block, if there isn't
+	 one already there.  */
+
+      for (insn = prologue_end; insn ; insn = prev)
+	{
+	  prev = PREV_INSN (insn);
+	  if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
+	    {
+	      /* Note that we cannot reorder the first insn in the
+		 chain, since rest_of_compilation relies on that
+		 remaining constant.  */
+	      if (prev == NULL)
+		break;
+	      reorder_insns (insn, insn, prologue_end);
+	    }
+	}
+
+      /* Find the last line number note in the first block.  */
+      for (insn = BASIC_BLOCK (0)->end;
+	   insn != prologue_end;
+	   insn = PREV_INSN (insn))
+	if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
+	  break;
+
+      /* If we didn't find one, make a copy of the first line number
+	 we run across.  */
+      if (! insn)
+	{
+	  for (insn = next_active_insn (prologue_end);
+	       insn;
+	       insn = PREV_INSN (insn))
+	    if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
+	      {
+		emit_line_note_after (NOTE_SOURCE_FILE (insn),
+				      NOTE_LINE_NUMBER (insn),
+				      prologue_end);
+		break;
+	      }
+	}
+    }
+#endif
+#ifdef HAVE_epilogue
+  if (epilogue_end)
+    {
+      rtx insn, next;
+
+      /* Similarly, move any line notes that appear after the epilogue.
+         There is no need, however, to be quite so anal about the existance
+	 of such a note.  */
+      for (insn = epilogue_end; insn ; insn = next)
+	{
+	  next = NEXT_INSN (insn);
+	  if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
+	    reorder_insns (insn, insn, PREV_INSN (epilogue_end));
+	}
     }
 #endif
 }

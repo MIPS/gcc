@@ -154,13 +154,31 @@ AC_SUBST(GLIBCPP_CXXFLAGS)
 
 
 dnl
-dnl Check to see if g++ can compile this library. 
+dnl Check to see if g++ can compile this library, and if so, if any version-
+dnl specific precautions need to be taken. In particular, test for
+dnl newer compiler features, or features that are present in newer
+dnl compiler version but not older compiler versions should be placed
+dnl here.
 dnl
-dnl Define OPTLEVEL='-O2' if new inlining code present.
+dnl Define FMTFLAGS='-fdiagnostics-show-location=once' if possible
+dnl Define WERROR='-Werror' if possible; g++'s that lack the new inlining
+dnl    code or the new system_header pragma will die.  Other options dealing
+dnl    with warnings, errors, and compiler complaints may be folded into
+dnl    the WERROR variable.
 dnl
 dnl GLIBCPP_CHECK_COMPILER_VERSION
 AC_DEFUN(GLIBCPP_CHECK_COMPILER_VERSION, [
-  AC_MSG_CHECKING([for g++ that will successfullly compile this code])
+  # All these tests are for C++; save the language and the compiler flags.
+  # The CXXFLAGS thing is suspicious, but based on similar bits 
+  # found in GLIBCPP_CONFIGURE.
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  ac_test_CXXFLAGS="${CXXFLAGS+set}"
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  WERROR='-Werror'
+
+  # Sanity check that g++ is capable of dealing with v-3.
+  AC_MSG_CHECKING([for g++ that will successfully compile this code])
   AC_EGREP_CPP([ok], [
   #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95) 
     ok
@@ -168,23 +186,41 @@ AC_DEFUN(GLIBCPP_CHECK_COMPILER_VERSION, [
   ], gpp_satisfactory=yes, AC_MSG_ERROR("please upgrade to gcc-2.95 or above"))
   AC_MSG_RESULT($gpp_satisfactory)
 
-  AC_MSG_CHECKING([for g++ that supports new inlining mechanism])
-  AC_EGREP_CPP([ok], [
-  #if  __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 95)
-    ok
-  #endif
-  ], [OPTLEVEL='-O2'
-      WERRORSUPPRESS=
-  ], [OPTLEVEL=
-      WERRORSUPPRESS=-Wno-error
-  ])
-  if test "$OPTLEVEL" = ""; then
-    AC_MSG_RESULT(no)
+  # Check for pragma system_header.
+  AC_MSG_CHECKING([for g++ that supports pragma system_header])
+  CXXFLAGS='-Wunknown-pragmas -Werror'
+  AC_TRY_COMPILE([#pragma system_header], [int foo;
+  ], [ac_newpragma=yes], [ac_newpragma=no])
+  if test "$ac_test_CXXFLAGS" = set; then
+    CXXFLAGS="$ac_save_CXXFLAGS"
   else
-    AC_MSG_RESULT(yes)
+    # this is the suspicious part
+    CXXFLAGS=''
   fi
-  AC_SUBST(OPTLEVEL)
-  AC_SUBST(WERRORSUPPRESS)
+  if test "$ac_newpragma" = "no"; then
+    WERROR="$WERROR -Wno-unknown-pragmas"
+  fi
+  AC_MSG_RESULT($ac_newpragma)
+
+  # Check for more sophisticated diagnostic control.
+  AC_MSG_CHECKING([for g++ that supports -fdiagnostics-show-location=once])
+  CXXFLAGS='-fdiagnostics-show-location=once'
+  AC_TRY_COMPILE(, [int foo;
+  ], [ac_gabydiags=yes], [ac_gabydiags=no])
+  if test "$ac_test_CXXFLAGS" = set; then
+    CXXFLAGS="$ac_save_CXXFLAGS"
+  else
+    # this is the suspicious part
+    CXXFLAGS=''
+  fi
+  if test "$ac_gabydiags" = "yes"; then
+    FMTFLAGS='-fdiagnostics-show-location=once'
+  fi
+  AC_MSG_RESULT($ac_gabydiags)
+
+  AC_LANG_RESTORE
+  AC_SUBST(WERROR)
+  AC_SUBST(FMTFLAGS)
 ])
 
 
@@ -237,8 +273,6 @@ AC_DEFUN(GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT, [
 ])
 
 
-dnl
-
 dnl Check to see what architecture we are compiling for. If it's
 dnl supported, use special hand-crafted routines to provide thread
 dnl primitives. Also, if architecture-specific flags are required for 
@@ -258,8 +292,11 @@ AC_DEFUN(GLIBCPP_CHECK_CPU, [
       arm*)
 	cpu_include_dir="config/cpu/arm"
         ;;
-      i486 | i586 | i686 | i786)
+      i386)
 	cpu_include_dir="config/cpu/i386"
+	;;
+      i486 | i586 | i686 | i786)
+	cpu_include_dir="config/cpu/i486"
         ;;
       powerpc | rs6000)
 	cpu_include_dir="config/cpu/powerpc"
@@ -616,7 +653,7 @@ AC_DEFUN(GLIBCPP_CHECK_COMPLEX_SUPPORT, [
 
 
 dnl
-dnl Check for certain special build configurations.
+dnl Check for special debugging mode; not for production use.
 dnl
 dnl GLIBCPP_ENABLE_DEBUG
 dnl --enable-debug sets '-ggdb -O0'.
@@ -742,7 +779,7 @@ AC_SUBST(GCC_OBJDIR)
 
 
 dnl
-dnl Check for certain special build configurations.
+dnl Check for which I/O library to use:  libio, or something specific.
 dnl
 dnl GLIBCPP_ENABLE_CSTDIO
 dnl --enable-cstdio=libio sets config/c_io_libio.h and friends
@@ -806,7 +843,7 @@ AC_DEFUN(GLIBCPP_ENABLE_CSTDIO, [
 
 
 dnl
-dnl Check for certain special build configurations.
+dnl Check for which threading library to use.
 dnl
 dnl GLIBCPP_ENABLE_THREADS
 dnl --enable-threads=posix sets config/threads-posix.h et. al.
@@ -898,7 +935,7 @@ AC_DEFUN(GLIBCPP_ENABLE_THREADS, [
 
 
 dnl
-dnl Check for certain special build configurations.
+dnl Check for template specializations for the 'long long' type extension.
 dnl
 dnl GLIBCPP_ENABLE_LONG_LONG
 dnl --enable-long-long defines _GLIBCPP_USE_LONG_LONG
@@ -906,10 +943,13 @@ dnl --disable-long-long leaves _GLIBCPP_USE_LONG_LONG undefined
 dnl  +  Usage:  GLIBCPP_ENABLE_LONG_LONG[(DEFAULT)]
 dnl       Where DEFAULT is either `yes' or `no'.  If ommitted, it
 dnl       defaults to `no'.
+dnl  +  If 'long long' stuff is not available, ignores DEFAULT and sets `no'.
 dnl
 dnl GLIBCPP_ENABLE_LONG_LONG
 AC_DEFUN(GLIBCPP_ENABLE_LONG_LONG, [dnl
   define([GLIBCPP_ENABLE_LONG_LONG_DEFAULT], ifelse($1, yes, yes, no))dnl
+  # must do check_func outside the local msg_checking/msg_result
+  AC_CHECK_FUNC(strtoll,,ac_ll=no)
   AC_MSG_CHECKING([for enabled long long])
   AC_ARG_ENABLE(long-long,
   changequote(<<, >>)dnl
@@ -921,6 +961,7 @@ AC_DEFUN(GLIBCPP_ENABLE_LONG_LONG, [dnl
    *)   AC_MSG_ERROR([Unknown argument to enable/disable long long]) ;;
    esac],
   enable_long_long=GLIBCPP_ENABLE_LONG_LONG_DEFAULT)dnl
+  if test x"$ac_ll" = xno; then enable_long_long=no; fi; unset ac_ll
   AC_MSG_RESULT($enable_long_long)
   dnl Option parsed, now set things appropriately
   case "$enable_long_long" in
@@ -931,7 +972,7 @@ AC_DEFUN(GLIBCPP_ENABLE_LONG_LONG, [dnl
 
 
 dnl
-dnl Check for certain special build configurations.
+dnl Check for whether or not to do shadowed C headers.
 dnl
 dnl GLIBCPP_ENABLE_SHADOW
 dnl --enable-cshadow-headers [does stuff].
@@ -961,15 +1002,71 @@ AC_MSG_RESULT($enable_cshadow_headers)
 dnl Option parsed, now set things appropriately
 case "$enable_cshadow_headers" in
     yes) 
-	SHADOW_INCLUDES="-I$srcdir/shadow -I$blddir/cshadow"
-$srcdir/inclosure "-I $blddir/../../gcc/include/ -I /usr/include/ -G machine/ansi.h" | $srcdir/mkcshadow
+	CSHADOWFLAGS="-D_ISOC9X_SOURCE"
+	CSHADOW_INCLUDES=" -I$srcdir/shadow -I$blddir/cshadow"
 	;;
     no)   
-	SHADOW_INCLUDES=''
+	CSHADOWFLAGS=""
+	CSHADOW_INCLUDES=""
         ;;
 esac
-# SHADOW_INCLUDES is currently not used anywhere in the source
-AC_SUBST(SHADOW_INCLUDES)
+
+AC_SUBST(CSHADOWFLAGS)
+AC_SUBST(CSHADOW_INCLUDES)
+AM_CONDITIONAL(GLIBCPP_USE_CSHADOW, test "$enable_cshadow_headers" = yes)
 ])
 
 
+# Check whether LC_MESSAGES is available in <locale.h>.
+# Ulrich Drepper <drepper@cygnus.com>, 1995.
+#
+# This file file be copied and used freely without restrictions.  It can
+# be used in projects which are not available under the GNU Public License
+# but which still want to provide support for the GNU gettext functionality.
+# Please note that the actual code is *not* freely available.
+
+# serial 1
+
+AC_DEFUN(AC_LC_MESSAGES,
+  [if test $ac_cv_header_locale_h = yes; then
+    AC_CACHE_CHECK([for LC_MESSAGES], ac_cv_val_LC_MESSAGES,
+      [AC_TRY_LINK([#include <locale.h>], [return LC_MESSAGES],
+       ac_cv_val_LC_MESSAGES=yes, ac_cv_val_LC_MESSAGES=no)])
+    if test $ac_cv_val_LC_MESSAGES = yes; then
+      AC_DEFINE(HAVE_LC_MESSAGES)
+    fi
+  fi])
+
+
+# Check for functions in math library.
+# Ulrich Drepper <drepper@cygnus.com>, 1998.
+#
+# This file can be copied and used freely without restrictions.  It can
+# be used in projects which are not available under the GNU Public License
+# but which still want to provide support for the GNU gettext functionality.
+# Please note that the actual code is *not* freely available.
+
+# serial 1
+
+dnl AC_REPLACE_MATHFUNCS(FUNCTION...)
+AC_DEFUN(AC_REPLACE_MATHFUNCS,
+[AC_CHECK_FUNCS([$1], , [LIBMATHOBJS="$LIBMATHOBJS ${ac_func}.lo"])
+AC_SUBST(LIBMATHOBJS)dnl
+])
+
+
+# Check for string functions.
+# Ulrich Drepper <drepper@cygnus.com>, 1998.
+#
+# This file can be copied and used freely without restrictions.  It can
+# be used in projects which are not available under the GNU Public License
+# but which still want to provide support for the GNU gettext functionality.
+# Please note that the actual code is *not* freely available.
+
+# serial 1
+
+dnl AC_REPLACE_STRINGFUNCS(FUNCTION...)
+AC_DEFUN(AC_REPLACE_STRINGFUNCS,
+[AC_CHECK_FUNCS([$1], , [LIBSTRINGOBJS="$LIBSTRINGOBJS ${ac_func}.lo"])
+AC_SUBST(LIBSTRINGOBJS)dnl
+])

@@ -97,6 +97,10 @@ static int alpha_function_needs_gp;
 
 static int alpha_sr_alias_set;
 
+/* The assembler name of the current function.  */
+
+static const char *alpha_fnname;
+
 /* Declarations of static functions.  */
 static void alpha_set_memflags_1
   PARAMS ((rtx, int, int, int));
@@ -558,9 +562,27 @@ hard_fp_register_operand (op, mode)
      register rtx op;
      enum machine_mode mode;
 {
-  return ((GET_CODE (op) == REG && REGNO_REG_CLASS (REGNO (op)) == FLOAT_REGS)
-	  || (GET_CODE (op) == SUBREG
-	      && hard_fp_register_operand (SUBREG_REG (op), mode)));
+  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
+    return 0;
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+  return GET_CODE (op) == REG && REGNO_REG_CLASS (REGNO (op)) == FLOAT_REGS;
+}
+
+/* Return 1 if OP is a hard general register.  */
+
+int
+hard_int_register_operand (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  if (mode != VOIDmode && GET_MODE (op) != VOIDmode && mode != GET_MODE (op))
+    return 0;
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+  return GET_CODE (op) == REG && REGNO_REG_CLASS (REGNO (op)) == GENERAL_REGS;
 }
 
 /* Return 1 if OP is a register or a constant integer.  */
@@ -710,7 +732,24 @@ alpha_comparison_operator (op, mode)
     return 0;
 
   return (code == EQ || code == LE || code == LT
-	  || (mode == DImode && (code == LEU || code == LTU)));
+	  || code == LEU || code == LTU);
+}
+
+/* Return 1 if OP is a valid Alpha comparison operator against zero. 
+   Here we know which comparisons are valid in which insn.  */
+
+int
+alpha_zero_comparison_operator (op, mode)
+     register rtx op;
+     enum machine_mode mode;
+{
+  enum rtx_code code = GET_CODE (op);
+
+  if (mode != GET_MODE (op) && mode != VOIDmode)
+    return 0;
+
+  return (code == EQ || code == NE || code == LE || code == LT
+	  || code == LEU || code == LTU);
 }
 
 /* Return 1 if OP is a valid Alpha swapped comparison operator.  */
@@ -728,7 +767,7 @@ alpha_swapped_comparison_operator (op, mode)
 
   code = swap_condition (code);
   return (code == EQ || code == LE || code == LT
-	  || (mode == DImode && (code == LEU || code == LTU)));
+	  || code == LEU || code == LTU);
 }
 
 /* Return 1 if OP is a signed comparison operation.  */
@@ -1811,6 +1850,90 @@ alpha_emit_conditional_move (cmp, mode)
   tem = gen_reg_rtx (cmp_op_mode);
   emit_move_insn (tem, gen_rtx_fmt_ee (code, cmp_op_mode, op0, op1));
   return gen_rtx_fmt_ee (cmov_code, cmov_mode, tem, CONST0_RTX (cmp_op_mode));
+}
+
+/* Simplify a conditional move of two constants into a setcc with
+   arithmetic.  This is done with a splitter since combine would
+   just undo the work if done during code generation.  It also catches
+   cases we wouldn't have before cse.  */
+
+int
+alpha_split_conditional_move (code, dest, cond, t_rtx, f_rtx)
+     enum rtx_code code;
+     rtx dest, cond, t_rtx, f_rtx;
+{
+  HOST_WIDE_INT t, f, diff;
+  enum machine_mode mode;
+  rtx target, subtarget, tmp;
+
+  mode = GET_MODE (dest);
+  t = INTVAL (t_rtx);
+  f = INTVAL (f_rtx);
+  diff = t - f;
+
+  if (((code == NE || code == EQ) && diff < 0)
+      || (code == GE || code == GT))
+    {
+      code = reverse_condition (code);
+      diff = t, t = f, f = diff;
+      diff = t - f;
+    }
+
+  subtarget = target = dest;
+  if (mode != DImode)
+    {
+      target = gen_lowpart (DImode, dest);
+      if (! no_new_pseudos)
+        subtarget = gen_reg_rtx (DImode);
+      else
+	subtarget = target;
+    }
+
+  if (f == 0 && exact_log2 (diff) > 0
+      /* On EV6, we've got enough shifters to make non-arithmatic shifts
+	 viable over a longer latency cmove.  On EV5, the E0 slot is a
+	 scarce resource, and on EV4 shift has the same latency as a cmove. */
+      && (diff <= 8 || alpha_cpu == PROCESSOR_EV6))
+    {
+      tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
+      emit_insn (gen_rtx_SET (VOIDmode, subtarget, tmp));
+
+      tmp = gen_rtx_ASHIFT (DImode, subtarget, GEN_INT (exact_log2 (t)));
+      emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
+    }
+  else if (f == 0 && t == -1)
+    {
+      tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
+      emit_insn (gen_rtx_SET (VOIDmode, subtarget, tmp));
+
+      emit_insn (gen_negdi2 (target, subtarget));
+    }
+  else if (diff == 1 || diff == 4 || diff == 8)
+    {
+      rtx add_op;
+
+      tmp = gen_rtx_fmt_ee (code, DImode, cond, const0_rtx);
+      emit_insn (gen_rtx_SET (VOIDmode, subtarget, tmp));
+
+      if (diff == 1)
+	emit_insn (gen_adddi3 (target, subtarget, GEN_INT (f)));
+      else
+	{
+	  add_op = GEN_INT (f);
+	  if (sext_add_operand (add_op, mode))
+	    {
+	      tmp = gen_rtx_MULT (DImode, subtarget, GEN_INT (diff));
+	      tmp = gen_rtx_PLUS (DImode, tmp, add_op);
+	      emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
+	    }
+	  else
+	    return 0;
+	}
+    }
+  else
+    return 0;
+
+  return 1;
 }
 
 /* Look up the function X_floating library function name for the
@@ -3243,6 +3366,11 @@ print_operand (file, x, code)
 
   switch (code)
     {
+    case '~':
+      /* Print the assembler name of the current function.  */
+      assemble_name (file, alpha_fnname);
+      break;
+
     case '&':
       /* Generates fp-rounding mode suffix: nothing for normal, 'c' for
 	 chopped, 'm' for minus-infinity, and 'd' for dynamic rounding
@@ -3695,9 +3823,12 @@ function_arg (cum, mode, type, named)
      int named ATTRIBUTE_UNUSED;
 {
   int basereg;
+  int num_args;
 
+#ifndef OPEN_VMS
   if (cum >= 6)
     return NULL_RTX;
+  num_args = cum;
 
   /* VOID is passed as a special flag for "last argument".  */
   if (type == void_type_node)
@@ -3706,6 +3837,14 @@ function_arg (cum, mode, type, named)
     return NULL_RTX;
   else if (FUNCTION_ARG_PASS_BY_REFERENCE (cum, mode, type, named))
     basereg = 16;
+#else
+  if (mode == VOIDmode)
+    return alpha_arg_info_reg_val (cum);
+
+  num_args = cum.num_args;
+  if (num_args >= 6 || MUST_PASS_IN_STACK (mode, type))
+    return NULL_RTX;
+#endif /* OPEN_VMS */
   else if (TARGET_FPREGS
 	   && (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT
 	       || GET_MODE_CLASS (mode) == MODE_FLOAT))
@@ -3713,7 +3852,7 @@ function_arg (cum, mode, type, named)
   else
     basereg = 16;
 
-  return gen_rtx_REG (mode, cum + basereg);
+  return gen_rtx_REG (mode, num_args + basereg);
 }
 
 tree
@@ -4018,10 +4157,8 @@ alpha_does_function_need_gp ()
   if (TARGET_WINDOWS_NT || TARGET_OPEN_VMS)
     return 0;
 
-#ifdef TARGET_PROFILING_NEEDS_GP
-  if (profile_flag)
+  if (TARGET_PROFILING_NEEDS_GP && profile_flag)
     return 1;
-#endif
 
 #ifdef ASM_OUTPUT_MI_THUNK
   if (current_function_is_thunk)
@@ -4144,6 +4281,21 @@ alpha_expand_prologue ()
 
   alpha_sa_mask (&imask, &fmask);
 
+  /* Emit an insn to reload GP, if needed.  */
+  if (!TARGET_OPEN_VMS && !TARGET_WINDOWS_NT)
+    {
+      alpha_function_needs_gp = alpha_does_function_need_gp ();
+      if (alpha_function_needs_gp)
+	emit_insn (gen_prologue_ldgp ());
+    }
+
+  /* TARGET_PROFILING_NEEDS_GP actually implies that we need to insert
+     the call to mcount ourselves, rather than having the linker do it
+     magically in response to -pg.  Since _mcount has special linkage,
+     don't represent the call as a call.  */
+  if (TARGET_PROFILING_NEEDS_GP && profile_flag)
+    emit_insn (gen_prologue_mcount ());
+      
   /* Adjust the stack by the frame size.  If the frame size is > 4096
      bytes, we need to be sure we probe somewhere in the first and last
      4096 bytes (we can probably get away without the latter test) and
@@ -4369,6 +4521,7 @@ alpha_start_function (file, fnname, decl)
   char *entry_label = (char *) alloca (strlen (fnname) + 6);
   int i;
 
+  alpha_fnname = fnname;
   sa_size = alpha_sa_size ();
 
   frame_size = get_frame_size ();
@@ -4413,6 +4566,16 @@ alpha_start_function (file, fnname, decl)
       fputs ("\t.ent ", file);
       assemble_name (file, fnname);
       putc ('\n', file);
+
+      /* If the function needs GP, we'll write the "..ng" label there.
+	 Otherwise, do it here.  */
+      if (! TARGET_OPEN_VMS && ! TARGET_WINDOWS_NT
+	  && ! alpha_function_needs_gp)
+	{
+	  putc ('$', file);
+	  assemble_name (file, fnname);
+	  fputs ("..ng:\n", file);
+	}
     }
 
   strcpy (entry_label, fnname);
@@ -4492,20 +4655,6 @@ alpha_start_function (file, fnname, decl)
 		   frame_size >= (1l << 31) ? 0 : reg_offset - frame_size);
 	  putc ('\n', file);
 	}
-    }
-
-  /* Emit GP related things.  It is rather unfortunate about the alignment
-     issues surrounding a CODE_LABEL that forces us to do the label in 
-     plain text.  */
-  if (!TARGET_OPEN_VMS && !TARGET_WINDOWS_NT)
-    {
-      alpha_function_needs_gp = alpha_does_function_need_gp ();
-      if (alpha_function_needs_gp)
-	fputs ("\tldgp $29,0($27)\n", file);
-
-      putc ('$', file);
-      assemble_name (file, fnname);
-      fputs ("..ng:\n", file);
     }
 
 #ifdef OPEN_VMS
@@ -5166,7 +5315,6 @@ alpha_handle_trap_shadows (insns)
     }
 }
 
-#ifdef HAIFA
 /* Alpha can only issue instruction groups simultaneously if they are
    suitibly aligned.  This is very processor-specific.  */
 
@@ -5190,13 +5338,13 @@ enum alphaev5_pipe {
 
 static enum alphaev4_pipe alphaev4_insn_pipe PARAMS ((rtx));
 static enum alphaev5_pipe alphaev5_insn_pipe PARAMS ((rtx));
-static rtx alphaev4_next_group PARAMS ((rtx, int*, int*));
-static rtx alphaev5_next_group PARAMS ((rtx, int*, int*));
-static rtx alphaev4_next_nop PARAMS ((int*));
-static rtx alphaev5_next_nop PARAMS ((int*));
+static rtx alphaev4_next_group PARAMS ((rtx, int *, int *));
+static rtx alphaev5_next_group PARAMS ((rtx, int *, int *));
+static rtx alphaev4_next_nop PARAMS ((int *));
+static rtx alphaev5_next_nop PARAMS ((int *));
 
 static void alpha_align_insns
-  PARAMS ((rtx, int, rtx (*)(rtx, int*, int*), rtx (*)(int*), int));
+  PARAMS ((rtx, unsigned int, rtx (*)(rtx, int *, int *), rtx (*)(int *)));
 
 static enum alphaev4_pipe
 alphaev4_insn_pipe (insn)
@@ -5236,7 +5384,7 @@ alphaev4_insn_pipe (insn)
       return EV4_IB1;
 
     default:
-      abort();
+      abort ();
     }
 }
 
@@ -5583,15 +5731,14 @@ alphaev5_next_nop (pin_use)
 /* The instruction group alignment main loop.  */
 
 static void
-alpha_align_insns (insns, max_align, next_group, next_nop, gp_in_use)
+alpha_align_insns (insns, max_align, next_group, next_nop)
      rtx insns;
-     int max_align;
-     rtx (*next_group) PARAMS ((rtx, int*, int*));
-     rtx (*next_nop) PARAMS ((int*));
-     int gp_in_use;
+     unsigned int max_align;
+     rtx (*next_group) PARAMS ((rtx, int *, int *));
+     rtx (*next_nop) PARAMS ((int *));
 {
   /* ALIGN is the known alignment for the insn group.  */
-  int align;
+  unsigned int align;
   /* OFS is the offset of the current insn in the insn group.  */
   int ofs;
   int prev_in_use, in_use, len;
@@ -5600,35 +5747,29 @@ alpha_align_insns (insns, max_align, next_group, next_nop, gp_in_use)
   /* Let shorten branches care for assigning alignments to code labels.  */
   shorten_branches (insns);
 
-  align = (FUNCTION_BOUNDARY/BITS_PER_UNIT < max_align
-	   ? FUNCTION_BOUNDARY/BITS_PER_UNIT : max_align);
+  align = (FUNCTION_BOUNDARY / BITS_PER_UNIT < max_align
+	   ? FUNCTION_BOUNDARY / BITS_PER_UNIT : max_align);
 
-  /* Account for the initial GP load, which happens before the scheduled
-     prologue we emitted as RTL.  */
   ofs = prev_in_use = 0;
-  if (alpha_does_function_need_gp())
-    {
-      ofs = 8 & (align - 1);
-      prev_in_use = gp_in_use;
-    }
-
   i = insns;
   if (GET_CODE (i) == NOTE)
     i = next_nonnote_insn (i);
 
   while (i)
     {
-      next = (*next_group)(i, &in_use, &len);
+      next = (*next_group) (i, &in_use, &len);
 
       /* When we see a label, resync alignment etc.  */
       if (GET_CODE (i) == CODE_LABEL)
 	{
-	  int new_align = 1 << label_to_alignment (i);
+	  unsigned int new_align = 1 << label_to_alignment (i);
+
 	  if (new_align >= align)
 	    {
 	      align = new_align < max_align ? new_align : max_align;
 	      ofs = 0;
 	    }
+
 	  else if (ofs & (new_align-1))
 	    ofs = (ofs | (new_align-1)) + 1;
 	  if (len != 0)
@@ -5653,7 +5794,7 @@ alpha_align_insns (insns, max_align, next_group, next_nop, gp_in_use)
 	 realign the output.  */
       else if (align < len)
 	{
-	  int new_log_align = len > 8 ? 4 : 3;
+	  unsigned int new_log_align = len > 8 ? 4 : 3;
 	  rtx where;
 
 	  where = prev_nonnote_insn (i);
@@ -5704,7 +5845,6 @@ alpha_align_insns (insns, max_align, next_group, next_nop, gp_in_use)
       i = next;
     }
 }
-#endif /* HAIFA */
 
 /* Machine dependant reorg pass.  */
 
@@ -5715,24 +5855,19 @@ alpha_reorg (insns)
   if (alpha_tp != ALPHA_TP_PROG || flag_exceptions)
     alpha_handle_trap_shadows (insns);
 
-#ifdef HAIFA
   /* Due to the number of extra trapb insns, don't bother fixing up
      alignment when trap precision is instruction.  Moreover, we can
-     only do our job when sched2 is run and Haifa is our scheduler.  */
+     only do our job when sched2 is run.  */
   if (optimize && !optimize_size
       && alpha_tp != ALPHA_TP_INSN
       && flag_schedule_insns_after_reload)
     {
       if (alpha_cpu == PROCESSOR_EV4)
-	alpha_align_insns (insns, 8, alphaev4_next_group,
-			   alphaev4_next_nop, EV4_IB0);
+	alpha_align_insns (insns, 8, alphaev4_next_group, alphaev4_next_nop);
       else if (alpha_cpu == PROCESSOR_EV5)
-	alpha_align_insns (insns, 16, alphaev5_next_group,
-			   alphaev5_next_nop, EV5_E01 | EV5_E0);
+	alpha_align_insns (insns, 16, alphaev5_next_group, alphaev5_next_nop);
     }
-#endif
 }
-
 
 /* Check a floating-point value for validity for a particular machine mode.  */
 
@@ -5848,109 +5983,165 @@ alpha_arg_info_reg_val (cum)
   return GEN_INT (regval);
 }
 
+#include <splay-tree.h>
+
 /* Structure to collect function names for final output
    in link section.  */
 
 enum links_kind {KIND_UNUSED, KIND_LOCAL, KIND_EXTERN};
 
-
-struct alpha_links {
-  struct alpha_links *next;
-  char *name;
+struct alpha_links
+{
+  rtx linkage;
   enum links_kind kind;
 };
 
-static struct alpha_links *alpha_links_base = 0;
+static splay_tree alpha_links;
+
+static int mark_alpha_links_node	PARAMS ((splay_tree_node, void *));
+static void mark_alpha_links		PARAMS ((void *));
+static int alpha_write_one_linkage	PARAMS ((splay_tree_node, void *));
+
+/* Protect alpha_links from garbage collection.  */
+
+static int
+mark_alpha_links_node (node, data)
+     splay_tree_node node;
+     void *data ATTRIBUTE_UNUSED;
+{
+  struct alpha_links *links = (struct alpha_links *) node->value;
+  ggc_mark_rtx (links->linkage);
+  return 0;
+}
+
+static void
+mark_alpha_links (ptr)
+     void *ptr;
+{
+  splay_tree tree = *(splay_tree *) ptr;
+  splay_tree_foreach (tree, mark_alpha_links_node, NULL);
+}
 
 /* Make (or fake) .linkage entry for function call.
 
-   IS_LOCAL is 0 if name is used in call, 1 if name is used in definition.  */
+   IS_LOCAL is 0 if name is used in call, 1 if name is used in definition.
 
-void
+   Return an SYMBOL_REF rtx for the linkage.  */
+
+rtx
 alpha_need_linkage (name, is_local)
     const char *name;
     int is_local;
 {
-  rtx x;
-  struct alpha_links *lptr, *nptr;
+  splay_tree_node node;
+  struct alpha_links *al;
 
   if (name[0] == '*')
     name++;
 
-  /* Is this name already defined ?  */
+  if (alpha_links)
+    {
+      /* Is this name already defined?  */
 
-  for (lptr = alpha_links_base; lptr; lptr = lptr->next)
-    if (strcmp (lptr->name, name) == 0)
-      {
-	if (is_local)
-	  {
-	    /* Defined here but external assumed.  */
-	    if (lptr->kind == KIND_EXTERN)
-	      lptr->kind = KIND_LOCAL;
-	  }
-	else
-	  {
-	    /* Used here but unused assumed.  */
-	    if (lptr->kind == KIND_UNUSED)
-	      lptr->kind = KIND_LOCAL;
-	  }
-	return;
-      }
+      node = splay_tree_lookup (alpha_links, (splay_tree_key) name);
+      if (node)
+	{
+	  al = (struct alpha_links *) node->value;
+	  if (is_local)
+	    {
+	      /* Defined here but external assumed.  */
+	      if (al->kind == KIND_EXTERN)
+		al->kind = KIND_LOCAL;
+	    }
+	  else
+	    {
+	      /* Used here but unused assumed.  */
+	      if (al->kind == KIND_UNUSED)
+		al->kind = KIND_LOCAL;
+	    }
+	  return al->linkage;
+	}
+    }
+  else
+    {
+      alpha_links = splay_tree_new ((splay_tree_compare_fn) strcmp, 
+				    (splay_tree_delete_key_fn) free,
+				    (splay_tree_delete_key_fn) free);
+      ggc_add_root (&alpha_links, 1, 1, mark_alpha_links);
+    }
 
-  nptr = (struct alpha_links *) xmalloc (sizeof (struct alpha_links));
-  nptr->next = alpha_links_base;
-  nptr->name = xstrdup (name);
+  al = (struct alpha_links *) xmalloc (sizeof (struct alpha_links));
+  name = xstrdup (name);
 
   /* Assume external if no definition.  */
-  nptr->kind = (is_local ? KIND_UNUSED : KIND_EXTERN);
+  al->kind = (is_local ? KIND_UNUSED : KIND_EXTERN);
 
-  /* Ensure we have an IDENTIFIER so assemble_name can mark is used.  */
+  /* Ensure we have an IDENTIFIER so assemble_name can mark it used.  */
   get_identifier (name);
 
-  alpha_links_base = nptr;
+  /* Construct a SYMBOL_REF for us to call.  */
+  {
+    size_t name_len = strlen (name);
+    char *linksym = ggc_alloc_string (NULL, name_len + 6);
 
-  return;
+    linksym[0] = '$';
+    memcpy (linksym + 1, name, name_len);
+    memcpy (linksym + 1 + name_len, "..lk", 5);
+    al->linkage = gen_rtx_SYMBOL_REF (Pmode, linksym);
+  }
+
+  splay_tree_insert (alpha_links, (splay_tree_key) name,
+		     (splay_tree_value) al);
+
+  return al->linkage;
 }
 
+static int
+alpha_write_one_linkage (node, data)
+     splay_tree_node node;
+     void *data;
+{
+  const char *name = (const char *) node->key;
+  struct alpha_links *links = (struct alpha_links *) node->value;
+  FILE *stream = (FILE *) data;
+
+  if (links->kind == KIND_UNUSED
+      || ! TREE_SYMBOL_REFERENCED (get_identifier (name)))
+    return 0;
+
+  fprintf (stream, "$%s..lk:\n", name);
+  if (links->kind == KIND_LOCAL)
+    {
+      /* Local and used, build linkage pair.  */
+      fprintf (stream, "\t.quad %s..en\n", name);
+      fprintf (stream, "\t.quad %s\n", name);
+    }
+  else
+    {
+      /* External and used, request linkage pair.  */
+      fprintf (stream, "\t.linkage %s\n", name);
+    }
+
+  return 0;
+}
 
 void
 alpha_write_linkage (stream)
     FILE *stream;
 {
-  struct alpha_links *lptr, *nptr;
-
   readonly_section ();
-
   fprintf (stream, "\t.align 3\n");
-
-  for (lptr = alpha_links_base; lptr; lptr = nptr)
-    {
-      nptr = lptr->next;
-
-      if (lptr->kind == KIND_UNUSED
-	  || ! TREE_SYMBOL_REFERENCED (get_identifier (lptr->name)))
-	continue;
-
-      fprintf (stream, "$%s..lk:\n", lptr->name);
-      if (lptr->kind == KIND_LOCAL)   
-	{
-	  /*  Local and used, build linkage pair.  */
-	  fprintf (stream, "\t.quad %s..en\n", lptr->name);
-	  fprintf (stream, "\t.quad %s\n", lptr->name);
-	}
-      else
-	/* External and used, request linkage pair.  */
-	fprintf (stream, "\t.linkage %s\n", lptr->name);
-    }
+  splay_tree_foreach (alpha_links, alpha_write_one_linkage, stream);
 }
 
 #else
 
-void
+rtx
 alpha_need_linkage (name, is_local)
      const char *name ATTRIBUTE_UNUSED;
      int is_local ATTRIBUTE_UNUSED;
 {
+  return NULL_RTX;
 }
 
 #endif /* OPEN_VMS */

@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-attr.h"
 #include "insn-codes.h"
 #include "insn-config.h"
+#include "hard-reg-set.h"
 #include "recog.h"
 #include "defaults.h"
 #include "output.h"
@@ -144,7 +145,7 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define PREFERRED_DEBUGGING_TYPE NO_DEBUG
 #endif
 
-#ifdef NEED_DECLARATION_ENVIRON
+#if defined (HAVE_DECL_ENVIRON) && !HAVE_DECL_ENVIRON
 extern char **environ;
 #endif
 
@@ -261,8 +262,9 @@ enum dump_file_index
   DFI_gcse,
   DFI_loop,
   DFI_cse2,
+  DFI_cfg,
   DFI_bp,
-  DFI_flow,
+  DFI_life,
   DFI_combine,
   DFI_ce,
   DFI_regmove,
@@ -303,8 +305,9 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
+  { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
-  { "flow",	'f', 1, 0, 0 },
+  { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
   { "ce",	'C', 1, 0, 0 },
   { "regmove",	'N', 1, 0, 0 },
@@ -2351,8 +2354,11 @@ compile_file (name)
     /* Now that all possible functions have been output, we can dump
        the exception table.  */
 
+#ifndef IA64_UNWIND_INFO
     output_exception_table ();
-
+#endif
+    free_exception_table ();
+    
     check_global_declarations (vec, len);
 
     /* Clean up.  */
@@ -2410,11 +2416,13 @@ compile_file (name)
 
   end_final (dump_base_name);
    
-  if (flag_test_coverage || flag_branch_probabilities)
+  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
       timevar_push (TV_DUMP);
       open_dump_file (DFI_bp, NULL);
-      end_branch_prob (rtl_dump_file);
+
+      end_branch_prob ();
+
       close_dump_file (DFI_bp, NULL, NULL_RTX);
       timevar_pop (TV_DUMP);
     }
@@ -2644,6 +2652,7 @@ rest_of_compilation (decl)
   int tem;
   int failure = 0;
   int rebuild_label_notes_after_reload;
+  int register_life_up_to_date;
 
   timevar_push (TV_REST_OF_COMPILATION);
 
@@ -3139,33 +3148,32 @@ rest_of_compilation (decl)
 
   cse_not_expected = 1;
 
-  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
-    {
-      timevar_push (TV_BRANCH_PROB);
-      open_dump_file (DFI_bp, decl);
-
-      branch_prob (insns, rtl_dump_file);
-
-      close_dump_file (DFI_bp, print_rtl, insns);
-      timevar_pop (TV_BRANCH_PROB);
-
-      if (ggc_p)
-	ggc_collect ();
-    }
-
   regclass_init ();
 
-  /* Print function header into flow dump now
-     because doing the flow analysis makes some of the dump.  */
-
-  open_dump_file (DFI_flow, decl);
   
   /* Do control and data flow analysis; wrote some of the results to
      the dump file.  */
 
   timevar_push (TV_FLOW);
+  open_dump_file (DFI_cfg, decl);
+
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   cleanup_cfg (insns);
+
+  close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
+ 
+  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+    {
+      timevar_push (TV_BRANCH_PROB);
+      open_dump_file (DFI_bp, decl);
+
+      branch_prob ();
+
+      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
+      timevar_pop (TV_BRANCH_PROB);
+    }
+
+  open_dump_file (DFI_life, decl);
   if (optimize)
     {
       struct loops loops;
@@ -3175,8 +3183,7 @@ rest_of_compilation (decl)
       flow_loops_find (&loops);
 
       /* Estimate using heuristics if no profiling info is available.  */
-      if (! flag_branch_probabilities)
-	estimate_probability (&loops);
+      estimate_probability (&loops);
 
       if (rtl_dump_file)
 	flow_loops_dump (&loops, rtl_dump_file, 0);
@@ -3187,6 +3194,9 @@ rest_of_compilation (decl)
   mark_constant_function ();
   timevar_pop (TV_FLOW);
 
+  register_life_up_to_date = 1;
+  no_new_pseudos = 1;
+
   if (warn_uninitialized || extra_warnings)
     {
       uninitialized_vars_warning (DECL_INITIAL (decl));
@@ -3194,7 +3204,7 @@ rest_of_compilation (decl)
 	setjmp_args_warning ();
     }
 
-  close_dump_file (DFI_flow, print_rtl_with_bb, insns);
+  close_dump_file (DFI_life, print_rtl_with_bb, insns);
 
   if (ggc_p)
     ggc_collect ();
@@ -3250,7 +3260,9 @@ rest_of_compilation (decl)
       timevar_push (TV_IFCVT);
       open_dump_file (DFI_ce, decl);
 
+      no_new_pseudos = 0;
       if_convert (1);
+      no_new_pseudos = 1;
 
       close_dump_file (DFI_ce, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT);
@@ -3272,6 +3284,11 @@ rest_of_compilation (decl)
 	ggc_collect ();
     }
 
+  /* Any of the several passes since flow1 will have munged register
+     lifetime data a bit.  */
+  if (optimize > 0)
+    register_life_up_to_date = 0;
+
 #ifdef OPTIMIZE_MODE_SWITCHING
   if (optimize)
     {
@@ -3282,7 +3299,7 @@ rest_of_compilation (decl)
 	  /* We did work, and so had to regenerate global life information.
 	     Take advantage of this and don't re-recompute register life
 	     information below.  */
-	  no_new_pseudos = 1;
+	  register_life_up_to_date = 1;
 	}
 
       timevar_pop (TV_GCSE);
@@ -3309,9 +3326,9 @@ rest_of_compilation (decl)
       if (ggc_p)
 	ggc_collect ();
 
-      /* Register lifetime information is up to date.  From now on
-	 we can not generate any new pseudos.  */
-      no_new_pseudos = 1;
+      /* Register lifetime information was updated as part of verifying
+	 the schedule.  */
+      register_life_up_to_date = 1;
     }
 #endif
 
@@ -3328,14 +3345,8 @@ rest_of_compilation (decl)
      RUN_JUMP_AFTER_RELOAD records whether or not we need to rerun the
      jump optimizer after register allocation and reloading are finished.  */
 
-  if (! no_new_pseudos)
-    {
-      recompute_reg_usage (insns, ! optimize_size);
-
-      /* Register lifetime information is up to date.  From now on
-	 we can not generate any new pseudos.  */
-      no_new_pseudos = 1;
-    }
+  if (! register_life_up_to_date)
+    recompute_reg_usage (insns, ! optimize_size);
   regclass (insns, max_reg_num (), rtl_dump_file);
   rebuild_label_notes_after_reload = local_alloc ();
 
@@ -3601,9 +3612,8 @@ rest_of_compilation (decl)
     rtx x;
     const char *fnname;
 
-    /* Get the function's name, as described by its RTL.
-		This may be different from the DECL_NAME name used
-		in the source file.  */
+    /* Get the function's name, as described by its RTL.  This may be
+       different from the DECL_NAME name used in the source file.  */
 
     x = DECL_RTL (decl);
     if (GET_CODE (x) != MEM)
@@ -3956,6 +3966,7 @@ decode_f_option (arg)
      const char * arg;
 {
   int j;
+  const char *option_value = NULL;
 
   /* Search for the option in the table of binary f options.  */
   for (j = sizeof (f_options) / sizeof (f_options[0]); j--;)
@@ -3974,44 +3985,47 @@ decode_f_option (arg)
 	}
     }
 
-  if (!strncmp (arg, "inline-limit-", 13)
-      || !strncmp (arg, "inline-limit=", 13))
+  if ((option_value = skip_leading_substring (arg, "inline-limit-"))
+      || (option_value = skip_leading_substring (arg, "inline-limit=")))
     inline_max_insns =
-      read_integral_parameter (arg + 13, arg - 2, inline_max_insns);
+      read_integral_parameter (option_value, arg - 2, inline_max_insns);
 #ifdef INSN_SCHEDULING
-  else if (!strncmp (arg, "sched-verbose=", 14))
-    fix_sched_param ("verbose", (const char *)(arg + 14));
+  else if ((option_value = skip_leading_substring (arg, "sched-verbose=")))
+    fix_sched_param ("verbose", option_value);
 #endif
-  else if (!strncmp (arg, "fixed-", 6))
-    fix_register ((const char *)(arg + 6), 1, 1);
-  else if (!strncmp (arg, "call-used-", 10))
-    fix_register ((const char *)(arg + 10), 0, 1);
-  else if (!strncmp (arg, "call-saved-", 11))
-    fix_register ((const char *)(arg + 11), 0, 0);
-  else if (!strncmp (arg, "align-loops=", 12))
-    align_loops = read_integral_parameter (arg + 12, arg - 2, align_loops);
-  else if (!strncmp (arg, "align-functions=", 16))
+  else if ((option_value = skip_leading_substring (arg, "fixed-")))
+    fix_register (option_value, 1, 1);
+  else if ((option_value = skip_leading_substring (arg, "call-used-")))
+    fix_register (option_value, 0, 1);
+  else if ((option_value = skip_leading_substring (arg, "call-saved-")))
+    fix_register (option_value, 0, 0);
+  else if ((option_value = skip_leading_substring (arg, "align-loops=")))
+    align_loops = read_integral_parameter (option_value, arg - 2, align_loops);
+  else if ((option_value = skip_leading_substring (arg, "align-functions=")))
     align_functions
-      = read_integral_parameter (arg + 16, arg - 2, align_functions);
-  else if (!strncmp (arg, "align-jumps=", 12))
-    align_jumps = read_integral_parameter (arg + 12, arg - 2, align_jumps);
-  else if (!strncmp (arg, "align-labels=", 13))
-    align_labels = read_integral_parameter (arg + 13, arg - 2, align_labels);
-  else if (!strncmp (arg, "stack-limit-register=", 21))
+      = read_integral_parameter (option_value, arg - 2, align_functions);
+  else if ((option_value = skip_leading_substring (arg, "align-jumps=")))
+    align_jumps = read_integral_parameter (option_value, arg - 2, align_jumps);
+  else if ((option_value = skip_leading_substring (arg, "align-labels=")))
+    align_labels
+      = read_integral_parameter (option_value, arg - 2, align_labels);
+  else if ((option_value
+            = skip_leading_substring (arg, "stack-limit-register=")))
     {
-      int reg = decode_reg_name (arg + 21);
+      int reg = decode_reg_name (option_value);
       if (reg < 0)
-	error ("unrecognized register name `%s'", arg + 21);
+	error ("unrecognized register name `%s'", option_value);
       else
 	stack_limit_rtx = gen_rtx_REG (Pmode, reg);
     }
-  else if (!strncmp (arg, "stack-limit-symbol=", 19))
+  else if ((option_value
+            = skip_leading_substring (arg, "stack-limit-symbol=")))
     {
       char *nm;
       if (ggc_p)
-	nm = ggc_alloc_string (arg + 19, strlen (arg + 19));
+	nm = ggc_alloc_string (option_value, strlen (option_value));
       else
-	nm = xstrdup (arg + 19);
+	nm = xstrdup (option_value);
       stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, nm);
     }
   else if (!strcmp (arg, "no-stack-limit"))
@@ -4034,6 +4048,7 @@ static int
 decode_W_option (arg)
      const char * arg;
 {
+  const char *option_value = NULL;
   int j;
   
   /* Search for the option in the table of binary W options.  */
@@ -4054,16 +4069,16 @@ decode_W_option (arg)
 	}
     }
 
-  if (!strncmp (arg, "id-clash-", 9))
+  if ((option_value = skip_leading_substring (arg, "id-clash-")))
     {
-      id_clash_len = read_integral_parameter (arg + 9, arg - 2, -1);
+      id_clash_len = read_integral_parameter (option_value, arg - 2, -1);
       
       if (id_clash_len != -1)
 	warn_id_clash = 1;
     }
-  else if (!strncmp (arg, "larger-than-", 12))
+  else if ((option_value = skip_leading_substring (arg, "larger-than-")))
     {
-      larger_than_size = read_integral_parameter (arg + 12, arg - 2, -1);
+      larger_than_size = read_integral_parameter (option_value, arg - 2, -1);
 
       if (larger_than_size != -1)
 	warn_larger_than = 1;
@@ -4641,9 +4656,21 @@ main (argc, argv)
 #ifdef DWARF2_UNWIND_INFO
       exceptions_via_longjmp = ! DWARF2_UNWIND_INFO;
 #else
+#ifdef IA64_UNWIND_INFO
+      exceptions_via_longjmp = ! IA64_UNWIND_INFO;
+#else
       exceptions_via_longjmp = 1;
 #endif
+#endif
     }
+
+  /* Since each function gets its own handler data, we can't support the
+     new model currently, since it depend on a specific rethrow label
+     which is declared at the front of the table, and we can only
+     have one such symbol in a file.  */
+#ifdef IA64_UNWIND_INFO
+  flag_new_exceptions = 0;
+#endif
 
   /* Set up the align_*_log variables, defaulting them to 1 if they
      were still unset.  */

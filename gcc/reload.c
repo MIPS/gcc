@@ -272,7 +272,6 @@ static void find_reloads_address_part PARAMS ((rtx, rtx *, enum reg_class,
 static rtx find_reloads_subreg_address PARAMS ((rtx, int, int, enum reload_type,
 					      int, rtx));
 static int find_inc_amount	PARAMS ((rtx, rtx));
-static int loc_mentioned_in_p	PARAMS ((rtx *, rtx));
 extern void debug_reload_to_stream PARAMS ((FILE *));
 extern void debug_reload PARAMS ((void));
 
@@ -588,7 +587,7 @@ get_secondary_mem (x, mode, opnum, type)
 #ifdef SECONDARY_MEMORY_NEEDED_MODE
   mode = SECONDARY_MEMORY_NEEDED_MODE (mode);
 #else
-  if (GET_MODE_BITSIZE (mode) < BITS_PER_WORD)
+  if (GET_MODE_BITSIZE (mode) < BITS_PER_WORD && INTEGRAL_MODE_P (mode))
     mode = mode_for_size (BITS_PER_WORD, GET_MODE_CLASS (mode), 0);
 #endif
 
@@ -1556,32 +1555,6 @@ remove_address_replacements (in_rtx)
 	}
     }
   return something_changed;
-}
-
-/* Return non-zero if IN contains a piece of rtl that has the address LOC */
-static int
-loc_mentioned_in_p (loc, in)
-     rtx *loc, in;
-{
-  enum rtx_code code = GET_CODE (in);
-  const char *fmt = GET_RTX_FORMAT (code);
-  int i, j;
-
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (loc == &in->fld[i].rtx)
-	return 1;
-      if (fmt[i] == 'e')
-	{
-	  if (loc_mentioned_in_p (loc, XEXP (in, i)))
-	    return 1;
-	}
-      else if (fmt[i] == 'E')
-	for (j = XVECLEN (in, i) - 1; i >= 0; i--)
-	  if (loc_mentioned_in_p (loc, XVECEXP (in, i, j)))
-	    return 1;
-    }
-  return 0;
 }
 
 /* If there is only one output reload, and it is not for an earlyclobber
@@ -6032,27 +6005,30 @@ find_equiv_reg (goal, insn, class, other, reload_reg_p, goalreg, mode)
 		  /* If we are looking for a constant,
 		     and something equivalent to that constant was copied
 		     into a reg, we can use that reg.  */
-		  || (goal_const && (tem = find_reg_note (p, REG_EQUIV,
-							  NULL_RTX))
-		      && rtx_equal_p (XEXP (tem, 0), goal)
-		      && (valueno = true_regnum (valtry = SET_DEST (pat))) >= 0)
-		  || (goal_const && (tem = find_reg_note (p, REG_EQUIV,
-							  NULL_RTX))
-		      && GET_CODE (SET_DEST (pat)) == REG
-		      && GET_CODE (XEXP (tem, 0)) == CONST_DOUBLE
-		      && GET_MODE_CLASS (GET_MODE (XEXP (tem, 0))) == MODE_FLOAT
-		      && GET_CODE (goal) == CONST_INT
-		      && 0 != (goaltry = operand_subword (XEXP (tem, 0), 0, 0,
+		  || (goal_const && REG_NOTES (p) != 0
+		      && (tem = find_reg_note (p, REG_EQUIV, NULL_RTX))
+		      && ((rtx_equal_p (XEXP (tem, 0), goal)
+			   && (valueno
+			       = true_regnum (valtry = SET_DEST (pat))) >= 0)
+			  || (GET_CODE (SET_DEST (pat)) == REG
+			      && GET_CODE (XEXP (tem, 0)) == CONST_DOUBLE
+			      && (GET_MODE_CLASS (GET_MODE (XEXP (tem, 0)))
+				  == MODE_FLOAT)
+			      && GET_CODE (goal) == CONST_INT
+			      && 0 != (goaltry
+				       = operand_subword (XEXP (tem, 0), 0, 0,
 							  VOIDmode))
-		      && rtx_equal_p (goal, goaltry)
-		      && (valtry = operand_subword (SET_DEST (pat), 0, 0,
-						    VOIDmode))
-		      && (valueno = true_regnum (valtry)) >= 0)
+			      && rtx_equal_p (goal, goaltry)
+			      && (valtry
+				  = operand_subword (SET_DEST (pat), 0, 0,
+						     VOIDmode))
+			      && (valueno = true_regnum (valtry)) >= 0)))
 		  || (goal_const && (tem = find_reg_note (p, REG_EQUIV,
 							  NULL_RTX))
 		      && GET_CODE (SET_DEST (pat)) == REG
 		      && GET_CODE (XEXP (tem, 0)) == CONST_DOUBLE
-		      && GET_MODE_CLASS (GET_MODE (XEXP (tem, 0))) == MODE_FLOAT
+		      && (GET_MODE_CLASS (GET_MODE (XEXP (tem, 0)))
+			  == MODE_FLOAT)
 		      && GET_CODE (goal) == CONST_INT
 		      && 0 != (goaltry = operand_subword (XEXP (tem, 0), 1, 0,
 							  VOIDmode))
@@ -6081,7 +6057,7 @@ find_equiv_reg (goal, insn, class, other, reload_reg_p, goalreg, mode)
 
   /* Don't try to re-use something that is killed in this insn.  We want
      to be able to trust REG_UNUSED notes.  */
-  if (find_reg_note (where, REG_UNUSED, value))
+  if (REG_NOTES (where) != 0 && find_reg_note (where, REG_UNUSED, value))
     return 0;
 
   /* If we propose to get the value from the stack pointer or if GOAL is

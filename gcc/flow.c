@@ -124,10 +124,10 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
+#include "hard-reg-set.h"
 #include "basic-block.h"
 #include "insn-config.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "flags.h"
 #include "output.h"
 #include "function.h"
@@ -194,7 +194,8 @@ struct basic_block_def entry_exit_blocks[2]
     NULL,			/* aux */
     ENTRY_BLOCK,		/* index */
     0,				/* loop_depth */
-    -1, -1			/* eh_beg, eh_end */
+    -1, -1,			/* eh_beg, eh_end */
+    0				/* count */
   },
   {
     NULL,			/* head */
@@ -207,7 +208,8 @@ struct basic_block_def entry_exit_blocks[2]
     NULL,			/* aux */
     EXIT_BLOCK,			/* index */
     0,				/* loop_depth */
-    -1, -1			/* eh_beg, eh_end */
+    -1, -1,			/* eh_beg, eh_end */
+    0				/* count */
   }
 };
 
@@ -309,6 +311,7 @@ struct propagate_block_info
 /* Forward declarations */
 static int count_basic_blocks		PARAMS ((rtx));
 static void find_basic_blocks_1		PARAMS ((rtx));
+static rtx find_label_refs		PARAMS ((rtx, rtx));
 static void clear_edges			PARAMS ((void));
 static void make_edges			PARAMS ((rtx));
 static void make_label_edge		PARAMS ((sbitmap *, basic_block,
@@ -532,6 +535,50 @@ count_basic_blocks (f)
   return count;
 }
 
+/* Scan a list of insns for labels referrred to other than by jumps.
+   This is used to scan the alternatives of a call placeholder.  */
+static rtx find_label_refs (f, lvl)
+     rtx f;
+     rtx lvl;
+{
+  rtx insn;
+
+  for (insn = f; insn; insn = NEXT_INSN (insn))
+    if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+      {
+	rtx note;
+
+	/* Make a list of all labels referred to other than by jumps
+	   (which just don't have the REG_LABEL notes). 
+
+	   Make a special exception for labels followed by an ADDR*VEC,
+	   as this would be a part of the tablejump setup code. 
+
+	   Make a special exception for the eh_return_stub_label, which
+	   we know isn't part of any otherwise visible control flow.  */
+	     
+	for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
+	  if (REG_NOTE_KIND (note) == REG_LABEL)
+	    {
+	      rtx lab = XEXP (note, 0), next;
+
+	      if (lab == eh_return_stub_label)
+		;
+	      else if ((next = next_nonnote_insn (lab)) != NULL
+		       && GET_CODE (next) == JUMP_INSN
+		       && (GET_CODE (PATTERN (next)) == ADDR_VEC
+			   || GET_CODE (PATTERN (next)) == ADDR_DIFF_VEC))
+		;
+	      else if (GET_CODE (lab) == NOTE)
+		;
+	      else
+		lvl = alloc_EXPR_LIST (0, XEXP (note, 0), lvl);
+	    }
+      }
+
+  return lvl;
+}
+
 /* Find all basic blocks of the function whose first insn is F.
 
    Collect and return a list of labels whose addresses are taken.  This
@@ -670,11 +717,16 @@ find_basic_blocks_1 (f)
 	    int region = (note ? INTVAL (XEXP (note, 0)) : 1);
 	    int call_has_abnormal_edge = 0;
 
-	    /* If this is a call placeholder, record its tail recursion
-	       label, if any.  */
-	    if (GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER
-		&& XEXP (PATTERN (insn), 3) != NULL_RTX)
-	      trll = alloc_EXPR_LIST (0, XEXP (PATTERN (insn), 3), trll);
+	    if (GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
+	      {
+		/* Scan each of the alternatives for label refs.  */
+		lvl = find_label_refs (XEXP (PATTERN (insn), 0), lvl);
+		lvl = find_label_refs (XEXP (PATTERN (insn), 1), lvl);
+		lvl = find_label_refs (XEXP (PATTERN (insn), 2), lvl);
+		/* Record its tail recursion label, if any.  */
+		if (XEXP (PATTERN (insn), 3) != NULL_RTX)
+		  trll = alloc_EXPR_LIST (0, XEXP (PATTERN (insn), 3), trll);
+	      }
 
 	    /* If there is an EH region or rethrow, we have an edge.  */
 	    if ((eh_list && region > 0)
@@ -1024,7 +1076,8 @@ make_edges (label_value_list)
 	 wouldn't have created the sibling call in the first place.  */
 
       if (code == CALL_INSN && SIBLING_CALL_P (insn))
-	make_edge (edge_cache, bb, EXIT_BLOCK_PTR, 0);
+	make_edge (edge_cache, bb, EXIT_BLOCK_PTR,
+		   EDGE_ABNORMAL | EDGE_ABNORMAL_CALL);
       else
 
       /* If this is a CALL_INSN, then mark it as reaching the active EH
@@ -1381,6 +1434,7 @@ split_edge (edge_in)
   /* Wire them up.  */
   bb->pred = edge_in;
   bb->succ = edge_out;
+  bb->count = edge_in->count;
 
   edge_in->dest = bb;
   edge_in->flags &= ~EDGE_CRITICAL;
@@ -1391,6 +1445,7 @@ split_edge (edge_in)
   edge_out->dest = old_succ;
   edge_out->flags = EDGE_FALLTHRU;
   edge_out->probability = REG_BR_PROB_BASE;
+  edge_out->count = edge_in->count;
 
   old_succ->pred = edge_out;
 
@@ -1556,7 +1611,7 @@ split_edge (edge_in)
 	  if (JUMP_LABEL (insn) != old_label)
 	    abort ();
 
-	  redirect_jump (insn, new_label);
+	  redirect_jump (insn, new_label, 0);
 	}
 
       emit_label_before (new_label, bb_note);
@@ -2449,13 +2504,14 @@ tidy_fallthru_edge (e, b, c)
      note.  */
   q = b->end;
   if (GET_CODE (q) == JUMP_INSN
-      && (simplejump_p (q)
+      && onlyjump_p (q)
+      && (any_uncondjump_p (q)
 	  || (b->succ == e && e->succ_next == NULL)))
     {
 #ifdef HAVE_cc0
       /* If this was a conditional jump, we need to also delete
 	 the insn that set cc0.  */
-      if (! simplejump_p (q) && condjump_p (q) && sets_cc0_p (PREV_INSN (q)))
+      if (any_condjump_p (q) && sets_cc0_p (PREV_INSN (q)))
 	q = PREV_INSN (q);
 #endif
 
@@ -3584,8 +3640,7 @@ init_propagate_block_info (bb, live, local_set, flags)
      from one side of the branch and not the other, record the register
      as conditionally dead.  */
   if (GET_CODE (bb->end) == JUMP_INSN
-      && condjump_p (bb->end)
-      && ! simplejump_p (bb->end))
+      && any_condjump_p (bb->end))
     {
       regset_head diff_head;
       regset diff = INITIALIZE_REG_SET (diff_head);
@@ -3808,7 +3863,7 @@ insn_dead_p (pbi, x, call_ok, notes)
 	  /* Walk the set of memory locations we are currently tracking
 	     and see if one is an identical match to this memory location.
 	     If so, this memory write is dead (remember, we're walking
-	     backwards from the end of the block to the start.  */
+	     backwards from the end of the block to the start).  */
 	  temp = pbi->mem_set_list;
 	  while (temp)
 	    {
@@ -4247,6 +4302,8 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 	invalidate_mems_from_autoinc (pbi, insn);
 
       if (GET_CODE (reg) == MEM && ! side_effects_p (reg)
+	  /* ??? With more effort we could track conditional memory life.  */
+	  && ! cond
 	  /* We do not know the size of a BLKmode store, so we do not track
 	     them for redundant store elimination.  */
 	  && GET_MODE (reg) != BLKmode
@@ -5063,6 +5120,24 @@ mark_used_reg (pbi, reg, cond, insn)
 			     (splay_tree_value) rcli);
 	}
     }
+  else if (some_was_live)
+    {
+      splay_tree_node node;
+      struct reg_cond_life_info *rcli;
+
+      node = splay_tree_lookup (pbi->reg_cond_dead, regno);
+      if (node != NULL)
+	{
+	  /* The register was conditionally live previously, but is now
+	     unconditionally so.  Remove it from the conditionally dead
+	     list, so that a conditional set won't cause us to think
+	     it dead.  */
+	  rcli = (struct reg_cond_life_info *) node->value;
+	  rcli->condition = NULL_RTX;
+	  splay_tree_remove (pbi->reg_cond_dead, regno);
+	}
+    }
+
 #endif
 }
 
@@ -5607,8 +5682,8 @@ dump_flow_info (file)
       register basic_block bb = BASIC_BLOCK (i);
       register edge e;
 
-      fprintf (file, "\nBasic block %d: first insn %d, last %d, loop_depth %d.\n",
-	       i, INSN_UID (bb->head), INSN_UID (bb->end), bb->loop_depth);
+      fprintf (file, "\nBasic block %d: first insn %d, last %d, loop_depth %d, count %d.\n",
+	       i, INSN_UID (bb->head), INSN_UID (bb->end), bb->loop_depth, bb->count);
 
       fprintf (file, "Predecessors: ");
       for (e = bb->pred; e ; e = e->pred_next)
@@ -5651,6 +5726,9 @@ dump_edge_info (file, e, do_succ)
   else
     fprintf (file, " %d", side->index);
 
+  if (e->count)
+    fprintf (file, " count:%d", e->count);
+
   if (e->flags)
     {
       static const char * const bitnames[] = {
@@ -5689,8 +5767,8 @@ dump_bb (bb, outf)
   rtx last;
   edge e;
 
-  fprintf (outf, ";; Basic block %d, loop depth %d",
-	   bb->index, bb->loop_depth);
+  fprintf (outf, ";; Basic block %d, loop depth %d, count %d",
+	   bb->index, bb->loop_depth, bb->count);
   if (bb->eh_beg != -1 || bb->eh_end != -1)
     fprintf (outf, ", eh regions %d/%d", bb->eh_beg, bb->eh_end);
   putc ('\n', outf);
@@ -6779,6 +6857,46 @@ add_noreturn_fake_exit_edges ()
     if (BASIC_BLOCK (x)->succ == NULL)
       make_edge (NULL, BASIC_BLOCK (x), EXIT_BLOCK_PTR, EDGE_FAKE);
 }
+
+/* Redirect an edge's successor from one block to another.  */
+
+void
+redirect_edge_succ (e, new_succ)
+     edge e;
+     basic_block new_succ;
+{
+  edge *pe;
+
+  /* Disconnect the edge from the old successor block.  */
+  for (pe = &e->dest->pred; *pe != e ; pe = &(*pe)->pred_next)
+    continue;
+  *pe = (*pe)->pred_next;
+
+  /* Reconnect the edge to the new successor block.  */
+  e->pred_next = new_succ->pred;
+  new_succ->pred = e;
+  e->dest = new_succ;
+}
+
+/* Redirect an edge's predecessor from one block to another.  */
+
+void
+redirect_edge_pred (e, new_pred)
+     edge e;
+     basic_block new_pred;
+{
+  edge *pe;
+
+  /* Disconnect the edge from the old predecessor block.  */
+  for (pe = &e->src->succ; *pe != e ; pe = &(*pe)->succ_next)
+    continue;
+  *pe = (*pe)->succ_next;
+
+  /* Reconnect the edge to the new predecessor block.  */
+  e->succ_next = new_pred->succ;
+  new_pred->succ = e;
+  e->src = new_pred;
+}
 
 /* Dump the list of basic blocks in the bitmap NODES.  */
 static void 
@@ -7475,6 +7593,7 @@ flow_loops_find (loops)
 
 
 /* Return non-zero if edge E enters header of LOOP from outside of LOOP.  */
+
 int
 flow_loop_outside_edge_p (loop, e)
      const struct loop *loop;
@@ -7488,6 +7607,7 @@ flow_loop_outside_edge_p (loop, e)
 
 
 /* Clear LOG_LINKS fields of insns in a chain.  */
+
 void
 clear_log_links (insns)
      rtx insns;
@@ -7497,3 +7617,25 @@ clear_log_links (insns)
     if (GET_RTX_CLASS (GET_CODE (i)) == 'i')
       LOG_LINKS (i) = 0;
 }
+
+/* Given a register bitmap, turn on the bits in a HARD_REG_SET that
+   correspond to the hard registers, if any, set in that map.  This
+   could be done far more efficiently by having all sorts of special-cases
+   with moving single words, but probably isn't worth the trouble.  */
+
+void
+reg_set_to_hard_reg_set (to, from)
+     HARD_REG_SET *to;
+     bitmap from;
+{
+  int i;
+
+  EXECUTE_IF_SET_IN_BITMAP
+    (from, 0, i,
+     {
+       if (i >= FIRST_PSEUDO_REGISTER)
+	 return;
+       SET_HARD_REG_BIT (*to, i);
+     });
+}
+

@@ -66,7 +66,7 @@ static int target_incomplete_p PARAMS((tree));
 static tree tinfo_base_init PARAMS((tree, tree));
 static tree generic_initializer PARAMS((tree, tree));
 static tree ptr_initializer PARAMS((tree, tree, int *));
-static tree ptmd_initializer PARAMS((tree, tree, int *));
+static tree ptm_initializer PARAMS((tree, tree, int *));
 static tree dfs_class_hint_mark PARAMS ((tree, void *));
 static tree dfs_class_hint_unmark PARAMS ((tree, void *));
 static int class_hint_flags PARAMS((tree));
@@ -548,7 +548,7 @@ get_base_offset (binfo, parent)
     /* Under the new ABI, we store the vtable offset at which
        the virtual base offset can be found.  */
     return convert (sizetype,
-		    BINFO_VPTR_FIELD (BINFO_FOR_VBASE (BINFO_TYPE (binfo),
+		    BINFO_VPTR_FIELD (binfo_for_vbase (BINFO_TYPE (binfo),
 						       parent)));
 
 }
@@ -930,11 +930,6 @@ expand_class_desc (tdecl, type)
   int i = CLASSTYPE_N_BASECLASSES (type);
   int base_cnt = 0;
   tree binfos = TYPE_BINFO_BASETYPES (type);
-#if 0
-  /* See code below that used these.  */
-  tree vb = CLASSTYPE_VBASECLASSES (type);
-  int n_base = i;
-#endif
   tree base, elems, access, offset, isvir;
   tree elt, elts = NULL_TREE;
 
@@ -947,23 +942,23 @@ expand_class_desc (tdecl, type)
       base_desc_type_node = make_aggr_type (RECORD_TYPE);
 
       /* Actually const __user_type_info * */
-      fields [0] = build_lang_decl
+      fields [0] = build_decl
 	(FIELD_DECL, NULL_TREE,
 	 build_pointer_type (build_qualified_type
 			     (type_info_type_node,
 			      TYPE_QUAL_CONST)));
-      fields [1] = build_lang_decl
+      fields [1] = build_decl
 	(FIELD_DECL, NULL_TREE, 
 	 flag_new_abi ? intSI_type_node : unsigned_intSI_type_node);
       DECL_BIT_FIELD (fields[1]) = 1;
       DECL_SIZE (fields[1]) = bitsize_int (29);
 
-      fields [2] = build_lang_decl (FIELD_DECL, NULL_TREE, boolean_type_node);
+      fields [2] = build_decl (FIELD_DECL, NULL_TREE, boolean_type_node);
       DECL_BIT_FIELD (fields[2]) = 1;
       DECL_SIZE (fields[2]) = bitsize_one_node;
 
       /* Actually enum access */
-      fields [3] = build_lang_decl (FIELD_DECL, NULL_TREE, integer_type_node);
+      fields [3] = build_decl (FIELD_DECL, NULL_TREE, integer_type_node);
       DECL_BIT_FIELD (fields[3]) = 1;
       DECL_SIZE (fields[3]) = bitsize_int (2);
 
@@ -1000,39 +995,6 @@ expand_class_desc (tdecl, type)
       elts = tree_cons (NULL_TREE, elt, elts);
       base_cnt++;
     }
-#if 0
-  i = n_base;
-  while (vb)
-    {
-      tree b;
-      access = access_public_node;
-      while (--i >= 0)
-	{
-	  b = TREE_VEC_ELT (binfos, i);
-	  if (BINFO_TYPE (vb) == BINFO_TYPE (b) && TREE_VIA_VIRTUAL (b))
-	    {
-	      if (TREE_VIA_PUBLIC (b))
-		access = access_public_node;
-	      else if (TREE_VIA_PROTECTED (b))
-		access = access_protected_node;
-	      else
-		access = access_private_node;
-	      break;
-	    }
-	}
-      base = build_t_desc (BINFO_TYPE (vb), 1);
-      offset = BINFO_OFFSET (vb);
-      isvir = build_int_2 (1, 0);
-
-      base_list = tree_cons (NULL_TREE, base, base_list);
-      isvir_list = tree_cons (NULL_TREE, isvir, isvir_list);
-      acc_list = tree_cons (NULL_TREE, access, acc_list);
-      off_list = tree_cons (NULL_TREE, offset, off_list);
-
-      base_cnt++;
-      vb = TREE_CHAIN (vb);
-    }
-#endif
 
   name_string = tinfo_name (type);
 
@@ -1423,7 +1385,7 @@ ptr_initializer (desc, target, non_public_ptr)
    base.  */
 
 static tree
-ptmd_initializer (desc, target, non_public_ptr)
+ptm_initializer (desc, target, non_public_ptr)
      tree desc;
      tree target;
      int *non_public_ptr;
@@ -1566,8 +1528,8 @@ synthesize_tinfo_var (target_type, real_name)
     case POINTER_TYPE:
       if (TYPE_PTRMEM_P (target_type))
         {
-          var_type = ptmd_desc_type_node;
-          var_init = ptmd_initializer (var_type, target_type, &non_public);
+          var_type = ptm_desc_type_node;
+          var_init = ptm_initializer (var_type, target_type, &non_public);
         }
       else
         {
@@ -1599,7 +1561,12 @@ synthesize_tinfo_var (target_type, real_name)
       break;
     case UNION_TYPE:
     case RECORD_TYPE:
-      if (!COMPLETE_TYPE_P (target_type))
+      if (TYPE_PTRMEMFUNC_P (target_type))
+        {
+          var_type = ptm_desc_type_node;
+          var_init = ptm_initializer (var_type, target_type, &non_public);
+        }
+      else if (!COMPLETE_TYPE_P (target_type))
         {
           /* Emit a non-public class_type_info.  */
           non_public = 1;
@@ -1796,7 +1763,7 @@ create_pseudo_type_info VPARAMS((const char *real_name, int ident, ...))
     }
 
   /* First field is the pseudo type_info base class. */
-  fields[0] = build_lang_decl (FIELD_DECL, NULL_TREE, ti_desc_type_node);
+  fields[0] = build_decl (FIELD_DECL, NULL_TREE, ti_desc_type_node);
   
   /* Now add the derived fields.  */
   for (ix = 0; (field_decl = va_arg (ap, tree));)
@@ -1846,9 +1813,9 @@ get_vmi_pseudo_type_info (num_bases)
 
   desc = create_pseudo_type_info
             ("__vmi_class_type_info", num_bases,
-             build_lang_decl (FIELD_DECL, NULL_TREE, integer_type_node),
-             build_lang_decl (FIELD_DECL, NULL_TREE, integer_type_node),
-             build_lang_decl (FIELD_DECL, NULL_TREE, base_array),
+             build_decl (FIELD_DECL, NULL_TREE, integer_type_node),
+             build_decl (FIELD_DECL, NULL_TREE, integer_type_node),
+             build_decl (FIELD_DECL, NULL_TREE, base_array),
              NULL);
 
   pop_nested_namespace (abi_node);
@@ -1879,8 +1846,8 @@ create_tinfo_types ()
     tree fields[2];
 
     ti_desc_type_node = make_aggr_type (RECORD_TYPE);
-    fields[0] = build_lang_decl (FIELD_DECL, NULL_TREE, const_ptr_type_node);
-    fields[1] = build_lang_decl (FIELD_DECL, NULL_TREE, const_string_type_node);
+    fields[0] = build_decl (FIELD_DECL, NULL_TREE, const_ptr_type_node);
+    fields[1] = build_decl (FIELD_DECL, NULL_TREE, const_string_type_node);
     finish_builtin_type (ti_desc_type_node, "__type_info_pseudo",
                          fields, 1, ptr_type_node);
     TYPE_HAS_CONSTRUCTOR (ti_desc_type_node) = 1;
@@ -1889,14 +1856,6 @@ create_tinfo_types ()
   /* Fundamental type_info */
   bltn_desc_type_node = create_pseudo_type_info
       ("__fundamental_type_info", 0,
-       NULL);
-
-  /* Pointer type_info. Adds two fields, qualification mask
-     and pointer to the pointed to type.  */
-  ptr_desc_type_node = create_pseudo_type_info
-      ("__pointer_type_info", 0,
-       build_lang_decl (FIELD_DECL, NULL_TREE, integer_type_node),
-       build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
        NULL);
 
   /* Array, function and enum type_info. No additional fields. */
@@ -1919,7 +1878,7 @@ create_tinfo_types ()
      This is really a descendant of __class_type_info.  */
   si_class_desc_type_node = create_pseudo_type_info
            ("__si_class_type_info", 0,
-            build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
+            build_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
             NULL);
   
   /* Base class internal helper. Pointer to base type, offset to base,
@@ -1927,8 +1886,8 @@ create_tinfo_types ()
   {
     tree fields[2];
     
-    fields[0] = build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info);
-    fields[1] = build_lang_decl (FIELD_DECL, NULL_TREE, integer_types[itk_long]);
+    fields[0] = build_decl (FIELD_DECL, NULL_TREE, ptr_type_info);
+    fields[1] = build_decl (FIELD_DECL, NULL_TREE, integer_types[itk_long]);
     base_desc_type_node = make_aggr_type (RECORD_TYPE);
     finish_builtin_type (base_desc_type_node, "__base_class_type_info_pseudo",
                          fields, 1, ptr_type_node);
@@ -1938,14 +1897,23 @@ create_tinfo_types ()
   /* General heirarchy is created as necessary in this vector. */
   vmi_class_desc_type_node = make_tree_vec (10);
   
+  /* Pointer type_info. Adds two fields, qualification mask
+     and pointer to the pointed to type.  This is really a descendant of
+     __pbase_type_info. */
+  ptr_desc_type_node = create_pseudo_type_info
+      ("__pointer_type_info", 0,
+       build_decl (FIELD_DECL, NULL_TREE, integer_type_node),
+       build_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
+       NULL);
+
   /* Pointer to member data type_info.  Add qualifications flags,
      pointer to the member's type info and pointer to the class.
-     This is really a descendant of __pointer_type_info.  */
-  ptmd_desc_type_node = create_pseudo_type_info
+     This is really a descendant of __pbase_type_info.  */
+  ptm_desc_type_node = create_pseudo_type_info
        ("__pointer_to_member_type_info", 0,
-        build_lang_decl (FIELD_DECL, NULL_TREE, integer_type_node),
-        build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
-        build_lang_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
+        build_decl (FIELD_DECL, NULL_TREE, integer_type_node),
+        build_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
+        build_decl (FIELD_DECL, NULL_TREE, ptr_type_info),
         NULL);
 
   pop_nested_namespace (abi_node);

@@ -2513,7 +2513,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
        actually came from I3, so that REG_UNUSED notes from I2 will be
        properly handled.  */
 
-    if (i3_subst_into_i2)
+    if (i3_subst_into_i2 && GET_CODE (PATTERN (i2)) == PARALLEL)
       {
 	if (GET_CODE (PATTERN (i2)) == PARALLEL)
 	  {
@@ -2738,7 +2738,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
        BARRIER following it since it may have initially been a
        conditional jump.  It may also be the last nonnote insn.  */
     
-    if (GET_CODE (newpat) == RETURN || simplejump_p (i3))
+    if (GET_CODE (newpat) == RETURN || any_uncondjump_p (i3))
       {
 	*new_direct_jump_p = 1;
 
@@ -3401,6 +3401,18 @@ subst (x, from, to, in_dest, unique_copy)
 		      )
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 
+#ifdef CLASS_CANNOT_CHANGE_SIZE
+		  if (code == SUBREG
+		      && GET_CODE (to) == REG
+		      && REGNO (to) < FIRST_PSEUDO_REGISTER
+		      && (TEST_HARD_REG_BIT
+			  (reg_class_contents[(int) CLASS_CANNOT_CHANGE_SIZE],
+			   REGNO (to)))
+		      && (GET_MODE_BITSIZE (GET_MODE (to)) 
+			  != GET_MODE_BITSIZE (GET_MODE (x))))
+		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
+#endif
+
 		  new = (unique_copy && n_occurrences ? copy_rtx (to) : to);
 		  n_occurrences++;
 		}
@@ -3578,37 +3590,44 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
 	  true = subst (true, pc_rtx, pc_rtx, 0, 0);
 	  false = subst (false, pc_rtx, pc_rtx, 0, 0);
 
-	  /* Restarting if we generate a store-flag expression will cause
-	     us to loop.  Just drop through in this case.  */
+	  /* If true and false are not general_operands, an if_then_else
+	     is unlikely to be simpler.  */
+	  if (general_operand (true, VOIDmode)
+	      && general_operand (false, VOIDmode))
+	    {
+	      /* Restarting if we generate a store-flag expression will cause
+		 us to loop.  Just drop through in this case.  */
 
-	  /* If the result values are STORE_FLAG_VALUE and zero, we can
-	     just make the comparison operation.  */
-	  if (true == const_true_rtx && false == const0_rtx)
-	    x = gen_binary (cond_code, mode, cond, cop1);
-	  else if (true == const0_rtx && false == const_true_rtx)
-	    x = gen_binary (reverse_condition (cond_code), mode, cond, cop1);
+	      /* If the result values are STORE_FLAG_VALUE and zero, we can
+		 just make the comparison operation.  */
+	      if (true == const_true_rtx && false == const0_rtx)
+		x = gen_binary (cond_code, mode, cond, cop1);
+	      else if (true == const0_rtx && false == const_true_rtx)
+		x = gen_binary (reverse_condition (cond_code),
+				mode, cond, cop1);
 
-	  /* Likewise, we can make the negate of a comparison operation
-	     if the result values are - STORE_FLAG_VALUE and zero.  */
-	  else if (GET_CODE (true) == CONST_INT
-		   && INTVAL (true) == - STORE_FLAG_VALUE
-		   && false == const0_rtx)
-	    x = gen_unary (NEG, mode, mode,
-			   gen_binary (cond_code, mode, cond, cop1));
-	  else if (GET_CODE (false) == CONST_INT
-		   && INTVAL (false) == - STORE_FLAG_VALUE
-		   && true == const0_rtx)
-	    x = gen_unary (NEG, mode, mode,
-			   gen_binary (reverse_condition (cond_code), 
-				       mode, cond, cop1));
-	  else
-	    return gen_rtx_IF_THEN_ELSE (mode,
-					 gen_binary (cond_code, VOIDmode,
-						     cond, cop1),
-					 true, false);
+	      /* Likewise, we can make the negate of a comparison operation
+		 if the result values are - STORE_FLAG_VALUE and zero.  */
+	      else if (GET_CODE (true) == CONST_INT
+		       && INTVAL (true) == - STORE_FLAG_VALUE
+		       && false == const0_rtx)
+		x = gen_unary (NEG, mode, mode,
+			       gen_binary (cond_code, mode, cond, cop1));
+	      else if (GET_CODE (false) == CONST_INT
+		       && INTVAL (false) == - STORE_FLAG_VALUE
+		       && true == const0_rtx)
+		x = gen_unary (NEG, mode, mode,
+			       gen_binary (reverse_condition (cond_code), 
+					   mode, cond, cop1));
+	      else
+		return gen_rtx_IF_THEN_ELSE (mode,
+					     gen_binary (cond_code, VOIDmode,
+							 cond, cop1),
+					     true, false);
 
-	  code = GET_CODE (x);
-	  op0_mode = VOIDmode;
+	      code = GET_CODE (x);
+	      op0_mode = VOIDmode;
+	    }
 	}
     }
 
@@ -4218,7 +4237,17 @@ combine_simplify_rtx (x, op0_mode, last, in_dest)
       if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT
 	  && (nonzero_bits (XEXP (x, 0), mode)
 	      & nonzero_bits (XEXP (x, 1), mode)) == 0)
-	return gen_binary (IOR, mode, XEXP (x, 0), XEXP (x, 1));
+	{
+	  /* Try to simplify the expression further.  */
+	  rtx tor = gen_binary (IOR, mode, XEXP (x, 0), XEXP (x, 1));
+	  temp = combine_simplify_rtx (tor, mode, last, in_dest);
+
+	  /* If we could, great.  If not, do not go ahead with the IOR
+	     replacement, since PLUS appears in many special purpose
+	     address arithmetic instructions.  */
+	  if (GET_CODE (temp) != CLOBBER && temp != tor)
+	    return temp;
+	}
       break;
 
     case MINUS:
@@ -6818,11 +6847,32 @@ force_to_mode (x, mode, mask, reg, just_select)
 
       /* ... fall through ...  */
 
-    case MINUS:
     case MULT:
       /* For PLUS, MINUS and MULT, we need any bits less significant than the
 	 most significant bit in MASK since carries from those bits will
 	 affect the bits we are interested in.  */
+      mask = fuller_mask;
+      goto binop;
+
+    case MINUS:
+      /* If X is (minus C Y) where C's least set bit is larger than any bit
+	 in the mask, then we may replace with (neg Y).  */
+      if (GET_CODE (XEXP (x, 0)) == CONST_INT
+	  && (INTVAL (XEXP (x, 0)) & -INTVAL (XEXP (x, 0))) > mask)
+	{
+	  x = gen_unary (NEG, GET_MODE (x), GET_MODE (x), XEXP (x, 1));
+	  return force_to_mode (x, mode, mask, reg, next_select);
+	}
+
+      /* Similarly, if C contains every bit in the mask, then we may
+	 replace with (not Y).  */
+      if (GET_CODE (XEXP (x, 0)) == CONST_INT
+          && (INTVAL (XEXP (x, 0)) | mask) == INTVAL (XEXP (x, 0)))
+	{
+	  x = gen_unary (NOT, GET_MODE (x), GET_MODE (x), XEXP (x, 1));
+	  return force_to_mode (x, mode, mask, reg, next_select);
+	}
+
       mask = fuller_mask;
       goto binop;
 
@@ -10041,9 +10091,7 @@ simplify_comparison (code, pop0, pop1)
 
       /* Get the constant we are comparing against and turn off all bits
 	 not on in our mode.  */
-      const_op = INTVAL (op1);
-      if (mode_width <= HOST_BITS_PER_WIDE_INT)
-	const_op &= mask;
+      const_op = trunc_int_for_mode (INTVAL (op1), mode);
 
       /* If we are comparing against a constant power of two and the value
 	 being compared can only have that single bit nonzero (e.g., it was

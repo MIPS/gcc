@@ -1392,7 +1392,7 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	      name = is_constructor ? ctor_identifier : dtor_identifier;
 	    }
 
-	  if (!IDENTIFIER_TYPENAME_P (name))
+	  if (!DECL_CONV_FN_P (decl))
 	    {
 	      idx = lookup_fnfields_1 (ctype, name);
 	      if (idx >= 0)
@@ -5687,7 +5687,7 @@ tsubst_decl (t, args, type, in_decl)
 			      /*complain=*/1, t,
 			      /*entering_scope=*/1);
 
-	if (member && IDENTIFIER_TYPENAME_P (DECL_NAME (r)))
+	if (member && DECL_CONV_FN_P (r))
 	  /* Type-conversion operator.  Reconstruct the name, in
 	     case it's the name of one of the template's parameters.  */
 	  DECL_NAME (r) = build_typename_overload (TREE_TYPE (type));
@@ -5784,12 +5784,13 @@ tsubst_decl (t, args, type, in_decl)
 					    in_decl);
 	  }
 
-	if (DECL_CONSTRUCTOR_P (r))
+	if (DECL_CONSTRUCTOR_P (r) || DECL_DESTRUCTOR_P (r))
 	  {
 	    maybe_retrofit_in_chrg (r);
-	    grok_ctor_properties (ctx, r);
+	    if (DECL_CONSTRUCTOR_P (r))
+	      grok_ctor_properties (ctx, r);
 	  }
-	else if (DECL_OVERLOADED_OPERATOR_P (r))
+	else if (IDENTIFIER_OPNAME_P (DECL_NAME (r)))
 	  grok_op_properties (r, DECL_VIRTUAL_P (r), DECL_FRIEND_P (r));
       }
       break;
@@ -7055,12 +7056,9 @@ tsubst_copy (t, args, complain, in_decl)
       return tsubst (t, args, complain, in_decl);
 
     case IDENTIFIER_NODE:
-      if (IDENTIFIER_TYPENAME_P (t)
-	  /* Make sure it's not just a variable named `__opr', for instance,
-	     which can occur in some existing code.  */
-	  && TREE_TYPE (t))
-	return build_typename_overload
-	  (tsubst (TREE_TYPE (t), args, complain, in_decl));
+      if (IDENTIFIER_TYPENAME_P (t))
+	return (build_typename_overload
+		(tsubst (TREE_TYPE (t), args, complain, in_decl)));
       else
 	return t;
 
@@ -9871,7 +9869,6 @@ static void
 set_mangled_name_for_template_decl (decl)
      tree decl;
 {
-  tree saved_namespace;
   tree context = NULL_TREE;
   tree fn_type;
   tree ret_type;
@@ -9987,21 +9984,10 @@ set_mangled_name_for_template_decl (decl)
   my_friendly_assert (TREE_VEC_LENGTH (tparms) == TREE_VEC_LENGTH (targs),
 		      0);
 
-  /* If the template is in a namespace, we need to put that into the
-     mangled name. Unfortunately, build_decl_overload_real does not
-     get the decl to mangle, so it relies on the current
-     namespace. Therefore, we set that here temporarily. */
-  my_friendly_assert (DECL_P (decl), 980702);
-  saved_namespace = current_namespace;
-  current_namespace = CP_DECL_CONTEXT (decl);  
-
   /* Actually set the DCL_ASSEMBLER_NAME.  */
   DECL_ASSEMBLER_NAME (decl)
-    = build_decl_overload_real (DECL_NAME (decl), parm_types, ret_type,
+    = build_decl_overload_real (decl, parm_types, ret_type,
 				tparms, targs, 
 				DECL_FUNCTION_MEMBER_P (decl) 
 				+ DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (decl));
-
-  /* Restore the previously active namespace.  */
-  current_namespace = saved_namespace;
 }
