@@ -1,3 +1,8 @@
+2003-11-22  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (build_dfs_id_array_1): > should be >=
+	(build_dfn_array): Ditto.
+	
 2003-11-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (tree-dfa.o): Add dependency on $(TREE_DUMP_H)

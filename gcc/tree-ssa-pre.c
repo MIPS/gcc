@@ -900,7 +900,7 @@ static void
 build_dfs_id_array_1 (basic_block bb, int *id)
 {
   int i;
-  if (bb->index > 0)
+  if (bb->index >= 0)
     dfs_id[bb->index] = *id;
   
   ++(*id);
@@ -909,7 +909,7 @@ build_dfs_id_array_1 (basic_block bb, int *id)
     {
       build_dfs_id_array_1 (BASIC_BLOCK (i), id);
     });
-  if (bb->index > 0)
+  if (bb->index >= 0)
     dfs_id_last[bb->index] = *id - 1;
   
 }
@@ -932,7 +932,7 @@ static int
 build_dfn_array (basic_block bb, int num)
 {
   int i;
-  if (bb->index > 0)
+  if (bb->index >= 0)
     dfn[bb->index] = num;
   if (dom_children (bb))
     EXECUTE_IF_SET_IN_BITMAP (dom_children (bb), 0, i,
