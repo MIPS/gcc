@@ -1,3 +1,24 @@
+2003-12-07  Jan Hubicka  <jh@suse.cz>
+
+	* c-decl.c (finish_decl): Use change_decl_assembler-name.
+	(finish_function): Rename flag_unit_at_time to flag-unit_at_a_time.
+	* c-objc-common (finish_cdtor): Likewise.
+	* tree-inline.c (expand_call_inline): Likewise.
+	* cgraph.c: Merge from mainline
+	* cgraph.h: Merge from mainline.
+	* cgraphunit.c: Merge from mainline.
+	* dwarf2out.c (gen_subprogram_die): Use flag-unit_at_a_time.
+	* flags.h (flag_unit_at_time): Rename to ...
+	(flag_unit_at_a_time): ... this one.
+	* langhooks.h: Merge with mainline.
+	* lanhooks.c (lhd_callgraph_analyze_expr): New.
+	* toplev.h (flag_unit_at_time): Rename to ...
+	(flag_unit_at_a_time): ... this one.
+	(wrapup_global_declarations): Merge form mainline.
+	* tree.h (change_decl_assembler-name): Declare.
+	(notice_global_symbol): liekwsie.
+	* varasm.c (notice_global_symbol): New.
+
 2003-12-08  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (cmpstr expander): Obey TARGET_INLINE_ALL_STRINGOPS

@@ -3100,7 +3100,7 @@ finish_decl (decl, init, asmspec_tree)
     {
       DECL_BUILT_IN_CLASS (decl) = NOT_BUILT_IN;
       SET_DECL_RTL (decl, NULL_RTX);
-      cgraph_set_decl_assembler_name (decl, get_identifier (asmspec));
+      change_decl_assembler_name (decl, get_identifier (asmspec));
     }
 
   /* Output the assembler code and/or RTL code for variables and functions,
@@ -3148,7 +3148,7 @@ finish_decl (decl, init, asmspec_tree)
 		warning_with_decl (decl,
 				   "ignoring asm-specifier for non-static local variable `%s'");
 	      else
-		cgraph_set_decl_assembler_name (decl, get_identifier (asmspec));
+		change_decl_assembler_name (decl, get_identifier (asmspec));
 	    }
 
 	  if (TREE_CODE (decl) != FUNCTION_DECL)
@@ -6537,7 +6537,7 @@ finish_function (nested, can_defer_p)
   free_after_compilation (cfun);
   cfun = NULL;
 
-  if (flag_unit_at_time)
+  if (flag_unit_at_a_time)
     {
       cgraph_finalize_function (fndecl, DECL_SAVED_TREE (fndecl));
       current_function_decl = NULL;

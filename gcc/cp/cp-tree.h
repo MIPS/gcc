@@ -1886,7 +1886,7 @@ struct lang_decl GTY(())
   ((at_eof && TREE_PUBLIC (DECL) && !DECL_COMDAT (DECL))	\
    || (DECL_ASSEMBLER_NAME_SET_P (DECL)				\
        && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL)))	\
-   || (((flag_syntax_only || flag_unit_at_time) && TREE_USED (DECL))))
+   || (((flag_syntax_only || flag_unit_at_a_time) && TREE_USED (DECL))))
 
 /* Nonzero iff DECL is memory-based.  The DECL_RTL of
    certain const variables might be a CONST_INT, or a REG
@@ -4274,8 +4274,8 @@ extern void finish_eh_cleanup                   PARAMS ((tree));
 extern void finish_named_return_value           PARAMS ((tree, tree));
 extern void expand_body                         PARAMS ((tree));
 extern void expand_or_defer_fn                  PARAMS ((tree));
-extern void lower_function			PARAMS ((tree));
 extern tree nullify_returns_r		      PARAMS ((tree *, int *, void *));
+extern tree cxx_callgraph_analyze_expr		PARAMS ((tree *, int *, tree));
 extern void do_pushlevel                        PARAMS ((void));
 extern tree do_poplevel                         PARAMS ((void));
 extern void begin_mem_initializers              (void);

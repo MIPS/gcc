@@ -360,7 +360,7 @@ finish_cdtor (body)
 void
 c_objc_common_finish_file ()
 {
-  if (flag_unit_at_time)
+  if (flag_unit_at_a_time)
     {
       cgraph_finalize_compilation_unit ();
       cgraph_optimize ();

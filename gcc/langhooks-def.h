@@ -82,6 +82,7 @@ int lhd_tree_inlining_anon_aggr_type_p		PARAMS ((tree));
 int lhd_tree_inlining_start_inlining		PARAMS ((tree));
 void lhd_tree_inlining_end_inlining		PARAMS ((tree));
 tree lhd_tree_inlining_convert_parm_for_inlining PARAMS ((tree, tree, tree));
+extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
 void write_global_declarations PARAMS ((void));
 
@@ -170,13 +171,13 @@ void write_global_declarations PARAMS ((void));
   LANG_HOOKS_TREE_INLINING_ESTIMATE_NUM_INSNS \
 } \
 
-#define LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION NULL
+#define LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR lhd_callgraph_analyze_expr
 #define LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION NULL
 
 #define LANG_HOOKS_CALLGRAPH_INITIALIZER { \
-  LANG_HOOKS_CALLGRAPH_LOWER_FUNCTION, \
+  LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR, \
   LANG_HOOKS_CALLGRAPH_EXPAND_FUNCTION, \
-} \
+}
 
 #define LANG_HOOKS_FUNCTION_INITIALIZER {	\
   LANG_HOOKS_FUNCTION_INIT,			\

@@ -1166,7 +1166,7 @@ expand_call_inline (tp, walk_subtrees, data)
     return NULL_TREE;
 
   /* Turn forward declarations into real ones.  */
-  if (flag_unit_at_time)
+  if (flag_unit_at_a_time)
     fn = cgraph_node (fn)->decl;
 
   /* If fn is a declaration of a function in a nested scope that was
@@ -1184,8 +1184,8 @@ expand_call_inline (tp, walk_subtrees, data)
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
   if (!DECL_SAVED_TREE (fn)
-      || (flag_unit_at_time && !cgraph_inline_p (id->current_decl, fn))
-      || (!flag_unit_at_time && !inlinable_function_p (fn, id, 0)))
+      || (flag_unit_at_a_time && !cgraph_inline_p (id->current_decl, fn))
+      || (!flag_unit_at_a_time && !inlinable_function_p (fn, id, 0)))
     {
       if (warn_inline && DECL_INLINE (fn) && !DID_INLINE_FUNC (fn)
 	  && !DECL_IN_SYSTEM_HEADER (fn))
@@ -1416,7 +1416,7 @@ expand_call_inline (tp, walk_subtrees, data)
   id->inlined_stmts += DECL_ESTIMATED_INSNS (fn) - 1;
 
   /* Update callgraph if needed.  */
-  if (id->decl && flag_unit_at_time)
+  if (id->decl && flag_unit_at_a_time)
     {
       cgraph_remove_call (id->decl, fn);
       cgraph_create_edges (id->decl, *inlined_body);

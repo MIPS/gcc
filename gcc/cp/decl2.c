@@ -1792,7 +1792,7 @@ output_vtable_inherit (vars)
 {
   tree parent;
   rtx child_rtx, parent_rtx;
-  if (flag_unit_at_time)
+  if (flag_unit_at_a_time)
     return;
 
   child_rtx = XEXP (DECL_RTL (vars), 0);	  /* strip the mem ref  */
@@ -2760,15 +2760,18 @@ generate_ctor_and_dtor_functions_for_priority (n, data)
   return 0;
 }
 
-/* Callgraph code does not understand the member pointers.  Mark the methods
-   referenced as used.  */
-static tree
-mark_member_pointers (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		      void *data ATTRIBUTE_UNUSED)
+/* Called via LANGHOOK_CALLGRAPH_ANALYZE_EXPR.  It is supposed to mark
+   decls referenced from frontend specific constructs; it will be called
+   only for language-specific tree nodes.
+
+   Here we must deal with member pointers.  */
+
+tree
+cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+			    tree from ATTRIBUTE_UNUSED)
 {
-  if (TREE_CODE (*tp) == PTRMEM_CST
-      && TREE_CODE (PTRMEM_CST_MEMBER (*tp)) == FUNCTION_DECL)
-    cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (*tp)), 1);
+  tree t = *tp;
+
   if (TREE_CODE (*tp) == EH_SPEC_BLOCK)
     {
       tree type;
@@ -2810,16 +2813,23 @@ mark_member_pointers (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 	  cgraph_varpool_mark_needed_node (cgraph_varpool_node (tinfo));
 	}
     }
-  return 0;
-}
+  if (flag_unit_at_a_time)
+    switch (TREE_CODE (t))
+      {
+      case PTRMEM_CST:
+	if (TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
+	  cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (t)));
+	break;
+      case BASELINK:
+	if (TREE_CODE (BASELINK_FUNCTIONS (t)) == FUNCTION_DECL)
+	  cgraph_mark_needed_node (cgraph_node (BASELINK_FUNCTIONS (t)));
+	break;
 
-/* Called via LANGHOOK_CALLGRAPH_LOWER_FUNCTION.  It is supposed to lower
-   frontend specific constructs that would otherwise confuse the middle end.  */
-void
-lower_function (tree fn)
-{
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (fn), mark_member_pointers,
-				NULL);
+      default:
+	break;
+      }
+
+  return NULL;
 }
 
 
@@ -3022,7 +3032,7 @@ finish_file ()
 	      && DECL_NEEDED_P (decl)
 	      && DECL_SAVED_TREE (decl)
 	      && !TREE_ASM_WRITTEN (decl)
-	      && (!flag_unit_at_time 
+	      && (!flag_unit_at_a_time 
 		  || !cgraph_node (decl)->local.finalized))
 	    {
 	      /* We will output the function; no longer consider it in this
@@ -3105,7 +3115,7 @@ finish_file ()
      linkage now.  */
   pop_lang_context ();
 
-  if (flag_unit_at_time)
+  if (flag_unit_at_a_time)
     {
       cgraph_finalize_compilation_unit ();
       cgraph_optimize ();

@@ -925,7 +925,7 @@ make_decl_rtl (decl, asmspec)
 
   if (name != new_name)
     {
-      cgraph_set_decl_assembler_name (decl, get_identifier (new_name));
+      change_decl_assembler_name (decl, get_identifier (new_name));
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
     }
 
@@ -1134,6 +1134,44 @@ default_ctor_section_asm_out_constructor (symbol, priority)
 #define CONSTANT_POOL_BEFORE_FUNCTION 1
 #endif
 
+/* DECL is an object (either VAR_DECL or FUNCTION_DECL) which is going
+   to be output to assembler.
+   Set first_global_object_name and weak_global_object_name as appropriate.  */
+
+void
+notice_global_symbol (tree decl)
+{
+  const char **type = &first_global_object_name;
+
+  if (first_global_object_name
+      || !TREE_PUBLIC (decl) || DECL_EXTERNAL (decl)
+      || !DECL_NAME (decl)
+      || (TREE_CODE (decl) != FUNCTION_DECL
+	  && (TREE_CODE (decl) != VAR_DECL
+	      || (DECL_COMMON (decl)
+		  && (DECL_INITIAL (decl) == 0
+		      || DECL_INITIAL (decl) == error_mark_node))))
+      || GET_CODE (DECL_RTL (decl)) != MEM)
+    return;
+
+  /* We win when global object is found, but it is usefull to know about weak
+     symbol as well so we can produce nicer unique names.  */
+  if (DECL_WEAK (decl) || DECL_ONE_ONLY (decl))
+    type = &weak_global_object_name;
+
+  if (!*type)
+    {
+      const char *p;
+      char *name;
+      rtx decl_rtl = DECL_RTL (decl);
+
+      p = (* targetm.strip_name_encoding) (XSTR (XEXP (decl_rtl, 0), 0));
+      name = xstrdup (p);
+
+      *type = name;
+    }
+}
+
 /* Output assembler code for the constant pool of a function and associated
    with defining the name of the function.  DECL describes the function.
    NAME is the function's name.  For the constant pool, we use the current
@@ -1189,19 +1227,7 @@ assemble_start_function (decl, fnname)
 
   if (TREE_PUBLIC (decl))
     {
-      if (! first_global_object_name)
-	{
-	  const char *p;
-	  char *name;
-
-	  p = (* targetm.strip_name_encoding) (fnname);
-	  name = xstrdup (p);
-
-	  if (! DECL_WEAK (decl) && ! DECL_ONE_ONLY (decl))
-	    first_global_object_name = name;
-	  else
-	    weak_global_object_name = name;
-	}
+      notice_global_symbol (decl);
 
       globalize_decl (decl);
 
@@ -1507,20 +1533,8 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
     }
 
   name = XSTR (XEXP (decl_rtl, 0), 0);
-  if (TREE_PUBLIC (decl) && DECL_NAME (decl)
-      && ! first_global_object_name
-      && ! (DECL_COMMON (decl) && (DECL_INITIAL (decl) == 0
-				   || DECL_INITIAL (decl) == error_mark_node))
-      && ! DECL_WEAK (decl)
-      && ! DECL_ONE_ONLY (decl))
-    {
-      const char *p;
-      char *xname;
-
-      p = (* targetm.strip_name_encoding) (name);
-      xname = xstrdup (p);
-      first_global_object_name = xname;
-    }
+  if (TREE_PUBLIC (decl) && DECL_NAME (decl))
+    notice_global_symbol (decl);
 
   /* Compute the alignment of this data.  */
 
@@ -1768,7 +1782,7 @@ mark_referenced (tree id)
 	{
 	  node = cgraph_node_for_identifier (id);
 	  if (node)
-	    cgraph_mark_needed_node (node, 1);
+	    cgraph_mark_needed_node (node);
 	}
 
       vnode = cgraph_varpool_node_for_identifier (id);

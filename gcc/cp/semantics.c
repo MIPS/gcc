@@ -2330,7 +2330,7 @@ expand_body (tree fn)
   const char *saved_input_filename;
   tree saved_function;
   
-  if (flag_unit_at_time && !cgraph_global_info_ready)
+  if (flag_unit_at_a_time && !cgraph_global_info_ready)
     abort ();
 
   /* Compute the appropriate object-file linkage for inline
@@ -2448,10 +2448,10 @@ expand_or_defer_fn (fn)
   if (flag_syntax_only)
     return;
 
-  if (flag_unit_at_time && cgraph_global_info_ready)
+  if (flag_unit_at_a_time && cgraph_global_info_ready)
     abort ();
 
-  if (flag_unit_at_time && !cgraph_global_info_ready)
+  if (flag_unit_at_a_time && !cgraph_global_info_ready)
     {
       if (at_eof)
 	{

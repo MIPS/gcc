@@ -23,7 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_CGRAPH_H
 
 /* Information about the function collected locally.
-   Available after function is lowered  */
+   Available after function is analyzed.  */
 
 struct cgraph_local_info GTY(())
 {
@@ -33,10 +33,10 @@ struct cgraph_local_info GTY(())
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
 
-  /* False when there is something making inlining impossible (such as va_arg) */
+  /* False when there something makes inlining impossible (such as va_arg).  */
   bool inlinable;
   /* True when function should be inlined independently on it's size.  */
-  bool disgread_inline_limits;
+  bool disregard_inline_limits;
   /* Size of the function before inlining.  */
   int self_insns;
 };
@@ -52,9 +52,6 @@ struct cgraph_global_info GTY(())
   /* Estimated size of the function after inlining.  */
   int insns;
 
-  /* Number of direct calls not inlined into the function body.  */
-  int calls;
-
   /* Number of times given function will be cloned during output.  */
   int cloned_times;
 
@@ -62,6 +59,9 @@ struct cgraph_global_info GTY(())
      Once we inline all calls to the function and the function is local,
      it is set to false.  */
   bool will_be_output;
+
+  /* Set iff at least one of the caller edges has inline_call flag set.  */
+  bool inlined;
 };
 
 /* Information about the function that is propagated by the RTL backend.
@@ -78,7 +78,7 @@ struct cgraph_rtl_info GTY(())
 /* The cgraph data strutcture.
    Each function decl has assigned cgraph_node listing callees and callers.  */
 
-struct cgraph_node GTY(())
+struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
 {
   tree decl;
   struct cgraph_edge *callees;
@@ -103,10 +103,9 @@ struct cgraph_node GTY(())
   /* Set when function is reachable by call from other function
      that is either reachable or needed.  */
   bool reachable;
-  /* Set when the frontend has been asked to lower representation of this
-     function into trees.  Callees lists are not available when lowered
-     is not set.  */
-  bool lowered;
+  /* Set once the function has been instantiated and its callee
+     lists created.  */
+  bool analyzed;
   /* Set when function is scheduled to be assembled.  */
   bool output;
   struct cgraph_local_info local;
@@ -153,31 +152,35 @@ extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
 
 
 /* In cgraph.c  */
-void dump_cgraph			PARAMS ((FILE *));
-void cgraph_remove_call			PARAMS ((tree, tree));
-void cgraph_remove_node			PARAMS ((struct cgraph_node *));
-struct cgraph_edge *cgraph_record_call	PARAMS ((tree, tree));
-struct cgraph_node *cgraph_node		PARAMS ((tree decl));
-struct cgraph_node *cgraph_node_for_identifier	PARAMS ((tree id));
-bool cgraph_calls_p			PARAMS ((tree, tree));
-struct cgraph_local_info *cgraph_local_info PARAMS ((tree));
-struct cgraph_global_info *cgraph_global_info PARAMS ((tree));
-struct cgraph_rtl_info *cgraph_rtl_info PARAMS ((tree));
-const char * cgraph_node_name PARAMS ((struct cgraph_node *));
+void dump_cgraph (FILE *);
+void cgraph_remove_edge (struct cgraph_node *, struct cgraph_node *);
+void cgraph_remove_call (tree, tree);
+void cgraph_remove_node (struct cgraph_node *);
+struct cgraph_edge *cgraph_record_call (tree, tree);
+struct cgraph_node *cgraph_node (tree decl);
+struct cgraph_node *cgraph_node_for_identifier (tree id);
+bool cgraph_calls_p (tree, tree);
+struct cgraph_local_info *cgraph_local_info (tree);
+struct cgraph_global_info *cgraph_global_info (tree);
+struct cgraph_rtl_info *cgraph_rtl_info (tree);
+const char * cgraph_node_name (struct cgraph_node *);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree decl);
 struct cgraph_varpool_node *cgraph_varpool_node_for_identifier (tree id);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
-void cgraph_set_decl_assembler_name (tree decl, tree name);
+
+bool cgraph_function_possibly_inlined_p (tree);
 
 /* In cgraphunit.c  */
-void cgraph_finalize_function		PARAMS ((tree, tree));
-void cgraph_finalize_compilation_unit	PARAMS ((void));
-void cgraph_create_edges		PARAMS ((tree, tree));
-void cgraph_optimize			PARAMS ((void));
-void cgraph_mark_needed_node		PARAMS ((struct cgraph_node *, int));
-bool cgraph_inline_p			PARAMS ((tree, tree));
+bool cgraph_assemble_pending_functions (void);
+void cgraph_finalize_function (tree, bool);
+void cgraph_finalize_compilation_unit (void);
+void cgraph_create_edges (tree, tree);
+void cgraph_optimize (void);
+void cgraph_mark_needed_node (struct cgraph_node *);
+void cgraph_mark_reachable_node (struct cgraph_node *);
+bool cgraph_inline_p (tree, tree);
 
 #endif  /* GCC_CGRAPH_H  */

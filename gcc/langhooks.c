@@ -481,3 +481,11 @@ write_global_declarations ()
     /* Clean up.  */
   free (vec);
 }
+
+tree
+lhd_callgraph_analyze_expr (tree *tp ATTRIBUTE_UNUSED,
+			    int *walk_subtrees ATTRIBUTE_UNUSED,
+			    tree decl ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}

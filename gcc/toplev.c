@@ -934,7 +934,7 @@ int flag_tracer = 0;
 
 /* Nonzero if we porform compilation unit at time compilation.  */
 
-int flag_unit_at_time = 0;
+int flag_unit_at_a_time = 0;
 
 /* Nonzero if we should track variables.  When
    flag_var_tracking == AUTODETECT_FLAG_VAR_TRACKING it will be set according
@@ -1055,7 +1055,7 @@ static const lang_independent_options f_options[] =
    N_("Optimize sibling and tail recursive calls") },
   {"tracer", &flag_tracer, 1,
    N_("Perform superblock formation via tail duplication") },
-  {"unit-at-a-time", &flag_unit_at_time, 1,
+  {"unit-at-a-time", &flag_unit_at_a_time, 1,
    N_("Compile whole compilation unit at time") },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    N_("When running CSE, follow jumps to their targets") },
@@ -2042,10 +2042,10 @@ wrapup_global_declarations (vec, len)
 	    {
 	      bool needed = 1;
 
-	      if (flag_unit_at_time
+	      if (flag_unit_at_a_time
 		  && cgraph_varpool_node (decl)->finalized)
 		needed = 0;
-	      else if (flag_unit_at_time
+	      else if (flag_unit_at_a_time
 		       && (TREE_USED (decl)
 			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 		/* needed */;
@@ -2351,7 +2351,7 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
 	 is seen.  But at end of compilation, do output code for them.  */
       if (at_end || !DECL_DEFER_OUTPUT (decl))
 	{
-	  if (flag_unit_at_time && !cgraph_global_info_ready
+	  if (flag_unit_at_a_time && !cgraph_global_info_ready
 	      && TREE_CODE (decl) != FUNCTION_DECL && top_level)
 	    cgraph_varpool_finalize_decl (decl);
 	  else
@@ -2569,7 +2569,7 @@ rest_of_compilation (decl)
 
       if (inlinable
 	  || (DECL_INLINE (decl)
-	      && !flag_unit_at_time
+	      && !flag_unit_at_a_time
 	      && ((! TREE_PUBLIC (decl) && ! TREE_ADDRESSABLE (decl)
 		   && ! TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
 		   && ! flag_keep_inline_functions)
@@ -5164,7 +5164,7 @@ parse_options_and_default_flags (argc, argv)
       flag_reorder_functions = 1;
       flag_value_histograms = 1;
       flag_value_profile_transformations = 1;
-      flag_unit_at_time = 1;
+      flag_unit_at_a_time = 1;
     }
 
   if (optimize >= 3)
@@ -5368,8 +5368,8 @@ process_options ()
 
   /* Disable unit-at-a-time mode for frontends not supporting callgraph
      interface.  */
-  if (flag_unit_at_time && ! lang_hooks.callgraph.expand_function)
-    flag_unit_at_time = 0;
+  if (flag_unit_at_a_time && ! lang_hooks.callgraph.expand_function)
+    flag_unit_at_a_time = 0;
 
   /* Warn about options that are not supported on this machine.  */
 #ifndef INSN_SCHEDULING

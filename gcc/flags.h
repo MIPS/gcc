@@ -676,7 +676,7 @@ extern int flag_zero_initialized_in_bss;
 /* Nonzero means disable transformations observable by signaling NaNs.  */
 extern int flag_signaling_nans;
 
-extern int flag_unit_at_time;
+extern int flag_unit_at_a_time;
 
 /* Nonzero if we should track variables.  */
 extern int flag_var_tracking;

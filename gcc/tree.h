@@ -2826,6 +2826,7 @@ extern tree get_set_constructor_bytes		PARAMS ((tree,
 						       unsigned char *, int));
 extern tree get_callee_fndecl                   PARAMS ((tree));
 extern void set_decl_assembler_name             PARAMS ((tree));
+extern void change_decl_assembler_name (tree, tree);
 extern int type_num_arguments                   PARAMS ((tree));
 extern tree lhd_unsave_expr_now		PARAMS ((tree));
 
@@ -3081,6 +3082,7 @@ enum tls_model decl_tls_model		PARAMS ((tree));
 enum symbol_visibility decl_visibility	PARAMS ((tree));
 extern void mark_referenced (tree);
 extern void resolve_unique_section	PARAMS ((tree, int, int));
+extern void notice_global_symbol (tree);
 
 /* In fold-const.c */
 extern int div_and_round_double		PARAMS ((enum tree_code, int,

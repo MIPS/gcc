@@ -1720,7 +1720,7 @@ init_cumulative_args (cum, fntype, libname, fndecl)
 
   /* Use register calling convention for local functions when possible.  */
   if (!TARGET_64BIT && !user_convention && fndecl
-      && flag_unit_at_time)
+      && flag_unit_at_a_time)
     {
       struct cgraph_local_info *i = cgraph_local_info (fndecl);
       if (i && i->local)

@@ -10922,7 +10922,7 @@ gen_subprogram_die (decl, context_die)
 	     case of redefinition of GNU C extern inlines.
 	     It seems reasonable to use AT_specification in this case.  */
 	  && !get_AT_unsigned (old_die, DW_AT_inline)
-	  && !flag_unit_at_time)
+	  && !flag_unit_at_a_time)
 	{
 	  /* ??? This can happen if there is a bug in the program, for
 	     instance, if it has duplicate function definitions.  Ideally,
