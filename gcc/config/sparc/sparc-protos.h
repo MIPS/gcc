@@ -102,7 +102,6 @@ extern int fp_zero_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_0_operand PARAMS ((rtx, enum machine_mode));
 extern int empty_delay_slot PARAMS ((rtx));
 extern int eligible_for_epilogue_delay PARAMS ((rtx, int));
-extern int eligible_for_return_delay PARAMS ((rtx));
 extern int eligible_for_sibcall_delay PARAMS ((rtx));
 extern int emit_move_sequence PARAMS ((rtx, enum machine_mode));
 extern int fp_sethi_p PARAMS ((rtx));
@@ -123,5 +122,7 @@ extern rtx gen_df_reg PARAMS ((rtx, int));
 extern int sparc_extra_constraint_check PARAMS ((rtx, int, int));
 extern int sparc_rtx_costs PARAMS ((rtx, enum rtx_code, enum rtx_code));
 #endif /* RTX_CODE */
+
+extern void sparc_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT, tree));
 
 #endif /* __SPARC_PROTOS_H__ */

@@ -51,6 +51,8 @@ struct string_option
 static const char *java_init PARAMS ((const char *));
 static void java_finish PARAMS ((void));
 static void java_init_options PARAMS ((void));
+static void java_post_options PARAMS ((void));
+
 static int java_decode_option PARAMS ((int, char **));
 static void put_decl_string PARAMS ((const char *, int));
 static void put_decl_node PARAMS ((tree));
@@ -170,6 +172,10 @@ int flag_store_check = 1;
 /* When non zero, print extra version information.  */
 static int version_flag = 0;
 
+/* Set non-zero if the user specified -finline-functions on the command 
+   line.  */
+int flag_really_inline = 0;
+
 /* Table of language-dependent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
    ON_VALUE is the value to store in VARIABLE
@@ -213,6 +219,11 @@ static int dependency_tracking = 0;
 #define DEPEND_TARGET_SET 4
 #define DEPEND_FILE_ALREADY_SET 8
 
+struct language_function GTY(())
+{
+  int unused;
+};
+
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU Java"
 #undef LANG_HOOKS_INIT
@@ -223,10 +234,10 @@ static int dependency_tracking = 0;
 #define LANG_HOOKS_INIT_OPTIONS java_init_options
 #undef LANG_HOOKS_DECODE_OPTION
 #define LANG_HOOKS_DECODE_OPTION java_decode_option
+#undef LANG_HOOKS_POST_OPTIONS
+#define LANG_HOOKS_POST_OPTIONS java_post_options
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE java_parse_file
-#undef LANG_HOOKS_MARK_TREE
-#define LANG_HOOKS_MARK_TREE java_mark_tree
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE java_mark_addressable
 #undef LANG_HOOKS_EXPAND_EXPR
@@ -382,6 +393,14 @@ java_decode_option (argc, argv)
   if (strncmp (p, ARG, sizeof (ARG) - 1) == 0)
     {
       current_encoding = p + sizeof (ARG) - 1;
+      return 1;
+    }
+#undef ARG
+#define ARG "-finline-functions"
+  if (strncmp (p, ARG, sizeof (ARG) - 1) == 0)
+    {
+      flag_inline_functions = 1;
+      flag_really_inline = 1;
       return 1;
     }
 #undef ARG
@@ -694,24 +713,13 @@ lang_printable_name_wls (decl, v)
 /* Print on stderr the current class and method context.  This function
    is the value of the hook print_error_function. */
 
+static GTY(()) tree last_error_function_context;
+static GTY(()) tree last_error_function;
 static void
 java_print_error_function (context, file)
      diagnostic_context *context __attribute__((__unused__));
      const char *file;
 {
-  static tree last_error_function_context = NULL_TREE;
-  static tree last_error_function = NULL;
-  static int initialized_p;
-
-  /* Register LAST_ERROR_FUNCTION_CONTEXT and LAST_ERROR_FUNCTION with
-     the garbage collector.  */
-  if (!initialized_p)
-    {
-      ggc_add_tree_root (&last_error_function_context, 1);
-      ggc_add_tree_root (&last_error_function, 1);
-      initialized_p = 1;
-    }
-
   /* Don't print error messages with bogus function prototypes.  */
   if (inhibit_error_function_printing)
     return;
@@ -770,3 +778,17 @@ java_init_options ()
   /* In Java floating point operations never trap.  */
   flag_trapping_math = 0;
 }
+
+/* Post-switch processing.  */
+static void
+java_post_options ()
+{
+  /* Turn off RTL inliner unless -finline-functions was really specified.  */
+  if (flag_really_inline == 0)
+    {
+      flag_no_inline = 1;
+      flag_inline_functions = 0;
+    }
+}
+
+#include "gt-java-lang.h"

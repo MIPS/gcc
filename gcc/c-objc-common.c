@@ -35,13 +35,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "langhooks.h"
 
-static int c_tree_printer PARAMS ((output_buffer *));
+static bool c_tree_printer PARAMS ((output_buffer *, text_info *));
 static tree inline_forbidden_p PARAMS ((tree *, int *, void *));
 static void expand_deferred_fns PARAMS ((void));
 static tree start_cdtor	PARAMS ((int));
 static void finish_cdtor PARAMS ((tree));
 
-static varray_type deferred_fns;
+static GTY(()) varray_type deferred_fns;
 
 int
 c_missing_noreturn_ok_p (decl)
@@ -253,7 +253,6 @@ c_objc_common_init (filename)
     }
 
   VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
-  ggc_add_tree_varray_root (&deferred_fns, 1);
 
   return filename;
 }
@@ -291,7 +290,7 @@ expand_deferred_fns ()
 	}
     }
 
-  VARRAY_FREE (deferred_fns);
+  deferred_fns = 0;
 }
 
 static tree
@@ -390,13 +389,14 @@ c_objc_common_finish_file ()
    by the C++ front-end.
    Please notice when called, the `%' part was already skipped by the
    diagnostic machinery.  */
-static int
-c_tree_printer (buffer)
+static bool
+c_tree_printer (buffer, text)
      output_buffer *buffer;
+     text_info *text;
 {
-  tree t = va_arg (output_buffer_format_args (buffer), tree);
+  tree t = va_arg (*text->args_ptr, tree);
 
-  switch (*output_buffer_text_cursor (buffer))
+  switch (*text->format_spec)
     {
     case 'D':
     case 'F':
@@ -407,9 +407,11 @@ c_tree_printer (buffer)
           : "({anonymous})";
         output_add_string (buffer, n);
       }
-      return 1;
+      return true;
 
     default:
-      return 0;
+      return false;
     }
 }
+
+#include "gt-c-objc-common.h"

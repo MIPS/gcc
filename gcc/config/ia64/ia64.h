@@ -109,6 +109,11 @@ extern int target_flags;
 
 #define TARGET_DWARF2_ASM	(target_flags & MASK_DWARF2_ASM)
 
+extern int ia64_tls_size;
+#define TARGET_TLS14		(ia64_tls_size == 14)
+#define TARGET_TLS22		(ia64_tls_size == 22)
+#define TARGET_TLS64		(ia64_tls_size == 64)
+
 /* This macro defines names of command options to set and clear bits in
    `target_flags'.  Its definition is an initializer with a subgrouping for
    each command option.  */
@@ -177,10 +182,13 @@ extern int target_flags;
    subgrouping for each command option.  */
 
 extern const char *ia64_fixed_range_string;
+extern const char *ia64_tls_size_string;
 #define TARGET_OPTIONS \
 {									\
   { "fixed-range=", 	&ia64_fixed_range_string,			\
       N_("Specify range of registers to make fixed")},			\
+  { "tls-size=",	&ia64_tls_size_string,				\
+      N_("Specify bit size of immediate TLS offsets")},			\
 }
 
 /* Sometimes certain combinations of command options do not make sense on a
@@ -204,14 +212,8 @@ extern const char *ia64_fixed_range_string;
    CPP.  It can also specify how to translate options you give to GNU CC into
    options for GNU CC to pass to the CPP.  */
 
-/* ??? __LONG_MAX__ depends on LP64/ILP32 switch.  */
-/* ??? An alternative is to modify glimits.h to check for __LP64__ instead
-   of checked for CPU specific defines.  We could also get rid of all LONG_MAX
-   defines in other tm.h files.  */
 #define CPP_SPEC \
-  "%{mcpu=itanium:-D__itanium__} %{mbig-endian:-D__BIG_ENDIAN__}	\
-   %(cpp_cpu)	\
-   -D__LONG_MAX__=9223372036854775807L"
+  "%{mcpu=itanium:-D__itanium__} %{mbig-endian:-D__BIG_ENDIAN__} %(cpp_cpu)"
 
 /* A C string constant that tells the GNU CC driver program options to pass to
    `cc1'.  It can also specify how to translate options you give to GNU CC into
@@ -586,14 +588,6 @@ while (0)
 
 #define LOCAL_REGNO(REGNO) \
   (IN_REGNO_P (REGNO) || LOC_REGNO_P (REGNO))
-
-/* Add any extra modes needed to represent the condition code.
-
-   CCImode is used to mark a single predicate register instead
-   of a register pair.  This is currently only used in reg_raw_mode
-   so that flow doesn't do something stupid.  */
-
-#define EXTRA_CC_MODES		CC(CCImode, "CCI")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  Must be defined if
@@ -1774,7 +1768,7 @@ do {									\
 
 #define BSS_SECTION_ASM_OP "\t.bss"
 
-#define SDATA_NAME_FLAG_CHAR '@'
+#define ENCODE_SECTION_INFO_CHAR '@'
 
 #define IA64_DEFAULT_GVALUE 8
 
@@ -2432,16 +2426,16 @@ extern int ia64_final_schedule;
 #define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + 15 : INVALID_REGNUM)
 
 /* This function contains machine specific function data.  */
-struct machine_function
+struct machine_function GTY(())
 {
   /* The new stack pointer when unwinding from EH.  */
-  struct rtx_def* ia64_eh_epilogue_sp;
+  rtx ia64_eh_epilogue_sp;
 
   /* The new bsp value when unwinding from EH.  */
-  struct rtx_def* ia64_eh_epilogue_bsp;
+  rtx ia64_eh_epilogue_bsp;
 
   /* The GP value save register.  */
-  struct rtx_def* ia64_gp_save;
+  rtx ia64_gp_save;
 
   /* The number of varargs registers to save.  */
   int n_varargs;

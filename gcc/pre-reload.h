@@ -202,7 +202,8 @@ extern void push_replacement           PARAMS ((rtx *, int ,
 						enum machine_mode));
 extern int reload_inner_reg_of_subreg  PARAMS ((rtx, enum machine_mode));
 extern int find_pre_reloads            PARAMS ((rtx, int));
-extern enum reg_class find_valid_class PARAMS ((enum machine_mode, int));
+extern enum reg_class find_valid_class PARAMS ((enum machine_mode, int,
+						unsigned int));
 extern void copy_eh_notes	       PARAMS ((rtx, rtx));
 extern int alternative_allows_memconst PARAMS ((const char *, int));
 extern void subst_pre_reloads          PARAMS ((rtx));

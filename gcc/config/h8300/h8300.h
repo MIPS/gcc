@@ -37,30 +37,34 @@ extern int cpu_type;
 extern const char *h8_push_op, *h8_pop_op, *h8_mov_op;
 extern const char * const *h8_reg_names;
 
-/* Names to predefine in the preprocessor for this target machine.  */
-
-#define CPP_PREDEFINES \
-"-D__LONG_MAX__=2147483647L -D__LONG_LONG_MAX__=2147483647L"
-
-#define CPP_SPEC \
-  "%{!mh:%{!ms:-D__H8300__}} %{mh:-D__H8300H__} %{ms:-D__H8300S__} \
-   %{!mh:%{!ms:-Acpu=h8300 -Amachine=h8300}} \
-   %{mh:-Acpu=h8300h -Amachine=h8300h} \
-   %{ms:-Acpu=h8300s -Amachine=h8300s} \
-   %{!mint32:-D__INT_MAX__=32767} %{mint32:-D__INT_MAX__=2147483647} \
-   %(subtarget_cpp_spec)"
-
-#define SUBTARGET_CPP_SPEC ""
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()			\
+  do							\
+    {							\
+      if (TARGET_H8300H)				\
+        {						\
+	  builtin_define ("__H8300H__");		\
+	  builtin_assert ("cpu=h8300h");		\
+	  builtin_assert ("machine=h8300h");		\
+	}						\
+      else if (TARGET_H8300S)				\
+        {						\
+	  builtin_define ("__H8300S__");		\
+	  builtin_assert ("cpu=h8300s");		\
+	  builtin_assert ("machine=h8300s");		\
+	}						\
+      else						\
+        {						\
+	  builtin_define ("__H8300__");			\
+	  builtin_assert ("cpu=h8300");			\
+	  builtin_assert ("machine=h8300");		\
+	}						\
+    }							\
+  while (0)
 
 #define LINK_SPEC "%{mh:-m h8300h} %{ms:-m h8300s}"
 
 #define LIB_SPEC "%{mrelax:-relax} %{g:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}"
-
-#define EXTRA_SPECS						\
-  { "subtarget_cpp_spec", SUBTARGET_CPP_SPEC },	\
-  SUBTARGET_EXTRA_SPECS
-
-#define SUBTARGET_EXTRA_SPECS
 
 /* Print subsidiary information on the compiler version in use.  */
 
@@ -429,8 +433,6 @@ enum reg_class {
   (TARGET_H8300H || TARGET_H8300S			\
    ? (VALUE) == -1 || (VALUE) == -2 || (VALUE) == -4	\
    : (VALUE) == -1 || (VALUE) == -2)
-#define CONST_OK_FOR_O(VALUE) (ok_for_bclr (VALUE))
-#define CONST_OK_FOR_P(VALUE) (small_power_of_two (VALUE))
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C)		\
   ((C) == 'I' ? CONST_OK_FOR_I (VALUE) :	\
@@ -439,8 +441,6 @@ enum reg_class {
    (C) == 'L' ? CONST_OK_FOR_L (VALUE) :	\
    (C) == 'M' ? CONST_OK_FOR_M (VALUE) :	\
    (C) == 'N' ? CONST_OK_FOR_N (VALUE) :	\
-   (C) == 'O' ? CONST_OK_FOR_O (VALUE) :	\
-   (C) == 'P' ? CONST_OK_FOR_P (VALUE) :	\
    0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -807,6 +807,21 @@ struct cum_arg
 
 /* Extra constraints.  */
 
+#define OK_FOR_R(OP)					\
+  (GET_CODE (OP) == CONST_INT				\
+   ? !h8300_shift_needs_scratch_p (INTVAL (OP), QImode)	\
+   : 0)
+
+#define OK_FOR_S(OP)					\
+  (GET_CODE (OP) == CONST_INT				\
+   ? !h8300_shift_needs_scratch_p (INTVAL (OP), HImode)	\
+   : 0)
+
+#define OK_FOR_T(OP)					\
+  (GET_CODE (OP) == CONST_INT				\
+   ? !h8300_shift_needs_scratch_p (INTVAL (OP), SImode)	\
+   : 0)
+
 /* Nonzero if X is a constant address suitable as an 8-bit absolute on
    the H8/300H, which is a special case of the 'R' operand.  */
 
@@ -837,14 +852,18 @@ struct cum_arg
         && GET_CODE (XEXP (XEXP (OP, 0), 0)) == PLUS			\
         && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 0)) == SYMBOL_REF	\
         && GET_CODE (XEXP (XEXP (XEXP (OP, 0), 0), 1)) == CONST_INT)	\
-        && (TARGET_H8300S || SYMBOL_REF_FLAG (XEXP (XEXP (OP, 0), 0))))	\
+        && (TARGET_H8300S						\
+	    || SYMBOL_REF_FLAG (XEXP (XEXP (XEXP (OP, 0), 0), 0))))	\
    || (GET_CODE (OP) == MEM						\
        && EIGHTBIT_CONSTANT_ADDRESS_P (XEXP (OP, 0)))			\
    || (GET_CODE (OP) == MEM && TARGET_H8300S				\
        && GET_CODE (XEXP (OP, 0)) == CONST_INT))
 
 #define EXTRA_CONSTRAINT(OP, C)			\
-  ((C) == 'U' ? OK_FOR_U (OP) :			\
+  ((C) == 'R' ? OK_FOR_R (OP) :			\
+   (C) == 'S' ? OK_FOR_S (OP) :			\
+   (C) == 'T' ? OK_FOR_T (OP) :			\
+   (C) == 'U' ? OK_FOR_U (OP) :			\
    0)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression

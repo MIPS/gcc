@@ -86,7 +86,6 @@ static const char *gnat_printable_name	PARAMS  ((tree, int));
 static tree gnat_eh_runtime_type	PARAMS ((tree));
 static int gnat_eh_type_covers		PARAMS ((tree, tree));
 static void gnat_parse_file		PARAMS ((int));
-static void gnat_mark_tree		PARAMS ((tree));
 static rtx gnat_expand_expr		PARAMS ((tree, rtx, enum machine_mode,
 						 int));
 
@@ -104,8 +103,6 @@ static rtx gnat_expand_expr		PARAMS ((tree, rtx, enum machine_mode,
 #define LANG_HOOKS_DECODE_OPTION	gnat_decode_option
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE		gnat_parse_file
-#undef LANG_HOOKS_MARK_TREE
-#define LANG_HOOKS_MARK_TREE		gnat_mark_tree
 #undef LANG_HOOKS_HONOR_READONLY
 #define LANG_HOOKS_HONOR_READONLY	1
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
@@ -289,53 +286,6 @@ gnat_init_options ()
   gnat_argc = 1;
 }
 
-static void
-gnat_mark_tree (t)
-     tree t;
-{
-  switch (TREE_CODE (t))
-    {
-    case FUNCTION_TYPE:
-      ggc_mark_tree (TYPE_CI_CO_LIST (t));
-      return;
-
-    case INTEGER_TYPE:
-      if (TYPE_MODULAR_P (t))
-	ggc_mark_tree (TYPE_MODULUS (t));
-      else if (TYPE_VAX_FLOATING_POINT_P (t))
-	;
-      else if (TYPE_HAS_ACTUAL_BOUNDS_P (t))
-	ggc_mark_tree (TYPE_ACTUAL_BOUNDS (t));
-      else
-	ggc_mark_tree (TYPE_INDEX_TYPE (t));
-      return;
-
-    case ENUMERAL_TYPE:
-      ggc_mark_tree (TYPE_RM_SIZE_ENUM (t));
-      return;
-
-    case ARRAY_TYPE:
-      ggc_mark_tree (TYPE_ACTUAL_BOUNDS (t));
-      return;
-
-    case RECORD_TYPE:  case UNION_TYPE:  case QUAL_UNION_TYPE:
-      /* This is really TYPE_UNCONSTRAINED_ARRAY for fat pointers.  */
-      ggc_mark_tree (TYPE_ADA_SIZE (t));
-      return;
-
-    case CONST_DECL:
-      ggc_mark_tree (DECL_CONST_CORRESPONDING_VAR (t));
-      return;
-
-    case FIELD_DECL:
-      ggc_mark_tree (DECL_ORIGINAL_FIELD (t));
-      return;
-
-    default:
-      return;
-    }
-}
-
 /* Here is the function to handle the compiler error processing in GCC.  */
 
 static void
@@ -384,7 +334,7 @@ gnat_init (filename)
   gnat_argc++;
   gnat_argv[gnat_argc] = 0;
 
-  set_internal_error_function (internal_error_function);
+  global_dc->internal_error = &internal_error_function;
 
   /* Show that REFERENCE_TYPEs are internal and should be Pmode.  */
   internal_reference_types ();
@@ -790,7 +740,7 @@ insert_code_for (gnat_node)
       do_pending_stack_adjust ();
       insns = get_insns ();
       end_sequence ();
-      emit_insns_after (insns, RTL_EXPR_RTL (get_gnu_tree (gnat_node)));
+      emit_insn_after (insns, RTL_EXPR_RTL (get_gnu_tree (gnat_node)));
     }
 }
 

@@ -1,5 +1,5 @@
 /* Language-dependent hooks for C++.
-   Copyright 2001 Free Software Foundation, Inc.
+   Copyright 2001, 2002 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GNU CC.
@@ -45,7 +45,7 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #undef LANG_HOOKS_DECODE_OPTION
 #define LANG_HOOKS_DECODE_OPTION cxx_decode_option
 #undef LANG_HOOKS_POST_OPTIONS
-#define LANG_HOOKS_POST_OPTIONS cxx_post_options
+#define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET cxx_get_alias_set
 #undef LANG_HOOKS_EXPAND_CONSTANT
@@ -66,8 +66,6 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 #define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
 #undef LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
 #define LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES cxx_insert_default_attributes
-#undef LANG_HOOKS_MARK_TREE
-#define LANG_HOOKS_MARK_TREE cxx_mark_tree
 #undef LANG_HOOKS_UNSAFE_FOR_REEVAL
 #define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_SET_DECL_ASSEMBLER_NAME
@@ -93,10 +91,8 @@ static bool cxx_warn_unused_global_decl PARAMS ((tree));
 
 #undef LANG_HOOKS_FUNCTION_INIT
 #define LANG_HOOKS_FUNCTION_INIT cxx_push_function_context
-#undef LANG_HOOKS_FUNCTION_FREE
-#define LANG_HOOKS_FUNCTION_FREE cxx_pop_function_context
-#undef LANG_HOOKS_FUNCTION_MARK
-#define LANG_HOOKS_FUNCTION_MARK cxx_mark_function_context
+#undef LANG_HOOKS_FUNCTION_FINAL
+#define LANG_HOOKS_FUNCTION_FINAL cxx_pop_function_context
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE

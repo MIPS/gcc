@@ -327,6 +327,9 @@ struct cpp_options
      traditional C.  */
   unsigned char warn_traditional;
 
+  /* Nonzero means warn about long long numeric constants.  */
+  unsigned char warn_long_long;
+
   /* Nonzero means warn about text after an #endif (or #else).  */
   unsigned char warn_endif_labels;
 
@@ -390,6 +393,9 @@ struct cpp_options
   /* True for traditional preprocessing.  */
   unsigned char traditional;
 
+  /* True if only preprocessing and not compiling.  */
+  unsigned char preprocess_only;
+
   /* Target-specific features set by the front end or client.  */
 
   /* Precision for target CPP arithmetic, target characters, target
@@ -419,10 +425,6 @@ struct cpp_callbacks
      built-ins with cpp_define() and cpp_assert().  */
   void (*register_builtins) PARAMS ((cpp_reader *));
 };
-
-#define CPP_FATAL_LIMIT 1000
-/* True if we have seen a "fatal" error.  */
-#define CPP_FATAL_ERRORS(PFILE) (cpp_errors (PFILE) >= CPP_FATAL_LIMIT)
 
 /* Name under which this program was invoked.  */
 extern const char *progname;
@@ -516,7 +518,7 @@ extern void cpp_set_callbacks PARAMS ((cpp_reader *, cpp_callbacks *));
    structure reliable.  Options processing is not completed until you
    call cpp_finish_options.  */
 extern int cpp_handle_options PARAMS ((cpp_reader *, int, char **));
-extern int cpp_handle_option PARAMS ((cpp_reader *, int, char **, int));
+extern int cpp_handle_option PARAMS ((cpp_reader *, int, char **));
 extern void cpp_post_options PARAMS ((cpp_reader *));
 
 /* This function reads the file, but does not start preprocessing.  It
@@ -581,6 +583,55 @@ extern cpp_buffer *cpp_push_buffer PARAMS ((cpp_reader *,
 					    int, int));
 extern int cpp_defined PARAMS ((cpp_reader *, const unsigned char *, int));
 
+/* A preprocessing number.  Code assumes that any unused high bits of
+   the double integer are set to zero.  */
+typedef unsigned HOST_WIDE_INT cpp_num_part;
+typedef struct cpp_num cpp_num;
+struct cpp_num
+{
+  cpp_num_part high;
+  cpp_num_part low;
+  bool unsignedp;  /* True if value should be treated as unsigned.  */
+  bool overflow;   /* True if the most recent calculation overflowed.  */
+};
+
+/* cpplib provides two interfaces for interpretation of preprocessing
+   numbers.
+
+   cpp_classify_number categorizes numeric constants according to
+   their field (integer, floating point, or invalid), radix (decimal,
+   octal, hexadecimal), and type suffixes.  */
+
+#define CPP_N_CATEGORY  0x000F
+#define CPP_N_INVALID	0x0000
+#define CPP_N_INTEGER	0x0001
+#define CPP_N_FLOATING	0x0002
+
+#define CPP_N_WIDTH	0x00F0
+#define CPP_N_SMALL	0x0010	/* int, float.  */
+#define CPP_N_MEDIUM	0x0020	/* long, double.  */
+#define CPP_N_LARGE	0x0040	/* long long, long double.  */
+
+#define CPP_N_RADIX	0x0F00
+#define CPP_N_DECIMAL	0x0100
+#define CPP_N_HEX	0x0200
+#define CPP_N_OCTAL	0x0400
+
+#define CPP_N_UNSIGNED	0x1000	/* Properties.  */
+#define CPP_N_IMAGINARY	0x2000
+
+/* Classify a CPP_NUMBER token.  The return value is a combination of
+   the flags from the above sets.  */
+extern unsigned cpp_classify_number PARAMS ((cpp_reader *, const cpp_token *));
+
+/* Evaluate a token classified as category CPP_N_INTEGER.  */
+extern cpp_num cpp_interpret_integer PARAMS ((cpp_reader *, const cpp_token *,
+					      unsigned int type));
+
+/* Sign extend a number, with PRECISION significant bits and all
+   others assumed clear, to fill out a cpp_num structure.  */
+cpp_num cpp_num_sign_extend PARAMS ((cpp_num, size_t));
+
 /* Diagnostic levels.  To get a dianostic without associating a
    position in the translation unit with it, use cpp_error_with_line
    with a line number of zero.  */
@@ -593,13 +644,9 @@ extern int cpp_defined PARAMS ((cpp_reader *, const unsigned char *, int));
 #define DL_PEDWARN		0x02
 /* An error.  */
 #define DL_ERROR		0x03
-/* A fatal error.  We do not exit, to support use of cpplib as a
-   library, but may only return CPP_EOF tokens thereon.  It is the
-   caller's responsibility to check CPP_FATAL_ERRORS.  */
-#define DL_FATAL		0x04
 /* An internal consistency check failed.  Prints "internal error: ",
-   otherwise the same as DL_FATAL.  */
-#define DL_ICE			0x05
+   otherwise the same as DL_ERROR.  */
+#define DL_ICE			0x04
 /* Extracts a diagnostic level from an int.  */
 #define DL_EXTRACT(l)		(l & 0xf)
 /* Non-zero if a diagnostic level is one of the warnings.  */

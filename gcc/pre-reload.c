@@ -1298,7 +1298,8 @@ push_pre_reload (in, out, inloc, outloc, class,
 			      subreg_regno_offset (REGNO (SUBREG_REG (in)),
 						   GET_MODE (SUBREG_REG (in)),
 						   SUBREG_BYTE (in),
-						   GET_MODE (in)));
+						   GET_MODE (in)),
+			      REGNO (SUBREG_REG (in)));
 
       /* This relies on the fact that emit_reload_insns outputs the
 	 instructions for input reloads of type RELOAD_OTHER in the same
@@ -1399,7 +1400,8 @@ push_pre_reload (in, out, inloc, outloc, class,
 					 subreg_regno_offset (REGNO (SUBREG_REG (out)),
 							      GET_MODE (SUBREG_REG (out)),
 							      SUBREG_BYTE (out),
-							      GET_MODE (out))),
+							      GET_MODE (out)),
+					 REGNO (SUBREG_REG (out))),
 		       VOIDmode, VOIDmode, 0, 0,
 		       opnum, RELOAD_OTHER);
     }
@@ -1832,6 +1834,10 @@ find_pre_reloads_toplev (x, opnum, type, ind_levels, is_set_dest, insn,
       /* SUBREG_REG (x) is a MEM, so we cant take the offset, instead we 
          calculate the register number as : 
 	 SUBREG_BYTE (x) / GET_MODE_SIZE (subreg_mode) */
+      /* XXX abort for now, as the interface to find_valid_class() has
+	 changed, and I don't want to analyze what this does.  */
+      abort ();
+/*
       if (is_set_dest)
 	push_pre_reload (NULL_RTX, SUBREG_REG (x), (rtx*)0, &SUBREG_REG (x),
 			 find_valid_class (subreg_mode, 
@@ -1844,6 +1850,7 @@ find_pre_reloads_toplev (x, opnum, type, ind_levels, is_set_dest, insn,
 					   SUBREG_BYTE (x)
 					   / GET_MODE_SIZE (subreg_mode)),
 			 subreg_mode, VOIDmode, 0, 0, opnum, type);
+*/
     }
 
   for (copied = 0, i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)

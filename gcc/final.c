@@ -69,6 +69,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "expr.h"
 #include "profile.h"
+#include "cfglayout.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -585,9 +586,7 @@ dbr_sequence_length ()
 
 static int *insn_lengths;
 
-#ifdef HAVE_ATTR_length
 varray_type insn_addresses_;
-#endif
 
 /* Max uid for which the above arrays are valid.  */
 static int insn_lengths_max_uid;
@@ -934,8 +933,8 @@ insn_current_reference_address (branch)
 void
 compute_alignments ()
 {
-  int i;
   int log, max_skip, max_log;
+  basic_block bb;
 
   if (label_align)
     {
@@ -952,9 +951,8 @@ compute_alignments ()
   if (! optimize || optimize_size)
     return;
 
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
       rtx label = bb->head;
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
       edge e;
@@ -984,8 +982,8 @@ compute_alignments ()
 
       if (!has_fallthru
 	  && (branch_frequency > BB_FREQ_MAX / 10
-	      || (bb->frequency > BASIC_BLOCK (i - 1)->frequency * 10
-		  && (BASIC_BLOCK (i - 1)->frequency
+	      || (bb->frequency > bb->prev_bb->frequency * 10
+		  && (bb->prev_bb->frequency
 		      <= ENTRY_BLOCK_PTR->frequency / 2))))
 	{
 	  log = JUMP_ALIGN (label);
@@ -1672,7 +1670,7 @@ final_start_function (first, file, optimize)
   if (write_symbols)
     {
       remove_unnecessary_notes ();
-      reorder_blocks ();
+      scope_to_insns_finalize ();
       number_blocks (current_function_decl);
       /* We never actually put out begin/end notes for the top-level
 	 block in the function.  But, conceptually, that block is
@@ -1898,16 +1896,12 @@ final (first, file, optimize, prescan)
 #ifdef HAVE_ATTR_length
       if ((unsigned) INSN_UID (insn) >= INSN_ADDRESSES_SIZE ())
 	{
-#ifdef STACK_REGS
-	  /* Irritatingly, the reg-stack pass is creating new instructions
-	     and because of REG_DEAD note abuse it has to run after
-	     shorten_branches.  Fake address of -1 then.  */
-	  insn_current_address = -1;
-#else
 	  /* This can be triggered by bugs elsewhere in the compiler if
 	     new insns are created after init_insn_lengths is called.  */
-	  abort ();
-#endif
+	  if (GET_CODE (insn) == NOTE)
+	    insn_current_address = -1;
+	  else
+	    abort ();
 	}
       else
 	insn_current_address = INSN_ADDRESSES (INSN_UID (insn));
@@ -2001,9 +1995,6 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	case NOTE_INSN_LOOP_VTOP:
 	case NOTE_INSN_FUNCTION_END:
 	case NOTE_INSN_REPEATED_LINE_NUMBER:
-	case NOTE_INSN_RANGE_BEG:
-	case NOTE_INSN_RANGE_END:
-	case NOTE_INSN_LIVE:
 	case NOTE_INSN_EXPECTED_VALUE:
 	  break;
 
@@ -3171,6 +3162,9 @@ get_mem_expr_from_op (op, paddressp)
   int inner_addressp;
 
   *paddressp = 0;
+
+  if (op == NULL)
+    return 0;
 
   if (GET_CODE (op) == REG && ORIGINAL_REGNO (op) >= FIRST_PSEUDO_REGISTER)
     return REGNO_DECL (ORIGINAL_REGNO (op));

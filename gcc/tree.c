@@ -37,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "flags.h"
 #include "tree.h"
+#include "real.h"
 #include "tm_p.h"
 #include "function.h"
 #include "obstack.h"
@@ -104,7 +105,7 @@ static int next_type_uid = 1;
 /* Since we cannot rehash a type after it is in the table, we have to
    keep the hash code.  */
 
-struct type_hash
+struct type_hash GTY(())
 {
   unsigned long hash;
   tree type;
@@ -120,7 +121,8 @@ struct type_hash
    same table, they are completely independent, and the hash code is
    computed differently for each of these.  */
 
-htab_t type_hash_table;
+static GTY ((if_marked ("type_hash_marked_p"), param_is (struct type_hash)))
+     htab_t type_hash_table;
 
 static void set_type_quals PARAMS ((tree, int));
 static void append_random_chars PARAMS ((char *));
@@ -130,8 +132,6 @@ static void print_type_hash_statistics PARAMS((void));
 static void finish_vector_type PARAMS((tree));
 static tree make_vector PARAMS ((enum machine_mode, tree, int));
 static int type_hash_marked_p PARAMS ((const void *));
-static void type_hash_mark PARAMS ((const void *));
-static int mark_tree_hashtable_entry PARAMS((void **, void *));
 
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
@@ -146,10 +146,6 @@ init_obstacks ()
   /* Initialize the hash table of types.  */
   type_hash_table = htab_create (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
 				 type_hash_eq, 0);
-  ggc_add_deletable_htab (type_hash_table, type_hash_marked_p,
-			  type_hash_mark);
-  ggc_add_tree_root (global_trees, TI_MAX);
-  ggc_add_tree_root (integer_types, itk_none);
 }
 
 
@@ -509,6 +505,7 @@ build_real (type, d)
      REAL_VALUE_TYPE d;
 {
   tree v;
+  REAL_VALUE_TYPE *dp;
   int overflow = 0;
 
   /* Check for valid float value for this type on this target machine;
@@ -518,8 +515,11 @@ build_real (type, d)
 #endif
 
   v = make_node (REAL_CST);
+  dp = ggc_alloc (sizeof (REAL_VALUE_TYPE));
+  memcpy (dp, &d, sizeof (REAL_VALUE_TYPE));
+
   TREE_TYPE (v) = type;
-  TREE_REAL_CST (v) = d;
+  TREE_REAL_CST_PTR (v) = dp;
   TREE_OVERFLOW (v) = TREE_CONSTANT_OVERFLOW (v) = overflow;
   return v;
 }
@@ -556,20 +556,11 @@ build_real_from_int_cst (type, i)
 {
   tree v;
   int overflow = TREE_OVERFLOW (i);
-  REAL_VALUE_TYPE d;
 
-  v = make_node (REAL_CST);
-  TREE_TYPE (v) = type;
+  v = build_real (type, real_value_from_int_cst (type, i));
 
-  d = real_value_from_int_cst (type, i);
-
-  /* Check for valid float value for this type on this target machine.  */
-#ifdef CHECK_FLOAT_VALUE
-  CHECK_FLOAT_VALUE (TYPE_MODE (type), d, overflow);
-#endif
-
-  TREE_REAL_CST (v) = d;
-  TREE_OVERFLOW (v) = TREE_CONSTANT_OVERFLOW (v) = overflow;
+  TREE_OVERFLOW (v) |= overflow;
+  TREE_CONSTANT_OVERFLOW (v) |= overflow;
   return v;
 }
 
@@ -893,6 +884,22 @@ real_twop (expr)
 	   && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconst2))
 	  || (TREE_CODE (expr) == COMPLEX_CST
 	      && real_twop (TREE_REALPART (expr))
+	      && real_zerop (TREE_IMAGPART (expr))));
+}
+
+/* Return 1 if EXPR is the real constant minus one.  */
+
+int
+real_minus_onep (expr)
+     tree expr;
+{
+  STRIP_NOPS (expr);
+
+  return ((TREE_CODE (expr) == REAL_CST
+	   && ! TREE_CONSTANT_OVERFLOW (expr)
+	   && REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconstm1))
+	  || (TREE_CODE (expr) == COMPLEX_CST
+	      && real_minus_onep (TREE_REALPART (expr))
 	      && real_zerop (TREE_IMAGPART (expr))));
 }
 
@@ -1349,12 +1356,13 @@ staticp (arg)
     case FUNCTION_DECL:
       /* Nested functions aren't static, since taking their address
 	 involves a trampoline.  */
-      return (decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
-	&& ! DECL_NON_ADDR_CONST_P (arg);
+      return ((decl_function_context (arg) == 0 || DECL_NO_STATIC_CHAIN (arg))
+	      && ! DECL_NON_ADDR_CONST_P (arg));
 
     case VAR_DECL:
-      return (TREE_STATIC (arg) || DECL_EXTERNAL (arg))
-	&& ! DECL_NON_ADDR_CONST_P (arg);
+      return ((TREE_STATIC (arg) || DECL_EXTERNAL (arg))
+	      && ! DECL_THREAD_LOCAL (arg)
+	      && ! DECL_NON_ADDR_CONST_P (arg));
 
     case CONSTRUCTOR:
       return TREE_STATIC (arg);
@@ -1511,6 +1519,44 @@ first_rtl_op (code)
       return 3;
     default:
       return TREE_CODE_LENGTH (code);
+    }
+}
+
+/* Return which tree structure is used by T.  */
+
+enum tree_node_structure_enum
+tree_node_structure (t)
+     tree t;
+{
+  enum tree_code code = TREE_CODE (t);
+  
+  switch (TREE_CODE_CLASS (code))
+    {
+    case 'd':	return TS_DECL;
+    case 't':	return TS_TYPE;
+    case 'b':	return TS_BLOCK;
+    case 'r': case '<': case '1': case '2': case 'e': case 's': 
+      return TS_EXP;
+    default:  /* 'c' and 'x' */
+      break;
+    }
+  switch (code)
+    {
+      /* 'c' cases.  */
+    case INTEGER_CST:		return TS_INT_CST;
+    case REAL_CST:		return TS_REAL_CST;
+    case COMPLEX_CST:		return TS_COMPLEX;
+    case VECTOR_CST:		return TS_VECTOR;
+    case STRING_CST:		return TS_STRING;
+      /* 'x' cases.  */
+    case ERROR_MARK:		return TS_COMMON;
+    case IDENTIFIER_NODE:	return TS_IDENTIFIER;
+    case TREE_LIST:		return TS_LIST;
+    case TREE_VEC:		return TS_VEC;
+    case PLACEHOLDER_EXPR:	return TS_COMMON;
+
+    default:
+      abort ();
     }
 }
 
@@ -3031,41 +3077,6 @@ type_hash_marked_p (p)
   return ggc_marked_p (type) || TYPE_SYMTAB_POINTER (type);
 }
 
-/* Mark the entry in the type hash table the type it points to is marked.
-   Also mark the type in case we are considering this entry "marked" by
-   virtue of TYPE_SYMTAB_POINTER being set.  */
-
-static void
-type_hash_mark (p)
-     const void *p;
-{
-  ggc_mark (p);
-  ggc_mark_tree (((struct type_hash *) p)->type);
-}
-
-/* Mark the hashtable slot pointed to by ENTRY (which is really a
-   `tree**') for GC.  */
-
-static int
-mark_tree_hashtable_entry (entry, data)
-     void **entry;
-     void *data ATTRIBUTE_UNUSED;
-{
-  ggc_mark_tree ((tree) *entry);
-  return 1;
-}
-
-/* Mark ARG (which is really a htab_t whose slots are trees) for
-   GC.  */
-
-void
-mark_tree_hashtable (arg)
-     void *arg;
-{
-  htab_t t = *(htab_t *) arg;
-  htab_traverse (t, mark_tree_hashtable_entry, 0);
-}
-
 static void
 print_type_hash_statistics ()
 {
@@ -4211,6 +4222,9 @@ decl_type_context (decl)
 
   while (context)
     {
+      if (TREE_CODE (context) == NAMESPACE_DECL)
+	return NULL_TREE;
+
       if (TREE_CODE (context) == RECORD_TYPE
 	  || TREE_CODE (context) == UNION_TYPE
 	  || TREE_CODE (context) == QUAL_UNION_TYPE)
@@ -4849,3 +4863,5 @@ initializer_zerop (init)
       return false;
     }
 }
+
+#include "gt-tree.h"

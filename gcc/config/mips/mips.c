@@ -54,10 +54,6 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 
-#ifdef HALF_PIC_DEBUG
-#include "halfpic.h"
-#endif
-
 #ifdef __GNU_STAB__
 #define STAB_CODE_TYPE enum __stab_debug_code
 #else
@@ -124,7 +120,6 @@ static rtx mips_find_symbol			PARAMS ((rtx));
 static void abort_with_insn			PARAMS ((rtx, const char *))
   ATTRIBUTE_NORETURN;
 static int symbolic_expression_p                PARAMS ((rtx));
-static void mips_add_gc_roots                   PARAMS ((void));
 static bool mips_assemble_integer	  PARAMS ((rtx, unsigned int, int));
 static void mips_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void mips_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
@@ -143,9 +138,7 @@ static int iris6_section_align_1		PARAMS ((void **, void *));
 static int mips_adjust_cost			PARAMS ((rtx, rtx, rtx, int));
 static int mips_issue_rate			PARAMS ((void));
 
-static void mips_init_machine_status		PARAMS ((struct function *));
-static void mips_free_machine_status		PARAMS ((struct function *));
-static void mips_mark_machine_status		PARAMS ((struct function *));
+static struct machine_function * mips_init_machine_status PARAMS ((void));
 static void mips_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT))
 	ATTRIBUTE_UNUSED;
 static void mips_unique_section			PARAMS ((tree, int))
@@ -154,7 +147,7 @@ static void mips_select_rtx_section PARAMS ((enum machine_mode, rtx,
 					     unsigned HOST_WIDE_INT));
 static void mips_encode_section_info		PARAMS ((tree, int));
 
-struct machine_function {
+struct machine_function GTY(()) {
   /* Pseudo-reg holding the address of the current function when
      generating embedded PIC code.  Created by LEGITIMIZE_ADDRESS,
      used by mips_finalize_pic if it was created.  */
@@ -274,10 +267,6 @@ rtx branch_cmp[2];
 
 /* what type of branch to use */
 enum cmp_type branch_type;
-
-/* Number of previously seen half-pic pointers and references.  */
-static int prev_half_pic_ptrs = 0;
-static int prev_half_pic_refs = 0;
 
 /* The target cpu for code generation.  */
 enum processor_type mips_arch;
@@ -1981,7 +1970,7 @@ embedded_pic_fnaddr_reg ()
       start_sequence ();
       emit_insn (gen_get_fnaddr (cfun->machine->embedded_pic_fnaddr_rtx,
 				 XEXP (DECL_RTL (current_function_decl), 0)));
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
       push_topmost_sequence ();
       emit_insn_after (seq, get_insns ());
@@ -2280,46 +2269,10 @@ mips_move_1word (operands, insn, unsignedp)
 
       else if (code1 == SYMBOL_REF || code1 == CONST)
 	{
-	  if (HALF_PIC_P () && CONSTANT_P (op1) && HALF_PIC_ADDRESS_P (op1))
-	    {
-	      rtx offset = const0_rtx;
-
-	      if (GET_CODE (op1) == CONST)
-		op1 = eliminate_constant_term (XEXP (op1, 0), &offset);
-
-	      if (GET_CODE (op1) == SYMBOL_REF)
-		{
-		  operands[2] = HALF_PIC_PTR (op1);
-
-		  if (TARGET_STATS)
-		    mips_count_memory_refs (operands[2], 1);
-
-		  if (INTVAL (offset) == 0)
-		    {
-		      delay = DELAY_LOAD;
-		      ret = (unsignedp && TARGET_64BIT
-			     ? "lwu\t%0,%2"
-			     : "lw\t%0,%2");
-		    }
-		  else
-		    {
-		      dslots_load_total++;
-		      operands[3] = offset;
-		      if (unsignedp && TARGET_64BIT)
-			ret = (SMALL_INT (offset)
-			       ? "lwu\t%0,%2%#\n\tadd\t%0,%0,%3"
-			       : "lwu\t%0,%2%#\n\t%[li\t%@,%3\n\tadd\t%0,%0,%@%]");
-		      else
-			ret = (SMALL_INT (offset)
-			       ? "lw\t%0,%2%#\n\tadd\t%0,%0,%3"
-			       : "lw\t%0,%2%#\n\t%[li\t%@,%3\n\tadd\t%0,%0,%@%]");
-		    }
-		}
-	    }
-	  else if (TARGET_MIPS16
-		   && code1 == CONST
-		   && GET_CODE (XEXP (op1, 0)) == REG
-		   && REGNO (XEXP (op1, 0)) == GP_REG_FIRST + 28)
+	  if (TARGET_MIPS16
+	      && code1 == CONST
+	      && GET_CODE (XEXP (op1, 0)) == REG
+	      && REGNO (XEXP (op1, 0)) == GP_REG_FIRST + 28)
 	    {
 	      /* This case arises on the mips16; see
                  mips16_gp_pseudo_reg.  */
@@ -4258,9 +4211,9 @@ function_arg_advance (cum, mode, type, named)
       rtx reg = gen_rtx_REG (word_mode, GP_ARG_FIRST + info.reg_offset);
 
       if (TARGET_64BIT)
-	cum->adjust[cum->num_adjusts++] = gen_ashldi3 (reg, reg, amount);
+	cum->adjust[cum->num_adjusts++] = PATTERN (gen_ashldi3 (reg, reg, amount));
       else
-	cum->adjust[cum->num_adjusts++] = gen_ashlsi3 (reg, reg, amount);
+	cum->adjust[cum->num_adjusts++] = PATTERN (gen_ashlsi3 (reg, reg, amount));
     }
 
   if (!info.fpr_p)
@@ -5206,10 +5159,6 @@ override_options ()
   if (mips_abi != ABI_32 && mips_abi != ABI_O64)
     flag_pcc_struct_return = 0;
 
-  /* Tell halfpic.c that we have half-pic code if we do.  */
-  if (TARGET_HALF_PIC)
-    HALF_PIC_INIT ();
-
   /* -fpic (-KPIC) is the default when TARGET_ABICALLS is defined.  We need
      to set flag_pic so that the LEGITIMATE_PIC_OPERAND_P macro will work.  */
   /* ??? -non_shared turns off pic code generation, but this is not
@@ -5435,44 +5384,16 @@ override_options ()
 	align_functions = 8;
     }
 
-  /* Register global variables with the garbage collector.  */
-  mips_add_gc_roots ();
-
-  /* Functions to allocate, mark and deallocate machine-dependent
-     function status.  */
+  /* Function to allocate machine-dependent function status.  */
   init_machine_status = &mips_init_machine_status;
-  free_machine_status = &mips_free_machine_status;
-  mark_machine_status = &mips_mark_machine_status;
 }
 
 /* Allocate a chunk of memory for per-function machine-dependent data.  */
-static void
-mips_init_machine_status (fn)
-     struct function *fn;
+static struct machine_function *
+mips_init_machine_status ()
 {
-  fn->machine = ((struct machine_function *)
-		 xcalloc (1, sizeof (struct machine_function)));
-}
-
-/* Release the chunk of memory for per-function machine-dependent data.  */
-static void
-mips_free_machine_status (fn)
-     struct function *fn;
-{
-  free (fn->machine);
-  fn->machine = NULL;
-}
-
-/* Mark per-function machine-dependent data.  */
-static void
-mips_mark_machine_status (fn)
-     struct function *fn;
-{
-  if (fn->machine)
-    {
-      ggc_mark_rtx (fn->machine->embedded_pic_fnaddr_rtx);
-      ggc_mark_rtx (fn->machine->mips16_gp_pseudo_rtx);
-    }
+  return ((struct machine_function *)
+	  ggc_alloc_cleared (sizeof (struct machine_function)));
 }
 
 /* On the mips16, we want to allocate $24 (T_REG) before other
@@ -6104,7 +6025,11 @@ mips_output_filename (stream, name)
   static int first_time = 1;
   char ltext_label_name[100];
 
-  if (first_time)
+  /* If we are emitting DWARF-2, let dwarf2out handle the ".file"
+     directives.  */
+  if (write_symbols == DWARF2_DEBUG)
+    return;
+  else if (first_time)
     {
       first_time = 0;
       SET_FILE_NUMBER ();
@@ -6399,11 +6324,6 @@ mips_asm_file_end (file)
 {
   tree name_tree;
   struct extern_list *p;
-
-  if (HALF_PIC_P ())
-    {
-      HALF_PIC_FINISH (file);
-    }
 
   if (extern_head)
     {
@@ -7033,7 +6953,11 @@ mips_output_function_prologue (file, size)
 #endif
   HOST_WIDE_INT tsize = current_frame_info.total_size;
 
-  ASM_OUTPUT_SOURCE_FILENAME (file, DECL_SOURCE_FILE (current_function_decl));
+  /* ??? When is this really needed?  At least the GNU assembler does not
+     need the source filename more than once in the file, beyond what is
+     emitted by the debug information.  */
+  if (!TARGET_GAS)
+    ASM_OUTPUT_SOURCE_FILENAME (file, DECL_SOURCE_FILE (current_function_decl));
 
 #ifdef SDB_DEBUGGING_INFO
   if (debug_info_level != DINFO_LEVEL_TERSE && write_symbols == SDB_DEBUG)
@@ -7455,7 +7379,7 @@ mips_expand_prologue ()
 					    GEN_INT (gp_offset
 						     - base_offset))),
 			  reg_rtx);
-	  reg_18_save = gen_sequence ();
+	  reg_18_save = get_insns ();
 	  end_sequence ();
 	}
 
@@ -7645,20 +7569,6 @@ mips_output_function_epilogue (file, size)
 	       dslots_jump_total, dslots_jump_filled,
 	       num_refs[0], num_refs[1], num_refs[2]);
 
-      if (HALF_PIC_NUMBER_PTRS > prev_half_pic_ptrs)
-	{
-	  fprintf (stderr,
-		   " half-pic=%3d", HALF_PIC_NUMBER_PTRS - prev_half_pic_ptrs);
-	  prev_half_pic_ptrs = HALF_PIC_NUMBER_PTRS;
-	}
-
-      if (HALF_PIC_NUMBER_REFS > prev_half_pic_refs)
-	{
-	  fprintf (stderr,
-		   " pic-ref=%3d", HALF_PIC_NUMBER_REFS - prev_half_pic_refs);
-	  prev_half_pic_refs = HALF_PIC_NUMBER_REFS;
-	}
-
       fputc ('\n', stderr);
     }
 
@@ -7706,7 +7616,7 @@ mips_expand_epilogue ()
 
   if (mips_can_use_return_insn ())
     {
-      emit_insn (gen_return ());
+      emit_jump_insn (gen_return ());
       return;
     }
 
@@ -8116,11 +8026,6 @@ mips_encode_section_info (decl, first)
 	SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
     }
 
-  else if (HALF_PIC_P ())
-    {
-      if (first)
-	HALF_PIC_ENCODE (decl);
-    }
 }
 
 /* Return register to use for a function return value with VALTYPE for
@@ -8446,7 +8351,7 @@ mips16_gp_pseudo_reg ()
       start_sequence ();
       emit_move_insn (cfun->machine->mips16_gp_pseudo_rtx,
 		      const_gp);
-      insn = gen_sequence ();
+      insn = get_insns ();
       end_sequence ();
 
       push_topmost_sequence ();
@@ -10128,19 +10033,6 @@ mips_output_conditional_branch (insn,
   return 0;
 }
 
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-mips_add_gc_roots ()
-{
-  ggc_add_rtx_root (&mips_load_reg, 1);
-  ggc_add_rtx_root (&mips_load_reg2, 1);
-  ggc_add_rtx_root (&mips_load_reg3, 1);
-  ggc_add_rtx_root (&mips_load_reg4, 1);
-  ggc_add_rtx_root (branch_cmp, ARRAY_SIZE (branch_cmp));
-}
-
 static enum processor_type
 mips_parse_cpu (cpu_string)
      const char *cpu_string;
@@ -10547,3 +10439,5 @@ iris6_asm_file_end (stream)
   mips_asm_file_end (stream);
 }
 #endif /* TARGET_IRIX6 */
+
+#include "gt-mips.h"

@@ -65,23 +65,20 @@ struct lang_hooks_for_functions
   void (*init) PARAMS ((struct function *));
 
   /* Called when leaving a function.  */
-  void (*free) PARAMS ((struct function *));
+  void (*final) PARAMS ((struct function *));
 
   /* Called when entering a nested function.  */
   void (*enter_nested) PARAMS ((struct function *));
 
   /* Called when leaving a nested function.  */
   void (*leave_nested) PARAMS ((struct function *));
-
-  /* Lang-specific function data marking for GC.  */
-  void (*mark) PARAMS ((struct function *));
 };
 
 /* The following hooks are used by tree-dump.c.  */
 
 struct lang_hooks_for_tree_dump
 {
-  /* Dump language-specific parts of tree nodes.  Returns non-zero if it 
+  /* Dump language-specific parts of tree nodes.  Returns non-zero if it
      does not want the usual dumping of the second argument.  */
   int (*dump_tree) PARAMS ((void *, tree));
 
@@ -96,7 +93,7 @@ struct lang_hooks_for_types
   /* Return a new type (with the indicated CODE), doing whatever
      language-specific processing is required.  */
   tree (*make_type) PARAMS ((enum tree_code));
-  
+
   /* Given MODE and UNSIGNEDP, return a suitable type-tree with that
      mode.  */
   tree (*type_for_mode) PARAMS ((enum machine_mode, int));
@@ -199,7 +196,10 @@ struct lang_hooks
   /* Called when all command line options have been parsed.  Should do
      any required consistency checks, modifications etc.  Complex
      initialization should be left to the "init" callback, since GC
-     and the identifier hashes are set up between now and then.  */
+     and the identifier hashes are set up between now and then.
+
+     If errorcount is non-zero after this call the compiler exits
+     immediately and the finish hook is not called.  */
   void (*post_options) PARAMS ((void));
 
   /* Called after post_options, to initialize the front end.  The main
@@ -289,9 +289,6 @@ struct lang_hooks
      for the passed TARGET_EXPR.  Return NULL if there is none.  */
   tree (*maybe_build_cleanup) PARAMS ((tree));
 
-  /* Mark nodes held through the lang_specific hooks in the tree.  */
-  void (*mark_tree) PARAMS ((tree));
-
   /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of
      thing that the assembler should talk about, set
      DECL_ASSEMBLER_NAME to an appropriate IDENTIFIER_NODE.
@@ -341,7 +338,7 @@ struct lang_hooks
   struct lang_hooks_for_functions function;
 
   struct lang_hooks_for_tree_inlining tree_inlining;
-  
+
   struct lang_hooks_for_tree_dump tree_dump;
 
   struct lang_hooks_for_decls decls;

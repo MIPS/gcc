@@ -124,6 +124,8 @@ struct ssa_rename_from_hash_table_data {
   partition reg_partition;
 };
 
+static rtx gen_sequence
+  PARAMS ((void));
 static void ssa_rename_from_initialize
   PARAMS ((void));
 static rtx ssa_rename_from_lookup
@@ -470,18 +472,18 @@ find_evaluations (evals, nregs)
      sbitmap *evals;
      int nregs;
 {
-  int bb;
+  basic_block bb;
 
   sbitmap_vector_zero (evals, nregs);
   fe_evals = evals;
 
-  for (bb = n_basic_blocks; --bb >= 0; )
+  FOR_EACH_BB_REVERSE (bb)
     {
       rtx p, last;
 
-      fe_current_bb = bb;
-      p = BLOCK_HEAD (bb);
-      last = BLOCK_END (bb);
+      fe_current_bb = bb->index;
+      p = bb->head;
+      last = bb->end;
       while (1)
 	{
 	  if (INSN_P (p))
@@ -520,7 +522,7 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done)
 {
   basic_block b = BASIC_BLOCK (bb);
   edge e;
-  int c;
+  basic_block c;
 
   SET_BIT (done, bb);
   sbitmap_zero (frontiers[bb]);
@@ -528,9 +530,9 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done)
   /* Do the frontier of the children first.  Not all children in the
      dominator tree (blocks dominated by this one) are children in the
      CFG, so check all blocks.  */
-  for (c = 0; c < n_basic_blocks; ++c)
-    if (idom[c] == bb && ! TEST_BIT (done, c))
-      compute_dominance_frontiers_1 (frontiers, idom, c, done);
+  FOR_EACH_BB (c)
+    if (idom[c->index] == bb && ! TEST_BIT (done, c->index))
+      compute_dominance_frontiers_1 (frontiers, idom, c->index, done);
 
   /* Find blocks conforming to rule (1) above.  */
   for (e = b->succ; e; e = e->succ_next)
@@ -542,11 +544,11 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done)
     }
 
   /* Find blocks conforming to rule (2).  */
-  for (c = 0; c < n_basic_blocks; ++c)
-    if (idom[c] == bb)
+  FOR_EACH_BB (c)
+    if (idom[c->index] == bb)
       {
 	int x;
-	EXECUTE_IF_SET_IN_SBITMAP (frontiers[c], 0, x,
+	EXECUTE_IF_SET_IN_SBITMAP (frontiers[c->index], 0, x,
 	  {
 	    if (idom[x] != bb)
 	      SET_BIT (frontiers[bb], x);
@@ -559,7 +561,7 @@ compute_dominance_frontiers (frontiers, idom)
      sbitmap *frontiers;
      int *idom;
 {
-  sbitmap done = sbitmap_alloc (n_basic_blocks);
+  sbitmap done = sbitmap_alloc (last_basic_block);
   sbitmap_zero (done);
 
   compute_dominance_frontiers_1 (frontiers, idom, 0, done);
@@ -585,7 +587,7 @@ compute_iterated_dominance_frontiers (idfs, frontiers, evals, nregs)
   sbitmap worklist;
   int reg, passes = 0;
 
-  worklist = sbitmap_alloc (n_basic_blocks);
+  worklist = sbitmap_alloc (last_basic_block);
 
   for (reg = 0; reg < nregs; ++reg)
     {
@@ -916,18 +918,26 @@ rename_insn_1 (ptr, data)
       }
 
     case REG:
-      if (CONVERT_REGISTER_TO_SSA_P (REGNO (x)) &&
-	  REGNO (x) < ssa_max_reg_num)
+      if (CONVERT_REGISTER_TO_SSA_P (REGNO (x))
+	  && REGNO (x) < ssa_max_reg_num)
 	{
 	  rtx new_reg = ssa_rename_to_lookup (x);
 
-	  if (new_reg != NULL_RTX && new_reg != RENAME_NO_RTX)
+	  if (new_reg != RENAME_NO_RTX)
 	    {
-	      if (GET_MODE (x) != GET_MODE (new_reg))
-		abort ();
-	      *ptr = new_reg;
+	      if (new_reg != NULL_RTX)
+		{
+		  if (GET_MODE (x) != GET_MODE (new_reg))
+		    abort ();
+		  *ptr = new_reg;
+		}
+	      else
+		{
+		  /* Undefined value used, rename it to a new pseudo register so
+		     that it cannot conflict with an existing register */
+		  *ptr = gen_reg_rtx (GET_MODE(x));
+		}
 	    }
-	  /* Else this is a use before a set.  Warn?  */
 	}
       return -1;
 
@@ -966,6 +976,28 @@ rename_insn_1 (ptr, data)
     }
 }
 
+static rtx
+gen_sequence ()
+{
+  rtx first_insn = get_insns ();
+  rtx result;
+  rtx tem;
+  int i;
+  int len;
+
+  /* Count the insns in the chain.  */
+  len = 0;
+  for (tem = first_insn; tem; tem = NEXT_INSN (tem))
+    len++;
+
+  result = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (len));
+
+  for (i = 0, tem = first_insn; tem; tem = NEXT_INSN (tem), i++)
+    XVECEXP (result, 0, i) = tem;
+
+  return result;
+}
+
 static void
 rename_block (bb, idom)
      int bb;
@@ -975,7 +1007,7 @@ rename_block (bb, idom)
   edge e;
   rtx insn, next, last;
   struct rename_set_data *set_data = NULL;
-  int c;
+  basic_block c;
 
   /* Step One: Walk the basic block, adding new names for sets and
      replacing uses.  */
@@ -1078,9 +1110,9 @@ rename_block (bb, idom)
   /* Step Three: Do the same to the children of this block in
      dominator order.  */
 
-  for (c = 0; c < n_basic_blocks; ++c)
-    if (idom[c] == bb)
-      rename_block (c, idom);
+  FOR_EACH_BB (c)
+    if (idom[c->index] == bb)
+      rename_block (c->index, idom);
 
   /* Step Four: Update the sets to refer to their new register,
      and restore ssa_rename_to to its previous state.  */
@@ -1140,6 +1172,8 @@ convert_to_ssa ()
 
   int nregs;
 
+  basic_block bb;
+
   /* Don't do it twice.  */
   if (in_ssa_form)
     abort ();
@@ -1148,28 +1182,27 @@ convert_to_ssa ()
      dead code.  We'll let the SSA optimizers do that.  */
   life_analysis (get_insns (), NULL, 0);
 
-  idom = (int *) alloca (n_basic_blocks * sizeof (int));
-  memset ((void *) idom, -1, (size_t) n_basic_blocks * sizeof (int));
+  idom = (int *) alloca (last_basic_block * sizeof (int));
+  memset ((void *) idom, -1, (size_t) last_basic_block * sizeof (int));
   calculate_dominance_info (idom, NULL, CDI_DOMINATORS);
 
   if (rtl_dump_file)
     {
-      int i;
       fputs (";; Immediate Dominators:\n", rtl_dump_file);
-      for (i = 0; i < n_basic_blocks; ++i)
-	fprintf (rtl_dump_file, ";\t%3d = %3d\n", i, idom[i]);
+      FOR_EACH_BB (bb)
+	fprintf (rtl_dump_file, ";\t%3d = %3d\n", bb->index, idom[bb->index]);
       fflush (rtl_dump_file);
     }
 
   /* Compute dominance frontiers.  */
 
-  dfs = sbitmap_vector_alloc (n_basic_blocks, n_basic_blocks);
+  dfs = sbitmap_vector_alloc (last_basic_block, last_basic_block);
   compute_dominance_frontiers (dfs, idom);
 
   if (rtl_dump_file)
     {
       dump_sbitmap_vector (rtl_dump_file, ";; Dominance Frontiers:",
-			   "; Basic Block", dfs, n_basic_blocks);
+			   "; Basic Block", dfs, last_basic_block);
       fflush (rtl_dump_file);
     }
 
@@ -1177,12 +1210,12 @@ convert_to_ssa ()
 
   ssa_max_reg_num = max_reg_num ();
   nregs = ssa_max_reg_num;
-  evals = sbitmap_vector_alloc (nregs, n_basic_blocks);
+  evals = sbitmap_vector_alloc (nregs, last_basic_block);
   find_evaluations (evals, nregs);
 
   /* Compute the iterated dominance frontier for each register.  */
 
-  idfs = sbitmap_vector_alloc (nregs, n_basic_blocks);
+  idfs = sbitmap_vector_alloc (nregs, last_basic_block);
   compute_iterated_dominance_frontiers (idfs, dfs, evals, nregs);
 
   if (rtl_dump_file)
@@ -1440,7 +1473,7 @@ eliminate_phi (e, reg_partition)
 	ephi_create (i, visited, pred, succ, nodes);
     }
 
-  insn = gen_sequence ();
+  insn = get_insns ();
   end_sequence ();
   insert_insn_on_edge (insn, e);
   if (rtl_dump_file)
@@ -1629,7 +1662,7 @@ make_equivalent_phi_alternatives_equivalent (bb, reg_partition)
 static partition
 compute_conservative_reg_partition ()
 {
-  int bb;
+  basic_block bb;
   int changed = 0;
 
   /* We don't actually work with hard registers, but it's easier to
@@ -1642,8 +1675,8 @@ compute_conservative_reg_partition ()
      be copied on abnormal critical edges are placed in the same
      partition.  This saves us from having to split abnormal critical
      edges.  */
-  for (bb = n_basic_blocks; --bb >= 0; )
-    changed += make_regs_equivalent_over_bad_edges (bb, p);
+  FOR_EACH_BB_REVERSE (bb)
+    changed += make_regs_equivalent_over_bad_edges (bb->index, p);
 
   /* Now we have to insure that corresponding arguments of phi nodes
      assigning to corresponding regs are equivalent.  Iterate until
@@ -1651,8 +1684,8 @@ compute_conservative_reg_partition ()
   while (changed > 0)
     {
       changed = 0;
-      for (bb = n_basic_blocks; --bb >= 0; )
-	changed += make_equivalent_phi_alternatives_equivalent (bb, p);
+      FOR_EACH_BB_REVERSE (bb)
+	changed += make_equivalent_phi_alternatives_equivalent (bb->index, p);
     }
 
   return p;
@@ -1848,7 +1881,7 @@ coalesce_regs_in_successor_phi_nodes (bb, p, conflicts)
 static partition
 compute_coalesced_reg_partition ()
 {
-  int bb;
+  basic_block bb;
   int changed = 0;
   regset_head phi_set_head;
   regset phi_set = &phi_set_head;
@@ -1860,8 +1893,8 @@ compute_coalesced_reg_partition ()
      be copied on abnormal critical edges are placed in the same
      partition.  This saves us from having to split abnormal critical
      edges (which can't be done).  */
-  for (bb = n_basic_blocks; --bb >= 0; )
-    make_regs_equivalent_over_bad_edges (bb, p);
+  FOR_EACH_BB_REVERSE (bb)
+    make_regs_equivalent_over_bad_edges (bb->index, p);
 
   INIT_REG_SET (phi_set);
 
@@ -1883,12 +1916,11 @@ compute_coalesced_reg_partition ()
 	 blocks first, so that most frequently executed copies would
 	 be more likely to be removed by register coalescing.  But any
 	 order will generate correct, if non-optimal, results.  */
-      for (bb = n_basic_blocks; --bb >= 0; )
+      FOR_EACH_BB_REVERSE (bb)
 	{
-	  basic_block block = BASIC_BLOCK (bb);
-	  changed += coalesce_regs_in_copies (block, p, conflicts);
+	  changed += coalesce_regs_in_copies (bb, p, conflicts);
 	  changed +=
-	    coalesce_regs_in_successor_phi_nodes (block, p, conflicts);
+	    coalesce_regs_in_successor_phi_nodes (bb, p, conflicts);
 	}
 
       conflict_graph_delete (conflicts);
@@ -2094,11 +2126,10 @@ static void
 rename_equivalent_regs (reg_partition)
      partition reg_partition;
 {
-  int bb;
+  basic_block b;
 
-  for (bb = n_basic_blocks; --bb >= 0; )
+  FOR_EACH_BB_REVERSE (b)
     {
-      basic_block b = BASIC_BLOCK (bb);
       rtx next = b->head;
       rtx last = b->end;
       rtx insn;
@@ -2141,7 +2172,7 @@ rename_equivalent_regs (reg_partition)
 void
 convert_from_ssa ()
 {
-  int bb;
+  basic_block b, bb;
   partition reg_partition;
   rtx insns = get_insns ();
 
@@ -2167,9 +2198,8 @@ convert_from_ssa ()
   rename_equivalent_regs (reg_partition);
 
   /* Eliminate the PHI nodes.  */
-  for (bb = n_basic_blocks; --bb >= 0; )
+  FOR_EACH_BB_REVERSE (b)
     {
-      basic_block b = BASIC_BLOCK (bb);
       edge e;
 
       for (e = b->pred; e; e = e->pred_next)
@@ -2180,17 +2210,17 @@ convert_from_ssa ()
   partition_delete (reg_partition);
 
   /* Actually delete the PHI nodes.  */
-  for (bb = n_basic_blocks; --bb >= 0; )
+  FOR_EACH_BB_REVERSE (bb)
     {
-      rtx insn = BLOCK_HEAD (bb);
+      rtx insn = bb->head;
 
       while (1)
 	{
 	  /* If this is a PHI node delete it.  */
 	  if (PHI_NODE_P (insn))
 	    {
-	      if (insn == BLOCK_END (bb))
-		BLOCK_END (bb) = PREV_INSN (insn);
+	      if (insn == bb->end)
+		bb->end = PREV_INSN (insn);
 	      insn = delete_insn (insn);
 	    }
 	  /* Since all the phi nodes come at the beginning of the
@@ -2199,7 +2229,7 @@ convert_from_ssa ()
 	  else if (INSN_P (insn))
 	    break;
 	  /* If we've reached the end of the block, stop.  */
-	  else if (insn == BLOCK_END (bb))
+	  else if (insn == bb->end)
 	    break;
 	  else
 	    insn = NEXT_INSN (insn);
@@ -2214,7 +2244,7 @@ convert_from_ssa ()
   count_or_remove_death_notes (NULL, 1);
 
   /* Deallocate the data structures.  */
-  VARRAY_FREE (ssa_definition);
+  ssa_definition = 0;
   ssa_rename_from_free ();
 }
 

@@ -247,7 +247,7 @@ find_control_dependence (el, edge_index, pdom, cdbte)
     abort ();
   ending_block =
     (INDEX_EDGE_PRED_BB (el, edge_index) == ENTRY_BLOCK_PTR)
-    ? BASIC_BLOCK (0)
+    ? ENTRY_BLOCK_PTR->next_bb
     : find_pdom (pdom, INDEX_EDGE_PRED_BB (el, edge_index));
 
   for (current_block = INDEX_EDGE_SUCC_BB (el, edge_index);
@@ -275,7 +275,7 @@ find_pdom (pdom, block)
     abort ();
 
   if (block == ENTRY_BLOCK_PTR)
-    return BASIC_BLOCK (0);
+    return ENTRY_BLOCK_PTR->next_bb;
   else if (block == EXIT_BLOCK_PTR || pdom[block->index] == EXIT_BLOCK)
     return EXIT_BLOCK_PTR;
   else
@@ -490,6 +490,7 @@ ssa_eliminate_dead_code ()
 {
   int i;
   rtx insn;
+  basic_block bb;
   /* Necessary instructions with operands to explore.  */
   varray_type unprocessed_instructions;
   /* Map element (b,e) is nonzero if the block is control dependent on
@@ -499,26 +500,22 @@ ssa_eliminate_dead_code ()
   int *pdom;
   struct edge_list *el;
 
-  int max_insn_uid = get_max_uid ();
-
   /* Initialize the data structures.  */
   mark_all_insn_unnecessary ();
   VARRAY_RTX_INIT (unprocessed_instructions, 64,
 		   "unprocessed instructions");
-  cdbte = control_dependent_block_to_edge_map_create (n_basic_blocks);
+  cdbte = control_dependent_block_to_edge_map_create (last_basic_block);
 
   /* Prepare for use of BLOCK_NUM ().  */
   connect_infinite_loops_to_exit ();
-   /* Be careful not to clear the added edges.  */
-  compute_bb_for_insn (max_insn_uid);
 
   /* Compute control dependence.  */
-  pdom = (int *) xmalloc (n_basic_blocks * sizeof (int));
-  for (i = 0; i < n_basic_blocks; ++i)
+  pdom = (int *) xmalloc (last_basic_block * sizeof (int));
+  for (i = 0; i < last_basic_block; ++i)
     pdom[i] = INVALID_BLOCK;
   calculate_dominance_info (pdom, NULL, CDI_POST_DOMINATORS);
   /* Assume there is a path from each node to the exit block.  */
-  for (i = 0; i < n_basic_blocks; ++i)
+  for (i = 0; i < last_basic_block; ++i)
     if (pdom[i] == INVALID_BLOCK)
       pdom[i] = EXIT_BLOCK;
   el = create_edge_list ();
@@ -718,10 +715,8 @@ ssa_eliminate_dead_code ()
   /* Find any blocks with no successors and ensure they are followed
      by a BARRIER.  delete_insn has the nasty habit of deleting barriers
      when deleting insns.  */
-  for (i = 0; i < n_basic_blocks; i++)
+  FOR_EACH_BB (bb)
     {
-      basic_block bb = BASIC_BLOCK (i);
-
       if (bb->succ == NULL)
 	{
 	  rtx next = NEXT_INSN (bb->end);
@@ -735,7 +730,6 @@ ssa_eliminate_dead_code ()
     RESURRECT_INSN (insn);
   if (VARRAY_ACTIVE_SIZE (unprocessed_instructions) != 0)
     abort ();
-  VARRAY_FREE (unprocessed_instructions);
   control_dependent_block_to_edge_map_free (cdbte);
   free ((PTR) pdom);
   free_edge_list (el);

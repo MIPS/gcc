@@ -1,5 +1,5 @@
 /* Language-dependent hooks for Objective-C.
-   Copyright 2001 Free Software Foundation, Inc.
+   Copyright 2001, 2002 Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
 This file is part of GNU CC.
@@ -30,10 +30,9 @@ Boston, MA 02111-1307, USA.  */
 #include "langhooks-def.h"
 
 static void objc_init_options                   PARAMS ((void));
-static void objc_post_options                   PARAMS ((void));
 
 #undef LANG_HOOKS_NAME
-#define LANG_HOOKS_NAME "GNU Objective-C"  
+#define LANG_HOOKS_NAME "GNU Objective-C"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT objc_init
 #undef LANG_HOOKS_FINISH
@@ -43,11 +42,13 @@ static void objc_post_options                   PARAMS ((void));
 #undef LANG_HOOKS_DECODE_OPTION
 #define LANG_HOOKS_DECODE_OPTION objc_decode_option
 #undef LANG_HOOKS_POST_OPTIONS
-#define LANG_HOOKS_POST_OPTIONS objc_post_options
+#define LANG_HOOKS_POST_OPTIONS c_common_post_options
+#undef LANG_HOOKS_GET_ALIAS_SET
+#define LANG_HOOKS_GET_ALIAS_SET c_common_get_alias_set
+#undef LANG_HOOKS_SAFE_FROM_P
+#define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
-#undef LANG_HOOKS_MARK_TREE
-#define LANG_HOOKS_MARK_TREE c_mark_tree
 #undef LANG_HOOKS_EXPAND_EXPR
 #define LANG_HOOKS_EXPAND_EXPR c_expand_expr
 #undef LANG_HOOKS_MARK_ADDRESSABLE
@@ -75,8 +76,6 @@ static void objc_post_options                   PARAMS ((void));
 #define LANG_HOOKS_FUNCTION_ENTER_NESTED c_push_function_context
 #undef LANG_HOOKS_FUNCTION_LEAVE_NESTED
 #define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
-#undef LANG_HOOKS_FUNCTION_MARK
-#define LANG_HOOKS_FUNCTION_MARK c_mark_function_context
 
 /* Attribute hooks.  */
 #undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
@@ -165,13 +164,3 @@ objc_init_options ()
 {
   c_common_init_options (clk_objective_c);
 } 
-
-/* Post-switch processing.  */
-
-static void
-objc_post_options ()
-{
-  c_common_post_options ();
-}
-
-

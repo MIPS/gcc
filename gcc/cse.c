@@ -720,10 +720,25 @@ approx_reg_cost_1 (xp, data)
      void *data;
 {
   rtx x = *xp;
-  regset set = (regset) data;
+  int *cost_p = data;
 
   if (x && GET_CODE (x) == REG)
-    SET_REGNO_REG_SET (set, REGNO (x));
+    {
+      unsigned int regno = REGNO (x);
+
+      if (! CHEAP_REGNO (regno))
+	{
+	  if (regno < FIRST_PSEUDO_REGISTER)
+	    {
+	      if (SMALL_REGISTER_CLASSES)
+		return 1;
+	      *cost_p += 2;
+	    }
+	  else
+	    *cost_p += 1;
+	}
+    }
+
   return 0;
 }
 
@@ -736,28 +751,12 @@ static int
 approx_reg_cost (x)
      rtx x;
 {
-  regset_head set;
-  int i;
   int cost = 0;
-  int hardregs = 0;
 
-  INIT_REG_SET (&set);
-  for_each_rtx (&x, approx_reg_cost_1, (void *) &set);
+  if (for_each_rtx (&x, approx_reg_cost_1, (void *) &cost))
+    return MAX_COST;
 
-  EXECUTE_IF_SET_IN_REG_SET
-    (&set, 0, i,
-     {
-       if (! CHEAP_REGNO (i))
-	 {
-	   if (i < FIRST_PSEUDO_REGISTER)
-	     hardregs++;
-
-	   cost += i < FIRST_PSEUDO_REGISTER ? 2 : 1;
-	 }
-     });
-
-  CLEAR_REG_SET (&set);
-  return hardregs && SMALL_REGISTER_CLASSES ? MAX_COST : cost;
+  return cost;
 }
 
 /* Return a negative value if an rtx A, whose costs are given by COST_A
@@ -3473,7 +3472,9 @@ fold_rtx (x, insn)
 		  && GET_CODE (elt->exp) != SIGN_EXTEND
 		  && GET_CODE (elt->exp) != ZERO_EXTEND
 		  && GET_CODE (XEXP (elt->exp, 0)) == SUBREG
-		  && GET_MODE (SUBREG_REG (XEXP (elt->exp, 0))) == mode)
+		  && GET_MODE (SUBREG_REG (XEXP (elt->exp, 0))) == mode
+		  && (GET_MODE_CLASS (mode)
+		      == GET_MODE_CLASS (GET_MODE (XEXP (elt->exp, 0)))))
 		{
 		  rtx op0 = SUBREG_REG (XEXP (elt->exp, 0));
 
@@ -4914,7 +4915,10 @@ cse_insn (insn, libcall_insn)
       && (tem = find_reg_note (insn, REG_EQUAL, NULL_RTX)) != 0
       && (! rtx_equal_p (XEXP (tem, 0), SET_SRC (sets[0].rtl))
 	  || GET_CODE (SET_DEST (sets[0].rtl)) == STRICT_LOW_PART))
-    src_eqv = canon_reg (XEXP (tem, 0), NULL_RTX);
+    {
+      src_eqv = fold_rtx (canon_reg (XEXP (tem, 0), NULL_RTX), insn);
+      XEXP (tem, 0) = src_eqv;
+    }
 
   /* Canonicalize sources and addresses of destinations.
      We do this in a separate pass to avoid problems when a MATCH_DUP is
@@ -5018,7 +5022,6 @@ cse_insn (insn, libcall_insn)
 	    eqvmode = GET_MODE (SUBREG_REG (XEXP (dest, 0)));
 	  do_not_record = 0;
 	  hash_arg_in_memory = 0;
-	  src_eqv = fold_rtx (src_eqv, insn);
 	  src_eqv_hash = HASH (src_eqv, eqvmode);
 
 	  /* Find the equivalence class for the equivalent expression.  */

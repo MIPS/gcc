@@ -1809,7 +1809,8 @@ function_arg_padding ((MODE), (TYPE))
    stored from the compare operation.  Note that we can't use "rtx" here
    since it hasn't been defined!  */
 
-extern struct rtx_def *sparc_compare_op0, *sparc_compare_op1;
+extern GTY(()) rtx sparc_compare_op0;
+extern GTY(()) rtx sparc_compare_op1;
 
 
 /* Generate the special assembly code needed to tell the assembler whatever
@@ -2483,26 +2484,6 @@ do {                                                                    \
 /* Generate calls to memcpy, memcmp and memset.  */
 #define TARGET_MEM_FUNCTIONS
 
-/* Add any extra modes needed to represent the condition code.
-
-   On the Sparc, we have a "no-overflow" mode which is used when an add or
-   subtract insn is used to set the condition code.  Different branches are
-   used in this case for some operations.
-
-   We also have two modes to indicate that the relevant condition code is
-   in the floating-point condition code register.  One for comparisons which
-   will generate an exception if the result is unordered (CCFPEmode) and
-   one for comparisons which will never trap (CCFPmode).
-
-   CCXmode and CCX_NOOVmode are only used by v9.  */
-
-#define EXTRA_CC_MODES			\
-    CC(CCXmode,	     "CCX")		\
-    CC(CC_NOOVmode,  "CC_NOOV")		\
-    CC(CCX_NOOVmode, "CCX_NOOV")	\
-    CC(CCFPmode,     "CCFP")		\
-    CC(CCFPEmode,    "CCFPE")
-
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point,
    CCFP[E]mode is used.  CC_NOOVmode should be used when the first operand
@@ -2874,24 +2855,8 @@ do {									\
 
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
-do {									\
-  int reg = 0;								\
-									\
-  if (TARGET_ARCH64							\
-      && aggregate_value_p (TREE_TYPE (TREE_TYPE (FUNCTION))))		\
-    reg = 1;								\
-  if ((DELTA) >= 4096 || (DELTA) < -4096)				\
-    fprintf (FILE, "\tset\t%d, %%g1\n\tadd\t%%o%d, %%g1, %%o%d\n",	\
-	     (int)(DELTA), reg, reg);					\
-  else									\
-    fprintf (FILE, "\tadd\t%%o%d, %d, %%o%d\n", reg, (int)(DELTA), reg);\
-  fprintf (FILE, "\tor\t%%o7, %%g0, %%g1\n");				\
-  fprintf (FILE, "\tcall\t");						\
-  assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-  fprintf (FILE, ", 0\n");						\
-  fprintf (FILE, "\t or\t%%g1, %%g0, %%o7\n");				\
-} while (0)
+#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
+  sparc_output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CHAR) \
   ((CHAR) == '#' || (CHAR) == '*' || (CHAR) == '^' || (CHAR) == '(' || (CHAR) == '_')

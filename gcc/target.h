@@ -134,7 +134,7 @@ struct gcc_target
     /* Calculate how much this insn affects how many more insns we
        can emit this cycle.  Default is they all cost the same.  */
     int (* variable_issue) PARAMS ((FILE *, int, rtx, int));
-    
+
     /* Initialize machine-dependent scheduling code.  */
     void (* md_init) PARAMS ((FILE *, int, int));
 
@@ -256,6 +256,9 @@ struct gcc_target
   /* True if "native" constructors and destructors are supported,
      false if we're using collect2 for the job.  */
   bool have_ctors_dtors;
+
+  /* True if thread-local storage is supported.  */
+  bool have_tls;
 };
 
 extern struct gcc_target targetm;

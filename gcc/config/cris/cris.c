@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "target.h"
 #include "target-def.h"
+#include "ggc.h"
 
 /* Usable when we have an amount to add or subtract, and want the
    optimal size of the insn.  */
@@ -63,7 +64,7 @@ Boston, MA 02111-1307, USA.  */
     } while (0)
 
 /* Per-function machine data.  */
-struct machine_function
+struct machine_function GTY(())
  {
    int needs_return_address_on_stack;
  };
@@ -85,7 +86,7 @@ static void cris_print_base PARAMS ((rtx, FILE *));
 
 static void cris_print_index PARAMS ((rtx, FILE *));
 
-static void cris_init_machine_status PARAMS ((struct function *));
+static struct machine_function * cris_init_machine_status PARAMS ((void));
 
 static int cris_initial_frame_pointer_offset PARAMS ((void));
 
@@ -2697,11 +2698,10 @@ cris_init_expanders ()
 
 /* Zero initialization is OK for all current fields.  */
 
-static void
-cris_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+cris_init_machine_status ()
 {
-  p->machine = xcalloc (1, sizeof (struct machine_function));
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 /* Split a 2 word move (DI or presumably DF) into component parts.
@@ -2855,7 +2855,7 @@ cris_split_movdx (operands)
   else
     abort ();
 
-  val = gen_sequence ();
+  val = get_insns ();
   end_sequence ();
   return val;
 }
@@ -3128,6 +3128,8 @@ Prev_insn (insn)
   return PREV_INSN (insn);
 }
 #endif
+
+#include "gt-cris.h"
 
 /*
  * Local variables:

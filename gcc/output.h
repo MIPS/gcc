@@ -349,7 +349,7 @@ extern bool assemble_integer		PARAMS ((rtx, unsigned, unsigned, int));
 #define assemble_aligned_integer(SIZE, VALUE) \
   assemble_integer (VALUE, SIZE, (SIZE) * BITS_PER_UNIT, 1)
 
-#ifdef REAL_VALUE_TYPE
+#ifdef REAL_VALUE_TYPE_SIZE
 /* Assemble the floating-point constant D into an object of size MODE.  */
 extern void assemble_real		PARAMS ((REAL_VALUE_TYPE,
 					         enum machine_mode,
@@ -507,7 +507,8 @@ extern void no_asm_to_stream PARAMS ((FILE *));
 #define SECTION_STRINGS  0x10000	/* contains zero terminated strings without
 					   embedded zeros */
 #define SECTION_OVERRIDE 0x20000	/* allow override of default flags */
-#define SECTION_MACH_DEP 0x40000	/* subsequent bits reserved for target */
+#define SECTION_TLS	 0x40000	/* contains thread-local storage */
+#define SECTION_MACH_DEP 0x80000	/* subsequent bits reserved for target */
 
 extern unsigned int get_named_section_flags PARAMS ((const char *));
 extern bool set_named_section_flags	PARAMS ((const char *, unsigned int));

@@ -24,6 +24,17 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      NETBSD_OS_CPP_BUILTINS_ELF();		\
+      builtin_define ("__m68k__");		\
+      builtin_define ("__SVR4_ABI__");		\
+      builtin_define ("__motorola__");		\
+      builtin_assert ("cpu=m68k");		\
+      builtin_assert ("machine=m68k");		\
+    }						\
+  while (0)
 
 /* Default target comes from config.gcc */
 #undef TARGET_DEFAULT
@@ -31,20 +42,24 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* Don't try using XFmode on the 68010.  */ 
-#if TARGET_DEFAULT == 0
 #undef LONG_DOUBLE_TYPE_SIZE
-#define LONG_DOUBLE_TYPE_SIZE 64
-#endif
+#define LONG_DOUBLE_TYPE_SIZE			\
+  ((TARGET_68020 || TARGET_68040 || TARGET_68040_ONLY || \
+    TARGET_68060) ? 96 : 64)
 
 #ifdef __mc68010__
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
+#else
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
 #endif
 
 #define EXTRA_SPECS \
   { "cpp_cpu_default_spec", CPP_CPU_DEFAULT_SPEC }, \
   { "cpp_cpu_spec",         CPP_CPU_SPEC }, \
   { "cpp_fpu_spec",         CPP_FPU_SPEC }, \
-  { "asm_default_spec",     ASM_DEFAULT_SPEC },
+  { "asm_default_spec",     ASM_DEFAULT_SPEC }, \
+  { "netbsd_cpp_spec",      NETBSD_CPP_SPEC }, \
+  { "netbsd_entry_point",   NETBSD_ENTRY_POINT },
 
 
 #define CPP_CPU_SPEC \
@@ -80,7 +95,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SPEC
 #define CPP_SPEC \
-  "%{posix:-D_POSIX_SOURCE} %(cpp_cpu_spec) %(cpp_fpu_spec)"
+  "%(netbsd_cpp_spec) %(cpp_cpu_spec) %(cpp_fpu_spec)"
 
 
 /* Provide an ASM_SPEC appropriate for NetBSD m68k ELF targets.  We pass
@@ -92,34 +107,12 @@ Boston, MA 02111-1307, USA.  */
     %{m68010} %{m68020} %{m68030} %{m68040} %{m68060} \
     %{fpic:-k} %{fPIC:-k -K}"
 
-
-/* Provide a set of CPP pre-definitions and pre-assertions appropriate
-   for NetBSD m68k ELF targets (using the SVR4 ABI).  */
-
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES \
-  "-D__NetBSD__ -D__ELF__ -D__m68k__ -D__SVR4_ABI__ -D__motorola__ \
-   -Asystem=unix -Asystem=NetBSD -Acpu=m68k -Amachine=m68k"
-
-
-/* Provide a LINK_SPEC appropriate for a NetBSD/m68k ELF target.
-   This is a copy of LINK_SPEC from <netbsd-elf.h> tweaked for
-   the m68k target.  */
+/* Provide a LINK_SPEC appropriate for a NetBSD/m68k ELF target.  */
 
 #undef LINK_SPEC
-#define LINK_SPEC							\
-  "%{assert*} %{R*}							\
-   %{shared:-shared}							\
-   %{!shared:								\
-     -dc -dp								\
-     %{!nostdlib:							\
-       %{!r*:								\
-	 %{!e*:-e _start}}}						\
-     %{!static:								\
-       %{rdynamic:-export-dynamic}					\
-       %{!dynamic-linker:-dynamic-linker /usr/libexec/ld.elf_so}}	\
-     %{static:-static}}"
+#define LINK_SPEC NETBSD_LINK_SPEC_ELF
 
+#define NETBSD_ENTRY_POINT "_start"
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function only.  */

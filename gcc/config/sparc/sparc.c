@@ -140,7 +140,6 @@ static int hypersparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static void sparc_output_addr_vec PARAMS ((rtx));
 static void sparc_output_addr_diff_vec PARAMS ((rtx));
 static void sparc_output_deferred_case_vectors PARAMS ((void));
-static void sparc_add_gc_roots    PARAMS ((void));
 static int check_return_regs PARAMS ((rtx));
 static int epilogue_renumber PARAMS ((rtx *, int));
 static bool sparc_assemble_integer PARAMS ((rtx, unsigned int, int));
@@ -438,9 +437,6 @@ sparc_override_options ()
 
   /* Do various machine dependent initializations.  */
   sparc_init_modes ();
-
-  /* Register global variables with the garbage collector.  */
-  sparc_add_gc_roots ();
 }
 
 /* Miscellaneous utilities.  */
@@ -3065,17 +3061,6 @@ check_return_regs (x)
 
 }
 
-/* Return 1 if TRIAL references only in and global registers.  */
-int
-eligible_for_return_delay (trial)
-     rtx trial;
-{
-  if (GET_CODE (PATTERN (trial)) != SET)
-    return 0;
-
-  return check_return_regs (PATTERN (trial));
-}
-
 int
 short_branch (uid1, uid2)
      int uid1, uid2;
@@ -3125,10 +3110,10 @@ reg_unused_after (reg, insn)
 }
 
 /* The table we use to reference PIC data.  */
-static rtx global_offset_table;
+static GTY(()) rtx global_offset_table;
 
 /* The function we use to get at it.  */
-static rtx get_pc_symbol;
+static GTY(()) rtx get_pc_symbol;
 static char get_pc_symbol_name[256];
 
 /* Ensure that we are not using patterns that are not OK with PIC.  */
@@ -7797,8 +7782,8 @@ set_extends (insn)
 }
 
 /* We _ought_ to have only one kind per function, but...  */
-static rtx sparc_addr_diff_list;
-static rtx sparc_addr_list;
+static GTY(()) rtx sparc_addr_diff_list;
+static GTY(()) rtx sparc_addr_list;
 
 void
 sparc_defer_case_vector (lab, vec, diff)
@@ -8008,20 +7993,6 @@ sparc_profile_hook (labelno)
   emit_library_call (fun, LCT_NORMAL, VOIDmode, 1, lab, Pmode);
 }
 
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-sparc_add_gc_roots ()
-{
-  ggc_add_rtx_root (&sparc_compare_op0, 1);
-  ggc_add_rtx_root (&sparc_compare_op1, 1);
-  ggc_add_rtx_root (&global_offset_table, 1);
-  ggc_add_rtx_root (&get_pc_symbol, 1);
-  ggc_add_rtx_root (&sparc_addr_diff_list, 1);
-  ggc_add_rtx_root (&sparc_addr_list, 1);
-}
-
 #ifdef OBJECT_FORMAT_ELF
 static void
 sparc_elf_asm_named_section (name, flags)
@@ -8474,3 +8445,72 @@ sparc_encode_section_info (decl, first)
   if (TARGET_CM_EMBMEDANY && TREE_CODE (decl) == FUNCTION_DECL)
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 }
+
+/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
+   Used for C++ multiple inheritance.  */
+
+void
+sparc_output_mi_thunk (file, thunk_fndecl, delta, function)
+     FILE *file;
+     tree thunk_fndecl ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  rtx this, insn, funexp, delta_rtx, tmp;
+
+  reload_completed = 1;
+  no_new_pseudos = 1;
+  current_function_uses_only_leaf_regs = 1;
+
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+
+  /* Find the "this" pointer.  Normally in %o0, but in ARCH64 if the function
+     returns a structure, the structure return pointer is there instead.  */
+  if (TARGET_ARCH64 && aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    this = gen_rtx_REG (Pmode, SPARC_INCOMING_INT_ARG_FIRST + 1);
+  else
+    this = gen_rtx_REG (Pmode, SPARC_INCOMING_INT_ARG_FIRST);
+
+  /* Add DELTA.  When possible use a plain add, otherwise load it into
+     a register first.  */
+  delta_rtx = GEN_INT (delta);
+  if (!SPARC_SIMM13_P (delta))
+    {
+      rtx scratch = gen_rtx_REG (Pmode, 1);
+      if (TARGET_ARCH64)
+	sparc_emit_set_const64 (scratch, delta_rtx);
+      else
+	sparc_emit_set_const32 (scratch, delta_rtx);
+      delta_rtx = scratch;
+    }
+
+  tmp = gen_rtx_PLUS (Pmode, this, delta_rtx);
+  emit_insn (gen_rtx_SET (VOIDmode, this, tmp));
+
+  /* Generate a tail call to the target function.  */
+  if (! TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  insn = emit_call_insn (gen_sibcall (funexp));
+  SIBLING_CALL_P (insn) = 1;
+  emit_barrier ();
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1, 0);
+  final_end_function ();
+
+  reload_completed = 0;
+  no_new_pseudos = 0;
+}
+
+#include "gt-sparc.h"

@@ -1,6 +1,6 @@
 /* Separate lexical analyzer for GNU C++.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GNU CC.
@@ -29,7 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "cp-tree.h"
 #include "cpplib.h"
-#include "c-lex.h"
 #include "lex.h"
 #include "parse.h"
 #include "flags.h"
@@ -203,13 +202,6 @@ int interface_unknown;		/* whether or not we know this class
 				   to behave according to #pragma interface.  */
 
 
-/* Post-switch processing.  */
-void
-cxx_post_options ()
-{
-  c_common_post_options ();
-}
-
 /* Initialization before switch parsing.  */
 void
 cxx_init_options ()
@@ -369,6 +361,7 @@ static const struct resword reswords[] =
   { "__restrict__",	RID_RESTRICT,	0 },
   { "__signed",		RID_SIGNED,	0 },
   { "__signed__",	RID_SIGNED,	0 },
+  { "__thread",		RID_THREAD,	0 },
   { "__typeof",		RID_TYPEOF,	0 },
   { "__typeof__",	RID_TYPEOF,	0 },
   { "__volatile",	RID_VOLATILE,	0 },
@@ -474,6 +467,7 @@ const short rid_to_yy[RID_MAX] =
   /* RID_BOUNDED */	0,
   /* RID_UNBOUNDED */	0,
   /* RID_COMPLEX */	TYPESPEC,
+  /* RID_THREAD */	SCSPEC,
 
   /* C++ */
   /* RID_FRIEND */	SCSPEC,
@@ -1440,6 +1434,12 @@ retrofit_lang_decl (t)
 
   ld = (struct lang_decl *) ggc_alloc_cleared (size);
 
+  ld->decl_flags.can_be_full = CAN_HAVE_FULL_LANG_DECL_P (t) ? 1 : 0;
+  ld->decl_flags.u1sel = TREE_CODE (t) == NAMESPACE_DECL ? 1 : 0;
+  ld->decl_flags.u2sel = 0;
+  if (ld->decl_flags.can_be_full)
+    ld->u.f.u3sel = TREE_CODE (t) == FUNCTION_DECL ? 1 : 0;
+
   DECL_LANG_SPECIFIC (t) = ld;
   if (current_lang_name == lang_name_cplusplus)
     SET_DECL_LANGUAGE (t, lang_cplusplus);
@@ -1504,7 +1504,10 @@ copy_lang_type (node)
   if (! TYPE_LANG_SPECIFIC (node))
     return;
 
-  size = sizeof (struct lang_type);
+  if (TYPE_LANG_SPECIFIC (node)->u.h.is_lang_type_class)
+    size = sizeof (struct lang_type);
+  else
+    size = sizeof (struct lang_type_ptrmem);
   lt = (struct lang_type *) ggc_alloc (size);
   memcpy (lt, TYPE_LANG_SPECIFIC (node), size);
   TYPE_LANG_SPECIFIC (node) = lt;
@@ -1544,6 +1547,7 @@ cxx_make_type (code)
 	    ggc_alloc_cleared (sizeof (struct lang_type)));
 
       TYPE_LANG_SPECIFIC (t) = pi;
+      pi->u.c.h.is_lang_type_class = 1;
 
 #ifdef GATHER_STATISTICS
       tree_node_counts[(int)lang_type] += 1;

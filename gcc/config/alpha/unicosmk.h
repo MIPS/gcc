@@ -43,8 +43,6 @@ Boston, MA 02111-1307, USA.  */
 	builtin_define ("_ADDR64");				\
 	builtin_define ("_LD64");				\
 	builtin_define ("__UNICOSMK__");			\
-	builtin_define ("__INT_MAX__=9223372036854775807");	\
-	builtin_define ("__SHRT_MAX__=2147483647");		\
     } while (0)
 
 #define SHORT_TYPE_SIZE 32
@@ -292,19 +290,6 @@ do {								\
 
 #undef EPILOGUE_USES
 #define EPILOGUE_USES(REGNO)  ((REGNO) == 26 || (REGNO) == 15)
-
-/* Machine-specific function data.  */
-
-struct machine_function
-{
-  /* List of call information words for calls from this function.  */
-  struct rtx_def *first_ciw;
-  struct rtx_def *last_ciw;
-  int ciw_count;
-
-  /* List of deferred case vectors.  */
-  struct rtx_def *addr_list;
-};
 
 /* Would have worked, only the stack doesn't seem to be executable
 #undef TRAMPOLINE_TEMPLATE

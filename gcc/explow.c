@@ -391,7 +391,7 @@ convert_memory_address (to_mode, x)
 
     case CONST:
       if (POINTERS_EXTEND_UNSIGNED >= 0)
-        return gen_rtx_CONST (to_mode,
+	return gen_rtx_CONST (to_mode,
 			      convert_memory_address (to_mode, XEXP (x, 0)));
       break;
 
@@ -1009,7 +1009,7 @@ emit_stack_save (save_level, psave, after)
       if (sa != 0)
 	sa = validize_mem (sa);
       emit_insn (fcn (sa, stack_pointer_rtx));
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
       emit_insn_after (seq, after);
     }
@@ -1070,7 +1070,7 @@ emit_stack_restore (save_level, sa, after)
 
       start_sequence ();
       emit_insn (fcn (stack_pointer_rtx, sa));
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
       emit_insn_after (seq, after);
     }
@@ -1375,7 +1375,7 @@ allocate_dynamic_stack_space (size, target, known_align)
 #ifdef SETJMP_VIA_SAVE_AREA
       if (setjmpless_size != NULL_RTX)
 	{
- 	  rtx note_target = get_last_insn ();
+	  rtx note_target = get_last_insn ();
 
 	  REG_NOTES (note_target)
 	    = gen_rtx_EXPR_LIST (REG_SAVE_AREA, setjmpless_size,
@@ -1422,14 +1422,13 @@ allocate_dynamic_stack_space (size, target, known_align)
    run-time routine to call to check the stack, so provide a mechanism for
    calling that routine.  */
 
-static rtx stack_check_libfunc;
+static GTY(()) rtx stack_check_libfunc;
 
 void
 set_stack_check_libfunc (libfunc)
      rtx libfunc;
 {
   stack_check_libfunc = libfunc;
-  ggc_add_rtx_root (&stack_check_libfunc, 1);
 }
 
 /* Emit one stack probe at ADDRESS, an address within the stack.  */
@@ -1620,17 +1619,17 @@ hard_function_value (valtype, func, outgoing)
 	 will match and we will abort later in this function.  */
 
       for (tmpmode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-           tmpmode != VOIDmode;
-           tmpmode = GET_MODE_WIDER_MODE (tmpmode))
-        {
-          /* Have we found a large enough mode?  */
-          if (GET_MODE_SIZE (tmpmode) >= bytes)
-            break;
-        }
+	   tmpmode != VOIDmode;
+	   tmpmode = GET_MODE_WIDER_MODE (tmpmode))
+	{
+	  /* Have we found a large enough mode?  */
+	  if (GET_MODE_SIZE (tmpmode) >= bytes)
+	    break;
+	}
 
       /* No suitable mode found.  */
       if (tmpmode == VOIDmode)
-        abort ();
+	abort ();
 
       PUT_MODE (val, tmpmode);
     }
@@ -1684,3 +1683,6 @@ rtx_to_tree_code (code)
     }
   return ((int) tcode);
 }
+
+#include "gt-explow.h"
+

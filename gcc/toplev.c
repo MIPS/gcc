@@ -1,3 +1,4 @@
+
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
    1999, 2000, 2001, 2002 Free Software Foundation, Inc.
@@ -69,6 +70,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "debug.h"
 #include "target.h"
 #include "langhooks.h"
+#include "cfglayout.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -85,10 +87,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
-#endif
-
-#ifdef HALF_PIC_DEBUG
-#include "halfpic.h"
 #endif
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
@@ -225,6 +223,7 @@ enum dump_file_index
   DFI_loop,
   DFI_cfg,
   DFI_bp,
+  DFI_tracer,
   DFI_cse2,
   DFI_life,
   DFI_combine,
@@ -272,6 +271,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
+  { "tracer",	'T', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
@@ -687,11 +687,14 @@ int flag_shared_data;
 int flag_delayed_branch;
 
 /* Nonzero if we are compiling pure (sharable) code.
-   Value is 1 if we are doing reasonable (i.e. simple
-   offset into offset table) pic.  Value is 2 if we can
-   only perform register offsets.  */
+   Value is 1 if we are doing "small" pic; value is 2 if we're doing
+   "large" pic.  */
 
 int flag_pic;
+
+/* Set to the default thread-local storage (tls) model to use.  */
+
+enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
 
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
@@ -866,6 +869,10 @@ int flag_renumber_insns = 1;
 
 int flag_new_regalloc = 1;
 
+/* Nonzero if we perform superblock formation.  */
+
+int flag_tracer = 0;
+
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
    For each variable, there is an _log variant which is the power
@@ -977,6 +984,8 @@ static const lang_independent_options f_options[] =
    N_("When possible do not generate stack frames") },
   {"optimize-sibling-calls", &flag_optimize_sibling_calls, 1,
    N_("Optimize sibling and tail recursive calls") },
+  {"tracer", &flag_tracer, 1,
+   N_("Perform superblock formation via tail duplication") },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    N_("When running CSE, follow jumps to their targets") },
   {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
@@ -1675,7 +1684,7 @@ strip_off_ending (name, len)
      int len;
 {
   int i;
-  for (i = 2; i < 6 && len > i;  i++)
+  for (i = 2; i < 6 && len > i; i++)
     {
       if (name[len - i] == '.')
 	{
@@ -1707,11 +1716,29 @@ output_quoted_string (asm_file, string)
 	  putc (c, asm_file);
 	}
       else
-	fprintf (asm_file, "\\%03o", c);
+	fprintf (asm_file, "\\%03o", (unsigned char) c);
     }
   putc ('\"', asm_file);
 #endif
 }
+
+/* Output NAME into FILE after having turned it into something
+   usable as an identifier in a target's assembly file.  */
+void
+output_clean_symbol_name (file, name)
+     FILE *file;
+     const char *name;
+{
+  /* Make a copy of NAME.  */
+  char *id = xstrdup (name);
+
+  /* Make it look like a valid identifier for an assembler.  */
+  clean_symbol_name (id);
+
+  fputs (id, file);
+  free (id);
+}
+
 
 /* Output a file name in the form wanted by System V.  */
 
@@ -1790,8 +1817,13 @@ open_dump_file (index, decl)
   free (dump_name);
 
   if (decl)
-    fprintf (rtl_dump_file, "\n;; Function %s\n\n",
-	     (*lang_hooks.decl_printable_name) (decl, 2));
+    fprintf (rtl_dump_file, "\n;; Function %s%s\n\n",
+	     (*lang_hooks.decl_printable_name) (decl, 2),
+	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
+	     ? " (hot)"
+	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
+	     ? " (unlikely executed)"
+	     : "");
 
   timevar_pop (TV_DUMP);
   return 1;
@@ -2023,7 +2055,6 @@ push_srcloc (file, line)
   fs = (struct file_stack *) xmalloc (sizeof (struct file_stack));
   fs->name = input_filename = file;
   fs->line = lineno = line;
-  fs->indent_level = 0;
   fs->next = input_file_stack;
   input_file_stack = fs;
   input_file_stack_tick++;
@@ -2531,6 +2562,12 @@ rest_of_compilation (decl)
       rtx insn;
       optimize_sibling_and_tail_recursive_calls ();
 
+      /* Recompute the CFG as sibling optimization clobbers it randomly.  */
+      free_bb_for_insn ();
+      find_exception_handler_labels ();
+      rebuild_jump_labels (insns);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+
       /* There is pass ordering problem - we must lower NOTE_INSN_PREDICTION
          notes before simplifying cfg and we must do lowering after sibcall
          that unhides parts of RTL chain and cleans up the CFG.
@@ -2542,11 +2579,11 @@ rest_of_compilation (decl)
 	    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
 	  delete_insn (insn);
     }
-   close_dump_file (DFI_sibling, print_rtl, get_insns ());
-   timevar_pop (TV_JUMP);
+  close_dump_file (DFI_sibling, print_rtl, get_insns ());
+  timevar_pop (TV_JUMP);
 
+  scope_to_insns_initialize ();
   /* Complete generation of exception handling code.  */
-  find_exception_handler_labels ();
   if (doing_eh (0))
     {
       timevar_push (TV_JUMP);
@@ -2577,7 +2614,10 @@ rest_of_compilation (decl)
   unshare_all_rtl (current_function_decl, insns);
 
 #ifdef SETJMP_VIA_SAVE_AREA
-  /* This must be performed before virtual register instantiation.  */
+  /* This must be performed before virtual register instantiation.
+     Please be aware the everything in the compiler that can look
+     at the RTL up to this point must understand that REG_SAVE_AREA
+     is just like a use of the REG contained inside.  */
   if (current_function_calls_alloca)
     optimize_save_area_alloca (insns);
 #endif
@@ -2608,6 +2648,7 @@ rest_of_compilation (decl)
   free_bb_for_insn ();
   copy_loop_headers (insns);
   purge_line_number_notes (insns);
+  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
   timevar_pop (TV_JUMP);
   close_dump_file (DFI_jump, print_rtl, insns);
@@ -2628,7 +2669,6 @@ rest_of_compilation (decl)
       timevar_push (TV_TO_SSA);
       open_dump_file (DFI_ssa, decl);
 
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       convert_to_ssa ();
 
@@ -2683,28 +2723,20 @@ rest_of_compilation (decl)
       timevar_pop (TV_FROM_SSA);
 
       ggc_collect ();
-      /* CFG is no longer maintained up-to-date.  */
-      free_bb_for_insn ();
     }
 
   timevar_push (TV_JUMP);
+  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
-  if (flag_delete_null_pointer_checks || flag_if_conversion)
+  /* Try to identify useless null pointer tests and delete them.  */
+  if (flag_delete_null_pointer_checks)
     {
       open_dump_file (DFI_null, decl);
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
-      /* Try to identify useless null pointer tests and delete them.  */
-      if (flag_delete_null_pointer_checks)
-	delete_null_pointer_checks (insns);
+      delete_null_pointer_checks (insns);
 
-      timevar_push (TV_IFCVT);
-      if (flag_if_conversion)
-	if_convert (0);
-      timevar_pop (TV_IFCVT);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       close_dump_file (DFI_null, print_rtl_with_bb, insns);
     }
@@ -2715,8 +2747,6 @@ rest_of_compilation (decl)
      maximum instruction UID, so if we can reduce the maximum UID
      we'll save big on memory.  */
   renumber_insns (rtl_dump_file);
-  if (optimize)
-    compute_bb_for_insn (get_max_uid ());
   timevar_pop (TV_JUMP);
 
   close_dump_file (DFI_jump, print_rtl_with_bb, insns);
@@ -2764,7 +2794,6 @@ rest_of_compilation (decl)
       /* The second pass of jump optimization is likely to have
          removed a bunch more instructions.  */
       renumber_insns (rtl_dump_file);
-      compute_bb_for_insn (get_max_uid ());
 
       timevar_pop (TV_CSE);
       close_dump_file (DFI_cse, print_rtl_with_bb, insns);
@@ -2882,6 +2911,7 @@ rest_of_compilation (decl)
       delete_trivially_dead_insns (insns, max_reg_num ());
       close_dump_file (DFI_loop, print_rtl, insns);
       timevar_pop (TV_LOOP);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
       ggc_collect ();
     }
@@ -2891,8 +2921,6 @@ rest_of_compilation (decl)
 
   timevar_push (TV_FLOW);
   open_dump_file (DFI_cfg, decl);
-
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
   if (rtl_dump_file)
     dump_flow_info (rtl_dump_file);
   cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
@@ -2934,6 +2962,19 @@ rest_of_compilation (decl)
       flow_loops_free (&loops);
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
+    }
+  if (flag_tracer)
+    {
+      timevar_push (TV_TRACER);
+      open_dump_file (DFI_tracer, decl);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      tracer ();
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
+      timevar_pop (TV_TRACER);
+      reg_scan (get_insns (), max_reg_num (), 0);
     }
 
   if (optimize > 0)
@@ -3594,6 +3635,7 @@ display_help ()
   printf (_("  -finline-limit=<number> Limits the size of inlined functions to <number>\n"));
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
   printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
+  printf (_("  -ftls-model=[global-dynamic | local-dynamic | initial-exec | local-exec] Indicates the default thread-local storage code generation model\n"));
 
   for (i = ARRAY_SIZE (f_options); i--;)
     {
@@ -3871,6 +3913,19 @@ decode_f_option (arg)
 	read_integral_parameter (option_value, arg - 2,
 				 MAX_INLINE_INSNS);
       set_param_value ("max-inline-insns", val);
+    }
+  else if ((option_value = skip_leading_substring (arg, "tls-model=")))
+    {
+      if (strcmp (option_value, "global-dynamic") == 0)
+	flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
+      else if (strcmp (option_value, "local-dynamic") == 0)
+	flag_tls_default = TLS_MODEL_LOCAL_DYNAMIC;
+      else if (strcmp (option_value, "initial-exec") == 0)
+	flag_tls_default = TLS_MODEL_INITIAL_EXEC;
+      else if (strcmp (option_value, "local-exec") == 0)
+	flag_tls_default = TLS_MODEL_LOCAL_EXEC;
+      else
+	warning ("`%s': unknown tls-model option", arg - 2);
     }
 #ifdef INSN_SCHEDULING
   else if ((option_value = skip_leading_substring (arg, "sched-verbose=")))
@@ -4897,16 +4952,6 @@ process_options ()
     warning ("this target machine does not have delayed branches");
 #endif
 
-  /* Some operating systems do not allow profiling without a frame
-     pointer.  */
-  if (!TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
-      && profile_flag
-      && flag_omit_frame_pointer)
-    {
-      error ("profiling does not work without a frame pointer");
-      flag_omit_frame_pointer = 0;
-    }
-
   user_label_prefix = USER_LABEL_PREFIX;
   if (flag_leading_underscore != -1)
     {
@@ -5032,13 +5077,13 @@ lang_independent_init ()
 {
   /* Initialize the garbage-collector, and string pools.  */
   init_ggc ();
-  ggc_add_rtx_root (&stack_limit_rtx, 1);
-  ggc_add_tree_root (&current_function_decl, 1);
-  ggc_add_tree_root (&current_function_func_begin_label, 1);
 
   init_stringpool ();
   init_obstacks ();
 
+  /* init_emit_once uses reg_raw_mode and therefore must be called
+     after init_regs which initialized reg_raw_mode.  */
+  init_regs ();
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO
@@ -5047,15 +5092,12 @@ lang_independent_init ()
 #endif
 		    || flag_test_coverage
 		    || warn_notreached);
-  init_regs ();
+  init_fake_stack_mems ();
   init_alias_once ();
-  init_stmt ();
   init_loop ();
   init_reload ();
   init_function_once ();
-  init_stor_layout_once ();
   init_varasm_once ();
-  init_EXPR_INSN_LIST_cache ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */
@@ -5220,7 +5262,7 @@ toplev_main (argc, argv)
   parse_options_and_default_flags (argc, argv);
 
   /* Exit early if we can (e.g. -help).  */
-  if (!exit_after_options)
+  if (!errorcount && !exit_after_options)
     do_compile ();
 
   if (errorcount || sorrycount)

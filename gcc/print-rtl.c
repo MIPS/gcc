@@ -88,8 +88,9 @@ print_mem_expr (outfile, expr)
 	print_mem_expr (outfile, TREE_OPERAND (expr, 0));
       else
 	fputs (" <variable>", outfile);
-      fprintf (outfile, ".%s",
-	       IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (expr, 1))));
+      if (DECL_NAME (TREE_OPERAND (expr, 1)))
+	fprintf (outfile, ".%s",
+		 IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (expr, 1))));
     }
   else if (DECL_NAME (expr))
     fprintf (outfile, " %s", IDENTIFIER_POINTER (DECL_NAME (expr)));
@@ -249,16 +250,6 @@ print_rtx (in_rtx)
 		  fprintf (outfile, HOST_PTR_PRINTF,
 			   (char *) NOTE_BLOCK (in_rtx));
 		sawclose = 1;
-		break;
-
-	      case NOTE_INSN_RANGE_BEG:
-	      case NOTE_INSN_RANGE_END:
-	      case NOTE_INSN_LIVE:
-		indent += 2;
-		if (!sawclose)
-		  fprintf (outfile, " ");
-		print_rtx (NOTE_RANGE_INFO (in_rtx));
-		indent -= 2;
 		break;
 
 	      case NOTE_INSN_BASIC_BLOCK:
@@ -473,6 +464,11 @@ print_rtx (in_rtx)
       case '*':
 	fputs (" Unknown", outfile);
 	sawclose = 0;
+	break;
+
+      case 'B':
+	if (XBBDEF (in_rtx, i))
+	  fprintf (outfile, " %i", XBBDEF (in_rtx, i)->index);
 	break;
 
       default:

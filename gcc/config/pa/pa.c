@@ -28,10 +28,10 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "insn-config.h"
 #include "conditions.h"
-#include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "output.h"
 #include "except.h"
 #include "expr.h"
 #include "optabs.h"
@@ -100,8 +100,6 @@ static void pa_combine_instructions PARAMS ((rtx));
 static int pa_can_combine_p PARAMS ((rtx, rtx, rtx, int, rtx, rtx, rtx));
 static int forward_branch_p PARAMS ((rtx));
 static int shadd_constant_p PARAMS ((int));
-static void pa_add_gc_roots PARAMS ((void));
-static void mark_deferred_plabels PARAMS ((void *));
 static void compute_zdepwi_operands PARAMS ((unsigned HOST_WIDE_INT, unsigned *));
 static int compute_movstrsi_length PARAMS ((rtx));
 static bool pa_assemble_integer PARAMS ((rtx, unsigned int, int));
@@ -151,12 +149,14 @@ unsigned int total_code_bytes;
 /* Variables to handle plabels that we discover are necessary at assembly
    output time.  They are output after the current function.  */
 
-struct deferred_plabel
+struct deferred_plabel GTY(())
 {
   rtx internal_label;
   char *name;
-} *deferred_plabels = 0;
-int n_deferred_plabels = 0;
+};
+static GTY((length ("n_deferred_plabels"))) struct deferred_plabel *
+  deferred_plabels;
+static int n_deferred_plabels = 0;
 
 /* Initialize the GCC target structure.  */
 
@@ -197,37 +197,38 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 void
 override_options ()
 {
-  /* Default to 8000 scheduling.  */
-  if (pa_cpu_string && ! strcmp (pa_cpu_string, "7100"))
+  if (pa_cpu_string == NULL)
+    pa_cpu_string = TARGET_SCHED_DEFAULT;
+
+  if (! strcmp (pa_cpu_string, "8000"))
+    {
+      pa_cpu_string = "8000";
+      pa_cpu = PROCESSOR_8000;
+    }
+  else if (! strcmp (pa_cpu_string, "7100"))
     {
       pa_cpu_string = "7100";
       pa_cpu = PROCESSOR_7100;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "700"))
+  else if (! strcmp (pa_cpu_string, "700"))
     {
       pa_cpu_string = "700";
       pa_cpu = PROCESSOR_700;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7100LC"))
+  else if (! strcmp (pa_cpu_string, "7100LC"))
     {
       pa_cpu_string = "7100LC";
       pa_cpu = PROCESSOR_7100LC;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7200"))
+  else if (! strcmp (pa_cpu_string, "7200"))
     {
       pa_cpu_string = "7200";
       pa_cpu = PROCESSOR_7200;
     }
-  else if (pa_cpu_string && ! strcmp (pa_cpu_string, "7300"))
+  else if (! strcmp (pa_cpu_string, "7300"))
     {
       pa_cpu_string = "7300";
       pa_cpu = PROCESSOR_7300;
-    }
-  else if (pa_cpu_string == NULL
-	   || ! strcmp (pa_cpu_string, "8000"))
-    {
-      pa_cpu_string = "8000";
-      pa_cpu = PROCESSOR_8000;
     }
   else
     {
@@ -300,9 +301,6 @@ override_options ()
       targetm.asm_out.unaligned_op.si = NULL;
       targetm.asm_out.unaligned_op.di = NULL;
     }
-
-  /* Register global variables with the garbage collector.  */
-  pa_add_gc_roots ();
 }
 
 /* Return non-zero only if OP is a register of mode MODE,
@@ -3181,7 +3179,7 @@ pa_output_function_prologue (file, size)
     {
       unsigned int old_total = total_code_bytes;
 
-      total_code_bytes += INSN_ADDRESSES (INSN_UID (get_last_insn ()));
+      total_code_bytes += INSN_ADDRESSES (INSN_UID (get_last_nonnote_insn ()));
       total_code_bytes += FUNCTION_BOUNDARY / BITS_PER_UNIT;
 
       /* Be prepared to handle overflows.  */
@@ -6098,7 +6096,10 @@ output_millicode_call (insn, call_dest)
 	{
 	  xoperands[0] = call_dest;
 	  output_asm_insn ("ldil L%%%0,%3", xoperands);
-	  output_asm_insn ("{ble|be,l} R%%%0(%%sr4,%3)", xoperands);
+	  if (TARGET_PA_20)
+	    output_asm_insn ("be,l R%%%0(%%sr4,%3),%%sr0,%%r31", xoperands);
+	  else
+	    output_asm_insn ("ble R%%%0(%%sr4,%3)", xoperands);
 	  output_asm_insn ("nop", xoperands);
 	}
 
@@ -6273,10 +6274,10 @@ output_call (insn, call_dest, sibcall)
 
 	      if (deferred_plabels == 0)
 		deferred_plabels = (struct deferred_plabel *)
-		  xmalloc (1 * sizeof (struct deferred_plabel));
+		  ggc_alloc (sizeof (struct deferred_plabel));
 	      else
 		deferred_plabels = (struct deferred_plabel *)
-		  xrealloc (deferred_plabels,
+		  ggc_realloc (deferred_plabels,
 			    ((n_deferred_plabels + 1)
 			     * sizeof (struct deferred_plabel)));
 
@@ -6354,8 +6355,11 @@ output_call (insn, call_dest, sibcall)
 	      /* Get the high part of the  address of $dyncall into %r2, then
 		 add in the low part in the branch instruction.  */
 	      output_asm_insn ("ldil L%%$$dyncall,%%r2", xoperands);
-	      output_asm_insn ("{ble|be,l}  R%%$$dyncall(%%sr4,%%r2)",
-			       xoperands);
+	      if (TARGET_PA_20)
+		output_asm_insn ("be,l R%%$$dyncall(%%sr4,%%r2),%%sr0,%%r31",
+				 xoperands);
+	      else
+		output_asm_insn ("ble R%%$$dyncall(%%sr4,%%r2)", xoperands);
 
 	      if (sibcall)
 		{
@@ -6494,6 +6498,89 @@ is_function_label_plus_const (op)
   return (GET_CODE (op) == PLUS
 	  && function_label_operand (XEXP (op, 0), Pmode)
 	  && GET_CODE (XEXP (op, 1)) == CONST_INT);
+}
+
+/* Output assembly code for a thunk to FUNCTION.  */
+
+void
+pa_asm_output_mi_thunk (file, thunk_fndecl, delta, function)
+     FILE *file;
+     tree thunk_fndecl;
+     int delta;
+     tree function;
+{
+  const char *target_name = XSTR (XEXP (DECL_RTL (function), 0), 0);
+  static unsigned int current_thunk_number;
+  char label[16];
+  const char *lab;
+  ASM_GENERATE_INTERNAL_LABEL (label, "LTHN", current_thunk_number);
+  lab = (*targetm.strip_name_encoding) (label);
+  target_name = (*targetm.strip_name_encoding) (target_name);
+  /* FIXME: total_code_bytes is not handled correctly in files with
+     mi thunks.  */
+  pa_output_function_prologue (file, 0);
+  if (VAL_14_BITS_P (delta))
+    {
+      if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)
+	{
+	  fprintf (file, "\taddil LT%%%s,%%r19\n", lab);
+	  fprintf (file, "\tldw RT%%%s(%%r1),%%r22\n", lab);
+	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
+	  fprintf (file, "\tbb,>=,n %%r22,30,.+16\n");
+	  fprintf (file, "\tdepi 0,31,2,%%r22\n");
+	  fprintf (file, "\tldw 4(%%sr0,%%r22),%%r19\n");
+	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
+	  fprintf (file, "\tldsid (%%sr0,%%r22),%%r1\n\tmtsp %%r1,%%sr0\n");
+	  fprintf (file, "\tbe 0(%%sr0,%%r22)\n\tldo ");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, "(%%r26),%%r26\n");
+	}
+      else
+	{
+	  fprintf (file, "\tb %s\n\tldo ", target_name);
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, "(%%r26),%%r26\n");
+	}
+    }
+  else
+    {
+      if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)
+	{
+	  fprintf (file, "\taddil L%%");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, ",%%r26\n\tldo R%%");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, "(%%r1),%%r26\n");
+	  fprintf (file, "\taddil LT%%%s,%%r19\n", lab);
+	  fprintf (file, "\tldw RT%%%s(%%r1),%%r22\n", lab);
+	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
+	  fprintf (file, "\tbb,>=,n %%r22,30,.+16\n");
+	  fprintf (file, "\tdepi 0,31,2,%%r22\n");
+	  fprintf (file, "\tldw 4(%%sr0,%%r22),%%r19\n");
+	  fprintf (file, "\tldw 0(%%sr0,%%r22),%%r22\n");
+	  fprintf (file, "\tldsid (%%sr0,%%r22),%%r1\n\tmtsp %%r1,%%sr0\n");
+	  fprintf (file, "\tbe,n 0(%%sr0,%%r22)\n");
+	}
+      else
+	{
+	  fprintf (file, "\taddil L%%");
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, ",%%r26\n\tb %s\n\tldo R%%", target_name);
+	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+	  fprintf (file, "(%%r1),%%r26\n");
+	}
+    }
+    
+  fprintf (file, "\t.EXIT\n\t.PROCEND\n");
+  if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)
+    {
+      data_section ();
+      fprintf (file, "\t.align 4\n");
+      ASM_OUTPUT_INTERNAL_LABEL (file, "LTHN", current_thunk_number);
+      fprintf (file, "\t.word P%%%s\n", target_name);
+      function_section (thunk_fndecl);
+    }
+  current_thunk_number++;
 }
 
 /* Returns 1 if the 6 operands specified in OPERANDS are suitable for
@@ -6814,11 +6901,7 @@ int
 following_call (insn)
      rtx insn;
 {
-  /* We do not place jumps into call delay slots when optimizing for the
-     PA8000 processor or when generating dwarf2 call frame information.  */
-  if (pa_cpu >= PROCESSOR_8000
-      || (! USING_SJLJ_EXCEPTIONS && flag_exceptions)
-      || flag_unwind_tables)
+  if (! TARGET_JUMP_IN_DELAY)
     return 0;
 
   /* Find the previous real insn, skipping NOTEs.  */
@@ -7580,31 +7663,6 @@ cmpib_comparison_operator (op, mode)
 	      || GET_CODE (op) == LEU));
 }
 
-/* Mark ARG (which is really a struct deferred_plabel **) for GC.  */
-
-static void
-mark_deferred_plabels (arg)
-     void *arg;
-{
-  struct deferred_plabel *dp = *(struct deferred_plabel **) arg;
-  int i;
-
-  for (i = 0; i < n_deferred_plabels; ++i)
-    ggc_mark_rtx (dp[i].internal_label);
-}
-
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-pa_add_gc_roots ()
-{
-  ggc_add_rtx_root (&hppa_compare_op0, 1);
-  ggc_add_rtx_root (&hppa_compare_op1, 1);
-  ggc_add_root (&deferred_plabels, 1, sizeof (&deferred_plabels),
-		&mark_deferred_plabels);
-}
-
 /* On hpux10, the linker will give an error if we have a reference
    in the read-only data section to a symbol defined in a shared
    library.  Therefore, expressions that might require a reloc can
@@ -7631,3 +7689,5 @@ pa_select_section (exp, reloc, align)
   else
     data_section ();
 }
+
+#include "gt-pa.h"

@@ -782,6 +782,7 @@ expand_call_inline (tp, walk_subtrees, data)
   inline_data *id;
   tree t;
   tree expr;
+  tree stmt;
   tree chain;
   tree fn;
   tree scope_stmt;
@@ -866,17 +867,17 @@ expand_call_inline (tp, walk_subtrees, data)
      line numbers corresponding to the function we are calling.  We
      wrap the whole inlined body in an EXPR_WITH_FILE_AND_LINE as well
      because individual statements don't record the filename.  */
-  push_srcloc (fn->decl.filename, fn->decl.linenum);
+  push_srcloc (DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn));
 
   /* Build a statement-expression containing code to initialize the
      arguments, the actual inline expansion of the body, and a label
      for the return statements within the function to jump to.  The
      type of the statement expression is the return type of the
      function call.  */
-  expr = build1 (STMT_EXPR, TREE_TYPE (TREE_TYPE (fn)), NULL_TREE);
+  expr = build1 (STMT_EXPR, TREE_TYPE (TREE_TYPE (fn)), make_node (COMPOUND_STMT));
   /* There is no scope associated with the statement-expression.  */
   STMT_EXPR_NO_SCOPE (expr) = 1;
-
+  stmt = STMT_EXPR_STMT (expr);
   /* Local declarations will be replaced by their equivalents in this
      map.  */
   st = id->decl_map;
@@ -891,7 +892,7 @@ expand_call_inline (tp, walk_subtrees, data)
      parameters.  */
   expand_calls_inline (&arg_inits, id);
   /* And add them to the tree.  */
-  STMT_EXPR_STMT (expr) = chainon (STMT_EXPR_STMT (expr), arg_inits);
+  COMPOUND_BODY (stmt) = chainon (COMPOUND_BODY (stmt), arg_inits);
 
   /* Record the function we are about to inline so that we can avoid
      recursing into it.  */
@@ -926,8 +927,8 @@ expand_call_inline (tp, walk_subtrees, data)
   SCOPE_BEGIN_P (scope_stmt) = 1;
   SCOPE_NO_CLEANUPS_P (scope_stmt) = 1;
   remap_block (scope_stmt, DECL_ARGUMENTS (fn), id);
-  TREE_CHAIN (scope_stmt) = STMT_EXPR_STMT (expr);
-  STMT_EXPR_STMT (expr) = scope_stmt;
+  TREE_CHAIN (scope_stmt) = COMPOUND_BODY (stmt);
+  COMPOUND_BODY (stmt) = scope_stmt;
 
   /* Tell the debugging backends that this block represents the
      outermost scope of the inlined function.  */
@@ -935,34 +936,34 @@ expand_call_inline (tp, walk_subtrees, data)
     BLOCK_ABSTRACT_ORIGIN (SCOPE_STMT_BLOCK (scope_stmt)) = DECL_ORIGIN (fn);
 
   /* Declare the return variable for the function.  */
-  STMT_EXPR_STMT (expr)
-    = chainon (STMT_EXPR_STMT (expr),
+  COMPOUND_BODY (stmt)
+    = chainon (COMPOUND_BODY (stmt),
 	       declare_return_variable (id, &use_stmt));
 
   /* After we've initialized the parameters, we insert the body of the
      function itself.  */
-  inlined_body = &STMT_EXPR_STMT (expr);
+  inlined_body = &COMPOUND_BODY (stmt);
   while (*inlined_body)
     inlined_body = &TREE_CHAIN (*inlined_body);
   *inlined_body = copy_body (id);
 
-  /* Close the block for the parameters.  */
-  scope_stmt = build_stmt (SCOPE_STMT, DECL_INITIAL (fn));
-  SCOPE_NO_CLEANUPS_P (scope_stmt) = 1;
-  remap_block (scope_stmt, NULL_TREE, id);
-  STMT_EXPR_STMT (expr)
-    = chainon (STMT_EXPR_STMT (expr), scope_stmt);
-
   /* After the body of the function comes the RET_LABEL.  This must come
      before we evaluate the returned value below, because that evalulation
      may cause RTL to be generated.  */
-  STMT_EXPR_STMT (expr)
-    = chainon (STMT_EXPR_STMT (expr),
+  COMPOUND_BODY (stmt)
+    = chainon (COMPOUND_BODY (stmt),
 	       build_stmt (LABEL_STMT, id->ret_label));
 
   /* Finally, mention the returned value so that the value of the
      statement-expression is the returned value of the function.  */
-  STMT_EXPR_STMT (expr) = chainon (STMT_EXPR_STMT (expr), use_stmt);
+  COMPOUND_BODY (stmt) = chainon (COMPOUND_BODY (stmt), use_stmt);
+  
+  /* Close the block for the parameters.  */
+  scope_stmt = build_stmt (SCOPE_STMT, DECL_INITIAL (fn));
+  SCOPE_NO_CLEANUPS_P (scope_stmt) = 1;
+  remap_block (scope_stmt, NULL_TREE, id);
+  COMPOUND_BODY (stmt)
+    = chainon (COMPOUND_BODY (stmt), scope_stmt);
 
   /* Clean up.  */
   splay_tree_delete (id->decl_map);
@@ -1070,8 +1071,6 @@ optimize_inline_calls (fn)
 
   /* Clean up.  */
   htab_delete (id.tree_pruner);
-  VARRAY_FREE (id.fns);
-  VARRAY_FREE (id.target_exprs);
   if (DECL_LANG_SPECIFIC (fn))
     {
       tree ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
@@ -1080,7 +1079,6 @@ optimize_inline_calls (fn)
 	      VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
       DECL_INLINED_FNS (fn) = ifn;
     }
-  VARRAY_FREE (id.inlined_fns);
 }
 
 /* FN is a function that has a complete body, and CLONE is a function
@@ -1110,9 +1108,6 @@ clone_body (clone, fn, arg_map)
 
   /* Actually copy the body.  */
   TREE_CHAIN (DECL_SAVED_TREE (clone)) = copy_body (&id);
-
-  /* Clean up.  */
-  VARRAY_FREE (id.fns);
 }
 
 /* Apply FUNC to all the sub-trees of TP in a pre-order traversal.

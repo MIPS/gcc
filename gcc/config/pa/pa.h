@@ -208,6 +208,10 @@ extern int target_flags;
 #define TARGET_CPU_DEFAULT 0
 #endif
 
+#ifndef TARGET_SCHED_DEFAULT
+#define TARGET_SCHED_DEFAULT "8000"
+#endif
+
 #define TARGET_OPTIONS			\
 {					\
   { "schedule=",	&pa_cpu_string, "Specify CPU for scheduling purposes" },\
@@ -264,7 +268,7 @@ extern int target_flags;
 #define CPP_PA10_SPEC ""
 #define CPP_PA11_SPEC "-D_PA_RISC1_1 -D__hp9000s700"
 #define CPP_PA20_SPEC "-D_PA_RISC2_0 -D__hp9000s800"
-#define CPP_64BIT_SPEC "-D__LP64__ -D__LONG_MAX__=9223372036854775807L"
+#define CPP_64BIT_SPEC "-D__LP64__"
 
 #if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_PA_11) == 0
 #define CPP_CPU_DEFAULT_SPEC "%(cpp_pa10)"
@@ -861,83 +865,12 @@ struct hppa_args {int words, nargs_prototype, indirect; };
       || ((MODE) && GET_MODE_SIZE (MODE) > 8)))
 
 
-extern struct rtx_def *hppa_compare_op0, *hppa_compare_op1;
+extern GTY(()) rtx hppa_compare_op0;
+extern GTY(()) rtx hppa_compare_op1;
 extern enum cmp_type hppa_branch_type;
 
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	     \
-do {									     \
-  const char *target_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0);	     \
-  static unsigned int current_thunk_number;				     \
-  char label[16];							     \
-  char *lab;								     \
-  ASM_GENERATE_INTERNAL_LABEL (label, "LTHN", current_thunk_number);	     \
-  lab = (*targetm.strip_name_encoding) (label);				     \
-  target_name = (*targetm.strip_name_encoding) (target_name);		     \
-  /* FIXME: total_code_bytes is not handled correctly in files with	     \
-     mi thunks.  */							     \
-  pa_output_function_prologue (FILE, 0);				     \
-  if (VAL_14_BITS_P (DELTA))						     \
-    {									     \
-      if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)	     \
-	{								     \
-	  fprintf (FILE, "\taddil LT%%%s,%%r19\n", lab);		     \
-	  fprintf (FILE, "\tldw RT%%%s(%%r1),%%r22\n", lab);		     \
-	  fprintf (FILE, "\tldw 0(%%sr0,%%r22),%%r22\n");		     \
-	  fprintf (FILE, "\tbb,>=,n %%r22,30,.+16\n");			     \
-	  fprintf (FILE, "\tdepi 0,31,2,%%r22\n");			     \
-	  fprintf (FILE, "\tldw 4(%%sr0,%%r22),%%r19\n");		     \
-	  fprintf (FILE, "\tldw 0(%%sr0,%%r22),%%r22\n");		     \
-	  fprintf (FILE, "\tldsid (%%sr0,%%r22),%%r1\n\tmtsp %%r1,%%sr0\n"); \
-	  fprintf (FILE, "\tbe 0(%%sr0,%%r22)\n\tldo ");		     \
-	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, DELTA);		     \
-	  fprintf (FILE, "(%%r26),%%r26\n");				     \
-	}								     \
-      else								     \
-	{								     \
-	  fprintf (FILE, "\tb %s\n\tldo ", target_name);		     \
-	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, DELTA);		     \
-	  fprintf (FILE, "(%%r26),%%r26\n");				     \
-	}								     \
-    }									     \
-  else									     \
-    {									     \
-      if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)	     \
-	{								     \
-	  fprintf (FILE, "\taddil L%%");				     \
-	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, DELTA);		     \
-	  fprintf (FILE, ",%%r26\n\tldo R%%");				     \
-	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, DELTA);		     \
-	  fprintf (FILE, "(%%r1),%%r26\n");				     \
-	  fprintf (FILE, "\taddil LT%%%s,%%r19\n", lab);		     \
-	  fprintf (FILE, "\tldw RT%%%s(%%r1),%%r22\n", lab);		     \
-	  fprintf (FILE, "\tldw 0(%%sr0,%%r22),%%r22\n");		     \
-	  fprintf (FILE, "\tbb,>=,n %%r22,30,.+16\n");			     \
-	  fprintf (FILE, "\tdepi 0,31,2,%%r22\n");			     \
-	  fprintf (FILE, "\tldw 4(%%sr0,%%r22),%%r19\n");		     \
-	  fprintf (FILE, "\tldw 0(%%sr0,%%r22),%%r22\n");		     \
-	  fprintf (FILE, "\tldsid (%%sr0,%%r22),%%r1\n\tmtsp %%r1,%%sr0\n"); \
-	  fprintf (FILE, "\tbe,n 0(%%sr0,%%r22)\n");			     \
-	}								     \
-      else								     \
-	{								     \
-	  fprintf (FILE, "\taddil L%%");				     \
-	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, DELTA);		     \
-	  fprintf (FILE, ",%%r26\n\tb %s\n\tldo R%%", target_name);	     \
-	  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, DELTA);		     \
-	  fprintf (FILE, "(%%r1),%%r26\n");				     \
-	}								     \
-    }									     \
-  fprintf (FILE, "\t.EXIT\n\t.PROCEND\n");				     \
-  if (! TARGET_64BIT && ! TARGET_PORTABLE_RUNTIME && flag_pic)		     \
-    {									     \
-      data_section ();							     \
-      fprintf (FILE, "\t.align 4\n");					     \
-      ASM_OUTPUT_INTERNAL_LABEL (FILE, "LTHN", current_thunk_number);	     \
-      fprintf (FILE, "\t.word P%%%s\n", target_name);			     \
-      function_section (THUNK_FNDECL);					     \
-    }									     \
-  current_thunk_number++;						     \
-} while (0)
+#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
+  pa_asm_output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
 
 /* On HPPA, we emit profiling code as rtl via PROFILE_HOOK rather than
    as assembly via FUNCTION_PROFILER.  Just output a local label.
@@ -1240,7 +1173,11 @@ extern int may_call_alloca;
 			     ? GET_MODE (OP)		\
 			     : DFmode),			\
 			    XEXP (OP, 0))		\
-       && GET_CODE (XEXP (OP, 0)) != LO_SUM		\
+       && !(GET_CODE (XEXP (OP, 0)) == LO_SUM		\
+	    && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG \
+	    && REG_OK_FOR_BASE_P (XEXP (XEXP (OP, 0), 0))\
+	    && GET_CODE (XEXP (XEXP (OP, 0), 1)) == UNSPEC\
+	    && GET_MODE (XEXP (OP, 0)) == Pmode)	\
        && !(GET_CODE (XEXP (OP, 0)) == PLUS		\
 	    && (GET_CODE (XEXP (XEXP (OP, 0), 0)) == MULT\
 		|| GET_CODE (XEXP (XEXP (OP, 0), 1)) == MULT)))\
@@ -1577,11 +1514,6 @@ do { 									\
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
 #define Pmode word_mode
-
-/* Add any extra modes needed to represent the condition code.
-
-   HPPA floating comparisons produce condition codes.  */
-#define EXTRA_CC_MODES CC(CCFPmode, "CCFP")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point, CCFPmode

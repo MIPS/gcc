@@ -167,6 +167,15 @@
 #include "basic-block.h"
 #include "varray.h"
 #include "reload.h"
+#include "ggc.h"
+
+/* We use this array to cache info about insns, because otherwise we
+   spend too much time in stack_regs_mentioned_p.
+
+   Indexed by insn UIDs.  A value of zero is uninitialized, one indicates
+   the insn uses stack registers, two indicates the insn does not use
+   stack registers.  */
+static GTY(()) varray_type stack_regs_mentioned_data;
 
 #ifdef STACK_REGS
 
@@ -209,14 +218,6 @@ enum emit_where
   EMIT_AFTER,
   EMIT_BEFORE
 };
-
-/* We use this array to cache info about insns, because otherwise we
-   spend too much time in stack_regs_mentioned_p.
-
-   Indexed by insn UIDs.  A value of zero is uninitialized, one indicates
-   the insn uses stack registers, two indicates the insn does not use
-   stack registers.  */
-static varray_type stack_regs_mentioned_data;
 
 /* The block we're currently working on.  */
 static basic_block current_block;
@@ -418,15 +419,12 @@ reg_to_stack (first, file)
      rtx first;
      FILE *file;
 {
+  basic_block bb;
   int i;
   int max_uid;
 
   /* Clean up previous run.  */
-  if (stack_regs_mentioned_data)
-    {
-      VARRAY_FREE (stack_regs_mentioned_data);
-      stack_regs_mentioned_data = 0;
-    }
+  stack_regs_mentioned_data = 0;
 
   if (!optimize)
     split_all_insns (0);
@@ -443,7 +441,6 @@ reg_to_stack (first, file)
      build the CFG and run life analysis.  */
   if (!optimize)
     {
-      find_basic_blocks (first, max_reg_num (), file);
       count_or_remove_death_notes (NULL, 1);
       life_analysis (first, file, PROP_DEATH_NOTES);
     }
@@ -451,10 +448,9 @@ reg_to_stack (first, file)
 
   /* Set up block info for each basic block.  */
   alloc_aux_for_blocks (sizeof (struct block_info_def));
-  for (i = n_basic_blocks - 1; i >= 0; --i)
+  FOR_EACH_BB_REVERSE (bb)
     {
       edge e;
-      basic_block bb = BASIC_BLOCK (i);
       for (e = bb->pred; e; e=e->pred_next)
 	if (!(e->flags & EDGE_DFS_BACK)
 	    && e->src != ENTRY_BLOCK_PTR)
@@ -1260,7 +1256,7 @@ swap_rtx_condition (insn)
 
   if (GET_CODE (pat) == SET
       && GET_CODE (SET_SRC (pat)) == UNSPEC
-      && XINT (SET_SRC (pat), 1) == 9)
+      && XINT (SET_SRC (pat), 1) == UNSPEC_FNSTSW)
     {
       rtx dest = SET_DEST (pat);
 
@@ -1281,7 +1277,7 @@ swap_rtx_condition (insn)
       pat = PATTERN (insn);
       if (GET_CODE (pat) != SET
 	  || GET_CODE (SET_SRC (pat)) != UNSPEC
-	  || XINT (SET_SRC (pat), 1) != 10
+	  || XINT (SET_SRC (pat), 1) != UNSPEC_SAHF
 	  || ! dead_or_set_p (insn, dest))
 	return 0;
 
@@ -1705,8 +1701,8 @@ subst_stack_regs_pat (insn, regstack, pat)
 	  case UNSPEC:
 	    switch (XINT (pat_src, 1))
 	      {
-	      case 1: /* sin */
-	      case 2: /* cos */
+	      case UNSPEC_SIN:
+	      case UNSPEC_COS:
 		/* These insns only operate on the top of the stack.  */
 
 		src1 = get_true_reg (&XVECEXP (pat_src, 0, 0));
@@ -1728,19 +1724,17 @@ subst_stack_regs_pat (insn, regstack, pat)
 		replace_reg (src1, FIRST_STACK_REG);
 		break;
 
-	      case 10:
-		/* (unspec [(unspec [(compare ..)] 9)] 10)
-		   Unspec 9 is fnstsw; unspec 10 is sahf.  The combination
-		   matches the PPRO fcomi instruction.  */
+	      case UNSPEC_SAHF:
+		/* (unspec [(unspec [(compare)] UNSPEC_FNSTSW)] UNSPEC_SAHF)
+		   The combination matches the PPRO fcomi instruction.  */
 
 		pat_src = XVECEXP (pat_src, 0, 0);
 		if (GET_CODE (pat_src) != UNSPEC
-		    || XINT (pat_src, 1) != 9)
+		    || XINT (pat_src, 1) != UNSPEC_FNSTSW)
 		  abort ();
 		/* FALLTHRU */
 
-	      case 9:
-		/* (unspec [(compare ..)] 9) */
+	      case UNSPEC_FNSTSW:
 		/* Combined fcomp+fnstsw generated for doing well with
 		   CSE.  When optimizing this would have been broken
 		   up before now.  */
@@ -1775,8 +1769,8 @@ subst_stack_regs_pat (insn, regstack, pat)
 		&& REGNO (*dest) != regstack->reg[regstack->top])
 	      {
 		/* In case one of operands is the top of stack and the operands
-		   dies, it is safe to make it the destination operand by reversing
-		   the direction of cmove and avoid fxch.  */
+		   dies, it is safe to make it the destination operand by
+		   reversing the direction of cmove and avoid fxch.  */
 		if ((REGNO (*src1) == regstack->reg[regstack->top]
 		     && src1_note)
 		    || (REGNO (*src2) == regstack->reg[regstack->top]
@@ -2382,12 +2376,12 @@ print_stack (file, s)
 static int
 convert_regs_entry ()
 {
-  int inserted = 0, i;
+  int inserted = 0;
   edge e;
+  basic_block block;
 
-  for (i = n_basic_blocks - 1; i >= 0; --i)
+  FOR_EACH_BB_REVERSE (block)
     {
-      basic_block block = BASIC_BLOCK (i);
       block_info bi = BLOCK_INFO (block);
       int reg;
 
@@ -2593,16 +2587,13 @@ compensate_edge (e, file)
       current_block = NULL;
       start_sequence ();
 
-      /* ??? change_stack needs some point to emit insns after.
-         Also needed to keep gen_sequence from returning a
-         pattern as opposed to a sequence, which would lose
-         REG_DEAD notes.  */
+      /* ??? change_stack needs some point to emit insns after.  */
       after = emit_note (NULL, NOTE_INSN_DELETED);
 
       tmpstack = regstack;
       change_stack (after, &tmpstack, target_stack, EMIT_BEFORE);
 
-      seq = gen_sequence ();
+      seq = get_insns ();
       end_sequence ();
 
       insert_insn_on_edge (seq, e);
@@ -2815,7 +2806,8 @@ static int
 convert_regs (file)
      FILE *file;
 {
-  int inserted, i;
+  int inserted;
+  basic_block b;
   edge e;
 
   /* Initialize uninitialized registers on function entry.  */
@@ -2835,9 +2827,8 @@ convert_regs (file)
 
   /* ??? Process all unreachable blocks.  Though there's no excuse
      for keeping these even when not optimizing.  */
-  for (i = 0; i < n_basic_blocks; ++i)
+  FOR_EACH_BB (b)
     {
-      basic_block b = BASIC_BLOCK (i);
       block_info bi = BLOCK_INFO (b);
 
       if (! bi->done)
@@ -2864,3 +2855,5 @@ convert_regs (file)
   return inserted;
 }
 #endif /* STACK_REGS */
+
+#include "gt-reg-stack.h"

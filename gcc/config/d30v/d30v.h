@@ -79,7 +79,13 @@
 
 /* Run-time target specifications */
 
-#define CPP_PREDEFINES "-D__D30V__ -Amachine=d30v"
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define ("__D30V__");		\
+      builtin_assert ("machine=d30v");		\
+    }						\
+  while (0)
 
 /* This declaration should be present.  */
 extern int target_flags;
@@ -1923,10 +1929,10 @@ typedef int CUMULATIVE_ARGS;
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
-typedef struct machine_function
+typedef struct machine_function GTY(())
 {
   /* Additionsl stack adjustment in __builtin_eh_throw.  */
-  struct rtx_def * eh_epilogue_sp_ofs;
+  rtx eh_epilogue_sp_ofs;
 } machine_function;
 
 

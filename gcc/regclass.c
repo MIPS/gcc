@@ -242,13 +242,9 @@ static regset reg_changes_mode;
 
 #endif /* CLASS_CANNOT_CHANGE_MODE */
 
-#ifdef HAVE_SECONDARY_RELOADS
-
 /* Sample MEM values for use by memory_move_secondary_cost.  */
 
-static rtx top_of_stack[MAX_MACHINE_MODE];
-
-#endif /* HAVE_SECONDARY_RELOADS */
+static GTY(()) rtx top_of_stack[MAX_MACHINE_MODE];
 
 /* Linked list of reg_info structures allocated for reg_n_info array.
    Grouping all of the allocated structures together in one lump
@@ -605,16 +601,20 @@ init_regs ()
   init_reg_sets_1 ();
 
   init_reg_modes ();
+}
 
+/* Initialize some fake stack-frame MEM references for use in
+   memory_move_secondary_cost.  */
+
+void
+init_fake_stack_mems ()
+{
 #ifdef HAVE_SECONDARY_RELOADS
   {
-    /* Make some fake stack-frame MEM references for use in
-       memory_move_secondary_cost.  */
     int i;
 
     for (i = 0; i < MAX_MACHINE_MODE; i++)
       top_of_stack[i] = gen_rtx_MEM (i, stack_pointer_rtx);
-    ggc_add_rtx_root (top_of_stack, MAX_MACHINE_MODE);
   }
 #endif
 }
@@ -1127,10 +1127,10 @@ scan_one_insn (insn, pass)
 	 INSN could not be at the beginning of that block.  */
       if (previnsn == 0 || GET_CODE (previnsn) == JUMP_INSN)
 	{
-	  int b;
-	  for (b = 0; b < n_basic_blocks; b++)
-	    if (insn == BLOCK_HEAD (b))
-	      BLOCK_HEAD (b) = newinsn;
+	  basic_block b;
+	  FOR_EACH_BB (b)
+	    if (insn == b->head)
+	      b->head = newinsn;
 	}
 
       /* This makes one more setting of new insns's dest.  */
@@ -1255,7 +1255,7 @@ regclass (f, nregs, dump)
 
   for (pass = 0; pass <= flag_expensive_optimizations; pass++)
     {
-      int index;
+      basic_block bb;
 
       if (dump)
 	fprintf (dump, "\n\nPass %i\n\n",pass);
@@ -1277,10 +1277,8 @@ regclass (f, nregs, dump)
 	    insn = scan_one_insn (insn, pass);
 	}
       else
-	for (index = 0; index < n_basic_blocks; index++)
+	FOR_EACH_BB (bb)
 	  {
-	    basic_block bb = BASIC_BLOCK (index);
-
 	    /* Show that an insn inside a loop is likely to be executed three
 	       times more than insns outside a loop.  This is much more
 	       aggressive than the assumptions made elsewhere and is being
@@ -2618,3 +2616,5 @@ regset_release_memory ()
 {
   bitmap_release_memory ();
 }
+
+#include "gt-regclass.h"

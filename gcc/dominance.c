@@ -45,7 +45,7 @@
    number of the corresponding basic block.  Please note, that we include the
    artificial ENTRY_BLOCK (or EXIT_BLOCK in the post-dom case) in our lists to
    support multiple entry points.  As it has no real basic block index we use
-   'n_basic_blocks' for that.  Its dfs number is of course 1.  */
+   'last_basic_block' for that.  Its dfs number is of course 1.  */
 
 /* Type of Basic Block aka. TBB */
 typedef unsigned int TBB;
@@ -158,7 +158,7 @@ init_dom_info (di)
   init_ar (di->set_size, unsigned int, num, 1);
   init_ar (di->set_child, TBB, num, 0);
 
-  init_ar (di->dfs_order, TBB, (unsigned int) n_basic_blocks + 1, 0);
+  init_ar (di->dfs_order, TBB, (unsigned int) last_basic_block + 1, 0);
   init_ar (di->dfs_to_bb, basic_block, num, 0);
 
   di->dfsnum = 1;
@@ -274,7 +274,7 @@ calc_dfs_tree_nonrec (di, bb, reverse)
 	  if (bb != en_block)
 	    my_i = di->dfs_order[bb->index];
 	  else
-	    my_i = di->dfs_order[n_basic_blocks];
+	    my_i = di->dfs_order[last_basic_block];
 	  child_i = di->dfs_order[bn->index] = di->dfsnum++;
 	  di->dfs_to_bb[child_i] = bn;
 	  di->dfs_parent[child_i] = my_i;
@@ -317,7 +317,7 @@ calc_dfs_tree (di, reverse)
 {
   /* The first block is the ENTRY_BLOCK (or EXIT_BLOCK if REVERSE).  */
   basic_block begin = reverse ? EXIT_BLOCK_PTR : ENTRY_BLOCK_PTR;
-  di->dfs_order[n_basic_blocks] = di->dfsnum;
+  di->dfs_order[last_basic_block] = di->dfsnum;
   di->dfs_to_bb[di->dfsnum] = begin;
   di->dfsnum++;
 
@@ -329,10 +329,9 @@ calc_dfs_tree (di, reverse)
          They are reverse-unreachable.  In the dom-case we disallow such
          nodes, but in post-dom we have to deal with them, so we simply
          include them in the DFS tree which actually becomes a forest.  */
-      int i;
-      for (i = n_basic_blocks - 1; i >= 0; i--)
+      basic_block b;
+      FOR_EACH_BB_REVERSE (b)
 	{
-	  basic_block b = BASIC_BLOCK (i);
 	  if (di->dfs_order[b->index])
 	    continue;
 	  di->dfs_order[b->index] = di->dfsnum;
@@ -497,7 +496,7 @@ calc_idoms (di, reverse)
 	      e_next = e->pred_next;
 	    }
 	  if (b == en_block)
-	    k1 = di->dfs_order[n_basic_blocks];
+	    k1 = di->dfs_order[last_basic_block];
 	  else
 	    k1 = di->dfs_order[b->index];
 
@@ -545,10 +544,10 @@ idoms_to_doms (di, dominators)
 {
   TBB i, e_index;
   int bb, bb_idom;
-  sbitmap_vector_zero (dominators, n_basic_blocks);
+  sbitmap_vector_zero (dominators, last_basic_block);
   /* We have to be careful, to not include the ENTRY_BLOCK or EXIT_BLOCK
      in the list of (post)-doms, so remember that in e_index.  */
-  e_index = di->dfs_order[n_basic_blocks];
+  e_index = di->dfs_order[last_basic_block];
 
   for (i = 1; i <= di->nodes; i++)
     {
@@ -707,8 +706,8 @@ void dump_dom_tree (file, graph)
 	  
 
 /* The main entry point into this module.  IDOM is an integer array with room
-   for n_basic_blocks integers, DOMS is a preallocated sbitmap array having
-   room for n_basic_blocks^2 bits, and POST is true if the caller wants to
+   for last_basic_block integers, DOMS is a preallocated sbitmap array having
+   room for last_basic_block^2 bits, and POST is true if the caller wants to
    know post-dominators.
 
    On return IDOM[i] will be the BB->index of the immediate (post) dominator
@@ -734,17 +733,17 @@ calculate_dominance_info (idom, doms, reverse)
 
   if (idom)
     {
-      int i;
-      for (i = 0; i < n_basic_blocks; i++)
+      basic_block b;
+
+      FOR_EACH_BB (b)
 	{
-	  basic_block b = BASIC_BLOCK (i);
 	  TBB d = di.dom[di.dfs_order[b->index]];
 
 	  /* The old code didn't modify array elements of nodes having only
 	     itself as dominator (d==0) or only ENTRY_BLOCK (resp. EXIT_BLOCK)
 	     (d==1).  */
 	  if (d > 1)
-	    idom[i] = di.dfs_to_bb[d]->index;
+	    idom[b->index] = di.dfs_to_bb[d]->index;
 	}
     }
   if (doms)

@@ -1233,8 +1233,6 @@ unlink_other_notes (insn, tail)
       /* See sched_analyze to see how these are handled.  */
       if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_END
-	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_BEG
-	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_END
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_END)
 	{
@@ -1726,23 +1724,12 @@ reemit_notes (insn, last)
 	{
 	  enum insn_note note_type = INTVAL (XEXP (note, 0));
 
-	  if (note_type == NOTE_INSN_RANGE_BEG
-              || note_type == NOTE_INSN_RANGE_END)
-	    {
-	      last = emit_note_before (note_type, last);
-	      remove_note (insn, note);
-	      note = XEXP (note, 1);
-	      NOTE_RANGE_INFO (last) = XEXP (note, 0);
-	    }
-	  else
-	    {
-	      last = emit_note_before (note_type, last);
-	      remove_note (insn, note);
-	      note = XEXP (note, 1);
-	      if (note_type == NOTE_INSN_EH_REGION_BEG
-		  || note_type == NOTE_INSN_EH_REGION_END)
-		NOTE_EH_HANDLER (last) = INTVAL (XEXP (note, 0));
-	    }
+	  last = emit_note_before (note_type, last);
+	  remove_note (insn, note);
+	  note = XEXP (note, 1);
+	  if (note_type == NOTE_INSN_EH_REGION_BEG
+	      || note_type == NOTE_INSN_EH_REGION_END)
+	    NOTE_EH_HANDLER (last) = INTVAL (XEXP (note, 0));
 	  remove_note (insn, note);
 	}
     }
@@ -1775,6 +1762,8 @@ move_insn (insn, last)
 	retval = reemit_notes (insn, insn);
       else
 	reemit_notes (insn, insn);
+      /* Consume SCHED_GROUP_P flag.  */
+      SCHED_GROUP_P (insn) = 0;
       insn = prev;
     }
 
@@ -2177,7 +2166,10 @@ schedule_block (b, rgn_n_insns)
 	    can_issue_more =
 	      (*targetm.sched.variable_issue) (sched_dump, sched_verbose,
 					       insn, can_issue_more);
-	  else
+	  /* A naked CLOBBER or USE generates no instruction, so do
+	     not count them against the issue rate.  */
+	  else if (GET_CODE (PATTERN (insn)) != USE
+		   && GET_CODE (PATTERN (insn)) != CLOBBER)
 	    can_issue_more--;
 
 	  schedule_insn (insn, &ready, clock_var);
@@ -2303,7 +2295,8 @@ void
 sched_init (dump_file)
      FILE *dump_file;
 {
-  int luid, b;
+  int luid;
+  basic_block b;
   rtx insn;
   int i;
 
@@ -2356,8 +2349,8 @@ sched_init (dump_file)
 
   h_i_d[0].luid = 0;
   luid = 1;
-  for (b = 0; b < n_basic_blocks; b++)
-    for (insn = BLOCK_HEAD (b);; insn = NEXT_INSN (insn))
+  FOR_EACH_BB (b)
+    for (insn = b->head;; insn = NEXT_INSN (insn))
       {
 	INSN_LUID (insn) = luid;
 
@@ -2369,13 +2362,11 @@ sched_init (dump_file)
 	if (GET_CODE (insn) != NOTE)
 	  ++luid;
 
-	if (insn == BLOCK_END (b))
+	if (insn == b->end)
 	  break;
       }
 
   init_dependency_caches (luid);
-
-  compute_bb_for_insn (old_max_uid);
 
   init_alias_analysis ();
 
@@ -2383,7 +2374,7 @@ sched_init (dump_file)
     {
       rtx line;
 
-      line_note_head = (rtx *) xcalloc (n_basic_blocks, sizeof (rtx));
+      line_note_head = (rtx *) xcalloc (last_basic_block, sizeof (rtx));
 
       /* Save-line-note-head:
          Determine the line-number at the start of each basic block.
@@ -2391,22 +2382,22 @@ sched_init (dump_file)
          predecessor has been scheduled, it is impossible to accurately
          determine the correct line number for the first insn of the block.  */
 
-      for (b = 0; b < n_basic_blocks; b++)
+      FOR_EACH_BB (b)
 	{
-	  for (line = BLOCK_HEAD (b); line; line = PREV_INSN (line))
+	  for (line = b->head; line; line = PREV_INSN (line))
 	    if (GET_CODE (line) == NOTE && NOTE_LINE_NUMBER (line) > 0)
 	      {
-		line_note_head[b] = line;
+		line_note_head[b->index] = line;
 		break;
 	      }
 	  /* Do a forward search as well, since we won't get to see the first
 	     notes in a basic block.  */
-	  for (line = BLOCK_HEAD (b); line; line = NEXT_INSN (line))
+	  for (line = b->head; line; line = NEXT_INSN (line))
 	    {
 	      if (INSN_P (line))
 		break;
 	      if (GET_CODE (line) == NOTE && NOTE_LINE_NUMBER (line) > 0)
-		line_note_head[b] = line;
+		line_note_head[b->index] = line;
 	    }
 	}
     }
@@ -2420,22 +2411,22 @@ sched_init (dump_file)
   /* ??? Add a NOTE after the last insn of the last basic block.  It is not
      known why this is done.  */
 
-  insn = BLOCK_END (n_basic_blocks - 1);
+  insn = EXIT_BLOCK_PTR->prev_bb->end;
   if (NEXT_INSN (insn) == 0
       || (GET_CODE (insn) != NOTE
 	  && GET_CODE (insn) != CODE_LABEL
 	  /* Don't emit a NOTE if it would end up before a BARRIER.  */
 	  && GET_CODE (NEXT_INSN (insn)) != BARRIER))
     {
-      emit_note_after (NOTE_INSN_DELETED, BLOCK_END (n_basic_blocks - 1));
+      emit_note_after (NOTE_INSN_DELETED, EXIT_BLOCK_PTR->prev_bb->end);
       /* Make insn to appear outside BB.  */
-      BLOCK_END (n_basic_blocks - 1) = PREV_INSN (BLOCK_END (n_basic_blocks - 1));
+      EXIT_BLOCK_PTR->prev_bb->end = PREV_INSN (EXIT_BLOCK_PTR->prev_bb->end);
     }
 
   /* Compute INSN_REG_WEIGHT for all blocks.  We must do this before
      removing death notes.  */
-  for (b = n_basic_blocks - 1; b >= 0; b--)
-    find_insn_reg_weight (b);
+  FOR_EACH_BB_REVERSE (b)
+    find_insn_reg_weight (b->index);
 }
 
 /* Free global data used during insn scheduling.  */

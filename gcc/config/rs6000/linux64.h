@@ -31,8 +31,10 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_DEFAULT \
   (MASK_POWERPC | MASK_POWERPC64 | MASK_64BIT | MASK_NEW_MNEMONICS)
 
-#undef  CPP_DEFAULT_SPEC
-#define CPP_DEFAULT_SPEC "-D_ARCH_PPC64"
+#undef PROCESSOR_DEFAULT
+#define PROCESSOR_DEFAULT PROCESSOR_PPC630
+#undef PROCESSOR_DEFAULT64
+#define PROCESSOR_DEFAULT64 PROCESSOR_PPC630
 
 #undef  ASM_DEFAULT_SPEC
 #define ASM_DEFAULT_SPEC "-mppc64"
@@ -100,14 +102,14 @@ Boston, MA 02111-1307, USA.  */
 /* Don't assume anything about the header files.  */
 #define NO_IMPLICIT_EXTERN_C
 
+/* Override svr4.h  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
 
 #undef  CPP_PREDEFINES
 #define CPP_PREDEFINES \
  "-D_PPC_ -D__PPC__ -D_PPC64_ -D__PPC64__ -D__powerpc__ -D__powerpc64__ \
-  -D_PIC_ -D__PIC__ -D_BIG_ENDIAN -D__BIG_ENDIAN__ -D__ELF__ \
-  -D__LONG_MAX__=9223372036854775807L \
+  -D_PIC_ -D__PIC__ -D__ELF__ \
   -Acpu=powerpc64 -Amachine=powerpc64"
 
 #undef  CPP_OS_DEFAULT_SPEC
@@ -138,29 +140,23 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
 #undef  LINK_OS_LINUX_SPEC
-#ifndef CROSS_COMPILE
 #define LINK_OS_LINUX_SPEC "-m elf64ppc %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker /lib64/ld.so.1}}}"
-#else
-#define LINK_OS_LINUX_SPEC "-m elf64ppc %{!shared: %{!static: \
-  %{rdynamic:-export-dynamic} \
-  %{!dynamic-linker:-dynamic-linker ld.so.1}}}"
+  %{!dynamic-linker:-dynamic-linker /lib64/ld64.so.1}}}"
+
+#ifdef NATIVE_CROSS
+#define STARTFILE_PREFIX_SPEC "/usr/local/lib64/ /lib64/ /usr/lib64/"
 #endif
 
-#ifndef CROSS_COMPILE
 #undef  STARTFILE_LINUX_SPEC
 #define STARTFILE_LINUX_SPEC "\
-%{!shared: %{pg:/usr/lib64/gcrt1.o%s} %{!pg:%{p:/usr/lib64/gcrt1.o%s} \
-  %{!p:/usr/lib64/crt1.o%s}}} /usr/lib64/crti.o%s \
-%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
-#endif
+%{!shared: %{pg:gcrt1.o%s} %{!pg:%{p:gcrt1.o%s} %{!p:crt1.o%s}}} crti.o%s \
+%{static:crtbeginT.o%s} \
+%{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
 
-#ifndef CROSS_COMPILE
 #undef  ENDFILE_LINUX_SPEC
 #define ENDFILE_LINUX_SPEC "\
-%{!shared:crtend.o%s} %{shared:crtendS.o%s} /usr/lib64/crtn.o%s"
-#endif
+%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s"
 
 #undef  TOC_SECTION_ASM_OP
 #define TOC_SECTION_ASM_OP "\t.section\t\".toc\",\"aw\""
@@ -299,3 +295,22 @@ do {						\
 	       || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT		\
 		   && ! TARGET_NO_FP_IN_TOC)))))
 
+/* This is the same as the dbxelf.h version, except that we need to
+   use the function code label, not the function descriptor.  */
+#undef	ASM_OUTPUT_SOURCE_LINE
+#define	ASM_OUTPUT_SOURCE_LINE(FILE, LINE)				\
+do									\
+  {									\
+    static int sym_lineno = 1;						\
+    char temp[256];							\
+    ASM_GENERATE_INTERNAL_LABEL (temp, "LM", sym_lineno);		\
+    fprintf (FILE, "\t.stabn 68,0,%d,", LINE);				\
+    assemble_name (FILE, temp);						\
+    fputs ("-.", FILE);							\
+    assemble_name (FILE,						\
+		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));\
+    putc ('\n', FILE);							\
+    ASM_OUTPUT_INTERNAL_LABEL (FILE, "LM", sym_lineno);			\
+    sym_lineno += 1;							\
+  }									\
+while (0)
