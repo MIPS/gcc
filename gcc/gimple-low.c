@@ -54,8 +54,6 @@ static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
 static bool simple_goto_p (tree);
 static void record_vars (tree);
 
-tree unexpanded_var_list;
-
 /* Lowers the BODY.  */
 void
 lower_function_body (tree *body)
@@ -150,7 +148,8 @@ record_vars (tree vars)
 	continue;
 
       /* Record the variable.  */
-      unexpanded_var_list = tree_cons (NULL_TREE, var, unexpanded_var_list);
+      cfun->unexpanded_var_list = tree_cons (NULL_TREE, var,
+					     cfun->unexpanded_var_list);
     }
 }
 
@@ -276,9 +275,9 @@ expand_used_vars (void)
 {
   tree var, cell;
 
-  unexpanded_var_list = nreverse (unexpanded_var_list);
+  cfun->unexpanded_var_list = nreverse (cfun->unexpanded_var_list);
 
-  for (cell = unexpanded_var_list; cell; cell = TREE_CHAIN (cell))
+  for (cell = cfun->unexpanded_var_list; cell; cell = TREE_CHAIN (cell))
     {
       var = TREE_VALUE (cell);
 
@@ -302,5 +301,5 @@ expand_used_vars (void)
       expand_var (var);
     }
 
-  unexpanded_var_list = NULL_TREE;
+  cfun->unexpanded_var_list = NULL_TREE;
 }

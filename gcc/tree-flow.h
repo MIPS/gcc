@@ -378,9 +378,6 @@ extern GTY(()) tree global_var;
 /* Array of all variables that are call clobbered in the function.  */
 extern GTY(()) varray_type call_clobbered_vars;
 
-/* List of the variables found during gimple lowering pass.  */
-extern GTY(()) tree unexpanded_var_list;
-
 #define num_call_clobbered_vars	VARRAY_ACTIVE_SIZE (call_clobbered_vars)
 #define add_call_clobbered_var(v) VARRAY_PUSH_TREE (call_clobbered_vars, v)
 #define call_clobbered_var(i) VARRAY_TREE (call_clobbered_vars, i)

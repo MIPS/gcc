@@ -419,6 +419,9 @@ struct function GTY(())
   /* Array mapping insn uids to blocks.  */
   struct varray_head_tag *ib_boundaries_block;
 
+  /* The variables unexpanded so far.  */
+  tree unexpanded_var_list;
+
   /* Collected bit flags.  */
 
   /* Nonzero if function being compiled needs to be given an address

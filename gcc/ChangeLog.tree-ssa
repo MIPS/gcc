@@ -1,5 +1,10 @@
 2003-11-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* function.h (struct function): New field unexpanded_var_list.
+	* gimple-low.c (unexpanded_var_list): Removed.
+	(record_vars, expand_used_vars): Use cfun->unexpanded_var_list.
+	* tree-flow.h (unexpanded_var_list): Declaration removed.
+
 	* gimplify.c (should_carry_locus_p): New.
 	(annotate_all_with_locus_1): Use it.  Do not annotate empty
 	statements.
