@@ -71,7 +71,7 @@ ALLOCA_FINISH = true
 # STAGE1_CFLAGS is set by configure on some targets.
 XCFLAGS =
 TCFLAGS =
-BOOT_CFLAGS =  -g
+BOOT_CFLAGS =  -g -O2
 STAGE1_CFLAGS = -g @stage1_cflags@
 CFLAGS = $(STAGE1_CFLAGS)
 
@@ -390,7 +390,7 @@ CROSS_LIBGCC1 = libgcc1.cross
 # so that -g1 will be tested.
 #
 LIBGCC2_DEBUG_CFLAGS = -g1
-LIBGCC2_CFLAGS = -save-temps  $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
+LIBGCC2_CFLAGS = -O2  $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
 
 # Additional options to use when compiling libgcc2.a.
 # Some targets override this to -isystem include

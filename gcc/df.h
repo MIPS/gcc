@@ -287,3 +287,5 @@ extern void debug_df_useno PARAMS ((unsigned int));
 extern void debug_df_ref PARAMS ((struct ref *));
 
 extern void debug_df_chain PARAMS ((struct df_link *));
+extern void df_insn_debug PARAMS ((struct df *, rtx, FILE *));
+extern void df_insn_debug_regno PARAMS ((struct df *, rtx, FILE *));

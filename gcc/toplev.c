@@ -159,8 +159,7 @@ extern char **environ;
 extern int size_directive_output;
 extern tree last_assemble_variable_decl;
 
-extern void calc_def_use_chains PARAMS ((FILE *));
-extern void reg_alloc PARAMS ((FILE *));
+extern void reg_alloc PARAMS ((void));
 
 static void set_target_switch PARAMS ((const char *));
 static const char *decl_name PARAMS ((tree, int));
@@ -276,6 +275,7 @@ enum dump_file_index
   DFI_ce,
   DFI_regmove,
   DFI_sched,
+  DFI_lreg,
   DFI_greg,
   DFI_postreload,
   DFI_flow2,
@@ -320,6 +320,7 @@ struct dump_file_info dump_file[DFI_MAX] =
   { "ce",	'C', 1, 0, 0 },
   { "regmove",	'N', 1, 0, 0 },
   { "sched",	'S', 1, 0, 0 },
+  { "lreg",	'l', 1, 0, 0 },
   { "greg",	'g', 1, 0, 0 },
   { "postreload", 'o', 1, 0, 0 },
   { "flow2",	'w', 1, 0, 0 },
@@ -892,7 +893,7 @@ int flag_bounds_check = 0;
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
 
-int flag_new_regalloc = 0;
+int flag_new_regalloc = 1;
 
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
@@ -3370,7 +3371,7 @@ rest_of_compilation (decl)
       timevar_push (TV_REGMOVE);
       open_dump_file (DFI_regmove, decl);
 
-//      regmove_optimize (insns, max_reg_num (), rtl_dump_file);
+      regmove_optimize (insns, max_reg_num (), rtl_dump_file);
 
       close_dump_file (DFI_regmove, print_rtl_with_bb, insns);
       timevar_pop (TV_REGMOVE);
@@ -3427,27 +3428,105 @@ rest_of_compilation (decl)
      epilogue thus changing register elimination offsets.  */
   current_function_is_leaf = leaf_function_p ();
 
-  timevar_push (TV_GLOBAL_ALLOC);
-  open_dump_file (DFI_greg, decl);
+  timevar_push (TV_LOCAL_ALLOC);
+  open_dump_file (DFI_lreg, decl);
+
+  /* Allocate pseudo-regs that are used only within 1 basic block.
+
+     RUN_JUMP_AFTER_RELOAD records whether or not we need to rerun the
+     jump optimizer after register allocation and reloading are finished.  */
+
   if (! register_life_up_to_date)
     recompute_reg_usage (insns, ! optimize_size);
   regclass (insns, max_reg_num (), rtl_dump_file);
-  reg_alloc (rtl_dump_file);
-  allocate_reg_info(max_regno, FALSE, TRUE);
-  allocate_reg_life_data ();
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_REG_INFO);
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-  life_analysis (insns, rtl_dump_file, PROP_FINAL);
-  recompute_reg_usage (insns, ! optimize_size);
-  regclass (insns, max_reg_num (), rtl_dump_file);
-  build_insn_chain (insns);
-  rebuild_label_notes_after_reload = 1;
-  failure = reload (insns, 0);
-  close_dump_file (DFI_greg, print_rtl_with_bb, insns);
-  timevar_pop (TV_GLOBAL_ALLOC);
 
-  if (failure)
-    goto exit_rest_of_compilation;
+  if (flag_new_regalloc)
+    {
+      reg_alloc ();
+      //allocate_reg_info (max_regno, FALSE, TRUE);
+      timevar_pop (TV_LOCAL_ALLOC);
+      if (dump_file[DFI_lreg].enabled)
+	{
+	  timevar_push (TV_DUMP);
+	  close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
+	  timevar_pop (TV_DUMP);
+	}
+
+      /* XXX clean up the whole mess to bring live info in shape again.  */
+      timevar_push (TV_GLOBAL_ALLOC);
+      open_dump_file (DFI_greg, decl);
+      //allocate_reg_life_data ();
+      //update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_REG_INFO);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+      life_analysis (insns, rtl_dump_file, PROP_FINAL);
+      recompute_reg_usage (insns, ! optimize_size);
+      regclass (insns, max_reg_num (), rtl_dump_file);
+      build_insn_chain (insns);
+      failure = reload (insns, 0);
+      timevar_pop (TV_GLOBAL_ALLOC);
+
+      if (dump_file[DFI_greg].enabled)
+	{
+	  timevar_push (TV_DUMP);
+
+	  dump_global_regs (rtl_dump_file);
+
+	  close_dump_file (DFI_greg, print_rtl_with_bb, insns);
+	  timevar_pop (TV_DUMP);
+	}
+
+      if (failure)
+        goto exit_rest_of_compilation;
+      /*reload_completed = 1;*/
+    }
+  else
+    {
+      rebuild_label_notes_after_reload = local_alloc ();
+
+      timevar_pop (TV_LOCAL_ALLOC);
+
+      if (dump_file[DFI_lreg].enabled)
+	{
+	  timevar_push (TV_DUMP);
+
+	  dump_flow_info (rtl_dump_file);
+	  dump_local_alloc (rtl_dump_file);
+
+	  close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
+	  timevar_pop (TV_DUMP);
+	}
+
+      ggc_collect ();
+
+      timevar_push (TV_GLOBAL_ALLOC);
+      open_dump_file (DFI_greg, decl);
+
+      /* If optimizing, allocate remaining pseudo-regs.  Do the reload
+	 pass fixing up any insns that are invalid.  */
+
+      if (optimize)
+	failure = global_alloc (rtl_dump_file);
+      else
+	{
+	  build_insn_chain (insns);
+	  failure = reload (insns, 0);
+	}
+
+      timevar_pop (TV_GLOBAL_ALLOC);
+
+      if (dump_file[DFI_greg].enabled)
+	{
+	  timevar_push (TV_DUMP);
+
+	  dump_global_regs (rtl_dump_file);
+
+	  close_dump_file (DFI_greg, print_rtl_with_bb, insns);
+	  timevar_pop (TV_DUMP);
+	}
+
+      if (failure)
+        goto exit_rest_of_compilation;
+    }
 
   ggc_collect ();
 

@@ -1,3 +1,73 @@
+2001-02-20  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	Bootstraps again on x86.
+
+	* ra.c (live_out_1): preliminar support for REG_NO_CONFLICTS blocks.
+	(init_one_web): base spill_cost on reg_spill_cost().
+	(colorize_one_web): More Bad Web (tm) handling.  Now recursively
+	trying to spill already colored long neighbors to prevent spilling
+	short living Bad Webs.
+	(everywhere): some commentary, finally merged Daniel's changes,
+	so there exists one ra.c now ;).
+
+	* sibcall.c (call_ends_block_p): Honor return of
+	identify_call_return_value.
+
+	* Makefile.in (BOOT_CFLAGS): add -O2 again.
+	(LIBGCC2_CFLAGS): remove -save-temps, add -O2.
+
+	* toplev.c (flag_new_regalloc): default to 1.
+	(rest_of_compilation): honor -fno-new-ra to fall back to
+	local/global register allocation (the mainline code).  I like
+	it to be able to test if something (like new crashes) depends on
+	the new register allocator.
+
+2001-02-20  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	Argh.  Daniel had merged the mainline, and I was using a
+	different version.  Conflicts over conflicts.  ;)
+	* ra.c (parts_to_webs): calculate weight of webs as
+	\sum_i(8^{loop_depth(i)}), with i all uses/defs.
+	(colorize_one_web): Try even more hard not to spill a short live
+	web, which is colorable according the number of conflicts, but not
+	according to actual constrains (think multi hard-regs, but only
+	non-consecutive blocks free).  I should call them Bad Webs (tm).
+
+2001-02-17  Michael Matz  <matzmich@cs.tu-berlin.de>
+
+	* ra.c (struct web_parts) : new structure.
+	(find_web_part, union_web_parts, init_web_parts, parts_to_webs,
+	detect_spill_temps, connect_rmw_web_parts,
+	build_web_parts_and_conflicts, put_web, put_move): new functions.
+	(queue_conflict, apply_conflict, relink_web, clean_conflicts,
+	init_webs, fill_misc_web_info, connect_rmw_webs,
+	build_webs_and_conflicts, mark_simplify): remove functions.
+	(current_web, queued_conflicts): remove.
+	(live_in, live_out): add "struct web_part*" argument. Callers changed.
+	(def2web): now a "struct web **".
+	(visited): now a "unsigned int *".
+	(visited_pass): tick counter, instead of clearing visited each use.
+	(id2web): new variable (int -> struct web*). Makes webs dynamically
+	allocatable.
+	(num_webs): new var.
+	(struct copy_p_cache): new struct.
+	(copy_cache): new var.
+	(copy_insn_p): use them.
+	(live_in, live_out): use visit_trace to speed up building webs by
+	some magnitudes, use web_parts instead full webs.
+	(dump_number_seen): new function (debug output).
+	(moves_to_webs): use smallest numbered of webs for moves involving
+	more than one source/dest.
+	(get_free_reg): return only last_resort, if really no other reg found.
+	(emit_colors): first change all uses, then defs; try to update
+	basic block live info (still not correct).
+	(default_spill_heuristic): use w->spill_cost instead reg_spill_cost().
+	(everywhere): fixed most (all?) unsigned/signed warnings.
+
+	* df.c (df_insn_debug): destaticify.
+	(df_chain_dump_regno, df_insn_debug_regno): new functions (similar
+	to those without _regno).
+	
 2001-02-19  Daniel Berlin  <dberlin@redhat.com>
 
 	Mainline merge performed.

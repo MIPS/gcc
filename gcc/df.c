@@ -285,7 +285,7 @@ static struct ref *df_bb_insn_regno_first_def_find PARAMS((struct df *,
 							   rtx, unsigned int));
 
 static void df_chain_dump PARAMS((struct df_link *, FILE *file));
-static void df_insn_debug PARAMS ((struct df *, rtx, FILE *));
+static void df_chain_dump_regno PARAMS((struct df_link *, FILE *file));
 static void df_regno_debug PARAMS ((struct df *, unsigned int, FILE *));
 static void df_ref_debug PARAMS ((struct df *, struct ref *, FILE *));
 
@@ -3306,6 +3306,21 @@ df_chain_dump (link, file)
   fprintf (file, "}");
 }
 
+static void
+df_chain_dump_regno (link, file)
+     struct df_link *link;
+     FILE *file;
+{
+  fprintf (file, "{ ");
+  for (; link; link = link->next)
+    {
+      fprintf (file, "%c%d(%d) ",
+               DF_REF_REG_DEF_P (link->ref) ? 'd' : 'u',
+               DF_REF_ID (link->ref),
+               DF_REF_REGNO (link->ref));
+    }
+  fprintf (file, "}");
+}
 
 /* Dump dataflow info.  */
 void
@@ -3479,7 +3494,7 @@ df_dump (df, flags, file)
 }
 
 
-static void
+void
 df_insn_debug (df, insn, file)
      struct df *df;
      rtx insn;
@@ -3507,6 +3522,33 @@ df_insn_debug (df, insn, file)
   fprintf (file, "\n");
 }
 
+void
+df_insn_debug_regno (df, insn, file)
+     struct df *df;
+     rtx insn;
+     FILE *file;
+{
+  unsigned int uid;
+  int bbi;
+
+  uid = INSN_UID (insn);
+  if (uid >= df->insn_size)
+    return;
+
+  if (df->insns[uid].defs)
+    bbi = DF_REF_BBNO (df->insns[uid].defs->ref);
+  else  if (df->insns[uid].uses)
+    bbi = DF_REF_BBNO (df->insns[uid].uses->ref);
+  else
+    bbi = -1;
+
+  fprintf (file, "insn %d bb %d luid %d defs ",
+           uid, bbi, DF_INSN_LUID (df, insn));
+  df_chain_dump_regno (df->insns[uid].defs, file);
+  fprintf (file, " uses ");
+  df_chain_dump_regno (df->insns[uid].uses, file);
+  fprintf (file, "\n");
+}
 
 static void
 df_regno_debug (df, regno, file)

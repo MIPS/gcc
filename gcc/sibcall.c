@@ -277,10 +277,12 @@ call_ends_block_p (insn, end)
   /* Skip over copying from the call's return value pseudo into
      this function's hard return register and if that's the end
      of the block, we're OK.  */
-  identify_call_return_value (PATTERN (insn), &hardret, &softret);
-  insn = skip_copy_to_return_value (insn, hardret, softret);
-  if (insn == end)
-    return 1;
+  if (identify_call_return_value (PATTERN (insn), &hardret, &softret))
+    {
+      insn = skip_copy_to_return_value (insn, hardret, softret);
+      if (insn == end)
+        return 1;
+    }
 
   /* Skip any stack adjustment.  */
   insn = skip_stack_adjustment (insn);
