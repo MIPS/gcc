@@ -2918,6 +2918,10 @@ s390_simplify_dwarf_addr (orig_x)
 {
   rtx x = orig_x, y;
 
+  if (GET_CODE (x) == UNSPEC
+      && XINT (x, 1) == 101)
+    return XVECEXP (x, 0, 0);
+
   if (GET_CODE (x) != MEM)
     return orig_x;
 
