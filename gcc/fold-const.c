@@ -2129,16 +2129,16 @@ truth_value_p (enum tree_code code)
 
 /* Return nonzero if two operands (typically of the same tree node)
    are necessarily equal.  If either argument has side-effects this
-   function returns zero.
+   function returns zero.  FLAGS modifies behaviour as follows:
 
-   If ONLY_CONST is nonzero, only return nonzero for constants.
+   If OEP_ONLY_CONST is set, only return nonzero for constants.
    This function tests whether the operands are indistinguishable;
    it does not test whether they are equal using C's == operation.
    The distinction is important for IEEE floating point, because
    (1) -0.0 and 0.0 are distinguishable, but -0.0==0.0, and
    (2) two NaNs may be indistinguishable, but NaN!=NaN.
 
-   If ONLY_CONST is zero, a VAR_DECL is considered equal to itself
+   If OEP_ONLY_CONST is unset, a VAR_DECL is considered equal to itself
    even though it may hold multiple values during a function.
    This is because a GCC tree node guarantees that nothing else is
    executed between the evaluation of its "operands" (which may often
@@ -2147,13 +2147,15 @@ truth_value_p (enum tree_code code)
    same value in each operand/subexpression.  Hence a zero value for
    ONLY_CONST assumes isochronic (or instantaneous) tree equivalence.
    If comparing arbitrary expression trees, such as from different
-   statements, ONLY_CONST must usually be nonzero.  */
+   statements, ONLY_CONST must usually be nonzero.
+
+   If OEP_PURE_SAME is set, then pure functions with identical arguments
+   are considered the same.  It is used when the caller has other ways
+   to ensure that global memory is unchanged in between.  */
 
 int
-operand_equal_p (tree arg0, tree arg1, int only_const)
+operand_equal_p (tree arg0, tree arg1, unsigned int flags)
 {
-  tree fndecl;
-
   /* If either is ERROR_MARK, they aren't equal.  */
   if (TREE_CODE (arg0) == ERROR_MARK || TREE_CODE (arg1) == ERROR_MARK)
     return 0;
@@ -2182,7 +2184,7 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
      expressions with side effects that should be treated the same due
      to the only side effects being identical SAVE_EXPR's, that will
      be detected in the recursive calls below.  */
-  if (arg0 == arg1 && ! only_const
+  if (arg0 == arg1 && ! (flags & OEP_ONLY_CONST)
       && (TREE_CODE (arg0) == SAVE_EXPR
 	  || (! TREE_SIDE_EFFECTS (arg0) && ! TREE_SIDE_EFFECTS (arg1))))
     return 1;
@@ -2216,7 +2218,7 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 	  while (v1 && v2)
 	    {
 	      if (!operand_equal_p (TREE_VALUE (v1), TREE_VALUE (v2),
-				    only_const))
+				    flags))
 		return 0;
 	      v1 = TREE_CHAIN (v1);
 	      v2 = TREE_CHAIN (v2);
@@ -2227,9 +2229,9 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 
       case COMPLEX_CST:
 	return (operand_equal_p (TREE_REALPART (arg0), TREE_REALPART (arg1),
-				 only_const)
+				 flags)
 		&& operand_equal_p (TREE_IMAGPART (arg0), TREE_IMAGPART (arg1),
-				    only_const));
+				    flags));
 
       case STRING_CST:
 	return (TREE_STRING_LENGTH (arg0) == TREE_STRING_LENGTH (arg1)
@@ -2244,7 +2246,7 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 	break;
       }
 
-  if (only_const)
+  if (flags & OEP_ONLY_CONST)
     return 0;
 
   switch (TREE_CODE_CLASS (TREE_CODE (arg0)))
@@ -2257,7 +2259,7 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 	return 0;
 
       return operand_equal_p (TREE_OPERAND (arg0, 0),
-			      TREE_OPERAND (arg1, 0), 0);
+			      TREE_OPERAND (arg1, 0), flags);
 
     case '<':
     case '2':
@@ -2269,9 +2271,9 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
       /* For commutative ops, allow the other order.  */
       return (commutative_tree_code (TREE_CODE (arg0))
 	      && operand_equal_p (TREE_OPERAND (arg0, 0),
-				  TREE_OPERAND (arg1, 1), 0)
+				  TREE_OPERAND (arg1, 1), flags)
 	      && operand_equal_p (TREE_OPERAND (arg0, 1),
-				  TREE_OPERAND (arg1, 0), 0));
+				  TREE_OPERAND (arg1, 0), flags));
 
     case 'r':
       /* If either of the pointer (or reference) expressions we are
@@ -2284,23 +2286,23 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 	{
 	case INDIRECT_REF:
 	  return operand_equal_p (TREE_OPERAND (arg0, 0),
-				  TREE_OPERAND (arg1, 0), 0);
+				  TREE_OPERAND (arg1, 0), flags);
 
 	case COMPONENT_REF:
 	case ARRAY_REF:
 	case ARRAY_RANGE_REF:
 	  return (operand_equal_p (TREE_OPERAND (arg0, 0),
-				   TREE_OPERAND (arg1, 0), 0)
+				   TREE_OPERAND (arg1, 0), flags)
 		  && operand_equal_p (TREE_OPERAND (arg0, 1),
-				      TREE_OPERAND (arg1, 1), 0));
+				      TREE_OPERAND (arg1, 1), flags));
 
 	case BIT_FIELD_REF:
 	  return (operand_equal_p (TREE_OPERAND (arg0, 0),
-				   TREE_OPERAND (arg1, 0), 0)
+				   TREE_OPERAND (arg1, 0), flags)
 		  && operand_equal_p (TREE_OPERAND (arg0, 1),
-				      TREE_OPERAND (arg1, 1), 0)
+				      TREE_OPERAND (arg1, 1), flags)
 		  && operand_equal_p (TREE_OPERAND (arg0, 2),
-				      TREE_OPERAND (arg1, 2), 0));
+				      TREE_OPERAND (arg1, 2), flags));
 	default:
 	  return 0;
 	}
@@ -2311,7 +2313,7 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 	case ADDR_EXPR:
 	case TRUTH_NOT_EXPR:
 	  return operand_equal_p (TREE_OPERAND (arg0, 0),
-				  TREE_OPERAND (arg1, 0), 0);
+				  TREE_OPERAND (arg1, 0), flags);
 
 	case RTL_EXPR:
 	  return rtx_equal_p (RTL_EXPR_RTL (arg0), RTL_EXPR_RTL (arg1));
@@ -2320,14 +2322,18 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 	  /* If the CALL_EXPRs call different functions, then they
 	     clearly can not be equal.  */
 	  if (! operand_equal_p (TREE_OPERAND (arg0, 0),
-				 TREE_OPERAND (arg1, 0), 0))
+				 TREE_OPERAND (arg1, 0), flags))
 	    return 0;
 
-	  /* Only consider const functions equivalent.  */
-	  fndecl = get_callee_fndecl (arg0);
-	  if (fndecl == NULL_TREE
-	      || ! (flags_from_decl_or_type (fndecl) & ECF_CONST))
-	    return 0;
+	  {
+	    unsigned int cef = call_expr_flags (arg0);
+	    if (flags & OEP_PURE_SAME)
+	      cef &= ECF_CONST | ECF_PURE;
+	    else
+	      cef &= ECF_CONST;
+	    if (!cef)
+	      return 0;
+	  }
 
 	  /* Now see if all the arguments are the same.  operand_equal_p
 	     does not handle TREE_LIST, so we walk the operands here
@@ -2336,7 +2342,8 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 	  arg1 = TREE_OPERAND (arg1, 1);
 	  while (arg0 && arg1)
 	    {
-	      if (! operand_equal_p (TREE_VALUE (arg0), TREE_VALUE (arg1), 0))
+	      if (! operand_equal_p (TREE_VALUE (arg0), TREE_VALUE (arg1),
+				     flags))
 		return 0;
 
 	      arg0 = TREE_CHAIN (arg0);
@@ -2352,11 +2359,11 @@ operand_equal_p (tree arg0, tree arg1, int only_const)
 	}
 
     case 'd':
-	/* Consider __builtin_sqrt equal to sqrt.  */
-	return TREE_CODE (arg0) == FUNCTION_DECL
-	       && DECL_BUILT_IN (arg0) && DECL_BUILT_IN (arg1)
-	       && DECL_BUILT_IN_CLASS (arg0) == DECL_BUILT_IN_CLASS (arg1)
-	       && DECL_FUNCTION_CODE (arg0) == DECL_FUNCTION_CODE (arg1);
+      /* Consider __builtin_sqrt equal to sqrt.  */
+      return (TREE_CODE (arg0) == FUNCTION_DECL
+	      && DECL_BUILT_IN (arg0) && DECL_BUILT_IN (arg1)
+	      && DECL_BUILT_IN_CLASS (arg0) == DECL_BUILT_IN_CLASS (arg1)
+	      && DECL_FUNCTION_CODE (arg0) == DECL_FUNCTION_CODE (arg1));
 
     default:
       return 0;
@@ -5801,7 +5808,7 @@ fold (tree expr)
 	  tree s0 = TYPE_SIZE (tt0);
 	  tree s1 = TYPE_SIZE (tt1);
 
-	  if (s0 && s1 && operand_equal_p (s0, s1, 1))
+	  if (s0 && s1 && operand_equal_p (s0, s1, OEP_ONLY_CONST))
 	    return build (TREE_CODE (arg0), t0, convert (t0, arg00),
 		          TREE_OPERAND (arg0, 1));
 	}
@@ -7006,7 +7013,7 @@ fold (tree expr)
       if (operand_equal_p (arg0, arg1, 0))
 	return omit_one_operand (type, arg0, arg1);
       if (INTEGRAL_TYPE_P (type)
-	  && operand_equal_p (arg1, TYPE_MIN_VALUE (type), 1))
+	  && operand_equal_p (arg1, TYPE_MIN_VALUE (type), OEP_ONLY_CONST))
 	return omit_one_operand (type, arg1, arg0);
       goto associate;
 
@@ -7015,7 +7022,7 @@ fold (tree expr)
 	return omit_one_operand (type, arg0, arg1);
       if (INTEGRAL_TYPE_P (type)
 	  && TYPE_MAX_VALUE (type)
-	  && operand_equal_p (arg1, TYPE_MAX_VALUE (type), 1))
+	  && operand_equal_p (arg1, TYPE_MAX_VALUE (type), OEP_ONLY_CONST))
 	return omit_one_operand (type, arg1, arg0);
       goto associate;
 
@@ -8128,40 +8135,48 @@ fold (tree expr)
 
 	      case LT_EXPR:
 		/* If C1 is C2 + 1, this is min(A, C2).  */
-		if (! operand_equal_p (arg2, TYPE_MAX_VALUE (type), 1)
+		if (! operand_equal_p (arg2, TYPE_MAX_VALUE (type),
+				       OEP_ONLY_CONST)
 		    && operand_equal_p (TREE_OPERAND (arg0, 1),
 					const_binop (PLUS_EXPR, arg2,
-						     integer_one_node, 0), 1))
+						     integer_one_node, 0),
+					OEP_ONLY_CONST))
 		  return pedantic_non_lvalue
 		    (fold (build (MIN_EXPR, type, arg1, arg2)));
 		break;
 
 	      case LE_EXPR:
 		/* If C1 is C2 - 1, this is min(A, C2).  */
-		if (! operand_equal_p (arg2, TYPE_MIN_VALUE (type), 1)
+		if (! operand_equal_p (arg2, TYPE_MIN_VALUE (type),
+				       OEP_ONLY_CONST)
 		    && operand_equal_p (TREE_OPERAND (arg0, 1),
 					const_binop (MINUS_EXPR, arg2,
-						     integer_one_node, 0), 1))
+						     integer_one_node, 0),
+					OEP_ONLY_CONST))
 		  return pedantic_non_lvalue
 		    (fold (build (MIN_EXPR, type, arg1, arg2)));
 		break;
 
 	      case GT_EXPR:
 		/* If C1 is C2 - 1, this is max(A, C2).  */
-		if (! operand_equal_p (arg2, TYPE_MIN_VALUE (type), 1)
+		if (! operand_equal_p (arg2, TYPE_MIN_VALUE (type),
+				       OEP_ONLY_CONST)
 		    && operand_equal_p (TREE_OPERAND (arg0, 1),
 					const_binop (MINUS_EXPR, arg2,
-						     integer_one_node, 0), 1))
+						     integer_one_node, 0),
+					OEP_ONLY_CONST))
 		  return pedantic_non_lvalue
 		    (fold (build (MAX_EXPR, type, arg1, arg2)));
 		break;
 
 	      case GE_EXPR:
 		/* If C1 is C2 + 1, this is max(A, C2).  */
-		if (! operand_equal_p (arg2, TYPE_MAX_VALUE (type), 1)
+		if (! operand_equal_p (arg2, TYPE_MAX_VALUE (type),
+				       OEP_ONLY_CONST)
 		    && operand_equal_p (TREE_OPERAND (arg0, 1),
 					const_binop (PLUS_EXPR, arg2,
-						     integer_one_node, 0), 1))
+						     integer_one_node, 0),
+					OEP_ONLY_CONST))
 		  return pedantic_non_lvalue
 		    (fold (build (MAX_EXPR, type, arg1, arg2)));
 		break;
@@ -8214,7 +8229,7 @@ fold (tree expr)
 	  && integer_pow2p (arg1)
 	  && TREE_CODE (TREE_OPERAND (arg0, 0)) == BIT_AND_EXPR
 	  && operand_equal_p (TREE_OPERAND (TREE_OPERAND (arg0, 0), 1),
-			      arg1, 1))
+			      arg1, OEP_ONLY_CONST))
 	return pedantic_non_lvalue (fold_convert (type,
 						  TREE_OPERAND (arg0, 0)));
 
@@ -9345,7 +9360,7 @@ nondestructive_fold_binary_to_constant (enum tree_code code, tree type,
 
     case MIN_EXPR:
       if (INTEGRAL_TYPE_P (type)
-	  && operand_equal_p (op1, TYPE_MIN_VALUE (type), 1))
+	  && operand_equal_p (op1, TYPE_MIN_VALUE (type), OEP_ONLY_CONST))
 	return omit_one_operand (type, op1, op0);
 
       goto binary;
@@ -9353,7 +9368,7 @@ nondestructive_fold_binary_to_constant (enum tree_code code, tree type,
     case MAX_EXPR:
       if (INTEGRAL_TYPE_P (type)
 	  && TYPE_MAX_VALUE (type)
-	  && operand_equal_p (op1, TYPE_MAX_VALUE (type), 1))
+	  && operand_equal_p (op1, TYPE_MAX_VALUE (type), OEP_ONLY_CONST))
 	return omit_one_operand (type, op1, op0);
 
       goto binary;

@@ -1,5 +1,15 @@
 2004-05-05  Richard Henderson  <rth@redhat.com>
 
+	* fold-const.c (operand_equal_p): Replace only_const argument with
+	flags.  Allow pure functions if OEP_PURE_SAME.
+	(fold, nondestructive_fold_binary_to_constant): Use OEP_ONLY_CONST.
+	* tree-cfg.c (phi_alternatives_equal): Fix operand_equal_p flag type.
+	* tree-ssa-dom.c (avail_expr_eq): Use OEP_PURE_SAME.
+	* tree.h (enum operand_equal_flag): New.
+	(operand_equal_p): Update argument list.
+
+2004-05-05  Richard Henderson  <rth@redhat.com>
+
 	* tree-ssa-operands.c (get_call_flags): Remove.
 	(get_expr_operands): Use call_expr_flags.
 	* tree-alias-common.c (call_may_clobber): Likewise.

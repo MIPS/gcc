@@ -3434,7 +3434,8 @@ unchecked_convert (tree type, tree expr, int notrunc_p)
   /* If the sizes of the types differ and this is an VIEW_CONVERT_EXPR,
      show no longer constant.  */
   if (TREE_CODE (expr) == VIEW_CONVERT_EXPR
-      && ! operand_equal_p (TYPE_SIZE_UNIT (type), TYPE_SIZE_UNIT (etype), 1))
+      && ! operand_equal_p (TYPE_SIZE_UNIT (type), TYPE_SIZE_UNIT (etype),
+			    OEP_ONLY_CONST))
     TREE_CONSTANT (expr) = 0;
 
   return expr;

@@ -3048,7 +3048,7 @@ avail_expr_eq (const void *p1, const void *p2)
      same VUSE operands.  */
   if ((TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
        || lang_hooks.types_compatible_p (TREE_TYPE (rhs1), TREE_TYPE (rhs2)))
-      && operand_equal_p (rhs1, rhs2, 0))
+      && operand_equal_p (rhs1, rhs2, OEP_PURE_SAME))
     {
       vuse_optype ops1 = NULL;
       vuse_optype ops2 = NULL;

@@ -3468,7 +3468,14 @@ extern int div_and_round_double (enum tree_code, int, unsigned HOST_WIDE_INT,
 				 HOST_WIDE_INT *, unsigned HOST_WIDE_INT *,
 				 HOST_WIDE_INT *);
 
-extern int operand_equal_p (tree, tree, int);
+enum operand_equal_flag
+{
+  OEP_ONLY_CONST = 1,
+  OEP_PURE_SAME = 2
+};
+
+extern int operand_equal_p (tree, tree, unsigned int);
+
 extern tree omit_one_operand (tree, tree, tree);
 extern tree invert_truthvalue (tree);
 extern tree nondestructive_fold_unary_to_constant (enum tree_code, tree, tree);
