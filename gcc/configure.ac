@@ -282,6 +282,14 @@ AC_TRY_COMPILE(,,ac_cv_prog_cc_no_long_long=yes,
 	       ac_cv_prog_cc_no_long_long=no)
 CFLAGS="$save_CFLAGS"])
 
+AC_CACHE_CHECK(whether ${CC-cc} accepts -Wno-long-double,
+ac_cv_prog_cc_no_long_double,
+[save_CFLAGS="$CFLAGS"
+CFLAGS="-Wno-long-double"
+AC_TRY_COMPILE(,,ac_cv_prog_cc_no_long_double=yes,
+	       ac_cv_prog_cc_no_long_double=no)
+CFLAGS="$save_CFLAGS"])
+
 AC_PROG_CPP
 AC_C_INLINE
 
@@ -315,6 +323,11 @@ strict1_warn=
 if test $ac_cv_prog_cc_no_long_long = yes ; then
   strict1_warn="-pedantic -Wno-long-long"
 fi
+
+if test $ac_cv_prog_cc_no_long_double = yes ; then
+  strict1_warn="$strict1_warn -Wno-long-double"
+fi
+
 AC_SUBST(strict1_warn)
 
 # If the native compiler is GCC, we can enable warnings even in stage1.  
