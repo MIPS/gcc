@@ -438,7 +438,7 @@ free_after_compilation (f)
   free_eh_status (f);
   f->expr = NULL;
   f->emit = NULL;
-  free_varasm_status (f);
+  f->varasm = NULL;
 
   if (free_machine_status)
     (*free_machine_status) (f);

@@ -1,3 +1,33 @@
+2002-02-18  Geoffrey Keating  <geoffk@redhat.com>
+
+	* varasm.c: Don't include obstack.h.
+	(struct varasm_status): x_const_rtx_hash_table is a hash of rtxes.
+	(struct rtx_const): Give substructures names, improve formatting.
+	(struct constant_descriptor): Delete.
+	(struct constant_descriptor_tree): New, based on constant_descriptor.
+	(const_hash_table): Is a hash table of trees.
+	(mark_const_hash_entry): Is used for hashes of trees.  Mark
+	constant_descriptor_tree structure.
+	(mark_const_str_htab_1): Mark deferred_string structure.
+	(compare_constant): Rewrite to compare trees.
+	(compare_constant_1): Delete.
+	(record_constant): Delete.
+	(record_constant_1): Delete.
+	(output_constant_def): Use struct constant_descriptor_tree.
+	Don't duplicate trees twice.
+	(struct constant_descriptor_rtx): New.
+	(struct pool_constant): Used for rtx constants.
+	(init_varasm_status): Update for change to struct varasm_status.
+	(mark_varasm_status): Likewise.
+	(free_varasm_status): Delete.
+	(compare_constant_rtx): Rewrite to handle constant_descriptor_rtx.
+	(record_constant_rtx): Likewise.
+	(mem_for_const_double): Update to use struct constant_descriptor_rtx.
+	(force_const_mem): Likewise.
+	* Makefile.in (varasm.o): Doesn't depend on obstack.h.
+	* function.c (free_after_compilation): Don't use free_varasm_status.
+	* function.h: Don't prototype free_varasm_status.
+
 2002-02-17  Geoffrey Keating  <geoffk@redhat.com>
 
 	* ggc-common.c (ggc_realloc): Handle X being NULL.
