@@ -62,6 +62,13 @@ Boston, MA 02111-1307, USA.  */
       a new value every time we see a statement with a vuse.
    5. Strength reduction can be performed by anticipating expressions
       we can repair later on.
+   6. Our canonicalization of expressions during lookups don't take
+      constants into account very well.  In particular, we don't fold
+      anywhere, so we can get situations where we stupidly think
+      something is a new value (a + 1 + 1 vs a + 2).  This is somewhat
+      expensive to fix, but it does expose a lot more eliminations.
+      It may or not be worth it, depending on how critical you
+      consider PRE vs just plain GRE.
 */   
 
 /* For ease of terminology, "expression node" in the below refers to
@@ -70,31 +77,31 @@ Boston, MA 02111-1307, USA.  */
    we cache the value number by putting it in the expression.  */
 
 /* Basic algorithm
-   
-   First we walk the statements to generate the AVAIL sets, the EXP_GEN
-   sets, and the tmp_gen sets.  AVAIL is a forward dataflow
-   problem. EXP_GEN sets represent the generation of
-   values/expressions by a given block.  We use them when computing
-   the ANTIC sets.  The AVAIL sets consist of SSA_NAME's that
-   represent values, so we know what values are available in what
-   blocks.  In SSA, values are never killed, so we don't need a kill
-   set, or a fixpoint iteration, in order to calculate the AVAIL sets.
-   In traditional parlance, AVAIL sets tell us the downsafety of the
+
+   First we walk the statements to generate the AVAIL sets, the
+   EXP_GEN sets, and the tmp_gen sets.  EXP_GEN sets represent the
+   generation of values/expressions by a given block.  We use them
+   when computing the ANTIC sets.  The AVAIL sets consist of
+   SSA_NAME's that represent values, so we know what values are
+   available in what blocks.  AVAIL is a forward dataflow problem.  In
+   SSA, values are never killed, so we don't need a kill set, or a
+   fixpoint iteration, in order to calculate the AVAIL sets.  In
+   traditional parlance, AVAIL sets tell us the downsafety of the
    expressions/values.
-   
-   Next, we generate the ANTIC sets.  ANTIC is a backwards dataflow
-   problem.  These sets represent the anticipatable expressions.  An
-   expression is anticipatable in a given block if it could be
-   generated in that block.  This means that if we had to perform an
-   insertion in that block, of the value of that expression, we could.
-   Calculating the ANTIC sets requires phi translation of expressions,
-   because the flow goes backwards through phis.  We must iterate to a
-   fixpoint of the ANTIC sets, because we have a kill set.
-   Even in SSA form, values are not live over the entire function,
-   only from their definition point onwards.  So we have to remove
-   values from the ANTIC set once we go past the definition point of
-   the leaders that make them up.  compute_antic/compute_antic_aux
-   performs this computation.
+
+   Next, we generate the ANTIC sets.  These sets represent the
+   anticipatable expressions.  ANTIC is a backwards dataflow
+   problem.An expression is anticipatable in a given block if it could
+   be generated in that block.  This means that if we had to perform
+   an insertion in that block, of the value of that expression, we
+   could.  Calculating the ANTIC sets requires phi translation of
+   expressions, because the flow goes backwards through phis.  We must
+   iterate to a fixpoint of the ANTIC sets, because we have a kill
+   set.  Even in SSA form, values are not live over the entire
+   function, only from their definition point onwards.  So we have to
+   remove values from the ANTIC set once we go past the definition
+   point of the leaders that make them up.
+   compute_antic/compute_antic_aux performs this computation.   
 
    Third, we perform insertions to make partially redundant
    expressions fully redundant.
@@ -118,10 +125,10 @@ Boston, MA 02111-1307, USA.  */
 
    Value numbers are represented using the "value handle" approach.
    This means that each SSA_NAME (and for other reasons to be
-   disclosed in a moment, expression nodes and constant nodes) has a
-   value handle that can be retrieved through get_value_handle.  This
-   value handle, *is* the value number of the SSA_NAME.  You can
-   pointer compare the value handles for equivalence purposes.
+   disclosed in a moment, expression nodes) has a value handle that
+   can be retrieved through get_value_handle.  This value handle, *is*
+   the value number of the SSA_NAME.  You can pointer compare the
+   value handles for equivalence purposes.
 
    For debugging reasons, the value handle is internally more than
    just a number, it is a VAR_DECL named "value.x", where x is a
@@ -133,10 +140,8 @@ Boston, MA 02111-1307, USA.  */
    Expression nodes have value handles associated with them as a
    cache.  Otherwise, we'd have to look them up again in the hash
    table This makes significant difference (factor of two or more) on
-   some test cases.  They can be thrown away after the Constants have
-   value handles associated with them so that they aren't special
-   cased everywhere, and for consistency sake. This may be changed
-   depending on memory usage vs code maintenance tradeoff.  */
+   some test cases.  They can be thrown away after the pass is
+   finished.  */
 
 /* Representation of expressions on value numbers: 
 
@@ -179,22 +184,41 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* A value set element.  Basically a single linked list of
-   expressions/constants/values.  */
+   expressions/values.  */
 typedef struct value_set_node
 {
+  /* An expression.  */
   tree expr;
+
+  /* A pointer to the next element of the value set.  */
   struct value_set_node *next;
 } *value_set_node_t;
 
 
-/* A value set, which is the head of the linked list, and we also keep
-   the tail because we have to append for the topolofical sort.  */
+/* A value set.  This is a singly linked list of value_set_node
+   elements with a possible bitmap that tells us what values exist in
+   the set.  This set must be kept in topologically sorted order.  */
 typedef struct value_set
 {
+  /* The head of the list.  Used for iterating over the list in
+     order.  */
   value_set_node_t head;
+
+  /* The tail of the list.  Used for tail insertions, which are
+     necessary to keep the set in topologically sorted order because
+     of how the set is built.  */
   value_set_node_t tail;
+  
+  /* The length of the list.  */
   size_t length;
+  
+  /* True if the set is indexed, which means it contains a backing
+     bitmap for quick determination of whether certain values exist in the
+     set.  */
   bool indexed;
+  
+  /* The bitmap of values that exist in the set.  May be NULL in an
+     empty or non-indexed set.  */
   bitmap values;
   
 } *value_set_t;
@@ -202,13 +226,32 @@ typedef struct value_set
 /* All of the following sets, except for TMP_GEN, are indexed.
    TMP_GEN is only ever iterated over, we never check what values
    exist in it.  */
+
 typedef struct bb_value_sets
 {
+  /* The EXP_GEN set, which represents expressions/values generated in
+     a basic block.  */
   value_set_t exp_gen;
+
+  /* The PHI_GEN set, which represents PHI results generated in a
+     basic block.  */
   value_set_t phi_gen;
+
+  /* The TMP_GEN set, which represents results/temporaries genererated
+     in a basic block. IE the LHS of an expression.  */
   value_set_t tmp_gen;
+
+  /* The AVAIL_OUT set, which represents which values are available in
+     a given basic block.  */
   value_set_t avail_out;
+
+  /* The ANTIC_IN set, which represents which values are anticiptable
+     in a given basic block.  */
   value_set_t antic_in;
+
+  /* The NEW_SETS set, which is used during insertion to augment the
+     AVAIL_OUT set of blocks with the new insertions performed during
+     the current iteration.  */
   value_set_t new_sets;
 } *bb_value_sets_t;
 
@@ -219,10 +262,17 @@ typedef struct bb_value_sets
 #define ANTIC_IN(BB)	((bb_value_sets_t) ((BB)->aux))->antic_in
 #define NEW_SETS(BB)	((bb_value_sets_t) ((BB)->aux))->new_sets
 
+/* This structure is used to keep track of statistics on what
+   optimization PRE was able to perform.  */
 static struct
 {
+  /* The number of RHS computations eliminated by PRE.  */
   int eliminations;
+
+  /* The number of new expressions/temporaries generated by PRE.  */
   int insertions;
+
+  /* The number of new PHI nodes added by PRE.  */
   int phis;
 } pre_stats;
 
@@ -232,6 +282,8 @@ static void insert_into_set (value_set_t, tree);
 static void add_to_value (tree, tree);
 static value_set_t set_new  (bool);
 static bool is_undefined_value (tree);
+static bool expressions_equal_p (tree, tree);
+static tree create_expression_by_pieces (basic_block, tree, tree);
 
 /* We can add and remove elements and entries to and from sets
    and hash tables, so we use alloc pools for them.  */
@@ -242,12 +294,34 @@ static alloc_pool binary_node_pool;
 static alloc_pool unary_node_pool;
 
 /* The value table that maps expressions to values.  */
+
 static htab_t value_table;
 
 /* The phi_translate_table caches phi translations for a given
    expression and predecessor.  */
+
 static htab_t phi_translate_table;
 
+/* Compare two expressions E1 and E2 and return true if they are
+   equal.  */
+
+static bool
+expressions_equal_p (tree e1, tree e2)
+{
+  tree te1, te2;
+  
+  if (e1 == e2)
+    return true;
+  
+  te1 = TREE_TYPE (e1);
+  te2 = TREE_TYPE (e2);
+
+  if (TREE_CODE (e1) == TREE_CODE (e2) 
+      && (te1 == te2 || lang_hooks.types_compatible_p (te1, te2))
+      && operand_equal_p (e1, e2, 0))
+    return true;
+  return false;
+}
 
 /* Map expressions to values.  These are simple pairs of expressions
    and the values they represent.  To find the value represented by
@@ -261,7 +335,9 @@ typedef struct val_expr_pair_d
 } *val_expr_pair_t;
 
 
-/* Hash a {v,e} pair.  We really only hash the expression.  */
+/* Hash a {v,e} pair that is pointed to by P.
+   The hashcode is cached in the val_expr_pair, so we just return
+   that.  */
 
 static hashval_t
 val_expr_pair_hash (const void *p)
@@ -271,34 +347,26 @@ val_expr_pair_hash (const void *p)
 }
 
 
-/* Are {e2,v2} and {e1,v1} the same?  Again, only the expression
-   matters.  */
+/* Given two val_expr_pair_t's, return true if they represent the same
+   expression, false otherwise.
+   P1 and P2 should point to the val_expr_pair_t's to be compared.  */
 
 static int
 val_expr_pair_expr_eq (const void *p1, const void *p2)
 {
   const val_expr_pair_t ve1 = (val_expr_pair_t) p1;
   const val_expr_pair_t ve2 = (val_expr_pair_t) p2;
-  tree e1 = ve1->e;
-  tree e2 = ve2->e;
-  tree te1;
-  tree te2;
-  if (e1 == e2)
-    return true;
 
-  te1 = TREE_TYPE (e1);
-  te2 = TREE_TYPE (e2);
-  if (TREE_CODE (e1) == TREE_CODE (e2) 
-      && (te1 == te2 || lang_hooks.types_compatible_p (te1, te2))
-      && operand_equal_p (e1, e2, 0))
+  if (expressions_equal_p (ve1->e, ve2->e))
     return true;
-
+  
   return false;
 }
 
 
 /* Get the value handle of EXPR.  This is the only correct way to get
-   the value handle for a "thing".  */
+   the value handle for a "thing". 
+   Returns NULL if the value handle does not exist.  */
 
 tree
 get_value_handle (tree expr)
@@ -310,13 +378,8 @@ get_value_handle (tree expr)
     {
       return SSA_NAME_VALUE (expr);
     }
-  else if (TREE_CODE_CLASS (TREE_CODE (expr)) == 'c')
-    {
-      cst_ann_t ann = cst_ann (expr);  
-      if (ann)
-	return ann->common.value_handle;
-      return NULL;
-    }
+  else if (is_gimple_min_invariant (expr))
+    return expr;
   else if (EXPR_P (expr))
     {
       expr_ann_t ann = expr_ann (expr);
@@ -328,7 +391,7 @@ get_value_handle (tree expr)
 }
 
 
-/* Set the value handle for E to V */
+/* Set the value handle for expression E to value V */
    
 void
 set_value_handle (tree e, tree v)
@@ -337,8 +400,6 @@ set_value_handle (tree e, tree v)
     abort ();
   else if (TREE_CODE (e) == SSA_NAME)
     SSA_NAME_VALUE (e) = v;
-  else if (TREE_CODE_CLASS (TREE_CODE (e)) == 'c')
-    get_cst_ann (e)->common.value_handle = v;
   else if (EXPR_P (e))
     get_expr_ann (e)->common.value_handle = v;
 }
@@ -348,9 +409,17 @@ set_value_handle (tree e, tree v)
 
 typedef struct expr_pred_trans_d
 {
+  /* The expression. */
   tree e;
+
+  /* The predecessor block along which we translated the expression.  */
   basic_block pred;
+
+  /* The value that resulted from the translation.  */
   tree v;
+
+  /* The hashcode for the expression, pred pair. This is cached for
+     speed reasons.  */
   hashval_t hashcode;
 } *expr_pred_trans_t;
 
@@ -363,49 +432,44 @@ expr_pred_trans_hash (const void *p)
   return ve->hashcode;
 }
 
-/* Return true if two phi translation table entries are the same.  */
+/* Return true if two phi translation table entries are the same.
+   P1 and P2 should point to the expr_pred_trans_t's to be compared.*/
 
 static int
 expr_pred_trans_eq (const void *p1, const void *p2)
 {
   const expr_pred_trans_t ve1 = (expr_pred_trans_t) p1;
   const expr_pred_trans_t ve2 = (expr_pred_trans_t) p2;
-  tree e1 = ve1->e;
-  tree e2 = ve2->e;
   basic_block b1 = ve1->pred;
   basic_block b2 = ve2->pred;
-  tree te1;
-  tree te2;
 
+  
+  /* If they are not translations for the same basic block, they can't
+     be equal.  */
   if (b1 != b2)
     return false;
 
-  if (e1 == e2)
-    return true;
-  
-  te1 = TREE_TYPE (e1);
-  te2 = TREE_TYPE (e2);
-
-  if (TREE_CODE (e1) == TREE_CODE (e2) 
-      && (te1 == te2 || lang_hooks.types_compatible_p (te1, te2))
-      && operand_equal_p (e1, e2, 0))
+  /* If they are for the same basic block, determine if the
+     expressions are equal.   */  
+  if (expressions_equal_p (ve1->e, ve2->e))
     return true;
   
   return false;
 }
 
-/* Search in the phi translation table for the translation of E in
-   PRED. Return the translated value, if found, NULL otherwise.  */
+/* Search in the phi translation table for the translation of
+   expression E in basic block PRED. Return the translated value, if
+   found, NULL otherwise. */ 
 
 static inline tree
 phi_trans_lookup (tree e, basic_block pred)
 {
   void **slot;
-  struct expr_pred_trans_d ugly;
-  ugly.e = e;
-  ugly.pred = pred;
-  ugly.hashcode = iterative_hash_expr (e, (unsigned long) pred);
-  slot = htab_find_slot_with_hash (phi_translate_table, &ugly, ugly.hashcode,
+  struct expr_pred_trans_d ept;
+  ept.e = e;
+  ept.pred = pred;
+  ept.hashcode = iterative_hash_expr (e, (unsigned long) pred);
+  slot = htab_find_slot_with_hash (phi_translate_table, &ept, ept.hashcode,
 				   NO_INSERT);
   if (!slot)
     return NULL;
@@ -414,7 +478,8 @@ phi_trans_lookup (tree e, basic_block pred)
 }
 
 
-/* Add the tuple mapping {e, pred}->v to the phi translation table.  */
+/* Add the tuple mapping from {expression E, basic block PRED} to
+   value V, to the phi translation table.  */
 
 static inline void
 phi_trans_add (tree e, tree v, basic_block pred)
@@ -439,43 +504,35 @@ static inline tree
 lookup (htab_t table, tree e)
 {
   void **slot;
-  struct val_expr_pair_d ugly = {NULL, NULL, 0};
-  ugly.e = e;
-  ugly.hashcode = iterative_hash_expr (e,0); 
-  slot = htab_find_slot_with_hash (table, &ugly, ugly.hashcode, NO_INSERT);
+  struct val_expr_pair_d vep = {NULL, NULL, 0};
+  if (is_gimple_min_invariant (e))
+    return e;
+  vep.e = e;
+  vep.hashcode = iterative_hash_expr (e,0); 
+  slot = htab_find_slot_with_hash (table, &vep, vep.hashcode, NO_INSERT);
   if (!slot)
     return NULL_TREE;
   else
     return ((val_expr_pair_t) *slot)->v;
 }
 
-/* Add E to the expression set of V.  */
+/* Add expression E to the expression set of value V.  */
 
 static inline void
 add_to_value (tree v, tree e)
 {
-#if DEBUG_VALUE_EXPRESSIONS
-  var_ann_t va = var_ann (v);
-#endif
-  /* For values representing numerical constants, we mark
-     TREE_CONSTANT as true and set the tree chain to the actual
-     constant.  This is because unlike values involving expressions,
-     which are only available to use where the expressions are live, a
-     constant can be remade anywhere, and thus, is available
-     everywhere.  */
-  if (TREE_CODE_CLASS (TREE_CODE (e)) == 'c')
-    {
-      TREE_CONSTANT (v) = true;
-      TREE_CHAIN (v) = e;
-    }
-#if DEBUG_VALUE_EXPRESSIONS
+  var_ann_t va;
+  /* Constants have no expression sets.  */
+  if (is_gimple_min_invariant (v))
+    return;
+  va = var_ann (v);
   if (va->expr_set == NULL)
     va->expr_set = set_new (false);
   insert_into_set (va->expr_set, e);
-#endif
 }
 
-/* Insert E into TABLE with value V, and add E to the value set for V.  */
+/* Insert E into TABLE with value V, and add expression E to the value
+   set for value V.  */
 
 static inline void
 add (htab_t table, tree e, tree v)
@@ -497,9 +554,12 @@ add (htab_t table, tree e, tree v)
  
 }
 
+/* A unique counter that is incremented every time we create a new
+   value.  */
 static int pre_uid;
 
-/* Create a new value handle for EXPR.  */
+/* Create a new value handle for expression EXPR.  */
+
 static tree
 create_new_value (tree expr)
 {
@@ -518,7 +578,10 @@ create_new_value (tree expr)
   return a;
 }
 
-/* Like lookup, but adds V as the value for E if E does not have a value.  */
+/* Like lookup, but creates a new value for expression E if E doesn't
+   already have a value.
+   Return the existing/created value for E.  */
+
 static inline tree
 lookup_or_add (htab_t table, tree e)
 {
@@ -535,25 +598,25 @@ lookup_or_add (htab_t table, tree e)
 }
 
   
-/* Search in the bitmap for SET to see if E exists.  */
+/* Return true if value V exists in the bitmap for SET.  */
 
 static inline bool
-value_exists_in_set_bitmap (value_set_t set, tree e)
+value_exists_in_set_bitmap (value_set_t set, tree v)
 {
-  if (TREE_CODE (e) != VAR_DECL)
+  if (TREE_CODE (v) != VAR_DECL)
     abort ();
 
   if (!set->values)
     return false;
-  return bitmap_bit_p (set->values, get_var_ann (e)->uid);
+  return bitmap_bit_p (set->values, get_var_ann (v)->uid);
 }
 
-/* Remove E from the bitmap for SET.  */
+/* Remove value V from the bitmap for SET.  */
 
 static void
-value_remove_from_set_bitmap (value_set_t set, tree e)
+value_remove_from_set_bitmap (value_set_t set, tree v)
 {
-  if (TREE_CODE (e) != VAR_DECL)
+  if (TREE_CODE (v) != VAR_DECL)
     abort ();
 #ifdef ENABLE_CHECKING
   if (!set->indexed)
@@ -561,17 +624,17 @@ value_remove_from_set_bitmap (value_set_t set, tree e)
 #endif
   if (!set->values)
     return;
-  bitmap_clear_bit (set->values, get_var_ann (e)->uid);
+  bitmap_clear_bit (set->values, get_var_ann (v)->uid);
 }
 
 
-/* Insert the value number E into the bitmap of values existing in
+/* Insert the value number V into the bitmap of values existing in
    SET.  */
 
 static inline void
-value_insert_into_set_bitmap (value_set_t set, tree e)
+value_insert_into_set_bitmap (value_set_t set, tree v)
 {
-  if (TREE_CODE (e) != VAR_DECL)
+  if (TREE_CODE (v) != VAR_DECL)
     abort ();  
 #ifdef ENABLE_CHECKING
   if (!set->indexed)
@@ -582,7 +645,7 @@ value_insert_into_set_bitmap (value_set_t set, tree e)
       set->values = BITMAP_GGC_ALLOC ();
       bitmap_clear (set->values);
     }
-  bitmap_set_bit (set->values, get_var_ann (e)->uid);
+  bitmap_set_bit (set->values, get_var_ann (v)->uid);
 }
 
 /* Create a new set.  */
@@ -687,10 +750,8 @@ set_remove (value_set_t set, tree expr)
 static bool
 set_contains_value (value_set_t set, tree val)
 {
-  /* This is only referring to the flag above that we set on
-     values referring to numerical constants, because we know that we
-     are dealing with one of the value handles we created.  */
-  if (TREE_CONSTANT (val))
+  /* All constants are in every set.  */
+  if (is_gimple_min_invariant (val))
     return true;
   
   if (set->length == 0)
@@ -795,8 +856,9 @@ value_insert_into_set (value_set_t set, tree expr)
 {
   tree val = get_value_handle (expr);
 
-  /* Constant values exist everywhere.  */
-  if (TREE_CONSTANT (val))
+  /* Constant and invariant values exist everywhere, and thus,
+     actually keeping them in the sets is pointless.  */
+  if (is_gimple_min_invariant (val))
     return;
 
   if (!set_contains_value (set, val))
@@ -819,6 +881,11 @@ print_value_set (FILE *outfile, value_set_t set,
 	   node = node->next)
 	{
 	  print_generic_expr (outfile, node->expr, 0);
+	  
+	  fprintf (outfile, " (");
+	  print_generic_expr (outfile, get_value_handle (node->expr), 0);
+	  fprintf (outfile, ") ");
+		     
 	  if (node->next)
 	    fprintf (outfile, ", ");
 	}
@@ -904,6 +971,12 @@ phi_translate (tree expr, value_set_t set,  basic_block pred,
 	  }
       }
       break;
+
+    /* XXX: Until we have PRE of loads working, none will be ANTIC.  */
+    case 'r':
+      return NULL;
+      break;
+
     case '1':
       {
 	tree oldop1 = TREE_OPERAND (expr, 0);
@@ -916,9 +989,9 @@ phi_translate (tree expr, value_set_t set,  basic_block pred,
 	  return NULL;
 	if (newop1 != oldop1)
 	  {
-	    newexpr = pool_alloc (unary_node_pool);	   
+	    newexpr = pool_alloc (unary_node_pool);
 	    memcpy (newexpr, expr, tree_size (expr));
-	    create_expr_ann (newexpr);
+	    create_expr_ann (newexpr);	 
 	    TREE_OPERAND (newexpr, 0) = get_value_handle (newop1);
 	    lookup_or_add (value_table, newexpr);
 	    expr = newexpr;
@@ -984,8 +1057,9 @@ find_leader (value_set_t set, tree val)
   if (val == NULL)
     return NULL;
 
-  if (TREE_CONSTANT (val))
-    return TREE_CHAIN (val);
+  /* Constants represent themselves.  */
+  if (is_gimple_min_invariant (val))
+    return val;
 
   if (set->length == 0)
     return NULL;
@@ -1030,6 +1104,13 @@ valid_in_set (value_set_t set, tree expr)
 	return set_contains_value (set, op1);
       }
       break;
+
+    /* XXX: Until PRE of loads works, no reference nodes are ANTIC.  */
+    case 'r':
+      {
+	return false;
+      }
+
     case 'x':
       {
 	if (TREE_CODE (expr) == SSA_NAME)
@@ -1042,9 +1123,9 @@ valid_in_set (value_set_t set, tree expr)
   return false;
 }
 
-/* Clean the set of expressions that are no longer valid in the
-   specified set.  This means expressions that are made up of values
-   we have no leaders for in the current set, etc.  */
+/* Clean the set of expressions that are no longer valid in SET.  This
+   means expressions that are made up of values we have no leaders for
+   in SET.  */
 
 static void
 clean (value_set_t set)
@@ -1174,6 +1255,7 @@ compute_antic_aux (basic_block block)
       value_insert_into_set (ANTIC_IN (block), node->expr);
     }
   clean (ANTIC_IN (block));
+  
 
   if (!set_equal (old, ANTIC_IN (block)))
     changed = true;
@@ -1209,7 +1291,8 @@ compute_antic (void)
   FOR_ALL_BB (bb)
     {
       ANTIC_IN (bb) = set_new (true);
-      bb->flags &= ~BB_VISITED;
+      if (bb->flags & BB_VISITED)
+	abort ();
     }
 
   while (changed)
@@ -1225,6 +1308,134 @@ compute_antic (void)
   if (num_iterations > 2 && dump_file && (dump_flags & TDF_STATS))
     fprintf (dump_file, "compute_antic required %d iterations\n", num_iterations);
 }
+
+/* Get the expressions represented by value VAL.  */
+
+static value_set_t
+get_expr_set (tree val)
+{
+  var_ann_t va = var_ann (val);
+  return va->expr_set;
+}
+
+/* Find a leader for an expression, or generate one using
+   create_expression_by_pieces if it's ANTIC but
+   complex.
+   BLOCK is the basic_block we are looking for leaders in.
+   EXPR is the expression to find a leader or generate for.
+   STMTS is the statement list to put the inserted expressions on.
+   Returns the SSA_NAME of the LHS of the generated expression or the
+   leader.  */
+
+static tree
+find_or_generate_expression (basic_block block, tree expr, tree stmts)
+{
+  tree genop;
+  genop = find_leader (AVAIL_OUT (block), expr);
+  /* Depending on the order we process DOM branches in, the value
+     may not have propagated to all the dom children yet during
+     this iteration.  In this case, the value will always be in
+     the NEW_SETS for us already, having been propogated from our
+     dominator.  */
+  if (genop == NULL)
+    genop = find_leader (NEW_SETS (block), expr);
+  /* If it's still NULL, see if it is a complex expression, and if
+     so, generate it recursively, otherwise, abort, because it's
+     not really .  */
+  if (genop == NULL)
+    {
+      genop = get_expr_set (expr)->head->expr;
+      if (TREE_CODE_CLASS (TREE_CODE (genop)) != '1'
+	  && TREE_CODE_CLASS (TREE_CODE (genop)) != '2')
+	abort ();
+      genop = create_expression_by_pieces (block, genop, stmts);
+    }
+  return genop;
+}
+
+/* Create an expression in pieces, so that we can handle very complex
+   expressions that may be ANTIC, but not necessary GIMPLE.
+   BLOCK is the basic block the expression will be inserted into,
+   EXPR is the expression to insert (in value form)
+   STMTS is a statement list to append the necessary insertions into.
+
+   This function will abort if we hit some value that shouldn't be
+   ANTIC but is (IE there is no leader for it, or its components).
+   This function may also generate expressions that are themselves
+   partially or fully redundant.  Those that are will be either made
+   fully redundant during the next iteration of insert (for partially
+   redundant ones), or eliminated by eliminate (for fully redundant
+   ones).  */
+
+static tree
+create_expression_by_pieces (basic_block block, tree expr, tree stmts)
+{
+  tree name = NULL_TREE;
+  tree newexpr = NULL_TREE;
+  tree v;
+
+  switch (TREE_CODE_CLASS (TREE_CODE (expr)))
+    {
+    case '2':
+      {
+	tree_stmt_iterator tsi;
+	tree genop1, genop2;
+	tree temp;
+	tree op1 = TREE_OPERAND (expr, 0);
+	tree op2 = TREE_OPERAND (expr, 1);
+	genop1 = find_or_generate_expression (block, op1, stmts);
+	genop2 = find_or_generate_expression (block, op2, stmts);
+	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
+	add_referenced_tmp_var (temp);
+	newexpr = build (TREE_CODE (expr), TREE_TYPE (expr),
+			 genop1, genop2);
+	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
+			 temp, newexpr);
+	name = make_ssa_name (temp, newexpr);
+	TREE_OPERAND (newexpr, 0) = name;
+	tsi = tsi_last (stmts);
+	tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
+	pre_stats.insertions++;
+	break;
+      }
+    case '1':
+      {
+	tree_stmt_iterator tsi;
+	tree genop1;
+	tree temp;
+	tree op1 = TREE_OPERAND (expr, 0);
+	genop1 = find_or_generate_expression (block, op1, stmts);
+	temp = create_tmp_var (TREE_TYPE (expr), "pretmp");
+	add_referenced_tmp_var (temp);
+	newexpr = build (TREE_CODE (expr), TREE_TYPE (expr),
+			 genop1);
+	newexpr = build (MODIFY_EXPR, TREE_TYPE (expr),
+			 temp, newexpr);
+	name = make_ssa_name (temp, newexpr);
+	TREE_OPERAND (newexpr, 0) = name;
+	tsi = tsi_last (stmts);
+	tsi_link_after (&tsi, newexpr, TSI_CONTINUE_LINKING);
+	pre_stats.insertions++;
+
+	break;
+      }
+    default:
+      abort ();
+    }
+  v = get_value_handle (expr);
+  add (value_table, name, v);
+  insert_into_set (NEW_SETS (block), name);
+  value_insert_into_set (AVAIL_OUT (block), name);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Inserted ");
+      print_generic_expr (dump_file, newexpr, 0);
+      fprintf (dump_file, " in predecessor %d\n", block->index);
+    }
+  return name;
+}
+
+
 
 /* Perform insertion of partially redundant values.
    For BLOCK, do the following:
@@ -1273,11 +1484,13 @@ insert_aux (basic_block block)
 		      tree *avail;
 		      tree val;
 		      bool by_some = false;
+		      bool cant_insert = false;
 		      bool all_same = true;
 		      tree first_s = NULL;
 		      edge pred;
 		      basic_block bprime;
 		      tree eprime;
+
 		      val = get_value_handle (node->expr);
 		      if (set_contains_value (PHI_GEN (block), val))
 			continue; 
@@ -1287,9 +1500,8 @@ insert_aux (basic_block block)
 			    fprintf (dump_file, "Found fully redundant value\n");
 			  continue;
 			}
-		    
-		    
-		       avail = xcalloc (last_basic_block, sizeof (tree));
+		    		    
+		      avail = xcalloc (last_basic_block, sizeof (tree));
 		      for (pred = block->pred;
 			   pred;
 			   pred = pred->pred_next)
@@ -1300,8 +1512,21 @@ insert_aux (basic_block block)
 			  eprime = phi_translate (node->expr,
 						  ANTIC_IN (block),
 						  bprime, block);
+
+			  /* eprime will generally only be NULL if the
+			     value of the expression, translated
+			     through the PHI for this predecessor, is
+			     undefined.  If that is the case, we can't
+			     make the expression fully redundant,
+			     because its value is undefined along a
+			     predecessor path.  We can thus break out
+			     early because it doesn't matter what the
+			     rest of the results are.  */
 			  if (eprime == NULL)
-			    continue;
+			    {
+			      cant_insert = true;
+			      break;
+			    }
 
 			  vprime = get_value_handle (eprime);
 			  if (!vprime)
@@ -1316,7 +1541,7 @@ insert_aux (basic_block block)
 			  else
 			    {
 			      avail[bprime->index] = edoubleprime;
-			      by_some = true;
+			      by_some = true; 
 			      if (first_s == NULL)
 				first_s = edoubleprime;
 			      else if (first_s != edoubleprime)
@@ -1326,12 +1551,14 @@ insert_aux (basic_block block)
 				abort ();
 			    }
 			}
-
-		      if (!all_same && by_some)
+		      /* If we can insert it, it's not the same value
+			 already existing along every predecessor, and
+			 it's defined by some predecessor, it is
+			 partially redundant.  */
+		      if (!cant_insert && !all_same && by_some)
 			{
-			  tree temp;
 			  tree type = TREE_TYPE (avail[block->pred->src->index]);
-			  tree v;
+			  tree temp;
 
 			  if (dump_file && (dump_flags & TDF_DETAILS))
 			    {
@@ -1345,110 +1572,19 @@ insert_aux (basic_block block)
 			       pred;
 			       pred = pred->pred_next)
 			    {
+			      tree stmts = alloc_stmt_list ();
+			      tree builtexpr;
 			      bprime = pred->src;
 			      eprime = avail[bprime->index];
-			      if (TREE_CODE_CLASS (TREE_CODE (eprime)) == '2')
+			      if (TREE_CODE_CLASS (TREE_CODE (eprime)) == '2'
+				  || TREE_CODE_CLASS (TREE_CODE (eprime)) == '1')
 				{
-				  tree s1, s2;
-				  tree newexpr;
-				  s1 = find_leader (AVAIL_OUT (bprime),
-						    TREE_OPERAND (eprime, 0));
-				  /* Depending on the order we process
-				     DOM branches in, the value may
-				     not have propagated to all the
-				     dom children yet during this
-				     iteration.  In this case, the
-				     value will always be in the
-				     NEW_SETS for *our* dominator */
-				  if (!s1)
-				    s1 = find_leader (NEW_SETS (dom),
-						      TREE_OPERAND (eprime, 0));
-				  if (!s1)
-				    abort ();
-				  
-				  s2 = find_leader (AVAIL_OUT (bprime),
-						    TREE_OPERAND (eprime, 1));
-				  if (!s2)
-				    s2 = find_leader (NEW_SETS (dom),
-						      TREE_OPERAND (eprime, 1));
-				  if (!s2)
-				    abort ();
-				  
-				  temp = create_tmp_var (TREE_TYPE (eprime),
-							 "pretmp");
-				  add_referenced_tmp_var (temp);
-				  newexpr = build (TREE_CODE (eprime),
-						   TREE_TYPE (eprime),
-						   s1, s2);
-				  newexpr = build (MODIFY_EXPR, 
-						   TREE_TYPE (eprime),
-						   temp, newexpr);
-				  temp = make_ssa_name (temp, newexpr);
-				  TREE_OPERAND (newexpr, 0) = temp;
-				  bsi_insert_on_edge (pred, newexpr);
+				  builtexpr = create_expression_by_pieces (bprime,
+									   eprime,
+									   stmts);
+				  bsi_insert_on_edge (pred, stmts);
 				  bsi_commit_edge_inserts (NULL);
-				  
-				  if (dump_file && (dump_flags & TDF_DETAILS))
-				    {				    
-				      fprintf (dump_file, "Inserted ");
-				      print_generic_expr (dump_file, newexpr, 0);
-				      fprintf (dump_file, " in predecessor %d\n", pred->src->index);
-				    }
-				  pre_stats.insertions++;
-				  v = lookup_or_add (value_table, eprime);
-				  add (value_table, temp, v);
-				  insert_into_set (NEW_SETS (bprime), temp);
-				  value_insert_into_set (AVAIL_OUT (bprime), 
-							 temp);
-				  avail[bprime->index] = temp;
-				}
-			      else if (TREE_CODE_CLASS (TREE_CODE (eprime)) == '1')
-				{
-				  tree s1;
-				  tree newexpr;
-				  s1 = find_leader (AVAIL_OUT (bprime),
-						    TREE_OPERAND (eprime, 0));
-				  /* Depending on the order we process
-				     DOM branches in, the value may not have
-				     propagated to all the dom
-				     children yet in the current
-				     iteration, but it will be in
-				     NEW_SETS if it is not yet
-				     propagated.  */
-				     
-				  if (!s1)
-				    s1 = find_leader (NEW_SETS (dom),
-						      TREE_OPERAND (eprime, 0));
-				  if (!s1)
-				    abort ();
-				  
-				  temp = create_tmp_var (TREE_TYPE (eprime),
-							 "pretmp");
-				  add_referenced_tmp_var (temp);
-				  newexpr = build (TREE_CODE (eprime),
-						   TREE_TYPE (eprime),
-						   s1);
-				  newexpr = build (MODIFY_EXPR, 
-						   TREE_TYPE (eprime),
-						   temp, newexpr);
-				  temp = make_ssa_name (temp, newexpr);
-				  TREE_OPERAND (newexpr, 0) = temp;
-				  bsi_insert_on_edge (pred, newexpr);
-				  bsi_commit_edge_inserts (NULL);
-				  
-				  if (dump_file && (dump_flags & TDF_DETAILS))
-				    {				    
-				      fprintf (dump_file, "Inserted ");
-				      print_generic_expr (dump_file, newexpr, 0);
-				      fprintf (dump_file, " in predecessor %d\n", pred->src->index);
-				    }
-				  pre_stats.insertions++;
-				  v = lookup_or_add (value_table, eprime);
-				  add (value_table, temp, v);
-				  insert_into_set (NEW_SETS (bprime), temp);
-				  value_insert_into_set (AVAIL_OUT (bprime), 
-							 temp);
-				  avail[bprime->index] = temp;
+				  avail[bprime->index] = builtexpr;
 				}
 			    }	        
 			  /* Now build a phi for the new variable.  */
@@ -1622,13 +1758,19 @@ compute_avail (basic_block block)
 		  insert_into_set (TMP_GEN (block), def);
 		  value_insert_into_set (AVAIL_OUT (block), def);
 		}
+	      for (j = 0; j < NUM_USES (STMT_USE_OPS (stmt)); j++)
+		{
+		  tree use = USE_OP (STMT_USE_OPS (stmt), j);
+		  if (TREE_CODE (use) == SSA_NAME)
+		    {
+		      lookup_or_add (value_table, use);
+		      insert_into_set (TMP_GEN (block), use);
+		      value_insert_into_set (AVAIL_OUT (block), use);
+		    }
+		}
 	      continue;
 	    }
-	  else if (TREE_CODE (stmt) == RETURN_EXPR
-		   && TREE_OPERAND (stmt, 0)
-		   && TREE_CODE (TREE_OPERAND (stmt, 0)) == MODIFY_EXPR)
-	    stmt = TREE_OPERAND (stmt, 0);
-	  
+ 
 	  if (TREE_CODE (stmt) == MODIFY_EXPR)
 	    {
 	      op0 = TREE_OPERAND (stmt, 0);
@@ -1637,7 +1779,8 @@ compute_avail (basic_block block)
 	      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op0))
 		continue;
 	      op1 = TREE_OPERAND (stmt, 1);
-	      if (TREE_CODE_CLASS (TREE_CODE (op1)) == 'c')
+	      STRIP_USELESS_TYPE_CONVERSION (op1);
+	      if (is_gimple_min_invariant (op1))
 		{
 		  add (value_table, op0, lookup_or_add (value_table, op1));
 		  insert_into_set (TMP_GEN (block), op0);
@@ -1667,7 +1810,8 @@ compute_avail (basic_block block)
 		  insert_into_set (TMP_GEN (block), op0);
 		  value_insert_into_set (AVAIL_OUT (block), op0);  
 		}
-	      else if (TREE_CODE_CLASS (TREE_CODE (op1)) == '1')
+	      else if (TREE_CODE_CLASS (TREE_CODE (op1)) == '1'
+		       && !is_gimple_cast (op1))
 		{
 		  tree uop;
 		  tree val, val1;
@@ -1703,7 +1847,18 @@ compute_avail (basic_block block)
 		      lookup_or_add (value_table, def);
 		      insert_into_set (TMP_GEN (block), def);
 		      value_insert_into_set (AVAIL_OUT (block), def);
-		      value_insert_into_set (AVAIL_OUT (block), op0);
+		      if (def != op0)
+			abort ();
+		    }
+		  for (j = 0; j < NUM_USES (STMT_USE_OPS (stmt)); j++)
+		    {
+		      tree use = USE_OP (STMT_USE_OPS (stmt), j);
+		      if (TREE_CODE (use) == SSA_NAME)
+			{
+			  lookup_or_add (value_table, use);
+			  insert_into_set (TMP_GEN (block), use);
+			  value_insert_into_set (AVAIL_OUT (block), use);
+			}
 		    }
 		}
 	    }
@@ -1716,6 +1871,16 @@ compute_avail (basic_block block)
 		  lookup_or_add (value_table, def);
 		  insert_into_set (TMP_GEN (block), def);
 		  value_insert_into_set (AVAIL_OUT (block), def);
+		}
+	      for (j = 0; j < NUM_USES (STMT_USE_OPS (stmt)); j++)
+		{
+		  tree use = USE_OP (STMT_USE_OPS (stmt), j);
+		  if (TREE_CODE (use) == SSA_NAME)
+		    {
+		      lookup_or_add (value_table, use);
+		      insert_into_set (TMP_GEN (block), use);
+		      value_insert_into_set (AVAIL_OUT (block), use);
+		    }
 		}
 	    }
 	}
@@ -1872,6 +2037,7 @@ execute_pre (void)
       free (bb->aux);
       bb->aux = NULL;
     }
+
   free_dominance_info (CDI_POST_DOMINATORS);
 }
 
