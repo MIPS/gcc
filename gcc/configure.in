@@ -3018,6 +3018,15 @@ changequote([,])dnl
 		extra_headers=ppc-asm.h
 		thread_file='vxworks'
                 ;;
+        powerpcle-wrs-vxworks*)
+                cpu_type=rs6000
+		xm_file="rs6000/xm-sysv4.h"
+		xm_defines="USG POSIX"
+                tm_file=rs6000/vxppcle.h
+                tmake_file="rs6000/t-ppcgas rs6000/t-ppccomm"
+		extra_headers=ppc-asm.h
+		thread_file='vxworks'
+                ;;
 	powerpcle-*-sysv* | powerpcle-*-elf*)
 		tm_file=rs6000/sysv4le.h
 		xm_file="rs6000/xm-sysv4.h"

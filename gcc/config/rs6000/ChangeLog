@@ -1,5 +1,24 @@
 2000-01-04  Geoff Keating  <geoffk@cygnus.com>
 
+	vxworks patches from the Cygnus tree originally by
+	Michael Meissner <meissner@cygnus.com> and Vladimir Makarov
+	<vmakarov@cygnus.com>.
+	* sysv4.h (SUBTARGET_SWITCHES): Add vxworks.
+	(ENDFILE_SPEC): Likewise.
+	(LIB_VXWORKS_SPEC): New macro.
+	(STARTFILE_VXWORKS_SPEC): New macro.
+	(ENDFILE_VXWORKS_SPEC): New macro.
+	(LINK_START_VXWORKS_SPEC): New macro.
+	(LINK_OS_VXWORKS_SPEC): New macro.
+	(CPP_OS_VXWORKS_SPEC): New macro.
+	(SUBTARGET_EXTRA_SPECS): Add all the vxworks specs.
+	* vxppc.h: Rewrite to use proper configuration method.
+	* vxppcle.h: New file.
+	* ../../configure.in: Add powerpcle-wrs-vxworks*.
+	* ../../configure: Rebuilt.
+
+2000-01-04  Geoff Keating  <geoffk@cygnus.com>
+
 	Lots of changes to rs6000.h, sysv4.h, aix.h,
 	aix31.h, aix3newas.h, aix41.h, aix43.h, beos.h,
 	with the aim that rs6000.h is the first header

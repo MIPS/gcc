@@ -126,6 +126,7 @@ extern int g_switch_set;		/* whether -G xx was passed.  */
   { "yellowknife",	 0 },						\
   { "mvme",		 0 },						\
   { "emb",		 0 },						\
+  { "vxworks",		 0 },						\
   { "solaris-cclib",	 0 },						\
   { "shlib",		 0 },						\
   EXTRA_SUBTARGET_SWITCHES                                              \
@@ -1185,7 +1186,8 @@ do {									\
 %{msim: ecrtn.o%s} \
 %{mcall-linux: %(endfile_linux) } \
 %{mcall-solaris: scrtn.o%s} \
-%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(endfile_default) }}}}}}"
+%{mvxworks: %(endfile_vxworks) } \
+%{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %{!mvxworks: %(endfile_default) }}}}}}}"
 
 #undef	ENDFILE_DEFAULT_SPEC
 #define	ENDFILE_DEFAULT_SPEC ""
@@ -1391,6 +1393,58 @@ do {									\
 -Amachine(prep)"
 #endif
 
+/* VxWorks support.  */
+/* VxWorks does all the library stuff itself.  */
+#ifndef	LIB_VXWORKS_SPEC
+#define LIB_VXWORKS_SPEC ""
+#endif
+
+/* VxWorks provides the functionality of crt0.o and friends itself.  */
+
+#ifndef	STARTFILE_VXWORKS_SPEC
+#define	STARTFILE_VXWORKS_SPEC ""
+#endif
+
+#ifndef	ENDFILE_VXWORKS_SPEC
+#define	ENDFILE_VXWORKS_SPEC ""
+#endif
+
+/* Because it uses ld -r, vxworks has no start/end files, nor starting
+   address.  */
+
+#ifndef LINK_START_VXWORKS_SPEC
+#define LINK_START_VXWORKS_SPEC ""
+#endif
+
+#ifndef LINK_OS_VXWORKS_SPEC
+#define LINK_OS_VXWORKS_SPEC "-r"
+#endif
+
+#ifndef CPP_OS_VXWORKS_SPEC
+#define CPP_OS_VXWORKS_SPEC "\
+-DCPU_FAMILY=PPC \
+%{!mcpu*: \
+  %{mpowerpc*: -DCPU=PPC603} \
+  %{!mno-powerpc: -DCPU=PPC603}} \
+%{mcpu=powerpc: -DCPU=PPC603} \
+%{mcpu=401: -DCPU=PPC403} \
+%{mcpu=403: -DCPU=PPC403} \
+%{mcpu=601: -DCPU=PPC601} \
+%{mcpu=602: -DCPU=PPC603} \
+%{mcpu=603: -DCPU=PPC603} \
+%{mcpu=603e: -DCPU=PPC603} \
+%{mcpu=ec603e: -DCPU=PPC603} \
+%{mcpu=604: -DCPU=PPC604} \
+%{mcpu=604e: -DCPU=PPC604} \
+%{mcpu=620: -DCPU=PPC604} \
+%{mcpu=740: -DCPU=PPC603} \
+%{mcpu=750: -DCPU=PPC603} \
+%{mcpu=801: -DCPU=PPC603} \
+%{mcpu=821: -DCPU=PPC603} \
+%{mcpu=823: -DCPU=PPC603} \
+%{mcpu=860: -DCPU=PPC603}"
+#endif
+
 /* Define any extra SPECS that the compiler needs to generate.  */
 #undef	SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS						\
@@ -1404,6 +1458,7 @@ do {									\
   { "lib_sim",			LIB_SIM_SPEC },				\
   { "lib_linux",		LIB_LINUX_SPEC },			\
   { "lib_solaris",		LIB_SOLARIS_SPEC },			\
+  { "lib_vxworks",		LIB_VXWORKS_SPEC },			\
   { "lib_default",		LIB_DEFAULT_SPEC },			\
   { "startfile_ads",		STARTFILE_ADS_SPEC },			\
   { "startfile_yellowknife",	STARTFILE_YELLOWKNIFE_SPEC },		\
@@ -1411,6 +1466,7 @@ do {									\
   { "startfile_sim",		STARTFILE_SIM_SPEC },			\
   { "startfile_linux",		STARTFILE_LINUX_SPEC },			\
   { "startfile_solaris",	STARTFILE_SOLARIS_SPEC },		\
+  { "startfile_vxworks",	STARTFILE_VXWORKS_SPEC },		\
   { "startfile_default",	STARTFILE_DEFAULT_SPEC },		\
   { "endfile_ads",		ENDFILE_ADS_SPEC },			\
   { "endfile_yellowknife",	ENDFILE_YELLOWKNIFE_SPEC },		\
@@ -1418,6 +1474,7 @@ do {									\
   { "endfile_sim",		ENDFILE_SIM_SPEC },			\
   { "endfile_linux",		ENDFILE_LINUX_SPEC },			\
   { "endfile_solaris",		ENDFILE_SOLARIS_SPEC },			\
+  { "endfile_vxworks",		ENDFILE_VXWORKS_SPEC },			\
   { "endfile_default",		ENDFILE_DEFAULT_SPEC },			\
   { "link_path",		LINK_PATH_SPEC },			\
   { "link_shlib",		LINK_SHLIB_SPEC },			\
@@ -1429,6 +1486,7 @@ do {									\
   { "link_start_sim",		LINK_START_SIM_SPEC },			\
   { "link_start_linux",		LINK_START_LINUX_SPEC },		\
   { "link_start_solaris",	LINK_START_SOLARIS_SPEC },		\
+  { "link_start_vxworks",	LINK_START_VXWORKS_SPEC },		\
   { "link_start_default",	LINK_START_DEFAULT_SPEC },		\
   { "link_os",			LINK_OS_SPEC },				\
   { "link_os_ads",		LINK_OS_ADS_SPEC },			\
@@ -1437,6 +1495,7 @@ do {									\
   { "link_os_sim",		LINK_OS_SIM_SPEC },			\
   { "link_os_linux",		LINK_OS_LINUX_SPEC },			\
   { "link_os_solaris",		LINK_OS_SOLARIS_SPEC },			\
+  { "link_os_vxworks",		LINK_OS_VXWORKS_SPEC },			\
   { "link_os_default",		LINK_OS_DEFAULT_SPEC },			\
   { "cc1_endian_big",		CC1_ENDIAN_BIG_SPEC },			\
   { "cc1_endian_little",	CC1_ENDIAN_LITTLE_SPEC },		\
@@ -1450,6 +1509,7 @@ do {									\
   { "cpp_os_sim",		CPP_OS_SIM_SPEC },			\
   { "cpp_os_linux",		CPP_OS_LINUX_SPEC },			\
   { "cpp_os_solaris",		CPP_OS_SOLARIS_SPEC },			\
+  { "cpp_os_vxworks",		CPP_OS_VXWORKS_SPEC },			\
   { "cpp_os_default",		CPP_OS_DEFAULT_SPEC },
 
 /* Define this macro as a C expression for the initializer of an
