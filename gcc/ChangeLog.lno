@@ -1,5 +1,11 @@
 2004-04-15  Sebastian Pop  <sebastian.pop@ensmp.fr>
 
+	* tree-scalar-evolution.c (instantiate_parameters): Don't keep
+	symbols after instantiation.  Fully instantiate parameters, 
+	or fail on chrec_top.
+
+2004-04-15  Sebastian Pop  <sebastian.pop@ensmp.fr>
+
 	* tree-fold-const.h (chrec_merge_types): Move it...
 	* tree-chrec.c (multiply_int, divide_int, add_int, substract_int, 
 	integer_divides_p, lcm, gcd, update_initial_condition_to_origin, 

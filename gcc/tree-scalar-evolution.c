@@ -2828,7 +2828,7 @@ instantiate_parameters (struct loop *loop,
 	   the degree of the evolution function.  This is the number
 	   of parameters that have to be instantiated, and is almost
 	   all the time less than 2.  */
-	res = chrec;
+	res = chrec_top;
       
       else
 	{
