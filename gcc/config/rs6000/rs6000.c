@@ -3010,7 +3010,9 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
       if (GET_MODE_NUNITS (mode) != 1)
 	return false;
       if (GET_MODE_BITSIZE (mode) > 32
-	  && !(TARGET_HARD_FLOAT && TARGET_FPRS && mode == DFmode))
+          && !(TARGET_HARD_FLOAT && TARGET_FPRS
+               && (mode == DFmode ||
+                   (TARGET_LONG_DOUBLE_128 && mode == DImode))))
 	return false;
 
       return CONSTANT_P (x);
