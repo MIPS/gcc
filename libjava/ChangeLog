@@ -1,3 +1,16 @@
+2004-09-17  Tom Tromey  <tromey@redhat.com>
+
+	* defineclass.cc (handleCodeAttribute): Don't reference
+	`deferred'.
+	(handleMethodsEnd): Likewise.
+	* include/java-interp.h (_Jv_MethodBase::deferred): Removed
+	field.
+	(_Jv_Defer_Resolution): Don't declare or define.
+	* interpret.cc (do_create_ncode): Don't resolve deferred method
+	pointers.
+	* java/lang/Class.h (_Jv_Defer_Resolution): Don't declare.
+	* resolve.cc (link_symbol_table): No need to defer resolution.
+
 2004-09-14  Tom Tromey  <tromey@redhat.com>
 
 	* boehm.cc (MAYBE_MARK): Remove unused `Exit' argument.

@@ -394,8 +394,6 @@ private:
 
   friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
-  friend void _Jv_Defer_Resolution (void *cl, _Jv_Method *meth, void **);
-  
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;
   friend class _Jv_InterpMethod;

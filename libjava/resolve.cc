@@ -984,25 +984,10 @@ _Jv_Resolver::link_symbol_table (jclass klass)
 			     (const char*)sym.name->data,
 			     (const char*)signature->data);
 		}
-#ifdef INTERPRETER
-	      else if (_Jv_IsInterpretedClass (target_class))
-		{
-		  _Jv_Defer_Resolution (target_class, meth, 
-					&klass->atable->addresses[index]);
-		  if (debug_link)
-		    fprintf (stderr, "  addresses[%d] = DEFERRED@%p (class %s@%p : %s(%s))\n",
-			     index,
-			     klass->atable->addresses[index],
-			     (const char*)target_class->name->data,
-			     klass,
-			     (const char*)sym.name->data,
-			     (const char*)signature->data);
-		
-		}
-#endif
 	    }
 	  else
-	    klass->atable->addresses[index] = (void *)_Jv_ThrowNoSuchMethodError;
+	    klass->atable->addresses[index]
+	      = (void *)_Jv_ThrowNoSuchMethodError;
 
 	  continue;
 	}

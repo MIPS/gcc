@@ -3719,16 +3719,6 @@ _Jv_InterpreterEngine::do_create_ncode (jclass klass)
 	{
 	  _Jv_InterpMethod *im = reinterpret_cast<_Jv_InterpMethod *> (imeth);
 	  klass->methods[i].ncode = im->ncode ();
-
-	  // Resolve ctable entries pointing to this method.  See
-	  // _Jv_Defer_Resolution.
-	  void **code = (void **)imeth->deferred;
-	  while (code)
-	    {
-	      void **target = (void **)*code;
-	      *code = klass->methods[i].ncode;
-	      code = target;
-	    }
 	}
     }
 }
