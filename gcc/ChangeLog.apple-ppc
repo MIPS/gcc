@@ -1,3 +1,9 @@
+2004-12-14  Stuart Hastings <stuart@apple.com>
+
+	Radar 3910248
+	* gcc/config/rs6000/darwin.h (SUBTARGET_OVERRIDE_OPTIONS): ignore
+	-mlongcall when -m64 in use.
+
 2004-12-09  Stuart Hastings <stuart@apple.com>
 
 	Radar 3910248
