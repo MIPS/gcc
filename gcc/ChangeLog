@@ -1,3 +1,7 @@
+2003-05-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* Makefile.in (regmove.o-warn): Change to -Wno-error.
+
 2003-05-13  Jason Merrill  <jason@redhat.com>
 
 	* tree.h (STRIP_MAIN_TYPE_NOPS): New macro.

@@ -192,6 +192,7 @@ ra-build.o-warn = -Wno-error
 simplify-rtx.o-warn = -Wno-error
 sched-vis.o-warn = -Wno-error
 stmt.o-warn = -Wno-error
+regmove.o-warn = -Wno-error
 reload1.o-warn = -Wno-error
 reload.o-warn = -Wno-error
 rtlanal.o-warn = -Wno-error
