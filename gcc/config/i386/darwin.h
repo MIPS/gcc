@@ -63,7 +63,7 @@ Boston, MA 02111-1307, USA.  */
 #undef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS					\
   { "darwin_arch", "i386" },					\
-  { "darwin_subarch", "%{march=pentium3:pentIIm3;:i686}" },
+  { "darwin_subarch", "i386" },
 
 /* Use the following macro for any Darwin/x86-specific command-line option
    translation.  */
