@@ -392,8 +392,9 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_loop_init);
   NEXT_PASS (pass_lim);
   NEXT_PASS (pass_unswitch);
-  NEXT_PASS (pass_iv_canon);
   NEXT_PASS (pass_record_bounds);
+  NEXT_PASS (pass_linear_transform);
+  NEXT_PASS (pass_iv_canon);
   /* APPLE LOCAL begin lno */
   NEXT_PASS (pass_loop_test);
   NEXT_PASS (pass_elim_checks);
@@ -401,7 +402,6 @@ init_tree_optimization_passes (void)
   /* APPLE LOCAL end lno */
   NEXT_PASS (pass_if_conversion);
   NEXT_PASS (pass_vectorize);
-  NEXT_PASS (pass_linear_transform);
   NEXT_PASS (pass_complete_unroll);
   /* APPLE LOCAL lno */
   NEXT_PASS (pass_loop_prefetch);

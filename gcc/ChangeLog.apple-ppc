@@ -1,5 +1,17 @@
 2004-11-16  Dale Johannesen  <dalej@apple.com>
 
+	* lambda-code.c:  Make identical to mainline as of
+	Nov 11, plus Dan Berlin's patch for swim.
+	* tree-loop-linear.c:  Make identical to mainline.
+	* tree-data-ref.c:  Make identical to mainline as
+	of Nov 11.
+	* tree-optimize.c (init_tree_optimization_passes):
+	Make order of passes same as mainline.
+	* tree-ssa-loop-ivopts.c (try_add_cand_for):  Roll in
+	Zdenek's patch for important candidates.
+
+2004-11-16  Dale Johannesen  <dalej@apple.com>
+
 	* fold-const.c (try_move_mult_to_index):  New.
 	(fold):  Use it (2 places).
 
