@@ -258,9 +258,14 @@ conditional_replacement (basic_block bb, tree phi, tree arg0, tree arg1)
       && (TYPE_MAIN_VARIANT (TREE_TYPE (cond))
           != TYPE_MAIN_VARIANT (TREE_TYPE (result))))
     {
+      /* FIXME: disabled for now as the check for non-gimple is too
+         weak and will not find some cases. */
+      return false;
+#if 0
       new_var = make_temp (TREE_TYPE (cond));
       old_result = cond;
       cond = new_var;
+#endif
     }
   
   /* If the condition was a naked SSA_NAME and the type is not the
