@@ -867,7 +867,19 @@ rtx find_costliest_move(moves)
        move gets done every iteration .
     */
     float cost;
-    cost = BLOCK_FOR_INSN((rtx)entry)->loop_depth * REGISTER_MOVE_COST(GET_MODE((rtx) entry), REGNO_REG_CLASS(REGNO(SET_DEST(PATTERN((rtx) entry)))), REGNO_REG_CLASS(REGNO(SET_SRC(PATTERN((rtx) entry)))));
+    rtx body = PATTERN((rtx) entry);
+    enum reg_class lhs;
+    enum reg_class rhs;
+    if (HARD_REGISTER_NUM_P (REGNO (SET_DEST (body))))
+      lhs = REGNO_REG_CLASS (REGNO (SET_DEST (body)));
+    else
+      lhs = reg_preferred_class (REGNO (SET_DEST (body)));
+    if (HARD_REGISTER_NUM_P (REGNO (SET_SRC (body))))
+      rhs = REGNO_REG_CLASS (REGNO (SET_SRC (body)));
+    else
+      rhs = reg_preferred_class (REGNO (SET_SRC (body)));
+	
+    cost = BLOCK_FOR_INSN((rtx)entry)->loop_depth * REGISTER_MOVE_COST (GET_MODE (SET_SRC (body)), rhs, lhs);
     if (cost > maxCost)
       {
 	maxCost = cost;
@@ -1206,17 +1218,19 @@ if (i == FIRST_PSEUDO_REGISTER) \
 } while(0)
 
 static 
-int x_okay_in_direction(okay, currReg, direction, numRegs)
+int x_okay_in_direction(okay, currReg, direction, numRegs, mode)
      HARD_REG_SET okay;
      int currReg;
      int direction;
      int numRegs;
+     enum machine_mode mode;
 {
   int k;
   
   for (k = 1; k < numRegs; k++)
-    if ((currReg+(k*direction) < 0) || !TEST_HARD_REG_BIT(okay, currReg+(k*direction)) || 
-	!HARD_REGNO_MODE_OK(currReg+(k*direction), PSEUDO_REGNO_MODE(currReg)))
+    if ((currReg+(k*direction) < 0) || 
+	!TEST_HARD_REG_BIT(okay, currReg+(k*direction)) || 
+	!HARD_REGNO_MODE_OK(currReg+(k*direction), mode))
       return 0;
   return 1;
 }
@@ -1225,7 +1239,6 @@ int find_reg_given_constraints(okay, currReg)
      HARD_REG_SET okay;
      unsigned int currReg;
 {
-    int notOK=0;
     int i,k;
     int prefReg=-1;
     int alt_reg = -1;
@@ -1252,7 +1265,7 @@ int find_reg_given_constraints(okay, currReg)
 	    {
 	      /* May change on each register */
 	      numRegs = HARD_REGNO_NREGS(i, reg_mode);
-	      if (numRegs > 1 && !x_okay_in_direction(okay, i, -1, numRegs-1) && !x_okay_in_direction(okay, i, 1, numRegs-1))
+	      if (numRegs > 1 && !x_okay_in_direction(okay, i, -1, numRegs-1, reg_mode) && !x_okay_in_direction(okay, i, 1, numRegs-1, reg_mode))
 		continue;
 	      
 	      if (inv_reg_alloc_order[i] < prefRegOrder)
@@ -1262,11 +1275,11 @@ int find_reg_given_constraints(okay, currReg)
 		}
 	    }
 	}
-    if (notOK && prefReg == -1)
+    if (prefReg == -1)
       return -1;
     /* Get right value for the preferred register */
     numRegs = HARD_REGNO_NREGS(prefReg, reg_mode);
-    direction = x_okay_in_direction(okay, prefReg, -1, numRegs - 1) ? -1 : 1;
+    direction = x_okay_in_direction(okay, prefReg, -1, numRegs - 1, reg_mode) ? -1 : 1;
     alt_reg = prefReg + (numRegs-1) * direction;
     
     if (HARD_REGNO_MODE_OK (alt_reg, reg_mode))

@@ -72,7 +72,7 @@ ALLOCA_FINISH = true
 XCFLAGS =
 TCFLAGS =
 BOOT_CFLAGS =  
-STAGE1_CFLAGS = -O3 -g  @stage1_cflags@
+STAGE1_CFLAGS = -g  @stage1_cflags@
 CFLAGS = $(STAGE1_CFLAGS)
 
 # The warning flags are separate from BOOT_CFLAGS because people tend to

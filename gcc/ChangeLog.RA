@@ -1,3 +1,14 @@
+2001-01-28  Daniel Berlin  <dberlin@redhat.com>
+
+	* Makefile.in (STAGE1_CFLAGS): Remove -O3, sorry about that.
+
+	* new-regalloc.c (find_reg_given_constraints): Fix bug in spilling
+	(notOK isn't used anymore).
+	Pass mode along to x_okay_in_direction.
+	(x_okay_in_direction): Add mode argument, use it.
+	(find_costliest_move): Fix REGISTER_MOVE_COST call so that it has
+	proper arguments.
+
 Sun Jan 28 21:11:10 2001  Denis Chertykov  <denisc@overta.ru>
 
 	* new-regalloc.c (find_reg_given_constraints): test result with
