@@ -1,3 +1,7 @@
+2004-08-03  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm.c (emit_sfm): Only emit a single frame adjustment.
+
 2004-08-02  Paul Brook  <paul@codesourcery.com>
 
 	PR rtl-optimization/15068
