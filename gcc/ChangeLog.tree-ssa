@@ -1,3 +1,48 @@
+2003-12-09  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_inline_hash): New global variable.
+	(cgraph_create_node): Break out of ....
+	(cgraph_node): ... this one.
+	(cgraph_redirect_edge_callee):  New function.
+	(cgraph_remove_node): Aggressively elliminate dead nodes;
+	remove node out of clone list.
+	(dump_cgraph): Dump inlined_to field; dump uid numbers.
+	(cgraph_clone_edge): Return edge created.
+	(cgraph_clone_node): New.
+	(cgraph_function_possibly_inlined_p): Re-implement using hashtable.
+	* cgraph.h: Include hashtab.h
+	(struct cgraph_global_info): Kill inline_once, will be output and
+	cloned_times fields.  Add inlined_to field.
+	(cgraph_node): Add next_clone.
+	(cgraph_inline_hash): Declare.
+	(cgraph_clone_edge): Update prototype.
+	(cgraph_clone_node, cgraph_redirect_callee): Declare.
+	* cgraphunit.c (cgraph_optimize_function): Kill.
+	(cgraph_assemble_function): Kill next_needed to avoid GGC corruption.
+	(cgraph_analyze_function): Do not intialize cloned_times and
+	will_be_output.
+	(cgraph_finalize_compilation_unit):  Clear next_needed.
+	(cgraph_optimize_function): Kill.
+	(cgraph_expand_function): Do not use cgraph_optimize_function.
+	(cgraph_estimate_growth, cgraph_mark_inline,
+	cgraph_check_inline_limits, cgraph_recursive_inlining_p,
+	cgraph_preserve_function_body_p): Update for explicit clones.
+	(INLINED_TIMES, SET_INLINED_TIMES, cgraph_inlined_into,
+	cgraph_inlined_callees, struct cgraph_inline_context,
+	cgraph_create_inline_context, cgraph_free_inline_context,
+	cgraph_inline_context_set_caller, cgraph_inline_context_clear_caller,
+	cgraph_inline_context_set_callee, cgraph_inline_context_clear_callee,
+	update_callee_keys): Kill.
+	(cgraph_clone_inlined_nodes, cgraph_mark_inline_edge): New.
+	(cgraph_decide_inlining_of_small_functions, (cgraph_decide_inlining,
+	cgraph_decide_inlining_incrementally): Simplify.
+	* tree-inline.c (typedef struct_inline_data): New field saving_p.
+	(copy_body_r): Update all clones.
+	(expand_call_inline): Remove inlined cgraph node.
+	(save_body): Inicialize id.node and id.saving_p.
+	* tree-optimize.c (tree_rest_of_compilation): Maintain clone up-to-date
+	in no-unit-at-a-time mode.
+
 2003-12-08  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-optimize.c (optimize_function_tree): Move verify_ssa calls

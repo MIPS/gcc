@@ -21,6 +21,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
+#include "hashtab.h"
 
 /* Information about the function collected locally.
    Available after function is analyzed.  */
@@ -46,22 +47,14 @@ struct cgraph_local_info GTY(())
 
 struct cgraph_global_info GTY(())
 {
-  /* Set when the function will be inlined exactly once.  */
-  bool inline_once;
-
   /* Estimated size of the function after inlining.  */
   int insns;
 
-  /* Number of times given function will be cloned during output.  */
-  int cloned_times;
-
-  /* Set to true for all reachable functions before inlining is decided.
-     Once we inline all calls to the function and the function is local,
-     it is set to false.  */
-  bool will_be_output;
-
-  /* Set iff at least one of the caller edges has inline_call flag set.  */
+  /* Set iff the function has been inlined at least once.  */
   bool inlined;
+
+  /* For inline clones this points to the function they will be inlined into.  */
+  struct cgraph_node *inlined_to;
 };
 
 /* Information about the function that is propagated by the RTL backend.
@@ -93,6 +86,8 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   struct cgraph_node *next_nested;
   /* Pointer to the next function in cgraph_nodes_queue.  */
   struct cgraph_node *next_needed;
+  /* Pointer to the next clone.  */
+  struct cgraph_node *next_clone;
   /* Unique id of the node.  */
   int uid;
   PTR GTY ((skip (""))) aux;
@@ -150,6 +145,7 @@ extern FILE *cgraph_dump_file;
 
 extern GTY(()) int cgraph_varpool_n_nodes;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
+extern GTY((param_is (union tree_node))) htab_t cgraph_inline_hash;
 
 
 /* In cgraph.c  */
@@ -167,13 +163,15 @@ struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
 struct cgraph_rtl_info *cgraph_rtl_info (tree);
 const char * cgraph_node_name (struct cgraph_node *);
-void cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree);
+struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree);
+struct cgraph_node * cgraph_clone_node (struct cgraph_node *);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree decl);
 struct cgraph_varpool_node *cgraph_varpool_node_for_identifier (tree id);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
+void cgraph_redirect_edge_callee (struct cgraph_edge *, struct cgraph_node *);
 
 bool cgraph_function_possibly_inlined_p (tree);
 

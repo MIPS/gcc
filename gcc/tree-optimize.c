@@ -314,6 +314,7 @@ void
 tree_rest_of_compilation (tree fndecl, bool nested_p)
 {
   location_t saved_loc;
+  struct cgraph_node *saved_node = NULL, *node;
 
   timevar_push (TV_EXPAND);
 
@@ -336,11 +337,24 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
 
+  node = cgraph_node (fndecl);
+
   /* We might need the body of this function so that we can expand
      it inline somewhere else.  This means not lowering some constructs
      such as exception handling.  */
   if (cgraph_preserve_function_body_p (fndecl))
-    cfun->saved_tree = save_body (fndecl, &cfun->saved_args);
+    {
+      if (!flag_unit_at_a_time)
+	saved_node = cgraph_clone_node (node);
+      cfun->saved_tree = save_body (fndecl, &cfun->saved_args);
+    }
+
+  if (flag_inline_trees)
+    {
+      timevar_push (TV_INTEGRATION);
+      optimize_inline_calls (fndecl);
+      timevar_pop (TV_INTEGRATION);
+    }
 
   /* If the function has not already been gimplified, do so now.  */
   if (!lang_hooks.gimple_before_inlining)
@@ -465,17 +479,23 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
   /* Restore original body if still needed.  */
   if (cfun->saved_tree)
     {
-      struct cgraph_node *node = cgraph_node (current_function_decl);
-
       DECL_SAVED_TREE (fndecl) = cfun->saved_tree;
       DECL_ARGUMENTS (fndecl) = cfun->saved_args;
 
-      /* Recompute callgraph edges co cgraph_expr points to new locations.
-	 This code will go once we represent inline clones in the cgraph
-	 explicitely.  */
-      while (node->callees)
-	cgraph_remove_edge (node->callees);
-      cgraph_create_edges (node, cfun->saved_tree);
+      /* When not in unit-at-a-time mode, we must preserve out of line copy
+	 representing node before inlining.  Restore original ougoing edges
+	 using clone we created earlier.  */
+      if (!flag_unit_at_a_time)
+	{
+	  struct cgraph_edge *e;
+	  while (node->callees)
+	    cgraph_remove_edge (node->callees);
+	  node->callees = saved_node->callees;
+	  saved_node->callees = NULL;
+	  for (e = saved_node->callees; e; e = e->next_callee)
+	    e->caller = node;
+	  cgraph_remove_node (saved_node);
+	}
     }
   else
     DECL_SAVED_TREE (fndecl) = NULL;

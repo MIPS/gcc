@@ -39,6 +39,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Hash table used to convert declarations into nodes.  */
 static GTY((param_is (struct cgraph_node))) htab_t cgraph_hash;
 
+/* We destructivly update callgraph during inlining and thus we need to
+   keep information on whether inlining happent separately.  */
+htab_t cgraph_inline_hash;
+
 /* The linked list of cgraph nodes.  */
 struct cgraph_node *cgraph_nodes;
 
@@ -88,6 +92,23 @@ eq_node (const void *p1, const void *p2)
 	  (tree) p2);
 }
 
+/* Allocate new callgraph node and insert it into basic datastructures.  */
+static struct cgraph_node *
+cgraph_create_node (void)
+{
+  struct cgraph_node *node;
+
+  node = ggc_alloc_cleared (sizeof (*node));
+  node->next = cgraph_nodes;
+  node->uid = cgraph_max_uid++;
+  if (cgraph_nodes)
+    cgraph_nodes->previous = node;
+  node->previous = NULL;
+  cgraph_nodes = node;
+  cgraph_n_nodes++;
+  return node;
+}
+
 /* Return cgraph node assigned to DECL.  Create new one when needed.  */
 struct cgraph_node *
 cgraph_node (tree decl)
@@ -107,15 +128,8 @@ cgraph_node (tree decl)
 			        (DECL_ASSEMBLER_NAME (decl)), INSERT);
   if (*slot)
     return *slot;
-  node = ggc_alloc_cleared (sizeof (*node));
+  node = cgraph_create_node ();
   node->decl = decl;
-  node->next = cgraph_nodes;
-  node->uid = cgraph_max_uid++;
-  if (cgraph_nodes)
-    cgraph_nodes->previous = node;
-  node->previous = NULL;
-  cgraph_nodes = node;
-  cgraph_n_nodes++;
   *slot = node;
   if (DECL_CONTEXT (decl) && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL)
     {
@@ -207,12 +221,33 @@ cgraph_remove_edge (struct cgraph_edge *e)
   *edge2 = (*edge2)->next_callee;
 }
 
+/* Redirect callee of E to N.  The function does not update underlying
+   call expression.  */
+
+void
+cgraph_redirect_edge_callee (struct cgraph_edge *e, struct cgraph_node *n)
+{
+  struct cgraph_edge **edge;
+
+  for (edge = &e->callee->callers; *edge && *edge != e;
+       edge = &((*edge)->next_caller))
+    continue;
+  if (!*edge)
+    abort ();
+  *edge = (*edge)->next_caller;
+  e->callee = n;
+  e->next_caller = n->callers;
+  n->callers = e;
+}
+
 /* Remove the node from cgraph.  */
 
 void
 cgraph_remove_node (struct cgraph_node *node)
 {
   void **slot;
+  bool check_dead = 1;
+
   while (node->callers)
     cgraph_remove_edge (node->callers);
   while (node->callees)
@@ -230,15 +265,46 @@ cgraph_remove_node (struct cgraph_node *node)
   if (node->previous)
     node->previous->next = node->next;
   else
-    cgraph_nodes = node;
+    cgraph_nodes = node->next;
   if (node->next)
     node->next->previous = node->previous;
-  DECL_SAVED_TREE (node->decl) = NULL;
   slot = 
     htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (node->decl),
 			      IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
 						     (node->decl)), NO_INSERT);
-  htab_clear_slot (cgraph_hash, slot);
+  if (*slot == node)
+    {
+      if (node->next_clone)
+	*slot = node->next_clone;
+      else
+	{
+          htab_clear_slot (cgraph_hash, slot);
+          DECL_SAVED_TREE (node->decl) = NULL;
+	  check_dead = false;
+	}
+    }
+  else
+    {
+      struct cgraph_node *n;
+
+      for (n = *slot; n->next_clone != node; n = n->next_clone)
+	continue;
+      n->next_clone = node->next_clone;
+    }
+
+  /* Work out whether we still need a function body (either there is inline
+     clone or there is out of line function whose body is not written).  */
+  if (check_dead && flag_unit_at_a_time)
+    {
+      struct cgraph_node *n;
+
+      for (n = *slot; n; n = n->next_clone)
+	if (n->global.inlined_to
+	    || (!n->global.inlined_to && !TREE_ASM_WRITTEN (n->decl)))
+	  break;
+      if (!n)
+        DECL_SAVED_TREE (node->decl) = NULL;
+    }
   /* Do not free the structure itself so the walk over chain can continue.  */
 }
 
@@ -349,7 +415,9 @@ dump_cgraph (FILE *f)
   for (node = cgraph_nodes; node; node = node->next)
     {
       struct cgraph_edge *edge;
-      fprintf (f, "%s:", cgraph_node_name (node));
+      fprintf (f, "%s/%i:", cgraph_node_name (node), node->uid);
+      if (node->global.inlined_to)
+        fprintf (f, " (inline copy in %s)", cgraph_node_name (node->global.inlined_to));
       if (node->local.self_insns)
         fprintf (f, " %i insns", node->local.self_insns);
       if (node->global.insns && node->global.insns != node->local.self_insns)
@@ -369,13 +437,12 @@ dump_cgraph (FILE *f)
 	fprintf (f, " always_inline");
       else if (node->local.inlinable)
 	fprintf (f, " inlinable");
-      if (node->global.cloned_times > 1)
-	fprintf (f, " cloned %ix", node->global.cloned_times);
 
       fprintf (f, "\n  called by: ");
       for (edge = node->callers; edge; edge = edge->next_caller)
 	{
-	  fprintf (f, "%s ", cgraph_node_name (edge->caller));
+	  fprintf (f, "%s/%i ", cgraph_node_name (edge->caller),
+		   edge->caller->uid);
 	  if (edge->inline_call)
 	    fprintf(f, "(inlined) ");
 	}
@@ -383,7 +450,8 @@ dump_cgraph (FILE *f)
       fprintf (f, "\n  calls: ");
       for (edge = node->callees; edge; edge = edge->next_callee)
 	{
-	  fprintf (f, "%s ", cgraph_node_name (edge->callee));
+	  fprintf (f, "%s/%i ", cgraph_node_name (edge->callee),
+		   edge->callee->uid);
 	  if (edge->inline_call)
 	    fprintf(f, "(inlined) ");
 	}
@@ -609,14 +677,51 @@ cgraph_function_possibly_inlined_p (tree decl)
 {
   if (!cgraph_global_info_ready)
     return (DECL_INLINE (decl) && !flag_really_no_inline);
-  return cgraph_node (decl)->global.inlined;
+  if (!cgraph_inline_hash)
+    return false;
+  return htab_find_slot (cgraph_inline_hash, DECL_ASSEMBLER_NAME (decl),
+			 NO_INSERT);
 }
 
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
-void
+struct cgraph_edge *
 cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n, tree call_expr)
 {
   struct cgraph_edge *new = cgraph_create_edge (n, e->callee, call_expr);
+
   new->inline_call = e->inline_call;
+  return new;
+}
+
+/* Create node representing clone of N.  */
+struct cgraph_node *
+cgraph_clone_node (struct cgraph_node *n)
+{
+  struct cgraph_node *new = cgraph_create_node ();
+  struct cgraph_edge *e;
+
+  new->decl = n->decl;
+  new->origin = n->origin;
+  if (new->origin)
+    {
+      new->next_nested = new->origin->nested;
+      new->origin->nested = new;
+    }
+  /* Cloning of functions with nested functions would require cloning of 
+     the nested functions too.  Just sanity check that we don't do that.  */
+  if (new->nested)
+    abort ();
+  new->analyzed = n->analyzed;
+  new->local = n->local;
+  new->global = n->global;
+  new->rtl = n->rtl;
+
+  for (e = n->callees;e; e=e->next_callee)
+    cgraph_clone_edge (e, new, e->call_expr);
+
+  new->next_clone = n->next_clone;
+  n->next_clone = new;
+
+  return new;
 }
 #include "gt-cgraph.h"

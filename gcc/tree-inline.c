@@ -102,6 +102,8 @@ typedef struct inline_data
      distinguish between those two situations.  This flag is true if
      we are cloning, rather than inlining.  */
   bool cloning_p;
+  /* Similarly for saving function body.  */
+  bool saving_p;
   /* Hash table used to prevent walk_tree from visiting the same node
      umpteen million times.  */
   htab_t tree_pruner;
@@ -555,7 +557,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
      knows not to copy VAR_DECLs, etc., so this is safe.  */
   else
     {
-      struct cgraph_edge *edge = NULL;
+      tree old_node = *tp;
 
       if (TREE_CODE (*tp) == MODIFY_EXPR
 	  && TREE_OPERAND (*tp, 0) == TREE_OPERAND (*tp, 1)
@@ -626,14 +628,32 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 		}
 	    }
 	}
-      else if (TREE_CODE (*tp) == CALL_EXPR && id->node
-	       && get_callee_fndecl (*tp))
-	edge = cgraph_edge (id->current_node, *tp);
 
       copy_tree_r (tp, walk_subtrees, NULL);
 
-      if (edge)
-	cgraph_clone_edge (edge, id->node, *tp);
+      if (TREE_CODE (*tp) == CALL_EXPR && id->node && get_callee_fndecl (*tp))
+	{
+	  if (id->saving_p)
+	    {
+	      struct cgraph_node *node;
+              struct cgraph_edge *edge;
+
+	      for (node = id->node->next_clone; node; node = node->next_clone)
+		{
+		  edge = cgraph_edge (node, old_node);
+		  if (edge)
+		    edge->call_expr = *tp;
+		}
+	    }
+	  else
+	    {
+              struct cgraph_edge *edge;
+
+	      edge = cgraph_edge (id->current_node, old_node);
+	      if (edge)
+	        cgraph_clone_edge (edge, id->node, *tp);
+	    }
+	}
 
       TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
 
@@ -1607,8 +1627,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   id->inlined_insns += DECL_ESTIMATED_INSNS (fn) - 1;
 
   /* Update callgraph if needed.  */
-  if (id->node)
-    cgraph_remove_edge (edge);
+  cgraph_remove_node (edge->callee);
 
   /* Recurse into the body of the just inlined function.  */
   expand_calls_inline (inlined_body, id);
@@ -1815,6 +1834,8 @@ save_body (tree fn, tree *arg_copy)
   memset (&id, 0, sizeof (id));
   VARRAY_TREE_INIT (id.fns, 1, "fns");
   VARRAY_PUSH_TREE (id.fns, fn);
+  id.node = cgraph_node (fn);
+  id.saving_p = true;
   id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
   *arg_copy = DECL_ARGUMENTS (fn);
   for (parg = arg_copy; *parg; parg = &TREE_CHAIN (*parg))
