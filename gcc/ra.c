@@ -1240,6 +1240,24 @@ reg_alloc ()
   setup_renumber (1);
   sbitmap_free (insns_with_deaths);
 
+  /* And then delete the clobbers again, which were inserted just as
+     flow barriers.  */
+    {
+      rtx insn, next;
+      for (insn = get_insns (); insn; insn = next)
+	{
+	  next = NEXT_INSN (insn);
+	  if (INSN_P (insn))
+	    {
+	      rtx pat = PATTERN (insn);
+	      if (GET_CODE (pat) == CLOBBER
+		  && REG_P (SET_DEST (pat))
+		  && REGNO (SET_DEST (pat)) >= FIRST_PSEUDO_REGISTER)
+		delete_insn_and_edges (insn);
+	    }
+	}
+    }
+
   /* Build the insn chain before deleting some of the REG_DEAD notes.
      It initializes the chain->live_throughout bitmap, and when we delete
      some REG_DEAD we leave some pseudo in those bitmaps for insns, where

@@ -1,4 +1,17 @@
 2003-06-30  Michael Matz  <matz@suse.de>
+	* df.h (enum df_ref_flags, DF_REF_STRICTLY_PARTIAL_DEF): New.
+	* ra-build.c (live_out_1): Set this flag on some refs.
+	(select_regclass): Obey flag_caller_saves.
+	* ra-rewrite.c (detect_web_parts_to_rebuild): Reset
+	DF_REF_STRICTLY_PARTIAL_DEF.
+	(create_flow_barriers_2): Rename from ...
+	(create_flow_barriers): ... this.  Reimplement.
+	* ra.c (reg_alloc): Delete the fake clobbers inserted as
+	flow barriers before returning.
+	* toplev.c (parse_options_and_default_flags): Don't do register
+	renaming with the new RA.
+
+2003-06-30  Michael Matz  <matz@suse.de>
 	* Makefile.in (cse.o): Depend on df.h.
 	* cse.c (insn_live_p): Trapping insns are not necessarily live.
 	* defaults.h (SPILL_REGS): Define.

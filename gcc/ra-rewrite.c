@@ -1756,7 +1756,8 @@ detect_web_parts_to_rebuild ()
 
 	/* For the spilled web itself we also need to clear it's
 	   uplink, to be able to rebuild smaller webs.  After all
-	   spilling has split the web.  */
+	   spilling has split the web.  And also reset some flags
+	   on the individual references, as they might have changed.  */
         for (i = 0; i < web->num_uses; i++)
 	  {
 	    unsigned int id = DF_REF_ID (web->uses[i]);
@@ -1778,6 +1779,7 @@ detect_web_parts_to_rebuild ()
 	    web_parts[id].crosses_call = 0;
 	    web_parts[id].crosses_bb = 0;
 	    web_parts[id].crosses_memset = 0;
+	    DF_REF_FLAGS (df->defs[id]) &= ~DF_REF_STRICTLY_PARTIAL_DEF;
 	  }
 
 	/* Now look at all neighbors of this spilled web.  */
@@ -2878,6 +2880,49 @@ get_aliased_aequivalent (web)
    initial defines.  */
 void
 create_flow_barriers ()
+{
+  basic_block bb;
+  FOR_EACH_BB (bb)
+    {
+      rtx insn;
+      for (insn = bb->head; insn != bb->end; insn = NEXT_INSN (insn))
+	if (INSN_P (insn))
+	  {
+	    unsigned int d;
+	    struct ra_insn_info info = insn_df[INSN_UID (insn)];
+	    for (d = 0; d < info.num_defs; d++)
+	      {
+		struct ref *ref = info.defs[d];
+		rtx rdef = *DF_REF_REAL_LOC (ref);
+		if (REG_P (rdef)
+		    && REGNO (rdef) >= FIRST_PSEUDO_REGISTER
+		    && (DF_REF_FLAGS (ref) & DF_REF_STRICTLY_PARTIAL_DEF) == 0
+		    && GET_CODE (DF_REF_REG (ref)) == SUBREG)
+		  {
+		    struct web *web, *aweb;
+		    unsigned int n;
+		    web = find_web_for_subweb (def2web[DF_REF_ID (ref)]);
+		    aweb = alias (web);
+		    if (aweb->type != COLORED
+			&& (aweb->type != PRECOLORED || web == aweb))
+		      continue;
+
+		    for (n = 0; n < info.num_uses; n++)
+		      if (aweb == alias (find_web_for_subweb (use2web[DF_REF_ID
+						      (info.uses[n])])))
+			break;
+		    if (n != info.num_uses)
+		      continue;
+
+		    emit_insn_before (gen_rtx_CLOBBER (VOIDmode, rdef), insn);
+		  }
+	      }
+	  }
+    }
+}
+
+static void
+create_flow_barriers_2 ()
 {
   basic_block bb;
   sbitmap live;

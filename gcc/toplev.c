@@ -4972,6 +4972,16 @@ parse_options_and_default_flags (argc, argv)
       flag_reorder_blocks = 0;
     }
 
+  /* The lifeness information for uninitialized registers, of which only
+     subregs are defined/used is not completely correct (there are some
+     DEAD notes for pseudos, whose hardreg is _not_ dead there, as some
+     other uninitialized pseudo has the same hardreg, and is life at the
+     same time).  This confuses register renaming and leads to aborts
+     in verify_local_live_at_start.  */
+  if (flag_new_regalloc)
+    {
+      flag_rename_registers = 0;
+    }
   /* Initialize whether `char' is signed.  */
   flag_signed_char = DEFAULT_SIGNED_CHAR;
 #ifdef DEFAULT_SHORT_ENUMS

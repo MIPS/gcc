@@ -804,6 +804,10 @@ live_out_1 (df, use, insn)
 		     part and this DEF conflicting.  */
 		{
 		  unsigned HOST_WIDE_INT undef;
+		  /*XXX:*/
+#ifdef WHEN_I_HAVE_FIXED_THIS_CASE
+		  DF_REF_FLAGS (ref) |= DF_REF_STRICTLY_PARTIAL_DEF;
+#endif
 		  undef = use->undefined;
 		  while (undef)
 		    bitmap_set_bit (undef_to_bitmap (wp, &undef),
@@ -837,6 +841,10 @@ live_out_1 (df, use, insn)
 		     If they have no bits in common (lap == -1), they are
 		     really independent.  Therefore we there made a
 		     conflict above.  */
+		  else
+		    /* But we need to mark that this def was a strictly
+		       partial definition.  */
+		    DF_REF_FLAGS (ref) |= DF_REF_STRICTLY_PARTIAL_DEF;
 		}
 	      /* This is at least a partial overlap, so we need to union
 		 the web parts.  */
@@ -2733,6 +2741,7 @@ rematerializable_stack_arg_p (insn, src)
   return 0;
 }
 
+extern int flag_caller_saves;
 extern int flag_non_call_exceptions;
 
 /* Look at all webs, if they perhaps are rematerializable.
@@ -3008,7 +3017,8 @@ select_regclass ()
 	{
 	  unsigned int num_refs = web->num_uses + web->num_defs;
 	  unsigned int num_calls = web->num_calls;
-	  if (!CALLER_SAVE_PROFITABLE (num_refs, num_calls))
+	  if (!flag_caller_saves
+	      || !CALLER_SAVE_PROFITABLE (num_refs, num_calls))
 	    AND_COMPL_HARD_REG_SET (web->usable_regs,
 				    regs_invalidated_by_call);
 	}

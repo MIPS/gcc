@@ -64,7 +64,8 @@ enum df_ref_flags
     DF_REF_MEM_OK = 8,
     DF_REF_ALREADY_SPILLED = 16,
     DF_REF_COMPARE_RELATED = 32,
-    DF_REF_EARLYCLOBBER = 64
+    DF_REF_EARLYCLOBBER = 64,
+    DF_REF_STRICTLY_PARTIAL_DEF = 128
   };
 
 /* Define a register reference structure.  */
