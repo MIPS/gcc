@@ -736,7 +736,7 @@ extern int x86_prefetch_sse;
 
 /* target machine storage layout */
 
-#define LONG_DOUBLE_TYPE_SIZE 96
+#define LONG_DOUBLE_TYPE_SIZE 80
 
 /* Set the value of FLT_EVAL_METHOD in float.h.  When using only the
    FPU, assume that the fpcw is set to extended precision; when using
@@ -2981,7 +2981,7 @@ extern enum asm_dialect ix86_asm_dialect;
 extern int ix86_regparm;
 extern const char *ix86_regparm_string;
 
-extern int ix86_preferred_stack_boundary;
+extern unsigned int ix86_preferred_stack_boundary;
 extern const char *ix86_preferred_stack_boundary_string;
 
 extern int ix86_branch_cost;

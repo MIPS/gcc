@@ -391,9 +391,17 @@ build_java_array_type (tree element_type, HOST_WIDE_INT length)
   el_name = TYPE_NAME (el_name);
   if (TREE_CODE (el_name) == TYPE_DECL)
     el_name = DECL_NAME (el_name);
-  TYPE_NAME (t) = build_decl (TYPE_DECL,
-                             identifier_subst (el_name, "", '.', '.', "[]"),
+  {
+    char suffix[12];
+    if (length >= 0)
+      sprintf (suffix, "[%d]", (int)length); 
+    else
+      strcpy (suffix, "[]");
+    TYPE_NAME (t) 
+      = build_decl (TYPE_DECL,
+		    identifier_subst (el_name, "", '.', '.', suffix),
                              t);
+  }
 
   set_java_signature (t, sig);
   set_super_info (0, t, object_type_node, 0);
@@ -496,7 +504,7 @@ parse_signature_type (const unsigned char **ptr, const unsigned char *limit)
 	      break;
 	  }
 	*ptr = str+1;
-	type = lookup_class (unmangle_classname (start, str - start));
+	type = lookup_class (unmangle_classname ((const char *) start, str - start));
 	break;
       }
     default:
@@ -796,13 +804,12 @@ find_method_in_interfaces (tree searched_class, int flags, tree method_name,
                            tree signature, tree (*signature_builder) (tree))
 {
   int i;
-  int interface_len = 
-    TREE_VEC_LENGTH (BINFO_BASE_BINFOS (TYPE_BINFO (searched_class))) - 1;
+  tree binfo, base_binfo;
 
-  for (i = interface_len; i > 0; i--)
+  for (binfo = TYPE_BINFO (searched_class), i = 1;
+       BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
     {
-      tree child = BINFO_BASE_BINFO (TYPE_BINFO (searched_class), i);
-      tree iclass = BINFO_TYPE (child);
+      tree iclass = BINFO_TYPE (base_binfo);
       tree method;
 	  
       /* If the superinterface hasn't been loaded yet, do so now.  */
@@ -814,7 +821,7 @@ find_method_in_interfaces (tree searched_class, int flags, tree method_name,
       /* First, we look in ICLASS.  If that doesn't work we'll
 	 recursively look through all its superinterfaces.  */
       method = shallow_find_method (iclass, flags, method_name, 
-					 signature, signature_builder);      
+				    signature, signature_builder);      
       if (method != NULL_TREE)
 	return method;
   

@@ -342,9 +342,6 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK
 #define TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK ia64_dependencies_evaluation_hook
 
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
-
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD ia64_first_cycle_multipass_dfa_lookahead
 
@@ -474,6 +471,7 @@ got_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
   switch (GET_CODE (op))
     {
     case CONST:
+      /* Accept only (plus (symbol_ref) (const_int)).  */
       op = XEXP (op, 0);
       if (GET_CODE (op) != PLUS)
 	return 0;
@@ -483,25 +481,19 @@ got_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
       if (GET_CODE (op) != CONST_INT)
 	return 0;
 
-	return 1;
-
-      /* Ok if we're not using GOT entries at all.  */
-      if (TARGET_NO_PIC || TARGET_AUTO_PIC)
-	return 1;
-
-      /* "Ok" while emitting rtl, since otherwise we won't be provided
-	 with the entire offset during emission, which makes it very
-	 hard to split the offset into high and low parts.  */
-      if (rtx_equal_function_value_matters)
-	return 1;
-
-      /* Force the low 14 bits of the constant to zero so that we do not
-	 use up so many GOT entries.  */
-      return (INTVAL (op) & 0x3fff) == 0;
+     /* Ok if we're not using GOT entries at all.  */
+     if (TARGET_NO_PIC || TARGET_AUTO_PIC)
+      return 1;
+      
+     /* The low 14 bits of the constant have been forced to zero
+	by ia64_expand_load_address, so that we do not use up so
+	many GOT entries.  Prevent cse from undoing this.  */
+     return (INTVAL (op) & 0x3fff) == 0;
 
     case SYMBOL_REF:
-      if (SYMBOL_REF_SMALL_ADDR_P (op))
-	return 0;
+      /* This sort of load should not be used for things in sdata.  */
+      return !SYMBOL_REF_SMALL_ADDR_P (op);
+
     case LABEL_REF:
       return 1;
 
@@ -549,54 +541,6 @@ function_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
     return 1;
   else
     return 0;
-}
-
-/* Return 1 if OP is setjmp or a similar function.  */
-
-/* ??? This is an unsatisfying solution.  Should rethink.  */
-
-int
-setjmp_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  const char *name;
-  int retval = 0;
-
-  if (GET_CODE (op) != SYMBOL_REF)
-    return 0;
-
-  name = XSTR (op, 0);
-
-  /* The following code is borrowed from special_function_p in calls.c.  */
-
-  /* Disregard prefix _, __ or __x.  */
-  if (name[0] == '_')
-    {
-      if (name[1] == '_' && name[2] == 'x')
-	name += 3;
-      else if (name[1] == '_')
-	name += 2;
-      else
-	name += 1;
-    }
-
-  if (name[0] == 's')
-    {
-      retval
-	= ((name[1] == 'e'
-	    && (! strcmp (name, "setjmp")
-		|| ! strcmp (name, "setjmp_syscall")))
-	   || (name[1] == 'i'
-	       && ! strcmp (name, "sigsetjmp"))
-	   || (name[1] == 'a'
-	       && ! strcmp (name, "savectx")));
-    }
-  else if ((name[0] == 'q' && name[1] == 's'
-	    && ! strcmp (name, "qsetjmp"))
-	   || (name[0] == 'v' && name[1] == 'f'
-	       && ! strcmp (name, "vfork")))
-    retval = 1;
-
-  return retval;
 }
 
 /* Return 1 if OP is a general operand, excluding tls symbolic operands.  */
@@ -958,26 +902,6 @@ ar_pfs_reg_operand (register rtx op, enum machine_mode mode)
 	  && REGNO (op) == AR_PFS_REGNUM);
 }
 
-/* Like general_operand, but don't allow (mem (addressof)).  */
-
-int
-general_xfmode_operand (rtx op, enum machine_mode mode)
-{
-  if (! general_operand (op, mode))
-    return 0;
-  return 1;
-}
-
-/* Similarly.  */
-
-int
-destination_xfmode_operand (rtx op, enum machine_mode mode)
-{
-  if (! destination_operand (op, mode))
-    return 0;
-  return 1;
-}
-
 /* Similarly.  */
 
 int
@@ -1211,7 +1135,7 @@ ia64_expand_load_address (rtx dest, rtx src)
   if (GET_CODE (src) == CONST
       && GET_CODE (XEXP (src, 0)) == PLUS
       && GET_CODE (XEXP (XEXP (src, 0), 1)) == CONST_INT
-      && (INTVAL (XEXP (XEXP (src, 0), 1)) & 0x1fff) != 0)
+      && (INTVAL (XEXP (XEXP (src, 0), 1)) & 0x3fff) != 0)
     {
       rtx sym = XEXP (XEXP (src, 0), 0);
       HOST_WIDE_INT ofs, hi, lo;
@@ -8162,13 +8086,13 @@ ia64_init_builtins (void)
   fpreg_type = make_node (REAL_TYPE);
   /* ??? The back end should know to load/save __fpreg variables using
      the ldf.fill and stf.spill instructions.  */
-  TYPE_PRECISION (fpreg_type) = 96;
+  TYPE_PRECISION (fpreg_type) = 80;
   layout_type (fpreg_type);
   (*lang_hooks.types.register_builtin_type) (fpreg_type, "__fpreg");
 
   /* The __float80 type.  */
   float80_type = make_node (REAL_TYPE);
-  TYPE_PRECISION (float80_type) = 96;
+  TYPE_PRECISION (float80_type) = 80;
   layout_type (float80_type);
   (*lang_hooks.types.register_builtin_type) (float80_type, "__float80");
 

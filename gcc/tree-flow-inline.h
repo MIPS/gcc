@@ -421,6 +421,16 @@ phi_arg_from_edge (tree phi, edge e)
   return -1;
 }
 
+/* Mark VAR as used, so that it'll be preserved during rtl expansion.  */
+
+static inline void
+set_is_used (tree var)
+{
+  var_ann_t ann = get_var_ann (var);
+  ann->used = 1;
+}
+
+
 /*  -----------------------------------------------------------------------  */
 
 /* Return true if T is an executable statement.  */
@@ -453,9 +463,7 @@ is_label_stmt (tree t)
 static inline void
 set_default_def (tree var, tree def)
 {
-  var_ann_t ann = var_ann (var);
-  if (ann == NULL)
-    ann = create_var_ann (var);
+  var_ann_t ann = get_var_ann (var);
   ann->default_def = def;
 }
 
@@ -625,14 +633,6 @@ loop_containing_stmt (tree stmt)
     return NULL;
 
   return bb->loop_father;
-}
-
-/* Return true if VAR may be aliased.  */
-static inline bool
-may_be_aliased (tree var)
-{
-  return (TREE_ADDRESSABLE (var)
-          || decl_function_context (var) != current_function_decl);
 }
 
 /* Return true if VAR is a clobbered by function calls.  */

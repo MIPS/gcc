@@ -529,10 +529,7 @@ sbitmap_intersection_of_succs (sbitmap dst, sbitmap *src, int bb)
   if (!e)
     sbitmap_ones (dst);
   else
-    for (++ix;
-	 (e = VEC_iterate (edge, b->succ_, ix)
-	   ? *(VEC_iterate (edge, b->succ_, ix)) : NULL);
-	 ix++)
+    for (++ix; VEC_iterate (edge, b->succs, ix, e); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
@@ -570,13 +567,7 @@ sbitmap_intersection_of_preds (sbitmap dst, sbitmap *src, int bb)
   if (!e)
     sbitmap_ones (dst);
   else
-    for (++ix;
-	 (e = VEC_iterate (edge, b->pred_, ix)
-	   ? *(VEC_iterate (edge, b->pred_, ix)) : NULL);
-	 ix++)
-      /*
-	for (ix++; (e = *(VEC_iterate(edge, b->pred, ix))); ix++)
-      */
+    for (++ix; VEC_iterate (edge, b->preds, ix, e); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
@@ -614,7 +605,7 @@ sbitmap_union_of_succs (sbitmap dst, sbitmap *src, int bb)
   if (e == 0)
     sbitmap_zero (dst);
   else
-    for (ix++; (e = *(VEC_iterate(edge, b->succ_, ix))); ix++)
+    for (ix++; VEC_iterate (edge, b->succs, ix, e); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
@@ -652,7 +643,7 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
   if (e == 0)
     sbitmap_zero (dst);
   else
-    for (ix++; (e = *(VEC_iterate(edge, b->pred_, ix))); ix++)
+    for (ix++; VEC_iterate (edge, b->preds, ix, e); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;

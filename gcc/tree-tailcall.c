@@ -143,8 +143,7 @@ suitable_for_tail_opt_p (void)
     {
       tree var = VARRAY_TREE (referenced_vars, i);
 
-      if (decl_function_context (var) == current_function_decl
-	  && !TREE_STATIC (var)
+      if (!TREE_STATIC (var)
 	  && var_ann (var)->mem_tag_kind == NOT_A_TAG
 	  && is_call_clobbered (var))
 	return false;
@@ -941,7 +940,7 @@ struct tree_opt_pass pass_tail_recursion =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
@@ -957,7 +956,7 @@ struct tree_opt_pass pass_tail_calls =
   NULL,					/* next */
   0,					/* static_pass_number */
   0,					/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
+  PROP_cfg | PROP_ssa | PROP_alias,	/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */

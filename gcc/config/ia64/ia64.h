@@ -44,8 +44,13 @@ do {						\
 	  builtin_define("__BIG_ENDIAN__");	\
 } while (0)
 
+#ifndef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS
+#endif
+
 #define EXTRA_SPECS \
-  { "asm_extra", ASM_EXTRA_SPEC },
+  { "asm_extra", ASM_EXTRA_SPEC }, \
+  SUBTARGET_EXTRA_SPECS
 
 #define CC1_SPEC "%(cc1_cpu) "
 
@@ -443,10 +448,10 @@ while (0)
 #define DOUBLE_TYPE_SIZE 64
 
 /* long double is XFmode normally, TFmode for HPUX.  */
-#define LONG_DOUBLE_TYPE_SIZE (TARGET_HPUX ? 128 : 96)
+#define LONG_DOUBLE_TYPE_SIZE (TARGET_HPUX ? 128 : 80)
 
 /* We always want the XFmode operations from libgcc2.c.  */
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 80
 
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -2145,8 +2150,8 @@ do {									\
 { "sdata_symbolic_operand", {SYMBOL_REF, CONST}},			\
 { "small_addr_symbolic_operand", {SYMBOL_REF}},				\
 { "symbolic_operand", {SYMBOL_REF, CONST, LABEL_REF}},			\
+{ "tls_symbolic_operand", {SYMBOL_REF}},				\
 { "function_operand", {SYMBOL_REF}},					\
-{ "setjmp_operand", {SYMBOL_REF}},					\
 { "destination_operand", {SUBREG, REG, MEM}},				\
 { "not_postinc_memory_operand", {MEM}},					\
 { "move_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,		\
@@ -2179,8 +2184,6 @@ do {									\
 { "ar_lc_reg_operand", {REG}},						\
 { "ar_ccv_reg_operand", {REG}},						\
 { "ar_pfs_reg_operand", {REG}},						\
-{ "general_xfmode_operand", {SUBREG, REG, CONST_DOUBLE, MEM}},		\
-{ "destination_xfmode_operand", {SUBREG, REG, MEM}},			\
 { "xfreg_or_fp01_operand", {REG, CONST_DOUBLE}},			\
 { "basereg_operand", {SUBREG, REG}},
 

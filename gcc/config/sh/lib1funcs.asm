@@ -1,4 +1,4 @@
-/* Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+/* Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
@@ -52,7 +52,14 @@ Boston, MA 02111-1307, USA.  */
 #define	GLOBAL0(U,X)	CONCAT(U,__##X)
 #define	GLOBAL(X)	GLOBAL0(__USER_LABEL_PREFIX__,X)
 
+#define ALIAS(X,Y)	.global GLOBAL(X); .set GLOBAL(X),GLOBAL(Y)
+
 #if defined __SH5__ && ! defined __SH4_NOFPU__ && ! defined (__LITTLE_ENDIAN__)
+#define FMOVD_WORKS
+#endif
+
+#ifdef __SH2A__
+#undef FMOVD_WORKS
 #define FMOVD_WORKS
 #endif
 
@@ -723,88 +730,107 @@ done:
 	jmp	@r0
 	add	#64,r4
 	.align	4
+! ??? We need aliases movstr* for movmem* for the older libraries.  These
+! aliases will be removed at the some point in the future.
 	.global	GLOBAL(movmemSI64)
 	FUNC(GLOBAL(movmemSI64))
+	ALIAS(movstrSI64,movmemSI64)
 GLOBAL(movmemSI64):
 	mov.l	@(60,r5),r0
 	mov.l	r0,@(60,r4)
 	.global	GLOBAL(movmemSI60)
 	FUNC(GLOBAL(movmemSI60))
+	ALIAS(movstrSI60,movmemSI60)
 GLOBAL(movmemSI60):
 	mov.l	@(56,r5),r0
 	mov.l	r0,@(56,r4)
 	.global	GLOBAL(movmemSI56)
 	FUNC(GLOBAL(movmemSI56))
+	ALIAS(movstrSI56,movmemSI56)
 GLOBAL(movmemSI56):
 	mov.l	@(52,r5),r0
 	mov.l	r0,@(52,r4)
 	.global	GLOBAL(movmemSI52)
 	FUNC(GLOBAL(movmemSI52))
+	ALIAS(movstrSI52,movmemSI52)
 GLOBAL(movmemSI52):
 	mov.l	@(48,r5),r0
 	mov.l	r0,@(48,r4)
 	.global	GLOBAL(movmemSI48)
 	FUNC(GLOBAL(movmemSI48))
+	ALIAS(movstrSI48,movmemSI48)
 GLOBAL(movmemSI48):
 	mov.l	@(44,r5),r0
 	mov.l	r0,@(44,r4)
 	.global	GLOBAL(movmemSI44)
 	FUNC(GLOBAL(movmemSI44))
+	ALIAS(movstrSI44,movmemSI44)
 GLOBAL(movmemSI44):
 	mov.l	@(40,r5),r0
 	mov.l	r0,@(40,r4)
 	.global	GLOBAL(movmemSI40)
 	FUNC(GLOBAL(movmemSI40))
+	ALIAS(movstrSI40,movmemSI40)
 GLOBAL(movmemSI40):
 	mov.l	@(36,r5),r0
 	mov.l	r0,@(36,r4)
 	.global	GLOBAL(movmemSI36)
 	FUNC(GLOBAL(movmemSI36))
+	ALIAS(movstrSI36,movmemSI36)
 GLOBAL(movmemSI36):
 	mov.l	@(32,r5),r0
 	mov.l	r0,@(32,r4)
 	.global	GLOBAL(movmemSI32)
 	FUNC(GLOBAL(movmemSI32))
+	ALIAS(movstrSI32,movmemSI32)
 GLOBAL(movmemSI32):
 	mov.l	@(28,r5),r0
 	mov.l	r0,@(28,r4)
 	.global	GLOBAL(movmemSI28)
 	FUNC(GLOBAL(movmemSI28))
+	ALIAS(movstrSI28,movmemSI28)
 GLOBAL(movmemSI28):
 	mov.l	@(24,r5),r0
 	mov.l	r0,@(24,r4)
 	.global	GLOBAL(movmemSI24)
 	FUNC(GLOBAL(movmemSI24))
+	ALIAS(movstrSI24,movmemSI24)
 GLOBAL(movmemSI24):
 	mov.l	@(20,r5),r0
 	mov.l	r0,@(20,r4)
 	.global	GLOBAL(movmemSI20)
 	FUNC(GLOBAL(movmemSI20))
+	ALIAS(movstrSI20,movmemSI20)
 GLOBAL(movmemSI20):
 	mov.l	@(16,r5),r0
 	mov.l	r0,@(16,r4)
 	.global	GLOBAL(movmemSI16)
 	FUNC(GLOBAL(movmemSI16))
+	ALIAS(movstrSI16,movmemSI16)
 GLOBAL(movmemSI16):
 	mov.l	@(12,r5),r0
 	mov.l	r0,@(12,r4)
 	.global	GLOBAL(movmemSI12)
 	FUNC(GLOBAL(movmemSI12))
+	ALIAS(movstrSI12,movmemSI12)
 GLOBAL(movmemSI12):
 	mov.l	@(8,r5),r0
 	mov.l	r0,@(8,r4)
 	.global	GLOBAL(movmemSI8)
 	FUNC(GLOBAL(movmemSI8))
+	ALIAS(movstrSI8,movmemSI8)
 GLOBAL(movmemSI8):
 	mov.l	@(4,r5),r0
 	mov.l	r0,@(4,r4)
 	.global	GLOBAL(movmemSI4)
 	FUNC(GLOBAL(movmemSI4))
+	ALIAS(movstrSI4,movmemSI4)
 GLOBAL(movmemSI4):
 	mov.l	@(0,r5),r0
 	mov.l	r0,@(0,r4)
 	.global	GLOBAL(movmemSI0)
 	FUNC(GLOBAL(movmemSI0))
+	ALIAS(movstrSI0,movmemSI0)
 GLOBAL(movmemSI0):
 	rts
 	nop
@@ -831,6 +857,7 @@ GLOBAL(movmemSI0):
 
 	.global	GLOBAL(movmem)
 	FUNC(GLOBAL(movmem))
+	ALIAS(movstr,movmem)
 GLOBAL(movmem):
 	mov.l	@(60,r5),r0
 	mov.l	r0,@(60,r4)
@@ -900,6 +927,10 @@ GLOBAL(movmem):
 	FUNC(GLOBAL(movmem_i4_even))
 	FUNC(GLOBAL(movmem_i4_odd))
 	FUNC(GLOBAL(movmemSI12_i4))
+
+	ALIAS(movstr_i4_even,movmem_i4_even)
+	ALIAS(movstr_i4_odd,movmem_i4_odd)
+	ALIAS(movstrSI12_i4,movmemSI12_i4)
 
 	.p2align	5
 L_movmem_2mod4_end:
@@ -1936,7 +1967,8 @@ GLOBAL(moddi3):
 #endif /* L_moddi3 */
 
 #ifdef L_set_fpscr
-#if defined (__SH2E__) || defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__) || __SH5__ == 32
+#if !defined (__SH2A_NOFPU__)
+#if defined (__SH2E__) || defined (__SH2A__) || defined (__SH3E__) || defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__) || __SH5__ == 32
 #ifdef __SH5__
 	.mode	SHcompact
 #endif
@@ -1960,7 +1992,7 @@ GLOBAL(set_fpscr):
 #ifndef FMOVD_WORKS
 	xor #16,r0
 #endif
-#if defined(__SH4__)
+#if defined(__SH4__) || defined (__SH2A_DOUBLE__)
 	swap.w r0,r3
 	mov.l r3,@(4,r1)
 #else /* defined (__SH2E__) || defined(__SH3E__) || defined(__SH4_SINGLE*__) */
@@ -1972,7 +2004,7 @@ GLOBAL(set_fpscr):
 #else
 	xor #24,r0
 #endif
-#if defined(__SH4__)
+#if defined(__SH4__) || defined (__SH2A_DOUBLE__)
 	swap.w r0,r2
 	rts
 	mov.l r2,@r1
@@ -2001,6 +2033,7 @@ LOCAL(set_fpscr_L1):
 #endif /* ELF */
 #endif /* NO_FPSCR_VALUES */
 #endif /* SH2E / SH3E / SH4 */
+#endif /* __SH2A_NOFPU__ */
 #endif /* L_set_fpscr */
 #ifdef L_ic_invalidate
 #if __SH5__ == 32
@@ -2036,7 +2069,34 @@ GLOBAL(ic_invalidate):
 
 	ENDFUNC(GLOBAL(ic_invalidate))
 	ENDFUNC(GLOBAL(init_trampoline))
+#elif defined(__SH4A__)
+	.global GLOBAL(ic_invalidate)
+	FUNC(GLOBAL(ic_invalidate))
+GLOBAL(ic_invalidate):
+	ocbwb	@r4
+	synco
+	rts
+	icbi	@r4
+	ENDFUNC(GLOBAL(ic_invalidate))
 #elif defined(__SH4_SINGLE__) || defined(__SH4__) || defined(__SH4_SINGLE_ONLY__)
+	/* This assumes a direct-mapped cache, which is the case for
+	the first SH4, but not for the second version of SH4, that
+	uses a 2-way set-associative cache, nor SH4a, that is 4-way.
+	SH4a fortunately offers an instruction to invalidate the
+	instruction cache, and we use it above, but SH4 doesn't.
+	However, since the libraries don't contain any nested
+	functions (the only case in which GCC would emit this pattern)
+	and we actually emit the ic_invalidate_line_i pattern for
+	cache invalidation on all SH4 multilibs (even 4-nofpu, that
+	isn't even corevered here), and pre-SH4 cores don't have
+	caches, it seems like this code is pointless, unless it's
+	meant for backward binary compatibility or for userland-only
+	cache invalidation for say sh4-*-linux-gnu.  Such a feature
+	should probably be moved into a system call, such that the
+	kernel could do whatever it takes to invalidate a cache line
+	on the core it's actually running on.  I.e., this hideous :-)
+	piece of code should go away at some point.  */
+
 	.global GLOBAL(ic_invalidate)
 	FUNC(GLOBAL(ic_invalidate))
 GLOBAL(ic_invalidate):

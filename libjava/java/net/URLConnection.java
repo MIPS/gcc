@@ -116,6 +116,9 @@ public abstract class URLConnection
    */
   private static boolean defaultUseCaches = true;
 
+  private static ContentHandlerFactory defaultFactory
+    = new gnu.java.net.DefaultContentHandlerFactory();
+
   /**
    * This variable determines whether or not interaction is allowed with
    * the user.  For example, to prompt for a username and password.
@@ -165,10 +168,11 @@ public abstract class URLConnection
   protected URL url;
 
   private static Hashtable handlers = new Hashtable();
-  private static SimpleDateFormat dateFormat1;
-  private static SimpleDateFormat dateFormat2;
-  private static SimpleDateFormat dateFormat3;
+  private static SimpleDateFormat[] dateFormats;
   private static boolean dateformats_initialized;
+
+  /* Cached ParsePosition, used when parsing dates. */
+  private ParsePosition position;
 
   /**
    * Creates a URL connection to a given URL. A real connection is not made.
@@ -366,19 +370,24 @@ public abstract class URLConnection
   {
     if (! dateformats_initialized)
       initializeDateFormats();
+    
+    if (position == null)
+      position = new ParsePosition(0);
 
     long result = defaultValue;
     String str = getHeaderField(name);
 
     if (str != null)
       {
-	Date date;
-	if ((date = dateFormat1.parse(str, new ParsePosition(0))) != null)
-	  result = date.getTime();
-	else if ((date = dateFormat2.parse(str, new ParsePosition(0))) != null)
-	  result = date.getTime();
-	else if ((date = dateFormat3.parse(str, new ParsePosition(0))) != null)
-	  result = date.getTime();
+	for (int i = 0; i < dateFormats.length; i++)
+	  {
+	    SimpleDateFormat df = dateFormats[i];
+	    position.setIndex(0);
+	    position.setErrorIndex(0);
+	    Date date = df.parse(str, position);
+	    if (date != null)
+	      return date.getTime();
+	  }
       }
 
     return result;
@@ -430,7 +439,7 @@ public abstract class URLConnection
     // guessContentTypeFromName() and guessContentTypeFromStream methods
     // as well as FileNameMap class & fileNameMap field & get/set methods.
     String type = getContentType();
-    ContentHandler ch = setContentHandler(type);
+    ContentHandler ch = getContentHandler(type);
 
     if (ch == null)
       return getInputStream();
@@ -957,7 +966,7 @@ public abstract class URLConnection
     fileNameMap = map;
   }
 
-  private ContentHandler setContentHandler(String contentType)
+  private ContentHandler getContentHandler(String contentType)
   {
     ContentHandler handler;
 
@@ -975,12 +984,17 @@ public abstract class URLConnection
       else
 	return null;
 
-    // If a non-default factory has been set, use it to find the content type.
+    // If a non-default factory has been set, use it.
     if (factory != null)
       handler = factory.createContentHandler(contentType);
 
-    // Non-default factory may have returned null or a factory wasn't set.
-    // Use the default search algorithm to find a handler for this content type.
+    // Now try default factory. Using this factory to instantiate built-in
+    // content handlers is preferable  
+    if (handler == null)
+      handler = defaultFactory.createContentHandler(contentType);
+
+    // User-set factory has not returned a handler. Use the default search 
+    // algorithm.
     if (handler == null)
       {
 	// Get the list of packages to check and append our default handler
@@ -989,7 +1003,7 @@ public abstract class URLConnection
 	// ever be needed (or available).
 	String propVal = System.getProperty("java.content.handler.pkgs");
 	propVal = (propVal == null) ? "" : (propVal + "|");
-	propVal = propVal + "gnu.gcj.content|sun.net.www.content";
+	propVal = propVal + "gnu.java.net.content|sun.net.www.content";
 
 	// Replace the '/' character in the content type with '.' and
 	// all other non-alphabetic, non-numeric characters with '_'.
@@ -1040,17 +1054,18 @@ public abstract class URLConnection
   // We don't put these in a static initializer, because it creates problems
   // with initializer co-dependency: SimpleDateFormat's constructors eventually 
   // depend on URLConnection (via the java.text.*Symbols classes).
-  private synchronized void initializeDateFormats()
+  private static synchronized void initializeDateFormats()
   {
     if (dateformats_initialized)
       return;
 
     Locale locale = new Locale("En", "Us", "Unix");
-    dateFormat1 =
+    dateFormats = new SimpleDateFormat[3];
+    dateFormats[0] =
       new SimpleDateFormat("EEE, dd MMM yyyy hh:mm:ss 'GMT'", locale);
-    dateFormat2 =
+    dateFormats[1] =
       new SimpleDateFormat("EEEE, dd-MMM-yy hh:mm:ss 'GMT'", locale);
-    dateFormat3 = new SimpleDateFormat("EEE MMM d hh:mm:ss yyyy", locale);
+    dateFormats[2] = new SimpleDateFormat("EEE MMM d hh:mm:ss yyyy", locale);
     dateformats_initialized = true;
   }
 }

@@ -549,7 +549,7 @@ rest_of_handle_stack_regs (void)
 		       | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0))
 	  && (flag_reorder_blocks || flag_reorder_blocks_and_partition))
 	{
-	  reorder_basic_blocks ();
+	  reorder_basic_blocks (0);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
 	}
     }
@@ -734,23 +734,22 @@ static void
 rest_of_handle_reorder_blocks (void)
 {
   bool changed;
+  unsigned int liveness_flags;
+
   open_dump_file (DFI_bbro, current_function_decl);
 
   /* Last attempt to optimize CFG, as scheduling, peepholing and insn
      splitting possibly introduced more crossjumping opportunities.  */
-  changed = cleanup_cfg (CLEANUP_EXPENSIVE
-			 | (!HAVE_conditional_execution
-			    ? CLEANUP_UPDATE_LIFE : 0));
+  liveness_flags = (!HAVE_conditional_execution ? CLEANUP_UPDATE_LIFE : 0);
+  changed = cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
 
   if (flag_sched2_use_traces && flag_schedule_insns_after_reload)
-    tracer ();
+    tracer (liveness_flags);
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition)
-    reorder_basic_blocks ();
+    reorder_basic_blocks (liveness_flags);
   if (flag_reorder_blocks || flag_reorder_blocks_and_partition
       || (flag_sched2_use_traces && flag_schedule_insns_after_reload))
-    changed |= cleanup_cfg (CLEANUP_EXPENSIVE
-			    | (!HAVE_conditional_execution
-			       ? CLEANUP_UPDATE_LIFE : 0));
+    changed |= cleanup_cfg (CLEANUP_EXPENSIVE | liveness_flags);
 
   /* On conditional execution targets we can not update the life cheaply, so
      we deffer the updating to after both cleanups.  This may lose some cases
@@ -897,7 +896,7 @@ rest_of_handle_tracer (void)
   open_dump_file (DFI_tracer, current_function_decl);
   if (dump_file)
     dump_flow_info (dump_file);
-  tracer ();
+  tracer (0);
   cleanup_cfg (CLEANUP_EXPENSIVE);
   reg_scan (get_insns (), max_reg_num (), 0);
   close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
@@ -1353,7 +1352,7 @@ rest_of_handle_loop2 (void)
     dump_flow_info (dump_file);
 
   /* Initialize structures for layout changes.  */
-  cfg_layout_initialize ();
+  cfg_layout_initialize (0);
 
   loops = loop_optimizer_init (dump_file);
 
@@ -1473,18 +1472,6 @@ rest_of_handle_jump (void)
 }
 
 static void
-rest_of_handle_guess_branch_prob (void)
-{
-  /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
-  if (flag_guess_branch_prob)
-    {
-      timevar_push (TV_BRANCH_PROB);
-      note_prediction_to_br_prob ();
-      timevar_pop (TV_BRANCH_PROB);
-    }
-}
-
-static void
 rest_of_handle_eh (void)
 {
   insn_locators_initialize ();
@@ -1494,7 +1481,11 @@ rest_of_handle_eh (void)
       timevar_push (TV_JUMP);
       open_dump_file (DFI_eh, current_function_decl);
 
+      cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_NO_INSN_DEL);
+
       finish_eh_generation ();
+
+      cleanup_cfg (CLEANUP_PRE_LOOP | CLEANUP_NO_INSN_DEL);
 
       close_dump_file (DFI_eh, print_rtl, get_insns ());
       timevar_pop (TV_JUMP);
@@ -1711,11 +1702,14 @@ rest_of_clean_state (void)
 }
 
 
-/* This is called from finish_function (within langhooks.parse_file)
-   after each top-level definition is parsed.
-   It is supposed to compile that function or variable
-   and output the assembler code for it.
-   After we return, the tree storage is freed.  */
+/* This function is called from the pass manager in tree-optimize.c
+   after all tree passes have finished for a single function, and we
+   have expanded the function body from trees to RTL.
+   Once we are here, we have decided that we're supposed to output
+   that function, ie. that we should write assembler code for it.
+
+   We run a series of low-level passes here on the function's RTL
+   representation.  Each pass is called via a rest_of_* function.  */
 
 void
 rest_of_compilation (void)
@@ -1724,11 +1718,8 @@ rest_of_compilation (void)
      know we want to output it.  */
   DECL_DEFER_OUTPUT (current_function_decl) = 0;
 
-  /* Register rtl specific functions for cfg.  */
-  rtl_register_cfg_hooks ();
-
-  /* Now that we're out of the frontend, we shouldn't have any more
-     CONCATs anywhere.  */
+  /* Now that we're done expanding trees to RTL, we shouldn't have any
+     more CONCATs anywhere.  */
   generating_concat_p = 0;
 
   /* When processing delayed functions, prepare_function_start () won't
@@ -1773,25 +1764,12 @@ rest_of_compilation (void)
 
   TREE_ASM_WRITTEN (current_function_decl) = 1;
 
-  /* Now that integrate will no longer see our rtl, we need not
-     distinguish between the return value of this function and the
-     return value of called functions.  Also, we can remove all SETs
-     of subregs of hard registers; they are only here because of
-     integrate.  Also, we can now initialize pseudos intended to
-     carry magic hard reg data throughout the function.
-
-     FIXME: All this looks thoroughly obsolete... maybe we can
-     get rid of both these lines unconditionally?  */
-  rtx_equal_function_value_matters = 0;
-  purge_hard_subreg_sets (get_insns ());
-
   /* Early return if there were errors.  We can run afoul of our
      consistency checks, and there's not really much point in fixing them.  */
   if (rtl_dump_and_exit || flag_syntax_only || errorcount || sorrycount)
     goto exit_rest_of_compilation;
 
   rest_of_handle_jump ();
-  rest_of_handle_guess_branch_prob ();
 
   if (cfun->tail_call_emit)
     fixup_tail_calls ();

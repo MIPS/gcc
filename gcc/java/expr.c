@@ -255,6 +255,9 @@ push_type_0 (tree type)
   n_words = 1 + TYPE_IS_WIDE (type);
   if (stack_pointer + n_words > DECL_MAX_STACK (current_function_decl))
     return 0;
+  /* Allocate decl for this variable now, so we get a temporary that
+     survives the whole method. */
+  find_stack_slot (stack_pointer, type);
   stack_type_map[stack_pointer++] = type;
   n_words--;
   while (--n_words >= 0)
@@ -368,7 +371,7 @@ pop_type (tree type)
   return type;
 }
 
-/* Return 1f if SOURCE_TYPE can be safely widened to TARGET_TYPE.
+/* Return 1 if SOURCE_TYPE can be safely widened to TARGET_TYPE.
    Handles array types and interfaces.  */
 
 int
@@ -426,15 +429,16 @@ can_widen_reference_to (tree source_type, tree target_type)
 	    {
 	      /* target_type is OK if source_type or source_type ancestors
 		 implement target_type. We handle multiple sub-interfaces  */
+	      tree binfo, base_binfo;
+	      int i;
 
-	      tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (source_type));
-	      int n = TREE_VEC_LENGTH (basetype_vec), i;
-	      for (i=0 ; i < n; i++)
-	        if (can_widen_reference_to 
-		    (TREE_TYPE (TREE_VEC_ELT (basetype_vec, i)),
-		     target_type))
+	      for (binfo = TYPE_BINFO (source_type), i = 0;
+		   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	        if (can_widen_reference_to
+		    (BINFO_TYPE (base_binfo), target_type))
 		  return 1;
-	      if (n == 0)
+	      
+	      if (!i)
 		return 0;
 	    }
 
@@ -1288,7 +1292,7 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
   constant_value = build_int_2 (ival, ival < 0 ? -1 : 0);
   res = fold (build2 (PLUS_EXPR, int_type_node, local_var, constant_value));
   java_add_stmt (build2 (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
-  update_aliases (local_var, local_var_index);
+  update_aliases (local_var, local_var_index, pc);
 }
 
       
@@ -1459,21 +1463,20 @@ lookup_field (tree *typep, tree name)
     }
   do
     {
-      tree field, basetype_vec;
+      tree field, binfo, base_binfo;
       tree save_field;
-      int n, i;
+      int i;
 
       for (field = TYPE_FIELDS (*typep); field; field = TREE_CHAIN (field))
 	if (DECL_NAME (field) == name)
 	  return field;
 
       /* Process implemented interfaces. */
-      basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (*typep));
-      n = TREE_VEC_LENGTH (basetype_vec);
       save_field = NULL_TREE;
-      for (i = 0; i < n; i++)
+      for (binfo = TYPE_BINFO (*typep), i = 0;
+	   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 	{
-	  tree t = BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i));
+	  tree t = BINFO_TYPE (base_binfo);
 	  if ((field = lookup_field (&t, name)))
 	    {
 	      if (save_field == field)
@@ -2758,7 +2761,8 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
   {									\
     int saw_index = 0;							\
     int index     = OPERAND_VALUE;					\
-    build_java_ret (find_local_variable (index, ptr_type_node, oldpc));	\
+    build_java_ret							\
+      (find_local_variable (index, return_address_type_node, oldpc));	\
   }
 
 #define JSR(OPERAND_TYPE, OPERAND_VALUE) \
@@ -2937,7 +2941,7 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
     decl = find_local_variable (index, type, oldpc);		\
     set_local_type (index, type);				\
     java_add_stmt (build2 (MODIFY_EXPR, type, decl, value));	\
-    update_aliases (decl, index);				\
+    update_aliases (decl, index, PC);				\
   }
 
 #define STORE(OPERAND_TYPE, OPERAND_VALUE) \

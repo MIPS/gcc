@@ -985,12 +985,6 @@ enum insn_note
   /* Generated at the start of a duplicated exit test.  */
   NOTE_INSN_LOOP_VTOP,
 
-  /* Generated at the end of a conditional at the top of the loop.
-     This is used to perform a lame form of loop rotation in lieu
-     of actually understanding the loop structure.  The note is
-     discarded after rotation is complete.  */
-  NOTE_INSN_LOOP_END_TOP_COND,
-
   /* This kind of note is generated at the end of the function body,
      just before the return insn or return label.  In an optimizing
      compilation it is deleted by the first jump optimization, after
@@ -1028,9 +1022,6 @@ enum insn_note
   /* Record the expected value of a register at a location.  Uses
      NOTE_EXPECTED_VALUE; stored as (eq (reg) (const_int)).  */
   NOTE_INSN_EXPECTED_VALUE,
-
-  /* Record a prediction.  Uses NOTE_PREDICTION.  */
-  NOTE_INSN_PREDICTION,
 
   /* Record that the current basic block is unlikely to be executed and
      should be moved to the UNLIKELY_EXECUTED_TEXT_SECTION.  */
@@ -1549,22 +1540,16 @@ do {						\
 #define USE_STORE_PRE_DECREMENT(MODE)   HAVE_PRE_DECREMENT
 #endif
 
-/* Nonzero if we need to distinguish between the return value of this function
-   and the return value of a function called by this function.  This helps
-   integrate.c.
-   This is 1 until after the rtl generation pass.
-   ??? It appears that this is 1 only when expanding trees to RTL.  */
-extern int rtx_equal_function_value_matters;
-
 /* Nonzero when we are generating CONCATs.  */
 extern int generating_concat_p;
+
+/* Nonzero when we are expanding trees to RTL.  */
+extern int currently_expanding_to_rtl;
 
 /* Generally useful functions.  */
 
 /* In expmed.c */
 extern int ceil_log2 (unsigned HOST_WIDE_INT);
-
-#define plus_constant(X, C) plus_constant_wide ((X), (HOST_WIDE_INT) (C))
 
 /* In builtins.c */
 extern rtx expand_builtin_expect_jump (tree, rtx, rtx);
@@ -1573,8 +1558,7 @@ extern void purge_builtin_constant_p (void);
 /* In explow.c */
 extern void set_stack_check_libfunc (rtx);
 extern HOST_WIDE_INT trunc_int_for_mode	(HOST_WIDE_INT, enum machine_mode);
-extern rtx plus_constant_wide (rtx, HOST_WIDE_INT);
-extern rtx plus_constant_for_output_wide (rtx, HOST_WIDE_INT);
+extern rtx plus_constant (rtx, HOST_WIDE_INT);
 extern void optimize_save_area_alloca (void);
 
 /* In emit-rtl.c */
@@ -2019,9 +2003,7 @@ extern rtx gen_rtx_REG (enum machine_mode, unsigned);
 extern rtx gen_rtx_SUBREG (enum machine_mode, rtx, int);
 extern rtx gen_rtx_MEM (enum machine_mode, rtx);
 
-/* We need the cast here to ensure that we get the same result both with
-   and without prototypes.  */
-#define GEN_INT(N)  gen_rtx_CONST_INT (VOIDmode, (HOST_WIDE_INT) (N))
+#define GEN_INT(N)  gen_rtx_CONST_INT (VOIDmode, (N))
 
 /* Virtual registers are used during RTL generation to refer to locations into
    the stack frame when the actual location isn't known until RTL generation
@@ -2258,7 +2240,6 @@ extern int prologue_epilogue_contains (rtx);
 extern int sibcall_epilogue_contains (rtx);
 extern void mark_temp_addr_taken (rtx);
 extern void update_temp_slot_address (rtx, rtx);
-extern void purge_hard_subreg_sets (rtx);
 
 /* In stmt.c */
 extern void set_file_and_line_for_stmt (location_t);
@@ -2440,7 +2421,7 @@ extern void if_convert (int);
 extern void invert_br_probabilities (rtx);
 extern bool expensive_function_p (int);
 /* In tracer.c */
-extern void tracer (void);
+extern void tracer (unsigned int);
 
 /* In var-tracking.c */
 extern void variable_tracking_main (void);

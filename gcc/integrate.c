@@ -116,36 +116,14 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
   /* Copy the declaration.  */
   if (TREE_CODE (decl) == PARM_DECL || TREE_CODE (decl) == RESULT_DECL)
     {
-      tree type;
-      int invisiref = 0;
-
-      /* See if the frontend wants to pass this by invisible reference.  */
-      if (TREE_CODE (decl) == PARM_DECL
-	  && DECL_ARG_TYPE (decl) != TREE_TYPE (decl)
-	  && POINTER_TYPE_P (DECL_ARG_TYPE (decl))
-	  && TREE_TYPE (DECL_ARG_TYPE (decl)) == TREE_TYPE (decl))
-	{
-	  invisiref = 1;
-	  type = DECL_ARG_TYPE (decl);
-	}
-      else
-	type = TREE_TYPE (decl);
+      tree type = TREE_TYPE (decl);
 
       /* For a parameter or result, we must make an equivalent VAR_DECL, not a
 	 new PARM_DECL.  */
       copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
-      if (!invisiref)
-	{
-	  TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
-	  TREE_READONLY (copy) = TREE_READONLY (decl);
-	  TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
-	}
-      else
-	{
-	  TREE_ADDRESSABLE (copy) = 0;
-	  TREE_READONLY (copy) = 1;
-	  TREE_THIS_VOLATILE (copy) = 0;
-	}
+      TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
+      TREE_READONLY (copy) = TREE_READONLY (decl);
+      TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
     }
   else
     {
@@ -162,6 +140,11 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
 	  TREE_ADDRESSABLE (copy) = 0;
 	}
     }
+
+  /* Don't generate debug information for the copy if we wouldn't have
+     generated it for the copy either.  */
+  DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (decl);
+  DECL_IGNORED_P (copy) = DECL_IGNORED_P (decl);
 
   /* Set the DECL_ABSTRACT_ORIGIN so the debugging routines know what
      declaration inspired this copy.  */
@@ -323,19 +306,6 @@ copy_rtx_and_substitute (rtx orig, struct inline_remap *map, int for_lhs)
 	      end_sequence ();
 	      emit_insn_after (seq, map->insns_at_start);
 	      return temp;
-	    }
-	  else if (REG_FUNCTION_VALUE_P (orig))
-	    {
-	      if (rtx_equal_function_value_matters)
-		/* This is an ignored return value.  We must not
-		   leave it in with REG_FUNCTION_VALUE_P set, since
-		   that would confuse subsequent inlining of the
-		   current function into a later function.  */
-		return gen_rtx_REG (GET_MODE (orig), regno);
-	      else
-		/* Must be unrolling loops or replicating code if we
-		   reach here, so return the register unchanged.  */
-		return orig;
 	    }
 	  else
 	    return orig;

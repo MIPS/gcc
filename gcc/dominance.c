@@ -223,13 +223,13 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
   /* Initialize our border blocks, and the first edge.  */
   if (reverse)
     {
-      ev = bb->pred_;
+      ev = bb->preds;
       en_block = EXIT_BLOCK_PTR;
       ex_block = ENTRY_BLOCK_PTR;
     }
   else
     {
-      ev = bb->succ_;
+      ev = bb->succs;
       en_block = ENTRY_BLOCK_PTR;
       ex_block = EXIT_BLOCK_PTR;
     }
@@ -262,7 +262,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 		}
 	      bb = e->dest;
 	      ix_next = 0;
-	      ev_next = bn->pred_;
+	      ev_next = bn->preds;
 	    }
 	  else
 	    {
@@ -274,7 +274,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 		}
 	      bb = e->src;
 	      ix_next = 0;
-	      ev_next = bn->succ_;
+	      ev_next = bn->succs;
 	    }
 
 	  if (bn == en_block)
@@ -504,7 +504,7 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
 
       par = di->dfs_parent[v];
       k = v;
-      ev = (reverse) ? bb->succ_ : bb->pred_;
+      ev = (reverse) ? bb->succs : bb->preds;
       if (reverse)
 	{
 	  /* If this block has a fake edge to exit, process that first.  */
@@ -821,6 +821,20 @@ verify_dominators (enum cdi_direction dir)
 	  err = 1;
 	}
     }
+
+  if (dir == CDI_DOMINATORS
+      && dom_computed[dir] >= DOM_NO_FAST_QUERY)
+    {
+      FOR_EACH_BB (bb)
+	{
+	  if (!dominated_by_p (dir, bb, ENTRY_BLOCK_PTR))
+	    {
+	      error ("ENTRY does not dominate bb %d", bb->index);
+	      err = 1;
+	    }
+	}
+    }
+
   if (err)
     abort ();
 }
@@ -844,6 +858,11 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
     {
       FOR_EACH_PRED_EDGE (e, bb, ix)
 	{
+	  /* Ignore the predecessors that either are not reachable from
+	     the entry block, or whose dominator was not determined yet.  */
+	  if (!dominated_by_p (dir, e->src, ENTRY_BLOCK_PTR))
+	    continue;
+
 	  if (!dominated_by_p (dir, e->src, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->src);
 	}
@@ -871,6 +890,9 @@ iterate_fix_dominators (enum cdi_direction dir, basic_block *bbs, int n)
   if (!dom_computed[dir])
     abort ();
 
+  for (i = 0; i < n; i++)
+    set_immediate_dominator (dir, bbs[i], NULL);
+
   while (changed)
     {
       changed = 0;
@@ -885,6 +907,10 @@ iterate_fix_dominators (enum cdi_direction dir, basic_block *bbs, int n)
 	    }
 	}
     }
+
+  for (i = 0; i < n; i++)
+    if (!get_immediate_dominator (dir, bbs[i]))
+      abort ();
 }
 
 void

@@ -263,7 +263,7 @@ abstract_virtuals_error (tree decl, tree type)
       slot = htab_find_slot_with_hash (abstract_pending_vars, type,
 				      (hashval_t)TYPE_UID (type), INSERT);
 
-      pat = ggc_alloc (sizeof (struct pending_abstract_type));
+      pat = GGC_NEW (struct pending_abstract_type);
       pat->type = type;
       pat->decl = decl;
       pat->locus = ((decl && DECL_P (decl))
@@ -954,7 +954,7 @@ process_init_constructor (tree type, tree init, tree* elts)
 	      return error_mark_node;
 	    }
 
-	  if (TYPE_BINFO (type) && BINFO_BASE_BINFOS (TYPE_BINFO (type)))
+	  if (TYPE_BINFO (type) && BINFO_N_BASE_BINFOS (TYPE_BINFO (type)))
 	    {
 	      sorry ("initializer list for object of class with base classes");
 	      return error_mark_node;

@@ -87,16 +87,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
 
-/* NEED_SEPARATE_AP means that we cannot derive ap from the value of fp
-   during rtl generation.  If they are different register numbers, this is
-   always true.  It may also be true if
-   FIRST_PARM_OFFSET - STARTING_FRAME_OFFSET is not a constant during rtl
-   generation.  See fix_lexical_addr for details.  */
-
-#if ARG_POINTER_REGNUM != FRAME_POINTER_REGNUM
-#define NEED_SEPARATE_AP
-#endif
-
 /* Nonzero if function being compiled doesn't contain any calls
    (ignoring the prologue and epilogue).  This is set prior to
    local register allocation and is valid for the remaining
@@ -216,7 +206,6 @@ static int contains (rtx, varray_type);
 #ifdef HAVE_return
 static void emit_return_into_block (basic_block, rtx);
 #endif
-static void purge_single_hard_subreg_set (rtx);
 #if defined(HAVE_epilogue) && defined(INCOMING_RETURN_ADDR_RTX)
 static rtx keep_stack_depressed (rtx);
 #endif
@@ -303,7 +292,6 @@ pop_function_context_from (tree context ATTRIBUTE_UNUSED)
   lang_hooks.function.leave_nested (p);
 
   /* Reset variables that have known state during rtx generation.  */
-  rtx_equal_function_value_matters = 1;
   virtuals_instantiated = 0;
   generating_concat_p = 1;
 }
@@ -405,7 +393,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 {
   rtx x, addr;
   int bigend_correction = 0;
-  int alignment;
+  unsigned int alignment;
   int frame_off, frame_alignment, frame_phase;
 
   if (align == 0)
@@ -465,11 +453,13 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 	  use logical operations which are unambiguous.  */
 #ifdef FRAME_GROWS_DOWNWARD
       function->x_frame_offset
-	= (FLOOR_ROUND (function->x_frame_offset - frame_phase, alignment)
+	= (FLOOR_ROUND (function->x_frame_offset - frame_phase,
+			(unsigned HOST_WIDE_INT) alignment)
 	   + frame_phase);
 #else
       function->x_frame_offset
-	= (CEIL_ROUND (function->x_frame_offset - frame_phase, alignment)
+	= (CEIL_ROUND (function->x_frame_offset - frame_phase,
+		       (unsigned HOST_WIDE_INT) alignment)
 	   + frame_phase);
 #endif
     }
@@ -1257,74 +1247,6 @@ static int cfa_offset;
 #define ARG_POINTER_CFA_OFFSET(FNDECL) FIRST_PARM_OFFSET (FNDECL)
 #endif
 
-
-/* Convert a SET of a hard subreg to a set of the appropriate hard
-   register.  A subroutine of purge_hard_subreg_sets.  */
-
-static void
-purge_single_hard_subreg_set (rtx pattern)
-{
-  rtx reg = SET_DEST (pattern);
-  enum machine_mode mode = GET_MODE (SET_DEST (pattern));
-  int offset = 0;
-
-  if (GET_CODE (reg) == SUBREG && REG_P (SUBREG_REG (reg))
-      && REGNO (SUBREG_REG (reg)) < FIRST_PSEUDO_REGISTER)
-    {
-      offset = subreg_regno_offset (REGNO (SUBREG_REG (reg)),
-				    GET_MODE (SUBREG_REG (reg)),
-				    SUBREG_BYTE (reg),
-				    GET_MODE (reg));
-      reg = SUBREG_REG (reg);
-    }
-
-
-  if (REG_P (reg) && REGNO (reg) < FIRST_PSEUDO_REGISTER)
-    {
-      reg = gen_rtx_REG (mode, REGNO (reg) + offset);
-      SET_DEST (pattern) = reg;
-    }
-}
-
-/* Eliminate all occurrences of SETs of hard subregs from INSNS.  The
-   only such SETs that we expect to see are those left in because
-   integrate can't handle sets of parts of a return value register.
-
-   We don't use alter_subreg because we only want to eliminate subregs
-   of hard registers.  */
-
-void
-purge_hard_subreg_sets (rtx insn)
-{
-  for (; insn; insn = NEXT_INSN (insn))
-    {
-      if (INSN_P (insn))
-	{
-	  rtx pattern = PATTERN (insn);
-	  switch (GET_CODE (pattern))
-	    {
-	    case SET:
-	      if (GET_CODE (SET_DEST (pattern)) == SUBREG)
-		purge_single_hard_subreg_set (pattern);
-	      break;
-	    case PARALLEL:
-	      {
-		int j;
-		for (j = XVECLEN (pattern, 0) - 1; j >= 0; j--)
-		  {
-		    rtx inner_pattern = XVECEXP (pattern, 0, j);
-		    if (GET_CODE (inner_pattern) == SET
-			&& GET_CODE (SET_DEST (inner_pattern)) == SUBREG)
-		      purge_single_hard_subreg_set (inner_pattern);
-		  }
-	      }
-	      break;
-	    default:
-	      break;
-	    }
-	}
-    }
-}
 
 /* Pass through the INSNS of function FNDECL and convert virtual register
    references to hard register references.  */
@@ -3571,41 +3493,6 @@ setjmp_args_warning (void)
 }
 
 
-/* Convert a stack slot address ADDR for variable VAR
-   (from a containing function)
-   into an address valid in this function (using a static chain).  */
-
-rtx
-fix_lexical_addr (rtx addr, tree var)
-{
-  rtx basereg;
-  HOST_WIDE_INT displacement;
-  tree context = decl_function_context (var);
-  struct function *fp;
-  rtx base = 0;
-
-  /* If this is the present function, we need not do anything.  */
-  if (context == current_function_decl)
-    return addr;
-
-  fp = find_function_data (context);
-
-  /* Decode given address as base reg plus displacement.  */
-  if (REG_P (addr))
-    basereg = addr, displacement = 0;
-  else if (GET_CODE (addr) == PLUS && GET_CODE (XEXP (addr, 1)) == CONST_INT)
-    basereg = XEXP (addr, 0), displacement = INTVAL (XEXP (addr, 1));
-  else
-    abort ();
-
-  if (base == 0)
-    abort ();
-
-  /* Use same offset, relative to appropriate static chain or argument
-     pointer.  */
-  return plus_constant (base, displacement);
-}
-
 /* Identify BLOCKs referenced by more than one NOTE_INSN_BLOCK_{BEG,END},
    and create duplicate blocks.  */
 /* ??? Need an option to either create block fragments or to create
@@ -3949,10 +3836,6 @@ prepare_function_start (tree fndecl)
   /* We haven't done register allocation yet.  */
   reg_renumber = 0;
 
-  /* Indicate that we need to distinguish between the return value of the
-     present function and the return value of a function being called.  */
-  rtx_equal_function_value_matters = 1;
-
   /* Indicate that we have not instantiated virtual registers yet.  */
   virtuals_instantiated = 0;
 
@@ -4199,8 +4082,9 @@ expand_function_start (tree subr)
 	 before the frame variable gets declared.  Help out...  */
       expand_var (TREE_OPERAND (cfun->nonlocal_goto_save_area, 0));
 
-      t_save = build (ARRAY_REF, ptr_type_node, cfun->nonlocal_goto_save_area,
-		      integer_zero_node, NULL_TREE, NULL_TREE);
+      t_save = build4 (ARRAY_REF, ptr_type_node,
+		       cfun->nonlocal_goto_save_area,
+		       integer_zero_node, NULL_TREE, NULL_TREE);
       r_save = expand_expr (t_save, NULL_RTX, VOIDmode, EXPAND_WRITE);
       r_save = convert_memory_address (Pmode, r_save);
 
@@ -5256,7 +5140,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
          use return.  Inserting a jump 'by hand' is extremely messy, so
 	 we take advantage of cfg_layout_finalize using
 	fixup_fallthru_exit_predecessor.  */
-      cfg_layout_initialize ();
+      cfg_layout_initialize (0);
       FOR_EACH_BB (cur_bb)
 	if (cur_bb->index >= 0 && cur_bb->next_bb->index >= 0)
 	  cur_bb->rbi->next = cur_bb->next_bb;

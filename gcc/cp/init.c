@@ -102,7 +102,7 @@ static tree
 dfs_initialize_vtbl_ptrs (tree binfo, void *data)
 {
   if ((!BINFO_PRIMARY_P (binfo) || BINFO_VIRTUAL_P (binfo))
-      && CLASSTYPE_VFIELDS (BINFO_TYPE (binfo)))
+      && TYPE_CONTAINS_VPTR_P (BINFO_TYPE (binfo)))
     {
       tree base_ptr = TREE_VALUE ((tree) data);
 
@@ -457,9 +457,10 @@ static tree
 sort_mem_initializers (tree t, tree mem_inits)
 {
   tree init;
-  tree base;
+  tree base, binfo, base_binfo;
   tree sorted_inits;
   tree next_subobject;
+  VEC (tree) *vbases;
   int i;
   int uses_unions_p;
 
@@ -470,17 +471,16 @@ sort_mem_initializers (tree t, tree mem_inits)
   sorted_inits = NULL_TREE;
   
   /* Process the virtual bases.  */
-  for (i = 0; (base = VEC_iterate
-	       (tree, CLASSTYPE_VBASECLASSES (t), i)); i++)
+  for (vbases = CLASSTYPE_VBASECLASSES (t), i = 0;
+       VEC_iterate (tree, vbases, i, base); i++)
     sorted_inits = tree_cons (base, NULL_TREE, sorted_inits);
   
   /* Process the direct bases.  */
-  for (i = 0; i < BINFO_N_BASE_BINFOS (TYPE_BINFO (t)); ++i)
-    {
-      base = BINFO_BASE_BINFO (TYPE_BINFO (t), i);
-      if (!BINFO_VIRTUAL_P (base))
-	sorted_inits = tree_cons (base, NULL_TREE, sorted_inits);
-    }
+  for (binfo = TYPE_BINFO (t), i = 0;
+       BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
+    if (!BINFO_VIRTUAL_P (base_binfo))
+      sorted_inits = tree_cons (base_binfo, NULL_TREE, sorted_inits);
+
   /* Process the non-static data members.  */
   sorted_inits = build_field_list (t, sorted_inits, &uses_unions_p);
   /* Reverse the entire list of initializations, so that they are in
@@ -982,14 +982,10 @@ expand_member_init (tree name)
       virtual_binfo = NULL_TREE;
 
       /* Look for a direct base.  */
-      for (i = 0; i < BINFO_N_BASE_BINFOS (class_binfo); ++i)
-	if (same_type_p
-	    (basetype, BINFO_TYPE
-	     (BINFO_BASE_BINFO (TYPE_BINFO (current_class_type), i))))
-	  {
-	    direct_binfo = BINFO_BASE_BINFO (class_binfo, i);
-	    break;
-	  }
+      for (i = 0; BINFO_BASE_ITERATE (class_binfo, i, direct_binfo); ++i)
+	if (same_type_p (basetype, BINFO_TYPE (direct_binfo)))
+	  break;
+
       /* Look for a virtual base -- unless the direct base is itself
 	 virtual.  */
       if (!direct_binfo || !BINFO_VIRTUAL_P (direct_binfo))
@@ -2857,10 +2853,11 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 void
 push_base_cleanups (void)
 {
-  tree binfos;
-  int i, n_baseclasses;
+  tree binfo, base_binfo;
+  int i;
   tree member;
   tree expr;
+  VEC (tree) *vbases;
 
   /* Run destructors for all virtual baseclasses.  */
   if (TYPE_USES_VIRTUAL_BASECLASSES (current_class_type))
@@ -2872,16 +2869,15 @@ push_base_cleanups (void)
 
       /* The CLASSTYPE_VBASECLASSES vector is in initialization
 	 order, which is also the right order for pushing cleanups.  */
-      for (i = 0; (binfos = VEC_iterate
-		   (tree, CLASSTYPE_VBASECLASSES (current_class_type), i));
-	   i++)
+      for (vbases = CLASSTYPE_VBASECLASSES (current_class_type), i = 0;
+	   VEC_iterate (tree, vbases, i, base_binfo); i++)
 	{
-	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (BINFO_TYPE (binfos)))
+	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (BINFO_TYPE (base_binfo)))
 	    {
 	      expr = build_special_member_call (current_class_ref, 
 						base_dtor_identifier,
 						NULL_TREE,
-						binfos,
+						base_binfo,
 						(LOOKUP_NORMAL 
 						 | LOOKUP_NONVIRTUAL));
 	      expr = build (COND_EXPR, void_type_node, cond,
@@ -2891,13 +2887,10 @@ push_base_cleanups (void)
 	}
     }
 
-  binfos = BINFO_BASE_BINFOS (TYPE_BINFO (current_class_type));
-  n_baseclasses = BINFO_N_BASE_BINFOS (TYPE_BINFO (current_class_type));
-
   /* Take care of the remaining baseclasses.  */
-  for (i = 0; i < n_baseclasses; i++)
+  for (binfo = TYPE_BINFO (current_class_type), i = 0;
+       BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
     {
-      tree base_binfo = TREE_VEC_ELT (binfos, i);
       if (TYPE_HAS_TRIVIAL_DESTRUCTOR (BINFO_TYPE (base_binfo))
 	  || BINFO_VIRTUAL_P (base_binfo))
 	continue;
@@ -2938,13 +2931,14 @@ build_vbase_delete (tree type, tree decl)
   unsigned ix;
   tree binfo;
   tree result;
+  VEC (tree) *vbases;
   tree addr = build_unary_op (ADDR_EXPR, decl, 0);
 
   my_friendly_assert (addr != error_mark_node, 222);
 
   result = convert_to_void (integer_zero_node, NULL);
-  for (ix = 0; (binfo = VEC_iterate
-		(tree, CLASSTYPE_VBASECLASSES (type), ix)); ix++)
+  for (vbases = CLASSTYPE_VBASECLASSES (type), ix = 0;
+       VEC_iterate (tree, vbases, ix, binfo); ix++)
     {
       tree base_addr = convert_force
 	(build_pointer_type (BINFO_TYPE (binfo)), addr, 0);

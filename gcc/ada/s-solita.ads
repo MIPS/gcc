@@ -34,7 +34,8 @@
 --  This package contains the tasking versions soft links that are common
 --  to the full and the restricted run times. The rest of the required soft
 --  links are set by System.Tasking.Initialization and System.Tasking.Stages
---  (full run time) or System.Tasking.Restricted.Stages (restricted run time).
+--  (full run time) or System.Tasking.Restricted.Stages (restricted run
+--  time).
 
 package System.Soft_Links.Tasking is
 

@@ -214,9 +214,6 @@ static bool arm_cookie_has_size (void);
 #undef  TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST arm_adjust_cost
 
-#undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
-
 #undef TARGET_ENCODE_SECTION_INFO
 #ifdef ARM_PE
 #define TARGET_ENCODE_SECTION_INFO  arm_pe_encode_section_info
@@ -13267,7 +13264,7 @@ thumb_expand_prologue (void)
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      dwarf = gen_rtx_SET (SImode, stack_pointer_rtx,
 				   plus_constant (stack_pointer_rtx,
-						  GEN_INT (- amount)));
+						  -amount));
 	      RTX_FRAME_RELATED_P (dwarf) = 1;
 	      REG_NOTES (insn)
 		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,
@@ -13293,7 +13290,7 @@ thumb_expand_prologue (void)
 	      RTX_FRAME_RELATED_P (insn) = 1;
 	      dwarf = gen_rtx_SET (SImode, stack_pointer_rtx,
 				   plus_constant (stack_pointer_rtx,
-						  GEN_INT (- amount)));
+						  -amount));
 	      RTX_FRAME_RELATED_P (dwarf) = 1;
 	      REG_NOTES (insn)
 		= gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, dwarf,

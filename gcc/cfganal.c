@@ -176,7 +176,7 @@ mark_dfs_back_edges (void)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -204,7 +204,7 @@ mark_dfs_back_edges (void)
 	    {
 	      /* Since the DEST node has been visited for the first
 		 time, check its successors.  */
-	      stack[sp].ev = dest->succ_;
+	      stack[sp].ev = dest->succs;
 	      stack[sp++].ix = 0;
 	    }
 	  else
@@ -650,7 +650,7 @@ flow_reverse_top_sort_order_compute (int *rts_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -676,7 +676,7 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
-	      stack[sp].ev = dest->succ_;
+	      stack[sp].ev = dest->succs;
 	      stack[sp++].ix = 0;
 	    }
 	  else
@@ -725,7 +725,7 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -756,7 +756,7 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
-	      stack[sp].ev = dest->succ_;
+	      stack[sp].ev = dest->succs;
 	      stack[sp++].ix = 0;
 	    }
 	  else if (rc_order)
@@ -847,7 +847,7 @@ flow_preorder_transversal_compute (int *pot_order)
   sbitmap_zero (visited);
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -879,7 +879,7 @@ flow_preorder_transversal_compute (int *pot_order)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
-	      stack[sp].ev = dest->succ_;
+	      stack[sp].ev = dest->succs;
 	      stack[sp++].ix = 0;
 	    }
 	}

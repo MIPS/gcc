@@ -187,12 +187,6 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
       break;
 #endif
 
-    case UNSAVE_EXPR:
-      do_jump (TREE_OPERAND (exp, 0), if_false_label, if_true_label);
-      TREE_OPERAND (exp, 0)
-	= lang_hooks.unsave_expr_now (TREE_OPERAND (exp, 0));
-      break;
-
     case NOP_EXPR:
       if (TREE_CODE (TREE_OPERAND (exp, 0)) == COMPONENT_REF
           || TREE_CODE (TREE_OPERAND (exp, 0)) == BIT_FIELD_REF
@@ -219,18 +213,19 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
          a test and can be longer if the test is eliminated.  */
     case PLUS_EXPR:
       /* Reduce to minus.  */
-      exp = build (MINUS_EXPR, TREE_TYPE (exp),
-                   TREE_OPERAND (exp, 0),
-                   fold (build1 (NEGATE_EXPR, TREE_TYPE (TREE_OPERAND (exp, 1)),
-                                 TREE_OPERAND (exp, 1))));
+      exp = build2 (MINUS_EXPR, TREE_TYPE (exp),
+		    TREE_OPERAND (exp, 0),
+		    fold (build1 (NEGATE_EXPR,
+				  TREE_TYPE (TREE_OPERAND (exp, 1)),
+				  TREE_OPERAND (exp, 1))));
       /* Process as MINUS.  */
 #endif
 
     case MINUS_EXPR:
       /* Nonzero iff operands of minus differ.  */
-      do_compare_and_jump (build (NE_EXPR, TREE_TYPE (exp),
-                                  TREE_OPERAND (exp, 0),
-                                  TREE_OPERAND (exp, 1)),
+      do_compare_and_jump (build2 (NE_EXPR, TREE_TYPE (exp),
+				   TREE_OPERAND (exp, 0),
+				   TREE_OPERAND (exp, 1)),
                            NE, NE, if_false_label, if_true_label);
       break;
 
@@ -251,8 +246,9 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	      && prefer_and_bit_test (TYPE_MODE (argtype),
 				      TREE_INT_CST_LOW (shift)))
 	    {
-	      do_jump (build (BIT_AND_EXPR, argtype, arg,
-			      fold (build (LSHIFT_EXPR, argtype, one, shift))),
+	      do_jump (build2 (BIT_AND_EXPR, argtype, arg,
+			       fold (build2 (LSHIFT_EXPR, argtype,
+					     one, shift))),
 		       if_false_label, if_true_label);
 	      break;
 	    }
@@ -381,15 +377,15 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
             tree exp1 = save_expr (TREE_OPERAND (exp, 1));
             do_jump
               (fold
-               (build (TRUTH_ANDIF_EXPR, TREE_TYPE (exp),
-                 fold (build (EQ_EXPR, TREE_TYPE (exp),
+               (build2 (TRUTH_ANDIF_EXPR, TREE_TYPE (exp),
+                 fold (build2 (EQ_EXPR, TREE_TYPE (exp),
                   fold (build1 (REALPART_EXPR,
                     TREE_TYPE (inner_type),
                     exp0)),
                   fold (build1 (REALPART_EXPR,
                     TREE_TYPE (inner_type),
                     exp1)))),
-                 fold (build (EQ_EXPR, TREE_TYPE (exp),
+                 fold (build2 (EQ_EXPR, TREE_TYPE (exp),
                   fold (build1 (IMAGPART_EXPR,
                     TREE_TYPE (inner_type),
                     exp0)),
@@ -421,15 +417,15 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
             tree exp1 = save_expr (TREE_OPERAND (exp, 1));
             do_jump
               (fold
-               (build (TRUTH_ORIF_EXPR, TREE_TYPE (exp),
-                 fold (build (NE_EXPR, TREE_TYPE (exp),
+               (build2 (TRUTH_ORIF_EXPR, TREE_TYPE (exp),
+                 fold (build2 (NE_EXPR, TREE_TYPE (exp),
                   fold (build1 (REALPART_EXPR,
                     TREE_TYPE (inner_type),
                     exp0)),
                   fold (build1 (REALPART_EXPR,
                     TREE_TYPE (inner_type),
                     exp1)))),
-                 fold (build (NE_EXPR, TREE_TYPE (exp),
+                 fold (build2 (NE_EXPR, TREE_TYPE (exp),
                     fold (build1 (IMAGPART_EXPR,
                       TREE_TYPE (inner_type),
                       exp0)),
@@ -563,9 +559,9 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 
             /* If the target doesn't support combined unordered
                compares, decompose into two comparisons.  */
-            cmp0 = fold (build (tcode1, TREE_TYPE (exp), op0, op1));
-            cmp1 = fold (build (tcode2, TREE_TYPE (exp), op0, op1));
-            exp = build (TRUTH_ORIF_EXPR, TREE_TYPE (exp), cmp0, cmp1);
+            cmp0 = fold (build2 (tcode1, TREE_TYPE (exp), op0, op1));
+            cmp1 = fold (build2 (tcode2, TREE_TYPE (exp), op0, op1));
+            exp = build2 (TRUTH_ORIF_EXPR, TREE_TYPE (exp), cmp0, cmp1);
             do_jump (exp, if_false_label, if_true_label);
           }
       }

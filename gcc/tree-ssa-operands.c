@@ -757,7 +757,8 @@ get_stmt_operands (tree stmt)
     case MODIFY_EXPR:
       get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none, &prev_vops);
       if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF 
-          || TREE_CODE (TREE_OPERAND (stmt, 0)) == COMPONENT_REF
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_RANGE_REF
+	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == COMPONENT_REF
 	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == REALPART_EXPR
 	  || TREE_CODE (TREE_OPERAND (stmt, 0)) == IMAGPART_EXPR
 	  /* Use a V_MAY_DEF if the RHS might throw, as the LHS won't be
@@ -858,9 +859,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	 of interest to some passes (e.g. alias resolution).  */
       add_stmt_operand (expr_p, stmt, 0, NULL);
 
-      /* If the address is constant (invariant is not sufficient), there will
-	 be no interesting variable references inside.  */
-      if (TREE_CONSTANT (expr))
+      /* If the address is invariant, there may be no interesting variable
+	 references inside.  */
+      if (is_gimple_min_invariant (expr))
 	return;
 
       /* There should be no VUSEs created, since the referenced objects are
@@ -932,7 +933,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       return;
 
     case WITH_SIZE_EXPR:
-      /* WITH_SIZE_EXPR is a pass-through reference to it's first argument,
+      /* WITH_SIZE_EXPR is a pass-through reference to its first argument,
 	 and an rvalue reference to its second argument.  */
       get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, prev_vops);
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
@@ -952,7 +953,8 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 	op = TREE_OPERAND (expr, 0);
 	if (TREE_CODE (op) == WITH_SIZE_EXPR)
 	  op = TREE_OPERAND (expr, 0);
-	if (TREE_CODE (op) == ARRAY_REF 
+	if (TREE_CODE (op) == ARRAY_REF
+	    || TREE_CODE (op) == ARRAY_RANGE_REF
 	    || TREE_CODE (op) == COMPONENT_REF
 	    || TREE_CODE (op) == REALPART_EXPR
 	    || TREE_CODE (op) == IMAGPART_EXPR)
@@ -978,6 +980,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
 
     case TRUTH_NOT_EXPR:
     case BIT_FIELD_REF:
+    case VIEW_CONVERT_EXPR:
     do_unary:
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
       return;
@@ -1134,13 +1137,6 @@ get_asm_expr_operands (tree stmt, voperands_t prev_vops)
 	      add_stmt_operand (&var, stmt, opf_is_def, prev_vops);
 	    });
 
-	/* If we don't have call-clobbered nor addressable vars and we
-	   still have not computed aliasing information, just mark the
-	   statement as having volatile operands.  If the alias pass
-	   finds some, we will add them at that point.  */
-	if (!aliases_computed_p)
-	  stmt_ann (stmt)->has_volatile_ops = true;
-
 	break;
       }
 }
@@ -1156,53 +1152,42 @@ get_indirect_ref_operands (tree stmt, tree expr, int flags,
 
   if (SSA_VAR_P (ptr))
     {
-      if (!aliases_computed_p)
+      struct ptr_info_def *pi = NULL;
+
+      /* If PTR has flow-sensitive points-to information, use it.  */
+      if (TREE_CODE (ptr) == SSA_NAME
+	  && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
+	  && pi->name_mem_tag)
 	{
-	  /* If the pointer does not have a memory tag and aliases have not
-	     been computed yet, mark the statement as having volatile
-	     operands to prevent DOM from entering it in equivalence tables
-	     and DCE from killing it.  */
-	  stmt_ann (stmt)->has_volatile_ops = true;
+	  /* PTR has its own memory tag.  Use it.  */
+	  add_stmt_operand (&pi->name_mem_tag, stmt, flags, prev_vops);
 	}
       else
 	{
-	  struct ptr_info_def *pi = NULL;
+	  /* If PTR is not an SSA_NAME or it doesn't have a name
+	     tag, use its type memory tag.  */
+	  var_ann_t ann;
 
-	  /* If we have computed aliasing already, check if PTR has
-	     flow-sensitive points-to information.  */
-	  if (TREE_CODE (ptr) == SSA_NAME
-	      && (pi = SSA_NAME_PTR_INFO (ptr)) != NULL
-	      && pi->name_mem_tag)
+	  /* If we are emitting debugging dumps, display a warning if
+	     PTR is an SSA_NAME with no flow-sensitive alias
+	     information.  That means that we may need to compute
+	     aliasing again.  */
+	  if (dump_file
+	      && TREE_CODE (ptr) == SSA_NAME
+	      && pi == NULL)
 	    {
-	      /* PTR has its own memory tag.  Use it.  */
-	      add_stmt_operand (&pi->name_mem_tag, stmt, flags, prev_vops);
+	      fprintf (dump_file,
+		  "NOTE: no flow-sensitive alias info for ");
+	      print_generic_expr (dump_file, ptr, dump_flags);
+	      fprintf (dump_file, " in ");
+	      print_generic_stmt (dump_file, stmt, dump_flags);
 	    }
-	  else
-	    {
-	      /* If PTR is not an SSA_NAME or it doesn't have a name
-		 tag, use its type memory tag.  */
-	      var_ann_t ann;
 
-	      /* If we are emitting debugging dumps, display a warning if
-		 PTR is an SSA_NAME with no flow-sensitive alias
-		 information.  That means that we may need to compute
-		 aliasing again.  */
-	      if (dump_file
-		  && TREE_CODE (ptr) == SSA_NAME
-		  && pi == NULL)
-		{
-		  fprintf (dump_file,
-			   "NOTE: no flow-sensitive alias info for ");
-		  print_generic_expr (dump_file, ptr, dump_flags);
-		  fprintf (dump_file, " in ");
-		  print_generic_stmt (dump_file, stmt, dump_flags);
-		}
-
-	      if (TREE_CODE (ptr) == SSA_NAME)
-		ptr = SSA_NAME_VAR (ptr);
-	      ann = var_ann (ptr);
-	      add_stmt_operand (&ann->type_mem_tag, stmt, flags, prev_vops);
-	    }
+	  if (TREE_CODE (ptr) == SSA_NAME)
+	    ptr = SSA_NAME_VAR (ptr);
+	  ann = var_ann (ptr);
+	  if (ann->type_mem_tag)
+	    add_stmt_operand (&ann->type_mem_tag, stmt, flags, prev_vops);
 	}
     }
 
@@ -1269,8 +1254,6 @@ get_call_expr_operands (tree stmt, tree expr, voperands_t prev_vops)
       else if (!(call_flags & (ECF_CONST | ECF_NORETURN)))
 	add_call_read_ops (stmt, prev_vops);
     }
-  else if (!aliases_computed_p)
-    stmt_ann (stmt)->has_volatile_ops = true;
 }
 
 
@@ -1345,13 +1328,6 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 
       aliases = v_ann->may_aliases;
 
-      /* If alias information hasn't been computed yet, then
-	 addressable variables will not be an alias tag nor will they
-	 have aliases.  In this case, mark the statement as having
-	 volatile operands.  */
-      if (!aliases_computed_p && may_be_aliased (var))
-	s_ann->has_volatile_ops = true;
-
       if (aliases == NULL)
 	{
 	  /* The variable is not aliased or it is an alias tag.  */
@@ -1386,8 +1362,10 @@ add_stmt_operand (tree *var_p, tree stmt, int flags, voperands_t prev_vops)
 
 	  /* The variable is aliased.  Add its aliases to the virtual
 	     operands.  */
+#if defined ENABLE_CHECKING
 	  if (VARRAY_ACTIVE_SIZE (aliases) == 0)
 	    abort ();
+#endif
 
 	  if (flags & opf_is_def)
 	    {

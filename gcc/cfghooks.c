@@ -368,8 +368,8 @@ delete_basic_block (basic_block bb)
   while (EDGE_SUCC_COUNT (bb) != 0)
     remove_edge (EDGE_SUCC (bb, 0));
 
-  VEC_truncate (edge, bb->pred_, 0);
-  VEC_truncate (edge, bb->succ_, 0);
+  VEC_truncate (edge, bb->preds, 0);
+  VEC_truncate (edge, bb->succs, 0);
 
   if (dom_computed[CDI_DOMINATORS])
     delete_from_dominance_info (CDI_DOMINATORS, bb);
@@ -522,11 +522,11 @@ merge_blocks (basic_block a, basic_block b)
   /* Adjust the edges out of B for the new owner.  */
   FOR_EACH_SUCC_EDGE (e, b, ix)
     e->src = a;
-  a->succ_ = b->succ_;
+  a->succs = b->succs;
   a->flags |= b->flags;
 
   /* B hasn't quite yet ceased to exist.  Attempt to prevent mishap.  */
-  b->pred_ = b->succ_ = NULL;
+  b->preds = b->succs = NULL;
   a->global_live_at_end = b->global_live_at_end;
 
   if (dom_computed[CDI_DOMINATORS])

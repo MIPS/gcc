@@ -281,15 +281,6 @@ print_rtx (rtx in_rtx)
 		}
 		break;
 
-	      case NOTE_INSN_PREDICTION:
-		if (NOTE_PREDICTION (in_rtx))
-		  fprintf (outfile, " [ %d %d ] ",
-			   (int)NOTE_PREDICTION_ALG (in_rtx),
-			   (int) NOTE_PREDICTION_FLAGS (in_rtx));
-		else
-		  fprintf (outfile, " [ ERROR ]");
-		break;
-
 	      case NOTE_INSN_UNLIKELY_EXECUTED_CODE:
 		{
 		  basic_block bb = NOTE_BASIC_BLOCK (in_rtx);
@@ -493,10 +484,14 @@ print_rtx (rtx in_rtx)
 	break;
 
       case 'b':
+#ifdef GENERATOR_FILE
+	fputs (" {bitmap}", outfile);
+#else
 	if (XBITMAP (in_rtx, i) == NULL)
 	  fputs (" {null}", outfile);
 	else
 	  bitmap_print (outfile, XBITMAP (in_rtx, i), " {", "}");
+#endif
 	sawclose = 0;
 	break;
 

@@ -875,8 +875,6 @@ static const char alt_reg_names[][8] =
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE rs6000_output_function_epilogue
 
-#undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE 
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 #undef  TARGET_SCHED_VARIABLE_ISSUE
 #define TARGET_SCHED_VARIABLE_ISSUE rs6000_variable_issue
 
@@ -1015,6 +1013,13 @@ rs6000_init_hard_regno_mode_ok (void)
       if (rs6000_hard_regno_mode_ok (r, m))
 	rs6000_hard_regno_mode_ok_p[m][r] = true;
 }
+
+/* If not otherwise specified by a target, make 'long double' equivalent to
+   'double'.  */
+
+#ifndef RS6000_DEFAULT_LONG_DOUBLE_SIZE
+#define RS6000_DEFAULT_LONG_DOUBLE_SIZE 64
+#endif
 
 /* Override command line options.  Mostly we process the processor
    type and sometimes adjust other TARGET_ options.  */
@@ -1222,7 +1227,7 @@ rs6000_override_options (const char *default_cpu)
     }
 
   /* Set size of long double */
-  rs6000_long_double_type_size = 64;
+  rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
   if (rs6000_long_double_size_string)
     {
       char *tail;
@@ -1295,7 +1300,7 @@ rs6000_override_options (const char *default_cpu)
       if (rs6000_isel_string == 0)
 	rs6000_isel = 0;
       if (rs6000_long_double_size_string == 0)
-	rs6000_long_double_type_size = 64;
+	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
     }
 
   rs6000_always_hint = (rs6000_cpu != PROCESSOR_POWER4
@@ -3163,8 +3168,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 	return false;
       if (GET_MODE_NUNITS (mode) != 1)
 	return false;
-      if (GET_MODE_BITSIZE (mode) > 32
-	  && !(TARGET_HARD_FLOAT && TARGET_FPRS && mode == DFmode))
+      if (GET_MODE_BITSIZE (mode) > 64)
 	return false;
 
       return CONSTANT_P (x);
@@ -3677,8 +3681,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 	{
 	  rtx offset = gen_rtx_CONST (Pmode,
 			 gen_rtx_MINUS (Pmode, x,
-			   gen_rtx_SYMBOL_REF (Pmode,
-			     machopic_function_base_name ())));
+					machopic_function_base_sym ()));
 	  x = gen_rtx_LO_SUM (GET_MODE (x),
 		gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
 		  gen_rtx_HIGH (Pmode, offset)), offset);
@@ -4597,9 +4600,9 @@ function_arg_padding (enum machine_mode mode, tree type)
 	return upward;
     }
 
-  /* SFmode parameters are not padded.  */
-  if (TARGET_64BIT && mode == SFmode)
-    return none;
+  /* SFmode parameters are padded upwards.  */
+  if (mode == SFmode)
+    return upward;
 
   /* Fall back to the default.  */
   return DEFAULT_FUNCTION_ARG_PADDING (mode, type);
@@ -9605,12 +9608,12 @@ print_operand (FILE *file, rtx x, int code)
       return;
 
     case 'D':
-      /* Like 'J' but get to the GT bit.  */
+      /* Like 'J' but get to the EQ bit.  */
       if (GET_CODE (x) != REG)
 	abort ();
 
-      /* Bit 1 is GT bit.  */
-      i = 4 * (REGNO (x) - CR0_REGNO) + 1;
+      /* Bit 1 is EQ bit.  */
+      i = 4 * (REGNO (x) - CR0_REGNO) + 2;
 
       /* If we want bit 31, write a shift count of zero, not 32.  */
       fprintf (file, "%d", i == 31 ? 0 : i + 1);
@@ -10094,8 +10097,8 @@ print_operand (FILE *file, rtx x, int code)
 	  const char *name = XSTR (x, 0);
 #if TARGET_MACHO
 	  if (MACHOPIC_INDIRECT
-	      && machopic_classify_name (name) == MACHOPIC_UNDEFINED_FUNCTION)
-	    name = machopic_stub_name (name);
+	      && machopic_classify_symbol (x) == MACHOPIC_UNDEFINED_FUNCTION)
+	    name = machopic_indirection_name (x, /*stub_p=*/true);
 #endif
 	  assemble_name (file, name);
 	}
@@ -10568,9 +10571,9 @@ rs6000_emit_sCOND (enum rtx_code code, rtx result)
 	abort ();
 
       if (cond_code == NE)
-	emit_insn (gen_e500_flip_gt_bit (t, t));
+	emit_insn (gen_e500_flip_eq_bit (t, t));
 
-      emit_insn (gen_move_from_CR_gt_bit (result, t));
+      emit_insn (gen_move_from_CR_eq_bit (result, t));
       return;
     }
 
@@ -10751,9 +10754,9 @@ output_cbranch (rtx op, const char *label, int reversed, rtx insn)
   return string;
 }
 
-/* Return the string to flip the GT bit on a CR.  */
+/* Return the string to flip the EQ bit on a CR.  */
 char *
-output_e500_flip_gt_bit (rtx dst, rtx src)
+output_e500_flip_eq_bit (rtx dst, rtx src)
 {
   static char string[64];
   int a, b;
@@ -10762,9 +10765,9 @@ output_e500_flip_gt_bit (rtx dst, rtx src)
       || GET_CODE (src) != REG || ! CR_REGNO_P (REGNO (src)))
     abort ();
 
-  /* GT bit.  */
-  a = 4 * (REGNO (dst) - CR0_REGNO) + 1;
-  b = 4 * (REGNO (src) - CR0_REGNO) + 1;
+  /* EQ bit.  */
+  a = 4 * (REGNO (dst) - CR0_REGNO) + 2;
+  b = 4 * (REGNO (src) - CR0_REGNO) + 2;
 
   sprintf (string, "crnot %d,%d", a, b);
   return string;
@@ -11057,7 +11060,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
       int j = -1;
       bool used_update = false;
 
-      if (GET_CODE (src) == MEM && INT_REGNO_P (reg))
+      if (MEM_P (src) && INT_REGNO_P (reg))
         {
           rtx breg;
 
@@ -11073,6 +11076,15 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 			 ? gen_addsi3 (breg, breg, delta_rtx)
 			 : gen_adddi3 (breg, breg, delta_rtx));
 	      src = gen_rtx_MEM (mode, breg);
+	    }
+	  else if (! offsettable_memref_p (src))
+	    {
+	      rtx newsrc, basereg;
+	      basereg = gen_rtx_REG (Pmode, reg);
+	      emit_insn (gen_rtx_SET (VOIDmode, basereg, XEXP (src, 0)));
+	      newsrc = gen_rtx_MEM (GET_MODE (src), basereg);
+	      MEM_COPY_ATTRIBUTES (newsrc, src);
+	      src = newsrc;
 	    }
 
 	  /* We have now address involving an base register only.
@@ -11121,6 +11133,8 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 			   : gen_adddi3 (breg, breg, delta_rtx));
 	      dst = gen_rtx_MEM (mode, breg);
 	    }
+	  else if (! offsettable_memref_p (dst))
+	    abort ();
 	}
 
       for (i = 0; i < nregs; i++)
@@ -12960,8 +12974,7 @@ rs6000_emit_prologue (void)
       && flag_pic && current_function_uses_pic_offset_table)
     {
       rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
-      const char *picbase = machopic_function_base_name ();
-      rtx src = gen_rtx_SYMBOL_REF (Pmode, picbase);
+      rtx src = machopic_function_base_sym ();
 
       rs6000_maybe_dead (emit_insn (gen_load_macho_picbase (lr, src)));
 
@@ -14458,12 +14471,9 @@ output_profile_hook (int labelno ATTRIBUTE_UNUSED)
 #if TARGET_MACHO
       /* For PIC code, set up a stub and collect the caller's address
 	 from r0, which is where the prologue puts it.  */
-      if (MACHOPIC_INDIRECT)
-	{
-	  mcount_name = machopic_stub_name (mcount_name);
-	  if (current_function_uses_pic_offset_table)
-	    caller_addr_regno = 0;
-	}
+      if (MACHOPIC_INDIRECT
+	  && current_function_uses_pic_offset_table)
+	caller_addr_regno = 0;
 #endif
       emit_library_call (gen_rtx_SYMBOL_REF (Pmode, mcount_name),
 			 0, VOIDmode, 1,
@@ -15904,8 +15914,7 @@ macho_branch_islands (void)
       const char *label =
 	IDENTIFIER_POINTER (BRANCH_ISLAND_LABEL_NAME (branch_island));
       const char *name  =
-	darwin_strip_name_encoding (
-	  IDENTIFIER_POINTER (BRANCH_ISLAND_FUNCTION_NAME (branch_island)));
+	IDENTIFIER_POINTER (BRANCH_ISLAND_FUNCTION_NAME (branch_island));
       char name_buf[512];
       /* Cheap copy of the details from the Darwin ASM_OUTPUT_LABELREF().  */
       if (name[0] == '*' || name[0] == '&')

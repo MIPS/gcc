@@ -819,7 +819,7 @@ const char *ix86_align_jumps_string;
 const char *ix86_preferred_stack_boundary_string;
 
 /* Preferred alignment for stack boundary in bits.  */
-int ix86_preferred_stack_boundary;
+unsigned int ix86_preferred_stack_boundary;
 
 /* Values 1-5: see jump.c */
 int ix86_branch_cost;
@@ -1019,8 +1019,6 @@ static void init_ext_80387_constants (void);
 #define TARGET_SCHED_ADJUST_COST ix86_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE ix86_issue_rate
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   ia32_multipass_dfa_lookahead
@@ -1081,6 +1079,11 @@ static void init_ext_80387_constants (void);
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
+
+#ifdef SUBTARGET_INSERT_ATTRIBUTES
+#undef TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1613,6 +1616,9 @@ const struct attribute_spec ix86_attribute_table[] =
 #endif
   { "ms_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
   { "gcc_struct", 0, 0, false, false,  false, ix86_handle_struct_attribute },
+#ifdef SUBTARGET_ATTRIBUTE_TABLE
+  SUBTARGET_ATTRIBUTE_TABLE,
+#endif
   { NULL,        0, 0, false, false, false, NULL }
 };
 
@@ -2105,18 +2111,17 @@ classify_argument (enum machine_mode mode, tree type,
       if (TREE_CODE (type) == RECORD_TYPE)
 	{
 	  /* For classes first merge in the field of the subclasses.  */
-	  if (TYPE_BINFO (type) && BINFO_BASE_BINFOS (TYPE_BINFO (type)))
+	  if (TYPE_BINFO (type))
 	    {
-	      tree bases = BINFO_BASE_BINFOS (TYPE_BINFO (type));
-	      int n_bases = BINFO_N_BASE_BINFOS (TYPE_BINFO (type));
+	      tree binfo, base_binfo;
 	      int i;
 
-	      for (i = 0; i < n_bases; ++i)
+	      for (binfo = TYPE_BINFO (type), i = 0;
+		   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 		{
-		   tree binfo = TREE_VEC_ELT (bases, i);
 		   int num;
-		   int offset = tree_low_cst (BINFO_OFFSET (binfo), 0) * 8;
-		   tree type = BINFO_TYPE (binfo);
+		   int offset = tree_low_cst (BINFO_OFFSET (base_binfo), 0) * 8;
+		   tree type = BINFO_TYPE (base_binfo);
 
 		   num = classify_argument (TYPE_MODE (type),
 					    type, subclasses,
@@ -2193,18 +2198,17 @@ classify_argument (enum machine_mode mode, tree type,
 	       || TREE_CODE (type) == QUAL_UNION_TYPE)
 	{
 	  /* For classes first merge in the field of the subclasses.  */
-	  if (TYPE_BINFO (type) && BINFO_BASE_BINFOS (TYPE_BINFO (type)))
+	  if (TYPE_BINFO (type))
 	    {
-	      tree bases = BINFO_BASE_BINFOS (TYPE_BINFO (type));
-	      int n_bases = BINFO_N_BASE_BINFOS (TYPE_BINFO (type));
+	      tree binfo, base_binfo;
 	      int i;
 
-	      for (i = 0; i < n_bases; ++i)
+	      for (binfo = TYPE_BINFO (type), i = 0;
+		   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
 		{
-		   tree binfo = TREE_VEC_ELT (bases, i);
 		   int num;
-		   int offset = tree_low_cst (BINFO_OFFSET (binfo), 0) * 8;
-		   tree type = BINFO_TYPE (binfo);
+		   int offset = tree_low_cst (BINFO_OFFSET (base_binfo), 0) * 8;
+		   tree type = BINFO_TYPE (base_binfo);
 
 		   num = classify_argument (TYPE_MODE (type),
 					    type, subclasses,
@@ -2668,6 +2672,28 @@ function_arg (CUMULATIVE_ARGS *cum,	/* current arg information */
   int words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
   static bool warnedsse, warnedmmx;
 
+  /* To simplify the code below, represent vector types with a vector mode
+     even if MMX/SSE are not active.  */
+  if (type
+      && TREE_CODE (type) == VECTOR_TYPE
+      && (bytes == 8 || bytes == 16)
+      && GET_MODE_CLASS (TYPE_MODE (type)) != MODE_VECTOR_INT
+      && GET_MODE_CLASS (TYPE_MODE (type)) != MODE_VECTOR_FLOAT)
+    {
+      enum machine_mode innermode = TYPE_MODE (TREE_TYPE (type));
+      mode = TREE_CODE (TREE_TYPE (type)) == REAL_TYPE
+	     ? MIN_MODE_VECTOR_FLOAT : MIN_MODE_VECTOR_INT;
+
+      /* Get the mode which has this inner mode and number of units.  */
+      while (GET_MODE_NUNITS (mode) != TYPE_VECTOR_SUBPARTS (type)
+	     || GET_MODE_INNER (mode) != innermode)
+	{
+	  mode = GET_MODE_WIDER_MODE (mode);
+	  if (mode == VOIDmode)
+	    abort ();
+	}
+    }
+
   /* Handle a hidden AL argument containing number of registers for varargs
      x86-64 functions.  For i386 ABI just return constm1_rtx to avoid
      any AL settings.  */
@@ -2798,7 +2824,7 @@ ix86_pass_by_reference (CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED,
 }
 
 /* Return true when TYPE should be 128bit aligned for 32bit argument passing
-   ABI  */
+   ABI.  Only called if TARGET_SSE.  */
 static bool
 contains_128bit_aligned_vector_p (tree type)
 {
@@ -2818,20 +2844,15 @@ contains_128bit_aligned_vector_p (tree type)
 	{
 	  tree field;
 
-	  if (TYPE_BINFO (type) && BINFO_BASE_BINFOS (TYPE_BINFO (type)))
+	  if (TYPE_BINFO (type))
 	    {
-	      tree bases = BINFO_BASE_BINFOS (TYPE_BINFO (type));
-	      int n_bases = BINFO_N_BASE_BINFOS (TYPE_BINFO (type));
+	      tree binfo, base_binfo;
 	      int i;
 
-	      for (i = 0; i < n_bases; ++i)
-		{
-		  tree binfo = TREE_VEC_ELT (bases, i);
-		  tree type = BINFO_TYPE (binfo);
-
-		  if (contains_128bit_aligned_vector_p (type))
-		    return true;
-		}
+	      for (binfo = TYPE_BINFO (type), i = 0;
+		   BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+		if (contains_128bit_aligned_vector_p (BINFO_TYPE (base_binfo)))
+		  return true;
 	    }
 	  /* And now merge the fields of structure.  */
 	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
@@ -5085,13 +5106,16 @@ static void
 ix86_compute_frame_layout (struct ix86_frame *frame)
 {
   HOST_WIDE_INT total_size;
-  int stack_alignment_needed = cfun->stack_alignment_needed / BITS_PER_UNIT;
+  unsigned int stack_alignment_needed;
   HOST_WIDE_INT offset;
-  int preferred_alignment = cfun->preferred_stack_boundary / BITS_PER_UNIT;
+  unsigned int preferred_alignment;
   HOST_WIDE_INT size = get_frame_size ();
 
   frame->nregs = ix86_nsaved_regs ();
   total_size = size;
+
+  stack_alignment_needed = cfun->stack_alignment_needed / BITS_PER_UNIT;
+  preferred_alignment = cfun->preferred_stack_boundary / BITS_PER_UNIT;
 
   /* During reload iteration the amount of registers saved can change.
      Recompute the value as needed.  Do not recompute when amount of registers
@@ -8282,7 +8306,7 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 	    output_asm_insn ("fucomip\t{%y1, %0|%0, %y1}", operands);
 	  else
 	    output_asm_insn ("fcomip\t{%y1, %0|%0, %y1}", operands);
-	  return "fstp\t%y0";
+	  return TARGET_USE_FFREEP ? "ffreep\t%y0" : "fstp\t%y0";
 	}
       else
 	{
@@ -13377,7 +13401,7 @@ ix86_init_mmx_sse_builtins (void)
     {
       /* The __float80 type.  */
       float80_type = make_node (REAL_TYPE);
-      TYPE_PRECISION (float80_type) = 96;
+      TYPE_PRECISION (float80_type) = 80;
       layout_type (float80_type);
       (*lang_hooks.types.register_builtin_type) (float80_type, "__float80");
     }
@@ -15530,8 +15554,10 @@ x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
 #if TARGET_MACHO
 	if (TARGET_MACHO)
 	  {
-	    const char *ip = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (function));
-	    tmp = gen_rtx_SYMBOL_REF (Pmode, machopic_stub_name (ip));
+	    rtx sym_ref = XEXP (DECL_RTL (function), 0);
+	    tmp = (gen_rtx_SYMBOL_REF 
+		   (Pmode, 
+		    machopic_indirection_name (sym_ref, /*stub_p=*/true)));
 	    tmp = gen_rtx_MEM (QImode, tmp);
 	    xops[0] = tmp;
 	    output_asm_insn ("jmp\t%0", xops);

@@ -539,7 +539,7 @@ vt_stack_adjustments (void)
   sp = 0;
 
   /* Push the first edge on to the stack.  */
-  stack[sp].ev = ENTRY_BLOCK_PTR->succ_;
+  stack[sp].ev = ENTRY_BLOCK_PTR->succs;
   stack[sp++].ix = 0;
 
   while (sp)
@@ -565,7 +565,7 @@ vt_stack_adjustments (void)
 	    {
 	      /* Since the DEST node has been visited for the first
 		 time, check its successors.  */
-	      stack[sp].ev = dest->succ_;
+	      stack[sp].ev = dest->succs;
 	      stack[sp++].ix = 0;
 	    }
 	}
@@ -1707,13 +1707,10 @@ vt_find_locations (void)
   in_worklist = sbitmap_alloc (last_basic_block);
   in_pending = sbitmap_alloc (last_basic_block);
   sbitmap_zero (in_worklist);
-  sbitmap_zero (in_pending);
 
   FOR_EACH_BB (bb)
-    {
-      fibheap_insert (pending, bb_order[bb->index], bb);
-      SET_BIT (in_pending, bb->index);
-    }
+    fibheap_insert (pending, bb_order[bb->index], bb);
+  sbitmap_ones (in_pending);
 
   while (!fibheap_empty (pending))
     {

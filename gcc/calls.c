@@ -143,8 +143,7 @@ static int check_sibcall_argument_overlap_1 (rtx);
 static int check_sibcall_argument_overlap (rtx, struct arg_data *, int);
 
 static int combine_pending_stack_adjustment_and_call (int, struct args_size *,
-						      int);
-static tree fix_unsafe_tree (tree);
+						      unsigned int);
 static bool shift_returned_value (tree, rtx *);
 
 #ifdef REG_PARM_STACK_SPACE
@@ -1582,14 +1581,14 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 static int
 combine_pending_stack_adjustment_and_call (int unadjusted_args_size,
 					   struct args_size *args_size,
-					   int preferred_unit_stack_boundary)
+					   unsigned int preferred_unit_stack_boundary)
 {
   /* The number of bytes to pop so that the stack will be
      under-aligned by UNADJUSTED_ARGS_SIZE bytes.  */
   HOST_WIDE_INT adjustment;
   /* The alignment of the stack after the arguments are pushed, if we
      just pushed the arguments without adjust the stack here.  */
-  HOST_WIDE_INT unadjusted_alignment;
+  unsigned HOST_WIDE_INT unadjusted_alignment;
 
   unadjusted_alignment
     = ((stack_pointer_delta + unadjusted_args_size)
@@ -1723,35 +1722,6 @@ check_sibcall_argument_overlap (rtx insn, struct arg_data *arg, int mark_stored_
     }
   return insn != NULL_RTX;
 }
-
-static tree
-fix_unsafe_tree (tree t)
-{
-  switch (unsafe_for_reeval (t))
-    {
-    case 0: /* Safe.  */
-      break;
-
-    case 1: /* Mildly unsafe.  */
-      t = unsave_expr (t);
-      break;
-
-    case 2: /* Wildly unsafe.  */
-      {
-	tree var = build_decl (VAR_DECL, NULL_TREE,
-			       TREE_TYPE (t));
-	SET_DECL_RTL (var,
-		      expand_expr (t, NULL_RTX, VOIDmode, EXPAND_NORMAL));
-	t = var;
-      }
-      break;
-
-    default:
-      abort ();
-    }
-  return t;
-}
-
 
 /* If function value *VALUE was returned at the most significant end of a
    register, shift it towards the least significant end and convert it to
@@ -1968,9 +1938,9 @@ expand_call (tree exp, rtx target, int ignore)
   tree addr = TREE_OPERAND (exp, 0);
   int i;
   /* The alignment of the stack, in bits.  */
-  HOST_WIDE_INT preferred_stack_boundary;
+  unsigned HOST_WIDE_INT preferred_stack_boundary;
   /* The alignment of the stack, in bytes.  */
-  HOST_WIDE_INT preferred_unit_stack_boundary;
+  unsigned HOST_WIDE_INT preferred_unit_stack_boundary;
   /* The static chain value to use for this call.  */
   rtx static_chain_value;
   /* See if this is "nothrow" function call.  */
@@ -2226,21 +2196,10 @@ expand_call (tree exp, rtx target, int ignore)
   /* Tail calls can make things harder to debug, and we've traditionally
      pushed these optimizations into -O2.  Don't try if we're already
      expanding a call, as that means we're an argument.  Don't try if
-     there's cleanups, as we know there's code to follow the call.
+     there's cleanups, as we know there's code to follow the call.  */
 
-     If rtx_equal_function_value_matters is false, that means we've
-     finished with regular parsing.  Which means that some of the
-     machinery we use to generate tail-calls is no longer in place.
-     This is most often true of sjlj-exceptions, which we couldn't
-     tail-call to anyway.
-
-     If current_nesting_level () == 0, we're being called after
-     the function body has been expanded.  This can happen when
-     setting up trampolines in expand_function_end.  */
   if (currently_expanding_call++ != 0
       || !flag_optimize_sibling_calls
-      || !rtx_equal_function_value_matters
-      || current_nesting_level () == 0
       || args_size.var
       || lookup_stmt_eh_region (exp) >= 0)
     try_tail_call = 0;
@@ -2280,48 +2239,6 @@ expand_call (tree exp, rtx target, int ignore)
 			       current_function_args_size))
       || !lang_hooks.decls.ok_for_sibcall (fndecl))
     try_tail_call = 0;
-
-  if (try_tail_call)
-    {
-      int end, inc;
-      actparms = NULL_TREE;
-      /* Ok, we're going to give the tail call the old college try.
-	 This means we're going to evaluate the function arguments
-	 up to three times.  There are two degrees of badness we can
-	 encounter, those that can be unsaved and those that can't.
-	 (See unsafe_for_reeval commentary for details.)
-
-	 Generate a new argument list.  Pass safe arguments through
-	 unchanged.  For the easy badness wrap them in UNSAVE_EXPRs.
-	 For hard badness, evaluate them now and put their resulting
-	 rtx in a temporary VAR_DECL.
-
-	 initialize_argument_information has ordered the array for the
-	 order to be pushed, and we must remember this when reconstructing
-	 the original argument order.  */
-
-      if (PUSH_ARGS_REVERSED)
-	{
-	  inc = 1;
-	  i = 0;
-	  end = num_actuals;
-	}
-      else
-	{
-	  inc = -1;
-	  i = num_actuals - 1;
-	  end = -1;
-	}
-
-      for (; i != end; i += inc)
-	{
-          args[i].tree_value = fix_unsafe_tree (args[i].tree_value);
-	}
-      /* Do the same for the function address if it is an expression.  */
-      if (!fndecl)
-        addr = fix_unsafe_tree (addr);
-    }
-
 
   /* Ensure current function's preferred stack boundary is at least
      what we need.  We don't have to increase alignment for recursive
@@ -2371,15 +2288,6 @@ expand_call (tree exp, rtx target, int ignore)
 	 From this point on, if the sibling call fails, we want to set
 	 sibcall_failure instead of continuing the loop.  */
       start_sequence ();
-
-      if (pass == 0)
-	{
-	  /* We know at this point that there are not currently any
-	     pending cleanups.  If, however, in the process of evaluating
-	     the arguments we were to create some, we'll need to be
-	     able to get rid of them.  */
-	  expand_start_target_temps ();
-	}
 
       /* Don't let pending stack adjusts add up to too much.
 	 Also, do all pending adjustments now if there is any chance
@@ -3092,14 +3000,6 @@ expand_call (tree exp, rtx target, int ignore)
       for (i = 0; i < num_actuals; ++i)
 	if (args[i].aligned_regs)
 	  free (args[i].aligned_regs);
-
-      if (pass == 0)
-	{
-	  /* Undo the fake expand_start_target_temps we did earlier.  If
-	     there had been any cleanups created, we've already set
-	     sibcall_failure.  */
-	  expand_end_target_temps ();
-	}
 
       /* If this function is returning into a memory location marked as
 	 readonly, it means it is initializing that location. We normally treat

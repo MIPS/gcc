@@ -151,7 +151,7 @@ struct edge_def GTY(())
 };
 
 typedef struct edge_def *edge;
-DEF_VEC_O(edge);
+DEF_VEC_P(edge);
 
 struct edge_stack
 {
@@ -229,8 +229,8 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   tree stmt_list;
 
   /* The edges into and out of the block.  */
-  VEC(edge) *pred_;
-  VEC(edge) *succ_;
+  VEC(edge) *preds;
+  VEC(edge) *succs;
 
   /* Liveness info.  */
 
@@ -304,7 +304,7 @@ typedef struct reorder_block_def
 
   /* These fields are used by bb-reorder pass.  */
   int visited;
-} *reorder_block_def;
+} *reorder_block_def_p;
 
 #define BB_FREQ_MAX 10000
 
@@ -518,30 +518,21 @@ struct edge_list
 					 && EDGE_PRED_COUNT ((e)->dest) >= 2)
 
 #define FOR_EACH_EDGE(e, vec, iter) \
-  for ((e) = NULL, (iter) = 0; \
-       ((e) = VEC_iterate (edge, (vec), (iter)) \
-         ? *(VEC_iterate (edge, (vec), (iter))) : NULL); \
-       (iter)++)
+  for ((iter) = 0; VEC_iterate (edge, (vec), (iter), (e)); (iter)++)
 
 #define FOR_EACH_PRED_EDGE(e, vec, iter) \
-  for ((e) = NULL, (iter) = 0; \
-       ((e) = VEC_iterate (edge, (vec)->pred_, (iter)) \
-         ? *(VEC_iterate (edge, (vec)->pred_, (iter))) : NULL); \
-       (iter)++)
+  for ((iter) = 0; VEC_iterate (edge, (vec)->preds, (iter), (e)); (iter)++)
 
 #define FOR_EACH_SUCC_EDGE(e, vec, iter) \
-  for ((e) = NULL, (iter) = 0; \
-       ((e) = VEC_iterate (edge, (vec)->succ_, (iter)) \
-         ? *(VEC_iterate (edge, (vec)->succ_, (iter))) : NULL); \
-       (iter)++)
+  for ((iter) = 0; VEC_iterate (edge, (vec)->succs, (iter), (e)); (iter)++)
 
 #define EDGE_COUNT(ev)			VEC_length (edge, (ev))
-#define EDGE_PRED_COUNT(bb)		VEC_length (edge, (bb)->pred_)
-#define EDGE_SUCC_COUNT(bb)		VEC_length (edge, (bb)->succ_)
+#define EDGE_PRED_COUNT(bb)		VEC_length (edge, (bb)->preds)
+#define EDGE_SUCC_COUNT(bb)		VEC_length (edge, (bb)->succs)
 
-#define EDGE_I(ev,i)			(*(VEC_index(edge, (ev), (i))))
-#define EDGE_PRED(bb,i)			(*(VEC_index(edge, (bb)->pred_, (i))))
-#define EDGE_SUCC(bb,i)			(*(VEC_index(edge, (bb)->succ_, (i))))
+#define EDGE_I(ev,i)			(VEC_index(edge, (ev), (i)))
+#define EDGE_PRED(bb,i)			(VEC_index(edge, (bb)->preds, (i)))
+#define EDGE_SUCC(bb,i)			(VEC_index(edge, (bb)->succs, (i)))
 
 struct edge_list * create_edge_list (void);
 void free_edge_list (struct edge_list *);
@@ -625,7 +616,6 @@ extern rtx emit_block_insn_before (rtx, rtx, basic_block);
 
 /* In predict.c */
 extern void estimate_probability (struct loops *);
-extern void note_prediction_to_br_prob (void);
 extern void expected_value_to_br_prob (void);
 extern bool maybe_hot_bb_p (basic_block);
 extern bool probably_cold_bb_p (basic_block);
@@ -707,7 +697,7 @@ extern bool inside_basic_block_p (rtx);
 extern bool control_flow_insn_p (rtx);
 
 /* In bb-reorder.c */
-extern void reorder_basic_blocks (void);
+extern void reorder_basic_blocks (unsigned int);
 extern void partition_hot_cold_basic_blocks (void);
 
 /* In cfg.c */

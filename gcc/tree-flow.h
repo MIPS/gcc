@@ -325,7 +325,6 @@ static inline tree immediate_use (dataflow_t, int);
 static inline dataflow_t get_immediate_uses (tree);
 static inline void set_default_def (tree, tree);
 static inline tree default_def (tree);
-static inline bool may_be_aliased (tree);
 
 /*---------------------------------------------------------------------------
                   Structure representing predictions in tree level.
@@ -496,6 +495,13 @@ extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
+extern tree gimplify_val (block_stmt_iterator *, tree, tree);
+extern tree gimplify_build1 (block_stmt_iterator *, enum tree_code,
+			     tree, tree);
+extern tree gimplify_build2 (block_stmt_iterator *, enum tree_code,
+			     tree, tree, tree);
+extern tree gimplify_build3 (block_stmt_iterator *, enum tree_code,
+			     tree, tree, tree, tree);
 
 /* In tree-pretty-print.c.  */
 extern void dump_generic_bb (FILE *, basic_block, int, int);
@@ -535,7 +541,6 @@ extern tree make_rename_temp (tree, const char *);
 /* In gimple-low.c  */
 struct lower_data;
 extern void lower_stmt_body (tree, struct lower_data *);
-extern void expand_used_vars (void);
 extern void record_vars (tree);
 extern bool block_may_fallthru (tree block);
 
@@ -548,6 +553,7 @@ extern void dump_points_to_info (FILE *);
 extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
+extern bool may_be_aliased (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
@@ -565,13 +571,12 @@ extern void dump_tree_ssa_stats (FILE *);
 extern void debug_tree_ssa_stats (void);
 extern void ssa_remove_edge (edge);
 extern edge ssa_redirect_edge (edge, basic_block);
-extern void set_is_used (tree);
 extern bool tree_ssa_useless_type_conversion (tree);
 extern bool tree_ssa_useless_type_conversion_1 (tree, tree);
 extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern void register_new_def (tree, varray_type *);
-extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
+extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
 extern void kill_redundant_phi_nodes (void);
 
 /* In tree-into-ssa.c  */
@@ -647,6 +652,7 @@ bool for_each_index (tree *, bool (*) (tree, tree *, void *), void *);
 static inline int phi_arg_from_edge (tree, edge);
 static inline bool is_call_clobbered (tree);
 static inline void mark_call_clobbered (tree);
+static inline void set_is_used (tree);
 
 /* In tree-eh.c  */
 extern void make_eh_edges (tree);

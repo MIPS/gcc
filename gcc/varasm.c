@@ -2362,9 +2362,9 @@ copy_constant (tree exp)
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      return build (TREE_CODE (exp), TREE_TYPE (exp),
-		    copy_constant (TREE_OPERAND (exp, 0)),
-		    copy_constant (TREE_OPERAND (exp, 1)));
+      return build2 (TREE_CODE (exp), TREE_TYPE (exp),
+		     copy_constant (TREE_OPERAND (exp, 0)),
+		     copy_constant (TREE_OPERAND (exp, 1)));
 
     case NOP_EXPR:
     case CONVERT_EXPR:
@@ -3615,10 +3615,10 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 	  unsigned int nalign;
 	  enum machine_mode inner;
 
-	  inner = GET_MODE_INNER (TYPE_MODE (TREE_TYPE (exp)));
+	  inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
 	  nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
 
-	  elt_size = GET_MODE_UNIT_SIZE (TYPE_MODE (TREE_TYPE (exp)));
+	  elt_size = GET_MODE_SIZE (inner);
 
 	  link = TREE_VECTOR_CST_ELTS (exp);
 	  output_constant (TREE_VALUE (link), elt_size, align);
@@ -4956,8 +4956,8 @@ default_binds_local_p_1 (tree exp, int shlib)
   /* Static variables are always local.  */
   else if (! TREE_PUBLIC (exp))
     local_p = true;
-  /* A variable is local if the user tells us so.  */
-  else if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
+  /* A variable is local if the user explicitly tells us so.  */
+  else if (DECL_VISIBILITY_SPECIFIED (exp) && DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
     local_p = true;
   /* Otherwise, variables defined outside this object may not be local.  */
   else if (DECL_EXTERNAL (exp))
@@ -4965,6 +4965,9 @@ default_binds_local_p_1 (tree exp, int shlib)
   /* Linkonce and weak data are never local.  */
   else if (DECL_ONE_ONLY (exp) || DECL_WEAK (exp))
     local_p = false;
+  /* If none of the above and visibility is not default, make local.  */
+  else if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
+    local_p = true;
   /* If PIC, then assume that any global name can be overridden by
      symbols resolved from other modules.  */
   else if (shlib)

@@ -131,7 +131,7 @@ static void cp_token_cache_push_token
 static cp_token_cache *
 cp_token_cache_new (void)
 {
-  return ggc_alloc_cleared (sizeof (cp_token_cache));
+  return GGC_CNEW (cp_token_cache);
 }
 
 /* Add *TOKEN to *CACHE.  */
@@ -145,7 +145,7 @@ cp_token_cache_push_token (cp_token_cache *cache,
   /* See if we need to allocate a new token block.  */
   if (!b || b->num_tokens == CP_TOKEN_BLOCK_NUM_TOKENS)
     {
-      b = ggc_alloc_cleared (sizeof (cp_token_block));
+      b = GGC_CNEW (cp_token_block);
       b->prev = cache->last;
       if (cache->last)
 	{
@@ -311,7 +311,7 @@ cp_lexer_new_main (void)
   c_common_no_more_pch ();
 
   /* Allocate the memory.  */
-  lexer = ggc_alloc_cleared (sizeof (cp_lexer));
+  lexer = GGC_CNEW (cp_lexer);
 
   /* Create the circular buffer.  */
   lexer->buffer = ggc_calloc (CP_TOKEN_BUFFER_SIZE, sizeof (cp_token));
@@ -350,13 +350,13 @@ cp_lexer_new_from_tokens (cp_token_cache *tokens)
   ptrdiff_t num_tokens;
 
   /* Allocate the memory.  */
-  lexer = ggc_alloc_cleared (sizeof (cp_lexer));
+  lexer = GGC_CNEW (cp_lexer);
 
   /* Create a new buffer, appropriately sized.  */
   num_tokens = 0;
   for (block = tokens->first; block != NULL; block = block->next)
     num_tokens += block->num_tokens;
-  lexer->buffer = ggc_alloc (num_tokens * sizeof (cp_token));
+  lexer->buffer = GGC_NEWVEC (cp_token, num_tokens);
   lexer->buffer_end = lexer->buffer + num_tokens;
 
   /* Install the tokens.  */
@@ -1348,7 +1348,7 @@ cp_parser_context_new (cp_parser_context* next)
       memset (context, 0, sizeof (*context));
     }
   else
-    context = ggc_alloc_cleared (sizeof (cp_parser_context));
+    context = GGC_CNEW (cp_parser_context);
   /* No errors have occurred yet in this context.  */
   context->status = CP_PARSER_STATUS_KIND_NO_ERROR;
   /* If this is not the bottomost context, copy information that we
@@ -2539,7 +2539,7 @@ cp_parser_new (void)
      cp_lexer_new_main might load a PCH file.  */
   lexer = cp_lexer_new_main ();
 
-  parser = ggc_alloc_cleared (sizeof (cp_parser));
+  parser = GGC_CNEW (cp_parser);
   parser->lexer = lexer;
   parser->context = cp_parser_context_new (NULL);
 
@@ -9459,6 +9459,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
   if (!(flags & CP_PARSER_FLAGS_NO_USER_DEFINED_TYPES))
     {
       bool qualified_p;
+      bool global_p;
 
       /* Don't gobble tokens or issue error messages if this is an
 	 optional type-specifier.  */
@@ -9466,8 +9467,10 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	cp_parser_parse_tentatively (parser);
 
       /* Look for the optional `::' operator.  */
-      cp_parser_global_scope_opt (parser,
-				  /*current_scope_valid_p=*/false);
+      global_p
+	= (cp_parser_global_scope_opt (parser,
+				       /*current_scope_valid_p=*/false)
+	   != NULL_TREE);
       /* Look for the nested-name specifier.  */
       qualified_p
 	= (cp_parser_nested_name_specifier_opt (parser,
@@ -9499,6 +9502,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
 	type = cp_parser_type_name (parser);
       /* Keep track of all name-lookups performed in class scopes.  */
       if (type
+	  && !global_p
 	  && !qualified_p
 	  && TREE_CODE (type) == TYPE_DECL
 	  && TREE_CODE (DECL_NAME (type)) == IDENTIFIER_NODE)

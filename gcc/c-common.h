@@ -286,6 +286,10 @@ extern void (*lang_expand_function_end) (void);
    noreturn attribute.  */
 extern int (*lang_missing_noreturn_ok_p) (tree);
 
+/* If non-NULL, this function is called after a precompile header file
+   is loaded.  */
+extern void (*lang_post_pch_load) (void);
+
 extern void push_file_scope (void);
 extern void pop_file_scope (void);
 extern int yyparse (void);
@@ -644,8 +648,6 @@ extern void binary_op_error (enum tree_code);
 #define my_friendly_assert(EXP, N) (void) \
  (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
 
-/* Validate the expression after `case' and apply default promotions.  */
-extern tree check_case_value (tree);
 extern tree fix_string_type (tree);
 struct varray_head_tag;
 extern void constant_expression_warning (tree);
@@ -818,7 +820,7 @@ extern void extract_interface_info (void);
 
 extern int case_compare (splay_tree_key, splay_tree_key);
 
-extern tree c_add_case_label (splay_tree, tree, tree, tree);
+extern tree c_add_case_label (splay_tree, tree, tree, tree, tree);
 
 extern void c_do_switch_warnings (splay_tree, tree);
 
@@ -834,7 +836,7 @@ extern int vector_types_convertible_p (tree t1, tree t2);
 
 extern rtx c_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 
-extern int c_staticp (tree);
+extern bool c_staticp (tree);
 
 extern int c_common_unsafe_for_reeval (tree);
 

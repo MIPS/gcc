@@ -2564,25 +2564,15 @@ finish_id_expression (tree id_expression,
       /* Only certain kinds of names are allowed in constant
        expression.  Enumerators and template parameters 
        have already been handled above.  */
-      if (integral_constant_expression_p)
+      if (integral_constant_expression_p
+	  && !DECL_INTEGRAL_CONSTANT_VAR_P (decl))
 	{
-	    /* Const variables or static data members of integral or
-	      enumeration types initialized with constant expressions
-	      are OK.  */
-	  if (TREE_CODE (decl) == VAR_DECL
-	      && CP_TYPE_CONST_P (TREE_TYPE (decl))
-	      && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (decl))
-	      && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl))
-	    ;
-	  else
+	  if (!allow_non_integral_constant_expression_p)
 	    {
-	      if (!allow_non_integral_constant_expression_p)
-		{
-		  error ("`%D' cannot appear in a constant-expression", decl);
-		  return error_mark_node;
-		}
-	      *non_integral_constant_expression_p = true;
+	      error ("`%D' cannot appear in a constant-expression", decl);
+	      return error_mark_node;
 	    }
+	  *non_integral_constant_expression_p = true;
 	}
       
       if (TREE_CODE (decl) == NAMESPACE_DECL)
@@ -2892,18 +2882,6 @@ expand_body (tree fn)
 
   extract_interface_info ();
 
-  /* If this function is marked with the constructor attribute, add it
-     to the list of functions to be called along with constructors
-     from static duration objects.  */
-  if (DECL_STATIC_CONSTRUCTOR (fn))
-    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
-
-  /* If this function is marked with the destructor attribute, add it
-     to the list of functions to be called along with destructors from
-     static duration objects.  */
-  if (DECL_STATIC_DESTRUCTOR (fn))
-    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
-
   if (DECL_CLONED_FUNCTION_P (fn))
     {
       /* If this is a clone, go through the other clones now and mark
@@ -2957,14 +2935,38 @@ expand_or_defer_fn (tree fn)
       return;
     }
 
+  /* If this function is marked with the constructor attribute, add it
+     to the list of functions to be called along with constructors
+     from static duration objects.  */
+  if (DECL_STATIC_CONSTRUCTOR (fn))
+    static_ctors = tree_cons (NULL_TREE, fn, static_ctors);
+
+  /* If this function is marked with the destructor attribute, add it
+     to the list of functions to be called along with destructors from
+     static duration objects.  */
+  if (DECL_STATIC_DESTRUCTOR (fn))
+    static_dtors = tree_cons (NULL_TREE, fn, static_dtors);
+
+  /* We make a decision about linkage for these functions at the end
+     of the compilation.  Until that point, we do not want the back
+     end to output them -- but we do want it to see the bodies of
+     these fucntions so that it can inline them as appropriate.  */
+  if (DECL_DECLARED_INLINE_P (fn) || DECL_IMPLICIT_INSTANTIATION (fn))
+    {
+      if (!at_eof)
+	{
+	  DECL_EXTERNAL (fn) = 1;
+	  DECL_NOT_REALLY_EXTERN (fn) = 1;
+	  note_vague_linkage_fn (fn);
+	}
+      else
+	import_export_decl (fn);
+    }
+
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
     return;
-
-  /* Compute the appropriate object-file linkage for inline functions.  */
-  if (DECL_DECLARED_INLINE_P (fn))
-    import_export_decl (fn);
 
   function_depth++;
 
@@ -3050,6 +3052,8 @@ finalize_nrv (tree *tp, tree var, tree result)
 
   /* Copy debugging information from VAR to RESULT.  */
   DECL_NAME (result) = DECL_NAME (var);
+  DECL_ARTIFICIAL (result) = DECL_ARTIFICIAL (var);
+  DECL_IGNORED_P (result) = DECL_IGNORED_P (var);
   DECL_SOURCE_LOCATION (result) = DECL_SOURCE_LOCATION (var);
   DECL_ABSTRACT_ORIGIN (result) = DECL_ABSTRACT_ORIGIN (var);
   /* Don't forget that we take its address.  */

@@ -38,6 +38,7 @@
 #include "recog.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "integrate.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -123,8 +124,6 @@ static bool m32r_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 #define TARGET_SCHED_ADJUST_PRIORITY m32r_adjust_priority
 #undef  TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE m32r_issue_rate
-#undef  TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 
 #undef  TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO m32r_encode_section_info

@@ -1,3 +1,389 @@
+2004-08-01  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16489
+	* cp-tree.h (DECL_INTEGRAL_CONSTANT_VAR_P): New macro.
+	* call.c (null_ptr_cst_p): Handle variables with constant
+	initializers.
+	* pt.c (convert_nontype_argument): Use
+	DECL_INTEGRAL_CONSTANT_VAR_P.
+	* semantics.c (finish_id_expression): Likewise.
+
+	PR c++/16529
+	* decl.c (duplicate_decls): Reject duplicate namespace
+	declarations.
+
+	PR c++/16810
+	* typeck.c (build_ptrmemfunc): Loosen assertion.
+
+2004-08-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* call.c (z_candidate::template_decl): Rename from template.
+	(add_template_candidate_real): Adjust member reference.
+	(joust): Likewise.
+
+2004-07-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (IDENTIFIER_REPO_CHOSEN): Define.
+	(lang_decl_flags): Narrow the width of "languages".  Add
+	repo_available_p.
+	(DECL_NEEDED_P): Remove.
+	(FOR_EACH_CLONE): New macro.
+	(DECL_REPO_AVAILABLE_P): Likewise.
+	(DECL_TINFO_P): Likewise.
+	(set_linkage_according_to_type): Declare.
+	(import_export_vtable): Remove.
+	(import_export_tinfo): Likewise.
+	(mark_needed): New function.
+	(decl_needed_p): Likewise.
+	(note_vauge_linkage_fn): Likewise.
+	(init_repo): Change prototype.
+	(repo_template_used): Remove.
+	(repo_template_instantiated): Likewise.
+	(repo_emit_p): New function.
+	(repo_export_class_p): Likewise.
+	(no_linkage_check): Change prototype.
+	* class.c (set_linkage_according_to_type): New function.
+	(build_vtable): Use it.  Do not call import_export_vtable.  Set
+	DECL_IGNORED_P if appropriate.
+	* decl.c (duplicate_decls): Preserve DECL_REPO_AVAILABLE_P.
+	(make_rtL_for_nonlocal_decls): Check for template instantiations
+	explicitly.
+	(grokfndecl): Adjust call to no_linkage_check.
+	(set_linkage_for_static_data_member): New function.
+	(grokvardecl): Use it.  Adjust call to no_linkage_check.
+	(grokdeclarator): Use set_linkage_for_static_data_member.
+	* decl2.c (note_vague_linkage_fn): New function.
+	(note_vague_linkage_var): Likewise.
+	(finish_static_data_member_decl): Use it.
+	(import_export_vtable): Remove.
+	(import_export_class): Use repo_export_class_p.
+	(var_finalized_p): Simplify.
+	(maybe_emit_vtables): Simplify.
+	(mark_needed): New function.
+	(decl_needed_p): Likewise.
+	(import_export_decl): Add documentation and consistency checks.
+	Use repo_emit_p.  Handle virtual tables and RTTI information
+	here.
+	(import_export_tinfo): Remove.
+	(write_out_vars): Call import_export_decl.
+	(cxx_callgraph_analyze_expr): Ensure that all vtables are emitted
+	whenever one is.
+	(finish_file): Use decl_needed_p.  Do not call import_export_decl
+	for undefined static data members.  Do not warn about undefined
+	inlines when using a repository.
+	(mark_used): Use note_vague_linkage_fn.  Always defer template
+	instantiations.
+	* lex.c (cxx_init): Adjust call to init_repo.  Always set
+	flag_unit_at_a-time.
+	* method.c (synthesize_method): Remove unncessary
+	import_export_decl call.
+	(implicitly_declare_fn): Use set_linkage_according_to_type.
+	* optimize.c (maybe_clone_body): Use FOR_EACH_CLONE.
+	* pt.c (instantiate_class_template): Don't redundantly add classes
+	to keyed_classes.  Don't call repo_template_used.
+	(tsubst_decl): Set DECL_INTERFACE_KNOWN for instantiations of
+	templates with internal linkage.
+	(check_instantiated_args): Adjust call to no_linkage_check.
+	(instantiate_template): Use FOR_EACH_CLONE.
+	(mark_definable): New function.
+	(mark_decl_instantiated): Use it.
+	(do_decl_instantiation): Adjust tests for explicit instantiation
+	after "extern template".
+	(instantiate_class_member): Do not use repo_template_instantiated.
+	(do_type_instantiation): Simplify.
+	(instantiate_decl): Use mark_definable.  Check repo_emit_p.
+	Simplify.
+	* repo.c (repo_get_id): Remove.
+	(original_repo): Remove.
+	(IDENTIFIER_REPO_USED): Remove.
+	(IDENTIFIER_REPO_CHOSEN): Remove.
+	Remove all #if 0'd code.
+	(repo_template_used): Remove.
+	(repo_template_instantiated): Remove.
+	(temporary_obstack_initialized_p): New variable.
+	(init_repo): Register with lang_post_pch_load.  Avoid creating
+	identifiers unnecessarily.  Don't use original_repo.  Close the
+	file here.
+	(reopen_repo_file_for_write): Not here.
+	(finish_repo): Always write out a new repository file.
+	(repo_emit_p): New function.
+	(repo_export_class_p): Likewise.
+	* rtti.c (get_tinfo_decl): Use set_linkage_according_to_type.
+	(involves_incomplete_p): New function.
+	(tinfo_base_init): Use it.
+	(ptr_initializer): Remove non_public_ptr parameter.
+	(ptm_initializer): Likewise.
+	(get_pseudo_ti_init): Likewise.
+	(unemitted_tinfo_decl_p): Remove.
+	(emit_tinfo_decl): Use import_export_decl.
+	* semantics.c (expand_body): Move updates of static_ctors and
+	static_dtors to ...
+	(expand_or_defer_fn): ... here.
+	* tree.c (no_linkage_check): Add relaxed_p parameter.
+	
+2004-07-28  Eric Christopher  <echristo@redhat.com>
+
+	* cp-lang.c (LANG_HOOKS_UNSAFE_FOR_REEVAL): Delete.
+
+2004-07-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (struct tree_pair_s): New.
+	(typedef tree_pair_p): New.
+	(DEF_VEC_O(tree_pair_s)): New.
+	(struct lang_type_class): Make vcall_indices a VEC(tree_pair_s).
+	(CLASSTYPE_VCALL_INDICES): Update documentation.
+	* class.c (get_vcall_index): Adjust.
+	(add_vcall_offset): Adjust.
+
+2004-07-27  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* pt.c, typeck.c: Remove spurious carriage returns.
+
+2004-07-27  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/14429
+	* pt.c (coerce_template_template_parms) <PARM_DECL case>: Only check
+	when the type of ARG is not dependent.
+
+2004-07-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++spec.c (LIBSTDCXX_PROFILE): Default to LIBSTDCXX.
+	(lang_specific_driver): If the C++ or math library options don't
+	start with '-l', don't count them as added libraries.
+
+2004-07-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (xref_basetypes): Adjust base access vector creation.
+	* rtti.c (get_pseudo_ti_init, get_pseudo_ti_desc): Adjust base
+	access accesses.
+	* search.c (dynamic_cast_base_recurse, dfs_access_in_type): Likewise.
+
+2004-07-26  Niall Douglas  <s_fsfeurope2@nedprod.com>
+	    Brian Ryner  <bryner@brianryner.com>
+
+	PR c++/15000
+	PR c++/9283
+	* class.c (check_field_decls): Apply hidden visibility if
+	-fvisibility-inlines-hidden and inlined unless otherwise specified
+	(build_vtable): Set vtable visibility to class visibility.
+	(check_field_decls): Default static member visibility to class
+	visibility.
+	(check_methods): Default method visibility to class visibility.
+	* cp-tree.h: Added CLASSTYPE_VISIBILITY and
+	CLASSTYPE_VISIBILITY_SPECIFIED macro.
+	* decl.c (duplicate_decls): New logic for merging definition decls
+	with declaration decls. Added ignore & warning when non default
+	applied to global operator new or delete.
+	* method.c, optimize.c, rtti.c: Added setting of VISIBILITY_SPECIFIED
+	wherever VISIBILITY was changed
+	* rtti.c (get_tinfo_decl): Set typeinfo visibility to class
+	visibility.
+	(tinfo_base_init): Set typeinfo name visibility to class visibility.
+
+2004-07-25  Bernardo Innocenti  <bernie@develer.com>
+
+	* decl.c: Rename all identifiers named `class' to `cl'.
+	* cp-tree.h: Likewise.
+
+2004-07-25  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* cp-tree.h (TYPE_SET_PTRMEMFUNC_TYPE): Use GGC_CNEW.
+	* typeck2.c (abstract_virtuals_error): Use GGC_NEW.
+	* name-lookup.c (binding_entry_make): Use GGC_NEW.
+	(binding_table_construct): Use GGC_CNEWVEC.
+	(binding_table_new): Use GGC_NEW.
+	(cxx_binding_make): Likewise.
+	(begin_scope): Likewise.
+	(push_to_top_level): Use GCC_CNEW.
+	* parser.c (cp_token_cache_new): Likewise.
+	(cp_token_cache_push_token): Likewise.
+	(cp_lexer_new_main): Likewise.
+	(cp_lexer_new_from_tokens): Likewise.
+	(cp_parser_context_new): Likewise.
+	(cp_parser_new): Likewise.
+	(cp_lexer_new_from_tokens): Use GGC_NEWVEC.
+	* lex.c (cxx_make_type): Use GGC_CNEW.
+	(retrofit_lang_decl): Use GGC_NEWVAR.
+	(cxx_dup_lang_specific_decl): Likewise.
+	(copy_lang_type): Likewise.
+	* decl.c (use_label): Use GGC_NEW instead of ggc_alloc.
+	(save_function_data): Likewise.
+	(lookup_label): Use GGC_CNEW instead of ggc_alloc_cleared.
+	(cxx_push_function_context): Likewise.
+
+2004-07-25  Richard Henderson  <rth@redhat.com>
+
+	* decl.c (start_preparsed_function): Set DECL_ARTIFICIAL and
+	DECL_IGNORED_P on RESULT_DECL.
+	* semantics.c (finalize_nrv): Copy them too.
+
+2004-07-23  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* search.c (lookup_conversion_operator): Avoid two loops.
+	(add_conversions): Remove.
+	(check_hidden_convs, split_conversions,
+	lookup_conversions_r):	New.
+	(lookup_conversions): Use lookup_conversions_r.
+
+2004-07-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* pt.c (get_template_base): Check type is completable.
+
+2004-07-21  Eric Christopher  <echristo@redhat.com>
+
+	* decl.c (poplevel): Inline unused variable checking.
+	Change formatting.
+
+2004-07-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	* typeck.c (build_binary_op): Do not use RDIV_EXPR for
+	integer vectors.
+
+2004-07-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/14497
+	* pt.c (check_explicit_specialization): Remove extension to accept
+	specializations without template headers. Fall-through to normal
+	processing.
+
+2004-07-21  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/509
+	* pt.c (determine_specialization): New parameter template_count.
+	Disambiguate between member templates and member functions counting
+	the template headers.
+	(check_explicit_specialization): Update caller.
+	(tsubst_friend_function): Likewise.
+
+2004-07-20  Steven Bosscher  <stevenb@suse.de>
+
+	* cp-tree.def (TINST_LEVEL): Make it an 'x' node.
+	* cp-tree.h (tinst_level_t): New tree type.
+	(union lang_tree_node): Handle it.
+	(TINST_LOCATION): New accessor macro.
+	(make_tinst_level): New prototype.
+	* cp-lang.c (cp_tree_size): Handle TINST_LEVEL.
+	* decl.c (cp_tree_node_structure): Likewise.
+	* error.c (print_instantiation_full_context): Use TINST_LOCATION.
+	(print_instantiation_partial_context): Likewise.
+	* pt.c (pop_tinst_level): Likewise.
+	 (push_tinst_level): Use make_tinst_level.
+	* tree.c (make_tinst_level): New function.
+	(cp_walk_subtrees): Walk TINST_DECL for a TINST_LEVEL node.
+
+2004-07-20  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_simple_type_specifier): Fix typo.
+
+	PR c++/16637
+	* parser.c (cp_parser_simple_type_specifier): Do not record usage
+	of globally-qualified names.
+
+2004-07-20  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/16175
+	* error.c (dump_type) <BOUND_TEMPLATE_TEMPLATE_PARM case>: Output
+	cv qualifier.
+
+2004-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16623
+	* cp-tree.h (lang_type_class): Add lazy_assignment_op.
+	(CLASSTYPE_LAZY_ASSIGNMENT_OP): New macro.
+	* class.c (add_implicitly_declared_members): Use
+	CLASSTYPE_LAZY_ASSIGNMENT_OP.
+	* method.c (lazily_declare_fn): Clear
+	CLASSTYPE_LAZY_ASSIGNMENT_OP.
+	* search.c (lookup_fnfields_1): Check it.
+
+2004-07-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (vec_binfo_member): Remove.
+	* tree.c (vec_binfo_member): Remove.
+
+	* cp-tree.h (struct lang_type_class): Remove vfields field.
+	(CLASSTYPE_VFIELDS): Remove.
+	(SET_BINFO_NEW_VTABLE_MARKED): Adjust.
+	* class.c (determine_primary_base): Remove CLASSTYPE_VFIELDS
+	handling.
+	(dfs_modify_vtables): Use TYPE_CONTAINS_VPTR_P.
+	(finish_struct_1): Remove CLASSTYPE_VFIELDS handling.
+	* init.c (dfs_initialize_vtbl_ptrs): Use TYPE_CONTAINS_VPTR_P.
+
+2004-07-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* cp-tree.h (DEF_VEC_P(tree)): Remove here.
+	(BINFO_SUBVTT_INDEX, BINFO_VPTR_INDEX, BINFO_PRIMARY_BASE_OF):
+	Moved to common.
+	(BINFO_LANG_SLOTS): Remove.
+	* tree.c (copy_binfo): Adjust BINFO creation and accessors.
+	* decl.c (xref_basetypes): Adjust BINFO creation and accessors.
+	* class.c (check_bases): Adjust BINFO accessors.
+	(determine_primary_base, finish_struct_bits,
+	maybe_warn_about_overly_private_class, warn_hidden,
+	walk_subobject_offsets, propagate_binfo_offsets, end_of_class,
+	warn_about_ambiguous_bases, get_vfield_name,
+	dump_class_hierarchy_r, build_vtt_inits, accumulate_vtbl_inits,
+	add_vcall_offset_vtbl_entries_r): Likewise.
+	* dump.c (cp_dump_tree): Likewise.
+	* init.c (sort_mem_initializers, expand_member_init, build_delete,
+	push_base_cleanups): Likewise.
+	* method.c (do_build_copy_constructor, do_build_assign_ref,
+	synthesize_exception_spec): Likewise.
+	name-lookup.c (arg_assoc_class): Likewise.
+	* pt.c (instantiate_class_template,
+	get_template_base_recursive): Likewise.
+	* rtti.c (get_pseudo_ti_init, get_pseudo_ti_desc): Likewise.
+	* typeck2.c (process_init_constructor): Likewise.
+	* search.c (lookup_base_r, dynamic_cast_base_recurse,
+	dfs_access_in_type, dfs_walk_real, look_for_overrides,
+	types_overlap_p, copied_binfo, original_binfo): Likewise.
+	(binfo_for_vtable): Remove
+
+2004-07-20  Steven Bosscher  <stevenb@suse.de>
+
+	* cp-tree.h (struct lang_decl_flags): Unify the template_info and
+	thunk_alias, and the access and virtual_offset fields.
+	(THUNK_VIRTUAL_OFFSET, THUNK_ALIAS): Adjust.
+	* decl.c (finish_case_label): Update c_add_case_node call.
+
+2004-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	Revert patch for PR c++/16623.
+
+2004-07-19  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* except.c: Remove two spurious carriage returns.
+
+2004-07-19  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16623
+	* cp-tree.h (lang_type_class): Add lazy_assignment_op.
+	(CLASSTYPE_LAZY_ASSIGNMENT_OP): New macro.
+	* class.c (add_implicitly_declared_members): Use
+	CLASSTYPE_LAZY_ASSIGNMENT_OP.
+	* method.c (lazily_declare_fn): Clear
+	CLASSTYPE_LAZY_ASSIGNMENT_OP.
+	* search.c (lookup_fnfields_1): Check it.
+
+2004-07-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* class.c (add_method): Delay adding the slot until the end.
+	(determine_primary_base): Adjust VEC_iterate invokation.
+	(resort_type_method_vec, finish_struct_methods, warn_hidden,
+	walk_subobject_offsets, end_of_class, warn_about_ambiguous_bases,
+	build_vtbl_initializer): Likewise.
+	* init.c (sort_mem_initializers, build_delete, push_base_cleanups,
+	build_vbase_delete): Likewise.
+	* method.c (do_build_copy_constructor): Likewise.
+	* name-lookup.c (new_class_binding, print_binding_level,
+	poplevel_class, store_class_bindings, push_to_top_level,
+	pop_from_top_level): Likewise.
+	* pt.c (check_explicit_specialization): Likewise.
+	* search.c (lookup_conversion_operator, lookup_fnfields_1,
+	get_pure_virtuals, add_conversions, dfs_check_overlap,
+	binfo_for_vbase): Likewise.
+
 2004-07-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
 
 	PR c++/12170
@@ -165,8 +551,8 @@
 	(copy_binfo): Declare.
 
 2004-07-15  Mark Mitchell  <mark@codesourcery.com>
-	
-	* name-lookup.c (set_inherited_value_binding_p): Add class_type 
+
+	* name-lookup.c (set_inherited_value_binding_p): Add class_type
 	parameter.
 	(get_class_binding): Adjust.
 	(push_class_level_binding): Don't use set_inherited_value_binding_p.
@@ -228,7 +614,7 @@
 	(dfs_push_type_decls): Remove.
 	(dfs_push_decls): Remove.
 	(push_class_decls): Remove.
-	
+
 2004-07-13  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/16518

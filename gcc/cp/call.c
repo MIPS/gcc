@@ -424,10 +424,13 @@ struct z_candidate {
      the `this' pointer must correspond to the most derived class
      indicated by the CONVERSION_PATH.  */
   tree conversion_path;
-  tree template;
+  tree template_decl;
   candidate_warning *warnings;
   z_candidate *next;
 };
+
+/* Returns true iff T is a null pointer constant in the sense of
+   [conv.ptr].  */
 
 bool
 null_ptr_cst_p (tree t)
@@ -436,12 +439,13 @@ null_ptr_cst_p (tree t)
 
      A null pointer constant is an integral constant expression
      (_expr.const_) rvalue of integer type that evaluates to zero.  */
+  if (DECL_INTEGRAL_CONSTANT_VAR_P (t))
+    t = decl_constant_value (t);
   if (t == null_node
       || (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)) && integer_zerop (t)))
     return true;
   return false;
 }
-
 
 /* Returns nonzero if PARMLIST consists of only default parms and/or
    ellipsis.  */
@@ -2262,9 +2266,9 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
        for this will point at template <class T> template <> S<T>::f(int),
        so that we can find the definition.  For the purposes of
        overload resolution, however, we want the original TMPL.  */
-    cand->template = tree_cons (tmpl, targs, NULL_TREE);
+    cand->template_decl = tree_cons (tmpl, targs, NULL_TREE);
   else
-    cand->template = DECL_TEMPLATE_INFO (fn);
+    cand->template_decl = DECL_TEMPLATE_INFO (fn);
 
   return cand;
 }
@@ -6023,9 +6027,9 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
      F1 is a non-template function and F2 is a template function
      specialization.  */
          
-  if (! cand1->template && cand2->template)
+  if (!cand1->template_decl && cand2->template_decl)
     return 1;
-  else if (cand1->template && ! cand2->template)
+  else if (cand1->template_decl && !cand2->template_decl)
     return -1;
   
   /* or, if not that,
@@ -6033,10 +6037,11 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
      more specialized than the template for F2 according to the partial
      ordering rules.  */
   
-  if (cand1->template && cand2->template)
+  if (cand1->template_decl && cand2->template_decl)
     {
       winner = more_specialized
-        (TI_TEMPLATE (cand1->template), TI_TEMPLATE (cand2->template),
+        (TI_TEMPLATE (cand1->template_decl),
+         TI_TEMPLATE (cand2->template_decl),
          DEDUCE_ORDER,
          /* Tell the deduction code how many real function arguments
 	    we saw, not counting the implicit 'this' argument.  But,

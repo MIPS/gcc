@@ -2265,9 +2265,13 @@ output_call_frame_info (int for_eh)
 					          (DECL_ASSEMBLER_NAME (fde->decl))),
 		     "FDE initial location");
 	  else
-	    dw2_asm_output_encoded_addr_rtx (fde_encoding,
-		     gen_rtx_SYMBOL_REF (Pmode, fde->dw_fde_begin),
-		     "FDE initial location");
+	    {
+	      rtx sym_ref = gen_rtx_SYMBOL_REF (Pmode, fde->dw_fde_begin);
+	      SYMBOL_REF_FLAGS (sym_ref) |= SYMBOL_FLAG_LOCAL;
+	      dw2_asm_output_encoded_addr_rtx (fde_encoding,
+					       sym_ref,
+					       "FDE initial location");
+	    }
 	  dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				fde->dw_fde_end, fde->dw_fde_begin,
 				"FDE address range");
@@ -9191,9 +9195,9 @@ loc_descriptor_from_tree (tree loc, int addressp)
         const enum tree_code code =
           TREE_CODE (loc) == MIN_EXPR ? GT_EXPR : LT_EXPR;
 
-        loc = build (COND_EXPR, TREE_TYPE (loc),
-                     build (code, integer_type_node,
-                            TREE_OPERAND (loc, 0), TREE_OPERAND (loc, 1)),
+        loc = build3 (COND_EXPR, TREE_TYPE (loc),
+		      build2 (code, integer_type_node,
+			      TREE_OPERAND (loc, 0), TREE_OPERAND (loc, 1)),
                      TREE_OPERAND (loc, 1), TREE_OPERAND (loc, 0));
       }
 
@@ -11891,16 +11895,15 @@ gen_member_die (tree type, dw_die_ref context_die)
      the TREE node representing the appropriate (containing) type.  */
 
   /* First output info about the base classes.  */
-  if (binfo && BINFO_BASE_BINFOS (binfo))
+  if (binfo)
     {
-      tree bases = BINFO_BASE_BINFOS (binfo);
-      tree accesses = BINFO_BASE_ACCESSES (binfo);
-      int n_bases = TREE_VEC_LENGTH (bases);
+      VEC (tree) *accesses = BINFO_BASE_ACCESSES (binfo);
       int i;
+      tree base;
 
-      for (i = 0; i < n_bases; i++)
-	gen_inheritance_die (TREE_VEC_ELT (bases, i),
-			     (accesses ? TREE_VEC_ELT (accesses, i)
+      for (i = 0; BINFO_BASE_ITERATE (binfo, i, base); i++)
+	gen_inheritance_die (base,
+			     (accesses ? VEC_index (tree, accesses, i)
 			      : access_public_node), context_die);
     }
 

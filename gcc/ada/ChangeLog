@@ -1,3 +1,222 @@
+2004-07-26  Arnaud Charlet  <charlet@act-europe.fr>
+
+	* sem_util.adb (Requires_Transient_Scope): Temporarily disable
+	optimization, not supported by the tree-ssa back-end.
+
+2004-07-26  Olivier Hainque  <hainque@act-europe.fr>
+
+	* s-mastop-irix.adb: Update comments.
+
+	* a-except.adb (Exception_Information): Raise Constraint_Error if
+	exception Id is Null_Id.
+	This is required behavior, which is more reliably and clearly checked
+	at the top level interface level.
+
+2004-07-26  Javier Miranda  <miranda@gnat.com>
+
+	* exp_aggr.adb (Build_Array_Aggr_Code): Do not build the initialization
+	call if a component has no default_expression and the box is used.
+
+	* sem_aggr.adb (Resolve_Array_Aggregate): If a component has no
+	default_expression and you use box, it behaves as if you had declared a
+	stand-alone object.
+	(Resolve_Record_Aggregate): If a component has no default_expression and
+	you use box, it behaves as if you had declared a stand-alone object.
+
+	* sem_ch10.adb (Install_Siblings): Do not make visible the private
+	entities of private-with siblings.
+
+2004-07-26  Ed Schonberg  <schonberg@gnat.com>
+
+	* sem_ch3.adb (Build_Underlying_Full_View): If this is the full view
+	for a component of an itype, set the parent pointer for analysis,
+	there is no list in which to insert it.
+
+	* sem_res.adb (Resolve): Call Rewrite_Renamed_Operator only for
+	bona-fide renamings, not for inherited operations.
+
+	* exp_ch4.adb (Expand_Allocator_Expression): If the allocator is an
+	actual for a formal that is an access parameter, create local
+	finalization list even if the expression is not an aggregate.
+
+2004-07-26  Ed Schonberg  <schonberg@gnat.com>
+
+	PR ada/16213
+	* sem_ch8.adb (Attribute_Renaming, Check_Library_Level_Renaming):
+	Diagnose properly illegal subprogram renamings that are library units.
+
+2004-07-26  Ed Schonberg  <schonberg@gnat.com>
+
+	PR ada/15588
+	* sem_util.adb (Is_OK_Variable_For_Out_Formal): If actual is a type
+	conversion rewritten as an unchecked conversion, check that original
+	expression is a variable.
+
+	* exp_ch4.adb (Expand_N_Type_Conversion): If rewriting as an
+	unchecked_conversion, create new node rather than rewriting in place,
+	to preserve original construct.
+
+2004-07-26  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* gigi.h (gnat_expand_body): Deleted.
+
+	* Make-lang.in: (trans.o): Depends on function.h.
+
+	* misc.c: (gnat_expand_body): Moved to here.
+
+	* trans.c (gnat_expand_body_1): Deleted.
+	(gnat_expand_body): Moved from here.
+	(gnat_to_gnu): N_Implicit_Label_Declaration forces being in elab proc.
+	(add_stmt): Check for marked visited with global_bindings_p.
+	(gnat_gimplify_expr, case COMPONENT_REF): New case.
+	(gnat_gimplify_expr, case NULL_EXPR): Set TREE_NO_WARNING for temp.
+
+	* utils2.c (build_binary_op, case MODIFY_EXPR): Put LHS in a
+	VIEW_CONVERT_EXPR if not operation type.
+
+	* utils.c (update_pointer_to): Set DECL_ORIGINAL_FIELD for
+	fat pointer.
+
+	* decl.c, cuintp.c, gigi.h, misc.c, trans.c, utils.c, utils2.c: Minor
+	changes: reformatting of negation operators, removing unneeded
+	inequality comparison with zero, converting equality comparisons with
+	zero to negations, changing int/0/1 to bool/false/true, replace calls
+	to gigi_abort with abort, and various other similar changes.
+
+2004-07-26  Vincent Celier  <celier@gnat.com>
+
+	* gnatcmd.adb (GNATCmd): Add processing for new built-in command
+	"setup".
+
+	* make.adb (Gnatmake): Fail when a library is not present and there is
+	no object directory.
+
+	* mlib-prj.adb (Check_Library): No need to check if the library needs
+	to be rebuilt if there is no object directory, hence no object files
+	to build the library.
+
+	* opt.ads (Setup_Projects): New Boolean flag.
+
+	* prj-nmsc.adb (Locate_Directory): New parameter Project, Kind and
+	Location.
+	Create directory when Kind /= "" and in "gnat setup". Report error if
+	directory cannot be created.
+	(Ada_Check): Create library interface copy dir if it does not exist
+	and we are in "gnat setup".
+	(Find_Sources): No error if in "gnat setup" and no Ada sources were
+	found.
+	(Language_Independent_Check): Create object directory, exec directory
+	and/or library directory if they do not exist and we are in
+	"gnat setup".
+
+	* vms_conv.ads: (Command_Type): New command Setup.
+
+	* vms_conv.adb (Initialize): Add Setup component of Cammand_List.
+
+	* vms_data.ads: Add qualifiers/switches for new built-in command
+	"setup".
+
+2004-07-25  Richard Henderson  <rth@redhat.com>
+
+	* utils.c (create_subprog_decl): Set DECL_ARTIFICIAL and
+	DECL_IGNORED_P on RESULT_DECL.
+
+2004-07-20  Olivier Hainque  <hainque@act-europe.fr>
+
+	* a-elchha.adb (Last_Chance_Handler): Remove the bogus buffer dynamic
+	allocation and potentially overflowing update with
+	Tailored_Exception_Information. Use the sec-stack free procedural
+	interface to output Exception_Information instead.
+
+	* a-except.adb (To_Stderr): New subprogram for character, and string
+	version moved from a-exextr to be visible from other separate units.
+	(Tailored_Exception_Information): Remove the procedural version,
+	previously used by the default Last_Chance_Handler and not any more.
+	Adjust various comments.
+
+	* a-exexda.adb: Generalize the exception information procedural
+	interface, to minimize the use of secondary stack and the need for
+	local buffers when the info is to be output to stderr:
+	(Address_Image): Removed.
+	(Append_Info_Character): New subprogram, checking for overflows and
+	outputing to stderr if buffer to fill is of length 0.
+	(Append_Info_String): Output to stderr if buffer to fill is of length 0.
+	(Append_Info_Address, Append_Info_Exception_Name,
+	Append_Info_Exception_Message, Append_Info_Basic_Exception_Information,
+	Append_Info_Basic_Exception_Traceback,
+	Append_Info_Exception_Information): New subprograms.
+	(Append_Info_Nat, Append_Info_NL): Use Append_Info_Character.
+	(Basic_Exception_Info_Maxlength, Basic_Exception_Tback_Maxlength,
+	Exception_Info_Maxlength, Exception_Name_Length,
+	Exception_Message_Length): New subprograms.
+	(Exception_Information): Use Append_Info_Exception_Information.
+	(Tailored_Exception_Information): Use
+	Append_Info_Basic_Exception_Information.
+	Export services for the default Last_Chance_Handler.
+
+	* a-exextr.adb (To_Stderr): Remove. Now in a-except to be usable by
+	other separate units.
+
+2004-07-20  Vincent Celier  <celier@gnat.com>
+
+	* clean.adb, mlib-utl.adb, osint.adb, makegpr.adb: Minor reformatting.
+
+2004-07-20  Ed Schonberg  <schonberg@gnat.com>
+
+	* freeze.adb (Freeze_Entity): If entity is a discriminated record type,
+	emit itype references for the designated types of component types that
+	are declared outside of the full record declaration, and that may
+	denote a partial view of that record type.
+
+2004-07-20  Ed Schonberg  <schonberg@gnat.com>
+
+	PR ada/15607
+	* sem_ch3.adb (Build_Discriminated_Subtype): Do not attach a subtype
+	which is the designated type in an access component declaration, to the
+	list of incomplete dependents of the parent type, to avoid elaboration
+	issues with out-of-scope subtypes.
+	(Complete_Private_Subtype): Recompute Has_Unknown_Discriminants from the
+	full view of the parent.
+
+2004-07-20  Ed Schonberg  <schonberg@gnat.com>
+
+	PR ada/15610
+	* sem_ch8.adb (Find_Expanded_Name): If name is overloaded, reject
+	entities that are hidden, such as references to generic actuals
+	outside an instance.
+
+2004-07-20  Javier Miranda  <miranda@gnat.com>
+
+	* sem_ch4.adb (Try_Object_Operation): New subprogram that gives
+	support to the new notation.
+	(Analyze_Selected_Component): Add call to Try_Object_Operation.
+
+2004-07-20  Jose Ruiz  <ruiz@act-europe.fr>
+
+	* s-taprob.adb: Adding the elaboration code required for initializing
+	the tasking soft links that are common to the full and the restricted
+	run times.
+
+	* s-tarest.adb (Init_RTS): Tasking soft links that are shared with the
+	restricted run time has been moved to the package
+	System.Soft_Links.Tasking.
+
+	* s-tasini.adb (Init_RTS): Tasking soft links that are shared with the
+	restricted run time has been moved to the package
+	System.Soft_Links.Tasking.
+
+	* Makefile.rtl: Add entry for s-solita.o in run-time library list.
+
+	* s-solita.ads, s-solita.adb: New files.
+
+2004-07-20  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* trans.c (Identifier_to_gnu, Pragma_to_gnu, Attribute_to_gnu,
+	Case_Statement_to_gnu): Split off from gnat_to_gnu.
+	(Loop_Statement_to_gnu, Subprogram_Body_to_gnu, call_to_gnu,
+	Handled_Sequence_Of_Statements_to_gnu, Exception_Handler_to_gnu_sjlj,
+	Exception_Handler_to_gnu_zcx): Likewise.
+
 2004-07-17  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* gigi.h (builtin_function): Declare.

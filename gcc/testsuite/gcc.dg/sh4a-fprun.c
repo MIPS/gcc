@@ -1,5 +1,5 @@
 /* Verify that fsca and fssra yield reasonable results.  */
-/* { dg-do run { target "sh*-*-*" } } */
+/* { do-do run { target "sh*-*-*" } } */
 /* { dg-options "-O -ffast-math" } */
 
 #include <math.h>

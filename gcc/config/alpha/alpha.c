@@ -151,7 +151,7 @@ static struct alpha_rtx_cost_data const alpha_rtx_cost_data[PROCESSOR_MAX] =
     COSTS_N_INSNS (23),		/* int_mult_di */
     COSTS_N_INSNS (2),		/* int_shift */
     COSTS_N_INSNS (2),		/* int_cmov */
-    COSTS_N_INSNS (70),		/* int_div */
+    COSTS_N_INSNS (97),		/* int_div */
   },
   { /* EV5 */
     COSTS_N_INSNS (4),		/* fp_add */
@@ -162,7 +162,7 @@ static struct alpha_rtx_cost_data const alpha_rtx_cost_data[PROCESSOR_MAX] =
     COSTS_N_INSNS (12),		/* int_mult_di */
     COSTS_N_INSNS (1) + 1,	/* int_shift */
     COSTS_N_INSNS (1),		/* int_cmov */
-    COSTS_N_INSNS (45),		/* int_div */
+    COSTS_N_INSNS (83),		/* int_div */
   },
   { /* EV6 */
     COSTS_N_INSNS (4),		/* fp_add */
@@ -173,7 +173,7 @@ static struct alpha_rtx_cost_data const alpha_rtx_cost_data[PROCESSOR_MAX] =
     COSTS_N_INSNS (7),		/* int_mult_di */
     COSTS_N_INSNS (1),		/* int_shift */
     COSTS_N_INSNS (2),		/* int_cmov */
-    COSTS_N_INSNS (25),		/* int_div */
+    COSTS_N_INSNS (86),		/* int_div */
   },
 };
 
@@ -2795,23 +2795,6 @@ alpha_expand_mov (enum machine_mode mode, rtx *operands)
   if (mode == Pmode && symbolic_operand (operands[1], mode))
     {
       rtx tmp;
-
-      /* With RTL inlining, at -O3, rtl is generated, stored, then actually
-	 compiled at the end of compilation.  In the meantime, someone can
-	 re-encode-section-info on some symbol changing it e.g. from global
-	 to local-not-small.  If this happens, we'd have emitted a plain
-	 load rather than a high+losum load and not recognize the insn.
-
-	 So if rtl inlining is in effect, we delay the global/not-global
-	 decision until rest_of_compilation by wrapping it in an
-	 UNSPEC_SYMBOL.  */
-      if (TARGET_EXPLICIT_RELOCS && flag_inline_functions
-	  && rtx_equal_function_value_matters
-	  && global_symbolic_operand (operands[1], mode))
-	{
-	  emit_insn (gen_movdi_er_maybe_g (operands[0], operands[1]));
-	  return true;
-	}
 
       tmp = alpha_legitimize_address (operands[1], operands[0], mode);
       if (tmp)
@@ -10152,8 +10135,6 @@ alpha_init_libfuncs (void)
 #define TARGET_SCHED_ADJUST_COST alpha_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE alpha_issue_rate
-#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
-#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE hook_int_void_1
 #undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
 #define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD \
   alpha_multipass_dfa_lookahead

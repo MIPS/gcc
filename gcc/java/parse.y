@@ -1585,7 +1585,8 @@ switch_statement:
 switch_expression:
 	SWITCH_TK OP_TK expression CP_TK
 		{
-		  $$ = build (SWITCH_EXPR, NULL_TREE, $3, NULL_TREE, NULL_TREE);
+		  $$ = build3 (SWITCH_EXPR, NULL_TREE, $3,
+			       NULL_TREE, NULL_TREE);
 		  EXPR_WFL_LINECOL ($$) = $2.location;
 		}
 |	SWITCH_TK error
@@ -1839,7 +1840,7 @@ assert_statement:
 synchronized_statement:
 	synchronized OP_TK expression CP_TK block
 		{
-		  $$ = build (SYNCHRONIZED_EXPR, NULL_TREE, $3, $5);
+		  $$ = build2 (SYNCHRONIZED_EXPR, NULL_TREE, $3, $5);
 		  EXPR_WFL_LINECOL ($$) =
 		    EXPR_WFL_LINECOL (MODIFIER_WFL (SYNCHRONIZED_TK));
 		}
@@ -1911,7 +1912,7 @@ catch_clause_parameter:
                       ccpb = enter_block ();
                       init = build_assignment
                         (ASSIGN_TK, $2.location, TREE_PURPOSE ($3),
-                         build (JAVA_EXC_OBJ_EXPR, ptr_type_node));
+                         build0 (JAVA_EXC_OBJ_EXPR, ptr_type_node));
                       declare_local_variables (0, TREE_VALUE ($3),
                                                build_tree_list 
 					       (TREE_PURPOSE ($3), init));
@@ -2124,8 +2125,8 @@ array_creation_expression:
 		    obstack_grow (&temporary_obstack, "[]", 2);
 		  obstack_1grow (&temporary_obstack, '\0');
 		  sig = obstack_finish (&temporary_obstack);
-		  $$ = build (NEW_ANONYMOUS_ARRAY_EXPR, NULL_TREE,
-			      $2, get_identifier (sig), $4);
+		  $$ = build3 (NEW_ANONYMOUS_ARRAY_EXPR, NULL_TREE,
+			       $2, get_identifier (sig), $4);
 		}
 |	NEW_TK primitive_type dims array_initializer
 		{
@@ -2133,8 +2134,8 @@ array_creation_expression:
 		  tree type = $2;
 		  while (osb--)
 		    type = build_java_array_type (type, -1);
-		  $$ = build (NEW_ANONYMOUS_ARRAY_EXPR, NULL_TREE,
-			      build_pointer_type (type), NULL_TREE, $4);
+		  $$ = build3 (NEW_ANONYMOUS_ARRAY_EXPR, NULL_TREE,
+			       build_pointer_type (type), NULL_TREE, $4);
 		}
 |	NEW_TK error CSB_TK
 		{yyerror ("'[' expected"); DRECOVER ("]");}
@@ -2581,7 +2582,7 @@ conditional_expression:		/* Error handling here is weak */
 	conditional_or_expression
 |	conditional_or_expression REL_QM_TK expression REL_CL_TK conditional_expression
 		{
-		  $$ = build (CONDITIONAL_EXPR, NULL_TREE, $1, $3, $5);
+		  $$ = build3 (CONDITIONAL_EXPR, NULL_TREE, $1, $3, $5);
 		  EXPR_WFL_LINECOL ($$) = $2.location;
 		}
 |	conditional_or_expression REL_QM_TK REL_CL_TK error
@@ -3879,16 +3880,24 @@ patch_anonymous_class (tree type_decl, tree class_decl, tree wfl)
   /* If it's an interface, implement it */
   if (CLASS_INTERFACE (type_decl))
     {
-      tree s_binfo;
-      int length;
-
       if (parser_check_super_interface (type_decl, class_decl, wfl))
 	return;
 
-      s_binfo = TREE_VEC_ELT (BINFO_BASE_BINFOS (TYPE_BINFO (class)), 0);
-      length = TREE_VEC_LENGTH (BINFO_BASE_BINFOS (TYPE_BINFO (class)))+1;
-      BINFO_BASE_BINFOS (TYPE_BINFO (class)) = make_tree_vec (length);
-      TREE_VEC_ELT (BINFO_BASE_BINFOS (TYPE_BINFO (class)), 0) = s_binfo;
+      if (VEC_space (tree, BINFO_BASE_BINFOS (binfo), 1))
+	{
+	   /* Extend the binfo - by reallocating and copying it. */
+	  tree new_binfo;
+	  tree base_binfo;
+	  int i;
+	  
+	  new_binfo = make_tree_binfo ((BINFO_N_BASE_BINFOS (binfo) + 1) * 2);
+	  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
+	    BINFO_BASE_APPEND (new_binfo, base_binfo);
+	  CLASS_HAS_SUPER_FLAG (new_binfo) = CLASS_HAS_SUPER_FLAG (binfo);
+	  BINFO_VTABLE (new_binfo) = BINFO_VTABLE (binfo);
+	  TYPE_BINFO (class) = new_binfo;
+	}
+      
       /* And add the interface */
       parser_add_interface (class_decl, type_decl, wfl);
     }
@@ -3897,7 +3906,7 @@ patch_anonymous_class (tree type_decl, tree class_decl, tree wfl)
     {
       if (parser_check_super (type_decl, class_decl, wfl))
 	return;
-      BINFO_TYPE (TREE_VEC_ELT (BINFO_BASE_BINFOS (binfo), 0)) = type;
+      BINFO_TYPE (BINFO_BASE_BINFO (binfo, 0)) = type;
     }
 }
 
@@ -5213,23 +5222,18 @@ register_incomplete_type (int kind, tree wfl, tree decl, tree ptr)
 static tree
 check_inner_circular_reference (tree source, tree target)
 {
-  tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (source));
+  tree base_binfo;
   tree ctx, cl;
   int i;
 
-  if (!basetype_vec)
-    return NULL_TREE;
-
-  for (i = 0; i < TREE_VEC_LENGTH (basetype_vec); i++)
+  for (i = 0; BINFO_BASE_ITERATE (TYPE_BINFO (source), i, base_binfo); i++)
     {
       tree su;
 
       /* We can end up with a NULL_TREE or an incomplete type here if
 	 we encountered previous type resolution errors. It's safe to
 	 simply ignore these cases.  */
-      if (TREE_VEC_ELT (basetype_vec, i) == NULL_TREE)
-	continue;
-      su = BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i));
+      su = BINFO_TYPE (base_binfo);
       if (INCOMPLETE_TYPE_P (su))
 	continue;
 
@@ -5259,10 +5263,10 @@ check_inner_circular_reference (tree source, tree target)
 static tree
 check_circular_reference (tree type)
 {
-  tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (type));
+  tree base_binfo;
   int i;
 
-  if (!basetype_vec)
+  if (!BINFO_N_BASE_BINFOS (TYPE_BINFO (type)))
     return NULL_TREE;
 
   if (! CLASS_INTERFACE (TYPE_NAME (type)))
@@ -5272,12 +5276,11 @@ check_circular_reference (tree type)
       return NULL_TREE;
     }
 
-  for (i = 0; i < TREE_VEC_LENGTH (basetype_vec); i++)
+  for (i = 0; BINFO_BASE_ITERATE (TYPE_BINFO (type), i, base_binfo); i++)
     {
-      tree vec_elt = TREE_VEC_ELT (basetype_vec, i);
-      if (vec_elt && BINFO_TYPE (vec_elt) != object_type_node
-	  && interface_of_p (type, BINFO_TYPE (vec_elt)))
-	return lookup_cl (TYPE_NAME (BINFO_TYPE (vec_elt)));
+      if (BINFO_TYPE (base_binfo) != object_type_node
+	  && interface_of_p (type, BINFO_TYPE (base_binfo)))
+	return lookup_cl (TYPE_NAME (BINFO_TYPE (base_binfo)));
     }
   return NULL_TREE;
 }
@@ -5569,8 +5572,9 @@ java_complete_class (void)
 	      /* Simply patch super */
 	      if (parser_check_super (decl, JDEP_DECL (dep), JDEP_WFL (dep)))
 		continue;
-	      BINFO_TYPE (TREE_VEC_ELT (BINFO_BASE_BINFOS (TYPE_BINFO
-	        (TREE_TYPE (JDEP_DECL (dep)))), 0)) = TREE_TYPE (decl);
+	      BINFO_TYPE (BINFO_BASE_BINFO
+			  (TYPE_BINFO (TREE_TYPE (JDEP_DECL (dep))), 0))
+		= TREE_TYPE (decl);
 	      break;
 
 	    case JDEP_FIELD:
@@ -6198,12 +6202,13 @@ check_abstract_method_definitions (int do_interface, tree class_decl,
     {
       /* Check for implemented interfaces. */
       int i;
-      tree vector = BINFO_BASE_BINFOS (TYPE_BINFO (type));
-      for (i = 1; ok && vector && i < TREE_VEC_LENGTH (vector); i++)
-	{
-	  tree super = BINFO_TYPE (TREE_VEC_ELT (vector, i));
-	  ok = check_abstract_method_definitions (1, class_decl, super);
-	}
+      tree base_binfo;
+      
+      for (i = 1;
+	   ok && BINFO_BASE_ITERATE (TYPE_BINFO (type), i, base_binfo);
+	   i++)
+	ok = check_abstract_method_definitions (1, class_decl,
+						BINFO_TYPE (base_binfo));
     }
 
   return ok;
@@ -6216,7 +6221,7 @@ static void
 java_check_abstract_method_definitions (tree class_decl)
 {
   tree class = TREE_TYPE (class_decl);
-  tree super, vector;
+  tree super, base_binfo;
   int i;
 
   if (CLASS_ABSTRACT (class_decl))
@@ -6230,12 +6235,8 @@ java_check_abstract_method_definitions (tree class_decl)
   } while (super != object_type_node);
 
   /* Check for implemented interfaces. */
-  vector = BINFO_BASE_BINFOS (TYPE_BINFO (class));
-  for (i = 1; i < TREE_VEC_LENGTH (vector); i++)
-    {
-      super = BINFO_TYPE (TREE_VEC_ELT (vector, i));
-      check_abstract_method_definitions (1, class_decl, super);
-    }
+  for (i = 1; BINFO_BASE_ITERATE (TYPE_BINFO (class), i, base_binfo); i++)
+    check_abstract_method_definitions (1, class_decl, BINFO_TYPE (base_binfo));
 }
 
 /* Check all the types method DECL uses and return 1 if all of them
@@ -6493,8 +6494,6 @@ check_interface_throws_clauses (tree check_class_decl, tree class_decl)
 {
   for (; class_decl != NULL_TREE; class_decl = CLASSTYPE_SUPER (class_decl))
     {
-      tree bases;
-      int iface_len;
       int i;
 
       if (! CLASS_LOADED_P (class_decl))
@@ -6505,11 +6504,10 @@ check_interface_throws_clauses (tree check_class_decl, tree class_decl)
 	    load_class (class_decl, 1);
 	}
 
-      bases = BINFO_BASE_BINFOS (TYPE_BINFO (class_decl));
-      iface_len = TREE_VEC_LENGTH (bases) - 1;
-      for (i = iface_len; i > 0; --i)
+      for (i = BINFO_N_BASE_BINFOS (TYPE_BINFO (class_decl)) - 1; i > 0; --i)
 	{
-	  tree interface = BINFO_TYPE (TREE_VEC_ELT (bases, i));
+	  tree interface
+	    = BINFO_TYPE (BINFO_BASE_BINFO (TYPE_BINFO (class_decl), i));
 	  tree iface_method;
 
 	  for (iface_method = TYPE_METHODS (interface);
@@ -6609,9 +6607,10 @@ check_throws_clauses (tree method, tree method_wfl, tree found)
 static void
 java_check_abstract_methods (tree interface_decl)
 {
-  int i, n;
-  tree method, basetype_vec, found;
+  int i;
+  tree method, found;
   tree interface = TREE_TYPE (interface_decl);
+  tree base_binfo;
 
   for (method = TYPE_METHODS (interface); method; method = TREE_CHAIN (method))
     {
@@ -6637,16 +6636,11 @@ java_check_abstract_methods (tree interface_decl)
     }
 
   /* 4- Inherited methods can't differ by their returned types */
-  if (!(basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (interface))))
-    return;
-  n = TREE_VEC_LENGTH (basetype_vec);
-  for (i = 0; i < n; i++)
+  for (i = 0; BINFO_BASE_ITERATE (TYPE_BINFO (interface), i, base_binfo); i++)
     {
       tree sub_interface_method, sub_interface;
-      tree vec_elt = TREE_VEC_ELT (basetype_vec, i);
-      if (!vec_elt)
-	continue;
-      sub_interface = BINFO_TYPE (vec_elt);
+
+      sub_interface = BINFO_TYPE (base_binfo);
       for (sub_interface_method = TYPE_METHODS (sub_interface);
 	   sub_interface_method;
 	   sub_interface_method = TREE_CHAIN (sub_interface_method))
@@ -6676,26 +6670,21 @@ java_check_abstract_methods (tree interface_decl)
 static tree
 lookup_java_interface_method2 (tree class, tree method_decl)
 {
-  int i, n;
-  tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (class));
+  int i;
+  tree base_binfo;
   tree to_return;
 
-  if (!basetype_vec)
-    return NULL_TREE;
-
-  n = TREE_VEC_LENGTH (basetype_vec);
-  for (i = 0; i < n; i++)
+  for (i = 0; BINFO_BASE_ITERATE (TYPE_BINFO (class), i, base_binfo); i++)
     {
-      tree vec_elt = TREE_VEC_ELT (basetype_vec, i), to_return;
-      if ((BINFO_TYPE (vec_elt) != object_type_node)
+      if ((BINFO_TYPE (base_binfo) != object_type_node)
 	  && (to_return =
-	      lookup_java_method2 (BINFO_TYPE (vec_elt), method_decl, 1)))
+	      lookup_java_method2 (BINFO_TYPE (base_binfo), method_decl, 1)))
 	return to_return;
     }
-  for (i = 0; i < n; i++)
+  for (i = 0; BINFO_BASE_ITERATE (TYPE_BINFO (class), i, base_binfo); i++)
     {
       to_return = lookup_java_interface_method2
-	(BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i)), method_decl);
+	(BINFO_TYPE (base_binfo), method_decl);
       if (to_return)
 	return to_return;
     }
@@ -6913,7 +6902,7 @@ read_import_dir (tree wfl)
 	  buffer_grow (filename, entry_length);
 	  memcpy (filename->data, entry_name, entry_length - 1);
 	  filename->data[entry_length-1] = '\0';
-	  zipf = opendir_in_zip (filename->data, jcf_path_is_system (entry));
+	  zipf = opendir_in_zip ((const char *) filename->data, jcf_path_is_system (entry));
 	  if (zipf == NULL)
 	    error ("malformed .zip archive in CLASSPATH: %s", entry_name);
 	  else
@@ -6933,7 +6922,7 @@ read_import_dir (tree wfl)
 		  int current_entry_len = zipd->filename_length;
 
 		  if (current_entry_len >= BUFFER_LENGTH (filename)
-		      && strncmp (filename->data, current_entry,
+		      && strncmp ((const char *) filename->data, current_entry,
 				  BUFFER_LENGTH (filename)) != 0)
 		    continue;
 		  found |= note_possible_classname (current_entry,
@@ -6945,7 +6934,7 @@ read_import_dir (tree wfl)
 	{
 	  BUFFER_RESET (filename);
 	  buffer_grow (filename, entry_length + package_length + 4);
-	  strcpy (filename->data, entry_name);
+	  strcpy ((char *) filename->data, entry_name);
 	  filename->ptr = filename->data + entry_length;
 	  for (k = 0; k < package_length; k++)
 	    {
@@ -6954,7 +6943,7 @@ read_import_dir (tree wfl)
 	    }
 	  *filename->ptr = '\0';
 
-	  dirp = opendir (filename->data);
+	  dirp = opendir ((const char *) filename->data);
 	  if (dirp == NULL)
 	    continue;
 	  *filename->ptr++ = '/';
@@ -6968,8 +6957,8 @@ read_import_dir (tree wfl)
 	      d_name = direntp->d_name;
 	      len = strlen (direntp->d_name);
 	      buffer_grow (filename, len+1);
-	      strcpy (filename->ptr, d_name);
-	      found |= note_possible_classname (filename->data + entry_length,
+	      strcpy ((char *) filename->ptr, d_name);
+	      found |= note_possible_classname ((const char *) filename->data + entry_length,
 						package_length+len+1);
 	    }
 	  if (dirp)
@@ -9216,7 +9205,7 @@ static tree
 make_qualified_name (tree left, tree right, int location)
 {
 #ifdef USE_COMPONENT_REF
-  tree node = build (COMPONENT_REF, NULL_TREE, left, right, NULL_TREE);
+  tree node = build3 (COMPONENT_REF, NULL_TREE, left, right, NULL_TREE);
   EXPR_WFL_LINECOL (node) = location;
   return node;
 #else
@@ -9603,8 +9592,8 @@ resolve_qualified_expression_name (tree wfl, tree *found_decl,
 	     forcoming function's argument. */
 	  if (previous_call_static && is_static)
 	    {
-	      decl = build (COMPOUND_EXPR, TREE_TYPE (*where_found),
-			    decl, *where_found);
+	      decl = build2 (COMPOUND_EXPR, TREE_TYPE (*where_found),
+			     decl, *where_found);
 	      TREE_SIDE_EFFECTS (decl) = 1;
 	    }
 	  else
@@ -10607,8 +10596,8 @@ patch_method_invocation (tree patch, tree primary, tree where, int from_super,
 	 initialization statement and build a compound statement along
 	 with the super constructor invocation. */
       CAN_COMPLETE_NORMALLY (patch) = 1;
-      patch = build (COMPOUND_EXPR, void_type_node, patch,
-		     java_complete_tree (finit_call));
+      patch = build2 (COMPOUND_EXPR, void_type_node, patch,
+		      java_complete_tree (finit_call));
     }
   return patch;
 }
@@ -10809,16 +10798,16 @@ patch_invoke (tree patch, tree method, tree args)
       alloc_node =
 	(class_has_finalize_method (class) ? alloc_object_node
 		  			   : alloc_no_finalizer_node);
-      new = build (CALL_EXPR, promote_type (class),
-		     build_address_of (alloc_node),
-		     build_tree_list (NULL_TREE, build_class_ref (class)),
-		     NULL_TREE);
+      new = build3 (CALL_EXPR, promote_type (class),
+		    build_address_of (alloc_node),
+		    build_tree_list (NULL_TREE, build_class_ref (class)),
+		    NULL_TREE);
       saved_new = save_expr (new);
       c1 = build_tree_list (NULL_TREE, saved_new);
       TREE_CHAIN (c1) = TREE_OPERAND (original_call, 1);
       TREE_OPERAND (original_call, 1) = c1;
       TREE_SET_CODE (original_call, CALL_EXPR);
-      patch = build (COMPOUND_EXPR, TREE_TYPE (new), patch, saved_new);
+      patch = build2 (COMPOUND_EXPR, TREE_TYPE (new), patch, saved_new);
     }
 
   /* If CHECK is set, then we are building a check to see if the object
@@ -10828,8 +10817,8 @@ patch_invoke (tree patch, tree method, tree args)
       /* We have to call force_evaluation_order now because creating a
  	 COMPOUND_EXPR wraps the arg list in a way that makes it
  	 unrecognizable by force_evaluation_order later.  Yuk.  */
-      patch = build (COMPOUND_EXPR, TREE_TYPE (patch), check, 
- 		     force_evaluation_order (patch));
+      patch = build2 (COMPOUND_EXPR, TREE_TYPE (patch), check, 
+		      force_evaluation_order (patch));
       TREE_SIDE_EFFECTS (patch) = 1;
     }
 
@@ -10851,13 +10840,13 @@ patch_invoke (tree patch, tree method, tree args)
       tree save = force_evaluation_order (patch);
       tree type = TREE_TYPE (patch);
 
-      patch = build (COMPOUND_EXPR, type, save, build_java_empty_stmt ());
+      patch = build2 (COMPOUND_EXPR, type, save, build_java_empty_stmt ());
       list = tree_cons (method, patch,
 			DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND (fndecl));
 
       DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND (fndecl) = list;
 
-      patch = build (COMPOUND_EXPR, type, patch, save);
+      patch = build2 (COMPOUND_EXPR, type, patch, save);
     }
 
   return patch;
@@ -10984,6 +10973,8 @@ find_applicable_accessible_methods_list (int lc, tree class, tree name,
   static htab_t searched_classes;
   static int search_not_done = 0;
   tree list = NULL_TREE, all_list = NULL_TREE;
+  tree base_binfo;
+  int i;
 
   /* Check the hash table to determine if this class has been searched
      already. */
@@ -11011,16 +11002,13 @@ find_applicable_accessible_methods_list (int lc, tree class, tree name,
   if (TREE_CODE (TYPE_NAME (class)) == TYPE_DECL
       && CLASS_INTERFACE (TYPE_NAME (class)))
     {
-      int i, n;
-      tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (class));
       search_applicable_methods_list (lc, TYPE_METHODS (class),
 				      name, arglist, &list, &all_list);
-      n = TREE_VEC_LENGTH (basetype_vec);
-      for (i = 1; i < n; i++)
+      for (i = 1; BINFO_BASE_ITERATE (TYPE_BINFO (class), i, base_binfo); i++)
 	{
-	  tree t = BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i));
+	  tree t = BINFO_TYPE (base_binfo);
 	  tree rlist;
-
+	  
 	  rlist = find_applicable_accessible_methods_list (lc,  t, name,
 							   arglist);
 	  list = chainon (rlist, list);
@@ -11044,21 +11032,20 @@ find_applicable_accessible_methods_list (int lc, tree class, tree name,
 
       /* We must search all interfaces of this class */
       if (!lc)
-      {
-	tree basetype_vec = BINFO_BASE_BINFOS (TYPE_BINFO (class));
-	int n = TREE_VEC_LENGTH (basetype_vec), i;
-	for (i = 1; i < n; i++)
-	  {
-	    tree t = BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i));
-	    if (t != object_type_node)
-	      {
-		tree rlist
-		  = find_applicable_accessible_methods_list (lc, t,
-							     name, arglist);
-		list = chainon (rlist, list);
-	      }
-	  }
-      }
+	{
+	  for (i = 1;
+	       BINFO_BASE_ITERATE (TYPE_BINFO (class), i, base_binfo); i++)
+	    {
+	      tree t = BINFO_TYPE (base_binfo);
+	      if (t != object_type_node)
+		{
+		  tree rlist
+		    = find_applicable_accessible_methods_list (lc, t,
+							       name, arglist);
+		  list = chainon (rlist, list);
+		}
+	    }
+	}
 
       /* Search superclass */
       if (!lc && CLASSTYPE_SUPER (class) != NULL_TREE)
@@ -12331,11 +12318,13 @@ build_super_invocation (tree mdecl)
   else
     {
       tree super_wfl = build_wfl_node (super_identifier_node);
+      tree a = NULL_TREE, t;
+
       /* This is called after parsing is done, so the parser context
          won't be accurate. Set location info from current_class decl. */
       tree class_wfl = lookup_cl (TYPE_NAME (current_class));
       EXPR_WFL_LINECOL (super_wfl) = EXPR_WFL_LINECOL (class_wfl);
-      tree a = NULL_TREE, t;
+
       /* If we're dealing with an anonymous class, pass the arguments
          of the crafted constructor along. */
       if (ANONYMOUS_CLASS_P (DECL_CONTEXT (mdecl)))
@@ -12367,7 +12356,7 @@ build_this_super_qualified_invocation (int use_this, tree name, tree args,
 static tree
 build_method_invocation (tree name, tree args)
 {
-  tree call = build (CALL_EXPR, NULL_TREE, name, args, NULL_TREE);
+  tree call = build3 (CALL_EXPR, NULL_TREE, name, args, NULL_TREE);
   TREE_SIDE_EFFECTS (call) = 1;
   EXPR_WFL_LINECOL (call) = EXPR_WFL_LINECOL (name);
   return call;
@@ -12378,7 +12367,7 @@ build_method_invocation (tree name, tree args)
 static tree
 build_new_invocation (tree name, tree args)
 {
-  tree call = build (NEW_CLASS_EXPR, NULL_TREE, name, args, NULL_TREE);
+  tree call = build3 (NEW_CLASS_EXPR, NULL_TREE, name, args, NULL_TREE);
   TREE_SIDE_EFFECTS (call) = 1;
   EXPR_WFL_LINECOL (call) = EXPR_WFL_LINECOL (name);
   return call;
@@ -12398,7 +12387,7 @@ build_assignment (int op, int op_location, tree lhs, tree rhs)
       rhs = build_binop (BINOP_LOOKUP (op), op_location, lhs, rhs);
       COMPOUND_ASSIGN_P (rhs) = 1;
     }
-  assignment = build (MODIFY_EXPR, NULL_TREE, lhs, rhs);
+  assignment = build2 (MODIFY_EXPR, NULL_TREE, lhs, rhs);
   TREE_SIDE_EFFECTS (assignment) = 1;
   EXPR_WFL_LINECOL (assignment) = op_location;
   return assignment;
@@ -12652,8 +12641,8 @@ patch_assignment (tree node, tree wfl_op1)
         base = lvalue;
 
       index_expr = TREE_OPERAND (base, 1);
-      TREE_OPERAND (base, 1) = build (COMPOUND_EXPR, TREE_TYPE (index_expr),
-	  			      store_check, index_expr);
+      TREE_OPERAND (base, 1) = build2 (COMPOUND_EXPR, TREE_TYPE (index_expr),
+				       store_check, index_expr);
     }
 
   /* Final locals can be used as case values in switch
@@ -12694,7 +12683,7 @@ patch_assignment (tree node, tree wfl_op1)
 				   TREE_TYPE (new_rhs));
 	    tree block = make_node (BLOCK);
 	    tree assignment 
-	      = build (MODIFY_EXPR, TREE_TYPE (new_rhs), tmp, fold (new_rhs));
+	      = build2 (MODIFY_EXPR, TREE_TYPE (new_rhs), tmp, fold (new_rhs));
 	    DECL_CONTEXT (tmp) = current_function_decl;
 	    TREE_TYPE (block) = TREE_TYPE (new_rhs);
 	    BLOCK_VARS (block) = tmp;
@@ -13017,7 +13006,7 @@ valid_method_invocation_conversion_p (tree dest, tree source)
 static tree
 build_binop (enum tree_code op, int op_location, tree op1, tree op2)
 {
-  tree binop = build (op, NULL_TREE, op1, op2);
+  tree binop = build2 (op, NULL_TREE, op1, op2);
   TREE_SIDE_EFFECTS (binop) = 1;
   /* Store the location of the operator, for better error report. The
      string of the operator will be rebuild based on the OP value. */
@@ -13332,11 +13321,11 @@ patch_binop (tree node, tree wfl_op1, tree wfl_op2)
 
       /* Shift int only up to 0x1f and long up to 0x3f */
       if (prom_type == int_type_node)
-	op2 = fold (build (BIT_AND_EXPR, int_type_node, op2,
-			   build_int_2 (0x1f, 0)));
+	op2 = fold (build2 (BIT_AND_EXPR, int_type_node, op2,
+			    build_int_2 (0x1f, 0)));
       else
-	op2 = fold (build (BIT_AND_EXPR, int_type_node, op2,
-			   build_int_2 (0x3f, 0)));
+	op2 = fold (build2 (BIT_AND_EXPR, int_type_node, op2,
+			    build_int_2 (0x3f, 0)));
 
       /* The >>> operator is a >> operating on unsigned quantities */
       if (code == URSHIFT_EXPR && ! flag_emit_class_files)
@@ -13709,7 +13698,7 @@ build_string_concatenation (tree op1, tree op2)
   int side_effects = TREE_SIDE_EFFECTS (op1) | TREE_SIDE_EFFECTS (op2);
 
   if (flag_emit_xref)
-    return build (PLUS_EXPR, string_type_node, op1, op2);
+    return build2 (PLUS_EXPR, string_type_node, op1, op2);
 
   /* Try to do some static optimization */
   if ((result = string_constant_concatenation (op1, op2)))
@@ -13855,8 +13844,8 @@ build_incdec (int op_token, int op_location, tree op1, int is_post_p)
       { PREDECREMENT_EXPR, PREINCREMENT_EXPR, },
       { POSTDECREMENT_EXPR, POSTINCREMENT_EXPR, },
     };
-  tree node = build (lookup [is_post_p][(op_token - DECR_TK)],
-		     NULL_TREE, op1, NULL_TREE);
+  tree node = build2 (lookup [is_post_p][(op_token - DECR_TK)],
+		      NULL_TREE, op1, NULL_TREE);
   TREE_SIDE_EFFECTS (node) = 1;
   /* Store the location of the operator, for better error report. The
      string of the operator will be rebuild based on the OP value. */
@@ -14046,8 +14035,8 @@ patch_unaryop (tree node, tree wfl_op)
 	  if (outer_field_flag)
 	    {
 	      /* We re-generate an access to the field */
-	      value = build (PLUS_EXPR, TREE_TYPE (op),
-			     build_outer_field_access (wfl_op, decl), value);
+	      value = build2 (PLUS_EXPR, TREE_TYPE (op),
+			      build_outer_field_access (wfl_op, decl), value);
 
 	      /* And we patch the original access$() into a write
                  with plus_op as a rhs */
@@ -14242,11 +14231,11 @@ patch_cast (tree node, tree wfl_op)
 	}
 
       /* The cast requires a run-time check */
-      return build (CALL_EXPR, promote_type (cast_type),
-		    build_address_of (soft_checkcast_node),
-		    tree_cons (NULL_TREE, build_class_ref (cast_type),
-			       build_tree_list (NULL_TREE, op)),
-		    NULL_TREE);
+      return build3 (CALL_EXPR, promote_type (cast_type),
+		     build_address_of (soft_checkcast_node),
+		     tree_cons (NULL_TREE, build_class_ref (cast_type),
+				build_tree_list (NULL_TREE, op)),
+		     NULL_TREE);
     }
 
   /* Any other casts are proven incorrect at compile time */
@@ -14272,7 +14261,8 @@ build_null_of_type (tree type)
 static tree
 build_array_ref (int location, tree array, tree index)
 {
-  tree node = build (ARRAY_REF, NULL_TREE, array, index, NULL_TREE, NULL_TREE);
+  tree node = build4 (ARRAY_REF, NULL_TREE, array, index,
+		      NULL_TREE, NULL_TREE);
   EXPR_WFL_LINECOL (node) = location;
   return node;
 }
@@ -14342,9 +14332,8 @@ patch_array_ref (tree node)
 static tree
 build_newarray_node (tree type, tree dims, int extra_dims)
 {
-  tree node =
-    build (NEW_ARRAY_EXPR, NULL_TREE, type, nreverse (dims),
-	   build_int_2 (extra_dims, 0));
+  tree node = build3 (NEW_ARRAY_EXPR, NULL_TREE, type,
+		      nreverse (dims), build_int_2 (extra_dims, 0));
   return node;
 }
 
@@ -14438,12 +14427,13 @@ patch_newarray (tree node)
 
   /* Can't reuse what's already written in expr.c because it uses the
      JVM stack representation. Provide a build_multianewarray. FIXME */
-  return build (CALL_EXPR, array_type,
-		build_address_of (soft_multianewarray_node),
-		tree_cons (NULL_TREE, build_class_ref (TREE_TYPE (array_type)),
-			   tree_cons (NULL_TREE,
-				      build_int_2 (ndims, 0), dims )),
-		NULL_TREE);
+  return build3 (CALL_EXPR, array_type,
+		 build_address_of (soft_multianewarray_node),
+		 tree_cons (NULL_TREE,
+			    build_class_ref (TREE_TYPE (array_type)),
+			    tree_cons (NULL_TREE,
+				       build_int_2 (ndims, 0), dims )),
+		 NULL_TREE);
 }
 
 /* 10.6 Array initializer.  */
@@ -14679,7 +14669,7 @@ patch_return (tree node)
       if ((patched = patch_string (exp)))
 	exp = patched;
 
-      modify = build (MODIFY_EXPR, NULL_TREE, DECL_RESULT (meth), exp);
+      modify = build2 (MODIFY_EXPR, NULL_TREE, DECL_RESULT (meth), exp);
       EXPR_WFL_LINECOL (modify) = EXPR_WFL_LINECOL (node);
       modify = java_complete_tree (modify);
 
@@ -14705,7 +14695,7 @@ build_if_else_statement (int location, tree expression, tree if_body,
   tree node;
   if (!else_body)
     else_body = build_java_empty_stmt ();
-  node = build (COND_EXPR, NULL_TREE, expression, if_body, else_body);
+  node = build3 (COND_EXPR, NULL_TREE, expression, if_body, else_body);
   EXPR_WFL_LINECOL (node) = location;
   node = build_debugable_stmt (location, node);
   return node;
@@ -14773,7 +14763,7 @@ build_labeled_block (int location, tree label)
     }
 
   label_decl = create_label_decl (label_name);
-  node = build (LABELED_BLOCK_EXPR, NULL_TREE, label_decl, NULL_TREE);
+  node = build2 (LABELED_BLOCK_EXPR, NULL_TREE, label_decl, NULL_TREE);
   EXPR_WFL_LINECOL (node) = location;
   TREE_SIDE_EFFECTS (node) = 1;
   return node;
@@ -14800,7 +14790,7 @@ finish_labeled_statement (tree lbe, /* Labeled block expr */
 static tree
 build_new_loop (tree loop_body)
 {
-  tree loop =  build (LOOP_EXPR, NULL_TREE, loop_body);
+  tree loop = build1 (LOOP_EXPR, NULL_TREE, loop_body);
   TREE_SIDE_EFFECTS (loop) = 1;
   PUSH_LOOP (loop);
   return loop;
@@ -14831,7 +14821,7 @@ build_loop_body (int location, tree condition, int reversed)
 {
   tree first, second, body;
 
-  condition = build (EXIT_EXPR, NULL_TREE, condition); /* Force walk */
+  condition = build1 (EXIT_EXPR, NULL_TREE, condition); /* Force walk */
   EXPR_WFL_LINECOL (condition) = location; /* For accurate error report */
   condition = build_debugable_stmt (location, condition);
   TREE_SIDE_EFFECTS (condition) = 1;
@@ -14839,10 +14829,9 @@ build_loop_body (int location, tree condition, int reversed)
   body = build_labeled_block (0, continue_identifier_node);
   first = (reversed ? body : condition);
   second = (reversed ? condition : body);
-  return
-    build (COMPOUND_EXPR, NULL_TREE,
-	   build (COMPOUND_EXPR, NULL_TREE, first, second),
-		  build_java_empty_stmt ());
+  return build2 (COMPOUND_EXPR, NULL_TREE,
+		 build2 (COMPOUND_EXPR, NULL_TREE, first, second),
+		 build_java_empty_stmt ());
 }
 
 /* Install CONDITION (if any) and loop BODY (using REVERSED to tell
@@ -14990,8 +14979,8 @@ build_bc_statement (int location, int is_break, tree name)
     }
   /* Unlabeled break/continue will be handled during the
      break/continue patch operation */
-  break_continue
-    = build (EXIT_BLOCK_EXPR, NULL_TREE, label_block_expr, NULL_TREE);
+  break_continue = build2 (EXIT_BLOCK_EXPR, NULL_TREE,
+			   label_block_expr, NULL_TREE);
 
   IS_BREAK_STMT_P (break_continue) = is_break;
   TREE_SIDE_EFFECTS (break_continue) = 1;
@@ -15198,8 +15187,8 @@ build_assertion (int location, tree condition, tree value)
 
   if (! enable_assertions (klass))
     {
-      condition = build (TRUTH_ANDIF_EXPR, NULL_TREE,
-			 boolean_false_node, condition);
+      condition = build2 (TRUTH_ANDIF_EXPR, NULL_TREE,
+			  boolean_false_node, condition);
       if (value == NULL_TREE)
 	value = build_java_empty_stmt ();
       return build_if_else_statement (location, condition,
@@ -15222,7 +15211,7 @@ build_assertion (int location, tree condition, tree value)
 
       /* Call CLASS.desiredAssertionStatus().  */
       id = build_wfl_node (get_identifier ("desiredAssertionStatus"));
-      call = build (CALL_EXPR, NULL_TREE, id, NULL_TREE, NULL_TREE);
+      call = build3 (CALL_EXPR, NULL_TREE, id, NULL_TREE, NULL_TREE);
       call = make_qualified_primary (classdollar, call, location);
       TREE_SIDE_EFFECTS (call) = 1;
 
@@ -15234,7 +15223,7 @@ build_assertion (int location, tree condition, tree value)
       DECL_INITIAL (field) = call;
 
       /* Record the initializer in the initializer statement list.  */
-      call = build (MODIFY_EXPR, NULL_TREE, field, call);
+      call = build2 (MODIFY_EXPR, NULL_TREE, field, call);
       TREE_CHAIN (call) = CPC_STATIC_INITIALIZER_STMT (ctxp);
       SET_CPC_STATIC_INITIALIZER_STMT (ctxp, call);
       MODIFY_EXPR_FROM_INITIALIZATION_P (call) = 1;
@@ -15251,7 +15240,7 @@ build_assertion (int location, tree condition, tree value)
   node = make_qualified_name (node, build_wfl_node (get_identifier ("AssertionError")),
 			      location);
 
-  node = build (NEW_CLASS_EXPR, NULL_TREE, node, value, NULL_TREE);
+  node = build3 (NEW_CLASS_EXPR, NULL_TREE, node, value, NULL_TREE);
   TREE_SIDE_EFFECTS (node) = 1;
   /* It is too early to use BUILD_THROW.  */
   node = build1 (THROW_EXPR, NULL_TREE, node);
@@ -15262,10 +15251,10 @@ build_assertion (int location, tree condition, tree value)
   condition = build1 (TRUTH_NOT_EXPR, NULL_TREE, condition);
   /* Check $assertionsDisabled.  */
   condition
-    = build (TRUTH_ANDIF_EXPR, NULL_TREE,
-	     build1 (TRUTH_NOT_EXPR, NULL_TREE,
-		     build_wfl_node (get_identifier ("$assertionsDisabled"))),
-	     condition);
+    = build2 (TRUTH_ANDIF_EXPR, NULL_TREE,
+	      build1 (TRUTH_NOT_EXPR, NULL_TREE,
+		      build_wfl_node (get_identifier ("$assertionsDisabled"))),
+	      condition);
   node = build_if_else_statement (location, condition, node, NULL_TREE);
   return node;
 }
@@ -15303,8 +15292,8 @@ encapsulate_with_try_catch (int location, tree type_or_name, tree try_stmts,
   catch_block = build_expr_block (NULL_TREE, catch_clause_param);
 
   /* Initialize the variable and store in the block */
-  catch = build (MODIFY_EXPR, NULL_TREE, catch_clause_param,
-		 build (JAVA_EXC_OBJ_EXPR, ptr_type_node));
+  catch = build2 (MODIFY_EXPR, NULL_TREE, catch_clause_param,
+		  build0 (JAVA_EXC_OBJ_EXPR, ptr_type_node));
   add_stmt_to_block (catch_block, NULL_TREE, catch);
 
   /* Add the catch statements */
@@ -15319,7 +15308,7 @@ encapsulate_with_try_catch (int location, tree type_or_name, tree try_stmts,
 static tree
 build_try_statement (int location, tree try_block, tree catches)
 {
-  tree node = build (TRY_EXPR, NULL_TREE, try_block, catches);
+  tree node = build2 (TRY_EXPR, NULL_TREE, try_block, catches);
   EXPR_WFL_LINECOL (node) = location;
   return node;
 }
@@ -15327,7 +15316,7 @@ build_try_statement (int location, tree try_block, tree catches)
 static tree
 build_try_finally_statement (int location, tree try_block, tree finally)
 {
-  tree node = build (TRY_FINALLY_EXPR, NULL_TREE, try_block, finally);
+  tree node = build2 (TRY_FINALLY_EXPR, NULL_TREE, try_block, finally);
   EXPR_WFL_LINECOL (node) = location;
   return node;
 }
@@ -15500,11 +15489,11 @@ patch_synchronized_statement (tree node, tree wfl_op1)
   BUILD_MONITOR_EXIT (exit, expr_decl);
   CAN_COMPLETE_NORMALLY (enter) = 1;
   CAN_COMPLETE_NORMALLY (exit) = 1;
-  assignment = build (MODIFY_EXPR, NULL_TREE, expr_decl, expr);
+  assignment = build2 (MODIFY_EXPR, NULL_TREE, expr_decl, expr);
   TREE_SIDE_EFFECTS (assignment) = 1;
-  node = build (COMPOUND_EXPR, NULL_TREE,
-		build (COMPOUND_EXPR, NULL_TREE, assignment, enter),
-		build (TRY_FINALLY_EXPR, NULL_TREE, block, exit));
+  node = build2 (COMPOUND_EXPR, NULL_TREE,
+		 build2 (COMPOUND_EXPR, NULL_TREE, assignment, enter),
+		 build2 (TRY_FINALLY_EXPR, NULL_TREE, block, exit));
   node = build_expr_block (node, expr_decl);
 
   return java_complete_tree (node);
@@ -16109,7 +16098,7 @@ emit_test_initialization (void **entry_p, void *info)
 
   /* Now simply augment the compound that holds all the assignments
      pertaining to this method invocation. */
-  init = build (MODIFY_EXPR, boolean_type_node, decl, boolean_true_node);
+  init = build2 (MODIFY_EXPR, boolean_type_node, decl, boolean_true_node);
   TREE_SIDE_EFFECTS (init) = 1;
   TREE_VALUE (l) = add_stmt_to_compound (TREE_VALUE (l), void_type_node, init);
   TREE_SIDE_EFFECTS (TREE_VALUE (l)) = 1;

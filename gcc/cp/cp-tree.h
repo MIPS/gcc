@@ -48,7 +48,7 @@ struct diagnostic_context;
       STATEMENT_LIST_NO_SCOPE (in STATEMENT_LIST).
       EXPR_STMT_STMT_EXPR_RESULT (in EXPR_STMT)
       BIND_EXPR_TRY_BLOCK (in BIND_EXPR)
-   1: IDENTIFIER_VIRTUAL_P.
+   1: IDENTIFIER_VIRTUAL_P (in IDENTIFIER_NODE)
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
       DELETE_EXPR_USE_VEC (in DELETE_EXPR).
@@ -56,7 +56,7 @@ struct diagnostic_context;
       TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (in _TYPE).
       ICS_ELLIPSIS_FLAG (in _CONV)
       DECL_INITIALIZED_P (in VAR_DECL)
-   2: IDENTIFIER_OPNAME_P.
+   2: IDENTIFIER_OPNAME_P (in IDENTIFIER_NODE)
       TYPE_POLYMORPHIC_P (in _TYPE)
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
@@ -70,9 +70,10 @@ struct diagnostic_context;
    4: TREE_HAS_CONSTRUCTOR (in INDIRECT_REF, SAVE_EXPR, CONSTRUCTOR,
           or FIELD_DECL).
       IDENTIFIER_TYPENAME_P (in IDENTIFIER_NODE)
+      DECL_TINFO_P (in VAR_DECL)
    5: C_IS_RESERVED_WORD (in IDENTIFIER_NODE)
       DECL_VTABLE_OR_VTT_P (in VAR_DECL)
-   6: For future expansion
+   6: IDENTIFIER_REPO_CHOSEN (in IDENTIFIER_NODE)
 
    Usage of TYPE_LANG_FLAG_?:
    0: TYPE_DEPENDENT_P
@@ -183,14 +184,23 @@ struct lang_identifier GTY(())
 #define LANG_IDENTIFIER_CAST(NODE) \
 	((struct lang_identifier*)IDENTIFIER_NODE_CHECK (NODE))
 
-typedef struct template_parm_index_s GTY(())
+struct template_parm_index_s GTY(())
 {
   struct tree_common common;
   HOST_WIDE_INT index;
   HOST_WIDE_INT level;
   HOST_WIDE_INT orig_level;
   tree decl;
-} template_parm_index;
+};
+typedef struct template_parm_index_s template_parm_index;
+
+struct tinst_level_s GTY(())
+{
+  struct tree_common common;
+  tree decl;
+  location_t locus;
+};
+typedef struct tinst_level_s * tinst_level_t;
 
 struct ptrmem_cst GTY(())
 {
@@ -366,6 +376,12 @@ typedef enum cp_id_kind
 #define IDENTIFIER_CTOR_OR_DTOR_P(NODE) \
   TREE_LANG_FLAG_3 (NODE)
 
+/* True iff NAME is the DECL_ASSEMBLER_NAME for an entity with vague
+   linkage which the prelinker has assigned to this translation
+   unit.  */
+#define IDENTIFIER_REPO_CHOSEN(NAME) \
+  (TREE_LANG_FLAG_6 (NAME))
+
 /* In a RECORD_TYPE or UNION_TYPE, nonzero if any component is read-only.  */
 #define C_TYPE_FIELDS_READONLY(TYPE) \
   (LANG_TYPE_CLASS_CHECK (TYPE)->fields_readonly)
@@ -385,6 +401,7 @@ enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,
   TS_CP_TPI,
+  TS_CP_TINST_LEVEL,
   TS_CP_PTRMEM,
   TS_CP_BINDING,
   TS_CP_OVERLOAD,
@@ -401,6 +418,7 @@ union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)"),
   union tree_node GTY ((tag ("TS_CP_GENERIC"),
 			desc ("tree_node_structure (&%h)"))) generic;
   struct template_parm_index_s GTY ((tag ("TS_CP_TPI"))) tpi;
+  struct tinst_level_s GTY ((tag ("TS_CP_TINST_LEVEL"))) tinst_level;
   struct ptrmem_cst GTY ((tag ("TS_CP_PTRMEM"))) ptrmem;
   struct tree_overload GTY ((tag ("TS_CP_OVERLOAD"))) overload;
   struct tree_baselink GTY ((tag ("TS_CP_BASELINK"))) baselink;
@@ -920,7 +938,21 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define PUBLICLY_UNIQUELY_DERIVED_P(PARENT, TYPE) \
   (lookup_base ((TYPE), (PARENT),  ba_not_special | ba_quiet, NULL) \
    != NULL_TREE)
-
+
+/* Gives the visibility specification for a class type.  */
+#define CLASSTYPE_VISIBILITY(TYPE)		\
+	DECL_VISIBILITY (TYPE_NAME (TYPE))
+#define CLASSTYPE_VISIBILITY_SPECIFIED(TYPE)	\
+	DECL_VISIBILITY_SPECIFIED (TYPE_NAME (TYPE))
+
+typedef struct tree_pair_s GTY (())
+{
+  tree purpose;
+  tree value;
+} tree_pair_s;
+typedef tree_pair_s *tree_pair_p;
+DEF_VEC_O (tree_pair_s);
+
 /* This is a few header flags for 'struct lang_type'.  Actually,
    all but the first are used only for lang_type_class; they
    are put in this structure to save space.  */
@@ -936,8 +968,6 @@ struct lang_type_header GTY(())
   BOOL_BITFIELD ref_needs_init : 1;
   BOOL_BITFIELD has_const_assign_ref : 1;
 };
-
-DEF_VEC_P (tree);
 
 /* This structure provides additional information above and beyond
    what is provide in the ordinary tree_type.  In the past, we used it
@@ -989,6 +1019,7 @@ struct lang_type_class GTY(())
 
   unsigned lazy_default_ctor : 1;
   unsigned lazy_copy_ctor : 1;
+  unsigned lazy_assignment_op : 1;
   unsigned has_const_init_ref : 1;
   unsigned has_complex_init_ref : 1;
   unsigned has_complex_assign_ref : 1;
@@ -1002,11 +1033,10 @@ struct lang_type_class GTY(())
   /* There are some bits left to fill out a 32-bit word.  Keep track
      of this by updating the size of this bitfield whenever you add or
      remove a flag.  */
-  unsigned dummy : 9;
+  unsigned dummy : 8;
 
   tree primary_base;
-  tree vfields;
-  tree vcall_indices;
+  VEC (tree_pair_s) *vcall_indices;
   tree vtables;
   tree typeinfo_var;
   VEC (tree) *vbases;
@@ -1096,6 +1126,11 @@ struct lang_type GTY(())
    but that it has not yet been declared.  */
 #define CLASSTYPE_LAZY_COPY_CTOR(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->lazy_copy_ctor)
+
+/* Nonzero means that NODE (a class type) has an assignment operator
+   -- but that it has not yet been declared.  */
+#define CLASSTYPE_LAZY_ASSIGNMENT_OP(NODE) \
+  (LANG_TYPE_CLASS_CHECK (NODE)->lazy_assignment_op)
 
 /* Nonzero means that this _CLASSTYPE node overloads operator=(X&).  */
 #define TYPE_HAS_ASSIGN_REF(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->has_assign_ref)
@@ -1388,32 +1423,13 @@ struct lang_type GTY(())
 #define SET_BINFO_NEW_VTABLE_MARKED(B)					 \
   (BINFO_NEW_VTABLE_MARKED (B) = 1,					 \
    my_friendly_assert (!BINFO_PRIMARY_P (B)				 \
-		       || BINFO_VIRTUAL_P (B), 20000517),			 \
-   my_friendly_assert (CLASSTYPE_VFIELDS (BINFO_TYPE (B)) != NULL_TREE,  \
-		       20000517))
+		       || BINFO_VIRTUAL_P (B), 20000517),		 \
+   my_friendly_assert (TYPE_VFIELD (BINFO_TYPE (B)), 20000517))
 
 /* Nonzero if this BINFO is a primary base class.  */
 
 #define BINFO_PRIMARY_P(NODE) \
   (BINFO_PRIMARY_BASE_OF (NODE) != NULL_TREE)
-
-/* The index in the VTT where this subobject's sub-VTT can be found.
-   NULL_TREE if there is no sub-VTT.  */
-#define BINFO_SUBVTT_INDEX(NODE) BINFO_LANG_SLOT(NODE, 0)
-
-/* The index in the VTT where the vptr for this subobject can be
-   found.  NULL_TREE if there is no secondary vptr in the VTT.  */
-#define BINFO_VPTR_INDEX(NODE) BINFO_LANG_SLOT(NODE, 1)
-
-/* The binfo of which NODE is a primary base.  (This is different from
-   BINFO_INHERITANCE_CHAIN for virtual base because a virtual base is
-   sometimes a primary base for a class for which it is not an
-   immediate base.)  */
-#define BINFO_PRIMARY_BASE_OF(NODE) BINFO_LANG_SLOT(NODE, 2)
-
-/* C++ binfos have 3 additional entries.  */
-
-#define BINFO_LANG_SLOTS (3)
 
 /* Nonzero if this binfo is for a dependent base - one that should not
    be searched.  */
@@ -1432,11 +1448,11 @@ struct lang_type GTY(())
 /* Used by various search routines.  */
 #define IDENTIFIER_MARKED(NODE) TREE_LANG_FLAG_0 (NODE)
 
-/* A TREE_LIST of the vcall indices associated with the class NODE.
-   The TREE_PURPOSE of each node is a FUNCTION_DECL for a virtual
-   function.  The TREE_VALUE is the index into the virtual table where
-   the vcall offset for that function is stored, when NODE is a
-   virtual base.  */
+/* A VEC(tree_pair_s) of the vcall indices associated with the class
+   NODE.  The PURPOSE of each element is a FUNCTION_DECL for a virtual
+   function.  The VALUE is the index into the virtual table where the
+   vcall offset for that function is stored, when NODE is a virtual
+   base.  */
 #define CLASSTYPE_VCALL_INDICES(NODE) \
   (LANG_TYPE_CLASS_CHECK (NODE)->vcall_indices)
 
@@ -1452,15 +1468,6 @@ struct lang_type GTY(())
   (LANG_TYPE_CLASS_CHECK (NODE)->typeinfo_var)
 
 /* Accessor macros for the vfield slots in structures.  */
-
-/* List of virtual table fields that this type contains (both the primary
-   and secondaries). The TREE_VALUE is the class type where the vtable
-   field was introduced. For a vtable field inherited from the primary
-   base, or introduced by this class, the TREE_PURPOSE is NULL. For
-   other vtable fields (those from non-primary bases), the
-   TREE_PURPOSE is the BINFO of the base through which the vtable was
-   inherited.  */
-#define CLASSTYPE_VFIELDS(NODE) (LANG_TYPE_CLASS_CHECK (NODE)->vfields)
 
 /* Get the BINFO that introduced this vtable into the hierarchy (will
    be NULL for those created at this level, or from a primary
@@ -1515,7 +1522,11 @@ struct lang_type GTY(())
 
 struct lang_decl_flags GTY(())
 {
-  ENUM_BITFIELD(languages) language : 8;
+  ENUM_BITFIELD(languages) language : 4;
+  unsigned global_ctor_p : 1;
+  unsigned global_dtor_p : 1;
+  unsigned anticipated_p : 1;
+  unsigned template_conv_p : 1;
 
   unsigned operator_attr : 1;
   unsigned constructor_attr : 1;
@@ -1534,39 +1545,33 @@ struct lang_decl_flags GTY(())
   unsigned initialized_in_class : 1;
   unsigned assignment_operator_p : 1;
 
-  unsigned global_ctor_p : 1;
-  unsigned global_dtor_p : 1;
-  unsigned anticipated_p : 1;
-  unsigned template_conv_p : 1;
   unsigned u1sel : 1;
   unsigned u2sel : 1;
   unsigned can_be_full : 1;
   unsigned this_thunk_p : 1;
+  unsigned repo_available_p : 1;
+  unsigned dummy : 3;
 
   union lang_decl_u {
-    /* In a FUNCTION_DECL for which DECL_THUNK_P does not hold,
+    /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
+       THUNK_ALIAS.
+       In a FUNCTION_DECL for which DECL_THUNK_P does not hold,
        VAR_DECL, TYPE_DECL, or TEMPLATE_DECL, this is
        DECL_TEMPLATE_INFO.  */
     tree GTY ((tag ("0"))) template_info;
 
     /* In a NAMESPACE_DECL, this is NAMESPACE_LEVEL.  */
     struct cp_binding_level * GTY ((tag ("1"))) level;
-
-    /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
-       THUNK_ALIAS.  */
-    tree GTY ((tag ("2"))) thunk_alias;
   } GTY ((desc ("%1.u1sel"))) u;
 
   union lang_decl_u2 {
-    /* This is DECL_ACCESS.  */
+    /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
+       THUNK_VIRTUAL_OFFSET.
+       Otherwise this is DECL_ACCESS.  */
     tree GTY ((tag ("0"))) access;
 
     /* For VAR_DECL in function, this is DECL_DISCRIMINATOR.  */
     int GTY ((tag ("1"))) discriminator;
-
-    /* In a FUNCTION_DECL for which DECL_THUNK_P holds, this is
-       THUNK_VIRTUAL_OFFSET.  */
-    tree GTY((tag ("2"))) virtual_offset;
   } GTY ((desc ("%1.u2sel"))) u2;
 };
 
@@ -1634,19 +1639,6 @@ struct lang_decl GTY(())
   (&DECL_LANG_SPECIFIC (NODE)->decl_flags.u2)
 
 #endif /* ENABLE_TREE_CHECKING */
-
-/* DECL_NEEDED_P holds of a declaration when we need to emit its
-   definition.  This is true when the back-end tells us that
-   the symbol has been referenced in the generated code.  If, however,
-   we are not generating code, then it is also true when a symbol has
-   just been used somewhere, even if it's not really needed.  We need
-   anything that isn't comdat, but we don't know for sure whether or
-   not something is comdat until end-of-file.  */
-#define DECL_NEEDED_P(DECL)					\
-  ((at_eof && TREE_PUBLIC (DECL) && !DECL_COMDAT (DECL))	\
-   || (DECL_ASSEMBLER_NAME_SET_P (DECL)				\
-       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL)))	\
-   || (((flag_syntax_only || flag_unit_at_a_time) && TREE_USED (DECL))))
 
 /* For a FUNCTION_DECL or a VAR_DECL, the language linkage for the
    declaration.  Some entities (like a member function in a local
@@ -1734,6 +1726,21 @@ struct lang_decl GTY(())
 #define DECL_CLONED_FUNCTION(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->u.f.cloned_function)
 
+/* Perform an action for each clone of FN, if FN is a function with
+   clones.  This macro should be used like:
+   
+      FOR_EACH_CLONE (clone, fn)
+        { ... }
+
+  */
+#define FOR_EACH_CLONE(CLONE, FN)			\
+  if (TREE_CODE (FN) == FUNCTION_DECL			\
+      && (DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (FN)	\
+	  || DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (FN)))	\
+     for (CLONE = TREE_CHAIN (FN);			\
+	  CLONE && DECL_CLONED_FUNCTION_P (CLONE);	\
+	  CLONE = TREE_CHAIN (CLONE))
+
 /* Nonzero if NODE has DECL_DISCRIMINATOR and not DECL_ACCESS.  */
 #define DECL_DISCRIMINATOR_P(NODE)	\
   (TREE_CODE (NODE) == VAR_DECL		\
@@ -1813,6 +1820,23 @@ struct lang_decl GTY(())
    constant-expression.  */
 #define DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P(NODE) \
   (TREE_LANG_FLAG_2 (VAR_DECL_CHECK (NODE)))
+
+/* Nonzero for a VAR_DECL that can be used in an integral constant
+   expression.    
+
+      [expr.const]
+
+      An integral constant-expression can only involve ... const
+      variables of static or enumeration types initialized with
+      constant expressions ...
+  
+   The standard does not require that the expression be non-volatile.
+   G++ implements the proposed correction in DR 457.  */
+#define DECL_INTEGRAL_CONSTANT_VAR_P(NODE)		\
+  (TREE_CODE (NODE) == VAR_DECL				\
+   && CP_TYPE_CONST_NON_VOLATILE_P (TREE_TYPE (NODE))	\
+   && INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (NODE))	\
+   && DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (NODE))
 
 /* Nonzero if the DECL was initialized in the class definition itself,
    rather than outside the class.  This is used for both static member
@@ -1925,6 +1949,11 @@ struct lang_decl GTY(())
    DECL_LANG_SPECIFIC (NODE)->u.f.u3sel = 1,			\
    DECL_LANG_SPECIFIC (NODE)->decl_flags.this_thunk_p = (THIS_ADJUSTING))
 
+/* True iff DECL is an entity with vague linkage whose definition is
+   available in this translation unit.  */
+#define DECL_REPO_AVAILABLE_P(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->decl_flags.repo_available_p)
+
 /* Nonzero if this DECL is the __PRETTY_FUNCTION__ variable in a
    template function.  */
 #define DECL_PRETTY_FUNCTION_P(NODE) \
@@ -1968,6 +1997,10 @@ struct lang_decl GTY(())
 #define DECL_FUNCTION_SCOPE_P(NODE) \
   (DECL_CONTEXT (NODE) \
    && TREE_CODE (DECL_CONTEXT (NODE)) == FUNCTION_DECL)
+
+/* 1 iff VAR_DECL node NODE is a type-info decl.  This flag is set for
+   both the primary typeinfo object and the associated NTBS name.  */
+#define DECL_TINFO_P(NODE) TREE_LANG_FLAG_4 (VAR_DECL_CHECK (NODE))
 
 /* 1 iff VAR_DECL node NODE is virtual table or VTT.  */
 #define DECL_VTABLE_OR_VTT_P(NODE) TREE_LANG_FLAG_5 (VAR_DECL_CHECK (NODE))
@@ -2466,8 +2499,8 @@ struct lang_decl GTY(())
   do {									\
     if (TYPE_LANG_SPECIFIC (NODE) == NULL)				\
       {									\
-	TYPE_LANG_SPECIFIC (NODE) = 					\
-	  ggc_alloc_cleared (sizeof (struct lang_type_ptrmem));		\
+	TYPE_LANG_SPECIFIC (NODE) = GGC_CNEWVAR                         \
+         (struct lang_type, sizeof (struct lang_type_ptrmem));	\
 	TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.h.is_lang_type_class = 0;	\
       }									\
     TYPE_LANG_SPECIFIC (NODE)->u.ptrmem.record = (VALUE);		\
@@ -2827,11 +2860,11 @@ struct lang_decl GTY(())
    binfos.)  */
 
 #define THUNK_VIRTUAL_OFFSET(DECL) \
-  (LANG_DECL_U2_CHECK (FUNCTION_DECL_CHECK (DECL), 0)->virtual_offset)
+  (LANG_DECL_U2_CHECK (FUNCTION_DECL_CHECK (DECL), 0)->access)
 
 /* A thunk which is equivalent to another thunk.  */
 #define THUNK_ALIAS(DECL) \
-  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.u.thunk_alias)
+  (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.u.template_info)
 
 /* For thunk NODE, this is the FUNCTION_DECL thunked to.  */
 #define THUNK_TARGET(NODE)				\
@@ -3037,7 +3070,10 @@ typedef enum unification_kind_t {
 
 /* Macros for operating on a template instantiation level node.  */
 
-#define TINST_DECL(NODE) TREE_OPERAND (NODE, 0)
+#define TINST_DECL(NODE) \
+  (((tinst_level_t) TINST_LEVEL_CHECK (NODE))->decl)
+#define TINST_LOCATION(NODE) \
+  (((tinst_level_t) TINST_LEVEL_CHECK (NODE))->locus)
 
 /* in class.c */
 
@@ -3644,6 +3680,7 @@ extern tree get_primary_binfo                   (tree);
 extern void debug_class				(tree);
 extern void debug_thunks 			(tree);
 extern tree cp_fold_obj_type_ref		(tree, tree);
+extern void set_linkage_according_to_type       (tree, tree);
 
 /* in cvt.c */
 extern tree convert_to_reference (tree, tree, int, int, tree);
@@ -3759,8 +3796,10 @@ extern tree declare_global_var                  (tree, tree);
 extern void register_dtor_fn                    (tree);
 extern tmpl_spec_kind current_tmpl_spec_kind    (int);
 extern tree cp_fname_init			(const char *, tree *);
-extern tree builtin_function (const char *, tree, int, enum built_in_class,
-			      const char *, tree);
+extern tree builtin_function (const char *name, tree type,
+			      int code,
+			      enum built_in_class cl,
+			      const char *libname, tree attrs);
 extern tree check_elaborated_type_specifier     (enum tag_types, tree, bool);
 extern void warn_extern_redeclared_static (tree, tree);
 extern bool cp_missing_noreturn_ok_p		(tree);
@@ -3786,9 +3825,7 @@ extern tree finish_table (tree, tree, tree, int);
 extern tree coerce_new_type (tree);
 extern tree coerce_delete_type (tree);
 extern void comdat_linkage (tree);
-extern void import_export_vtable (tree, tree, int);
 extern void import_export_decl (tree);
-extern void import_export_tinfo	(tree, tree, bool);
 extern tree build_cleanup			(tree);
 extern tree build_offset_ref_call_from_tree     (tree, tree);
 extern void check_default_args (tree);
@@ -3800,6 +3837,9 @@ extern tree get_guard (tree);
 extern tree get_guard_cond (tree);
 extern tree set_guard (tree);
 extern tree cxx_callgraph_analyze_expr (tree *, int *, tree);
+extern void mark_needed (tree);
+extern bool decl_needed_p (tree);
+extern void note_vague_linkage_fn (tree);
 
 /* XXX Not i18n clean.  */
 #define cp_deprecated(STR)						\
@@ -3972,9 +4012,9 @@ extern bool reregister_specialization           (tree, tree, tree);
 extern tree fold_non_dependent_expr             (tree);
 
 /* in repo.c */
-extern void repo_template_used (tree);
-extern void repo_template_instantiated (tree, bool);
-extern void init_repo (const char *);
+extern void init_repo (void);
+extern int repo_emit_p (tree);
+extern bool repo_export_class_p (tree);
 extern void finish_repo (void);
 
 /* in rtti.c */
@@ -4185,19 +4225,19 @@ extern tree array_type_nelts_total		(tree);
 extern tree array_type_nelts_top		(tree);
 extern tree break_out_target_exprs		(tree);
 extern tree get_type_decl			(tree);
-extern tree vec_binfo_member			(tree, tree);
 extern tree decl_namespace_context		(tree);
 extern tree lvalue_type				(tree);
 extern tree error_type				(tree);
 extern int varargs_function_p			(tree);
 extern int really_overloaded_fn			(tree);
 extern bool cp_tree_equal			(tree, tree);
-extern tree no_linkage_check			(tree);
+extern tree no_linkage_check			(tree, bool);
 extern void debug_binfo				(tree);
 extern tree build_dummy_object			(tree);
 extern tree maybe_dummy_object			(tree, tree *);
 extern int is_dummy_object			(tree);
 extern const struct attribute_spec cxx_attribute_table[];
+extern tree make_tinst_level                    (tree, location_t);
 extern tree make_ptrmem_cst                     (tree, tree);
 extern tree cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_qualified_type_real        (tree, int, tsubst_flags_t);

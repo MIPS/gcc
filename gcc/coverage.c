@@ -292,14 +292,12 @@ read_counts_file (void)
 	}
       gcov_sync (offset, length);
       if ((is_error = gcov_is_error ()))
-	break;
-    }
-
-  if (!gcov_is_eof ())
-    {
-      error (is_error < 0 ? "`%s' has overflowed" : "`%s' is corrupted",
-	     da_file_name);
-      htab_delete (counts_hash);
+	{
+	  error (is_error < 0 ? "`%s' has overflowed" : "`%s' is corrupted",
+		 da_file_name);
+	  htab_delete (counts_hash);
+	  break;
+	}
     }
 
   gcov_close ();
@@ -435,11 +433,11 @@ tree_coverage_counter_ref (unsigned counter, unsigned no)
   no += prg_n_ctrs[counter] + fn_b_ctrs[counter];
 
   /* "no" here is an array index, scaled to bytes later.  */
-  return build (ARRAY_REF, GCOV_TYPE_NODE, tree_ctr_tables[counter],
-		fold_convert (domain_type, build_int_2 (no, 0)),
-		TYPE_MIN_VALUE (domain_type),
-		size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (GCOV_TYPE_NODE),
-			    size_int (TYPE_ALIGN (GCOV_TYPE_NODE))));
+  return build4 (ARRAY_REF, GCOV_TYPE_NODE, tree_ctr_tables[counter],
+		 fold_convert (domain_type, build_int_2 (no, 0)),
+		 TYPE_MIN_VALUE (domain_type),
+		 size_binop (EXACT_DIV_EXPR, TYPE_SIZE_UNIT (GCOV_TYPE_NODE),
+			     size_int (TYPE_ALIGN (GCOV_TYPE_NODE))));
 }
 
 /* Generate a checksum for a string.  CHKSUM is the current
