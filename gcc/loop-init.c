@@ -84,8 +84,14 @@ loop_optimizer_init (FILE *dumpfile)
 void
 loop_optimizer_finalize (struct loops *loops, FILE *dumpfile)
 {
+  unsigned i;
+
   if (!loops)
     return;
+
+  for (i = 1; i < loops->num; i++)
+    if (loops->parray[i])
+      free_simple_loop_desc (loops->parray[i]);
 
   /* Another dump.  */
   flow_loops_dump (loops, dumpfile, NULL, 1);

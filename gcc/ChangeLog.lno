@@ -1,3 +1,18 @@
+2004-02-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-doloop.c (doloop_optimize): Use get_simple_loop_desc.
+	* loop-init.c (loop_optimizer_finalize): Free the simple loop
+	descriptions.
+	* loop-unroll.c (unroll_and_peel_loops): Do not free the simple loop
+	descriptions.
+	(decide_peel_once_rolling, decide_peel_completely,
+	decide_unroll_stupid): Test assumptions.
+	decide_unroll_constant_iterations, decide_unroll_runtime_iterations,
+	decide_peel_simple, peel_loop_simple, unroll_loop_stupid): Update
+	number of iterations info.
+	(unroll_loop_constant_iterations, unroll_loop_runtime_iterations,
+	(loop_exit_at_end_p): Use get_simple_loop_desc.
+
 2004-02-08  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloop.h (struct niter_desc): Add first_special, extend,

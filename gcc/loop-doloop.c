@@ -374,8 +374,8 @@ doloop_optimize (struct loop *loop)
   rtx iterations_max;
   rtx start_label;
   rtx condition;
-  unsigned level;
-  struct niter_desc desc;
+  unsigned level, est_niter;
+  struct niter_desc *desc;
 
   if (rtl_dump_file)
     fprintf (rtl_dump_file, "Doloop: Processing loop %d.\n", loop->num);
@@ -392,35 +392,44 @@ doloop_optimize (struct loop *loop)
   iv_analysis_loop_init (loop);
 
   /* Find the simple exit of a LOOP.  */
-  find_simple_exit (loop, &desc);
+  desc = get_simple_loop_desc (loop);
 
   /* Check that loop is a candidate for a low-overhead looping insn.  */
-  if (!doloop_valid_p (loop, &desc))
+  if (!doloop_valid_p (loop, desc))
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file,
 		 "Doloop: The loop is not suitable.\n");
       return false;
     }
-  mode = desc.mode;
+  mode = desc->mode;
 
-  if (desc.const_iter && desc.niter < 3)
+  est_niter = 3;
+  if (desc->const_iter)
+    est_niter = desc->niter;
+  /* If the estimate on number of iterations is reliable (comes from profile
+     feedback), use it.  Do not use it normally, since the expected number
+     of iterations of unrolled loop is 2.  */
+  if (loop->header->count)
+    est_niter = expected_loop_iterations (loop);
+
+  if (est_niter < 3)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file,
-		 "Doloop: Too few iterations (%ld) to be profitable.\n",
-		 (long int) desc.niter);
+		 "Doloop: Too few iterations (%u) to be profitable.\n",
+		 est_niter);
       return false;
     }
 
-  iterations = desc.const_iter ? desc.niter_expr : const0_rtx;
-  iterations_max = GEN_INT (desc.niter_max);
+  iterations = desc->const_iter ? desc->niter_expr : const0_rtx;
+  iterations_max = GEN_INT (desc->niter_max);
   level = get_loop_level (loop) + 1;
 
   /* Generate looping insn.  If the pattern FAILs then give up trying
      to modify the loop since there is some aspect the back-end does
      not like.  */
-  start_label = block_label (desc.in_edge->dest);
+  start_label = block_label (desc->in_edge->dest);
   doloop_reg = gen_reg_rtx (mode);
   doloop_seq = gen_doloop_end (doloop_reg, iterations, iterations_max,
 			       GEN_INT (level), start_label);
@@ -461,7 +470,7 @@ doloop_optimize (struct loop *loop)
       return false;
     }
 
-  doloop_modify (loop, &desc, doloop_seq, condition);
+  doloop_modify (loop, desc, doloop_seq, condition);
   return true;
 }
 
