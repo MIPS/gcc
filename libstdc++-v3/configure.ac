@@ -44,7 +44,16 @@ if test "$build" != "$host"; then
   GLIBCXX_IS_NATIVE=false
   GCC_NO_EXECUTABLES
 else
-  GLIBCXX_IS_NATIVE=true
+  # APPLE LOCAL begin 64-bit
+  case "$target" in
+    powerpc-apple-darwin8*)
+      GLIBCXX_IS_NATIVE=false
+      cross_compiling=yes
+      ;;
+    *)
+      GLIBCXX_IS_NATIVE=true ;;
+  esac
+  # APPLE LOCAL end 64-bit
 fi
 
 # Sets up automake.  Must come after AC_CANONICAL_SYSTEM.  Each of the
