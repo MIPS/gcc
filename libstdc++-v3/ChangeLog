@@ -1,3 +1,81 @@
+2003-04-18  Loren J. Rittle  <ljrittle@acm.org>
+
+	* config/os/bsd/freebsd/ctype_inline.h:  Support _M_table
+	when so installed.
+
+	* docs/html/17_intro/porting.texi (_GLIBCPP_USE_C99_CHECK): New macro.
+	(_GLIBCPP_USE_C99_DYNAMIC): New macro.
+	(_GLIBCPP_USE_C99_LONG_LONG_CHECK): New macro.
+	(_GLIBCPP_USE_C99_LONG_LONG_DYNAMIC): New macro.
+	* config/os/bsd/freebsd/os_defines.h (_GLIBCPP_USE_C99_CHECK):
+	New macro.
+	(_GLIBCPP_USE_C99_DYNAMIC): New macro.
+	(_GLIBCPP_USE_C99_LONG_LONG_CHECK): New macro.
+	(_GLIBCPP_USE_C99_LONG_LONG_DYNAMIC): New macro.
+	* include/c_std/std_cstdlib.h: Use new macros.
+	* include/c_std/std_cstdio.h: Use new macros.
+	* include/c_std/std_cwchar.h: Use new macros.
+
+2003-04-17  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/9555
+	* include/bits/ostream.tcc: Catch all exceptions for formatted
+	output, instead of std::exception and derivatives.
+	* include/bits/istream.tcc: Same.
+
+2003-04-17  Andreas Tobler  <toa@pop.agri.ch>
+            Benjamin Kosnik  <bkoz@redhat.com>
+ 
+        * config/os/generic/ctype_inline.h: Fix.
+ 
+2003-04-17  Andreas Tobler  <toa@pop.agri.ch>
+ 	    
+	* configure.target (_cpu_incdir_fullpath): Solaris 2.9 uses
+	solaris includes, not generic.
+
+2003-04-15  Benjamin Kosnik  <bkoz@redhat.com>
+            Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9423
+	* docs/html/27_io/howto.html
+	('The buffering is screwing up my program!'): Explain that
+	opening counts as an I/O operation.
+
+2003-04-15  Andreas Tobler  <a.tobler@schweiz.ch>
+
+        * testsuite/thread/pthread1.cc: Enable for darwin test.
+        * testsuite/thread/pthread2.cc: Same.
+        * testsuite/thread/pthread3.cc: Same.
+        * testsuite/thread/pthread4.cc: Same.
+        * testsuite/thread/pthread5.cc: Same.
+        * testsuite/thread/pthread6.cc: Same.
+
+2003-04-15  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/bits/concept_check.h: Fix multi-line comment.
+	* testsuite/17_intro/headers.cc (dg-options): Add -Wall -Wsystem-header
+	when target is *-*-freebsd*.
+
+	libstdc++/7680
+	* include/c_std/std_cmath.h (__gnu_cx::__c99_binding): New namespace.
+	Populate it with multiple legal ways to obtain the C99 float
+	transcendentals.  Use them instead of direct global reference.
+	(C99 FP capture): Guard usage with _GLIBCPP_USE_C99_FP_MACROS_DYNAMIC.
+	* docs/html/17_intro/porting.texi
+	(_GLIBCPP_USE_C99_FLOAT_TRANSCENDENTALS_CHECK): New macro.
+	(_GLIBCPP_USE_C99_FLOAT_TRANSCENDENTALS_DYNAMIC): New macro.
+	(_GLIBCPP_USE_C99_FP_MACROS_DYNAMIC): New macro.
+	* config/os/bsd/freebsd/os_defines.h
+	(_GLIBCPP_USE_C99_FLOAT_TRANSCENDENTALS_CHECK): New macro.
+	(_GLIBCPP_USE_C99_FLOAT_TRANSCENDENTALS_DYNAMIC): New macro.
+	* testsuite/26_numerics/c_math_dynamic.cc: New file.
+
+	* testsuite/26_numerics/c99_classification_macros_c.cc: Add XFAIL.
+
+2003-04-14  M. Warner Losh  <imp@bsdimp.com>
+
+	* include/std/std_fstream.h: Add required typename.
+
 2003-04-12  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	* os/hpux/ctype_inline.h: Replace with gnu-linux version.

@@ -6452,7 +6452,7 @@ finish_function (nested, can_defer_p)
 
       c_expand_body (fndecl);
 
-      if (uninlinable)
+      if (uninlinable && !dump_enabled_p (TDI_all))
 	{
 	  /* Allow the body of the function to be garbage collected.  */
 	  DECL_SAVED_TREE (fndecl) = NULL_TREE;

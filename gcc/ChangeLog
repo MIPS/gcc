@@ -1,3 +1,134 @@
+2003-04-20  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	* config/avr/avr.md (*cmpqi_sign_extend): Handle negative values
+	of operand 1 correctly.
+
+2003-04-19  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* cfgrtl.c (try_redirect_by_replacing_jump): Remove unused variables.
+	* flow.c (life_analysis): Fix warning.
+
+2003-04-18  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/contrib.texi (Contributors): Prefer "bug fix" over "bugfix".
+	Add Segher Boessenkool.
+
+2003-04-18  Alexander Sotirov  <sluncho@mirizma.org>
+
+	PR c/9177
+	* c-decl.c (c_expand_body): Don't garbage collect the function
+	body if we are going to dump it later.
+
+2003-04-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/7675
+	* c-typeck.c (build_external_ref): Set the DECL_NONLOCAL flag
+	on VAR_DECL, PARM_DECL and FUNCTION_DECL from within
+	nested functions if they refer to declarations from parent functions.
+	* stmt.c (expand_decl): Don't put automatic variables in registers
+	if the DECL_NONLOCAL flag is set.
+
+2003-04-17  Janis Johnson  <janis187@us.ibm.com>
+
+	* doc/sourcebuild.texi (Test Suites): Document support for testing
+	binary compatibility (moved from testsuite/README.compat).
+
+2003-04-17  Simon Law  <sfllaw@engmail.uwaterloo.ca>
+
+        * doc/include/gpl.texi: Fix double-spacing after "MA" to match
+        the one provided by the FSF.
+
+2003-04-17  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* doc/install.texi (Binaries): Update URL and list of platforms
+	provided by ftp.thewrittenword.com.
+
+2003-04-17  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/invoke.texi (inline-limit): Fix pasto.
+
+2003-04-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR middle-end/8866
+	* cfgtrl.c (try_redirect_by_replacing_jump): Do not delete
+	jumptables.
+
+2003-04-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR/10271
+	* pa-protos.h (function_arg): Remove last argument.
+	* pa.c (function_arg): Likewise.  Use CUMULATIVE_ARGS struct instead.
+	* pa.h (struct hppa_args): Add member incoming. 
+	(INIT_CUMULATIVE_ARGS, INIT_CUMULATIVE_INCOMING_ARGS): Initialize
+	member incoming.
+	(FUNCTION_ARG): Revise call to function_arg.
+	(FUNCTION_INCOMING_ARG): Delete.
+
+2003-04-15  J"orn Rennecke <joern.rennecke@superh.com>
+
+	PR target/9594:
+	* sh.c (barrier_align): Also recognize stuff_delay_slot as
+	an indicator that a barrier was created by branch splitting.
+
+	merge from mainline:
+
+	2003-03-05  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (OVERRIDE_OPTIONS): For TARGET_SHMEDIA, the minimum value
+	for align_jumps is 4.
+
+	(SECONDARY_INPUT_RELOAD_CLASS): If reloading a PLUS into FPUL,
+	use GENERAL_REGS.
+
+	2003-03-03  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (OVERRIDE_OPTIONS): Set default values for align_loops
+	and align_jumps if not set.
+	Force align_jumps to be at least 2.
+	When relaxing, force align_functions to be at least the maximum of
+	align_loops, align_jumps and 4.
+	* sh.c (find_barrier, barrier_align): Honour align_jumps_log.
+	(sh_loop_align): Honour align_loops_log.
+
+	* sh.md (length attribute): Use prev_nonnote_insn instead of PREV_INSN
+	to check for indirect_jump_scratch.
+	(indirect_jump_scratch): Add second set.
+	* sh.c (output_far_jump): Use prev_nonnote_insn instead of PREV_INSN
+	when looking for indirect_jump_scratch.
+	Extract scratch register taking new structure of indirect_jump_scratch
+	into account.
+	(gen_block_redirect): Set INSN_SCOPE for indirect_jump_scratch.
+
+2003-04-15  James A. Morrison  <ja2morri@uwaterloo.ca>
+
+	* invoke.texi (Spec Files): Wrap if-exists-else example.
+	(MCore): Remove duplicate @itemx entries and @opindex entries.
+
+2003-04-15  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* unwind.inc (_Unwind_Backtrace): New function.
+	* unwind.h (_Unwind_Backtrace): Declare it.
+	* libgcc-std.ver (_Unwind_Backtrace): Export it.
+
+2003-04-15  Jason Merrill  <jason@redhat.com>
+
+	PR middle-end/10336, c++/10401
+	* jump.c (never_reached_warning): Also stop looking if we reach the 
+	beginning of the function.
+
+2003-04-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR target/10338
+	PR bootstrap/10198
+	PR bootstrap/10140
+	* fixinc/gnu-regex.c (regerror): Use mempcpy not __mempcpy.
+
+2003-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.h (EPILOGUE_USES): Use register 2,
+	instead of TOC_REGISTER in epilogue in
+	current_function_calls_eh_return functions.
+
 2003-04-14  Hans-Peter Nilsson  <hp@axis.com>
 
 	PR target/10377

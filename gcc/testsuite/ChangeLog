@@ -1,3 +1,16 @@
+2003-04-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/10405
+	* g++.dg/lookup/struct-hack1.C: New test.
+
+2003-04-18  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20030418-1.c: New test.
+
+2003-04-17  Janis Johnson  <janis187@us.ibm.com>
+
+	* README.compat: Remove; content now in doc/sourcebuild.texi.
+
 2003-04-14  Hans-Peter Nilsson  <hp@axis.com>
 
 	PR target/10377
