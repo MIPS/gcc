@@ -1,0 +1,40 @@
+# Process this file with autoconf to produce a configure script, like so:
+# aclocal && autoconf && autoheader && automake
+
+AC_PREREQ(2.13)
+AC_INIT(mf-runtime.c)
+AC_CANONICAL_SYSTEM
+AM_INIT_AUTOMAKE(libmudflap, 1.0)
+
+AC_SUBST(PACKAGE)
+# For libtool versioning info, format is CURRENT:REVISION:AGE
+libtool_VERSION=1:0:0
+AC_SUBST(libtool_VERSION)
+
+dnl AM_ENABLE_MULTILIB
+AM_MAINTAINER_MODE
+AC_EXEEXT
+
+target_alias=${target_alias-$target}
+AC_SUBST(target_alias)
+
+AM_CONFIG_HEADER(config.h)
+
+# override for now
+enable_shared=no
+disable_shared=yes
+
+AC_LIBTOOL_DLOPEN
+AM_PROG_LIBTOOL
+AC_SUBST(enable_shared)
+AC_SUBST(enable_static)
+
+if ${CONFIG_SHELL-/bin/sh} ./libtool --tag CC --features |
+   grep "enable shared" > /dev/null; then
+  LIBMUDFLAP_PICFLAGS=-prefer-pic
+else
+  LIBMUDFLAP_PICFLAGS=
+fi
+AC_SUBST(LIBMUDFLAP_PICFLAGS)
+
+AC_OUTPUT(Makefile)
