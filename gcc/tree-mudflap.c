@@ -198,10 +198,12 @@ mudflap_enqueue_constant (obj, label)
     }
   else
     {
-      warning (obj, "mudflap cannot track object lifetime");
-      print_c_tree (stderr, obj);
+      mf_enqueue_register_call (label,
+				c_size_in_bytes (TREE_TYPE (obj)),
+				build_int_2 (3, 0), /* __MF_TYPE_STATIC */
+				mx_flag (fix_string_type
+					 (build_string (9, "constant"))));
     }
-  /* XXX: what about other object types? */
 }
 
 
@@ -619,13 +621,15 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
   t1_1 = build_stmt (SCOPE_STMT, NULL_TREE);
   SCOPE_BEGIN_P (t1_1) = 1;
   
+  pushlevel (0);
+
   /* <TYPE> const __mf_value = <EXPR>; */
   t1_2_1 = build_decl (VAR_DECL, get_identifier ("__mf_value"), myptrtype);
   DECL_ARTIFICIAL (t1_2_1) = 1;
   DECL_INITIAL (t1_2_1) = ptrvalue;
-  t1_2 = build1 (DECL_STMT, myptrtype, t1_2_1);
+  t1_2 = build1 (DECL_STMT, myptrtype, pushdecl (t1_2_1));
   TREE_CHAIN (t1_1) = t1_2;
-  
+
   /* struct __mf_cache * const __mf_elem = [...] */
   t1_3_1 = build_decl (VAR_DECL, get_identifier ("__mf_elem"), mf_cache_structptr_type);
   DECL_ARTIFICIAL (t1_3_1) = 1;
@@ -642,7 +646,7 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
 						   mx_external_ref (mf_cache_shift_decl, 0)),
 					    mx_external_ref (mf_cache_mask_decl, 0))))));
   
-  t1_3 = build1 (DECL_STMT, mf_cache_structptr_type, t1_3_1);
+  t1_3 = build1 (DECL_STMT, mf_cache_structptr_type, pushdecl (t1_3_1));
   TREE_CHAIN (t1_2) = t1_3;
   
   /* Quick validity check.  */
@@ -713,6 +717,8 @@ mf_build_check_statement_for (ptrvalue, finale, filename, lineno)
   t1 = build1 (COMPOUND_STMT, return_type, t1_1);
   t0 = build1 (STMT_EXPR, return_type, t1);
   TREE_SIDE_EFFECTS (t0) = 1;
+
+  poplevel (1, 1, 0);
 
   return t0;
 }
@@ -955,7 +961,6 @@ mx_xfn_xform_decls (t, continue_p, data)
 				   unregister_fncall_params);
 
 	    tree cleanup_stmt = build_stmt (CLEANUP_STMT, decl, unregister_fncall);
-
 
 	    /* (& VARIABLE, sizeof (VARIABLE), __MF_LIFETIME_STACK=2) */
 	    tree variable_name = mf_varname_tree (decl);
