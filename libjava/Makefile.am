@@ -1540,7 +1540,6 @@ javax/swing/ButtonGroup.java \
 javax/swing/ButtonModel.java \
 javax/swing/ComponentInputMap.java \
 javax/swing/DefaultButtonModel.java \
-javax/swing/DefaultCellRenderer.java \
 javax/swing/DefaultListModel.java \
 javax/swing/DefaultListSelectionModel.java \
 javax/swing/Icon.java \

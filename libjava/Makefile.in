@@ -1136,7 +1136,6 @@ javax/swing/ButtonGroup.java \
 javax/swing/ButtonModel.java \
 javax/swing/ComponentInputMap.java \
 javax/swing/DefaultButtonModel.java \
-javax/swing/DefaultCellRenderer.java \
 javax/swing/DefaultListModel.java \
 javax/swing/DefaultListSelectionModel.java \
 javax/swing/Icon.java \
@@ -3355,8 +3354,7 @@ javax/swing/table/DefaultTableCellRenderer.lo javax/swing/Action.lo \
 javax/swing/BorderFactory.lo javax/swing/Box.lo \
 javax/swing/BoxLayout.lo javax/swing/ButtonGroup.lo \
 javax/swing/ButtonModel.lo javax/swing/ComponentInputMap.lo \
-javax/swing/DefaultButtonModel.lo javax/swing/DefaultCellRenderer.lo \
-javax/swing/DefaultListModel.lo \
+javax/swing/DefaultButtonModel.lo javax/swing/DefaultListModel.lo \
 javax/swing/DefaultListSelectionModel.lo javax/swing/Icon.lo \
 javax/swing/ImageIcon.lo javax/swing/InputMap.lo \
 javax/swing/InternalFrameFocusTraversalPolicy.lo javax/swing/JApplet.lo \
@@ -5420,7 +5418,6 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/DefaultBoundedRangeModel.P \
 .deps/javax/swing/DefaultButtonModel.P \
 .deps/javax/swing/DefaultCellEditor.P \
-.deps/javax/swing/DefaultCellRenderer.P \
 .deps/javax/swing/DefaultComboBoxModel.P \
 .deps/javax/swing/DefaultDesktopManager.P \
 .deps/javax/swing/DefaultFocusManager.P \

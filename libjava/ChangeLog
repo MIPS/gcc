@@ -1,5 +1,11 @@
 2005-01-25  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/DefaultCellRenderer.java: Removed.
+	* Makefile.am: Removed javax/swing/DefaultCellRenderer.java.
+	* Makefile.in: Regenerated.
+
+2005-01-25  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/AbstractButton.java
 	(fireItemStateChanged): Made protected.
 	(fireActionPerformed): Likewise.
