@@ -11141,13 +11141,6 @@ ix86_adjust_cost (insn, link, dep_insn, cost)
       memory = get_attr_memory (insn);
       dep_memory = get_attr_memory (dep_insn);
 
-      if (dep_memory == MEMORY_LOAD || dep_memory == MEMORY_BOTH)
-	{
-	  if (dep_insn_type == TYPE_IMOV || dep_insn_type == TYPE_FMOV)
-	    cost += 2;
-	  else
-	    cost += 3;
-        }
       /* Show ability of reorder buffer to hide latency of load by executing
 	 in parallel with previous instruction in case
 	 previous instruction is not needed to compute the address.  */
@@ -11421,7 +11414,7 @@ ix86_variable_issue (dump, sched_verbose, insn, can_issue_more)
 static int
 ia32_use_dfa_pipeline_interface ()
 {
-  if (ix86_cpu == PROCESSOR_PENTIUM)
+  if (ix86_cpu == PROCESSOR_PENTIUM || ix86_cpu == PROCESSOR_ATHLON)
     return 1;
   return 0;
 }

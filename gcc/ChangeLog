@@ -1,3 +1,9 @@
+Sat Oct  5 22:48:06 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* athlon.md: rewrite to DFA.
+	* i386 (ix86_adjust_cost): Drop memory latency code.
+	(ia32_use_dfa_pipeline_interface): Return true for Athlon.
+
 2002-10-04  Zack Weinberg  <zack@codesourcery.com>
 
 	* gcc.c (process_command): Set .validated for -pipe.  Correct
