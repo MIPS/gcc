@@ -13091,9 +13091,7 @@ ix86_expand_store_builtin (icode, arglist)
     op1 = safe_vector_operand (op1, mode1);
 
   op0 = gen_rtx_MEM (mode0, copy_to_mode_reg (Pmode, op0));
-
-  if (! (*insn_data[icode].operand[1].predicate) (op1, mode1))
-    op1 = copy_to_mode_reg (mode1, op1);
+  op1 = copy_to_mode_reg (mode1, op1);
 
   pat = GEN_FCN (icode) (op0, op1);
   if (pat)
@@ -14553,7 +14551,7 @@ x86_function_profiler (file, labelno)
   else
     {
 #ifndef NO_PROFILE_COUNTERS
-      fprintf (file, "\tmovl\t$%sP%d,%%$%s\n", LPREFIX, labelno,
+      fprintf (file, "\tmovl\t$%sP%d,%%%s\n", LPREFIX, labelno,
 	       PROFILE_COUNT_REGISTER);
 #endif
       fprintf (file, "\tcall\t%s\n", MCOUNT_NAME);
