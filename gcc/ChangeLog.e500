@@ -1,3 +1,8 @@
+2005-01-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* config/rs6000/rs6000.c (rs6000_generate_compare): Replace
+	flag_finite_math_only with flag_unsafe_math_optimizations.
+
 2005-01-12  Aldy Hernandez  <aldyh@redhat.com>
 
 	* function.c (assign_parm_setup_block): Relax condition on
