@@ -5447,6 +5447,26 @@ fold (tree expr)
 				convert (TREE_TYPE (t), and1)));
 	}
 
+      /* Convert (T1)((T2)X op Y) into (T1)X op Y, for pointer types T1 and
+	 T2 being pointers to types of the same size.  */
+      if (POINTER_TYPE_P (TREE_TYPE (t))
+	  && TREE_CODE_CLASS (TREE_CODE (arg0)) == '2'
+	  && TREE_CODE (TREE_OPERAND (arg0, 0)) == NOP_EXPR
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg0, 0))))
+	{
+	  tree arg00 = TREE_OPERAND (arg0, 0);
+	  tree t0 = TREE_TYPE (t);
+	  tree t1 = TREE_TYPE (arg00);
+	  tree tt0 = TREE_TYPE (t0);
+	  tree tt1 = TREE_TYPE (t1);
+	  tree s0 = TYPE_SIZE (tt0);
+	  tree s1 = TYPE_SIZE (tt1);
+
+	  if (s0 && s1 && operand_equal_p (s0, s1, 1))
+	    return build (TREE_CODE (arg0), t0, convert (t0, arg00),
+		          TREE_OPERAND (arg0, 1));
+	}
+
       if (!wins)
 	{
 	  if (TREE_CONSTANT (t) != TREE_CONSTANT (arg0))
