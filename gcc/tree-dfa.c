@@ -1760,14 +1760,14 @@ static void
 compute_may_aliases ()
 {
   unsigned long i;
-  
-  if (flag_tree_points_to != PTA_NONE  && num_referenced_vars)
+
+  if (flag_tree_points_to != PTA_NONE && num_referenced_vars)
     {
       timevar_push (TV_TREE_PTA);
       create_alias_vars ();
       timevar_pop (TV_TREE_PTA);
     }
-
+  
   for (i = 0; i < num_referenced_vars; i++)
     {
       tree var = referenced_var (i);
@@ -1775,13 +1775,6 @@ compute_may_aliases ()
       /* Find aliases for pointer variables.  */
       if (TREE_CODE (var) == INDIRECT_REF)
 	find_may_aliases_for (var);
-    }
-
-  if (flag_tree_points_to != PTA_NONE && num_referenced_vars)
-    {
-      timevar_push (TV_TREE_PTA);
-      delete_alias_vars ();
-      timevar_pop (TV_TREE_PTA);
     }
 }
 

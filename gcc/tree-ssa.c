@@ -39,6 +39,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-inline.h"
 #include "ssa.h"
 #include "varray.h"
+#include "timevar.h"
+#include "tree-alias-common.h"
 
 /* This file builds the SSA form for a function using Factored
    Use-Def chains (FUD chains) as described in 
@@ -844,6 +846,13 @@ delete_tree_ssa (fnbody)
   num_referenced_vars = 0;
   referenced_vars = NULL;
   global_var = NULL_TREE;
+
+  if (flag_tree_points_to != PTA_NONE && num_referenced_vars)
+    {
+      timevar_push (TV_TREE_PTA);
+      delete_alias_vars ();
+      timevar_pop (TV_TREE_PTA);
+    }
 }
 
 

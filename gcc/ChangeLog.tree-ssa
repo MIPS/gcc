@@ -1,3 +1,12 @@
+2002-11-28  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa.o): Add dependency on $(TIMEVAR_H) and
+	tree-alias-common.h.
+	(tree-dfa.o): Likewise.
+	(tree-optimize.o): Add dependency on $(TIMEVAR_H).
+	* tree-dfa.c (compute_may_aliases): Move call to delete_alias_vars
+	* tree-ssa.c (delete_tree_ssa): ... here.
+
 2002-11-27  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (add_may_alias): Remove.  Update all users.
