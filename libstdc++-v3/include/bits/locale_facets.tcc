@@ -1661,8 +1661,7 @@ namespace std
 		  break;
 		case 'Y':
 		  // Year [1900). [tm_year]
-		  _M_extract_num(__beg, __end, __mem, 0, 
-				 numeric_limits<int>::max(), 4, 
+		  _M_extract_num(__beg, __end, __mem, 0, 9999, 4, 
 				 __ctype, __err);
 		  if (!__err)
 		    __tm->tm_year = __mem - 1900;
@@ -1715,28 +1714,29 @@ namespace std
 		   const ctype<_CharT>& __ctype, 
 		   ios_base::iostate& __err) const
     {
+      // As-is works for __len = 1, 2, 4, the values actually used.
+      int __mult = __len == 2 ? 10 : (__len == 4 ? 1000 : 1);
+
+      ++__min;
       size_t __i = 0;
-      string __digits;
-      bool __testvalid = true;
-      char_type __c = *__beg;
-      while (__beg != __end && __i < __len 
-	     && __ctype.is(ctype_base::digit, __c)) 
+      int __value = 0;
+      for (; __beg != __end && __i < __len; ++__beg, ++__i)
 	{
-	  __digits += __ctype.narrow(__c, 0);
-	  __c = *(++__beg);
-	  ++__i;
+	  const char __c = __ctype.narrow(*__beg, '*');
+	  if (__c >= '0' && __c <= '9')
+	    {
+	      __value = __value * 10 + (__c - '0');
+	      const int __valuec = __value * __mult;
+	      if (__valuec > __max || __valuec + __mult < __min)
+		break;
+	      __mult /= 10;
+	    }
+	  else
+	    break;
 	}
       if (__i == __len)
-	{
-	  int __value = atoi(__digits.c_str());
-	  if (__min <= __value && __value <= __max)
-	    __member = __value;
-	  else
-	    __testvalid = false;
-	}
+	__member = __value;
       else
-	__testvalid = false;
-      if (!__testvalid)
 	__err |= ios_base::failbit;
     }
 

@@ -1,5 +1,16 @@
 2004-08-01  Paolo Carlini  <pcarlini@suse.de>
 
+	PR libstdc++/12791
+	* include/bits/locale_facets.tcc (time_get::_M_extract_num):
+	Rewrite, stop the parsing as soon as a digit cannot possibly
+	lead to a final number within the bounds; otherwise, simplify,
+	avoiding __ctype.is() and atoi().
+
+	* include/bits/locale_facets.tcc (time_get::_M_extract_via_format):
+	Minor tweak: a 4-digit integer cannot be bigger than 9999.
+
+2004-08-01  Paolo Carlini  <pcarlini@suse.de>
+
         * include/bits/locale_facets.tcc (time_put::put): Absolutely
         avoid dereferencing end iterators; clean up.
 
