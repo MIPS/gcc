@@ -30,6 +30,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "debug.h"
 #include "target.h"
+#include "varray.h"
+
+/* The declarations we know about must not get garbage collected.
+   We do not want callgraph datastructure to be saved via PCH code
+   since it would make it dificult to extend it into untramodule
+   optimizer later, so we store the references into the array to avoid
+   garbage collector from doing it's job.  */
+GTY(()) varray_type known_fns;
 
 /* The cgraph data strutcture.
    Each function decl has assigned cgraph_node listing calees and callers.  */
@@ -121,8 +129,14 @@ cgraph_node (decl)
   struct cgraph_node *node;
   struct cgraph_node **slot;
 
+  if (TREE_CODE (decl) != FUNCTION_DECL)
+    abort ();
+
   if (!cgraph_hash)
-    cgraph_hash = htab_create (10, hash_node, eq_node, NULL);
+    {
+      cgraph_hash = htab_create (10, hash_node, eq_node, NULL);
+      VARRAY_TREE_INIT (known_fns, 32, "known_fns");
+    }
 
   slot =
     (struct cgraph_node **) htab_find_slot_with_hash (cgraph_hash, decl,
@@ -139,6 +153,7 @@ cgraph_node (decl)
   *slot = node;
   if (DECL_CONTEXT (decl))
     node->origin = cgraph_node (DECL_CONTEXT (decl));
+  VARRAY_PUSH_TREE (known_fns, decl);
   return node;
 }
 
@@ -614,3 +629,5 @@ cgraph_optimize ()
     }
   cgraph_expand_functions ();
 }
+
+#include "gt-callgraph.h"

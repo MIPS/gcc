@@ -7934,4 +7934,11 @@ init_function_once ()
   VARRAY_INT_INIT (sibcall_epilogue, 0, "sibcall_epilogue");
 }
 
+/* The declarations we know about must not get garbage collected.
+   We do not want callgraph datastructure to be saved via PCH code
+   since it would make it dificult to extend it into untramodule
+   optimizer later, so we store the references into the array to avoid
+   garbage collector from doing it's job.  */
+static GTY(()) varray_type known_fns;
+
 #include "gt-function.h"

@@ -1,3 +1,9 @@
+Sun Mar  9 12:08:18 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* callgraph.c (known_fns): Declare.
+	(cgraph_node): Add the decl into varray.
+	* function.c (known_fns): New static variable.
+
 Fri Mar  7 12:55:23 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (ix86_expand_vector_move): Do not crash when offloading
