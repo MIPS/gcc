@@ -279,11 +279,14 @@ c_simplify_stmt (stmt_p)
 	  break;
 
 	case ASM_STMT:
-	  stmt = build (ASM_EXPR, void_type_node, ASM_STRING (stmt),
-			ASM_OUTPUTS (stmt), ASM_INPUTS (stmt),
-			ASM_CLOBBERS (stmt));
-	  ASM_INPUT_P (stmt) = ASM_INPUT_P (*stmt_p);
-	  ASM_VOLATILE_P (stmt) = ASM_VOLATILE_P (*stmt_p);
+	  {
+	    tree new_stmt = build (ASM_EXPR, void_type_node, ASM_STRING (stmt),
+				   ASM_OUTPUTS (stmt), ASM_INPUTS (stmt),
+				   ASM_CLOBBERS (stmt));
+	    ASM_INPUT_P (new_stmt) = ASM_INPUT_P (stmt);
+	    ASM_VOLATILE_P (new_stmt) = ASM_VOLATILE_P (stmt);
+	    stmt = new_stmt;
+	  }
 	  break;
 
 	case FILE_STMT:
