@@ -694,6 +694,9 @@ compute_points_to_and_addr_escape (struct alias_info *ai)
 	      bitmap_set_bit (ai->written_vars, ann->uid);
 	      if (may_be_aliased (var))
 		(VARRAY_UINT (ai->num_references, ann->uid))++;
+
+	      if (POINTER_TYPE_P (TREE_TYPE (op)))
+		collect_points_to_info_for (ai, op);
 	    }
 
 	  /* Mark variables in V_MAY_DEF operands as being written to.  */
@@ -875,6 +878,7 @@ static void
 compute_flow_insensitive_aliasing (struct alias_info *ai)
 {
   size_t i;
+  sbitmap res;
 
   /* Initialize counter for the total number of virtual operands that
      aliasing will introduce.  When AI->TOTAL_ALIAS_VOPS goes beyond the
@@ -924,10 +928,6 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	      num_tag_refs = VARRAY_UINT (ai->num_references, tag_ann->uid);
 	      num_var_refs = VARRAY_UINT (ai->num_references, v_ann->uid);
 
-	      /* If TAG is call clobbered, so is VAR.  */
-	      if (is_call_clobbered (tag))
-		mark_call_clobbered (var);
-
 	      /* Add VAR to TAG's may-aliases set.  */
 	      add_may_alias (tag, var);
 
@@ -946,6 +946,72 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 	    }
 	}
     }
+
+  /* Since this analysis is based exclusively on symbols, it fails to
+     handle cases where two pointers P and Q have different memory
+     tags with conflicting alias set numbers but no aliased symbols in
+     common.
+
+     For example, suppose that we have two memory tags TMT.1 and TMT.2
+     such that
+     
+     		may-aliases (TMT.1) = { a }
+		may-aliases (TMT.2) = { b }
+
+     and the alias set number of TMT.1 conflicts with that of TMT.2.
+     Since they don't have symbols in common, loads and stores from
+     TMT.1 and TMT.2 will seem independent of each other, which will
+     lead to the optimizers making invalid transformations (see
+     testsuite/gcc.c-torture/execute/pr15262-[12].c).
+
+     To avoid this problem, we do a final traversal of AI->POINTERS
+     looking for pairs of pointers that have no aliased symbols in
+     common and yet have conflicting alias set numbers.  */
+  res = sbitmap_alloc (num_referenced_vars);
+
+  for (i = 0; i < ai->num_pointers; i++)
+    {
+      size_t j;
+      struct alias_map_d *p_map1 = ai->pointers[i];
+      tree tag1 = var_ann (p_map1->var)->type_mem_tag;
+      sbitmap may_aliases1 = p_map1->may_aliases;
+
+      for (j = i + 1; j < ai->num_pointers; j++)
+	{
+	  struct alias_map_d *p_map2 = ai->pointers[j];
+	  tree tag2 = var_ann (p_map2->var)->type_mem_tag;
+	  sbitmap may_aliases2 = p_map2->may_aliases;
+
+	  /* If the pointers may not point to each other, do nothing.  */
+	  if (!may_alias_p (p_map1->var, p_map1->set, p_map2->var, p_map2->set))
+	    continue;
+
+	  /* The two pointers may alias each other.  If they already have
+	     symbols in common, do nothing.  */
+	  sbitmap_a_and_b (res, may_aliases1, may_aliases2);
+	  if (sbitmap_first_set_bit (res) >= 0)
+	    continue;
+
+	  if (sbitmap_first_set_bit (may_aliases2) >= 0)
+	    {
+	      size_t k;
+
+	      /* Add all the aliases for TAG2 into TAG1's alias set.
+		 FIXME, update grouping heuristic counters.  */
+	      EXECUTE_IF_SET_IN_SBITMAP (may_aliases2, 0, k,
+		  add_may_alias (tag1, referenced_var (k)));
+	      sbitmap_a_or_b (may_aliases1, may_aliases1, may_aliases2);
+	    }
+	  else
+	    {
+	      /* Since TAG2 does not have any aliases of its own, add
+		 TAG2 itself to the alias set of TAG1.  */
+	      add_may_alias (tag1, tag2);
+	    }
+	}
+    }
+
+  sbitmap_free (res);
 
   if (dump_file)
     fprintf (dump_file, "%s: Total number of aliased vops: %ld\n",
@@ -1120,28 +1186,7 @@ group_aliases (struct alias_info *ai)
 	  sbitmap_a_and_b (res, tag1_aliases, tag2_aliases);
 	  if (sbitmap_first_set_bit (res) >= 0)
 	    {
-	      size_t k;
-
 	      tree tag2 = var_ann (ai->pointers[j]->var)->type_mem_tag;
-
-	      if (!is_call_clobbered (tag1) && is_call_clobbered (tag2))
-		{
-		  mark_call_clobbered (tag1);
-		  EXECUTE_IF_SET_IN_SBITMAP (tag1_aliases, 0, k,
-		    {
-		      tree var = referenced_var (k);
-		      mark_call_clobbered (var);
-		    });
-		}
-	      else if (is_call_clobbered (tag1) && !is_call_clobbered (tag2))
-		{
-		  mark_call_clobbered (tag2);
-		  EXECUTE_IF_SET_IN_SBITMAP (tag2_aliases, 0, k,
-		    {
-		      tree var = referenced_var (k);
-		      mark_call_clobbered (var);
-		    });
-		}
 
 	      sbitmap_a_or_b (tag1_aliases, tag1_aliases, tag2_aliases);
 
@@ -1287,8 +1332,9 @@ setup_pointers_and_addressables (struct alias_info *ai)
 
       /* Name memory tags already have flow-sensitive aliasing
 	 information, so they need not be processed by
-	 compute_may_aliases.  Similarly, type memory tags are already
-	 accounted for when we process their associated pointer.  */
+	 compute_flow_insensitive_aliasing.  Similarly, type memory
+	 tags are already accounted for when we process their
+	 associated pointer.  */
       if (v_ann->mem_tag_kind != NOT_A_TAG)
 	continue;
 
@@ -1390,41 +1436,6 @@ setup_pointers_and_addressables (struct alias_info *ai)
 		  ann->type_mem_tag = NULL_TREE;
 		}
 	    }
-	}
-    }
-
-  /* If we found no addressable variables, but we have more than one
-     pointer, we will need to check for conflicts between the
-     pointers.  Otherwise, we would miss alias relations as in
-     testsuite/gcc.dg/tree-ssa/20040319-1.c:
-
-		struct bar { int count;  int *arr;};
-
-		void foo (struct bar *b)
-		{
-		  b->count = 0;
-		  *(b->arr) = 2;
-		  if (b->count == 0)
-		    abort ();
-		}
-
-     b->count and *(b->arr) could be aliased if b->arr == &b->count.
-     To do this, we add all the memory tags for the pointers in
-     AI->POINTERS to AI->ADDRESSABLE_VARS, so that
-     compute_flow_insensitive_aliasing will naturally compare every
-     pointer to every type tag.  */
-  if (ai->num_addressable_vars == 0
-      && ai->num_pointers > 1)
-    {
-      free (ai->addressable_vars);
-      ai->addressable_vars = xcalloc (ai->num_pointers,
-				      sizeof (struct alias_map_d *));
-      ai->num_addressable_vars = 0;
-      for (i = 0; i < ai->num_pointers; i++)
-	{
-	  struct alias_map_d *p = ai->pointers[i];
-	  tree tag = var_ann (p->var)->type_mem_tag;
-	  create_alias_map_for (tag, ai);
 	}
     }
 }
@@ -1547,7 +1558,8 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
      for PTR's alias set here, not its pointed-to type.  We also can't
      do this check with relaxed aliasing enabled.  */
   if (POINTER_TYPE_P (TREE_TYPE (var))
-      && var_alias_set != 0)
+      && var_alias_set != 0
+      && mem_alias_set != 0)
     {
       HOST_WIDE_INT ptr_alias_set = get_alias_set (ptr);
       if (ptr_alias_set == var_alias_set)
@@ -1561,58 +1573,9 @@ may_alias_p (tree ptr, HOST_WIDE_INT mem_alias_set,
   /* If the alias sets don't conflict then MEM cannot alias VAR.  */
   if (!alias_sets_conflict_p (mem_alias_set, var_alias_set))
     {
-      /* Handle aliases to structure fields.  If either VAR or MEM are
-	 aggregate types, they may not have conflicting types, but one of
-	 the structures could contain a pointer to the other one.
-
-	 For instance, given
-
-		MEM -> struct P *p;
-		VAR -> struct Q *q;
-
-	 It may happen that '*p' and '*q' can't alias because 'struct P'
-	 and 'struct Q' have non-conflicting alias sets.  However, it could
-	 happen that one of the fields in 'struct P' is a 'struct Q *' or
-	 vice-versa.
-
-	 Therefore, we also need to check if 'struct P' aliases 'struct Q *'
-	 or 'struct Q' aliases 'struct P *'.  Notice, that since GIMPLE
-	 does not have more than one-level pointers, we don't need to
-	 recurse into the structures.  */
-      if (AGGREGATE_TYPE_P (TREE_TYPE (mem))
-	  || AGGREGATE_TYPE_P (TREE_TYPE (var)))
-	{
-	  tree ptr_to_var;
-	  
-	  if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
-	    ptr_to_var = TYPE_POINTER_TO (TREE_TYPE (TREE_TYPE (var)));
-	  else
-	    ptr_to_var = TYPE_POINTER_TO (TREE_TYPE (var));
-
-	  /* If no pointer-to VAR exists, then MEM can't alias VAR.  */
-	  if (ptr_to_var == NULL_TREE)
-	    {
-	      alias_stats.alias_noalias++;
-	      alias_stats.tbaa_resolved++;
-	      return false;
-	    }
-
-	  /* If MEM doesn't alias a pointer to VAR and VAR doesn't alias
-	     PTR, then PTR can't alias VAR.  */
-	  if (!alias_sets_conflict_p (mem_alias_set, get_alias_set (ptr_to_var))
-	      && !alias_sets_conflict_p (var_alias_set, get_alias_set (ptr)))
-	    {
-	      alias_stats.alias_noalias++;
-	      alias_stats.tbaa_resolved++;
-	      return false;
-	    }
-	}
-      else
-	{
-	  alias_stats.alias_noalias++;
-	  alias_stats.tbaa_resolved++;
-	  return false;
-	}
+      alias_stats.alias_noalias++;
+      alias_stats.tbaa_resolved++;
+      return false;
     }
 
   alias_stats.alias_mayalias++;
@@ -1639,6 +1602,16 @@ add_may_alias (tree var, tree alias)
     if (alias == VARRAY_TREE (v_ann->may_aliases, i))
       return;
 
+  /* If VAR is a call-clobbered variable, so is its new ALIAS.
+     FIXME, call-clobbering should only depend on whether an address
+     escapes.  It should be independent of aliasing.  */
+  if (is_call_clobbered (var))
+    mark_call_clobbered (alias);
+
+  /* Likewise.  If ALIAS is call-clobbered, so is VAR.  */
+  else if (is_call_clobbered (alias))
+    mark_call_clobbered (var);
+
   VARRAY_PUSH_TREE (v_ann->may_aliases, alias);
   a_ann->is_alias_tag = 1;
 }
@@ -1651,6 +1624,16 @@ replace_may_alias (tree var, size_t i, tree new_alias)
 {
   var_ann_t v_ann = var_ann (var);
   VARRAY_TREE (v_ann->may_aliases, i) = new_alias;
+
+  /* If VAR is a call-clobbered variable, so is NEW_ALIAS.
+     FIXME, call-clobbering should only depend on whether an address
+     escapes.  It should be independent of aliasing.  */
+  if (is_call_clobbered (var))
+    mark_call_clobbered (new_alias);
+
+  /* Likewise.  If NEW_ALIAS is call-clobbered, so is VAR.  */
+  else if (is_call_clobbered (new_alias))
+    mark_call_clobbered (var);
 }
 
 
@@ -1707,8 +1690,6 @@ merge_pointed_to_info (struct alias_info *ai, tree dest, tree orig)
 
   if (orig_pi)
     {
-      dest_pi->pt_global_mem |= orig_pi->pt_global_mem;
-
       /* Notice that we never merge PT_MALLOC.  This attribute is only
 	 true if the pointer is the result of a malloc() call.
 	 Otherwise, we can end up in this situation:
@@ -1809,7 +1790,7 @@ add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
   gcc_assert (TREE_CODE (value) == ADDR_EXPR);
 
   pt_var = TREE_OPERAND (value, 0);
-  if (TREE_CODE_CLASS (TREE_CODE (pt_var)) == 'r')
+  if (REFERENCE_CLASS_P (pt_var))
     pt_var = get_base_address (pt_var);
 
   if (pt_var && SSA_VAR_P (pt_var))
@@ -1853,6 +1834,12 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
 
   switch (TREE_CODE (stmt))
     {
+    case RETURN_EXPR:
+      if (TREE_CODE (TREE_OPERAND (stmt, 0)) != MODIFY_EXPR)
+	abort ();
+      stmt = TREE_OPERAND (stmt, 0);
+      /* FALLTHRU  */
+
     case MODIFY_EXPR:
       {
 	tree rhs = TREE_OPERAND (stmt, 1);
@@ -1876,7 +1863,8 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
 	    
 	    /* Both operands may be of pointer type.  FIXME: Shouldn't
 	       we just expect PTR + OFFSET always?  */
-	    if (POINTER_TYPE_P (TREE_TYPE (op0)))
+	    if (POINTER_TYPE_P (TREE_TYPE (op0))
+		&& TREE_CODE (op0) != INTEGER_CST)
 	      {
 		if (TREE_CODE (op0) == SSA_NAME)
 		  merge_pointed_to_info (ai, var, op0);
@@ -1886,7 +1874,8 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
 		  add_pointed_to_expr (var, op0);
 	      }
 
-	    if (POINTER_TYPE_P (TREE_TYPE (op1)))
+	    if (POINTER_TYPE_P (TREE_TYPE (op1))
+		&& TREE_CODE (op1) != INTEGER_CST)
 	      {
 		if (TREE_CODE (op1) == SSA_NAME)
 		  merge_pointed_to_info (ai, var, op1);
@@ -1899,8 +1888,10 @@ collect_points_to_info_r (tree var, tree stmt, void *data)
 	    /* Neither operand is a pointer?  VAR can be pointing
 	       anywhere.  FIXME: Is this right?  If we get here, we
 	       found PTR = INT_CST + INT_CST.  */
-	    if (!POINTER_TYPE_P (TREE_TYPE (op0))
-		&& !POINTER_TYPE_P (TREE_TYPE (op1)))
+	    if (!(POINTER_TYPE_P (TREE_TYPE (op0))
+		  && TREE_CODE (op0) != INTEGER_CST)
+		&& !(POINTER_TYPE_P (TREE_TYPE (op1))
+		     && TREE_CODE (op1) != INTEGER_CST))
 	      add_pointed_to_expr (var, rhs);
 	  }
 

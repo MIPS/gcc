@@ -2543,7 +2543,7 @@ legitimate_la_operand_p (register rtx op)
   return FALSE;
 }
 
-/* Return 1 if it is valid *and* preferrable to use LA to
+/* Return 1 if it is valid *and* preferable to use LA to
    compute the sum of OP1 and OP2.  */
 
 int
@@ -6293,11 +6293,13 @@ s390_emit_prologue (void)
 
   /* Save call saved gprs.  */
   if (cfun_frame_layout.first_save_gpr != -1)
-    insn = save_gprs (stack_pointer_rtx, 
-		      cfun_frame_layout.gprs_offset,
-		      cfun_frame_layout.first_save_gpr, 
-		      cfun_frame_layout.last_save_gpr);
-  emit_insn (insn);
+    {
+      insn = save_gprs (stack_pointer_rtx, 
+			cfun_frame_layout.gprs_offset,
+			cfun_frame_layout.first_save_gpr, 
+			cfun_frame_layout.last_save_gpr);
+      emit_insn (insn);
+    }
 
   /* Dummy insn to mark literal pool slot.  */
 

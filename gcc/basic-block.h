@@ -166,7 +166,7 @@ DEF_VEC_GC_P(edge);
 #define EDGE_SIBCALL		256	/* Edge from sibcall to exit.  */
 #define EDGE_LOOP_EXIT		512	/* Exit of a loop.  */
 #define EDGE_TRUE_VALUE		1024	/* Edge taken when controlling
-					   predicate is non zero.  */
+					   predicate is nonzero.  */
 #define EDGE_FALSE_VALUE	2048	/* Edge taken when controlling
 					   predicate is zero.  */
 #define EDGE_EXECUTABLE		4096	/* Edge is executable.  Only
@@ -294,6 +294,7 @@ typedef struct reorder_block_def
   /* Used by loop copying.  */
   basic_block copy;
   int duplicated;
+  int copy_number;
 
   /* These fields are used by bb-reorder pass.  */
   int visited;
@@ -813,6 +814,8 @@ extern void set_immediate_dominator (enum cdi_direction, basic_block,
 extern basic_block get_immediate_dominator (enum cdi_direction, basic_block);
 extern bool dominated_by_p (enum cdi_direction, basic_block, basic_block);
 extern int get_dominated_by (enum cdi_direction, basic_block, basic_block **);
+extern unsigned get_dominated_by_region (enum cdi_direction, basic_block *,
+					 unsigned, basic_block *);
 extern void add_to_dominance_info (enum cdi_direction, basic_block);
 extern void delete_from_dominance_info (enum cdi_direction, basic_block);
 basic_block recount_dominator (enum cdi_direction, basic_block);

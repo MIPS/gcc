@@ -74,6 +74,9 @@ typedef struct gimple_temp_hash_elt
 
 /* Forward declarations.  */
 static enum gimplify_status gimplify_compound_expr (tree *, tree *, bool);
+#ifdef ENABLE_CHECKING
+static bool cpt_same_type (tree a, tree b);
+#endif
 
 
 /* Return a hash value for a formal temporary table entry.  */
@@ -326,7 +329,8 @@ create_tmp_var_raw (tree type, const char *prefix)
   new_type = build_type_variant (type, 0, 0);
   TYPE_ATTRIBUTES (new_type) = TYPE_ATTRIBUTES (type);
 
-  tmp_var = build_decl (VAR_DECL, create_tmp_var_name (prefix), type);
+  tmp_var = build_decl (VAR_DECL, prefix ? create_tmp_var_name (prefix) : NULL,
+			type);
 
   /* The variable was declared by the compiler.  */
   DECL_ARTIFICIAL (tmp_var) = 1;
@@ -558,9 +562,7 @@ should_carry_locus_p (tree stmt)
 static void
 annotate_one_with_locus (tree t, location_t locus)
 {
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (t)))
-      && ! EXPR_HAS_LOCATION (t)
-      && should_carry_locus_p (t))
+  if (EXPR_P (t) && ! EXPR_HAS_LOCATION (t) && should_carry_locus_p (t))
     SET_EXPR_LOCATION (t, locus);
 }
 
@@ -595,9 +597,9 @@ mostly_copy_tree_r (tree *tp, int *walk_subtrees, void *data)
 {
   enum tree_code code = TREE_CODE (*tp);
   /* Don't unshare types, decls, constants and SAVE_EXPR nodes.  */
-  if (TREE_CODE_CLASS (code) == 't'
-      || TREE_CODE_CLASS (code) == 'd'
-      || TREE_CODE_CLASS (code) == 'c'
+  if (TREE_CODE_CLASS (code) == tcc_type
+      || TREE_CODE_CLASS (code) == tcc_declaration
+      || TREE_CODE_CLASS (code) == tcc_constant
       || code == SAVE_EXPR || code == TARGET_EXPR
       /* We can't do anything sensible with a BLOCK used as an expression,
 	 but we also can't abort when we see it because of non-expression
@@ -633,9 +635,9 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
      types and the bounds of types.  Mark them as visited so we properly
      unmark their subtrees on the unmark pass.  If we've already seen them,
      don't look down further.  */
-  if (TREE_CODE_CLASS (code) == 't'
-      || TREE_CODE_CLASS (code) == 'd'
-      || TREE_CODE_CLASS (code) == 'c')
+  if (TREE_CODE_CLASS (code) == tcc_type
+      || TREE_CODE_CLASS (code) == tcc_declaration
+      || TREE_CODE_CLASS (code) == tcc_constant)
     {
       if (TREE_VISITED (t))
 	*walk_subtrees = 0;
@@ -2315,7 +2317,7 @@ gimplify_init_ctor_preeval_1 (tree *tp, int *walk_subtrees, void *xdata)
       && alias_sets_conflict_p (data->lhs_alias_set, get_alias_set (t)))
     return t;
 
-  if (DECL_P (t) || TYPE_P (t))
+  if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
   return NULL;
 }
@@ -2359,7 +2361,7 @@ gimplify_init_ctor_preeval (tree *expr_p, tree *pre_p, tree *post_p,
      the gimplifier will consider this a store to memory.  Doing this 
      gimplification now means that we won't have to deal with complicated
      language-specific trees, nor trees like SAVE_EXPR that can induce
-     exponential search behaviour.  */
+     exponential search behavior.  */
   one = gimplify_expr (expr_p, pre_p, post_p, is_gimple_mem_rhs, fb_rvalue);
   if (one == GS_ERROR)
     {
@@ -3050,12 +3052,34 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
   switch (TREE_CODE (op0))
     {
     case INDIRECT_REF:
+    do_indirect_ref:
       /* Check if we are dealing with an expression of the form '&*ptr'.
 	 While the front end folds away '&*ptr' into 'ptr', these
 	 expressions may be generated internally by the compiler (e.g.,
 	 builtins like __builtin_va_end).  */
-      *expr_p = TREE_OPERAND (op0, 0);
-      ret = GS_OK;
+      /* Caution: the silent array decomposition semantics we allow for
+	 ADDR_EXPR means we can't always discard the pair.  */
+      {
+	tree op00 = TREE_OPERAND (op0, 0);
+	tree t_expr = TREE_TYPE (expr);
+	tree t_op00 = TREE_TYPE (op00);
+
+        if (!lang_hooks.types_compatible_p (t_expr, t_op00))
+	  {
+#ifdef ENABLE_CHECKING
+	    tree t_op0 = TREE_TYPE (op0);
+	    gcc_assert (TREE_CODE (t_op0) == ARRAY_TYPE
+			&& POINTER_TYPE_P (t_expr)
+			&& cpt_same_type (TREE_TYPE (t_op0),
+					  TREE_TYPE (t_expr))
+			&& POINTER_TYPE_P (t_op00)
+			&& cpt_same_type (t_op0, TREE_TYPE (t_op00)));
+#endif
+	    op00 = fold_convert (TREE_TYPE (expr), op00);
+	  }
+        *expr_p = op00;
+        ret = GS_OK;
+      }
       break;
 
     case VIEW_CONVERT_EXPR:
@@ -3078,14 +3102,12 @@ gimplify_addr_expr (tree *expr_p, tree *pre_p, tree *post_p)
 			   is_gimple_addressable, fb_either);
       if (ret != GS_ERROR)
 	{
-	  /* The above may have made an INDIRECT_REF (e.g, Ada's NULL_EXPR),
-	     so check for it here.  It's not worth checking for the other
-	     cases above.  */
-	  if (TREE_CODE (TREE_OPERAND (expr, 0)) == INDIRECT_REF)
-	    {
-	      *expr_p = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
-	      break;
-	    }
+	  op0 = TREE_OPERAND (expr, 0);
+
+	  /* For various reasons, the gimplification of the expression
+	     may have made a new INDIRECT_REF.  */
+	  if (TREE_CODE (op0) == INDIRECT_REF)
+	    goto do_indirect_ref;
 
 	  /* Make sure TREE_INVARIANT, TREE_CONSTANT, and TREE_SIDE_EFFECTS
 	     is set properly.  */
@@ -3848,7 +3870,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	default:
 	  switch (TREE_CODE_CLASS (TREE_CODE (*expr_p)))
 	    {
-	    case '<':
+	    case tcc_comparison:
 	      /* If this is a comparison of objects of aggregate type,
 	     	 handle it specially (by converting to a call to
 	     	 memcmp).  It would be nice to only have to do this
@@ -3862,12 +3884,12 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	      
 	    /* If *EXPR_P does not need to be special-cased, handle it
 	       according to its class.  */
-	    case '1':
+	    case tcc_unary:
 	      ret = gimplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p,
 				   post_p, is_gimple_val, fb_rvalue);
 	      break;
 
-	    case '2':
+	    case tcc_binary:
 	    expr_2:
 	      {
 		enum gimplify_status r0, r1;
@@ -3881,8 +3903,8 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 		break;
 	      }
 	      
-	    case 'd':
-	    case 'c':
+	    case tcc_declaration:
+	    case tcc_constant:
 	      ret = GS_ALL_DONE;
 	      goto dont_recalculate;
 	      

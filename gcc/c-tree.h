@@ -131,21 +131,46 @@ struct c_expr
   enum tree_code original_code;
 };
 
+/* A storage class specifier.  */
+enum c_storage_class {
+  csc_none,
+  csc_auto,
+  csc_extern,
+  csc_register,
+  csc_static,
+  csc_typedef
+};
+
+/* A type specifier keyword "void", "_Bool", "char", "int", "float",
+   "double", or none of these.  */
+enum c_typespec_keyword {
+  cts_none,
+  cts_void,
+  cts_bool,
+  cts_char,
+  cts_int,
+  cts_float,
+  cts_double
+};
+
 /* A sequence of declaration specifiers in C.  */
 struct c_declspecs {
-  /* The type specified, not reflecting modifiers such as "short" and
-     "unsigned", or NULL_TREE if none.  */
+  /* The type specified, if a single type specifier such as a struct,
+     union or enum specifier, typedef name or typeof specifies the
+     whole type, or NULL_TREE if none or a keyword such as "void" or
+     "char" is used.  Does not include qualifiers.  */
   tree type;
-  /* If the type was specified with a typedef, that typedef decl.  */
-  tree typedef_decl;
   /* The attributes from a typedef decl.  */
   tree decl_attr;
   /* When parsing, the attributes.  Outside the parser, this will be
      NULL; attributes (possibly from multiple lists) will be passed
      separately.  */
   tree attrs;
-  /* The modifier bits present.  */
-  int specbits;
+  /* Any type specifier keyword used such as "int", not reflecting
+     modifiers such as "short", or cts_none if none.  */
+  enum c_typespec_keyword typespec_word;
+  /* The storage class specifier, or csc_none if none.  */
+  enum c_storage_class storage_class;
   /* Whether something other than a storage class specifier or
      attribute has been seen.  This is used to warn for the
      obsolescent usage of storage class specifiers other than at the
@@ -153,14 +178,38 @@ struct c_declspecs {
      specifiers to be handled separately from storage class
      specifiers.)  */
   BOOL_BITFIELD non_sc_seen_p : 1;
+  /* Whether the type is specified by a typedef.  */
+  BOOL_BITFIELD typedef_p : 1;
+  /* Whether the type is explicitly "signed" or specified by a typedef
+     whose type is explicitly "signed".  */
+  BOOL_BITFIELD explicit_signed_p : 1;
   /* Whether the specifiers include a deprecated typedef.  */
   BOOL_BITFIELD deprecated_p : 1;
-  /* Whether "int" was explicitly specified.  */
-  BOOL_BITFIELD explicit_int_p : 1;
-  /* Whether "char" was explicitly specified.  */
-  BOOL_BITFIELD explicit_char_p : 1;
+  /* Whether the type defaulted to "int" because there were no type
+     specifiers.  */
+  BOOL_BITFIELD default_int_p;
+  /* Whether "long" was specified.  */
+  BOOL_BITFIELD long_p : 1;
   /* Whether "long" was specified more than once.  */
   BOOL_BITFIELD long_long_p : 1;
+  /* Whether "short" was specified.  */
+  BOOL_BITFIELD short_p : 1;
+  /* Whether "signed" was specified.  */
+  BOOL_BITFIELD signed_p : 1;
+  /* Whether "unsigned" was specified.  */
+  BOOL_BITFIELD unsigned_p : 1;
+  /* Whether "complex" was specified.  */
+  BOOL_BITFIELD complex_p : 1;
+  /* Whether "inline" was specified.  */
+  BOOL_BITFIELD inline_p : 1;
+  /* Whether "__thread" was specified.  */
+  BOOL_BITFIELD thread_p : 1;
+  /* Whether "const" was specified.  */
+  BOOL_BITFIELD const_p : 1;
+  /* Whether "volatile" was specified.  */
+  BOOL_BITFIELD volatile_p : 1;
+  /* Whether "restrict" was specified.  */
+  BOOL_BITFIELD restrict_p : 1;
 };
 
 /* The various kinds of declarators in C.  */
@@ -206,15 +255,17 @@ struct c_declarator {
     struct {
       /* The array dimension, or NULL for [] and [*].  */
       tree dimen;
-      /* The qualifiers (and attributes, currently ignored) inside [].  */
-      struct c_declspecs *quals;
+      /* The qualifiers inside [].  */
+      int quals;
+      /* The attributes (currently ignored) inside [].  */
+      tree attrs;
       /* Whether [static] was used.  */
       BOOL_BITFIELD static_p : 1;
       /* Whether [*] was used.  */
       BOOL_BITFIELD vla_unspec_p : 1;
     } array;
     /* For pointers, the qualifiers on the pointer type.  */
-    struct c_declspecs *pointer_quals;
+    int pointer_quals;
     /* For attributes.  */
     tree attrs;
   } u;
@@ -278,6 +329,7 @@ extern void c_expand_body (tree);
 extern void c_init_decl_processing (void);
 extern void c_dup_lang_specific_decl (tree);
 extern void c_print_identifier (FILE *, tree, int);
+extern int quals_from_declspecs (const struct c_declspecs *);
 extern struct c_declarator *build_array_declarator (tree, struct c_declspecs *,
 						    bool, bool);
 extern tree build_enumerator (tree, tree);
@@ -334,6 +386,7 @@ extern struct c_declspecs *declspecs_add_qual (struct c_declspecs *, tree);
 extern struct c_declspecs *declspecs_add_type (struct c_declspecs *, tree);
 extern struct c_declspecs *declspecs_add_scspec (struct c_declspecs *, tree);
 extern struct c_declspecs *declspecs_add_attrs (struct c_declspecs *, tree);
+extern struct c_declspecs *finish_declspecs (struct c_declspecs *);
 
 /* in c-objc-common.c */
 extern int c_disregard_inline_limits (tree);
@@ -394,8 +447,6 @@ extern void set_init_index (tree, tree);
 extern void set_init_label (tree);
 extern void process_init_element (struct c_expr);
 extern tree build_compound_literal (tree, tree);
-extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_PRINTF_1;
-extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_PRINTF_1;
 extern tree c_start_case (tree);
 extern void c_finish_case (tree);
 extern tree build_asm_expr (tree, tree, tree, tree, bool);
@@ -450,5 +501,13 @@ extern void c_write_global_declarations (void);
    diagnostic framework extensions, you must include this file before
    toplev.h, not after.  */
 #define GCC_DIAG_STYLE __gcc_cdiag__
+#if GCC_VERSION >= 3005
+#define ATTRIBUTE_GCC_CDIAG(m, n) __attribute__ ((__format__ (GCC_DIAG_STYLE, m ,n))) ATTRIBUTE_NONNULL(m)
+#else
+#define ATTRIBUTE_GCC_CDIAG(m, n) ATTRIBUTE_NONNULL(m)
+#endif
+
+extern void pedwarn_c90 (const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2);
+extern void pedwarn_c99 (const char *, ...) ATTRIBUTE_GCC_CDIAG(1,2);
 
 #endif /* ! GCC_C_TREE_H */

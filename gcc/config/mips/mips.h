@@ -302,6 +302,7 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define TARGET_MIPS5500             (mips_arch == PROCESSOR_R5500)
 #define TARGET_MIPS7000             (mips_arch == PROCESSOR_R7000)
 #define TARGET_MIPS9000             (mips_arch == PROCESSOR_R9000)
+#define TARGET_SB1                  (mips_arch == PROCESSOR_SB1)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
 
 /* Scheduling target defines.  */
@@ -822,11 +823,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 #define GENERATE_MULT3_DI       ((TARGET_MIPS3900)                      \
 				 && !TARGET_MIPS16)
 
-/* Macros to decide whether certain features are available or not,
-   depending on the instruction set architecture level.  */
-
-#define HAVE_SQRT_P()		(!ISA_MIPS1)
-
 /* True if the ABI can only work with 64-bit integer registers.  We
    generally allow ad-hoc variations for TARGET_SINGLE_FLOAT, but
    otherwise floating-point registers must also be 64-bit.  */
@@ -1294,8 +1290,6 @@ extern const struct mips_cpu_info *mips_tune_info;
 #ifndef POINTER_SIZE
 #define POINTER_SIZE ((TARGET_LONG64 && TARGET_64BIT) ? 64 : 32)
 #endif
-
-#define POINTERS_EXTEND_UNSIGNED 0
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY ((mips_abi == ABI_O64 \

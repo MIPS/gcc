@@ -145,9 +145,6 @@ static rtx arm_expand_unop_builtin (enum insn_code, tree, rtx, int);
 static rtx arm_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void emit_constant_insn (rtx cond, rtx pattern);
 
-#ifdef OBJECT_FORMAT_ELF
-static void arm_elf_asm_named_section (const char *, unsigned int);
-#endif
 #ifndef ARM_PE
 static void arm_encode_section_info (tree, rtx, int);
 #endif
@@ -634,7 +631,7 @@ bit_count (unsigned long value)
   return count;
 }
 
-/* Set up library functions uqniue to ARM.  */
+/* Set up library functions unique to ARM.  */
 
 static void
 arm_init_libfuncs (void)
@@ -654,7 +651,7 @@ arm_init_libfuncs (void)
   set_optab_libfunc (neg_optab, DFmode, "__aeabi_dneg");
   set_optab_libfunc (sub_optab, DFmode, "__aeabi_dsub");
 
-  /* Double-precision comparisions.  Table 3.  */
+  /* Double-precision comparisons.  Table 3.  */
   set_optab_libfunc (eq_optab, DFmode, "__aeabi_dcmpeq");
   set_optab_libfunc (ne_optab, DFmode, NULL);
   set_optab_libfunc (lt_optab, DFmode, "__aeabi_dcmplt");
@@ -670,7 +667,7 @@ arm_init_libfuncs (void)
   set_optab_libfunc (neg_optab, SFmode, "__aeabi_fneg");
   set_optab_libfunc (sub_optab, SFmode, "__aeabi_fsub");
 
-  /* Single-precision comparisions.  Table 5.  */
+  /* Single-precision comparisons.  Table 5.  */
   set_optab_libfunc (eq_optab, SFmode, "__aeabi_fcmpeq");
   set_optab_libfunc (ne_optab, SFmode, NULL);
   set_optab_libfunc (lt_optab, SFmode, "__aeabi_fcmplt");
@@ -693,7 +690,7 @@ arm_init_libfuncs (void)
   set_conv_libfunc (trunc_optab, SFmode, DFmode, "__aeabi_d2f");
   set_conv_libfunc (sext_optab, DFmode, SFmode, "__aeabi_f2d");
 
-  /* Integer to floating-point converisons.  Table 8.  */
+  /* Integer to floating-point conversions.  Table 8.  */
   set_conv_libfunc (sfloat_optab, DFmode, SImode, "__aeabi_i2d");
   set_conv_libfunc (ufloat_optab, DFmode, SImode, "__aeabi_ui2d");
   set_conv_libfunc (sfloat_optab, DFmode, DImode, "__aeabi_l2d");
@@ -2823,7 +2820,7 @@ arm_is_longcall_p (rtx sym_ref, int call_cookie, int call_symbol)
     {
       if (flag_function_sections
 	  || DECL_SECTION_NAME (current_function_decl))
-	/* c.3 is handled by the defintion of the
+	/* c.3 is handled by the definition of the
 	   ARM_DECLARE_FUNCTION_SIZE macro.  */
 	return 1;
     }
@@ -9941,7 +9938,7 @@ arm_expand_prologue (void)
   int fp_offset = 0;
   int saved_pretend_args = 0;
   int saved_regs = 0;
-  unsigned int args_to_push;
+  unsigned HOST_WIDE_INT args_to_push;
   arm_stack_offsets *offsets;
 
   func_type = arm_current_func_type ();
@@ -12900,7 +12897,7 @@ thumb_expand_prologue (void)
       return;
     }
 
-  /* Load the pic recister before setting the frame pointer, so we can use r7
+  /* Load the pic register before setting the frame pointer, so we can use r7
      as a temporary work register.  */
   if (flag_pic)
     arm_load_pic_register ();
@@ -13771,62 +13768,6 @@ aof_file_end (void)
 }
 #endif /* AOF_ASSEMBLER */
 
-#ifdef OBJECT_FORMAT_ELF
-/* Switch to an arbitrary section NAME with attributes as specified
-   by FLAGS.  ALIGN specifies any known alignment requirements for
-   the section; 0 if the default should be used.
-
-   Differs from the default elf version only in the prefix character
-   used before the section type.  */
-
-static void
-arm_elf_asm_named_section (const char *name, unsigned int flags)
-{
-  char flagchars[10], *f = flagchars;
-
-  if (! named_section_first_declaration (name))
-    {
-      fprintf (asm_out_file, "\t.section\t%s\n", name);
-      return;
-    }
-
-  if (!(flags & SECTION_DEBUG))
-    *f++ = 'a';
-  if (flags & SECTION_WRITE)
-    *f++ = 'w';
-  if (flags & SECTION_CODE)
-    *f++ = 'x';
-  if (flags & SECTION_SMALL)
-    *f++ = 's';
-  if (flags & SECTION_MERGE)
-    *f++ = 'M';
-  if (flags & SECTION_STRINGS)
-    *f++ = 'S';
-  if (flags & SECTION_TLS)
-    *f++ = 'T';
-  *f = '\0';
-
-  fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
-
-  if (!(flags & SECTION_NOTYPE))
-    {
-      const char *type;
-
-      if (flags & SECTION_BSS)
-	type = "nobits";
-      else
-	type = "progbits";
-
-      fprintf (asm_out_file, ",%%%s", type);
-
-      if (flags & SECTION_ENTSIZE)
-	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
-    }
-
-  putc ('\n', asm_out_file);
-}
-#endif
-
 #ifndef ARM_PE
 /* Symbols in the text segment can be accessed without indirecting via the
    constant pool; it may take an extra binary operation, but this is still
@@ -13847,7 +13788,7 @@ arm_encode_section_info (tree decl, rtx rtl, int first)
   /* If we are referencing a function that is weak then encode a long call
      flag in the function name, otherwise if the function is static or
      or known to be defined in this file then encode a short call flag.  */
-  if (first && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
+  if (first && DECL_P (decl))
     {
       if (TREE_CODE (decl) == FUNCTION_DECL && DECL_WEAK (decl))
         arm_encode_call_attribute (decl, LONG_CALL_FLAG_CHAR);

@@ -1,3 +1,87 @@
+2004-09-15  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Handler.java
+	(openConnection): Don't throw exception if host part for file: URI is
+	present. setURL() keeps file: protocol if ftp: protocol is not
+	available.
+
+2004-09-14  Richard Henderson  <rth@redhat.com>
+
+	* java/lang/natPosixProcess.cc (waitForSignal): Ignore return
+	value of sigsuspend.
+
+2004-09-12  Tom Tromey  <tromey@redhat.com>
+
+	* javax/naming/CompoundName.java (CompoundName): Don't check for
+	separator in "flat" case.
+
+2004-09-12  Michael Koch  <konqueror@gmx.de>
+
+	* libltdl/configure.ac: Fixed AM_INIT_AUTOMAKE usage and replaces
+	AM_CONFIG_HEADER by AC_CONFIG_FILES.
+	* libltdl/Makefile.in, libltdl/aclocal.m4, libltdl/configure:
+	Regenerate.
+
+2004-09-11  Mohan Embar  <gnustuff@thisiscool.com>
+
+	PR libgcj/14751
+	* win32-threads.cc (_Jv_ThreadInitData): Zero out thread
+	handle in newly-allocated _Jv_Thread_t.
+	(_Jv_ThreadDestroyData): Close thread handle.
+	(_Jv_ThreadStart): Remove obsolete comment.
+	Store handle of newly-created thread in _Jv_Thread_t.
+	* include/win32-threads.h: #define WIN32_LEAN_AND_MEAN
+	before including <windows.h>
+	#define _Jv_HaveCondDestroy
+
+2004-09-11  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/lang/natThread.cc (finalize_native): Destroy
+	join conditional variable and mutex if these destroy
+	operations are supported.
+
+2004-09-10  Dalibor Topic <robilad@kaffe.org>
+
+	* gnu/java/net/protocol/file/Connection.java (permission): New field.
+	(DEFAULT_PERMISSION): New constant.
+	(Connection): Create a FilePermission with permission to read file.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Connection.java
+	(getLastModified): Moved around.
+	(getPermission): Return stored permission.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.in: Regenerate.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am: Reverted accidently commited stuff.
+	* configure: Regenerated.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Connection.java
+	(lineSeparator): Made non-final.
+	(static): Removed.
+	(connect): Initialize lineSeparator lazily. Use ByteArrayInputStream
+	instead of StringBufferInputStream.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/net/protocol/file/Connection.java
+	(connect): Handle file is a directory case.
+
+2004-09-10  Michael Koch  <konqueror@gmx.de>
+
+	* Makefile.am
+	(xlib_includes): Removed.
+	(AM_CPPFLAGS): Renamed from INCLUDES.
+	(lib_gnu_awt_xlib_la_CPPFLAGS): New automake variable.
+	* Makefile.in: Regenerate.
+
 2004-09-09  Michael Koch  <konqueror@gmx.de>
 
 	* java/security/ProtectionDomain.java,

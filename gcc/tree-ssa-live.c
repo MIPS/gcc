@@ -1,5 +1,5 @@
 /* Liveness for SSA trees.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -133,7 +133,7 @@ var_union (var_map map, tree var1, tree var2)
       if (map->compact_to_partition)
         p2 = map->compact_to_partition[p2];
 
-      /* If there is no root_var set, or its not a user variable, set the
+      /* If there is no root_var set, or it's not a user variable, set the
 	 root_var to this one.  */
       if (!root_var || (DECL_P (root_var) && DECL_IGNORED_P (root_var)))
         {
@@ -297,7 +297,7 @@ mark_all_vars_used_1 (tree *tp, int *walk_subtrees,
   if (TREE_CODE (t) == VAR_DECL)
     set_is_used (t);
 
-  if (DECL_P (t) || TYPE_P (t))
+  if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
 
   return NULL;

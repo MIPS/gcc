@@ -1,3 +1,19 @@
+2004-09-17  Zack Weinberg  <zack@codesourcery.com>
+
+	* charset.c (_cpp_destroy_iconv, emit_numeric_escape)
+	(_cpp_convert_input, _cpp_default_encoding): Add comments.
+	Some other comments in this file also tweaked.
+
+	* directives.c (do_pragma): Save current buffer position
+	before lexing the pragma keywords; don't call
+	_cpp_backup_tokens in the defer_pragmas case.
+
+2004-09-15  Per Bothner  <per@bothner.com>
+
+	* include/line-map.h (line_map_start):  Add parameter names so
+	preceding comment makes sense.
+	(linemap_add):  Remove from comment mention of non-existing parameter.
+
 2004-09-09  Matt Austern  <austern@apple.com>
 	    Zack Weinberg  <zack@codesourcery.com>
 

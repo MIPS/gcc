@@ -207,11 +207,15 @@ err:
       arguments).
 
    IS_VIRTUAL is true if SSA_NAME is created by a V_MAY_DEF or a
-      V_MUST_DEF.  */
+      V_MUST_DEF.
+   
+   If NAMES_DEFINED_IN_BB is not NULL, it contains a bitmap of ssa names
+     that are defined before STMT in basic block BB.  */
 
 static bool
 verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
-	    tree stmt, bool check_abnormal, bool is_virtual)
+	    tree stmt, bool check_abnormal, bool is_virtual,
+	    bitmap names_defined_in_bb)
 {
   bool err = false;
 
@@ -230,6 +234,13 @@ verify_use (basic_block bb, basic_block def_bb, tree ssa_name,
     {
       error ("Definition in block %i does not dominate use in block %i",
 	     def_bb->index, bb->index);
+      err = true;
+    }
+  else if (bb == def_bb
+	   && names_defined_in_bb != NULL
+	   && !bitmap_bit_p (names_defined_in_bb, SSA_NAME_VERSION (ssa_name)))
+    {
+      error ("Definition in block %i follows the use", def_bb->index);
       err = true;
     }
 
@@ -284,7 +295,8 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
       if (TREE_CODE (op) == SSA_NAME)
 	err = verify_use (e->src, definition_block[SSA_NAME_VERSION (op)], op,
 			  phi, e->flags & EDGE_ABNORMAL,
-			  !is_gimple_reg (PHI_RESULT (phi)));
+			  !is_gimple_reg (PHI_RESULT (phi)),
+			  NULL);
 
       if (e->dest != bb)
 	{
@@ -508,6 +520,8 @@ verify_ssa (void)
   basic_block *definition_block = xcalloc (num_ssa_names, sizeof (basic_block));
   ssa_op_iter iter;
   tree op;
+  enum dom_state orig_dom_state = dom_computed[CDI_DOMINATORS];
+  bitmap names_defined_in_bb = BITMAP_XMALLOC ();
 
   timevar_push (TV_TREE_SSA_VERIFY);
 
@@ -581,8 +595,12 @@ verify_ssa (void)
 
       /* Verify the arguments for every PHI node in the block.  */
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	if (verify_phi_args (phi, bb, definition_block))
-	  goto err;
+	{
+	  if (verify_phi_args (phi, bb, definition_block))
+	    goto err;
+	  bitmap_set_bit (names_defined_in_bb,
+			  SSA_NAME_VERSION (PHI_RESULT (phi)));
+	}
 
       /* Now verify all the uses and vuses in every statement of the block.  */
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -592,23 +610,58 @@ verify_ssa (void)
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_VIRTUAL_USES)
 	    {
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, true))
+			      op, stmt, false, true,
+			      names_defined_in_bb))
 		goto err;
 	    }
 
 	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
 	    {
 	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
-			      op, stmt, false, false))
+			      op, stmt, false, false,
+			      names_defined_in_bb))
+		goto err;
+	    }
+
+	  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_ALL_DEFS)
+	    {
+	      bitmap_set_bit (names_defined_in_bb, SSA_NAME_VERSION (op));
+	    }
+	}
+
+      /* Verify the uses in arguments of PHI nodes at the exits from the
+	 block.  */
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  for (phi = phi_nodes (e->dest); phi; phi = PHI_CHAIN (phi))
+	    {
+	      bool virtual = !is_gimple_reg (PHI_RESULT (phi));
+	      op = PHI_ARG_DEF_FROM_EDGE (phi, e);
+	      if (TREE_CODE (op) != SSA_NAME)
+		continue;
+
+	      if (verify_use (bb, definition_block[SSA_NAME_VERSION (op)],
+			      op, phi, false, virtual,
+			      names_defined_in_bb))
 		goto err;
 	    }
 	}
+
+      bitmap_clear (names_defined_in_bb);
     }
 
   /* Finally, verify alias information.  */
   verify_alias_info ();
 
   free (definition_block);
+  /* Restore the dominance information to its prior known state, so
+     that we do not perturb the compiler's subsequent behavior.  */
+  if (orig_dom_state == DOM_NONE)
+    free_dominance_info (CDI_DOMINATORS);
+  else
+    dom_computed[CDI_DOMINATORS] = orig_dom_state;
+  
+  BITMAP_XFREE (names_defined_in_bb);
   timevar_pop (TV_TREE_SSA_VERIFY);
   return;
 
@@ -920,7 +973,6 @@ replace_immediate_uses (tree var, tree repl)
   int i, j, n;
   dataflow_t df;
   tree stmt;
-  stmt_ann_t ann;
   bool mark_new_vars;
   ssa_op_iter iter;
   use_operand_p use_p;
@@ -931,7 +983,6 @@ replace_immediate_uses (tree var, tree repl)
   for (i = 0; i < n; i++)
     {
       stmt = immediate_use (df, i);
-      ann = stmt_ann (stmt);
 
       if (TREE_CODE (stmt) == PHI_NODE)
 	{
@@ -969,6 +1020,25 @@ replace_immediate_uses (tree var, tree repl)
 	  FOR_EACH_SSA_USE_OPERAND (use_p, stmt, iter, SSA_OP_VIRTUAL_USES)
 	    if (USE_FROM_PTR (use_p) == var)
 	      propagate_value (use_p, repl);
+	}
+
+      /* FIXME.  If REPL is a constant, we need to fold STMT.
+	 However, fold_stmt wants a pointer to the statement, because
+	 it may happen that it needs to replace the whole statement
+	 with a new expression.  Since the current def-use machinery
+	 does not return pointers to statements, we call fold_stmt
+	 with the address of a local temporary, if that call changes
+	 the temporary then we fall on our swords.
+
+	 Note that all this will become unnecessary soon.  This
+	 pass is being replaced with a proper copy propagation pass
+	 for 4.1 (dnovillo, 2004-09-17).  */
+      if (TREE_CODE (repl) != SSA_NAME)
+	{
+	  tree tmp = stmt;
+	  fold_stmt (&tmp);
+	  if (tmp != stmt)
+	    abort ();
 	}
 
       /* If REPL is a pointer, it may have different memory tags associated
@@ -1230,7 +1300,7 @@ warn_uninitialized_var (tree *tp, int *walk_subtrees, void *data)
       warn_uninit (t, "%H'%D' is used uninitialized in this function", locus);
       *walk_subtrees = 0;
     }
-  else if (DECL_P (t) || TYPE_P (t))
+  else if (IS_TYPE_OR_DECL_P (t))
     *walk_subtrees = 0;
 
   return NULL_TREE;

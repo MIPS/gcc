@@ -3527,7 +3527,7 @@ expand_assignment (tree to, tree from, int want_value)
 	  src = from;
 	  STRIP_NOPS (src);
 	  if (TREE_CODE (TREE_TYPE (src)) != INTEGER_TYPE
-	      || TREE_CODE_CLASS (TREE_CODE (src)) != '2')
+	      || !BINARY_CLASS_P (src))
 	    break;
 
 	  op0 = TREE_OPERAND (src, 0);
@@ -5755,14 +5755,14 @@ safe_from_p (rtx x, tree exp, int top_p)
   /* Now look at our tree code and possibly recurse.  */
   switch (TREE_CODE_CLASS (TREE_CODE (exp)))
     {
-    case 'd':
+    case tcc_declaration:
       exp_rtl = DECL_RTL_IF_SET (exp);
       break;
 
-    case 'c':
+    case tcc_constant:
       return 1;
 
-    case 'x':
+    case tcc_exceptional:
       if (TREE_CODE (exp) == TREE_LIST)
 	{
 	  while (1)
@@ -5781,7 +5781,7 @@ safe_from_p (rtx x, tree exp, int top_p)
       else
 	return 0;
 
-    case 's':
+    case tcc_statement:
       /* The only case we look at here is the DECL_INITIAL inside a
 	 DECL_EXPR.  */
       return (TREE_CODE (exp) != DECL_EXPR
@@ -5789,17 +5789,17 @@ safe_from_p (rtx x, tree exp, int top_p)
 	      || !DECL_INITIAL (DECL_EXPR_DECL (exp))
 	      || safe_from_p (x, DECL_INITIAL (DECL_EXPR_DECL (exp)), 0));
 
-    case '2':
-    case '<':
+    case tcc_binary:
+    case tcc_comparison:
       if (!safe_from_p (x, TREE_OPERAND (exp, 1), 0))
 	return 0;
       /* Fall through.  */
 
-    case '1':
+    case tcc_unary:
       return safe_from_p (x, TREE_OPERAND (exp, 0), 0);
 
-    case 'e':
-    case 'r':
+    case tcc_expression:
+    case tcc_reference:
       /* Now do code-specific tests.  EXP_RTL is set to any rtx we find in
 	 the expression.  If it is set, we conflict iff we are that rtx or
 	 both are in memory.  Otherwise, we check all operands of the
@@ -5872,6 +5872,11 @@ safe_from_p (rtx x, tree exp, int top_p)
 	  >= (unsigned int) LAST_AND_UNUSED_TREE_CODE
 	  && !lang_hooks.safe_from_p (x, exp))
 	return 0;
+      break;
+
+    case tcc_type:
+      /* Should never get a type here.  */
+      gcc_unreachable ();
     }
 
   /* If we have an rtl, find any enclosed object.  Then see if we conflict
@@ -6048,12 +6053,12 @@ expand_operands (tree exp0, tree exp1, rtx target, rtx *op0, rtx *op1,
 }
 
 
-/* A subroutine of expand_expr.  Evaluate the address of EXP.
+/* A subroutine of expand_expr_addr_expr.  Evaluate the address of EXP.
    The TARGET, TMODE and MODIFIER arguments are as for expand_expr.  */
 
 static rtx
-expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
-		       enum expand_modifier modifier)
+expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
+		         enum expand_modifier modifier)
 {
   rtx result, subtarget;
   tree inner, offset;
@@ -6068,7 +6073,7 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
      generating ADDR_EXPR of something that isn't an LVALUE.  The only
      exception here is STRING_CST.  */
   if (TREE_CODE (exp) == CONSTRUCTOR
-      || TREE_CODE_CLASS (TREE_CODE (exp)) == 'c')
+      || CONSTANT_CLASS_P (exp))
     return XEXP (output_constant_def (exp, 0), 0);
 
   /* Everything must be something allowed by is_gimple_addressable.  */
@@ -6080,7 +6085,7 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
 
     case CONST_DECL:
       /* Recurse and make the output_constant_def clause above handle this.  */
-      return expand_expr_addr_expr (DECL_INITIAL (exp), target,
+      return expand_expr_addr_expr_1 (DECL_INITIAL (exp), target,
 				    tmode, modifier);
 
     case REALPART_EXPR:
@@ -6140,7 +6145,7 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
   gcc_assert (inner != exp);
 
   subtarget = offset || bitpos ? NULL_RTX : target;
-  result = expand_expr_addr_expr (inner, subtarget, tmode, modifier);
+  result = expand_expr_addr_expr_1 (inner, subtarget, tmode, modifier);
 
   if (tmode == VOIDmode)
     {
@@ -6180,6 +6185,33 @@ expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
 
   return result;
 }
+
+/* A subroutine of expand_expr.  Evaluate EXP, which is an ADDR_EXPR.
+   The TARGET, TMODE and MODIFIER arguments are as for expand_expr.  */
+
+static rtx
+expand_expr_addr_expr (tree exp, rtx target, enum machine_mode tmode,
+		       enum expand_modifier modifier)
+{
+  enum machine_mode rmode;
+  rtx result;
+
+  result = expand_expr_addr_expr_1 (TREE_OPERAND (exp, 0), target,
+				    tmode, modifier);
+
+  /* Despite expand_expr claims concerning ignoring TMODE when not
+     strictly convenient, stuff breaks if we don't honor it.  */
+  if (tmode == VOIDmode)
+    tmode = TYPE_MODE (TREE_TYPE (exp));
+  rmode = GET_MODE (result);
+  if (rmode == VOIDmode)
+    rmode = tmode;
+  if (rmode != tmode)
+    result = convert_memory_address (tmode, result);
+ 
+  return result;
+}
+
 
 /* expand_expr: generate code for computing expression EXP.
    An rtx for the computed value is returned.  The value is never null.
@@ -6373,12 +6405,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  return const0_rtx;
 	}
 
-      if (TREE_CODE_CLASS (code) == '1' || code == COMPONENT_REF
-	  || code == INDIRECT_REF)
+      if (TREE_CODE_CLASS (code) == tcc_unary
+	  || code == COMPONENT_REF || code == INDIRECT_REF)
 	return expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode,
 			    modifier);
 
-      else if (TREE_CODE_CLASS (code) == '2' || TREE_CODE_CLASS (code) == '<'
+      else if (TREE_CODE_CLASS (code) == tcc_binary
+	       || TREE_CODE_CLASS (code) == tcc_comparison
 	       || code == ARRAY_REF || code == ARRAY_RANGE_REF)
 	{
 	  expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode, modifier);
@@ -8064,8 +8097,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       return const0_rtx;
 
     case ADDR_EXPR:
-      return expand_expr_addr_expr (TREE_OPERAND (exp, 0), target,
-				    tmode, modifier);
+      return expand_expr_addr_expr (exp, target, tmode, modifier);
 
     /* COMPLEX type for Extended Pascal & Fortran  */
     case COMPLEX_EXPR:
@@ -8273,20 +8305,31 @@ is_aligning_offset (tree offset, tree exp)
 tree
 string_constant (tree arg, tree *ptr_offset)
 {
+  tree array, offset;
   STRIP_NOPS (arg);
 
-  if (TREE_CODE (arg) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (arg, 0)) == STRING_CST)
+  if (TREE_CODE (arg) == ADDR_EXPR)
     {
-      *ptr_offset = size_zero_node;
-      return TREE_OPERAND (arg, 0);
-    }
-  if (TREE_CODE (arg) == ADDR_EXPR
-      && TREE_CODE (TREE_OPERAND (arg, 0)) == ARRAY_REF
-      && TREE_CODE (TREE_OPERAND (TREE_OPERAND (arg, 0), 0)) == STRING_CST)
-    {
-      *ptr_offset = convert (sizetype, TREE_OPERAND (TREE_OPERAND (arg, 0), 1));
-      return TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
+      if (TREE_CODE (TREE_OPERAND (arg, 0)) == STRING_CST)
+	{
+	  *ptr_offset = size_zero_node;
+	  return TREE_OPERAND (arg, 0);
+	}
+      else if (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL)
+	{
+	  array = TREE_OPERAND (arg, 0);
+	  offset = size_zero_node;
+	}
+      else if (TREE_CODE (TREE_OPERAND (arg, 0)) == ARRAY_REF)
+	{
+	  array = TREE_OPERAND (TREE_OPERAND (arg, 0), 0);
+	  offset = TREE_OPERAND (TREE_OPERAND (arg, 0), 1);
+	  if (TREE_CODE (array) != STRING_CST
+	      && TREE_CODE (array) != VAR_DECL)
+	    return 0;
+	}
+      else
+	return 0;
     }
   else if (TREE_CODE (arg) == PLUS_EXPR)
     {
@@ -8297,17 +8340,62 @@ string_constant (tree arg, tree *ptr_offset)
       STRIP_NOPS (arg1);
 
       if (TREE_CODE (arg0) == ADDR_EXPR
-	  && TREE_CODE (TREE_OPERAND (arg0, 0)) == STRING_CST)
+	  && (TREE_CODE (TREE_OPERAND (arg0, 0)) == STRING_CST
+	      || TREE_CODE (TREE_OPERAND (arg0, 0)) == VAR_DECL))
 	{
-	  *ptr_offset = convert (sizetype, arg1);
-	  return TREE_OPERAND (arg0, 0);
+	  array = TREE_OPERAND (arg0, 0);
+	  offset = arg1;
 	}
       else if (TREE_CODE (arg1) == ADDR_EXPR
-	       && TREE_CODE (TREE_OPERAND (arg1, 0)) == STRING_CST)
+	       && (TREE_CODE (TREE_OPERAND (arg1, 0)) == STRING_CST
+		   || TREE_CODE (TREE_OPERAND (arg1, 0)) == VAR_DECL))
 	{
-	  *ptr_offset = convert (sizetype, arg0);
-	  return TREE_OPERAND (arg1, 0);
+	  array = TREE_OPERAND (arg1, 0);
+	  offset = arg0;
 	}
+      else
+	return 0;
+    }
+  else
+    return 0;
+
+  if (TREE_CODE (array) == STRING_CST)
+    {
+      *ptr_offset = convert (sizetype, offset);
+      return array;
+    }
+  else if (TREE_CODE (array) == VAR_DECL)
+    {
+      int length;
+
+      /* Variables initialized to string literals can be handled too.  */
+      if (DECL_INITIAL (array) == NULL_TREE
+	  || TREE_CODE (DECL_INITIAL (array)) != STRING_CST)
+	return 0;
+
+      /* If they are read-only, non-volatile and bind locally.  */
+      if (! TREE_READONLY (array)
+	  || TREE_SIDE_EFFECTS (array)
+	  || ! targetm.binds_local_p (array))
+	return 0;
+
+      /* Avoid const char foo[4] = "abcde";  */
+      if (DECL_SIZE_UNIT (array) == NULL_TREE
+	  || TREE_CODE (DECL_SIZE_UNIT (array)) != INTEGER_CST
+	  || (length = TREE_STRING_LENGTH (DECL_INITIAL (array))) <= 0
+	  || compare_tree_int (DECL_SIZE_UNIT (array), length) < 0)
+	return 0;
+
+      /* If variable is bigger than the string literal, OFFSET must be constant
+	 and inside of the bounds of the string literal.  */
+      offset = convert (sizetype, offset);
+      if (compare_tree_int (DECL_SIZE_UNIT (array), length) > 0
+	  && (! host_integerp (offset, 1)
+	      || compare_tree_int (offset, length) >= 0))
+	return 0;
+
+      *ptr_offset = offset;
+      return DECL_INITIAL (array);
     }
 
   return 0;
@@ -8822,6 +8910,6 @@ const_vector_from_tree (tree exp)
   for (; i < units; ++i)
     RTVEC_ELT (v, i) = CONST0_RTX (inner);
 
-  return gen_rtx_raw_CONST_VECTOR (mode, v);
+  return gen_rtx_CONST_VECTOR (mode, v);
 }
 #include "gt-expr.h"

@@ -578,6 +578,7 @@ const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPR
 /* Some CPU cores are not able to predict more than 4 branch instructions in
    the 16 byte window.  */
 const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
+const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K8 | m_PENT;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -1565,6 +1566,10 @@ override_options (void)
     internal_label_prefix_len = p - internal_label_prefix;
     *p = '\0';
   }
+  /* When scheduling description is not available, disable scheduler pass so it
+     won't slow down the compilation and make x87 code slower.  */
+  if (!TARGET_SCHEDULE)
+    flag_schedule_insns_after_reload = flag_schedule_insns = 0;
 }
 
 void
@@ -7223,15 +7228,20 @@ const char *
 output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
 {
   int stack_top_dies;
-  rtx cmp_op0 = operands[0];
-  rtx cmp_op1 = operands[1];
+  rtx cmp_op0, cmp_op1;
   int is_sse = SSE_REG_P (operands[0]) | SSE_REG_P (operands[1]);
 
   if (eflags_p == 2)
     {
-      cmp_op0 = cmp_op1;
+      cmp_op0 = operands[1];
       cmp_op1 = operands[2];
     }
+  else
+    {
+      cmp_op0 = operands[0];
+      cmp_op1 = operands[1];
+    }
+
   if (is_sse)
     {
       if (GET_MODE (operands[0]) == SFmode)
@@ -7250,6 +7260,17 @@ output_fp_compare (rtx insn, rtx *operands, int eflags_p, int unordered_p)
     abort ();
 
   stack_top_dies = find_regno_note (insn, REG_DEAD, FIRST_STACK_REG) != 0;
+
+  if (cmp_op1 == CONST0_RTX (GET_MODE (cmp_op1)))
+    {
+      if (stack_top_dies)
+	{
+	  output_asm_insn ("ftst\n\tfnstsw\t%0", operands);
+	  return TARGET_USE_FFREEP ? "ffreep\t%y1" : "fstp\t%y1";
+	}
+      else
+	return "ftst\n\tfnstsw\t%0";
+    }
 
   if (STACK_REG_P (cmp_op1)
       && stack_top_dies
@@ -9939,7 +9960,7 @@ ix86_split_long_move (rtx operands[])
 	}
     }
 
-  /* If optimizing for size, attempt to locally unCSE non-zero constants.  */
+  /* If optimizing for size, attempt to locally unCSE nonzero constants.  */
   if (optimize_size)
     {
       if (GET_CODE (operands[5]) == CONST_INT
@@ -10019,6 +10040,69 @@ ix86_split_ashldi (rtx *operands, rtx scratch)
 	  emit_insn (gen_x86_shld_1 (high[0], low[0], GEN_INT (count)));
 	  ix86_expand_ashlsi3_const (low[0], count);
 	}
+      return;
+    }
+
+  split_di (operands, 1, low, high);
+
+  if (operands[1] == const1_rtx)
+    {
+      /* Assuming we've chosen a QImode capable registers, then 1LL << N
+	 can be done with two 32-bit shifts, no branches, no cmoves.  */
+      if (ANY_QI_REG_P (low[0]) && ANY_QI_REG_P (high[0]))
+	{
+	  rtx s, d, flags = gen_rtx_REG (CCZmode, FLAGS_REG);
+
+	  ix86_expand_clear (low[0]);
+	  ix86_expand_clear (high[0]);
+	  emit_insn (gen_testqi_ccz_1 (operands[2], GEN_INT (32)));
+	  
+	  d = gen_lowpart (QImode, low[0]);
+	  d = gen_rtx_STRICT_LOW_PART (VOIDmode, d);
+	  s = gen_rtx_EQ (QImode, flags, const0_rtx);
+	  emit_insn (gen_rtx_SET (VOIDmode, d, s));
+
+	  d = gen_lowpart (QImode, high[0]);
+	  d = gen_rtx_STRICT_LOW_PART (VOIDmode, d);
+	  s = gen_rtx_NE (QImode, flags, const0_rtx);
+	  emit_insn (gen_rtx_SET (VOIDmode, d, s));
+	}
+
+      /* Otherwise, we can get the same results by manually performing
+	 a bit extract operation on bit 5, and then performing the two
+	 shifts.  The two methods of getting 0/1 into low/high are exactly
+	 the same size.  Avoiding the shift in the bit extract case helps
+	 pentium4 a bit; no one else seems to care much either way.  */
+      else
+	{
+	  rtx x;
+
+	  if (TARGET_PARTIAL_REG_STALL && !optimize_size)
+	    x = gen_rtx_ZERO_EXTEND (SImode, operands[2]);
+	  else
+	    x = gen_lowpart (SImode, operands[2]);
+	  emit_insn (gen_rtx_SET (VOIDmode, high[0], x));
+
+	  emit_insn (gen_lshrsi3 (high[0], high[0], GEN_INT (5)));
+	  emit_insn (gen_andsi3 (high[0], high[0], GEN_INT (1)));
+	  emit_move_insn (low[0], high[0]);
+	  emit_insn (gen_xorsi3 (low[0], low[0], GEN_INT (1)));
+	}
+
+      emit_insn (gen_ashlsi3 (low[0], low[0], operands[2]));
+      emit_insn (gen_ashlsi3 (high[0], high[0], operands[2]));
+      return;
+    }
+
+  if (operands[1] == constm1_rtx)
+    {
+      /* For -1LL << N, we can avoid the shld instruction, because we
+	 know that we're shifting 0...31 ones into a -1.  */
+      emit_move_insn (low[0], constm1_rtx);
+      if (optimize_size)
+        emit_move_insn (high[0], low[0]);
+      else
+	emit_move_insn (high[0], constm1_rtx);
     }
   else
     {
@@ -10026,23 +10110,18 @@ ix86_split_ashldi (rtx *operands, rtx scratch)
 	emit_move_insn (operands[0], operands[1]);
 
       split_di (operands, 1, low, high);
-
       emit_insn (gen_x86_shld_1 (high[0], low[0], operands[2]));
-      emit_insn (gen_ashlsi3 (low[0], low[0], operands[2]));
-
-      if (TARGET_CMOVE && (! no_new_pseudos || scratch))
-	{
-	  if (! no_new_pseudos)
-	    scratch = force_reg (SImode, const0_rtx);
-	  else
-	    emit_move_insn (scratch, const0_rtx);
-
-	  emit_insn (gen_x86_shift_adj_1 (high[0], low[0], operands[2],
-					  scratch));
-	}
-      else
-	emit_insn (gen_x86_shift_adj_2 (high[0], low[0], operands[2]));
     }
+
+  emit_insn (gen_ashlsi3 (low[0], low[0], operands[2]));
+
+  if (TARGET_CMOVE && scratch)
+    {
+      ix86_expand_clear (scratch);
+      emit_insn (gen_x86_shift_adj_1 (high[0], low[0], operands[2], scratch));
+    }
+  else
+    emit_insn (gen_x86_shift_adj_2 (high[0], low[0], operands[2]));
 }
 
 void
@@ -10066,15 +10145,8 @@ ix86_split_ashrdi (rtx *operands, rtx scratch)
       else if (count >= 32)
 	{
 	  emit_move_insn (low[0], high[1]);
-
-	  if (! reload_completed)
-	    emit_insn (gen_ashrsi3 (high[0], low[0], GEN_INT (31)));
-	  else
-	    {
-	      emit_move_insn (high[0], low[0]);
-	      emit_insn (gen_ashrsi3 (high[0], high[0], GEN_INT (31)));
-	    }
-
+	  emit_move_insn (high[0], low[0]);
+	  emit_insn (gen_ashrsi3 (high[0], high[0], GEN_INT (31)));
 	  if (count > 32)
 	    emit_insn (gen_ashrsi3 (low[0], low[0], GEN_INT (count - 32)));
 	}
@@ -10096,10 +10168,8 @@ ix86_split_ashrdi (rtx *operands, rtx scratch)
       emit_insn (gen_x86_shrd_1 (low[0], high[0], operands[2]));
       emit_insn (gen_ashrsi3 (high[0], high[0], operands[2]));
 
-      if (TARGET_CMOVE && (! no_new_pseudos || scratch))
+      if (TARGET_CMOVE && scratch)
 	{
-	  if (! no_new_pseudos)
-	    scratch = gen_reg_rtx (SImode);
 	  emit_move_insn (scratch, high[0]);
 	  emit_insn (gen_ashrsi3 (scratch, scratch, GEN_INT (31)));
 	  emit_insn (gen_x86_shift_adj_1 (low[0], high[0], operands[2],
@@ -10124,7 +10194,7 @@ ix86_split_lshrdi (rtx *operands, rtx scratch)
       if (count >= 32)
 	{
 	  emit_move_insn (low[0], high[1]);
-	  emit_move_insn (high[0], const0_rtx);
+	  ix86_expand_clear (high[0]);
 
 	  if (count > 32)
 	    emit_insn (gen_lshrsi3 (low[0], low[0], GEN_INT (count - 32)));
@@ -10148,13 +10218,9 @@ ix86_split_lshrdi (rtx *operands, rtx scratch)
       emit_insn (gen_lshrsi3 (high[0], high[0], operands[2]));
 
       /* Heh.  By reversing the arguments, we can reuse this pattern.  */
-      if (TARGET_CMOVE && (! no_new_pseudos || scratch))
+      if (TARGET_CMOVE && scratch)
 	{
-	  if (! no_new_pseudos)
-	    scratch = force_reg (SImode, const0_rtx);
-	  else
-	    emit_move_insn (scratch, const0_rtx);
-
+	  ix86_expand_clear (scratch);
 	  emit_insn (gen_x86_shift_adj_1 (low[0], high[0], operands[2],
 					  scratch));
 	}

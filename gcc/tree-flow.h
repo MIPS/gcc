@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "tree-gimple.h"
 #include "tree-ssa-operands.h"
+#include "cgraph.h"
 
 /* Forward declare structures for the garbage collector GTY markers.  */
 #ifndef GCC_BASIC_BLOCK_H
@@ -199,6 +200,11 @@ struct var_ann_d GTY(())
      live at the same time and this can happen for each call to the
      dominator optimizer.  */
   tree current_def;
+
+  /* Pointer to the structure that contains the sets of global
+     variables modified by function calls.  This field is only used
+     for FUNCTION_DECLs.  */
+  static_vars_info_t static_vars_info;
 };
 
 
@@ -489,6 +495,13 @@ extern void clear_special_calls (void);
 extern void verify_stmts (void);
 extern tree tree_block_label (basic_block bb);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
+extern bool tree_duplicate_sese_region (edge, edge, basic_block *, unsigned,
+					basic_block *);
+extern void add_phi_args_after_copy_bb (basic_block);
+extern void add_phi_args_after_copy (basic_block *, unsigned);
+extern void rewrite_to_new_ssa_names_bb (basic_block, struct htab *);
+extern void rewrite_to_new_ssa_names (basic_block *, unsigned, htab_t);
+extern void allocate_ssa_names (bitmap, struct htab **);
 extern bool tree_purge_dead_eh_edges (basic_block);
 extern bool tree_purge_all_dead_eh_edges (bitmap);
 extern tree gimplify_val (block_stmt_iterator *, tree, tree);
@@ -524,6 +537,7 @@ extern void dump_immediate_uses_for (FILE *, tree);
 extern void debug_immediate_uses_for (tree);
 extern void compute_immediate_uses (int, bool (*)(tree));
 extern void free_df (void);
+extern void free_df_for_stmt (tree);
 extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
@@ -601,7 +615,7 @@ extern bool may_propagate_copy (tree, tree);
 
 struct tree_niter_desc
 {
-  tree assumptions;	/* The boolean expression.  If this expression evalutes
+  tree assumptions;	/* The boolean expression.  If this expression evaluates
 			   to false, then the other fields in this structure
 			   should not be used; there is no guarantee that they
 			   will be correct.  */

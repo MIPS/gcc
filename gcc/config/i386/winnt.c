@@ -99,8 +99,7 @@ associated_type (tree decl)
 	t = TYPE_MAIN_VARIANT
 	  (TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (decl)))));
     }
-  else if (DECL_CONTEXT (decl)
-	   && TREE_CODE_CLASS (TREE_CODE (DECL_CONTEXT (decl))) == 't')
+  else if (DECL_CONTEXT (decl) && TYPE_P (DECL_CONTEXT (decl)))
     t = DECL_CONTEXT (decl);
 
   return t;
@@ -622,7 +621,8 @@ i386_pe_section_type_flags (tree decl, const char *name, int reloc)
 }
 
 void
-i386_pe_asm_named_section (const char *name, unsigned int flags)
+i386_pe_asm_named_section (const char *name, unsigned int flags, 
+			   tree decl ATTRIBUTE_UNUSED)
 {
   char flagchars[8], *f = flagchars;
 

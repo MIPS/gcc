@@ -578,7 +578,7 @@ check_java_method (tree method)
 
 /* Sanity check: report error if this function FUNCTION is not
    really a member of the class (CTYPE) it is supposed to belong to.
-   TEMPLATE_PARMS is used to specifiy the template parameters of a member
+   TEMPLATE_PARMS is used to specify the template parameters of a member
    template passed as FUNCTION_DECL. If the member template is passed as a 
    TEMPLATE_DECL, it can be NULL since the parameters can be extracted
    from the declaration. If the function is not a function template, it
@@ -2750,9 +2750,6 @@ cp_finish_file (void)
   input_line -= 1;
 #endif
 
-  interface_unknown = 1;
-  interface_only = 0;
-
   /* We now have to write out all the stuff we put off writing out.
      These include:
 
@@ -2998,7 +2995,7 @@ cp_finish_file (void)
 	reconsider = true;
 
       /* Ask the back end to emit functions and variables that are
-	 enqued.  These emissions may result in marking more entities
+	 enqueued.  These emissions may result in marking more entities
 	 as needed.  */
       if (cgraph_assemble_pending_functions ())
 	reconsider = true;

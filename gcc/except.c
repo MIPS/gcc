@@ -2050,18 +2050,19 @@ sjlj_emit_function_exit (void)
          is inside the last basic block or after it.  In the other case
          we need to emit to edge.  */
       gcc_assert (e->src->next_bb == EXIT_BLOCK_PTR);
-      for (insn = NEXT_INSN (BB_END (e->src)); insn; insn = NEXT_INSN (insn))
-	if (insn == cfun->eh->sjlj_exit_after)
-	  break;
-      if (insn)
-	insert_insn_on_edge (seq, e);
-      else
+      for (insn = BB_HEAD (e->src); ; insn = NEXT_INSN (insn))
 	{
-	  insn = cfun->eh->sjlj_exit_after;
-	  if (LABEL_P (insn))
-	    insn = NEXT_INSN (insn);
-	  emit_insn_after (seq, insn);
+	  if (insn == cfun->eh->sjlj_exit_after)
+	    {
+	      if (LABEL_P (insn))
+		insn = NEXT_INSN (insn);
+	      emit_insn_after (seq, insn);
+	      return;
+	    }
+	  if (insn == BB_END (e->src))
+	    break;
 	}
+      insert_insn_on_edge (seq, e);
     }
 }
 
@@ -2931,7 +2932,7 @@ expand_builtin_eh_return_data_regno (tree arglist)
 
   if (TREE_CODE (which) != INTEGER_CST)
     {
-      error ("argument of `__builtin_eh_return_regno' must be constant");
+      error ("argument of %<__builtin_eh_return_regno%> must be constant");
       return constm1_rtx;
     }
 
@@ -3487,8 +3488,6 @@ sjlj_size_of_call_site_table (void)
 static void
 dw2_output_call_site_table (void)
 {
-  const char *const function_start_lab
-    = IDENTIFIER_POINTER (current_function_func_begin_label);
   int n = cfun->eh->call_site_data_used;
   int i;
 
@@ -3511,21 +3510,25 @@ dw2_output_call_site_table (void)
       /* ??? Perhaps use attr_length to choose data1 or data2 instead of
 	 data4 if the function is small enough.  */
 #ifdef HAVE_AS_LEB128
-      dw2_asm_output_delta_uleb128 (reg_start_lab, function_start_lab,
+      dw2_asm_output_delta_uleb128 (reg_start_lab,
+				    current_function_func_begin_label,
 				    "region %d start", i);
       dw2_asm_output_delta_uleb128 (reg_end_lab, reg_start_lab,
 				    "length");
       if (cs->landing_pad)
-	dw2_asm_output_delta_uleb128 (landing_pad_lab, function_start_lab,
+	dw2_asm_output_delta_uleb128 (landing_pad_lab,
+				      current_function_func_begin_label,
 				      "landing pad");
       else
 	dw2_asm_output_data_uleb128 (0, "landing pad");
 #else
-      dw2_asm_output_delta (4, reg_start_lab, function_start_lab,
+      dw2_asm_output_delta (4, reg_start_lab,
+			    current_function_func_begin_label,
 			    "region %d start", i);
       dw2_asm_output_delta (4, reg_end_lab, reg_start_lab, "length");
       if (cs->landing_pad)
-	dw2_asm_output_delta (4, landing_pad_lab, function_start_lab,
+	dw2_asm_output_delta (4, landing_pad_lab,
+			      current_function_func_begin_label,
 			      "landing pad");
       else
 	dw2_asm_output_data (4, 0, "landing pad");

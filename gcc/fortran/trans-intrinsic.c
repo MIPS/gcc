@@ -619,7 +619,7 @@ gfc_conv_intrinsic_exponent (gfc_se * se, gfc_expr * expr)
 }
 
 /* Evaluate a single upper or lower bound.  */
-/* TODO: bound intrinsic generates way too much unneccessary code.  */
+/* TODO: bound intrinsic generates way too much unnecessary code.  */
 
 static void
 gfc_conv_intrinsic_bound (gfc_se * se, gfc_expr * expr, int upper)
@@ -1466,7 +1466,7 @@ gfc_conv_intrinsic_minmaxloc (gfc_se * se, gfc_expr * expr, int op)
   /* Initialize the position to the first element.  If the array has zero
      size we need to return zero.  Otherwise use the first element of the
      array, in case all elements are equal to the limit.
-     ie. pos = (ubound >= lbound) ? lbound, lbound - 1;  */
+     i.e. pos = (ubound >= lbound) ? lbound, lbound - 1;  */
   tmp = fold (build2 (MINUS_EXPR, gfc_array_index_type,
 		      loop.from[0], gfc_index_one_node));
   cond = fold (build2 (GE_EXPR, boolean_type_node,
@@ -2286,7 +2286,7 @@ gfc_conv_intrinsic_scan (gfc_se * se, gfc_expr * expr)
 
 
 /* Verify that a set of characters contains all the characters in a string
-   by indentifying the position of the first character in a string of
+   by identifying the position of the first character in a string of
    characters that does not appear in a given set of characters.  */
 
 static void
@@ -2952,6 +2952,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_RAND:
     case GFC_ISYM_ETIME:
     case GFC_ISYM_SECOND:
+    case GFC_ISYM_GETCWD:
     case GFC_ISYM_GETGID:
     case GFC_ISYM_GETPID:
     case GFC_ISYM_GETUID:

@@ -60,7 +60,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "ggc.h"
 #include "graph.h"
-#include "loop.h"
 #include "regs.h"
 #include "timevar.h"
 #include "diagnostic.h"
@@ -407,7 +406,7 @@ rest_of_handle_stack_regs (void)
 }
 #endif
 
-/* Track the variables, ie. compute where the variable is stored at each position in function.  */
+/* Track the variables, i.e. compute where the variable is stored at each position in function.  */
 static void
 rest_of_handle_variable_tracking (void)
 {
@@ -1130,7 +1129,7 @@ rest_of_handle_gcse (void)
 static void
 rest_of_handle_loop_optimize (void)
 {
-  int do_unroll, do_prefetch;
+  int do_prefetch;
 
   timevar_push (TV_LOOP);
   delete_dead_jumptables ();
@@ -1140,10 +1139,6 @@ rest_of_handle_loop_optimize (void)
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
 
-  if (flag_unroll_loops)
-    do_unroll = LOOP_AUTO_UNROLL;	/* Having two unrollers is useless.  */
-  else
-    do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
   do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
 
   if (flag_rerun_loop_opt)
@@ -1151,8 +1146,7 @@ rest_of_handle_loop_optimize (void)
       cleanup_barriers ();
 
       /* We only want to perform unrolling once.  */
-      loop_optimize (get_insns (), dump_file, do_unroll);
-      do_unroll = 0;
+      loop_optimize (get_insns (), dump_file, 0);
 
       /* The first call to loop_optimize makes some instructions
 	 trivially dead.  We delete those instructions now in the
@@ -1165,7 +1159,7 @@ rest_of_handle_loop_optimize (void)
       reg_scan (get_insns (), max_reg_num (), 1);
     }
   cleanup_barriers ();
-  loop_optimize (get_insns (), dump_file, do_unroll | do_prefetch);
+  loop_optimize (get_insns (), dump_file, do_prefetch);
 
   /* Loop can create trivially dead instructions.  */
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
@@ -1289,7 +1283,7 @@ rest_of_handle_jump (void)
   timevar_push (TV_JUMP);
   open_dump_file (DFI_sibling, current_function_decl);
 
-  /* ??? We may get caled either via tree_rest_of_compilation when the CFG
+  /* ??? We may get called either via tree_rest_of_compilation when the CFG
      is already built or directly (for instance from coverage code).
      The direct callers shall be updated.  */
   if (!basic_block_info)
@@ -1570,7 +1564,7 @@ rest_of_clean_state (void)
    after all tree passes have finished for a single function, and we
    have expanded the function body from trees to RTL.
    Once we are here, we have decided that we're supposed to output
-   that function, ie. that we should write assembler code for it.
+   that function, i.e. that we should write assembler code for it.
 
    We run a series of low-level passes here on the function's RTL
    representation.  Each pass is called via a rest_of_* function.  */

@@ -1,5 +1,5 @@
 /* Pretty formatting of GENERIC trees in C syntax.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Adapted from c-pretty-print.c by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -70,7 +70,7 @@ do_niy (pretty_printer *buffer, tree node)
   pp_string (buffer, "<<< Unknown tree: ");
   pp_string (buffer, tree_code_name[(int) TREE_CODE (node)]);
 
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (node))))
+  if (EXPR_P (node))
     {
       len = first_rtl_op (TREE_CODE (node));
       for (i = 0; i < len; ++i)
@@ -162,14 +162,25 @@ dump_decl_name (pretty_printer *buffer, tree node, int flags)
     {
       if (TREE_CODE (node) == LABEL_DECL
 	  && LABEL_DECL_UID (node) != -1)
-	pp_printf (buffer, "<L" HOST_WIDE_INT_PRINT_DEC ">",
+	pp_printf (buffer, "L." HOST_WIDE_INT_PRINT_DEC,
 		   LABEL_DECL_UID (node));
       else
 	{
 	  char c = TREE_CODE (node) == CONST_DECL ? 'C' : 'D';
-	  pp_printf (buffer, "<%c%u>", c, DECL_UID (node));
+	  pp_printf (buffer, "%c.%u", c, DECL_UID (node));
 	}
     }
+}
+
+/* Like the above, but used for pretty printing function calls.  */
+
+static void
+dump_function_name (pretty_printer *buffer, tree node)
+{
+  if (DECL_NAME (node))
+    PRINT_FUNCTION_NAME (node);
+  else
+    dump_decl_name (buffer, node, 0);
 }
 
 /* Dump a function declaration.  NODE is the FUNCTION_TYPE.  BUFFER, SPC and
@@ -292,7 +303,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case CHAR_TYPE:
       {
 	unsigned int quals = TYPE_QUALS (node);
-	char class;
+	enum tree_code_class class;
 
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
@@ -303,14 +314,14 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
 	class = TREE_CODE_CLASS (TREE_CODE (node));
 
-	if (class == 'd')
+	if (class == tcc_declaration)
 	  {
 	    if (DECL_NAME (node))
 	      dump_decl_name (buffer, node, flags);
 	    else
               pp_string (buffer, "<unnamed type decl>");
 	  }
-	else if (class == 't')
+	else if (class == tcc_type)
 	  {
 	    if (TYPE_NAME (node))
 	      {
@@ -1319,9 +1330,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case GOTO_EXPR:
       op0 = GOTO_DESTINATION (node);
-      if (TREE_CODE (op0) != SSA_NAME
-	  && DECL_P (op0)
-	  && DECL_NAME (op0))
+      if (TREE_CODE (op0) != SSA_NAME && DECL_P (op0) && DECL_NAME (op0))
 	{
 	  const char *name = IDENTIFIER_POINTER (DECL_NAME (op0));
 	  if (strcmp (name, "break") == 0
@@ -1892,7 +1901,7 @@ print_call_name (pretty_printer *buffer, tree node)
     {
     case VAR_DECL:
     case PARM_DECL:
-      PRINT_FUNCTION_NAME (op0);
+      dump_function_name (buffer, op0);
       break;
 
     case ADDR_EXPR:
@@ -1914,7 +1923,7 @@ print_call_name (pretty_printer *buffer, tree node)
       /* The function is a pointer contained in a structure.  */
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == INDIRECT_REF ||
 	  TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
-	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 1));
+	dump_function_name (buffer, TREE_OPERAND (op0, 1));
       else
 	dump_generic_node (buffer, TREE_OPERAND (op0, 0), 0, 0, false);
       /* else
@@ -1925,7 +1934,7 @@ print_call_name (pretty_printer *buffer, tree node)
 
     case ARRAY_REF:
       if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
-	PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
+	dump_function_name (buffer, TREE_OPERAND (op0, 0));
       else
 	dump_generic_node (buffer, op0, 0, 0, false);
       break;

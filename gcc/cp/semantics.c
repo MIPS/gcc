@@ -358,7 +358,7 @@ static tree
 maybe_cleanup_point_expr (tree expr)
 {
   if (!processing_template_decl && stmts_are_full_exprs_p ())
-    expr = fold (build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr));
+    expr = build1 (CLEANUP_POINT_EXPR, TREE_TYPE (expr), expr);
   return expr;
 }
 
@@ -1239,7 +1239,7 @@ finish_mem_initializers (tree mem_inits)
 tree
 finish_parenthesized_expr (tree expr)
 {
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expr))))
+  if (EXPR_P (expr))
     /* This inhibits warnings in c_common_truthvalue_conversion.  */
     TREE_NO_WARNING (expr) = 1;
 
@@ -1348,7 +1348,7 @@ check_accessibility_of_qualified_id (tree decl,
   tree scope;
   tree qualifying_type = NULL_TREE;
 
-  /* If we're not checking, return imediately.  */
+  /* If we're not checking, return immediately.  */
   if (deferred_access_no_check)
     return;
   
@@ -2106,9 +2106,10 @@ begin_class_definition (tree t)
      before.  */
   if (! TYPE_ANONYMOUS_P (t))
     {
-      CLASSTYPE_INTERFACE_ONLY (t) = interface_only;
+      struct c_fileinfo *finfo = get_fileinfo (input_filename);
+      CLASSTYPE_INTERFACE_ONLY (t) = finfo->interface_only;
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X
-	(t, interface_unknown);
+	(t, finfo->interface_unknown);
     }
   reset_specialization();
   
@@ -2896,8 +2897,6 @@ expand_body (tree fn)
   tree_rest_of_compilation (fn, 0);
 
   current_function_decl = saved_function;
-
-  extract_interface_info ();
 
   if (DECL_CLONED_FUNCTION_P (fn))
     {

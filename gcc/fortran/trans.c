@@ -127,7 +127,7 @@ gfc_evaluate_now (tree expr, stmtblock_t * pblock)
 {
   tree var;
 
-  if (TREE_CODE_CLASS (TREE_CODE (expr)) == 'c')
+  if (CONSTANT_CLASS_P (expr))
     return expr;
 
   var = gfc_create_var (TREE_TYPE (expr), NULL);
@@ -160,7 +160,7 @@ gfc_add_modify_expr (stmtblock_t * pblock, tree lhs, tree rhs)
 
 
 /* Create a new scope/binding level and initialize a block.  Care must be
-   taken when translating expessions as any temporaries will be placed in
+   taken when translating expressions as any temporaries will be placed in
    the innermost scope.  */
 
 void

@@ -670,12 +670,8 @@ expand_used_vars_for_block (tree block, bool toplevel)
       resize_stack_vars_conflict (new_sv_num);
 
       for (i = old_sv_num; i < new_sv_num; ++i)
-	for (j = i < this_sv_num ? i : this_sv_num; ; --j)
-	  {
-	    add_stack_var_conflict (i, j);
-	    if (j == old_sv_num)
-	      break;
-	  }
+	for (j = i < this_sv_num ? i+1 : this_sv_num; j-- > old_sv_num ;)
+	  add_stack_var_conflict (i, j);
     }
 }
 
@@ -1083,13 +1079,21 @@ static basic_block
 construct_init_block (void)
 {
   basic_block init_block, first_block;
-  edge e;
+  edge e = NULL, e2;
   edge_iterator ei;
 
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e2, ei, ENTRY_BLOCK_PTR->succs)
     {
-      if (e->dest == ENTRY_BLOCK_PTR->next_bb)
-	break;
+      /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.
+
+	 For all other blocks this edge flag is cleared while expanding
+	 a basic block in expand_gimple_basic_block, but there we never
+	 looked at the successors of the entry block.
+	 This caused PR17513.  */
+      e2->flags &= ~EDGE_EXECUTABLE;
+
+      if (e2->dest == ENTRY_BLOCK_PTR->next_bb)
+	e = e2;
     }
 
   init_block = create_basic_block (NEXT_INSN (get_insns ()),

@@ -634,7 +634,7 @@ mf_build_check_statement_for (tree addr, tree size,
      The lowered GIMPLE tree representing this code is in the statement
      list starting at 'head'.
 
-     We can insert this now in the current basic block, ie. the one that
+     We can insert this now in the current basic block, i.e. the one that
      the statement we're instrumenting was originally in.  */
   bsi = bsi_last (cond_bb);
   for (tsi = head; ! tsi_end_p (tsi); tsi_next (&tsi))
@@ -1160,7 +1160,7 @@ mudflap_enqueue_decl (tree obj)
       for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_static_decls); i++)
         if (VARRAY_TREE (deferred_static_decls, i) == obj)
           {
-            warning ("mudflap cannot track lifetime of `%s'",
+            warning ("mudflap cannot track lifetime of %qs",
                      IDENTIFIER_POINTER (DECL_NAME (obj)));
             return;
           }

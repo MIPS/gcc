@@ -402,7 +402,7 @@ mark_stmt_if_obviously_necessary (tree stmt, bool aggressive)
 	 a global variable.  Otherwise, we check if the base variable
 	 is a global.  */
       lhs = TREE_OPERAND (stmt, 0);
-      if (TREE_CODE_CLASS (TREE_CODE (lhs)) == 'r')
+      if (REFERENCE_CLASS_P (lhs))
 	lhs = get_base_address (lhs);
 
       if (lhs == NULL_TREE)
@@ -741,6 +741,8 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
       redirect_edge_and_branch (EDGE_SUCC (bb, 0), post_dom_bb);
       PENDING_STMT (EDGE_SUCC (bb, 0)) = NULL;
+      EDGE_SUCC (bb, 0)->probability = REG_BR_PROB_BASE;
+      EDGE_SUCC (bb, 0)->count = bb->count;
 
       /* The edge is no longer associated with a conditional, so it does
 	 not have TRUE/FALSE flags.  */

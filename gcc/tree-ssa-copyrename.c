@@ -48,7 +48,7 @@ extern void rename_ssa_copies (void);
 
    Each copy is examined to determine if it is possible to rename the base
    variable of one of the operands to the same variable as the other operand.
-   ie.
+   i.e.
    T.3_5 = <blah>
    a_1 = T.3_5
 
@@ -116,8 +116,9 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 {
   int p1, p2, p3;
   tree root1, root2;
+  tree rep1, rep2;
   var_ann_t ann1, ann2, ann3;
-  bool ign1, ign2;
+  bool ign1, ign2, abnorm;
 
   gcc_assert (TREE_CODE (var1) == SSA_NAME);
   gcc_assert (TREE_CODE (var2) == SSA_NAME);
@@ -140,8 +141,10 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
   gcc_assert (p1 != NO_PARTITION);
   gcc_assert (p2 != NO_PARTITION);
 
-  root1 = SSA_NAME_VAR (partition_to_var (map, p1));
-  root2 = SSA_NAME_VAR (partition_to_var (map, p2));
+  rep1 = partition_to_var (map, p1);
+  rep2 = partition_to_var (map, p2);
+  root1 = SSA_NAME_VAR (rep1);
+  root2 = SSA_NAME_VAR (rep2);
 
   if (DECL_HARD_REGISTER (root1) || DECL_HARD_REGISTER (root2))
     {
@@ -163,6 +166,16 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     {
       if (debug)
 	fprintf (debug, " : Already coalesced.\n");
+      return;
+    }
+
+  /* Don't coalesce if one of the variables occurs in an abnormal PHI.  */
+  abnorm = (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rep1)
+	    || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rep2));
+  if (abnorm)
+    {
+      if (debug)
+	fprintf (debug, " : Abnormal PHI barrier.  No coalesce.\n");
       return;
     }
 

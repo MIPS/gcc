@@ -1,5 +1,9 @@
 2004-09-18  Ben Elliston  <bje@au.ibm.com>
 
+	* Merge with edge-vector-mergepoint-20040918.
+
+2004-09-18  Ben Elliston  <bje@au.ibm.com>
+
 	* basic-block.h (ei_safe_edge): New function.
 	(FOR_EACH_EDGE): Rewrite; include iterator argument.
 	(END_FOR_EACH_EDGE): Remove.

@@ -216,7 +216,7 @@ dequeue_and_dump (dump_info_p di)
   tree t;
   unsigned int index;
   enum tree_code code;
-  char code_class;
+  enum tree_code_class code_class;
   const char* code_name;
 
   /* Get the next node from the queue.  */
@@ -292,19 +292,19 @@ dequeue_and_dump (dump_info_p di)
 
       switch (code_class)
 	{
-	case '1':
+	case tcc_unary:
 	  dump_child ("op 0", TREE_OPERAND (t, 0));
 	  break;
 
-	case '2':
-	case '<':
+	case tcc_binary:
+	case tcc_comparison:
 	  dump_child ("op 0", TREE_OPERAND (t, 0));
 	  dump_child ("op 1", TREE_OPERAND (t, 1));
 	  break;
 
-	case 'e':
-	case 'r':
-	case 's':
+	case tcc_expression:
+	case tcc_reference:
+	case tcc_statement:
 	  /* These nodes are handled explicitly below.  */
 	  break;
 
@@ -346,7 +346,7 @@ dequeue_and_dump (dump_info_p di)
       if (TREE_CHAIN (t) && !dump_flag (di, TDF_SLIM, NULL))
 	dump_child ("chan", TREE_CHAIN (t));
     }
-  else if (code_class == 't')
+  else if (code_class == tcc_type)
     {
       /* All types have qualifiers.  */
       int quals = lang_hooks.tree_dump.type_quals (t);
@@ -373,7 +373,7 @@ dequeue_and_dump (dump_info_p di)
       /* All types have alignments.  */
       dump_int (di, "algn", TYPE_ALIGN (t));
     }
-  else if (code_class == 'c')
+  else if (code_class == tcc_constant)
     /* All constants can have types.  */
     queue_and_dump_type (di, t);
 
@@ -673,10 +673,11 @@ static struct dump_file_info dump_files[TDI_end] =
   {".nested", "tree-nested", TDF_TREE, 0, 4, 0},
   {".inlined", "tree-inlined", TDF_TREE, 0, 5, 0},
   {".vcg", "tree-vcg", TDF_TREE, 0, 6, 0},
-  /* FIXME  -fdump-call-graph is broken.  Set TDF_TREE when it is fixed.  */
-  {".xml", "call-graph", 0, 0, 7, 0},
   {NULL, "tree-all", TDF_TREE, 0, 0, 0},
   {NULL, "rtl-all", TDF_RTL, 0, 0, 0},
+  {NULL, "ipa-all", TDF_IPA, 0, 0, 0},
+
+  { ".cgraph", "ipa-cgraph",		TDF_IPA, 0,  1, 0},
 
   { ".sibling", "rtl-sibling",		TDF_RTL, 0,  1, 'i'},
   { ".eh", "rtl-eh",			TDF_RTL, 0,  2, 'h'},
@@ -803,10 +804,21 @@ get_dump_file_name (enum tree_dump_index phase)
   if (dfi->state == 0)
     return NULL;
 
-  if (dfi->num < 0
-      || snprintf (dump_id, sizeof (dump_id), ".%s%02d",
-		   (dfi->flags & TDF_TREE) ? "t" : "", dfi->num) < 0)
+  if (dfi->num < 0)
     dump_id[0] = '\0';
+  else
+    {
+      const char *template;
+      if (dfi->flags & TDF_TREE)
+	template = ".t%02d";
+      else if (dfi->flags & TDF_IPA)
+	template = ".i%02d";
+      else
+	template = ".%02d";
+
+      if (snprintf (dump_id, sizeof (dump_id), template, dfi->num) < 0)
+	dump_id[0] = '\0';
+    }
 
   return concat (dump_base_name, dump_id, dfi->suffix, NULL);
 }
@@ -830,7 +842,7 @@ dump_begin (enum tree_dump_index phase, int *flag_ptr)
   dfi = get_dump_file_info (phase);
   stream = fopen (name, dfi->state < 0 ? "w" : "a");
   if (!stream)
-    error ("could not open dump file `%s': %s", name, strerror (errno));
+    error ("could not open dump file %qs: %s", name, strerror (errno));
   else
     dfi->state = 1;
   free (name);
@@ -943,7 +955,7 @@ dump_switch_p_1 (const char *arg, struct dump_file_info *dfi)
 	    flags |= option_ptr->value;
 	    goto found;
 	  }
-      warning ("ignoring unknown option `%.*s' in `-fdump-%s'",
+      warning ("ignoring unknown option %q.*s in %<-fdump-%s%>",
 	       length, ptr, dfi->swtch);
     found:;
       ptr = end_ptr;

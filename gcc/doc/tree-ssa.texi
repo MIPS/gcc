@@ -152,7 +152,7 @@ a definition of @code{LANG_HOOKS_GIMPLIFY_EXPR}, call
 @code{tree_rest_of_compilation} to compile and output the function.
 
 You can tell the compiler to dump a C-like representation of the GIMPLE
-form with the flag @code{-fdump-tree-gimple}.
+form with the flag @option{-fdump-tree-gimple}.
 
 @node Temporaries
 @subsection Temporaries
@@ -190,7 +190,7 @@ temporary.
 
 In general, expressions in GIMPLE consist of an operation and the
 appropriate number of simple operands; these operands must either be a
-GIMPLE rvalue (@code{is_gimple_val}), i.e. a constant or a register
+GIMPLE rvalue (@code{is_gimple_val}), i.e.@: a constant or a register
 variable.  More complex operands are factored out into temporaries, so
 that
 @smallexample
@@ -709,7 +709,7 @@ definitions. For globals, structures, and arrays, we can determine from
 a statement whether a variable of these types has a killing definition. 
 If the variable does, then the statement is marked as having a
 @dfn{must definition} of that variable. However, if a statement is only
-defining a part of the variable (ie. a field in a structure), or if we
+defining a part of the variable (i.e.@: a field in a structure), or if we
 know that a statement might define the variable but we cannot say for sure,
 then we mark that statement as having a @dfn{may definition}.  For 
 instance, given
@@ -1193,7 +1193,7 @@ marked as an alias tag and added to the alias set of TMT@.
 
 For instance, consider the following function:
 
-@example
+@smallexample
 foo (int i)
 @{
   int *p, *q, a, b;
@@ -1208,7 +1208,7 @@ foo (int i)
   a = b + 2;
   return *p;
 @}
-@end example
+@end smallexample
 
 After aliasing analysis has finished, the type memory tag for
 pointer @code{p} will have two aliases, namely variables @code{a} and
@@ -1216,7 +1216,7 @@ pointer @code{p} will have two aliases, namely variables @code{a} and
 Every time pointer @code{p} is dereferenced, we want to mark the
 operation as a potential reference to @code{a} and @code{b}.
 
-@example
+@smallexample
 foo (int i)
 @{
   int *p, a, b;
@@ -1239,7 +1239,7 @@ foo (int i)
   # VUSE <b_8>;
   return *p_1;
 @}
-@end example
+@end smallexample
 
 In certain cases, the list of may aliases for a pointer may grow
 too large.  This may cause an explosion in the number of virtual

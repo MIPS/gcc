@@ -67,6 +67,11 @@ static GTY(()) tree current_tinst_level;
 
 static GTY(()) tree saved_access_scope;
 
+/* Live only within one (recursive) call to tsubst_expr.  We use
+   this to pass the statement expression node from the STMT_EXPR
+   to the EXPR_STMT that is its result.  */
+static tree cur_stmt_expr;
+
 /* A map from local variable declarations in the body of the template
    presently being instantiated to the corresponding instantiated
    local variables.  */
@@ -4886,7 +4891,7 @@ uses_template_parms (tree t)
 	   || TREE_CODE (t) == TEMPLATE_PARM_INDEX
 	   || TREE_CODE (t) == OVERLOAD
 	   || TREE_CODE (t) == BASELINK
-	   || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
+	   || CONSTANT_CLASS_P (t))
     dependent_p = (type_dependent_expression_p (t)
 		   || value_dependent_expression_p (t));
   else
@@ -4966,8 +4971,6 @@ pop_tinst_level (void)
   /* Restore the filename and line number stashed away when we started
      this instantiation.  */
   input_location = TINST_LOCATION (old);
-  extract_interface_info ();
-  
   current_tinst_level = TREE_CHAIN (old);
   --tinst_depth;
   ++tinst_level_tick;
@@ -7792,11 +7795,6 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 static tree
 tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
-  /* Live only within one (recursive) call to tsubst_expr.  We use
-     this to pass the statement expression node from the STMT_EXPR
-     to the EXPR_STMT that is its result.  */
-  static tree cur_stmt_expr;
-
   tree stmt, tmp;
 
   if (t == NULL_TREE || t == error_mark_node)
@@ -7826,19 +7824,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       finish_return_stmt (tsubst_expr (TREE_OPERAND (t, 0),
 				       args, complain, in_decl));
       break;
-
-    case STMT_EXPR:
-      {
-	tree old_stmt_expr = cur_stmt_expr;
-	tree stmt_expr = begin_stmt_expr ();
-
-	cur_stmt_expr = stmt_expr;
-	tsubst_expr (STMT_EXPR_STMT (t), args, complain, in_decl);
-	stmt_expr = finish_stmt_expr (stmt_expr, false);
-	cur_stmt_expr = old_stmt_expr;
-
-	return stmt_expr;
-      }
 
     case EXPR_STMT:
       tmp = tsubst_expr (EXPR_STMT_EXPR (t), args, complain, in_decl);
@@ -8627,6 +8612,19 @@ tsubst_copy_and_build (tree t,
 
     case OFFSETOF_EXPR:
       return fold_offsetof (RECUR (TREE_OPERAND (t, 0)));
+
+    case STMT_EXPR:
+      {
+	tree old_stmt_expr = cur_stmt_expr;
+	tree stmt_expr = begin_stmt_expr ();
+
+	cur_stmt_expr = stmt_expr;
+	tsubst_expr (STMT_EXPR_STMT (t), args, complain, in_decl);
+	stmt_expr = finish_stmt_expr (stmt_expr, false);
+	cur_stmt_expr = old_stmt_expr;
+
+	return stmt_expr;
+      }
 
     default:
       return tsubst_copy (t, args, complain, in_decl);
@@ -9977,6 +9975,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
     case VECTOR_TYPE:
     case INTEGER_TYPE:
     case BOOLEAN_TYPE:
+    case ENUMERAL_TYPE:
     case VOID_TYPE:
       if (TREE_CODE (arg) != TREE_CODE (parm))
 	return 1;
@@ -10110,39 +10109,32 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
       return 1;
 
     default:
-      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (parm))))
-	{
-
-	  /* We're looking at an expression.  This can happen with
-	     something like: 
+      gcc_assert (EXPR_P (parm));
+      
+      /* We must be looking at an expression.  This can happen with
+	 something like: 
 	   
-	       template <int I>
-	       void foo(S<I>, S<I + 2>);
+	   template <int I>
+	   void foo(S<I>, S<I + 2>);
 
-	     This is a "nondeduced context":
+	 This is a "nondeduced context":
 
-	       [deduct.type]
+	   [deduct.type]
 	   
-	       The nondeduced contexts are:
+	   The nondeduced contexts are:
 
-	       --A type that is a template-id in which one or more of
-	         the template-arguments is an expression that references
-	         a template-parameter.  
+	   --A type that is a template-id in which one or more of
+	     the template-arguments is an expression that references
+	     a template-parameter.  
 
-	     In these cases, we assume deduction succeeded, but don't
-	     actually infer any unifications.  */
+	 In these cases, we assume deduction succeeded, but don't
+	 actually infer any unifications.  */
 
-	  if (!uses_template_parms (parm)
-	      && !template_args_equal (parm, arg))
-	    return 1;
-	  else
-	    return 0;
-	}
+      if (!uses_template_parms (parm)
+	  && !template_args_equal (parm, arg))
+	return 1;
       else
-	sorry ("use of `%s' in template type unification",
-	       tree_code_name [(int) TREE_CODE (parm)]);
-
-      return 1;
+	return 0;
     }
 }
 
@@ -11594,9 +11586,9 @@ dependent_type_p_r (tree type)
 
      A type is dependent if it is:
 
-     -- a template parameter. Template template parameters are
-	types for us (since TYPE_P holds true for them) so we
-	handle them here.  */
+     -- a template parameter. Template template parameters are types
+	for us (since TYPE_P holds true for them) so we handle
+	them here.  */
   if (TREE_CODE (type) == TEMPLATE_TYPE_PARM 
       || TREE_CODE (type) == TEMPLATE_TEMPLATE_PARM)
     return true;
@@ -11827,20 +11819,20 @@ value_dependent_expression_p (tree expression)
 	    || value_dependent_expression_p (TREE_OPERAND (expression, 1)));
   /* A constant expression is value-dependent if any subexpression is
      value-dependent.  */
-  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (expression))))
+  if (EXPR_P (expression))
     {
       switch (TREE_CODE_CLASS (TREE_CODE (expression)))
 	{
-	case '1':
+	case tcc_unary:
 	  return (value_dependent_expression_p 
 		  (TREE_OPERAND (expression, 0)));
-	case '<':
-	case '2':
+	case tcc_comparison:
+	case tcc_binary:
 	  return ((value_dependent_expression_p 
 		   (TREE_OPERAND (expression, 0)))
 		  || (value_dependent_expression_p 
 		      (TREE_OPERAND (expression, 1))));
-	case 'e':
+	case tcc_expression:
 	  {
 	    int i;
 	    for (i = 0; i < first_rtl_op (TREE_CODE (expression)); ++i)
@@ -11854,6 +11846,13 @@ value_dependent_expression_p (tree expression)
 		return true;
 	    return false;
 	  }
+	case tcc_reference:
+	case tcc_statement:
+	  /* These cannot be value dependent.  */
+	  return false;
+
+	default:
+	  gcc_unreachable ();
 	}
     }
 

@@ -183,7 +183,6 @@ static void build_vcall_and_vbase_vtbl_entries (tree,
 static void clone_constructors_and_destructors (tree);
 static tree build_clone (tree, tree);
 static void update_vtable_entry_for_fn (tree, tree, tree, tree *, unsigned);
-static tree copy_virtuals (tree);
 static void build_ctor_vtbl_group (tree, tree);
 static void build_vtt (tree);
 static tree binfo_ctor_vtable (tree);
@@ -483,6 +482,38 @@ convert_to_base_statically (tree expr, tree base)
 }
 
 
+tree
+build_vfield_ref (tree datum, tree type)
+{
+  tree vfield, vcontext;
+
+  if (datum == error_mark_node)
+    return error_mark_node;
+
+  if (TREE_CODE (TREE_TYPE (datum)) == REFERENCE_TYPE)
+    datum = convert_from_reference (datum);
+
+  /* First, convert to the requested type.  */
+  if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (datum), type))
+    datum = convert_to_base (datum, type, /*check_access=*/false);
+
+  /* Second, the requested type may not be the owner of its own vptr.
+     If not, convert to the base class that owns it.  We cannot use
+     convert_to_base here, because VCONTEXT may appear more than once
+     in the inheritence hierarchy of TYPE, and thus direct conversion
+     between the types may be ambiguous.  Following the path back up
+     one step at a time via primary bases avoids the problem.  */
+  vfield = TYPE_VFIELD (type);
+  vcontext = DECL_CONTEXT (vfield);
+  while (!same_type_ignoring_top_level_qualifiers_p (vcontext, type))
+    {
+      datum = build_simple_base_path (datum, CLASSTYPE_PRIMARY_BINFO (type));
+      type = TREE_TYPE (datum);
+    }
+
+  return build3 (COMPONENT_REF, TREE_TYPE (vfield), datum, vfield, NULL_TREE);
+}
+
 /* Given an object INSTANCE, return an expression which yields the
    vtable element corresponding to INDEX.  There are many special
    cases for INSTANCE which we take care of here, mainly to avoid
@@ -677,22 +708,6 @@ get_vtable_decl (tree type, int complete)
   return decl;
 }
 
-/* Returns a copy of the BINFO_VIRTUALS list in BINFO.  The
-   BV_VCALL_INDEX for each entry is cleared.  */
-
-static tree
-copy_virtuals (tree binfo)
-{
-  tree copies;
-  tree t;
-
-  copies = copy_list (BINFO_VIRTUALS (binfo));
-  for (t = copies; t; t = TREE_CHAIN (t))
-    BV_VCALL_INDEX (t) = NULL_TREE;
-
-  return copies;
-}
-
 /* Build the primary virtual function table for TYPE.  If BINFO is
    non-NULL, build the vtable starting with the initial approximation
    that it is the same as the one which is the head of the association
@@ -714,7 +729,7 @@ build_primary_vtable (tree binfo, tree type)
 	   no need to do it again.  */
 	return 0;
       
-      virtuals = copy_virtuals (binfo);
+      virtuals = copy_list (BINFO_VIRTUALS (binfo));
       TREE_TYPE (decl) = TREE_TYPE (get_vtbl_decl_for_binfo (binfo));
       DECL_SIZE (decl) = TYPE_SIZE (TREE_TYPE (decl));
       DECL_SIZE_UNIT (decl) = TYPE_SIZE_UNIT (TREE_TYPE (decl));
@@ -765,7 +780,7 @@ build_secondary_vtable (tree binfo)
   SET_BINFO_NEW_VTABLE_MARKED (binfo);
   
   /* Make fresh virtual list, so we can smash it later.  */
-  BINFO_VIRTUALS (binfo) = copy_virtuals (binfo);
+  BINFO_VIRTUALS (binfo) = copy_list (BINFO_VIRTUALS (binfo));
 
   /* Secondary vtables are laid out as part of the same structure as
      the primary vtable.  */
@@ -783,10 +798,7 @@ make_new_vtable (tree t, tree binfo)
     /* In this case, it is *type*'s vtable we are modifying.  We start
        with the approximation that its vtable is that of the
        immediate base class.  */
-    /* ??? This actually passes TYPE_BINFO (t), not the primary base binfo,
-       since we've updated DECL_CONTEXT (TYPE_VFIELD (t)) by now.  */
-    return build_primary_vtable (TYPE_BINFO (DECL_CONTEXT (TYPE_VFIELD (t))),
-				 t);
+    return build_primary_vtable (binfo, t);
   else
     /* This is our very own copy of `basetype' to play with.  Later,
        we will fill in all the virtual functions that override the
@@ -1247,7 +1259,7 @@ check_bases (tree t,
 /* Determine all the primary bases within T.  Sets BINFO_PRIMARY_BASE_P for
    those that are primaries.  Sets BINFO_LOST_PRIMARY_P for those
    that have had a nearly-empty virtual primary base stolen by some
-   other base in the heirarchy.  Determines CLASSTYPE_PRIMARY_BASE for
+   other base in the hierarchy.  Determines CLASSTYPE_PRIMARY_BASE for
    T.  */
 
 static void
@@ -1320,7 +1332,7 @@ determine_primary_bases (tree t)
   /* A "nearly-empty" virtual base class can be the primary base
      class, if no non-virtual polymorphic base can be found.  Look for
      a nearly-empty virtual dynamic base that is not already a primary
-     base of something in the heirarchy.  If there is no such base,
+     base of something in the hierarchy.  If there is no such base,
      just pick the first nearly-empty virtual base.  */
 
   for (base_binfo = TREE_CHAIN (type_binfo); base_binfo;
@@ -1410,8 +1422,8 @@ finish_struct_bits (tree t)
     }
 
   if (BINFO_N_BASE_BINFOS (TYPE_BINFO (t)) && TYPE_POLYMORPHIC_P (t))
-    /* For a class w/o baseclasses, `finish_struct' has set
-       CLASS_TYPE_ABSTRACT_VIRTUALS correctly (by definition).
+    /* For a class w/o baseclasses, 'finish_struct' has set
+       CLASSTYPE_PURE_VIRTUALS correctly (by definition).
        Similarly for a class whose base classes do not have vtables.
        When neither of these is true, we might have removed abstract
        virtuals (by providing a definition), added some (by declaring
@@ -1419,7 +1431,7 @@ finish_struct_bits (tree t)
        recalculate what's really an abstract virtual at this point (by
        looking in the vtables).  */
     get_pure_virtuals (t);
-
+  
   /* If this type has a copy constructor or a destructor, force its
      mode to be BLKmode, and force its TREE_ADDRESSABLE bit to be
      nonzero.  This will cause it to be passed by invisible reference
@@ -2208,6 +2220,8 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
   if (virtual_base)
     BV_VCALL_INDEX (*virtuals) 
       = get_vcall_index (overrider_target, BINFO_TYPE (virtual_base));
+  else
+    BV_VCALL_INDEX (*virtuals) = NULL_TREE;
 }
 
 /* Called from modify_all_vtables via dfs_walk.  */
@@ -3072,7 +3086,7 @@ check_field_decls (tree t, tree *access_decls,
 	user at least implemented the cleanup correctly, and a destructor
 	is needed to free dynamic memory.
 	
-     This seems enough for pratical purposes.  */
+     This seems enough for practical purposes.  */
     if (warn_ecpp
 	&& has_pointers
 	&& TYPE_HAS_CONSTRUCTOR (t)
@@ -3721,8 +3735,7 @@ check_methods (tree t)
 	{
 	  TYPE_POLYMORPHIC_P (t) = 1;
 	  if (DECL_PURE_VIRTUAL_P (x))
-	    CLASSTYPE_PURE_VIRTUALS (t)
-	      = tree_cons (NULL_TREE, x, CLASSTYPE_PURE_VIRTUALS (t));
+	    VEC_safe_push (tree, CLASSTYPE_PURE_VIRTUALS (t), x);
 	}
     }
 }
@@ -4171,6 +4184,7 @@ create_vtable_ptr (tree t, tree* virtuals_p)
 	
 	BV_FN (new_virtual) = fn;
 	BV_DELTA (new_virtual) = integer_zero_node;
+	BV_VCALL_INDEX (new_virtual) = NULL_TREE;
 
 	TREE_CHAIN (new_virtual) = *virtuals_p;
 	*virtuals_p = new_virtual;
@@ -4252,6 +4266,8 @@ static void
 fixup_inline_methods (tree type)
 {
   tree method = TYPE_METHODS (type);
+  VEC (tree) *friends;
+  unsigned ix;
 
   if (method && TREE_CODE (method) == TREE_VEC)
     {
@@ -4268,11 +4284,10 @@ fixup_inline_methods (tree type)
     fixup_pending_inline (method);
 
   /* Do friends.  */
-  for (method = CLASSTYPE_INLINE_FRIENDS (type); 
-       method; 
-       method = TREE_CHAIN (method))
-    fixup_pending_inline (TREE_VALUE (method));
-  CLASSTYPE_INLINE_FRIENDS (type) = NULL_TREE;
+  for (friends = CLASSTYPE_INLINE_FRIENDS (type), ix = 0;
+       VEC_iterate (tree, friends, ix, method); ix++)
+    fixup_pending_inline (method);
+  CLASSTYPE_INLINE_FRIENDS (type) = NULL;
 }
 
 /* Add OFFSET to all base types of BINFO which is a base in the
@@ -4927,7 +4942,6 @@ finish_struct_1 (tree t)
   /* A TREE_LIST.  The TREE_VALUE of each node is a FUNCTION_DECL.  */
   tree virtuals = NULL_TREE;
   int n_fields = 0;
-  tree vfield;
 
   if (COMPLETE_TYPE_P (t))
     {
@@ -4980,25 +4994,6 @@ finish_struct_1 (tree t)
     /* We use the base type for trivial assignments, and hence it
        needs a mode.  */
     compute_record_mode (CLASSTYPE_AS_BASE (t));
-
-  /* Make sure that we get our own copy of the vfield FIELD_DECL.  */
-  vfield = TYPE_VFIELD (t);
-  if (vfield && CLASSTYPE_HAS_PRIMARY_BASE_P (t))
-    {
-      tree primary = CLASSTYPE_PRIMARY_BINFO (t);
-
-      gcc_assert (same_type_p (DECL_FIELD_CONTEXT (vfield),
-			       BINFO_TYPE (primary)));
-      /* The vtable better be at the start.  */
-      gcc_assert (integer_zerop (DECL_FIELD_OFFSET (vfield)));
-      gcc_assert (integer_zerop (BINFO_OFFSET (primary)));
-      
-      vfield = copy_decl (vfield);
-      DECL_FIELD_CONTEXT (vfield) = t;
-      TYPE_VFIELD (t) = vfield;
-    }
-  else
-    gcc_assert (!vfield || DECL_FIELD_CONTEXT (vfield) == t);
 
   virtuals = modify_all_vtables (t, nreverse (virtuals));
 
@@ -5174,11 +5169,10 @@ finish_struct (tree t, tree attributes)
 	 the PARM_DECLS. Note that while the type is being defined,
 	 CLASSTYPE_PURE_VIRTUALS contains the list of the inline friends
 	 (see CLASSTYPE_INLINE_FRIENDS) so we need to clear it.  */
-      CLASSTYPE_PURE_VIRTUALS (t) = NULL_TREE;
+      CLASSTYPE_PURE_VIRTUALS (t) = NULL;
       for (x = TYPE_METHODS (t); x; x = TREE_CHAIN (x))
 	if (DECL_PURE_VIRTUAL_P (x))
-	  CLASSTYPE_PURE_VIRTUALS (t)
-	    = tree_cons (NULL_TREE, x, CLASSTYPE_PURE_VIRTUALS (t));
+	  VEC_safe_push (tree, CLASSTYPE_PURE_VIRTUALS (t), x);
       complete_vars (t);
     }
   else
@@ -6278,11 +6272,11 @@ get_enclosing_class (tree type)
     {
       switch (TREE_CODE_CLASS (TREE_CODE (node)))
 	{
-	case 'd':
+	case tcc_declaration:
 	  node = DECL_CONTEXT (node);
 	  break;
 
-	case 't':
+	case tcc_type:
 	  if (node != type)
 	    return node;
 	  node = TYPE_CONTEXT (node);

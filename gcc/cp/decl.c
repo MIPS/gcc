@@ -403,6 +403,43 @@ pop_labels (tree block)
   named_labels = NULL;
 }
 
+/* The following two routines are used to interface to Objective-C++.
+   The binding level is purposely treated as an opaque type.  */
+
+void *
+objc_get_current_scope (void)
+{
+  return current_binding_level;
+}
+
+/* The following routine is used by the NeXT-style SJLJ exceptions;
+   variables get marked 'volatile' so as to not be clobbered by
+   _setjmp()/_longjmp() calls.  All variables in the current scope,
+   as well as parent scopes up to (but not including) ENCLOSING_BLK
+   shall be thusly marked.  */
+
+void
+objc_mark_locals_volatile (void *enclosing_blk)
+{
+  struct cp_binding_level *scope;
+
+  for (scope = current_binding_level;
+       scope && scope != enclosing_blk && scope->kind == sk_block;
+       scope = scope->level_chain)
+    {
+      tree decl;
+
+      for (decl = scope->names; decl; decl = TREE_CHAIN (decl))
+        {
+	  if (TREE_CODE (decl) == VAR_DECL)
+	    {
+              DECL_REGISTER (decl) = 0;
+              TREE_THIS_VOLATILE (decl) = 1;
+	    }
+        }
+    }
+}
+
 /* Exit a binding level.
    Pop the level off, and restore the state of the identifier-decl mappings
    that were in effect when this level was entered.
@@ -1427,7 +1464,7 @@ duplicate_decls (tree newdecl, tree olddecl)
          A namespace-name or namespace-alias shall not be declared as
 	 the name of any other entity in the same declarative region.
 	 A namespace-name defined at global scope shall not be
-	 declared as the name of any other entity in any glogal scope
+	 declared as the name of any other entity in any global scope
 	 of the program.  */
       error ("declaration of `namespace %D' conflicts with", newdecl);
       cp_error_at ("previous declaration of `namespace %D' here", olddecl);
@@ -1545,7 +1582,6 @@ duplicate_decls (tree newdecl, tree olddecl)
       DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
       DECL_PURE_VIRTUAL_P (newdecl) |= DECL_PURE_VIRTUAL_P (olddecl);
       DECL_VIRTUAL_P (newdecl) |= DECL_VIRTUAL_P (olddecl);
-      DECL_NEEDS_FINAL_OVERRIDER_P (newdecl) |= DECL_NEEDS_FINAL_OVERRIDER_P (olddecl);
       DECL_THIS_STATIC (newdecl) |= DECL_THIS_STATIC (olddecl);
       if (DECL_OVERLOADED_OPERATOR_P (olddecl) != ERROR_MARK)
 	SET_OVERLOADED_OPERATOR_CODE
@@ -4562,10 +4598,11 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
     {
       /* Fool with the linkage of static consts according to #pragma
 	 interface.  */
-      if (!interface_unknown && !TREE_PUBLIC (decl))
+      struct c_fileinfo *finfo = get_fileinfo (input_filename);
+      if (!finfo->interface_unknown && !TREE_PUBLIC (decl))
 	{
 	  TREE_PUBLIC (decl) = 1;
-	  DECL_EXTERNAL (decl) = interface_only;
+	  DECL_EXTERNAL (decl) = finfo->interface_only;
 	}
 
       defer_p = 1;
@@ -5023,8 +5060,6 @@ static GTY(()) int start_cleanup_cnt;
 static tree
 start_cleanup_fn (void)
 {
-  int old_interface_only = interface_only;
-  int old_interface_unknown = interface_unknown;
   char name[32];
   tree parmtypes;
   tree fntype;
@@ -5034,9 +5069,6 @@ start_cleanup_fn (void)
 
   /* No need to mangle this.  */
   push_lang_context (lang_name_c);
-
-  interface_only = 0;
-  interface_unknown = 1;
 
   /* Build the parameter-types.  */
   parmtypes = void_list_node;
@@ -5076,9 +5108,6 @@ start_cleanup_fn (void)
 
   pushdecl (fndecl);
   start_preparsed_function (fndecl, NULL_TREE, SF_PRE_PARSED);
-
-  interface_unknown = old_interface_unknown;
-  interface_only = old_interface_only;
 
   pop_lang_context ();
 
@@ -5763,7 +5792,7 @@ set_linkage_for_static_data_member (tree decl)
   TREE_STATIC (decl) = 1;
   /* For non-template classes, static data members are always put
      out in exactly those files where they are defined, just as
-     with ordinarly namespace-scope variables.  */
+     with ordinary namespace-scope variables.  */
   if (!processing_template_decl)
     DECL_INTERFACE_KNOWN (decl) = 1;
 }
@@ -6145,7 +6174,7 @@ get_scope_of_declarator (const cp_declarator *declarator)
       && TREE_CODE (declarator->u.id.name) == SCOPE_REF)
     return TREE_OPERAND (declarator->u.id.name, 0);
 
-  /* Otherwise, the declarator is not a quablified name; the entity will
+  /* Otherwise, the declarator is not a qualified name; the entity will
      be declared in the current scope.  */
   return NULL_TREE;
 }
@@ -6257,7 +6286,7 @@ check_special_function_return_type (special_function_kind sfk,
       if (type)
 	error ("return type specification for destructor invalid");
       /* We can't use the proper return type here because we run into
-	 problems with abiguous bases and covariant returns.
+	 problems with ambiguous bases and covariant returns.
 	 Java classes are left unchanged because (void *) isn't a valid
 	 Java type, and we don't want to change the Java ABI.  */
       if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (optype))
@@ -9109,8 +9138,8 @@ xref_basetypes (tree ref, tree base_list)
 {
   tree *basep;
   tree binfo, base_binfo;
-  unsigned max_vbases = 0; /* Maxium direct & indirect virtual bases. */
-  unsigned max_bases = 0;  /* Maxium direct bases.  */
+  unsigned max_vbases = 0; /* Maximum direct & indirect virtual bases. */
+  unsigned max_bases = 0;  /* Maximum direct bases.  */
   int i;
   tree default_access;
   tree igo_prev; /* Track Inheritance Graph Order.  */
@@ -9232,7 +9261,7 @@ xref_basetypes (tree ref, tree base_list)
       if (CLASS_TYPE_P (basetype) && !dependent_type_p (basetype))
 	{
 	  base_binfo = TYPE_BINFO (basetype);
-	  /* The orignal basetype could have been a typedef'd type.  */
+	  /* The original basetype could have been a typedef'd type.  */
 	  basetype = BINFO_TYPE (base_binfo);
 
 	  /* Inherit flags from the base.  */
@@ -9431,7 +9460,7 @@ finish_enum (tree enumtype)
      narrower than their underlying type are suitably zero or sign
      extended to fill their mode.  g++ doesn't make these guarantees.
      Until the middle-end can represent such paradoxical types, we
-     set the TYPE_PRECISON to the width of the underlying type.  */
+     set the TYPE_PRECISION to the width of the underlying type.  */
   TYPE_PRECISION (enumtype) = TYPE_PRECISION (underlying_type);
 
   set_min_and_max_values_for_integral_type (enumtype, precision, unsignedp);
@@ -9661,6 +9690,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   int doing_friend = 0;
   struct cp_binding_level *bl;
   tree current_function_parms;
+  struct c_fileinfo *finfo = get_fileinfo (input_filename);
 
   /* Sanity check.  */
   gcc_assert (TREE_CODE (TREE_VALUE (void_list_node)) == VOID_TYPE);
@@ -9887,7 +9917,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   /* If this function belongs to an interface, it is public.
      If it belongs to someone else's interface, it is also external.
      This only affects inlines and template instantiations.  */
-  else if (interface_unknown == 0
+  else if (finfo->interface_unknown == 0
 	   && ! DECL_TEMPLATE_INSTANTIATION (decl1))
     {
       if (DECL_DECLARED_INLINE_P (decl1)
@@ -9895,7 +9925,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 	  || processing_template_decl)
 	{
 	  DECL_EXTERNAL (decl1)
-	    = (interface_only
+	    = (finfo->interface_only
 	       || (DECL_DECLARED_INLINE_P (decl1)
 		   && ! flag_implement_inlines
 		   && !DECL_VINDEX (decl1)));
@@ -9913,14 +9943,15 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
       if (!DECL_EXTERNAL (decl1))
 	mark_needed (decl1);
     }
-  else if (interface_unknown && interface_only
+  else if (finfo->interface_unknown && finfo->interface_only
 	   && ! DECL_TEMPLATE_INSTANTIATION (decl1))
     {
       /* If MULTIPLE_SYMBOL_SPACES is defined and we saw a #pragma
-	 interface, we will have interface_only set but not
-	 interface_known.  In that case, we don't want to use the normal
-	 heuristics because someone will supply a #pragma implementation
-	 elsewhere, and deducing it here would produce a conflict.  */
+	 interface, we will have both finfo->interface_unknown and
+	 finfo->interface_only set.  In that case, we don't want to
+	 use the normal heuristics because someone will supply a
+	 #pragma implementation elsewhere, and deducing it here would
+	 produce a conflict.  */
       comdat_linkage (decl1);
       DECL_EXTERNAL (decl1) = 0;
       DECL_INTERFACE_KNOWN (decl1) = 1;
@@ -10642,8 +10673,8 @@ finish_method (tree decl)
      for String.cc in libg++.  */
   if (DECL_FRIEND_P (fndecl))
     {
-      CLASSTYPE_INLINE_FRIENDS (current_class_type)
-	= tree_cons (NULL_TREE, fndecl, CLASSTYPE_INLINE_FRIENDS (current_class_type));
+      VEC_safe_push (tree, CLASSTYPE_INLINE_FRIENDS (current_class_type),
+		     fndecl);
       decl = void_type_node;
     }
 
@@ -10850,6 +10881,26 @@ cp_missing_noreturn_ok_p (tree decl)
 {
   /* A missing noreturn is ok for the `main' function.  */
   return DECL_MAIN_P (decl);
+}
+
+/* Return the COMDAT group into which DECL should be placed.  */
+
+const char *
+cxx_comdat_group (tree decl)
+{
+  tree name;
+
+  /* Virtual tables, construction virtual tables, and virtual table
+     tables all go in a single COMDAT group, named after the primary
+     virtual table.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_VTABLE_OR_VTT_P (decl))
+    name = DECL_ASSEMBLER_NAME (CLASSTYPE_VTABLES (DECL_CONTEXT (decl)));
+  /* For all other DECLs, the COMDAT group is the mangled name of the
+     declaration itself.  */
+  else
+    name = DECL_ASSEMBLER_NAME (decl);
+
+  return IDENTIFIER_POINTER (name);
 }
 
 #include "gt-cp-decl.h"

@@ -154,8 +154,8 @@ are valid.  Replacement options may not be the @code{--opt} style, they
 must be the @code{-opt} style.  It is the intention of this macro to
 provide a mechanism for substitution that affects the multilibs chosen,
 such as one option that enables many options, some of which select
-multilibs.  Example nonsensical definition, where @code{-malt-abi},
-@code{-EB}, and @code{-mspoo} cause different multilibs to be chosen:
+multilibs.  Example nonsensical definition, where @option{-malt-abi},
+@option{-EB}, and @option{-mspoo} cause different multilibs to be chosen:
 
 @smallexample
 #define TARGET_OPTION_TRANSLATE_TABLE \
@@ -298,8 +298,8 @@ passes the string @option{-lgcc} to the linker.
 By default, if @code{ENABLE_SHARED_LIBGCC} is defined, the
 @code{LIBGCC_SPEC} is not directly used by the driver program but is
 instead modified to refer to different versions of @file{libgcc.a}
-depending on the values of the command line flags @code{-static},
-@code{-shared}, @code{-static-libgcc}, and @code{-shared-libgcc}.  On
+depending on the values of the command line flags @option{-static},
+@option{-shared}, @option{-static-libgcc}, and @option{-shared-libgcc}.  On
 targets where these modifications are inappropriate, define
 @code{REAL_LIBGCC_SPEC} instead.  @code{REAL_LIBGCC_SPEC} tells the
 driver how to place a reference to @file{libgcc} on the link command
@@ -4720,7 +4720,7 @@ the following macro.
 @defmac ENABLE_EXECUTE_STACK
 Define this macro if certain operations must be performed before executing
 code located on the stack.  The macro should expand to a series of C
-file-scope constructs (e.g. functions) and provide a unique entry point
+file-scope constructs (e.g.@: functions) and provide a unique entry point
 named @code{__enable_execute_stack}.  The target is responsible for
 emitting calls to the entry point in the code, for example from the
 @code{INITIALIZE_TRAMPOLINE} macro.
@@ -5512,7 +5512,7 @@ for multiplications, @code{COSTS_N_INSNS (7)} for division and modulus
 operations, and @code{COSTS_N_INSNS (1)} for all other operations.
 
 When optimizing for code size, i.e@. when @code{optimize_size} is
-non-zero, this target hook should be used to estimate the relative
+nonzero, this target hook should be used to estimate the relative
 size cost of an expression, again relative to @code{COSTS_N_INSNS}.
 
 The hook returns true when all subexpressions of @var{x} have been
@@ -5659,7 +5659,7 @@ pointer, or a stdio stream to write any debug output to.  @var{verbose}
 is the verbose level provided by @option{-fsched-verbose-@var{n}}.
 @var{max_ready} is the maximum number of insns in the current scheduling
 region that can be live at the same time.  This can be used to allocate
-scratch space if it is needed, e.g. by @samp{TARGET_SCHED_REORDER}.
+scratch space if it is needed, e.g.@: by @samp{TARGET_SCHED_REORDER}.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_SCHED_FINISH (FILE *@var{file}, int @var{verbose})
@@ -8398,7 +8398,7 @@ to perform initial processing of the @samp{dllimport} and
 @end deftypefn
 
 @defmac TARGET_DECLSPEC
-Define this macro to a non-zero value if you want to treat
+Define this macro to a nonzero value if you want to treat
 @code{__declspec(X)} as equivalent to @code{__attribute((X))}.  By
 default, this behavior is enabled only for targets that define
 @code{TARGET_DLLIMPORT_DECL_ATTRIBUTES}.  The current implementation
@@ -9026,7 +9026,7 @@ within a structure, in much the same way as the @samp{__aligned__} and
 the behavior to the default.
 
 A subtlety for Microsoft Visual C/C++ style bit-field packing
-(e.g. -mms-bitfields) for targets that support it:
+(e.g.@: -mms-bitfields) for targets that support it:
 When a bit-field is inserted into a packed record, the whole size
 of the underlying type is used by one or more same-size adjacent
 bit-fields (that is, if its long:3, 32 bits is used in the record,
@@ -9370,10 +9370,19 @@ system library's @code{pow}, @code{powf} or @code{powl} routines.
 The default value places no upper bound on the multiplication count.
 @end defmac
 
-@deftypefn Macro void TARGET_EXTRA_INCLUDES (int @var{stdinc})
+@deftypefn Macro void TARGET_EXTRA_INCLUDES (const char *@var{sysroot}, const char *@var{iprefix}, int @var{stdinc})
 This target hook should register any extra include files for the
 target.  The parameter @var{stdinc} indicates if normal include files
-are present.
+are present.  The parameter @var{sysroot} is the system root directory.
+The parameter @var{iprefix} is the prefix for the gcc directory.
+@end deftypefn
+
+@deftypefn Macro void TARGET_EXTRA_PRE_INCLUDES (const char *@var{sysroot}, const char *@var{iprefix}, int @var{stdinc})
+This target hook should register any extra include files for the
+target before any standard headers.  The parameter @var{stdinc}
+indicates if normal include files are present.  The parameter
+@var{sysroot} is the system root directory.  The parameter
+@var{iprefix} is the prefix for the gcc directory.
 @end deftypefn
 
 @deftypefn Macro void TARGET_OPTF (char *@var{path})
@@ -9387,7 +9396,7 @@ that are different from @option{-I}.
 This target hook returns @code{true} if it is safe to use a local alias
 for a virtual function @var{fndecl} when constructing thunks,
 @code{false} otherwise. By default, the hook returns @code{true} for all
-functions, if a target supports aliases (ie. defines
+functions, if a target supports aliases (i.e.@: defines
 @code{ASM_OUTPUT_DEF}), @code{false} otherwise,
 @end deftypefn
 

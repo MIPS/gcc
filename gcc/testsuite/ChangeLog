@@ -1,3 +1,298 @@
+2004-09-17  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+
+	* gcc.c-torture/execute/20040917-1.c: New test.
+
+2004-09-17  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/17319
+	* gcc.dg/pr17319.c: New test.
+
+2004-09-17  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/20040813-1.c: New test.
+	
+2004-09-17  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/17273
+	* gcc.c-torture/compile/pr17273.c: New test.
+
+2004-09-17  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/declspec-4.c, gcc.dg/declspec-5.c, gcc.dg/declspec-6.c:
+	Update expected messages.
+	* gcc.dg/declspec-13.c: New test.
+
+2004-09-17  David Edelsohn  <edelsohn@gnu.org>
+
+	* gcc.dg/darwin-longlong.c: XFAIL on AIX and SPE.
+
+2004-09-17  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/pr17252.c: Use post-increment to
+	change what 'a' is pointing to.
+
+2004-09-17  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16002
+	* g++.dg/template/error18.C: New test.
+	
+	PR c++/16029
+	* g++.dg/warn/Wunused-8.C: New test.
+
+2004-09-17  Steven Bosscher  <stevenb@suse.de>
+
+	PR tree-optimization/17513
+	* gcc.dg/20040916-1.c: New test.
+
+2004-09-16  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17501
+	* g++.dg/template/typename7.C: New test.
+
+2004-09-16  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.dg/tree-ssa/copy-headers.c: Update outcome.
+
+2004-09-16  Frank Ch. Eigler  <fche@redhat.com>
+
+	* gcc.misc-tests/bprob.exp, g++.dg/bprob/bprob.exp: Iterate tests
+	with -ftree-based-profiling also.
+	* lib/profopt.exp: Support late-set profile_option/feedback_option.
+
+2004-09-16  Victor Leikehman  <lei@il.ibm.com>
+
+	PR/15364
+	* gfortran.dg/der_array_io_1.f90: New test.
+	* gfortran.dg/der_array_io_2.f90: New test.
+	* gfortran.dg/der_array_io_3.f90: New test.
+
+2004-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/g++.old-deja/g++.abi/cxa_vec.C: Adjust for ARM
+	EABI.
+
+2004-09-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/opt/switch1.C: New test.
+
+2004-09-15  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* g++.dg/ext/member-attr.C, g++.dg/warn/deprecated.C,
+	gcc.dg/deprecated.c, gcc.dg/noreturn-1.c, gcc.dg/noreturn-4.c:
+	Update expected messages.
+
+2004-09-15  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/16485
+	* gfortran.dg/same_name_1.f90: New test.
+
+2004-09-15  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/execute/pr17252.c: Fix thinko.  Don't
+	dereference garbage pointers.
+
+2004-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/builtins/strlen-3.c: New test.
+	* gcc.c-torture/execute/builtins/strlen-3-lib.c: New.
+
+	* gcc.c-torture/execute/builtins/memmove.c (main_test): Formatting.
+	* gcc.c-torture/execute/builtins/memmove-2.c: New test.
+	* gcc.c-torture/execute/builtins/memmove-2-lib.c: New.
+
+2004-09-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17324
+	* g++.dg/template/mangle1.C: New test.
+
+2004-09-14  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/17252
+	* gcc.c-torture/execute/pr17252.c: New test.
+
+2004-09-14  Andrew Pinski  <apinski@apple.com>
+
+	* g++.dg/tree-ssa/pointer-reference-alias.C: New test.
+
+2004-09-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/9771
+	* gcc.dg/pr9771-1.c: New test case.
+
+2004-09-14  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/15262
+	* gcc.c-torture/execute/pr15262-1.c: New test.
+	* gcc.c-torture/execute/pr15262-2.c: New test.
+
+2004-09-14  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/declspec-12.c: New test.
+
+2004-09-14  Bud Davis  <bdavis9659@comcast.net>
+	
+	* gfortran.dg/pr17090.f90: Add directives to test.
+
+2004-09-14  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* gcc.c-torture/compile/20040914-1.c: New test.
+
+2004-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16162
+	* g++.dg/template/decl2.C: New test.
+	
+2004-09-13  Bud Davis  <bdavis9659@comcast.net>
+
+	PR fortran/17090
+	* gfortran.dg/pr17090.f90: New test.
+
+2004-09-13  Dale Johannesen  <dalej@apple.com>
+
+	* gcc.c-torture/compile/pr17408.c:  New test case.
+
+2004-09-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/16716
+	* g++.dg/parse/crash17.C: New test.
+	
+	PR c++/17327
+	* g++.dg/template/enum3.C: New test.
+
+2004-09-13  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* lib/gcc-defs.exp: Load wrapper.exp.
+	* lib/g++.exp (g++_init): Call g++_maybe_build_wrapper instead of
+	using local code.
+	* lib/gcc.exp (gcc_init): Similar.
+	* lib/gfortran.exp (gfortran_init): Similar.
+	* lib/objc.exp (objc_init): Similar.
+	* lib/treelang.exp (treelang_init): Similar.
+	* lib/wrapper.exp: New file with build_wrapper call machinery in
+	${tool}_maybe_build_wrapper.
+
+2004-09-13  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/declspec-7.c: Don't expect diagnostic for duplicate
+	"inline".
+	* gcc.dg/declspec-11.c: Update expected messages.
+	* gcc.dg/inline-6.c, gcc.dg/inline-7.c, gcc.dg/inline-8.c,
+	gcc.dg/inline-9.c, gcc.dg/inline-10.c, gcc.dg/inline-11.c,
+	gcc.dg/inline-12.c: New tests.
+
+2004-09-13  Andrew MacLeod  <amacleod@redhat.com>
+
+	* g++.dg/tree-ssa/pr17400.C: New testcase.
+
+2004-09-13  James E Wilson  <wilson@specifixinc.com>
+
+	* gcc.target/mips/sb1-1.c: New testcase.
+
+2004-09-12  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* lib/g77-dg.exp: Remove unused file.
+	* lib/mike-g77.exp: Ditto.
+	* lib/g77.exp: Ditto.
+
+2004-09-12  Richard Henderson  <rth@redhat.com>
+
+	* g++.old-deja/g++.other/sizeof3.C: Fix abort declaration.
+
+2004-09-13  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* g++.dg/warn/Wswitch-1.C, g++.dg/warn/Wswitch-2.C,
+	gcc.dg/Wswitch-2.c, gcc.dg/Wswitch-enum.c, gcc.dg/Wswitch.c,
+	gcc.dg/declspec-9.c, gcc.dg/declspec-10.c, gcc.dg/declspec-11.c,
+	gcc.dg/m-un-2.c, gcc.dg/noreturn-1.c, gcc.dg/wtr-conversion-1.c:
+	Update expected messages.
+
+2004-09-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/asmreg-1.c (__syscall_getdents64): Adjust signedness
+	declaration/use mismatch for dirp parameter.
+
+2004-09-12  Andrew Pinski  <apinski@apple.com>
+
+	* lib/objc.exp (objc_target_compile): Look for libobjc-gnu.a also when
+	-fgnu-runtime is passed.
+
+2004-09-12  Richard Henderson  <rth@redhat.com>
+
+	* lib/fortran-torture.exp (add-ieee-options): Replace ieee-options;
+	do the uplevel thing and update additional_flags directly.
+	* gfortran.fortran-torture/execute/intrinsic_fraction_exponent.x,
+	gfortran.fortran-torture/execute/intrinsic_nearest.x,
+	gfortran.fortran-torture/execute/intrinsic_set_exponent.x,
+	gfortran.fortran-torture/execute/nan_inf_fmt.x: Update to match.
+
+2004-09-11  Steven Bosscher  <stevenb@suse.de>
+
+	* g++.dg/parse/break-in-for.C: Fix for -ansi -pedantic-errors.
+
+2004-09-11  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/17411
+	* g++.dg/opt/pr17411-1.C: New test case.
+
+2004-09-11  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/declspec-4.c, gcc.dg/declspec-5.c, gcc.dg/declspec-6.c,
+	gcc.dg/tls/diag-2.c: Update expected messages.
+	* gcc.dg/991209-1.c: Specify compilation options.  Update expected
+	messages.
+	* gcc.dg/pr14289-2.c, gcc.dg/pr14289-3.c: Remove.
+	* gcc.dg/declspec-7.c, gcc.dg/declspec-8.c, gcc.dg/declspec-9.c,
+	gcc.dg/declspec-10.c, gcc.dg/declspec-11.c, gcc.dg/tls/diag-4.c,
+	gcc.dg/tls/diag-5.c: New tests.
+
+2004-09-11  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.dg/20040910-1.c: Correct dg-error regexp.
+
+2004-09-11  Steven Bosscher  <stevenb@suse.de>
+
+	* g++.dg/parse/break-in-for.C: New test.
+
+2004-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tree-ssa/20040911-1.c: New test.
+
+2004-09-11  Andreas Jaeger  <aj@suse.de>
+
+	* gcc.c-torture/execute/991118-1.x: Delete, PR 16437 is fixed.
+	* gcc.c-torture/execute/bf64-1.x: Remove XFAIL on x86-64.
+
+2004-09-11  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.target/frv: New directory of FR-V-specific tests.
+
+2004-09-10  James E Wilson  <wilson@specifixinc.com>
+
+	* gcc.dg/convert-vec-1.c: New test.
+
+2004-09-10  Roger Sayle  <roger@eyesopen.com>
+
+	PR middle-end/17024
+	* gcc.dg/pr17024-1.c: New test case.
+
+2004-09-10  Eric Christopher  <echristo@redhat.com>
+
+	* gcc.dg/20040910-1.c: New test.
+
+2004-09-11  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/bitfld-9.c: New test.
+
+2004-09-10  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.c-torture/execute/ieee/acc1.c: New test.
+	* gcc.c-torture/execute/ieee/acc2.c: New test.
+	* gcc.c-torture/execute/ieee/mzero6.c: New test.
+
+2004-09-10  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* gcc.dg/deprecated-2.c: New test.
+
 2004-09-09  James E Wilson  <wilson@specifixinc.com>
 
 	* gcc.dg/init-vec-1.c: New test.
@@ -31,7 +326,7 @@
 	* gcc.dg/darwin-ld-20040828-1.c: New test.
 	* gcc.dg/darwin-ld-20040828-2.c: New test.
 	* gcc.dg/darwin-ld-20040828-3.c: New test.
-	
+
 2004-09-08  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc.dg/bitfield-2.m: Make 'id' definition a typedef.
@@ -52,10 +347,10 @@
 	LD_LIBRARYN32_PATH, LD_LIBRARY64_PATH and DYLD_LIBRARY_PATH.
 
 2004-09-06  Devang Patel  <dpatel@apple.com>
-	
+
 	* gcc.dg/tree-ssa/ifc-20040816-1.c: Use -ftree-vectorize.
 	* gcc.dg/tree-ssa/ifc-20040816-2.c: Use -ftree-vectorize.
-	
+
 2004-09-06  Zack Weinberg  <zack@codesourcery.com>
 
 	* g++.old-deja/g++.other/enum2.C: Move dg-error markers to

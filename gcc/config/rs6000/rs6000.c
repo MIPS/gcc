@@ -650,7 +650,7 @@ static bool rs6000_elf_in_small_data_p (tree);
 #endif
 #if TARGET_XCOFF
 static void rs6000_xcoff_asm_globalize_label (FILE *, const char *);
-static void rs6000_xcoff_asm_named_section (const char *, unsigned int);
+static void rs6000_xcoff_asm_named_section (const char *, unsigned int, tree);
 static void rs6000_xcoff_select_section (tree, int, unsigned HOST_WIDE_INT);
 static void rs6000_xcoff_unique_section (tree, int);
 static void rs6000_xcoff_select_rtx_section (enum machine_mode, rtx,
@@ -4619,7 +4619,7 @@ function_arg_padding (enum machine_mode mode, tree type)
     {
       /* GCC used to pass structures of the same size as integer types as
 	 if they were in fact integers, ignoring FUNCTION_ARG_PADDING.
-	 ie. Structures of size 1 or 2 (or 4 when TARGET_64BIT) were
+	 i.e. Structures of size 1 or 2 (or 4 when TARGET_64BIT) were
 	 passed padded downward, except that -mstrict-align further
 	 muddied the water in that multi-component structures of 2 and 4
 	 bytes in size were passed padded upward.
@@ -10062,7 +10062,7 @@ print_operand (FILE *file, rtx x, int code)
       /* Write second word of DImode or DFmode reference.  Works on register
 	 or non-indexed memory only.  */
       if (GET_CODE (x) == REG)
-	fprintf (file, "%s", reg_names[REGNO (x) + 1]);
+	fputs (reg_names[REGNO (x) + 1], file);
       else if (GET_CODE (x) == MEM)
 	{
 	  /* Handle possible auto-increment.  Since it is pre-increment and
@@ -10133,7 +10133,7 @@ print_operand (FILE *file, rtx x, int code)
 	  || REGNO (XEXP (x, 0)) >= 32)
 	output_operand_lossage ("invalid %%P value");
       else
-	fprintf (file, "%s", reg_names[REGNO (XEXP (x, 0))]);
+	fputs (reg_names[REGNO (XEXP (x, 0))], file);
       return;
 
     case 'q':
@@ -10368,7 +10368,7 @@ print_operand (FILE *file, rtx x, int code)
     case 'Y':
       /* Like 'L', for third word of TImode  */
       if (GET_CODE (x) == REG)
-	fprintf (file, "%s", reg_names[REGNO (x) + 2]);
+	fputs (reg_names[REGNO (x) + 2], file);
       else if (GET_CODE (x) == MEM)
 	{
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
@@ -10415,7 +10415,7 @@ print_operand (FILE *file, rtx x, int code)
     case 'Z':
       /* Like 'L', for last word of TImode.  */
       if (GET_CODE (x) == REG)
-	fprintf (file, "%s", reg_names[REGNO (x) + 3]);
+	fputs (reg_names[REGNO (x) + 3], file);
       else if (GET_CODE (x) == MEM)
 	{
 	  if (GET_CODE (XEXP (x, 0)) == PRE_INC
@@ -16932,7 +16932,8 @@ rs6000_xcoff_asm_globalize_label (FILE *stream, const char *name)
 }
 
 static void
-rs6000_xcoff_asm_named_section (const char *name, unsigned int flags)
+rs6000_xcoff_asm_named_section (const char *name, unsigned int flags,
+				tree decl ATTRIBUTE_UNUSED)
 {
   int smclass;
   static const char * const suffix[3] = { "PR", "RO", "RW" };
@@ -17188,7 +17189,7 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int *total)
     case MEM:
       /* When optimizing for size, MEM should be slightly more expensive
 	 than generating address, e.g., (plus (reg) (const)).
-	 L1 cache latecy is about two instructions.  */
+	 L1 cache latency is about two instructions.  */
       *total = optimize_size ? COSTS_N_INSNS (1) + 1 : COSTS_N_INSNS (2);
       return true;
 
