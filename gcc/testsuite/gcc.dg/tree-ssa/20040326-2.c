@@ -26,6 +26,7 @@ bar (int x, int y)
 void
 boz (void)
 {
+  abort ();
 }
 
 void

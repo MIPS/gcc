@@ -1,3 +1,7 @@
+2004-04-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.dg/tree-ssa/20040326-2.c (boz): Add call to abort.
+
 2004-04-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/20040326-2.c: Update to test for correct
