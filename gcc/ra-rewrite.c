@@ -69,6 +69,9 @@ static void detect_web_parts_to_rebuild PARAMS ((void));
 static void delete_useless_defs PARAMS ((void));
 static void detect_non_changed_webs PARAMS ((void));
 static void reset_changed_flag PARAMS ((void));
+static void set_web_live PARAMS ((sbitmap, struct web *));
+static void reset_web_live PARAMS ((sbitmap, struct web *));
+static int is_partly_dead PARAMS ((sbitmap, struct web *));
 
 /* For tracking some statistics, we count the number (and cost)
    of deleted move insns.  */
@@ -809,8 +812,8 @@ is_partly_live_1 (live, web)
 }
 
 /* Fast version in case WEB has no subwebs.  */
-#define is_partly_live(live, web) ((!web->subreg_next)	\
-				   ? TEST_BIT (live, web->id)	\
+#define is_partly_live(live, web) ((!web->subreg_next || web->parent_web) \
+				   ? TEST_BIT (live, web->id)		  \
 				   : is_partly_live_1 (live, web))
 
 /* Change the set of currently IN_USE colors according to
@@ -918,6 +921,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
       struct web *supweb;
       struct web *aweb;
       rtx ni, slot, reg;
+      enum machine_mode innermode;
       rtx before = NULL_RTX, after = NULL_RTX;
       basic_block bb;
       /* When spilltemps were spilled for the last insns, their
@@ -941,7 +945,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	}
       web->in_load = 0;
       /* The adding of reloads doesn't depend on liveness.  */
-      if (j < nl_first_reload && !TEST_BIT (ri->live, web->id))
+      if (j < nl_first_reload && !is_partly_live (ri->live, web))
 	continue;
       aweb = alias (supweb);
       aweb->changed = 1;
@@ -956,27 +960,21 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	  if (aweb != supweb)
 	    abort ();
 	  slot = copy_rtx (supweb->pattern);
-	  reg = copy_rtx (supweb->orig_x);
-	  /* Sanity check.  orig_x should be a REG rtx, which should be
-	     shared over all RTL, so copy_rtx should have no effect.  */
-	  if (reg != supweb->orig_x)
-	    abort ();
+	  innermode = GET_MODE (supweb->orig_x);
 	}
       else
 	{
 	  allocate_spill_web (aweb);
 	  slot = aweb->stack_slot;
-
-	  /* If we don't copy the RTL there might be some SUBREG
-	     rtx shared in the next iteration although being in
-	     different webs, which leads to wrong code.  */
-	  reg = copy_rtx (web->orig_x);
-	  if (GET_CODE (reg) == SUBREG)
-	    /*slot = adjust_address (slot, GET_MODE (reg), SUBREG_BYTE
-	       (reg));*/
-	    slot = simplify_gen_subreg (GET_MODE (reg), slot, GET_MODE (slot),
-					SUBREG_BYTE (reg));
+	  innermode = GET_MODE (slot);
 	}
+      /* If we don't copy the RTL there might be some SUBREG
+	 rtx shared in the next iteration although being in
+	 different webs, which leads to wrong code.  */
+      reg = copy_rtx (web->orig_x);
+      if (GET_CODE (reg) == SUBREG)
+	slot = simplify_gen_subreg (GET_MODE (reg), slot, innermode,
+				    SUBREG_BYTE (reg));
       ra_emit_move_insn (reg, slot);
       ni = get_insns ();
       end_sequence ();
@@ -1025,7 +1023,7 @@ emit_loads (ri, nl_first_reload, last_block_insn)
 	  emitted_spill_loads++;
 	  spill_load_cost += bb->frequency + 1;
 	}
-      RESET_BIT (ri->live, web->id);
+      reset_web_live (ri->live, web);
       /* In the special case documented above only emit the reloads and
 	 one load.  */
       if (ri->need_load == 2 && j < nl_first_reload)
@@ -1051,6 +1049,54 @@ detect_bbs_for_rewrite (changed_bbs)
 	for (i = 0; i < web->num_uses; i++)
 	  SET_BIT (changed_bbs, 2 + DF_REF_BBNO (web->uses[i]));
       }
+}
+
+/* Test LIVE for partial WEB live.  */
+static int
+is_partly_dead (live, web)
+     sbitmap live;
+     struct web *web;
+{
+  struct web *sweb;
+  
+  if (web->subreg_next && !web->parent_web)
+    {
+      for (sweb = web->subreg_next; sweb; sweb = sweb->subreg_next)
+	if (!TEST_BIT (live, sweb->id))
+	  return 1;
+      return 0;
+    }
+  return !TEST_BIT (live, web->id);
+}
+
+/* Set live bit in LIVE for WEB or all his subwebs.  */
+static void
+set_web_live (live, web)
+     sbitmap live;
+     struct web *web;
+{
+  struct web *sweb;
+
+  if (web->subreg_next && !web->parent_web)
+    for (sweb = web->subreg_next; sweb; sweb = sweb->subreg_next)
+      SET_BIT (live, sweb->id);
+  else
+    SET_BIT (live, web->id);
+}
+
+/* Reset live bit in LIVE for WEB or all his subwebs.  */
+static void
+reset_web_live (live, web)
+     sbitmap live;
+     struct web *web;
+{
+  struct web *sweb;
+
+  if (web->subreg_next && !web->parent_web)
+    for (sweb = web->subreg_next; sweb; sweb = sweb->subreg_next)
+      RESET_BIT (live, sweb->id);
+  else
+    RESET_BIT (live, web->id);
 }
 
 /* Fast version of rewrite_program2() for one basic block, where
@@ -1094,18 +1140,17 @@ detect_deaths_in_bb (bb, live, new_deaths)
       info = insn_df[INSN_UID (insn)];
       for (n = 0; n < info.num_defs; n++)
 	{
+	  unsigned int n2;
 	  struct ref *ref = info.defs[n];
 	  struct web *web = def2web[DF_REF_ID (ref)];
-	  rtx reg = DF_REF_REG (ref);
+	  struct web *supweb = find_web_for_subweb (web);
 	  int is_non_def = 0;
-	  unsigned int n2;
 
-	  web = find_web_for_subweb (web);
 	  /* Detect rmw webs.  */
 	  for (n2 = 0; n2 < info.num_uses; n2++)
 	    {
 	      struct web *web2 = use2web[DF_REF_ID (info.uses[n2])];
-	      if (web == find_web_for_subweb (web2))
+	      if (supweb == find_web_for_subweb (web2))
 		{
 		  is_non_def = 1;
 		  break;
@@ -1114,32 +1159,16 @@ detect_deaths_in_bb (bb, live, new_deaths)
 	  if (is_non_def)
 	    continue;
 
-	  if (!is_partly_live (live, web))
+	  if (!is_partly_live (live, supweb))
 	    bitmap_set_bit (useless_defs, DF_REF_ID (ref));
 
-	  if (GET_CODE (reg) == SUBREG)
-	    {
-	      struct web *sweb;
-	      sweb = find_subweb (web, reg);
-	      RESET_BIT (live, sweb->id);
-	    }
-	  else
-	    {
-	      struct web *sweb;
-	      RESET_BIT (live, web->id);
-	      for (sweb = web->subreg_next; sweb;
-		   sweb = sweb->subreg_next)
-		RESET_BIT (live, sweb->id);
-	    }
+	  reset_web_live (live, web);
 	}
 
       for (n = 0; n < info.num_uses; n++)
 	{
 	  struct web *web = use2web[DF_REF_ID (info.uses[n])];
-	  struct web *supweb = find_web_for_subweb (web);
-	  int is_death = !TEST_BIT (live, supweb->id);
-	  is_death &= !TEST_BIT (live, web->id);
-	  if (is_death)
+	  if (is_partly_dead (live, web))
 	    {
 	      bitmap_set_bit (new_deaths, INSN_UID (insn));
 	      break;
@@ -1149,7 +1178,7 @@ detect_deaths_in_bb (bb, live, new_deaths)
       for (n = 0; n < info.num_uses; n++)
 	{
 	  struct web *web = use2web[DF_REF_ID (info.uses[n])];
-	  SET_BIT (live, web->id);
+	  set_web_live (live, web);
 	}
     }
 }
@@ -1174,7 +1203,6 @@ reloads_to_loads (ri, refs, num_refs, ref2web)
     {
       struct web *web = ref2web[DF_REF_ID (refs[n])];
       struct web *supweb = find_web_for_subweb (web);
-      int is_death;
       int j;
       /* Only emit reloads when entering their interference
 	 region.  A use of a spilled web never opens an
@@ -1185,11 +1213,9 @@ reloads_to_loads (ri, refs, num_refs, ref2web)
 	  && TEST_HARD_REG_BIT (never_use_colors, supweb->color))
 	continue;
       /* Note, that if web (and supweb) are DEFs, we already cleared
-	 the corresponding bits in live.  I.e. is_death becomes true, which
-	 is what we want.  */
-      is_death = !TEST_BIT (ri->live, supweb->id);
-      is_death &= !TEST_BIT (ri->live, web->id);
-      if (is_death)
+	 the corresponding bits in live.  I.e. is_partly_dead becomes true,
+	 which is what we want.  */
+      if (is_partly_dead (ri->live, web))
 	{
 	  int old_num_r = num_reloads;
 	  bitmap_clear (ri->scratch);
@@ -1294,7 +1320,7 @@ rewrite_program2 (new_deaths)
 	     Remember to not add to colors_in_use in that case.  */
 	  if (aweb->type != SPILLED /*|| aweb->color >= 0*/)
 	    {
-	      SET_BIT (ri.live, web->id);
+	      set_web_live (ri.live, web);
 	      if (aweb->type != SPILLED)
 	        update_spill_colors (&(ri.colors_in_use), web, 1);
 	    }
@@ -1343,7 +1369,7 @@ rewrite_program2 (new_deaths)
 		  struct web *aweb = alias (find_web_for_subweb (web));
 		  if (aweb->type != SPILLED)
 		    {
-		      SET_BIT (ri.live, web->id);
+		      set_web_live (ri.live, web);
 		      update_spill_colors (&(ri.colors_in_use), web, 1);
 		    }
 		});
@@ -1407,7 +1433,7 @@ rewrite_program2 (new_deaths)
 		if (!is_partly_live (ri.live, supweb))
 		  bitmap_set_bit (useless_defs, DF_REF_ID (ref));
 
-		RESET_BIT (ri.live, web->id);
+		reset_web_live (ri.live, web);
 		if (bitmap_bit_p (ri.need_reload, web->id))
 		  {
 		    ri.num_reloads--;
@@ -1436,7 +1462,6 @@ rewrite_program2 (new_deaths)
 		    for (sweb = supweb->subreg_next; sweb;
 			 sweb = sweb->subreg_next)
 		      {
-		        RESET_BIT (ri.live, sweb->id);
 			if (bitmap_bit_p (ri.need_reload, sweb->id))
 			  {
 		            ri.num_reloads--;
@@ -1462,13 +1487,10 @@ rewrite_program2 (new_deaths)
 	      {
 		struct web *web = use2web[DF_REF_ID (info.uses[n])];
 		struct web *supweb = find_web_for_subweb (web);
-		int is_death;
 		if (supweb->type == PRECOLORED
 		    && TEST_HARD_REG_BIT (never_use_colors, supweb->color))
 		  continue;
-		is_death = !TEST_BIT (ri.live, supweb->id);
-		is_death &= !TEST_BIT (ri.live, web->id);
-		if (is_death)
+		if (is_partly_dead (ri.live, web))
 		  {
 		    ri.need_load = 1;
 		    bitmap_set_bit (new_deaths, INSN_UID (insn));
@@ -1514,7 +1536,7 @@ rewrite_program2 (new_deaths)
 		struct web *web = use2web[DF_REF_ID (info.uses[n])];
 		struct web *supweb = find_web_for_subweb (web);
 		struct web *aweb = alias (supweb);
-		SET_BIT (ri.live, web->id);
+		set_web_live (ri.live, web);
 		if (aweb->type != SPILLED)
 		  continue;
 		if (supweb->spill_temp)

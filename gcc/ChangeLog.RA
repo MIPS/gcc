@@ -1,3 +1,14 @@
+2002-07-29  Denis Chertykov  <denisc@overta.ru>
+
+	* ra-rewrite.c (set_web_live, reset_web_live, is_partly_dead): New
+	functions.
+	(is_partly_live): Walk only on one subweb or all subwebs of super web.
+	(emit_loads): Use set_web_live, reset_web_live.
+	(detect_deaths_in_bb): Likewise.
+	(reloads_to_loads): Use is_partly_dead instead of is_death ....
+	Use set_web_live, reset_web_live.
+	(rewrite_program2): Likewise.
+
 2002-07-25  Denis Chertykov  <denisc@overta.ru>
 
 	* ra-build.c (remember_web_was_spilled): Removed.
