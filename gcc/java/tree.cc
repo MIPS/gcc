@@ -132,6 +132,13 @@ tree_generator::visit_method (model_method *meth,
 
       block->visit (this);
       tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
+
+      // Emit an explicit 'return' for GCC's sake.
+      if (meth->get_return_type () == primitive_void_type
+	  && block->can_complete_normally ())
+	tsi_link_after (&out, build1 (RETURN_EXPR, void_type_node, NULL_TREE),
+			TSI_CONTINUE_LINKING);
+
       current = statements;
 
       // Handle synchronized methods.  This isn't done for JNI

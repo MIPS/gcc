@@ -1,5 +1,10 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* tree.cc (visit_method): Emit explicit 'return' for void
+	methods.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (handle_inc_dec): Convert '1' to proper type.
 
 2005-03-26  Tom Tromey  <tromey@redhat.com>
