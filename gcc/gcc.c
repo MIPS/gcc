@@ -615,11 +615,11 @@ proper position among the other output files.  */
 /* XXX: should exactly match hooks provided by libmudflap.a */
 #define MFWRAP_SPEC " %{fmudflap: %{static:\
  --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
- --wrap=dlopen --wrap=mmap --wrap=munmap --wrap=alloca\
+ --wrap=mmap --wrap=munmap --wrap=alloca\
 }}"
 #endif
 #ifndef MFLIB_SPEC
-#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{!static:-ldl} %{static:%(link_gcc_c_sequence) -lmudflap}}"
+#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{static:%(link_gcc_c_sequence) -lmudflap}}"
 #endif
 
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is

@@ -168,7 +168,6 @@ struct __mf_options
 struct __mf_dynamic 
 {
   void * dyn_calloc;
-  void * dyn_dlopen;
   void * dyn_free;
   void * dyn_malloc;
   void * dyn_mmap;

@@ -423,7 +423,6 @@ __mf_resolve_dynamics ()
 #define RESOLVE(fname) \
 resolve_single_dynamic (&__mf_dynamic.dyn_ ## fname, #fname)
   RESOLVE(calloc);
-  RESOLVE(dlopen);
   RESOLVE(free);
   RESOLVE(malloc);
   RESOLVE(mmap);

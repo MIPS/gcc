@@ -8,7 +8,7 @@ AUTOMAKE_OPTIONS = 1.3 foreign
 MAINT_CHARSET = latin1
 SUBDIRS = testsuite
 
-AM_CFLAGS = -ansi -Wall -O3 -g -freorder-blocks
+AM_CFLAGS = -ansi -Wall
 
 lib_LTLIBRARIES = libmudflap.la
 include_HEADERS = mf-runtime.h
@@ -49,7 +49,6 @@ HOOKOBJS = \
  bcmp-hook.lo \
  index-hook.lo \
  rindex-hook.lo \
- dlopen-hook.lo \
  mmap-hook.lo \
  munmap-hook.lo \
  alloca-hook.lo
@@ -60,7 +59,7 @@ $(HOOKOBJS): mf-hooks.c mf-runtime.h mf-impl.h
 	$(LTCOMPILE) -DWRAP_$$hook -c $(srcdir)/mf-hooks.c -o $@
 
 libmudflap_la_LDFLAGS = 
-libmudflap_la_LIBADD = $(HOOKOBJS)
+libmudflap_la_LIBADD = $(HOOKOBJS) -ldl
 libmudflap_la_DEPENDENCIES = $(libmudflap_la_LIBADD)
 
 

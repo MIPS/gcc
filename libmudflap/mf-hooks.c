@@ -238,19 +238,6 @@ WRAPPER(void, free, void *buf)
 #endif
 
 
-#ifdef WRAP_dlopen
-#undef dlopen
-WRAPPER(void *, dlopen, const char *filename, int flag)
-{
-  DECLARE(void * , dlopen, const char *filename, int flag);
-  BEGIN_PROTECT(void *, dlopen, filename, flag);
-  result = CALL_REAL(dlopen, filename, flag);
-  __mf_state = old_state;
-  return result;
-}
-#endif
-
-
 #ifdef WRAP_mmap
 #undef mmap
 WRAPPER(void *, mmap, 

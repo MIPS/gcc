@@ -1,3 +1,13 @@
+2003-03-31  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile.am (AM_CFLAGS): Remove optimization flags.
+	(HOOKOBJS): Remove dlopen hook.
+	(libmudflap_la_LIBADD): Add -ldl.
+	* mf-hooks.c (dlopen): Remove hook.
+	* mf-impl.h (__mf_dynamic): Ditto.
+	* mf-runtime.c (__mf_resolve_dynamics): Ditto.
+	* Makefile.in: Regenerated.
+
 2003-03-28  Frank Ch. Eigler  <fche@redhat.com>
 
 	* configure.in: Check for target gettimeofday, signal, some headers.

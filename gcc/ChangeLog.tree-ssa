@@ -1,3 +1,8 @@
+2003-03-31  Frank Ch. Eigler  <fche@redhat.com>
+
+	* gcc.c (MFLIB_SPEC): Remove -ld.
+	(MFWRAP_SPEC): Remove dlopen wrapping.
+
 2003-03-28  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-ssa.c (rewrite_block): Add new argument 'eq_expr_value'. 
