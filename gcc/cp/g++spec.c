@@ -1,5 +1,5 @@
 /* Specific flags and argument handling of the C++ front-end.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -66,7 +66,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
   /* The number of arguments being added to what's in argv, other than
      libraries.  We use this to track the number of times we've inserted
      -xc++/-xnone.  */
-  int added = 2;
+  int added = 0;
 
   /* Used to track options that take arguments, so we don't go wrapping
      those with -xc++/-xnone.  */
@@ -182,7 +182,6 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 	      /* Don't specify libraries if we won't link, since that would
 		 cause a warning.  */
 	      library = -1;
-	      added -= 2;
 	    }
 	  else if (strcmp (argv[i], "-static-libgcc") == 0 
 		   || strcmp (argv[i], "-static") == 0)
@@ -243,7 +242,7 @@ lang_specific_driver (in_argc, in_argv, in_added_libraries)
 #endif
 
   /* Make sure to have room for the trailing NULL argument.  */
-  num_args = argc + added + need_math + shared_libgcc + 1;
+  num_args = argc + added + need_math + shared_libgcc + (library > 0) + 1;
   arglist = (const char **) xmalloc (num_args * sizeof (char *));
 
   i = 0;
