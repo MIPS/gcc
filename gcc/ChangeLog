@@ -1,3 +1,8 @@
+2002-06-17  Frank Ch. Eigler  <fche@redhat.com>
+
+	* c-pretty-print.c (dump_c_node): Print pointer-type
+	integer constants as raw numbers with a "B" (bytes) suffix.
+
 2002-06-17  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (simplify_stmt): Take a tree *.

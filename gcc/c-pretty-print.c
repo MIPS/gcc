@@ -354,10 +354,32 @@ dump_c_node (buffer, node, spc)
 
     case INTEGER_CST:
       if (TREE_CODE (TREE_TYPE (node)) == POINTER_TYPE)
-	/* In the case of a pointer, divide by the size of the pointed-to type.  */
-	output_decimal (buffer,
-			TREE_INT_CST_LOW (node) * BITS_PER_UNIT /
-			(TYPE_PRECISION (TREE_TYPE (TREE_TYPE (node)))));
+	{
+	  /* In the case of a pointer, one may want to divide by the
+	     size of the pointed-to type.  Unfortunately, this not
+	     straightforward.  The C front-end maps expressions 
+
+	     (int *) 5
+	     int *p; (p + 5)
+
+	     in such a way that the two INTEGER_CST nodes for "5" have
+	     different values but identical types.  In the latter
+	     case, the 5 is multipled by sizeof (int) in c-common.c
+	     (pointer_int_sum) to convert it to a byte address, and
+	     yet the type of the node is left unchanged.  Argh.  What
+	     is consistent though is that the number value corresponds
+	     to bytes (UNITS) offset.
+
+             NB: Neither of the following divisors can be trivially
+             used to recover the original literal:
+
+             TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (node)))
+	     TYPE_PRECISION (TREE_TYPE (TREE_TYPE (node)))
+	  */
+
+	  output_decimal (buffer, TREE_INT_CST_LOW (node));
+	  output_add_string (buffer, "B"); /* pseudo-unit */
+	}
       else
 	output_decimal (buffer, TREE_INT_CST_LOW (node));
       break;
