@@ -1,3 +1,9 @@
+2004-01-08  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c: Rename type var_part to variable_part.
+	(struct variable_def): Likewise.
+	(variable_part_different_p): Likewise.
+
 2004-01-03  Jan Hubicka  <jh@suse.cz>
 	backport from mainline:
 	2003-09-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>

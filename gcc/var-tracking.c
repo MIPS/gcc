@@ -210,13 +210,14 @@ typedef struct location_chain_def
 } *location_chain;
 
 /* Structure describing one part of variable.  */
-typedef struct var_part_def
+typedef struct variable_part_def
 {
+  /* Chain of locations of the part.  */
   location_chain loc_chain;
 
   /* The offset in the variable.  */
   HOST_WIDE_INT offset;
-} var_part;
+} variable_part;
 
 /* Maximum number of location parts.  */
 #define MAX_VAR_PARTS 16
@@ -231,7 +232,7 @@ typedef struct variable_def
   int n_var_parts;
 
   /* The variable parts.  */
-  var_part var_part[MAX_VAR_PARTS];
+  variable_part var_part[MAX_VAR_PARTS];
 } *variable;
 
 /* Hash function for DECL for VARIABLE_HTAB.  */
@@ -296,7 +297,8 @@ static int variable_union_info_cmp_pos	PARAMS ((const void *, const void *));
 static int variable_union		PARAMS ((void **, void *));
 static void dataflow_set_union		PARAMS ((dataflow_set *,
 						 dataflow_set *));
-static bool variable_part_different_p	PARAMS ((var_part *, var_part *));
+static bool variable_part_different_p	PARAMS ((variable_part *,
+						 variable_part *));
 static bool variable_different_p	PARAMS ((variable, variable));
 static int dataflow_set_different_1	PARAMS ((void **, void *));
 static int dataflow_set_different_2	PARAMS ((void **, void *));
@@ -1201,8 +1203,8 @@ dataflow_set_different_value;
 
 static bool
 variable_part_different_p (vp1, vp2)
-     var_part *vp1;
-     var_part *vp2;
+     variable_part *vp1;
+     variable_part *vp2;
 {
   location_chain lc1, lc2;
 
