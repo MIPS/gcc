@@ -1,3 +1,9 @@
+2004-01-05  Richard Henderson  <rth@redhat.com>
+
+	* tree-ssa-dom.c (record_equivalences_from_incoming_edge): Check
+	for signed zeros before recording value.
+	* Makefile.in (tree-ssa-dom.o): Depend on real.h.
+
 2004-01-05  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Correctly handle

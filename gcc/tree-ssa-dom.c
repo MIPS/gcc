@@ -38,6 +38,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dump.h"
 #include "tree-flow.h"
 #include "domwalk.h"
+#include "real.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -1068,7 +1069,14 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
       tree src = eq_expr_value.src;
       tree prev_value = get_value_for (dest, const_and_copies);
 
-      set_value_for (dest, src, const_and_copies);
+      /* For IEEE, -0.0 == 0.0, so we don't necessarily know the sign
+	 of a variable compared against zero.  If we're honoring signed
+	 zeros, then we cannot record this value unless we know that the
+	 value is non-zero.  */
+      if (!HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (src)))
+	  || (TREE_CODE (src) == REAL_CST
+	      && !REAL_VALUES_EQUAL (dconst0, TREE_REAL_CST (src))))
+	set_value_for (dest, src, const_and_copies);
 
       /* Record the destination and its previous value so that we can
 	 reset them as we leave this block.  */
