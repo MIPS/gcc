@@ -1,3 +1,14 @@
+2005-02-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* testsuite/gcc.dg/tree-ssa/ssa-pre-2.c: Adjust expected pattern.
+	* testsuite/gcc.dg/tree-ssa/ssa-pre-3.c: Likewise.
+	* testsuite/gcc.dg/tree-ssa/ssa-pre-4.c: Likewise.
+	* testsuite/gcc.dg/tree-ssa/ssa-pre-5.c: Likewise.
+	* testsuite/gcc.dg/tree-ssa/ssa-pre-6.c: Likewise.
+
+	PR tree-optimization/18178
+	* testsuite/g++.dg/tree-ssa/pr18178.C: New test.
+
 2005-02-14  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.dg/tree-ssa/20031022-1.c: Adjust dump file to scan.

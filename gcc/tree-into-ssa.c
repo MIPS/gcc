@@ -1811,13 +1811,11 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
       ssa_op_iter i;
       use_operand_p use_p;
       def_operand_p def_p;
-      bool defines_new_name_p;
       
       stmt = bsi_stmt (si);
       get_stmt_operands (stmt);
       REWRITE_THIS_STMT (stmt) = 0;
       REGISTER_DEFS_IN_THIS_STMT (stmt) = 0;
-      defines_new_name_p = false;
 
       FOR_EACH_SSA_DEF_OPERAND (def_p, stmt, i, SSA_OP_DEF)
 	{
@@ -1830,7 +1828,6 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
 	      REGISTER_DEFS_IN_THIS_STMT (stmt) = 1;
 	      set_def_block (name_replaced_by (def, new_to_old), bb, false,
 			     true);
-	      defines_new_name_p = true;
 	    }
 	  else if (pointer_set_contains (old_ssa_names, def))
 	    {
@@ -1845,12 +1842,7 @@ prepare_block_for_update (basic_block bb, sbitmap bb_visited)
 	{
 	  tree use = USE_FROM_PTR (use_p);
 
-	  /* If STMT is a definition site for one of the new names, we
-	     do not want to rewrite it because we assume that our
-	     caller has inserted the statements exactly as it wanted
-	     them to be.  */
-	  if (!defines_new_name_p
-	      && pointer_set_contains (old_ssa_names, use))
+	  if (pointer_set_contains (old_ssa_names, use))
 	    {
 	      REWRITE_THIS_STMT (stmt) = 1;
 	      if (bb_for_stmt (stmt) != bb)

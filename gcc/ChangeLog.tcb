@@ -1,3 +1,47 @@
+2005-02-18  Diego Novillo  <dnovillo@redhat.com>
+
+	PR tree-optimization/18178
+	* Makefile.in (tree-vrp.o): Depend on CFGLOOP_H,
+	tree-scalar-evolution.h and tree-chrec.h.
+	* tree-into-ssa.c (prepare_block_for_update): Also rewrite
+	operands of statements that define new names.
+	* tree-vrp.c: Include cfgloop.h, tree-scalar-evolution.h and
+	tree-chrec.h.
+	(cfg_loops): New local variable.
+	(compare_values): Forward declare.
+	(copy_value_range): Remove.
+	(set_value_range): Add range integrity checks.
+	Decay to VR_VARYING ranges that take all possible values in
+	the type domain.
+	(compare_values): Do some symbolic comparisons.
+	(value_inside_range): Move earlier in the file.
+	(value_ranges_intersect_p): Likewise.
+	(extract_range_from_assert): If the ASSERT_EXPR conditional
+	and the variable have intersecting ranges, use the
+	intersection to derive a narrower range.
+	(extract_range_from_ssa_name): New function.
+	(extract_range_from_binary_expr): Re-arrange to always call
+	set_value_range to set the newly computed range.
+	(extract_range_from_unary_expr): Likewise.
+	Do not special case ABS_EXPR.
+	If a type cast operation changes to a type of different size,
+	set the resulting range to VR_VARYING.
+	If the new range has the limits swapped around, set the result
+	to VR_VARYING.
+	(extract_range_from_expr): Call extract_range_from_ssa_name.
+	(compare_ranges): Allow symbolic ranges.
+	Fix calls to compare_values to always check for specific
+	return values.
+	(compare_range_with_value): Likewise.
+	(adjust_range_with_scev): New function.
+	(vrp_visit_assignment): Call it if the statement is inside a
+	loop.
+	(vrp_meet): Always call set_value_range to set the newly
+	computed range.
+	(vrp_visit_phi_node): Remove FIXME regarding derivation.
+	(execute_vrp): Call loop_optimizer_init, scev_initialize,
+	scev_finalize and loop_optimizer_finalize.
+
 2005-02-16  Diego Novillo  <dnovillo@redhat.com>
 
 	Merge from mainline (tree-cleanup-merge-20050216).
