@@ -755,7 +755,8 @@ dump_varref (outf, prefix, ref, indent, details)
   sym = (VARREF_SYM (ref) 
 	 && VARREF_TYPE (ref) != EXPRPHI 
 	 && VARREF_TYPE (ref) != EXPRUSE
-	 && VARREF_TYPE (ref) != EXPRKILL)
+	 && VARREF_TYPE (ref) != EXPRKILL
+	 && DECL_NAME (VARREF_SYM (ref)))
     ? IDENTIFIER_POINTER (DECL_NAME (VARREF_SYM (ref))) : "nil";
 
   bbix = (VARREF_BB (ref)) ? VARREF_BB (ref)->index : -1;

@@ -1,3 +1,11 @@
+2002-05-09  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-dfa.c (dump_varref): Tree inlining generates variables with
+	no name. Don't crash on dumping varref's of them.
+
+	* tree-inline.c (expand_call_inline): Generate a proper STMT_EXPR
+	(it was missing COMPOUND_STMT).
+
 2002-05-08  Daniel Berlin  <dberlin@dberlin.org>
 
 	s/varref_type/treeref_type/g
