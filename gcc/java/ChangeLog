@@ -1,3 +1,8 @@
+2005-03-01  Tom Tromey  <tromey@redhat.com>
+
+	* builtins.cc (find_decl): Restructured to use assert instead of
+	abort.
+
 2005-02-28  Tom Tromey  <tromey@redhat.com>
 
 	* builtins.cc (add): Only set DECL_EXTERNAL for static fields.

@@ -619,12 +619,17 @@ tree_builtins::find_decl (tree type, const char *name)
 {
   // This may only be called for local fields.
   tree tname = get_identifier (name);
+  tree result = NULL_TREE;
   for (tree field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
     {
       if (DECL_NAME (field) == tname)
-	return field;
+	{
+	  result = field;
+	  break;
+	}
     }
-  abort ();
+  assert (result != NULL_TREE);
+  return result;
 }
 
 std::string
