@@ -4360,7 +4360,7 @@ variable names which more closely resemble the original variables.  This flag
 is enabled by default at -O and higher.
 
 @item -ftree-ter
-Perform termporary expression replacement during the SSA->normal phase.  Single
+Perform temporary expression replacement during the SSA->normal phase.  Single
 use/single def temporaries are replaced at their use location with their 
 defining expression.  This results in non-GIMPLE code, but gives the expanders 
 much more complex trees to work on resulting in better RTL generation.  This is
