@@ -1,3 +1,16 @@
+2004-04-29  Devang Patel  <dpatel@apple.com>
+
+	gcc/loop-iv.c : Merge from lno-branch as of 2004:04:19 00:00.
+	gcc/tree-pass.h : Merge from lno-branch as of 2004:04:19 00:00.
+	gcc/tree-ssa-alias.c : Merge from lno-branch as of 2004:04:19 00:00.
+	gcc/tree-ssa-phiopt.c : Merge from lno-branch as of 2004:04:19 00:00.
+
+2004-04-29  Devang Patel  <dpatel@apple.com>
+
+	Merge lno-branch as of 2004:04:18 00:00 into
+	apple-ppc-branch.
+
+
 2004-04-28  Fariborz Jahanian <fjahanian@apple.com>
 
 	* function.c (assign_parms): Add 2nd iteration over vector args

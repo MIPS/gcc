@@ -1,15 +1,18 @@
 /* { dg-do compile } */ 
-/* { dg-options "-O2 -fdump-tree-ch-details" } */
+/* { dg-options "-O2 -fdump-tree-dom1 -ftree-loop-optimize" } */
 
-extern int foo (int);
+extern void link_error (void);
 
 void bla (void)
 {
-  int i, n = foo (0);
+  int i, j = 1;
 
-  for (i = 0; i < n; i++)
-    foo (i);
+  for (i = 0; i < 100; i++)
+    j = 0;
+
+  if (j)
+    link_error ();
 }
 
-/* There should be a header scheduled for duplication.  */
-/* { dg-final { scan-tree-dump-times "Scheduled" 1 "ch"} } */
+/* There should be no link_error call in the dom1 dump.  */
+/* { dg-final { scan-tree-dump-times "link_error" 0 "dom1"} } */
