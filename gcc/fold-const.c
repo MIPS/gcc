@@ -8611,6 +8611,106 @@ tree_expr_nonnegative_p (tree t)
   return 0;
 }
 
+/* Return true when T is an address and is known to be nonzero.
+   For floating point we further ensure that T is not denormal.
+   Similar logic is present in nonzero_address in rtlanal.h  */
+
+static bool
+tree_expr_nonzero_p (tree t)
+{
+  tree type = TREE_TYPE (t);
+
+  /* Doing something usefull for floating point would need more work.  */
+  if (!INTEGRAL_TYPE_P (t))
+    return false;
+
+  switch (TREE_CODE (t))
+    {
+    case ABS_EXPR:
+      if (!TREE_UNSIGNED (type) && !flag_wrapv)
+	return tree_expr_nonzero_p (TREE_OPERAND (t, 0));
+
+    case INTEGER_CST:
+      return !integer_zerop (t);
+
+    case PLUS_EXPR:
+      if (!TREE_UNSIGNED (type) && !flag_wrapv)
+	{
+	  /* With the presence of negative values it is hard
+	     to say something.  */
+	  if (!tree_expr_nonnegative_p (TREE_OPERAND (t, 0))
+	      || !tree_expr_nonnegative_p (TREE_OPERAND (t, 1)))
+	    return false;
+	  /* One of operands must be positive and the other non-negative.  */
+	  return (tree_expr_nonzero_p (TREE_OPERAND (t, 0))
+	          || tree_expr_nonzero_p (TREE_OPERAND (t, 1)));
+	}
+      break;
+
+    case MULT_EXPR:
+      if (!TREE_UNSIGNED (type) && !flag_wrapv)
+	{
+	  return (tree_expr_nonzero_p (TREE_OPERAND (t, 0))
+	          && tree_expr_nonzero_p (TREE_OPERAND (t, 1)));
+	}
+      break;
+
+    case NOP_EXPR:
+      {
+	tree inner_type = TREE_TYPE (TREE_OPERAND (t, 0));
+	tree outer_type = TREE_TYPE (t);
+
+	return (TYPE_PRECISION (inner_type) >= TYPE_PRECISION (outer_type)
+		&& tree_expr_nonzero_p (TREE_OPERAND (t, 0)));
+      }
+      break;
+
+   case ADDR_EXPR:
+      /* Weak declarations may link to NULL.  */
+      if (DECL_P (TREE_OPERAND (t, 0)))
+	return !DECL_WEAK (TREE_OPERAND (t, 0));
+      /* Constants and all other cases are never weak.  */
+      return true;
+
+    case COND_EXPR:
+      return (tree_expr_nonzero_p (TREE_OPERAND (t, 1))
+	      && tree_expr_nonzero_p (TREE_OPERAND (t, 2)));
+
+    case MIN_EXPR:
+      return (tree_expr_nonzero_p (TREE_OPERAND (t, 0))
+	      && tree_expr_nonzero_p (TREE_OPERAND (t, 1)));
+
+    case MAX_EXPR:
+      if (tree_expr_nonzero_p (TREE_OPERAND (t, 0)))
+	{
+	  /* When both operands are nonzero, then MAX must be too.  */
+	  if (tree_expr_nonzero_p (TREE_OPERAND (t, 1)))
+	    return true;
+
+	  /* MAX where operand 0 is positive is positive.  */
+	  return tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
+	}
+      /* MAX where operand 1 is positive is positive.  */
+      else if (tree_expr_nonzero_p (TREE_OPERAND (t, 1))
+	       && tree_expr_nonnegative_p (TREE_OPERAND (t, 1)))
+	return true;
+      break;
+
+    case COMPOUND_EXPR:
+    case MODIFY_EXPR:
+    case BIND_EXPR:
+      return tree_expr_nonzero_p (TREE_OPERAND (t, 1));
+
+    case SAVE_EXPR:
+    case NON_LVALUE_EXPR:
+      return tree_expr_nonzero_p (TREE_OPERAND (t, 0));
+
+    default:
+      break;
+    }
+  return false;
+}
+
 /* Return true if `r' is known to be non-negative.
    Only handles constants at the moment.  */
 
@@ -8792,6 +8892,13 @@ fold_relational_const (enum tree_code code, tree type, tree op0, tree op1)
 			    : INT_CST_LT (op0, op1)),
 			   0);
     }
+
+  else if (code == EQ_EXPR
+           && integer_zerop (op1) && tree_expr_nonzero_p (op0))
+    tem = build_int_2 (0, 0);
+  else if (code == NE_EXPR
+           && integer_zerop (op1) && tree_expr_nonzero_p (op0))
+    tem = build_int_2 (1, 0);
 
   /* Two real constants can be compared explicitly.  */
   else if (TREE_CODE (op0) == REAL_CST && TREE_CODE (op1) == REAL_CST)
@@ -9035,7 +9142,10 @@ nondestructive_fold_binary_to_constant (enum tree_code code, tree type,
       /* (plus (address) (const_int)) is a constant.  */
       if (TREE_CODE (op0) == PLUS_EXPR
 	  && TREE_CODE (op1) == INTEGER_CST
-	  && TREE_CODE (TREE_OPERAND (op0, 0)) == ADDR_EXPR
+	  && (TREE_CODE (TREE_OPERAND (op0, 0)) == ADDR_EXPR
+	      || (TREE_CODE (TREE_OPERAND (op0, 0)) == NOP_EXPR
+		  && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (op0, 0), 0))
+		      == NOP_EXPR)))
 	  && TREE_CODE (TREE_OPERAND (op0, 1)) == INTEGER_CST)
 	{
           return build (PLUS_EXPR, type, TREE_OPERAND (op0, 0),
