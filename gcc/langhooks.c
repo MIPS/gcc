@@ -175,6 +175,13 @@ lhd_set_decl_assembler_name (decl)
     abort ();
 }
 
+/* By default we always allow bit-field based optimizations.  */
+bool
+lhd_can_use_bit_fields_p ()
+{
+  return true;
+}
+
 /* Provide a default routine to clear the binding stack.  This is used
    by languages that don't need to do anything special.  */
 void
@@ -420,4 +427,29 @@ lhd_tree_dump_type_quals (t)
      tree t;
 {
   return TYPE_QUALS (t);
+}
+
+/* lang_hooks.expr_size: Determine the size of the value of an expression T
+   in a language-specific way.  Returns a tree for the size in bytes.  */
+
+tree
+lhd_expr_size (exp)
+     tree exp;
+{
+  if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'd'
+      && DECL_SIZE_UNIT (exp) != 0)
+    return DECL_SIZE_UNIT (exp);
+  else
+    return size_in_bytes (TREE_TYPE (exp));
+}
+
+/* lang_hooks.simplify_expr re-writes *EXPR_P into SIMPLE form.  */
+
+int
+lhd_simplify_expr (expr_p, pre_p, post_p)
+     tree *expr_p ATTRIBUTE_UNUSED;
+     tree *pre_p ATTRIBUTE_UNUSED;
+     tree *post_p ATTRIBUTE_UNUSED;
+{
+  return 0;
 }

@@ -28,6 +28,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "gengtype.h"
 #include "gengtype-yacc.h"
 
+#undef YY_USE_PROTOS
+#define YY_DECL int yylex ()
+
 static void update_lineno PARAMS ((const char *l, size_t len));
 
 struct fileloc lexer_line;
@@ -45,7 +48,7 @@ update_lineno (l, len)
 
 %}
 
-ID	[[:alpha:]][[:alnum:]_]*
+ID	[[:alpha:]_][[:alnum:]_]*
 WS	[[:space:]]+
 IWORD	short|long|(un)?signed|char|int|HOST_WIDE_INT|bool|size_t
 ITYPE	{IWORD}({WS}{IWORD})*
@@ -305,7 +308,7 @@ yyerror (s)
 
 void
 parse_file (fname)
-      char *fname;
+      const char *fname;
 {
   yyin = fopen (fname, "r");
   lexer_line.file = fname;

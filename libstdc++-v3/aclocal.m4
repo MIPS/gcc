@@ -1,4 +1,4 @@
-dnl aclocal.m4 generated automatically by aclocal 1.4-p5
+dnl aclocal.m4 generated automatically by aclocal 1.4-p6
 
 dnl Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
 dnl This file is free software; the Free Software Foundation
@@ -13,8 +13,8 @@ dnl PARTICULAR PURPOSE.
 dnl
 dnl Initialize configure bits.
 dnl
-dnl GLIBCPP_CONFIGURE
-AC_DEFUN(GLIBCPP_CONFIGURE, [
+dnl GLIBCPP_TOPREL_CONFIGURE
+AC_DEFUN(GLIBCPP_TOPREL_CONFIGURE, [
   dnl Default to --enable-multilib (this is also passed by default
   dnl from the ubercommon-top-level configure)
   AC_ARG_ENABLE(multilib,
@@ -46,6 +46,13 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
   AC_CONFIG_AUX_DIR(${srcdir}/$toprel)
   toplevel_srcdir=\${top_srcdir}/$toprel
   AC_SUBST(toplevel_srcdir)
+])
+
+dnl
+dnl Initialize configure bits.
+dnl
+dnl GLIBCPP_CONFIGURE
+AC_DEFUN(GLIBCPP_CONFIGURE, [
 
 #possibly test for the presence of the compiler sources here?
 
@@ -172,6 +179,11 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
 
   LIB_AC_PROG_CXX
 
+  # For directory versioning (e.g., headers) and other variables.
+  AC_MSG_CHECKING([for GCC version number])
+  gcc_version=`$glibcpp_CXX -dumpversion`
+  AC_MSG_RESULT($gcc_version)
+
   # For some reason, gettext needs this.
   AC_ISC_POSIX
 
@@ -205,7 +217,6 @@ AC_DEFUN(GLIBCPP_CONFIGURE, [
   # Find platform-specific directories containing configuration info.  In
   # addition to possibly modifying the same flags, it also sets up symlinks.
   GLIBCPP_CHECK_TARGET
-
 ])
 
 
@@ -1703,23 +1714,20 @@ changequote([, ])
   dnl Option parsed, now set things appropriately
   case "$enable_cheaders" in
     c_shadow) 
-        CSHADOW_FLAGS="-fno-builtin"
         C_INCLUDE_DIR='${glibcpp_srcdir}/include/c_shadow'
         ;;
     c_std)   
-        CSHADOW_FLAGS=""
         C_INCLUDE_DIR='${glibcpp_srcdir}/include/c_std'
         ;;
     c)   
-        CSHADOW_FLAGS=""
         C_INCLUDE_DIR='${glibcpp_srcdir}/include/c'
         ;;
   esac
 
-  AC_SUBST(CSHADOW_FLAGS)
   AC_SUBST(C_INCLUDE_DIR)
   AM_CONDITIONAL(GLIBCPP_C_HEADERS_C, test "$enable_cheaders" = c)
   AM_CONDITIONAL(GLIBCPP_C_HEADERS_C_STD, test "$enable_cheaders" = c_std)
+  AM_CONDITIONAL(GLIBCPP_C_HEADERS_COMPATIBILITY, test "$c_compatibility" = yes)
 ])
 
 
@@ -1817,10 +1825,6 @@ glibcpp_toolexecdir=no
 glibcpp_toolexeclibdir=no
 glibcpp_prefixdir=${prefix}
 
-AC_MSG_CHECKING([for interface version number])
-libstdcxx_interface=$INTERFACE
-AC_MSG_RESULT($libstdcxx_interface)
-
 # Process the option --with-gxx-include-dir=<path to include-files directory>
 AC_MSG_CHECKING([for --with-gxx-include-dir])
 AC_ARG_WITH(gxx-include-dir,
@@ -1852,26 +1856,21 @@ version_specific_libs=no)dnl
 # Option set, now we can test it.
 AC_MSG_RESULT($version_specific_libs)
 
+# Default case for install directory for include files.
+if test $version_specific_libs = no && test $gxx_include_dir = no; then
+  gxx_include_dir='$(prefix)'/include/c++/${gcc_version}
+fi
+
+# Version-specific runtime libs processing.
 if test $version_specific_libs = yes; then
   # Need the gcc compiler version to know where to install libraries
   # and header files if --enable-version-specific-runtime-libs option
   # is selected.
-  changequote(,)dnl
-  gcc_version_trigger=${srcdir}/../gcc/version.c
-  gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*\"\([^\"]*\)\".*/\1/'`
-  gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
   if test x"$gxx_include_dir" = x"no"; then
-    gxx_include_dir='$(libdir)/gcc-lib/$(target_alias)/'${gcc_version}/include/g++
+    gxx_include_dir='$(libdir)/gcc-lib/$(target_alias)/'${gcc_version}/include/c++
   fi
   glibcpp_toolexecdir='$(libdir)/gcc-lib/$(target_alias)'
   glibcpp_toolexeclibdir='$(toolexecdir)/'${gcc_version}'$(MULTISUBDIR)'
-  changequote([,])dnl
-fi
-
-# Default case for install directory for include files.
-if test $version_specific_libs = no &&
-   test $gxx_include_dir = no; then
-  gxx_include_dir='$(prefix)'/include/g++-${libstdcxx_interface}
 fi
 
 # Calculate glibcpp_toolexecdir, glibcpp_toolexeclibdir
@@ -2039,6 +2038,14 @@ AC_DEFUN(GLIBCPP_CONFIGURE_TESTSUITE, [
 
   # Look for setenv, so that extended locale tests can be performed.
   GLIBCPP_CHECK_STDLIB_DECL_AND_LINKAGE_3(setenv)
+
+  # Export file names for ABI checking.
+  baseline_file="${glibcpp_srcdir}/config/abi/${abi_baseline_triplet}/baseline_symbols.txt"
+  AC_SUBST(baseline_file)
+
+  # Don't do ABI checking unless native.
+  AM_CONDITIONAL(GLIBCPP_BUILD_ABI_CHECK,
+                 test x"$build" = x"$host" && test -z "$with_cross_host")
 ])
 
 
@@ -2202,13 +2209,15 @@ AC_MSG_RESULT($enable_symvers)
 ])
 
 
-# isc-posix.m4 serial 1 (gettext-0.10.40)
+# isc-posix.m4 serial 2 (gettext-0.11.2)
 dnl Copyright (C) 1995-2002 Free Software Foundation, Inc.
 dnl This file is free software, distributed under the terms of the GNU
 dnl General Public License.  As a special exception to the GNU General
 dnl Public License, this file may be distributed as part of a program
 dnl that contains a configuration script generated by Autoconf, under
 dnl the same distribution terms as the rest of that program.
+
+# This file is not needed with autoconf-2.53 and newer.  Remove it in 2005.
 
 # This test replaces the one in autoconf.
 # Currently this macro should have the same name as the autoconf macro
@@ -2270,7 +2279,8 @@ dnl Usage:
 dnl AM_INIT_AUTOMAKE(package,version, [no-define])
 
 AC_DEFUN([AM_INIT_AUTOMAKE],
-[AC_REQUIRE([AC_PROG_INSTALL])
+[AC_REQUIRE([AM_SET_CURRENT_AUTOMAKE_VERSION])dnl
+AC_REQUIRE([AC_PROG_INSTALL])
 PACKAGE=[$1]
 AC_SUBST(PACKAGE)
 VERSION=[$2]
@@ -2286,12 +2296,41 @@ AC_REQUIRE([AM_SANITY_CHECK])
 AC_REQUIRE([AC_ARG_PROGRAM])
 dnl FIXME This is truly gross.
 missing_dir=`cd $ac_aux_dir && pwd`
-AM_MISSING_PROG(ACLOCAL, aclocal, $missing_dir)
+AM_MISSING_PROG(ACLOCAL, aclocal-${am__api_version}, $missing_dir)
 AM_MISSING_PROG(AUTOCONF, autoconf, $missing_dir)
-AM_MISSING_PROG(AUTOMAKE, automake, $missing_dir)
+AM_MISSING_PROG(AUTOMAKE, automake-${am__api_version}, $missing_dir)
 AM_MISSING_PROG(AUTOHEADER, autoheader, $missing_dir)
 AM_MISSING_PROG(MAKEINFO, makeinfo, $missing_dir)
 AC_REQUIRE([AC_PROG_MAKE_SET])])
+
+# Copyright 2002  Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+
+# AM_AUTOMAKE_VERSION(VERSION)
+# ----------------------------
+# Automake X.Y traces this macro to ensure aclocal.m4 has been
+# generated from the m4 files accompanying Automake X.Y.
+AC_DEFUN([AM_AUTOMAKE_VERSION],[am__api_version="1.4"])
+
+# AM_SET_CURRENT_AUTOMAKE_VERSION
+# -------------------------------
+# Call AM_AUTOMAKE_VERSION so it can be traced.
+# This function is AC_REQUIREd by AC_INIT_AUTOMAKE.
+AC_DEFUN([AM_SET_CURRENT_AUTOMAKE_VERSION],
+	 [AM_AUTOMAKE_VERSION([1.4-p6])])
 
 #
 # Check to make sure that the build environment is sane.

@@ -67,6 +67,7 @@ definitions and other extensions.  */
 #include "except.h"
 #include "ggc.h"
 #include "debug.h"
+#include "tree-inline.h"
 
 #ifndef DIR_SEPARATOR
 #define DIR_SEPARATOR '/'
@@ -440,8 +441,8 @@ static GTY(()) tree src_parse_roots[1];
 #define check_modifiers(__message, __value, __mask) do {	\
   if ((__value) & ~(__mask))					\
     {								\
-      int i, remainder = (__value) & ~(__mask);			\
-      for (i = 0; i <= 10; i++)					\
+      size_t i, remainder = (__value) & ~(__mask);	       	\
+      for (i = 0; i < ARRAY_SIZE (ctxp->modifier_ctx); i++)	\
         if ((1 << i) & remainder)				\
 	  parse_error_context (ctxp->modifier_ctx [i], (__message), \
 			       java_accstring_lookup (1 << i)); \
@@ -7248,8 +7249,10 @@ declare_local_variables (modifier, type, vlist)
 
   if (modifier)
     {
-      int i;
-      for (i = 0; i <= 10; i++) if (1 << i & modifier) break;
+      size_t i;
+      for (i = 0; i < ARRAY_SIZE (ctxp->modifier_ctx); i++)
+	if (1 << i & modifier)
+	  break;
       if (modifier == ACC_FINAL)
 	final_p = 1;
       else
@@ -7476,6 +7479,8 @@ source_end_java_method ()
      patched.  Dump it to a file if the user requested it.  */
   dump_java_tree (TDI_original, fndecl);
 
+  java_optimize_inline (fndecl); 
+
   /* Generate function's code */
   if (BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl))
       && ! flag_emit_class_files
@@ -7537,6 +7542,10 @@ static tree
 add_stmt_to_compound (existing, type, stmt)
      tree existing, type, stmt;
 {
+  /* Keep track of this for inlining.  */
+  if (current_function_decl)
+    ++DECL_NUM_STMTS (current_function_decl);
+
   if (existing)
     return build (COMPOUND_EXPR, type, existing, stmt);
   else
@@ -8126,6 +8135,11 @@ java_expand_method_bodies (class)
 
       current_function_decl = decl;
 
+      /* Save the function for inlining.  */
+      if (flag_inline_trees)
+	DECL_SAVED_TREE (decl) = 
+	  BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl));
+      
       /* It's time to assign the variable flagging static class
 	 initialization based on which classes invoked static methods
 	 are definitely initializing. This should be flagged. */
@@ -14029,7 +14043,8 @@ patch_incomplete_class_ref (node)
   if (!(ref_type = resolve_type_during_patch (type)))
     return error_mark_node;
 
-  if (!flag_emit_class_files || JPRIMITIVE_TYPE_P (ref_type))
+  if (!flag_emit_class_files || JPRIMITIVE_TYPE_P (ref_type)
+      || TREE_CODE (ref_type) == VOID_TYPE)
     {
       tree dot = build_class_ref (ref_type);
       /* A class referenced by `foo.class' is initialized.  */
@@ -15350,6 +15365,12 @@ build_assertion (location, condition, value)
       call = build (CALL_EXPR, NULL_TREE, id, NULL_TREE, NULL_TREE);
       call = make_qualified_primary (classdollar, call, location);
       TREE_SIDE_EFFECTS (call) = 1;
+
+      /* Invert to obtain !CLASS.desiredAssertionStatus().  This may
+	 seem odd, but we do it to generate code identical to that of
+	 the JDK.  */
+      call = build1 (TRUTH_NOT_EXPR, NULL_TREE, call);
+      TREE_SIDE_EFFECTS (call) = 1;
       DECL_INITIAL (field) = call;
 
       /* Record the initializer in the initializer statement list.  */
@@ -16148,13 +16169,15 @@ mark_parser_ctxt (p)
      void *p;
 {
   struct parser_ctxt *pc = *((struct parser_ctxt **) p);
-  int i;
+#ifndef JC1_LITE
+  size_t i;
+#endif
 
   if (!pc)
     return;
 
 #ifndef JC1_LITE
-  for (i = 0; i < 11; ++i)
+  for (i = 0; i < ARRAY_SIZE (pc->modifier_ctx); ++i)
     ggc_mark_tree (pc->modifier_ctx[i]);
   ggc_mark_tree (pc->class_type);
   ggc_mark_tree (pc->function_decl);

@@ -51,16 +51,14 @@ for header files.
 @xref{Search Path}.
 @end ifset
 Directories named by @option{-I} are searched before the standard
-system include directories.
-
-It is dangerous to specify a standard system include directory in an
-@option{-I} option.  This defeats the special treatment of system
-headers
+system include directories.  If the directory @var{dir} is a standard
+system include directory, the option is ignored to ensure that the
+default search order for system directories and the special treatment
+of system headers are not defeated
 @ifset cppmanual
 (@pxref{System Headers})
 @end ifset
-.  It can also defeat the repairs to buggy system headers which GCC
-makes when it is installed.
+.
 
 @item -o @var{file}
 @opindex o
@@ -109,6 +107,27 @@ Warn the first time @samp{#import} is used.
 Warn whenever an identifier which is not a macro is encountered in an
 @samp{#if} directive, outside of @samp{defined}.  Such identifiers are
 replaced with zero.
+
+@item -Wunused-macros
+@opindex Wunused-macros
+Warn about macros defined in the main file that are unused.  A macro
+is @dfn{used} if it is expanded or tested for existence at least once.
+The preprocessor will also warn if the macro has not been used at the
+time it is redefined or undefined.
+
+Built-in macros, macros defined on the command line, and macros
+defined in include files are not warned about.
+
+@strong{Note:} If a macro is actually used, but only used in skipped
+conditional blocks, then CPP will report it as unused.  To avoid the
+warning in such a case, you might improve the scope of the macro's
+definition by, for example, moving it into the first skipped block.
+Alternatively, you could provide a dummy use with something like:
+
+@smallexample
+#if defined the_macro_causing_the_warning
+#endif
+@end smallexample
 
 @item -Wendif-labels
 @opindex Wendif-labels
@@ -178,7 +197,8 @@ rules you should explicitly specify the dependency output file with
 @env{DEPENDENCIES_OUTPUT} (@pxref{Environment Variables}).  Debug output
 will still be sent to the regular output stream as normal.
 
-Passing @option{-M} to the driver implies @option{-E}.
+Passing @option{-M} to the driver implies @option{-E}, and suppresses
+warnings with an implicit @option{-w}.
 
 @item -MM
 @opindex MM
@@ -304,9 +324,8 @@ option.
 @itemx -ansi
 @opindex ansi
 @opindex std=
-Specify the standard to which the code should conform.  Currently cpp
-only knows about the standards for C; other language standards will be
-added in the future.
+Specify the standard to which the code should conform.  Currently CPP
+knows about C and C++ standards; others may be added in the future.
 
 @var{standard}
 may be one of:
@@ -334,6 +353,13 @@ The 1990 C standard plus GNU extensions.  This is the default.
 @item gnu99
 @itemx gnu9x
 The 1999 C standard plus GNU extensions.
+
+@item c++98
+The 1998 ISO C++ standard plus amendments.
+
+@item gnu++98
+The same as @option{-std=c++98} plus GNU extensions.  This is the
+default for C++ code.
 @end table
 
 @item -I-
@@ -550,10 +576,10 @@ Define the macros @sc{__gnuc__}, @sc{__gnuc_minor__} and
 @command{gcc -E}; you can turn them off in that case with
 @option{-no-gcc}.
 
-@item -traditional
-@opindex traditional
-Try to imitate the behavior of old-fashioned C, as opposed to ISO
-C@.
+@item -traditional-cpp
+@opindex traditional-cpp
+Try to imitate the behavior of old-fashioned C preprocessors, as
+opposed to ISO C preprocessors.
 @ifset cppmanual
 @xref{Traditional Mode}.
 @end ifset
@@ -585,16 +611,8 @@ Replacement:      [    ]    @{    @}    #    \    ^    |    ~
 Enable special code to work around file systems which only permit very
 short file names, such as MS-DOS@.
 
-@item -$
-@opindex $
-Forbid the use of @samp{$} in identifiers.  The C standard allows
-implementations to define extra characters that can appear in
-identifiers.  By default GNU CPP permits @samp{$}, a common extension.
-
-@item -h
 @itemx --help
 @itemx --target-help
-@opindex h
 @opindex help
 @opindex target-help
 Print text describing all the command line options instead of

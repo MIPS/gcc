@@ -148,11 +148,7 @@ We recommend you browse the entire generic installation instructions before
 you proceed.
 
 Lists of successful builds for released versions of GCC are
-available at our web pages for
-@uref{http://gcc.gnu.org/gcc-3.1/buildstat.html,,3.1}, 
-@uref{http://gcc.gnu.org/gcc-3.0/buildstat.html,,3.0}
-and
-@uref{http://gcc.gnu.org/gcc-2.95/buildstat.html,,2.95}.
+available at @uref{http://gcc.gnu.org/buildstat.html}. 
 These lists are updated as new information becomes available.
 
 The installation procedure itself is broken into five steps.
@@ -388,6 +384,10 @@ default is @file{@var{libdir}}.
 Specify the installation directory for documentation in info format.
 The default is @file{@var{prefix}/info}.
 
+@item --datadir=@var{dirname}
+Specify the installation directory for some architecture-independent
+data files referenced by GCC@.  The default is @file{@var{prefix}/share}.
+
 @item --mandir=@var{dirname}
 Specify the installation directory for manual pages.  The default is
 @file{@var{prefix}/man}.  (Note that the manual pages are only extracts from
@@ -470,6 +470,43 @@ GCC}.  The local header files in @file{/usr/local/include}---if you put
 any in that directory---are not part of GCC@.  They are part of other
 programs---perhaps many others.  (GCC installs its own header files in
 another directory which is based on the @option{--prefix} value.)
+
+Both the local-prefix include directory and the GCC-prefix include
+directory are part of GCC's "system include" directories.  Although these
+two directories are not fixed, they need to be searched in the proper
+order for the correct processing of the include_next directive.  The
+local-prefix include directory is searched before the GCC-prefix
+include directory.  Another characteristic of system include directories
+is that pedantic warnings are turned off for headers in these directories.
+
+Some autoconf macros add @option{-I @var{directory}} options to the
+compiler command line, to ensure that directories containing installed
+packages' headers are searched.  When @var{directory} is one of GCC's
+system include directories, GCC will ignore the option so that system
+directories continue to be processed in the correct order.  This
+may result in a search order different from what was specified but the
+directory will still be searched.
+
+GCC automatically searches for ordinary libraries using
+@env{GCC_EXEC_PREFIX}.  Thus, when the same installation prefix is
+used for both GCC and packages, GCC will automatically search for
+both headers and libraries.  This provides a configuration that is
+easy to use.  GCC behaves in a manner similar to that when it is
+installed as a system compiler in @file{/usr}.
+
+Sites that need to install multiple versions of GCC may not want to
+use the above simple configuration.  It is possible to use the
+@option{--program-prefix}, @option{--program-suffix} and
+@option{--program-transform-name} options to install multiple versions
+into a single directory, but it may be simpler to use different prefixes
+and the @option{--with-local-prefix} option to specify the location of the
+site-specific files for each version.  It will then be necessary for
+users to specify explicitly the location of local site libraries
+(e.g., with @env{LIBRARY_PATH}).
+
+The same value can be used for both @option{--with-local-prefix} and
+@option{--prefix} provided it is not @file{/usr}.  This can be used
+to avoid the default search of @file{/usr/local/include}.
 
 @strong{Do not} specify @file{/usr} as the @option{--with-local-prefix}!
 The directory you use for @option{--with-local-prefix} @strong{must not}
@@ -785,6 +822,17 @@ specifying @var{list}; the categories of checks available are
 @samp{gcac}.  The
 default when @var{list} is not specified is @samp{misc,tree,gc,rtlflag}; the
 checks @samp{rtl} and @samp{gcac} are very expensive.
+
+@item --enable-coverage
+@item --enable-coverage=@var{level}
+With this option, the compiler is built to collect self coverage
+information, every time it is run. This is for internal development
+purposes, and only works when the compiler is being built with gcc. The
+@var{level} argument controls whether the compiler is built optimized or
+not, values are @samp{opt} and @samp{noopt}. For coverage analysis you
+want to disable optimization, for performance analysis you want to
+enable optimization. When coverage is enabled, the default level is
+without optimization.
 
 @item --enable-nls
 @itemx --disable-nls
@@ -1284,10 +1332,8 @@ parts of the compiler in @file{@var{libdir}/gcc-lib}; documentation in
 info format in @file{@var{infodir}} (normally @file{@var{prefix}/info}).
 
 If you built a released version of GCC using @samp{make bootstrap} then please
-quickly review the build status page for
-@uref{http://gcc.gnu.org/gcc-3.1/buildstat.html,,3.1},
-@uref{http://gcc.gnu.org/gcc-3.0/buildstat.html,,3.0}, or
-@uref{http://gcc.gnu.org/gcc-2.95/buildstat.html,,2.95}.
+quickly review the build status page for your release, available from
+@uref{http://gcc.gnu.org/buildstat.html}.
 If your system is not listed for the version of GCC that you built,
 send a note to
 @email{gcc@@gcc.gnu.org} indicating
@@ -1394,14 +1440,18 @@ contact their makers.
 AIX:
 @itemize
 @item
-@uref{http://freeware.bull.net,,Bull's Freeware and Shareware Archive for AIX};
+@uref{http://www.bullfreeware.com,,Bull's Freeware and Shareware Archive for AIX};
 
 @item
-@uref{http://aixpdslib.seas.ucla.edu,,UCLA Software Library for AIX};
+@uref{http://aixpdslib.seas.ucla.edu,,UCLA Software Library for AIX}.
 @end itemize
 
 @item
-DOS---@uref{http://www.delorie.com/djgpp/,,DJGPP};
+DOS---@uref{http://www.delorie.com/djgpp/,,DJGPP}.
+
+@item
+Hitachi H8/300[HS]---@uref{http://h8300-hms.sourceforge.net/,,GNU
+Development Tools for the Hitachi H8/300[HS] Series}.
 
 @item
 HP-UX:
@@ -1415,13 +1465,16 @@ HP-UX:
 
 @item
 @uref{http://www.sco.com/skunkware/devtools/index.html#gcc,,SCO
-OpenServer/Unixware};
+OpenServer/Unixware}.
 
 @item
-Solaris 2 (SPARC, Intel)---@uref{http://www.sunfreeware.com/,,Sunfreeware};
+Sinix/Reliant Unix---@uref{ftp://ftp.siemens.de/sni/mr/pd/gnu/gcc,,Siemens}.
+ 
+@item
+Solaris 2 (SPARC, Intel)---@uref{http://www.sunfreeware.com/,,Sunfreeware}.
 
 @item
-SGI---@uref{http://freeware.sgi.com/,,SGI Freeware};
+SGI---@uref{http://freeware.sgi.com/,,SGI Freeware}.
 
 @item
 Windows 95, 98, and NT:
@@ -1436,10 +1489,6 @@ The @uref{http://www.mingw.org/,,MinGW} project.
 @uref{ftp://ftp.thewrittenword.com/packages/free/by-name/,,The
 Written Word} offers binaries for Solaris 2.5.1, 2.6, 2.7/SPARC, 2.7/Intel,
 IRIX 6.2, 6.5, Digital UNIX 4.0D, HP-UX 10.20, and HP-UX 11.00.
-
-@item
-Hitachi H8/300[HS]---@uref{http://h8300-hms.sourceforge.net/,,GNU
-Development Tools for the Hitachi H8/300[HS] Series}
 
 @end itemize
 
@@ -1539,6 +1588,8 @@ GNU Compiler Collection on your machine.
 @uref{#*-lynx-lynxos,,*-lynx-lynxos}
 @item
 @uref{#*-ibm-aix*,,*-ibm-aix*}
+@item
+@uref{#ip2k-*-elf,,ip2k-*-elf}
 @item
 @uref{#m32r-*-elf,,m32r-*-elf}
 @item
@@ -2325,6 +2376,35 @@ interoperate with GCC@.
 Building @file{libstdc++.a} requires a fix for an AIX Assembler bug
 APAR IY26685 (AIX 4.3) or APAR IY25528 (AIX 5.1).
 
+@samp{libstdc++} in GCC 3.2 increments the major version number of the
+shared object and GCC installation places the @file{libstdc++.a}
+shared library in a common location which will overwrite the GCC 3.1
+version of the shared library.  Applications either need to be
+re-linked against the new shared library or the GCC 3.1 version of the
+@samp{libstdc++} shared object needs to be available to the AIX
+runtime loader.  The GCC 3.1 @samp{libstdc++.so.4} shared object can
+be installed for runtime dynamic loading using the following steps to
+set the @samp{F_LOADONLY} flag in the shared object for @emph{each}
+multilib @file{libstdc++.a} installed:
+
+Extract the shared object from each the GCC 3.1 @file{libstdc++.a}
+archive:
+@example
+   % ar -x libstdc++.a libstdc++.so.4
+@end example
+
+Enable the @samp{F_LOADONLY} flag so that the shared object will be
+available for runtime dynamic loading, but not linking:
+@example
+   % strip -e libstdc++.so.4
+@end example
+
+Archive the runtime-only shared object in the GCC 3.2
+@file{libstdc++.a} archive:
+@example
+   % ar -q libstdc++.a libstdc++.so.4
+@end example
+
 Linking executables and shared libraries may produce warnings of
 duplicate symbols.  The assembly files generated by GCC for AIX always
 have included multiple symbol definitions for certain global variable
@@ -2375,6 +2455,17 @@ both Power or PowerPC processors.
 
 A default can be specified with the @option{-mcpu=@var{cpu_type}}
 switch and using the configure option @option{--with-cpu-@var{cpu_type}}.
+
+@html
+</p>
+<hr>
+@end html
+@heading @anchor{ip2k-*-elf}ip2k-*-elf
+Ubicom IP2022 micro controller.
+This configuration is intended for embedded systems.
+There are no standard Unix configurations.
+
+Use @samp{configure --target=ip2k-elf --enable-languages=c} to configure GCC@.
 
 @html
 </p>
@@ -2693,7 +2784,7 @@ its maximum of 262144 bytes.  If you have root access, you can use the
 GCC does not correctly pass/return structures which are
 smaller than 16 bytes and which are not 8 bytes.  The problem is very
 involved and difficult to fix.  It affects a number of other targets also,
-but IRIX 6 is affected the most, because it is a 64 bit target, and 4 byte
+but IRIX 6 is affected the most, because it is a 64-bit target, and 4 byte
 structures are common.  The exact problem is that structures are being padded
 at the wrong end, e.g.@: a 4 byte structure is loaded into the lower 4 bytes
 of the register when it should be loaded into the upper 4 bytes of the
@@ -2843,7 +2934,7 @@ S/390 system running Linux for S/390@.
 <hr>
 @end html
 @heading @anchor{s390x-*-linux*}s390x-*-linux*
-zSeries system (64 Bit) running Linux for zSeries@.
+zSeries system (64-bit) running Linux for zSeries@.
 
 @html
 </p>
@@ -3124,7 +3215,7 @@ respects, this target is the same as the
 </p>
 <hr>
 @end html
-@heading @anchor{windows}Microsoft Windows (32 bit)
+@heading @anchor{windows}Microsoft Windows (32-bit)
 
 A port of GCC 2.95.x is included with the
 @uref{http://www.cygwin.com/,,Cygwin environment}.

@@ -121,7 +121,7 @@ extern int avr_asm_only_p;
    fprintf (stderr, " (68k, MIT syntax)");
    #endif  */
 
-#define OVERRIDE_OPTIONS avr_override_options()
+#define OVERRIDE_OPTIONS avr_override_options ()
 /* `OVERRIDE_OPTIONS'
    Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
@@ -1754,7 +1754,7 @@ do {									    \
 #define EXTRA_SECTION_FUNCTIONS						      \
 									      \
 void									      \
-progmem_section (void)							      \
+progmem_section ()							      \
 {									      \
   if (in_section != in_progmem)						      \
     {									      \
@@ -1915,17 +1915,6 @@ do {									\
    This macro controls how the assembler definitions of uninitialized
    static variables are output.  */
 
-#define ASM_OUTPUT_LABEL(STREAM, NAME)		\
-{						\
-  assemble_name (STREAM, NAME);			\
-  fprintf (STREAM, ":\n");			\
-}
-/* A C statement (sans semicolon) to output to the stdio stream
-   STREAM the assembler definition of a label named NAME.  Use the
-   expression `assemble_name (STREAM, NAME)' to output the name
-   itself; before and after that, output the additional assembler
-   syntax for defining the name, and a newline.  */
-
 #undef TYPE_ASM_OP
 #undef SIZE_ASM_OP
 #undef WEAK_ASM_OP
@@ -1947,16 +1936,12 @@ do {									\
    is just a default.  You may need to override it in your machine-
    specific tm.h file (depending upon the particulars of your assembler).  */
 
-
-#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)	\
-do {						   	\
-     fprintf (FILE, "%s", TYPE_ASM_OP);	   		\
-     assemble_name (FILE, NAME);		   	\
-     putc (',', FILE);				   	\
-     fprintf (FILE, TYPE_OPERAND_FMT, "function");	\
-     putc ('\n', FILE);				   	\
-     ASM_OUTPUT_LABEL (FILE, NAME);		   	\
+#define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)		\
+do {								\
+     ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");	\
+     ASM_OUTPUT_LABEL (FILE, NAME);				\
 } while (0)
+
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM any text necessary for declaring the name NAME of a
    function which is being defined.  This macro is responsible for
@@ -1970,20 +1955,7 @@ do {						   	\
 #define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)			\
   do {									\
     if (!flag_inhibit_size_directive)					\
-      {									\
-        char label[256];						\
-	static int labelno;						\
-	labelno++;							\
-	ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);		\
-	ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);		\
-	fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	assemble_name (FILE, (FNAME));					\
-        fprintf (FILE, ",");						\
-	assemble_name (FILE, label);					\
-        fprintf (FILE, "-");						\
-	assemble_name (FILE, (FNAME));					\
-	putc ('\n', FILE);						\
-      }									\
+      ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);				\
   } while (0)
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM any text necessary for declaring the size of a function
@@ -1994,22 +1966,17 @@ do {						   	\
    If this macro is not defined, then the function size is not
    defined.  */
 
-#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			  \
-do {									  \
-      fprintf (FILE, "%s", TYPE_ASM_OP);				  \
-      assemble_name (FILE, NAME);					  \
-      putc (',', FILE);							  \
-      fprintf (FILE, TYPE_OPERAND_FMT, "object");			  \
-      putc ('\n', FILE);						  \
-      size_directive_output = 0;					  \
-      if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		  \
-	{								  \
-	  size_directive_output = 1;					  \
-	  fprintf (FILE, "%s", SIZE_ASM_OP);				  \
-	  assemble_name (FILE, NAME);					  \
-	  fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
-    }									  \
-  ASM_OUTPUT_LABEL(FILE, NAME);						  \
+#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
+do {									\
+  ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
+  size_directive_output = 0;						\
+  if (!flag_inhibit_size_directive && DECL_SIZE (DECL))			\
+    {									\
+      size_directive_output = 1;					\
+      ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME,				\
+				 int_size_in_bytes (TREE_TYPE (DECL)));	\
+    }									\
+  ASM_OUTPUT_LABEL(FILE, NAME);						\
 } while (0)
 /* A C statement (sans semicolon) to output to the stdio stream
    STREAM any text necessary for declaring the name NAME of an
@@ -2024,17 +1991,18 @@ do {									  \
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
      const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
+     HOST_WIDE_INT size;						 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
-	 assemble_name (FILE, name);					 \
-	 fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
+	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
+	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
        }								 \
    } while (0)
+
 /* A C statement (sans semicolon) to finish up declaring a variable
    name once the compiler has processed its initializer fully and
    thus has had a chance to determine the size of an array when
@@ -2081,20 +2049,8 @@ do {									 \
    If your target assembler doesn't support the .string directive, you
    should define this to zero.  */
 
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME)	\
-do {						\
-  fprintf (STREAM, ".global\t");		\
-  assemble_name (STREAM, NAME);			\
-  fprintf (STREAM, "\n");			\
-}						\
-while (0)
-     
-/* A C statement (sans semicolon) to output to the stdio stream
-   STREAM some commands that will make the label NAME global; that
-   is, available for reference from other files.  Use the expression
-   `assemble_name (STREAM, NAME)' to output the name itself; before
-   and after that, output the additional assembler syntax for making
-   that name global, and a newline.  */
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".global\t"
 
 #define ASM_WEAKEN_LABEL(FILE, NAME) 	\
   do					\

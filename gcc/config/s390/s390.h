@@ -533,8 +533,10 @@ extern const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER]; /* smalled clas
 /* 'Q' means a memory-reference for a S-type operand.  */
 
 #define EXTRA_CONSTRAINT(OP, C)                               	\
-     ((C) == 'Q' ?  s_operand (OP, GET_MODE (OP)) : 		\
+     ((C) == 'Q' ?  q_constraint (OP) : 			\
       (C) == 'S' ?  larl_operand (OP, GET_MODE (OP)) : 0)
+
+#define EXTRA_MEMORY_CONSTRAINT(C) ((C) == 'Q')
 
 /* Given an rtx X being reloaded into a reg required to be in class CLASS,
    return the class of reg to actually use.  In general this is just CLASS;
@@ -748,8 +750,8 @@ CUMULATIVE_ARGS;
 
 /* Implement `va_start' for varargs and stdarg.  */
 
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  s390_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  s390_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 

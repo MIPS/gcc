@@ -24,7 +24,6 @@ Boston, MA 02111-1307, USA.  */
 /*** Public Interface (procedures) ***/
 
 const char *objc_init				PARAMS ((const char *));
-int objc_decode_option				PARAMS ((int, char **));
 const char *objc_printable_name			PARAMS ((tree, int));
 
 /* used by yyparse */
@@ -64,8 +63,6 @@ void objc_declare_alias				PARAMS ((tree, tree));
 void objc_declare_class				PARAMS ((tree));
 void objc_declare_protocols			PARAMS ((tree));
 
-extern int objc_receiver_context;
-
 /* the following routines are used to implement statically typed objects */
 
 int objc_comptypes				PARAMS ((tree, tree, int));
@@ -100,6 +97,7 @@ tree build_encode_expr				PARAMS ((tree));
 #define CLASS_STATIC_TEMPLATE(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 2)
 #define CLASS_CATEGORY_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 3)
 #define CLASS_PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 4)
+#define CLASS_OWN_IVARS(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 5)
 #define PROTOCOL_NAME(CLASS) ((CLASS)->type.name)
 #define PROTOCOL_LIST(CLASS) TREE_VEC_ELT (TYPE_BINFO (CLASS), 0)
 #define PROTOCOL_NST_METHODS(CLASS) ((CLASS)->type.minval)

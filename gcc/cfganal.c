@@ -28,7 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "insn-config.h"
 #include "recog.h"
 #include "toplev.h"
-#include "obstack.h"
 #include "tm_p.h"
 
 /* Store the data structures necessary for depth-first search.  */
@@ -572,6 +571,22 @@ verify_edge_list (f, elist)
 	  fprintf (f, "*** Edge (%d, %d) has index %d, but there is no edge\n",
 		   p->index, s->index, EDGE_INDEX (elist, p, s));
       }
+}
+
+/* Given PRED and SUCC blocks, return the edge which connects the blocks.
+   If no such edge exists, return NULL.  */
+
+edge
+find_edge (pred, succ)
+     basic_block pred, succ;
+{
+  edge e;
+
+  for (e = pred->succ; e; e = e->succ_next)
+    if (e->dest == succ)
+      return e;
+
+  return NULL;
 }
 
 /* This routine will determine what, if any, edge there is between

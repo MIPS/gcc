@@ -483,7 +483,7 @@ init_reg_sets_1 ()
   memset (allocatable_regs_of_mode, 0, sizeof (allocatable_regs_of_mode));
   for (m = 0; m < (unsigned int) MAX_MACHINE_MODE; m++)
     for (i = 0; i < N_REG_CLASSES; i++)
-      if (CLASS_MAX_NREGS (i, m) <= reg_class_size[i])
+      if ((unsigned) CLASS_MAX_NREGS (i, m) <= reg_class_size[i])
 	for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 	  if (!fixed_regs [j] && TEST_HARD_REG_BIT (reg_class_contents[i], j)
 	      && HARD_REGNO_MODE_OK (j, m))
@@ -696,7 +696,7 @@ choose_hard_reg_mode (regno, nregs)
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (HARD_REGNO_NREGS (regno, mode) == nregs
+    if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode))
       found_mode = mode;
 
@@ -706,7 +706,7 @@ choose_hard_reg_mode (regno, nregs)
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (HARD_REGNO_NREGS (regno, mode) == nregs
+    if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode))
       found_mode = mode;
 
@@ -716,7 +716,7 @@ choose_hard_reg_mode (regno, nregs)
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_FLOAT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (HARD_REGNO_NREGS (regno, mode) == nregs
+    if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode))
       found_mode = mode;
 
@@ -726,7 +726,7 @@ choose_hard_reg_mode (regno, nregs)
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_VECTOR_INT);
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
-    if (HARD_REGNO_NREGS (regno, mode) == nregs
+    if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
 	&& HARD_REGNO_MODE_OK (regno, mode))
       found_mode = mode;
 
@@ -737,7 +737,7 @@ choose_hard_reg_mode (regno, nregs)
   for (m = (unsigned int) CCmode; m < (unsigned int) NUM_MACHINE_MODES; ++m)
     {
       mode = (enum machine_mode) m;
-      if (HARD_REGNO_NREGS (regno, mode) == nregs
+      if ((unsigned) HARD_REGNO_NREGS (regno, mode) == nregs
 	  && HARD_REGNO_MODE_OK (regno, mode))
 	return mode;
     }
@@ -1007,7 +1007,8 @@ record_operand_costs (insn, op_costs, reg_pref)
       if (GET_CODE (recog_data.operand[i]) == MEM)
 	record_address_regs (XEXP (recog_data.operand[i], 0),
 			     MODE_BASE_REG_CLASS (modes[i]), frequency * 2);
-      else if (constraints[i][0] == 'p')
+      else if (constraints[i][0] == 'p'
+	       || EXTRA_ADDRESS_CONSTRAINT (constraints[i][0]))
 	record_address_regs (recog_data.operand[i],
 			     MODE_BASE_REG_CLASS (modes[i]), frequency * 2);
     }
@@ -1317,7 +1318,7 @@ regclass (f, nregs, dump)
 
 	  /* In non-optimizing compilation REG_N_REFS is not initialized
 	     yet.  */
-	  if (optimize && !REG_N_REFS (i))
+	  if (optimize && !REG_N_REFS (i) && !REG_N_SETS (i))
 	    continue;
 
 	  for (class = (int) ALL_REGS - 1; class > 0; class--)
@@ -1635,7 +1636,10 @@ record_reg_classes (n_alts, n_ops, ops, modes,
 
 	      case 'E':
 	      case 'F':
-		if (GET_CODE (op) == CONST_DOUBLE)
+		if (GET_CODE (op) == CONST_DOUBLE
+		    || (GET_CODE (op) == CONST_VECTOR
+			&& (GET_MODE_CLASS (GET_MODE (op))
+			    == MODE_VECTOR_FLOAT)))
 		  win = 1;
 		break;
 
@@ -1706,6 +1710,27 @@ record_reg_classes (n_alts, n_ops, ops, modes,
 #ifdef EXTRA_CONSTRAINT
 		else if (EXTRA_CONSTRAINT (op, c))
 		  win = 1;
+
+		if (EXTRA_MEMORY_CONSTRAINT (c))
+		  {
+		    /* Every MEM can be reloaded to fit.  */
+		    allows_mem[i] = 1;
+		    if (GET_CODE (op) == MEM)
+		      win = 1;
+		  }
+		if (EXTRA_ADDRESS_CONSTRAINT (op))
+		  {
+		    /* Every address can be reloaded to fit.  */
+		    allows_addr = 1;
+		    if (address_operand (op, GET_MODE (op)))
+		      win = 1;
+		    /* We know this operand is an address, so we want it to be
+		       allocated to a register that can be the base of an
+		       address, ie BASE_REG_CLASS.  */
+		    classes[i]
+		      = reg_class_subunion[(int) classes[i]]
+		        [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		  }
 #endif
 		break;
 	      }
@@ -1852,27 +1877,27 @@ record_reg_classes (n_alts, n_ops, ops, modes,
 	      enum reg_class pref = reg_pref[regno].prefclass;
 
 	      if ((reg_class_size[(unsigned char) pref]
-		   == CLASS_MAX_NREGS (pref, mode))
+		   == (unsigned) CLASS_MAX_NREGS (pref, mode))
 		  && REGISTER_MOVE_COST (mode, pref, pref) < 10 * 2)
 		op_costs[i].cost[(unsigned char) pref] = -1;
 	    }
 	  else if (regno < FIRST_PSEUDO_REGISTER)
 	    for (class = 0; class < N_REG_CLASSES; class++)
 	      if (TEST_HARD_REG_BIT (reg_class_contents[class], regno)
-		  && reg_class_size[class] == CLASS_MAX_NREGS (class, mode))
+		  && reg_class_size[class] == (unsigned) CLASS_MAX_NREGS (class, mode))
 		{
 		  if (reg_class_size[class] == 1)
 		    op_costs[i].cost[class] = -1;
 		  else
 		    {
-		      for (nr = 0; nr < HARD_REGNO_NREGS (regno, mode); nr++)
+		      for (nr = 0; nr < (unsigned) HARD_REGNO_NREGS (regno, mode); nr++)
 			{
 			  if (! TEST_HARD_REG_BIT (reg_class_contents[class],
 						   regno + nr))
 			    break;
 			}
 
-		      if (nr == HARD_REGNO_NREGS (regno,mode))
+		      if (nr == (unsigned) HARD_REGNO_NREGS (regno,mode))
 			op_costs[i].cost[class] = -1;
 		    }
 		}
@@ -2397,6 +2422,8 @@ reg_scan_mark_refs (x, insn, note_flag, min_regno)
   rtx dest;
   rtx note;
 
+  if (!x)
+    return;
   code = GET_CODE (x);
   switch (code)
     {
@@ -2423,6 +2450,10 @@ reg_scan_mark_refs (x, insn, note_flag, min_regno)
 	      REGNO_LAST_UID (regno) = INSN_UID (insn);
 	    if (REGNO_FIRST_UID (regno) == 0)
 	      REGNO_FIRST_UID (regno) = INSN_UID (insn);
+	    /* If we are called by reg_scan_update() (indicated by min_regno
+	       being set), we also need to update the reference count.  */
+	    if (min_regno)
+	      REG_N_REFS (regno)++;
 	  }
       }
       break;
@@ -2437,6 +2468,18 @@ reg_scan_mark_refs (x, insn, note_flag, min_regno)
     case INSN_LIST:
       if (XEXP (x, 1))
 	reg_scan_mark_refs (XEXP (x, 1), insn, note_flag, min_regno);
+      break;
+
+    case CLOBBER:
+      {
+	rtx reg = XEXP (x, 0);
+	if (REG_P (reg)
+	    && REGNO (reg) >= min_regno)
+	  {
+	    REG_N_SETS (REGNO (reg))++;
+	    REG_N_REFS (REGNO (reg))++;
+	  }
+      }
       break;
 
     case SET:

@@ -61,6 +61,7 @@ static tree h8300_handle_eightbit_data_attribute PARAMS ((tree *, tree, tree, in
 static tree h8300_handle_tiny_data_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static void h8300_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void h8300_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
+static void h8300_insert_attributes PARAMS ((tree, tree *));
 #ifndef OBJECT_FORMAT_ELF
 static void h8300_asm_named_section PARAMS ((const char *, unsigned int));
 #endif
@@ -118,6 +119,9 @@ const char *h8_push_op, *h8_pop_op, *h8_mov_op;
 #define TARGET_ENCODE_SECTION_INFO h8300_encode_section_info
 #undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING h8300_strip_name_encoding
+
+#undef TARGET_INSERT_ATTRIBUTES
+#define TARGET_INSERT_ATTRIBUTES h8300_insert_attributes
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1149,10 +1153,10 @@ print_operand (file, x, code)
 	}
       break;
     case 'j':
-      asm_fprintf (file, cond_string (GET_CODE (x)));
+      fputs (cond_string (GET_CODE (x)), file);
       break;
     case 'k':
-      asm_fprintf (file, cond_string (reverse_condition (GET_CODE (x))));
+      fputs (cond_string (reverse_condition (GET_CODE (x))), file);
       break;
     case 's':
       if (GET_CODE (x) == CONST_INT)
@@ -2938,7 +2942,8 @@ output_a_shift (operands)
 }
 
 static unsigned int
-h8300_asm_insn_count (const char *template)
+h8300_asm_insn_count (template)
+     const char *template;
 {
   unsigned int count = 1;
 
@@ -3207,7 +3212,7 @@ emit_a_rotate (code, operands)
 
   /* Determine the faster direction.  After this phase, amount will be
      at most a half of GET_MODE_BITSIZE (mode).  */
-  if ((unsigned int) amount > GET_MODE_BITSIZE (mode) / 2U)
+  if ((unsigned int) amount > GET_MODE_BITSIZE (mode) / (unsigned) 2)
     {
       /* Flip the direction.  */
       amount = GET_MODE_BITSIZE (mode) - amount;
@@ -3407,6 +3412,22 @@ h8300_tiny_data_p (decl)
 
   a = lookup_attribute ("tiny_data", DECL_ATTRIBUTES (decl));
   return a != NULL_TREE;
+}
+
+/* Generate an 'interrupt_handler' attribute for decls.  */
+
+static void
+h8300_insert_attributes (node, attributes)
+     tree node;
+     tree *attributes;
+{
+  if (!interrupt_handler
+      || TREE_CODE (node) != FUNCTION_DECL)
+    return;
+
+  /* Add an 'interrupt_handler' attribute.  */
+  *attributes = tree_cons (get_identifier ("interrupt_handler"),
+			   NULL, *attributes);
 }
 
 /* Supported attributes:
@@ -3726,7 +3747,7 @@ h8300_adjust_insn_length (insn, length)
 
       /* Determine the faster direction.  After this phase, amount
 	 will be at most a half of GET_MODE_BITSIZE (mode).  */
-      if ((unsigned int) amount > GET_MODE_BITSIZE (mode) / 2U)
+      if ((unsigned int) amount > GET_MODE_BITSIZE (mode) / (unsigned) 2)
 	/* Flip the direction.  */
 	amount = GET_MODE_BITSIZE (mode) - amount;
 

@@ -1172,23 +1172,8 @@ zbss_section ()								\
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN) \
      v850_output_local (FILE, DECL, NAME, SIZE, ALIGN)
      
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)		\
-  do						\
-    {						\
-      fputs ("\t.global ", FILE);		\
-      assemble_name (FILE, NAME);		\
-      fputs ("\n", FILE);			\
-    }						\
-  while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global "
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
@@ -1253,8 +1238,8 @@ zbss_section ()								\
 /* This is how to output an element of a case-vector that is absolute.  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
-  asm_fprintf (FILE, "\t%s .L%d\n",					\
-	       (TARGET_BIG_SWITCH ? ".long" : ".short"), VALUE)
+  fprintf (FILE, "\t%s .L%d\n",					\
+	   (TARGET_BIG_SWITCH ? ".long" : ".short"), VALUE)
 
 /* This is how to output an element of a case-vector that is relative.  */
 

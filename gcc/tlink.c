@@ -31,10 +31,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define MAX_ITERATIONS 17
 
-/* Obstack allocation and deallocation routines.  */
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* Defined in the automatically-generated underscore.c.  */
 extern int prepends_underscore;
 
@@ -338,7 +334,7 @@ static char *
 pfgets (stream)
      FILE *stream;
 {
-  return obstack_fgets (stream, &permanent_obstack);
+  return xstrdup (tfgets (stream));
 }
 
 /* Real tlink code.  */

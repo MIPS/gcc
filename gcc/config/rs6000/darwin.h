@@ -44,7 +44,16 @@ Boston, MA 02111-1307, USA.  */
 #define SUBTARGET_OVERRIDE_OPTIONS  \
   rs6000_altivec_abi = 1;
 
-#define CPP_PREDEFINES "-D__ppc__ -D__POWERPC__ -D__NATURAL_ALIGNMENT__ -D__MACH__ -D__APPLE__"
+#define TARGET_OS_CPP_BUILTINS()                \
+  do                                            \
+    {                                           \
+      builtin_define ("__ppc__");               \
+      builtin_define ("__POWERPC__");           \
+      builtin_define ("__NATURAL_ALIGNMENT__"); \
+      builtin_define ("__MACH__");              \
+      builtin_define ("__APPLE__");             \
+    }                                           \
+  while (0)
 
 /* We want -fPIC by default, unless we're using -static to compile for
    the kernel or some such.  */
@@ -94,20 +103,10 @@ Boston, MA 02111-1307, USA.  */
 #define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
     assemble_name (FILE, NAME);
 
-/* Output before instructions.  */
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#undef ASM_GLOBALIZE_LABEL
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE);	\
-       RS6000_OUTPUT_BASENAME (FILE, NAME); putc ('\n', FILE);} while (0)
+/* Globalizing directive for a label.  */
+#undef GLOBAL_ASM_OP
+#define GLOBAL_ASM_OP "\t.globl "
+#undef TARGET_ASM_GLOBALIZE_LABEL
 
 /* This is how to output an internal label prefix.  rs6000.c uses this
    when generating traceback tables.  */
@@ -117,14 +116,6 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   fprintf (FILE, "%s", PREFIX)
 
-#undef TEXT_SECTION_ASM_OP
-#define TEXT_SECTION_ASM_OP ".text"
-
-/* Output before writable data.  */
-
-#undef DATA_SECTION_ASM_OP
-#define DATA_SECTION_ASM_OP ".data"
-
 /* This says how to output an assembler line to define a global common
    symbol.  */
 /* ? */
@@ -133,9 +124,6 @@ Boston, MA 02111-1307, USA.  */
   do { fputs (".comm ", (FILE));			\
        RS6000_OUTPUT_BASENAME ((FILE), (NAME));		\
        fprintf ((FILE), ",%d\n", (SIZE)); } while (0)
-
-#define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.space %d\n", SIZE)
 
 /* Override the standard rs6000 definition.  */
 

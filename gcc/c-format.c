@@ -29,33 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "langhooks.h"
 
-/* Command line options and their associated flags.  */
-
-/* Warn about format/argument anomalies in calls to formatted I/O functions
-   (*printf, *scanf, strftime, strfmon, etc.).  */
-
-int warn_format;
-
-/* Warn about Y2K problems with strftime formats.  */
-
-int warn_format_y2k;
-
-/* Warn about excess arguments to formats.  */
-
-int warn_format_extra_args;
-
-/* Warn about zero-length formats.  */
-
-int warn_format_zero_length;
-
-/* Warn about non-literal format arguments.  */
-
-int warn_format_nonliteral;
-
-/* Warn about possible security problems with calls to format functions.  */
-
-int warn_format_security;
-
 /* Set format warning options according to a -Wformat=n option.  */
 
 void
@@ -356,7 +329,7 @@ enum format_std_version
 				 ? "ISO C++"			\
 				 : ((FEATURE_VER) == STD_EXT	\
 				    ? "ISO C"			\
-				    : "ISO C89"))
+				    : "ISO C90"))
 /* Adjust a C standard version, which may be STD_C9L, to account for
    -Wno-long-long.  Returns other standard versions unchanged.  */
 #define ADJ_STD(VER)		((int)((VER) == STD_C9L			      \
@@ -717,7 +690,6 @@ static const format_flag_pair strfmon_flag_pairs[] =
 
 #define T_I	&integer_type_node
 #define T89_I	{ STD_C89, NULL, T_I }
-#define T99_I	{ STD_C99, NULL, T_I }
 #define T_L	&long_integer_type_node
 #define T89_L	{ STD_C89, NULL, T_L }
 #define T_LL	&long_long_integer_type_node
@@ -727,7 +699,6 @@ static const format_flag_pair strfmon_flag_pairs[] =
 #define T89_S	{ STD_C89, NULL, T_S }
 #define T_UI	&unsigned_type_node
 #define T89_UI	{ STD_C89, NULL, T_UI }
-#define T99_UI	{ STD_C99, NULL, T_UI }
 #define T_UL	&long_unsigned_type_node
 #define T89_UL	{ STD_C89, NULL, T_UL }
 #define T_ULL	&long_long_unsigned_type_node

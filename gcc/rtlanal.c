@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "flags.h"
 #include "basic-block.h"
+#include "real.h"
 
 /* Forward declarations */
 static int global_reg_mentioned_p_1 PARAMS ((rtx *, void *));
@@ -2369,6 +2370,8 @@ may_trap_p (x)
     case MOD:
     case UDIV:
     case UMOD:
+      if (HONOR_SNANS (GET_MODE (x)))
+	return 1;
       if (! CONSTANT_P (XEXP (x, 1))
 	  || (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT
 	      && flag_trapping_math))
@@ -2396,12 +2399,22 @@ may_trap_p (x)
 	 when COMPARE is used, though many targets do make this distinction.
 	 For instance, sparc uses CCFPE for compares which generate exceptions
 	 and CCFP for compares which do not generate exceptions.  */
-      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
+      if (HONOR_NANS (GET_MODE (x)))
 	return 1;
       /* But often the compare has some CC mode, so check operand
 	 modes as well.  */
-      if (GET_MODE_CLASS (GET_MODE (XEXP (x, 0))) == MODE_FLOAT
-	  || GET_MODE_CLASS (GET_MODE (XEXP (x, 1))) == MODE_FLOAT)
+      if (HONOR_NANS (GET_MODE (XEXP (x, 0)))
+	  || HONOR_NANS (GET_MODE (XEXP (x, 1))))
+	return 1;
+      break;
+
+    case EQ:
+    case NE:
+      if (HONOR_SNANS (GET_MODE (x)))
+	return 1;
+      /* Often comparison is CC mode, so check operand modes.  */
+      if (HONOR_SNANS (GET_MODE (XEXP (x, 0)))
+	  || HONOR_SNANS (GET_MODE (XEXP (x, 1))))
 	return 1;
       break;
 
@@ -3117,6 +3130,16 @@ subreg_regno_offset (xregno, xmode, offset, ymode)
 
   nregs_xmode = HARD_REGNO_NREGS (xregno, xmode);
   nregs_ymode = HARD_REGNO_NREGS (xregno, ymode);
+
+  /* If this is a big endian paradoxical subreg, which uses more actual
+     hard registers than the original register, we must return a negative
+     offset so that we find the proper highpart of the register.  */
+  if (offset == 0
+      && nregs_ymode > nregs_xmode
+      && (GET_MODE_SIZE (ymode) > UNITS_PER_WORD
+	  ? WORDS_BIG_ENDIAN : BYTES_BIG_ENDIAN))
+    return nregs_xmode - nregs_ymode;
+
   if (offset == 0 || nregs_xmode == nregs_ymode)
     return 0;
 
@@ -3237,6 +3260,7 @@ keep_with_call_p (insn)
   if (INSN_P (insn) && (set = single_set (insn)) != NULL)
     {
       if (GET_CODE (SET_DEST (set)) == REG
+	  && REGNO (SET_DEST (set)) < FIRST_PSEUDO_REGISTER
 	  && fixed_regs[REGNO (SET_DEST (set))]
 	  && general_operand (SET_SRC (set), VOIDmode))
 	return true;

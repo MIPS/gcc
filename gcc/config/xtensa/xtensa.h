@@ -191,25 +191,22 @@ extern unsigned xtensa_current_frame_size;
 
 
 #define OVERRIDE_OPTIONS override_options ()
-
-#if XCHAL_HAVE_BE
-#define CPP_ENDIAN_SPEC "\
-  %{mlittle-endian:-D__XTENSA_EL__} \
-  %{!mlittle-endian:-D__XTENSA_EB__} "
-#else /* !XCHAL_HAVE_BE */
-#define CPP_ENDIAN_SPEC "\
-  %{mbig-endian:-D__XTENSA_EB__} \
-  %{!mbig-endian:-D__XTENSA_EL__} "
-#endif /* !XCHAL_HAVE_BE */
-
-#if XCHAL_HAVE_FP
-#define CPP_FLOAT_SPEC "%{msoft-float:-D__XTENSA_SOFT_FLOAT__}"
-#else
-#define CPP_FLOAT_SPEC "%{!mhard-float:-D__XTENSA_SOFT_FLOAT__}"
-#endif
-
-#undef CPP_SPEC
-#define CPP_SPEC CPP_ENDIAN_SPEC CPP_FLOAT_SPEC
+
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()					\
+  do {									\
+    builtin_assert ("cpu=xtensa");					\
+    builtin_assert ("machine=xtensa");					\
+    builtin_define ("__XTENSA__");					\
+    builtin_define (TARGET_BIG_ENDIAN ? "__XTENSA_EB__" : "__XTENSA_EL__"); \
+    if (!TARGET_HARD_FLOAT)						\
+      builtin_define ("__XTENSA_SOFT_FLOAT__");				\
+    if (flag_pic)							\
+      {									\
+        builtin_define ("__PIC__");					\
+        builtin_define ("__pic__");					\
+      }									\
+  } while (0)
 
 /* Define this to set the endianness to use in libgcc2.c, which can
    not depend on target_flags.  */
@@ -796,13 +793,13 @@ extern enum reg_class xtensa_char_to_class[256];
 /* Don't worry about compatibility with PCC.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-/* For Xtensa, we would like to be able to return up to 6 words in
-   memory but GCC cannot support that.  The return value must be given
-   one of the standard MODE_INT modes, and there is no 6 word mode.
-   Instead, if we try to return a 6 word structure, GCC selects the
-   next biggest mode (OImode, 8 words) and then the register allocator
-   fails because there is no 8-register group beginning with a10.  So
-   we have to fall back on the next largest size which is 4 words... */
+/* For Xtensa, up to 4 words can be returned in registers.  (It would
+   have been nice to allow up to 6 words in registers but GCC cannot
+   support that.  The return value must be given one of the standard
+   MODE_INT modes, and there is no 6 word mode.  Instead, if we try to
+   return a 6 word structure, GCC selects the next biggest mode
+   (OImode, 8 words) and then the register allocator fails because
+   there is no 8-register group beginning with a10.)  */
 #define RETURN_IN_MEMORY(TYPE)						\
   ((unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) > 4 * UNITS_PER_WORD)
 
@@ -1035,8 +1032,8 @@ typedef struct xtensa_args {
   xtensa_builtin_saveregs
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  xtensa_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  xtensa_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -1060,8 +1057,7 @@ typedef struct xtensa_args {
    we currently need to ensure that there is a frame pointer when these
    builtin functions are used. */
 
-#define SETUP_FRAME_ADDRESSES() \
-  xtensa_setup_frame_addresses ()
+#define SETUP_FRAME_ADDRESSES  xtensa_setup_frame_addresses
 
 /* A C expression whose value is RTL representing the address in a
    stack frame where the pointer to the caller's frame is stored.
@@ -1085,22 +1081,8 @@ typedef struct xtensa_args {
 
 /* A C expression whose value is RTL representing the value of the
    return address for the frame COUNT steps up from the current
-   frame, after the prologue.  FRAMEADDR is the frame pointer of the
-   COUNT frame, or the frame pointer of the COUNT - 1 frame if
-   'RETURN_ADDR_IN_PREVIOUS_FRAME' is defined.
-
-   The 2 most-significant bits of the return address on Xtensa hold
-   the register window size.  To get the real return address, these bits
-   must be masked off and replaced with the high bits from the current
-   PC.  Since it is unclear how the __builtin_return_address function
-   is used, the current code does not do this masking and simply returns
-   the raw return address from the a0 register. */
-#define RETURN_ADDR_RTX(count, frame)					\
-  ((count) == -1							\
-   ? gen_rtx_REG (Pmode, 0)						\
-   : gen_rtx_MEM (Pmode, memory_address					\
-		  (Pmode, plus_constant (frame, -4 * UNITS_PER_WORD))))
-
+   frame, after the prologue.  */
+#define RETURN_ADDR_RTX  xtensa_return_addr
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1560,23 +1542,8 @@ typedef struct xtensa_args {
       goto FAIL;							\
   } while (0)
 
-
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME. */
-#define ASM_OUTPUT_LABEL(STREAM, NAME)					\
-  do {									\
-    assemble_name (STREAM, NAME);					\
-    fputs (":\n", STREAM);						\
-  } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME)				\
-  do {									\
-    fputs ("\t.global\t", STREAM);					\
-    assemble_name (STREAM, NAME);					\
-    fputs ("\n", STREAM);						\
-  } while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 /* This says how to define a global common symbol.  */
 #define ASM_OUTPUT_COMMON(STREAM, NAME, SIZE, ROUNDED)			\

@@ -38,10 +38,10 @@ exception statement from your version. */
 package java.net;
 
 /**
-  * Sometimes a network operation (such as hitting a password protected
-  * web site) will require authentication information in the form of a
-  * username and password.  This abstract class provides a model for 
-  * obtaining that information.
+  * This abstract class provides a model for obtaining authentication
+  * information (in the form of a username and password) required by
+  * some network operations (such as hitting a password protected
+  * web site).
   * <p>
   * To make use of this feature, a programmer must create a subclass of
   * Authenticator that knows how to obtain the necessary info.  An example
@@ -53,6 +53,7 @@ package java.net;
   * @since 1.2
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
+  * @status Believed to be JDK 1.4 complete
   */
 public abstract class Authenticator
 {
@@ -73,6 +74,11 @@ private static Authenticator default_authenticator;
 /*
  * Instance Variables
  */
+
+/**
+  * The hostname of the site requesting authentication
+  */
+private String host;
 
 /**
   * InternetAddress of the site requesting authentication
@@ -156,6 +162,19 @@ setDefault(Authenticator def_auth)
 public static PasswordAuthentication
 requestPasswordAuthentication(InetAddress addr, int port, String protocol,
                               String prompt, String scheme) 
+  throws SecurityException
+{
+  return(requestPasswordAuthentication (null, addr, port, protocol,
+					prompt, scheme));
+}
+
+/**
+ * @since 1.4
+ */
+public static PasswordAuthentication
+requestPasswordAuthentication(String host, InetAddress addr, int port,
+		              String protocol, String prompt, String scheme)
+  throws SecurityException
 {
   SecurityManager sm = System.getSecurityManager();
   if (sm != null)
@@ -164,6 +183,7 @@ requestPasswordAuthentication(InetAddress addr, int port, String protocol,
   if (default_authenticator == null)
     return(null);
 
+  default_authenticator.host = host;
   default_authenticator.addr = addr;
   default_authenticator.port = port;
   default_authenticator.protocol = protocol;
@@ -171,6 +191,14 @@ requestPasswordAuthentication(InetAddress addr, int port, String protocol,
   default_authenticator.scheme = scheme;
 
   return(default_authenticator.getPasswordAuthentication());
+}
+
+/**
+ *  @since 1.4
+ */
+protected final String getRequestingHost()
+{
+  return(host);
 }
 
 /*************************************************************************/

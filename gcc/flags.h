@@ -359,6 +359,10 @@ extern int flag_errno_math;
 
 extern int flag_unsafe_math_optimizations;
 
+/* Nonzero means that no NaNs or +-Infs are expected.  */
+
+extern int flag_finite_math_only;
+
 /* Zero means that floating-point math operations cannot generate a
    (user-visible) trap.  This is the case, for example, in nonstop
    IEEE 754 arithmetic.  */
@@ -660,8 +664,32 @@ extern int flag_detailed_statistics;
 /* Nonzero means enable synchronous exceptions for non-call instructions.  */
 extern int flag_non_call_exceptions;
 
+/* Nonzero means enable mudflap bounds-checking transforms. */
+extern int flag_mudflap;
+
+/* Disable tree simplification.  */
+extern int flag_disable_simple;
+
+/* Enable the SSA tree optimizer.  */
+extern int flag_tree_ssa;
+
+/* Enable the SSA-PRE on trees.  */
+extern int flag_tree_ssa_pre;
+
+/* Enable Steengaard's points-to analysis for trees. */
+extern int flag_tree_points_to;
+
+/* Enable SSA-CCP on trees.  */
+extern int flag_tree_ssa_ccp;
+
+/* Enable all SSA-related tree dumps.  */
+extern int flag_dump_tree_all_ssa;
+
 /* Nonzero means put zero initialized data in the bss section.  */
 extern int flag_zero_initialized_in_bss;
+
+/* Nonzero means disable transformations observable by signaling NaNs.  */
+extern int flag_signaling_nans;
 
 /* True if the given mode has a NaN representation and the treatment of
    NaN operands is important.  Certain optimizations, such as folding
@@ -669,12 +697,15 @@ extern int flag_zero_initialized_in_bss;
    disabled for modes with NaNs.  The user can ask for them to be
    done anyway using the -funsafe-math-optimizations switch.  */
 #define HONOR_NANS(MODE) \
-  (MODE_HAS_NANS (MODE) && !flag_unsafe_math_optimizations)
+  (MODE_HAS_NANS (MODE) && !flag_finite_math_only)
+
+/* Like HONOR_NANs, but true if we honor signaling NaNs (or sNaNs).  */
+#define HONOR_SNANS(MODE) (flag_signaling_nans && HONOR_NANS (MODE))
 
 /* As for HONOR_NANS, but true if the mode can represent infinity and
    the treatment of infinite values is important.  */
 #define HONOR_INFINITIES(MODE) \
-  (MODE_HAS_INFINITIES (MODE) && !flag_unsafe_math_optimizations)
+  (MODE_HAS_INFINITIES (MODE) && !flag_finite_math_only)
 
 /* Like HONOR_NANS, but true if the given mode distinguishes between
    postive and negative zero, and the sign of zero is important.  */

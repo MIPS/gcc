@@ -855,15 +855,15 @@ extern const char * structure_size_string;
 #define ROUND_UP(X) (((X) + 3) & ~3)
 
 /* Convert fron bytes to ints.  */
-#define NUM_INTS(X) (((X) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+#define ARM_NUM_INTS(X) (((X) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* The number of (integer) registers required to hold a quantity of type MODE.  */
-#define NUM_REGS(MODE)				\
-  NUM_INTS (GET_MODE_SIZE (MODE))
+#define ARM_NUM_REGS(MODE)				\
+  ARM_NUM_INTS (GET_MODE_SIZE (MODE))
 
 /* The number of (integer) registers required to hold a quantity of TYPE MODE.  */
-#define NUM_REGS2(MODE, TYPE)                   \
-  NUM_INTS ((MODE) == BLKmode ? 		\
+#define ARM_NUM_REGS2(MODE, TYPE)                   \
+  ARM_NUM_INTS ((MODE) == BLKmode ? 		\
   int_size_in_bytes (TYPE) : GET_MODE_SIZE (MODE))
 
 /* The number of (integer) argument register available.  */
@@ -967,7 +967,7 @@ extern const char * structure_size_string;
     && REGNO >= FIRST_ARM_FP_REGNUM	\
     && REGNO != FRAME_POINTER_REGNUM	\
     && REGNO != ARG_POINTER_REGNUM)	\
-   ? 1 : NUM_REGS (MODE))
+   ? 1 : ARM_NUM_REGS (MODE))
 
 /* Return true if REGNO is suitable for holding a quantity of type MODE.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE)					\
@@ -1288,7 +1288,7 @@ enum reg_class
    needed to represent mode MODE in a register of class CLASS.
    ARM regs are UNITS_PER_WORD bits while FPU regs can hold any FP mode */
 #define CLASS_MAX_NREGS(CLASS, MODE)  \
-  ((CLASS) == FPU_REGS ? 1 : NUM_REGS (MODE))
+  ((CLASS) == FPU_REGS ? 1 : ARM_NUM_REGS (MODE))
 
 /* Moves between FPU_REGS and GENERAL_REGS are two memory insns.  */
 #define REGISTER_MOVE_COST(MODE, FROM, TO)		\
@@ -1467,7 +1467,7 @@ typedef struct
    For args passed entirely in registers or entirely in memory, zero.  */
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED)	\
   (    NUM_ARG_REGS > (CUM).nregs				\
-   && (NUM_ARG_REGS < ((CUM).nregs + NUM_REGS2 (MODE, TYPE)))	\
+   && (NUM_ARG_REGS < ((CUM).nregs + ARM_NUM_REGS2 (MODE, TYPE)))	\
    ?   NUM_ARG_REGS - (CUM).nregs : 0)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
@@ -1481,7 +1481,7 @@ typedef struct
    of mode MODE and data type TYPE.
    (TYPE is null for libcalls where that information may not be available.)  */
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
-  (CUM).nregs += NUM_REGS2 (MODE, TYPE)
+  (CUM).nregs += ARM_NUM_REGS2 (MODE, TYPE)
 
 /* 1 if N is a possible register number for function argument passing.
    On the ARM, r0-r3 are used to pass args.  */
@@ -1621,7 +1621,13 @@ typedef struct
    ((TO) == ARM_HARD_FRAME_POINTER_REGNUM && TARGET_THUMB) ? 0 :	\
    ((TO) == THUMB_HARD_FRAME_POINTER_REGNUM && TARGET_ARM) ? 0 :	\
    1)
-   								 
+
+#define THUMB_REG_PUSHED_P(reg)					\
+  (regs_ever_live [reg]						\
+   && (! call_used_regs [reg]					\
+       || (flag_pic && (reg) == PIC_OFFSET_TABLE_REGNUM))	\
+   && !(TARGET_SINGLE_PIC_BASE && ((reg) == arm_pic_register)))
+     
 /* Define the offset between two registers, one to be eliminated, and the
    other its replacement, at the start of a routine.  */
 #define ARM_INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET)		\
@@ -1640,13 +1646,13 @@ typedef struct
       int count_regs = 0;						\
       int regno;							\
       for (regno = 8; regno < 13; regno ++)				\
-	if (regs_ever_live[regno] && ! call_used_regs[regno])		\
-	  count_regs ++;						\
+        if (THUMB_REG_PUSHED_P (regno))					\
+          count_regs ++;						\
       if (count_regs)							\
 	(OFFSET) += 4 * count_regs;					\
       count_regs = 0;							\
       for (regno = 0; regno <= LAST_LO_REGNUM; regno ++)		\
-	if (regs_ever_live[regno] && ! call_used_regs[regno])		\
+        if (THUMB_REG_PUSHED_P (regno))					\
 	  count_regs ++;						\
       if (count_regs || ! leaf_function_p () || thumb_far_jump_used_p (0))\
 	(OFFSET) += 4 * (count_regs + 1);				\
@@ -2397,12 +2403,13 @@ extern const char * arm_pic_register_string;
 /* We can't directly access anything that contains a symbol,
    nor can we indirect via the constant pool.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)					\
-	(   ! symbol_mentioned_p (X)					\
-	 && ! label_mentioned_p (X)					\
-	 && (! CONSTANT_POOL_ADDRESS_P (X)				\
-	     || (   ! symbol_mentioned_p (get_pool_constant (X))  	\
-	         && ! label_mentioned_p (get_pool_constant (X)))))
-     
+	(!(symbol_mentioned_p (X)					\
+	   || label_mentioned_p (X)					\
+	   || (GET_CODE (X) == SYMBOL_REF				\
+	       && CONSTANT_POOL_ADDRESS_P (X)				\
+	       && (symbol_mentioned_p (get_pool_constant (X))		\
+		   || label_mentioned_p (get_pool_constant (X))))))
+
 /* We need to know when we are making a constant pool; this determines
    whether data needs to be in the GOT or can be referenced via a GOT
    offset.  */

@@ -1339,10 +1339,6 @@ do {									\
 (((REGNO) >= GR_ARG_FIRST && (REGNO) < (GR_ARG_FIRST + MAX_ARGUMENT_SLOTS)) \
  || ((REGNO) >= FR_ARG_FIRST && (REGNO) < (FR_ARG_FIRST + MAX_ARGUMENT_SLOTS)))
 
-/* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  ia64_va_start (stdarg, valist, nextarg)
-
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   ia64_va_arg (valist, type)
@@ -1909,16 +1905,8 @@ do {									\
   ia64_asm_output_label = 0;						\
 } while (0)
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM some
-   commands that will make the label NAME global; that is, available for
-   reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)				\
-do {									\
-  fputs ("\t.global ", STREAM);						\
-  assemble_name (STREAM, NAME);						\
-  fputs ("\n", STREAM);							\
-} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global "
 
 /* A C statement (sans semicolon) to output to the stdio stream STREAM any text
    necessary for declaring the name of an external symbol named NAME which is

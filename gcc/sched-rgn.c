@@ -153,7 +153,7 @@ static int *containing_rgn;
 
 void debug_regions PARAMS ((void));
 static void find_single_block_region PARAMS ((void));
-static void find_rgns PARAMS ((struct edge_list *, sbitmap *));
+static void find_rgns PARAMS ((struct edge_list *, dominance_info));
 static int too_large PARAMS ((int, int *, int *));
 
 extern void debug_live PARAMS ((int, int));
@@ -270,16 +270,13 @@ static edgeset *ancestor_edges;
 
 static void compute_dom_prob_ps PARAMS ((int));
 
-#define ABS_VALUE(x) (((x)<0)?(-(x)):(x))
 #define INSN_PROBABILITY(INSN) (SRC_PROB (BLOCK_TO_BB (BLOCK_NUM (INSN))))
 #define IS_SPECULATIVE_INSN(INSN) (IS_SPECULATIVE (BLOCK_TO_BB (BLOCK_NUM (INSN))))
 #define INSN_BB(INSN) (BLOCK_TO_BB (BLOCK_NUM (INSN)))
 
 /* Parameters affecting the decision of rank_for_schedule().
    ??? Nope.  But MIN_PROBABILITY is used in copmute_trg_info.  */
-#define MIN_DIFF_PRIORITY 2
 #define MIN_PROBABILITY 40
-#define MIN_PROB_DIFF 10
 
 /* Speculative scheduling functions.  */
 static int check_live_1 PARAMS ((int, rtx));
@@ -624,7 +621,7 @@ too_large (block, num_bbs, num_insns)
 static void
 find_rgns (edge_list, dom)
      struct edge_list *edge_list;
-     sbitmap *dom;
+     dominance_info dom;
 {
   int *max_hdr, *dfs_nr, *stack, *degree;
   char no_loops = 1;
@@ -837,7 +834,7 @@ find_rgns (edge_list, dom)
 		    {
 		      /* Now verify that the block is dominated by the loop
 			 header.  */
-		      if (!TEST_BIT (dom[jbb->index], bb->index))
+		      if (!dominated_by_p (dom, jbb, bb))
 			break;
 		    }
 		}
@@ -2909,10 +2906,8 @@ init_regions ()
 	}
       else
 	{
-	  sbitmap *dom;
+	  dominance_info dom;
 	  struct edge_list *edge_list;
-
-	  dom = sbitmap_vector_alloc (last_basic_block, last_basic_block);
 
 	  /* The scheduler runs after flow; therefore, we can't blindly call
 	     back into find_basic_blocks since doing so could invalidate the
@@ -2928,7 +2923,7 @@ init_regions ()
 	  edge_list = create_edge_list ();
 
 	  /* Compute the dominators and post dominators.  */
-	  calculate_dominance_info (NULL, dom, CDI_DOMINATORS);
+	  dom = calculate_dominance_info (CDI_DOMINATORS);
 
 	  /* build_control_flow will return nonzero if it detects unreachable
 	     blocks or any other irregularity with the cfg which prevents
@@ -2946,7 +2941,7 @@ init_regions ()
 
 	  /* For now.  This will move as more and more of haifa is converted
 	     to using the cfg code in flow.c.  */
-	  free (dom);
+	  free_dominance_info (dom);
 	}
     }
 

@@ -53,30 +53,37 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_LOAD_ADDR(loc, reg)   "     leal " #loc "," #reg "\n"
 
 /* cpp handles __STDC__ */
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES " \
-  -D__INTERIX \
-  -D__OPENNT \
-  -D_M_IX86=300 -D_X86_=1 \
-  -D__stdcall=__attribute__((__stdcall__)) \
-  -D__cdecl=__attribute__((__cdecl__)) \
-  -D__declspec(x)=__attribute__((x)) \
-  -Asystem=unix -Asystem=interix"
+#define TARGET_OS_CPP_BUILTINS()					\
+  do									\
+    {									\
+	builtin_define ("__INTERIX");					\
+	builtin_define ("__OPENNT");					\
+	builtin_define ("_M_IX86=300");					\
+	builtin_define ("_X86_=1");					\
+	builtin_define ("__stdcall=__attribute__((__stdcall__))");	\
+	builtin_define ("__cdecl=__attribute__((__cdecl__))");		\
+	builtin_define ("__declspec(x)=__attribute__((x))");		\
+	builtin_assert ("system=unix");					\
+	builtin_assert ("system=interix");				\
+	if (preprocessing_asm_p ())					\
+	  builtin_define_std ("LANGUAGE_ASSEMBLY");			\
+	else								\
+	  {								\
+	     builtin_define_std ("LANGUAGE_C");				\
+	     if (c_language == clk_cplusplus)				\
+	       builtin_define_std ("LANGUAGE_C_PLUS_PLUS");		\
+	     if (flag_objc)						\
+	       builtin_define_std ("LANGUAGE_OBJECTIVE_C");		\
+	  } 								\
+    }									\
+  while (0)
 
 #undef CPP_SPEC
 /* Write out the correct language type definition for the header files.  
    Unless we have assembler language, write out the symbols for C.
    mieee is an Alpha specific variant.  Cross polination a bad idea.
    */
-#define CPP_SPEC "\
-%{!.S:	-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C}}  \
-%{.S:	-D__LANGUAGE_ASSEMBLY__ -D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY}} \
-%{.cc:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
-%{.cxx:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
-%{.C:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
-%{.m:	-D__LANGUAGE_OBJECTIVE_C__ -D__LANGUAGE_OBJECTIVE_C} \
--remap \
-%{posix:-D_POSIX_SOURCE} \
+#define CPP_SPEC "-remap %{posix:-D_POSIX_SOURCE} \
 -isystem %$INTERIX_ROOT/usr/include"
 
 #define TARGET_VERSION fprintf (stderr, " (i386 Interix)");
@@ -229,6 +236,12 @@ Boston, MA 02111-1307, USA.  */
 #undef HAS_INIT_SECTION
 #undef LD_INIT_SWITCH
 #undef LD_FINI_SWITCH
+
+/* The following are needed for us to be able to use winnt.c, but are not
+   otherwise meaningful to Interix.  (The functions that use these are
+   never called because we don't do DLLs.) */
+#define TARGET_NOP_FUN_DLLIMPORT 1
+#define drectve_section()  /* nothing */
 
 #define EH_FRAME_IN_DATA_SECTION
 

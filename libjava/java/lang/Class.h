@@ -166,7 +166,7 @@ public:
 
   void getSignature (java::lang::StringBuffer *buffer);
   static jstring getSignature (JArray<jclass> *, jboolean is_constructor);
-  java::lang::reflect::Method *getMethod (jstring, JArray<jclass> *);
+  java::lang::reflect::Method *_getMethod (jstring, JArray<jclass> *);
   JArray<java::lang::reflect::Method *> *getMethods (void);
 
   inline jint getModifiers (void)
@@ -338,7 +338,6 @@ private:
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;
   friend class _Jv_InterpMethod;
-  friend class _Jv_InterpMethodInvocation;
 #endif
 
 #ifdef JV_MARKOBJ_DECL

@@ -35,7 +35,8 @@
 	builtin_define ("_BIGMODEL");		\
       if (!TARGET_MEMPARM)			\
 	builtin_define ("_REGPARM");		\
-      if (flag_inline_functions)		\
+      if (flag_inline_functions			\
+	  || flag_inline_trees)			\
 	builtin_define ("_INLINE");		\
       if (TARGET_C3X)				\
 	{					\
@@ -1165,9 +1166,6 @@ CUMULATIVE_ARGS;
 
 /* Varargs handling.  */
 
-#define	EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  c4x_va_start (stdarg, valist, nextarg)
-
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   c4x_va_arg (valist, type)
 
@@ -1706,16 +1704,8 @@ fini_section ()							\
 
 #define NO_DOT_IN_LABEL		/* Only required for TI format.  */
 
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0);
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME) \
-  do {                                  \
-    fprintf (FILE, "\t.global\t");	\
-    assemble_name (FILE, NAME);		\
-    fputs ("\n", FILE); 	        \
-    c4x_global_label (NAME);		\
-  } while (0);
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
 c4x_external_ref (NAME)
@@ -1738,7 +1728,7 @@ c4x_file_end (FILE)
    PREFIX is the class of label and NUM is the number within the class.  */
 
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
+	fprintf (FILE, "%s%d:\n", PREFIX, NUM)
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
@@ -1794,10 +1784,6 @@ do {						\
 #define FLOAT_TYPE_SIZE		32
 #define DOUBLE_TYPE_SIZE	32
 #define LONG_DOUBLE_TYPE_SIZE	64 /* Actually only 40.  */
-
-/* Allow #sccs in preprocessor.  */
-
-#define SCCS_DIRECTIVE
 
 /* Output #ident as a .ident.  */
 
@@ -2002,27 +1988,27 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
 {								\
   if (TARGET_C3X)						\
     {								\
-      asm_fprintf (FILE, "\tldiu\t0,ar1\n");			\
-      asm_fprintf (FILE, "\tlsh\t16,ar1\n");			\
-      asm_fprintf (FILE, "\tor\t0,ar1\n");			\
-      asm_fprintf (FILE, "\tldiu\t0,ar0\n");			\
-      asm_fprintf (FILE, "\tbud\tar1\n");			\
-      asm_fprintf (FILE, "\tlsh\t16,ar0\n");			\
-      asm_fprintf (FILE, "\tor\t0,ar0\n");			\
-      asm_fprintf (FILE, "\tor\t1000h,st\n");			\
+      fprintf (FILE, "\tldiu\t0,ar1\n");			\
+      fprintf (FILE, "\tlsh\t16,ar1\n");			\
+      fprintf (FILE, "\tor\t0,ar1\n");				\
+      fprintf (FILE, "\tldiu\t0,ar0\n");			\
+      fprintf (FILE, "\tbud\tar1\n");				\
+      fprintf (FILE, "\tlsh\t16,ar0\n");			\
+      fprintf (FILE, "\tor\t0,ar0\n");				\
+      fprintf (FILE, "\tor\t1000h,st\n");			\
     }								\
   else								\
     {								\
-      asm_fprintf (FILE, "\tlaj\t$+4\n");			\
-      asm_fprintf (FILE, "\taddi3\t4,r11,ar0\n");		\
-      asm_fprintf (FILE, "\tlda\t*ar0,ar1\n");			\
-      asm_fprintf (FILE, "\tlda\t*+ar0(1),ar0\n");		\
-      asm_fprintf (FILE, "\tbud\tar1\n");			\
-      asm_fprintf (FILE, "\tnop\n");				\
-      asm_fprintf (FILE, "\tnop\n");				\
-      asm_fprintf (FILE, "\tor\t1000h,st\n");			\
-      asm_fprintf (FILE, "\t.word\t0\n");			\
-      asm_fprintf (FILE, "\t.word\t0\n");			\
+      fprintf (FILE, "\tlaj\t$+4\n");				\
+      fprintf (FILE, "\taddi3\t4,r11,ar0\n");			\
+      fprintf (FILE, "\tlda\t*ar0,ar1\n");			\
+      fprintf (FILE, "\tlda\t*+ar0(1),ar0\n");			\
+      fprintf (FILE, "\tbud\tar1\n");				\
+      fprintf (FILE, "\tnop\n");				\
+      fprintf (FILE, "\tnop\n");				\
+      fprintf (FILE, "\tor\t1000h,st\n");			\
+      fprintf (FILE, "\t.word\t0\n");				\
+      fprintf (FILE, "\t.word\t0\n");				\
     }								\
 }
 
@@ -2085,13 +2071,13 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
 #define BSS_SECTION_ASM_OP "\t.bss"
 
 #define ASM_OUTPUT_REG_PUSH(FILE, REGNO)  \
-  asm_fprintf (FILE, "\tpush\t%s\n", reg_names[REGNO])
+  fprintf (FILE, "\tpush\t%s\n", reg_names[REGNO])
 
 /* This is how to output an insn to pop a register from the stack.
    It need not be very fast code.  */
 
 #define ASM_OUTPUT_REG_POP(FILE, REGNO)  \
-  asm_fprintf (FILE, "\tpop\t%s\n", reg_names[REGNO])
+  fprintf (FILE, "\tpop\t%s\n", reg_names[REGNO])
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */

@@ -122,7 +122,7 @@ default_eh_frame_section ()
 
   data_section ();
   ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
-  ASM_GLOBALIZE_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
+  (*targetm.asm_out.globalize_label) (asm_out_file, IDENTIFIER_POINTER (label));
   ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
 #endif
 }
@@ -203,6 +203,7 @@ typedef struct dw_fde_struct
   const char *dw_fde_end;
   dw_cfi_ref dw_fde_cfi;
   unsigned funcdef_number;
+  unsigned all_throwers_are_sibcalls : 1;
   unsigned nothrow : 1;
   unsigned uses_eh_lsda : 1;
 }
@@ -317,11 +318,6 @@ static void def_cfa_1		 	PARAMS ((const char *,
 #define DW_FORM_data (DWARF_OFFSET_SIZE == 8 ? DW_FORM_data8 : DW_FORM_data4)
 #define DW_FORM_ref (DWARF_OFFSET_SIZE == 8 ? DW_FORM_ref8 : DW_FORM_ref4)
 
-/* Pseudo-op for defining a new section.  */
-#ifndef SECTION_ASM_OP
-#define SECTION_ASM_OP	"\t.section\t"
-#endif
-
 #ifndef DEBUG_FRAME_SECTION
 #define DEBUG_FRAME_SECTION	".debug_frame"
 #endif
@@ -337,36 +333,14 @@ static void def_cfa_1		 	PARAMS ((const char *,
 #define FRAME_BEGIN_LABEL	"Lframe"
 #define CIE_AFTER_SIZE_LABEL	"LSCIE"
 #define CIE_END_LABEL		"LECIE"
-#define CIE_LENGTH_LABEL	"LLCIE"
 #define FDE_LABEL		"LSFDE"
 #define FDE_AFTER_SIZE_LABEL	"LASFDE"
 #define FDE_END_LABEL		"LEFDE"
-#define FDE_LENGTH_LABEL	"LLFDE"
 #define LINE_NUMBER_BEGIN_LABEL	"LSLT"
 #define LINE_NUMBER_END_LABEL	"LELT"
 #define LN_PROLOG_AS_LABEL	"LASLTP"
 #define LN_PROLOG_END_LABEL	"LELTP"
 #define DIE_LABEL_PREFIX	"DW"
-
-/* Definitions of defaults for various types of primitive assembly language
-   output operations.  These may be overridden from within the tm.h file,
-   but typically, that is unnecessary.  */
-
-#ifdef SET_ASM_OP
-#ifndef ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL
-#define ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL(FILE, SY, HI, LO)	\
-  do									\
-    {									\
-      fprintf (FILE, "%s", SET_ASM_OP);					\
-      assemble_name (FILE, SY);						\
-      fputc (',', FILE);						\
-      assemble_name (FILE, HI);						\
-      fputc ('-', FILE);						\
-      assemble_name (FILE, LO);						\
-    }									\
-  while (0)
-#endif
-#endif
 
 /* The DWARF 2 CFA column which tracks the return address.  Normally this
    is the column for PC, or the first column after all of the hard
@@ -1979,8 +1953,9 @@ output_call_frame_info (for_eh)
       fde = &fde_table[i];
 
       /* Don't emit EH unwind info for leaf functions that don't need it.  */
-      if (!flag_asynchronous_unwind_tables && for_eh && fde->nothrow
-	  && !  fde->uses_eh_lsda)
+      if (!flag_asynchronous_unwind_tables && for_eh
+	  && (fde->nothrow || fde->all_throwers_are_sibcalls)
+	  && !fde->uses_eh_lsda)
 	continue;
 
       ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, FDE_LABEL, for_eh + i * 2);
@@ -2142,6 +2117,7 @@ dwarf2out_begin_prologue (line, file)
   fde->funcdef_number = current_function_funcdef_no;
   fde->nothrow = current_function_nothrow;
   fde->uses_eh_lsda = cfun->uses_eh_lsda;
+  fde->all_throwers_are_sibcalls = cfun->all_throwers_are_sibcalls;
 
   args_size = old_args_size = 0;
 
@@ -2158,7 +2134,9 @@ dwarf2out_begin_prologue (line, file)
    been generated.  */
 
 void
-dwarf2out_end_epilogue ()
+dwarf2out_end_epilogue (line, file)
+     unsigned int line ATTRIBUTE_UNUSED;
+     const char *file ATTRIBUTE_UNUSED;
 {
   dw_fde_ref fde;
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
@@ -3133,7 +3111,7 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_ignore_block,
   dwarf2out_source_line,
   dwarf2out_begin_prologue,
-  debug_nothing_int,		/* end_prologue */
+  debug_nothing_int_charstar,	/* end_prologue */
   dwarf2out_end_epilogue,
   debug_nothing_tree,		/* begin_function */
   debug_nothing_int,		/* end_function */
@@ -3273,9 +3251,6 @@ limbo_die_node;
 
 /* Fixed size portion of the DWARF compilation unit header.  */
 #define DWARF_COMPILE_UNIT_HEADER_SIZE (2 * DWARF_OFFSET_SIZE + 3)
-
-/* Fixed size portion of debugging line information prolog.  */
-#define DWARF_LINE_PROLOG_HEADER_SIZE 5
 
 /* Fixed size portion of public names info.  */
 #define DWARF_PUBNAMES_HEADER_SIZE (2 * DWARF_OFFSET_SIZE + 2)
@@ -3778,23 +3753,11 @@ static char ranges_section_label[2 * MAX_ARTIFICIAL_LABEL_BYTES];
 #ifndef TEXT_END_LABEL
 #define TEXT_END_LABEL		"Letext"
 #endif
-#ifndef DATA_END_LABEL
-#define DATA_END_LABEL		"Ledata"
-#endif
-#ifndef BSS_END_LABEL
-#define BSS_END_LABEL           "Lebss"
-#endif
 #ifndef BLOCK_BEGIN_LABEL
 #define BLOCK_BEGIN_LABEL	"LBB"
 #endif
 #ifndef BLOCK_END_LABEL
 #define BLOCK_END_LABEL		"LBE"
-#endif
-#ifndef BODY_BEGIN_LABEL
-#define BODY_BEGIN_LABEL	"Lbb"
-#endif
-#ifndef BODY_END_LABEL
-#define BODY_END_LABEL		"Lbe"
 #endif
 #ifndef LINE_CODE_LABEL
 #define LINE_CODE_LABEL		"LM"
@@ -6162,7 +6125,7 @@ output_die_symbol (die)
     /* We make these global, not weak; if the target doesn't support
        .linkonce, it doesn't support combining the sections, so debugging
        will break.  */
-    ASM_GLOBALIZE_LABEL (asm_out_file, sym);
+    (*targetm.asm_out.globalize_label) (asm_out_file, sym);
 
   ASM_OUTPUT_LABEL (asm_out_file, sym);
 }

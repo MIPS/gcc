@@ -515,11 +515,8 @@ extern struct rtx_def *hppa_pic_save_rtx PARAMS ((void));
 #define STRUCT_VALUE_REGNUM 28
 
 /* Describe how we implement __builtin_eh_return.  */
-/* FIXME: What's a good choice for the EH data registers on TARGET_64BIT?  */
 #define EH_RETURN_DATA_REGNO(N)	\
-  (TARGET_64BIT								\
-   ? ((N) < 4 ? (N) + 4 : INVALID_REGNUM)				\
-   : ((N) < 3 ? (N) + 20 : (N) == 4 ? 31 : INVALID_REGNUM))
+  ((N) < 3 ? (N) + 20 : (N) == 3 ? 31 : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, 29)
 #define EH_RETURN_HANDLER_RTX \
   gen_rtx_MEM (word_mode,						\
@@ -1039,8 +1036,8 @@ extern int may_call_alloca;
 
 /* Implement `va_start' for varargs and stdarg.  */
 
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  hppa_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  hppa_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 
@@ -1682,17 +1679,7 @@ do { 									\
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
   sprintf (LABEL, "*%c$%s%04ld", (PREFIX)[0], (PREFIX) + 1, (long)(NUM))
 
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)					\
-  do {									\
-    /* We only handle DATA objects here, functions are globalized in	\
-       ASM_DECLARE_FUNCTION_NAME.  */					\
-    if (! FUNCTION_NAME_P (NAME))					\
-      {									\
-	fputs ("\t.EXPORT ", FILE);					\
-	assemble_name (FILE, NAME);					\
-	fputs (",DATA\n", FILE);					\
-      }									\
-  } while (0)
+#define TARGET_ASM_GLOBALIZE_LABEL pa_globalize_label
 
 #define ASM_OUTPUT_ASCII(FILE, P, SIZE)  \
   output_ascii ((FILE), (P), (SIZE))

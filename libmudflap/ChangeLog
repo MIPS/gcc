@@ -1,0 +1,194 @@
+2002-08-27  Frank Ch. Eigler  <fche@redhat.com>
+
+	libmudflap hook breakup:
+	* Makefile.am (TESTS_ENVIRONMENT): Add ../../gcc to LD_LIBRARY_PATH
+	for libgcc_s.
+	(TESTS): Make dependent on libmudflap.
+	(HOOKOBJS): Break up mf-hooks.o into many little hook objects,
+	compiled from segments of mf-hooks.c.
+	* mf-hooks.c: Corresponding changes: wrap each function in
+	#ifdef/#endif.
+	* Makefile.in: Regenerated.
+
+	Heuristics reorganization:
+	* mf-heuristics.c (__mf_register_ro_sections, __mf_init_heuristics): 
+	Remove these functions.  Update callers.
+	(__mf_heuristic_check): Incorporate all the various heuristics.
+	Encode cacheability/retry judgement into trinary return value.
+	Separate start-end logic into a separate fallback heuristic.  Only
+	register relevant /proc/self/map segments.
+	* mf-impl.h: Corresponding changes.
+	* mf-runtime.c (__mf_check): Reorganize heuristics fallback logic.
+	(__mf_init): Don't call __mf_init_heuristics.
+
+	Tracing cleanup:
+	* mf-heuristics.c, mf-runtime.c: Use new MUDFLAP_OPTION
+	"-verbose-trace" to emit all tracing messages other than those of
+	basic public api.  Eliminate some duplicate/excessive messages.
+	* mf-runtime.h: Corresponding changes.
+
+2002-08-27  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-impl.h (WRAPPER): Change to create linker aliases for __wrap
+	and __real when compiled with -DPIC.
+	* mf-hooks.c (WRAPPER): Change all uses of WRAPPER macro slightly.
+	* Makefile.am (AUTOMAKE_OPTIONS): Fix LD_LIBRARY_PATH for tests.
+	* Makefile.in: Regenerate.
+
+2002-08-26  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-impl.h: New file, private implementation header.
+	* mf-runtime.h: Reorganize a bit.
+	(CLAMPSZ): Fix arithmetic.
+	(__MF_CACHE_MISS_P): Fix arithmetic.
+	* mf-runtime.c: Reorganize a bit.
+	(__mf_dynamic): New structure.
+	(resolve_single_dynamic): New function.
+	(__mf_resolve_dynamics): New function.
+	(__mf_init): Initialize dynamic wrappers.
+	* mf-hooks.c: Macro-ize __real calls.
+	Clamp various bits of arithmetic.
+	Add explicit __mf_check call contexts.
+	* Makefile.am: Add dependencies on mf-impl.h
+	* Makefile.in: Regenerate.
+	* configure.in: Comment out shared override.
+	* configure: Regenerate.
+
+2002-08-22  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-runtime.c (__mf_process_opts): Sanity-check free_queue_length.
+	(__mf_check): Re-inialize and check heuristics before violation.
+	(__mf_register): Permit updating pure-guess regions.
+	* mf-hooks.c (__wrap_free): Correct some free queue logic.
+	(__wrap_dlopen): New wrapper function.
+	(__wrap_mmap): New wrapper function.
+	(__wrap_munmap): New wrapper function.
+	* mf-heuristics.c (__mf_register_ro_sections): Register *all* regions
+	which are not stack addresses.
+	(is_stack_address): New function.
+	(__mf_init_heuristics): Save and restore state, always initialize with
+	"starting" state.
+
+2002-08-21  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks.c (MF_VALIDATE_EXTENT): Rewrite to correct off-by-one
+	error.  Pass location string.
+	(wrap_strcpy, wrap_strncpy): Remove extra %s in trace strings.
+	* mf-runtime.c (options): Add lc-mask, lc-shift options.
+	(__mf_process_opts): Apply some sanity checking for lc-mask.
+	(__mf_check, __mf_violation): Take new location-string argument.
+	Update callers to pass NULL if necessary.
+	(__mf_backtrace): New smart backtracer function.  Calls replace
+	several ad-hoc blocks elsewhere.
+	(__mf_describe_object): Remove bad reentrancy test.  Improve
+	tracing message.
+	* mf-runtime.h: Corresponding changes.  Public/private markup.
+	(__MF_CACHE_MISS_P): New macro.
+
+2002-08-20  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-runtime.h: New option: stack_bound (heuristic). 
+	Move some macros out of implementation files.
+	* mf-runtime.c: New option string: -stack-bound.
+	Unify recursion protection with hooks. 
+	Add more logging.
+	(__mf_check): Call __mf_heuristic_check.
+	(__mf_process_opts): Fix "no-" processing.
+	* mf-heuristics.c (__mf_heuristic_check): New function.
+	* mf-hooks.c: Much off-by-one fixing, recursion protection.
+
+2002-08-20  Frank Ch. Eigler  <fche@redhat.com>
+
+	Option parsing improvements, region splitting bug fixes:
+	* mf-heuristics.c (__mf_register_ro_sections): Add warned casts.
+	* mf-runtime.h (heur_proc_map): New libmudflap option.
+	* mf-runtime.c (__mf_set_default_options): Set it.
+	(__mf_usage): Print default values/status.
+	(__mf_process_opts): Support general "no-" option string prefix.
+	(__mf_init): Print __mf_usage on unknown-option error.
+	(__mf_register): Print trace message up front.
+	Correct region splitting logic for case where a subregion disappears.
+	Correct memory leak.
+	(__mf_violation): Make even basic message conditional on option.
+
+	Build cleanup:
+	* Makefile.am (TESTS_ENVIRONMENT): Add -no-heur-proc-map.
+	(clean-local): New target.
+	(test/*x rules): Add -g CFLAGS.
+	(CFLAGS): Add -freorder-blocks.
+	(MFCONFIG_CFLAGS, INCLUDE): Remove unneeded settings.
+	* Makefile.in: Regenerated.
+	* Makefile, mf-config.h: Removed files.
+
+2002-08-16  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-runtime.c (__mf_insert_new_object): Factor out of
+	__mf_register.
+	(__mf_remove_old_object): Factor out of __mf_unregister.
+	(__mf_register): Handle guessed regions, splitting
+	guesses when new registrations arrive.
+	(__mf_unregister): Do not unregister guesses.
+	* mf-runtime.h: Move convenience macros around, 
+	declare new option fields. Add __MF_TYPE_GUESS.
+	* mf-hooks.c (__wrap_*alloc): Use crumple zones.
+	(__wrap_free): Call __real_free for deferred frees.
+	* Makefile.am: Add more tests, fix dependency.
+	* Makefile.in: Regenerate.
+	* test/pass[13..17]-frag.c: New testcases.
+	* test/fail[13..17]-frag.c: New testcases.
+
+2002-08-15  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-heuristics.c: New file.
+	* mf-runtime.c (options): Add -trace-calls option.
+	(__mf_init): Call __mf_init_heuristics.
+
+2002-08-14  Graydon Hoare  <graydon@redhat.com>
+
+	* Makefile.am (TESTS): Add testsuite support.
+	* Makefile.in: Regenerate.
+	* test/mf-driver.c: New file.
+	* test/buildtest.sh: New file.
+	* test/passNN-frag.c: New testcases.
+	* test/failNN-frag.c: New testcases.
+
+2002-08-14  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-hooks.c: Change __real_strlen() to __real_strlen()+1 when
+	verifying non-size-limited string extents.
+
+2002-08-14  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks.c: Make __wrap string* functions use __real_str[n]len
+	instead of plain str[n]len for internal checks.
+	* mf-runtime.c (__mf_violation): Print optional stack traceback.
+
+2002-08-14  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-hooks.c: Remove #if-0 around hooks that are now ld-wrapped.
+
+2002-08-13  Graydon Hoare  <graydon@redhat.com>
+
+	* mf-runtime.c: Rework configuration to operate on
+	environment variable options rather than #defines
+	(__mf_violation): Add simple fork-a-gdb violaiton mode.
+	(__mf_init): Set static __mf_active_p flag on startup,
+	to inhibit mudflap wrap-based checking during crt0.s.
+	* mf-runtime.h: Declare options structure.
+	* mf-hooks.c: New wrappings for mem*, b*, str*
+	libc functions (temporarily #if 0-ed out).
+
+2002-08-12  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile.am, configure.in: New files.
+	* Makefile.in, Makefile, configure, config.h.in: New generated files.
+	* stamp-h.in, aclocal.m4: Ditto.
+
+2002-08-08  Frank Ch. Eigler  <fche@redhat.com>
+
+	* Makefile: New file.
+	* mf-config.h: New file: runtime configuration.
+	* mf-hooks.c: New file: interposed libc functions.
+	* mf-runtime.c: New file: bulk of runtime.
+	* mf-runtime.h: New file: public functions.
+

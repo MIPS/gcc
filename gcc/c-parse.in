@@ -1,6 +1,6 @@
 /* YACC parser for C syntax and for Objective C.  -*-c-*-
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996,
-   1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,7 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    written by AT&T, but I have never seen it.  */
 
 ifobjc
-%expect 31 /* shift/reduce conflicts, and 1 reduce/reduce conflict.  */
+%expect 32 /* shift/reduce conflicts, and 1 reduce/reduce conflict.  */
 end ifobjc
 ifc
 %expect 10 /* shift/reduce conflicts, and no reduce/reduce conflicts.  */
@@ -331,6 +331,8 @@ ifc
 #define OBJC_NEED_RAW_IDENTIFIER(VAL)	/* nothing */
 end ifc
 
+static bool parsing_iso_function_signature;
+
 /* Tell yyparse how to print a token's value, if yydebug is set.  */
 
 #define YYPRINT(FILE,YYCHAR,YYLVAL) yyprint(FILE,YYCHAR,YYLVAL)
@@ -382,6 +384,11 @@ extdefs:
 	;
 
 extdef:
+	extdef_1
+	{ parsing_iso_function_signature = false; } /* Reset after any external definition.  */
+	;
+
+extdef_1:
 	fndef
 	| datadef
 ifobjc
@@ -526,21 +533,6 @@ unary_expr:
 	/* Refer to the address of a label as a pointer.  */
 	| ANDAND identifier
 		{ $$ = finish_label_address_expr ($2); }
-/* This seems to be impossible on some machines, so let's turn it off.
-   You can use __builtin_next_arg to find the anonymous stack args.
-	| '&' ELLIPSIS
-		{ tree types = TYPE_ARG_TYPES (TREE_TYPE (current_function_decl));
-		  $$ = error_mark_node;
-		  if (TREE_VALUE (tree_last (types)) == void_type_node)
-		    error ("`&...' used in function with fixed number of arguments");
-		  else
-		    {
-		      if (pedantic)
-			pedwarn ("ISO C forbids `&...'");
-		      $$ = tree_last (DECL_ARGUMENTS (current_function_decl));
-		      $$ = build_unary_op (ADDR_EXPR, $$, 0);
-		    } }
-*/
 	| sizeof unary_expr  %prec UNARY
 		{ skip_evaluation--;
 		  if (TREE_CODE ($2) == COMPONENT_REF
@@ -568,6 +560,10 @@ sizeof:
 
 alignof:
 	ALIGNOF { skip_evaluation++; }
+	;
+
+typeof:
+	TYPEOF { skip_evaluation++; }
 	;
 
 cast_expr:
@@ -787,13 +783,21 @@ objc_string:
 end ifobjc
 
 old_style_parm_decls:
+	old_style_parm_decls_1
+	{
+	  parsing_iso_function_signature = false; /* Reset after decls.  */
+	}
+	;
+
+old_style_parm_decls_1:
 	/* empty */
+	{
+	  if (warn_traditional && !in_system_header
+	      && parsing_iso_function_signature)
+	    warning ("traditional C rejects ISO C style function definitions");
+	  parsing_iso_function_signature = false; /* Reset after warning.  */
+	}
 	| datadecls
-	| datadecls ELLIPSIS
-		/* ... is used here to indicate a varargs function.  */
-		{ c_mark_varargs ();
-		  if (pedantic)
-		    pedwarn ("ISO C does not permit use of `varargs.h'"); }
 	;
 
 /* The following are analogous to lineno_decl, decls and decl
@@ -1394,10 +1398,10 @@ ifobjc
         | non_empty_protocolrefs
                 { $$ = get_object_reference ($1); }
 end ifobjc
-	| TYPEOF '(' expr ')'
-		{ $$ = TREE_TYPE ($3); }
-	| TYPEOF '(' typename ')'
-		{ $$ = groktypename ($3); }
+	| typeof '(' expr ')'
+		{ skip_evaluation--; $$ = TREE_TYPE ($3); }
+	| typeof '(' typename ')'
+		{ skip_evaluation--; $$ = groktypename ($3); }
 	;
 
 /* typespec_nonreserved_attr does not exist.  */
@@ -1566,17 +1570,12 @@ designator_list:
 designator:
 	  '.' identifier
 		{ set_init_label ($2); }
-	/* These are for labeled elements.  The syntax for an array element
-	   initializer conflicts with the syntax for an Objective-C message,
-	   so don't include these productions in the Objective-C grammar.  */
-ifc
 	| '[' expr_no_commas ELLIPSIS expr_no_commas ']'
 		{ set_init_index ($2, $4);
 		  if (pedantic)
 		    pedwarn ("ISO C forbids specifying range of elements to initialize"); }
 	| '[' expr_no_commas ']'
 		{ set_init_index ($2, NULL_TREE); }
-end ifc
 	;
 
 nested_function:
@@ -1591,6 +1590,7 @@ nested_function:
 		      pop_function_context ();
 		      YYERROR1;
 		    }
+		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
 	   old_style_parm_decls
 		{ store_parm_decls (); }
@@ -1621,6 +1621,7 @@ notype_nested_function:
 		      pop_function_context ();
 		      YYERROR1;
 		    }
+		  parsing_iso_function_signature = false; /* Don't warn about nested functions.  */
 		}
 	  old_style_parm_decls
 		{ store_parm_decls (); }
@@ -2545,7 +2546,9 @@ parmlist_2:  /* empty */
 		  error ("ISO C requires a named argument before `...'");
 		}
 	| parms
-		{ $$ = get_parm_info (1); }
+		{ $$ = get_parm_info (1);
+		  parsing_iso_function_signature = true;
+		}
 	| parms ',' ELLIPSIS
 		{ $$ = get_parm_info (0); }
 	;
@@ -3223,14 +3226,8 @@ receiver:
 	;
 
 objcmessageexpr:
-	  '['
-		{ objc_receiver_context = 1; }
-	  receiver
-		{ objc_receiver_context = 0; }
-	  messageargs ']'
-		{
-		  $$ = build_tree_list ($3, $5);
-		}
+	  '[' receiver messageargs ']'
+		{ $$ = build_tree_list ($2, $3); }
 	;
 
 selectorarg:
@@ -3529,19 +3526,6 @@ static const short rid_to_yy[RID_MAX] =
   /* RID_REINTCAST */	0,
   /* RID_STATCAST */	0,
 
-  /* alternate spellings */
-  /* RID_AND */		0,
-  /* RID_AND_EQ */	0,
-  /* RID_NOT */		0,
-  /* RID_NOT_EQ */	0,
-  /* RID_OR */		0,
-  /* RID_OR_EQ */	0,
-  /* RID_XOR */		0,
-  /* RID_XOR_EQ */	0,
-  /* RID_BITAND */	0,
-  /* RID_BITOR */	0,
-  /* RID_COMPL */	0,
-
   /* Objective C */
   /* RID_ID */			OBJECTNAME,
   /* RID_AT_ENCODE */		ENCODE,
@@ -3566,7 +3550,7 @@ init_reswords ()
   int mask = (flag_isoc99 ? 0 : D_C89)
 	      | (flag_no_asm ? (flag_isoc99 ? D_EXT : D_EXT|D_EXT89) : 0);
 
-  if (c_language != clk_objective_c)
+  if (!flag_objc)
      mask |= D_OBJC;
 
   /* It is not necessary to register ridpointers as a GC root, because

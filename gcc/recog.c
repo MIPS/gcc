@@ -308,6 +308,13 @@ insn_invalid_p (insn)
   return 0;
 }
 
+/* Return number of changes made and not validated yet.  */
+int
+num_changes_pending ()
+{
+  return num_changes;
+}
+
 /* Apply a group of changes previously issued with `validate_change'.
    Return 1 if all changes are valid, zero otherwise.  */
 
@@ -671,11 +678,10 @@ validate_replace_src_1 (x, data)
 }
 
 /* Try replacing every occurrence of FROM in INSN with TO, avoiding
-   SET_DESTs.  After all changes have been made, validate by seeing if
-   INSN is still valid.  */
+   SET_DESTs.  */
 
-int
-validate_replace_src (from, to, insn)
+void
+validate_replace_src_group (from, to, insn)
      rtx from, to, insn;
 {
   struct validate_replace_src_data d;
@@ -684,6 +690,15 @@ validate_replace_src (from, to, insn)
   d.to = to;
   d.insn = insn;
   note_uses (&PATTERN (insn), validate_replace_src_1, &d);
+}
+
+/* Same as validate_repalace_src_group, but validate by seeing if
+   INSN is still valid.  */
+int
+validate_replace_src (from, to, insn)
+     rtx from, to, insn;
+{
+  validate_replace_src_group (from, to, insn);
   return apply_change_group ();
 }
 
@@ -939,6 +954,7 @@ general_operand (op, mode)
     return 0;
 
   if (GET_CODE (op) == CONST_INT
+      && mode != VOIDmode
       && trunc_int_for_mode (INTVAL (op), mode) != INTVAL (op))
     return 0;
 
@@ -958,11 +974,13 @@ general_operand (op, mode)
 
   if (code == SUBREG)
     {
+      rtx sub = SUBREG_REG (op);
+
 #ifdef INSN_SCHEDULING
       /* On machines that have insn scheduling, we want all memory
 	 reference to be explicit, so outlaw paradoxical SUBREGs.  */
-      if (GET_CODE (SUBREG_REG (op)) == MEM
-	  && GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (SUBREG_REG (op))))
+      if (GET_CODE (sub) == MEM
+	  && GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (sub)))
 	return 0;
 #endif
       /* Avoid memories with nonzero SUBREG_BYTE, as offsetting the memory
@@ -972,10 +990,16 @@ general_operand (op, mode)
 
 	 ??? This is a kludge.  */
       if (!reload_completed && SUBREG_BYTE (op) != 0
-	  && GET_CODE (SUBREG_REG (op)) == MEM)
+	  && GET_CODE (sub) == MEM)
 	return 0;
 
-      op = SUBREG_REG (op);
+      /* FLOAT_MODE subregs can't be paradoxical.  Combine will occasionally
+ 	 create such rtl, and we must reject it.  */
+      if (GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT
+	  && GET_MODE_SIZE (GET_MODE (op)) > GET_MODE_SIZE (GET_MODE (sub)))
+	return 0;
+
+      op = sub;
       code = GET_CODE (op);
     }
 
@@ -1048,28 +1072,36 @@ register_operand (op, mode)
 
   if (GET_CODE (op) == SUBREG)
     {
+      rtx sub = SUBREG_REG (op);
+
       /* Before reload, we can allow (SUBREG (MEM...)) as a register operand
 	 because it is guaranteed to be reloaded into one.
 	 Just make sure the MEM is valid in itself.
 	 (Ideally, (SUBREG (MEM)...) should not exist after reload,
 	 but currently it does result from (SUBREG (REG)...) where the
 	 reg went on the stack.)  */
-      if (! reload_completed && GET_CODE (SUBREG_REG (op)) == MEM)
+      if (! reload_completed && GET_CODE (sub) == MEM)
 	return general_operand (op, mode);
 
 #ifdef CLASS_CANNOT_CHANGE_MODE
-      if (GET_CODE (SUBREG_REG (op)) == REG
-	  && REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER
+      if (GET_CODE (sub) == REG
+	  && REGNO (sub) < FIRST_PSEUDO_REGISTER
 	  && (TEST_HARD_REG_BIT
 	      (reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
-	       REGNO (SUBREG_REG (op))))
-	  && CLASS_CANNOT_CHANGE_MODE_P (mode, GET_MODE (SUBREG_REG (op)))
-	  && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op))) != MODE_COMPLEX_INT
-	  && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op))) != MODE_COMPLEX_FLOAT)
+	       REGNO (sub)))
+	  && CLASS_CANNOT_CHANGE_MODE_P (mode, GET_MODE (sub))
+	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_INT
+	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_FLOAT)
 	return 0;
 #endif
 
-      op = SUBREG_REG (op);
+      /* FLOAT_MODE subregs can't be paradoxical.  Combine will occasionally
+	 create such rtl, and we must reject it.  */
+      if (GET_MODE_CLASS (GET_MODE (op)) == MODE_FLOAT
+	  && GET_MODE_SIZE (GET_MODE (op)) > GET_MODE_SIZE (GET_MODE (sub)))
+	return 0;
+
+      op = sub;
     }
 
   /* If we have an ADDRESSOF, consider it valid since it will be
@@ -1128,6 +1160,7 @@ immediate_operand (op, mode)
     return 0;
 
   if (GET_CODE (op) == CONST_INT
+      && mode != VOIDmode
       && trunc_int_for_mode (INTVAL (op), mode) != INTVAL (op))
     return 0;
 
@@ -1210,6 +1243,7 @@ nonmemory_operand (op, mode)
 	return 0;
 
       if (GET_CODE (op) == CONST_INT
+	  && mode != VOIDmode
 	  && trunc_int_for_mode (INTVAL (op), mode) != INTVAL (op))
 	return 0;
 
@@ -1714,7 +1748,9 @@ asm_operand_ok (op, constraint)
 
 	case 'E':
 	case 'F':
-	  if (GET_CODE (op) == CONST_DOUBLE)
+	  if (GET_CODE (op) == CONST_DOUBLE
+	      || (GET_CODE (op) == CONST_VECTOR
+		  && GET_MODE_CLASS (GET_MODE (op)) == MODE_VECTOR_FLOAT))
 	    return 1;
 	  break;
 
@@ -1815,6 +1851,18 @@ asm_operand_ok (op, constraint)
 #ifdef EXTRA_CONSTRAINT
 	  if (EXTRA_CONSTRAINT (op, c))
 	    return 1;
+	  if (EXTRA_MEMORY_CONSTRAINT (c))
+	    {
+	      /* Every memory operand can be reloaded to fit.  */
+	      if (memory_operand (op, VOIDmode))
+	        return 1;
+	    }
+	  if (EXTRA_ADDRESS_CONSTRAINT (c))
+	    {
+	      /* Every address operand can be reloaded to fit.  */
+	      if (address_operand (op, VOIDmode))
+	        return 1;
+	    }
 #endif
 	  break;
 	}
@@ -2254,6 +2302,19 @@ preprocess_constraints ()
 		  break;
 
 		default:
+		  if (EXTRA_MEMORY_CONSTRAINT (c))
+		    {
+		      op_alt[j].memory_ok = 1;
+		      break;
+		    }
+		  if (EXTRA_ADDRESS_CONSTRAINT (c))
+		    {
+		      op_alt[j].is_address = 1;
+		      op_alt[j].class = reg_class_subunion[(int) op_alt[j].class]
+		        [(int) MODE_BASE_REG_CLASS (VOIDmode)];
+		      break;
+		    }
+
 		  op_alt[j].class = reg_class_subunion[(int) op_alt[j].class][(int) REG_CLASS_FROM_LETTER ((unsigned char) c)];
 		  break;
 		}
@@ -2482,7 +2543,9 @@ constrain_operands (strict)
 
 	      case 'E':
 	      case 'F':
-		if (GET_CODE (op) == CONST_DOUBLE)
+		if (GET_CODE (op) == CONST_DOUBLE
+		    || (GET_CODE (op) == CONST_VECTOR
+			&& GET_MODE_CLASS (GET_MODE (op)) == MODE_VECTOR_FLOAT))
 		  win = 1;
 		break;
 
@@ -2565,6 +2628,28 @@ constrain_operands (strict)
 #ifdef EXTRA_CONSTRAINT
 		  else if (EXTRA_CONSTRAINT (op, c))
 		    win = 1;
+
+		  if (EXTRA_MEMORY_CONSTRAINT (c))
+		    {
+		      /* Every memory operand can be reloaded to fit,
+			 so copy the condition from the 'm' case.  */
+		      if (GET_CODE (op) == MEM
+		          /* Before reload, accept what reload can turn into mem.  */
+		          || (strict < 0 && CONSTANT_P (op))
+		          /* During reload, accept a pseudo  */
+		          || (reload_in_progress && GET_CODE (op) == REG
+			      && REGNO (op) >= FIRST_PSEUDO_REGISTER))
+			win = 1;
+		    }
+		  if (EXTRA_ADDRESS_CONSTRAINT (c))
+		    {
+		      /* Every address operand can be reloaded to fit,
+			 so copy the condition from the 'p' case.  */
+		      if (strict <= 0
+		          || (strict_memory_address_p (recog_data.operand_mode[opno],
+						       op)))
+		        win = 1;
+		    }
 #endif
 		  break;
 		}

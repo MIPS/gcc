@@ -41,7 +41,7 @@ OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 # or configure.in to see how they are set. See GLIBCPP_EXPORT_FLAGS
 # NB: DEBUGFLAGS have to be at the end so that -O2 can be overridden.
 CONFIG_CXXFLAGS = \
-	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @CSHADOW_FLAGS@ @DEBUG_FLAGS@ 
+	@EXTRA_CXX_FLAGS@ @SECTION_FLAGS@ @DEBUG_FLAGS@ 
 
 # Warning flags to use.
 WARN_CXXFLAGS = \
@@ -70,6 +70,7 @@ sources = \
 	concept-inst.cc \
 	ctype.cc \
 	ext-inst.cc \
+	fstream.cc \
 	fstream-inst.cc \
 	functexcept.cc \
 	globals.cc \

@@ -153,7 +153,7 @@ extern bool ix86_function_value_regno_p PARAMS ((int));
 extern bool ix86_function_arg_regno_p PARAMS ((int));
 extern int ix86_function_arg_boundary PARAMS ((enum machine_mode, tree));
 extern int ix86_return_in_memory PARAMS ((tree));
-extern void ix86_va_start PARAMS ((int, tree, rtx));
+extern void ix86_va_start PARAMS ((tree, rtx));
 extern rtx ix86_va_arg PARAMS ((tree, tree));
 extern void ix86_setup_incoming_varargs PARAMS ((CUMULATIVE_ARGS *,
 						 enum machine_mode,
@@ -209,6 +209,7 @@ extern int x86_field_alignment PARAMS ((tree, int));
 #endif
 
 extern rtx ix86_tls_get_addr PARAMS ((void));
+extern void x86_machine_dependent_reorg PARAMS ((rtx));
 
 /* In winnt.c  */
 extern void i386_pe_encode_section_info PARAMS ((tree, int));

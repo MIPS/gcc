@@ -38,13 +38,11 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
-
 #include "darwin-protos.h"
 
 extern void machopic_output_stub PARAMS ((FILE *, const char *, const char *));
 
 static int machopic_data_defined_p PARAMS ((const char *));
-static int func_name_maybe_scoped PARAMS ((const char *));
 static void update_non_lazy_ptrs PARAMS ((const char *));
 static void update_stubs PARAMS ((const char *));
 
@@ -227,7 +225,7 @@ static char function_base[32];
 
 static int current_pic_label_num;
 
-char *
+const char *
 machopic_function_base_name ()
 {
   static const char *name = NULL;
@@ -263,11 +261,11 @@ static GTY(()) tree machopic_non_lazy_pointers;
    either by finding it in our list of pointer names, or by generating
    a new one.  */
 
-char * 
+const char * 
 machopic_non_lazy_ptr_name (name)
      const char *name;
 {
-  char *temp_name;
+  const char *temp_name;
   tree temp, ident = get_identifier (name);
   
   for (temp = machopic_non_lazy_pointers;
@@ -326,7 +324,7 @@ static GTY(()) tree machopic_stubs;
 /* Return the name of the stub corresponding to the given name,
    generating a new stub name if necessary.  */
 
-char * 
+const char * 
 machopic_stub_name (name)
      const char *name;
 {
@@ -391,7 +389,7 @@ machopic_validate_stub_or_non_lazy_ptr (name, validate_stub)
      const char *name;
      int validate_stub;
 {
-  char *real_name;
+  const char *real_name;
   tree temp, ident = get_identifier (name), id2;
 
     for (temp = (validate_stub ? machopic_stubs : machopic_non_lazy_pointers);
@@ -430,10 +428,12 @@ machopic_indirect_data_reference (orig, reg)
 
       if (machopic_data_defined_p (name))
 	{
+#if defined (TARGET_TOC) || defined (HAVE_lo_sum)
 	  rtx pic_base = gen_rtx (SYMBOL_REF, Pmode, 
 				  machopic_function_base_name ());
 	  rtx offset = gen_rtx (CONST, Pmode,
 				gen_rtx (MINUS, Pmode, orig, pic_base));
+#endif
 
 #if defined (TARGET_TOC) /* i.e., PowerPC */
 	  rtx hi_sum_reg = reg;
@@ -492,9 +492,6 @@ machopic_indirect_data_reference (orig, reg)
 	result = plus_constant (base, INTVAL (orig));
       else
 	result = gen_rtx (PLUS, Pmode, base, orig);
-
-      if (RTX_UNCHANGING_P (base) && RTX_UNCHANGING_P (orig))
-	RTX_UNCHANGING_P (result) = 1;
 
       if (MACHOPIC_JUST_INDIRECT && GET_CODE (base) == MEM)
 	{
@@ -667,10 +664,10 @@ machopic_legitimize_pic_address (orig, mode, reg)
 	    }
 	  
 #if !defined (TARGET_TOC)
-	  RTX_UNCHANGING_P (pic_ref) = 1;
 	  emit_move_insn (reg, pic_ref);
 	  pic_ref = gen_rtx (MEM, GET_MODE (orig), reg);
 #endif
+	  RTX_UNCHANGING_P (pic_ref) = 1;
 	}
       else
 	{
@@ -702,6 +699,7 @@ machopic_legitimize_pic_address (orig, mode, reg)
 				  gen_rtx (LO_SUM, Pmode,
 					   hi_sum_reg, offset)));
 	      pic_ref = reg;
+	      RTX_UNCHANGING_P (pic_ref) = 1;
 #else
 	      emit_insn (gen_rtx (SET, VOIDmode, reg,
 				  gen_rtx (HIGH, Pmode, offset)));
@@ -709,6 +707,7 @@ machopic_legitimize_pic_address (orig, mode, reg)
 				  gen_rtx (LO_SUM, Pmode, reg, offset)));
 	      pic_ref = gen_rtx (PLUS, Pmode,
 				 pic_offset_table_rtx, reg);
+	      RTX_UNCHANGING_P (pic_ref) = 1;
 #endif
 	    }
 	  else
@@ -738,8 +737,6 @@ machopic_legitimize_pic_address (orig, mode, reg)
 		}
 	    }
 	}
-
-      RTX_UNCHANGING_P (pic_ref) = 1;
 
       if (GET_CODE (pic_ref) != REG)
         {
@@ -860,8 +857,8 @@ machopic_finish (asm_out_file)
        temp != NULL_TREE; 
        temp = TREE_CHAIN (temp))
     {
-      char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
-      char *lazy_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
+      const char *const sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+      const char *const lazy_name = IDENTIFIER_POINTER (TREE_PURPOSE (temp));
 #if 0
       tree decl = lookup_name_darwin (TREE_VALUE (temp));
 #endif
@@ -1031,7 +1028,7 @@ update_non_lazy_ptrs (name)
        temp != NULL_TREE; 
        temp = TREE_CHAIN (temp))
     {
-      char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+      const char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
 
       if (*sym_name == '!')
 	{
@@ -1095,7 +1092,7 @@ update_stubs (name)
        temp != NULL_TREE; 
        temp = TREE_CHAIN (temp))
     {
-      char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
+      const char *sym_name = IDENTIFIER_POINTER (TREE_VALUE (temp));
 
       if (*sym_name == '!')
 	{
@@ -1155,7 +1152,7 @@ machopic_select_section (exp, reloc, align)
 	objc_string_object_section ();
       else if (TREE_READONLY (exp) || TREE_CONSTANT (exp))
 	{
-	  if (TREE_SIDE_EFFECTS (exp) || flag_pic && reloc)
+	  if (TREE_SIDE_EFFECTS (exp) || (flag_pic && reloc))
 	    const_data_section ();
 	  else
 	    readonly_data_section ();
@@ -1228,7 +1225,7 @@ machopic_select_section (exp, reloc, align)
     }
   else if (TREE_READONLY (exp) || TREE_CONSTANT (exp))
     {
-      if (TREE_SIDE_EFFECTS (exp) || flag_pic && reloc)
+      if (TREE_SIDE_EFFECTS (exp) || (flag_pic && reloc))
 	const_data_section ();
       else
 	readonly_data_section ();
@@ -1286,6 +1283,15 @@ machopic_asm_out_destructor (symbol, priority)
 
   if (!flag_pic)
     fprintf (asm_out_file, ".reference .destructors_used\n");
+}
+
+void
+darwin_globalize_label (stream, name)
+     FILE *stream;
+     const char *name;
+{
+  if (!!strncmp (name, "_OBJC_", 6))
+    default_globalize_label (stream, name);
 }
 
 #include "gt-darwin.h"

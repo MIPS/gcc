@@ -2632,7 +2632,7 @@ v850_output_aligned_bss (file, decl, name, size, align)
      int size;
      int align;
 {
-  ASM_GLOBALIZE_LABEL (file, name);
+  (*targetm.asm_out.globalize_label) (file, name);
   
   switch (v850_get_data_area (decl))
     {
@@ -2876,7 +2876,7 @@ v850_return_addr (count)
 static void
 v850_select_section (exp, reloc, align)
      tree exp;
-     int reloc;
+     int reloc ATTRIBUTE_UNUSED;
      unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
 {
   if (TREE_CODE (exp) == VAR_DECL)

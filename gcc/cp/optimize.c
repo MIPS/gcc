@@ -34,6 +34,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "debug.h"
 #include "tree-inline.h"
+#include "tree-optimize.h"
+#include "flags.h"
+#include "langhooks.h"
 
 /* Prototypes.  */
 
@@ -74,7 +77,19 @@ optimize_function (fn)
   
   /* Undo the call to ggc_push_context above.  */
   --function_depth;
-  
+
+#if 0
+  /* Simplify the function.  Don't try to optimize the function if
+     simplification failed.  */
+  if (!flag_disable_simple
+      && simplify_function_tree (fn))
+    {
+      /* Invoke the SSA tree optimizer.  */
+      if (flag_tree_ssa)
+	optimize_function_tree (fn);
+    }
+#endif
+
   dump_function (TDI_optimized, fn);
 }
 
@@ -129,8 +144,7 @@ update_cloned_parm (parm, cloned_parm)
   
   /* The name may have changed from the declaration. */
   DECL_NAME (cloned_parm) = DECL_NAME (parm);
-  DECL_SOURCE_FILE (cloned_parm) = DECL_SOURCE_FILE (parm);
-  DECL_SOURCE_LINE (cloned_parm) = DECL_SOURCE_LINE (parm);
+  DECL_SOURCE_LOCATION (cloned_parm) = DECL_SOURCE_LOCATION (parm);
 }
 
 /* FN is a function that has a complete body.  Clone the body as
@@ -164,8 +178,7 @@ maybe_clone_body (fn)
       splay_tree decl_map;
 
       /* Update CLONE's source position information to match FN's.  */
-      DECL_SOURCE_FILE (clone) = DECL_SOURCE_FILE (fn);
-      DECL_SOURCE_LINE (clone) = DECL_SOURCE_LINE (fn);
+      DECL_SOURCE_LOCATION (clone) = DECL_SOURCE_LOCATION (fn);
       DECL_INLINE (clone) = DECL_INLINE (fn);
       DECL_DECLARED_INLINE_P (clone) = DECL_DECLARED_INLINE_P (fn);
       DECL_COMDAT (clone) = DECL_COMDAT (fn);

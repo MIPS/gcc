@@ -149,7 +149,8 @@ special_rtx (idx)
   return (strcmp (defs[idx].enumname, "CONST_INT") == 0
 	  || strcmp (defs[idx].enumname, "REG") == 0
 	  || strcmp (defs[idx].enumname, "SUBREG") == 0
-	  || strcmp (defs[idx].enumname, "MEM") == 0);
+	  || strcmp (defs[idx].enumname, "MEM") == 0
+	  || strcmp (defs[idx].enumname, "CONST_VECTOR") == 0);
 }
 
 /* Return nonzero if the RTL code given by index IDX is one that we should
@@ -336,10 +337,6 @@ gencode ()
   puts ("#include \"rtl.h\"");
   puts ("#include \"ggc.h\"\n");
   puts ("extern struct obstack *rtl_obstack;\n");
-  puts ("#define obstack_alloc_rtx(n)					\\");
-  puts ("    ((rtx) obstack_alloc (rtl_obstack,				\\");
-  puts ("			  sizeof (struct rtx_def)		\\");
-  puts ("			  + ((n) - 1) * sizeof (rtunion)))\n");
 
   for (fmt = formats; *fmt != 0; fmt++)
     gendef (*fmt);

@@ -45,6 +45,7 @@ static void vms_asm_out_constructor PARAMS ((rtx, int));
 static void vms_asm_out_destructor PARAMS ((rtx, int));
 static void vms_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
 static void vms_encode_section_info PARAMS ((tree, int));
+static void vms_globalize_label PARAMS ((FILE *, const char *));
 #endif
 
 /* Initialize the GCC target structure.  */
@@ -59,6 +60,8 @@ static void vms_encode_section_info PARAMS ((tree, int));
 #define TARGET_ASM_SELECT_SECTION vms_select_section
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO vms_encode_section_info
+#undef TARGET_ASM_GLOBALIZE_LABEL
+#define TARGET_ASM_GLOBALIZE_LABEL vms_globalize_label
 #endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
@@ -120,14 +123,16 @@ vax_output_function_prologue (file, size)
 	}
 
       if (is_main)
-	fprintf (file, "\t%s\n\t%s\n", "clrl -(sp)", "jsb _C$MAIN_ARGS");
+	fprintf (file, "\tclrl -(%ssp)\n\tjsb _C$MAIN_ARGS\n",
+	         REGISTER_PREFIX);
     }
 
-    size -= STARTING_FRAME_OFFSET;
-    if (size >= 64)
-      fprintf (file, "\tmovab %d(sp),sp\n", -size);
-    else if (size)
-      fprintf (file, "\tsubl2 $%d,sp\n", size);
+  size -= STARTING_FRAME_OFFSET;
+  if (size >= 64)
+    fprintf (file, "\tmovab %d(%ssp),%ssp\n", -size, REGISTER_PREFIX,
+	     REGISTER_PREFIX);
+  else if (size)
+    fprintf (file, "\tsubl2 $%d,%ssp\n", size, REGISTER_PREFIX);
 }
 
 /* This is like nonimmediate_operand with a restriction on the type of MEM.  */
@@ -808,7 +813,7 @@ vms_check_external (decl, name, pending)
       }
 
   /* Not previously seen; create a new list entry.  */
-  p = (struct extern_list *)permalloc ((long) sizeof (struct extern_list));
+  p = (struct extern_list *) xmalloc (sizeof (struct extern_list));
   p->name = name;
 
   if (pending)
@@ -922,6 +927,17 @@ vms_encode_section_info (decl, first)
 {
   if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+
+/* This is how to output a command to make the user-level label named NAME
+   defined for reference from other files.  */
+static void
+vms_globalize_label (stream, name)
+     FILE *stream;
+     const char *name;
+{
+  default_globalize_label (stream, name);
+  vms_check_external (NULL_TREE, name, 0);
 }
 #endif /* VMS_TARGET */
 

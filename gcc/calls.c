@@ -34,6 +34,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "timevar.h"
 #include "sbitmap.h"
 #include "langhooks.h"
+#include "target.h"
 
 #if !defined FUNCTION_OK_FOR_SIBCALL
 #define FUNCTION_OK_FOR_SIBCALL(DECL) 1
@@ -3677,6 +3678,16 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 					     NULL_TREE, 1)
 #endif
 	    ;
+
+	  /* loop.c won't look at CALL_INSN_FUNCTION_USAGE of const/pure
+	     functions, so we have to pretend this isn't such a function.  */
+	  if (flags & ECF_LIBCALL_BLOCK)
+	    {
+	      rtx insns = get_insns ();
+	      end_sequence ();
+	      emit_insn (insns);
+	    }
+	  flags &= ~(ECF_CONST | ECF_PURE | ECF_LIBCALL_BLOCK);
 
 	  if (GET_MODE (val) == MEM && ! must_copy)
 	    slot = val;

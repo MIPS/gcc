@@ -105,7 +105,10 @@ struct emit_status GTY(())
   tree * GTY ((length ("%h.regno_pointer_align_length"))) regno_decl;
 
   /* Indexed by pseudo register number, gives the rtx for that pseudo.
-     Allocated in parallel with regno_pointer_align.  */
+     Allocated in parallel with regno_pointer_align. 
+
+     Note MEM expressions can appear in this array due to the actions
+     of put_var_into_stack.  */
   rtx * GTY ((length ("%h.regno_pointer_align_length"))) x_regno_reg_rtx;
 };
 
@@ -434,6 +437,13 @@ struct function GTY(())
      we should try to cut corners where we can.  */
   unsigned int is_thunk : 1;
 
+  /* This bit is used by the exception handling logic.  It is set if all
+     calls (if any) are sibling calls.  Such functions do not have to
+     have EH tables generated, as they cannot throw.  A call to such a
+     function, however, should be treated as throwing if any of its callees
+     can throw. */
+  unsigned int all_throwers_are_sibcalls : 1;
+ 
   /* Nonzero if instrumentation calls for function entry and exit should be
      generated.  */
   unsigned int instrument_entry_exit : 1;
@@ -448,12 +458,7 @@ struct function GTY(())
      function.  */
   unsigned int limit_stack : 1;
 
-  /* Nonzero if current function uses varargs.h or equivalent.
-     Zero for functions that use stdarg.h.  */
-  unsigned int varargs : 1;
-
-  /* Nonzero if current function uses stdarg.h or equivalent.
-     Zero for functions that use varargs.h.  */
+  /* Nonzero if current function uses stdarg.h or equivalent.  */
   unsigned int stdarg : 1;
 
   /* Nonzero if this function is being processed in function-at-a-time
@@ -522,7 +527,6 @@ extern int virtuals_instantiated;
 #define current_function_pretend_args_size (cfun->pretend_args_size)
 #define current_function_outgoing_args_size (cfun->outgoing_args_size)
 #define current_function_arg_offset_rtx (cfun->arg_offset_rtx)
-#define current_function_varargs (cfun->varargs)
 #define current_function_stdarg (cfun->stdarg)
 #define current_function_internal_arg_pointer (cfun->internal_arg_pointer)
 #define current_function_return_rtx (cfun->return_rtx)

@@ -68,9 +68,6 @@ do {								\
 #undef  IDENT_ASM_OP
 #define IDENT_ASM_OP "\t.ident\t"
 
-/* Allow #sccs in preprocessor.  */
-#define SCCS_DIRECTIVE
-
 /* Output #ident as a .ident.  */
 #undef  ASM_OUTPUT_IDENT
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
@@ -115,7 +112,7 @@ do {								\
 
 #undef  ASM_OUTPUT_EXTERNAL_LIBCALL
 #define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN)				\
-  ASM_GLOBALIZE_LABEL (FILE, XSTR (FUN, 0))
+  (*targetm.asm_out.globalize_label) (FILE, XSTR (FUN, 0))
 
 /* This says how to output assembler code to declare an
    uninitialized external linkage data object.  Under SVR4,
@@ -145,17 +142,9 @@ do {									\
     sbss_section();							\
   else									\
     bss_section();							\
-  fprintf (FILE, "%s", TYPE_ASM_OP);					\
-  assemble_name (FILE, NAME);						\
-  putc (',', FILE);							\
-  fprintf (FILE, TYPE_OPERAND_FMT, "object");				\
-  putc ('\n', FILE);							\
+  ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
   if (!flag_inhibit_size_directive)					\
-    {									\
-      fprintf (FILE, "%s", SIZE_ASM_OP);				\
-      assemble_name (FILE, NAME);					\
-      fprintf (FILE, ",%d\n", (SIZE));					\
-    }									\
+    ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, SIZE);			\
   ASM_OUTPUT_ALIGN ((FILE), exact_log2((ALIGN) / BITS_PER_UNIT));	\
   ASM_OUTPUT_LABEL(FILE, NAME);						\
   ASM_OUTPUT_SKIP((FILE), (SIZE) ? (SIZE) : 1);				\
@@ -167,7 +156,7 @@ do {									\
 #undef  ASM_OUTPUT_ALIGNED_BSS
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)		\
 do {									\
-  ASM_GLOBALIZE_LABEL (FILE, NAME);					\
+  (*targetm.asm_out.globalize_label) (FILE, NAME);	       		\
   ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);			\
 } while (0)
 
@@ -334,22 +323,14 @@ void FN ()					\
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)		\
   do {								\
     HOST_WIDE_INT size;						\
-    fprintf (FILE, "%s", TYPE_ASM_OP);				\
-    assemble_name (FILE, NAME);					\
-    putc (',', FILE);						\
-    fprintf (FILE, TYPE_OPERAND_FMT, "object");			\
-    putc ('\n', FILE);						\
+    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");		\
     size_directive_output = 0;					\
     if (!flag_inhibit_size_directive				\
 	&& DECL_SIZE (DECL)					\
 	&& (size = int_size_in_bytes (TREE_TYPE (DECL))) > 0)	\
       {								\
 	size_directive_output = 1;				\
-	fprintf (FILE, "%s", SIZE_ASM_OP);			\
-	assemble_name (FILE, NAME);				\
-	fputc (',', FILE);					\
-	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, size);		\
-	fputc ('\n', FILE);					\
+        ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);		\
       }								\
     ASM_OUTPUT_LABEL(FILE, NAME);				\
   } while (0)
@@ -373,11 +354,7 @@ void FN ()					\
 	&& (size = int_size_in_bytes (TREE_TYPE (DECL))) > 0)		\
       {									\
 	size_directive_output = 1;					\
-	fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	assemble_name (FILE, name);					\
-	fputc (',', FILE);						\
-	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, size);			\
-	fputc ('\n', FILE);						\
+	ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			\
       }									\
   } while (0)
 

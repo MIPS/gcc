@@ -135,7 +135,7 @@ extern void alpha_initialize_trampoline PARAMS ((rtx, rtx, rtx, int, int, int));
 extern void alpha_reorg PARAMS ((rtx));
 
 extern tree alpha_build_va_list PARAMS ((void));
-extern void alpha_va_start PARAMS ((int, tree, rtx));
+extern void alpha_va_start PARAMS ((tree, rtx));
 extern rtx alpha_va_arg PARAMS ((tree, tree));
 extern rtx function_arg PARAMS ((CUMULATIVE_ARGS, enum machine_mode,
 				 tree, int));
@@ -159,13 +159,13 @@ extern void alpha_emit_xfloating_cvt PARAMS ((enum rtx_code, rtx[]));
 #endif
 
 extern rtx alpha_need_linkage PARAMS ((const char *, int));
+extern rtx alpha_use_linkage PARAMS ((rtx, tree, int, int));
 
 #if TARGET_ABI_OPEN_VMS
 #ifdef HAVE_MACHINE_MODES
 extern enum avms_arg_type alpha_arg_type PARAMS ((enum machine_mode));
 #endif
 extern rtx alpha_arg_info_reg_val PARAMS ((CUMULATIVE_ARGS));
-extern void alpha_write_linkage PARAMS ((FILE *));
 #endif /* TARGET_ABI_OPEN_VMS */
 
 extern rtx unicosmk_add_call_info_word PARAMS ((rtx));

@@ -46,7 +46,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "libfuncs.h"
 #include "hard-reg-set.h"
-#include "obstack.h"
 #include "loop.h"
 #include "recog.h"
 #include "machmode.h"
@@ -1253,6 +1252,10 @@ parse_output_constraint (constraint_p, operand_num, ninputs, noutputs,
 	if (REG_CLASS_FROM_LETTER (*p) != NO_REGS)
 	  *allows_reg = true;
 #ifdef EXTRA_CONSTRAINT
+	else if (EXTRA_ADDRESS_CONSTRAINT (*p))
+	  *allows_reg = true;
+	else if (EXTRA_MEMORY_CONSTRAINT (*p))
+	  *allows_mem = true;
 	else
 	  {
 	    /* Otherwise we can't assume anything about the nature of
@@ -1378,6 +1381,10 @@ parse_input_constraint (constraint_p, input_num, ninputs, noutputs, ninout,
 	if (REG_CLASS_FROM_LETTER (constraint[j]) != NO_REGS)
 	  *allows_reg = true;
 #ifdef EXTRA_CONSTRAINT
+	else if (EXTRA_ADDRESS_CONSTRAINT (constraint[j]))
+	  *allows_reg = true;
+	else if (EXTRA_MEMORY_CONSTRAINT (constraint[j]))
+	  *allows_mem = true;
 	else
 	  {
 	    /* Otherwise we can't assume anything about the nature of
@@ -2151,7 +2158,7 @@ warn_if_unused_value (exp)
       return warn_if_unused_value (TREE_OPERAND (exp, 1));
 
     case SAVE_EXPR:
-      return warn_if_unused_value (TREE_OPERAND (exp, 1));
+      return warn_if_unused_value (TREE_OPERAND (exp, 0));
 
     case TRUTH_ORIF_EXPR:
     case TRUTH_ANDIF_EXPR:

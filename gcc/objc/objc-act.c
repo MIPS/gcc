@@ -90,9 +90,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "obstack.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* This obstack is used to accumulate the encoding of a data type.  */
 static struct obstack util_obstack;
 /* This points to the beginning of obstack contents,
@@ -131,7 +128,6 @@ static tree build_objc_method_call		PARAMS ((int, tree, tree,
 static void generate_strings			PARAMS ((void));
 static tree get_proto_encoding 			PARAMS ((tree));
 static void build_selector_translation_table	PARAMS ((void));
-static tree build_ivar_chain			PARAMS ((tree, int));
 
 static tree objc_add_static_instance		PARAMS ((tree, tree));
 
@@ -252,7 +248,6 @@ static tree build_typed_selector_reference     	PARAMS ((tree, tree));
 static tree build_selector_reference		PARAMS ((tree));
 static tree build_class_reference_decl		PARAMS ((void));
 static void add_class_reference			PARAMS ((tree));
-static tree objc_copy_list			PARAMS ((tree, tree *));
 static tree build_protocol_template		PARAMS ((void));
 static tree build_descriptor_table_initializer	PARAMS ((tree, tree));
 static tree build_method_prototype_list_template PARAMS ((tree, int));
@@ -295,6 +290,7 @@ static void generate_classref_translation_entry	PARAMS ((tree));
 static void handle_class_ref			PARAMS ((tree));
 static void generate_struct_by_value_array	PARAMS ((void))
      ATTRIBUTE_NORETURN;
+static void encode_complete_bitfield		PARAMS ((int, tree, int));
 
 /*** Private Interface (data) ***/
 
@@ -313,13 +309,11 @@ static void generate_struct_by_value_array	PARAMS ((void))
 #define UTAG_METHOD_LIST	"_objc_method_list"
 #define UTAG_CATEGORY		"_objc_category"
 #define UTAG_MODULE		"_objc_module"
-#define UTAG_STATICS		"_objc_statics"
 #define UTAG_SYMTAB		"_objc_symtab"
 #define UTAG_SUPER		"_objc_super"
 #define UTAG_SELECTOR		"_objc_selector"
 
 #define UTAG_PROTOCOL		"_objc_protocol"
-#define UTAG_PROTOCOL_LIST	"_objc_protocol_list"
 #define UTAG_METHOD_PROTOTYPE	"_objc_method_prototype"
 #define UTAG_METHOD_PROTOTYPE_LIST "_objc__method_prototype_list"
 
@@ -328,8 +322,6 @@ static void generate_struct_by_value_array	PARAMS ((void))
 #define STRING_OBJECT_GLOBAL_NAME "_NSConstantStringClassReference"
 
 #define PROTOCOL_OBJECT_CLASS_NAME "Protocol"
-
-static const char *constant_string_class_name = NULL;
 
 static const char *TAG_GETCLASS;
 static const char *TAG_GETMETACLASS;
@@ -340,8 +332,6 @@ static const char *default_constant_string_class_name;
 
 /* The OCTI_... enumeration itself is in objc/objc-act.h.  */
 tree objc_global_trees[OCTI_MAX];
-
-int objc_receiver_context;
 
 static void handle_impent			PARAMS ((struct imp_entry *));
 
@@ -363,32 +353,9 @@ extern enum debug_info_type write_symbols;
 
 extern const char *dump_base_name;
 
-/* Generate code for GNU or NeXT runtime environment.  */
-
-#ifdef NEXT_OBJC_RUNTIME
-int flag_next_runtime = 1;
-#else
-int flag_next_runtime = 0;
-#endif
-
-int flag_typed_selectors;
-
-/* Open and close the file for outputting class declarations, if requested.  */
-
-int flag_gen_declaration = 0;
+static int flag_typed_selectors;
 
 FILE *gen_declaration_file;
-
-/* Warn if multiple methods are seen for the same selector, but with
-   different argument types.  */
-
-int warn_selector = 0;
-
-/* Warn if methods required by a protocol are not implemented in the 
-   class adopting it.  When turned off, methods inherited to that
-   class are also considered implemented */
-
-int flag_warn_protocol = 1;
 
 /* Tells "encode_pointer/encode_aggregate" whether we are generating
    type descriptors for instance variables (as opposed to methods).
@@ -396,12 +363,6 @@ int flag_warn_protocol = 1;
    than methods (for static typing and embedded structures).  */
 
 static int generating_instance_variables = 0;
-
-/* Tells the compiler that this is a special run.  Do not perform any
-   compiling, instead we are to test some platform dependent features
-   and output a C header file with appropriate definitions.  */
-
-static int print_struct_values = 0;
 
 /* Some platforms pass small structures through registers versus
    through an invisible pointer.  Determine at what size structure is
@@ -471,6 +432,8 @@ objc_init (filename)
      const char *filename;
 {
   filename = c_objc_common_init (filename);
+  if (filename == NULL)
+    return filename;
 
   /* Force the line number back to 0; check_newline will have
      raised it to 1, which will make the builtin functions appear
@@ -522,52 +485,14 @@ finish_file ()
 {
   c_objc_common_finish_file ();
 
-  finish_objc ();		/* Objective-C finalization */
+  /* Finalize Objective-C runtime data.  No need to generate tables
+     and code if only checking syntax.  */
+  if (!flag_syntax_only)
+    finish_objc ();
 
   if (gen_declaration_file)
     fclose (gen_declaration_file);
 }
-
-int
-objc_decode_option (argc, argv)
-     int argc;
-     char **argv;
-{
-  const char *p = argv[0];
-
-  if (!strcmp (p, "-gen-decls"))
-    flag_gen_declaration = 1;
-  else if (!strcmp (p, "-Wselector"))
-    warn_selector = 1;
-  else if (!strcmp (p, "-Wno-selector"))
-    warn_selector = 0;
-  else if (!strcmp (p, "-Wprotocol"))
-    flag_warn_protocol = 1;
-  else if (!strcmp (p, "-Wno-protocol"))
-    flag_warn_protocol = 0;
-  else if (!strcmp (p, "-fgnu-runtime"))
-    flag_next_runtime = 0;
-  else if (!strcmp (p, "-fno-next-runtime"))
-    flag_next_runtime = 0;
-  else if (!strcmp (p, "-fno-gnu-runtime"))
-    flag_next_runtime = 1;
-  else if (!strcmp (p, "-fnext-runtime"))
-    flag_next_runtime = 1;
-  else if (!strcmp (p, "-print-objc-runtime-info"))
-    print_struct_values = 1;
-#define CSTSTRCLASS "-fconstant-string-class="
-  else if (!strncmp (p, CSTSTRCLASS, sizeof(CSTSTRCLASS) - 2)) {
-    if (strlen (argv[0]) <= strlen (CSTSTRCLASS))
-      error ("no class name specified as argument to -fconstant-string-class");
-    constant_string_class_name = xstrdup(argv[0] + sizeof(CSTSTRCLASS) - 1);
-  }
-#undef CSTSTRCLASS
-  else
-    return c_decode_option (argc, argv);
-
-  return 1;
-}
-
 
 static tree
 define_decl (declarator, declspecs)
@@ -590,14 +515,6 @@ define_decl (declarator, declspecs)
    `a' is of type "id",
    `a' and `b' are the same class type, or
    `a' and `b' are of class types A and B such that B is a descendant of A.  */
-
-int
-maybe_objc_comptypes (lhs, rhs, reflexive)
-     tree lhs, rhs;
-     int reflexive;
-{
-  return objc_comptypes (lhs, rhs, reflexive);
-}
 
 static tree
 lookup_method_in_protocol_list (rproto_list, sel_name, class_meth)
@@ -835,13 +752,6 @@ objc_check_decl (decl)
       && TREE_STATIC_TEMPLATE (type)
       && type != constant_string_type)
     error_with_decl (decl, "`%s' cannot be statically allocated");
-}
-
-void
-maybe_objc_check_decl (decl)
-     tree decl;
-{
-  objc_check_decl (decl);
 }
 
 /* Implement static typing.  At this point, we know we have an interface.  */
@@ -1090,7 +1000,8 @@ synth_module_prologue ()
       pushdecl (umsg_decl);
     }
   else
-    umsg_decl = builtin_function (TAG_MSGSEND, temp_type, 0, NOT_BUILT_IN, 0);
+    umsg_decl = builtin_function (TAG_MSGSEND, temp_type, 0, NOT_BUILT_IN,
+				  NULL, NULL_TREE);
 
   /* id objc_msgSendSuper (struct objc_super *, SEL, ...); */
 
@@ -1101,7 +1012,8 @@ synth_module_prologue ()
 						 NULL_TREE)));
 
   umsg_super_decl = builtin_function (TAG_MSGSENDSUPER,
-				     temp_type, 0, NOT_BUILT_IN, 0);
+				      temp_type, 0, NOT_BUILT_IN,
+				      NULL, NULL_TREE);
 
   /* id objc_getClass (const char *); */
 
@@ -1112,12 +1024,14 @@ synth_module_prologue ()
 					      NULL_TREE)));
 
   objc_get_class_decl
-    = builtin_function (TAG_GETCLASS, temp_type, 0, NOT_BUILT_IN, 0);
+    = builtin_function (TAG_GETCLASS, temp_type, 0, NOT_BUILT_IN,
+			NULL, NULL_TREE);
 
   /* id objc_getMetaClass (const char *); */
 
   objc_get_meta_class_decl
-    = builtin_function (TAG_GETMETACLASS, temp_type, 0, NOT_BUILT_IN, 0);
+    = builtin_function (TAG_GETMETACLASS, temp_type, 0, NOT_BUILT_IN,
+			NULL, NULL_TREE);
 
   /* static SEL _OBJC_SELECTOR_TABLE[]; */
 
@@ -1955,6 +1869,32 @@ build_selector_translation_table ()
     {
       tree expr;
 
+      if (warn_selector && objc_implementation_context)
+      {
+        tree method_chain;
+        bool found = false;
+        for (method_chain = meth_var_names_chain;
+             method_chain;
+             method_chain = TREE_CHAIN (method_chain))
+          {
+            if (TREE_VALUE (method_chain) == TREE_VALUE (chain))
+              {
+                found = true;
+                break;
+              }
+          }
+        if (!found)
+          {
+            /* Adjust line number for warning message.  */
+            int save_lineno = lineno;
+            if (flag_next_runtime && TREE_PURPOSE (chain))
+              lineno = DECL_SOURCE_LINE (TREE_PURPOSE (chain));
+            warning ("creating selector for non existant method %s",
+                     IDENTIFIER_POINTER (TREE_VALUE (chain)));
+            lineno = save_lineno;
+          }
+      }
+
       expr = build_selector (TREE_VALUE (chain));
 
       if (flag_next_runtime)
@@ -2335,51 +2275,23 @@ lookup_interface (ident)
   return NULL_TREE;
 }
 
-static tree
-objc_copy_list (list, head)
-     tree list;
-     tree *head;
-{
-  tree newlist = NULL_TREE, tail = NULL_TREE;
+/* Used by: build_private_template, continue_class,
+   and for @defs constructs.  */
 
-  while (list)
-    {
-      tail = copy_node (list);
-
-      /* The following statement fixes a bug when inheriting instance
-	 variables that are declared to be bitfields. finish_struct
-	 expects to find the width of the bitfield in DECL_INITIAL.  */
-      if (DECL_BIT_FIELD (tail) && DECL_INITIAL (tail) == 0)
-	DECL_INITIAL (tail) = DECL_SIZE (tail);
-
-      newlist = chainon (newlist, tail);
-      list = TREE_CHAIN (list);
-    }
-
-  *head = newlist;
-  return tail;
-}
-
-/* Used by: build_private_template, get_class_ivars, and
-   continue_class.  COPY is 1 when called from @defs.  In this case
-   copy all fields.  Otherwise don't copy leaf ivars since we rely on
-   them being side-effected exactly once by finish_struct.  */
-
-static tree
-build_ivar_chain (interface, copy)
+tree
+get_class_ivars (interface)
      tree interface;
-     int copy;
 {
   tree my_name, super_name, ivar_chain;
 
   my_name = CLASS_NAME (interface);
   super_name = CLASS_SUPER_NAME (interface);
+  ivar_chain = CLASS_IVARS (interface);
 
-  /* Possibly copy leaf ivars.  */
-  if (copy)
-    objc_copy_list (CLASS_IVARS (interface), &ivar_chain);
-  else
-    ivar_chain = CLASS_IVARS (interface);
+  /* Save off a pristine copy of the leaf ivars (i.e, those not
+     inherited from a super class).  */
+  if (!CLASS_OWN_IVARS (interface))
+    CLASS_OWN_IVARS (interface) = copy_list (ivar_chain);
 
   while (super_name)
     {
@@ -2403,14 +2315,14 @@ build_ivar_chain (interface, copy)
       my_name = CLASS_NAME (interface);
       super_name = CLASS_SUPER_NAME (interface);
 
-      op1 = CLASS_IVARS (interface);
+      op1 = CLASS_OWN_IVARS (interface);
       if (op1)
         {
-	  tree head, tail = objc_copy_list (op1, &head);
+	  tree head = copy_list (op1);
 
 	  /* Prepend super class ivars...make a copy of the list, we
 	     do not want to alter the original.  */
-	  TREE_CHAIN (tail) = ivar_chain;
+	  chainon (head, ivar_chain);
 	  ivar_chain = head;
         }
     }
@@ -2437,7 +2349,7 @@ build_private_template (class)
     {
       uprivate_record = start_struct (RECORD_TYPE, CLASS_NAME (class));
 
-      ivar_context = build_ivar_chain (class, 0);
+      ivar_context = get_class_ivars (class);
 
       finish_struct (uprivate_record, ivar_context, NULL_TREE);
 
@@ -3426,10 +3338,6 @@ error_with_ivar (message, decl, rawdecl)
 			    message, gen_declaration (rawdecl, errbuf));
 
 }
-
-#define USERTYPE(t) \
- (TREE_CODE (t) == RECORD_TYPE || TREE_CODE (t) == UNION_TYPE \
-  ||  TREE_CODE (t) == ENUMERAL_TYPE)
 
 static void
 check_ivars (inter, imp)
@@ -4460,6 +4368,10 @@ adjust_type_for_id_default (type)
        chain;
        chain = TREE_CHAIN (chain))
     {
+      if (TYPED_OBJECT (TREE_VALUE (chain))
+          && !(TREE_VALUE (type) 
+               && TREE_CODE (TREE_VALUE (type)) == INDIRECT_REF))
+        error ("can not use an object as parameter to a method\n");
       if (!is_objc_type_qualifier (TREE_VALUE (chain)))
 	return type;
     }
@@ -4730,12 +4642,12 @@ receiver_is_class_object (receiver)
    the identifier of the selector of the message.  This is
    used when printing warnings about argument mismatches.  */
 
-static tree building_objc_message_expr = 0;
+static tree current_objc_message_selector = 0;
 
 tree
-maybe_building_objc_message_expr ()
+objc_message_selector ()
 {
-  return building_objc_message_expr;
+  return current_objc_message_selector;
 }
 
 /* Construct an expression for sending a message.
@@ -5011,7 +4923,7 @@ finish_message_expr (receiver, sel_name, method_params)
     }
 
   /* Save the selector name for printing error messages.  */
-  building_objc_message_expr = sel_name;
+  current_objc_message_selector = sel_name;
 
   /* Build the parameters list for looking up the method.
      These are the object itself and the selector.  */
@@ -5025,7 +4937,7 @@ finish_message_expr (receiver, sel_name, method_params)
 				   receiver, self_object,
 				   selector, method_params);
 
-  building_objc_message_expr = 0;
+  current_objc_message_selector = 0;
 
   return retval;
 }
@@ -5718,18 +5630,6 @@ is_public (expr, identifier)
 
   return 1;
 }
-
-/* Implement @defs (<classname>) within struct bodies.  */
-
-tree
-get_class_ivars (interface)
-     tree interface;
-{
-  /* Make sure we copy the leaf ivars in case @defs is used in a local
-     context.  Otherwise finish_struct will overwrite the layout info
-     using temporary storage.  */
-  return build_ivar_chain (interface, 1);
-}
 
 /* Make sure all entries in CHAIN are also in LIST.  */
 
@@ -5876,7 +5776,7 @@ check_protocol (p, type, name)
       int f1, f2;
 
       /* Ensure that all protocols have bodies!  */
-      if (flag_warn_protocol)
+      if (warn_protocol)
 	{
 	  f1 = check_methods (PROTOCOL_CLS_METHODS (p),
 			      CLASS_CLS_METHODS (objc_implementation_context),
@@ -5961,7 +5861,7 @@ start_class (code, class_name, super_name, protocol_list)
     }
 
   class = make_node (code);
-  TYPE_BINFO (class) = make_tree_vec (5);
+  TYPE_BINFO (class) = make_tree_vec (6);
 
   CLASS_NAME (class) = class_name;
   CLASS_SUPER_NAME (class) = super_name;
@@ -6151,7 +6051,7 @@ continue_class (class)
 
       if (!TYPE_FIELDS (record))
 	{
-	  finish_struct (record, build_ivar_chain (class, 0), NULL_TREE);
+	  finish_struct (record, get_class_ivars (class), NULL_TREE);
 	  CLASS_STATIC_TEMPLATE (class) = record;
 
 	  /* Mark this record as a class template for static typing.  */
@@ -6702,7 +6602,10 @@ encode_type (type, curtype, format)
 }
 
 static void
-encode_complete_bitfield (int position, tree type, int size)
+encode_complete_bitfield (position, type, size)
+     int position;
+     tree type;
+     int size;
 {
   enum tree_code code = TREE_CODE (type);
   char buffer[40];
@@ -6772,14 +6675,14 @@ encode_field_decl (field_decl, curtype, format)
      the bitfield typing information.  */
   if (flag_next_runtime)
     {
-      if (DECL_BIT_FIELD (field_decl))
+      if (DECL_BIT_FIELD_TYPE (field_decl))
 	encode_bitfield (tree_low_cst (DECL_SIZE (field_decl), 1));
       else
 	encode_type (TREE_TYPE (field_decl), curtype, format);
     }
   else
     {
-      if (DECL_BIT_FIELD (field_decl))
+      if (DECL_BIT_FIELD_TYPE (field_decl))
 	encode_complete_bitfield (int_bit_position (field_decl),
 				  DECL_BIT_FIELD_TYPE (field_decl),
 				  tree_low_cst (DECL_SIZE (field_decl), 1));
@@ -8304,8 +8207,8 @@ lookup_objc_ivar (id)
 {
   tree decl;
 
-  if (objc_receiver_context && !strcmp (IDENTIFIER_POINTER (id), "super"))
-    /* we have a message to super */
+  if (objc_method_context && !strcmp (IDENTIFIER_POINTER (id), "super"))
+    /* We have a message to super.  */
     return get_super_receiver ();
   else if (objc_method_context && (decl = is_ivar (objc_ivar_chain, id)))
     {

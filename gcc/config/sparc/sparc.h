@@ -1097,7 +1097,6 @@ extern int sparc_mode_class[];
 #define FRAME_POINTER_REQUIRED				\
   (TARGET_FLAT						\
    ? (current_function_calls_alloca			\
-      || current_function_varargs			\
       || !leaf_function_p ())				\
    : ! (leaf_function_p () && only_leaf_regs_used ()))
 
@@ -1416,6 +1415,8 @@ extern char leaf_reg_remap[];
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
   (CONSTANT_P (X)					\
    ? ((FP_REG_CLASS_P (CLASS)				\
+       || (CLASS) == GENERAL_OR_FP_REGS			\
+       || (CLASS) == GENERAL_OR_EXTRA_FP_REGS		\
        || (GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT	\
 	   && ! TARGET_FPU)				\
        || (GET_MODE (X) == TFmode			\
@@ -1911,8 +1912,8 @@ do {									\
 #define EXPAND_BUILTIN_SAVEREGS() sparc_builtin_saveregs ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  sparc_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  sparc_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -2583,6 +2584,17 @@ do {                                                                    \
 	  sqrt_optab->handlers[(int) TFmode].libfunc			\
 	    = init_one_libfunc ("_Q_sqrt");				\
       }									\
+    if (TARGET_ARCH64)							\
+      {									\
+        /* In the SPARC 64bit ABI, these libfuncs do not exist in the	\
+           library.  Make sure the compiler does not emit calls to them	\
+	   by accident.  */						\
+	sdiv_optab->handlers[(int) SImode].libfunc = NULL;		\
+	udiv_optab->handlers[(int) SImode].libfunc = NULL;		\
+	smod_optab->handlers[(int) SImode].libfunc = NULL;		\
+	umod_optab->handlers[(int) SImode].libfunc = NULL;		\
+        smul_optab->handlers[(int) SImode].libfunc = NULL;		\
+      }									\
     INIT_SUBTARGET_OPTABS;						\
   } while (0)
 
@@ -2714,17 +2726,11 @@ case LABEL_REF: case SYMBOL_REF: case CONST_DOUBLE:
    guess...  */
 #define DBX_CONTIN_LENGTH 1000
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.  */
 
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.global ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global "
 
 /* The prefix to add to user-visible assembler symbols.  */
 

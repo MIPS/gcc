@@ -121,9 +121,6 @@ static struct obstack obstack1, obstack2;
 struct obstack *hash_obstack = &obstack1;
 struct obstack *temp_obstack = &obstack2;
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* enough space to reserve for printing out ints */
 #define MAX_DIGITS (HOST_BITS_PER_INT * 3 / 10 + 3)
 
@@ -393,7 +390,6 @@ static void expand_units	PARAMS ((void));
 static rtx simplify_knowing	PARAMS ((rtx, rtx));
 static rtx encode_units_mask	PARAMS ((rtx));
 static void fill_attr		PARAMS ((struct attr_desc *));
-/* dpx2 compiler chokes if we specify the arg types of the args.  */
 static rtx substitute_address	PARAMS ((rtx, rtx (*) (rtx), rtx (*) (rtx)));
 static void make_length_attrs	PARAMS ((void));
 static rtx identity_fn		PARAMS ((rtx));

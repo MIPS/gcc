@@ -21,6 +21,7 @@ details.  */
 #include <java/lang/UnsatisfiedLinkError.h>
 #include <gnu/gcj/runtime/FileDeleter.h>
 #include <gnu/gcj/runtime/FinalizerThread.h>
+#include <java/io/File.h>
 #include <java/util/Properties.h>
 #include <java/util/TimeZone.h>
 #include <java/lang/StringBuffer.h>
@@ -538,9 +539,10 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
 
 java::lang::Process *
 java::lang::Runtime::execInternal (jstringArray cmd,
-				   jstringArray env)
+				   jstringArray env,
+				   java::io::File *dir)
 {
-  return new java::lang::ConcreteProcess (cmd, env);
+  return new java::lang::ConcreteProcess (cmd, env, dir);
 }
 
 jint
@@ -575,7 +577,7 @@ java::lang::Runtime::nativeGetLibname (jstring pathname, jstring libname)
   // FIXME: use platform function here.
 #ifdef WIN32
   sb->append (JvNewStringLatin1 ("dll"));
-else
+#else
   sb->append (JvNewStringLatin1 ("so"));
 #endif
 

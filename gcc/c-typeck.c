@@ -568,7 +568,7 @@ comptypes (type1, type2)
       }
 
     case RECORD_TYPE:
-      if (maybe_objc_comptypes (t1, t2, 0) == 1)
+      if (flag_objc && objc_comptypes (t1, t2, 0) == 1)
 	val = 1;
       break;
 
@@ -588,7 +588,7 @@ comp_target_types (ttl, ttr)
   int val;
 
   /* Give maybe_objc_comptypes a crack at letting these types through.  */
-  if ((val = maybe_objc_comptypes (ttl, ttr, 1)) >= 0)
+  if ((val = objc_comptypes (ttl, ttr, 1)) >= 0)
     return val;
 
   val = comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (ttl)),
@@ -736,71 +736,6 @@ type_lists_compatible_p (args1, args2)
     }
 }
 
-/* Compute the value of the `sizeof' operator.  */
-
-tree
-c_sizeof (type)
-     tree type;
-{
-  enum tree_code code = TREE_CODE (type);
-  tree size;
-
-  if (code == FUNCTION_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("sizeof applied to a function type");
-      size = size_one_node;
-    }
-  else if (code == VOID_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("sizeof applied to a void type");
-      size = size_one_node;
-    }
-  else if (code == ERROR_MARK)
-    size = size_one_node;
-  else if (!COMPLETE_TYPE_P (type))
-    {
-      error ("sizeof applied to an incomplete type");
-      size = size_zero_node;
-    }
-  else
-    /* Convert in case a char is more than one unit.  */
-    size = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
-		       size_int (TYPE_PRECISION (char_type_node)
-			         / BITS_PER_UNIT));
-
-  /* SIZE will have an integer type with TYPE_IS_SIZETYPE set.
-     TYPE_IS_SIZETYPE means that certain things (like overflow) will
-     never happen.  However, this node should really have type
-     `size_t', which is just a typedef for an ordinary integer type.  */
-  return fold (build1 (NOP_EXPR, c_size_type_node, size));
-}
-
-tree
-c_sizeof_nowarn (type)
-     tree type;
-{
-  enum tree_code code = TREE_CODE (type);
-  tree size;
-
-  if (code == FUNCTION_TYPE || code == VOID_TYPE || code == ERROR_MARK)
-    size = size_one_node;
-  else if (!COMPLETE_TYPE_P (type))
-    size = size_zero_node;
-  else
-    /* Convert in case a char is more than one unit.  */
-    size = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
-		       size_int (TYPE_PRECISION (char_type_node)
-			         / BITS_PER_UNIT));
-
-  /* SIZE will have an integer type with TYPE_IS_SIZETYPE set.
-     TYPE_IS_SIZETYPE means that certain things (like overflow) will
-     never happen.  However, this node should really have type
-     `size_t', which is just a typedef for an ordinary integer type.  */
-  return fold (build1 (NOP_EXPR, c_size_type_node, size));
-}
-
 /* Compute the size to increment a pointer by.  */
 
 tree
@@ -1173,7 +1108,8 @@ build_component_ref (datum, component)
       {
 	tree value = build_component_ref (TREE_OPERAND (datum, 1), component);
 	return build (COMPOUND_EXPR, TREE_TYPE (value),
-		      TREE_OPERAND (datum, 0), pedantic_non_lvalue (value));
+		      TREE_OPERAND (datum, 0),
+		      flag_isoc99 ? value : pedantic_non_lvalue (value));
       }
     default:
       break;
@@ -1362,7 +1298,7 @@ build_array_ref (array, index)
 	  if (TREE_CODE (foo) == VAR_DECL && DECL_REGISTER (foo))
 	    pedwarn ("ISO C forbids subscripting `register' array");
 	  else if (! flag_isoc99 && ! lvalue_p (foo))
-	    pedwarn ("ISO C89 forbids subscripting non-lvalue array");
+	    pedwarn ("ISO C90 forbids subscripting non-lvalue array");
 	}
 
       type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (array)));
@@ -1506,7 +1442,8 @@ build_external_ref (id, fun)
   if (TREE_TYPE (ref) == error_mark_node)
     return error_mark_node;
 
-  assemble_external (ref);
+  if (!skip_evaluation)
+    assemble_external (ref);
   TREE_USED (ref) = 1;
 
   if (TREE_CODE (ref) == CONST_DECL)
@@ -2071,6 +2008,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     case BIT_XOR_EXPR:
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	shorten = -1;
+      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
+	common = 1;
       break;
 
     case TRUNC_MOD_EXPR:
@@ -2778,7 +2717,12 @@ build_unary_op (code, xarg, flag)
       break;
 
     case BIT_NOT_EXPR:
-      if (typecode == COMPLEX_TYPE)
+      if (typecode == INTEGER_TYPE || typecode == VECTOR_TYPE)
+	{
+	  if (!noconvert)
+	    arg = default_conversion (arg);
+	}
+      else if (typecode == COMPLEX_TYPE)
 	{
 	  code = CONJ_EXPR;
 	  if (pedantic)
@@ -2786,13 +2730,11 @@ build_unary_op (code, xarg, flag)
 	  if (!noconvert)
 	    arg = default_conversion (arg);
 	}
-      else if (typecode != INTEGER_TYPE)
+      else
 	{
 	  error ("wrong type argument to bit-complement");
 	  return error_mark_node;
 	}
-      else if (!noconvert)
-	arg = default_conversion (arg);
       break;
 
     case ABS_EXPR:
@@ -4045,7 +3987,8 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
       overflow_warning (rhs);
       /* Check for Objective-C protocols.  This will issue a warning if
 	 there are protocol violations.  No need to use the return value.  */
-      maybe_objc_comptypes (type, rhstype, 0);
+      if (flag_objc)
+	objc_comptypes (type, rhstype, 0);
       return rhs;
     }
 
@@ -4273,7 +4216,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
     {
       if (funname)
  	{
- 	  tree selector = maybe_building_objc_message_expr ();
+ 	  tree selector = objc_message_selector ();
  
  	  if (selector && parmnum > 2)
  	    error ("incompatible type for argument %d of `%s'",
@@ -4331,7 +4274,7 @@ warn_for_assignment (msgid, opname, function, argnum)
 {
   if (opname == 0)
     {
-      tree selector = maybe_building_objc_message_expr ();
+      tree selector = objc_message_selector ();
       char * new_opname;
       
       if (selector && argnum > 2)
@@ -4505,15 +4448,6 @@ static int spelling_size;		/* Size of the spelling stack.  */
 
 #define SPELLING_DEPTH() (spelling - spelling_base)
 #define RESTORE_SPELLING_DEPTH(DEPTH) (spelling = spelling_base + (DEPTH))
-
-/* Save and restore the spelling stack around arbitrary C code.  */
-
-#define SAVE_SPELLING_DEPTH(code)		\
-{						\
-  int __depth = SPELLING_DEPTH ();		\
-  code;						\
-  RESTORE_SPELLING_DEPTH (__depth);		\
-}
 
 /* Push an element on the spelling stack with type KIND and assign VALUE
    to MEMBER.  */

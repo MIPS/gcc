@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "langhooks-def.h"
 
-static const char *c_init PARAMS ((const char *));
 static void c_init_options PARAMS ((void));
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
@@ -37,13 +36,13 @@ static void c_init_options PARAMS ((void));
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C"
 #undef LANG_HOOKS_INIT
-#define LANG_HOOKS_INIT c_init
+#define LANG_HOOKS_INIT c_objc_common_init
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_init_options
 #undef LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION c_decode_option
+#define LANG_HOOKS_DECODE_OPTION c_common_decode_option
 #undef LANG_HOOKS_POST_OPTIONS
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
@@ -95,6 +94,8 @@ static void c_init_options PARAMS ((void));
 #undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   c_convert_parm_for_inlining
+#undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
+#define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN c_dump_tree
 
 #undef LANG_HOOKS_TYPE_FOR_MODE
 #define LANG_HOOKS_TYPE_FOR_MODE c_common_type_for_mode
@@ -110,6 +111,10 @@ static void c_init_options PARAMS ((void));
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR c_incomplete_type_error
 #undef LANG_HOOKS_TYPE_PROMOTES_TO
 #define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
+
+/* Hooks for tree simplification.  */
+#undef LANG_HOOKS_SIMPLIFY_EXPR
+#define LANG_HOOKS_SIMPLIFY_EXPR c_simplify_expr
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 
@@ -157,13 +162,6 @@ c_init_options ()
   c_common_init_options (clk_c);
 }
 
-static const char *
-c_init (filename)
-     const char *filename;
-{
-  return c_objc_common_init (filename);
-}
-
 /* Used by c-lex.c, but only for objc.  */
 
 tree
@@ -181,13 +179,13 @@ is_class_name (arg)
 }
 
 void
-maybe_objc_check_decl (decl)
+objc_check_decl (decl)
      tree decl ATTRIBUTE_UNUSED;
 {
 }
 
 int
-maybe_objc_comptypes (lhs, rhs, reflexive)
+objc_comptypes (lhs, rhs, reflexive)
      tree lhs ATTRIBUTE_UNUSED;
      tree rhs ATTRIBUTE_UNUSED;
      int reflexive ATTRIBUTE_UNUSED;
@@ -196,7 +194,7 @@ maybe_objc_comptypes (lhs, rhs, reflexive)
 }
 
 tree
-maybe_building_objc_message_expr ()
+objc_message_selector ()
 {
   return 0;
 }

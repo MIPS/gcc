@@ -79,8 +79,7 @@ struct unparsed_text GTY(())
 {
   struct unparsed_text *next;	/* process this one next */
   tree decl;		/* associated declaration */
-  const char *filename;	/* name of file we were processing */
-  int lineno;		/* line number we got the text from */
+  location_t locus;     /* location we got the text from */
   int interface;	/* remembering interface_unknown and interface_only */
 
   struct token_chunk * tokens; /* Start of the token list.  */
@@ -98,8 +97,7 @@ struct unparsed_text GTY(())
 struct feed GTY(())
 {
   struct unparsed_text *input;
-  const char *filename;
-  int lineno;
+  location_t locus;
   int yychar;
   YYSTYPE GTY ((desc ("%1.yychar"))) yylval;
   int first_token;
@@ -131,7 +129,7 @@ static SPEW_INLINE struct token * space_for_token
 static SPEW_INLINE struct token * remove_last_token
   PARAMS ((struct unparsed_text *t));
 static struct unparsed_text * alloc_unparsed_text
-  PARAMS ((const char *fn, int li, tree decl, int interface));
+  PARAMS ((const location_t *, tree decl, int interface));
 
 static void snarf_block PARAMS ((struct unparsed_text *t));
 static tree snarf_defarg PARAMS ((void));
@@ -209,23 +207,8 @@ read_process_identifier (pyylval)
 
   if (C_IS_RESERVED_WORD (id))
     {
-      /* Possibly replace the IDENTIFIER_NODE with a magic cookie.
-	 Can't put yylval.code numbers in ridpointers[].  Bleah.  */
-
-      switch (C_RID_CODE (id))
-	{
-	case RID_BITAND: pyylval->code = BIT_AND_EXPR;	return '&';
-	case RID_AND_EQ: pyylval->code = BIT_AND_EXPR;	return ASSIGN;
-	case RID_BITOR:	 pyylval->code = BIT_IOR_EXPR;	return '|';
-	case RID_OR_EQ:	 pyylval->code = BIT_IOR_EXPR;	return ASSIGN;
-	case RID_XOR:	 pyylval->code = BIT_XOR_EXPR;	return '^';
-	case RID_XOR_EQ: pyylval->code = BIT_XOR_EXPR;	return ASSIGN;
-	case RID_NOT_EQ: pyylval->code = NE_EXPR;	return EQCOMPARE;
-
-	default:
-	  pyylval->ttype = ridpointers[C_RID_CODE (id)];
-	  return C_RID_YYCODE (id);
-	}
+      pyylval->ttype = ridpointers[C_RID_CODE (id)];
+      return C_RID_YYCODE (id);
     }
 
   /* Make sure that user does not collide with our internal naming
@@ -403,20 +386,20 @@ feed_input (input)
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tfeeding %s:%d [%d tokens]\n",
-	     input->filename, input->lineno, input->limit - input->pos);
+	     input->locus.file, input->locus.line, input->limit - input->pos);
 #endif
 
   f->input = input;
-  f->filename = input_filename;
-  f->lineno = lineno;
+  f->locus.file = input_filename;
+  f->locus.line = lineno;
   f->yychar = yychar;
   f->yylval = yylval;
   f->first_token = first_token;
   f->token_obstack = token_obstack;
   f->next = feed;
 
-  input_filename = input->filename;
-  lineno = input->lineno;
+  input_filename = input->locus.file;
+  lineno = input->locus.line;
   yychar = YYEMPTY;
   yylval.ttype = NULL_TREE;
   first_token = 0;
@@ -429,8 +412,8 @@ end_input ()
 {
   struct feed *f = feed;
 
-  input_filename = f->filename;
-  lineno = f->lineno;
+  input_filename = f->locus.file;
+  lineno = f->locus.line;
   yychar = f->yychar;
   yylval = f->yylval;
   first_token = f->first_token;
@@ -612,8 +595,8 @@ identifier_type (decl)
   if (looking_for_template && really_overloaded_fn (decl))
     {
       /* See through a baselink.  */
-      if (TREE_CODE (decl) == TREE_LIST)
-	decl = TREE_VALUE (decl);
+      if (TREE_CODE (decl) == BASELINK)
+	decl = BASELINK_FUNCTIONS (decl);
 
       for (t = decl; t != NULL_TREE; t = OVL_CHAIN (t))
 	if (DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (t)))
@@ -1040,7 +1023,7 @@ space_for_token (t)
   if (t->last_pos != TOKEN_CHUNK_SIZE)
     return t->last_chunk->toks + (t->last_pos++);
 
-  t->last_chunk->next = ggc_alloc (sizeof (*t->last_chunk->next));
+  t->last_chunk->next = ggc_alloc_cleared (sizeof (*t->last_chunk->next));
   t->last_chunk = t->last_chunk->next;
   t->last_chunk->next = NULL;
 
@@ -1063,24 +1046,22 @@ remove_last_token (t)
       for (tc = &t->tokens; (*tc)->next != NULL; tc = &(*tc)->next)
 	;
       *tc = NULL;
-      t->last_pos = sizeof ((*tc)->toks) / sizeof ((*tc)->toks[0]);
+      t->last_pos = ARRAY_SIZE ((*tc)->toks);
     }
   return result;
 }
 
 /* Allocate an 'unparsed_text' structure, ready to use space_for_token.  */
 static struct unparsed_text *
-alloc_unparsed_text (fn, li, decl, interface)
-     const char *fn;
-     int li;
+alloc_unparsed_text (locus, decl, interface)
+     const location_t *locus;
      tree decl;
      int interface;
 {
   struct unparsed_text *r;
   r = ggc_alloc_cleared (sizeof (*r));
   r->decl = decl;
-  r->filename = fn;
-  r->lineno = li;
+  r->locus = *locus;
   r->interface = interface;
   r->tokens = r->last_chunk = ggc_alloc_cleared (sizeof (*r->tokens));
   return r;
@@ -1166,8 +1147,7 @@ snarf_block (t)
 	}
       else if (yyc == 0)
 	{
-	  error_with_file_and_line (t->filename, t->lineno,
-				    "end of file read inside definition");
+	  error ("%Hend of file read inside definition", &t->locus);
 	  break;
 	}
     }
@@ -1179,13 +1159,13 @@ void
 snarf_method (decl)
      tree decl;
 {
-  int starting_lineno = lineno;
-  const char *starting_filename = input_filename;
   struct unparsed_text *meth;
+  location_t starting;
+  starting.file = input_filename;
+  starting.line = lineno;
 
-  meth = alloc_unparsed_text (starting_filename, starting_lineno, decl,
-			      (interface_unknown ? 1
-			       : (interface_only ? 0 : 2)));
+  meth = alloc_unparsed_text (&starting, decl, (interface_unknown ? 1
+						: (interface_only ? 0 : 2)));
 
   snarf_block (meth);
 
@@ -1198,8 +1178,7 @@ snarf_method (decl)
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tsaved method of %d tokens from %s:%d\n",
-	     meth->limit,
-	     starting_filename, starting_lineno);
+	     meth->limit, starting.file, starting.line);
 #endif
 
   DECL_PENDING_INLINE_INFO (decl) = meth;
@@ -1218,14 +1197,15 @@ snarf_method (decl)
 static tree
 snarf_defarg ()
 {
-  int starting_lineno = lineno;
-  const char *starting_filename = input_filename;
   int yyc;
   int plev = 0;
   struct unparsed_text *buf;
   tree arg;
+  location_t starting;
+  starting.file = input_filename;
+  starting.line = lineno;
 
-  buf = alloc_unparsed_text (starting_filename, starting_lineno, 0, 0);
+  buf = alloc_unparsed_text (&starting, 0, 0);
 
   for (;;)
     {
@@ -1239,8 +1219,7 @@ snarf_defarg ()
 	--plev;
       else if (yyc == 0)
 	{
-	  error_with_file_and_line (starting_filename, starting_lineno,
-				    "end of file read inside default argument");
+	  error ("%Hend of file read inside default argument", &starting);
 	  goto done;
 	}
     }
@@ -1252,8 +1231,7 @@ snarf_defarg ()
 #ifdef SPEW_DEBUG
   if (spew_debug)
     fprintf (stderr, "\tsaved defarg of %d tokens from %s:%d\n",
-	     buf->limit,
-	     starting_filename, starting_lineno);
+	     buf->limit, starting.file, starting.line);
 #endif
 
   arg = make_node (DEFAULT_ARG);

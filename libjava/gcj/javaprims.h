@@ -134,7 +134,6 @@ extern "Java"
       class AssertionError;
       class Boolean;
       class Byte;
-      class CPlusPlusDemangler;
       class CharSequence;
       class Character;
       class Character$Subset;
@@ -212,6 +211,7 @@ extern "Java"
       class UnsupportedOperationException;
       class VMClassLoader;
       class VMSecurityManager;
+      class VMThrowable;
       class VerifyError;
       class VirtualMachineError;
       class Void;

@@ -2,20 +2,20 @@
    Copyright (C) 2000, 2001, 2002  Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -40,14 +40,11 @@ extern void mmix_output_quoted_string PARAMS ((FILE *, const char *, int));
 extern void mmix_asm_output_source_line  PARAMS ((FILE *, int));
 extern void mmix_asm_output_ascii PARAMS ((FILE *, const char *, int));
 extern void mmix_asm_output_label PARAMS ((FILE *, const char *));
-extern void mmix_asm_globalize_label PARAMS ((FILE *, const char *));
 extern void mmix_asm_weaken_label PARAMS ((FILE *, const char *));
 extern void mmix_asm_output_labelref PARAMS ((FILE *, const char *));
 extern void mmix_asm_output_internal_label
   PARAMS ((FILE *, const char *, int));
 extern void mmix_asm_output_def PARAMS ((FILE *, const char *, const char *));
-extern void mmix_asm_output_define_label_difference_symbol
-  PARAMS ((FILE *, const char *, const char *, const char *));
 extern int mmix_print_operand_punct_valid_p PARAMS ((int));
 extern void mmix_asm_output_reg_push PARAMS ((FILE *, int));
 extern void mmix_asm_output_reg_pop PARAMS ((FILE *, int));
@@ -57,7 +54,9 @@ extern int mmix_shiftable_wyde_value PARAMS ((unsigned HOST_WIDEST_INT));
 extern void mmix_output_register_setting
   PARAMS ((FILE *, int, HOST_WIDEST_INT, int));
 extern void mmix_conditional_register_usage PARAMS ((void));
+extern int mmix_local_regno PARAMS ((int));
 extern int mmix_dbx_register_number PARAMS ((int));
+extern int mmix_use_simple_return PARAMS ((void));
 
 /* Things that need rtl.h, tree.h or real.h included, or in combination.  */
 
@@ -122,6 +121,9 @@ extern void mmix_print_operand_address PARAMS ((FILE *, rtx));
 extern int mmix_valid_comparison PARAMS ((RTX_CODE, enum machine_mode, rtx));
 extern rtx mmix_gen_compare_reg PARAMS ((enum rtx_code, rtx, rtx));
 extern void mmix_machine_dependent_reorg PARAMS ((rtx));
+extern void mmix_expand_prologue PARAMS ((void));
+extern void mmix_expand_epilogue PARAMS ((void));
+extern rtx mmix_get_hard_reg_initial_val PARAMS ((enum machine_mode, int));
 #endif /* RTX_CODE */
 
 extern int mmix_asm_preferred_eh_data_format PARAMS ((int, int));

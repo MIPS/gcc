@@ -86,7 +86,6 @@ static int emit_init_test_initialization PARAMS ((void **entry,
 static int get_offset_table_index PARAMS ((tree));
 
 static GTY(()) tree operand_type[59];
-extern struct obstack permanent_obstack;
 
 static GTY(()) tree methods_ident;
 static GTY(()) tree ncode_ident;
@@ -2535,6 +2534,7 @@ java_expand_expr (exp, target, tmode, modifier)
       if (BLOCK_EXPR_BODY (exp))
 	{
 	  tree local;
+	  rtx last;
 	  tree body = BLOCK_EXPR_BODY (exp);
 	  /* Set to 1 or more when we found a static class
              initialization flag. */
@@ -2568,11 +2568,11 @@ java_expand_expr (exp, target, tmode, modifier)
 	      emit_queue ();
 	      body = TREE_OPERAND (body, 1);
 	    }
-	  expand_expr (body, const0_rtx, VOIDmode, 0);
+  	  last = expand_expr (body, NULL_RTX, VOIDmode, 0);
 	  emit_queue ();
 	  expand_end_bindings (getdecls (), 1, 0);
 	  poplevel (1, 1, 0);
-	  return const0_rtx;
+	  return last;
 	}
       return const0_rtx;
 
@@ -2628,6 +2628,11 @@ java_expand_expr (exp, target, tmode, modifier)
     case JAVA_EXC_OBJ_EXPR:
       return expand_expr (build_exception_object_ref (TREE_TYPE (exp)),
 			  target, tmode, modifier);
+
+    case LABEL_EXPR:
+      /* Used only by expanded inline functions.  */
+      expand_label (TREE_OPERAND (exp, 0));
+      return const0_rtx;
 
     default:
       internal_error ("can't expand %s", tree_code_name [TREE_CODE (exp)]);
@@ -2946,7 +2951,11 @@ process_jvm_instruction (PC, byte_ops, length)
   }
 
 #define JSR(OPERAND_TYPE, OPERAND_VALUE) \
-  build_java_jsr (oldpc+OPERAND_VALUE, PC);
+  {						    \
+    /* OPERAND_VALUE may have side-effects on PC */ \
+    int opvalue = OPERAND_VALUE;		    \
+    build_java_jsr (oldpc + opvalue, PC);	    \
+  }
 
 /* Push a constant onto the stack. */
 #define PUSHC(OPERAND_TYPE, OPERAND_VALUE) \

@@ -35,10 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #include "lex.h"
 #include "target.h"
 
-#include "obstack.h"
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
 
@@ -114,7 +110,6 @@ static int build_primary_vtable PARAMS ((tree, tree));
 static int build_secondary_vtable PARAMS ((tree, tree));
 static void finish_vtbls PARAMS ((tree));
 static void modify_vtable_entry PARAMS ((tree, tree, tree, tree, tree *));
-static void add_virtual_function PARAMS ((tree *, tree *, int *, tree, tree));
 static tree delete_duplicate_fields_1 PARAMS ((tree, tree));
 static void delete_duplicate_fields PARAMS ((tree));
 static void finish_struct_bits PARAMS ((tree));
@@ -150,8 +145,8 @@ static void check_methods PARAMS ((tree));
 static void remove_zero_width_bit_fields PARAMS ((tree));
 static void check_bases PARAMS ((tree, int *, int *, int *));
 static void check_bases_and_members PARAMS ((tree, int *));
-static tree create_vtable_ptr PARAMS ((tree, int *, int *, tree *, tree *));
-static void layout_class_type PARAMS ((tree, int *, int *, tree *, tree *));
+static tree create_vtable_ptr PARAMS ((tree, int *, tree *));
+static void layout_class_type PARAMS ((tree, int *, int *, tree *));
 static void fixup_pending_inline PARAMS ((tree));
 static void fixup_inline_methods PARAMS ((tree));
 static void set_primary_base PARAMS ((tree, tree, int *));
@@ -361,6 +356,24 @@ build_base_path (code, expr, binfo, nonnull)
 		  expr);
 
   return expr;
+}
+
+/* Convert OBJECT to the base TYPE.  If CHECK_ACCESS is true, an error
+   message is emitted if TYPE is inaccessible.  OBJECT is assumed to
+   be non-NULL.  */
+
+tree
+convert_to_base (tree object, tree type, bool check_access)
+{
+  tree binfo;
+
+  binfo = lookup_base (TREE_TYPE (object), type, 
+		       check_access ? ba_check : ba_ignore, 
+		       NULL);
+  if (!binfo || binfo == error_mark_node)
+    return error_mark_node;
+
+  return build_base_path (PLUS_EXPR, object, binfo, /*nonnull=*/1);
 }
 
 
@@ -756,61 +769,6 @@ set_vindex (decl, vfuns_p)
 	       ? TARGET_VTABLE_USES_DESCRIPTORS : 1);
   DECL_VINDEX (decl) = build_shared_int_cst (vindex);
 }
-
-/* Add a virtual function to all the appropriate vtables for the class
-   T.  DECL_VINDEX(X) should be error_mark_node, if we want to
-   allocate a new slot in our table.  If it is error_mark_node, we
-   know that no other function from another vtable is overridden by X.
-   VFUNS_P keeps track of how many virtuals there are in our
-   main vtable for the type, and we build upon the NEW_VIRTUALS list
-   and return it.  */
-
-static void
-add_virtual_function (new_virtuals_p, overridden_virtuals_p,
-		      vfuns_p, fndecl, t)
-     tree *new_virtuals_p;
-     tree *overridden_virtuals_p;
-     int *vfuns_p;
-     tree fndecl;
-     tree t; /* Structure type.  */
-{
-  tree new_virtual;
-
-  /* If this function doesn't override anything from a base class, we
-     can just assign it a new DECL_VINDEX now.  Otherwise, if it does
-     override something, we keep it around and assign its DECL_VINDEX
-     later, in modify_all_vtables.  */
-  if (TREE_CODE (DECL_VINDEX (fndecl)) == INTEGER_CST)
-    /* We've already dealt with this function.  */
-    return;
-
-  new_virtual = make_node (TREE_LIST);
-  BV_FN (new_virtual) = fndecl;
-  BV_DELTA (new_virtual) = integer_zero_node;
-
-  if (DECL_VINDEX (fndecl) == error_mark_node)
-    {
-      /* FNDECL is a new virtual function; it doesn't override any
-	 virtual function in a base class.  */
-
-      /* We remember that this was the base sub-object for rtti.  */
-      CLASSTYPE_RTTI (t) = t;
-
-      /* Now assign virtual dispatch information.  */
-      set_vindex (fndecl, vfuns_p);
-      DECL_VIRTUAL_CONTEXT (fndecl) = t;
-
-      /* Save the state we've computed on the NEW_VIRTUALS list.  */
-      TREE_CHAIN (new_virtual) = *new_virtuals_p;
-      *new_virtuals_p = new_virtual;
-    }
-  else
-    {
-      /* FNDECL overrides a function from a base class.  */
-      TREE_CHAIN (new_virtual) = *overridden_virtuals_p;
-      *overridden_virtuals_p = new_virtual;
-    }
-}
 
 /* Add method METHOD to class TYPE.  If ERROR_P is true, we are adding
    the method after the class has already been defined because a
@@ -966,69 +924,60 @@ add_method (type, method, error_p)
 	   fns = OVL_NEXT (fns))
 	{
 	  tree fn = OVL_CURRENT (fns);
-		 
+	  tree parms1;
+	  tree parms2;
+	  bool same = 1;
+
 	  if (TREE_CODE (fn) != TREE_CODE (method))
 	    continue;
 
-	  if (TREE_CODE (method) != TEMPLATE_DECL)
+	  /* [over.load] Member function declarations with the
+	     same name and the same parameter types cannot be
+	     overloaded if any of them is a static member
+	     function declaration.
+
+	     [namespace.udecl] When a using-declaration brings names
+	     from a base class into a derived class scope, member
+	     functions in the derived class override and/or hide member
+	     functions with the same name and parameter types in a base
+	     class (rather than conflicting).  */
+	  parms1 = TYPE_ARG_TYPES (TREE_TYPE (fn));
+	  parms2 = TYPE_ARG_TYPES (TREE_TYPE (method));
+
+	  /* Compare the quals on the 'this' parm.  Don't compare
+	     the whole types, as used functions are treated as
+	     coming from the using class in overload resolution.  */
+	  if (! DECL_STATIC_FUNCTION_P (fn)
+	      && ! DECL_STATIC_FUNCTION_P (method)
+	      && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
+		  != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
+	    same = 0;
+	  if (! DECL_STATIC_FUNCTION_P (fn))
+	    parms1 = TREE_CHAIN (parms1);
+	  if (! DECL_STATIC_FUNCTION_P (method))
+	    parms2 = TREE_CHAIN (parms2);
+
+	  if (same && compparms (parms1, parms2) 
+	      && (!DECL_CONV_FN_P (fn) 
+		  || same_type_p (TREE_TYPE (TREE_TYPE (fn)),
+				  TREE_TYPE (TREE_TYPE (method)))))
 	    {
-	      /* [over.load] Member function declarations with the
-		 same name and the same parameter types cannot be
-		 overloaded if any of them is a static member
-		 function declaration.
-
-	         [namespace.udecl] When a using-declaration brings names
-		 from a base class into a derived class scope, member
-		 functions in the derived class override and/or hide member
-		 functions with the same name and parameter types in a base
-		 class (rather than conflicting).  */
-	      if ((DECL_STATIC_FUNCTION_P (fn)
-		   != DECL_STATIC_FUNCTION_P (method))
-		  || using)
+	      if (using && DECL_CONTEXT (fn) == type)
+		/* Defer to the local function.  */
+		return;
+	      else
 		{
-		  tree parms1 = TYPE_ARG_TYPES (TREE_TYPE (fn));
-		  tree parms2 = TYPE_ARG_TYPES (TREE_TYPE (method));
-		  int same = 1;
+		  cp_error_at ("`%#D' and `%#D' cannot be overloaded",
+			       method, fn, method);
 
-		  /* Compare the quals on the 'this' parm.  Don't compare
-		     the whole types, as used functions are treated as
-		     coming from the using class in overload resolution.  */
-		  if (using
-		      && ! DECL_STATIC_FUNCTION_P (fn)
-		      && ! DECL_STATIC_FUNCTION_P (method)
-		      && (TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms1)))
-			  != TYPE_QUALS (TREE_TYPE (TREE_VALUE (parms2)))))
-		    same = 0;
-		  if (! DECL_STATIC_FUNCTION_P (fn))
-		    parms1 = TREE_CHAIN (parms1);
-		  if (! DECL_STATIC_FUNCTION_P (method))
-		    parms2 = TREE_CHAIN (parms2);
-
-		  if (same && compparms (parms1, parms2))
-		    {
-		      if (using && DECL_CONTEXT (fn) == type)
-			/* Defer to the local function.  */
-			return;
-		      else
-			error ("`%#D' and `%#D' cannot be overloaded",
-				  fn, method);
-		    }
+		  /* We don't call duplicate_decls here to merge
+		     the declarations because that will confuse
+		     things if the methods have inline
+		     definitions.  In particular, we will crash
+		     while processing the definitions.  */
+		  return;
 		}
 	    }
-
-	  if (!decls_match (fn, method))
-	    continue;
-
-	  /* There has already been a declaration of this method
-	     or member template.  */
-	  cp_error_at ("`%D' has already been declared in `%T'", 
-		       method, type);
-
-	  /* We don't call duplicate_decls here to merge the
-	     declarations because that will confuse things if the
-	     methods have inline definitions.  In particular, we
-	     will crash while processing the definitions.  */
-	  return;
 	}
     }
 
@@ -1212,14 +1161,12 @@ handle_using_decl (using_decl, t)
   if (! binfo)
     return;
   
-  if (name == constructor_name (ctype)
-      || name == constructor_name_full (ctype))
+  if (constructor_name_p (name, ctype))
     {
       cp_error_at ("`%D' names constructor", using_decl);
       return;
     }
-  if (name == constructor_name (t)
-      || name == constructor_name_full (t))
+  if (constructor_name_p (name, t))
     {
       cp_error_at ("`%D' invalid in `%T'", using_decl, t);
       return;
@@ -1235,7 +1182,7 @@ handle_using_decl (using_decl, t)
 
   if (BASELINK_P (fdecl))
     /* Ignore base type this came from. */
-    fdecl = TREE_VALUE (fdecl);
+    fdecl = BASELINK_FUNCTIONS (fdecl);
 
   old_value = IDENTIFIER_CLASS_VALUE (name);
   if (old_value)
@@ -2419,7 +2366,7 @@ find_final_overrider (t, binfo, fn)
 {
   find_final_overrider_data ffod;
 
-  /* Getting this right is a little tricky.  This is legal:
+  /* Getting this right is a little tricky.  This is valid:
 
        struct S { virtual void f (); };
        struct T { virtual void f (); };
@@ -2639,18 +2586,18 @@ dfs_modify_vtables (binfo, data)
 
 /* Update all of the primary and secondary vtables for T.  Create new
    vtables as required, and initialize their RTTI information.  Each
-   of the functions in OVERRIDDEN_VIRTUALS overrides a virtual
-   function from a base class; find and modify the appropriate entries
-   to point to the overriding functions.  Returns a list, in
-   declaration order, of the functions that are overridden in this
-   class, but do not appear in the primary base class vtable, and
-   which should therefore be appended to the end of the vtable for T.  */
+   of the functions in VIRTUALS is declared in T and may override a
+   virtual function from a base class; find and modify the appropriate
+   entries to point to the overriding functions.  Returns a list, in
+   declaration order, of the virtual functions that are declared in T,
+   but do not appear in the primary base class vtable, and which
+   should therefore be appended to the end of the vtable for T.  */
 
 static tree
-modify_all_vtables (t, vfuns_p, overridden_virtuals)
+modify_all_vtables (t, vfuns_p, virtuals)
      tree t;
      int *vfuns_p;
-     tree overridden_virtuals;
+     tree virtuals;
 {
   tree binfo = TYPE_BINFO (t);
   tree *fnsp;
@@ -2662,14 +2609,16 @@ modify_all_vtables (t, vfuns_p, overridden_virtuals)
 	    t);
   dfs_walk (binfo, dfs_unmark, dfs_marked_real_bases_queue_p, t);
 
-  /* Include overriding functions for secondary vtables in our primary
-     vtable.  */
-  for (fnsp = &overridden_virtuals; *fnsp; )
+  /* Add virtual functions not already in our primary vtable. These
+     will be both those introduced by this class, and those overridden
+     from secondary bases.  It does not include virtuals merely
+     inherited from secondary bases.  */
+  for (fnsp = &virtuals; *fnsp; )
     {
       tree fn = TREE_VALUE (*fnsp);
 
-      if (!BINFO_VIRTUALS (binfo)
-	  || !value_member (fn, BINFO_VIRTUALS (binfo)))
+      if (!value_member (fn, BINFO_VIRTUALS (binfo))
+	  || DECL_VINDEX (fn) == error_mark_node)
 	{
 	  /* Set the vtable index.  */
 	  set_vindex (fn, vfuns_p);
@@ -2682,8 +2631,7 @@ modify_all_vtables (t, vfuns_p, overridden_virtuals)
 	  BV_DELTA (*fnsp) = integer_zero_node;
 	  BV_VCALL_INDEX (*fnsp) = NULL_TREE;
 
-	  /* This is an overridden function not already in our
-	     vtable.  Keep it.  */
+	  /* This is a function not already in our vtable.  Keep it.  */
 	  fnsp = &TREE_CHAIN (*fnsp);
 	}
       else
@@ -2691,7 +2639,7 @@ modify_all_vtables (t, vfuns_p, overridden_virtuals)
 	*fnsp = TREE_CHAIN (*fnsp);
     }
   
-  return overridden_virtuals;
+  return virtuals;
 }
 
 /* Here, we already know that they match in every respect.
@@ -2761,16 +2709,14 @@ check_for_override (decl, ctype)
        || IDENTIFIER_VIRTUAL_P (DECL_NAME (decl)))
       && look_for_overrides (ctype, decl)
       && !DECL_STATIC_FUNCTION_P (decl))
-    {
-      /* Set DECL_VINDEX to a value that is neither an
-	 INTEGER_CST nor the error_mark_node so that
-	 add_virtual_function will realize this is an
-	 overriding function.  */
-      DECL_VINDEX (decl) = decl;
-    }
+    /* Set DECL_VINDEX to a value that is neither an INTEGER_CST nor
+       the error_mark_node so that we know it is an overriding
+       function.  */
+    DECL_VINDEX (decl) = decl;
+
   if (DECL_VIRTUAL_P (decl))
     {
-      if (DECL_VINDEX (decl) == NULL_TREE)
+      if (!DECL_VINDEX (decl))
 	DECL_VINDEX (decl) = error_mark_node;
       IDENTIFIER_VIRTUAL_P (DECL_NAME (decl)) = 1;
     }
@@ -4273,7 +4219,7 @@ type_requires_array_cookie (type)
   if (!fns || fns == error_mark_node)
     return false;
   /* Loop through all of the functions.  */
-  for (fns = TREE_VALUE (fns); fns; fns = OVL_NEXT (fns))
+  for (fns = BASELINK_FUNCTIONS (fns); fns; fns = OVL_NEXT (fns))
     {
       tree fn;
       tree second_parm;
@@ -4392,31 +4338,36 @@ check_bases_and_members (t, empty_p)
    accordingly.  If a new vfield was created (because T doesn't have a
    primary base class), then the newly created field is returned.  It
    is not added to the TYPE_FIELDS list; it is the caller's
-   responsibility to do that.  */
+   responsibility to do that.  Accumulate declared virtual functions
+   on VIRTUALS_P.  */
 
 static tree
-create_vtable_ptr (t, empty_p, vfuns_p,
-		   new_virtuals_p, overridden_virtuals_p)
+create_vtable_ptr (t, empty_p, virtuals_p)
      tree t;
      int *empty_p;
-     int *vfuns_p;
-     tree *new_virtuals_p;
-     tree *overridden_virtuals_p;
+     tree *virtuals_p;
 {
   tree fn;
 
-  /* Loop over the virtual functions, adding them to our various
-     vtables.  */
+  /* Collect the virtual functions declared in T.  */
   for (fn = TYPE_METHODS (t); fn; fn = TREE_CHAIN (fn))
-    if (DECL_VINDEX (fn) && !DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn))
-      add_virtual_function (new_virtuals_p, overridden_virtuals_p,
-			    vfuns_p, fn, t);
+    if (DECL_VINDEX (fn) && !DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn)
+	&& TREE_CODE (DECL_VINDEX (fn)) != INTEGER_CST)
+      {
+	tree new_virtual = make_node (TREE_LIST);
+	
+	BV_FN (new_virtual) = fn;
+	BV_DELTA (new_virtual) = integer_zero_node;
 
+	TREE_CHAIN (new_virtual) = *virtuals_p;
+	*virtuals_p = new_virtual;
+      }
+  
   /* If we couldn't find an appropriate base class, create a new field
      here.  Even if there weren't any new virtual functions, we might need a
      new virtual function table if we're supposed to include vptrs in
      all classes that need them.  */
-  if (!TYPE_VFIELD (t) && (*vfuns_p || TYPE_CONTAINS_VPTR_P (t)))
+  if (!TYPE_VFIELD (t) && (*virtuals_p || TYPE_CONTAINS_VPTR_P (t)))
     {
       /* We build this decl with vtbl_ptr_type_node, which is a
 	 `vtable_entry_type*'.  It might seem more precise to use
@@ -4808,16 +4759,14 @@ splay_tree_compare_integer_csts (k1, k2)
 
 /* Calculate the TYPE_SIZE, TYPE_ALIGN, etc for T.  Calculate
    BINFO_OFFSETs for all of the base-classes.  Position the vtable
-   pointer.  */
+   pointer.  Accumulate declared virtual functions on VIRTUALS_P. */
 
 static void
-layout_class_type (t, empty_p, vfuns_p, 
-		   new_virtuals_p, overridden_virtuals_p)
+layout_class_type (t, empty_p, vfuns_p, virtuals_p)
      tree t;
      int *empty_p;
      int *vfuns_p;
-     tree *new_virtuals_p;
-     tree *overridden_virtuals_p;
+     tree *virtuals_p;
 {
   tree non_static_data_members;
   tree field;
@@ -4839,8 +4788,7 @@ layout_class_type (t, empty_p, vfuns_p,
   determine_primary_base (t, vfuns_p);
 
   /* Create a pointer to our virtual function table.  */
-  vptr = create_vtable_ptr (t, empty_p, vfuns_p,
-			    new_virtuals_p, overridden_virtuals_p);
+  vptr = create_vtable_ptr (t, empty_p, virtuals_p);
 
   /* The vptr is always the first thing in the class.  */
   if (vptr)
@@ -5047,15 +4995,8 @@ finish_struct_1 (t)
 {
   tree x;
   int vfuns;
-  /* The NEW_VIRTUALS is a TREE_LIST.  The TREE_VALUE of each node is
-     a FUNCTION_DECL.  Each of these functions is a virtual function
-     declared in T that does not override any virtual function from a
-     base class.  */
-  tree new_virtuals = NULL_TREE;
-  /* The OVERRIDDEN_VIRTUALS list is like the NEW_VIRTUALS list,
-     except that each declaration here overrides the declaration from
-     a base class.  */
-  tree overridden_virtuals = NULL_TREE;
+  /* A TREE_LIST.  The TREE_VALUE of each node is a FUNCTION_DECL. */
+  tree virtuals = NULL_TREE;
   int n_fields = 0;
   tree vfield;
   int empty = 1;
@@ -5085,8 +5026,7 @@ finish_struct_1 (t)
   check_bases_and_members (t, &empty);
 
   /* Layout the class itself.  */
-  layout_class_type (t, &empty, &vfuns,
-		     &new_virtuals, &overridden_virtuals);
+  layout_class_type (t, &empty, &vfuns, &virtuals);
 
   /* Make sure that we get our own copy of the vfield FIELD_DECL.  */
   vfield = TYPE_VFIELD (t);
@@ -5110,8 +5050,7 @@ finish_struct_1 (t)
   else
     my_friendly_assert (!vfield || DECL_FIELD_CONTEXT (vfield) == t, 20010726);
 
-  overridden_virtuals 
-    = modify_all_vtables (t, &vfuns, nreverse (overridden_virtuals));
+  virtuals = modify_all_vtables (t, &vfuns, nreverse (virtuals));
 
   /* If we created a new vtbl pointer for this class, add it to the
      list.  */
@@ -5120,9 +5059,8 @@ finish_struct_1 (t)
       = chainon (CLASSTYPE_VFIELDS (t), build_tree_list (NULL_TREE, t));
 
   /* If necessary, create the primary vtable for this class.  */
-  if (new_virtuals || overridden_virtuals || TYPE_CONTAINS_VPTR_P (t))
+  if (virtuals || TYPE_CONTAINS_VPTR_P (t))
     {
-      new_virtuals = nreverse (new_virtuals);
       /* We must enter these virtuals into the table.  */
       if (!CLASSTYPE_HAS_PRIMARY_BASE_P (t))
 	build_primary_vtable (NULL_TREE, t);
@@ -5135,7 +5073,6 @@ finish_struct_1 (t)
 	 constructors might clobber the virtual function table.  But
 	 they don't if the derived class shares the exact vtable of the base
 	 class.  */
-
       CLASSTYPE_NEEDS_VIRTUAL_REINIT (t) = 1;
     }
   /* If we didn't need a new vtable, see if we should copy one from
@@ -5161,14 +5098,8 @@ finish_struct_1 (t)
 			    20000116);
 
       CLASSTYPE_VSIZE (t) = vfuns;
-      /* Entries for virtual functions defined in the primary base are
-	 followed by entries for new functions unique to this class.  */
-      TYPE_BINFO_VIRTUALS (t) 
-	= chainon (TYPE_BINFO_VIRTUALS (t), new_virtuals);
-      /* Finally, add entries for functions that override virtuals
-	 from non-primary bases.  */
-      TYPE_BINFO_VIRTUALS (t) 
-	= chainon (TYPE_BINFO_VIRTUALS (t), overridden_virtuals);
+      /* Add entries for virtual functions introduced by this class.  */
+      TYPE_BINFO_VIRTUALS (t) = chainon (TYPE_BINFO_VIRTUALS (t), virtuals);
     }
 
   finish_struct_bits (t);
@@ -5204,15 +5135,13 @@ finish_struct_1 (t)
     {
       tree vfields = CLASSTYPE_VFIELDS (t);
 
-      while (vfields)
-	{
-	  /* Mark the fact that constructor for T
-	     could affect anybody inheriting from T
-	     who wants to initialize vtables for VFIELDS's type.  */
-	  if (VF_DERIVED_VALUE (vfields))
-	    TREE_ADDRESSABLE (vfields) = 1;
-	  vfields = TREE_CHAIN (vfields);
-	}
+      for (vfields = CLASSTYPE_VFIELDS (t);
+	   vfields; vfields = TREE_CHAIN (vfields))
+	/* Mark the fact that constructor for T could affect anybody
+	   inheriting from T who wants to initialize vtables for
+	   VFIELDS's type.  */
+	if (VF_BINFO_VALUE (vfields))
+	  TREE_ADDRESSABLE (vfields) = 1;
     }
 
   /* Make the rtl for any new vtables we have created, and unmark
@@ -5310,12 +5239,8 @@ finish_struct (t, attributes)
   else
     error ("trying to finish struct, but kicked out due to previous parse errors");
 
-  if (processing_template_decl)
-    {
-      tree scope = current_scope ();
-      if (scope && TREE_CODE (scope) == FUNCTION_DECL)
-	add_stmt (build_min (TAG_DEFN, t));
-    }
+  if (processing_template_decl && at_function_scope_p ())
+    add_stmt (build_min (TAG_DEFN, t));
 
   return t;
 }
@@ -5637,8 +5562,6 @@ void
 popclass ()
 {
   poplevel_class ();
-  /* Since poplevel_class does the popping of class decls nowadays,
-     this really only frees the obstack used for these decls.  */
   pop_class_decls ();
 
   current_class_depth--;
@@ -6097,6 +6020,9 @@ instantiate_type (lhstype, rhs, flags)
       return error_mark_node;
     }
 
+  if (TREE_CODE (rhs) == BASELINK)
+    rhs = BASELINK_FUNCTIONS (rhs);
+
   /* We don't overwrite rhs if it is an overloaded function.
      Copying it would destroy the tree link.  */
   if (TREE_CODE (rhs) != OVERLOAD)
@@ -6143,7 +6069,7 @@ instantiate_type (lhstype, rhs, flags)
     case OFFSET_REF:
       rhs = TREE_OPERAND (rhs, 1);
       if (BASELINK_P (rhs))
-	return instantiate_type (lhstype, TREE_VALUE (rhs),
+	return instantiate_type (lhstype, BASELINK_FUNCTIONS (rhs),
 	                         flags | allow_ptrmem);
 
       /* This can happen if we are forming a pointer-to-member for a
@@ -6179,7 +6105,7 @@ instantiate_type (lhstype, rhs, flags)
       /* Now we should have a baselink. */
       my_friendly_assert (BASELINK_P (rhs), 990412);
 
-      return instantiate_type (lhstype, TREE_VALUE (rhs), flags);
+      return instantiate_type (lhstype, BASELINK_FUNCTIONS (rhs), flags);
 
     case CALL_EXPR:
       /* This is too hard for now.  */
@@ -6463,7 +6389,7 @@ maybe_note_name_used_in_class (name, decl)
 }
 
 /* Note that NAME was declared (as DECL) in the current class.  Check
-   to see that the declaration is legal.  */
+   to see that the declaration is valid.  */
 
 void
 note_name_declared_in_class (name, decl)

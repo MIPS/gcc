@@ -198,9 +198,12 @@ struct lang_hooks
      initialization should be left to the "init" callback, since GC
      and the identifier hashes are set up between now and then.
 
+     Should return zero unless the compiler back-end does not need to
+     be initialized, such as with the -E option.
+     
      If errorcount is non-zero after this call the compiler exits
      immediately and the finish hook is not called.  */
-  void (*post_options) PARAMS ((void));
+  bool (*post_options) PARAMS ((void));
 
   /* Called after post_options, to initialize the front end.  The main
      input filename is passed, which may be NULL; the front end should
@@ -296,6 +299,10 @@ struct lang_hooks
      assembler does not talk about it.  */
   void (*set_decl_assembler_name) PARAMS ((tree));
 
+  /* Return nonzero if fold-const is free to use bit-field
+     optimizations, for instance in fold_truthop().  */
+  bool (*can_use_bit_fields_p) PARAMS ((void));
+
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;
 
@@ -325,6 +332,12 @@ struct lang_hooks
   void (*print_error_function) PARAMS ((struct diagnostic_context *,
 					const char *));
 
+  /* Called from expr_size to calculate the size of the value of an
+     expression in a language-dependent way.  Returns a tree for the size
+     in bytes.  A frontend can call lhd_expr_size to get the default
+     semantics in cases that it doesn't want to handle specially.  */
+  tree (*expr_size) PARAMS ((tree));
+
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a
      table of attributes specific to the language, a table of
@@ -344,6 +357,11 @@ struct lang_hooks
   struct lang_hooks_for_decls decls;
 
   struct lang_hooks_for_types types;
+
+  /* Perform language-specific simplification on the argument.  Returns
+     1 if simplification is complete, or 0 to use default simplification
+     semantics.  */
+  int (*simplify_expr) PARAMS ((tree *, tree *, tree *));
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

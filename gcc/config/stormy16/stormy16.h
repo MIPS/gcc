@@ -387,20 +387,6 @@ do {									\
 /* #define LEAF_REG_REMAP(REGNO) */
 
 
-/* Registers That Form a Stack.  */
-
-/* Define this if the machine has any stack-like registers.  */
-/* #define STACK_REGS */
-
-/* The number of the first stack-like register.  This one is the top
-   of the stack.  */
-/* #define FIRST_STACK_REG */
-
-/* The number of the last stack-like register.  This one is the
-   bottom of the stack.  */
-/* #define LAST_STACK_REG */
-
-
 /* Register Classes */
 
 /* An enumeral type that must be defined with all the register class names as
@@ -1333,7 +1319,7 @@ enum reg_class
 
    For this platform, the value of CUMULATIVE_ARGS is the number of words
    of arguments that have been passed in registers so far.  */
-typedef int CUMULATIVE_ARGS;
+#define CUMULATIVE_ARGS int
 
 /* A C statement (sans semicolon) for initializing the variable CUM for the
    state at the beginning of the argument list.  The variable has type
@@ -1743,8 +1729,8 @@ typedef int CUMULATIVE_ARGS;
    variable to initialize.  NEXTARG is the machine independent notion of the
    'next' argument after the variable arguments.  If not defined, a standard
    implementation will be defined that works for arguments passed on the stack.  */
-#define EXPAND_BUILTIN_VA_START(STDARG_P, VALIST, NEXTARG) \
-  xstormy16_expand_builtin_va_start (STDARG_P, VALIST, NEXTARG)
+#define EXPAND_BUILTIN_VA_START(VALIST, NEXTARG) \
+  xstormy16_expand_builtin_va_start (VALIST, NEXTARG)
 
 /* Implement the stdarg/varargs va_arg macro.  VALIST is the variable of type
    va_list as a tree, TYPE is the type passed to va_arg.  */
@@ -2449,7 +2435,7 @@ do {							\
    uninitialized global data will be output in the data section if
    `-fno-common' is passed, otherwise `ASM_OUTPUT_COMMON' will be
    used.  */
-#define BSS_SECTION_ASM_OP ".bss"
+#define BSS_SECTION_ASM_OP "\t.section\t.bss"
 
 /* If defined, a C expression whose value is a string containing the
    assembler operation to identify the following data as
@@ -2796,27 +2782,12 @@ do {							\
 
 /* Output and Generation of Labels.  */
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM the
-   assembler definition of a label named NAME.  Use the expression
-   `assemble_name (STREAM, NAME)' to output the name itself; before and after
-   that, output the additional assembler syntax for defining the name, and a
-   newline.  */
-#define ASM_OUTPUT_LABEL(STREAM, NAME)					\
-do {									\
-  assemble_name (STREAM, NAME);						\
-  fputs (":\n", STREAM);						\
-} while (0)
-
 /* A C statement to output to the stdio stream STREAM the assembler
    definition of a symbol named SYMBOL.  */
 #define ASM_OUTPUT_SYMBOL_REF(STREAM, SYMBOL)				\
   do {									\
     if (SYMBOL_REF_FLAG (SYMBOL))					\
-      {									\
-        fputs ("@fptr(", STREAM);					\
-	assemble_name (STREAM, XSTR (SYMBOL, 0));			\
-	fputc (')', STREAM);						\
-      }									\
+      ASM_OUTPUT_LABEL_REF ((STREAM), XSTR (SYMBOL, 0));		\
     else								\
       assemble_name (STREAM, XSTR (SYMBOL, 0));				\
   } while (0)
@@ -2877,17 +2848,8 @@ do  {						\
    Defined in svr4.h.  */
 /* #define ASM_FINISH_DECLARE_OBJECT(STREAM, DECL, TOPLEVEL, ATEND) */
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM some
-   commands that will make the label NAME global; that is, available for
-   reference from other files.  Use the expression `assemble_name (STREAM,
-   NAME)' to output the name itself; before and after that, output the
-   additional assembler syntax for making that name global, and a newline.  */
-#define ASM_GLOBALIZE_LABEL(STREAM,NAME)				\
-do {									\
-  fputs ("\t.globl ", STREAM);						\
-  assemble_name (STREAM, NAME);						\
-  fputs ("\n", STREAM);							\
-} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* A C statement (sans semicolon) to output to the stdio stream STREAM some
    commands that will make the label NAME weak; that is, available for
@@ -3898,7 +3860,7 @@ do {									\
    Some machines can also perform `and' or `plus' operations on condition code
    values with less instructions than the corresponding `sCOND' insn followed
    by `and' or `plus'.  On those machines, define the appropriate patterns.
-   Use the names `incscc' and `decscc', respectively, for the the patterns
+   Use the names `incscc' and `decscc', respectively, for the patterns
    which perform `plus' or `minus' operations on condition code values.  See
    `rs6000.md' for some examples.  The GNU Superoptizer can be used to find
    such instruction sequences on other machines.
@@ -3936,12 +3898,6 @@ do {									\
    arguments that the function accepts.  Some people think a larger threshold
    should be used on RISC machines.  */
 /* #define INTEGRATE_THRESHOLD(DECL) */
-
-/* Define this if the preprocessor should ignore `#sccs' directives and print
-   no error message.
-
-   Defined in svr4.h.  */
-/* #define SCCS_DIRECTIVE */
 
 /* Define this macro if the system header files support C++ as well as C.  This
    macro inhibits the usual method of using system header files in C++, which

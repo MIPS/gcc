@@ -1947,7 +1947,6 @@ uses_arg_area_p ()
   register tree parm;
 
   if (current_function_decl == 0
-      || current_function_varargs
       || variable_args_p)
     return 1;
 
@@ -2619,8 +2618,7 @@ m88k_build_va_list ()
 /* Implement `va_start' for varargs and stdarg.  */
 
 void
-m88k_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
+m88k_va_start (valist, nextarg)
      tree valist;
      rtx nextarg ATTRIBUTE_UNUSED;
 {

@@ -25,7 +25,6 @@
 #include <stdexcept>
 #include <testsuite_hooks.h>
 
-
 void test00()
 {
   // Should be able to do this as the first thing that happens in a
@@ -49,11 +48,70 @@ public:
 
 std::locale::id gnu_facet::id;
 
+// Need some char_traits specializations for this to work.
+typedef unsigned short			unicode_t;
+
+namespace std
+{
+  template<>
+    struct char_traits<unicode_t>
+    {
+      typedef unicode_t 	char_type;
+      // Unsigned as wint_t is unsigned.
+      typedef unsigned long  	int_type;
+      typedef streampos 	pos_type;
+      typedef streamoff 	off_type;
+      typedef mbstate_t 	state_type;
+      
+      static void 
+      assign(char_type& __c1, const char_type& __c2);
+
+      static bool 
+      eq(const char_type& __c1, const char_type& __c2);
+
+      static bool 
+      lt(const char_type& __c1, const char_type& __c2);
+
+      static int 
+      compare(const char_type* __s1, const char_type* __s2, size_t __n)
+      { return memcmp(__s1, __s2, __n); }
+
+      static size_t
+      length(const char_type* __s);
+
+      static const char_type* 
+      find(const char_type* __s, size_t __n, const char_type& __a);
+
+      static char_type* 
+      move(char_type* __s1, const char_type* __s2, size_t __n);
+
+      static char_type* 
+      copy(char_type* __s1, const char_type* __s2, size_t __n)
+      {  return static_cast<char_type*>(memcpy(__s1, __s2, __n)); }
+
+      static char_type* 
+      assign(char_type* __s, size_t __n, char_type __a);
+
+      static char_type 
+      to_char_type(const int_type& __c);
+
+      static int_type 
+      to_int_type(const char_type& __c);
+
+      static bool 
+      eq_int_type(const int_type& __c1, const int_type& __c2);
+
+      static int_type 
+      eof(); 
+
+      static int_type 
+      not_eof(const int_type& __c);
+    };
+}
+
 void test01()
 {
   using namespace std;
-
-  typedef unsigned short			unicode_t;
   typedef unicode_t				int_type;
   typedef char					ext_type;
   typedef __enc_traits				enc_type;
@@ -238,13 +296,29 @@ void test01()
 }
 #endif // _GLIBCPP_USE___ENC_TRAITS
 
-int main ()
+// libstdc++/7222
+void test02()
+{
+  bool test = true;
+  std::locale loc_c1("C");
+  std::locale loc_c2 ("C");
+  
+  std::locale loc_1("");
+  std::locale loc_2("");
+
+  VERIFY( loc_c1 == loc_c2 );
+  VERIFY( loc_1 == loc_2 );
+}
+
+int main()
 {
   test00();
 
 #if _GLIBCPP_USE___ENC_TRAITS
   test01();
 #endif 
+
+  test02();
 
   return 0;
 }

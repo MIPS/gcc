@@ -144,27 +144,8 @@ Boston, MA 02111-1307, USA.  */
   while (0)
 #endif
 
-#ifndef ASM_OUTPUT_LABEL
-#define ASM_OUTPUT_LABEL(STREAM, NAME)		\
-  do						\
-    {						\
-      assemble_name (STREAM,NAME);		\
-      fputs (":\n", STREAM);			\
-    }						\
-  while (0)
-#endif
-     
-/* Output a globalising directive for a label.  */
-#ifndef ASM_GLOBALIZE_LABEL
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME)	\
-  do						\
-    {						\
-      fprintf (STREAM, "\t.global\t");		\
-      assemble_name (STREAM, NAME);		\
-      fputc ('\n',STREAM);			\
-    }						\
-  while (0)
-#endif
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 /* Make an internal label into a string.  */
 #ifndef ASM_GENERATE_INTERNAL_LABEL

@@ -211,7 +211,8 @@ cxx_incomplete_type_diagnostic (value, type, warn_only)
     return;
 
   if (value != 0 && (TREE_CODE (value) == VAR_DECL
-		     || TREE_CODE (value) == PARM_DECL))
+		     || TREE_CODE (value) == PARM_DECL
+		     || TREE_CODE (value) == FIELD_DECL))
     {
       (*p_msg_at) ("`%D' has incomplete type", value);
       decl = 1;
@@ -226,7 +227,10 @@ retry:
     case ENUMERAL_TYPE:
       if (!decl)
         (*p_msg) ("invalid use of undefined type `%#T'", type);
-      (*p_msg_at)  ("forward declaration of `%#T'", type);
+      if (!TYPE_TEMPLATE_INFO (type))
+	(*p_msg_at) ("forward declaration of `%#T'", type);
+      else
+	(*p_msg_at) ("declaration of `%#T'", type);
       break;
 
     case VOID_TYPE:
@@ -1192,8 +1196,8 @@ build_m_component_ref (datum, component)
 			| cp_type_quals (TREE_TYPE (datum)));
 
 	  /* There's no such thing as a mutable pointer-to-member, so
-	     we don't need to deal with that here like we do in
-	     build_component_ref.  */
+	     things are not as complex as they are for references to
+	     non-static data members.  */
 	  field_type = cp_build_qualified_type (field_type, type_quals);
 	}
     }
@@ -1305,8 +1309,8 @@ build_functional_cast (exp, parms)
       return get_target_expr (exp);
     }
 
-  exp = build_method_call (NULL_TREE, complete_ctor_identifier, parms,
-			   TYPE_BINFO (type), LOOKUP_NORMAL);
+  exp = build_special_member_call (NULL_TREE, complete_ctor_identifier, parms,
+				   TYPE_BINFO (type), LOOKUP_NORMAL);
 
   if (exp == error_mark_node)
     return error_mark_node;
@@ -1372,11 +1376,7 @@ add_exception_specifier (list, spec, complain)
         if (same_type_p (TREE_VALUE (probe), spec))
           break;
       if (!probe)
-        {
-          spec = build_tree_list (NULL_TREE, spec);
-          TREE_CHAIN (spec) = list;
-          list = spec;
-        }
+	list = tree_cons (NULL_TREE, spec, list);
     }
   else if (complain)
     cxx_incomplete_type_error (NULL_TREE, core);

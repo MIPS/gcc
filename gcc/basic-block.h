@@ -135,13 +135,22 @@ typedef struct edge_def {
 				   in profile.c  */
 } *edge;
 
-#define EDGE_FALLTHRU		1
-#define EDGE_ABNORMAL		2
-#define EDGE_ABNORMAL_CALL	4
-#define EDGE_EH			8
-#define EDGE_FAKE		16
-#define EDGE_DFS_BACK		32
-#define EDGE_CAN_FALLTHRU	64
+#define EDGE_FALLTHRU		1	/* 'Straight line' flow */
+#define EDGE_ABNORMAL		2	/* Strange flow, like computed
+					   label, or eh */
+#define EDGE_ABNORMAL_CALL	4	/* Call with abnormal exit
+					   like an exception, or sibcall */
+#define EDGE_EH			8	/* Exception throw */
+#define EDGE_FAKE		16	/* Not a real edge (profile.c) */
+#define EDGE_DFS_BACK		32	/* A backwards edge */
+#define EDGE_CAN_FALLTHRU	64	/* Candidate for straight line
+					   flow. */
+#define EDGE_TRUE_VALUE		128	/* Edge taken when controlling
+					   predicate is non zero.  */
+#define EDGE_FALSE_VALUE	256	/* Edge taken when controlling
+					   predicate is zero.  */
+#define EDGE_EXECUTABLE		512	/* Edge is executable.  Only
+					   valid during SSA-CCP.  */
 
 #define EDGE_COMPLEX	(EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH)
 
@@ -233,6 +242,15 @@ typedef struct basic_block_def {
 #define BB_REACHABLE		4
 #define BB_VISITED		8
 
+/* Block contains a control flow expression.  */
+#define BB_CONTROL_EXPR		16
+
+/* Block contains a control flow expression for a loop.  */
+#define BB_LOOP_CONTROL_EXPR	32
+
+/* Block is the entry block to a control statement but contains no code.  */
+#define BB_CONTROL_ENTRY	64
+
 /* Number of basic blocks in the current function.  */
 
 extern int n_basic_blocks;
@@ -261,13 +279,20 @@ extern varray_type basic_block_info;
 #define FOR_EACH_BB_REVERSE(BB) \
   FOR_BB_BETWEEN (BB, EXIT_BLOCK_PTR->prev_bb, ENTRY_BLOCK_PTR, prev_bb)
 
+/* Cycles through _all_ basic blocks, even the fake ones (entry and
+   exit block).  */
+
+#define FOR_ALL_BB(BB) \
+  for (BB = ENTRY_BLOCK_PTR; BB; BB = BB->next_bb)
+
 /* What registers are live at the setjmp call.  */
 
 extern regset regs_live_at_setjmp;
 
 /* Special labels found during CFG build.  */
 
-extern rtx label_value_list, tail_recursion_label_list;
+extern GTY(()) rtx label_value_list;
+extern GTY(()) rtx tail_recursion_label_list;
 
 extern struct obstack flow_obstack;
 
@@ -349,6 +374,10 @@ extern void dump_edge_info		PARAMS ((FILE *, edge, int));
 extern void clear_edges			PARAMS ((void));
 extern void mark_critical_edges		PARAMS ((void));
 extern rtx first_insn_after_basic_block_note	PARAMS ((basic_block));
+
+/* Dominator information for basic blocks.  */
+
+typedef struct dominance_info *dominance_info;
 
 /* Structure to hold information for each natural loop.  */
 struct loop
@@ -498,7 +527,7 @@ struct loops
   struct cfg
   {
     /* The bitmap vector of dominators or NULL if not computed.  */
-    sbitmap *dom;
+    dominance_info dom;
 
     /* The ordering of the basic blocks in a depth first search.  */
     int *dfs_order;
@@ -511,6 +540,33 @@ struct loops
   /* Headers shared by multiple loops that should be merged.  */
   sbitmap shared_headers;
 };
+
+/* Structure to group all of the information to process IF-THEN and
+   IF-THEN-ELSE blocks for the conditional execution support.  This
+   needs to be in a public file in case the IFCVT macros call
+   functions passing the ce_if_block data structure.  */
+
+typedef struct ce_if_block
+{
+  basic_block test_bb;			/* First test block.  */
+  basic_block then_bb;			/* THEN block.  */
+  basic_block else_bb;			/* ELSE block or NULL.  */
+  basic_block join_bb;			/* Join THEN/ELSE blocks.  */
+  basic_block last_test_bb;		/* Last bb to hold && or || tests.  */
+  int num_multiple_test_blocks;		/* # of && and || basic blocks.  */
+  int num_and_and_blocks;		/* # of && blocks.  */
+  int num_or_or_blocks;			/* # of || blocks.  */
+  int num_multiple_test_insns;		/* # of insns in && and || blocks.  */
+  int and_and_p;			/* Complex test is &&.  */
+  int num_then_insns;			/* # of insns in THEN block.  */
+  int num_else_insns;			/* # of insns in ELSE block.  */
+  int pass;				/* Pass number.  */
+
+#ifdef IFCVT_EXTRA_FIELDS
+  IFCVT_EXTRA_FIELDS			/* Any machine dependent fields.  */
+#endif
+
+} ce_if_block_t;
 
 extern int flow_loops_find PARAMS ((struct loops *, int flags));
 extern int flow_loops_update PARAMS ((struct loops *, int flags));
@@ -575,6 +631,7 @@ void print_edge_list			PARAMS ((FILE *, struct edge_list *));
 void verify_edge_list			PARAMS ((FILE *, struct edge_list *));
 int find_edge_index			PARAMS ((struct edge_list *,
 						 basic_block, basic_block));
+edge find_edge				PARAMS ((basic_block, basic_block));
 
 
 enum update_life_extent
@@ -770,7 +827,21 @@ enum cdi_direction
   CDI_POST_DOMINATORS
 };
 
-extern void calculate_dominance_info	PARAMS ((int *, sbitmap *,
-						 enum cdi_direction));
-
+extern dominance_info calculate_dominance_info	PARAMS ((enum cdi_direction));
+extern void free_dominance_info			PARAMS ((dominance_info));
+extern basic_block nearest_common_dominator	PARAMS ((dominance_info,
+						 basic_block, basic_block));
+extern void set_immediate_dominator	PARAMS ((dominance_info,
+						 basic_block, basic_block));
+extern basic_block get_immediate_dominator	PARAMS ((dominance_info,
+						 basic_block));
+extern bool dominated_by_p	PARAMS ((dominance_info, basic_block, basic_block));
+extern int get_dominated_by PARAMS ((dominance_info, basic_block, basic_block **));
+extern void add_to_dominance_info PARAMS ((dominance_info, basic_block));
+extern void delete_from_dominance_info PARAMS ((dominance_info, basic_block));
+basic_block recount_dominator PARAMS ((dominance_info, basic_block));
+extern void redirect_immediate_dominators PARAMS ((dominance_info, basic_block,
+						 basic_block));
+void iterate_fix_dominators PARAMS ((dominance_info, basic_block *, int));
+extern void verify_dominators PARAMS ((dominance_info));
 #endif /* GCC_BASIC_BLOCK_H */

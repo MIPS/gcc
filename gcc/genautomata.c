@@ -116,9 +116,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "genattrtab.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* Positions in machine description file.  Now they are not used.  But
    they could be used in the future for better diagnostic messages.  */
 typedef int pos_t;
@@ -211,7 +208,7 @@ typedef struct state_ainsn_table *state_ainsn_table_t;
    function `main'.  */
 
 static void *create_node            PARAMS ((size_t));
-static void *copy_node              PARAMS ((void *, size_t));
+static void *copy_node              PARAMS ((const void *, size_t));
 static char *check_name             PARAMS ((char *, pos_t));
 static char *next_sep_el            PARAMS ((char **, int, int));
 static int n_sep_els                PARAMS ((char *, int, int));
@@ -530,7 +527,7 @@ static struct obstack irp;
 #define VLA_PTR_CREATE(vla, allocated_length, name)                   	\
   do									\
     {                                                                	\
-      vla_ptr_t *vla_ptr = &(vla);                                      \
+      vla_ptr_t *const vla_ptr = &(vla);                                \
                                                                       	\
       VARRAY_GENERIC_PTR_INIT (vla_ptr->varray, allocated_length, name);\
       vla_ptr->length = 0;                                              \
@@ -557,8 +554,8 @@ static struct obstack irp;
    undefined.  */
 #define VLA_PTR_EXPAND(vla, n)                                        \
   do {                                                                \
-    vla_ptr_t *expand_vla_ptr = &(vla);                               \
-    size_t new_length = (n) + expand_vla_ptr->length;                 \
+    vla_ptr_t *const expand_vla_ptr = &(vla);                         \
+    const size_t new_length = (n) + expand_vla_ptr->length;           \
                                                                       \
     if (VARRAY_SIZE (expand_vla_ptr->varray) < new_length)            \
       VARRAY_GROW (expand_vla_ptr->varray,                            \
@@ -570,7 +567,7 @@ static struct obstack irp;
 /* Add element to the end of the vla.  */
 #define VLA_PTR_ADD(vla, ptr)                                         \
   do {                                                                \
-    vla_ptr_t *vla_ptr = &(vla);                                      \
+    vla_ptr_t *const vla_ptr = &(vla);                                \
                                                                       \
     VLA_PTR_EXPAND (*vla_ptr, 1);                                     \
     VARRAY_GENERIC_PTR (vla_ptr->varray, vla_ptr->length - 1) = (ptr);\
@@ -588,7 +585,7 @@ static struct obstack irp;
 
 #define VLA_HWINT_CREATE(vla, allocated_length, name)                 \
   do {                                                                \
-    vla_hwint_t *vla_ptr = &(vla);                                    \
+    vla_hwint_t *const vla_ptr = &(vla);                              \
                                                                       \
     VARRAY_WIDE_INT_INIT (vla_ptr->varray, allocated_length, name);   \
     vla_ptr->length = 0;                                              \
@@ -598,18 +595,12 @@ static struct obstack irp;
 
 #define VLA_HWINT_BEGIN(vla) (&VARRAY_WIDE_INT ((vla).varray, 0))
 
-/* Do not use side effects in the macro argument.  */
-#define VLA_HWINT_LAST(vla) (&VARRAY_WIDE_INT ((vla).varray,          \
-                                              (vla).length - 1))
-
 #define VLA_HWINT_NULLIFY(vla)  ((vla).length = 0)
-
-#define VLA_HWINT_SHORTEN(vla, n)  ((vla).length -= (n))
 
 #define VLA_HWINT_EXPAND(vla, n)                                      \
   do {                                                                \
-    vla_hwint_t *expand_vla_ptr = &(vla);                             \
-    size_t new_length = (n) + expand_vla_ptr->length;                 \
+    vla_hwint_t *const expand_vla_ptr = &(vla);                       \
+    const size_t new_length = (n) + expand_vla_ptr->length;           \
                                                                       \
     if (VARRAY_SIZE (expand_vla_ptr->varray) < new_length)            \
       VARRAY_GROW (expand_vla_ptr->varray,                            \
@@ -620,7 +611,7 @@ static struct obstack irp;
 
 #define VLA_HWINT_ADD(vla, ptr)                                       \
   do {                                                                \
-    vla_hwint_t *vla_ptr = &(vla);                                    \
+    vla_hwint_t *const vla_ptr = &(vla);                              \
                                                                       \
     VLA_HWINT_EXPAND (*vla_ptr, 1);                                   \
     VARRAY_WIDE_INT (vla_ptr->varray, vla_ptr->length - 1) = (ptr);   \
@@ -1244,56 +1235,56 @@ struct state_ainsn_table
 #if defined ENABLE_CHECKING && (GCC_VERSION >= 2007)
 
 #define DECL_UNIT(d) __extension__					\
-(({ struct decl *_decl = (d);						\
+(({ struct decl *const _decl = (d);					\
      if (_decl->mode != dm_unit)					\
        decl_mode_check_failed (_decl->mode, "dm_unit",			\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_decl)->decl.unit; }))
 
 #define DECL_BYPASS(d) __extension__					\
-(({ struct decl *_decl = (d);						\
+(({ struct decl *const _decl = (d);					\
      if (_decl->mode != dm_bypass)					\
        decl_mode_check_failed (_decl->mode, "dm_bypass",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_decl)->decl.bypass; }))
 
 #define DECL_AUTOMATON(d) __extension__					\
-(({ struct decl *_decl = (d);						\
+(({ struct decl *const _decl = (d);				       	\
      if (_decl->mode != dm_automaton)					\
        decl_mode_check_failed (_decl->mode, "dm_automaton",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_decl)->decl.automaton; }))
 
 #define DECL_EXCL(d) __extension__					\
-(({ struct decl *_decl = (d);						\
+(({ struct decl *const _decl = (d);				       	\
      if (_decl->mode != dm_excl)					\
        decl_mode_check_failed (_decl->mode, "dm_excl",			\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_decl)->decl.excl; }))
 
 #define DECL_PRESENCE(d) __extension__					\
-(({ struct decl *_decl = (d);						\
+(({ struct decl *const _decl = (d);					\
      if (_decl->mode != dm_presence)					\
        decl_mode_check_failed (_decl->mode, "dm_presence",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_decl)->decl.presence; }))
 
 #define DECL_ABSENCE(d) __extension__					\
-(({ struct decl *_decl = (d);						\
+(({ struct decl *const _decl = (d);				       	\
      if (_decl->mode != dm_absence)					\
        decl_mode_check_failed (_decl->mode, "dm_absence",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_decl)->decl.absence; }))
 
 #define DECL_RESERV(d) __extension__					\
-(({ struct decl *_decl = (d);						\
+(({ struct decl *const _decl = (d);					\
      if (_decl->mode != dm_reserv)					\
-       decl_mode_check_failed (_decl->mode, "dm_reserv",			\
+       decl_mode_check_failed (_decl->mode, "dm_reserv",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_decl)->decl.reserv; }))
 
 #define DECL_INSN_RESERV(d) __extension__				\
-(({ struct decl *_decl = (d);						\
+(({ struct decl *const _decl = (d);				       	\
      if (_decl->mode != dm_insn_reserv)					\
        decl_mode_check_failed (_decl->mode, "dm_insn_reserv",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
@@ -1350,42 +1341,42 @@ decl_mode_check_failed (mode, expected_mode_str, file, line, func)
 
 
 #define REGEXP_UNIT(r) __extension__					\
-(({ struct regexp *_regexp = (r);					\
+(({ struct regexp *const _regexp = (r);					\
      if (_regexp->mode != rm_unit)					\
        regexp_mode_check_failed (_regexp->mode, "rm_unit",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_regexp)->regexp.unit; }))
 
 #define REGEXP_RESERV(r) __extension__					\
-(({ struct regexp *_regexp = (r);					\
+(({ struct regexp *const _regexp = (r);					\
      if (_regexp->mode != rm_reserv)					\
        regexp_mode_check_failed (_regexp->mode, "rm_reserv",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_regexp)->regexp.reserv; }))
 
 #define REGEXP_SEQUENCE(r) __extension__				\
-(({ struct regexp *_regexp = (r);					\
+(({ struct regexp *const _regexp = (r);					\
      if (_regexp->mode != rm_sequence)					\
        regexp_mode_check_failed (_regexp->mode, "rm_sequence",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_regexp)->regexp.sequence; }))
 
 #define REGEXP_REPEAT(r) __extension__					\
-(({ struct regexp *_regexp = (r);					\
+(({ struct regexp *const _regexp = (r);					\
      if (_regexp->mode != rm_repeat)					\
        regexp_mode_check_failed (_regexp->mode, "rm_repeat",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_regexp)->regexp.repeat; }))
 
 #define REGEXP_ALLOF(r) __extension__					\
-(({ struct regexp *_regexp = (r);					\
+(({ struct regexp *const _regexp = (r);					\
      if (_regexp->mode != rm_allof)					\
        regexp_mode_check_failed (_regexp->mode, "rm_allof",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
      &(_regexp)->regexp.allof; }))
 
 #define REGEXP_ONEOF(r) __extension__					\
-(({ struct regexp *_regexp = (r);					\
+(({ struct regexp *const _regexp = (r);					\
      if (_regexp->mode != rm_oneof)					\
        regexp_mode_check_failed (_regexp->mode, "rm_oneof",		\
 			       __FILE__, __LINE__, __FUNCTION__);	\
@@ -1478,11 +1469,10 @@ create_node (size)
 /* Copy IR structure (node).  */
 static void *
 copy_node (from, size)
-     void *from;
+     const void *from;
      size_t size;
 {
-  void *result;
-  result = create_node (size);
+  void *const result = create_node (size);
   memcpy (result, from, size);
   return result;
 }
@@ -1493,7 +1483,7 @@ check_name (name, pos)
      char * name;
      pos_t pos ATTRIBUTE_UNUSED;
 {
-  char *str;
+  const char *str;
 
   for (str = name; *str != '\0'; str++)
     if (*str == '\"')
@@ -4993,17 +4983,19 @@ transform_3 (regexp)
       max_seq_length = 0;
       if (regexp->mode == rm_allof)
 	for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-	  if (REGEXP_ALLOF (regexp)->regexps [i]->mode == rm_sequence)
-	    {
-	      seq = REGEXP_ALLOF (regexp)->regexps [i];
-	      if (max_seq_length < REGEXP_SEQUENCE (seq)->regexps_num)
-	      max_seq_length = REGEXP_SEQUENCE (seq)->regexps_num;
-	    }
-	  else if (REGEXP_ALLOF (regexp)->regexps [i]->mode != rm_unit)
-	    {
-	      max_seq_length = 0;
-	      break;
-	    }
+	  {
+	    if (REGEXP_ALLOF (regexp)->regexps [i]->mode == rm_sequence)
+	      {
+		seq = REGEXP_ALLOF (regexp)->regexps [i];
+		if (max_seq_length < REGEXP_SEQUENCE (seq)->regexps_num)
+		  max_seq_length = REGEXP_SEQUENCE (seq)->regexps_num;
+	      }
+	    else if (REGEXP_ALLOF (regexp)->regexps [i]->mode != rm_unit)
+	      {
+		max_seq_length = 0;
+		break;
+	      }
+	  }
       if (max_seq_length != 0)
 	{
 	  if (max_seq_length == 1 || REGEXP_ALLOF (regexp)->regexps_num <= 1)
@@ -6873,12 +6865,12 @@ process_state_longest_path_length (state)
     max_dfa_issue_rate = value;
 }
 
-/* The following nacro value is name of the corresponding global
+/* The following macro value is name of the corresponding global
    variable in the automaton based pipeline interface.  */
 
 #define MAX_DFA_ISSUE_RATE_VAR_NAME "max_dfa_issue_rate"
 
-/* The following function calculates value of the the corresponding
+/* The following function calculates value of the corresponding
    global variable and outputs its declaration.  */
 
 static void
@@ -7286,7 +7278,7 @@ output_translate_vect (automaton)
   output_range_type (output_file, 0, automaton->insn_equiv_classes_num);
   fprintf (output_file, " ");
   output_translate_vect_name (output_file, automaton);
-  fprintf (output_file, "[] = {\n");
+  fprintf (output_file, "[] ATTRIBUTE_UNUSED = {\n");
   output_vect (VLA_HWINT_BEGIN (translate_vect),
 	       VLA_HWINT_LENGTH (translate_vect));
   fprintf (output_file, "};\n\n");
@@ -7357,7 +7349,7 @@ output_state_ainsn_table (tab, table_name, output_full_vect_name_func,
                          tab->max_comb_vect_el_value);
       fprintf (output_file, " ");
       (*output_full_vect_name_func) (output_file, tab->automaton);
-      fprintf (output_file, "[] = {\n");
+      fprintf (output_file, "[] ATTRIBUTE_UNUSED = {\n");
       output_vect (VLA_HWINT_BEGIN (tab->full_vect),
                    VLA_HWINT_LENGTH (tab->full_vect));
       fprintf (output_file, "};\n\n");
@@ -7370,7 +7362,7 @@ output_state_ainsn_table (tab, table_name, output_full_vect_name_func,
                          tab->max_comb_vect_el_value);
       fprintf (output_file, " ");
       (*output_comb_vect_name_func) (output_file, tab->automaton);
-      fprintf (output_file, "[] = {\n");
+      fprintf (output_file, "[] ATTRIBUTE_UNUSED = {\n");
       output_vect (VLA_HWINT_BEGIN (tab->comb_vect),
                    VLA_HWINT_LENGTH (tab->comb_vect));
       fprintf (output_file, "};\n\n");
@@ -7787,7 +7779,7 @@ output_min_issue_delay_table (automaton)
   output_range_type (output_file, 0, automaton->max_min_delay);
   fprintf (output_file, " ");
   output_min_issue_delay_vect_name (output_file, automaton);
-  fprintf (output_file, "[] = {\n");
+  fprintf (output_file, "[] ATTRIBUTE_UNUSED = {\n");
   /* Compress the vector */
   if (automaton->max_min_delay < 2)
     automaton->min_issue_delay_table_compression_factor = 8;
@@ -7961,13 +7953,32 @@ output_tables ()
 }
 
 /* The function outputs definition and value of PHR interface variable
-   `max_insn_queue_index' */
+   `max_insn_queue_index'.  Its value is not less than maximal queue
+   length needed for the insn scheduler.  */
 static void
 output_max_insn_queue_index_def ()
 {
-  int i;
+  int i, max, latency;
+  decl_t decl;
 
-  for (i = 0; (1 << i) <= description->max_insn_reserv_cycles; i++)
+  max = description->max_insn_reserv_cycles;
+  for (i = 0; i < description->decls_num; i++)
+    {
+      decl = description->decls [i];
+      if (decl->mode == dm_insn_reserv && decl != advance_cycle_insn_decl)
+	{
+	  latency = DECL_INSN_RESERV (decl)->default_latency;
+	  if (latency > max)
+	    max = latency;
+	}
+      else if (decl->mode == dm_bypass)
+	{
+	  latency = DECL_BYPASS (decl)->latency;
+	  if (latency > max)
+	    max = latency;
+	}
+    }
+  for (i = 0; (1 << i) <= max; i++)
     ;
   if (i < 0)
     abort ();
@@ -8080,7 +8091,7 @@ output_internal_min_issue_delay_func ()
 	   INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
 	   CHIP_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME, CHIP_NAME,
 	   CHIP_PARAMETER_NAME);
-  fprintf (output_file, "{\n  int %s ATTRIBUTE_UNUSED;\n  int %s;\n",
+  fprintf (output_file, "{\n  int %s ATTRIBUTE_UNUSED;\n  int %s = -1;\n",
 	   TEMPORARY_VARIABLE_NAME, RESULT_VARIABLE_NAME);
   fprintf (output_file, "\n  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
   output_insn_code_cases (output_automata_list_min_issue_delay_code);

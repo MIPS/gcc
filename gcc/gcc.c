@@ -93,9 +93,6 @@ extern int getrusage PARAMS ((int, struct rusage *));
 /* FIXME: when autoconf is fixed, remove the host check - dj */
 #if defined(TARGET_EXECUTABLE_SUFFIX) && defined(HOST_EXECUTABLE_SUFFIX)
 #define HAVE_TARGET_EXECUTABLE_SUFFIX
-#else
-#undef TARGET_EXECUTABLE_SUFFIX
-#define TARGET_EXECUTABLE_SUFFIX ""
 #endif
 
 /* By default there is no special suffix for host executables.  */
@@ -121,13 +118,6 @@ extern int getrusage PARAMS ((int, struct rusage *));
 #endif /* VMS */
 
 static const char dir_separator_str[] = { DIR_SEPARATOR, 0 };
-
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
-#ifndef GET_ENV_PATH_LIST
-#define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
-#endif
 
 /* Most every one is fine with LIBRARY_PATH.  For some, it conflicts.  */
 #ifndef LIBRARY_PATH_ENV
@@ -554,6 +544,27 @@ proper position among the other output files.  */
 #define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
 #endif
 
+/* mudflap specs */
+#ifndef MFWRAP_SPEC
+/* XXX: valid only if linking with static libmudflap.a */
+/* XXX: valid only for GNU ld */
+/* XXX: should exactly match hooks provided by libmudflap.a */
+#define MFWRAP_SPEC " %{fmudflap: %{static:\
+ --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
+ --wrap=memcpy --wrap=memmove\
+ --wrap=memset --wrap=memcmp --wrap=memchr --wrap=memrchr\
+ --wrap=strcpy --wrap=strncpy --wrap=strcat --wrap=strncat\
+ --wrap=strcmp --wrap=strcasecmp --wrap=strncmp --wrap=strncasecmp\
+ --wrap=strdup --wrap=strndup --wrap=strchr --wrap=strrchr\
+ --wrap=strstr --wrap=memmem --wrap=strlen --wrap=strnlen\
+ --wrap=bzero --wrap=bcopy --wrap=bcmp --wrap=index --wrap=rindex\
+ --wrap=dlopen --wrap=mmap --wrap=munmap\
+}}"
+#endif
+#ifndef MFLIB_SPEC
+#define MFLIB_SPEC " %{fmudflap: -export-dynamic -lmudflap %{!static:-ldl} %{static:%(link_gcc_c_sequence) -lmudflap}}"
+#endif
+
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
    included.  */
 #ifndef LIBGCC_SPEC
@@ -628,7 +639,8 @@ proper position among the other output files.  */
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) %l %X %{o*} %{A} %{d} %{e*} %{m} %{N} %{n} %{r} %{s} %{t}\
     %{u*} %{x} %{z} %{Z} %{!A:%{!nostdlib:%{!nostartfiles:%S}}}\
-    %{static:} %{L*} %(link_libgcc) %o %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
+    %{static:} %{L*} %(mfwrap) %(link_libgcc) %o %(mflib)\
+    %{!nostdlib:%{!nodefaultlibs:%(link_gcc_c_sequence)}}\
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} }}}}}}"
 #endif
 
@@ -646,7 +658,7 @@ proper position among the other output files.  */
 # define STARTFILE_PREFIX_SPEC ""
 #endif
 
-static const char *asm_debug = ASM_DEBUG_SPEC;
+static const char *asm_debug;
 static const char *cpp_spec = CPP_SPEC;
 static const char *cpp_predefines = CPP_PREDEFINES;
 static const char *cc1_spec = CC1_SPEC;
@@ -656,6 +668,8 @@ static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
 static const char *lib_spec = LIB_SPEC;
+static const char *mfwrap_spec = MFWRAP_SPEC;
+static const char *mflib_spec = MFLIB_SPEC;
 static const char *libgcc_spec = LIBGCC_SPEC;
 static const char *endfile_spec = ENDFILE_SPEC;
 static const char *startfile_spec = STARTFILE_SPEC;
@@ -675,13 +689,12 @@ static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
    call cc1 (or cc1obj in objc/lang-specs.h) from the main specs so
    that we default the front end language better.  */
 static const char *trad_capable_cpp =
-"%{traditional|ftraditional|traditional-cpp:tradcpp0}\
- %{!traditional:%{!ftraditional:%{!traditional-cpp:cc1 -E}}}";
+"cc1 -E %{traditional|ftraditional|traditional-cpp:-traditional-cpp}";
 
 static const char *cpp_unique_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
  %{CC:%{!E:%eGNU C does not support -CC without using -E}}\
- %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*} %{P} %{$} %I\
+ %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*} %{P} %I\
  %{MD:-MD %W{!o: %b.d}%W{o*:%.d%*}}\
  %{MMD:-MMD %W{!o: %b.d}%W{o*:%.d%*}}\
  %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
@@ -689,12 +702,16 @@ static const char *cpp_unique_options =
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
  %{remap} %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{fmudflap:-D_MUDFLAP}\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
-   only when preprocessing only to avoid duplication.  */
+   only when preprocessing only to avoid duplication.  We pass the cc1 spec
+   options to the preprocessor so that it the cc1 spec may manipulate
+   options used to set target flags.  Those special target flags settings may
+   in turn cause preprocessor symbols to be defined specially.  */
 static const char *cpp_options =
-"%(cpp_unique_options) %{std*} %{W*&pedantic*} %{w} %{m*} %{f*}\
+"%(cpp_unique_options) %1 %{std*} %{W*&pedantic*} %{w} %{m*} %{f*}\
  %{O*} %{undef}";
 
 /* This contains cpp options which are not passed when the preprocessor
@@ -705,12 +722,14 @@ static const char *cpp_debug_options = "%{d*}";
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
+ -auxbase%{c|S:%{o*:-strip%*}%{!o*: %b}}%{!c:%{!S: %b}}\
  %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
  %{v:-version} %{pg:-p} %{p} %{f*} %{undef}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
- %{fsyntax-only:-o %j} %{-param*}";
+ %{fsyntax-only:-o %j} %{-param*}\
+ %{fmudflap:-fmudflap -fno-builtin}";
 
 static const char *asm_options =
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";
@@ -836,24 +855,23 @@ static const struct compiler default_compilers[] =
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
-     "%{E|M|MM:%(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)\
-	  %(cpp_debug_options)}\
+     "%{E|M|MM:%(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)}\
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
 	  %{save-temps|traditional-cpp:%(trad_capable_cpp) \
-		%{ansi:-std=c89} %(cpp_options) %b.i \n\
+		%(cpp_options) %b.i \n\
 		    cc1 -fpreprocessed %b.i %(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:\
-		cc1 %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}\
+		cc1 %(cpp_unique_options) %(cc1_options)}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
-    %(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)", 0},
+    %(trad_capable_cpp) %(cpp_options)", 0},
   {".h", "@c-header", 0},
   {"@c-header",
    "%{!E:%ecompilation of header file requested} \
-    %(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options) %(cpp_debug_options)",
+    %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)",
    0},
   {".i", "@cpp-output", 0},
   {"@cpp-output",
@@ -1386,6 +1404,8 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
+  INIT_STATIC_SPEC ("mfwrap",			&mfwrap_spec),
+  INIT_STATIC_SPEC ("mflib",			&mflib_spec),
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
   INIT_STATIC_SPEC ("switches_need_spaces",	&switches_need_spaces),
@@ -1483,6 +1503,10 @@ init_spec ()
       next = sl;
     }
 #endif
+
+  /* Initialize here, not in definition.  The IRIX 6 O32 cc sometimes chokes
+     on ?: in file-scope variable initializations.  */
+  asm_debug = ASM_DEBUG_SPEC;
 
   for (i = ARRAY_SIZE (static_specs) - 1; i >= 0; i--)
     {
@@ -2346,7 +2370,7 @@ make_relative_prefix (progname, bin_prefix, prefix)
     {
       char *temp;
 
-      GET_ENV_PATH_LIST (temp, "PATH");
+      GET_ENVIRONMENT (temp, "PATH");
       if (temp)
 	{
 	  char *startp, *endp, *nstore;
@@ -2968,9 +2992,6 @@ const char **outfiles;
 /* Used to track if none of the -B paths are used.  */
 static int warn_B;
 
-/* Used to track if standard path isn't used and -b or -V is specified.  */
-static int warn_std;
-
 /* Gives value to pass as "warn" to add_prefix for standard prefixes.  */
 static int *warn_std_ptr = 0;
 
@@ -3166,7 +3187,7 @@ process_command (argc, argv)
   int j;
 #endif
 
-  GET_ENV_PATH_LIST (gcc_exec_prefix, "GCC_EXEC_PREFIX");
+  GET_ENVIRONMENT (gcc_exec_prefix, "GCC_EXEC_PREFIX");
 
   n_switches = 0;
   n_infiles = 0;
@@ -3279,7 +3300,7 @@ process_command (argc, argv)
   /* COMPILER_PATH and LIBRARY_PATH have values
      that are lists of directory names with colons.  */
 
-  GET_ENV_PATH_LIST (temp, "COMPILER_PATH");
+  GET_ENVIRONMENT (temp, "COMPILER_PATH");
   if (temp)
     {
       const char *startp, *endp;
@@ -3314,7 +3335,7 @@ process_command (argc, argv)
 	}
     }
 
-  GET_ENV_PATH_LIST (temp, LIBRARY_PATH_ENV);
+  GET_ENVIRONMENT (temp, LIBRARY_PATH_ENV);
   if (temp && *cross_compile == '0')
     {
       const char *startp, *endp;
@@ -3347,7 +3368,7 @@ process_command (argc, argv)
     }
 
   /* Use LPATH like LIBRARY_PATH (for the CMU build program).  */
-  GET_ENV_PATH_LIST (temp, "LPATH");
+  GET_ENVIRONMENT (temp, "LPATH");
   if (temp && *cross_compile == '0')
     {
       const char *startp, *endp;

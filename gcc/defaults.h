@@ -23,6 +23,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_DEFAULTS_H
 #define GCC_DEFAULTS_H
 
+#ifndef GET_ENVIRONMENT
+#define GET_ENVIRONMENT(VALUE, NAME) do { (VALUE) = getenv (NAME); } while (0)
+#endif
+
+#define obstack_chunk_alloc xmalloc
+#define obstack_chunk_free free
+
 /* Define default standard character escape sequences.  */
 #ifndef TARGET_BELL
 #  define TARGET_BELL 007
@@ -80,12 +87,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
    } while (0)
 #endif
 
-/* Provide default for ASM_OUTPUT_ALTERNATE_LABEL_NAME.  */
-#ifndef ASM_OUTPUT_ALTERNATE_LABEL_NAME
-#define ASM_OUTPUT_ALTERNATE_LABEL_NAME(FILE,INSN) \
-do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
-#endif
-
 /* choose a reasonable default for ASM_OUTPUT_ASCII.  */
 
 #ifndef ASM_OUTPUT_ASCII
@@ -139,6 +140,14 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
 #endif
 #endif
 
+/* This is how to output the definition of a user-level label named
+   NAME, such as the label on a static function or variable NAME.  */
+
+#ifndef ASM_OUTPUT_LABEL
+#define ASM_OUTPUT_LABEL(FILE,NAME) \
+  do { assemble_name ((FILE), (NAME)); fputs (":\n", (FILE)); } while (0)
+#endif
+
 /* This is how to output a reference to a user-level label named NAME.  */
 
 #ifndef ASM_OUTPUT_LABELREF
@@ -165,6 +174,51 @@ do { ASM_OUTPUT_LABEL(FILE,LABEL_ALTERNATE_NAME (INSN)); } while (0)
         ASM_OUTPUT_DEF (STREAM, NAME, VALUE);		\
     }							\
   while (0)
+#endif
+#endif
+
+/* How to emit a .type directive.  */
+#ifndef ASM_OUTPUT_TYPE_DIRECTIVE
+#if defined TYPE_ASM_OP && defined TYPE_OPERAND_FMT
+#define ASM_OUTPUT_TYPE_DIRECTIVE(STREAM, NAME, TYPE)	\
+  do							\
+    {							\
+      fputs (TYPE_ASM_OP, STREAM);			\
+      assemble_name (STREAM, NAME);			\
+      fputs (", ", STREAM);				\
+      fprintf (STREAM, TYPE_OPERAND_FMT, TYPE);		\
+      putc ('\n', STREAM);				\
+    }							\
+  while (0)
+#endif
+#endif
+
+/* How to emit a .size directive.  */
+#ifndef ASM_OUTPUT_SIZE_DIRECTIVE
+#ifdef SIZE_ASM_OP
+#define ASM_OUTPUT_SIZE_DIRECTIVE(STREAM, NAME, SIZE)	\
+  do							\
+    {							\
+      HOST_WIDE_INT size_ = (SIZE);			\
+      fputs (SIZE_ASM_OP, STREAM);			\
+      assemble_name (STREAM, NAME);			\
+      fputs (", ", STREAM);				\
+      fprintf (STREAM, HOST_WIDE_INT_PRINT_DEC, size_);	\
+      putc ('\n', STREAM);				\
+    }							\
+  while (0)
+
+#define ASM_OUTPUT_MEASURED_SIZE(STREAM, NAME)		\
+  do							\
+    {							\
+      fputs (SIZE_ASM_OP, STREAM);			\
+      assemble_name (STREAM, NAME);			\
+      fputs (", .-", STREAM);				\
+      assemble_name (STREAM, NAME);			\
+      putc ('\n', STREAM);				\
+    }							\
+  while (0)
+
 #endif
 #endif
 
@@ -521,6 +575,18 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
    register C++ destructors for local statics and global objects. */
 #ifndef DEFAULT_USE_CXA_ATEXIT
 #define DEFAULT_USE_CXA_ATEXIT 0
+#endif
+
+/* Determine whether extra constraint letter should be handled
+   via address reload (like 'o').  */
+#ifndef EXTRA_MEMORY_CONSTRAINT
+#define EXTRA_MEMORY_CONSTRAINT(C) 0
+#endif
+
+/* Determine whether extra constraint letter should be handled
+   as an address (like 'p').  */
+#ifndef EXTRA_ADDRESS_CONSTRAINT
+#define EXTRA_ADDRESS_CONSTRAINT(C) 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

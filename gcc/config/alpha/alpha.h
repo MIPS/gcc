@@ -64,9 +64,9 @@ Boston, MA 02111-1307, USA.  */
 	    builtin_assert ("cpu=ev4");			\
 	  }						\
 	if (TARGET_IEEE || TARGET_IEEE_WITH_INEXACT)	\
-	  builtin_define ("__IEEE_FP");			\
+	  builtin_define ("_IEEE_FP");			\
 	if (TARGET_IEEE_WITH_INEXACT)			\
-	  builtin_define ("__IEEE_FP_INEXACT");		\
+	  builtin_define ("_IEEE_FP_INEXACT");		\
 							\
 	/* Macros dependent on the C dialect.  */	\
 	if (preprocessing_asm_p ())			\
@@ -78,7 +78,7 @@ Boston, MA 02111-1307, USA.  */
 	    builtin_define ("__LANGUAGE_C_PLUS_PLUS");	\
 	    builtin_define ("__LANGUAGE_C_PLUS_PLUS__");\
 	  }						\
-	else if (c_language == clk_objective_c)		\
+	if (flag_objc)					\
 	  {						\
 	    builtin_define ("__LANGUAGE_OBJECTIVE_C");	\
 	    builtin_define ("__LANGUAGE_OBJECTIVE_C__");\
@@ -1158,12 +1158,11 @@ extern int alpha_memory_latency;
 
 /* We do not allow indirect calls to be optimized into sibling calls, nor
    can we allow a call to a function in a different compilation unit to
-   be optimized into a sibcall.  Except if the function is known not to
-   return, in which case our caller doesn't care what the gp is.  */
+   be optimized into a sibcall.  */
 #define FUNCTION_OK_FOR_SIBCALL(DECL)			\
   (DECL							\
-   && ((TREE_ASM_WRITTEN (DECL) && !flag_pic)		\
-       || ! TREE_PUBLIC (DECL)))
+   && (! TREE_PUBLIC (DECL)				\
+       || (TREE_ASM_WRITTEN (DECL) && (*targetm.binds_local_p) (DECL))))
 
 /* Try to output insns to set TARGET equal to the constant C if it can be
    done in less than N insns.  Do all computations in MODE.  Returns the place
@@ -1743,17 +1742,8 @@ do {						\
   fputs (name_, STREAM);			\
 } while (0)
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* The prefix to add to user-visible assembler symbols.  */
 
@@ -1984,8 +1974,8 @@ do {						\
   (VALIST) = alpha_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  alpha_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  alpha_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \

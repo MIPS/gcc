@@ -241,6 +241,10 @@ scope_to_insns_initialize ()
 	    }
 	}
     }
+
+  /* Tag the blocks with a depth number so that change_scope can find
+     the common parent easily.  */
+  set_block_levels (DECL_INITIAL (cfun->decl), 0);
 }
 
 /* For each lexical block, set BLOCK_NUMBER to the depth at which it is
@@ -257,6 +261,20 @@ set_block_levels (block, level)
       set_block_levels (BLOCK_SUBBLOCKS (block), level + 1);
       block = BLOCK_CHAIN (block);
     }
+}
+
+/* Return sope resulting from combination of S1 and S2.  */
+tree
+choose_inner_scope (s1, s2)
+     tree s1, s2;
+{
+   if (!s1)
+     return s2;
+   if (!s2)
+     return s1;
+   if (BLOCK_NUMBER (s1) > BLOCK_NUMBER (s2))
+     return s1;
+   return s2;
 }
 
 /* Emit lexical block notes needed to change scope from S1 to S2.  */
@@ -315,10 +333,6 @@ scope_to_insns_finalize ()
   tree cur_block = DECL_INITIAL (cfun->decl);
   rtx insn, note;
 
-  /* Tag the blocks with a depth number so that change_scope can find
-     the common parent easily.  */
-  set_block_levels (cur_block, 0);
-
   insn = get_insns ();
   if (!active_insn_p (insn))
     insn = next_active_insn (insn);
@@ -327,6 +341,18 @@ scope_to_insns_finalize ()
       tree this_block;
 
       this_block = INSN_SCOPE (insn);
+      /* For sequences compute scope resulting from merging all scopes
+         of instructions nested inside. */
+      if (GET_CODE (PATTERN (insn)) == SEQUENCE)
+	{
+	  int i;
+	  rtx body = PATTERN (insn);
+
+	  this_block = NULL;
+	  for (i = 0; i < XVECLEN (body, 0); i++)
+	    this_block = choose_inner_scope (this_block,
+			    		 INSN_SCOPE (XVECEXP (body, 0, i)));
+	}
       if (! this_block)
 	continue;
 
@@ -582,10 +608,9 @@ verify_insn_chain ()
 }
 
 /* Remove any unconditional jumps and forwarder block creating fallthru
-   edges instead.  During BB reordering fallthru edges are not required
+   edges instead.  During BB reordering, fallthru edges are not required
    to target next basic block in the linear CFG layout, so the unconditional
-   jumps are not needed.  If LOOPS is not null, also update loop structure &
-   dominators.  */
+   jumps are not needed.  */
 
 static void
 cleanup_unconditional_jumps ()
@@ -610,7 +635,7 @@ cleanup_unconditional_jumps ()
 		fprintf (rtl_dump_file, "Removing forwarder BB %i\n",
 			 bb->index);
 
-	      redirect_edge_succ (bb->pred, bb->succ->dest);
+	      redirect_edge_succ_nodup (bb->pred, bb->succ->dest);
 	      flow_delete_block (bb);
 	      bb = prev;
 	    }
@@ -627,8 +652,6 @@ cleanup_unconditional_jumps ()
 	  else
 	    continue;
 
-	  /* Cleanup barriers and delete ADDR_VECs in a way as they are belonging
-             to removed tablejump anyway.  */
 	  insn = NEXT_INSN (bb->end);
 	  while (insn
 		 && (GET_CODE (insn) != NOTE
@@ -638,12 +661,6 @@ cleanup_unconditional_jumps ()
 
 	      if (GET_CODE (insn) == BARRIER)
 		delete_barrier (insn);
-	      else if (GET_CODE (insn) == JUMP_INSN)
-		delete_insn_chain (PREV_INSN (insn), insn);
-	      else if (GET_CODE (insn) == CODE_LABEL)
-		;
-	      else if (GET_CODE (insn) != NOTE)
-		abort ();
 
 	      insn = next;
 	    }

@@ -1,7 +1,91 @@
+2002-08-22  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	* where.h (struct _ffewhere_file_): Mark GTY.
+	(ffewhere_file_kill): Remove prototype.
+	* where.c: Include ggc.h.
+	(struct _ffewhere_ll_, struct _ffewhere_root_ll_): Mark GTY.
+	(ffewhere_root_ll_): Ditto.  Change type from struct
+	_ffewhere_root_ll_ to struct _ffewhere_root_ll_*.  All uses
+	changed.
+	(ffewhere_file_kill): Remove.
+	(ffewhere_file_new): Use GC to allocate ffewhereFile objects.
+	(ffewhere_file_set): Use GC to allocate ffewhereLL_ objects.
+	(ffewhere_init_1): Use GC to allocate ffewhere_root_ll_ sentinel.
+	Include gt-f-where.h.
+	* lex.c (ffelex_current_wf_, ffelex_include_wherefile_): Mark GTY.
+	Include gt-f-lex.h.
+	* std.c (ffestd_S3P4): Don't call ffewhere_file_kill.
+	* config-lang.in (gtfiles): Add f/where.h f/where.c and f/lex.c.
+	* Make-lang.in (gt-f-lex.h gt-f-where.h): Add to dependents of
+	s-gtype.
+	(f/lex.o): Depend on gt-f-lex.h.
+	(f/where.o): Depend on gt-f-where.h.
+
+Tue Aug 20 16:49:40 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* where.c (ffewhere_track): Remove impossible if-then clause.
+
+Thu Aug  8 10:06:14 2002  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* f/Make-lang.in (f.mostlyclean): Remove coverage files.
+
+2002-08-06  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* g77.texi (Top): Rename Index to Keyword Index.
+
+2002-08-05  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* invoke.texi: Improve description of
+	-fno-finite-math-only flag.
+
+Sun Aug  4 16:45:49 2002  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* root.texi (version-gcc): Increase to 3.3.
+
+2002-07-30  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* com.c (ffe_init_options): Set
+	flag_finite_math_only.
+	* invoke.texi: Document -fno-finite-math-only.
+
+Mon Jul 29 22:05:35 2002  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* com.c (read_name_map): Use concat in lieu of xmalloc/strcpy.
+
+2002-07-25  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Document better handling of (no-)alias
+	information of dummy arguments and induction variables
+	on loop unrolling.
+
+2002-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	* f/com.c (builtin_function): Accept additional parameter.
+	(ffe_com_init_0): Pass an additional NULL_TREE argument to
+	builtin_function.
+
+2002-06-28  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* news.texi: Mention 2 Gbyte limit on 32-bit targets
+	for arrays explicitly in news on g77-3.1.
+
+Thu Jun 20 21:56:34 2002  Neil Booth  <neil@daikokuya.co.uk>
+
+	* lang-specs.h: Use cc1 for traditional preprocessing.
+
+2002-06-20  Andreas Jaeger  <aj@suse.de>
+
+	* com.c (ffecom_prepare_expr_,ffecom_expr_power_integer_):
+	Remove #ifdefed HAHA sections.
+
+2002-06-20  Nathanael Nerode  <neroden@twcny.rr.com>
+
+	* com.c: Remove #ifdef HOHO sections.
+
 2002-06-17  Jason Thorpe  <thorpej@wasabisystems.com>
 
 	* bit.c: Don't include glimits.h.
-	* target.c: Likewise.   
+	* target.c: Likewise.
 	* where.h: Likewise.
 
 2002-06-12  Gabriel Dos Reis  <gdr@codesourcery.com>

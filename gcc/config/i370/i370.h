@@ -25,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_I370_H
 #define GCC_I370_H
 
-/* Target CPU builtins.  */			\
+/* Target CPU builtins.  */
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
@@ -1073,18 +1073,6 @@ enum reg_class
     }									\
 }
 
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)					\
-{ 									\
-  char temp[MAX_MVS_LABEL_SIZE + 1];					\
-  if (mvs_check_alias (NAME, temp) == 2)				\
-    {									\
-      fprintf (FILE, "%s\tALIAS\tC'%s'\n", temp, NAME);			\
-    }									\
-  fputs ("\tENTRY\t", FILE);						\
-  assemble_name (FILE, NAME);						\
-  fputs ("\n", FILE);							\
-}
-
 /* MVS externals are limited to 8 characters, upper case only.
    The '_' is mapped to '@', except for MVS functions, then '#'.  */
 
@@ -1845,11 +1833,6 @@ abort(); \
 
 #define ASM_DOUBLE "\t.double"     
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-#define ASM_OUTPUT_LABEL(FILE,NAME)     \
-   (assemble_name (FILE, NAME), fputs (":\n", FILE))
- 
 /* #define ASM_OUTPUT_LABELREF(FILE, NAME) */	/* use gas -- defaults.h */
 
 /* Generate internal label.  Since we can branch here from off page, we
@@ -1905,9 +1888,6 @@ abort(); \
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),    \
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
  
-/* Allow #sccs in preprocessor.  */
-#define SCCS_DIRECTIVE
-
  /* Implicit library calls should use memcpy, not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS
  
@@ -1932,11 +1912,8 @@ abort(); \
 #define ASM_OUTPUT_ALIGN(FILE,LOG) \
   if ((LOG)!=0) fprintf ((FILE), "\t.balign %d\n", 1<<(LOG))
  
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)  \
-  (fputs (".globl ", FILE), assemble_name (FILE, NAME), fputs ("\n", FILE))
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".globl "
 
 /* This says how to output an assembler line
    to define a global common symbol.  */

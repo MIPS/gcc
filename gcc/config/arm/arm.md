@@ -4417,6 +4417,14 @@
 	      emit_insn (gen_movsi (reg, GEN_INT (val)));
 	      operands[1] = gen_lowpart (HImode, reg);
 	    }
+	  else if (arm_arch4 && !no_new_pseudos && optimize > 0
+		   && GET_CODE (operands[1]) == MEM)
+	    {
+	      rtx reg = gen_reg_rtx (SImode);
+
+	      emit_insn (gen_zero_extendhisi2 (reg, operands[1]));
+	      operands[1] = gen_lowpart (HImode, reg);
+	    }
           else if (!arm_arch4)
 	    {
 	     /* Note: We do not have to worry about TARGET_MMU_TRAPS
@@ -4814,9 +4822,16 @@
 	      emit_insn (gen_movsi (reg, operands[1]));
 	      operands[1] = gen_lowpart (QImode, reg);
 	    }
-         if (GET_CODE (operands[0]) == MEM)
-	   operands[1] = force_reg (QImode, operands[1]);
-       }
+	  if (GET_CODE (operands[1]) == MEM && optimize > 0)
+	    {
+	      rtx reg = gen_reg_rtx (SImode);
+
+	      emit_insn (gen_zero_extendqisi2 (reg, operands[1]));
+	      operands[1] = gen_lowpart (QImode, reg);
+	    }
+          if (GET_CODE (operands[0]) == MEM)
+	    operands[1] = force_reg (QImode, operands[1]);
+        }
     }
   else /* TARGET_THUMB */
     {
@@ -6014,7 +6029,7 @@
   if (arm_ccfsm_state != 0)
     abort ();
 
-  return \"bvs\\t%l0;beq\\t%l0\";
+  return \"bvs\\t%l0\;beq\\t%l0\";
   "
   [(set_attr "conds" "jump_clob")
    (set_attr "length" "8")]
@@ -6031,7 +6046,7 @@
   if (arm_ccfsm_state != 0)
     abort ();
 
-  return \"bmi\\t%l0;bgt\\t%l0\";
+  return \"bmi\\t%l0\;bgt\\t%l0\";
   "
   [(set_attr "conds" "jump_clob")
    (set_attr "length" "8")]
@@ -6066,7 +6081,7 @@
   if (arm_ccfsm_state != 0)
     abort ();
 
-  return \"bmi\\t%l0;bgt\\t%l0\";
+  return \"bmi\\t%l0\;bgt\\t%l0\";
   "
   [(set_attr "conds" "jump_clob")
    (set_attr "length" "8")]
@@ -6083,7 +6098,7 @@
   if (arm_ccfsm_state != 0)
     abort ();
 
-  return \"bvs\\t%l0;beq\\t%l0\";
+  return \"bvs\\t%l0\;beq\\t%l0\";
   "
   [(set_attr "conds" "jump_clob")
    (set_attr "length" "8")]
@@ -6288,8 +6303,12 @@
   "
   {
     enum rtx_code code = GET_CODE (operands[1]);
-    rtx ccreg = arm_gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
+    rtx ccreg;
 
+    if (code == UNEQ || code == LTGT)
+      FAIL;
+
+    ccreg = arm_gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
     operands[1] = gen_rtx (code, VOIDmode, ccreg, const0_rtx);
   }"
 )
@@ -6304,6 +6323,9 @@
   {
     enum rtx_code code = GET_CODE (operands[1]);
     rtx ccreg;
+
+    if (code == UNEQ || code == LTGT)
+      FAIL;
 
     /* When compiling for SOFT_FLOAT, ensure both arms are in registers. 
        Otherwise, ensure it is a valid FP add operand */
@@ -6325,8 +6347,12 @@
   "
   {
     enum rtx_code code = GET_CODE (operands[1]);
-    rtx ccreg = arm_gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
+    rtx ccreg;
 
+    if (code == UNEQ || code == LTGT)
+      FAIL;
+
+    ccreg = arm_gen_compare_reg (code, arm_compare_op0, arm_compare_op1);
     operands[1] = gen_rtx (code, VOIDmode, ccreg, const0_rtx);
   }"
 )
@@ -6665,8 +6691,8 @@
 (define_expand "sibcall"
   [(parallel [(call (match_operand 0 "memory_operand" "")
 		    (match_operand 1 "general_operand" ""))
-	      (use (match_operand 2 "" ""))
-	      (use (reg:SI LR_REGNUM))])]
+	      (return)
+	      (use (match_operand 2 "" ""))])]
   "TARGET_ARM"
   "
   {
@@ -6679,8 +6705,8 @@
   [(parallel [(set (match_operand 0 "register_operand" "")
 		   (call (match_operand 1 "memory_operand" "")
 			 (match_operand 2 "general_operand" "")))
-	      (use (match_operand 3 "" ""))
-	      (use (reg:SI LR_REGNUM))])]
+	      (return)
+	      (use (match_operand 3 "" ""))])]
   "TARGET_ARM"
   "
   {
@@ -6692,8 +6718,8 @@
 (define_insn "*sibcall_insn"
  [(call (mem:SI (match_operand:SI 0 "" "X"))
 	(match_operand 1 "" ""))
-  (use (match_operand 2 "" ""))
-  (use (reg:SI LR_REGNUM))]
+  (return)
+  (use (match_operand 2 "" ""))]
   "TARGET_ARM && GET_CODE (operands[0]) == SYMBOL_REF"
   "*
   return NEED_PLT_RELOC ? \"b%?\\t%a0(PLT)\" : \"b%?\\t%a0\";
@@ -6705,8 +6731,8 @@
  [(set (match_operand 0 "s_register_operand" "=r,f")
        (call (mem:SI (match_operand:SI 1 "" "X,X"))
 	     (match_operand 2 "" "")))
-  (use (match_operand 3 "" ""))
-  (use (reg:SI LR_REGNUM))]
+  (return)
+  (use (match_operand 3 "" ""))]
   "TARGET_ARM && GET_CODE (operands[1]) == SYMBOL_REF"
   "*
   return NEED_PLT_RELOC ? \"b%?\\t%a1(PLT)\" : \"b%?\\t%a1\";
@@ -8630,7 +8656,6 @@
   [(unspec_volatile [(const_int 0)] VUNSPEC_EPILOGUE)]
   "TARGET_ARM"
   "*
-  output_asm_insn (\"%@ Sibcall epilogue\", operands);
   if (USE_RETURN_INSN (FALSE))
     return output_return_instruction (const_true_rtx, FALSE, FALSE);
   return arm_output_epilogue (FALSE);
@@ -8881,6 +8906,16 @@
     return \"\";
   }"
   [(set_attr "type" "store4")]
+)
+
+(define_insn "stack_tie"
+  [(set (mem:BLK (scratch))
+	(unspec:BLK [(match_operand:SI 0 "s_register_operand" "r")
+		     (match_operand:SI 1 "s_register_operand" "r")]
+		    UNSPEC_PRLG_STK))]
+  ""
+  ""
+  [(set_attr "length" "0")]
 )
 
 ;; Similarly for the floating point registers

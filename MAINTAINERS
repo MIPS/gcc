@@ -23,7 +23,7 @@ Maintainers
 John Carr					jfc@mit.edu
 Richard Earnshaw				rearnsha@arm.com
 Richard Henderson                               rth@redhat.com
-Geoffrey Keating				geoffk@redhat.com
+Geoffrey Keating				geoffk@geoffk.org
 Richard Kenner					kenner@nyu.edu
 Jeff Law					law@redhat.com
 Jason Merrill					jason@redhat.com
@@ -44,7 +44,7 @@ avr port		Denis Chertykov		denisc@overta.ru
 avr port		Marek Michalkiewicz	marekm@linux.org.pl
 c4x port		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 cris port		Hans-Peter Nilsson	hp@axis.com
-fr30 port		Nick Clifton		niclc@redhat.com
+fr30 port		Nick Clifton		nickc@redhat.com
 h8 port			Jeff Law		law@redhat.com
 h8 port			Kazu Hirata		kazu@hxi.com
 hppa port		Jeff Law		law@redhat.com
@@ -64,8 +64,9 @@ mmix port		Hans-Peter Nilsson	hp@bitrange.com
 mn10200 port		Jeff Law		law@redhat.com
 mn10300 port		Jeff Law		law@redhat.com
 mn10300 port		Alexandre Oliva		aoliva@redhat.com
-rs6000 port		Geoff Keating		geoffk@redhat.com
+rs6000 port		Geoff Keating		geoffk@geoffk.org
 rs6000 port		David Edelsohn		dje@watson.ibm.com
+rs6000 vector extns	Aldy Hernandez		aldyh@redhat.com
 s390 port		Hartmut Penner		hpenner@de.ibm.com
 s390 port		Ulrich Weigand		uweigand@de.ibm.com
 sh port			Joern Rennecke		joern.rennecke@superh.com
@@ -77,7 +78,7 @@ v850 port		Nick Clifton		nickc@redhat.com
 v850 port		Michael Meissner	meissner@redhat.com
 vax port		Dave Anglin		dave.anglin@nrc.ca
 x86-64 port		Jan Hubicka		jh@suse.cz
-xstormy16 port		Geoffrey Keating	geoffk@redhat.com
+xstormy16 port		Geoffrey Keating	geoffk@geoffk.org
 xtensa port		Bob Wilson		bob.wilson@acm.org
 
 			OS Port Maintainers	(OS alphabetical order)
@@ -99,7 +100,7 @@ c++                     Mark Mitchell		mark@codesourcery.com
 cpplib			Dave Brolley		brolley@redhat.com
 cpplib			Per Bothner		per@bothner.com
 cpplib			Zack Weinberg		zack@codesourcery.com
-cpplib			Neil Booth		neil@daikokuya.demon.co.uk
+cpplib			Neil Booth		neil@daikokuya.co.uk
 java			Per Bothner		per@bothner.com
 java			Alexandre Petit-Bianco	apbianco@redhat.com
 libgcj			Tom Tromey		tromey@redhat.com
@@ -117,10 +118,12 @@ reorg			Jeff Law		law@redhat.com
 caller-save.c		Jeff Law		law@redhat.com
 debugging code		Jim Wilson		wilson@redhat.com
 dwarf debugging code	Jason Merrill		jason@redhat.com
+c++ runtime libs	Paolo Carlini		pcarlini@unitus.it
 c++ runtime libs        Gabriel Dos Reis        dosreis@cmla.ens-cachan.fr
 c++ runtime libs	Ulrich Drepper		drepper@redhat.com
 c++ runtime libs	Phil Edwards		pme@gcc.gnu.org
 c++ runtime libs	Benjamin Kosnik		bkoz@redhat.com
+c++ runtime libs	Loren J. Rittle		ljrittle@acm.org
 *synthetic multiply	Torbjorn Granlund	tege@swox.com
 *c-torture		Torbjorn Granlund	tege@swox.com
 fixincludes		Bruce Korb		bkorb@gnu.org
@@ -143,8 +146,9 @@ docs co-maintainer	Joseph Myers		jsm28@cam.ac.uk
 Pico-Java port		Steve Chamberlain	sac@transmeta.com
 RTEMS Ports		Joel Sherrill
 predict.def		Jan Hubicka		jh@suse.cz
-contrib/regression	Geoff Keating		geoffk@redhat.com
+contrib/regression	Geoff Keating		geoffk@geoffk.org
 treelang                Tim Josling             tej@melbpc.org.au
+new regalloc (ra*)	Michael Matz		matz@suse.de
 
 Note individuals who maintain parts of the compiler need approval to check
 in changes outside of the parts of the compiler they maintain.
@@ -160,11 +164,11 @@ Jim Blandy					jimb@redhat.com
 Phil Blundell					pb@futuretv.com
 Hans Boehm					hboehm@gcc.gnu.org
 Andrew Cagney					cagney@redhat.com
-Paolo Carlini					pcarlini@unitus.it
 Chandra Chavva					cchavva@redhat.com
 William Cohen					wcohen@redhat.com
 Chris Demetriou					cgd@broadcom.com
 *Paul Eggert					eggert@twinsun.com
+Steve Ellcey					sje@cup.hp.com
 Ben Elliston					bje@redhat.com
 Marc Espie					espie@cvs.openbsd.org
 Doug Evans					devans@transmeta.com
@@ -187,7 +191,7 @@ Mumit Khan					khan@xraylith.wisc.edu
 Matthias Klose					doko@debian.org
 Jeff Knaggs					jknaggs@redhat.com
 Kaz Kojima					kkojima@gcc.gnu.org
-Matt Kraai					kraai@alumni.carnegiemellon.edu
+Matt Kraai					kraai@alumni.cmu.edu
 Ziemowit Laski					zlaski@apple.com
 Marc Lehmann					pcg@goof.com
 Alan Lehotsky					apl@alum.mit.edu
@@ -205,18 +209,19 @@ Adam Megacz					adam@xwt.org
 Alan Modra					amodra@bigpond.net.au
 Toon Moene					toon@moene.indiv.nluug.nl
 Catherine Moore					clm@redhat.com
+Nathanael Nerode				neroden@gcc.gnu.org
 Diego Novillo					dnovillo@redhat.com
 David O'Brien					obrien@FreeBSD.org
 Turly O'Connor					turly@apple.com
 Jeffrey D. Oldham				oldham@codesourcery.com
 Rainer Orth					ro@TechFak.Uni-Bielefeld.DE
+Devang Patel					dpatel@apple.com
 Nicola Pero					n.pero@mi.flashnet.it
 Alexandre Petit-Bianco				apbianco@redhat.com
 Clinton Popetz					cpopetz@cpopetz.com
 Ken Raeburn					raeburn@redhat.com
 Rolf Rasmussen					rolfwr@gcc.gnu.org
 Gabriel Dos Reis                                dosreis@cmla.ens-cachan.fr
-Loren J. Rittle					ljrittle@acm.org
 Tom Rix						trix@redhat.com
 Craig Rodrigues					rodrigc@gcc.gnu.org
 Gavin Romig-Koch				gavin@redhat.com
@@ -233,13 +238,14 @@ Franz Sirl					franz.sirl-kernel@lauterbach.com
 Danny Smith					dannysmith@users.sourceforge.net
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
-Graham Stott					grahams@redhat.com
-Mike Stump					mrs@windriver.com
+Graham Stott					graham.stott@btinternet.com
+Mike Stump					mrs@apple.com
 Jeff Sturm					jsturm@gcc.gnu.org
 Ian Taylor					ian@zembu.com
 Michael Tiemann					tiemann@redhat.com
 Philipp Thomas					pthomas@suse.de
 Kresten Krab Thorup				krab@gcc.gnu.org
+Krister Walfridsson				cato@df.lth.se
 John Wehle					john@feith.com
 Florian Weimer					fw@deneb.enyo.de
 Mark Wielaard					mark@gcc.gnu.org

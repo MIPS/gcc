@@ -306,9 +306,6 @@ extern void assemble_string		PARAMS ((const char *, int));
 extern void assemble_external_libcall	PARAMS ((rtx));
 #endif
 
-/* Declare the label NAME global.  */
-extern void assemble_global		PARAMS ((const char *));
-
 /* Assemble a label named NAME.  */
 extern void assemble_label		PARAMS ((const char *));
 extern void assemble_eh_label		PARAMS ((const char *));
@@ -468,16 +465,9 @@ extern struct rtx_def *current_output_insn;
    The precise value is the insn being output, to pass to error_for_asm.  */
 extern rtx this_is_asm_operands;
 
-/* Decide whether DECL needs to be in a writable section.  RELOC is the same
-   as for SELECT_SECTION.  */
-
-#define DECL_READONLY_SECTION(DECL,RELOC)		\
-  (TREE_READONLY (DECL)					\
-   && ! TREE_THIS_VOLATILE (DECL)			\
-   && DECL_INITIAL (DECL)				\
-   && (DECL_INITIAL (DECL) == error_mark_node		\
-       || TREE_CONSTANT (DECL_INITIAL (DECL)))		\
-   && ! (RELOC && (flag_pic || DECL_ONE_ONLY (DECL))))
+/* Decide whether DECL needs to be in a writable section.
+   RELOC is the same as for SELECT_SECTION.  */
+extern bool decl_readonly_section PARAMS ((tree, int));
 
 /* User label prefix in effect for this compilation.  */
 extern const char *user_label_prefix;
@@ -547,6 +537,7 @@ extern void default_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						    unsigned HOST_WIDE_INT));
 extern const char *default_strip_name_encoding PARAMS ((const char *));
 extern bool default_binds_local_p PARAMS ((tree));
+extern void default_globalize_label PARAMS ((FILE *, const char *));
 
 /* Emit data for vtable gc for GNU binutils.  */
 extern void assemble_vtable_entry PARAMS ((struct rtx_def *, HOST_WIDE_INT));

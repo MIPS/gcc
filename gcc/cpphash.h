@@ -98,7 +98,14 @@ struct cpp_macro
 
   /* If macro defined in system header.  */
   unsigned int syshdr   : 1;
+
+  /* Non-zero if it has been expanded or had its existence tested.  */
+  unsigned int used     : 1;
 };
+
+#define _cpp_mark_macro_used(NODE) do {					\
+  if ((NODE)->type == NT_MACRO && !((NODE)->flags & NODE_BUILTIN))	\
+    (NODE)->value.macro->used = 1; } while (0)
 
 /* A generic memory buffer, and operations on it.  */
 typedef struct _cpp_buff _cpp_buff;
@@ -246,6 +253,18 @@ struct spec_nodes
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
 };
 
+/* Encapsulates state used to convert a stream of tokens into a text
+   file.  */
+struct printer
+{
+  FILE *outf;			/* Stream to write to.  */
+  const struct line_map *map;	/* Logical to physical line mappings.  */
+  const cpp_token *prev;	/* Previous token.  */
+  const cpp_token *source;	/* Source token for spacing.  */
+  unsigned int line;		/* Line currently being written.  */
+  unsigned char printed;	/* Nonzero if something output at line.  */
+};
+
 /* Represents the contents of a file cpplib has read in.  */
 struct cpp_buffer
 {
@@ -370,6 +389,9 @@ struct cpp_reader
      for include files.  (Altered as we get more of them.)  */
   unsigned int max_include_len;
 
+  /* Macros on or after this line are warned about if unused.  */
+  unsigned int first_unused_line;
+
   /* Date and time text.  Calculated together if either is requested.  */
   const uchar *date;
   const uchar *time;
@@ -378,7 +400,7 @@ struct cpp_reader
   cpp_token avoid_paste;
   cpp_token eof;
 
-  /* Opaque handle to the dependencies of mkdeps.c.  Used by -M etc.  */
+  /* Opaque handle to the dependencies of mkdeps.c.  */
   struct deps *deps;
 
   /* Obstack holding all macro hash nodes.  This never shrinks.
@@ -408,6 +430,9 @@ struct cpp_reader
   /* Special nodes - identifiers with predefined significance to the
      preprocessor.  */
   struct spec_nodes spec_nodes;
+
+  /* Used when doing preprocessed output.  */
+  struct printer print;
 
   /* Whether cpplib owns the hashtable.  */
   unsigned char our_hashtable;
@@ -455,7 +480,6 @@ extern unsigned char _cpp_trigraph_map[UCHAR_MAX + 1];
 
 /* Macros.  */
 
-#define CPP_PRINT_DEPS(PFILE) CPP_OPTION (PFILE, print_deps)
 #define CPP_IN_SYSTEM_HEADER(PFILE) ((PFILE)->map && (PFILE)->map->sysp)
 #define CPP_PEDANTIC(PF) CPP_OPTION (PF, pedantic)
 #define CPP_WTRADITIONAL(PF) CPP_OPTION (PF, warn_traditional)
@@ -477,6 +501,8 @@ extern bool _cpp_arguments_ok		PARAMS ((cpp_reader *, cpp_macro *,
 						 unsigned int));
 extern const uchar *_cpp_builtin_macro_text PARAMS ((cpp_reader *,
 						     cpp_hashnode *));
+int _cpp_warn_if_unused_macro		PARAMS ((cpp_reader *, cpp_hashnode *,
+						 void *));
 /* In cpphash.c */
 extern void _cpp_init_hashtable		PARAMS ((cpp_reader *, hash_table *));
 extern void _cpp_destroy_hashtable	PARAMS ((cpp_reader *));
@@ -529,7 +555,6 @@ extern bool _cpp_read_logical_line_trad PARAMS ((cpp_reader *));
 extern void _cpp_overlay_buffer PARAMS ((cpp_reader *pfile, const uchar *,
 					 size_t));
 extern void _cpp_remove_overlay PARAMS ((cpp_reader *));
-extern void _cpp_set_trad_context PARAMS ((cpp_reader *));
 extern bool _cpp_create_trad_definition PARAMS ((cpp_reader *, cpp_macro *));
 extern bool _cpp_expansions_different_trad PARAMS ((const cpp_macro *,
 						    const cpp_macro *));

@@ -43,9 +43,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cpplib.h"
 #include "target.h"
 #include "debug.h"
+#include "tree-optimize.h"
 #include "timevar.h"
 #include "c-common.h"
 #include "c-pragma.h"
+#include "tree-dchain.h"
+#include "langhooks.h"
+#include "tree-mudflap.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -118,11 +122,6 @@ static GTY(()) tree named_labels;
 /* A list of LABEL_DECLs from outer contexts that are currently shadowed.  */
 
 static GTY(()) tree shadowed_labels;
-
-/* Nonzero when store_parm_decls is called indicates a varargs function.
-   Value not meaningful after store_parm_decls.  */
-
-static int c_function_varargs;
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
@@ -287,151 +286,8 @@ static void layout_array_type		PARAMS ((tree));
 static tree c_make_fname_decl           PARAMS ((tree, int));
 static void c_expand_body               PARAMS ((tree, int, int));
 static void warn_if_shadowing		PARAMS ((tree, tree));
+static bool flexible_array_type_p	PARAMS ((tree));
 
-/* C-specific option variables.  */
-
-/* Nonzero means allow type mismatches in conditional expressions;
-   just make their values `void'.  */
-
-int flag_cond_mismatch;
-
-/* Nonzero means don't recognize the keyword `asm'.  */
-
-int flag_no_asm;
-
-/* Nonzero means enable C89 Amendment 1 features.  */
-
-int flag_isoc94 = 0;
-
-/* Nonzero means use the ISO C99 dialect of C.  */
-
-int flag_isoc99 = 0;
-
-/* Nonzero means that we have builtin functions, and main is an int */
-
-int flag_hosted = 1;
-
-/* Nonzero means add default format_arg attributes for functions not
-   in ISO C.  */
-
-int flag_noniso_default_format_attributes = 1;
-
-/* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
-
-int flag_signed_bitfields = 1;
-int explicit_flag_signed_bitfields = 0;
-
-/* Nonzero means warn about use of implicit int.  */
-
-int warn_implicit_int;
-
-/* Nonzero means warn about usage of long long when `-pedantic'.  */
-
-int warn_long_long = 1;
-
-/* Nonzero means message about use of implicit function declarations;
- 1 means warning; 2 means error.  */
-
-int mesg_implicit_function_declaration = -1;
-
-/* Nonzero means give string constants the type `const char *'
-   to get extra warnings from them.  These warnings will be too numerous
-   to be useful, except in thoroughly ANSIfied programs.  */
-
-int flag_const_strings;
-
-/* Nonzero means warn about pointer casts that can drop a type qualifier
-   from the pointer target type.  */
-
-int warn_cast_qual;
-
-/* Nonzero means warn when casting a function call to a type that does
-   not match the return type (e.g. (float)sqrt() or (anything*)malloc()
-   when there is no previous declaration of sqrt or malloc.  */
-
-int warn_bad_function_cast;
-
-/* Warn about functions which might be candidates for format attributes.  */
-
-int warn_missing_format_attribute;
-
-/* Warn about traditional constructs whose meanings changed in ANSI C.  */
-
-int warn_traditional;
-
-/* Nonzero means warn about sizeof(function) or addition/subtraction
-   of function pointers.  */
-
-int warn_pointer_arith;
-
-/* Nonzero means warn for non-prototype function decls
-   or non-prototyped defs without previous prototype.  */
-
-int warn_strict_prototypes;
-
-/* Nonzero means warn for any global function def
-   without separate previous prototype decl.  */
-
-int warn_missing_prototypes;
-
-/* Nonzero means warn for any global function def
-   without separate previous decl.  */
-
-int warn_missing_declarations;
-
-/* Nonzero means warn about multiple (redundant) decls for the same single
-   variable or function.  */
-
-int warn_redundant_decls = 0;
-
-/* Nonzero means warn about extern declarations of objects not at
-   file-scope level and about *all* declarations of functions (whether
-   extern or static) not at file-scope level.  Note that we exclude
-   implicit function declarations.  To get warnings about those, use
-   -Wimplicit.  */
-
-int warn_nested_externs = 0;
-
-/* Warn about a subscript that has type char.  */
-
-int warn_char_subscripts = 0;
-
-/* Warn if a type conversion is done that might have confusing results.  */
-
-int warn_conversion;
-
-/* Warn if adding () is suggested.  */
-
-int warn_parentheses;
-
-/* Warn if initializer is not completely bracketed.  */
-
-int warn_missing_braces;
-
-/* Warn if main is suspicious.  */
-
-int warn_main;
-
-/* Warn about #pragma directives that are not recognised.  */
-
-int warn_unknown_pragmas = 0; /* Tri state variable.  */
-
-/* Warn about comparison of signed and unsigned values.
-   If -1, neither -Wsign-compare nor -Wno-sign-compare has been specified.  */
-
-int warn_sign_compare = -1;
-
-/* Warn about testing equality of floating point numbers.  */
-
-int warn_float_equal = 0;
-
-/* Nonzero means `$' can be in an identifier.  */
-
-#ifndef DOLLARS_IN_IDENTIFIERS
-#define DOLLARS_IN_IDENTIFIERS 1
-#endif
-int dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
-
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
    __attribute__((deprecated)) suppresses warnings of uses of other
@@ -443,275 +299,6 @@ enum deprecated_states {
 };
 
 static enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
-
-/* Decode the string P as a language-specific option for C.
-   Return the number of strings consumed.  Should not complain
-   if it does not recognise the option.  */
-
-int
-c_decode_option (argc, argv)
-     int argc ATTRIBUTE_UNUSED;
-     char **argv;
-{
-  int strings_processed;
-  char *p = argv[0];
-
-  static const struct {
-      /* The name of the option.  */
-      const char *option;
-      /* If non-NULL, a flag variable to set to 0 or 1.  If NULL,
-         this means that cpp handles this option.  */
-      int *flag;
-  } warn_options[] = {
-    /* This list is in alphabetical order.  Keep it like that.  */
-    { "bad-function-cast", &warn_bad_function_cast },
-    { "cast-qual", &warn_cast_qual },
-    { "char-subscripts", &warn_char_subscripts },
-    { "comment", NULL },
-    { "comments", NULL },
-    { "conversion", &warn_conversion },
-    { "div-by-zero", &warn_div_by_zero },
-    { "float-equal", &warn_float_equal },
-    { "format-extra-args", &warn_format_extra_args },
-    { "format-zero-length", &warn_format_zero_length },
-    { "format-nonliteral", &warn_format_nonliteral },
-    { "format-security", &warn_format_security },
-    { "format-y2k", &warn_format_y2k },
-    { "implicit-function-declaration", &mesg_implicit_function_declaration },
-    { "implicit-int", &warn_implicit_int },
-    { "import", NULL },
-    { "long-long", &warn_long_long },
-    { "main", &warn_main },
-    { "missing-braces", &warn_missing_braces },
-    { "missing-declarations", &warn_missing_declarations },
-    { "missing-format-attribute", &warn_missing_format_attribute },
-    { "missing-prototypes", &warn_missing_prototypes },
-    { "multichar", &warn_multichar },
-    { "nested-externs", &warn_nested_externs },
-    { "nonnull", &warn_nonnull },
-    { "parentheses", &warn_parentheses },
-    { "pointer-arith", &warn_pointer_arith },
-    { "redundant-decls", &warn_redundant_decls },
-    { "return-type", &warn_return_type },
-    { "sequence-point", &warn_sequence_point },
-    { "sign-compare", &warn_sign_compare },
-    { "strict-prototypes", &warn_strict_prototypes },
-    { "traditional", &warn_traditional },
-    { "trigraphs", NULL },
-    { "undef", NULL },
-    { "write-strings", &flag_const_strings }
-  };
-
-  strings_processed = cpp_handle_option (parse_in, argc, argv);
-
-  if (!strcmp (p, "-fhosted") || !strcmp (p, "-fno-freestanding"))
-    {
-      flag_hosted = 1;
-      flag_no_builtin = 0;
-    }
-  else if (!strcmp (p, "-ffreestanding") || !strcmp (p, "-fno-hosted"))
-    {
-      flag_hosted = 0;
-      flag_no_builtin = 1;
-      /* warn_main will be 2 if set by -Wall, 1 if set by -Wmain */
-      if (warn_main == 2)
-	warn_main = 0;
-    }
-  else if (!strncmp (p, "-std=", 5))
-    {
-      /* Select the appropriate language standard.  We currently
-	 recognize:
-	 -std=iso9899:1990	same as -ansi
-	 -std=iso9899:199409	ISO C as modified in amend. 1
-	 -std=iso9899:1999	ISO C 99
-	 -std=c89		same as -std=iso9899:1990
-	 -std=c99		same as -std=iso9899:1999
-	 -std=gnu89		default, iso9899:1990 + gnu extensions
-	 -std=gnu99		iso9899:1999 + gnu extensions
-      */
-      const char *const argstart = &p[5];
-
-      if (!strcmp (argstart, "iso9899:1990")
-	  || !strcmp (argstart, "c89"))
-	{
-	iso_1990:
-	  flag_isoc94 = 0;
-	iso_1994:
-	  flag_writable_strings = 0;
-	  flag_no_asm = 1;
-	  flag_no_nonansi_builtin = 1;
-	  flag_noniso_default_format_attributes = 0;
-	  flag_isoc99 = 0;
-	  flag_iso = 1;
-	}
-      else if (!strcmp (argstart, "iso9899:199409"))
-	{
-	  flag_isoc94 = 1;
-	  goto iso_1994;
-	}
-      else if (!strcmp (argstart, "iso9899:199x")
-	       || !strcmp (argstart, "iso9899:1999")
-	       || !strcmp (argstart, "c9x")
-	       || !strcmp (argstart, "c99"))
-	{
-	  flag_writable_strings = 0;
-	  flag_no_asm = 1;
-	  flag_no_nonansi_builtin = 1;
-	  flag_noniso_default_format_attributes = 0;
-	  flag_isoc99 = 1;
-	  flag_isoc94 = 1;
-	  flag_iso = 1;
-	}
-      else if (!strcmp (argstart, "gnu89"))
-	{
-	  flag_writable_strings = 0;
-	  flag_no_asm = 0;
-	  flag_no_nonansi_builtin = 0;
-	  flag_noniso_default_format_attributes = 1;
-	  flag_isoc99 = 0;
-	  flag_isoc94 = 0;
-	}
-      else if (!strcmp (argstart, "gnu9x") || !strcmp (argstart, "gnu99"))
-	{
-	  flag_writable_strings = 0;
-	  flag_no_asm = 0;
-	  flag_no_nonansi_builtin = 0;
-	  flag_noniso_default_format_attributes = 1;
-	  flag_isoc99 = 1;
-	  flag_isoc94 = 1;
-	}
-      else if (!strcmp (argstart, "c++98"))
-	; /* Handled by cpplib.  */
-      else
-	error ("unknown C standard `%s'", argstart);
-    }
-  else if (!strcmp (p, "-fdollars-in-identifiers"))
-    dollars_in_ident = 1;
-  else if (!strcmp (p, "-fno-dollars-in-identifiers"))
-    dollars_in_ident = 0;
-  else if (!strcmp (p, "-fsigned-char"))
-    flag_signed_char = 1;
-  else if (!strcmp (p, "-funsigned-char"))
-    flag_signed_char = 0;
-  else if (!strcmp (p, "-fno-signed-char"))
-    flag_signed_char = 0;
-  else if (!strcmp (p, "-fno-unsigned-char"))
-    flag_signed_char = 1;
-  else if (!strcmp (p, "-fsigned-bitfields")
-	   || !strcmp (p, "-fno-unsigned-bitfields"))
-    {
-      flag_signed_bitfields = 1;
-      explicit_flag_signed_bitfields = 1;
-    }
-  else if (!strcmp (p, "-funsigned-bitfields")
-	   || !strcmp (p, "-fno-signed-bitfields"))
-    {
-      flag_signed_bitfields = 0;
-      explicit_flag_signed_bitfields = 1;
-    }
-  else if (!strcmp (p, "-fshort-enums"))
-    flag_short_enums = 1;
-  else if (!strcmp (p, "-fno-short-enums"))
-    flag_short_enums = 0;
-  else if (!strcmp (p, "-fshort-wchar"))
-    flag_short_wchar = 1;
-  else if (!strcmp (p, "-fno-short-wchar"))
-    flag_short_wchar = 0;
-  else if (!strcmp (p, "-fcond-mismatch"))
-    flag_cond_mismatch = 1;
-  else if (!strcmp (p, "-fno-cond-mismatch"))
-    flag_cond_mismatch = 0;
-  else if (!strcmp (p, "-fshort-double"))
-    flag_short_double = 1;
-  else if (!strcmp (p, "-fno-short-double"))
-    flag_short_double = 0;
-  else if (!strcmp (p, "-fasm"))
-    flag_no_asm = 0;
-  else if (!strcmp (p, "-fno-asm"))
-    flag_no_asm = 1;
-  else if (!strcmp (p, "-fms-extensions"))
-    flag_ms_extensions = 1;
-  else if (!strcmp (p, "-fno-ms-extensions"))
-    flag_ms_extensions = 0;
-  else if (!strcmp (p, "-fbuiltin"))
-    flag_no_builtin = 0;
-  else if (!strcmp (p, "-fno-builtin"))
-    flag_no_builtin = 1;
-  else if (!strncmp (p, "-fno-builtin-", strlen ("-fno-builtin-")))
-    disable_builtin_function (p + strlen ("-fno-builtin-"));
-  else if (p[0] == '-' && p[1] == 'f' && dump_switch_p (p + 2))
-    ;
-  else if (!strcmp (p, "-ansi"))
-    goto iso_1990;
-  else if (!strcmp (p, "-undef"))
-    flag_undef = 1;
-  else if (!strcmp (p, "-Werror-implicit-function-declaration"))
-    mesg_implicit_function_declaration = 2;
-  else if (!strncmp (p, "-Wformat=", 9))
-    set_Wformat (atoi (p + 9));
-  else if (!strcmp (p, "-Wformat"))
-    set_Wformat (1);
-  else if (!strcmp (p, "-Wno-format"))
-    set_Wformat (0);
-  else if (!strcmp (p, "-Wimplicit"))
-    {
-      warn_implicit_int = 1;
-      if (mesg_implicit_function_declaration != 2)
-	mesg_implicit_function_declaration = 1;
-    }
-  else if (!strcmp (p, "-Wno-implicit"))
-    warn_implicit_int = 0, mesg_implicit_function_declaration = 0;
-  else if (!strcmp (p, "-Wno-main"))
-    warn_main = -1;
-  else if (!strcmp (p, "-Wunknown-pragmas"))
-    /* Set to greater than 1, so that even unknown pragmas in system
-       headers will be warned about.  */
-    warn_unknown_pragmas = 2;
-  else if (!strcmp (p, "-Wno-unknown-pragmas"))
-    warn_unknown_pragmas = 0;
-  else if (!strcmp (p, "-Wall"))
-    {
-      /* We save the value of warn_uninitialized, since if they put
-	 -Wuninitialized on the command line, we need to generate a
-	 warning about not using it without also specifying -O.  */
-      if (warn_uninitialized != 1)
-	warn_uninitialized = 2;
-      warn_implicit_int = 1;
-      mesg_implicit_function_declaration = 1;
-      warn_return_type = 1;
-      set_Wunused (1);
-      warn_switch = 1;
-      set_Wformat (1);
-      warn_char_subscripts = 1;
-      warn_parentheses = 1;
-      warn_sequence_point = 1;
-      warn_missing_braces = 1;
-      /* We set this to 2 here, but 1 in -Wmain, so -ffreestanding can turn
-	 it off only if it's not explicit.  */
-      warn_main = 2;
-      /* Only warn about unknown pragmas that are not in system headers.  */
-      warn_unknown_pragmas = 1;
-    }
-  else if (!strcmp (p, "-E"))
-    flag_preprocess_only = 1;
-  else
-    {
-      size_t i;
-      for (i = 0; i < sizeof (warn_options) / sizeof (warn_options[0]); i++)
-	if (strncmp (p, "-W", 2) == 0 
-	    && warn_options[i].flag
-	    && (strcmp (p+2, warn_options[i].option) == 0
-		|| (strncmp (p+2, "no-", 3) == 0
-		    && strcmp (p+5, warn_options[i].option) == 0)))
-	  {
-	    *(warn_options[i].flag) = strncmp (p+2, "no-", 3) != 0;
-	    return 1;
-	  }
-      return strings_processed;
-    }
-
-  return 1;
-}
 
 void
 c_print_identifier (file, node, indent)
@@ -1556,6 +1143,20 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	}
       error_with_decl (olddecl, "previous declaration of `%s'");
     }
+  /* TLS cannot follow non-TLS declaration.  */
+  else if (TREE_CODE (olddecl) == VAR_DECL && TREE_CODE (newdecl) == VAR_DECL
+	   && !DECL_THREAD_LOCAL (olddecl) && DECL_THREAD_LOCAL (newdecl))
+    {
+      error_with_decl (newdecl, "thread-local declaration of `%s' follows non thread-local declaration");
+      error_with_decl (olddecl, "previous declaration of `%s'");
+    }
+  /* non-TLS declaration cannot follow TLS declaration.  */
+  else if (TREE_CODE (olddecl) == VAR_DECL && TREE_CODE (newdecl) == VAR_DECL
+	   && DECL_THREAD_LOCAL (olddecl) && !DECL_THREAD_LOCAL (newdecl))
+    {
+      error_with_decl (newdecl, "non thread-local declaration of `%s' follows thread-local declaration");
+      error_with_decl (olddecl, "previous declaration of `%s'");
+    }
   else
     {
       errmsg = redeclaration_error_message (newdecl, olddecl);
@@ -1764,11 +1365,6 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
       COPY_DECL_RTL (olddecl, newdecl);
 
       /* Merge the type qualifiers.  */
-      if (TREE_CODE (olddecl) == FUNCTION_DECL
-	  && DECL_BUILT_IN_NONANSI (olddecl) && TREE_THIS_VOLATILE (olddecl)
-	  && ! TREE_THIS_VOLATILE (newdecl))
-	TREE_THIS_VOLATILE (write_olddecl) = 0;
-
       if (TREE_READONLY (newdecl))
 	TREE_READONLY (write_olddecl) = 1;
 
@@ -2468,8 +2064,9 @@ implicitly_declare (functionid)
      So we record the decl in the standard fashion.  */
   pushdecl (decl);
 
-  /* This is a no-op in c-lang.c or something real in objc-actions.c.  */
-  maybe_objc_check_decl (decl);
+  /* This is a no-op in c-lang.c or something real in objc-act.c.  */
+  if (flag_objc)
+    objc_check_decl (decl);
 
   rest_of_decl_compilation (decl, NULL, 0, 0);
 
@@ -2961,15 +2558,17 @@ c_make_fname_decl (id, type_dep)
    See tree.h for its possible values.
 
    If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
-   the name to be called if we can't opencode the function.  */
+   the name to be called if we can't opencode the function.  If
+   ATTRS is nonzero, use that for the function's attribute list.  */
 
 tree
-builtin_function (name, type, function_code, class, library_name)
+builtin_function (name, type, function_code, class, library_name, attrs)
      const char *name;
      tree type;
      int function_code;
      enum built_in_class class;
      const char *library_name;
+     tree attrs;
 {
   tree decl = build_decl (FUNCTION_DECL, get_identifier (name), type);
   DECL_EXTERNAL (decl) = 1;
@@ -2981,17 +2580,16 @@ builtin_function (name, type, function_code, class, library_name)
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
 
-  /* The return builtins leave the current function.  */
-  if (function_code == BUILT_IN_RETURN || function_code == BUILT_IN_EH_RETURN)
-    TREE_THIS_VOLATILE (decl) = 1;
-
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
   if (name[0] != '_' || name[1] != '_')
     C_DECL_ANTICIPATED (decl) = 1;
 
   /* Possibly apply some default attributes to this built-in function.  */
-  decl_attributes (&decl, NULL_TREE, 0);
+  if (attrs)
+    decl_attributes (&decl, attrs, ATTR_FLAG_BUILT_IN);
+  else
+    decl_attributes (&decl, NULL_TREE, 0);
 
   return decl;
 }
@@ -3120,9 +2718,9 @@ build_array_declarator (expr, quals, static_p, vla_unspec_p)
   if (pedantic && !flag_isoc99)
     {
       if (static_p || quals != NULL_TREE)
-	pedwarn ("ISO C89 does not support `static' or type qualifiers in parameter array declarators");
+	pedwarn ("ISO C90 does not support `static' or type qualifiers in parameter array declarators");
       if (vla_unspec_p)
-	pedwarn ("ISO C89 does not support `[*]' array declarators");
+	pedwarn ("ISO C90 does not support `[*]' array declarators");
     }
   if (vla_unspec_p)
     warning ("GCC does not yet properly implement `[*]' array declarators");
@@ -3505,8 +3103,9 @@ finish_decl (decl, init, asmspec_tree)
 
   if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
     {
-      /* This is a no-op in c-lang.c or something real in objc-actions.c.  */
-      maybe_objc_check_decl (decl);
+      /* This is a no-op in c-lang.c or something real in objc-act.c.  */
+      if (flag_objc)
+	objc_check_decl (decl);
 
       if (!DECL_CONTEXT (decl))
 	{
@@ -3568,8 +3167,9 @@ finish_decl (decl, init, asmspec_tree)
 
   if (TREE_CODE (decl) == TYPE_DECL)
     {
-      /* This is a no-op in c-lang.c or something real in objc-actions.c.  */
-      maybe_objc_check_decl (decl);
+      /* This is a no-op in c-lang.c or something real in objc-act.c.  */
+      if (flag_objc)
+	objc_check_decl (decl);
       rest_of_decl_compilation (decl, NULL, DECL_CONTEXT (decl) == 0, 0);
     }
 
@@ -3652,6 +3252,7 @@ build_compound_literal (type, init)
   DECL_CONTEXT (decl) = current_function_decl;
   TREE_USED (decl) = 1;
   TREE_TYPE (decl) = type;
+  TREE_READONLY (decl) = TREE_READONLY (type);
   store_init_value (decl, init);
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
@@ -3674,12 +3275,18 @@ build_compound_literal (type, init)
   if (TREE_STATIC (decl))
     {
       /* This decl needs a name for the assembler output.  We also need
-	 a unique suffix to be added to the name, for which DECL_CONTEXT
-	 must be set.  */
-      DECL_NAME (decl) = get_identifier ("__compound_literal");
-      DECL_CONTEXT (decl) = complit;
+	 a unique suffix to be added to the name.  */
+      char *name;
+      extern int var_labelno;
+
+      ASM_FORMAT_PRIVATE_NAME (name, "__compound_literal", var_labelno);
+      var_labelno++;
+      DECL_NAME (decl) = get_identifier (name);
+      DECL_DEFER_OUTPUT (decl) = 1;
+      DECL_COMDAT (decl) = 1;
+      DECL_ARTIFICIAL (decl) = 1;
+      pushdecl (decl);
       rest_of_decl_compilation (decl, NULL, 1, 0);
-      DECL_CONTEXT (decl) = NULL_TREE;
     }
 
   return complit;
@@ -3753,6 +3360,40 @@ complete_array_type (type, initial_value, do_default)
   layout_type (type);
 
   return value;
+}
+
+/* Determine whether TYPE is a structure with a flexible array member,
+   or a union containing such a structure (possibly recursively).  */
+
+static bool
+flexible_array_type_p (type)
+     tree type;
+{
+  tree x;
+  switch (TREE_CODE (type))
+    {
+    case RECORD_TYPE:
+      x = TYPE_FIELDS (type);
+      if (x == NULL_TREE)
+	return false;
+      while (TREE_CHAIN (x) != NULL_TREE)
+	x = TREE_CHAIN (x);
+      if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
+	  && TYPE_SIZE (TREE_TYPE (x)) == NULL_TREE
+	  && TYPE_DOMAIN (TREE_TYPE (x)) != NULL_TREE
+	  && TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (x))) == NULL_TREE)
+	return true;
+      return false;
+    case UNION_TYPE:
+      for (x = TYPE_FIELDS (type); x != NULL_TREE; x = TREE_CHAIN (x))
+	{
+	  if (flexible_array_type_p (TREE_TYPE (x)))
+	    return true;
+	}
+      return false;
+    default:
+    return false;
+  }
 }
 
 /* Given declspecs and a declarator,
@@ -3914,12 +3555,12 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		    {
 		      if (pedantic && !flag_isoc99 && ! in_system_header
 			  && warn_long_long)
-			pedwarn ("ISO C89 does not support `long long'");
+			pedwarn ("ISO C90 does not support `long long'");
 		      longlong = 1;
 		    }
 		}
 	      else if (specbits & (1 << (int) i))
-		pedwarn ("duplicate `%s'", IDENTIFIER_POINTER (id));
+		error ("duplicate `%s'", IDENTIFIER_POINTER (id));
 
 	      /* Diagnose "__thread extern".  Recall that this list
 		 is in the reverse order seen in the text.  */
@@ -4052,12 +3693,11 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       else
 	{
 	  ok = 1;
-	  if (!explicit_int && !defaulted_int && !explicit_char && pedantic)
+	  if (!explicit_int && !defaulted_int && !explicit_char)
 	    {
-	      pedwarn ("long, short, signed or unsigned used invalidly for `%s'",
-		       name);
-	      if (flag_pedantic_errors)
-		ok = 0;
+	      error ("long, short, signed or unsigned used invalidly for `%s'",
+		     name);
+	      ok = 0;
 	    }
 	}
 
@@ -4115,7 +3755,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
   if (specbits & 1 << (int) RID_COMPLEX)
     {
       if (pedantic && !flag_isoc99)
-	pedwarn ("ISO C89 does not support complex types");
+	pedwarn ("ISO C90 does not support complex types");
       /* If we just have "complex", it is equivalent to
 	 "complex double", but if any modifiers at all are specified it is
 	 the complex form of TYPE.  E.g, "complex short" is
@@ -4351,6 +3991,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	      type = error_mark_node;
 	    }
 
+	  if (pedantic && flexible_array_type_p (type))
+	    pedwarn ("invalid use of structure with flexible array member");
+
 	  if (size == error_mark_node)
 	    type = error_mark_node;
 
@@ -4393,10 +4036,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		  if (!flag_isoc99 && pedantic)
 		    {
 		      if (TREE_CONSTANT (size))
-			pedwarn ("ISO C89 forbids array `%s' whose size can't be evaluated",
+			pedwarn ("ISO C90 forbids array `%s' whose size can't be evaluated",
 				 name);
 		      else
-			pedwarn ("ISO C89 forbids variable-size array `%s'",
+			pedwarn ("ISO C90 forbids variable-size array `%s'",
 				 name);
 		    }
 		}
@@ -4439,7 +4082,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  else if (decl_context == FIELD)
 	    {
 	      if (pedantic && !flag_isoc99 && !in_system_header)
-		pedwarn ("ISO C89 does not support flexible array members");
+		pedwarn ("ISO C90 does not support flexible array members");
 
 	      /* ISO C99 Flexible array members are effectively identical
 		 to GCC's zero-length array extension.  */
@@ -5410,7 +5053,8 @@ grokfield (filename, line, declarator, declspecs, width)
   finish_decl (value, NULL_TREE, NULL_TREE);
   DECL_INITIAL (value) = width;
 
-  maybe_objc_check_decl (value);
+  if (flag_objc)
+    objc_check_decl (value);
   return value;
 }
 
@@ -5613,6 +5257,11 @@ finish_struct (t, fieldlist, attributes)
 	  else if (! saw_named_field)
 	    error_with_decl (x, "flexible array member in otherwise empty struct");
 	}
+
+      if (pedantic && TREE_CODE (t) == RECORD_TYPE
+	  && flexible_array_type_p (TREE_TYPE (x)))
+	pedwarn_with_decl (x, "invalid use of structure with flexible array member");
+
       if (DECL_NAME (x))
 	saw_named_field = 1;
     }
@@ -5698,8 +5347,9 @@ finish_struct (t, fieldlist, attributes)
 	      && TREE_CODE (decl) != TYPE_DECL)
 	    {
 	      layout_decl (decl, 0);
-	      /* This is a no-op in c-lang.c or something real in objc-actions.c.  */
-	      maybe_objc_check_decl (decl);
+	      /* This is a no-op in c-lang.c or something real in objc-act.c.  */
+	      if (flag_objc)
+		objc_check_decl (decl);
 	      rest_of_decl_compilation (decl, NULL, toplevel, 0);
 	      if (! toplevel)
 		expand_decl (decl);
@@ -5721,7 +5371,8 @@ finish_struct (t, fieldlist, attributes)
 		  if (TREE_CODE (decl) != TYPE_DECL)
 		    {
 		      layout_decl (decl, 0);
-		      maybe_objc_check_decl (decl);
+		      if (flag_objc)
+			objc_check_decl (decl);
 		      rest_of_decl_compilation (decl, NULL, toplevel, 0);
 		      if (! toplevel)
 			expand_decl (decl);
@@ -6027,7 +5678,6 @@ start_function (declspecs, declarator, attributes)
   current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   current_extern_inline = 0;
-  c_function_varargs = 0;
   named_labels = 0;
   shadowed_labels = 0;
 
@@ -6245,16 +5895,6 @@ start_function (declspecs, declarator, attributes)
   start_fname_decls ();
   
   return 1;
-}
-
-/* Record that this function is going to be a varargs function.
-   This is called before store_parm_decls, which is too early
-   to call mark_varargs directly.  */
-
-void
-c_mark_varargs ()
-{
-  c_function_varargs = 1;
 }
 
 /* Store the parameter declarations into the current function declaration.
@@ -6802,6 +6442,19 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 {
   int uninlinable = 1;
 
+  /* Dump the function call graph.  */
+  {  
+    FILE *dumpfile;
+    int dump_flags;
+    dumpfile = dump_begin (TDI_xml, &dump_flags);
+    if (dumpfile)
+      {
+	/* Dump the function call graph.  */
+	print_call_graph (dumpfile, fndecl);
+	dump_end (TDI_xml, dumpfile);
+      }
+  }
+
   /* There's no reason to do any of the work here if we're only doing
      semantic analysis; this code just generates RTL.  */
   if (flag_syntax_only)
@@ -6858,9 +6511,27 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   immediate_size_expand = 0;
   cfun->x_dont_save_pending_sizes_p = 1;
 
-  /* If this is a varargs function, inform function.c.  */
-  if (c_function_varargs)
-    mark_varargs ();
+  /* Perform the mudflap transform, if requested.  */
+  if (flag_mudflap && flag_disable_simple)
+    mudflap_c_function (fndecl);
+
+  /* Simplify the function.  Don't try to optimize the function if
+     simplification failed.  */
+  if (!flag_disable_simple
+      && simplify_function_tree (fndecl))
+    {
+      if (flag_mudflap)
+	{
+	  mudflap_c_function (fndecl);
+
+	  /* Simplify mudflap instrumentation.  */
+	  simplify_function_tree (fndecl);
+	}
+
+      /* Invoke the SSA tree optimizer.  */
+      if (flag_tree_ssa)
+	optimize_function_tree (fndecl);
+    }
 
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
