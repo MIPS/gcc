@@ -1,3 +1,7 @@
+2003-12-03  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (classify_argument): Make it 64bit clean.
+
 2003-06-07  Alan Modra  <amodra@bigpond.net.au>
 
 	* config/rs6000/linux64.h (CRT_CALL_STATIC_FUNCTION): Define.
