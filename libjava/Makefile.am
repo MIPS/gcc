@@ -1513,6 +1513,7 @@ javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/Style.java \
+javax/swing/text/TabableView.java \
 javax/swing/text/TabExpander.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \

@@ -86,7 +86,7 @@ public class JEditorPane extends JTextComponent
     return new DefaultEditorKit();
   }
 
-  protected static EditorKit createEditorKitForContentType(String type)
+  public static EditorKit createEditorKitForContentType(String type)
   {
     return new DefaultEditorKit();
   }
@@ -198,7 +198,8 @@ public class JEditorPane extends JTextComponent
   }
 
   /**
-   * Make sure that TAB and Shift-TAB events get consumed, so that awt doesn't attempt focus traversal.  
+   * Make sure that TAB and Shift-TAB events get consumed,
+   * so that awt doesn't attempt focus traversal.  
    */
   protected void processKeyEvent(KeyEvent e)
   {
@@ -220,7 +221,7 @@ public class JEditorPane extends JTextComponent
   }
 
   /**
-   * Establishes the default bindings of type to classname.  
+   * Establishes the default bindings of type to classname.
    */
   public static void registerEditorKitForContentType(String type,
                                                      String classname,
@@ -229,16 +230,18 @@ public class JEditorPane extends JTextComponent
   }
 
   /**
-   * Replaces the currently selected content with new content represented by the given string. 
+   * Replaces the currently selected content with new content represented
+   * by the given string.
    */
   public void replaceSelection(String content)
   {
   }
 
   /**
-   * Scrolls the view to the given reference location (that is, the value returned by the UL.getRef method for the URL being displayed).  
+   * Scrolls the view to the given reference location (that is, the value
+   * returned by the UL.getRef method for the URL being displayed).
    */
-  protected void scrollToReference(String reference)
+  public void scrollToReference(String reference)
   {
   }
 

@@ -270,6 +270,12 @@ public abstract class JTextComponent extends JComponent
     public KeyStroke key;
     public String actionName;
 
+    /**
+     * Creates a new <code>KeyBinding</code> instance.
+     *
+     * @param key a <code>KeyStroke</code> value
+     * @param actionName a <code>String</code> value
+     */
     public KeyBinding(KeyStroke key, String actionName)
     {
       this.key = key;
@@ -291,6 +297,9 @@ public abstract class JTextComponent extends JComponent
   private Color selectionColor;
   private boolean editable;
 
+  /**
+   * Creates a new <code>JTextComponent</code> instance.
+   */
   public JTextComponent()
   {
     enableEvents(AWTEvent.KEY_EVENT_MASK);
@@ -310,7 +319,9 @@ public abstract class JTextComponent extends JComponent
   }
 
   /**
-   * Get the AccessibleContext of this object
+   * Get the <code>AccessibleContext<code> of this object.
+   *
+   * @return an <code>AccessibleContext</code> object
    */
   public AccessibleContext getAccessibleContext()
   {

@@ -1191,6 +1191,7 @@ javax/swing/text/PlainView.java \
 javax/swing/text/Position.java \
 javax/swing/text/Segment.java \
 javax/swing/text/Style.java \
+javax/swing/text/TabableView.java \
 javax/swing/text/TabExpander.java \
 javax/swing/text/View.java \
 javax/swing/text/ViewFactory.java \
@@ -3254,9 +3255,9 @@ javax/swing/text/JTextComponent.lo javax/swing/text/Keymap.lo \
 javax/swing/text/LayeredHighlighter.lo \
 javax/swing/text/PlainDocument.lo javax/swing/text/PlainView.lo \
 javax/swing/text/Position.lo javax/swing/text/Segment.lo \
-javax/swing/text/Style.lo javax/swing/text/TabExpander.lo \
-javax/swing/text/View.lo javax/swing/text/ViewFactory.lo \
-javax/swing/text/MutableAttributeSet.lo \
+javax/swing/text/Style.lo javax/swing/text/TabableView.lo \
+javax/swing/text/TabExpander.lo javax/swing/text/View.lo \
+javax/swing/text/ViewFactory.lo javax/swing/text/MutableAttributeSet.lo \
 javax/swing/text/NavigationFilter.lo javax/swing/text/StyledDocument.lo \
 javax/swing/text/StyledEditorKit.lo javax/swing/text/TextAction.lo \
 javax/swing/text/html/HTML.lo \
@@ -5339,6 +5340,7 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/javax/swing/text/StyledDocument.P \
 .deps/javax/swing/text/StyledEditorKit.P \
 .deps/javax/swing/text/TabExpander.P \
+.deps/javax/swing/text/TabableView.P \
 .deps/javax/swing/text/TextAction.P .deps/javax/swing/text/View.P \
 .deps/javax/swing/text/ViewFactory.P .deps/javax/swing/text/html/HTML.P \
 .deps/javax/swing/text/html/parser/ParserDelegator.P \

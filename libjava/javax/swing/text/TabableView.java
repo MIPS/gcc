@@ -1,5 +1,5 @@
-/* AttributeSet.java -- 
-   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
+/* TabableView.java -- 
+   Copyright (C) 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,33 +37,8 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-import java.util.Enumeration;
-
-public interface AttributeSet
-{ 
-  static interface CharacterAttribute
-  {
-  }
-
-  static interface ColorAttribute
-  {
-  }
-
-  static interface FontAttribute
-  {
-  }
-
-  static interface ParagraphAttribute
-  {
-  }
-  
-  boolean containsAttribute(Object name, Object value);
-  boolean containsAttributes(AttributeSet attributes);
-  AttributeSet copyAttributes();
-  Object getAttribute(Object key);
-  int getAttributeCount();
-  Enumeration getAttributeNames();
-  AttributeSet getResolveParent();
-  boolean isDefined(Object attrName);
-  boolean isEqual(AttributeSet attr);     
+public interface TabableView
+{
+  float getPartialSpan(int p0, int p1);
+  float getTabbedSpan(float x, TabExpander expander);
 }

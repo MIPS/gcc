@@ -57,6 +57,11 @@ public abstract class View implements SwingConstants
   private Element elt;
   private View parent;
 
+  /**
+   * Creates a new <code>View</code> instance.
+   *
+   * @param elem an <code>Element</code> value
+   */
   public View(Element elem)
   {
     elt = elem;

@@ -224,8 +224,9 @@ public class JTextArea extends JTextComponent
    *
    * @param wrapping true to enable line wrapping, false otherwise
    */
-  public void setLineWrap(boolean wrapping)
+  public void setLineWrap(boolean flag)
   {
-    this.wrapping = wrapping;
+    firePropertyChange("lineWrap", wrapping, flag);
+    wrapping = flag;
   }
 }

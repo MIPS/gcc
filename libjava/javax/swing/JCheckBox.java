@@ -48,49 +48,79 @@ import javax.accessibility.AccessibleContext;
 public class JCheckBox extends JToggleButton
 {
   private static final long serialVersionUID = -5246739313864538930L;
-  
-    public JCheckBox()
-    {
-	this(null, null);
-    }
-    public JCheckBox(Action a)
-    {
-	this();
-	setAction(a);
-    }
 
-    public JCheckBox(Icon icon)
-    { 
-	this(null, icon);
-    }    
+  private boolean borderPaintedFlat;
   
-    public JCheckBox(String text)
-    {
-	this(text, null);
-    }
+  public JCheckBox()
+  {
+    super();
+  }
+
+  public JCheckBox(Action action)
+  {
+    super(action);
+  }
+
+  public JCheckBox(Icon icon)
+  { 
+    super(icon);
+  }    
+  
+  public JCheckBox(Icon icon, boolean selected)
+  { 
+    super(icon, selected);
+  }    
+  
+  public JCheckBox(String text)
+  {
+    super(text);
+  }
       
-    public JCheckBox(String text, Icon icon)
-    {
-	super(text, icon);
-        paint_border = false;
-        content_area_filled = false;
-    }
+  public JCheckBox(String text, boolean selected)
+  {
+    super(text, selected);
+  }
+      
+  public JCheckBox(String text, Icon icon)
+  {
+    super(text, icon);
+  }
 
-    
-    public AccessibleContext getAccessibleContext()
-    {
-	//Gets the AccessibleContext associated with this JCheckBox. 
-	return null;
-    }
+  public JCheckBox(String text, Icon icon, boolean selected)
+  {
+    super(text, icon, selected);
+  }
+
+  /**
+   * Gets the AccessibleContext associated with this JCheckBox.
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    return null;
+  }
   
-    public String getUIClassID()
-    {
-	//Returns a string that specifies the name of the L&F class that renders this component.  
-	return "CheckBoxUI";
-    }
+  /**
+   * Returns a string that specifies the name of the L&amp;F class
+   * that renders this component.
+   */
+  public String getUIClassID()
+  {
+    return "CheckBoxUI";
+  }
   
-    protected  String paramString()
-    {
-	return "JCheckBox";
-    }
+  protected  String paramString()
+  {
+    return "JCheckBox";
+  }
+
+  public boolean isBorderPaintedFlat()
+  {
+    return borderPaintedFlat;
+  }
+
+  public void setBorderPaintedFlat(boolean newValue)
+  {
+    firePropertyChange("borderPaintedFlat", borderPaintedFlat, newValue);
+    borderPaintedFlat = newValue;
+  }
 }
