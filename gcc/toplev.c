@@ -1000,6 +1000,9 @@ int flag_tree_ter = 0;
 /* Enable dominator optimizations.  */
 int flag_tree_dom = 0;
 
+/* Enable copy rename optimization.  */
+int flag_tree_copyrename = 0;
+
 /* Enable dead store elimination.  */
 int flag_tree_dse = 0;
 
@@ -1205,6 +1208,7 @@ static const lang_independent_options f_options[] =
   { "tree-ccp", &flag_tree_ccp, 1 },
   { "tree-dce", &flag_tree_dce, 1 },
   { "tree-dominator-opts", &flag_tree_dom, 1 },
+  { "tree-copyrename", &flag_tree_copyrename, 1 },
   { "tree-dse", &flag_tree_dse, 1 },
   { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-ter", &flag_tree_ter, 1 },

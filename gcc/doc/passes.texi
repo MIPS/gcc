@@ -290,6 +290,15 @@ variables that are used once into the expression that uses them and
 seeing if the result can be simplified.  It is located in 
 @file{tree-ssa-forwprop.c} and is described by @code{pass_forwprop}.
 
+@item Copy Renaming
+
+This pass attempts to change the name of compiler temporaries involved in 
+copy operations such that SSA->normal can coalesce the copy away. When compiler
+temporaries are copies of user variables, it also renames the compiler
+temporary to the user variable resulting in better use of user symbols.  It is 
+located in @file{tree-ssa-copyrename.c} and is described by 
+@code{pass_copyrename}.
+
 @item PHI node optimizations
 
 This pass recognizes forms of phi inputs that can be represented as

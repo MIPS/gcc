@@ -258,6 +258,7 @@ in the following sections.
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiopt@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
+-fdump-tree-copyrename@r{[}-@var{n}@r{]} @gol
 -fdump-tree-nrv @gol
 -fdump-tree-loop@r{[}-@var{n}@r{]} -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -feliminate-dwarf2-dups -feliminate-unused-debug-types @gol
@@ -310,7 +311,7 @@ in the following sections.
 -funroll-all-loops  -funroll-loops  -fpeel-loops @gol
 -funswitch-loops  -fold-unroll-loops  -fold-unroll-all-loops @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  @gol
--ftree-dominator-opts -ftree-dse @gol
+-ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
 -ftree-ch -ftree-loop-optimize -ftree-sra @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -3544,6 +3545,11 @@ name is made by appending @file{.phiopt} to the source file name.
 Dump each function after forward propagating single use variables.  The file
 name is made by appending @file{.forwprop} to the source file name.
 
+@item copyrename
+@opindex fdump-tree-copyrename
+Dump each function after applying the copy rename optimization.  The file
+name is made by appending @file{.copyrename} to the source file name.
+
 @item nrv
 @opindex fdump-tree-nrv
 Dump each function after applying the named return value optimization on
@@ -4335,6 +4341,12 @@ default at -O and higher.
 Perform scalar replacement of aggregates.  This pass replaces structure
 references with scalars to prevent committing structures to memory too
 early.  This flag is enabled by default at -O and higher.
+
+@item -ftree-copyrename
+Perform copy renaming on trees.  This pass attempts to rename compiler 
+temporaries to other variables at copy locations, usually resulting in 
+variable names which more closely resemble the original variables.  This flag 
+is enabled by default at -O and higher.
 
 @item -ftracer
 @opindex ftracer

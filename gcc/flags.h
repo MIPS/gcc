@@ -745,6 +745,9 @@ extern int flag_tree_loop;
 /* Enable scalar replacement of aggregates.  */
 extern int flag_tree_sra;
 
+/* Enable copy rename optimization.  */
+extern int flag_tree_copyrename;
+
 /* Enable points-to analysis on trees.  */
 enum pta_type
   {

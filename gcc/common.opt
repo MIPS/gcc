@@ -723,6 +723,10 @@ ftree-combine-temps
 Common
 Coalesce memory temporaries in the SSA->normal pass
 
+ftree-copyrename
+Common
+Replace SSA temporaries with better names in copies.
+
 ftree-dce
 Common
 Enable SSA dead code elimination optimization on trees
@@ -738,10 +742,6 @@ Enable dead store elimination
 ftree-loop-optimize
 Common
 Enable loop optimizations on trees
-
-ftree-sra
-Common
-Perform scalar replacement of aggregates
 
 ftree-points-to=
 Common Joined RejectNegative

@@ -547,6 +547,7 @@ decode_options (unsigned int argc, const char **argv)
       flag_tree_pre = 1;
       flag_tree_ter = 1;
       flag_tree_sra = 1;
+      flag_tree_copyrename = 1;
 
       if (!optimize_size)
 	{
@@ -1468,6 +1469,10 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_ftree_dominator_opts:
       flag_tree_dom = value;
+      break;
+
+    case OPT_ftree_copyrename:
+      flag_tree_copyrename = value;
       break;
 
     case OPT_ftree_ch:

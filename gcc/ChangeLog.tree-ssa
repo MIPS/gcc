@@ -1,3 +1,16 @@
+2004-03-01  Andrew MacLeod  <amacleod@redhat.com>
+
+	* common.opt : Add tree-copyrename option. Remove duplicate tree-sra.
+	* flags.h (flag_tree_copyrename): Declare.
+	* opts.c (decode_options): Turn copyrename on by default at -O.
+	(common_handle_option): Handle -ftree-copyrename.
+	* toplev.c (flag_tree_copyrename): Declare.
+	* tree-ssa-copyrename.c (gate_copyrename): New.  Check flag.
+	(pass_rename_ssa_copies): Initialize with gated routine.
+	(lang_independent_options f_): Add tree-copyrename.
+	* doc/invoke.texi: Add -fdump-tree-copyrename and  -ftree-copyrename.
+	* doc/passes.texi: Add blurb for copy renaming.
+
 2004-03-01  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (true_false_expr_hash): Update comments slightly.
