@@ -164,7 +164,13 @@ _cpp_clean_line (cpp_reader *pfile)
 	s++;
     }
 
-  *d = '\n';
+  /* A kludge to support the compile server, which otherwise get
+     confused if trying re-using a buffer, trying to clean a line
+     that has already been cleaned.  HOWEVER, this does not handle
+     line numbers correctly!  FIXME! */
+  while (d < s)
+    *d++ = ' ';
+  /* *d = '\n'; */
   /* A sentinel note that should never be processed.  */
   add_line_note (buffer, d + 1, '\n');
   buffer->next_line = s + 1;

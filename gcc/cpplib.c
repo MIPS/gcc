@@ -262,6 +262,48 @@ end_directive (cpp_reader *pfile, int skip_line)
   pfile->directive = 0;
 }
 
+/* Called at the beginning of a "fragment". */
+
+void
+_cpp_start_fragment (pfile)
+     cpp_reader *pfile;
+{
+  cpp_fragment *fragment;
+  if ((fragment = pfile->current_fragment) != NULL
+      && ! pfile->state.skipping)
+    {
+      const unsigned char *cur = pfile->buffer->next_line;
+      for (;;)
+	{
+	  cpp_fragment *next_fragment = fragment->next;
+	  if (next_fragment == NULL || next_fragment->start > cur)
+	    break;
+	  fragment = next_fragment;
+	}
+      if (fragment->start < cur)
+	{
+	  cpp_fragment *next_fragment;
+	  if (1 /*fragment->start != fragment->end*/
+	      /* && contains more than whitespace ... FIXME */)
+	    {
+#if 0
+	      if (fragment->start != fragment->end)
+		fragment->start_marker = NULL;  /* FIXME */
+#endif
+	      next_fragment = xcnew (cpp_fragment);
+	      next_fragment->name = fragment->name;
+	      next_fragment->next = fragment->next;
+	      fragment->next = next_fragment;
+	      fragment = next_fragment;
+	    }
+	  fragment->start = cur;
+	  fragment->end = 0;
+	}
+      pfile->current_fragment = fragment;
+      _cpp_enter_fragment (pfile, fragment);
+    }
+}
+
 /* Prepare to handle the directive in pfile->directive.  */
 static void
 prepare_directive_trad (cpp_reader *pfile)
@@ -334,6 +376,7 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
   const cpp_token *dname;
   bool was_parsing_args = pfile->state.parsing_args;
   int skip = 1;
+  bool fragment_boundary;
 
   if (was_parsing_args)
     {
@@ -360,6 +403,19 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
 	  && ! pfile->state.skipping)
 	cpp_error (pfile, DL_PEDWARN,
 		   "style of line directive is a GCC extension");
+    }
+
+  fragment_boundary = (dir != &dtable[T_DEFINE] && dir != &dtable[T_UNDEF]);
+  if (fragment_boundary)
+    {
+      const unsigned char *cur = pfile->buffer->line_base;
+      cpp_fragment *fragment = pfile->current_fragment;
+      if (fragment != NULL
+	  && (fragment->end == NULL || fragment->end == cur))
+	{
+	  fragment->end = cur;
+	  _cpp_exit_fragment (pfile, fragment);
+	}
     }
 
   if (dir)
@@ -423,6 +479,8 @@ _cpp_handle_directive (cpp_reader *pfile, int indented)
     _cpp_backup_tokens (pfile, 1);
 
   end_directive (pfile, skip);
+  if (fragment_boundary)
+    _cpp_start_fragment (pfile);
   if (was_parsing_args)
     {
       /* Restore state when within macro args.  */
@@ -495,6 +553,62 @@ lex_macro_node (cpp_reader *pfile)
   return NULL;
 }
 
+void
+_cpp_restore_macros (pfile, notes, count)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     struct cpp_macro_note *notes;
+     int count;
+{
+  for (;  --count >= 0;  notes++)
+    {
+      cpp_hashnode *node = notes->node;
+      struct cpp_macro *macro = notes->macro;
+      if (macro != NULL)
+	{
+	  /* #define */
+	  node->type = NT_MACRO;
+	  node->value.macro = macro;
+	}
+      else
+	{
+	  /* #undef */
+	  _cpp_free_definition (node);
+	}
+    }
+}
+
+void
+_cpp_note_macro (pfile, node, macro)
+     cpp_reader *pfile;
+     cpp_hashnode *node;
+     struct cpp_macro *macro;
+{
+  int count, alloc;
+  if (! pfile->do_note_macros)
+    return;
+
+  count = pfile->macro_notes_count;
+  if (pfile->macro_notes == NULL)
+    {
+      alloc = 64;
+      pfile->macro_notes = xmalloc (alloc * sizeof (struct cpp_macro_note));
+      pfile->macro_notes_alloc_length = alloc;
+    }
+  else if (count >= (alloc = pfile->macro_notes_alloc_length))
+    {
+      struct cpp_macro_note *new_notes
+	= xmalloc (2 * alloc * sizeof (struct cpp_macro_note));
+      memcpy (new_notes, pfile->macro_notes,
+	      count * sizeof (struct cpp_macro_note));
+      free (pfile->macro_notes);
+      pfile->macro_notes = new_notes;
+      pfile->macro_notes_alloc_length = 2 * alloc;
+    }
+  pfile->macro_notes[count].node = node;
+  pfile->macro_notes[count].macro = macro;
+  pfile->macro_notes_count = count + 1;
+}
+
 /* Process a #define directive.  Most work is done in cppmacro.c.  */
 static void
 do_define (cpp_reader *pfile)
@@ -509,8 +623,11 @@ do_define (cpp_reader *pfile)
 	! CPP_OPTION (pfile, discard_comments_in_macro_exp);
 
       if (_cpp_create_definition (pfile, node))
-	if (pfile->cb.define)
-	  pfile->cb.define (pfile, pfile->directive_line, node);
+	{
+	  _cpp_note_macro (pfile, node, node->value.macro);
+	  if (pfile->cb.define)
+	    pfile->cb.define (pfile, pfile->directive_line, node);
+	}
     }
 }
 
@@ -526,6 +643,8 @@ do_undef (cpp_reader *pfile)
     {
       if (pfile->cb.undef)
 	pfile->cb.undef (pfile, pfile->directive_line, node);
+
+      _cpp_note_macro (pfile, node, NULL);
 
       if (node->flags & NODE_WARN)
 	cpp_error (pfile, DL_WARNING, "undefining \"%s\"", NODE_NAME (node));
@@ -1923,7 +2042,10 @@ cpp_push_buffer (cpp_reader *pfile, const uchar *buffer, size_t len,
   new->return_at_eof = return_at_eof;
   new->need_line = true;
 
+  new->saved_current_fragment = pfile->current_fragment;
   pfile->buffer = new;
+  pfile->current_fragment = NULL;
+
   return new;
 }
 
@@ -1945,7 +2067,14 @@ _cpp_pop_buffer (cpp_reader *pfile)
   /* In case of a missing #endif.  */
   pfile->state.skipping = 0;
 
+  if (pfile->current_fragment != 0)
+    {
+      cpp_fragment *fragment = pfile->current_fragment;
+      fragment->end = buffer->cur;
+      _cpp_exit_fragment (pfile, fragment);
+    }
   /* _cpp_do_file_change expects pfile->buffer to be the new one.  */
+  pfile->current_fragment = buffer->saved_current_fragment;
   pfile->buffer = buffer->prev;
 
   free (buffer->notes);
@@ -1960,7 +2089,11 @@ _cpp_pop_buffer (cpp_reader *pfile)
 
       /* Don't generate a callback for popping the main file.  */
       if (pfile->buffer)
-	_cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
+	{
+	  _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
+
+	  _cpp_start_fragment (pfile);
+	}
     }
 }
 

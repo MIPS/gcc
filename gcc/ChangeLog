@@ -1,3 +1,31 @@
+2003-08-14  Per Bothner  <per@bothner.com>
+
+	* cpphash.h (struct cpp_fragment):  New type.
+	(struct cpp_buffer) <saved_current_fragment>:  New field.
+	(struct cpp_reader) <current_fragment, do_note_macros, macro_notes,
+	macro_notes_alloc_length, macro_notes_count>:  New fields.
+	* cpplib.c (cpp_fragment):  New typedef.
+	(struct cpp_callbacks) <enter_fragment, exit_fragment>:  New callbacks.
+	(_cpp_start_fragment, _cpp_enter_fragment, _cpp_exit_fragment.
+	_cpp_note_macro, _cpp_restore_macros):  New functions.
+	(struct cpp_macro_note):  New type.
+	* cpplex.c (_cpp_clean_line):  Kludge to support compile server.
+	* cpplib.c (_cpp_start_fragment, _cpp_restore_macros,
+	_cpp_note_macro):  New functions.
+	(_cpp_handle_directive):  Maybe call _cpp_exit_fragment and
+	_cpp_start_fragment.
+	(do_define, do_undef):  Call _cpp_note_macro.
+	(cpp_push_buffer):  Save current_fragment, and then set to NULL.
+	(_cpp_pop_buffer):  Call _cpp_exit_fragment.  Restore current_fragment.
+	Call _cpp_start_fragment.
+	* cppfiles.c (struct _cpp_file) <fragments>:  New field.
+	(read_file_gits):  Delete buffer here.
+	Purge fragments, and then create a new initial fragment.
+	(_cpp_enter_fragment, _cpp_exit_fragment, purge_fragments):
+	New functions.
+	(stack_file):  Don't clear valid bit.
+	Initialize cpp_reader's current_fragment.
+	
 2003-08-14  Per Bothner  <pbothner@apple.com>
 
 	* langhooks.h (struct lang_hooks):  New hook init_once.

@@ -33,6 +33,7 @@ extern "C" {
 
 typedef struct cpp_reader cpp_reader;
 typedef struct cpp_buffer cpp_buffer;
+typedef struct cpp_fragment cpp_fragment;
 typedef struct cpp_options cpp_options;
 typedef struct cpp_token cpp_token;
 typedef struct cpp_string cpp_string;
@@ -386,6 +387,9 @@ struct cpp_callbacks
   void (*dir_change) (cpp_reader *, const char *);
   void (*include) (cpp_reader *, unsigned int, const unsigned char *,
 		   const char *, int);
+  bool (*enter_fragment) PARAMS ((cpp_reader *, cpp_fragment *,
+				  const char*, int));
+  void (*exit_fragment) PARAMS ((cpp_reader *, cpp_fragment *));
   void (*define) (cpp_reader *, unsigned int, cpp_hashnode *);
   void (*undef) (cpp_reader *, unsigned int, cpp_hashnode *);
   void (*ident) (cpp_reader *, unsigned int, const cpp_string *);
@@ -570,6 +574,20 @@ extern const cpp_token *cpp_get_token (cpp_reader *);
 extern const unsigned char *cpp_macro_definition (cpp_reader *,
 						  const cpp_hashnode *);
 extern void _cpp_backup_tokens (cpp_reader *, unsigned int);
+extern void _cpp_start_fragment PARAMS ((cpp_reader *));
+extern void _cpp_enter_fragment PARAMS ((cpp_reader *, cpp_fragment*));
+extern void _cpp_exit_fragment PARAMS ((cpp_reader *, cpp_fragment*));
+
+/* Used by compile server to restore previous macro state. */
+struct cpp_macro_note
+{
+  cpp_hashnode *node;
+  struct cpp_macro *macro; /* null for an #undef */
+};
+extern void _cpp_note_macro PARAMS ((cpp_reader *,
+				     cpp_hashnode *, cpp_macro *));
+extern void _cpp_restore_macros PARAMS ((cpp_reader *,
+					 struct cpp_macro_note *, int));
 
 /* Evaluate a CPP_CHAR or CPP_WCHAR token.  */
 extern cppchar_t cpp_interpret_charconst (cpp_reader *, const cpp_token *,

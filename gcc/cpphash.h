@@ -252,6 +252,27 @@ struct spec_nodes
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
 };
 
+/* A section of a source file that can be "re-used" by a compile server.
+   Basically a fragment is the code in a file *between* pre-processor
+   directives, but sometimes a directive like #define or #undef may be
+   part of a fragment, rather than delimiting them. */
+
+struct cpp_fragment
+{
+  const char *name;		/* actual path name of file REDUNDANT */
+  cpp_fragment *next;
+  const unsigned char *start;	/* start of fragment in buffer */
+  const unsigned char *end;	/* end of fragment in buffer */
+  unsigned was_reused : 1;
+  /*unsigned int valid : 1;*/
+  void *start_marker;		/* Returned from front-end - kludge. */
+  unsigned int start_line;
+  unsigned int end_line;
+  const unsigned char *end_next_line;
+  struct cpp_macro_note *macro_notes;
+  int macro_notes_count;
+};
+
 typedef struct _cpp_line_note _cpp_line_note;
 struct _cpp_line_note
 {
@@ -318,6 +339,9 @@ struct cpp_buffer
 
   /* Used for buffer overlays by cpptrad.c.  */
   const uchar *saved_cur, *saved_rlimit;
+
+  /* Use to save and restore cpp_reader's current_fragment field. */
+  cpp_fragment *saved_current_fragment;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -402,6 +426,14 @@ struct cpp_reader
   /* Descriptor for converting from the source character set to the
      wide execution character set.  */
   struct cset_converter wide_cset_desc;
+
+  cpp_fragment *current_fragment;
+
+  /* These are used by teh compielr server to remember and re-do macros. */
+  int do_note_macros;
+  struct cpp_macro_note *macro_notes;
+  int macro_notes_alloc_length;
+  int macro_notes_count;
 
   /* Date and time text.  Calculated together if either is requested.  */
   const uchar *date;

@@ -76,6 +76,8 @@ struct _cpp_file
   /* The contents of NAME after calling read_file().  */
   const uchar *buffer;
 
+  cpp_fragment *fragments;	/* head of fragment chain */
+
   /* The macro, if any, preventing re-inclusion.  */
   const cpp_hashnode *cmacro;
 
@@ -172,6 +174,7 @@ static struct file_hash_entry *search_cache (struct file_hash_entry *head,
 static _cpp_file *make_cpp_file (cpp_reader *, cpp_dir *, const char *fname);
 static cpp_dir *make_cpp_dir (cpp_reader *, const char *dir_name, int sysp);
 static void allocate_file_hash_entries (cpp_reader *pfile);
+static void purge_fragments (_cpp_file *inc);
 static struct file_hash_entry *new_file_hash_entry (cpp_reader *pfile);
 static int report_missing_guard (void **slot, void *b);
 static int hash_string_eq (const void *p, const void *q);
@@ -424,6 +427,12 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
   uchar *buf;
   bool regular;
   
+  if (file->buffer)
+    {
+      free ((void *) file->buffer);
+      file->buffer = NULL;
+    }
+
   if (S_ISBLK (file->st.st_mode))
     {
       cpp_error (pfile, DL_ERROR, "%s is a block device", file->path);
@@ -490,6 +499,23 @@ read_file_guts (cpp_reader *pfile, _cpp_file *file)
   file->st.st_size = total;
   file->buffer_valid = true;
 
+  if (pfile->cb.exit_fragment != NULL)
+    {
+      /*size = strlen (file->name);
+      if (size > 2 && file->name[size-1] != 'c')  FIXME */
+      if (pfile->buffer != NULL)
+	{
+	  cpp_fragment *fragment;
+	  purge_fragments (file);
+	  fragment = xcnew (cpp_fragment);
+	  fragment->name = file->name;
+	  fragment->next = NULL;
+	  fragment->start = buf;
+	  fragment->end = 0;
+	  file->fragments = fragment;
+	}
+    }
+
   return true;
 }
 
@@ -501,6 +527,9 @@ read_file (cpp_reader *pfile, _cpp_file *file)
 {
   /* If we already have its contents in memory, succeed immediately.  */
   if (file->buffer_valid)
+#if 0
+    if (! cached_version_is_current_according_to_stat (file))
+#endif
     return true;
 
   /* If an earlier read failed for some reason don't try again.  */
@@ -518,6 +547,41 @@ read_file (cpp_reader *pfile, _cpp_file *file)
   file->fd = -1;
 
   return !file->dont_read;
+}
+
+void
+_cpp_enter_fragment (pfile, fragment)
+     cpp_reader *pfile;
+     cpp_fragment *fragment;
+{
+  if (pfile->cb.enter_fragment != NULL)
+    {
+      if (pfile->cb.enter_fragment (pfile, fragment,
+				    fragment->name,
+				    SOURCE_LINE (linemap_lookup (&pfile->line_maps, pfile->line), pfile->line)))
+	{
+	  pfile->buffer->cur = fragment->end;
+	  pfile->buffer->line_base = fragment->end - 1;
+	  pfile->buffer->next_line = fragment->end;
+	  pfile->line += fragment->end_line - fragment->start_line;
+	  return;
+	}
+      fragment->start_line = pfile->line;
+    }
+}
+
+void
+_cpp_exit_fragment (pfile, fragment)
+     cpp_reader *pfile;
+     cpp_fragment *fragment;
+{
+  if (pfile->cb.exit_fragment != NULL
+      && ! pfile->state.skipping
+      && ! fragment->was_reused)
+    {
+      pfile->cb.exit_fragment (pfile, fragment);
+      fragment->end_line = pfile->line;
+    }
 }
 
 /* Returns TRUE if FILE's contents have been successfully placed in
@@ -610,7 +674,9 @@ stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
     }
 
   /* Clear buffer_valid since _cpp_clean_line messes it up.  */
+#if 0
   file->buffer_valid = false;
+#endif
   file->stack_count++;
 
   /* Stack the buffer.  */
@@ -618,6 +684,7 @@ stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
 			    CPP_OPTION (pfile, preprocessed),
 			    ! pfile->buffer);
   buffer->file = file;
+  pfile->current_fragment = file->fragments;
 
   /* Initialize controlling macro state.  */
   pfile->mi_valid = true;
@@ -627,6 +694,21 @@ stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
   _cpp_do_file_change (pfile, LC_ENTER, file->path, 1, sysp);
 
   return true;
+}
+
+static void
+purge_fragments (_cpp_file *inc)
+{
+  cpp_fragment *fragment = inc->fragments;;
+  while (fragment != NULL)
+    {
+      cpp_fragment *next = fragment->next;
+      if (fragment->macro_notes != NULL)
+	free (fragment->macro_notes);
+      free ((PTR) fragment);
+      fragment = next;
+    }
+  inc->fragments = NULL;
 }
 
 /* Mark FILE to be included once only.  */
@@ -995,11 +1077,14 @@ _cpp_pop_file_buffer (cpp_reader *pfile, _cpp_file *file)
   /* Invalidate control macros in the #including file.  */
   pfile->mi_valid = false;
 
+#if 0
   if (file->buffer)
     {
       free ((void *) file->buffer);
       file->buffer = NULL;
     }
+  purge_fragments (file);
+#endif
 }
 
 /* Set the include chain for "" to QUOTE, for <> to BRACKET.  If
