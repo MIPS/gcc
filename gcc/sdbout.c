@@ -61,6 +61,7 @@ static GTY(()) tree anonymous_types;
 #include "tm_p.h"
 #include "gsyms.h"
 #include "langhooks.h"
+#include "target.h"
 
 /* 1 if PARM is passed to this function in memory.  */
 

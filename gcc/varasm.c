@@ -5255,4 +5255,18 @@ default_globalize_label (stream, name)
 }
 #endif /* GLOBAL_ASM_OP */
   
+/* This is how to output an internal numbered label where PREFIX is
+   the class of label and NUM is the number within the class.  */
+
+void
+default_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  char *const buf = alloca (40 + strlen (prefix));
+  ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
+  ASM_OUTPUT_LABEL (stream, buf);
+}
+
 #include "gt-varasm.h"

@@ -93,6 +93,7 @@ static bool arc_assemble_integer PARAMS ((rtx, unsigned int, int));
 static void arc_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void arc_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static void arc_encode_section_info PARAMS ((tree, int));
+static void arc_internal_label PARAMS ((FILE *, const char *, unsigned long));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -110,6 +111,8 @@ static void arc_encode_section_info PARAMS ((tree, int));
 #define TARGET_ATTRIBUTE_TABLE arc_attribute_table
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO arc_encode_section_info
+#undef TARGET_ASM_INTERNAL_LABEL
+#define  TARGET_ASM_INTERNAL_LABEL arc_internal_label
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2358,4 +2361,17 @@ arc_encode_section_info (decl, first)
 {
   if (TREE_CODE (decl) == FUNCTION_DECL)
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+
+/* This is how to output a definition of an internal numbered label where
+   PREFIX is the class of label and NUM is the number within the class.  */
+
+static void
+arc_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  arc_ccfsm_at_label (prefix, labelno);
+  default_internal_label (stream, prefix, labelno);
 }

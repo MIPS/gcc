@@ -1,5 +1,33 @@
 2002-08-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
+	* Makefile.in (sdbout.o, insn-output.o): Depend on $(TARGET_H).
+	* arc.c (arc_internal_label): New function.
+	(TARGET_ASM_INTERNAL_LABEL): Set.
+	* arc.h (ASM_OUTPUT_INTERNAL_LABEL): Delete.
+	* arm.c (arm_internal_label): New function.
+	(TARGET_ASM_INTERNAL_LABEL): Set.
+	* arm.h (ASM_OUTPUT_INTERNAL_LABEL): Delete.
+	* arm/elf.h (ASM_OUTPUT_INTERNAL_LABEL): Delete.
+	* i370.c (i370_internal_label): New function.
+	(TARGET_ASM_INTERNAL_LABEL): Set.
+	* i370.h (ASM_OUTPUT_INTERNAL_LABEL): Delete.
+	* m68k/hp320.h (ASM_OUTPUT_INTERNAL_LABEL): Delete.
+	* m68k.c (m68k_hp320_internal_label): New function.
+	(TARGET_ASM_INTERNAL_LABEL): Set.
+	* m88k.c (m88k_internal_label): New function.
+	(TARGET_ASM_INTERNAL_LABEL): Set.
+	* m88k.h (ASM_OUTPUT_INTERNAL_LABEL): Delete.
+	* defaults.h (ASM_OUTPUT_INTERNAL_LABEL): Set to target hook.
+	* genoutput.c (output_prologue): Include target.h in output file.
+	* output.h (default_internal_label): Declare.
+	* sdbout.c: Include target.h.
+	* target-def.h (TARGET_ASM_INTERNAL_LABEL): Set and add to
+	TARGET_ASM_OUT.
+	* target.h (internal_label): Add to struct gcc_target.
+	* varasm.c (default_internal_label): New function.
+
+2002-08-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
 	* alpha.h (ASM_OUTPUT_INTERNAL_LABEL): Delete.
 	* avr.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.
 	* c4x.h (ASM_OUTPUT_INTERNAL_LABEL): Likewise.

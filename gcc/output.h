@@ -538,6 +538,7 @@ extern void default_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
 extern const char *default_strip_name_encoding PARAMS ((const char *));
 extern bool default_binds_local_p PARAMS ((tree));
 extern void default_globalize_label PARAMS ((FILE *, const char *));
+extern void default_internal_label PARAMS ((FILE *, const char *, unsigned long));
 
 /* Emit data for vtable gc for GNU binutils.  */
 extern void assemble_vtable_entry PARAMS ((struct rtx_def *, HOST_WIDE_INT));

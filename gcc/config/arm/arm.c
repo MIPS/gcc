@@ -126,6 +126,7 @@ static void	 arm_encode_section_info	PARAMS ((tree, int));
 #ifdef AOF_ASSEMBLER
 static void	 aof_globalize_label		PARAMS ((FILE *, const char *));
 #endif
+static void	 arm_internal_label		PARAMS ((FILE *, const char *, unsigned long));
 
 #undef Hint
 #undef Mmode
@@ -187,6 +188,9 @@ static void	 aof_globalize_label		PARAMS ((FILE *, const char *));
 
 #undef TARGET_STRIP_NAME_ENCODING
 #define TARGET_STRIP_NAME_ENCODING arm_strip_name_encoding
+
+#undef TARGET_ASM_INTERNAL_LABEL
+#define TARGET_ASM_INTERNAL_LABEL arm_internal_label
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -11047,3 +11051,18 @@ arm_encode_section_info (decl, first)
     }
 }
 #endif /* !ARM_PE */
+
+static void
+arm_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  if (arm_ccfsm_state == 3 && (unsigned) arm_target_label == labelno
+      && !strcmp (prefix, "L"))
+    {
+      arm_ccfsm_state = 0;
+      arm_target_insn = NULL;
+    }
+  default_internal_label (stream, prefix, labelno);
+}

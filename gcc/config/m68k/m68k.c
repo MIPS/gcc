@@ -65,6 +65,9 @@ static void m68k_coff_asm_named_section PARAMS ((const char *, unsigned int));
 #ifdef CTOR_LIST_BEGIN
 static void m68k_svr3_asm_out_constructor PARAMS ((rtx, int));
 #endif
+#ifdef HPUX_ASM
+static void m68k_hp320_internal_label PARAMS ((FILE *, const char *, unsigned long));
+#endif
 
 
 /* Alignment to use for loops and jumps */
@@ -121,6 +124,10 @@ int m68k_last_compare_had_fp_operands;
 #define TARGET_ASM_FUNCTION_PROLOGUE m68k_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE m68k_output_function_epilogue
+#ifdef HPUX_ASM
+#undef TARGET_ASM_INTERNAL_LABEL
+#define  TARGET_ASM_INTERNAL_LABEL m68k_hp320_internal_label
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3813,5 +3820,19 @@ m68k_svr3_asm_out_constructor (symbol, priority)
 
   init_section ();
   output_asm_insn (output_move_simode (xop), xop);
+}
+#endif
+
+#ifdef HPUX_ASM
+static void
+m68k_hp320_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  if (prefix[0] == 'L' && prefix[1] == 'I')
+    fprintf(stream, "\tset %s%ld,.+2\n", prefix, labelno);
+  else
+    fprintf (stream, "%s%ld:\n", prefix, labelno);
 }
 #endif

@@ -257,13 +257,6 @@ Boston, MA 02111-1307, USA.  */
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 12),	\
   sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
 
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
-do{  if (PREFIX[0] == 'L' && PREFIX[1] == 'I')		\
-    fprintf(FILE, "\tset %s%d,.+2\n", PREFIX, NUM);	\
-  else							\
-    fprintf (FILE, "%s%d:\n", PREFIX, NUM);		\
-} while(0)
-
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
   fprintf (FILE, "\tlong L%d\n", VALUE)
 

@@ -72,6 +72,9 @@ struct gcc_target
     /* Output code that will globalize a label.  */
     void (* globalize_label) PARAMS ((FILE *, const char *));
 
+    /* Output an internal label.  */
+    void (* internal_label) PARAMS ((FILE *, const char *, unsigned long));
+
     /* Output the assembler code for entry to a function.  */
     void (* function_prologue) PARAMS ((FILE *, HOST_WIDE_INT));
 

@@ -1885,17 +1885,6 @@ do {									 \
     fputs (NAME, FILE);					\
   }
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.
-   For V.4, labels use `.' rather than `@'.  */
-
-#ifdef AS_BUG_DOT_LABELS /* The assembler requires a declaration of local.  */
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)			\
-  fprintf (FILE, TARGET_SVR4 ? ".%s%d:\n%s.%s%d\n" : "@%s%d:\n", \
-	   PREFIX, NUM, INTERNAL_ASM_OP, PREFIX, NUM)
-#endif /* AS_BUG_DOT_LABELS */
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.

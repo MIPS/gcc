@@ -1217,15 +1217,6 @@ do {							\
     }							\
 } while (0)
 
-/* This is how to output a definition of an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-#undef ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM) \
-do {						\
-  arc_ccfsm_at_label (PREFIX, NUM);		\
-  fprintf (FILE, ".%s%d:\n", PREFIX, NUM);	\
-} while (0)
-
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
    LABELNO is an integer which is different for each call.  */

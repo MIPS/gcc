@@ -74,6 +74,9 @@ static void m88k_svr3_asm_out_destructor PARAMS ((rtx, int));
 static void m88k_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
 static int m88k_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static void m88k_encode_section_info PARAMS ((tree, int));
+#ifdef AS_BUG_DOT_LABELS
+static void m88k_internal_label PARAMS ((FILE *, const char *, unsigned long));
+#endif
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_BYTE_OP
@@ -101,6 +104,10 @@ static void m88k_encode_section_info PARAMS ((tree, int));
 
 #undef TARGET_ENCODE_SECTION_INFO
 #define TARGET_ENCODE_SECTION_INFO  m88k_encode_section_info
+#ifdef AS_BUG_DOT_LABELS
+#undef TARGET_ASM_INTERNAL_LABEL
+#define  TARGET_ASM_INTERNAL_LABEL m88k_internal_label
+#endif
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -3339,3 +3346,15 @@ m88k_encode_section_info (decl, first)
 	SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (decl), 0)) = 1;
     }
 }
+
+#ifdef AS_BUG_DOT_LABELS /* The assembler requires a declaration of local.  */
+static void
+m88k_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  fprintf (stream, TARGET_SVR4 ? ".%s%lu:\n%s.%s%lu\n" : "@%s%ld:\n",
+	   prefix, labelno, INTERNAL_ASM_OP, prefix, labelno);
+}
+#endif
