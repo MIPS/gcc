@@ -1,3 +1,27 @@
+2003-07-22  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (factor_through_injuries): Take new argument specifying
+	whether use was injured or not (needed for SR).   Update all callers.
+	(maybe_find_rhs_use_for_var): Take new argument specifying which
+	operand to start search with.   Update all callers.
+	(phi_opnd_from_res): #if 0 out.
+	(rename_2): Ditto.
+	(rename_1): Ditto.
+	(defs_match_p): Take new arguments specifying which defs were injured.
+	Update all callers.
+	(defs_y_dom_x): Ditto.
+	(generate_expr_as_of_bb): Fix small memory overwrite.
+	(process_delayed_rename): Propagate injured flag around.
+	(new_rename_1): Ditto.
+	(finalize_1): Get correct variable names for newly created statement if
+	necessary due to PHI.
+	(repair_use_injury): Note the repair in the stats. Insert repair
+	in right place.
+    (repair_euse_injury): Fix handling of PHI_NODE.
+	(code_motion): Fix algorithm so it can handle using reaching_def all the
+	time (needed for SR).
+	Use reaching_def rather than EREF_TEMP.
+
 2003-07-21  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (get_stmt_operands): Remove FIXME note
