@@ -155,6 +155,7 @@ static tree simplify_cond_and_lookup_avail_expr (tree, varray_type *,
 static tree find_equivalent_equality_comparison (tree);
 static void record_range (tree, basic_block, varray_type);
 static bool extract_range_from_cond (tree, tree *, tree *, int *);
+static bool cprop_into_stmt (tree );
 
 /* Optimize function FNDECL based on the dominator tree.  This does
    simple const/copy propagation and redundant expression elimination using
@@ -1343,51 +1344,17 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
   return 0;
 }
 
-/* Optimize the statement pointed by iterator SI into SSA form. 
-   
-   BLOCK_AVAIL_EXPRS_P points to a stack with all the expressions that have
-   been computed in this block and are available in children blocks to
-   be reused.
+/* Const/copy propagate into STMT's USES, VUSES, and the RHS of VDEFs. 
 
-   We try to perform some simplistic global redundancy elimination and
-   constant propagation:
-
-   1- To detect global redundancy, we keep track of expressions that have
-      been computed in this block and its dominators.  If we find that the
-      same expression is computed more than once, we eliminate repeated
-      computations by using the target of the first one.
-
-   2- Constant values and copy assignments.  This is used to do very
-      simplistic constant and copy propagation.  When a constant or copy
-      assignment is found, we map the value on the RHS of the assignment to
-      the variable in the LHS in the CONST_AND_COPIES table.  */
+   Return nonzero if new symbols may have been exposed.  */
 
 static bool
-optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
-	       bool *cfg_altered)
+cprop_into_stmt (tree stmt)
 {
   size_t i;
-  stmt_ann_t ann;
-  tree stmt;
   varray_type defs, uses, vuses, vdefs, operand_tables[4], *table;
-  bool may_optimize_p;
   bool may_have_exposed_new_symbols;
-
-  stmt = bsi_stmt (si);
-  if (IS_EMPTY_STMT (stmt))
-    return false;
-
-  get_stmt_operands (stmt);
-  ann = stmt_ann (stmt);
-  opt_stats.num_stmts++;
-  may_have_exposed_new_symbols = false;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Optimizing statement ");
-      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
+  stmt_ann_t ann = stmt_ann (stmt);
 
   defs = def_ops (stmt);
   uses = use_ops (stmt);
@@ -1480,6 +1447,58 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
 	    ann->modified = 1;
 	}
     }
+
+  return may_have_exposed_new_symbols;
+}
+
+/* Optimize the statement pointed by iterator SI into SSA form. 
+   
+   BLOCK_AVAIL_EXPRS_P points to a stack with all the expressions that have
+   been computed in this block and are available in children blocks to
+   be reused.
+
+   We try to perform some simplistic global redundancy elimination and
+   constant propagation:
+
+   1- To detect global redundancy, we keep track of expressions that have
+      been computed in this block and its dominators.  If we find that the
+      same expression is computed more than once, we eliminate repeated
+      computations by using the target of the first one.
+
+   2- Constant values and copy assignments.  This is used to do very
+      simplistic constant and copy propagation.  When a constant or copy
+      assignment is found, we map the value on the RHS of the assignment to
+      the variable in the LHS in the CONST_AND_COPIES table.  */
+
+static bool
+optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p,
+	       bool *cfg_altered)
+{
+  stmt_ann_t ann;
+  tree stmt;
+  varray_type vdefs;
+  bool may_optimize_p;
+  bool may_have_exposed_new_symbols;
+
+  stmt = bsi_stmt (si);
+  if (IS_EMPTY_STMT (stmt))
+    return false;
+
+  get_stmt_operands (stmt);
+  vdefs = vdef_ops (stmt);
+  ann = stmt_ann (stmt);
+  opt_stats.num_stmts++;
+  may_have_exposed_new_symbols = false;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Optimizing statement ");
+      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+      fprintf (dump_file, "\n");
+    }
+
+  /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
+  may_have_exposed_new_symbols = cprop_into_stmt (stmt);
 
   /* If the statement has been modified with constant replacements,
      fold its RHS before checking for redundant computations.  */
