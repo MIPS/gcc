@@ -5743,7 +5743,11 @@ reconstruct_complex_type (tree type, tree bottom)
   if (POINTER_TYPE_P (type))
     {
       inner = reconstruct_complex_type (TREE_TYPE (type), bottom);
-      outer = build_pointer_type (inner);
+      /* APPLE LOCAL begin AltiVec */
+      outer = (TREE_CODE (type) == REFERENCE_TYPE
+	       ? build_reference_type (inner)
+	       : build_pointer_type (inner));
+      /* APPLE LOCAL end AltiVec */
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {

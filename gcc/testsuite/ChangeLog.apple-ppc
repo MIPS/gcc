@@ -1,3 +1,9 @@
+2005-01-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3970884
+	* g++.dg/ext/apple-altivec-5.C: New.
+	* g++.dg/ext/apple-altivec-6.C: New.
+
 2005-01-25  Stan Shebs  <shebs@apple.com>
 
 	Radar 3220997

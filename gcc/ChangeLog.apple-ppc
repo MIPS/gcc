@@ -1,3 +1,12 @@
+2005-01-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3970884
+	* tree.c (reconstruct_complex_type): Reconstruct
+	REFERENCE_TYPEs correctly, instead of turning them
+	into POINTER_TYPEs.
+	* config/rs6000/rs6000.c (rs6000_handle_altivec_attribute):
+	Propagate all qualifiers from element type onto vector type.
+
 2005-01-25  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3970057

@@ -19492,8 +19492,12 @@ rs6000_handle_altivec_attribute (tree *node, tree name, tree args,
     default: break;
     }
 
-  if (result && result != type && TYPE_READONLY (type))
-    result = build_qualified_type (result, TYPE_QUAL_CONST);
+  /* APPLE LOCAL begin AltiVec */
+  /* Propagate qualifiers attached to the element type
+     onto the vector type.  */
+  if (result && result != type && TYPE_QUALS (type))
+    result = build_qualified_type (result, TYPE_QUALS (type));
+  /* APPLE LOCAL end AltiVec */
 
   *no_add_attrs = true;  /* No need to hang on to the attribute.  */
 
