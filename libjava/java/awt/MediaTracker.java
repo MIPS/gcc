@@ -86,9 +86,12 @@ public class MediaTracker implements java.io.Serializable
       else
         status = 0;
 
-      synchronized (MediaTracker.this)
+      if ((status & COMPLETE) == COMPLETE)
       {
-	MediaTracker.this.notifyAll();
+        synchronized (MediaTracker.this)
+        {
+          MediaTracker.this.notifyAll();
+        }
       }
       // If status is not COMPLETE then we need more updates.
       return (status & COMPLETE) == 0;

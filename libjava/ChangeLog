@@ -1,3 +1,8 @@
+2004-06-10  David Jee  <djee@redhat.com>
+
+	* java/awt/MediaTracker.java
+	(imageUpdate): Only do notifyAll() if the image is complete.
+
 2004-06-10  Olga Rodimina <rodimina@redhat.com>
 
 	* javax/swing/JApplet.java:
