@@ -2178,7 +2178,7 @@ may_access_global_mem_p (tree expr)
 
   /* Recursively check the expression's operands.  */
   class = TREE_CODE_CLASS (TREE_CODE (expr));
-  if (IS_EXPR_CODE_CLASS (class) || class == 'r')
+  if (IS_EXPR_CODE_CLASS (class))
     {
       unsigned char i;
 

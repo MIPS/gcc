@@ -3522,7 +3522,7 @@ iterative_hash_expr (tree t, hashval_t val)
       else
 	abort ();
     }
-  else if (IS_EXPR_CODE_CLASS (class) || class == 'r')
+  else if (IS_EXPR_CODE_CLASS (class))
     {
       val = iterative_hash_object (code, val);
 
@@ -5069,8 +5069,6 @@ make_ssa_name (tree var, tree stmt)
   if ((!DECL_P (var)
        && TREE_CODE (var) != INDIRECT_REF)
       || (!IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (stmt)))
-	  && TREE_CODE (stmt) != ASM_EXPR
-	  && TREE_CODE (stmt) != RETURN_EXPR
 	  && TREE_CODE (stmt) != PHI_NODE))
     abort ();
 #endif

@@ -1,3 +1,14 @@
+2003-08-20  Jason Merrill  <jason@redhat.com>
+
+	* expr.c (expand_expr): Don't check for 'r' or 's' if we're
+	checking IS_EXPR_CODE_CLASS.
+	* tree-dfa.c (may_access_global_mem_p): Likewise.
+	* tree-browser.c (browse_tree): Likewise.
+	* tree-ssa-pre.c (defs_hash_expr): Likewise.
+	* gimplify.c (gimplify_expr): Likewise.
+	(internal_get_tmp_var): Only copy TREE_LOCUS from an expr.
+	(mostly_copy_tree_r): Ignore decls here.
+
 2003-08-20  Diego Novillo  <dnovillo@redhat.com>
 
 	* c-pretty-print.c: Discard.  Replace with same file from

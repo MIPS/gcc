@@ -441,9 +441,7 @@ browse_tree (tree begin)
 	  break;
 
 	case TB_CHILD_0:
-	  if (head && (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (head)))
-		       || TREE_CODE_CLASS (TREE_CODE (head)) == 'r'
-		       || TREE_CODE_CLASS (TREE_CODE (head)) == 's')
+	  if (head && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (head)))
 	      && TREE_OPERAND (head, 0))
 	    TB_SET_HEAD (TREE_OPERAND (head, 0));
 	  else
@@ -451,9 +449,7 @@ browse_tree (tree begin)
 	  break;
 
 	case TB_CHILD_1:
-          if (head && (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (head)))
-		       || TREE_CODE_CLASS (TREE_CODE (head)) == 'r'
-                       || TREE_CODE_CLASS (TREE_CODE (head)) == 's')
+          if (head && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (head)))
 	      && TREE_OPERAND (head, 1))
 	    TB_SET_HEAD (TREE_OPERAND (head, 1));
 	  else
@@ -461,19 +457,15 @@ browse_tree (tree begin)
           break;
 
 	case TB_CHILD_2:
-          if (head && (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (head)))
-		       || TREE_CODE_CLASS (TREE_CODE (head)) == 'r'
-                       || TREE_CODE_CLASS (TREE_CODE (head)) == 's')
+          if (head && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (head)))
 	      && TREE_OPERAND (head, 2))
 	    TB_SET_HEAD (TREE_OPERAND (head, 2));
 	  else
 	    TB_WF;
-          break;
+	  break;
 
 	case TB_CHILD_3:
-          if (head && (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (head)))
-		       || TREE_CODE_CLASS (TREE_CODE (head)) == 'r'
-                       || TREE_CODE_CLASS (TREE_CODE (head)) == 's')
+	  if (head && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (head)))
 	      && TREE_OPERAND (head, 3))
 	    TB_SET_HEAD (TREE_OPERAND (head, 3));
 	  else

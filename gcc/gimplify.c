@@ -367,10 +367,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
   class = TREE_CODE_CLASS (TREE_CODE (*expr_p));
   locus = TREE_LOCUS (*expr_p);
 
-  if (locus
-      && (IS_EXPR_CODE_CLASS (class)
-	  || class == 'r'
-          || class == 's'))
+  if (locus && IS_EXPR_CODE_CLASS (class))
     {
       saved_input_filename = input_filename;
       saved_lineno = input_line;
@@ -765,10 +762,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
       annotate_all_with_file_line (&tmp, input_filename, input_line);
       *expr_p = tmp;
 
-      if (locus
-	  && (IS_EXPR_CODE_CLASS (class)
-	      || class == 'r'
-              || class == 's'))
+      if (locus && IS_EXPR_CODE_CLASS (class))
 	{
 	  input_filename = saved_input_filename;
 	  input_line = saved_lineno;
@@ -784,10 +778,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
      copy into a temp before adding the post-effects to the tree.  */
   if (!internal_post && (*gimple_test_f) (*expr_p))
     {
-      if (locus
-	  && (IS_EXPR_CODE_CLASS (class)
-	      || class == 'r'
-              || class == 's'))
+      if (locus && IS_EXPR_CODE_CLASS (class))
         {
           input_filename = saved_input_filename;
           input_line = saved_lineno;
@@ -849,10 +840,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
       add_tree (internal_post, pre_p);
     }
 
-  if (locus
-      && (IS_EXPR_CODE_CLASS (class)
-	  || class == 'r'
-          || class == 's'))
+  if (locus && IS_EXPR_CODE_CLASS (class))
     {
       input_filename = saved_input_filename;
       input_line = saved_lineno;
@@ -2596,13 +2584,16 @@ static tree
 internal_get_tmp_var (tree val, tree *pre_p, bool is_formal)
 {
   tree t, mod;
+  char class;
 
   gimplify_expr (&val, pre_p, NULL, is_gimple_rhs, fb_rvalue);
 
   t = lookup_tmp_var (val, is_formal);
 
   mod = build (MODIFY_EXPR, TREE_TYPE (t), t, val);
-  if (TREE_LOCUS (val))
+
+  class = TREE_CODE_CLASS (TREE_CODE (val));
+  if (TREE_LOCUS (val) && IS_EXPR_CODE_CLASS (class))
     TREE_LOCUS (mod) = TREE_LOCUS (val);
   else
     annotate_with_file_line (mod, input_filename, input_line);

@@ -6725,9 +6725,7 @@ expand_expr (tree exp, rtx target, enum machine_mode tmode, enum expand_modifier
      than globals.  */
   if (cfun
       && TREE_LOCUS (exp)
-      && (IS_EXPR_CODE_CLASS (class)
-          || class == 'r'
-	  || class == 's'))
+      && IS_EXPR_CODE_CLASS (class))
       {
 	const char *saved_input_filename = input_filename;
 	int saved_lineno = input_line;
