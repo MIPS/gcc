@@ -1150,20 +1150,26 @@ restore_currdefs_to_original_value (varray_type locals,
   /* Restore CURRDEFS to its original state.  */
   while (VARRAY_ACTIVE_SIZE (locals) > limit)
     {
-      tree var;
-      tree saved_def = VARRAY_TOP_TREE (locals);
+      tree tmp = VARRAY_TOP_TREE (locals);
+      tree saved_def, var;
+
       VARRAY_POP (locals);
- 
-      /* If SAVED_DEF is NULL, then the next slot in the stack contains
-	 the variable associated with SAVED_DEF.  */
-     if (saved_def == NULL_TREE)
+
+      /* If we recorded an SSA_NAME, then make the SSA_NAME the current
+	 definition of its underlying variable.  If we recorded anything
+	 else, it must have been an _DECL node and its current reaching
+	 definition must have been NULL.  */
+      if (TREE_CODE (tmp) == SSA_NAME)
 	{
-	  var = VARRAY_TOP_TREE (locals);
-	  VARRAY_POP (locals);
+	  saved_def = tmp;
+	  var = SSA_NAME_VAR (saved_def);
 	}
       else
-	var = SSA_NAME_VAR (saved_def);
-
+	{
+	  saved_def = NULL;
+	  var = tmp;
+	}
+                                                                                
       set_value_for (var, saved_def, table);
     }
 }

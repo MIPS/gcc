@@ -1,3 +1,12 @@
+2004-04-20  Jeff Law  <law@redhat.com>
+
+	* tree-into-ssa.c (register_new_def): If there is no current
+	reaching definition for SSA_NAME_VAR (DEF), then just push
+	SSA_NAME_VAR (DEF) onto the stack.
+	(rewrite_finalize_block): If we pop a _DECL node from the stack,
+	then the _DECL node has no current reaching definition.
+	* tree-ssa-dom.c (restore_currdefs_to_original_value): Similarly.
+
 2004-04-19  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c: Reinstate all changes from 2004-04-12.

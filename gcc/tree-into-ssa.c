@@ -569,19 +569,20 @@ rewrite_finalize_block (struct dom_walk_data *walk_data,
      referenced in the block (in reverse order).  */
   while (bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
     {
-      tree var;
-      tree saved_def = VARRAY_TOP_TREE (bd->block_defs);
+      tree tmp = VARRAY_TOP_TREE (bd->block_defs);
+      tree saved_def, var;
+
       VARRAY_POP (bd->block_defs);
-      
-      /* If SAVED_DEF is NULL, then the next slot in the stack contains the
-	 variable associated with SAVED_DEF.  */
-      if (saved_def == NULL_TREE)
+      if (TREE_CODE (tmp) == SSA_NAME)
 	{
-	  var = VARRAY_TOP_TREE (bd->block_defs);
-	  VARRAY_POP (bd->block_defs);
+	  saved_def = tmp;
+	  var = SSA_NAME_VAR (saved_def);
 	}
       else
-	var = SSA_NAME_VAR (saved_def);
+	{
+	  saved_def = NULL;
+	  var = tmp;
+	}
 
       set_value_for (var, saved_def, currdefs);
     }
@@ -817,22 +818,18 @@ void
 register_new_def (tree def, varray_type *block_defs_p, varray_type table)
 {
   tree var = SSA_NAME_VAR (def);
-  tree currdef = get_value_for (var, table);
-
+  tree currdef;
+   
+  currdef = get_value_for (var, table);
   if (! *block_defs_p)
     VARRAY_TREE_INIT (*block_defs_p, 20, "block_defs");
-
-  /* If the current reaching definition is NULL, push the variable itself
-     so that the dominator tree callbacks know what variable is associated
-     with this NULL reaching def when unwinding the *BLOCK_DEFS_P stack.  */
-  if (currdef == NULL_TREE)
-    VARRAY_PUSH_TREE (*block_defs_p, var);
 
   /* Push the current reaching definition into *BLOCK_DEFS_P.  This stack is
      later used by the dominator tree callbacks to restore the reaching
      definitions for all the variables defined in the block after a recursive
-     visit to all its immediately dominated blocks.  */
-  VARRAY_PUSH_TREE (*block_defs_p, currdef);
+     visit to all its immediately dominated blocks.  If there is no current
+     reaching definition, then just record the underlying _DECL node.  */
+  VARRAY_PUSH_TREE (*block_defs_p, currdef ? currdef : var);
 
   /* Set the current reaching definition for VAR to be DEF.  */
   set_value_for (var, def, table);
