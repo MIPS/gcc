@@ -1,3 +1,17 @@
+2004-06-23  Sebastian Pop  <pop@cri.ensmp.fr>
+	
+	* tree-chrec.c (chrec_fold_automatically_generated_operands): Now
+	static.  Clean comments.
+	(hide_evolution_in_loop, chrec_merge_types): Removed.  
+	* tree-chrec.h (hide_evolution_in_loop,
+	chrec_fold_automatically_generated_operands): Remove declarations.
+	* tree-scalar-evolution.c: Remove an old part of the comment at the 
+	beginning of the file.
+	(compute_overall_effect_of_inner_loop, 
+	compute_overall_effect_of_inner_loop, add_to_evolution_1,
+	analyze_scalar_evolution_1, analyze_scalar_evolution): Test for 
+	chrec_dont_know instead of calling chrec_contains_undetermined.
+	
 2004-06-22  Dorit Naishlos <dorit@il.ibm.com>
 
 	* tree-vectorizer.c (vect_create_data_ref): Fix setting of mem_tag.
@@ -31,7 +45,8 @@
 	* cfgloop.h (loop): Update comments around nb_iterations field.  
 	* lambda-code.c (gcc_loop_to_lambda_loop): Always check for 
 	undetermined chrec after calling number_of_iterations_in_loop.
-	* tree-chrec.c (chrec_fold_multiply_ival_cst, chrec_fold_multiply_ival_ival, 
+	* tree-chrec.c (chrec_fold_multiply_ival_cst, 
+	chrec_fold_multiply_ival_ival, 
 	chrec_merge_types, chrec_contains_intervals, chrec_evaluate, 
 	chrec_merge_intervals): Removed.
 	(chrec_fold_plus_1, chrec_fold_plus, chrec_fold_minus, 

@@ -78,10 +78,8 @@ extern tree update_initial_condition_to_origin (tree);
 extern tree initial_condition (tree);
 extern tree evolution_part_in_loop_num (tree, unsigned);
 extern tree hide_evolution_in_other_loops_than_loop (tree, unsigned);
-extern tree hide_evolution_in_loop (tree, unsigned);
 extern tree reset_evolution_in_loop (unsigned, tree, tree);
 extern tree chrec_merge (tree, tree);
-extern tree chrec_fold_automatically_generated_operands (tree, tree);
 
 /* Observers.  */
 extern bool is_multivariate_chrec (tree);

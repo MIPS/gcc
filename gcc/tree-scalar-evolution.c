@@ -36,8 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
      
    - When the definition is a MODIFY_EXPR: if the right hand side
    (RHS) of the definition cannot be statically analyzed, the answer
-   of the analyzer is: "don't know", that corresponds to the
-   conservative [-oo, +oo] element of the lattice of intervals.
+   of the analyzer is: "don't know".  
    Otherwise, for all the variables that are not yet analyzed in the
    RHS, try to determine their evolution, and finally try to
    evaluate the operation of the RHS that gives the evolution
@@ -480,7 +479,7 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 {
   bool val = false;
 
-  if (chrec_contains_undetermined (evolution_fn))
+  if (evolution_fn == chrec_dont_know)
     return chrec_dont_know;
 
   else if (TREE_CODE (evolution_fn) == POLYNOMIAL_CHREC)
@@ -491,7 +490,7 @@ compute_overall_effect_of_inner_loop (struct loop *loop, tree evolution_fn)
 	    loop_from_num (current_loops, CHREC_VARIABLE (evolution_fn));
 	  tree nb_iter = number_of_iterations_in_loop (inner_loop);
 
-	  if (chrec_contains_undetermined (nb_iter))
+	  if (nb_iter == chrec_dont_know)
 	    return chrec_dont_know;
 	  else
 	    {
@@ -717,7 +716,7 @@ add_to_evolution_1 (unsigned loop_nb,
       
     default:
       /* These nodes do not depend on a loop.  */
-      if (chrec_contains_undetermined (chrec_before))
+      if (chrec_before == chrec_dont_know)
 	return chrec_dont_know;
       return build_polynomial_chrec (loop_nb, chrec_before, to_add);
     }
@@ -1864,7 +1863,7 @@ analyze_scalar_evolution_1 (struct loop *loop, tree var, tree res)
  set_and_end:
 
   /* Keep the symbolic form.  */
-  if (chrec_contains_undetermined (res))
+  if (res == chrec_dont_know)
     res = var;
 
   if (loop == def_loop)
@@ -1905,8 +1904,7 @@ analyze_scalar_evolution (struct loop *loop, tree var)
 
   res = analyze_scalar_evolution_1 (loop, var, get_scalar_evolution (var));
 
-  if (TREE_CODE (var) == SSA_NAME && 
-      chrec_contains_undetermined (res))
+  if (TREE_CODE (var) == SSA_NAME && res == chrec_dont_know)
     res = var;
 
   if (dump_file && (dump_flags & TDF_DETAILS))

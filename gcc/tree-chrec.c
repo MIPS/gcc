@@ -223,20 +223,14 @@ chrec_fold_multiply_poly_poly (tree type,
 /* When the operands are automatically_generated_chrec_p, the fold has
    to respect the semantics of the operands.  */
 
-tree 
+static inline tree 
 chrec_fold_automatically_generated_operands (tree op0, 
 					     tree op1)
 {
-  /* TOP op x = TOP,
-     x op TOP = TOP.  */
   if (chrec_contains_undetermined (op0)
       || chrec_contains_undetermined (op1))
     return chrec_dont_know;
   
-  /* BOT op TOP = TOP, 
-     TOP op BOT = TOP, 
-     BOT op x = BOT,
-     x op BOT = BOT.  */
   if (op0 == chrec_known
       || op1 == chrec_known)
     return chrec_known;
@@ -496,32 +490,6 @@ initial_condition (tree chrec)
     return chrec;
 }
 
-/* Returns a multivariate function that has no evolution in LOOP_NUM.
-   Mask the evolution LOOP_NUM.  */
-
-tree 
-hide_evolution_in_loop (tree chrec, unsigned loop_num)
-{
-  if (automatically_generated_chrec_p (chrec))
-    return chrec;
-  
-  switch (TREE_CODE (chrec))
-    {
-    case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec) >= loop_num)
-	return hide_evolution_in_loop (CHREC_LEFT (chrec), loop_num);
-
-      else
-	return build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec), 
-	   hide_evolution_in_loop (CHREC_LEFT (chrec), loop_num), 
-	   CHREC_RIGHT (chrec));
-
-    default:
-      return chrec;
-    }
-}
-
 /* Returns a univariate function that represents the evolution in
    LOOP_NUM.  Mask the evolution of any other loop.  */
 
@@ -617,21 +585,6 @@ reset_evolution_in_loop (unsigned loop_num,
     chrec = CHREC_LEFT (chrec);
   
   return build_polynomial_chrec (loop_num, chrec, new_evol);
-}
-
-/* Determine the type of the result after the merge of types TYPE0 and
-   TYPE1.  */
-
-static inline tree 
-chrec_merge_types (tree type0, 
-		   tree type1)
-{
-  if (type0 == type1)
-    return type0;
-
-  else 
-    /* FIXME.  */
-    return NULL_TREE;
 }
 
 /* Merges two evolution functions that were found by following two
