@@ -1,3 +1,8 @@
+2003-07-25  Daniel Berlin  <dberlin@dberlin.org>
+    
+	* configure.in:  Update BANSHEEREBUILD for PWD change.
+	* configure: regen
+
 2003-07-25  Andreas Jaeger  <aj@suse.de>
 
 	* c-call-graph.c: Convert to ISO C90.

@@ -7536,7 +7536,7 @@ if test x"$libbanshee" = xyes; then
 	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
 	ANDER="tree-alias-ander.o"
 	if test x$rebuild_banshee = xyes; then
-		BANSHEEREBUILD="s=\`\${PWD}\`; export s && cd ../libbanshee && echo \`\${PWD}\` && \$(MAKE) clean && \$(MAKE) CC=\"\$(STAGE_CC_WRAPPER) \$\$s/stage1/xgcc\$(exeext) -B\$\$s/stage1/ -B\$(build_tooldir)/bin/\" \$(STAGE2_FLAGS_TO_PASS) && cd ../gcc"
+		BANSHEEREBUILD="s=\${PWD}; export s && cd ../libbanshee && echo \${PWD} && \$(MAKE) clean && \$(MAKE) CC=\"\$(STAGE_CC_WRAPPER) \$\$s/stage1/xgcc\$(exeext) -B\$\$s/stage1/ -B\$(build_tooldir)/bin/\" \$(STAGE2_FLAGS_TO_PASS) && cd ../gcc"
 	else
 		BANSHEEREBUILD=""
 	fi
