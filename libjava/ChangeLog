@@ -1,3 +1,18 @@
+2004-06-18  Rodimina Olga  <rodimina@redhat.com>
+
+	* javax/swing/AbstractButton.java
+	(changeEvent): New field.
+	(fireItemStateChanged): Change source of the event
+	to 'this' before firing it to button listeners.
+	(fireActionPerformed): Likewise.
+	(fireStateChanged): Likewise.
+	(createActionListener): Do not set source 
+	of the event to AbstractButton.                                  
+	* javax/swing/plaf/basic/BasicMenuBarUI.java:
+	(ContainerHandler.componentAdded): Removed 
+	print out statement.
+	(ContainerHandler.componentRemoved): Likewise.
+
 2004-06-18  David Jee  <djee@redhat.com>
 
 	* gnu/java/awt/image/ImageDecoder.java

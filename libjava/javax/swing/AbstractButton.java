@@ -230,6 +230,9 @@ public abstract class AbstractButton extends JComponent
       Action. */
   PropertyChangeListener actionPropertyChangeListener;
   
+  /** ChangeEvent that is fired to button's ChangeEventListeners  */  
+  private ChangeEvent changeEvent = new ChangeEvent(this);
+  
   /** Fired in a PropertyChangeEvent when the "borderPainted" property changes. */
   public static final String BORDER_PAINTED_CHANGED_PROPERTY = "borderPainted";
   
@@ -642,6 +645,7 @@ public abstract class AbstractButton extends JComponent
    */
   public void fireItemStateChanged(ItemEvent e)
   {
+    e.setSource(this);
     EventListener[] ll = listenerList.getListeners(ItemListener.class);
     for (int i = 0; i < ll.length; i++)
       ((ItemListener)ll[i]).itemStateChanged(e);
@@ -655,6 +659,7 @@ public abstract class AbstractButton extends JComponent
    */
   public void fireActionPerformed(ActionEvent e)
   {
+    e.setSource(this);
     EventListener[] ll = listenerList.getListeners(ActionListener.class);
     for (int i = 0; i < ll.length; i++)
       ((ActionListener)ll[i]).actionPerformed(e);
@@ -671,7 +676,7 @@ public abstract class AbstractButton extends JComponent
   {
     EventListener[] ll = listenerList.getListeners(ChangeListener.class);
     for (int i = 0; i < ll.length; i++)
-      ((ChangeListener)ll[i]).stateChanged(e);
+      ((ChangeListener)ll[i]).stateChanged(changeEvent);
   }
 
   /**
@@ -1416,7 +1421,6 @@ public abstract class AbstractButton extends JComponent
       {
         public void actionPerformed(ActionEvent e)
         {
-          e.setSource(AbstractButton.this);
           AbstractButton.this.fireActionPerformed(e);
         }
       };

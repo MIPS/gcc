@@ -284,7 +284,6 @@ public class BasicMenuBarUI extends MenuBarUI
      */
     public void componentAdded(ContainerEvent e)
     {
-      System.out.println("BasicMenuBar...componentAdded.. listener");
     }
 
     /**
@@ -294,7 +293,6 @@ public class BasicMenuBarUI extends MenuBarUI
      */
     public void componentRemoved(ContainerEvent e)
     {
-      System.out.println("BasicMenuBar...componentRemoved.. listener");
     }
   }
 
