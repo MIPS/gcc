@@ -79,5 +79,4 @@ void simplify_expr		       PARAMS ((tree *, tree *, tree *,
 						int (*) PARAMS ((tree)),
 						fallback_t));
 
-
 #endif /* _TREE_SIMPLE_H */
