@@ -1,3 +1,7 @@
+2003-08-01  Denis Chertykov  <denisc@overta.ru>
+
+	* ra-rewrite.c (split_insert_load): Fix a syntax error. 
+
 2003-06-30  Michael Matz  <matz@suse.de>
 	* ra-build.c (add_additional_conflicts): Prevent strictly partly
 	overlap between copy related webs.  Renamed from ...

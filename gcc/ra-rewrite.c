@@ -3567,13 +3567,14 @@ split_insert_load (web, insn, before, live)
       for (web = web->subreg_next; web; web = web->subreg_next)
 	if (is_partly_live (live, web))
 	  {
+	    rtx slot;
 	    rtx reg = copy_rtx (web->orig_x);
 	    enum machine_mode slot_mode = GET_MODE (whole_slot);
 	    if (slot_mode == VOIDmode)
 	      slot_mode = GET_MODE (aweb->orig_x);
-	    rtx slot = simplify_gen_subreg (GET_MODE (reg), whole_slot,
-					    slot_mode,
-					    SUBREG_BYTE (reg));
+	    slot = simplify_gen_subreg (GET_MODE (reg), whole_slot,
+					slot_mode,
+					SUBREG_BYTE (reg));
 	    ra_emit_move_insn (reg, slot);
 	  }
     }
