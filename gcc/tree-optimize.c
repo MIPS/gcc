@@ -42,12 +42,16 @@ void
 optimize_tree (t)
      tree t;
 {
+  /* Don't bother doing anything if the program has errors.  */
+  if (errorcount || sorrycount)
+    return;
+
   /* Flush out existing data.  */
   VARRAY_TREE_INIT (referenced_symbols, 20, "referenced_symbols");
 
   tree_find_basic_blocks (t);
 
-  if (n_basic_blocks > 0)
+  if (n_basic_blocks > 0 && ! (errorcount || sorrycount))
     {
       tree_find_varrefs ();
       tree_build_ssa ();
