@@ -1,3 +1,10 @@
+2005-02-06  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3984134 (again)
+	* config/darwin-driver.c (do_compile): Update argc_count for
+	target-specific options.
+	(add_arch_options): Improve debug output.
+
 2005-02-02  Mike Stump  <mrs@apple.com>
 
 	Radar 3981486

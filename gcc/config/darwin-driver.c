@@ -1,7 +1,7 @@
 /* APPLE LOCAL file driver driver */
 /* Darwin driver program that handles -arch commands and invokes
    appropriate compiler driver. 
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -528,7 +528,8 @@ do_compile (const char **current_argv, int current_argc)
       /* Add arch option as the last option. Do not add any other option
 	 before removing this option.  */
       additional_arch_options = add_arch_options (index, current_argv, argc_count);
-
+      argc_count += additional_arch_options;
+      
       commands[index].prog = current_argv[0];
       commands[index].argv = current_argv;
 
@@ -549,7 +550,7 @@ do_compile (const char **current_argv, int current_argc)
       
       /* Remove the last arch option added in the current_argv list.  */
       if (additional_arch_options)
-	remove_arch_options (current_argv, argc_count);
+	argc_count -= remove_arch_options (current_argv, argc_count);
       index++;
     }
 
@@ -648,7 +649,7 @@ add_arch_options (int index, const char **current_argv, int arch_index)
   count = 1;
 
 #ifdef DEBUG
-  fprintf (stderr, "%s: add_arch_options\n", progname);
+  fprintf (stderr, "%s: add_arch_options: %s\n", progname, arches[index]);
 #endif
 
   if (!strcmp (arches[index], "ppc601"))
