@@ -1,3 +1,8 @@
+2004-01-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/13865
+	* c-simplify.c (gimplify_for_stmt): Reorganize to fix cleanups.
+
 2004-01-29  Richard Henderson  <rth@redhat.com>
 
 	PR c++/13543

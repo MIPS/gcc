@@ -223,7 +223,7 @@ c_gimplify_stmt (tree *stmt_p)
 	  break;
 
 	case FOR_STMT:
-	  ret = gimplify_for_stmt (&stmt, &pre);
+	  ret = gimplify_for_stmt (&stmt, &next);
 	  break;
 
 	case WHILE_STMT:
@@ -713,16 +713,26 @@ gimplify_c_loop (tree cond, tree body, tree incr, bool cond_is_first)
    prequeue and hand off to gimplify_c_loop.  */
 
 static enum gimplify_status
-gimplify_for_stmt (tree *stmt_p, tree *pre_p)
+gimplify_for_stmt (tree *stmt_p, tree *next_p)
 {
   tree stmt = *stmt_p;
-
   tree init = FOR_INIT_STMT (stmt);
-  c_gimplify_stmt (&init);
-  append_to_statement_list (init, pre_p);
 
-  *stmt_p = gimplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
-			     FOR_EXPR (stmt), 1);
+  if (init)
+    {
+      /* Reorganize the statements so that we do the right thing with a
+	 CLEANUP_STMT.  We want the FOR_STMT and nothing else to be in the
+	 scope of the cleanup, so play with pointers to accomplish that. */
+      FOR_INIT_STMT (stmt) = NULL_TREE;
+      chainon (init, stmt);
+      *stmt_p = init;
+      *next_p = TREE_CHAIN (stmt);
+      TREE_CHAIN (stmt) = NULL_TREE;
+      c_gimplify_stmt (stmt_p);
+    }
+  else
+    *stmt_p = gimplify_c_loop (FOR_COND (stmt), FOR_BODY (stmt),
+			       FOR_EXPR (stmt), 1);
 
   return GS_ALL_DONE;
 }
