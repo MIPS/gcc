@@ -5,7 +5,7 @@ dnl * If calling it with a timezone pointer actually works -- this is deemed
 dnl   obsolete or undefined on some systems which say you should use a null
 dnl   pointer -- and undefine HAVE_TIMEZONE if so;
 dnl * Whether it only takes one arg.
-AC_DEFUN(LIBGFOR_GETTIMEOFDAY, [
+AC_DEFUN([LIBGFOR_GETTIMEOFDAY], [
   AC_CHECK_FUNCS(gettimeofday)
   if test "$ac_cv_func_gettimeofday" = yes; then
     AC_CACHE_CHECK([for struct timezone], gfor_cv_struct_timezone,

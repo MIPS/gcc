@@ -1,3 +1,11 @@
+2004-02-06  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* Makefile.am: Add m4/dotprodc.m4. And fix spelling.
+	* Makefile.in: Regenerate.
+	* m4/dotprodc.m4: New file. Implement complex dot_product.
+	* m4/dotprod.m4: Delete the complex implementation.
+	* generated/dotprod_*: Update.
+
 2004-02-07  Bud Davis  <bdavis9659@comcast.net>
 
 	* transfer.c (write_constant_string): Do not delete H's in hollerith

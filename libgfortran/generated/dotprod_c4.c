@@ -1,6 +1,7 @@
 /* Implementation of the DOT_PRODUCT intrinsic
    Copyright 2002 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
+   and Feng Wang <fengwang@nudt.edu.cn>
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
@@ -33,6 +34,7 @@ __dot_product_c4 (gfc_array_c4 * a, gfc_array_c4 * b)
   GFC_COMPLEX_4 *pa;
   GFC_COMPLEX_4 *pb;
   GFC_COMPLEX_4 res;
+  GFC_COMPLEX_4 conjga;
   index_type count;
   index_type astride;
   index_type bstride;
@@ -54,7 +56,8 @@ __dot_product_c4 (gfc_array_c4 * a, gfc_array_c4 * b)
 
   while (count--)
     {
-      res += *pa * *pb;
+      COMPLEX_ASSIGN(conjga, REALPART (*pa), -IMAGPART (*pa));
+      res += conjga * *pb;
       pa += astride;
       pb += bstride;
     }

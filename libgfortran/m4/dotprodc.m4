@@ -1,6 +1,7 @@
 `/* Implementation of the DOT_PRODUCT intrinsic
    Copyright 2002 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
+   and Feng Wang <fengwang@nudt.edu.cn>
 
 This file is part of the GNU Fortran 95 runtime library (libgfor).
 
@@ -24,7 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include <assert.h>
 #include "libgfortran.h"'
 include(types.m4)dnl
-define(rtype_code, regexp(file, `_\([ir][0-9]+\)\.', `\1'))dnl
+define(rtype_code, regexp(file, `_\(c[0-9]+\)\.', `\1'))dnl
 define(rtype_letter,substr(rtype_code, 0, 1))dnl
 define(rtype_kind, substr(rtype_code, 1))dnl
 define(rtype,get_arraytype(rtype_letter,rtype_kind))dnl
@@ -39,6 +40,7 @@ rtype_name
   rtype_name *pa;
   rtype_name *pb;
   rtype_name res;
+  rtype_name conjga;
   index_type count;
   index_type astride;
   index_type bstride;
@@ -61,7 +63,8 @@ sinclude(`dotprod_asm_'rtype_code`.m4')dnl
 
   while (count--)
     {
-      res += *pa * *pb;
+      COMPLEX_ASSIGN(conjga, REALPART (*pa), -IMAGPART (*pa));
+      res += conjga * *pb;
       pa += astride;
       pb += bstride;
     }
