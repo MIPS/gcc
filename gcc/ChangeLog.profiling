@@ -1,3 +1,8 @@
+2005-02-03  Razya Ladelsky  <razya@il.ibm.com>
+
+	* tree-eh.c (duplicate_stmt_eh_region_mapping): Use ggc_free to free
+	ggc memory.
+
 2005-02-06  Kenneth Zadeck <zadeck@naturalbridge.com> with inclusions from 
 	Daniel Berlin  <dberlin@dberlin.org> and Jan Hubicka  <jh@suse.cz>
 
@@ -28,6 +33,7 @@
 	* c-typeck.c (convert_arguments): Only warn for normal builtin
 	function replacements, not error.
 
+>>>>>>> 1.1.2.112
 2005-02-02  Jan Hubicka  <jh@suse.cz>
 
 	* opts.c (flag_inline_functions_set): New static variable.

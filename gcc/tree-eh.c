@@ -204,7 +204,7 @@ duplicate_stmt_eh_region_mapping (struct function *ifun,
       
       if (!cfun_hash)
 	{
-	  cfun_hash = htab_create_ggc (31, struct_ptr_hash, struct_ptr_eq, free);
+	  cfun_hash = htab_create_ggc (31, struct_ptr_hash, struct_ptr_eq, ggc_free);
 	  set_eh_throw_stmt_table (cfun, (void *)cfun_hash);
 	}
       
