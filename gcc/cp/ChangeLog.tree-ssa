@@ -1,3 +1,8 @@
+2003-08-08  Jason Merrill  <jason@redhat.com>
+
+	* optimize.c (optimize_function): Restore support for
+	!keep_function_tree_in_gimple_form.
+
 2003-07-27  Andreas Jaeger  <aj@suse.de>
 
 	* cp-lang.c: Convert K&R prototypes to ISO C90.

@@ -1,3 +1,12 @@
+2003-08-08  Jason Merrill  <jason@redhat.com>
+
+	* c-decl.c (c_expand_body_1): Restore support for
+	!keep_function_tree_in_gimple_form.
+	(finish_function, c_expand_deferred_function): Do TDI_inlined dump.
+	
+	* gimplify.c (voidify_wrapper_expr): Set TREE_SIDE_EFFECTS on the
+	wrapper if we insert a MODIFY_EXPR.
+
 2003-08-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (GTFILES): Add tree-ssa.c, tree-dfa.c and

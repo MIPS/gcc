@@ -869,12 +869,18 @@ voidify_wrapper_expr (tree wrapper)
 	  temp = create_tmp_var (TREE_TYPE (ptr), "retval");
 	  *p = build (MODIFY_EXPR, TREE_TYPE (ptr), temp, ptr);
 	  temp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (temp)), temp);
+	  /* If this is a BIND_EXPR for a const inline function, it might not
+	     have TREE_SIDE_EFFECTS set.  That is no longer accurate.  */
+	  TREE_SIDE_EFFECTS (wrapper) = 1;
 	}
       else
 	{
 	  temp = create_tmp_var (TREE_TYPE (wrapper), "retval");
 	  if (!IS_EMPTY_STMT (*p))
-	    *p = build (MODIFY_EXPR, TREE_TYPE (temp), temp, *p);
+	    {
+	      *p = build (MODIFY_EXPR, TREE_TYPE (temp), temp, *p);
+	      TREE_SIDE_EFFECTS (wrapper) = 1;
+	    }
 	}
 
       TREE_TYPE (wrapper) = void_type_node;

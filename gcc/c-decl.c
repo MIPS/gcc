@@ -6325,6 +6325,8 @@ finish_function (int nested, int can_defer_p)
 	  input_line = saved_lineno;
 	  saved_filename = input_filename;
 	  timevar_pop (TV_INTEGRATION);
+
+	  dump_function (TDI_inlined, fndecl);
 	}
 
       c_expand_body (fndecl);
@@ -6357,6 +6359,7 @@ c_expand_deferred_function (tree fndecl)
 	  timevar_push (TV_INTEGRATION);
 	  optimize_inline_calls (fndecl);
 	  timevar_pop (TV_INTEGRATION);
+	  dump_function (TDI_inlined, fndecl);
 	}
       c_expand_body (fndecl);
       current_function_decl = NULL;
@@ -6425,7 +6428,9 @@ c_expand_body_1 (tree fndecl, int nested_p)
 
   /* Gimplify the function.  Don't try to optimize the function if
      gimplification failed.  */
-  if (keep_function_tree_in_gimple_form (fndecl))
+  if (!flag_disable_gimple
+      && (keep_function_tree_in_gimple_form (fndecl)
+	  || gimplify_function_tree (fndecl)))
     {
       /* Debugging dump after gimplification.  */
       dump_function (TDI_gimple, fndecl);

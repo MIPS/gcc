@@ -1,3 +1,9 @@
+2003-08-08  Jason Merrill  <jason@redhat.com>
+
+	* parse.y (source_end_java_method): Support
+	!keep_function_tree_in_gimple_form.
+	Do TDI_generic dump.
+
 2003-07-31  Andrew Haley  <aph@redhat.com>
 
 	* java-tree.h: (add_stmt_to_compound): New function.

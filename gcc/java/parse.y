@@ -7384,8 +7384,9 @@ source_end_java_method (void)
       if (!flag_disable_gimple)
 	{
 	  cfun->x_whole_function_mode_p = 1;
+	  /* Genericize with the gimplifier.  */
 	  gimplify_function_tree (fndecl);
-	  dump_function (TDI_gimple, fndecl);
+	  dump_function (TDI_generic, fndecl);
 
 	  /* Inline suitable calls from this function.  */
 	  if (flag_inline_trees)
@@ -7394,11 +7395,15 @@ source_end_java_method (void)
 	      optimize_inline_calls (fndecl);
 	      timevar_pop (TV_INTEGRATION);
 	      dump_function (TDI_inlined, fndecl);
+	      if (!keep_function_tree_in_gimple_form (fndecl))
+		gimplify_function_tree (fndecl);
 	    }
 
+	  /* Debugging dump after gimplification.  */
+	  dump_function (TDI_gimple, fndecl);
+
 	  /* Run SSA optimizers if gimplify succeeded.  */
-	  if (keep_function_tree_in_gimple_form (fndecl)
-	      && optimize > 0 && !flag_disable_tree_ssa)
+	  if (optimize > 0 && !flag_disable_tree_ssa)
 	    optimize_function_tree (fndecl);
 	}
 

@@ -82,7 +82,9 @@ optimize_function (tree fn)
 
   /* Gimplify the function.  Don't try to optimize the function if
      gimplification failed.  */
-  if (keep_function_tree_in_gimple_form (fn))
+  if (!flag_disable_gimple
+      && (keep_function_tree_in_gimple_form (fn)
+	  || gimplify_function_tree (fn)))
     {
       /* Debugging dump after gimplification.  */
       dump_function (TDI_gimple, fn);
