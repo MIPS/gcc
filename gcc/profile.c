@@ -2062,7 +2062,7 @@ gen_loop_profiler (iterations, loop, steps)
      int steps;
 {
   enum machine_mode mode = mode_for_size (GCOV_TYPE_SIZE, MODE_INT, 0);
-  rtx mem_ref, tmp, tmp1, mr, lab, jump;
+  rtx mem_ref, tmp, tmp1, mr;
   rtx sequence;
   int base = (loop - 1) * (steps + 1);
   rtx in_range_label = gen_label_rtx ();
@@ -2079,19 +2079,15 @@ gen_loop_profiler (iterations, loop, steps)
 
   do_compare_rtx_and_jump (iterations, GEN_INT (steps), GE, 0, mode, NULL_RTX,
 			   in_range_label, NULL_RTX);
-  jump = get_last_insn ();
-  JUMP_LABEL (jump) = in_range_label;
 
   tmp1 = expand_simple_binop (Pmode, PLUS, tmp, GEN_INT (per_counter * steps), mr, 0, OPTAB_WIDEN);
   if (tmp1 != mr)
     emit_move_insn (mr, tmp1);
 
-  jump = emit_jump_insn (gen_jump (end_of_code_label));
-  JUMP_LABEL (jump) = end_of_code_label;
+  emit_jump_insn (gen_jump (end_of_code_label));
   emit_barrier ();
 
-  lab = emit_label (in_range_label);
-  LABEL_NUSES (lab) = 1;
+  emit_label (in_range_label);
 
   tmp1 = expand_simple_binop (mode, MULT, iterations, GEN_INT (per_counter),
 			      NULL_RTX, 0, OPTAB_WIDEN);
@@ -2099,8 +2095,7 @@ gen_loop_profiler (iterations, loop, steps)
   if (tmp1 != mr)
     emit_move_insn (mr, tmp1);
 
-  lab = emit_label (end_of_code_label);
-  LABEL_NUSES (lab) = 1;
+  emit_label (end_of_code_label);
 
   mem_ref = validize_mem (gen_rtx_MEM (mode, mr));
 
@@ -2112,6 +2107,7 @@ gen_loop_profiler (iterations, loop, steps)
 
   sequence = get_insns ();
   end_sequence ();
+  rebuild_jump_labels (sequence);
   return sequence;
 }
 
