@@ -1,3 +1,9 @@
+2004-04-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* c-cppbuiltin.c (define__GNUC__): Better precision and more
+	error checking for code defining __APPLE_CC__.
+	* testsuite/gcc.apple/applecc.c: New.
+
 2004-04-15  Devang Patel  <dpatel@apple.com>
 
 	* config/i386.h: Add static tree nodes for vector types to

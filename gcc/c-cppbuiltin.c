@@ -292,14 +292,25 @@ define__GNUC__ (void)
 
   /* APPLE LOCAL begin Apple version */
   {
-    const char *vt = version_string;
-    while (*vt != 0 && *vt != '(')
-      vt++;
-    while (*vt != 0 && ! ISDIGIT (*vt))
-      vt++;
+    /* This chunk of code defines __APPLE_CC__ from the version
+       string.  It expects to see a substring of the version string of
+       the form "build NNNN)", where each N is a digit, and the first
+       N is nonzero (there can be 4 or 5 digits).  It will abort() if
+       these conditions are not met, since that usually means that
+       someone's broken the version string.  */
+    const char *vt;
+    
+    vt = strstr (version_string, "build ");
+    if (vt == NULL)
+      abort ();
+    vt += strlen ("build ");
+    if (! ISDIGIT (*vt))
+      abort ();
     for (q = vt; *q != 0 && ISDIGIT (*q); q++)
       ;
     if (q == vt || *q != ')')
+      abort ();
+    if ((q - vt != 4 && q - vt != 5) || *vt == '0')
       abort ();
     builtin_define_with_value_n ("__APPLE_CC__", vt, q - vt);
   }
