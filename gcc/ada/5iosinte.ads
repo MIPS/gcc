@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                              $Revision: 1.2 $
+--                              $Revision: 1.2.12.1 $
 --                                                                          --
 --          Copyright (C) 1991-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -445,11 +445,8 @@ package System.OS_Interface is
 
 private
 
-   type sigset_t is array (0 .. 31) of unsigned_long;
+   type sigset_t is array (0 .. 127) of unsigned_char;
    pragma Convention (C, sigset_t);
-   for sigset_t'Size use 1024;
-   --  This is for GNU libc version 2 but should be backward compatible with
-   --  other libc where sigset_t is smaller.
 
    type pid_t is new int;
 
@@ -478,7 +475,7 @@ private
       stackaddr     : System.Address;
       stacksize     : size_t;
    end record;
-   pragma Convention (C_Pass_By_Copy, pthread_attr_t);
+   pragma Convention (C, pthread_attr_t);
 
    type pthread_condattr_t is record
       dummy : int;
@@ -492,24 +489,28 @@ private
 
    type pthread_t is new unsigned_long;
 
-   type struct_pthread_queue is record
-      head : System.Address;
-      tail : System.Address;
+   type struct_pthread_fast_lock is record
+      status   : long;
+      spinlock : int;
    end record;
-   pragma Convention (C, struct_pthread_queue);
+   pragma Convention (C, struct_pthread_fast_lock);
 
    type pthread_mutex_t is record
-      m_spinlock : int;
+      m_reserved : int;
       m_count    : int;
       m_owner    : System.Address;
       m_kind     : int;
-      m_waiting  : struct_pthread_queue;
+      m_lock     : struct_pthread_fast_lock;
    end record;
    pragma Convention (C, pthread_mutex_t);
 
+   type pthread_cond_padding_t is array (0 .. 35) of unsigned_char;
+   pragma Convention (C, pthread_cond_padding_t);
+
    type pthread_cond_t is record
-      c_spinlock : int;
-      c_waiting  : struct_pthread_queue;
+      c_lock     : struct_pthread_fast_lock;
+      c_waiting  : System.Address;
+      c_padding  : pthread_cond_padding_t;
    end record;
    pragma Convention (C, pthread_cond_t);
 
