@@ -1764,6 +1764,34 @@ remove_unreachable_block (basic_block bb)
 }
 
 
+/* Remove PHI nodes associated with basic block BB and all edges into
+   and out of BB.  */
+void
+remove_phi_nodes_and_edges_for_unreachable_block (basic_block bb)
+{
+  /* Remove the edges into and out of this block.  */
+  while (bb->pred != NULL)
+    {
+      tree phi;
+
+      /* Since this block is no longer reachable, we can just delete all
+         of its PHI nodes.  */
+      phi = phi_nodes (bb);
+      while (phi)
+        {
+	  tree next = TREE_CHAIN (phi);
+	  remove_phi_node (phi, NULL_TREE, bb);
+	  phi = next;
+        }
+
+      remove_edge (bb->pred);
+    }
+
+  /* Remove edges to BB's successors.  */
+  while (bb->succ != NULL)
+    ssa_remove_edge (bb->succ);
+}
+
 /* Remove block BB and its statements from the flowgraph.  REMOVE_STMTS is
    nonzero if the statements in BB should also be removed.
 
@@ -1820,30 +1848,7 @@ remove_bb (basic_block bb, int remove_stmts)
   if (bb->end_tree_p)
     set_bb_for_stmt (*bb->end_tree_p, NULL);
 
-  /* Remove the edges into and out of this block.  */
-  while (bb->pred != NULL)
-    {
-      tree phi;
-
-      /* Since this block is no longer reachable, we can just delete all
-         of its PHI nodes.  */
-      phi = phi_nodes (bb);
-      while (phi)
-        {
-	  tree next = TREE_CHAIN (phi);
-	  remove_phi_node (phi, NULL_TREE, bb);
-	  phi = next;
-        }
-
-      remove_edge (bb->pred);
-    }
-
-  /* Remove edges to BB's successors.  */
-  while (bb->succ != NULL)
-    ssa_remove_edge (bb->succ);
-
-  bb->pred = NULL;
-  bb->succ = NULL;
+  remove_phi_nodes_and_edges_for_unreachable_block (bb);
 
   /* If we have pdom information, then we must also make sure to
      clean up the dominance information.  */

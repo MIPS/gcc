@@ -1,5 +1,11 @@
 2003-07-17  Jeff Law  <law@redhat.com>
 
+	* tree-flow.h (remove_phi_nodes_and_edges_for_unreachable_block):
+	Prototype.
+	* tree-cfg.c (remove_phi_nodes_and_edges_for_unreachable_block): New
+	function extracted from remove_bb.
+	(remove_bb): Call remove_phi_nodes_and_edges_for_unreachable_block.
+
 	* tree-ssa-dom.c (optimize_block): Propagate values into PHI nodes.
 	Do not optimize a block which has become unreachable.
 	If a COND_EXPR has a compile-time constant condition, then remove
