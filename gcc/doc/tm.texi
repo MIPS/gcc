@@ -622,6 +622,18 @@ The macro @code{STANDARD_STARTFILE_PREFIX}.
 @c prevent bad page break with this line
 Here are run-time target specifications.
 
+@deftypefn {Target Hook} void TARGET_REGISTER_CPP_BUILTINS (cpp_reader *@var{pfile})
+This macro expands to a target-specific function, called by the C
+family of front ends, that allows you to define preprocessor built-in
+macros and assertions at run-time.
+
+Pass the argument (a preprocessor handle) as the first argument to the
+functions @code{cpp_define} and @code{cpp_assert}, declared in
+@file{c-lex.h}.  The second argument is the same as the argument to
+the respective command-line option, for example @code{__mips__} for
+@code{cpp_define}, and @code{cpu=mips} for @code{cpp_assert}.
+@end deftypefn
+
 @table @code
 @findex CPP_PREDEFINES
 @item CPP_PREDEFINES
@@ -1504,19 +1516,11 @@ A C expression for the size in bits of the type @code{char} on the
 target machine.  If you don't define this, the default is
 @code{BITS_PER_UNIT}.
 
-@findex MAX_CHAR_TYPE_SIZE
-@item MAX_CHAR_TYPE_SIZE
-Maximum number for the size in bits of the type @code{char} on the
-target machine.  If this is undefined, the default is
-@code{CHAR_TYPE_SIZE}.  Otherwise, it is the constant value that is the
-largest value that @code{CHAR_TYPE_SIZE} can have at run-time.  This is
-used in @code{cpp}.
-
 @findex BOOL_TYPE_SIZE
 @item BOOL_TYPE_SIZE
-A C expression for the size in bits of the C++ type @code{bool} on the
-target machine.  If you don't define this, the default is
-@code{CHAR_TYPE_SIZE}.
+A C expression for the size in bits of the C++ type @code{bool} and
+C99 type @code{_Bool} on the target machine.  If you don't define
+this, and you probably shouldn't, the default is @code{CHAR_TYPE_SIZE}.
 
 @findex FLOAT_TYPE_SIZE
 @item FLOAT_TYPE_SIZE
@@ -5496,14 +5500,6 @@ cleanup of any actions done by the other scheduling hooks.  @var{file}
 is either a null pointer, or a stdio stream to write any debug output
 to.  @var{verbose} is the verbose level provided by
 @option{-fsched-verbose-@var{n}}.
-@end deftypefn
-
-@deftypefn {Target Hook} rtx TARGET_SCHED_CYCLE_DISPLAY (int @var{clock}, rtx @var{last})
-This hook is called in verbose mode only, at the beginning of each pass
-over a basic block.  It should insert an insn into the chain after
-@var{last}, which has no effect, but records the value @var{clock} in
-RTL dumps and assembly output.  Define this hook only if you need this
-level of detail about what the scheduler is doing.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE (void)

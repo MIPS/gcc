@@ -44,6 +44,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    to gradually reduce the amount of conditional compilation that is
    scattered throughout GCC.  */
 
+struct cpp_reader;
+
 struct gcc_target
 {
   /* Functions that output assembler for the target.  */
@@ -130,12 +132,6 @@ struct gcc_target
     int (* reorder)  PARAMS ((FILE *, int, rtx *, int *, int));
     int (* reorder2) PARAMS ((FILE *, int, rtx *, int *, int));
 
-    /* cycle_display is a pointer to a function which can emit
-       data into the assembly stream about the current cycle.
-       Arguments are CLOCK, the data to emit, and LAST, the last
-       insn in the new chain we're building.  Returns a new LAST.
-       The default is to do nothing.  */
-    rtx (* cycle_display) PARAMS ((int clock, rtx last));
     /* The following member value is a pointer to a function returning
        nonzero if we should use DFA based scheduling.  The default is
        to use the old pipeline scheduler.  */
@@ -203,6 +199,8 @@ struct gcc_target
   /* Return true if FNDECL (which has at least one machine attribute)
      can be inlined despite its machine attributes, false otherwise.  */
   bool (* function_attribute_inlinable_p) PARAMS ((tree fndecl));
+
+  void (* register_cpp_builtins) PARAMS ((struct cpp_reader *));
 
   /* Return true if bitfields in RECORD_TYPE should follow the
      Microsoft Visual C++ bitfield layout rules.  */

@@ -641,6 +641,7 @@ extern rtx emit_block_insn_before	PARAMS ((rtx, rtx, basic_block));
 
 /* In predict.c */
 extern void estimate_probability        PARAMS ((struct loops *));
+extern void note_prediction_to_br_prob	PARAMS ((void));
 extern void expected_value_to_br_prob	PARAMS ((void));
 extern void note_prediction_to_br_prob	PARAMS ((void));
 extern bool maybe_hot_bb_p		PARAMS ((basic_block));

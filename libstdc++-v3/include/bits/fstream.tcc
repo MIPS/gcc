@@ -48,19 +48,14 @@ namespace std
 	{
 	  _M_buf_size = _M_buf_size_opt;
 
-	  if (_M_buf_size != 1)
+	  // Allocate internal buffer.
+	  try { _M_buf = new char_type[_M_buf_size]; }
+	  catch(...) 
 	    {
-	      // Allocate internal buffer.
-	      try { _M_buf = new char_type[_M_buf_size]; }
-	      catch(...) 
-		{
-		  delete [] _M_buf;
-		  __throw_exception_again;
-		}
-	      _M_buf_allocated = true;
+	      delete [] _M_buf;
+	      __throw_exception_again;
 	    }
-	  else
-	    _M_buf = _M_unbuf;
+	  _M_buf_allocated = true;
 	}
     }
 
@@ -78,51 +73,14 @@ namespace std
 	  this->setg(NULL, NULL, NULL);
 	  this->setp(NULL, NULL);
 	}
-      else
-	{
-	  if (_M_buf == _M_unbuf)
-	    {
-	      _M_buf = NULL;
-	      this->setg(NULL, NULL, NULL);
-	      this->setp(NULL, NULL);
-	    }
-	}
     }
 
   template<typename _CharT, typename _Traits>
     basic_filebuf<_CharT, _Traits>::
-    basic_filebuf() 
-    : __streambuf_type(), _M_file(&_M_lock), _M_state_cur(__state_type()), 
-    _M_state_beg(__state_type()), _M_buf_allocated(false), 
-    _M_last_overflowed(false)
+    basic_filebuf() : __streambuf_type(), _M_file(&_M_lock), 
+    _M_state_cur(__state_type()), _M_state_beg(__state_type()), 
+    _M_buf_allocated(false), _M_last_overflowed(false)
     { _M_buf_unified = true; }
-
-  template<typename _CharT, typename _Traits>
-    basic_filebuf<_CharT, _Traits>::
-    basic_filebuf(__c_file* __f, ios_base::openmode __mode, int_type __s)
-    : __streambuf_type(),  _M_file(&_M_lock), _M_state_cur(__state_type()), 
-    _M_state_beg(__state_type()), _M_buf_allocated(false), 
-    _M_last_overflowed(false)
-    {
-      _M_buf_unified = true; 
-      _M_file.sys_open(__f, __mode);
-      if (this->is_open())
-	{
-	  _M_mode = __mode;
-	  if (__s)
-	    {
-	      _M_buf_size_opt = __s;
-	      _M_allocate_internal_buffer();
-	      _M_set_indeterminate();
-	    }
-	}
-    }
-
-  template<typename _CharT, typename _Traits>
-    int
-    basic_filebuf<_CharT, _Traits>::
-    fd()
-    { return _M_file.fd(); }
 
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::__filebuf_type* 
@@ -224,21 +182,6 @@ namespace std
 		return traits_type::to_int_type(*_M_in_cur);
 	    }
 
-	  // Check for unbuffered stream.
-	  if (_M_buf_size == 1)
-	    {
-	      int_type __c = _M_file.sys_getc();
-	      if (__c != __ret)
-		{
-		  __ret = __c;
-		  *_M_in_cur = traits_type::to_char_type(__c);
-		  _M_set_determinate(1);
-		  if (__testout)
-		    _M_out_cur = _M_in_cur;
-		}
-	      return __ret;
-	    }
-
 	  // Sync internal and external buffers.
 	  // NB: __testget -> __testput as _M_buf_unified here.
 	  bool __testget = _M_in_cur && _M_in_beg < _M_in_cur;
@@ -293,6 +236,14 @@ namespace std
 		  __ret = traits_type::to_int_type(*_M_in_cur);
 		  if (__bump)
 		    _M_in_cur_move(1);
+		  else if (_M_buf_size == 1)
+		    {
+		      // If we are synced with stdio, we have to unget the
+		      // character we just read so that the file pointer
+		      // doesn't move.
+		      _M_file.sys_ungetc(*_M_in_cur);
+		      _M_set_indeterminate();
+		    }
 		}	   
 	    }
 	}

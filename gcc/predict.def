@@ -112,4 +112,4 @@ DEF_PREDICTOR (PRED_CONST_RETURN, "const return", HITRATE (95), 0)
 DEF_PREDICTOR (PRED_NEGATIVE_RETURN, "negative return", HITRATE (96), 0)
 
 /* Branch ending with return; is probably not taken */
-DEF_PREDICTOR (PRED_NIL_RETURN, "nil return", HITRATE (90), 0)
+DEF_PREDICTOR (PRED_NULL_RETURN, "nil return", HITRATE (90), 0)

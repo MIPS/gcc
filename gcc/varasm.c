@@ -311,6 +311,7 @@ data_section ()
       in_section = in_data;
     }
 }
+
 /* Tell assembler to ALWAYS switch to data section, in case
    it's not sure where it is.  */
 
@@ -382,7 +383,7 @@ get_named_section_flags (section)
 {
   struct in_named_entry **slot;
 
-  slot = (struct in_named_entry**)
+  slot = (struct in_named_entry **)
     htab_find_slot_with_hash (in_named_htab, section,
 			      htab_hash_string (section), NO_INSERT);
 
@@ -390,7 +391,7 @@ get_named_section_flags (section)
 }
 
 /* Returns true if the section has been declared before.   Sets internal
-   flag on this section in in_named_hash so subsequent calls on this 
+   flag on this section in in_named_hash so subsequent calls on this
    section will return false.  */
 
 bool
@@ -399,15 +400,15 @@ named_section_first_declaration (name)
 {
   struct in_named_entry **slot;
 
-  slot = (struct in_named_entry**)
-    htab_find_slot_with_hash (in_named_htab, name, 
+  slot = (struct in_named_entry **)
+    htab_find_slot_with_hash (in_named_htab, name,
 			      htab_hash_string (name), NO_INSERT);
   if (! (*slot)->declared)
     {
       (*slot)->declared = true;
       return true;
     }
-  else 
+  else
     {
       return false;
     }
@@ -424,7 +425,7 @@ set_named_section_flags (section, flags)
 {
   struct in_named_entry **slot, *entry;
 
-  slot = (struct in_named_entry**)
+  slot = (struct in_named_entry **)
     htab_find_slot_with_hash (in_named_htab, section,
 			      htab_hash_string (section), INSERT);
   entry = *slot;
@@ -455,7 +456,7 @@ named_section_flags (name, flags)
       if (! set_named_section_flags (name, flags))
 	abort ();
 
-      (* targetm.asm_out.named_section) (name, flags);
+      (*targetm.asm_out.named_section) (name, flags);
 
       if (flags & SECTION_FORGET)
 	in_section = no_section;
@@ -685,9 +686,9 @@ default_exception_section ()
 
 void
 mergeable_string_section (decl, align, flags)
-  tree decl ATTRIBUTE_UNUSED;
-  unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
-  unsigned int flags ATTRIBUTE_UNUSED;
+     tree decl ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+     unsigned int flags ATTRIBUTE_UNUSED;
 {
 #ifdef HAVE_GAS_SHF_MERGE
   if (flag_merge_constants
@@ -718,7 +719,7 @@ mergeable_string_section (decl, align, flags)
 	  for (i = 0; i < len; i += unit)
 	    {
 	      for (j = 0; j < unit; j++)
-		if (str [i + j] != '\0')
+		if (str[i + j] != '\0')
 		  break;
 	      if (j == unit)
 		break;
@@ -754,15 +755,15 @@ mergeable_string_section (decl, align, flags)
     }
 #endif
   readonly_data_section ();
-}  
+}
 
 /* Tell assembler to switch to the section for constant merging.  */
 
 void
 mergeable_constant_section (mode, align, flags)
-  enum machine_mode mode ATTRIBUTE_UNUSED;
-  unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
-  unsigned int flags ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+     unsigned int flags ATTRIBUTE_UNUSED;
 {
 #ifdef HAVE_GAS_SHF_MERGE
   unsigned int modesize = GET_MODE_BITSIZE (mode);
@@ -781,7 +782,7 @@ mergeable_constant_section (mode, align, flags)
       flags |= (align / 8) | SECTION_MERGE;
       named_section_flags (name, flags);
       return;
-    }            
+    }
 #endif
   readonly_data_section ();
 }
@@ -790,7 +791,7 @@ mergeable_constant_section (mode, align, flags)
 
 static const char *
 strip_reg_name (name)
-  const char *name;
+     const char *name;
 {
 #ifdef REGISTER_PREFIX
   if (!strncmp (name, REGISTER_PREFIX, strlen (REGISTER_PREFIX)))
@@ -811,7 +812,7 @@ strip_reg_name (name)
 
 int
 decode_reg_name (asmspec)
-  const char *asmspec;
+     const char *asmspec;
 {
   if (asmspec != 0)
     {
@@ -1265,7 +1266,7 @@ assemble_start_function (decl, fnname)
     {
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
       ASM_OUTPUT_MAX_SKIP_ALIGN (asm_out_file,
-				 align_functions_log, align_functions-1);
+				 align_functions_log, align_functions - 1);
 #else
       ASM_OUTPUT_ALIGN (asm_out_file, align_functions_log);
 #endif
@@ -1435,7 +1436,7 @@ assemble_string (p, size)
 static void
 asm_emit_uninitialised (decl, name, size, rounded)
      tree decl;
-     const char * name;
+     const char *name;
      int size ATTRIBUTE_UNUSED;
      int rounded ATTRIBUTE_UNUSED;
 {
@@ -2548,7 +2549,7 @@ const_str_htab_eq (x, y)
 
 static void
 const_str_htab_del (dfsp)
-    void *dfsp;
+     void *dfsp;
 {
   free (dfsp);
 }
@@ -2840,7 +2841,7 @@ compare_constant_1 (exp, p)
 		  && TREE_CODE (TREE_PURPOSE (link)) == FIELD_DECL)
 		{
 		  if (memcmp ((char *) &TREE_PURPOSE (link), p,
-			    sizeof TREE_PURPOSE (link)))
+			      sizeof TREE_PURPOSE (link)))
 		    return 0;
 
 		  p += sizeof TREE_PURPOSE (link);
@@ -2901,7 +2902,7 @@ compare_constant_1 (exp, p)
 	tree new = (*lang_hooks.expand_constant) (exp);
 
 	if (new != exp)
-          return compare_constant_1 (new, p);
+	  return compare_constant_1 (new, p);
 	else
 	  return 0;
       }
@@ -2997,7 +2998,7 @@ record_constant_1 (exp)
 	  obstack_grow (&permanent_obstack, &nbytes, sizeof (nbytes));
 	  obstack_blank (&permanent_obstack, nbytes);
 	  get_set_constructor_bytes
-	    (exp, (unsigned char *) permanent_obstack.next_free-nbytes,
+	    (exp, (unsigned char *) permanent_obstack.next_free - nbytes,
 	     nbytes);
 	  return;
 	}
@@ -3115,7 +3116,7 @@ record_constant_1 (exp)
 	tree new = (*lang_hooks.expand_constant) (exp);
 
 	if (new != exp)
-          record_constant_1 (new);
+	  record_constant_1 (new);
 	return;
       }
     }
@@ -3693,16 +3694,16 @@ decode_rtx_const (mode, x, value)
 
   if (value->kind == RTX_INT && value->un.addr.base != 0
       && GET_CODE (value->un.addr.base) == UNSPEC)
-    {      
+    {
       /* For a simple UNSPEC, the base is set to the
 	 operand, the kind field is set to the index of
-	 the unspec expression. 
+	 the unspec expression.
 	 Together with the code below, in case that
-	 the operand is a SYMBOL_REF or LABEL_REF, 
-	 the address of the string or the code_label 
+	 the operand is a SYMBOL_REF or LABEL_REF,
+	 the address of the string or the code_label
 	 is taken as base.  */
       if (XVECLEN (value->un.addr.base, 0) == 1)
-        {
+	{
 	  value->kind = RTX_UNSPEC + XINT (value->un.addr.base, 1);
 	  value->un.addr.base = XVECEXP (value->un.addr.base, 0, 0);
 	}
@@ -3830,7 +3831,7 @@ mem_for_const_double (x)
 
   return 0;
 }
-  
+
 /* Given a constant rtx X, make (or find) a memory constant for its value
    and return a MEM rtx to refer to it in memory.  */
 
@@ -3859,7 +3860,7 @@ force_const_mem (mode, x)
   desc = record_constant_rtx (mode, x);
   desc->next = const_rtx_hash_table[hash];
   const_rtx_hash_table[hash] = desc;
-  
+
   /* Align the location counter as required by EXP's data type.  */
   align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
 #ifdef CONSTANT_ALIGNMENT
@@ -3888,7 +3889,7 @@ force_const_mem (mode, x)
     first_pool = pool;
   else
     last_pool->next = pool;
-  
+
   last_pool = pool;
   pool_offset += GET_MODE_SIZE (mode);
 
@@ -4006,8 +4007,8 @@ get_pool_size ()
 
 void
 output_constant_pool (fnname, fndecl)
-  const char *fnname ATTRIBUTE_UNUSED;
-  tree fndecl ATTRIBUTE_UNUSED;
+     const char *fnname ATTRIBUTE_UNUSED;
+     tree fndecl ATTRIBUTE_UNUSED;
 {
   struct pool_constant *pool;
   rtx x;
@@ -4117,7 +4118,7 @@ output_constant_pool (fnname, fndecl)
 	  }
 	  break;
 
-        case MODE_VECTOR_INT:
+	case MODE_VECTOR_INT:
 	  {
 	    int i, units;
 	    rtx elt;
@@ -4264,10 +4265,11 @@ mark_constant (current_rtx, data)
       if (CONSTANT_POOL_ADDRESS_P (x))
 	{
 	  struct pool_constant *pool = find_pool_constant (cfun, x);
-	  if (pool->mark == 0) {
-	    pool->mark = 1;
-	    for_each_rtx (&(pool->constant), &mark_constant, NULL);
-	  }
+	  if (pool->mark == 0)
+	    {
+	      pool->mark = 1;
+	      for_each_rtx (&(pool->constant), &mark_constant, NULL);
+	    }
 	  else
 	    return -1;
 	}
@@ -4341,7 +4343,7 @@ output_addressed_constants (exp)
     case CONSTRUCTOR:
       for (tem = CONSTRUCTOR_ELTS (exp); tem; tem = TREE_CHAIN (tem))
 	if (TREE_VALUE (tem) != 0)
-	    reloc |= output_addressed_constants (TREE_VALUE (tem));
+	  reloc |= output_addressed_constants (TREE_VALUE (tem));
 
       break;
 
@@ -4459,7 +4461,7 @@ initializer_constant_valid_p (value, endtype)
     case PLUS_EXPR:
       if (! INTEGRAL_TYPE_P (endtype)
 	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
-        {
+	{
 	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
 						      endtype);
 	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
@@ -4469,7 +4471,7 @@ initializer_constant_valid_p (value, endtype)
 	    return valid1;
 	  if (valid1 == null_pointer_node)
 	    return valid0;
-        }
+	}
       break;
 
     case MINUS_EXPR:
@@ -4676,7 +4678,7 @@ output_constant (exp, size, align)
       if (TREE_CODE (exp) == INTEGER_CST)
 	assemble_integer (expand_expr (exp, NULL_RTX,
 				       VOIDmode, EXPAND_INITIALIZER),
-			 thissize, align, 1);
+			  thissize, align, 1);
       else if (TREE_CODE (exp) == CONSTRUCTOR)
 	{
 	  unsigned char *buffer = (unsigned char *) alloca (thissize);
@@ -4718,7 +4720,7 @@ array_size_for_constructor (val)
     return TREE_STRING_LENGTH (val);
 
   max_index = NULL_TREE;
-  for (i = CONSTRUCTOR_ELTS (val); i ; i = TREE_CHAIN (i))
+  for (i = CONSTRUCTOR_ELTS (val); i; i = TREE_CHAIN (i))
     {
       tree index = TREE_PURPOSE (i);
 
@@ -5112,7 +5114,7 @@ weak_finish ()
 {
   tree t;
 
-  for (t = weak_decls; t ; t = TREE_CHAIN (t))
+  for (t = weak_decls; t; t = TREE_CHAIN (t))
     {
       tree decl = TREE_VALUE (t);
       const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
@@ -5156,12 +5158,13 @@ globalize_decl (decl)
 
       /* Remove this function from the pending weak list so that
 	 we do not emit multiple .weak directives for it.  */
-      for (p = &weak_decls; (t = *p) ; p = &TREE_CHAIN (t))
-	if (TREE_VALUE (t) == decl)
-	  {
+      for (p = &weak_decls; (t = *p) ; )
+	{
+	  if (DECL_ASSEMBLER_NAME (decl) == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
 	    *p = TREE_CHAIN (t);
-	    break;
-	  }
+	  else
+	    p = &TREE_CHAIN (t);
+	}
       return;
     }
 #endif
@@ -5295,7 +5298,7 @@ void
 init_varasm_once ()
 {
   const_str_htab = htab_create (128, const_str_htab_hash, const_str_htab_eq,
-  				const_str_htab_del);
+				const_str_htab_del);
   in_named_htab = htab_create (31, in_named_entry_hash,
 			       in_named_entry_eq, NULL);
 

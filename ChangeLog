@@ -1,3 +1,30 @@
+2002-05-06  Loren J. Rittle <ljrittle@acm.org>
+
+	* ltmain.sh: Detect and handle object name conflicts
+	while piecewise linking a static library.
+
+2002-05-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (noconfigdirs): Don't disable libgcj on
+	sparc64-*-solaris* and sparcv9-*-solaris*.
+
+2002-05-03  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in: Revert 2002-04-18's patch; fixed in libjava.
+
+2002-05-03  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* configure.in (FLAGS_FOR_TARGET): Do not add
+	-B$$r/$(TARGET_SUBDIR)/newlib/ when compiling newlib natively
+	on i[3456]86-*-linux*.
+
+2002-05-01  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* configure.in (noconfigdirs): Replace [ ] with test.
+
+	* configure.in (noconfigdirs): Do not add target-newlib if
+	target == i[3456]86-*-linux*, and host == target.
+
 2002-04-29  Nathanael Nerode  <neroden@doctormoo.dyndns.org>
 
 	* configure.in: delete reference to absent file

@@ -3145,7 +3145,7 @@ q_regs_operand (op, mode)
     return 0;
   if (GET_CODE (op) == SUBREG)
     op = SUBREG_REG (op);
-  return QI_REG_P (op);
+  return ANY_QI_REG_P (op);
 }
 
 /* Return true if op is a NON_Q_REGS class register.  */
@@ -8000,7 +8000,9 @@ ix86_expand_int_movcc (operands)
 	code = LTU;
       else
 	code = GEU;
-      ix86_compare_op1 = GEN_INT (INTVAL (ix86_compare_op1) + 1);
+      ix86_compare_op1
+	= gen_int_mode (INTVAL (ix86_compare_op1) + 1,
+			GET_MODE (ix86_compare_op0));
     }
 
   if (GET_MODE (ix86_compare_op0) == DImode && !TARGET_64BIT)
@@ -9259,6 +9261,9 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
     {
       rtx countreg2;
       rtx label = NULL;
+      int desired_alignment = (TARGET_PENTIUMPRO
+			       && (count == 0 || count >= (unsigned int) 260)
+			       ? 8 : UNITS_PER_WORD);
 
       /* In case we don't know anything about the alignment, default to
          library version, since it is usually equally fast and result in
@@ -9288,10 +9293,7 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
          This is quite costy.  Maybe we can revisit this decision later or
          add some customizability to this code.  */
 
-      if (count == 0
-	  && align < (TARGET_PENTIUMPRO && (count == 0
-					    || count >= (unsigned int) 260)
-		      ? 8 : UNITS_PER_WORD))
+      if (count == 0 && align < desired_alignment)
 	{
 	  label = gen_label_rtx ();
 	  emit_cmp_and_jump_insns (countreg, GEN_INT (UNITS_PER_WORD - 1),
@@ -9313,10 +9315,7 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
 	}
-      if (align <= 4
-	  && ((TARGET_PENTIUMPRO && (count == 0
-				     || count >= (unsigned int) 260))
-	      || TARGET_64BIT))
+      if (align <= 4 && desired_alignment > 4)
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 4);
 	  emit_insn (gen_strmovsi (destreg, srcreg));
@@ -9325,6 +9324,12 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
 	  LABEL_NUSES (label) = 1;
 	}
 
+      if (label && desired_alignment > 4 && !TARGET_64BIT)
+	{
+	  emit_label (label);
+	  LABEL_NUSES (label) = 1;
+	  label = NULL_RTX;
+	}
       if (!TARGET_SINGLE_STRINGOP)
 	emit_insn (gen_cld ());
       if (TARGET_64BIT)
@@ -9470,6 +9475,10 @@ ix86_expand_clrstr (src, count_exp, align_exp)
     {
       rtx countreg2;
       rtx label = NULL;
+      /* Compute desired alignment of the string operation.  */
+      int desired_alignment = (TARGET_PENTIUMPRO
+			       && (count == 0 || count >= (unsigned int) 260)
+			       ? 8 : UNITS_PER_WORD);
 
       /* In case we don't know anything about the alignment, default to
          library version, since it is usually equally fast and result in
@@ -9484,13 +9493,10 @@ ix86_expand_clrstr (src, count_exp, align_exp)
       countreg = copy_to_mode_reg (counter_mode, count_exp);
       zeroreg = copy_to_mode_reg (Pmode, const0_rtx);
 
-      if (count == 0
-	  && align < (TARGET_PENTIUMPRO && (count == 0
-					    || count >= (unsigned int) 260)
-		      ? 8 : UNITS_PER_WORD))
+      if (count == 0 && align < desired_alignment)
 	{
 	  label = gen_label_rtx ();
-	  emit_cmp_and_jump_insns (countreg, GEN_INT (UNITS_PER_WORD - 1),
+	  emit_cmp_and_jump_insns (countreg, GEN_INT (desired_alignment - 1),
 				   LEU, 0, counter_mode, 1, label);
 	}
       if (align <= 1)
@@ -9511,8 +9517,7 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
 	}
-      if (align <= 4 && TARGET_PENTIUMPRO && (count == 0
-					      || count >= (unsigned int) 260))
+      if (align <= 4 && desired_alignment > 4)
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 4);
 	  emit_insn (gen_strsetsi (destreg, (TARGET_64BIT
@@ -9521,6 +9526,13 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 	  ix86_adjust_counter (countreg, 4);
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
+	}
+
+      if (label && desired_alignment > 4 && !TARGET_64BIT)
+	{
+	  emit_label (label);
+	  LABEL_NUSES (label) = 1;
+	  label = NULL_RTX;
 	}
 
       if (!TARGET_SINGLE_STRINGOP)
@@ -9538,12 +9550,12 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 	  emit_insn (gen_rep_stossi (destreg, countreg2, zeroreg,
 				     destreg, countreg2));
 	}
-
       if (label)
 	{
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
 	}
+
       if (TARGET_64BIT && align > 4 && count != 0 && (count & 4))
 	emit_insn (gen_strsetsi (destreg,
 				 gen_rtx_SUBREG (SImode, zeroreg, 0)));
@@ -11185,10 +11197,10 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE2, CODE_FOR_sse2_umulsidi3, "__builtin_ia32_pmuludq", IX86_BUILTIN_PMULUDQ, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_umulv2siv2di3, "__builtin_ia32_pmuludq128", IX86_BUILTIN_PMULUDQ128, 0, 0 },
 
-  { MASK_SSE2, CODE_FOR_sse2_andti3, "__builtin_ia32_pand128", IX86_BUILTIN_PAND128, 0, 0 },
-  { MASK_SSE2, CODE_FOR_sse2_nandti3, "__builtin_ia32_pandn128", IX86_BUILTIN_PANDN128, 0, 0 },
-  { MASK_SSE2, CODE_FOR_sse2_iorti3, "__builtin_ia32_por128", IX86_BUILTIN_POR128, 0, 0 },
-  { MASK_SSE2, CODE_FOR_sse2_xorti3, "__builtin_ia32_pxor128", IX86_BUILTIN_PXOR128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_andv2di3, "__builtin_ia32_pand128", IX86_BUILTIN_PAND128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_nandv2di3, "__builtin_ia32_pandn128", IX86_BUILTIN_PANDN128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_iorv2di3, "__builtin_ia32_por128", IX86_BUILTIN_POR128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_xorv2di3, "__builtin_ia32_pxor128", IX86_BUILTIN_PXOR128, 0, 0 },
 
   { MASK_SSE2, CODE_FOR_sse2_uavgv16qi3, "__builtin_ia32_pavgb128", IX86_BUILTIN_PAVGB128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_uavgv8hi3, "__builtin_ia32_pavgw128", IX86_BUILTIN_PAVGW128, 0, 0 },
@@ -11211,6 +11223,34 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE2, CODE_FOR_sse2_punpcklbw, "__builtin_ia32_punpcklbw128", IX86_BUILTIN_PUNPCKLBW128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_punpcklwd, "__builtin_ia32_punpcklwd128", IX86_BUILTIN_PUNPCKLWD128, 0, 0 },
   { MASK_SSE2, CODE_FOR_sse2_punpckldq, "__builtin_ia32_punpckldq128", IX86_BUILTIN_PUNPCKLDQ128, 0, 0 },
+
+  { MASK_SSE2, CODE_FOR_sse2_packsswb, "__builtin_ia32_packsswb128", IX86_BUILTIN_PACKSSWB128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_packssdw, "__builtin_ia32_packssdw128", IX86_BUILTIN_PACKSSDW128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_packuswb, "__builtin_ia32_packuswb128", IX86_BUILTIN_PACKUSWB128, 0, 0 },
+
+  { MASK_SSE2, CODE_FOR_umulv8hi3_highpart, "__builtin_ia32_pmulhuw128", IX86_BUILTIN_PMULHUW128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_sse2_psadbw, 0, IX86_BUILTIN_PSADBW128, 0, 0 },
+
+  { MASK_SSE2, CODE_FOR_ashlv8hi3_ti, 0, IX86_BUILTIN_PSLLW128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_ashlv8hi3, 0, IX86_BUILTIN_PSLLWI128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_ashlv4si3_ti, 0, IX86_BUILTIN_PSLLD128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_ashlv4si3, 0, IX86_BUILTIN_PSLLDI128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_ashlv2di3_ti, 0, IX86_BUILTIN_PSLLQ128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_ashlv2di3, 0, IX86_BUILTIN_PSLLQI128, 0, 0 },
+
+  { MASK_SSE2, CODE_FOR_lshrv8hi3_ti, 0, IX86_BUILTIN_PSRLW128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_lshrv8hi3, 0, IX86_BUILTIN_PSRLWI128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_lshrv4si3_ti, 0, IX86_BUILTIN_PSRLD128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_lshrv4si3, 0, IX86_BUILTIN_PSRLDI128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_lshrv2di3_ti, 0, IX86_BUILTIN_PSRLQ128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_lshrv2di3, 0, IX86_BUILTIN_PSRLQI128, 0, 0 },
+
+  { MASK_SSE2, CODE_FOR_ashrv8hi3_ti, 0, IX86_BUILTIN_PSRAW128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_ashrv8hi3, 0, IX86_BUILTIN_PSRAWI128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_ashrv4si3_ti, 0, IX86_BUILTIN_PSRAD128, 0, 0 },
+  { MASK_SSE2, CODE_FOR_ashrv4si3, 0, IX86_BUILTIN_PSRADI128, 0, 0 },
+
+  { MASK_SSE2, CODE_FOR_sse2_pmaddwd, 0, IX86_BUILTIN_PMADDWD128, 0, 0 },
 
   { MASK_SSE2, CODE_FOR_cvtsi2sd, 0, IX86_BUILTIN_CVTSI2SD, 0, 0 },
   { MASK_SSE2, CODE_FOR_cvtsd2ss, 0, IX86_BUILTIN_CVTSD2SS, 0, 0 },
@@ -11276,6 +11316,7 @@ ix86_init_mmx_sse_builtins ()
   tree pchar_type_node = build_pointer_type (char_type_node);
   tree pfloat_type_node = build_pointer_type (float_type_node);
   tree pv2si_type_node = build_pointer_type (V2SI_type_node);
+  tree pv2di_type_node = build_pointer_type (V2DI_type_node);
   tree pdi_type_node = build_pointer_type (long_long_unsigned_type_node);
 
   /* Comparisons.  */
@@ -11340,11 +11381,6 @@ ix86_init_mmx_sse_builtins ()
 						 tree_cons (NULL_TREE,
 							    integer_type_node,
 							    endlink))));
-  tree v4hi_ftype_v8qi_v8qi
-    = build_function_type (V4HI_type_node,
-			   tree_cons (NULL_TREE, V8QI_type_node,
-				      tree_cons (NULL_TREE, V8QI_type_node,
-						 endlink)));
   tree v2si_ftype_v4hi_v4hi
     = build_function_type (V2SI_type_node,
 			   tree_cons (NULL_TREE, V4HI_type_node,
@@ -11416,6 +11452,12 @@ ix86_init_mmx_sse_builtins ()
 			   tree_cons (NULL_TREE, pdi_type_node,
 				      tree_cons (NULL_TREE,
 						 long_long_unsigned_type_node,
+						 endlink)));
+  tree void_ftype_pv2di_v2di
+    = build_function_type (void_type_node,
+			   tree_cons (NULL_TREE, pv2di_type_node,
+				      tree_cons (NULL_TREE,
+						 V2DI_type_node,
 						 endlink)));
   /* Normal vector unops.  */
   tree v4sf_ftype_v4sf
@@ -11635,6 +11677,11 @@ ix86_init_mmx_sse_builtins ()
 						 tree_cons (NULL_TREE,
 							    integer_type_node,
 							    endlink))));
+  tree v2di_ftype_v2di_int
+    = build_function_type (V2DI_type_node,
+			   tree_cons (NULL_TREE, V2DI_type_node,
+				      tree_cons (NULL_TREE, integer_type_node,
+						 endlink)));
   tree v4si_ftype_v4si_int
     = build_function_type (V4SI_type_node,
 			   tree_cons (NULL_TREE, V4SI_type_node,
@@ -11645,6 +11692,34 @@ ix86_init_mmx_sse_builtins ()
 			   tree_cons (NULL_TREE, V8HI_type_node,
 				      tree_cons (NULL_TREE, integer_type_node,
 						 endlink)));
+  tree v8hi_ftype_v8hi_v2di
+    = build_function_type (V8HI_type_node,
+			   tree_cons (NULL_TREE, V8HI_type_node,
+				      tree_cons (NULL_TREE, V2DI_type_node,
+						 endlink)));
+  tree v4si_ftype_v4si_v2di
+    = build_function_type (V4SI_type_node,
+			   tree_cons (NULL_TREE, V4SI_type_node,
+				      tree_cons (NULL_TREE, V2DI_type_node,
+						 endlink)));
+  tree v4si_ftype_v8hi_v8hi
+    = build_function_type (V4SI_type_node,
+			   tree_cons (NULL_TREE, V8HI_type_node,
+				      tree_cons (NULL_TREE, V8HI_type_node,
+						 endlink)));
+  tree di_ftype_v8qi_v8qi
+    = build_function_type (long_long_unsigned_type_node,
+			   tree_cons (NULL_TREE, V8QI_type_node,
+				      tree_cons (NULL_TREE, V8QI_type_node,
+						 endlink)));
+  tree v2di_ftype_v16qi_v16qi
+    = build_function_type (V2DI_type_node,
+			   tree_cons (NULL_TREE, V16QI_type_node,
+				      tree_cons (NULL_TREE, V16QI_type_node,
+						 endlink)));
+  tree int_ftype_v16qi
+    = build_function_type (integer_type_node,
+			   tree_cons (NULL_TREE, V16QI_type_node, endlink));
 
   /* Add all builtins that are more or less simple operations on two
      operands.  */
@@ -11781,7 +11856,7 @@ ix86_init_mmx_sse_builtins ()
 
   def_builtin (MASK_SSE1 | MASK_3DNOW_A, "__builtin_ia32_sfence", void_ftype_void, IX86_BUILTIN_SFENCE);
 
-  def_builtin (MASK_SSE1 | MASK_3DNOW_A, "__builtin_ia32_psadbw", v4hi_ftype_v8qi_v8qi, IX86_BUILTIN_PSADBW);
+  def_builtin (MASK_SSE1 | MASK_3DNOW_A, "__builtin_ia32_psadbw", di_ftype_v8qi_v8qi, IX86_BUILTIN_PSADBW);
 
   def_builtin (MASK_SSE1, "__builtin_ia32_rcpps", v4sf_ftype_v4sf, IX86_BUILTIN_RCPPS);
   def_builtin (MASK_SSE1, "__builtin_ia32_rcpss", v4sf_ftype_v4sf, IX86_BUILTIN_RCPSS);
@@ -11844,15 +11919,15 @@ ix86_init_mmx_sse_builtins ()
   def_builtin (MASK_SSE2, "__builtin_ia32_storelpd", void_ftype_pv2si_v2df, IX86_BUILTIN_STORELPD);
 
   def_builtin (MASK_SSE2, "__builtin_ia32_movmskpd", int_ftype_v2df, IX86_BUILTIN_MOVMSKPD);
-  def_builtin (MASK_SSE2, "__builtin_ia32_pmovmskb128", int_ftype_v8qi, IX86_BUILTIN_PMOVMSKB128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_pmovmskb128", int_ftype_v16qi, IX86_BUILTIN_PMOVMSKB128);
   def_builtin (MASK_SSE2, "__builtin_ia32_movnti", void_ftype_pint_int, IX86_BUILTIN_MOVNTI);
   def_builtin (MASK_SSE2, "__builtin_ia32_movntpd", void_ftype_pdouble_v2df, IX86_BUILTIN_MOVNTPD);
-  def_builtin (MASK_SSE2, "__builtin_ia32_movntdq", void_ftype_pdi_di, IX86_BUILTIN_MOVNTDQ);
+  def_builtin (MASK_SSE2, "__builtin_ia32_movntdq", void_ftype_pv2di_v2di, IX86_BUILTIN_MOVNTDQ);
 
   def_builtin (MASK_SSE2, "__builtin_ia32_pshufd", v4si_ftype_v4si_int, IX86_BUILTIN_PSHUFD);
   def_builtin (MASK_SSE2, "__builtin_ia32_pshuflw", v8hi_ftype_v8hi_int, IX86_BUILTIN_PSHUFLW);
   def_builtin (MASK_SSE2, "__builtin_ia32_pshufhw", v8hi_ftype_v8hi_int, IX86_BUILTIN_PSHUFHW);
-  def_builtin (MASK_SSE2, "__builtin_ia32_psadbw128", v4hi_ftype_v8qi_v8qi, IX86_BUILTIN_PSADBW128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_psadbw128", v2di_ftype_v16qi_v16qi, IX86_BUILTIN_PSADBW128);
 
   def_builtin (MASK_SSE2, "__builtin_ia32_sqrtpd", v2df_ftype_v2df, IX86_BUILTIN_SQRTPD);
   def_builtin (MASK_SSE2, "__builtin_ia32_sqrtsd", v2df_ftype_v2df, IX86_BUILTIN_SQRTSD);
@@ -11860,7 +11935,7 @@ ix86_init_mmx_sse_builtins ()
   def_builtin (MASK_SSE2, "__builtin_ia32_shufpd", v2df_ftype_v2df_v2df_int, IX86_BUILTIN_SHUFPD);
 
   def_builtin (MASK_SSE2, "__builtin_ia32_cvtdq2pd", v2df_ftype_v4si, IX86_BUILTIN_CVTDQ2PD);
-  def_builtin (MASK_SSE2, "__builtin_ia32_cvtdq2ps", v4sf_ftype_v4si, IX86_BUILTIN_CVTDQ2PD);
+  def_builtin (MASK_SSE2, "__builtin_ia32_cvtdq2ps", v4sf_ftype_v4si, IX86_BUILTIN_CVTDQ2PS);
 
   def_builtin (MASK_SSE2, "__builtin_ia32_cvtpd2dq", v4si_ftype_v2df, IX86_BUILTIN_CVTPD2DQ);
   def_builtin (MASK_SSE2, "__builtin_ia32_cvtpd2pi", v2si_ftype_v2df, IX86_BUILTIN_CVTPD2PI);
@@ -11892,6 +11967,30 @@ ix86_init_mmx_sse_builtins ()
   def_builtin (MASK_SSE2, "__builtin_ia32_clflush", void_ftype_pvoid, IX86_BUILTIN_CLFLUSH);
   def_builtin (MASK_SSE2, "__builtin_ia32_lfence", void_ftype_void, IX86_BUILTIN_LFENCE);
   def_builtin (MASK_SSE2, "__builtin_ia32_mfence", void_ftype_void, IX86_BUILTIN_MFENCE);
+
+  def_builtin (MASK_SSE2, "__builtin_ia32_psllw128", v8hi_ftype_v8hi_v2di, IX86_BUILTIN_PSLLW128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_pslld128", v4si_ftype_v4si_v2di, IX86_BUILTIN_PSLLD128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_psllq128", v2di_ftype_v2di_v2di, IX86_BUILTIN_PSLLQ128);
+
+  def_builtin (MASK_SSE2, "__builtin_ia32_psrlw128", v8hi_ftype_v8hi_v2di, IX86_BUILTIN_PSRLW128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_psrld128", v4si_ftype_v4si_v2di, IX86_BUILTIN_PSRLD128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_psrlq128", v2di_ftype_v2di_v2di, IX86_BUILTIN_PSRLQ128);
+
+  def_builtin (MASK_SSE2, "__builtin_ia32_psraw128", v8hi_ftype_v8hi_v2di, IX86_BUILTIN_PSRAW128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_psrad128", v4si_ftype_v4si_v2di, IX86_BUILTIN_PSRAD128);
+
+  def_builtin (MASK_SSE2, "__builtin_ia32_psllwi128", v8hi_ftype_v8hi_int, IX86_BUILTIN_PSLLWI128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_pslldi128", v4si_ftype_v4si_int, IX86_BUILTIN_PSLLDI128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_psllqi128", v2di_ftype_v2di_int, IX86_BUILTIN_PSLLQI128);
+
+  def_builtin (MASK_SSE2, "__builtin_ia32_psrlwi128", v8hi_ftype_v8hi_int, IX86_BUILTIN_PSRLWI128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_psrldi128", v4si_ftype_v4si_int, IX86_BUILTIN_PSRLDI128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_psrlqi128", v2di_ftype_v2di_int, IX86_BUILTIN_PSRLQI128);
+
+  def_builtin (MASK_SSE2, "__builtin_ia32_psrawi128", v8hi_ftype_v8hi_int, IX86_BUILTIN_PSRAWI128);
+  def_builtin (MASK_SSE2, "__builtin_ia32_psradi128", v4si_ftype_v4si_int, IX86_BUILTIN_PSRADI128);
+
+  def_builtin (MASK_SSE2, "__builtin_ia32_pmaddwd128", v4si_ftype_v8hi_v8hi, IX86_BUILTIN_PMADDWD128);
 }
 
 /* Errors in the source file can cause expand_expr to return const0_rtx
@@ -12687,7 +12786,7 @@ ix86_expand_builtin (exp, target, subtarget, mode, ignore)
     case IX86_BUILTIN_MOVNTPD:
       return ix86_expand_store_builtin (CODE_FOR_sse2_movntv2df, arglist);
     case IX86_BUILTIN_MOVNTDQ:
-      return ix86_expand_store_builtin (CODE_FOR_sse2_movntti, arglist);
+      return ix86_expand_store_builtin (CODE_FOR_sse2_movntv2di, arglist);
     case IX86_BUILTIN_MOVNTI:
       return ix86_expand_store_builtin (CODE_FOR_sse2_movntsi, arglist);
 

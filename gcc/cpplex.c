@@ -80,7 +80,7 @@ static void save_comment PARAMS ((cpp_reader *, cpp_token *, const uchar *,
 				  cppchar_t));
 static int name_p PARAMS ((cpp_reader *, const cpp_string *));
 static int maybe_read_ucs PARAMS ((cpp_reader *, const unsigned char **,
-				   const unsigned char *, unsigned int *));
+				   const unsigned char *, cppchar_t *));
 static tokenrun *next_tokenrun PARAMS ((tokenrun *));
 
 static unsigned int hex_digit_value PARAMS ((unsigned int));
@@ -695,7 +695,7 @@ parse_string (pfile, token, terminator)
 	unterminated:
 	  if (CPP_OPTION (pfile, lang) != CLK_ASM || terminator == '>')
 	    cpp_error (pfile, DL_ERROR, "missing terminating %c character",
-		       terminator);
+		       (int) terminator);
 	  buffer->cur--;
 	  break;
 	}
@@ -763,7 +763,7 @@ save_comment (pfile, token, from, type)
   buffer[0] = '/';
   memcpy (buffer + 1, from, len - 1);
 
-  /* Finish conversion to a C comment, if necessary. */
+  /* Finish conversion to a C comment, if necessary.  */
   if (pfile->state.in_directive && type == '/')
     {
       buffer[1] = '*';
@@ -1648,7 +1648,7 @@ maybe_read_ucs (pfile, pstr, limit, pc)
      cpp_reader *pfile;
      const unsigned char **pstr;
      const unsigned char *limit;
-     unsigned int *pc;
+     cppchar_t *pc;
 {
   const unsigned char *p = *pstr;
   unsigned int code = 0;
@@ -1710,23 +1710,33 @@ maybe_read_ucs (pfile, pstr, limit, pc)
   return 0;
 }
 
-/* Interpret an escape sequence, and return its value.  PSTR points to
-   the input pointer, which is just after the backslash.  LIMIT is how
-   much text we have.  MASK is a bitmask for the precision for the
-   destination type (char or wchar_t).
-
-   Handles all relevant diagnostics.  */
-unsigned int
-cpp_parse_escape (pfile, pstr, limit, mask)
+/* Returns the value of an escape sequence, truncated to the correct
+   target precision.  PSTR points to the input pointer, which is just
+   after the backslash.  LIMIT is how much text we have.  WIDE is true
+   if the escape sequence is part of a wide character constant or
+   string literal.  Handles all relevant diagnostics.  */
+cppchar_t
+cpp_parse_escape (pfile, pstr, limit, wide)
      cpp_reader *pfile;
      const unsigned char **pstr;
      const unsigned char *limit;
-     unsigned HOST_WIDE_INT mask;
+     int wide;
 {
   int unknown = 0;
   const unsigned char *str = *pstr;
-  unsigned int c = *str++;
+  cppchar_t c, mask;
+  unsigned int width;
 
+  if (wide)
+    width = CPP_OPTION (pfile, wchar_precision);
+  else
+    width = CPP_OPTION (pfile, char_precision);
+  if (width < BITS_PER_CPPCHAR_T)
+    mask = ((cppchar_t) 1 << width) - 1;
+  else
+    mask = ~0;
+
+  c = *str++;
   switch (c)
     {
     case '\\': case '\'': case '"': case '?': break;
@@ -1753,7 +1763,7 @@ cpp_parse_escape (pfile, pstr, limit, mask)
     case 'e': case 'E':
       if (CPP_PEDANTIC (pfile))
 	cpp_error (pfile, DL_PEDWARN,
-		   "non-ISO-standard escape sequence, '\\%c'", c);
+		   "non-ISO-standard escape sequence, '\\%c'", (int) c);
       c = TARGET_ESC;
       break;
       
@@ -1767,7 +1777,7 @@ cpp_parse_escape (pfile, pstr, limit, mask)
 		   "the meaning of '\\x' is different in traditional C");
 
 	{
-	  unsigned int i = 0, overflow = 0;
+	  cppchar_t i = 0, overflow = 0;
 	  int digits_found = 0;
 
 	  while (str < limit)
@@ -1798,8 +1808,8 @@ cpp_parse_escape (pfile, pstr, limit, mask)
     case '0':  case '1':  case '2':  case '3':
     case '4':  case '5':  case '6':  case '7':
       {
-	unsigned int i = c - '0';
-	int count = 0;
+	size_t count = 0;
+	cppchar_t i = c - '0';
 
 	while (str < limit && ++count < 3)
 	  {
@@ -1828,42 +1838,40 @@ cpp_parse_escape (pfile, pstr, limit, mask)
   if (unknown)
     {
       if (ISGRAPH (c))
-	cpp_error (pfile, DL_PEDWARN, "unknown escape sequence '\\%c'", c);
+	cpp_error (pfile, DL_PEDWARN,
+		   "unknown escape sequence '\\%c'", (int) c);
       else
-	cpp_error (pfile, DL_PEDWARN, "unknown escape sequence: '\\%03o'", c);
+	cpp_error (pfile, DL_PEDWARN,
+		   "unknown escape sequence: '\\%03o'", (int) c);
     }
 
   if (c > mask)
-    cpp_error (pfile, DL_PEDWARN, "escape sequence out of range for type");
+    {
+      cpp_error (pfile, DL_PEDWARN, "escape sequence out of range for its type");
+      c &= mask;
+    }
 
   *pstr = str;
   return c;
 }
 
-#ifndef MAX_CHAR_TYPE_SIZE
-#define MAX_CHAR_TYPE_SIZE CHAR_TYPE_SIZE
-#endif
-
-#ifndef MAX_WCHAR_TYPE_SIZE
-#define MAX_WCHAR_TYPE_SIZE WCHAR_TYPE_SIZE
-#endif
-
 /* Interpret a (possibly wide) character constant in TOKEN.
-   WARN_MULTI warns about multi-character charconsts.  PCHARS_SEEN points
-   to a variable that is filled in with the number of characters seen.  */
-HOST_WIDE_INT
-cpp_interpret_charconst (pfile, token, warn_multi, pchars_seen)
+   WARN_MULTI warns about multi-character charconsts.  PCHARS_SEEN
+   points to a variable that is filled in with the number of
+   characters seen, and UNSIGNEDP to a variable that indicates whether
+   the result has signed type.  */
+cppchar_t
+cpp_interpret_charconst (pfile, token, pchars_seen, unsignedp)
      cpp_reader *pfile;
      const cpp_token *token;
-     int warn_multi;
      unsigned int *pchars_seen;
+     int *unsignedp;
 {
   const unsigned char *str = token->val.str.text;
   const unsigned char *limit = str + token->val.str.len;
   unsigned int chars_seen = 0;
-  unsigned int width, max_chars, c;
-  unsigned HOST_WIDE_INT mask;
-  HOST_WIDE_INT result = 0;
+  size_t width, max_chars;
+  cppchar_t c, mask, result = 0;
   bool unsigned_p;
 
 #ifdef MULTIBYTE_CHARS
@@ -1873,20 +1881,21 @@ cpp_interpret_charconst (pfile, token, warn_multi, pchars_seen)
   /* Width in bits.  */
   if (token->type == CPP_CHAR)
     {
-      width = MAX_CHAR_TYPE_SIZE;
-      unsigned_p = CPP_OPTION (pfile, signed_char) == 0;
+      width = CPP_OPTION (pfile, char_precision);
+      max_chars = CPP_OPTION (pfile, int_precision) / width;
+      unsigned_p = CPP_OPTION (pfile, unsigned_char);
     }
   else
     {
-      width = MAX_WCHAR_TYPE_SIZE;
-      unsigned_p = WCHAR_UNSIGNED;
+      width = CPP_OPTION (pfile, wchar_precision);
+      max_chars = 1;
+      unsigned_p = CPP_OPTION (pfile, unsigned_wchar);
     }
 
-  if (width < HOST_BITS_PER_WIDE_INT)
-    mask = ((unsigned HOST_WIDE_INT) 1 << width) - 1;
+  if (width < BITS_PER_CPPCHAR_T)
+    mask = ((cppchar_t) 1 << width) - 1;
   else
     mask = ~0;
-  max_chars = HOST_BITS_PER_WIDE_INT / width;
 
   while (str < limit)
     {
@@ -1911,46 +1920,54 @@ cpp_interpret_charconst (pfile, token, warn_multi, pchars_seen)
 #endif
 
       if (c == '\\')
-	c = cpp_parse_escape (pfile, &str, limit, mask);
+	c = cpp_parse_escape (pfile, &str, limit, token->type == CPP_WCHAR);
 
 #ifdef MAP_CHARACTER
       if (ISPRINT (c))
 	c = MAP_CHARACTER (c);
 #endif
       
-      /* Merge character into result; ignore excess chars.  */
-      if (++chars_seen <= max_chars)
-	{
-	  if (width < HOST_BITS_PER_WIDE_INT)
-	    result = (result << width) | (c & mask);
-	  else
-	    result = c;
-	}
+      chars_seen++;
+
+      /* Truncate the character, scale the result and merge the two.  */
+      c &= mask;
+      if (width < BITS_PER_CPPCHAR_T)
+	result = (result << width) | c;
+      else
+	result = c;
     }
 
   if (chars_seen == 0)
     cpp_error (pfile, DL_ERROR, "empty character constant");
-  else if (chars_seen > max_chars)
+  else if (chars_seen > 1)
     {
-      chars_seen = max_chars;
-      cpp_error (pfile, DL_WARNING, "character constant too long");
+      /* Multichar charconsts are of type int and therefore signed.  */
+      unsigned_p = 0;
+
+      if (chars_seen > max_chars)
+	{
+	  chars_seen = max_chars;
+	  cpp_error (pfile, DL_WARNING,
+		     "character constant too long for its type");
+	}
+      else if (CPP_OPTION (pfile, warn_multichar))
+	cpp_error (pfile, DL_WARNING, "multi-character character constant");
     }
-  else if (chars_seen > 1 && warn_multi)
-    cpp_error (pfile, DL_WARNING, "multi-character character constant");
 
-  /* If relevant type is signed, sign-extend the constant.  */
-  if (chars_seen)
+  /* Sign-extend the constant.  */
+  if (!unsigned_p)
     {
-      unsigned int nbits = chars_seen * width;
+      size_t precision = width;
 
-      mask = (unsigned HOST_WIDE_INT) ~0 >> (HOST_BITS_PER_WIDE_INT - nbits);
-      if (unsigned_p || ((result >> (nbits - 1)) & 1) == 0)
-	result &= mask;
-      else
-	result |= ~mask;
+      if (chars_seen > 1)
+	precision *= max_chars;
+      if (precision < BITS_PER_CPPCHAR_T
+	  && (result & ((cppchar_t) 1 << (precision - 1))))
+	result |= ~(((cppchar_t) 1 << precision) - 1);
     }
 
   *pchars_seen = chars_seen;
+  *unsignedp = unsigned_p;
   return result;
 }
 

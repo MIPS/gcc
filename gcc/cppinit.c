@@ -487,20 +487,26 @@ cpp_create_reader (lang)
 
   set_lang (pfile, lang);
   CPP_OPTION (pfile, warn_import) = 1;
+  CPP_OPTION (pfile, warn_multichar) = 1;
   CPP_OPTION (pfile, discard_comments) = 1;
   CPP_OPTION (pfile, discard_comments_in_macro_exp) = 1;
   CPP_OPTION (pfile, show_column) = 1;
   CPP_OPTION (pfile, tabstop) = 8;
   CPP_OPTION (pfile, operator_names) = 1;
   CPP_OPTION (pfile, warn_endif_labels) = 1;
-#if DEFAULT_SIGNED_CHAR
-  CPP_OPTION (pfile, signed_char) = 1;
-#else
-  CPP_OPTION (pfile, signed_char) = 0;
-#endif
 
   CPP_OPTION (pfile, pending) =
     (struct cpp_pending *) xcalloc (1, sizeof (struct cpp_pending));
+
+  /* Default CPP arithmetic to something sensible for the host for the
+     benefit of dumb users like fix-header.  */
+#define BITS_PER_HOST_WIDEST_INT (CHAR_BIT * sizeof (HOST_WIDEST_INT))
+  CPP_OPTION (pfile, precision) = BITS_PER_HOST_WIDEST_INT;
+  CPP_OPTION (pfile, char_precision) = CHAR_BIT;
+  CPP_OPTION (pfile, wchar_precision) = CHAR_BIT * sizeof (int);
+  CPP_OPTION (pfile, int_precision) = CHAR_BIT * sizeof (int);
+  CPP_OPTION (pfile, unsigned_char) = !DEFAULT_SIGNED_CHAR;
+  CPP_OPTION (pfile, unsigned_wchar) = 1;
 
   /* It's simplest to just create this struct whether or not it will
      be needed.  */
@@ -760,13 +766,8 @@ init_builtins (pfile)
     }
 
   if (CPP_OPTION (pfile, cplusplus))
-    {
-      _cpp_define_builtin (pfile, "__cplusplus 1");
-      if (SUPPORTS_ONE_ONLY)
-	_cpp_define_builtin (pfile, "__GXX_WEAK__ 1");
-      else
-	_cpp_define_builtin (pfile, "__GXX_WEAK__ 0");
-    }
+    _cpp_define_builtin (pfile, "__cplusplus 1");
+
   if (CPP_OPTION (pfile, objc))
     _cpp_define_builtin (pfile, "__OBJC__ 1");
 
@@ -775,7 +776,7 @@ init_builtins (pfile)
   else if (CPP_OPTION (pfile, c99))
     _cpp_define_builtin (pfile, "__STDC_VERSION__ 199901L");
 
-  if (CPP_OPTION (pfile, signed_char) == 0)
+  if (CPP_OPTION (pfile, unsigned_char))
     _cpp_define_builtin (pfile, "__CHAR_UNSIGNED__ 1");
 
   if (CPP_OPTION (pfile, lang) == CLK_STDC89
@@ -784,6 +785,9 @@ init_builtins (pfile)
     _cpp_define_builtin (pfile, "__STRICT_ANSI__ 1");
   else if (CPP_OPTION (pfile, lang) == CLK_ASM)
     _cpp_define_builtin (pfile, "__ASSEMBLER__ 1");
+
+  if (pfile->cb.register_builtins)
+    (*pfile->cb.register_builtins) (pfile);
 }
 #undef BUILTIN
 #undef OPERATOR
@@ -916,6 +920,50 @@ free_chain (head)
     }
 }
 
+/* Sanity-checks are dependent on command-line options, so it is
+   called as a subroutine of cpp_read_main_file ().  */
+#if ENABLE_CHECKING
+static void sanity_checks PARAMS ((cpp_reader *));
+static void sanity_checks (pfile)
+     cpp_reader *pfile;
+{
+  cppchar_t test = 0;
+
+  /* Sanity checks for assumptions about CPP arithmetic and target
+     type precisions made by cpplib.  */
+  test--;
+  if (test < 1)
+    cpp_error (pfile, DL_FATAL, "cppchar_t must be an unsigned type");
+
+  if (CPP_OPTION (pfile, precision) > BITS_PER_HOST_WIDEST_INT)
+    cpp_error (pfile, DL_FATAL,
+	       "preprocessor arithmetic has maximum precision of %u bits; target requires %u bits",
+	       BITS_PER_HOST_WIDEST_INT, CPP_OPTION (pfile, precision));
+
+  if (CPP_OPTION (pfile, precision) < CPP_OPTION (pfile, int_precision))
+    cpp_error (pfile, DL_FATAL,
+	       "CPP arithmetic must be at least as precise as a target int");
+
+  if (CPP_OPTION (pfile, char_precision) < 8)
+    cpp_error (pfile, DL_FATAL, "target char is less than 8 bits wide");
+
+  if (CPP_OPTION (pfile, wchar_precision) < CPP_OPTION (pfile, char_precision))
+    cpp_error (pfile, DL_FATAL,
+	       "target wchar_t is narrower than target char");
+
+  if (CPP_OPTION (pfile, int_precision) < CPP_OPTION (pfile, char_precision))
+    cpp_error (pfile, DL_FATAL,
+	       "target int is narrower than target char");
+
+  if (CPP_OPTION (pfile, wchar_precision) > BITS_PER_CPPCHAR_T)
+    cpp_error (pfile, DL_FATAL,
+	       "CPP on this host cannot handle wide character constants over %u bits, but the target requires %u bits",
+	       BITS_PER_CPPCHAR_T, CPP_OPTION (pfile, wchar_precision));
+}
+#else
+# define sanity_checks(PFILE)
+#endif
+
 /* This is called after options have been parsed, and partially
    processed.  Setup for processing input from the file named FNAME,
    or stdin if it is the empty string.  Return the original filename
@@ -926,6 +974,8 @@ cpp_read_main_file (pfile, fname, table)
      const char *fname;
      hash_table *table;
 {
+  sanity_checks (pfile);
+
   /* The front ends don't set up the hash table until they have
      finished processing the command line options, so initializing the
      hashtable is deferred until now.  */
@@ -1397,10 +1447,10 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  CPP_OPTION (pfile, show_column) = 0;
 	  break;
 	case OPT_fsigned_char:
-	  CPP_OPTION (pfile, signed_char) = 1;
+	  CPP_OPTION (pfile, unsigned_char) = 0;
 	  break;
 	case OPT_funsigned_char:
-	  CPP_OPTION (pfile, signed_char) = 0;
+	  CPP_OPTION (pfile, unsigned_char) = 1;
 	  break;
 	case OPT_ftabstop:
 	  /* Silently ignore empty string, non-longs and silly values.  */
@@ -1549,7 +1599,6 @@ cpp_handle_option (pfile, argc, argv, ignore)
  		{
  		case 'M':
 		  CPP_OPTION (pfile, dump_macros) = dump_only;
-		  CPP_OPTION (pfile, no_output) = 1;
 		  break;
 		case 'N':
 		  CPP_OPTION (pfile, dump_macros) = dump_names;
@@ -1819,6 +1868,21 @@ cpp_post_options (pfile)
      preprocessed text.  */
   if (CPP_OPTION (pfile, preprocessed))
     pfile->state.prevent_expansion = 1;
+
+  /* -dM makes no normal output.  This is set here so that -dM -dD
+     works as expected.  */
+  if (CPP_OPTION (pfile, dump_macros) == dump_only)
+    CPP_OPTION (pfile, no_output) = 1;
+
+  /* Disable -dD, -dN and -dI if we should make no normal output
+     (such as with -M). Allow -M -dM since some software relies on
+     this.  */
+  if (CPP_OPTION (pfile, no_output))
+    {
+      if (CPP_OPTION (pfile, dump_macros) != dump_only)
+	CPP_OPTION (pfile, dump_macros) = dump_none;
+      CPP_OPTION (pfile, dump_includes) = 0;
+    }
 
   /* We need to do this after option processing and before
      cpp_start_read, as cppmain.c relies on the options->no_output to

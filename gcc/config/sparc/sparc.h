@@ -1014,12 +1014,16 @@ do								\
       fixed_regs[4] = 0;					\
     if (TARGET_FLAT)						\
       {								\
+	int regno;						\
 	/* Let the compiler believe the frame pointer is still	\
 	   %fp, but output it as %i7.  */			\
 	fixed_regs[31] = 1;					\
 	reg_names[HARD_FRAME_POINTER_REGNUM] = "%i7";		\
 	/* Disable leaf functions */				\
 	memset (sparc_leaf_regs, 0, FIRST_PSEUDO_REGISTER);	\
+	/* Make LEAF_REG_REMAP a noop.  */			\
+	for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)	\
+	  leaf_reg_remap [regno] = regno;			\
       }								\
   }								\
 while (0)
@@ -1269,16 +1273,31 @@ extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 
 /* This is the order in which to allocate registers normally.  
    
-   We put %f0/%f1 last among the float registers, so as to make it more
+   We put %f0-%f7 last among the float registers, so as to make it more
    likely that a pseudo-register which dies in the float return register
-   will get allocated to the float return register, thus saving a move
-   instruction at the end of the function.  */
+   area will get allocated to the float return register, thus saving a move
+   instruction at the end of the function.
+
+   Similarly for integer return value registers.
+
+   We know in this case that we will not end up with a leaf function.
+
+   The register allocater is given the global and out registers first
+   because these registers are call clobbered and thus less useful to
+   global register allocation.
+
+   Next we list the local and in registers.  They are not call clobbered
+   and thus very useful for global register allocation.  We list the input
+   registers before the locals so that it is more likely the incoming
+   arguments received in those registers can just stay there and not be
+   reloaded.  */
 
 #define REG_ALLOC_ORDER \
-{ 8, 9, 10, 11, 12, 13, 2, 3,		\
-  15, 16, 17, 18, 19, 20, 21, 22,	\
-  23, 24, 25, 26, 27, 28, 29, 31,	\
-  34, 35, 36, 37, 38, 39,		/* %f2-%f7 */   \
+{ 1, 2, 3, 4, 5, 6, 7,			/* %g1-%g7 */	\
+  13, 12, 11, 10, 9, 8, 		/* %o5-%o0 */	\
+  15,					/* %o7 */	\
+  16, 17, 18, 19, 20, 21, 22, 23,	/* %l0-%l7 */ 	\
+  29, 28, 27, 26, 25, 24, 31,		/* %i5-%i0,%i7 */\
   40, 41, 42, 43, 44, 45, 46, 47,	/* %f8-%f15 */  \
   48, 49, 50, 51, 52, 53, 54, 55,	/* %f16-%f23 */ \
   56, 57, 58, 59, 60, 61, 62, 63,	/* %f24-%f31 */ \
@@ -1286,37 +1305,55 @@ extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
   72, 73, 74, 75, 76, 77, 78, 79,	/* %f40-%f47 */ \
   80, 81, 82, 83, 84, 85, 86, 87,	/* %f48-%f55 */ \
   88, 89, 90, 91, 92, 93, 94, 95,	/* %f56-%f63 */ \
-  32, 33,				/* %f0,%f1 */   \
-  96, 97, 98, 99, 100,			/* %fcc0-3, %icc */ \
-  1, 4, 5, 6, 7, 0, 14, 30, 101}
+  39, 38, 37, 36, 35, 34, 33, 32,	/* %f7-%f0 */   \
+  96, 97, 98, 99,			/* %fcc0-3 */   \
+  100, 0, 14, 30, 101}			/* %icc, %g0, %o6, %i6, %sfp */
 
 /* This is the order in which to allocate registers for
-   leaf functions.  If all registers can fit in the "gi" registers,
-   then we have the possibility of having a leaf function.  */
+   leaf functions.  If all registers can fit in the global and
+   output registers, then we have the possibility of having a leaf
+   function.
+
+   The macro actually mentioned the input registers first,
+   because they get renumbered into the output registers once
+   we know really do have a leaf function.
+
+   To be more precise, this register allocation order is used
+   when %o7 is found to not be clobbered right before register
+   allocation.  Normally, the reason %o7 would be clobbered is
+   due to a call which could not be transformed into a sibling
+   call.
+
+   As a consequence, it is possible to use the leaf register
+   allocation order and not end up with a leaf function.  We will
+   not get suboptimal register allocation in that case because by
+   definition of being potentially leaf, there were no function
+   calls.  Therefore, allocation order within the local register
+   window is not critical like it is when we do have function calls.  */
 
 #define REG_LEAF_ALLOC_ORDER \
-{ 2, 3, 24, 25, 26, 27, 28, 29,		\
-  4, 5, 6, 7, 1,			\
-  15, 8, 9, 10, 11, 12, 13,		\
-  16, 17, 18, 19, 20, 21, 22, 23,	\
-  34, 35, 36, 37, 38, 39,		\
-  40, 41, 42, 43, 44, 45, 46, 47,	\
-  48, 49, 50, 51, 52, 53, 54, 55,	\
-  56, 57, 58, 59, 60, 61, 62, 63,	\
-  64, 65, 66, 67, 68, 69, 70, 71,	\
-  72, 73, 74, 75, 76, 77, 78, 79,	\
-  80, 81, 82, 83, 84, 85, 86, 87,	\
-  88, 89, 90, 91, 92, 93, 94, 95,	\
-  32, 33,				\
-  96, 97, 98, 99, 100,			\
-  0, 14, 30, 31, 101}
+{ 1, 2, 3, 4, 5, 6, 7, 			/* %g1-%g7 */	\
+  29, 28, 27, 26, 25, 24,		/* %i5-%i0 */	\
+  15,					/* %o7 */	\
+  13, 12, 11, 10, 9, 8,			/* %o5-%o0 */	\
+  16, 17, 18, 19, 20, 21, 22, 23,	/* %l0-%l7 */	\
+  40, 41, 42, 43, 44, 45, 46, 47,	/* %f8-%f15 */	\
+  48, 49, 50, 51, 52, 53, 54, 55,	/* %f16-%f23 */	\
+  56, 57, 58, 59, 60, 61, 62, 63,	/* %f24-%f31 */	\
+  64, 65, 66, 67, 68, 69, 70, 71,	/* %f32-%f39 */	\
+  72, 73, 74, 75, 76, 77, 78, 79,	/* %f40-%f47 */	\
+  80, 81, 82, 83, 84, 85, 86, 87,	/* %f48-%f55 */	\
+  88, 89, 90, 91, 92, 93, 94, 95,	/* %f56-%f63 */	\
+  39, 38, 37, 36, 35, 34, 33, 32,	/* %f7-%f0 */	\
+  96, 97, 98, 99,			/* %fcc0-3 */	\
+  100, 0, 14, 30, 31, 101}		/* %icc, %g0, %o6, %i6, %i7, %sfp */
   
 #define ORDER_REGS_FOR_LOCAL_ALLOC order_regs_for_local_alloc ()
 
 extern char sparc_leaf_regs[];
 #define LEAF_REGISTERS sparc_leaf_regs
 
-extern const char leaf_reg_remap[];
+extern char leaf_reg_remap[];
 #define LEAF_REG_REMAP(REGNO) (leaf_reg_remap[REGNO])
 
 /* The class value for index registers, and the one for base regs.  */
@@ -1423,7 +1460,10 @@ extern const char leaf_reg_remap[];
 
    We need a temporary when loading/storing a HImode/QImode value
    between memory and the FPU registers.  This can happen when combine puts
-   a paradoxical subreg in a float/fix conversion insn.  */
+   a paradoxical subreg in a float/fix conversion insn.
+
+   We need a temporary when loading/storing a DFmode value between
+   unaligned memory and the upper FPU registers.  */
 
 #define SECONDARY_INPUT_RELOAD_CLASS(CLASS, MODE, IN)		\
   ((FP_REG_CLASS_P (CLASS)					\
@@ -1432,28 +1472,36 @@ extern const char leaf_reg_remap[];
         || ((GET_CODE (IN) == REG || GET_CODE (IN) == SUBREG)	\
             && true_regnum (IN) == -1)))			\
    ? GENERAL_REGS						\
-   : (((TARGET_CM_MEDANY					\
-        && symbolic_operand ((IN), (MODE)))			\
-       || (TARGET_CM_EMBMEDANY					\
-           && text_segment_operand ((IN), (MODE))))		\
-      && !flag_pic)						\
-     ? GENERAL_REGS						\
-     : NO_REGS)
+   : ((CLASS) == EXTRA_FP_REGS && (MODE) == DFmode		\
+      && GET_CODE (IN) == MEM && TARGET_ARCH32			\
+      && ! mem_min_alignment ((IN), 8))				\
+     ? FP_REGS							\
+     : (((TARGET_CM_MEDANY					\
+	  && symbolic_operand ((IN), (MODE)))			\
+	 || (TARGET_CM_EMBMEDANY				\
+	     && text_segment_operand ((IN), (MODE))))		\
+	&& !flag_pic)						\
+       ? GENERAL_REGS						\
+       : NO_REGS)
 
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, IN)		\
-   ((FP_REG_CLASS_P (CLASS)					\
+  ((FP_REG_CLASS_P (CLASS)					\
      && ((MODE) == HImode || (MODE) == QImode)			\
      && (GET_CODE (IN) == MEM					\
          || ((GET_CODE (IN) == REG || GET_CODE (IN) == SUBREG)	\
              && true_regnum (IN) == -1)))			\
-    ? GENERAL_REGS						\
-   : (((TARGET_CM_MEDANY					\
-        && symbolic_operand ((IN), (MODE)))			\
-       || (TARGET_CM_EMBMEDANY					\
-           && text_segment_operand ((IN), (MODE))))		\
-      && !flag_pic)						\
-     ? GENERAL_REGS						\
-     : NO_REGS)
+   ? GENERAL_REGS						\
+   : ((CLASS) == EXTRA_FP_REGS && (MODE) == DFmode		\
+      && GET_CODE (IN) == MEM && TARGET_ARCH32			\
+      && ! mem_min_alignment ((IN), 8))				\
+     ? FP_REGS							\
+     : (((TARGET_CM_MEDANY					\
+	  && symbolic_operand ((IN), (MODE)))			\
+	 || (TARGET_CM_EMBMEDANY				\
+	     && text_segment_operand ((IN), (MODE))))		\
+	&& !flag_pic)						\
+       ? GENERAL_REGS						\
+       : NO_REGS)
 
 /* On SPARC it is not possible to directly move data between 
    GENERAL_REGS and FP_REGS.  */
@@ -2597,33 +2645,6 @@ do {                                                                    \
    of the libgcc2 functions is used.  */
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) ((MODE) == TFmode)
 
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-
-#define CONST_COSTS(RTX,CODE,OUTER_CODE) \
-  case CONST_INT:						\
-    if (INTVAL (RTX) < 0x1000 && INTVAL (RTX) >= -0x1000)	\
-      return 0;							\
-  case HIGH:							\
-    return 2;							\
-  case CONST:							\
-  case LABEL_REF:						\
-  case SYMBOL_REF:						\
-    return 4;							\
-  case CONST_DOUBLE:						\
-    if (GET_MODE (RTX) == DImode)				\
-      if ((XINT (RTX, 3) == 0					\
-	   && (unsigned) XINT (RTX, 2) < 0x1000)		\
-	  || (XINT (RTX, 3) == -1				\
-	      && XINT (RTX, 2) < 0				\
-	      && XINT (RTX, 2) >= -0x1000))			\
-	return 0;						\
-    return 8;
-
-#define ADDRESS_COST(RTX)  1
-
 /* Compute extra cost of moving data between one register class
    and another.  */
 #define GENERAL_OR_I64(C) ((C) == GENERAL_REGS || (C) == I64_REGS)
@@ -2651,37 +2672,28 @@ do {                                                                    \
          : (sparc_cpu == PROCESSOR_ULTRASPARC3 \
             ? 9 : 3))
 
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE.  The purpose for the cost of MULT is to encourage
-   `synth_mult' to find a synthetic multiply when reasonable.
+/* The cases that RTX_COSTS handles.  */
 
-   If we need more than 12 insns to do a multiply, then go out-of-line,
-   since the call overhead will be < 10% of the cost of the multiply.  */
+#define RTX_COSTS_CASES	\
+case PLUS: case MINUS: case ABS: case NEG: \
+case FLOAT: case UNSIGNED_FLOAT: \
+case FIX: case UNSIGNED_FIX: \
+case FLOAT_EXTEND: case FLOAT_TRUNCATE: \
+case SQRT: \
+case COMPARE: case IF_THEN_ELSE: \
+case MEM: \
+case MULT: case DIV: case UDIV: case MOD: case UMOD: \
+case CONST_INT: case HIGH: case CONST: \
+case LABEL_REF: case SYMBOL_REF: case CONST_DOUBLE:
+
+/* Provide the costs of a rtl expression.  This is in the body of a
+   switch on CODE.  */
 
 #define RTX_COSTS(X,CODE,OUTER_CODE)			\
-  case MULT:						\
-    if (sparc_cpu == PROCESSOR_ULTRASPARC)		\
-      return (GET_MODE (X) == DImode ?			\
-              COSTS_N_INSNS (34) : COSTS_N_INSNS (19));	\
-    if (sparc_cpu == PROCESSOR_ULTRASPARC3)		\
-      return COSTS_N_INSNS (6);				\
-    return TARGET_HARD_MUL ? COSTS_N_INSNS (5) : COSTS_N_INSNS (25); \
-  case DIV:						\
-  case UDIV:						\
-  case MOD:						\
-  case UMOD:						\
-    if (sparc_cpu == PROCESSOR_ULTRASPARC)		\
-      return (GET_MODE (X) == DImode ?			\
-              COSTS_N_INSNS (68) : COSTS_N_INSNS (37));	\
-    if (sparc_cpu == PROCESSOR_ULTRASPARC3)		\
-      return (GET_MODE (X) == DImode ?			\
-              COSTS_N_INSNS (71) : COSTS_N_INSNS (40));	\
-    return COSTS_N_INSNS (25);				\
-  /* Make FLOAT and FIX more expensive than CONST_DOUBLE,\
-     so that cse will favor the latter.  */		\
-  case FLOAT:						\
-  case FIX:						\
-    return 19;
+  RTX_COSTS_CASES					\
+    return sparc_rtx_costs(X,CODE,OUTER_CODE);
+
+#define ADDRESS_COST(RTX)  1
 
 #define PREFETCH_BLOCK \
 	((sparc_cpu == PROCESSOR_ULTRASPARC \
@@ -3006,6 +3018,7 @@ do {									\
 
 #define PREDICATE_CODES							\
 {"reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE}},		\
+{"const1_operand", {CONST_INT}},					\
 {"fp_zero_operand", {CONST_DOUBLE}},					\
 {"fp_register_operand", {SUBREG, REG}},					\
 {"intreg_operand", {SUBREG, REG}},					\

@@ -30,6 +30,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "insn-attr.h"
+#include "real.h"
 #include "sched-int.h"
 #include "target.h"
 
@@ -49,7 +50,6 @@ static int get_visual_tbl_length PARAMS ((void));
 static void print_exp PARAMS ((char *, rtx, int));
 static void print_value PARAMS ((char *, rtx, int));
 static void print_pattern PARAMS ((char *, rtx, int));
-static void print_insn PARAMS ((char *, rtx, int));
 
 /* Print names of units on which insn can/should execute, for debugging.  */
 
@@ -561,7 +561,15 @@ print_value (buf, x, verbose)
       cur = safe_concat (buf, cur, t);
       break;
     case CONST_DOUBLE:
-      sprintf (t, "<0x%lx,0x%lx>", (long) XWINT (x, 2), (long) XWINT (x, 3));
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  REAL_VALUE_TYPE r;
+
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+	  REAL_VALUE_TO_DECIMAL(r, "%.6e", t);
+	}
+      else
+	sprintf (t, "<0x%lx,0x%lx>", (long) XWINT (x, 2), (long) XWINT (x, 3));
       cur = safe_concat (buf, cur, t);
       break;
     case CONST_STRING:
@@ -759,7 +767,7 @@ print_pattern (buf, x, verbose)
    (Probably the last "option" should be extended somehow, since it
    depends now on sched.c inner variables ...)  */
 
-static void
+void
 print_insn (buf, x, verbose)
      char *buf;
      rtx x;

@@ -74,6 +74,12 @@ int rs6000_long_double_type_size;
 /* Whether -mabi=altivec has appeared */
 int rs6000_altivec_abi;
 
+/* Whether VRSAVE instructions should be generated.  */
+int rs6000_altivec_vrsave;
+
+/* String from -mvrsave= option.  */
+const char *rs6000_altivec_vrsave_string;
+
 /* Set to non-zero once AIX common-mode calls have been defined.  */
 static int common_mode_defined;
 
@@ -168,6 +174,7 @@ static rtx altivec_expand_predicate_builtin PARAMS ((enum insn_code, const char 
 static rtx altivec_expand_ternop_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_stv_builtin PARAMS ((enum insn_code, tree));
 static void rs6000_parse_abi_options PARAMS ((void));
+static void rs6000_parse_vrsave_option PARAMS ((void));
 static int first_altivec_reg_to_save PARAMS ((void));
 static unsigned int compute_vrsave_mask PARAMS ((void));
 static void is_altivec_return_reg PARAMS ((rtx, void *));
@@ -536,6 +543,9 @@ rs6000_override_options (default_cpu)
   /* Handle -mabi= options.  */
   rs6000_parse_abi_options ();
 
+  /* Handle -mvrsave= option.  */
+  rs6000_parse_vrsave_option ();
+
 #ifdef TARGET_REGNAMES
   /* If the user desires alternate register names, copy in the
      alternate names now.  */
@@ -581,6 +591,21 @@ rs6000_override_options (default_cpu)
   /* Arrange to save and restore machine status around nested functions.  */
   init_machine_status = rs6000_init_machine_status;
   free_machine_status = rs6000_free_machine_status;
+}
+
+/* Handle -mvrsave= options.  */
+static void
+rs6000_parse_vrsave_option ()
+{
+  /* Generate VRSAVE instructions by default.  */
+  if (rs6000_altivec_vrsave_string == 0
+      || ! strcmp (rs6000_altivec_vrsave_string, "yes"))
+    rs6000_altivec_vrsave = 1;
+  else if (! strcmp (rs6000_altivec_vrsave_string, "no"))
+    rs6000_altivec_vrsave = 0;
+  else
+    error ("unknown -mvrsave= option specified: '%s'",
+	   rs6000_altivec_vrsave_string);
 }
 
 /* Handle -mabi= options.  */
@@ -2023,6 +2048,7 @@ rs6000_legitimate_address (mode, x, reg_ok_strict)
   if (LEGITIMATE_INDIRECT_ADDRESS_P (x, reg_ok_strict))
     return 1;
   if ((GET_CODE (x) == PRE_INC || GET_CODE (x) == PRE_DEC)
+      && !ALTIVEC_VECTOR_MODE (mode)
       && TARGET_UPDATE
       && LEGITIMATE_INDIRECT_ADDRESS_P (XEXP (x, 0), reg_ok_strict))
     return 1;
@@ -3367,11 +3393,11 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_ALTIVEC, CODE_FOR_altivec_vctuxs, "__builtin_altivec_vctuxs", ALTIVEC_BUILTIN_VCTUXS },
   { MASK_ALTIVEC, CODE_FOR_umaxv16qi3, "__builtin_altivec_vmaxub", ALTIVEC_BUILTIN_VMAXUB },
   { MASK_ALTIVEC, CODE_FOR_smaxv16qi3, "__builtin_altivec_vmaxsb", ALTIVEC_BUILTIN_VMAXSB },
-  { MASK_ALTIVEC, CODE_FOR_uminv8hi3, "__builtin_altivec_vmaxuh", ALTIVEC_BUILTIN_VMAXUH },
-  { MASK_ALTIVEC, CODE_FOR_sminv8hi3, "__builtin_altivec_vmaxsh", ALTIVEC_BUILTIN_VMAXSH },
-  { MASK_ALTIVEC, CODE_FOR_uminv4si3, "__builtin_altivec_vmaxuw", ALTIVEC_BUILTIN_VMAXUW },
-  { MASK_ALTIVEC, CODE_FOR_sminv4si3, "__builtin_altivec_vmaxsw", ALTIVEC_BUILTIN_VMAXSW },
-  { MASK_ALTIVEC, CODE_FOR_sminv4sf3, "__builtin_altivec_vmaxfp", ALTIVEC_BUILTIN_VMAXFP },
+  { MASK_ALTIVEC, CODE_FOR_umaxv8hi3, "__builtin_altivec_vmaxuh", ALTIVEC_BUILTIN_VMAXUH },
+  { MASK_ALTIVEC, CODE_FOR_smaxv8hi3, "__builtin_altivec_vmaxsh", ALTIVEC_BUILTIN_VMAXSH },
+  { MASK_ALTIVEC, CODE_FOR_umaxv4si3, "__builtin_altivec_vmaxuw", ALTIVEC_BUILTIN_VMAXUW },
+  { MASK_ALTIVEC, CODE_FOR_smaxv4si3, "__builtin_altivec_vmaxsw", ALTIVEC_BUILTIN_VMAXSW },
+  { MASK_ALTIVEC, CODE_FOR_smaxv4sf3, "__builtin_altivec_vmaxfp", ALTIVEC_BUILTIN_VMAXFP },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmrghb, "__builtin_altivec_vmrghb", ALTIVEC_BUILTIN_VMRGHB },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmrghh, "__builtin_altivec_vmrghh", ALTIVEC_BUILTIN_VMRGHH },
   { MASK_ALTIVEC, CODE_FOR_altivec_vmrghw, "__builtin_altivec_vmrghw", ALTIVEC_BUILTIN_VMRGHW },
@@ -3525,6 +3551,22 @@ altivec_expand_unop_builtin (icode, arglist, target)
   if (arg0 == error_mark_node)
     return NULL_RTX;
 
+  switch (icode)
+    {
+      /* Only allow 5-bit *signed* literals.  */
+    case CODE_FOR_altivec_vspltisb:
+    case CODE_FOR_altivec_vspltish:
+    case CODE_FOR_altivec_vspltisw:
+      if (GET_CODE (op0) != CONST_INT
+	  || INTVAL (op0) > 0x1f
+	  || INTVAL (op0) < -0x1f)
+	{
+	  error ("argument 1 must be a 5-bit signed literal");
+	  return NULL_RTX;
+	}
+      break;
+    }
+
   if (target == 0
       || GET_MODE (target) != tmode
       || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
@@ -3594,6 +3636,25 @@ altivec_expand_binop_builtin (icode, arglist, target)
   /* If we got invalid arguments bail out before generating bad rtl.  */
   if (arg0 == error_mark_node || arg1 == error_mark_node)
     return NULL_RTX;
+
+  switch (icode)
+    {
+      /* Only allow 5-bit unsigned literals.  */
+    case CODE_FOR_altivec_vcfux:
+    case CODE_FOR_altivec_vcfsx:
+    case CODE_FOR_altivec_vctsxs:
+    case CODE_FOR_altivec_vctuxs:
+    case CODE_FOR_altivec_vspltb:
+    case CODE_FOR_altivec_vsplth:
+    case CODE_FOR_altivec_vspltw:
+      if (TREE_CODE (arg1) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg1) & ~0x1f)
+	{
+	  error ("argument 2 must be a 5-bit unsigned literal");
+	  return NULL_RTX;
+	}
+      break;
+    }
 
   if (target == 0
       || GET_MODE (target) != tmode
@@ -3752,6 +3813,22 @@ altivec_expand_ternop_builtin (icode, arglist, target)
       || arg1 == error_mark_node
       || arg2 == error_mark_node)
     return NULL_RTX;
+
+  switch (icode)
+    {
+      /* Only allow 4-bit unsigned literals.  */
+    case CODE_FOR_altivec_vsldoi_4sf:
+    case CODE_FOR_altivec_vsldoi_4si:
+    case CODE_FOR_altivec_vsldoi_8hi:
+    case CODE_FOR_altivec_vsldoi_16qi:
+      if (TREE_CODE (arg2) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg2) & ~0xf)
+	{
+	  error ("argument 3 must be a 4-bit unsigned literal");
+	  return NULL_RTX;
+	}
+      break;
+    }
 
   if (target == 0
       || GET_MODE (target) != tmode
@@ -4008,6 +4085,13 @@ altivec_expand_builtin (exp, target)
       if (arg0 == error_mark_node)
 	return NULL_RTX;
 
+      if (TREE_CODE (arg0) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg0) & ~0x3)
+	{
+	  error ("argument to dss must be a 2-bit unsigned literal");
+	  return NULL_RTX;
+	}
+
       if (! (*insn_data[icode].operand[0].predicate) (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
 
@@ -4036,16 +4120,17 @@ altivec_expand_builtin (exp, target)
 	    || arg2 == error_mark_node)
 	  return NULL_RTX;
 
+      if (TREE_CODE (arg2) != INTEGER_CST
+	  || TREE_INT_CST_LOW (arg2) & ~0x3)
+	{
+	  error ("argument to `%s' must be a 2-bit unsigned literal", d->name);
+	  return NULL_RTX;
+	}
+
 	if (! (*insn_data[d->icode].operand[0].predicate) (op0, mode0))
 	  op0 = copy_to_mode_reg (mode0, op0);
 	if (! (*insn_data[d->icode].operand[1].predicate) (op1, mode1))
 	  op1 = copy_to_mode_reg (mode1, op1);
-
-	if (GET_CODE (op2) != CONST_INT || INTVAL (op2) > 3)
-	  {
-	    error ("argument 3 of `%s' must be a 2-bit literal", d->name);
-	    return NULL_RTX;
-	  }
 
 	pat = GEN_FCN (d->icode) (op0, op1, op2);
 	if (pat != 0)
@@ -7773,7 +7858,7 @@ rs6000_stack_info ()
   info_ptr->parm_size    = RS6000_ALIGN (current_function_outgoing_args_size,
 					 8);
 
-  if (TARGET_ALTIVEC_ABI)
+  if (TARGET_ALTIVEC_ABI && TARGET_ALTIVEC_VRSAVE)
     {
       info_ptr->vrsave_mask = compute_vrsave_mask ();
       info_ptr->vrsave_size  = info_ptr->vrsave_mask ? 4 : 0;

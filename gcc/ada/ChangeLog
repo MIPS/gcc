@@ -1,3 +1,21 @@
+2002-05-02  Jim Wilson  <wilson@redhat.com>
+
+	* utils.c (finish_record_type): Change record_size to record_type.
+
+2001-05-02  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* ada/Makefile.in (X_ADA_CFLAGS, T_ADA_CFLAGS): New fragment overrides.
+	(ALL_ADA_CFLAGS): Define.  Replace ADA_CFLAGS with ALL_ADA_CFLAGS in
+	ALL_ADAFLAGS, MOST_ADAFLAGS, and all compilations using CC.
+ 
+2002-04-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* misc.c (gnat_parse_file): Update.
+
+2002-04-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* misc.c (gnat_init): Don't set lang_attribute_common.
+
 2002-04-21  Joseph S. Myers  <jsm28@cam.ac.uk>
 
 	* gnat_rm.texi: Use @ifnottex instead of @ifinfo.

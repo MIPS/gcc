@@ -486,7 +486,7 @@ estimate_probability (loops_info)
 	  if ((e->dest == EXIT_BLOCK_PTR
 	       || (e->dest->succ && !e->dest->succ->succ_next
 		   && e->dest->succ->dest == EXIT_BLOCK_PTR))
-	       && !predicted_by_p (bb, PRED_NIL_RETURN)
+	       && !predicted_by_p (bb, PRED_NULL_RETURN)
 	       && !predicted_by_p (bb, PRED_CONST_RETURN)
 	       && !predicted_by_p (bb, PRED_NEGATIVE_RETURN)
 	       && !last_basic_block_p (e->dest))
@@ -967,7 +967,8 @@ propagate_freq (loop)
 				  * BLOCK_INFO (e->src)->frequency /
 				  REG_BR_PROB_BASE);  */
 
-		REAL_VALUE_FROM_INT (tmp, e->probability, 0, DFmode);
+		REAL_VALUE_FROM_INT (tmp, e->probability, 0,
+				     TYPE_MODE (double_type_node));
 		REAL_ARITHMETIC (tmp, MULT_EXPR, tmp,
 				 BLOCK_INFO (e->src)->frequency);
 		REAL_ARITHMETIC (tmp, RDIV_EXPR, tmp, real_br_prob_base);
@@ -997,7 +998,8 @@ propagate_freq (loop)
 	    /* EDGE_INFO (e)->back_edge_prob
 		  = ((e->probability * BLOCK_INFO (bb)->frequency)
 		     / REG_BR_PROB_BASE); */
-	    REAL_VALUE_FROM_INT (tmp, e->probability, 0, DFmode);
+	    REAL_VALUE_FROM_INT (tmp, e->probability, 0,
+				 TYPE_MODE (double_type_node));
 	    REAL_ARITHMETIC (tmp, MULT_EXPR, tmp,
 			     BLOCK_INFO (bb)->frequency);
 	    REAL_ARITHMETIC (EDGE_INFO (e)->back_edge_prob,
@@ -1133,12 +1135,13 @@ estimate_bb_frequencies (loops)
 {
   int i;
   REAL_VALUE_TYPE freq_max;
+  enum machine_mode double_mode = TYPE_MODE (double_type_node);
 
-  REAL_VALUE_FROM_INT (real_zero, 0, 0, DFmode);
-  REAL_VALUE_FROM_INT (real_one, 1, 0, DFmode);
-  REAL_VALUE_FROM_INT (real_br_prob_base, REG_BR_PROB_BASE, 0, DFmode);
-  REAL_VALUE_FROM_INT (real_bb_freq_max, BB_FREQ_MAX, 0, DFmode);
-  REAL_VALUE_FROM_INT (real_one_half, 2, 0, DFmode);
+  REAL_VALUE_FROM_INT (real_zero, 0, 0, double_mode);
+  REAL_VALUE_FROM_INT (real_one, 1, 0, double_mode);
+  REAL_VALUE_FROM_INT (real_br_prob_base, REG_BR_PROB_BASE, 0, double_mode);
+  REAL_VALUE_FROM_INT (real_bb_freq_max, BB_FREQ_MAX, 0, double_mode);
+  REAL_VALUE_FROM_INT (real_one_half, 2, 0, double_mode);
 
   REAL_ARITHMETIC (real_one_half, RDIV_EXPR, real_one, real_one_half);
 
@@ -1206,7 +1209,7 @@ estimate_bb_frequencies (loops)
 	{
 	
 	  REAL_VALUE_FROM_INT (EDGE_INFO (e)->back_edge_prob,
-			       e->probability, 0, DFmode);
+			       e->probability, 0, double_mode);
 	  REAL_ARITHMETIC (EDGE_INFO (e)->back_edge_prob,
 			   RDIV_EXPR, EDGE_INFO (e)->back_edge_prob,
 			   real_br_prob_base);

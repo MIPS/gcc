@@ -1,3 +1,24 @@
+2002-05-07  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* Make-lang.in (decl2.o): Update.
+	* cp-tree.h (warn_multichar): Remove.
+	* decl2.c: Include c-common.h.
+	(warn_multichar): Remove.
+
+2002-05-03  Jason Merrill  <jason@redhat.com>
+
+	* tree.c (build_cplus_array_type): Only const and volatile get
+	special handling.
+
+	* decl.c (BOOL_TYPE_SIZE): Move default to defaults.h.
+
+2002-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	ABI change, returning simple classes from functions.
+	* class.c (finish_struct_bits): Only mark TREE_ADDRESSABLE if
+	TYPE_HAS_TRIVIAL_INIT_REF is false or
+	TYPE_HAS_NONTRIVIAL_DESTRUCTOR is true.
+
 2002-04-30  Jason Merrill  <jason@redhat.com>
 
 	* decl.c (grokdeclarator): Don't override TYPE_NAME of an

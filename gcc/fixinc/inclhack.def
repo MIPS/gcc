@@ -2089,7 +2089,7 @@ fix = {
     select   = '__cplusplus < 54321L';
     sed      = 's/defined(__cplusplus) && (__cplusplus < 54321L)/0/';
 
-    test_text = '#if\tdefined(__cplusplus) && (__cplusplus < 54321L)';
+    test_text = "#if\tdefined(__cplusplus) && (__cplusplus < 54321L)";
 };
 
 /*
@@ -3309,6 +3309,40 @@ fix = {
                 "#define VOIDFUNCPTR (void(*)())";
 };
 
+
+/* 
+ * WindISS math.h headers include bogus extern declarations of 
+ * numerous math functions that conflict with libstdc++-v3.
+ */
+fix = {
+    hackname  = windiss_math1;
+    files     = math.h;
+    mach      = "*-*-windiss";
+    sed       = "s|inline long double cosl.*|#ifndef __GNUC__|";
+
+    test_text = "inline long double cosl(long double);";
+};
+
+fix = {
+    hackname  = windiss_math2;
+    files     = math.h;
+    mach      = "*-*-windiss";
+    sed       = "s|/\\* long double declarations \\*/|"
+                  "#endif /* __GNUC__ */|";
+
+    test_text = "/* long double declarations */";
+};
+
+/*
+ * WindISS headers include "diab/va_list.h" instead of "stdarg.h"
+ */
+fix = {
+    hackname  = windiss_valist;
+    sed       = "s|diab/va_list.h|stdarg.h|";
+    mach      = "*-*-windiss";
+
+    test_text = "#include <diab/va_list.h>";
+};
 
 /*
  *  There are several name conflicts with C++ reserved words in X11 header

@@ -663,7 +663,7 @@ noce_try_store_flag (if_info)
 
       seq = get_insns ();
       end_sequence ();
-      emit_insns_before (seq, if_info->cond_earliest);
+      emit_insns_before (seq, if_info->jump);
 
       return TRUE;
     }
@@ -798,7 +798,7 @@ noce_try_store_flag_constants (if_info)
       if (seq_contains_jump (seq))
 	return FALSE;
 
-      emit_insns_before (seq, if_info->cond_earliest);
+      emit_insns_before (seq, if_info->jump);
 
       return TRUE;
     }
@@ -858,7 +858,7 @@ noce_try_store_flag_inc (if_info)
 	  if (seq_contains_jump (seq))
 	    return FALSE;
 
-	  emit_insns_before (seq, if_info->cond_earliest);
+	  emit_insns_before (seq, if_info->jump);
 
 	  return TRUE;
 	}
@@ -910,7 +910,7 @@ noce_try_store_flag_mask (if_info)
 	  if (seq_contains_jump (seq))
 	    return FALSE;
 
-	  emit_insns_before (seq, if_info->cond_earliest);
+	  emit_insns_before (seq, if_info->jump);
 
 	  return TRUE;
 	}
@@ -1005,7 +1005,7 @@ noce_try_cmove (if_info)
 
 	  seq = get_insns ();
 	  end_sequence ();
-	  emit_insns_before (seq, if_info->cond_earliest);
+	  emit_insns_before (seq, if_info->jump);
 	  return TRUE;
 	}
       else
@@ -1167,7 +1167,7 @@ noce_try_cmove_arith (if_info)
 
   tmp = get_insns ();
   end_sequence ();
-  emit_insns_before (tmp, if_info->cond_earliest);
+  emit_insns_before (tmp, if_info->jump);
   return TRUE;
 
  end_seq_and_fail:
@@ -1419,7 +1419,7 @@ noce_try_minmax (if_info)
   if (seq_contains_jump (seq))
     return FALSE;
 
-  emit_insns_before (seq, earliest);
+  emit_insns_before (seq, if_info->jump);
   if_info->cond = cond;
   if_info->cond_earliest = earliest;
 
@@ -1537,7 +1537,7 @@ noce_try_abs (if_info)
   if (seq_contains_jump (seq))
     return FALSE;
 
-  emit_insns_before (seq, earliest);
+  emit_insns_before (seq, if_info->jump);
   if_info->cond = cond;
   if_info->cond_earliest = earliest;
 
@@ -2277,7 +2277,7 @@ noce_process_if_block (test_bb, then_bb, else_bb, join_bb)
   if (insn_b && else_bb)
     delete_insn (insn_b);
 
-  /* The new insns will have been inserted before cond_earliest.  We should
+  /* The new insns will have been inserted just before the jump.  We should
      be able to remove the jump with impunity, but the condition itself may
      have been modified by gcse to be shared across basic blocks.  */
   delete_insn (jump);

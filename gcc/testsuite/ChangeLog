@@ -1,3 +1,62 @@
+2002-05-06  Roger Sayle  <roger@eyesopen.com>
+
+	* gcc.c-torture/execute/20020506-1.c: New test case.
+
+2002-05-07  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst-3.c: Correct tests accordingly.
+
+2002-05-06  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst-3.c: Run, don't compile.
+
+2002-05-06  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst-3.c: New test.
+
+2002-05-05  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gcc.dg/cpp/charconst.c: Update tests.
+
+2002-05-05  Tim Josling  <tej@melbpc.org.au>
+
+	* treelang: Added directory for new sample language treelang. Also
+	lib/treelang.exp: New file to signal treelang should be tested. 
+
+2002-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/cpp/cmdlne-dM-M.c: New test.
+	* gcc.dg/cpp/cmdlne-dD-M.c: New test.
+	* gcc.dg/cpp/cmdlne-dN-M.c: New test.
+	* gcc.dg/cpp/cmdlne-dI-M.c: New test.
+	* gcc.dg/cpp/cmdlne-dI-M.h: New aux file.
+	* gcc.dg/cpp/cmdlne-dD-dM.c: New test.
+	* gcc.dg/cpp/cmdlne-dM-dD.c: New test.
+
+2002-05-03  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/format/xopen-2.c: New test.
+
+2002-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20020503-1.c: New test.
+
+2002-05-02  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/dtor1.C: Make it tougher.
+
+2002-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/init/dtor1.C: New test.
+
+2002-05-02  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/altivec-8.c: New.
+
+2002-05-01  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/altivec-7.c: New.
+
 2002-04-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/parse/typedef1.C: New test.

@@ -44,7 +44,6 @@
 ;;			16	embmedany_textlo
 ;;			18	sethm
 ;;			19	setlo
-;;			20	cycle_display
 ;;
 ;; UNSPEC_VOLATILE:	0	blockage
 ;;			1	flush_register_windows
@@ -248,524 +247,14 @@
   [(eq_attr "in_uncond_branch_delay" "true")
    (nil) (nil)])
    
-;; DFA scheduling on the SPARC
-
-(define_automaton "cypress_0,cypress_1,supersparc_0,supersparc_1,hypersparc_0,hypersparc_1,sparclet,ultrasparc_0,ultrasparc_1,ultrasparc3_0,ultrasparc3_1")
-
-;; Cypress scheduling
-
-(define_cpu_unit "cyp_memory, cyp_fpalu" "cypress_0")
-(define_cpu_unit "cyp_fpmds" "cypress_1")
-
-(define_insn_reservation "cyp_load" 2
-  (and (eq_attr "cpu" "cypress")
-    (eq_attr "type" "load,sload,fpload"))
-  "cyp_memory, nothing")
-
-(define_insn_reservation "cyp_fp_alu" 5
-  (and (eq_attr "cpu" "cypress")
-    (eq_attr "type" "fp,fpmove"))
-  "cyp_fpalu, nothing*3")
-
-(define_insn_reservation "cyp_fp_mult" 7
-  (and (eq_attr "cpu" "cypress")
-    (eq_attr "type" "fpmul"))
-  "cyp_fpmds, nothing*5")
-
-(define_insn_reservation "cyp_fp_div" 37
-  (and (eq_attr "cpu" "cypress")
-    (eq_attr "type" "fpdivs,fpdivd"))
-  "cyp_fpmds, nothing*35")
-
-(define_insn_reservation "cyp_fp_sqrt" 63
-  (and (eq_attr "cpu" "cypress")
-    (eq_attr "type" "fpsqrts,fpsqrtd"))
-  "cyp_fpmds, nothing*61")
-
-;; SuperSPARC scheduling
-
-(define_cpu_unit "ss_memory, ss_shift, ss_iwport0, ss_iwport1" "supersparc_0")
-(define_cpu_unit "ss_fpalu" "supersparc_0")
-(define_cpu_unit "ss_fpmds" "supersparc_1")
-
-(define_reservation "ss_iwport" "(ss_iwport0 | ss_iwport1)")
-
-(define_insn_reservation "ss_iuload" 1
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "load,sload"))
-  "ss_memory")
-
-;; Ok, fpu loads deliver the result in zero cycles.  But we
-;; have to show the ss_memory reservation somehow, thus...
-(define_insn_reservation "ss_fpload" 0
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "fpload"))
-  "ss_memory")
-
-(define_bypass 0 "ss_fpload" "ss_fp_alu,ss_fp_mult,ss_fp_divs,ss_fp_divd,ss_fp_sqrt")
-
-(define_insn_reservation "ss_store" 1
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "store,fpstore"))
-  "ss_memory")
-
-(define_insn_reservation "ss_ialu_shift" 1
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "shift"))
-  "ss_shift + ss_iwport")
-
-(define_insn_reservation "ss_ialu_any" 1
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "load,sload,store,shift,ialu"))
-  "ss_iwport")
-
-(define_insn_reservation "ss_fp_alu" 3
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "fp,fpmove,fpcmp"))
-  "ss_fpalu, nothing*2")
-
-(define_insn_reservation "ss_fp_mult" 3
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "fpmul"))
-  "ss_fpmds, nothing*2")
-
-(define_insn_reservation "ss_fp_divs" 6
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "fpdivs"))
-  "ss_fpmds*4, nothing*2")
-
-(define_insn_reservation "ss_fp_divd" 9
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "fpdivd"))
-  "ss_fpmds*7, nothing*2")
-
-(define_insn_reservation "ss_fp_sqrt" 12
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "fpsqrts,fpsqrtd"))
-  "ss_fpmds*10, nothing*2")
-
-(define_insn_reservation "ss_imul" 4
-  (and (eq_attr "cpu" "supersparc")
-    (eq_attr "type" "imul"))
-  "ss_fpmds*4")
-
-;; HyperSPARC/sparclite86x scheduling
-
-(define_cpu_unit "hs_memory,hs_branch,hs_shift,hs_fpalu" "hypersparc_0")
-(define_cpu_unit "hs_fpmds" "hypersparc_1")
-
-(define_insn_reservation "hs_load" 1
-  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
-    (eq_attr "type" "load,sload,fpload"))
-  "hs_memory")
-
-(define_insn_reservation "hs_store" 2
-  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
-    (eq_attr "type" "store,fpstore"))
-  "hs_memory, nothing")
-
-(define_insn_reservation "hs_slbranch" 1
-  (and (eq_attr "cpu" "sparclite86x")
-    (eq_attr "type" "branch"))
-  "hs_branch")
-
-(define_insn_reservation "hs_slshift" 1
-  (and (eq_attr "cpu" "sparclite86x")
-    (eq_attr "type" "shift"))
-  "hs_shift")
-
-(define_insn_reservation "hs_fp_alu" 1
-  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
-    (eq_attr "type" "fp,fpmove,fpcmp"))
-  "hs_fpalu")
-
-(define_insn_reservation "hs_fp_mult" 1
-  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
-    (eq_attr "type" "fpmul"))
-  "hs_fpmds")
-
-(define_insn_reservation "hs_fp_divs" 8
-  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
-    (eq_attr "type" "fpdivs"))
-  "hs_fpmds*6, nothing*2")
-
-(define_insn_reservation "hs_fp_divd" 12
-  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
-    (eq_attr "type" "fpdivd"))
-  "hs_fpmds*10, nothing*2")
-
-(define_insn_reservation "hs_fp_sqrt" 17
-  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
-    (eq_attr "type" "fpsqrts,fpsqrtd"))
-  "hs_fpmds*15, nothing*2")
-
-(define_insn_reservation "hs_imul" 17
-  (and (ior (eq_attr "cpu" "hypersparc") (eq_attr "cpu" "sparclite86x"))
-    (eq_attr "type" "imul"))
-  "hs_fpmds*15, nothing*2")
-
-;; Sparclet tsc701 scheduling
-
-(define_cpu_unit "sl_load0,sl_load1,sl_load2,sl_load3" "sparclet")
-(define_cpu_unit "sl_store,sl_imul" "sparclet")
-
-(define_reservation "sl_load_any" "(sl_load0 | sl_load1 | sl_load2 | sl_load3)")
-(define_reservation "sl_load_all" "(sl_load0 + sl_load1 + sl_load2 + sl_load3)")
-
-(define_insn_reservation "sl_ld" 3
-  (and (eq_attr "cpu" "tsc701")
-   (eq_attr "type" "load,sload"))
-  "sl_load_any, sl_load_any, sl_load_any")
-
-(define_insn_reservation "sl_st" 3
-  (and (eq_attr "cpu" "tsc701")
-    (eq_attr "type" "store"))
-  "(sl_store+sl_load_all)*3")
-
-(define_insn_reservation "sl_imul" 5
-  (and (eq_attr "cpu" "tsc701")
-    (eq_attr "type" "imul"))
-  "sl_imul*5")
-
-;; UltraSPARC-I/II scheduling
-
-(define_cpu_unit "us1_fdivider,us1_fpm" "ultrasparc_0");
-(define_cpu_unit "us1_fpa,us1_load_writeback" "ultrasparc_1")
-(define_cpu_unit "us1_fps_0,us1_fps_1,us1_fpd_0,us1_fpd_1" "ultrasparc_1")
-(define_cpu_unit "us1_slot0,us1_slot1,us1_slot2,us1_slot3" "ultrasparc_1")
-(define_cpu_unit "us1_ieu0,us1_ieu1,us1_cti,us1_lsu" "ultrasparc_1")
-
-(define_reservation "us1_slot012" "(us1_slot0 | us1_slot1 | us1_slot2)")
-(define_reservation "us1_slotany" "(us1_slot0 | us1_slot1 | us1_slot2 | us1_slot3)")
-(define_reservation "us1_single_issue" "us1_slot0 + us1_slot1 + us1_slot2 + us1_slot3")
-
-(define_reservation "us1_fp_single" "(us1_fps_0 | us1_fps_1)")
-(define_reservation "us1_fp_double" "(us1_fpd_0 | us1_fpd_1)")
-;; This is a simplified representation of the issue at hand.
-;; For most cases, going from one FP precision type insn to another
-;; just breaks up the insn group.  However for some cases, such
-;; a situation causes the second insn to stall 2 more cycles.
-(exclusion_set "us1_fps_0,us1_fps_1" "us1_fpd_0,us1_fpd_1")
-
-;; If we have to schedule an ieu1 specific instruction and we want
-;; to reserve the ieu0 unit as well, we must reserve it first.  So for
-;; example we could not schedule this sequence:
-;;	COMPARE		IEU1
-;;	IALU		IEU0
-;; but we could schedule them together like this:
-;;	IALU		IEU0
-;;	COMPARE		IEU1
-;; This basically requires that ieu0 is reserved before ieu1 when
-;; it is required that both be reserved.
-(absence_set "us1_ieu0" "us1_ieu1")
-
-;; This defines the slotting order.  Most IEU instructions can only
-;; execute in the first three slots, FPU and branches can go into
-;; any slot.  We represent instructions which "break the group"
-;; as requiring reservation of us1_slot0.
-(absence_set "us1_slot0" "us1_slot1,us1_slot2,us1_slot3")
-(absence_set "us1_slot1" "us1_slot2,us1_slot3")
-(absence_set "us1_slot2" "us1_slot3")
-
-(define_insn_reservation "us1_simple_ieuN" 1
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "ialu"))
-  "(us1_ieu0 | us1_ieu1) + us1_slot012")
-
-(define_insn_reservation "us1_simple_ieu0" 1
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "shift"))
-  "us1_ieu0 + us1_slot012")
-
-(define_insn_reservation "us1_simple_ieu1" 1
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "compare"))
-  "us1_ieu1 + us1_slot012")
-
-(define_insn_reservation "us1_cmove" 2
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "cmove"))
-  "us1_single_issue, nothing")
-
-(define_insn_reservation "us1_imul" 1
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "imul"))
-  "us1_single_issue")
-
-(define_insn_reservation "us1_idiv" 1
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "idiv"))
-  "us1_single_issue")
-
-;; For loads, the "delayed return mode" behavior of the chip
-;; is represented using the us1_load_writeback resource.
-(define_insn_reservation "us1_load" 2
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "load,fpload"))
-  "us1_lsu + us1_slot012, us1_load_writeback")
-
-(define_insn_reservation "us1_load_signed" 3
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "sload"))
-  "us1_lsu + us1_slot012, nothing, us1_load_writeback")
-
-(define_insn_reservation "us1_store" 1
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "store,fpstore"))
-  "us1_lsu + us1_slot012")
-
-(define_insn_reservation "us1_branch" 1
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "branch"))
-  "us1_cti + us1_slotany")
-
-(define_insn_reservation "us1_call_jmpl" 1
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "call,sibcall,call_no_delay_slot,uncond_branch"))
-  "us1_cti + us1_ieu1 + us1_slot0")
-
-(define_insn_reservation "us1_fmov_single" 1
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpmove"))
-       (eq_attr "fptype" "single"))
-  "us1_fpa + us1_fp_single + us1_slotany")
-
-(define_insn_reservation "us1_fmov_double" 1
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpmove"))
-       (eq_attr "fptype" "double"))
-  "us1_fpa + us1_fp_double + us1_slotany")
-
-(define_insn_reservation "us1_fcmov_single" 2
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpcmove,fpcrmove"))
-       (eq_attr "fptype" "single"))
-  "us1_fpa + us1_fp_single + us1_slotany, nothing")
-
-(define_insn_reservation "us1_fcmov_double" 2
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpcmove,fpcrmove"))
-       (eq_attr "fptype" "double"))
-  "us1_fpa + us1_fp_double + us1_slotany, nothing")
-
-(define_insn_reservation "us1_faddsub_single" 4
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fp"))
-       (eq_attr "fptype" "single"))
-  "us1_fpa + us1_fp_single + us1_slotany, nothing*3")
-
-(define_insn_reservation "us1_faddsub_double" 4
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fp"))
-       (eq_attr "fptype" "double"))
-  "us1_fpa + us1_fp_double + us1_slotany, nothing*3")
-
-(define_insn_reservation "us1_fpcmp_single" 1
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpcmp"))
-       (eq_attr "fptype" "single"))
-  "us1_fpa + us1_fp_single + us1_slotany")
-
-(define_insn_reservation "us1_fpcmp_double" 1
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpcmp"))
-       (eq_attr "fptype" "double"))
-  "us1_fpa + us1_fp_double + us1_slotany")
-
-(define_insn_reservation "us1_fmult_single" 4
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpmul"))
-       (eq_attr "fptype" "single"))
-  "us1_fpm + us1_fp_single + us1_slotany, nothing*3")
-
-(define_insn_reservation "us1_fmult_double" 4
-  (and (and (eq_attr "cpu" "ultrasparc")
-            (eq_attr "type" "fpmul"))
-       (eq_attr "fptype" "double"))
-  "us1_fpm + us1_fp_double + us1_slotany, nothing*3")
-
-;; This is actually in theory dangerous, because it is possible
-;; for the chip to prematurely dispatch the dependant instruction
-;; in the G stage, resulting in a 9 cycle stall.  However I have never
-;; been able to trigger this case myself even with hand written code,
-;; so it must require some rare complicated pipeline state.
-(define_bypass 3
-   "us1_faddsub_single,us1_faddsub_double,us1_fmult_single,us1_fmult_double"
-   "us1_faddsub_single,us1_faddsub_double,us1_fmult_single,us1_fmult_double")
-
-;; Floating point divide and square root use the multiplier unit
-;; for final rounding 3 cycles before the divide/sqrt is complete.
-
-(define_insn_reservation "us1_fdivs"
-  13
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "fpdivs,fpsqrts"))
-  "(us1_fpm + us1_fdivider + us1_slot0), us1_fdivider*8, (us1_fpm + us1_fdivider), us1_fdivider*2"
-  )
-
-(define_bypass
-  12
-  "us1_fdivs"
-  "us1_faddsub_single,us1_faddsub_double,us1_fmult_single,us1_fmult_double")
-
-(define_insn_reservation "us1_fdivd"
-  23
-  (and (eq_attr "cpu" "ultrasparc")
-    (eq_attr "type" "fpdivd,fpsqrtd"))
-  "(us1_fpm + us1_fdivider + us1_slot0), us1_fdivider*18, (us1_fpm + us1_fdivider), us1_fdivider*2"
-  )
-(define_bypass
-  22
-  "us1_fdivd"
-  "us1_faddsub_single,us1_faddsub_double,us1_fmult_single,us1_fmult_double")
-
-;; Any store may multi issue with the insn creating the source
-;; data as long as that creating insn is not an FPU div/sqrt.
-;; We need a special guard function because this bypass does
-;; not apply to the address inputs of the store.
-(define_bypass 0 "us1_simple_ieuN,us1_simple_ieu1,us1_simple_ieu0,us1_faddsub_single,us1_faddsub_double,us1_fmov_single,us1_fmov_double,us1_fcmov_single,us1_fcmov_double,us1_fmult_single,us1_fmult_double" "us1_store"
-   "ultrasparc_store_bypass_p")
-
-;; An integer branch may execute in the same cycle as the compare
-;; creating the condition codes.
-(define_bypass 0 "us1_simple_ieu1" "us1_branch")
-
-;; UltraSPARC-III scheduling
-;;
-;; A much simpler beast, no silly slotting rules and both
-;; integer units are fully symmetric.  It does still have
-;; single-issue instructions though.
-
-(define_cpu_unit "us3_a0,us3_a1,us3_ms,us3_br,us3_fpm" "ultrasparc3_0")
-(define_cpu_unit "us3_slot0,us3_slot1,us3_slot2,us3_slot3,us3_fpa" "ultrasparc3_1")
-(define_cpu_unit "us3_load_writeback" "ultrasparc3_1")
-
-(define_reservation "us3_slotany" "(us3_slot0 | us3_slot1 | us3_slot2 | us3_slot3)")
-(define_reservation "us3_single_issue" "us3_slot0 + us3_slot1 + us3_slot2 + us3_slot3")
-(define_reservation "us3_ax" "(us3_a0 | us3_a1)")
-
-(define_insn_reservation "us3_integer" 1
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "ialu,shift,compare"))
-  "us3_ax + us3_slotany")
-
-(define_insn_reservation "us3_cmove" 2
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "cmove"))
-  "us3_ms + us3_br + us3_slotany, nothing")
-
-;; ??? Not entirely accurate.
-;; ??? It can run from 6 to 9 cycles.  The first cycle the MS pipe
-;; ??? is needed, and the instruction group is broken right after
-;; ??? the imul.  Then 'helper' instructions are generated to perform
-;; ??? each further stage of the multiplication, each such 'helper' is
-;; ??? single group.  So, the reservation aspect is represented accurately
-;; ??? here, but the variable cycles are not.
-;; ??? Currently I have no idea how to determine the variability, but once
-;; ??? known we can simply add a define_bypass or similar to model it.
-(define_insn_reservation "us3_imul" 6
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "imul"))
-  "us3_ms + us3_slotany, us3_single_issue*5")
-
-(define_insn_reservation "us3_idiv" 71
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "idiv"))
-  "us3_ms + us3_slotany, us3_single_issue*70")
-
-;; UltraSPARC-III has a similar load delay as UltraSPARC-I/II except
-;; that all loads except 32-bit/64-bit unsigned loads take the extra
-;; delay for sign/zero extension.
-(define_insn_reservation "us3_2cycle_load" 2
-  (and (eq_attr "cpu" "ultrasparc3")
-    (and (eq_attr "type" "load,fpload")
-      (eq_attr "us3load_type" "2cycle")))
-  "us3_ms + us3_slotany, us3_load_writeback")
-
-(define_insn_reservation "us3_load_delayed" 3
-  (and (eq_attr "cpu" "ultrasparc3")
-    (and (eq_attr "type" "load,sload")
-      (eq_attr "us3load_type" "3cycle")))
-  "us3_ms + us3_slotany, nothing, us3_load_writeback")
-
-(define_insn_reservation "us3_store" 1
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "store,fpstore"))
-  "us3_ms + us3_slotany")
-
-(define_insn_reservation "us3_branch" 1
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "branch"))
-  "us3_br + us3_slotany")
-
-(define_insn_reservation "us3_call_jmpl" 1
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "call,sibcall,call_no_delay_slot,uncond_branch"))
-  "us3_br + us3_ms + us3_slotany")
-
-(define_insn_reservation "us3_fmov" 3
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fpmove"))
-  "us3_fpa + us3_slotany, nothing*2")
-
-(define_insn_reservation "us3_fcmov" 3
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fpcmove"))
-  "us3_fpa + us3_br + us3_slotany, nothing*2")
-
-(define_insn_reservation "us3_fcrmov" 3
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fpcrmove"))
-  "us3_fpa + us3_ms + us3_slotany, nothing*2")
-
-(define_insn_reservation "us3_faddsub" 4
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fp"))
-  "us3_fpa + us3_slotany, nothing*3")
-
-(define_insn_reservation "us3_fpcmp" 5
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fpcmp"))
-  "us3_fpa + us3_slotany, nothing*4")
-
-(define_insn_reservation "us3_fmult" 4
- (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fpmul"))
-  "us3_fpm + us3_slotany, nothing*3")
-
-(define_insn_reservation "us3_fdivs" 17
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fpdivs"))
-  "(us3_fpm + us3_slotany), us3_fpm*14, nothing*2")
-
-(define_insn_reservation "us3_fsqrts" 20
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fpsqrts"))
-  "(us3_fpm + us3_slotany), us3_fpm*17, nothing*2")
-
-(define_insn_reservation "us3_fdivd" 20
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fpdivd"))
-  "(us3_fpm + us3_slotany), us3_fpm*17, nothing*2")
-
-(define_insn_reservation "us3_fsqrtd" 29
-  (and (eq_attr "cpu" "ultrasparc3")
-    (eq_attr "type" "fpsqrtd"))
-  "(us3_fpm + us3_slotany), us3_fpm*26, nothing*2")
-
-;; Any store may multi issue with the insn creating the source
-;; data as long as that creating insn is not an FPU div/sqrt.
-;; We need a special guard function because this bypass does
-;; not apply to the address inputs of the store.
-(define_bypass 0 "us3_integer,us3_faddsub,us3_fmov,us3_fcmov,us3_fmult" "us3_store"
-   "ultrasparc_store_bypass_p")
-
-;; An integer branch may execute in the same cycle as the compare
-;; creating the condition codes.
-(define_bypass 0 "us3_integer" "us3_branch")
-
-;; If FMOVfcc is user of FPCMP, latency is only 1 cycle.
-(define_bypass 1 "us3_fpcmp" "us3_fcmov")
+;; Include SPARC DFA schedulers
+
+(include "cypress.md")
+(include "supersparc.md")
+(include "hypersparc.md")
+(include "sparclet.md")
+(include "ultra1_2.md")
+(include "ultra3.md")
 
 
 ;; Compare instructions.
@@ -3535,8 +3024,8 @@
 ;; We have available v9 double floats but not 64-bit
 ;; integer registers and no VIS.
 (define_insn "*movdf_insn_v9only_novis"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=e,e,T,W,U,T,e,*r,o")
-        (match_operand:DF 1 "input_operand"    "e,W#F,G,e,T,U,o#F,*roF,*rGe"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=e,e,T,W,U,T,f,*r,o")
+        (match_operand:DF 1 "input_operand"    "e,W#F,G,e,T,U,o#F,*roF,*rGf"))]
   "TARGET_FPU
    && TARGET_V9
    && ! TARGET_VIS
@@ -3561,8 +3050,8 @@
 ;; We have available v9 double floats but not 64-bit
 ;; integer registers but we have VIS.
 (define_insn "*movdf_insn_v9only_vis"
-  [(set (match_operand:DF 0 "nonimmediate_operand" "=e,e,e,T,W,U,T,e,*r,o")
-        (match_operand:DF 1 "input_operand" "G,e,W#F,G,e,T,U,o#F,*roGF,*rGe"))]
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=e,e,e,T,W,U,T,f,*r,o")
+        (match_operand:DF 1 "input_operand" "G,e,W#F,G,e,T,U,o#F,*roGF,*rGf"))]
   "TARGET_FPU
    && TARGET_VIS
    && ! TARGET_ARCH64
@@ -5220,31 +4709,11 @@
    (set_attr "fptype" "double")])
 
 (define_expand "extendsftf2"
-  [(set (match_operand:TF 0 "register_operand" "=e")
+  [(set (match_operand:TF 0 "nonimmediate_operand" "")
 	(float_extend:TF
-	 (match_operand:SF 1 "register_operand" "f")))]
+	 (match_operand:SF 1 "register_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0;
-
-      if (GET_CODE (operands[0]) != MEM)
-	slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      else
-	slot0 = operands[0];
-
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_stoq\"), LCT_NORMAL,
-			 VOIDmode, 2,
-			 XEXP (slot0, 0), Pmode,
-			 operands[1], SFmode);
-
-      if (GET_CODE (operands[0]) != MEM)
-	emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-      DONE;
-    }
-}")
+  "emit_tfmode_cvt (FLOAT_EXTEND, operands); DONE;")
 
 (define_insn "*extendsftf2_hq"
   [(set (match_operand:TF 0 "register_operand" "=e")
@@ -5255,31 +4724,11 @@
   [(set_attr "type" "fp")])
 
 (define_expand "extenddftf2"
-  [(set (match_operand:TF 0 "register_operand" "=e")
+  [(set (match_operand:TF 0 "nonimmediate_operand" "")
 	(float_extend:TF
-	 (match_operand:DF 1 "register_operand" "e")))]
+	 (match_operand:DF 1 "register_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0;
-
-      if (GET_CODE (operands[0]) != MEM)
-	slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      else
-	slot0 = operands[0];
-
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_dtoq\"), LCT_NORMAL,
-			 VOIDmode, 2,
-			 XEXP (slot0, 0), Pmode,
-			 operands[1], DFmode);
-
-      if (GET_CODE (operands[0]) != MEM)
-	emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-      DONE;
-    }
-}")
+  "emit_tfmode_cvt (FLOAT_EXTEND, operands); DONE;")
 
 (define_insn "*extenddftf2_hq"
   [(set (match_operand:TF 0 "register_operand" "=e")
@@ -5299,30 +4748,11 @@
    (set_attr "fptype" "double")])
 
 (define_expand "trunctfsf2"
-  [(set (match_operand:SF 0 "register_operand" "=f")
+  [(set (match_operand:SF 0 "register_operand" "")
 	(float_truncate:SF
-	 (match_operand:TF 1 "register_operand" "e")))]
+	 (match_operand:TF 1 "general_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0;
-
-      if (GET_CODE (operands[1]) != MEM)
-	{
-	  slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot0, operands[1]));
-	}
-      else
-	slot0 = operands[1];
-
-      emit_library_call_value (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_qtos\"),
-			       operands[0], LCT_NORMAL, SFmode, 1,
-			       XEXP (slot0, 0), Pmode);
-      DONE;
-    }
-}")
+  "emit_tfmode_cvt (FLOAT_TRUNCATE, operands); DONE;")
 
 (define_insn "*trunctfsf2_hq"
   [(set (match_operand:SF 0 "register_operand" "=f")
@@ -5333,30 +4763,11 @@
   [(set_attr "type" "fp")])
 
 (define_expand "trunctfdf2"
-  [(set (match_operand:DF 0 "register_operand" "=f")
+  [(set (match_operand:DF 0 "register_operand" "")
 	(float_truncate:DF
-	 (match_operand:TF 1 "register_operand" "e")))]
+	 (match_operand:TF 1 "general_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0;
-
-      if (GET_CODE (operands[1]) != MEM)
-	{
-	  slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot0, operands[1]));
-	}
-      else
-	slot0 = operands[1];
-
-      emit_library_call_value (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_qtod\"),
-			       operands[0], LCT_NORMAL, DFmode, 1,
-			       XEXP (slot0, 0), Pmode);
-      DONE;
-    }
-}")
+  "emit_tfmode_cvt (FLOAT_TRUNCATE, operands); DONE;")
 
 (define_insn "*trunctfdf2_hq"
   [(set (match_operand:DF 0 "register_operand" "=e")
@@ -5385,30 +4796,10 @@
    (set_attr "fptype" "double")])
 
 (define_expand "floatsitf2"
-  [(set (match_operand:TF 0 "register_operand" "=e")
-	(float:TF (match_operand:SI 1 "register_operand" "f")))]
+  [(set (match_operand:TF 0 "nonimmediate_operand" "")
+	(float:TF (match_operand:SI 1 "register_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0;
-
-      if (GET_CODE (operands[1]) != MEM)
-	slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      else
-	slot0 = operands[1];
-
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_itoq\"), 0,
-			 VOIDmode, 2,
-			 XEXP (slot0, 0), Pmode,
-			 operands[1], SImode);
-
-      if (GET_CODE (operands[0]) != MEM)
-	emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-      DONE;
-    }
-}")
+  "emit_tfmode_cvt (FLOAT, operands); DONE;")
 
 (define_insn "*floatsitf2_hq"
   [(set (match_operand:TF 0 "register_operand" "=e")
@@ -5418,27 +4809,10 @@
   [(set_attr "type" "fp")])
 
 (define_expand "floatunssitf2"
-  [(set (match_operand:TF 0 "register_operand" "=e")
-	(unsigned_float:TF (match_operand:SI 1 "register_operand" "e")))]
+  [(set (match_operand:TF 0 "nonimmediate_operand" "")
+	(unsigned_float:TF (match_operand:SI 1 "register_operand" "")))]
   "TARGET_FPU && TARGET_ARCH64 && ! TARGET_HARD_QUAD"
-  "
-{
-  rtx slot0;
-
-  if (GET_CODE (operands[1]) != MEM)
-    slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-  else
-    slot0 = operands[1];
-
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_uitoq\"), 0,
-		     VOIDmode, 2,
-		     XEXP (slot0, 0), Pmode,
-		     operands[1], SImode);
-
-  if (GET_CODE (operands[0]) != MEM)
-    emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-  DONE;
-}")
+  "emit_tfmode_cvt (UNSIGNED_FLOAT, operands); DONE;")
 
 ;; Now the same for 64 bit sources.
 
@@ -5471,30 +4845,10 @@
   "sparc_emit_floatunsdi (operands); DONE;")
 
 (define_expand "floatditf2"
-  [(set (match_operand:TF 0 "register_operand" "=e")
-	(float:TF (match_operand:DI 1 "register_operand" "e")))]
+  [(set (match_operand:TF 0 "nonimmediate_operand" "")
+	(float:TF (match_operand:DI 1 "register_operand" "")))]
   "TARGET_FPU && TARGET_V9 && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0;
-
-      if (GET_CODE (operands[1]) != MEM)
-	slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      else
-	slot0 = operands[1];
-
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_xtoq\"), 0,
-			 VOIDmode, 2,
-			 XEXP (slot0, 0), Pmode,
-			 operands[1], DImode);
-
-      if (GET_CODE (operands[0]) != MEM)
-	emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-      DONE;
-    }
-}")
+  "emit_tfmode_cvt (FLOAT, operands); DONE;")
 
 (define_insn "*floatditf2_hq"
   [(set (match_operand:TF 0 "register_operand" "=e")
@@ -5504,27 +4858,10 @@
   [(set_attr "type" "fp")])
 
 (define_expand "floatunsditf2"
-  [(set (match_operand:TF 0 "register_operand" "=e")
-	(unsigned_float:TF (match_operand:DI 1 "register_operand" "e")))]
+  [(set (match_operand:TF 0 "nonimmediate_operand" "")
+	(unsigned_float:TF (match_operand:DI 1 "register_operand" "")))]
   "TARGET_FPU && TARGET_ARCH64 && ! TARGET_HARD_QUAD"
-  "
-{
-  rtx slot0;
-
-  if (GET_CODE (operands[1]) != MEM)
-    slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-  else
-    slot0 = operands[1];
-
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_uxtoq\"), 0,
-		     VOIDmode, 2,
-		     XEXP (slot0, 0), Pmode,
-		     operands[1], DImode);
-
-  if (GET_CODE (operands[0]) != MEM)
-    emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-  DONE;
-}")
+  "emit_tfmode_cvt (UNSIGNED_FLOAT, operands); DONE;")
 
 ;; Convert a float to an actual integer.
 ;; Truncation is performed as part of the conversion.
@@ -5546,58 +4883,23 @@
    (set_attr "fptype" "double")])
 
 (define_expand "fix_trunctfsi2"
-  [(set (match_operand:SI 0 "register_operand" "=f")
-	(fix:SI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
+  [(set (match_operand:SI 0 "register_operand" "")
+	(fix:SI (match_operand:TF 1 "general_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0;
-
-      if (GET_CODE (operands[1]) != MEM)
-	{
-	  slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot0, operands[1]));
-	}
-      else
-	slot0 = operands[1];
-
-      emit_library_call_value (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_qtoi\"),
-			       operands[0], LCT_NORMAL, SImode, 1,
-			       XEXP (slot0, 0), Pmode);
-      DONE;
-    }
-}")
+  "emit_tfmode_cvt (FIX, operands); DONE;")
 
 (define_insn "*fix_trunctfsi2_hq"
   [(set (match_operand:SI 0 "register_operand" "=f")
-	(fix:SI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
+	(fix:SI (match_operand:TF 1 "register_operand" "e")))]
   "TARGET_FPU && TARGET_HARD_QUAD"
   "fqtoi\\t%1, %0"
   [(set_attr "type" "fp")])
 
 (define_expand "fixuns_trunctfsi2"
-  [(set (match_operand:SI 0 "register_operand" "=f")
-	(unsigned_fix:SI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
+  [(set (match_operand:SI 0 "register_operand" "")
+	(unsigned_fix:SI (match_operand:TF 1 "general_operand" "")))]
   "TARGET_FPU && TARGET_ARCH64 && ! TARGET_HARD_QUAD"
-  "
-{
-  rtx slot0;
-
-  if (GET_CODE (operands[1]) != MEM)
-    {
-      slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      emit_insn (gen_rtx_SET (VOIDmode, slot0, operands[1]));
-    }
-  else
-    slot0 = operands[1];
-
-  emit_library_call_value (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_qtoui\"),
-			   operands[0], LCT_NORMAL, SImode, 1,
-			   XEXP (slot0, 0), Pmode);
-  DONE;
-}")
+  "emit_tfmode_cvt (UNSIGNED_FIX, operands); DONE;")
 
 ;; Now the same, for V9 targets
 
@@ -5618,59 +4920,23 @@
    (set_attr "fptype" "double")])
 
 (define_expand "fix_trunctfdi2"
-  [(set (match_operand:DI 0 "register_operand" "=e")
-	(fix:DI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
+  [(set (match_operand:DI 0 "register_operand" "")
+	(fix:DI (match_operand:TF 1 "general_operand" "")))]
   "TARGET_V9 && TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0;
-
-      if (GET_CODE (operands[1]) != MEM)
-	{
-	  slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot0, operands[1]));
-	}
-      else
-	slot0 = operands[1];
-
-      emit_library_call_value (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_qtox\"),
-			       operands[0], LCT_NORMAL, DImode, 1,
-			       XEXP (slot0, 0), Pmode);
-      DONE;
-    }
-}")
+  "emit_tfmode_cvt (FIX, operands); DONE;")
 
 (define_insn "*fix_trunctfdi2_hq"
   [(set (match_operand:DI 0 "register_operand" "=e")
-	(fix:DI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
+	(fix:DI (match_operand:TF 1 "register_operand" "e")))]
   "TARGET_V9 && TARGET_FPU && TARGET_HARD_QUAD"
   "fqtox\\t%1, %0"
   [(set_attr "type" "fp")])
 
 (define_expand "fixuns_trunctfdi2"
-  [(set (match_operand:DI 0 "register_operand" "=f")
-	(unsigned_fix:DI (fix:TF (match_operand:TF 1 "register_operand" "e"))))]
+  [(set (match_operand:DI 0 "register_operand" "")
+	(unsigned_fix:DI (match_operand:TF 1 "general_operand" "")))]
   "TARGET_FPU && TARGET_ARCH64 && ! TARGET_HARD_QUAD"
-  "
-{
-  rtx slot0;
-
-  if (GET_CODE (operands[1]) != MEM)
-    {
-      slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      emit_insn (gen_rtx_SET (VOIDmode, slot0, operands[1]));
-    }
-  else
-    slot0 = operands[1];
-
-  emit_library_call_value (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_qtoux\"),
-			   operands[0], LCT_NORMAL, DImode, 1,
-			   XEXP (slot0, 0), Pmode);
-  DONE;
-}")
-
+  "emit_tfmode_cvt (UNSIGNED_FIX, operands); DONE;")
 
 ;;- arithmetic instructions
 
@@ -6222,6 +5488,13 @@
 	return \"or\\t%L1, %H1, %H1\\n\\tmulx\\t%H1, %2, %L0\;srlx\\t%L0, 32, %H0\";
       else
 	return \"sllx\\t%H1, 32, %3\\n\\tor\\t%L1, %3, %3\\n\\tmulx\\t%3, %2, %3\\n\\tsrlx\\t%3, 32, %H0\\n\\tmov\\t%3, %L0\";
+    }
+  else if (rtx_equal_p (operands[1], operands[2]))
+    {
+      if (which_alternative == 1)
+	return \"or\\t%L1, %H1, %H1\\n\\tmulx\\t%H1, %H1, %L0\;srlx\\t%L0, 32, %H0\";
+      else
+	return \"sllx\\t%H1, 32, %3\\n\\tor\\t%L1, %3, %3\\n\\tmulx\\t%3, %3, %3\\n\\tsrlx\\t%3, 32, %H0\\n\\tmov\\t%3, %L0\";
     }
   if (sparc_check_64 (operands[2], insn) <= 0)
     output_asm_insn (\"srl\\t%L2, 0, %L2\", operands);
@@ -7570,42 +6843,7 @@
 	(plus:TF (match_operand:TF 1 "general_operand" "")
 		 (match_operand:TF 2 "general_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0, slot1, slot2;
-
-      if (GET_CODE (operands[0]) != MEM)
-	slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      else
-	slot0 = operands[0];
-      if (GET_CODE (operands[1]) != MEM)
-	{
-	  slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot1, operands[1]));
-	}
-      else
-	slot1 = operands[1];
-      if (GET_CODE (operands[2]) != MEM)
-	{
-	  slot2 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot2, operands[2]));
-	}
-      else
-	slot2 = operands[2];
-
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_add\"), 0,
-			 VOIDmode, 3,
-			 XEXP (slot0, 0), Pmode,
-			 XEXP (slot1, 0), Pmode,
-			 XEXP (slot2, 0), Pmode);
-
-      if (GET_CODE (operands[0]) != MEM)
-	emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-      DONE;
-    }
-}")
+  "emit_tfmode_binop (PLUS, operands); DONE;")
 
 (define_insn "*addtf3_hq"
   [(set (match_operand:TF 0 "register_operand" "=e")
@@ -7637,42 +6875,7 @@
 	(minus:TF (match_operand:TF 1 "general_operand" "")
 		  (match_operand:TF 2 "general_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0, slot1, slot2;
-
-      if (GET_CODE (operands[0]) != MEM)
-	slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      else
-	slot0 = operands[0];
-      if (GET_CODE (operands[1]) != MEM)
-	{
-	  slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot1, operands[1]));
-	}
-      else
-	slot1 = operands[1];
-      if (GET_CODE (operands[2]) != MEM)
-	{
-	  slot2 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot2, operands[2]));
-	}
-      else
-	slot2 = operands[2];
-
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_sub\"), 0,
-			 VOIDmode, 3,
-			 XEXP (slot0, 0), Pmode,
-			 XEXP (slot1, 0), Pmode,
-			 XEXP (slot2, 0), Pmode);
-
-      if (GET_CODE (operands[0]) != MEM)
-	emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-      DONE;
-    }
-}")
+  "emit_tfmode_binop (MINUS, operands); DONE;")
 
 (define_insn "*subtf3_hq"
   [(set (match_operand:TF 0 "register_operand" "=e")
@@ -7704,42 +6907,7 @@
 	(mult:TF (match_operand:TF 1 "general_operand" "")
 		 (match_operand:TF 2 "general_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0, slot1, slot2;
-
-      if (GET_CODE (operands[0]) != MEM)
-	slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      else
-	slot0 = operands[0];
-      if (GET_CODE (operands[1]) != MEM)
-	{
-	  slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot1, operands[1]));
-	}
-      else
-	slot1 = operands[1];
-      if (GET_CODE (operands[2]) != MEM)
-	{
-	  slot2 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot2, operands[2]));
-	}
-      else
-	slot2 = operands[2];
-
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_mul\"), 0,
-			 VOIDmode, 3,
-			 XEXP (slot0, 0), Pmode,
-			 XEXP (slot1, 0), Pmode,
-			 XEXP (slot2, 0), Pmode);
-
-      if (GET_CODE (operands[0]) != MEM)
-	emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-      DONE;
-    }
-}")
+  "emit_tfmode_binop (MULT, operands); DONE;")
 
 (define_insn "*multf3_hq"
   [(set (match_operand:TF 0 "register_operand" "=e")
@@ -7788,42 +6956,7 @@
 	(div:TF (match_operand:TF 1 "general_operand" "")
 		(match_operand:TF 2 "general_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0, slot1, slot2;
-
-      if (GET_CODE (operands[0]) != MEM)
-	slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      else
-	slot0 = operands[0];
-      if (GET_CODE (operands[1]) != MEM)
-	{
-	  slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot1, operands[1]));
-	}
-      else
-	slot1 = operands[1];
-      if (GET_CODE (operands[2]) != MEM)
-	{
-	  slot2 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot2, operands[2]));
-	}
-      else
-	slot2 = operands[2];
-
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_div\"), 0,
-			 VOIDmode, 3,
-			 XEXP (slot0, 0), Pmode,
-			 XEXP (slot1, 0), Pmode,
-			 XEXP (slot2, 0), Pmode);
-
-      if (GET_CODE (operands[0]) != MEM)
-	emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-      DONE;
-    }
-}")
+  "emit_tfmode_binop (DIV, operands); DONE;")
 
 ;; don't have timing for quad-prec. divide.
 (define_insn "*divtf3_hq"
@@ -8072,37 +7205,10 @@
   [(set_attr "type" "fpmove")])
 
 (define_expand "sqrttf2"
-  [(set (match_operand:TF 0 "register_operand" "=e")
-	(sqrt:TF (match_operand:TF 1 "register_operand" "e")))]
+  [(set (match_operand:TF 0 "nonimmediate_operand" "")
+	(sqrt:TF (match_operand:TF 1 "general_operand" "")))]
   "TARGET_FPU && (TARGET_HARD_QUAD || TARGET_ARCH64)"
-  "
-{
-  if (! TARGET_HARD_QUAD)
-    {
-      rtx slot0, slot1;
-
-      if (GET_CODE (operands[0]) != MEM)
-	slot0 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-      else
-	slot0 = operands[0];
-      if (GET_CODE (operands[1]) != MEM)
-	{
-	  slot1 = assign_stack_temp (TFmode, GET_MODE_SIZE(TFmode), 0);
-	  emit_insn (gen_rtx_SET (VOIDmode, slot1, operands[1]));
-	}
-      else
-	slot1 = operands[1];
-
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, \"_Qp_sqrt\"), 0,
-			 VOIDmode, 2,
-			 XEXP (slot0, 0), Pmode,
-			 XEXP (slot1, 0), Pmode);
-
-      if (GET_CODE (operands[0]) != MEM)
-	emit_insn (gen_rtx_SET (VOIDmode, operands[0], slot0));
-      DONE;
-    }
-}")
+  "emit_tfmode_unop (SQRT, operands); DONE;")
 
 (define_insn "*sqrttf2_hq"
   [(set (match_operand:TF 0 "register_operand" "=e")
@@ -8135,22 +7241,13 @@
   ""
   "*
 {
-  if (GET_CODE (operands[2]) == CONST_INT
-      && (unsigned HOST_WIDE_INT) INTVAL (operands[2]) > 31)
-    operands[2] = GEN_INT (INTVAL (operands[2]) & 0x1f);
-
+  if (operands[2] == const1_rtx)
+    return \"add\\t%1, %1, %0\";
   return \"sll\\t%1, %2, %0\";
 }"
-  [(set_attr "type" "shift")])
-
-;; We special case multiplication by two, as add can be done
-;; in both ALUs, while shift only in IEU0 on UltraSPARC.
-(define_insn "*ashlsi3_const1"
-  [(set (match_operand:SI 0 "register_operand" "=r")
-        (ashift:SI (match_operand:SI 1 "register_operand" "r")
-                   (const_int 1)))]
-  ""
-  "add\\t%1, %1, %0")
+  [(set (attr "type")
+	(if_then_else (match_operand 2 "const1_operand" "")
+		      (const_string "ialu") (const_string "shift")))])
 
 (define_expand "ashldi3"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -8168,15 +7265,6 @@
     }
 }")
 
-;; We special case multiplication by two, as add can be done
-;; in both ALUs, while shift only in IEU0 on UltraSPARC.
-(define_insn "*ashldi3_const1"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(ashift:DI (match_operand:DI 1 "register_operand" "r")
-		   (const_int 1)))]
-  "TARGET_ARCH64"
-  "add\\t%1, %1, %0")
-
 (define_insn "*ashldi3_sp64"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(ashift:DI (match_operand:DI 1 "register_operand" "r")
@@ -8184,13 +7272,13 @@
   "TARGET_ARCH64"
   "*
 {
-  if (GET_CODE (operands[2]) == CONST_INT
-      && (unsigned HOST_WIDE_INT) INTVAL (operands[2]) > 63)
-    operands[2] = GEN_INT (INTVAL (operands[2]) & 0x3f);
-
+  if (operands[2] == const1_rtx)
+    return \"add\\t%1, %1, %0\";
   return \"sllx\\t%1, %2, %0\";
 }"
-  [(set_attr "type" "shift")])
+  [(set (attr "type")
+	(if_then_else (match_operand 2 "const1_operand" "")
+		      (const_string "ialu") (const_string "shift")))])
 
 ;; XXX UGH!
 (define_insn "ashldi3_v8plus"
@@ -8248,10 +7336,6 @@
   ""
   "*
 {
-  if (GET_CODE (operands[2]) == CONST_INT
-      && (unsigned HOST_WIDE_INT) INTVAL (operands[2]) > 31)
-    operands[2] = GEN_INT (INTVAL (operands[2]) & 0x1f);
-
   return \"sra\\t%1, %2, %0\";
 }"
   [(set_attr "type" "shift")])
@@ -8309,10 +7393,6 @@
   "TARGET_ARCH64"
   "*
 {
-  if (GET_CODE (operands[2]) == CONST_INT
-      && (unsigned HOST_WIDE_INT) INTVAL (operands[2]) > 63)
-    operands[2] = GEN_INT (INTVAL (operands[2]) & 0x3f);
-
   return \"srax\\t%1, %2, %0\";
 }"
   [(set_attr "type" "shift")])
@@ -8335,10 +7415,6 @@
   ""
   "*
 {
-  if (GET_CODE (operands[2]) == CONST_INT
-      && (unsigned HOST_WIDE_INT) INTVAL (operands[2]) > 31)
-    operands[2] = GEN_INT (INTVAL (operands[2]) & 0x1f);
-
   return \"srl\\t%1, %2, %0\";
 }"
   [(set_attr "type" "shift")])
@@ -8406,10 +7482,6 @@
   "TARGET_ARCH64"
   "*
 {
-  if (GET_CODE (operands[2]) == CONST_INT
-      && (unsigned HOST_WIDE_INT) INTVAL (operands[2]) > 63)
-    operands[2] = GEN_INT (INTVAL (operands[2]) & 0x3f);
-
   return \"srlx\\t%1, %2, %0\";
 }"
   [(set_attr "type" "shift")])
@@ -9706,9 +8778,3 @@
   "TARGET_V9"
   "t%C0\\t%%xcc, %1"
   [(set_attr "type" "misc")])
-
-(define_insn "cycle_display"
-  [(unspec [(match_operand 0 "const_int_operand" "")] 20)]
-  ""
-  "! cycle %0"
-  [(set_attr "length" "0")])

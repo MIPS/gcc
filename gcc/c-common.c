@@ -201,6 +201,10 @@ int flag_short_double;
 
 int flag_short_wchar;
 
+/* Nonzero means warn about use of multicharacter literals.  */
+
+int warn_multichar = 1;
+
 /* Nonzero means warn about possible violations of sequence point rules.  */
 
 int warn_sequence_point;
@@ -4304,6 +4308,25 @@ const char *
 c_common_init (filename)
      const char *filename;
 {
+  cpp_options *options = cpp_get_options (parse_in);
+
+  /* Set up preprocessor arithmetic.  Must be done after call to
+     c_common_nodes_and_builtins for wchar_type_node to be good.  */
+  options->char_precision = TYPE_PRECISION (char_type_node);
+  options->int_precision = TYPE_PRECISION (integer_type_node);
+  options->wchar_precision = TYPE_PRECISION (wchar_type_node);
+  options->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
+  /* This can be uncommented when 1) This all happens before
+     cpp_post_options() (needed for __CHAR_UNSIGNED__ builtin), which
+     in turn requires wchat_type_node to be set up properly by then,
+     and 2) tradcpp is integrated, so that the preprocessors don't
+     need to handle the command-line options and the specs in gcc.c
+     can be updated.
+
+     options->unsigned_char = !flag_signed_char; */
+
+  options->warn_multichar = warn_multichar;
+
   /* NULL is passed up to toplev.c and we exit quickly.  */
   if (flag_preprocess_only)
     {
