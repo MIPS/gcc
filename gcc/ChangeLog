@@ -1,3 +1,24 @@
+2004-02-10  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Don't
+	bump retaddr here.
+
+2004-02-03  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/13914
+	* config/rs6000/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Use ap
+	for retaddr_column.
+
+2004-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/linux64.h (MD_FALLBACK_FRAME_STATE_FOR)
+	[!__powerpc64__]: Corrected to handle kernels with changed ucontext.
+
+2003-06-17  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* config/rs6000/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Partly revert
+	2003-01-23 patch. Corrected to handle kernels with changed ucontext.
+
 2004-02-16  Jakub Jelinek  <jakub@redhat.com>
 
 	PR optimization/13424

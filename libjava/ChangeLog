@@ -1,3 +1,23 @@
+2004-02-10  Alan Modra  <amodra@bigpond.net.au>
+
+	* include/powerpc-signal.h: Revert 2004-01-21 change.
+	(INIT_SEGV, INIT_FPE): Provide powerpc64 versions.  Check return
+	from syscall for ppc32 versions.
+
+2004-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* include/powerpc-signal.h: Add #ifndef __powerpc64__ around the
+	header.  For __powerpc64__ provide the default-signal.h definitions
+	for now.
+	* configure.in: Use powerpc-signal.h on powerpc64 as well.
+	* configure: Rebuilt.
+
+2003-06-17  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* include/powerpc-signal.h: New File.
+	* configure.in: Use it.
+	* configure: Regenerated.
+
 2003-04-22  Release Manager
 
 	* GCC 3.2.3 Released.
