@@ -1,3 +1,16 @@
+Mon Nov 23 08:04:00 1998  Bruce Korb <korb@datadesign.com>
+
+	* Makefile.in
+	corrected "srcdir" that gets passed to fixinc/mkfixinc.sh.
+	dropped unnecessary "mkdir" code.
+
+	* configure.in & configure & Makefile.in & fixinc/*
+	restored clobbered updates.
+
+	* fixinc/fixincl.c added test to ensure the program can talk
+	to a server shell before exiting successfully on a
+	"-v"ersion option invocation.
+
 Wed Nov 18 16:31:28 1998  Jim Wilson  <wilson@cygnus.com>
 
 	* reload.c (find_reloads_address_part): If have a CONST_INT, create
