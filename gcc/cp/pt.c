@@ -1316,13 +1316,21 @@ check_explicit_specialization (declarator, decl, flags)
       else
 	specialization = 1;
     }
-  else if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR
-	   && is_friend)
-    /* This is something like:
-
-         template <class T> void f(T);
-	 class S { friend void f<>(int); }  */
-    specialization = 1;
+  else if (TREE_CODE (declarator) == TEMPLATE_ID_EXPR)
+    {
+      if (is_friend)
+	/* This is something like:
+	    
+           template <class T> void f(T);
+	   class S { friend void f<>(int); }  */
+	specialization = 1;
+      else
+	{
+	  cp_error ("template-id `%D' in declaration of primary template",
+		    declarator);
+	  return decl;
+	}
+    }
   else if (processing_template_decl && ctype 
 	   && CLASSTYPE_TEMPLATE_INSTANTIATION (ctype))
     /* This is a specialization of a member template, without
