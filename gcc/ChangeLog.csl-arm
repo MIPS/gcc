@@ -1,3 +1,13 @@
+2005-01-28  Paul Brook  <paul@codesourcery.com>
+
+	* Makefile.in (opts.o): Depend on $(TARGET_H).
+	* opts.c: Include target.h.
+	(decode_options): Use targetm.unwind_tables_default.
+	* target-def.h (TARGET_UNWIND_TABLES_DEFAULT): Define.
+	(TARGET_INITIALIZER): Use it
+	* target.h (struct gcc_target): Add unwind_tables_default.
+	* config/ia64/ia64.h (TARGET_UNWIND_TABLES_DEFAULT): Define.
+
 2005-01-27  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (arm_init_libfuncs): Clear mod optabs.
