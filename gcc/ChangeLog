@@ -1,3 +1,24 @@
+Tue Oct  8 01:24:19 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_sse_partial_reg_dependency, x86_sse_partial_regs,
+	x86_sse_typeless_stores, x86_sse_load0_by_pxor): New global
+	variables.
+	(safe_vector_operand): Update sse_clrv4sf call.
+	(ix86_expand_buildin): Likewise
+	* i386.h (x86_sse_partial_reg_dependency, x86_sse_partial_regs,
+	x86_sse_typeless_stores, x86_sse_load0_by_pxor): Declare.
+	(TARGET_SSE_PARTIAL_REG_DEPENDENCY, TARGET_SSE_PARTIAL_REGS,
+	TARGET_SSE_TYPELESS_STORES, TARGET_SSE_TYPELESS_LOAD0): New
+	macros.
+	* i386.md (movsf*, movdf*, movti, movv4sf, movv2df, movv16qi, movv8hi,
+	movv4si):  Obey the new flags.
+	(floatsi2sf, floatdi2sf, truncatedf2sf): Emit extra load of 0 to avoid
+	reformating penalty.
+	(anddf, cmov patterns): Avoid reformating by first converting.
+	(sse_cvtsd2ss): Fix predicate.
+	(sse2_clrti): Fix mode,
+	(sse_clrv4sf): Avoid unspec.
+
 2002-10-07  Richard Henderson  <rth@redhat.com>
 
 	* cse.c (fixed_base_plus_p): Turn FIXED_BASE_PLUS_P into a
