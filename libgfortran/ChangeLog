@@ -1,3 +1,9 @@
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+ 
+	PR 14831
+	* io/inquire.c (inquire_via_unit): Changed return string for
+	BLANK=NULL. Use correct variable for ACTION.
+
 2004-04-01  Bud Davis  <bdavis9659@comcast.net>
 
 	PR 14746

@@ -1,3 +1,8 @@
+2004-04-03  Bud Davis  <bdavis9659@comcast.net>
+
+	PR 14831
+	* gfortran.fortran-torture/execute/inquire_1.f90: New test.
+
 2004-04-03  Paolo Bonzini  <bonzini@gnu.org>
 
 	* gcc.dg/tree-ssa/20040324-1.c: New test.
@@ -21,7 +26,6 @@
 	* gcc.dg/uninit-1.c, gcc.dg/uninit-3.c, gcc.dg/uninit-8.c, 
 	gcc.dg/uninit-9.c: Remove XFAIL.
 
->>>>>>> 1.1.2.205
 2004-03-26  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20040326-1.c: New test.

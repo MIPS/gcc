@@ -137,7 +137,7 @@ inquire_via_unit (unit_t * u)
 	switch (u->flags.blank)
 	  {
 	  case BLANK_NULL:
-	    p = "BLANK";
+          p = "NULL";
 	    break;
 	  case BLANK_ZERO:
 	    p = "ZERO";
@@ -161,7 +161,7 @@ inquire_via_unit (unit_t * u)
       cf_strcpy (ioparm.blank, ioparm.blank_len, p);
     }
 
-  if (ioparm.access != NULL)
+  if (ioparm.action != NULL)
     {
       if (u == NULL)
 	p = undefined;
@@ -181,7 +181,7 @@ inquire_via_unit (unit_t * u)
 	    internal_error ("inquire_via_unit(): Bad action");
 	  }
 
-      cf_strcpy (ioparm.access, ioparm.access_len, p);
+      cf_strcpy (ioparm.action, ioparm.action_len, p);
     }
 
   if (ioparm.read != NULL)
