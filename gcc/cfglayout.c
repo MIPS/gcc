@@ -853,6 +853,7 @@ cfg_layout_duplicate_bb (bb, e)
   rtx pre_head = NULL_RTX, end = NULL_RTX;
   edge s, n;
   basic_block new_bb;
+  gcov_type new_count = e->count;
 
   if (!bb->pred || !bb->pred->pred_next)
     abort ();
@@ -1018,14 +1019,16 @@ cfg_layout_duplicate_bb (bb, e)
       n = make_edge (new_bb, s->dest, s->flags);
       n->probability = s->probability;
       if (bb->count)
-	n->count = s->count * e->probability / REG_BR_PROB_BASE;
+	/* Take care for overflows!  */
+	n->count = s->count * 10000 / (bb->count * 10000 / new_count);
       else
 	n->count = 0;
+      s->count -= n->count;
     }
 
-  new_bb->count = e->count;
+  new_bb->count = new_count;
   new_bb->frequency = EDGE_FREQUENCY (e);
-  bb->count -= e->count;
+  bb->count -= new_count;
   bb->frequency -= EDGE_FREQUENCY (e);
   if (bb->count < 0)
     bb->count = 0;
