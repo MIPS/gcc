@@ -1241,6 +1241,42 @@ ifeq ($(strip $(filter-out ia64 linux%,$(arch) $(osys))),)
   LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
 endif
 
+ifeq ($(strip $(filter-out x86_64 linux%,$(arch) $(osys))),)
+  MLIB_TGT=5lml-tgt
+  MISCLIB=
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out ppc linux%,$(arch) $(osys))),)
+  MLIB_TGT=5lml-tgt
+  MISCLIB=
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out s390 linux%,$(arch) $(osys))),)
+  MLIB_TGT=5lml-tgt
+  MISCLIB=
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
+ifeq ($(strip $(filter-out s390x linux%,$(arch) $(osys))),)
+  MLIB_TGT=5lml-tgt
+  MISCLIB=
+  THREADSLIB=-lpthread
+  GNATLIB_SHARED=gnatlib-shared-dual
+  GMEM_LIB=gmemlib
+  LIBRARY_VERSION := $(strip $(shell grep Library_Version $(fsrcpfx)gnatvsn.ads | sed -e 's/.*GNAT Lib v\(.*\)[ "].*/\1/'))
+endif
+
 ifeq ($(strip $(filter-out mips sgi irix%,$(targ))),)
   ifeq ($(strip $(filter-out mips sgi irix6%,$(targ))),)
     LIBGNAT_TARGET_PAIRS = \
