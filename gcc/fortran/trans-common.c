@@ -312,8 +312,8 @@ gfc_layout_global_equiv (gfc_symbol * common_sym, gfc_symbol *common_var,
 
       /* var_offset<0 means an underflow error for the master area.  */
       if (tree_int_cst_sgn (var_offset) == -1)
-         gfc_fatal_error ("COMMON '%s' underflow due to EQUIVALENCE.",
-                          common_sym->name);
+         gfc_fatal_error ("COMMON '%s' at %L underflow due to EQUIVALENCE.",
+                          common_sym->name, &common_sym->declared_at);
 
       var_size = TYPE_SIZE_UNIT (gfc_sym_type (equiv_var));
 
@@ -348,6 +348,7 @@ gfc_trans_one_common (gfc_common_type common_type, gfc_symbol * common_sym,
   tree common_decl;
   tree common_size;
   tree offset;
+  tree s;
 
   gfc_clear_ts (&ts);
   /* No COMMON variables in the COMMON block, do nothing.  */
@@ -369,8 +370,8 @@ gfc_trans_one_common (gfc_common_type common_type, gfc_symbol * common_sym,
       var_size = TYPE_SIZE_UNIT (var_type);
 
       if (!INTEGER_CST_P (var_size))
-        gfc_error ("Size of common variable '%s' at %L must be const",
-                 var->name, &var->declared_at);
+        gfc_error ("Size of common variable '%s' at %L must be constant",
+                   var->name, &var->declared_at);
 
       /* Determine the master type of the COMMON block area.  */
       gfc_get_common_master_type (&ts, var);
@@ -393,8 +394,9 @@ gfc_trans_one_common (gfc_common_type common_type, gfc_symbol * common_sym,
       var->addr_offset = offset;
 
       /* Current COMMON area size.  */
-      common_size = fold (build (PLUS_EXPR,
-                                 gfc_array_index_type, common_size, var_size));
+      s = fold (build (PLUS_EXPR, gfc_array_index_type, offset, var_size));
+      if (tree_int_cst_lt (common_size, s))
+        common_size = s;
 
       /* Layout global EQUIVALENCE objects.  */
       if (var->equiv_ring)

@@ -1,3 +1,10 @@
+2003-11-25  Canqun Yang  <canqun@nudt.edu.cn>
+
+	* trans-common.c (gfc_layout_global_equiv): Locate the error for
+	underflow COMMON block.
+	(gfc_trans_one_common): Fix bug for size of COMMON block containing
+	EQUIVALENCE object. Also fix typo in an error message.
+
 2003-11-25  Diego Novillo  <dnovillo@redhat.com>
 
 	* Make-lang.in: Add check-gfortran to lang_checks.
