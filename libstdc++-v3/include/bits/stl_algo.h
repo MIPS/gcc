@@ -65,6 +65,7 @@
 #include <bits/stl_tempbuf.h>     // for _Temporary_buffer
 #include <debug/debug.h>
 #include <bits/predefined_ops.h>
+#include <bits/moveable.h>
 
 // See concept_check.h for the __glibcxx_*_requires macros.
 
@@ -1235,7 +1236,7 @@ namespace std
       ++__first;
       while (++__first != __last)
 	if (!__binary_pred(*__dest, *__first))
-	  *++__dest = *__first;
+	  *++__dest = __gnu_cxx::__move(*__first);
       return ++__dest;
     }
 

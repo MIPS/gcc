@@ -1,3 +1,17 @@
+2005-03-22  Christopher Jefferson  <chris@bubblescope.net>
+
+	* include/bits/moveable.h: New.
+	* include/Makefile.am: Add.
+	* include/Makefile.in: Regenerate.
+	* include/bits/stl_algo.h (unique): Make rvalue ref aware.
+	* include/bits/stl_vector.h (vector): Add rvalue ref constructor
+	and operator=.
+	(__gnu_cxx::__is_moveable): Add overload to mark vector<T> as
+	rvalue ref aware.
+	* testsuite/testsuite_rvalref.h: New.
+	* testsuite/23_containers/vector/moveable.cc: New.
+	* testsuite/25_algorithms/unique/moveable.cc: New.
+
 2005-03-14  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050314.

@@ -64,6 +64,7 @@
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/functexcept.h>
 #include <bits/concept_check.h>
+#include <bits/moveable.h>
 
 namespace _GLIBCXX_STD
 {
@@ -224,6 +225,17 @@ namespace _GLIBCXX_STD
       }
 
       /**
+       * @brief %Vector move constructor
+       * @param x A %vector of identical element and allocator types
+       *
+       * The newly-constructed %vector contains the exact contents of @a x.
+       * The contents of x are a valid, but unspecified vector.
+       */
+      vector(__gnu_cxx::__rvalref<vector> __x)
+      : _Base(__x.__ref.get_allocator())
+      {	this->swap(__x.__ref); }
+
+      /**
        *  @brief  Builds a %vector from a range.
        *  @param  first  An input iterator.
        *  @param  last  An input iterator.
@@ -269,6 +281,17 @@ namespace _GLIBCXX_STD
        */
       vector&
       operator=(const vector& __x);
+
+      /**
+       *  @brief %Vector move assignment operator.
+       *  @param x A %vector of identical element and allocator types.
+       *
+       *  The contents of @a x are moved into this vector (without copying).
+       *  @a x is a valid, but unspecified vector.
+       */
+      vector&
+      operator=(__gnu_cxx::__rvalref<vector> __x)
+      { this->swap(__x.__ref); }
 
       /**
        *  @brief  Assigns a given value to a %vector.
@@ -947,5 +970,13 @@ namespace _GLIBCXX_STD
     swap(vector<_Tp, _Alloc>& __x, vector<_Tp, _Alloc>& __y)
     { __x.swap(__y); }
 } // namespace std
+
+
+namespace __gnu_cxx
+{
+  template<typename _Tp, typename _Alloc>
+    struct __is_moveable<_GLIBCXX_STD::vector<_Tp, _Alloc> >
+    { static const bool value = true; };
+}
 
 #endif /* _VECTOR_H */

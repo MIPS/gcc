@@ -335,6 +335,7 @@ bits_headers = \
 	${bits_srcdir}/locale_facets.tcc \
 	${bits_srcdir}/localefwd.h \
 	${bits_srcdir}/mask_array.h \
+	${bits_srcdir}/moveable.h \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/postypes.h \
 	${bits_srcdir}/predefined_ops.h \
