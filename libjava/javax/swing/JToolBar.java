@@ -236,9 +236,6 @@ public class JToolBar extends JComponent
 	 */
 	private int orientation = HORIZONTAL;
 
-	/** Name that is assigned to the window of the undocked JToolBar */
-	private transient String name;
-
 //        protected transient DefaultJToolBarLayout toolbarLayout;
 
 	/** Fired in a PropertyChangeEvent when the "orientation" property changes.
@@ -278,8 +275,7 @@ public class JToolBar extends JComponent
 	 * @param orientation JToolBar orientation (HORIZONTAL or VERTICAL)
 	 */
 	public JToolBar(String name, int orientation) {
-		nameExplicitlySet = (name != null);
-		this.name = name;
+	        setName(name);
 		if (orientation != HORIZONTAL && orientation != VERTICAL)
 			throw new IllegalArgumentException(orientation + " is not a legal orientation");
 		this.orientation = orientation;

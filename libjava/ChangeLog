@@ -1,3 +1,12 @@
+2004-06-17  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/JToolBar.java
+	(name): Removed.
+	(JToolBar): Use Component.setName(String) instead of doing it all
+	alone.
+	* javax/swing/Timer.java
+	(queueEvent): Added missing modifier.
+
 2004-06-17  Olga Rodimina  <rodimina@redhat.coom>
 
 	* Makefile.am: Added new file.

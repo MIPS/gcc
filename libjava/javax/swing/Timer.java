@@ -66,7 +66,7 @@ public class Timer implements Serializable
       {
         queue++;
         if (queue == 1)
-          SwingUtilities.invokeLater(new Runnable() { void run() { drainEvents(); } });
+          SwingUtilities.invokeLater(new Runnable() { public void run() { drainEvents(); } });
       }
   }
 
