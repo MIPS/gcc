@@ -1461,11 +1461,17 @@ cleanup_tree_cfg (void)
    BIND_EXPR, or TRY block, we will need to repeat this optimization pass
    to ensure we eliminate all the useless code.  */
 
-int
-remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
+struct rusv_data
+{
+  tree *last_goto;
+  bool repeat;
+  bool remove_unused_vars;
+};
+
+static void
+remove_useless_stmts_and_vars_1 (tree *first_p, struct rusv_data *data)
 {
   tree_stmt_iterator i;
-  int repeat = 0;
 
   for (i = tsi_start (first_p); !tsi_end_p (i); tsi_next (&i))
     {
@@ -1488,13 +1494,21 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
       /* Dive into control structures.  */
       stmt_p = tsi_stmt_ptr (i);
       code = TREE_CODE (*stmt_p);
+
+      /* Zap last goto handling if we see anything that can generate code.  */
+      if (code != CASE_LABEL_EXPR && code != LABEL_EXPR && code != BIND_EXPR)
+	data->last_goto = NULL;
+
       if (code == COND_EXPR)
 	{
 	  tree then_clause, else_clause, cond;
-	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_THEN (*stmt_p),
-						   remove_unused_vars);
-	  repeat |= remove_useless_stmts_and_vars (&COND_EXPR_ELSE (*stmt_p),
-						   remove_unused_vars);
+	  remove_useless_stmts_and_vars_1 (&COND_EXPR_THEN (*stmt_p), data);
+
+	  if (!IS_EMPTY_STMT (COND_EXPR_ELSE (*stmt_p)))
+	    {
+	      data->last_goto = NULL;
+	      remove_useless_stmts_and_vars_1 (&COND_EXPR_ELSE (*stmt_p), data);
+	    }
 
 	  then_clause = COND_EXPR_THEN (*stmt_p);
 	  else_clause = COND_EXPR_ELSE (*stmt_p);
@@ -1510,20 +1524,20 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 	  if (integer_nonzerop (cond) && IS_EMPTY_STMT (else_clause))
 	    {
 	      *stmt_p = then_clause;
-	       repeat = 1;
+	       data->repeat = true;
 	    }
 	  else if (integer_zerop (cond) && IS_EMPTY_STMT (then_clause))
 	    {
 	      *stmt_p = else_clause;
-	       repeat = 1;
+	       data->repeat = true;
 	    }
 	  else if (TREE_CODE (then_clause) == GOTO_EXPR
-	      && TREE_CODE (else_clause) == GOTO_EXPR
-	      && (GOTO_DESTINATION (then_clause)
-		  == GOTO_DESTINATION (else_clause)))
+		   && TREE_CODE (else_clause) == GOTO_EXPR
+		   && (GOTO_DESTINATION (then_clause)
+		       == GOTO_DESTINATION (else_clause)))
 	    {
 	      *stmt_p = then_clause;
-	      repeat = 1;
+	      data->repeat = true;
 	    }
 	  /* If the THEN/ELSE clause merely assigns a value to
 	     a variable/parameter which is already known to contain
@@ -1554,20 +1568,23 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 	    }
 	}
       else if (code == SWITCH_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&SWITCH_BODY (*stmt_p),
-						 remove_unused_vars);
+	remove_useless_stmts_and_vars_1 (&SWITCH_BODY (*stmt_p), data);
       else if (code == CATCH_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&CATCH_BODY (*stmt_p),
-						 remove_unused_vars);
+	{
+	  remove_useless_stmts_and_vars_1 (&CATCH_BODY (*stmt_p), data);
+	  data->last_goto = NULL;
+	}
       else if (code == EH_FILTER_EXPR)
-	repeat |= remove_useless_stmts_and_vars (&EH_FILTER_FAILURE (*stmt_p),
-						 remove_unused_vars);
+	{
+	  remove_useless_stmts_and_vars_1 (&EH_FILTER_FAILURE (*stmt_p), data);
+	  data->last_goto = NULL;
+	}
       else if (code == TRY_CATCH_EXPR || code == TRY_FINALLY_EXPR)
 	{
-	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 0),
-						   remove_unused_vars);
-	  repeat |= remove_useless_stmts_and_vars (&TREE_OPERAND (*stmt_p, 1),
-						   remove_unused_vars);
+	  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 0), data);
+	  data->last_goto = NULL;
+	  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
+	  data->last_goto = NULL;
 
 	  /* If the handler of a TRY_CATCH or TRY_FINALLY is empty, then
 	     we can emit the TRY block without the enclosing TRY_CATCH_EXPR
@@ -1575,7 +1592,7 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 	  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
 	    {
 	      *stmt_p = TREE_OPERAND (*stmt_p, 0);
-	      repeat = 1;
+	      data->repeat = true;
 	    }
 
 	  /* If the body of a TRY_FINALLY is empty, then we can emit
@@ -1585,7 +1602,7 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 		   && IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
 	    {
 	      *stmt_p = TREE_OPERAND (*stmt_p, 1);
-	      repeat = 1;
+	      data->repeat = true;
 	    }
 
 	  /* If the body of a TRY_CATCH_EXPR is empty, then we can
@@ -1594,15 +1611,15 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 		   && IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
 	    {
 	      *stmt_p = build_empty_stmt ();
-	      repeat = 1;
+	      data->repeat = true;
 	    }
 	}
       else if (code == BIND_EXPR)
 	{
 	  tree block;
+
 	  /* First remove anything underneath the BIND_EXPR.  */
-	  repeat |= remove_useless_stmts_and_vars (&BIND_EXPR_BODY (*stmt_p),
-						   remove_unused_vars);
+	  remove_useless_stmts_and_vars_1 (&BIND_EXPR_BODY (*stmt_p), data);
 
 	  /* If the BIND_EXPR has no variables, then we can pull everything
 	     up one level and remove the BIND_EXPR, unless this is the
@@ -1620,9 +1637,9 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 		      != FUNCTION_DECL)))
 	    {
 	      *stmt_p = BIND_EXPR_BODY (*stmt_p);
-	      repeat = 1;
+	      data->repeat = true;
 	    }
-	  else if (remove_unused_vars)
+	  else if (data->remove_unused_vars)
 	    {
 	      /* If we were unable to completely eliminate the BIND_EXPR,
 		 go ahead and prune out any unused variables.  We do not
@@ -1684,55 +1701,23 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 			  != FUNCTION_DECL)))
 		{
 		  *stmt_p = BIND_EXPR_BODY (*stmt_p);
-		  repeat = 1;
+		  data->repeat = true;
 		}
 	    }
 	}
       else if (code == GOTO_EXPR)
 	{
-	  tree_stmt_iterator tsi = i;
-
-	  /* Step past the GOTO_EXPR statement.  */
-	  tsi_next (&tsi);
-	  if (! tsi_end_p (tsi))
+	  data->last_goto = stmt_p;
+	}
+      else if (code == LABEL_EXPR)
+	{
+	  if (data->last_goto
+	      && (GOTO_DESTINATION (*data->last_goto)
+		  == LABEL_EXPR_LABEL (*stmt_p)))
 	    {
-	      /* If we are not at the end of this tree, then see if
-		 we are at the target label.  If so, then this jump
-		 is not needed.  */
-	      tree label;
-
-	      label = tsi_stmt (tsi);
-	      if (TREE_CODE (label) == LABEL_EXPR
-		  && LABEL_EXPR_LABEL (label) == GOTO_DESTINATION (*stmt_p))
-		{
-		  repeat = 1;
-		  *stmt_p = build_empty_stmt ();
-		}
-	    }
-	  else
-	    {
-	      /* We are at the end of this tree, we may still have
-		 an unnecessary GOTO_EXPR if NEXT_BLOCK_LINK
-		 points to the target label.  */
-	      tree next_block_link = NEXT_BLOCK_LINK (*stmt_p);
-
-	      if (next_block_link)
-		{
-		  tree next_stmt;
-
-		  /* Get the statement at NEXT_BLOCK_LINK and see if it
-		     is our target label.  */
-		  next_stmt = tsi_stmt (tsi_start (&next_block_link));
-		  if (next_stmt
-		      && TREE_CODE (next_stmt) == LABEL_EXPR
-		      && (LABEL_EXPR_LABEL (next_stmt)
-			  == GOTO_DESTINATION (*stmt_p)))
-		    {
-		      repeat = 1;
-		      *stmt_p = build_empty_stmt ();
-		    }
-		}
-
+	      *data->last_goto = build_empty_stmt ();
+	      data->last_goto = NULL;
+              data->repeat = true;
 	    }
 	}
 
@@ -1740,9 +1725,30 @@ remove_useless_stmts_and_vars (tree *first_p, int remove_unused_vars)
 	 re-rationalize COMPOUND_EXPRs.  */
       if (TREE_CODE (*container_p) == COMPOUND_EXPR
 	  && TREE_CODE (TREE_OPERAND (*container_p, 0)) == COMPOUND_EXPR)
-	*container_p = rationalize_compound_expr (*container_p);
+	{
+	  *container_p = rationalize_compound_expr (*container_p);
+	  /* Re-rationalization invalidates internal pointers.  */
+	  data->repeat |= !!data->last_goto;
+	  data->last_goto = NULL;
+	}
     }
-  return repeat;
+}
+
+void
+remove_useless_stmts_and_vars (tree *first_p, bool remove_unused_vars)
+{
+  struct rusv_data data;
+
+  do
+    {
+      data.last_goto = NULL;
+      data.repeat = false;
+      data.remove_unused_vars = remove_unused_vars;
+      remove_unused_vars = false;
+
+      remove_useless_stmts_and_vars_1 (first_p, &data);
+    }
+  while (data.repeat);
 }
 
 /* Delete all unreachable basic blocks.  Return true if any unreachable

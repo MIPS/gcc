@@ -54,22 +54,27 @@ Boston, MA 02111-1307, USA.  */
 void
 optimize_function_tree (tree fndecl)
 {
-  tree fnbody;
-
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
     return;
-
-  fnbody = DECL_SAVED_TREE (fndecl);
 
   /* Build the flowgraph.  */
   init_flow ();
 
   /* Run a pass over the statements deleting any obviously useless
      statements before we build the CFG.  */
-  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), 0);
+  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
+  {
+    int flags;
+    FILE *file = dump_begin (TDI_useless, &flags);
+    if (file)
+      {
+	dump_function_to_file (current_function_decl, file, flags);
+	dump_end (TDI_useless, file);
+      }
+  }
 
-  build_tree_cfg (fnbody);
+  build_tree_cfg (DECL_SAVED_TREE (fndecl));
 
   /* Begin analysis and optimization passes.  */
   if (n_basic_blocks > 0 && ! (errorcount || sorrycount))

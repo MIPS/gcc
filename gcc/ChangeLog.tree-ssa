@@ -1,3 +1,18 @@
+2003-09-17  Richard Henderson  <rth@redhat.com>
+
+	* tree-cfg.c (struct rusv_data): New.
+	(remove_useless_stmts_and_vars_1): Rename from 
+	remove_useless_stmts_and_vars.  Use rusv_data.  Handle goto-next
+	via remembering the last goto seen, and zapping it when appropriate.
+	(remove_useless_stmts_and_vars): New.  Loop until done.
+	* tree-flow.h (remove_useless_stmts_and_vars): Update decl.
+	* tree-optimize.c (optimize_function_tree): Don't cache fnbody.
+	Dump data after remove_useless_stmts_and_vars.
+	* tree-ssa.c (rewrite_out_of_ssa): Kill loop around 
+	remove_useless_stmts_and_vars.
+	* tree-dump.c (dump_files): Add .useless.
+	* tree.h (enum tree_dump_index): Add TDI_useless.
+
 2003-09-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* pretty-print.c (pp_write_text_to_stream): Export.

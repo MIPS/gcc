@@ -3435,6 +3435,7 @@ enum tree_dump_index
   TDI_inlined,			/* dump each function after inlining
 				   within it.  */
   TDI_gimple,			/* dump each function after gimplifying it.  */
+  TDI_useless,			/* dump after cleaning useless bits.  */
   TDI_cfg,			/* dump the flowgraph for each function.  */
   TDI_dot,			/* create a dot graph file for each 
 				   function's flowgraph.  */
