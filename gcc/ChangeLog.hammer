@@ -1,3 +1,28 @@
+2003-07-23  Josef Zlomek  <zlomekj@suse.cz>
+
+	* vrp.c (MAX_UINT_VALUE): New macro.
+	(MAX_SINT_VALUE): New macro.
+	(MIN_SINT_VALUE): New macro.
+	(RANGE_EMPTY_P): New macro.
+	(RANGE_MAKE_EMPTY): New macro.
+	(range_is_empty): Deleted.
+	(convert_range): New function.
+	(convert_ranges): New function.
+	(union_ranges): Convert type of range when possible and needed. Use
+	macros.
+	(ranges_differ): Check all types the ranges have. Use macros.
+	(FIND_RANGE): New macro.
+	(CREATE_RANGE): New macro.
+	(INIT_CONSTANT_RANGE_SINT): New macro.
+	(INIT_CONSTANT_RANGE_UINT): New macro.
+	(process_ranges_eq): Process all types the ranges have. Use macros.
+	(process_ranges_lt): Convert type of range when possible and needed.
+	Use macros.
+	(process_ranges_ltu): Convert type of range when possible and needed.
+	Use macros.
+	(compute_ranges_for_bb): Use macros.
+	(edge_is_dead): Check all types the range has.
+
 2003-07-21  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* fold-const.c (fold): Fold some comparisons of bit operations.

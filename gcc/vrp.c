@@ -147,6 +147,28 @@ typedef struct bb_info_def
 /* Get a pointer to data for an edge E.  */
 #define EI(E) ((edge_info *) (E)->aux)
 
+/* Maximal unsigned integer value for register REGISTER.  */
+#define MAX_UINT_VALUE(REGISTER)					\
+  ((unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (REGISTER)))
+
+/* Maximal signed integer value for register REGISTER.  */
+#define MAX_SINT_VALUE(REGISTER)					\
+  ((HOST_WIDE_INT) ((unsigned HOST_WIDE_INT)				\
+		    GET_MODE_MASK (GET_MODE (REGISTER)) >> 1))
+
+/* Minimal signed integer value for register REGISTER.  */
+#define MIN_SINT_VALUE(REGISTER) (-MAX_SINT_VALUE (REGISTER) - 1)
+
+/* Is range *RANGE empty? Test field FIELD of struct value_def.  */
+#define RANGE_EMPTY_P(RANGE, FIELD) ((RANGE)->from.FIELD > (RANGE)->to.FIELD)
+
+/* Make range *RANGE empty, only the type which uses fielt FIELD.  */
+#define RANGE_MAKE_EMPTY(RANGE, FIELD)					\
+  do {									\
+    (RANGE)->from.FIELD = 1;						\
+    (RANGE)->to.FIELD = 0;						\
+  } while (0)
+  
 /* Alloc pool for range_t.  */
 alloc_pool range_pool;
 
@@ -157,7 +179,8 @@ alloc_pool operation_pool;
 static hashval_t range_hash		PARAMS ((const void *));
 static int range_eq			PARAMS ((const void *, const void *));
 static void range_del			PARAMS ((void *));
-static bool range_is_empty		PARAMS ((const range_t *));
+static bool convert_range		PARAMS ((range_t *, int));
+static void convert_ranges		PARAMS ((range_t *, range_t *));
 static int union_ranges			PARAMS ((void **, void *));
 static void union_all_ranges		PARAMS ((htab_t, htab_t));
 static bool ranges_differ		PARAMS ((const range_t *,
@@ -223,23 +246,80 @@ range_del (x)
   pool_free (range_pool, x);
 }
 
-/* Return true when the range is empty, i.e. register can't have any value.  */
+/* Convert range *RANGE to type TYPE. Return true on success.  */
 
 static bool
-range_is_empty (r)
-     const range_t *r;
+convert_range (range, type)
+     range_t *range;
+     int type;
 {
-  switch (r->type)
+  /* If the range already has type TYPE do nothing.  */
+  if ((range->type & type) == type)
+    return true;
+
+  switch (type)
     {
       case RANGE_SIGNED_INT:
-      case RANGE_SIGNED_INT | RANGE_UNSIGNED_INT:
-	return (r->from.si > r->to.si);
+	if ((range->type & type) == RANGE_UNSIGNED_INT)
+	  {
+	    if (RANGE_EMPTY_P (range, ui))
+	      {
+		RANGE_MAKE_EMPTY (range, si);
+		range->type |= RANGE_SIGNED_INT;
+		return true;
+	      }
+	    if (range->to.ui <= ((unsigned HOST_WIDE_INT)
+				MAX_SINT_VALUE (range->reg)))
+	      {
+		range->from.si = range->from.ui;
+		range->to.si = range->to.ui;
+		range->type |= RANGE_SIGNED_INT;
+		return true;
+	      }
+	  }
+	break;
 
       case RANGE_UNSIGNED_INT:
-	return (r->from.ui > r->to.ui);
+	if ((range->type & type) == RANGE_SIGNED_INT)
+	  {
+	    if (RANGE_EMPTY_P (range, si))
+	      {
+		RANGE_MAKE_EMPTY (range, ui);
+		range->type |= RANGE_UNSIGNED_INT;
+		return true;
+	      }
+	    if (range->from.si >= 0)
+	      {
+		range->from.ui = range->from.si;
+		range->to.ui = range->to.si;
+		range->type |= RANGE_UNSIGNED_INT;
+		return true;
+	      }
+	  }
+	break;
+
+      default:
+	abort ();
     }
 
   return false;
+}
+
+/* Convert ranges RANGE1 and RANGE2 to be of same types.  */
+
+static void
+convert_ranges (range1, range2)
+     range_t *range1;
+     range_t *range2;
+{
+  if ((range1->type & RANGE_SIGNED_INT) != 0)
+    convert_range (range1, RANGE_UNSIGNED_INT);
+  if ((range1->type & RANGE_UNSIGNED_INT) != 0)
+    convert_range (range1, RANGE_SIGNED_INT);
+  if ((range2->type & RANGE_SIGNED_INT) != 0)
+    convert_range (range2, RANGE_UNSIGNED_INT);
+  if ((range2->type & RANGE_UNSIGNED_INT) != 0)
+    convert_range (range2, RANGE_SIGNED_INT);
 }
 
 /* Data passed from union_all_ranges to union_ranges.  */
@@ -273,16 +353,10 @@ union_ranges (slot, data)
       return 1;
     }
 
-  if (range_is_empty (r1))
-    {
-      /* First range is empty so the union is the second range.  */
-      *r1 = *r2;
-      return 1;
-    }
-
-  /* Second range is empty so the union is already in the first range.  */
-  if (range_is_empty (r2))
-    return 1;
+  /* If the types of ranges are not the same try to convert ranges to both
+     integer types.  */
+  if ((r1->type & r2->type) == 0)
+    convert_ranges (r1, r2);
 
   r1->type &= r2->type;
   if (r1->type == 0)
@@ -296,18 +370,42 @@ union_ranges (slot, data)
   /* For compatible ranges make the bounds to contain both intervals.  */
   if ((r1->type & RANGE_SIGNED_INT) != 0)
     {
-      if (r1->from.si > r2->from.si)
-	r1->from.si = r2->from.si;
-      if (r1->to.si < r2->to.si)
-	r1->to.si = r2->to.si;
+      if (RANGE_EMPTY_P (r1, si))
+	{
+	  /* First range is empty so the union is the second range.  */
+	  r1->from.si = r2->from.si;
+	  r1->to.si = r2->to.si;
+	}
+      else if (RANGE_EMPTY_P (r2, si))
+	/* Second range is empty so the union is already in the first range.  */
+	;
+      else
+	{
+	  if (r1->from.si > r2->from.si)
+	    r1->from.si = r2->from.si;
+	  if (r1->to.si < r2->to.si)
+	    r1->to.si = r2->to.si;
+	}
     }
 
   if ((r1->type & RANGE_UNSIGNED_INT) != 0)
     {
-      if (r1->from.ui > r2->from.ui)
-	r1->from.ui = r2->from.ui;
-      if (r1->to.ui < r2->to.ui)
-	r1->to.ui = r2->to.ui;
+      if (RANGE_EMPTY_P (r1, ui))
+	{
+	  /* First range is empty so the union is the second range.  */
+	  r1->from.ui = r2->from.ui;
+	  r1->to.ui = r2->to.ui;
+	}
+      else if (RANGE_EMPTY_P (r2, ui))
+	/* Second range is empty so the union is already in the first range.  */
+	;
+      else
+	{
+	  if (r1->from.ui > r2->from.ui)
+	    r1->from.ui = r2->from.ui;
+	  if (r1->to.ui < r2->to.ui)
+	    r1->to.ui = r2->to.ui;
+	}
     }
 
   return 1;
@@ -334,9 +432,6 @@ ranges_differ (r1, r2)
      const range_t *r1;
      const range_t *r2;
 {
-  bool empty1;
-  bool empty2;
-
   /* R1 and R2 do not have a common type.  */
   if ((r1->type & r2->type) == 0)
     return true;
@@ -344,31 +439,50 @@ ranges_differ (r1, r2)
   if (!rtx_equal_p (r1->reg, r2->reg))
     return true;
 
-  empty1 = range_is_empty (r1);
-  empty2 = range_is_empty (r2);
-
-  if (empty1 != empty2)
-    return true;
-
-  if (empty1 && empty2)
-    return false;
-
   if ((r1->type & r2->type & RANGE_SIGNED_INT) != 0)
   {
-    if (r1->from.si != r2->from.si)
-      return true;
+    bool empty1 = RANGE_EMPTY_P (r1, si);
+    bool empty2 = RANGE_EMPTY_P (r2, si);
 
-    if (r1->to.si != r2->to.si)
-      return true;
+    if (!empty1 && !empty2)
+      {
+	if (r1->from.si != r2->from.si)
+	  return true;
+
+	if (r1->to.si != r2->to.si)
+	  return true;
+      }
+    else
+      {
+	if (empty1 && empty2)
+	  return false;
+
+	/* if (empty1 != empty2) */
+	return true;
+      }
   }
 
   if ((r1->type & r2->type & RANGE_UNSIGNED_INT) != 0)
   {
-    if (r1->from.ui != r2->from.ui)
-      return true;
+    bool empty1 = RANGE_EMPTY_P (r1, ui);
+    bool empty2 = RANGE_EMPTY_P (r2, ui);
 
-    if (r1->to.ui != r2->to.ui)
-      return true;
+    if (!empty1 && !empty2)
+      {
+	if (r1->from.ui != r2->from.ui)
+	  return true;
+
+	if (r1->to.ui != r2->to.ui)
+	  return true;
+      }
+    else
+      {
+	if (empty1 && empty2)
+	  return false;
+
+	/* if (empty1 != empty2) */
+	return true;
+      }
   }
 
   return false;
@@ -452,6 +566,48 @@ copy_register_table (dst, src)
   htab_traverse (src, copy_range, dst);
 }
 
+/* Find range for register REGISTER on edge EDGE and store it to RANGE.  */
+#define FIND_RANGE(RANGE, REGISTER, EDGE)				      \
+  do {									      \
+    void **slot;							      \
+    slot = htab_find_slot_with_hash (EI (EDGE)->htab, (REGISTER),	      \
+				     HASH_REG (REGISTER), NO_INSERT);	      \
+    if (slot)								      \
+      (RANGE) = *slot;							      \
+  } while (0)
+
+/* Allocate RANGE for register REGISTER and store it onto edge EDGE.  */
+#define CREATE_RANGE(RANGE, REGISTER, EDGE)				      \
+  do {									      \
+    void **slot;							      \
+    slot = htab_find_slot_with_hash (EI (EDGE)->htab, (REGISTER),	      \
+				     HASH_REG (REGISTER), INSERT);	      \
+    *slot = (RANGE) = pool_alloc (range_pool);				      \
+  } while (0)
+
+/* Initialize the range RANGE to be a signed integer constant CONST
+   and store a pointer to it to RANGEP.  */
+#define INIT_CONSTANT_RANGE_SINT(RANGEP, RANGE, CONST)			      \
+  do {									      \
+    (RANGEP) = &(RANGE);						      \
+    (RANGE).reg = NULL_RTX;						      \
+    (RANGE).from.si = INTVAL (CONST);					      \
+    (RANGE).to.si = INTVAL (CONST);					      \
+    (RANGE).type = RANGE_UNSIGNED_INT;					      \
+  } while (0)
+
+/* Initialize the range RANGE to be a unsigned integer constant CONST
+   and store a pointer to it to RANGEP.  MAX_VAL is the maximal value
+   for the type.  */
+#define INIT_CONSTANT_RANGE_UINT(RANGEP, RANGE, CONST, MAX_VAL)		      \
+  do {									      \
+    (RANGEP) = &(RANGE);						      \
+    (RANGE).reg = NULL_RTX;						      \
+    (RANGE).from.ui = (unsigned HOST_WIDE_INT) INTVAL (CONST) & (MAX_VAL);    \
+    (RANGE).to.ui = (unsigned HOST_WIDE_INT) INTVAL (CONST) & (MAX_VAL);      \
+    (RANGE).type = RANGE_UNSIGNED_INT;					      \
+  } while (0)
+
 /* Update the ranges for OP0 and OP1 on edge E according to
    result of OP0 EQ OP1.  */
 
@@ -461,41 +617,25 @@ process_ranges_eq (op0, op1, e)
      rtx op1;
      edge e;
 {
-  void **slot0;
-  void **slot1;
   range_t *r0 = NULL;	/* Range for OP0.  */
   range_t *r1 = NULL;	/* Range for OP1.  */
   range_t tmp;
 
-  slot0 = htab_find_slot_with_hash (EI (e)->htab, op0, HASH_REG (op0),
-				    NO_INSERT);
-  if (slot0)
-    r0 = *slot0;
+  FIND_RANGE (r0, op0, e);
 
   if (GET_CODE (op1) == CONST_INT)
     {
-      unsigned HOST_WIDE_INT mask
-	= (unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (op0));
+      unsigned HOST_WIDE_INT mask = MAX_UINT_VALUE (op0);
 
       /* OP1 is a constant, create a temporary range for it.  */
-      r1 = &tmp;
-      tmp.reg = NULL;
-      tmp.from.si = INTVAL (op1);
-      tmp.to.si = INTVAL (op1);
-      tmp.from.ui = (unsigned HOST_WIDE_INT) INTVAL (op1) & mask;
-      tmp.to.ui = (unsigned HOST_WIDE_INT) INTVAL (op1) & mask;
-      if (r0 != NULL)
-	tmp.type = r0->type;
-      else
-	tmp.type = RANGE_SIGNED_INT | RANGE_UNSIGNED_INT;
+      INIT_CONSTANT_RANGE_SINT (r1, tmp, op1);
+      INIT_CONSTANT_RANGE_UINT (r1, tmp, op1, mask);
+      tmp.type = RANGE_SIGNED_INT | RANGE_UNSIGNED_INT;
     }
   else if (GET_CODE (op1) == REG
 	   && GET_MODE (op0) == GET_MODE (op1))
     {
-      slot1 = htab_find_slot_with_hash (EI (e)->htab, op1, HASH_REG (op1),
-					NO_INSERT);
-      if (slot1)
-	r1 = *slot1;
+      FIND_RANGE (r1, op1, e);
     }
   else
     return;
@@ -508,108 +648,69 @@ process_ranges_eq (op0, op1, e)
     {
       if (r1)
 	{
-	  switch (r0->type & r1->type)
+	  /* If the types of ranges are not the same try to convert ranges to
+	     be of same types.  */
+	  if ((r0->type & r1->type) == 0)
+	    convert_ranges (r0, r1);
+
+	  /* If the types of ranges still are not the same do not shrink ranges
+	     because we do not know how.  */
+	  if ((r0->type & r1->type) == 0)
+	    return;
+
+	  if ((r0->type & r1->type & RANGE_SIGNED_INT) != 0)
 	    {
-	      case 0:
-		/* If the ranges are not compatible leave them as they are.  */
-		break;
-
-	      case RANGE_SIGNED_INT | RANGE_UNSIGNED_INT:
-		/* When both types are (RANGE_SIGNED_INT | RANGE_UNSIGNED_INT)
-		   both ranges are constants or a result of union of 2 constants
-		   and thus the ranges are not empty.  */
-
-		/* If both ranges are constants compare them,
-		   otherwise leave ranges as they are because we do not know
-		   how to compare them.  */
-		if (r0->from.si == r0->to.si && r1->from.si == r1->to.si)
-		  {
-		    if (r0->from.si != r1->from.si)
-		      {
-			/* Make the ranges empty.  */
-			r0->from.si = 1;
-			r0->to.si = 0;
-			r0->from.ui = 1;
-			r0->to.ui = 0;
-			r1->from.si = 1;
-			r1->to.si = 0;
-			r1->from.ui = 1;
-			r1->to.ui = 0;
-		      }
-		  }
-
-		break;
-
-	      case RANGE_SIGNED_INT:
-		r0->type = r1->type = r0->type & r1->type;
+		r0->type = r1->type = RANGE_SIGNED_INT;
 
 		/* If one range is empty make the other empty too.  */
-		if (range_is_empty (r0))
-		  {
-		    r1->from.si = 1;
-		    r1->to.si = 0;
-		    return;
-		  }
-
-		if (range_is_empty (r1))
-		  {
-		    r0->from.si = 1;
-		    r0->to.si = 0;
-		    return;
-		  }
-
-		/* If OP1 EQ OP2 set both ranges to the intersection of them.  */
-		if (r0->from.si < r1->from.si)
-		  r0->from.si = r1->from.si;
+		if (RANGE_EMPTY_P (r0, si))
+		  RANGE_MAKE_EMPTY (r1, si);
+		else if (RANGE_EMPTY_P (r1, si))
+		  RANGE_MAKE_EMPTY (r0, si);
 		else
-		  r1->from.si = r0->from.si;
+		  {
+		    /* If OP1 EQ OP2 set both ranges to the intersection
+		       of them.  */
+		    if (r0->from.si < r1->from.si)
+		      r0->from.si = r1->from.si;
+		    else
+		      r1->from.si = r0->from.si;
 
-		if (r0->to.si < r1->to.si)
-		  r1->to.si = r0->to.si;
-		else
-		  r0->to.si = r1->to.si;
-
-		break;
-
-	      case RANGE_UNSIGNED_INT:
-		r0->type = r1->type = r0->type & r1->type;
+		    if (r0->to.si < r1->to.si)
+		      r1->to.si = r0->to.si;
+		    else
+		      r0->to.si = r1->to.si;
+		  }
+	    }
+	  if ((r0->type & r1->type & RANGE_UNSIGNED_INT) != 0)
+	    {
+		r0->type = r1->type = RANGE_UNSIGNED_INT;
 
 		/* If one range is empty make the other empty too.  */
-		if (range_is_empty (r0))
-		  {
-		    r1->from.ui = 1;
-		    r1->to.ui = 0;
-		    return;
-		  }
-
-		if (range_is_empty (r1))
-		  {
-		    r0->from.ui = 1;
-		    r0->to.ui = 0;
-		    return;
-		  }
-
-		/* If OP1 EQ OP2 set both ranges to the intersection of them.  */
-		if (r0->from.ui < r1->from.ui)
-		  r0->from.ui = r1->from.ui;
+		if (RANGE_EMPTY_P (r0, ui))
+		  RANGE_MAKE_EMPTY (r1, ui);
+		else if (RANGE_EMPTY_P (r1, ui))
+		  RANGE_MAKE_EMPTY (r0, ui);
 		else
-		  r1->from.ui = r0->from.ui;
+		  {
+		    /* If OP1 EQ OP2 set both ranges to the intersection
+		       of them.  */
+		    if (r0->from.ui < r1->from.ui)
+		      r0->from.ui = r1->from.ui;
+		    else
+		      r1->from.ui = r0->from.ui;
 
-		if (r0->to.ui < r1->to.ui)
-		  r1->to.ui = r0->to.ui;
-		else
-		  r0->to.ui = r1->to.ui;
-
-		break;
+		    if (r0->to.ui < r1->to.ui)
+		      r1->to.ui = r0->to.ui;
+		    else
+		      r0->to.ui = r1->to.ui;
+		  }
 	    }
 	}
       else
 	{
 	  /* R1 is a full range, intersection with R0 is R0.  */
-	  r1 = pool_alloc (range_pool);
-	  slot1 = htab_find_slot_with_hash (EI (e)->htab, op1, HASH_REG (op1),
-					    INSERT);
-	  *slot1 = r1;
+	  CREATE_RANGE (r1, op1, e);
 	  *r1 = *r0;
 	  r1->reg = op1;
 	}
@@ -617,10 +718,7 @@ process_ranges_eq (op0, op1, e)
   else if (r1)
     {
       /* R0 is a full range, intersection with R1 is R1.  */
-      r0 = pool_alloc (range_pool);
-      slot0 = htab_find_slot_with_hash (EI (e)->htab, op0, HASH_REG (op0),
-					INSERT);
-      *slot0 = r0;
+      CREATE_RANGE (r0, op0, e);
       *r0 = *r1;
       r0->reg = op0;
     }
@@ -636,15 +734,11 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
      edge then_edge;
      edge else_edge;
 {
-  void **slot0t;
-  void **slot0e;
-  void **slot1t;
-  void **slot1e;
   range_t *r0t = NULL;	/* Range for OP0 on THEN_EDGE.  */
   range_t *r0e = NULL;	/* Range for OP0 on ELSE_EDGE.  */
   range_t *r1t = NULL;	/* Range for OP1 on THEN_EDGE.  */
   range_t *r1e = NULL;	/* Range for OP1 on ELSE_EDGE.  */
-  range_t tmp0, tmp1;
+  range_t tmp0t, tmp0e, tmp1t, tmp1e;
   HOST_WIDE_INT max_val = 0;	/* Set it to something to avoid a warning.  */
   HOST_WIDE_INT min_val = 0;
 
@@ -655,67 +749,51 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
 
   if (GET_CODE (op0) == REG)
     {
-      max_val = (HOST_WIDE_INT) ((unsigned HOST_WIDE_INT)
-				 GET_MODE_MASK (GET_MODE (op0)) >> 1);
-      min_val = -max_val - 1;
+      max_val = MAX_SINT_VALUE (op0);
+      min_val = MIN_SINT_VALUE (op0);
 
       /* Find the range for OP0 on THEN_EDGE and ELSE_EDGE.  */
-      slot0t = htab_find_slot_with_hash (EI (then_edge)->htab, op0,
-					 HASH_REG (op0), NO_INSERT);
-      if (slot0t)
-	r0t = *slot0t;
-      slot0e = htab_find_slot_with_hash (EI (else_edge)->htab, op0,
-					 HASH_REG (op0), NO_INSERT);
-      if (slot0e)
-	r0e = *slot0e;
+      FIND_RANGE (r0t, op0, then_edge);
+      FIND_RANGE (r0e, op0, else_edge);
 
-      /* If the type of one range is not signed int we do not know how
-	 to shorten ranges so we leave them as they are.  */
-      if (r0t && (r0t->type & RANGE_SIGNED_INT) == 0)
+      /* If the type of one range is not signed int try to convert it.
+	 If it can't be converted leave the ranges as they are.  */
+      if (r0t && !convert_range (r0t, RANGE_SIGNED_INT))
+	return;
+      if (r0e && !convert_range (r0e, RANGE_SIGNED_INT))
 	return;
     }
   if (GET_CODE (op1) == REG)
     {
-      max_val = (HOST_WIDE_INT) ((unsigned HOST_WIDE_INT)
-				 GET_MODE_MASK (GET_MODE (op1)) >> 1);
-      min_val = -max_val - 1;
+      max_val = MAX_SINT_VALUE (op1);
+      min_val = MIN_SINT_VALUE (op1);
 
-      /* Find the range for OP0 on THEN_EDGE and ELSE_EDGE.  */
-      slot1t = htab_find_slot_with_hash (EI (then_edge)->htab, op1,
-					 HASH_REG (op1), NO_INSERT);
-      if (slot1t)
-	r1t = *slot1t;
-      slot1e = htab_find_slot_with_hash (EI (else_edge)->htab, op1,
-					 HASH_REG (op1), NO_INSERT);
-      if (slot1e)
-	r1e = *slot1e;
+      /* Find the range for OP1 on THEN_EDGE and ELSE_EDGE.  */
+      FIND_RANGE (r1t, op1, then_edge);
+      FIND_RANGE (r1e, op1, else_edge);
 
-      /* If the type of one range is not signed int we do not know how
-	 to shorten ranges so we leave them as they are.  */
-      if (r1t && (r1t->type & RANGE_SIGNED_INT) == 0)
+      /* If the type of one range is not signed int try to convert it.
+	 If it can't be converted leave the ranges as they are.  */
+      if (r1t && !convert_range (r1t, RANGE_SIGNED_INT))
+	return;
+      if (r1e && !convert_range (r1e, RANGE_SIGNED_INT))
 	return;
     }
 
   if (GET_CODE (op0) == CONST_INT)
     {
-      /* OP0 is a constant, create a temporary range for it.  */
-      r0t = r0e = &tmp0;
-      tmp0.reg = NULL;
-      tmp0.from.si = INTVAL (op0);
-      tmp0.to.si = INTVAL (op0);
-      tmp0.type = RANGE_SIGNED_INT;
+      /* OP0 is a constant, create temporary ranges for it.  */
+      INIT_CONSTANT_RANGE_SINT (r0t, tmp0t, op0);
+      INIT_CONSTANT_RANGE_SINT (r0e, tmp0e, op0);
     }
   else if (GET_CODE (op0) != REG)
     return;
 
   if (GET_CODE (op1) == CONST_INT)
     {
-      /* OP1 is a constant, create a temporary range for it.  */
-      r1t = r1e = &tmp1;
-      tmp1.reg = NULL;
-      tmp1.from.si = INTVAL (op1);
-      tmp1.to.si = INTVAL (op1);
-      tmp1.type = RANGE_SIGNED_INT;
+      /* OP1 is a constant, create temporary ranges for it.  */
+      INIT_CONSTANT_RANGE_SINT (r1t, tmp1t, op1);
+      INIT_CONSTANT_RANGE_SINT (r1e, tmp1e, op1);
     }
   else if (GET_CODE (op1) != REG)
     return;
@@ -742,31 +820,25 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
 	  r1t->type = r1e->type = RANGE_SIGNED_INT;
 
 	  /* If one range is empty make the other empty too.  */
-	  if (range_is_empty (r0t))
+	  if (RANGE_EMPTY_P (r0t, si))
 	    {
-	      r1t->from.si = 1;
-	      r1t->to.si = 0;
-	      r1e->from.si = 1;
-	      r1e->to.si = 0;
+	      RANGE_MAKE_EMPTY (r1t, si);
+	      RANGE_MAKE_EMPTY (r1e, si);
 	      return;
 	    }
 
-	  if (range_is_empty (r1t))
+	  if (RANGE_EMPTY_P (r1t, si))
 	    {
-	      r0t->from.si = 1;
-	      r0t->to.si = 0;
-	      r0e->from.si = 1;
-	      r0e->to.si = 0;
+	      RANGE_MAKE_EMPTY (r0t, si);
+	      RANGE_MAKE_EMPTY (r0e, si);
 	      return;
 	    }
 
 	  if (r0t->from.si == max_val)
 	    {
 	      /* The condition OP0 LT OP1 may be never true. */
-	      r0t->from.si = 1;
-	      r0t->to.si = 0;
-	      r1t->from.si = 1;
-	      r1t->to.si = 0;
+	      RANGE_MAKE_EMPTY (r0t, si);
+	      RANGE_MAKE_EMPTY (r1t, si);
 	    }
 	  else if (r0t->from.si >= r1t->from.si)
 	    r1t->from.si = r0t->from.si + 1;
@@ -776,10 +848,8 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
 	  if (r1t->to.si == min_val)
 	    {
 	      /* The condition OP0 LT OP1 may be never true. */
-	      r0t->from.si = 1;
-	      r0t->to.si = 0;
-	      r1t->from.si = 1;
-	      r1t->to.si = 0;
+	      RANGE_MAKE_EMPTY (r0t, si);
+	      RANGE_MAKE_EMPTY (r1t, si);
 	    }
 	  else if (r0t->to.si >= r1t->to.si)
 	    r0t->to.si = r1t->to.si - 1;
@@ -789,33 +859,24 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
       else
 	{
 	  /* R1 is full interval, shorten it on THEN_EDGE and ELSE_EDGE.  */
-	  r1t = pool_alloc (range_pool);
-	  slot1t = htab_find_slot_with_hash (EI (then_edge)->htab, op1,
-					     HASH_REG (op1), INSERT);
-	  *slot1t = r1t;
-	  r1e = pool_alloc (range_pool);
-	  slot1e = htab_find_slot_with_hash (EI (else_edge)->htab, op1,
-					     HASH_REG (op1), INSERT);
-	  *slot1e = r1e;
+	  CREATE_RANGE (r1t, op1, then_edge);
+	  CREATE_RANGE (r1e, op1, else_edge);
 
 	  r1t->reg = r1e->reg = op1;
 	  r1t->type = r1e->type = RANGE_SIGNED_INT;
 	  r0t->type = r0e->type = RANGE_SIGNED_INT;
 
 	  /* If one range is empty make the other empty too.  */
-	  if (range_is_empty (r0t))
+	  if (RANGE_EMPTY_P (r0t, si))
 	    {
-	      r1t->from.si = 1;
-	      r1t->to.si = 0;
-	      r1e->from.si = 1;
-	      r1e->to.si = 0;
+	      RANGE_MAKE_EMPTY (r1t, si);
+	      RANGE_MAKE_EMPTY (r1e, si);
 	      return;
 	    }
 
 	  if (r0t->from.si == max_val)
 	    {
-	      r1t->from.si = 1;
-	      r1t->to.si = 0;
+	      RANGE_MAKE_EMPTY (r1t, si);
 	    }
 	  else
 	    {
@@ -830,33 +891,24 @@ process_ranges_lt (op0, op1, then_edge, else_edge)
   else if (r1t)
     {
       /* R0 is full interval, shorten it on THEN_EDGE and ELSE_EDGE.  */
-      r0t = pool_alloc (range_pool);
-      slot0t = htab_find_slot_with_hash (EI (then_edge)->htab, op0,
-					 HASH_REG (op0), INSERT);
-      *slot0t = r0t;
-      r0e = pool_alloc (range_pool);
-      slot0e = htab_find_slot_with_hash (EI (else_edge)->htab, op0,
-					 HASH_REG (op0), INSERT);
-      *slot0e = r0e;
+      CREATE_RANGE (r0t, op0, then_edge);
+      CREATE_RANGE (r0e, op0, else_edge);
 
       r0t->reg = r0e->reg = op0;
       r0t->type = r0e->type = RANGE_SIGNED_INT;
       r1t->type = r1e->type = RANGE_SIGNED_INT;
 
       /* If one range is empty make the other empty too.  */
-      if (range_is_empty (r1t))
+      if (RANGE_EMPTY_P (r1t, si))
 	{
-	  r0t->from.si = 1;
-	  r0t->to.si = 0;
-	  r0e->from.si = 1;
-	  r0e->to.si = 0;
+	  RANGE_MAKE_EMPTY (r0t, si);
+	  RANGE_MAKE_EMPTY (r0e, si);
 	  return;
 	}
 
       if (r1t->to.si == min_val)
 	{
-	  r0t->from.si = 1;
-	  r0t->to.si = 0;
+	  RANGE_MAKE_EMPTY (r0t, si);
 	}
       else
 	{
@@ -881,15 +933,11 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
      edge then_edge;
      edge else_edge;
 {
-  void **slot0t;
-  void **slot0e;
-  void **slot1t;
-  void **slot1e;
   range_t *r0t = NULL;	/* Range for OP0 on THEN_EDGE.  */
   range_t *r0e = NULL;	/* Range for OP0 on ELSE_EDGE.  */
   range_t *r1t = NULL;	/* Range for OP1 on THEN_EDGE.  */
   range_t *r1e = NULL;	/* Range for OP1 on ELSE_EDGE.  */
-  range_t tmp0, tmp1;
+  range_t tmp0t, tmp0e, tmp1t, tmp1e;
   unsigned HOST_WIDE_INT max_val = 0;
   unsigned HOST_WIDE_INT min_val = 0;
 
@@ -900,51 +948,40 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
 
   if (GET_CODE (op0) == REG)
     {
-      max_val = (unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (op0));
+      max_val = MAX_UINT_VALUE (op0);
 
       /* Find the range for OP0 on THEN_EDGE and ELSE_EDGE.  */
-      slot0t = htab_find_slot_with_hash (EI (then_edge)->htab, op0,
-					 HASH_REG (op0), NO_INSERT);
-      if (slot0t)
-	r0t = *slot0t;
-      slot0e = htab_find_slot_with_hash (EI (else_edge)->htab, op0,
-					 HASH_REG (op0), NO_INSERT);
-      if (slot0e)
-	r0e = *slot0e;
+      FIND_RANGE (r0t, op0, then_edge);
+      FIND_RANGE (r0e, op0, else_edge);
 
-      /* If the type of one range is not unsigned int we do not know how
-	 to shorten ranges so we leave them as they are.  */
-      if (r0t && (r0t->type & RANGE_UNSIGNED_INT) == 0)
+      /* If the type of one range is not unsigned int try to convert it.
+	 If it can't be converted leave the ranges as they are.  */
+      if (r0t && !convert_range (r0t, RANGE_UNSIGNED_INT))
+	return;
+      if (r0e && !convert_range (r0e, RANGE_UNSIGNED_INT))
 	return;
     }
   if (GET_CODE (op1) == REG)
     {
-      max_val = (unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (op0));
+      max_val = MAX_UINT_VALUE (op0);
 
-      /* Find the range for OP0 on THEN_EDGE and ELSE_EDGE.  */
-      slot1t = htab_find_slot_with_hash (EI (then_edge)->htab, op1,
-					 HASH_REG (op1), NO_INSERT);
-      if (slot1t)
-	r1t = *slot1t;
-      slot1e = htab_find_slot_with_hash (EI (else_edge)->htab, op1,
-					 HASH_REG (op1), NO_INSERT);
-      if (slot1e)
-	r1e = *slot1e;
+      /* Find the range for OP1 on THEN_EDGE and ELSE_EDGE.  */
+      FIND_RANGE (r1t, op1, then_edge);
+      FIND_RANGE (r1e, op1, else_edge);
 
-      /* If the type of one range is not unsigned int we do not know how
-	 to shorten ranges so we leave them as they are.  */
-      if (r1t && (r1t->type & RANGE_UNSIGNED_INT) == 0)
+      /* If the type of one range is not unsigned int try to convert it.
+	 If it can't be converted leave the ranges as they are.  */
+      if (r1t && !convert_range (r1t, RANGE_UNSIGNED_INT))
+	return;
+      if (r1e && !convert_range (r1e, RANGE_UNSIGNED_INT))
 	return;
     }
 
   if (GET_CODE (op0) == CONST_INT)
     {
       /* OP0 is a constant, create a temporary range for it.  */
-      r0t = r0e = &tmp0;
-      tmp0.reg = NULL;
-      tmp0.from.ui = (unsigned HOST_WIDE_INT) INTVAL (op0) & max_val;
-      tmp0.to.ui = (unsigned HOST_WIDE_INT) INTVAL (op0) & max_val;
-      tmp0.type = RANGE_UNSIGNED_INT;
+      INIT_CONSTANT_RANGE_UINT (r0t, tmp0t, op0, max_val);
+      INIT_CONSTANT_RANGE_UINT (r0e, tmp0e, op0, max_val);
     }
   else if (GET_CODE (op0) != REG)
     return;
@@ -952,11 +989,8 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
   if (GET_CODE (op1) == CONST_INT)
     {
       /* OP1 is a constant, create a temporary range for it.  */
-      r1t = r1e = &tmp1;
-      tmp1.reg = NULL;
-      tmp1.from.ui = (unsigned HOST_WIDE_INT) INTVAL (op1) & max_val;
-      tmp1.to.ui = (unsigned HOST_WIDE_INT) INTVAL (op1) & max_val;
-      tmp1.type = RANGE_UNSIGNED_INT;
+      INIT_CONSTANT_RANGE_UINT (r1t, tmp1t, op1, max_val);
+      INIT_CONSTANT_RANGE_UINT (r1e, tmp1e, op1, max_val);
     }
   else if (GET_CODE (op0) != REG)
     return;
@@ -983,31 +1017,25 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
 	  r1t->type = r1e->type = RANGE_UNSIGNED_INT;
 
 	  /* If one range is empty make the other empty too.  */
-	  if (range_is_empty (r0t))
+	  if (RANGE_EMPTY_P (r0t, ui))
 	    {
-	      r1t->from.ui = 1;
-	      r1t->to.ui = 0;
-	      r1e->from.ui = 1;
-	      r1e->to.ui = 0;
+	      RANGE_MAKE_EMPTY (r1t, ui);
+	      RANGE_MAKE_EMPTY (r1e, ui);
 	      return;
 	    }
 
-	  if (range_is_empty (r1t))
+	  if (RANGE_EMPTY_P (r1t, ui))
 	    {
-	      r0t->from.ui = 1;
-	      r0t->to.ui = 0;
-	      r0e->from.ui = 1;
-	      r0e->to.ui = 0;
+	      RANGE_MAKE_EMPTY (r0t, ui);
+	      RANGE_MAKE_EMPTY (r0e, ui);
 	      return;
 	    }
 
 	  if (r0t->from.ui == max_val)
 	    {
 	      /* The condition OP0 LT OP1 may be never true. */
-	      r0t->from.ui = 1;
-	      r0t->to.ui = 0;
-	      r1t->from.ui = 1;
-	      r1t->to.ui = 0;
+	      RANGE_MAKE_EMPTY (r0t, ui);
+	      RANGE_MAKE_EMPTY (r1t, ui);
 	    }
 	  else if (r0t->from.ui >= r1t->from.ui)
 	    r1t->from.ui = r0t->from.ui + 1;
@@ -1017,10 +1045,8 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
 	  if (r1t->to.ui == min_val)
 	    {
 	      /* The condition OP0 LT OP1 may be never true. */
-	      r0t->from.ui = 1;
-	      r0t->to.ui = 0;
-	      r1t->from.ui = 1;
-	      r1t->to.ui = 0;
+	      RANGE_MAKE_EMPTY (r0t, ui);
+	      RANGE_MAKE_EMPTY (r1t, ui);
 	    }
 	  else if (r0t->to.ui >= r1t->to.ui)
 	    r0t->to.ui = r1t->to.ui - 1;
@@ -1030,33 +1056,24 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
       else
 	{
 	  /* R1 is full interval, shorten it on THEN_EDGE and ELSE_EDGE.  */
-	  r1t = pool_alloc (range_pool);
-	  slot1t = htab_find_slot_with_hash (EI (then_edge)->htab, op1,
-					     HASH_REG (op1), INSERT);
-	  *slot1t = r1t;
-	  r1e = pool_alloc (range_pool);
-	  slot1e = htab_find_slot_with_hash (EI (else_edge)->htab, op1,
-					     HASH_REG (op1), INSERT);
-	  *slot1e = r1e;
+	  CREATE_RANGE (r1t, op1, then_edge);
+	  CREATE_RANGE (r1e, op1, else_edge);
 
 	  r1t->reg = r1e->reg = op1;
 	  r1t->type = r1e->type = RANGE_UNSIGNED_INT;
 	  r0t->type = r0e->type = RANGE_UNSIGNED_INT;
 
 	  /* If one range is empty make the other empty too.  */
-	  if (range_is_empty (r0t))
+	  if (RANGE_EMPTY_P (r0t, ui))
 	    {
-	      r1t->from.ui = 1;
-	      r1t->to.ui = 0;
-	      r1e->from.ui = 1;
-	      r1e->to.ui = 0;
+	      RANGE_MAKE_EMPTY (r1t, ui);
+	      RANGE_MAKE_EMPTY (r1e, ui);
 	      return;
 	    }
 
 	  if (r0t->from.ui == max_val)
 	    {
-	      r1t->from.ui = 1;
-	      r1t->to.ui = 0;
+	      RANGE_MAKE_EMPTY (r1t, ui);
 	    }
 	  else
 	    {
@@ -1071,33 +1088,24 @@ process_ranges_ltu (op0, op1, then_edge, else_edge)
   else if (r1t)
     {
       /* R0 is full interval, shorten it on THEN_EDGE and ELSE_EDGE.  */
-      r0t = pool_alloc (range_pool);
-      slot0t = htab_find_slot_with_hash (EI (then_edge)->htab, op0,
-					 HASH_REG (op0), INSERT);
-      *slot0t = r0t;
-      r0e = pool_alloc (range_pool);
-      slot0e = htab_find_slot_with_hash (EI (else_edge)->htab, op0,
-					 HASH_REG (op0), INSERT);
-      *slot0e = r0e;
+      CREATE_RANGE (r0t, op0, then_edge);
+      CREATE_RANGE (r0e, op0, else_edge);
 
       r0t->reg = r0e->reg = op0;
       r0t->type = r0e->type = RANGE_UNSIGNED_INT;
       r1t->type = r1e->type = RANGE_UNSIGNED_INT;
 
       /* If one range is empty make the other empty too.  */
-      if (range_is_empty (r1t))
+      if (RANGE_EMPTY_P (r1t, ui))
 	{
-	  r0t->from.ui = 1;
-	  r0t->to.ui = 0;
-	  r0e->from.ui = 1;
-	  r0e->to.ui = 0;
+	  RANGE_MAKE_EMPTY (r0t, ui);
+	  RANGE_MAKE_EMPTY (r0e, ui);
 	  return;
 	}
 
       if (r1t->to.ui == min_val)
 	{
-	  r0t->from.ui = 1;
-	  r0t->to.ui = 0;
+	  RANGE_MAKE_EMPTY (r0t, ui);
 	}
       else
 	{
@@ -1412,8 +1420,6 @@ compute_ranges_for_bb (bb)
 	    break;
 
 	  case CONST_INT_TO_REG:
-	    mask
-	      = (unsigned HOST_WIDE_INT) GET_MODE_MASK (GET_MODE (oper->dst));
 	    /* Set the range of SET_DST to be a single value.  */
 	    slot = htab_find_slot_with_hash (new_out, oper->dst,
 					     HASH_REG (oper->dst), NO_INSERT);
@@ -1428,6 +1434,7 @@ compute_ranges_for_bb (bb)
 	      }
 
 	    /* We do not know whether the constant is signed or unsigned.  */
+	    mask = MAX_UINT_VALUE (oper->dst);
 	    dst_r->type = RANGE_SIGNED_INT | RANGE_UNSIGNED_INT;
 	    dst_r->reg = oper->dst;
 	    dst_r->from.si = INTVAL (oper->src);
@@ -1570,8 +1577,26 @@ edge_is_dead (e)
 	  range_t *r;
 
 	  r = htab_find_with_hash (EI (e)->htab, op, HASH_REG (op));
-	  if (r && range_is_empty (r))
-	    return true;
+	  if (r)
+	    {
+	      switch (r->type)
+		{
+		  case RANGE_SIGNED_INT:
+		    if (RANGE_EMPTY_P (r, si))
+		      return true;
+		    break;
+		    
+		  case RANGE_UNSIGNED_INT:
+		    if (RANGE_EMPTY_P (r, ui))
+		      return true;
+		    break;
+		    
+		  case RANGE_SIGNED_INT | RANGE_UNSIGNED_INT:
+		    if (RANGE_EMPTY_P (r, si) && RANGE_EMPTY_P (r, ui))
+		      return true;
+		    break;
+		}
+	    }
 	}
     }
 
