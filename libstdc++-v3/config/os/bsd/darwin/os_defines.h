@@ -1,7 +1,6 @@
-// Locale support -*- C++ -*-
+// Specific definitions for Darwin -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003
-// Free Software Foundation, Inc.
+// Copyright (C) 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,30 +27,21 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-//
-// ISO C++ 14882: 22.1  Locales
-//
-  
-// Information as gleaned from /usr/include/ctype.h
-  
-  /// @brief  Base class for ctype.
-  struct ctype_base
-  {
-    // Non-standard typedefs.
-    typedef const int* 		__to_type;
 
-    // NB: Offsets into ctype<char>::_M_table force a particular size
-    // on the mask type. Because of this, we don't use an enum.
-    typedef unsigned short 	mask;   
-    static const mask upper    	= _ISupper;
-    static const mask lower 	= _ISlower;
-    static const mask alpha 	= _ISalpha;
-    static const mask digit 	= _ISdigit;
-    static const mask xdigit 	= _ISxdigit;
-    static const mask space 	= _ISspace;
-    static const mask print 	= _ISprint;
-    static const mask graph 	= _ISalpha | _ISdigit | _ISpunct;
-    static const mask cntrl 	= _IScntrl;
-    static const mask punct 	= _ISpunct;
-    static const mask alnum 	= _ISalpha | _ISdigit;
-  };
+#ifndef _GLIBCXX_OS_DEFINES
+#define _GLIBCXX_OS_DEFINES 1
+
+// System-specific #define, typedefs, corrections, etc, go here.  This
+// file will come before all others.
+
+/* Darwin has the pthread routines in libSystem, which every program
+   links to, so there's no need for weak-ness for that.  */
+#define _GLIBCXX_GTHREAD_USE_WEAK 0
+
+// On Darwin, in order to enable overriding of operator new and delete,
+// GCC makes the definition of these functions weak, relies on the
+// loader to implement weak semantics properly, and uses
+// -flat_namespace to work around the way that it doesn't.
+#define _GLIBCXX_WEAK_DEFINITION __attribute__ ((weak))
+
+#endif

@@ -1,7 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2002, 2003
-// Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,24 +33,59 @@
   
 // Information as gleaned from /usr/include/ctype.h
   
-  /// @brief  Base class for ctype.
-  struct ctype_base
-  {
-    // Non-standard typedefs.
-    typedef const int* 		__to_type;
+  const ctype_base::mask*
+  ctype<char>::classic_table() throw()
+  { return 0; }
 
-    // NB: Offsets into ctype<char>::_M_table force a particular size
-    // on the mask type. Because of this, we don't use an enum.
-    typedef unsigned short 	mask;   
-    static const mask upper    	= _ISupper;
-    static const mask lower 	= _ISlower;
-    static const mask alpha 	= _ISalpha;
-    static const mask digit 	= _ISdigit;
-    static const mask xdigit 	= _ISxdigit;
-    static const mask space 	= _ISspace;
-    static const mask print 	= _ISprint;
-    static const mask graph 	= _ISalpha | _ISdigit | _ISpunct;
-    static const mask cntrl 	= _IScntrl;
-    static const mask punct 	= _ISpunct;
-    static const mask alnum 	= _ISalpha | _ISdigit;
-  };
+  ctype<char>::ctype(__c_locale, const mask* __table, bool __del, 
+		     size_t __refs) 
+  : facet(__refs), _M_del(__table != 0 && __del), 
+  _M_toupper(NULL), _M_tolower(NULL), 
+  _M_table(__table ? __table : classic_table()) 
+  { 
+    memset(_M_widen, 0, sizeof(_M_widen));
+    _M_widen_ok = 0;
+    memset(_M_narrow, 0, sizeof(_M_narrow));
+    _M_narrow_ok = 0;
+  }
+
+  ctype<char>::ctype(const mask* __table, bool __del, size_t __refs) 
+  : facet(__refs), _M_del(__table != 0 && __del), 
+  _M_toupper(NULL), _M_tolower(NULL), 
+  _M_table(__table ? __table : classic_table()) 
+  { 
+    memset(_M_widen, 0, sizeof(_M_widen));
+    _M_widen_ok = 0;
+    memset(_M_narrow, 0, sizeof(_M_narrow));
+    _M_narrow_ok = 0;
+  }
+
+  char
+  ctype<char>::do_toupper(char __c) const
+  { return ::toupper((int) __c); }
+
+  const char*
+  ctype<char>::do_toupper(char* __low, const char* __high) const
+  {
+    while (__low < __high)
+      {
+	*__low = ::toupper((int) *__low);
+	++__low;
+      }
+    return __high;
+  }
+
+  char
+  ctype<char>::do_tolower(char __c) const
+  { return ::tolower((int) __c); }
+
+  const char* 
+  ctype<char>::do_tolower(char* __low, const char* __high) const
+  {
+    while (__low < __high)
+      {
+	*__low = ::tolower((int) *__low);
+	++__low;
+      }
+    return __high;
+  }

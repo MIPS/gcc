@@ -242,6 +242,22 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
     basic_string<_CharT, _Traits, _Alloc>::
+    assign(const basic_string& __str)
+    {
+      if (_M_rep() != __str._M_rep())
+	{
+	  // XXX MT
+	  const allocator_type __a = this->get_allocator();
+	  _CharT* __tmp = __str._M_rep()->_M_grab(__a, __str.get_allocator());
+	  _M_rep()->_M_dispose(__a);
+	  _M_data(__tmp);
+	}
+      return *this;
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
     assign(const _CharT* __s, size_type __n)
     {
       __glibcxx_requires_string_len(__s, __n);
@@ -260,6 +276,23 @@ namespace std
 	  return *this;
 	}
      }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    append(size_type __n, _CharT __c)
+    {
+      if (__n)
+	{
+	  _M_check_length(size_type(0), __n, "basic_string::append");	  
+	  const size_type __len = __n + this->size();
+	  if (__len > this->capacity() || _M_rep()->_M_is_shared())
+	    this->reserve(__len);
+	  _M_assign(_M_data() + this->size(), __n, __c);
+	  _M_rep()->_M_set_length_and_sharable(__len);
+	}
+      return *this;
+    }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
@@ -287,6 +320,23 @@ namespace std
 	}
       return *this;
     }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    append(const basic_string& __str)
+    {
+      const size_type __size = __str.size();
+      if (__size)
+	{
+	  const size_type __len = __size + this->size();
+	  if (__len > this->capacity() || _M_rep()->_M_is_shared())
+	    this->reserve(__len);
+	  _M_copy(_M_data() + this->size(), __str._M_data(), __size);
+	  _M_rep()->_M_set_length_and_sharable(__len);
+	}
+      return *this;
+    }    
 
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>&
@@ -586,7 +636,32 @@ namespace std
 	return _M_replace_safe(__i1 - _M_ibegin(), __n1, __s._M_data(),
 			       __s.size());
       }
- 
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    _M_replace_aux(size_type __pos1, size_type __n1, size_type __n2,
+		   _CharT __c)
+    {
+      _M_check_length(__n1, __n2, "basic_string::_M_replace_aux");
+      _M_mutate(__pos1, __n1, __n2);
+      if (__n2)
+	_M_assign(_M_data() + __pos1, __n2, __c);
+      return *this;
+    }
+
+  template<typename _CharT, typename _Traits, typename _Alloc>
+    basic_string<_CharT, _Traits, _Alloc>&
+    basic_string<_CharT, _Traits, _Alloc>::
+    _M_replace_safe(size_type __pos1, size_type __n1, const _CharT* __s,
+		    size_type __n2)
+    {
+      _M_mutate(__pos1, __n1, __n2);
+      if (__n2)
+	_M_copy(_M_data() + __pos1, __s, __n2);
+      return *this;
+    }
+   
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>
     operator+(const _CharT* __lhs,

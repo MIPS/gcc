@@ -1,3 +1,7 @@
+2004-11-08  Paolo Carlini  <pcarlini@suse.de>
+
+        Merged to mainline at tag libstdcxx_so_7-merge-20041108.
+
 2004-10-28  Chris Jefferson  <chris@bubblescope.net>
 
 	PR libstdc++/17441
