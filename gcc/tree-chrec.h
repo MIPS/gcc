@@ -159,12 +159,22 @@ build_peeled_chrec (unsigned loop_num,
 static inline tree 
 build_chrec_top_type (tree type)
 {
-  if (TYPE_MIN_VALUE (type) != NULL_TREE 
-      && TYPE_MAX_VALUE (type) != NULL_TREE)
-    return build_interval_chrec (TYPE_MIN_VALUE (type), 
-				 TYPE_MAX_VALUE (type));
-  else
-    return chrec_top;
+  if (type != NULL_TREE)
+    {
+      enum tree_code code = TREE_CODE (type);
+ 
+      if ((code == INTEGER_TYPE
+	   || code == ENUMERAL_TYPE
+	   || code == BOOLEAN_TYPE
+	   || code == CHAR_TYPE
+	   || code == REAL_TYPE)
+	  && TYPE_MIN_VALUE (type) != NULL_TREE 
+	  && TYPE_MAX_VALUE (type) != NULL_TREE)
+	return build_interval_chrec (TYPE_MIN_VALUE (type), 
+				     TYPE_MAX_VALUE (type));
+    }
+
+  return chrec_top;
 }
 
 
