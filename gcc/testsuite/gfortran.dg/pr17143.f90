@@ -1,4 +1,3 @@
-! { dg-do run }
 ! pr17143
 ! does not print 2*63 correctly
        character*25 l

@@ -6,13 +6,13 @@
 
 typedef const char *(func_type)();
 
-class
+class C
 {
 public:
   func_type *Function;
   // The following is DR 295 dependent
-  const func_type* function(void) { return Function; } // { dg-error "" } constifying
-  volatile func_type* functionv(void); // { dg-error "" } qualifier
+  const func_type* function(void) { return Function; }
+  volatile func_type* functionv(void);
 } action;
 
 void work(const char *source)

@@ -2,12 +2,8 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-optimized" } */
 
-#ifdef __hppa__
-#define REGISTER "1"
-#else
 #define REGISTER "0"
-#endif
-
+                                                                                
 static inline int source(void)
 {
   register int hardreg __asm__(REGISTER);

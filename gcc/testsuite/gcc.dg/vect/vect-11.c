@@ -1,4 +1,7 @@
-/* { dg-require-effective-target vect_int } */
+/* { dg-do run { target powerpc*-*-* } } */
+/* { dg-do run { target i?86-*-* x86_64-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -12,7 +15,7 @@ int main1 ()
   int ic[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
   int ib[N] = {0,3,6,9,12,15,18,21,24,27,30,33,36,39,42,45};
 
-  /* Not vectorizable yet (integer mult).  */
+  /* Not vetorizable yet (integer mult).  */
   for (i = 0; i < N; i++)
     {
       ia[i] = ib[i] * ic[i];

@@ -1,5 +1,7 @@
 /* { dg-options "-w" } */
 
+#ifndef SKIP_ATTRIBUTE
+
 #include "compat-common.h"
 #include "vector-defs.h"
 #include "vector-setup.h"
@@ -9,9 +11,12 @@ SETUP (4, sf);
 SETUP (16, sf);
 SETUP (2, df);
 
+#endif
+
 void
 vector_2_x (void)
 {
+#ifndef SKIP_ATTRIBUTE
   DEBUG_INIT
 
   CHECK (2, sf);
@@ -23,4 +28,5 @@ vector_2_x (void)
 
   if (fails != 0)
     abort ();
+#endif
 }

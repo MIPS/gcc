@@ -1,4 +1,3 @@
-! { dg-do run }
 ! pr 16597
 ! libgfortran
 ! reading a direct access record after it was written did

@@ -1,4 +1,3 @@
-! { dg-do run }
 ! Test alternate entry points in a module procedure
 ! Also check that references to sibling entry points are resolved correctly.
 module m
@@ -12,7 +11,7 @@ end subroutine
 
 subroutine test1
   implicit none
-  call indirecta (foo)
+  call indidecta (foo)
   call indirectb (bar)
 end subroutine
 

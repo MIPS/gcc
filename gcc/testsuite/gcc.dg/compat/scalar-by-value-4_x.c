@@ -68,9 +68,11 @@ testit##NAME (void)						\
   DEBUG_NL;							\
 }
 
-T(cc, _Complex char, (0,1))
-T(cs, _Complex short, (1,2))
-T(cf, _Complex float, (6.0,7.0))
+#ifndef SKIP_COMPLEX_INT
+T(cc, _Complex char, CINT (0, 1))
+T(cs, _Complex short, CINT (1, 2))
+#endif
+T(cf, _Complex float, CDBL (6.0, 7.0))
 
 #undef T
 
@@ -81,8 +83,10 @@ DEBUG_INIT
 
 #define T(NAME) testit##NAME ();
 
+#ifndef SKIP_COMPLEX_INT
 T(cc)
 T(cs)
+#endif
 T(cf)
 
 DEBUG_FINI

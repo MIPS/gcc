@@ -1,6 +1,8 @@
 /* Disable this test for 16-bit targets.  */
 
-#if __INT_MAX__ > 32767
+#include <limits.h>
+
+#if !(defined __GNUC__) || (INT_MAX > 32767)
 
 #include "compat-common.h"
 #include "struct-align-2.h"
@@ -51,6 +53,7 @@ test_##NAME (void)						\
 }
 
 TEST (orig)
+#ifndef SKIP_ATTRIBUTE
 TEST (structmax)
 TEST (struct4)
 TEST (struct8)
@@ -61,9 +64,10 @@ TEST (pstruct4)
 TEST (pstruct8)
 TEST (pdata4)
 TEST (pdata8)
+#endif
 
 #else
 
 int i;  /* prevent compiling an empty file */
 
-#endif  /* __INT_MAX__ */
+#endif  /* INT_MAX */

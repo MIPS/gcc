@@ -2,7 +2,7 @@
 /* { dg-do compile } */
 /* { dg-require-visibility "" } */
 /* { dg-options "-fvisibility=hidden" } */
-/* { dg-final { scan-hidden "foo" } } */
+/* { dg-final { scan-assembler "\\.hidden.*foo" } } */
 
 void foo();
 

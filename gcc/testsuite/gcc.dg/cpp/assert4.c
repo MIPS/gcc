@@ -311,6 +311,14 @@
 # error
 #endif
 
+#if defined __mmix__
+# if !#cpu(mmix) || !#machine(mmix)
+#  error
+# endif
+#elif #cpu(mmix) || #machine(mcore)
+# error
+#endif
+
 #if defined __mn10300__
 # if !#cpu(mn10300) || !#machine(mn10300)
 #  error

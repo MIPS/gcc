@@ -1,4 +1,9 @@
-/* { dg-require-effective-target vect_float } */
+/* { dg-do run { target powerpc*-*-* } } */
+/* { dg-do run { target i?86-*-* x86_64-*-* } } */
+/* { dg-do run { target mipsisa64*-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -mpaired-single" { target mipsisa64*-*-* } } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -34,6 +39,4 @@ int main (void)
   return main1 (N);
 }
 
-/* Need misalignment support, or cgraph to delay emitting the arrays until
-   after vectorization can force-align them.  */
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail vect_no_align } } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect"  } } */

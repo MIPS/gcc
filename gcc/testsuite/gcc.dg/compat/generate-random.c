@@ -175,8 +175,8 @@ static struct generate_random_data unsafe_state =
    in the initialization of randtbl) because the state table pointer is set
    to point to randtbl[1] (as explained below).)  */
 
-   &randtbl[SEP_3 + 1],  /* fptr */
-   &randtbl[1],          /* rptr */
+    .fptr = &randtbl[SEP_3 + 1],
+    .rptr = &randtbl[1],
 
 /* The following things are the pointer to the state information table,
    the type of the current generator, the degree of the current polynomial
@@ -188,13 +188,13 @@ static struct generate_random_data unsafe_state =
    indexing every time to find the address of the last element to see if
    the front and rear pointers have wrapped.  */
 
-    &randtbl[1],  /* state */
+    .state = &randtbl[1],
 
-    TYPE_3,  /* rand_type */
-    DEG_3,   /* rand_deg */
-    SEP_3,   /* rand_sep */
+    .rand_type = TYPE_3,
+    .rand_deg = DEG_3,
+    .rand_sep = SEP_3,
 
-    &randtbl[sizeof (randtbl) / sizeof (randtbl[0])]  /* end_ptr */
+    .end_ptr = &randtbl[sizeof (randtbl) / sizeof (randtbl[0])]
 };
 
 /* Initialize the random number generator based on the given seed.  If the

@@ -1,6 +1,6 @@
 /* PR inline-asm/8832 */
 /* { dg-do compile } */
-/* { dg-options "-O2" } */
+/* { dg-options "-O2 -dP" } */
 
 /* Verify that GCC doesn't optimize
    old style asm instructions.  */
@@ -18,10 +18,6 @@ void foo(int v)
 
 /* The purpose of the test below is to check that there are two branches
    in the generated code, supposedly corresponding to the if-statements.
-   Warning: this is fragile and assumes that one of the generated labels
-   for the branches matches the string "L2", or as with
-   mmix-knuth-mmixware, "L:2".  That assumption is generally invalid,
-   because for example it depends on the target macro
-   ASM_GENERATE_INTERNAL_LABEL to generate a name matching this regexp (as
-   with the default definition).  */
-/* { dg-final { scan-assembler "L(:|\\\$0*)?2" } } */
+   It tries to check for jump_insn (set (pc) pattern, so that jump_insns
+   corresponding to return are not taken into account.  */
+/* { dg-final { scan-assembler "jump_insn.*set \\(pc\\).*jump_insn.*set \\(pc\\)"} } */

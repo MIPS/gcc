@@ -1,4 +1,6 @@
-/* { dg-require-effective-target vect_int } */
+/* { dg-do run { target powerpc*-*-* i?86-*-* x86_64-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -maltivec" { target powerpc*-*-* } } */
+/* { dg-options "-O2 -ftree-vectorize -fdump-tree-vect-stats -msse2" { target i?86-*-* x86_64-*-* } } */
 
 #include <stdarg.h>
 #include "tree-vect.h"
@@ -36,5 +38,4 @@ int main (void)
   return main1 ();
 }
 
-/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail vect_no_max } } } */
-/* { dg-final { scan-tree-dump-times "Vectorizing an unaligned access" 0 "vect" } } */
+/* { dg-final { scan-tree-dump-times "vectorized 1 loops" 1 "vect" { xfail i?86-*-* x86_64-*-* } } } */

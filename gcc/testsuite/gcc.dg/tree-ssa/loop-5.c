@@ -3,11 +3,11 @@
 /* { dg-do compile } */
 /* { dg-options "-O1 -fdump-tree-vars" } */
 
-void foo(long);
+void foo(int);
 
 void xxx(void)
 {
-  long iter, jter;
+  int iter, jter;
 
   for (iter = 0, jter = 2; iter < 100; iter++, jter++)
     {
