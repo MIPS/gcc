@@ -1,3 +1,8 @@
+2004-03-08  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.md (extenddftf2): Don't use REAL_VALUE_NEGATE,
+	instead use memset.
+
 2004-03-08  Michael Matz  <matz@suse.de>
 
 	2004-03-05  Ian Lance Taylor  <ian@wasabisystems.com>
