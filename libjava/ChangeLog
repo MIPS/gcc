@@ -1,3 +1,27 @@
+2004-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert:
+	2004-01-21  Tom Tromey  <tromey@redhat.com>
+	PR java/13468:
+	* Makefile.in: Rebuilt.
+	* Makefile.am (interpret.lo): New target.
+
+2004-10-18  Andrew Haley  <aph@redhat.com>
+
+	PR java/18036:
+	* gnu/gcj/runtime/natStackTrace.cc (fillInStackTrace): Reorganize
+	and correct logic used to find interpreter.
+
+2004-10-13  Andrew Haley  <aph@redhat.com>
+
+	* interpret.cc (_Jv_InterpMethod::run): Initialize
+	_Jv_StartOfInterpreter.
+	(_Jv_StartOfInterpreter, _Jv_EndOfInterpreter): Functions removed.
+	(_Jv_StartOfInterpreter, _Jv_EndOfInterpreter): New variables.
+	* gnu/gcj/runtime/natStackTrace.cc (fillInStackTrace): Use
+	_Unwind_FindEnclosingFunction to discover whether PC is within the
+	interpreter.
+
 2004-12-06  Tom Tromey  <tromey@redhat.com>
  
 	For PR java/14853:

@@ -774,45 +774,16 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
 }
 #endif /* DIRECT_THREADED */
 
-// This function exists so that the stack-tracing code can find the
-// boundaries of the interpreter.
-void
-_Jv_StartOfInterpreter (void)
-{
-}
+// These exist so that the stack-tracing code can find the boundaries
+// of the interpreter.
+void *_Jv_StartOfInterpreter;
+void *_Jv_EndOfInterpreter;
+extern "C" void *_Unwind_FindEnclosingFunction (void *pc);
 
 void
 _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 {
   using namespace java::lang::reflect;
-
-  // FRAME_DESC registers this particular invocation as the top-most
-  // interpreter frame.  This lets the stack tracing code (for
-  // Throwable) print information about the method being interpreted
-  // rather than about the interpreter itself.  FRAME_DESC has a
-  // destructor so it cleans up automatically when the interpreter
-  // returns.
-  java::lang::Thread *thread = java::lang::Thread::currentThread();
-  _Jv_MethodChain frame_desc (this,
-			      (_Jv_MethodChain **) &thread->interp_frame);
-
-  _Jv_word stack[max_stack];
-  _Jv_word *sp = stack;
-
-  _Jv_word locals[max_locals];
-
-  /* Go straight at it!  the ffi raw format matches the internal
-     stack representation exactly.  At least, that's the idea.
-  */
-  memcpy ((void*) locals, (void*) args, args_raw_size);
-
-  _Jv_word *pool_data = defining_class->constants.data;
-
-  /* These three are temporaries for common code used by several
-     instructions.  */
-  void (*fun)();
-  _Jv_ResolvedMethod* rmeth;
-  int tmpval;
 
 #define INSN_LABEL(op) &&insn_##op
 
@@ -1026,6 +997,41 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     INSN_LABEL(jsr_w),
     0
   };
+
+  // Record the address of the start of this member function in
+  // _Jv_StartOfInterpreter.  Such a write to a global variable
+  // without acquiring a lock is correct iff reads and writes of words
+  // in memory are atomic, but Java requires that anyway.
+  if (_Jv_StartOfInterpreter == NULL)
+    _Jv_StartOfInterpreter = _Unwind_FindEnclosingFunction ((void *) insn_target[0]);
+
+  // FRAME_DESC registers this particular invocation as the top-most
+  // interpreter frame.  This lets the stack tracing code (for
+  // Throwable) print information about the method being interpreted
+  // rather than about the interpreter itself.  FRAME_DESC has a
+  // destructor so it cleans up automatically when the interpreter
+  // returns.
+  java::lang::Thread *thread = java::lang::Thread::currentThread();
+  _Jv_MethodChain frame_desc (this,
+			      (_Jv_MethodChain **) &thread->interp_frame);
+
+  _Jv_word stack[max_stack];
+  _Jv_word *sp = stack;
+
+  _Jv_word locals[max_locals];
+
+  /* Go straight at it!  the ffi raw format matches the internal
+     stack representation exactly.  At least, that's the idea.
+  */
+  memcpy ((void*) locals, (void*) args, args_raw_size);
+
+  _Jv_word *pool_data = defining_class->constants.data;
+
+  /* These three are temporaries for common code used by several
+     instructions.  */
+  void (*fun)();
+  _Jv_ResolvedMethod* rmeth;
+  int tmpval;
 
   pc_t pc;
 
@@ -3225,13 +3231,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       // No handler, so re-throw.
       throw ex;
     }
-}
-
-// This function exists so that the stack-tracing code can find the
-// boundaries of the interpreter.
-void
-_Jv_EndOfInterpreter (void)
-{
 }
 
 static void
