@@ -1,3 +1,15 @@
+2002-11-11  Geoffrey Keating  <geoffk@apple.com>
+
+	* ggc-simple.c (init_ggc_pch): New stub procedure.
+	(ggc_pch_count_object): Likewise.
+	(ggc_pch_total_size): Likewise.
+	(ggc_pch_this_base): Likewise.
+	(ggc_pch_alloc_object): Likewise.
+	(ggc_pch_prepare_write): Likewise.
+	(ggc_pch_write_object): Likewise
+	(ggc_pch_finish): Likewise.
+	(ggc_pch_read): Likewise.
+
 2002-11-08  Geoffrey Keating  <geoffk@apple.com>
 
 	* c-pch.c (c_common_write_pch): Write the macro definitions after
