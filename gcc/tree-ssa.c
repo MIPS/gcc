@@ -53,11 +53,14 @@ Boston, MA 02111-1307, USA.  */
 void
 ssa_remove_edge (edge e)
 {
-  tree phi;
+  tree phi, next;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
-    remove_phi_arg (phi, e->src);
+  for (phi = phi_nodes (e->dest); phi; phi = next)
+    {
+      next = TREE_CHAIN (phi);
+      remove_phi_arg (phi, e->src);
+    }
 
   remove_edge (e);
 }
@@ -69,14 +72,16 @@ ssa_remove_edge (edge e)
 edge
 ssa_redirect_edge (edge e, basic_block dest)
 {
-  tree phi;
+  tree phi, next;
   tree list = NULL, *last = &list;
   tree src, dst, node;
   int i;
 
   /* Remove the appropriate PHI arguments in E's destination block.  */
-  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+  for (phi = phi_nodes (e->dest); phi; phi = next)
     {
+      next = TREE_CHAIN (phi);
+
       i = phi_arg_from_edge (phi, e);
       if (i < 0)
 	continue;

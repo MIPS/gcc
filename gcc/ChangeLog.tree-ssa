@@ -1,3 +1,16 @@
+2004-04-01  Jeff Law  <law@redhat.com>
+
+	* fold-const.c (fold_relational_hi_lo): Do not return non-gimple
+	code when we are in gimple form.
+	* tree-optimize.c (tree_rest_of_compilation): Note when we are in
+	gimple form.
+	* tree-ssa-ccp.c (ccp_fold): Tighten tests on return value from
+	nondestructive_fold_{unary,binary}to_constant.
+	* tree.h (in_gimple_form): Declare.
+ 
+	* tree-ssa.c (ssa_remove_edge): Correct looping structure.
+	(ssa_redirect_edge): Similarly
+
 2004-03-30  Brian Booth  <bbooth@redhat.com>
 
 	* tree-pretty-print.c (dump_vops): Add flags argument and

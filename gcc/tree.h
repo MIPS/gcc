@@ -3757,5 +3757,10 @@ typedef enum
 
 extern int tree_node_counts[];
 extern int tree_node_sizes[];
+
+/* True if we are in gimple form and the actions of the folders need to
+   be restricted.  False if we are not in gimple form and folding is not
+   restricted to creating gimple expressions.  */
+extern bool in_gimple_form;
     
 #endif  /* GCC_TREE_H  */

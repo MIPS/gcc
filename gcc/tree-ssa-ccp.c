@@ -806,6 +806,11 @@ ccp_fold (tree stmt)
 		     				      TREE_TYPE (rhs),
 						      op0);
 
+      /* If we folded, but did not create an invariant, then we can not
+	 use this expression.  */
+      if (retval && ! is_gimple_min_invariant (retval))
+	return NULL;
+
       /* If we could not fold the expression, but the arguments are all
          constants and gimple values, then build and return the new
 	 expression. 
@@ -854,6 +859,11 @@ ccp_fold (tree stmt)
 		     				       TREE_TYPE (rhs),
 						       op0, op1);
 
+      /* If we folded, but did not create an invariant, then we can not
+	 use this expression.  */
+      if (retval && ! is_gimple_min_invariant (retval))
+	return NULL;
+      
       /* If we could not fold the expression, but the arguments are all
          constants and gimple values, then build and return the new
 	 expression. 

@@ -9104,6 +9104,13 @@ fold_relational_hi_lo (enum tree_code *code_p, const tree type, tree *op0_p,
 							  TREE_TYPE (exp),
 							  TREE_OPERAND (exp, 0),
 							  TREE_OPERAND (exp, 1));
+
+	      /* If we are in gimple form, then returning EXP would create
+		 non-gimple expressions.  Clearing it is safe and insures
+		 we do not allow a non-gimple expression to escape.  */
+	      if (in_gimple_form)
+		exp = NULL;
+
 	      return (retval ? retval : exp);
 	    }
 	}
