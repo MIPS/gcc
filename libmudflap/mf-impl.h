@@ -280,12 +280,13 @@ ret __real_ ## fname (__VA_ARGS__)                    \
     __attribute__ (( alias  (#fname)  ));             \
 ret fname (__VA_ARGS__)
 #define DECLARE(ty, fname, ...)                       \
- typedef ty (*__mf_fn_ ## fname) (__VA_ARGS__)
+ typedef ty (*__mf_fn_ ## fname) (__VA_ARGS__);       \
+ extern ty __mf_0fn_ ## fname (__VA_ARGS__);
 #define CALL_REAL(fname, ...)                         \
-  ({ if (UNLIKELY(!__mf_dynamic[dyn_ ## fname].pointer))  \
-     __mf_resolve_single_dynamic (& __mf_dynamic[dyn_ ## fname]);  \
-  ((__mf_fn_ ## fname)(__mf_dynamic[dyn_ ## fname].pointer)) \
-                      (__VA_ARGS__);})
+  ({(__mf_state == starting) \
+     ? __mf_0fn_ ## fname (__VA_ARGS__) \
+    : (__mf_resolve_single_dynamic (& __mf_dynamic[dyn_ ## fname]), \
+       (((__mf_fn_ ## fname)(__mf_dynamic[dyn_ ## fname].pointer)) (__VA_ARGS__)));})
 #define CALL_BACKUP(fname, ...)                       \
   __mf_0fn_ ## fname(__VA_ARGS__)
 #define CALL_WRAP(fname, ...)                         \

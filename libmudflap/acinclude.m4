@@ -666,6 +666,9 @@ linux-gnu*)
   case $host_cpu in
   alpha* | hppa* | i*86 | powerpc* | sparc* | ia64* | x86_64*)
     lt_cv_deplibs_check_method=pass_all ;;
+    # NB 2003-06-03: According to Alexandre Oliva, x86_64 should not be
+    # in this list.  However, it works around a libtool problem that
+    # wrongly excludes -ldl/-lpthread from the libmudflap(th) dependencies.
   *)
     # glibc up to 2.1.1 does not perform some relocations on ARM
     lt_cv_deplibs_check_method=['file_magic ELF [0-9][0-9]*-bit [LM]SB (shared object|dynamic lib )'] ;;
@@ -721,6 +724,10 @@ sysv4 | sysv4.2uw2* | sysv4.3* | sysv5*)
 esac
 file_magic_cmd=$lt_cv_file_magic_cmd
 deplibs_check_method=$lt_cv_deplibs_check_method
+# NB: See above NB ... this is to make sure that the overriden
+#     local libtool variant doesn't pollute the upstream cache
+unset lt_cv_file_magic_cmd
+unset lt_cv_deplibs_check_method
 AC_MSG_RESULT($deplibs_check_method)
 ])
 

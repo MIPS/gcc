@@ -1,3 +1,25 @@
+2003-06-11  Frank Ch. Eigler  <fche@redhat.com>
+
+	* mf-heuristics.c (__mf_heuristic_check): Disable stack_bounds 
+	heuristic for threaded case, and for non-x86-linux targets.
+	* mf-hooks.c (__mf_0fn_calloc): Provide a working dummy implementation
+	for use during pre-main() program startup.
+	(__mf_0fn_*): Make these functions non-static.
+	* mf-impl.h (DECLARE, CALL_REAL): Support calls to 0fn backup hook 
+	functions.
+	* mf-runtime.c (__mf_state): Set initial state to "starting".
+	(__mf_resolve_single_dynamic): Tolerate repeated calls for same symbol.
+	(__wrap_main): New function to register argv[] and environ[] strings.
+	(__mf_ini): Call it.
+	(*): In all trace functions, use "%p" as formatter for uintptr_t.
+
+	* testsuite/libmudflap.c/pass38-frag.c: New test case.
+	* testsuite/libmudflap.cth/pass37-frag.c: Improved test.
+	
+	* acinclude.m4: Add comments with aoliva's concerns about x86_64 
+	pass_all.
+	* aclocal.m4, configure: Regenerated.
+
 2003-06-04  Frank Ch. Eigler  <fche@redhat.com>
 
 	* acinclude.m4: Correct typo in AC_MSG_CHECKING.

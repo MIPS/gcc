@@ -85,7 +85,7 @@ unsigned char __mf_lc_shift = LOOKUP_CACHE_SHIFT_DFL;
 #define LOOKUP_CACHE_SIZE (__mf_lc_mask + 1)
 
 struct __mf_options __mf_opts;
-enum __mf_state __mf_state = inactive;
+enum __mf_state __mf_state = starting;
 
 #ifdef LIBMUDFLAPTH
 pthread_mutex_t __mf_biglock =
@@ -513,7 +513,7 @@ __mf_resolve_single_dynamic (struct __mf_dynamic_entry *e)
   char *err;
 
   assert (e);
-  e->pointer = NULL;
+  if (e->pointer) return;
 
 #if HAVE_DLVSYM
   if (e->version != NULL && e->version[0] != '\0') /* non-null/empty */
@@ -568,11 +568,11 @@ struct __mf_dynamic_entry __mf_dynamic [] =
 
 /* ------------------------------------------------------------------------ */
 
+
 void __mf_init ()
 {
   char *ov = 0;
 
-  __mf_state = starting;
 #ifdef PIC
   __mf_resolve_dynamics ();
 #endif
@@ -605,21 +605,50 @@ void __mf_init ()
   /* Prevent access to *NULL. */
   __mf_register (MINPTR, 1, __MF_TYPE_NOACCESS, "NULL");
   __mf_lookup_cache[0].low = (uintptr_t) -1;
+}
 
-  /* XXX: bad hack: assumes Linux process layout */
-  if (__mf_opts.heur_argv_environ)
+
+
+int
+__wrap_main (int argc, char* argv[])
+{
+  static int been_here = 0;
+  if (__mf_opts.heur_argv_environ && ! been_here)
     {
-      int foo = 0;
-      __mf_register (& foo,
-		      (size_t) 0xC0000000 - (size_t) (& foo),
-		      __MF_TYPE_GUESS,
-		      "argv/environ area");
-      /* XXX: separate heuristic? */
+      extern char **environ;
+      unsigned i;
+
+      been_here = 1;
+      __mf_register (argv, sizeof(char *)*(argc+1), __MF_TYPE_GUESS, "argv[]");
+      for (i=0; i<argc; i++)
+	{
+	  unsigned j = strlen (argv[i]);
+	  __mf_register (argv[i], j+1, __MF_TYPE_GUESS, "argv element");
+	}
+
+      for (i=0; ; i++)
+	{
+	  char *e = environ[i];
+	  unsigned j;
+	  if (e == NULL) break;
+	  j = strlen (environ[i]);
+	  __mf_register (environ[i], j+1, __MF_TYPE_GUESS, "environ element");
+	}
+      __mf_register (environ, sizeof(char *)*(i+1), __MF_TYPE_GUESS, "environ[]");
+
+      /* XXX: separate heuristic flag? */
       __mf_register (& errno, sizeof (errno),
 		      __MF_TYPE_GUESS,
 		      "errno area");
     }
+
+#ifdef PIC
+  return main (argc, argv, environ);
+#else
+  return __real_main (argc, argv, environ);
+#endif
 }
+
 
 
 extern void __mf_fini () DTOR;
@@ -656,7 +685,7 @@ void __mfu_check (void *ptr, size_t sz, int type, const char *location)
   if (UNLIKELY (__mf_opts.sigusr1_report))
     __mf_sigusr1_respond ();
 
-  TRACE ("mf: check ptr=%08lx b=%u size=%lu %s location=`%s'\n",
+  TRACE ("mf: check ptr=%p b=%u size=%lu %s location=`%s'\n",
 	 ptr, entry_idx, sz, (type == 0 ? "read" : "write"), location);
   
   switch (__mf_opts.mudflap_mode)
@@ -957,7 +986,7 @@ __mf_register (void *ptr, size_t sz, int type, const char *name)
 void
 __mfu_register (void *ptr, size_t sz, int type, const char *name)
 {
-  TRACE ("mf: register ptr=%08lx size=%lu type=%x name='%s'\n", ptr, sz, 
+  TRACE ("mf: register ptr=%p size=%lu type=%x name='%s'\n", ptr, sz, 
 	type, name ? name : "");
 
   if (__mf_opts.collect_stats)
@@ -1017,7 +1046,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 		&& ovr_obj->data.high == high)
 	      {
 		/* do nothing */
-		VERBOSE_TRACE ("mf: duplicate static reg %08lx-%08lx `%s'\n", 
+		VERBOSE_TRACE ("mf: duplicate static reg %p-%p `%s'\n", 
 			       low, high, 
 			       (ovr_obj->data.name ? ovr_obj->data.name : ""));
 		break;
@@ -1031,7 +1060,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 		ovr_obj->data.high == high)
 	      {
 		/* do nothing */
-		VERBOSE_TRACE ("mf: duplicate guess reg %08lx-%08lx\n", low, high);
+		VERBOSE_TRACE ("mf: duplicate guess reg %p-%p\n", low, high);
 		break;
 	      }
 
@@ -1057,7 +1086,7 @@ __mfu_register (void *ptr, size_t sz, int type, const char *name)
 						  num_overlapping_objs);
 		assert (num_ovr_objs == num_overlapping_objs);
 
-		VERBOSE_TRACE ("mf: splitting guess %08lx-%08lx, # overlaps: %u\n",
+		VERBOSE_TRACE ("mf: splitting guess %p-%p, # overlaps: %u\n",
 			       low, high, num_ovr_objs);
 
 		/* Add GUESS regions between the holes: before each
@@ -1156,7 +1185,7 @@ __mfu_unregister (void *ptr, size_t sz)
   if (UNLIKELY (__mf_opts.sigusr1_report))
   __mf_sigusr1_respond ();
 
-  TRACE ("mf: unregister ptr=%08lx size=%lu\n", ptr, sz);
+  TRACE ("mf: unregister ptr=%p size=%lu\n", ptr, sz);
 
   switch (__mf_opts.mudflap_mode)
     { 
@@ -1395,7 +1424,7 @@ __mf_tree_analyze (__mf_object_tree_t *obj, struct tree_stats* s)
 	  unsigned i;
 	  uintptr_t addr;
 
-	  VERBOSE_TRACE ("mf: analyze low=%08lx live=%u name=`%s'\n",
+	  VERBOSE_TRACE ("mf: analyze low=%p live=%u name=`%s'\n",
 			 obj->data.low, obj->data.liveness, obj->data.name);
 
 	  s->live_obj_count ++;
@@ -1471,7 +1500,7 @@ __mf_adapt_cache ()
   new_mask &= (LOOKUP_CACHE_SIZE_MAX - 1);
 
   VERBOSE_TRACE ("mf: adapt cache obj=%u/%u sizes=%lu/%.0f/%.0f => "
-		 "util=%u%% m=%08lx s=%u\n",
+		 "util=%u%% m=%p s=%u\n",
 		 s.obj_count, s.live_obj_count, s.total_size, s.total_weight, s.weighted_size,
 		 (unsigned)(cache_utilization*100.0), new_mask, new_shift);
 
@@ -1744,7 +1773,7 @@ __mf_describe_object (__mf_object_t *obj)
   if (__mf_opts.abbreviate && obj->description_epoch == epoch)
     {
       fprintf (stderr,
-	       "mudflap object %08lx: name=`%s'\n",
+	       "mudflap object %p: name=`%s'\n",
 	       (uintptr_t) obj, (obj->name ? obj->name : ""));
       return;
     }
@@ -1752,9 +1781,9 @@ __mf_describe_object (__mf_object_t *obj)
     obj->description_epoch = epoch;
 
   fprintf (stderr,
-	   "mudflap object %08lx: name=`%s'\n"
-	   "bounds=[%08lx,%08lx] size=%lu area=%s check=%ur/%uw liveness=%u%s\n"
-	   "alloc time=%lu.%06lu pc=%08lx\n",
+	   "mudflap object %p: name=`%s'\n"
+	   "bounds=[%p,%p] size=%lu area=%s check=%ur/%uw liveness=%u%s\n"
+	   "alloc time=%lu.%06lu pc=%p\n",
 	   (uintptr_t) obj, (obj->name ? obj->name : ""), 
 	   obj->low, obj->high, (obj->high - obj->low + 1),
 	   (obj->type == __MF_TYPE_NOACCESS ? "no-access" :
@@ -1779,7 +1808,7 @@ __mf_describe_object (__mf_object_t *obj)
     {
       if (obj->deallocated_p)
 	{
-	  fprintf (stderr, "dealloc time=%lu.%06lu pc=%08lx\n",
+	  fprintf (stderr, "dealloc time=%lu.%06lu pc=%p\n",
 		   obj->dealloc_time.tv_sec, obj->dealloc_time.tv_usec, obj->dealloc_pc);
 
 	  if (__mf_opts.backtrace > 0)
@@ -1992,7 +2021,7 @@ __mf_backtrace (char ***symbols, void *guess_pc, unsigned guess_omit_levels)
     for (i = 0; i < remaining_size; i++)
       {
 	pointers[i] = chars;
-	sprintf (chars, "[0x%08lx]", pc_array [omitted_size + i]);
+	sprintf (chars, "[0x%p]", pc_array [omitted_size + i]);
 	chars = chars + perline;
       }
     *symbols = pointers;
@@ -2014,7 +2043,7 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
   static unsigned violation_number;
   DECLARE(void, free, void *ptr);
 
-  TRACE ("mf: violation pc=%08lx location=%s type=%d ptr=%08lx size=%lu\n", pc, 
+  TRACE ("mf: violation pc=%p location=%s type=%d ptr=%p size=%lu\n", pc, 
 	 (location != NULL ? location : ""), type, ptr, sz);
 
   if (__mf_opts.collect_stats)
@@ -2036,7 +2065,7 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
     fprintf (stderr,
 	     "*******\n"
 	     "mudflap violation %u (%s): time=%lu.%06lu "
-	     "ptr=%08lx size=%lu\npc=%08lx%s%s%s\n", 
+	     "ptr=%p size=%lu\npc=%p%s%s%s\n", 
 	     violation_number,
 	     ((type == __MF_VIOL_READ) ? "check/read" :
 	      (type == __MF_VIOL_WRITE) ? "check/write" :
@@ -2186,7 +2215,7 @@ __mf_watch_or_not (void *ptr, size_t sz, char flag)
   uintptr_t ptr_low = (uintptr_t) ptr;
   unsigned count = 0;
 
-  TRACE ("mf: %s ptr=%08lx size=%lu",
+  TRACE ("mf: %s ptr=%p size=%lu",
 	 (flag ? "watch" : "unwatch"), ptr, sz);
   
   switch (__mf_opts.mudflap_mode)
@@ -2218,7 +2247,7 @@ __mf_watch_or_not (void *ptr, size_t sz, char flag)
 	  {
 	    __mf_object_t *obj = & (all_ovr_objs[n]->data);
 
-	    VERBOSE_TRACE (" [%08lx]", (uintptr_t) obj);
+	    VERBOSE_TRACE (" [%p]", (uintptr_t) obj);
 	    if (obj->watching_p != flag)
 	      {
 		obj->watching_p = flag;

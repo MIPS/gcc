@@ -77,9 +77,10 @@ XXX: libgcc license?
 
 #if PIC
 /* A special bootstrap variant. */
-static void *
+void *
 __mf_0fn_malloc (size_t c)
 {
+  /* fprintf (stderr, "0fn malloc c=%lu\n", c); */
   return NULL;
 }
 #endif
@@ -112,9 +113,23 @@ WRAPPER(void *, malloc, size_t c)
 
 #ifdef PIC
 /* A special bootstrap variant. */
-static void *
+void *
 __mf_0fn_calloc (size_t c, size_t n)
 {
+  enum foo { BS = 4096, NB=10 };
+  static char bufs[NB][BS];
+  static unsigned bufs_used[NB];
+  unsigned i;
+
+  /* fprintf (stderr, "0fn calloc c=%lu n=%lu\n", c, n); */
+  for (i=0; i<NB; i++)
+    {
+      if (! bufs_used[i] && (c*n) < BS)
+	{
+	  bufs_used[i] = 1;
+	  return & bufs[i][0];
+	}
+    }
   return NULL;
 }
 #endif
@@ -152,7 +167,7 @@ WRAPPER(void *, calloc, size_t c, size_t n)
 
 #if PIC
 /* A special bootstrap variant. */
-static void *
+void *
 __mf_0fn_realloc (void *buf, size_t c)
 {
   return NULL;
@@ -209,7 +224,7 @@ WRAPPER(void *, realloc, void *buf, size_t c)
 
 #if PIC
 /* A special bootstrap variant. */
-static void
+void
 __mf_0fn_free (void *buf)
 {
   return;
@@ -283,7 +298,7 @@ WRAPPER(void, free, void *buf)
 
 #if PIC
 /* A special bootstrap variant. */
-static void *
+void *
 __mf_0fn_mmap (void *start, size_t l, int prot, int f, int fd, off_t off)
 {
   return (void *) -1;
@@ -340,7 +355,7 @@ WRAPPER(void *, mmap,
 
 #if PIC
 /* A special bootstrap variant. */
-static int
+int
 __mf_0fn_munmap (void *start, size_t length)
 {
   return -1;
@@ -972,7 +987,7 @@ __mf_pthread_spawner (void *arg)
 
 #if PIC
 /* A special bootstrap variant. */
-static int
+int
 __mf_0fn_pthread_create (pthread_t *thr, pthread_attr_t *attr, 
 			 void * (*start) (void *), void *arg)
 {

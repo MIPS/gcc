@@ -22,29 +22,6 @@
 
 extern char _end;
 extern char _start;
-/* XXX: linux-x86 specific */
-static const uintptr_t stack_segment_base = 0xC0000000;
-static const uintptr_t stack_segment_top  = 0xBF800000;
-
-
-#if 0 /* if only glibc exported these */
-/* These are used by heur_argv_envp below.  */
-static int system_argc;
-static char **system_argv;
-static char **system_envp;
-
-/* Hack: intercept / override glibc's __init_misc routine to 
-   kidnap the process startup argc/argv/envp values. */
-void
-__init_misc (int argc, char **argv, char **envp)
-{
-  system_argc = argc;
-  system_argv = argv;
-  system_envp = envp;
-  /* XXX: would be nice to call over to the glibc __init_misc routine. */
-}
-#endif
-
 
 
 /* Run some quick validation of the given region.  
@@ -55,12 +32,23 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 {
   VERBOSE_TRACE ("mf: heuristic check\n");
 
-  /* The first heuristic is to check stack bounds.  Since this is a
-     transient condition and quick to check, don't cache its
-     result. */
+  /* XXX: Disable the stack bounding check for libmudflapth.  We do
+     actually have enough information to track stack bounds (see
+     __mf_pthread_info in mf-hooks.c), so with a bit of future work,
+     this heuristic can be turned on.  */
+#ifndef LIBMUDFLAPTH
+
+  /* The first heuristic is to check stack bounds.  This is a
+     transient condition and quick to check. */
   if (__mf_opts.heur_stack_bound)
     {
       uintptr_t stack_top_guess = (uintptr_t)__builtin_frame_address(0);
+#if defined(__i386__) && defined (__linux__)
+      uintptr_t stack_segment_base = 0xC0000000;
+#else
+      /* Cause tests to fail. */
+      uintptr_t stack_segment_base = 0;
+#endif
 
       VERBOSE_TRACE ("mf: stack estimated as %08lx-%08lx\n", 
 		     stack_top_guess, stack_segment_base);
@@ -72,6 +60,7 @@ __mf_heuristic_check (uintptr_t ptr, uintptr_t ptr_high)
 	  return 1;
 	}            
     }
+#endif
 
 
   /* The second heuristic is to scan the range of memory regions
