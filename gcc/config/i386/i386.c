@@ -688,13 +688,12 @@ static void ix86_emit_save_regs PARAMS ((void));
 static void ix86_emit_save_regs_using_mov PARAMS ((rtx, HOST_WIDE_INT));
 static void ix86_emit_restore_regs_using_mov PARAMS ((rtx, HOST_WIDE_INT,
 						      int));
-static void ix86_set_move_mem_attrs_1 PARAMS ((rtx, rtx, rtx, rtx, rtx));
 static void ix86_sched_reorder_pentium PARAMS ((rtx *, rtx *));
 static void ix86_sched_reorder_ppro PARAMS ((rtx *, rtx *));
 static HOST_WIDE_INT ix86_GOT_alias_set PARAMS ((void));
 static void ix86_adjust_counter PARAMS ((rtx, HOST_WIDE_INT));
 static rtx ix86_expand_aligntest PARAMS ((rtx, int));
-static void ix86_expand_strlensi_unroll_1 PARAMS ((rtx, rtx));
+static void ix86_expand_strlensi_unroll_1 PARAMS ((rtx, rtx, rtx));
 static int ix86_issue_rate PARAMS ((void));
 static int ix86_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static void ix86_sched_init PARAMS ((FILE *, int, int));
@@ -10109,13 +10108,10 @@ int
 ix86_expand_movstr (dst, src, count_exp, align_exp)
      rtx dst, src, count_exp, align_exp;
 {
-  rtx srcreg, destreg, countreg;
+  rtx srcreg, destreg, countreg, srcexp, destexp;
   enum machine_mode counter_mode;
   HOST_WIDE_INT align = 0;
   unsigned HOST_WIDE_INT count = 0;
-  rtx insns;
-
-  start_sequence ();
 
   if (GET_CODE (align_exp) == CONST_INT)
     align = INTVAL (align_exp);
@@ -10140,22 +10136,23 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
     abort ();
 
   destreg = copy_to_mode_reg (Pmode, XEXP (dst, 0));
+  if (destreg != XEXP (dst, 0))
+    dst = replace_equiv_address_nv (dst, destreg);
   srcreg = copy_to_mode_reg (Pmode, XEXP (src, 0));
-
-  emit_insn (gen_cld ());
+  if (srcreg != XEXP (src, 0))
+    src = replace_equiv_address_nv (src, srcreg);
 
   /* When optimizing for size emit simple rep ; movsb instruction for
      counts not divisible by 4.  */
 
   if ((!optimize || optimize_size) && (count == 0 || (count & 0x03)))
     {
+      emit_insn (gen_cld ());
       countreg = ix86_zero_extend_to_Pmode (count_exp);
-      if (TARGET_64BIT)
-	emit_insn (gen_rep_movqi_rex64 (destreg, srcreg, countreg,
-				        destreg, srcreg, countreg));
-      else
-	emit_insn (gen_rep_movqi (destreg, srcreg, countreg,
-				  destreg, srcreg, countreg));
+      destexp = gen_rtx_PLUS (Pmode, destreg, countreg);
+      srcexp = gen_rtx_PLUS (Pmode, srcreg, countreg);
+      emit_insn (gen_rep_mov (destreg, dst, srcreg, src, countreg,
+			      destexp, srcexp));
     }
 
   /* For constant aligned (or small unaligned) copies use rep movsl
@@ -10167,32 +10164,53 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
 	       || (!TARGET_PENTIUMPRO && !TARGET_64BIT && align >= 4)
 	       || optimize_size || count < (unsigned int) 64))
     {
+      unsigned HOST_WIDE_INT offset = 0;
       int size = TARGET_64BIT && !optimize_size ? 8 : 4;
+      rtx srcmem, dstmem;
+
+      emit_insn (gen_cld ());
       if (count & ~(size - 1))
 	{
 	  countreg = copy_to_mode_reg (counter_mode,
 				       GEN_INT ((count >> (size == 4 ? 2 : 3))
 						& (TARGET_64BIT ? -1 : 0x3fffffff)));
 	  countreg = ix86_zero_extend_to_Pmode (countreg);
-	  if (size == 4)
-	    {
-	      if (TARGET_64BIT)
-		emit_insn (gen_rep_movsi_rex64 (destreg, srcreg, countreg,
-					        destreg, srcreg, countreg));
-	      else
-		emit_insn (gen_rep_movsi (destreg, srcreg, countreg,
-					  destreg, srcreg, countreg));
-	    }
-	  else
-	    emit_insn (gen_rep_movdi_rex64 (destreg, srcreg, countreg,
-					    destreg, srcreg, countreg));
+	  
+	  destexp = gen_rtx_ASHIFT (Pmode, countreg,
+				    GEN_INT (size == 4 ? 2 : 3));
+	  srcexp = gen_rtx_PLUS (Pmode, destexp, srcreg);
+	  destexp = gen_rtx_PLUS (Pmode, destexp, destreg);
+
+	  emit_insn (gen_rep_mov (destreg, dst, srcreg, src,
+				  countreg, destexp, srcexp));
+	  offset = count & ~(size - 1);
 	}
       if (size == 8 && (count & 0x04))
-	emit_insn (gen_strmovsi (destreg, srcreg));
+	{
+	  srcmem = adjust_automodify_address_nv (src, SImode, srcreg,
+						 offset);
+	  dstmem = adjust_automodify_address_nv (dst, SImode, destreg,
+						 offset);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
+	  offset += 4;
+	}
       if (count & 0x02)
-	emit_insn (gen_strmovhi (destreg, srcreg));
+	{
+	  srcmem = adjust_automodify_address_nv (src, HImode, srcreg,
+						 offset);
+	  dstmem = adjust_automodify_address_nv (dst, HImode, destreg,
+						 offset);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
+	  offset += 2;
+	}
       if (count & 0x01)
-	emit_insn (gen_strmovqi (destreg, srcreg));
+	{
+	  srcmem = adjust_automodify_address_nv (src, QImode, srcreg,
+						 offset);
+	  dstmem = adjust_automodify_address_nv (dst, QImode, destreg,
+						 offset);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
+	}
     }
   /* The generic code based on the glibc implementation:
      - align destination to 4 bytes (8 byte alignment is used for PentiumPro
@@ -10203,18 +10221,19 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
     {
       rtx countreg2;
       rtx label = NULL;
+      rtx srcmem, dstmem;
       int desired_alignment = (TARGET_PENTIUMPRO
 			       && (count == 0 || count >= (unsigned int) 260)
 			       ? 8 : UNITS_PER_WORD);
+      /* Get rid of MEM_OFFSETs, they won't be accurate.  */
+      dst = change_address (dst, BLKmode, destreg);
+      src = change_address (src, BLKmode, srcreg);
 
       /* In case we don't know anything about the alignment, default to
          library version, since it is usually equally fast and result in
          shorter code.  */
       if (!TARGET_INLINE_ALL_STRINGOPS && align < UNITS_PER_WORD)
-	{
-	  end_sequence ();
-	  return 0;
-	}
+	return 0;
 
       if (TARGET_SINGLE_STRINGOP)
 	emit_insn (gen_cld ());
@@ -10244,7 +10263,9 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
       if (align <= 1)
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 1);
-	  emit_insn (gen_strmovqi (destreg, srcreg));
+	  srcmem = change_address (src, QImode, srcreg);
+	  dstmem = change_address (dst, QImode, destreg);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
 	  ix86_adjust_counter (countreg, 1);
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
@@ -10252,7 +10273,9 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
       if (align <= 2)
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 2);
-	  emit_insn (gen_strmovhi (destreg, srcreg));
+	  srcmem = change_address (src, HImode, srcreg);
+	  dstmem = change_address (dst, HImode, destreg);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
 	  ix86_adjust_counter (countreg, 2);
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
@@ -10260,7 +10283,9 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
       if (align <= 4 && desired_alignment > 4)
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 4);
-	  emit_insn (gen_strmovsi (destreg, srcreg));
+	  srcmem = change_address (src, SImode, srcreg);
+	  dstmem = change_address (dst, SImode, destreg);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
 	  ix86_adjust_counter (countreg, 4);
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
@@ -10278,15 +10303,17 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
 	{
 	  emit_insn (gen_lshrdi3 (countreg2, ix86_zero_extend_to_Pmode (countreg),
 				  GEN_INT (3)));
-	  emit_insn (gen_rep_movdi_rex64 (destreg, srcreg, countreg2,
-					  destreg, srcreg, countreg2));
+	  destexp = gen_rtx_ASHIFT (Pmode, countreg2, GEN_INT (3));
 	}
       else
 	{
-	  emit_insn (gen_lshrsi3 (countreg2, countreg, GEN_INT (2)));
-	  emit_insn (gen_rep_movsi (destreg, srcreg, countreg2,
-				    destreg, srcreg, countreg2));
+	  emit_insn (gen_lshrsi3 (countreg2, countreg, const2_rtx));
+	  destexp = gen_rtx_ASHIFT (Pmode, countreg2, const2_rtx);
 	}
+      srcexp = gen_rtx_PLUS (Pmode, destexp, srcreg);
+      destexp = gen_rtx_PLUS (Pmode, destexp, destreg);
+      emit_insn (gen_rep_mov (destreg, dst, srcreg, src,
+			      countreg2, destexp, srcexp));
 
       if (label)
 	{
@@ -10294,49 +10321,62 @@ ix86_expand_movstr (dst, src, count_exp, align_exp)
 	  LABEL_NUSES (label) = 1;
 	}
       if (TARGET_64BIT && align > 4 && count != 0 && (count & 4))
-	emit_insn (gen_strmovsi (destreg, srcreg));
+	{
+	  srcmem = change_address (src, SImode, srcreg);
+	  dstmem = change_address (dst, SImode, destreg);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
+	}
       if ((align <= 4 || count == 0) && TARGET_64BIT)
 	{
 	  rtx label = ix86_expand_aligntest (countreg, 4);
-	  emit_insn (gen_strmovsi (destreg, srcreg));
+	  srcmem = change_address (src, SImode, srcreg);
+	  dstmem = change_address (dst, SImode, destreg);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
 	}
       if (align > 2 && count != 0 && (count & 2))
-	emit_insn (gen_strmovhi (destreg, srcreg));
+	{
+	  srcmem = change_address (src, HImode, srcreg);
+	  dstmem = change_address (dst, HImode, destreg);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
+	}
       if (align <= 2 || count == 0)
 	{
 	  rtx label = ix86_expand_aligntest (countreg, 2);
-	  emit_insn (gen_strmovhi (destreg, srcreg));
+	  srcmem = change_address (src, HImode, srcreg);
+	  dstmem = change_address (dst, HImode, destreg);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
 	}
       if (align > 1 && count != 0 && (count & 1))
-	emit_insn (gen_strmovqi (destreg, srcreg));
+	{
+	  srcmem = change_address (src, QImode, srcreg);
+	  dstmem = change_address (dst, QImode, destreg);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
+	}
       if (align <= 1 || count == 0)
 	{
 	  rtx label = ix86_expand_aligntest (countreg, 1);
-	  emit_insn (gen_strmovqi (destreg, srcreg));
+	  srcmem = change_address (src, QImode, srcreg);
+	  dstmem = change_address (dst, QImode, destreg);
+	  emit_insn (gen_strmov (destreg, dstmem, srcreg, srcmem));
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
 	}
     }
 
-  insns = get_insns ();
-  end_sequence ();
-
-  ix86_set_move_mem_attrs (insns, dst, src, destreg, srcreg);
-  emit_insns (insns);
   return 1;
 }
 
 /* Expand string clear operation (bzero).  Use i386 string operations when
    profitable.  expand_movstr contains similar code.  */
 int
-ix86_expand_clrstr (src, count_exp, align_exp)
-     rtx src, count_exp, align_exp;
+ix86_expand_clrstr (dst, count_exp, align_exp)
+     rtx dst, count_exp, align_exp;
 {
-  rtx destreg, zeroreg, countreg;
+  rtx destreg, zeroreg, countreg, destexp;
   enum machine_mode counter_mode;
   HOST_WIDE_INT align = 0;
   unsigned HOST_WIDE_INT count = 0;
@@ -10359,7 +10399,9 @@ ix86_expand_clrstr (src, count_exp, align_exp)
   else
     counter_mode = DImode;
 
-  destreg = copy_to_mode_reg (Pmode, XEXP (src, 0));
+  destreg = copy_to_mode_reg (Pmode, XEXP (dst, 0));
+  if (destreg != XEXP (dst, 0))
+    dst = replace_equiv_address_nv (dst, destreg);
 
   emit_insn (gen_cld ());
 
@@ -10370,12 +10412,8 @@ ix86_expand_clrstr (src, count_exp, align_exp)
     {
       countreg = ix86_zero_extend_to_Pmode (count_exp);
       zeroreg = copy_to_mode_reg (QImode, const0_rtx);
-      if (TARGET_64BIT)
-	emit_insn (gen_rep_stosqi_rex64 (destreg, countreg, zeroreg,
-				         destreg, countreg));
-      else
-	emit_insn (gen_rep_stosqi (destreg, countreg, zeroreg,
-				   destreg, countreg));
+      destexp = gen_rtx_PLUS (Pmode, destreg, countreg);
+      emit_insn (gen_rep_stos (destreg, countreg, dst, zeroreg, destexp));
     }
   else if (count != 0
 	   && (align >= 8
@@ -10383,6 +10421,8 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 	       || optimize_size || count < (unsigned int) 64))
     {
       int size = TARGET_64BIT && !optimize_size ? 8 : 4;
+      unsigned HOST_WIDE_INT offset = 0;
+
       zeroreg = copy_to_mode_reg (size == 4 ? SImode : DImode, const0_rtx);
       if (count & ~(size - 1))
 	{
@@ -10390,28 +10430,34 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 				       GEN_INT ((count >> (size == 4 ? 2 : 3))
 						& (TARGET_64BIT ? -1 : 0x3fffffff)));
 	  countreg = ix86_zero_extend_to_Pmode (countreg);
-	  if (size == 4)
-	    {
-	      if (TARGET_64BIT)
-		emit_insn (gen_rep_stossi_rex64 (destreg, countreg, zeroreg,
-					         destreg, countreg));
-	      else
-		emit_insn (gen_rep_stossi (destreg, countreg, zeroreg,
-					   destreg, countreg));
-	    }
-	  else
-	    emit_insn (gen_rep_stosdi_rex64 (destreg, countreg, zeroreg,
-					     destreg, countreg));
+	  destexp = gen_rtx_ASHIFT (Pmode, countreg, GEN_INT (size == 4 ? 2 : 3));
+	  destexp = gen_rtx_PLUS (Pmode, destexp, destreg);
+	  emit_insn (gen_rep_stos (destreg, countreg, dst, zeroreg, destexp));
+	  offset = count & ~(size - 1);
 	}
       if (size == 8 && (count & 0x04))
-	emit_insn (gen_strsetsi (destreg,
+	{
+	  rtx mem = adjust_automodify_address_nv (dst, SImode, destreg,
+						  offset);
+	  emit_insn (gen_strset (destreg, mem,
 				 gen_rtx_SUBREG (SImode, zeroreg, 0)));
+	  offset += 4;
+	}
       if (count & 0x02)
-	emit_insn (gen_strsethi (destreg,
+	{
+	  rtx mem = adjust_automodify_address_nv (dst, HImode, destreg,
+						  offset);
+	  emit_insn (gen_strset (destreg, mem,
 				 gen_rtx_SUBREG (HImode, zeroreg, 0)));
+	  offset += 2;
+	}
       if (count & 0x01)
-	emit_insn (gen_strsetqi (destreg,
+	{
+	  rtx mem = adjust_automodify_address_nv (dst, QImode, destreg,
+						  offset);
+	  emit_insn (gen_strset (destreg, mem,
 				 gen_rtx_SUBREG (QImode, zeroreg, 0)));
+	}
     }
   else
     {
@@ -10434,6 +10480,8 @@ ix86_expand_clrstr (src, count_exp, align_exp)
       countreg2 = gen_reg_rtx (Pmode);
       countreg = copy_to_mode_reg (counter_mode, count_exp);
       zeroreg = copy_to_mode_reg (Pmode, const0_rtx);
+      /* Get rid of MEM_OFFSET, it won't be accurate.  */
+      dst = change_address (dst, BLKmode, destreg);
 
       if (count == 0 && align < desired_alignment)
 	{
@@ -10444,8 +10492,8 @@ ix86_expand_clrstr (src, count_exp, align_exp)
       if (align <= 1)
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 1);
-	  emit_insn (gen_strsetqi (destreg,
-				   gen_rtx_SUBREG (QImode, zeroreg, 0)));
+	  emit_insn (gen_strset (destreg, dst,
+				 gen_rtx_SUBREG (QImode, zeroreg, 0)));
 	  ix86_adjust_counter (countreg, 1);
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
@@ -10453,8 +10501,8 @@ ix86_expand_clrstr (src, count_exp, align_exp)
       if (align <= 2)
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 2);
-	  emit_insn (gen_strsethi (destreg,
-				   gen_rtx_SUBREG (HImode, zeroreg, 0)));
+	  emit_insn (gen_strset (destreg, dst,
+				 gen_rtx_SUBREG (HImode, zeroreg, 0)));
 	  ix86_adjust_counter (countreg, 2);
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
@@ -10462,9 +10510,10 @@ ix86_expand_clrstr (src, count_exp, align_exp)
       if (align <= 4 && desired_alignment > 4)
 	{
 	  rtx label = ix86_expand_aligntest (destreg, 4);
-	  emit_insn (gen_strsetsi (destreg, (TARGET_64BIT
-					     ? gen_rtx_SUBREG (SImode, zeroreg, 0)
-					     : zeroreg)));
+	  emit_insn (gen_strset (destreg, dst,
+				 (TARGET_64BIT
+				  ? gen_rtx_SUBREG (SImode, zeroreg, 0)
+				  : zeroreg)));
 	  ix86_adjust_counter (countreg, 4);
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
@@ -10483,15 +10532,16 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 	{
 	  emit_insn (gen_lshrdi3 (countreg2, ix86_zero_extend_to_Pmode (countreg),
 				  GEN_INT (3)));
-	  emit_insn (gen_rep_stosdi_rex64 (destreg, countreg2, zeroreg,
-					   destreg, countreg2));
+	  destexp = gen_rtx_ASHIFT (Pmode, countreg2, GEN_INT (3));
 	}
       else
 	{
-	  emit_insn (gen_lshrsi3 (countreg2, countreg, GEN_INT (2)));
-	  emit_insn (gen_rep_stossi (destreg, countreg2, zeroreg,
-				     destreg, countreg2));
+	  emit_insn (gen_lshrsi3 (countreg2, countreg, const2_rtx));
+	  destexp = gen_rtx_ASHIFT (Pmode, countreg2, const2_rtx);
 	}
+      destexp = gen_rtx_PLUS (Pmode, destexp, destreg);
+      emit_insn (gen_rep_stos (destreg, countreg2, dst, zeroreg, destexp));
+
       if (label)
 	{
 	  emit_label (label);
@@ -10499,41 +10549,42 @@ ix86_expand_clrstr (src, count_exp, align_exp)
 	}
 
       if (TARGET_64BIT && align > 4 && count != 0 && (count & 4))
-	emit_insn (gen_strsetsi (destreg,
-				 gen_rtx_SUBREG (SImode, zeroreg, 0)));
+	emit_insn (gen_strset (destreg, dst,
+			       gen_rtx_SUBREG (SImode, zeroreg, 0)));
       if (TARGET_64BIT && (align <= 4 || count == 0))
 	{
 	  rtx label = ix86_expand_aligntest (countreg, 4);
-	  emit_insn (gen_strsetsi (destreg,
-				   gen_rtx_SUBREG (SImode, zeroreg, 0)));
+	  emit_insn (gen_strset (destreg, dst,
+				 gen_rtx_SUBREG (SImode, zeroreg, 0)));
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
 	}
       if (align > 2 && count != 0 && (count & 2))
-	emit_insn (gen_strsethi (destreg,
-				 gen_rtx_SUBREG (HImode, zeroreg, 0)));
+	emit_insn (gen_strset (destreg, dst,
+			       gen_rtx_SUBREG (HImode, zeroreg, 0)));
       if (align <= 2 || count == 0)
 	{
 	  rtx label = ix86_expand_aligntest (countreg, 2);
-	  emit_insn (gen_strsethi (destreg,
-				   gen_rtx_SUBREG (HImode, zeroreg, 0)));
+	  emit_insn (gen_strset (destreg, dst,
+				 gen_rtx_SUBREG (HImode, zeroreg, 0)));
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
 	}
       if (align > 1 && count != 0 && (count & 1))
-	emit_insn (gen_strsetqi (destreg,
-				 gen_rtx_SUBREG (QImode, zeroreg, 0)));
+	emit_insn (gen_strset (destreg, dst,
+			       gen_rtx_SUBREG (QImode, zeroreg, 0)));
       if (align <= 1 || count == 0)
 	{
 	  rtx label = ix86_expand_aligntest (countreg, 1);
-	  emit_insn (gen_strsetqi (destreg,
-				   gen_rtx_SUBREG (QImode, zeroreg, 0)));
+	  emit_insn (gen_strset (destreg, dst,
+				 gen_rtx_SUBREG (QImode, zeroreg, 0)));
 	  emit_label (label);
 	  LABEL_NUSES (label) = 1;
 	}
     }
   return 1;
 }
+
 /* Expand strlen.  */
 int
 ix86_expand_strlen (out, src, eoschar, align)
@@ -10566,7 +10617,7 @@ ix86_expand_strlen (out, src, eoschar, align)
 
       emit_move_insn (out, addr);
 
-      ix86_expand_strlensi_unroll_1 (out, align);
+      ix86_expand_strlensi_unroll_1 (out, src, align);
 
       /* strlensi_unroll_1 returns the address of the zero at the end of
          the string, like memchr(), so compute the length by subtracting
@@ -10578,6 +10629,7 @@ ix86_expand_strlen (out, src, eoschar, align)
     }
   else
     {
+      rtx unspec;
       scratch2 = gen_reg_rtx (Pmode);
       scratch3 = gen_reg_rtx (Pmode);
       scratch4 = force_reg (Pmode, constm1_rtx);
@@ -10586,17 +10638,19 @@ ix86_expand_strlen (out, src, eoschar, align)
       eoschar = force_reg (QImode, eoschar);
 
       emit_insn (gen_cld ());
+      src = replace_equiv_address_nv (src, scratch3);
+
+      /* If .md starts supporting :P, this can be done in .md.  */
+      unspec = gen_rtx_UNSPEC (Pmode, gen_rtvec (4, src, eoschar, align,
+						 scratch4), UNSPEC_SCAS);
+      emit_insn (gen_strlenqi_1 (scratch1, scratch3, unspec));
       if (TARGET_64BIT)
 	{
-	  emit_insn (gen_strlenqi_rex_1 (scratch1, scratch3, eoschar,
-					 align, scratch4, scratch3));
 	  emit_insn (gen_one_cmpldi2 (scratch2, scratch1));
 	  emit_insn (gen_adddi3 (out, scratch2, constm1_rtx));
 	}
       else
 	{
-	  emit_insn (gen_strlenqi_1 (scratch1, scratch3, eoschar,
-				     align, scratch4, scratch3));
 	  emit_insn (gen_one_cmplsi2 (scratch2, scratch1));
 	  emit_insn (gen_addsi3 (out, scratch2, constm1_rtx));
 	}
@@ -10616,8 +10670,8 @@ ix86_expand_strlen (out, src, eoschar, align)
    some address computing at the end.  These things are done in i386.md.  */
 
 static void
-ix86_expand_strlensi_unroll_1 (out, align_rtx)
-     rtx out, align_rtx;
+ix86_expand_strlensi_unroll_1 (out, src, align_rtx)
+     rtx out, src, align_rtx;
 {
   int align;
   rtx tmp;
@@ -10669,7 +10723,7 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx)
 				   Pmode, 1, align_4_label);
         }
 
-      mem = gen_rtx_MEM (QImode, out);
+      mem = change_address (src, QImode, out);
 
       /* Now compare the bytes.  */
 
@@ -10713,7 +10767,7 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx)
      speed up.  */
   emit_label (align_4_label);
 
-  mem = gen_rtx_MEM (SImode, out);
+  mem = change_address (src, SImode, out);
   emit_move_insn (scratch, mem);
   if (TARGET_64BIT)
     emit_insn (gen_adddi3 (out, out, GEN_INT (4)));
@@ -11725,52 +11779,6 @@ ix86_variable_issue (dump, sched_verbose, insn, can_issue_more)
 	  }
       }
       return --ix86_sched_data.ppro.issued_this_cycle;
-    }
-}
-
-/* Walk through INSNS and look for MEM references whose address is DSTREG or
-   SRCREG and set the memory attribute to those of DSTREF and SRCREF, as
-   appropriate.  */
-
-void
-ix86_set_move_mem_attrs (insns, dstref, srcref, dstreg, srcreg)
-     rtx insns;
-     rtx dstref, srcref, dstreg, srcreg;
-{
-  rtx insn;
-
-  for (insn = insns; insn != 0 ; insn = NEXT_INSN (insn))
-    if (INSN_P (insn))
-      ix86_set_move_mem_attrs_1 (PATTERN (insn), dstref, srcref,
-				 dstreg, srcreg);
-}
-
-/* Subroutine of above to actually do the updating by recursively walking
-   the rtx.  */
-
-static void
-ix86_set_move_mem_attrs_1 (x, dstref, srcref, dstreg, srcreg)
-     rtx x;
-     rtx dstref, srcref, dstreg, srcreg;
-{
-  enum rtx_code code = GET_CODE (x);
-  const char *format_ptr = GET_RTX_FORMAT (code);
-  int i, j;
-
-  if (code == MEM && XEXP (x, 0) == dstreg)
-    MEM_COPY_ATTRIBUTES (x, dstref);
-  else if (code == MEM && XEXP (x, 0) == srcreg)
-    MEM_COPY_ATTRIBUTES (x, srcref);
-
-  for (i = 0; i < GET_RTX_LENGTH (code); i++, format_ptr++)
-    {
-      if (*format_ptr == 'e')
-	ix86_set_move_mem_attrs_1 (XEXP (x, i), dstref, srcref,
-				   dstreg, srcreg);
-      else if (*format_ptr == 'E')
-	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  ix86_set_move_mem_attrs_1 (XVECEXP (x, i, j), dstref, srcref,
-				     dstreg, srcreg);
     }
 }
 

@@ -4625,7 +4625,15 @@ store_constructor (exp, target, cleared, size)
 		   || ((HOST_WIDE_INT) GET_MODE_SIZE (GET_MODE (target))
 		       == size)))
 	{
-	  clear_storage (target, GEN_INT (size));
+	  rtx xtarget = target;
+
+	  if (readonly_fields_p (type))
+	    {
+	      xtarget = copy_rtx (xtarget);
+	      RTX_UNCHANGING_P (xtarget) = 1;
+	    }
+
+	  clear_storage (xtarget, GEN_INT (size));
 	  cleared = 1;
 	}
 
@@ -4699,10 +4707,7 @@ store_constructor (exp, target, cleared, size)
 				       highest_pow2_factor (offset));
 	    }
 
-	  /* If the constructor has been cleared, setting RTX_UNCHANGING_P
-	     on the MEM might lead to scheduling the clearing after the
-	     store.  */
-	  if (TREE_READONLY (field) && !cleared)
+	  if (TREE_READONLY (field))
 	    {
 	      if (GET_CODE (to_rtx) == MEM)
 		to_rtx = copy_rtx (to_rtx);
