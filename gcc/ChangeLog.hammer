@@ -1,3 +1,8 @@
+2004-02-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	Backport from mainline:
+	* config/s390/s390.md ("divmoddisi3"): Fix incorrect mode.
+
 2004-02-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (override_options): Don't imply 3DNow! for -m64
