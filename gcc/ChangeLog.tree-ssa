@@ -15,6 +15,12 @@
 	
 2004-02-23  Jeff Law  <law@redhat.com>
 
+	* ggc-page.c (struct page_entry): New field PREV.
+	(ggc_alloc): Update PREV field appropriately.
+	(sweep_pages): Likewise.
+	(ggc_free): Likewise.  Use PREV field rather than loop to
+	improve ggc_free performance.
+
 	* Makefile.in (OBJC-common): Add tree-ssa-copy.o.
 	(tree-ssa-copy.o): Add dependencies.
 	* tree-flow.h (propagate_value, replace_exp): Prototype.
