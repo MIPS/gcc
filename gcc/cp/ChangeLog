@@ -1,3 +1,9 @@
+2002-12-03  Geoffrey Keating  <geoffk@apple.com>
+
+	* cp-tree.h (struct operator_name_info_t): Mark for GTY machinery.
+	(operator_name_info): Mark to be saved for PCH, specify size.
+	(assignment_operator_name_info): Likewise.
+
 2002-11-19  Geoffrey Keating  <geoffk@apple.com>
 
 	* decl.c (anon_cnt): Mark to be saved for PCH.

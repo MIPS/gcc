@@ -3496,7 +3496,7 @@ extern void init_reswords PARAMS ((void));
    opname_tab[(int) MINUS_EXPR] == "-".  */
 extern const char **opname_tab, **assignop_tab;
 
-typedef struct operator_name_info_t
+typedef struct operator_name_info_t GTY(())
 {
   /* The IDENTIFIER_NODE for the operator.  */
   tree identifier;
@@ -3509,9 +3509,11 @@ typedef struct operator_name_info_t
 } operator_name_info_t;
 
 /* A mapping from tree codes to operator name information.  */
-extern operator_name_info_t operator_name_info[];
+extern GTY(()) operator_name_info_t operator_name_info
+  [(int) LAST_CPLUS_TREE_CODE];
 /* Similar, but for assignment operators.  */
-extern operator_name_info_t assignment_operator_name_info[];
+extern GTY(()) operator_name_info_t assignment_operator_name_info
+  [(int) LAST_CPLUS_TREE_CODE];
 
 /* in call.c */
 extern int check_dtor_name			PARAMS ((tree, tree));
