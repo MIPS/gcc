@@ -232,7 +232,7 @@ Make implicit function declarations an error
 
 ; APPLE LOCAL -Wextra-tokens
 Wextra-tokens
-C Objc C++ ObjC++
+C ObjC C++ ObjC++
 Warn about extra tokens at the end of prepreprocessor directives
 
 Wfloat-equal
