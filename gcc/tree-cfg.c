@@ -1925,11 +1925,6 @@ cleanup_control_expr_graph (basic_block bb, block_stmt_iterator bsi)
 	    }
 	  else
 	    ei_next (&ei);
-
-	  /* APPLE LOCAL begin lno */
-	  if (taken_edge->probability > REG_BR_PROB_BASE)
-	    taken_edge->probability = REG_BR_PROB_BASE;
-	  /* APPLE LOCAL end lno */
 	}
       if (taken_edge->probability > REG_BR_PROB_BASE)
 	taken_edge->probability = REG_BR_PROB_BASE;
@@ -3772,22 +3767,6 @@ thread_jumps_from_bb (basic_block bb)
   edge e;
   bool retval = false;
 
-  /* APPLE LOCAL begin lno */
-  mark_dfs_back_edges ();
-  FOR_EACH_BB (bb)
-    {
-      edge_iterator ei;
-      /* Prevent threading though loop headers.  This could create irreducible
-	 regions (for entry edges) or loops with shared headers (for latch
-	 edges).  */
-      FOR_EACH_EDGE (e, ei, bb->preds)
-	if (e->flags & EDGE_DFS_BACK)
-	  break;
-
-      bb_ann (bb)->forwardable = (e == NULL);
-    }
-  /* APPLE LOCAL end lno */
-
   /* Examine each of our block's successors to see if it is
      forwardable.  */
   for (ei = ei_start (bb->succs); (e = ei_safe_edge (ei)); )
@@ -3962,13 +3941,17 @@ thread_jumps (void)
   basic_block bb;
   bool retval = false;
   basic_block *worklist = xmalloc (sizeof (basic_block) * last_basic_block);
-  unsigned int size = 0;
+  basic_block *current = worklist;
 
   FOR_EACH_BB (bb)
     {
       bb_ann (bb)->forwardable = tree_forwarder_block_p (bb);
       bb->flags &= ~BB_VISITED;
     }
+
+  /* We pretend to have ENTRY_BLOCK_PTR in WORKLIST.  This way,
+     ENTRY_BLOCK_PTR will never be entered into WORKLIST.  */
+  ENTRY_BLOCK_PTR->flags |= BB_VISITED;
 
   /* Initialize WORKLIST by putting non-forwarder blocks that
      immediately precede forwarder blocks because those are the ones
@@ -3991,28 +3974,24 @@ thread_jumps (void)
 	 among BB's predecessors.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
-	  /* We are not interested in threading jumps from a forwarder
-	     block.  */
-	  if (!bb_ann (e->src)->forwardable
-	      /* We don't want to visit ENTRY_BLOCK_PTR.  */
-	      && e->src->index >= 0
-	      /* We don't want to put a duplicate into WORKLIST.  */
-	      && (e->src->flags & BB_VISITED) == 0)
+	  /* We don't want to put a duplicate into WORKLIST.  */
+	  if ((e->src->flags & BB_VISITED) == 0
+	      /* We are not interested in threading jumps from a forwarder
+		 block.  */
+	      && !bb_ann (e->src)->forwardable)
 	    {
 	      e->src->flags |= BB_VISITED;
-	      worklist[size] = e->src;
-	      size++;
+	      *current++ = e->src;
 	    }
 	}
     }
 
   /* Now let's drain WORKLIST.  */
-  while (size > 0)
+  while (worklist != current)
     {
-      size--;
-      bb = worklist[size];
+      bb = *--current;
 
-      /* BB->INDEX is not longer in WORKLIST, so clear BB_VISITED.  */
+      /* BB is no longer in WORKLIST, so clear BB_VISITED.  */
       bb->flags &= ~BB_VISITED;
 
       if (thread_jumps_from_bb (bb))
@@ -4032,22 +4011,21 @@ thread_jumps (void)
 		 predecessors.  */
 	      FOR_EACH_EDGE (f, ej, bb->preds)
 		{
-		  /* We are not interested in threading jumps from a
-		     forwarder block.  */
-		  if (!bb_ann (f->src)->forwardable
-		      /* We don't want to visit ENTRY_BLOCK_PTR.  */
-		      && f->src->index >= 0
-		      /* We don't want to put a duplicate into WORKLIST.  */
-		      && (f->src->flags & BB_VISITED) == 0)
+		  /* We don't want to put a duplicate into WORKLIST.  */
+		  if ((f->src->flags & BB_VISITED) == 0
+		      /* We are not interested in threading jumps from a
+			 forwarder block.  */
+		      && !bb_ann (f->src)->forwardable)
 		    {
 		      f->src->flags |= BB_VISITED;
-		      worklist[size] = f->src;
-		      size++;
+		      *current++ = f->src;
 		    }
 		}
 	    }
 	}
     }
+
+  ENTRY_BLOCK_PTR->flags &= ~BB_VISITED;
 
   free (worklist);
 

@@ -1,3 +1,12 @@
+2004-11-11  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3875337
+	* tree-cfg.c (cleanup_control_expr_graph):  Remove redundant
+	local patch from LNO.
+	(thread_jumps_from_bb):  Remove wrong local patch from LNO;
+	make identical to mainline.
+	(thread_jumps):  Make identical to mainline.
+
 2004-11-11  Stuart Hastings <stuart@apple.com>
 
 	* i386.md (*movqi_1) Short-term fix for 3838108.
