@@ -1,3 +1,8 @@
+2002-10-12  Roger Sayle  <roger@eyesopen.com>
+
+	* simplify-rtx.c (simplify_binary_operation) [ASHIFTRT]: Optimize
+	arithmetic right shifts of ~0 during RTL simplifications.
+
 2002-10-11  Andreas Bauer  <baueran@in.tum.de>
 
 	* config/i386/i386.c (ix86_function_ok_for_sibcall): Allow
