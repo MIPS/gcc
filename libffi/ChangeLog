@@ -1,3 +1,13 @@
+2003-06-19  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* src/powerpc/ppc_closure.S: Include ffi.h.
+	(ffi_closure_SYSV): Make it hidden.
+	* src/powerpc/sysv.S (ffi_call_SYSV): Make it hidden.
+	* src/powerpc/ffi.c (ffi_closure_SYSV): Declare hidden.
+	(ffi_call_SYSV): Likewise.
+	(ffi_prep_args_SYSV): Make it hidden.
+	(ffi_closure_helper_SYSV): Likewise.
+
 2003-04-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* configure.in (HAVE_RO_EH_FRAME): Check whether .eh_frame section

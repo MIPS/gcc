@@ -30,7 +30,8 @@
 #include <powerpc/asm.h>
 
 #ifndef __powerpc64__
-	.globl ffi_prep_args_SYSV
+	.globl ffi_call_SYSV
+	.hidden ffi_call_SYSV
 ENTRY(ffi_call_SYSV)
 .LFB1:
 	/* Save the old stack pointer as AP.  */

@@ -38,7 +38,7 @@
 #endif
 
 
-extern void ffi_closure_SYSV(void);
+extern void hidden ffi_closure_SYSV(void);
 extern void hidden ffi_closure_LINUX64(void);
 
 enum {
@@ -87,7 +87,7 @@ enum { ASM_NEEDS_REGISTERS = 4 };
    */
 
 /*@-exportheader@*/
-void ffi_prep_args_SYSV(extended_cif *ecif, unsigned *const stack)
+void hidden ffi_prep_args_SYSV(extended_cif *ecif, unsigned *const stack)
 /*@=exportheader@*/
 {
   const unsigned bytes = ecif->cif->bytes;
@@ -647,7 +647,7 @@ ffi_status ffi_prep_cif_machdep(ffi_cif *cif)
 
 /*@-declundef@*/
 /*@-exportheader@*/
-extern void ffi_call_SYSV(/*@out@*/ extended_cif *, 
+extern void hidden ffi_call_SYSV(/*@out@*/ extended_cif *, 
 			  unsigned, unsigned, 
 			  /*@out@*/ unsigned *, 
 			  void (*fn)());
@@ -772,7 +772,7 @@ typedef union
   double d;
 } ffi_dblfl;
 
-int ffi_closure_helper_SYSV (ffi_closure*, void*, unsigned long*, 
+int hidden ffi_closure_helper_SYSV (ffi_closure*, void*, unsigned long*, 
 			     ffi_dblfl*, unsigned long*);
 
 /* Basically the trampoline invokes ffi_closure_SYSV, and on 
@@ -783,7 +783,7 @@ int ffi_closure_helper_SYSV (ffi_closure*, void*, unsigned long*,
  * following helper function to do most of the work
  */
 
-int
+int hidden
 ffi_closure_helper_SYSV (ffi_closure* closure, void * rvalue, 
             unsigned long * pgr, ffi_dblfl * pfr, 
             unsigned long * pst)
