@@ -1,5 +1,15 @@
 2003-03-25  Richard Sandiford  <rsandifo@redhat.com>
 
+	* config/mips/mips.md (extended_mips16): New attribute.
+	(define_attr length): Default to 8 if extended_mips16 == yes.
+	(truncdisi2): Set extended_mips16 to yes for the sll alternative.
+	(truncdihi2, truncdiqi2, *extendsidi2): Likewise.
+	(call_internal): Set extended_mips16 to yes for direct jumps.
+	Remove redundant mode attribute.
+	(call_value_internal, call_value_multiple_internal): Likewise.
+	(call_split): Remove redundant mode attribute.
+	(call_value_split, call_value_multiple_split): Likewise.
+
 	* config/mips/mips.c (mips_symbol_insns): Rework.  Fix handling
 	of unaligned offsets.
 
