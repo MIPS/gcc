@@ -810,7 +810,7 @@ SECTION_FUNCTION (text_coal_section,				\
 		    "pure_instructions", 0)			\
 SECTION_FUNCTION (text_unlikely_section,			\
 		  in_text_unlikely,				\
-		  ".section __TEXT,__text_unlikely,coalesced,"	\
+		  ".section __TEXT,__unlikely,regular,"		\
 		    "pure_instructions", 0)			\
 SECTION_FUNCTION (text_unlikely_coal_section,			\
 		  in_text_unlikely_coal,			\

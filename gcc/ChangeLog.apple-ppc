@@ -1,5 +1,10 @@
 2004-11-04  Dale Johannesen  <dalej@apple.com>
 
+	* config/darwin.h (EXTRA_SECTION_FUNCTIONS):
+	Fix text_unlikely_section.
+
+2004-11-04  Dale Johannesen  <dalej@apple.com>
+
 	Radar 3759876
 	* config/rs6000/rs6000.c (rs6000_function_ok_for_sibcall):  Enable
 	indirect sibcalls.
