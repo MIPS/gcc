@@ -286,6 +286,8 @@ output_float (fnode *f, double value, int len)
   int nzero;
   /* Number of digits after the decimal point.  */
   int nafter;
+  /* Number of zeros after the decimal point, whatever the precision.  */
+  int nzero_real;
   int leadzero;
   int nblanks;
   int i;
@@ -294,6 +296,9 @@ output_float (fnode *f, double value, int len)
   ft = f->format;
   w = f->u.real.w;
   d = f->u.real.d;
+
+  nzero_real = -1;
+
 
   /* We should always know the field width and precision.  */
   if (d < 0)
@@ -359,6 +364,7 @@ output_float (fnode *f, double value, int len)
       if (nbefore < 0)
 	{
 	  nzero = -nbefore;
+          nzero_real = nzero;
 	  if (nzero > d)
 	    nzero = d;
 	  nafter = d - nzero;
@@ -405,7 +411,8 @@ output_float (fnode *f, double value, int len)
     case FMT_EN:
       /* The exponent must be a multiple of three, with 1-3 digits before
 	 the decimal point.  */
-      e--;
+      if (value != 0.0)
+        e--;
       if (e >= 0)
 	nbefore = e % 3;
       else
@@ -422,7 +429,8 @@ output_float (fnode *f, double value, int len)
       break;
 
     case FMT_ES:
-      e--;
+      if (value != 0.0)
+        e--;
       nbefore = 1;
       nzero = 0;
       nafter = d;
@@ -436,7 +444,17 @@ output_float (fnode *f, double value, int len)
 
   /* Round the value.  */
   if (nbefore + nafter == 0)
-    ndigits = 0;
+    {
+      ndigits = 0;
+      if (nzero_real == d && digits[0] >= '5')
+        {
+          /* We rounded to zero but shouldn't have */
+          nzero--;
+          nafter = 1;
+          digits[0] = '1';
+          ndigits = 1;
+        }
+    }
   else if (nbefore + nafter < ndigits)
     {
       ndigits = nbefore + nafter;

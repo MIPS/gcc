@@ -120,20 +120,6 @@ union _Jv_value
   jobject object_value;
 };
 
-// An instance of this type is used to represent a single frame in a
-// backtrace.  If the interpreter has been built, we also include
-// information about the interpreted method.
-struct _Jv_frame_info
-{
-  // PC value.
-  void *addr;
-#ifdef INTERPRETER
-  // Actually a _Jv_InterpMethod, but we don't want to include
-  // java-interp.h everywhere.
-  void *interp;
-#endif // INTERPRETER
-};
-
 /* Extract a character from a Java-style Utf8 string.
  * PTR points to the current character.
  * LIMIT points to the end of the Utf8 string.
@@ -250,7 +236,8 @@ namespace gcj
 class _Jv_Linker
 {
 private:
-  static _Jv_Field *find_field_helper(jclass, _Jv_Utf8Const *, jclass *);
+  static _Jv_Field *find_field_helper(jclass, _Jv_Utf8Const *, _Jv_Utf8Const *,
+				      jclass *);
   static _Jv_Field *find_field(jclass, jclass, _Jv_Utf8Const *,
 			       _Jv_Utf8Const *);
   static void prepare_constant_time_tables(jclass);
