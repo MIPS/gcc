@@ -55,18 +55,6 @@ write_a (fnode * f, const char *source, int len)
     }
 }
 
-
-void
-write_l (fnode * f, char *p, int len)
-{
-  p = write_block (f->u.w);
-  if (p == NULL)
-    return;
-
-  memset (p, ' ', f->u.w - 1);
-  p[f->u.w - 1] = *((int *) p) ? 'T' : 'F';
-}
-
 static int64_t
 extract_int (const void *p, int len)
 {
@@ -488,6 +476,20 @@ done:
   return ;
 }
 
+void
+write_l (fnode * f, char *source, int len)
+{
+  char *p;
+  int64_t n;
+                                                                                
+  p = write_block (f->u.w);
+  if (p == NULL)
+    return;
+
+  memset (p, ' ', f->u.w - 1);
+  n = extract_int (source, len);
+  p[f->u.w - 1] = (n) ? 'T' : 'F';
+}
 
 /* write_float() -- output a real number according to its format */
 
