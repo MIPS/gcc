@@ -249,8 +249,9 @@ make_edges (basic_block min, basic_block max, int update_p)
         FOR_BB_BETWEEN (bb, min, max->next_bb, next_bb)
 	  {
 	    edge e;
+	    unsigned ix;
 
-	    for (e = bb->succ; e ; e = e->succ_next)
+	    FOR_EACH_EDGE (e, bb->succ, ix)
 	      if (e->dest != EXIT_BLOCK_PTR)
 		SET_BIT (edge_cache[bb->index], e->dest->index);
 	  }
@@ -268,6 +269,7 @@ make_edges (basic_block min, basic_block max, int update_p)
       enum rtx_code code;
       int force_fallthru = 0;
       edge e;
+      unsigned ix;
 
       if (LABEL_P (BB_HEAD (bb))
 	  && LABEL_ALT_ENTRY_P (BB_HEAD (bb)))
@@ -387,7 +389,7 @@ make_edges (basic_block min, basic_block max, int update_p)
 
       /* Find out if we can drop through to the next block.  */
       insn = NEXT_INSN (insn);
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	if (e->dest == EXIT_BLOCK_PTR && e->flags & EDGE_FALLTHRU)
 	  {
 	    insn = 0;
@@ -639,7 +641,7 @@ compute_outgoing_frequencies (basic_block b)
 {
   edge e, f;
 
-  if (b->succ && b->succ->succ_next && !b->succ->succ_next->succ_next)
+  if (EDGE_COUNT (b->succ) == 2)
     {
       rtx note = find_reg_note (BB_END (b), REG_BR_PROB, NULL);
       int probability;
@@ -657,9 +659,9 @@ compute_outgoing_frequencies (basic_block b)
       f->count = b->count - e->count;
     }
 
-  if (b->succ && !b->succ->succ_next)
+  if (EDGE_COUNT (b->succ) == 1)
     {
-      e = b->succ;
+      e = EDGE_0 (b->succ);
       e->probability = REG_BR_PROB_BASE;
       e->count = b->count;
     }
@@ -699,6 +701,7 @@ find_many_sub_basic_blocks (sbitmap blocks)
   FOR_BB_BETWEEN (bb, min, max->next_bb, next_bb)
     {
       edge e;
+      unsigned ix;
 
       if (STATE (bb) == BLOCK_ORIGINAL)
 	continue;
@@ -706,7 +709,7 @@ find_many_sub_basic_blocks (sbitmap blocks)
 	{
 	  bb->count = 0;
 	  bb->frequency = 0;
-	  for (e = bb->pred; e; e = e->pred_next)
+	  FOR_EACH_EDGE (e, bb->pred, ix)
 	    {
 	      bb->count += e->count;
 	      bb->frequency += EDGE_FREQUENCY (e);
@@ -741,12 +744,13 @@ find_sub_basic_blocks (basic_block bb)
   FOR_BB_BETWEEN (b, min, max->next_bb, next_bb)
     {
       edge e;
+      unsigned ix;
 
       if (b != min)
 	{
 	  b->count = 0;
 	  b->frequency = 0;
-	  for (e = b->pred; e; e = e->pred_next)
+	  FOR_EACH_EDGE (e, b->pred, ix)
 	    {
 	      b->count += e->count;
 	      b->frequency += EDGE_FREQUENCY (e);

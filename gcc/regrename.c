@@ -1741,13 +1741,13 @@ copyprop_hardreg_forward (void)
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
       if (bb->pred)
-	for (bbp = bb; bbp && bbp != bb->pred->src; bbp = bbp->prev_bb);
+	for (bbp = bb; bbp && bbp != EDGE_0 (bb->pred)->src; bbp = bbp->prev_bb);
       if (bb->pred
-	  && ! bb->pred->pred_next
-	  && ! (bb->pred->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
-	  && bb->pred->src != ENTRY_BLOCK_PTR
+	  && EDGE_COUNT (bb->pred) == 1
+	  && ! (EDGE_0 (bb->pred)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
+	  && EDGE_0 (bb->pred)->src != ENTRY_BLOCK_PTR
 	  && bbp)
-	all_vd[bb->index] = all_vd[bb->pred->src->index];
+	all_vd[bb->index] = all_vd[EDGE_0 (bb->pred)->src->index];
       else
 	init_value_data (all_vd + bb->index);
 

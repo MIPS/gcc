@@ -191,6 +191,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 {
   basic_block bb, call_bb, at_bb;
   edge e;
+  unsigned ix;
 
   if (is_gimple_min_invariant (expr))
     return expr;
@@ -201,7 +202,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
   /* Mark the blocks in the chain leading to the end.  */
   at_bb = bb_for_stmt (at);
   call_bb = bb_for_stmt (bsi_stmt (bsi));
-  for (bb = call_bb; bb != at_bb; bb = bb->succ->dest)
+  for (bb = call_bb; bb != at_bb; bb = EDGE_0 (bb->succ)->dest)
     bb->aux = &bb->aux;
   bb->aux = &bb->aux;
 
@@ -231,7 +232,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
 	  break;
 	}
 
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
 	if (e->src->aux)
 	  break;
       if (!e)
@@ -246,7 +247,7 @@ independent_of_stmt_p (tree expr, tree at, block_stmt_iterator bsi)
     }
 
   /* Unmark the blocks.  */
-  for (bb = call_bb; bb != at_bb; bb = bb->succ->dest)
+  for (bb = call_bb; bb != at_bb; bb = EDGE_0 (bb->succ)->dest)
     bb->aux = NULL;
   bb->aux = NULL;
 
@@ -362,11 +363,12 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   bool tail_recursion;
   struct tailcall *nw;
   edge e;
+  unsigned ix;
   tree m, a;
   basic_block abb;
   stmt_ann_t ann;
 
-  if (bb->succ->succ_next)
+  if (EDGE_COUNT (bb->succ) > 1)
     return;
 
   for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
@@ -407,7 +409,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   if (bsi_end_p (bsi))
     {
       /* Recurse to the predecessors.  */
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
 	find_tail_calls (e->src, ret);
 
       return;
@@ -452,8 +454,8 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 
       while (bsi_end_p (absi))
 	{
-	  ass_var = propagate_through_phis (ass_var, abb->succ);
-	  abb = abb->succ->dest;
+	  ass_var = propagate_through_phis (ass_var, EDGE_0 (abb->succ));
+	  abb = EDGE_0 (abb->succ)->dest;
 	  absi = bsi_start (abb);
 	}
 
@@ -672,7 +674,7 @@ eliminate_tail_call (struct tailcall *t)
   if (TREE_CODE (stmt) == MODIFY_EXPR)
     stmt = TREE_OPERAND (stmt, 1);
 
-  first = ENTRY_BLOCK_PTR->succ->dest;
+  first = EDGE_0 (ENTRY_BLOCK_PTR->succ)->dest;
 
   /* Remove the code after call_bsi that will become unreachable.  The
      possibly unreachable code in other blocks is removed later in
@@ -690,7 +692,7 @@ eliminate_tail_call (struct tailcall *t)
     }
 
   /* Replace the call by a jump to the start of function.  */
-  e = redirect_edge_and_branch (t->call_block->succ, first);
+  e = redirect_edge_and_branch (EDGE_0 (t->call_block->succ), first);
   if (!e)
     abort ();
   PENDING_STMT (e) = NULL_TREE;
@@ -736,12 +738,12 @@ eliminate_tail_call (struct tailcall *t)
 	  var_ann (param)->default_def = new_name;
 	  phi = create_phi_node (name, first);
 	  SSA_NAME_DEF_STMT (name) = phi;
-	  add_phi_arg (&phi, new_name, ENTRY_BLOCK_PTR->succ);
+	  add_phi_arg (&phi, new_name, EDGE_0 (ENTRY_BLOCK_PTR->succ));
 
 	  /* For all calls the same set of variables should be clobbered.  This
 	     means that there always should be the appropriate phi node except
 	     for the first time we eliminate the call.  */
-	  if (first->pred->pred_next->pred_next)
+	  if (EDGE_COUNT (first->pred) > 2)
 	    abort ();
 	}
 
@@ -800,10 +802,11 @@ static void
 tree_optimize_tail_calls_1 (bool opt_tailcalls)
 {
   edge e;
+  unsigned ix;
   bool phis_constructed = false;
   struct tailcall *tailcalls = NULL, *act, *next;
   bool changed = false;
-  basic_block first = ENTRY_BLOCK_PTR->succ->dest;
+  basic_block first = EDGE_0 (ENTRY_BLOCK_PTR->succ)->dest;
   tree stmt, param, ret_type, tmp, phi;
 
   if (!suitable_for_tail_opt_p ())
@@ -811,7 +814,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
     {
       /* Only traverse the normal exits, i.e. those that end with return
 	 statement.  */
@@ -832,8 +835,8 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
       if (!phis_constructed)
 	{
 	  /* Ensure that there is only one predecessor of the block.  */
-	  if (first->pred->pred_next)
-	    first = split_edge (ENTRY_BLOCK_PTR->succ);
+	  if (EDGE_COUNT (first->pred) > 1)
+	    first = split_edge (EDGE_0 (ENTRY_BLOCK_PTR->succ));
 
 	  /* Copy the args if needed.  */
 	  for (param = DECL_ARGUMENTS (current_function_decl);
@@ -852,7 +855,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	      var_ann (param)->default_def = new_name;
 	      phi = create_phi_node (name, first);
 	      SSA_NAME_DEF_STMT (name) = phi;
-	      add_phi_arg (&phi, new_name, first->pred);
+	      add_phi_arg (&phi, new_name, EDGE_0 (first->pred));
 	    }
 	  phis_constructed = true;
 	}
@@ -866,7 +869,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 
 	  phi = create_phi_node (tmp, first);
 	  add_phi_arg (&phi, fold_convert (ret_type, integer_zero_node),
-		       first->pred);
+		       EDGE_0 (first->pred));
 	  a_acc = PHI_RESULT (phi);
 	}
 
@@ -879,7 +882,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 
 	  phi = create_phi_node (tmp, first);
 	  add_phi_arg (&phi, fold_convert (ret_type, integer_one_node),
-		       first->pred);
+		       EDGE_0 (first->pred));
 	  m_acc = PHI_RESULT (phi);
 	}
     }
@@ -894,7 +897,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (a_acc || m_acc)
     {
       /* Modify the remaining return statements.  */
-      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
 	{
 	  stmt = last_stmt (e->src);
 

@@ -635,6 +635,7 @@ fixup_reorder_chain (void)
       rtx bb_end_insn;
       basic_block nb;
       basic_block old_bb;
+      unsigned ix;
 
       if (bb->succ == NULL)
 	continue;
@@ -642,7 +643,8 @@ fixup_reorder_chain (void)
       /* Find the old fallthru edge, and another non-EH edge for
 	 a taken jump.  */
       e_taken = e_fall = NULL;
-      for (e = bb->succ; e ; e = e->succ_next)
+
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  e_fall = e;
 	else if (! (e->flags & EDGE_EH))
@@ -789,10 +791,10 @@ fixup_reorder_chain (void)
 	  
 	  /* Make sure new bb is tagged for correct section (same as
 	     fall-thru source).  */
-	  e_fall->src->partition = bb->pred->src->partition;
+	  e_fall->src->partition = EDGE_0 (bb->pred)->src->partition;
 	  if (flag_reorder_blocks_and_partition)
 	    {
-	      if (bb->pred->src->partition == COLD_PARTITION)
+	      if (EDGE_0 (bb->pred)->src->partition == COLD_PARTITION)
 		{
 		  rtx new_note;
 		  rtx note = BB_HEAD (e_fall->src);
@@ -808,7 +810,7 @@ fixup_reorder_chain (void)
 		}
 	      if (JUMP_P (BB_END (bb))
 		  && !any_condjump_p (BB_END (bb))
-		  && bb->succ->crossing_edge )
+		  && EDGE_0 (bb->succ)->crossing_edge)
 		REG_NOTES (BB_END (bb)) = gen_rtx_EXPR_LIST 
 		  (REG_CROSSING_JUMP, NULL_RTX, REG_NOTES (BB_END (bb)));
 	    }
@@ -858,8 +860,12 @@ fixup_reorder_chain (void)
   FOR_EACH_BB (bb)
     {
       edge e;
-      for (e = bb->succ; e && !(e->flags & EDGE_FALLTHRU); e = e->succ_next)
-	continue;
+      unsigned ix;
+
+      FOR_EACH_EDGE (e, bb->succ, ix)
+	if (e->flags & EDGE_FALLTHRU)
+	  break;
+
       if (e && !can_fallthru (e->src, e->dest))
 	force_nonfallthru (e);
     }
@@ -918,6 +924,7 @@ static void
 fixup_fallthru_exit_predecessor (void)
 {
   edge e;
+  unsigned ix;
   basic_block bb = NULL;
 
   /* This transformation is not valid before reload, because we might separate
@@ -925,7 +932,7 @@ fixup_fallthru_exit_predecessor (void)
   if (! reload_completed)
     abort ();
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
     if (e->flags & EDGE_FALLTHRU)
       bb = e->src;
 
@@ -1222,7 +1229,7 @@ cfg_layout_finalize (void)
 bool
 can_copy_bbs_p (basic_block *bbs, unsigned n)
 {
-  unsigned i;
+  unsigned i, ix;
   edge e;
   int ret = true;
 
@@ -1232,7 +1239,8 @@ can_copy_bbs_p (basic_block *bbs, unsigned n)
   for (i = 0; i < n; i++)
     {
       /* In case we should redirect abnormal edge during duplication, fail.  */
-      for (e = bbs[i]->succ; e; e = e->succ_next)
+
+      FOR_EACH_EDGE (e, bbs[i]->succ, ix)
 	if ((e->flags & EDGE_ABNORMAL)
 	    && e->dest->rbi->duplicated)
 	  {
@@ -1277,6 +1285,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
   unsigned i, j;
   basic_block bb, new_bb, dom_bb;
   edge e;
+  unsigned ix;
 
   /* Duplicate bbs, update dominators, assign bbs to loops.  */
   for (i = 0; i < n; i++)
@@ -1317,7 +1326,7 @@ copy_bbs (basic_block *bbs, unsigned n, basic_block *new_bbs,
       new_bb = new_bbs[i];
       bb = bbs[i];
 
-      for (e = new_bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, new_bb->succ, ix)
 	{
 	  for (j = 0; j < n_edges; j++)
 	    if (edges[j] && edges[j]->src == bb && edges[j]->dest == e->dest)

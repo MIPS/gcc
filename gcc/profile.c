@@ -142,8 +142,9 @@ instrument_edges (struct edge_list *el)
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
       edge e;
+      unsigned int ix;
 
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	{
 	  struct edge_info *inf = EDGE_INFO (e);
 
@@ -238,7 +239,8 @@ get_exec_counts (void)
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
       edge e;
-      for (e = bb->succ; e; e = e->succ_next)
+      unsigned int ix;
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
 	  num_edges++;
     }
@@ -294,11 +296,11 @@ compute_branch_probabilities (void)
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
       edge e;
-
-      for (e = bb->succ; e; e = e->succ_next)
+      unsigned int ix;
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	if (!EDGE_INFO (e)->ignore)
 	  BB_INFO (bb)->succ_count++;
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
 	if (!EDGE_INFO (e)->ignore)
 	  BB_INFO (bb)->pred_count++;
     }
@@ -316,7 +318,9 @@ compute_branch_probabilities (void)
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     {
       edge e;
-      for (e = bb->succ; e; e = e->succ_next)
+      unsigned int ix;
+
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	if (!EDGE_INFO (e)->ignore && !EDGE_INFO (e)->on_tree)
 	  {
 	    num_edges++;
@@ -379,9 +383,10 @@ compute_branch_probabilities (void)
 	      if (bi->succ_count == 0)
 		{
 		  edge e;
+		  unsigned ix;
 		  gcov_type total = 0;
 
-		  for (e = bb->succ; e; e = e->succ_next)
+		  FOR_EACH_EDGE (e, bb->succ, ix)
 		    total += e->count;
 		  bb->count = total;
 		  bi->count_valid = 1;
@@ -390,9 +395,10 @@ compute_branch_probabilities (void)
 	      else if (bi->pred_count == 0)
 		{
 		  edge e;
+		  unsigned int ix;
 		  gcov_type total = 0;
 
-		  for (e = bb->pred; e; e = e->pred_next)
+		  FOR_EACH_EDGE (e, bb->pred, ix)
 		    total += e->count;
 		  bb->count = total;
 		  bi->count_valid = 1;
@@ -404,15 +410,16 @@ compute_branch_probabilities (void)
 	      if (bi->succ_count == 1)
 		{
 		  edge e;
+		  unsigned ix;
 		  gcov_type total = 0;
 
 		  /* One of the counts will be invalid, but it is zero,
 		     so adding it in also doesn't hurt.  */
-		  for (e = bb->succ; e; e = e->succ_next)
+		  FOR_EACH_EDGE (e, bb->succ, ix)
 		    total += e->count;
 
 		  /* Seedgeh for the invalid edge, and set its count.  */
-		  for (e = bb->succ; e; e = e->succ_next)
+		  FOR_EACH_EDGE (e, bb->succ, ix)
 		    if (! EDGE_INFO (e)->count_valid && ! EDGE_INFO (e)->ignore)
 		      break;
 
@@ -431,15 +438,16 @@ compute_branch_probabilities (void)
 	      if (bi->pred_count == 1)
 		{
 		  edge e;
+		  unsigned ix;
 		  gcov_type total = 0;
 
 		  /* One of the counts will be invalid, but it is zero,
 		     so adding it in also doesn't hurt.  */
-		  for (e = bb->pred; e; e = e->pred_next)
+		  FOR_EACH_EDGE (e, bb->pred, ix)
 		    total += e->count;
 
 		  /* Search for the invalid edge, and set its count.  */
-		  for (e = bb->pred; e; e = e->pred_next)
+		  FOR_EACH_EDGE (e, bb->pred, ix)
 		    if (!EDGE_INFO (e)->count_valid && !EDGE_INFO (e)->ignore)
 		      break;
 
@@ -485,6 +493,7 @@ compute_branch_probabilities (void)
     {
       edge e;
       rtx note;
+      unsigned int ix;
 
       if (bb->count < 0)
 	{
@@ -492,7 +501,7 @@ compute_branch_probabilities (void)
 		 bb->index, (int)bb->count);
 	  bb->count = 0;
 	}
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	{
 	  /* Function may return twice in the cased the called function is
 	     setjmp or calls fork, but we can't represent this by extra
@@ -517,11 +526,11 @@ compute_branch_probabilities (void)
 	}
       if (bb->count)
 	{
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, bb->succ, ix)
 	    e->probability = (e->count * REG_BR_PROB_BASE + bb->count / 2) / bb->count;
 	  if (bb->index >= 0
 	      && block_ends_with_condjump_p (bb)
-	      && bb->succ->succ_next)
+	      && EDGE_COUNT (bb->succ) >= 2)
 	    {
 	      int prob;
 	      edge e;
@@ -529,9 +538,9 @@ compute_branch_probabilities (void)
 
 	      /* Find the branch edge.  It is possible that we do have fake
 		 edges here.  */
-	      for (e = bb->succ; e->flags & (EDGE_FAKE | EDGE_FALLTHRU);
-		   e = e->succ_next)
-		continue; /* Loop body has been intentionally left blank.  */
+	      FOR_EACH_EDGE (e, bb->succ, ix)
+		if (!(e->flags & (EDGE_FAKE | EDGE_FALLTHRU)))
+		  break;
 
 	      prob = e->probability;
 	      index = prob * 20 / REG_BR_PROB_BASE;
@@ -565,12 +574,12 @@ compute_branch_probabilities (void)
 	{
 	  int total = 0;
 
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, bb->succ, ix)
 	    if (!(e->flags & (EDGE_COMPLEX | EDGE_FAKE)))
 	      total ++;
 	  if (total)
 	    {
-	      for (e = bb->succ; e; e = e->succ_next)
+	      FOR_EACH_EDGE (e, bb->succ, ix)
 		if (!(e->flags & (EDGE_COMPLEX | EDGE_FAKE)))
 		  e->probability = REG_BR_PROB_BASE / total;
 		else
@@ -578,14 +587,14 @@ compute_branch_probabilities (void)
 	    }
 	  else
 	    {
-	      for (e = bb->succ; e; e = e->succ_next)
+	      FOR_EACH_EDGE (e, bb->succ, ix)
 		total ++;
-	      for (e = bb->succ; e; e = e->succ_next)
+	      FOR_EACH_EDGE (e, bb->succ, ix)
 		e->probability = REG_BR_PROB_BASE / total;
 	    }
 	  if (bb->index >= 0
 	      && block_ends_with_condjump_p (bb)
-	      && bb->succ->succ_next)
+	      && EDGE_COUNT (bb->succ) >= 2)
 	    num_branches++, num_never_executed;
 	}
     }
@@ -722,6 +731,7 @@ branch_prob (void)
       int need_exit_edge = 0, need_entry_edge = 0;
       int have_exit_edge = 0, have_entry_edge = 0;
       edge e;
+      unsigned ix;
 
       /* Functions returning multiple times are not handled by extra edges.
          Instead we simply allow negative counts on edges from exit to the
@@ -729,7 +739,7 @@ branch_prob (void)
          with the extra edges because that would result in flowgraph that
 	 needs to have fake edges outside the spanning tree.  */
 
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	{
 	  if ((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL))
 	       && e->dest != EXIT_BLOCK_PTR)
@@ -737,7 +747,7 @@ branch_prob (void)
 	  if (e->dest == EXIT_BLOCK_PTR)
 	    have_exit_edge = 1;
 	}
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
 	{
 	  if ((e->flags & (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL))
 	       && e->src != ENTRY_BLOCK_PTR)
@@ -853,11 +863,12 @@ branch_prob (void)
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
 	{
 	  edge e;
+	  unsigned ix;
 
 	  offset = gcov_write_tag (GCOV_TAG_ARCS);
 	  gcov_write_unsigned (BB_TO_GCOV_INDEX (bb));
 
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, bb->succ, ix)
 	    {
 	      struct edge_info *i = EDGE_INFO (e);
 	      if (!i->ignore)

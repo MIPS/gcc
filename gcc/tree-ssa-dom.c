@@ -419,12 +419,12 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 	  && TREE_CODE (last) != COND_EXPR
 	  && TREE_CODE (last) != SWITCH_EXPR)
 	{
-	  e = e->dest->succ;
+	  e = EDGE_0 (e->dest->succ);
 
 #ifdef ENABLE_CHECKING
 	  /* There should only be a single successor if the
 	     original edge was split.  */
-	  if (e->succ_next)
+	  if (EDGE_COUNT (e->dest->succ) != 1)
 	    abort ();
 #endif
 	  /* Replace the edge in REDIRECTION_EDGES for the
@@ -840,6 +840,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
     {
       tree cond, cached_lhs;
       edge e1;
+      unsigned ix;
 
       /* Do not forward entry edges into the loop.  In the case loop
 	 has multiple entry edges we may end up in constructing irreducible
@@ -848,7 +849,7 @@ thread_across_edge (struct dom_walk_data *walk_data, edge e)
 	 edges forward to the same destination block.  */
       if (!e->flags & EDGE_DFS_BACK)
 	{
-	  for (e1 = e->dest->pred; e; e = e->pred_next)
+	  FOR_EACH_EDGE (e1, e->dest->pred, ix)
 	    if (e1->flags & EDGE_DFS_BACK)
 	      break;
 	  if (e1)
@@ -1187,24 +1188,21 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
      the edge from BB through its successor.
 
      Do this before we remove entries from our equivalence tables.  */
-  if (bb->succ
-      && ! bb->succ->succ_next
-      && (bb->succ->flags & EDGE_ABNORMAL) == 0
-      && (get_immediate_dominator (CDI_DOMINATORS, bb->succ->dest) != bb
-	  || phi_nodes (bb->succ->dest)))
+  if (EDGE_COUNT (bb->succ) == 1
+      && (EDGE_0 (bb->succ)->flags & EDGE_ABNORMAL) == 0
+      && (get_immediate_dominator (CDI_DOMINATORS, EDGE_0 (bb->succ)->dest) != bb
+	  || phi_nodes (EDGE_0 (bb->succ)->dest)))
 	
     {
-      thread_across_edge (walk_data, bb->succ);
+      thread_across_edge (walk_data, EDGE_0 (bb->succ));
     }
   else if ((last = last_stmt (bb))
 	   && TREE_CODE (last) == COND_EXPR
 	   && (TREE_CODE_CLASS (TREE_CODE (COND_EXPR_COND (last))) == '<'
 	       || TREE_CODE (COND_EXPR_COND (last)) == SSA_NAME)
-	   && bb->succ
-	   && (bb->succ->flags & EDGE_ABNORMAL) == 0
-	   && bb->succ->succ_next
-	   && (bb->succ->succ_next->flags & EDGE_ABNORMAL) == 0
-	   && ! bb->succ->succ_next->succ_next)
+	   && EDGE_COUNT (bb->succ) == 2
+	   && (EDGE_0 (bb->succ)->flags & EDGE_ABNORMAL) == 0
+	   && (EDGE_1 (bb->succ)->flags & EDGE_ABNORMAL) == 0)
     {
       edge true_edge, false_edge;
       tree cond, inverted = NULL;
@@ -1438,12 +1436,11 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
   /* If we have a single predecessor, then extract EDGE_FLAGS from
      our single incoming edge.  Otherwise clear EDGE_FLAGS and
      PARENT_BLOCK_LAST_STMT since they're not needed.  */
-  if (bb->pred
-      && ! bb->pred->pred_next
+  if (EDGE_COUNT (bb->pred) == 1
       && parent_block_last_stmt
-      && bb_for_stmt (parent_block_last_stmt) == bb->pred->src)
+      && bb_for_stmt (parent_block_last_stmt) == EDGE_0 (bb->pred)->src)
     {
-      edge_flags = bb->pred->flags;
+      edge_flags = EDGE_0 (bb->pred)->flags;
     }
   else
     {
@@ -1463,7 +1460,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
      the copy and constant propagator can find more propagation
      opportunities.  */
   if (parent_block_last_stmt
-      && bb->pred->pred_next == NULL
+      && EDGE_COUNT (bb->pred) == 1
       && TREE_CODE (parent_block_last_stmt) == COND_EXPR
       && (edge_flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))
     eq_expr_value = get_eq_expr_value (parent_block_last_stmt,
@@ -1475,8 +1472,8 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
      We can only know the value of the switch's condition if the dominator
      parent is also the only predecessor of this block.  */
   else if (parent_block_last_stmt
-	   && bb->pred->pred_next == NULL
-	   && bb->pred->src == parent
+	   && EDGE_COUNT (bb->pred) == 1
+	   && EDGE_0 (bb->pred)->src == parent
 	   && TREE_CODE (parent_block_last_stmt) == SWITCH_EXPR)
     {
       tree switch_cond = SWITCH_COND (parent_block_last_stmt);
@@ -2516,10 +2513,12 @@ cprop_into_successor_phis (basic_block bb,
 			   bitmap nonzero_vars)
 {
   edge e;
+  unsigned ix;
 
   /* This can get rather expensive if the implementation is naive in
      how it finds the phi alternative associated with a particular edge.  */
-  for (e = bb->succ; e; e = e->succ_next)
+
+  FOR_EACH_EDGE (e, bb->succ, ix)
     {
       tree phi;
       int phi_num_args;

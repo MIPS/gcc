@@ -59,20 +59,17 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
   if (header->aux)
     return false;
 
-  if (!header->succ)
+  if (EDGE_COUNT (header->succ) == 0)
     abort ();
-  if (!header->succ->succ_next)
+  if (EDGE_COUNT (header->succ) != 2)
     return false;
-  if (header->succ->succ_next->succ_next)
-    return false;
-  if (flow_bb_inside_loop_p (loop, header->succ->dest)
-      && flow_bb_inside_loop_p (loop, header->succ->succ_next->dest))
+  if (flow_bb_inside_loop_p (loop, EDGE_0 (header->succ)->dest)
+      && flow_bb_inside_loop_p (loop, EDGE_1 (header->succ)->dest))
     return false;
 
   /* If this is not the original loop header, we want it to have just
      one predecessor in order to match the && pattern.  */
-  if (header != loop->header
-      && header->pred->pred_next)
+  if (header != loop->header && EDGE_COUNT (header->pred) >= 2)
     return false;
 
   last = last_stmt (header);
@@ -177,6 +174,7 @@ duplicate_blocks (varray_type bbs_to_duplicate)
     {
       preheader_edge = VARRAY_GENERIC_PTR_NOGC (bbs_to_duplicate, i);
       header = preheader_edge->dest;
+      unsigned ix;
 
       if (!header->aux)
 	abort ();
@@ -195,9 +193,12 @@ duplicate_blocks (varray_type bbs_to_duplicate)
       PENDING_STMT (preheader_edge) = NULL;
 
       /* Add the phi arguments to the outgoing edges.  */
-      for (e = header->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, header->succ, ix)
 	{
-	  for (e1 = new_header->succ; e1->dest != e->dest; e1 = e1->succ_next)
+	  unsigned ix1;
+          for (ix1 = 0;
+	       (e1 = *(VEC_iterate(edge, new_header->succ, ix1))) && e1->dest != e->dest;
+	       ix1++)
 	    continue;
 
 	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
@@ -303,10 +304,10 @@ copy_loop_headers (void)
 
 	  /* Find a successor of header that is inside a loop; i.e. the new
 	     header after the condition is copied.  */
-	  if (flow_bb_inside_loop_p (loop, header->succ->dest))
-	    preheader_edge = header->succ;
+	  if (flow_bb_inside_loop_p (loop, EDGE_0 (header->succ)->dest))
+	    preheader_edge = EDGE_0 (header->succ);
 	  else
-	    preheader_edge = header->succ->succ_next;
+	    preheader_edge = EDGE_1 (header->succ);
 	  header = preheader_edge->dest;
 	}
     }

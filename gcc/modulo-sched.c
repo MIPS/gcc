@@ -669,9 +669,9 @@ generate_prolog_epilog (partial_schedule_ptr ps, rtx orig_loop_beg,
   rtx orig_loop_bct = NULL_RTX;
 
   /* Loop header edge.  */
-  e = ps->g->bb->pred;
+  e = EDGE_0 (ps->g->bb->pred);
   if (e->src == ps->g->bb)
-    e = e->pred_next;
+    e = EDGE_1 (ps->g->bb->pred);
 
   /* Generate the prolog, inserting its insns on the loop-entry edge.  */
   start_sequence ();
@@ -724,9 +724,9 @@ generate_prolog_epilog (partial_schedule_ptr ps, rtx orig_loop_beg,
       loop_exit_label_insn = emit_label (loop_exit_label);
     }
 
-  e = ps->g->bb->succ;
+  e = EDGE_0 (ps->g->bb->succ);
   if (e->dest == ps->g->bb)
-    e = e->succ_next;
+    e = EDGE_1 (ps->g->bb->succ);
 
   e->insns.r = get_insns ();
   end_sequence ();
@@ -740,7 +740,7 @@ generate_prolog_epilog (partial_schedule_ptr ps, rtx orig_loop_beg,
       basic_block epilog_bb = BLOCK_FOR_INSN (last_epilog_insn);
       basic_block precond_bb = BLOCK_FOR_INSN (precond_jump);
       basic_block orig_loop_bb = BLOCK_FOR_INSN (precond_exit_label_insn);
-      edge epilog_exit_edge = epilog_bb->succ;
+      edge epilog_exit_edge = EDGE_0 (epilog_bb->succ);
 
       /* Do loop preconditioning to take care of cases were the loop count is
 	 less than the stage count.  Update the CFG properly.  */
@@ -855,28 +855,26 @@ sms_schedule (FILE *dump_file)
 	continue;
 
       /* Check if bb has two successors, one being itself.  */
-      e = bb->succ;
-      if (!e || !e->succ_next || e->succ_next->succ_next)
+      if (EDGE_COUNT (bb->succ) != 2)
 	continue;
 
-      if (e->dest != bb && e->succ_next->dest != bb)
+      if (EDGE_0 (bb->succ)->dest != bb && EDGE_1 (bb->succ)->dest != bb)
 	continue;
 
-      if ((e->flags & EDGE_COMPLEX)
-	  || (e->succ_next->flags & EDGE_COMPLEX))
+      if ((EDGE_0 (bb->succ)->flags & EDGE_COMPLEX)
+	  || (EDGE_1 (bb->succ)->flags & EDGE_COMPLEX))
 	continue;
 
       /* Check if bb has two predecessors, one being itself.  */
       /* In view of above tests, suffices to check e->pred_next->pred_next?  */
-      e = bb->pred;
-      if (!e || !e->pred_next || e->pred_next->pred_next)
+      if (EDGE_COUNT (bb->pred) != 2)
 	continue;
 
-      if (e->src != bb && e->pred_next->src != bb)
+      if (EDGE_0 (bb->pred)->src != bb && EDGE_1 (bb->pred)->src != bb)
 	continue;
 
-      if ((e->flags & EDGE_COMPLEX)
-	  || (e->pred_next->flags & EDGE_COMPLEX))
+      if ((EDGE_0 (bb->pred)->flags & EDGE_COMPLEX)
+	  || (EDGE_1 (bb->pred)->flags & EDGE_COMPLEX))
 	continue;
 
       /* For debugging.  */
@@ -888,9 +886,9 @@ sms_schedule (FILE *dump_file)
 	}
 
       get_block_head_tail (bb->index, &head, &tail);
-      pre_header_edge = bb->pred;
-      if (bb->pred->src != bb)
-	pre_header_edge = bb->pred->pred_next;
+      pre_header_edge = EDGE_0 (bb->pred);
+      if (EDGE_0 (bb->pred)->src != bb)
+	pre_header_edge = EDGE_1 (bb->pred);
 
       /* Perfrom SMS only on loops that their average count is above threshold.  */
       if (bb->count < pre_header_edge->count * SMS_LOOP_AVERAGE_COUNT_THRESHOLD)
@@ -930,9 +928,9 @@ sms_schedule (FILE *dump_file)
       if ( !(count_reg = doloop_register_get (tail, &comp)))
 	continue;
 
-      e = bb->pred;
+      e = EDGE_0 (bb->pred);
       if (e->src == bb)
-	pre_header = e->pred_next->src;
+	pre_header = EDGE_1 (bb->pred)->src;
       else
 	pre_header = e->src;
 
@@ -991,9 +989,9 @@ sms_schedule (FILE *dump_file)
 
       get_block_head_tail (g->bb->index, &head, &tail);
 
-      pre_header_edge = g->bb->pred;
-      if (g->bb->pred->src != g->bb)
-	pre_header_edge = g->bb->pred->pred_next;
+      pre_header_edge = EDGE_0 (g->bb->pred);
+      if (EDGE_0 (g->bb->pred)->src != g->bb)
+	pre_header_edge = EDGE_1 (g->bb->pred);
 
       if (stats_file)
 	{

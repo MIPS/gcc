@@ -878,6 +878,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
   else if (dominated_by_p (CDI_DOMINATORS, head_bb, new_bb))
     {
       edge e;
+      unsigned ix;
       int new_block = new_bb->index;
 
       bitmap_set_bit (live_range, new_block);
@@ -897,7 +898,8 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	  dump_hard_reg_set (*btrs_live_in_range);
 	  fprintf (dump_file, "\n");
 	}
-      for (e = head_bb->pred; e; e = e->pred_next)
+
+      FOR_EACH_EDGE (e, head_bb->pred, ix)
 	*tos++ = e->src;
     }
   else
@@ -909,6 +911,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
       if (!bitmap_bit_p (live_range, bb->index))
 	{
 	  edge e;
+	  unsigned ix;
 
 	  bitmap_set_bit (live_range, bb->index);
 	  IOR_HARD_REG_SET (*btrs_live_in_range,
@@ -921,8 +924,8 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	      dump_hard_reg_set (*btrs_live_in_range);
 	      fprintf (dump_file, "\n");
 	    }
-
-	  for (e = bb->pred; e != NULL; e = e->pred_next)
+	  
+	  FOR_EACH_EDGE (e, bb->pred, ix)
 	    {
 	      basic_block pred = e->src;
 	      if (!bitmap_bit_p (live_range, pred->index))

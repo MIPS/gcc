@@ -690,15 +690,15 @@ unroll_loop_constant_iterations (struct loops *loops, struct loop *loop)
       basic_block exit_block = desc->in_edge->src->rbi->copy;
       /* Find a new in and out edge; they are in the last copy we have made.  */
       
-      if (exit_block->succ->dest == desc->out_edge->dest)
+      if (EDGE_0 (exit_block->succ)->dest == desc->out_edge->dest)
 	{
-	  desc->out_edge = exit_block->succ;
-	  desc->in_edge = exit_block->succ->succ_next;
+	  desc->out_edge = EDGE_0 (exit_block->succ);
+	  desc->in_edge = EDGE_1 (exit_block->succ);
 	}
       else
 	{
-	  desc->out_edge = exit_block->succ->succ_next;
-	  desc->in_edge = exit_block->succ;
+	  desc->out_edge = EDGE_1 (exit_block->succ);
+	  desc->in_edge = EDGE_0 (exit_block->succ);
 	}
     }
 
@@ -946,11 +946,11 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
 					  block_label (preheader), p, NULL_RTX);
 
-      swtch = loop_split_edge_with (swtch->pred, branch_code);
+      swtch = loop_split_edge_with (EDGE_0 (swtch->pred), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
-      swtch->succ->probability = REG_BR_PROB_BASE - p;
+      EDGE_0 (swtch->succ)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
-		     swtch->succ->flags & EDGE_IRREDUCIBLE_LOOP);
+		     EDGE_0 (swtch->succ)->flags & EDGE_IRREDUCIBLE_LOOP);
       e->probability = p;
     }
 
@@ -963,11 +963,11 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       branch_code = compare_and_jump_seq (copy_rtx (niter), const0_rtx, EQ,
 					  block_label (preheader), p, NULL_RTX);
 
-      swtch = loop_split_edge_with (swtch->succ, branch_code);
+      swtch = loop_split_edge_with (EDGE_0 (swtch->succ), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
-      swtch->succ->probability = REG_BR_PROB_BASE - p;
+      EDGE_0 (swtch->succ)->probability = REG_BR_PROB_BASE - p;
       e = make_edge (swtch, preheader,
-		     swtch->succ->flags & EDGE_IRREDUCIBLE_LOOP);
+		     EDGE_0 (swtch->succ)->flags & EDGE_IRREDUCIBLE_LOOP);
       e->probability = p;
     }
 
@@ -992,15 +992,15 @@ unroll_loop_runtime_iterations (struct loops *loops, struct loop *loop)
       basic_block exit_block = desc->in_edge->src->rbi->copy;
       /* Find a new in and out edge; they are in the last copy we have made.  */
       
-      if (exit_block->succ->dest == desc->out_edge->dest)
+      if (EDGE_0 (exit_block->succ)->dest == desc->out_edge->dest)
 	{
-	  desc->out_edge = exit_block->succ;
-	  desc->in_edge = exit_block->succ->succ_next;
+	  desc->out_edge = EDGE_0 (exit_block->succ);
+	  desc->in_edge = EDGE_1 (exit_block->succ);
 	}
       else
 	{
-	  desc->out_edge = exit_block->succ->succ_next;
-	  desc->in_edge = exit_block->succ;
+	  desc->out_edge = EDGE_1 (exit_block->succ);
+	  desc->in_edge = EDGE_0 (exit_block->succ);
 	}
     }
 

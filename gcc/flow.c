@@ -1096,6 +1096,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       int rescan, changed;
       basic_block bb;
       edge e;
+      unsigned ix;
 
       bb = *qhead++;
       if (qhead == qend)
@@ -1106,7 +1107,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       CLEAR_REG_SET (new_live_at_end);
 
       if (bb->succ)
-	for (e = bb->succ; e; e = e->succ_next)
+	FOR_EACH_EDGE (e, bb->succ, ix)
 	  {
 	    basic_block sb = e->dest;
 
@@ -1262,7 +1263,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
 
       /* Queue all predecessors of BB so that we may re-examine
 	 their live_at_end.  */
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
 	{
 	  basic_block pb = e->src;
 	  if (pb->aux == NULL)
@@ -1365,10 +1366,11 @@ initialize_uninitialized_subregs (void)
 {
   rtx insn;
   edge e;
+  unsigned ix;
   int reg, did_something = 0;
   find_regno_partial_param param;
 
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
     {
       basic_block bb = e->dest;
       regset map = bb->global_live_at_start;
@@ -1925,9 +1927,9 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	    && (TYPE_RETURNS_STACK_DEPRESSED
 		(TREE_TYPE (current_function_decl))))
       && (flags & PROP_SCAN_DEAD_STORES)
-      && (bb->succ == NULL
-	  || (bb->succ->succ_next == NULL
-	      && bb->succ->dest == EXIT_BLOCK_PTR
+      && (EDGE_COUNT (bb->succ) == 0
+	  || (EDGE_COUNT (bb->succ) == 1
+	      && EDGE_0 (bb->succ)->dest == EXIT_BLOCK_PTR
 	      && ! current_function_calls_eh_return)))
     {
       rtx insn, set;

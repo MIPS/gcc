@@ -2097,6 +2097,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
   tree stmt;
+  unsigned ix;
 
   if (flags & TDF_BLOCKS)
     {
@@ -2120,7 +2121,7 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 
       pp_string (buffer, "# PRED:");
       pp_write_text_to_stream (buffer);
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
         if (flags & TDF_SLIM)
 	  {
 	    pp_string (buffer, " ");
@@ -2154,11 +2155,13 @@ static void
 dump_bb_end (pretty_printer *buffer, basic_block bb, int indent, int flags)
 {
   edge e;
+  unsigned ix;
 
   INDENT (indent);
   pp_string (buffer, "# SUCC:");
   pp_write_text_to_stream (buffer);
-  for (e = bb->succ; e; e = e->succ_next)
+
+  FOR_EACH_EDGE (e, bb->succ, ix)
     if (flags & TDF_SLIM)
       {
 	pp_string (buffer, " ");
@@ -2224,10 +2227,11 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
 		     int flags)
 {
   edge e;
+  unsigned ix;
 
   /* If there is a fallthru edge, we may need to add an artificial goto to the
      dump.  */
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, bb->succ, ix)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e && e->dest != bb->next_bb)

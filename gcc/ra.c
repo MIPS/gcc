@@ -660,7 +660,9 @@ reg_alloc (void)
   if (last)
     {
       edge e;
-      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      unsigned ix;
+
+      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
 	{
 	  basic_block bb = e->src;
 	  last = BB_END (bb);

@@ -1456,11 +1456,12 @@ emit_to_new_bb_before (rtx seq, rtx insn)
   rtx last;
   basic_block bb;
   edge e;
+  unsigned ix;
 
   /* If there happens to be an fallthru edge (possibly created by cleanup_cfg
      call), we don't want it to go into newly created landing pad or other EH 
      construct.  */
-  for (e = BLOCK_FOR_INSN (insn)->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, BLOCK_FOR_INSN (insn)->pred, ix)
     if (e->flags & EDGE_FALLTHRU)
       force_nonfallthru (e);
   last = emit_insn_before (seq, insn);
@@ -1629,7 +1630,7 @@ connect_post_landing_pads (void)
 	  src = BLOCK_FOR_INSN (region->resume);
 	  dest = BLOCK_FOR_INSN (outer->post_landing_pad);
 	  while (src->succ)
-	    remove_edge (src->succ);
+	    remove_edge (EDGE_0 (src->succ));
 	  e = make_edge (src, dest, 0);
 	  e->probability = REG_BR_PROB_BASE;
 	  e->count = src->count;
@@ -1996,10 +1997,10 @@ sjlj_emit_function_enter (rtx dispatch_label)
 	    || NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_BASIC_BLOCK))
       break;
   if (NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
-    insert_insn_on_edge (seq, ENTRY_BLOCK_PTR->succ);
+    insert_insn_on_edge (seq, EDGE_0 (ENTRY_BLOCK_PTR->succ));
   else
     {
-      rtx last = BB_END (ENTRY_BLOCK_PTR->succ->dest);
+      rtx last = BB_END (EDGE_0 (ENTRY_BLOCK_PTR->succ)->dest);
       for (; ; fn_begin = NEXT_INSN (fn_begin))
 	if ((NOTE_P (fn_begin)
 	     && NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_FUNCTION_BEG)
@@ -2023,6 +2024,7 @@ sjlj_emit_function_exit (void)
 {
   rtx seq;
   edge e;
+  unsigned ix;
 
   start_sequence ();
 
@@ -2036,7 +2038,7 @@ sjlj_emit_function_exit (void)
      post-dominates all can_throw_internal instructions.  This is
      the last possible moment.  */
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e)
@@ -2205,11 +2207,11 @@ finish_eh_generation (void)
     commit_edge_insertions ();
   FOR_EACH_BB (bb)
     {
-      edge e, next;
+      edge e;
+      unsigned ix;
       bool eh = false;
-      for (e = bb->succ; e; e = next)
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	{
-	  next = e->succ_next;
 	  if (e->flags & EDGE_EH)
 	    {
 	      remove_edge (e);

@@ -300,6 +300,7 @@ simulate_block (basic_block block)
       block_stmt_iterator j;
       unsigned int normal_edge_count;
       edge e, normal_edge;
+      unsigned ix;
 
       /* Note that we have simulated this block.  */
       SET_BIT (executable_blocks, block->index);
@@ -316,7 +317,8 @@ simulate_block (basic_block block)
 	 worklist.  */
       normal_edge_count = 0;
       normal_edge = NULL;
-      for (e = block->succ; e; e = e->succ_next)
+
+      FOR_EACH_EDGE (e, block->succ, ix)
         {
 	  if (e->flags & EDGE_ABNORMAL)
 	    {
@@ -779,8 +781,9 @@ static void
 add_outgoing_control_edges (basic_block bb)
 {
   edge e;
+  unsigned ix;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, bb->succ, ix)
     add_control_edge (e);
 }
 
@@ -1112,6 +1115,7 @@ initialize (void)
   edge e;
   basic_block bb;
   sbitmap virtual_var;
+  unsigned ix;
 
   /* Worklists of SSA edges.  */
   VARRAY_TREE_INIT (ssa_edges, 20, "ssa_edges");
@@ -1142,6 +1146,7 @@ initialize (void)
       v_must_def_optype v_must_defs;
       size_t x;
       int vary;
+      unsigned ix;
 
       /* Get the default value for each definition.  */
       for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
@@ -1178,7 +1183,7 @@ initialize (void)
 	    }
 	}
 
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	e->flags &= ~EDGE_EXECUTABLE;
     }
 
@@ -1225,7 +1230,8 @@ initialize (void)
 
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
     {
       if (e->dest != EXIT_BLOCK_PTR)
         {

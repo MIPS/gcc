@@ -3814,19 +3814,20 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
   int changed;
   int i = bb->index;
   edge e;
+  unsigned ix;
 
   SET_BIT (visited, bb->index);
   if (!TEST_BIT (pending, bb->index))
     abort ();
   RESET_BIT (pending, i);
 
-#define HS(E_ANTI, E_ANTI_NEXT, E_ANTI_BB, E_ANTI_START_BB, IN_SET,	\
-	   E, E_NEXT, E_BB, E_START_BB, OUT_SET)			\
+#define HS(E_ANTI, E_ANTI_BB, E_ANTI_START_BB, IN_SET,	\
+	   E, E_BB, E_START_BB, OUT_SET)			\
   do									\
     {									\
       /*  Calculate <conf_op> of predecessor_outs.  */			\
       bitmap_zero (IN_SET[i]);						\
-      for (e = bb->E_ANTI; e; e = e->E_ANTI_NEXT)			\
+      FOR_EACH_EDGE (e, bb->E_ANTI, ix)					\
 	{								\
 	  if (e->E_ANTI_BB == E_ANTI_START_BB)				\
 	    continue;							\
@@ -3846,7 +3847,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
       if (!changed)							\
 	break;								\
 									\
-      for (e = bb->E; e; e = e->E_NEXT)					\
+      FOR_EACH_EDGE (e, bb->E, ix)					\
 	{								\
 	  if (e->E_BB == E_START_BB || e->E_BB->index == i)		\
 	    continue;							\
@@ -3857,7 +3858,7 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
 	  SET_BIT (pending, e->E_BB->index);				\
       	}								\
 									\
-      for (e = bb->E; e; e = e->E_NEXT)					\
+      FOR_EACH_EDGE (e, bb->E, ix)					\
 	{								\
 	  if (e->E_BB == E_START_BB || e->E_BB->index == i)		\
 	    continue;							\
@@ -3871,11 +3872,11 @@ hybrid_search (basic_block bb, struct dataflow *dataflow,
     } while (0)
 
   if (dataflow->dir == DF_FORWARD)
-    HS (pred, pred_next, src, ENTRY_BLOCK_PTR, dataflow->in,
-	succ, succ_next, dest, EXIT_BLOCK_PTR, dataflow->out);
+    HS (pred, src, ENTRY_BLOCK_PTR, dataflow->in,
+	succ, dest, EXIT_BLOCK_PTR, dataflow->out);
   else
-    HS (succ, succ_next, dest, EXIT_BLOCK_PTR, dataflow->out,
-	pred, pred_next, src, ENTRY_BLOCK_PTR, dataflow->in);
+    HS (succ, dest, EXIT_BLOCK_PTR, dataflow->out,
+	pred, src, ENTRY_BLOCK_PTR, dataflow->in);
 }
 
 /* This function will perform iterative bitvector dataflow described by

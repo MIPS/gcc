@@ -215,11 +215,12 @@ static bool
 verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
 {
   edge e;
+  unsigned ix;
   bool err = false;
   int i, phi_num_args = PHI_NUM_ARGS (phi);
 
   /* Mark all the incoming edges.  */
-  for (e = bb->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, bb->pred, ix)
     e->aux = (void *) 1;
 
   for (i = 0; i < phi_num_args; i++)
@@ -262,7 +263,7 @@ verify_phi_args (tree phi, basic_block bb, basic_block *definition_block)
       e->aux = (void *) 2;
     }
 
-  for (e = bb->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, bb->pred, ix)
     {
       if (e->aux != (void *) 2)
 	{
@@ -375,10 +376,11 @@ verify_ssa (void)
     {
       edge e;
       tree phi;
+      unsigned ix;
       block_stmt_iterator bsi;
 
       /* Make sure that all edges have a clear 'aux' field.  */
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
 	{
 	  if (e->aux)
 	    {

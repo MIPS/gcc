@@ -28,6 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "partition.h"
 #include "hard-reg-set.h"
 #include "predict.h"
+#include "vec.h"
 
 /* Head of register set linked list.  */
 typedef bitmap_head regset_head;
@@ -123,12 +124,8 @@ do {									\
 typedef HOST_WIDEST_INT gcov_type;
 
 /* Control flow edge information.  */
-struct edge_def GTY((chain_next ("%h.pred_next")))
+struct edge_def GTY(())
 {
-  /* Links through the predecessor and successor lists.  */
-  struct edge_def *pred_next;
-  struct edge_def *succ_next;
-
   /* The two blocks at the ends of the edge.  */
   struct basic_block_def *src;
   struct basic_block_def *dest;
@@ -154,6 +151,13 @@ struct edge_def GTY((chain_next ("%h.pred_next")))
 };
 
 typedef struct edge_def *edge;
+DEF_VEC_O(edge);
+
+struct edge_stack
+{
+  VEC(edge) *ev;
+  unsigned ix;
+};
 
 #define EDGE_FALLTHRU		1	/* 'Straight line' flow */
 #define EDGE_ABNORMAL		2	/* Strange flow, like computed
@@ -225,8 +229,8 @@ struct basic_block_def GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb")
   tree stmt_list;
 
   /* The edges into and out of the block.  */
-  edge pred;
-  edge succ;
+  VEC(edge) *pred;
+  VEC(edge) *succ;
 
   /* Liveness info.  */
 
@@ -496,12 +500,12 @@ struct edge_list
 #define NUM_EDGES(el)			((el)->num_edges)
 
 /* BB is assumed to contain conditional jump.  Return the fallthru edge.  */
-#define FALLTHRU_EDGE(bb)		((bb)->succ->flags & EDGE_FALLTHRU \
-					 ? (bb)->succ : (bb)->succ->succ_next)
+#define FALLTHRU_EDGE(bb)		(EDGE_0 ((bb)->succ)->flags & EDGE_FALLTHRU \
+					 ? EDGE_0 ((bb)->succ) : EDGE_1 ((bb)->succ))
 
 /* BB is assumed to contain conditional jump.  Return the branch edge.  */
-#define BRANCH_EDGE(bb)			((bb)->succ->flags & EDGE_FALLTHRU \
-					 ? (bb)->succ->succ_next : (bb)->succ)
+#define BRANCH_EDGE(bb)			(EDGE_0 ((bb)->succ)->flags & EDGE_FALLTHRU \
+					 ? EDGE_1 ((bb)->succ) : EDGE_0 ((bb)->succ))
 
 /* Return expected execution frequency of the edge E.  */
 #define EDGE_FREQUENCY(e)		(((e)->src->frequency \
@@ -510,8 +514,24 @@ struct edge_list
 					 / REG_BR_PROB_BASE)
 
 /* Return nonzero if edge is critical.  */
-#define EDGE_CRITICAL_P(e)		((e)->src->succ->succ_next \
-					 && (e)->dest->pred->pred_next)
+#define EDGE_CRITICAL_P(e)		(VEC_length(edge, (e)->src->succ) >= 2 \
+					 && VEC_length(edge, (e)->dest->pred) >= 2)
+
+/* FIXME: this is bloody awful. */
+#define FOR_EACH_EDGE(e, vec, iter) \
+  for ((iter) = 0; \
+       ((e) = VEC_iterate (edge, (vec), (iter)) \
+         ? *(VEC_iterate (edge, (vec), (iter))) : NULL); \
+       (iter)++)
+
+/* A shortcut to the wordy vector API.  */
+#define EDGE_I(ev, i)			(*(VEC_index(edge, ev, i)))
+
+/* Specialised EDGE_I's.  */
+#define EDGE_0(ev)			EDGE_I (ev, 0)
+#define EDGE_1(ev)			EDGE_I (ev, 1)
+
+#define EDGE_COUNT(ev)			VEC_length (edge, (ev))
 
 struct edge_list * create_edge_list (void);
 void free_edge_list (struct edge_list *);

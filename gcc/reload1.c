@@ -8047,10 +8047,11 @@ fixup_abnormal_edges (void)
   FOR_EACH_BB (bb)
     {
       edge e;
+      unsigned ix;
 
       /* Look for cases we are interested in - calls or instructions causing
          exceptions.  */
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	{
 	  if (e->flags & EDGE_ABNORMAL_CALL)
 	    break;
@@ -8063,7 +8064,9 @@ fixup_abnormal_edges (void)
 	{
 	  rtx insn = BB_END (bb), stop = NEXT_INSN (BB_END (bb));
 	  rtx next;
-	  for (e = bb->succ; e; e = e->succ_next)
+	  unsigned ix;
+
+	  FOR_EACH_EDGE (e, bb->succ, ix)
 	    if (e->flags & EDGE_FALLTHRU)
 	      break;
 	  /* Get past the new insns generated. Allow notes, as the insns may

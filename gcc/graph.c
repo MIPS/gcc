@@ -310,6 +310,7 @@ print_rtl_graph_with_bb (const char *base, const char *suffix, rtx rtx_first)
 	  if ((i = end[INSN_UID (tmp_rtx)]) >= 0)
 	    {
 	      edge e;
+	      unsigned ix;
 
 	      bb = BASIC_BLOCK (i);
 
@@ -318,7 +319,8 @@ print_rtl_graph_with_bb (const char *base, const char *suffix, rtx rtx_first)
 
 	      /* Now specify the edges to all the successors of this
 		 basic block.  */
-	      for (e = bb->succ; e ; e = e->succ_next)
+
+	      FOR_EACH_EDGE (e, bb->succ, ix)
 		{
 		  if (e->dest != EXIT_BLOCK_PTR)
 		    {

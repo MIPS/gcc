@@ -7623,6 +7623,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
   rtx last_insns[2];
   unsigned int i;
   rtx newreg;
+  unsigned ix;
 
   /* We expect to have two successors.  Look at both before picking
      the final mode for the comparison.  If we have more successors
@@ -7633,7 +7634,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
   found_equiv = false;
   mode = GET_MODE (cc_src);
   insn_count = 0;
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, bb->succ, ix)
     {
       rtx insn;
       rtx end;
@@ -7641,8 +7642,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
       if (e->flags & EDGE_COMPLEX)
 	continue;
 
-      if (! e->dest->pred
-	  || e->dest->pred->pred_next
+      if (EDGE_COUNT (e->dest->pred) != 1
 	  || e->dest == EXIT_BLOCK_PTR)
 	continue;
 

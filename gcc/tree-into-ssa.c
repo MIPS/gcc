@@ -224,12 +224,13 @@ compute_global_livein (bitmap livein, bitmap def_blocks)
   while (tos != worklist)
     {
       edge e;
+      unsigned ix;
 
       /* Pull a block off the worklist.  */
       bb = *--tos;
 
       /* For each predecessor block.  */
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
 	{
 	  basic_block pred = e->src;
 	  int pred_index = pred->index;
@@ -298,9 +299,9 @@ ssa_mark_phi_uses (struct dom_walk_data *walk_data, basic_block bb)
   sbitmap kills = gd->kills;
   edge e;
   tree phi, use;
-  unsigned uid;
+  unsigned uid, ix;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, bb->succ, ix)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -826,12 +827,13 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
   sbitmap names_to_rename = walk_data->global_data;
   edge e;
+  unsigned ix;
   bool abnormal_phi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
-  for (e = bb->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, bb->pred, ix)
     if (e->flags & EDGE_ABNORMAL)
       break;
   abnormal_phi = (e != NULL);
@@ -868,8 +870,9 @@ rewrite_add_phi_arguments (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 			   basic_block bb)
 {
   edge e;
+  unsigned ix;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, bb->succ, ix)
     {
       tree phi;
 
@@ -895,10 +898,11 @@ static void
 ssa_rewrite_phi_arguments (struct dom_walk_data *walk_data, basic_block bb)
 {
   edge e;
+  unsigned ix;
   sbitmap names_to_rename = walk_data->global_data;
   use_operand_p op;
 
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, bb->succ, ix)
     {
       tree phi;
 
@@ -1120,7 +1124,8 @@ insert_phi_nodes_for (tree var, bitmap *dfs, varray_type *work_stack)
 	/* If we are rewriting ssa names, add also the phi arguments.  */
 	if (TREE_CODE (var) == SSA_NAME)
 	  {
-	    for (e = bb->pred; e; e = e->pred_next)
+	    unsigned ix;
+	    FOR_EACH_EDGE (e, bb->pred, ix)
 	      add_phi_arg (&phi, var, e);
 	  }
       }
@@ -1639,13 +1644,7 @@ rewrite_into_ssa (bool all)
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     {
-      edge e;
-      int count = 0;
-
-      for (e = bb->pred; e; e = e->pred_next)
-	count++;
-
-      bb_ann (bb)->num_preds = count;
+      bb_ann (bb)->num_preds = EDGE_COUNT (bb->pred);
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
 
@@ -1769,13 +1768,7 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     {
-      edge e;
-      int count = 0;
-
-      for (e = bb->pred; e; e = e->pred_next)
-	count++;
-
-      bb_ann (bb)->num_preds = count;
+      bb_ann (bb)->num_preds = EDGE_COUNT (bb->pred);
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
 

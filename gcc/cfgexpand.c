@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "except.h"
 #include "flags.h"
+
 /* Expand basic block BB from GIMPLE trees to RTL.  */
 
 static basic_block
@@ -44,6 +45,7 @@ expand_block (basic_block bb, FILE * dump_file)
   tree stmt = NULL;
   rtx note, last;
   edge e;
+  unsigned ix;
 
   if (dump_file)
     {
@@ -74,11 +76,8 @@ expand_block (basic_block bb, FILE * dump_file)
 
   NOTE_BASIC_BLOCK (note) = bb;
 
-  e = bb->succ;
-  while (e)
+  FOR_EACH_EDGE (e, bb->succ, ix)
     {
-      edge next = e->succ_next;
-
       /* Clear EDGE_EXECUTABLE.  This flag is never used in the backend.  */
       e->flags &= ~EDGE_EXECUTABLE;
 
@@ -87,8 +86,6 @@ expand_block (basic_block bb, FILE * dump_file)
          rediscover them.  In the future we should get this fixed properly.  */
       if (e->flags & EDGE_ABNORMAL)
 	remove_edge (e);
-
-      e = next;
     }
 
   for (; !bsi_end_p (bsi); bsi_next (&bsi))
@@ -189,11 +186,9 @@ expand_block (basic_block bb, FILE * dump_file)
 		  gcov_type count = 0;
 
 		  do_pending_stack_adjust ();
-		  e = bb->succ;
-		  while (e)
-		    {
-		      edge next = e->succ_next;
 
+		  FOR_EACH_EDGE (e, bb->succ, ix)
+		    {
 		      if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 			{
 			  if (e->dest != EXIT_BLOCK_PTR)
@@ -209,8 +204,6 @@ expand_block (basic_block bb, FILE * dump_file)
 			  probability += e->probability;
 			  remove_edge (e);
 			}
-
-		      e = next;
 		    }
 
 		  /* This is somewhat ugly:  the call_expr expander often emits instructions
@@ -272,10 +265,11 @@ construct_init_block (void)
 {
   basic_block init_block, first_block;
   edge e;
+  unsigned ix;
 
   expand_start_bindings_and_block (0, NULL_TREE);
 
-  for (e = ENTRY_BLOCK_PTR->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, ENTRY_BLOCK_PTR->succ, ix)
     if (e->dest == ENTRY_BLOCK_PTR->next_bb)
       break;
 
@@ -308,7 +302,8 @@ construct_exit_block (void)
   rtx head = get_last_insn ();
   rtx end;
   basic_block exit_block;
-  edge e, e2, next;
+  edge e, e2;
+  unsigned ix;
 
   /* Make sure the locus is set to the end of the function, so that 
      epilogue line numbers and warnings are set properly.  */
@@ -335,16 +330,17 @@ construct_exit_block (void)
   exit_block = create_basic_block (NEXT_INSN (head), end, EXIT_BLOCK_PTR->prev_bb);
   exit_block->frequency = EXIT_BLOCK_PTR->frequency;
   exit_block->count = EXIT_BLOCK_PTR->count;
-  for (e = EXIT_BLOCK_PTR->pred; e; e = next)
+
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
     {
-      next = e->pred_next;
       if (!(e->flags & EDGE_ABNORMAL))
         redirect_edge_succ (e, exit_block);
     }
   e = make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
   e->probability = REG_BR_PROB_BASE;
   e->count = EXIT_BLOCK_PTR->count;
-  for (e2 = EXIT_BLOCK_PTR->pred; e2; e2 = e2->pred_next)
+
+  FOR_EACH_EDGE (e2, EXIT_BLOCK_PTR->pred, ix)
     if (e2 != e)
       {
         e->count -= e2->count;

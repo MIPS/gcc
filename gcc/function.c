@@ -5064,6 +5064,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 {
   int inserted = 0;
   edge e;
+  unsigned ix;
 #if defined (HAVE_sibcall_epilogue) || defined (HAVE_epilogue) || defined (HAVE_return) || defined (HAVE_prologue)
   rtx seq;
 #endif
@@ -5092,17 +5093,17 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       /* Can't deal with multiple successors of the entry block
          at the moment.  Function should always have at least one
          entry point.  */
-      if (!ENTRY_BLOCK_PTR->succ || ENTRY_BLOCK_PTR->succ->succ_next)
+      if (EDGE_COUNT (ENTRY_BLOCK_PTR->succ) != 1)
 	abort ();
 
-      insert_insn_on_edge (seq, ENTRY_BLOCK_PTR->succ);
+      insert_insn_on_edge (seq, EDGE_0 (ENTRY_BLOCK_PTR->succ));
       inserted = 1;
     }
 #endif
 
   /* If the exit block has no non-fake predecessors, we don't need
      an epilogue.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
     if ((e->flags & EDGE_FAKE) == 0)
       break;
   if (e == NULL)
@@ -5118,10 +5119,9 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	 emit (conditional) return instructions.  */
 
       basic_block last;
-      edge e_next;
       rtx label;
 
-      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
 	if (e->flags & EDGE_FALLTHRU)
 	  break;
       if (e == NULL)
@@ -5152,12 +5152,11 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		break;
 	      }
 
-	  for (e = last->pred; e; e = e_next)
+	  FOR_EACH_EDGE (e, last->pred, ix)
 	    {
 	      basic_block bb = e->src;
 	      rtx jump;
 
-	      e_next = e->pred_next;
 	      if (bb == ENTRY_BLOCK_PTR)
 		continue;
 
@@ -5183,7 +5182,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		  /* If this block has only one successor, it both jumps
 		     and falls through to the fallthru block, so we can't
 		     delete the edge.  */
-		  if (bb->succ->succ_next == NULL)
+		  if (EDGE_COUNT (bb->succ) == 1)
 		    continue;
 		}
 	      else
@@ -5199,7 +5198,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 	  emit_barrier_after (BB_END (last));
 	  emit_return_into_block (last, epilogue_line_note);
 	  epilogue_end = BB_END (last);
-	  last->succ->flags &= ~EDGE_FALLTHRU;
+	  EDGE_0 (last->succ)->flags &= ~EDGE_FALLTHRU;
 	  goto epilogue_done;
 	}
     }
@@ -5209,7 +5208,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
      There really shouldn't be a mixture -- either all should have
      been converted or none, however...  */
 
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
     if (e->flags & EDGE_FALLTHRU)
       break;
   if (e == NULL)
@@ -5270,7 +5269,8 @@ epilogue_done:
 
 #ifdef HAVE_sibcall_epilogue
   /* Emit sibling epilogues before any sibling call sites.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
     {
       basic_block bb = e->src;
       rtx insn = BB_END (bb);

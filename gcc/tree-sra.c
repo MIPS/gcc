@@ -1681,10 +1681,11 @@ void
 insert_edge_copies (tree stmt, basic_block bb)
 {
   edge e;
+  unsigned ix;
   bool first_copy;
 
   first_copy = true;
-  for (e = bb->succ; e; e = e->succ_next)
+  FOR_EACH_EDGE (e, bb->succ, ix)
     {
       /* We don't need to insert copies on abnormal edges.  The
 	 value of the scalar replacement is not guaranteed to

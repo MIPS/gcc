@@ -390,8 +390,8 @@ build_control_flow (struct edge_list *edge_list)
   FOR_EACH_BB (b)
     {
       if (b->pred == NULL
-	  || (b->pred->src == b
-	      && b->pred->pred_next == NULL))
+	  || (EDGE_0 (b->pred)->src == b
+	      && EDGE_COUNT (b->pred) == 1))
 	unreachable = 1;
     }
 
@@ -616,7 +616,7 @@ find_rgns (struct edge_list *edge_list)
   char no_loops = 1;
   int node, child, loop_head, i, head, tail;
   int count = 0, sp, idx = 0;
-  int current_edge = out_edges[ENTRY_BLOCK_PTR->succ->dest->index];
+  int current_edge = out_edges[EDGE_0 (ENTRY_BLOCK_PTR->succ)->dest->index];
   int num_bbs, num_insns, unreachable;
   int too_large_failure;
   basic_block bb;
@@ -803,6 +803,7 @@ find_rgns (struct edge_list *edge_list)
 	  if (TEST_BIT (header, bb->index) && TEST_BIT (inner, bb->index))
 	    {
 	      edge e;
+	      unsigned ix;
 	      basic_block jbb;
 
 	      /* Now check that the loop is reducible.  We do this separate
@@ -843,7 +844,8 @@ find_rgns (struct edge_list *edge_list)
 
 	      /* Decrease degree of all I's successors for topological
 		 ordering.  */
-	      for (e = bb->succ; e; e = e->succ_next)
+
+	      FOR_EACH_EDGE (e, bb->succ, ix)
 		if (e->dest != EXIT_BLOCK_PTR)
 		  --degree[e->dest->index];
 
@@ -862,8 +864,8 @@ find_rgns (struct edge_list *edge_list)
 		    /* Leaf nodes have only a single successor which must
 		       be EXIT_BLOCK.  */
 		    if (jbb->succ
-			&& jbb->succ->dest == EXIT_BLOCK_PTR
-			&& jbb->succ->succ_next == NULL)
+			&& EDGE_0 (jbb->succ)->dest == EXIT_BLOCK_PTR
+			&& EDGE_COUNT (jbb->succ) == 1)
 		      {
 			queue[++tail] = jbb->index;
 			SET_BIT (in_queue, jbb->index);
@@ -878,8 +880,9 @@ find_rgns (struct edge_list *edge_list)
 	      else
 		{
 		  edge e;
+		  unsigned ix;
 
-		  for (e = bb->pred; e; e = e->pred_next)
+		  FOR_EACH_EDGE (e, bb->pred, ix)
 		    {
 		      if (e->src == ENTRY_BLOCK_PTR)
 			continue;
@@ -934,9 +937,10 @@ find_rgns (struct edge_list *edge_list)
 	      while (head < tail && !too_large_failure)
 		{
 		  edge e;
+		  unsigned ix;
 		  child = queue[++head];
 
-		  for (e = BASIC_BLOCK (child)->pred; e; e = e->pred_next)
+		  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->pred, ix)
 		    {
 		      node = e->src->index;
 
@@ -991,9 +995,7 @@ find_rgns (struct edge_list *edge_list)
 			  CONTAINING_RGN (child) = nr_regions;
 			  queue[head] = queue[tail--];
 
-			  for (e = BASIC_BLOCK (child)->succ;
-			       e;
-			       e = e->succ_next)
+			  FOR_EACH_EDGE (e, BASIC_BLOCK (child)->succ, ix)
 			    if (e->dest != EXIT_BLOCK_PTR)
 			      --degree[e->dest->index];
 			}

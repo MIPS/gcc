@@ -468,7 +468,8 @@ find_obviously_necessary_stmts (struct edge_list *el)
 	 and we currently do not have a means to recognize the finite ones.  */
       FOR_EACH_BB (bb)
 	{
-	  for (e = bb->succ; e; e = e->succ_next)
+	  unsigned ix;
+	  FOR_EACH_EDGE (e, bb->succ, ix)
 	    if (e->flags & EDGE_DFS_BACK)
 	      mark_control_dependent_edges_necessary (e->dest, el);
 	}
@@ -690,6 +691,7 @@ remove_dead_phis (basic_block bb)
 static void
 remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 {
+  unsigned len, ix;
   tree t = bsi_stmt (*i);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -728,28 +730,28 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
 	}
 
       /* Redirect the first edge out of BB to reach POST_DOM_BB.  */
-      redirect_edge_and_branch (bb->succ, post_dom_bb);
-      PENDING_STMT (bb->succ) = NULL;
+      redirect_edge_and_branch (EDGE_0 (bb->succ), post_dom_bb);
+      PENDING_STMT (EDGE_0 (bb->succ)) = NULL;
 
       /* The edge is no longer associated with a conditional, so it does
 	 not have TRUE/FALSE flags.  */
-      bb->succ->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
+      EDGE_0 (bb->succ)->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
 
       /* If the edge reaches any block other than the exit, then it is a
 	 fallthru edge; if it reaches the exit, then it is not a fallthru
 	 edge.  */
       if (post_dom_bb != EXIT_BLOCK_PTR)
-	bb->succ->flags |= EDGE_FALLTHRU;
+	EDGE_0 (bb->succ)->flags |= EDGE_FALLTHRU;
       else
-	bb->succ->flags &= ~EDGE_FALLTHRU;
+	EDGE_0 (bb->succ)->flags &= ~EDGE_FALLTHRU;
 
       /* Remove the remaining the outgoing edges.  */
-      for (e = bb->succ->succ_next; e != NULL;)
+      len = EDGE_COUNT (bb->succ);
+      for (ix = len - 1; ix >= 1 && (e = EDGE_I (bb->succ, ix)); ix--)
 	{
-	  edge tmp = e;
-	  e = e->succ_next;
-	  remove_edge (tmp);
-	}
+	  VEC_pop (edge, bb->succ);	
+	  remove_edge (e);
+	} 
     }
 
   bsi_remove (i);

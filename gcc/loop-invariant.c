@@ -223,6 +223,7 @@ find_exits (struct loop *loop, basic_block *body,
   struct loop *outermost_exit = loop, *aexit;
   bool has_call = false;
   rtx insn;
+  unsigned ix;
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -239,7 +240,7 @@ find_exits (struct loop *loop, basic_block *body,
 		}
 	    }
 
-	  for (e = body[i]->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, body[i]->succ, ix)
 	    {
 	      if (flow_bb_inside_loop_p (loop, e->dest))
 		continue;

@@ -205,31 +205,35 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 {
   /* We call this _only_ if bb is not already visited.  */
   edge e;
+  VEC(edge) *ev;
+  VEC(edge) *ev_next;
   TBB child_i, my_i = 0;
-  edge *stack;
+  struct edge_stack *stack;
   int sp;
   /* Start block (ENTRY_BLOCK_PTR for forward problem, EXIT_BLOCK for backward
      problem).  */
   basic_block en_block;
   /* Ending block.  */
   basic_block ex_block;
+  unsigned ix, ix_next;
 
-  stack = xmalloc ((n_basic_blocks + 3) * sizeof (edge));
+  stack = xmalloc ((n_basic_blocks + 3) * sizeof (struct edge_stack));
   sp = 0;
 
   /* Initialize our border blocks, and the first edge.  */
   if (reverse)
     {
-      e = bb->pred;
+      ev = bb->pred;
       en_block = EXIT_BLOCK_PTR;
       ex_block = ENTRY_BLOCK_PTR;
     }
   else
     {
-      e = bb->succ;
+      ev = bb->succ;
       en_block = ENTRY_BLOCK_PTR;
       ex_block = EXIT_BLOCK_PTR;
     }
+  ix = 0;
 
   /* When the stack is empty we break out of this loop.  */
   while (1)
@@ -238,9 +242,9 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 
       /* This loop traverses edges e in depth first manner, and fills the
          stack.  */
-      while (e)
+      while (ix < EDGE_COUNT (ev))
 	{
-	  edge e_next;
+	  e = EDGE_I (ev, ix);
 
 	  /* Deduce from E the current and the next block (BB and BN), and the
 	     next edge.  */
@@ -253,22 +257,24 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 	         with the next edge out of the current node.  */
 	      if (bn == ex_block || di->dfs_order[bn->index])
 		{
-		  e = e->pred_next;
+	  	  ix++;
 		  continue;
 		}
 	      bb = e->dest;
-	      e_next = bn->pred;
+	      ix_next = 0;
+	      ev_next = bn->pred;
 	    }
 	  else
 	    {
 	      bn = e->dest;
 	      if (bn == ex_block || di->dfs_order[bn->index])
 		{
-		  e = e->succ_next;
+	  	  ix++;
 		  continue;
 		}
 	      bb = e->src;
-	      e_next = bn->succ;
+	      ix_next = 0;
+	      ev_next = bn->succ;
 	    }
 
 	  if (bn == en_block)
@@ -284,13 +290,17 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
 	  di->dfs_parent[child_i] = my_i;
 
 	  /* Save the current point in the CFG on the stack, and recurse.  */
-	  stack[sp++] = e;
-	  e = e_next;
+	  stack[sp].ev = ev;
+	  stack[sp++].ix = ix;
+
+	  ev = ev_next;
+	  ix = ix_next;
 	}
 
       if (!sp)
 	break;
-      e = stack[--sp];
+      ev = stack[--sp].ev;
+      ix = stack[sp].ix;
 
       /* OK.  The edge-list was exhausted, meaning normally we would
          end the recursion.  After returning from the recursive call,
@@ -301,10 +311,7 @@ calc_dfs_tree_nonrec (struct dom_info *di, basic_block bb,
          the block not yet completed (the parent of the one above)
          in e->src.  This could be used e.g. for computing the number of
          descendants or the tree depth.  */
-      if (reverse)
-	e = e->pred_next;
-      else
-	e = e->succ_next;
+      ix++;
     }
   free (stack);
 }
@@ -480,6 +487,8 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
 {
   TBB v, w, k, par;
   basic_block en_block;
+  VEC(edge) *ev;
+
   if (reverse)
     en_block = EXIT_BLOCK_PTR;
   else
@@ -490,43 +499,28 @@ calc_idoms (struct dom_info *di, enum cdi_direction reverse)
   while (v > 1)
     {
       basic_block bb = di->dfs_to_bb[v];
-      edge e, e_next;
+      edge e;
+      unsigned ix;
 
       par = di->dfs_parent[v];
       k = v;
+      ev = (reverse) ? bb->succ : bb->pred;
       if (reverse)
 	{
-	  e = bb->succ;
-
 	  /* If this block has a fake edge to exit, process that first.  */
 	  if (bitmap_bit_p (di->fake_exit_edge, bb->index))
-	    {
-	      e_next = e;
-	      goto do_fake_exit_edge;
-	    }
+	    goto do_fake_exit_edge;
 	}
-      else
-	e = bb->pred;
 
       /* Search all direct predecessors for the smallest node with a path
          to them.  That way we have the smallest node with also a path to
          us only over nodes behind us.  In effect we search for our
          semidominator.  */
-      for (; e ; e = e_next)
+      FOR_EACH_EDGE (e, ev, ix)
 	{
 	  TBB k1;
-	  basic_block b;
+	  basic_block b = (reverse) ? e->dest : e->src;
 
-	  if (reverse)
-	    {
-	      b = e->dest;
-	      e_next = e->succ_next;
-	    }
-	  else
-	    {
-	      b = e->src;
-	      e_next = e->pred_next;
-	    }
 	  if (b == en_block)
 	    {
 	    do_fake_exit_edge:
@@ -838,13 +832,14 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
 {
   basic_block dom_bb = NULL;
   edge e;
+  unsigned ix;
 
   if (!dom_computed[dir])
     abort ();
 
   if (dir == CDI_DOMINATORS)
     {
-      for (e = bb->pred; e; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
 	{
 	  if (!dominated_by_p (dir, e->src, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->src);
@@ -852,7 +847,7 @@ recount_dominator (enum cdi_direction dir, basic_block bb)
     }
   else
     {
-      for (e = bb->succ; e; e = e->succ_next)
+      FOR_EACH_EDGE (e, bb->succ, ix)
 	{
 	  if (!dominated_by_p (dir, e->dest, bb))
 	    dom_bb = nearest_common_dominator (dir, dom_bb, e->dest);

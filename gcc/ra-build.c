@@ -925,6 +925,7 @@ live_in (struct df *df, struct curr_use *use, rtx insn)
      are allowed.  */
   while (1)
     {
+      unsigned int i;
       int uid = INSN_UID (insn);
       basic_block bb = BLOCK_FOR_INSN (insn);
       number_seen[uid]++;
@@ -941,7 +942,7 @@ live_in (struct df *df, struct curr_use *use, rtx insn)
 	  edge e;
 	  unsigned HOST_WIDE_INT undef = use->undefined;
 	  struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
-	  if ((e = bb->pred) == NULL)
+	  if (bb->pred == NULL)
 	    return;
 	  /* We now check, if we already traversed the predecessors of this
 	     block for the current pass and the current set of undefined
@@ -953,8 +954,9 @@ live_in (struct df *df, struct curr_use *use, rtx insn)
 	  info->pass = loc_vpass;
 	  info->undefined = undef;
 	  /* All but the last predecessor are handled recursively.  */
-	  for (; e->pred_next; e = e->pred_next)
+	  for (i = 0; i < EDGE_COUNT (bb->pred) - 1; i++)
 	    {
+	      e = EDGE_I (bb->pred, i);
 	      insn = live_in_edge (df, use, e);
 	      if (insn)
 		live_in (df, use, insn);

@@ -35,6 +35,7 @@ loop_optimizer_init (FILE *dumpfile)
 {
   struct loops *loops = xcalloc (1, sizeof (struct loops));
   edge e;
+  unsigned ix;
   static bool first_time = true;
 
   if (first_time)
@@ -45,8 +46,8 @@ loop_optimizer_init (FILE *dumpfile)
 
   /* Avoid annoying special cases of edges going to exit
      block.  */
-  for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
-    if ((e->flags & EDGE_FALLTHRU) && e->src->succ->succ_next)
+  FOR_EACH_EDGE (e, EXIT_BLOCK_PTR->pred, ix)
+    if ((e->flags & EDGE_FALLTHRU) && EDGE_COUNT (e->src->succ) > 1)
       split_edge (e);
 
   /* Find the loops.  */

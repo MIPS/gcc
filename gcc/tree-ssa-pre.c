@@ -1130,7 +1130,8 @@ compute_antic_aux (basic_block block)
      setting the BB_VISITED flag.  */
   if (! (block->flags & BB_VISITED))
     {
-      for (e = block->pred; e; e = e->pred_next)
+      unsigned ix;
+      FOR_EACH_EDGE (e, block->pred, ix)
  	if (e->flags & EDGE_ABNORMAL)
  	  {
  	    block->flags |= BB_VISITED;
@@ -1154,10 +1155,10 @@ compute_antic_aux (basic_block block)
 
   /* If we have one successor, we could have some phi nodes to
      translate through.  */
-  else if (block->succ->succ_next == NULL)
+  else if (EDGE_COUNT (block->succ) == 1)
     {
-      phi_translate_set (ANTIC_OUT, ANTIC_IN(block->succ->dest),
-			 block, block->succ->dest);
+      phi_translate_set (ANTIC_OUT, ANTIC_IN(EDGE_0 (block->succ)->dest),
+			 block, EDGE_0 (block->succ)->dest);
     }
   /* If we have multiple successors, we take the intersection of all of
      them.  */
@@ -1166,15 +1167,13 @@ compute_antic_aux (basic_block block)
       varray_type worklist;
       edge e;
       size_t i;
+      unsigned ix;
       basic_block bprime, first;
 
       VARRAY_BB_INIT (worklist, 1, "succ");
-      e = block->succ;
-      while (e)
-	{
-	  VARRAY_PUSH_BB (worklist, e->dest);
-	  e = e->succ_next;
-	}
+      FOR_EACH_EDGE (e, block->succ, ix)
+	VARRAY_PUSH_BB (worklist, e->dest);
+
       first = VARRAY_BB (worklist, 0);
       set_copy (ANTIC_OUT, ANTIC_IN (first));
 
@@ -1420,7 +1419,7 @@ insert_aux (basic_block block)
 	    bitmap_insert_into_set (NEW_SETS (block), ssa_name (i));
 	    bitmap_value_replace_in_set (AVAIL_OUT (block), ssa_name (i));
 	  });
-	  if (block->pred->pred_next)
+	  if (EDGE_COUNT (block->pred) >= 2)
 	    {
 	      value_set_node_t node;
 	      for (node = ANTIC_IN (block)->head;
@@ -1439,6 +1438,7 @@ insert_aux (basic_block block)
 		      edge pred;
 		      basic_block bprime;
 		      tree eprime;
+		      unsigned ix;
 
 		      val = get_value_handle (node->expr);
 		      if (bitmap_set_contains_value (PHI_GEN (block), val))
@@ -1451,9 +1451,8 @@ insert_aux (basic_block block)
 			}
 		    		    
 		      avail = xcalloc (last_basic_block, sizeof (tree));
-		      for (pred = block->pred;
-			   pred;
-			   pred = pred->pred_next)
+
+		      FOR_EACH_EDGE (pred, block->pred,  ix)
 			{
 			  tree vprime;
 			  tree edoubleprime;
@@ -1515,7 +1514,7 @@ insert_aux (basic_block block)
 			 partially redundant.  */
 		      if (!cant_insert && !all_same && by_some)
 			{
-			  tree type = TREE_TYPE (avail[block->pred->src->index]);
+			  tree type = TREE_TYPE (avail[EDGE_0 (block->pred)->src->index]);
 			  tree temp;
 			  if (dump_file && (dump_flags & TDF_DETAILS))
 			    {
@@ -1525,9 +1524,7 @@ insert_aux (basic_block block)
 			    }
 
 			  /* Make the necessary insertions. */
-			  for (pred = block->pred;
-			       pred;
-			       pred = pred->pred_next)
+			  FOR_EACH_EDGE (pred, block->pred, ix)
 			    {
 			      tree stmts = alloc_stmt_list ();
 			      tree builtexpr;
@@ -1558,9 +1555,8 @@ insert_aux (basic_block block)
 #endif
 			    bitmap_value_replace_in_set (AVAIL_OUT (block), 
 							 PHI_RESULT (temp));
-			  for (pred = block->pred;
-			       pred;
-			       pred = pred->pred_next)
+
+			  FOR_EACH_EDGE (pred, block->pred, ix)
 			    {
 			      add_phi_arg (&temp, avail[pred->src->index],
 					   pred);

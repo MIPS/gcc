@@ -3784,7 +3784,7 @@ find_implicit_sets (void)
   count = 0;
   FOR_EACH_BB (bb)
     /* Check for more than one successor.  */
-    if (bb->succ && bb->succ->succ_next)
+    if (EDGE_COUNT (bb->succ) > 1)
       {
 	cond = fis_get_condition (BB_END (bb));
 
@@ -3797,7 +3797,7 @@ find_implicit_sets (void)
 	    dest = GET_CODE (cond) == EQ ? BRANCH_EDGE (bb)->dest
 					 : FALLTHRU_EDGE (bb)->dest;
 
-	    if (dest && ! dest->pred->pred_next
+	    if (dest && EDGE_COUNT (dest->pred) == 1
 		&& dest != EXIT_BLOCK_PTR)
 	      {
 		new = gen_rtx_SET (VOIDmode, XEXP (cond, 0),
@@ -3953,9 +3953,10 @@ static int
 bypass_block (basic_block bb, rtx setcc, rtx jump)
 {
   rtx insn, note;
-  edge e, enext, edest;
+  edge e, edest;
   int i, change;
   int may_be_loop_header;
+  unsigned ix;
 
   insn = (setcc != NULL) ? setcc : jump;
 
@@ -3967,7 +3968,8 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
     find_used_regs (&XEXP (note, 0), NULL);
 
   may_be_loop_header = false;
-  for (e = bb->pred; e; e = e->pred_next)
+
+  FOR_EACH_EDGE (e, bb->pred, ix)
     if (e->flags & EDGE_DFS_BACK)
       {
 	may_be_loop_header = true;
@@ -3975,9 +3977,8 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
       }
 
   change = 0;
-  for (e = bb->pred; e; e = enext)
+  FOR_EACH_EDGE (e, bb->pred, ix)
     {
-      enext = e->pred_next;
       if (e->flags & EDGE_COMPLEX)
 	continue;
 
@@ -4034,9 +4035,10 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	    }
 	  else if (GET_CODE (new) == LABEL_REF)
 	    {
+	      unsigned ix;
 	      dest = BLOCK_FOR_INSN (XEXP (new, 0));
 	      /* Don't bypass edges containing instructions.  */
-	      for (edest = bb->succ; edest; edest = edest->succ_next)
+	      FOR_EACH_EDGE (edest, bb->succ, ix)
 		if (edest->dest == dest && edest->insns.r)
 		  {
 		    dest = NULL;
@@ -4053,7 +4055,8 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	  if (dest && setcc && !CC0_P (SET_DEST (PATTERN (setcc))))
 	    {
 	      edge e2;
-	      for (e2 = e->src->succ; e2; e2 = e2->succ_next)
+	      unsigned ix;
+	      FOR_EACH_EDGE (e, e->src->succ, ix)
 		if (e2->dest == dest)
 		  {
 		    dest = NULL;
@@ -4121,7 +4124,7 @@ bypass_conditional_jumps (void)
 		  EXIT_BLOCK_PTR, next_bb)
     {
       /* Check for more than one predecessor.  */
-      if (bb->pred && bb->pred->pred_next)
+      if (EDGE_COUNT (bb->pred) > 1)
 	{
 	  setcc = NULL_RTX;
 	  for (insn = BB_HEAD (bb);
@@ -4268,12 +4271,13 @@ compute_pre_data (void)
   FOR_EACH_BB (bb)
     {
       edge e;
+      unsigned ix;
 
       /* If the current block is the destination of an abnormal edge, we
 	 kill all trapping expressions because we won't be able to properly
 	 place the instruction on the edge.  So make them neither
 	 anticipatable nor transparent.  This is fairly conservative.  */
-      for (e = bb->pred; e ; e = e->pred_next)
+      FOR_EACH_EDGE (e, bb->pred, ix)
 	if (e->flags & EDGE_ABNORMAL)
 	  {
 	    sbitmap_difference (antloc[bb->index], antloc[bb->index], trapping_expr);
@@ -4313,8 +4317,9 @@ static int
 pre_expr_reaches_here_p_work (basic_block occr_bb, struct expr *expr, basic_block bb, char *visited)
 {
   edge pred;
-
-  for (pred = bb->pred; pred != NULL; pred = pred->pred_next)
+  unsigned ix;
+  
+  FOR_EACH_EDGE (pred, bb->pred, ix)
     {
       basic_block pred_bb = pred->src;
 
@@ -4428,7 +4433,8 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 
   if (JUMP_P (insn)
       || (NONJUMP_INSN_P (insn)
-	  && (bb->succ->succ_next || (bb->succ->flags & EDGE_ABNORMAL))))
+	  && (EDGE_COUNT (bb->succ) > 1
+	      || EDGE_0 (bb->succ)->flags & EDGE_ABNORMAL)))
     {
 #ifdef HAVE_cc0
       rtx note;
@@ -4470,7 +4476,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
   /* Likewise if the last insn is a call, as will happen in the presence
      of exception handling.  */
   else if (CALL_P (insn)
-	   && (bb->succ->succ_next || (bb->succ->flags & EDGE_ABNORMAL)))
+	   && (EDGE_COUNT (bb->succ) > 1 || EDGE_0 (bb->succ)->flags & EDGE_ABNORMAL))
     {
       /* Keeping in mind SMALL_REGISTER_CLASSES and parameters in registers,
 	 we search backward and place the instructions before the first
@@ -5185,7 +5191,7 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
 {
   edge pred;
   int visited_allocated_locally = 0;
-
+  unsigned ix;
 
   if (visited == NULL)
     {
@@ -5193,7 +5199,7 @@ hoist_expr_reaches_here_p (basic_block expr_bb, int expr_index, basic_block bb, 
       visited = xcalloc (last_basic_block, 1);
     }
 
-  for (pred = bb->pred; pred != NULL; pred = pred->pred_next)
+  FOR_EACH_EDGE (pred, bb->pred, ix)
     {
       basic_block pred_bb = pred->src;
 
@@ -6567,6 +6573,7 @@ insert_store (struct ls_expr * expr, edge e)
   rtx reg, insn;
   basic_block bb;
   edge tmp;
+  unsigned ix;
 
   /* We did all the deleted before this insert, so if we didn't delete a
      store, then we haven't set the reaching reg yet either.  */
@@ -6583,7 +6590,7 @@ insert_store (struct ls_expr * expr, edge e)
      insert it at the start of the BB, and reset the insert bits on the other
      edges so we don't try to insert it on the other edges.  */
   bb = e->dest;
-  for (tmp = e->dest->pred; tmp ; tmp = tmp->pred_next)
+  FOR_EACH_EDGE (tmp, e->dest->pred, ix)
     if (!(tmp->flags & EDGE_FAKE))
       {
 	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
@@ -6597,7 +6604,7 @@ insert_store (struct ls_expr * expr, edge e)
      insertion vector for these edges, and insert at the start of the BB.  */
   if (!tmp && bb != EXIT_BLOCK_PTR)
     {
-      for (tmp = e->dest->pred; tmp ; tmp = tmp->pred_next)
+      FOR_EACH_EDGE (tmp, e->dest->pred, ix)
 	{
 	  int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
 	  RESET_BIT (pre_insert_map[index], expr->index);
@@ -6640,9 +6647,10 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
   int stack_top = 0;
   rtx last, insn, note;
   rtx mem = smexpr->pattern;
+  unsigned ix = 0;
 
   sbitmap_zero (visited);
-  act = bb->succ;
+  act = EDGE_0 (bb->succ);
 
   while (1)
     {
@@ -6661,7 +6669,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
       if (bb == EXIT_BLOCK_PTR
 	  || TEST_BIT (visited, bb->index))
 	{
-	  act = act->succ_next;
+	  act = *VEC_index (edge, bb->succ, ++ix);
 	  continue;
 	}
       SET_BIT (visited, bb->index);
@@ -6689,12 +6697,12 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 		       INSN_UID (insn));
 	    remove_note (insn, note);
 	  }
-      act = act->succ_next;
-      if (bb->succ)
+      act = *VEC_index (edge, bb->succ, ++ix);
+      if (EDGE_0 (bb->succ))
 	{
 	  if (act)
 	    stack[stack_top++] = act;
-	  act = bb->succ;
+	  act = EDGE_0 (bb->succ);
 	}
     }
 }
@@ -7121,10 +7129,11 @@ static bool
 bb_has_well_behaved_predecessors (basic_block bb)
 {
   edge pred;
+  unsigned ix;
 
   if (! bb->pred)
     return false;
-  for (pred = bb->pred; pred != NULL; pred = pred->pred_next)
+  FOR_EACH_EDGE (pred, bb->pred, ix)
     if (((pred->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (pred))
 	|| is_jump_table_basic_block (pred->src))
       return false;
@@ -7185,6 +7194,7 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
   int npred_ok = 0;
   gcov_type ok_count = 0; /* Redundant load execution count.  */
   gcov_type critical_count = 0; /* Execution count of critical edges.  */
+  unsigned ix;
 
   /* The execution count of the loads to be added to make the
      load fully redundant.  */
@@ -7202,7 +7212,7 @@ eliminate_partially_redundant_loads (basic_block bb, rtx insn,
     return;
 
   /* Check potential for replacing load with copy for predecessors.  */
-  for (pred = bb->pred; pred; pred = pred->pred_next)
+  FOR_EACH_EDGE (pred, bb->pred, ix)
     {
       rtx next_pred_bb_end;
 

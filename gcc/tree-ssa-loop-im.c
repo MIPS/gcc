@@ -599,8 +599,8 @@ loop_commit_inserts (void)
     {
       bb = BASIC_BLOCK (i);
       add_bb_to_loop (bb,
-		      find_common_loop (bb->succ->dest->loop_father,
-					bb->pred->src->loop_father));
+		      find_common_loop (EDGE_0 (bb->succ)->dest->loop_father,
+					EDGE_0 (bb->pred)->src->loop_father));
     }
 }
 
@@ -1174,7 +1174,7 @@ static void
 fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 {
   basic_block bb = NULL, *bbs, last = NULL;
-  unsigned i;
+  unsigned i, ix;
   edge e;
   struct loop *inn_loop = loop;
 
@@ -1192,7 +1192,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 	  if (TEST_BIT (contains_call, bb->index))
 	    break;
 
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, bb->succ, ix)
 	    if (!flow_bb_inside_loop_p (loop, e->dest))
 	      break;
 	  if (e)

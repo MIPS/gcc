@@ -515,8 +515,9 @@ sbitmap_intersection_of_succs (sbitmap dst, sbitmap *src, int bb)
   basic_block b = BASIC_BLOCK (bb);
   unsigned int set_size = dst->size;
   edge e;
+  unsigned ix;
 
-  for (e = b->succ; e != 0; e = e->succ_next)
+  FOR_EACH_EDGE (e, b->succ, ix)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -525,10 +526,13 @@ sbitmap_intersection_of_succs (sbitmap dst, sbitmap *src, int bb)
       break;
     }
 
-  if (e == 0)
+  if (!e)
     sbitmap_ones (dst);
   else
-    for (e = e->succ_next; e != 0; e = e->succ_next)
+    for (++ix;
+	 (e = VEC_iterate (edge, b->succ, ix)
+	   ? *(VEC_iterate (edge, b->succ, ix)) : NULL);
+	 ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
@@ -552,8 +556,9 @@ sbitmap_intersection_of_preds (sbitmap dst, sbitmap *src, int bb)
   basic_block b = BASIC_BLOCK (bb);
   unsigned int set_size = dst->size;
   edge e;
+  unsigned ix;
 
-  for (e = b->pred; e != 0; e = e->pred_next)
+  FOR_EACH_EDGE (e, b->pred, ix)
     {
       if (e->src == ENTRY_BLOCK_PTR)
 	continue;
@@ -562,10 +567,16 @@ sbitmap_intersection_of_preds (sbitmap dst, sbitmap *src, int bb)
       break;
     }
 
-  if (e == 0)
+  if (!e)
     sbitmap_ones (dst);
   else
-    for (e = e->pred_next; e != 0; e = e->pred_next)
+    for (++ix;
+	 (e = VEC_iterate (edge, b->pred, ix)
+	   ? *(VEC_iterate (edge, b->pred, ix)) : NULL);
+	 ix++)
+      /*
+	for (ix++; (e = *(VEC_iterate(edge, b->pred, ix))); ix++)
+      */
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
@@ -589,8 +600,9 @@ sbitmap_union_of_succs (sbitmap dst, sbitmap *src, int bb)
   basic_block b = BASIC_BLOCK (bb);
   unsigned int set_size = dst->size;
   edge e;
+  unsigned ix;
 
-  for (e = b->succ; e != 0; e = e->succ_next)
+  FOR_EACH_EDGE (e, b->succ, ix)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
@@ -602,7 +614,7 @@ sbitmap_union_of_succs (sbitmap dst, sbitmap *src, int bb)
   if (e == 0)
     sbitmap_zero (dst);
   else
-    for (e = e->succ_next; e != 0; e = e->succ_next)
+    for (ix++; (e = *(VEC_iterate(edge, b->succ, ix))); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
@@ -626,8 +638,9 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
   basic_block b = BASIC_BLOCK (bb);
   unsigned int set_size = dst->size;
   edge e;
+  unsigned ix;
 
-  for (e = b->pred; e != 0; e = e->pred_next)
+  FOR_EACH_EDGE (e, b->pred, ix)
     {
       if (e->src== ENTRY_BLOCK_PTR)
 	continue;
@@ -639,7 +652,7 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
   if (e == 0)
     sbitmap_zero (dst);
   else
-    for (e = e->pred_next; e != 0; e = e->pred_next)
+    for (ix++; (e = *(VEC_iterate(edge, b->pred, ix))); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
