@@ -1,3 +1,13 @@
+2003-06-29  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release: Command "all" now creates .bz2 files only for
+	releases and pre-releases.
+
+2003-06-27  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* gcc_release (build_sources): Do not include gnats.html any longer.
+	Make an error message more descriptive.
+	
 2003-06-18  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
 
 	* gcc_release: Do not update gcc_latest_snapshot tag any longer.

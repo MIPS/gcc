@@ -1,3 +1,29 @@
+2003-07-01  Roger Sayle  <roger@eyesopen.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_STDLIB_SUPPORT): Fix typo in CXXFLAGS.
+	(GLIBCPP_CHECK_MATH_SUPPORT): Likewise.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+2003-06-27  Matthias Klose  <doko@debian.org>
+
+	* testsuite/Makefile.am (check-abi, check-abi-verbose): Save
+	output of abi-check in libstdc++-v3-abi.sum.
+	* testsuite/Makefile.in: Regenerate.
+
+2003-06-25  Phil Edwards  <pme@gcc.gnu.org>
+
+	Bulk documentation merge (copy) from trunk.
+	* docs/doxygen/filter, docs/doxygen/filter.sed,
+	docs/doxygen/mainpage.html, docs/doxygen/run_doxygen,
+	docs/doxygen/user.cfg.in, docs/html/configopts.html,
+	docs/html/documentation.html, docs/html/explanations.html,
+	docs/html/install.html, docs/html/test.html, docs/html/17_intro/BUGS,
+	docs/html/17_intro/CHECKLIST, docs/html/17_intro/contribute.html,
+	docs/html/20_util/howto.html, docs/html/ext/howto.html,
+	docs/html/ext/sgiexts.html, docs/html/faq/index.html,
+	docs/html/faq/index.txt:  Merge from trunk.
+
 2003-06-23  Loren J. Rittle  <ljrittle@acm.org>
 
 	* configure.target (freebsd*): Set abi_baseline_pair.
