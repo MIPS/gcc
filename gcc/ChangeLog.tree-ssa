@@ -51,6 +51,11 @@
 
 2003-12-16  Jan Hubicka  <jh@suse.cz>
 
+	* tree-cfg.c (verify_addr_expr): Rename to ....
+	(verify_expr):  ... this one; check that no SSA names are on
+	freelist.
+	(verify_stmt, verify_stmts): Update calls of verify_addr_expr.
+
 	Revert until initializers are made language independent:
 	* cgraphunit.c (record_call_1): Do not call analyze_expr hook
 	* langhooks-def.h (LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR): Kill.

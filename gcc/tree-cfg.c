@@ -2756,9 +2756,15 @@ has_label_p (basic_block bb, tree label)
    properly noticed as such.  */
 
 static tree
-verify_addr_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-		  void *data ATTRIBUTE_UNUSED)
+verify_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
+	     void *data ATTRIBUTE_UNUSED)
 {
+  if (TREE_CODE (*tp) == SSA_NAME
+      && SSA_NAME_IN_FREE_LIST (*tp))
+    {
+      error ("SSA name in freelist still referred");
+      return *tp;
+    }
   if (TREE_CODE (*tp) == ADDR_EXPR)
     {
       tree x = TREE_OPERAND (*tp, 0);
@@ -2770,7 +2776,10 @@ verify_addr_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (TREE_CODE (x) != VAR_DECL && TREE_CODE (x) != PARM_DECL)
 	return NULL;
       if (!TREE_ADDRESSABLE (x))
-        return x;
+	{
+          error ("Address taken, but ADDRESABLE bit not set");
+          return x;
+	}
     }
   return NULL;
 }
@@ -2792,10 +2801,9 @@ verify_stmt (tree stmt)
       debug_generic_stmt (stmt);
       return true;
     }
-  addr = walk_tree (&stmt, verify_addr_expr, NULL, NULL);
+  addr = walk_tree (&stmt, verify_expr, NULL, NULL);
   if (addr)
     {
-      error ("Address taken, but ADDRESSABLE bit not set");
       debug_generic_stmt (addr);
       return true;
     }
@@ -2881,10 +2889,9 @@ verify_stmts (void)
 		  err |= true;
 		}
 
-	      addr = walk_tree (&t, verify_addr_expr, NULL, NULL);
+	      addr = walk_tree (&t, verify_expr, NULL, NULL);
 	      if (addr)
 		{
-		  error ("Address taken, but ADDRESABLE bit not set");
 		  debug_generic_stmt (addr);
 		  err |= true;
 		}
