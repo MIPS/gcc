@@ -1,3 +1,89 @@
+2004-11-14  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR objc/18406
+	* objc/obj-act.c (encode_type): 96bits doubles are encoded the
+	same way as 64bit and 128bit doubles are.
+
+2004-11-14  Hans-Peter Nilsson  <hp@bitrange.com>
+
+	PR target/18347
+	* config/mmix/mmix.c (mmix_function_outgoing_value): Handle
+	TImode.  Sorry for other non-complex larger-than-64-bit modes.
+	* config/mmix/mmix.h (MIN_UNITS_PER_WORD): Do not define.
+	(INIT_CUMULATIVE_ARGS): Correct unused macro name FNDECL.
+
+2004-11-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/md.texi (constraints) <% modifier>: Mention that it is
+	useless when the two alternatives are strictly identical.
+
+2004-11-12  Richard Henderson  <rth@redhat.com>
+
+	PR 17778
+	* config/i386/i386.h (TARGET_96_ROUND_53_LONG_DOUBLE): New.
+	* config/i386/freebsd.h (SUBTARGET_OVERRIDE_OPTIONS): Remove.
+	(TARGET_96_ROUND_53_LONG_DOUBLE): New.
+	* config/i386/i386-modes.def (XF): Use it.
+
+2004-11-12  Ralf Corsepius  <ralf.corsepius@rtems.org>
+
+	* config/rs6000/t-rtems (MULTILIB_NEW_EXCEPTIONS_ONLY):
+	Remove m505/roe multilib variant.
+
+2004-11-12  Eric Botcazou  <ebotcazou@act-europe.fr>
+
+	Backport from mainline:
+	2004-02-25  Richard Henderson  <rth@redhat.com>
+
+	* config/alpha/alpha.c (alpha_emit_conditional_branch): Don't
+	use (op0-op1) == 0 if op0 is a pointer.
+
+2004-11-10  Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR c/18322
+	* c-common.c (fname_decl): Don't use line number of decl in
+	diagnostic.
+
+2004-11-10  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* config/sparc/sparc.c (function_arg_union_value): New 'slotno'
+	argument.  Return naked register for unions with zero length.
+	When the union is passed in the 6th slot, build a PARALLEL with
+	only one element.
+	(function_arg): Adjust call to function_arg_union_value.
+	(function_value): Likewise.
+
+2004-11-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/18380
+	* config/ia64/unwind-ia64.h (_Unwind_FindTableEntry): Mark it
+	hidden.
+
+	* unwind-dw2.c (_Unwind_FindTableEntry): Removed.
+
+2004-11-10  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/16480
+	2004-08-26  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (rs6000_split_multireg_move): Don't abort
+	on "(mem (symbol_ref ..))" rtl.  Look at LO_SUM base regs as well
+	as PLUS base regs.
+	2004-08-01  Geoffrey Keating  <geoffk@apple.com>
+	* config/rs6000/rs6000.c (rs6000_split_multireg_move): Just abort
+	if trying to *store* to a non-offsettable address.
+	2004-07-30  Geoffrey Keating  <geoffk@apple.com>
+	* config/rs6000/rs6000.c (rs6000_split_multireg_move): Cope with
+	non-offsettable addresses being moved into multiple GPRs.
+
+2004-11-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/t-iris6 (tp-bit.c): Fix target filename.
+
+2004-11-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* version.c (version_string): Set to 3.4.4.
+	* doc/include/gcc-common.texi (version): Likewise.
+
 2004-11-04  Release Manager
 
 	* GCC 3.4.3 released.
@@ -158,9 +244,9 @@
 
 2004-10-13  Richard Henderson  <rth@redhat.com>
 
-        PR debug/15860
-        * dwarf2out.c (rtl_for_decl_location): Apply big-endian correction
-        for DECL_INCOMING_RTL.
+	PR debug/15860
+	* dwarf2out.c (rtl_for_decl_location): Apply big-endian correction
+	for DECL_INCOMING_RTL.
 
 2004-10-13  Richard Henderson  <rth@redhat.com>
 

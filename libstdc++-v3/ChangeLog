@@ -1,3 +1,59 @@
+2004-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+	    Doug Gregor  <dgregor@cs.indiana.edu>
+
+	PR libstdc++/17664
+	* src/debug.cc : Just use one mutex.
+
+2004-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+  	    Lothar Werzinger  <lothar@xcerla.com>
+	
+	PR libstdc++/17664
+	* src/debug.cc: Include concurrence, use mutexes.
+	(_Safe_iterator_base::_M_attach): Here.	
+	(_Safe_iterator_base::_M_detach): Here.	
+
+2004-11-08  Benjamin Kosnik  <bkoz@redhat.com>
+
+        PR libstdc++/17922
+        * include/bits/ios_base.h : Add enum values.
+        * testsuite/testsuite_hooks.h (bitmask_operators): Add function.
+        * testsuite/27_io/ios_base/types/fmtflags/bitmask_operators.cc: New.
+        * testsuite/27_io/ios_base/types/fmtflags/case_label.cc: New.
+        * testsuite/27_io/ios_base/types/iostate/bitmask_operators.cc: New.
+        * testsuite/27_io/ios_base/types/iostate/case_label.cc: New.
+        * testsuite/27_io/ios_base/types/openmode/bitmask_operators.cc: New.
+        * testsuite/27_io/ios_base/types/openmode/case_label.cc: New.
+        * testsuite/27_io/ios_base/types/seekdir/case_label.cc: New.
+
+        * config/io/c_io_stdio.h (__ios_flags): Mark deprecated.
+        * src/ios.cc: Same.
+
+        * testsuite/27_io/ios_base/cons/assign_neg.cc: Adjust line numbers.
+        * testsuite/27_io/ios_base/cons/copy_neg.cc: Same.
+
+2004-11-08  Momchil Velikov  <velco@fadata.bg>
+
+	PR libstdc++/18185
+	* libsupc++/eh_globals.cc (get_globals_dtor): Delete unhandled
+	exceptions.
+	* testsuite/thread/18185.cc: New.
+
+2004-11-07  Paolo Carlini  <pcarlini@suse.de>
+	    Andrea Arcangeli  <andrea@suse.de>
+
+	* config/io/basic_file_stdio.cc (__basic_file<>::close)): Don't
+	call unnecessarily sync, that is fflush: the library, since 3.4.0
+	does not use buffered fread/fwrite.
+	* include/bits/fstream.tcc (basic_filebuf<>::overflow): Likewise.
+
+2004-11-07  Paolo Carlini  <pcarlini@suse.de>
+	    Kenneth C. Schalk  <ken@xorian.net>
+
+	PR libstdc++/17215
+	* config/io/basic_file_stdio.cc (__basic_file<char>::close()):
+	Check the return value of fclose/sync, loop on EINTR.
+	(__basic_file<char>::sys_open): Likewise, for sync.
+
 2004-11-04  Release Manager
 
 	* GCC 3.4.3 released.
