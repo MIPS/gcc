@@ -1469,7 +1469,21 @@ tree_generator::visit_field_initializer (model_field_initializer *,
       return;
     }
 
-  abort ();			// FIXME
+  // FIXME: perhaps ABI should lay out class.
+  gcc_builtins->lay_out_class (field->get_declaring_class ());
+  tree field_tree = gcc_builtins->map_field_ref (class_wrapper, this_tree,
+						 field);
+  tree lhs;
+  if (field->static_p ())
+    lhs = field_tree;
+  else
+    lhs = build3 (COMPONENT_REF, TREE_TYPE (field_tree),
+		  build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (this_tree)),
+			  this_tree),
+		  field_tree, NULL_TREE);
+
+  field->get_initializer ()->visit (this);
+  current = build2 (MODIFY_EXPR, TREE_TYPE (field_tree), lhs, current);
 }
 
 tree
