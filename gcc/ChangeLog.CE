@@ -1,5 +1,11 @@
 2000-04-25  Richard Henderson  <rth@cygnus.com>
 
+	* condexec.c (noce_emit_cmove): New.
+	(noce_try_cmove, noce_try_cmove_arith): Use it.
+	(find_if_block): Fix tests for single predecessor.
+
+2000-04-25  Richard Henderson  <rth@cygnus.com>
+
 	* condexec.c (noce_try_cmove_arith): Also fail if no insn_a.
 
 	* condexec.c (find_if_case_2): Don't die if then_bb is EXIT.

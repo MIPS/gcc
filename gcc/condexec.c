@@ -375,6 +375,9 @@ static int noce_try_store_flag		PARAMS ((struct noce_if_info *));
 static int noce_try_store_flag_inc	PARAMS ((struct noce_if_info *));
 static int noce_try_store_flag_constants PARAMS ((struct noce_if_info *));
 static int noce_try_store_flag_mask	PARAMS ((struct noce_if_info *));
+static rtx noce_emit_cmove		PARAMS ((struct noce_if_info *,
+						 rtx, enum rtx_code, rtx,
+						 rtx, rtx, rtx));
 static int noce_try_cmove		PARAMS ((struct noce_if_info *));
 static int noce_try_cmove_arith		PARAMS ((struct noce_if_info *));
 
@@ -661,6 +664,53 @@ noce_try_store_flag_mask (if_info)
   return FALSE;
 }
 
+/* Helper function for noce_try_cmove and noce_try_cmove_arith.  */
+
+static rtx
+noce_emit_cmove (if_info, x, code, cmp_a, cmp_b, vfalse, vtrue)
+     struct noce_if_info *if_info;
+     rtx x, cmp_a, cmp_b, vfalse, vtrue;
+     enum rtx_code code;
+{
+  /* ??? If earliest == jump, try to build the cmove insn directly.
+     This is helpful when combine has created some complex condition
+     (like for alpha's cmovlbs) that we can't hope to regenerate
+     through the normal interface.  */
+
+  if (if_info->cond_earliest == if_info->jump)
+    {
+      rtx tmp;
+
+      tmp = gen_rtx_fmt_ee (code, GET_MODE (if_info->cond), cmp_a, cmp_b);
+      tmp = gen_rtx_IF_THEN_ELSE (GET_MODE (x), tmp, vtrue, vfalse);
+      tmp = gen_rtx_SET (VOIDmode, x, tmp);
+
+      start_sequence ();
+      tmp = emit_insn (tmp);
+
+      if (recog_memoized (tmp) >= 0)
+	{
+	  tmp = get_insns ();
+	  end_sequence ();
+	  emit_insns (tmp);
+
+	  return x;
+	}
+
+      end_sequence ();
+    }
+
+  /* Don't even try if the comparison operands are weird.  */
+  if (! general_operand (cmp_a, GET_MODE (cmp_a))
+      || ! general_operand (cmp_b, GET_MODE (cmp_b)))
+    return NULL_RTX;
+
+  return emit_conditional_move (x, code, cmp_a, cmp_b, VOIDmode,
+				vtrue, vfalse, GET_MODE (x),
+			        (code == LTU || code == GEU
+				 || code == LEU || code == GTU));
+}
+
 /* Try only simple constants and registers here.  More complex cases
    are handled in noce_try_cmove_arith after noce_try_store_flag_arith
    has had a go at it.  */
@@ -678,13 +728,10 @@ noce_try_cmove (if_info)
       start_sequence ();
 
       code = GET_CODE (if_info->cond);
-      target = emit_conditional_move (if_info->x, code,
-				      XEXP (if_info->cond, 0),
-				      XEXP (if_info->cond, 1), VOIDmode,
-				      if_info->b, if_info->a,
-				      GET_MODE (if_info->x),
-				      (code == LTU || code == GEU
-				       || code == LEU || code == GTU));
+      target = noce_emit_cmove (if_info, if_info->x, code,
+				XEXP (if_info->cond, 0),
+				XEXP (if_info->cond, 1),
+				if_info->a, if_info->b);
 
       if (target)
 	{
@@ -825,11 +872,8 @@ noce_try_cmove_arith (if_info)
 	goto end_seq_and_fail;
     }
 
-  target = emit_conditional_move (x, code, XEXP (if_info->cond, 0),
-				  XEXP (if_info->cond, 1), VOIDmode,
-				  b, a, GET_MODE (x),
-				  (code == LTU || code == GEU
-				   || code == LEU || code == GTU));
+  target = noce_emit_cmove (if_info, x, code, XEXP (if_info->cond, 0),
+			    XEXP (if_info->cond, 1), a, b);
 
   if (! target)
     goto end_seq_and_fail;
@@ -1294,7 +1338,7 @@ find_if_block (test_bb, then_edge, else_edge)
   int next_index;
 
   /* The THEN block of an IF-THEN combo must have exactly one predecessor.  */
-  if (then_edge->pred_next != NULL_EDGE)
+  if (then_bb->pred->pred_next != NULL_EDGE)
     return FALSE;
 
   /* The THEN block of an IF-THEN combo must have exactly one successor.  */
@@ -1321,7 +1365,7 @@ find_if_block (test_bb, then_edge, else_edge)
      is not complex, then we have an IF-THEN-ELSE combo.  */
   else if (else_succ != NULL_EDGE
 	   && then_succ->dest == else_succ->dest
-	   && else_edge->pred_next == NULL_EDGE
+	   && else_bb->pred->pred_next == NULL_EDGE
 	   && else_succ->succ_next == NULL_EDGE
 	   && ! (else_succ->flags & EDGE_COMPLEX))
     join_bb = else_succ->dest;
