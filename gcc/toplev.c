@@ -951,6 +951,9 @@ int flag_new_regalloc = 0;
 /* Disable SSA on trees optimizations.  */
 int flag_disable_tree_ssa = 0;
 
+/* Enable SSA-GVN on trees.  */
+int flag_tree_gvn = 0;
+
 /* Enable the SSA-PRE tree optimization.  */
 int flag_tree_pre = 0;
 
@@ -1171,6 +1174,7 @@ static const lang_independent_options f_options[] =
   { "mudflap", &flag_mudflap, 1 },
   { "mudflapth", &flag_mudflap, 2 },
   { "disable-tree-ssa", &flag_disable_tree_ssa, 1 },
+  { "tree-gvn", &flag_tree_gvn, 1 },
   { "tree-pre", &flag_tree_pre, 1 },
   { "tree-ccp", &flag_tree_ccp, 1 },
   { "tree-dce", &flag_tree_dce, 1 },
@@ -3041,9 +3045,8 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
    sooner, but we want the profile feedback to work more
    efficiently.  */
 static void
-rest_of_handle_loop2 (tree decl ATTRIBUTE_UNUSED, rtx insns ATTRIBUTE_UNUSED)
+rest_of_handle_loop2 (tree decl, rtx insns)
 {
-#if 0
   struct loops *loops;
   timevar_push (TV_LOOP);
   open_dump_file (DFI_loop2, decl);
@@ -3075,7 +3078,6 @@ rest_of_handle_loop2 (tree decl ATTRIBUTE_UNUSED, rtx insns ATTRIBUTE_UNUSED)
   close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
   timevar_pop (TV_LOOP);
   ggc_collect ();
-#endif
 }
 
 /* This is called from finish_function (within langhooks.parse_file)
