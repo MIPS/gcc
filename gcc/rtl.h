@@ -2017,6 +2017,8 @@ extern rtx remove_death			PARAMS ((unsigned int, rtx));
 extern void dump_combine_stats		PARAMS ((FILE *));
 extern void dump_combine_total_stats	PARAMS ((FILE *));
 #endif
+/* In web.c */
+extern void web_main			PARAMS ((void));
 
 /* In sched.c.  */
 #ifdef BUFSIZ

@@ -238,9 +238,10 @@ enum dump_file_index
   DFI_cfg,
   DFI_bp,
   DFI_vpt,
-  DFI_loop2,
   DFI_ce1,
   DFI_tracer,
+  DFI_loop2,
+  DFI_web,
   DFI_cse2,
   DFI_life,
   DFI_combine,
@@ -289,9 +290,10 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
   { "vpt",	'v', 1, 0, 0 },
-  { "loop2",	'L', 1, 0, 0 },
   { "ce1",	'C', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
+  { "loop2",	'L', 1, 0, 0 },
+  { "web",      'Z', 0, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
@@ -650,6 +652,10 @@ int flag_syntax_only = 0;
 /* Nonzero means perform global cse.  */
 
 static int flag_gcse;
+
+/* Nonzero means performs web construction pass.  */
+
+static int flag_web;
 
 /* Nonzero means perform loop optimizer.  */
 
@@ -1083,6 +1089,8 @@ static const lang_independent_options f_options[] =
    N_("Return 'short' aggregates in registers") },
   {"delayed-branch", &flag_delayed_branch, 1,
    N_("Attempt to fill delay slots of branch instructions") },
+  {"web", &flag_web, 1,
+   N_("Construct webs and split unrelated uses of single variable") },
   {"gcse", &flag_gcse, 1,
    N_("Perform the global common subexpression elimination") },
   {"gcse-lm", &flag_gcse_lm, 1,
@@ -3002,6 +3010,18 @@ rest_of_compilation (decl)
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
       ggc_collect ();
+    }
+  if (flag_web)
+    {
+      open_dump_file (DFI_web, decl);
+      timevar_push (TV_WEB);
+      web_main ();
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
+
+      timevar_pop (TV_WEB);
+      close_dump_file (DFI_web, print_rtl_with_bb, get_insns ());
+      reg_scan (get_insns (), max_reg_num (), 0);
     }
 
   /* Do control and data flow analysis; wrote some of the results to
@@ -4962,6 +4982,7 @@ parse_options_and_default_flags (argc, argv)
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
       flag_reorder_functions = 1;
+      flag_web = 1;
     }
 
   if (optimize >= 3)

@@ -1,3 +1,16 @@
+Sat Dec 14 14:50:52 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (web.o): New.
+	* web.c: New file.
+	* rtl.h (web_main): Declare.
+	* timervar.def (TV_WEB): New.
+	* toplev.c (dump_file_index, dump_file_info): Add DFI_web.
+	(flag_web): New static variable.
+	(lang_independent_options): Add "web".
+	(rest_of_compilation): Call web_main.
+	(parse_options_and_default_flags): Add flag_web.
+	* invoke.texi (-fweb): Document.
+
 2002-12-11  Josef Zlomek  <zlomj9am@artax.karlin.mff.cuni.cz>
 
 	* bb-reorder.c (find_traces_1_round): Do not duplicate loop
