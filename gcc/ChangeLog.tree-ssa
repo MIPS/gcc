@@ -18,6 +18,10 @@
 
 2004-01-05  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (cprop_into_stmt): Remove hack which prevented
+	copy propagation into statements with virtual operands, but no
+	real operands.
+                                                                                
 	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Correctly handle
 	the case where an edge we wish to redirect is split by the out of SSA
 	code.

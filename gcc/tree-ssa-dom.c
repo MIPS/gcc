@@ -1768,8 +1768,6 @@ cprop_into_stmt (tree stmt)
   table_size[2] = NUM_VDEFS (vdefs);
   for (table_index = 0; table_index < 3; table_index++)
     {
-      if (table_size[table_index] == 0)
-	return false;
       for (i = 0; i < table_size[table_index]; i++)
 	{
 	  tree val;
