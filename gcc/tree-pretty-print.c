@@ -99,6 +99,16 @@ debug_generic_stmt (tree t)
   fprintf (stderr, "\n");
 }
 
+/* Prints declaration DECL to the FILE with details specified by FLAGS.  */
+void
+print_generic_decl (FILE *file, tree decl, int flags)
+{
+  maybe_init_pretty_print (file);
+  dumping_stmts = true;
+  print_declaration (&buffer, decl, 2, flags);
+  pp_flush (&buffer);
+}
+
 /* Print tree T, and its successors, on file FILE.  FLAGS specifies details
    to show in the dump.  See TDF_* in tree.h.  */
 

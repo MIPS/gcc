@@ -2130,6 +2130,13 @@ dump_cfg_function_to_file (tree fn, FILE *file, int flags)
   fprintf (file, ")\n");
 
   fprintf (file, "{\n");
+  if (cfun->unexpanded_var_list)
+    {
+      for (arg = cfun->unexpanded_var_list; arg; arg = TREE_CHAIN (arg))
+	print_generic_decl (file, TREE_VALUE (arg), flags | TDF_SLIM);
+      fprintf (file, "\n");
+    }
+
   FOR_EACH_BB (bb)
     {
       if (show_bb_headers)

@@ -1,5 +1,12 @@
 2003-11-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* diagnostic.h (print_generic_decl): Declare.
+	* tree-cfg.c (dump_cfg_function_to_file): Dump variables in
+	unexpanded_var_list.
+	* tree-pretty-print.c (print_generic_decl): New function.
+
+2003-11-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* Makefile.in (gimplify.o): Add function.h dependency.
 	* c-call-graph.c (construct_call_graph): Modify build_tree_cfg call.
 	* gimple-low.c (record_vars): Export.
