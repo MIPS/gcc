@@ -577,8 +577,9 @@ substitute_and_fold (void)
 	      /* If we folded a builtin function, we'll likely
 		 need to rename VDEFs.  */
 	      if (replaced_address || changed 
-		  || handled_component_p (TREE_OPERAND (stmt, 0))
-		  || handled_component_p (TREE_OPERAND (stmt, 1)))
+	          || (TREE_CODE (stmt) == MODIFY_EXPR 
+		      && (handled_component_p (TREE_OPERAND (stmt, 0))
+			  || handled_component_p (TREE_OPERAND (stmt, 1)))))
 		{
 		  mark_new_vars_to_rename (stmt, vars_to_rename);
 		  if (maybe_clean_eh_stmt (stmt))

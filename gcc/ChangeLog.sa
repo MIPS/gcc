@@ -1,3 +1,9 @@
+2004-09-29  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-ccp.c (substitute_and_fold): Don't try to access
+	operand 1 of non-MODIFY_EXPR stmts.
+	* version.c: Note that this is the structure aliasing branch
+	
 2004-09-27  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-flow-inline.c: gcc_assertify.
