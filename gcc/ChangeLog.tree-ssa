@@ -1,3 +1,33 @@
+2003-04-04  Andrew MacLeod  <amacleod@redhat.com>
+
+	* Makefile.in : Add tree-ssa-live.c and tree-ssa-live.h files.
+	* tree-ssa.c (struct _var_map, create_var_map, delete_var_map,
+	var_from_partition, get_var_partition, mapped_var_from_ref,
+	compact_var_map, dump_tree_partition, set_partition_for_var,
+	set_var_mapping, create_var_partition): Remove.
+	(create_temp): Allow temps to be created from SSA_NAME vars as well.
+	(eliminate_name, eliminate_build, elim_backward, elim_create,
+	eliminate_phi): Use new var map interface.
+	(coalesce_ssa_name): New. Coalesce ssa_name ranges together.
+	(assign_vars): Assign real variables to ssa_name partitions.
+	(rewrite_out_of_ssa): Use new varmap partition and routines.
+	* tree-ssa-live.h: New file
+	(var_map): Structure for variable map.
+	(num_var_partitions): Number of partitions.
+	(partition_to_var): Return variable for partition.
+	(var_to_partition): Return partition variable is in.
+	(var_to_partition_to_var): Return variable representing partition 
+	another variable is in.
+	(register_ssa_partition): Initialize a partition element as used.
+	* tree-ssa-live.c: New file.
+	(init_var_map): Initialize a var_map.
+	(delete_var_map): Free storage for a var_map.
+	(var_union): Combine 2 partitions.
+	(compact_var_map): Reduce the number of partitions in a var_map.
+	(change_partition_var): Assign a specific var to a partition.
+	(create_ssa_var_map): Initialize a var_map with referenced variables.
+	(dump_var_map): Debug output for a var_map.
+
 2003-04-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* fold-const.c (fold_relational_hi_lo): Add missing comparison when
@@ -29,7 +59,7 @@
 	(var_from_parition): Return var for a specified partition.
 	(get_var_partition): Return partition a var belongs to.
 	(mapped_var_from_ref): Get root var for a var's partition.
-	(compress_var_map): Re-map the partitions to make the list dense.
+	(compact_var_map): Re-map the partitions to make the list dense.
 	(dump_var_parition): Print var_map.
 	(set_partition_for_var): Associate a real var with a partition.
 	(set_var_mapping): Associate an SSA version var with a real var.
