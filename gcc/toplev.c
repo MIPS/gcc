@@ -258,6 +258,7 @@ enum dump_file_index
   DFI_stack,
   DFI_bbro,
   DFI_vartrack,
+  DFI_regparam,
   DFI_mach,
   DFI_dbr,
   DFI_MAX
@@ -269,7 +270,7 @@ enum dump_file_index
    Remaining -d letters:
 
 	"              o q         "
-	"       H JK   OPQ  TU   YZ"
+	"       H JK   O Q  TU   YZ"
 */
 
 static struct dump_file_info dump_file[DFI_MAX] =
@@ -312,6 +313,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "stack",	'k', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
   { "vartrack",	'V', 1, 0, 0 },
+  { "regparam", 'V', 1, 0, 0 },
   { "mach",	'M', 1, 0, 0 },
   { "dbr",	'd', 0, 0, 0 },
 };
@@ -672,7 +674,7 @@ static int flag_loop_optimize;
 
 /* Nonzero means perform crossjumping.  */
 
-static int flag_crossjumping;
+int flag_crossjumping;
 
 /* Nonzero means perform if conversion.  */
 
@@ -942,6 +944,9 @@ int flag_unit_at_a_time = 0;
  
 #define AUTODETECT_FLAG_VAR_TRACKING 2
 int flag_var_tracking = AUTODETECT_FLAG_VAR_TRACKING;
+
+/* Nonzero if we should track values of register parameters.  */
+int flag_regparam = 1;
 
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
@@ -1274,6 +1279,8 @@ static const lang_independent_options f_options[] =
    N_("Use graph coloring register allocation.") },
   {"var-tracking", &flag_var_tracking, 1,
    N_("Perform variable tracking") },
+  {"regparam", &flag_regparam, 1,
+   N_("Perform tracking of values of register parameters") },
 };
 
 /* Table of language-specific options.  */
@@ -3769,7 +3776,21 @@ rest_of_compilation (decl)
       close_dump_file (DFI_vartrack, print_rtl_with_bb, get_insns ());
       timevar_pop (TV_VAR_TRACKING);
     }
- 
+
+#if defined (DWARF2_DEBUGGING_INFO)
+  if (flag_regparam == 3)
+    {
+      /* Track the values of register paramenters.  */
+      timevar_push (TV_REG_TRACKING);
+      open_dump_file (DFI_regparam, decl);
+
+      regparam_main ();
+
+      close_dump_file (DFI_regparam, print_rtl_with_bb, get_insns ());
+      timevar_pop (TV_REG_TRACKING);
+    }
+#endif
+
   /* CFG is no longer maintained up-to-date.  */
   free_bb_for_insn ();
 
@@ -5449,6 +5470,14 @@ process_options ()
       flag_var_tracking
 	= (optimize >= 1 && debug_info_level >= DINFO_LEVEL_NORMAL
 	   && debug_hooks->var_location != do_nothing_debug_hooks.var_location);
+    }
+
+  if (flag_regparam == 2)
+    {
+#if defined (DWARF2_UNWIND_INFO)
+      if (dwarf2out_do_frame ())
+	flag_regparam = 3;
+#endif
     }
 
   /* If auxiliary info generation is desired, open the output file.
