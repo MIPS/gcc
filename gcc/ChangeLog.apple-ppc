@@ -1,3 +1,10 @@
+2004-06-25  Stuart Hastings <stuart@apple.com>
+
+	Radar 3680191
+	* gcc/tree-nested.c: Cast STACK_BOUNDARY for portability.
+	* gcc/config/i386/i386.c (output_pic_addr_const): Stubify optimized symbols.
+	* gcc/target-def.h: (TARGET_BECT_BUILD_VECTOR_INIT) Initialize correctly.
+
 2004-06-25  Dale Johannesen  <dalej@apple.com>
 
 	* objc/Make-lang.in: use $(srcdir)/../move-if-change.

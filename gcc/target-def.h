@@ -284,7 +284,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_VECT_SUPPORT_VMUL_UCH_P 0
 #define TARGET_VECT_BUILD_VMUL_UCH 0
 #define TARGET_VECT_SUPPORT_VECTOR_INIT_P 0
-#define TARGET_VECT_BUILD_VECTOR_INIT
+#define TARGET_VECT_BUILD_VECTOR_INIT 0
 
 #define TARGET_VECT                                       \
   {TARGET_VECT_SUPPORT_MISALIGNED_LOADS,                  \

@@ -396,7 +396,8 @@ get_trampoline_type (void)
 
   /* If we won't be able to guarantee alignment simply via TYPE_ALIGN,
      then allocate extra space so that we can do dynamic alignment.  */
-  if (align > STACK_BOUNDARY)
+  /* APPLE LOCAL STACK_BOUNDARY must be a signed expression on Darwin/x86 */
+  if (align > (unsigned int) STACK_BOUNDARY)
     {
       size += ((align/BITS_PER_UNIT) - 1) & -(STACK_BOUNDARY/BITS_PER_UNIT);
       align = STACK_BOUNDARY;

@@ -6825,8 +6825,19 @@ output_pic_addr_const (FILE *file, rtx x, int code)
      /* Mark the decl as referenced so that cgraph will output the function.  */
      if (SYMBOL_REF_DECL (x))
        mark_decl_referenced (SYMBOL_REF_DECL (x));
-
+     /* APPLE LOCAL begin stubify optimized symbols */
+#if TARGET_MACHO
+     {
+       const char *name = XSTR (x, 0);
+       if (MACHOPIC_INDIRECT
+	   && machopic_classify_name (name) == MACHOPIC_UNDEFINED_FUNCTION)
+	 name = machopic_stub_name (name);
+       assemble_name (file, name);
+     }
+#else
       assemble_name (file, XSTR (x, 0));
+#endif
+     /* APPLE LOCAL end stubify optimized symbols */
       if (!TARGET_MACHO && code == 'P' && ! SYMBOL_REF_LOCAL_P (x))
 	fputs ("@PLT", file);
       break;
