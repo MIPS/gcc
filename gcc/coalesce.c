@@ -217,6 +217,6 @@ coalesce ()
     }
 
   sbitmap_vector_free (graph);
-  delete_trivially_dead_insns (get_insns (), max_reg_num (), 0);
+  delete_trivially_dead_insns (get_insns (), max_reg_num ());
   free (replace_reg_by);
 }
