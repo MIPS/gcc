@@ -234,18 +234,38 @@ addresses_taken (tree stmt)
   return ann ? ann->addresses_taken : NULL;
 }
 
-static inline varray_type
-immediate_uses (tree stmt)
+static dataflow_t
+get_immediate_uses (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
-  return ann ? (ann->df ? ann->df->immediate_uses : NULL) : NULL;
+  return ann ? ann->df : NULL;
 }
 
-static inline varray_type
-reaching_defs (tree stmt)
+static inline int
+num_immediate_uses (dataflow_t df)
 {
-  stmt_ann_t ann = stmt_ann (stmt);
-  return ann ? (ann->df ? ann->df->reaching_defs : NULL) : NULL;
+  varray_type imm;
+
+  if (!df)
+    return 0;
+
+  imm = df->immediate_uses;
+  if (!imm)
+    return df->uses[1] ? 2 : 1;
+
+  return VARRAY_ACTIVE_SIZE (imm) + 2;
+}
+
+static inline tree
+immediate_use (dataflow_t df, int num)
+{
+#ifdef ENABLE_CHECKING
+  if (num >= num_immediate_uses (df))
+    abort ();
+#endif
+  if (num < 2)
+    return df->uses[num];
+  return VARRAY_TREE (df->immediate_uses, num - 2);
 }
 
 static inline bb_ann_t

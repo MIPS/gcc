@@ -163,6 +163,9 @@ struct dataflow_d GTY(())
      statement.  */
   varray_type immediate_uses;
 
+  /* Use this array for very small numbers of uses instead of the varray.  */
+  tree uses[2];
+
   /* Reached uses.  This is a list of all the possible program statements
      that may be reached directly or indirectly by definitions made in this
      statement.  Notice that this is a superset of IMMEDIATE_USES.
@@ -179,7 +182,6 @@ struct dataflow_d GTY(())
      includes statement #5 because 'a1' could reach 'a3' via the PHI node
      at statement #4.  The set of REACHED_USES is then the transitive
      closure over all the PHI nodes in the IMMEDIATE_USES set.  */
-  varray_type reached_uses;
 
   /* Reaching definitions.  Similarly to REACHED_USES, the set
      REACHING_DEFS is the set of all the statements that make definitions
@@ -187,7 +189,6 @@ struct dataflow_d GTY(())
      similar entry for immediate definitions, as these are represented by
      the SSA_NAME nodes themselves (each SSA_NAME node contains a pointer
      to the statement that makes that definition).  */
-  varray_type reaching_defs;
 };
 
 typedef struct dataflow_d *dataflow_t;
@@ -281,8 +282,9 @@ static inline varray_type vuse_ops (tree);
 static inline varray_type use_ops (tree);
 static inline varray_type def_ops (tree);
 static inline varray_type addresses_taken (tree);
-static inline varray_type immediate_uses (tree);
-static inline varray_type reaching_defs (tree);
+static inline int num_immediate_uses (dataflow_t);
+static inline tree immediate_use (dataflow_t, int);
+static inline dataflow_t get_immediate_uses (tree);
 static inline bool has_hidden_use (tree);
 static inline void set_has_hidden_use (tree);
 static inline tree parent_stmt (tree);

@@ -911,10 +911,8 @@ create_phi_node (tree var, basic_block bb)
 
   /* Add the new PHI node to the list of PHI nodes for block BB.  */
   ann = bb_ann (bb);
-  if (ann->phi_nodes == NULL)
-    ann->phi_nodes = phi;
-  else
-    chainon (ann->phi_nodes, phi);
+  TREE_CHAIN (phi) = ann->phi_nodes;
+  ann->phi_nodes = phi;
 
   /* Associate BB to the PHI node.  */
   set_bb_for_stmt (phi, bb);
@@ -1223,15 +1221,25 @@ static void
 add_immediate_use (tree stmt, tree use_stmt)
 {
   stmt_ann_t ann = get_stmt_ann (stmt);
+  struct dataflow_d *df;
 
-  if (ann->df == NULL)
+  df = ann->df;
+  if (df == NULL)
     {
-      ann->df = ggc_alloc (sizeof (struct dataflow_d));
-      memset ((void *) ann->df, 0, sizeof (*(ann->df)));
+      df = ann->df = ggc_alloc (sizeof (struct dataflow_d));
+      memset ((void *) df, 0, sizeof (struct dataflow_d));
+      df->uses[0] = use_stmt;
+      return;
+    }
+
+  if (!df->uses[1])
+    {
+      df->uses[1] = use_stmt;
+      return;
     }
 
   if (ann->df->immediate_uses == NULL)
-    VARRAY_TREE_INIT (ann->df->immediate_uses, 10, "immediate_uses");
+    VARRAY_TREE_INIT (ann->df->immediate_uses, 4, "immediate_uses");
 
   VARRAY_PUSH_TREE (ann->df->immediate_uses, use_stmt);
 }
@@ -1559,20 +1567,21 @@ debug_immediate_uses (void)
 void
 dump_immediate_uses_for (FILE *file, tree stmt)
 {
-  varray_type imm_uses = immediate_uses (stmt);
+  dataflow_t df = get_immediate_uses (stmt);
+  int num_imm_uses = num_immediate_uses (df);
 
-  if (imm_uses)
+  if (num_imm_uses > 0)
     {
-      size_t i;
+      int i;
 
       fprintf (file, "-> ");
       print_generic_stmt (file, stmt, TDF_SLIM);
       fprintf (file, "\n");
 
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (imm_uses); i++)
+      for (i = 0; i < num_imm_uses; i++)
 	{
 	  fprintf (file, "\t");
-	  print_generic_stmt (file, VARRAY_TREE (imm_uses, i), TDF_SLIM);
+	  print_generic_stmt (file, immediate_use (df, i), TDF_SLIM);
 	  fprintf (file, "\n");
 	}
 

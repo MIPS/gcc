@@ -486,36 +486,39 @@ compute_global_livein (varray_type def_maps)
       bb = *--tos;
       bitmap_clear_bit (in_worklist, bb->index);
 
-      /* For each predecessor block.  */
-      for (e = bb->pred; e; e = e->pred_next)
+      for (i = 0; i < n_elements; i++)
 	{
-	  basic_block pred = e->src;
-	  int pred_index = pred->index;
+	  def_map = VARRAY_GENERIC_PTR (def_maps, i);
 
-	  /* None of this is necessary for the entry block.  */
-	  if (pred != ENTRY_BLOCK_PTR)
+	  /* If its not live into this block, don't look at it any further. */
+	  if (!bitmap_bit_p (def_map->livein_blocks, bb->index))
+	    continue;
+
+	  /* For each predecessor block.  */
+	  for (e = bb->pred; e; e = e->pred_next)
 	    {
-	      /* Update livein_blocks for each element in the 
-		 def_maps vector.  */
-	      for (i = 0; i < n_elements; i++)
+	      basic_block pred = e->src;
+	      int pred_index = pred->index;
+
+	      /* None of this is necessary for the entry block.  */
+	      if (pred != ENTRY_BLOCK_PTR)
 		{
-		  def_map = VARRAY_GENERIC_PTR (def_maps, i);
+		  /* Update livein_blocks for each element in the 
+		     def_maps vector.  */
+		    if (! bitmap_bit_p (def_map->livein_blocks, pred_index)
+			&& ! bitmap_bit_p (def_map->def_blocks, pred_index))
+		      {
+			bitmap_set_bit (def_map->livein_blocks, pred_index);
 
-		  if (bitmap_bit_p (def_map->livein_blocks, bb->index)
-		      && ! bitmap_bit_p (def_map->livein_blocks, pred_index)
-		      && ! bitmap_bit_p (def_map->def_blocks, pred_index))
-		    {
-		      bitmap_set_bit (def_map->livein_blocks, pred_index);
-
-		      /* If this block is not in the worklist, then add
-			 it to the worklist.  */
-		      if (! bitmap_bit_p (in_worklist, pred_index))
-			{
-			  *tos++ = pred;
-			  bitmap_set_bit (in_worklist, pred_index);
-			}
-		    }
-		}
+			/* If this block is not in the worklist, then add
+			   it to the worklist.  */
+			if (! bitmap_bit_p (in_worklist, pred_index))
+			  {
+			    *tos++ = pred;
+			    bitmap_set_bit (in_worklist, pred_index);
+			  }
+		      }
+	        }
 	    }
 	}
     }

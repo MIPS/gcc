@@ -1145,20 +1145,19 @@ cfg_blocks_get ()
 static void
 add_var_to_ssa_edges_worklist (tree var)
 {
-  varray_type imm_uses = immediate_uses (SSA_NAME_DEF_STMT (var));
-  if (imm_uses)
+  tree stmt = SSA_NAME_DEF_STMT (var);
+  dataflow_t df = get_immediate_uses (stmt);
+  int num_uses = num_immediate_uses (df);
+  int i;
+
+  for (i = 0; i < num_uses; i++)
     {
-      unsigned int i;
+      tree use = immediate_use (df, i);
 
-      for (i = 0; i < VARRAY_ACTIVE_SIZE (imm_uses); i++)
+      if (stmt_ann (use)->in_ccp_worklist == 0)
 	{
-	  tree use = VARRAY_TREE (imm_uses, i);
-
-	  if (stmt_ann (use)->in_ccp_worklist == 0)
-	    {
-	      stmt_ann (use)->in_ccp_worklist = 1;
-	      VARRAY_PUSH_TREE (ssa_edges, use);
-	    }
+	  stmt_ann (use)->in_ccp_worklist = 1;
+	  VARRAY_PUSH_TREE (ssa_edges, use);
 	}
     }
 }

@@ -1,3 +1,19 @@
+2003-09-20  Andrew MacLeod  <amacleod@redhat.com>
+
+
+	* tree-flow.h (struct dataflow_d): Remove reaching fields, add 2 element
+	vector of trees.
+	* tree-flow-inline.h (immediate_uses): Rename to get_immediate_uses, 
+	return a dataflow object.
+	(reaching_defs): Remove until needed.
+	(num_immediate_uses): New. Return number of immediate uses.
+	(immediate_use): New. Return a specified immediate use.
+	* tree-dfa.c (add_immediate_use): Use new fields.
+	(dump_immediate_uses_for): Use new interface.
+	(create_phi_node): Chain to start of list.
+	* tree-ssa-ccp.c (add_var_to_ssa_edges_worklist): Use new interface.
+	* tree-ssa.c (compute_global_livein): Loop interchange.
+
 2003-09-18  Jeff Law  <law@redhat.com>
 
 	* tree-ssa-dom.c (optimize_stmt): Allow optimizing the RHS of a
