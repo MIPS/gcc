@@ -964,7 +964,12 @@ new_file_hash_entry (cpp_reader *pfile)
 /* APPLE LOCAL begin predictive compilation */
 bool read_from_stdin (cpp_reader *pfile)
 {
-  _cpp_file *file = pfile->main_file;
+  _cpp_file *file;
+
+  if (pfile->buffer->file->fd != 0)
+    return false;
+
+  file = pfile->main_file;
   file->dont_read = !read_file_guts (pfile, file);
   pfile->buffer->next_line = file->buffer;
   pfile->buffer->rlimit = file->buffer + file->st.st_size;
