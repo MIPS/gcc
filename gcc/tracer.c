@@ -71,7 +71,7 @@ static bool ignore_bb_p			PARAMS ((basic_block));
 /* Stop tracing after at least 80% of instructions has been convered
    by constructed superblocks.  */
 
-#define DYNAMIC_COVERAGE 80
+#define DYNAMIC_COVERAGE 95
 
 /* Stop once the number of instructions has been increased to 200%.
    This is rather hokey argument, as most of the duplicates will be elliminated
