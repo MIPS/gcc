@@ -1328,6 +1328,8 @@ want_to_gcse_p (x)
 {
   if (GET_CODE (x) == CALL)
     return 0;
+  if (GET_MODE (x) == VOIDmode)
+    return 0;
   if (CONSTANT_P (x))
     return 0;
   return (rtx_cost (x, SET) != 0);
