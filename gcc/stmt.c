@@ -466,6 +466,10 @@ init_stmt ()
   ggc_add_root (&case_stack, 1, sizeof(case_stack), mark_case_nesting);
   ggc_add_root (&goto_fixup_chain, 1, sizeof(goto_fixup_chain),
 		mark_goto_fixup);
+
+  ggc_add_tree_root (&nonlocal_labels, 1);
+  ggc_add_rtx_root (&nonlocal_goto_handler_slot, 1);
+  ggc_add_rtx_root (&nonlocal_goto_stack_level, 1);
 }
 
 void

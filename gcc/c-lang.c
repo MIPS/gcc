@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "tree.h"
 #include "input.h"
+#include "function.h"
 #include "c-tree.h"
 #include "c-lex.h"
 #include "toplev.h"
@@ -54,6 +55,9 @@ lang_init ()
      and put it in input_filename.  */
   ungetc (check_newline (), finput);
 #endif
+  save_lang_status = &push_c_function_context;
+  restore_lang_status = &pop_c_function_context;
+  mark_lang_status = &mark_c_function_context;
 }
 
 void

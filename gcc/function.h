@@ -136,14 +136,7 @@ struct function
   struct goto_fixup *goto_fixup_chain;
 
   /* For exception handling information.  */
-  struct eh_stack ehstack;
-  struct eh_stack catchstack;
-  struct eh_queue ehqueue;
-  rtx catch_clauses;
-  struct label_node *false_label_stack;
-  struct label_node *caught_return_label_stack;
-  tree protect_list;
-  rtx ehc;
+  struct eh_function *eh;
 
   /* For expr.c.  */
   int pending_stack_adjust;
@@ -167,14 +160,6 @@ struct function
   int regno_pointer_flag_length;
   rtx *regno_reg_rtx;
 
-  /* For stor-layout.c.  */
-  tree permanent_type_chain;
-  tree temporary_type_chain;
-  tree permanent_type_end;
-  tree temporary_type_end;
-  tree pending_sizes;
-  int immediate_size_expand;
-
   /* For tree.c.  */
   int all_types_permanent;
   struct momentary_level *momentary_stack;
@@ -197,6 +182,9 @@ struct function
   int uses_pic_offset_table;
   /* tm.h can use this to store whatever it likes.  */
   struct machine_function *machine;
+
+  /* Language-specific code can use this to store whatever it likes.  */
+  struct language_function *language;
 
   /* For reorg.  */
   rtx epilogue_delay_list;
@@ -223,7 +211,7 @@ extern rtx stack_slot_list;
 
 /* Given a function decl for a containing function,
    return the `struct function' for it.  */
-struct function *find_function_data PROTO((tree));
+struct function *find_function_data	PROTO((tree));
 
 /* Pointer to chain of `struct function' for containing functions.  */
 extern struct function *outer_function_chain;
@@ -231,19 +219,25 @@ extern struct function *outer_function_chain;
 /* Put all this function's BLOCK nodes into a vector and return it.
    Also store in each NOTE for the beginning or end of a block
    the index of that block in the vector.  */
-extern tree *identify_blocks PROTO((tree, rtx));
+extern tree *identify_blocks		PROTO((tree, rtx));
 
 /* Return size needed for stack frame based on slots so far allocated.
    This size counts from zero.  It is not rounded to STACK_BOUNDARY;
    the caller may have to do that.  */
-extern HOST_WIDE_INT get_frame_size PROTO((void));
+extern HOST_WIDE_INT get_frame_size	PROTO((void));
 
 /* These variables hold pointers to functions to
    save and restore machine-specific data,
    in push_function_context and pop_function_context.  */
-extern void (*save_machine_status) PROTO((struct function *));
-extern void (*restore_machine_status) PROTO((struct function *));
-extern void (*mark_machine_status) PROTO((struct function *));
+extern void (*save_machine_status)	PROTO((struct function *));
+extern void (*restore_machine_status)	PROTO((struct function *));
+extern void (*mark_machine_status)	PROTO((struct function *));
+
+/* Likewise, but for language-specific data.  */
+extern void (*save_lang_status)		PROTO((struct function *));
+extern void (*restore_lang_status)	PROTO((struct function *));
+extern void (*mark_lang_status)		PROTO((struct function *));
+
 
 /* Save and restore status information for a nested function.  */
 extern void save_tree_status		PROTO((struct function *, tree));

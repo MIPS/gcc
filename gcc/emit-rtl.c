@@ -364,7 +364,7 @@ gen_rtx VPROTO((enum rtx_code code, enum machine_mode mode, ...))
 	      break;
 
 	    case 's':		/* A string?  */
-	      XSTR (rt_val, i) = ggc_alloc_string (va_arg (p, char *), -1);
+	      XSTR (rt_val, i) = va_arg (p, char *);
 	      break;
 
 	    case 'e':		/* An expression?  */

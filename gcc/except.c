@@ -2190,49 +2190,19 @@ check_exception_handler_labels ()
    exception handling data structures for the start/end of a nested
    function.  */
 
-/* Toplevel initialization for EH things.  */ 
-
-void
-init_eh ()
-{
-  ggc_add_root (&caught_return_label_stack, 1,
-		sizeof(caught_return_label_stack), mark_tree_label_node);
-  ggc_add_root (&ehstack, 1, sizeof(ehstack), mark_eh_stack);
-  ggc_add_root (&ehqueue, 1, sizeof(ehqueue), mark_eh_queue);
-  ggc_add_rtx_root (&catch_clauses, 1);
-  ggc_add_tree_root (&protect_list, 1);
-}
-
-/* Initialize the per-function EH information.  */
-
-void
-init_eh_for_function ()
-{
-  ehstack.top = 0;
-  catchstack.top = 0;
-  ehqueue.head = ehqueue.tail = 0;
-  catch_clauses = NULL_RTX;
-  false_label_stack = 0;
-  caught_return_label_stack = 0;
-  protect_list = NULL_TREE;
-  current_function_ehc = NULL_RTX;
-  eh_return_context = NULL_RTX;
-  eh_return_stack_adjust = NULL_RTX;
-  eh_return_handler = NULL_RTX;
-  eh_return_stub_label = NULL_RTX;
-}
-
 /* Save some of the per-function EH info into the save area denoted by
    P. 
 
    This is currently called from save_stmt_status.  */
 
 void
-save_eh_status (p)
-     struct function *p;
+save_eh_status (f)
+     struct function *f;
 {
-  if (p == NULL)
-    abort ();
+  struct eh_function *p;
+
+  p = (struct eh_function *) xmalloc (sizeof (struct eh_function));
+  f->eh = p;
 
   p->ehstack = ehstack;
   p->catchstack = catchstack;
@@ -2251,11 +2221,10 @@ save_eh_status (p)
    This is currently called from restore_stmt_status.  */
 
 void
-restore_eh_status (p)
-     struct function *p;
+restore_eh_status (f)
+     struct function *f;
 {
-  if (p == NULL)
-    abort ();
+  struct eh_function *p = f->eh;
 
   protect_list = p->protect_list;
   caught_return_label_stack = p->caught_return_label_stack;
@@ -2265,6 +2234,8 @@ restore_eh_status (p)
   ehstack = p->ehstack;
   catchstack = p->catchstack;
   current_function_ehc = p->ehc;
+
+  free (p);
 }
 
 static void
@@ -2325,6 +2296,55 @@ mark_rtx_label_node (arg)
       ggc_mark_rtx (node->u.rlabel);
       node = node->chain;
     }
+}
+
+void
+mark_eh_state (arg)
+     void *arg;
+{
+  struct eh_function *eh = *(struct eh_function **) arg;
+
+  mark_eh_stack (&eh->ehstack);
+  mark_eh_queue (&eh->ehqueue);
+  ggc_mark_rtx (eh->catch_clauses);
+
+  lang_mark_false_label_stack (&eh->false_label_stack);
+  mark_tree_label_node (&eh->caught_return_label_stack);
+
+  ggc_mark_tree (eh->protect_list);
+  ggc_mark_rtx (eh->ehc);
+}
+
+/* Toplevel initialization for EH things.  */ 
+
+void
+init_eh ()
+{
+  ggc_add_root (&caught_return_label_stack, 1,
+		sizeof(caught_return_label_stack), mark_tree_label_node);
+  ggc_add_root (&ehstack, 1, sizeof(ehstack), mark_eh_stack);
+  ggc_add_root (&ehqueue, 1, sizeof(ehqueue), mark_eh_queue);
+  ggc_add_rtx_root (&catch_clauses, 1);
+  ggc_add_tree_root (&protect_list, 1);
+}
+
+/* Initialize the per-function EH information.  */
+
+void
+init_eh_for_function ()
+{
+  ehstack.top = 0;
+  catchstack.top = 0;
+  ehqueue.head = ehqueue.tail = 0;
+  catch_clauses = NULL_RTX;
+  false_label_stack = 0;
+  caught_return_label_stack = 0;
+  protect_list = NULL_TREE;
+  current_function_ehc = NULL_RTX;
+  eh_return_context = NULL_RTX;
+  eh_return_stack_adjust = NULL_RTX;
+  eh_return_handler = NULL_RTX;
+  eh_return_stub_label = NULL_RTX;
 }
 
 /* This section is for the exception handling specific optimization

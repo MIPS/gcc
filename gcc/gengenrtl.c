@@ -218,7 +218,7 @@ gendef (f, format)
     {
       if (*p == 's' || *p == 'S')
 	{
-	  fprintf (f, "  %s (rt, %d) = ggc_alloc_string (arg%d, -1);\n",
+	  fprintf (f, "  %s (rt, %d) = arg%d;\n",
 		   accessor_from_format (*p), i, j++);
 	}
       else if (*p != '0')

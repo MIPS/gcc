@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "tree.h"
+#include "function.h"
 #include "flags.h"
 #include "output.h"
 #include "c-tree.h"
@@ -7323,9 +7324,8 @@ finish_function (nested)
    that keep track of the progress of compilation of the current function.
    Used for nested functions.  */
 
-struct c_function
+struct language_function
 {
-  struct c_function *next;
   tree named_labels;
   tree shadowed_labels;
   int returns_value;
@@ -7335,25 +7335,16 @@ struct c_function
   struct binding_level *binding_level;
 };
 
-struct c_function *c_function_chain;
-/* ??? MARK ME */
-
 /* Save and reinitialize the variables
    used during compilation of a C function.  */
 
 void
-push_c_function_context ()
+push_c_function_context (f)
+     struct function *f;
 {
-  struct c_function *p
-    = (struct c_function *) xmalloc (sizeof (struct c_function));
-
-  if (pedantic)
-    pedwarn ("ANSI C forbids nested functions");
-
-  push_function_context ();
-
-  p->next = c_function_chain;
-  c_function_chain = p;
+  struct language_function *p;
+  p = (struct language_function *) xmalloc (sizeof (struct language_function));
+  f->language = p;
 
   p->named_labels = named_labels;
   p->shadowed_labels = shadowed_labels;
@@ -7367,9 +7358,10 @@ push_c_function_context ()
 /* Restore the variables used during compilation of a C function.  */
 
 void
-pop_c_function_context ()
+pop_c_function_context (f)
+     struct function *f;
 {
-  struct c_function *p = c_function_chain;
+  struct language_function *p = f->language;
   tree link;
 
   /* Bring back all the labels that were shadowed.  */
@@ -7387,10 +7379,6 @@ pop_c_function_context ()
       DECL_ARGUMENTS (current_function_decl) = 0;
     }
 
-  pop_function_context ();
-
-  c_function_chain = p->next;
-
   named_labels = p->named_labels;
   shadowed_labels = p->shadowed_labels;
   current_function_returns_value = p->returns_value;
@@ -7400,6 +7388,16 @@ pop_c_function_context ()
   current_binding_level = p->binding_level;
 
   free (p);
+}
+
+void
+mark_c_function_context (f)
+     struct function *f;
+{
+  struct language_function *p = f->language;
+  ggc_mark_tree (p->shadowed_labels);
+  ggc_mark_tree (p->named_labels);
+  mark_binding_level (&p->binding_level);
 }
 
 /* integrate_decl_tree calls this function, but since we don't use the

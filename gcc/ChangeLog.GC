@@ -1,3 +1,68 @@
+Sun Nov  1 11:30:21 1998  Bernd Schmidt <crux@pool.informatik.rwth-aachen.de>
+
+	* tree.c (get_identifier): Use ggc_alloc_string, not obstack_copy0, to
+	allocate the string.
+	* ggc-simple.c (ggc_mark_tree): Mark the IDENTIFIER_POINTER for an
+	IDENTIFIER_NODE.
+	* emit-rtl.c (gen_rtx): Don't duplicate any strings passed to this
+	function.
+	* gengenrtl.c (gendef): Don't let generated functions duplicate
+	strings passed to them.
+
+	* stmt.c (init_stmt): Add roots for nonlocal_labels,
+	nonlocal_goto_handler_slot and nonlocal_goto_stack_level.
+
+	* function.h (struct function): Replace the eh-related elements with
+	a pointer to a struct eh_function.
+	Delete the unused stor-layout elements.
+	* function.c (mark_function_chain): Call mark_eh_state instead of
+	marking the removed eh specific elements directly.
+	Don't mark the removed stor-layout specific elements.
+	Mark NONLOCAL_LABELS element.
+	(mark_parm_reg_stack_loc): New function.
+	(init_function_once): Add root for parm_reg_stack_loc.
+	* except.h (struct eh_function): Declare.
+	* except.c (mark_eh_state): New function.
+	(save_eh_status): Allocate space for eh specific data.
+	(restore_eh_status): Free the allocated eh specific data.
+	* ggc.h (mark_eh_stack): Don't declare.
+	(mark_eh_queue): Don't declare.
+	(mark_eh_state): Declare.
+
+	* function.h (struct function): Add new element LANGUAGE.
+	(save_lang_status): Declare new variable.
+	(restore_lang_status): Likewise.
+	(mark_lang_status): Likewise.
+	* function.c (save_lang_status): Define.
+	(restore_lang_status): Likewise.
+	(mark_lang_status): Likewise.
+	(push_function_context_to): Call language-specific save function.
+	(pop_function_context_from): Call language-specific restore function.
+	(mark_function_chain): Call language-specific mark function.
+	* c-decl.c: Include function.h
+	(struct language_function): Renamed from struct c_function.
+	Delete NEXT element.
+	(c_function_chain): Delete.
+	(push_c_function_context): Accept new arg F.
+	Don't warn about nested functions being forbidden.
+	Don't call push_function_context.
+	Don't set up c_function_chain.
+	Allocate space for language specific data.
+	(pop_c_function_context): Mirror changes in push_c_function_context.
+	(mark_c_function_context): New function.
+	* c-lang.c (lang_init): Initialize save_lang_status,
+	restore_lang_status and mark_lang_status.
+	* c-parse.in (nested_function): Warn if pedantic.
+	Call {push,pop}_function_context instead of calling C specific
+	variants.
+	(notype_nested_function): Likewise.
+	* c-tree.h (struct function): Declare.
+	(push_c_function_context): Update prototype.
+	(pop_c_function_context): Likewise.
+	(mark_c_function_context): Declare.
+	* Makefile.in (c-decl.o): Update dependencies.
+	(c-lang.o): Likewise.
+
 Thu Oct  8 19:19:15 1998  Richard Henderson  <rth@cygnus.com>
 
 	* dwarf2out.c (dwarf2out_init): Fix merge losage.

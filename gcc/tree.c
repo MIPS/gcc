@@ -1269,7 +1269,7 @@ get_identifier (text)
   id_string_size += len;
 #endif
 
-  IDENTIFIER_POINTER (idp) = obstack_copy0 (&permanent_obstack, text, len);
+  IDENTIFIER_POINTER (idp) = ggc_alloc_string (text, len);
 
   TREE_CHAIN (idp) = hash_table[hi];
   hash_table[hi] = idp;

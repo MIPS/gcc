@@ -439,6 +439,7 @@ ggc_mark_tree (t)
       break;
 
     case IDENTIFIER_NODE:
+      ggc_mark_string (IDENTIFIER_POINTER (t));
       lang_mark_tree (t);
       return;
 
@@ -687,7 +688,8 @@ ggc_add_tree_root (base, nelt)
   ggc_add_root (base, nelt, sizeof(tree), ggc_mark_tree_ptr);
 }
 
-void ggc_del_root (base)
+void
+ggc_del_root (base)
      void *base;
 {
   struct ggc_root *x, **p;
