@@ -2843,7 +2843,8 @@ lvalue_or_else (tree *ref, enum lvalue_use use)
 	     the cast are POD types with identical size and alignment.  */
       if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR
 	   || TREE_CODE (r) == NON_LVALUE_EXPR)
-	  && (use == lv_assign || use == lv_increment || use == lv_decrement)
+	  && (use == lv_assign || use == lv_increment || use == lv_decrement
+	      || use == lv_addressof)
 	  && lvalue_or_else (&TREE_OPERAND (r, 0), use))
 	{
 	  tree cast_to = TREE_TYPE (r);
@@ -2881,7 +2882,11 @@ lvalue_or_else (tree *ref, enum lvalue_use use)
 
 	 allow_as_lvalue:
 	  win = 1;
-	  warning ("target of assignment not really an lvalue");
+	  warning ("%s not really an lvalue; "
+		   "this will be a hard error in the future",
+		   (use == lv_addressof
+		    ? "argument to '&'"
+		    : "target of assignment"));
 	}
     } 
   /* APPLE LOCAL end non lvalue assign */

@@ -252,7 +252,7 @@ lvalue_or_else (tree *ref, const char* string)
 		 and the cast are POD types with identical size and
 		 alignment.  */
 	  if ((TREE_CODE (r) == NOP_EXPR || TREE_CODE (r) == CONVERT_EXPR)
-	      && string && string[0] == 'a'
+	      && string && (string[0] == 'a' || string[0] == 'u')
 	      && lvalue_or_else (&TREE_OPERAND (r, 0), string))
 	    {
 	      tree cast_to = TREE_TYPE (r);
@@ -291,7 +291,11 @@ lvalue_or_else (tree *ref, const char* string)
 		   0);
 
 	     allow_as_lvalue:
-	      warning ("target of assignment not really an lvalue");
+	      warning ("%s not really an lvalue; "
+		       "this will be a hard error in the future",
+		       (string[0] == 'u'
+			? "argument to '&'"
+			: "target of assignment"));
 	      return 1;
 	    }
 	}
