@@ -1,0 +1,3 @@
+Thu Nov  7 11:18:01 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* reg-stack.c (compensate_edge): Fix sanity check.
