@@ -1,3 +1,11 @@
+2004-10-13  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm-protos.h (arm_load_pic_register): Update prototype.
+	* config/arm/arm.c (thumb_find_work_register): Update comments.
+	(arm_load_pic_register): Add argument for scratch register.
+	(arm_expand_prologue, thumb_expand_prologue): Pass extra argument.
+	* config/arm/arm.md (builtin_setjmp_receiver): Ditto.
+
 2004-10-12  Paul Brook  <paul@coodesourcery.com>
 
 	* doc/invoke.texi: Add missing "-" in arm cpu names.
