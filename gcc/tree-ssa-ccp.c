@@ -1750,15 +1750,7 @@ set_rhs (tree *stmt_p, tree expr)
   else
     {
       stmt_ann_t ann = stmt_ann (stmt);
-      if (TREE_SIDE_EFFECTS (expr))
-	*stmt_p = expr;
-      else
-	{
-	  /* If the expression is not a statement with side-effects, replace
-	     the statement with a new empty statement.  */
-	  *stmt_p = build_empty_stmt ();
-	}
-     
+      *stmt_p = expr;
       (*stmt_p)->common.ann = (tree_ann) ann;
     }
 }

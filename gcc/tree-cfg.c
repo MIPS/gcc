@@ -1590,7 +1590,7 @@ tree_block_forwards_to (basic_block bb)
       || phi_nodes (bb->succ->dest))
     return NULL;
 
-  /* Walk past any labels or empty statements at the start of this block.  */
+  /* Walk past any labels at the start of this block.  */
   bsi = bsi_start (bb);
   while (1)
     {
@@ -1598,7 +1598,7 @@ tree_block_forwards_to (basic_block bb)
       if (bsi_end_p (bsi))
 	break;
       stmt = bsi_stmt (bsi);
-      if (IS_EMPTY_STMT (stmt) || TREE_CODE (stmt) == LABEL_EXPR)
+      if (TREE_CODE (stmt) == LABEL_EXPR)
 	bsi_next (&bsi);
       else
 	break;
@@ -2327,6 +2327,38 @@ last_stmt_ptr (basic_block bb)
 {
   block_stmt_iterator last = bsi_last (bb);
   return !bsi_end_p (last) ? bsi_stmt_ptr (last) : NULL;
+}
+
+/* Return the last statement of an otherwise empty block.  Return NULL
+   if the block is totally empty, or if it contains more than one stmt.  */
+
+tree
+last_and_only_stmt (basic_block bb)
+{
+  block_stmt_iterator i = bsi_last (bb);
+  tree last, prev;
+
+  if (bsi_end_p (i))
+    return NULL_TREE;
+
+  last = bsi_stmt (i);
+  bsi_prev (&i);
+  if (bsi_end_p (i))
+    return last;
+
+  /* Empty statements should no longer appear in the instruction stream.
+     Everything that might have appeared before should be deleted by
+     remove_useless_stmts, and the optimizers should just bsi_remove
+     instead of smashing with build_empty_stmt.
+
+     Thus the only thing that should appear here in a block containing
+     one executable statement is a label.  */
+    
+  prev = bsi_stmt (i);
+  if (TREE_CODE (prev) == LABEL_EXPR)
+    return last;
+  else
+    return NULL_TREE;
 }
 
 /* Insert statement T into basic block BB.  */
@@ -3146,10 +3178,6 @@ tree_forwarder_block_p (basic_block bb)
     {
       tree stmt = bsi_stmt (bsi);
  
-      /* Ignore empty statements.  */
-      if (IS_EMPTY_STMT (stmt))
-	continue;
-
       switch (TREE_CODE (stmt))
 	{
 	case LABEL_EXPR:

@@ -2706,9 +2706,6 @@ rewrite_stmt (block_stmt_iterator si, varray_type *block_defs_p)
   varray_type defs, uses, vuses, vdefs;
 
   stmt = bsi_stmt (si);
-  if (IS_EMPTY_STMT (stmt))
-    return;
-
   ann = stmt_ann (stmt);
   ssa_stats.num_stmts++;
 

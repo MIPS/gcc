@@ -1,5 +1,18 @@
 2003-11-16  Richard Henderson  <rth@redhat.com>
 
+	* tree-cfg.c (last_and_only_stmt): New.
+	* tree-flow.h (last_and_only_stmt): Declare.
+	* tree-ssa-dom.c (thread_across_edge): Use it.
+
+	* tree-cfg.c (tree_block_forwards_to): Don't check for empty stmts.
+	(tree_forwarder_block_p): Likewise.
+	* tree-dfa.c (get_stmt_operands): Likewise.
+	* tree-ssa-ccp.c (set_rhs): Likewise.
+	* tree-ssa-dom.c (optimize_stmt): Likewise.
+	* tree-ssa.c (rewrite_stmt): Likewise.
+
+2003-11-16  Richard Henderson  <rth@redhat.com>
+
 	* tree.h (LABEL_DECL_UID): Rename from LABEL_DECL_INDEX.
 	* tree-flow.h (bsi_remove): Declare.
 	* tree-flow-inline.h (bsi_remove): Move ...

@@ -494,15 +494,7 @@ thread_across_edge (edge e, varray_type *block_avail_exprs)
      Only thread through a successor with PHI nodes if explicitly asked to.  */
   if (thread_through_phis || ! phi_nodes (e->dest))
     {
-      block_stmt_iterator bsi = bsi_start (e->dest);
-      tree stmt = NULL;
-
-      /* Walk past any empty statements and labels.  */
-      while (! bsi_end_p (bsi)
-	     && (stmt = bsi_stmt (bsi))
-	     && (IS_EMPTY_STMT (stmt)
-		 || TREE_CODE (stmt) == LABEL_EXPR))
-	bsi_next (&bsi);
+      tree stmt = last_and_only_stmt (e->dest);
 
       /* If we stopped at a COND_EXPR, then see if we know which arm will
 	 be taken.  */
@@ -2077,8 +2069,6 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   bool may_have_exposed_new_symbols = false;
 
   stmt = bsi_stmt (si);
-  if (IS_EMPTY_STMT (stmt))
-    return false;
 
   get_stmt_operands (stmt);
   ann = stmt_ann (stmt);

@@ -295,8 +295,7 @@ get_stmt_operands (tree stmt)
 	 add_use.  This default will handle statements like empty statements,
 	 CALL_EXPRs or VA_ARG_EXPRs that may appear on the RHS of a statement
 	 or as statements themselves.  */
-      if (!IS_EMPTY_STMT (stmt))
-	get_expr_operands (stmt, &stmt, opf_none, prev_vops);
+      get_expr_operands (stmt, &stmt, opf_none, prev_vops);
       break;
     }
 
