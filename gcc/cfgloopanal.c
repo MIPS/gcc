@@ -1003,7 +1003,8 @@ num_loop_insns (loop)
       bb = bbs[i];
       ninsns++;
       for (insn = bb->head; insn != bb->end; insn = NEXT_INSN (insn))
-	ninsns++;
+	if (INSN_P (insn))
+	  ninsns++;
     }
   free(bbs);
   

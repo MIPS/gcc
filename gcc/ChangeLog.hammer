@@ -1,3 +1,7 @@
+2003-06-03  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* cfgloopanal.c (num_loop_insns): Count only real insns.
+
 Fri May 23 21:03:14 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* ifcvt.c (unshare_insns):  New static function.
