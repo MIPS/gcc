@@ -108,6 +108,14 @@ struct cfg_hooks
   /* This function is called immediately before edge E is removed from
      the edge vector E->dest->preds.  */
   void (*execute_on_shrinking_pred) (edge);
+
+  /* Call back for loop versioning.  */
+  basic_block (*loop_version_call_back) (struct loops*, struct loop*,
+					 edge, void*);
+
+  /* Add PHI arguments queued in PENDINT_STMT list on edge E to edge
+     E->dest (only in tree-ssa loop versioning.  */
+  void (*flush_pending_stmts) (edge);
 };
 
 extern void verify_flow_info (void);
@@ -136,6 +144,9 @@ extern bool block_ends_with_condjump_p (basic_block bb);
 extern int flow_call_edges_add (sbitmap);
 extern void execute_on_growing_pred (edge);
 extern void execute_on_shrinking_pred (edge);
+extern void lv_flush_pending_stmts (edge);
+extern basic_block loop_version_call_back (struct loops*, struct loop*, edge, 
+					   void*);
 
 /* Hooks containers.  */
 extern struct cfg_hooks tree_cfg_hooks;

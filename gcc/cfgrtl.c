@@ -57,7 +57,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cfglayout.h"
 #include "expr.h"
 #include "target.h"
-
+#include "cfgloop.h"
 
 /* The labels mentioned in non-jump rtl.  Valid during find_basic_blocks.  */
 /* ??? Should probably be using LABEL_NUSES instead.  It would take a
@@ -2043,7 +2043,7 @@ rtl_verify_flow_info_1 (void)
 	  err = 1;
 	}
       if (n_branch != 1 && any_condjump_p (BB_END (bb))
-	  && JUMP_LABEL (BB_END (bb)) != BB_HEAD (fallthru->dest))
+	  && JUMP_LABEL (BB_END (bb)) == BB_HEAD (fallthru->dest))
 	{
 	  error ("Wrong amount of branch edges after conditional jump %i", bb->index);
 	  err = 1;
@@ -3016,6 +3016,112 @@ rtl_flow_call_edges_add (sbitmap blocks)
   return blocks_split;
 }
 
+/* Add a compare and jump insns into COND_BB, the compare is 
+   described in COMP_RTX and the true edge should go to 
+   FIRST_HEAD while the fallthru edge should go to SECOND_HEAD.  */
+static void
+rtl_lv_add_condition_to_bb (basic_block first_head, 
+			    basic_block second_head ATTRIBUTE_UNUSED, 
+			    basic_block cond_bb, rtx comp_rtx)  
+{
+  rtx label, seq, jump;  
+  rtx op0 = XEXP ((rtx)comp_rtx, 0);
+  rtx op1 = XEXP ((rtx)comp_rtx, 1);
+  enum rtx_code comp = GET_CODE ((rtx)comp_rtx);
+  enum machine_mode mode;
+
+  label = block_label (first_head);
+  mode = GET_MODE (op0);
+  if (mode == VOIDmode)
+    mode = GET_MODE (op1);
+
+  start_sequence ();
+  op0 = force_operand (op0, NULL_RTX);
+  op1 = force_operand (op1, NULL_RTX);
+  do_compare_rtx_and_jump (op0, op1, comp, 0,
+			   mode, NULL_RTX, NULL_RTX, label);
+  jump = get_last_insn ();
+  JUMP_LABEL (jump) = label;
+  LABEL_NUSES (label)++;
+  seq = get_insns ();
+  end_sequence ();
+
+  /* Add the new cond , in the new head.  */
+  emit_insn_after(seq, BB_END(cond_bb));
+}
+
+/* This function is called from loop_version.  It splits the entry edge 
+   of the loop we want to version, adds the versioning condition, and
+   adjust the edges to the two versions of the loop appropriately.  
+   e is an incoming edge. Returns the basic block containing the 
+   condition. 
+
+   --- edge e ---- > [second_head]
+
+   Split it and insert new conditional expression and adjust edges.
+
+    --- edge e ---> [cond expr] ---> [first_head]
+                        |
+                        +---------> [second_head]
+*/
+
+static basic_block
+rtl_lv_adjust_loop_entry_edge (basic_block first_head,
+			   basic_block second_head,
+			   edge e,
+			   void* cond_expr)
+{ 
+  basic_block new_head = NULL;
+  edge e0, e1;
+
+  gcc_assert (e->dest == second_head);
+
+  /* Split edge 'e'. This will create a new basic block, where we can
+     insert conditional expr.  */
+  new_head = split_edge (e);
+
+
+  rtl_lv_add_condition_to_bb (first_head, second_head, new_head, 
+			      cond_expr);
+
+  /* Adjust edges appropriately to connect new head with first head
+     as well as second head.  */
+  e0 = EDGE_SUCC (new_head, 0);
+  e0->flags |= EDGE_FALSE_VALUE;
+  e1 = make_edge (new_head, first_head, EDGE_TRUE_VALUE);
+  set_immediate_dominator (CDI_DOMINATORS, first_head, new_head);
+  set_immediate_dominator (CDI_DOMINATORS, second_head, new_head);
+
+  return new_head;
+}
+
+/* This function is called from loop_version through CFG_HOOKS, 
+   it generates a new duplication of the loop and generates the
+   conditional statement in the RTL (by calling 
+   rtl_lv_adjust_loop_entry_edge).  */
+static basic_block
+rtl_loop_version_call_back (struct loops *loops, struct loop *loop, 
+			    edge entry, void *cond_expr)
+{
+  basic_block first_head, second_head;
+
+  /* Note down head of loop as first_head.  */
+  first_head = entry->dest;
+
+  /* Duplicate loop.  */
+  if (!duplicate_loop_to_header_edge (loop, entry, loops, 1, NULL, NULL, 
+				      NULL, NULL, 0))
+    return NULL;
+
+  /* After duplication entry edge now points to new loop head block.
+     Note down new head as second_head.  */
+  second_head = entry->dest;
+
+  /* Split loop entry edge and insert new block with cond expr.  */
+  return rtl_lv_adjust_loop_entry_edge (first_head, second_head, entry, 
+					cond_expr); 
+}
+
 /* Implementation of CFG manipulation for linearized RTL.  */
 struct cfg_hooks rtl_cfg_hooks = {
   "rtl",
@@ -3040,7 +3146,9 @@ struct cfg_hooks rtl_cfg_hooks = {
   rtl_block_ends_with_condjump_p,
   rtl_flow_call_edges_add,
   NULL, /* execute_on_growing_pred */
-  NULL /* execute_on_shrinking_pred */
+  NULL, /* execute_on_shrinking_pred */
+  NULL, /* loop_version_call_back */
+  NULL   /* flush_pending_stmts */
 };
 
 /* Implementation of CFG manipulation for cfg layout RTL, where
@@ -3078,6 +3186,8 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   rtl_block_ends_with_condjump_p,
   rtl_flow_call_edges_add,
   NULL, /* execute_on_growing_pred */
-  NULL /* execute_on_shrinking_pred */
+  NULL, /* execute_on_shrinking_pred */
+  rtl_loop_version_call_back, /* loop_version_call_back */
+  NULL           /* flush_pending_stmts */
 };
 

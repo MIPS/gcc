@@ -824,3 +824,18 @@ execute_on_shrinking_pred (edge e)
   if (cfg_hooks->execute_on_shrinking_pred)
     cfg_hooks->execute_on_shrinking_pred (e);
 }
+
+void
+lv_flush_pending_stmts (edge e)
+{
+  if (cfg_hooks->flush_pending_stmts)
+    cfg_hooks->flush_pending_stmts (e);
+}
+
+basic_block 
+loop_version_call_back (struct loops *loops, struct loop *loop, 
+			edge e, void* cond)
+{
+  gcc_assert (cfg_hooks->loop_version_call_back);
+  return cfg_hooks->loop_version_call_back (loops, loop, e, cond);
+}

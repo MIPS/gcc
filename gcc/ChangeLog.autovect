@@ -1,3 +1,36 @@
+2005-01-11 Mostafa Hagog <mustafa@il.ibm.com>
+
+	* basic-block.h (extract_true_false_edges_from_block): Declare.
+	* cfg.c (extract_true_false_edges_from_block): Move to here.
+	* cfghooks.c (lv_flush_pending_stmts, loop_version_call_back):
+	New.
+	* cfghooks.h (loop_version_call_back, flush_pending_stmts): New
+	in cfg_hooks.
+	(lv_flush_pending_stmts, loop_version_call_back): Declare.
+	* cfgloop.h (create_preheader): Make extern.
+	(duplicate_loop_to_header_edge): Change return type to bool.
+	(loop_version): Declare.
+	* cfgloopmanip.c (cfghooks.h): Include.
+	(duplicate_loop_to_header_edge): Change return type to bool.
+	(create_preheader): Make external.
+	(loop_version): Move here.
+	* cfgrtl.c (cfgloop.h): Include.
+	(rtl_verify_flow_info_1): Fix.
+	(rtl_lv_add_condition_to_bb, rtl_lv_adjust_loop_entry_edge,
+	rtl_loop_version_call_back): New.
+	(rtl_cfg_hooks, cfg_layout_rtl_cfg_hook): Add two new hooks.
+	* tree-cfg.c (lv_adjust_loop_header_phi,
+	tree_lv_add_condition_to_bb, tree_lv_adjust_loop_entry_edge):
+	Move here and rename.
+	(tree_loop_version_call_back): New.
+	(tree_cfg_hooks): Add two new hooks.
+	(extract_true_false_edges_from_block): Remove from here.
+	* tree-flow.h (extract_true_false_edges_from_block): Remove from
+	here.
+	* tree-ssa-loop-manip.c (lv_adjust_loop_header_phi,
+	lv_adjust_loop_entry_edge, tree_ssa_loop_version): Remove from
+	here.
+
 2005-01-06  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* tree-vectorizer.h: (peeling_for_alignment): Fix spelling in comment

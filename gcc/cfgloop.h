@@ -313,6 +313,7 @@ enum
   CP_SIMPLE_PREHEADERS = 1
 };
 
+extern basic_block create_preheader (struct loop *, int);
 extern void create_preheaders (struct loops *, int);
 extern void force_single_succ_latches (struct loops *);
 
@@ -330,9 +331,9 @@ extern bool can_duplicate_loop_p (struct loop *loop);
 
 extern struct loop * duplicate_loop (struct loops *, struct loop *,
 				     struct loop *);
-extern int duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
-					  unsigned, sbitmap, edge, edge *,
-					  unsigned *, int);
+extern bool duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
+					   unsigned, sbitmap, edge, edge *,
+					   unsigned *, int);
 extern struct loop *loopify (struct loops *, edge, edge,
 			     basic_block, edge, edge, bool);
 extern bool remove_path (struct loops *, edge);
@@ -467,7 +468,10 @@ extern void loop_optimizer_finalize (struct loops *, FILE *);
 
 /* Optimization passes.  */
 extern void unswitch_loops (struct loops *);
-
+/* Loop versioning.  */
+struct loop * loop_version (struct loops *, struct loop *, void *, 
+			    basic_block *);
+/* */
 enum
 {
   UAP_PEEL = 1,		/* Enables loop peeling.  */

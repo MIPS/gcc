@@ -460,6 +460,30 @@ clear_bb_flags (void)
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
     bb->flags = BB_PARTITION (bb);
 }
+
+/* Given a basic block B which ends with a conditional and has
+   precisely two successors, determine which of the edges is taken if
+   the conditional is true and which is taken if the conditional is
+   false.  Set TRUE_EDGE and FALSE_EDGE appropriately.  */
+
+void
+extract_true_false_edges_from_block (basic_block b,
+				     edge *true_edge,
+				     edge *false_edge)
+{
+  edge e = EDGE_SUCC (b, 0);
+
+  if (e->flags & EDGE_TRUE_VALUE)
+    {
+      *true_edge = e;
+      *false_edge = EDGE_SUCC (b, 1);
+    }
+  else
+    {
+      *false_edge = e;
+      *true_edge = EDGE_SUCC (b, 1);
+    }
+}
 
 /* Check the consistency of profile information.  We can't do that
    in verify_flow_info, as the counts may get invalid for incompletely

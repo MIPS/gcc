@@ -28,6 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "cfglayout.h"
+#include "cfghooks.h"
 #include "output.h"
 
 static void duplicate_subloops (struct loops *, struct loop *, struct loop *);
@@ -46,7 +47,6 @@ static void fix_bb_placements (struct loops *, basic_block);
 static void place_new_loop (struct loops *, struct loop *);
 static void scale_loop_frequencies (struct loop *, int, int);
 static void scale_bbs_frequencies (basic_block *, int, int, int);
-static basic_block create_preheader (struct loop *, int);
 static void fix_irreducible_loops (basic_block);
 static void unloop (struct loops *, struct loop *);
 
@@ -856,7 +856,7 @@ update_single_exits_after_duplication (basic_block *bbs, unsigned nbbs,
    original LOOP body, the other copies are numbered in order given by control
    flow through them) into TO_REMOVE array.  Returns false if duplication is
    impossible.  */
-int
+bool
 duplicate_loop_to_header_edge (struct loop *loop, edge e, struct loops *loops,
 			       unsigned int ndupl, sbitmap wont_exit,
 			       edge orig, edge *to_remove,
@@ -1134,7 +1134,7 @@ mfb_update_loops (basic_block jump)
    entry; otherwise we also force preheader block to have only one successor.
    The function also updates dominators.  */
 
-static basic_block
+basic_block
 create_preheader (struct loop *loop, int flags)
 {
   edge e, fallthru;
@@ -1356,4 +1356,74 @@ create_loop_notes (void)
       free (stack);
     }
   flow_loops_free (&loops);
+}
+
+/* Main entry point for Loop Versioning transformation.
+   
+This transformation given a condition and a loop, creates
+-if (condition) { loop_copy1 } else { loop_copy2 },
+where loop_copy1 is the loop transformed in one way, and loop_copy2
+is the loop transformed in another way (or unchanged). 'condition'
+may be a run time test for things that were not resolved by static
+analysis (overlapping ranges (anti-aliasing), alignment, etc.).  */
+
+struct loop *
+loop_version (struct loops *loops, struct loop * loop, 
+	      void *cond_expr, basic_block *condition_bb)
+{
+  edge entry, latch_edge, exit, true_edge, false_edge;
+  int irred_flag;
+  struct loop *nloop;
+
+  /* CHECKME: Loop versioning does not handle nested loop at this point.  */
+  if (loop->inner)
+    return NULL;
+
+  /* Record entry and latch edges for the loop */
+  entry = loop_preheader_edge (loop);
+  irred_flag = entry->flags & EDGE_IRREDUCIBLE_LOOP;
+  entry->flags &= ~EDGE_IRREDUCIBLE_LOOP;
+  *condition_bb = loop_version_call_back (loops, loop, entry, cond_expr);
+
+  if (!*condition_bb)
+    {
+      entry->flags |= irred_flag;
+      return NULL;
+    }
+
+  latch_edge = EDGE_SUCC (loop->latch->rbi->copy, 0);
+  
+  extract_true_false_edges_from_block (*condition_bb, &true_edge, &false_edge);
+  nloop = loopify (loops, 
+		   latch_edge,
+		   EDGE_PRED (loop->header->rbi->copy, 0),
+		   *condition_bb, true_edge, false_edge,
+		   false /* Do not redirect all edges.  */);
+
+  exit = loop->single_exit;
+  if (exit)
+    nloop->single_exit = find_edge (exit->src->rbi->copy, exit->dest);
+
+  /* loopify redirected latch_edge. Update its PENDING_STMTS.  */ 
+  lv_flush_pending_stmts (latch_edge);
+
+  /* loopify redirected condition_bb's succ edge. Update its PENDING_STMTS.  */ 
+  extract_true_false_edges_from_block (*condition_bb, &true_edge, &false_edge);
+  lv_flush_pending_stmts (false_edge);
+  /* Adjust irreducible flag.  */
+  if (irred_flag)
+    {
+      (*condition_bb)->flags |= BB_IRREDUCIBLE_LOOP;
+      loop_preheader_edge (loop)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      loop_preheader_edge (nloop)->flags |= EDGE_IRREDUCIBLE_LOOP;
+      EDGE_PRED ((*condition_bb), 0)->flags |= EDGE_IRREDUCIBLE_LOOP;
+    }
+
+  /* At this point condition_bb is loop predheader with two successors, 
+     first_head and second_head.   Make sure that loop predheader has only 
+     one successor.  */
+  loop_split_edge_with (loop_preheader_edge (loop), NULL);
+  loop_split_edge_with (loop_preheader_edge (nloop), NULL);
+
+  return nloop;
 }
