@@ -1,3 +1,49 @@
+2003-07-15  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* algebraic.c (init_algebraic, substitute_into_expr): Support
+	handling EXPR_LISTs.
+	* algebraic.h (bival_p): Check for NULL.
+	* cfgloop.h (struct loop_desc): Add niter_max field.
+	(struct ivopt_actions): Add repl_final_value field.
+	(loop_iterations_max, iv_get_condition_value,
+	iv_simplify_using_branches): Declare.
+	(find_single_def_use): Declaration changed.
+	* cfgloopanal.c (iv_simple_condition_p): Pass condition with already
+	substituted initial values.  Initialize niter_max field.  Make
+	conditions less strict.  Simplify conditions using entry branches.
+	(iv_simple_loop_exit_p): Use iv_get_condition_value.
+	(loop_iterations_max): Renamed, exported and moved from doloop.c.
+	* df.c (df_uses_record): Record correct flags at uses.
+	* doloop.c (doloop_iterations_max): Removed.
+	(doloop_valid_p, doloop_modify): Comment improvements.
+	* ifcvt.c (find_if_case_2): Prevent moving of computations into loops.
+	* jump.c (swapped_condition): New function.
+	* loop-init.c (loop_optimizer_optimize): Compute_simple_loop_info call
+	moved to iv analysis.
+	* loop-invariant.c (find_single_def_use): Return type changed.
+	(detect_movable_set): Modified due to it.
+	* loop-iv.c: Ansified.
+	(attempt_to_kill_extends, attempt_to_kill_rtx_extends,
+	attempt_to_kill_ref_extends, iv_simplify_using_branches,
+	iv_get_condition_value, iv_simplify_using_branch,
+	iv_simplify_using_condition): New.
+	(analyse_induction_variables): Use attempt_to_kill_extends.
+	* loop-ivopts.c (struct str_red): Cost field added.
+	(repl_alt): Inc_by field added.
+	(dump_new_biv, dump_sr_replacement): Dump them.
+	(struct fval_repl): New.
+	(decide_strength_reduction, decrease_by_one_iv, alter_by_few_ivs,
+	estimate_gain, gen_repl_rtx, repl_mem_addr_cost, kill_old_global_iv):
+	Support replacing final value of dead bivs used outside of loop.  Be
+	autoinc friendly.
+	(schedule_autoinc, replace_final_value, make_default_ivs): New.
+	* loop-unroll.c (unroll_loop_constant_iterations,
+	unroll_loop_constant_iterations, unroll_loop_runtime_iterations):
+	Update niter_max.
+	* rtl.h (swapped_condition): Declare.
+	* toplev.c (process_options): Disable superblock_scheduling due to
+	conflicts on ia64.
+
 2003-07-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* loop-ivopts.c: New file.

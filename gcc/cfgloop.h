@@ -48,6 +48,8 @@ struct loop_desc
   bool const_iter;      /* True if it iterates constant number of times.  */
   unsigned HOST_WIDE_INT niter;
 			/* Number of iterations if it is constant.  */
+  unsigned HOST_WIDE_INT niter_max;
+			/* Upper bound on number of iterations.  */
   bool may_be_zero;     /* If we cannot determine that the first iteration will pass.  */
   enum rtx_code cond;	/* Exit condition.  */
   int neg;		/* Set to 1 if loop ends when condition is satisfied.  */
@@ -368,6 +370,7 @@ struct ivopt_actions
 {
   struct str_red *ivs;
   struct repl *replacements;
+  struct fval_repl *repl_final_value;
 };
 
 /* Information added to dataflow by loop optimizer.  */
@@ -457,6 +460,7 @@ extern rtx count_loop_iterations (struct loop_desc *, rtx, rtx);
 extern bool just_once_each_iteration_p (struct loops *,struct loop *,
 					basic_block);
 extern unsigned expected_loop_iterations (const struct loop *);
+unsigned HOST_WIDE_INT loop_iterations_max (struct loop *);
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p (struct loop *loop);
@@ -483,10 +487,12 @@ extern void analyse_induction_variables (void);
 extern void iv_load_used_values (rtx, rtx *);
 extern rtx get_def_value (rtx, unsigned);
 extern rtx get_use_value (rtx, unsigned);
+extern rtx iv_get_condition_value (edge);
 
 /* Some functions to manipulate iv rtxes.  */
 extern rtx iv_simplify_using_initial_values (enum rtx_code, rtx, struct loop *);
 extern rtx iv_omit_initial_values (rtx);
+extern rtx iv_simplify_using_branches (enum rtx_code, rtx, struct loop *);
 
 /* Functions to alter insns while keeping the iv information up-to-date.  */
 extern rtx iv_emit_insn_before (rtx, rtx);
@@ -495,7 +501,7 @@ extern rtx iv_emit_insn_after (rtx, rtx);
 /* Utility functions shared by induction variable optimizations and
    invariant motion.  */
 extern void hoist_insn_to_depth (struct loop *, int, rtx, int);
-extern rtx find_single_def_use (rtx, struct loop *, rtx);
+extern struct ref *find_single_def_use (rtx, struct loop *, rtx);
 
 /* Loop optimizer driver.  */
 extern struct loops *loop_optimizer_init (FILE *);

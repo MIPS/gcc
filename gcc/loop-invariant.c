@@ -407,12 +407,12 @@ estimate_replacement_possibilities (rtx reg, struct loop *loop, rtx insn)
 }
 
 /* Find single use of definition of REG in INSN inside LOOP.  */
-rtx
+struct ref *
 find_single_def_use (rtx reg, struct loop *loop, rtx insn)
 {
   basic_block bb = BLOCK_FOR_INSN (insn);
   struct df_link *def, *use, *ddef;
-  rtx single_use = NULL;
+  struct ref *single_use = NULL;
 
   for (def = DF_INSN_DEFS (loop_df, insn);
        DF_REF_REGNO (def->ref) != REGNO (reg);
@@ -423,6 +423,10 @@ find_single_def_use (rtx reg, struct loop *loop, rtx insn)
   for (use = loop_df->regs[REGNO (reg)].uses; use; use = use->next)
     {
       bb = DF_REF_BB (use->ref);
+
+      if (single_use
+	  && DF_REF_INSN (single_use) == DF_REF_INSN (use->ref))
+	continue;
 
       for (ddef = DF_REF_CHAIN (use->ref); ddef; ddef = ddef->next)
 	if (ddef->ref == def->ref)
@@ -435,7 +439,7 @@ find_single_def_use (rtx reg, struct loop *loop, rtx insn)
 	      || DF_REF_CHAIN (use->ref)->next)
 	    return NULL;
 	      
-	  single_use = DF_REF_INSN (use->ref);
+	  single_use = use->ref;
 	}
     }
 
@@ -1002,6 +1006,7 @@ detect_movable_set (basic_block bb, rtx insn, int after_call,
   struct loop *loop = bb->loop_father;
   int replaceable;
   rtx single_target;
+  struct ref *single_target_def;
 
   if (!set)
     return;
@@ -1063,7 +1068,8 @@ detect_movable_set (basic_block bb, rtx insn, int after_call,
     continue;
   estimate_lifetime (def->ref, &local, &lifetime);
   replaceable = estimate_replacement_possibilities (dest, loop, insn);
-  single_target = find_single_def_use (dest, loop, insn);
+  single_target_def = find_single_def_use (dest, loop, insn);
+  single_target = single_target_def ? DF_REF_INSN (single_target_def) : NULL;
   
   /* Now we are sure that it is movable on some higher level and know its
      dependencies.  Let's find whether there is not already equivalent

@@ -5414,10 +5414,12 @@ process_options ()
     flag_asynchronous_unwind_tables = 1;
   if (flag_asynchronous_unwind_tables)
     flag_unwind_tables = 1;
+  /*
   if (flag_trace_scheduling)
     flag_superblock_scheduling = 1;
   if (flag_superblock_scheduling)
     flag_schedule_insns_after_reload = 1;
+    */
 
   /* Disable unit-at-a-time mode for frontends not supporting callgraph
      interface.  */

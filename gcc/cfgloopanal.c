@@ -47,8 +47,8 @@ static bool constant_iterations PARAMS ((struct loop_desc *,
 static bool simple_loop_exit_p PARAMS ((struct loops *, struct loop *,
 					edge, regset, rtx *,
 					struct loop_desc *));
-static bool iv_simple_condition_p PARAMS ((struct loop *,
-					   rtx, rtx *, struct loop_desc *));
+static bool iv_simple_condition_p PARAMS ((struct loop *, rtx,
+					   struct loop_desc *));
 static bool iv_simple_loop_exit_p PARAMS ((struct loops *, struct loop *,
 					   edge, struct loop_desc *));
 static bool iv_simple_loop_p PARAMS ((struct loops *, struct loop *,
@@ -851,17 +851,13 @@ inverse (x, mod)
 }
 
 /* Tests whether the CONDITION enables us to determine the number of iterations
-   of the LOOP, using register values stored in VALUES.  If so, store the
-   information in DESC.  */
+   of the LOOP.  If so, store the information in DESC.  */
 static bool
-iv_simple_condition_p (loop, condition, values, desc)
+iv_simple_condition_p (loop, condition, desc)
      struct loop *loop;
      rtx condition;
-     rtx *values;
      struct loop_desc *desc;
 {
-  rtx scond = substitute_into_expr (condition, iv_interesting_reg,
-				    values, SIE_SIMPLIFY);
   rtx op0, op1, tmp, delta, base0, step0, base1, step1, step, bound, may_xform;
   rtx assumption;
   enum rtx_code cond;
@@ -869,6 +865,7 @@ iv_simple_condition_p (loop, condition, values, desc)
   enum machine_mode extend_mode;
   rtx mmin, mmax;
   unsigned HOST_WIDEST_INT s, size, d;
+  HOST_WIDEST_INT up, down, inc;
   int was_sharp = false;
 
   /* The meaning of these assumptions is this:
@@ -886,8 +883,9 @@ iv_simple_condition_p (loop, condition, values, desc)
 
   desc->const_iter = false;
   desc->niter_expr = NULL_RTX;
+  desc->niter_max = 0;
 
-  if (!scond)
+  if (!condition)
     return false;
 
   /* We only handle integers or pointers.  */
@@ -897,22 +895,22 @@ iv_simple_condition_p (loop, condition, values, desc)
 
   /* The value of VALUE_AT may differ in each iteration, making most of
      the checks below useless.  */
-  if (expr_mentions_code_p (scond, VALUE_AT))
+  if (expr_mentions_code_p (condition, VALUE_AT))
     return false;
 
   /* We may be unsure about the first iteration.  ??? We certainly could
      handle this case, it would require some non-trivial effort (for example
      the second iteration is special due to need to handle overflows, so
      desc structure would have to be enhanced).  The easiest way seems to
-     be use the first argument of scond for noloop_assumptions, replace
+     be use the first argument of condition for noloop_assumptions, replace
      iteration by iteration + 1 in the second argument, rerun and shift the
      result by one.  */
-  if (bival_p (scond))
+  if (bival_p (condition))
     return false;
 
   /* The simplification above could have proved that this condition is
      always true or always false.  */
-  if (scond == const0_rtx)
+  if (condition == const0_rtx)
     {
       desc->const_iter = true;
       desc->niter = 0;
@@ -922,17 +920,17 @@ iv_simple_condition_p (loop, condition, values, desc)
     }
   /* This indicates that the exit is useless, so it would be fine to remove
      it somewhere.  */
-  if (scond == const_true_rtx)
+  if (condition == const_true_rtx)
     {
       desc->infinite = alloc_EXPR_LIST (0, const_true_rtx, NULL_RTX); 
       return false;
     }
-  cond = GET_CODE (scond);
+  cond = GET_CODE (condition);
   if (GET_RTX_CLASS (cond) != '<')
     abort ();
 
-  op0 = XEXP (scond, 0);
-  op1 = XEXP (scond, 1);
+  op0 = XEXP (condition, 0);
+  op1 = XEXP (condition, 1);
 
   if (!fast_expr_mentions_operator_p (op0, ITERATION))
     {
@@ -1177,19 +1175,23 @@ iv_simple_condition_p (loop, condition, values, desc)
 	  if (may_xform != const_true_rtx)
 	    desc->assumptions = alloc_EXPR_LIST (0, may_xform,
 						 desc->assumptions);
-	  assumption = simplify_gen_relational (reverse_condition (cond),
-						SImode, mode,
-						copy_rtx (base0),
-						copy_rtx (base1)),
-	  desc->noloop_assumptions =
-		  alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
-	  cond = NE;
+
+	  /* We are going to lose some information about upper bound on
+	     number of iterations in this step, so record the information
+	     here.  */
+	  inc = INTVAL (step0) - INTVAL (step1);
+	  if (GET_CODE (base1) == CONST_INT)
+	    up = INTVAL (base1);
+	  else
+	    up = INTVAL (mmax) - inc;
+	  down = INTVAL (GET_CODE (base0) == CONST_INT ? base0 : mmin);
+	  desc->niter_max = (up - down) / inc + 1;
 
 	  if (step0 == const0_rtx)
 	    {
 	      base0 = gen_rtx_fmt_ee (PLUS, mode, base0, delta);
 	      base0 = gen_rtx_fmt_ee (MINUS, mode, base0, step);
-	      base0 = simplify_alg_expr (base0);
+	      base0 = simplify_alg_expr (base0); 
 	    }
 	  else
 	    {
@@ -1197,6 +1199,14 @@ iv_simple_condition_p (loop, condition, values, desc)
 	      base1 = gen_rtx_fmt_ee (PLUS, mode, base1, step);
 	      base1 = simplify_alg_expr (base1);
 	    }
+
+	  assumption = simplify_gen_relational (reverse_condition (cond),
+						SImode, mode,
+						copy_rtx (base0),
+						copy_rtx (base1)),
+	  desc->noloop_assumptions =
+		  alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
+	  cond = NE;
 	}
     }
 
@@ -1244,8 +1254,8 @@ iv_simple_condition_p (loop, condition, values, desc)
     {
       if (step1 == const0_rtx)
 	/* Condition in shape a + s * i <= b
-	   We must know that b + s does not overflow and a <= b and then we
-	   can compute number of iterations as (b - a) / s + 1.  (It might
+	   We must know that b + s does not overflow and a <= b + s and then we
+	   can compute number of iterations as (b + s - a) / s.  (It might
 	   seem that we in fact could be more clever about testing the b + s
 	   overflow condition using some information about b - a mod s,
 	   but it was already taken into account during LE -> NE transform).  */
@@ -1256,27 +1266,38 @@ iv_simple_condition_p (loop, condition, values, desc)
 	  desc->assumptions =
 		  alloc_EXPR_LIST (0, assumption, desc->assumptions);
 	  step = step0;
+	  tmp = simplify_gen_binary (PLUS, mode, copy_rtx (base1), step0);
+	  assumption = simplify_gen_relational (reverse_condition (cond),
+						SImode,
+						mode,
+						copy_rtx (base0),
+						tmp);
+	  delta = gen_rtx_fmt_ee (PLUS, mode, base1, step);
+	  delta = gen_rtx_fmt_ee (MINUS, mode, delta, base0);
 	}
       else
 	{
 	  /* Condition in shape a <= b - s * i
-	     We must know that a - s does not overflow and a <= b and then we
-	     can again compute number of iterations as (b - a) / s + 1.  */
+	     We must know that a - s does not overflow and a - s <= b and then
+	     we can again compute number of iterations as (b - (a - s)) / s.  */
 	  bound = simplify_gen_binary (MINUS, mode, mmin, step1);
 	  assumption = simplify_gen_relational (cond, SImode, mode,
 						bound, copy_rtx (base0));
 	  desc->assumptions =
 		  alloc_EXPR_LIST (0, assumption, desc->assumptions);
 	  step = GEN_INT (-INTVAL (step1));
+	  tmp = simplify_gen_binary (PLUS, mode, copy_rtx (base0), step1);
+	  assumption = simplify_gen_relational (reverse_condition (cond),
+						SImode,
+						mode,
+						tmp,
+						copy_rtx (base1));
+	  delta = gen_rtx_fmt_ee (MINUS, mode, base0, step);
+	  delta = gen_rtx_fmt_ee (MINUS, mode, base1, delta);
 	}
-      assumption = simplify_gen_relational (reverse_condition (cond), SImode,
-					    mode,
-					    copy_rtx (base0), copy_rtx (base1));
       desc->noloop_assumptions =
 	      alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
-      delta = gen_rtx_fmt_ee (MINUS, mode, base1, base0);
       delta = gen_rtx_fmt_ee (UDIV, mode, delta, step);
-      delta = gen_rtx_fmt_ee (PLUS, mode, delta, const1_rtx);
       desc->niter_expr = simplify_alg_expr (delta);
     }
 
@@ -1294,6 +1315,15 @@ iv_simple_condition_p (loop, condition, values, desc)
   if (GET_CODE (desc->niter_expr) != CONST_INT)
     desc->niter_expr =
 	    iv_simplify_using_initial_values (NIL, desc->niter_expr, loop);
+
+  /* Attempt to make the assumptions simpler using conditions checked before
+     entering the loop.  */
+  if (desc->assumptions)
+    desc->assumptions =
+	    iv_simplify_using_branches (AND, desc->assumptions, loop);
+  if (desc->noloop_assumptions)
+    desc->noloop_assumptions =
+	    iv_simplify_using_branches (IOR, desc->noloop_assumptions, loop);
 
   if (GET_CODE (desc->niter_expr) == CONST_INT)
     {
@@ -1313,14 +1343,10 @@ iv_simple_loop_exit_p (loops, loop, exit_edge, desc)
      struct loop_desc *desc;
 {
   basic_block exit_bb;
-  int fallthru_out;
   rtx condition;
   edge ei;
-  rtx insn, first_cond_insn;
 
   exit_bb = exit_edge->src;
-
-  fallthru_out = (exit_edge->flags & EDGE_FALLTHRU);
 
   /* It must belong directly to the loop.  */
   if (exit_bb->loop_father != loop)
@@ -1343,24 +1369,12 @@ iv_simple_loop_exit_p (loops, loop, exit_edge, desc)
   desc->postincr = (ei->dest != loop->latch);
 
   /* Test whether the condition is suitable.  */
-  if (!(condition = get_condition (exit_bb->end, &first_cond_insn)))
+  if (!(condition = iv_get_condition_value (ei)))
     return false;
-
-  for (insn = exit_bb->end;
-       insn != PREV_INSN (first_cond_insn);
-       insn = PREV_INSN (insn))
-    iv_load_used_values (insn, iv_register_values);
-
-  if (!fallthru_out)
-    {
-      condition = reversed_condition (condition);
-      if (!condition)
-	return false;
-    }
 
   /* Check that we are able to determine number of iterations and fill
      in information about it.  */
-  if (!iv_simple_condition_p (loop, condition, iv_register_values, desc))
+  if (!iv_simple_condition_p (loop, condition, desc))
     return false;
 
   return true;
@@ -1771,3 +1785,92 @@ get_loop_level (const struct loop *loop)
   return mx + 1;
 }
 
+/* Return an upper bound on the maximum number of loop iterations for the
+   loop specified by LOOP.  */
+unsigned HOST_WIDE_INT
+loop_iterations_max (struct loop *loop)
+{
+  enum machine_mode mode = loop->desc.mode;
+  rtx left, right;
+  rtx min_value, max_value;
+  unsigned HOST_WIDE_INT inc, nmax;
+  rtx niter = loop->desc.niter_expr;
+
+  /* Unless these conditions are satisfied, the result would not be
+     reliable.  */
+  if (!loop->simple
+      || loop->desc.assumptions
+      || loop->desc.infinite != const0_rtx)
+    abort ();
+
+  if (loop->desc.niter_max)
+    return loop->desc.niter_max;
+
+  /* This code covers most of the cases coming from cfgloopanal.c and
+     loop-unroll.c, and is conservative in the other cases.  If it is
+     critical, we may improve it later.  */
+
+  if (GET_CODE (niter) == CONST_INT)
+    {
+      loop->desc.niter_max = INTVAL (niter);
+      return INTVAL (niter);
+    }
+
+  if (GET_CODE (niter) == AND
+      && GET_CODE (XEXP (niter, 0)) == CONST_INT)
+    {
+      nmax = INTVAL (XEXP (niter, 0));
+      if (!(nmax & (nmax + 1)))
+	{
+	  loop->desc.niter_max = nmax;
+	  return nmax;
+	}
+    }
+
+  get_mode_bounds (mode, loop->desc.signed_p, &min_value, &max_value);
+  nmax = INTVAL (max_value) - INTVAL (min_value);
+
+  if (GET_CODE (niter) == UDIV)
+    {
+      if (GET_CODE (XEXP (niter, 1)) != CONST_INT)
+	{
+	  loop->desc.niter_max = nmax;
+	  return nmax;
+	}
+      inc = INTVAL (XEXP (niter, 1));
+      niter = XEXP (niter, 0);
+    }
+  else
+    inc = 1;
+
+  if (GET_CODE (niter) == PLUS)
+    {
+      left = XEXP (niter, 0);
+      right = XEXP (niter, 0);
+
+      if (GET_CODE (right) == CONST_INT)
+	right = GEN_INT (-INTVAL (XEXP (niter, 1)));
+      else if (GET_CODE (right) == NEG)
+	right = XEXP (right, 0);
+      else
+	{
+	  loop->desc.niter_max = nmax / inc;
+	  return nmax / inc;
+	}
+    }
+  else
+    {
+      left = niter;
+      right = const0_rtx;
+    }
+
+  if (GET_CODE (left) == CONST_INT)
+    max_value = left;
+  if (GET_CODE (right) == CONST_INT)
+    min_value = right;
+
+  nmax = INTVAL (left) - INTVAL (right);
+
+  loop->desc.niter_max = nmax / inc;
+  return nmax / inc;
+}

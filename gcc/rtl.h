@@ -1531,6 +1531,7 @@ extern enum rtx_code signed_condition	PARAMS ((enum rtx_code));
 extern void mark_jump_label		PARAMS ((rtx, rtx, int));
 extern void cleanup_barriers		PARAMS ((void));
 extern rtx reversed_condition		PARAMS ((rtx));
+extern rtx swapped_condition		PARAMS ((rtx));
 
 /* In jump.c */
 extern bool squeeze_notes		PARAMS ((rtx *, rtx *));

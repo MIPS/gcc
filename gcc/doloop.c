@@ -64,8 +64,6 @@ static bool doloop_optimize
   PARAMS ((struct loops *loops, struct loop *loop));
 static rtx doloop_condition_get
   PARAMS ((rtx));
-static unsigned HOST_WIDE_INT doloop_iterations_max
-  PARAMS ((const struct loop *));
 static bool doloop_valid_p
   PARAMS ((struct loops *, struct loop *));
 static bool doloop_modify
@@ -141,61 +139,6 @@ doloop_condition_get (pattern)
 
   return 0;
 }
-
-
-/* Return an estimate of the maximum number of loop iterations for the
-   loop specified by LOOP.  */
-static unsigned HOST_WIDE_INT
-doloop_iterations_max (loop)
-     const struct loop *loop;
-{
-  enum machine_mode mode = loop->desc.mode;
-  unsigned HOST_WIDE_INT n_iterations_max
-    = ((unsigned) 2 << (GET_MODE_BITSIZE (mode) - 1)) - 1;
-  rtx left, right;
-  rtx min_value, max_value;
-  unsigned HOST_WIDE_INT inc;
-  rtx niter = loop->desc.niter_expr;
-
-  /* This code covers most of the cases coming from cfgloopanal.c and
-     loop-unroll.c, and is conservative in the other cases.  If it is
-     critical, we may improve it later.  */
-  if (GET_CODE (niter) == UDIV)
-    {
-      if (GET_CODE (XEXP (niter, 1)) != CONST_INT)
-	return n_iterations_max;
-      inc = INTVAL (XEXP (niter, 1));
-      niter = XEXP (niter, 0);
-    }
-  else
-    inc = 1;
-
-  if (GET_CODE (niter) == PLUS)
-    {
-      left = XEXP (niter, 0);
-      right = XEXP (niter, 0);
-
-      if (GET_CODE (right) == CONST_INT)
-	right = GEN_INT (-INTVAL (XEXP (niter, 1)));
-      else if (GET_CODE (right) == NEG)
-	right = XEXP (right, 0);
-      else
-	return n_iterations_max / inc;
-    }
-  else
-    return n_iterations_max / inc;
-
-  get_mode_bounds (mode, loop->desc.signed_p, &min_value, &max_value);
-  if (GET_CODE (left) == CONST_INT)
-    max_value = left;
-  if (GET_CODE (right) == CONST_INT)
-    min_value = right;
-
-  n_iterations_max = INTVAL (left) - INTVAL (right);
-
-  return n_iterations_max / inc;
-}
-
 
 /* Return nonzero if the loop specified by LOOP is suitable for
    the use of special low-overhead looping instructions.  */
@@ -296,7 +239,7 @@ doloop_valid_p (loops, loop)
       /* We should emit a test for this in front of the loop.  Actually we
 	 do not do it, so we have to abort here to ensure safety. (??? In fact
 	 we might proceed as long as the condition in the doloop pattern
-	 is not NE.  */
+	 is not NE).  */
       return false;
     }
 
@@ -367,7 +310,7 @@ doloop_modify (loop, iterations, iterations_max, doloop_seq, condition)
       if (XEXP (condition, 1) != const0_rtx)
 	abort ();
 
-      /* The iteration count does not needs incrementing for a GE test.  */
+      /* The iteration count does not need incrementing for a GE test.  */
       increment_count = 0;
 
       /* Determine if the iteration counter will be non-negative.
@@ -539,7 +482,7 @@ doloop_optimize (loops, loop)
 
       /* This is the harder case where the initial and final loop
 	 values may not be constants.  */
-      n_iterations_max = doloop_iterations_max (loop);
+      n_iterations_max = loop_iterations_max (loop);
     }
 
   if (n_iterations && n_iterations < 3)

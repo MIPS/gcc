@@ -2779,15 +2779,9 @@ find_if_case_2 (test_bb, then_edge, else_edge)
   if (then_bb->index < 0)
     return FALSE;
 
-  /* ELSE is predicted or SUCC(ELSE) postdominates THEN.  */
+  /* ELSE is predicted.  */
   note = find_reg_note (test_bb->end, REG_BR_PROB, NULL_RTX);
-  if (note && INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2)
-    ;
-  else if (else_succ->dest->index < 0
-	   || dominated_by_p (post_dominators, then_bb, 
-			      else_succ->dest))
-    ;
-  else
+  if (!note || INTVAL (XEXP (note, 0)) < REG_BR_PROB_BASE / 2)
     return FALSE;
 
   num_possible_if_blocks++;

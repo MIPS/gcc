@@ -1026,7 +1026,8 @@ df_uses_record (df, loc, ref_type, bb, insn, flags)
       return;
 
     case MEM:
-      df_uses_record (df, &XEXP (x, 0), DF_REF_REG_MEM_LOAD, bb, insn, flags);
+      df_uses_record (df, &XEXP (x, 0), DF_REF_REG_MEM_LOAD, bb, insn,
+		      flags & ~DF_REF_READ_WRITE);
       return;
 
     case SUBREG:

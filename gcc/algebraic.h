@@ -53,7 +53,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    the induction variables that are represented in a wider mode register
    than the mode in that they iterate.  */
 #define bival_p(EXPR)						\
-  (GET_OPERATOR (EXPR) == OP_IF_THEN_ELSE			\
+  ((EXPR)							\
+   && GET_OPERATOR (EXPR) == OP_IF_THEN_ELSE			\
    && GET_OPERATOR (ARG ((EXPR), 0)) == OP_EQ			\
    && GET_OPERATOR (ARG (ARG ((EXPR), 0), 1)) == OP_ITERATION	\
    && GET_OPERATOR (ARG (ARG ((EXPR), 0), 0)) == OP_CONST_INT	\

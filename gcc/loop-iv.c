@@ -144,47 +144,46 @@ static rtx *initial_value_rtx;
 /* For each loop, a linklist of induction variable occurences.  */
 struct iv_occurence_step_class **iv_occurences;
 
-static rtx gen_initial_value		PARAMS ((unsigned));
-static rtx gen_value_at			PARAMS ((unsigned, rtx, int));
-static void record_def_value		PARAMS ((rtx, unsigned, rtx));
-static void record_use_value		PARAMS ((rtx, unsigned, rtx))
-     ATTRIBUTE_UNUSED;
-static bool invariant_wrto_ivs_p	PARAMS ((rtx, rtx *));
-static void simulate_set		PARAMS ((rtx, rtx, void *));
-static void simplify_ivs_using_values	PARAMS ((rtx *, rtx *));
-static void clear_reg_values		PARAMS ((int));
-static rtx earliest_value_at_for	PARAMS ((basic_block, int));
-static rtx get_reg_value_at		PARAMS ((basic_block, rtx,
-						 struct ref *));
-static int iv_omit_initial_values_1	PARAMS ((rtx *, void *));
-static void compute_reg_values		PARAMS ((basic_block, rtx));
-static void compute_register_values	PARAMS ((int));
-static void simplify_reg_values		PARAMS ((basic_block, rtx));
-static void simplify_register_values	PARAMS ((void));
-static void compute_loop_end_values	PARAMS ((struct loop *, rtx *));
-static int replace_iteration_with_value_at PARAMS ((rtx *, void *));
-static rtx iv_make_initial_value	PARAMS ((struct loop *, rtx, rtx, unsigned));
-static void compute_initial_values	PARAMS ((struct loop *));
-static void fill_loop_rd_in_for_def	PARAMS ((struct ref *));
-static void fill_rd_for_defs		PARAMS ((basic_block, bitmap));
-static void fill_loops_dominance_order	PARAMS ((void));
+static rtx gen_initial_value (unsigned);
+static rtx gen_value_at (unsigned, rtx, int);
+static void record_def_value (rtx, unsigned, rtx);
+static void record_use_value (rtx, unsigned, rtx) ATTRIBUTE_UNUSED;
+static bool invariant_wrto_ivs_p (rtx, rtx *);
+static void simulate_set (rtx, rtx, void *);
+static void simplify_ivs_using_values (rtx *, rtx *);
+static rtx iv_simplify_using_branch (edge, rtx);
+static rtx iv_simplify_using_condition (rtx, rtx);
+static void attempt_to_kill_extends (void);
+static void attempt_to_kill_ref_extends (struct loop *, struct ref *);
+static int attempt_to_kill_rtx_extends (rtx *, void *);
+static void clear_reg_values (int);
+static rtx earliest_value_at_for (basic_block, int);
+static rtx get_reg_value_at (basic_block, rtx, struct ref *);
+static int iv_omit_initial_values_1 (rtx *, void *);
+static void compute_reg_values (basic_block, rtx);
+static void compute_register_values (int);
+static void simplify_reg_values (basic_block, rtx);
+static void simplify_register_values (void);
+static void compute_loop_end_values (struct loop *, rtx *);
+static int replace_iteration_with_value_at (rtx *, void *);
+static rtx iv_make_initial_value (struct loop *, rtx, rtx, unsigned);
+static void compute_initial_values (struct loop *);
+static void fill_loop_rd_in_for_def (struct ref *);
+static void fill_rd_for_defs (basic_block, bitmap);
+static void fill_loops_dominance_order (void);
 static void enter_iv_occurence (struct iv_occurence_step_class **, rtx, rtx,
 				rtx, rtx, rtx, rtx, rtx *, enum machine_mode,
 				enum machine_mode, enum rtx_code);
-static int record_iv_occurences_1	PARAMS ((rtx *, void *));
-static void record_iv_occurences	PARAMS ((struct iv_occurence_step_class **,
-						 rtx));
-static void iv_new_insn_changes_commit	PARAMS ((basic_block, rtx, rtx));
-extern void dump_equations		PARAMS ((FILE *, rtx *));
-extern void dump_insn_ivs		PARAMS ((FILE *, rtx));
-extern void dump_iv_occurences		PARAMS ((FILE *,
-						 struct iv_occurence_step_class *));
+static int record_iv_occurences_1 (rtx *, void *);
+static void record_iv_occurences (struct iv_occurence_step_class **, rtx);
+static void iv_new_insn_changes_commit (basic_block, rtx, rtx);
+extern void dump_equations (FILE *, rtx *);
+extern void dump_insn_ivs (FILE *, rtx);
+extern void dump_iv_occurences (FILE *, struct iv_occurence_step_class *);
 
 /* Dump equations for induction variables in VALUES to FILE.  */
 void
-dump_equations (file, values)
-     FILE *file;
-     rtx *values;
+dump_equations (FILE *file, rtx *values)
 {
   unsigned regno;
 
@@ -208,9 +207,7 @@ dump_equations (file, values)
 
 /* Dump equations for induction variables at INSN to FILE.  */
 void
-dump_insn_ivs (file, insn)
-     FILE *file;
-     rtx insn;
+dump_insn_ivs (FILE *file, rtx insn)
 {
   struct df_link *def = DF_INSN_DEFS (loop_df, insn);
   struct df_link *use = DF_INSN_USES (loop_df, insn);
@@ -238,9 +235,7 @@ dump_insn_ivs (file, insn)
 
 /* Dump equations for induction variables in list of step classes SC to FILE.  */
 void
-dump_iv_occurences (file, sc)
-     FILE *file;
-     struct iv_occurence_step_class *sc;
+dump_iv_occurences (FILE *file, struct iv_occurence_step_class *sc)
 {
   struct iv_occurence_base_class *bc;
   struct iv_occurence *oc;
@@ -275,8 +270,7 @@ dump_iv_occurences (file, sc)
 /* Generate INITIAL_VALUE for register REGNO (they are shared, so just return
    the rtx).  */
 static rtx
-gen_initial_value (regno)
-     unsigned regno;
+gen_initial_value (unsigned regno)
 {
   return initial_value_rtx[regno];
 }
@@ -284,10 +278,7 @@ gen_initial_value (regno)
 /* Generate a VALUE_AT rtx for register REGNO at INSN (if AFTER, immediatelly
    after it).  */
 static rtx
-gen_value_at (regno, insn, after)
-     unsigned regno;
-     rtx insn;
-     int after;
+gen_value_at (unsigned regno, rtx insn, int after)
 {
   int place_number;
 
@@ -303,10 +294,7 @@ gen_value_at (regno, insn, after)
 
 /* Record VALUE to def of register REGNO in INSN.  */
 static void
-record_def_value (insn, regno, value)
-     rtx insn;
-     unsigned regno;
-     rtx value;
+record_def_value (rtx insn, unsigned regno, rtx value)
 {
   struct df_link *def = DF_INSN_DEFS (loop_df, insn);
 
@@ -321,10 +309,7 @@ record_def_value (insn, regno, value)
 
 /* Record VALUE to use of register REGNO in INSN.  */
 static void
-record_use_value (insn, regno, value)
-     rtx insn;
-     unsigned regno;
-     rtx value;
+record_use_value (rtx insn, unsigned regno, rtx value)
 {
   struct df_link *use = DF_INSN_USES (loop_df, insn);
 
@@ -339,9 +324,7 @@ record_use_value (insn, regno, value)
 
 /* Get value from def of register REGNO in INSN.  */
 rtx
-get_def_value (insn, regno)
-     rtx insn;
-     unsigned regno;
+get_def_value (rtx insn, unsigned regno)
 {
   struct df_link *def = DF_INSN_DEFS (loop_df, insn);
 
@@ -356,9 +339,7 @@ get_def_value (insn, regno)
 
 /* Get VALUE from use of register REGNO in INSN.  */
 rtx
-get_use_value (insn, regno)
-     rtx insn;
-     unsigned regno;
+get_use_value (rtx insn, unsigned regno)
 {
   struct df_link *use = DF_INSN_USES (loop_df, insn);
 
@@ -373,9 +354,7 @@ get_use_value (insn, regno)
 
 /* Called through for_each_rtx from iv_omit_initial_values.  */
 static int
-iv_omit_initial_values_1 (expr, data)
-     rtx *expr;
-     void *data ATTRIBUTE_UNUSED;
+iv_omit_initial_values_1 (rtx *expr, void *data ATTRIBUTE_UNUSED)
 {
   if (GET_CODE (*expr) == INITIAL_VALUE)
     {
@@ -387,8 +366,7 @@ iv_omit_initial_values_1 (expr, data)
 
 /* Omits initial_values from the expression EXPR.  */
 rtx
-iv_omit_initial_values (expr)
-     rtx expr;
+iv_omit_initial_values (rtx expr)
 {
   expr = copy_rtx (expr);
   for_each_rtx (&expr, iv_omit_initial_values_1, NULL);
@@ -398,9 +376,7 @@ iv_omit_initial_values (expr)
 /* Checks whether all registers used to compute EXPR are unchanging according
    to VALUES.  */
 static bool
-invariant_wrto_ivs_p (expr, values)
-     rtx expr;
-     rtx *values;
+invariant_wrto_ivs_p (rtx expr, rtx *values)
 {
   unsigned regno;
   int i, length;
@@ -454,10 +430,7 @@ static rtx current_insn;
 static sbitmap act_modified_regs;
 
 static void
-simulate_set (reg, set, data)
-     rtx reg;
-     rtx set;
-     void *data;
+simulate_set (rtx reg, rtx set, void *data)
 {
   rtx *values = (rtx *) data;
   rtx src, value;
@@ -487,9 +460,7 @@ simulate_set (reg, set, data)
 /* Try to substitute initial values of registers (INITIAL_VALUES) into
    induction variables (VALUES) and keep those that result in constants.  */
 static void
-simplify_ivs_using_values (values, initial_values)
-     rtx *values;
-     rtx *initial_values;
+simplify_ivs_using_values (rtx *values, rtx *initial_values)
 {
   unsigned regno;
   rtx value, svalue;
@@ -505,14 +476,126 @@ simplify_ivs_using_values (values, initial_values)
       }
 }
 
+/* If we know that x in *_extend(x) does not overflow, we may replace it
+   by computation in the outer mode.  Try to use information about number
+   of iterations to do so.  */
+static void
+attempt_to_kill_extends ()
+{
+  basic_block bb;
+  rtx insn;
+  struct df_link *def, *use;
+
+  FOR_EACH_BB (bb)
+    {
+      if (!bb->loop_father->outer
+	  || !bb->loop_father->simple
+	  || bb->loop_father->desc.assumptions
+	  || bb->loop_father->desc.infinite != const0_rtx)
+	continue;
+
+      FOR_BB_INSNS (bb, insn)
+	{
+	  if (!INSN_P (insn))
+	    continue;
+
+	  for (def = DF_INSN_DEFS (loop_df, insn); def; def = def->next)
+	    attempt_to_kill_ref_extends (bb->loop_father, def->ref);
+	  for (use = DF_INSN_USES (loop_df, insn); use; use = use->next)
+	    attempt_to_kill_ref_extends (bb->loop_father, use->ref);
+	}
+    }
+}
+
+/* Called from attempt_to_kill_ref_extends, attempts to kill extends extends
+   in expression X.  */
+static int atkre_worked;
+static int
+attempt_to_kill_rtx_extends (rtx *x, void *data)
+{
+  struct loop *loop = data;
+  rtx val, sval, base, step;
+  unsigned HOST_WIDE_INT max_iter;
+  rtx rmin, rmax;
+  HOST_WIDE_INT down, up, mmin, mmax;
+
+  if (GET_CODE (*x) != SIGN_EXTEND
+      && GET_CODE (*x) != ZERO_EXTEND)
+    return 0;
+
+  val = XEXP (*x, 0);
+  sval = simplify_alg_expr_using_values (val, iv_interesting_reg,
+					 initial_values[loop->num]);
+  if (!sval)
+    return -1;
+  atkre_worked = true;
+  XEXP (*x, 0) = sval;
+
+  iv_split (sval, &base, &step);
+
+  /* For now we handle only the most important case
+     const * iteration + constant.  */
+  if (GET_CODE (base) != CONST_INT
+      || GET_CODE (step) != CONST_INT
+      || step == const0_rtx)
+    return -1;
+
+  max_iter = loop_iterations_max (loop);
+  /* ??? Here we risk overflow.  */
+  up = INTVAL (base) + max_iter * INTVAL (step);
+  down = INTVAL (base);
+
+  get_mode_bounds (GET_MODE (sval), GET_CODE (*x) == SIGN_EXTEND, &rmin, &rmax);
+  mmin = INTVAL (rmin);
+  mmax = INTVAL (rmax);
+  if (up < mmin || mmax < up)
+    return -1;
+  if (down < mmin || mmax < down)
+    return -1;
+
+  /* We fit into mode.  Let's get rid of the extend.  */
+  *x = GEN_BINARY (OP_PLUS, GET_MODE (*x), base,
+		   GEN_BINARY (OP_MULT, GET_MODE (*x), step,
+			       gen_iteration (GET_MODE (*x))));
+  return -1;
+}
+
+/* Attempts to kill extends in reference REF in loop LOOP.  */
+static void
+attempt_to_kill_ref_extends (struct loop *loop, struct ref *ref)
+{
+  rtx *value, sval;
+
+  if (!DF_REF_AUX_VALUE (ref))
+    return;
+
+  value = &DF_REF_AUX_VALUE (ref);
+  if (!fast_expr_mentions_operator_p (*value, OP_EXTEND_SIGNED)
+      && !fast_expr_mentions_operator_p (*value, OP_EXTEND_UNSIGNED))
+    return;
+
+  *value = COPY_EXPR (*value);
+  atkre_worked = false;
+  for_each_rtx (value, attempt_to_kill_rtx_extends, loop);
+  if (atkre_worked)
+    {
+      sval = simplify_alg_expr (*value);
+      if (sval)
+	{
+	  *value = sval;
+	  sval = simplify_alg_expr_using_values (sval, iv_interesting_reg,
+						 initial_values[loop->num]);
+	  if (sval)
+	    *value = sval;
+	}
+    }
+}
+
 /* Attempt to simplify the expression EXPR using initial values at entry of
    the LOOP.  If EXPR is list, then its elements are combined together through
    operation OP.  */
 rtx
-iv_simplify_using_initial_values (op, expr, loop)
-     enum rtx_code op;
-     rtx expr;
-     struct loop *loop;
+iv_simplify_using_initial_values (enum rtx_code op, rtx expr, struct loop *loop)
 {
   rtx l, r, tmp;
 
@@ -558,11 +641,201 @@ iv_simplify_using_initial_values (op, expr, loop)
   return expr;
 }
 
+/* Attempt to simplify the expression EXPR using branches that lead to
+   the LOOP.  EXPR is a list whose elements are combined together through
+   operation OP.  */
+rtx
+iv_simplify_using_branches (enum rtx_code op, rtx expr, struct loop *loop)
+{
+  basic_block bb = loop_preheader_edge (loop)->src;
+  edge e;
+  rtx expr_val = NULL, *aexpr;
+
+  if (!expr
+      || XEXP (expr, 0) == const_true_rtx
+      || XEXP (expr, 0) == const0_rtx)
+    return expr;
+
+  while (bb->pred->src != ENTRY_BLOCK_PTR
+	 && !bb->pred->pred_next)
+    {
+      e = bb->pred;
+      bb = e->src;
+
+      if (bb->succ->succ_next)
+	{
+	  if (!expr_val)
+	    expr_val = substitute_into_expr (expr, iv_interesting_reg,
+					     initial_values[loop->num],
+					     SIE_SIMPLIFY);
+	  expr_val = iv_simplify_using_branch (e, expr_val);
+	}
+    }
+
+  if (!expr_val)
+    return expr;
+
+  for (aexpr = &expr; expr_val; expr_val = XEXP (expr_val, 1))
+    {
+      if ((XEXP (expr_val, 0) == const0_rtx
+	   && op == IOR)
+	  || (XEXP (expr_val, 0) == const_true_rtx
+	      && op == AND))
+	{
+	  *aexpr = XEXP (*aexpr, 1);
+	  continue;
+	}
+      if ((XEXP (expr_val, 0) == const_true_rtx
+	   && op == IOR)
+	  || (XEXP (expr_val, 0) == const0_rtx
+	      && op == AND))
+	return alloc_EXPR_LIST (0, XEXP (expr_val, 0), NULL_RTX);
+      aexpr = &XEXP (*aexpr, 1);
+    }
+
+  return expr;
+}
+
+/* Get value of a condition that leads to edge E.  */
+rtx
+iv_get_condition_value (edge e)
+{
+  rtx condition, insn, first_cond_insn;
+
+  if (!any_condjump_p (e->src->end))
+    return NULL_RTX;
+
+  if (!(condition = get_condition (e->src->end, &first_cond_insn)))
+    return NULL_RTX;
+
+  for (insn = e->src->end;
+       insn != PREV_INSN (first_cond_insn);
+       insn = PREV_INSN (insn))
+    iv_load_used_values (insn, iv_register_values);
+
+  if (e->flags & EDGE_FALLTHRU)
+    {
+      condition = reversed_condition (condition);
+      if (!condition)
+	return NULL_RTX;
+    }
+
+  return substitute_into_expr (condition, iv_interesting_reg,
+			       iv_register_values, SIE_SIMPLIFY);
+}
+
+/* Attempt to simplify the expression EXPR using the fact that we use edge E.
+   EXPR is in fact a list whose elements are to be simplified.  */
+static rtx
+iv_simplify_using_branch (edge e, rtx expr)
+{
+  rtx condition = iv_get_condition_value (e);
+  rtx x;
+
+  if (!condition)
+    return expr;
+
+  condition = iv_make_initial_value (e->src->loop_father, e->src->end,
+				     condition, -2);
+  if (GET_CODE (condition) == VALUE_AT
+      && XINT (condition, 0) == -2)
+    return expr;
+
+  for (x = expr; x; x = XEXP (x, 1))
+    XEXP (x, 0) = iv_simplify_using_condition (XEXP (x, 0), condition);
+
+  return expr;
+}
+
+/* Attempt to simplify EXPR by using the knowledge that CONDITION is true.
+   The cases checked are those that are used in loop optimizer, so it is
+   not too general.  */
+static rtx
+iv_simplify_using_condition (rtx expr, rtx condition)
+{
+  rtx ccond;
+  enum machine_mode mode;
+  rtx c;
+
+  if (!COMPARISON_OP_P (GET_OPERATOR (condition)))
+    return expr;
+
+  mode = GET_MODE (XEXP (condition, 0));
+  if (mode == VOIDmode)
+    mode = GET_MODE (XEXP (condition, 1));
+  if (mode == VOIDmode)
+    return expr;
+
+  if (expr == const0_rtx || expr == const_true_rtx)
+    return expr;
+
+  if (rtx_equal_p (expr, condition))
+    return const_true_rtx;
+
+  if (GET_CODE (expr) == EQ)
+    {
+      /* Try to substitute left side for the right one and see what
+	 happens.  */
+      ccond = replace_rtx (COPY_EXPR (condition),
+			   XEXP (expr, 0), XEXP (expr, 1));
+      ccond = simplify_alg_expr (ccond);
+      if (ccond == const0_rtx)
+	return ccond;
+
+      /* And vice versa.  */
+      ccond = replace_rtx (COPY_EXPR (condition),
+			   XEXP (expr, 1), XEXP (expr, 0));
+      ccond = simplify_alg_expr (ccond);
+      if (ccond == const0_rtx)
+	return ccond;
+    }
+
+  if (GET_CODE (expr) == GT
+      || GET_CODE (expr) == GTU
+      || GET_CODE (expr) == GE
+      || GET_CODE (expr) == GEU)
+    expr = swapped_condition (expr);
+
+  if (GET_CODE (condition) == GT
+      || GET_CODE (condition) == GTU
+      || GET_CODE (condition) == GE
+      || GET_CODE (condition) == GEU)
+    condition = swapped_condition (condition);
+
+  if (GET_CODE (expr) == GET_CODE (condition))
+    {
+      if (GET_CODE (expr) == LT
+	  || GET_CODE (expr) == LTU)
+	{
+	  /* Check for case a < x, x + c < a + c + 1.  This is never true --
+	     if there is not an overflow or both expressions overflow, it is
+	     clear.  Otherwise we know that a < x, x + c does not overflow but
+	     a + c + 1 does; still it is then impossible for x + c to be less
+	     than a + c + 1.  Analogically we may discuss the case when c
+	     is negative and underflow occurs.  */
+	  c = GEN_BINARY (OP_MINUS, mode,
+			  COPY_EXPR (XEXP (condition, 0)), 
+			  COPY_EXPR (XEXP (expr, 1)));
+	  c = simplify_alg_expr (c);
+	  if (GET_CODE (c) == CONST_INT)
+	    {
+	      ccond = GEN_BINARY (OP_PLUS, mode,
+				  COPY_EXPR (XEXP (expr, 0)),
+				  GEN_INT (INTVAL (c) + 1));
+	      ccond = simplify_alg_expr (ccond);
+	      if (rtx_equal_p (ccond, XEXP (condition, 1)))
+		return const0_rtx;
+	    }
+	}
+    }
+
+  return expr;
+}
+
 /* Clears stored values of registers (unless INCLUDING_TOP, ignore values
    in the fake outermost loop).  */
 static void
-clear_reg_values (including_top)
-     int including_top;
+clear_reg_values (int including_top)
 {
   unsigned i;
   struct ref *ref;
@@ -587,9 +860,7 @@ clear_reg_values (including_top)
 /* Generates VALUE_AT for register REGNO as near to entry as possible, startin
    at basic block BB.  */
 static rtx
-earliest_value_at_for (bb, regno)
-     basic_block bb;
-     int regno;
+earliest_value_at_for (basic_block bb, int regno)
 {
   /* We may continue backwards as long as we have an unique predecessor;
      if the register was altered in any such block, it would have just this
@@ -602,10 +873,7 @@ earliest_value_at_for (bb, regno)
 /* Computes value of register referenced by REF immediately before INSN in
    basic block BB. */
 static rtx
-get_reg_value_at (bb, insn, ref)
-     basic_block bb;
-     rtx insn;
-     struct ref *ref;
+get_reg_value_at (basic_block bb, rtx insn, struct ref *ref)
 {
   struct df_link *def;
   struct loop *loop = bb->loop_father, *def_loop;
@@ -672,9 +940,7 @@ get_reg_value_at (bb, insn, ref)
 
 /* Store values of registers used in INSN to VALUES.  */
 extern void
-iv_load_used_values (insn, values)
-     rtx insn;
-     rtx *values;
+iv_load_used_values (rtx insn, rtx *values)
 {
   struct df_link *use = DF_INSN_USES (loop_df, insn);
   unsigned regno;
@@ -689,9 +955,7 @@ iv_load_used_values (insn, values)
 
 /* Computes values of registers stored at INSN in basic block BB.  */
 static void
-compute_reg_values (bb, insn)
-     basic_block bb;
-     rtx insn;
+compute_reg_values (basic_block bb, rtx insn)
 {
   struct df_link *use = DF_INSN_USES (loop_df, insn);
   unsigned regno;
@@ -726,8 +990,7 @@ compute_reg_values (bb, insn)
    to be stored in loop_entry_values.  Unless INCLUDING_TOP, fake loop
    around the function is ignored.  */
 static void
-compute_register_values (including_top)
-     int including_top;
+compute_register_values (int including_top)
 {
   int abb;
   basic_block bb;
@@ -754,9 +1017,7 @@ compute_register_values (including_top)
 
 /* Simplifies values of registers stored at INSN in basic block BB.  */
 static void
-simplify_reg_values (bb, insn)
-     basic_block bb;
-     rtx insn;
+simplify_reg_values (basic_block bb, rtx insn)
 {
   struct df_link *use = DF_INSN_USES (loop_df, insn);
   struct df_link *def = DF_INSN_DEFS (loop_df, insn);
@@ -806,8 +1067,7 @@ simplify_register_values ()
 
 /* Fill in loop_rd_in for a given DEF.  */
 static void
-fill_loop_rd_in_for_def (def)
-     struct ref *def;
+fill_loop_rd_in_for_def (struct ref *def)
 {
   unsigned defno = DF_REF_ID (def);
   basic_block def_bb = DF_REF_BB (def), dest;
@@ -856,9 +1116,7 @@ fill_loop_rd_in_for_def (def)
 
 /* Fill in reaching definitions for DEFS with unique set in basic block BB.  */
 static void
-fill_rd_for_defs (bb, defs)
-     basic_block bb;
-     bitmap defs;
+fill_rd_for_defs (basic_block bb, bitmap defs)
 {
   basic_block dest;
   edge *stack, act;
@@ -952,8 +1210,7 @@ fill_loops_dominance_order ()
 
 /* Initialize variables used by the analysis.  */
 void
-initialize_iv_analysis (loops)
-     struct loops *loops;
+initialize_iv_analysis (struct loops *loops)
 {
   unsigned i;
   basic_block bb;
@@ -1104,9 +1361,7 @@ finalize_iv_analysis ()
 /* Computes values of modified registers at end of LOOP, putting the result
    into VALUES.  */
 static void
-compute_loop_end_values (loop, values)
-     struct loop *loop;
-     rtx *values;
+compute_loop_end_values (struct loop *loop, rtx *values)
 {
   unsigned regno;
   int defno;
@@ -1157,9 +1412,7 @@ compute_loop_end_values (loop, values)
    of iteration with value_at (-1, insn (passed in data)).  */
 static int replaced;	/* Used to return whether any replacement was done.  */
 static int
-replace_iteration_with_value_at (expr, data)
-     rtx *expr;
-     void *data;
+replace_iteration_with_value_at (rtx *expr, void *data)
 {
   rtx insn = data;
 
@@ -1175,11 +1428,7 @@ replace_iteration_with_value_at (expr, data)
    value_at (-1, loop header's start) and substituting for initial values.
    INSN is the place where this def of register REGNO with value EXPR occurs.  */
 static rtx
-iv_make_initial_value (loop, insn, expr, regno)
-     struct loop *loop;
-     rtx insn;
-     rtx expr;
-     unsigned regno;
+iv_make_initial_value (struct loop *loop, rtx insn, rtx expr, unsigned regno)
 {
   int original = true;
 
@@ -1212,8 +1461,7 @@ iv_make_initial_value (loop, insn, expr, regno)
 /* Compute values of registers at entry to the LOOP, using the values
    already computed for its superloops.  */
 static void
-compute_initial_values (loop)
-     struct loop *loop;
+compute_initial_values (struct loop *loop)
 {
   rtx *values = initial_values[loop->num];
   unsigned defno, regno;
@@ -1327,9 +1575,7 @@ enter_iv_occurence (struct iv_occurence_step_class **to, rtx value, rtx base,
 /* Called through for_each_rtx from record_iv_occurences.  Record the
    occurences found.  */
 static int
-record_iv_occurences_1 (expr, data)
-     rtx *expr;
-     void *data;
+record_iv_occurences_1 (rtx *expr, void *data)
 {
   struct iv_occurence_step_class **to = data;
   rtx val, dest, base, lbase, sbase, step, delta, *tmp, *last;
@@ -1410,9 +1656,7 @@ record_iv_occurences_1 (expr, data)
 
 /* Record iv occurences in INSN to list *TO.  */
 static void
-record_iv_occurences (to, insn)
-     struct iv_occurence_step_class **to;
-     rtx insn;
+record_iv_occurences (struct iv_occurence_step_class **to, rtx insn)
 {
   struct df_link *use = DF_INSN_USES (loop_df, insn);
   struct df_link *def = DF_INSN_DEFS (loop_df, insn);
@@ -1466,10 +1710,7 @@ record_iv_occurences (to, insn)
    BB is the altered basic block, FIRST and LAST are the first and the last
    of the altered insns.  */
 static void
-iv_new_insn_changes_commit (bb, first, last)
-     basic_block bb;
-     rtx first;
-     rtx last;
+iv_new_insn_changes_commit (basic_block bb, rtx first, rtx last)
 {
   unsigned i, regno;
   enum machine_mode mode;
@@ -1613,9 +1854,7 @@ iv_new_insn_changes_commit (bb, first, last)
 /* Insert insns SEQ before INSN. The sequence must not contain jumps
    and must not set any registers that are not entirely new.  */
 rtx
-iv_emit_insn_before (seq, insn)
-     rtx seq;
-     rtx insn;
+iv_emit_insn_before (rtx seq, rtx insn)
 {
   rtx prev = PREV_INSN (insn);
   basic_block bb = BLOCK_FOR_INSN (insn);
@@ -1634,9 +1873,7 @@ iv_emit_insn_before (seq, insn)
 /* Insert insns SEQ before INSN. The sequence must not contain jumps
    and must not set any registers that are not entirely new.  */
 rtx
-iv_emit_insn_after (seq, insn)
-     rtx seq;
-     rtx insn;
+iv_emit_insn_after (rtx seq, rtx insn)
 {
   rtx next = NEXT_INSN (insn);
   basic_block bb = BLOCK_FOR_INSN (insn);
@@ -1766,6 +2003,13 @@ analyse_induction_variables ()
 
   /* Simplify values stored at insns using this knowledge.  */
   simplify_register_values ();
+
+  /* Find simple loops.  */
+  compute_simple_loop_info (current_loops);
+
+  /* Use the information about number of iterations to replace extends
+     with computation in outer mode whenever possible.  */
+  attempt_to_kill_extends ();
 
   /* Extract information about ivs, sorted by loop, step and base.  */
   FOR_EACH_BB (bb)

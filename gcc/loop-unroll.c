@@ -513,6 +513,8 @@ unroll_loop_constant_iterations (loops, loop)
 		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
 	abort ();
       desc->niter -= exit_mod;
+      if (desc->niter_max)
+	desc->niter_max -= exit_mod;
 
       SET_BIT (wont_exit, 1);
     }
@@ -539,6 +541,8 @@ unroll_loop_constant_iterations (loops, loop)
 		DLTHE_FLAG_UPDATE_FREQ | DLTHE_USE_WONT_EXIT))
 	    abort ();
 	  desc->niter -= exit_mod + 1;
+	  if (desc->niter_max)
+	    desc->niter_max -= exit_mod + 1;
 
 	  SET_BIT (wont_exit, 0);
 	  SET_BIT (wont_exit, 1);
@@ -578,6 +582,7 @@ unroll_loop_constant_iterations (loops, loop)
   free (remove_edges);
 
   desc->niter /= max_unroll + 1;
+  desc->niter_max /= max_unroll + 1;
   desc->niter_expr = GEN_INT (desc->niter);
   desc->noloop_assumptions = NULL_RTX;
 
@@ -873,11 +878,14 @@ unroll_loop_runtime_iterations (loops, loop)
     abort ();
   desc->niter_expr =
     simplify_gen_binary (UDIV, mode, old_niter, GEN_INT (max_unroll + 1));
+  desc->niter_max /= max_unroll + 1;
   if (!desc->postincr)
     {
       desc->niter_expr =
 	simplify_gen_binary (MINUS, mode, desc->niter_expr, const1_rtx);
       desc->noloop_assumptions = NULL_RTX;
+      if (desc->niter_max)
+	desc->niter_max--;
     }
 
   if (loop->histogram)

@@ -143,7 +143,6 @@ loop_optimizer_optimize (struct loops *loops)
   timevar_push (TV_IV_ANAL);
   initialize_iv_analysis (loops);
   analyse_induction_variables ();
-  compute_simple_loop_info (loops);
   timevar_pop (TV_IV_ANAL);
 
   /* Do this decision now, so that we know the number of unrollings
@@ -163,6 +162,7 @@ loop_optimizer_optimize (struct loops *loops)
   movables = find_movables (loops);
   ivopt_actions.ivs = NULL;
   ivopt_actions.replacements = NULL;
+  ivopt_actions.repl_final_value = NULL;
   if (flag_strength_reduce)
     detect_strength_reductions (loops, &ivopt_actions);
   free (loop_avail_regs);

@@ -958,6 +958,7 @@ init_algebraic ()
   SET_BIT (suitable_operator, OP_CONST_INT);
 #ifdef EL_RTX
   SET_BIT (suitable_operator, CONST);
+  SET_BIT (suitable_operator, EXPR_LIST);
 #endif
   SET_BIT (suitable_operator, OP_VARIABLE);
   SET_BIT (suitable_operator, OP_CONST_ADDRESS);
@@ -1092,6 +1093,8 @@ substitute_into_expr (EXPR expr, sbitmap interesting_reg, EXPR *substitution,
     {
       if (ITH_ARG_EXPR_P (code, i))
 	{
+	  if (!ARG (expr, i))
+	    continue;
 	  sub_expr = substitute_into_expr (ARG (expr, i),
 					   interesting_reg, substitution,
 					   flags & ~SIE_SIMPLIFY);
