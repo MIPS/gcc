@@ -1,3 +1,8 @@
+2003-03-19  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/10073
+	* gcc.c-torture/compile/20030319-1.c: New.
+
 2003-03-12  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.dg/decl-3.c: New test.
