@@ -1,3 +1,7 @@
+2004-12-03  Dale Johannesen  <dalej@apple.com>
+
+	* tree-ssa-loop-ch.c (copy_loop_headers):  Don't divide by 0.
+
 2004-12-02  Dale Johannesen  <dalej@apple.com>
 
 	* basic-block.h (scale_bbs_frequencies_int):  New declaration.

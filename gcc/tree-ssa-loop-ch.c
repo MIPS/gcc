@@ -213,8 +213,17 @@ copy_loop_headers (void)
 	 avoid losing information; this is slow, but is done at most
 	 once per loop.  */
       total_count = body_count + entry_count;
-      scale_bbs_frequencies_gcov_type (bbs, n_bbs, body_count, total_count);
-      scale_bbs_frequencies_gcov_type (copied_bbs, n_bbs, entry_count, total_count);
+      if (total_count == 0LL)
+	{
+	  scale_bbs_frequencies_int (bbs, n_bbs, 0, 1);
+	  scale_bbs_frequencies_int (copied_bbs, n_bbs, 0, 1);
+	}
+      else
+	{
+	  scale_bbs_frequencies_gcov_type (bbs, n_bbs, body_count, total_count);
+	  scale_bbs_frequencies_gcov_type (copied_bbs, n_bbs, entry_count, 
+					   total_count);
+	}
 
       /* Ensure that the latch and the preheader is simple (we know that they
 	 are not now, since there was the loop exit condition.  */
