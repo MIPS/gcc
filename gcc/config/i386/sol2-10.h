@@ -1,4 +1,4 @@
-/* Solaris 2.10 configuration.
+/* Solaris 10 configuration.
    Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by CodeSourcery, LLC.
 
