@@ -1,3 +1,10 @@
+2004-07-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* acinclude.m4 (glibcpp_shared_libgcc): Correct
+	glibcpp_shared_libgcc test for multilibs.
+	* aclocal.m4: Rebuilt.
+	* configure: Rebuilt.
+
 2004-07-27  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* config/linker-map.gnu: Export typeinfo information.
