@@ -46,9 +46,10 @@ enum
   JV_STATE_LINKED = 9,		// Strings interned.
 
   JV_STATE_IN_PROGRESS = 10,	// <Clinit> running.
-  JV_STATE_DONE = 12,		// 
 
-  JV_STATE_ERROR = 14		// must be last.
+  JV_STATE_ERROR = 12,
+
+  JV_STATE_DONE = 14		// Must be last.
 };
 
 struct _Jv_Field;
@@ -330,8 +331,6 @@ private:
 #ifdef INTERPRETER
   friend jboolean _Jv_IsInterpretedClass (jclass);
   friend void _Jv_InitField (jobject, jclass, _Jv_Field*);
-  friend int _Jv_DetermineVTableIndex (jclass, _Jv_Utf8Const *, 
-				       _Jv_Utf8Const*);
   friend void _Jv_InitField (jobject, jclass, int);
   friend _Jv_word _Jv_ResolvePoolEntry (jclass, int);
   friend _Jv_Method *_Jv_SearchMethodInClass (jclass cls, jclass klass, 

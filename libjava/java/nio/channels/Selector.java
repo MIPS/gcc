@@ -37,97 +37,60 @@ exception statement from your version. */
 
 package java.nio.channels;
 
-import java.io.IOException;
-import java.nio.channels.spi.SelectorProvider;
 import java.util.Set;
+import java.nio.channels.spi.SelectorProvider;
 
-/**
- * @author Michael Koch
- * @since 1.4
- */
 public abstract class Selector
 {
-  /**
-   * Initializes the selector.
-   */
   protected Selector()
   {
   }
  
   /**
-   * Opens a selector.
-   * 
    * @exception IOException If an error occurs
    */
-  public static Selector open ()
+  public static Selector open()
   {
-    return SelectorProvider.provider ().openSelector ();
+	return SelectorProvider.provider().openSelector();
   }
 
   /**
-   * Closes the selector.
-   * 
    * @exception IOException If an error occurs
    */
-  public abstract void close () throws IOException;
+  public abstract void close();
+  
+  public abstract boolean isOpen();
   
   /**
-   * Tells whether the selector is open or not.
+   * @exception ClosedSelectorException FIXME
    */
-  public abstract boolean isOpen ();
+  public abstract Set keys();
+  
+  public abstract SelectorProvider provider();
   
   /**
-   * Returns this selector's key set.
-   * 
-   * @exception ClosedSelectorException If this selector is closed.
-   */
-  public abstract Set keys ();
- 
-  /**
-   * Returns the SelectorProvider that created the selector.
-   */
-  public abstract SelectorProvider provider ();
-  
-  /**
-   * Selects a set of keys whose corresponding channels are ready
-   * for I/O operations.
-   * 
-   * @exception ClosedSelectorException If this selector is closed.
+   * @exception ClosedSelectorException FIXME
    * @exception IOException If an error occurs
    */
-  public abstract int select () throws IOException;
+  public abstract int select();
   
   /**
-   * Selects a set of keys whose corresponding channels are ready
-   * for I/O operations.
-   *
-   * @param timeout The timeout to use.
-   * 
-   * @exception ClosedSelectorException If this selector is closed.
-   * @exception IllegalArgumentException If the timeout value is negative.
+   * @exception ClosedSelectorException FIXME
+   * @exception IllegalArgumentException FIXME
    * @exception IOException If an error occurs
    */
-  public abstract int select (long timeout) throws IOException;
+  public abstract int select(long timeout);
   
   /**
-   * Returns this selector's selected-key set.
-   * 
-   * @exception ClosedSelectorException If this selector is closed.
+   * @exception ClosedSelectorException FIXME
    */
-  public abstract Set selectedKeys ();
+  public abstract Set selectedKeys();
   
   /**
-   * Selects a set of keys whose corresponding channels are ready
-   * for I/O operations.
-   * 
-   * @exception ClosedSelectorException If this selector is closed.
+   * @exception ClosedSelectorException FIXME
    * @exception IOException If an error occurs
    */
-  public abstract int selectNow () throws IOException;
+  public abstract int selectNow();
   
-  /**
-   * Causes the first selection operation that has not yet returned to
-   * return immediately.
-   */
-  public abstract Selector wakeup ();
+  public abstract Selector wakeup();
 }

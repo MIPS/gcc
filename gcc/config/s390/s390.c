@@ -1605,12 +1605,11 @@ s390_decompose_address (addr, out)
 	     Thus we don't check the displacement for validity here.  If after
 	     elimination the displacement turns out to be invalid after all,
 	     this is fixed up by reload in any case.  */
-	  if ((base && REGNO (base) == ARG_POINTER_REGNUM)
-	      || (indx && REGNO (indx) == ARG_POINTER_REGNUM))
-	    ;
-
-	  else if (INTVAL (disp) < 0 || INTVAL (disp) >= 4096)
-	    return FALSE;
+	  if (base != arg_pointer_rtx && indx != arg_pointer_rtx)
+	    {
+	      if (INTVAL (disp) < 0 || INTVAL (disp) >= 4096)
+	        return FALSE;
+	    }
         }
 
       /* In the small-PIC case, the linker converts @GOT12 
@@ -5711,16 +5710,19 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
       if (op[5])
 	{
 	  output_asm_insn (".align\t4", op);
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[5]));
+	  (*targetm.asm_out.internal_label) (file, "L",
+					     CODE_LABEL_NUMBER (op[5]));
 	}
       if (op[6])
 	{
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
+	  (*targetm.asm_out.internal_label) (file, "L",
+					     CODE_LABEL_NUMBER (op[6]));
 	  output_asm_insn (".long\t%2", op);
 	}
       if (op[7])
 	{
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[7]));
+	  (*targetm.asm_out.internal_label) (file, "L",
+					     CODE_LABEL_NUMBER (op[7]));
 	  output_asm_insn (".long\t%3", op);
 	}
     }
@@ -5733,7 +5735,8 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 	{
 	  op[5] = gen_label_rtx ();
 	  output_asm_insn ("basr\t%4,0", op);
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[5]));
+	  (*targetm.asm_out.internal_label) (file, "L",
+					     CODE_LABEL_NUMBER (op[5]));
 	}
 
       /* Add DELTA to this pointer.  */
@@ -5776,7 +5779,8 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 	     Re-setup the base pointer (with a different base).  */
 	  op[5] = gen_label_rtx ();
 	  output_asm_insn ("basr\t%4,0", op);
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[5]));
+	  (*targetm.asm_out.internal_label) (file, "L",
+					     CODE_LABEL_NUMBER (op[5]));
 	}
 
       /* Jump to target.  */
@@ -5789,7 +5793,7 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 
       /* Output literal pool.  */
       output_asm_insn (".align\t4", op);
-      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[8]));
+      (*targetm.asm_out.internal_label) (file, "L", CODE_LABEL_NUMBER (op[8]));
       if (!flag_pic)
 	output_asm_insn (".long\t%0", op);
       else
@@ -5797,12 +5801,14 @@ s390_output_mi_thunk (file, thunk, delta, vcall_offset, function)
 
       if (op[6])
 	{
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[6]));
+	  (*targetm.asm_out.internal_label) (file, "L",
+					     CODE_LABEL_NUMBER (op[6]));
 	  output_asm_insn (".long\t%2", op);
 	}
       if (op[7])
 	{
-	  ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (op[7]));
+	  (*targetm.asm_out.internal_label) (file, "L",
+					     CODE_LABEL_NUMBER (op[7]));
 	  output_asm_insn (".long\t%3", op);
 	}
     }

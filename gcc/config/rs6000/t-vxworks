@@ -5,3 +5,6 @@ MULTILIB_DIRNAMES = PPC403gnu PPC405gnu PPC440gnu \
 		    PPC603gnu PPC604gnu PPC860gnu
 
 MULTILIB_MATCHES  = t604=
+
+# Put vxlib.c back in LIB2FUNCS_EXTRA (t-ppccomm clobbers it).
+LIB2FUNCS_EXTRA += $(srcdir)/config/vxlib.c

@@ -1,3 +1,7 @@
+Sat Nov 16 18:14:05 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (rtlopt-merge-20021611)
+
 2002-11-10  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* params.def (HISTOGRAM_PEEL_RATIO): Fix typo.

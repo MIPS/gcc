@@ -1256,6 +1256,8 @@ instruction is defined:
   @dots{})
 @end smallexample
 @end ifset
+GCC can only handle one commutative pair in an asm; if you use more, 
+the compiler may fail.
 
 @cindex @samp{#} in constraint
 @item #
@@ -1605,6 +1607,10 @@ Second floating point register
 
 @item c
 @samp{c} register
+
+@item C
+Specifies constant that can be easilly constructed in SSE register without
+loading it from memory.
 
 @item d
 @samp{d} register
@@ -2560,6 +2566,51 @@ Store the natural logarithm of operand 1 into operand 0.
 
 The @code{log} built-in function of C always uses the mode which
 corresponds to the C data type @code{double} and the @code{logf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{floor@var{m}2} instruction pattern
+@item @samp{floor@var{m}2}
+Store the largest integral value not greater than argument.
+
+The @code{floor} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{floorf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{trunc@var{m}2} instruction pattern
+@item @samp{trunc@var{m}2}
+Store the argument rounded to integer towards zero.
+
+The @code{trunc} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{truncf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{round@var{m}2} instruction pattern
+@item @samp{round@var{m}2}
+Store the argument rounded to integer away from zero.
+
+The @code{round} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{roundf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{ceil@var{m}2} instruction pattern
+@item @samp{ceil@var{m}2}
+Store the argument rounded to integer away from zero.
+
+The @code{ceil} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{ceilf}
+built-in function uses the mode which corresponds to the C data
+type @code{float}.
+
+@cindex @code{nearbyint@var{m}2} instruction pattern
+@item @samp{nearbyint@var{m}2}
+Store the argument rounded according to the default rounding mode
+
+The @code{nearbyint} built-in function of C always uses the mode which
+corresponds to the C data type @code{double} and the @code{nearbyintf}
 built-in function uses the mode which corresponds to the C data
 type @code{float}.
 

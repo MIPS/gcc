@@ -30,7 +30,74 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_GTHR_VXWORKS_H
 #define GCC_GTHR_VXWORKS_H
 
-/* Temporarily on hiatus.  */
-#include "gthr-single.h"
+#ifdef _LIBOBJC
 
-#endif
+/* libobjc requires the optional pthreads component.  */
+#include "gthr-posix.h"
+
+#else
+
+#define __GTHREADS 1
+#define __gthread_active_p() 1
+
+/* Mutexes are easy, except that they need to be initialized at runtime.  */
+
+#include <semLib.h>
+
+typedef SEM_ID __gthread_mutex_t;
+#define __GTHREAD_MUTEX_INIT_FUNCTION __gthread_mutex_init_function
+
+static inline void
+__gthread_mutex_init_function (__gthread_mutex_t *mutex)
+{
+  *mutex = semMCreate (SEM_Q_PRIORITY | SEM_INVERSION_SAFE | SEM_DELETE_SAFE);
+}
+
+static inline int
+__gthread_mutex_lock (__gthread_mutex_t *mutex)
+{
+  return semTake (*mutex, WAIT_FOREVER);
+}
+
+static inline int
+__gthread_mutex_trylock (__gthread_mutex_t *mutex)
+{
+  return semTake (*mutex, NO_WAIT);
+}
+
+static inline int
+__gthread_mutex_unlock (__gthread_mutex_t *mutex)
+{
+  return semGive (*mutex);
+}
+
+/* pthread_once is complicated enough that it's implemented
+   out-of-line.  See config/vxlib.c.  */
+
+typedef struct
+{
+  volatile unsigned char busy;
+  volatile unsigned char done;
+}
+__gthread_once_t;
+
+#define __GTHREAD_ONCE_INIT { 0, 0 }
+
+extern int __gthread_once (__gthread_once_t *once, void (*func)(void));
+
+/* Thread-specific data requires a great deal of effort, since VxWorks
+   is not really set up for it.  See config/vxlib.c for the gory
+   details.  All the TSD routines are sufficiently complex that they
+   need to be implemented out of line.  */
+
+typedef unsigned int __gthread_key_t;
+
+extern int __gthread_key_create (__gthread_key_t *keyp, void (*dtor)(void *));
+extern int __gthread_key_delete (__gthread_key_t key);
+
+extern void *__gthread_getspecific (__gthread_key_t key);
+extern int __gthread_setspecific (__gthread_key_t key, void *ptr);
+
+#endif /* not _LIBOBJC */
+
+#endif /* gthr-vxworks.h */

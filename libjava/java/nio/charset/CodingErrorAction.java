@@ -37,30 +37,18 @@ exception statement from your version. */
 
 package java.nio.charset;
 
-public class CodingErrorAction
+
+class CodingErrorAction
 {
-  public static final CodingErrorAction IGNORE
-	  = new CodingErrorAction("ignore");
-  public static final CodingErrorAction REPLACE
-	  = new CodingErrorAction("replace");
-  public static final CodingErrorAction REPORT
-	  = new CodingErrorAction("report");
-
-  private final String name;
+  public static final CodingErrorAction IGNORE;
+  public static final CodingErrorAction REPLACE;
+  public static final CodingErrorAction REPORT;
 
   /**
-   * Private constructor only used to create the constant CodingErrorActions.
-   */
-  private CodingErrorAction(String name)
-  {
-    this.name = name;
-  }
-
-  /**
-   * Returns the name of the CodingErrorAction.
+   * FIXME
    */
   public String toString ()
   {
-    return name;
+    return "";
   }
 }

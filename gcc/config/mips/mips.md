@@ -4871,6 +4871,7 @@ move\\t%0,%z4\\n\\
 
   /* Change the mode to BLKmode for aliasing purposes.  */
   operands[1] = adjust_address (operands[1], BLKmode, 0);
+  set_mem_size (operands[1], GEN_INT (INTVAL (operands[2]) / BITS_PER_UNIT));
 
   /* Otherwise, emit a l[wd]l/l[wd]r pair to load the value.  */
   if (INTVAL (operands[2]) == 64)
@@ -4919,6 +4920,7 @@ move\\t%0,%z4\\n\\
 
   /* Change the mode to BLKmode for aliasing purposes.  */
   operands[1] = adjust_address (operands[1], BLKmode, 0);
+  set_mem_size (operands[1], GEN_INT (INTVAL (operands[2]) / BITS_PER_UNIT));
 
   /* Otherwise, emit a lwl/lwr pair to load the value.  */
   if (INTVAL (operands[2]) == 64)
@@ -4967,6 +4969,7 @@ move\\t%0,%z4\\n\\
 
   /* Change the mode to BLKmode for aliasing purposes.  */
   operands[0] = adjust_address (operands[0], BLKmode, 0);
+  set_mem_size (operands[0], GEN_INT (INTVAL (operands[1]) / BITS_PER_UNIT));
 
   /* Otherwise, emit a s[wd]l/s[wd]r pair to load the value.  */
   if (INTVAL (operands[1]) == 64)
@@ -9780,7 +9783,7 @@ move\\t%0,%z4\\n\\
   "*
 {
   /* .cpadd expands to add REG,REG,$gp when pic, and nothing when not pic.  */
-  if (mips_abi == ABI_32 || mips_abi == ABI_O64)
+  if (mips_abi == ABI_32 || mips_abi == ABI_O64 || mips_abi == ABI_N32)
     output_asm_insn (\".cpadd\\t%0\", operands);
   return \"%*j\\t%0\";
 }"
@@ -9808,9 +9811,16 @@ move\\t%0,%z4\\n\\
   "Pmode == DImode && next_active_insn (insn) != 0
    && GET_CODE (PATTERN (next_active_insn (insn))) == ADDR_DIFF_VEC
    && PREV_INSN (next_active_insn (insn)) == operands[1]"
-  "%*j\\t%0"
+  "*
+{
+  /* .cpadd expands to add REG,REG,$gp when pic, and nothing when not pic.  */
+  if (TARGET_GAS && mips_abi == ABI_64)
+    output_asm_insn (\".cpadd\\t%0\", operands);
+  return \"%*j\\t%0\";
+}"
   [(set_attr "type"	"jump")
-   (set_attr "mode"	"none")])
+   (set_attr "mode"	"none")
+   (set_attr "length"	"8")])
 
 ;; Implement a switch statement when generating embedded PIC code.
 ;; Switches are implemented by `tablejump' when not using -membedded-pic.

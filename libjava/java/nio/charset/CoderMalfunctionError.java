@@ -40,7 +40,7 @@ package java.nio.charset;
 /**
  * @since 1.4
  */
-public class CoderMalfunctionError extends Error
+class CoderMalfunctionError extends Error
 {
   /**
    * Creates the error

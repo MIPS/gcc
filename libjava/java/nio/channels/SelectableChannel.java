@@ -40,99 +40,50 @@ package java.nio.channels;
 import java.nio.channels.spi.AbstractInterruptibleChannel;
 import java.nio.channels.spi.SelectorProvider;
 
-/**
- * @author Michael Koch
- * @since 1.4
- */
 public abstract class SelectableChannel
   extends AbstractInterruptibleChannel
 {
-  /**
-   * Initializes the channel.
-   */
-  protected SelectableChannel ()
+  protected SelectableChannel()
   {
   }
- 
-  /**
-   * Returns the lock of this channel.
-   */
-  public abstract Object blockingLock ();
+  
+  public abstract  Object blockingLock();
 
   /**
-   * Adjusts this channel's blocking mode.
-   * 
-   * @exception ClosedChannelException If this channel is closed.
-   * @exception IllegalBlockingModeException If block is true and this channel
-   * is registered with one or more selectors.
-   * @exception IOException If an error occurs.
+   * @exception ClosedChannelException FIXME
+   * @exception IllegalBlockingModeException FIXME
+   * @exception IOException FIXME
    */
-  public abstract SelectableChannel configureBlocking (boolean block);
+  public abstract  SelectableChannel configureBlocking(boolean block);
+  
+  public abstract  boolean isBlocking();
+  
+  public abstract  boolean isRegistered();
+  
+  public abstract  SelectionKey keyFor(Selector sel);
+  
+  public abstract  SelectorProvider provider();
   
   /**
-   * Tells whether this channel is blocking or not.
+   * @exception CancelledKeyException FIXME
+   * @exception ClosedChannelException FIXME
+   * @exception IllegalArgumentException FIXME
+   * @exception IllegalBlockingModeException FIXME
+   * @exception IllegalSelectorException FIXME
    */
-  public abstract boolean isBlocking ();
-  
-  /**
-   * Tells whether or not this channel is currently registered with
-   * any selectors.
-   */
-  public abstract boolean isRegistered ();
-  
-  /**
-   * Retrieves the key representing the channel's registration with
-   * the given selector.
-   */
-  public abstract SelectionKey keyFor (Selector sel);
-  
-  /**
-   * Returns the provider that created this channel.
-   */
-  public abstract SelectorProvider provider ();
-  
-  /**
-   * Registers this channel with the given selector,
-   * returning a selection key.
-   * 
-   * @exception CancelledKeyException If this channel is currently registered
-   * with the given selector but the corresponding key has already been cancelled
-   * @exception ClosedChannelException If this channel is closed.
-   * @exception IllegalArgumentException If a bit in ops does not correspond
-   * to an operation that is supported by this channel, that is, if
-   * set &amp; ~validOps() != 0.
-   * @exception IllegalBlockingModeException If block is true and this channel
-   * is registered with one or more selectors.
-   * @exception IllegalSelectorException If this channel was not created by
-   * the same provider as the given selector.
-   */
-  public final SelectionKey register (Selector sel, int ops)
-    throws ClosedChannelException
+  public final SelectionKey register(Selector sel, int ops) throws java.nio.channels.ClosedChannelException
   {
-    return register (sel, ops, null);
+    return register(sel, ops, null);
   }
   
   /**
-   * Registers this channel with the given selector,
-   * returning a selection key.
-   *
-   * @exception CancelledKeyException If this channel is currently registered
-   * with the given selector but the corresponding key has already been
-   * cancelled.
-   * @exception ClosedChannelException If this channel is closed.
-   * @exception IllegalArgumentException If a bit in ops does not correspond
-   * to an operation that is supported by this channel, that is, if
-   * set &amp; ~validOps() != 0.
-   * @exception IllegalBlockingModeException If block is true and this channel
-   * is registered with one or more selectors.
-   * @exception IllegalSelectorException If this channel was not created by
-   * the same provider as the given selector.
+   * @exception CancelledKeyException FIXME
+   * @exception ClosedChannelException FIXME
+   * @exception IllegalArgumentException FIXME
+   * @exception IllegalBlockingModeException FIXME
+   * @exception IllegalSelectorException FIXME
    */
-  public abstract SelectionKey register (Selector sel, int ops, Object att)
-    throws ClosedChannelException;
+  public abstract  SelectionKey register(Selector sel, int ops, Object att) throws java.nio.channels.ClosedChannelException;
   
-  /**
-   * Returns a set of valid operations on this channel.
-   */
-  public abstract int validOps();
+  public abstract  int validOps();  
 }

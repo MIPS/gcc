@@ -1958,6 +1958,7 @@ java/net/UnknownHostException.java \
 java/net/UnknownServiceException.java \
 java/nio/Buffer.java \
 java/nio/ByteBuffer.java \
+java/nio/ByteOrder.java \
 java/nio/MappedByteBuffer.java \
 java/nio/channels/AlreadyConnectedException.java \
 java/nio/channels/ByteChannel.java \
@@ -1967,13 +1968,25 @@ java/nio/channels/DatagramChannel.java \
 java/nio/channels/GatheringByteChannel.java \
 java/nio/channels/IllegalBlockingModeException.java \
 java/nio/channels/InterruptibleChannel.java \
+java/nio/channels/Pipe.java \
 java/nio/channels/ReadableByteChannel.java \
 java/nio/channels/ScatteringByteChannel.java \
+java/nio/channels/SelectableChannel.java \
+java/nio/channels/SelectionKey.java \
+java/nio/channels/Selector.java \
 java/nio/channels/ServerSocketChannel.java \
 java/nio/channels/SocketChannel.java \
 java/nio/channels/WritableByteChannel.java \
 java/nio/channels/spi/AbstractSelectableChannel.java \
+java/nio/channels/spi/AbstractChannel.java \
+java/nio/channels/spi/AbstractInterruptibleChannel.java \
+java/nio/channels/spi/AbstractSelectionKey.java \
+java/nio/channels/spi/AbstractSelector.java \
+java/nio/channels/spi/SelectorProvider.java \
+java/nio/charset/Charset.java \
 java/nio/charset/CharacterCodingException.java \
+java/nio/charset/CoderMalfunctionError.java \
+java/nio/charset/CodingErrorAction.java \
 java/nio/charset/IllegalCharsetNameException.java \
 java/nio/charset/MalformedInputException.java \
 java/nio/charset/UnmappableCharacterException.java \
@@ -2435,7 +2448,7 @@ AM_MAKEFLAGS = \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
 	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" \
-	"JC1FLAGS=$(JC1FLAGS)" \
+	"GCJFLAGS=$(GCJFLAGS)" \
 	"LDFLAGS=$(LDFLAGS)" \
 	"LIBCFLAGS=$(LIBCFLAGS)" \
 	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" \
@@ -2451,14 +2464,15 @@ AM_MAKEFLAGS = \
 	"prefix=$(prefix)" \
 	"AR=$(AR)" \
 	"AS=$(AS)" \
-	"CC=$(CC)" \
-	"CXX=$(CXX)" \
 	"LD=$(LD)" \
 	"LIBCFLAGS=$(LIBCFLAGS)" \
 	"NM=$(NM)" \
 	"PICFLAG=$(PICFLAG)" \
 	"RANLIB=$(RANLIB)" \
 	"DESTDIR=$(DESTDIR)"
+
+# Subdir rules rely on $(FLAGS_TO_PASS)
+FLAGS_TO_PASS = $(AM_MAKEFLAGS)
 
 CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
 

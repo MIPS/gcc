@@ -346,5 +346,9 @@ extern bool exact_real_inverse	PARAMS ((enum machine_mode, REAL_VALUE_TYPE *));
 /* In tree.c: wrap up a REAL_VALUE_TYPE in a tree node.  */
 extern tree build_real			PARAMS ((tree, REAL_VALUE_TYPE));
 
+/* Calculate R as the square root of X in the given machine mode.  */
+extern void real_sqrt			PARAMS ((REAL_VALUE_TYPE *,
+						 enum machine_mode,
+						 const REAL_VALUE_TYPE *));
 
 #endif /* ! GCC_REAL_H */
