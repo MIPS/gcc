@@ -1,3 +1,41 @@
+2005-02-22  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-data-ref.c (array_base_name_differ_p): Remove gcc_assert.
+	(base_addr_differ_p): New function. Moved from tree-vectorizer.c
+	(init_data_ref): Update new data-ref fields. Make static.
+	(analyze_indirect_ref): Add checks of initial condition and evolution 
+	for new data-ref fields.
+	(strip_conversion): New function. Moved from tree-vectorizer.c
+	(analyze_offset_expr, get_ptr_offset, address_analysis, object_analysis):
+	Likewise.
+	(create_data_ref): New function. API to data-ref analysis.
+	(initialize_data_dependence_relation): Remove check of DR_BASE_NAME.
+	Call base_addr_differ_p.
+	(find_data_references_in_loop): Initialize new data-ref fields.
+
+	* tree-data-ref.h (struct data_reference): New fields for base address, 
+	offset, step, memory tag and misalignment info of data-ref in loop. 
+	Macros for new fields access.
+	(init_data_ref): Remove declaration.
+	(create_data_ref, base_addr_differ_p): Add declarations.
+
+	* tree-vectorizer.c (new_stmt_vec_info): Remove fields update.
+	(vect_get_ptr_offset, vect_strip_conversions, vect_analyze_offset_expr): 
+	Remove.
+	(vect_create_addr_base_for_vector_ref): Use data-ref structure fields.
+	( vect_create_data_ref_ptr, vect_gen_niters_for_prolog_loop): Likewise.
+	(vect_base_addr_differ_p): Remove.
+	(vect_analyze_data_ref_dependence): Call base_addr_differ_p.
+	(vect_compute_data_ref_alignment): Use data-ref structure fields. Remove 
+	misalignment modulo computation.
+	(vect_analyze_data_ref_access): Use data-ref structure fields. 
+	(vect_analyze_pointer_ref_access, vect_get_memtag, vect_address_analysis,
+	vect_object_analysis): Remove. 
+	(vect_analyze_data_refs): Fix comment. Call create_data_ref.
+
+	* (tree-vectorizer.h): Remove fields from struct _stmt_vec_info and remove 
+	their macros.
+
 2005-02-21  Devang Patel  <dpatel@apple.com>
 
 	* gcc/tree-vectorizer.c (vect_analyze_data_ref_dependence): Check for NULL

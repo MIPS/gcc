@@ -122,6 +122,16 @@ static struct datadep_stats
   int num_miv_unimplemented;
 } dependence_stats;
 
+static bool analyze_offset_expr (tree, struct loop *, tree, 
+				 tree *, tree *, tree *);
+static tree strip_conversion (tree);
+static tree object_analysis (tree, tree, bool, tree, struct data_reference **, 
+			     tree *, tree *, tree *, bool *, tree *);
+static tree address_analysis (tree, tree, bool, tree, struct data_reference *, 
+			      tree *, tree *, tree *, bool *);
+static struct data_reference * init_data_ref (tree, tree, tree, tree, bool, 
+				      tree, tree, tree, tree, bool, tree);
+static struct data_reference * analyze_indirect_ref (tree, tree, bool);
   
 /* This is the simplest data dependence test: determines whether the
    data references A and B access the same array/region.  Returns
@@ -144,9 +154,7 @@ array_base_name_differ_p (struct data_reference *a,
 
   ta = TREE_TYPE (base_a);
   tb = TREE_TYPE (base_b);
-
-  gcc_assert (!POINTER_TYPE_P (ta) && !POINTER_TYPE_P (tb));
-
+  
   /* Determine if same base.  Example: for the array accesses
      a[i], b[i] or pointer accesses *a, *b, bases are a, b.  */
   if (base_a == base_b)
@@ -213,6 +221,63 @@ array_base_name_differ_p (struct data_reference *a,
       return true;
     }
 
+  return false;
+}
+
+/* Function base_addr_differ_p.
+
+   This is the simplest data dependence test: determines whether the
+   data references A and B access the same array/region.  Returns
+   false when the property is not computable at compile time.
+   Otherwise return true, and DIFFER_P will record the result. This
+   utility will not be necessary when alias_sets_conflict_p will be
+   less conservative.  */
+
+
+bool
+base_addr_differ_p (struct data_reference *dra,
+		    struct data_reference *drb,
+		    bool *differ_p)
+{
+  tree addr_a = DR_BASE_ADDRESS (dra);
+  tree addr_b = DR_BASE_ADDRESS (drb);
+  tree type_a = TREE_TYPE (addr_a);
+  tree type_b = TREE_TYPE (addr_b);
+  HOST_WIDE_INT alias_set_a, alias_set_b;
+
+  gcc_assert (POINTER_TYPE_P (type_a) &&  POINTER_TYPE_P (type_b));
+  
+  /* Determine if same base. */
+  if (addr_a == addr_b)
+    {
+      *differ_p = false;
+      return true;
+    }
+
+  /* Both references are ADDR_EXPR, i.e., we have the objects.  */
+  if (TREE_CODE (addr_a) == ADDR_EXPR && TREE_CODE (addr_b) == ADDR_EXPR)
+    return array_base_name_differ_p (dra, drb, differ_p);  
+
+  alias_set_a = (TREE_CODE (addr_a) == ADDR_EXPR) ? 
+    get_alias_set (TREE_OPERAND (addr_a, 0)) : get_alias_set (addr_a);
+  alias_set_b = (TREE_CODE (addr_b) == ADDR_EXPR) ? 
+    get_alias_set (TREE_OPERAND (addr_b, 0)) : get_alias_set (addr_b);
+
+  if (!alias_sets_conflict_p (alias_set_a, alias_set_b))
+    {
+      *differ_p = true;
+      return true;
+    }
+  
+  /* An instruction writing through a restricted pointer is "independent" of any 
+     instruction reading or writing through a different pointer, in the same 
+     block/scope.  */
+  else if ((TYPE_RESTRICT (type_a) && !DR_IS_READ (dra))
+      || (TYPE_RESTRICT (type_b) && !DR_IS_READ (drb)))
+    {
+      *differ_p = true;
+      return true;
+    }
   return false;
 }
 
@@ -587,28 +652,6 @@ analyze_array_indexes (struct loop *loop,
     return opnd0;
 }
 
-/* Analyze an indirect memory reference, REF, that comes from STMT.
-   IS_READ is true if this is an indirect load, and false if it is
-   an indirect store.
-   Return a new data reference structure representing the indirect_ref, or
-   NULL if we cannot describe the access function.  */
-
-static struct data_reference *
-analyze_indirect_ref (tree stmt, tree ref, bool is_read)
-{
-  
-  struct loop *loop = loop_containing_stmt (stmt);
-  tree access_fn = instantiate_parameters 
-    (loop, analyze_scalar_evolution (loop, TREE_OPERAND (ref, 0)));
-  tree base = initial_condition (access_fn);
-  
-  STRIP_NOPS (base);
-  if (access_fn == chrec_dont_know || base == chrec_dont_know)
-    return NULL;
-  
-  return init_data_ref (stmt, ref, base, access_fn, is_read);
-}
-
 /* For a data reference REF contained in the statement STMT, initialize
    a DATA_REFERENCE structure, and return it.  IS_READ flag has to be
    set to true when REF is in the right hand side of an
@@ -635,22 +678,99 @@ analyze_array (tree stmt, tree ref, bool is_read)
   DR_BASE_NAME (res) = analyze_array_indexes 
     (loop_containing_stmt (stmt), &(DR_ACCESS_FNS (res)), ref, stmt);
   DR_IS_READ (res) = is_read;
-  
+  DR_BASE_ADDRESS (res) = NULL_TREE;
+  DR_INIT_OFFSET (res) = NULL_TREE;
+  DR_STEP (res) = NULL_TREE;
+  DR_OFFSET_MISALIGNMENT (res) = NULL_TREE;
+  DR_BASE_ALIGNED (res) = false;
+  DR_MEMTAG (res) = NULL_TREE;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
   
   return res;
 }
 
+/* Analyze an indirect memory reference, REF, that comes from STMT.
+   IS_READ is true if this is an indirect load, and false if it is
+   an indirect store.
+   Return a new data reference structure representing the indirect_ref, or
+   NULL if we cannot describe the access function.  */
+  
+static struct data_reference *
+analyze_indirect_ref (tree stmt, tree ref, bool is_read) 
+{
+    
+  struct loop *loop = loop_containing_stmt (stmt);
+  tree access_fn = analyze_scalar_evolution (loop, TREE_OPERAND (ref, 0));
+  tree init = initial_condition_in_loop_num (access_fn, loop->num);
+  tree base_address = NULL_TREE, evolution, step = NULL_TREE;
+ 
+  STRIP_NOPS (init);   
+  if (access_fn == chrec_dont_know || init == chrec_dont_know)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "\nBad access function of ptr: ");
+	  print_generic_expr (dump_file, ref, TDF_SLIM);
+	  fprintf (dump_file, "\n");
+	}
+      return NULL;
+    }
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "\nAccess function of ptr: ");
+      print_generic_expr (dump_file, access_fn, TDF_SLIM);
+      fprintf (dump_file, "\n");
+    }
+
+  if (!expr_invariant_in_loop_p (loop, init))
+    {
+    if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "\ninitial condition is not loop invariant.\n");	
+    }
+  else
+    {
+      base_address = init;
+      evolution = evolution_part_in_loop_num (access_fn, loop->num);
+      if (evolution != chrec_dont_know)
+	{       
+	  if (!evolution)
+	    step = ssize_int (0);
+	  else  
+	    {
+	      if (TREE_CODE (evolution) == INTEGER_CST)
+		step = fold_convert (ssizetype, evolution);
+	      else
+		if (dump_file && (dump_flags & TDF_DETAILS))
+		  fprintf (dump_file, "\nnon constant step for ptr access.\n");	
+	    }
+	}
+      else
+	if (dump_file && (dump_flags & TDF_DETAILS))
+	  fprintf (dump_file, "\nunknown evolution of ptr.\n");	
+    }
+  return init_data_ref (stmt, ref, NULL_TREE, access_fn, is_read, base_address, 
+			NULL_TREE, step, NULL_TREE, false, NULL_TREE);
+}
+
+
 /* For a data reference REF contained in the statement STMT, initialize
    a DATA_REFERENCE structure, and return it.  */
 
-struct data_reference *
+static struct data_reference *
 init_data_ref (tree stmt, 
 	       tree ref,
 	       tree base,
 	       tree access_fn,
-	       bool is_read)
+	       bool is_read,
+	       tree base_address,
+	       tree init_offset,
+	       tree step,
+	       tree misalign,
+	       bool base_aligned,
+	       tree memtag)
 {
   struct data_reference *res;
 
@@ -670,14 +790,775 @@ init_data_ref (tree stmt,
   DR_BASE_NAME (res) = base;
   VARRAY_PUSH_TREE (DR_ACCESS_FNS (res), access_fn);
   DR_IS_READ (res) = is_read;
-  
+  DR_BASE_ADDRESS (res) = base_address;
+  DR_INIT_OFFSET (res) = init_offset;
+  DR_STEP (res) = step;
+  DR_OFFSET_MISALIGNMENT (res) = misalign;
+  DR_BASE_ALIGNED (res) = base_aligned;
+  DR_MEMTAG (res) = memtag;
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
   
   return res;
 }
 
+/* Function strip_conversions
+
+   Strip conversions that don't narrow the mode.  */
+
+static tree 
+strip_conversion (tree expr)
+{
+  tree to, ti, oprnd0;
+  
+  while (TREE_CODE (expr) == NOP_EXPR || TREE_CODE (expr) == CONVERT_EXPR)
+    {
+      to = TREE_TYPE (expr);
+      oprnd0 = TREE_OPERAND (expr, 0);
+      ti = TREE_TYPE (oprnd0);
+ 
+      if (!INTEGRAL_TYPE_P (to) || !INTEGRAL_TYPE_P (ti))
+	return NULL_TREE;
+      if (GET_MODE_SIZE (TYPE_MODE (to)) < GET_MODE_SIZE (TYPE_MODE (ti)))
+	return NULL_TREE;
+      
+      expr = oprnd0;
+    }
+  return expr; 
+}
+
+
+/* Function analyze_offset_expr
+
+   Given an offset expression EXPR received from get_inner_reference, analyze
+   it and create an expression for INITIAL_OFFSET by substituting the variables 
+   of EXPR with initial_condition of the corresponding access_fn in the loop. 
+   E.g., 
+      for i
+         for (j = 3; j < N; j++)
+            a[j].b[i][j] = 0;
+	 
+   For a[j].b[i][j], EXPR will be 'i * C_i + j * C_j + C'. 'i' cannot be 
+   substituted, since its access_fn in the inner loop is i. 'j' will be 
+   substituted with 3. An INITIAL_OFFSET will be 'i * C_i + C`', where
+   C` =  3 * C_j + C.
+
+   Compute MISALIGN (the misalignment of the data reference initial access from
+   its base) if possible and if ALIGNMENT is not NULL. Misalignment can be 
+   calculated only if all the variables can be substituted with constants, or if 
+   a variable is multiplied by a multiple of ALIGNMENT. In the above example, 
+   since 'i' cannot be substituted, MISALIGN will be NULL_TREE in case that C_i 
+   is not a multiple of ALIGNMENT, and C` otherwise. (We perform MISALIGN modulo 
+   ALIGNMENT computation in the caller of this function).
+
+   STEP is an evolution of the data reference in this loop in bytes.
+   In the above example, STEP is C_j.
+
+   Return FALSE, if the analysis fails, e.g., there is no access_fn for a 
+   variable. In this case, all the outputs (INITIAL_OFFSET, MISALIGN and STEP) 
+   are NULL_TREEs. Otherwise, return TRUE.
+
+*/
+
+static bool
+analyze_offset_expr (tree expr, 
+		     struct loop *loop, 
+		     tree alignment,
+		     tree *initial_offset,
+		     tree *misalign,
+		     tree *step)
+{
+  tree oprnd0;
+  tree oprnd1;
+  tree left_offset = ssize_int (0);
+  tree right_offset = ssize_int (0);
+  tree left_misalign = ssize_int (0);
+  tree right_misalign = ssize_int (0);
+  tree left_step = ssize_int (0);
+  tree right_step = ssize_int (0);
+  enum tree_code code;
+  tree init, evolution;
+
+  *step = NULL_TREE;
+  *misalign = NULL_TREE;
+  *initial_offset = NULL_TREE;
+
+  /* Strip conversions that don't narrow the mode.  */
+  expr = strip_conversion (expr);
+  if (!expr)
+    return false;
+
+  /* Stop conditions:
+     1. Constant.  */
+  if (TREE_CODE (expr) == INTEGER_CST)
+    {
+      *initial_offset = fold_convert (ssizetype, expr);
+      *misalign = fold_convert (ssizetype, expr);      
+      *step = ssize_int (0);
+      return true;
+    }
+
+  /* 2. Variable. Try to substitute with initial_condition of the corresponding
+     access_fn in the current loop.  */
+  if (SSA_VAR_P (expr))
+    {
+      tree access_fn = analyze_scalar_evolution (loop, expr);
+
+      if (access_fn == chrec_dont_know)
+	/* No access_fn.  */
+	return false;
+
+      init = initial_condition_in_loop_num (access_fn, loop->num);
+      if (init == expr && !expr_invariant_in_loop_p (loop, init))
+	/* Not enough information: may be not loop invariant.  
+	   E.g., for a[b[i]], we get a[D], where D=b[i]. EXPR is D, its 
+	   initial_condition is D, but it depends on i - loop's induction
+	   variable.  */	  
+	return false;
+
+      evolution = evolution_part_in_loop_num (access_fn, loop->num);
+      if (evolution && TREE_CODE (evolution) != INTEGER_CST)
+	/* Evolution is not constant.  */
+	return false;
+
+      if (TREE_CODE (init) == INTEGER_CST)
+	*misalign = fold_convert (ssizetype, init);
+      else
+	/* Not constant, misalignment cannot be calculated.  */
+	*misalign = NULL_TREE;
+
+      *initial_offset = fold_convert (ssizetype, init); 
+
+      *step = evolution ? fold_convert (ssizetype, evolution) : ssize_int (0);
+      return true;      
+    }
+
+  /* Recursive computation.  */
+  if (!BINARY_CLASS_P (expr))
+    {
+      /* We expect to get binary expressions (PLUS/MINUS and MULT).  */
+      if (dump_file && (dump_flags & TDF_DETAILS))
+        {
+	  fprintf (dump_file, "\nNot binary expression ");
+          print_generic_expr (dump_file, expr, TDF_SLIM);
+	  fprintf (dump_file, "\n");
+	}
+      return false;
+    }
+  oprnd0 = TREE_OPERAND (expr, 0);
+  oprnd1 = TREE_OPERAND (expr, 1);
+
+  if (!analyze_offset_expr (oprnd0, loop, alignment, &left_offset, 
+			    &left_misalign, &left_step)
+      || !analyze_offset_expr (oprnd1, loop, alignment, &right_offset, 
+			       &right_misalign, &right_step))
+    return false;
+
+  /* The type of the operation: plus, minus or mult.  */
+  code = TREE_CODE (expr);
+  switch (code)
+    {
+    case MULT_EXPR:
+      if (TREE_CODE (right_offset) != INTEGER_CST)
+	/* RIGHT_OFFSET can be not constant. For example, for arrays of variable 
+	   sized types. 
+	   FORNOW: We don't support such cases.  */
+	return false;
+
+      /* Strip conversions that don't narrow the mode.  */
+      left_offset = strip_conversion (left_offset);      
+      if (!left_offset)
+	return false;      
+      /* Misalignment computation.  */
+      if (SSA_VAR_P (left_offset))
+	{
+	  /* If the left side contains variables that can't be substituted with 
+	     constants, we check if the right side is a multiple of ALIGNMENT.
+	   */
+	  if (alignment 
+	      && integer_zerop (size_binop (TRUNC_MOD_EXPR, right_offset, 
+					  fold_convert (ssizetype, alignment))))
+	    *misalign = ssize_int (0);
+	  else
+	    /* If the remainder is not zero or the right side isn't constant,
+	       we can't compute  misalignment.  */
+	    *misalign = NULL_TREE;
+	}
+      else 
+	{
+	  /* The left operand was successfully substituted with constant.  */	  
+	  if (left_misalign)
+	    /* In case of EXPR '(i * C1 + j) * C2', LEFT_MISALIGN is 
+	       NULL_TREE.  */
+	    *misalign  = size_binop (code, left_misalign, right_misalign);
+	  else
+	    *misalign = NULL_TREE; 
+	}
+
+      /* Step calculation.  */
+      /* Multiply the step by the right operand.  */
+      *step  = size_binop (MULT_EXPR, left_step, right_offset);
+      break;
+   
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      /* Combine the recursive calculations for step and misalignment.  */
+      *step = size_binop (code, left_step, right_step);
+   
+      if (left_misalign && right_misalign)
+	*misalign  = size_binop (code, left_misalign, right_misalign);
+      else
+	*misalign = NULL_TREE;
+    
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Compute offset.  */
+  *initial_offset = fold_convert (ssizetype, 
+				  fold (build2 (code, TREE_TYPE (left_offset), 
+						left_offset, 
+						right_offset)));
+  return true;
+}
+
+
+/* Function get_ptr_offset
+
+   Compute the OFFSET modulo type alignment of pointer REF in bytes.  */
+
+static tree
+get_ptr_offset (tree ref, tree type, tree *offset)
+{
+  unsigned int ptr_n, ptr_offset;
+
+  if (!POINTER_TYPE_P (TREE_TYPE (ref)))
+    return NULL_TREE;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "\nalignment of pointer ");
+      print_generic_expr (dump_file, ref, TDF_SLIM);
+      fprintf (dump_file, " offset %d n %d\n ",
+	       get_ptr_info (ref)->alignment.offset,
+	       get_ptr_info (ref)->alignment.n);
+      fprintf (dump_file, "\n");
+    }
+  /* The pointer is aligned to N with offset OFFSET.  */
+  ptr_offset = get_ptr_info (ref)->alignment.offset;
+  ptr_n = get_ptr_info (ref)->alignment.n;  
+		  
+  if (ptr_n/TYPE_ALIGN (type) >= 1 && ptr_n % TYPE_ALIGN (type) == 0)
+    {
+      /* Compute the offset for type.  */
+      ptr_offset = ptr_offset % TYPE_ALIGN (type);
+      *offset = size_int (ptr_offset);
+      return ref;
+    }
+  else 
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "\nmisaligned pointer access: ");
+	  print_generic_expr (dump_file, ref, TDF_SLIM);
+	  fprintf (dump_file, "\n");
+	}
+      return NULL_TREE;	      
+    }
+}
+
+
+/* Function address_analysis
+
+   Return the BASE of the address expression EXPR.
+   Also compute the INITIAL_OFFSET from BASE, MISALIGN and STEP.
+
+   Input:
+   EXPR - the address expression that is being analyzed
+   STMT - the statement that contains EXPR or its original memory reference
+   IS_READ - TRUE if STMT reads from EXPR, FALSE if writes to EXPR
+   ALIGNMENT_TYPE - the type that defines the alignment (i.e, we compute
+                    alignment relative to TYPE_ALIGN(ALIGNMENT_TYPE))
+   DR - data_reference struct for the original memory reference
+
+   Output:
+   BASE (returned value) - the base of the data reference EXPR.
+   INITIAL_OFFSET - initial offset of EXPR from BASE (an expression)
+   MISALIGN - offset of EXPR from BASE in bytes (a constant) or NULL_TREE if the
+              computation is impossible 
+   STEP - evolution of EXPR in the loop
+   BASE_ALIGNED - indicates if BASE is aligned
+ 
+   If something unexpected is encountered (an unsupported form of data-ref),
+   then NULL_TREE is returned.  
+ */
+
+static tree
+address_analysis (tree expr, tree stmt, bool is_read, tree alignment_type, 
+		  struct data_reference *dr, tree *offset, tree *misalign,
+		  tree *step, bool *base_aligned)
+{
+  tree oprnd0, oprnd1, base_address, offset_expr, base_addr0, base_addr1;
+  tree address_offset = ssize_int (0), address_misalign = ssize_int (0);
+  tree dummy;
+
+  switch (TREE_CODE (expr))
+    {
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      /* EXPR is of form {base +/- offset} (or {offset +/- base}).  */
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
+
+      STRIP_NOPS (oprnd0);
+      STRIP_NOPS (oprnd1);
+      
+      /* Recursively try to find the base of the address contained in EXPR.
+	 For offset, the returned base will be NULL.  */
+      base_addr0 = address_analysis (oprnd0, stmt, is_read, alignment_type, dr, 
+				     &address_offset, &address_misalign, step, 
+				     base_aligned);
+
+      base_addr1 = address_analysis (oprnd1, stmt, is_read, alignment_type, dr, 
+				     &address_offset, &address_misalign, step, 
+				     base_aligned);
+
+      /* We support cases where only one of the operands contains an 
+	 address.  */
+      if ((base_addr0 && base_addr1) || (!base_addr0 && !base_addr1))
+	return NULL_TREE;
+
+      /* To revert STRIP_NOPS.  */
+      oprnd0 = TREE_OPERAND (expr, 0);
+      oprnd1 = TREE_OPERAND (expr, 1);
+      
+      offset_expr = base_addr0 ? 
+	fold_convert (ssizetype, oprnd1) : fold_convert (ssizetype, oprnd0);
+
+      /* EXPR is of form {base +/- offset} (or {offset +/- base}). If offset is 
+	 a number, we can add it to the misalignment value calculated for base,
+	 otherwise, misalignment is NULL.  */
+      if (TREE_CODE (offset_expr) == INTEGER_CST && address_misalign)
+	*misalign = size_binop (TREE_CODE (expr), address_misalign, 
+				offset_expr);
+      else
+	*misalign = NULL_TREE;
+
+      /* Combine offset (from EXPR {base + offset}) with the offset calculated
+	 for base.  */
+      *offset = size_binop (TREE_CODE (expr), address_offset, offset_expr);
+      return base_addr0 ? base_addr0 : base_addr1;
+
+    case ADDR_EXPR:
+      base_address = object_analysis (TREE_OPERAND (expr, 0), stmt, is_read, 
+				      alignment_type, &dr, offset, misalign,
+				      step, base_aligned, &dummy);
+      return base_address;
+
+    case SSA_NAME:
+      if (!POINTER_TYPE_P (TREE_TYPE (expr)))
+	return NULL_TREE;
+
+      if (TYPE_ALIGN (TREE_TYPE (TREE_TYPE (expr))) 
+	  < TYPE_ALIGN (alignment_type)) 
+	{
+	  if (get_ptr_offset (expr, alignment_type, misalign))
+	    *base_aligned = true;	  
+	  else
+	    *base_aligned = false;
+	}
+      else
+	{	  
+	  *base_aligned = true;
+	  *misalign = ssize_int (0);
+	}
+      *offset = ssize_int (0);
+      *step = ssize_int (0);
+      return expr;
+      
+    default:
+      return NULL_TREE;
+    }
+}
+
+
+/* Function object_analysis
+
+   Create a data-reference structure DR for MEMREF.
+   Return the BASE of the data reference MEMREF if the analysis is possible.
+   Also compute the INITIAL_OFFSET from BASE, MISALIGN and STEP.
+   E.g., for EXPR a.b[i] + 4B, BASE is a, and OFFSET is the overall offset  
+   'a.b[i] + 4B' from a (can be an expression), MISALIGN is an OFFSET 
+   instantiated with initial_conditions of access_functions of variables, 
+   modulo alignment, and STEP is the evolution of the DR_REF in this loop.
+   Misalignment data is computed only if ALIGNMENT_TYPE is not NULL_TREE.
+
+   Function get_inner_reference is used for the above in case of ARRAY_REF and
+   COMPONENT_REF.
+
+   The structure of the function is as follows:
+   Part 1:
+   Case 1. For handled_component_p refs 
+          1.1 build data-reference structure for MEMREF
+          1.2 call get_inner_reference
+            1.2.1 analyze offset expr received from get_inner_reference
+          (fall through with BASE)
+   Case 2. For declarations 
+          2.1 check alignment
+          2.2 update DR_BASE_NAME if necessary for alias
+	  2.3 set MEMTAG
+   Case 3. For INDIRECT_REFs 
+          3.1 build data-reference structure for MEMREF
+	  3.2 analyze evolution and initial condition of MEMREF
+	  3.3 set data-reference structure for MEMREF
+          3.4 call address_analysis to analyze INIT of the access function
+	  3.5 extract memory tag
+
+   Part 2:
+   Combine the results of object and address analysis to calculate 
+   INITIAL_OFFSET, STEP and misalignment info.   
+
+   Input:
+   MEMREF - the memory reference that is being analyzed
+   STMT - the statement that contains MEMREF
+   IS_READ - TRUE if STMT reads from MEMREF, FALSE if writes to MEMREF
+   ALIGNMENT_TYPE - the type that defines the alignment (i.e, we compute
+                    alignment relative to TYPE_ALIGN(ALIGNMENT_TYPE))
+   
+   Output:
+   BASE_ADDRESS (returned value) - the base address of the data reference MEMREF
+                                   E.g, if MEMREF is a.b[k].c[i][j] the returned
+			           base is &a.
+   DR - data_reference struct for MEMREF
+   INITIAL_OFFSET - initial offset of MEMREF from BASE (an expression)
+   MISALIGN - offset of MEMREF from BASE in bytes (a constant) modulo alignment of 
+              ALIGNMENT_TYPEor NULL_TREE if the computation is impossible
+   STEP - evolution of the DR_REF in the loop
+   BASE_ALIGNED - indicates if BASE is aligned
+   MEMTAG - memory tag for aliasing purposes  
+
+   If the analysis of MEMREF evolution in the loop fails, NULL_TREE is returned, 
+   but DR can be created anyway.
+   
+*/
+ 
+static tree
+object_analysis (tree memref, tree stmt, bool is_read,
+		 tree alignment_type, struct data_reference **dr,
+		 tree *offset, tree *misalign, tree *step,
+		 bool *base_aligned, tree *memtag)
+{
+  tree base = NULL_TREE, base_address = NULL_TREE;
+  tree object_offset = ssize_int (0), object_misalign = ssize_int (0);
+  tree object_step = ssize_int (0), address_step = ssize_int (0);
+  bool object_base_aligned = true, address_base_aligned = true;
+  tree address_offset = ssize_int (0), address_misalign = ssize_int (0);
+  HOST_WIDE_INT pbitsize, pbitpos;
+  tree poffset, bit_pos_in_bytes, type_size, alignment;
+  enum machine_mode pmode;
+  int punsignedp, pvolatilep;
+  tree ptr_step = ssize_int (0), ptr_init = NULL_TREE;
+  struct loop *loop = loop_containing_stmt (stmt);
+  struct data_reference *ptr_dr = NULL;
+   
+  /* Part 1: */
+  /* Case 1. handled_component_p refs.  */
+  if (handled_component_p (memref))
+    {
+      /* 1.1 build data-reference structure for MEMREF.  */
+      /* TODO: handle COMPONENT_REFs.  */
+      if (!(*dr))
+	{ 
+	  if (TREE_CODE (memref) == ARRAY_REF)
+	    *dr = analyze_array (stmt, memref, is_read);
+	  else
+	    {
+	      /* FORNOW.  */
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "\ncan't create dr for ref ");
+		  print_generic_expr (dump_file, memref, TDF_SLIM);
+		  fprintf (dump_file, "\n");
+		}
+	      return NULL_TREE;
+	    }
+	}
+      /* 1.2 call get_inner_reference.  */
+      /* Find the base and the offset from it.  */
+      base = get_inner_reference (memref, &pbitsize, &pbitpos, &poffset,
+				  &pmode, &punsignedp, &pvolatilep, false);
+      if (!base)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "\nfailed to get inner ref for ");
+	      print_generic_expr (dump_file, memref, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }	  
+	  return NULL_TREE;
+	}
+
+      /* 1.2.1 analyze offset expr received from get_inner_reference.  */
+      type_size = alignment_type ? TYPE_SIZE_UNIT (alignment_type) : NULL_TREE;
+      if (poffset 
+	  && !analyze_offset_expr (poffset, loop, type_size, &object_offset, 
+				   &object_misalign, &object_step))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "\nfailed to compute offset or step for ");
+	      print_generic_expr (dump_file, memref, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+	  return NULL_TREE;
+	}
+
+      /* Add bit position to OFFSET and MISALIGN.  */
+
+      bit_pos_in_bytes = ssize_int (pbitpos/BITS_PER_UNIT);
+      /* Check that there is no remainder in bits.  */
+      if (pbitpos%BITS_PER_UNIT)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "\nbit offset alignment.\n");
+	  return NULL_TREE;
+	}
+      object_offset = size_binop (PLUS_EXPR, bit_pos_in_bytes, object_offset);     
+      if (object_misalign) 
+	object_misalign = size_binop (PLUS_EXPR, object_misalign, 
+				      bit_pos_in_bytes); 
+      
+      memref = base; /* To continue analysis of BASE.  */
+      /* fall through  */
+    }
+  
+  /*  Part 1: Case 2. Declarations.  */ 
+  if (DECL_P (memref))
+    {
+      /* We expect to get a decl only if we already have a DR.  */
+      if (!(*dr))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "\nunhandled decl ");
+	      print_generic_expr (dump_file, memref, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+	  return NULL_TREE;
+	}
+
+      /* 2.1 check the alignment.  */
+      if (alignment_type)
+	{
+	  if (DECL_ALIGN (memref) >= TYPE_ALIGN (alignment_type))
+	    object_base_aligned = true;
+	  else
+	    object_base_aligned = false;
+	}
+
+      /* 2.2 update DR_BASE_NAME if necessary.  */
+      if (!DR_BASE_NAME ((*dr)))
+	/* For alias analysis.  In case the analysis of INDIRECT_REF brought 
+	   us to object.  */
+	DR_BASE_NAME ((*dr)) = memref;
+
+      base_address = build_fold_addr_expr (memref);
+      /* 2.3 set MEMTAG.  */
+      *memtag = memref;
+    }
+
+  /* Part 1:  Case 3. INDIRECT_REFs.  */
+  else if (TREE_CODE (memref) == INDIRECT_REF)
+    { 
+      /* 3.1 build data-reference structure for MEMREF.  */
+      ptr_dr = analyze_indirect_ref (stmt, memref, is_read);
+      if (!ptr_dr)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "\nfailed to create dr for ");
+	      print_generic_expr (dump_file, memref, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }	
+	  return NULL_TREE;      
+	}
+
+      /* 3.2 analyze evolution and initial condition of MEMREF.  */
+      ptr_step = DR_STEP (ptr_dr);
+      ptr_init = DR_BASE_ADDRESS (ptr_dr);
+      if (!ptr_init || !ptr_step || !POINTER_TYPE_P (TREE_TYPE (ptr_init)))
+	{
+	  *dr = (*dr) ? *dr : ptr_dr;
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "\nbad pointer access ");
+	      print_generic_expr (dump_file, memref, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+	  return NULL_TREE;
+	}
+
+      if (integer_zerop (ptr_step) && !(*dr))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS)) 
+	    fprintf (dump_file, "\nptr is loop invariant.\n");	
+	  *dr = ptr_dr;
+	  return NULL_TREE;
+	
+	  /* If there exists DR for MEMREF, we are analyzing the base of
+	     handled component (PTR_INIT), which not necessary has evolution in 
+	     the loop.  */
+	}
+      object_step = size_binop (PLUS_EXPR, object_step, ptr_step);
+
+      /* 3.3 set data-reference structure for MEMREF.  */
+      *dr = (*dr) ? *dr : ptr_dr;
+
+      /* 3.4 call address_analysis to analyze INIT of the access 
+	 function.  */
+      base_address = address_analysis (ptr_init, stmt, is_read, alignment_type, 
+				       *dr, &address_offset, &address_misalign, 
+				       &address_step, &address_base_aligned);
+      if (!base_address)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "\nfailed to analyze address ");
+	      print_generic_expr (dump_file, ptr_init, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+	  return NULL_TREE;
+	}
+
+      /* 3.5 extract memory tag.  */
+      switch (TREE_CODE (base_address))
+	{
+	case SSA_NAME:
+	  *memtag = get_var_ann (SSA_NAME_VAR (base_address))->type_mem_tag;
+	  if (!(*memtag) && TREE_CODE (TREE_OPERAND (memref, 0)) == SSA_NAME)
+	    *memtag = get_var_ann (
+		      SSA_NAME_VAR (TREE_OPERAND (memref, 0)))->type_mem_tag;
+	  break;
+	case ADDR_EXPR:
+	  *memtag = TREE_OPERAND (base_address, 0);
+	  break;
+	default:
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "\nno memtag for "); 
+	      print_generic_expr (dump_file, memref, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+	  *memtag = NULL_TREE;
+	  break;
+	}
+    }
+    	    
+  if (!base_address)
+    /* MEMREF cannot be analyzed.  */
+    return NULL_TREE;
+
+  /* Part 2: Combine the results of object and address analysis to calculate 
+     INITIAL_OFFSET, STEP and misalignment info. */
+  *offset = size_binop (PLUS_EXPR, object_offset, address_offset);
+  if (object_misalign && address_misalign)
+    {
+      *misalign = size_binop (PLUS_EXPR, object_misalign, address_misalign);
+      alignment = ssize_int (TYPE_ALIGN (alignment_type)/BITS_PER_UNIT);
+      /* Modulo alignment.  */
+      *misalign = size_binop (TRUNC_MOD_EXPR, *misalign, alignment);
+    }
+  else
+    *misalign = NULL_TREE;
+  *step = size_binop (PLUS_EXPR, object_step, address_step); 
+  *base_aligned = object_base_aligned && address_base_aligned;
+
+  return base_address;
+}
 
+
+/* Function create_data_ref.
+   
+   Create a data-reference structure for MEMREF. Set its DR_BASE_ADDRESS,
+   DR_INIT_OFFSET, DR_STEP, DR_OFFSET_MISALIGNMENT, DR_BASE_ALIGNED (if 
+   ALIGNMENT_TYPE is not NULL_TREE) and DR_MEMTAG fields. 
+
+   Input:
+   MEMREF - the memory reference that is being analyzed
+   STMT - the statement that contains MEMREF
+   IS_READ - TRUE if STMT reads from MEMREF, FALSE if writes to MEMREF
+   ALIGNMENT_TYPE - the type that defines the alignment (i.e, we compute
+                    alignment relative to TYPE_ALIGN(ALIGNMENT_TYPE))
+   
+   Output:
+   DR (returned value) - data_reference struct for MEMREF
+*/
+
+struct data_reference *
+create_data_ref (tree memref, tree stmt, bool is_read, tree alignment_type)
+{
+  struct data_reference *dr = NULL;
+  tree base_address, offset, step, misalign, memtag;
+  bool base_aligned;
+
+  base_address = object_analysis (memref, stmt, is_read, alignment_type, &dr, 
+			  &offset, &misalign, &step, &base_aligned, &memtag);
+  if (!dr)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "\ncreate_data_ref: failed to create a dr for ");
+	  print_generic_expr (dump_file, memref, TDF_SLIM);
+	  fprintf (dump_file, "\n");
+	}
+      return NULL;
+    }
+
+  if (base_address)
+    {
+      DR_BASE_ADDRESS (dr) = base_address;
+      DR_INIT_OFFSET (dr) = offset;
+      DR_STEP (dr) = step;
+      DR_OFFSET_MISALIGNMENT (dr) = misalign;
+      DR_BASE_ALIGNED (dr) = base_aligned;
+      DR_MEMTAG (dr) = memtag;
+    }
+  else
+    {
+      /* Update the fields as NULL_TREEs, since may be they were set during
+	 the analysis.  */
+      DR_BASE_ADDRESS (dr) = NULL_TREE;
+      DR_STEP (dr) = NULL_TREE;
+    }
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "\nCreated dr for ");
+      print_generic_expr (dump_file, memref, TDF_SLIM);
+      fprintf (dump_file, "\n\tbase_address: ");
+      print_generic_expr (dump_file, DR_BASE_ADDRESS (dr), TDF_SLIM);
+      fprintf (dump_file, "\n\toffset: ");
+      print_generic_expr (dump_file, DR_INIT_OFFSET (dr), TDF_SLIM);
+      fprintf (dump_file, "\n\tstep: ");
+      print_generic_expr (dump_file, DR_STEP (dr), TDF_SLIM);
+      fprintf (dump_file, "B\n\tbase aligned %d\n\tmisalign: ", DR_BASE_ALIGNED (dr));
+      print_generic_expr (dump_file, DR_OFFSET_MISALIGNMENT (dr), TDF_SLIM);
+      if (DR_OFFSET_MISALIGNMENT (dr) && alignment_type)
+	{
+	  fprintf (dump_file, "B (mod ");
+	  print_generic_expr (dump_file, TYPE_SIZE_UNIT (alignment_type), TDF_SLIM);
+	  fprintf (dump_file, "B)");
+	}
+      fprintf (dump_file, "\n\tmemtag: ");
+      print_generic_expr (dump_file, DR_MEMTAG (dr), TDF_SLIM);
+      fprintf (dump_file, "\n");
+    }
+  
+  return dr;  
+}
 
 /* Returns true when all the functions of a tree_vec CHREC are the
    same.  */
@@ -765,15 +1646,13 @@ initialize_data_dependence_relation (struct data_reference *a,
   DDR_A (res) = a;
   DDR_B (res) = b;
 
-  if (a == NULL || b == NULL 
-      || DR_BASE_NAME (a) == NULL_TREE
-      || DR_BASE_NAME (b) == NULL_TREE)
+  if (a == NULL || b == NULL)
     DDR_ARE_DEPENDENT (res) = chrec_dont_know;    
 
   /* When the dimensions of A and B differ, we directly initialize
      the relation to "there is no dependence": chrec_known.  */
   else if (DR_NUM_DIMENSIONS (a) != DR_NUM_DIMENSIONS (b)
-	   || (array_base_name_differ_p (a, b, &differ_p) && differ_p))
+	   || (base_addr_differ_p (a, b, &differ_p) && differ_p))
     DDR_ARE_DEPENDENT (res) = chrec_known;
   
   else
@@ -2054,7 +2933,7 @@ build_classic_dist_vector (struct data_dependence_relation *ddr,
   
   if (DDR_ARE_DEPENDENT (ddr) != NULL_TREE)
     return true;
-  
+
   for (i = 0; i < DDR_NUM_SUBSCRIPTS (ddr); i++)
     {
       tree access_fn_a, access_fn_b;
@@ -2559,6 +3438,12 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
 	      DR_IS_READ (res) = false;
 	      VARRAY_PUSH_GENERIC_PTR (*datarefs, res);
 	      dont_know_node_not_inserted = false;
+	      DR_BASE_ADDRESS (res) = NULL_TREE;
+	      DR_INIT_OFFSET (res) = NULL_TREE;
+	      DR_STEP (res) = NULL_TREE;
+	      DR_OFFSET_MISALIGNMENT (res) = NULL_TREE;
+	      DR_BASE_ALIGNED (res) = false;
+	      DR_MEMTAG (res) = NULL_TREE;
 	    }
 	  else if (res)
 	    {

@@ -201,39 +201,6 @@ typedef struct _stmt_vec_info {
   /* Information about the data-ref (access function, etc).  */
   struct data_reference *data_ref_info;
 
-  /* Aliasing information.  */
-  tree memtag;
-
-  /** The following fields are used to store the information about 
-      data-reference. {base_address + initial_offset} is the first location 
-      accessed by data-ref in the loop, and step is the stride of data-ref in 
-      the loop in bytes;
-      e.g.:
-    
-                       Example 1                      Example 2
-      data-ref         a[j].b[i][j]                   a + 4B (a is int*)
-      
-      base_address     &a                             a
-      initial_offset   j_0*D_j + i_0*D_i + C          4
-      step             D_j                            4
-
-      data-reference structure info:
-      base_name        a                              NULL
-      access_fn        <access_fns of indexes of b>   (0, +, 1)
-
-  **/
-  /* The above base_address, offset and step.  */
-  tree base_address;
-  tree initial_offset;
-  tree step;
-
-  /* Alignment information. Whether the base of the data-reference is aligned 
-     to vectype.  */
-  bool base_aligned_p;
-  /* Alignment information. The offset of the data-reference from its base 
-     in bytes.  */
-  tree misalignment;
-
   /* Stmt is part of some pattern (computation idiom)  */
   bool in_pattern_p;
 
@@ -263,12 +230,6 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_VECTYPE(S)             (S)->vectype
 #define STMT_VINFO_VEC_STMT(S)            (S)->vectorized_stmt
 #define STMT_VINFO_DATA_REF(S)            (S)->data_ref_info
-#define STMT_VINFO_MEMTAG(S)              (S)->memtag
-#define STMT_VINFO_VECT_DR_BASE_ADDRESS(S)(S)->base_address
-#define STMT_VINFO_VECT_INIT_OFFSET(S)    (S)->initial_offset
-#define STMT_VINFO_VECT_STEP(S)           (S)->step
-#define STMT_VINFO_VECT_BASE_ALIGNED_P(S) (S)->base_aligned_p
-#define STMT_VINFO_VECT_MISALIGNMENT(S)   (S)->misalignment
 #define STMT_VINFO_IN_PATTERN_P(S)        (S)->in_pattern_p
 #define STMT_VINFO_RELATED_STMT(S)        (S)->related_stmt
 #define STMT_VINFO_SAME_ALIGN_REFS(S)	  (S)->same_align_refs

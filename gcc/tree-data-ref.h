@@ -44,15 +44,52 @@ struct data_reference
   /* True when the data reference is in RHS of a stmt.  */
   bool is_read;
 
+  /** {base_address + initial_offset} is the first location 
+      accessed by data-ref in the loop, and step is the stride of data-ref in 
+      the loop in bytes;
+      e.g.:
+    
+                       Example 1                      Example 2
+      data-ref         a[j].b[i][j]                   a + 4B (a is int*)
+      
+      base_address     &a                             a
+      initial_offset   j_0*D_j + i_0*D_i + C          4
+      step             D_j                            4
+
+      base_name        a                              NULL
+      access_fn        <access_fns of indexes of b>   (0, +, 1)
+
+  **/
+  /* The above base_address, offset and step.  */
+  tree base_address;
+  tree initial_offset;
+  tree step;
+
+  /* Aliasing information.  */
+  tree memtag;
+
+  /* Alignment information. Whether the base of the data-reference is aligned 
+     to vectype.  */
+  bool base_aligned;
+
+  /* Alignment information. The offset of the data-reference from its base 
+     in bytes.  */
+  tree misalignment;
 };
 
-#define DR_STMT(DR) DR->stmt
-#define DR_REF(DR) DR->ref
-#define DR_BASE_NAME(DR) DR->base_name
-#define DR_ACCESS_FNS(DR) DR->access_fns
-#define DR_ACCESS_FN(DR, I) VARRAY_TREE (DR_ACCESS_FNS (DR), I)
-#define DR_NUM_DIMENSIONS(DR) VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (DR))
-#define DR_IS_READ(DR) DR->is_read
+#define DR_STMT(DR)                (DR)->stmt
+#define DR_REF(DR)                 (DR)->ref
+#define DR_BASE_NAME(DR)           (DR)->base_name
+#define DR_ACCESS_FNS(DR)          (DR)->access_fns
+#define DR_ACCESS_FN(DR, I)        VARRAY_TREE (DR_ACCESS_FNS (DR), I)
+#define DR_NUM_DIMENSIONS(DR)      VARRAY_ACTIVE_SIZE (DR_ACCESS_FNS (DR))
+#define DR_IS_READ(DR)             (DR)->is_read
+#define DR_BASE_ADDRESS(DR)        (DR)->base_address
+#define DR_INIT_OFFSET(DR)         (DR)->initial_offset
+#define DR_STEP(DR)                (DR)->step
+#define DR_MEMTAG(DR)              (DR)->memtag
+#define DR_BASE_ALIGNED(DR)        (DR)->base_aligned
+#define DR_OFFSET_MISALIGNMENT(DR) (DR)->misalignment
 
 enum data_dependence_direction {
   dir_positive, 
@@ -162,7 +199,6 @@ extern bool build_classic_dist_vector (struct data_dependence_relation *, int,
 extern void analyze_all_data_dependences (struct loops *);
 extern void compute_data_dependences_for_loop (unsigned, struct loop *, 
 					       varray_type *, varray_type *);
-extern struct data_reference * init_data_ref (tree, tree, tree, tree, bool);
 extern struct data_reference *analyze_array (tree, tree, bool);
 
 extern void dump_subscript (FILE *, struct subscript *);
@@ -180,7 +216,9 @@ extern bool array_base_name_differ_p (struct data_reference *,
 extern void free_dependence_relation (struct data_dependence_relation *);
 extern void free_dependence_relations (varray_type);
 extern void free_data_refs (varray_type);
-
+extern struct data_reference * create_data_ref (tree, tree, bool, tree); 
+extern bool base_addr_differ_p (struct data_reference *,
+				struct data_reference *drb, bool *);
 
 
 
