@@ -2695,7 +2695,9 @@ avail_expr_eq (const void *p1, const void *p2)
 
   /* In case of a collision, both RHS have to be identical and have the
      same VUSE operands.  */
-  if (TREE_CODE (rhs1) == TREE_CODE (rhs2) && operand_equal_p (rhs1, rhs2, 0))
+  if (TREE_CODE (rhs1) == TREE_CODE (rhs2)
+      && TREE_TYPE (rhs1) == TREE_TYPE (rhs2)
+      && operand_equal_p (rhs1, rhs2, 0))
     {
       varray_type ops1 = vuse_ops (s1);
       varray_type ops2 = vuse_ops (s2);

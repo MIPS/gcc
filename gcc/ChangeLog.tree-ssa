@@ -8,6 +8,9 @@
 	promoted to real copies if -fdump-tree-optimized-details is given.
 
 2003-06-23  Jeff Law  <law@redhat.com>
+
+	* tree-ssa.c (avail_expr_eq): Verify types are the same before
+	handing expressions to operand_equal_p.
  
 	* tree-cfg.c (make_edges): Remove fake edges before building
 	extra edges for TRY_FINALLY_EXPRs.  Delete unnecessary edges
