@@ -134,6 +134,7 @@ static void rest_of_handle_life (tree, rtx);
 static void rest_of_handle_loop_optimize (tree, rtx);
 static void rest_of_handle_loop2 (tree, rtx);
 static void rest_of_handle_jump_bypass (tree, rtx);
+static void rest_of_handle_sibling_calls (rtx);
 static void rest_of_handle_null_pointer (tree, rtx);
 static void rest_of_handle_addressof (tree, rtx);
 static void rest_of_handle_cfg (tree, rtx);
@@ -2601,6 +2602,34 @@ rest_of_handle_addressof (tree decl, rtx insns)
   close_dump_file (DFI_addressof, print_rtl, insns);
 }
 
+/* We may have potential sibling or tail recursion sites.  Select one
+   (of possibly multiple) methods of performing the call.  */
+static void
+rest_of_handle_sibling_calls (rtx insns)
+{
+  rtx insn;
+  optimize_sibling_and_tail_recursive_calls ();
+
+  /* Recompute the CFG as sibling optimization clobbers it randomly.  */
+  free_bb_for_insn ();
+  find_exception_handler_labels ();
+  rebuild_jump_labels (insns);
+  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+
+  /* There is pass ordering problem - we must lower NOTE_INSN_PREDICTION
+     notes before simplifying cfg and we must do lowering after sibcall
+     that unhides parts of RTL chain and cleans up the CFG.
+
+     Until sibcall is replaced by tree-level optimizer, lets just
+     sweep away the NOTE_INSN_PREDICTION notes that leaked out.  */
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (GET_CODE (insn) == NOTE
+	&& NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
+      delete_insn (insn);
+
+  close_dump_file (DFI_sibling, print_rtl, get_insns ());
+}
+
 /* Perform jump bypassing and control flow optimizations.  */
 static void
 rest_of_handle_jump_bypass (tree decl, rtx insns)
@@ -3265,6 +3294,9 @@ rest_of_compilation (tree decl)
       note_prediction_to_br_prob ();
       timevar_pop (TV_BRANCH_PROB);
     }
+
+  if (flag_optimize_sibling_calls)
+    rest_of_handle_sibling_calls (insns);
 
   timevar_pop (TV_JUMP);
 

@@ -467,7 +467,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags, voperands_t prev_vops)
       get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
 
       for (op = TREE_OPERAND (expr, 1); op; op = TREE_CHAIN (op))
-        get_expr_operands (stmt, &TREE_VALUE (op), opf_none, prev_vops);
+	add_stmt_operand (&TREE_VALUE (op), stmt, opf_none, prev_vops);
 
       if (num_call_clobbered_vars > 0)
 	{
