@@ -1,3 +1,16 @@
+2002-08-15  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-cfg.c (find_expr_in_tree_helper): Renamed from find_expr_in_tree.
+	(find_expr_in_tree): Redone.
+
+2002-08-15  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-cfg.c (insert_before_ctrl_stmt): Fix insertion for various
+	parts of for loop.
+
+	* tree-ssa-pre.c (finalize_1): Set EXPR_STMT type to type of
+	expression in it.  
+
 2002-08-14  Frank Ch. Eigler  <fche@redhat.com>
 
 	* gcc.c (LINK_COMMAND_SPEC): Tweak placement of %(mflib).

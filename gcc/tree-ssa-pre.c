@@ -1241,6 +1241,7 @@ finalize_1 (ei, temp)
 		    }
 		  expr = build_modify_expr (temp, NOP_EXPR, ei->expr);
 		  stmt = build_stmt (EXPR_STMT, expr);
+		  TREE_TYPE (stmt) = TREE_TYPE (expr);
 		  bb = EXPRREF_BB (X);
 		  /* If it's a goto, we need to insert *before* it.
 		     This might not be necessary once goto elimination
@@ -1310,7 +1311,7 @@ expr_phi_insertion (dfs, ei)
                   && (TREE_OPERAND (real, 1) == NULL 
 		      || VARREF_SYM (ref) != TREE_OPERAND (real, 1)))
                 continue;
-              if (VARREF_TYPE (VARUSE_CHAIN (ref)) != VARPHI)
+              if (!VARUSE_CHAIN (ref) || VARREF_TYPE (VARUSE_CHAIN (ref)) != VARPHI)
                 continue;
               set_var_phis (VARUSE_CHAIN (ref), varcount++);
             }
@@ -1782,6 +1783,7 @@ tree_perform_ssapre ()
   sbitmap_vector_zero (pre_dfs, last_basic_block);
   compute_dominance_frontiers (pre_dfs, pre_idom);
 
+  dump_file = dump_begin (TDI_ssa_pre, &dump_flags);
   calculate_preorder ();
   FOR_EACH_BB (bb)
     {    
@@ -1859,7 +1861,6 @@ tree_perform_ssapre ()
      pre_part_1_trav (VARRAY_GENERIC_PTR (bexprs, j), pre_dfs);
   /*  simplify_stmt (fn, NULL_TREE); */
   /* Debugging dump after SSA PRE */
-  dump_file = dump_begin (TDI_ssa_pre, &dump_flags);
   if (dump_file)
     {
       fprintf (dump_file, "%s()\n",

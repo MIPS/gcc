@@ -89,6 +89,7 @@ static void insert_before_normal_stmt PARAMS ((tree, tree, basic_block));
 static void insert_after_ctrl_stmt PARAMS ((tree, basic_block));
 static void insert_after_normal_stmt PARAMS ((tree, tree, basic_block));
 static void insert_after_loop_body PARAMS ((tree, basic_block));
+static tree *find_expr_in_tree_helper PARAMS ((tree, tree, int, bool));
 
 
 /* Create basic blocks.  */
@@ -1543,7 +1544,7 @@ first_exec_stmt (t)
 
   /* If we still haven't found one and T is at the end of a tree chain, try
      the successor of the enclosing compound statement.  */
-  if (TREE_CHAIN (t) == NULL)
+  if (TREE_CHAIN (t) == NULL && TREE_COMPOUND_STMT (t) != NULL)
     {
       chain = first_exec_stmt (TREE_CHAIN (TREE_COMPOUND_STMT (t)));
       if (chain)
@@ -1763,10 +1764,10 @@ insert_before_ctrl_stmt (stmt, where, bb)
 	      tree init_stmt_expr = EXPR_STMT_EXPR (init_stmt);
 
 	      EXPR_STMT_EXPR (init_stmt) = build (COMPOUND_EXPR, 
-						  TREE_TYPE (init_stmt_expr),
-						  init_stmt_expr, 
-						  EXPR_STMT_EXPR (stmt), 
-						  init_stmt_expr);
+			      			  TREE_TYPE (EXPR_STMT_EXPR (stmt)),
+						  EXPR_STMT_EXPR (stmt),
+
+						  init_stmt_expr) ;
 	    }
 	  else
 	    insert_before_normal_stmt (stmt, where, bb);
@@ -1785,8 +1786,7 @@ insert_before_ctrl_stmt (stmt, where, bb)
               EXPR_STMT_EXPR (init_stmt) = build (COMPOUND_EXPR,  
                                                   TREE_TYPE (init_stmt_expr), 
                                                   init_stmt_expr,  
-                                                  EXPR_STMT_EXPR (stmt),  
-                                                  init_stmt_expr); 
+                                                  EXPR_STMT_EXPR (stmt));
 	  }
 	  else
 	    FOR_INIT_STMT (parent) = stmt;
@@ -1795,9 +1795,17 @@ insert_before_ctrl_stmt (stmt, where, bb)
 	    insert_after_normal_stmt (copy_node (stmt), last_stmt,
 				      BB_FOR_STMT (last_stmt));
 	  else
-	    FOR_EXPR (parent) = copy_node (stmt);
+	    {
+	      if (FOR_EXPR (parent))
+		FOR_EXPR (parent) = build (COMPOUND_EXPR, 
+					   TREE_TYPE (stmt), 
+					   copy_node (stmt), 
+					   FOR_EXPR (parent));
+	      else
+		FOR_EXPR (parent) = copy_node (stmt);
+	    }
 	}
-
+      
       /* FOR_EXPR block.  Insert at the end of the loop body.  */
       else if (bb == FOR_EXPR_BB (parent_bb))
 	{
@@ -2039,8 +2047,7 @@ insert_after_ctrl_stmt (stmt, bb)
               EXPR_STMT_EXPR (init_stmt) = build (COMPOUND_EXPR,  
                                                   TREE_TYPE (init_stmt_expr), 
                                                   init_stmt_expr,  
-                                                  EXPR_STMT_EXPR (stmt),  
-                                                  init_stmt_expr); 
+                                                  EXPR_STMT_EXPR (stmt));
 	    }
 	  else
 	    insert_after_normal_stmt (stmt, t, bb);
@@ -2063,15 +2070,23 @@ insert_after_ctrl_stmt (stmt, bb)
 	{
 	  t = last_exec_stmt (FOR_EXPR (parent));
 	  if (t == NULL)
-	    FOR_EXPR (parent) = stmt;
+	    {
+	      if (FOR_EXPR (parent))
+		FOR_EXPR (parent) = build (COMPOUND_EXPR, 
+					   TREE_TYPE (FOR_EXPR (parent)), 
+					   FOR_EXPR (parent), 
+					   stmt);
+	      else
+		FOR_EXPR (parent) = stmt;
+	    }
 	  else
-	    insert_after_normal_stmt (stmt, t, bb);
+	    insert_after_normal_stmt (stmt, t, BB_FOR_STMT (t));
 	}
       
       else
 	abort ();
     }
-
+  
   else
     abort ();
 }
@@ -2227,15 +2242,19 @@ replace_expr_in_tree (t, old_expr, new_expr)
     *old_expr_p = new_expr;
 }
 
+/*  Returns the location of expression EXPR in T.  If SUBSTATE is
+    true, the search will search sub-statements.  If SUBSTATE is
+    false,  the search is guaranteed to not go outside statement
+    nodes, only their sub-expressions are searched.  LEVEL is an
+    internal parameter used to track the recursion level, external
+    users should pass 0.  */
 
-/*  Returns the location of expression EXPR in T.  The search is guaranteed
-    to not go outside statement nodes, only their sub-expressions are
-    searched.  */
-
-tree *
-find_expr_in_tree (t, expr)
+static tree *
+find_expr_in_tree_helper (t, expr, level, substate)
      tree t;
      tree expr;
+     int level;
+     bool substate;
 {
   int i;
   tree *loc;
@@ -2268,7 +2287,7 @@ find_expr_in_tree (t, expr)
 	    /* Not there?  Recurse into each of the list elements.  */
 	    for (op = t; op; op = TREE_CHAIN (op))
 	      {
-		loc = find_expr_in_tree (TREE_VALUE (op), expr);
+		loc = find_expr_in_tree_helper (TREE_VALUE (op), expr, level++, substate);
 		if (loc)
 		  return loc;
 	      }
@@ -2288,16 +2307,16 @@ find_expr_in_tree (t, expr)
   /* If we still haven't found it, recurse into each sub-expression of T.  */
   for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (t)); i++)
     {
-      loc = find_expr_in_tree (TREE_OPERAND (t, i), expr);
+      loc = find_expr_in_tree_helper (TREE_OPERAND (t, i), expr, level++, substate);
       if (loc)
 	return loc;
     }
 
   /* Finally, if T is not a statement, recurse into its chain (this limits
      the search to a single statement).  */
-  if (! statement_code_p (TREE_CODE (t)))
+  if (! statement_code_p (TREE_CODE (t)) || (substate && level != 0))
     {
-      loc = find_expr_in_tree (TREE_CHAIN (t), expr);
+      loc = find_expr_in_tree_helper (TREE_CHAIN (t), expr, level, substate);
       if (loc)
 	return loc;
     }
@@ -2305,6 +2324,13 @@ find_expr_in_tree (t, expr)
   return NULL;
 }
 
+tree *
+find_expr_in_tree (t, expr)
+	tree t;
+	tree expr;
+{
+	return find_expr_in_tree_helper (t, expr, 0, true);
+}
 
 /*  Insert basic block NEW_BB before BB.  */
 
