@@ -980,6 +980,14 @@ cfg_layout_duplicate_bb (bb, e)
 	      /* Should never exist at BB duplication time.  */
 	      abort ();
 	      break;
+	    case NOTE_INSN_REPEATED_LINE_NUMBER:
+	      {
+		rtx x = emit_note (NOTE_SOURCE_FILE (insn),
+				   NOTE_LINE_NUMBER (insn));
+		if (x)
+		  new = x;
+	      }
+	      break;
 
 	    default:
 	      if (NOTE_LINE_NUMBER (insn) < 0)
