@@ -9,5 +9,9 @@
 	(validate_insn_alternatives): Make sure output operands don't have
 	empty constraints.
 
+	* global.c, caller-save.c, reload.c, reload.h, reload1.c: Rather a
+	lot of changes which I'll spell out in detail if this ever goes into
+	mainline.
+
 
 	

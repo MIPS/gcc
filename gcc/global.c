@@ -304,7 +304,7 @@ static void mark_reg_live_nc (int, enum machine_mode);
 static void set_preference (rtx, rtx);
 static void dump_conflicts (FILE *);
 static void reg_becomes_live (rtx, rtx, void *);
-static void reg_dies (int, enum machine_mode, struct insn_chain *);
+static void reg_dies (int, enum machine_mode);
 
 static void allocate_bb_info (void);
 static void free_bb_info (void);
@@ -1739,10 +1739,10 @@ mark_elimination (int from, int to)
    current life information.  */
 static regset live_relevant_regs;
 
-/* Record in live_relevant_regs and REGS_SET that register REG became live.
+/* Record in live_relevant_regs that register REG became live.
    This is called via note_stores.  */
 static void
-reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *regs_set)
+reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *data ATTRIBUTE_UNUSED)
 {
   int regno;
 
@@ -1759,39 +1759,25 @@ reg_becomes_live (rtx reg, rtx setter ATTRIBUTE_UNUSED, void *regs_set)
       while (nregs-- > 0)
 	{
 	  SET_REGNO_REG_SET (live_relevant_regs, regno);
-	  if (! fixed_regs[regno])
-	    SET_REGNO_REG_SET ((regset) regs_set, regno);
 	  regno++;
 	}
     }
   else if (reg_renumber[regno] >= 0)
-    {
-      SET_REGNO_REG_SET (live_relevant_regs, regno);
-      SET_REGNO_REG_SET ((regset) regs_set, regno);
-    }
+    SET_REGNO_REG_SET (live_relevant_regs, regno);
 }
 
 /* Record in live_relevant_regs that register REGNO died.  */
 static void
-reg_dies (int regno, enum machine_mode mode, struct insn_chain *chain)
+reg_dies (int regno, enum machine_mode mode)
 {
   if (regno < FIRST_PSEUDO_REGISTER)
     {
-      int nregs = hard_regno_nregs[regno][mode];
+      int nregs = HARD_REGNO_NREGS (regno, mode);
       while (nregs-- > 0)
-	{
-	  CLEAR_REGNO_REG_SET (live_relevant_regs, regno);
-	  if (! fixed_regs[regno])
-	    SET_REGNO_REG_SET (&chain->dead_or_set, regno);
-	  regno++;
-	}
+	CLEAR_REGNO_REG_SET (live_relevant_regs, regno++);
     }
   else
-    {
-      CLEAR_REGNO_REG_SET (live_relevant_regs, regno);
-      if (reg_renumber[regno] >= 0)
-	SET_REGNO_REG_SET (&chain->dead_or_set, regno);
-    }
+    CLEAR_REGNO_REG_SET (live_relevant_regs, regno);
 }
 
 /* Walk the insns of the current function and build reload_insn_chain,
@@ -1835,6 +1821,8 @@ build_insn_chain (rtx first)
 	  c->insn = first;
 	  c->block = b->index;
 
+	  COPY_REG_SET (&c->live_before, live_relevant_regs);
+
 	  if (INSN_P (first))
 	    {
 	      rtx link;
@@ -1844,18 +1832,16 @@ build_insn_chain (rtx first)
 	      for (link = REG_NOTES (first); link; link = XEXP (link, 1))
 		if (REG_NOTE_KIND (link) == REG_DEAD
 		    && REG_P (XEXP (link, 0)))
-		  reg_dies (REGNO (XEXP (link, 0)), GET_MODE (XEXP (link, 0)),
-			    c);
-
-	      COPY_REG_SET (&c->live_throughout, live_relevant_regs);
+		  reg_dies (REGNO (XEXP (link, 0)), GET_MODE (XEXP (link, 0)));
 
 	      /* Mark everything born in this instruction as live.  */
 
-	      note_stores (PATTERN (first), reg_becomes_live,
-			   &c->dead_or_set);
+	      note_stores (PATTERN (first), reg_becomes_live, NULL);
 	    }
-	  else
-	    COPY_REG_SET (&c->live_throughout, live_relevant_regs);
+
+	  /* Remember which registers are live at the end of the insn, before
+	     killing those with REG_UNUSED notes.  */
+	  COPY_REG_SET (&c->live_after, live_relevant_regs);
 
 	  if (INSN_P (first))
 	    {
@@ -1866,8 +1852,7 @@ build_insn_chain (rtx first)
 	      for (link = REG_NOTES (first); link; link = XEXP (link, 1))
 		if (REG_NOTE_KIND (link) == REG_UNUSED
 		    && REG_P (XEXP (link, 0)))
-		  reg_dies (REGNO (XEXP (link, 0)), GET_MODE (XEXP (link, 0)),
-			    c);
+		  reg_dies (REGNO (XEXP (link, 0)), GET_MODE (XEXP (link, 0)));
 	    }
 	}
 

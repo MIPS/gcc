@@ -48,38 +48,116 @@ extern int memory_move_secondary_cost (enum machine_mode, enum reg_class, int);
 
 /* Maximum number of reloads we can need.  */
 #define MAX_RELOADS (2 * MAX_RECOG_OPERANDS * (MAX_REGS_PER_ADDRESS + 1))
+/* Likewise, the maximum number of replacements we can need.  */
+#define MAX_REPLACEMENTS (MAX_RECOG_OPERANDS * ((MAX_REGS_PER_ADDRESS * 2) + 1))
 
-/* Encode the usage of a reload.  The following codes are supported:
+/* Each replacement is recorded with a structure like this.  */
+struct replacement
+{
+  rtx *where;			/* Location to store in */
+  rtx *subreg_loc;		/* Location of SUBREG if WHERE is inside
+				   a SUBREG; 0 otherwise.  */
+  int what;			/* which reload this is for */
+  enum machine_mode mode;	/* mode it must have */
+  rtx contents;			/* Data stored inside it.  */
+};
 
-   RELOAD_FOR_INPUT		reload of an input operand
-   RELOAD_FOR_OUTPUT		likewise, for output
-   RELOAD_FOR_INSN		a reload that must not conflict with anything
-				used in the insn, but may conflict with
-				something used before or after the insn
-   RELOAD_FOR_INPUT_ADDRESS	reload for parts of the address of an object
-				that is an input reload
-   RELOAD_FOR_INPADDR_ADDRESS	reload needed for RELOAD_FOR_INPUT_ADDRESS
-   RELOAD_FOR_OUTPUT_ADDRESS	like RELOAD_FOR INPUT_ADDRESS, for output
-   RELOAD_FOR_OUTADDR_ADDRESS	reload needed for RELOAD_FOR_OUTPUT_ADDRESS
-   RELOAD_FOR_OPERAND_ADDRESS	reload for the address of a non-reloaded
-				operand; these don't conflict with
-				any other addresses.
-   RELOAD_FOR_OPADDR_ADDR	reload needed for RELOAD_FOR_OPERAND_ADDRESS
-                                reloads; usually secondary reloads
-   RELOAD_OTHER			none of the above, usually multiple uses
-   RELOAD_FOR_OTHER_ADDRESS     reload for part of the address of an input
-				that is marked RELOAD_OTHER.
+extern struct replacement replacements[];
 
-   This used to be "enum reload_when_needed" but some debuggers have trouble
-   with an enum tag and variable of the same name.  */
+/* Number of replacements currently recorded.  */
+extern int n_replacements;
+/* A dummy rtx that is temporarily substituted into the insn's
+   replacements.  */
+extern struct rtx_def dummy_replacement_rtx;
+
+/* Encode the usage of a reload.  No longer used, but kept around
+   to keep diff sizes small.  */
 
 enum reload_type
 {
-  RELOAD_FOR_INPUT, RELOAD_FOR_OUTPUT, RELOAD_FOR_INSN,
-  RELOAD_FOR_INPUT_ADDRESS, RELOAD_FOR_INPADDR_ADDRESS,
-  RELOAD_FOR_OUTPUT_ADDRESS, RELOAD_FOR_OUTADDR_ADDRESS,
-  RELOAD_FOR_OPERAND_ADDRESS, RELOAD_FOR_OPADDR_ADDR,
-  RELOAD_OTHER, RELOAD_FOR_OTHER_ADDRESS
+  RELOAD_FOR_NONE
+};
+
+enum rlinsn_type
+{
+  RLI_INSN,
+  RLI_INPUTRELOAD,
+  RLI_OUTPUTRELOAD,
+  RLI_INPUTREG,
+  RLI_OUTPUTREG
+};
+
+enum rlinsn_status
+{
+  RLIS_IGNORED,
+  RLIS_NOT_SCHEDULED,
+  RLIS_SCHEDULED,
+  RLIS_EMITTED
+};
+
+/* Describe lifetime information about a register that occurs within a
+   reloaded insn.  This structure is used both to describe hard regs (or
+   pseudos allocated to hard regs) that occur within the insn, and to
+   describe reload regs.  */
+struct reload_reg_use
+{
+  /* The regno of this register.  Unset for not-yet-allocated reloads.  */
+  int regno;
+  /* After the reload insn positions have been determined, these two fields
+     describe the lifetime of the register.  */
+  char birth, death;
+  /* Nonzero if this is subject to an earlyclobber.  */
+  unsigned int earlyclobber:1;
+  /* Determines whether this describes a hardreg or an allocated pseudo.  */
+  unsigned int hardreg:1;
+  /* If this belongs to a reload, ALLOCATED says whether the reload has
+     a register.  Optional reloads can remain unallocated until the end.  */
+  unsigned int allocated:1;
+  /* Nonzero for registers that are live until the end of the insn due to
+     being used for inheritance.  */
+  unsigned int live_until_end:1;
+  unsigned int ignored:1;
+};
+
+/* When an insn is reloaded, we allocate one structure for each of the insns
+   that reload will generate, as well as another one for the reloaded insn
+   itself.  We also make these structures in conjunction with reload_reg_use
+   structures to describe register assignments (especially to keep track of
+   dependencies through the FEEDS array).  */
+struct reload_insn
+{
+  /* The type of this structure, it says what is being described.  */
+  enum rlinsn_type type;
+  /* Status, used in compute_reload_order while scheduling these insns.  */
+  enum rlinsn_status status;
+
+  /* Describe the position of this insn within the chain we will eventually
+     generate.  The first insn will have order 0.  */
+  short order;
+  /* All reload_insn structures are chained in descending order.  This field
+     contains the index of the previous reload_insn.  It is an index into the
+     array kept in the corresponding insn_chain structure.  */
+  short prev_order;
+
+  /* Information about dependencies between the reload insns.  */
+  int feeds_space;
+  struct reload_insn **feeds;
+
+  unsigned char n_feeds;
+  unsigned char n_feeds_remaining;
+
+  /* Depending on TYPE, this field is either
+     - unset (for RLI_INSN)
+     - the register number (for RLI_INPUTREG/RLI_OUTPUTREG)
+     - the reload number (for RLI_INPUTRELOAD/RLI_OUTPUTRELOAD).  */
+  unsigned int nr:14;
+  /* Nonzero for a RLI_OUTPUTRELOAD type structure if we do not actually need
+     to perform the output reload (i.e. because the destination is unused
+     afterwards.  */
+  unsigned int unnecessary:1;
+  /* A temporary marker that shows that given the current allocation/schedule
+     of reloads, this insn is not necessary.  */
+  unsigned int ignored:1;
 };
 
 #ifdef GCC_INSN_CODES_H
@@ -91,6 +169,8 @@ struct reload
   /* Where to store reload-reg afterward if nec (often the same as
      reload_in)  */
   rtx out;
+
+  rtx override_in, override_out;
 
   /* The class of registers to reload into.  */
   enum reg_class class;
@@ -104,7 +184,7 @@ struct reload
   enum machine_mode mode;
 
   /* the largest number of registers this reload will require.  */
-  unsigned int nregs;
+  int nregs;
 
   /* Positive amount to increment or decrement by if
      reload_in is a PRE_DEC, PRE_INC, POST_DEC, POST_INC.
@@ -117,13 +197,14 @@ struct reload
   rtx in_reg;
   rtx out_reg;
 
-  /* Used in find_reload_regs to record the allocated register.  */
-  int regno;
   /* This is the register to reload into.  If it is zero when `find_reloads'
      returns, you must find a suitable register in the class specified by
      reload_reg_class, and store here an rtx for that register with mode from
      reload_inmode or reload_outmode.  */
   rtx reg_rtx;
+
+  struct reload_reg_use reginfo;
+
   /* The operand number being reloaded.  This is used to group related reloads
      and need not always be equal to the actual operand number in the insn,
      though it current will be; for in-out operands, it is one of the two
@@ -151,17 +232,19 @@ struct reload
   /* Nonzero for an optional reload.  Optional reloads are ignored unless the
      value is already sitting in a register.  */
   unsigned int optional:1;
-  /* nonzero if this reload shouldn't be combined with another reload.  */
-  unsigned int nocombine:1;
   /* Nonzero if this is a secondary register for one or more reloads.  */
   unsigned int secondary_p:1;
-  /* Nonzero if this reload must use a register not already allocated to a
-     group.  */
-  unsigned int nongroup:1;
+  /* Nonzero for an optional reload that has been enabled.  */
+  unsigned int enabled:1;
+  /* Helper flags used during copy_reloads.  */
+  unsigned int scanned_input:1;
+  unsigned int scanned_output:1;
+  unsigned int earlyclobber:1;
+  unsigned int accounted_in:1;
+  unsigned int accounted_out:1;  
 };
 
 extern struct reload rld[MAX_RELOADS];
-extern int n_reloads;
 #endif
 
 extern GTY (()) struct varray_head_tag *reg_equiv_memory_loc_varray;
@@ -208,22 +291,45 @@ struct insn_chain
 
   /* The basic block this insn is in.  */
   int block;
-  /* The rtx of the insn.  */
-  rtx insn;
+  /* The rtx of the insn, and a scratch copy of that insn to be used by
+     find_reloads during the first pass.  */
+  rtx insn, insn_copy;
+
   /* Register life information: record all live hard registers, and all
-     live pseudos that have a hard register.  */
-  regset_head live_throughout;
-  regset_head dead_or_set;
+     live pseudos that have a hard register
+     This information is recorded for the point immediately before the insn
+     (in live_before), and for the point within the insn at which all
+     outputs have just been written to (in live_after).  */
+  regset_head live_before;
+  regset_head live_after;
+
+  /* find_reloads can make substitutions that obfuscate the fact that a
+     pseudo is used or set in the insn.  In such cases, we set the
+     corresponding bit in one of these two regsets.  */
+  regset_head unreloaded_uses;
+  regset_head unreloaded_sets;
 
   /* Copies of the global variables computed by find_reloads.  */
   struct reload *rld;
   int n_reloads;
 
+  struct reload_insn *rli;
+  int last_rlinsn;
+  int n_input_regs;
+  int n_output_regs;
+  struct reload_reg_use *reg_usage;
+  HARD_REG_SET hard_live_across;
+  HARD_REG_SET pseudo_hard_live_across;
+
+  HARD_REG_SET set_regs, used_regs;
+
   /* Indicates which registers have already been used for spills.  */
   HARD_REG_SET used_spill_regs;
 
-  /* Nonzero if find_reloads said the insn requires reloading.  */
-  unsigned int need_reload:1;
+  /* If any registers are live across this insn due to reload inheritance,
+     they are marked here.  */
+  HARD_REG_SET inherited_live;
+
   /* Nonzero if find_reloads needs to be run during reload_as_needed to
      perform modifications on any operands.  */
   unsigned int need_operand_change:1;
@@ -231,6 +337,8 @@ struct insn_chain
   unsigned int need_elim:1;
   /* Nonzero if this insn was inserted by perform_caller_saves.  */
   unsigned int is_caller_save_insn:1;
+  /* Nonzero if this insn will be deleted and should therefore be ignored.  */
+  unsigned int will_be_deleted:1;
 };
 
 /* A chain of insn_chain structures to describe all non-note insns in
@@ -241,6 +349,12 @@ extern struct insn_chain *reload_insn_chain;
 extern struct insn_chain *new_insn_chain (void);
 
 extern void compute_use_by_pseudos (HARD_REG_SET *, regset);
+
+/* Search the body of INSN for values that need reloading and record them
+   with push_reload.  REPLACE nonzero means record also where the values occur
+   so that subst_reloads can be used.  */
+extern int find_reloads (struct insn_chain *, rtx, int, int, short *);
+
 #endif
 
 /* Functions from reload.c:  */
@@ -257,11 +371,11 @@ extern void clear_secondary_mem (void);
    reload TO.  */
 extern void transfer_replacements (int, int);
 
-/* IN_RTX is the value loaded by a reload that we now decided to inherit,
-   or a subpart of it.  If we have any replacements registered for IN_RTX,
-   cancel the reloads that were supposed to load them.
-   Return nonzero if we canceled any reloads.  */
-extern int remove_address_replacements (rtx in_rtx);
+/* Substitute dummy_replacement_rtx into all replacements.  */
+extern void subst_dummy PARAMS ((void));
+extern void undo_subst_dummy PARAMS ((void));
+/* Find the number of a replacement by its location.  */
+extern int replacement_nr PARAMS ((rtx *));
 
 /* Like rtx_equal_p except that it allows a REG and a SUBREG to match
    if they are the same hard reg, and has special hacks for
@@ -270,11 +384,6 @@ extern int operands_match_p (rtx, rtx);
 
 /* Return 1 if altering OP will not modify the value of CLOBBER.  */
 extern int safe_from_earlyclobber (rtx, rtx);
-
-/* Search the body of INSN for values that need reloading and record them
-   with push_reload.  REPLACE nonzero means record also where the values occur
-   so that subst_reloads can be used.  */
-extern int find_reloads (rtx, int, int, int, short *);
 
 /* Compute the sum of X and Y, making canonicalizations assumed in an
    address, namely: sum constant integers, surround the sum of two
