@@ -1,3 +1,9 @@
+2004-10-14  Paolo Carlini  <pcarlini@suse.de>
+	    Magnus Fromreide  <magfr@lysator.liu.se>
+	    
+	* include/bits/boost_concept_check.h (struct _SequenceConcept):
+	Remove wrong requirement, i.e., not present in Table 67.
+
 2004-09-17  Jonathan Wakely  <redi@gcc.gnu.org>
 
 	* include/bits/stl_algo.h (remove): Remove too restrictive
