@@ -1,3 +1,9 @@
+2005-01-12  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3882153
+	* objc-act.c (objc_finish_file): Do not synthesize metadata
+	when generating a PCH file.
+
 2005-01-11  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3918079

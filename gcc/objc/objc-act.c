@@ -637,10 +637,12 @@ objc_finish_file (void)
   instantiate_pending_templates (0);
 #endif
 
+  /* APPLE LOCAL begin Objective-C */
   /* Finalize Objective-C runtime data.  No need to generate tables
-     and code if only checking syntax.  */
-  if (!flag_syntax_only)
+     and code if only checking syntax, or if generating a PCH file.  */
+  if (!flag_syntax_only && !pch_file)
     finish_objc ();
+  /* APPLE LOCAL end Objective-C */
 
   if (gen_declaration_file)
     fclose (gen_declaration_file);
