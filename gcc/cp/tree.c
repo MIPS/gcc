@@ -2172,6 +2172,11 @@ cp_walk_subtrees (tp, walk_subtrees_p, func, data, htab)
     }							\
   while (0)
 
+  /* Set lineno here so we get the right instantiation context
+     if we call instantiate_decl from inlinable_function_p.  */
+  if (statement_code_p (code) && !STMT_LINENO_FOR_FN_P (*tp))
+    lineno = STMT_LINENO (*tp);
+
   /* Not one of the easy cases.  We must explicitly go through the
      children.  */
   switch (code)
@@ -2364,7 +2369,7 @@ cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
 	  if (TREE_CODE (var) == VAR_DECL)
 	    {
 	      DECL_NAME (var) = DECL_NAME (nrv);
-	      DECL_SOURCE_LOCATION (var) = DECL_SOURCE_LOCATION (nrv);
+	      TREE_LOCUS (var) = TREE_LOCUS (nrv);
 	      DECL_ABSTRACT_ORIGIN (var) = DECL_ORIGIN (nrv);
 	      /* Don't lose initialization info.  */
 	      DECL_INITIAL (var) = DECL_INITIAL (nrv);

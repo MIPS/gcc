@@ -994,8 +994,8 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	  && ! (GET_CODE (XEXP (loc, 0)) == REG
 		&& REGNO (XEXP (loc, 0)) > LAST_VIRTUAL_REGISTER))
 	{
-	  rtx note = emit_note (DECL_SOURCE_FILE (formal),
-				DECL_SOURCE_LINE (formal));
+	  rtx note = emit_note (TREE_FILENAME (formal),
+				TREE_LINENO (formal));
 	  if (note)
 	    RTX_INTEGRATED_P (note) = 1;
 

@@ -567,7 +567,7 @@ dump_c_node (buffer, node, spc, brief_dump)
       break;
 
     case TYPE_DECL:
-      if (strcmp (DECL_SOURCE_FILE (node), "<built-in>") == 0)
+      if (strcmp (TREE_FILENAME (node), "<built-in>") == 0)
 	{
 	  /* Don't print the declaration of built-in types.  */
 	  break;
@@ -1170,10 +1170,6 @@ dump_c_node (buffer, node, spc, brief_dump)
       output_add_string (buffer, "<<<exit block ");
       dump_c_node (buffer, op0, spc, brief_dump);
       output_add_string (buffer, ">>>");
-      break;
-
-    case EXPR_WITH_FILE_LOCATION:
-      dump_c_node (buffer, TREE_OPERAND (node, 0), spc, brief_dump);
       break;
 
     case EXC_PTR_EXPR:
@@ -1815,9 +1811,6 @@ op_prio (op)
     case NON_LVALUE_EXPR:
       return op_prio (TREE_OPERAND (op, 0));
 
-    case EXPR_WITH_FILE_LOCATION:
-      return op_prio (EXPR_WFL_NODE (op));
-
     default:
       /* If OP is any type of expression operator, abort because we
 	 should know what its relative precedence is.  Otherwise, return
@@ -1981,13 +1974,6 @@ print_call_name (buffer, node)
     case INDIRECT_REF:
     case NOP_EXPR:
       dump_c_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
-      break;
-
-    case EXPR_WITH_FILE_LOCATION:
-      if (TREE_CODE (TREE_OPERAND (op0, 0)) == VAR_DECL)
-        PRINT_FUNCTION_NAME (TREE_OPERAND (op0, 0));
-      else
-	dump_c_node (buffer, TREE_OPERAND (op0, 0), 0, 0);
       break;
     
     case COND_EXPR:

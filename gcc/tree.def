@@ -323,10 +323,6 @@ DEFTREECODE (STRING_CST, "string_cst", 'c', 3)
     built-in functions.  Its value is an enum built_in_function
     that says which built-in function it is.
 
-   DECL_SOURCE_FILE holds a filename string and DECL_SOURCE_LINE
-   holds a line number.  In some cases these can be the location of
-   a reference, if no definition has been seen.
-
    DECL_ABSTRACT is nonzero if the decl represents an abstract instance
    of a decl (i.e. one which is nested within an abstract instance of a
    inline function.  */
@@ -773,15 +769,6 @@ DEFTREECODE (POSTINCREMENT_EXPR, "postincrement_expr", 'e', 2)
 
 /* Used to implement `va_arg'.  */
 DEFTREECODE (VA_ARG_EXPR, "va_arg_expr", 'e', 1)
-
-/* Annotates a tree node (usually an expression) with source location
-   information: a file name (EXPR_WFL_FILENAME);  a line number
-   (EXPR_WFL_LINENO); and column number (EXPR_WFL_COLNO).  It is
-   expanded as the contained node (EXPR_WFL_NODE);  a line note should
-   be emitted first if EXPR_WFL_EMIT_LINE_NOTE.  
-   The third operand is only used in the Java front-end, and will
-   eventually be removed.  */
-DEFTREECODE (EXPR_WITH_FILE_LOCATION, "expr_with_file_location", 'e', 3)
 
 /* Evaluate operand 1.  If and only if an exception is thrown during
    the evaluation of operand 1, evaluate operand 2.

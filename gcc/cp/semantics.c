@@ -1767,8 +1767,7 @@ begin_class_definition (t)
     duplicate_tag_error (t);
 
   /* Update the location of the decl.  */
-  DECL_SOURCE_FILE (TYPE_NAME (t)) = input_filename;
-  DECL_SOURCE_LINE (TYPE_NAME (t)) = lineno;
+  annotate_with_file_line (TYPE_NAME (t), input_filename, lineno);
   
   if (TYPE_BEING_DEFINED (t))
     {
@@ -2329,8 +2328,8 @@ expand_body (fn)
   saved_lineno = lineno;
   saved_input_filename = input_filename;
   saved_function = current_function_decl;
-  lineno = DECL_SOURCE_LINE (fn);
-  input_filename = DECL_SOURCE_FILE (fn);
+  lineno = TREE_LINENO (fn);
+  input_filename = TREE_FILENAME (fn);
   current_function_decl = fn;
 
   timevar_push (TV_INTEGRATION);
@@ -2349,6 +2348,10 @@ expand_body (fn)
     abort ();
 
   expand_expr_stmt_value (DECL_SAVED_TREE (fn), 0, 0);
+
+  /* And restore the current source position.  */
+  lineno = saved_lineno;
+  input_filename = saved_input_filename;
 
   /* Statements should always be full-expressions at the outermost set
      of curly braces for a function.  */
@@ -2370,10 +2373,7 @@ expand_body (fn)
     /* We don't need the body; blow it away.  */
     DECL_SAVED_TREE (fn) = NULL_TREE;
 
-  /* And restore the current source position.  */
   current_function_decl = saved_function;
-  lineno = saved_lineno;
-  input_filename = saved_input_filename;
   extract_interface_info ();
 
   timevar_pop (TV_EXPAND);
@@ -2417,7 +2417,7 @@ genrtl_start_function (fn)
   /* Tell everybody what function we're processing.  */
   current_function_decl = fn;
   /* Get the RTL machinery going for this function.  */
-  init_function_start (fn, DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn));
+  init_function_start (fn, TREE_FILENAME (fn), TREE_LINENO (fn));
   /* Let everybody know that we're expanding this function, not doing
      semantic analysis.  */
   expanding_p = 1;

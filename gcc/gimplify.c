@@ -51,8 +51,6 @@ static void simplify_addr_expr       PARAMS ((tree *, tree *, tree *));
 static void simplify_self_mod_expr   PARAMS ((tree *, tree *, tree *));
 static void simplify_cond_expr       PARAMS ((tree *, tree *, tree));
 static void simplify_boolean_expr    PARAMS ((tree *, tree *));
-static void simplify_expr_wfl        PARAMS ((tree *, tree *, tree *,
-                                              int (*) (tree)));
 static void simplify_return_expr     PARAMS ((tree, tree *));
 static tree build_addr_expr	     PARAMS ((tree));
 static tree add_stmt_to_compound	PARAMS ((tree, tree));
@@ -61,7 +59,7 @@ static void simplify_bind_expr		PARAMS ((tree *, tree *));
 static inline void remove_suffix	PARAMS ((char *, int));
 static void push_gimplify_context	PARAMS ((void));
 static void pop_gimplify_context	PARAMS ((void));
-static void wrap_with_wfl		PARAMS ((tree *));
+static void annotate_stmt_with_file_line	PARAMS ((tree *));
 static tree copy_if_shared_r		PARAMS ((tree *, int *, void *));
 static tree unmark_visited_r		PARAMS ((tree *, int *, void *));
 static tree mostly_copy_tree_r		PARAMS ((tree *, int *, void *));
@@ -198,7 +196,6 @@ simplify_function_tree (fndecl)
 
   /* If there isn't an outer BIND_EXPR, add one.  */
   tmp = fnbody;
-  STRIP_WFL (tmp);
   if (TREE_CODE (tmp) != BIND_EXPR)
     fnbody = build (BIND_EXPR, void_type_node, NULL_TREE, fnbody, NULL_TREE);
 
@@ -267,6 +264,10 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   tree internal_post = NULL_TREE;
   tree save_expr;
   int is_statement = (pre_p == NULL);
+  char class;
+  location_t *locus;
+  const char *saved_input_filename;
+  int saved_lineno;
 
   if (*expr_p == NULL_TREE)
     return 1;
@@ -279,6 +280,22 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 
   /* Strip any uselessness.  */
   STRIP_TYPE_NOPS (*expr_p);
+
+  class = TREE_CODE_CLASS (TREE_CODE (*expr_p));
+  locus = TREE_LOCUS (*expr_p);
+
+  if (locus
+      && (IS_EXPR_CODE_CLASS (class)
+	  || class == 'r'
+          || class == 's'))
+    {
+      saved_input_filename = input_filename;
+      saved_lineno = lineno;
+
+      input_filename = TREE_FILENAME (*expr_p);
+      lineno = TREE_LINENO (*expr_p);
+
+    }
 
   /* Loop over the specific simplifiers until the toplevel node remains the
      same.  */
@@ -451,10 +468,6 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 	  simplify_save_expr (expr_p, pre_p);
 	  break;
 
-	case EXPR_WITH_FILE_LOCATION:
-	  simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f);
-	  break;
-
 	case BIT_FIELD_REF:
 	  simplify_expr (&TREE_OPERAND (*expr_p, 0), pre_p, post_p,
 		         is_simple_min_lval, fb_either);
@@ -551,9 +564,20 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
   if (is_statement)
     {
       add_tree (*expr_p, pre_p);
+      annotate_all_with_file_line (&internal_post, input_filename, lineno);
       add_tree (internal_post, pre_p);
       tmp = rationalize_compound_expr (internal_pre);
+      annotate_all_with_file_line (&tmp, input_filename, lineno);
       *expr_p = tmp;
+
+      if (locus
+	  && (IS_EXPR_CODE_CLASS (class)
+	      || class == 'r'
+              || class == 's'))
+	{
+	  input_filename = saved_input_filename;
+	  lineno = saved_lineno;
+	}
       return 1;
     }
 
@@ -564,7 +588,17 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
      handling some post-effects internally; if that's the case, we need to
      copy into a temp before adding the post-effects to the tree.  */
   if (!internal_post && (*simple_test_f) (*expr_p))
-    return 1;
+    {
+      if (locus
+	  && (IS_EXPR_CODE_CLASS (class)
+	      || class == 'r'
+              || class == 's'))
+        {
+          input_filename = saved_input_filename;
+          lineno = saved_lineno;
+        }
+      return 1;
+    }
 
   /* Otherwise, we need to create a new temporary for the simplified
      expression.  */
@@ -608,7 +642,19 @@ simplify_expr (expr_p, pre_p, post_p, simple_test_f, fallback)
 #endif
 
   if (internal_post)
-    add_tree (internal_post, pre_p);
+    {
+      annotate_all_with_file_line (&internal_post, input_filename, lineno);
+      add_tree (internal_post, pre_p);
+    }
+
+  if (locus
+      && (IS_EXPR_CODE_CLASS (class)
+	  || class == 'r'
+          || class == 's'))
+    {
+      input_filename = saved_input_filename;
+      lineno = saved_lineno;
+    }
 
   return 1;
 }
@@ -1000,6 +1046,10 @@ simplify_self_mod_expr (expr_p, pre_p, post_p)
 #endif
 
   t1 = build (MODIFY_EXPR, TREE_TYPE (lvalue), lvalue, t1);
+  if (TREE_LOCUS (*expr_p))
+    TREE_LOCUS (t1) = TREE_LOCUS (*expr_p);
+  else
+    annotate_with_file_line (t1, input_filename, lineno);
 
   /* Determine whether the new assignment should go before or after
      the simplified expression.  */
@@ -1397,71 +1447,6 @@ simplify_compound_expr (expr_p, pre_p)
 }
 
 
-/*  Simplify an EXPR_WITH_FILE_LOCATION.  EXPR_P points to the expression
-    to simplify.
-
-    After simplification, all the nodes in PRE_P and POST_P are wrapped inside
-    a EXPR_WITH_FILE_LOCATION node to preserve the original semantics.  The
-    simplified expression is also returned inside an EXPR_WITH_FILE_LOCATION
-    node.
-
-    PRE_P points to the list where side effects that must happen before
-	*EXPR_P should be stored.
-
-    POST_P points to the list where side effects that must happen after
-    	*EXPR_P should be stored.
-
-    SIMPLE_TEST_F points to a function that takes a tree T and
-	returns nonzero if T is in the SIMPLE form requested by the
-	caller.  */
-
-static void
-simplify_expr_wfl (expr_p, pre_p, post_p, simple_test_f)
-     tree *expr_p;
-     tree *pre_p;
-     tree *post_p;
-     int (*simple_test_f) PARAMS ((tree));
-{
-  const char *file;
-  int line, col;
-  tree pre = NULL_TREE;
-  tree post = NULL_TREE;
-  
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (*expr_p) != EXPR_WITH_FILE_LOCATION)
-    abort ();
-#endif
-
-  file = input_filename;
-  input_filename = EXPR_WFL_FILENAME (*expr_p);
-
-  line = lineno;
-  lineno = EXPR_WFL_LINENO (*expr_p);
-
-  col = EXPR_WFL_COLNO (*expr_p);
-
-  simplify_expr (&EXPR_WFL_NODE (*expr_p), &pre, &post, simple_test_f,
-		 fb_rvalue);
-
-  pre = rationalize_compound_expr (pre);
-  wrap_all_with_wfl (&pre, EXPR_WFL_FILENAME (*expr_p),
-		     EXPR_WFL_LINENO (*expr_p));
-  post = rationalize_compound_expr (post);
-  wrap_all_with_wfl (&post, EXPR_WFL_FILENAME (*expr_p),
-		     EXPR_WFL_LINENO (*expr_p));
-  
-  lineno = line;
-  input_filename = file;
-
-  add_tree (pre, pre_p);
-  add_tree (post, post_p);
-
-  if (EXPR_WFL_NODE (*expr_p) == NULL_TREE)
-    *expr_p = NULL_TREE;
-  else
-    TREE_SIDE_EFFECTS (*expr_p) = TREE_SIDE_EFFECTS (EXPR_WFL_NODE (*expr_p));
-}
-
 /*  Simplify a SAVE_EXPR node.  EXPR_P points to the expression to
     simplify.  After simplification, EXPR_P will point to a new temporary
     that holds the original value of the SAVE_EXPR node.
@@ -1567,29 +1552,26 @@ static const char *wfl_filename;
 static int wfl_lineno;
 
 static void
-wrap_with_wfl (stmt_p)
+annotate_stmt_with_file_line (stmt_p)
      tree *stmt_p;
 {
-  if (TREE_CODE (*stmt_p) == LABEL_EXPR)
-    /* Don't emit a line note for a label.  We particularly don't want to
-       emit one for the break label, since it doesn't actually correspond
-       to the beginning of the loop/switch.  */;
-  else if (TREE_CODE (*stmt_p) != EXPR_WITH_FILE_LOCATION)
-    {
-      *stmt_p = build_expr_wfl (*stmt_p, wfl_filename, wfl_lineno, 0);
-      EXPR_WFL_EMIT_LINE_NOTE (*stmt_p) = 1;
-    }
+  /* Don't emit a line note for a label.  We particularly don't want to
+     emit one for the break label, since it doesn't actually correspond
+     to the beginning of the loop/switch.  */;
+  if (TREE_CODE (*stmt_p) != LABEL_EXPR
+      && ! TREE_LOCUS (*stmt_p))
+    annotate_with_file_line (*stmt_p, wfl_filename, wfl_lineno);
 }
 
 void
-wrap_all_with_wfl (stmt_p, file, line)
+annotate_all_with_file_line (stmt_p, file, line)
      tree *stmt_p;
      const char *file;
      int line;
 {
   wfl_filename = file;
   wfl_lineno = line;
-  foreach_stmt (stmt_p, wrap_with_wfl);
+  foreach_stmt (stmt_p, annotate_stmt_with_file_line);
 }
 
 /* Add STMT to EXISTING if possible, otherwise create a new
@@ -1766,6 +1748,10 @@ get_initialized_tmp_var (val, pre_p)
   simplify_expr (&val, pre_p, NULL, is_simple_rhs, fb_rvalue);
   t = create_tmp_var (TREE_TYPE (val), prefix);
   mod = build (MODIFY_EXPR, TREE_TYPE (t), t, val);
+  if (TREE_LOCUS (val))
+    TREE_LOCUS (mod) = TREE_LOCUS (val);
+  else
+    annotate_with_file_line (mod, input_filename, lineno);
   add_tree (mod, pre_p);
 
   return t;
@@ -1795,12 +1781,9 @@ declare_tmp_vars (vars, scope)
     {
       tree temps;
 
-      STRIP_WFL (scope);
-
       /* C99 mode puts the default 'return 0;' for main() outside the outer
 	 braces.  So drill down until we find an actual scope.  */
-      while (TREE_CODE (scope) == COMPOUND_EXPR
-	     || TREE_CODE (scope) == EXPR_WITH_FILE_LOCATION)
+      while (TREE_CODE (scope) == COMPOUND_EXPR)
 	scope = TREE_OPERAND (scope, 0);
 
       if (TREE_CODE (scope) != BIND_EXPR)

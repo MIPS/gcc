@@ -1114,7 +1114,7 @@ expand_call_inline (tp, walk_subtrees, data)
      line numbers corresponding to the function we are calling.  We
      wrap the whole inlined body in an EXPR_WITH_FILE_AND_LINE as well
      because individual statements don't record the filename.  */
-  push_srcloc (DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn));
+  push_srcloc (TREE_FILENAME (fn), TREE_LINENO (fn));
 
 #ifndef INLINER_FOR_JAVA
   /* Build a statement-expression containing code to initialize the
@@ -1309,17 +1309,11 @@ expand_call_inline (tp, walk_subtrees, data)
      EXPR_WITH_FILE_LOCATION so that we'll get debugging line notes
      pointing to the right place.  */
 #ifndef INLINER_FOR_JAVA
-  chain = TREE_CHAIN (*tp);
-  *tp = build_expr_wfl (expr, DECL_SOURCE_FILE (fn), DECL_SOURCE_LINE (fn),
-			/*col=*/0);
+  annotate_with_file_line (expr, TREE_FILENAME (fn), TREE_LINENO (fn));
 #else /* INLINER_FOR_JAVA */
-  *tp = build_expr_wfl (expr, DECL_SOURCE_FILE (fn),
-			DECL_SOURCE_LINE_FIRST(fn),
-			/*col=*/0);
+  annotate_with_file_line (expr, TREE_FILENAME (fn), TREE_SOURCE_LINE_FIRST(fn));
 #endif /* INLINER_FOR_JAVA */
-  EXPR_WFL_EMIT_LINE_NOTE (*tp) = 1;
 #ifndef INLINER_FOR_JAVA
-  TREE_CHAIN (*tp) = chain;
 #endif /* not INLINER_FOR_JAVA */
   pop_srcloc ();
 

@@ -4059,7 +4059,7 @@ expand_decl_init (decl)
     }
   else if (DECL_INITIAL (decl) && TREE_CODE (DECL_INITIAL (decl)) != TREE_LIST)
     {
-      emit_line_note (DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+      emit_line_note (TREE_FILENAME (decl), TREE_LINENO (decl));
       expand_assignment (decl, DECL_INITIAL (decl), 0, 0);
       emit_queue ();
     }

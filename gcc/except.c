@@ -542,8 +542,7 @@ expand_eh_handler (handler)
      tree handler;
 {
   tree inner = handler;
-  while (TREE_CODE (inner) == COMPOUND_EXPR
-	 || TREE_CODE (inner) == EXPR_WITH_FILE_LOCATION)
+  while (TREE_CODE (inner) == COMPOUND_EXPR)
     inner = TREE_OPERAND (inner, 0);
 
   switch (TREE_CODE (inner))

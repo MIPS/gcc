@@ -1452,8 +1452,8 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 
   if (!dont_output_data && DECL_SIZE (decl) == 0)
     {
-      error_with_file_and_line (DECL_SOURCE_FILE (decl),
-				DECL_SOURCE_LINE (decl),
+      error_with_file_and_line (TREE_FILENAME (decl),
+				TREE_LINENO (decl),
 				"storage size of `%s' isn't known",
 				IDENTIFIER_POINTER (DECL_NAME (decl)));
       TREE_ASM_WRITTEN (decl) = 1;

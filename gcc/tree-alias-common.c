@@ -192,8 +192,6 @@ get_alias_var (expr)
   struct alias_annot_entry entry;
   struct alias_annot_entry *result;
   
-  STRIP_WFL (expr);
-  
   /* If it's a decl, get the alias var of the decl. We farm this off
      to get_alias_var_decl so it can abort if the alias var doesn't
      exist, and in case something else *knows* it has a decl, and
@@ -405,7 +403,6 @@ find_func_aliases (tp, walk_subtrees, data)
 {
   tree stp = *tp;
   
-  STRIP_WFL (stp);
   if (TREE_CODE (stp) == SCOPE_STMT)
     {
       *walk_subtrees = 0;
@@ -430,8 +427,6 @@ find_func_aliases (tp, walk_subtrees, data)
 	  op0 = TREE_OPERAND (stp, 0);
 	  op1 = TREE_OPERAND (stp, 1);
 	}
-      STRIP_WFL (op0);
-      STRIP_WFL (op1);
       /* lhsAV should always have an alias variable */
       lhsAV = get_alias_var (op0);
       /* rhsAV might not have one, c.f. c = 5 */

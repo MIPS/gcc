@@ -2664,8 +2664,7 @@ create_temporary_var (type)
   decl = build_decl (VAR_DECL, NULL_TREE, type);
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
-  DECL_SOURCE_FILE (decl) = input_filename;
-  DECL_SOURCE_LINE (decl) = lineno;
+  annotate_with_file_line (decl, input_filename, lineno);
   DECL_IGNORED_P (decl) = 1;
   DECL_CONTEXT (decl) = current_function_decl;
 

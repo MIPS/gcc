@@ -173,7 +173,6 @@ find_refs_in_stmt (stmt_p, bb)
   if (stmt == error_mark_node || stmt == empty_stmt_node)
     return;
 
-  STRIP_WFL (stmt);
   STRIP_NOPS (stmt);
   code = TREE_CODE (stmt);
   switch (code)
@@ -275,7 +274,6 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
   if (parent_stmt && TREE_NOT_GIMPLE (parent_stmt))
     return;
 
-  STRIP_WFL (parent_stmt);
   STRIP_NOPS (parent_stmt);
 
   /* If we found a _DECL node, create a reference to it and return.  */
@@ -460,7 +458,6 @@ find_refs_in_expr (expr_p, ref_type, ref_mod, bb, parent_stmt_p)
 
   /* Unary expressions.  */
   if (class == '1'
-      || code == EXPR_WITH_FILE_LOCATION
       || code == VA_ARG_EXPR
       || code == BIT_FIELD_REF)
     {
@@ -1076,7 +1073,6 @@ try_replace_ref_with (stmt, ref, op)
   enum tree_code code;
   struct replace_data_d replace;
 
-  STRIP_WFL (stmt);
   STRIP_NOPS (stmt);
 
 #if defined ENABLE_CHECKING
@@ -1453,7 +1449,6 @@ create_tree_ann (t)
 
   ann = (tree_ann) ggc_alloc (sizeof (*ann));
   memset ((void *) ann, 0, sizeof (*ann));
-  STRIP_WFL (t);
   STRIP_NOPS (t);
   t->common.ann = ann;
   return ann;
@@ -2003,7 +1998,7 @@ collect_dfa_stats_r (tp, walk_subtrees, data)
   tree t = *tp;
   struct dfa_stats_d *dfa_stats_p = (struct dfa_stats_d *)data;
 
-  /* Don't call tree_annotation here because it strips the WFL and NOPS
+  /* Don't call tree_annotation here because it strips the NOPS
      wrappers from T.  */
   ann = t->common.ann;
   if (ann)
@@ -2618,7 +2613,6 @@ tree_ref
 output_ref (t)
      tree t;
 {
-  STRIP_WFL (t);
   STRIP_NOPS (t);
   if (is_assignment_stmt (t))
     {

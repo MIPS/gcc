@@ -165,7 +165,6 @@ static inline tree_ann
 tree_annotation (t)
      tree t;
 {
-  STRIP_WFL (t);
   STRIP_NOPS (t);
   return t->common.ann;
 }
@@ -246,10 +245,7 @@ get_lineno (expr)
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
-  if (TREE_CODE (expr) == EXPR_WITH_FILE_LOCATION)
-    return EXPR_WFL_LINENO (expr);
-  else
-    return -1;
+  return TREE_LINENO (expr);
 }
 
 static inline const char *
@@ -262,8 +258,8 @@ get_filename (expr)
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
-  if (TREE_CODE (expr) == EXPR_WITH_FILE_LOCATION)
-    return EXPR_WFL_FILENAME (expr);
+  if (TREE_FILENAME (expr))
+    return TREE_FILENAME (expr);
   else
     return "???";
 }
@@ -709,7 +705,6 @@ static inline bool
 is_assignment_stmt (t)
      tree t;
 {
-  STRIP_WFL (t);
   STRIP_NOPS (t);
   return (TREE_CODE (t) == MODIFY_EXPR || TREE_CODE (t) == INIT_EXPR);
 }

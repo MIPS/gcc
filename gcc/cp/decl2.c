@@ -191,8 +191,8 @@ warn_if_unknown_interface (decl)
 
       if (til)
 	{
-	  lineno = TINST_LINE (til);
-	  input_filename = TINST_FILE (til);
+	  lineno = TREE_LINENO (til);
+	  input_filename = TREE_FILENAME (til);
 	}
       warning ("template `%#D' instantiated in file without #pragma interface",
 		  decl);
@@ -2369,8 +2369,8 @@ start_static_initialization_or_destruction (decl, initp)
      where DECL was declared so that error-messages make sense, and so
      that the debugger will show somewhat sensible file and line
      information.  */
-  input_filename = DECL_SOURCE_FILE (decl);
-  lineno = DECL_SOURCE_LINE (decl);
+  input_filename = TREE_FILENAME (decl);
+  lineno = TREE_LINENO (decl);
 
   /* Because of:
 

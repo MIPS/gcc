@@ -1,3 +1,66 @@
+2003-01-15  Jeff Law <law@redhat.com>
+
+	* Death to WFL nodes.
+	* c-aux-info.c: Replace DECL_SOURCE_FILE and DECL_SOURCE_LINE with
+	TREE_FILENAME and TREE_LINENO respectively when retrieving file
+	and line information.  Use TREE_LOCUS to copy existing information
+	from one node to another.  Use annotate_with_file_line to add or
+	replace location information on a node.  Remove support for
+	EXPR_WITH_FILE_LOCATION nodes.  Remove STRIP_WFL statements.
+	* c-common.c, c-parse.in, c-pretty-print.c, dbxout.c: Likewise.
+	* diagnostic.c, dwarf2out.c, dwarfout.c: Likewise.
+	* except.c, integrate.c, stmt.c, tree-alias-common.c: Likewise.
+	* tree-cfg.c, tree-dfa.c, tree-dump.c, tree-flow-inline.h: Likewise.
+	* tree-mudflap.c, tree-pretty-print.c, tree-simple.c: Likewise.
+	* tree-ssa-ccp.c, tree-ssa-dce.c, tree-ssa-pre.c: Likewise.
+	* varasm.c, xcoffout.c: Likewise.
+	* config/alpha/alpha.c: Likewise.
+	* config/mips/mips.c: Likewise.
+	* c-decl.c: Likewise.
+	(duplicate_decls): Also copy TREE_LOCUS from olddecl to newdecl.
+	(finish_function): Save and restore the current filename and
+	linenumber around genericizing of the function tree.
+	* c-simplify.c (c_simplify_stmt): Use annotate_all_with_file_line
+	instead of wrap_all_with_wfl.  Remove STRIP_WFL statements.
+	* expr.c (expand_expr): Emit line number notes for expressions
+	with attached file/line information.  Remove EXPR_WITH_FILE_LOCATION
+	support.
+	* gimplify.c: Kill STRIP_WFL statements.  Remove EXPR_WITH_FILE_LOCATION
+	support.
+	(simplify_expr_wfl): Kill.
+	(annotate_stmt_with_file_line): Renamed from wrap_with_wfl.
+	(annotate_all_with_file_line): Renamed from wrap_all_with_wfl.
+	(simplify_expr): Save and restore the current file/line around
+	simplification of the given expression.  Add annotation to more
+	nodes created during simplification.
+	(simplify_self_mod_expr): Add file/line location to nodes we create.
+	(get_initialized_tmp_var): Similarly.
+	* old-tree-inline.c (expand_call_inline): Use annotate_with_file_line
+	to add file/line information to nodes instead of wrapping them
+	with EXPR_WITH_FILE_LOCATION nodes.
+	* print-tree.c: Use TREE_FILENAME and TREE_LINENO instead of
+	DECL_SOURCE_FILE and DECL_SOURCE_LINE respectively.  Remove
+	support for EXPR_WITH_FILE_LOCATION nodes.
+	(print_node): Dump any file/line information that is attached to
+	the given node.
+	* tree-inline.c (walk_tree): Set lineno appropriately.
+	* tree-simple.h (annotate_all_with_file_line): Renamed from
+	wrap_all_with_wfl.  Remove STRIP_WFL statements.
+	* tree.c (build_expr_wfl): Kill.
+	(make_node): Use annotate_with_file_line.
+	(annotate_with_file_line): New function.
+	* tree.def: Remove EXPR_WITH_FILE_LOCATION.
+	* tree.h (tree_common): Add locus field.  Remove references to
+	EXPR_WITH_FILE_LOCATION.
+	(tree_decl): Remove locus field.
+	(STRIP_WFL, EXPR_WFL_*): Kill.
+	(DECL_SOURCE_LOCATION, DECL_SOURCE_FILE, DECL_SOURCE_LINE): Kill.
+	(TREE_LOCUS, TREE_FILENAME, TREE_LINENO): new.
+	(annotate_with_file_line): Renamed from build_expr_wfl.
+
+	* objc/objc-act.c: Use TREE_FILENAME and TREE_LINENO to 
+	extract file/line information from tree nodes.
+
 2003-01-14  Frank Ch. Eigler  <fche@redhat.com>
 
 	* tree-mudflap.c (mx_xfn_indirect_ref): Handle ARRAY_REF of

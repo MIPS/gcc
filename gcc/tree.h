@@ -128,6 +128,7 @@ struct tree_common GTY(())
   tree chain;
   tree type;
   struct tree_ann_d *ann;
+  location_t *locus;
 
   ENUM_BITFIELD(tree_code) code : 8;
 
@@ -198,8 +199,6 @@ struct tree_common GTY(())
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        TREE_VIA_PUBLIC in
            TREE_LIST or TREE_VEC
-       EXPR_WFL_EMIT_LINE_NOTE in
-           EXPR_WITH_FILE_LOCATION
        ASM_VOLATILE_P in
            ASM_EXPR
 
@@ -423,14 +422,6 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
 	 && (TREE_TYPE (EXP)					\
 	     == TREE_TYPE (TREE_OPERAND (EXP, 0))))		\
     (EXP) = TREE_OPERAND (EXP, 0)
-
-/* Given an expression as a tree, strip any EXPR_WFLs.  */
-
-#define STRIP_WFL(NODE)					\
-  do {							\
-    while (TREE_CODE (NODE) == EXPR_WITH_FILE_LOCATION)	\
-      NODE = EXPR_WFL_NODE (NODE);			\
-  } while (0)
 
 /* Nonzero if TYPE represents an integral type.  Note that we do not
    include COMPLEX types here.  */
@@ -908,20 +899,12 @@ struct tree_vec GTY(())
 #define LOOP_EXPR_BODY(NODE) TREE_OPERAND (LOOP_EXPR_CHECK (NODE), 0)
 
 /* In an EXPR_WITH_FILE_LOCATION node.  */
-#define EXPR_WFL_EMIT_LINE_NOTE(NODE) \
-  (EXPR_WITH_FILE_LOCATION_CHECK (NODE)->common.public_flag)
-#define EXPR_WFL_NODE(NODE) \
-  TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 0)
-#define EXPR_WFL_FILENAME_NODE(NODE) \
-  TREE_OPERAND (EXPR_WITH_FILE_LOCATION_CHECK (NODE), 1)
-#define EXPR_WFL_FILENAME(NODE) \
-  IDENTIFIER_POINTER (EXPR_WFL_FILENAME_NODE (NODE))
-/* ??? Java uses this in all expressions.  */
-#define EXPR_WFL_LINECOL(NODE) (EXPR_CHECK (NODE)->exp.complexity)
-#define EXPR_WFL_LINENO(NODE) (EXPR_WFL_LINECOL (NODE) >> 12)
-#define EXPR_WFL_COLNO(NODE) (EXPR_WFL_LINECOL (NODE) & 0xfff)
-#define EXPR_WFL_SET_LINECOL(NODE, LINE, COL) \
-  (EXPR_WFL_LINECOL(NODE) = ((LINE) << 12) | ((COL) & 0xfff))
+#define TREE_LOCUS(NODE) \
+  ((NODE)->common.locus)
+#define TREE_FILENAME(NODE) \
+  ((NODE)->common.locus->file)
+#define TREE_LINENO(NODE) \
+  ((NODE)->common.locus->line)
 
 /* In a TARGET_EXPR node.  */
 #define TARGET_EXPR_SLOT(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 0)
@@ -1550,13 +1533,6 @@ struct tree_type GTY(())
 /* For a FIELD_DECL in a QUAL_UNION_TYPE, records the expression, which
    if nonzero, indicates that the field occupies the type.  */
 #define DECL_QUALIFIER(NODE) (FIELD_DECL_CHECK (NODE)->decl.initial)
-/* These two fields describe where in the source code the declaration
-   was.  If the declaration appears in several places (as for a C
-   function that is declared first and then defined later), this
-   information should refer to the definition.  */
-#define DECL_SOURCE_LOCATION(NODE) (DECL_CHECK (NODE)->decl.locus)
-#define DECL_SOURCE_FILE(NODE) (DECL_SOURCE_LOCATION (NODE).file)
-#define DECL_SOURCE_LINE(NODE) (DECL_SOURCE_LOCATION (NODE).line)
 /* Holds the size of the datum, in bits, as a tree expression.
    Need not be constant.  */
 #define DECL_SIZE(NODE) (DECL_CHECK (NODE)->decl.size)
@@ -1882,7 +1858,6 @@ struct function;
 struct tree_decl GTY(())
 {
   struct tree_common common;
-  location_t locus;
   unsigned int uid;
   tree size;
   ENUM_BITFIELD(machine_mode) mode : 8;
@@ -2333,7 +2308,7 @@ extern tree build1			PARAMS ((enum tree_code, tree, tree));
 extern tree build_tree_list		PARAMS ((tree, tree));
 extern tree build_decl			PARAMS ((enum tree_code, tree, tree));
 extern tree build_block			PARAMS ((tree, tree, tree, tree, tree));
-extern tree build_expr_wfl              PARAMS ((tree, const char *, int, int));
+extern void annotate_with_file_line	PARAMS ((tree, const char *, int));
 
 /* Construct various nodes representing data types.  */
 

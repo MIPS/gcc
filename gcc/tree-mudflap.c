@@ -267,15 +267,15 @@ mf_varname_tree (decl)
     const char *sourcefile;
     unsigned sourceline;
 
-    sourcefile = DECL_SOURCE_FILE (decl);
+    sourcefile = TREE_FILENAME (decl);
     if (sourcefile == NULL && current_function_decl != NULL_TREE)
-      sourcefile = DECL_SOURCE_FILE (current_function_decl);
+      sourcefile = TREE_FILENAME (current_function_decl);
     if (sourcefile == NULL)
       sourcefile = "<unknown file>";
 
     output_add_string (buf, sourcefile);
 
-    sourceline = DECL_SOURCE_LINE (decl);
+    sourceline = TREE_LINENO (decl);
     if (sourceline != 0)
       {
 	output_add_string (buf, ":");
@@ -334,7 +334,7 @@ mf_file_function_line_tree (file, line)
 
   /* Add FILENAME[:LINENUMBER]. */
   if (file == NULL && current_function_decl != NULL_TREE)
-    file = DECL_SOURCE_FILE (current_function_decl);
+    file = TREE_FILENAME (current_function_decl);
   if (file == NULL)
     file = "<unknown file>";
   output_add_string (buf, file);
@@ -675,10 +675,10 @@ mx_xfn_indirect_ref (t, continue_p, data)
     last_lineno = (STMT_LINENO (*t) > 0 ? STMT_LINENO (*t) : last_lineno);
   if (TREE_CODE (*t) == FILE_STMT)
     last_filename = FILE_STMT_FILENAME (*t);
-  if (TREE_CODE (*t) == EXPR_WITH_FILE_LOCATION)
+  if (TREE_FILENAME (*t))
     {
-      last_filename = EXPR_WFL_FILENAME (*t);
-      last_lineno = (EXPR_WFL_LINENO (*t) > 0 ? EXPR_WFL_LINENO (*t) : last_lineno);
+      last_filename = TREE_FILENAME (*t);
+      last_lineno = (TREE_LINENO (*t) > 0 ? TREE_LINENO (*t) : last_lineno);
     }
 
   /* Avoid traversal into subtrees specifically listed as

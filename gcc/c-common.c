@@ -5223,8 +5223,8 @@ shadow_warning (msgid, name, decl)
      tree name, decl;
 {
   warning ("declaration of `%s' shadows %s", IDENTIFIER_POINTER (name), msgid);
-  warning_with_file_and_line (DECL_SOURCE_FILE (decl),
-			      DECL_SOURCE_LINE (decl),
+  warning_with_file_and_line (TREE_FILENAME (decl),
+			      TREE_LINENO (decl),
 			      "shadowed declaration is here");
 }
 

@@ -98,15 +98,11 @@ static void cleanup_switch_expr_graph	PARAMS ((basic_block));
 static void disconnect_unreachable_case_labels PARAMS ((basic_block));
 
 
-/* Remove any COMPOUND_EXPR and WFL container from NODE.  */
+/* Remove any COMPOUND_EXPR container from NODE.  */
 #define STRIP_CONTAINERS(NODE)					\
   do {								\
-    while (TREE_CODE (NODE) == COMPOUND_EXPR			\
-	   || TREE_CODE (NODE) == EXPR_WITH_FILE_LOCATION)	\
-      if (TREE_CODE (NODE) == COMPOUND_EXPR)			\
-	NODE = TREE_OPERAND (NODE, 0);				\
-      else if (TREE_CODE (NODE) == EXPR_WITH_FILE_LOCATION)	\
-	NODE = EXPR_WFL_NODE (NODE);				\
+    while (TREE_CODE (NODE) == COMPOUND_EXPR)			\
+      NODE = TREE_OPERAND (NODE, 0);				\
   } while (0)
 
 
@@ -135,7 +131,6 @@ build_tree_cfg (fnbody)
   /* Find the basic blocks for the flowgraph.  First skip any
      non-executable statements at the start of the function.  Otherwise
      we'll end up with an empty basic block 0, which is useless.  */
-  STRIP_WFL (fnbody);
 
   if (fnbody == empty_stmt_node || TREE_CODE (fnbody) != BIND_EXPR)
     return;
@@ -224,7 +219,6 @@ make_blocks (first_p, parent_block)
 	  continue;
 	}
 
-      STRIP_WFL (stmt);
       STRIP_NOPS (stmt);
 
       code = TREE_CODE (stmt);
@@ -521,7 +515,6 @@ make_ctrl_stmt_edges (bb)
 		and enters an infinite loop.  */
       {
 	tree body = SWITCH_BODY (first);
-	STRIP_WFL (body);
 	STRIP_NOPS (body);
 	if (TREE_CODE (body) == BIND_EXPR)
 	  {
@@ -986,7 +979,6 @@ gsi_remove (i)
 {
   tree t = *(i.tp);
 
-  STRIP_WFL (t);
   STRIP_NOPS (t);
 
   if (!is_exec_stmt (t))
@@ -1019,7 +1011,6 @@ remove_stmt (stmt_p)
   ref_list_iterator i;
   tree stmt = *stmt_p;
 
-  STRIP_WFL (stmt);
   STRIP_NOPS (stmt);
 
   /* Remove all the references made by this statement, only if the
@@ -1239,8 +1230,6 @@ disconnect_unreachable_case_labels (bb)
     {
       edge e, next;
       tree switch_body = SWITCH_BODY (first_stmt (bb));
-
-      STRIP_WFL (switch_body);
 
       /* Remove all the edges that go to case labels that will never
 	 be taken.  */
@@ -1689,7 +1678,6 @@ is_ctrl_stmt (t)
     abort ();
 #endif
 
-  STRIP_WFL (t);
   return (TREE_CODE (t) == COND_EXPR
 	  || TREE_CODE (t) == LOOP_EXPR
 	  || TREE_CODE (t) == SWITCH_EXPR);
@@ -1710,7 +1698,6 @@ is_ctrl_altering_stmt (t)
     abort ();
 #endif
 
-  STRIP_WFL (t);
   if (TREE_CODE (t) == GOTO_EXPR || TREE_CODE (t) == RETURN_EXPR)
     return true;
 
@@ -1750,7 +1737,6 @@ bool
 is_loop_stmt (t)
      tree t;
 {
-  STRIP_WFL (t);
   return (TREE_CODE (t) == LOOP_EXPR);
 }
 
@@ -1761,7 +1747,6 @@ bool
 is_computed_goto (t)
      tree t;
 {
-  STRIP_WFL (t);
   return (TREE_CODE (t) == GOTO_EXPR
           && TREE_CODE (GOTO_DESTINATION (t)) != LABEL_DECL);
 }
@@ -1773,7 +1758,6 @@ bool
 stmt_starts_bb_p (t)
      tree t;
 {
-  STRIP_WFL (t);
   return (TREE_CODE (t) == CASE_LABEL_EXPR
 	  || TREE_CODE (t) == LABEL_EXPR
 	  || TREE_CODE (t) == BIND_EXPR
@@ -1859,7 +1843,6 @@ first_exec_stmt (entry_p)
       if (!stmt)
         continue;
 
-      STRIP_WFL (stmt);
       STRIP_NOPS (stmt);
 
       /* Note that we actually return the container for the executable
@@ -1912,7 +1895,7 @@ switch_parent (bb)
 
 
 /** @brief Return the first statement in basic block BB, stripped of any
-	   WFL or NOP containers.  */
+	   NOP containers.  */
 
 tree
 first_stmt (bb)
@@ -1929,14 +1912,13 @@ first_stmt (bb)
   if (gsi_end_bb (i))
     return NULL_TREE;
   t = gsi_stmt (i);
-  STRIP_WFL (t);
   STRIP_NOPS (t);
   return t;
 }
 
 
 /** @brief Return the last statement in basic block BB, stripped of
-	   any WFL or NOP containers.
+	   any NOP containers.
 
     empty_stmt_nodes are never returned. NULL is returned if there
     are no such statements.  */
@@ -1963,7 +1945,6 @@ last_stmt (bb)
     }
   if (t)
     {
-      STRIP_WFL (t);
       STRIP_NOPS (t);
     }
   return t;
@@ -2035,8 +2016,6 @@ set_bb_for_stmt (t, bb)
       ann->bb = bb;
       if (TREE_CODE (t) == COMPOUND_EXPR)
 	t = TREE_OPERAND (t, 0);
-      else if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION)
-	t = EXPR_WFL_NODE (t);
       else
 	t = NULL;
     }

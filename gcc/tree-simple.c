@@ -323,9 +323,8 @@ is_simple_modify_expr (t)
     return 1;
 
   /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
-     and EXPR_WITH_FILE_LOCATION wrappers.  */
-  if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
-      || TREE_CODE (t) == NON_LVALUE_EXPR)
+     wrappers.  */
+  if (TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_modify_expr (TREE_OPERAND (t, 0));
 
   return ((TREE_CODE (t) == MODIFY_EXPR
@@ -381,9 +380,8 @@ is_simple_binary_expr (t)
     return 1;
 
   /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
-     and EXPR_WITH_FILE_LOCATION wrappers.  */
-  if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
-      || TREE_CODE (t) == NON_LVALUE_EXPR)
+     wrappers.  */
+  if (TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_binary_expr (TREE_OPERAND (t, 0));
 
   return ((TREE_CODE_CLASS (TREE_CODE (t)) == '2'
@@ -407,9 +405,8 @@ is_simple_condexpr (t)
     return 1;
 
   /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
-     and EXPR_WITH_FILE_LOCATION wrappers.  */
-  if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
-      || TREE_CODE (t) == NON_LVALUE_EXPR)
+     wrappers.  */
+  if (TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_condexpr (TREE_OPERAND (t, 0));
 
   return (is_simple_val (t)
@@ -441,10 +438,9 @@ is_simple_unary_expr (t)
 
   STRIP_NOPS (t);
 
-  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR and
-     EXPR_WITH_FILE_LOCATION wrappers.  */
-  if (TREE_CODE (t) == EXPR_WITH_FILE_LOCATION
-      || TREE_CODE (t) == NON_LVALUE_EXPR
+  /* Additions to the original grammar.  Allow NON_LVALUE_EXPR
+     wrappers.  */
+  if (TREE_CODE (t) == NON_LVALUE_EXPR
       || TREE_CODE (t) == VTABLE_REF)
     return is_simple_unary_expr (TREE_OPERAND (t, 0));
 
@@ -670,9 +666,8 @@ is_simple_id (t)
     return 1;
 
   /* Additions to the original grammar.  Allow identifiers wrapped in
-     NON_LVALUE_EXPR and EXPR_WITH_FILE_LOCATION.  */
-  if (TREE_CODE (t) == NON_LVALUE_EXPR
-      || TREE_CODE (t) == EXPR_WITH_FILE_LOCATION)
+     NON_LVALUE_EXPR.  */
+  if (TREE_CODE (t) == NON_LVALUE_EXPR)
     return is_simple_id (TREE_OPERAND (t, 0));
 
   /* Allow real and imaginary parts of a complex variable.  */
@@ -956,7 +951,6 @@ get_base_symbol (t)
     case INDIRECT_REF:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-    case EXPR_WITH_FILE_LOCATION:
       return get_base_symbol (TREE_OPERAND (t, 0));
 
     default:

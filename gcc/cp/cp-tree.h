@@ -3164,12 +3164,9 @@ typedef enum unification_kind_t {
   DEDUCE_ORDER
 } unification_kind_t;
 
-/* Macros for operating on a template instantiation level node, represented
-   by an EXPR_WITH_FILE_LOCATION.  */
+/* Macros for operating on a template instantiation level node.  */
 
-#define TINST_DECL(NODE) EXPR_WFL_NODE (NODE)
-#define TINST_LINE(NODE) EXPR_WFL_LINENO (NODE)
-#define TINST_FILE(NODE) EXPR_WFL_FILENAME (NODE)
+#define TINST_DECL(NODE) TREE_OPERAND (NODE, 0)
 
 /* in class.c */
 

@@ -9910,10 +9910,10 @@ add_src_coords_attributes (die, decl)
      dw_die_ref die;
      tree decl;
 {
-  unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+  unsigned file_index = lookup_filename (TREE_FILENAME (decl));
 
   add_AT_unsigned (die, DW_AT_decl_file, file_index);
-  add_AT_unsigned (die, DW_AT_decl_line, DECL_SOURCE_LINE (decl));
+  add_AT_unsigned (die, DW_AT_decl_line, TREE_LINENO (decl));
 }
 
 /* Add an DW_AT_name attribute and source coordinate attribute for the
@@ -10637,7 +10637,7 @@ gen_subprogram_die (decl, context_die)
     }
   else if (old_die)
     {
-      unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+      unsigned file_index = lookup_filename (TREE_FILENAME (decl));
 
       if (!get_AT_flag (old_die, DW_AT_declaration)
 	  /* We can have a normal definition following an inline one in the
@@ -10666,7 +10666,7 @@ gen_subprogram_die (decl, context_die)
 	  && (DECL_ARTIFICIAL (decl)
 	      || (get_AT_unsigned (old_die, DW_AT_decl_file) == file_index
 		  && (get_AT_unsigned (old_die, DW_AT_decl_line)
-		      == (unsigned) DECL_SOURCE_LINE (decl)))))
+		      == (unsigned) TREE_LINENO (decl)))))
 	{
 	  subr_die = old_die;
 
@@ -10681,9 +10681,9 @@ gen_subprogram_die (decl, context_die)
 	  if (get_AT_unsigned (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_unsigned (subr_die, DW_AT_decl_file, file_index);
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line)
-	      != (unsigned) DECL_SOURCE_LINE (decl))
+	      != (unsigned) TREE_LINENO (decl))
 	    add_AT_unsigned
-	      (subr_die, DW_AT_decl_line, DECL_SOURCE_LINE (decl));
+	      (subr_die, DW_AT_decl_line, TREE_LINENO (decl));
 	}
     }
   else
@@ -10902,16 +10902,16 @@ gen_variable_die (decl, context_die)
       add_AT_die_ref (var_die, DW_AT_specification, old_die);
       if (DECL_NAME (decl))
 	{
-	  unsigned file_index = lookup_filename (DECL_SOURCE_FILE (decl));
+	  unsigned file_index = lookup_filename (TREE_FILENAME (decl));
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_unsigned (var_die, DW_AT_decl_file, file_index);
 
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line)
-	      != (unsigned) DECL_SOURCE_LINE (decl))
+	      != (unsigned) TREE_LINENO (decl))
 
 	    add_AT_unsigned (var_die, DW_AT_decl_line,
-			     DECL_SOURCE_LINE (decl));
+			     TREE_LINENO (decl));
 	}
     }
   else
@@ -12117,7 +12117,7 @@ dwarf2out_decl (decl)
 
       /* Don't bother trying to generate any DIEs to represent any of the
          normal built-in types for the language we are compiling.  */
-      if (DECL_SOURCE_LINE (decl) == 0)
+      if (TREE_LINENO (decl) == 0)
 	{
 	  /* OK, we need to generate one for `bool' so GDB knows what type
              comparisons have.  */
@@ -12210,7 +12210,7 @@ lookup_filename (file_name)
 {
   unsigned i;
 
-  /* ??? Why isn't DECL_SOURCE_FILE left null instead.  */
+  /* ??? Why isn't TREE_FILENAME left null instead.  */
   if (strcmp (file_name, "<internal>") == 0
       || strcmp (file_name, "<built-in>") == 0)
     return 0;

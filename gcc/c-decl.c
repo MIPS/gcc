@@ -770,7 +770,7 @@ pop_label_level ()
     {
       if (C_DECLARED_LABEL_FLAG (TREE_VALUE (link)))
 	{
-	  if (DECL_SOURCE_LINE (TREE_VALUE (link)) == 0)
+	  if (TREE_LINENO (TREE_VALUE (link)) == 0)
 	    {
 	      error_with_decl (TREE_VALUE (link),
 			       "label `%s' used but not defined");
@@ -1055,7 +1055,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	}
     }
   else if (TREE_CODE (olddecl) == FUNCTION_DECL
-	   && DECL_SOURCE_LINE (olddecl) == 0)
+	   && TREE_LINENO (olddecl) == 0)
     {
       /* A function declaration for a predeclared function
 	 that isn't actually built in.  */
@@ -1296,7 +1296,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
     }
 
   /* Optionally warn about more than one declaration for the same name.  */
-  if (errmsg == 0 && warn_redundant_decls && DECL_SOURCE_LINE (olddecl) != 0
+  if (errmsg == 0 && warn_redundant_decls && TREE_LINENO (olddecl) != 0
       /* Don't warn about a function declaration
 	 followed by a definition.  */
       && !(TREE_CODE (newdecl) == FUNCTION_DECL && DECL_INITIAL (newdecl) != 0
@@ -1392,10 +1392,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	 information so that meaningful diagnostics can be given.  */
       if (DECL_INITIAL (newdecl) == 0 && DECL_INITIAL (olddecl) != 0
 	  && ! different_binding_level)
-	{
-	  DECL_SOURCE_LINE (newdecl) = DECL_SOURCE_LINE (olddecl);
-	  DECL_SOURCE_FILE (newdecl) = DECL_SOURCE_FILE (olddecl);
-	}
+	TREE_LOCUS (newdecl) = TREE_LOCUS (olddecl);
 
       /* Merge the unused-warning information.  */
       if (DECL_IN_SYSTEM_HEADER (olddecl))
@@ -1571,6 +1568,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	    (char *) newdecl + sizeof (struct tree_common),
 	    sizeof (struct tree_decl) - sizeof (struct tree_common));
     DECL_UID (olddecl) = olddecl_uid;
+    TREE_LOCUS (olddecl) = TREE_LOCUS (newdecl);
   }
 
   /* NEWDECL contains the merged attribute lists.
@@ -1614,7 +1612,7 @@ warn_if_shadowing (x, oldlocal)
   /* Maybe warn if shadowing something else.  */
   else if (warn_shadow
 	   /* No shadow warnings for internally generated vars.  */
-	   && DECL_SOURCE_LINE (x) != 0
+	   && TREE_LINENO (x) != 0
 	   /* No shadow warnings for vars made for inlining.  */
 	   && ! DECL_FROM_INLINE (x))
     {
@@ -1715,8 +1713,8 @@ pushdecl (x)
 	  pedwarn ("`%s' was declared implicitly `extern' and later `static'",
 		   IDENTIFIER_POINTER (name));
 	  pedwarn_with_file_and_line
-	    (DECL_SOURCE_FILE (IDENTIFIER_IMPLICIT_DECL (name)),
-	     DECL_SOURCE_LINE (IDENTIFIER_IMPLICIT_DECL (name)),
+	    (TREE_FILENAME (IDENTIFIER_IMPLICIT_DECL (name)),
+	     TREE_LINENO (IDENTIFIER_IMPLICIT_DECL (name)),
 	     "previous declaration of `%s'",
 	     IDENTIFIER_POINTER (name));
 	  TREE_THIS_VOLATILE (name) = 1;
@@ -1779,7 +1777,7 @@ pushdecl (x)
 
       if (TREE_CODE (x) == TYPE_DECL)
 	{
-	  if (DECL_SOURCE_LINE (x) == 0)
+	  if (TREE_LINENO (x) == 0)
 	    {
 	      if (TYPE_NAME (TREE_TYPE (x)) == 0)
 		TYPE_NAME (TREE_TYPE (x)) = x;
@@ -2204,8 +2202,7 @@ lookup_label (id)
 
   /* Say where one reference is to the label,
      for the sake of the error if it is not defined.  */
-  DECL_SOURCE_LINE (decl) = lineno;
-  DECL_SOURCE_FILE (decl) = input_filename;
+  annotate_with_file_line (decl, input_filename, lineno);
 
   IDENTIFIER_LABEL_VALUE (id) = decl;
 
@@ -2288,8 +2285,7 @@ define_label (filename, line, name)
       /* Mark label as having been defined.  */
       DECL_INITIAL (decl) = error_mark_node;
       /* Say where in the source.  */
-      DECL_SOURCE_FILE (decl) = filename;
-      DECL_SOURCE_LINE (decl) = line;
+      annotate_with_file_line (decl, filename, line);
       return decl;
     }
 }
@@ -5749,8 +5745,8 @@ start_function (declspecs, declarator, attributes)
       && TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0)
     {
       TREE_TYPE (decl1) = TREE_TYPE (old_decl);
-      current_function_prototype_file = DECL_SOURCE_FILE (old_decl);
-      current_function_prototype_line = DECL_SOURCE_LINE (old_decl);
+      current_function_prototype_file = TREE_FILENAME (old_decl);
+      current_function_prototype_line = TREE_LINENO (old_decl);
     }
 
   /* If there is no explicit declaration, look for any out-of-scope implicit
@@ -6099,8 +6095,7 @@ store_parm_decls ()
 	      found = build_decl (PARM_DECL, TREE_VALUE (parm),
 				  integer_type_node);
 	      DECL_ARG_TYPE (found) = TREE_TYPE (found);
-	      DECL_SOURCE_LINE (found) = DECL_SOURCE_LINE (fndecl);
-	      DECL_SOURCE_FILE (found) = DECL_SOURCE_FILE (fndecl);
+	      TREE_LOCUS (found) = TREE_LOCUS (fndecl);
 	      if (flag_isoc99)
 		pedwarn_with_decl (found, "type of `%s' defaults to `int'");
 	      else if (extra_warnings)
@@ -6347,6 +6342,8 @@ finish_function (nested, can_defer_p)
      int can_defer_p;
 {
   tree fndecl = current_function_decl;
+  int saved_lineno;
+  const char *saved_filename;
 
 #if 0
   /* This caused &foo to be of type ptr-to-const-function which then
@@ -6403,6 +6400,12 @@ finish_function (nested, can_defer_p)
       && DECL_INLINE (fndecl))
     warning ("no return statement in function returning non-void");
 
+  /* Genericizing can change the current line number and filename.
+     We need to save/restore so that we can emit the proper line
+     note for the end of the function later.  */
+  saved_lineno = lineno;
+  saved_filename = input_filename;
+
   /* Genericize before inlining.  */
   if (!flag_disable_simple)
     c_genericize (fndecl);
@@ -6413,6 +6416,10 @@ finish_function (nested, can_defer_p)
      CFUN.  Do so explicitly.  */
   free_after_compilation (cfun);
   cfun = NULL;
+
+  /* Restore file and line information.  */
+  lineno = saved_lineno;
+  input_filename = saved_filename;
 
   if (! nested)
     {
@@ -6507,9 +6514,9 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
-  input_filename = DECL_SOURCE_FILE (fndecl);
+  input_filename = TREE_FILENAME (fndecl);
   make_decl_rtl (fndecl, NULL);
-  init_function_start (fndecl, input_filename, DECL_SOURCE_LINE (fndecl));
+  init_function_start (fndecl, input_filename, TREE_LINENO (fndecl));
 
   /* This function is being processed in whole-function mode.  */
   cfun->x_whole_function_mode_p = 1;

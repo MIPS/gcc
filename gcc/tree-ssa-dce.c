@@ -233,7 +233,6 @@ find_useful_stmts ()
 	  tree stmt;
 
 	  t = stmt = gsi_stmt (i);
-	  STRIP_WFL (stmt);
 	  STRIP_NOPS (stmt);
 
 	  /* Asms and Returns are required. Labels are kept because 
@@ -405,7 +404,6 @@ remove_dead_stmts ()
 		}
 	      stats.removed++;
 
-	      STRIP_WFL (t);
 	      STRIP_NOPS (t);
 
 	      /* If we have determined that a conditional branch statement

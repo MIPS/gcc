@@ -6424,6 +6424,7 @@ expand_expr (exp, target, tmode, modifier)
   int unsignedp = TREE_UNSIGNED (type);
   enum machine_mode mode;
   enum tree_code code = TREE_CODE (exp);
+  char class = TREE_CODE_CLASS (code);
   optab this_optab;
   rtx subtarget, original_target;
   int ignore;
@@ -6556,6 +6557,48 @@ expand_expr (exp, target, tmode, modifier)
       && ! (code == CONSTRUCTOR && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
       && ! (code == CALL_EXPR && aggregate_value_p (exp)))
     target = subtarget;
+
+
+  /* If this is an expression of some kind and it has an associated line
+     number, then emit the line number before expanding the expression. 
+
+     We need to save and restore the file and line information so that
+     errors discovered during expansion are emitted with the right
+     information.  It would be better of the diagnostic routines 
+     used the file/line information embedded in the tree nodes rather
+     than globals.  */
+  if (cfun
+      && TREE_LOCUS (exp)
+      && (IS_EXPR_CODE_CLASS (class)
+          || class == 'r'
+	  || class == 's'))
+      {
+	const char *saved_input_filename = input_filename;
+	int saved_lineno = lineno;
+	location_t *saved_locus = TREE_LOCUS (exp);
+	rtx to_return;
+
+	/* Update the global file line information and emit the note.  */
+	input_filename = TREE_FILENAME (exp);
+	lineno = TREE_LINENO (exp);
+	emit_line_note (input_filename, lineno);
+
+	/* This is a gross hack.  Temporarily remove the locus information
+	   and re-call expand_expr.
+
+	   Long term this should be changed to have the exit paths from
+	   expand_expr restore the global file and line information so
+	   we can avoid this recursive call.  */
+	TREE_LOCUS (exp) = NULL;
+	to_return = expand_expr (exp, (ignore ? const0_rtx : target),
+				 tmode, modifier);
+
+	/* Restore the locus and global file line information.  */
+	TREE_LOCUS (exp) = saved_locus;
+	input_filename = saved_input_filename;
+	lineno = saved_lineno;
+	return to_return;
+      }
 
   switch (code)
     {
@@ -6775,24 +6818,6 @@ expand_expr (exp, target, tmode, modifier)
 	return replace_equiv_address (TREE_CST_RTL (exp),
 				      copy_rtx (XEXP (TREE_CST_RTL (exp), 0)));
       return TREE_CST_RTL (exp);
-
-    case EXPR_WITH_FILE_LOCATION:
-      {
-	rtx to_return;
-	const char *saved_input_filename = input_filename;
-	int saved_lineno = lineno;
-	input_filename = EXPR_WFL_FILENAME (exp);
-	lineno = EXPR_WFL_LINENO (exp);
-	if (EXPR_WFL_EMIT_LINE_NOTE (exp))
-	  emit_line_note (input_filename, lineno);
-	/* Possibly avoid switching back and forth here.  */
-	to_return = expand_expr (EXPR_WFL_NODE (exp),
-				 (ignore ? const0_rtx : target),
-				 tmode, modifier);
-	input_filename = saved_input_filename;
-	lineno = saved_lineno;
-	return to_return;
-      }
 
     case SAVE_EXPR:
       context = decl_function_context (exp);

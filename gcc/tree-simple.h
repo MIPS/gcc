@@ -36,7 +36,7 @@ extern tree update_line_number         PARAMS ((tree, int));
 
 extern tree rationalize_compound_expr  PARAMS ((tree));
 extern tree right_assocify_expr		PARAMS ((tree));
-extern void wrap_all_with_wfl PARAMS ((tree *, const char *, int));
+extern void annotate_all_with_file_line PARAMS ((tree *, const char *, int));
 
 /* Validation of SIMPLE expressions.  */
 int is_simple_expr                     PARAMS ((tree));
@@ -133,7 +133,6 @@ gsi_step (i)
      gimple_stmt_iterator *i;
 {
   tree t = *(i->tp);
-  STRIP_WFL (t);
   STRIP_NOPS (t);
   if (TREE_CODE (t) == COMPOUND_EXPR)
     i->tp = &(TREE_OPERAND (t, 1));
@@ -153,7 +152,6 @@ gsi_stmt_ptr (i)
 #endif
 
   t = *(i.tp);
-  STRIP_WFL (t);
   STRIP_NOPS (t);
 
   if (TREE_CODE (t) == COMPOUND_EXPR)
@@ -167,7 +165,6 @@ gsi_stmt (i)
      gimple_stmt_iterator i;
 {
   tree t = *(gsi_stmt_ptr (i));
-  STRIP_WFL (t);
   STRIP_NOPS (t);
   if (t == empty_stmt_node || t == error_mark_node)
     t = NULL_TREE;

@@ -1,3 +1,41 @@
+2003-01-15  Jeff Law <law@redhat.com>
+
+	* class.c: Use TREE_FILENAME and TREE_LINENO to extract
+	file/line information from tree nodes.  Remove EXPR_WITH_FILE_LOCATION
+	nodes.  Use annotate_with_file_line to attach file/line information
+	to tree nodes.  Use TREE_LOCUS to copy file/line information
+	from one node to another.
+	* decl2.c, error.c, init.c, lex.c, method.c: Likewise.
+	* optimize.c: Likewise.
+	* cp-tree.def (TINST_LEVEL): New tree node.
+	* cp-tree.h (TINST_DECL): Update now that we no longer use
+	EXPR_WITH_FILE_LOCATION to represent the TINST_DECL information.
+	(TINST_FILE, TINST_LINE): Kill.
+	* decl.c: Use TREE_FILENAME and TREE_LINENO to extract
+	file/line information from tree nodes.  Use annotate_witH_file_line
+	to add file/line information to tree nodes.  Use TREE_LOCUS
+	to copy file/line information from one node to another.
+	(duplicate_decls): Make sure to copy TREE_LOCUS information
+	from the old decl to the new decl.
+	(finish_function): Save and restore file/line information
+	around genericizing the function tree.
+	* pt.c (lookup_template_class): Use TREE_LOCUS to copy file/line
+	information from one node to another.
+	(push_tinst_level): Generate a TINST_LEVEL node rather than 
+	using EXPR_WITH_FILE_LOCATION nodes.  Use annotate_with_file_line
+	to annotate the new node with file/line information.
+	(pop_tinst_level): Use  TREE_LINENO and TREE_FILENAME to extract
+	file/line information from nodes.
+	(tsubst_friend_function, instantiate_class_template): Likewise.
+	(tsubst_decl, instantiate_decl, tsubst_enum): Likewise.
+	* semantics.c: Use annotate_with_file_line to annotate tree
+	nodes with file/line information.  Use TREE_FILENAME and TREE_LINENO
+	to extract file/line information from tree nodes.
+	(expand_body): Restore file/line information slightly earlier.
+	tree.c (cp_walk_subtrees): Set lineno appropriately.
+	(cp_copy_res_decl_for_inlining): Use TREE_LOCUS to copy file/line
+	information from one node to another.
+
 2003-01-13  Frank Ch. Eigler  <fche@redhat.com>
 
 	Prototype C++ mudflap support.

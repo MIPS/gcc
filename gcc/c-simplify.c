@@ -300,7 +300,7 @@ c_simplify_stmt (stmt_p)
       add_tree (stmt, &pre);
       add_tree (post, &pre);
       pre = rationalize_compound_expr (pre);
-      wrap_all_with_wfl (&pre, stmt_filename, stmt_lineno);
+      annotate_all_with_file_line (&pre, stmt_filename, stmt_lineno);
 
       add_tree (pre, &outer_pre);
     cont:
@@ -615,7 +615,7 @@ simplify_c_loop (cond, body, incr, cond_is_first)
       add_tree (exit, &stuff);
     }
 
-  wrap_all_with_wfl (&stuff, stmt_filename, stmt_lineno);
+  annotate_all_with_file_line (&stuff, stmt_filename, stmt_lineno);
 
   LOOP_EXPR_BODY (loop) = rationalize_compound_expr (stuff);
 
@@ -897,7 +897,6 @@ simplify_stmt_expr (expr_p)
       if (!STMT_EXPR_NO_SCOPE (*expr_p))
 	{
 	  bind = body;
-	  STRIP_WFL (bind);
 	  substmt = BIND_EXPR_BODY (bind);
 	}
       else

@@ -984,7 +984,7 @@ pedwarn_with_decl VPARAMS ((tree decl, const char *msgid, ...))
   VA_FIXEDARG (ap, const char *, msgid);
 
   diagnostic_set_info (&diagnostic, _(msgid), &ap,
-                       DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl),
+                       TREE_FILENAME (decl), TREE_LINENO (decl),
                        pedantic_error_kind ());
 
   /* We don't want -pedantic-errors to cause the compilation to fail from
@@ -1126,7 +1126,7 @@ error_with_decl VPARAMS ((tree decl, const char *msgid, ...))
   VA_FIXEDARG (ap, const char *, msgid);
 
   diagnostic_set_info (&diagnostic, msgid, &ap,
-                       DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl),
+                       TREE_FILENAME (decl), TREE_LINENO (decl),
                        DK_ERROR);
   diagnostic_for_decl (&diagnostic, decl);
   VA_CLOSE (ap);
@@ -1229,7 +1229,7 @@ warning_with_decl VPARAMS ((tree decl, const char *msgid, ...))
   VA_FIXEDARG (ap, const char *, msgid);
 
   diagnostic_set_info (&diagnostic, msgid, &ap,
-                       DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl),
+                       TREE_FILENAME (decl), TREE_LINENO (decl),
                        DK_WARNING);
   diagnostic_for_decl (&diagnostic, decl);
   VA_CLOSE (ap);
@@ -1437,7 +1437,7 @@ warn_deprecated_use (node)
   if (DECL_P (node))
     warning ("`%s' is deprecated (declared at %s:%d)",
 	     IDENTIFIER_POINTER (DECL_NAME (node)),
-	     DECL_SOURCE_FILE (node), DECL_SOURCE_LINE (node));
+	     TREE_FILENAME (node), TREE_LINENO (node));
   else if (TYPE_P (node))
     {
       const char *what = NULL;
@@ -1453,13 +1453,13 @@ warn_deprecated_use (node)
 	{
 	  if (decl)
 	    warning ("`%s' is deprecated (declared at %s:%d)", what,
-		     DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+		     TREE_FILENAME (decl), TREE_LINENO (decl));
 	  else
 	    warning ("`%s' is deprecated", what);
 	}
       else if (decl)
 	warning ("type is deprecated (declared at %s:%d)",
-		 DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl));
+		 TREE_FILENAME (decl), TREE_LINENO (decl));
       else
 	warning ("type is deprecated");
     }

@@ -304,9 +304,11 @@ make_node (code)
 	DECL_ALIGN (t) = 1;
       DECL_USER_ALIGN (t) = 0;
       DECL_IN_SYSTEM_HEADER (t) = in_system_header;
-      DECL_SOURCE_LINE (t) = lineno;
-      DECL_SOURCE_FILE (t) =
-	(input_filename) ? input_filename : "<built-in>";
+      annotate_with_file_line (t,
+			       (input_filename
+				? input_filename
+				: "<built-in"),
+			       lineno);
       DECL_UID (t) = next_decl_uid++;
 
       /* We have not yet computed the alias set for this declaration.  */
@@ -2388,37 +2390,42 @@ build_block (vars, tags, subblocks, supercontext, chain)
   return block;
 }
 
-/* EXPR_WITH_FILE_LOCATION are used to keep track of the exact
-   location where an expression or an identifier were encountered. It
-   is necessary for languages where the frontend parser will handle
-   recursively more than one file (Java is one of them).  */
+static GTY(()) tree last_annotated_node;
 
-tree
-build_expr_wfl (node, file, line, col)
+/* Record the exact location where an expression or an identifier were
+   encountered.  */
+void
+annotate_with_file_line (node, file, line)
      tree node;
      const char *file;
-     int line, col;
+     int line;
 {
-  static const char *last_file = 0;
-  static tree last_filenode = NULL_TREE;
-  tree wfl = make_node (EXPR_WITH_FILE_LOCATION);
+  /* Roughly one percent of the calls to this function are to annotate
+     a node with the same information already attached to that node!
+     Just return instead of wasting memory.  */
+  if (TREE_LOCUS (node)
+      && (TREE_FILENAME (node) == file
+	  || ! strcmp (TREE_FILENAME (node), file))
+      && TREE_LINENO (node) == line)
+    return;
 
-  EXPR_WFL_NODE (wfl) = node;
-  EXPR_WFL_SET_LINECOL (wfl, line, col);
-  if (file != last_file)
+  /* In heavily macroized code (such as GCC itself) this single
+     entry cache can reduce the number of allocations by more
+     than half.  */
+  if (last_annotated_node
+      && TREE_LOCUS (last_annotated_node)
+      && (TREE_FILENAME (last_annotated_node) == file
+	  || ! strcmp (TREE_FILENAME (last_annotated_node), file))
+      && TREE_LINENO (last_annotated_node) == line)
     {
-      last_file = file;
-      last_filenode = file ? get_identifier (file) : NULL_TREE;
+      TREE_LOCUS (node) = TREE_LOCUS (last_annotated_node); 
+      return;
     }
 
-  EXPR_WFL_FILENAME_NODE (wfl) = last_filenode;
-  if (node)
-    {
-      TREE_SIDE_EFFECTS (wfl) = TREE_SIDE_EFFECTS (node);
-      TREE_TYPE (wfl) = TREE_TYPE (node);
-    }
-
-  return wfl;
+  TREE_LOCUS (node) = ggc_alloc (sizeof (location_t));
+  TREE_LINENO (node) = line;
+  TREE_FILENAME (node) = file;
+  last_annotated_node = node;
 }
 
 /* Return a declaration like DDECL except that its DECL_ATTRIBUTES

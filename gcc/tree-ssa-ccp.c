@@ -609,7 +609,6 @@ evaluate_stmt (stmt)
   val.const_value = NULL_TREE;
 
   /* Evaluate a copy of the original statement.  */
-  STRIP_WFL (stmt);
   STRIP_NOPS (stmt);
   copy = stmt;
   walk_tree (&copy, copy_tree_r, NULL, NULL);
@@ -946,7 +945,6 @@ fold_stmt (stmt)
 {
   tree rhs, result;
 
-  STRIP_WFL (stmt);
   STRIP_NOPS (stmt);
   rhs = get_rhs (stmt);
   if (rhs)
