@@ -1,3 +1,8 @@
+2003-05-16  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-common.c (ptr_may_alias_var): Fix DECL_CONTEXT
+	checking.
+
 2003-05-16  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-flow.h (ssa_make_edge): Remove prototype.

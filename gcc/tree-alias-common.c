@@ -275,6 +275,7 @@ get_alias_var (expr)
     case FIX_FLOOR_EXPR:
     case FIX_ROUND_EXPR:
     case ADDR_EXPR:
+    case REFERENCE_EXPR:
     case INDIRECT_REF:
       /* If it's a ref or cast or conversion of sometmhing, get the
          alias var of the something. */
@@ -424,7 +425,7 @@ find_func_aliases (tp, walk_subtrees, data)
   
   if (TREE_CODE (stp) == SCOPE_STMT)
     {
-      *walk_subtrees = 0;
+//      *walk_subtrees = 0;
       return NULL_TREE;
     }
 
@@ -488,7 +489,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	      *walk_subtrees = 0;
 	    }
 	  /* x = &y = x = &foo.y */
-	  else if (TREE_CODE (op1) == ADDR_EXPR
+	  else if ((TREE_CODE (op1) == ADDR_EXPR || TREE_CODE (op1) == REFERENCE_EXPR)
 		   && is_simple_varname (TREE_OPERAND (op1, 0)))
 	    {
 	      if (rhsAV != NULL)
@@ -599,7 +600,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	    }
 	  /* *x = &y */
 	  else if (TREE_CODE (op0) == INDIRECT_REF
-		   && TREE_CODE (op1) == ADDR_EXPR)
+		   && (TREE_CODE (op1) == ADDR_EXPR || TREE_CODE (op1) == REFERENCE_EXPR))
 	    {
 	      /* This becomes temp = &y and *x = temp . */
 	      alias_typevar tempvar;
@@ -912,7 +913,7 @@ create_alias_var (decl)
     return result->value;
   
 
-  if (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE 
+  if (POINTER_TYPE_P (TREE_TYPE (decl))
       && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == FUNCTION_TYPE)
     {
       avar = create_fun_alias_var_ptf (decl, TREE_TYPE (TREE_TYPE (decl)));
@@ -1068,13 +1069,20 @@ ptr_may_alias_var (ptr, var)
   if (TREE_CODE (var) == COMPONENT_REF)
     var = TREE_OPERAND (var, 1);
 #endif
-  if (ptr == var || (DECL_CONTEXT (ptr) == NULL
-		     && DECL_CONTEXT (var) == NULL))
+  tree ptrcontext = DECL_CONTEXT (ptr);
+  tree varcontext = DECL_CONTEXT (var);
+  
+  if (ptrcontext != NULL)
+    ptrcontext = decl_function_context (ptr);
+  if (varcontext != NULL)
+    varcontext = decl_function_context (var);
+
+  if (ptr == var || (ptrcontext == NULL && varcontext == NULL))
     return true;
   if (DECL_P (ptr))
     {
       ptrtv = DECL_PTA_TYPEVAR (ptr);
-      if (DECL_CONTEXT (ptr) == NULL)
+      if (ptrcontext == NULL)
 	ptrtv = DECL_PTA_TYPEVAR (global_var);
       if (!ptrtv && !current_alias_ops->ip && ptr != global_var)
 	abort ();
@@ -1083,7 +1091,7 @@ ptr_may_alias_var (ptr, var)
     }
   else
     {
-      if (DECL_CONTEXT (ptr) == NULL)
+      if (ptrcontext == NULL)
 	entry.key = global_var;
       else
 	entry.key = ptr;
@@ -1097,7 +1105,7 @@ ptr_may_alias_var (ptr, var)
   if (DECL_P (var))
     {
       vartv = DECL_PTA_TYPEVAR (var);
-      if (DECL_CONTEXT (var) == NULL)
+      if (varcontext == NULL)
 	vartv = DECL_PTA_TYPEVAR (global_var);
       if (!vartv && !current_alias_ops->ip && var != global_var)
 	abort ();
@@ -1106,7 +1114,7 @@ ptr_may_alias_var (ptr, var)
     }
   else
     {
-      if (DECL_CONTEXT (var) == NULL)
+      if (varcontext == NULL)
 	entry.key = global_var;
       else
 	entry.key = var;
