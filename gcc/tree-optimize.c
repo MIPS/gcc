@@ -534,11 +534,14 @@ tree_rest_of_compilation (tree fndecl, bool nested_p)
     walk_tree (&TREE_TYPE (fndecl), set_save_expr_context, fndecl,
 	       NULL);
 
+  /* Expand the variables recorded during gimple lowering.  This must
+     occur before the call to expand_function_start to ensure that
+     all used variables are expanded before we expand anything on the
+     PENDING_SIZES list.  */
+  expand_used_vars ();
+
   /* Set up parameters and prepare for return, for the function.  */
   expand_function_start (fndecl, 0);
-
-  /* Expand the variables recorded during gimple lowering.  */
-  expand_used_vars ();
 
   /* Allow language dialects to perform special processing.  */
   (*lang_hooks.rtl_expand.start) ();

@@ -1000,7 +1000,7 @@ get_virtual_var (tree var)
 static void
 find_hidden_use_vars (tree block)
 {
-  tree sub, decl;
+  tree sub, decl, tem;
 
   /* Check all the arrays declared in the block for VLAs.
 
@@ -1015,6 +1015,21 @@ find_hidden_use_vars (tree block)
   /* Now repeat the search in any sub-blocks.  */
   for (sub = BLOCK_SUBBLOCKS (block); sub; sub = TREE_CHAIN (sub))
     find_hidden_use_vars (sub);
+
+  /* A VLA parameter may use a variable which as set from another
+     parameter to declare the size of the VLA.  We need to mark the
+     variable as having a hidden use since it is used to declare the
+     VLA parameter and that declaration is not seen by the SSA code. 
+
+     Note get_pending_sizes clears the PENDING_SIZES chain, so we
+     must restore it. */
+  tem = get_pending_sizes ();
+  put_pending_sizes (tem);
+  for (; tem; tem = TREE_CHAIN (tem))
+    {
+      int inside_vla = 1;
+      walk_tree (&TREE_VALUE (tem), find_hidden_use_vars_r, &inside_vla, NULL);
+    }
 }
 
 /* Callback for walk_tree used by find_hidden_use_vars to analyze each 
