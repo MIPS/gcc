@@ -80,12 +80,15 @@ extern enum rs6000_sdata_type rs6000_sdata;
 /* Strings provided by SUBTARGET_OPTIONS */
 extern const char *rs6000_abi_name;
 extern const char *rs6000_sdata_name;
+extern const char *rs6000_tls_size_string; /* For -mtls-size= */
 
 /* Override rs6000.h definition.  */
 #undef	SUBTARGET_OPTIONS
-#define	SUBTARGET_OPTIONS						\
-  { "call-",  &rs6000_abi_name, N_("Select ABI calling convention") },	\
-  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling") }
+#define	SUBTARGET_OPTIONS						    \
+  { "call-",  &rs6000_abi_name, N_("Select ABI calling convention") },      \
+  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling") }, \
+  { "tls-size=", &rs6000_tls_size_string,				    \
+   N_("Specify bit size of immediate TLS offsets") }
 
 /* Max # of bytes for variables to automatically be put into the .sdata
    or .sdata2 sections.  */
@@ -248,8 +251,9 @@ do {									\
 	     rs6000_sdata_name);					\
     }									\
 									\
-  else if (flag_pic &&							\
-	   (rs6000_sdata == SDATA_EABI || rs6000_sdata == SDATA_SYSV))	\
+  else if (flag_pic && DEFAULT_ABI != ABI_AIX				\
+	   && (rs6000_sdata == SDATA_EABI				\
+	       || rs6000_sdata == SDATA_SYSV))				\
     {									\
       rs6000_sdata = SDATA_DATA;					\
       error ("-f%s and -msdata=%s are incompatible",			\
@@ -293,7 +297,7 @@ do {									\
     }									\
 									\
   /* Treat -fPIC the same as -mrelocatable.  */				\
-  if (flag_pic > 1)							\
+  if (flag_pic > 1 && DEFAULT_ABI != ABI_AIX)				\
     target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC; \
 									\
   else if (TARGET_RELOCATABLE)						\
@@ -422,7 +426,8 @@ do {									\
 
 /* Put PC relative got entries in .got2.  */
 #define	MINIMAL_TOC_SECTION_ASM_OP \
-  ((TARGET_RELOCATABLE || flag_pic) ? "\t.section\t\".got2\",\"aw\"" : "\t.section\t\".got1\",\"aw\"")
+  (TARGET_RELOCATABLE || (flag_pic && DEFAULT_ABI != ABI_AIX)		\
+   ? "\t.section\t\".got2\",\"aw\"" : "\t.section\t\".got1\",\"aw\"")
 
 #define	SDATA_SECTION_ASM_OP "\t.section\t\".sdata\",\"aw\""
 #define	SDATA2_SECTION_ASM_OP "\t.section\t\".sdata2\",\"a\""
@@ -552,7 +557,7 @@ fini_section ()								\
 #define	TARGET_ASM_SELECT_RTX_SECTION rs6000_elf_select_rtx_section
 #undef	TARGET_ASM_SELECT_SECTION
 #define	TARGET_ASM_SELECT_SECTION  rs6000_elf_select_section
-#define TARGET_ASM_UNIQUE_SECTION  rs6000_elf_unique_section
+#define	TARGET_ASM_UNIQUE_SECTION  rs6000_elf_unique_section
 
 /* Return nonzero if this entry is to be written into the constant pool
    in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF or a CONST
@@ -774,6 +779,9 @@ extern int fixuplabelno;
 #define	ASM_OUTPUT_LABELREF(FILE,NAME)		\
 do {						\
   const char *_name = NAME;			\
+  if (*_name == '%')				\
+    _name+=2;					\
+ 						\
   if (*_name == '@')				\
     _name++;					\
  						\

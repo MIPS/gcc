@@ -221,9 +221,6 @@ Boston, MA 02111-1307, USA.  */
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
-#undef  TARGET_ENCODE_SECTION_INFO
-#define TARGET_ENCODE_SECTION_INFO  rs6000_xcoff_encode_section_info
-
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 
@@ -232,6 +229,9 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_OUTPUT_LABELREF(FILE,NAME)		\
 do {						\
   const char *_name = NAME;			\
+  if (*_name == '%')				\
+    _name+=2;					\
+ 						\
   if (*_name == '@')				\
     _name++;					\
  						\
