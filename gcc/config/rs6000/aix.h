@@ -61,6 +61,57 @@ Boston, MA 02111-1307, USA.  */
 /* Don't turn -B into -L if the argument specifies a relative file name.  */
 #define RELATIVE_PREFIX_NOT_LINKDIR
 
+/* Names to predefine in the preprocessor for this target machine.  */
+
+#define CPP_PREDEFINES "-D_IBMR2 -D_POWER -D_AIX -D_AIX32 -D_LONG_LONG \
+-Asystem(unix) -Asystem(aix) -Acpu(rs6000) -Amachine(rs6000)"
+
+/* Tell the assembler to assume that all undefined names are external.
+
+   Don't do this until the fixed IBM assembler is more generally available.
+   When this becomes permanently defined, the ASM_OUTPUT_EXTERNAL,
+   ASM_OUTPUT_EXTERNAL_LIBCALL, and RS6000_OUTPUT_BASENAME macros will no
+   longer be needed.  Also, the extern declaration of mcount in ASM_FILE_START
+   will no longer be needed.  */
+
+/* #define ASM_SPEC "-u %(asm_cpu)" */
+
+/* Default location of syscalls.exp under AIX */
+#ifndef CROSS_COMPILE
+#define LINK_SYSCALLS_SPEC "-bI:/lib/syscalls.exp"
+#else
+#define LINK_SYSCALLS_SPEC ""
+#endif
+
+/* Default location of libg.exp under AIX */
+#ifndef CROSS_COMPILE
+#define LINK_LIBG_SPEC "-bexport:/usr/lib/libg.exp"
+#else
+#define LINK_LIBG_SPEC ""
+#endif
+
+/* Define the options for the binder: Start text at 512, align all segments
+   to 512 bytes, and warn if there is text relocation.
+
+ The -bhalt:4 option supposedly changes the level at which ld will abort,
+   but it also suppresses warnings about multiply defined symbols and is
+   used by the AIX cc command.  So we use it here.
+
+   -bnodelcsect undoes a poor choice of default relating to multiply-defined
+   csects.  See AIX documentation for more information about this.
+
+ -bM:SRE tells the linker that the output file is Shared REusable.  Note
+   that to actually build a shared library you will also need to specify an
+   export list with the -Wl,-bE option.  */
+
+#define LINK_SPEC "-T512 -H512 %{!r:-btextro} -bhalt:4 -bnodelcsect\
+%{static:-bnso %(link_syscalls) } \
+%{!shared:%{g*: %(link_libg) }} %{shared:-bM:SRE}"
+
+/* Profiled library versions are used by linking with special directories.  */
+#define LIB_SPEC "%{pg:-L/lib/profiled -L/usr/lib/profiled}\
+%{p:-L/lib/profiled -L/usr/lib/profiled} %{!shared:%{g*:-lg}} -lc"
+
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)	\
 { rtx _symref = XEXP (DECL_RTL (DECL), 0);	\
   if ((TREE_CODE (DECL) == VAR_DECL		\
@@ -84,6 +135,12 @@ Boston, MA 02111-1307, USA.  */
   {"no-xl-call",	- MASK_XL_CALL}, \
   SUBSUBTARGET_SWITCHES
 #define SUBSUBTARGET_SWITCHES 
+
+/* Define any extra SPECS that the compiler needs to generate.  */
+#undef  SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS						\
+  { "link_syscalls",            LINK_SYSCALLS_SPEC },			\
+  { "link_libg",                LINK_LIBG_SPEC }
 
 /* FP save and restore routines.  */
 #define	SAVE_FP_PREFIX "._savef"

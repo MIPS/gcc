@@ -26,7 +26,6 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_FILE_END
 #undef READONLY_DATA_SECTION
 #undef SELECT_SECTION
-#undef ASM_DECLARE_FUNCTION_NAME
 
 /* Use the regular svr4 definitions.  */
 
@@ -296,7 +295,6 @@ do {									\
 /* System V.4 uses register 13 as a pointer to the small data area,
    so it is not available to the normal user.  */
 
-#undef	FIXED_R13
 #define FIXED_R13 1
 
 /* System V.4 passes the first 8 floating arguments in registers,
@@ -684,6 +682,10 @@ extern int rs6000_pic_labelno;
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
   output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
 
+/* override rs6000.h definition */
+
+#undef ASM_OUTPUT_DEF
+
 /* How to renumber registers for dbx and gdb.  */
 
 #define DBX_REGISTER_NUMBER(REGNO) (REGNO)
@@ -816,39 +818,6 @@ do {									\
     }									\
 } while (0)
 
-
-/* This is how to output an assembler line defining an address 
-   constant for the dwarf call unwinding information.
-   For -mrelocatable, we mark all addresses that need to be fixed up
-   in the .fixup section.  */
-
-extern int dwarflabelno;
-
-#undef	ASM_OUTPUT_DWARF_ADDR
-#define ASM_OUTPUT_DWARF_ADDR(FILE,LABEL)		                \
-do {									\
-  if ((TARGET_RELOCATABLE || flag_pic))					\
-    {									\
-      char buf[256], *p;						\
-									\
-      ASM_GENERATE_INTERNAL_LABEL (buf, "LCDW", dwarflabelno++);	\
-      STRIP_NAME_ENCODING (p, buf);					\
-      fprintf (FILE, "%s:\n", p);					\
-      fprintf (FILE, "\t.4byte\t");					\
-      assemble_name (FILE, LABEL);      				\
-      fprintf (FILE, "\n");					        \
-      fprintf (FILE, "\t.section \".fixup\",\"aw\"\n");			\
-      ASM_OUTPUT_ALIGN (FILE, 2);					\
-      fprintf (FILE, "\t.long\t%s\n", p);				\
-      fprintf (FILE, "\t.previous\n");					\
-    }									\
-  else                                                                  \
-    {									\
-      fprintf (FILE, "\t.4byte\t");                                     \
-      assemble_name (FILE, LABEL);                                      \
-      fprintf (FILE, "\n");					        \
-    }									\
-} while (0)
 
 /* This is the end of what might become sysv4.h.  */
 

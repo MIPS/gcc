@@ -36,11 +36,6 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_WINDOWS_NT (TARGET_OBJECT_FORMAT == OBJECT_WINDOWS_NT)
 #define TARGET_MACOS (TARGET_OBJECT_FORMAT == OBJECT_PEF)
 
-/* Names to predefine in the preprocessor for this target machine.  */
-
-#define CPP_PREDEFINES "-D_IBMR2 -D_POWER -D_AIX -D_AIX32 -D_LONG_LONG \
--Asystem(unix) -Asystem(aix) -Acpu(rs6000) -Amachine(rs6000)"
-
 /* Print subsidiary information on the compiler version in use.  */
 #define TARGET_VERSION ;
 
@@ -48,16 +43,6 @@ Boston, MA 02111-1307, USA.  */
 #ifndef TARGET_CPU_DEFAULT
 #define TARGET_CPU_DEFAULT ((char *)0)
 #endif
-
-/* Tell the assembler to assume that all undefined names are external.
-
-   Don't do this until the fixed IBM assembler is more generally available.
-   When this becomes permanently defined, the ASM_OUTPUT_EXTERNAL,
-   ASM_OUTPUT_EXTERNAL_LIBCALL, and RS6000_OUTPUT_BASENAME macros will no
-   longer be needed.  Also, the extern declaration of mcount in ASM_FILE_START
-   will no longer be needed.  */
-
-/* #define ASM_SPEC "-u %(asm_cpu)" */
 
 /* Define appropriate architecture macros for preprocessor depending on
    target switches.  */
@@ -157,45 +142,7 @@ Boston, MA 02111-1307, USA.  */
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
   { "asm_cpu",			ASM_CPU_SPEC },				\
   { "asm_default",		ASM_DEFAULT_SPEC },			\
-  { "link_syscalls",		LINK_SYSCALLS_SPEC },			\
-  { "link_libg",		LINK_LIBG_SPEC },			\
   SUBTARGET_EXTRA_SPECS
-
-/* Default location of syscalls.exp under AIX */
-#ifndef CROSS_COMPILE
-#define LINK_SYSCALLS_SPEC "-bI:/lib/syscalls.exp"
-#else
-#define LINK_SYSCALLS_SPEC ""
-#endif
-
-/* Default location of libg.exp under AIX */
-#ifndef CROSS_COMPILE
-#define LINK_LIBG_SPEC "-bexport:/usr/lib/libg.exp"
-#else
-#define LINK_LIBG_SPEC ""
-#endif
-
-/* Define the options for the binder: Start text at 512, align all segments
-   to 512 bytes, and warn if there is text relocation.
-
-   The -bhalt:4 option supposedly changes the level at which ld will abort,
-   but it also suppresses warnings about multiply defined symbols and is
-   used by the AIX cc command.  So we use it here.
-
-   -bnodelcsect undoes a poor choice of default relating to multiply-defined
-   csects.  See AIX documentation for more information about this.
-
-   -bM:SRE tells the linker that the output file is Shared REusable.  Note
-   that to actually build a shared library you will also need to specify an
-   export list with the -Wl,-bE option.  */
-
-#define LINK_SPEC "-T512 -H512 %{!r:-btextro} -bhalt:4 -bnodelcsect\
-   %{static:-bnso %(link_syscalls) } \
-   %{!shared:%{g*: %(link_libg) }} %{shared:-bM:SRE}"
-
-/* Profiled library versions are used by linking with special directories.  */
-#define LIB_SPEC "%{pg:-L/lib/profiled -L/usr/lib/profiled}\
-   %{p:-L/lib/profiled -L/usr/lib/profiled} %{!shared:%{g*:-lg}} -lc"
 
 /* gcc must do the search itself to find libgcc.a, not use -l.  */
 #define LIBGCC_SPEC "libgcc.a%s"
@@ -427,7 +374,7 @@ extern enum processor_type rs6000_cpu;
 
 /* Specify the dialect of assembler to use.  New mnemonics is dialect one
    and the old mnemonics are dialect zero.  */
-#define ASSEMBLER_DIALECT TARGET_NEW_MNEMONICS ? 1 : 0
+#define ASSEMBLER_DIALECT (TARGET_NEW_MNEMONICS ? 1 : 0)
 
 /* This macro is similar to `TARGET_SWITCHES' but defines names of
    command options that have values.  Its definition is an

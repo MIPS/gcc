@@ -1,3 +1,10 @@
+2000-01-06  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
+
+	* rs6000.h: Move more stuff from here...
+	* aix.h: to here.
+	* sysv4.h: Cleanup accordingly.
+	* netware.h: Likewise
+
 2000-01-05  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
 
         * rs6000.h: Continue cleanup.

@@ -39,11 +39,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef STRIP_NAME_ENCODING
 
-/* Don't bother to output .extern pseudo-ops.  They are not needed by
-   ELF assemblers.  */
-
-#undef ASM_OUTPUT_EXTERNAL
-
 /* Undefine some things which are defined by the generic svr4.h.  */
 
 #undef ASM_FILE_END
