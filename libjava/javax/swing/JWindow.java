@@ -79,8 +79,8 @@ public class JWindow extends Window implements Accessible, RootPaneContainer
      *************/
 
     public JWindow()
-    {
-      this(null);
+    {      
+     	super(); 
     }
 
     // huuu ?

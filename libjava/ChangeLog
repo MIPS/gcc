@@ -1,3 +1,15 @@
+2004-05-03  Olga Rodimina  <rodimina@redhat.com>
+
+	* Makefile.am: Added new file.
+	* Makefile.in: Regenerate.
+	* javax/swing/JPopupMenu.java:
+	Started implementation.
+	* javax/swing/JWindow.java
+	(JWindow): call super() if parent for window
+	is not specified.
+	* javax/swing/plaf/basic/BasicPopupMenuUI.java:
+	New File. UI Delegate for JPopupMenu.
+
 2004-04-30  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/JApplet.java: Indicated that JApplet
