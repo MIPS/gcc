@@ -1,3 +1,8 @@
+2003-08-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* cfgcleanup.c (outgoing_edges_match): Check REG_EH_REGION notes
+	even if nehedges1 is 0.
+
 2003-02-18  Richard Henderson  <rth@redhat.com>
 
 	* attribs.c (handle_used_attribute): Accept static data too.
