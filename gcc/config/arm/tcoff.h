@@ -49,7 +49,7 @@ extern int arm_structure_size_boundary;
 #define LOCAL_LABEL_PREFIX "."
 
 #undef USER_LABEL_PREFIX
-#define USER_LABEL_PREFIX "_"
+#define USER_LABEL_PREFIX ""
 
 /* A C statement to output assembler commands which will identify the
    object file as having been compiled with GNU CC (or another GNU
@@ -87,7 +87,7 @@ do {								\
 /* Define this macro if jump tables (for `tablejump' insns) should be
    output in the text section, along with the assembler instructions.
    Otherwise, the readonly data section is used.  */
-#define JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION 1
 
 #undef READONLY_DATA_SECTION
 #define READONLY_DATA_SECTION	rdata_section

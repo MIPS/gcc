@@ -260,6 +260,8 @@ extern int		se_uns_arith_operand ();
 extern int		se_arith_operand ();
 extern int		se_nonmemory_operand ();
 extern int		se_nonimmediate_operand ();
+extern int              extend_operator ();
+extern int              highpart_shift_operator ();
 extern int		m16_uimm3_b ();
 extern int		m16_simm4_1 ();
 extern int		m16_nsimm4_1 ();
@@ -340,11 +342,11 @@ extern void		mips_select_section ();
 #define MASK_DEBUG_B	0x10000000	/* GO_IF_LEGITIMATE_ADDRESS debug */
 #define MASK_DEBUG_C	0x08000000	/* don't expand seq, etc. */
 #define MASK_DEBUG_D	0x04000000	/* don't do define_split's */
-#define MASK_DEBUG_E	0x02000000	/* function_arg debug */
+#define MASK_DEBUG_E	0		/* function_arg debug */
 #define MASK_DEBUG_F	0
 #define MASK_DEBUG_G	0		/* don't support 64 bit arithmetic */
 #define MASK_DEBUG_H	0               /* allow ints in FP registers */
-#define MASK_DEBUG_I	0x00200000	/* unused */
+#define MASK_DEBUG_I	0		/* unused */
 
 					/* r4000 64 bit sizes */
 #define TARGET_INT64		(target_flags & MASK_INT64)
@@ -568,12 +570,10 @@ extern void		mips_select_section ();
 #define SUBTARGET_TARGET_OPTIONS
 
 #define GENERATE_BRANCHLIKELY  (!TARGET_MIPS16 && (TARGET_MIPS3900 || (mips_isa >= 2)))
+
+/* Generate three-operand multiply instructions for both SImode and DImode.  */
 #define GENERATE_MULT3         (TARGET_MIPS3900				\
 				&& !TARGET_MIPS16)
-#define GENERATE_MADD          (TARGET_MIPS3900				\
-				&& !TARGET_MIPS16)
-
-
 
 /* Macros to decide whether certain features are available or not,
    depending on the instruction set architecture level.  */
@@ -716,7 +716,7 @@ while (0)
 
 /* Tell collect what flags to pass to nm.  */
 #ifndef NM_FLAGS
-#define NM_FLAGS "-Bp"
+#define NM_FLAGS "-Bn"
 #endif
 
 
@@ -1710,6 +1710,9 @@ enum reg_class
   LO_REG,			/* lo register */
   HILO_REG,			/* hilo register pair for 64 bit mode mult */
   MD_REGS,			/* multiply/divide registers (hi/lo) */
+  HI_AND_GR_REGS,		/* union classes */
+  LO_AND_GR_REGS,
+  HILO_AND_GR_REGS,
   ST_REGS,			/* status registers (fp status) */
   ALL_REGS,			/* all registers */
   LIM_REG_CLASSES		/* max value + 1 */
@@ -1736,6 +1739,9 @@ enum reg_class
   "LO_REG",								\
   "HILO_REG",								\
   "MD_REGS",								\
+  "HI_AND_GR_REGS",							\
+  "LO_AND_GR_REGS",							\
+  "HILO_AND_GR_REGS",							\
   "ST_REGS",								\
   "ALL_REGS"								\
 }
@@ -1764,6 +1770,9 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000002 },	/* lo register */	\
   { 0x00000000, 0x00000000, 0x00000004 },	/* hilo register */	\
   { 0x00000000, 0x00000000, 0x00000003 },	/* mul/div registers */	\
+  { 0xffffffff, 0x00000000, 0x00000001 },	/* union classes */     \
+  { 0xffffffff, 0x00000000, 0x00000002 },				\
+  { 0xffffffff, 0x00000000, 0x00000004 },				\
   { 0x00000000, 0x00000000, 0x000007f8 },	/* status registers */	\
   { 0xffffffff, 0xffffffff, 0x000007ff }	/* all registers */	\
 }
@@ -3034,7 +3043,13 @@ typedef struct mips_args {
    constants which are put in the .text section.  We also record the
    total length of all such strings; this total is used to decide
    whether we need to split the constant table, and need not be
-   precisely correct.  */
+   precisely correct. 
+
+   When not mips16 code nor embedded PIC, if a symbol is in a
+   gp addresable section, SYMBOL_REF_FLAG is set prevent gcc from
+   splitting the reference so that gas can generate a gp relative
+   reference.
+ */
 
 #define ENCODE_SECTION_INFO(DECL)					\
 do									\
@@ -3059,6 +3074,16 @@ do									\
 	  SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (DECL), 0)) = 0;		\
         else								\
 	  SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (DECL), 0)) = 1;		\
+      }									\
+									\
+    else if (TREE_CODE (DECL) == VAR_DECL				\
+             && DECL_SECTION_NAME (DECL) != NULL_TREE                   \
+             && (0 == strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (DECL)), \
+                              ".sdata")                                 \
+                || 0 == strcmp (TREE_STRING_POINTER (DECL_SECTION_NAME (DECL)),\
+                              ".sbss")))                                \
+      {									\
+        SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;		\
       }									\
 									\
     else if (TARGET_GP_OPT && TREE_CODE (DECL) == VAR_DECL)		\
@@ -3561,6 +3586,13 @@ while (0)
   (((mips_cpu == PROCESSOR_R4000 || mips_cpu == PROCESSOR_R6000) ? 6 : 4) \
    + memory_move_secondary_cost ((MODE), (CLASS), (TO_P)))
 
+/* Define if copies to/from condition code registers should be avoided.
+
+   This is needed for the MIPS because reload_outcc is not complete;
+   it needs to handle cases where the source is a general or another
+   condition code register.  */
+#define AVOID_CCMODE_COPIES
+
 /* A C expression for the cost of a branch instruction.  A value of
    1 is the default; other values are interpreted relative to that.  */
 
@@ -3634,7 +3666,10 @@ while (0)
 				  REG, SIGN_EXTEND }},			\
   {"se_nonimmediate_operand",   { SUBREG, REG, MEM, SIGN_EXTEND }},	\
   {"consttable_operand",	{ LABEL_REF, SYMBOL_REF, CONST_INT,	\
-				  CONST_DOUBLE, CONST }},
+				  CONST_DOUBLE, CONST }},		\
+  {"extend_operator",           { SIGN_EXTEND, ZERO_EXTEND }},          \
+  {"highpart_shift_operator",   { ASHIFTRT, LSHIFTRT, ROTATERT, ROTATE }},
+
 
 
 /* If defined, a C statement to be executed just prior to the
@@ -3980,7 +4015,7 @@ while (0)
 #define ASM_OUTPUT_SOURCE_LINE(STREAM, LINE)				\
   mips_output_lineno (STREAM, LINE)
 
-/* The MIPS implementation uses some labels for it's own purpose.  The
+/* The MIPS implementation uses some labels for its own purpose.  The
    following lists what labels are created, and are all formed by the
    pattern $L[a-z].*.  The machine independent portion of GCC creates
    labels matching:  $L[A-Z][0-9]+ and $L[0-9]+.
@@ -4098,7 +4133,7 @@ while (0)
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)			\
-  sprintf (LABEL, "*%s%s%d", LOCAL_LABEL_PREFIX, PREFIX, NUM)
+  sprintf ((LABEL), "*%s%s%ld", (LOCAL_LABEL_PREFIX), (PREFIX), (long)(NUM))
 
 /* This is how to output an assembler line defining a `double' constant.  */
 
@@ -4215,7 +4250,7 @@ do {									\
    to a multiple of 2**LOG bytes.  */
 
 #define ASM_OUTPUT_ALIGN(STREAM,LOG)					\
-  fprintf (STREAM, "\t.align\t%d\n", (LOG));
+  fprintf (STREAM, "\t.align\t%d\n", (LOG))
 
 /* This is how to output an assembler line to advance the location
    counter by SIZE bytes.  */

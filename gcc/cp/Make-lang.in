@@ -94,24 +94,24 @@ g++.o: $(CONFIG_H) multilib.h config.status $(lang_specs_files) g++.c \
   -c g++.c
 
 # Create the compiler driver for g++.
-g++$(exeext): g++.o g++spec.o version.o choose-temp.o pexecute.o prefix.o $(LIBDEPS) $(EXTRA_GCC_OBJS)
+g++$(exeext): g++.o g++spec.o version.o choose-temp.o pexecute.o prefix.o mkstemp.o $(LIBDEPS) $(EXTRA_GCC_OBJS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ g++.o g++spec.o prefix.o \
-	  version.o choose-temp.o pexecute.o $(EXTRA_GCC_OBJS) $(LIBS)
+	  version.o choose-temp.o pexecute.o mkstemp.o $(EXTRA_GCC_OBJS) $(LIBS)
 
 # Create a version of the g++ driver which calls the cross-compiler.
 g++-cross$(exeext): g++$(exeext)
 	-rm -f g++-cross$(exeext)
 	cp g++$(exeext) g++-cross$(exeext)
 
-cxxmain.o: cplus-dem.c demangle.h
+cxxmain.o: $(srcdir)/../libiberty/cplus-dem.c demangle.h
 	rm -f cxxmain.c
-	$(LN_S) $(srcdir)/cplus-dem.c cxxmain.c
+	$(LN_S) $(srcdir)/../libiberty/cplus-dem.c cxxmain.c
 	$(CC) -c -DMAIN $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -DVERSION=\"$(version)\" cxxmain.c
 
 $(DEMANGLER_PROG): cxxmain.o underscore.o getopt.o getopt1.o $(LIBDEPS)
-	$(CC) $(ALL_CFLAGS) $(LDFLAGS) $(LIBS) -o $@ \
-	  cxxmain.o underscore.o getopt.o getopt1.o
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
+	  cxxmain.o underscore.o getopt.o getopt1.o $(LIBS)
 
 CXX_SRCS = $(srcdir)/cp/call.c $(srcdir)/cp/decl2.c \
  $(srcdir)/cp/except.c $(srcdir)/cp/input.c $(srcdir)/cp/pt.c \
@@ -140,40 +140,40 @@ c++.dvi:
 
 # C++ language-support library pieces for libgcc.
 tinfo.o: cc1plus$(exeext) $(srcdir)/cp/tinfo.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/tinfo.cc
 tinfo2.o: cc1plus$(exeext) $(srcdir)/cp/tinfo2.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/tinfo2.cc
 exception.o: cc1plus$(exeext) $(srcdir)/cp/exception.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c -fexceptions $(srcdir)/cp/exception.cc
 new.o: cc1plus$(exeext) $(srcdir)/cp/new.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/new.cc
 opnew.o: cc1plus$(exeext) $(srcdir)/cp/new1.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/new1.cc -DL_op_new -o opnew.o
 opnewnt.o: cc1plus$(exeext) $(srcdir)/cp/new1.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/new1.cc -DL_op_newnt -o opnewnt.o
 opvnew.o: cc1plus$(exeext) $(srcdir)/cp/new2.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/new2.cc -DL_op_vnew -o opvnew.o
 opvnewnt.o: cc1plus$(exeext) $(srcdir)/cp/new2.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/new2.cc -DL_op_vnewnt -o opvnewnt.o
 opdel.o: cc1plus$(exeext) $(srcdir)/cp/new2.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/new2.cc -DL_op_delete -o opdel.o
 opdelnt.o: cc1plus$(exeext) $(srcdir)/cp/new2.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/new2.cc -DL_op_delnt -o opdelnt.o
 opvdel.o: cc1plus$(exeext) $(srcdir)/cp/new2.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/new2.cc -DL_op_vdel -o opvdel.o
 opvdelnt.o: cc1plus$(exeext) $(srcdir)/cp/new2.cc
-	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(INCLUDES) \
+	$(GCC_FOR_TARGET) $(LIBGCC2_CFLAGS) $(CXXFLAGS) $(INCLUDES) \
 	  -c $(srcdir)/cp/new2.cc -DL_op_vdelnt -o opvdelnt.o
 
 # We want to update cplib2.txt if any of the source files change...

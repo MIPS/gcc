@@ -24,16 +24,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    instruction to avoid the move instruction.  */
 
 #include "config.h"
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
-/* stdio.h must precede rtl.h for FFS.  */
 #include "system.h"
-
-#include "rtl.h"
+#include "rtl.h" /* stdio.h must precede rtl.h for FFS.  */
 #include "insn-config.h"
 #include "recog.h"
 #include "output.h"
@@ -43,10 +35,15 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "flags.h"
 #include "expr.h"
 #include "insn-flags.h"
+#include "basic-block.h"
+#include "toplev.h"
 
 static int optimize_reg_copy_1	PROTO((rtx, rtx, rtx));
 static void optimize_reg_copy_2	PROTO((rtx, rtx, rtx));
 static void optimize_reg_copy_3	PROTO((rtx, rtx, rtx));
+static rtx gen_add3_insn	PROTO((rtx, rtx, rtx));
+static void copy_src_to_dest	PROTO((rtx, rtx, rtx, int));
+static int *regmove_bb_head;
 
 struct match {
   int with[MAX_RECOG_OPERANDS];
@@ -63,7 +60,38 @@ static int fixup_match_1 PROTO((rtx, rtx, rtx, rtx, rtx, int, int, int, FILE *))
 ;
 static int reg_is_remote_constant_p PROTO((rtx, rtx, rtx));
 static int stable_but_for_p PROTO((rtx, rtx, rtx));
+static int regclass_compatible_p PROTO((int, int));
 static int loop_depth;
+
+/* Return non-zero if registers with CLASS1 and CLASS2 can be merged without
+   causing too much register allocation problems.  */
+static int
+regclass_compatible_p (class0, class1)
+     int class0, class1;
+{
+  return (class0 == class1
+	  || (reg_class_subset_p (class0, class1)
+	      && ! CLASS_LIKELY_SPILLED_P (class0))
+	  || (reg_class_subset_p (class1, class0)
+	      && ! CLASS_LIKELY_SPILLED_P (class1)));
+}
+
+/* Generate and return an insn body to add r1 and c,
+   storing the result in r0.  */
+static rtx
+gen_add3_insn (r0, r1, c)
+     rtx r0, r1, c;
+{
+  int icode = (int) add_optab->handlers[(int) GET_MODE (r0)].insn_code;
+
+    if (icode == CODE_FOR_nothing
+      || ! (*insn_operand_predicate[icode][0]) (r0, insn_operand_mode[icode][0])
+      || ! (*insn_operand_predicate[icode][1]) (r1, insn_operand_mode[icode][1])
+      || ! (*insn_operand_predicate[icode][2]) (c, insn_operand_mode[icode][2]))
+    return NULL_RTX;
+
+  return (GEN_FCN (icode) (r0, r1, c));
+}
 
 #ifdef AUTO_INC_DEC
 
@@ -266,12 +294,45 @@ optimize_reg_copy_1 (insn, dest, src)
 							     PATTERN (q))))
 		    {
 		      /* We assume that a register is used exactly once per
-			 insn in the updates below.  If this is not correct,
-			 no great harm is done.  */
+			 insn in the REG_N_REFS updates below.  If this is not
+			 correct, no great harm is done.
+
+
+			 We do not undo this substitution if something later
+			 fails.  Therefore, we must update the other REG_N_*
+			 counters now to keep them accurate.  */
 		      if (sregno >= FIRST_PSEUDO_REGISTER)
-			REG_N_REFS (sregno) -= loop_depth;
+			{
+			  REG_N_REFS (sregno) -= loop_depth;
+
+			  if (REG_LIVE_LENGTH (sregno) >= 0)
+			    {
+			      REG_LIVE_LENGTH (sregno) -= length;
+			      /* REG_LIVE_LENGTH is only an approximation after
+				 combine if sched is not run, so make sure that
+				 we still have a reasonable value.  */
+			      if (REG_LIVE_LENGTH (sregno) < 2)
+				REG_LIVE_LENGTH (sregno) = 2;
+			    }
+
+			  REG_N_CALLS_CROSSED (sregno) -= n_calls;
+			}
+
 		      if (dregno >= FIRST_PSEUDO_REGISTER)
-			REG_N_REFS (dregno) += loop_depth;
+			{
+			  REG_N_REFS (dregno) += loop_depth;
+
+			  if (REG_LIVE_LENGTH (dregno) >= 0)
+			    REG_LIVE_LENGTH (dregno) += d_length;
+
+			  REG_N_CALLS_CROSSED (dregno) += d_n_calls;
+			}
+
+		      /* We've done a substitution, clear the counters.  */
+		      length = 0;
+		      d_length = 0;
+		      n_calls = 0;
+		      d_n_calls = 0;
 		    }
 		  else
 		    {
@@ -494,22 +555,146 @@ optimize_reg_copy_3 (insn, dest, src)
   old_mode = GET_MODE (src_reg);
   PUT_MODE (src_reg, GET_MODE (src));
   XEXP (src, 0) = SET_SRC (set);
-  if (! validate_change (p, &SET_SRC (set), src, 0))
-    {
-      PUT_MODE (src_reg, old_mode);
-      XEXP (src, 0) = src_reg;
-      return;
-    }
+
+  /* Include this change in the group so that it's easily undone if
+     one of the changes in the group is invalid.  */
+  validate_change (p, &SET_SRC (set), src, 1);
+
+  /* Now walk forward making additional replacements.  We want to be able
+     to undo all the changes if a later substitution fails.  */
   subreg = gen_rtx_SUBREG (old_mode, src_reg, 0);
   while (p = NEXT_INSN (p), p != insn)
     {
       if (GET_RTX_CLASS (GET_CODE (p)) != 'i')
 	continue;
-      validate_replace_rtx (src_reg, subreg, p);
+
+      /* Make a tenative change.  */
+      validate_replace_rtx_group (src_reg, subreg, p);
     }
-  validate_replace_rtx (src, src_reg, insn);
+
+  validate_replace_rtx_group (src, src_reg, insn);
+
+  /* Now see if all the changes are valid.  */
+  if (! apply_change_group ())
+    {
+      /* One or more changes were no good.  Back out everything.  */
+      PUT_MODE (src_reg, old_mode);
+      XEXP (src, 0) = src_reg;
+    }
 }
 
+
+/* If we were not able to update the users of src to use dest directly, try
+   instead moving the value to dest directly before the operation.  */
+
+static void
+copy_src_to_dest (insn, src, dest, loop_depth)
+     rtx insn;
+     rtx src;
+     rtx dest;
+     int loop_depth;
+{
+  rtx seq;
+  rtx link;
+  rtx next;
+  rtx set;
+  rtx move_insn;
+  rtx *p_insn_notes;
+  rtx *p_move_notes;
+  int src_regno;
+  int dest_regno;
+  int bb;
+  int insn_uid;
+  int move_uid;
+
+  /* A REG_LIVE_LENGTH of -1 indicates the register is equivalent to a constant
+     or memory location and is used infrequently; a REG_LIVE_LENGTH of -2 is
+     parameter when there is no frame pointer that is not allocated a register.
+     For now, we just reject them, rather than incrementing the live length.  */
+
+  if (GET_CODE (src) == REG
+      && REG_LIVE_LENGTH (REGNO (src)) > 0
+      && GET_CODE (dest) == REG
+      && REG_LIVE_LENGTH (REGNO (dest)) > 0
+      && (set = single_set (insn)) != NULL_RTX
+      && !reg_mentioned_p (dest, SET_SRC (set))
+      && GET_MODE (src) == GET_MODE (dest))
+    {
+      int old_num_regs = reg_rtx_no;
+
+      /* Generate the src->dest move.  */
+      start_sequence ();
+      emit_move_insn (dest, src);
+      seq = gen_sequence ();
+      end_sequence ();
+      /* If this sequence uses new registers, we may not use it.  */
+      if (old_num_regs != reg_rtx_no
+	  || ! validate_replace_rtx (src, dest, insn))
+	{
+	  /* We have to restore reg_rtx_no to its old value, lest
+	     recompute_reg_usage will try to compute the usage of the
+	     new regs, yet reg_n_info is not valid for them.  */
+	  reg_rtx_no = old_num_regs;
+	  return;
+	}
+      emit_insn_before (seq, insn);
+      move_insn = PREV_INSN (insn);
+      p_move_notes = &REG_NOTES (move_insn);
+      p_insn_notes = &REG_NOTES (insn);
+
+      /* Move any notes mentioning src to the move instruction */
+      for (link = REG_NOTES (insn); link != NULL_RTX; link = next)
+	{
+	  next = XEXP (link, 1);
+	  if (XEXP (link, 0) == src)
+	    {
+	      *p_move_notes = link;
+	      p_move_notes = &XEXP (link, 1);
+	    }
+	  else
+	    {
+	      *p_insn_notes = link;
+	      p_insn_notes = &XEXP (link, 1);
+	    }
+	}
+
+      *p_move_notes = NULL_RTX;
+      *p_insn_notes = NULL_RTX;
+
+      /* Is the insn the head of a basic block?  If so extend it */
+      insn_uid = INSN_UID (insn);
+      move_uid = INSN_UID (move_insn);
+      bb = regmove_bb_head[insn_uid];
+      if (bb >= 0)
+	{
+	  basic_block_head[bb] = move_insn;
+	  regmove_bb_head[insn_uid] = -1;
+	}
+
+      /* Update the various register tables.  */
+      dest_regno = REGNO (dest);
+      REG_N_SETS (dest_regno) += loop_depth;
+      REG_N_REFS (dest_regno) += loop_depth;
+      REG_LIVE_LENGTH (dest_regno)++;
+      if (REGNO_FIRST_UID (dest_regno) == insn_uid)
+	REGNO_FIRST_UID (dest_regno) = move_uid;
+
+      src_regno = REGNO (src);
+      if (! find_reg_note (move_insn, REG_DEAD, src))
+	REG_LIVE_LENGTH (src_regno)++;
+
+      if (REGNO_FIRST_UID (src_regno) == insn_uid)
+	REGNO_FIRST_UID (src_regno) = move_uid;
+
+      if (REGNO_LAST_UID (src_regno) == insn_uid)
+	REGNO_LAST_UID (src_regno) = move_uid;
+
+      if (REGNO_LAST_NOTE_UID (src_regno) == insn_uid)
+	REGNO_LAST_NOTE_UID (src_regno) = move_uid;
+    }
+}
+
+
 /* Return whether REG is set in only one location, and is set to a
    constant, but is set in a different basic block from INSN (an
    instructions which uses REG).  In this case REG is equivalent to a
@@ -570,8 +755,24 @@ reg_is_remote_constant_p (reg, insn, first)
   return 0;
 }
 
+/* INSN is adding a CONST_INT to a REG.  We search backwards looking for
+   another add immediate instruction with the same source and dest registers,
+   and if we find one, we change INSN to an increment, and return 1.  If
+   no changes are made, we return 0.
+
+   This changes
+     (set (reg100) (plus reg1 offset1))
+     ...
+     (set (reg100) (plus reg1 offset2))
+   to
+     (set (reg100) (plus reg1 offset1))
+     ...
+     (set (reg100) (plus reg100 offset2-offset1))  */
+
+/* ??? What does this comment mean?  */
 /* cse disrupts preincrement / postdecrement squences when it finds a
    hard register as ultimate source, like the frame pointer.  */
+
 int
 fixup_match_2 (insn, dst, src, offset, regmove_dump_file)
      rtx insn, dst, src, offset;
@@ -623,8 +824,9 @@ fixup_match_2 (insn, dst, src, offset, regmove_dump_file)
         {
 	  HOST_WIDE_INT newconst
 	    = INTVAL (offset) - INTVAL (XEXP (SET_SRC (pset), 1));
-	  if (validate_change (insn, &PATTERN (insn),
-			       gen_addsi3 (dst, dst, GEN_INT (newconst)), 0))
+	  rtx add = gen_add3_insn (dst, dst, GEN_INT (newconst));
+
+	  if (add && validate_change (insn, &PATTERN (insn), add, 0))
 	    {
 	      /* Remove the death note for DST from DST_DEATH.  */
 	      if (dst_death)
@@ -651,6 +853,8 @@ fixup_match_2 (insn, dst, src, offset, regmove_dump_file)
 			  && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
 			      || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
 		    break;
+		  if (GET_RTX_CLASS (GET_CODE (p)) != 'i')
+		    continue;
 		  if (reg_overlap_mentioned_p (dst, PATTERN (p)))
 		    {
 		      if (try_auto_increment (p, insn, 0, dst, newconst, 0))
@@ -666,6 +870,8 @@ fixup_match_2 (insn, dst, src, offset, regmove_dump_file)
 			  && (NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_BEG
 			      || NOTE_LINE_NUMBER (p) == NOTE_INSN_LOOP_END)))
 		    break;
+		  if (GET_RTX_CLASS (GET_CODE (p)) != 'i')
+		    continue;
 		  if (reg_overlap_mentioned_p (dst, PATTERN (p)))
 		    {
 		      try_auto_increment (p, insn, 0, dst, newconst, 1);
@@ -711,13 +917,20 @@ regmove_optimize (f, nregs, regmove_dump_file)
      int nregs;
      FILE *regmove_dump_file;
 {
+  int old_max_uid = get_max_uid ();
   rtx insn;
   struct match match;
   int pass;
-  int maxregnum = max_reg_num (), i;
+  int i;
+  rtx copy_src, copy_dst;
 
-  regno_src_regno = (int *)alloca (sizeof *regno_src_regno * maxregnum);
-  for (i = maxregnum; --i >= 0; ) regno_src_regno[i] = -1;
+  regno_src_regno = (int *)alloca (sizeof *regno_src_regno * nregs);
+  for (i = nregs; --i >= 0; ) regno_src_regno[i] = -1;
+
+  regmove_bb_head = (int *)alloca (sizeof (int) * (old_max_uid + 1));
+  for (i = old_max_uid; i >= 0; i--) regmove_bb_head[i] = -1;
+  for (i = 0; i < n_basic_blocks; i++)
+    regmove_bb_head[INSN_UID (basic_block_head[i])] = i;
 
   /* A forward/backward pass.  Replace output operands with input operands.  */
 
@@ -866,11 +1079,7 @@ regmove_optimize (f, nregs, regmove_dump_file)
 
 	      src_class = reg_preferred_class (REGNO (src));
 	      dst_class = reg_preferred_class (REGNO (dst));
-	      if (src_class != dst_class
-		  && (! reg_class_subset_p (src_class, dst_class)
-		      || CLASS_LIKELY_SPILLED_P (src_class))
-		  && (! reg_class_subset_p (dst_class, src_class)
-		      || CLASS_LIKELY_SPILLED_P (dst_class)))
+	      if (! regclass_compatible_p (src_class, dst_class))
 		continue;
 	  
 	      if (fixup_match_1 (insn, set, src, src_subreg, dst, pass,
@@ -901,6 +1110,7 @@ regmove_optimize (f, nregs, regmove_dump_file)
 	{
 	  int insn_code_number = find_matches (insn, &match);
 	  int operand_number, match_number;
+	  int success = 0;
 	  
 	  if (insn_code_number < 0)
 	    continue;
@@ -911,13 +1121,14 @@ regmove_optimize (f, nregs, regmove_dump_file)
 	     operand.  If safe, then replace the source operand with the
 	     dest operand in both instructions.  */
 
+	  copy_src = NULL_RTX;
+	  copy_dst = NULL_RTX;
 	  for (operand_number = 0;
 	       operand_number < insn_n_operands[insn_code_number];
 	       operand_number++)
 	    {
 	      rtx set, p, src, dst;
 	      rtx src_note, dst_note;
-	      int success = 0;
 	      int num_calls = 0;
 	      enum reg_class src_class, dst_class;
 	      int length;
@@ -976,32 +1187,59 @@ regmove_optimize (f, nregs, regmove_dump_file)
 		}
 	      src_class = reg_preferred_class (REGNO (src));
 	      dst_class = reg_preferred_class (REGNO (dst));
-	      if (src_class != dst_class
-		  && (! reg_class_subset_p (src_class, dst_class)
-		      || CLASS_LIKELY_SPILLED_P (src_class))
-		  && (! reg_class_subset_p (dst_class, src_class)
-		      || CLASS_LIKELY_SPILLED_P (dst_class)))
-		continue;
-	  
-	      if (! (src_note = find_reg_note (insn, REG_DEAD, src)))
-		continue;
+	      if (! regclass_compatible_p (src_class, dst_class))
+		{
+		  if (!copy_src)
+		    {
+		      copy_src = src;
+		      copy_dst = dst;
+		    }
+		  continue;
+		}
 
 	      /* Can not modify an earlier insn to set dst if this insn
 		 uses an old value in the source.  */
 	      if (reg_overlap_mentioned_p (dst, SET_SRC (set)))
-		continue;
+		{
+		  if (!copy_src)
+		    {
+		      copy_src = src;
+		      copy_dst = dst;
+		    }
+		  continue;
+		}
 
-	      if (regmove_dump_file)
-		fprintf (regmove_dump_file,
-			 "Could fix operand %d of insn %d matching operand %d.\n",
-			 operand_number, INSN_UID (insn), match_number);
+	      if (! (src_note = find_reg_note (insn, REG_DEAD, src)))
+		{
+		  if (!copy_src)
+		    {
+		      copy_src = src;
+		      copy_dst = dst;
+		    }
+		  continue;
+		}
+
 
 	      /* If src is set once in a different basic block,
 		 and is set equal to a constant, then do not use
 		 it for this optimization, as this would make it
 		 no longer equivalent to a constant.  */
-	      if (reg_is_remote_constant_p (src, insn, f))
-		continue;
+
+              if (reg_is_remote_constant_p (src, insn, f))
+		{
+		  if (!copy_src)
+		    {
+		      copy_src = src;
+		      copy_dst = dst;
+		    }
+		  continue;
+		}
+
+
+	      if (regmove_dump_file)
+		fprintf (regmove_dump_file,
+			 "Could fix operand %d of insn %d matching operand %d.\n",
+			 operand_number, INSN_UID (insn), match_number);
 
 	      /* Scan backward to find the first instruction that uses
 		 the input operand.  If the operand is set here, then
@@ -1138,11 +1376,35 @@ regmove_optimize (f, nregs, regmove_dump_file)
 		  break;
 		}
 	    }
+
+	  /* If we weren't able to replace any of the alternatives, try an
+	     alternative appoach of copying the source to the destination.  */
+	  if (!success && copy_src != NULL_RTX)
+	    copy_src_to_dest (insn, copy_src, copy_dst, loop_depth);
+
 	}
     }
 #endif /* REGISTER_CONSTRAINTS */
+
+  /* In fixup_match_1, some insns may have been inserted after basic block
+     ends.  Fix that here.  */
+  for (i = 0; i < n_basic_blocks; i++)
+    {
+      rtx end = basic_block_end[i];
+      rtx new = end;
+      rtx next = NEXT_INSN (new);
+      while (next != 0 && INSN_UID (next) >= old_max_uid
+	     && (i == n_basic_blocks - 1 || basic_block_head[i + 1] != next))
+	new = next, next = NEXT_INSN (new);
+      basic_block_end[i] = new;
+    }
 }
 
+/* Returns the INSN_CODE for INSN if its pattern has matching constraints for
+   any operand.  Returns -1 if INSN can't be recognized, or if the alternative
+   can't be determined.
+
+   Initialize the info in MATCHP based on the constraints.  */
 
 static int
 find_matches (insn, matchp)
@@ -1374,6 +1636,14 @@ fixup_match_1 (insn, set, src, src_subreg, dst, backward, operand_number,
 		     This also gives opportunities for subsequent
 		     optimizations in the backward pass, so do it there.  */
 		  if (code == PLUS && backward
+		      /* Don't do this if we can likely tie DST to SET_DEST
+			 of P later; we can't do this tying here if we got a
+			 hard register.  */
+		      && ! (dst_note && ! REG_N_CALLS_CROSSED (REGNO (dst))
+			    && single_set (p)
+			    && GET_CODE (SET_DEST (single_set (p))) == REG
+			    && (REGNO (SET_DEST (single_set (p)))
+				< FIRST_PSEUDO_REGISTER))
 #ifdef HAVE_cc0
 		      /* We may not emit an insn directly
 			 after P if the latter sets CC0.  */
@@ -1711,7 +1981,10 @@ stable_but_for_p (x, src, dst)
     }
 }
 
-/* Test if regmove seems profitable for this target.  */
+/* Test if regmove seems profitable for this target.  Regmove is useful only
+   if some common patterns are two address, i.e. require matching constraints,
+   so we check that condition here.  */
+
 int
 regmove_profitable_p ()
 {

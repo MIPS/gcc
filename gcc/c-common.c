@@ -26,6 +26,15 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "obstack.h"
 #include "toplev.h"
+#include "output.h"
+#include "c-pragma.h"
+
+#if USE_CPPLIB
+#include "cpplib.h"
+cpp_reader  parse_in;
+cpp_options parse_options;
+static enum cpp_token cpp_token;
+#endif
 
 #ifndef WCHAR_TYPE_SIZE
 #ifdef INT_TYPE_SIZE
@@ -42,8 +51,10 @@ extern struct obstack permanent_obstack;
 int skip_evaluation;
 
 enum attrs {A_PACKED, A_NOCOMMON, A_COMMON, A_NORETURN, A_CONST, A_T_UNION,
+	    A_NO_INSTRUMENT_FUNCTION,
 	    A_CONSTRUCTOR, A_DESTRUCTOR, A_MODE, A_SECTION, A_ALIGNED,
-	    A_UNUSED, A_FORMAT, A_FORMAT_ARG, A_WEAK, A_ALIAS};
+	    A_UNUSED, A_FORMAT, A_FORMAT_ARG, A_WEAK, A_ALIAS,
+	    A_INIT_PRIORITY};
 
 enum format_type { printf_format_type, scanf_format_type,
 		   strftime_format_type };
@@ -79,6 +90,12 @@ static int if_stack_pointer = 0;
 
 /* Generate RTL for the start of an if-then, and record the start of it
    for ambiguous else detection.  */
+
+/* A list of objects which have constructors or destructors which
+   reside in the global scope, and have an init_priority attribute
+   associated with them.  The decl is stored in the TREE_VALUE slot
+   and the priority number is stored in the TREE_PURPOSE slot.  */
+tree static_aggregates_initp;
 
 void
 c_expand_start_cond (cond, exitflag, compstmt_count)
@@ -249,7 +266,7 @@ combine_strings (strings)
 			? wchar_bytes : 1));
 	  if ((TREE_TYPE (t) == wchar_array_type_node) == wide_flag)
 	    {
-	      bcopy (TREE_STRING_POINTER (t), q, len);
+	      memcpy (q, TREE_STRING_POINTER (t), len);
 	      q += len;
 	    }
 	  else
@@ -286,7 +303,6 @@ combine_strings (strings)
       value = make_node (STRING_CST);
       TREE_STRING_POINTER (value) = p;
       TREE_STRING_LENGTH (value) = length;
-      TREE_CONSTANT (value) = 1;
     }
   else
     {
@@ -301,8 +317,9 @@ combine_strings (strings)
 
   /* Create the array type for the string constant.
      -Wwrite-strings says make the string constant an array of const char
-     so that copying it to a non-const pointer will get a warning.  */
-  if (warn_write_strings
+     so that copying it to a non-const pointer will get a warning.
+     For C++, this is the standard behavior.  */
+  if (flag_const_strings
       && (! flag_traditional  && ! flag_writable_strings))
     {
       tree elements
@@ -316,7 +333,8 @@ combine_strings (strings)
     TREE_TYPE (value)
       = build_array_type (wide_flag ? wchar_type_node : char_type_node,
 			  build_index_type (build_int_2 (nchars - 1, 0)));
-  TREE_CONSTANT (value) = 1;
+
+  TREE_READONLY (value) = TREE_CONSTANT (value) = ! flag_writable_strings;
   TREE_STATIC (value) = 1;
   return value;
 }
@@ -378,6 +396,8 @@ init_attributes ()
   add_attribute (A_FORMAT_ARG, "format_arg", 1, 1, 1);
   add_attribute (A_WEAK, "weak", 0, 0, 1);
   add_attribute (A_ALIAS, "alias", 1, 1, 1);
+  add_attribute (A_INIT_PRIORITY, "init_priority", 0, 1, 0);
+  add_attribute (A_NO_INSTRUMENT_FUNCTION, "no_instrument_function", 0, 0, 1);
 }
 
 /* Process the attributes listed in ATTRIBUTES and PREFIX_ATTRIBUTES
@@ -405,6 +425,18 @@ decl_attributes (node, attributes, prefix_attributes)
   else if (TREE_CODE_CLASS (TREE_CODE (node)) == 't')
     type = node, is_type = 1;
 
+#ifdef PRAGMA_INSERT_ATTRIBUTES
+  /* If the code in c-pragma.c wants to insert some attributes then
+     allow it to do so.  Do this before allowing machine back ends to
+     insert attributes, so that they have the opportunity to override
+     anything done here.  */
+  PRAGMA_INSERT_ATTRIBUTES (node, & attributes, & prefix_attributes);
+#endif
+  
+#ifdef INSERT_ATTRIBUTES
+  INSERT_ATTRIBUTES (node, & attributes, & prefix_attributes);
+#endif
+  
   attributes = chainon (prefix_attributes, attributes);
 
   for (a = attributes; a; a = TREE_CHAIN (a))
@@ -629,7 +661,7 @@ decl_attributes (node, attributes, prefix_attributes)
 	      = (args ? TREE_VALUE (args)
 		 : size_int (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
 	    int align;
-
+	    
 	    /* Strip any NOPs of any kind.  */
 	    while (TREE_CODE (align_expr) == NOP_EXPR
 		   || TREE_CODE (align_expr) == CONVERT_EXPR
@@ -841,8 +873,16 @@ decl_attributes (node, attributes, prefix_attributes)
 			     "`%s' defined both normally and as an alias");
 	  else if (decl_function_context (decl) == 0)
 	    {
-	      tree id = get_identifier (TREE_STRING_POINTER
-					(TREE_VALUE (args)));
+	      tree id;
+
+	      id = TREE_VALUE (args);
+	      if (TREE_CODE (id) != STRING_CST)
+		{
+		  error ("alias arg not a string");
+		  break;
+		}
+	      id = get_identifier (TREE_STRING_POINTER (id));
+
 	      if (TREE_CODE (decl) == FUNCTION_DECL)
 		DECL_INITIAL (decl) = error_mark_node;
 	      else
@@ -851,6 +891,79 @@ decl_attributes (node, attributes, prefix_attributes)
 	    }
 	  else
 	    warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+	  break;
+
+	case A_INIT_PRIORITY:
+	  {
+	    tree initp_expr = (args ? TREE_VALUE (args): NULL_TREE);
+	    int pri;
+
+	    if (initp_expr)
+	      STRIP_NOPS (initp_expr);
+	  
+	    if (!initp_expr || TREE_CODE (initp_expr) != INTEGER_CST)
+	      {
+		error ("requested init_priority is not an integer constant");
+		continue;
+	      }
+
+	    pri = TREE_INT_CST_LOW (initp_expr);
+	
+	    if (is_type || TREE_CODE (decl) != VAR_DECL
+		|| ! TREE_STATIC (decl)
+		|| DECL_EXTERNAL (decl)
+		|| (TREE_CODE (TREE_TYPE (decl)) != RECORD_TYPE
+		    && TREE_CODE (TREE_TYPE (decl)) != UNION_TYPE)
+		/* Static objects in functions are initialized the
+                   first time control passes through that
+                   function. This is not precise enough to pin down an
+                   init_priority value, so don't allow it. */
+		|| current_function_decl) 
+	      {
+		error ("can only use init_priority attribute on file-scope definitions of objects of class type");
+		continue; 
+	      }
+
+	    /* Check for init_priorities that are reserved for
+               implementation. Reserved for language and runtime
+               support implementations.*/
+	    if ((10 <= pri && pri <= 99)
+		/* Reserved for standard library implementations. */
+		|| (500 <= pri && pri <= 999)
+		/* Reserved for objects with no attributes. */
+		|| pri > (MAX_INIT_PRIORITY - 50))
+	      {
+		warning
+		  ("requested init_priority is reserved for internal use");
+		continue;
+	      }
+
+	    if (pri > MAX_INIT_PRIORITY || pri <= 0)
+	      {
+		error ("requested init_priority is out of range");
+		continue;
+	      }
+
+	    static_aggregates_initp
+	      = perm_tree_cons (initp_expr, decl, static_aggregates_initp);
+	    break;
+	  }
+
+	case A_NO_INSTRUMENT_FUNCTION:
+	  if (TREE_CODE (decl) != FUNCTION_DECL)
+	    {
+	      error_with_decl (decl,
+			       "`%s' attribute applies only to functions",
+			       IDENTIFIER_POINTER (name));
+	    }
+	  else if (DECL_INITIAL (decl))
+	    {
+	      error_with_decl (decl,
+			       "can't set `%s' attribute after definition",
+			       IDENTIFIER_POINTER (name));
+	    }
+	  else
+	    DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
 	  break;
 	}
     }
@@ -975,10 +1088,10 @@ typedef struct {
   int pointer_count;
   /* Type of argument if no length modifier is used.  */
   tree *nolen;
-  /* Type of argument if length modifier for shortening is used.
+  /* Type of argument if length modifier for shortening to byte is used.
      If NULL, then this modifier is not allowed.  */
   tree *hhlen;
-  /* Type of argument if length modifier for shortening to byte if used.
+  /* Type of argument if length modifier for shortening is used.
      If NULL, then this modifier is not allowed.  */
   tree *hlen;
   /* Type of argument if length modifier `l' is used.
@@ -1236,17 +1349,16 @@ check_format_info (info, params)
   int i;
   int arg_num;
   int suppressed, wide, precise;
-  int length_char;
+  int length_char = 0;
   int format_char;
   int format_length;
-  int integral_format;
   tree format_tree;
   tree cur_param;
   tree cur_type;
   tree wanted_type;
   tree first_fillin_param;
   char *format_chars;
-  format_char_info *fci;
+  format_char_info *fci = NULL;
   char flag_chars[8];
   int has_operand_number = 0;
 
@@ -1553,6 +1665,13 @@ check_format_info (info, params)
 	      if (pedantic)
 		warning ("ANSI C does not support the `ll' length modifier");
 	    }
+	  else if (length_char == 'h' && *format_chars == 'h')
+	    {
+	      length_char = 'H', format_chars++;
+	      /* FIXME: Is allowed in ISO C 9x.  */
+	      if (pedantic)
+		warning ("ANSI C does not support the `hh' length modifier");
+	    }
 	  if (*format_chars == 'a' && info->format_type == scanf_format_type)
 	    {
 	      if (format_chars[1] == 's' || format_chars[1] == 'S'
@@ -1685,15 +1804,6 @@ check_format_info (info, params)
 	warning ("use of `%c' length character with `%c' type character",
 		 length_char, format_char);
 
-      /*
-       ** XXX -- should kvetch about stuff such as
-       **	{
-       **		const int	i;
-       **
-       **		scanf ("%d", &i);
-       **	}
-       */
-
       /* Finally. . .check type of argument against desired type!  */
       if (info->first_arg_num == 0)
 	continue;
@@ -1736,8 +1846,10 @@ check_format_info (info, params)
 	}
 
       /* See if this is an attempt to write into a const type with
-	 scanf.  */
-      if (info->format_type == scanf_format_type
+	 scanf or with printf "%n".  */
+      if ((info->format_type == scanf_format_type
+	   || (info->format_type == printf_format_type
+	       && format_char == 'n'))
 	  && i == fci->pointer_count + aflag
 	  && wanted_type != 0
 	  && TREE_CODE (cur_type) != ERROR_MARK
@@ -2667,16 +2779,118 @@ truthvalue_conversion (expr)
     }
 
   if (TREE_CODE (TREE_TYPE (expr)) == COMPLEX_TYPE)
-    return (build_binary_op
-	    ((TREE_SIDE_EFFECTS (expr)
-	      ? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
-	     truthvalue_conversion (build_unary_op (REALPART_EXPR, expr, 0)),
-	     truthvalue_conversion (build_unary_op (IMAGPART_EXPR, expr, 0)),
-	     0));
+    {
+      tree tem = save_expr (expr);
+      return (build_binary_op
+	      ((TREE_SIDE_EFFECTS (expr)
+		? TRUTH_OR_EXPR : TRUTH_ORIF_EXPR),
+	       truthvalue_conversion (build_unary_op (REALPART_EXPR, tem, 0)),
+	       truthvalue_conversion (build_unary_op (IMAGPART_EXPR, tem, 0)),
+	       0));
+    }
 
   return build_binary_op (NE_EXPR, expr, integer_zero_node, 1);
 }
 
+#if USE_CPPLIB
+/* Read the rest of a #-directive from input stream FINPUT.
+   In normal use, the directive name and the white space after it
+   have already been read, so they won't be included in the result.
+   We allow for the fact that the directive line may contain
+   a newline embedded within a character or string literal which forms
+   a part of the directive.
+
+   The value is a string in a reusable buffer.  It remains valid
+   only until the next time this function is called.  */
+unsigned char *yy_cur, *yy_lim;
+
+#define GETC() (yy_cur < yy_lim ? *yy_cur++ : yy_get_token ())
+#define UNGETC(c) ((c), yy_cur--)
+
+int
+yy_get_token ()
+{
+  for (;;)
+    {
+      parse_in.limit = parse_in.token_buffer;
+      cpp_token = cpp_get_token (&parse_in);
+      if (cpp_token == CPP_EOF)
+	return -1;
+      yy_lim = CPP_PWRITTEN (&parse_in);
+      yy_cur = parse_in.token_buffer;
+      if (yy_cur < yy_lim)
+	return *yy_cur++;
+    }
+}
+
+char *
+get_directive_line ()
+{
+  static char *directive_buffer = NULL;
+  static unsigned buffer_length = 0;
+  register char *p;
+  register char *buffer_limit;
+  register int looking_for = 0;
+  register int char_escaped = 0;
+
+  if (buffer_length == 0)
+    {
+      directive_buffer = (char *)xmalloc (128);
+      buffer_length = 128;
+    }
+
+  buffer_limit = &directive_buffer[buffer_length];
+
+  for (p = directive_buffer; ; )
+    {
+      int c;
+
+      /* Make buffer bigger if it is full.  */
+      if (p >= buffer_limit)
+        {
+	  register unsigned bytes_used = (p - directive_buffer);
+
+	  buffer_length *= 2;
+	  directive_buffer
+	    = (char *)xrealloc (directive_buffer, buffer_length);
+	  p = &directive_buffer[bytes_used];
+	  buffer_limit = &directive_buffer[buffer_length];
+        }
+
+      c = GETC ();
+
+      /* Discard initial whitespace.  */
+      if ((c == ' ' || c == '\t') && p == directive_buffer)
+	continue;
+
+      /* Detect the end of the directive.  */
+      if (c == '\n' && looking_for == 0)
+	{
+          UNGETC (c);
+	  c = '\0';
+	}
+
+      *p++ = c;
+
+      if (c == 0)
+	return directive_buffer;
+
+      /* Handle string and character constant syntax.  */
+      if (looking_for)
+	{
+	  if (looking_for == c && !char_escaped)
+	    looking_for = 0;	/* Found terminator... stop looking.  */
+	}
+      else
+        if (c == '\'' || c == '"')
+	  looking_for = c;	/* Don't stop buffering until we see another
+				   another one of these (or an EOF).  */
+
+      /* Handle backslash.  */
+      char_escaped = (c == '\\' && ! char_escaped);
+    }
+}
+#else
 /* Read the rest of a #-directive from input stream FINPUT.
    In normal use, the directive name and the white space after it
    have already been read, so they won't be included in the result.
@@ -2759,6 +2973,7 @@ get_directive_line (finput)
       char_escaped = (c == '\\' && ! char_escaped);
     }
 }
+#endif /* !USE_CPPLIB */
 
 /* Make a variant type in the proper way for C/C++, propagating qualifiers
    down to the element type of an array.  */
@@ -2773,4 +2988,96 @@ c_build_type_variant (type, constp, volatilep)
 						   constp, volatilep),
 			     TYPE_DOMAIN (type));
   return build_type_variant (type, constp, volatilep);
+}
+
+/* Return the typed-based alias set for T, which may be an expression
+   or a type.  */
+
+int
+c_get_alias_set (t)
+     tree t;
+{
+  tree type;
+
+  if (t == error_mark_node)
+    return 0;
+
+  type = (TREE_CODE_CLASS (TREE_CODE (t)) == 't')
+    ? t : TREE_TYPE (t);
+
+  if (type == error_mark_node)
+    return 0;
+
+  /* Deal with special cases first; for certain kinds of references
+     we're interested in more than just the type.  */
+
+  if (TREE_CODE (t) == BIT_FIELD_REF)
+    /* Perhaps reads and writes to this piece of data alias fields
+       neighboring the bitfield.  Perhaps that's impossible.  For now,
+       let's just assume that bitfields can alias everything, which is
+       the conservative assumption.  */
+    return 0;
+
+  if (TREE_CODE (t) == COMPONENT_REF
+      && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
+    /* Permit type-punning when accessing a union, provided the
+       access is directly through the union.  For example, this code does
+       not permit taking the address of a union member and then
+       storing through it.  Even the type-punning allowed here is a
+       GCC extension, albeit a common and useful one; the C standard
+       says that such accesses have implementation-defined behavior.  */ 
+    return 0;
+
+  /* From here on, only the type matters.  */
+
+  if (TYPE_ALIAS_SET_KNOWN_P (type))
+    /* If we've already calculated the value, just return it.  */
+    return TYPE_ALIAS_SET (type);
+  else if (TYPE_MAIN_VARIANT (type) != type)
+    /* The C standard specifically allows aliasing between
+       cv-qualified variants of types.  */
+    TYPE_ALIAS_SET (type) = c_get_alias_set (TYPE_MAIN_VARIANT (type));
+  else if (TREE_CODE (type) == INTEGER_TYPE)
+    {
+      tree signed_variant;
+
+      /* The C standard specifically allows aliasing between signed and
+	 unsigned variants of the same type.  We treat the signed
+	 variant as canonical.  */
+      signed_variant = signed_type (type);
+
+      if (signed_variant != type)
+	TYPE_ALIAS_SET (type) = c_get_alias_set (signed_variant);
+      else if (signed_variant == signed_char_type_node)
+	/* The C standard guarantess that any object may be accessed
+	   via an lvalue that has character type.  We don't have to
+	   check for unsigned_char_type_node or char_type_node because
+	   we are specifically looking at the signed variant.  */
+	TYPE_ALIAS_SET (type) = 0;
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    /* Anything that can alias one of the array elements can alias
+       the entire array as well.  */
+    TYPE_ALIAS_SET (type) = c_get_alias_set (TREE_TYPE (type));
+  else if (TREE_CODE (type) == FUNCTION_TYPE)
+    /* There are no objects of FUNCTION_TYPE, so there's no point in
+       using up an alias set for them.  (There are, of course,
+       pointers and references to functions, but that's 
+       different.)  */
+    TYPE_ALIAS_SET (type) = 0;
+  else if (TREE_CODE (type) == RECORD_TYPE
+	   || TREE_CODE (type) == UNION_TYPE)
+    /* If TYPE is a struct or union type then we're reading or
+       writing an entire struct.  Thus, we don't know anything about
+       aliasing.  (In theory, such an access can only alias objects
+       whose type is the same as one of the fields, recursively, but
+       we don't yet make any use of that information.)  */
+    TYPE_ALIAS_SET (type) = 0;
+
+  if (!TYPE_ALIAS_SET_KNOWN_P (type)) 
+    /* TYPE is something we haven't seen before.  Put it in a new
+       alias set.  */
+    TYPE_ALIAS_SET (type) = new_alias_set ();
+
+  return TYPE_ALIAS_SET (type);
 }

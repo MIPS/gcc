@@ -55,8 +55,8 @@ Boston, MA 02111-1307, USA.  */
    But this is currently disabled since tying in global_alloc is not
    yet implemented.  */
 
-/* Pseudos allocated here cannot be reallocated by global.c if the hard
-   register is used as a spill register.  So we don't allocate such pseudos
+/* Pseudos allocated here can be reallocated by global.c if the hard register
+   is used as a spill register.  Currently we don't allocate such pseudos
    here if their preferred class is likely to be used by spills.  */
 
 #include "config.h"
@@ -67,8 +67,10 @@ Boston, MA 02111-1307, USA.  */
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
+#include "insn-attr.h"
 #include "recog.h"
 #include "output.h"
+#include "toplev.h"
 
 /* Next quantity number available for allocation.  */
 
@@ -154,19 +156,14 @@ static int *qty_n_calls_crossed;
 
 static enum reg_class *qty_alternate_class;
 
-/* Element Q is the SCRATCH expression for which this quantity is being
-   allocated or 0 if this quantity is allocating registers.  */
-
-static rtx *qty_scratch_rtx;
-
 /* Element Q is nonzero if this quantity has been used in a SUBREG
    that changes its size.  */
 
 static char *qty_changes_size;
 
 /* Element Q is the register number of one pseudo register whose
-   reg_qty value is Q, or -1 is this quantity is for a SCRATCH.  This
-   register should be the head of the chain maintained in reg_next_in_qty.  */
+   reg_qty value is Q.  This register should be the head of the chain
+   maintained in reg_next_in_qty.  */
 
 static int *qty_first_reg;
 
@@ -225,11 +222,6 @@ static HARD_REG_SET regs_live;
 
 static HARD_REG_SET *regs_live_at;
 
-int *scratch_block;
-rtx *scratch_list;
-int scratch_list_length;
-static int scratch_index;
-
 /* Communicate local vars `insn_number' and `insn'
    from `block_alloc' to `reg_is_set', `wipe_dead_reg', and `alloc_qty'.  */
 static int this_insn_number;
@@ -243,7 +235,6 @@ static rtx this_insn;
 static rtx *reg_equiv_replacement;
 
 static void alloc_qty		PROTO((int, enum machine_mode, int, int));
-static void alloc_qty_for_scratch PROTO((rtx, int, rtx, int, int));
 static void validate_equiv_mem_from_store PROTO((rtx, rtx));
 static int validate_equiv_mem	PROTO((rtx, rtx, rtx));
 static int contains_replace_regs PROTO((rtx, char *));
@@ -295,96 +286,6 @@ alloc_qty (regno, mode, size, birth)
   qty_changes_size[qty] = REG_CHANGES_SIZE (regno);
 }
 
-/* Similar to `alloc_qty', but allocates a quantity for a SCRATCH rtx
-   used as operand N in INSN.  We assume here that the SCRATCH is used in
-   a CLOBBER.  */
-
-static void
-alloc_qty_for_scratch (scratch, n, insn, insn_code_num, insn_number)
-     rtx scratch;
-     int n;
-     rtx insn;
-     int insn_code_num, insn_number;
-{
-  register int qty;
-  enum reg_class class;
-  char *p, c;
-  int i;
-
-#ifdef REGISTER_CONSTRAINTS
-  /* If we haven't yet computed which alternative will be used, do so now.
-     Then set P to the constraints for that alternative.  */
-  if (which_alternative == -1)
-    if (! constrain_operands (insn_code_num, 0))
-      return;
-
-  for (p = insn_operand_constraint[insn_code_num][n], i = 0;
-       *p && i < which_alternative; p++)
-    if (*p == ',')
-      i++;
-
-  /* Compute the class required for this SCRATCH.  If we don't need a
-     register, the class will remain NO_REGS.  If we guessed the alternative
-     number incorrectly, reload will fix things up for us.  */
-
-  class = NO_REGS;
-  while ((c = *p++) != '\0' && c != ',')
-    switch (c)
-      {
-      case '=':  case '+':  case '?':
-      case '#':  case '&':  case '!':
-      case '*':  case '%':  
-      case '0':  case '1':  case '2':  case '3':  case '4':
-      case 'm':  case '<':  case '>':  case 'V':  case 'o':
-      case 'E':  case 'F':  case 'G':  case 'H':
-      case 's':  case 'i':  case 'n':
-      case 'I':  case 'J':  case 'K':  case 'L':
-      case 'M':  case 'N':  case 'O':  case 'P':
-#ifdef EXTRA_CONSTRAINT
-      case 'Q':  case 'R':  case 'S':  case 'T':  case 'U':
-#endif
-      case 'p':
-	/* These don't say anything we care about.  */
-	break;
-
-      case 'X':
-	/* We don't need to allocate this SCRATCH.  */
-	return;
-
-      case 'g': case 'r':
-	class = reg_class_subunion[(int) class][(int) GENERAL_REGS];
-	break;
-
-      default:
-	class
-	  = reg_class_subunion[(int) class][(int) REG_CLASS_FROM_LETTER (c)];
-	break;
-      }
-
-  if (class == NO_REGS)
-    return;
-
-#else /* REGISTER_CONSTRAINTS */
-
-  class = GENERAL_REGS;
-#endif
-  
-
-  qty = next_qty++;
-
-  qty_first_reg[qty] = -1;
-  qty_scratch_rtx[qty] = scratch;
-  qty_size[qty] = GET_MODE_SIZE (GET_MODE (scratch));
-  qty_mode[qty] = GET_MODE (scratch);
-  qty_birth[qty] = 2 * insn_number - 1;
-  qty_death[qty] = 2 * insn_number + 1;
-  qty_n_calls_crossed[qty] = 0;
-  qty_min_class[qty] = class;
-  qty_alternate_class[qty] = NO_REGS;
-  qty_n_refs[qty] = 1;
-  qty_changes_size[qty] = 0;
-}
-
 /* Main entry point of this file.  */
 
 void
@@ -405,23 +306,12 @@ local_alloc ()
   update_equiv_regs ();
 
   /* This sets the maximum number of quantities we can have.  Quantity
-     numbers start at zero and we can have one for each pseudo plus the
-     number of SCRATCHes in the largest block, in the worst case.  */
-  max_qty = (max_regno - FIRST_PSEUDO_REGISTER) + max_scratch;
+     numbers start at zero and we can have one for each pseudo.  */
+  max_qty = (max_regno - FIRST_PSEUDO_REGISTER);
 
   /* Allocate vectors of temporary data.
      See the declarations of these variables, above,
      for what they mean.  */
-
-  /* There can be up to MAX_SCRATCH * N_BASIC_BLOCKS SCRATCHes to allocate.
-     Instead of allocating this much memory from now until the end of
-     reload, only allocate space for MAX_QTY SCRATCHes.  If there are more
-     reload will allocate them.  */
-
-  scratch_list_length = max_qty;
-  scratch_list = (rtx *) xcalloc (scratch_list_length, sizeof (rtx));
-  scratch_block = (int *) xcalloc (scratch_list_length, sizeof (int));
-  scratch_index = 0;
 
   qty_phys_reg = (short *) alloca (max_qty * sizeof (short));
   qty_phys_copy_sugg
@@ -431,7 +321,6 @@ local_alloc ()
   qty_phys_num_sugg = (short *) alloca (max_qty * sizeof (short));
   qty_birth = (int *) alloca (max_qty * sizeof (int));
   qty_death = (int *) alloca (max_qty * sizeof (int));
-  qty_scratch_rtx = (rtx *) alloca (max_qty * sizeof (rtx));
   qty_first_reg = (int *) alloca (max_qty * sizeof (int));
   qty_size = (int *) alloca (max_qty * sizeof (int));
   qty_mode
@@ -489,7 +378,6 @@ local_alloc ()
 	{
 	  for (i = 0; i < next_qty; i++)
 	    {
-	      qty_scratch_rtx[i] = 0;
 	      CLEAR_HARD_REG_SET (qty_phys_copy_sugg[i]);
 	      qty_phys_num_copy_sugg[i] = 0;
 	      CLEAR_HARD_REG_SET (qty_phys_sugg[i]);
@@ -501,7 +389,6 @@ local_alloc ()
 #define CLEAR(vector)  \
 	  bzero ((char *) (vector), (sizeof (*(vector))) * next_qty);
 
-	  CLEAR (qty_scratch_rtx);
 	  CLEAR (qty_phys_copy_sugg);
 	  CLEAR (qty_phys_num_copy_sugg);
 	  CLEAR (qty_phys_sugg);
@@ -1025,9 +912,6 @@ block_alloc (b)
   int max_uid = get_max_uid ();
   int *qty_order;
   int no_conflict_combined_regno = -1;
-  /* Counter to prevent allocating more SCRATCHes than can be stored
-     in SCRATCH_LIST.  */
-  int scratches_allocated = scratch_index;
 
   /* Count the instructions in the basic block.  */
 
@@ -1281,15 +1165,6 @@ block_alloc (b)
 		&& GET_CODE (XEXP (link, 0)) == REG)
 	      wipe_dead_reg (XEXP (link, 0), 1);
 
-	  /* Allocate quantities for any SCRATCH operands of this insn.  */
-
-	  if (insn_code_number >= 0)
-	    for (i = 0; i < insn_n_operands[insn_code_number]; i++)
-	      if (GET_CODE (recog_operand[i]) == SCRATCH
-		  && scratches_allocated++ < scratch_list_length)
-		alloc_qty_for_scratch (recog_operand[i], i, insn,
-				       insn_code_number, insn_number);
-
 	  /* If this is an insn that has a REG_RETVAL note pointing at a 
 	     CLOBBER insn, we have reached the end of a REG_NO_CONFLICT
 	     block, so clear any register number that combined within it.  */
@@ -1412,8 +1287,50 @@ block_alloc (b)
       q = qty_order[i];
       if (qty_phys_reg[q] < 0)
 	{
+#ifdef INSN_SCHEDULING
+	  /* These values represent the adjusted lifetime of a qty so
+	     that it conflicts with qtys which appear near the start/end
+	     of this qty's lifetime.
+
+	     The purpose behind extending the lifetime of this qty is to
+	     discourage the register allocator from creating false
+	     dependencies.
+ 
+	     The adjustment by the value +-3 indicates precisely that
+	     this qty conflicts with qtys in the instructions immediately
+	     before and after the lifetime of this qty.
+
+	     Experiments have shown that higher values tend to hurt
+	     overall code performance.
+
+	     If allocation using the extended lifetime fails we will try
+	     again with the qty's unadjusted lifetime.  */
+	  int fake_birth = MAX (0, qty_birth[q] - 3);
+	  int fake_death = MIN (insn_number * 2 + 1, qty_death[q] + 3);
+#endif
+
 	  if (N_REG_CLASSES > 1)
 	    {
+#ifdef INSN_SCHEDULING
+	      /* We try to avoid using hard registers allocated to qtys which
+		 are born immediately after this qty or die immediately before
+		 this qty.
+
+		 This optimization is only appropriate when we will run
+		 a scheduling pass after reload and we are not optimizing
+		 for code size.  */
+	      if (flag_schedule_insns_after_reload
+		  && !optimize_size
+		  && !SMALL_REGISTER_CLASSES)
+		{
+		
+		  qty_phys_reg[q] = find_free_reg (qty_min_class[q], 
+						   qty_mode[q], q, 0, 0,
+						   fake_birth, fake_death);
+		  if (qty_phys_reg[q] >= 0)
+		    continue;
+		}
+#endif
 	      qty_phys_reg[q] = find_free_reg (qty_min_class[q], 
 					       qty_mode[q], q, 0, 0,
 					       qty_birth[q], qty_death[q]);
@@ -1421,6 +1338,16 @@ block_alloc (b)
 		continue;
 	    }
 
+#ifdef INSN_SCHEDULING
+	  /* Similarly, avoid false dependencies.  */
+	  if (flag_schedule_insns_after_reload
+	      && !optimize_size
+	      && !SMALL_REGISTER_CLASSES
+	      && qty_alternate_class[q] != NO_REGS)
+	    qty_phys_reg[q] = find_free_reg (qty_alternate_class[q],
+					     qty_mode[q], q, 0, 0,
+					     fake_birth, fake_death);
+#endif
 	  if (qty_alternate_class[q] != NO_REGS)
 	    qty_phys_reg[q] = find_free_reg (qty_alternate_class[q],
 					     qty_mode[q], q, 0, 0,
@@ -1436,16 +1363,6 @@ block_alloc (b)
       {
 	for (i = qty_first_reg[q]; i >= 0; i = reg_next_in_qty[i])
 	  reg_renumber[i] = qty_phys_reg[q] + reg_offset[i];
-	if (qty_scratch_rtx[q])
-	  {
-	    if (GET_CODE (qty_scratch_rtx[q]) == REG)
-	      abort ();
-	    qty_scratch_rtx[q] = gen_rtx_REG (GET_MODE (qty_scratch_rtx[q]),
-					      qty_phys_reg[q]);
-	    scratch_block[scratch_index] = b;
-	    scratch_list[scratch_index++] = qty_scratch_rtx[q];
-
-	  }
       }
 }
 
@@ -1987,7 +1904,10 @@ find_free_reg (class, mode, qty, accept_call_clobbered, just_try_suggested,
       int regno = i;
 #endif
       if (! TEST_HARD_REG_BIT (first_used, regno)
-	  && HARD_REGNO_MODE_OK (regno, mode))
+	  && HARD_REGNO_MODE_OK (regno, mode)
+	  && (qty_n_calls_crossed[qty] == 0
+	      || accept_call_clobbered
+	      || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
 	{
 	  register int j;
 	  register int size1 = HARD_REGNO_NREGS (regno, mode);

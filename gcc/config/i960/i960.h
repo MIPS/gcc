@@ -122,7 +122,8 @@ Boston, MA 02111-1307, USA.  */
   fprintf (asm_out_file, "\t.type\t0x%x;", A)
 
 /* Handle pragmas for compatibility with Intel's compilers.  */
-#define HANDLE_PRAGMA(FILE, NODE) process_pragma (FILE, NODE)
+#define HANDLE_PRAGMA(GET, UNGET, NAME) process_pragma (GET, UNGET, NAME)
+extern int process_pragma ();
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -506,9 +507,8 @@ extern int target_flags;
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On 80960, the cpu registers can hold any mode but the float registers
    can only hold SFmode, DFmode, or XFmode.  */
-extern unsigned int hard_regno_mode_ok[FIRST_PSEUDO_REGISTER];
-#define HARD_REGNO_MODE_OK(REGNO, MODE) \
-  ((hard_regno_mode_ok[REGNO] & (1 << (int) (MODE))) != 0)
+extern int hard_regno_mode_ok ();
+#define HARD_REGNO_MODE_OK(REGNO, MODE) hard_regno_mode_ok ((REGNO), (MODE))
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -1109,9 +1109,10 @@ extern struct rtx_def *legitimize_address ();
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Nonzero if access to memory by bytes is no faster than for words.
-   Defining this results in worse code on the i960.  */
+   Value changed to 1 after reports of poor bitfield code with g++.
+   Indications are that code is usually as good, sometimes better. */   
 
-#define SLOW_BYTE_ACCESS 0
+#define SLOW_BYTE_ACCESS 1
 
 /* We assume that the store-condition-codes instructions store 0 for false
    and some other value for true.  This is the value stored for true.  */
@@ -1194,7 +1195,7 @@ extern struct rtx_def *gen_compare_reg ();
   case CONST:								\
   case LABEL_REF:							\
   case SYMBOL_REF:							\
-    return (TARGET_FLAG_C_SERIES ? 6 : 8);				\
+    return (TARGET_C_SERIES ? 6 : 8);					\
   case CONST_DOUBLE:							\
     if ((RTX) == CONST0_RTX (DFmode) || (RTX) == CONST0_RTX (SFmode)	\
 	|| (RTX) == CONST1_RTX (DFmode) || (RTX) == CONST1_RTX (SFmode))\
@@ -1496,6 +1497,13 @@ extern struct rtx_def *gen_compare_reg ();
 		  CXT);							\
 }
 
+/* Generate RTL to flush the register windows so as to make arbitrary frames
+   available.  */
+#define SETUP_FRAME_ADDRESSES()		\
+  emit_insn (gen_flush_register_windows ())
+
+#define BUILTIN_SETJMP_FRAME_VALUE hard_frame_pointer_rtx
+
 #if 0
 /* Promote char and short arguments to ints, when want compatibility with
    the iC960 compilers.  */
@@ -1568,7 +1576,6 @@ do {									\
       fprintf (FILE, "\taddo r5,g0,g0\n");				\
     }									\
   fprintf (FILE, "\tbx ");						\
-  assemble_name								\
-    (FILE, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (FUNCTION)));	\
+  assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
   fprintf (FILE, "\n");							\
 } while (0);

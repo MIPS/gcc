@@ -645,20 +645,18 @@ extern struct rtx_def *function_arg();
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_INDEX_P(X)  \
-  (GET_MODE (X) == PSImode \
-   && ((REGNO (X) >= 0 && REGNO(X) <= 3) || REGNO (X) >= FIRST_PSEUDO_REGISTER))
+  (((REGNO (X) >= 0 && REGNO(X) <= 3) || REGNO (X) >= FIRST_PSEUDO_REGISTER))
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) \
-  (GET_MODE (X) == PSImode \
-   && ((REGNO (X) >= 4 && REGNO(X) <= 8) || REGNO (X) >= FIRST_PSEUDO_REGISTER))
+  (((REGNO (X) >= 4 && REGNO(X) <= 8) || REGNO (X) >= FIRST_PSEUDO_REGISTER))
 #else
 /* Nonzero if X is a hard reg that can be used as an index.  */
 #define REG_OK_FOR_INDEX_P(X) \
-  (GET_MODE (X) == PSImode) && REGNO_OK_FOR_INDEX_P (REGNO (X))
+  REGNO_OK_FOR_INDEX_P (REGNO (X))
 /* Nonzero if X is a hard reg that can be used as a base reg.  */
 #define REG_OK_FOR_BASE_P(X) \
-  (GET_MODE (X) == PSImode) && REGNO_OK_FOR_BASE_P (REGNO (X))
+  REGNO_OK_FOR_BASE_P (REGNO (X))
 #endif
 
 
@@ -691,11 +689,9 @@ extern struct rtx_def *function_arg();
   if (GET_CODE (X) == PLUS)				\
     {							\
       rtx base = 0, index = 0;				\
-      if (REG_P (XEXP (X, 0))				\
-	  && REG_OK_FOR_BASE_P (XEXP (X, 0)))		\
+      if (RTX_OK_FOR_BASE_P (XEXP (X, 0)))		\
 	base = XEXP (X, 0), index = XEXP (X, 1);	\
-      if (REG_P (XEXP (X, 1))				\
-	  && REG_OK_FOR_BASE_P (XEXP (X, 1)))		\
+      if (RTX_OK_FOR_BASE_P (XEXP (X, 1)))		\
 	base = XEXP (X, 1), index = XEXP (X, 0);	\
       if (base != 0 && index != 0)			\
 	{						\
@@ -983,6 +979,10 @@ do { char dstr[30];					\
   ((GET_CODE (X) == PLUS ? OFFSET : 0) \
     + (frame_pointer_needed ? 0 : -total_frame_size ()))
 
+/* We need to prepend underscores.  */
+#define ASM_OUTPUT_DWARF2_ADDR_CONST(FILE,ADDR) \
+  fprintf ((FILE), "\t%s\t_%s", UNALIGNED_WORD_ASM_OP, (ADDR))
+  
 /* Define to use software floating point emulator for REAL_ARITHMETIC and
    decimal <-> binary conversion. */
 #define REAL_ARITHMETIC

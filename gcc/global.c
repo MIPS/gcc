@@ -22,13 +22,16 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 
+#include "machmode.h"
+#include "hard-reg-set.h"
 #include "rtl.h"
 #include "flags.h"
 #include "basic-block.h"
-#include "hard-reg-set.h"
 #include "regs.h"
 #include "insn-config.h"
+#include "reload.h"
 #include "output.h"
+#include "toplev.h"
 
 /* This pass of the compiler performs global register allocation.
    It assigns hard register numbers to all the pseudo registers
@@ -43,8 +46,9 @@ Boston, MA 02111-1307, USA.  */
    reg for it.  The reload pass is independent in other respects
    and it is run even when stupid register allocation is in use.
 
-   1. count the pseudo-registers still needing allocation
-   and assign allocation-numbers (allocnos) to them.
+   1. Assign allocation-numbers (allocnos) to the pseudo-registers
+   still needing allocations and to the pseudo-registers currently
+   allocated by local-alloc which may be spilled by reload.
    Set up tables reg_allocno and allocno_reg to map 
    reg numbers to allocnos and vice versa.
    max_allocno gets the number of allocnos in use.
@@ -54,13 +58,13 @@ Boston, MA 02111-1307, USA.  */
    for conflicts between allocnos and explicit hard register use
    (which includes use of pseudo-registers allocated by local_alloc).
 
-   3. for each basic block
+   3. For each basic block
     walk forward through the block, recording which
-    unallocated registers and which hardware registers are live.
-    Build the conflict matrix between the unallocated registers
-    and another of unallocated registers versus hardware registers.
+    pseudo-registers and which hardware registers are live.
+    Build the conflict matrix between the pseudo-registers
+    and another of pseudo-registers versus hardware registers.
     Also record the preferred hardware registers
-    for each unallocated one.
+    for each pseudo-register.
 
    4. Sort a table of the allocnos into order of
    desirability of the variables.
@@ -68,15 +72,14 @@ Boston, MA 02111-1307, USA.  */
    5. Allocate the variables in that order; each if possible into
    a preferred register, else into another register.  */
 
-/* Number of pseudo-registers still requiring allocation
-   (not allocated by local_allocate).  */
+/* Number of pseudo-registers which are candidates for allocation. */
 
 static int max_allocno;
 
 /* Indexed by (pseudo) reg number, gives the allocno, or -1
-   for pseudo registers already allocated by local_allocate.  */
+   for pseudo registers which are not to be allocated.  */
 
-int *reg_allocno;
+static int *reg_allocno;
 
 /* Indexed by allocno, gives the reg number.  */
 
@@ -266,6 +269,9 @@ static void mark_reg_death	PROTO((rtx));
 static void mark_reg_live_nc	PROTO((int, enum machine_mode));
 static void set_preference	PROTO((rtx, rtx));
 static void dump_conflicts	PROTO((FILE *));
+static void reg_becomes_live	PROTO((rtx, rtx));
+static void reg_dies		PROTO((int, enum machine_mode));
+static void build_insn_chain	PROTO((rtx));
 
 /* Perform allocation of pseudo-registers not allocated by local_alloc.
    FILE is a file to output debugging information on,
@@ -387,13 +393,13 @@ global_alloc (file)
     /* Note that reg_live_length[i] < 0 indicates a "constant" reg
        that we are supposed to refrain from putting in a hard reg.
        -2 means do make an allocno but don't allocate it.  */
-    if (REG_N_REFS (i) != 0 && reg_renumber[i] < 0 && REG_LIVE_LENGTH (i) != -1
+    if (REG_N_REFS (i) != 0 && REG_LIVE_LENGTH (i) != -1
 	/* Don't allocate pseudos that cross calls,
 	   if this function receives a nonlocal goto.  */
 	&& (! current_function_has_nonlocal_label
 	    || REG_N_CALLS_CROSSED (i) == 0))
       {
-	if (reg_may_share[i] && reg_allocno[reg_may_share[i]] >= 0)
+	if (reg_renumber[i] < 0 && reg_may_share[i] && reg_allocno[reg_may_share[i]] >= 0)
 	  reg_allocno[i] = reg_allocno[reg_may_share[i]];
 	else
 	  reg_allocno[i] = max_allocno++;
@@ -431,7 +437,7 @@ global_alloc (file)
   bzero ((char *) local_reg_live_length, sizeof local_reg_live_length);
   bzero ((char *) local_reg_n_refs, sizeof local_reg_n_refs);
   for (i = FIRST_PSEUDO_REGISTER; i < max_regno; i++)
-    if (reg_allocno[i] < 0 && reg_renumber[i] >= 0)
+    if (reg_renumber[i] >= 0)
       {
 	int regno = reg_renumber[i];
 	int endregno = regno + HARD_REGNO_NREGS (regno, PSEUDO_REGNO_MODE (i));
@@ -448,18 +454,6 @@ global_alloc (file)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (regs_ever_live[i])
       local_reg_n_refs[i] = 0;
-
-  /* Likewise for regs used in a SCRATCH.  */
-  for (i = 0; i < scratch_list_length; i++)
-    if (scratch_list[i])
-      {
-	int regno = REGNO (scratch_list[i]);
-	int lim = regno + HARD_REGNO_NREGS (regno, GET_MODE (scratch_list[i]));
-	int j;
-
-	for (j = regno; j < lim; j++)
-	  local_reg_n_refs[j] = 0;
-      }
 	
   /* Allocate the space for the conflict and preference tables and
      initialize them.  */
@@ -557,7 +551,8 @@ global_alloc (file)
 	 except for parameters marked with reg_live_length[regno] == -2.  */
 
       for (i = 0; i < max_allocno; i++)
-	if (REG_LIVE_LENGTH (allocno_reg[allocno_order[i]]) >= 0)
+	if (reg_renumber[allocno_reg[allocno_order[i]]] < 0
+	    && REG_LIVE_LENGTH (allocno_reg[allocno_order[i]]) >= 0)
 	  {
 	    /* If we have more than one register class,
 	       first try allocating in the class that is cheapest
@@ -580,7 +575,10 @@ global_alloc (file)
 	 for the sake of debugging information.  */
   if (n_basic_blocks > 0)
 #endif
-    retval = reload (get_insns (), 1, file);
+    {
+      build_insn_chain (get_insns ());
+      retval = reload (get_insns (), 1, file);
+    }
 
   free (conflicts);
   return retval;
@@ -971,7 +969,10 @@ find_reg (allocno, losers, alt_regs_p, accept_call_clobbered, retrying)
 	  int regno = i;
 #endif
 	  if (! TEST_HARD_REG_BIT (used, regno)
-	      && HARD_REGNO_MODE_OK (regno, mode))
+	      && HARD_REGNO_MODE_OK (regno, mode)
+	      && (allocno_calls_crossed[allocno] == 0
+		  || accept_call_clobbered
+		  || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode)))
 	    {
 	      register int j;
 	      register int lim = regno + HARD_REGNO_NREGS (regno, mode);
@@ -1320,16 +1321,13 @@ record_conflicts (allocno_vec, len)
    if so, we do nothing.
 
    SETTER is 0 if this register was modified by an auto-increment (i.e.,
-   a REG_INC note was found for it).
-
-   CLOBBERs are processed here by calling mark_reg_clobber.  */ 
+   a REG_INC note was found for it).  */
 
 static void
-mark_reg_store (orig_reg, setter)
-     rtx orig_reg, setter;
+mark_reg_store (reg, setter)
+     rtx reg, setter;
 {
   register int regno;
-  register rtx reg = orig_reg;
 
   /* WORD is which word of a multi-register group is being stored.
      For the case where the store is actually into a SUBREG of REG.
@@ -1346,22 +1344,12 @@ mark_reg_store (orig_reg, setter)
   if (GET_CODE (reg) != REG)
     return;
 
-  if (setter && GET_CODE (setter) == CLOBBER)
-    {
-      /* A clobber of a register should be processed here too.  */
-      mark_reg_clobber (orig_reg, setter);
-      return;
-    }
-
   regs_set[n_regs_set++] = reg;
 
-  if (setter)
+  if (setter && GET_CODE (setter) != CLOBBER)
     set_preference (reg, SET_SRC (setter));
 
   regno = REGNO (reg);
-
-  if (reg_renumber[regno] >= 0)
-    regno = reg_renumber[regno] /* + word */;
 
   /* Either this is one of the max_allocno pseudo regs not allocated,
      or it is or has a hardware reg.  First handle the pseudo-regs.  */
@@ -1373,8 +1361,12 @@ mark_reg_store (orig_reg, setter)
 	  record_one_conflict (regno);
 	}
     }
+
+  if (reg_renumber[regno] >= 0)
+    regno = reg_renumber[regno] /* + word */;
+
   /* Handle hardware regs (and pseudos allocated to hard regs).  */
-  else if (! fixed_regs[regno])
+  if (regno < FIRST_PSEUDO_REGISTER && ! fixed_regs[regno])
     {
       register int last = regno + HARD_REGNO_NREGS (regno, GET_MODE (reg));
       while (regno < last)
@@ -1392,54 +1384,8 @@ static void
 mark_reg_clobber (reg, setter)
      rtx reg, setter;
 {
-  register int regno;
-
-  /* WORD is which word of a multi-register group is being stored.
-     For the case where the store is actually into a SUBREG of REG.
-     Except we don't use it; I believe the entire REG needs to be
-     made live.  */
-  int word = 0;
-
-  if (GET_CODE (setter) != CLOBBER)
-    return;
-
-  if (GET_CODE (reg) == SUBREG)
-    {
-      word = SUBREG_WORD (reg);
-      reg = SUBREG_REG (reg);
-    }
-
-  if (GET_CODE (reg) != REG)
-    return;
-
-  regs_set[n_regs_set++] = reg;
-
-  regno = REGNO (reg);
-
-  if (reg_renumber[regno] >= 0)
-    regno = reg_renumber[regno] /* + word */;
-
-  /* Either this is one of the max_allocno pseudo regs not allocated,
-     or it is or has a hardware reg.  First handle the pseudo-regs.  */
-  if (regno >= FIRST_PSEUDO_REGISTER)
-    {
-      if (reg_allocno[regno] >= 0)
-	{
-	  SET_ALLOCNO_LIVE (reg_allocno[regno]);
-	  record_one_conflict (regno);
-	}
-    }
-  /* Handle hardware regs (and pseudos allocated to hard regs).  */
-  else if (! fixed_regs[regno])
-    {
-      register int last = regno + HARD_REGNO_NREGS (regno, GET_MODE (reg));
-      while (regno < last)
-	{
-	  record_one_conflict (regno);
-	  SET_HARD_REG_BIT (hard_regs_live, regno);
-	  regno++;
-	}
-    }
+  if (GET_CODE (setter) == CLOBBER)
+    mark_reg_store (reg, setter);
 }
 
 /* Record that REG has conflicts with all the regs currently live.
@@ -1459,9 +1405,6 @@ mark_reg_conflicts (reg)
 
   regno = REGNO (reg);
 
-  if (reg_renumber[regno] >= 0)
-    regno = reg_renumber[regno];
-
   /* Either this is one of the max_allocno pseudo regs not allocated,
      or it is or has a hardware reg.  First handle the pseudo-regs.  */
   if (regno >= FIRST_PSEUDO_REGISTER)
@@ -1469,8 +1412,12 @@ mark_reg_conflicts (reg)
       if (reg_allocno[regno] >= 0)
 	record_one_conflict (regno);
     }
+
+  if (reg_renumber[regno] >= 0)
+    regno = reg_renumber[regno];
+
   /* Handle hardware regs (and pseudos allocated to hard regs).  */
-  else if (! fixed_regs[regno])
+  if (regno < FIRST_PSEUDO_REGISTER && ! fixed_regs[regno])
     {
       register int last = regno + HARD_REGNO_NREGS (regno, GET_MODE (reg));
       while (regno < last)
@@ -1490,10 +1437,6 @@ mark_reg_death (reg)
 {
   register int regno = REGNO (reg);
 
-  /* For pseudo reg, see if it has been assigned a hardware reg.  */
-  if (reg_renumber[regno] >= 0)
-    regno = reg_renumber[regno];
-
   /* Either this is one of the max_allocno pseudo regs not allocated,
      or it is a hardware reg.  First handle the pseudo-regs.  */
   if (regno >= FIRST_PSEUDO_REGISTER)
@@ -1501,8 +1444,13 @@ mark_reg_death (reg)
       if (reg_allocno[regno] >= 0)
 	CLEAR_ALLOCNO_LIVE (reg_allocno[regno]);
     }
+
+  /* For pseudo reg, see if it has been assigned a hardware reg.  */
+  if (reg_renumber[regno] >= 0)
+    regno = reg_renumber[regno];
+
   /* Handle hardware regs (and pseudos allocated to hard regs).  */
-  else if (! fixed_regs[regno])
+  if (regno < FIRST_PSEUDO_REGISTER && ! fixed_regs[regno])
     {
       /* Pseudo regs already assigned hardware regs are treated
 	 almost the same as explicit hardware regs.  */
@@ -1648,6 +1596,135 @@ mark_elimination (from, to)
       }
 }
 
+/* Used for communication between the following functions.  Holds the
+   current life information.  */
+static regset live_relevant_regs;
+
+/* Record in live_relevant_regs that register REG became live.  This
+   is called via note_stores.  */
+static void
+reg_becomes_live (reg, setter)
+     rtx reg;
+     rtx setter ATTRIBUTE_UNUSED;
+{
+  int regno;
+
+  if (GET_CODE (reg) == SUBREG)
+    reg = SUBREG_REG (reg);
+
+  if (GET_CODE (reg) != REG)
+    return;
+  
+  regno = REGNO (reg);
+  if (regno < FIRST_PSEUDO_REGISTER)
+    {
+      int nregs = HARD_REGNO_NREGS (regno, GET_MODE (reg));
+      while (nregs-- > 0)
+	SET_REGNO_REG_SET (live_relevant_regs, regno++);
+    }
+  else if (reg_renumber[regno] >= 0)
+    SET_REGNO_REG_SET (live_relevant_regs, regno);
+}
+
+/* Record in live_relevant_regs that register REGNO died.  */
+static void
+reg_dies (regno, mode)
+     int regno;
+     enum machine_mode mode;
+{
+  if (regno < FIRST_PSEUDO_REGISTER)
+    {
+      int nregs = HARD_REGNO_NREGS (regno, mode);
+      while (nregs-- > 0)
+	CLEAR_REGNO_REG_SET (live_relevant_regs, regno++);
+    }
+  else
+    CLEAR_REGNO_REG_SET (live_relevant_regs, regno);
+}
+
+/* Walk the insns of the current function and build reload_insn_chain,
+   and record register life information.  */
+static void
+build_insn_chain (first)
+     rtx first;
+{
+  struct insn_chain **p = &reload_insn_chain;
+  struct insn_chain *prev = 0;
+  int b = 0;
+
+  live_relevant_regs = ALLOCA_REG_SET ();
+
+  for (; first; first = NEXT_INSN (first))
+    {
+      struct insn_chain *c;
+
+      if (first == basic_block_head[b])
+	{
+	  int i;
+	  CLEAR_REG_SET (live_relevant_regs);
+	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	    if (REGNO_REG_SET_P (basic_block_live_at_start[b], i)
+		&& ! TEST_HARD_REG_BIT (eliminable_regset, i))
+	      SET_REGNO_REG_SET (live_relevant_regs, i);
+
+	  for (; i < max_regno; i++)
+	    if (reg_renumber[i] >= 0
+		&& REGNO_REG_SET_P (basic_block_live_at_start[b], i))
+	      SET_REGNO_REG_SET (live_relevant_regs, i);
+	}
+
+      if (GET_CODE (first) != NOTE && GET_CODE (first) != BARRIER)
+	{
+	  c = new_insn_chain ();
+	  c->prev = prev;
+	  prev = c;
+	  *p = c;
+	  p = &c->next;
+	  c->insn = first;
+	  c->block = b;
+
+	  COPY_REG_SET (c->live_before, live_relevant_regs);
+
+	  if (GET_RTX_CLASS (GET_CODE (first)) == 'i')
+	    {
+	      rtx link;
+
+	      /* Mark the death of everything that dies in this instruction.  */
+
+	      for (link = REG_NOTES (first); link; link = XEXP (link, 1))
+		if (REG_NOTE_KIND (link) == REG_DEAD
+		    && GET_CODE (XEXP (link, 0)) == REG)
+		  reg_dies (REGNO (XEXP (link, 0)), GET_MODE (XEXP (link, 0)));
+
+	      /* Mark everything born in this instruction as live.  */
+
+	      note_stores (PATTERN (first), reg_becomes_live);
+	    }
+
+	  /* Remember which registers are live at the end of the insn, before
+	     killing those with REG_UNUSED notes.  */
+	  COPY_REG_SET (c->live_after, live_relevant_regs);
+
+	  if (GET_RTX_CLASS (GET_CODE (first)) == 'i')
+	    {
+	      rtx link;
+
+	      /* Mark anything that is set in this insn and then unused as dying.  */
+
+	      for (link = REG_NOTES (first); link; link = XEXP (link, 1))
+		if (REG_NOTE_KIND (link) == REG_UNUSED
+		    && GET_CODE (XEXP (link, 0)) == REG)
+		  reg_dies (REGNO (XEXP (link, 0)), GET_MODE (XEXP (link, 0)));
+	    }
+	}
+
+      if (first == basic_block_end[b])
+	b++;
+    }
+  FREE_REG_SET (live_relevant_regs);
+  *p = 0;
+}
+
 /* Print debugging trace information if -greg switch is given,
    showing the information on which the allocation decisions are based.  */
 
@@ -1657,10 +1734,20 @@ dump_conflicts (file)
 {
   register int i;
   register int has_preferences;
-  fprintf (file, ";; %d regs to allocate:", max_allocno);
+  register int nregs;
+  nregs = 0;
+  for (i = 0; i < max_allocno; i++)
+    {
+      if (reg_renumber[allocno_reg[allocno_order[i]]] >= 0)
+        continue;
+      nregs++;
+    }
+  fprintf (file, ";; %d regs to allocate:", nregs);
   for (i = 0; i < max_allocno; i++)
     {
       int j;
+      if (reg_renumber[allocno_reg[allocno_order[i]]] >= 0)
+	continue;
       fprintf (file, " %d", allocno_reg[allocno_order[i]]);
       for (j = 0; j < max_regno; j++)
 	if (reg_allocno[j] == allocno_order[i]

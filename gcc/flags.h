@@ -1,5 +1,5 @@
 /* Compilation switch flag definitions for GNU CC.
-   Copyright (C) 1987, 88, 94-97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -356,6 +356,11 @@ extern int flag_branch_on_count_reg;
 
 extern int flag_delayed_branch;
 
+/* Nonzero means suppress output of instruction numbers and line number
+   notes in debugging dumps.  */
+
+extern int flag_dump_unnumbered;
+
 /* Nonzero means pretend it is OK to examine bits of target floats,
    even if that isn't true.  The resulting code will have incorrect constants,
    but the same series of instructions that the native compiler would make.  */
@@ -377,6 +382,11 @@ extern int flag_pic;
 
 extern int flag_exceptions;
 
+/* Nonzero means use the new model for exception handling. Replaces 
+   -DNEW_EH_MODEL as a compile option. */
+
+extern int flag_new_exceptions;
+
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
 
@@ -392,6 +402,10 @@ extern int flag_inhibit_size_directive;
    which support arbitrary section names and unlimited numbers of sections.  */
 
 extern int flag_function_sections;
+
+/* ... and similar for data.  */
+ 
+extern int flag_data_sections;
 
 /* -fverbose-asm causes extra commentary information to be produced in
    the generated assembly code (to make it more readable).  This option
@@ -427,12 +441,21 @@ extern int flag_pack_struct;
    The value is ignored if flag_alias_check is 0.  */
 extern int flag_argument_noalias;
 
+/* Nonzero if we should do (language-dependent) alias analysis.
+   Typically, this analysis will assume that expressions of certain
+   types do not alias expressions of certain other types.  Only used
+   if alias analysis (in general) is enabled.  */
+extern int flag_strict_aliasing;
+
 /* Emit code to check for stack overflow; also may cause large objects
    to be allocated dynamically.  */
 extern int flag_stack_check;
 
 /* Do the full regmove optimization pass.  */
 extern int flag_regmove;
+
+/* Instrument functions with calls at entry and exit, for profiling.  */
+extern int flag_instrument_function_entry_exit;
 
 /* Other basic status info about current function.  */
 

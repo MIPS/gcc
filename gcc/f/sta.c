@@ -1,6 +1,6 @@
 /* sta.c -- Implementation File (module.c template V1.0)
    Copyright (C) 1995-1997 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.ai.mit.edu).
+   Contributed by James Craig Burley (burley@gnu.org).
 
 This file is part of GNU Fortran.
 
@@ -1452,7 +1452,9 @@ ffesta_eof ()
   if (ffe_is_ffedebug ())
     {
       ffestorag_report ();
+#if FFECOM_targetCURRENT == FFECOM_targetFFE
       ffesymbol_report_all ();
+#endif
     }
 }
 
@@ -1988,7 +1990,9 @@ ffesta_zero (ffelexToken t)
   if (ffe_is_ffedebug ())
     {
       ffestorag_report ();
+#if FFECOM_targetCURRENT == FFECOM_targetFFE
       ffesymbol_report_all ();
+#endif
     }
 
   ffelex_set_names (TRUE);

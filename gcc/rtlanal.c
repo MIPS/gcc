@@ -455,7 +455,8 @@ static int reg_set_flag;
 
 static void
 reg_set_p_1 (x, pat)
-     rtx x, pat;
+     rtx x;
+     rtx pat ATTRIBUTE_UNUSED;
 {
   /* We don't want to return 1 if X is a MEM that contains a register
      within REG_SET_REG.  */
@@ -816,7 +817,14 @@ reg_overlap_mentioned_p (x, in)
 {
   int regno, endregno;
 
-  if (GET_CODE (x) == SUBREG)
+  /* Overly conservative.  */
+  if (GET_CODE (x) == STRICT_LOW_PART)
+    x = XEXP (x, 0);
+
+  /* If either argument is a constant, then modifying X can not affect IN.  */
+  if (CONSTANT_P (x) || CONSTANT_P (in))
+    return 0;
+  else if (GET_CODE (x) == SUBREG)
     {
       regno = REGNO (SUBREG_REG (x));
       if (regno < FIRST_PSEUDO_REGISTER)
@@ -824,8 +832,6 @@ reg_overlap_mentioned_p (x, in)
     }
   else if (GET_CODE (x) == REG)
     regno = REGNO (x);
-  else if (CONSTANT_P (x))
-    return 0;
   else if (GET_CODE (x) == MEM)
     {
       char *fmt;
@@ -845,6 +851,18 @@ reg_overlap_mentioned_p (x, in)
   else if (GET_CODE (x) == SCRATCH || GET_CODE (x) == PC
 	   || GET_CODE (x) == CC0)
     return reg_mentioned_p (x, in);
+  else if (GET_CODE (x) == PARALLEL
+	   && GET_MODE (x) == BLKmode)
+    {
+      register int i;
+
+      /* If any register in here refers to it
+	 we return true.  */
+      for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+	if (reg_overlap_mentioned_p (SET_DEST (XVECEXP (x, 0, i)), in))
+	  return 1;
+      return 0;
+    }
   else
     abort ();
 
@@ -1080,7 +1098,16 @@ note_stores (x, fun)
 	     || GET_CODE (dest) == SIGN_EXTRACT
 	     || GET_CODE (dest) == STRICT_LOW_PART)
 	dest = XEXP (dest, 0);
-      (*fun) (dest, x);
+
+      if (GET_CODE (dest) == PARALLEL
+	  && GET_MODE (dest) == BLKmode)
+	{
+	  register int i;
+	  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
+	    (*fun) (SET_DEST (XVECEXP (dest, 0, i)), x);
+	}
+      else
+	(*fun) (dest, x);
     }
   else if (GET_CODE (x) == PARALLEL)
     {
@@ -1099,7 +1126,15 @@ note_stores (x, fun)
 		     || GET_CODE (dest) == SIGN_EXTRACT
 		     || GET_CODE (dest) == STRICT_LOW_PART)
 		dest = XEXP (dest, 0);
-	      (*fun) (dest, y);
+	      if (GET_CODE (dest) == PARALLEL
+		  && GET_MODE (dest) == BLKmode)
+		{
+		  register int i;
+		  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
+		    (*fun) (SET_DEST (XVECEXP (dest, 0, i)), y);
+		}
+	      else
+		(*fun) (dest, y);
 	    }
 	}
     }
@@ -1258,6 +1293,10 @@ find_reg_note (insn, kind, datum)
 {
   register rtx link;
 
+  /* Ignore anything that is not an INSN, JUMP_INSN or CALL_INSN.  */
+  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+    return 0;
+
   for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
     if (REG_NOTE_KIND (link) == kind
 	&& (datum == 0 || datum == XEXP (link, 0)))
@@ -1277,6 +1316,10 @@ find_regno_note (insn, kind, regno)
      int regno;
 {
   register rtx link;
+
+  /* Ignore anything that is not an INSN, JUMP_INSN or CALL_INSN.  */
+  if (GET_RTX_CLASS (GET_CODE (insn)) != 'i')
+    return 0;
 
   for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
     if (REG_NOTE_KIND (link) == kind
@@ -1751,7 +1794,8 @@ inequality_comparisons_p (x)
   return 0;
 }
 
-/* Replace any occurrence of FROM in X with TO.
+/* Replace any occurrence of FROM in X with TO.  The function does
+   not enter into CONST_DOUBLE for the replace.
 
    Note that copying is not done so X must not be shared unless all copies
    are to be modified.  */
@@ -1762,6 +1806,11 @@ replace_rtx (x, from, to)
 {
   register int i, j;
   register char *fmt;
+
+  /* The following prevents loops occurrence when we change MEM in
+     CONST_DOUBLE onto the same CONST_DOUBLE. */
+  if (x != 0 && GET_CODE (x) == CONST_DOUBLE)
+    return x;
 
   if (x == from)
     return to;
@@ -1993,5 +2042,78 @@ computed_jump_p (insn)
 	       && jmp_uses_reg_or_mem (SET_SRC (pat)))
 	return 1;
     }
+  return 0;
+}
+
+/* Traverse X via depth-first search, calling F for each
+   sub-expression (including X itself).  F is also passed the DATA.
+   If F returns -1, do not traverse sub-expressions, but continue
+   traversing the rest of the tree.  If F ever returns any other
+   non-zero value, stop the traversal, and return the value returned
+   by F.  Otherwise, return 0.  This function does not traverse inside
+   tree structure that contains RTX_EXPRs, or into sub-expressions
+   whose format code is `0' since it is not known whether or not those
+   codes are actually RTL.
+
+   This routine is very general, and could (should?) be used to
+   implement many of the other routines in this file.  */
+
+int for_each_rtx (x, f, data)
+     rtx* x;
+     rtx_function f;
+     void* data;
+{
+  int result;
+  int length;
+  char* format;
+  int i;
+
+  /* Call F on X.  */
+  result = (*f)(x, data);
+  if (result == -1)
+    /* Do not traverse sub-expressions.  */
+    return 0;
+  else if (result != 0)
+    /* Stop the traversal.  */
+    return result;
+
+  if (*x == NULL_RTX)
+    /* There are no sub-expressions.  */
+    return 0;
+
+  length = GET_RTX_LENGTH (GET_CODE (*x));
+  format = GET_RTX_FORMAT (GET_CODE (*x));
+
+  for (i = 0; i < length; ++i) 
+    {
+      switch (format[i]) 
+	{
+	case 'e':
+	  result = for_each_rtx (&XEXP (*x, i), f, data);
+	  if (result != 0)
+	    return result;
+	  break;
+
+	case 'V':
+	case 'E':
+	  if (XVEC (*x, i) != 0) 
+	    {
+	      int j;
+	      for (j = 0; j < XVECLEN (*x, i); ++j)
+		{
+		  result = for_each_rtx (&XVECEXP (*x, i, j), f, data);
+		  if (result != 0)
+		    return result;
+		}
+	    }
+	  break; 
+
+	default:
+	  /* Nothing to do.  */
+	  break;
+	}
+
+    }
+
   return 0;
 }

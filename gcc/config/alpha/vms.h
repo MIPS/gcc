@@ -31,20 +31,13 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES \
-"-D__ALPHA -Dvms -DVMS -D__alpha__ -D__alpha -D__vms__ -D__VMS__\
- -Asystem(vms) -Acpu(alpha) -Amachine(alpha)"
+"-D__ALPHA -Dvms -DVMS -D__vms__ -D__VMS__ -Asystem(vms)"
 
-#undef CPP_SPEC
-#define CPP_SPEC "\
+#undef CPP_SUBTARGET_SPEC
+#define CPP_SUBTARGET_SPEC "\
 %{mfloat-ieee:-D__IEEE_FLOAT} \
 %{mfloat-vax:-D__G_FLOAT} \
-%{!mfloat-vax:-D__IEEE_FLOAT} \
-%{!.S:	-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C}}  \
-%{.S:	-D__LANGUAGE_ASSEMBLY__ -D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY}} \
-%{.cc:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
-%{.cxx:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
-%{.C:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
-%{.m:	-D__LANGUAGE_OBJECTIVE_C__ -D__LANGUAGE_OBJECTIVE_C}"
+%{!mfloat-vax:-D__IEEE_FLOAT}"
 
 /* Under OSF4, -p and -pg require -lprof1, and -lprof1 requires -lpdf.  */
 
@@ -289,9 +282,11 @@ extern struct rtx_def *alpha_arg_info_reg_val ();
 #define LINK_SECTION_ASM_OP ".link"
 #define READONLY_SECTION_ASM_OP ".rdata"
 #define LITERALS_SECTION_ASM_OP ".literals"
+#define CTORS_SECTION_ASM_OP ".ctors"
+#define DTORS_SECTION_ASM_OP ".dtors"
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS	in_link, in_rdata, in_literals
+#define EXTRA_SECTIONS	in_link, in_rdata, in_literals, in_ctors, in_dtors
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
@@ -321,6 +316,24 @@ literals_section ()						\
       fprintf (asm_out_file, "%s\n", LITERALS_SECTION_ASM_OP); 	\
       in_section = in_literals;					\
     }								\
+}								\
+void								\
+ctors_section ()						\
+{								\
+  if (in_section != in_ctors)					\
+    {								\
+      fprintf (asm_out_file, "%s\n", CTORS_SECTION_ASM_OP);	\
+      in_section = in_ctors;					\
+    }								\
+}								\
+void								\
+dtors_section ()						\
+{								\
+  if (in_section != in_dtors)					\
+    {								\
+      fprintf (asm_out_file, "%s\n", DTORS_SECTION_ASM_OP);	\
+      in_section = in_dtors;					\
+    }								\
 }
 
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
@@ -342,6 +355,19 @@ literals_section ()						\
 #undef ASM_OUTPUT_CASE_LABEL
 #define ASM_OUTPUT_CASE_LABEL(FILE,PREFIX,NUM,TABLEINSN)	\
 { ASM_OUTPUT_ALIGN (FILE, 3); ASM_OUTPUT_INTERNAL_LABEL (FILE, PREFIX, NUM); }
+
+/* This says how to output assembler code to declare an                
+   uninitialized external linkage data object.  */ 
+
+#define COMMON_ASM_OP ".comm"
+
+#undef ASM_OUTPUT_ALIGNED_COMMON
+#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
+do {									\
+  fprintf ((FILE), "\t%s\t", COMMON_ASM_OP);				\
+  assemble_name ((FILE), (NAME));					\
+  fprintf ((FILE), ",%u,%u\n", (SIZE), (ALIGN) / BITS_PER_UNIT);	\
+} while (0)
 
 #define NO_MD_PROTOTYPES
 
@@ -372,19 +398,28 @@ literals_section ()						\
    CXT is an RTX for the static chain value for the function.  */
 
 #undef INITIALIZE_TRAMPOLINE
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			  \
-{									  \
-  emit_move_insn (gen_rtx (MEM, Pmode,                                    \
-			   memory_address (Pmode,			  \
-					   plus_constant ((TRAMP), 16))), \
-		  (FNADDR));		                                  \
-  emit_move_insn (gen_rtx (MEM, Pmode,					  \
-			   memory_address (Pmode,			  \
-					   plus_constant ((TRAMP), 24))), \
-		  (CXT));						  \
-}
+#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
+  alpha_initialize_trampoline (TRAMP, FNADDR, CXT, 16, 24, -1)
 
-#undef TRANSFER_FROM_TRAMPOLINE
+/* A C statement (sans semicolon) to output an element in the table of
+   global constructors.  */
+#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)		\
+  do {							\
+    ctors_section ();					\
+    fprintf (FILE, "\t.quad "); 			\
+    assemble_name (FILE, NAME); 			\
+    fprintf (FILE, "\n");				\
+  } while (0)
+
+/* A C statement (sans semicolon) to output an element in the table of
+   global destructors.	*/
+#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)		\
+  do {							\
+    dtors_section ();					\
+    fprintf (FILE, "\t.quad "); 			\
+    assemble_name (FILE, NAME); 			\
+    fprintf (FILE, "\n");				\
+  } while (0)
 
 #define VALID_MACHINE_DECL_ATTRIBUTE(DECL, ATTRIBUTES, NAME, ARGS) \
   (vms_valid_decl_attribute_p (DECL, ATTRIBUTES, NAME, ARGS))

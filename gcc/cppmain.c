@@ -23,6 +23,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef EMACS
 #include "config.h"
 #include "system.h"
+#include "gansidecl.h"
 #else
 #include <stdio.h>
 
@@ -39,6 +40,13 @@ cpp_options options;
 #ifdef abort
 /* More 'friendly' abort that prints the line and file.
    config.h can #define abort fancy_abort if you like that sort of thing.  */
+void
+fatal (s)
+     char *s;
+{
+  fputs (s, stderr);
+  exit (FATAL_EXIT_CODE);
+}
 
 void
 fancy_abort ()
@@ -54,7 +62,6 @@ main (argc, argv)
      char **argv;
 {
   char *p;
-  int i;
   int argi = 1;  /* Next argument to handle.  */
   struct cpp_options *opts = &options;
 

@@ -7,11 +7,24 @@
 #ifndef __GCC_SYSTEM_H__
 #define __GCC_SYSTEM_H__
 
+/* We must include stdarg.h/varargs.h before stdio.h. */
+#ifdef __STDC__
+#include <stdarg.h>
+#else
+#include <varargs.h>
+#endif
+
 #include <stdio.h>
+
+/* Define a generic NULL if one hasn't already been defined.  */
+#ifndef NULL
+#define NULL 0
+#endif
+
 #include <ctype.h>
 
 /* Jim Meyering writes:
- 
+
    "... Some ctype macros are valid only for character codes that
    isascii says are ASCII (SGI's IRIX-4.0.5 is one such system --when
    using /bin/cc or gcc but without giving an ansi option).  So, all
@@ -20,21 +33,21 @@
    macros don't need to be guarded with references to isascii. ...
    Defining isascii to 1 should let any compiler worth its salt
    eliminate the && through constant folding."
- 
+
    Bruno Haible adds:
- 
+
    "... Furthermore, isupper(c) etc. have an undefined result if c is
    outside the range -1 <= c <= 255. One is tempted to write isupper(c)
    with c being of type `char', but this is wrong if c is an 8-bit
    character >= 128 which gets sign-extended to a negative value.
    The macro ISUPPER protects against this as well."  */
- 
+
 #if defined (STDC_HEADERS) || (!defined (isascii) && !defined (HAVE_ISASCII))
 # define IN_CTYPE_DOMAIN(c) 1
 #else
 # define IN_CTYPE_DOMAIN(c) isascii(c)
 #endif
- 
+
 #ifdef isblank
 # define ISBLANK(c) (IN_CTYPE_DOMAIN (c) && isblank (c))
 #else
@@ -45,7 +58,7 @@
 #else
 # define ISGRAPH(c) (IN_CTYPE_DOMAIN (c) && isprint (c) && !isspace (c))
 #endif
- 
+
 #define ISPRINT(c) (IN_CTYPE_DOMAIN (c) && isprint (c))
 #define ISALNUM(c) (IN_CTYPE_DOMAIN (c) && isalnum (c))
 #define ISALPHA(c) (IN_CTYPE_DOMAIN (c) && isalpha (c))
@@ -56,7 +69,7 @@
 #define ISUPPER(c) (IN_CTYPE_DOMAIN (c) && isupper (c))
 #define ISXDIGIT(c) (IN_CTYPE_DOMAIN (c) && isxdigit (c))
 #define ISDIGIT_LOCALE(c) (IN_CTYPE_DOMAIN (c) && isdigit (c))
- 
+
 /* ISDIGIT differs from ISDIGIT_LOCALE, as follows:
    - Its arg may be any int or unsigned int; it need not be an unsigned char.
    - It's guaranteed to evaluate its argument exactly once.
@@ -75,11 +88,16 @@
 extern int errno;
 #endif
 
-#ifdef HAVE_STRING_H
+#ifdef STRING_WITH_STRINGS
 # include <string.h>
+# include <strings.h>
 #else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
+# ifdef HAVE_STRING_H
+#  include <string.h>
+# else
+#  ifdef HAVE_STRINGS_H
+#   include <strings.h>
+#  endif
 # endif
 #endif
 
@@ -202,12 +220,67 @@ extern long atol();
 extern void free ();
 #endif
 
+#ifdef NEED_DECLARATION_GETCWD
+extern char *getcwd ();
+#endif
+
 #ifdef NEED_DECLARATION_GETENV
 extern char *getenv ();
 #endif
 
+#ifdef NEED_DECLARATION_GETWD
+extern char *getwd ();
+#endif
+
 #ifdef NEED_DECLARATION_SBRK
 extern char *sbrk ();
+#endif
+
+#ifdef HAVE_STRERROR
+# ifdef NEED_DECLARATION_STRERROR
+#  ifndef strerror
+extern char *strerror ();
+#  endif
+# endif
+#else /* ! HAVE_STRERROR */
+extern int sys_nerr;
+extern char *sys_errlist[];
+#endif /* HAVE_STRERROR */
+
+#ifdef HAVE_STRSIGNAL
+# ifdef NEED_DECLARATION_STRSIGNAL
+#  ifndef strsignal
+extern char * strsignal ();
+#  endif
+# endif
+#else /* ! HAVE_STRSIGNAL */
+# ifndef SYS_SIGLIST_DECLARED
+#  ifndef NO_SYS_SIGLIST
+extern char * sys_siglist[];
+#  endif
+# endif
+#endif /* HAVE_STRSIGNAL */
+
+#ifdef HAVE_GETRLIMIT
+# ifdef NEED_DECLARATION_GETRLIMIT
+#  ifndef getrlimit
+extern int getrlimit ();
+#  endif
+# endif
+#endif
+
+#ifdef HAVE_SETRLIMIT
+# ifdef NEED_DECLARATION_SETRLIMIT
+#  ifndef setrlimit
+extern int setrlimit ();
+#  endif
+# endif
+#endif
+
+/* HAVE_VOLATILE only refers to the stage1 compiler.  We also check
+   __STDC__ and assume gcc sets it and has volatile in stage >=2. */
+#if !defined(HAVE_VOLATILE) && !defined(__STDC__) && !defined(volatile)
+#define volatile
 #endif
 
 /* Redefine abort to report an internal error w/o coredump, and reporting the
@@ -223,7 +296,7 @@ extern char *sbrk ();
 
 #ifdef USE_SYSTEM_ABORT
 # ifdef NEED_DECLARATION_ABORT
-void abort ();
+extern void abort ();
 # endif
 #else
 #if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 7)
@@ -242,5 +315,28 @@ void abort ();
 #endif /* recent gcc */
 #endif /* USE_SYSTEM_ABORT */
 #endif /* !abort */
+
+
+/* Define a STRINGIFY macro that's right for ANSI or traditional C.
+   HAVE_CPP_STRINGIFY only refers to the stage1 compiler.  Assume that
+   (non-traditional) gcc used in stage2 or later has this feature.
+
+   Note: if the argument passed to STRINGIFY is itself a macro, eg
+   #define foo bar, STRINGIFY(foo) will produce "foo", not "bar".
+   Although the __STDC__ case could be made to expand this via a layer
+   of indirection, the traditional C case can not do so.  Therefore
+   this behavior is not supported. */
+#ifndef STRINGIFY
+# if defined(HAVE_CPP_STRINGIFY) || (defined(__GNUC__) && defined(__STDC__))
+#  define STRINGIFY(STRING) #STRING
+# else
+#  define STRINGIFY(STRING) "STRING"
+# endif
+#endif /* ! STRINGIFY */
+
+
+/* These macros are here in preparation for the use of gettext in egcs.  */
+#define _(String) String
+#define N_(String) String
 
 #endif /* __GCC_SYSTEM_H__ */

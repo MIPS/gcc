@@ -19,11 +19,6 @@ Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. */
 
 #include "config.h"
-#ifdef __STDC__
-# include <stdarg.h>
-#else
-# include <varargs.h>
-#endif
 
 #define PRINTF_PROTO(ARGS, m, n) PVPROTO (ARGS) ATTRIBUTE_PRINTF(m, n)
 
@@ -45,8 +40,13 @@ typedef unsigned char U_CHAR;
 #include "gansidecl.h"
 #include "pcp.h"
 
-#ifndef GET_ENVIRONMENT
-#define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ENV_VALUE = getenv (ENV_NAME)
+#ifdef MULTIBYTE_CHARS
+#include "mbchar.h"
+#include <locale.h>
+#endif /* MULTIBYTE_CHARS */
+
+#ifndef GET_ENV_PATH_LIST
+#define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
 #endif
 
 #ifndef STANDARD_INCLUDE_DIR
@@ -78,7 +78,7 @@ static int VMS_fstat (), VMS_stat ();
 static int VMS_open ();
 static FILE *VMS_fopen ();
 static FILE *VMS_freopen ();
-static void hack_vms_include_specification ();
+static int hack_vms_include_specification ();
 #define INO_T_EQ(a, b) (!bcmp((char *) &(a), (char *) &(b), sizeof (a)))
 #define INO_T_HASH(a) 0
 #define INCLUDE_LEN_FUDGE 12	/* leave room for VMS syntax conversion */
@@ -138,16 +138,6 @@ static void hack_vms_include_specification ();
 
 extern char *version_string;
 extern char *update_path PROTO((char *, char *));
-#ifndef VMS
-#ifndef HAVE_STRERROR
-extern int sys_nerr;
-extern char *sys_errlist[];
-#else	/* HAVE_STRERROR */
-char *strerror ();
-#endif
-#else	/* VMS */
-char *strerror (int,...);
-#endif
 HOST_WIDE_INT parse_escape PROTO((char **, HOST_WIDE_INT));
 HOST_WIDE_INT parse_c_expression PROTO((char *, int));
 
@@ -431,7 +421,6 @@ static struct default_include {
   = {
     /* Pick up GNU C++ specific include files.  */
     { GPLUSPLUS_INCLUDE_DIR, "G++", 1, 1 },
-    { OLD_GPLUSPLUS_INCLUDE_DIR, 0, 1, 1 },
 #ifdef CROSS_COMPILE
     /* This is the dir for fixincludes.  Put it just before
        the files that we fix.  */
@@ -1003,7 +992,7 @@ static int discard_comments PROTO((U_CHAR *, int, int));
 
 static int change_newlines PROTO((U_CHAR *, int));
 
-char *my_strerror PROTO((int));
+static char *my_strerror PROTO((int));
 void error PRINTF_PROTO_1((char *, ...));
 static void verror PROTO((char *, va_list));
 static void error_from_errno PROTO((char *));
@@ -1057,6 +1046,7 @@ GENERIC_PTR xmalloc PROTO((size_t));
 static GENERIC_PTR xrealloc PROTO((GENERIC_PTR, size_t));
 static GENERIC_PTR xcalloc PROTO((size_t, size_t));
 static char *savestring PROTO((char *));
+static void print_help PROTO((void));
 
 /* Read LEN bytes at PTR from descriptor DESC, for file FILENAME,
    retrying if necessary.  If MAX_READ_LEN is defined, read at most
@@ -1156,6 +1146,73 @@ eprint_string (string, length)
 }
 
 
+static void
+print_help ()
+{
+  printf ("Usage: %s [switches] input output\n", progname);
+  printf ("Switches:\n");
+  printf ("  -include <file>           Include the contents of <file> before other files\n");
+  printf ("  -imacros <file>           Accept definition of marcos in <file>\n");
+  printf ("  -iprefix <path>           Specify <path> as a prefix for next two options\n");
+  printf ("  -iwithprefix <dir>        Add <dir> to the end of the system include paths\n");
+  printf ("  -iwithprefixbefore <dir>  Add <dir> to the end of the main include paths\n");
+  printf ("  -isystem <dir>            Add <dir> to the start of the system include paths\n");
+  printf ("  -idirafter <dir>          Add <dir> to the end of the system include paths\n");
+  printf ("  -I <dir>                  Add <dir> to the end of the main include paths\n");
+  printf ("  -nostdinc                 Do not search the system include directories\n");
+  printf ("  -nostdinc++               Do not search the system include directories for C++\n");
+  printf ("  -o <file>                 Put output into <file>\n");
+  printf ("  -pedantic                 Issue all warnings demanded by strict ANSI C\n");
+  printf ("  -traditional              Follow K&R pre-processor behaviour\n");
+  printf ("  -trigraphs                Support ANSI C trigraphs\n");
+  printf ("  -lang-c                   Assume that the input sources are in C\n");
+  printf ("  -lang-c89                 Assume that the input sources are in C89\n");
+  printf ("  -lang-c++                 Assume that the input sources are in C++\n");
+  printf ("  -lang-objc                Assume that the input sources are in ObjectiveC\n");
+  printf ("  -lang-objc++              Assume that the input sources are in ObjectiveC++\n");
+  printf ("  -lang-asm                 Assume that the input sources are in assembler\n");
+  printf ("  -lang-chill               Assume that the input sources are in Chill\n");
+  printf ("  -+                        Allow parsing of C++ style features\n");
+  printf ("  -w                        Inhibit warning messages\n");
+  printf ("  -Wtrigraphs               Warn if trigraphs are encountered\n");
+  printf ("  -Wno-trigraphs            Do not warn about trigraphs\n");
+  printf ("  -Wcomment{s}              Warn if one comment starts inside another\n");
+  printf ("  -Wno-comment{s}           Do not warn about comments\n");
+  printf ("  -Wtraditional             Warn if a macro argument is/would be turned into\n");
+  printf ("                             a string if -tradtional is specified\n");
+  printf ("  -Wno-traditional          Do not warn about stringification\n");
+  printf ("  -Wundef                   Warn if an undefined macro is used by #if\n");
+  printf ("  -Wno-undef                Do not warn about testing udefined macros\n");
+  printf ("  -Wimport                  Warn about the use of the #import directive\n");
+  printf ("  -Wno-import               Do not warn about the use of #import\n");
+  printf ("  -Werror                   Treat all warnings as errors\n");
+  printf ("  -Wno-error                Do not treat warnings as errors\n");
+  printf ("  -Wall                     Enable all preprocessor warnings\n");
+  printf ("  -M                        Generate make dependencies\n");
+  printf ("  -MM                       As -M, but ignore system header files\n");
+  printf ("  -MD                       As -M, but put output in a .d file\n");
+  printf ("  -MMD                      As -MD, but ignore system header files\n");
+  printf ("  -MG                       Treat missing header file as generated files\n");
+  printf ("  -g                        Include #define and #undef directives in the output\n");
+  printf ("  -D<macro>                 Define a <macro> with string '1' as its value\n");
+  printf ("  -D<macro>=<val>           Define a <macro> with <val> as its value\n");
+  printf ("  -A<question> (<answer>)   Assert the <answer> to <question>\n");
+  printf ("  -U<macro>                 Undefine <macro> \n");
+  printf ("  -u or -undef              Do not predefine any macros\n");
+  printf ("  -v                        Display the version number\n");
+  printf ("  -H                        Print the name of header files as they are used\n");
+  printf ("  -C                        Do not discard comments\n");
+  printf ("  -dM                       Display a list of macro definitions active at end\n");
+  printf ("  -dD                       Preserve macro definitions in output\n");
+  printf ("  -dN                       As -dD except that only the names are preserved\n");
+  printf ("  -dI                       Include #include directives in the output\n");
+  printf ("  -ifoutput                 Describe skipped code blocks in output \n");
+  printf ("  -P                        Do not generate #line directives\n");
+  printf ("  -$                        Do not include '$' in identifiers\n");
+  printf ("  -remap                    Remap file names when including files.\n");
+  printf ("  -h or --help              Display this information\n");
+}
+
 int
 main (argc, argv)
      int argc;
@@ -1250,12 +1307,21 @@ main (argc, argv)
   bzero ((char *) pend_assertions, argc * sizeof (char *));
   bzero ((char *) pend_includes, argc * sizeof (char *));
 
+#ifdef MULTIBYTE_CHARS
+  /* Change to the native locale for multibyte conversions.  */
+  setlocale (LC_CTYPE, "");
+  literal_codeset = getenv ("LANG");
+#endif
+
   /* Process switches and find input file name.  */
 
   for (i = 1; i < argc; i++) {
     if (argv[i][0] != '-') {
       if (out_fname != NULL)
-	fatal ("Usage: %s [switches] input output", argv[0]);
+	{
+	  print_help ();
+	  fatal ("Too many arguments");
+	}
       else if (in_fname != NULL)
 	out_fname = argv[i];
       else
@@ -1535,6 +1601,13 @@ main (argc, argv)
 	  debug_output = 1;
 	break;
 
+      case '-':
+	if (strcmp (argv[i], "--help") != 0)
+	  return i;
+	print_help ();
+	exit (0);
+	break;
+
       case 'v':
 	fprintf (stderr, "GNU CPP version %s", version_string);
 #ifdef TARGET_VERSION
@@ -1669,7 +1742,7 @@ main (argc, argv)
   /* Some people say that CPATH should replace the standard include dirs,
      but that seems pointless: it comes before them, so it overrides them
      anyway.  */
-  GET_ENVIRONMENT (cp, "CPATH");
+  GET_ENV_PATH_LIST (cp, "CPATH");
   if (cp && ! no_standard_includes)
     path_include (cp);
 
@@ -1853,16 +1926,16 @@ main (argc, argv)
     switch ((objc << 1) + cplusplus)
       {
       case 0:
-	GET_ENVIRONMENT (epath, "C_INCLUDE_PATH");
+	GET_ENV_PATH_LIST (epath, "C_INCLUDE_PATH");
 	break;
       case 1:
-	GET_ENVIRONMENT (epath, "CPLUS_INCLUDE_PATH");
+	GET_ENV_PATH_LIST (epath, "CPLUS_INCLUDE_PATH");
 	break;
       case 2:
-	GET_ENVIRONMENT (epath, "OBJC_INCLUDE_PATH");
+	GET_ENV_PATH_LIST (epath, "OBJC_INCLUDE_PATH");
 	break;
       case 3:
-	GET_ENVIRONMENT (epath, "OBJCPLUS_INCLUDE_PATH");
+	GET_ENV_PATH_LIST (epath, "OBJCPLUS_INCLUDE_PATH");
 	break;
       }
     /* If the environment var for this language is set,
@@ -2706,9 +2779,27 @@ do { ip = &instack[indepth];		\
 	      bp += 2;
 	    else if (*bp == '/' && bp[1] == '*') {
 	      bp += 2;
-	      while (!(*bp == '*' && bp[1] == '/'))
-		bp++;
-	      bp += 2;
+	      while (1)
+		{
+		  if (*bp == '*')
+		    {
+		      if (bp[1] == '/')
+			{
+			  bp += 2;
+			  break;
+			}
+		    }
+		  else
+		    {
+#ifdef MULTIBYTE_CHARS
+		      int length;
+		      length = local_mblen (bp, limit - bp);
+		      if (length > 1)
+			bp += (length - 1);
+#endif
+		    }
+		  bp++;
+		}
 	    }
 	    /* There is no point in trying to deal with C++ // comments here,
 	       because if there is one, then this # must be part of the
@@ -2869,6 +2960,24 @@ do { ip = &instack[indepth];		\
 	  if (ibp[-1] == c)
 	    goto while2end;
 	  break;
+#ifdef MULTIBYTE_CHARS
+	default:
+	  {
+	    int length;
+	    --ibp;
+	    length = local_mblen (ibp, limit - ibp);
+	    if (length > 0)
+	      {
+		--obp;
+		bcopy (ibp, obp, length);
+		obp += length;
+		ibp += length;
+	      }
+	    else
+	      ++ibp;
+	  }
+	  break;
+#endif
 	}
       }
     while2end:
@@ -2915,6 +3024,15 @@ do { ip = &instack[indepth];		\
 		*obp++ = '\n';
 	      ++op->lineno;
 	    }
+	    else
+	      {
+#ifdef MULTIBYTE_CHARS
+		int length;
+		length = local_mblen (ibp, limit - ibp);
+		if (length > 1)
+		  ibp += (length - 1);
+#endif
+	      }
 	  }
 	  break;
 	}
@@ -3003,6 +3121,16 @@ do { ip = &instack[indepth];		\
 	      goto limit_reached;
 	    }
 	    break;
+#ifdef MULTIBYTE_CHARS
+	  default:
+	    {
+	      int length;
+	      length = local_mblen (ibp, limit - ibp);
+	      if (length > 1)
+		ibp += (length - 1);
+	    }
+	    break;
+#endif
 	  }
 	}
       comment_end:
@@ -3365,11 +3493,27 @@ randomchar:
 			      break;
 			    }
 			  }
-			  if (*ibp == '\n') {
+			  else if (*ibp == '\n') {
 			    /* Newline in a file.  Count it.  */
 			    ++ip->lineno;
 			    ++op->lineno;
 			  }
+			  else
+			    {
+#ifdef MULTIBYTE_CHARS
+			      int length;
+			      length = local_mblen (ibp, limit - ibp);
+			      if (length > 1)
+				{
+				  if (put_out_comments)
+				    {
+				      bcopy (ibp, obp, length - 1);
+				      obp += length - 1;
+				    }
+				  ibp += (length - 1);
+				}
+#endif
+			    }
 			  if (put_out_comments)
 			    *obp++ = *ibp;
 			}
@@ -3380,9 +3524,32 @@ randomchar:
 			} else if (! traditional) {
 			  *obp++ = ' ';
 			}
-			for (ibp += 2; *ibp != '\n' || ibp[-1] == '\\'; ibp++)
-			  if (put_out_comments)
-			    *obp++ = *ibp;
+			for (ibp += 2; ; ibp++)
+			  {
+			    if (*ibp == '\n')
+			      {
+				if (ibp[-1] != '\\')
+				  break;
+			      }
+			    else
+			      {
+#ifdef MULTIBYTE_CHARS
+				int length;
+				length = local_mblen (ibp, limit - ibp);
+				if (length > 1)
+				  {
+				    if (put_out_comments)
+				      {
+					bcopy (ibp, obp, length - 1);
+					obp += length - 1;
+				      }
+				    ibp += (length - 1);
+				  }
+#endif
+			      }
+			    if (put_out_comments)
+			      *obp++ = *ibp;
+			  }
 		      } else
 			break;
 		    }
@@ -4327,6 +4494,16 @@ get_filename:
 	    simplify_filename (dsp->fname);
 	    nam = base_name (dsp->fname);
 	    *nam = 0;
+#ifdef VMS
+	    /* for hack_vms_include_specification(), a local
+	       dir specification must start with "./" on VMS.  */
+	    if (nam == dsp->fname)
+	      {    
+		*nam++ = '.';
+		*nam++ = '/';
+		*nam = 0;
+	      }
+#endif
 	    /* But for efficiency's sake, do not insert the dir
 	       if it matches the search list's first dir.  */
 	    dsp->next = search_start;
@@ -4364,7 +4541,7 @@ get_filename:
      */
     /* Note: The argument of ISALPHA() can be evaluated twice, so do
        the pre-decrement outside of the macro. */
-    if (retried && (--fbeg, ISALPHA(*(U_CHAR *) (fbeg)))) {
+    if (retried && (--fin, ISALPHA(*(U_CHAR *) (fin)))) {
       while (fin != limit && (!ISSPACE(*fin)))
 	*fend++ = *fin++;
       warning ("VAX-C-style include specification found, use '#include <filename.h>' !");
@@ -4485,22 +4662,37 @@ get_filename:
 	  }
       }
 
-      strcpy (fname, searchptr->fname);
-      strcat (fname, fbeg);
 #ifdef VMS
       /* Change this 1/2 Unix 1/2 VMS file specification into a
          full VMS file specification */
-      if (searchptr->fname[0]) {
-	/* Fix up the filename */
-	hack_vms_include_specification (fname, vaxc_include);
-      } else {
-	/* This is a normal VMS filespec, so use it unchanged.  */
-	strcpy (fname, fbeg);
-	/* if it's '#include filename', add the missing .h */
-	if (vaxc_include && index(fname,'.')==NULL) {
-	  strcat (fname, ".h");
+      if (searchptr->fname[0])
+	{
+	  strcpy (fname, searchptr->fname);
+	  if (fname[strlen (fname) - 1] == ':')
+	    {
+	      char *slashp;
+	      slashp = strchr (fbeg, '/');
+
+	      /* start at root-dir of logical device if no path given.  */
+	      if (slashp == 0)
+		strcat (fname, "[000000]");
+	    }
+	  strcat (fname, fbeg);
+
+	  /* Fix up the filename */
+	  hack_vms_include_specification (fname, vaxc_include);
 	}
-      }
+      else
+	{
+	  /* This is a normal VMS filespec, so use it unchanged.  */
+	  strcpy (fname, fbeg);
+	  /* if it's '#include filename', add the missing .h */
+	  if (vaxc_include && index(fname,'.')==NULL)
+	    strcat (fname, ".h");
+	}
+#else
+      strcpy (fname, searchptr->fname);
+      strcat (fname, fbeg);
 #endif /* VMS */
       f = open_include_file (fname, searchptr, importing, &inc);
       if (f != -1) {
@@ -4688,6 +4880,9 @@ absolute_filename (filename)
   /* At present, any path that begins with a drive spec is absolute.  */
   if (ISALPHA (filename[0]) && filename[1] == ':') return 1;
 #endif
+#ifdef VMS
+  if (index (filename, ':') != 0) return 1;
+#endif
   if (filename[0] == '/') return 1;
 #ifdef DIR_SEPARATOR
   if (filename[0] == DIR_SEPARATOR) return 1;
@@ -4737,9 +4932,12 @@ simplify_filename (filename)
   to0 = to;
 
   for (;;) {
+#ifndef VMS
     if (from[0] == '.' && from[1] == '/')
       from += 2;
-    else {
+    else
+#endif
+      {
       /* Copy this component and trailing /, if any.  */
       while ((*to++ = *from++) != '/') {
 	if (!to[-1]) {
@@ -4937,7 +5135,16 @@ open_include_file (filename, searchptr, importing, pinc)
     fd = open (fname, O_RDONLY, 0);
 
     if (fd < 0)
-      return fd;
+      {
+#ifdef VMS
+	/* if #include <dir/file> fails, try again with hacked spec.  */
+	if (!hack_vms_include_specification (fname, 0))
+	  return fd;
+	fd = open (fname, O_RDONLY, 0);
+	if (fd < 0)
+#endif
+	  return fd;
+      }
 
     if (!inc) {
       /* FNAME was not in include_hashtab; insert a new entry.  */
@@ -5194,7 +5401,7 @@ static char *
 check_precompiled (pcf, st, fname, limit)
      int pcf;
      struct stat *st;
-     char *fname;
+     char *fname ATTRIBUTE_UNUSED;
      char **limit;
 {
   int length = 0;
@@ -6078,6 +6285,25 @@ collect_expansion (buf, end, nargs, arglist)
       }
     }
 
+#ifdef MULTIBYTE_CHARS
+    /* Handle multibyte characters inside string and character literals.  */
+    if (expected_delimiter != '\0')
+      {
+	int length;
+	--p;
+	length = local_mblen (p, limit - p);
+	if (length > 1)
+	  {
+	    --exp_p;
+	    bcopy (p, exp_p, length);
+	    p += length;
+	    exp_p += length;
+	    continue;
+	  }
+	++p;
+      }
+#endif
+
     /* Handle the start of a symbol.  */
     if (is_idchar[c] && nargs > 0) {
       U_CHAR *id_beg = p - 1;
@@ -6190,8 +6416,8 @@ collect_expansion (buf, end, nargs, arglist)
 static int
 do_assert (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
-     FILE_BUF *op;
-     struct directive *keyword;
+     FILE_BUF *op ATTRIBUTE_UNUSED;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   U_CHAR *bp;			/* temp ptr into input buffer */
   U_CHAR *symname;		/* remember where symbol name starts */
@@ -6267,8 +6493,8 @@ do_assert (buf, limit, op, keyword)
 static int
 do_unassert (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
-     FILE_BUF *op;
-     struct directive *keyword;
+     FILE_BUF *op ATTRIBUTE_UNUSED;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   U_CHAR *bp;			/* temp ptr into input buffer */
   U_CHAR *symname;		/* remember where symbol name starts */
@@ -6599,7 +6825,7 @@ static int
 do_line (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
      FILE_BUF *op;
-     struct directive *keyword;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   register U_CHAR *bp;
   FILE_BUF *ip = &instack[indepth];
@@ -6788,8 +7014,8 @@ do_undef (buf, limit, op, keyword)
 static int
 do_error (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
-     FILE_BUF *op;
-     struct directive *keyword;
+     FILE_BUF *op ATTRIBUTE_UNUSED;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   int length = limit - buf;
   U_CHAR *copy = (U_CHAR *) alloca (length + 1);
@@ -6807,8 +7033,8 @@ do_error (buf, limit, op, keyword)
 static int
 do_warning (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
-     FILE_BUF *op;
-     struct directive *keyword;
+     FILE_BUF *op ATTRIBUTE_UNUSED;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   int length = limit - buf;
   U_CHAR *copy = (U_CHAR *) alloca (length + 1);
@@ -6846,7 +7072,7 @@ static int
 do_ident (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
      FILE_BUF *op;
-     struct directive *keyword;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   FILE_BUF trybuf;
   int len;
@@ -6875,9 +7101,9 @@ do_ident (buf, limit, op, keyword)
 
 static int
 do_pragma (buf, limit, op, keyword)
-     U_CHAR *buf, *limit;
-     FILE_BUF *op;
-     struct directive *keyword;
+     U_CHAR *buf, *limit ATTRIBUTE_UNUSED;
+     FILE_BUF *op ATTRIBUTE_UNUSED;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   SKIP_WHITE_SPACE (buf);
   if (!strncmp ((char *) buf, "once", 4)) {
@@ -6946,9 +7172,9 @@ nope:
 
 static int
 do_sccs (buf, limit, op, keyword)
-     U_CHAR *buf, *limit;
-     FILE_BUF *op;
-     struct directive *keyword;
+     U_CHAR *buf ATTRIBUTE_UNUSED, *limit ATTRIBUTE_UNUSED;
+     FILE_BUF *op ATTRIBUTE_UNUSED;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   if (pedantic)
     pedwarn ("ANSI C does not allow `#sccs'");
@@ -6972,7 +7198,7 @@ static int
 do_if (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
      FILE_BUF *op;
-     struct directive *keyword;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   HOST_WIDE_INT value;
   FILE_BUF *ip = &instack[indepth];
@@ -6989,7 +7215,7 @@ static int
 do_elif (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
      FILE_BUF *op;
-     struct directive *keyword;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   HOST_WIDE_INT value;
   FILE_BUF *ip = &instack[indepth];
@@ -7304,9 +7530,27 @@ skip_if_group (ip, any, op)
 	    bp += 2;
 	  else if (*bp == '/' && bp[1] == '*') {
 	    bp += 2;
-	    while (!(*bp == '*' && bp[1] == '/'))
-	      bp++;
-	    bp += 2;
+	    while (1)
+	      {
+		if (*bp == '*')
+		  {
+		    if (bp[1] == '/')
+		      {
+			bp += 2;
+			break;
+		      }
+		  }
+		else
+		  {
+#ifdef MULTIBYTE_CHARS
+		    int length;
+		    length = local_mblen (bp, endb - bp);
+		    if (length > 1)
+		      bp += (length - 1);
+#endif
+		  }
+		bp++;
+	      }
 	  }
 	  /* There is no point in trying to deal with C++ // comments here,
 	     because if there is one, then this # must be part of the
@@ -7350,6 +7594,15 @@ skip_if_group (ip, any, op)
 		if (bp[1] == '/')
 		  break;
 	      }
+	      else
+		{
+#ifdef MULTIBYTE_CHARS
+		  int length;
+		  length = local_mblen (bp, endb - bp);
+		  if (length > 1)
+		    bp += (length - 1);
+#endif
+		}
 	    }
 	    bp += 2;
 	  } else if (bp[1] == '/' && cplusplus_comments) {
@@ -7361,6 +7614,15 @@ skip_if_group (ip, any, op)
 		  warning ("multiline `//' comment");
 		ip->lineno++;
 	      }
+	      else
+		{
+#ifdef MULTIBYTE_CHARS
+		  int length;
+		  length = local_mblen (bp, endb - bp);
+		  if (length > 1)
+		    bp += (length - 1);
+#endif
+		}
 	    }
 	  } else
 	    break;
@@ -7522,7 +7784,7 @@ static int
 do_else (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
      FILE_BUF *op;
-     struct directive *keyword;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   FILE_BUF *ip = &instack[indepth];
 
@@ -7569,7 +7831,7 @@ static int
 do_endif (buf, limit, op, keyword)
      U_CHAR *buf, *limit;
      FILE_BUF *op;
-     struct directive *keyword;
+     struct directive *keyword ATTRIBUTE_UNUSED;
 {
   if (pedantic) {
     SKIP_WHITE_SPACE (buf);
@@ -7656,6 +7918,15 @@ validate_else (p, limit)
 	      break;
 	    }
 	  }
+	  else
+	    {
+#ifdef MULTIBYTE_CHARS
+	      int length;
+	      length = local_mblen (p, limit - p);
+	      if (length > 1)
+		p += (length - 1);
+#endif
+	    }
 	}
       }
       else if (cplusplus_comments && p[1] == '/')
@@ -7709,6 +7980,22 @@ skip_to_end_of_comment (ip, line_counter, nowarn)
 	if (op)
 	  ++op->lineno;
       }
+      else
+	{
+#ifdef MULTIBYTE_CHARS
+	  int length;
+	  length = local_mblen (bp, limit - bp);
+	  if (length > 1)
+	    {
+	      if (op)
+		{
+		  bcopy (bp, op->bufp, length - 1);
+		  op->bufp += (length - 1);
+		}
+	      bp += (length - 1);
+	    }
+#endif
+	}
       if (op)
 	*op->bufp++ = *bp;
     }
@@ -7746,6 +8033,23 @@ skip_to_end_of_comment (ip, line_counter, nowarn)
 	return bp;
       }
       break;
+#ifdef MULTIBYTE_CHARS
+    default:
+      {
+	int length;
+	bp--;
+	length = local_mblen (bp, limit - bp);
+	if (length <= 0)
+	  length = 1;
+	if (op)
+	  {
+	    op->bufp--;
+	    bcopy (bp, op->bufp, length);
+	    op->bufp += length;
+	  }
+	bp += length;
+      }
+#endif
     }
   }
 
@@ -7836,6 +8140,16 @@ skip_quoted_string (bp, limit, start_line, count_newlines, backslash_newlines_p,
       }
     } else if (c == match)
       break;
+#ifdef MULTIBYTE_CHARS
+    {
+      int length;
+      --bp;
+      length = local_mblen (bp, limit - bp);
+      if (length <= 0)
+	length = 1;
+      bp += length;
+    }
+#endif
   }
   return bp;
 }
@@ -8273,9 +8587,23 @@ macroexpand (hp, op)
 	    else {
 	      if (c == '\\')
 		escaped = 1;
-	      if (in_string) {
+	      else if (in_string) {
 		if (c == in_string)
 		  in_string = 0;
+		else
+		  {
+#ifdef MULTIBYTE_CHARS
+		    int length;
+		    length = local_mblen (arg->raw + i, arglen - i);
+		    if (length > 1)
+		      {
+			bcopy (arg->raw + i, xbuf + totlen, length);
+			i += length - 1;
+			totlen += length;
+			continue;
+		      }
+#endif
+		  }
 	      } else if (c == '\"' || c == '\'')
 		in_string = c;
 	    }
@@ -8609,6 +8937,15 @@ macarg1 (start, limit, macro, depthptr, newlines, comments, rest_args)
 	      break;
 	    }
 	  }
+	  else
+	    {
+#ifdef MULTIBYTE_CHARS
+	      int length;
+	      length = local_mblen (bp, limit - bp);
+	      if (length > 1)
+		bp += (length - 1);
+#endif
+	    }
 	}
       } else if (bp[1] == '/' && cplusplus_comments) {
 	*comments = 1;
@@ -8620,6 +8957,15 @@ macarg1 (start, limit, macro, depthptr, newlines, comments, rest_args)
 	    if (warn_comments)
 	      warning ("multiline `//' comment");
 	  }
+	  else
+	    {
+#ifdef MULTIBYTE_CHARS
+	      int length;
+	      length = local_mblen (bp, limit - bp);
+	      if (length > 1)
+		bp += (length - 1);
+#endif
+	    }
 	}
       }
       break;
@@ -8643,6 +8989,15 @@ macarg1 (start, limit, macro, depthptr, newlines, comments, rest_args)
 	    if (quotec == '\'')
 	      break;
 	  }
+	  else
+	    {
+#ifdef MULTIBYTE_CHARS
+	      int length;
+	      length = local_mblen (bp, limit - bp);
+	      if (length > 1)
+		bp += (length - 1);
+#endif
+	    }
 	}
       }
       break;
@@ -8720,8 +9075,23 @@ discard_comments (start, length, newlines)
 	/* Comments are equivalent to spaces.  */
 	obp[-1] = ' ';
 	ibp++;
-	while (ibp < limit && (*ibp != '\n' || ibp[-1] == '\\'))
-	  ibp++;
+	while (ibp < limit)
+	  {
+	    if (*ibp == '\n')
+	      {
+		if (ibp[-1] != '\\')
+		  break;
+	      }
+	    else
+	      {
+#ifdef MULTIBYTE_CHARS
+		int length = local_mblen (ibp, limit - ibp);
+		if (length > 1)
+		  ibp += (length - 1);
+#endif
+	      }
+	    ibp++;
+	  }
 	break;
       }
       if (ibp[0] != '*' || ibp + 1 >= limit)
@@ -8741,6 +9111,14 @@ discard_comments (start, length, newlines)
 	    break;
 	  }
 	}
+	else
+	  {
+#ifdef MULTIBYTE_CHARS
+	    int length = local_mblen (ibp, limit - ibp);
+	    if (length > 1)
+	      ibp += (length - 1);
+#endif
+	  }
       }
       break;
 
@@ -8755,9 +9133,12 @@ discard_comments (start, length, newlines)
 	  *obp++ = c = *ibp++;
 	  if (c == quotec)
 	    break;
-	  if (c == '\n' && quotec == '\'')
-	    break;
-	  if (c == '\\') {
+	  if (c == '\n')
+	    {
+	      if (quotec == '\'')
+		break;
+	    }
+	  else if (c == '\\') {
 	    if (ibp < limit && *ibp == '\n') {
 	      ibp++;
 	      obp--;
@@ -8768,6 +9149,23 @@ discard_comments (start, length, newlines)
 		*obp++ = *ibp++;
 	    }
 	  }
+	  else
+	    {
+#ifdef MULTIBYTE_CHARS
+	      int length;
+	      ibp--;
+	      length = local_mblen (ibp, limit - ibp);
+	      if (length > 1)
+		{
+		  obp--;
+		  bcopy (ibp, obp, length);
+		  ibp += length;
+		  obp += length;
+		}
+	      else
+		ibp++;
+#endif
+	    }
 	}
       }
       break;
@@ -8817,10 +9215,33 @@ change_newlines (start, length)
 	int quotec = c;
 	while (ibp < limit) {
 	  *obp++ = c = *ibp++;
-	  if (c == quotec && ibp[-2] != '\\')
-	    break;
-	  if (c == '\n' && quotec == '\'')
-	    break;
+	  if (c == quotec)
+	    {
+	      if (ibp[-2] != '\\')
+		break;
+	    }
+	  else if (c == '\n')
+	    {
+	      if (quotec == '\'')
+		break;
+	    }
+	  else
+	    {
+#ifdef MULTIBYTE_CHARS
+	      int length;
+	      ibp--;
+	      length = local_mblen (ibp, limit - ibp);
+	      if (length > 1)
+		{
+		  obp--;
+		  bcopy (ibp, obp, length);
+		  ibp += length;
+		  obp += length;
+		}
+	      else
+		ibp++;
+#endif
+	    }
 	}
       }
       break;
@@ -8833,7 +9254,7 @@ change_newlines (start, length)
 /* my_strerror - return the descriptive text associated with an
    `errno' code.  */
 
-char *
+static char *
 my_strerror (errnum)
      int errnum;
 {
@@ -9147,14 +9568,7 @@ pedwarn_with_file_and_line VPROTO ((char *file, size_t file_len, int line,
 
   if (!pedantic_errors && inhibit_warnings)
     return;
-  if (file) {
-    eprint_string (file, file_len);
-    fprintf (stderr, ":%d: ", line);
-  }
-  if (pedantic_errors)
-    errors++;
-  if (!pedantic_errors)
-    fprintf (stderr, "warning: ");
+
   VA_START (args, msg);
  
 #ifndef __STDC__
@@ -9164,6 +9578,15 @@ pedwarn_with_file_and_line VPROTO ((char *file, size_t file_len, int line,
   msg = va_arg (args, char *);
 #endif
  
+  if (file) {
+    eprint_string (file, file_len);
+    fprintf (stderr, ":%d: ", line);
+  }
+  if (pedantic_errors)
+    errors++;
+  if (!pedantic_errors)
+    fprintf (stderr, "warning: ");
+
   vfprintf (stderr, msg, args);
   va_end (args);
   fprintf (stderr, "\n");
@@ -9976,7 +10399,12 @@ new_include_prefix (prev_file_name, component, prefix, name)
       if (len == 1 && dir->fname[len - 1] == '.')
 	len = 0;
       else
+#ifdef VMS
+	/* must be '/', hack_vms_include_specification triggers on it.  */
+	dir->fname[len++] = '/';
+#else
 	dir->fname[len++] = DIR_SEPARATOR;
+#endif
       dir->fname[len] = 0;
     }
 
@@ -10224,7 +10652,7 @@ pfatal_with_name (name)
 static void
 pipe_closed (signo)
      /* If this is missing, some compilers complain.  */
-     int signo;
+     int signo ATTRIBUTE_UNUSED;
 {
   fatal ("output pipe has been closed");
 }
@@ -10281,31 +10709,84 @@ savestring (input)
 
 #ifdef VMS
 
-/* Under VMS we need to fix up the "include" specification filename so
-   that everything following the 1st slash is changed into its correct
-   VMS file specification.  */
+/* Under VMS we need to fix up the "include" specification filename.
 
-static void
-hack_vms_include_specification (fname, vaxc_include)
-     char *fname;
+   Rules for possible conversions
+
+	fullname		tried paths
+
+	name			name
+	./dir/name		[.dir]name
+	/dir/name		dir:name
+	/name			[000000]name, name
+	dir/name		dir:[000000]name, dir:name, dir/name
+	dir1/dir2/name		dir1:[dir2]name, dir1:[000000.dir2]name
+	path:/name		path:[000000]name, path:name
+	path:/dir/name		path:[000000.dir]name, path:[dir]name
+	path:dir/name		path:[dir]name
+	[path]:[dir]name	[path.dir]name
+	path/[dir]name		[path.dir]name
+
+   The path:/name input is constructed when expanding <> includes.
+
+   return 1 if name was changed, 0 else.  */
+
+static int
+hack_vms_include_specification (fullname, vaxc_include)
+     char *fullname;
      int vaxc_include;
 {
-  register char *cp, *cp1, *cp2;
-  int f, check_filename_before_returning;
+  register char *basename, *unixname, *local_ptr, *first_slash;
+  int f, check_filename_before_returning, must_revert;
   char Local[512];
 
   check_filename_before_returning = 0;
+  must_revert = 0;
+  /* See if we can find a 1st slash. If not, there's no path information.  */
+  first_slash = index (fullname, '/');
+  if (first_slash == 0)
+    return 0;				/* Nothing to do!!! */
 
-  cp = base_name (fname);
+  /* construct device spec if none given.  */
+
+  if (index (fullname, ':') == 0)
+    {
+
+      /* If fullname has a slash, take it as device spec.  */
+
+      if (first_slash == fullname)
+	{
+	  first_slash = index (fullname+1, '/');	/* 2nd slash ? */
+	  if (first_slash)
+	    *first_slash = ':';				/* make device spec  */
+	  for (basename = fullname; *basename != 0; basename++)
+	    *basename = *(basename+1);			/* remove leading slash  */
+	}
+      else if ((first_slash[-1] != '.')		/* keep ':/', './' */
+	    && (first_slash[-1] != ':')
+	    && (first_slash[-1] != ']'))	/* or a vms path  */
+	{
+	  *first_slash = ':';
+	}
+      else if ((first_slash[1] == '[')		/* skip './' in './[dir'  */
+	    && (first_slash[-1] == '.'))
+	fullname += 2;
+    }
+
+  /* Get part after first ':' (basename[-1] == ':')
+     or last '/' (basename[-1] == '/').  */
+
+  basename = base_name (fullname);
 
   /*
    * Check if we have a vax-c style '#include filename'
    * and add the missing .h
    */
-  if (vaxc_include && !index (cp,'.'))
-    strcat (cp, ".h");
 
-  cp2 = Local;			/* initialize */
+  if (vaxc_include && !index (basename,'.'))
+    strcat (basename, ".h");
+
+  local_ptr = Local;			/* initialize */
 
   /* We are trying to do a number of things here.  First of all, we are
      trying to hammer the filenames into a standard format, such that later
@@ -10318,112 +10799,195 @@ hack_vms_include_specification (fname, vaxc_include)
      If no device is specified, then the first directory name is taken to be
      a device name (or a rooted logical).  */
 
-  /* See if we found that 1st slash */
-  if (cp == 0) return;		/* Nothing to do!!! */
-  if (*cp != '/') return;	/* Nothing to do!!! */
-  /* Point to the UNIX filename part (which needs to be fixed!) */
-  cp1 = cp+1;
-  /* If the directory spec is not rooted, we can just copy
-     the UNIX filename part and we are done */
-  if (((cp - fname) > 1) && ((cp[-1] == ']') || (cp[-1] == '>'))) {
-    if (cp[-2] != '.') {
-      /*
-       * The VMS part ends in a `]', and the preceding character is not a `.'.
-       * We strip the `]', and then splice the two parts of the name in the
-       * usual way.  Given the default locations for include files in cccp.c,
-       * we will only use this code if the user specifies alternate locations
-       * with the /include (-I) switch on the command line.  */
-      cp -= 1;			/* Strip "]" */
-      cp1--;			/* backspace */
-    } else {
-      /*
-       * The VMS part has a ".]" at the end, and this will not do.  Later
-       * processing will add a second directory spec, and this would be a syntax
-       * error.  Thus we strip the ".]", and thus merge the directory specs.
-       * We also backspace cp1, so that it points to a '/'.  This inhibits the
-       * generation of the 000000 root directory spec (which does not belong here
-       * in this case).
-       */
-      cp -= 2;			/* Strip ".]" */
-      cp1--; };			/* backspace */
-  } else {
+  /* Point to the UNIX filename part (which needs to be fixed!)
+     but skip vms path information.
+     [basename != fullname since first_slash != 0].  */
 
-    /* We drop in here if there is no VMS style directory specification yet.
-     * If there is no device specification either, we make the first dir a
-     * device and try that.  If we do not do this, then we will be essentially
-     * searching the users default directory (as if they did a #include "asdf.h").
-     *
-     * Then all we need to do is to push a '[' into the output string. Later
-     * processing will fill this in, and close the bracket.
-     */
-    if (cp[-1] != ':') *cp2++ = ':'; /* dev not in spec.  take first dir */
-    *cp2++ = '[';		/* Open the directory specification */
-  }
+  if ((basename[-1] == ':')		/* vms path spec.  */
+      || (basename[-1] == ']')
+      || (basename[-1] == '>'))
+    unixname = basename;
+  else
+    unixname = fullname;
+
+  if (*unixname == '/')
+    unixname++;
+
+  /* If the directory spec is not rooted, we can just copy
+     the UNIX filename part and we are done.  */
+
+  if (((basename - fullname) > 1)
+     && (  (basename[-1] == ']')
+        || (basename[-1] == '>')))
+    {
+      if (basename[-2] != '.')
+	{
+
+	/* The VMS part ends in a `]', and the preceding character is not a `.'.
+	   -> PATH]:/name (basename = '/name', unixname = 'name')
+	   We strip the `]', and then splice the two parts of the name in the
+	   usual way.  Given the default locations for include files in cccp.c,
+	   we will only use this code if the user specifies alternate locations
+	   with the /include (-I) switch on the command line.  */
+
+	  basename -= 1;	/* Strip "]" */
+	  unixname--;		/* backspace */
+	}
+      else
+	{
+
+	/* The VMS part has a ".]" at the end, and this will not do.  Later
+	   processing will add a second directory spec, and this would be a syntax
+	   error.  Thus we strip the ".]", and thus merge the directory specs.
+	   We also backspace unixname, so that it points to a '/'.  This inhibits the
+	   generation of the 000000 root directory spec (which does not belong here
+	   in this case).  */
+
+	  basename -= 2;	/* Strip ".]" */
+	  unixname--;		/* backspace */
+	}
+    }
+
+  else
+
+    {
+
+      /* We drop in here if there is no VMS style directory specification yet.
+         If there is no device specification either, we make the first dir a
+         device and try that.  If we do not do this, then we will be essentially
+         searching the users default directory (as if they did a #include "asdf.h").
+        
+         Then all we need to do is to push a '[' into the output string. Later
+         processing will fill this in, and close the bracket.  */
+
+      if ((unixname != fullname)	/* vms path spec found.  */
+	 && (basename[-1] != ':'))
+	*local_ptr++ = ':';		/* dev not in spec.  take first dir */
+
+      *local_ptr++ = '[';		/* Open the directory specification */
+    }
+
+    if (unixname == fullname)		/* no vms dir spec.  */
+      {
+	must_revert = 1;
+	if ((first_slash != 0)		/* unix dir spec.  */
+	    && (*unixname != '/')	/* not beginning with '/'  */
+	    && (*unixname != '.'))	/* or './' or '../'  */
+	  *local_ptr++ = '.';		/* dir is local !  */
+      }
 
   /* at this point we assume that we have the device spec, and (at least
      the opening "[" for a directory specification.  We may have directories
-     specified already */
+     specified already.
 
-  /* If there are no other slashes then the filename will be
+     If there are no other slashes then the filename will be
      in the "root" directory.  Otherwise, we need to add
      directory specifications.  */
-  if (index (cp1, '/') == 0) {
-    /* Just add "000000]" as the directory string */
-    strcpy (cp2, "000000]");
-    cp2 += strlen (cp2);
-    check_filename_before_returning = 1; /* we might need to fool with this later */
-  } else {
-    /* As long as there are still subdirectories to add, do them.  */
-    while (index (cp1, '/') != 0) {
-      /* If this token is "." we can ignore it */
-      if ((cp1[0] == '.') && (cp1[1] == '/')) {
-	cp1 += 2;
-	continue;
-      }
-      /* Add a subdirectory spec. Do not duplicate "." */
-      if (cp2[-1] != '.' && cp2[-1] != '[' && cp2[-1] != '<')
-	*cp2++ = '.';
-      /* If this is ".." then the spec becomes "-" */
-      if ((cp1[0] == '.') && (cp1[1] == '.') && (cp[2] == '/')) {
-	/* Add "-" and skip the ".." */
-	*cp2++ = '-';
-	cp1 += 3;
-	continue;
-      }
-      /* Copy the subdirectory */
-      while (*cp1 != '/') *cp2++= *cp1++;
-      cp1++;			/* Skip the "/" */
+
+  if (index (unixname, '/') == 0)
+    {
+      /* if no directories specified yet and none are following.  */
+      if (local_ptr[-1] == '[')
+	{
+	  /* Just add "000000]" as the directory string */
+	  strcpy (local_ptr, "000000]");
+	  local_ptr += strlen (local_ptr);
+	  check_filename_before_returning = 1; /* we might need to fool with this later */
+	}
     }
-    /* Close the directory specification */
-    if (cp2[-1] == '.')		/* no trailing periods */
-      cp2--;
-    *cp2++ = ']';
-  }
-  /* Now add the filename */
-  while (*cp1) *cp2++ = *cp1++;
-  *cp2 = 0;
+  else
+    {
+
+      /* As long as there are still subdirectories to add, do them.  */
+      while (index (unixname, '/') != 0)
+	{
+	  /* If this token is "." we can ignore it
+	       if it's not at the beginning of a path.  */
+	  if ((unixname[0] == '.') && (unixname[1] == '/'))
+	    {
+	      /* remove it at beginning of path.  */
+	      if (  ((unixname == fullname)		/* no device spec  */
+		    && (fullname+2 != basename))	/* starts with ./ */
+							/* or  */
+		 || ((basename[-1] == ':')		/* device spec  */
+		    && (unixname-1 == basename)))	/* and ./ afterwards  */
+		*local_ptr++ = '.';		 	/* make '[.' start of path.  */
+	      unixname += 2;
+	      continue;
+	    }
+
+	  /* Add a subdirectory spec. Do not duplicate "." */
+	  if (  local_ptr[-1] != '.'
+	     && local_ptr[-1] != '['
+	     && local_ptr[-1] != '<')
+	    *local_ptr++ = '.';
+
+	  /* If this is ".." then the spec becomes "-" */
+	  if (  (unixname[0] == '.')
+	     && (unixname[1] == '.')
+	     && (unixname[2] == '/'))
+	    {
+	      /* Add "-" and skip the ".." */
+	      if ((local_ptr[-1] == '.')
+		  && (local_ptr[-2] == '['))
+		local_ptr--;			/* prevent [.-  */
+	      *local_ptr++ = '-';
+	      unixname += 3;
+	      continue;
+	    }
+
+	  /* Copy the subdirectory */
+	  while (*unixname != '/')
+	    *local_ptr++= *unixname++;
+
+	  unixname++;			/* Skip the "/" */
+	}
+
+      /* Close the directory specification */
+      if (local_ptr[-1] == '.')		/* no trailing periods */
+	local_ptr--;
+
+      if (local_ptr[-1] == '[')		/* no dir needed */
+	local_ptr--;
+      else
+	*local_ptr++ = ']';
+    }
+
+  /* Now add the filename.  */
+
+  while (*unixname)
+    *local_ptr++ = *unixname++;
+  *local_ptr = 0;
+
   /* Now append it to the original VMS spec.  */
-  strcpy (cp, Local);
+
+  strcpy ((must_revert==1)?fullname:basename, Local);
 
   /* If we put a [000000] in the filename, try to open it first. If this fails,
      remove the [000000], and return that name.  This provides flexibility
      to the user in that they can use both rooted and non-rooted logical names
      to point to the location of the file.  */
 
-  if (check_filename_before_returning) {
-    f = open (fname, O_RDONLY, 0666);
-    if (f >= 0) {
-      /* The file name is OK as it is, so return it as is.  */
-      close (f);
-      return;
+  if (check_filename_before_returning)
+    {
+      f = open (fullname, O_RDONLY, 0666);
+      if (f >= 0)
+	{
+	  /* The file name is OK as it is, so return it as is.  */
+	  close (f);
+	  return 1;
+	}
+
+      /* The filename did not work.  Try to remove the [000000] from the name,
+	 and return it.  */
+
+      basename = index (fullname, '[');
+      local_ptr = index (fullname, ']') + 1;
+      strcpy (basename, local_ptr);		/* this gets rid of it */
+
     }
-    /* The filename did not work.  Try to remove the [000000] from the name,
-       and return it.  */
-    cp = index (fname, '[');
-    cp2 = index (fname, ']') + 1;
-    strcpy (cp, cp2);		/* this gets rid of it */
-  }
-  return;
+
+  return 1;
 }
 #endif	/* VMS */
 

@@ -96,12 +96,6 @@ Boston, MA 02111-1307, USA.  */
 
 
 #include "hconfig.h"
-/* varargs must always be included after *config.h.  */
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include "system.h"
 #include "rtl.h"
 #include "insn-config.h"	/* For REGISTER_CONSTRAINTS */
@@ -125,7 +119,7 @@ struct obstack *temp_obstack = &obstack2;
 /* Define this so we can link with print-rtl.o to get debug_rtx function.  */
 char **insn_name_ptr = 0;
 
-static void fatal ();
+static void fatal PVPROTO ((char *, ...)) ATTRIBUTE_PRINTF_1;
 void fancy_abort PROTO((void));
 
 /* enough space to reserve for printing out ints */
@@ -178,11 +172,13 @@ struct attr_desc
 {
   char *name;			/* Name of attribute.  */
   struct attr_desc *next;	/* Next attribute.  */
-  int is_numeric;		/* Values of this attribute are numeric.  */
-  int negative_ok;		/* Allow negative numeric values.  */
-  int unsigned_p;		/* Make the output function unsigned int.  */
-  int is_const;			/* Attribute value constant for each run.  */
-  int is_special;		/* Don't call `write_attr_set'.  */
+  unsigned is_numeric	: 1;	/* Values of this attribute are numeric.  */
+  unsigned negative_ok	: 1;	/* Allow negative numeric values.  */
+  unsigned unsigned_p	: 1;	/* Make the output function unsigned int.  */
+  unsigned is_const	: 1;	/* Attribute value constant for each run.  */
+  unsigned is_special	: 1;	/* Don't call `write_attr_set'.  */
+  unsigned func_units_p	: 1;	/* this is the function_units attribute */
+  unsigned blockage_p	: 1;	/* this is the blockage range function */
   struct attr_value *first_value; /* First value of this attribute.  */
   struct attr_value *default_val; /* Default value for this attribute.  */
 };
@@ -339,7 +335,9 @@ static char *alternative_name;
 
 int reload_completed = 0;
 
-/* Similarly since PRESERVE_DEATH_INFO_REGNO_P might reference "optimize".  */
+/* Some machines test `optimize' in macros called from rtlanal.c, so we need
+   to define it here.  */
+
 int optimize = 0;
 
 /* Simplify an expression.  Only call the routine if there is something to
@@ -435,6 +433,7 @@ static void write_attr_set	PROTO((struct attr_desc *, int, rtx, char *,
 				       char *, rtx, int, int));
 static void write_attr_case	PROTO((struct attr_desc *, struct attr_value *,
 				       int, char *, char *, int, rtx));
+static void write_unit_name	PROTO((char *, int, char *));
 static void write_attr_valueq	PROTO((struct attr_desc *, char *));
 static void write_attr_value	PROTO((struct attr_desc *, rtx));
 static void write_upcase	PROTO((char *));
@@ -952,12 +951,12 @@ check_attr_test (exp, is_const)
 		  return exp;
 		}
 	      else
-		fatal ("Unknown attribute `%s' in EQ_ATTR", XEXP (exp, 0));
+		fatal ("Unknown attribute `%s' in EQ_ATTR", XSTR (exp, 0));
 	    }
 
 	  if (is_const && ! attr->is_const)
 	    fatal ("Constant expression uses insn attribute `%s' in EQ_ATTR",
-		   XEXP (exp, 0));
+		   XSTR (exp, 0));
 
 	  /* Copy this just to make it permanent,
 	     so expressions using it can be permanent too.  */
@@ -974,7 +973,7 @@ check_attr_test (exp, is_const)
 	      for (p = XSTR (exp, 1); *p; p++)
 		if (*p < '0' || *p > '9')
 		   fatal ("Attribute `%s' takes only numeric values", 
-			  XEXP (exp, 0));
+			  XSTR (exp, 0));
 	    }
 	  else
 	    {
@@ -985,7 +984,7 @@ check_attr_test (exp, is_const)
 
 	      if (av == NULL)
 		fatal ("Unknown value `%s' for `%s' attribute",
-		       XEXP (exp, 1), XEXP (exp, 0));
+		       XSTR (exp, 1), XSTR (exp, 0));
 	    }
 	}
       else
@@ -1909,7 +1908,7 @@ expand_units ()
       unitsmask = attr_rtx (FFS, unitsmask);
     }
 
-  make_internal_attr ("*function_units_used", unitsmask, 2);
+  make_internal_attr ("*function_units_used", unitsmask, 10);
 
   /* Create an array of ops for each unit.  Add an extra unit for the
      result_ready_cost function that has the ops of all other units.  */
@@ -2122,13 +2121,13 @@ expand_units ()
 	  if (unit->needs_range_function)
 	    {
 	      /* Compute the blockage range function and make an attribute
-		 for writing it's value.  */
+		 for writing its value.  */
 	      newexp = operate_exp (RANGE_OP, min_blockage, max_blockage);
 	      newexp = simplify_knowing (newexp, unit->condexp);
 
 	      str = attr_printf (strlen (unit->name) + sizeof ("*_unit_blockage_range"),
 				 "*%s_unit_blockage_range", unit->name);
-	      make_internal_attr (str, newexp, 4);
+	      make_internal_attr (str, newexp, 20);
 	    }
 
 	  str = attr_printf (strlen (unit->name) + sizeof ("*_unit_ready_cost"),
@@ -2392,7 +2391,7 @@ make_length_attrs ()
 			      "*insn_current_length"};
   static rtx (*no_address_fn[]) PROTO((rtx)) = {identity_fn, zero_fn, zero_fn};
   static rtx (*address_fn[]) PROTO((rtx)) = {max_fn, one_fn, identity_fn};
-  int i;
+  size_t i;
   struct attr_desc *length_attr, *new_attr;
   struct attr_value *av, *new_av;
   struct insn_ent *ie, *new_ie;
@@ -2443,14 +2442,14 @@ identity_fn (exp)
 
 static rtx
 zero_fn (exp)
-     rtx exp;
+     rtx exp ATTRIBUTE_UNUSED;
 {
   return make_numeric_value (0);
 }
 
 static rtx
 one_fn (exp)
-     rtx exp;
+     rtx exp ATTRIBUTE_UNUSED;
 {
   return make_numeric_value (1);
 }
@@ -4401,8 +4400,7 @@ gen_unit (def)
   unit->condexp = insert_right_side (IOR, unit->condexp, op->condexp, -2, -2);
 }
 
-/* Given a piece of RTX, print a C expression to test it's truth value.
-
+/* Given a piece of RTX, print a C expression to test its truth value.
    We use AND and IOR both for logical and bit-wise operations, so 
    interpret them as logical unless they are inside a comparison expression.
    The first bit of FLAGS will be non-zero in that case.
@@ -5177,16 +5175,61 @@ write_toplevel_expr (p)
 /* Utilities to write names in various forms.  */
 
 static void
+write_unit_name (prefix, num, suffix)
+     char *prefix;
+     int num;
+     char *suffix;
+{
+  struct function_unit *unit;
+
+  for (unit = units; unit; unit = unit->next)
+    if (unit->num == num)
+      {
+	printf ("%s%s%s", prefix, unit->name, suffix);
+	return;
+      }
+
+  printf ("%s<unknown>%s", prefix, suffix);
+}
+
+static void
 write_attr_valueq (attr, s)
      struct attr_desc *attr;
      char *s;
 {
   if (attr->is_numeric)
     {
-      printf ("%s", s);
-      /* Make the blockage range values easier to read.  */
-      if (strlen (s) > 1)
-	printf (" /* 0x%x */", atoi (s));
+      int num = atoi (s);
+
+      printf ("%d", num);
+
+      /* Make the blockage range values and function units used values easier
+         to read.  */
+      if (attr->func_units_p)
+	{
+	  if (num == -1)
+	    printf (" /* units: none */");
+	  else if (num >= 0)
+	    write_unit_name (" /* units: ", num, " */");
+	  else
+	    {
+	      int i;
+	      char *sep = " /* units: ";
+	      for (i = 0, num = ~num; num; i++, num >>= 1)
+		if (num & 1)
+		  {
+		    write_unit_name (sep, i, (num == 1) ? " */" : "");
+		    sep = ", ";
+		  }
+	    }
+	}
+
+      else if (attr->blockage_p)
+	printf (" /* min %d, max %d */", num >> (HOST_BITS_PER_INT / 2),
+		num & ((1 << (HOST_BITS_PER_INT / 2)) - 1));
+
+      else if (num > 9 || num < 0)
+	printf (" /* 0x%x */", num);
     }
   else
     {
@@ -5626,6 +5669,8 @@ make_internal_attr (name, value, special)
   attr->is_special = (special & 1) != 0;
   attr->negative_ok = (special & 2) != 0;
   attr->unsigned_p = (special & 4) != 0;
+  attr->func_units_p = (special & 8) != 0;
+  attr->blockage_p = (special & 16) != 0;
   attr->default_val = get_attr_value (value, attr, -2);
 }
 
@@ -5769,12 +5814,22 @@ copy_rtx_unchanging (orig)
 }
 
 static void
-fatal (s, a1, a2)
-     char *s;
-     char *a1, *a2;
+fatal VPROTO ((char *format, ...))
 {
+#ifndef __STDC__
+  char *format;
+#endif
+  va_list ap;
+
+  VA_START (ap, format);
+
+#ifndef __STDC__
+  format = va_arg (ap, char *);
+#endif
+
   fprintf (stderr, "genattrtab: ");
-  fprintf (stderr, s, a1, a2);
+  vfprintf (stderr, format, ap);
+  va_end (ap);
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
@@ -5945,6 +6000,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"real.h\"\n");
   printf ("#include \"output.h\"\n");
   printf ("#include \"insn-attr.h\"\n");
+  printf ("#include \"toplev.h\"\n");
   printf ("\n");  
   printf ("#define operands recog_operand\n\n");
 

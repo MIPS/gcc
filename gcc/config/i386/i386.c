@@ -18,10 +18,9 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA. */
 
-#include <stdio.h>
 #include <setjmp.h>
-#include <ctype.h>
 #include "config.h"
+#include "system.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -38,18 +37,6 @@ Boston, MA 02111-1307, USA. */
 #include "recog.h"
 #include "expr.h"
 #include "toplev.h"
-
-#if HAVE_STDLIB_H
-#include <stdlib.h>                                                
-#endif
-
-#ifdef HAVE_STRING_H
-#include <string.h>                                                   
-#else                                                  
-#ifdef HAVE_STRINGS_H
-#include <strings.h>               
-#endif                                                                   
-#endif 
 
 #ifdef EXTRA_CONSTRAINT
 /* If EXTRA_CONSTRAINT is defined, then the 'S'
@@ -113,7 +100,36 @@ struct processor_costs pentiumpro_cost = {
   17					/* cost of a divide/mod */
 };
 
+struct processor_costs k6_cost = {
+  1,					/* cost of an add instruction */
+  1,					/* cost of a lea instruction */
+  1,					/* variable shift costs */
+  1,					/* constant shift costs */
+  2,					/* cost of starting a multiply */
+  0,					/* cost of multiply per each bit set */
+  18					/* cost of a divide/mod */
+};
+
 struct processor_costs *ix86_cost = &pentium_cost;
+
+/* Processor feature/optimization bitmasks.  */
+#define m_386 (1<<PROCESSOR_I386)
+#define m_486 (1<<PROCESSOR_I486)
+#define m_PENT (1<<PROCESSOR_PENTIUM)
+#define m_PPRO (1<<PROCESSOR_PENTIUMPRO)
+#define m_K6  (1<<PROCESSOR_K6)
+
+const int x86_use_leave = m_386 | m_K6;
+const int x86_push_memory = m_386 | m_K6;
+const int x86_zero_extend_with_and = m_486 | m_PENT;
+const int x86_movx = m_386 | m_PPRO | m_K6;
+const int x86_double_with_add = ~m_386;
+const int x86_use_bit_test = m_386;
+const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO;
+const int x86_use_q_reg = m_PENT | m_PPRO | m_K6;
+const int x86_use_any_reg = m_486;
+const int x86_cmove = m_PPRO;
+const int x86_deep_branch = m_PPRO| m_K6;
 
 #define AT_BP(mode) (gen_rtx_MEM ((mode), frame_pointer_rtx))
 
@@ -142,7 +158,7 @@ enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
   SIREG, DIREG, INDEX_REGS, GENERAL_REGS,
   /* FP registers */
   FP_TOP_REG, FP_SECOND_REG, FLOAT_REGS, FLOAT_REGS,
-  FLOAT_REGS, FLOAT_REGS, FLOAT_REGS, FLOAT_REGS,       
+  FLOAT_REGS, FLOAT_REGS, FLOAT_REGS, FLOAT_REGS,
   /* arg pointer */
   INDEX_REGS
 };
@@ -226,7 +242,8 @@ override_options ()
 	   {PROCESSOR_I686_STRING, PROCESSOR_PENTIUMPRO, &pentiumpro_cost,
 	      0, 0},
 	   {PROCESSOR_PENTIUMPRO_STRING, PROCESSOR_PENTIUMPRO,
-	      &pentiumpro_cost, 0, 0}};
+	      &pentiumpro_cost, 0, 0},
+      	   {PROCESSOR_K6_STRING, PROCESSOR_K6, &k6_cost, 0, 0}};
 
   int ptt_size = sizeof (processor_target_table) / sizeof (struct ptt);
 
@@ -240,7 +257,7 @@ override_options ()
       for (i = 0; (ch = i386_reg_alloc_order[i]) != '\0'; i++)
 	{
 	  int regno = 0;
-	  
+
 	  switch (ch)
 	    {
 	    case 'a':	regno = 0;	break;
@@ -267,7 +284,7 @@ override_options ()
       if (ix86_cpu_string == 0)
 	ix86_cpu_string = PROCESSOR_DEFAULT_STRING;
     }
-  
+
   for (i = 0; i < ptt_size; i++)
     if (! strcmp (ix86_arch_string, processor_target_table[i].name))
       {
@@ -292,7 +309,7 @@ override_options ()
       {
 	ix86_cpu = processor_target_table[j].processor;
 	ix86_cost = processor_target_table[j].cost;
-	if (i > j && (int) ix86_arch >= (int) PROCESSOR_PENTIUMPRO)
+	if (i > j && (int) ix86_arch >= (int) PROCESSOR_K6)
 	  error ("-mcpu=%s does not support -march=%s",
 		 ix86_cpu_string, ix86_arch_string);
 
@@ -332,7 +349,11 @@ override_options ()
 	       i386_align_loops, MAX_CODE_ALIGN);
     }
   else
+#ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
+    i386_align_loops = 4;
+#else
     i386_align_loops = 2;
+#endif
 
   /* Validate -malign-jumps= value, or provide default.  */
   if (i386_align_jumps_string)
@@ -343,7 +364,11 @@ override_options ()
 	       i386_align_jumps, MAX_CODE_ALIGN);
     }
   else
+#ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
+    i386_align_jumps = 4;
+#else
     i386_align_jumps = def_align;
+#endif
 
   /* Validate -malign-functions= value, or provide default. */
   if (i386_align_funcs_string)
@@ -397,7 +422,7 @@ order_regs_for_local_alloc ()
       for (i = order = 0; (ch = i386_reg_alloc_order[i]) != '\0'; i++)
 	{
 	  int regno = 0;
-	  
+
 	  switch (ch)
 	    {
 	    case 'a':	regno = 0;	break;
@@ -430,7 +455,7 @@ order_regs_for_local_alloc ()
 void
 optimization_options (level, size)
      int level;
-     int size;
+     int size ATTRIBUTE_UNUSED;
 {
   /* For -O2 and beyond, turn off -fschedule-insns by default.  It tends to
      make the problem with not enough registers even worse.  */
@@ -507,7 +532,7 @@ i386_aligned_p (op)
 
     case REG:
       return i386_aligned_reg_p (REGNO (op));
-    
+
     default:
       break;
     }
@@ -531,10 +556,10 @@ i386_cc_probably_useless_p (insn)
 
 int
 i386_valid_decl_attribute_p (decl, attributes, identifier, args)
-     tree decl;
-     tree attributes;
-     tree identifier;
-     tree args;
+     tree decl ATTRIBUTE_UNUSED;
+     tree attributes ATTRIBUTE_UNUSED;
+     tree identifier ATTRIBUTE_UNUSED;
+     tree args ATTRIBUTE_UNUSED;
 {
   return 0;
 }
@@ -546,11 +571,12 @@ i386_valid_decl_attribute_p (decl, attributes, identifier, args)
 int
 i386_valid_type_attribute_p (type, attributes, identifier, args)
      tree type;
-     tree attributes;
+     tree attributes ATTRIBUTE_UNUSED;
      tree identifier;
      tree args;
 {
   if (TREE_CODE (type) != FUNCTION_TYPE
+      && TREE_CODE (type) != METHOD_TYPE
       && TREE_CODE (type) != FIELD_DECL
       && TREE_CODE (type) != TYPE_DECL)
     return 0;
@@ -596,8 +622,8 @@ i386_valid_type_attribute_p (type, attributes, identifier, args)
 
 int
 i386_comp_type_attributes (type1, type2)
-     tree type1;
-     tree type2;
+     tree type1 ATTRIBUTE_UNUSED;
+     tree type2 ATTRIBUTE_UNUSED;
 {
   return 1;
 }
@@ -625,27 +651,27 @@ i386_return_pops_args (fundecl, funtype, size)
      tree fundecl;
      tree funtype;
      int size;
-{ 
+{
   int rtd = TARGET_RTD && (!fundecl || TREE_CODE (fundecl) != IDENTIFIER_NODE);
 
     /* Cdecl functions override -mrtd, and never pop the stack. */
   if (! lookup_attribute ("cdecl", TYPE_ATTRIBUTES (funtype))) {
-  
+
     /* Stdcall functions will pop the stack if not variable args. */
     if (lookup_attribute ("stdcall", TYPE_ATTRIBUTES (funtype)))
       rtd = 1;
-  
+
     if (rtd
         && (TYPE_ARG_TYPES (funtype) == NULL_TREE
 	    || (TREE_VALUE (tree_last (TYPE_ARG_TYPES (funtype)))
 		== void_type_node)))
       return size;
   }
-  
+
   /* Lose any fake structure return argument.  */
   if (aggregate_value_p (TREE_TYPE (funtype)))
     return GET_MODE_SIZE (Pmode);
-  
+
     return 0;
 }
 
@@ -810,10 +836,10 @@ function_arg (cum, mode, type, named)
 
 int
 function_arg_partial_nregs (cum, mode, type, named)
-     CUMULATIVE_ARGS *cum;	/* current arg information */
-     enum machine_mode mode;	/* current arg mode */
-     tree type;			/* type of the argument or 0 if lib support */
-     int named;			/* != 0 for normal args, == 0 for ... args */
+     CUMULATIVE_ARGS *cum ATTRIBUTE_UNUSED;	/* current arg information */
+     enum machine_mode mode ATTRIBUTE_UNUSED;	/* current arg mode */
+     tree type ATTRIBUTE_UNUSED;		/* type of the argument or 0 if lib support */
+     int named ATTRIBUTE_UNUSED;		/* != 0 for normal args, == 0 for ... args */
 {
   return 0;
 }
@@ -896,6 +922,17 @@ output_to_reg (dest, dies, scratch_mem)
     {
       if (dies)
 	output_asm_insn (AS1 (fistp%z3,%y0), xops);
+      else if (GET_MODE (xops[3]) == DImode && ! dies)
+	{
+	  /* There is no DImode version of this without a stack pop, so
+	     we must emulate it.  It doesn't matter much what the second
+	     instruction is, because the value being pushed on the FP stack
+	     is not used except for the following stack popping store.
+	     This case can only happen without optimization, so it doesn't
+	     matter that it is inefficient.  */
+	  output_asm_insn (AS1 (fistp%z3,%0), xops);
+	  output_asm_insn (AS1 (fild%z3,%0), xops);
+	}
       else
 	output_asm_insn (AS1 (fist%z3,%y0), xops);
     }
@@ -932,7 +969,7 @@ output_to_reg (dest, dies, scratch_mem)
 	output_asm_insn (AS1 (pop%L0,%0), &dest);
       else
 	{
-	  xops[0] = adj_offsettable_operand (xops[0], 4);	      
+	  xops[0] = adj_offsettable_operand (xops[0], 4);
 	  xops[3] = dest;
 	  output_asm_insn (AS2 (mov%L0,%0,%3), xops);
 	}
@@ -944,7 +981,7 @@ output_to_reg (dest, dies, scratch_mem)
 	    output_asm_insn (AS1 (pop%L0,%0), &dest);
 	  else
 	    {
-	      xops[0] = adj_offsettable_operand (xops[0], 4);	      
+	      xops[0] = adj_offsettable_operand (xops[0], 4);
 	      output_asm_insn (AS2 (mov%L0,%0,%3), xops);
 	    }
 	}
@@ -1150,7 +1187,7 @@ output_move_double (operands)
          middlehalf[0] = operands[0];
          latehalf[0] = operands[0];
 	}
-    
+
       if (optype1 == REGOP)
 	{
           middlehalf[1] = gen_rtx_REG (SImode, REGNO (operands[1]) + 1);
@@ -1370,7 +1407,7 @@ output_move_pushmem (operands, insn, length, tmp_start, n_operands)
       char *push;
       rtx   xops[2];
     } tmp_info[MAX_TMPS];
-  
+
   rtx src = operands[1];
   int max_tmps = 0;
   int offset = 0;
@@ -1579,6 +1616,7 @@ standard_80387_constant_p (x)
   /* Note that on the 80387, other constants, such as pi,
      are much slower to load as standard constants
      than to load from doubles in memory!  */
+  /* ??? Not true on K6: all constants are equal cost.  */
 #endif
 
   return 0;
@@ -1620,7 +1658,7 @@ output_move_const_single (operands)
 int
 symbolic_operand (op, mode)
      register rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   switch (GET_CODE (op))
     {
@@ -1647,7 +1685,7 @@ symbolic_operand (op, mode)
 int
 call_insn_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (op) == MEM
       && ((CONSTANT_ADDRESS_P (XEXP (op, 0))
@@ -1668,7 +1706,7 @@ call_insn_operand (op, mode)
 int
 expander_call_insn_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (op) == MEM
       && (CONSTANT_ADDRESS_P (XEXP (op, 0))
@@ -1704,7 +1742,7 @@ arithmetic_comparison_operator (op, mode)
 int
 ix86_logical_operator (op, mode)
      register rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return GET_CODE (op) == AND || GET_CODE (op) == IOR || GET_CODE (op) == XOR;
 }
@@ -1782,7 +1820,7 @@ ix86_expand_binary_operator (code, mode, operands)
 	  emit_move_insn (temp, operands[1]);
 	  operands[1] = temp;
 	  return TRUE;
-	}	  
+	}
     }
 
   if (!ix86_binary_operator_ok (code, mode, operands))
@@ -1815,7 +1853,7 @@ ix86_expand_binary_operator (code, mode, operands)
 	      emit_move_insn (temp, operands[1]);
 	      operands[1] = temp;
 	      return TRUE;
-	    }	  
+	    }
 
 	  if (modified && ! ix86_binary_operator_ok (code, mode, operands))
 	    return FALSE;
@@ -1833,7 +1871,7 @@ ix86_expand_binary_operator (code, mode, operands)
 int
 ix86_binary_operator_ok (code, mode, operands)
      enum rtx_code code;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
      rtx operands[3];
 {
   return (GET_CODE (operands[1]) != MEM || GET_CODE (operands[2]) != MEM)
@@ -1880,9 +1918,9 @@ ix86_expand_unary_operator (code, mode, operands)
 
 int
 ix86_unary_operator_ok (code, mode, operands)
-     enum rtx_code code;
-     enum machine_mode mode;
-     rtx operands[2];
+     enum rtx_code code ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     rtx operands[2] ATTRIBUTE_UNUSED;
 {
   return TRUE;
 }
@@ -1897,7 +1935,7 @@ static int pic_label_no = 0;
 void
 asm_output_function_prefix (file, name)
      FILE *file;
-     char *name;
+     char *name ATTRIBUTE_UNUSED;
 {
   rtx xops[2];
   int pic_reg_used = flag_pic && (current_function_uses_pic_offset_table
@@ -1919,9 +1957,16 @@ asm_output_function_prefix (file, name)
 
       prologue_node = make_node (FUNCTION_DECL);
       DECL_RESULT (prologue_node) = 0;
-#ifdef ASM_DECLARE_FUNCTION_NAME
-      ASM_DECLARE_FUNCTION_NAME (file, pic_label_name, prologue_node);
-#endif
+
+      /* This used to call ASM_DECLARE_FUNCTION_NAME() but since it's an
+	 internal (non-global) label that's being emitted, it didn't make
+	 sense to have .type information for local labels.   This caused
+	 the SCO OpenServer 5.0.4 ELF assembler grief (why are you giving
+  	 me debug info for a label that you're declaring non-global?) this
+	 was changed to call ASM_OUTPUT_LABEL() instead. */
+
+
+      ASM_OUTPUT_LABEL (file, pic_label_name); 
       output_asm_insn ("movl (%1),%0", xops);
       output_asm_insn ("ret", xops);
     }
@@ -1933,15 +1978,15 @@ asm_output_function_prefix (file, name)
 
 void
 function_prologue (file, size)
-     FILE *file;
-     int size;
+     FILE *file ATTRIBUTE_UNUSED;
+     int size ATTRIBUTE_UNUSED;
 {
   if (TARGET_SCHEDULE_PROLOGUE)
     {
       pic_label_rtx = 0;
       return;
     }
-  
+
   ix86_prologue (0);
 }
 
@@ -1952,7 +1997,7 @@ ix86_expand_prologue ()
 {
   if (! TARGET_SCHEDULE_PROLOGUE)
       return;
- 
+
   ix86_prologue (1);
 }
 
@@ -1979,9 +2024,9 @@ load_pic_register (do_rtl)
       if (do_rtl)
 	{
 	  emit_insn (gen_prologue_get_pc (xops[0], xops[1]));
-	  emit_insn (gen_prologue_set_got (xops[0], 
+	  emit_insn (gen_prologue_set_got (xops[0],
 					   gen_rtx (SYMBOL_REF, Pmode,
-						    "$_GLOBAL_OFFSET_TABLE_"), 
+						    "$_GLOBAL_OFFSET_TABLE_"),
 					   xops[1]));
 	}
       else
@@ -1996,7 +2041,7 @@ load_pic_register (do_rtl)
     {
       xops[0] = pic_offset_table_rtx;
       xops[1] = gen_label_rtx ();
- 
+
       if (do_rtl)
 	{
 	  /* We can't put a raw CODE_LABEL into the RTL, and we can't emit
@@ -2007,12 +2052,12 @@ load_pic_register (do_rtl)
       else
 	{
 	  output_asm_insn (AS1 (call,%P1), xops);
-	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", 
+	  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L",
 				     CODE_LABEL_NUMBER (xops[1]));
 	  output_asm_insn (AS1 (pop%L0,%0), xops);
 	  output_asm_insn ("addl $_GLOBAL_OFFSET_TABLE_+[.-%P1],%0", xops);
 	}
-    } 
+    }
 
   /* When -fpic, we must emit a scheduling barrier, so that the instruction
      that restores %ebx (which is PIC_OFFSET_TABLE_REGNUM), does not get
@@ -2034,7 +2079,7 @@ ix86_prologue (do_rtl)
   long tsize = get_frame_size ();
   rtx insn;
   int cfa_offset = INCOMING_FRAME_SP_OFFSET, cfa_store_offset = cfa_offset;
-  
+
   xops[0] = stack_pointer_rtx;
   xops[1] = frame_pointer_rtx;
   xops[2] = GEN_INT (tsize);
@@ -2056,7 +2101,7 @@ ix86_prologue (do_rtl)
 
       else
 	{
-	  output_asm_insn ("push%L1 %1", xops); 
+	  output_asm_insn ("push%L1 %1", xops);
 #ifdef INCOMING_RETURN_ADDR_RTX
  	  if (dwarf2out_do_frame ())
  	    {
@@ -2069,7 +2114,7 @@ ix86_prologue (do_rtl)
  	    }
 #endif
 
-	  output_asm_insn (AS2 (mov%L0,%0,%1), xops); 
+	  output_asm_insn (AS2 (mov%L0,%0,%1), xops);
 #ifdef INCOMING_RETURN_ADDR_RTX
  	  if (dwarf2out_do_frame ())
  	    dwarf2out_def_cfa ("", FRAME_POINTER_REGNUM, cfa_offset);
@@ -2086,7 +2131,7 @@ ix86_prologue (do_rtl)
 	  insn = emit_insn (gen_prologue_set_stack_ptr (xops[2]));
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
-      else 
+      else
 	{
 	  output_asm_insn (AS2 (sub%L0,%2,%0), xops);
 #ifdef INCOMING_RETURN_ADDR_RTX
@@ -2102,7 +2147,7 @@ ix86_prologue (do_rtl)
 #endif
 	}
     }
-  else 
+  else
     {
       xops[3] = gen_rtx_REG (SImode, 0);
       if (do_rtl)
@@ -2166,6 +2211,10 @@ ix86_prologue (do_rtl)
  	  }
       }
 
+#ifdef SUBTARGET_PROLOGUE
+  SUBTARGET_PROLOGUE;
+#endif  
+
   if (pic_reg_used)
     load_pic_register (do_rtl);
 
@@ -2180,7 +2229,7 @@ ix86_prologue (do_rtl)
 /* Return 1 if it is appropriate to emit `ret' instructions in the
    body of a function.  Do this only if the epilogue is simple, needing a
    couple of insns.  Prior to reloading, we can't tell how many registers
-   must be saved, so return 0 then.  Return 0 if there is no frame 
+   must be saved, so return 0 then.  Return 0 if there is no frame
    marker to de-allocate.
 
    If NON_SAVING_SETJMP is defined and true, then it is not possible
@@ -2221,13 +2270,13 @@ ix86_can_use_return_insn_p ()
 
 void
 function_epilogue (file, size)
-     FILE *file;
-     int size;
+     FILE *file ATTRIBUTE_UNUSED;
+     int size ATTRIBUTE_UNUSED;
 {
     return;
 }
 
-/* Restore function stack, frame, and registers. */ 
+/* Restore function stack, frame, and registers. */
 
 void
 ix86_expand_epilogue ()
@@ -2351,14 +2400,57 @@ ix86_epilogue (do_rtl)
 
   else if (tsize)
     {
-      /* If there is no frame pointer, we must still release the frame. */
-      xops[0] = GEN_INT (tsize);
+      /* Intel's docs say that for 4 or 8 bytes of stack frame one should
+	 use `pop' and not `add'.  */
+      int use_pop = tsize == 4;
 
-      if (do_rtl)
-	emit_insn (gen_rtx (SET, VOIDmode, xops[2],
-			    gen_rtx (PLUS, SImode, xops[2], xops[0])));
+      /* Use two pops only for the Pentium processors.  */
+      if (tsize == 8 && !TARGET_386 && !TARGET_486)
+	{
+	  rtx retval = current_function_return_rtx;
+
+	  xops[1] = gen_rtx_REG (SImode, 1);	/* %edx */
+
+	  /* This case is a bit more complex.  Since we cannot pop into
+	     %ecx twice we need a second register.  But this is only
+	     available if the return value is not of DImode in which
+	     case the %edx register is not available.  */
+	  use_pop = (retval == NULL
+		     || ! reg_overlap_mentioned_p (xops[1], retval));
+	}
+
+      if (use_pop)
+	{
+	  xops[0] = gen_rtx_REG (SImode, 2);	/* %ecx */
+
+	  if (do_rtl)
+	    {
+	      /* We have to prevent the two pops here from being scheduled.
+		 GCC otherwise would try in some situation to put other
+		 instructions in between them which has a bad effect.  */
+	      emit_insn (gen_blockage ());
+	      emit_insn (gen_pop (xops[0]));
+	      if (tsize == 8)
+		emit_insn (gen_pop (xops[1]));
+	    }
+	  else
+	    {
+	      output_asm_insn ("pop%L0 %0", xops);
+	      if (tsize == 8)
+		output_asm_insn ("pop%L1 %1", xops);
+	    }
+	}
       else
-	output_asm_insn (AS2 (add%L2,%0,%2), xops);
+	{
+	  /* If there is no frame pointer, we must still release the frame. */
+	  xops[0] = GEN_INT (tsize);
+
+	  if (do_rtl)
+	    emit_insn (gen_rtx (SET, VOIDmode, xops[2],
+				gen_rtx (PLUS, SImode, xops[2], xops[0])));
+	  else
+	    output_asm_insn (AS2 (add%L2,%0,%2), xops);
+	}
     }
 
 #ifdef FUNCTION_BLOCK_PROFILER_EXIT
@@ -2395,7 +2487,7 @@ ix86_epilogue (do_rtl)
 	      output_asm_insn ("jmp %*%0", xops);
 	    }
 	}
-      else 
+      else
 	{
 	  if (do_rtl)
 	    emit_jump_insn (gen_return_pop_internal (xops[1]));
@@ -2445,6 +2537,37 @@ do {									\
       debug_rtx (insn);							\
     }									\
 } while (0)
+
+static int
+legitimate_pic_address_disp_p (disp)
+     register rtx disp;
+{
+  if (GET_CODE (disp) != CONST)
+    return 0;
+  disp = XEXP (disp, 0);
+
+  if (GET_CODE (disp) == PLUS)
+    {
+      if (GET_CODE (XEXP (disp, 1)) != CONST_INT)
+	return 0;
+      disp = XEXP (disp, 0);
+    }
+
+  if (GET_CODE (disp) != UNSPEC
+      || XVECLEN (disp, 0) != 1)
+    return 0;
+
+  /* Must be @GOT or @GOTOFF.  */
+  if (XINT (disp, 1) != 6
+      && XINT (disp, 1) != 7)
+    return 0;
+
+  if (GET_CODE (XVECEXP (disp, 0, 0)) != SYMBOL_REF
+      && GET_CODE (XVECEXP (disp, 0, 0)) != LABEL_REF)
+    return 0;
+
+  return 1;
+}
 
 int
 legitimate_address_p (mode, addr, strict)
@@ -2607,20 +2730,10 @@ legitimate_address_p (mode, addr, strict)
 	}
     }
 
-  /* Validate displacement
-     Constant pool addresses must be handled special.  They are
-     considered legitimate addresses, but only if not used with regs.
-     When printed, the output routines know to print the reference with the
-     PIC reg, even though the PIC reg doesn't appear in the RTL. */
+  /* Validate displacement.  */
   if (disp)
     {
-      if (GET_CODE (disp) == SYMBOL_REF
-	  && CONSTANT_POOL_ADDRESS_P (disp)
-	  && base == 0
-	  && indx == 0)
-	;
-
-      else if (!CONSTANT_ADDRESS_P (disp))
+      if (!CONSTANT_ADDRESS_P (disp))
 	{
 	  ADDR_INVALID ("Displacement is not valid.\n", disp);
 	  return FALSE;
@@ -2632,20 +2745,32 @@ legitimate_address_p (mode, addr, strict)
 	  return FALSE;
 	}
 
-      else if (flag_pic && SYMBOLIC_CONST (disp)
-	       && base != pic_offset_table_rtx
-	       && (indx != pic_offset_table_rtx || scale != NULL_RTX))
+      if (flag_pic && SYMBOLIC_CONST (disp))
 	{
-	  ADDR_INVALID ("Displacement is an invalid pic reference.\n", disp);
-	  return FALSE;
+	  if (! legitimate_pic_address_disp_p (disp))
+	    {
+	      ADDR_INVALID ("Displacement is an invalid PIC construct.\n",
+			    disp);
+	      return FALSE;
+	    }
+
+	  if (base != pic_offset_table_rtx
+	      && (indx != pic_offset_table_rtx || scale != NULL_RTX))
+	    {
+	      ADDR_INVALID ("PIC displacement against invalid base.\n", disp);
+	      return FALSE;
+	    }
 	}
 
-      else if (HALF_PIC_P () && HALF_PIC_ADDRESS_P (disp)
-	       && (base != NULL_RTX || indx != NULL_RTX))
+      else if (HALF_PIC_P ())
 	{
-	  ADDR_INVALID ("Displacement is an invalid half-pic reference.\n",
-			disp);
-	  return FALSE;
+	  if (! HALF_PIC_ADDRESS_P (disp)
+	      || (base != NULL_RTX || indx != NULL_RTX))
+	    {
+	      ADDR_INVALID ("Displacement is an invalid half-pic reference.\n",
+			    disp);
+	      return FALSE;
+	    }
 	}
     }
 
@@ -2659,29 +2784,20 @@ legitimate_address_p (mode, addr, strict)
 /* Return a legitimate reference for ORIG (an address) using the
    register REG.  If REG is 0, a new pseudo is generated.
 
-   There are three types of references that must be handled:
+   There are two types of references that must be handled:
 
    1. Global data references must load the address from the GOT, via
       the PIC reg.  An insn is emitted to do this load, and the reg is
       returned.
 
-   2. Static data references must compute the address as an offset
-      from the GOT, whose base is in the PIC reg.  An insn is emitted to
-      compute the address into a reg, and the reg is returned.  Static
-      data objects have SYMBOL_REF_FLAG set to differentiate them from
-      global data objects.
-
-   3. Constant pool addresses must be handled special.  They are
-      considered legitimate addresses, but only if not used with regs.
-      When printed, the output routines know to print the reference with the
-      PIC reg, even though the PIC reg doesn't appear in the RTL.
+   2. Static data references, constant pool addresses, and code labels
+      compute the address as an offset from the GOT, whose base is in
+      the PIC reg.  Static data objects have SYMBOL_REF_FLAG set to
+      differentiate them from global data objects.  The returned
+      address is the PIC reg + an unspec constant.
 
    GO_IF_LEGITIMATE_ADDRESS rejects symbolic references unless the PIC
-   reg also appears in the address (except for constant pool references,
-   noted above).
-
-   "switch" statements also require special handling when generating
-   PIC code.  See comments by the `casesi' insn in i386.md for details.  */
+   reg also appears in the address.  */
 
 rtx
 legitimize_pic_address (orig, reg)
@@ -2690,60 +2806,99 @@ legitimize_pic_address (orig, reg)
 {
   rtx addr = orig;
   rtx new = orig;
+  rtx base;
 
-  if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == LABEL_REF)
+  if (GET_CODE (addr) == LABEL_REF
+      || (GET_CODE (addr) == SYMBOL_REF
+	  && (CONSTANT_POOL_ADDRESS_P (addr)
+	      || SYMBOL_REF_FLAG (addr))))
     {
-      if (GET_CODE (addr) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (addr))
-	reg = new = orig;
-      else
-	{
-	  if (reg == 0)
-	    reg = gen_reg_rtx (Pmode);
+      /* This symbol may be referenced via a displacement from the PIC
+	 base address (@GOTOFF).  */
 
-	  if ((GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_FLAG (addr))
-	      || GET_CODE (addr) == LABEL_REF)
-	    new = gen_rtx (PLUS, Pmode, pic_offset_table_rtx, orig);
-	  else
-	    new = gen_rtx_MEM (Pmode,
-			   gen_rtx (PLUS, Pmode, pic_offset_table_rtx, orig));
-
-	  emit_move_insn (reg, new);
-	}
       current_function_uses_pic_offset_table = 1;
-      return reg;
-    }
+      new = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, addr), 7);
+      new = gen_rtx_CONST (VOIDmode, new);
+      new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
 
-  else if (GET_CODE (addr) == CONST || GET_CODE (addr) == PLUS)
-    {
-      rtx base;
-
-      if (GET_CODE (addr) == CONST)
+      if (reg != 0)
 	{
-	  addr = XEXP (addr, 0);
-	  if (GET_CODE (addr) != PLUS)
-	    abort ();
+	  emit_move_insn (reg, new);
+	  new = reg;
 	}
+    }
+  else if (GET_CODE (addr) == SYMBOL_REF)
+    {
+      /* This symbol must be referenced via a load from the
+	 Global Offset Table (@GOT). */
 
-      if (XEXP (addr, 0) == pic_offset_table_rtx)
-	return orig;
+      current_function_uses_pic_offset_table = 1;
+      new = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, addr), 6);
+      new = gen_rtx_CONST (VOIDmode, new);
+      new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
+      new = gen_rtx_MEM (Pmode, new);
+      RTX_UNCHANGING_P (new) = 1;
 
       if (reg == 0)
 	reg = gen_reg_rtx (Pmode);
-
-      base = legitimize_pic_address (XEXP (addr, 0), reg);
-      addr = legitimize_pic_address (XEXP (addr, 1),
-				     base == reg ? NULL_RTX : reg);
-
-      if (GET_CODE (addr) == CONST_INT)
-	return plus_constant (base, INTVAL (addr));
-
-      if (GET_CODE (addr) == PLUS && CONSTANT_P (XEXP (addr, 1)))
+      emit_move_insn (reg, new);
+      new = reg;
+    }      
+  else
+    {
+      if (GET_CODE (addr) == CONST)
 	{
-	  base = gen_rtx (PLUS, Pmode, base, XEXP (addr, 0));
-	  addr = XEXP (addr, 1);
+	  addr = XEXP (addr, 0);
+	  if (GET_CODE (addr) == UNSPEC)
+	    {
+	      /* Check that the unspec is one of the ones we generate?  */
+	    }
+	  else if (GET_CODE (addr) != PLUS)
+	    abort();
 	}
+      if (GET_CODE (addr) == PLUS)
+	{
+	  rtx op0 = XEXP (addr, 0), op1 = XEXP (addr, 1);
 
-      return gen_rtx (PLUS, Pmode, base, addr);
+	  /* Check first to see if this is a constant offset from a @GOTOFF
+	     symbol reference.  */
+	  if ((GET_CODE (op0) == LABEL_REF
+	       || (GET_CODE (op0) == SYMBOL_REF
+		   && (CONSTANT_POOL_ADDRESS_P (op0)
+		       || SYMBOL_REF_FLAG (op0))))
+	      && GET_CODE (op1) == CONST_INT)
+	    {
+	      current_function_uses_pic_offset_table = 1;
+	      new = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, op0), 7);
+	      new = gen_rtx_PLUS (VOIDmode, new, op1);
+	      new = gen_rtx_CONST (VOIDmode, new);
+	      new = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, new);
+
+	      if (reg != 0)
+		{
+		  emit_move_insn (reg, new);
+		  new = reg;
+		}
+	    }
+	  else
+	    {
+	      base = legitimize_pic_address (XEXP (addr, 0), reg);
+	      new  = legitimize_pic_address (XEXP (addr, 1),
+					     base == reg ? NULL_RTX : reg);
+
+	      if (GET_CODE (new) == CONST_INT)
+		new = plus_constant (base, INTVAL (new));
+	      else
+		{
+		  if (GET_CODE (new) == PLUS && CONSTANT_P (XEXP (new, 1)))
+		    {
+		      base = gen_rtx_PLUS (Pmode, base, XEXP (new, 0));
+		      new = XEXP (new, 1);
+		    }
+		  new = gen_rtx_PLUS (Pmode, base, new);
+		}
+	    }
+	}
     }
   return new;
 }
@@ -2753,12 +2908,12 @@ legitimize_pic_address (orig, reg)
 void
 emit_pic_move (operands, mode)
      rtx *operands;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   rtx temp = reload_in_progress ? operands[0] : gen_reg_rtx (Pmode);
 
   if (GET_CODE (operands[0]) == MEM && SYMBOLIC_CONST (operands[1]))
-    operands[1] = force_reg (SImode, operands[1]);
+    operands[1] = force_reg (Pmode, operands[1]);
   else
     operands[1] = legitimize_pic_address (operands[1], temp);
 }
@@ -2787,7 +2942,7 @@ emit_pic_move (operands, mode)
 rtx
 legitimize_address (x, oldx, mode)
      register rtx x;
-     register rtx oldx;
+     register rtx oldx ATTRIBUTE_UNUSED;
      enum machine_mode mode;
 {
   int changed = 0;
@@ -2809,8 +2964,8 @@ legitimize_address (x, oldx, mode)
       && (log = (unsigned)exact_log2 (INTVAL (XEXP (x, 1)))) < 4)
     {
       changed = 1;
-      x = gen_rtx (MULT, Pmode, force_reg (Pmode, XEXP (x, 0)),
-		   GEN_INT (1 << log));
+      x = gen_rtx_MULT (Pmode, force_reg (Pmode, XEXP (x, 0)),
+			GEN_INT (1 << log));
     }
 
   if (GET_CODE (x) == PLUS)
@@ -2971,31 +3126,14 @@ output_pic_addr_const (file, x, code)
       break;
 
     case SYMBOL_REF:
-    case LABEL_REF:
-      if (GET_CODE (x) == SYMBOL_REF)
-	assemble_name (file, XSTR (x, 0));
-      else
-	{
-	  ASM_GENERATE_INTERNAL_LABEL (buf, "L",
-				       CODE_LABEL_NUMBER (XEXP (x, 0)));
-	  assemble_name (asm_out_file, buf);
-	}
-
-      if (code == 'X')
-	; /* No suffix, dammit. */
-      else if (GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
-	fprintf (file, "@GOTOFF(%%ebx)");
-      else if (code == 'P')
-	fprintf (file, "@PLT");
-      else if (GET_CODE (x) == LABEL_REF)
-	fprintf (file, "@GOTOFF");
-      else if (! SYMBOL_REF_FLAG (x))
-	fprintf (file, "@GOT");
-      else
-	fprintf (file, "@GOTOFF");
-
+      assemble_name (file, XSTR (x, 0));
+      if (code == 'P' && ! SYMBOL_REF_FLAG (x))
+	fputs ("@PLT", file);
       break;
 
+    case LABEL_REF:
+      x = XEXP (x, 0);
+      /* FALLTHRU */
     case CODE_LABEL:
       ASM_GENERATE_INTERNAL_LABEL (buf, "L", CODE_LABEL_NUMBER (x));
       assemble_name (asm_out_file, buf);
@@ -3033,17 +3171,17 @@ output_pic_addr_const (file, x, code)
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
 	  output_pic_addr_const (file, XEXP (x, 0), code);
-	  if (INTVAL (XEXP (x, 1)) >= 0)
-	    fprintf (file, "+");
+	  fprintf (file, "+");
 	  output_pic_addr_const (file, XEXP (x, 1), code);
 	}
-      else
+      else if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	{
 	  output_pic_addr_const (file, XEXP (x, 1), code);
-	  if (INTVAL (XEXP (x, 0)) >= 0)
-	    fprintf (file, "+");
+	  fprintf (file, "+");
 	  output_pic_addr_const (file, XEXP (x, 0), code);
 	}
+      else
+	abort ();
       break;
 
     case MINUS:
@@ -3052,11 +3190,140 @@ output_pic_addr_const (file, x, code)
       output_pic_addr_const (file, XEXP (x, 1), code);
       break;
 
+     case UNSPEC:
+       if (XVECLEN (x, 0) != 1)
+ 	abort ();
+       output_pic_addr_const (file, XVECEXP (x, 0, 0), code);
+       switch (XINT (x, 1))
+ 	{
+ 	case 6:
+ 	  fputs ("@GOT", file);
+ 	  break;
+ 	case 7:
+ 	  fputs ("@GOTOFF", file);
+ 	  break;
+ 	case 8:
+ 	  fputs ("@PLT", file);
+ 	  break;
+ 	default:
+ 	  output_operand_lossage ("invalid UNSPEC as operand");
+ 	  break;
+ 	}
+       break;
+
     default:
       output_operand_lossage ("invalid expression as operand");
     }
 }
 
+static void
+put_jump_code (code, reverse, file)
+     enum rtx_code code;
+     int reverse;
+     FILE *file;
+{
+  int flags = cc_prev_status.flags;
+  int ieee = (TARGET_IEEE_FP && (flags & CC_IN_80387));
+  const char *suffix;
+
+  if (flags & CC_Z_IN_NOT_C)
+    switch (code)
+      {
+      case EQ:
+	fputs (reverse ? "c" : "nc", file);
+	return;
+
+      case NE:
+	fputs (reverse ? "nc" : "c", file);
+	return;
+
+      default:
+	abort ();
+      }
+  if (ieee)
+    {
+      switch (code)
+	{
+	case LE:
+	  suffix = reverse ? "ae" : "b";
+	  break;
+	case GT:
+	case LT:
+	case GE:
+	  suffix = reverse ? "ne" : "e";
+	  break;
+	case EQ:
+	  suffix = reverse ? "ne" : "e";
+	  break;
+	case NE:
+	  suffix = reverse ? "e" : "ne";
+	  break;
+	default:
+	  abort ();
+	}
+      fputs (suffix, file);
+      return;
+    }
+  if (flags & CC_TEST_AX)
+    abort();
+  if ((flags & CC_NO_OVERFLOW) && (code == LE || code == GT))
+    abort ();
+  if (reverse)
+    code = reverse_condition (code);
+  switch (code)
+    {
+    case EQ:
+      suffix = "e";
+      break;
+
+    case NE:
+      suffix = "ne";
+      break;
+
+    case GT:
+      suffix = flags & CC_IN_80387 ? "a" : "g";
+      break;
+
+    case GTU:
+      suffix = "a";
+      break;
+
+    case LT:
+      if (flags & CC_NO_OVERFLOW)
+	suffix = "s";
+      else
+	suffix = flags & CC_IN_80387 ? "b" : "l";
+      break;
+
+    case LTU:
+      suffix = "b";
+      break;
+
+    case GE:
+      if (flags & CC_NO_OVERFLOW)
+	suffix = "ns";
+      else
+	suffix = flags & CC_IN_80387 ? "ae" : "ge";
+      break;
+
+    case GEU:
+      suffix = "ae";
+      break;
+
+    case LE:
+      suffix = flags & CC_IN_80387 ? "be" : "le";
+      break;
+
+    case LEU:
+      suffix = "be";
+      break;
+
+    default:
+      abort ();
+    }
+  fputs (suffix, file);
+}
+
 /* Append the correct conditional move suffix which corresponds to CODE.  */
 
 static void
@@ -3074,7 +3341,7 @@ put_condition_code (code, reverse_cc, mode, file)
   if (mode == MODE_INT)
     switch (code)
       {
-      case NE: 
+      case NE:
 	if (cc_prev_status.flags & CC_Z_IN_NOT_C)
 	  fputs ("b", file);
 	else
@@ -3089,7 +3356,10 @@ put_condition_code (code, reverse_cc, mode, file)
 	return;
 
       case GE:
-	fputs ("ge", file);
+	if (cc_prev_status.flags & CC_NO_OVERFLOW)
+	  fputs ("ns", file);
+	else
+	  fputs ("ge", file);
 	return;
 
       case GT:
@@ -3101,7 +3371,10 @@ put_condition_code (code, reverse_cc, mode, file)
 	return;
 
       case LT:
-	fputs ("l", file);
+	if (cc_prev_status.flags & CC_NO_OVERFLOW)
+	  fputs ("s", file);
+	else
+	  fputs ("l", file);
 	return;
 
       case GEU:
@@ -3127,34 +3400,34 @@ put_condition_code (code, reverse_cc, mode, file)
   else if (mode == MODE_FLOAT)
     switch (code)
       {
-      case NE: 
+      case NE:
 	fputs (ieee ? (reverse_cc ? "ne" : "e") : "ne", file);
 	return;
-      case EQ: 
+      case EQ:
 	fputs (ieee ? (reverse_cc ? "ne" : "e") : "e", file);
 	return;
-      case GE: 
+      case GE:
 	fputs (ieee ? (reverse_cc ? "ne" : "e") : "nb", file);
 	return;
-      case GT: 
+      case GT:
 	fputs (ieee ? (reverse_cc ? "ne" : "e") : "nbe", file);
 	return;
-      case LE: 
+      case LE:
 	fputs (ieee ? (reverse_cc ? "nb" : "b") : "be", file);
 	return;
-      case LT: 
+      case LT:
 	fputs (ieee ? (reverse_cc ? "ne" : "e") : "b", file);
 	return;
-      case GEU: 
+      case GEU:
 	fputs (ieee ? (reverse_cc ? "ne" : "e") : "nb", file);
 	return;
-      case GTU: 
+      case GTU:
 	fputs (ieee ? (reverse_cc ? "ne" : "e") : "nbe", file);
 	return;
-      case LEU: 
+      case LEU:
 	fputs (ieee ? (reverse_cc ? "nb" : "b") : "be", file);
 	return;
-      case LTU: 
+      case LTU:
 	fputs (ieee ? (reverse_cc ? "ne" : "e") : "b", file);
 	return;
       default:
@@ -3167,12 +3440,13 @@ put_condition_code (code, reverse_cc, mode, file)
    C -- print opcode suffix for set/cmov insn.
    c -- like C, but print reversed condition
    F -- print opcode suffix for fcmov insn.
-   f -- like C, but print reversed condition
+   f -- like F, but print reversed condition
+   D -- print the opcode suffix for a jump
+   d -- like D, but print reversed condition
    R -- print the prefix for register names.
    z -- print the opcode suffix for the size of the current operand.
    * -- print a star (in certain assembler syntax)
    w -- print the operand as if it's a "word" (HImode) even if it isn't.
-   c -- don't print special prefixes before constant operands.
    J -- print the appropriate jump operand.
    s -- print a shift double count, followed by the assemblers argument
 	delimiter.
@@ -3294,9 +3568,9 @@ print_operand (file, x, code)
 	    case GTU: fputs ("jne",  file); return;
 	    case LEU: fputs ("je", file); return;
 	    case LTU: fputs ("#branch never",  file); return;
-	    
+
 	    /* no matching branches for GT nor LE */
-	    
+
 	    default:
 	      abort ();
 	    }
@@ -3308,6 +3582,14 @@ print_operand (file, x, code)
 	      fputs (AS2C (,) + 1, file);
 	    }
 
+	  return;
+
+	case 'D':
+	  put_jump_code (GET_CODE (x), 0, file);
+	  return;
+
+	case 'd':
+	  put_jump_code (GET_CODE (x), 1, file);
 	  return;
 
 	  /* This is used by the conditional move instructions.  */
@@ -3365,7 +3647,7 @@ print_operand (file, x, code)
       REAL_VALUE_FROM_CONST_DOUBLE (r, x);
       REAL_VALUE_TO_TARGET_SINGLE (r, l);
       PRINT_IMMED_PREFIX (file);
-      fprintf (file, "0x%x", l);
+      fprintf (file, "0x%lx", l);
     }
 
  /* These float cases don't actually occur as immediate operands. */
@@ -3388,7 +3670,7 @@ print_operand (file, x, code)
       REAL_VALUE_TO_DECIMAL (r, "%.22e", dstr);
       fprintf (file, "%s", dstr);
     }
-  else 
+  else
     {
       if (code != 'P')
 	{
@@ -3582,7 +3864,9 @@ notice_update_cc (exp)
 	 (Note that moving a constant 0 or 1 MAY set the cc's).  */
       if (REG_P (SET_DEST (exp))
 	  && (REG_P (SET_SRC (exp)) || GET_CODE (SET_SRC (exp)) == MEM
-	      || GET_RTX_CLASS (GET_CODE (SET_SRC (exp))) == '<'))
+	      || GET_RTX_CLASS (GET_CODE (SET_SRC (exp))) == '<'
+	      || (GET_CODE (SET_SRC (exp)) == IF_THEN_ELSE
+		  && GET_MODE_CLASS (GET_MODE (SET_DEST (exp))) == MODE_INT)))
 	{
 	  if (cc_status.value1
 	      && reg_overlap_mentioned_p (SET_DEST (exp), cc_status.value1))
@@ -3659,6 +3943,7 @@ notice_update_cc (exp)
 		cc_status.flags
 		  = CC_NOT_POSITIVE | CC_NOT_NEGATIVE | CC_NO_OVERFLOW;
 		cc_status.value1 = XVECEXP (SET_SRC (exp), 0, 0);
+		cc_status.value2 = 0;
 		break;
 	      }
 	    /* FALLTHRU */
@@ -3683,7 +3968,7 @@ notice_update_cc (exp)
           if (stack_regs_mentioned_p (SET_SRC (XVECEXP (exp, 0, 0))))
 	    {
               cc_status.flags |= CC_IN_80387;
-	      if (TARGET_CMOVE && stack_regs_mentioned_p
+	      if (0 && TARGET_CMOVE && stack_regs_mentioned_p
 		  (XEXP (SET_SRC (XVECEXP (exp, 0, 0)), 1)))
 		cc_status.flags |= CC_FCOMI;
 	    }
@@ -3715,7 +4000,12 @@ split_di (operands, num, lo_half, hi_half)
   while (num--)
     {
       rtx op = operands[num];
-      if (GET_CODE (op) == REG)
+      if (! reload_completed)
+	{
+	  lo_half[num] = gen_lowpart (SImode, op);
+	  hi_half[num] = gen_highpart (SImode, op);
+	}
+      else if (GET_CODE (op) == REG)
 	{
 	  lo_half[num] = gen_rtx_REG (SImode, REGNO (op));
 	  hi_half[num] = gen_rtx_REG (SImode, REGNO (op) + 1);
@@ -3788,7 +4078,7 @@ shift_op (op, mode)
 int
 VOIDmode_compare_op (op, mode)
     register rtx op;
-    enum machine_mode mode;
+    enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return GET_CODE (op) == COMPARE && GET_MODE (op) == VOIDmode;
 }
@@ -4013,7 +4303,7 @@ output_float_compare (insn, operands)
   int unordered_compare = GET_MODE (SET_SRC (body)) == CCFPEQmode;
   rtx tmp;
 
-  if (TARGET_CMOVE && STACK_REG_P (operands[1]))
+  if (0 && TARGET_CMOVE && STACK_REG_P (operands[1]))
     {
       cc_status.flags |= CC_FCOMI;
       cc_prev_status.flags &= ~CC_TEST_AX;
@@ -4026,7 +4316,7 @@ output_float_compare (insn, operands)
       operands[1] = tmp;
       cc_status.flags |= CC_REVERSED;
     }
-    
+
   if (! STACK_TOP_P (operands[0]))
     abort ();
 
@@ -4085,7 +4375,7 @@ output_float_compare (insn, operands)
 
       if (NON_STACK_REG_P (operands[1]))
 	output_op_from_reg (operands[1], strcat (buf, AS1 (%z0,%1)));
-      else if (cc_status.flags & CC_FCOMI) 
+      else if (cc_status.flags & CC_FCOMI)
 	{
 	  output_asm_insn (strcat (buf, AS2 (%z1,%y1,%0)), operands);
 	  return "";
@@ -4120,7 +4410,7 @@ output_fp_cc0_set (insn)
       if (!(cc_status.flags & CC_REVERSED))
         {
           next = next_cc0_user (insn);
-        
+
           if (GET_CODE (next) == JUMP_INSN
               && GET_CODE (PATTERN (next)) == SET
               && SET_DEST (PATTERN (next)) == pc_rtx
@@ -4316,14 +4606,14 @@ assign_386_stack_local (mode, n)
 
 int is_mul(op,mode)
     register rtx op;
-    enum machine_mode mode;
+    enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == MULT);
 }
 
 int is_div(op,mode)
     register rtx op;
-    enum machine_mode mode;
+    enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   return (GET_CODE (op) == DIV);
 }
@@ -4383,7 +4673,7 @@ copy_all_rtx (orig)
   copy->integrated = orig->integrated;
   /* intel1 */
   copy->is_spill_rtx = orig->is_spill_rtx;
-  
+
   format_ptr = GET_RTX_FORMAT (GET_CODE (copy));
 
   for (i = 0; i < GET_RTX_LENGTH (GET_CODE (copy)); i++)
@@ -4435,7 +4725,7 @@ copy_all_rtx (orig)
 
 /* Try to rewrite a memory address to make it valid */
 
-void 
+void
 rewrite_address (mem_rtx)
      rtx mem_rtx;
 {
@@ -4472,7 +4762,7 @@ rewrite_address (mem_rtx)
       obfree (storage);
     }
 
-  /* This part is utilized by loop.c.  
+  /* This part is utilized by loop.c.
      If the address contains PLUS (reg,const) and this pattern is invalid
      in this case - try to rewrite the address to make it valid. */
   storage = oballoc (0);
@@ -4794,7 +5084,7 @@ sets_condition_code (pat)
 int
 str_immediate_operand (op, mode)
      register rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (op) == CONST_INT && INTVAL (op) <= 32 && INTVAL (op) >= 0)
     return 1;
@@ -4829,7 +5119,7 @@ is_fp_dest (insn)
 	  || GET_MODE (SET_DEST (PATTERN (insn))) == XFmode)
       && GET_CODE (SET_DEST (PATTERN (insn))) == REG
       && REGNO (SET_DEST (PATTERN (insn))) >= FIRST_FLOAT_REG
-      && GET_CODE (SET_SRC (insn)) != MEM)
+      && GET_CODE (SET_SRC (PATTERN (insn))) != MEM)
     return 1;
 
   return 0;
@@ -5105,7 +5395,7 @@ output_strlen_unroll (operands)
   /* Check third byte. */
   output_asm_insn (AS2 (test%L1,%16,%1), xops);
   output_asm_insn (AS1 (je,%l10), xops);
-  
+
   /* Check fourth byte and increment address. */
   output_asm_insn (AS2 (add%L0,%5,%0), xops);
   output_asm_insn (AS2 (test%L1,%17,%1), xops);
@@ -5123,4 +5413,168 @@ output_strlen_unroll (operands)
   ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "L", CODE_LABEL_NUMBER (xops[12]));
 
   return "";
+}
+
+char *
+output_fp_conditional_move (which_alternative, operands)
+     int which_alternative;
+     rtx operands[];
+{
+  switch (which_alternative)
+    {
+    case 0:
+      /* r <- cond ? arg : r */
+      output_asm_insn (AS2 (fcmov%F1,%2,%0), operands);
+      break;
+
+    case 1:
+      /* r <- cond ? r : arg */
+      output_asm_insn (AS2 (fcmov%f1,%3,%0), operands);
+      break;
+
+    case 2:
+      /* r <- cond ? r : arg */
+      output_asm_insn (AS2 (fcmov%F1,%2,%0), operands);
+      output_asm_insn (AS2 (fcmov%f1,%3,%0), operands);
+      break;
+
+    default:
+      abort ();
+    }
+
+  return "";
+}
+
+char *
+output_int_conditional_move (which_alternative, operands)
+     int which_alternative;
+     rtx operands[];
+{
+  int code = GET_CODE (operands[1]);
+  enum machine_mode mode;
+  rtx xops[4];
+
+  /* This is very tricky. We have to do it right. For a code segement
+     like:
+
+	int foo, bar;
+	....
+	foo = foo - x;
+	if (foo >= 0)
+	  bar = y;
+
+     final_scan_insn () may delete the insn which sets CC. We have to
+     tell final_scan_insn () if it should be reinserted. When CODE is
+     GT or LE, we have to check the CC_NO_OVERFLOW bit and return
+     NULL_PTR to tell final to reinsert the test insn because the
+     conditional move cannot be handled properly without it. */
+  if ((code == GT || code == LE)
+      && (cc_prev_status.flags & CC_NO_OVERFLOW))
+    return NULL_PTR;
+
+  mode = GET_MODE (operands [0]);
+  if (mode == DImode)
+    {
+      xops [0] = gen_rtx_SUBREG (SImode, operands [0], 1);
+      xops [1] = operands [1];
+      xops [2] = gen_rtx_SUBREG (SImode, operands [2], 1);
+      xops [3] = gen_rtx_SUBREG (SImode, operands [3], 1);
+    }
+
+  switch (which_alternative)
+    {
+    case 0:
+      /* r <- cond ? arg : r */
+      output_asm_insn (AS2 (cmov%C1,%2,%0), operands);
+      if (mode == DImode)
+	output_asm_insn (AS2 (cmov%C1,%2,%0), xops);
+      break;
+
+    case 1:
+      /* r <- cond ? r : arg */
+      output_asm_insn (AS2 (cmov%c1,%3,%0), operands);
+      if (mode == DImode)
+	output_asm_insn (AS2 (cmov%c1,%3,%0), xops);
+      break;
+
+    case 2:
+      /* rm <- cond ? arg1 : arg2 */
+      output_asm_insn (AS2 (cmov%C1,%2,%0), operands);
+      output_asm_insn (AS2 (cmov%c1,%3,%0), operands);
+      if (mode == DImode)
+	{
+	  output_asm_insn (AS2 (cmov%C1,%2,%0), xops);
+	  output_asm_insn (AS2 (cmov%c1,%3,%0), xops);
+	}
+      break;
+
+    default:
+      abort ();
+    }
+
+  return "";
+}
+
+int
+x86_adjust_cost (insn, link, dep_insn, cost)
+     rtx insn, link, dep_insn;
+     int cost;
+{
+  rtx next_inst;
+
+  if (GET_CODE (dep_insn) == CALL_INSN || GET_CODE (insn) == JUMP_INSN)
+    return 0;
+
+  if (GET_CODE (dep_insn) == INSN
+      && GET_CODE (PATTERN (dep_insn)) == SET
+      && GET_CODE (SET_DEST (PATTERN (dep_insn))) == REG
+      && GET_CODE (insn) == INSN
+      && GET_CODE (PATTERN (insn)) == SET
+      && !reg_overlap_mentioned_p (SET_DEST (PATTERN (dep_insn)),
+				   SET_SRC (PATTERN (insn))))
+    return 0;	/* ??? */
+
+
+  switch (ix86_cpu)
+    {
+    case PROCESSOR_PENTIUM:
+      if (cost != 0 && is_fp_insn (insn) && is_fp_insn (dep_insn)
+	  && !is_fp_dest (dep_insn))
+	return 0;
+
+      if (agi_dependent (insn, dep_insn))
+	return 3;
+
+      if (GET_CODE (insn) == INSN
+	  && GET_CODE (PATTERN (insn)) == SET
+	  && SET_DEST (PATTERN (insn)) == cc0_rtx
+	  && (next_inst = next_nonnote_insn (insn))
+	  && GET_CODE (next_inst) == JUMP_INSN)
+	/* compare probably paired with jump */
+	return 0;
+      break;
+
+    case PROCESSOR_K6:
+    default:
+      if (!is_fp_dest (dep_insn))
+	{
+	  if(!agi_dependent (insn, dep_insn))
+	    return 0;
+	  if (TARGET_486)
+	    return 2;
+	}
+      else
+	if (is_fp_store (insn) && is_fp_insn (dep_insn)
+	    && NEXT_INSN (insn) && NEXT_INSN (NEXT_INSN (insn))
+	    && NEXT_INSN (NEXT_INSN (NEXT_INSN (insn)))
+	    && (GET_CODE (NEXT_INSN (insn)) == INSN)
+	    && (GET_CODE (NEXT_INSN (NEXT_INSN (insn))) == JUMP_INSN)
+	    && (GET_CODE (NEXT_INSN (NEXT_INSN (NEXT_INSN (insn)))) == NOTE)
+	    && (NOTE_LINE_NUMBER (NEXT_INSN (NEXT_INSN (NEXT_INSN (insn))))
+		== NOTE_INSN_LOOP_END))
+	  return 3;
+      break;
+    }
+
+  return cost;
 }

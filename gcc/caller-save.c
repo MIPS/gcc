@@ -29,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #include "basic-block.h"
 #include "reload.h"
 #include "expr.h"
+#include "toplev.h"
 
 #ifndef MAX_MOVE_MAX
 #define MAX_MOVE_MAX MOVE_MAX
@@ -81,9 +82,11 @@ int n_regs_saved;
 
 static void set_reg_live		PROTO((rtx, rtx));
 static void clear_reg_live		PROTO((rtx));
-static void restore_referenced_regs	PROTO((rtx, rtx, enum machine_mode));
-static int insert_save_restore		PROTO((rtx, int, int,
-					       enum machine_mode, int));
+static void restore_referenced_regs	PROTO((rtx, rtx, int));
+static int insert_restore		PROTO((rtx, int, int, int, int));
+static int insert_save			PROTO((rtx, int, int, int));
+static void insert_one_insn		PROTO((rtx, int, enum rtx_code,
+					       rtx, int));
 
 /* Initialize for caller-save.
 
@@ -114,7 +117,7 @@ init_caller_save ()
 	{
 	  for (j = 1; j <= MOVE_MAX / UNITS_PER_WORD; j++)
 	    {
-	      regno_save_mode[i][j] = choose_hard_reg_mode (i, j);
+	      regno_save_mode[i][j] = HARD_REGNO_CALLER_SAVE_MODE (i, j);
 	      if (regno_save_mode[i][j] == VOIDmode && j == 1)
 		{
 		  call_fixed_regs[i] = 1;
@@ -228,13 +231,6 @@ init_save_areas ()
    overestimate slightly (especially if some of these registers are later
    used as spill registers), but it should not be significant.
 
-   Then perform register elimination in the addresses of the save area
-   locations; return 1 if all eliminated addresses are strictly valid.
-   We assume that our caller has set up the elimination table to the
-   worst (largest) possible offsets.
-
-   Set *PCHANGED to 1 if we had to allocate some memory for the save area.  
-
    Future work:
 
      In the fallback case we should iterate backwards across all possible
@@ -247,14 +243,11 @@ init_save_areas ()
      machine independent since they might be saving non-consecutive 
      registers. (imagine caller-saving d0,d1,a0,a1 on the 68k) */
 
-int
-setup_save_areas (pchanged)
-     int *pchanged;
+void
+setup_save_areas ()
 {
   int i, j, k;
   HARD_REG_SET hard_regs_used;
-  int ok = 1;
-
 
   /* Allocate space in the save area for the largest multi-register
      pseudos first, then work backwards to single register
@@ -328,28 +321,16 @@ setup_save_areas (pchanged)
 		regno_save_mem[i+k][1] 
 		  = adj_offsettable_operand (temp, k * UNITS_PER_WORD);
 	      }
-	    *pchanged = 1;
 	  }
       }
 
-  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    for (j = 1; j <= MOVE_MAX / UNITS_PER_WORD; j++)
-      if (regno_save_mem[i][j] != 0)
-	ok &= strict_memory_address_p (GET_MODE (regno_save_mem[i][j]),
-				       XEXP (eliminate_regs (regno_save_mem[i][j], 0, NULL_RTX), 0));
-
-  return ok;
+  return;
 }
 
-/* Find the places where hard regs are live across calls and save them.
-
-   INSN_MODE is the mode to assign to any insns that we add.  This is used
-   by reload to determine whether or not reloads or register eliminations
-   need be done on these insns.  */
+/* Find the places where hard regs are live across calls and save them.  */
 
 void
-save_call_clobbered_regs (insn_mode)
-     enum machine_mode insn_mode;
+save_call_clobbered_regs ()
 {
   rtx insn;
   int b;
@@ -357,7 +338,6 @@ save_call_clobbered_regs (insn_mode)
   for (b = 0; b < n_basic_blocks; b++)
     {
       regset regs_live = basic_block_live_at_start[b];
-      rtx prev_block_last = PREV_INSN (basic_block_head[b]);
       int i, j;
       int regno;
 
@@ -398,7 +378,7 @@ save_call_clobbered_regs (insn_mode)
 		 any of them.  We must restore them before the insn if so.  */
 
 	      if (n_regs_saved)
-		restore_referenced_regs (PATTERN (insn), insn, insn_mode);
+		restore_referenced_regs (PATTERN (insn), insn, b);
 
 	      /* NB: the normal procedure is to first enliven any
 		 registers set by insn, then deaden any registers that
@@ -448,8 +428,7 @@ save_call_clobbered_regs (insn_mode)
 			/* It must not be set by this instruction.  */
 		        && ! TEST_HARD_REG_BIT (this_call_sets, regno)
 		        && ! TEST_HARD_REG_BIT (hard_regs_saved, regno))
-		      regno += insert_save_restore (insn, 1, regno, 
-						    insn_mode, 0);
+		      regno += insert_save (insn, 1, regno, b);
 
 		  /* Put the information for this CALL_INSN on top of what
 		     we already had.  */
@@ -488,13 +467,9 @@ save_call_clobbered_regs (insn_mode)
       if (n_regs_saved)
 	for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	  if (TEST_HARD_REG_BIT (hard_regs_need_restore, regno))
-	    regno += insert_save_restore ((GET_CODE (insn) == JUMP_INSN
-				  ? insn : NEXT_INSN (insn)), 0,
-				  regno, insn_mode, MOVE_MAX / UNITS_PER_WORD);
-
-      /* If we added any insns at the start of the block, update the start
-	 of the block to point at those insns.  */
-      basic_block_head[b] = NEXT_INSN (prev_block_last);
+	    regno += insert_restore (insn, GET_CODE (insn) == JUMP_INSN,
+				     regno,
+				     MOVE_MAX / UNITS_PER_WORD, b);
     }
 }
 
@@ -505,7 +480,8 @@ save_call_clobbered_regs (insn_mode)
 
 static void
 set_reg_live (reg, setter)
-     rtx reg, setter;
+     rtx reg;
+     rtx setter ATTRIBUTE_UNUSED;
 {
   register int regno, endregno, i;
   enum machine_mode mode = GET_MODE (reg);
@@ -556,14 +532,14 @@ clear_reg_live (reg)
 }      
 
 /* If any register currently residing in the save area is referenced in X,
-   which is part of INSN, emit code to restore the register in front of INSN.
-   INSN_MODE is the mode to assign to any insns that we add.  */
+   which is part of INSN, emit code to restore the register in front of
+   INSN.  */
 
 static void
-restore_referenced_regs (x, insn, insn_mode)
+restore_referenced_regs (x, insn, block)
      rtx x;
      rtx insn;
-     enum machine_mode insn_mode;
+     int block;
 {
   enum rtx_code code = GET_CODE (x);
   char *fmt;
@@ -582,11 +558,11 @@ restore_referenced_regs (x, insn, insn_mode)
       if (regno >= FIRST_PSEUDO_REGISTER
 	  && reg_equiv_mem[regno] != 0)
 	restore_referenced_regs (XEXP (reg_equiv_mem[regno], 0),
-				 insn, insn_mode);
+				 insn, block);
       else if (regno >= FIRST_PSEUDO_REGISTER
 	       && reg_equiv_address[regno] != 0)
 	restore_referenced_regs (reg_equiv_address[regno],
-				 insn, insn_mode);
+				 insn, block);
 
       /* Otherwise if this is a hard register, restore any piece of it that
 	 is currently saved.  */
@@ -595,13 +571,13 @@ restore_referenced_regs (x, insn, insn_mode)
 	{
 	  int numregs = HARD_REGNO_NREGS (regno, GET_MODE (x));
 	  /* Save at most SAVEREGS at a time.  This can not be larger than
-	     MOVE_MAX, because that causes insert_save_restore to fail.  */
+	     MOVE_MAX, because that causes insert_restore to fail.  */
 	  int saveregs = MIN (numregs, MOVE_MAX / UNITS_PER_WORD);
 	  int endregno = regno + numregs;
 
 	  for (i = regno; i < endregno; i++)
 	    if (TEST_HARD_REG_BIT (hard_regs_need_restore, i))
-	      i += insert_save_restore (insn, 0, i, insn_mode, saveregs);
+	      i += insert_restore (insn, 1, i, saveregs, block);
 	}
 
       return;
@@ -611,17 +587,16 @@ restore_referenced_regs (x, insn, insn_mode)
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	restore_referenced_regs (XEXP (x, i), insn, insn_mode);
+	restore_referenced_regs (XEXP (x, i), insn, block);
       else if (fmt[i] == 'E')
 	for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	  restore_referenced_regs (XVECEXP (x, i, j), insn, insn_mode);
+	  restore_referenced_regs (XVECEXP (x, i, j), insn, block);
     }
 }
 
-/* Insert a sequence of insns to save or restore, SAVE_P says which,
-   REGNO.  Place these insns in front of INSN.  INSN_MODE is the mode
-   to assign to these insns.   MAXRESTORE is the maximum number of registers
-   which should be restored during this call (when SAVE_P == 0).  It should
+/* Insert a sequence of insns to restore REGNO.  Place these insns in front
+   of or after INSN (determined by BEFORE_P).   MAXRESTORE is the maximum
+   number of registers which should be restored during this call.  It should
    never be less than 1 since we only work with entire registers.
 
    Note that we have verified in init_caller_save that we can do this
@@ -633,16 +608,18 @@ restore_referenced_regs (x, insn, insn_mode)
    Return the extra number of registers saved.  */
 
 static int
-insert_save_restore (insn, save_p, regno, insn_mode, maxrestore)
+insert_restore (insn, before_p, regno, maxrestore, block)
      rtx insn;
-     int save_p;
+     int before_p;
      int regno;
-     enum machine_mode insn_mode;
      int maxrestore;
+     int block;
 {
   rtx pat = NULL_RTX;
   enum insn_code code = CODE_FOR_nothing;
   int numregs = 0;
+  int i, j, k;
+  int ok;
 
   /* A common failure mode if register status is not correct in the RTL
      is for this routine to be called with a REGNO we didn't expect to
@@ -654,6 +631,130 @@ insert_save_restore (insn, save_p, regno, insn_mode, maxrestore)
   if (regno_save_mem[regno][1] == 0)
     abort ();
 
+  /* Get the pattern to emit and update our status.  */
+
+  /* See if we can restore `maxrestore' registers at once.  Work
+     backwards to the single register case.  */
+  for (i = maxrestore; i > 0; i--)
+    {
+      ok = 1;
+      if (regno_save_mem[regno][i])
+	for (j = 0; j < i; j++)
+	  {
+	    if (! TEST_HARD_REG_BIT (hard_regs_need_restore, regno + j))
+	      ok = 0;
+	  }
+      else
+	continue;
+
+      /* Must do this one restore at a time */
+      if (! ok)
+	continue;
+	    
+      pat = gen_rtx_SET (VOIDmode,
+			 gen_rtx_REG (GET_MODE (regno_save_mem[regno][i]), 
+				      regno), 
+			 regno_save_mem[regno][i]);
+      code = reg_restore_code[regno][i];
+
+
+      /* Clear status for all registers we restored.  */
+      for (k = 0; k < i; k++)
+	{
+	  CLEAR_HARD_REG_BIT (hard_regs_need_restore, regno + k);
+	  n_regs_saved--;
+	}
+
+      numregs = i;
+      break;
+    }
+
+  insert_one_insn (insn, before_p, code, pat, block);
+
+  /* Tell our callers how many extra registers we saved/restored */
+  return numregs - 1;
+}
+
+/* Like insert_restore, but emit code to save REGNO.  */
+static int
+insert_save (insn, before_p, regno, block)
+     rtx insn;
+     int before_p;
+     int regno;
+     int block;
+{
+  rtx pat = NULL_RTX;
+  enum insn_code code = CODE_FOR_nothing;
+  int numregs = 0;
+  int i, j, k;
+  int ok;
+
+  /* A common failure mode if register status is not correct in the RTL
+     is for this routine to be called with a REGNO we didn't expect to
+     save.  That will cause us to write an insn with a (nil) SET_DEST
+     or SET_SRC.  Instead of doing so and causing a crash later, check
+     for this common case and abort here instead.  This will remove one
+     step in debugging such problems.  */
+
+  if (regno_save_mem[regno][1] == 0)
+    abort ();
+
+  /* Get the pattern to emit and update our status.  */
+
+  /* See if we can save several registers with a single instruction.  
+     Work backwards to the single register case.  */
+  for (i = MOVE_MAX / UNITS_PER_WORD; i > 0; i--)
+    {
+      ok = 1;
+      if (regno_save_mem[regno][i] != 0)
+	for (j = 0; j < i; j++)
+	  {
+	    if (! call_used_regs[regno + j] || call_fixed_regs[regno + j]
+		|| ! TEST_HARD_REG_BIT (hard_regs_live, regno + j)
+		|| TEST_HARD_REG_BIT (hard_regs_saved, regno + j))
+	      ok = 0;
+	  }
+      else 
+	continue;
+
+      /* Must do this one save at a time */
+      if (! ok)
+	continue;
+
+      pat = gen_rtx_SET (VOIDmode, regno_save_mem[regno][i],
+			 gen_rtx_REG (GET_MODE (regno_save_mem[regno][i]),
+				      regno));
+      code = reg_save_code[regno][i];
+
+      /* Set hard_regs_saved for all the registers we saved.  */
+      for (k = 0; k < i; k++)
+	{
+	  SET_HARD_REG_BIT (hard_regs_saved, regno + k);
+	  SET_HARD_REG_BIT (hard_regs_need_restore, regno + k);
+	  n_regs_saved++;
+	}
+
+      numregs = i;
+      break;
+    }
+
+  insert_one_insn (insn, before_p, code, pat, block);
+
+  /* Tell our callers how many extra registers we saved/restored */
+  return numregs - 1;
+}
+
+/* Emit one insn, set the code, and update basic block boundaries.  */
+static void
+insert_one_insn (insn, before_p, code, pat, block)
+     rtx insn;
+     int before_p;
+     enum rtx_code code;
+     rtx pat;
+     int block;
+{
+  rtx insert_point = insn;
+  rtx new;
 #ifdef HAVE_cc0
   /* If INSN references CC0, put our insns in front of the insn that sets
      CC0.  This is always safe, since the only way we could be passed an
@@ -662,100 +763,23 @@ insert_save_restore (insn, save_p, regno, insn_mode, maxrestore)
      reference CC0.  Guard against non-INSN's like CODE_LABEL.  */
 
   if ((GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN)
+      && before_p
       && reg_referenced_p (cc0_rtx, PATTERN (insn)))
-    insn = prev_nonnote_insn (insn);
+    insert_point = prev_nonnote_insn (insn);
 #endif
 
-  /* Get the pattern to emit and update our status.  */
-  if (save_p)
+  if (before_p)
     {
-      int i, j, k;
-      int ok;
-
-      /* See if we can save several registers with a single instruction.  
-	 Work backwards to the single register case.  */
-      for (i = MOVE_MAX / UNITS_PER_WORD; i > 0; i--)
-	{
-	  ok = 1;
-	  if (regno_save_mem[regno][i] != 0)
-	    for (j = 0; j < i; j++)
-	      {
-		if (! call_used_regs[regno + j] || call_fixed_regs[regno + j]
-		    || ! TEST_HARD_REG_BIT (hard_regs_live, regno + j)
-		    || TEST_HARD_REG_BIT (hard_regs_saved, regno + j))
-		  ok = 0;
-	      }
-	  else 
-	    continue;
-
-	  /* Must do this one save at a time */
-	  if (! ok)
-	    continue;
-
-          pat = gen_rtx_SET (VOIDmode, regno_save_mem[regno][i],
-			     gen_rtx_REG (GET_MODE (regno_save_mem[regno][i]),
-					  regno));
-          code = reg_save_code[regno][i];
-
-	  /* Set hard_regs_saved for all the registers we saved.  */
-	  for (k = 0; k < i; k++)
-	    {
-	      SET_HARD_REG_BIT (hard_regs_saved, regno + k);
-	      SET_HARD_REG_BIT (hard_regs_need_restore, regno + k);
-	      n_regs_saved++;
-	    }
-
-	  numregs = i;
-	  break;
-        }
+      new = emit_insn_before (pat, insert_point);
+      if (insert_point == basic_block_head[block])
+	basic_block_head[block] = new;
     }
   else
     {
-      int i, j, k;
-      int ok;
-
-      /* See if we can restore `maxrestore' registers at once.  Work
-	 backwards to the single register case.  */
-      for (i = maxrestore; i > 0; i--)
-	{
-	  ok = 1;
-	  if (regno_save_mem[regno][i])
-	    for (j = 0; j < i; j++)
-	      {
-	  	if (! TEST_HARD_REG_BIT (hard_regs_need_restore, regno + j))
-		  ok = 0;
-	      }
-	  else
-	    continue;
-
-	  /* Must do this one restore at a time */
-	  if (! ok)
-	    continue;
-	    
-          pat = gen_rtx_SET (VOIDmode,
-			     gen_rtx_REG (GET_MODE (regno_save_mem[regno][i]), 
-					  regno), 
-			 regno_save_mem[regno][i]);
-          code = reg_restore_code[regno][i];
-
-
-	  /* Clear status for all registers we restored.  */
-	  for (k = 0; k < i; k++)
-	    {
-	      CLEAR_HARD_REG_BIT (hard_regs_need_restore, regno + k);
-	      n_regs_saved--;
-	    }
-
-	  numregs = i;
-	  break;
-        }
+      new = emit_insn_after (pat, insert_point);
+      if (insert_point == basic_block_end[block])
+	basic_block_end[block] = new;
     }
-  /* Emit the insn and set the code and mode.  */
 
-  insn = emit_insn_before (pat, insn);
-  PUT_MODE (insn, insn_mode);
-  INSN_CODE (insn) = code;
-
-  /* Tell our callers how many extra registers we saved/restored */
-  return numregs - 1;
+  INSN_CODE (new) = code;
 }

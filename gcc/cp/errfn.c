@@ -24,12 +24,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "toplev.h"
 
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
 /* cp_printer is the type of a function which converts an argument into
    a string for digestion by printf.  The cp_printer function should deal
    with all memory management; the functions in this file will not free
@@ -50,7 +44,8 @@ extern int   cp_line_of PROTO((tree));
 
 #define STRDUP(f) (ap = (char *) alloca (strlen (f) +1), strcpy (ap, (f)), ap)
 
-/* This function supports only `%s', `%d', and the C++ print codes.  */
+/* This function supports only `%s', `%d', `%%', and the C++ print
+   codes.  */
 
 #ifdef __STDC__
 static void
@@ -76,7 +71,7 @@ cp_thing (errfn, atarg1, format, ap)
   if (len > buflen)
     {
       buflen = len;
-      buf = xmalloc (buflen);
+      buf = xrealloc (buf, buflen);
     }
   offset = 0;
 
@@ -152,6 +147,18 @@ cp_thing (errfn, atarg1, format, ap)
 	  strcpy (buf + offset, p);
 	  offset += plen;
 	}
+      else if (*f == '%')
+	{
+	  /* A `%%' has occurred in the input string. Replace it with
+	     a `%' in the formatted message buf. */
+
+	  if (++len > buflen)
+	    {
+	      buflen = len;
+	      buf = xrealloc (buf, len);
+	    }
+	  buf[offset++] = '%';
+	}
       else
 	{
 	  if (*f != 'd')
@@ -180,10 +187,10 @@ cp_thing (errfn, atarg1, format, ap)
     {
       char *file = cp_file_of (atarg);
       int   line = cp_line_of (atarg);
-      (*errfn) (file, line, buf);
+      (*errfn) (file, line, "%s", buf);
     }
   else
-    (*errfn) (buf);
+    (*errfn) ("%s", buf);
 
 }
 
@@ -200,7 +207,7 @@ DECLARE (cp_error)
   va_list ap;
   INIT;
   if (! cp_silent)
-    cp_thing (error, 0, format, ap);
+    cp_thing ((errorfn *) error, 0, format, ap);
   va_end (ap);
 }
 
@@ -209,7 +216,7 @@ DECLARE (cp_warning)
   va_list ap;
   INIT;
   if (! cp_silent)
-    cp_thing (warning, 0, format, ap);
+    cp_thing ((errorfn *) warning, 0, format, ap);
   va_end (ap);
 }
 

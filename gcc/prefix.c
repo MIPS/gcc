@@ -64,11 +64,6 @@ Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include "system.h"
 #ifdef _WIN32
 #include <windows.h>
@@ -255,7 +250,7 @@ translate_name (name)
        keylen++)
     ;
 
-  key = alloca (keylen + 1);
+  key = (char *) alloca (keylen + 1);
   strncpy (key, &name[1], keylen);
   key[keylen] = 0;
 

@@ -78,6 +78,8 @@ Boston, MA 02111-1307, USA.  */
 #include "reload.h"
 #include "defaults.h"
 #include "output.h" /* ASM_OUTPUT_SOURCE_LINE may refer to sdb functions.  */
+#include "dbxout.h"
+#include "toplev.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -134,6 +136,13 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #endif
 
+char *getpwd ();
+
+/* Typical USG systems don't have stab.h, and they also have
+   no use for DBX-format debugging info.  */
+
+#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
+
 static int flag_minimal_debug = MINIMAL_DEBUG;
 
 /* Nonzero if we have actually used any of the GDB extensions
@@ -147,13 +156,6 @@ static int have_used_extensions = 0;
    for the N_SO filename stabs label.  */
 
 static int source_label_number = 1;
-
-char *getpwd ();
-
-/* Typical USG systems don't have stab.h, and they also have
-   no use for DBX-format debugging info.  */
-
-#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
 
 #ifdef DEBUG_SYMS_TEXT
 #define FORCE_TEXT text_section ();
@@ -324,7 +326,9 @@ static void dbxout_function_end		PROTO((void));
 #endif
 static void dbxout_typedefs		PROTO((tree));
 static void dbxout_type_index		PROTO((tree));
+#if DBX_CONTIN_LENGTH > 0
 static void dbxout_continue		PROTO((void));
+#endif
 static void dbxout_type_fields		PROTO((tree));
 static void dbxout_type_method_1	PROTO((tree, char *));
 static void dbxout_type_methods		PROTO((tree));
@@ -599,6 +603,7 @@ dbxout_type_index (type)
 #endif
 }
 
+#if DBX_CONTIN_LENGTH > 0
 /* Continue a symbol-description that gets too big.
    End one symbol table entry with a double-backslash
    and start a new one, eventually producing something like
@@ -617,6 +622,7 @@ dbxout_continue ()
   fprintf (asmfile, "%s \"", ASM_STABS_OP);
   current_sym_nchars = 0;
 }
+#endif /* DBX_CONTIN_LENGTH > 0 */
 
 /* Subroutine of `dbxout_type'.  Output the type fields of TYPE.
    This must be a separate function because anonymous unions require
@@ -807,13 +813,7 @@ dbxout_type_methods (type)
       {
 	static int warned;
 	if (!warned)
-	  {
 	    warned = 1;
-#ifdef HAVE_TEMPLATES
-	    if (warn_template_debugging)
-	      warning ("dbx info for template class methods not yet supported");
-#endif
-	  }
 	return;
       }
   }
@@ -953,8 +953,18 @@ dbxout_range_type (type)
 	 were defined to be sub-ranges of int.  Unfortunately, this
 	 does not allow us to distinguish true sub-ranges from integer
 	 types.  So, instead we define integer (non-sub-range) types as
-	 sub-ranges of themselves.  */
-      dbxout_type_index (type);
+	 sub-ranges of themselves.  This matters for Chill.  If this isn't
+	 a subrange type, then we want to define it in terms of itself.
+	 However, in C, this may be an anonymous integer type, and we don't
+	 want to emit debug info referring to it.  Just calling
+	 dbxout_type_index won't work anyways, because the type hasn't been
+	 defined yet.  We make this work for both cases by checked to see
+	 whether this is a defined type, referring to it if it is, and using
+	 'int' otherwise.  */
+      if (TYPE_SYMTAB_ADDRESS (type) != 0)
+	dbxout_type_index (type);
+      else
+	dbxout_type_index (integer_type_node);
     }
   if (TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST)
     {
@@ -1269,6 +1279,20 @@ dbxout_type (type, full, show_arg_types)
       break;
 
     case ARRAY_TYPE:
+      /* Make arrays of packed bits look like bitstrings for chill.  */
+      if (TYPE_PACKED (type) && use_gnu_debug_info_extensions)
+	{
+	  have_used_extensions = 1;
+	  fputs ("@s", asmfile);
+	  fprintf (asmfile, HOST_WIDE_INT_PRINT_DEC,
+		   BITS_PER_UNIT * int_size_in_bytes (type));
+	  fputc (';', asmfile);
+	  fprintf (asmfile, "@S;");
+	  putc ('S', asmfile);
+	  CHARS (1);
+	  dbxout_type (TYPE_DOMAIN (type), 0, 0);
+	  break;
+	}
       /* Output "a" followed by a range type definition
 	 for the index type of the array
 	 followed by a reference to the target-type.
@@ -1939,7 +1963,7 @@ dbxout_symbol_location (decl, type, suffix, home)
   /* Don't mention a variable at all
      if it was completely optimized into nothingness.
      
-     If the decl was from an inline function, then it's rtl
+     If the decl was from an inline function, then its rtl
      is not identically the rtl that was used in this
      particular compilation.  */
   if (GET_CODE (home) == REG)
@@ -2272,7 +2296,21 @@ dbxout_parms (parms)
 			 DBX_MEMPARM_STABS_LETTER);
 	      }
 
-	    dbxout_type (DECL_ARG_TYPE (parms), 0, 0);
+	    /* It is quite tempting to use:
+	       
+	           dbxout_type (TREE_TYPE (parms), 0, 0);
+
+	       as the next statement, rather than using DECL_ARG_TYPE(), so
+	       that gcc reports the actual type of the parameter, rather
+	       than the promoted type.  This certainly makes GDB's life
+	       easier, at least for some ports.  The change is a bad idea
+	       however, since GDB expects to be able access the type without
+	       performing any conversions.  So for example, if we were
+	       passing a float to an unprototyped function, gcc will store a
+	       double on the stack, but if we emit a stab saying the type is a
+	       float, then gdb will only read in a single value, and this will
+	       produce an erropneous value.  */
+ 	    dbxout_type (DECL_ARG_TYPE (parms), 0, 0);
 	    current_sym_value = DEBUGGER_ARG_OFFSET (current_sym_value, addr);
 	    dbxout_finish_symbol (parms);
 	  }
@@ -2401,6 +2439,15 @@ dbxout_parms (parms)
 	    else
 	      current_sym_value = INTVAL (XEXP (XEXP (DECL_RTL (parms), 0), 1));
 	    current_sym_addr = 0;
+
+	    /* Make a big endian correction if the mode of the type of the
+	       parameter is not the same as the mode of the rtl.  */
+	    if (BYTES_BIG_ENDIAN
+		&& TYPE_MODE (TREE_TYPE (parms)) != GET_MODE (DECL_RTL (parms))
+		&& GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (parms))) < UNITS_PER_WORD)
+	      {
+		current_sym_value += UNITS_PER_WORD - GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (parms)));
+	      }
 
 	    FORCE_TEXT;
 	    if (DECL_NAME (parms))
@@ -2666,4 +2713,4 @@ dbxout_function (decl)
     dbxout_function_end ();
 #endif
 }
-#endif /* DBX_DEBUGGING_INFO */
+#endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */

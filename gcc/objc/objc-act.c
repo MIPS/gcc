@@ -49,6 +49,14 @@ Boston, MA 02111-1307, USA.  */
 #include "except.h"
 #include "function.h"
 #include "output.h"
+#include "toplev.h"
+
+#if USE_CPPLIB
+#include "cpplib.h"
+extern cpp_reader  parse_in;
+extern cpp_options parse_options;
+static int cpp_initialized;
+#endif
 
 /* This is the default way of generating a method name.  */
 /* I am not sure it is really correct.
@@ -184,7 +192,9 @@ static tree generate_protocol_list		PROTO((tree));
 static void generate_forward_declaration_to_string_table PROTO((void));
 static void build_protocol_reference		PROTO((tree));
 
+#if 0
 static tree init_selector			PROTO((int));
+#endif
 static tree build_keyword_selector		PROTO((tree));
 static tree synth_id_with_class_suffix		PROTO((char *, tree));
 
@@ -287,7 +297,9 @@ static tree init_objc_symtab			PROTO((tree));
 static void forward_declare_categories		PROTO((void));
 static void generate_objc_symtab_decl		PROTO((void));
 static tree build_selector			PROTO((tree));
+#if 0
 static tree build_msg_pool_reference		PROTO((int));
+#endif
 static tree build_typed_selector_reference     	PROTO((tree, tree));
 static tree build_selector_reference		PROTO((tree));
 static tree build_class_reference_decl		PROTO((tree));
@@ -580,6 +592,11 @@ generate_struct_by_value_array ()
 }
 
 void
+lang_init_options ()
+{
+}
+
+void
 lang_init ()
 {
 #if !USE_CPPLIB
@@ -660,9 +677,20 @@ lang_identify ()
 }
 
 int
-lang_decode_option (p)
-     char *p;
+lang_decode_option (argc, argv)
+     int argc;
+     char **argv;
 {
+  char *p = argv[0];
+#if USE_CPPLIB
+  if (! cpp_initialized)
+    {
+      cpp_reader_init (&parse_in);
+      parse_in.data = &parse_options;
+      cpp_options_init (&parse_options);
+      cpp_initialized = 1;
+    }
+#endif
   if (!strcmp (p, "-lang-objc"))
     doing_objc_thang = 1;
   else if (!strcmp (p, "-gen-decls"))
@@ -686,7 +714,7 @@ lang_decode_option (p)
   else if (!strcmp (p, "-print-objc-runtime-info"))
     print_struct_values = 1;
   else
-    return c_decode_option (p);
+    return c_decode_option (argc, argv);
 
   return 1;
 }
@@ -695,9 +723,9 @@ lang_decode_option (p)
 
 void
 lang_print_xnode (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+     FILE *file ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
+     int indent ATTRIBUTE_UNUSED;
 {
 }
 
@@ -2016,6 +2044,7 @@ build_selector (ident)
    grok.m: warning: initialization of non-const * pointer from const *
    grok.m: warning: initialization between incompatible pointer types.  */
 
+#if 0
 static tree
 build_msg_pool_reference (offset)
      int offset;
@@ -2041,6 +2070,7 @@ init_selector (offset)
   TREE_TYPE (expr) = selector_type;
   return expr;
 }
+#endif
 
 static void
 build_selector_translation_table ()
@@ -3350,6 +3380,7 @@ build_selector_template ()
        struct objc_class *sibling_class;
      }
      struct objc_protocol_list *protocols;
+     void *gc_object_type;
    };  */
 
 static void
@@ -3485,6 +3516,21 @@ build_class_template ()
 			  decl_specs, NULL_TREE);
   chainon (field_decl_chain, field_decl);
 
+  /* void *sel_id; */
+
+  decl_specs = build_tree_list (NULL_TREE, ridpointers[(int) RID_VOID]);
+  field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("sel_id"));
+  field_decl
+    = grokfield (input_filename, lineno, field_decl, decl_specs, NULL_TREE);
+  chainon (field_decl_chain, field_decl);
+
+  /* void *gc_object_type; */
+
+  decl_specs = build_tree_list (NULL_TREE, ridpointers[(int) RID_VOID]);
+  field_decl = build1 (INDIRECT_REF, NULL_TREE, get_identifier ("gc_object_type"));
+  field_decl
+    = grokfield (input_filename, lineno, field_decl, decl_specs, NULL_TREE);
+  chainon (field_decl_chain, field_decl);
 
   finish_struct (objc_class_template, field_decl_chain, NULL_TREE);
 }
@@ -4257,6 +4303,7 @@ build_category_initializer (type, cat_name, class_name,
        struct objc_class *sibling_class;
      }
      struct objc_protocol_list *protocols;
+     void *gc_object_type;
    };  */
 
 static tree
@@ -4346,6 +4393,9 @@ build_shared_structure_initializer (type, isa, super, name, size, status,
      TREE_TYPE (expr) = cast_type2;
      initlist = tree_cons (NULL_TREE, expr, initlist);
      }
+
+  /* gc_object_type = NULL */
+  initlist = tree_cons (NULL_TREE, build_int_2 (0, 0), initlist);
 
   return build_constructor (type, nreverse (initlist));
 }
@@ -6419,7 +6469,7 @@ start_protocol (code, name, list)
 
 void
 finish_protocol (protocol)
-	tree protocol;
+	tree protocol ATTRIBUTE_UNUSED;
 {
 }
 
@@ -6533,9 +6583,9 @@ encode_array (type, curtype, format)
       return;
     }
 
-  sprintf (buffer, "[%d",
-	   (TREE_INT_CST_LOW (an_int_cst)
-	    / TREE_INT_CST_LOW (TYPE_SIZE (array_of))));
+  sprintf (buffer, "[%ld",
+	   (long) (TREE_INT_CST_LOW (an_int_cst)
+		   / TREE_INT_CST_LOW (TYPE_SIZE (array_of))));
 
   obstack_grow (&util_obstack, buffer, strlen (buffer));
   encode_type (array_of, curtype, format);
@@ -6789,6 +6839,62 @@ encode_type (type, curtype, format)
 }
 
 static void
+encode_complete_bitfield (int position, tree type, int size)
+{
+  enum tree_code code = TREE_CODE (type);
+  char buffer[40];
+  char charType = '?';
+
+  if (code == INTEGER_TYPE)
+    {
+      if (TREE_INT_CST_LOW (TYPE_MIN_VALUE (type)) == 0
+	  && TREE_INT_CST_HIGH (TYPE_MIN_VALUE (type)) == 0)
+	{
+	  /* Unsigned integer types.  */
+
+	  if (TYPE_MODE (type) == QImode)
+	    charType = 'C';
+	  else if (TYPE_MODE (type) == HImode)
+	    charType = 'S';
+	  else if (TYPE_MODE (type) == SImode)
+	    {
+	      if (type == long_unsigned_type_node)
+		charType = 'L';
+	      else
+		charType = 'I';
+	    }
+	  else if (TYPE_MODE (type) == DImode)
+	    charType = 'Q';
+	}
+
+      else
+	/* Signed integer types.  */
+	{
+	  if (TYPE_MODE (type) == QImode)
+	    charType = 'c';
+	  else if (TYPE_MODE (type) == HImode)
+	    charType = 's';
+	  else if (TYPE_MODE (type) == SImode)
+	    {
+	      if (type == long_integer_type_node)
+		charType = 'l';
+	      else
+		charType = 'i';
+	    }
+
+	  else if (TYPE_MODE (type) == DImode)
+	    charType = 'q';
+	}
+    }
+
+  else
+    abort ();
+
+  sprintf (buffer, "b%d%c%d", position, charType, size);
+  obstack_grow (&util_obstack, buffer, strlen (buffer));
+}
+
+static void
 encode_field_decl (field_decl, curtype, format)
      tree field_decl;
      int curtype;
@@ -6796,18 +6902,36 @@ encode_field_decl (field_decl, curtype, format)
 {
   tree type;
 
- /* If this field is obviously a bitfield, or is a bitfield that has been
+  type = TREE_TYPE (field_decl);
+
+  /* If this field is obviously a bitfield, or is a bitfield that has been
      clobbered to look like a ordinary integer mode, go ahead and generate
      the bitfield typing information.  */
-  type = TREE_TYPE (field_decl);
-  if (DECL_BIT_FIELD (field_decl))
-    encode_bitfield (DECL_FIELD_SIZE (field_decl), format);
-  else if (TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-	   && DECL_FIELD_SIZE (field_decl)
-	   && TYPE_MODE (type) > DECL_MODE (field_decl))
-    encode_bitfield (DECL_FIELD_SIZE (field_decl), format);
+  if (flag_next_runtime)
+    {
+      if (DECL_BIT_FIELD (field_decl))
+	encode_bitfield (DECL_FIELD_SIZE (field_decl), format);
+      else if (TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
+	       && DECL_FIELD_SIZE (field_decl)
+	       && TYPE_MODE (type) > DECL_MODE (field_decl))
+	encode_bitfield (DECL_FIELD_SIZE (field_decl), format);
+      else
+	encode_type (TREE_TYPE (field_decl), curtype, format);
+    }
   else
-    encode_type (TREE_TYPE (field_decl), curtype, format);
+    {
+      if (DECL_BIT_FIELD (field_decl)
+	  || (TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
+	      && DECL_FIELD_SIZE (field_decl)
+	      && TYPE_MODE (type) > DECL_MODE (field_decl)))
+	{
+	  encode_complete_bitfield (TREE_INT_CST_LOW (DECL_FIELD_BITPOS (field_decl)),
+				    DECL_BIT_FIELD_TYPE (field_decl),
+				    DECL_FIELD_SIZE (field_decl));
+	}
+      else
+	encode_type (TREE_TYPE (field_decl), curtype, format);
+    }
 }
 
 static tree
@@ -7337,7 +7461,8 @@ adorn_decl (decl, str)
       tree an_int_cst = TREE_OPERAND (decl, 1);
 
       if (an_int_cst && TREE_CODE (an_int_cst) == INTEGER_CST)
-	sprintf (str + strlen (str), "[%d]", TREE_INT_CST_LOW (an_int_cst));
+	sprintf (str + strlen (str), "[%ld]",
+		 (long) TREE_INT_CST_LOW (an_int_cst));
       else
 	strcat (str, "[]");
     }
@@ -7348,9 +7473,9 @@ adorn_decl (decl, str)
       tree array_of = TREE_TYPE (decl);
 
       if (an_int_cst && TREE_CODE (an_int_cst) == INTEGER_TYPE)
-	sprintf (str + strlen (str), "[%d]",
-		 (TREE_INT_CST_LOW (an_int_cst)
-		  / TREE_INT_CST_LOW (TYPE_SIZE (array_of))));
+	sprintf (str + strlen (str), "[%ld]",
+		 (long) (TREE_INT_CST_LOW (an_int_cst)
+			 / TREE_INT_CST_LOW (TYPE_SIZE (array_of))));
       else
 	strcat (str, "[]");
     }

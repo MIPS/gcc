@@ -29,6 +29,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "rtl.h"
 #include "flags.h"
+#include "toplev.h"
+#include "output.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 
@@ -36,8 +38,9 @@ Boston, MA 02111-1307, USA.  */
 #include <dbxstclass.h>
 
 #include "xcoffout.h"
+#include "dbxout.h"
 
-#if defined (USG) || defined (NO_STAB_H)
+#if defined (USG) || !defined (HAVE_STAB_H)
 #include "gstab.h"
 #else
 #include <stab.h>
@@ -497,6 +500,16 @@ xcoffout_begin_function (file, last_linenum)
 {
   ASM_OUTPUT_LFB (file, last_linenum);
   dbxout_parms (DECL_ARGUMENTS (current_function_decl));
+
+  /* Emit the symbols for the outermost BLOCK's variables.  sdbout.c does this
+     in sdbout_begin_block, but there is no guarantee that there will be any
+     inner block 1, so we must do it here.  This gives a result similar to
+     dbxout, so it does make some sense.  */
+  do_block = 0;
+  next_block_number = 0;
+  xcoffout_block (DECL_INITIAL (current_function_decl), 0,
+		  DECL_ARGUMENTS (current_function_decl));
+
   ASM_OUTPUT_SOURCE_LINE (file, last_linenum);
 }
 

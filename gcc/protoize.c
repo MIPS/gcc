@@ -57,11 +57,6 @@ Boston, MA 02111-1307, USA.  */
 #define _POSIX_SOURCE
 #endif
 
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include "system.h"
 #include <sys/stat.h>
 #if ! defined (_WIN32) || defined (__CYGWIN32__)
@@ -93,13 +88,6 @@ Boston, MA 02111-1307, USA.  */
 #include "getopt.h"
 #undef getopt
 
-#ifndef HAVE_STRERROR
-extern int sys_nerr;
-extern char *sys_errlist[];
-#else
-extern char *strerror();
-#endif
-
 extern char *version_string;
 
 /* Systems which are compatible only with POSIX 1003.1-1988 (but *not*
@@ -123,6 +111,7 @@ extern char *version_string;
 extern char *getpwd ();
 
 extern char *choose_temp_base PROTO ((void));
+extern char * my_strerror PROTO ((int));
 
 extern int pexecute PROTO ((const char *, char * const *, const char *,
 			    const char *, char **, char **, int));
@@ -200,14 +189,6 @@ extern size_t   strlen ()
 /* Look for these where the `const' qualifier is intentionally cast aside.  */
 
 #define NONCONST
-
-/* Define a STRINGIFY macro that's right for ANSI or traditional C.  */
-
-#if defined(HAVE_CPP_STRINGIFY) || (defined(__GNUC__) && defined(__STDC__))
-#define STRINGIFY(STRING) #STRING
-#else
-#define STRINGIFY(STRING) "STRING"
-#endif
 
 /* Define a default place to find the SYSCALLS.X file.  */
 
@@ -1931,7 +1912,7 @@ save_def_or_dec (l, is_syscalls)
         }
 
       /* Handle a special case.  If we have a function definition marked as
-         being in "old" style, and if it's formal names list is empty, then
+         being in "old" style, and if its formal names list is empty, then
          it may actually have the string "void" in its real formals list
          in the original source code.  Just to make sure, we will get setup
          to convert such things anyway.
@@ -2781,7 +2762,7 @@ connect_defs_and_decs (hp)
 
      Also, for each item which is only a function declaration, but which
      nonetheless has its own prototype already (obviously supplied by the user)
-     declare the item as it's own definition.
+     declare the item as its own definition.
 
      Note that when/if there are multiple user-supplied prototypes already
      present for multiple declarations of any given function, these multiple

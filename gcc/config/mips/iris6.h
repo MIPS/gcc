@@ -30,6 +30,10 @@ Boston, MA 02111-1307, USA.  */
 #include "mips/iris5.h"
 #include "mips/abi64.h"
 
+/* Irix6 assembler does handle DWARF2 directives.  Override setting in
+ irix5.h file.  */
+#undef DWARF2_UNWIND_INFO
+
 /* For Irix 6, -mabi=64 implies TARGET_LONG64.  */
 /* This is handled in override_options.  */
 
@@ -96,6 +100,9 @@ Boston, MA 02111-1307, USA.  */
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
+/* Force the generation of dwarf .debug_frame sections even if not
+   compiling -g.  This guarantees that we can unwind the stack. */
+#define DWARF2_FRAME_INFO 1
 /* The size in bytes of a DWARF field indicating an offset or length
    relative to a debug info section, specified to be 4 bytes in the DWARF-2
    specification.  The SGI/MIPS ABI defines it to be the same as PTR_SIZE.  */
@@ -118,8 +125,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* The Irix 6.0.1 assembler doesn't like labels in the text section, so
    just avoid emitting them.  */
-#define ASM_IDENTIFY_GCC
-#define ASM_IDENTIFY_LANGUAGE
+#define ASM_IDENTIFY_GCC(x) ((void)0)
+#define ASM_IDENTIFY_LANGUAGE(x) ((void)0)
 
 /* Irix 5 stuff that we don't need for Irix 6.  */
 /* ??? We do need this for the -mabi=32 switch though.  */
@@ -554,4 +561,5 @@ do {									 \
   %{!shared: %{!non_shared: %{!call_shared: -call_shared -no_unresolved}}}} \
 %{rpath} -init __do_global_ctors -fini __do_global_dtors \
 %{shared:-hidden_symbol __do_global_ctors,__do_global_dtors,__EH_FRAME_BEGIN__,__frame_dummy} \
--_SYSTYPE_SVR4 %{mabi=32: -32}%{mabi=n32: -n32}%{mabi=64: -64} %{!mabi*: -n32}"
+-_SYSTYPE_SVR4 -woff 131 \
+%{mabi=32: -32}%{mabi=n32: -n32}%{mabi=64: -64}%{!mabi*: -n32}"

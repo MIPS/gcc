@@ -29,10 +29,8 @@ Boston, MA 02111-1307, USA.  */
 /* Names to predefine in the preprocessor for this target machine.  */
 
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-DWIN32 -D_WIN32 -DWINNT -D__STDC__=0 -DALMOST_STDC\
-  -D_M_ALPHA -D_ALPHA_ -D__alpha -D__alpha__\
-  -D_LONGLONG -D__unaligned= -D__stdcall= \
-  -Asystem(winnt) -Acpu(alpha) -Amachine(alpha)"
+#define CPP_PREDEFINES "-DWIN32 -D_WIN32 -DWINNT -D__STDC__=0 -DALMOST_STDC \
+-D_M_ALPHA -D_ALPHA_ -D_LONGLONG -D__unaligned= -D__stdcall= -Asystem(winnt)"
 
 #undef ASM_SPEC
 #undef ASM_FINAL_SPEC
@@ -101,71 +99,31 @@ Boston, MA 02111-1307, USA.  */
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
-   CXT is an RTX for the static chain value for the function. 
-
-   This differs from the standard version in that:
-
-   We are not passed the current address in any register, and so have to 
-   load it ourselves.
-
-   We do not initialize the "hint" field because it only has an 8k
-   range and so the target is in range of something on the stack. 
-   Omitting the hint saves a bogus branch-prediction cache line load.
-
-   Always have an executable stack -- no need for a system call.
- */
+   CXT is an RTX for the static chain value for the function.   */
 
 #undef INITIALIZE_TRAMPOLINE
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			\
-{									\
-  rtx _addr, _val;							\
-									\
-  _addr = memory_address (Pmode, plus_constant ((TRAMP), 16));		\
-  _val = force_reg(Pmode, (FNADDR));					\
-  emit_move_insn (gen_rtx (MEM, SImode, _addr),				\
-		  gen_rtx (SUBREG, SImode, _val, 0));			\
-  _addr = memory_address (Pmode, plus_constant ((TRAMP), 20));		\
-  _val = force_reg(Pmode, (CXT));					\
-  emit_move_insn (gen_rtx (MEM, SImode, _addr),				\
-		  gen_rtx (SUBREG, SImode, _val, 0));			\
-									\
-  emit_insn (gen_rtx (UNSPEC_VOLATILE, VOIDmode,			\
-                      gen_rtvec (1, const0_rtx), 0));			\
-}
+#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
+  alpha_initialize_trampoline (TRAMP, FNADDR, CXT, 16, 20, 12)
 
 /* Output code to add DELTA to the first argument, and then jump to FUNCTION.
    Used for C++ multiple inheritance.  */
 
-#undef ASM_OUTPUT_MI_THUNK
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
 do {									\
-  char *fn_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (FUNCTION));	\
+  char *op, *fn_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0);		\
+  int reg;								\
 									\
-  fprintf (FILE, "\t.ent ");						\
-  assemble_name (FILE, alpha_function_name);				\
-  fputc ('\n', FILE);							\
-  ASM_OUTPUT_LABEL (FILE, alpha_function_name);				\
-  fprintf (FILE, "\t.frame $30,0,$26,0\n");				\
-  fprintf (FILE, "\t.prologue 1\n");					\
+  /* Mark end of prologue.  */						\
+  output_end_prologue (FILE);						\
 									\
   /* Rely on the assembler to macro expand a large delta.  */		\
-  fprintf (FILE, "\tlda $16,%ld($16)\n", (long)(DELTA));		\
+  reg = aggregate_value_p (TREE_TYPE (TREE_TYPE (FUNCTION))) ? 17 : 16; \
+  fprintf (FILE, "\tlda $%d,%ld($%d)\n", reg, (long)(DELTA), reg);      \       
 									\
+  op = "jsr";								\
   if (current_file_function_operand (XEXP (DECL_RTL (FUNCTION), 0)))	\
-    {									\
-      fprintf (FILE, "\tbr $31,");					\
-      assemble_name (FILE, fn_name);					\
-      fputc ('\n', FILE);						\
-    }									\
-  else									\
-    {									\
-      fprintf (FILE, "\tjmp $31,");					\
-      assemble_name (FILE, fn_name);					\
-      fputc ('\n', FILE);						\
-    }									\
-									\
-  fprintf (FILE, "\t.end ");						\
-  assemble_name (FILE, alpha_function_name);				\
+    op = "br";								\
+  fprintf (FILE, "\t%s $31,", op);					\
+  assemble_name (FILE, fn_name);					\
   fputc ('\n', FILE);							\
 } while (0)
-

@@ -1,6 +1,6 @@
 /* intrin.c -- Recognize references to intrinsics
    Copyright (C) 1995-1998 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.ai.mit.edu).
+   Contributed by James Craig Burley (burley@gnu.org).
 
 This file is part of GNU Fortran.
 
@@ -22,7 +22,6 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 */
 
 #include "proj.h"
-#include <ctype.h>
 #include "intrin.h"
 #include "expr.h"
 #include "info.h"
@@ -1553,11 +1552,13 @@ ffeintrin_init_0 ()
       p3 = ffeintrin_names_[i].name_ic;
       for (; *p1 != '\0' && *p2 != '\0' && *p3 != '\0'; ++p1, ++p2, ++p3)
 	{
-	  if (!isascii (*p1) || !isascii (*p2) || !isascii (*p3))
+	  if (! IN_CTYPE_DOMAIN (*p1)
+	      || ! IN_CTYPE_DOMAIN (*p2)
+	      || ! IN_CTYPE_DOMAIN (*p3))
 	    break;
-	  if ((isdigit (*p1) || (*p1 == '_')) && (*p1 == *p2) && (*p1 == *p3))
+	  if ((ISDIGIT (*p1) || (*p1 == '_')) && (*p1 == *p2) && (*p1 == *p3))
 	    continue;
-	  if (!isupper (*p1) || !islower (*p2)
+	  if (! ISUPPER (*p1) || ! ISLOWER (*p2)
 	      || (*p1 != toupper (*p2)) || ((*p3 != *p1) && (*p3 != *p2)))
 	    break;
 	}
@@ -1643,24 +1644,29 @@ ffeintrin_init_0 ()
 	      || (c[1] == 'n')
 	      || (c[1] == 'p'))
 	    ++c;
-	  if (((c[1] != '-')
-	       && (c[1] != 'A')
-	       && (c[1] != 'C')
-	       && (c[1] != 'I')
-	       && (c[1] != 'L')
-	       && (c[1] != 'R')
-	       && (c[1] != 'B')
-	       && (c[1] != 'F')
-	       && (c[1] != 'N')
-	       && (c[1] != 'S')
-	       && (c[1] != 'g')
-	       && (c[1] != 's'))
-	      || ((c[2] != '*')
-		  && ((c[2] < '1')
-		      || (c[2] > '9'))
-		  && (c[2] != 'A')))
+	  if ((c[1] != '-')
+	      && (c[1] != 'A')
+	      && (c[1] != 'C')
+	      && (c[1] != 'I')
+	      && (c[1] != 'L')
+	      && (c[1] != 'R')
+	      && (c[1] != 'B')
+	      && (c[1] != 'F')
+	      && (c[1] != 'N')
+	      && (c[1] != 'S')
+	      && (c[1] != 'g')
+	      && (c[1] != 's'))
 	    {
-	      fprintf (stderr, "%s: bad arg-type\n",
+	      fprintf (stderr, "%s: bad arg-base-type\n",
+		       ffeintrin_imps_[i].name);
+	      break;
+	    }
+	  if ((c[2] != '*')
+	      && ((c[2] < '1')
+		  || (c[2] > '9'))
+	      && (c[2] != 'A'))
+	    {
+	      fprintf (stderr, "%s: bad arg-kind-type\n",
 		       ffeintrin_imps_[i].name);
 	      break;
 	    }

@@ -66,19 +66,23 @@ void
 finish_expr_stmt (expr)
      tree expr;
 {
-  if (!processing_template_decl)
+  if (expr != NULL_TREE)
     {
-      emit_line_note (input_filename, lineno);
-      /* Do default conversion if safe and possibly important,
-	 in case within ({...}).  */
-      if ((TREE_CODE (TREE_TYPE (expr)) == ARRAY_TYPE
-	   && lvalue_p (expr))
-	  || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE)
-	expr = default_conversion (expr);
+      if (!processing_template_decl)
+	{
+	  emit_line_note (input_filename, lineno);
+	  /* Do default conversion if safe and possibly important,
+	     in case within ({...}).  */
+	  if ((TREE_CODE (TREE_TYPE (expr)) == ARRAY_TYPE
+	       && lvalue_p (expr))
+	      || TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE)
+	    expr = default_conversion (expr);
+	}
+      
+      cplus_expand_expr_stmt (expr);
+      clear_momentary ();
     }
-  
-  cplus_expand_expr_stmt (expr);
-  clear_momentary ();
+
   finish_stmt ();
 }
 
@@ -379,8 +383,8 @@ finish_for_cond (cond, for_stmt)
   else
     {
       emit_line_note (input_filename, lineno);
-      if (cond) 
-	expand_exit_loop_if_false (0, cond);
+      if (cond)
+	expand_exit_loop_if_false (0, condition_conversion (cond));
     }
   
   /* If the cond wasn't a declaration, clear out the
@@ -583,7 +587,9 @@ finish_try_block (try_block)
   if (processing_template_decl)
     RECHAIN_STMTS_FROM_LAST (try_block, TRY_STMTS (try_block));
   else
-    expand_start_all_catch ();  
+    {
+      expand_start_all_catch ();  
+    }
 }
 
 /* Finish a handler-sequence for a try-block, which may be given by
@@ -596,7 +602,9 @@ finish_handler_sequence (try_block)
   if (processing_template_decl)
     RECHAIN_STMTS_FROM_CHAIN (try_block, TRY_HANDLERS (try_block));
   else
-    expand_end_all_catch ();
+    {
+      expand_end_all_catch ();
+    }
 }
 
 /* Begin a handler.  Returns a HANDLER if appropriate.  */
@@ -722,28 +730,18 @@ finish_asm_stmt (cv_qualifier, string, output_operands,
   else
     {
       emit_line_note (input_filename, lineno);
-      if (output_operands != NULL_TREE || input_operands != NULL_TREE
-	  || clobbers != NULL_TREE)
-	{
-	  if (cv_qualifier != NULL_TREE
-	      && cv_qualifier != ridpointers[(int) RID_VOLATILE])
-	    cp_warning ("%s qualifier ignored on asm",
-			IDENTIFIER_POINTER (cv_qualifier));
-	    
-	  c_expand_asm_operands (string, output_operands,
-				 input_operands, 
-				 clobbers,
-				 cv_qualifier 
-				 == ridpointers[(int) RID_VOLATILE],
-				 input_filename, lineno);
-	}
-      else
-	{
-	  if (cv_qualifier != NULL_TREE)
-	    cp_warning ("%s qualifier ignored on asm",
-			IDENTIFIER_POINTER (cv_qualifier));
-	  expand_asm (string);
-	}
+
+      if (cv_qualifier != NULL_TREE
+	  && cv_qualifier != ridpointers[(int) RID_VOLATILE])
+	cp_warning ("%s qualifier ignored on asm",
+		    IDENTIFIER_POINTER (cv_qualifier));
+      
+      c_expand_asm_operands (string, output_operands,
+			     input_operands, 
+			     clobbers,
+			     cv_qualifier 
+			     == ridpointers[(int) RID_VOLATILE],
+			     input_filename, lineno);
 
       finish_stmt ();
     }
@@ -828,11 +826,21 @@ finish_stmt_expr (rtl_expr, expr)
    call.  */
 
 tree 
-finish_call_expr (fn, args)
+finish_call_expr (fn, args, koenig)
      tree fn;
      tree args;
+     int koenig;
 {
-  tree result = build_x_function_call (fn, args, current_class_ref);
+  tree result;
+
+  if (koenig)
+    {
+      if (TREE_CODE (fn) == BIT_NOT_EXPR)
+	fn = build_x_unary_op (BIT_NOT_EXPR, TREE_OPERAND (fn, 0));
+      else if (TREE_CODE (fn) != TEMPLATE_ID_EXPR)
+	fn = do_identifier (fn, 2, args);
+    }
+  result = build_x_function_call (fn, args, current_class_ref);
 
   if (TREE_CODE (result) == CALL_EXPR
       && TREE_TYPE (result) != void_type_node)
@@ -909,6 +917,25 @@ finish_object_call_expr (fn, object, args)
   tree real_fn = build_component_ref (object, fn, NULL_TREE, 1);
   return finish_call_expr (real_fn, args);
 #else
+  if (TREE_CODE (fn) == TYPE_DECL)
+    {
+      if (processing_template_decl)
+	/* This can happen on code like:
+
+	   class X;
+	   template <class T> void f(T t) {
+	     t.X();
+	   }  
+
+	   We just grab the underlying IDENTIFIER.  */
+	fn = DECL_NAME (fn);
+      else
+	{
+	  cp_error ("calling type `%T' like a method", fn);
+	  return error_mark_node;
+	}
+    }
+
   return build_method_call (object, fn, args, NULL_TREE, LOOKUP_NORMAL);
 #endif
 }
@@ -958,7 +985,7 @@ finish_pseudo_destructor_call_expr (object, scope, destructor)
    ARGS.  Returns an expression for the call.  */
 
 tree 
-finish_globally_qualified_member_call_expr (fn, args)
+finish_qualified_call_expr (fn, args)
      tree fn;
      tree args;
 {
@@ -993,6 +1020,58 @@ finish_label_address_expr (label)
   return result;
 }
 
+/* Finish an expression of the form CODE EXPR.  */
+
+tree
+finish_unary_op_expr (code, expr)
+     enum tree_code code;
+     tree expr;
+{
+  tree result = build_x_unary_op (code, expr);
+  if (code == NEGATE_EXPR && TREE_CODE (expr) == INTEGER_CST)
+    TREE_NEGATED_INT (result) = 1;
+  overflow_warning (result);
+  return result;
+}
+
+/* Finish an id-expression.  */
+
+tree
+finish_id_expr (expr)
+     tree expr;
+{
+  if (TREE_CODE (expr) == IDENTIFIER_NODE)
+    expr = do_identifier (expr, 1, NULL_TREE);
+
+  return expr;
+}
+
+/* Begin a new-placement.  */
+
+int
+begin_new_placement ()
+{
+  /* The arguments to a placement new might be passed to a
+     deallocation function, in the event that the allocation throws an
+     exception.  Since we don't expand exception handlers until the
+     end of a function, we must make sure the arguments stay around
+     that long.  */
+  return suspend_momentary ();
+}
+
+/* Finish a new-placement.  The ARGS are the placement arguments.  The
+   COOKIE is the value returned by the previous call to
+   begin_new_placement.  */
+
+tree
+finish_new_placement (args, cookie)
+     tree args;
+     int cookie;
+{
+  resume_momentary (cookie);
+  return args;
+}
+
 /* Begin a function defniition declared with DECL_SPECS and
    DECLARATOR.  Returns non-zero if the function-declaration is
    legal.  */
@@ -1009,6 +1088,10 @@ begin_function_definition (decl_specs, declarator)
     return 0;
   
   reinit_parse_for_function ();
+  /* The things we're about to see are not directly qualified by any
+     template headers we've seen thus far.  */
+  reset_specialization ();
+
   return 1;
 }
 
@@ -1021,14 +1104,37 @@ begin_constructor_declarator (scope, name)
      tree name;
 {
   tree result = build_parse_node (SCOPE_REF, scope, name);
-
-  if (scope != current_class_type)
-    {
-      push_nested_class (scope, 3);
-      TREE_COMPLEXITY (result) = current_class_depth;
-    }
-
+  enter_scope_of (result);
   return result;
+}
+
+/* Finish an init-declarator.  Returns a DECL.  */
+
+tree
+finish_declarator (declarator, declspecs, attributes,
+		   prefix_attributes, initialized)
+     tree declarator;
+     tree declspecs;
+     tree attributes;
+     tree prefix_attributes;
+     int initialized;
+{
+  return start_decl (declarator, declspecs, initialized, attributes,
+		     prefix_attributes); 
+}
+
+/* Finish a translation unit.  */
+
+void 
+finish_translation_unit ()
+{
+  /* In case there were missing closebraces,
+     get us back to the global binding level.  */
+  while (! toplevel_bindings_p ())
+    poplevel (0, 0, 0);
+  while (current_namespace != global_namespace)
+    pop_namespace ();
+  finish_file ();
 }
 
 /* Finish a template type parameter, specified as AGGR IDENTIFIER.
@@ -1067,3 +1173,424 @@ finish_template_template_parm (aggr, identifier)
 
   return finish_template_type_parm (aggr, tmpl);
 }
+
+/* Finish a parameter list, indicated by PARMS.  If ELLIPSIS is
+   non-zero, the parameter list was terminated by a `...'.  */
+
+tree
+finish_parmlist (parms, ellipsis)
+     tree parms;
+     int ellipsis;
+{
+  if (!ellipsis)
+    chainon (parms, void_list_node);
+  /* We mark the PARMS as a parmlist so that declarator processing can
+     disambiguate certain constructs.  */
+  if (parms != NULL_TREE)
+    TREE_PARMLIST (parms) = 1;
+
+  return parms;
+}
+
+/* Begin a class definition, as indicated by T.  */
+
+tree
+begin_class_definition (t)
+     tree t;
+{
+  push_obstacks_nochange ();
+  end_temporary_allocation ();
+  
+  if (t == error_mark_node
+      || ! IS_AGGR_TYPE (t))
+    {
+      t = make_lang_type (RECORD_TYPE);
+      pushtag (make_anon_name (), t, 0);
+    }
+
+  /* In a definition of a member class template, we will get here with an
+     implicit typename, a TYPENAME_TYPE with a type.  */
+  if (TREE_CODE (t) == TYPENAME_TYPE)
+    t = TREE_TYPE (t);
+
+  if (TYPE_SIZE (t))
+    duplicate_tag_error (t);
+  if (TYPE_SIZE (t) || TYPE_BEING_DEFINED (t))
+    {
+      t = make_lang_type (TREE_CODE (t));
+      pushtag (TYPE_IDENTIFIER (t), t, 0);
+    }
+  if (processing_template_decl && TYPE_CONTEXT (t)
+      && TREE_CODE (TYPE_CONTEXT (t)) != NAMESPACE_DECL
+      && ! current_class_type)
+    push_template_decl (TYPE_STUB_DECL (t));
+  maybe_process_partial_specialization (t);
+  pushclass (t, 0);
+  TYPE_BEING_DEFINED (t) = 1;
+  /* Reset the interface data, at the earliest possible
+     moment, as it might have been set via a class foo;
+     before.  */
+  /* Don't change signatures.  */
+  if (! IS_SIGNATURE (t))
+    {
+      int needs_writing;
+      tree name = TYPE_IDENTIFIER (t);
+      
+      if (! ANON_AGGRNAME_P (name))
+	{
+	  CLASSTYPE_INTERFACE_ONLY (t) = interface_only;
+	  SET_CLASSTYPE_INTERFACE_UNKNOWN_X
+	    (t, interface_unknown);
+	}
+      
+      /* Record how to set the access of this class's
+	 virtual functions.  If write_virtuals == 3, then
+	 inline virtuals are ``extern inline''.  */
+      if (write_virtuals == 3)
+	needs_writing = ! CLASSTYPE_INTERFACE_ONLY (t)
+	  && CLASSTYPE_INTERFACE_KNOWN (t);
+      else
+	needs_writing = 1;
+      CLASSTYPE_VTABLE_NEEDS_WRITING (t) = needs_writing;
+    }
+#if 0
+  tmp = TYPE_IDENTIFIER ($<ttype>0);
+  if (tmp && IDENTIFIER_TEMPLATE (tmp))
+    overload_template_name (tmp, 1);
+#endif
+  reset_specialization();
+  
+  /* In case this is a local class within a template
+     function, we save the current tree structure so
+     that we can get it back later.  */
+  begin_tree ();
+
+  return t;
+}
+
+/* Finish the member declaration given by DECL.  */
+
+void
+finish_member_declaration (decl)
+     tree decl;
+{
+  if (decl == error_mark_node || decl == NULL_TREE)
+    return;
+
+  if (decl == void_type_node)
+    /* The COMPONENT was a friend, not a member, and so there's
+       nothing for us to do.  */
+    return;
+
+  /* We should see only one DECL at a time.  */
+  my_friendly_assert (TREE_CHAIN (decl) == NULL_TREE, 0);
+
+  /* Set up access control for DECL.  */
+  TREE_PRIVATE (decl) 
+    = (current_access_specifier == access_private_node);
+  TREE_PROTECTED (decl) 
+    = (current_access_specifier == access_protected_node);
+  if (TREE_CODE (decl) == TEMPLATE_DECL)
+    {
+      TREE_PRIVATE (DECL_RESULT (decl)) = TREE_PRIVATE (decl);
+      TREE_PROTECTED (DECL_RESULT (decl)) = TREE_PROTECTED (decl);
+    }
+
+  /* Mark the DECL as a member of the current class.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL 
+      || DECL_FUNCTION_TEMPLATE_P (decl))
+    /* Historically, DECL_CONTEXT was not set for a FUNCTION_DECL in
+       finish_struct.  Presumably it is already set as the function is
+       parsed.  Perhaps DECL_CLASS_CONTEXT is already set, too?  */
+    DECL_CLASS_CONTEXT (decl) = current_class_type;
+  else if (TREE_CODE (decl) == TYPE_DECL)
+    /* Historically, DECL_CONTEXT was not set for a TYPE_DECL in
+       finish_struct, so we do not do it here either.  Perhaps we
+       should, though.  */
+      ;
+  else
+    DECL_CONTEXT (decl) = current_class_type;
+
+  /* Put functions on the TYPE_METHODS list and everything else on the
+     TYPE_FIELDS list.  Note that these are built up in reverse order.
+     We reverse them (to obtain declaration order) in finish_struct.  */
+  if (TREE_CODE (decl) == FUNCTION_DECL 
+      || DECL_FUNCTION_TEMPLATE_P (decl))
+    {
+      /* We also need to add this function to the
+	 CLASSTYPE_METHOD_VEC.  */
+      add_method (current_class_type, 0, decl);
+
+      TREE_CHAIN (decl) = TYPE_METHODS (current_class_type);
+      TYPE_METHODS (current_class_type) = decl;
+    }
+  else
+    {
+      /* All TYPE_DECLs go at the end of TYPE_FIELDS.  Ordinary fields
+	 go at the beginning.  The reason is that lookup_field_1
+	 searches the list in order, and we want a field name to
+	 override a type name so that the "struct stat hack" will
+	 work.  In particular:
+
+	   struct S { enum E { }; int E } s;
+	   s.E = 3;
+
+	 is legal.  In addition, the FIELD_DECLs must be maintained in
+	 declaration order so that class layout works as expected.
+	 However, we don't need that order until class layout, so we
+	 save a little time by putting FIELD_DECLs on in reverse order
+	 here, and then reversing them in finish_struct_1.  (We could
+	 also keep a pointer to the correct insertion points in the
+	 list.)  */
+
+      if (TREE_CODE (decl) == TYPE_DECL)
+	TYPE_FIELDS (current_class_type) 
+	  = chainon (TYPE_FIELDS (current_class_type), decl);
+      else
+	{
+	  TREE_CHAIN (decl) = TYPE_FIELDS (current_class_type);
+	  TYPE_FIELDS (current_class_type) = decl;
+	}
+    }
+}
+
+/* Finish a class definition T with the indicate ATTRIBUTES.  If SEMI,
+   the definition is immediately followed by a semicolon.  Returns the
+   type.  */
+
+tree
+finish_class_definition (t, attributes, semi)
+     tree t;
+     tree attributes;
+     int semi;
+{
+#if 0
+  /* Need to rework class nesting in the presence of nested classes,
+     etc.  */
+  shadow_tag (CLASSTYPE_AS_LIST (t)); */
+#endif
+
+  /* finish_struct nukes this anyway; if finish_exception does too,
+     then it can go.  */
+  if (semi)
+    note_got_semicolon (t);
+
+  /* If we got any attributes in class_head, xref_tag will stick them in
+     TREE_TYPE of the type.  Grab them now.  */
+  attributes = chainon (TREE_TYPE (t), attributes);
+  TREE_TYPE (t) = NULL_TREE;
+
+  if (TREE_CODE (t) == ENUMERAL_TYPE)
+    ;
+  else
+    {
+      t = finish_struct (t, attributes, semi);
+      if (semi) 
+	note_got_semicolon (t);
+    }
+
+  pop_obstacks ();
+
+  if (! semi)
+    check_for_missing_semicolon (t); 
+  if (current_scope () == current_function_decl)
+    do_pending_defargs ();
+
+  return t;
+}
+
+/* Finish processing the default argument expressions cached during
+   the processing of a class definition.  */
+
+void
+finish_default_args ()
+{
+  if (pending_inlines 
+      && current_scope () == current_function_decl)
+    do_pending_inlines ();
+}
+
+/* Finish processing the inline function definitions cached during the
+   processing of a class definition.  */
+
+void
+begin_inline_definitions ()
+{
+  if (current_class_type == NULL_TREE)
+    clear_inline_text_obstack (); 
+  
+  /* Undo the begin_tree in begin_class_definition.  */
+  end_tree ();
+}
+
+/* Finish processing the declaration of a member class template
+   TYPES whose template parameters are given by PARMS.  */
+
+tree
+finish_member_class_template (types)
+     tree types;
+{
+  tree t;
+
+  /* If there are declared, but undefined, partial specializations
+     mixed in with the typespecs they will not yet have passed through
+     maybe_process_partial_specialization, so we do that here.  */
+  for (t = types; t != NULL_TREE; t = TREE_CHAIN (t))
+    if (IS_AGGR_TYPE_CODE (TREE_CODE (TREE_VALUE (t))))
+      maybe_process_partial_specialization (TREE_VALUE (t));
+
+  note_list_got_semicolon (types);
+  grok_x_components (types);
+  if (TYPE_CONTEXT (TREE_VALUE (types)) != current_class_type)
+    /* The component was in fact a friend declaration.  We avoid
+       finish_member_template_decl performing certain checks by
+       unsetting TYPES.  */
+    types = NULL_TREE;
+  
+  finish_member_template_decl (types);
+
+  /* As with other component type declarations, we do
+     not store the new DECL on the list of
+     component_decls.  */
+  return NULL_TREE;
+}
+
+/* Finish processsing a complete template declaration.  The PARMS are
+   the template parameters.  */
+
+void
+finish_template_decl (parms)
+     tree parms;
+{
+  if (parms)
+    end_template_decl ();
+  else
+    end_specialization ();
+}
+
+/* Finish processing a a template-id (which names a type) of the form
+   NAME < ARGS >.  Return the TYPE_DECL for the type named by the
+   template-id.  If ENTERING_SCOPE is non-zero we are about to enter
+   the scope of template-id indicated.  */
+
+tree
+finish_template_type (name, args, entering_scope)
+     tree name;
+     tree args;
+     int entering_scope;
+{
+  tree decl;
+
+  decl = lookup_template_class (name, args,
+				NULL_TREE, NULL_TREE, entering_scope);
+  if (decl != error_mark_node)
+    decl = TYPE_STUB_DECL (decl);
+
+  return decl;
+}
+
+/* SR is a SCOPE_REF node.  Enter the scope of SR, whether it is a
+   namespace scope or a class scope.  */
+
+void
+enter_scope_of (sr)
+     tree sr;
+{
+  tree scope = TREE_OPERAND (sr, 0);
+
+  if (TREE_CODE (scope) == NAMESPACE_DECL)
+    {
+      push_decl_namespace (scope);
+      TREE_COMPLEXITY (sr) = -1;
+    }
+  else if (scope != current_class_type)
+    {
+      if (TREE_CODE (scope) == TYPENAME_TYPE)
+	{
+	  /* In a declarator for a template class member, the scope will
+	     get here as an implicit typename, a TYPENAME_TYPE with a type.  */
+	  scope = TREE_TYPE (scope);
+	  TREE_OPERAND (sr, 0) = scope;
+	}
+      push_nested_class (scope, 3);
+      TREE_COMPLEXITY (sr) = current_class_depth;
+    }
+}
+
+/* Finish processing a BASE_CLASS with the indicated ACCESS_SPECIFIER.
+   Return a TREE_LIST containing the ACCESS_SPECIFIER and the
+   BASE_CLASS, or NULL_TREE if an error occurred.  The
+   ACCESSS_SPECIFIER is one of
+   access_{default,public,protected_private}[_virtual]_node.*/
+
+tree 
+finish_base_specifier (access_specifier, base_class,
+		       current_aggr_is_signature)
+     tree access_specifier;
+     tree base_class;
+     int current_aggr_is_signature;
+{
+  tree type;
+  tree result;
+
+  if (base_class == NULL_TREE)
+    {
+      error ("invalid base class");
+      type = error_mark_node;
+    }
+  else
+    type = TREE_TYPE (base_class);
+  if (current_aggr_is_signature && access_specifier)
+    error ("access and source specifiers not allowed in signature");
+  if (! is_aggr_type (type, 1))
+    result = NULL_TREE;
+  else if (current_aggr_is_signature
+	   && (! type) && (! IS_SIGNATURE (type)))
+    {
+      error ("class name not allowed as base signature");
+      result = NULL_TREE;
+    }
+  else if (current_aggr_is_signature)
+    {
+      sorry ("signature inheritance, base type `%s' ignored",
+	     IDENTIFIER_POINTER (access_specifier));
+      result = build_tree_list (access_public_node, type);
+    }
+  else if (type && IS_SIGNATURE (type))
+    {
+      error ("signature name not allowed as base class");
+      result = NULL_TREE;
+    }
+  else
+    result = build_tree_list (access_specifier, type);
+
+  return result;
+}
+
+/* Called when multiple declarators are processed.  If that is not
+   premitted in this context, an error is issued.  */
+
+void
+check_multiple_declarators ()
+{
+  /* [temp]
+     
+     In a template-declaration, explicit specialization, or explicit
+     instantiation the init-declarator-list in the declaration shall
+     contain at most one declarator.  
+
+     We don't just use PROCESSING_TEMPLATE_DECL for the first
+     condition since that would disallow the perfectly legal code, 
+     like `template <class T> struct S { int i, j; };'.  */
+  tree scope = current_scope ();
+
+  if (scope && TREE_CODE (scope) == FUNCTION_DECL)
+    /* It's OK to write `template <class T> void f() { int i, j;}'.  */
+    return;
+     
+  if (PROCESSING_REAL_TEMPLATE_DECL_P () 
+      || processing_explicit_instantiation
+      || processing_specialization)
+    cp_error ("multiple declarators in template declaration");
+}
+

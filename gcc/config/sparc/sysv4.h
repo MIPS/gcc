@@ -66,7 +66,9 @@ Boston, MA 02111-1307, USA.  */
 /* The native assembler can't compute differences between symbols in different
    sections when generating pic code, so we must put jump tables in the
    text section.  */
-#define JUMP_TABLES_IN_TEXT_SECTION 1
+/* But we now defer the tables to the end of the function, so we make
+   this 0 to not confuse the branch shortening code.  */
+#define JUMP_TABLES_IN_TEXT_SECTION 0
 
 /* Pass -K to the assembler when PIC.  */
 #undef ASM_SPEC
@@ -191,8 +193,8 @@ do { ASM_OUTPUT_ALIGN ((FILE), Pmode == SImode ? 2 : 3);		\
 #define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC) \
 do {									\
   if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL)			\
-    fprintf (FILE, ".section\t\"%s%s\",#alloc,#execinstr\n",		\
-	     flag_function_sections ? ".text%" : "", (NAME));		\
+    fprintf (FILE, ".section\t\"%s\",#alloc,#execinstr\n",		\
+	                                      (NAME));		\
   else if ((DECL) && DECL_READONLY_SECTION (DECL, RELOC))		\
     fprintf (FILE, ".section\t\"%s\",#alloc\n", (NAME));		\
   else									\

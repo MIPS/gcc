@@ -102,13 +102,14 @@ in the following sections.
 @item C++ Language Options
 @xref{C++ Dialect Options,,Options Controlling C++ Dialect}.
 @smallexample
--fall-virtual  -fdollars-in-identifiers  -felide-constructors
--fenum-int-equiv  -fexternal-templates  -ffor-scope  
--fno-for-scope  -fhandle-signatures  -fmemoize-lookups  
--fname-mangling-version-@var{n}  -fno-default-inline  
--fno-gnu-keywords -fnonnull-objects -fguiding-decls
--foperator-names  -fstrict-prototype  -fthis-is-variable
--ftemplate-depth-@var{n}  -nostdinc++  -traditional  +e@var{n}
+-fno-access-control  -fcheck-new  -fconserve-space  -fdollars-in-identifiers
+-fno-elide-constructors  -fexternal-templates  -ffor-scope  
+-fno-for-scope  -fno-gnu-keywords  -fguiding-decls  -fhandle-signatures
+-fhonor-std -fhuge-objects  -fno-implicit-templates  -finit-priority
+-fno-implement-inlines -fname-mangling-version-@var{n}  -fno-default-inline  
+-foperator-names  -fno-optional-diags  -frepo  -fstrict-prototype
+-fsquangle  -ftemplate-depth-@var{n}  -fthis-is-variable  -fvtable-thunks
+-nostdinc++
 @end smallexample
 
 @item Warning Options
@@ -121,20 +122,21 @@ in the following sections.
 -Wid-clash-@var{len}  -Wimplicit -Wimplicit-int 
 -Wimplicit-function-declaration  -Wimport
 -Werror-implicit-function-declaration  -Winline
--Wlarger-than-@var{len}  -Wmain  -Wmissing-declarations
--Wmissing-prototypes  -Wnested-externs  -Wno-import  
--Wold-style-cast  -Woverloaded-virtual  -Wparentheses
--Wpointer-arith  -Wredundant-decls  -Wreorder  -Wreturn-type
--Wshadow  -Wsign-compare  -Wstrict-prototypes  -Wswitch
--Wsynth  -Wtemplate-debugging  -Wtraditional  -Wtrigraphs
--Wundef  -Wuninitialized  -Wunused  -Wwrite-strings
+-Wlarger-than-@var{len}  -Wlong-long
+-Wmain  -Wmissing-declarations
+-Wmissing-prototypes  -Wmultichar  -Wnested-externs  -Wno-import  
+-Wno-non-template-friend -Wold-style-cast  -Woverloaded-virtual  
+-Wparentheses -Wpointer-arith  -Wredundant-decls  -Wreorder  
+-Wreturn-type -Wshadow  -Wsign-compare  -Wstrict-prototypes  
+-Wswitch -Wsynth  -Wtraditional  
+-Wtrigraphs -Wundef  -Wuninitialized  -Wunused  -Wwrite-strings
 -Wunknown-pragmas
 @end smallexample
 
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @smallexample
--a  -ax  -d@var{letters}  -fpretend-float
+-a  -ax  -d@var{letters}  -fdump-unnumbered -fpretend-float
 -fprofile-arcs  -ftest-coverage
 -g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2
 -ggdb  -gstabs  -gstabs+  -gxcoff  -gxcoff+
@@ -145,18 +147,18 @@ in the following sections.
 @item Optimization Options
 @xref{Optimize Options,,Options that Control Optimization}.
 @smallexample
--fbranch-probabilities
+-fbranch-probabilities  -foptimize-register-moves
 -fcaller-saves  -fcse-follow-jumps  -fcse-skip-blocks
 -fdelayed-branch   -fexpensive-optimizations
 -ffast-math  -ffloat-store  -fforce-addr  -fforce-mem
--ffunction-sections  -finline-functions
--fkeep-inline-functions  -fno-default-inline
--fno-defer-pop  -fno-function-cse
+-fdata-sections -ffunction-sections  -fgcse 
+-finline-functions -fkeep-inline-functions
+-fno-default-inline -fno-defer-pop  -fno-function-cse
 -fno-inline  -fno-peephole  -fomit-frame-pointer -fregmove
 -frerun-cse-after-loop  -frerun-loop-opt -fschedule-insns
 -fschedule-insns2  -fstrength-reduce  -fthread-jumps
 -funroll-all-loops  -funroll-loops
--fmove-all-movables  -freduce-all-givs
+-fmove-all-movables  -freduce-all-givs -fstrict-aliasing
 -O  -O0  -O1  -O2  -O3 -Os
 @end smallexample
 
@@ -265,9 +267,13 @@ in the following sections.
 -mthumb-interwork -mno-thumb-interwork
 -mstructure-size-boundary=
 
+@emph{MN10200 Options}
+-mrelax
+
 @emph{MN10300 Options}
 -mmult-bug
 -mno-mult-bug
+-mrelax
 
 @emph{M32R/D Options}
 -mcode-model=@var{model type}  -msdata=@var{sdata type}
@@ -294,17 +300,16 @@ in the following sections.
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt
 -mnew-mnemonics  -mno-new-mnemonics
 -mfull-toc   -mminimal-toc  -mno-fop-in-toc  -mno-sum-in-toc
--mxl-call  -mno-xl-call  -mthreads  -mpe
+-maix64  -maix32  -mxl-call  -mno-xl-call  -mthreads  -mpe
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple
 -mstring  -mno-string  -mupdate  -mno-update
 -mfused-madd  -mno-fused-madd  -mbit-align  -mno-bit-align
 -mstrict-align  -mno-strict-align  -mrelocatable
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib
--mtoc  -mno-toc  -mtraceback  -mno-traceback
--mlittle  -mlittle-endian  -mbig  -mbig-endian
+-mtoc  -mno-toc -mlittle  -mlittle-endian  -mbig  -mbig-endian
 -mcall-aix  -mcall-sysv  -mprototype  -mno-prototype
--msim  -mmvme  -mads  -myellowknife  -memb
--msdata  -msdata=@var{opt}  -G @var{num}
+-msim  -mmvme  -mads  -myellowknife  -memb -msdata
+-msdata=@var{opt}  -G @var{num}
 
 @emph{RT Options}
 -mcall-lib-mul  -mfp-arg-in-fpregs  -mfp-arg-in-gregs
@@ -315,7 +320,7 @@ in the following sections.
 -mabicalls  -mcpu=@var{cpu type}  -membedded-data
 -membedded-pic  -mfp32  -mfp64  -mgas  -mgp32  -mgp64
 -mgpopt  -mhalf-pic  -mhard-float  -mint64  -mips1
--mips2  -mips3  -mlong64  -mlong-calls  -mmemcpy
+-mips2  -mips3 -mips4 -mlong64  -mlong-calls  -mmemcpy
 -mmips-as  -mmips-tfile  -mno-abicalls
 -mno-embedded-data  -mno-embedded-pic
 -mno-gpopt  -mno-long-calls
@@ -323,6 +328,7 @@ in the following sections.
 -mrnames  -msoft-float
 -m4650  -msingle-float  -mmad
 -mstats  -EL  -EB  -G @var{num}  -nocpp
+-mabi=32 -mabi=n32 -mabi=64 -mabi=eabi
 
 @emph{i386 Options}
 -mcpu=@var{cpu type}
@@ -399,7 +405,7 @@ in the following sections.
 -fpcc-struct-return  -fpic  -fPIC
 -freg-struct-return  -fshared-data  -fshort-enums
 -fshort-double  -fvolatile  -fvolatile-global
--fverbose-asm -fpack-struct  -fstack-check  +e0  +e1
+-fverbose-asm -fpack-struct  -fstack-check
 -fargument-alias  -fargument-noalias
 -fargument-noalias-global
 @end smallexample
@@ -666,8 +672,8 @@ other, C++-specific, extension keywords such as @code{headof}.
 @findex strcmp
 @findex strcpy
 @findex strlen
-Don't recognize builtin functions that do not begin with two leading
-underscores.  Currently, the functions affected include @code{abort},
+Don't recognize builtin functions that do not begin with `__builtin_'
+as prefix.  Currently, the functions affected include @code{abort},
 @code{abs}, @code{alloca}, @code{cos}, @code{exit}, @code{fabs},
 @code{ffs}, @code{labs}, @code{memcmp}, @code{memcpy}, @code{sin},
 @code{sqrt}, @code{strcmp}, @code{strcpy}, and @code{strlen}.
@@ -758,11 +764,6 @@ The character escape sequences @samp{\x} and @samp{\a} evaluate as the
 literal characters @samp{x} and @samp{a} respectively.  Without
 @w{@samp{-traditional}}, @samp{\x} is a prefix for the hexadecimal
 representation of a character, and @samp{\a} produces a bell.
-
-@item
-In C++ programs, assignment to @code{this} is permitted with
-@samp{-traditional}.  (The option @samp{-fthis-is-variable} also has
-this effect.)
 @end itemize
 
 You may wish to use @samp{-fno-builtin} as well as @samp{-traditional}
@@ -903,11 +904,11 @@ regardless of what language your program is in.  For example, you
 might compile a file @code{firstClass.C} like this:
 
 @example
-g++ -g -felide-constructors -O -c firstClass.C
+g++ -g -frepo -O -c firstClass.C
 @end example
 
 @noindent
-In this example, only @samp{-felide-constructors} is an option meant
+In this example, only @samp{-frepo} is an option meant
 only for C++ programs; you can use the other options with any
 language supported by GNU CC.
 
@@ -918,23 +919,16 @@ Here is a list of options that are @emph{only} for compiling C++ programs:
 Turn off all access checking.  This switch is mainly useful for working
 around bugs in the access control code.
 
-@item -fall-virtual
-Treat all possible member functions as virtual, implicitly.
-All member functions (except for constructor functions and @code{new} or
-@code{delete} member operators) are treated as virtual functions of the
-class where they appear.
-
-This does not mean that all calls to these member functions will be made
-through the internal table of virtual functions.  Under some
-circumstances, the compiler can determine that a call to a given virtual
-function can be made directly; in these cases the calls are direct in
-any case.
-
 @item -fcheck-new
 Check that the pointer returned by @code{operator new} is non-null
 before attempting to modify the storage allocated.  The current Working
 Paper requires that @code{operator new} never return a null pointer, so
 this check is normally unnecessary.
+
+An alternative to using this option is to specify that your
+@code{operator new} does not throw any exceptions; if you declare it
+@samp{throw()}, g++ will check the return value.  See also @samp{new
+(nothrow)}.
 
 @item -fconserve-space
 Put uninitialized or runtime-initialized global variables into the
@@ -944,6 +938,9 @@ flag and your program mysteriously crashes after @code{main()} has
 completed, you may have an object that is being destroyed twice because
 two definitions were merged.
 
+This option is no longer useful on most targets, now that support has
+been added for putting variables into BSS without making them common.
+
 @item -fdollars-in-identifiers
 Accept @samp{$} in identifiers.  You can also explicitly prohibit use of
 @samp{$} with the option @samp{-fno-dollars-in-identifiers}.  (GNU C allows
@@ -951,10 +948,11 @@ Accept @samp{$} in identifiers.  You can also explicitly prohibit use of
 Traditional C allowed the character @samp{$} to form part of
 identifiers.  However, ANSI C and C++ forbid @samp{$} in identifiers.
 
-@item -fenum-int-equiv
-Anachronistically permit implicit conversion of @code{int} to
-enumeration types.  Current C++ allows conversion of @code{enum} to
-@code{int}, but not the other way around.
+@item -fno-elide-constructors
+The C++ standard allows an implementation to omit creating a temporary
+which is only used to initialize another object of the same type.
+Specifying this option disables that optimization, and forces g++ to
+call the copy constructor in all cases.
 
 @item -fexternal-templates
 Cause template instantiations to obey @samp{#pragma interface} and
@@ -1003,12 +1001,9 @@ be instantiated.  This behavior reflects the C++ language prior to
 September 1996, when guiding declarations were removed.
 
 This option implies @samp{-fname-mangling-version-0}, and will not work
-with other name mangling versions.
-
-@item -fno-implicit-templates
-Never emit code for templates which are instantiated implicitly (i.e. by
-use); only emit code for explicit instantiations.  @xref{Template
-Instantiation}, for more information.
+with other name mangling versions.  Like all options that change the
+ABI, all C++ code, @emph{including libgcc.a} must be built with the same
+setting of this option.
 
 @item -fhandle-signatures
 Recognize the @code{signature} and @code{sigof} keywords for specifying
@@ -1016,71 +1011,37 @@ abstract types.  The default (@samp{-fno-handle-signatures}) is not to
 recognize them.  @xref{C++ Signatures, Type Abstraction using
 Signatures}.
 
+@item -fhonor-std
+Treat the @code{namespace std} as a namespace, instead of ignoring
+it. For compatibility with earlier versions of g++, the compiler will,
+by default, ignore @code{namespace-declarations},
+@code{using-declarations}, @code{using-directives}, and
+@code{namespace-names}, if they involve @code{std}.
+
 @item -fhuge-objects
 Support virtual function calls for objects that exceed the size
 representable by a @samp{short int}.  Users should not use this flag by
-default; if you need to use it, the compiler will tell you so.  If you
-compile any of your code with this flag, you must compile @emph{all} of
-your code with this flag (including the C++ library, if you use it).
+default; if you need to use it, the compiler will tell you so.
 
 This flag is not useful when compiling with -fvtable-thunks.
+
+Like all options that change the ABI, all C++ code, @emph{including
+libgcc} must be built with the same setting of this option.
+
+@item -fno-implicit-templates
+Never emit code for templates which are instantiated implicitly (i.e. by
+use); only emit code for explicit instantiations.  @xref{Template
+Instantiation}, for more information.
+
+@item -finit-priority
+Support @samp{__attribute__ ((init_priority (n)))} for controlling the
+order of initialization of file-scope objects.  On ELF targets, this
+requires GNU ld 2.10 or later.
 
 @item -fno-implement-inlines
 To save space, do not emit out-of-line copies of inline functions
 controlled by @samp{#pragma implementation}.  This will cause linker
 errors if these functions are not inlined everywhere they are called.
-
-@item -fmemoize-lookups
-@itemx -fsave-memoized
-Use heuristics to compile faster.  These heuristics are not enabled by
-default, since they are only effective for certain input files.  Other
-input files compile more slowly.
-
-The first time the compiler must build a call to a member function (or
-reference to a data member), it must (1) determine whether the class
-implements member functions of that name; (2) resolve which member
-function to call (which involves figuring out what sorts of type
-conversions need to be made); and (3) check the visibility of the member
-function to the caller.  All of this adds up to slower compilation.
-Normally, the second time a call is made to that member function (or
-reference to that data member), it must go through the same lengthy
-process again.  This means that code like this:
-
-@smallexample
-cout << "This " << p << " has " << n << " legs.\n";
-@end smallexample
-
-@noindent
-makes six passes through all three steps.  By using a software cache, a
-``hit'' significantly reduces this cost.  Unfortunately, using the cache
-introduces another layer of mechanisms which must be implemented, and so
-incurs its own overhead.  @samp{-fmemoize-lookups} enables the software
-cache.
-
-Because access privileges (visibility) to members and member functions
-may differ from one function context to the next, G++ may need to flush
-the cache.  With the @samp{-fmemoize-lookups} flag, the cache is flushed
-after every function that is compiled.  The @samp{-fsave-memoized} flag
-enables the same software cache, but when the compiler determines that
-the context of the last function compiled would yield the same access
-privileges of the next function to compile, it preserves the cache.
-This is most helpful when defining many member functions for the same
-class: with the exception of member functions which are friends of other
-classes, each member function has exactly the same access privileges as
-every other, and the cache need not be flushed.
-
-The code that implements these flags has rotted; you should probably
-avoid using them.
-
-@item -fstrict-prototype
-Within an @samp{extern "C"} linkage specification, treat a function
-declaration with no arguments, such as @samp{int foo ();}, as declaring
-the function to take no arguments.  Normally, such a declaration means
-that the function @code{foo} can take any combination of arguments, as
-in C.  @samp{-pedantic} implies @samp{-fstrict-prototype} unless
-overridden with @samp{-fno-strict-prototype}.
-
-This flag no longer affects declarations with C++ linkage.
 
 @item -fname-mangling-version-@var{n}
 Control the way in which names are mangled.  Version 0 is compatible
@@ -1093,25 +1054,34 @@ given this declaration:
 template <class T, class U> void foo(T t);
 @end example
 
-@item -fno-nonnull-objects
-Don't assume that a reference is initialized to refer to a valid object.
-Although the current C++ Working Paper prohibits null references, some
-old code may rely on them, and you can use @samp{-fno-nonnull-objects}
-to turn on checking.
-
-At the moment, the compiler only does this checking for conversions to
-virtual base classes.
-
 @item -foperator-names
 Recognize the operator name keywords @code{and}, @code{bitand},
 @code{bitor}, @code{compl}, @code{not}, @code{or} and @code{xor} as
 synonyms for the symbols they refer to.  @samp{-ansi} implies
 @samp{-foperator-names}.
 
+@item -fno-optional-diags
+Disable diagnostics that the standard says a compiler does not need to
+issue.  Currently, this means the diagnostic for a name having multiple 
+meanings within a class.
+
 @item -frepo
 Enable automatic template instantiation.  This option also implies
 @samp{-fno-implicit-templates}.  @xref{Template Instantiation}, for more
 information.
+
+@item -fstrict-prototype
+Within an @samp{extern "C"} linkage specification, treat a function
+declaration with no arguments, such as @samp{int foo ();}, as declaring
+the function to take no arguments.  Normally, such a declaration means
+that the function @code{foo} can take any combination of arguments, as
+in C.  @samp{-pedantic} implies @samp{-fstrict-prototype} unless
+overridden with @samp{-fno-strict-prototype}.
+
+Specifying this option will also suppress implicit declarations of
+functions.
+
+This flag no longer affects declarations with C++ linkage.
 
 @item -fsquangle
 @itemx -fno-squangle
@@ -1121,6 +1091,15 @@ types and class names which occur more than once, replacing them with special
 short ID codes.  This option also requires any C++ libraries being used to
 be compiled with this option as well.  The compiler has this disabled (the
 equivalent of @samp{-fno-squangle}) by default.
+
+Like all options that change the ABI, all C++ code, @emph{including
+libgcc.a} must be built with the same setting of this option.
+
+@item -ftemplate-depth-@var{n}
+Set the maximum instantiation depth for template classes to @var{n}.
+A limit on the template instantiation depth is needed to detect
+endless recursions during template class instantiation. ANSI/ISO C++
+conforming programs must not rely on a maximum depth greater than 17.
 
 @item -fthis-is-variable
 Permit assignment to @code{this}.  The incorporation of user-defined
@@ -1139,26 +1118,13 @@ offsets for adjusting the @samp{this} pointer at the call site.  Newer
 implementations store a single pointer to a @samp{thunk} function which
 does any necessary adjustment and then calls the target function.
 
-This option also enables a heuristic for controlling emission of
-vtables; if a class has any non-inline virtual functions, the vtable
-will be emitted in the translation unit containing the first one of
-those.
-
-@item -ftemplate-depth-@var{n}
-Set the maximum instantiation depth for template classes to @var{n}.
-A limit on the template instantiation depth is needed to detect
-endless recursions during template class instantiation. ANSI/ISO C++
-conforming programs must not rely on a maximum depth greater than 17.
+Like all options that change the ABI, all C++ code, @emph{including
+libgcc.a} must be built with the same setting of this option.
 
 @item -nostdinc++
 Do not search for header files in the standard directories specific to
 C++, but do still search the other standard directories.  (This option
 is used when building the C++ library.)
-
-@item -traditional
-For C++ programs (in addition to the effects that apply to both C and
-C++), this has the same effect as @samp{-fthis-is-variable}.
-@xref{C Dialect Options,, Options Controlling C Dialect}.
 @end table
 
 In addition, these optimization, warning, and code generation options
@@ -1167,21 +1133,19 @@ have meanings only for C++ programs:
 @table @code
 @item -fno-default-inline
 Do not assume @samp{inline} for functions defined inside a class scope.
-@xref{Optimize Options,,Options That Control Optimization}.
+@xref{Optimize Options,,Options That Control Optimization}.  Note that these
+functions will have linkage like inline functions; they just won't be
+inlined by default.
 
+@item -Wno-non-template-friend
+@xref{Warning Options,,Options to Request or Suppress Warnings}.
 @item -Wold-style-cast
 @itemx -Woverloaded-virtual
-@itemx -Wtemplate-debugging
 Warnings that apply only to C++ programs.  @xref{Warning
 Options,,Options to Request or Suppress Warnings}.
 
 @item -Weffc++
 Warn about violation of some style rules from Effective C++ by Scott Myers.
-
-@item +e@var{n}
-Control how virtual function definitions are used, in a fashion
-compatible with @code{cfront} 1.x.  @xref{Code Gen Options,,Options for
-Code Generation Conventions}.
 @end table
 
 @node Warning Options
@@ -1283,6 +1247,11 @@ Same as @samp{-Wimplicit-int} and @samp{-Wimplicit-function-}@*
 Warn if the type of @samp{main} is suspicious.  @samp{main} should be a
 function with external linkage, returning int, taking either zero
 arguments, two, or three arguments of appropriate types.
+
+@item -Wmultichar
+Warn if a multicharacter constant (@samp{'FOOF'}) is used.  Usually they
+indicate a typo in the user's code, as they have implementation-defined
+values, and should not be used in portable code.
   
 @item -Wparentheses
 Warn if parentheses are omitted in certain contexts, such
@@ -1530,6 +1499,16 @@ struct s @{ int f, g; @};
 struct t @{ struct s h; int i; @};
 struct t x = @{ 1, 2, 3 @};
 @end smallexample
+
+@item
+An aggregate has an initializer which does not initialize all members.
+For example, the following code would cause such a warning, because
+@code{x.h} would be implicitly initialized to zero:
+
+@smallexample
+struct s @{ int f, g, h; @};
+struct s x = @{ 3, 4 @};
+@end smallexample
 @end itemize
 
 @item -Wtraditional
@@ -1645,6 +1624,22 @@ cases where multiple declaration is valid and changes nothing.
 @item -Wnested-externs
 Warn if an @code{extern} declaration is encountered within an function.
 
+@item -Wno-non-template-friend
+Disable warnings when non-templatized friend functions are declared
+within a template. With the advent of explicit template specification
+support in g++, if the name of the friend is an unqualified-id (ie,
+@samp{friend foo(int)}), the C++ language specification demands that the
+friend declare or define an ordinary, nontemplate function. (Section
+14.5.3). Before g++ implemented explicit specification, unqualified-ids
+could be interpreted as a particular specialization of a templatized
+function. Because this non-conforming behavior is no longer the default
+behavior for g++, @samp{-Wnon-template-friend} allows the compiler to
+check existing code for potential trouble spots, and is on by default.
+This new compiler behavior can also be turned off with the flag
+@samp{-fguiding-decls}, which activates the older, non-specification
+compiler code, or with @samp{-Wno-non-template-friend} which keeps the
+conformant compiler code but disables the helpful warning.
+
 @item -Winline
 Warn if a function can not be inlined, and either it was declared as inline,
 or else the @samp{-finline-functions} option was given.
@@ -1684,6 +1679,12 @@ main ()
 
 In this example, g++ will synthesize a default @samp{A& operator =
 (const A&);}, while cfront will use the user-defined @samp{operator =}.
+
+@item -Wlong-long
+Warn if @samp{long long} type is used.  This is default.  To inhibit
+the warning messages, use @samp{-Wno-long-long}.  Flags
+@samp{-Wlong-long} and @samp{-Wno-long-long} are taken into account
+only when @samp{-pedantic} flag is used.
 
 @item -Werror
 Make all warnings into errors.
@@ -1986,6 +1987,8 @@ Dump after purging ADDRESSOF, to @file{@var{file}.addressof}.
 Dump after flow analysis, to @file{@var{file}.flow}.
 @item g
 Dump after global register allocation, to @file{@var{file}.greg}.
+@item G      
+Dump after GCSE, to @file{@var{file}.gcse}.
 @item j
 Dump after first jump optimization, to @file{@var{file}.jump}.
 @item J
@@ -2029,6 +2032,12 @@ Dump debugging information during parsing, to standard error.
 @item A
 Annotate the assembler output with miscellaneous debugging information.
 @end table
+
+@item -fdump-unnumbered
+When doing debugging dumps (see -d option above), suppress instruction
+numbers and line number note output.  This makes it more feasible to
+use diff on debugging dumps for compiler invokations with different
+options, in particular with and without -g.
 
 @item -fpretend-float
 When running a cross-compiler, pretend that the target machine uses the
@@ -2156,7 +2165,8 @@ the 68000 where the floating registers (of the 68881) keep more
 precision than a @code{double} is supposed to have.  Similarly for the
 x86 architecture.  For most programs, the excess precision does only
 good, but a few programs rely on the precise definition of IEEE floating
-point.  Use @samp{-ffloat-store} for such programs.
+point.  Use @samp{-ffloat-store} for such programs, after modifying
+them to store all pertinent intermediate computations into variables.
 
 @item -fno-default-inline
 Do not make member functions inline by default merely because they are
@@ -2299,8 +2309,23 @@ performed.
 @item -frerun-loop-opt
 Run the loop optimizer twice.
 
+@item -fgcse
+Perform a global common subexpression elimination pass.
+This pass also performs global constant and copy propagation.
+
 @item -fexpensive-optimizations
 Perform a number of minor optimizations that are relatively expensive.
+
+@item -foptimize-register-moves
+@item -fregmove
+Attempt to reassign register numbers in move instructions and as
+operands of other simple instructions in order to maximize the amount of
+register tying.  This is especially helpful on machines with two-operand
+instructions.  GNU CC enables this optimization by default with @samp{-O2}
+or higher.
+
+Note @code{-fregmove} and @code{-foptimize-register-moves} are the same
+optimization.
 
 @item -fdelayed-branch
 If supported for the target machine, attempt to reorder instructions
@@ -2321,18 +2346,20 @@ especially useful on machines with a relatively small number of
 registers and where memory load instructions take more than one cycle.
 
 @item -ffunction-sections
-Place each function into its own section in the output file if the
-target supports arbitrary sections.  The function's name determines
-the section's name in the output file.
+@item -fdata-sections
+Place each function or data item into its own section in the output
+file if the target supports arbitrary sections.  The name of the
+function or the name of the data item determines the section's name
+in the output file.
 
-Use this option on systems where the linker can perform optimizations
+Use these options on systems where the linker can perform optimizations
 to improve locality of reference in the instruction space.  HPPA
 processors running HP-UX and Sparc processors running Solaris 2 have
 linkers with such optimizations.  Other systems using the ELF object format
 as well as AIX may have these optimizations in the future.
 
-Only use this option when there are significant benefits from doing
-so.  When you specify this option, the assembler and linker will
+Only use these options when there are significant benefits from doing
+so.  When you specify these options, the assembler and linker will
 create larger object and executable files and will also be slower.
 You will not be able to use @code{gprof} on all systems if you
 specify this option and you may have problems with debugging if
@@ -2344,8 +2371,11 @@ function calls, by emitting extra instructions to save and restore the
 registers around such calls.  Such allocation is done only when it
 seems to result in better code than would otherwise be produced.
 
-This option is enabled by default on certain machines, usually those
-which have no call-preserved registers to use instead.
+This option is always enabled by default on certain machines, usually
+those which have no call-preserved registers to use instead.
+
+For all machines, optimization level 2 and higher enables this flag by
+default.
 
 @item -funroll-loops
 Perform the optimization of loop unrolling.  This is only done for loops
@@ -2403,11 +2433,52 @@ branch is mostly to take, the @samp{REG_BR_PROB} values are used to
 exactly determine which path is taken more often.
 @end ifset
 
-@item -fregmove
-Some machines only support 2 operands per instruction.  On such
-machines, GNU CC might have to do extra copies.  The @samp{-fregmove}
-option overrides the default for the machine to do the copy before
-register allocation.
+@item -fstrict-aliasing
+Allows the compiler to assume the strictest aliasing rules applicable to
+the language being compiled.  For C (and C++), this activates
+optimizations based on the type of expressions.  In particular, an
+object of one type is assumed never to reside at the same address as an
+object of a different type, unless the types are almost the same.  For
+example, an @code{unsigned int} can alias an @code{int}, but not a
+@code{void*} or a @code{double}.  A character type may alias any other
+type.  
+
+Pay special attention to code like this:
+@example
+union a_union @{ 
+  int i;
+  double d;
+@};
+
+int f() @{
+  a_union t;
+  t.d = 3.0;
+  return t.i;
+@}
+@end example
+The practice of reading from a different union member than the one most
+recently written to (called ``type-punning'') is common.  Even with
+@samp{-fstrict-aliasing}, type-punning is allowed, provided the memory
+is accessed through the union type.  So, the code above will work as
+expected.  However, this code might not:
+@example
+int f() @{ 
+  a_union t;
+  int* ip;
+  t.d = 3.0;
+  ip = &t.i;
+  return *ip;
+@}
+@end example
+
+@ifset INTERNALS
+Every language that wishes to perform language-specific alias analysis
+should define a function that computes, given an @code{tree}
+node, an alias set for the node.  Nodes in different alias sets are not
+allowed to alias.  For an example, see the C front-end function
+@code{c_get_alias_set}.
+@end ifset
+
 @end table
 
 @node Preprocessor Options
@@ -2941,6 +3012,7 @@ that macro, which enables you to change the defaults.
 * AMD29K Options::
 * ARM Options::
 * Thumb Options::
+* MN10200 Options::
 * MN10300 Options::
 * M32R/D Options::
 * M88K Options::
@@ -3766,6 +3838,19 @@ value as future versions of the toolchain may default to this value.
 
 @end table
 
+@node MN10200 Options
+@subsection MN10200 Options
+@cindex MN10200 options
+These @samp{-m} options are defined for Matsushita MN10200 architectures:
+@table @code
+
+@item -mrelax
+Indicate to the linker that it should perform a relaxation optimization pass
+to shorten branches, calls and absolute memory addresses.  This option only
+has an effect when used on the command line for the final link step.
+
+This option makes symbolic debugging impossible. 
+@end table
 
 @node MN10300 Options
 @subsection MN10300 Options
@@ -3780,7 +3865,15 @@ processors.  This is the default.
 @item -mno-mult-bug
 Do not generate code to avoid bugs in the multiply instructions for the
 MN10300 processors.
+
+@item -mrelax
+Indicate to the linker that it should perform a relaxation optimization pass
+to shorten branches, calls and absolute memory addresses.  This option only
+has an effect when used on the command line for the final link step.
+
+This option makes symbolic debugging impossible. 
 @end table
+
 
 @node M32R/D Options
 @subsection M32R/D Options
@@ -4086,11 +4179,14 @@ These @samp{-m} options are defined for the IBM RS/6000 and PowerPC:
 @itemx -mno-powerpc-gpopt
 @itemx -mpowerpc-gfxopt
 @itemx -mno-powerpc-gfxopt
+@itemx -mpowerpc64
+@itemx -mno-powerpc64
 @kindex -mpower
 @kindex -mpower2
 @kindex -mpowerpc
 @kindex -mpowerpc-gpopt
 @kindex -mpowerpc-gfxopt
+@kindex -mpowerpc64
 GNU CC supports two related instruction set architectures for the
 RS/6000 and PowerPC.  The @dfn{POWER} instruction set are those
 instructions supported by the @samp{rios} chip set used in the original
@@ -4124,6 +4220,11 @@ General Purpose group, including floating-point square root.  Specifying
 use the optional PowerPC architecture instructions in the Graphics
 group, including floating-point select.
 
+The @samp{-mpowerpc64} option allows GNU CC to generate the additional
+64-bit instructions that are found in the full PowerPC64 architecture
+and to treat GPRs as 64-bit, doubleword quantities.  GNU CC defaults to
+@samp{-mno-powerpc64}.
+
 If you specify both @samp{-mno-power} and @samp{-mno-powerpc}, GNU CC
 will use only the instructions in the common subset of both
 architectures plus some special AIX common-mode calls, and will not use
@@ -4143,18 +4244,14 @@ Instructions defined in only one architecture have only one mnemonic;
 GNU CC uses that mnemonic irrespective of which of these options is
 specified.
 
-PowerPC assemblers support both the old and new mnemonics, as will later
-POWER assemblers.  Current POWER assemblers only support the old
-mnemonics.  Specify @samp{-mnew-mnemonics} if you have an assembler that
-supports them, otherwise specify @samp{-mold-mnemonics}.
-
-The default value of these options depends on how GNU CC was configured.
-Specifying @samp{-mcpu=@var{cpu_type}} sometimes overrides the value of
-these option.  Unless you are building a cross-compiler, you should
-normally not specify either @samp{-mnew-mnemonics} or
+GNU CC defaults to the mnemonics appropriate for the architecture in
+use.  Specifying @samp{-mcpu=@var{cpu_type}} sometimes overrides the
+value of these option.  Unless you are building a cross-compiler, you
+should normally not specify either @samp{-mnew-mnemonics} or
 @samp{-mold-mnemonics}, but should instead accept the default.
 
 @item -mcpu=@var{cpu_type}
+@kindex -mcpu
 Set architecture type, register usage, choice of mnemonics, and
 instruction scheduling parameters for machine type @var{cpu_type}.
 Supported values for @var{cpu_type} are @samp{rs6000}, @samp{rios1},
@@ -4228,6 +4325,7 @@ instruction scheduling parameters.
 @itemx -mno-fp-in-toc
 @itemx -mno-sum-in-toc
 @itemx -mminimal-toc
+@kindex -mminimal-toc
 Modify generation of the TOC (Table Of Contents), which is created for
 every executable file.  The @samp{-mfull-toc} option is selected by
 default.  In that case, GNU CC will allocate at least one TOC entry for
@@ -4252,26 +4350,39 @@ option, GNU CC will produce code that is slower and larger but which
 uses extremely little TOC space.  You may wish to use this option
 only on files that contain less frequently executed code. @refill
 
+@item -maix64
+@itemx -maix32
+@kindex -maix64
+@kindex -maix32
+Enable AIX 64-bit ABI and calling convention: 64-bit pointers, 64-bit
+@code{long} type, and the infrastructure needed to support them.
+Specifying @samp{-maix64} implies @samp{-mpowerpc64} and
+@samp{-mpowerpc}, while @samp{-maix32} disables the 64-bit ABI and
+implies @samp{-mno-powerpc64}.  GNU CC defaults to @samp{-maix32}.
+
 @item -mxl-call
 @itemx -mno-xl-call
+@kindex -mxl-call
 On AIX, pass floating-point arguments to prototyped functions beyond the
 register save area (RSA) on the stack in addition to argument FPRs.  The
 AIX calling convention was extended but not initially documented to
 handle an obscure K&R C case of calling a function that takes the
 address of its arguments with fewer arguments than declared.  AIX XL
-compilers assume that floating point arguments which do not fit in the
-RSA are on the stack when they compile a subroutine without
+compilers access floating point arguments which do not fit in the
+RSA from the stack when a subroutine is compiled without
 optimization.  Because always storing floating-point arguments on the
 stack is inefficient and rarely needed, this option is not enabled by
 default and only is necessary when calling subroutines compiled by AIX
 XL compilers without optimization.
 
 @item -mthreads
+@kindex -mthreads
 Support @dfn{AIX Threads}.  Link an application written to use
 @dfn{pthreads} with special libraries and startup code to enable the
 application to run.
 
 @item -mpe
+@kindex -mpe
 Support @dfn{IBM RS/6000 SP} @dfn{Parallel Environment} (PE).  Link an
 application written to use message passing with special startup code to
 enable the application to run.  The system must have PE installed in the
@@ -4283,6 +4394,7 @@ option are incompatible.
 
 @item -msoft-float
 @itemx -mhard-float
+@kindex -msoft-float
 Generate code that does not use (uses) the floating-point register set.
 Software floating point emulation is provided if you use the
 @samp{-msoft-float} option, and pass the option to GNU CC when linking.
@@ -4298,6 +4410,7 @@ processor is in little endian mode.
 
 @item -mstring
 @itemx -mno-string
+@kindex -mstring
 Generate code that uses (does not use) the load string instructions and the
 store string word instructions to save multiple registers and do small block
 moves.  These instructions are generated by default on POWER systems, and not
@@ -4307,6 +4420,7 @@ little endian mode.
 
 @item -mupdate
 @itemx -mno-update
+@kindex -mupdate
 Generate code that uses (does not use) the load or store instructions
 that update the base register to the address of the calculated memory
 location.  These instructions are generated by default.  If you use
@@ -4317,12 +4431,14 @@ signals may get corrupted data.
 
 @item -mfused-madd
 @itemx -mno-fused-madd
+@kindex -mfused-madd
 Generate code that uses (does not use) the floating point multiply and
 accumulate instructions.  These instructions are generated by default if
 hardware floating is used.
 
 @item -mno-bit-align
 @itemx -mbit-align
+@kindex -mbit-align
 On System V.4 and embedded PowerPC systems do not (do) force structures
 and unions that contain bit fields to be aligned to the base type of the
 bit field.
@@ -4335,11 +4451,13 @@ size.
 
 @item -mno-strict-align
 @itemx -mstrict-align
+@kindex -mstrict-align
 On System V.4 and embedded PowerPC systems do not (do) assume that
 unaligned memory references will be handled by the system.
 
 @item -mrelocatable
 @itemx -mno-relocatable
+@kindex -mrelocatable
 On embedded PowerPC systems generate code that allows (does not allow)
 the program to be relocated to a different address at runtime.  If you
 use @samp{-mrelocatable} on any module, all objects linked together must
@@ -4358,12 +4476,6 @@ with modules compiled with the @samp{-mrelocatable} options.
 On System V.4 and embedded PowerPC systems do not (do) assume that
 register 2 contains a pointer to a global area pointing to the addresses
 used in the program.
-
-@item -mno-traceback
-@itemx -mtraceback
-On embedded PowerPC systems do not (do) generate a traceback tag before
-the start of the function.  This tag can be used by the debugger to
-identify where the start of a function is.
 
 @item -mlittle
 @itemx -mlittle-endian
@@ -4584,6 +4696,10 @@ Issue instructions from level 3 of the MIPS ISA (64 bit instructions).
 @samp{r4000} is the default @var{cpu type} at this ISA level.
 This option does not change the sizes of any of the C data types.
 
+@item -mips4
+Issue instructions from level 4 of the MIPS ISA.  @samp{r8000} is the
+default @var{cpu type} at this ISA level.
+
 @item -mfp32
 Assume that 32 32-bit floating point registers are available.  This is
 the default.
@@ -4607,6 +4723,12 @@ is also specified.
 @item -mlong64
 Types long and pointer are 64 bits, and type int is 32 bits.
 This works only if @samp{-mips3} is also specified.
+
+@itemx -mabi=32
+@itemx -mabi=n32
+@itemx -mabi=64
+@itemx -mabi=eabi
+Generate code for the indicated ABI.
 
 @item -mmips-as
 Generate code for the MIPS assembler, and invoke @file{mips-tfile} to
@@ -4753,7 +4875,7 @@ All modules should be compiled with the same @samp{-G @var{num}}
 value.
 
 @item -nocpp
-Tell the MIPS assembler to not run it's preprocessor over user
+Tell the MIPS assembler to not run its preprocessor over user
 assembler files (with a @samp{.s} suffix) when assembling them.
 @end table
 
@@ -4899,12 +5021,18 @@ startup modules.
 
 @item -malign-loops=@var{num}
 Align loops to a 2 raised to a @var{num} byte boundary.  If
-@samp{-malign-loops} is not specified, the default is 2.
+@samp{-malign-loops} is not specified, the default is 2 unless
+gas 2.8 (or later) is being used in which case the default is
+to align the loop on a 16 byte boundary if it is less than 8
+bytes away.
 
 @item -malign-jumps=@var{num}
 Align instructions that are only jumped to to a 2 raised to a @var{num}
 byte boundary.  If @samp{-malign-jumps} is not specified, the default is
-2 if optimizing for a 386, and 4 if optimizing for a 486.
+2 if optimizing for a 386, and 4 if optimizing for a 486 unless
+gas 2.8 (or later) is being used in which case the default is
+to align the instruction on a 16 byte boundary if it is less
+than 8 bytes away.
 
 @item -malign-functions=@var{num}
 Align the start of functions to a 2 raised to @var{num} byte boundary.
@@ -5542,9 +5670,12 @@ it.
 
 @table @code
 @item -fexceptions
-Enable exception handling, and generate extra code needed to propagate
-exceptions.  If you do not specify this option, GNU CC enables it by
-default for languages like C++ that normally require exception handling,
+Enable exception handling. Generates extra code needed to propagate
+exceptions.  For some targets, this implies generation of frame unwind 
+information for all functions. This can produce significant data size 
+overhead, although it does not affect execution.
+If you do not specify this option, it is enabled by
+default for languages like C++ which normally require exception handling,
 and disabled for languages like C that do not normally require it.
 However, when compiling C code that needs to interoperate properly with
 exception handlers written in C++, you may need to enable this option.
@@ -5757,38 +5888,47 @@ prefix_foo (int a)
 @end example
 This option is designed to be used with @samp{-fcheck-memory-usage}.
 
+@item -finstrument-functions
+Generate instrumentation calls for entry and exit to functions.  Just
+after function entry and just before function exit, the following
+profiling functions will be called with the address of the current
+function and its call site.  (On some platforms,
+@code{__builtin_return_address} does not work beyond the current
+function, so the call site information may not be available to the
+profiling functions otherwise.)
+
+@example
+void __cyg_profile_func_enter (void *this_fn, void *call_site);
+void __cyg_profile_func_exit  (void *this_fn, void *call_site);
+@end example
+
+The first argument is the address of the start of the current function,
+which may be looked up exactly in the symbol table.
+
+This instrumentation is also done for functions expanded inline in other
+functions.  The profiling calls will indicate where, conceptually, the
+inline function is entered and exited.  This means that addressable
+versions of such functions must be available.  If all your uses of a
+function are expanded inline, this may mean an additional expansion of
+code size.  If you use @samp{extern inline} in your C code, an
+addressable version of such functions must be provided.  (This is
+normally the case anyways, but if you get lucky and the optimizer always
+expands the functions inline, you might have gotten away without
+providing static copies.)
+
+A function may be given the attribute @code{no_instrument_function}, in
+which case this instrumentation will not be done.  This can be used, for
+example, for the profiling functions listed above, high-priority
+interrupt routines, and any functions from which the profiling functions
+cannot safely be called (perhaps signal handlers, if the profiling
+routines generate output or allocate memory).
+
 @item -fstack-check
 Generate code to verify that you do not go beyond the boundary of the
 stack.  You should specify this flag if you are running in an
 environment with multiple threads, but only rarely need to specify it in
 a single-threaded environment since stack overflow is automatically
 detected on nearly all systems if there is only one stack.
-
-@item -fexceptions
-Enable exception handling.  For some targets, this implies
-generation of frame unwind information for all functions, which can produce
-significant data size overhead, though it does not affect execution.
-
-This option is on by default for languages that support exception
-handling (such as C++), and off for those that don't (such as C).
-
-@item +e0
-@itemx +e1
-Control whether virtual function definitions in classes are used to
-generate code, or only to define interfaces for their callers.  (C++
-only).
-
-These options are provided for compatibility with @code{cfront} 1.x
-usage; the recommended alternative GNU C++ usage is in flux.  @xref{C++
-Interface,,Declarations and Definitions in One Header}.
-
-With @samp{+e0}, virtual function definitions in classes are declared
-@code{extern}; the declaration is used only as an interface
-specification, not to generate code for the virtual functions (in this
-compilation).
-
-With @samp{+e1}, G++ actually generates the code implementing virtual
-functions defined in the code, and makes them publicly visible.
 
 @cindex aliasing of parameters
 @cindex parameters, aliased
@@ -5814,8 +5954,9 @@ the language standard.  You should not need to use these options yourself.
 @cindex environment variables
 
 This section describes several environment variables that affect how GNU
-CC operates.  They work by specifying directories or prefixes to use
-when searching for various kinds of files.
+CC operates.  Some of them work by specifying directories or prefixes to use
+when searching for various kinds of files. Some are used to specify other
+aspects of the compilation environment.
 
 @ifclear INTERNALS
 Note that you can also specify places to search using options such as
@@ -5915,6 +6056,28 @@ which case the Make rules are written to that file, guessing the target
 name from the source file name.  Or the value can have the form
 @samp{@var{file} @var{target}}, in which case the rules are written to
 file @var{file} using @var{target} as the target name.
+
+@item LANG
+@findex LANG
+@cindex locale definition
+This variable is used to pass locale information to the compiler. One way in
+which this information is used is to determine the character set to be used
+when character literals, string literals and comments are parsed in C and C++.
+When the compiler is configured to allow multibyte characters,
+the following values for @code{LANG} are recognized:
+
+@table @code
+@item C-JIS
+Recognize JIS characters.
+@item C-SJIS
+Recognize SJIS characters.
+@item C-EUCJP
+Recognize EUCJP characters.
+@end table
+
+If @code{LANG} is not defined, or if it has some other value, then the
+compiler will use mblen and mbtowc as defined by the default locale to
+recognize and translate multibyte characters.
 @end table
 
 @node Running Protoize

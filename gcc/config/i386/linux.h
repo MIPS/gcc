@@ -1,5 +1,5 @@
-/* Definitions for Intel 386 running Linux with ELF format
-   Copyright (C) 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
+/* Definitions for Intel 386 running Linux-based GNU systems with ELF format.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
 
@@ -49,7 +49,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Indicate that jump tables go in the text section.  This is
    necessary when compiling PIC code.  */
-#define JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 /* Copy this from the svr4 specifications... */
 /* Define the register numbers to be used in Dwarf debugging information.
@@ -155,9 +155,9 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SPEC
 #ifdef USE_GNULIBC_1
-#define CPP_SPEC "%(cpp_cpu) %[cpp_cpu] %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
+#define CPP_SPEC "%(cpp_cpu) %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
 #else
-#define CPP_SPEC "%(cpp_cpu) %[cpp_cpu] %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
+#define CPP_SPEC "%(cpp_cpu) %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 #endif
 
 #undef CC1_SPEC
@@ -218,3 +218,16 @@ Boston, MA 02111-1307, USA.  */
 
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
+
+/* A C statement to output to the stdio stream FILE an assembler
+   command to advance the location counter to a multiple of 1<<LOG
+   bytes if it is within MAX_SKIP bytes.
+
+   This is used to align code labels according to Intel recommendations.  */
+
+#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP) \
+  if ((LOG)!=0) \
+    if ((MAX_SKIP)==0) fprintf ((FILE), "\t.p2align %d\n", (LOG)); \
+    else fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP))
+#endif

@@ -5,9 +5,7 @@
 
 #include <new>
 
-#if 0
 using std::new_handler;
 using std::set_new_handler;
-#endif
 
 #endif // __NEW_H__

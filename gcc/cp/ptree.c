@@ -70,9 +70,12 @@ print_lang_type (file, node, indent)
       || TREE_CODE (node) == TEMPLATE_TEMPLATE_PARM)
     {
       indent_to (file, indent + 3);
-      fprintf (file, "index %d level %d orig_level %d",
-	       TEMPLATE_TYPE_IDX (node), TEMPLATE_TYPE_LEVEL (node),
-	       TEMPLATE_TYPE_ORIG_LEVEL (node));
+      fputs ("index ", file);
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, TEMPLATE_TYPE_IDX (node));
+      fputs (" level ", file);
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, TEMPLATE_TYPE_LEVEL (node));
+      fputs (" orig_level ", file);
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, TEMPLATE_TYPE_ORIG_LEVEL (node));
       return;
     }
 
@@ -147,7 +150,7 @@ print_lang_identifier (file, node, indent)
      tree node;
      int indent;
 {
-  print_node (file, "global", IDENTIFIER_GLOBAL_VALUE (node), indent + 4);
+  print_node (file, "bindings", IDENTIFIER_NAMESPACE_BINDINGS (node), indent + 4);
   print_node (file, "class", IDENTIFIER_CLASS_VALUE (node), indent + 4);
   print_node (file, "local", IDENTIFIER_LOCAL_VALUE (node), indent + 4);
   print_node (file, "label", IDENTIFIER_LABEL_VALUE (node), indent + 4);
@@ -169,11 +172,18 @@ lang_print_xnode (file, node, indent)
       print_node (file, "value", BINDING_VALUE (node), indent+4);
       print_node (file, "chain", TREE_CHAIN (node), indent+4);
       break;
+    case OVERLOAD:
+      print_node (file, "function", OVL_FUNCTION (node), indent+4);
+      print_node (file, "chain", TREE_CHAIN (node), indent+4);
+      break;
     case TEMPLATE_PARM_INDEX:
       indent_to (file, indent + 3);
-      fprintf (file, "index %d level %d orig_level %d",
-	       TEMPLATE_PARM_IDX (node), TEMPLATE_PARM_LEVEL (node),
-	       TEMPLATE_PARM_ORIG_LEVEL (node));
+      fputs ("index ", file);
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, TEMPLATE_PARM_IDX (node));
+      fputs (" level ", file);
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, TEMPLATE_PARM_LEVEL (node));
+      fputs (" orig_level ", file);
+      fprintf (file, HOST_WIDE_INT_PRINT_DEC, TEMPLATE_PARM_ORIG_LEVEL (node));
       break;
     default:
       break;

@@ -75,14 +75,12 @@ extern char *token_buffer;	/* Pointer to token buffer.  */
 
 extern tree make_pointer_declarator PROTO((tree, tree));
 extern void reinit_parse_for_function PROTO((void));
-extern void position_after_whitespace PROTO((void));
+extern void position_after_white_space PROTO((void));
 extern int check_newline PROTO((void));
 
 extern int yylex PROTO((void));
 extern void yyerror PROTO((char *));
 
-extern char *get_directive_line PROTO((FILE *));
- 
 extern void forget_protocol_qualifiers PROTO((void));
 extern void remember_protocol_qualifiers PROTO((void));
 extern tree is_class_name PROTO((tree));

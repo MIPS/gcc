@@ -76,7 +76,7 @@ extern void bss_section ();
 extern struct rtx_def *dsp16xx_function_arg ();
 extern void dsp16xx_function_arg_advance ();
 extern enum rtx_code next_cc_user_code ();
-extern enum rtx_code save_next_cc_user_code;
+extern int next_cc_user_unsigned ();
 extern struct rtx_def *gen_tst_reg ();
 extern char *output_block_move();
 
@@ -138,7 +138,7 @@ extern char *output_block_move();
 /* Tell gcc where to look for the startfile */
 #define STANDARD_STARTFILE_PREFIX   "/d1600/lib"
 
-/* Tell gcc where to look for it's executables */
+/* Tell gcc where to look for its executables */
 #define STANDARD_EXEC_PREFIX  "/d1600/bin"
 
 /* Command line options to the AT&T assembler */
@@ -282,35 +282,25 @@ extern int target_flags;
    on a particular target machine.  You can define a macro
    `OVERRIDE_OPTIONS' to take account of this.  This macro, if
    defined, is executed once just after all the command options have
-   been parsed. */
+   been parsed.
+  
+   Don't use this macro to turn on various extra optimizations for
+   `-O'.  That is what `OPTIMIZATION_OPTIONS' is for.  */
 
 #define OVERRIDE_OPTIONS override_options ()
 
-#define OPTIMIZATION_OPTIONS(LEVEL,SIZE)              \
-{                                                     \
-    flag_gnu_linker             = FALSE;              \
-                                                      \
-    if (LEVEL)                                        \
-    {                                                 \
-	flag_omit_frame_pointer = TRUE;               \
-	flag_thread_jumps       = TRUE;               \
-    }                                                 \
-                                                      \
-    if (LEVEL >= 2)                                   \
-    {                                                 \
-        if (! SIZE)                                   \
- 	  flag_strength_reduce       = TRUE;          \
-	flag_cse_follow_jumps        = TRUE;          \
-	flag_cse_skip_blocks         = TRUE;          \
-	flag_expensive_optimizations = TRUE;          \
-	flag_rerun_cse_after_loop    = TRUE;          \
-    }                                                 \
-                                                      \
-    if ((LEVEL >= 3) && ! SIZE)                       \
-    {                                                 \
-       flag_inline_functions = 1;                     \
-    }                                                 \
-}
+#define OPTIMIZATION_OPTIONS(LEVEL,SIZE)		\
+do							\
+  {							\
+    flag_gnu_linker             = FALSE;		\
+							\
+    if (SIZE)						\
+      {							\
+	flag_strength_reduce    = FALSE;		\
+	flag_inline_functions   = FALSE;		\
+      }							\
+  }							\
+while (0)
 
 /* STORAGE LAYOUT */
 
@@ -436,7 +426,7 @@ extern int target_flags;
    The hardware registers are assigned numbers for the compiler
    from 0 to FIRST_PSEUDO_REGISTER-1 */
 
-#define FIRST_PSEUDO_REGISTER REG_YBASE31 + 1
+#define FIRST_PSEUDO_REGISTER (REG_YBASE31 + 1)
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.
@@ -1131,11 +1121,11 @@ extern struct dsp16xx_frame_info current_frame_info;
 #define VALUE_REGNO(MODE)  (REG_Y)
 
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
-  gen_rtx (REG, TYPE_MODE (VALTYPE), VALUE_REGNO(TYPE_MODE(VALTYPE)))
+  gen_rtx_REG (TYPE_MODE (VALTYPE), VALUE_REGNO(TYPE_MODE(VALTYPE)))
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
-#define LIBCALL_VALUE(MODE)  gen_rtx (REG, MODE, VALUE_REGNO(MODE))
+#define LIBCALL_VALUE(MODE)  gen_rtx_REG (MODE, VALUE_REGNO(MODE))
 
 /* 1 if N is a possible register number for a function value. */
 #define FUNCTION_VALUE_REGNO_P(N) ((N) == REG_Y)

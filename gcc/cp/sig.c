@@ -250,23 +250,25 @@ build_signature_pointer_or_reference_type (to_type, constp, volatilep, refp)
 /* Construct, lay out and return the type of pointers to signature TO_TYPE.  */
 
 tree
-build_signature_pointer_type (to_type, constp, volatilep)
+build_signature_pointer_type (to_type)
      tree to_type;
-     int constp, volatilep;
 {
   return
-    build_signature_pointer_or_reference_type (to_type, constp, volatilep, 0);
+    build_signature_pointer_or_reference_type (TYPE_MAIN_VARIANT (to_type),
+					       TYPE_READONLY (to_type),
+					       TYPE_VOLATILE (to_type), 0);
 }
 
 /* Construct, lay out and return the type of pointers to signature TO_TYPE.  */
 
 tree
-build_signature_reference_type (to_type, constp, volatilep)
+build_signature_reference_type (to_type)
      tree to_type;
-     int constp, volatilep;
 {
   return
-    build_signature_pointer_or_reference_type (to_type, constp, volatilep, 1);
+    build_signature_pointer_or_reference_type (TYPE_MAIN_VARIANT (to_type),
+					       TYPE_READONLY (to_type),
+					       TYPE_VOLATILE (to_type), 1);
 }
 
 /* Return the name of the signature table (as an IDENTIFIER_NODE)
@@ -321,7 +323,7 @@ build_member_function_pointer (member)
   GNU_xref_ref (current_function_decl, name);
 
   entry = build_lang_field_decl (FIELD_DECL, get_identifier (name),
-				 TYPE_MAIN_VARIANT (sigtable_entry_type));
+				 sigtable_entry_type);
   TREE_CONSTANT (entry) = 1;
   TREE_READONLY (entry) = 1;
 
@@ -341,49 +343,45 @@ build_member_function_pointer (member)
    The new FIELD_DECLs are appended at the end of the last (and only)
    sublist of `list_of_fieldlists.'
 
+   T is the signature type.
+  
    As a side effect, each member function in the signature gets the
    `decl.ignored' bit turned on, so we don't output debug info for it.  */
 
 void
-append_signature_fields (list_of_fieldlists)
-     tree list_of_fieldlists;
+append_signature_fields (t)
+     tree t;
 {
-  tree l, x;
-  tree last_x = NULL_TREE;
+  tree x;
   tree mfptr;
   tree last_mfptr = NULL_TREE;
   tree mfptr_list = NULL_TREE;
 	      
-  /* For signatures it should actually be only a list with one element.  */
-  for (l = list_of_fieldlists; l; l = TREE_CHAIN (l))
+  for (x = TYPE_METHODS (t); x; x = TREE_CHAIN (x))
     {
-      for (x = TREE_VALUE (l); x; x = TREE_CHAIN (x))
+      if (TREE_CODE (x) == FUNCTION_DECL)
 	{
-	  if (TREE_CODE (x) == FUNCTION_DECL)
+	  mfptr = build_member_function_pointer (x);
+	  DECL_MEMFUNC_POINTER_TO (x) = mfptr;
+	  DECL_MEMFUNC_POINTING_TO (mfptr) = x;
+	  DECL_IGNORED_P (x) = 1;
+	  DECL_IN_AGGR_P (mfptr) = 1;
+	  if (! mfptr_list)
+	    mfptr_list = last_mfptr = mfptr;
+	  else
 	    {
-	      mfptr = build_member_function_pointer (x);
-	      DECL_MEMFUNC_POINTER_TO (x) = mfptr;
-	      DECL_MEMFUNC_POINTING_TO (mfptr) = x;
-	      DECL_IGNORED_P (x) = 1;
-	      DECL_IN_AGGR_P (mfptr) = 1;
-	      if (! mfptr_list)
-		mfptr_list = last_mfptr = mfptr;
-	      else
-		{
-		  TREE_CHAIN (last_mfptr) = mfptr;
-		  last_mfptr = mfptr;
-		}
+	      TREE_CHAIN (last_mfptr) = mfptr;
+	      last_mfptr = mfptr;
 	    }
-	  last_x = x;
 	}
     }
 
-  /* Append the lists.  */
-  if (last_x && mfptr_list)
-    {
-      TREE_CHAIN (last_x) = mfptr_list;
-      TREE_CHAIN (last_mfptr) = NULL_TREE;
-    }
+  /* The member function pointers must come after the TYPE_DECLs, in
+     this case, because build_signature_table_constructor depends on
+     finding opaque TYPE_DECLS before the functions that make use of
+     them.  */
+  if (last_mfptr)
+    TYPE_FIELDS (t) = chainon (TYPE_FIELDS (t), mfptr_list);
 }
 
 /* Compare the types of a signature member function and a class member
@@ -532,19 +530,20 @@ build_signature_table_constructor (sig_ty, rhs)
       else
 	{
 	  /* Find the class method of the correct type.  */
-
+	  tree rhs_methods;
 	  basetypes = TREE_PURPOSE (baselink);
 	  if (TREE_CODE (basetypes) == TREE_LIST)
 	    basetypes = TREE_VALUE (basetypes);
 
-	  rhs_method = TREE_VALUE (baselink);
-	  for (; rhs_method; rhs_method = TREE_CHAIN (rhs_method))
-	    if (sig_mname == DECL_NAME (rhs_method)
+	  rhs_methods = TREE_VALUE (baselink);
+	  for (; rhs_methods; rhs_methods = OVL_NEXT (rhs_methods))
+	    if ((rhs_method = OVL_CURRENT (rhs_methods))
+		&& sig_mname == DECL_NAME (rhs_method)
 		&& ! DECL_STATIC_FUNCTION_P (rhs_method)
 		&& match_method_types (sig_mtype, TREE_TYPE (rhs_method)))
 	      break;
 
-	  if (rhs_method == NULL_TREE
+	  if (rhs_methods == NULL_TREE
 	      || (compute_access (basetypes, rhs_method)
 		  != access_public_node))
 	    {
@@ -754,7 +753,7 @@ build_sigtable (sig_type, rhs_type, init_from)
 	decl = pushdecl_top_level (build_decl (VAR_DECL, name, sig_type));
 	current_function_decl = context;
       }
-      IDENTIFIER_GLOBAL_VALUE (name) = decl;
+      SET_IDENTIFIER_GLOBAL_VALUE (name, decl);
       store_init_value (decl, init_expr);
       if (IS_SIGNATURE (rhs_type))
 	{

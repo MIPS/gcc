@@ -1405,7 +1405,7 @@ __builtin_saveregs ()
 /* This is used by the `assert' macro.  */
 void
 __eprintf (const char *string, const char *expression,
-	   int line, const char *filename)
+	   unsigned int line, const char *filename)
 {
   fprintf (stderr, string, expression, line, filename);
   fflush (stderr);
@@ -2157,7 +2157,7 @@ __bb_init_prg ()
       bb_hashbuckets = (struct bb_edge **) 
                    malloc (BB_BUCKETS * sizeof (struct bb_edge *));
       if (bb_hashbuckets)
-        bzero ((char *) bb_hashbuckets, BB_BUCKETS);
+        memset (bb_hashbuckets, 0, BB_BUCKETS * sizeof (struct bb_edge *));
     }
 
   if (bb_mode & 12)
@@ -3003,9 +3003,17 @@ exit (int status)
   _exit (status);
 }
 
-#else
+#else /* ON_EXIT defined */
 int _exit_dummy_decl = 0;	/* prevent compiler & linker warnings */
-#endif
+
+# ifndef HAVE_ATEXIT
+/* Provide a fake for atexit() using ON_EXIT.  */
+int atexit (func_ptr func)
+{
+  return ON_EXIT (func, NULL);
+}
+# endif /* HAVE_ATEXIT */
+#endif /* ON_EXIT defined */
 
 #endif /* L_exit */
 
@@ -3046,14 +3054,13 @@ __empty ()
 {
 }
 
-/* EH context structure. */
 
-struct eh_context
-{
-  void **dynamic_handler_chain;
-  /* This is language dependent part of the eh context. */
-  void *info;
-};
+/* Include definitions of EH context and table layout */
+
+#include "eh-common.h"
+#ifndef inhibit_libc
+#include <stdio.h>
+#endif
 
 /* This is a safeguard for dynamic handler chain. */
 
@@ -3351,6 +3358,26 @@ __sjpopnthrow ()
 
 /* Support code for all exception region-based exception handling.  */
 
+int
+__eh_rtime_match (void *rtime)
+{
+  void *info;
+  __eh_matcher matcher;
+  void *ret;
+
+  info = *(__get_eh_info ());
+  matcher = ((__eh_info *)info)->match_function;
+  if (! matcher)
+    {
+#ifndef inhibit_libc
+      fprintf (stderr, "Internal Compiler Bug: No runtime type matcher.");
+#endif
+      return 0;
+    }
+  ret = (*matcher) (info, rtime, (void *)0);
+  return (ret != NULL);
+}
+
 /* This value identifies the place from which an exception is being
    thrown.  */
 
@@ -3360,11 +3387,24 @@ EH_TABLE_LOOKUP
 
 #else
 
-typedef struct exception_table {
-  void *start;
-  void *end;
-  void *exception_handler;
-} exception_table;
+#ifdef DWARF2_UNWIND_INFO
+
+
+/* Return the table version of an exception descriptor */
+
+short 
+__get_eh_table_version (exception_descriptor *table) 
+{
+  return table->lang.version;
+}
+
+/* Return the originating table language of an exception descriptor */
+
+short 
+__get_eh_table_language (exception_descriptor *table)
+{
+  return table->lang.language;
+}
 
 /* This routine takes a PC and a pointer to the exception region TABLE for
    its translation unit, and returns the address of the exception handler
@@ -3375,7 +3415,7 @@ typedef struct exception_table {
    an inner block.  */
 
 static void *
-find_exception_handler (void *pc, exception_table *table)
+old_find_exception_handler (void *pc, old_exception_table *table)
 {
   if (table)
     {
@@ -3383,27 +3423,69 @@ find_exception_handler (void *pc, exception_table *table)
       int best = -1;
 
       /* We can't do a binary search because the table isn't guaranteed
-	 to be sorted from function to function.  */
-      for (pos = 0; table[pos].exception_handler != (void *) -1; ++pos)
-	{
-	  if (table[pos].start <= pc && table[pos].end > pc)
-	    {
-	      /* This can apply.  Make sure it is at least as small as
-		 the previous best.  */
-	      if (best == -1 || (table[pos].end <= table[best].end
-				 && table[pos].start >= table[best].start))
-		best = pos;
-	    }
-	  /* But it is sorted by starting PC within a function.  */
-	  else if (best >= 0 && table[pos].start > pc)
-	    break;
-	}
+         to be sorted from function to function.  */
+      for (pos = 0; table[pos].start_region != (void *) -1; ++pos)
+        {
+          if (table[pos].start_region <= pc && table[pos].end_region > pc)
+            {
+              /* This can apply.  Make sure it is at least as small as
+                 the previous best.  */
+              if (best == -1 || (table[pos].end_region <= table[best].end_region
+                        && table[pos].start_region >= table[best].start_region))
+                best = pos;
+            }
+          /* But it is sorted by starting PC within a function.  */
+          else if (best >= 0 && table[pos].start_region > pc)
+            break;
+        }
       if (best != -1)
-	return table[best].exception_handler;
+        return table[best].exception_handler;
     }
 
   return (void *) 0;
 }
+
+static void *
+find_exception_handler (void *pc, exception_descriptor *table, void *eh_info)
+{
+  if (table)
+    {
+      /* The new model assumed the table is sorted inner-most out so the
+         first region we find which matches is the correct one */
+
+      int pos;
+      void *ret;
+      exception_table *tab = &(table->table[0]);
+
+      /* Subtract 1 from the PC to avoid hitting the next region */
+      pc--;
+      
+      /* We can't do a binary search because the table is in inner-most
+         to outermost address ranges within functions */
+      for (pos = 0; tab[pos].start_region != (void *) -1; pos++)
+        { 
+          if (tab[pos].start_region <= pc && tab[pos].end_region > pc)
+            {
+              if (tab[pos].match_info)
+                {
+                  __eh_matcher matcher = ((__eh_info *)eh_info)->match_function;
+                  /* match info but no matcher is NOT a match */
+                  if (matcher) 
+                    {
+                      ret = (*matcher)(eh_info, tab[pos].match_info, table);
+                      if (ret)
+                        return tab[pos].exception_handler;
+                    }
+                }
+              else
+                return tab[pos].exception_handler;
+            }
+        }
+    }
+
+  return (void *) 0;
+}
+#endif /* DWARF2_UNWIND_INFO */
 #endif /* EH_TABLE_LOOKUP */
 
 #ifdef DWARF2_UNWIND_INFO
@@ -3418,31 +3500,71 @@ find_exception_handler (void *pc, exception_table *table)
 
 typedef int ptr_type __attribute__ ((mode (pointer)));
 
-/* Get the value of register REG as saved in UDATA, where SUB_UDATA is a
+#ifdef INCOMING_REGNO
+/* Is the saved value for register REG in frame UDATA stored in a register
+   window in the previous frame?  */
+
+/* ??? The Sparc INCOMING_REGNO references TARGET_FLAT.  This allows us
+   to use the macro here.  One wonders, though, that perhaps TARGET_FLAT
+   compiled functions won't work with the frame-unwind stuff here.  
+   Perhaps the entireity of in_reg_window should be conditional on having
+   seen a DW_CFA_GNU_window_save?  */
+#define target_flags 0
+
+static int
+in_reg_window (int reg, frame_state *udata)
+{
+  if (udata->saved[reg] == REG_SAVED_REG)
+    return INCOMING_REGNO (reg) == reg;
+  if (udata->saved[reg] != REG_SAVED_OFFSET)
+    return 0;
+
+#ifdef STACK_GROWS_DOWNWARD
+  return udata->reg_or_offset[reg] > 0;
+#else
+  return udata->reg_or_offset[reg] < 0;
+#endif
+}
+#else
+static inline int in_reg_window (int reg, frame_state *udata) { return 0; }
+#endif /* INCOMING_REGNO */
+
+/* Get the address of register REG as saved in UDATA, where SUB_UDATA is a
    frame called by UDATA or 0.  */
 
-static void*
-get_reg (unsigned reg, frame_state *udata, frame_state *sub_udata)
+static word_type *
+get_reg_addr (unsigned reg, frame_state *udata, frame_state *sub_udata)
 {
+  while (udata->saved[reg] == REG_SAVED_REG)
+    {
+      reg = udata->reg_or_offset[reg];
+      if (in_reg_window (reg, udata))
+	{
+          udata = sub_udata;
+	  sub_udata = NULL;
+	}
+    }
   if (udata->saved[reg] == REG_SAVED_OFFSET)
-    return (void *)(ptr_type)
-      *(word_type *)(udata->cfa + udata->reg_or_offset[reg]);
-  else if (udata->saved[reg] == REG_SAVED_REG && sub_udata)
-    return get_reg (udata->reg_or_offset[reg], sub_udata, 0);
+    return (word_type *)(udata->cfa + udata->reg_or_offset[reg]);
   else
     abort ();
 }
 
+/* Get the value of register REG as saved in UDATA, where SUB_UDATA is a
+   frame called by UDATA or 0.  */
+
+static inline void *
+get_reg (unsigned reg, frame_state *udata, frame_state *sub_udata)
+{
+  return (void *)(ptr_type) *get_reg_addr (reg, udata, sub_udata);
+}
+
 /* Overwrite the saved value for register REG in frame UDATA with VAL.  */
 
-static void
+static inline void
 put_reg (unsigned reg, void *val, frame_state *udata)
 {
-  if (udata->saved[reg] == REG_SAVED_OFFSET)
-    *(word_type *)(udata->cfa + udata->reg_or_offset[reg])
-      = (word_type)(ptr_type) val;
-  else
-    abort ();
+  *get_reg_addr (reg, udata, NULL) = (word_type)(ptr_type) val;
 }
 
 /* Copy the saved value for register REG from frame UDATA to frame
@@ -3452,17 +3574,13 @@ put_reg (unsigned reg, void *val, frame_state *udata)
 static void
 copy_reg (unsigned reg, frame_state *udata, frame_state *target_udata)
 {
-  if (udata->saved[reg] == REG_SAVED_OFFSET
-      && target_udata->saved[reg] == REG_SAVED_OFFSET)
-    memcpy (target_udata->cfa + target_udata->reg_or_offset[reg],
-	    udata->cfa + udata->reg_or_offset[reg],
-	    __builtin_dwarf_reg_size (reg));
-  else
-    abort ();
+  word_type *preg = get_reg_addr (reg, udata, NULL);
+  word_type *ptreg = get_reg_addr (reg, target_udata, NULL);
+
+  memcpy (ptreg, preg, __builtin_dwarf_reg_size (reg));
 }
 
-/* Retrieve the return address for frame UDATA, where SUB_UDATA is a
-   frame called by UDATA or 0.  */
+/* Retrieve the return address for frame UDATA.  */
 
 static inline void *
 get_return_addr (frame_state *udata, frame_state *sub_udata)
@@ -3502,24 +3620,6 @@ next_stack_level (void *pc, frame_state *udata, frame_state *caller_udata)
   return caller_udata;
 }
 
-#ifdef INCOMING_REGNO
-/* Is the saved value for register REG in frame UDATA stored in a register
-   window in the previous frame?  */
-
-static int
-in_reg_window (int reg, frame_state *udata)
-{
-  if (udata->saved[reg] != REG_SAVED_OFFSET)
-    return 0;
-
-#ifdef STACK_GROWS_DOWNWARD
-  return udata->reg_or_offset[reg] > 0;
-#else
-  return udata->reg_or_offset[reg] < 0;
-#endif
-}
-#endif /* INCOMING_REGNO */
-
 /* We first search for an exception handler, and if we don't find
    it, we call __terminate on the current stack frame so that we may
    use the debugger to walk the stack and understand why no handler
@@ -3532,12 +3632,13 @@ void
 __throw ()
 {
   struct eh_context *eh = (*get_eh_context) ();
-  void *saved_pc, *pc, *handler, *retaddr;
+  void *saved_pc, *pc, *handler;
   frame_state ustruct, ustruct2;
   frame_state *udata = &ustruct;
   frame_state *sub_udata = &ustruct2;
   frame_state my_ustruct, *my_udata = &my_ustruct;
   long args_size;
+  int new_exception_model;
 
   /* This is required for C++ semantics.  We must call terminate if we
      try and rethrow an exception, when there is no exception currently
@@ -3551,14 +3652,8 @@ label:
   if (! udata)
     __terminate ();
 
-  /* We need to get the value from the CFA register.  At this point in
-     compiling __throw we don't know whether or not we will use the frame
-     pointer register for the CFA, so we check our unwind info.  */
-  if (udata->cfa_reg == __builtin_dwarf_fp_regnum ())
-    udata->cfa = __builtin_fp ();
-  else
-    udata->cfa = __builtin_sp ();
-  udata->cfa += udata->cfa_offset;
+  /* We need to get the value from the CFA register. */
+  udata->cfa = __builtin_dwarf_cfa ();
 
   memcpy (my_udata, udata, sizeof (*udata));
 
@@ -3581,7 +3676,16 @@ label:
       if (! udata)
 	break;
 
-      handler = find_exception_handler (pc, udata->eh_ptr);
+      if (udata->eh_ptr == NULL)
+        new_exception_model = 0;
+      else
+        new_exception_model = (((exception_descriptor *)(udata->eh_ptr))->
+                                          runtime_id_field == NEW_EH_RUNTIME);
+
+      if (new_exception_model)
+        handler = find_exception_handler (pc, udata->eh_ptr, eh->info);
+      else
+        handler = old_find_exception_handler (pc, udata->eh_ptr);
 
       /* If we found one, we can stop searching.  */
       if (handler)
@@ -3599,6 +3703,8 @@ label:
      exception.  */
   if (! handler)
     __terminate ();
+
+  eh->handler_label = handler;
 
   if (pc == saved_pc)
     /* We found a handler in the throw context, no need to unwind.  */
@@ -3626,7 +3732,6 @@ label:
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; ++i)
 	    if (i != udata->retaddr_column && udata->saved[i])
 	      {
-#ifdef INCOMING_REGNO
 		/* If you modify the saved value of the return address
 		   register on the SPARC, you modify the return address for
 		   your caller's frame.  Don't do that here, as it will
@@ -3635,14 +3740,12 @@ label:
 		    && udata->saved[udata->retaddr_column] == REG_SAVED_REG
 		    && udata->reg_or_offset[udata->retaddr_column] == i)
 		  continue;
-#endif
 		copy_reg (i, udata, my_udata);
 	      }
 
 	  pc = get_return_addr (udata, sub_udata) - 1;
 	}
 
-#ifdef INCOMING_REGNO
       /* But we do need to update the saved return address register from
 	 the last frame we unwind, or the handler frame will have the wrong
 	 return address.  */
@@ -3652,29 +3755,17 @@ label:
 	  if (in_reg_window (i, udata))
 	    copy_reg (i, udata, my_udata);
 	}
-#endif
     }
-  /* udata now refers to the frame called by the handler frame.  */
 
-  /* Emit the stub to adjust sp and jump to the handler.  */
-  retaddr = __builtin_eh_stub ();
+  /* Now go!  */
 
-  /* And then set our return address to point to the stub.  */
-  if (my_udata->saved[my_udata->retaddr_column] == REG_SAVED_OFFSET)
-    put_return_addr (retaddr, my_udata);
-  else
-    __builtin_set_return_addr_reg (retaddr);
-
-  /* Set up the registers we use to communicate with the stub.
-     We check STACK_GROWS_DOWNWARD so the stub can use adjust_stack.  */
-  __builtin_set_eh_regs (handler,
+  __builtin_eh_return ((void *)eh,
 #ifdef STACK_GROWS_DOWNWARD
-			 udata->cfa - my_udata->cfa
+		       udata->cfa - my_udata->cfa,
 #else
-			 my_udata->cfa - udata->cfa
+		       my_udata->cfa - udata->cfa,
 #endif
-			 + args_size
-			 );
+		       handler);
 
   /* Epilogue:  restore the handler frame's register values and return
      to the stub.  */

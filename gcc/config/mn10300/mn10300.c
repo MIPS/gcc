@@ -36,25 +36,13 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "obstack.h"
 
-/* Global registers known to hold the value zero.
-
-   Normally we'd depend on CSE and combine to put zero into a
-   register and re-use it.
-
-   However, on the mn10x00 processors we implicitly use the constant
-   zero in tst instructions, so we might be able to do better by
-   loading the value into a register in the prologue, then re-useing
-   that register throughout the function.
-
-   We could perform similar optimizations for other constants, but with
-   gcse due soon, it doesn't seem worth the effort.
-
-   These variables hold a rtx for a register known to hold the value
-   zero throughout the entire function, or NULL if no register of
-   the appropriate class has such a value throughout the life of the
-   function.  */
-rtx zero_dreg;
-rtx zero_areg;
+/* The size of the callee register save area.  Right now we save everything
+   on entry since it costs us nothing in code size.  It does cost us from a
+   speed standpoint, so we want to optimize this sooner or later.  */
+#define REG_SAVE_BYTES (4 * regs_ever_live[2] \
+			+ 4 * regs_ever_live[3] \
+			+ 4 * regs_ever_live[6] \
+			+ 4 * regs_ever_live[7])
 
 void
 asm_file_start (file)
@@ -374,126 +362,10 @@ can_use_return_insn ()
 	  && !frame_pointer_needed);
 }
 
-/* Count the number of tst insns which compare a data or address
-   register with zero.  */
-static void 
-count_tst_insns (dreg_countp, areg_countp)
-     int *dreg_countp;
-     int *areg_countp;
-{
-  rtx insn;
-
-  /* Assume no tst insns exist.  */
-  *dreg_countp = 0;
-  *areg_countp = 0;
-
-  /* If not optimizing, then quit now.  */
-  if (!optimize)
-    return;
-
-  /* Walk through all the insns.  */
-  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    {
-      rtx pat;
-
-      /* Ignore anything that is not a normal INSN.  */
-      if (GET_CODE (insn) != INSN)
-	continue;
-
-      /* Ignore anything that isn't a SET.  */
-      pat = PATTERN (insn);
-      if (GET_CODE (pat) != SET)
-	continue;
-
-      /* Check for a tst insn.  */
-      if (SET_DEST (pat) == cc0_rtx
-	  && GET_CODE (SET_SRC (pat)) == REG)
-	{
-	  if (REGNO_REG_CLASS (REGNO (SET_SRC (pat))) == DATA_REGS)
-	    (*dreg_countp)++;
-    
-	  if (REGNO_REG_CLASS (REGNO (SET_SRC (pat))) == ADDRESS_REGS)
-	    (*areg_countp)++;
-	}
-
-      /* Setting an address register to zero can also be optimized,
-	 so count it just like a tst insn.  */
-      if (GET_CODE (SET_DEST (pat)) == REG
-	  && GET_CODE (SET_SRC (pat)) == CONST_INT
-	  && INTVAL (SET_SRC (pat)) == 0
-	  && REGNO_REG_CLASS (REGNO (SET_DEST (pat))) == ADDRESS_REGS)
-	(*areg_countp)++;
-    }
-}
-
 void
 expand_prologue ()
 {
   unsigned int size;
-
-  /* We need to end the current sequence so that count_tst_insns can
-     look at all the insns in this function.  Normally this would be
-     unsafe, but it's OK in the prologue/epilogue expanders.  */
-  end_sequence ();
-
-  /* Determine if it is profitable to put the value zero into a register
-     for the entire function.  If so, set ZERO_DREG and ZERO_AREG.  */
-  if (regs_ever_live[2] || regs_ever_live[3]
-       || regs_ever_live[6] || regs_ever_live[7]
-       || frame_pointer_needed)
-    {
-      int dreg_count, areg_count;
-
-      /* Get a count of the number of tst insns which use address and
-	 data registers.  */
-      count_tst_insns (&dreg_count, &areg_count);
-
-      /* If there's more than one tst insn using a data register, then
-	 this optimization is a win.  */
-      if (dreg_count > 1
-	  && (!regs_ever_live[2] || !regs_ever_live[3]))
-	{
- 	  if (!regs_ever_live[2])
-	    {
-	      regs_ever_live[2] = 1;
-	      zero_dreg = gen_rtx (REG, SImode, 2);
-	    }
-	  else
-	    {
-	      regs_ever_live[3] = 1;
-	      zero_dreg = gen_rtx (REG, SImode, 3);
-	    }
-	}
-      else
-	zero_dreg = NULL_RTX;
-
-      /* If there's more than two tst insns using an address register,
-	 then this optimization is a win.  */
-      if (areg_count > 2
-	  && (!regs_ever_live[6] || !regs_ever_live[7]))
-	{
- 	  if (!regs_ever_live[6])
-	    {
-	      regs_ever_live[6] = 1;
-	      zero_areg = gen_rtx (REG, SImode, 6);
-	    }
-	  else
-	    {
-	      regs_ever_live[7] = 1;
-	      zero_areg = gen_rtx (REG, SImode, 7);
-	    }
-	}
-      else
-	zero_areg = NULL_RTX;
-    }
-  else
-    {
-      zero_dreg = NULL_RTX;
-      zero_areg = NULL_RTX;
-    }
-
-  /* Start a new sequence.  */
-  start_sequence ();
 
   /* SIZE includes the fixed stack space needed for function calls.  */
   size = get_frame_size () + current_function_outgoing_args_size;
@@ -529,13 +401,6 @@ expand_prologue ()
     emit_insn (gen_addsi3 (stack_pointer_rtx,
 			   stack_pointer_rtx,
 			   GEN_INT (-size)));
-
-  /* Load zeros into registers as needed.  */
-  if (zero_dreg)
-    emit_move_insn (zero_dreg, const0_rtx);
-
-  if (zero_areg)
-    emit_move_insn (zero_areg, const0_rtx);
 }
 
 void
@@ -569,7 +434,7 @@ expand_epilogue ()
     }
   else if ((regs_ever_live[2] || regs_ever_live[3]
 	    || regs_ever_live[6] || regs_ever_live[7])
-	   && size + 16 > 255)
+	   && size + REG_SAVE_BYTES > 255)
     {
       emit_insn (gen_addsi3 (stack_pointer_rtx,
 			     stack_pointer_rtx,
@@ -585,7 +450,7 @@ expand_epilogue ()
   if (regs_ever_live[2] || regs_ever_live[3]
       || regs_ever_live[6] || regs_ever_live[7]
       || frame_pointer_needed)
-    emit_jump_insn (gen_return_internal_regs (GEN_INT (size + 16)));
+    emit_jump_insn (gen_return_internal_regs (GEN_INT (size + REG_SAVE_BYTES)));
   else
     {
       if (size)
@@ -689,7 +554,9 @@ secondary_reload_class (class, mode, in)
   if (GET_CODE (in) == MEM
       && (mode == QImode || mode == HImode)
       && (class == ADDRESS_REGS || class == SP_REGS))
-    return DATA_REGS;
+    {
+      return DATA_REGS;
+    }
 
   /* We can't directly load sp + const_int into a data register;
      we must use an address register as an intermediate.  */
@@ -705,9 +572,10 @@ secondary_reload_class (class, mode, in)
   if (GET_CODE (in) == PLUS
       && (XEXP (in, 0) == stack_pointer_rtx
 	  || XEXP (in, 1) == stack_pointer_rtx))
-    return DATA_REGS;
+    {
+      return DATA_REGS;
+    }
  
-
   /* Otherwise assume no secondary reloads are needed.  */
   return NO_REGS;
 }
@@ -723,7 +591,7 @@ initial_offset (from, to)
       if (regs_ever_live[2] || regs_ever_live[3]
 	  || regs_ever_live[6] || regs_ever_live[7]
 	  || frame_pointer_needed)
-	return 16;
+	return REG_SAVE_BYTES;
       else
 	return 0;
     }
@@ -736,7 +604,7 @@ initial_offset (from, to)
       if (regs_ever_live[2] || regs_ever_live[3]
 	  || regs_ever_live[6] || regs_ever_live[7]
 	  || frame_pointer_needed)
-	return (get_frame_size () + 16 
+	return (get_frame_size () + REG_SAVE_BYTES
 		+ (current_function_outgoing_args_size
 		   ? current_function_outgoing_args_size + 4 : 0)); 
       else
@@ -889,29 +757,6 @@ output_tst (operand, insn)
   rtx temp;
   int past_call = 0;
 
-  /* If we have a data register which is known to be zero throughout
-     the function, then use it instead of doing a search.  */
-  if (zero_dreg && REGNO_REG_CLASS (REGNO (operand)) == DATA_REGS)
-    {
-      rtx xoperands[2];
-      xoperands[0] = operand;
-      xoperands[1] = zero_dreg;
-
-      output_asm_insn ("cmp %1,%0", xoperands);
-      return "";
-    }
-
-  /* Similarly for address registers.  */
-  if (zero_areg && REGNO_REG_CLASS (REGNO (operand)) == ADDRESS_REGS)
-    {
-      rtx xoperands[2];
-      xoperands[0] = operand;
-      xoperands[1] = zero_areg;
-
-      output_asm_insn ("cmp %1,%0", xoperands);
-      return "";
-    }
-
   /* We can save a byte if we can find a register which has the value
      zero in it.  */
   temp = PREV_INSN (insn);
@@ -950,7 +795,10 @@ output_tst (operand, insn)
 	 If it's a call clobbered register, have we past a call?
 
 	 Make sure the register we find isn't the same as ourself;
-	 the mn10300 can't encode that.  */
+	 the mn10300 can't encode that.
+
+	 ??? reg_set_between_p return nonzero anytime we pass a CALL_INSN
+	 so the code to detect calls here isn't doing anything useful.  */
       if (REG_P (SET_DEST (set))
 	  && SET_SRC (set) == CONST0_RTX (GET_MODE (SET_DEST (set)))
 	  && !reg_set_between_p (SET_DEST (set), temp, insn)

@@ -108,9 +108,9 @@ struct obstack *rtl_obstack = &obstack;
 #define obstack_chunk_free free
 
 char *xmalloc PROTO((unsigned));
-static void fatal ();
+static void fatal PVPROTO ((char *, ...)) ATTRIBUTE_PRINTF_1;
 void fancy_abort PROTO((void));
-static void error ();
+static void error PVPROTO ((char *, ...)) ATTRIBUTE_PRINTF_1;
 static void mybcopy ();
 static void mybzero ();
 static int n_occurrences PROTO((int, char *));
@@ -922,11 +922,22 @@ mybcopy (b1, b2, length)
 }
 
 static void
-fatal (s, a1, a2, a3, a4)
-     char *s;
+fatal VPROTO ((char *format, ...))
 {
+#ifndef __STDC__
+  char *format;
+#endif
+  va_list ap;
+
+  VA_START (ap, format);
+
+#ifndef __STDC__
+  format = va_arg (ap, char *);
+#endif
+
   fprintf (stderr, "genoutput: ");
-  fprintf (stderr, s, a1, a2, a3, a4);
+  vfprintf (stderr, format, ap);
+  va_end (ap);
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
@@ -941,11 +952,22 @@ fancy_abort ()
 }
 
 static void
-error (s, a1, a2)
-     char *s;
+error VPROTO ((char *format, ...))
 {
+#ifndef __STDC__
+  char *format;
+#endif
+  va_list ap;
+
+  VA_START (ap, format);
+
+#ifndef __STDC__
+  format = va_arg (ap, char *);
+#endif
+
   fprintf (stderr, "genoutput: ");
-  fprintf (stderr, s, a1, a2);
+  vfprintf (stderr, format, ap);
+  va_end (ap);
   fprintf (stderr, "\n");
 
   have_error = 1;

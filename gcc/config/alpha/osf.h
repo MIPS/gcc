@@ -27,8 +27,8 @@ Boston, MA 02111-1307, USA.  */
 /* Names to predefine in the preprocessor for this target machine.  */
 
 #define CPP_PREDEFINES "\
--Dunix -D__osf__ -D__alpha -D__alpha__ -D_LONGLONG -DSYSTYPE_BSD  \
--D_SYSTYPE_BSD -Asystem(unix) -Asystem(xpg4) -Acpu(alpha) -Amachine(alpha)"
+-Dunix -D__osf__ -D_LONGLONG -DSYSTYPE_BSD \
+-D_SYSTYPE_BSD -Asystem(unix) -Asystem(xpg4)"
 
 /* Under OSF4, -p and -pg require -lprof1, and -lprof1 requires -lpdf.  */
 
@@ -103,3 +103,25 @@ Boston, MA 02111-1307, USA.  */
 		%{.s:%i} %{!.s:%g.s}}}"
 
 #endif
+
+/* Indicate that we have a stamp.h to use.  */
+#ifndef CROSS_COMPILE
+#define HAVE_STAMP_H 1
+#endif
+
+/* Attempt to turn on access permissions for the stack.  */
+
+#define TRANSFER_FROM_TRAMPOLINE					\
+void									\
+__enable_execute_stack (addr)						\
+     void *addr;							\
+{									\
+  long size = getpagesize ();						\
+  long mask = ~(size-1);						\
+  char *page = (char *) (((long) addr) & mask);				\
+  char *end  = (char *) ((((long) (addr + TRAMPOLINE_SIZE)) & mask) + size); \
+									\
+  /* 7 is PROT_READ | PROT_WRITE | PROT_EXEC */				\
+  if (mprotect (page, end - page, 7) < 0)				\
+    perror ("mprotect of trampoline code");				\
+}

@@ -47,7 +47,7 @@ struct link
 };
 
 char *xmalloc PROTO((unsigned));
-static void fatal ();
+static void fatal PVPROTO ((char *, ...)) ATTRIBUTE_PRINTF_1;
 void fancy_abort PROTO((void));
 
 static int max_opno;
@@ -407,11 +407,22 @@ xrealloc (ptr, size)
 }
 
 static void
-fatal (s, a1, a2)
-     char *s;
+fatal VPROTO ((char *format, ...))
 {
+#ifndef __STDC__
+  char *format;
+#endif
+  va_list ap;
+
+  VA_START (ap, format);
+
+#ifndef __STDC__
+  format = va_arg (ap, char *);
+#endif
+
   fprintf (stderr, "genpeep: ");
-  fprintf (stderr, s, a1, a2);
+  vfprintf (stderr, format, ap);
+  va_end (ap);
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
@@ -465,7 +476,7 @@ from the machine description file `md'.  */\n\n");
   printf ("#define operands peep_operand\n\n");
 
   printf ("rtx\npeephole (ins1)\n     rtx ins1;\n{\n");
-  printf ("  rtx insn, x, pat;\n\n");
+  printf ("  rtx insn ATTRIBUTE_UNUSED, x ATTRIBUTE_UNUSED, pat ATTRIBUTE_UNUSED;\n\n");
 
   /* Early out: no peepholes for insns followed by barriers.  */
   printf ("  if (NEXT_INSN (ins1)\n");

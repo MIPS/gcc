@@ -1,6 +1,6 @@
 /* stc.c -- Implementation File (module.c template V1.0)
    Copyright (C) 1995-1997 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.ai.mit.edu).
+   Contributed by James Craig Burley (burley@gnu.org).
 
 This file is part of GNU Fortran.
 
@@ -12798,6 +12798,7 @@ ffestc_R1229_start (ffelexToken name, ffesttTokenList args,
 	{
 	  /* Tell ffeexpr that sfunc def is in progress.  */
 	  ffesymbol_set_sfexpr (s, ffebld_new_any ());
+	  ffebld_set_info (ffesymbol_sfexpr (s), ffeinfo_new_any ());
 	  ffestc_parent_ok_ = TRUE;
 	}
     }

@@ -22,6 +22,9 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
+#include "bitmap.h"
+#include "real.h"
+#include "flags.h"
 
 
 /* How to print out a register name.
@@ -51,6 +54,11 @@ static int indent;
 /* Names for patterns.  Non-zero only when linked with insn-output.c.  */
 
 extern char **insn_name_ptr;
+
+/* Nonzero means suppress output of instruction numbers and line number
+   notes in debugging dumps.
+   This must be defined here so that programs like gencodes can be linked.  */
+int flag_dump_unnumbered = 0;
 
 /* Print IN_RTX onto OUTFILE.  This is the recursive part of printing.  */
 
@@ -110,12 +118,28 @@ print_rtx (in_rtx)
       case 's':
 	if (i == 3 && GET_CODE (in_rtx) == NOTE
 	    && (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_BEG
-		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_END))
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_EH_REGION_END
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_BEG
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_BLOCK_END))
 	  {
 	    fprintf (outfile, " %d", NOTE_BLOCK_NUMBER (in_rtx));
 	    sawclose = 1;
 	    break;
 	  }
+
+	if (i == 3 && GET_CODE (in_rtx) == NOTE
+	    && (NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_RANGE_START
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_RANGE_END
+		|| NOTE_LINE_NUMBER (in_rtx) == NOTE_INSN_LIVE))
+	  {
+	    indent += 2;
+	    if (!sawclose)
+	      fprintf (outfile, " ");
+	    print_rtx (NOTE_RANGE_INFO (in_rtx));
+	    indent -= 2;
+	    break;
+	  }
+
 	if (XSTR (in_rtx, i) == 0)
 	  fprintf (outfile, " \"\"");
 	else
@@ -179,6 +203,9 @@ print_rtx (in_rtx)
 	      fputc (' ', outfile);
 	      DEBUG_PRINT_REG (in_rtx, 0, outfile);
 	    }
+	  else if (flag_dump_unnumbered
+		   && (is_insn || GET_CODE (in_rtx) == NOTE))
+	    fprintf (outfile, "#");
 	  else
 	    fprintf (outfile, " %d", value);
 	}
@@ -201,10 +228,28 @@ print_rtx (in_rtx)
 
       case 'u':
 	if (XEXP (in_rtx, i) != NULL)
-	  fprintf (outfile, " %d", INSN_UID (XEXP (in_rtx, i)));
+	  {
+	    if (flag_dump_unnumbered)
+	      fprintf (outfile, "#");
+	    else
+	      fprintf (outfile, " %d", INSN_UID (XEXP (in_rtx, i)));
+	  }
 	else
 	  fprintf (outfile, " 0");
 	sawclose = 0;
+	break;
+
+      case 'b':
+	if (XBITMAP (in_rtx, i) == NULL)
+	  fprintf (outfile, " {null}");
+	else
+	  bitmap_print (outfile, XBITMAP (in_rtx, i), " {", "}");
+	sawclose = 0;
+	break;
+
+      case 't':
+	putc (' ', outfile);
+	fprintf (outfile, HOST_PTR_PRINTF, (char *) XTREE (in_rtx, i));
 	break;
 
       case '*':
@@ -218,6 +263,18 @@ print_rtx (in_rtx)
 		 format_ptr[-1]);
 	abort ();
       }
+
+  if (GET_CODE (in_rtx) == MEM)
+    fprintf (outfile, " %d", MEM_ALIAS_SET (in_rtx));
+
+#if HOST_FLOAT_FORMAT == TARGET_FLOAT_FORMAT && LONG_DOUBLE_TYPE_SIZE == 64
+  if (GET_CODE (in_rtx) == CONST_DOUBLE && FLOAT_MODE_P (GET_MODE (in_rtx)))
+    {
+      double val;
+      REAL_VALUE_FROM_CONST_DOUBLE (val, in_rtx);
+      fprintf (outfile, " [%.16g]", val);
+    }
+#endif
 
   fprintf (outfile, ")");
   sawclose = 1;
@@ -341,8 +398,13 @@ print_rtl (outf, rtx_first)
       case BARRIER:
 	for (tmp_rtx = rtx_first; NULL != tmp_rtx; tmp_rtx = NEXT_INSN (tmp_rtx))
 	  {
-	    print_rtx (tmp_rtx);
-	    fprintf (outfile, "\n");
+	    if (! flag_dump_unnumbered
+		|| GET_CODE (tmp_rtx) != NOTE
+		|| NOTE_LINE_NUMBER (tmp_rtx) < 0)
+	      {
+		print_rtx (tmp_rtx);
+		fprintf (outfile, "\n");
+	      }
 	  }
 	break;
 
@@ -352,14 +414,21 @@ print_rtl (outf, rtx_first)
 }
 
 /* Like print_rtx, except specify a file.  */
+/* Return nonzero if we actually printed anything.  */
 
-void
+int
 print_rtl_single (outf, x)
      FILE *outf;
      rtx x;
 {
   outfile = outf;
   sawclose = 0;
-  print_rtx (x);
-  putc ('\n', outf);
+  if (! flag_dump_unnumbered
+      || GET_CODE (x) != NOTE || NOTE_LINE_NUMBER (x) < 0)
+    {
+      print_rtx (x);
+      putc ('\n', outf);
+      return 1;
+    }
+  return 0;
 }

@@ -22,10 +22,6 @@ Boston, MA 02111-1307, USA.  */
 #include "hconfig.h"
 #include "system.h"
 
-#include "obstack.h"
-#define	obstack_chunk_alloc	xmalloc
-#define	obstack_chunk_free	free
-
 #define NO_GENRTL_H
 #include "rtl.h"
 
@@ -35,11 +31,7 @@ struct rtx_definition
   const char *enumname, *name, *format;
 };
 
-#if defined(HAVE_CPP_STRINGIFY) || (defined(__GNUC__) && defined(__STDC__))
-#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { # ENUM, NAME, FORMAT },
-#else
-#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { "ENUM", NAME, FORMAT },
-#endif
+#define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS) { STRINGIFY(ENUM), NAME, FORMAT },
 
 struct rtx_definition defs[] = 
 {  
@@ -48,8 +40,8 @@ struct rtx_definition defs[] =
 
 const char *formats[NUM_RTX_CODE];
 
-static const char *type_from_format PROTO((char));
-static const char *accessor_from_format PROTO((char));
+static const char *type_from_format PROTO((int));
+static const char *accessor_from_format PROTO((int));
 static int special_format PROTO((const char *));
 static int special_rtx PROTO((int));
 static void find_formats PROTO((void));
@@ -62,7 +54,7 @@ static void gencode PROTO((FILE *));
 
 static const char *
 type_from_format (c)
-     char c;
+     int c;
 {
   switch (c)
     {
@@ -77,6 +69,16 @@ type_from_format (c)
       return "rtx";
     case 'E':
       return "rtvec";
+    /* ?!? These should be bitmap and tree respectively, but those types
+       are not available in many of the files which include the output
+       of gengenrtl.
+
+       These are only used in prototypes, so I think we can assume that
+       void * is useable.  */
+    case 'b':
+      return "void *";
+    case 't':
+      return "void *";
     default:
       abort ();
     }
@@ -84,7 +86,7 @@ type_from_format (c)
 
 static const char *
 accessor_from_format (c)
-     char c;
+     int c;
 {
   switch (c)
     {
@@ -99,6 +101,10 @@ accessor_from_format (c)
       return "XEXP";
     case 'E':
       return "XVEC";
+    case 'b':
+      return "XBITMAP";
+    case 't':
+      return "XTREE";
     default:
       abort ();
     }
@@ -119,7 +125,8 @@ special_rtx (idx)
      int idx;
 {
   return (strcmp (defs[idx].enumname, "CONST_INT") == 0
-	  || strcmp (defs[idx].enumname, "REG") == 0);
+	  || strcmp (defs[idx].enumname, "REG") == 0
+	  || strcmp (defs[idx].enumname, "MEM") == 0);
 }
 
 static void
@@ -258,14 +265,16 @@ gencode (f)
   const char **fmt;
 
   fputs ("#include \"config.h\"\n", f);
-  fputs ("#include \"rtl.h\"\n\n", f);
+  fputs ("#include \"system.h\"\n", f);
+  fputs ("#include \"obstack.h\"\n", f);
+  fputs ("#include \"rtl.h\"\n", f);
   fputs ("#include \"ggc.h\"\n\n\n", f);
 
   for (fmt = formats; *fmt; ++fmt)
     gendef (f, *fmt);
 }
 
-#if defined(USE_C_ALLOCA) && !defined(__GNUC__)
+#if defined(USE_C_ALLOCA)
 char *
 xmalloc (nbytes)
      int nbytes;
@@ -274,13 +283,14 @@ xmalloc (nbytes)
 
   if (!tmp)
     {
-      fprintf (stderr, "can't allocate %d bytes (out of virtual memory)\n", nbytes);
+      fprintf (stderr, "can't allocate %d bytes (out of virtual memory)\n",
+	       nbytes);
       exit (FATAL_EXIT_CODE);
     }
 
   return tmp;
 }
-#endif /* USE_C_ALLOCA && !__GNUC__ */
+#endif /* USE_C_ALLOCA */
 
 int
 main(argc, argv)

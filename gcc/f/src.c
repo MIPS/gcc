@@ -1,6 +1,6 @@
 /* src.c -- Implementation File
    Copyright (C) 1995 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.ai.mit.edu).
+   Contributed by James Craig Burley (burley@gnu.org).
 
 This file is part of GNU Fortran.
 
@@ -29,7 +29,6 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 */
 
 #include "proj.h"
-#include <ctype.h>
 #include "src.h"
 #include "top.h"
 

@@ -148,7 +148,7 @@ cplus_expand_expr (exp, target, tmode, modifier)
 	    init = convert_from_reference (init);
 
 	    flag_access_control = 0;
-	    expand_aggr_init (slot, init, 0, LOOKUP_ONLYCONVERTING);
+	    expand_aggr_init (slot, init, LOOKUP_ONLYCONVERTING);
 	    flag_access_control = old_ac;
 
 	    if (TYPE_NEEDS_DESTRUCTOR (type))
@@ -162,19 +162,43 @@ cplus_expand_expr (exp, target, tmode, modifier)
 	return DECL_RTL (slot);
       }
 
+    case PTRMEM_CST:
+      {
+	tree member;
+	tree offset;
+	
+	/* Find the member.  */
+	member = PTRMEM_CST_MEMBER (exp);
+
+	if (TREE_CODE (member) == FIELD_DECL) 
+	  {
+	    /* Find the offset for the field.  */
+	    offset = convert (sizetype,
+			      size_binop (EASY_DIV_EXPR,
+					  DECL_FIELD_BITPOS (member),
+					  size_int (BITS_PER_UNIT)));
+
+	    /* We offset all pointer to data members by 1 so that we
+	       can distinguish between a null pointer to data member
+	       and the first data member of a structure.  */
+	    offset = size_binop (PLUS_EXPR, offset, size_int (1));
+	
+	    return expand_expr (cp_convert (type, offset), target, tmode,
+				modifier);
+	  }
+	else
+	  {
+	    /* We don't yet handle pointer-to-member functions this
+	       way.  */
+	    my_friendly_abort (0);
+	    return 0;
+	  }
+      }
+
     case OFFSET_REF:
       {
-#if 1
 	return expand_expr (default_conversion (resolve_offset_ref (exp)),
 			    target, tmode, EXPAND_NORMAL);
-#else
-	/* This is old crusty code, and does not handle all that the
-	   resolve_offset_ref function does.  (mrs) */
-	tree base = build_unary_op (ADDR_EXPR, TREE_OPERAND (exp, 0), 0);
-	tree offset = build_unary_op (ADDR_EXPR, TREE_OPERAND (exp, 1), 0);
-	return expand_expr (build (PLUS_EXPR, TREE_TYPE (exp), base, offset),
-			    target, tmode, EXPAND_NORMAL);
-#endif
       }
 
     case THUNK_DECL:
@@ -304,7 +328,7 @@ extract_scalar_init (decl, init)
 
 int
 extract_init (decl, init)
-     tree decl, init;
+     tree decl ATTRIBUTE_UNUSED, init ATTRIBUTE_UNUSED;
 {
   return 0;
 
@@ -405,8 +429,5 @@ do_case (start, end)
 	    cp_error ("case label `%E' within scope of cleanup or variable array", start);
 	}
     }
-  if (start)
-    define_case_label (label);
-  else
-    define_case_label (NULL_TREE);
+  define_case_label ();
 }

@@ -36,7 +36,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define SUBTARGET_CPU_DEFAULT TARGET_CPU_arm6
 
 /* Default is to use APCS-32 mode.  */
-#define TARGET_DEFAULT ARM_FLAG_APCS_32
+#define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_SOFT_FLOAT)
 
 #include "arm/aout.h"
 
@@ -44,6 +44,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #undef TARGET_MEM_FUNCTIONS
 
 #include <netbsd.h>
+
+/* Until they use ELF or something that handles dwarf2 unwinds
+   and initialization stuff better.  */
+#undef DWARF2_UNWIND_INFO
 
 /* Some defines for CPP.
    arm32 is the NetBSD port name, so we always define arm32 and __arm32__.  */
@@ -62,6 +66,10 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 /* Because TARGET_DEFAULT sets ARM_FLAG_APCS_32 */
 #undef CPP_APCS_PC_DEFAULT_SPEC
 #define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"
+
+/* Because TARGET_DEFAULT sets ARM_FLAG_SOFT_FLOAT */
+#undef CPP_FLOAT_DEFAULT_SPEC
+#define CPP_FLOAT_DEFAULT_SPEC "-D__SOFTFP__"
 
 /* Pass -X to the linker so that it will strip symbols starting with 'L' */
 #undef LINK_SPEC
@@ -141,8 +149,3 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    requirements.  */
 #undef STRUCTURE_SIZE_BOUNDARY
 #define STRUCTURE_SIZE_BOUNDARY 8
-
-/* Until they use ELF or something that handles dwarf2 unwinds
-   and initialization stuff better.  */
-#define DWARF2_UNWIND_INFO 0
-

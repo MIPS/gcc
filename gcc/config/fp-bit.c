@@ -1,7 +1,7 @@
 /* This is a software floating point library which can be used instead of
    the floating point routines in libgcc1.c for targets without hardware
    floating point. 
- Copyright (C) 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
+ Copyright (C) 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -150,6 +150,9 @@ __negtf2 (){ abort(); }
 __netf2 (){ abort(); }
 __subtf3 (){ abort(); }
 __trunctfdf2 (){ abort(); }
+__gexf2 (){ abort(); }
+__fixxfsi (){ abort(); }
+__floatsixf (){ abort(); }
 #else	/* !EXTENDED_FLOAT_STUBS, rest of file */
 
 
@@ -286,7 +289,9 @@ typedef unsigned int UDItype __attribute__ ((mode (DI)));
 #endif
 
 
+#ifndef INLINE
 #define INLINE __inline__
+#endif
 
 /* Preserve the sticky-bit when shifting fractions to the right.  */
 #define LSHIFT(a) { a = (a & 1) | (a >> 1); }
@@ -455,7 +460,6 @@ pack_d ( fp_number_type *  src)
   else if (fraction == 0)
     {
       exp = 0;
-      sign = 0;
     }
   else
     {
@@ -663,6 +667,12 @@ _fpadd_parts (fp_number_type * a,
     }
   if (iszero (b))
     {
+      if (iszero (a))
+	{
+	  *tmp = *a;
+	  tmp->sign = a->sign & b->sign;
+	  return tmp;
+	}
       return a;
     }
   if (iszero (a))
@@ -724,7 +734,7 @@ _fpadd_parts (fp_number_type * a,
 	{
 	  tfraction = a_fraction - b_fraction;
 	}
-      if (tfraction > 0)
+      if (tfraction >= 0)
 	{
 	  tmp->sign = 0;
 	  tmp->normal_exp = a_normal_exp;
@@ -847,13 +857,13 @@ _fpmul_parts ( fp_number_type *  a,
   /* Calculate the mantissa by multiplying both 64bit numbers to get a
      128 bit number */
   {
-    fractype x = a->fraction.ll;
-    fractype ylow = b->fraction.ll;
-    fractype yhigh = 0;
-    int bit;
-
 #if defined(NO_DI_MODE)
     {
+      fractype x = a->fraction.ll;
+      fractype ylow = b->fraction.ll;
+      fractype yhigh = 0;
+      int bit;
+
       /* ??? This does multiplies one bit at a time.  Optimize.  */
       for (bit = 0; bit < FRAC_NBITS; bit++)
 	{
@@ -992,14 +1002,10 @@ _fpdiv_parts (fp_number_type * a,
 	      fp_number_type * b,
 	      fp_number_type * tmp)
 {
-  fractype low = 0;
-  fractype high = 0;
-  fractype r0, r1, y0, y1, bit;
-  fractype q;
+  fractype bit;
   fractype numerator;
   fractype denominator;
   fractype quotient;
-  fractype remainder;
 
   if (isnan (a))
     {
@@ -1028,15 +1034,12 @@ _fpdiv_parts (fp_number_type * a,
   if (iszero (b))
     {
       a->class = CLASS_INFINITY;
-      return b;
+      return a;
     }
 
   /* Calculate the mantissa by multiplying both 64bit numbers to get a
      128 bit number */
   {
-    int carry;
-    intfrac d0, d1;		/* weren't unsigned before ??? */
-
     /* quotient =
        ( numerator / denominator) * 2^(numerator exponent -  denominator exponent)
      */

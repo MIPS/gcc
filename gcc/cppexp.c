@@ -26,8 +26,8 @@ Written by Per Bothner 1994.  */
    
 #include "config.h"
 #include "system.h"
-#include "cpplib.h"
 #include "gansidecl.h"
+#include "cpplib.h"
 
 extern char *xmalloc PARAMS ((unsigned));
 extern char *xrealloc PARAMS ((void *, unsigned));
@@ -617,7 +617,7 @@ left_shift (pfile, a, unsignedp, b)
 
 static long
 right_shift (pfile, a, unsignedp, b)
-     cpp_reader *pfile;
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
      long a;
      int unsignedp;
      unsigned long b;

@@ -47,12 +47,12 @@ Boston, MA 02111-1307, USA.  */
 #define PTRDIFF_TYPE "int"
 
 #undef WCHAR_TYPE
-#define WCHAR_TYPE "short unsigned int"
+#define WCHAR_TYPE "int"
 
-#define WCHAR_UNSIGNED 1
+#define WCHAR_UNSIGNED 0
 
 #undef WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE 16
+#define WCHAR_TYPE_SIZE BITS_PER_WORD
 
 #define HAVE_ATEXIT
 
@@ -84,7 +84,7 @@ Boston, MA 02111-1307, USA.  */
 /* Indicate that jump tables go in the text section.  This is
    necessary when compiling PIC code.  */
 
-#define JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION 1
 
 /* Don't default to pcc-struct-return, because gcc is the only compiler, and
    we want to retain compatibility with older gcc versions.  */

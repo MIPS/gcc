@@ -1,3 +1,3372 @@
+Wed Oct  7 12:32:44 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (hash.h): Add -L KR-C -F ', 0, 0' flags to gperf.
+	(gxx.gperf): Update comments describing invocation flags.
+	(hash.h): Regenerate using gperf 2.7.1 (19981006 egcs).
+
+1998-10-07  Mark Mitchell  <mark@markmitchell.com>
+
+	* class.c (finish_struct_1): Add commentary on prevous change.
+
+	* cp-tree.h (vtbl_ptr_type_node): New variable.
+	* class.c (build_vtbl_ref): Don't indirect through the vptr; it's
+	already of the right type.
+	(finish_struct_1): Make the vptr be of type vtbl_ptr_type_node.
+	Simplify code to grow vtable.
+	* decl.c (vtbl_ptr_type_node): Define.
+	(init_decl_processing): Initialize it.
+	
+1998-10-06  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.def (PTRMEM_CST): New tree node.
+	* cp-tree.h (ptrmem_cst): New type.
+	(lang_type): Remove local_typedecls.
+	(dummy): Increase to 12 bits from 11.
+	(CLASSTYPE_LOCAL_TYPEDECLS): Remove.
+	(PTRMEM_CST_CLASS): New macro.
+	(PTRMEM_CST_MEMBER): Likewise.
+	(current_access_specifier): New variable.
+	(current_class_type): Remove duplicate declaration.
+	(finish_struct): Change prototype.
+	(unreverse_member_declarations): New function.
+	(pushdecl_class_level): Change prototype.
+	(grok_enum_decls): Remove.
+	(fixup_anonymous_union): New function.
+	(grok_x_components): Change prototype.
+	(tsubst_chain): Remove.
+	(finish_member_template_decl): Likewise.
+	(check_explicit_specialization): Fix indentation.
+	(finish_class_definition): Change prototype.
+	(finish_member_class_template): Likewise.
+	(finish_member_declaration): New function.
+	(check_multiple_declarators): Likewise.
+	* class.c (class_stack_node_t): New type.
+	(current_class_base): Remove.
+	(current_class_stack): Change type.
+	(current_access_specifier): New variable.
+	(grow_method): Remove.
+	(check_member_decl_is_same_in_complete_scope): Break out from
+	finish_struct.
+	(make_method_vec): New function.
+	(free_method_vec): Likewise.
+	(add_implicitly_declared_members): Break out from finish_struct_1.
+	(free_method_vecs): New variable.
+	(add_method): Rework for direct use from parser.
+	(handle_using_decl): Watch for NULL_TREE while iterating through
+	CLASSTYPE_METHOD_VEC.
+	(finish_struct_methods): Don't build CLASSTYPE_METHOD_VEC here;
+	just do some error-checking.
+	(warn_hidden): Change iteration through CLASSTYPE_METHOD_VEC.
+	(finish_struct_1): Simplify.  Use add_implicitly_declared_members.
+	(finish_struct): Change prototype.  Simplify; fields and methods
+	are already set up at this point.
+	(init_class_processing): Set up current_class_stack.
+	(pushclass): Save current_access_specifier.
+	(popclass): Restore it.
+	(currently_open_class): Simplify.
+	(build_self_reference): Remove use of CLASSTYPE_LOCAL_TYPEDECLS.
+	* decl.c (saved_scope): Add access_specifier.
+	(maybe_push_to_top_level): Save it.
+	(pop_from_top_level): Restore it.
+	(maybe_process_template_type_declaration): Use
+	finish_member_declaration. 
+	(pushtag): Likewise.
+	(pushdecl_class_level): Don't return a value.
+	(fixup_anonymous_union): Break out from grok_x_components.
+	(shadow_tag): Use it.
+	(xref_tag): Complain about using an elaborated type specifier to
+	reference a template type parameter or typedef name.
+	(xref_basetypes): Don't set CLASSTYPE_LOCAL_TYPEDECLS.
+	(current_local_enum): Remove.
+	(build_enumerator): Call finish_member_declaration.
+	(grok_enum_decls): Remove.
+	* decl2.c (grok_x_components): Simplify.
+	(check_classfn): Change iteration through CLASSTYPE_METHOD_VEC.
+	(grokfield): Don't set CLASSTYPE_LOCAL_TYPEDECLS.
+	(merge_functions): Add to comment.
+	(arg_assoc_type): Prototype.
+	(arg_assoc): Pass as many arguments as there are parameters.
+	* error.c (dump_expr): Handle PTRMEM_CST.  Improve handling of
+	OFFSET_REF.
+	* expr.c (cpls_expand_expr): Remove dead code.  Handle
+	PTRMEM_CST.
+	* friend.c (do_friend): Lookup friends when in nested classes.
+	Change comments.
+	* init.c (build_offset_ref): Do lookup even for classes that are
+	only partially defined.
+	(decl_constant_value): Remove dead code.
+	* method.c (build_overload_value): Remove hack where by TYPE was
+	not a TYPE.  Handle PTRMEM_CST.
+	(build_template_parm_names): Don't pass a PARM_DECL where a TYPE
+	should go.
+	* parse.y (components, notype_components, component_decl,
+	component_decl_1, component_declarator, component_declarator0):
+	Now all are itype rather than ttype.  Rework to add members to
+	classes on the fly.
+	(typesqpecqual_reserved): Use check_multiple_declarators.
+	(structsp): Update class to finish_class_definition.
+	(do_xref_defn): Unsplit into named_class_head.
+	(access_specifier): Set current_access_specifier.
+	* pt.c (set_current_access_from_decl): New function.
+	(finish_member_template_decl): Don't take the parameters.
+	(comp_template_args): Make more robust.
+	(lookup_template_class): Don't use current_local_enum.
+	(for_each_template_parm): Handle PTRMEM_CST.
+	(instantiate_class_template): Use set_current_access_from_decl,
+	finish_member_declaration and unreverse_member_declarations.  Set
+	lineno/input_filename before generating implicit member functions.  
+	(type_unification_real): Don't assume back-unification happens
+	only for the last argument.
+	(regenerate_decl_from_template): Call pushclass a bit earlier.
+	(tsubst_chain): Remove.
+	(tsubst_enum): Use set_current_access_from_decl.
+	(set_mangled_name_for_template_decl): Fix indentation.
+	* search.c (lookup_fnfields_1): Change iteration through
+	CLASSTYPE_METHOD_VEC.
+	(dfs_pushdecls): Likewise.
+	(dfs_compress_decls): Likewise.
+	(add_conversions): Likewise.
+	* semantics.c (finish_class_definition): Don't take components.
+	Change call to finish_struct.
+	(finish_member_declaration): New function.
+	(finish_member_class_template): Don't take template parameters.
+	Change call to grok_x_components.  Call finish_member_template_decl.
+	(check_multiple_declarators): New function.
+	* sig.c (append_signature_fields): Work from the TYPE_METHODS, not
+	a passed in fieldlist.
+	* tree.c (search_tree): Handle PTRMEM_CST.
+	(mapcar): Likewise.
+	* typeck.c (unary_complex_lvalue): Build PTRMEM_CSTs, not
+	INTEGER_CSTs, for pointer-to-data members.
+	
+	* call.c (resolve_args): Resolve template specializations, if
+	possible.
+
+Tue Oct  6 07:57:26 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (spew.o): Depend on toplev.h.
+
+	* call.c (compare_ics): Initialize variables `deref_from_type2',
+ 	`deref_to_type1' and `deref_to_type2'.
+
+	* except.c (get_eh_type): Hide prototype and definition.
+	(process_start_catch_block_old): Remove unused static prototype.
+
+	* pt.c (tsubst_decl): Initialize variable `argvec'.
+
+	* spew.c: Include toplev.h.
+
+1998-10-05  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* pt.c (instantiate_decl): Do save and restore file position.
+
+1998-10-05  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* method.c (build_decl_overload_real): Clear
+	numeric_output_need_bar after __.
+
+1998-10-05  Nathan Sidwell  <nathan@acm.org>
+
+	* call.c (build_new_method_call): Issue 'incomplete type' error,
+	if class is not defined.
+
+1998-10-05  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* call.c (build_object_call): Move declaration of variable
+	`fn' into the scope where it is used.  Don't access variable
+	`fn' when it is uninitialized, instead use `fns'.
+
+1998-10-04  Theodore Papadopoulo <Theodore.Papadopoulo@sophia.inria.fr>
+
+	* errfn.c (cp_thing): Print buf as a string not as a printf format
+	to avoid problems with the operator%. Consequently, `%%' sequences
+	in format are copied as `%' in buf.
+
+1998-10-04  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* pt.c (pop_tinst_level): Call extract_interface_info.
+	(instantiate_decl): Don't save and restore file position.
+
+	* decl.c (cp_finish_decl): Make statics in extern inlines and
+	templates common, if possible and the target doesn't support weak
+	symbols.
+
+	* decl.c (grokdeclarator): Remove redundant calls to
+	build_type_variant and some duplicated code.
+	* sig.c (build_signature_reference_type): Only take the type parm.
+	(build_signature_pointer_type): Likewise.
+	* tree.c (build_cplus_method_type): Adjust.
+	* cp-tree.h: Update.
+
+1998-10-04  Mark Mitchell  <mark@markmitchell.com>
+
+	* call.c (build_over_call): Make pedwarns about dropped qualifiers
+	into full-fledged errors.
+	* cvt.c (convert_to_reference): Likewise.
+	* typeck.c (convert_for_assignment): Likewise.
+
+	* search.c (expand_upcast_vtables): In addition to unsetting 
+	TREE_READONLY, remove top-level const type qualifier.
+
+1998-10-03  Mark Mitchell  <mark@markmitchell.com>
+
+	* class.c (current_class_ptr, current_class_ref): Clarify
+	documentation.
+	* cvt.c (ocp_convert): Don't expect fold to remove all trivial
+	NOP type conversions.
+	* decl.c (decls_match): Use comptypes directly; ignore
+	qualifiers on the DECL.
+	(duplicate_decls): Remove qualifier checks on DECL.
+	(grokdeclarator): Make the type built up include top-level
+	qualifiers.
+	* decl2.c (do_dtors): Fix spelling error.
+	* error.c (dump_simple_decl): Don't look at qualifiers on the decl
+	when printing type information.
+	* init.c (build_new_1): Add documentation.  Deal with the fact
+	that type of allocated memory now contains qualifiers.
+	* lex.c (is_global): Improve error-recovery.
+	* sig.c (build_member_function_pointer): Don't cast away const
+	on fields of sigtable_entry_type.
+	* tree.c (lvalue_type): Don't look at top-level qualifiers on
+	expressions.
+	* typeck.c (decay_conversion): Likewise.
+	(build_component_ref): Make sure the type of the COMPONENT_REF
+	contains top-level qualifiers, as appropriate.  Improve
+	error-handling. 
+	(build_indirect_ref): Simplify.  Don't strip top-level qualifiers.
+	(build_array_ref): Likewise.
+	(build_unary_op): Improve error-recovery.
+	(unary_complex_lvalue): Make taking the address a bound member
+	function an error, not a sorry.
+	(build_conditional_expr): Look at the type qualifiers, not the
+	qualifiers on the expression itself.
+	
+1998-10-03  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (merge_functions): Remove duplicates.
+
+	* decl2.c: Add -f{no-,}implicit-inline-templates.
+	(lang_decode_option): Unset it if -frepo.
+	(import_export_decl): Check it.
+
+	* decl.c (lookup_name_real): Template parms also take precedence
+	over implicit typename.  Only warn if yylex.
+
+	* typeck.c (build_conditional_expr): Only fold if ifexp is an
+	INTEGER_CST.
+
+	* decl2.c (finish_vtable_vardecl): Check DECL_INTERFACE_KNOWN
+	instead of linkage.
+
+1998-10-01  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cp-tree.h (FORMAT_VBASE_NAME): New macro.
+	* class.c (build_vbase_pointer): Use it.
+	* rtti.c (expand_class_desc): Likewise.
+	* tree.c (build_vbase_pointer_fields): Likewise.
+
+Thu Oct  1 10:43:45 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* decl.c (start_decl): Add invocation of
+	SET_DEFAULT_DECL_ATTRIBUTES, if defined.
+	(start_function): Add invocation of
+	SET_DEFAULT_DECL_ATTRIBUTES, if defined.
+
+	* lex.c: Replace occurances of HANDLE_SYSV_PRAGMA with
+	HANDLE_GENERIC_PRAGMAS.
+	
+1998-09-28  Anthony Green  <green@cygnus.com>
+
+	* semantics.c (finish_asm_stmt): Always permit volatile asms.
+
+1998-09-28  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (grokdeclarator): Tighten checks for invalid
+	destructors.  Improve error-messages and error-recovery.
+	* decl2.c (check_classfn): Don't assume that mangled destructor 
+	names contain type information.
+	
+1998-09-25  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* search.c (get_base_distance): Remove assert.
+
+	* decl2.c (build_anon_union_vars): Don't process a field with no
+	name.
+	(finish_anon_union): Also complain about local anon unions with no
+	members.
+
+1998-09-25  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl.c (lookup_namespace_name): If the name is a namespace,
+	return it immediately.
+
+Fri Sep 25 11:45:38 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cp-tree.h (define_case_label): Remove unused parameter.
+	(check_java_method): Likewise.
+	(grokclassfn): Likewise.
+	(expand_aggr_init): Likewise.
+	(build_x_delete): Likewise.
+	(maybe_end_member_template_processing): Likewise.
+	(unshare_base_binfos): Add prototype.
+	(string_conv_p): Likewise.
+	(my_friendly_abort): Mark with ATTRIBUTE_NORETURN.
+
+	* cvt.c (build_up_reference): Remove unused parameter
+ 	`checkconst', all callers changed.
+	(build_type_conversion): Mark parameter `code' with
+	ATTRIBUTE_UNUSED.
+	(build_expr_type_conversion): Initialize variable `conv'.
+
+	* decl.c (push_namespace): Initialize variable `d'.
+  	(define_case_label): Remove unused parameter `decl', all callers
+ 	changed.
+
+	* decl2.c (lang_decode_option): If !USE_CPPLIB, mark parameter
+ 	`argc' with ATTRIBUTE_UNUSED.
+	(grokclassfn): Remove unused parameter `cname', all callers
+ 	changed.
+	(check_java_method): Likewise for parameter `ctype'.
+	(copy_assignment_arg_p): Mark parameter `virtualp' with
+	ATTRIBUTE_UNUSED.
+	(finish_prevtable_vardecl): Likewise for parameter `prev'.
+
+	* expr.c (extract_init): Likewise for parameters `decl' and `init'.
+
+	* init.c (expand_aggr_init_1): Remove unused parameter
+ 	`alias_this', all callers changed.
+	(expand_aggr_init): Likewise.
+	(expand_default_init): Likewise.
+	(build_new_1): Initialize variable `susp'.
+	(build_x_delete): Remove unused parameter `type', all callers
+	changed.
+
+	* lex.c (set_typedecl_interface_info): Mark parameter `prev' with
+	ATTRIBUTE_UNUSED.
+	(readescape): Use (unsigned) value in shift.
+	(real_yylex): Likewise.  Likewise.  Also cast `sizeof' to int when
+	comparing to a signed quantity.
+
+	* pt.c (maybe_end_member_template_processing): Remove unused
+ 	parameter `decl', all callers changed.
+	(check_explicit_specialization): Add braces around empty body in
+	an else-statement.
+	(current_template_args): Initialize variable `args'.
+	(lookup_template_class): Likewise for variable `prev_local_enum'.
+	(tsubst_decl): Likewise for variable `r'.
+	(set_mangled_name_for_template_decl): Initialize variable
+	`context'.
+
+	* spew.c (scan_tokens): Change type of parameter `n' to unsigned.
+	Likewise for variable `i'.
+	(yylex): Initialize variable `trrr'.
+
+	* typeck.c (compparms): Mark variable `strict' with
+	ATTRIBUTE_UNUSED.
+
+	* xref.c (simplify_type): Cast argument of ctype function to
+	`unsigned char'.
+
+1998-09-24  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (language_lvalue_valid): Remove.
+	* decl.c (grokdeclarator): Don't disallow references to functions.
+	* tree.c (lvalue_p_1): New function, combining duplicated
+	code from ...
+	(lvalue_p): Use it.
+	(real_lvalue_p): Likewise.
+	* typeck.c (language_lvalue_valid): Remove.
+	(build_modify_expr): Treat FUNCTION_TYPEs as readonly, even though
+	they don't have TREE_READONLY set.
+	* typeck2.c (readonly_error): Add case for FUNCTION_DECLs.
+	
+1998-09-24  Benjamin Kosnik  <bkoz@loony.cygnus.com>
+
+	* spew.c (yylex): Give diagnostic.
+	* hash.h (is_reserved_word): Add export.
+	* gxx.gperf: Ditto.
+	* lex.h (rid): Add RID_EXPORT.
+	* lex.c (init_parse): Ditto. 
+
+Tue Sep 22 21:01:19 1998  Gerald Pfeifer  <pfeifer@dbai.tuwien.ac.at>
+
+	* friend.c (do_friend): Make warning a full sentence.
+
+1998-09-22  Mark Mitchell  <mark@markmitchell.com>
+
+	* parse.y (component_decl_list): Improve error-recovery.
+
+1998-09-22  Benjamin Kosnik  <bkoz@loony.cygnus.com>
+
+        * decl.c (make_typename_type): Move error to point where name
+        variable can be used by dump_type.
+
+1998-09-22  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (grokfndecl): Improve error-recovery.
+	* decl2.c (grokfield): Likewise.
+	* pt.c (finish_member_template_decl): Likewise.
+
+1998-09-20  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* method.c (hack_identifier): Finding multiple members is always
+	an error.
+
+1998-09-21  Per Bothner  <bothner@cygnus.com>
+
+	* Make-lang.in (c++-filt):  Link libiberty.a after cxxmain.o.
+
+Mon Sep 21 01:53:05 1998  Felix Lee  <flee@cygnus.com>
+
+        * lex.c (init_lex): Use getenv ("LANG"), not GET_ENVIRONMENT ().
+
+1998-09-20  Mark Mitchell  <mark@markmitchell.com>
+
+	* class.c (maybe_warn_about_overly_private_class): Reformat.
+
+1998-09-17  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* exception.cc (__cplus_type_matcher): realign some code.
+
+1998-09-16  Mark Mitchell  <mark@markmitchell.com>
+
+	* Make-lang.in (tinfo.o): Use CXXFLAGS when compiling.
+	(tinfo2.o): Likewise.
+	(exception.o): Likewise.
+	(new.o): Likewise.
+	(opnew.o): Likewise.
+	(opnewnt.o): Likewise.
+	(opvnew.o): Likewise.
+	(opvnewnt.o): Likewise.
+	(opdel.o): Likewise.
+	(opdelnt.o): Likewise.
+	(opvdel.o): Likewise.
+	(opvdelnt.o): Likewise.
+
+1998-09-16  Richard Henderson  <rth@cygnus.com>
+
+        * decl.c (init_decl_processing): Kill __builtin_fp and __builtin_sp.
+
+1998-09-15  Alexandre Oliva  <oliva@dcc.unicamp.br>
+
+	* call.c (build_field_call): handle static data members too
+
+	* typeck.c (comptypes): when comparing pointer types, check
+	whether referred types match even in strictest modes
+
+1998-09-15  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h: Revert previous change.
+	(finish_struct_methods): Remove declaration.
+	* class.c: Revert previous change.
+	(maybe_warn_about_overly_private_class): New function.
+	(finish_struct_methods): Declare here, and make static.  Remove
+	unnecessary parameters.  Tidy slightly.  Use
+	maybe_warn_about_overly_private_class. 
+	(finish_struct_1): Adjust.  Remove check for private constructors,
+	now done elsewhere.
+	(finish_struct): Adjust.
+	
+1998-09-15  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* except.c (expand_start_catch_block): No need to check for new
+	exception model.
+	(process_start_catch_block_old): Deleted.
+	(process_start_catch_block): Add call to start_decl_1().
+	(expand_end_catch_block): Add call to end_catch_handler().
+	* exception.cc (__cplus_type_matcher): Only check the exception 
+	language if there is an exception table.
+
+1998-09-15  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* search.c (expand_indirect_vtbls_init): Mark temporary stack slots
+	as used to prevent conflicts with virtual function tables.
+
+1998-09-14  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (lang_type): Add has_non_private_static_mem_fn.
+	(CLASSTYPE_HAS_NON_PRIVATE_STATIC_MEM_FN): New macro, to access it.
+	* class.c (maybe_class_too_private_p): New function.
+	(finish_struct_methods): Use it.
+	(finish_struct_1): Likewise.
+	(finish_struct): Set CLASSTYPE_HAS_NON_PRIVATE_STATIC_MEM_FN if
+	appropriate.
+	
+	* pt.c (check_specialization_scope): Fix spelling error.
+	(check_explicit_specialization): Remove code to handle explicit
+	specializations in class scope; they are now correctly diagnosed
+	as errors.
+
+1998-09-10  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (pushdecl): Don't copy types if the
+	DECL_ABSTRACT_ORIGIN of the new decl matches the TYPE_NAME of the
+	type. 
+
+1998-09-09  Kriang Lerdsuwanakij <lerdsuwa@scf-fs.usc.edu>
+
+	* class.c (get_enclosing_class): New function.
+	(is_base_of_enclosing_class): Likewise.
+	* cp-tree.h (get_enclosing_class): Declare.
+	(is_base_of_enclosing_class): Likewise.
+	* pt.c (coerce_template_parms): Use them.
+
+1998-09-09  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* g++spec.c (lang_specific_driver): Check whether MATH_LIBRARY is
+	null to decide whether to use it.
+
+	* error.c (dump_type_real): Handle NAMESPACE_DECL.
+	* parse.y (base_class.1): Avoid crash on error.
+
+1998-09-08  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl.c (make_typename_type): If context is a namespace, the code
+	is in error.
+
+1998-09-08  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* parse.y (nomods_initdcl0): Set up the parser stack correctly.
+
+1998-09-08  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (anonymous_namespace_name): Declare.
+	* decl.c: Define it.
+	(push_namespace): Use anonymous_namespace_name, rather than local
+	static anon_name.
+	* error.c (dump_decl): If a namespace is named
+	anonymous_namespace_name, call it {anonymous}.
+
+	* decl.c (grokparms): Distinguish between references and pointers
+	in error message.
+
+1998-09-08  Richard Henderson  <rth@cygnus.com>
+	    Mark Mitchell  <mark@markmitchell.com>	
+	
+	* pt.c (process_partial_specialization): Consistantly allocate
+	and zero tpd.parms based on ntparms.  Use tpd2.parms, not
+	tpd.parms, where appropriate.
+
+Sun Sep  6 00:00:51 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.in (INCLUDES): Update after recent toplevel gcc
+	reorganizations.
+
+1998-09-05  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (TI_PENDING_SPECIALIZATION_FLAG): Remove.
+	* class.c (finish_struct): Remove hackery to deal with explicit
+	specializations in class scope.
+	* decl.c (grokfndecl): Improve error-recovery.
+	* decl2.c (grokfield): Likewise.
+	* pt.c (check_specialization_scope): New function.
+	(begin_specialization): Call it.
+	(process_partial_specialization): New function, split out from
+	push_template_decl.  Check partial specializations more
+	stringently.
+	(push_template_decl): Call it.
+	(check_explicit_specialization): Don't attempt to handle explicit
+	specializations in class scope.
+	(template_parm_data): Document.  Add current_arg and
+	arg_uses_template_parms. 
+	(mark_template_parm): Set it.
+	(tsubst_arg_types): Remove unused variable.
+	* semantics.c (begin_class_definition): Tweak.
+	
+1998-09-04  Mark Mitchell  <mark@markmitchell.com>
+
+	* inc/typeinfo (type_info::type_info(const char*)): Make
+	`explicit'.
+
+	* cp-tree.h (hash_tree_cons_simple): New macro.
+	* pt.c (tsubst_arg_types): New function.  Use hash_tree_cons.
+	(coerce_template_parms): Use make_temp_vec, instead of
+	make_tree_vec.  Document this behavior.
+	(lookup_template_class): Likewise.
+	(tsubst, cases METHOD_TYPE, FUNCTION_TYPE): Use tsubst_arg_types.  
+	Remove dead code (and add ssertion to check its deadness).  Fix
+	bug w.r.t. exception specifications.
+
+1998-09-03  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (import_export_vtable): Always make artificials comdat.
+	(import_export_decl): Likewise.
+	* pt.c (mark_decl_instantiated): Likewise.
+
+1998-09-03  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (finish_globally_qualified_member_call_expr):
+	Rename to ...
+	(finish_qualified_call_expr).
+	* semantics.c: Likewise.
+	* parse.y (primary): Use it.
+	* method.c (hack_identifier): Remove redundant code.
+	
+	* init.c (resolve_offset_ref): Call convert_from_reference to
+ 	handle members of reference type.  Improve error recovery.
+
+1998-09-03  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* cp-tree.h: Declare warn_nontemplate_friend.
+	* decl2.c (lang_decode_option): Set.
+	* lang-options.h: Add -Wnon-template-friend.
+	* friend.c (do_friend): Use to toggle non-template function warning.
+
+1998-09-03  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (finish_enum): Don't resolve CONST_DECLs to their
+	corresponding INTEGER_CSTs when processing_template_decl.
+	* pt.c (tsubst_enum): Tweak accordingly.
+
+1998-09-03  Benjamin Kosnik  <bkoz@rhino.cygnus.com>
+
+        * decl.c (pushdecl_class_level): Add warning here.
+        (pushdecl): Tweak.
+
+1998-09-02  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cvt.c (convert_pointer_to_real): Tidy.
+	* search.c (get_base_distance_recursive): Simplify.
+	(get_base_distance): Likewise.
+
+	* pt.c (unify): Only special-case INTEGER_TYPE if it uses template
+	parms.
+
+Wed Sep 02 09:25:29 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* lex.c (check_newline):  Call HANDLE_PRAGMA before
+	HANDLE_SYSV_PRAGMA if both are defined.  Generate warning messages
+	if unknown pragmas are encountered.
+	(handle_sysv_pragma): Interpret return code from
+	handle_pragma_token ().  Return success/failure indication rather
+	than next unprocessed character. 
+	(pragma_getc): New function: retrieves characters from the
+	input stream.  Defined when HANDLE_PRAGMA is defined.
+	(pragma_ungetc): New function: replaces characters back into the
+	input stream.  Defined when HANDLE_PRAGMA is defined.
+
+1998-09-01  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (output_vtable_inherit): Use %cDIGIT in the operands.
+	* class.c (build_vtable_entry_ref): Likewise.
+
+1998-09-01  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION): New macro.
+	* decl2.c (import_export_decl): Likewise.
+	* pt.c (instantiate_decl): Use it.
+
+1998-09-01  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (lookup_name_real): Also do implicit typename thing for
+	artificial TYPE_DECLs.
+	* search.c (lookup_field): Likewise.
+	(lookup_fnfields, lookup_field): Adjust for implicit typename kludge.
+	* semantics.c (begin_constructor_declarator): Use enter_scope_of.
+	(enter_scope_of): Extract type from implicit typename.
+	(begin_class_definition): Likewise.
+	* lex.c (identifier_type): Handle implicit typename when checking
+	for SELFNAME.
+
+	* cp-tree.h: Declare flag_strict_prototype.
+	* lex.c (do_scoped_id, do_identifier): Don't implicitly_declare if
+	-fstrict-prototype.
+	* decl.c (init_decl_processing): If -f{no,-}strict-prototype wasn't
+	specified, set it to the value of pedantic.
+
+1998-09-01  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl2.c (arg_assoc): Handle template-id expressions as arguments.
+
+1998-08-31  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (finish_enum): Handle member enums of classes declared in
+	template functions.
+	
+	* decl2.c (grok_x_components): Strip attributres before calling
+	groktypename. 
+	
+1998-08-31  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cp-tree.h, decl2.c: Remove support for -fall-virtual,
+	-fenum-int-equivalence and -fno-nonnull-objects.
+	* class.c (check_for_override): Remove support for -fall-virtual.
+	(finish_struct_1): Likewise.
+	* call.c (build_new_op): Remove support for -fenum-int-equivalence.
+	* typeck.c (build_binary_op_nodefault): Likewise.
+	* cvt.c (ocp_convert): Likewise.
+	* call.c (build_vfield_ref): Remove support for -fno-nonnull-objects.
+	* class.c (build_vbase_path): Likewise.
+
+Sun Aug 30 22:16:31 1998  H.J. Lu  (hjl@gnu.org)
+
+	* Makefile.in (INTERFACE): New, set to 1.
+
+1998-08-30  Mark Mitchell  <mark@markmitchell.com>
+
+	* error.c (dump_decl): Use CP_DECL_CONTEXT, not DECL_CONTEXT, when
+	comparing with global_namespace.
+	(dump_aggr_type): Likewise.
+
+	* decl.c (grokfndecl): Issue error on declaration of friend
+	templates with explicit template arguments.
+
+	* pt.c (convert_template_argument): New function, split out
+	from...
+	(coerce_template_parms): Here.
+	(tsubst): Attempt better error-recovery.
+
+1998-08-28  Benjamin Kosnik  <bkoz@loony.cygnus.com>
+
+	* pt.c (decl_template_parm_p): Add checks for
+	TEMPLATE_TEMPLATE_PARM.
+
+1998-08-28  Mark Mitchell  <mark@markmitchell.com>
+
+	* lex.c (do_identifier): Fix thinko in previous change.
+
+1998-08-28  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* search.c (dfs_search, binfo_for_vtable, dfs_bfv_helper): New fns.
+	* decl2.c (output_vtable_inherit): Call binfo_for_vtable.
+
+1998-08-28  Richard Henderson  <rth@cygnus.com>
+
+	Add support for discarding unused virtual functions.
+	* lang-options.h: Add -fvtable-gc.
+	* cp-tree.h: Add flag_vtable_gc.
+	* decl2.c (output_vtable_inherit): New fn.
+	(finish_vtable_vardecl): Call it.
+	* class.c (build_vtable_entry_ref): New fn.
+	(build_vtbl_ref): Call it.
+
+1998-08-28  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (build_enumerator): Take the enumeration type as a
+	paramter. 
+	* decl.c (finish_enum): Don't set the TREE_TYPE for the
+	enumeration constant values if we're processing_template_decls.
+	Don't set the type for the CONST_DECLs either; that's done in
+	build_enumerator.
+	(build_enumerator): Take the enumeration type as a
+	parameter. 
+	* lex.c (do_identifier): Don't resolve enumeration constants while
+	processing template declarations, even if they happen to be
+	TEMPLATE_PARM_INDEXs. 
+
+	* parse.y (current_enum_type): New variable.
+	(primary): Don't allow statement-expression in local classes just
+	as we don't in global classes.
+	(structsp): Use current_enum_type.
+	(enum_list): Likewise.
+	* pt.c (tsubst_enum): Don't check for NOP_EXPRs introduced by
+	finish_enum; they no longer occur.
+	
+	* cp-tree.h (finish_base_specifier): New function.
+	* parse.y (base_class): Use it.
+	* semantics.c (finish_base_specifier): Define it.
+
+	* parse.y (structsp): Warn on use of typename outside of template
+	declarations. 
+	
+1998-08-27  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* lex.c (handle_cp_pragma): Remove #pragma vtable.
+	* lang-options.h: Remove +e options.
+	* decl2.c (lang_decode_option): Likewise.
+	(import_export_vtable): Don't check write_virtuals.
+	(finish_vtable_vardecl, finish_file): Likewise.
+	* search.c (dfs_debug_mark): Likewise.
+	* semantics.c (begin_class_definition): Likewise.
+	* class.c (build_vtable, finish_vtbls, finish_struct_1): Likewise.
+
+	* call.c (build_over_call): Check flag_elide_constructors.
+	* decl2.c: flag_elide_constructors defaults to 1.
+	* typeck.c (convert_arguments): Remove return_loc parm.
+	(build_function_call_real): Adjust.
+
+	* search.c: Tear out all mi_matrix and memoize code.
+	(lookup_field, lookup_fnfields): Use scratch_tree_cons.
+	* lang-options.h: Remove documentation for -fhandle-exceptions,
+	-fmemoize-lookups and -fsave-memoized.
+	* cp-tree.h: Lose mi_matrix and memoize support.
+	* decl2.c: Ignore -fmemoize-lookups and -fsave-memoized.
+	* class.c: Lose struct class_level.
+	(pushclass, popclass): Lose memoize support.
+	* init.c (build_offset_ref): Likewise.
+
+	Never change BINFO_INHERITANCE_CHAIN.
+	* init.c (emit_base_init): Change modification of
+	BINFO_INHERITANCE_CHAIN to an assert.
+	* search.c (get_base_distance_recursive): Likewise.
+	(get_base_distance): Likewise.
+	(lookup_member): Likewise.
+	(convert_pointer_to_single_level): Likewise.
+	(lookup_field): Likewise.  Lose setting TREE_VIA_* on TREE_LISTs.
+	(lookup_fnfields): Likewise.
+	* tree.c (propagate_binfo_offsets): Don't call unshare_base_binfos.
+	(unshare_base_binfos): Don't call propagate_binfo_offsets.
+	(layout_basetypes): Call propagate_binfo_offsets instead of 
+	unshare_base_binfos.
+	* decl.c (xref_basetypes): Call unshare_base_binfos.
+	* pt.c (instantiate_class_template): Likewise.
+	* tree.c (reverse_path): Remove 'copy' parm; always make a
+	temporary copy.
+	* class.c (build_vbase_path): Just call it.
+	* search.c (compute_access): Likewise.  Don't re-reverse.
+
+1998-08-27  Mark Mitchell  <mark@markmitchell.com>
+
+	* class.c (build_vbase_path): Use reverse_path.
+	(finish_base_struct): Move warnings for inaccessible bases to
+	layout_basetypes.
+	(modify_one_vtable): Remove check of TREE_USED (binfo).
+	(fixup_vtable_deltas1): Likewise.
+	* cp-tree.h (BINFO_INHERITANCE_CHAIN): Document here.
+	(xref_tag): Remove binfos parameter.
+	(make_binfo): Remove chain parameter.
+	(reverse_path): Add copy parameter.
+	* decl.c (init_decl_processing): Change calls to xref_tag.
+	(xref_tag): Remove binfos parameter.
+	(xref_basetypes): Change calls to make_binfo.
+	* decl2.c (grok_x_components): Change calls to xref_tag.
+	(handle_class_head): Likewise.
+	* friend.c (do_friend): Likewise.
+	* lex.c (make_lang_type): Change calls to make_binfo.
+	* parse.y (structsp): Change calls to xref_tag.
+	(named_complex_class_head_sans_basetype): Likewise.
+	(named_class_head): Likewise.
+	* rtti.c (init_rtti_processing): Likewise.
+	* search.c (compute_access): Change calls to reverse_path.
+	(dfs_get_vbase_types): Change calls to make_binfo.
+	(get_vbase_types): Remove dead code.
+	* tree.c (unshare_base_binfos): Change calls to make_binfo.
+	(layout_basetypes): Warn here about inaccessible bases.
+	(make_binfo): Remove chain parameter.
+	(reverse_path): Add copy parameter.
+	
+1998-08-27  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* class.c: #if 0 complete_type_p.
+	* init.c (build_java_class_ref, build_new_1): Remove unused locals.
+	* method.c (process_overload_item): Likewise.
+	* typeck.c (comp_target_types): Likewise.
+
+	Stop sharing binfos for indirect virtual bases.
+	* tree.c (propagate_binfo_offsets): Unshare vbases, too.
+	(layout_basetypes): Likewise.
+	(unshare_base_binfos): Copy vbases, too.
+	* cp-tree.h (BINFO_VIA_PUBLIC, BINFO_BASEINIT_MARKED,
+	BINFO_VBASE_INIT_MARKED): Remove obsolete macros.
+	(BINFO_PUSHDECLS_MARKED, SET_BINFO_PUSHDECLS_MARKED,
+	CLEAR_BINFO_PUSHDECLS_MARKED): New macros.
+	* search.c (lookup_field, lookup_fnfields, lookup_member): Remove
+	reference to BINFO_VIA_PUBLIC.
+	(marked_pushdecls_p, unmarked_pushdecls_p): New fns.
+	(push_class_decls): Use them.
+	(dfs_pushdecls): Use SET_BINFO_PUSHDECLS_MARKED.
+	(dfs_compress_decls): Use CLEAR_BINFO_PUSHDECLS_MARKED.
+
+1998-08-27  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (build_enumerator): Set DECL_CONTEXT for the
+	CONST_DECLs. 
+
+1998-08-26  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (finish_enum): Change prototype.
+	* decl.c (finish_enum): Use TYPE_VALUES, rather than taking a
+	VALUES parameter.  Don't try to compute mins/maxs if
+	processing_template_decl. 
+	* parse.y (structsp): Use new calling sequence for finish_enum.
+	* pt.c (tsubst_enum): Likewise.  Take the new type as input.  
+	(lookup_template_class): Remove unused variables.  Tweak.
+	Register enums on instantiation list before substituting
+	enumeration constants.
+	(tsubst_decl): Remove unused variables.
+	(regenerate_decl_from_template): Likewise.
+	
+	* decl.c (duplicate_decls): Don't obliterate the
+	DECL_TEMPLATE_INFO for a template if we're not replacing it with
+	anything. 
+
+	* lex.c (do_identifier): Fix typo in comment.
+
+Wed Aug 26 10:54:51 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* errfn.c: Remove stdarg.h/varargs.h.
+	* tree.c: Likewise.
+
+1998-08-25  Brendan Kehoe  <brendan@cygnus.com>
+
+	* pt.c (tsubst_copy): Only do typename overloading on an
+	IDENTIFIER_NODE that happens to look like a typename if it actually
+	has a type for us to use.
+
+1998-08-25  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* typeck.c (comp_cv_target_types): Split out...
+	(comp_target_types): From here.  Don't allow cv-qual changes under
+	a pointer if nptrs == 0.  Fix OFFSET_TYPE handling.
+	(build_ptrmemfunc): Pass 1 to nptrs.
+	* cvt.c (perform_qualification_conversions): Use comp_ptr_ttypes.
+
+1998-08-25  Mark Mitchell  <mark@markmitchell.com>
+
+	* search.c (dependent_base_p): Don't compare a binfo to
+	current_class_type; use the TREE_TYPE of the binfo instead.
+
+	* cp-tree.h (CLASS_TYPE_P): Revise definition.
+
+1998-08-25  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (duplicate_decls): Don't complain about different
+	exceptions from an internal decl even if pedantic.
+
+	* typeck.c (convert_for_assignment): Converting from pm of vbase
+	to derived is an error, not a sorry.
+
+	* call.c (build_over_call): Use convert_pointer_to_real for 'this'.
+	* class.c (fixed_type_or_null): Rename from
+	resolves_to_fixed_type_p.  Return the dynamic type of the
+	expression, if fixed, or null.
+	(resolves_to_fixed_type_p): Use it.  Return 0 if the dynamic type
+	does not match the static type.
+	(build_vbase_path): Rename 'alias_this' to 'nonnull'.  Use
+	resolves_to_fixed_type_p again.
+
+1998-08-24  Mark Mitchell  <mark@markmitchell.com>
+
+	* pt.c (tsubst_decl): Move special case code for dealing with
+	tricky friend templates here from ...
+	(regenerate_decl_from_template): Here.
+
+1998-08-24  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (start_decl): Remove redundant linkage check.
+
+1998-08-24  Gavin Romig-Koch  <gavin@cygnus.com>
+
+	* typeck.c (c_expand_return): Handle the case that valtype
+	is wider than the functions return type.
+
+1998-08-24  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (CLASS_TYPE_P): New macro.
+	* decl.c (grokdeclarator): Use it instead of IS_AGGR_TYPE.
+	* pt.c (process_template_parm): Undo previous change.
+	
+1998-08-24  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* cp-tree.h: Declare.
+	* pt.c (decl_template_parm_p): New function.
+	* decl.c (pushdecl): Check decls for redeclaring template parms.
+	(xref_tag): Make redeclaration an error, print decl.
+	* decl2.c (grokfield): Check field_decls for redeclaration as well.
+
+1998-08-24  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* parse.y (primary): Fix up the type of string constants.
+
+1998-08-24  Mark Mitchell  <mark@markmitchell.com>
+
+	* typeck.c (convert_for_initialization): Move check for odd uses
+	of NULL to avoid duplicate warnings.
+
+1998-08-24  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* tree.c (lvalue_type): Fix for arrays.
+	* typeck.c (string_conv_p): New fn.
+	(convert_for_assignment): Use it.
+	(build_unary_op): Use lvalue_type.
+	* call.c (standard_conversion, convert_like): Use string_conv_p.
+	(add_function_candidate): Use lvalue_type.
+	* cvt.c (convert_to_reference): Likewise.
+	* decl2.c (lang_decode_option): Ignore -traditional.
+	* decl.c (init_decl_processing): flag_writable_strings inhibits
+	flag_const_strings.
+
+1998-08-24  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* lang-options.h (lang_options): Add fconst-strings to the list
+	of valid options.
+	* decl2.c (lang_f_options, lang_decode_option): Likewise.
+
+1998-08-24  Nathan Sidwell  <nathan@acm.org>
+
+        * lex.c (real_yylex): Don't warn about long long constants if
+        we're allowing long long.
+
+1998-08-24  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl.c (pushdecl): Use IDENTIFIER_NAMESPACE_VALUE instead of
+	accessing bindings directly.
+
+	* search.c (my_tree_cons): Reimplement.
+
+	* lang-specs.h: Remove __HONOR_STD.
+	* inc/exception, inc/new, inc/new.h, inc/typeinfo: Likewise.
+
+1998-08-23  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (grokdeclarator): Complain about in-class initialization
+	of aggregates and/or references.
+	* pt.c (process_template_parm): Clear IS_AGGR_TYPE for
+	TEMPLATE_TYPE_PARMs. 
+
+	* decl2.c (grok_array_decl): Add comment.
+	(mark_used): Don't instantiate an explicit instantiation.
+	* friend.c (make_friend_class): Remove bogus comment.  Fix check
+	for partial specializations.
+	* pt.c (check_explicit_specialization): Don't
+	SET_DECL_EXPLICIT_INSTANTIATION here.
+	(mark_decl_instantiated): Or here.
+	(do_decl_instantiation): Do it here, instead.  Add checks for
+	duplicate explicit instantiations, etc.  Tidy.
+	(do_type_instantiation): Likewise.
+	(instantiate_decl): Improve comments.  Complain about explicit
+	instantiations where no definition is available.
+	
+	* cp-tree.h (ansi_null_node): Remove.
+	* call.c (build_over_call): Warn about converting NULL to an
+	arithmetic type.
+	* cvt.c (build_expr_type_conversion): Likewise.  Use
+	null_ptr_cst_p instead of expanding it inline.
+	* decl.c (ansi_null_node): Remove. 
+	(init_decl_processing): Make null_node always have integral type.
+	* except.c (build_throw): Warn about converting NULL to an
+	arithmetic type.
+	* lex.c (init_parse): Remove handling of ansi_null_node.
+	* pt.c (type_unification_real): Don't convert NULL to void* type.
+	* typeck.c (build_binary_op_nodefault): Fix NULL warnings.
+	(convert_for_assignment): Warn about converting NULL to an
+	arithmetic type.
+	(convert_for_initialization): Likewise.
+	
+1998-08-20  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* tree.c (search_tree, no_linkage_helper, no_linkage_check): New fn.
+	* pt.c (coerce_template_parms): Use no_linkage_check.
+	* decl.c (grokvardecl): Likewise.
+	(grokfndecl): Likewise.  Members of anonymous types have no linkage.
+
+	* method.c (process_overload_item): Remove useless code.
+
+1998-08-20  Per Bothner  <bothner@cygnus.com>
+
+	Handle new'ing of Java classes.
+	* init.c (build_class_classref):  New function.
+	(build_new_1):  If type is TYPE_FOR_JAVA:  Call _Jv_AllocObject;
+	constructor does not return this;  don't need to exception-protect.
+
+	* pt.c (lookup_template_class):  Copy TYPE_FOR_JAVA flag.
+	* decl2.c (acceptable_java_type):  Handle template-derived types.
+
+1998-08-20  Per Bothner  <bothner@cygnus.com>
+
+	* decl2.c (import_export_vtable):  Suppress vtables for Java classes.
+
+1998-08-20  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (duplicate_decls): Always merge the old and new patterns
+	for templates, regardless of whether or not the new one has
+	DECL_INITIAL.  Don't throw away specializations.  Merge
+	DECL_SAVED_TREE.
+	* pt.c (tsubst_decl): Use the right pattern when calculating the
+	complete args for a new template instance.
+	(do_decl_instantiation): Fix typo in comment.
+	(regenerate_decl_from_template): Deal with tricky friend template
+	case.
+	(instantiate_decl): Likewise.
+	
+Thu Aug 20 09:09:45 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* init.c (build_builtin_delete_call): Add missing assemble_external
+	call.
+
+1998-08-20  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* parse.y (notype_unqualified_id): Also accept ~A<int>.
+
+1998-08-19  Mark Mitchell  <mark@markmitchell.com>
+
+	* typeck.c (build_binary_op_nodefault): Warn on use of NULL in
+	arithmetic.
+	* except.c (build_throw): Warn when NULL is thrown, even with
+	-ansi.  Use ansi_null_node, rather than integer_zero_node, in the
+	thrown expression.
+	
+	* cp-tree.h (ansi_null_node): New variable.
+	* decl.c (ansi_null_node): New variable.
+	(init_decl_processing): Initialize its type.
+	* lex.c (init_parse): Initialize its value.  Use ansi_null_node
+	for null_node in non-ANSI mode.
+	* typeck.c (build_binary_op_nodefault): Use ansi_null_node in
+	place of null_node to avoid spurious errors.
+
+1998-08-17  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (enter_scope_of): New function.
+	* parse.y (complex_direct_notype_declarator): Use it.
+	* semantics.c (enter_scope_of): New function.
+
+1998-08-17  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (grokparms): No, here.
+
+	* decl.c (grokdeclarator): Catch parm with pointer to array of
+	unknown bound here...
+	* method.c (process_overload_item): ...not here.
+
+	* gxxint.texi: Remove obsolete documentation of overloading code.
+
+	* decl.c (finish_enum): Also set TYPE_SIZE_UNIT.
+	* class.c (finish_struct_bits): Likewise.
+
+	* tree.c (lvalue_type): Fix for arrays.
+	* typeck.c (build_unary_op): Use lvalue_type.
+	* call.c (add_function_candidate): Likewise.
+	* cvt.c (convert_to_reference): Likewise.
+
+	* decl2.c (lang_decode_option): Ignore -traditional.
+
+	* init.c (build_offset_ref): Don't mess with error_mark_node.
+	* lex.c (do_scoped_id): Use cp_error.
+
+	* rtti.c (get_tinfo_fn): Don't mess with the context for now.
+
+1998-08-17  Benjamin Kosnik  <bkoz@loony.cygnus.com>
+
+	* decl.c (grokdeclarator): Allow anonymous types to be cv-qualified.
+
+Mon Aug 17 10:40:18 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* cp-tree.h (set_identifier_local_value): Provide prototype.
+
+	* decl2.c (do_namespace_alias): Remove unused variables `binding'
+	and `old'.
+
+Fri Aug 14 16:42:27 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* Makefile.in: Rename BBISON to BISON so that it can be properly
+	inherited from the parent makefile.
+
+1998-08-13  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* lang-options.h: Add -finit-priority.
+	* decl2.c: Likewise.  Check flag_init_priority instead of
+	USE_INIT_PRIORITY.
+
+	* decl2.c (setup_initp): New fn.
+	(start_objects, finish_objects, do_ctors): Handle init_priority.
+	(do_dtors, finish_file): Likewise.
+
+1998-08-13  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* pt.c (tsubst_copy): Hush warning.
+
+	* rtti.c (get_tinfo_fn): Also set DECL_IGNORED_P.
+
+1998-08-12  Mark Mitchell  <mark@markmitchell.com>
+
+	* pt.c (print_template_context): Don't abort when instantiating a
+	synthesized method.
+
+	* decl.c (grokdeclarator): Issue errors on namespace qualified
+	declarators in parameter lists or in class scope.
+
+1998-08-09  Mark Mitchell  <mark@markmitchell.com>
+
+	* pt.c (check_explicit_specialization): Don't abort on bogus
+	explicit instantiations.
+
+1998-08-07  Mark Mitchell  <mark@markmitchell.com>
+
+	* typeck.c (require_complete_type): Use complete_type_or_else.
+	(complete_type_or_else): Always return NULL_TREE on failure, as
+	documented.
+
+	* pt.c (tsubst_aggr_type): Prototype.
+	(tsubst_decl): New function, split out from tsubst.  Set
+	input_filename and lineno as appropriate.
+	(pop_tinst_level): Restore the file and line number saved in
+	push_tinst_level.
+	(instantiate_class_template): Set input_filename and lineno as
+	appropriate.
+	(tsubst): Move _DECL processing to tsubst_decl.  Make sure the
+	context for a TYPENAME_TYPE is complete.
+
+	* decl2.c (grokbitfield): Issue errors on bitfields declared with
+	function type.
+	(do_dtors): As in do_ctors, pretend to be a member of the same
+	class as a static data member while generating a call to its
+	destructor.
+
+	* cvt.c (cp_convert_to_pointer): Handle NULL pointer
+	conversions, even in complex virtual base class hierarchies.
+
+1998-08-06  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (ENUM_TEMPLATE_INFO): New macro.
+	(TYPE_TEMPLATE_INFO): Likewise.
+	(SET_TYPE_TEMPLATE_INFO): Likewise.
+	(ENUM_TI_TEMPLATE): Likewise.
+	(ENUM_TI_ARGS): Likewise.
+	(lookup_nested_type_by_name): Remove.
+	* decl.c (maybe_process_template_type_declaration): Handle enums.
+	(start_enum): Don't check for primary-template enum declarations
+	here. 
+	(finish_enum): Clean up, document.  Make sure template enum
+	constants get the correct type.
+	(build_enumerator): Copy initializers for template enumerations,
+	too. 
+	(grok_enum_decls): Document.
+	* lex.c (do_identifier): Document use of LOOKUP_EXPR a bit
+	better.  Build LOOKUP_EXPRs for local variables, even if they are
+	TREE_PERMANENT.
+	* pt.c (tsubst_enum): Remove field_chain parameter.
+	(template_class_depth): Include the depth of surrounding function
+	contexts.
+	(push_template_decl): Check for primary-template enum declarations
+	here.  Deal with enumeration templates.
+	(lookup_template_class): Likewise.
+	(for_each_template_parm): Likewise.
+	(instantiate_class_template): Don't call tsubst_enum directly,
+	call tsubst instead, to instantiate enums.  Deal with all
+	field_chain issues here, not in tsubst_enum.
+	(lookup_nested_type_by_name): Remove.
+	(tsubst_aggr_type): Revise handling of enumeration types.
+	(tsubst): Likewise.
+	(tsubst_copy): Likewise.
+	(tsubst_expr): Call tsubst, not tsubst_enum for TAG_DEFNs.
+	
+1998-08-04  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (pushtag): Don't mangle the name of a TYPE_DECL if it
+	uses template parameters.
+	* method.c (build_template_parm_names): Use the full set of
+	template arguments for tsubst'ing.
+	(build_overload_identifier): Pass the full set of template
+	arguments to build_template_parm_names, not just the
+	innermost_args. 
+	* pt.c (TMPL_ARGS_DEPTH): Define using
+	TMPL_ARGS_HAVE_MULTIPLE_LEVELS, for clarity.
+	(NUM_TMPL_ARGS): New macro.
+	(add_outermost_template_args): Deal with the case where the outer
+	args will be completely discarded.
+	(coerce_template_parms): Use the full set of template arguments
+	for tsubst'ing.  Simplify.  Add some asserts.  Improve
+	error messages.
+	(lookup_template_class): Pass the full set of template arguments
+	to coerce_template_parms.
+	(tsubst): Add assertion.
+	(do_type_instantiation): Don't instantiate member template
+	classes. 
+	
+	* init.c (build_offset_ref): Deal with a TEMPLATE_ID_EXPR whose
+	name is a LOOKUP_EXPR, rather than an IDENTIFIER_NODE.
+
+1998-08-03  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* method.c (set_mangled_name_for_decl): Change return type to void.
+
+	* decl.c (lookup_name_real): A namespace-level decl takes priority
+	over implicit typename.  Avoid doing the same lookup twice.
+
+	* search.c (dependent_base_p): New fn.
+	(dfs_pushdecls, dfs_compress_decls): Use it.
+
+	* typeck.c (get_member_function_from_ptrfunc): Don't try to handle 
+	virtual functions if the type doesn't have any.
+
+1998-08-03  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl2.c (grokfield): Don't mangle the name of a TYPE_DECL if it
+	uses template parameters.
+
+1998-08-02  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.def (LOOKUP_EXPR): Document.  Remove second argument.
+	* cp-tree.h (DECL_TI_TEMPLATE): Improve documentation.
+	* lex.c (do_identifier): Don't use a second argument, or a type,
+	when building LOOKUP_EXPRs.
+	(do_identifier): Likewise.
+	(do_scoped_id): Likewise.
+	* method.c (hack_identifier): Improve error message.
+	* pt.c (lookup_template_function): Don't needlessly call
+	copy_to_permanent or build_min.
+	(tsubst_copy): Remove #if 0'd code.  Tsubst into LOOKUP_EXPRs if
+	necessary.
+	(do_decl_instantiation): Improve error message.
+	* tree.c (mapcar, case LOOKUP_EXPR): Don't be sorry; make a copy.
+	(build_min): Copy the type to the permanent obstack, too.
+	
+1998-08-01  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* init.c (init_init_processing): Remove BI* handling.
+	(build_builtin_call): Remove.
+	(build_builtin_delete_call): New fn.
+	(build_delete): Use it.
+	
+1998-07-31  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (PROCESSING_REAL_TEMPLATE_DECL_P): New macro.
+	(maybe_check_template_type): New function.
+	* decl.c (maybe_process_template_type_declaration): New function,
+	split out from pushtag  Call maybe_check_template_type.
+	(pushtag): Use it.  Use PROCESSING_REAL_TEMPLATE_DECL_P.
+	(xref_tag): Use PROCESSING_REAL_TEMPLATE_DECL_P.
+	* friend.c (do_friend): Use PROCESSING_REAL_TEMPLATE_DECL_P.
+	* pt.c (template_class_depth_real): Generalization of ...
+	(template_class_depth): Use it.
+	(register_specialization): Use duplicate_decls for duplicate
+	declarations of specializations.
+	(maybe_check_template_type): New function.
+	(push_template_decl_real): Fix comment.
+	(convert_nontype_argument): Likewise.
+	(lookup_template_class): Likewise.  Avoid an infinite loop on
+	erroneous code.
+	(tsubst_friend_function): Fix comment.
+	(tsubst, case FUNCTION_DECL): Deal with a DECL_TI_TEMPLATE that is
+	an IDENTIFIER_NODE.
+	* semantics.c (begin_function_definition): Use
+	reset_specialization to note that template headers don't apply
+	directly to declarations after the opening curly for a function.
+
+1998-07-29  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (push_overloaded_decl): Use current_namespace instead of
+	DECL_CONTEXT (decl) to determine where we go.
+
+	* decl.c (lookup_name_real): Fix typo.
+
+1998-07-28  Mark Mitchell  <mark@markmitchell.com>
+
+	* friend.c (is_friend): Be lenient with member functions to deal
+	with nested friends.
+
+1998-07-28  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* class.c (finish_struct_1): Convert integer_zero_node to
+ 	ssizetype before passing it to set_rtti_entry.
+	* typeck2.c (initializer_constant_valid_p): Allow conversion of 0
+	of any size to a pointer.
+
+1998-07-27  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (TI_USES_TEMPLATE_PARMS): Remove.
+	(build_template_decl_overload): Remove.
+	(set_mangled_name_for_decl): New function.
+	(innermost_args): Remove is_spec parameter.
+	(most_specialized, most_specialized_class): Remove declarations.
+	(lookup_template_class): Add entering_scope parameter.
+	(maybe_process_partial_specialization): New function.
+	(finish_template_decl): Likewise.
+	(finish_template_type): Likewise.  
+	* class.c (finish_struct): Clean up processing of member template
+	specializations.
+	* decl.c (pushtag): Fix	formatting.
+	(lookup_tag): Improve handling of pseudo-global levels.
+	(make_typename_type): Adjust call to lookup_template_class.
+	(shadow_tag): Use maybe_process_partial_specialization.
+	(xref_tag): Improve handling of member friends.  
+	(start_function): Call push_nested_class before
+	push_template_decl.  Don't call push_template_decl for
+	specializations.
+	* decl2.c (grok_x_components): Don't call xref_tag for
+	template instantiations.  Handle UNION_TYPEs like RECORD_TYPEs.
+	(grokclassfn): Use set_mangled_name_for_decl.
+	(arg_assoc_class): Adjust call to innermost_args.
+	(mark_used): Don't call instantiate_decl for a TEMPLATE_DECL.
+	* error.c (dump_function_name): Improve printing of template
+	function names.
+	* friend.c (is_friend): Don't compare types of decls to determine
+	friendship, unless flag_guiding_decls.
+	(make_friend_class): Partial specializations cannot be friends.  
+	(do_friend): Use set_mangled_name_for_decl.  Call
+	push_template_decl_real instead of push_template_decl.
+	* method.c (build_decl_overload_real): Remove prototype.  Give it
+	external linkage.
+	(build_overload_identififer): Adjust call to innermost_args.
+	(build_template_decl_overload): Remove.
+	(set_mangled_name_for_decl): New function.
+	* parse.y (.finish_template_type): New non-terminal.
+	(template_def): Use finish_template_decl.  Use template_extdef
+	instead of extdef.
+	(template_extdef, template_datadef): New non-terminals, containing
+	only those rules for things which can be templates.
+	(datadef): Tidy.
+	(template_type, self_template_type): Use .finish_template_type.
+	(named_class_head): Use maybe_process_partial_specialization.
+	* pt.c (mangle_class_name_for_template): Remove context parameter.
+	(get_class_bindings): Remove outer_args parameter.
+	(complete_template_args): Remove.
+	(add_outermost_template_args): New function.
+	(register_specialization): Return the specialization.
+	(unregister_specialization): New function.
+	(tsubst_template_parms): Likewise.
+	(most_specialized, most_specialized_class): Prototype here as
+	static. 
+	(original_template): Rename to most_general_template.
+	(tsubst_template_parms): New function.
+	(set_mangled_name_for_template_decl): Likewise.
+	(TMPL_ARGS_DEPTH): New macro.
+	(TMPL_ARGS_HAVE_MULTIPLE_LEVELS): Adjust.
+	(TMPL_ARGS_LEVEL): New macro.
+	(SET_TMPL_ARGS_LEVEL): Likewise.
+	(TMPL_ARG): Likewise.
+	(SET_TMPL_ARG): Likewise.
+	(TMPL_ARGS_DEPTH): Likewise.
+	(finish_member_template_decl): Use finish_template_decl.
+	(maybe_process_partial_specialization): New function, split out
+	from tsubst.
+	(inline_needs_template_parms): Use TMPL_PARMS_DEPTH.
+	(maybe_begin_member_template_processing): Use new macros.
+	(is_member_template): Likewise.
+	(is_member_template_class): Likewise.
+	(add_to_template_args): Likewise.  Deal with multiple levels of
+	args. 
+	(maybe_process_partial_specialization): New function.
+	(retrieve_specialization): Add consistency check.
+	(determine_specialization): Return full argument list.
+	(check_explicit_specialization): Tweak friend handling.  Use full
+	argument lists.  Simplify.
+	(current_template_args): Use new macros.
+	(push_template_decl_real): Change ill-named mainargs to specargs.
+	Check that a partial specialization actually specializes at least
+	one parameter.   Improve friend handling.  Modify for full
+	template arguments.
+	(classtype_mangled_name): Don't mangle the names of
+	specializations. 
+	(lookup_template_class): Add entering_scope parameter.  Use it to
+	avoid finding a template type when an instantiation is required.
+	Simplify.  Use full template arguments.
+	(tsubst_friend_function): Use unregister_specialization.  Use new
+	macros.  Use full template arguments.
+	(tsubst_friend_class): Substitute, using tsubst_template_parms,
+	into the template parameters before passing them to
+	redeclare_class_template.
+	(instantiate_class_template): Simplify.  Use full template
+	arguments.  Adjust calls to get_class_bindings.  Use
+	SET_IDENTIFIER_TYPE_VALUE where needed.  Improve friend handling.
+	(innermost_args): Use new macros.
+	(tsubst_aggr_type): New function, split out from tsubst.
+	(tsubst): Use tsubst_aggr_type, tsubst_template_parms, new calling
+	conventions for lookup_tmeplate_class.  Refine handling of partial
+	instantiations.   Remove calls to complete_template_args.
+	Simplify.  Add consistency checks.  Use set_mangled_name_for_decl
+	and set_mangled_name_for_template_decl.
+	(tsubst_copy): Use tsubst_aggr_type.
+	(instantiate_template): Use full template arguments.
+	(more_specialized): Improve formatting.
+	(more_specialized_class): Adjust calls to get_class_bindings.
+	(get_bindings_real): Don't call complete_template_args.
+	(most_specialized): Don't overwrite input; create a new list.
+	(most_specialized_class): Use most_general_template.
+	(regenerate_decl_from_template): Use unregister_specialization.
+	Use full template arguments.  
+	(instantiate_decl): Use full template arguments.
+	(set_mangled_name_for_template_decl): New function.
+	* semantics.c (begin_class_definition): Use
+	maybe_process_partial_specialization.
+	(finish_member_class_template): New function.
+	(finish_template_decl): Likewise.
+	(finish_template_type): Likewise.  
+	(typeck.c): Don't crash after issuing a compiler_error.
+	* Makefile.in (CONFLICTS): Adjust; we removed a s/r conflict.
+	
+1998-07-27  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* typeck2.c (build_functional_cast): Handle default-initialization.
+
+	* call.c (build_over_call): Pass 1 to popclass.
+
+	* parse.y (direct_notype_declarator): Add precedence declaration
+	to notype_unqualified_id case.
+	* Makefile.in (EXPECT): Adjust.
+
+	* tree.c (ovl_member): Fix for single function in OVL.
+
+1998-07-27  Dave Brolley  <brolley@cygnus.com>
+
+	* c-lex.c (yylex): Fix boundary conditions in character literal and
+	string literal loops.
+
+1998-07-24  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (lookup_name_real): OK, do return the from_obj value
+	unless got_object depends on template parms.
+
+	* parse.y (nested_name_specifier_1): Pull out the TYPE_MAIN_VARIANT.
+
+	* pt.c (coerce_template_parms): Also complain about local enums.
+
+	* cp-tree.h: Add prototype for set_identifier_local_value.
+	* decl.c (set_identifier_local_value_with_scope): Make static,
+	prototype.
+	* search.c (covariant_return_p): Likewise.
+	* except.c (build_terminate_handler, alloc_eh_object): Likewise.
+
+	* call.c (build_method_call): Only pull out the type of a destructor
+	if it's a template type parm.
+	* decl.c (lookup_name_real): Never return the from_obj value.
+
+1998-07-23  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* except.c (process_start_catch_block_old): Call start_decl_1 for
+	catch parm.
+	* decl.c (start_decl_1): Avoid duplicate error.
+
+	* init.c (expand_default_init): Only perform the initialization if
+	it will do something.
+
+1998-07-23  H.J. Lu  (hjl@gnu.org)
+
+	* parse.y (base_class): Check for invalid base class.
+
+1998-07-23  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (import_export_template): Fold in...
+	(import_export_class): ...to here.  Handle dllimport/export.
+
+	* class.c (build_vtable): Pass at_eof to import_export_vtable.
+	(prepare_fresh_vtable): Likewise.
+	* decl2.c (import_export_class): Split out...
+	(finish_prevtable_vardecl): From here.
+	* class.c (finish_struct_1): Call import_export_class if at_eof.
+
+	* decl.c (start_function): #if 0 mysterious code I wrote and have 
+	forgotten why.
+	* rtti.c (get_tinfo_fn): If this is for a class type, set
+	DECL_CONTEXT.
+
+1998-07-22  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* inc/exception: Change terminate and unexpected to ().
+
+	* parse.y (named_class_head_sans_basetype_defn): A
+	named_class_head_sans_basetype followed by '{' or ':' is a defn.
+
+1998-07-21  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* tree.c (canonical_type_variant): New fn to handle arrays.
+	* cp-tree.h (CANONICAL_TYPE_VARIANT): Remove.
+	* pt.c (unify, default case): Also fold arg.  Fix array bounds case.
+	* method.c (process_overload_item): Use build_overload_value for
+	arrays.
+
+1998-07-20  Dave Brolley  <brolley@cygnus.com>
+
+	* lex.c (mbchar.h): #include it.
+	(GET_ENVIRONMENT): New macro.
+	(init_parse): Set character set based on LANG environment variable.
+	(real_yylex): Handle multibyte characters in character literals.
+	(real_yylex): Handle multibyte characters in string literals.
+
+1998-07-19  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* lex.c (do_identifier): Look for class value even if we don't
+	have a global value.  Do implicit declaration if parsing is 2.
+	* semantics.c (finish_call_expr): Pass 2 if we're doing Koenig
+	lookup.
+
+1998-07-19  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (pushtag): Revert previous change.
+	* pt.c (lookup_template_class): Don't put out debugging
+	information for types that use template parameters.
+
+	* decl.c (pushtag): Don't put out debugging information for
+	compiler-generated typedefs.
+	
+	* error.c (dump_type_real): Don't crash when presented with
+	intQI_type_node or the like.
+
+	* semantics.c (finish_translation_unit): Fix spelling error in
+	comment.
+
+1998-07-17  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (lookup_name_real): Pull out single function here.
+	(select_decl): Not here.
+	(unqualified_namespace_lookup): Use CP_DECL_CONTEXT.
+
+	* decl.c (qualify_lookup): Tweak again.
+
+	* pt.c (lookup_template_class): Don't mess with the context of the
+	instantiation.
+	* decl2.c (current_decl_namespace): Remove special handling for
+	templates.
+
+	* pt.c (tsubst, case FUNCTION_DECL): Fix getting complete args for
+	a member template specialization.
+
+	* tree.c (ovl_member): Use decls_match to compare functions.
+	* decl.c (decls_match): Check the context of a function.
+
+	* parse.y (primary): Use notype_unqualified_id instead of IDENTIFIER
+	in Koenig lookup support rules.
+	* semantics.c (finish_call_expr): Handle the new cases.
+
+	* typeck.c (build_x_function_call): Handle overloaded methods.
+
+	* decl.c (grokvardecl): Don't call build_static_name for extern "C".
+
+1998-07-16  Mark Mitchell  <mark@markmitchell.com>
+
+	* semantics.c (finish_object_call_expr): Revert previous change.
+	* call.c (build_new_method_call): Likewise.  Instead, convert
+	TYPE_DECLs to IDENTIFIERs here, in the presence of templates.
+
+1998-07-16  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (qualify_lookup): Handle templates.
+
+	* decl2.c (do_using_directive): Don't pass ancestor.
+	* decl.c (push_using_directive): Calculate ancestor.
+
+	* decl2.c (do_nonmember_using_decl): Allow for type shadowing.
+	* decl.c (pushdecl): Move type shadowing handling from here...
+	(duplicate_decls): ...to here.
+	* decl.c (set_identifier_local_value_with_scope): New fn.
+	(pushdecl): Use it.
+	(set_identifier_local_value, lookup_type_current_level): New fns.
+	* decl2.c (do_local_using_decl): Handle types and binding level
+	stuff properly.
+
+	* init.c (build_offset_ref): Don't call mark_used on an OVERLOAD.
+	* decl.c (select_decl): Extract a lone function from an OVERLOAD.
+	(lookup_namespace_name): Likewise.
+	* typeck.c (build_unary_op): Not here anymore.
+
+	* decl2.c (do_class_using_decl): Make sure we get an identifier.
+	* class.c (handle_using_decl): Ignore TYPE_DECLs.
+
+	* decl.c (qualify_lookup): New fn.
+	(lookup_name_real): Use it.
+
+1998-07-16  Martin v. Loewis  <loewis@informatik.hu-berlin.de>
+
+	* decl2.c (add_using_namespace): When directly using a namespace
+	that was indirect before, promote it.
+
+	* cp-tree.h (LOOKUP_PREFER_TYPES, LOOKUP_PREFER_NAMESPACES,
+	LOOKUP_PREFER_BOTH, LOOKUP_NAMESPACES_ONLY, LOOKUP_TYPES_ONLY,
+	LOOKUP_QUALIFIERS_ONLY, LOOKUP_TEMPLATES_EXPECTED): New macros.
+	* decl.c (select_decl): Replace two flag parameters by one.
+	(unqualified_namespace_lookup): Likewise, pass flag.
+	(lookup_flags): New function.
+	(lookup_name_real): Compute flags, pass them.
+	(lookup_namespace_name): Call with zero-flag.
+	* decl2.c (ambiguous_decl): Add flag parameter, complain only
+	according to flags.
+	(lookup_using_namespace, qualified_lookup_using_namespace):
+	Add flag parameter, pass them through.
+	* lex.c (do_scoped_id): Call with zero-flag.
+
+1998-07-16  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* typeck.c (convert_for_assignment): Use comptypes.
+
+1998-07-16  Mark Mitchell  <mark@markmitchell.com>
+
+	* semantics.c (finish_object_call_expr): Move test for the
+	function called being a TYPE_DECL to ...
+	* call.c (build_new_method_call): Here.
+
+1998-07-15  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (arg_assoc_class): Also look at template arguments, if any.
+	(arg_assoc): Handle error_mark_node and multiple levels of TREE_LIST.
+
+	* lex.c (looking_for_typename): Don't initialize.
+
+	* decl2.c (ambiguous_decl): Clarify error message.
+
+	* decl.c (push_using_directive): Iterate over namespaces used
+	indirectly.
+
+1998-07-15  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl2.c (add_using_namespace): Iterate over namespaces used
+	indirectly.
+
+	* decl.c (lookup_name_real): Accept namespace aliases as locals.
+	(cat_namespace_levels): Ignore aliases.
+	(duplicate_decls): Ignore duplicate aliases.
+	* decl2.c (do_namespace_alias): Process block level namespace
+	aliases. Store alias with pushdecl. Remove odr errors.
+	* parse.y (namespace_alias): New non-terminal.
+	(extdef): Use it.
+
+1998-07-15  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (arg_assoc_type): Handle METHOD_TYPE like FUNCTION_TYPE.
+	Handle TEMPLATE_TYPE_PARM.
+	(arg_assoc): Rewrite.
+
+	* pt.c (complete_template_args): Don't look at the context unless
+	we have to.
+
+	* method.c (build_decl_overload_real): Fix namespace handling.
+
+	* typeck.c (build_unary_op): Extract a lone function from an
+	OVERLOAD.
+
+	* call.c (build_scoped_method_call): Handle getting a namespace
+	for basetype in a destructor call.
+	(check_dtor_name): Handle enums.
+
+	* parse.y (using_directive): New nonterminal.
+	(extdef, simple_stmt): Use it.
+
+1998-07-14  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl2.c (add_function): Move error message ...
+	(arg_assoc_namespace): ... from here.
+
+1998-07-14  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* parse.y (namespace_qualifier): Fix multiple level handling.
+	* decl2.c (namespace_ancestor): Use CP_DECL_CONTEXT.
+	(arg_assoc): Don't skip the first argument of a function.
+
+Tue Jul 14 20:09:22 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* search.c (my_tree_cons): Clean up.
+
+1998-07-14  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* call.c (joust): Don't warn about "confusing" conversions to the
+	same type.
+
+1998-07-14  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* class.c (push_nested_class): Complain about namespaces.
+	* decl.c (start_decl): Enter the object's namespace.
+	(cp_finish_decl): Leave it.
+	(grokdeclarator): Likewise.
+	* decl2.c (check_decl_namespace): New function.
+	(finish_file): Call it.
+	* parse.y (complex_direct_notype_declarator): Set complexity
+	of namespace-qualified ids to -1, enter the namespace.
+
+	* method.c (build_template_decl_overload): Expect _DECL as first
+	parameter. Put context temporarily into current_namespace.
+	* pt.c (check_explicit_specialization): Change caller.
+	(tsubst): Likewise.
+
+	* init.c (build_offset_ref): Call mark_used and
+	convert_from_reference for namespace members.
+
+Mon Jul 13 23:25:28 1998  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* search.c (my_tree_cons): The bitfield is at index 2.
+
+Mon Jul 13 17:21:01 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* lang-options.h: Format changed to work with new --help support
+	in gcc/toplev.c
+	
+1998-07-12  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl2.c (build_expr_from_tree): Change calls of do_identifier.
+	Do Koenig lookup in CALL_EXPR.
+	(arg_assoc): Handle error_mark.
+	* lex.c (is_global): New function.
+	(do_identifier): Expect arguments for Koenig lookup.
+	* parse.y (primary): Add rules for calls of unqualified function calls.
+	(do_id): Change call of do_identifier.
+	* pt.c (finish_stmt_expr): Likewise.
+	* semantics.c (finish_id_expr): Likewise.
+	(finish_call_expr): Add integer parameter to indicate
+	argument-dependent lookup.
+
+	* decl.c (struct binding_level): New field using_directives.
+	(push_using_decl): Not sorry anymore.
+	(push_using_directive): New function.
+	(lookup_tag): Use CP_DECL_CONTEXT to iterate.
+	(unqualified_namespace_lookup): New function, code from ...
+	(lookup_name_real): ... here.
+	* decl2.c (lookup_using_namespace): Pass using list instead of
+	initial scope.
+	(validate_nonmember_using_decl): New function.
+	(do_nonmember_using_decl): New function.
+	(do_toplevel_using_decl): Use them.
+	(do_local_using_decl): New function.
+	(do_using_directive): Support block-level directives.
+	* parse.y (simple_stmt): Support using declarations and
+	directives.
+	(namespace_qualifier, namespace_using_decl): New non-terminals.
+
+	* xref.c (classname): New function.
+	(GNU_xref_hier): Change class and base parameters to tree.
+	* decl.c (xref_baseypes): Change caller.
+	* friend.c (make_friend_class): Likewise.
+
+1998-07-12  Kriang Lerdsuwanakij <lerdsuwa@scf-fs.usc.edu>
+
+	* typeck.c (comptypes, case TEMPLATE_TEMPLATE_PARM): Add parameter 
+	comparison.
+
+	* pt.c (for_each_template_parm, case TEMPLATE_DECL): If it is a 
+	template template parameter, record its use.
+	(for_each_template_parm, case TEMPLATE_TEMPLATE_PARM): Traverse 
+	its template arguments if exists.
+
+	* pt.c (coerce_template_template_parms): New function equivalent
+	to coerce_template_parms when IS_TMPL_PARM is true.
+	(coerce_template_parms): Use it.  Remove the IS_TMPL_PARM parameter,
+	all callers changed.
+
+	(coerce_template_parms): Access ARGLIST properly when creating a
+	new vector.  Only accept implicit TYPE_DECL as valid argument for
+	a template template parameter when it is a base class of
+	current_class_type.  Don't display error message when COMPLAIN is
+	false.
+
+1998-07-12  Klaus Kaempf (kkaempf@progis.de)
+
+ 	* repo.c (get_base_filename): Use file_name_nondirectory.
+ 	(open_repo_file): Ditto.
+	* cp-tree.h (file_name_nondirectory): Add prototype.
+
+1998-07-12  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* friend.c (do_friend): Pull the identifier out of declarator.
+	Use cp_error and friends.
+	* decl2.c (qualified_lookup_using_namespace): Fix call to 
+	purpose_member.
+	* decl.c (lookup_name_real): Don't call complete_type on a namespace.
+	(grokvardecl): Use DECL_CLASS_SCOPE_P.
+	* cvt.c (convert_pointer_to_real): Check for error_mark_node sooner.
+	* class.c (warn_hidden): Fix for OVERLOAD.
+	From grahams@rcp.co.uk:
+	* cp-tree.h (DEFARG_NODE_CHECK): New macro.
+ 	(DEFARG_LENGTH, DEFARG_POINTER): Use it.
+
+Sun Jul 12 01:20:57 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* g++.1 (-traditional): Remove duplicated documentation.
+
+1998-07-11  Mark Mitchell  <mark@markmitchell.com>
+
+	* method.c (flush_repeats): Add nrepeats parameter.
+	(issue_nrepeats): Likewise.
+	(is_back_referenceable_type): New function.  Don't back-reference
+	TEMPLATE_TYPE_PARMs as well as simple types like integers.
+	(build_mangled_name_for_type): Likewise.
+	(build_mangled_name_for_type_with_Gcode): Likewise.
+	(lasttype): Remove.
+	(nrepeats): Likewise.
+	(Nrepeats): Likewise.
+	(start_squangling): Don't clear the variables removed above.
+	(end_squangling): Likewise.
+	(flush_repeats): Tidy.  Use nrepeats parameter rather than
+	Nrepeats global.
+	(issue_nrepeats): Likewise, but with nrepeats global.  Use
+	is_backreferenceable_type.
+	(build_overload_nested_name): Tidy.  Add comment.  Use
+	build_mangled_name_for_type.
+	(build_underscore_int): Comment.
+	(build_overload_scope_ref): Use build_mangled_name_for_type.
+	(build_overload_int): Likewise.
+	(build_template_template_parm_names): Tidy.
+	(build_template_parm_names): Use build_mangled_name_for_type.
+	(build_overload_identifier): Add comments.
+	(build_mangled_name_for_type_with_Gcode): Split out from
+	build_mangled_name.
+	(build_mangled_name_for_type): Use it.
+	(build_mangled_name): Rework to use build_mangled_name_for_type
+	and to not use global nrepeats/Nrepeats.  Tidy.
+	(process_modifiers): Tidy.
+	(check_btype): Use is_backreferenceable_type.  Add comment.
+	Rename `node' to `type'.
+	(process_overload_item): Set numeric_output_need_bar here.
+	Use build_mangled_name_for_type.  Tidy.
+	(build_decl_overload_real): Tidy.  Don't use Nrepeats.  Use
+	build_mangled_name_for_type.
+
+	* pt.c (push_template_decl_real): Don't look at DECL_TEMPLATE_INFO
+	for TYPE_DECLs.
+
+1998-07-08  Vladimir N. Makarov  <vmakarov@cygnus.com>
+
+	* cp-tree.h (warn_long_long): Define.
+	* decl.c (grokdeclarator): Add flag `warn_long_long' as guard for
+	warning "ANSI C++ does not support `long long'".
+	* decl2.c (warn_long_long): Define.
+	(lang_decode_option): Parse -Wlong-long, -Wno-long-long options.
+
+1998-07-07  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (xref_tag): Handle attributes between 'class' and name.
+	* parse.y (aggr): Likewise.
+	* semantics.c (finish_class_definition): Likewise.
+	* Makefile.in (EXPECTED): Adjust.
+
+	* cp-tree.h: Declare flag_optional_diags and warn_multichar.
+	* decl2.c: Define them.
+	(lang_decode_option): Handle them.
+	* lang-options.h: Add -foptional-diags.
+	* class.c (finish_struct): Don't complain about multiple meanings of 
+	name if -fno-optional-diags.
+	* decl.c (pushdecl_class_level): Likewise.
+	* lex.c (real_yylex): Check warn_multichar.
+
+1998-07-06  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (lookup_tag): Use CP_DECL_CONTEXT.
+
+	* tree.c (make_binfo): Fix length.
+
+1998-06-30  Benjamin Kosnik  <bkoz@bliss.nabi.net>
+
+        * decl2.c (lang_decode_option): Remove warn_template_debugging.
+        * lang-options.h: Ditto.
+
+Mon Jun 29 20:17:40 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* except.c (build_eh_type_type_ref): Remove unused variable `susp'.
+	(process_start_catch_block): Likewise for variables
+	`false_label_rtx', `call_rtx' and `return_value_rtx'.
+
+1998-06-29  Brendan Kehoe  <brendan@cygnus.com>
+
+	* tree.c (build_srcloc): Make sure we allocate this node on the
+	permanent obstack.
+
+Sat Jun 27 23:34:18 1998  Fred Fish  <fnf@ninemoons.com>
+
+	* g++spec.c (NEED_MATH_LIBRARY): Define to 1 if not already defined.
+	(lang_specific_driver): Initialize need_math with NEED_MATH_LIBRARY.
+	(lang_specific_driver): Only add -lm automatically if need_math is
+	nonzero.
+
+Sat Jun 27 12:22:56 1998  Jeffrey A Law  (law@cygnus.com)
+
+        * Make-lang.in (g++): Depend on mkstemp.o.  Link in mkstemp.o
+
+Sat Jun 27 07:36:09 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (EXPR_H): New dependency variable.
+	(decl2.o): Depend on $(EXPR_H).
+	(typeck.o): Likewise.
+	(init.o): Likewise.
+	(expr.o): Likewise.
+
+1998-06-25  Benjamin Kosnik  <bkoz@lisa.cygnus.com>
+
+	* decl.c (start_enum): Put local enums on permanent_obstack.
+
+1998-06-25  Mark Mitchell  <mark@markmitchell.com>
+
+	* cp-tree.h (c_get_alias_set): Declare.
+	* decl.c (init_decl_processing): Set lang_get_alias_set.
+
+1998-06-25  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* cp-tree.h (mark_all_runtime_matches): Add function prototype.
+	* except.c (mark_all_runtime_matches): Set TREE_SYMBOL_REFERENCED
+	flag for all function decls which are in the exception table. 
+	* exception.cc (__cplus_type_matcher): Check for CATCH_ALL_TYPE match.
+	* decl2.c (finish_file): Call mark_all_runtime_matches to make sure
+	code is emitted for any referenced rtti function.
+
+1998-06-25  Dave Brolley  <brolley@cygnus.com>
+
+	* lang-specs.h: Use new | syntax to eliminate
+	string concatenation.
+
+1998-06-25  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cp-tree.h (CP_DECL_CONTEXT): New macro.
+	* decl2.c (is_namespace_ancestor, lookup_using_namespace): Use it.
+	* method.c (build_overload_nested_name): Likewise.
+	* sig.c (build_signature_pointer_or_reference_type): Don't set
+	DECL_CONTEXT.
+
+1998-06-24  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	Set DECL_CONTEXT for globals to NULL_TREE instead of global_namespace.
+	* cp-tree.h (FROB_CONTEXT): New macro.
+	(DECL_MAIN_P): ::main should have a DECL_CONTEXT of NULL_TREE.
+	* decl.c (namespace_binding): Replace NULL_TREE with
+	global_namespace.
+	(set_namespace_binding, pop_namespace, lookup_name_real): Likewise.
+	* decl2.c (is_namespace_ancestor, lookup_using_namespace):
+	Likewise.
+	* decl.c (pushtag): Use FROB_CONTEXT.
+	(pushdecl, make_typename_type, define_function, grokdeclarator):
+	Likewise.
+	* decl2.c (set_decl_namespace, do_namespace_alias): Likewise.
+	* pt.c (push_template_decl_real, lookup_template_class, tsubst):
+	Likewise.
+	* decl2.c (decl_namespace): Return global_namespace if no context.
+	* method.c (build_overload_nested_name): Expect null as context.
+	* pt.c (mangle_class_name_for_template): Do nothing for null
+	contexts.
+	(lookup_template_class): Allow for null id_context.
+
+1998-06-25  Richard Henderson  <rth@cygnus.com>
+
+	* method.c (emit_thunk): Set current_function_is_thunk for the
+	ASM_OUTPUT_MI_THUNK case as well.
+
+1998-06-23  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* exception.cc (__cplus_type_matcher): Get a match_info pointer
+	instead of an exception table entry as a parameter.
+
+1998-06-23  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* parse.y (function_try_block): Don't call start_catch_handler.
+	* except.c (call_eh_info): Remove coerced field from declaration.
+	(build_eh_type_type_ref): New function to create an address of a
+	rtti function for the new style exception tables.
+	(expand_start_catch_block): Split function, this contains the
+	common part.
+	(process_start_catch_block_old): New function to perform the rest
+	of expand_start_catch_block under old style exceptions.
+	(process_start_catch_block_old): New function to perform the rest
+	of expand_start_catch_block under new style exceptions.
+	(expand_end_catch_block): Only pop the false label off the stack under
+	the old style of exceptions.
+	* semantics.c (finish_try_block): Don't call start_catch_handler.
+	* exception.cc (struct cp_eh_info): Add original_value field.
+	(__cplus_type_matcher): Perform type matching on the original exception
+	value, and if we have a match, set the current value.
+	(__cp_push_exception): Set the original expcetion value.
+
+1998-06-23  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* call.c (joust): Fix confusing conversion warning.
+
+	* call.c (build_op_delete_call): Add placement parm.  Check
+	LOOKUP_SPECULATIVELY.
+	* cp-tree.h, decl2.c, init.c: Adjust.
+	* decl.c (finish_function): Use it.
+
+	* pt.c (tsubst): Diagnose creating void fields or variables.
+
+Mon Jun 22 08:50:26 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* call.c (build_scoped_method_call): Remove unused variable `tmp'.
+
+	* cp-tree.h (check_dtor_name): Add prototype.
+
+	* init.c (expand_member_init): Remove unused variables
+	`ptr_type_node', `parm' and `rval'.
+
+	* ptree.c (print_lang_type): Use HOST_WIDE_INT_PRINT_DEC specifier
+	in call to fprintf.
+	(lang_print_xnode): Likewise.
+
+	* typeck2.c (enum_name_string): Cast argument to sprintf to long
+	and use %ld specifier.
+
+	* xref.c (GNU_xref_end_scope): Use HOST_WIDE_INT_PRINT_DEC
+	specifier in call to fprintf.
+	(GNU_xref_member): Cast argument to sprintf to int.
+
+Fri Jun 19 23:22:42 1998  Bruno Haible  <bruno@linuix.mathematik.uni-karlsruhe.de>
+
+        * typeck2.c (pop_init_level): Warn about implicit zero initialization
+        of struct members.
+
+Thu Jun 18 09:32:32 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* cp-tree.h: Prototype function `check_java_method'.
+
+1998-06-17  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* class.c (finish_struct): Make conflicting use of id a pedwarn.
+	* decl.c (pushdecl_class_level): Likewise.
+
+1998-06-17  Mark Mitchell  <mark@markmitchell.com>
+
+	* pt.c (convert_nontype_argument): Issue an error when presented
+	with an integer (real) constant that cannot be simplified to an
+	INT_CST (REAL_CST).
+
+	* cp-tree.h (c_get_alias_set): Remove declaration added in
+	1998-06-13 change that should never have been checked in.
+
+1998-06-17  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* typeck.c (build_binary_op_nodefault): Change % in format strings
+	to %%.
+
+	* decl.c (grokvardecl): Don't build_static_name for decls that
+	aren't at namespace scope.
+
+	* init.c (perform_member_init): Catch default-initialization of
+	references.
+
+1998-06-17  Mark Mitchell  <mark@markmitchell.com>
+
+	* errfn.c (cp_thing): Handle the `%%' formatting sequence.
+
+1998-06-17  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* method.c (hack_identifier): Complain about getting a namespace
+	or class template.
+	* typeck.c (decay_conversion): Remove check for namespaces.
+	* typeck2.c (incomplete_type_error): Likewise.
+	* parse.y (template_arg): Add PTYPENAME expansion.
+
+1998-06-16  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* decl.c (grokvardecl): Don't build external assembler names for 
+	TYPENAMEs in other namespaces as there is no declarator.
+	* error.c (cp_file_of, cp_line_of): Don't extract file or line number
+	info from DECL_CONTEXT if it is NULL.
+
+1998-06-16  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* call.c (check_dtor_name): Split out.
+	(build_scoped_method_call): Use it.
+	(build_method_call): Use it.
+	* init.c (build_offset_ref): Use it.
+
+	* typeck.c (build_static_cast): Fix handling of pointers to members.
+
+	* decl.c (finish_function): Just return nothing from a constructor.
+	* typeck.c (c_expand_return): Complain about returning a void
+	expression from a destructor.
+
+1998-06-13  Mark Mitchell  <mark@markmitchell.com>
+
+	* class.c (alter_access): Accept a BINFO explaining how to get
+	from the entity whose accessed is being altered to the type doing
+	the altering.
+	(handle_using_decl): New function containing code split out from ...
+	(finish_struct_1): Here.
+
+	* cp-tree.h (complete_type_or_else): Declare.
+	* init.c (build_new_1, build_delete): Use it.
+	* typeck.c (require_complete_type): Use complete_type, rather than
+	expanding it inline.
+	(complete_type_or_else): New function.
+	(build_component_ref): Use it.
+	(pointer_int_sum): Make sure the type pointed to is complete.
+	(pointer_diff): Likewise.
+
+	* pt.c (for_each_template_parm): Traverse the TYPE_CONTEXT for
+	types. 
+
+	* search.c (get_matching_virtual): Note that member templates
+	cannot override virtual functions.
+
+1998-06-12  Brendan Kehoe  <brendan@cygnus.com>
+
+	* pt.c (check_explicit_specialization): If DECLARATOR turned into
+	an error_mark_node from lookup_template_function, return the same.
+	(determine_specialization): Also make sure TEMPLATE_ID isn't an
+	error_mark_node, before we try to read its operands.
+	* decl.c (grokdeclarator): If we got an error_mark_node from
+	check_explicit_specialization, just return it right back.
+
+1998-06-12  Mark Mitchell  <mark@markmitchell.com>
+
+	* class.c (instantiate_type): Don't treat template-ids that don't
+	specify any template arguments as equivalent to ordinary
+	identifiers.  Use OFFSET_REF instead of SCOPE_REF to refer to
+	pointer-to-members for member templates.  Tidy slightly.
+	* cp-tree.def (TEMPLATE_ID_EXPR): Revise documentation.
+	* init.c (build_offset_ref): Handle template-ids like ordinary
+	identifiers, for the most part, but store a TEMPLATE_ID_EXPR in the
+	offset part of the OFFSET_REF.
+	* typeck.c (build_unary_op): Change check for unknown types to
+	look for OFFSET_REFs, not SCOPE_REFs.
+
+1998-06-11  Mark Mitchell  <mark@markmitchell.com>
+
+	* pt.c (is_member_template_class): New function.
+	(push_template_decl_real): Use it.
+
+1998-06-11  Benjamin Kosnik  <bkoz@elmo.cygnus.com>
+
+	* friend.c (do_friend): Add support for nested classes using
+ 	member functions of the enclosing class as friends.
+
+1998-06-10  Mark Mitchell  <mark@markmitchell.com>
+
+	* call.c (convert_default_arg): Make global, not static.
+	(convert_arg_for_ellipsis): Split out from ...
+	(build_over_call): Here.
+	* cp-tree.h (convert_default_arg); Declare.
+	(convert_arg_to_ellipsis): Likewise.
+	(do_member_init): Remove.
+	* init.c (do_member_init): Remove; this code is dead.
+	(expand_member_init): Remove much of this code; it is dead.
+	* typeck.c (convert_arguments): Use convert_default_arg and
+	convert_arg_for_ellipsis, rather than duplicating here.
+	
+	* call.c (convert_like): Don't fail silently if 
+	build_user_type_conversion fails.  Always return error_mark_node 
+	for failure.
+
+1998-06-10  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* search.c (covariant_return_p): Complain about ambiguous base.
+
+	* typeck.c (build_component_ref): Diagnose ref to nested type.
+
+1998-06-10  Brendan Kehoe  <brendan@cygnus.com>
+
+	* decl.c (grokparms): Check that INIT isn't an error_mark_node
+	before giving error about invalid type for default arg.
+
+1998-06-10  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* call.c (build_method_call): Fix thinko.
+
+1998-06-10  Dave Brolley  <brolley@cygnus.com>
+
+	* decl2.c (lang_decode_option): New argc/argv interface.
+	* cp-tree.h (lang_decode_option): New argc/argv interface.
+	* lang-specs.h (default_compilers): Only call cpp if -E, -M or -MM is
+	specified for cpplib-enabled compilers.
+	* lex.c (lang_init): Don't check_newline for cpplib.
+	(init_parse): Don't initialize cpplib here.
+
+1998-06-10  Brendan Kehoe  <brendan@cygnus.com>
+
+	* typeck.c (build_component_ref): Make sure FIELD has a lang_specific
+	piece before checking DECL_MUTABLE_P.
+
+1998-06-10  John Carr  <jfc@mit.edu>
+
+	* tree.c (debug_binfo): Make printf format match arguments.
+
+	* error.c (OB_PUTI): Make printf format match arguments.
+
+1998-06-10  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* init.c (perform_member_init): Handle default-initialization.
+
+	* except.c (build_throw): Handle throwing NULL.
+
+	* typeck.c (build_x_function_call): Use resolve_offset_ref.
+
+	* search.c (compute_access): Only strip an anonymous union
+	for a FIELD_DECL.
+
+	* call.c (add_builtin_candidates): Tweak.
+
+	* cvt.c (build_expr_type_conversion): Restore code for conversion
+	from class types.
+	* decl2.c (delete_sanity): Use it.  Clean up.
+
+	* typeck.c (comp_ptr_ttypes_real): Fix cv-qual comparisons.
+
+1998-06-10  Branko Cibej  <branko.cibej@hermes.si>
+
+        * typeck.c (c_expand_return): Don't warn about void expressions on
+        return statements in functions returning void.
+
+1998-06-09  Mark Mitchell  <mark@markmitchell.com>
+
+	* pt.c (fn_type_unification): Revise documentation.  Tidy.
+	(type_unification): Likewise.
+
+1998-06-09  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* semantics.c (finish_try_block): Rename expand_start_catch, and delete
+	expand_end_catch.
+	* parse.y (function_try_block): Rename expand_start_catch, and delete
+	expand_end_catch.
+	* except.c (expand_end_eh_spec): Rename expand_start_catch, and delete
+	expand_end_catch.
+
+1998-06-09  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* search.c (lookup_member): New fn.
+	* class.c (finish_struct_1): Use it.
+	* decl.c (lookup_name_real): Use it.
+
+Mon Jun  8 20:45:52 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (decl2.o): Depend on dwarf2out.h and dwarfout.h.
+
+	* cp-tree.h: Add prototype for `maybe_print_template_context' and
+ 	`maybe_make_one_only'.
+
+	* decl.c (auto_function): Remove unused variable `decl'.
+
+	* decl2.c: Include dwarf2out.h and dwarfout.h.
+
+	* lex.c: Remove redundant declarations of `set_float_handler' and
+ 	`asm_out_file'.
+
+1998-06-08  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* except.c (init_exception_processing): Remove NEW_EH_MODEL compile 
+	time flag.  Call __cp_eh_info instead of __cp_exception_info.
+	* exception.cc (struct cp_eh_info): Remove NEW_EH_MODEL flag.
+	(__cp_exception_info): Return offset into cp_eh_info structure to 
+	match what use to be the start of this structure.
+	(__cp_eh_info): New function to return a pointer to cp_eh_info struct.
+	(__cplus_type_matcher, __cp_push_exception): Remove NEW_EH_MODEL
+	compile time flag.
+	(__uncatch_exception, __check_eh_spec, std::uncaught_exception): Call 
+	__cp_eh_info instead of __cp_exception_info.
+
+1998-06-08  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (cp_finish_decl): Disable inlining of extern inlines
+	with static variables.
+
+1998-06-08  Mark Mitchell  <mark@markmitchell.com>
+
+	* init.c (build_offset_ref): Correct previous change to use build,
+	not build_min.
+
+1998-06-07  Mark Mitchell  <mark@markmitchell.com>
+
+	* class.c (instantiate_type): Handle pointer-to-members where the
+	member is a template.
+	* init.c (build_offset_ref): Likewise.
+	* typeck.c (build_unary_op): Likewise.
+
+1998-06-07  Richard Henderson  <rth@cygnus.com>
+
+	* lex.c (lang_init_options): New function.
+	(lang_init): Remove flag_exceptions == 2 hack.
+	
+1998-06-05  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* search.c (envelope_add_decl): Tweak for implicit typename.
+
+	* call.c (joust): Also warn about confusing conversion op/constructor
+	overload resolution.
+
+	* spew.c (yylex): Also return the TYPE_DECL if got_object.
+	Don't clear got_object after '~'.
+	* call.c (build_scoped_method_call): Tweak destructor handling.
+	(build_method_call): Likewise.
+	* pt.c (tsubst_copy, case METHOD_CALL_EXPR): Don't mess with
+	TYPE_MAIN_VARIANT for destructors.
+	* semantics.c (finish_object_call_expr): Complain about calling a
+	TYPE_DECL.
+
+1998-06-05  Per Bothner  <bothner@cygnus.com>
+
+	* g++spec.c (lang_specific_pre_link, lang_specific_extra_ofiles):
+	Define - update needed by gcc.c change.
+
+1998-06-05  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* error.c (cp_printers): Use 'o' instead of '_' for the null entry.
+
+1998-06-05  Martin v. Loewis  <loewis@informatik.hu-berlin.de>
+
+	* cp-tree.h (DECL_NAMESPACE_ALIAS, ORIGINAL_NAMESPACE): Declare.
+	* decl.c (lookup_name_real): Add namespaces_only parameter.
+	If set, return only NAMESPACE_DECLs.
+	(select_decl): Likewise.
+	(identifier_type_value): Give additional parameter.
+	(lookup_name_nonclass): Likewise.
+	(lookup_name): Likewise.
+	(find_binding): Skip namespace aliases.
+	(binding_for_name): Likewise.
+	(push_namespace): Check for namespace aliases.
+	(lookup_name_namespace_only): New function.
+	(begin_only_namespace_names, end_only_namespace_names): New functions.
+	* decl2.c (set_decl_namespace): Skip namespace aliases.
+	(do_using_directive): Likewise.
+	(do_namespace_alias): Produce namespace aliases, fix alias 
+	redeclaration.
+	* error.c (dump_decl): Support SCOPE_REF.
+	* parse.y (extdef): Wrap lookup with namespace_only for namespace
+	aliases and using declarations.
+
+1998-06-04  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* tree.c (really_overloaded_fn): Only see through one TREE_LIST.
+
+	* error.c (dump_expr): Clean up NEW_EXPR case.
+
+1998-06-04  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	Suggested by Brendan Kehoe
+	* decl2.c (do_toplevel_using_decl): When decl is a TYPE_DECL,
+	treat it as using ::decl.
+
+	* decl2.c (arg_assoc_type): Process unknown_type_node and OFFSET_TYPE.
+
+	* tree.c (mapcar): Support NEW_EXPR.
+
+	* error.c (dump_expr): Support NEW_EXPR.
+
+1998-06-03  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* method.c (make_thunk): Use overload machinery to make name.
+	* search.c (covariant_return_p): New fn.
+	(get_matching_virtual): Use it.
+
+	* init.c (build_new_1): Fix check for void.
+
+1998-06-01  Per Bothner  <bothner@cygnus.com>
+
+	* cp-tree.h (TYPE_FOR_JAVA):  New macro.
+	* decl.c, cp-tree.h (java_byte_type_node, java_short_type_node,
+	java_int_type_node, java_long_type_node, java_float_type_node,
+	java_double_type_node, java_char_type_node, java_boolean_type_node):
+	New "primitive" types, with predefined names __java_byte etc.
+	(record_builtin_java_type):  New function.
+	(init_decl_processing):  Make Java types with record_builtin_java_type.
+	(pushtag, grokdeclarator):  Set TYPE_FOR_JAVA if in extern "JAVA".
+	(xref_baseypes):  If base class was TYPE_FOR_JAVA, so is this class.
+	(grokfndecl):  Call check_java_method for Java classes.
+	* method.c (is_java_type):  Removed.  Replaced with TYPE_FOR_JAVA.
+	(process_overload_item):  Match types against specific
+	java_XX_type_node types, rather than using is_java_type.
+	* class.c (finish_struct_1):  Don't add default copy constructor
+	or operator= if TYPE_FOR_JAVA.
+	(pop_lang_conext):  Restore strict_prototyp proper if Java.
+	* decl2.c (acceptable_java_type, check_java_method):  New functions.
+	* pt.c (instantiate_class_template):  Copy TYPE_FOR_JAVA from pattern.
+	(tsubst):  Move common statement after if statement.
+	* typeck.c (comptypes):  If strict, TYPE_FOR_JAVA must match.
+
+1998-06-01  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* pt.c (for_each_template_parm): Use first_rtl_op.
+
+	* tree.c (build_cplus_array_type_1): Also check index_type for
+	template parms.
+
+1998-05-31  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* pt.c (tsubst): Always copy BINFO_BASETYPES.
+
+1998-05-29  scott snyder  <snyder@d0sgif.fnal.gov>
+
+	* tree.c (layout_basetypes): If we change TYPE_SIZE, change
+	TYPE_SIZE_UNIT too.
+
+1998-05-29  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (grokdeclarator): Don't complain about in-class
+	initialization of static consts if we don't really know the type
+	of the variable.
+
+1998-05-29  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cp-tree.h (DECL_DESTRUCTOR_P): New macro.
+	* method.c (build_destructor_name): New fn.
+	* decl2.c (maybe_retrofit_in_chrg): Split out...
+	(grokclassfn): From here.  Reorganize.
+	* decl.c (grok_ctor_properties): Make sure ctors for types with 
+	vbases have the in_chrg parm.
+	* pt.c (instantiate_class_template): Update 
+	TYPE_USES_VIRTUAL_BASECLASSES from tsubsted bases.  Don't call
+	grok_*_properties.
+	(tsubst): Call grok_ctor_properties and maybe_retrofit_in_chrg.
+
+1998-05-28  Mark Mitchell  <mark@markmitchell.com>
+
+	* pt.c (instantiate_decl): Make test for whether or not static
+	variables should be instantiated early match its comment.
+
+1998-05-28  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (start_decl): Always pedwarn about vacuously redeclaring 
+	a member.
+	(start_function): Call check_default_args.
+	* decl2.c (grokfield): Don't call check_default_args.
+	(check_default_args): Use cp_error_at.
+	* lex.c (do_pending_defargs): Call check_default_args.
+
+1998-05-27  Brendan Kehoe  <brendan@cygnus.com>
+
+	* call.c (build_method_call): Make sure get_type_value returns
+	something before we try to use its TYPE_MAIN_VARIANT.
+	(build_scoped_method_call): Likewise.
+
+1998-05-27  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* typeck2.c (digest_init): Complain about getting a TREE_LIST to
+	initialize an array.
+
+	* search.c (expand_upcast_fixups): Don't set DECL_CONTEXT and
+	DECL_VIRTUAL_P.
+
+	* friend.c (do_friend): Clarify template warning.
+
+1998-05-27  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (shadow_label): Don't treat decls as identifiers.
+	(maybe_push_to_top_level): Clear shadowed_labels.
+
+	* pt.c (instantiate_decl): Reset lineno and filename after calling
+	regenerate_decl_from_template. 
+
+	* decl.c (grokdeclarator): Don't try to use TYPE_OBSTACK on an
+	error_mark_node.
+
+1998-05-27  Kevin Buhr  <buhr@stat.wisc.edu>
+
+	* parse.y (base_class): Use is_aggr_type, not IS_AGGR_TYPE.
+
+1998-05-26  Kriang Lerdsuwanakij  <lerdsuwa@scf.usc.edu>
+
+	* pt.c (process_template_parm): Accept TYPENAME_TYPE nodes.
+	(convert_nontype_argument): Handle cases when nontype template
+	parameters become classes after substitution.
+
+1998-05-26  Mark Mitchell  <mark@markmitchell.com>
+
+	* friend.c (is_friend): Use comptypes, rather than == to compare
+	types.  Modify for new representation of template friends.
+	(make_friend_class): Likewise.
+	* pt.c (tsubst_friend_class): Undo 1998-05-21 change.  Tweak.
+	(instantiate_class_template): Deal with template friends.
+
+	* decl.c (store_parm_decls): Remove redundant call to
+	expand_main_function.
+
+1998-05-26  Benjamin Kosnik  <bkoz@loony.cygnus.com>
+
+	* decl.c (start_decl): Check for DECL_LANG_SPECIFIC before
+ 	DECL_USE_TEMPLATE.
+
+1998-05-26  Per Bothner  <bothner@cygnus.com>
+
+	* language_as_string:  Handle lang_java.
+
+1998-05-26  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (pushdecl): Don't copy the type_decl.
+
+1998-05-26  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* class.c (pushclass): Always store TYPE_MAIN_VARIANT in
+	current_class_type.
+	* decl.c (grokdeclarator): Put typedefs on the type's obstack.
+
+	* parse.y (complex_direct_notype_declarator): Use $1 to access
+	scope of notype_qualified_id.
+
+1998-05-26  Dave Brolley  <brolley@cygnus.com>
+
+	* lex.c (parse_options,yy_cur,yy_lim): Add for cpplib.
+	(init_parse): Initialize cpplib interface.
+
+	* Makefile.in (CXX_OBJS): Make sure dependencies never end with an
+	empty continuation.
+
+1998-05-26  Mark Mitchell  <mark@markmitchell.com>
+
+	* decl.c (pushtag): Avoid crashing on erroneous input.
+
+1998-05-25  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl.c (push_namespace): Only produce one unique name for
+	anonymous namespaces.
+	(get_unique_name): Remove.
+
+1998-05-25  Mark Mitchell  <mark@markmitchell.com>
+
+	* call.c (tourney): Don't do any extra comparisons.
+
+	* decl2.c (build_anon_union_vars): Don't crash on empty sub-unions.
+
+	* cp-tree.h (processing_template_parmlist): Declare.
+	* decl.c (pushtag): Don't call push_template_decl when we
+	shouldn't. 
+	* pt.c (processing_template_parmlist): New variable.
+	(TMPL_ARGS_HAVE_MULTIPLE_LEVELS): New macro.
+	(complete_template_args): Use it.
+	(add_to_template_args): Likewise.
+	(innermost_args): Likewise.
+	(tsubst): Likewise.
+	(begin_template_parm_list): Use processing_template_parmlist.
+	(end_template_parm_list): Likewise.
+
+	* cp-tree.h (ANON_UNION_TYPE_P): New macro.
+	* decl.c (grokdeclarator): Use it.
+	* decl2.c (grok_x_components): Likewise.
+	* init.c (initializing_context): Likewise.
+	* method.c (do_build_copy_constructor): Likewise.
+	(do_build_assign_ref): Likewise.
+	* search.c (compute_access): Likewise.
+	* typeck.c (build_component_ref): Likewise.
+
+	* decl.c (grokdeclarator): Don't give a cv-qualified version of an
+	unnamed type a typedef name "for linkage purposes".
+
+	* pt.c (lookup_template_class): Don't look at
+	IDENTIFIER_CLASS_VALUE when there's no current_class_type.
+
+	* method.c (build_overload_int): Handle error cases gracefully.
+
+	* pt.c (instantiate_decl): Handle static member variables
+	correctly.
+
+	* pt.c (tsubst): Use the tsubst'd type when producing new
+	TEMPLATE_PARM_INDEX nodes.
+
+1998-05-24  Mark Mitchell  <mark@markmitchell.com>
+
+	* tree.c (cp_tree_equal): Handle pointers to member functions.
+
+	* call.c (maybe_handle_implicit_object): Handle QUAL_CONVs.  Make
+	sure the type of the REF_BIND is a reference type.
+	(maybe_handle_ref_bind, compare_ics): Rename reference_type to
+	target_type for clarity.
+
+	* parse.y (xcond): Move call to condition_conversion ...
+	* semantics.c (finish_for_cond): Here.
+	* parse.c: Regenerated.
+	
+1998-05-24  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (push_namespace): Namespaces have type void.
+	* typeck2.c (incomplete_type_error): Complain about namespace
+	used as expression.
+	* typeck.c (decay_conversion): Likewise.
+
+1998-05-24  Martin von Löwis  <loewis@informatik.hu-berlin.de>
+
+	* error.c (dump_expr): Support namespaces.
+
+1998-05-23  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cp-tree.def: Add SRCLOC.
+	* cp-tree.h: Add struct tree_srcloc and accessor macros.
+	* tree.c (build_srcloc, build_srcloc_here): New fns.
+	* pt.c (add_pending_template): Use build_srcloc_here.
+	(push_tinst_level): Update last_template_error_tick before erroring.
+	(instantiate_decl): Restore lineno and input_filename before 
+	calling add_pending_template.
+	* decl2.c (finish_file): Set up lineno and input_filename for
+	pending templates.
+
+1998-05-22  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (lang_print_error_function): New fn.  
+	(init_decl_processing): Set print_error_function to use it.
+	* errfn.c (cp_thing): Don't call maybe_print_template_context here.
+
+	* call.c (maybe_handle_ref_bind): Propagate ICS_USER_FLAG and
+	ICS_BAD_FLAG.
+
+	* cvt.c (ocp_convert): Don't set LOOKUP_NO_CONVERSION for
+	copy-initialization.
+
+	* class.c (build_vtable_entry): Use int_fits_type_p.
+	(build_vtable): Pass a signed offset to build_vtable_entry.
+	(prepare_fresh_vtable, modify_one_vtable, fixup_vtable_deltas1,
+	set_rtti_entry): Likewise.
+
+1998-05-22  Per Bothner  <bothner@cygnus.com>
+
+	* cp-tree.h:  Add comments documenting which LANG_FLAGS are used.
+	(C_TYPE_VARIABLE_SIZE, C_DECL_VARIABLE_SIZE):  Removed, not used.
+
+1998-05-22  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* pt.c (print_template_context): Use fprintf instead of cp_error.
+
+	* pt.c (determine_specialization): Just return an error_mark_node.
+	Also print the decl we want in error messages.  If we complain,
+	return error_mark_node.
+	(tsubst_friend_function): Set lineno and input_filename so 
+	error messages will be useful.
+	(instantiate_template): Just return an error_mark_node.
+	(check_explicit_specialization): Don't mess with a returned
+	error_mark_node.
+
+	* pt.c (print_template_context): Add new argument.
+	(maybe_print_template_context): New fn.
+	(push_tinst_level): Increment tinst_level_tick.
+	(pop_tinst_level): Likewise.
+	* errfn.c (cp_thing): Call maybe_print_template_context.  Use
+	xrealloc instead of xmalloc.
+
+	* typeck.c (build_unary_op, CONVERT_EXPR): Propagate TREE_CONSTANT.
+
+1998-05-21  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* pt.c (tsubst_friend_class): Don't call redeclare_class_template
+	if the template we looked up is the same as the one we already
+	have.
+
+Thu May 21 11:54:44 1998  Dave Brolley  <brolley@cygnus.com>
+
+	* lex.c: (handle_sysv_pragma): FILE* parameter not used.
+	(cpp_reader,parse_in): Add for cpplib.
+	(check_newline): Call handle_sysv_pragma with new interface.
+	(check_newline): Call GET_DIRECTIVE_LINE, not get_directive_line.
+
+	* input.c: (yy_cur,yy_lim,yy_get_token,GETC): Add for cpplib.
+	(sub_getch): Call GETC for cpplib.
+
+	* cp-tree.h: (get_directive_line): Different prototype for cpplib.
+	(GET_DIRECTIVE_LINE): Macro wrapper for get_directive_line.
+
+	* Makefile.in (CXX_OBJS): add @extra_cxx_objs@ for cpplib.
+
+1998-05-21  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (maybe_make_one_only): New fn.
+	(import_export_vtable): Use it.
+	(import_export_decl): Likewise.
+	* pt.c (mark_decl_instantiated): Likewise.
+
+1998-05-21  Mark Mitchell  <mmitchell@usa.net>
+
+	* decl2.c (find_representative_member): Rename to ...
+	(build_anon_union_vars): New function.
+	(finish_anon_union): Fix stupidity of previous change.
+
+1998-05-20  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (grokfndecl): Handle definition of specialization in
+	friend declaration.
+
+	* error.c (dump_decl): Fix LOOKUP_EXPR handling.
+
+1998-05-20  Mark Mitchell  <mmitchell@usa.net>
+
+	* class.c (delete_duplicate_fields_1): Use DECL_DECLARES_TYPE_P
+	to look for type declarations.
+	(finish_struct): Deal with templates on the CLASSTYPE_TAGS list.
+	* cp-tree.h (DECL_DECLARES_TYPE_P): New macro.
+	(finish_member_class_template): Declare.
+	* decl.c (pushtag): Put member class templates on the
+	CLASSTYPE_TAGS list, just as for ordinary member classes.
+	(pushdecl_class_level): Use DECL_DECLARES_TYPE_P.
+	(lookup_tag): Look for IDENTIFIER_CLASS_VALUEs, just as with
+	IDENTIFIER_NAMESPACE_VALUEs. 
+	* parse.y (component_decl): Move code to ...
+	* semantics.c (finish_member_class_template): New function.  
+	Don't put member class templates on the list of components for a
+	class. 
+	* parse.c: Regenerated.
+	* pt.c (classtype_mangled_name): Don't try DECL_CONTEXT on types.
+	In fact, don't use DECL_CONTEXT at all here.
+
+1998-05-20  Martin von Loewis  <loewis@informatik.hu-berlin.de>
+
+	* decl.c (record_unknown_type): New function.
+	(init_decl_processing): Call it for the unknown and global type
+	nodes.
+
+1998-05-20  Mark Mitchell  <mmitchell@usa.net>
+
+	* decl2.c (find_representative_member): New function.
+	(finish_anon_union): Use it.
+
+	* cp-tree.h (MAIN_NAME_P): New macro.
+	(DECL_MAIN_P): Likwise.
+	* decl.c (pushdecl): Avoid crashing on redefinitions of `main'.
+	(grokfndecl): Use the new macros.
+	(grokdeclarator): Likewise.
+	(start_function): Likewise.
+	(store_parm_decls): Likewise.
+	(finsh_function): Likewise.
+	* friend.c (do_friend): Likewise.
+	* typeck.c (build_function_call_real): Likewise.
+	(build_unary_op): Likewise.
+
+Wed May 20 02:16:01 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (start_objects, finish_objects, do_dtors,
+	do_ctors): Split out from...
+	(finish_file): ...here.
+
+Tue May 19 20:36:23 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* tree.c (is_overloaded_fn): Don't abort on placeholders from
+	push_class_decls.
+
+Tue May 19 15:16:22 1998  Brendan Kehoe  <brendan@cygnus.com>
+
+	* class.c (is_empty_class): Return 0 if TYPE is an error_mark_node.
+
+	* error.c (dump_expr): Handle an ARROW_EXPR.
+
+Tue May 19 15:13:39 1998  Mark Mitchell  <mmitchell@usa.net>
+
+	* decl.c (saveable_obstack): Declare.
+	(pushdecl): Copy TYPE_DECLs to the same obstack as the type they
+	declare, if necessary.
+
+Tue May 19 14:50:27 1998  Mark Mitchell  <mmitchell@usa.net>
+
+	* call.c (compare_qual): Remove.
+	(is_subseq): Tweak.
+	(is_properly_derived_from): New function.
+	(maybe_handle_ref_bind): Likewise.
+	(maybe_handle_implicit_object): Likewise.
+	(compare_ics): Modify substantially to bring into conformance with
+	the standard.
+	* cp-tree.h (TYPE_PTRMEMFUNC_OBJECT_TYPE): New macro.
+	(comp_cv_qualification): Declare.
+	(comp_cv_qual_signature): Likewise.
+	* typeck.c (comp_cv_qualification): Likewise.
+	(comp_cv_qual_signature): Likewise.
+
+Tue May 19 10:05:02 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (parse.o): Depend on toplev.h.
+
+	* class.c (typecode_p): Remove prototype and definition.
+
+	* cp-tree.h (currently_open_class, is_empty_class, member_p):
+	Add prototype.
+
+	* decl.c (push_overloaded_decl_top_level): Remove prototype and
+	definition.
+
+	* errfn.c (cp_error): Cast function pointer `error' to (errorfn *)
+ 	in call to `cp_thing'.
+	(cp_warning): Likewise for function pointer `warning'.
+
+	* except.c (do_function_call): Remove prototype and definition.
+	(call_eh_info): Wrap variable `t1' in macro NEW_EH_MODEL.
+
+	* method.c (is_java_type): Add prototype and make it static.
+
+	* parse.y: Include toplev.h.
+
+	* pt.c (type_unification): Remove unused variable `arg'.
+	(instantiate_decl): likewise for `save_ti'.
+
+	* tree.c (propagate_binfo_offsets): Likewise for `base_binfos'.
+	
+Tue May 19 02:43:25 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* init.c (build_member_call): Handle template_ids.
+	* parse.y (primary): Add global_scope template_id.
+
+Mon May 18 23:22:52 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl2.c (get_sentry): Use end_temporary_allocation.
+	Don't declare permanent_obstack.
+
+Mon May 18 12:28:44 1998  Mark Mitchell  <mmitchell@usa.net>
+
+	* parse.y (.finish_new_placement): New non-terminal.
+	(unary_expr, new_type_id): Use it.  
+	* parse.c: Regenerated.
+	
+Mon May 18 12:20:27 1998  Brendan Kehoe  <brendan@cygnus.com>
+
+	* pt.c (redeclare_class_template): Say where the original definition
+	of the template-parameter's default argument appeared.
+
+Mon May 18 03:00:57 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* call.c (build_over_call): Tweak empty class handling.
+
+	* decl.c (make_typename_type): Use currently_open_class.
+
+	* class.c (instantiate_type): Don't abort on TREE_NONLOCAL_FLAG.
+
+Mon May 18 01:43:01 1998  Martin v. Loewis  <loewis@informatik.hu-berlin.de>
+
+	* decl.c (lookup_name_real): Don't look at IDENTIFIER_LOCAL_VALUE 
+	for a type unless it is one.
+
+	* class.c (finish_struct_1): Use OVL_CURRENT in error message.
+
+Mon May 18 01:24:08 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.in (program_transform_name, objdir): Define.
+
+	* Makefile.in (BISON): Use bison from the build tree if it exists.
+	(FLEX): Similarly.
+
+Sun May 17 14:52:08 1998  Martin v. Loewis  <loewis@informatik.hu-berlin.de>
+
+	* typeck.c (type_unknown_p): Return true for TREE_LIST also.
+
+	* call.c (build_method_call): Use TYPE_MAIN_VARIANT on typedefs.
+
+Sun May 17 14:51:41 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* call.c (build_scoped_method_call): Likewise.
+
+Sun May 17 13:53:48 1998  Mark Mitchell  <mmitchell@usa.net>
+
+	* init.c (build_new_1): Call suspend_momentary around the creation
+	of values that must be saved for exception handling.
+	* parse.y (.build_new_placement): New non-terminal.
+	(unary_expr, new_placement): Use it.
+	* parse.c: Regenerated.
+	
+Sun May 17 12:32:08 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (duplicate_decls): Use CANONICAL_TYPE_VARIANT to compare
+	old and new types.
+
+	* pt.c (tsubst): Make sure that BINFO_TYPE of new binfos is the
+	canonical type.
+
+	* call.c (build_over_call): Don't use IS_SIGNATURE on a namespace.
+
+Fri May 15 20:28:00 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* decl.c (start_decl): Revert problem change.
+
+	* Makefile.in (CONFLICTS): Fix.
+
+Fri May 15 15:34:02 1998  Benjamin Kosnik  <bkoz@rhino.cygnus.com>
+
+        * decl.c (duplicate_decls): Clean up, add DECL_DATA_AREA bits.
+
+Fri May 15 00:46:05 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* class.c (finish_struct_1): Use BINFO_SIZE.
+
+	* decl.c (start_decl): Use 'tem'.
+
+Thu May 14 16:30:47 EDT 1998  Andrew MacLeod  <amacleod@cygnus.com>
+
+	* exception.cc: Include eh-common.h.
+	(struct cp_eh_info): add eh_info struct with NEW_EH_MODEL.
+	(__cplus_type_matcher): First stab at new C++ runtime type matcher.
+	(__cp_push_exception): Initialize eh_info struct as well.
+	* except.c: Remove local structs and include eh-common.h.
+	(init_exception_processing): Set language and version codes.
+	(call_eh_info): add presence of eh_info to runtime description of 
+	struct cp_eh_info.
+	(expand_end_eh_spec): call start_catch_block() and end_catch_block().
+	* semantics.c (finish_try_block): call start_catch_block() and 
+	end_catch_block().
+	* parse.y (function_try_block): call start_catch_block() and 
+	end_catch_block().
+
+Thu May 14 12:27:34 1998  Brendan Kehoe  <brendan@cygnus.com>
+
+	* typeck.c (original_type): New function.
+	(common_type): Use it to get the DECL_ORIGINAL_TYPE for T1 and T2,
+	to see if they're actually the same.
+	* cp-tree.h (original_type): Declare.
+
+Wed May 13 12:54:30 1998  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (lex.o): Depend on output.h.
+	
+	* call.c (add_function_candidate): Remove unused variable `cand'.
+	(add_conv_candidate): Likewise.
+	(build_builtin_candidate): Likewise.
+	
+	* cp-tree.h: Add prototype for `types_overlap_p'.
+
+	* decl.c (signal_catch): Mark parameter `sig' with ATTRIBUTE_UNUSED.
+
+	* decl2.c (merge_functions): Remove unused variables `tmp' and
+	`tempn'.
+
+	* error.c (expr_as_string): Mark parameter `v' with ATTRIBUTE_UNUSED.
+	(code_as_string): Likewise.
+	(language_as_string): Likewise.
+	(parm_as_string): Likewise.
+	(op_as_string): Likewise.
+	(assop_as_string): Likewise.
+	(cv_as_string): Likewise.
+
+	* lex.c: Include output.h.
+
+	* pt.c (type_unification): Cast first argument of `bzero' to a char*.
+
+	* search.c (dfs_no_overlap_yet): Mark parameter `t' with
+	ATTRIBUTE_UNUSED.
+
+	* tinfo.cc (__class_type_info::dcast): Change the type of variable
+	`i' from int to size_t.
+
+	* typeck.c (language_lvalue_valid): Mark parameter `exp' with
+	ATTRIBUTE_UNUSED.
+
+Tue May 12 21:37:49 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* error.c (dump_simple_decl): Use DECL_CLASS_SCOPE_P and/or
+	DECL_NAMESPACE_SCOPE_P.
+	(lang_decl_name): Likewise.
+	* pt.c (tsubst_friend_function, tsubst): Likewise.
+	* decl.c (pushdecl, redeclaration_error_message, start_decl, 
+	cp_finish_decl, start_function): Likewise.
+	* class.c (finish_struct_1): Likewise.
+	* call.c (build_over_call): Likewise.
+	(compare_ics): Use DERIVED_FROM_P.
+
+Tue May 12 07:24:18 1998  Mark Mitchell  <mmitchell@usa.net>
+
+	* cp-tree.h (CANONICAL_TYPE_VARIANT): New macro.
+	* method.c (build_mangled_name): Use it.
+	(build_decl_overload_real): Likewise.
+
+	* error.c (dump_simple_decl): New function, broken out from ...
+	(dump_decl): Use it.
+
+Mon May 11 11:38:07 1998  Mark Mitchell  <mmitchell@usa.net>
+
+	* ptree.c (lang_print_xnode): Add missing `break'.
+
+	* pt.c (tsubst): Remove duplicate check for IDENTIFIER_NODE.
+
+	* call.c (add_template_candidate): Adjust for changes to
+	fn_type_unification. 
+	(add_template_candidate_real): Likewise.
+	(add_template_conv_candidate): Likewise.
+	(build_user_type_conversion_1): Likewise.
+	(build_new_function_call): Likewise.
+	(build_object_call): Likewise.
+	(build_new_op): Likewise.
+	(build_new_method_call): Likewise.
+	* class.c (instantiate_type): Likewise.
+	* cp-tree.h (unification_kind_t): New type.
+	(fn_type_unification): Adjust prototype.
+	(type_unificaiton): Likewise.
+	* pt.c (UNIFY_ALLOW_NONE): New macro.
+	(UNIFY_ALLOW_MORE_CV_QUAL): Likewise.
+	(UNIFY_ALLOW_LESS_CV_QUAL): Likewise.
+	(UNIFY_ALLOW_DERIVED): Likewise.
+	(unify): Change prototype.
+	(maybe_adjust_types_for_deduction): New function.
+	(check_cv_quals_for_unify): Likewise.
+	(determine_specialization): Adjust.
+	(fn_type_unification): Likewise.
+	(type_unification): Likewise.
+	(type_unification_real): Likewise.  Use
+	maybe_adjust_types_for_deduction.  Fix mishandling of
+	back-unification of template functions passed as arguments.  Pass
+	appropriate combination of UNIFY_ALLOW_* to unify.
+	(unify): Remove unused NTPARMS parameter.  Use
+	check_cv_quals_for_unify.  Remove bogus code that allowed
+	too-generous unification in order to adhere more closely to standard.
+	(get_bindings_real): Adjust.
+	(get_class_bindings): Likewise.
+
+	* method.c (build_overload_identifier): Only use the innermost
+	template arguments when mangling.
+	* pt.c (tsubst_template_argument_vector): New function.
+	(complete_template_args): Deal with the situation where the
+	extra_args contain more than one level of arguments.
+	(lookup_template_class): Deal with member template classes, which
+	may have more than one level of arguments.
+	(tsubst): Don't tsbust into the TREE_TYPE of an IDENTIFIER_NODE.
+	Improve handling of member template classes.  Use
+	DECL_PRIMARY_TEMPLATE instead of inline expansion.  Use
+	tsubst_template_argument_vector where appropriate.
+	(regenerate_decl_from_template): Break out from ...
+	(instantiate_decl): Here.
+	
+	* lex.c (yyprint): Remove TYPENAME_ELLIPSIS.
+	* parse.h: Regenerated.
+	* parse.c: Really regenerated.
+	
+	* cp-tree.h (finish_unary_op_expr): New function.
+	(finish_id_expr): Likewise.
+	(begin_new_placement): Likewise.
+	(finish_new_placement): Likewise.
+	(finish_declarator): Likewise.
+	(finish_translation_unit): Likewise.
+	(finish_parmlist): Likewise.
+	(begin_class_definition): Likewise.
+	(finish_class_definition): Likewise.
+	(finish_default_args): Likewise.
+	(finish_inline_definitions): Likewise.
+	* parse.y (GCC_ASM_KEYWORD): Remove.
+	(TYPENAME_ELLIPSIS): Likewise.
+	* parse.c: Regenerated.
+	Use new functions in semantics.c in the actions for many rules.
+	* gxx.gperf (GCC_ASM_KEYWORD): Just use ASM_KEYWORD.
+	* hash.h: Regenerated.
+	* semantics.c (finish_expr_stmt): Allow NULL expr.
+	(finish_unary_op_expr): New function, containing
+	code previously in parse.y.
+	(finish_id_expr): Likewise.
+	(begin_new_placement): Likewise.
+	(finish_new_placement): Likewise.
+	(finish_declarator): Likewise.
+	(finish_translation_unit): Likewise.
+	(finish_parmlist): Likewise.
+	(begin_class_definition): Likewise.
+	(finish_class_definition): Likewise.
+	(finish_default_args): Likewise.
+	(finish_inline_definitions): Likewise.
+
+Sun May 10 23:43:13 1998  Mark Mitchell  <mmitchell@usa.net>
+
+	* typeck.c (build_c_cast): Don't decay arrays and functions to
+	pointer type when converting to a class type.
+
+Sun May 10 22:53:56 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* cp-tree.h (DECL_NAMESPACE_SCOPE_P): New macro.
+	(DECL_CLASS_SCOPE_P): Likewise.
+
+Sun May 10 22:48:22 1998  H.J. Lu  (hjl@gnu.org)
+
+	* class.c (finish_struct_1): Use OVL_CURRENT on TREE_VEC_ELT.
+	* decl2.c (constructor_name_full): Likewise.
+
+Sun May 10 22:48:12 1998  Mike Stump  <mrs@wrs.com>
+
+	* tree.c (mapcar): Add OVERLOAD support.
+
+	* init.c (resolve_offset_ref): We must use basetype_path before we
+	destroy it with a call to convert_pointer_to.
+
+Sat May  9 14:44:37 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* class.c (currently_open_class): New fn.
+	* decl.c (lookup_name_real): Use it.
+	* search.c (lookup_field): Likewise.
+
+Fri May  8 23:32:42 1998  Martin von Loewis  <loewis@informatik.hu-berlin.de>
+
+	* cp-tree.def (OVERLOAD): New node.  
+	* cp-tree.h (BINDING_TYPE, SET_IDENTIFIER_GLOBAL_VALUE,
+	SET_IDENTIFIER_NAMESPACE_VALUE): Define.
+	(NAMESPACE_BINDING): Remove.
+	(IDENTIFIER_GLOBAL_VALUE, IDENTIFIER_NAMESPACE_VALUE): Use
+	namespace_binding.
+	(OVL_FUNCTION, OVL_CHAIN, OVL_CURRENT, OVL_NEXT, OVL_USED):
+	Define.
+	(tree_overload): New struct.
+	(IDENTIFIER_TYPE_VALUE): Use identifier_type_value.
+	(REAL_IDENTIFIER_TYPE_VALUE): Define.
+	(IDENTIFIER_HAS_TYPE_VALUE): Use IDENTIFIER_TYPE_VALUE.
+	(lang_decl_flags): Remove in_namespace.
+	(lang_decl): Remove chain.
+	(DECL_CHAIN, DECL_NAMESPACE): Remove.
+	(flag_honor_std): Declare extern.
+	(identifier_type_value, pushdecl_namespace_level, push_using_decl,
+	namespace_binding, set_namespace_binding,
+	lookup_function_nonclass, cat_namespace_levels,
+	set_decl_namespace, lookup_arg_dependent, binding_init, ovl_cons,
+	scratch_ovl_cons, ovl_member, build_overload): Declare.
+	(decl_list_length, get_namespace_id, current_namespace_id,
+	overloaded_globals_p): Remove.
+	(lookup_using_namespace, qualified_lookup_using_namespace): Change
+	return type.
+	(push_scratch_obstack): New macro.
+	* call.c (add_function_candidate): Special-case type of OVERLOAD node.
+	(build_user_conversions_1): Iterate using OVL_NEXT for ctors,
+	convs, fns.
+	(build_new_function_call): Iterate using OVL_CHAIN.  
+	Print DECL_NAME in when reporting ambiguities.
+	(build_object_call): Iterate using OVL_NEXT for fns, convs.
+	(build_new_op): Call lookup_function_nonclass.  
+	Iterate using OVL_NEXT.
+	(build_op_delete_call): Change detection of members.
+	Do not wrap TREE_LIST around fields and single global functions.
+	(build_over_call): Don't push a class level if the context is a
+	namespace.
+	(build_new_method_call): Iterate using OVL_NEXT.
+	* class.c (add_method): Chain overloaded members using
+	build_overload.  Remove copying of method.
+	(grow_method): When iterating through the obstack, expect OVERLOAD
+	nodes.  Chain overload members.
+	(finish_struct_methods): Chain overload members.  Unpack OVERLOAD
+	nodes in call to get_baselinks.
+	(duplicate_tag_error): Expect OVERLOAD nodes when unchaining.
+	(finish_struct_1): Iterate over ctor using OVL_NEXT.  Handle
+	fdecls that are OVERLOAD nodes.
+	(validate_lhs): New function.
+	(instantiate_type): Do not copy OVERLOAD nodes.  Remove dead
+	code. Use DECL_NAME in error messages. Split code between global
+	and member function processing.
+	* decl.c (global_type_node): New static variable.
+	(in_std): New global.
+	(struct binding_level): New field usings.
+	(resume_binding_level): Assert that we are not in a class.
+	(toplevel_bindings_p): Just check for namespace_p or
+	pseudo_global.
+	(resume_level): Remove.
+	(find_binding): New function.
+	(binding_for_name): Call it.
+	(namespace_binding, set_namespace_binding): New functions.
+	(push_namespace): Associate binding level with new namespace,
+	resume_binding_level for existing namespace.  Remove old code.
+	Fake std by counting.
+	(store_bindings): Use REAL_IDENTIFIER_TYPE_VALUE.
+	(maybe_push_to_top_level): Save current namespace.
+	(pop_from_top_level): Restore saved namespace.
+	(pop_namespace): Call suspend_binding_level.  Remove old code.
+	(cat_namespace_levels): New function.
+	(set_identifier_type_value_with_scope): For namespace bindings,
+	set BINDING_TYPE, and use global_type_node.
+	Use REAL_IDENTIFIER_TYPE_VALUE otherwise.
+	(identifier_type_value): New function.
+	(pushtag): If no context, use current_namespace.
+	(duplicate_decls): Don't process DECL_CHAIN.
+	(pushdecl): Set DECL_CONTEXT to current_namespace, if it is not
+	already set. Never reset it to NULL_TREE.  Lookup global variables
+	in their namespace.  Push overloaded templates if they are on
+	namespace level.
+	(pushdecl_namespace_level): New function.
+	(pushdecl_top_level): Implement using pushdecl_namespace_level.
+	(pushdecl_using_decl): New function.
+	(overloaded_globals_p): Remove.
+	(push_overloaded_decl): Create OVERLOAD nodes, and iterate through
+	them. Use namespace_binding and set_namespace_value.
+	(redeclaration_error_message): Complain if the declarations come
+	from different namespaces.
+	(lookup_tag): On namespace level, look in the BINDING_TYPE.
+	(lookup_namespace_name): Pass tree_bindings from stack.  Remove
+	old code.
+	(select_decl): New function.
+	(lookup_name_real): Call it for qualified and unqualified lookup.
+	Pass tree_bindings from the stack.
+	If prefer_type is 1, also accept namespaces.
+	(lookup_function_nonclass): New function.
+	(init_decl_processing): Set the binding level of the global
+	namespace to global_binding_level.
+	Build a proper type list for __builtin_apply.
+	Initialize std_node to "fake std" if flag_honor_std is set.
+	Initialize global_type_node.
+	Allocated bad_alloc in namespace std if flag_honor_std.
+	(define_function): Set the DECL_CONTEXT to the current_namespace.
+	(start_decl): A namespace is not considered as a context here.  If
+	the DECL_CONTEXT is a namespace, push the decl.
+	(cp_finish_decl): Check for namespaces used as initializers.
+	(grokfndecl): Add namespace parameter.  Remove processing of
+	DECL_CHAIN.
+	(grokvardecl): Add namespace parameter.
+	(grokdeclarator): Process SCOPEs that are namespaces.  For
+	mangling, temporarily set the DECL_CONTEXT on anonymous structs.
+	(start_function): Check for contexts that are namespaces.  
+	Set context for declarations that have not been pushed.
+	(store_parm_decls): Check for ::main only.
+	(finish_function): Likewise.
+	(start_method): Check for contexts that are namespaces.
+	(start_method): Remove DECL_CHAIN processing.
+	* decl2.c (flag_honor_std): Declare.
+	(lang_decode_option): Set it if -fhonor-std or -fnew-abi is given.
+	(decl_namespace_list): New static global.
+	(grok_x_components): Ignore namespaces as type contexts.
+	(check_classfn): Expect OVERLOAD nodes.
+	(grokfield): Remove DECL_CHAIN processing.
+	(finish_file): Call cat_namespace_levels.
+	(merge_functions): New function.
+	(ambiguous_decl): Rewrite.
+	(lookup_using_namespace): Produce tree_bindings.
+	(qualified_lookup_using_namespace): Likewise.
+	(set_decl_namespace, decl_namespace, current_decl_namespace,
+	push_decl_namespace, pop_decl_namespace): New functions.
+	(arg_lookup): New struct.
+	(add_function, arg_assoc_namespace, arg_assoc_class,
+	arg_assoc_type, arg_assoc_args, arg_assoc, lookup_arg_dependent):
+	New functions.
+	(get_namespace_id, current_namespace_id): Remove.
+	(do_toplevel_using_decl): Rewrite.
+	(do_class_using_decl): Complain about namespace qualifiers.
+	(do_using_directive): Sorry if not on namespace level.  Complain
+	about unknown namespaces.
+	* error.c (dump_aggr_type): Check for namespace contexts.
+	* except.c (init_exception_processing): Push terminate into std.
+	* friend.c (is_friend): A namespace is not a context, here.
+	* init.c (expand_member_init): Remove DECL_CHAIN processing.
+	(build_offset_ref): Process OVERLOAD nodes.
+	* lang-specs.h (__HONOR_STD): Define if -fnew-abi or -fhonor-std.
+	* lex.c (identifier_type): Loop using OVL_CHAIN.
+	(see_typename): Set looking_for_typename to 2.
+	(real_yylex): Likewise.	
+	(do_identifier): Expect OVERLOAD nodes instead of TREE_LISTs.
+	(do_scoped_id): Expect OVERLOAD nodes.
+	Change calling convention for qualified_lookup_using_namespace.
+	(build_lang_decl): Don't set in_namespace anymore.
+	* method.c (typevec_size): New global.
+	(build_overload_nested_name): Return if global_namespace.
+	Otherwise, always expect a declaration context.
+	(build_qualified_name): Likewise.
+	Make sure we don't write beyond typevec_size.
+	(build_decl_overload_real): Likewise.
+	Allocate one extra slot for the namespace.
+	(hack_identifier): Mark code dead.
+	Process OVERLOAD and NAMESPACE_DECL nodes.
+	* parse.y (program): Pop namespaces until in global namespace.
+	(extdef): In a using-declaration, don't discard the identifier if
+	there is no declaration.
+	(left_curly): Ignore type contexts which are namespaces.
+	(typename_sub2): Use IDENTIFIER_TYPE_VALUE to retrieve the type
+	used as scope.
+	* pt.c (template_class_depth): Expect types to be namespaces.
+	(determine_specialization): Simplify by expecting OVERLOAD nodes.
+	(push_template_decl): Push into namespace level.
+	Reset ctx if it is a namespace.
+	Set DECL_CONTEXT to current_namespace if not set already.
+	Ignore real contexts that are namespaces.
+	(mangle_class_name_for_template): Skip global_namespace.
+	Mangle other namepaces as declarations.
+	(lookup_template_function): Set type of OVERLOAD nodes to unknown.
+	(lookup_template_class): Push into namespace of context.
+	If the context is a namespace, set it to global_namespace.
+	Use id_context for mangling.
+	(for_each_template_parm): Handle OVERLOAD and NAMESPACE_DECL nodes.
+	(tsubst_friend_function): Ignore namespace contexts.
+	Push into namespace level.
+	(tsubst): Handle NAMESPACE_DECL nodes.
+	Remove DECL_CHAIN processing.
+	(type_unification_real): Recognize OVERLOAD instead of TREE_LIST nodes.
+	* ptree.c (print_lang_identifier): Print bindings.
+	(lang_print_xnode): Print OVERLOAD nodes.
+	* rtti.c (init_rtti_processing): Push type_info into std.
+	* search.c (lookup_fnfields_here): Expect OVERLOAD nodes.
+	(lookup_fnfields_1, get_virtuals_named_this, get_matching_virtual,
+	dfs_debug_mark, dfs_pushdecls, dfs_compress_decls, add_conversions,
+	lookup_fnfields_here): Likewise.
+	Process all nodes, instead of going through TREE_CHAIN.
+	* sig.c (build_signature_pointer_or_reference_type): Set context
+	to global_namespace.
+	(build_signature_table_constructor): Expect OVERLOAD nodes.
+	* spew.c (yylex): Save old setting of looking_for_typename.
+	* tree.c (decl_list_length): Remove.
+	(binding_init): New function.
+	(count_functions): Rewrite.
+	(is_overloaded_fn): Expect OVERLOAD nodes.
+	(really_overloaded_fn, get_first_fn, lvalue_type): Likewise.
+	(ovl_cons, scratch_ovl_cons, build_overload, build_overload_after,
+	ovl_member): New functions.
+	* typeck.c (require_complete_type): Expect OVERLOAD nodes.
+	(type_unknown_p): Likewise.
+	(require_instantiated_type): Likewise.
+	(build_component_ref): Declare code dead.
+	(build_x_function_call): Create and expect OVERLOAD nodes.
+	(build_function_call_real): Check for ::main only.
+	(build_unary_op): Likewise.  Expect OVERLOAD nodes.
+	(convert_for_assignment): Check for TREE_LIST before accessing
+	TREE_VALUE.
+	* decl.c (duplicate_decls): Check for namespace bindings instead
+	of global bindings.
+	(pushdecl, push_overloaded_decl, lookup_tag, lookup_name_real,
+	lookup_name_current_level, start_decl, xref_tag, 
+	finish_enum): Likewise.
+	* init.c (build_offset_ref): Likewise.
+	* search.c (lookup_field): Likewise.
+	(lookup_fnfields): Likewise.
+	(dfs_debug_mark): Likewise.
+	* decl.c (poplevel): Use SET_IDENTIFIER_TYPE_VALUE.
+	(poplevel_class, pop_from_top_level): Likewise.
+	* decl2.c (finish_method): Likewise.
+	* class.c (build_vtable): Use SET_IDENTIFIER_GLOBAL_VALUE.
+	* decl.c (record_builtin_type): Likewise.
+	(init_decl_processing, grokfndecl): Likewise.
+	* lex.c (get_time_identifier, do_identifier, do_scoped_id): Likewise.
+	(make_lang_type): Likewise.
+	* parse.y (make_thunk): Likewise.
+	* pt.c (tsubst): Likewise.
+	* tree.c (debug_binfo): Likewise.
+	* exception.cc, new.cc, new1.cc, new2.cc, tinfo.cc, tinfo.h, 
+	tinfo2.cc, inc/new.h: Add std qualifications.
+	* inc/new: Wrap with namespace std if __HONOR_STD.
+	* inc/typeinfo: Likewise.
+
+Fri May  8 00:43:50 1998  Jason Merrill  <jason@yorick.cygnus.com>
+
+	* call.c (build_user_type_conversion_1): Handle second_conv 
+	properly for templates.
+
 Thu May  7 17:09:25 EDT 1998  Andrew MacLeod  <amacleod@cygnus.com>
 
 	* method.c (build_decl_overload_real): Set TREE_USED flag to
@@ -9018,10 +12387,3 @@ Wed Oct 11 16:30:34 1995  Brendan Kehoe  <brendan@lisa.cygnus.com>
 
 	* parse.y (fn.def1): Call split_specs_attrs in
 	declmods notype_declarator case.
-
-Use a consistent time stamp format in ChangeLog entries.
-Not everyone has Emacs 20 yet, so stick with Emacs 19 format for now.
-
-Local Variables:
-add-log-time-format: current-time-string
-End:

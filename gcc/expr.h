@@ -30,7 +30,8 @@ Boston, MA 02111-1307, USA.  */
 /* The variable for which an increment is queued.  */
 #define QUEUED_VAR(P) XEXP (P, 0)
 /* If the increment has been emitted, this is the insn
-   that does the increment.  It is zero before the increment is emitted.  */
+   that does the increment.  It is zero before the increment is emitted.
+   If more than one insn is emitted, this is the first insn.  */
 #define QUEUED_INSN(P) XEXP (P, 1)
 /* If a pre-increment copy has been generated, this is the copy
    (it is a temporary reg).  Zero if no copy made yet.  */
@@ -245,6 +246,20 @@ enum direction {none, upward, downward};  /* Value has this type.  */
 #define RETURN_IN_MEMORY(TYPE) (TYPE_MODE (TYPE) == BLKmode)
 #endif
 
+/* Supply a default definition of STACK_SAVEAREA_MODE for emit_stack_save.
+   Normally move_insn, so Pmode stack pointer.  */
+
+#ifndef STACK_SAVEAREA_MODE
+#define STACK_SAVEAREA_MODE(LEVEL) Pmode
+#endif
+
+/* Supply a default definition of STACK_SIZE_MODE for
+   allocate_dynamic_stack_space.  Normally PLUS/MINUS, so word_mode.  */
+
+#ifndef STACK_SIZE_MODE
+#define STACK_SIZE_MODE word_mode
+#endif
+
 /* Provide default values for the macros controlling stack checking.  */
 
 #ifndef STACK_CHECK_BUILTIN
@@ -438,98 +453,103 @@ enum optab_methods
 #define terminate_libfunc	all_libfuncs[19]
 #define setjmp_libfunc		all_libfuncs[20]
 #define longjmp_libfunc		all_libfuncs[21]
+#define eh_rtime_match_libfunc	all_libfuncs[22]
 
-#define eqhf2_libfunc		all_libfuncs[22]
-#define nehf2_libfunc		all_libfuncs[23]
-#define gthf2_libfunc		all_libfuncs[24]
-#define gehf2_libfunc		all_libfuncs[25]
-#define lthf2_libfunc		all_libfuncs[26]
-#define lehf2_libfunc		all_libfuncs[27]
+#define eqhf2_libfunc		all_libfuncs[23]
+#define nehf2_libfunc		all_libfuncs[24]
+#define gthf2_libfunc		all_libfuncs[25]
+#define gehf2_libfunc		all_libfuncs[26]
+#define lthf2_libfunc		all_libfuncs[27]
+#define lehf2_libfunc		all_libfuncs[28]
 
-#define eqsf2_libfunc		all_libfuncs[28]
-#define nesf2_libfunc		all_libfuncs[29]
-#define gtsf2_libfunc		all_libfuncs[30]
-#define gesf2_libfunc		all_libfuncs[31]
-#define ltsf2_libfunc		all_libfuncs[32]
-#define lesf2_libfunc		all_libfuncs[33]
+#define eqsf2_libfunc		all_libfuncs[29]
+#define nesf2_libfunc		all_libfuncs[30]
+#define gtsf2_libfunc		all_libfuncs[31]
+#define gesf2_libfunc		all_libfuncs[32]
+#define ltsf2_libfunc		all_libfuncs[33]
+#define lesf2_libfunc		all_libfuncs[34]
 
-#define eqdf2_libfunc		all_libfuncs[34]
-#define nedf2_libfunc		all_libfuncs[35]
-#define gtdf2_libfunc		all_libfuncs[36]
-#define gedf2_libfunc		all_libfuncs[37]
-#define ltdf2_libfunc		all_libfuncs[38]
-#define ledf2_libfunc		all_libfuncs[39]
+#define eqdf2_libfunc		all_libfuncs[35]
+#define nedf2_libfunc		all_libfuncs[36]
+#define gtdf2_libfunc		all_libfuncs[37]
+#define gedf2_libfunc		all_libfuncs[38]
+#define ltdf2_libfunc		all_libfuncs[39]
+#define ledf2_libfunc		all_libfuncs[40]
 
-#define eqxf2_libfunc		all_libfuncs[40]
-#define nexf2_libfunc		all_libfuncs[41]
-#define gtxf2_libfunc		all_libfuncs[42]
-#define gexf2_libfunc		all_libfuncs[43]
-#define ltxf2_libfunc		all_libfuncs[44]
-#define lexf2_libfunc		all_libfuncs[45]
+#define eqxf2_libfunc		all_libfuncs[41]
+#define nexf2_libfunc		all_libfuncs[42]
+#define gtxf2_libfunc		all_libfuncs[43]
+#define gexf2_libfunc		all_libfuncs[44]
+#define ltxf2_libfunc		all_libfuncs[45]
+#define lexf2_libfunc		all_libfuncs[46]
 
-#define eqtf2_libfunc		all_libfuncs[46]
-#define netf2_libfunc		all_libfuncs[47]
-#define gttf2_libfunc		all_libfuncs[48]
-#define getf2_libfunc		all_libfuncs[49]
-#define lttf2_libfunc		all_libfuncs[50]
-#define letf2_libfunc		all_libfuncs[51]
+#define eqtf2_libfunc		all_libfuncs[47]
+#define netf2_libfunc		all_libfuncs[48]
+#define gttf2_libfunc		all_libfuncs[49]
+#define getf2_libfunc		all_libfuncs[50]
+#define lttf2_libfunc		all_libfuncs[51]
+#define letf2_libfunc		all_libfuncs[52]
 
-#define floatsisf_libfunc	all_libfuncs[52]
-#define floatdisf_libfunc	all_libfuncs[53]
-#define floattisf_libfunc	all_libfuncs[54]
+#define floatsisf_libfunc	all_libfuncs[53]
+#define floatdisf_libfunc	all_libfuncs[54]
+#define floattisf_libfunc	all_libfuncs[55]
 
-#define floatsidf_libfunc	all_libfuncs[55]
-#define floatdidf_libfunc	all_libfuncs[56]
-#define floattidf_libfunc	all_libfuncs[57]
+#define floatsidf_libfunc	all_libfuncs[56]
+#define floatdidf_libfunc	all_libfuncs[57]
+#define floattidf_libfunc	all_libfuncs[58]
 
-#define floatsixf_libfunc	all_libfuncs[58]
-#define floatdixf_libfunc	all_libfuncs[59]
-#define floattixf_libfunc	all_libfuncs[60]
+#define floatsixf_libfunc	all_libfuncs[59]
+#define floatdixf_libfunc	all_libfuncs[60]
+#define floattixf_libfunc	all_libfuncs[61]
 
-#define floatsitf_libfunc	all_libfuncs[61]
-#define floatditf_libfunc	all_libfuncs[62]
-#define floattitf_libfunc	all_libfuncs[63]
+#define floatsitf_libfunc	all_libfuncs[62]
+#define floatditf_libfunc	all_libfuncs[63]
+#define floattitf_libfunc	all_libfuncs[64]
 
-#define fixsfsi_libfunc		all_libfuncs[64]
-#define fixsfdi_libfunc		all_libfuncs[65]
-#define fixsfti_libfunc		all_libfuncs[66]
+#define fixsfsi_libfunc		all_libfuncs[65]
+#define fixsfdi_libfunc		all_libfuncs[66]
+#define fixsfti_libfunc		all_libfuncs[67]
 
-#define fixdfsi_libfunc		all_libfuncs[67]
-#define fixdfdi_libfunc		all_libfuncs[68]
-#define fixdfti_libfunc		all_libfuncs[69]
+#define fixdfsi_libfunc		all_libfuncs[68]
+#define fixdfdi_libfunc		all_libfuncs[69]
+#define fixdfti_libfunc		all_libfuncs[70]
 
-#define fixxfsi_libfunc		all_libfuncs[70]
-#define fixxfdi_libfunc		all_libfuncs[71]
-#define fixxfti_libfunc		all_libfuncs[72]
+#define fixxfsi_libfunc		all_libfuncs[71]
+#define fixxfdi_libfunc		all_libfuncs[72]
+#define fixxfti_libfunc		all_libfuncs[73]
 
-#define fixtfsi_libfunc		all_libfuncs[73]
-#define fixtfdi_libfunc		all_libfuncs[74]
-#define fixtfti_libfunc		all_libfuncs[75]
+#define fixtfsi_libfunc		all_libfuncs[74]
+#define fixtfdi_libfunc		all_libfuncs[75]
+#define fixtfti_libfunc		all_libfuncs[76]
 
-#define fixunssfsi_libfunc	all_libfuncs[76]
-#define fixunssfdi_libfunc	all_libfuncs[77]
-#define fixunssfti_libfunc	all_libfuncs[78]
+#define fixunssfsi_libfunc	all_libfuncs[77]
+#define fixunssfdi_libfunc	all_libfuncs[78]
+#define fixunssfti_libfunc	all_libfuncs[79]
 
-#define fixunsdfsi_libfunc	all_libfuncs[79]
-#define fixunsdfdi_libfunc	all_libfuncs[80]
-#define fixunsdfti_libfunc	all_libfuncs[81]
+#define fixunsdfsi_libfunc	all_libfuncs[80]
+#define fixunsdfdi_libfunc	all_libfuncs[81]
+#define fixunsdfti_libfunc	all_libfuncs[82]
 
-#define fixunsxfsi_libfunc	all_libfuncs[82]
-#define fixunsxfdi_libfunc	all_libfuncs[83]
-#define fixunsxfti_libfunc	all_libfuncs[84]
+#define fixunsxfsi_libfunc	all_libfuncs[83]
+#define fixunsxfdi_libfunc	all_libfuncs[84]
+#define fixunsxfti_libfunc	all_libfuncs[85]
 
-#define fixunstfsi_libfunc	all_libfuncs[85]
-#define fixunstfdi_libfunc	all_libfuncs[86]
-#define fixunstfti_libfunc	all_libfuncs[87]
+#define fixunstfsi_libfunc	all_libfuncs[86]
+#define fixunstfdi_libfunc	all_libfuncs[87]
+#define fixunstfti_libfunc	all_libfuncs[88]
 
 /* For check-memory-usage.  */
-#define chkr_check_addr_libfunc 	all_libfuncs[88]
-#define chkr_set_right_libfunc		all_libfuncs[89]
-#define chkr_copy_bitmap_libfunc	all_libfuncs[90]
-#define chkr_check_exec_libfunc		all_libfuncs[91]
-#define chkr_check_str_libfunc		all_libfuncs[92]
+#define chkr_check_addr_libfunc 	all_libfuncs[89]
+#define chkr_set_right_libfunc		all_libfuncs[90]
+#define chkr_copy_bitmap_libfunc	all_libfuncs[91]
+#define chkr_check_exec_libfunc		all_libfuncs[92]
+#define chkr_check_str_libfunc		all_libfuncs[93]
 
-extern rtx all_libfuncs[93];
+/* For instrument-functions.  */
+#define profile_function_entry_libfunc	all_libfuncs[94]
+#define profile_function_exit_libfunc	all_libfuncs[95]
+
+extern rtx all_libfuncs[96];
 
 typedef rtx (*rtxfun) PROTO ((rtx));
 
@@ -677,6 +697,9 @@ extern rtx emit_store_flag_force PROTO((rtx, enum rtx_code, rtx, rtx,
 
 /* Given a JUMP_INSN, return a description of the test being made.  */
 extern rtx get_condition PROTO((rtx, rtx *));
+
+/* Generate a conditional trap instruction.  */
+extern rtx gen_cond_trap PROTO((enum rtx_code, rtx, rtx, rtx));
 
 /* Functions from expr.c:  */
 
@@ -717,10 +740,15 @@ extern void move_block_from_reg PROTO((int, rtx, int, int));
 
 /* Load a BLKmode value into non-consecutive registers represented by a
    PARALLEL.  */
-extern void emit_group_load PROTO((rtx, rtx));
+extern void emit_group_load PROTO((rtx, rtx, int, int));
 /* Store a BLKmode value from non-consecutive registers represented by a
    PARALLEL.  */
-extern void emit_group_store PROTO((rtx, rtx));
+extern void emit_group_store PROTO((rtx, rtx, int, int));
+
+#ifdef TREE_CODE
+/* Copy BLKmode object from a set of registers. */
+extern rtx copy_blkmode_from_reg PROTO((rtx,rtx,tree));
+#endif
 
 /* Mark REG as holding a parameter for the next CALL_INSN.  */
 extern void use_reg PROTO((rtx *, rtx));
@@ -960,6 +988,7 @@ extern rtx (*lang_expand_expr) PROTO ((union tree_node *, rtx,
 
 extern void init_all_optabs			PROTO ((void));
 extern void init_mov_optab			PROTO ((void));
+extern void do_jump_by_parts_equality_rtx	PROTO((rtx, rtx, rtx));
 extern void do_jump_by_parts_greater_rtx	PROTO ((enum machine_mode, int,
 							rtx, rtx, rtx, rtx));
 

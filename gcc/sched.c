@@ -127,10 +127,17 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "insn-attr.h"
 
+#ifndef INSN_SCHEDULING
+void
+schedule_insns (dump_file)
+     FILE *dump_file ATTRIBUTE_UNUSED;
+{
+}
+#else /* INSN_SCHEDULING -- rest of file */
+
 extern char *reg_known_equiv_p;
 extern rtx *reg_known_value;
 
-#ifdef INSN_SCHEDULING
 /* Arrays set up by scheduling for the same respective purposes as
    similar-named arrays set up by flow analysis.  We work with these
    arrays during the scheduling pass so we can compare values against
@@ -342,8 +349,6 @@ static void update_flow_info		PROTO((rtx, rtx, rtx, rtx));
 
 /* Main entry point of this file.  */
 void schedule_insns	PROTO((FILE *));
-
-#endif /* INSN_SCHEDULING */
 
 #define SIZE_FOR_MODE(X) (GET_MODE_SIZE (GET_MODE (X)))
 
@@ -451,13 +456,6 @@ remove_dependence (insn, elem)
   return;
 }
 
-#ifndef INSN_SCHEDULING
-void
-schedule_insns (dump_file)
-     FILE *dump_file;
-{
-}
-#else
 #ifndef __GNUC__
 #define __inline
 #endif
@@ -1737,6 +1735,8 @@ sched_analyze (head, tail)
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END
+		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_RANGE_START
+		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_RANGE_END
 		   || (NOTE_LINE_NUMBER (insn) == NOTE_INSN_SETJMP
 		       && GET_CODE (PREV_INSN (insn)) != CALL_INSN)))
 	{
@@ -2516,6 +2516,8 @@ unlink_notes (insn, tail)
       else if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_SETJMP
 	       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG
 	       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_END
+	       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_START
+	       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_END
 	       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
 	       && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_END)
 	{
@@ -4289,14 +4291,18 @@ schedule_insns (dump_file)
      remember how far we can cut back the stack on exit.  */
 
   /* Allocate data for this pass.  See comments, above,
-     for what these vectors do.  */
-  insn_luid = (int *) alloca (max_uid * sizeof (int));
-  insn_priority = (int *) alloca (max_uid * sizeof (int));
-  insn_tick = (int *) alloca (max_uid * sizeof (int));
-  insn_costs = (short *) alloca (max_uid * sizeof (short));
-  insn_units = (short *) alloca (max_uid * sizeof (short));
-  insn_blockage = (unsigned int *) alloca (max_uid * sizeof (unsigned int));
-  insn_ref_count = (int *) alloca (max_uid * sizeof (int));
+     for what these vectors do.
+
+     We use xmalloc instead of alloca, because max_uid can be very large
+     when there is a lot of function inlining.  If we used alloca, we could
+     exceed stack limits on some hosts for some inputs.  */
+  insn_luid = (int *) xmalloc (max_uid * sizeof (int));
+  insn_priority = (int *) xmalloc (max_uid * sizeof (int));
+  insn_tick = (int *) xmalloc (max_uid * sizeof (int));
+  insn_costs = (short *) xmalloc (max_uid * sizeof (short));
+  insn_units = (short *) xmalloc (max_uid * sizeof (short));
+  insn_blockage = (unsigned int *) xmalloc (max_uid * sizeof (unsigned int));
+  insn_ref_count = (int *) xmalloc (max_uid * sizeof (int));
 
   if (reload_completed == 0)
     {
@@ -4320,7 +4326,7 @@ schedule_insns (dump_file)
     {
       rtx line;
 
-      line_note = (rtx *) alloca (max_uid * sizeof (rtx));
+      line_note = (rtx *) xmalloc (max_uid * sizeof (rtx));
       bzero ((char *) line_note, max_uid * sizeof (rtx));
       line_note_head = (rtx *) alloca (n_basic_blocks * sizeof (rtx));
       bzero ((char *) line_note_head, n_basic_blocks * sizeof (rtx));
@@ -4556,6 +4562,17 @@ schedule_insns (dump_file)
 	      REG_N_CALLS_CROSSED (regno) = sched_reg_n_calls_crossed[regno];
 	  }
     }
+
+  free (insn_luid);
+  free (insn_priority);
+  free (insn_tick);
+  free (insn_costs);
+  free (insn_units);
+  free (insn_blockage);
+  free (insn_ref_count);
+
+  if (write_symbols != NO_DEBUG)
+    free (line_note);
 
   if (reload_completed == 0)
     {

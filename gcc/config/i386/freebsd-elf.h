@@ -38,7 +38,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Indicate that jump tables go in the text section.  This is
    necessary when compiling PIC code.  */
-#define JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION (flag_pic)
 
 /* Copy this from the svr4 specifications... */
 /* Define the register numbers to be used in Dwarf debugging information.
@@ -143,7 +143,7 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_PREDEFINES "-Di386 -Dunix -D__ELF__ -D__FreeBSD__ -Asystem(unix) -Asystem(FreeBSD) -Acpu(i386) -Amachine(i386)"
 
 #undef CPP_SPEC
-#define CPP_SPEC "%(cpp_cpu) %[cpp_cpu] %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
+#define CPP_SPEC "%(cpp_cpu) %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
 
 #undef	LIB_SPEC
 #if 1
@@ -185,3 +185,16 @@ Boston, MA 02111-1307, USA.  */
 	%{static:-static}}}"
 
 /* Get perform_* macros to build libgcc.a.  */
+
+/* A C statement to output to the stdio stream FILE an assembler
+   command to advance the location counter to a multiple of 1<<LOG
+   bytes if it is within MAX_SKIP bytes.
+
+   This is used to align code labels according to Intel recommendations.  */
+
+#ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+#define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE,LOG,MAX_SKIP) \
+  if ((LOG)!=0) \
+    if ((MAX_SKIP)==0) fprintf ((FILE), "\t.p2align %d\n", (LOG)); \
+    else fprintf ((FILE), "\t.p2align %d,,%d\n", (LOG), (MAX_SKIP))
+#endif

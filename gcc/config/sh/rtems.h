@@ -1,4 +1,4 @@
-/* Definitions for rtems targeting a SH using elf.
+/* Definitions for rtems targeting a SH using COFF.
    Copyright (C) 1997 Free Software Foundation, Inc.
    Contributed by Joel Sherrill (joel@OARcorp.com).
 
@@ -24,10 +24,12 @@ Boston, MA 02111-1307, USA.  */
 /* Specify predefined symbols in preprocessor.  */
 
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-D__sh__ -D__ELF__ -Drtems -D__rtems__ \
+#define CPP_PREDEFINES "-D__sh__ -Drtems -D__rtems__ \
   -Asystem(rtems) -Acpu(sh) -Amachine(sh)"
 
 /* Generate calls to memcpy, memcmp and memset.  */
 #ifndef TARGET_MEM_FUNCTIONS
 #define TARGET_MEM_FUNCTIONS
 #endif
+
+/* end of sh/rtems.h */

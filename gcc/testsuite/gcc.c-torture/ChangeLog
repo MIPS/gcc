@@ -1,3 +1,49 @@
+1998-10-06  Ken Raeburn  <raeburn@cygnus.com>
+
+	* special/981006-1.c: New test.  Make sure gcc doesn't lose track
+	of the possible targets of tablejump insns.
+	* special/special.exp: Run it.
+
+Thu Oct  1 17:15:26 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* compile/981001-1.c: New test.
+	* execute/981001-1.c: New test.
+	
+Wed Aug 26 16:10:00 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* execute/loop-4b.c: New test.
+
+Mon Aug 24 14:20:32 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* execute/bcp-1.c (main): Fix optimize test loop to count number
+	tests in opt_t0 not good_t0.
+
+Thu Aug 13 00:13:55 1998  Jeffrey A Law  (law@cygnus.com)
+
+	* execute/ieee/ieee.exp: Pass -ffloat-store to compiler for
+	ieee tests.
+
+Mon Jul 27 11:05:07 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* execute/ieee/930529-1.c (main): Check to see if __thumb__ is
+	defined, and test for ARM style doubles if so.
+
+Fri Jul 24 11:02:43 1998  Nick Clifton  <nickc@cygnus.com>
+
+	* execute/comp-goto-1.c (main): Make main() return an int.
+
+Thu Jun 18 15:12:30 1998  Michael Meissner  <meissner@cygnus.com>
+
+	* execute/980618-{1,2}.c: New tests that showed up m32r bugs.
+
+Fri Jun  5 21:54:26 1997  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* execute/980605-1.c: New test.
+
+Sun May 31 23:23:29 1998  Michael Meissner  <meissner@cygnus.com>
+
+	* execute/ieee/mzero2.c: New test to better test IEEE -0 support.
+
 Wed Apr  8 13:09:15 1998  Jim Wilson  <wilson@cygnus.com>
 
 	* execute/980407-1.c: Delete test.  Is duplicate of loop-4.c.

@@ -1,6 +1,6 @@
 /* ste.c -- Implementation File (module.c template V1.0)
-   Copyright (C) 1995-1998 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.ai.mit.edu).
+   Copyright (C) 1995, 1996 Free Software Foundation, Inc.
+   Contributed by James Craig Burley (burley@gnu.org).
 
 This file is part of GNU Fortran.
 
@@ -45,12 +45,13 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* Include files. */
 
+#include "proj.h"
+
 #if FFECOM_targetCURRENT == FFECOM_targetGCC
-#include "config.j"
 #include "rtl.j"
+#include "toplev.j"
 #endif
 
-#include "proj.h"
 #include "ste.h"
 #include "bld.h"
 #include "com.h"
@@ -636,7 +637,8 @@ ffeste_io_dofio_ (ffebld expr)
     {
       num_elements = size_binop (CEIL_DIV_EXPR,
 			TYPE_SIZE (TREE_TYPE (TREE_TYPE (variable))), size);
-      num_elements = size_binop (CEIL_DIV_EXPR, num_elements,
+      num_elements = size_binop (CEIL_DIV_EXPR,
+				 num_elements,
 				 size_int (TYPE_PRECISION
 					   (char_type_node)));
       num_elements = convert (ffecom_f2c_ftnlen_type_node,
@@ -736,8 +738,9 @@ ffeste_io_dolio_ (ffebld expr)
       num_elements = size_binop (CEIL_DIV_EXPR,
 			TYPE_SIZE (TREE_TYPE (TREE_TYPE (variable))), size);
       num_elements = size_binop (CEIL_DIV_EXPR,
-				 num_elements, size_int (TYPE_PRECISION
-							 (char_type_node)));
+				 num_elements,
+				 size_int (TYPE_PRECISION
+					   (char_type_node)));
       num_elements = convert (ffecom_f2c_ftnlen_type_node,
 			      num_elements);
     }

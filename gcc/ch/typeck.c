@@ -41,17 +41,13 @@ extern tree intQI_type_node;
 extern tree intHI_type_node;
 extern tree intSI_type_node;
 extern tree intDI_type_node;
-#if HOST_BITS_PER_WIDE_INT >= 64
 extern tree intTI_type_node;
-#endif
 
 extern tree unsigned_intQI_type_node;
 extern tree unsigned_intHI_type_node;
 extern tree unsigned_intSI_type_node;
 extern tree unsigned_intDI_type_node;
-#if HOST_BITS_PER_WIDE_INT >= 64
 extern tree unsigned_intTI_type_node;
-#endif
 
 /* forward declarations */
 static int chill_l_equivalent PROTO((tree, tree, struct mode_chain*));
@@ -3842,10 +3838,8 @@ type_for_size (bits, unsignedp)
   if (bits <= TYPE_PRECISION (intDI_type_node))
     return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
 
-#if HOST_BITS_PER_WIDE_INT >= 64
   if (bits <= TYPE_PRECISION (intTI_type_node))
     return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
-#endif
 
   return 0;
 }
@@ -3886,10 +3880,8 @@ type_for_mode (mode, unsignedp)
   if (mode == TYPE_MODE (intDI_type_node))
     return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
 
-#if HOST_BITS_PER_WIDE_INT >= 64
   if (mode == TYPE_MODE (intTI_type_node))
     return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
-#endif
 
   if (mode == TYPE_MODE (float_type_node))
     return float_type_node;

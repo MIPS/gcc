@@ -31,7 +31,7 @@ struct obstack *rtl_obstack = &obstack;
 #define obstack_chunk_free free
 
 char *xmalloc PROTO((unsigned));
-static void fatal ();
+static void fatal PVPROTO ((char *, ...)) ATTRIBUTE_PRINTF_1;
 void fancy_abort PROTO((void));
 
 /* Define this so we can link with print-rtl.o to get debug_rtx function.  */
@@ -620,7 +620,6 @@ output_add_clobbers ()
   printf ("\n\nvoid\nadd_clobbers (pattern, insn_code_number)\n");
   printf ("     rtx pattern;\n     int insn_code_number;\n");
   printf ("{\n");
-  printf ("  int i;\n\n");
   printf ("  switch (insn_code_number)\n");
   printf ("    {\n");
 
@@ -703,11 +702,22 @@ xrealloc (ptr, size)
 }
 
 static void
-fatal (s, a1, a2)
-     char *s;
+fatal VPROTO ((char *format, ...))
 {
+#ifndef __STDC__
+  char *format;
+#endif
+  va_list ap;
+
+  VA_START (ap, format);
+
+#ifndef __STDC__
+  format = va_arg (ap, char *);
+#endif
+
   fprintf (stderr, "genemit: ");
-  fprintf (stderr, s, a1, a2);
+  vfprintf (stderr, format, ap);
+  va_end (ap);
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
@@ -763,11 +773,12 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"insn-config.h\"\n\n");
   printf ("#include \"insn-flags.h\"\n\n");
   printf ("#include \"insn-codes.h\"\n\n");
+  printf ("#include \"reload.h\"\n");
   printf ("extern char *insn_operand_constraint[][MAX_RECOG_OPERANDS];\n\n");
   printf ("extern rtx recog_operand[];\n");
   printf ("#define operands emit_operand\n\n");
-  printf ("#define FAIL do {end_sequence (); return _val;} while (0)\n");
-  printf ("#define DONE do {_val = gen_sequence (); end_sequence (); return _val;} while (0)\n");
+  printf ("#define FAIL return (end_sequence (), _val)\n");
+  printf ("#define DONE return (_val = gen_sequence (), end_sequence (), _val)\n");
 
   /* Read the machine description.  */
 

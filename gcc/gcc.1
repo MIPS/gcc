@@ -20,10 +20,10 @@
 .if n .sp
 .if t .sp 0.4
 ..
-.Id $Id: gcc.1,v 1.9 1998/12/16 20:55:57 law Exp $
+.Id $Id: gcc.1,v 1.8 1998/08/29 10:37:47 law Exp $
 .TH GCC 1 "\*(Dt" "GNU Tools" "GNU Tools"
 .SH NAME
-gcc, g++ \- GNU project C and C++ Compiler (egcs-1.0)
+gcc, g++ \- GNU project C and C++ Compiler (egcs-1.1)
 .SH SYNOPSIS
 .B gcc
 .RI "[ " option " | " filename " ].\|.\|."
@@ -193,6 +193,7 @@ in the following sections.
 \-Wimplicit\-int
 \-Wimplicit\-function\-declaration
 \-Winline
+\-Wlong\-long
 \-Wmain
 \-Wmissing\-prototypes
 \-Wmissing\-declarations
@@ -2004,6 +2005,20 @@ Warn if an \c
 .B \-Wenum\-clash
 Warn about conversion between different enumeration types (C++ only).
 .TP
+.B \-Wlong-long
+Warn if
+.B long long \c
+type is used.  This is default.  To inhibit
+the warning messages, use flag `\|\c
+.B \-Wno\-long\-long\c
+\&\|'.  Flags `\|\c
+.B \-W\-long\-long\c
+\&\|' and `\|\c
+.B \-Wno\-long\-long\c
+\&\|' are taken into account only when flag `\|\c
+.B \-pedantic\c
+\&\|' is used.
+.TP
 .B \-Woverloaded\-virtual
 (C++ only.)
 In a derived class, the definitions of virtual functions must match
@@ -3547,7 +3562,7 @@ be compiled with the same
 value.
 .TP
 .B \-nocpp
-Tell the MIPS assembler to not run it's preprocessor over user
+Tell the MIPS assembler to not run its preprocessor over user
 assembler files (with a `\|\c
 .B .s\c
 \&\|' suffix) when assembling them.

@@ -69,15 +69,6 @@
 ;; # instructions (4 bytes each)
 (define_attr "length" "" (const_int 1))
 
-;; whether or not an instruction has a mandatory delay slot
-(define_attr "dslot" "no,yes"
-  (if_then_else (ior (eq_attr "type" "branch,jump,call,xfer,hilo,fcmp")
-		     (and (eq_attr "type" "load")
-			  (and (eq (symbol_ref "mips_isa") (const_int 1))
-				   (eq (symbol_ref "mips16") (const_int 0)))))
-		(const_string "yes")
-		(const_string "no")))
-
 ;; Attribute describing the processor.  This attribute must match exactly
 ;; with the processor_type enumeration in mips.h.
 
@@ -93,6 +84,18 @@
 (define_attr "cpu"
   "default,r3000,r3900,r6000,r4000,r4100,r4300,r4600,r4650,r5000,r8000"
   (const (symbol_ref "mips_cpu_attr")))
+
+;; Does the instruction have a mandatory delay slot?
+;;   The 3900, is (mostly) mips1, but does not have a manditory load delay
+;;   slot. 
+(define_attr "dslot" "no,yes"
+  (if_then_else (ior (eq_attr "type" "branch,jump,call,xfer,hilo,fcmp")
+		     (and (eq_attr "type" "load")
+			  (and (eq (symbol_ref "mips_isa") (const_int 1))
+			       (and (eq (symbol_ref "mips16") (const_int 0))
+                                    (eq_attr "cpu" "!r3900")))))
+		(const_string "yes")
+		(const_string "no")))
 
 ;; Attribute defining whether or not we can use the branch-likely instructions
 
@@ -1628,6 +1631,7 @@
    (set_attr "mode"	"SF")
    (set_attr "length"	"2")])	;; mul.s + nop
 
+
 ;; ??? The R4000 (only) has a cpu bug.  If a double-word shift executes while
 ;; a multiply is in progress, it may give an incorrect result.  Avoid
 ;; this by keeping the mflo with the mult on the R4000.
@@ -1641,10 +1645,8 @@
   ""
   "
 {
-  if (GENERATE_MULT3)
+  if (HAVE_mulsi3_mult3)
     emit_insn (gen_mulsi3_mult3 (operands[0], operands[1], operands[2]));
-  else if (TARGET_MAD)
-    emit_insn (gen_mulsi3_r4650 (operands[0], operands[1], operands[2]));
   else if (mips_cpu != PROCESSOR_R4000 || TARGET_MIPS16)
     emit_insn (gen_mulsi3_internal (operands[0], operands[1], operands[2]));
   else
@@ -1653,14 +1655,22 @@
 }")
 
 (define_insn "mulsi3_mult3"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(mult:SI (match_operand:SI 1 "register_operand" "d")
-		 (match_operand:SI 2 "register_operand" "d")))
-   (clobber (match_scratch:SI 3 "=h"))
-   (clobber (match_scratch:SI 4 "=l"))
-   (clobber (match_scratch:SI 5 "=a"))]
-  "GENERATE_MULT3"
-  "mult\\t%0,%1,%2"
+  [(set (match_operand:SI 0 "register_operand" "=d,l")
+	(mult:SI (match_operand:SI 1 "register_operand" "d,d")
+		 (match_operand:SI 2 "register_operand" "d,d")))
+   (clobber (match_scratch:SI 3 "=h,h"))
+   (clobber (match_scratch:SI 4 "=l,X"))
+   (clobber (match_scratch:SI 5 "=a,a"))]
+  "GENERATE_MULT3
+   || TARGET_MAD"
+  "*
+{
+  if (which_alternative == 1)
+    return \"mult\\t%1,%2\";
+  if (TARGET_MAD)
+    return \"mul\\t%0,%1,%2\";
+  return \"mult\\t%0,%1,%2\";
+}"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")
    (set_attr "length"	"1")])
@@ -1700,18 +1710,76 @@
    (set_attr "mode"	"SI")
    (set_attr "length"	"3")])		;; mult + mflo + delay
 
-(define_insn "mulsi3_r4650"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(mult:SI (match_operand:SI 1 "register_operand" "d")
-		 (match_operand:SI 2 "register_operand" "d")))
-   (clobber (match_scratch:SI 3 "=h"))
-   (clobber (match_scratch:SI 4 "=l"))
-   (clobber (match_scratch:SI 5 "=a"))]
-  "TARGET_MAD"
-  "mul\\t%0,%1,%2"
-  [(set_attr "type"	"imul")
+;; Multiply-accumulate patterns
+
+;; For processors that can copy the output to a general register:
+;;
+;; The all-d alternative is needed because the combiner will find this
+;; pattern and then register alloc/reload will move registers around to
+;; make them fit, and we don't want to trigger unnecessary loads to LO.
+;;
+;; The last alternative should be made slightly less desirable, but adding
+;; "?" to the constraint is too strong, and causes values to be loaded into
+;; LO even when that's more costly.  For now, using "*d" mostly does the
+;; trick.
+(define_insn "*mul_acc_si"
+  [(set (match_operand:SI 0 "register_operand" "=l,*d,*d")
+	(plus:SI (mult:SI (match_operand:SI 1 "register_operand" "d,d,d")
+			  (match_operand:SI 2 "register_operand" "d,d,d"))
+		 (match_operand:SI 3 "register_operand" "0,l,*d")))
+   (clobber (match_scratch:SI 4 "=h,h,h"))
+   (clobber (match_scratch:SI 5 "=X,3,l"))
+   (clobber (match_scratch:SI 6 "=a,a,a"))
+   (clobber (match_scratch:SI 7 "=X,X,d"))]
+  "TARGET_MIPS3900
+   && !TARGET_MIPS16"
+  "*
+{
+  static char *const madd[] = { \"madd\\t%1,%2\",    \"madd\\t%0,%1,%2\" };
+  if (which_alternative == 2)
+    return \"#\";
+  return madd[which_alternative];
+}"
+  [(set_attr "type"	"imul,imul,multi")
    (set_attr "mode"	"SI")
-   (set_attr "length"	"1")])
+   (set_attr "length"	"1,1,2")])
+
+;; Split the above insn if we failed to get LO allocated.
+(define_split
+  [(set (match_operand:SI 0 "register_operand" "")
+	(plus:SI (mult:SI (match_operand:SI 1 "register_operand" "")
+			  (match_operand:SI 2 "register_operand" ""))
+		 (match_operand:SI 3 "register_operand" "")))
+   (clobber (match_scratch:SI 4 ""))
+   (clobber (match_scratch:SI 5 ""))
+   (clobber (match_scratch:SI 6 ""))
+   (clobber (match_scratch:SI 7 ""))]
+  "reload_completed && GP_REG_P (true_regnum (operands[0])) && GP_REG_P (true_regnum (operands[3]))"
+  [(parallel [(set (match_dup 7)
+		   (mult:SI (match_dup 1) (match_dup 2)))
+	      (clobber (match_dup 4))
+	      (clobber (match_dup 5))
+	      (clobber (match_dup 6))])
+   (set (match_dup 0) (plus:SI (match_dup 7) (match_dup 3)))]
+  "")
+
+(define_split
+  [(set (match_operand:SI 0 "register_operand" "")
+	(minus:SI (match_operand:SI 1 "register_operand" "")
+		  (mult:SI (match_operand:SI 2 "register_operand" "")
+			   (match_operand:SI 3 "register_operand" ""))))
+   (clobber (match_scratch:SI 4 ""))
+   (clobber (match_scratch:SI 5 ""))
+   (clobber (match_scratch:SI 6 ""))
+   (clobber (match_scratch:SI 7 ""))]
+  "reload_completed && GP_REG_P (true_regnum (operands[0])) && GP_REG_P (true_regnum (operands[1]))"
+  [(parallel [(set (match_dup 7)
+		   (mult:SI (match_dup 2) (match_dup 3)))
+	      (clobber (match_dup 4))
+	      (clobber (match_dup 5))
+	      (clobber (match_dup 6))])
+   (set (match_dup 0) (minus:SI (match_dup 1) (match_dup 7)))]
+  "")
 
 (define_expand "muldi3"
   [(set (match_operand:DI 0 "register_operand" "=l")
@@ -1720,6 +1788,7 @@
    (clobber (match_scratch:DI 3 "=h"))
    (clobber (match_scratch:DI 4 "=a"))]
   "TARGET_64BIT"
+
   "
 {
   if (GENERATE_MULT3 || mips_cpu == PROCESSOR_R4000 || TARGET_MIPS16)
@@ -1786,49 +1855,15 @@
   ""
   "
 {
+  rtx dummy = gen_rtx (SIGN_EXTEND, DImode, const0_rtx);
   if (TARGET_64BIT)
-    emit_insn (gen_mulsidi3_64bit (operands[0], operands[1], operands[2]));
+    emit_insn (gen_mulsidi3_64bit (operands[0], operands[1], operands[2],
+				   dummy, dummy));
   else
-    emit_insn (gen_mulsidi3_internal (operands[0], operands[1], operands[2]));
+    emit_insn (gen_mulsidi3_internal (operands[0], operands[1], operands[2],
+				      dummy, dummy));
   DONE;
 }")
-
-(define_insn "mulsidi3_internal"
-  [(set (match_operand:DI 0 "register_operand" "=x")
-	(mult:DI (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
-		 (sign_extend:DI (match_operand:SI 2 "register_operand" "d"))))
-   (clobber (match_scratch:SI 3 "=a"))]
-  "!TARGET_64BIT"
-  "mult\\t%1,%2"
-  [(set_attr "type"	"imul")
-   (set_attr "mode"	"SI")
-   (set_attr "length"	"1")])
-
-(define_insn "mulsidi3_64bit"
-  [(set (match_operand:DI 0 "register_operand" "=a")
-	(mult:DI (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
-		 (sign_extend:DI (match_operand:SI 2 "register_operand" "d"))))
-   (clobber (match_scratch:DI 3 "=l"))
-   (clobber (match_scratch:DI 4 "=h"))]
-  "TARGET_64BIT"
-  "mult\\t%1,%2"
-  [(set_attr "type"	"imul")
-   (set_attr "mode"	"SI")
-   (set_attr "length"	"1")])
-
-(define_insn "smulsi3_highpart"
-  [(set (match_operand:SI 0 "register_operand" "=h")
-	(truncate:SI
-	 (lshiftrt:DI (mult:DI (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
-			       (sign_extend:DI (match_operand:SI 2 "register_operand" "d")))
-		      (const_int 32))))
-   (clobber (match_scratch:SI 3 "=l"))
-   (clobber (match_scratch:SI 4 "=a"))]
-  ""
-  "mult\\t%1,%2"
-  [(set_attr "type"	"imul")
-   (set_attr "mode"	"SI")
-   (set_attr "length"	"1")])
 
 (define_expand "umulsidi3"
   [(set (match_operand:DI 0 "register_operand" "=x")
@@ -1837,46 +1872,117 @@
   ""
   "
 {
+  rtx dummy = gen_rtx (ZERO_EXTEND, DImode, const0_rtx);
   if (TARGET_64BIT)
-    emit_insn (gen_umulsidi3_64bit (operands[0], operands[1], operands[2]));
+    emit_insn (gen_mulsidi3_64bit (operands[0], operands[1], operands[2],
+				   dummy, dummy));
   else
-    emit_insn (gen_umulsidi3_internal (operands[0], operands[1], operands[2]));
+    emit_insn (gen_mulsidi3_internal (operands[0], operands[1], operands[2],
+				      dummy, dummy));
   DONE;
 }")
 
-(define_insn "umulsidi3_internal"
+(define_insn "mulsidi3_internal"
   [(set (match_operand:DI 0 "register_operand" "=x")
-	(mult:DI (zero_extend:DI (match_operand:SI 1 "register_operand" "d"))
-		 (zero_extend:DI (match_operand:SI 2 "register_operand" "d"))))
-   (clobber (match_scratch:SI 3 "=a"))]
-  "!TARGET_64BIT"
-  "multu\\t%1,%2"
+	(mult:DI (match_operator:DI 3 "extend_operator"
+				    [(match_operand:SI 1 "register_operand" "d")])
+		 (match_operator:DI 4 "extend_operator"
+				    [(match_operand:SI 2 "register_operand" "d")])))
+   (clobber (match_scratch:SI 5 "=a"))]
+  "!TARGET_64BIT && GET_CODE (operands[3]) == GET_CODE (operands[4])"
+  "*
+{
+  if (GET_CODE (operands[3]) == SIGN_EXTEND)
+    return \"mult\\t%1,%2\";
+  return \"multu\\t%1,%2\";
+}"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")
    (set_attr "length"	"1")])
 
-(define_insn "umulsidi3_64bit"
+(define_insn "mulsidi3_64bit"
   [(set (match_operand:DI 0 "register_operand" "=a")
-	(mult:DI (zero_extend:DI (match_operand:SI 1 "register_operand" "d"))
-		 (zero_extend:DI (match_operand:SI 2 "register_operand" "d"))))
-   (clobber (match_scratch:DI 3 "=l"))
-   (clobber (match_scratch:DI 4 "=h"))]
-  "TARGET_64BIT"
-  "multu\\t%1,%2"
+	(mult:DI (match_operator:DI 3 "extend_operator"
+				    [(match_operand:SI 1 "register_operand" "d")])
+		 (match_operator:DI 4 "extend_operator"
+				    [(match_operand:SI 2 "register_operand" "d")])))
+   (clobber (match_scratch:DI 5 "=l"))
+   (clobber (match_scratch:DI 6 "=h"))]
+  "TARGET_64BIT && GET_CODE (operands[3]) == GET_CODE (operands[4])"
+  "*
+{
+  if (GET_CODE (operands[3]) == SIGN_EXTEND)
+    return \"mult\\t%1,%2\";
+  return \"multu\\t%1,%2\";
+}"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")
    (set_attr "length"	"1")])
 
-(define_insn "umulsi3_highpart"
+;; _highpart patterns
+(define_expand "smulsi3_highpart"
+  [(set (match_operand:SI 0 "register_operand" "=h")
+	(truncate:SI
+	 (lshiftrt:DI (mult:DI (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
+			       (sign_extend:DI (match_operand:SI 2 "register_operand" "d")))
+		      (const_int 32))))]
+  ""
+  "
+{
+  rtx dummy = gen_rtx (SIGN_EXTEND, DImode, const0_rtx);
+  rtx dummy2 = gen_rtx_LSHIFTRT (DImode, const0_rtx, const0_rtx);
+#ifndef NO_MD_PROTOTYPES
+  rtx (*genfn) PROTO((rtx, rtx, rtx, rtx, rtx, rtx));
+#else
+  rtx (*genfn) ();
+#endif
+  genfn = gen_xmulsi3_highpart_internal;
+  emit_insn ((*genfn) (operands[0], operands[1], operands[2], dummy,
+		       dummy, dummy2));
+  DONE;
+}")
+
+(define_expand "umulsi3_highpart"
   [(set (match_operand:SI 0 "register_operand" "=h")
 	(truncate:SI
 	 (lshiftrt:DI (mult:DI (zero_extend:DI (match_operand:SI 1 "register_operand" "d"))
 			       (zero_extend:DI (match_operand:SI 2 "register_operand" "d")))
-		      (const_int 32))))
-   (clobber (match_scratch:SI 3 "=l"))
-   (clobber (match_scratch:SI 4 "=a"))]
+		      (const_int 32))))]
   ""
-  "multu\\t%1,%2"
+  "
+{
+  rtx dummy = gen_rtx (ZERO_EXTEND, DImode, const0_rtx);
+  rtx dummy2 = gen_rtx_LSHIFTRT (DImode, const0_rtx, const0_rtx);
+#ifndef NO_MD_PROTOTYPES
+  rtx (*genfn) PROTO((rtx, rtx, rtx, rtx, rtx, rtx));
+#else
+  rtx (*genfn) ();
+#endif
+  genfn = gen_xmulsi3_highpart_internal;
+  emit_insn ((*genfn) (operands[0], operands[1], operands[2], dummy,
+		       dummy, dummy2));
+  DONE;
+}")
+
+(define_insn "xmulsi3_highpart_internal"
+  [(set (match_operand:SI 0 "register_operand" "=h")
+	(truncate:SI
+	 (match_operator:DI 5 "highpart_shift_operator"
+			    [(mult:DI (match_operator:DI 3 "extend_operator"
+							 [(match_operand:SI 1 "register_operand" "d")])
+				      (match_operator:DI 4 "extend_operator"
+							 [(match_operand:SI 2 "register_operand" "d")]))
+			     (const_int 32)])))
+   (clobber (match_scratch:SI 6 "=l"))
+   (clobber (match_scratch:SI 7 "=a"))]
+  "GET_CODE (operands[3]) == GET_CODE (operands[4])"
+  "*
+{
+  if (GET_CODE (operands[3]) == SIGN_EXTEND)
+    return \"mult\\t%1,%2\";
+  else
+    return \"multu\\t%1,%2\";
+}"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")
    (set_attr "length"	"1")])
@@ -1919,86 +2025,53 @@
 		 (match_dup 0)))
    (clobber (match_scratch:SI 3 "=h"))
    (clobber (match_scratch:SI 4 "=a"))]
-  "TARGET_MAD || GENERATE_MADD"
+  "TARGET_MAD"
+  "mad\\t%1,%2"
+  [(set_attr "type"	"imul")
+   (set_attr "mode"	"SI")
+   (set_attr "length"   "1")])
+
+(define_insn "*mul_acc_di"
+  [(set (match_operand:DI 0 "register_operand" "+x")
+	(plus:DI (mult:DI (match_operator:DI 3 "extend_operator"
+			   [(match_operand:SI 1 "register_operand" "d")])
+			  (match_operator:DI 4 "extend_operator"
+			   [(match_operand:SI 2 "register_operand" "d")]))
+		 (match_dup 0)))
+   (clobber (match_scratch:SI 5 "=a"))]
+  "TARGET_MAD
+   && ! TARGET_64BIT
+   && GET_CODE (operands[3]) == GET_CODE (operands[4])"
   "*
 {
-  if (TARGET_MAD)
+  if (GET_CODE (operands[3]) == SIGN_EXTEND)
     return \"mad\\t%1,%2\";
   else
-    return \"madd\\t%1,%2\";
+    return \"madu\\t%1,%2\";
 }"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")
    (set_attr "length"   "1")])
 
-(define_insn "maddi"
-  [(set (match_operand:DI 0 "register_operand" "+x")
-	(plus:DI (mult:DI (sign_extend:DI
-			   (match_operand:SI 1 "register_operand" "d"))
-			  (sign_extend:DI
-			   (match_operand:SI 2 "register_operand" "d")))
-		 (match_dup 0)))
-   (clobber (match_scratch:SI 3 "=a"))]
-  "TARGET_MAD && ! TARGET_64BIT"
-  "mad\\t%1,%2"
-  [(set_attr "type"	"imul")
-   (set_attr "mode"	"SI")
-   (set_attr "length"   "1")])
-
-(define_insn "maddi_64bit"
+(define_insn "*mul_acc_64bit_di"
   [(set (match_operand:DI 0 "register_operand" "+a")
-	(plus:DI (mult:DI (sign_extend:DI
-			   (match_operand:SI 1 "register_operand" "d"))
-			  (sign_extend:DI
-			   (match_operand:SI 2 "register_operand" "d")))
+	(plus:DI (mult:DI (match_operator:DI 3 "extend_operator"
+			   [(match_operand:SI 1 "register_operand" "d")])
+			  (match_operator:DI 4 "extend_operator"
+			   [(match_operand:SI 2 "register_operand" "d")]))
 		 (match_dup 0)))
-   (clobber (match_scratch:DI 3 "=l"))
-   (clobber (match_scratch:DI 4 "=h"))]
-  "TARGET_MAD && TARGET_64BIT"
-  "mad\\t%1,%2"
-  [(set_attr "type"	"imul")
-   (set_attr "mode"	"SI")
-   (set_attr "length"   "1")])
-
-(define_insn "umaddi"
-  [(set (match_operand:DI 0 "register_operand" "+x")
-	(plus:DI (mult:DI (zero_extend:DI
-			   (match_operand:SI 1 "register_operand" "d"))
-			  (zero_extend:DI
-			   (match_operand:SI 2 "register_operand" "d")))
-		 (match_dup 0)))
-   (clobber (match_scratch:SI 3 "=a"))]
-  "TARGET_MAD && ! TARGET_64BIT"
-  "madu\\t%1,%2"
-  [(set_attr "type"	"imul")
-   (set_attr "mode"	"SI")
-   (set_attr "length"   "1")])
-
-(define_insn "umaddi_64bit"
-  [(set (match_operand:DI 0 "register_operand" "+a")
-	(plus:DI (mult:DI (zero_extend:DI
-			   (match_operand:SI 1 "register_operand" "d"))
-			  (zero_extend:DI
-			   (match_operand:SI 2 "register_operand" "d")))
-		 (match_dup 0)))
-   (clobber (match_scratch:DI 3 "=l"))
-   (clobber (match_scratch:DI 4 "=h"))]
-  "TARGET_MAD && TARGET_64BIT"
-  "madu\\t%1,%2"
-  [(set_attr "type"	"imul")
-   (set_attr "mode"	"SI")
-   (set_attr "length"   "1")])
-
-(define_insn "madd3"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(plus:SI (mult:SI (match_operand:SI 1 "register_operand" "d")
-			  (match_operand:SI 2 "register_operand" "d"))
-		 (match_operand:SI 3 "register_operand" "l")))
-   (clobber (match_scratch:SI 4 "=l"))
    (clobber (match_scratch:SI 5 "=h"))
-   (clobber (match_scratch:SI 6 "=a"))]
-  "GENERATE_MADD"
-  "madd\\t%0,%1,%2"
+   (clobber (match_scratch:SI 6 "=l"))]
+  "TARGET_MAD
+   && TARGET_64BIT
+   && GET_CODE (operands[3]) == GET_CODE (operands[4])"
+  "*
+{
+  if (GET_CODE (operands[3]) == SIGN_EXTEND)
+    return \"mad\\t%1,%2\";
+  else
+    return \"madu\\t%1,%2\";
+}"
   [(set_attr "type"	"imul")
    (set_attr "mode"	"SI")
    (set_attr "length"   "1")])
@@ -4151,24 +4224,30 @@ move\\t%0,%z4\\n\\
 
 ;; Bit field extract patterns which use lwl/lwr.
 
-;; ??? There should be DImode variants for 64 bit code, but the current
-;; bitfield scheme can't handle that.  We would need to add new optabs
-;; in order to make that work.
-
 ;; ??? There could be HImode variants for the ulh/ulhu/ush macros.
 ;; It isn't clear whether this will give better code.
 
+;; Only specify the mode operand 1, the rest are assumed to be word_mode.
 (define_expand "extv"
-  [(set (match_operand:SI 0 "register_operand" "")
-	(sign_extract:SI (match_operand:QI 1 "memory_operand" "")
-			 (match_operand:SI 2 "immediate_operand" "")
-			 (match_operand:SI 3 "immediate_operand" "")))]
+  [(set (match_operand 0 "register_operand" "")
+	(sign_extract (match_operand:QI 1 "memory_operand" "")
+		      (match_operand 2 "immediate_operand" "")
+		      (match_operand 3 "immediate_operand" "")))]
   "!TARGET_MIPS16"
   "
 {
-  /* If this isn't a 32 bit field, and it doesn't start on a byte boundary
-     then fail.  */
-  if (INTVAL (operands[2]) != 32 || (INTVAL (operands[3]) % 8) != 0)
+  /* If the field does not start on a byte boundary, then fail.  */
+  if (INTVAL (operands[3]) % 8 != 0) 
+    FAIL;
+
+  /* MIPS I and MIPS II can only handle a 32bit field.  */
+  if (!TARGET_64BIT && INTVAL (operands[2]) != 32)
+    FAIL;
+
+  /* MIPS III and MIPS IV can handle both 32bit and 64bit fields.  */
+  if (TARGET_64BIT
+      && INTVAL (operands[2]) != 64
+      && INTVAL (operands[2]) != 32)
     FAIL;
 
   /* This can happen for a 64 bit target, when extracting a value from
@@ -4180,22 +4259,43 @@ move\\t%0,%z4\\n\\
   /* Change the mode to BLKmode for aliasing purposes.  */
   operands[1] = change_address (operands[1], BLKmode, XEXP (operands[1], 0));
 
-  /* Otherwise, emit a lwl/lwr pair to load the value.  */
-  emit_insn (gen_movsi_ulw (operands[0], operands[1]));
+  /* Otherwise, emit a l[wd]l/l[wd]r pair to load the value.  */
+  if (INTVAL (operands[2]) == 64)
+    emit_insn (gen_movdi_uld (operands[0], operands[1]));
+  else
+    {
+      if (TARGET_64BIT)
+	{
+	  operands[0] = gen_lowpart (SImode, operands[0]);
+	  if (operands[0] == NULL_RTX)
+	    FAIL;
+	}
+      emit_insn (gen_movsi_ulw (operands[0], operands[1]));
+    }
   DONE;
 }")
 
+;; Only specify the mode operand 1, the rest are assumed to be word_mode.
 (define_expand "extzv"
-  [(set (match_operand:SI 0 "register_operand" "")
-	(zero_extract:SI (match_operand:QI 1 "memory_operand" "")
-			 (match_operand:SI 2 "immediate_operand" "")
-			 (match_operand:SI 3 "immediate_operand" "")))]
+  [(set (match_operand 0 "register_operand" "")
+	(zero_extract (match_operand:QI 1 "memory_operand" "")
+		      (match_operand 2 "immediate_operand" "")
+		      (match_operand 3 "immediate_operand" "")))]
   "!TARGET_MIPS16"
   "
 {
-  /* If this isn't a 32 bit field, and it doesn't start on a byte boundary
-     then fail.  */
-  if (INTVAL (operands[2]) != 32 || (INTVAL (operands[3]) % 8) != 0)
+  /* If the field does not start on a byte boundary, then fail.  */
+  if (INTVAL (operands[3]) % 8 != 0) 
+    FAIL;
+
+  /* MIPS I and MIPS II can only handle a 32bit field.  */
+  if (!TARGET_64BIT && INTVAL (operands[2]) != 32)
+    FAIL;
+
+  /* MIPS III and MIPS IV can handle both 32bit and 64bit fields.  */
+  if (TARGET_64BIT
+      && INTVAL (operands[2]) != 64
+      && INTVAL (operands[2]) != 32)
     FAIL;
 
   /* This can happen for a 64 bit target, when extracting a value from
@@ -4208,21 +4308,42 @@ move\\t%0,%z4\\n\\
   operands[1] = change_address (operands[1], BLKmode, XEXP (operands[1], 0));
 
   /* Otherwise, emit a lwl/lwr pair to load the value.  */
-  emit_insn (gen_movsi_ulw (operands[0], operands[1]));
+  if (INTVAL (operands[2]) == 64)
+    emit_insn (gen_movdi_uld (operands[0], operands[1]));
+  else
+    {
+      if (TARGET_64BIT)
+	{
+	  operands[0] = gen_lowpart (SImode, operands[0]);
+	  if (operands[0] == NULL_RTX)
+	    FAIL;
+	}
+      emit_insn (gen_movsi_ulw (operands[0], operands[1]));
+    }
   DONE;
 }")
 
+;; Only specify the mode operands 0, the rest are assumed to be word_mode.
 (define_expand "insv"
-  [(set (zero_extract:SI (match_operand:QI 0 "memory_operand" "")
-			 (match_operand:SI 1 "immediate_operand" "")
-			 (match_operand:SI 2 "immediate_operand" ""))
-	(match_operand:SI 3 "register_operand" ""))]
+  [(set (zero_extract (match_operand:QI 0 "memory_operand" "")
+		      (match_operand 1 "immediate_operand" "")
+		      (match_operand 2 "immediate_operand" ""))
+	(match_operand 3 "register_operand" ""))]
   "!TARGET_MIPS16"
   "
 {
-  /* If this isn't a 32 bit field, and it doesn't start on a byte boundary
-     then fail.  */
-  if (INTVAL (operands[1]) != 32 || (INTVAL (operands[2]) % 8) != 0)
+  /* If the field does not start on a byte boundary, then fail.  */
+  if (INTVAL (operands[2]) % 8 != 0) 
+    FAIL;
+
+  /* MIPS I and MIPS II can only handle a 32bit field.  */
+  if (!TARGET_64BIT && INTVAL (operands[1]) != 32)
+    FAIL;
+
+  /* MIPS III and MIPS IV can handle both 32bit and 64bit fields.  */
+  if (TARGET_64BIT
+      && INTVAL (operands[1]) != 64
+      && INTVAL (operands[1]) != 32)
     FAIL;
 
   /* This can happen for a 64 bit target, when storing into a 32 bit union
@@ -4234,8 +4355,19 @@ move\\t%0,%z4\\n\\
   /* Change the mode to BLKmode for aliasing purposes.  */
   operands[0] = change_address (operands[0], BLKmode, XEXP (operands[0], 0));
 
-  /* Otherwise, emit a swl/swr pair to load the value.  */
-  emit_insn (gen_movsi_usw (operands[0], operands[3]));
+  /* Otherwise, emit a s[wd]l/s[wd]r pair to load the value.  */
+  if (INTVAL (operands[1]) == 64)
+    emit_insn (gen_movdi_usd (operands[0], operands[3]));
+  else
+    {
+      if (TARGET_64BIT)
+	{
+	  operands[3] = gen_lowpart (SImode, operands[3]);
+	  if (operands[3] == NULL_RTX)
+	    FAIL;
+	}
+      emit_insn (gen_movsi_usw (operands[0], operands[3]));
+    }
   DONE;
 }")
 
@@ -4291,6 +4423,65 @@ move\\t%0,%z4\\n\\
     return \"sw\\t%1,%0\";
 
   return \"usw\\t%z1,%0\";
+}"
+  [(set_attr "type"	"store")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"2,4")])
+
+;; Bit field extract patterns which use ldl/ldr.
+
+;; unaligned double word moves generated by the bit field patterns
+
+(define_insn "movdi_uld"
+  [(set (match_operand:DI 0 "register_operand" "=&d,&d")
+	(unspec:DI [(match_operand:BLK 1 "general_operand" "R,o")] 0))]
+  ""
+  "*
+{
+  rtx offset = const0_rtx;
+  rtx addr = XEXP (operands[1], 0);
+  rtx mem_addr = eliminate_constant_term (addr, &offset);
+  char *ret;
+
+  if (TARGET_STATS)
+    mips_count_memory_refs (operands[1], 2);
+
+  /* The stack/frame pointers are always aligned, so we can convert
+     to the faster lw if we are referencing an aligned stack location.  */
+
+  if ((INTVAL (offset) & 7) == 0
+      && (mem_addr == stack_pointer_rtx || mem_addr == frame_pointer_rtx))
+    ret = \"ld\\t%0,%1\";
+  else
+    ret = \"uld\\t%0,%1\";
+
+  return mips_fill_delay_slot (ret, DELAY_LOAD, operands, insn);
+}"
+  [(set_attr "type"	"load,load")
+   (set_attr "mode"	"SI")
+   (set_attr "length"	"2,4")])
+
+(define_insn "movdi_usd"
+  [(set (match_operand:BLK 0 "memory_operand" "=R,o")
+	(unspec:BLK [(match_operand:DI 1 "reg_or_0_operand" "dJ,dJ")] 1))]
+  ""
+  "*
+{
+  rtx offset = const0_rtx;
+  rtx addr = XEXP (operands[0], 0);
+  rtx mem_addr = eliminate_constant_term (addr, &offset);
+
+  if (TARGET_STATS)
+    mips_count_memory_refs (operands[0], 2);
+
+  /* The stack/frame pointers are always aligned, so we can convert
+     to the faster sw if we are referencing an aligned stack location.  */
+
+  if ((INTVAL (offset) & 7) == 0
+      && (mem_addr == stack_pointer_rtx || mem_addr == frame_pointer_rtx))
+    return \"sd\\t%1,%0\";
+
+  return \"usd\\t%z1,%0\";
 }"
   [(set_attr "type"	"store")
    (set_attr "mode"	"SI")
@@ -4576,7 +4767,7 @@ move\\t%0,%z4\\n\\
 
 (define_expand "reload_indi"
   [(set (match_operand:DI 0 "register_operand" "=b")
-	(match_operand:DI 1 "movdi_operand" "b"))
+	(match_operand:DI 1 "" "b"))
    (clobber (match_operand:TI 2 "register_operand" "=&d"))]
   "TARGET_64BIT"
   "
@@ -4591,10 +4782,12 @@ move\\t%0,%z4\\n\\
       if (GET_CODE (operands[1]) == MEM)
 	{
 	  rtx memword, offword, hiword, loword;
+	  rtx addr = find_replacement (&XEXP (operands[1], 0));
+	  rtx op1 = change_address (operands[1], VOIDmode, addr);
 
 	  scratch = gen_rtx (REG, SImode, REGNO (scratch));
-	  memword = change_address (operands[1], SImode, NULL_RTX);
-	  offword = change_address (adj_offsettable_operand (operands[1], 4),
+	  memword = change_address (op1, SImode, NULL_RTX);
+	  offword = change_address (adj_offsettable_operand (op1, 4),
 				    SImode, NULL_RTX);
 	  if (BYTES_BIG_ENDIAN)
 	    {
@@ -4643,7 +4836,7 @@ move\\t%0,%z4\\n\\
 ;; use a TImode scratch reg.
 
 (define_expand "reload_outdi"
-  [(set (match_operand:DI 0 "general_operand" "=b")
+  [(set (match_operand:DI 0 "" "=b")
 	(match_operand:DI 1 "se_register_operand" "b"))
    (clobber (match_operand:TI 2 "register_operand" "=&d"))]
   "TARGET_64BIT"
@@ -4665,10 +4858,12 @@ move\\t%0,%z4\\n\\
       if (GET_CODE (operands[0]) == MEM)
 	{
 	  rtx scratch, memword, offword, hiword, loword;
+	  rtx addr = find_replacement (&XEXP (operands[0], 0));
+	  rtx op0 = change_address (operands[0], VOIDmode, addr);
 
 	  scratch = gen_rtx (REG, SImode, REGNO (operands[2]));
-	  memword = change_address (operands[0], SImode, NULL_RTX);
-	  offword = change_address (adj_offsettable_operand (operands[0], 4),
+	  memword = change_address (op0, SImode, NULL_RTX);
+	  offword = change_address (adj_offsettable_operand (op0, 4),
 				    SImode, NULL_RTX);
 	  if (BYTES_BIG_ENDIAN)
 	    {
@@ -5053,7 +5248,9 @@ move\\t%0,%z4\\n\\
       DONE;
     }
   /* FIXME: I don't know how to get a value into the HI register.  */
-  if (GET_CODE (operands[0]) == REG && GP_REG_P (operands[0]))
+  if (GET_CODE (operands[0]) == REG
+      && (TARGET_MIPS16 ? M16_REG_P (REGNO (operands[0]))
+	  : GP_REG_P (REGNO (operands[0]))))
     {
       emit_move_insn (operands[0], operands[1]);
       DONE;
@@ -5360,7 +5557,7 @@ move\\t%0,%z4\\n\\
 
 (define_split
   [(set (match_operand:HI 0 "register_operand" "")
-	(mem:SI (plus:SI (match_dup 0)
+	(mem:HI (plus:SI (match_dup 0)
 			 (match_operand:SI 1 "const_int_operand" ""))))]
   "TARGET_MIPS16 && reload_completed
    && GET_CODE (operands[0]) == REG
@@ -6687,7 +6884,7 @@ move\\t%0,%z4\\n\\
 ;; to make it simple enough for combine to understand.
 
 (define_insn ""
-  [(set (match_operand:SI 0 "register_operand" "d,d")
+  [(set (match_operand:SI 0 "register_operand" "=d,d")
 	(lshiftrt:SI (match_operand:SI 1 "memory_operand" "R,m")
 		     (match_operand:SI 2 "immediate_operand" "I,I")))]
   "TARGET_MIPS16"
@@ -8630,8 +8827,6 @@ move\\t%0,%z4\\n\\
   ""
   "
 {
-  rtx dest;
-
   if (operands[0])		/* eliminate unused code warnings */
     {
       if (TARGET_MIPS16)
@@ -8688,9 +8883,10 @@ move\\t%0,%z4\\n\\
    (set_attr "length"	"1")])
 
 (define_expand "tablejump_internal3"
-  [(set (pc)
-	(plus:SI (match_operand:SI 0 "register_operand" "d")
-		 (label_ref:SI (match_operand:SI 1 "" ""))))]
+  [(parallel [(set (pc)
+		   (plus:SI (match_operand:SI 0 "register_operand" "d")
+			    (label_ref:SI (match_operand:SI 1 "" ""))))
+	      (use (label_ref:SI (match_dup 1)))])]
   ""
   "")
 
@@ -8739,7 +8935,8 @@ move\\t%0,%z4\\n\\
 }")
 
 ;;; Make sure that this only matches the insn before ADDR_DIFF_VEC.  Otherwise
-;;; it is not valid.
+;;; it is not valid.  ??? With the USE, the condition tests may not be required
+;;; any longer.
 
 ;;; ??? The length depends on the ABI.  It is two for o32, and one for n32.
 ;;; We just use the conservative number here.
@@ -8747,7 +8944,8 @@ move\\t%0,%z4\\n\\
 (define_insn ""
   [(set (pc)
 	(plus:SI (match_operand:SI 0 "register_operand" "d")
-		 (label_ref:SI (match_operand:SI 1 "" ""))))]
+		 (label_ref:SI (match_operand:SI 1 "" ""))))
+   (use (label_ref:SI (match_dup 1)))]
   "!(Pmode == DImode) && next_active_insn (insn) != 0
    && GET_CODE (PATTERN (next_active_insn (insn))) == ADDR_DIFF_VEC
    && PREV_INSN (next_active_insn (insn)) == operands[1]"
@@ -8763,19 +8961,22 @@ move\\t%0,%z4\\n\\
    (set_attr "length"	"2")])
 
 (define_expand "tablejump_internal4"
-  [(set (pc)
-	(plus:DI (match_operand:DI 0 "se_register_operand" "d")
-		 (label_ref:DI (match_operand:SI 1 "" ""))))]
+  [(parallel [(set (pc)
+		   (plus:DI (match_operand:DI 0 "se_register_operand" "d")
+			    (label_ref:DI (match_operand:SI 1 "" ""))))
+	      (use (label_ref:DI (match_dup 1)))])]
   ""
   "")
 
 ;;; Make sure that this only matches the insn before ADDR_DIFF_VEC.  Otherwise
-;;; it is not valid.
+;;; it is not valid.  ??? With the USE, the condition tests may not be required
+;;; any longer.
 
 (define_insn ""
   [(set (pc)
 	(plus:DI (match_operand:DI 0 "se_register_operand" "d")
-		 (label_ref:DI (match_operand:SI 1 "" ""))))]
+		 (label_ref:DI (match_operand:SI 1 "" ""))))
+   (use (label_ref:DI (match_dup 1)))]
   "Pmode == DImode && next_active_insn (insn) != 0
    && GET_CODE (PATTERN (next_active_insn (insn))) == ADDR_DIFF_VEC
    && PREV_INSN (next_active_insn (insn)) == operands[1]"

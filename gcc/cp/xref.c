@@ -286,8 +286,10 @@ GNU_xref_end_scope (id,inid,prm,keep)
   else if (keep == 2 || inid != 0) stype = "INTERN";
   else stype = "EXTERN";
 
-  fprintf (xref_file,"SCP %s %d %d %d %d %s\n",
-	   filename (xf), xs->start, lineno,xs->lid, inid, stype);
+  fprintf (xref_file, "SCP %s %d %d %d ",
+	   filename (xf), xs->start, lineno,xs->lid);
+  fprintf (xref_file, HOST_WIDE_INT_PRINT_DEC, inid);
+  fprintf (xref_file, " %s\n", stype);
 
   if (lxs == NULL) cur_scope = xs->outer;
   else lxs->outer = xs->outer;
@@ -539,6 +541,19 @@ gen_assign(xf, name)
     fprintf(xref_file, "ASG %s %d %s\n", filename(xf), lineno, s);
 }
 
+static char*
+classname (cls)
+     tree cls;
+{
+  if (cls && TREE_CODE_CLASS (TREE_CODE (cls)) == 't')
+    cls = TYPE_NAME (cls);
+  if (cls && TREE_CODE_CLASS (TREE_CODE (cls)) == 'd')
+    cls = DECL_NAME (cls);
+  if (cls && TREE_CODE (cls) == IDENTIFIER_NODE)
+    return IDENTIFIER_POINTER (cls);
+  return "?";
+}
+
 /* Output cross-reference info about a class hierarchy.
    CLS is the class type of interest.  BASE is a baseclass
    for CLS.  PUB and VIRT give the access info about
@@ -549,8 +564,8 @@ gen_assign(xf, name)
 
 void
 GNU_xref_hier(cls, base, pub, virt, frnd)
-   char *cls;
-   char *base;
+   tree cls;
+   tree base;
    int pub;
    int virt;
    int frnd;
@@ -562,7 +577,8 @@ GNU_xref_hier(cls, base, pub, virt, frnd)
   if (xf == NULL) return;
 
   fprintf(xref_file, "HIE %s %d %s %s %d %d %d\n",
-	  filename(xf), lineno, cls, base, pub, virt, frnd);
+	  filename(xf), lineno, classname (cls), classname (base), 
+	  pub, virt, frnd);
 }
 
 /* Output cross-reference info about class members.  CLS
@@ -601,7 +617,7 @@ GNU_xref_member(cls, fld)
     pure = 1;
 
   d = IDENTIFIER_POINTER(cls);
-  sprintf(buf, "%d%s", strlen(d), d);
+  sprintf(buf, "%d%s", (int) strlen(d), d);
 #ifdef XREF_SHORT_MEMBER_NAMES
   i = strlen(buf);
 #endif
@@ -715,7 +731,7 @@ simplify_type(typ)
   int lvl, i;
 
   i = strlen(typ);
-  while (i > 0 && ISSPACE(typ[i-1])) typ[--i] = 0;
+  while (i > 0 && ISSPACE((unsigned char) typ[i-1])) typ[--i] = 0;
 
   if (i > 7 && STREQL(&typ[i-5], "const"))
     {

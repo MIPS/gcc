@@ -592,6 +592,11 @@ stabilize (x)
       MEM_IN_STRUCT_P (mem) = MEM_IN_STRUCT_P (x) || GET_CODE (addr) == PLUS;
       RTX_UNCHANGING_P (mem) = RTX_UNCHANGING_P (x);
       MEM_VOLATILE_P (mem) = MEM_VOLATILE_P (x);
+
+      /* Since the new MEM is just like the old X, it can alias only
+	 the things that X could.  */
+      MEM_ALIAS_SET (mem) = MEM_ALIAS_SET (x);
+
       return mem;
     }
   return x;
@@ -866,8 +871,8 @@ emit_stack_save (save_level, psave, after)
 {
   rtx sa = *psave;
   /* The default is that we use a move insn and save in a Pmode object.  */
-  rtx (*fcn) () = gen_move_insn;
-  enum machine_mode mode = Pmode;
+  rtx (*fcn) PROTO ((rtx, rtx)) = gen_move_insn;
+  enum machine_mode mode = STACK_SAVEAREA_MODE (save_level);
 
   /* See if this machine has anything special to do for this kind of save.  */
   switch (save_level)
@@ -875,28 +880,19 @@ emit_stack_save (save_level, psave, after)
 #ifdef HAVE_save_stack_block
     case SAVE_BLOCK:
       if (HAVE_save_stack_block)
-	{
-	  fcn = gen_save_stack_block;
-	  mode = insn_operand_mode[CODE_FOR_save_stack_block][0];
-	}
+	fcn = gen_save_stack_block;
       break;
 #endif
 #ifdef HAVE_save_stack_function
     case SAVE_FUNCTION:
       if (HAVE_save_stack_function)
-	{
-	  fcn = gen_save_stack_function;
-	  mode = insn_operand_mode[CODE_FOR_save_stack_function][0];
-	}
+	fcn = gen_save_stack_function;
       break;
 #endif
 #ifdef HAVE_save_stack_nonlocal
     case SAVE_NONLOCAL:
       if (HAVE_save_stack_nonlocal)
-	{
-	  fcn = gen_save_stack_nonlocal;
-	  mode = insn_operand_mode[(int) CODE_FOR_save_stack_nonlocal][0];
-	}
+	fcn = gen_save_stack_nonlocal;
       break;
 #endif
     default:
@@ -957,7 +953,7 @@ emit_stack_restore (save_level, sa, after)
      rtx sa;
 {
   /* The default is that we use a move insn.  */
-  rtx (*fcn) () = gen_move_insn;
+  rtx (*fcn) PROTO ((rtx, rtx)) = gen_move_insn;
 
   /* See if this machine has anything special to do for this kind of save.  */
   switch (save_level)
@@ -975,7 +971,6 @@ emit_stack_restore (save_level, sa, after)
       break;
 #endif
 #ifdef HAVE_restore_stack_nonlocal
-
     case SAVE_NONLOCAL:
       if (HAVE_restore_stack_nonlocal)
 	fcn = gen_restore_stack_nonlocal;
@@ -1243,13 +1238,12 @@ allocate_dynamic_stack_space (size, target, known_align)
 #ifdef HAVE_allocate_stack
   if (HAVE_allocate_stack)
     {
-      enum machine_mode mode;
+      enum machine_mode mode = STACK_SIZE_MODE;
 
       if (insn_operand_predicate[(int) CODE_FOR_allocate_stack][0]
 	  && ! ((*insn_operand_predicate[(int) CODE_FOR_allocate_stack][0])
 		(target, Pmode)))
 	target = copy_to_mode_reg (Pmode, target);
-      mode = insn_operand_mode[(int) CODE_FOR_allocate_stack][1];
       size = convert_modes (mode, ptr_mode, size, 1);
       if (insn_operand_predicate[(int) CODE_FOR_allocate_stack][1]
 	  && ! ((*insn_operand_predicate[(int) CODE_FOR_allocate_stack][1])
@@ -1271,9 +1265,9 @@ allocate_dynamic_stack_space (size, target, known_align)
 	{
  	  rtx note_target = get_last_insn ();
 
-	  REG_NOTES (note_target) = gen_rtx (EXPR_LIST, REG_SAVE_AREA,
-					     setjmpless_size,
-					     REG_NOTES (note_target));
+	  REG_NOTES (note_target)
+	    = gen_rtx_EXPR_LIST (REG_SAVE_AREA, setjmpless_size,
+				 REG_NOTES (note_target));
 	}
 #endif /* SETJMP_VIA_SAVE_AREA */
 #ifdef STACK_GROWS_DOWNWARD

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler. Matsushita MN10300 series
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
 This file is part of GNU CC.
@@ -35,10 +35,6 @@ Boston, MA 02111-1307, USA.  */
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
 extern int target_flags;
-
-/* Global registers known to hold the value zero.  */
-extern struct rtx_def *zero_dreg;
-extern struct rtx_def *zero_areg;
 
 /* Macros used in the machine description to test the flags.  */
 
@@ -182,7 +178,7 @@ extern struct rtx_def *zero_areg;
    If HARD_REGNO_MODE_OK could produce different values for MODE1 and MODE2,
    for any hard reg, then this must be 0 for correct output.  */
 #define MODES_TIEABLE_P(MODE1, MODE2) \
-  (MODE1 == MODE2 || GET_MODE_SIZE (MODE1) <= 4 && GET_MODE_SIZE (MODE2) <= 4)
+  (MODE1 == MODE2 || (GET_MODE_SIZE (MODE1) <= 4 && GET_MODE_SIZE (MODE2) <= 4))
 
 /* 4 data, and effectively 3 address registers is small as far as I'm
    concerned.  */
@@ -209,7 +205,9 @@ extern struct rtx_def *zero_areg;
    class that represents their union.  */
    
 enum reg_class {
-  NO_REGS, DATA_REGS, ADDRESS_REGS, SP_REGS, DATA_OR_ADDRESS_REGS, SP_OR_ADDRESS_REGS, GENERAL_REGS, ALL_REGS, LIM_REG_CLASSES
+  NO_REGS, DATA_REGS, ADDRESS_REGS, SP_REGS,
+  DATA_OR_ADDRESS_REGS, SP_OR_ADDRESS_REGS, 
+  GENERAL_REGS, ALL_REGS, LIM_REG_CLASSES
 };
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
@@ -244,10 +242,9 @@ enum reg_class {
 #define REGNO_REG_CLASS(REGNO) \
   ((REGNO) < 4 ? DATA_REGS : \
    (REGNO) < 9 ? ADDRESS_REGS : \
-    (REGNO) == 9 ? SP_REGS: 0)
+    (REGNO) == 9 ? SP_REGS : 0)
 
 /* The class value for index registers, and the one for base regs.  */
-
 #define INDEX_REG_CLASS DATA_REGS
 #define BASE_REG_CLASS  SP_OR_ADDRESS_REGS
 
@@ -256,7 +253,7 @@ enum reg_class {
 #define REG_CLASS_FROM_LETTER(C) \
   ((C) == 'd' ? DATA_REGS : \
    (C) == 'a' ? ADDRESS_REGS : \
-   (C) == 'x' ? SP_REGS : NO_REGS)
+   (C) == 'y' ? SP_REGS : NO_REGS)
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -269,6 +266,10 @@ enum reg_class {
 #define REGNO_OK_FOR_BASE_P(regno) \
   (((regno) > 3 && regno < FIRST_PSEUDO_REGISTER)	\
    || (reg_renumber[regno] > 3 && reg_renumber[regno] < FIRST_PSEUDO_REGISTER))
+
+#define REGNO_OK_FOR_BIT_BASE_P(regno) \
+  (((regno) > 3 && regno < 10)	\
+   || (reg_renumber[regno] > 3 && reg_renumber[regno] < 10))
 
 #define REGNO_OK_FOR_INDEX_P(regno) \
   (((regno) >= 0 && regno < 4)	\
@@ -585,11 +586,11 @@ extern struct rtx_def *mn10300_builtin_saveregs ();
     && GET_MODE (OP) == QImode					\
     && (CONSTANT_ADDRESS_P (XEXP (OP, 0))			\
 	|| (GET_CODE (XEXP (OP, 0)) == REG			\
-	    && REG_OK_FOR_BASE_P (XEXP (OP, 0))			\
+	    && REG_OK_FOR_BIT_BASE_P (XEXP (OP, 0))		\
 	    && XEXP (OP, 0) != stack_pointer_rtx)		\
 	|| (GET_CODE (XEXP (OP, 0)) == PLUS			\
 	    && GET_CODE (XEXP (XEXP (OP, 0), 0)) == REG		\
-	    && REG_OK_FOR_BASE_P (XEXP (XEXP (OP, 0), 0))	\
+	    && REG_OK_FOR_BIT_BASE_P (XEXP (XEXP (OP, 0), 0))	\
 	    && XEXP (XEXP (OP, 0), 0) != stack_pointer_rtx	\
 	    && GET_CODE (XEXP (XEXP (OP, 0), 1)) == CONST_INT	\
 	    && INT_8_BITS (INTVAL (XEXP (XEXP (OP, 0), 1))))))
@@ -618,16 +619,20 @@ extern struct rtx_def *mn10300_builtin_saveregs ();
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_INDEX_P(X)  \
-  ((REGNO (X) >= 0 && REGNO(X) <= 3) || REGNO (X) >= FIRST_PSEUDO_REGISTER)
+  ((REGNO (X) >= 0 && REGNO(X) <= 3) || REGNO (X) >= 10)
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg.  */
 #define REG_OK_FOR_BASE_P(X) \
-  ((REGNO (X) >= 4 && REGNO(X) <= 9) || REGNO (X) >= FIRST_PSEUDO_REGISTER)
+  ((REGNO (X) >= 4 && REGNO(X) <= 9) || REGNO (X) >= 10)
+#define REG_OK_FOR_BIT_BASE_P(X) \
+  ((REGNO (X) >= 4 && REGNO(X) <= 9))
 #else
 /* Nonzero if X is a hard reg that can be used as an index.  */
 #define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
 /* Nonzero if X is a hard reg that can be used as a base reg.  */
 #define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
+/* Nonzero if X is a hard reg that can be used as a base reg.  */
+#define REG_OK_FOR_BIT_BASE_P(X) REGNO_OK_FOR_BIT_BASE_P (REGNO (X))
 #endif
 
 
@@ -766,6 +771,8 @@ extern struct rtx_def *legitimize_address ();
 /* Provide the costs of a rtl expression.  This is in the body of a
    switch on CODE.  */
 #define RTX_COSTS(RTX,CODE,OUTER_CODE) \
+  case UMOD:		\
+  case UDIV:		\
   case MOD:		\
   case DIV:		\
     return 8;		\
@@ -944,6 +951,33 @@ do { char dstr[30];					\
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define DBX_REGISTER_NUMBER(REGNO) REGNO
+
+/* GDB always assumes the current function's frame begins at the value
+   of the stack pointer upon entry to the current function.  Accessing
+   local variables and parameters passed on the stack is done using the
+   base of the frame + an offset provided by GCC.
+
+   For functions which have frame pointers this method works fine;
+   the (frame pointer) == (stack pointer at function entry) and GCC provides
+   an offset relative to the frame pointer.
+
+   This loses for functions without a frame pointer; GCC provides an offset
+   which is relative to the stack pointer after adjusting for the function's
+   frame size.  GDB would prefer the offset to be relative to the value of
+   the stack pointer at the function's entry.  Yuk!  */
+#define DEBUGGER_AUTO_OFFSET(X) \
+  ((GET_CODE (X) == PLUS ? INTVAL (XEXP (X, 1)) : 0) \
+    + (frame_pointer_needed \
+       ? 0 : -initial_offset (FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM)))
+
+#define DEBUGGER_ARG_OFFSET(OFFSET, X) \
+  ((GET_CODE (X) == PLUS ? OFFSET : 0) \
+    + (frame_pointer_needed \
+       ? 0 : -initial_offset (ARG_POINTER_REGNUM, STACK_POINTER_REGNUM)))
+
+/* We need to prepend underscores.  */
+#define ASM_OUTPUT_DWARF2_ADDR_CONST(FILE,ADDR) \
+  fprintf ((FILE), "\t%s\t_%s", UNALIGNED_WORD_ASM_OP, (ADDR))
 
 /* Define to use software floating point emulator for REAL_ARITHMETIC and
    decimal <-> binary conversion. */

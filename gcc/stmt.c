@@ -51,6 +51,7 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "machmode.h"
 #include "toplev.h"
+#include "output.h"
 #include "ggc.h"
 
 #define obstack_chunk_alloc xmalloc
@@ -1650,7 +1651,9 @@ expand_expr_stmt (exp)
     exp = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (exp)), exp);
 
   last_expr_type = TREE_TYPE (exp);
-  if (! flag_syntax_only || expr_stmts_for_value)
+  if (flag_syntax_only && ! expr_stmts_for_value)
+    last_expr_value = 0;
+  else
     last_expr_value = expand_expr (exp,
 				   (expr_stmts_for_value
 				    ? NULL_RTX : const0_rtx),
@@ -2026,13 +2029,8 @@ expand_loop_continue_here ()
 void
 expand_end_loop ()
 {
-  register rtx insn;
-  register rtx start_label;
-  rtx last_test_insn = 0;
-  int num_insns = 0;
-    
-  insn = get_last_insn ();
-  start_label = loop_stack->data.loop.start_label;
+  rtx start_label = loop_stack->data.loop.start_label;
+  rtx insn = get_last_insn ();
 
   /* Mark the continue-point at the top of the loop if none elsewhere.  */
   if (start_label == loop_stack->data.loop.continue_label)
@@ -2040,16 +2038,33 @@ expand_end_loop ()
 
   do_pending_stack_adjust ();
 
-  /* If optimizing, perhaps reorder the loop.  If the loop
-     starts with a conditional exit, roll that to the end
-     where it will optimize together with the jump back.
+  /* If optimizing, perhaps reorder the loop.  If the loop starts with
+     a loop exit, roll that to the end where it will optimize together
+     with the jump back.
 
-     We look for the last conditional branch to the exit that we encounter
-     before hitting 30 insns or a CALL_INSN.  If we see an unconditional
-     branch to the exit first, use it.
+     We look for the conditional branch to the exit, except that once
+     we find such a branch, we don't look past 30 instructions.
 
-     We must also stop at NOTE_INSN_BLOCK_BEG and NOTE_INSN_BLOCK_END notes
-     because moving them is not valid.  */
+     In more detail, if the loop presently looks like this (in pseudo-C):
+
+         start_label:
+         if (test) goto end_label;
+	 body;
+	 goto start_label;
+	 end_label:
+	 
+     transform it to look like:
+
+         goto start_label;
+         newstart_label:
+	 body;
+	 start_label:
+	 if (test) goto end_label;
+	 goto newstart_label;
+	 end_label:
+
+     Here, the `test' may actually consist of some reasonably complex
+     code, terminating in a test.  */
 
   if (optimize
       &&
@@ -2058,18 +2073,48 @@ expand_end_loop ()
 	 && SET_DEST (PATTERN (insn)) == pc_rtx
 	 && GET_CODE (SET_SRC (PATTERN (insn))) == IF_THEN_ELSE))
     {
+      int eh_regions = 0;
+      int num_insns = 0;
+      rtx last_test_insn = NULL_RTX;
+
       /* Scan insns from the top of the loop looking for a qualified
 	 conditional exit.  */
       for (insn = NEXT_INSN (loop_stack->data.loop.start_label); insn;
 	   insn = NEXT_INSN (insn))
 	{
-	  if (GET_CODE (insn) == CALL_INSN || GET_CODE (insn) == CODE_LABEL)
-	    break;
+	  if (GET_CODE (insn) == NOTE) 
+	    {
+	      if (optimize < 2
+		  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
+		      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END))
+		/* The code that actually moves the exit test will
+		   carefully leave BLOCK notes in their original
+		   location.  That means, however, that we can't debug
+		   the exit test itself.  So, we refuse to move code
+		   containing BLOCK notes at low optimization levels.  */
+		break;
 
-	  if (GET_CODE (insn) == NOTE
-	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
-		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END))
-	    break;
+	      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG)
+		++eh_regions;
+	      else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)
+		{
+		  --eh_regions;
+		  if (eh_regions < 0) 
+		    /* We've come to the end of an EH region, but
+		       never saw the beginning of that region.  That
+		       means that an EH region begins before the top
+		       of the loop, and ends in the middle of it.  The
+		       existence of such a situation violates a basic
+		       assumption in this code, since that would imply
+		       that even when EH_REGIONS is zero, we might
+		       move code out of an exception region.  */
+		    abort ();
+		}
+
+	      /* We already know this INSN is a NOTE, so there's no
+		 point in looking at it to see if it's a JUMP.  */
+	      continue;
+	    }
 
 	  if (GET_CODE (insn) == JUMP_INSN || GET_CODE (insn) == INSN)
 	    num_insns++;
@@ -2077,31 +2122,76 @@ expand_end_loop ()
 	  if (last_test_insn && num_insns > 30)
 	    break;
 
-	  if (GET_CODE (insn) == JUMP_INSN && GET_CODE (PATTERN (insn)) == SET
-	      && SET_DEST (PATTERN (insn)) == pc_rtx
-	      && GET_CODE (SET_SRC (PATTERN (insn))) == IF_THEN_ELSE
-	      && ((GET_CODE (XEXP (SET_SRC (PATTERN (insn)), 1)) == LABEL_REF
-		   && ((XEXP (XEXP (SET_SRC (PATTERN (insn)), 1), 0)
-			== loop_stack->data.loop.end_label)
-		       || (XEXP (XEXP (SET_SRC (PATTERN (insn)), 1), 0)
-			   == loop_stack->data.loop.alt_end_label)))
-		  || (GET_CODE (XEXP (SET_SRC (PATTERN (insn)), 2)) == LABEL_REF
-		      && ((XEXP (XEXP (SET_SRC (PATTERN (insn)), 2), 0)
-			   == loop_stack->data.loop.end_label)
-			  || (XEXP (XEXP (SET_SRC (PATTERN (insn)), 2), 0)
-			      == loop_stack->data.loop.alt_end_label)))))
-	    last_test_insn = insn;
+	  if (eh_regions > 0) 
+	    /* We don't want to move a partial EH region.  Consider:
 
-	  if (last_test_insn == 0 && GET_CODE (insn) == JUMP_INSN
+		  while ( ( { try {
+				if (cond ()) 0;	
+				else {
+				  bar();
+				  1;
+				}
+			      } catch (...) { 
+				1;
+			      } )) {
+		     body;
+		  } 
+
+	        This isn't legal C++, but here's what it's supposed to
+	        mean: if cond() is true, stop looping.  Otherwise,
+	        call bar, and keep looping.  In addition, if cond
+	        throws an exception, catch it and keep looping. Such
+	        constructs are certainy legal in LISP.  
+
+		We should not move the `if (cond()) 0' test since then
+		the EH-region for the try-block would be broken up.
+		(In this case we would the EH_BEG note for the `try'
+		and `if cond()' but not the call to bar() or the
+		EH_END note.)  
+
+	        So we don't look for tests within an EH region.  */
+	    continue;
+
+	  if (GET_CODE (insn) == JUMP_INSN 
 	      && GET_CODE (PATTERN (insn)) == SET
-	      && SET_DEST (PATTERN (insn)) == pc_rtx
-	      && GET_CODE (SET_SRC (PATTERN (insn))) == LABEL_REF
-	      && ((XEXP (SET_SRC (PATTERN (insn)), 0)
-		   == loop_stack->data.loop.end_label)
-		  || (XEXP (SET_SRC (PATTERN (insn)), 0)
-		      == loop_stack->data.loop.alt_end_label)))
-	    /* Include BARRIER.  */
-	    last_test_insn = NEXT_INSN (insn);
+	      && SET_DEST (PATTERN (insn)) == pc_rtx)
+	    {
+	      /* This is indeed a jump.  */
+	      rtx dest1 = NULL_RTX;
+	      rtx dest2 = NULL_RTX;
+	      rtx potential_last_test;
+	      if (GET_CODE (SET_SRC (PATTERN (insn))) == IF_THEN_ELSE)
+		{
+		  /* A conditional jump.  */
+		  dest1 = XEXP (SET_SRC (PATTERN (insn)), 1);
+		  dest2 = XEXP (SET_SRC (PATTERN (insn)), 2);
+		  potential_last_test = insn;
+		}
+	      else
+		{
+		  /* An unconditional jump.  */
+		  dest1 = SET_SRC (PATTERN (insn));
+		  /* Include the BARRIER after the JUMP.  */
+		  potential_last_test = NEXT_INSN (insn);
+		}
+
+	      do {
+		if (dest1 && GET_CODE (dest1) == LABEL_REF
+		    && ((XEXP (dest1, 0) 
+			 == loop_stack->data.loop.alt_end_label)
+			|| (XEXP (dest1, 0) 
+			    == loop_stack->data.loop.end_label)))
+		  {
+		    last_test_insn = potential_last_test;
+		    break;
+		  }
+
+		/* If this was a conditional jump, there may be
+		   another label at which we should look.  */
+		dest1 = dest2;
+		dest2 = NULL_RTX;
+	      } while (dest1);
+	    }
 	}
 
       if (last_test_insn != 0 && last_test_insn != get_last_insn ())
@@ -2111,6 +2201,7 @@ expand_end_loop ()
 	     to jump to there.  */
 	  register rtx newstart_label = gen_label_rtx ();
 	  register rtx start_move = start_label;
+	  rtx next_insn;
 
 	  /* If the start label is preceded by a NOTE_INSN_LOOP_CONT note,
 	     then we want to move this note also.  */
@@ -2120,7 +2211,38 @@ expand_end_loop ()
 	    start_move = PREV_INSN (start_move);
 
 	  emit_label_after (newstart_label, PREV_INSN (start_move));
-	  reorder_insns (start_move, last_test_insn, get_last_insn ());
+
+	  /* Actually move the insns.  Start at the beginning, and
+	     keep copying insns until we've copied the
+	     last_test_insn.  */
+	  for (insn = start_move; insn; insn = next_insn)
+	    {
+	      /* Figure out which insn comes after this one.  We have
+		 to do this before we move INSN.  */
+	      if (insn == last_test_insn)
+		/* We've moved all the insns.  */
+		next_insn = NULL_RTX;
+	      else
+		next_insn = NEXT_INSN (insn);
+
+	      if (GET_CODE (insn) == NOTE
+		  && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
+		      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END))
+		/* We don't want to move NOTE_INSN_BLOCK_BEGs or
+		   NOTE_INSN_BLOCK_ENDs because the correct generation
+		   of debugging information depends on these appearing
+		   in the same order in the RTL and in the tree
+		   structure, where they are represented as BLOCKs.
+		   So, we don't move block notes.  Of course, moving
+		   the code inside the block is likely to make it
+		   impossible to debug the instructions in the exit
+		   test, but such is the price of optimization.  */
+		continue;
+
+	      /* Move the INSN.  */
+	      reorder_insns (insn, insn, get_last_insn ());
+	    }
+
 	  emit_jump_insn_after (gen_jump (start_label),
 				PREV_INSN (newstart_label));
 	  emit_barrier_after (PREV_INSN (newstart_label));
@@ -2569,7 +2691,7 @@ expand_return (retval)
       int n_regs = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
       int bitsize = MIN (TYPE_ALIGN (TREE_TYPE (retval_rhs)),BITS_PER_WORD);
       rtx *result_pseudos = (rtx *) alloca (sizeof (rtx) * n_regs);
-      rtx result_reg, src, dst;
+      rtx result_reg, src = NULL_RTX, dst = NULL_RTX;
       rtx result_val = expand_expr (retval_rhs, NULL_RTX, VOIDmode, 0);
       enum machine_mode tmpmode, result_reg_mode;
 
@@ -3295,6 +3417,8 @@ expand_decl (decl)
       if (flag_float_store && TREE_CODE (type) == REAL_TYPE)
 	MEM_VOLATILE_P (DECL_RTL (decl)) = 1;
 #endif
+
+      MEM_ALIAS_SET (DECL_RTL (decl)) = get_alias_set (decl);
     }
   else
     /* Dynamic-size object: must push space on the stack.  */
@@ -4640,11 +4764,11 @@ check_for_full_enumeration_handling (type)
 	if (!chain)
 	  {
 	    if (TYPE_NAME (type) == 0)
-	      warning ("case value `%d' not in enumerated type",
-		       TREE_INT_CST_LOW (n->low));
+	      warning ("case value `%ld' not in enumerated type",
+		       (long) TREE_INT_CST_LOW (n->low));
 	    else
-	      warning ("case value `%d' not in enumerated type `%s'",
-		       TREE_INT_CST_LOW (n->low),
+	      warning ("case value `%ld' not in enumerated type `%s'",
+		       (long) TREE_INT_CST_LOW (n->low),
 		       IDENTIFIER_POINTER ((TREE_CODE (TYPE_NAME (type))
 					    == IDENTIFIER_NODE)
 					   ? TYPE_NAME (type)
@@ -4660,11 +4784,11 @@ check_for_full_enumeration_handling (type)
 	    if (!chain)
 	      {
 		if (TYPE_NAME (type) == 0)
-		  warning ("case value `%d' not in enumerated type",
-			   TREE_INT_CST_LOW (n->high));
+		  warning ("case value `%ld' not in enumerated type",
+			   (long) TREE_INT_CST_LOW (n->high));
 		else
-		  warning ("case value `%d' not in enumerated type `%s'",
-			   TREE_INT_CST_LOW (n->high),
+		  warning ("case value `%ld' not in enumerated type `%s'",
+			   (long) TREE_INT_CST_LOW (n->high),
 			   IDENTIFIER_POINTER ((TREE_CODE (TYPE_NAME (type))
 						== IDENTIFIER_NODE)
 					       ? TYPE_NAME (type)
@@ -5531,11 +5655,11 @@ emit_case_nodes (index, node, default_label, index_type)
 {
   /* If INDEX has an unsigned type, we must make unsigned branches.  */
   int unsignedp = TREE_UNSIGNED (index_type);
-  typedef rtx rtx_function ();
-  rtx_function *gen_bgt_pat = unsignedp ? gen_bgtu : gen_bgt;
-  rtx_function *gen_bge_pat = unsignedp ? gen_bgeu : gen_bge;
-  rtx_function *gen_blt_pat = unsignedp ? gen_bltu : gen_blt;
-  rtx_function *gen_ble_pat = unsignedp ? gen_bleu : gen_ble;
+  typedef rtx rtx_fn ();
+  rtx_fn *gen_bgt_pat = unsignedp ? gen_bgtu : gen_bgt;
+  rtx_fn *gen_bge_pat = unsignedp ? gen_bgeu : gen_bge;
+  rtx_fn *gen_blt_pat = unsignedp ? gen_bltu : gen_blt;
+  rtx_fn *gen_ble_pat = unsignedp ? gen_bleu : gen_ble;
   enum machine_mode mode = GET_MODE (index);
 
   /* See if our parents have already tested everything for us.

@@ -25,6 +25,7 @@ Boston, MA 02111-1307, USA.  */
 #include "rtl.h"
 #include "tree.h"
 #include "input.h"
+#include "output.h"
 #include "c-lex.h"
 #include "c-tree.h"
 #include "flags.h"
@@ -32,26 +33,21 @@ Boston, MA 02111-1307, USA.  */
 #include "c-pragma.h"
 #include "toplev.h"
 
-/* MULTIBYTE_CHARS support only works for native compilers.
-   ??? Ideally what we want is to model widechar support after
-   the current floating point support.  */
-#ifdef CROSS_COMPILE
-#undef MULTIBYTE_CHARS
-#endif
-
 #ifdef MULTIBYTE_CHARS
+#include "mbchar.h"
 #include <locale.h>
-#endif
+#endif /* MULTIBYTE_CHARS */
 
 #if USE_CPPLIB
 #include "cpplib.h"
-cpp_reader parse_in;
-cpp_options parse_options;
-static enum cpp_token cpp_token;
+extern cpp_reader  parse_in;
+extern cpp_options parse_options;
 #else
 /* Stream for reading from the input file.  */
 FILE *finput;
 #endif
+
+extern void yyprint			PROTO((FILE *, int, YYSTYPE));
 
 /* The elements of `ridpointers' are identifier nodes
    for the reserved type names and storage classes.
@@ -62,24 +58,10 @@ tree ridpointers[(int) RID_MAX];
 #define YYDEBUG 1
 
 #if USE_CPPLIB
-static unsigned char *yy_cur, *yy_lim;
-
-int
-yy_get_token ()
-{
-  for (;;)
-    {
-      parse_in.limit = parse_in.token_buffer;
-      cpp_token = cpp_get_token (&parse_in);
-      if (cpp_token == CPP_EOF)
-	return -1;
-      yy_lim = CPP_PWRITTEN (&parse_in);
-      yy_cur = parse_in.token_buffer;
-      if (yy_cur < yy_lim)
-	return *yy_cur++;
-    }
-}
-
+extern unsigned char *yy_cur, *yy_lim;
+  
+extern int yy_get_token ();
+  
 #define GETC() (yy_cur < yy_lim ? *yy_cur++ : yy_get_token ())
 #define UNGETC(c) ((c), yy_cur--)
 #else
@@ -128,15 +110,14 @@ static int end_of_file;
 static int nextchar = -1;
 #endif
 
-#ifdef HANDLE_SYSV_PRAGMA
-static int handle_sysv_pragma		PROTO((int));
-#endif /* HANDLE_SYSV_PRAGMA */
+#ifdef HANDLE_GENERIC_PRAGMAS
+static int handle_generic_pragma	PROTO((int));
+#endif /* HANDLE_GENERIC_PRAGMAS */
 static int whitespace_cr		PROTO((int));
 static int skip_white_space		PROTO((int));
 static int skip_white_space_on_line	PROTO((void));
 static char *extend_token_buffer	PROTO((char *));
 static int readescape			PROTO((int *));
-int check_newline ();
 
 /* Do not insert generated code into the source, instead, include it.
    This allows us to build gcc automatically even for targets that
@@ -214,10 +195,6 @@ init_parse (filename)
   yy_cur = "\n";
   yy_lim = yy_cur+1;
 
-  cpp_reader_init (&parse_in);
-  parse_in.data = &parse_options;
-  cpp_options_init (&parse_options);
-  cpp_handle_options (&parse_in, 0, NULL); /* FIXME */
   parse_in.show_column = 1;
   if (! cpp_start_read (&parse_in, filename))
     abort ();
@@ -249,6 +226,7 @@ init_lex ()
 #ifdef MULTIBYTE_CHARS
   /* Change to the native locale for multibyte conversions.  */
   setlocale (LC_CTYPE, "");
+  literal_codeset = getenv ("LANG");
 #endif
 
   maxtoken = 40;
@@ -497,88 +475,22 @@ extend_token_buffer (p)
   return token_buffer + offset;
 }
 
-#if !USE_CPPLIB
-#define GET_DIRECTIVE_LINE() get_directive_line (finput)
-#else /* USE_CPPLIB */
-/* Read the rest of a #-directive from input stream FINPUT.
-   In normal use, the directive name and the white space after it
-   have already been read, so they won't be included in the result.
-   We allow for the fact that the directive line may contain
-   a newline embedded within a character or string literal which forms
-   a part of the directive.
-
-   The value is a string in a reusable buffer.  It remains valid
-   only until the next time this function is called.  */
-
-static char *
-GET_DIRECTIVE_LINE ()
+#if defined HANDLE_PRAGMA 
+/* Local versions of these macros, that can be passed as function pointers.  */
+static int
+pragma_getc ()
 {
-  static char *directive_buffer = NULL;
-  static unsigned buffer_length = 0;
-  register char *p;
-  register char *buffer_limit;
-  register int looking_for = 0;
-  register int char_escaped = 0;
-
-  if (buffer_length == 0)
-    {
-      directive_buffer = (char *)xmalloc (128);
-      buffer_length = 128;
-    }
-
-  buffer_limit = &directive_buffer[buffer_length];
-
-  for (p = directive_buffer; ; )
-    {
-      int c;
-
-      /* Make buffer bigger if it is full.  */
-      if (p >= buffer_limit)
-        {
-	  register unsigned bytes_used = (p - directive_buffer);
-
-	  buffer_length *= 2;
-	  directive_buffer
-	    = (char *)xrealloc (directive_buffer, buffer_length);
-	  p = &directive_buffer[bytes_used];
-	  buffer_limit = &directive_buffer[buffer_length];
-        }
-
-      c = GETC ();
-
-      /* Discard initial whitespace.  */
-      if ((c == ' ' || c == '\t') && p == directive_buffer)
-	continue;
-
-      /* Detect the end of the directive.  */
-      if (c == '\n' && looking_for == 0)
-	{
-          UNGETC (c);
-	  c = '\0';
-	}
-
-      *p++ = c;
-
-      if (c == 0)
-	return directive_buffer;
-
-      /* Handle string and character constant syntax.  */
-      if (looking_for)
-	{
-	  if (looking_for == c && !char_escaped)
-	    looking_for = 0;	/* Found terminator... stop looking.  */
-	}
-      else
-        if (c == '\'' || c == '"')
-	  looking_for = c;	/* Don't stop buffering until we see another
-				   one of these (or an EOF).  */
-
-      /* Handle backslash.  */
-      char_escaped = (c == '\\' && ! char_escaped);
-    }
+  return GETC();
 }
-#endif /* USE_CPPLIB */
-
+
+static void
+pragma_ungetc (arg)
+     int arg;
+{
+  UNGETC (arg);
+}
+#endif
+
 /* At the beginning of a line, increment the line number
    and process any #-directive on this line.
    If the line is a #-directive, read the entire line and return a newline.
@@ -630,29 +542,46 @@ check_newline ()
 		c = GETC ();
 	      if (c == '\n')
 		return c;
-#ifdef HANDLE_SYSV_PRAGMA
+
+#if defined HANDLE_PRAGMA || defined HANDLE_GENERIC_PRAGMAS
 	      UNGETC (c);
 	      token = yylex ();
 	      if (token != IDENTIFIER)
 		goto skipline;
-	      return handle_sysv_pragma (token);
-#else /* !HANDLE_SYSV_PRAGMA */
+#endif /* HANDLE_PRAGMA || HANDLE_GENERIC_PRAGMAS */
+	      
 #ifdef HANDLE_PRAGMA
+	      /* We invoke HANDLE_PRAGMA before HANDLE_GENERIC_PRAGMAS (if
+		 both are defined), in order to give the back end a chance to
+		 override the interpretation of generic style pragmas.  */
 #if !USE_CPPLIB
-	      UNGETC (c);
-	      token = yylex ();
-	      if (token != IDENTIFIER)
-		goto skipline;
-	      if (HANDLE_PRAGMA (finput, yylval.ttype))
+	      if (nextchar >= 0)
 		{
-		  c = GETC ();
-		  return c;
+		  c = nextchar, nextchar = -1;
+		  UNGETC (c);
 		}
-#else
-	      ??? do not know what to do ???;
 #endif /* !USE_CPPLIB */
+	      
+	      if (TREE_CODE (yylval.ttype) != IDENTIFIER_NODE)
+		goto skipline;
+
+	      if (HANDLE_PRAGMA (pragma_getc, pragma_ungetc,
+				 IDENTIFIER_POINTER (yylval.ttype)))
+		return GETC ();
 #endif /* HANDLE_PRAGMA */
-#endif /* !HANDLE_SYSV_PRAGMA */
+	      
+#ifdef HANDLE_GENERIC_PRAGMAS
+	      if (handle_generic_pragma (token))
+		return GETC ();
+#endif /* HANDLE_GENERIC_PRAGMAS */
+	      
+	      /* Issue a warning message if we have been asked to do so.
+		 Ignoring unknown pragmas in system header file unless
+		 an explcit -Wunknown-pragmas has been given. */
+	      if (warn_unknown_pragmas > 1
+		  || (warn_unknown_pragmas && ! in_system_header))
+		warning ("ignoring pragma: %s", token_buffer);
+	      
 	      goto skipline;
 	    }
 	}
@@ -911,17 +840,17 @@ linenum:
   return c;
 }
 
-#ifdef HANDLE_SYSV_PRAGMA
+#ifdef HANDLE_GENERIC_PRAGMAS
 
 /* Handle a #pragma directive.
    TOKEN is the token we read after `#pragma'.  Processes the entire input
-   line and returns a character for the caller to reread: either \n or EOF.  */
+   line and return non-zero iff the pragma has been successfully parsed.  */
 
 /* This function has to be in this file, in order to get at
    the token types.  */
 
 static int
-handle_sysv_pragma (token)
+handle_generic_pragma (token)
      register int token;
 {
   register int c;
@@ -937,7 +866,7 @@ handle_sysv_pragma (token)
 	  handle_pragma_token (token_buffer, yylval.ttype);
 	  break;
 	default:
-	  handle_pragma_token (token_buffer, 0);
+	  handle_pragma_token (token_buffer, NULL);
 	}
 #if !USE_CPPLIB
       if (nextchar >= 0)
@@ -948,17 +877,16 @@ handle_sysv_pragma (token)
 
       while (c == ' ' || c == '\t')
 	c = GETC ();
-      if (c == '\n' || c == EOF)
-	{
-	  handle_pragma_token (0, 0);
-	  return c;
-	}
       UNGETC (c);
+      
+      if (c == '\n' || c == EOF)
+	return handle_pragma_token (NULL, NULL);
+
       token = yylex ();
     }
 }
 
-#endif /* HANDLE_SYSV_PRAGMA */
+#endif /* HANDLE_GENERIC_PRAGMAS */
 
 #define ENDFILE -1  /* token that represents end-of-file */
 
@@ -1717,7 +1645,7 @@ yylex ()
 		      {
 			if (spec_long_long)
 			  error ("three `l's in integer constant");
-			else if (pedantic)
+			else if (pedantic && ! in_system_header && warn_long_long)
 			  pedwarn ("ANSI C forbids long long integer constants");
 			spec_long_long = 1;
 		      }
@@ -1889,30 +1817,27 @@ yylex ()
       {
 	register int result = 0;
 	register int num_chars = 0;
+	int chars_seen = 0;
 	unsigned width = TYPE_PRECISION (char_type_node);
 	int max_chars;
-
-	if (wide_flag)
-	  {
-	    width = WCHAR_TYPE_SIZE;
 #ifdef MULTIBYTE_CHARS
-	    max_chars = MB_CUR_MAX;
-#else
-	    max_chars = 1;
+	int longest_char = local_mb_cur_max ();
+	(void) local_mbtowc (NULL_PTR, NULL_PTR, 0);
 #endif
-	  }
-	else
-	  max_chars = TYPE_PRECISION (integer_type_node) / width;
+
+	max_chars = TYPE_PRECISION (integer_type_node) / width;
+	if (wide_flag)
+	  width = WCHAR_TYPE_SIZE;
 
 	while (1)
 	  {
 	  tryagain:
-
 	    c = GETC();
 
 	    if (c == '\'' || c == EOF)
 	      break;
 
+	    ++chars_seen;
 	    if (c == '\\')
 	      {
 		int ignore = 0;
@@ -1933,18 +1858,76 @@ yylex ()
 		  pedwarn ("ANSI C forbids newline in character constant");
 		lineno++;
 	      }
-#ifdef MAP_CHARACTER
 	    else
-	      c = MAP_CHARACTER (c);
+	      {
+#ifdef MULTIBYTE_CHARS
+		wchar_t wc;
+		int i;
+		int char_len = -1;
+		for (i = 1; i <= longest_char; ++i)
+		  {
+		    if (i > maxtoken - 4)
+		      extend_token_buffer (token_buffer);
+
+		    token_buffer[i] = c;
+		    char_len = local_mbtowc (& wc,
+					     token_buffer + 1,
+					     i);
+		    if (char_len != -1)
+		      break;
+		    c = GETC ();
+		  }
+		if (char_len > 1)
+		  {
+		    /* mbtowc sometimes needs an extra char before accepting */
+		    if (char_len < i)
+		      UNGETC (c);
+		    if (! wide_flag)
+		      {
+			/* Merge character into result; ignore excess chars.  */
+			for (i = 1; i <= char_len; ++i)
+			  {
+			    if (i > max_chars)
+			      break;
+			    if (width < HOST_BITS_PER_INT)
+			      result = (result << width)
+				| (token_buffer[i]
+				   & ((1 << width) - 1));
+			    else
+			      result = token_buffer[i];
+			  }
+			num_chars += char_len;
+			goto tryagain;
+		      }
+		    c = wc;
+		  }
+		else
+		  {
+		    if (char_len == -1)
+		      warning ("Ignoring invalid multibyte character");
+		    if (wide_flag)
+		      c = wc;
+#ifdef MAP_CHARACTER
+		    else
+		      c = MAP_CHARACTER (c);
 #endif
+		  }
+#else /* ! MULTIBYTE_CHARS */
+#ifdef MAP_CHARACTER
+		c = MAP_CHARACTER (c);
+#endif
+#endif /* ! MULTIBYTE_CHARS */
+	      }
 
-	    num_chars++;
-	    if (num_chars > maxtoken - 4)
-	      extend_token_buffer (token_buffer);
-
-	    token_buffer[num_chars] = c;
+	    if (wide_flag)
+	      {
+		if (chars_seen == 1) /* only keep the first one */
+		  result = c;
+		goto tryagain;
+	      }
 
 	    /* Merge character into result; ignore excess chars.  */
+	    num_chars += (width / TYPE_PRECISION (char_type_node));
 	    if (num_chars < max_chars + 1)
 	      {
 		if (width < HOST_BITS_PER_INT)
@@ -1954,19 +1937,16 @@ yylex ()
 	      }
 	  }
 
-	token_buffer[num_chars + 1] = '\'';
-	token_buffer[num_chars + 2] = 0;
-
 	if (c != '\'')
 	  error ("malformatted character constant");
-	else if (num_chars == 0)
+	else if (chars_seen == 0)
 	  error ("empty character constant");
 	else if (num_chars > max_chars)
 	  {
 	    num_chars = max_chars;
 	    error ("character constant too long");
 	  }
-	else if (num_chars != 1 && ! flag_traditional)
+	else if (chars_seen != 1 && ! flag_traditional && warn_multichar)
 	  warning ("multi-character character constant");
 
 	/* If char type is signed, sign-extend the constant.  */
@@ -1991,22 +1971,6 @@ yylex ()
 	  }
 	else
 	  {
-#ifdef MULTIBYTE_CHARS
-	    /* Set the initial shift state and convert the next sequence.  */
-	    result = 0;
-	    /* In all locales L'\0' is zero and mbtowc will return zero,
-	       so don't use it.  */
-	    if (num_chars > 1
-		|| (num_chars == 1 && token_buffer[1] != '\0'))
-	      {
-		wchar_t wc;
-		(void) mbtowc (NULL_PTR, NULL_PTR, 0);
-		if (mbtowc (& wc, token_buffer + 1, num_chars) == num_chars)
-		  result = wc;
-		else
-		  warning ("Ignoring invalid multibyte character");
-	      }
-#endif
 	    yylval.ttype = build_int_2 (result, 0);
 	    TREE_TYPE (yylval.ttype) = wchar_type_node;
 	  }
@@ -2018,7 +1982,13 @@ yylex ()
     case '"':
     string_constant:
       {
-	c = GETC();
+	unsigned width = wide_flag ? WCHAR_TYPE_SIZE
+	                           : TYPE_PRECISION (char_type_node);
+#ifdef MULTIBYTE_CHARS
+	int longest_char = local_mb_cur_max ();
+	(void) local_mbtowc (NULL_PTR, NULL_PTR, 0);
+#endif
+	c = GETC ();
 	p = token_buffer + 1;
 
 	while (c != '"' && c >= 0)
@@ -2029,9 +1999,8 @@ yylex ()
 		c = readescape (&ignore);
 		if (ignore)
 		  goto skipnewline;
-		if (!wide_flag
-		    && TYPE_PRECISION (char_type_node) < HOST_BITS_PER_INT
-		    && c >= (1 << TYPE_PRECISION (char_type_node)))
+		if (width < HOST_BITS_PER_INT
+		    && (unsigned) c >= (1 << width))
 		  pedwarn ("escape sequence out of range for character");
 	      }
 	    else if (c == '\n')
@@ -2040,15 +2009,94 @@ yylex ()
 		  pedwarn ("ANSI C forbids newline in string constant");
 		lineno++;
 	      }
+	    else
+	      {
+#ifdef MULTIBYTE_CHARS
+		wchar_t wc;
+		int i;
+		int char_len = -1;
+		for (i = 0; i < longest_char; ++i)
+		  {
+		    if (p + i >= token_buffer + maxtoken)
+		      p = extend_token_buffer (p);
+		    p[i] = c;
 
-	    if (p == token_buffer + maxtoken)
-	      p = extend_token_buffer (p);
-	    *p++ = c;
+		    char_len = local_mbtowc (& wc, p, i + 1);
+		    if (char_len != -1)
+		      break;
+		    c = GETC ();
+		  }
+		if (char_len == -1)
+		  warning ("Ignoring invalid multibyte character");
+		else
+		  {
+		    /* mbtowc sometimes needs an extra char before accepting */
+		    if (char_len <= i)
+		      UNGETC (c);
+		    if (wide_flag)
+		      {
+			*(wchar_t *)p = wc;
+			p += sizeof (wc);
+		      }
+		    else
+		      p += (i + 1);
+		    c = GETC ();
+		    continue;
+		  }
+#endif /* MULTIBYTE_CHARS */
+	      }
+
+	    /* Add this single character into the buffer either as a wchar_t
+	       or as a single byte.  */
+	    if (wide_flag)
+	      {
+		unsigned width = TYPE_PRECISION (char_type_node);
+		unsigned bytemask = (1 << width) - 1;
+		int byte;
+
+		if (p + WCHAR_BYTES > token_buffer + maxtoken)
+		  p = extend_token_buffer (p);
+
+		for (byte = 0; byte < WCHAR_BYTES; ++byte)
+		  {
+		    int value;
+		    if (byte >= sizeof (c))
+		      value = 0;
+		    else
+		      value = (c >> (byte * width)) & bytemask;
+		    if (BYTES_BIG_ENDIAN)
+		      p[WCHAR_BYTES - byte - 1] = value;
+		    else
+		      p[byte] = value;
+		  }
+		p += WCHAR_BYTES;
+	      }
+	    else
+	      {
+		if (p >= token_buffer + maxtoken)
+		  p = extend_token_buffer (p);
+		*p++ = c;
+	      }
 
 	  skipnewline:
-	    c = GETC();
+	    c = GETC ();
 	  }
-	*p = 0;
+
+	/* Terminate the string value, either with a single byte zero
+	   or with a wide zero.  */
+	if (wide_flag)
+	  {
+	    if (p + WCHAR_BYTES > token_buffer + maxtoken)
+	      p = extend_token_buffer (p);
+	    bzero (p, WCHAR_BYTES);
+	    p += WCHAR_BYTES;
+	  }
+	else
+	  {
+	    if (p >= token_buffer + maxtoken)
+	      p = extend_token_buffer (p);
+	    *p++ = 0;
+	  }
 
 	if (c < 0)
 	  error ("Unterminated string constant");
@@ -2058,52 +2106,26 @@ yylex ()
 
 	if (wide_flag)
 	  {
-	    /* If this is a L"..." wide-string, convert the multibyte string
-	       to a wide character string.  */
-	    char *widep = (char *) alloca ((p - token_buffer) * WCHAR_BYTES);
-	    int len;
-
-#ifdef MULTIBYTE_CHARS
-	    len = mbstowcs ((wchar_t *) widep, token_buffer + 1, p - token_buffer);
-	    if (len < 0 || len >= (p - token_buffer))
-	      {
-		warning ("Ignoring invalid multibyte string");
-		len = 0;
-	      }
-	    bzero (widep + (len * WCHAR_BYTES), WCHAR_BYTES);
-#else
-	    {
-	      char *wp, *cp;
-
-	      wp = widep + (BYTES_BIG_ENDIAN ? WCHAR_BYTES - 1 : 0);
-	      bzero (widep, (p - token_buffer) * WCHAR_BYTES);
-	      for (cp = token_buffer + 1; cp < p; cp++)
-		*wp = *cp, wp += WCHAR_BYTES;
-	      len = p - token_buffer - 1;
-	    }
-#endif
-	    yylval.ttype = build_string ((len + 1) * WCHAR_BYTES, widep);
+	    yylval.ttype = build_string (p - (token_buffer + 1),
+					 token_buffer + 1);
 	    TREE_TYPE (yylval.ttype) = wchar_array_type_node;
 	    value = STRING;
 	  }
 	else if (objc_flag)
 	  {
-	    extern tree build_objc_string();
 	    /* Return an Objective-C @"..." constant string object.  */
-	    yylval.ttype = build_objc_string (p - token_buffer,
+	    yylval.ttype = build_objc_string (p - (token_buffer + 1),
 					      token_buffer + 1);
 	    TREE_TYPE (yylval.ttype) = char_array_type_node;
 	    value = OBJC_STRING;
 	  }
 	else
 	  {
-	    yylval.ttype = build_string (p - token_buffer, token_buffer + 1);
+	    yylval.ttype = build_string (p - (token_buffer + 1),
+					 token_buffer + 1);
 	    TREE_TYPE (yylval.ttype) = char_array_type_node;
 	    value = STRING;
 	  }
-
-	*p++ = '"';
-	*p = 0;
 
 	break;
       }

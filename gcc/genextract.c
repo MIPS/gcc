@@ -100,7 +100,7 @@ static void walk_rtx PROTO ((rtx, char *));
 static void print_path PROTO ((char *));
 char *xmalloc PROTO ((unsigned));
 char *xrealloc PROTO ((char *, unsigned));
-static void fatal ();
+static void fatal PVPROTO ((char *, ...)) ATTRIBUTE_PRINTF_1;
 static char *copystr PROTO ((char *));
 static void mybzero ();
 void fancy_abort PROTO ((void));
@@ -313,6 +313,14 @@ print_path (path)
   register int len = strlen (path);
   register int i;
 
+  if (len == 0)
+    {
+      /* Don't emit "pat", since we may try to take the address of it,
+	 which isn't what is intended.  */
+      printf("PATTERN (insn)");
+      return;
+    }
+
   /* We first write out the operations (XEXP or XVECEXP) in reverse
      order, then write "insn", then the indices in forward order.  */
 
@@ -362,11 +370,22 @@ xrealloc (ptr, size)
 }
 
 static void
-fatal (s, a1, a2)
-     char *s;
+fatal VPROTO ((char *format, ...))
 {
+#ifndef __STDC__
+  char *format;
+#endif
+  va_list ap;
+
+  VA_START (ap, format);
+
+#ifndef __STDC__
+  format = va_arg (ap, char *);
+#endif
+
   fprintf (stderr, "genextract: ");
-  fprintf (stderr, s, a1, a2);
+  vfprintf (stderr, format, ap);
+  va_end (ap);
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
@@ -439,11 +458,12 @@ from the machine description file `md'.  */\n\n");
 
   printf ("#include \"config.h\"\n");
   printf ("#include \"system.h\"\n");
-  printf ("#include \"rtl.h\"\n\n");
+  printf ("#include \"rtl.h\"\n");
+  printf ("#include \"toplev.h\"\n\n");
 
   /* This variable exists only so it can be the "location"
      of any missing operand whose numbers are skipped by a given pattern.  */
-  printf ("static rtx junk;\n");
+  printf ("static rtx junk ATTRIBUTE_UNUSED;\n");
 
   printf ("extern rtx recog_operand[];\n");
   printf ("extern rtx *recog_operand_loc[];\n");
@@ -456,7 +476,7 @@ from the machine description file `md'.  */\n\n");
   printf ("  register rtx *ro = recog_operand;\n");
   printf ("  register rtx **ro_loc = recog_operand_loc;\n");
   printf ("  rtx pat = PATTERN (insn);\n");
-  printf ("  int i;\n\n");
+  printf ("  int i ATTRIBUTE_UNUSED;\n\n");
   printf ("  switch (INSN_CODE (insn))\n");
   printf ("    {\n");
   printf ("    case -1:\n");

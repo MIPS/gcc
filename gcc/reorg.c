@@ -234,7 +234,7 @@ static int insn_sets_resource_p PROTO((rtx, struct resources *, int));
 static rtx find_end_label	PROTO((void));
 static rtx emit_delay_sequence	PROTO((rtx, rtx, int));
 static rtx add_to_delay_list	PROTO((rtx, rtx));
-static void delete_from_delay_slot PROTO((rtx));
+static rtx delete_from_delay_slot PROTO((rtx));
 static void delete_scheduled_jump PROTO((rtx));
 static void note_delay_statistics PROTO((int, int));
 static rtx optimize_skip	PROTO((rtx));
@@ -340,10 +340,13 @@ mark_referenced_resources (x, res, include_delayed_effects)
 
     case UNSPEC_VOLATILE:
     case ASM_INPUT:
-    case TRAP_IF:
       /* Traditional asm's are always volatile.  */
       res->volatil = 1;
       return;
+
+    case TRAP_IF:
+      res->volatil = 1;
+      break;
 
     case ASM_OPERANDS:
       res->volatil = MEM_VOLATILE_P (x);
@@ -576,7 +579,7 @@ mark_set_resources (x, res, in_dest, include_delayed_effects)
 	    SET_HARD_REG_SET (res->regs);
 	}
 
-      /* ... and also what it's RTL says it modifies, if anything.  */
+      /* ... and also what its RTL says it modifies, if anything.  */
 
     case JUMP_INSN:
     case INSN:
@@ -980,7 +983,7 @@ add_to_delay_list (insn, delay_list)
      rtx delay_list;
 {
   /* If we have an empty list, just make a new list element.  If
-     INSN has it's block number recorded, clear it since we may
+     INSN has its block number recorded, clear it since we may
      be moving the insn to a new block.  */
 
   if (delay_list == 0)
@@ -1008,7 +1011,7 @@ add_to_delay_list (insn, delay_list)
 /* Delete INSN from the delay slot of the insn that it is in.  This may
    produce an insn without anything in its delay slots.  */
 
-static void
+static rtx
 delete_from_delay_slot (insn)
      rtx insn;
 {
@@ -1057,6 +1060,8 @@ delete_from_delay_slot (insn)
 
   /* Show we need to fill this insn again.  */
   obstack_ptr_grow (&unfilled_slots_obstack, trial);
+
+  return trial;
 }
 
 /* Delete INSN, a JUMP_INSN.  If it is a conditional jump, we must track down
@@ -1621,6 +1626,31 @@ redirect_with_delay_list_safe_p (jump, newlabel, delay_list)
   return (li == NULL);
 }
 
+/* DELAY_LIST is a list of insns that have already been placed into delay
+   slots.  See if all of them have the same annulling status as ANNUL_TRUE_P.
+   If not, return 0; otherwise return 1.  */
+
+static int
+check_annul_list_true_false (annul_true_p, delay_list)
+     int annul_true_p;
+     rtx delay_list;
+{
+  rtx temp;
+
+  if (delay_list)
+    {
+      for (temp = delay_list; temp; temp = XEXP (temp, 1))
+        {
+          rtx trial = XEXP (temp, 0);
+ 
+          if ((annul_true_p && INSN_FROM_TARGET_P (trial))
+	      || (!annul_true_p && !INSN_FROM_TARGET_P (trial)))
+	    return 0;
+        }
+    }
+  return 1;
+}
+
 
 /* INSN branches to an insn whose pattern SEQ is a SEQUENCE.  Given that
    the condition tested by INSN is CONDITION and the resources shown in
@@ -1662,6 +1692,7 @@ steal_delay_list_from_target (insn, condition, seq, delay_list,
   rtx new_delay_list = 0;
   int must_annul = *pannul_p;
   int i;
+  int used_annul = 0;
 
   /* We can't do anything if there are more delay slots in SEQ than we
      can handle, or if we don't know that it will be a taken branch.
@@ -1711,9 +1742,15 @@ steal_delay_list_from_target (insn, condition, seq, delay_list,
 	       || (! insn_sets_resource_p (trial, other_needed, 0)
 		   && ! may_trap_p (PATTERN (trial)))))
 	  ? eligible_for_delay (insn, total_slots_filled, trial, flags)
-	  : (must_annul = 1,
-	     eligible_for_annul_false (insn, total_slots_filled, trial, flags)))
+	  : (must_annul || (delay_list == NULL && new_delay_list == NULL))
+	     && (must_annul = 1,
+	         check_annul_list_true_false (0, delay_list)
+	         && check_annul_list_true_false (0, new_delay_list)
+	         && eligible_for_annul_false (insn, total_slots_filled,
+					      trial, flags)))
 	{
+	  if (must_annul)
+	    used_annul = 1;
 	  temp = copy_rtx (trial);
 	  INSN_FROM_TARGET_P (temp) = 1;
 	  new_delay_list = add_to_delay_list (temp, new_delay_list);
@@ -1732,7 +1769,8 @@ steal_delay_list_from_target (insn, condition, seq, delay_list,
   /* Add any new insns to the delay list and update the count of the
      number of slots filled.  */
   *pslots_filled = total_slots_filled;
-  *pannul_p = must_annul;
+  if (used_annul)
+    *pannul_p = 1;
 
   if (delay_list == 0)
     return new_delay_list;
@@ -1762,6 +1800,8 @@ steal_delay_list_from_fallthrough (insn, condition, seq,
 {
   int i;
   int flags;
+  int must_annul = *pannul_p;
+  int used_annul = 0;
 
   flags = get_jump_flags (insn, JUMP_LABEL (insn));
 
@@ -1795,14 +1835,17 @@ steal_delay_list_from_fallthrough (insn, condition, seq,
 	  continue;
 	}
 
-      if (! *pannul_p
+      if (! must_annul
 	  && ((condition == const_true_rtx
 	       || (! insn_sets_resource_p (trial, other_needed, 0)
 		   && ! may_trap_p (PATTERN (trial)))))
 	  ? eligible_for_delay (insn, *pslots_filled, trial, flags)
-	  : (*pannul_p = 1,
-	     eligible_for_annul_true (insn, *pslots_filled, trial, flags)))
+	  : (must_annul || delay_list == NULL) && (must_annul = 1,
+	     check_annul_list_true_false (1, delay_list)
+	     && eligible_for_annul_true (insn, *pslots_filled, trial, flags)))
 	{
+	  if (must_annul)
+	    used_annul = 1;
 	  delete_from_delay_slot (trial);
 	  delay_list = add_to_delay_list (trial, delay_list);
 
@@ -1813,8 +1856,11 @@ steal_delay_list_from_fallthrough (insn, condition, seq,
 	break;
     }
 
+  if (used_annul)
+    *pannul_p = 1;
   return delay_list;
 }
+
 
 /* Try merging insns starting at THREAD which match exactly the insns in
    INSN's delay list.
@@ -1846,13 +1892,15 @@ try_merge_delay_insns (insn, thread)
   CLEAR_RESOURCE (&set);
 
   /* If this is not an annulling branch, take into account anything needed in
-     NEXT_TO_MATCH.  This prevents two increments from being incorrectly
+     INSN's delay slot.  This prevents two increments from being incorrectly
      folded into one.  If we are annulling, this would be the correct
      thing to do.  (The alternative, looking at things set in NEXT_TO_MATCH
      will essentially disable this optimization.  This method is somewhat of
      a kludge, but I don't see a better way.)  */
   if (! annul_p)
-    mark_referenced_resources (next_to_match, &needed, 1);
+    for (i = 1 ; i < num_slots ; i++)
+      if (XVECEXP (PATTERN (insn), 0, i))
+        mark_referenced_resources (XVECEXP (PATTERN (insn), 0, i), &needed, 1);
 
   for (trial = thread; !stop_search_p (trial, 1); trial = next_trial)
     {
@@ -1901,8 +1949,6 @@ try_merge_delay_insns (insn, thread)
 	    break;
 
 	  next_to_match = XVECEXP (PATTERN (insn), 0, slot_number);
-	  if (! annul_p)
-	    mark_referenced_resources (next_to_match, &needed, 1);
 	}
 
       mark_set_resources (trial, &set, 0, 1);
@@ -1938,8 +1984,12 @@ try_merge_delay_insns (insn, thread)
 	    {
 	      if (! annul_p)
 		{
+		  rtx new;
+
 		  update_block (dtrial, thread);
-		  delete_from_delay_slot (dtrial);
+		  new = delete_from_delay_slot (dtrial);
+	          if (INSN_DELETED_P (thread))
+		    thread = new;
 		  INSN_FROM_TARGET_P (next_to_match) = 0;
 		}
 	      else
@@ -1950,6 +2000,13 @@ try_merge_delay_insns (insn, thread)
 		break;
 
 	      next_to_match = XVECEXP (PATTERN (insn), 0, slot_number);
+	    }
+	  else
+	    {
+	      /* Keep track of the set/referenced resources for the delay
+		 slots of any trial insns we encounter.  */
+              mark_set_resources (dtrial, &set, 0, 1);
+              mark_referenced_resources (dtrial, &needed, 1);
 	    }
 	}
     }
@@ -1965,8 +2022,12 @@ try_merge_delay_insns (insn, thread)
 	{
 	  if (GET_MODE (merged_insns) == SImode)
 	    {
+	      rtx new;
+
 	      update_block (XEXP (merged_insns, 0), thread);
-	      delete_from_delay_slot (XEXP (merged_insns, 0));
+	      new = delete_from_delay_slot (XEXP (merged_insns, 0));
+	      if (INSN_DELETED_P (thread))
+		thread = new;
 	    }
 	  else
 	    {
@@ -3019,8 +3080,20 @@ fill_simple_delay_slots (non_jumps_p)
       else
 	flags = get_jump_flags (insn, NULL_RTX);
       slots_to_fill = num_delay_slots (insn);
+
+      /* Some machine description have defined instructions to have
+	 delay slots only in certain circumstances which may depend on
+	 nearby insns (which change due to reorg's actions).
+
+	 For example, the PA port normally has delay slots for unconditional
+	 jumps.
+
+	 However, the PA port claims such jumps do not have a delay slot
+	 if they are immediate successors of certain CALL_INSNs.  This
+	 allows the port to favor filling the delay slot of the call with
+	 the unconditional jump.  */
       if (slots_to_fill == 0)
-	abort ();
+	continue;
 
       /* This insn needs, or can use, some delay slots.  SLOTS_TO_FILL
 	 says how many.  After initialization, first try optimizing
@@ -3585,9 +3658,10 @@ fill_slots_from_thread (insn, condition, thread, opposite_thread, likely,
 	  /* There are two ways we can win:  If TRIAL doesn't set anything
 	     needed at the opposite thread and can't trap, or if it can
 	     go into an annulled delay slot.  */
-	  if (condition == const_true_rtx
-	      || (! insn_sets_resource_p (trial, &opposite_needed, 1)
-		  && ! may_trap_p (pat)))
+	  if (!must_annul
+	      && (condition == const_true_rtx
+	          || (! insn_sets_resource_p (trial, &opposite_needed, 1)
+		      && ! may_trap_p (pat))))
 	    {
 	      old_trial = trial;
 	      trial = try_split (pat, trial, 0);
@@ -3615,9 +3689,11 @@ fill_slots_from_thread (insn, condition, thread, opposite_thread, likely,
 	      if (thread == old_trial)
 		thread = trial;
 	      pat = PATTERN (trial);
-	      if ((thread_if_true
-		   ? eligible_for_annul_false (insn, *pslots_filled, trial, flags)
-		   : eligible_for_annul_true (insn, *pslots_filled, trial, flags)))
+	      if ((must_annul || delay_list == NULL) && (thread_if_true
+		   ? check_annul_list_true_false (0, delay_list)
+		     && eligible_for_annul_false (insn, *pslots_filled, trial, flags)
+		   : check_annul_list_true_false (1, delay_list)
+		     && eligible_for_annul_true (insn, *pslots_filled, trial, flags)))
 		{
 		  rtx temp;
 
@@ -3893,8 +3969,19 @@ fill_eager_delay_slots ()
 	continue;
 
       slots_to_fill = num_delay_slots (insn);
+      /* Some machine description have defined instructions to have
+	 delay slots only in certain circumstances which may depend on
+	 nearby insns (which change due to reorg's actions).
+
+ 	 For example, the PA port normally has delay slots for unconditional
+	 jumps.
+
+	 However, the PA port claims such jumps do not have a delay slot
+	 if they are immediate successors of certain CALL_INSNs.  This
+	 allows the port to favor filling the delay slot of the call with
+	 the unconditional jump.  */
       if (slots_to_fill == 0)
-	abort ();
+        continue;
 
       slots_filled = 0;
       target_label = JUMP_LABEL (insn);
@@ -4657,6 +4744,13 @@ dbr_schedule (first, file)
     {
       int pred_flags;
 
+      if (GET_CODE (insn) == INSN)
+        {
+	  rtx pat = PATTERN (insn);
+
+	  if (GET_CODE (pat) == SEQUENCE)
+	    insn = XVECEXP (pat, 0, 0);
+	}
       if (GET_CODE (insn) != JUMP_INSN)
 	continue;
 

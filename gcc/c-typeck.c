@@ -4423,13 +4423,18 @@ initializer_constant_valid_p (value, endtype)
 	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
 					     endtype);
 
-      /* Likewise conversions from int to pointers.  */
+      /* Likewise conversions from int to pointers, but also allow
+	 conversions from 0.  */
       if (TREE_CODE (TREE_TYPE (value)) == POINTER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
+	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE)
+	{
+	  if (integer_zerop (TREE_OPERAND (value, 0)))
+	    return null_pointer_node;
+	  else if (TYPE_PRECISION (TREE_TYPE (value))
+		   <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0))))
+	    return initializer_constant_valid_p (TREE_OPERAND (value, 0),
+						 endtype);
+	}
 
       /* Allow conversions to union types if the value inside is okay.  */
       if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
@@ -5611,6 +5616,17 @@ pop_init_level (implicit)
 
   if (constructor_type != 0)
     size = int_size_in_bytes (constructor_type);
+
+  /* Warn when some struct elements are implicitly initialized to zero.  */
+  if (extra_warnings
+      && constructor_type
+      && TREE_CODE (constructor_type) == RECORD_TYPE
+      && constructor_unfilled_fields)
+    {
+      push_member_name (constructor_unfilled_fields);
+      warning_init ("missing initializer%s", " for `%s'", NULL);
+      RESTORE_SPELLING_DEPTH (constructor_depth);
+    }
 
   /* Now output all pending elements.  */
   output_pending_init_elements (1);
@@ -6855,7 +6871,7 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       if (o[i] != TREE_VALUE (tail))
 	{
 	  expand_expr (build_modify_expr (o[i], NOP_EXPR, TREE_VALUE (tail)),
-		       0, VOIDmode, 0);
+		       NULL_RTX, VOIDmode, EXPAND_NORMAL);
 	  free_temp_slots ();
 	}
       /* Detect modification of read-only values.

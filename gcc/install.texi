@@ -199,6 +199,14 @@ threads implementation available, in which case threads can be enabled
 with this option by supplying a suitable @var{type}, probably
 @samp{posix}.  The possibilities for @var{type} are @samp{single},
 @samp{posix}, @samp{win32}, @samp{solaris}, @samp{irix} and @samp{mach}.
+
+@cindex Internal Compiler Checking
+@item --enable-checking
+When you specify this option, the compiler is built to perform checking
+of tree node types when referencing fields of that node.  This does not
+change the generated code, but adds error checking within the compiler.
+This will slow down the compiler and may only work properly if you
+are building the compiler with GNU C.
 @end table
 
 The @file{configure} script searches subdirectories of the source
@@ -946,7 +954,9 @@ highly recommend using GAS for all HP-PA configurations.
 You should be using GAS-2.6 (or later) along with GDB-4.16 (or later).  These
 can be retrieved from all the traditional GNU ftp archive sites.
 
-GAS will need to be installed into a directory before @code{/bin},
+On some versions of HP-UX, you will need to install GNU @file{sed}.
+
+You will need to be install GAS into a directory before @code{/bin},
 @code{/usr/bin}, and @code{/usr/ccs/bin} in your search path.  You
 should install GAS before you build GNU CC.
 
@@ -980,19 +990,30 @@ Use this configuration for SCO release 3.2 version 4.
 
 @item i386-*-sco3.2v5*
 Use this for the SCO OpenServer Release family including 5.0.0, 5.0.2, 
-5.0.4, Internet FastStart 1.0, and Internet FastStart 1.1.
+5.0.4, 5.0.5, Internet FastStart 1.0, and Internet FastStart 1.1.
 
-GNU CC can generate either ELF or COFF binaries.   ELF is the default.
-To get COFF output, you must specify @samp{-mcoff}) on the command line.
+GNU CC can generate COFF binaries if you specify @samp{-mcoff} or ELF
+binaries, the default.    A full @samp{make bootstrap} is recommended
+so that an ELF compiler that builds ELF is generated.                   
 
-For 5.0.0 and 5.0.2, you must install TLS597 from ftp.sco.com/TLS.
-5.0.4 and later do not require this patch.
+You must have TLS597 from @uref{ftp://ftp.sco.com/TLS} installed for ELF
+C++ binaries to work correctly on releases before 5.0.4. 
 
-@emph{NOTE:} You must follow the instructions about invoking
-@samp{make bootstrap} because the native OpenServer compiler builds
-a @file{cc1plus} that will not correctly parse many valid C++ programs.
-You must do a @samp{make bootstrap} if you are building with the native
-compiler.
+The native SCO assembler that is provided with the OS at no charge
+is normally required.  If, however, you must be able to use the GNU
+assembler (perhaps you have complex asms) you must configure this
+package @samp{--with-gnu-as}.  To do this, install (cp or symlink)
+gcc/as to your copy of the GNU assembler.  You must use a recent version
+of GNU binutils; version 2.9.1 seems to work well.  If you select this
+option, you will be unable to build COFF images.  Trying to do so will
+result in non-obvious failures.  In general, the "--with-gnu-as" option
+isn't as well tested as the native assembler.
+
+@emph{NOTE:} If you are building C++, you must follow the instructions
+about invoking @samp{make bootstrap} because the native OpenServer
+compiler may build a @file{cc1plus} that will not correctly parse many
+valid C++ programs.  You must do a @samp{make bootstrap} if you are
+building with the native compiler.
 
 @item i386-*-isc
 It may be a good idea to link with GNU malloc instead of the malloc that
@@ -1013,10 +1034,8 @@ GNU binutils version 2.2 or later.
 Go to the Berkeley universe before compiling.
 
 @item i386-sequent-ptx1*
-Sequent DYNIX/ptx 1.x.
-
-@item i386-sequent-ptx2*
-Sequent DYNIX/ptx 2.x.
+@itemx i386-sequent-ptx2*
+You must install GNU @file{sed} before running @file{configure}.
 
 @item i386-sun-sunos4
 You may find that you need another version of GNU CC to begin
@@ -1219,8 +1238,8 @@ PHCO_4484 from HP.
 In addition, if you wish to use gas @samp{--with-gnu-as} you must use
 gas version 2.1 or later, and you must use the GNU linker version 2.1 or
 later.  Earlier versions of gas relied upon a program which converted the
-gas output into the native HP/UX format, but that program has not been
-kept up to date.  gdb does not understand that native HP/UX format, so
+gas output into the native HP-UX format, but that program has not been
+kept up to date.  gdb does not understand that native HP-UX format, so
 you must use gas if you wish to use gdb.
 
 @item m68k-sun

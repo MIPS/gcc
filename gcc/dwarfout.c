@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "reload.h"
 #include "output.h"
 #include "defaults.h"
+#include "dwarfout.h"
 #include "toplev.h"
 
 #if defined(DWARF_TIMESTAMPS)
@@ -49,7 +50,7 @@ extern time_t time PROTO ((time_t *)); /* FIXME: use NEED_DECLARATION_TIME */
 # define assert(e) do { if (! (e)) abort (); } while (0)
 #endif
 
-extern char *getpwd ();
+extern char *getpwd PROTO((void));
 
 /* IMPORTANT NOTE: Please see the file README.DWARF for important details
    regarding the GNU implementation of Dwarf.  */
@@ -313,8 +314,10 @@ static char *dwarf_fund_type_name	PROTO((unsigned));
 static tree decl_ultimate_origin	PROTO((tree));
 static tree block_ultimate_origin	PROTO((tree));
 static tree decl_class_context 		PROTO((tree));
+#if 0
 static void output_unsigned_leb128	PROTO((unsigned long));
 static void output_signed_leb128	PROTO((long));
+#endif
 static inline int is_body_block		PROTO((tree));
 static int fundamental_type_code	PROTO((tree));
 static tree root_type_1			PROTO((tree, int));
@@ -359,7 +362,9 @@ static inline void body_begin_attribute	PROTO((char *));
 static inline void body_end_attribute	PROTO((char *));
 static inline void language_attribute	PROTO((unsigned));
 static inline void member_attribute	PROTO((tree));
+#if 0
 static inline void string_length_attribute PROTO((tree));
+#endif
 static inline void comp_dir_attribute	PROTO((char *));
 static inline void sf_names_attribute	PROTO((char *));
 static inline void src_info_attribute	PROTO((char *));
@@ -412,7 +417,7 @@ static void output_typedef_die		PROTO((void *));
 static void output_union_type_die	PROTO((void *));
 static void output_unspecified_parameters_die PROTO((void *));
 static void output_padded_null_die	PROTO((void *));
-static void output_die			PROTO((void (*) (), void *));
+static void output_die			PROTO((void (*) PROTO((void *)), void *));
 static void end_sibling_chain		PROTO((void));
 static void output_formal_types		PROTO((tree));
 static void pend_type			PROTO((tree));
@@ -428,6 +433,10 @@ static void generate_new_sfname_entry	PROTO((void));
 static unsigned lookup_filename		PROTO((char *));
 static void generate_srcinfo_entry	PROTO((unsigned, unsigned));
 static void generate_macinfo_entry	PROTO((char *, char *));
+static int is_pseudo_reg		PROTO((rtx));
+static tree type_main_variant		PROTO((tree));
+static int is_tagged_type		PROTO((tree));
+static int is_redundant_typedef		PROTO((tree));
 
 /* Definitions of defaults for assembler-dependent names of various
    pseudo-ops and section names.
@@ -855,7 +864,7 @@ static void generate_macinfo_entry	PROTO((char *, char *));
 
 /************************ general utility functions **************************/
 
-inline int
+inline static int
 is_pseudo_reg (rtl)
      register rtx rtl;
 {
@@ -864,7 +873,7 @@ is_pseudo_reg (rtl)
 	      && (REGNO (XEXP (rtl, 0)) >= FIRST_PSEUDO_REGISTER)));
 }
 
-inline tree
+inline static tree
 type_main_variant (type)
      register tree type;
 {
@@ -886,7 +895,7 @@ type_main_variant (type)
 
 /* Return non-zero if the given type node represents a tagged type.  */
 
-inline int
+inline static int
 is_tagged_type (type)
      register tree type;
 {
@@ -1141,23 +1150,14 @@ static tree
 decl_ultimate_origin (decl)
      register tree decl;
 {
-  register tree immediate_origin = DECL_ABSTRACT_ORIGIN (decl);
+#ifdef ENABLE_CHECKING 
+  if (DECL_FROM_INLINE (DECL_ORIGIN (decl)))
+    /* Since the DECL_ABSTRACT_ORIGIN for a DECL is supposed to be the
+       most distant ancestor, this should never happen.  */
+    abort ();
+#endif
 
-  if (immediate_origin == NULL)
-    return NULL;
-  else
-    {
-      register tree ret_val;
-      register tree lookahead = immediate_origin;
-
-      do
-	{
-	  ret_val = lookahead;
-	  lookahead = DECL_ABSTRACT_ORIGIN (ret_val);
-	}
-      while (lookahead != NULL && lookahead != ret_val);
-      return ret_val;
-    }
+  return DECL_ABSTRACT_ORIGIN (decl);
 }
 
 /* Determine the "ultimate origin" of a block.  The block may be an
@@ -1212,6 +1212,7 @@ decl_class_context (decl)
   return context;
 }
 
+#if 0
 static void
 output_unsigned_leb128 (value)
      register unsigned long value;
@@ -1265,6 +1266,7 @@ output_signed_leb128 (value)
     }
   while (more);
 }
+#endif
 
 /**************** utility functions for attribute functions ******************/
 
@@ -1410,7 +1412,16 @@ fundamental_type_code (type)
 	  }
 
 	if (TYPE_PRECISION (type) == DOUBLE_TYPE_SIZE)
-	  return FT_dbl_prec_float;
+	  {
+	    /* On the SH, when compiling with -m3e or -m4-single-only, both
+	       float and double are 32 bits.  But since the debugger doesn't
+	       know about the subtarget, it always thinks double is 64 bits.
+	       So we have to tell the debugger that the type is float to
+	       make the output of the 'print' command etc. readable.  */
+	    if (DOUBLE_TYPE_SIZE == FLOAT_TYPE_SIZE && FLOAT_TYPE_SIZE == 32)
+	      return FT_float;
+	    return FT_dbl_prec_float;
+	  }
 	if (TYPE_PRECISION (type) == FLOAT_TYPE_SIZE)
 	  return FT_float;
 
@@ -2870,6 +2881,7 @@ member_attribute (context)
     }
 }
 
+#if 0
 static inline void
 string_length_attribute (upper_bound)
      register tree upper_bound;
@@ -2885,6 +2897,7 @@ string_length_attribute (upper_bound)
   output_bound_representation (upper_bound, 0, 'u');
   ASM_OUTPUT_LABEL (asm_out_file, end_label);
 }
+#endif
 
 static inline void
 comp_dir_attribute (dirname)
@@ -3921,7 +3934,7 @@ output_unspecified_parameters_die (arg)
 
 static void
 output_padded_null_die (arg)
-     register void *arg;
+     register void *arg ATTRIBUTE_UNUSED;
 {
   ASM_OUTPUT_ALIGN (asm_out_file, 2);	/* 2**2 == 4 */
 }
@@ -3936,7 +3949,7 @@ output_padded_null_die (arg)
 
 static void
 output_die (die_specific_output_function, param)
-     register void (*die_specific_output_function)();
+     register void (*die_specific_output_function) PROTO ((void *));
      register void *param;
 {
   char begin_label[MAX_ARTIFICIAL_LABEL_BYTES];
@@ -4647,7 +4660,7 @@ output_decls_for_scope (stmt, depth)
 
 /* Is this a typedef we can avoid emitting?  */
 
-inline int
+inline static int
 is_redundant_typedef (decl)
      register tree decl;
 {
@@ -4988,7 +5001,7 @@ output_decl (decl, containing_scope)
 	 function.  */
 
       {
-        register void (*func) ();
+        register void (*func) PROTO((void *));
 	register tree origin = decl_ultimate_origin (decl);
 
 	if (origin != NULL && TREE_CODE (origin) == PARM_DECL)
@@ -5185,8 +5198,18 @@ dwarfout_file_scope_decl (decl, set_finalizing)
 	 really need to output these (non-fundamental) types because other
 	 DIEs may contain references to them.  */
 
+      /* Also ignore language dependent types here, because they are probably
+	 also built-in types.  If we didn't ignore them, then we would get
+	 references to undefined labels because output_type doesn't support
+	 them.   So, for now, we need to ignore them to avoid assembler
+	 errors.  */
+
+      /* ??? This code is different than the equivalent code in dwarf2out.c.
+	 The dwarf2out.c code is probably more correct.  */
+
       if (DECL_SOURCE_LINE (decl) == 0
-	  && type_is_fundamental (TREE_TYPE (decl)))
+	  && (type_is_fundamental (TREE_TYPE (decl))
+	      || TREE_CODE (TREE_TYPE (decl)) == LANG_TYPE))
 	return;
 
       /* If we are in terse mode, don't generate any DIEs to represent

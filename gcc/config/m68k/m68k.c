@@ -21,7 +21,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Some output-actions in m68k.md need these.  */
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include "tree.h"
 #include "rtl.h"
 #include "regs.h"
@@ -33,13 +33,10 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "insn-attr.h"
 #include "recog.h"
+#include "toplev.h"
 
 /* Needed for use_return_insn.  */
 #include "flags.h"
-
-#if HAVE_STDLIB_H
-#include <stdlib.h>                                                
-#endif
 
 #ifdef SUPPORT_SUN_FPA
 
@@ -234,25 +231,25 @@ output_function_prologue (stream, size)
     {
       if (fsize + 4 < 0x8000)
 	{
-#ifdef NO_ADDSUB_Q
+#ifndef NO_ADDSUB_Q
 	  if (fsize + 4 <= 8)
 	    {
 	      if (!TARGET_5200)
 		{
 		  /* asm_fprintf() cannot handle %. */
 #ifdef MOTOROLA
-		  asm_fprintf (stream, "\tsubq.w %OI%d,%Rsp\n", fsize + 4);
+		  asm_fprintf (stream, "\tsubq.w %0I%d,%Rsp\n", fsize + 4);
 #else
-		  asm_fprintf (stream, "\tsubqw %OI%d,%Rsp\n", fsize + 4);
+		  asm_fprintf (stream, "\tsubqw %0I%d,%Rsp\n", fsize + 4);
 #endif
 		}
 	      else
 		{
 		  /* asm_fprintf() cannot handle %. */
 #ifdef MOTOROLA
-		  asm_fprintf (stream, "\tsubq.l %OI%d,%Rsp\n", fsize + 4);
+		  asm_fprintf (stream, "\tsubq.l %0I%d,%Rsp\n", fsize + 4);
 #else
-		  asm_fprintf (stream, "\tsubql %OI%d,%Rsp\n", fsize + 4);
+		  asm_fprintf (stream, "\tsubql %0I%d,%Rsp\n", fsize + 4);
 #endif
 		}
 	    }
@@ -262,15 +259,15 @@ output_function_prologue (stream, size)
 		 subtract a small integer (8 < N <= 16) to a register. */
 	      /* asm_fprintf() cannot handle %. */
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\tsubq.w %OI8,%Rsp\n\tsubq.w %OI%d,%Rsp\n",
+	      asm_fprintf (stream, "\tsubq.w %0I8,%Rsp\n\tsubq.w %0I%d,%Rsp\n",
 			   fsize + 4);
 #else
-	      asm_fprintf (stream, "\tsubqw %OI8,%Rsp\n\tsubqw %OI%d,%Rsp\n",
+	      asm_fprintf (stream, "\tsubqw %0I8,%Rsp\n\tsubqw %0I%d,%Rsp\n",
 			   fsize + 4);
 #endif
 	    }
 	  else 
-#endif /* NO_ADDSUB_Q */
+#endif /* not NO_ADDSUB_Q */
 	  if (TARGET_68040)
 	    {
 	      /* Adding negative number is faster on the 68040.  */
@@ -774,23 +771,23 @@ output_function_epilogue (stream, size)
 	     reg_names[FRAME_POINTER_REGNUM]);
   else if (fsize)
     {
-#ifdef NO_ADDSUB_Q
+#ifndef NO_ADDSUB_Q
       if (fsize + 4 <= 8) 
 	{
 	  if (!TARGET_5200)
 	    {
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\taddq.w %OI%d,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\taddq.w %0I%d,%Rsp\n", fsize + 4);
 #else
-	      asm_fprintf (stream, "\taddqw %OI%d,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\taddqw %0I%d,%Rsp\n", fsize + 4);
 #endif
 	    }
 	  else
 	    {
 #ifdef MOTOROLA
-	      asm_fprintf (stream, "\taddq.l %OI%d,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\taddq.l %0I%d,%Rsp\n", fsize + 4);
 #else
-	      asm_fprintf (stream, "\taddql %OI%d,%Rsp\n", fsize + 4);
+	      asm_fprintf (stream, "\taddql %0I%d,%Rsp\n", fsize + 4);
 #endif
 	    }
 	}
@@ -800,15 +797,15 @@ output_function_epilogue (stream, size)
 	     add a small integer (8 < N <= 16) to a register. */
 	  /* asm_fprintf() cannot handle %. */
 #ifdef MOTOROLA
-	  asm_fprintf (stream, "\taddq.w %OI8,%Rsp\n\taddq.w %OI%d,%Rsp\n",
+	  asm_fprintf (stream, "\taddq.w %0I8,%Rsp\n\taddq.w %0I%d,%Rsp\n",
 		       fsize + 4);
 #else
-	  asm_fprintf (stream, "\taddqw %OI8,%Rsp\n\taddqw %OI%d,%Rsp\n",
+	  asm_fprintf (stream, "\taddqw %0I8,%Rsp\n\taddqw %0I%d,%Rsp\n",
 		       fsize + 4);
 #endif
 	}
       else
-#endif /* NO_ADDSUB_Q */
+#endif /* not NO_ADDSUB_Q */
       if (fsize + 4 < 0x8000)
 	{
 	  if (TARGET_68040)
@@ -866,7 +863,7 @@ not_sp_operand (op, mode)
 int
 valid_dbcc_comparison_p (x, mode)
      rtx x;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   switch (GET_CODE (x))
     {
@@ -1046,25 +1043,52 @@ output_scc_di(op, operand1, operand2, dest)
     }
   loperands[4] = gen_label_rtx();
   if (operand2 != const0_rtx)
+    {
 #ifdef MOTOROLA
 #ifdef SGS_CMP_ORDER
-    output_asm_insn ("cmp%.l %0,%2\n\tjbne %l4\n\tcmp%.l %1,%3", loperands);
+      output_asm_insn ("cmp%.l %0,%2\n\tjbne %l4\n\tcmp%.l %1,%3", loperands);
 #else
-    output_asm_insn ("cmp%.l %2,%0\n\tjbne %l4\n\tcmp%.l %3,%1", loperands);
+      output_asm_insn ("cmp%.l %2,%0\n\tjbne %l4\n\tcmp%.l %3,%1", loperands);
 #endif
 #else
 #ifdef SGS_CMP_ORDER
-    output_asm_insn ("cmp%.l %0,%2\n\tjne %l4\n\tcmp%.l %1,%3", loperands);
+      output_asm_insn ("cmp%.l %0,%2\n\tjne %l4\n\tcmp%.l %1,%3", loperands);
 #else
-    output_asm_insn ("cmp%.l %2,%0\n\tjne %l4\n\tcmp%.l %3,%1", loperands);
+      output_asm_insn ("cmp%.l %2,%0\n\tjne %l4\n\tcmp%.l %3,%1", loperands);
 #endif
 #endif
+    }
   else
-#ifdef MOTOROLA
-    output_asm_insn ("tst%.l %0\n\tjbne %l4\n\ttst%.l %1", loperands);
+    {
+      if (TARGET_68020 || TARGET_5200 || ! ADDRESS_REG_P (loperands[0]))
+	output_asm_insn ("tst%.l %0", loperands);
+      else
+	{
+#ifdef SGS_CMP_ORDER
+	  output_asm_insn ("cmp%.w %0,%#0", loperands);
 #else
-    output_asm_insn ("tst%.l %0\n\tjne %l4\n\ttst%.l %1", loperands);
+	  output_asm_insn ("cmp%.w %#0,%0", loperands);
 #endif
+	}
+
+#ifdef MOTOROLA
+      output_asm_insn ("jbne %l4", loperands);
+#else
+      output_asm_insn ("jne %l4", loperands);
+#endif
+
+      if (TARGET_68020 || TARGET_5200 || ! ADDRESS_REG_P (loperands[1]))
+	output_asm_insn ("tst%.l %1", loperands);
+      else
+	{
+#ifdef SGS_CMP_ORDER
+	  output_asm_insn ("cmp%.w %1,%#0", loperands);
+#else
+	  output_asm_insn ("cmp%.w %#0,%1", loperands);
+#endif
+	}
+    }
+
   loperands[5] = dest;
   
   switch (op_code)
@@ -1216,7 +1240,7 @@ output_btst (operands, countop, dataop, insn, signpos)
 int
 symbolic_operand (op, mode)
      register rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   switch (GET_CODE (op))
     {
@@ -1304,7 +1328,7 @@ extend_operator(x, mode)
 rtx
 legitimize_pic_address (orig, mode, reg)
      rtx orig, reg;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
   rtx pic_ref = orig;
 
@@ -1480,6 +1504,9 @@ output_move_simode_const (operands)
 	  || !(GET_CODE (operands[0]) == MEM
 	       && MEM_VOLATILE_P (operands[0]))))
     return "clr%.l %0";
+  else if (operands[1] == const0_rtx
+	   && ADDRESS_REG_P (operands[0]))
+    return "sub%.l %0,%0";
   else if (DATA_REG_P (operands[0]))
     return output_move_const_into_data_reg (operands);
   else if (ADDRESS_REG_P (operands[0])
@@ -1527,6 +1554,9 @@ output_move_himode (operands)
 	      || !(GET_CODE (operands[0]) == MEM
 		   && MEM_VOLATILE_P (operands[0]))))
 	return "clr%.w %0";
+      else if (operands[1] == const0_rtx
+	       && ADDRESS_REG_P (operands[0]))
+	return "sub%.l %0,%0";
       else if (DATA_REG_P (operands[0])
 	       && INTVAL (operands[1]) < 128
 	       && INTVAL (operands[1]) >= -128)
@@ -1641,12 +1671,13 @@ output_move_qimode (operands)
       return "moveq %1,%0";
 #endif
     }
+  if (operands[1] == const0_rtx && ADDRESS_REG_P (operands[0]))
+    return "sub%.l %0,%0";
   if (GET_CODE (operands[1]) != CONST_INT && CONSTANT_P (operands[1]))
     return "move%.l %1,%0";
-  /* 68k family doesn't support byte moves to from address registers.  The
-     5200 (coldfire) does not have this restriction.  */
-  if ((ADDRESS_REG_P (operands[0]) || ADDRESS_REG_P (operands[1]))
-      && ! TARGET_5200)
+  /* 68k family (including the 5200 coldfire) does not support byte moves to
+     from address registers.  */
+  if (ADDRESS_REG_P (operands[0]) || ADDRESS_REG_P (operands[1]))
     return "move%.w %1,%0";
   return "move%.b %1,%0";
 }
@@ -3217,8 +3248,10 @@ strict_low_part_peephole_ok (mode, first_insn, target)
 int
 const_uint32_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
+  if (GET_CODE (op) == CONSTANT_P_RTX)
+    return 1;
 #if HOST_BITS_PER_WIDE_INT > 32
   /* All allowed constants will fit a CONST_INT.  */
   return (GET_CODE (op) == CONST_INT
@@ -3236,8 +3269,10 @@ const_uint32_operand (op, mode)
 int
 const_sint32_operand (op, mode)
      rtx op;
-     enum machine_mode mode;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
 {
+  if (GET_CODE (op) == CONSTANT_P_RTX)
+    return 1;
   /* All allowed constants will fit a CONST_INT.  */
   return (GET_CODE (op) == CONST_INT
 	  && (INTVAL (op) >= (-0x7fffffff - 1) && INTVAL (op) <= 0x7fffffff));

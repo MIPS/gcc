@@ -366,7 +366,8 @@ does not refer to anything that has gone out of scope, you should be
 safe.
 
 GNU CC implements taking the address of a nested function using a
-technique called @dfn{trampolines}.
+technique called @dfn{trampolines}.   A paper describing them is
+available as @samp{http://master.debian.org/~karlheg/Usenix88-lexic.pdf}.
 
 A nested function can jump to a label inherited from a containing
 function, provided the label was explicitly declared in the containing
@@ -1285,8 +1286,9 @@ carefully.
 
 The keyword @code{__attribute__} allows you to specify special
 attributes when making a declaration.  This keyword is followed by an
-attribute specification inside double parentheses.  Eight attributes,
-@code{noreturn}, @code{const}, @code{format}, @code{section},
+attribute specification inside double parentheses.  Nine attributes,
+@code{noreturn}, @code{const}, @code{format},
+@code{no_instrument_function}, @code{section},
 @code{constructor}, @code{destructor}, @code{unused} and @code{weak} are
 currently defined for functions.  Other attributes, including
 @code{section} are supported for variables declarations (@pxref{Variable
@@ -1445,6 +1447,12 @@ calls to @code{printf}, @code{scanf}, or @code{strftime} function whose
 operands are a call to one of your own function.  The compiler always
 treats @code{gettext}, @code{dgettext}, and @code{dcgettext} in this
 manner.
+
+@item no_instrument_function
+@cindex @code{no_instrument_function} function attribute
+If @samp{-finstrument-functions} is given, profiling function calls will
+be generated at entry and exit of most user-compiled functions.
+Functions with this attribute will not be so instrumented.
 
 @item section ("section-name")
 @cindex @code{section} function attribute
@@ -2013,6 +2021,9 @@ attributes either in a @code{typedef} declaration or just past the
 closing curly brace of a complete enum, struct or union type
 @emph{definition} and the @code{packed} attribute only past the closing
 brace of a definition.
+
+You may also specify attributes between the enum, struct or union
+tag and the name of the type rather than after the closing brace.
 
 @table @code
 @cindex @code{aligned} attribute
@@ -2589,7 +2600,9 @@ very often.
 Local register variables in specific registers do not reserve the
 registers.  The compiler's data flow analysis is capable of determining
 where the specified registers contain live values, and where they are
-available for other uses.
+available for other uses.  Stores into local register variables may be deleted
+when they appear to be dead according to dataflow analysis.  References
+to local register variables may be deleted or moved or simplified.
 
 These local variables are sometimes convenient for use with the extended
 @code{asm} feature (@pxref{Extended Asm}), if you want to write one
@@ -2739,6 +2752,10 @@ This option does not guarantee that GNU CC will generate code that has
 this variable in the register you specify at all times.  You may not
 code an explicit reference to this register in an @code{asm} statement
 and assume it will always refer to this variable.
+
+Stores into local register variables may be deleted when they appear to be dead
+according to dataflow analysis.  References to local register variables may
+be deleted or moved or simplified.
 
 @node Alternate Keywords
 @section Alternate Keywords
@@ -3313,14 +3330,12 @@ instances required by your explicit instantiations (but not by any
 other files) without having to specify them as well.
 
 g++ has extended the template instantiation syntax outlined in the
-Working Paper to allow forward declaration of explicit instantiations,
-explicit instantiation of members of template classes and instantiation
-of the compiler support data for a template class (i.e. the vtable)
-without instantiating any of its members:
+Working Paper to allow forward declaration of explicit instantiations
+and instantiation of the compiler support data for a template class
+(i.e. the vtable) without instantiating any of its members:
 
 @example
 extern template int max (int, int);
-template void Foo<int>::f ();
 inline template class Foo<int>;
 @end example
 

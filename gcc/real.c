@@ -51,7 +51,7 @@ XFmode and TFmode transcendental functions, can be obtained by ftp from
 netlib.att.com: netlib/cephes.   */
 
 /* Type of computer arithmetic.
-   Only one of DEC, IBM, IEEE, or UNK should get defined.
+   Only one of DEC, IBM, IEEE, C4X, or UNK should get defined.
 
    `IEEE', when REAL_WORDS_BIG_ENDIAN is non-zero, refers generically
    to big-endian IEEE floating-point data structure.  This definition
@@ -75,6 +75,11 @@ netlib.att.com: netlib/cephes.   */
    floating point data structure.  This model currently supports
    no type wider than DFmode.  The IBM conversions were contributed by
    frank@atom.ansto.gov.au (Frank Crawford).
+
+   `C4X' refers specifically to the floating point format used on
+   Texas Instruments TMS320C3x and TMS320C4x digital signal
+   processors.  This supports QFmode (32-bit float, double) and HFmode
+   (40-bit long double) where BITS_PER_BYTE is 32.
 
    If LONG_DOUBLE_TYPE_SIZE = 64 (the default, unless tm.h defines it)
    then `long double' and `double' are both implemented, but they
@@ -325,7 +330,9 @@ static void endian	PROTO((unsigned EMUSHORT *, long *,
 			       enum machine_mode));
 static void eclear	PROTO((unsigned EMUSHORT *));
 static void emov	PROTO((unsigned EMUSHORT *, unsigned EMUSHORT *));
+#if 0
 static void eabs	PROTO((unsigned EMUSHORT *));
+#endif
 static void eneg	PROTO((unsigned EMUSHORT *));
 static int eisneg	PROTO((unsigned EMUSHORT *));
 static int eisinf	PROTO((unsigned EMUSHORT *));
@@ -340,7 +347,9 @@ static void emovz	PROTO((unsigned EMUSHORT *, unsigned EMUSHORT *));
 static void einan	PROTO((unsigned EMUSHORT *));
 static int eiisnan	PROTO((unsigned EMUSHORT *));
 static int eiisneg	PROTO((unsigned EMUSHORT *));
+#if 0
 static void eiinfin	PROTO((unsigned EMUSHORT *));
+#endif
 static int eiisinf	PROTO((unsigned EMUSHORT *));
 static int ecmpm	PROTO((unsigned EMUSHORT *, unsigned EMUSHORT *));
 static void eshdn1	PROTO((unsigned EMUSHORT *));
@@ -379,7 +388,9 @@ static void toe53	PROTO((unsigned EMUSHORT *, unsigned EMUSHORT *));
 static void etoe24	PROTO((unsigned EMUSHORT *, unsigned EMUSHORT *));
 static void toe24	PROTO((unsigned EMUSHORT *, unsigned EMUSHORT *));
 static int ecmp		PROTO((unsigned EMUSHORT *, unsigned EMUSHORT *));
+#if 0
 static void eround	PROTO((unsigned EMUSHORT *, unsigned EMUSHORT *));
+#endif
 static void ltoe	PROTO((HOST_WIDE_INT *, unsigned EMUSHORT *));
 static void ultoe	PROTO((unsigned HOST_WIDE_INT *, unsigned EMUSHORT *));
 static void eifrac	PROTO((unsigned EMUSHORT *, HOST_WIDE_INT *,
@@ -388,10 +399,12 @@ static void euifrac	PROTO((unsigned EMUSHORT *, unsigned HOST_WIDE_INT *,
 			       unsigned EMUSHORT *));
 static int eshift	PROTO((unsigned EMUSHORT *, int));
 static int enormlz	PROTO((unsigned EMUSHORT *));
+#if 0
 static void e24toasc	PROTO((unsigned EMUSHORT *, char *, int));
 static void e53toasc	PROTO((unsigned EMUSHORT *, char *, int));
 static void e64toasc	PROTO((unsigned EMUSHORT *, char *, int));
 static void e113toasc	PROTO((unsigned EMUSHORT *, char *, int));
+#endif /* 0 */
 static void etoasc	PROTO((unsigned EMUSHORT *, char *, int));
 static void asctoe24	PROTO((char *, unsigned EMUSHORT *));
 static void asctoe53	PROTO((char *, unsigned EMUSHORT *));
@@ -678,7 +691,16 @@ ereal_atof (s, t)
 
   switch (t)
     {
+#ifdef C4X
+    case QFmode:
     case HFmode:
+      asctoe53 (s, tem);
+      e53toe (tem, e);
+      break;
+#else
+    case HFmode:
+#endif
+
     case SFmode:
       asctoe24 (s, tem);
       e24toe (tem, e);
@@ -1037,10 +1059,20 @@ real_value_truncate (mode, arg)
       break;
 
     case SFmode:
+#ifndef C4X
     case HFmode:
+#endif
       etoe24 (e, t);
       e24toe (t, t);
       break;
+
+#ifdef C4X
+    case HFmode:
+    case QFmode:
+      etoe53 (e, t);
+      e53toe (t, t);
+      break;
+#endif
 
     case SImode:
       r = etrunci (arg);
@@ -1292,7 +1324,9 @@ ereal_isneg (x)
  	e53toe (&d, e)		IEEE double precision to e type
  	e64toe (&d, e)		IEEE long double precision to e type
  	e113toe (&d, e)		128-bit long double precision to e type
+#if 0
  	eabs (e)			absolute value
+#endif
  	eadd (a, b, c)		c = b + a
  	eclear (e)		e = 0
  	ecmp (a, b)		Returns 1 if a > b, 0 if a == b,
@@ -1307,12 +1341,16 @@ ereal_isneg (x)
  	emov (a, b)		b = a
  	emul (a, b, c)		c = b * a
  	eneg (e)			e = -e
+#if 0
  	eround (a, b)		b = nearest integer value to a
+#endif
  	esub (a, b, c)		c = b - a
+#if 0
  	e24toasc (&f, str, n)	single to ASCII string, n digits after decimal
  	e53toasc (&d, str, n)	double to ASCII string, n digits after decimal
  	e64toasc (&d, str, n)	80-bit long double to ASCII string
  	e113toasc (&d, str, n)	128-bit long double to ASCII string
+#endif
  	etoasc (e, str, n)	e to ASCII string, n digits after decimal
  	etoe24 (e, &f)		convert e type to IEEE single precision
  	etoe53 (e, &d)		convert e type to IEEE double precision
@@ -1350,7 +1388,9 @@ ereal_isneg (x)
         eiisnan (ai)            1 if a NaN
  	eiisneg (ai)		1 if sign bit of ai != 0, else 0
         einan (ai)              set ai = NaN
+#if 0
         eiinfin (ai)            set ai = infinity
+#endif
 
   The result is always normalized and rounded to NI-4 word precision
   after each arithmetic operation.
@@ -1520,6 +1560,7 @@ emov (a, b)
 }
 
 
+#if 0
 /* Absolute value of e-type X.  */
 
 static void 
@@ -1529,6 +1570,7 @@ eabs (x)
   /* sign is top bit of last word of external format */
   x[NE - 1] &= 0x7fff;		
 }
+#endif /* 0 */
 
 /* Negate the e-type number X.  */
 
@@ -1821,6 +1863,7 @@ eiisneg (x)
   return x[0] != 0;
 }
 
+#if 0
 /* Fill exploded e-type X with infinity pattern.
    This has maximum exponent and significand all zeros.  */
 
@@ -1832,6 +1875,7 @@ eiinfin (x)
   ecleaz (x);
   x[E] = 0x7fff;
 }
+#endif /* 0 */
 
 /* Return nonzero if exploded e-type X is infinite.  */
 
@@ -3694,7 +3738,7 @@ toe53 (x, y)
 
 #else /* it's neither DEC nor IBM */
 #ifdef C4X
-/* Convert e-type X to C4X-format double E.  */
+/* Convert e-type X to C4X-format long double E.  */
 
 static void 
 etoe53 (x, e)
@@ -4083,6 +4127,7 @@ ecmp (a, b)
     return (-msign);		/* p is littler */
 }
 
+#if 0
 /* Find e-type nearest integer to X, as floor (X + 0.5).  */
 
 static void 
@@ -4092,6 +4137,7 @@ eround (x, y)
   eadd (ehalf, x, y);
   efloor (y, y);
 }
+#endif /* 0 */
 
 /* Convert HOST_WIDE_INT LP to e type Y.  */
 
@@ -4563,6 +4609,7 @@ static unsigned EMUSHORT emtens[NTEN + 1][NE] =
 };
 #endif
 
+#if 0
 /* Convert float value X to ASCII string STRING with NDIG digits after
    the decimal point.  */
 
@@ -4622,6 +4669,7 @@ e113toasc (x, string, ndigs)
   e113toe (x, w);
   etoasc (w, string, ndigs);
 }
+#endif /* 0 */
 
 /* Convert e-type X to ASCII string STRING with NDIGS digits after
    the decimal point.  */

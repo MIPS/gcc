@@ -35,11 +35,6 @@ Boston, MA 02111-1307, USA.  */
    is the kind of rtx's they make and what arguments they use.  */
 
 #include "config.h"
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include "system.h"
 #include "rtl.h"
 #include "tree.h"
@@ -53,12 +48,14 @@ Boston, MA 02111-1307, USA.  */
 #include "recog.h"
 #include "real.h"
 #include "obstack.h"
+#include "bitmap.h"
 #include "ggc.h"
 
 /* Commonly used modes.  */
 
 enum machine_mode byte_mode;	/* Mode whose width is BITS_PER_UNIT.  */
 enum machine_mode word_mode;	/* Mode whose width is BITS_PER_WORD.  */
+enum machine_mode double_mode;	/* Mode whose width is DOUBLE_TYPE_SIZE.  */
 enum machine_mode ptr_mode;	/* Mode whose width is POINTER_SIZE.  */
 
 /* This is reset to LAST_VIRTUAL_REGISTER + 1 at the start of each function.
@@ -107,6 +104,7 @@ struct _global_rtl global_rtl =
   {REG},				/* virtual_stack_vars_rtx */
   {REG},				/* virtual_stack_dynamic_rtx */
   {REG},				/* virtual_outgoing_args_rtx */
+  {REG},				/* virtual_cfa_rtx */
 };
 
 /* We record floating-point CONST_DOUBLEs in each floating-point mode for
@@ -278,6 +276,20 @@ gen_rtx_REG (mode, regno)
   return gen_rtx_raw_REG (mode, regno);
 }
 
+rtx
+gen_rtx_MEM (mode, addr)
+     enum machine_mode mode;
+     rtx addr;
+{
+  rtx rt = gen_rtx_raw_MEM (mode, addr);
+
+  /* This field is not cleared by the mere allocation of the rtx, so
+     we clear it here.  */
+  MEM_ALIAS_SET (rt) = 0;
+
+  return rt;
+}
+
 /* rtx gen_rtx (code, mode, [element1, ..., elementn])
 **
 **	    This routine generates an RTX of the size specified by
@@ -328,6 +340,8 @@ gen_rtx VPROTO((enum rtx_code code, enum machine_mode mode, ...))
     rt_val = gen_rtx_CONST_INT (mode, va_arg (p, HOST_WIDE_INT));
   else if (code == REG)
     rt_val = gen_rtx_REG (mode, va_arg (p, int));
+  else if (code == MEM)
+    rt_val = gen_rtx_MEM (mode, va_arg (p, rtx));
   else
     {
       rt_val = rtx_alloc (code);	/* Allocate the storage space.  */
@@ -360,6 +374,14 @@ gen_rtx VPROTO((enum rtx_code code, enum machine_mode mode, ...))
 
 	    case 'E':		/* An RTX vector?  */
 	      XVEC (rt_val, i) = va_arg (p, rtvec);
+	      break;
+
+	    case 'b':           /* A bitmap? */
+	      XBITMAP (rt_val, i) = va_arg (p, bitmap);
+	      break;
+
+	    case 't':           /* A tree? */
+	      XTREE (rt_val, i) = va_arg (p, tree);
 	      break;
 
 	    default:
@@ -730,6 +752,9 @@ gen_lowpart_common (mode, x)
 
       i = INTVAL (x);
       r = REAL_VALUE_FROM_TARGET_SINGLE (i);
+      /* Avoid changing the bit pattern of a NaN.  */
+      if (REAL_VALUE_ISNAN (r))
+	return 0;
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
     }
 #else
@@ -768,6 +793,8 @@ gen_lowpart_common (mode, x)
 	i[0] = low, i[1] = high;
 
       r = REAL_VALUE_FROM_TARGET_DOUBLE (i);
+      if (REAL_VALUE_ISNAN (r))
+	return 0;
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
     }
 #else
@@ -3206,6 +3233,18 @@ gen_sequence ()
   return result;
 }
 
+/* Put the various virtual registers into REGNO_REG_RTX.  */
+
+void
+init_virtual_regs ()
+{
+  regno_reg_rtx[VIRTUAL_INCOMING_ARGS_REGNUM] = virtual_incoming_args_rtx;
+  regno_reg_rtx[VIRTUAL_STACK_VARS_REGNUM] = virtual_stack_vars_rtx;
+  regno_reg_rtx[VIRTUAL_STACK_DYNAMIC_REGNUM] = virtual_stack_dynamic_rtx;
+  regno_reg_rtx[VIRTUAL_OUTGOING_ARGS_REGNUM] = virtual_outgoing_args_rtx;
+  regno_reg_rtx[VIRTUAL_CFA_REGNUM] = virtual_cfa_rtx;
+}
+
 /* Initialize data structures and variables in this file
    before generating rtl for each function.  */
 
@@ -3242,10 +3281,7 @@ init_emit ()
   bzero ((char *) regno_reg_rtx, regno_pointer_flag_length * sizeof (rtx));
 
   /* Put copies of all the virtual register rtx into regno_reg_rtx.  */
-  regno_reg_rtx[VIRTUAL_INCOMING_ARGS_REGNUM] = virtual_incoming_args_rtx;
-  regno_reg_rtx[VIRTUAL_STACK_VARS_REGNUM] = virtual_stack_vars_rtx;
-  regno_reg_rtx[VIRTUAL_STACK_DYNAMIC_REGNUM] = virtual_stack_dynamic_rtx;
-  regno_reg_rtx[VIRTUAL_OUTGOING_ARGS_REGNUM] = virtual_outgoing_args_rtx;
+  init_virtual_regs ();
 
   /* Indicate that the virtual registers and stack locations are
      all pointers.  */
@@ -3258,6 +3294,7 @@ init_emit ()
   REGNO_POINTER_FLAG (VIRTUAL_STACK_VARS_REGNUM) = 1;
   REGNO_POINTER_FLAG (VIRTUAL_STACK_DYNAMIC_REGNUM) = 1;
   REGNO_POINTER_FLAG (VIRTUAL_OUTGOING_ARGS_REGNUM) = 1;
+  REGNO_POINTER_FLAG (VIRTUAL_CFA_REGNUM) = 1;
 
 #ifdef STACK_BOUNDARY
   REGNO_POINTER_ALIGN (STACK_POINTER_REGNUM) = STACK_BOUNDARY / BITS_PER_UNIT;
@@ -3274,6 +3311,7 @@ init_emit ()
     = STACK_BOUNDARY / BITS_PER_UNIT;
   REGNO_POINTER_ALIGN (VIRTUAL_OUTGOING_ARGS_REGNUM)
     = STACK_BOUNDARY / BITS_PER_UNIT;
+  REGNO_POINTER_ALIGN (VIRTUAL_CFA_REGNUM) = UNITS_PER_WORD;
 #endif
 
 #ifdef INIT_EXPANDERS
@@ -3317,6 +3355,7 @@ init_emit_once (line_numbers)
 {
   int i;
   enum machine_mode mode;
+  enum machine_mode double_mode;
 
   no_line_numbers = ! line_numbers;
 
@@ -3326,6 +3365,7 @@ init_emit_once (line_numbers)
 
   byte_mode = VOIDmode;
   word_mode = VOIDmode;
+  double_mode = VOIDmode;
 
   for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
@@ -3337,6 +3377,18 @@ init_emit_once (line_numbers)
       if (GET_MODE_BITSIZE (mode) == BITS_PER_WORD
 	  && word_mode == VOIDmode)
 	word_mode = mode;
+    }
+
+#ifndef DOUBLE_TYPE_SIZE
+#define DOUBLE_TYPE_SIZE (BITS_PER_WORD * 2)
+#endif
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      if (GET_MODE_BITSIZE (mode) == DOUBLE_TYPE_SIZE
+	  && double_mode == VOIDmode)
+	double_mode = mode;
     }
 
   ptr_mode = mode_for_size (POINTER_SIZE, GET_MODE_CLASS (Pmode), 0);
@@ -3356,10 +3408,10 @@ init_emit_once (line_numbers)
   else
     const_true_rtx = gen_rtx_CONST_INT (VOIDmode, STORE_FLAG_VALUE);
 
-  dconst0 = REAL_VALUE_ATOF ("0", DFmode);
-  dconst1 = REAL_VALUE_ATOF ("1", DFmode);
-  dconst2 = REAL_VALUE_ATOF ("2", DFmode);
-  dconstm1 = REAL_VALUE_ATOF ("-1", DFmode);
+  dconst0 = REAL_VALUE_ATOF ("0", double_mode);
+  dconst1 = REAL_VALUE_ATOF ("1", double_mode);
+  dconst2 = REAL_VALUE_ATOF ("2", double_mode);
+  dconstm1 = REAL_VALUE_ATOF ("-1", double_mode);
 
   for (i = 0; i <= 2; i++)
     {
@@ -3420,6 +3472,8 @@ init_emit_once (line_numbers)
   PUT_MODE (virtual_stack_dynamic_rtx, Pmode);
   REGNO (virtual_outgoing_args_rtx) = VIRTUAL_OUTGOING_ARGS_REGNUM;
   PUT_MODE (virtual_outgoing_args_rtx, Pmode);
+  REGNO (virtual_cfa_rtx) = VIRTUAL_CFA_REGNUM;
+  PUT_MODE (virtual_cfa_rtx, Pmode);
 
 #ifdef RETURN_ADDRESS_POINTER_REGNUM
   return_address_pointer_rtx
@@ -3475,6 +3529,7 @@ init_emit_once (line_numbers)
   ggc_add_rtx_root (&struct_value_incoming_rtx, 1);
   ggc_add_rtx_root (&static_chain_rtx, 1);
   ggc_add_rtx_root (&static_chain_incoming_rtx, 1);
+  ggc_add_rtx_root (&return_address_pointer_rtx, 1);
 
   ggc_add_rtx_root (&first_insn, 1);
   ggc_add_tree_root (&sequence_rtl_expr, 1);

@@ -1,6 +1,6 @@
 /* intdoc.c
    Copyright (C) 1997 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.ai.mit.edu).
+   Contributed by James Craig Burley (burley@gnu.org).
 
 This file is part of GNU Fortran.
 
@@ -20,16 +20,14 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 /* From f/proj.h, which uses #error -- not all C compilers
-   support that, and we want _this_ program to be compilable
+   support that, and we want *this* program to be compilable
    by pretty much any C compiler.  */
-
-#include "assert.j"		/* Use gcc's assert.h. */
-#include <stdio.h>
+#include "hconfig.j"
+#include "system.j"
+#include "assert.j"
+#if HAVE_STDDEF_H
 #include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
-#define FFEINTRIN_DOC 1
-#include "intrin.h"
+#endif
 
 typedef enum
   {
@@ -43,6 +41,10 @@ typedef enum
   } bool;
 
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
+
+/* Pull in the intrinsics info, but only the doc parts.  */
+#define FFEINTRIN_DOC 1
+#include "intrin.h"
 
 char *family_name (ffeintrinFamily family);
 static void dumpif (ffeintrinFamily fam);
@@ -844,7 +846,7 @@ types of all the arguments.\n\n");
 	      break;
 
 	    default:
-	      assert ("E1" == NULL);
+	      assert ("N1" == NULL);
 	      break;
 	    }
 	  break;

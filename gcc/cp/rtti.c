@@ -57,8 +57,12 @@ tree tinfo_fn_type;
 void
 init_rtti_processing ()
 {
+  if (flag_honor_std)
+    push_namespace (get_identifier ("std"));
   type_info_type_node = xref_tag
-    (class_type_node, get_identifier ("type_info"), NULL_TREE, 1);
+    (class_type_node, get_identifier ("type_info"), 1);
+  if (flag_honor_std)
+    pop_namespace ();
   tinfo_fn_id = get_identifier ("__tf");
   tinfo_fn_type = build_function_type
     (build_reference_type (build_type_variant (type_info_type_node, 1, 0)),
@@ -364,6 +368,7 @@ get_tinfo_fn (type)
   DECL_NOT_REALLY_EXTERN (d) = 1;
   DECL_MUTABLE_P (d) = 1;
   TREE_TYPE (name) = copy_to_permanent (type);
+
   pushdecl_top_level (d);
   make_function_rtl (d);
   assemble_external (d);
@@ -796,8 +801,7 @@ expand_class_desc (tdecl, type)
 	  char *name;
 	  tree field;
 
-	  name = (char *) alloca (TYPE_NAME_LENGTH (t)+sizeof (VBASE_NAME)+1);
-	  sprintf (name, VBASE_NAME_FORMAT, TYPE_NAME_STRING (t));
+	  FORMAT_VBASE_NAME (name, t);
 	  field = lookup_field (type, get_identifier (name), 0, 0);
 	  offset = size_binop (FLOOR_DIV_EXPR, 
 		DECL_FIELD_BITPOS (field), size_int (BITS_PER_UNIT));

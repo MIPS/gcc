@@ -25,8 +25,11 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define CPP_PREDEFINES \
  "-DPPC -D__ELF__ -Dunix -Dlinux -Dpowerpc -Asystem(unix) -Asystem(linux) -Acpu(powerpc) -Amachine(powerpc)"
 
+#undef	CPP_OS_DEFAULT_SPEC
+#define CPP_OS_DEFAULT_SPEC "%(cpp_os_linux)"
+
 #undef LINK_SPEC
-#define LINK_SPEC "-m elf32ppc %{shared:-shared} \
+#define LINK_SPEC "-m elf32ppc %{G*} %{shared:-shared} \
   %{!shared: \
     %{!static: \
       %{rdynamic:-export-dynamic} \
@@ -69,4 +72,4 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 
 #undef JUMP_TABLES_IN_TEXT_SECTION
-#define JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION 0

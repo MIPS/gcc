@@ -63,6 +63,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "real.h"
 #include "except.h"
+#include "toplev.h"
 
 /* ??? Eventually must record somehow the labels used by jumps
    from nested functions.  */
@@ -118,7 +119,9 @@ static void delete_from_jump_chain	PROTO((rtx));
 static int delete_labelref_insn		PROTO((rtx, rtx, int));
 static void mark_modified_reg		PROTO((rtx, rtx));
 static void redirect_tablejump		PROTO((rtx, rtx));
+#ifndef HAVE_cc0
 static rtx find_insert_position         PROTO((rtx, rtx));
+#endif
 
 /* Delete no-op jumps and optimize jumps to jumps
    and jumps around jumps.
@@ -148,6 +151,7 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 {
   register rtx insn, next, note;
   int changed;
+  int old_max_reg;
   int first = 1;
   int max_uid = 0;
   rtx last_insn;
@@ -297,6 +301,9 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
       /* Zero the "deleted" flag of all the "deleted" insns.  */
       for (insn = f; insn; insn = NEXT_INSN (insn))
 	INSN_DELETED_P (insn) = 0;
+
+      /* Show that the jump chain is not valid.  */
+      jump_chain = 0;
       return;
     }
 
@@ -395,9 +402,14 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		    if (GET_CODE (p) != INSN)
 		      break;
 		    pbody = PATTERN (p);
-		    if (GET_CODE (pbody) == SET)
+		    if (GET_CODE (pbody) != SET)
 		      break;
 		    dest = SET_DEST (pbody);
+		    /* Allow a no-op move between the adjust and the push.  */
+		    if (GET_CODE (dest) == REG
+			&& GET_CODE (SET_SRC (pbody)) == REG
+			&& REGNO (dest) == REGNO (SET_SRC (pbody)))
+		      continue;
 		    if (! (GET_CODE (dest) == MEM
 			   && GET_CODE (XEXP (dest, 0)) == POST_INC
 			   && XEXP (XEXP (dest, 0), 0) == stack_pointer_rtx))
@@ -468,12 +480,9 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 				remove_death (dreg, trial);
 				break;
 			      }
-#ifdef PRESERVE_DEATH_INFO_REGNO_P
-			/* Deleting insn could lose a death-note for SREG
-			   so don't do it if final needs accurate
-			   death-notes.  */
-			if (PRESERVE_DEATH_INFO_REGNO_P (sreg)
-			    && (trial = find_regno_note (insn, REG_DEAD, sreg)))
+
+			/* Deleting insn could lose a death-note for SREG.  */
+			if ((trial = find_regno_note (insn, REG_DEAD, sreg)))
 			  {
 			    /* Change this into a USE so that we won't emit
 			       code for it, but still can keep the note.  */
@@ -485,7 +494,6 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 			    XEXP (trial, 1) = NULL_RTX;
 			  }
 			else
-#endif
 			  delete_insn (insn);
 		      }
 		  }
@@ -585,6 +593,7 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 
   /* Now iterate optimizing jumps until nothing changes over one pass.  */
   changed = 1;
+  old_max_reg = max_reg_num ();
   while (changed)
     {
       changed = 0;
@@ -594,8 +603,9 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 	  rtx reallabelprev;
 	  rtx temp, temp1, temp2, temp3, temp4, temp5, temp6;
 	  rtx nlabel;
-	  int this_is_simplejump, this_is_condjump, reversep;
+	  int this_is_simplejump, this_is_condjump, reversep = 0;
 	  int this_is_condjump_in_parallel;
+
 #if 0
 	  /* If NOT the first iteration, if this is the last jump pass
 	     (just before final), do the special peephole optimizations.
@@ -769,11 +779,8 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 	      && GET_CODE (temp2) == INSN
 	      && (temp4 = single_set (temp2)) != 0
 	      && rtx_equal_p (SET_DEST (temp4), temp1)
-	      && (GET_CODE (SET_SRC (temp4)) == REG
-		  || GET_CODE (SET_SRC (temp4)) == SUBREG
-		  || (GET_CODE (SET_SRC (temp4)) == MEM
-		      && RTX_UNCHANGING_P (SET_SRC (temp4)))
-		  || CONSTANT_P (SET_SRC (temp4)))
+	      && ! side_effects_p (SET_SRC (temp4))
+	      && ! may_trap_p (SET_SRC (temp4))
 	      && (REG_NOTES (temp2) == 0
 		  || ((REG_NOTE_KIND (REG_NOTES (temp2)) == REG_EQUAL
 		       || REG_NOTE_KIND (REG_NOTES (temp2)) == REG_EQUIV)
@@ -844,7 +851,11 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		  && ! reg_referenced_between_p (temp1, p, NEXT_INSN (temp3))
 		  && ! reg_set_between_p (temp1, p, temp3)
 		  && (GET_CODE (SET_SRC (temp4)) == CONST_INT
-		      || ! reg_set_between_p (SET_SRC (temp4), p, temp2)))
+		      || ! modified_between_p (SET_SRC (temp4), p, temp2))
+		  /* Verify that registers used by the jump are not clobbered
+		     by the instruction being moved.  */
+		  && ! modified_between_p (PATTERN (temp), temp2,
+					   NEXT_INSN (temp2)))
 		{
 		  emit_insn_after_with_line_notes (PATTERN (temp2), p, temp2);
 		  delete_insn (temp2);
@@ -910,11 +921,8 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 	      && GET_CODE (temp3) == INSN
 	      && (temp4 = single_set (temp3)) != 0
 	      && rtx_equal_p (SET_DEST (temp4), temp1)
-	      && (GET_CODE (SET_SRC (temp4)) == REG
-		  || GET_CODE (SET_SRC (temp4)) == SUBREG
-		  || (GET_CODE (SET_SRC (temp4)) == MEM
-		      && RTX_UNCHANGING_P (SET_SRC (temp4)))
-		  || CONSTANT_P (SET_SRC (temp4)))
+	      && ! side_effects_p (SET_SRC (temp4))
+	      && ! may_trap_p (SET_SRC (temp4))
 	      && (REG_NOTES (temp3) == 0
 		  || ((REG_NOTE_KIND (REG_NOTES (temp3)) == REG_EQUAL
 		       || REG_NOTE_KIND (REG_NOTES (temp3)) == REG_EQUIV)
@@ -944,9 +952,11 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		  && ! reg_referenced_between_p (temp1, temp3,
 						 NEXT_INSN (temp2))
 		  && ! reg_set_between_p (temp1, insert_after, temp)
-		  && (GET_CODE (SET_SRC (temp4)) == CONST_INT
-		      || ! reg_set_between_p (SET_SRC (temp4),
-					      insert_after, temp))
+		  && ! modified_between_p (SET_SRC (temp4), insert_after, temp)
+		  /* Verify that registers used by the jump are not clobbered
+		     by the instruction being moved.  */
+		  && ! modified_between_p (PATTERN (temp), temp3,
+					   NEXT_INSN (temp3))
 		  && invert_jump (temp, JUMP_LABEL (insn)))
 		{
 		  emit_insn_after_with_line_notes (PATTERN (temp3),
@@ -977,7 +987,7 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 	     We set:
 
 	     TEMP to the "x = exp;" insn.
-	     TEMP1 to the single set in the "x = exp; insn.
+	     TEMP1 to the single set in the "x = exp;" insn.
 	     TEMP2 to "x".  */
 
 	  if (! reload_completed
@@ -992,7 +1002,6 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		      && JUMP_LABEL (temp2) == JUMP_LABEL (insn)))
 	      && (temp1 = single_set (temp)) != 0
 	      && (temp2 = SET_DEST (temp1), GET_CODE (temp2) == REG)
-	      && GET_MODE_CLASS (GET_MODE (temp2)) == MODE_INT
 	      && (! SMALL_REGISTER_CLASSES
 		  || REGNO (temp2) >= FIRST_PSEUDO_REGISTER)
 	      && GET_CODE (SET_SRC (temp1)) != REG
@@ -1012,6 +1021,12 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 						   PREV_INSN (temp3), temp);
 		  delete_insn (temp);
 		  reallabelprev = prev_active_insn (JUMP_LABEL (insn));
+
+		  if (after_regscan)
+		    {
+		      reg_scan_update (temp3, NEXT_INSN (next), old_max_reg);
+		      old_max_reg = max_reg_num ();
+		    }
 		}
 	    }
 
@@ -1064,6 +1079,12 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		  delete_insn (temp);
 		  delete_insn (temp3);
 		  reallabelprev = prev_active_insn (JUMP_LABEL (insn));
+
+		  if (after_regscan)
+		    {
+		      reg_scan_update (temp6, NEXT_INSN (next), old_max_reg);
+		      old_max_reg = max_reg_num ();
+		    }
 		}
 	    }
 
@@ -1124,6 +1145,12 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		  delete_insn (temp);
 		  delete_insn (temp3);
 		  reallabelprev = prev_active_insn (JUMP_LABEL (insn));
+
+		  if (after_regscan)
+		    {
+		      reg_scan_update (temp6, NEXT_INSN (next), old_max_reg);
+		      old_max_reg = max_reg_num ();
+		    }
 		}
 	    }
 #endif /* HAVE_cc0 */
@@ -1159,11 +1186,8 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 	      && GET_CODE (temp1 = SET_DEST (PATTERN (temp))) == REG
 	      && (! SMALL_REGISTER_CLASSES
 		  || REGNO (temp1) >= FIRST_PSEUDO_REGISTER)
-	      && (GET_CODE (temp2 = SET_SRC (PATTERN (temp))) == REG
-		  || (GET_CODE (temp2) == MEM && RTX_UNCHANGING_P (temp2))
-		  || GET_CODE (temp2) == SUBREG
-		  /* ??? How about floating point constants?  */
-		  || CONSTANT_P (temp2))
+	      && ! side_effects_p (temp2 = SET_SRC (PATTERN (temp)))
+	      && ! may_trap_p (temp2)
 	      /* Allow either form, but prefer the former if both apply. 
 		 There is no point in using the old value of TEMP1 if
 		 it is a register, since cse will alias them.  It can
@@ -1238,7 +1262,7 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 
 		if (target)
 		  {
-		    rtx seq1,seq2;
+		    rtx seq1,seq2,last;
 
 		    /* Save the conditional move sequence but don't emit it
 		       yet.  On some machines, like the alpha, it is possible
@@ -1260,13 +1284,20 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		    emit_insns_before (seq1, temp5);
 		    /* Insert conditional move after insn, to be sure that
 		       the jump and a possible compare won't be separated */
-		    emit_insns_after (seq2, insn);
+		    last = emit_insns_after (seq2, insn);
 
 		    /* ??? We can also delete the insn that sets X to A.
 		       Flow will do it too though.  */
 		    delete_insn (temp);
 		    next = NEXT_INSN (insn);
 		    delete_jump (insn);
+
+		    if (after_regscan)
+		      {
+			reg_scan_update (seq1, NEXT_INSN (last), old_max_reg);
+			old_max_reg = max_reg_num ();
+		      }
+
 		    changed = 1;
 		    continue;
 		  }
@@ -1305,11 +1336,13 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 			 /* Check that the mask is a power of two,
 			    so that it can probably be generated
 			    with a shift.  */
+			    && GET_CODE (temp3) == CONST_INT
 			    && exact_log2 (INTVAL (temp3)) >= 0))
 		       && (reversep = 0, temp2 == const0_rtx))
 		      || ((BRANCH_COST >= 2
 			   || STORE_FLAG_VALUE == -1
 			   || (STORE_FLAG_VALUE == 1
+			       && GET_CODE (temp2) == CONST_INT
 			       && exact_log2 (INTVAL (temp2)) >= 0))
 			  && temp3 == const0_rtx
 			  && (reversep = can_reverse_comparison_p (temp4, insn)))
@@ -1447,6 +1480,13 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		      delete_insn (temp);
 		      next = NEXT_INSN (insn);
 		      delete_jump (insn);
+
+		      if (after_regscan)
+			{
+			  reg_scan_update (seq, NEXT_INSN (next), old_max_reg);
+			  old_max_reg = max_reg_num ();
+			}
+
 		      changed = 1;
 		      continue;
 		    }
@@ -1566,6 +1606,13 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		  delete_insn (prev_nonnote_insn (insn));
 #endif
 		  delete_insn (insn);
+
+		  if (after_regscan)
+		    {
+		      reg_scan_update (seq, NEXT_INSN (next), old_max_reg);
+		      old_max_reg = max_reg_num ();
+		    }
+
 		  changed = 1;
 		  continue;
 		}
@@ -1897,6 +1944,80 @@ jump_optimize (f, cross_jump, noop_moves, after_regscan)
 		  continue;
 		}
 	    }
+#ifdef HAVE_trap
+	  /* Detect a conditional jump jumping over an unconditional trap.  */
+	  else if (HAVE_trap
+		   && this_is_condjump && ! this_is_simplejump
+		   && reallabelprev != 0
+		   && GET_CODE (reallabelprev) == INSN
+		   && GET_CODE (PATTERN (reallabelprev)) == TRAP_IF
+		   && TRAP_CONDITION (PATTERN (reallabelprev)) == const_true_rtx
+		   && prev_active_insn (reallabelprev) == insn
+		   && no_labels_between_p (insn, reallabelprev)
+		   && (temp2 = get_condition (insn, &temp4))
+		   && can_reverse_comparison_p (temp2, insn))
+	    {
+	      rtx new = gen_cond_trap (reverse_condition (GET_CODE (temp2)),
+				       XEXP (temp2, 0), XEXP (temp2, 1),
+				       TRAP_CODE (PATTERN (reallabelprev)));
+
+	      if (new)
+		{
+		  emit_insn_before (new, temp4);
+		  delete_insn (reallabelprev);
+		  delete_jump (insn);
+		  changed = 1;
+		  continue;
+		}
+	    }
+	  /* Detect a jump jumping to an unconditional trap.  */
+	  else if (HAVE_trap && this_is_condjump
+		   && (temp = next_active_insn (JUMP_LABEL (insn)))
+		   && GET_CODE (temp) == INSN
+		   && GET_CODE (PATTERN (temp)) == TRAP_IF
+		   && (this_is_simplejump
+		       || (temp2 = get_condition (insn, &temp4))))
+	    {
+	      rtx tc = TRAP_CONDITION (PATTERN (temp));
+
+	      if (tc == const_true_rtx
+		  || (! this_is_simplejump && rtx_equal_p (temp2, tc)))
+		{
+		  rtx new;
+		  /* Replace an unconditional jump to a trap with a trap.  */
+		  if (this_is_simplejump)
+		    {
+		      emit_barrier_after (emit_insn_before (gen_trap (), insn));
+		      delete_jump (insn);
+		      changed = 1;
+		      continue;
+		    }
+		  new = gen_cond_trap (GET_CODE (temp2), XEXP (temp2, 0),
+				       XEXP (temp2, 1),
+				       TRAP_CODE (PATTERN (temp)));
+		  if (new)
+		    {
+		      emit_insn_before (new, temp4);
+		      delete_jump (insn);
+		      changed = 1;
+		      continue;
+		    }
+		}
+	      /* If the trap condition and jump condition are mutually
+		 exclusive, redirect the jump to the following insn.  */
+	      else if (GET_RTX_CLASS (GET_CODE (tc)) == '<'
+		       && ! this_is_simplejump
+		       && swap_condition (GET_CODE (temp2)) == GET_CODE (tc)
+		       && rtx_equal_p (XEXP (tc, 0), XEXP (temp2, 0))
+		       && rtx_equal_p (XEXP (tc, 1), XEXP (temp2, 1))
+		       && redirect_jump (insn, get_label_after (temp)))
+		{
+		  changed = 1;
+		  continue;
+		}
+	    }
+#endif
+
 	  /* Detect a conditional jump jumping over an unconditional jump.  */
 
 	  else if ((this_is_condjump || this_is_condjump_in_parallel)
@@ -2309,7 +2430,11 @@ duplicate_loop_exit_test (loop_start)
 	 has a REG_RETVAL or REG_LIBCALL note (hard to adjust)
 	 is a NOTE_INSN_LOOP_BEG because this means we have a nested loop
 	 is a NOTE_INSN_BLOCK_{BEG,END} because duplicating these notes
-	      are not valid
+	      is not valid.
+
+     We also do not do this if we find an insn with ASM_OPERANDS.  While
+     this restriction should not be necessary, copying an insn with
+     ASM_OPERANDS can confuse asm_noperands in some cases.
 
      Also, don't do this if the exit code is more than 20 insns.  */
 
@@ -2335,16 +2460,29 @@ duplicate_loop_exit_test (loop_start)
 	     This can be avoided by checking here for NOTE_INSN_LOOP_CONT.  */
 
 	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
-	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END
 	      || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT)
 	    return 0;
+
+	  if (optimize < 2
+	      && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_BEG
+		  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_BLOCK_END))
+	    /* If we were to duplicate this code, we would not move
+	       the BLOCK notes, and so debugging the moved code would
+	       be difficult.  Thus, we only move the code with -O2 or
+	       higher.  */
+	    return 0;
+
 	  break;
 	case JUMP_INSN:
 	case INSN:
+	  /* The code below would grossly mishandle REG_WAS_0 notes,
+	     so get rid of them here.  */
+	  while ((p = find_reg_note (insn, REG_WAS_0, NULL_RTX)) != 0)
+	    remove_note (insn, p);
 	  if (++num_insns > 20
 	      || find_reg_note (insn, REG_RETVAL, NULL_RTX)
-	      || find_reg_note (insn, REG_LIBCALL, NULL_RTX))
+	      || find_reg_note (insn, REG_LIBCALL, NULL_RTX)
+	      || asm_noperands (PATTERN (insn)) > 0)
 	    return 0;
 	  break;
 	default:
@@ -4103,7 +4241,15 @@ delete_labelref_insn (insn, label, delete_this)
 /* Like rtx_equal_p except that it considers two REGs as equal
    if they renumber to the same value and considers two commutative
    operations to be the same if the order of the operands has been
-   reversed.  */
+   reversed.
+
+   ??? Addition is not commutative on the PA due to the weird implicit
+   space register selection rules for memory addresses.  Therefore, we
+   don't consider a + b == b + a.
+
+   We could/should make this test a little tighter.  Possibly only
+   disabling it on the PA via some backend macro or only disabling this
+   case when the PLUS is inside a MEM.  */
 
 int
 rtx_renumbered_equal_p (x, y)
@@ -4211,8 +4357,11 @@ rtx_renumbered_equal_p (x, y)
     return 0;
 
   /* For commutative operations, the RTX match if the operand match in any
-     order.  Also handle the simple binary and unary cases without a loop.  */
-  if (code == EQ || code == NE || GET_RTX_CLASS (code) == 'c')
+     order.  Also handle the simple binary and unary cases without a loop.
+
+     ??? Don't consider PLUS a commutative operator; see comments above.  */
+  if ((code == EQ || code == NE || GET_RTX_CLASS (code) == 'c')
+      && code != PLUS)
     return ((rtx_renumbered_equal_p (XEXP (x, 0), XEXP (y, 0))
 	     && rtx_renumbered_equal_p (XEXP (x, 1), XEXP (y, 1)))
 	    || (rtx_renumbered_equal_p (XEXP (x, 0), XEXP (y, 1))
@@ -4347,7 +4496,7 @@ static int modified_mem;
 static void
 mark_modified_reg (dest, x)
      rtx dest;
-     rtx x;
+     rtx x ATTRIBUTE_UNUSED;
 {
   int regno, i;
 
@@ -4524,6 +4673,7 @@ thread_jumps (f, max_reg, flag_before_loop)
 			  rtx prev = PREV_INSN (new_label);
 
 			  if (flag_before_loop
+			      && GET_CODE (prev) == NOTE
 			      && NOTE_LINE_NUMBER (prev) == NOTE_INSN_LOOP_BEG)
 			    {
 			      /* Don't thread to the loop label.  If a loop
@@ -4739,6 +4889,7 @@ rtx_equal_for_thread_p (x, y, yinsn)
 }
 
 
+#ifndef HAVE_cc0
 /* Return the insn that NEW can be safely inserted in front of starting at
    the jump insn INSN.  Return 0 if it is not safe to do this jump
    optimization.  Note that NEW must contain a single set. */
@@ -4779,3 +4930,4 @@ find_insert_position (insn, new)
 
   return reg_mentioned_p (SET_DEST (single_set (new)), prev) ? 0 : prev;
 }
+#endif /* !HAVE_cc0 */

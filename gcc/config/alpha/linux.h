@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler,
    for Alpha Linux-based GNU systems.
-   Copyright (C) 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
    Contributed by Richard Henderson.
 
 This file is part of GNU CC.
@@ -23,45 +23,23 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #define TARGET_DEFAULT (MASK_FP | MASK_FPREGS | MASK_GAS)
 
 #undef CPP_PREDEFINES
-#define CPP_PREDEFINES "\
--D__alpha -D__alpha__ -D__linux__ -D__linux -D_LONGLONG -Dlinux -Dunix \
--Asystem(linux) -Acpu(alpha) -Amachine(alpha) " SUB_CPP_PREDEFINES
+#define CPP_PREDEFINES \
+"-Dlinux -Dunix -Asystem(linux) -D_LONGLONG -D__alpha__ " \
+SUB_CPP_PREDEFINES
 
 #undef LIB_SPEC
 #define LIB_SPEC "%{pg:-lgmon} %{pg:-lc_p} %{!pg:-lc}"
 
 /* Generate calls to memcpy, etc., not bcopy, etc. */
-#define TARGET_MEM_FUNCTIONS
+#define TARGET_MEM_FUNCTIONS 1
 
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABELNO)			\
 	fputs ("\tlda $28,_mcount\n\tjsr $28,($28),_mcount\n", (FILE))
 
 /* Show that we need a GP when profiling.  */
-#define TARGET_PROFILING_NEEDS_GP
+#define TARGET_PROFILING_NEEDS_GP 1
 
-/* Emit RTL insns to initialize the variable parts of a trampoline.
-   FNADDR is an RTX for the address of the function's pure code.
-   CXT is an RTX for the static chain value for the function. 
-
-   This differs from the standard version in that:
-
-   We do not initialize the "hint" field because it only has an 8k
-   range and so the target is in range of something on the stack. 
-   Omitting the hint saves a bogus branch-prediction cache line load.
-
-   GNU/Linux always has an executable stack -- no need for a system call. */
-
-#undef INITIALIZE_TRAMPOLINE
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)                       \
-{                                                                       \
-  rtx _addr;                                             		\
-                                                                        \
-  _addr = memory_address (Pmode, plus_constant ((TRAMP), 16));          \
-  emit_move_insn (gen_rtx (MEM, Pmode, _addr), (FNADDR));               \
-  _addr = memory_address (Pmode, plus_constant ((TRAMP), 24));          \
-  emit_move_insn (gen_rtx (MEM, Pmode, _addr), (CXT));                  \
-                                                                        \
-  emit_insn (gen_rtx (UNSPEC_VOLATILE, VOIDmode,                        \
-                      gen_rtvec (1, const0_rtx), 0));                   \
-}
+/* Don't care about faults in the prologue.  */
+#undef TARGET_CAN_FAULT_IN_PROLOGUE
+#define TARGET_CAN_FAULT_IN_PROLOGUE 1

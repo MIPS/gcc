@@ -80,8 +80,8 @@ lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
      LANGSPEC, MATHLIB, or WITHLIBC.  */
   int *args;
 
-  /* By default, we throw on the math library.  */
-  int need_math = 1;
+  /* By default, we throw on the math library if we have one.  */
+  int need_math = (MATH_LIBRARY[0] != '\0');
 
   /* The total number of arguments with the new stuff.  */
   int argc;
@@ -125,6 +125,7 @@ lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
 	    }
 	  else if (strcmp (argv[i], "-lm") == 0
 		   || strcmp (argv[i], "-lmath") == 0
+		   || strcmp (argv[i], MATH_LIBRARY) == 0
 #ifdef ALT_LIBM
 		   || strcmp (argv[i], ALT_LIBM) == 0
 #endif
@@ -241,7 +242,7 @@ lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
     }
   if (saw_math)
     arglist[j++] = saw_math;
-  else if (library)
+  else if (library && need_math)
     {
       arglist[j++] = MATH_LIBRARY;
       added_libraries++;
@@ -255,3 +256,12 @@ lang_specific_driver (fn, in_argc, in_argv, in_added_libraries)
   *in_argv = arglist;
   *in_added_libraries = added_libraries;
 }
+
+/* Called before linking.  Returns 0 on success and -1 on failure. */
+int lang_specific_pre_link ()  /* Not used for C++. */
+{
+  return 0;
+}
+
+/* Number of extra output files that lang_specific_pre_link may generate. */
+int lang_specific_extra_outfiles = 0;  /* Not used for C++. */

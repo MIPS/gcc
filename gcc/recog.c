@@ -40,9 +40,6 @@ Boston, MA 02111-1307, USA.  */
 #endif
 #endif
 
-/* Import from final.c: */
-extern rtx alter_subreg ();
-
 static void validate_replace_rtx_1 PROTO((rtx *, rtx, rtx, rtx));
 static rtx *find_single_use_1 PROTO((rtx, rtx *));
 static rtx *find_constant_term_loc PROTO((rtx *));
@@ -128,19 +125,18 @@ check_asm_operands (x)
   return 1;
 }
 
-/* Static data for the next two routines.
+/* Static data for the next two routines.  */
 
-   The maximum number of changes supported is defined as the maximum
-   number of operands times 5.  This allows for repeated substitutions
-   inside complex indexed address, or, alternatively, changes in up
-   to 5 insns.  */
+typedef struct change_t
+{
+  rtx object;
+  int old_code;
+  rtx *loc;
+  rtx old;
+} change_t;
 
-#define MAX_CHANGE_LOCS	(MAX_RECOG_OPERANDS * 5)
-
-static rtx change_objects[MAX_CHANGE_LOCS];
-static int change_old_codes[MAX_CHANGE_LOCS];
-static rtx *change_locs[MAX_CHANGE_LOCS];
-static rtx change_olds[MAX_CHANGE_LOCS];
+static change_t *changes;
+static int changes_allocated;
 
 static int num_changes = 0;
 
@@ -174,22 +170,35 @@ validate_change (object, loc, new, in_group)
   if (old == new || rtx_equal_p (old, new))
     return 1;
 
-  if (num_changes >= MAX_CHANGE_LOCS
-      || (in_group == 0 && num_changes != 0))
+  if (in_group == 0 && num_changes != 0)
     abort ();
 
   *loc = new;
 
   /* Save the information describing this change.  */
-  change_objects[num_changes] = object;
-  change_locs[num_changes] = loc;
-  change_olds[num_changes] = old;
+  if (num_changes >= changes_allocated)
+    {
+      if (changes_allocated == 0)
+	/* This value allows for repeated substitutions inside complex
+	   indexed addresses, or changes in up to 5 insns.  */
+	changes_allocated = MAX_RECOG_OPERANDS * 5;
+      else
+	changes_allocated *= 2;
+
+      changes = 
+	(change_t*) xrealloc (changes, 
+			      sizeof (change_t) * changes_allocated); 
+    }
+  
+  changes[num_changes].object = object;
+  changes[num_changes].loc = loc;
+  changes[num_changes].old = old;
 
   if (object && GET_CODE (object) != MEM)
     {
       /* Set INSN_CODE to force rerecognition of insn.  Save old code in
 	 case invalid.  */
-      change_old_codes[num_changes] = INSN_CODE (object);
+      changes[num_changes].old_code = INSN_CODE (object);
       INSN_CODE (object) = -1;
     }
 
@@ -224,7 +233,7 @@ apply_change_group ()
 
   for (i = 0; i < num_changes; i++)
     {
-      rtx object = change_objects[i];
+      rtx object = changes[i].object;
 
       if (object == 0)
 	continue;
@@ -319,9 +328,9 @@ cancel_changes (num)
      they were made.  */
   for (i = num_changes - 1; i >= num; i--)
     {
-      *change_locs[i] = change_olds[i];
-      if (change_objects[i] && GET_CODE (change_objects[i]) != MEM)
-	INSN_CODE (change_objects[i]) = change_old_codes[i];
+      *changes[i].loc = changes[i].old;
+      if (changes[i].object && GET_CODE (changes[i].object) != MEM)
+	INSN_CODE (changes[i].object) = changes[i].old_code;
     }
   num_changes = num;
 }
@@ -472,11 +481,19 @@ validate_replace_rtx_1 (loc, from, to, object)
 
 #ifdef HAVE_extzv
 	  if (code == ZERO_EXTRACT)
-	    wanted_mode = insn_operand_mode[(int) CODE_FOR_extzv][1];
+	    {
+	      wanted_mode = insn_operand_mode[(int) CODE_FOR_extzv][1];
+	      if (wanted_mode == VOIDmode)
+		wanted_mode = word_mode;
+	    }
 #endif
 #ifdef HAVE_extv
 	  if (code == SIGN_EXTRACT)
-	    wanted_mode = insn_operand_mode[(int) CODE_FOR_extv][1];
+	    {
+	      wanted_mode = insn_operand_mode[(int) CODE_FOR_extv][1];
+	      if (wanted_mode == VOIDmode)
+		wanted_mode = word_mode;
+	    }
 #endif
 
 	  /* If we have a narrower mode, we can do something.  */
@@ -535,6 +552,35 @@ validate_replace_rtx (from, to, insn)
      rtx from, to, insn;
 {
   validate_replace_rtx_1 (&PATTERN (insn), from, to, insn);
+  return apply_change_group ();
+}
+
+/* Try replacing every occurrence of FROM in INSN with TO.  After all
+   changes have been made, validate by seeing if INSN is still valid.  */
+
+void
+validate_replace_rtx_group (from, to, insn)
+     rtx from, to, insn;
+{
+  validate_replace_rtx_1 (&PATTERN (insn), from, to, insn);
+}
+
+/* Try replacing every occurrence of FROM in INSN with TO, avoiding
+   SET_DESTs.  After all changes have been made, validate by seeing if
+   INSN is still valid.  */
+
+int
+validate_replace_src (from, to, insn)
+     rtx from, to, insn;
+{
+  if ((GET_CODE (insn) != INSN && GET_CODE (insn) != JUMP_INSN)
+      || GET_CODE (PATTERN (insn)) != SET)
+    abort ();
+
+  validate_replace_rtx_1 (&SET_SRC (PATTERN (insn)), from, to, insn);
+  if (GET_CODE (SET_DEST (PATTERN (insn))) == MEM)
+    validate_replace_rtx_1 (&XEXP (SET_DEST (PATTERN (insn)), 0),
+			    from, to, insn);
   return apply_change_group ();
 }
 

@@ -19,11 +19,6 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include "system.h"
 #include "rtl.h"
 #include "tree.h"
@@ -32,6 +27,7 @@ Boston, MA 02111-1307, USA.  */
 #include "regs.h"
 #include "insn-flags.h"
 #include "toplev.h"
+#include "output.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -1804,16 +1800,16 @@ expand_call (exp, target, ignore)
 	    {
 	      rtx reg = gen_reg_rtx (word_mode);
 	      rtx word = operand_subword_force (args[i].value, j, BLKmode);
-	      int bitsize = TYPE_ALIGN (TREE_TYPE (args[i].tree_value));
-	      int bitpos;
+	      int bitsize = MIN (bytes * BITS_PER_UNIT, BITS_PER_WORD);
+	      int bitalign = TYPE_ALIGN (TREE_TYPE (args[i].tree_value));
 
 	      args[i].aligned_regs[j] = reg;
 
-	      /* Clobber REG and move each partword into it.  Ensure we don't
-		 go past the end of the structure.  Note that the loop below
-		 works because we've already verified that padding
-		 and endianness are compatible.
+	      /* There is no need to restrict this code to loading items
+		 in TYPE_ALIGN sized hunks.  The bitfield instructions can
+		 load up entire word sized registers efficiently.
 
+		 ??? This may not be needed anymore.
 		 We use to emit a clobber here but that doesn't let later
 		 passes optimize the instructions we emit.  By storing 0 into
 		 the register later passes know the first AND to zero out the
@@ -1822,20 +1818,14 @@ expand_call (exp, target, ignore)
 
 	      emit_move_insn (reg, const0_rtx);
 
-	      for (bitpos = 0;
-		   bitpos < BITS_PER_WORD && bytes > 0;
-		   bitpos += bitsize, bytes -= bitsize / BITS_PER_UNIT)
-		{
-		  int xbitpos = bitpos + big_endian_correction;
-
-		  store_bit_field (reg, bitsize, xbitpos, word_mode,
-				   extract_bit_field (word, bitsize, bitpos, 1,
-						      NULL_RTX, word_mode,
-						      word_mode,
-						      bitsize / BITS_PER_UNIT,
-						      BITS_PER_WORD),
-				   bitsize / BITS_PER_UNIT, BITS_PER_WORD);
-		}
+	      bytes -= bitsize / BITS_PER_UNIT;
+	      store_bit_field (reg, bitsize, big_endian_correction, word_mode,
+			       extract_bit_field (word, bitsize, 0, 1,
+						  NULL_RTX, word_mode,
+						  word_mode,
+						  bitalign / BITS_PER_UNIT,
+						  BITS_PER_WORD),
+			       bitalign / BITS_PER_UNIT, BITS_PER_WORD);
 	    }
 	}
 
@@ -1921,7 +1911,12 @@ expand_call (exp, target, ignore)
 	     locations.  The Irix 6 ABI has examples of this.  */
 
 	  if (GET_CODE (reg) == PARALLEL)
-	    emit_group_load (reg, args[i].value);
+	    {
+	      emit_group_load (reg, args[i].value,
+			       int_size_in_bytes (TREE_TYPE (args[i].tree_value)),
+			       (TYPE_ALIGN (TREE_TYPE (args[i].tree_value))
+				/ BITS_PER_UNIT));
+	    }
 
 	  /* If simple case, just do move.  If normal partial, store_one_arg
 	     has already loaded the register for us.  In all other cases,
@@ -2088,15 +2083,17 @@ expand_call (exp, target, ignore)
      The Irix 6 ABI has examples of this.  */
   else if (GET_CODE (valreg) == PARALLEL)
     {
+      int bytes = int_size_in_bytes (TREE_TYPE (exp));
+
       if (target == 0)
 	{
-	  int bytes = int_size_in_bytes (TREE_TYPE (exp));
 	  target = assign_stack_temp (TYPE_MODE (TREE_TYPE (exp)), bytes, 0);
 	  MEM_IN_STRUCT_P (target) = AGGREGATE_TYPE_P (TREE_TYPE (exp));
 	  preserve_temp_slots (target);
 	}
 
-      emit_group_store (target, valreg);
+      emit_group_store (target, valreg, bytes,
+			TYPE_ALIGN (TREE_TYPE (exp)) / BITS_PER_UNIT);
     }
   else if (target && GET_MODE (target) == TYPE_MODE (TREE_TYPE (exp))
 	   && GET_MODE (target) == GET_MODE (valreg))
@@ -2108,75 +2105,7 @@ expand_call (exp, target, ignore)
        when function inlining is being done.  */
     emit_move_insn (target, valreg);
   else if (TYPE_MODE (TREE_TYPE (exp)) == BLKmode)
-    {
-      /* Some machines (the PA for example) want to return all small
-	 structures in registers regardless of the structure's alignment.
-	 
-	 Deal with them explicitly by copying from the return registers
-	 into the target MEM locations.  */
-      int bytes = int_size_in_bytes (TREE_TYPE (exp));
-      rtx src, dst;
-      int bitsize = MIN (TYPE_ALIGN (TREE_TYPE (exp)), BITS_PER_WORD);
-      int bitpos, xbitpos, big_endian_correction = 0;
-      
-      if (target == 0)
-	{
-	  target = assign_stack_temp (BLKmode, bytes, 0);
-	  MEM_IN_STRUCT_P (target) = AGGREGATE_TYPE_P (TREE_TYPE (exp));
-	  preserve_temp_slots (target);
-	}
-
-      /* This code assumes valreg is at least a full word.  If it isn't,
-	 copy it into a new pseudo which is a full word.  */
-      if (GET_MODE (valreg) != BLKmode
-	  && GET_MODE_SIZE (GET_MODE (valreg)) < UNITS_PER_WORD)
-	valreg = convert_to_mode (word_mode, valreg,
-				  TREE_UNSIGNED (TREE_TYPE (exp)));
-
-      /* Structures whose size is not a multiple of a word are aligned
-	 to the least significant byte (to the right).  On a BYTES_BIG_ENDIAN
-	 machine, this means we must skip the empty high order bytes when
-	 calculating the bit offset.  */
-      if (BYTES_BIG_ENDIAN && bytes % UNITS_PER_WORD)
-	big_endian_correction = (BITS_PER_WORD - ((bytes % UNITS_PER_WORD)
-						  * BITS_PER_UNIT));
-
-      /* Copy the structure BITSIZE bites at a time.
-
-	 We could probably emit more efficient code for machines
-	 which do not use strict alignment, but it doesn't seem
-	 worth the effort at the current time.  */
-      for (bitpos = 0, xbitpos = big_endian_correction;
-	   bitpos < bytes * BITS_PER_UNIT;
-	   bitpos += bitsize, xbitpos += bitsize)
-	{
-
-	  /* We need a new source operand each time xbitpos is on a 
-	     word boundary and when xbitpos == big_endian_correction
-	     (the first time through).  */
-	  if (xbitpos % BITS_PER_WORD == 0
-	      || xbitpos == big_endian_correction)
-	    src = operand_subword_force (valreg,
-					 xbitpos / BITS_PER_WORD, 
-					 BLKmode);
-
-	  /* We need a new destination operand each time bitpos is on
-	     a word boundary.  */
-	  if (bitpos % BITS_PER_WORD == 0)
-	    dst = operand_subword (target, bitpos / BITS_PER_WORD, 1, BLKmode);
-	      
-	  /* Use xbitpos for the source extraction (right justified) and
-	     xbitpos for the destination store (left justified).  */
-	  store_bit_field (dst, bitsize, bitpos % BITS_PER_WORD, word_mode,
-			   extract_bit_field (src, bitsize,
-					      xbitpos % BITS_PER_WORD, 1,
-					      NULL_RTX, word_mode,
-					      word_mode,
-					      bitsize / BITS_PER_UNIT,
-					      BITS_PER_WORD),
-			   bitsize / BITS_PER_UNIT, BITS_PER_WORD);
-	}
-    }
+    target = copy_blkmode_from_reg (target, valreg, TREE_TYPE (exp));
   else
     target = copy_to_reg (valreg);
 

@@ -57,22 +57,20 @@ static char *scratch_firstobj;
 
 static void icat PROTO((HOST_WIDE_INT));
 static void dicat PROTO((HOST_WIDE_INT, HOST_WIDE_INT));
-static void flush_repeats PROTO((tree));
+static void flush_repeats PROTO((int, tree));
 static void build_overload_identifier PROTO((tree));
 static void build_overload_nested_name PROTO((tree));
 static void build_overload_int PROTO((tree, int));
 static void build_overload_identifier PROTO((tree));
 static void build_qualified_name PROTO((tree));
 static void build_overload_value PROTO((tree, tree, int));
-static void issue_nrepeats PROTO((tree));
+static void issue_nrepeats PROTO((int, tree));
 static char *build_mangled_name PROTO((tree,int,int));
 static void process_modifiers PROTO((tree));
 static void process_overload_item PROTO((tree,int));
 static void do_build_assign_ref PROTO((tree));
 static void do_build_copy_constructor PROTO((tree));
 static tree largest_union_member PROTO((tree));
-static tree build_decl_overload_real PROTO((tree, tree, tree, tree,
-					    tree, int)); 
 static void build_template_template_parm_names PROTO((tree));
 static void build_template_parm_names PROTO((tree, tree));
 static void build_underscore_int PROTO((int));
@@ -82,7 +80,10 @@ static int check_ktype PROTO((tree, int));
 static int issue_ktype PROTO((tree));
 static void build_overload_scope_ref PROTO((tree));
 static void build_mangled_template_parm_index PROTO((char *, tree));
+static int is_back_referenceable_type PROTO((tree));
 static int check_btype PROTO((tree));
+static void build_mangled_name_for_type PROTO((tree));
+static void build_mangled_name_for_type_with_Gcode PROTO((tree, int));
 
 # define OB_INIT() (scratch_firstobj ? (obstack_free (&scratch_obstack, scratch_firstobj), 0) : 0)
 # define OB_PUTC(C) (obstack_1grow (&scratch_obstack, (C)))
@@ -173,7 +174,6 @@ do_inline_function_hair (type, friend_list)
 /* type tables for K and B type compression */
 static tree *btypelist = NULL;
 static tree *ktypelist = NULL;
-static tree lasttype = NULL;
 static int maxbsize = 0;
 static int maxksize = 0;
 
@@ -181,18 +181,13 @@ static int maxksize = 0;
 static int maxbtype = 0;
 static int maxktype = 0;
 
-/* Number of occurrences of last b type seen.  */
-static int nrepeats = 0;
-
 /* Array of types seen so far in top-level call to `build_mangled_name'.
    Allocated and deallocated by caller.  */
 static tree *typevec = NULL;
+static int  typevec_size;
 
 /* Number of types interned by `build_mangled_name' so far.  */
 static int maxtype = 0;
-
-/* Number of occurrences of last type seen.  */
-static int Nrepeats = 0;
 
 /* Nonzero if we should not try folding parameter types.  */
 static int nofold;
@@ -206,9 +201,7 @@ start_squangling ()
 {
   if (flag_do_squangling)
     {
-      lasttype = NULL;
       nofold = 0;
-      nrepeats = 0;
       maxbtype = 0;
       maxktype = 0;
       maxbsize = 50;
@@ -223,7 +216,6 @@ end_squangling ()
 {
   if (flag_do_squangling)
     {
-      lasttype = NULL;
       if (ktypelist)
         free (ktypelist);
       if (btypelist)
@@ -305,7 +297,8 @@ dicat (lo, hi)
 }
 
 static __inline void
-flush_repeats (type)
+flush_repeats (nrepeats, type)
+     int nrepeats;
      tree type;
 {
   int tindex = 0;
@@ -313,50 +306,73 @@ flush_repeats (type)
   while (typevec[tindex] != type)
     tindex++;
 
-  if (Nrepeats > 1)
+  if (nrepeats > 1)
     {
       OB_PUTC ('N');
-      icat (Nrepeats);
-      if (Nrepeats > 9)
+      icat (nrepeats);
+      if (nrepeats > 9)
 	OB_PUTC ('_');
     }
   else
     OB_PUTC ('T');
-  Nrepeats = 0;
   icat (tindex);
   if (tindex > 9)
     OB_PUTC ('_');
 }
 
+/* Returns nonzero iff this is a type to which we will want to make
+   back-references (using the `B' code).  */
 
-/* issue squangling type repeating */
-static void
-issue_nrepeats (lasttype)
-     tree lasttype;
+int
+is_back_referenceable_type (type)
+     tree type;
 {
-  if (nrepeats == 1)
-    {
-      switch (TREE_CODE (lasttype))
-        {
-          case INTEGER_TYPE:
-          case REAL_TYPE:
-          case VOID_TYPE:
-          case BOOLEAN_TYPE:
-            process_overload_item (lasttype, FALSE);
-            nrepeats = 0;
-            return;
+  if (btypelist == NULL)
+    /* We're not generating any back-references.  */
+    return 0;
 
-          default:
-            break;
-        }
+  switch (TREE_CODE (type)) 
+    {
+    case INTEGER_TYPE:
+    case REAL_TYPE:
+    case VOID_TYPE:
+    case BOOLEAN_TYPE:
+      /* These types have single-character manglings, so there's no
+	 point in generating back-references.  */
+      return 0;         
+
+    case TEMPLATE_TYPE_PARM:
+      /* It would be a bit complex to demangle signatures correctly if
+	 we generated back-references to these, and the manglings of
+	 type parameters are short.  */
+      return 0;
+
+    default:
+      return 1;
     }
-  OB_PUTC ('n');
-  icat (nrepeats);
-  if (nrepeats > 9)
-    OB_PUTC ('_');
-  nrepeats = 0;
 }
 
+/* Issue the squangling code indicating NREPEATS repetitions of TYPE,
+   which was the last parameter type output.  */
+
+static void
+issue_nrepeats (nrepeats, type)
+     int nrepeats;
+     tree type;
+{
+  if (nrepeats == 1 && !is_back_referenceable_type (type))
+    /* For types whose manglings are short, don't bother using the
+       repetition code if there's only one repetition, since the
+       repetition code will be about as long as the ordinary mangling.  */ 
+    build_mangled_name_for_type (type);
+  else
+    {
+      OB_PUTC ('n');
+      icat (nrepeats);
+      if (nrepeats > 9)
+	OB_PUTC ('_');
+    }
+}
 
 /* Check to see if a tree node has been entered into the Kcode typelist    */
 /* if not, add it. Return -1 if it isn't found, otherwise return the index */
@@ -409,43 +425,41 @@ issue_ktype (decl)
     }
   return FALSE;
 }
+  
+/* Build a representation for DECL, which may be an entity not at
+   global scope.  If so, a marker indicating that the name is
+   qualified has already been output, but the qualifying context has
+   not.  */
 
 static void
 build_overload_nested_name (decl)
      tree decl;
 {
+  tree context;
 
   if (ktypelist && issue_ktype (decl))
       return;
 
-   if (DECL_CONTEXT (decl))
-    {
-      tree context = DECL_CONTEXT (decl);
-
-      /* try to issue a K type, and if we can't continue the normal path */
-      if (!(ktypelist && issue_ktype (context)))
-        {
-          /* For a template type parameter, we want to output an 'Xn'
-             rather than 'T' or some such. */
-          if (TREE_CODE (context) == TEMPLATE_TYPE_PARM
-              || TREE_CODE (context) == TEMPLATE_TEMPLATE_PARM)
-            build_mangled_name (context, 0, 0);
-          else
-            {
-              if (TREE_CODE_CLASS (TREE_CODE (context)) == 't')
-                context = TYPE_NAME (context);
-              build_overload_nested_name (context);
-            }
-        }
-    }
-  else if (decl == global_namespace)
+  if (decl == global_namespace)
     return;
-  else if (DECL_NAMESPACE (decl))
-    build_overload_nested_name (DECL_NAMESPACE (decl));
-  else
-    /* XXX the above does not work for non-namespaces */
-    if (current_namespace && TREE_CODE (decl) != NAMESPACE_DECL)
-      build_overload_nested_name (current_namespace);
+
+  context = CP_DECL_CONTEXT (decl);
+
+  /* try to issue a K type, and if we can't continue the normal path */
+  if (!(ktypelist && issue_ktype (context)))
+  {
+    /* For a template type parameter, we want to output an 'Xn'
+       rather than 'T' or some such. */
+    if (TREE_CODE (context) == TEMPLATE_TYPE_PARM
+        || TREE_CODE (context) == TEMPLATE_TEMPLATE_PARM)
+      build_mangled_name_for_type (context);
+    else
+    {
+      if (TREE_CODE_CLASS (TREE_CODE (context)) == 't')
+        context = TYPE_NAME (context);
+      build_overload_nested_name (context);
+    }
+  }
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
@@ -467,6 +481,9 @@ build_overload_nested_name (decl)
     build_overload_identifier (decl);
 }
 
+/* Output the decimal representation of I.  If I > 9, the decimal
+   representation is preceeded and followed by an underscore.  */
+
 static void
 build_underscore_int (i)
      int i;
@@ -484,7 +501,7 @@ build_overload_scope_ref (value)
 {
   OB_PUTC2 ('Q', '2');
   numeric_output_need_bar = 0;
-  build_mangled_name (TREE_OPERAND (value, 0), 0, 0);
+  build_mangled_name_for_type (TREE_OPERAND (value, 0));
   build_overload_identifier (TREE_OPERAND (value, 1));
 }
 
@@ -516,7 +533,13 @@ build_overload_int (value, in_template)
 	  id = ansi_opname [(int) TREE_CODE (value)];
 	  my_friendly_assert (id != NULL_TREE, 0);
 	  name = IDENTIFIER_POINTER (id);
-	  my_friendly_assert (name[0] == '_' && name[1] == '_', 0);
+	  if (name[0] != '_' || name[1] != '_')
+	    /* On some erroneous inputs, we can get here with VALUE a
+	       LOOKUP_EXPR.  In that case, the NAME will be the
+	       identifier for "<invalid operator>".  We must survive
+	       this routine in order to issue a sensible error
+	       message, so we fall through to the case below.  */
+	    goto bad_value;
 
 	  for (i = 0; i < operands; ++i)
 	    {
@@ -538,7 +561,7 @@ build_overload_int (value, in_template)
 		/* We can get here with sizeof, e.g.:
 		     
 		   template <class T> void f(A<sizeof(T)>);  */
-		process_overload_item (operand, 0);
+		build_mangled_name_for_type (operand);
 	      else if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (tc)))
 		build_overload_int (operand, in_template);
 	      else
@@ -554,6 +577,7 @@ build_overload_int (value, in_template)
 	     This should cause assembler errors we'll notice.  */
 	    
 	  static int n;
+	bad_value:
 	  sprintf (digit_buffer, " *%d", n++);
 	  OB_PUTCP (digit_buffer);
 	}
@@ -604,14 +628,11 @@ build_overload_value (type, value, in_template)
      tree type, value;
      int in_template;
 {
+  my_friendly_assert (TREE_CODE_CLASS (TREE_CODE (type)) == 't', 0);
+
   while (TREE_CODE (value) == NON_LVALUE_EXPR
 	 || TREE_CODE (value) == NOP_EXPR)
     value = TREE_OPERAND (value, 0);
-
-  if (TREE_CODE (type) == PARM_DECL)
-    type = TREE_TYPE (type);
-
-  my_friendly_assert (TREE_CODE_CLASS (TREE_CODE (type)) == 't', 0);
 
   if (numeric_output_need_bar)
     {
@@ -625,17 +646,20 @@ build_overload_value (type, value, in_template)
       return;
     }
 
-  if (TREE_CODE (type) == POINTER_TYPE
-      && TREE_CODE (TREE_TYPE (type)) == OFFSET_TYPE)
+  if (TYPE_PTRMEM_P (type))
     {
-      /* Handle a pointer to data member as a template instantiation
-	 parameter, boy, what fun!  */
-      type = integer_type_node;
-      if (TREE_CODE (value) != INTEGER_CST)
-	{
-	  sorry ("unknown pointer to member constant");
-	  return;
-	}
+      if (TREE_CODE (value) != PTRMEM_CST)
+	/* We should have already rejected this pointer to member,
+	   since it is not a constant.  */
+	my_friendly_abort (0);
+
+      /* Get the actual FIELD_DECL.  */
+      value = PTRMEM_CST_MEMBER (value);
+      my_friendly_assert (TREE_CODE (value) == FIELD_DECL, 0);
+
+      /* Output the name of the field.  */
+      build_overload_identifier (DECL_NAME (value));
+      return;
     }
 
   if (TYPE_PTRMEMFUNC_P (type))
@@ -823,10 +847,8 @@ build_template_template_parm_names (parmlist)
 	  build_template_template_parm_names (DECL_INNERMOST_TEMPLATE_PARMS (parm));
 	}
       else
-	{
-	  /* It's a PARM_DECL.  */
-	  build_mangled_name (TREE_TYPE (parm), 0, 0);
-	}
+	/* It's a PARM_DECL.  */
+	build_mangled_name_for_type (TREE_TYPE (parm));
     }
 }
 
@@ -840,25 +862,26 @@ build_template_parm_names (parmlist, arglist)
      tree arglist;
 {
   int i, nparms;
-  
+  tree inner_args = innermost_args (arglist);
+
   nparms = TREE_VEC_LENGTH (parmlist);
   icat (nparms);
   for (i = 0; i < nparms; i++)
     {
       tree parm = TREE_VALUE (TREE_VEC_ELT (parmlist, i));
-      tree arg = TREE_VEC_ELT (arglist, i);
+      tree arg = TREE_VEC_ELT (inner_args, i);
       if (TREE_CODE (parm) == TYPE_DECL)
 	{
 	  /* This parameter is a type.  */
 	  OB_PUTC ('Z');
-	  build_mangled_name (arg, 0, 0);
+	  build_mangled_name_for_type (arg);
 	}
       else if (TREE_CODE (parm) == TEMPLATE_DECL)
 	{
 	  /* This parameter is a template. */
 	  if (TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM)
 	    /* Output parameter declaration, argument index and level */
-	    build_mangled_name (arg, 0, 0);
+	    build_mangled_name_for_type (arg);
 	  else
 	    {
 	      /* A TEMPLATE_DECL node, output the parameter declaration 
@@ -874,12 +897,15 @@ build_template_parm_names (parmlist, arglist)
 	{
 	  parm = tsubst (parm, arglist, NULL_TREE);
 	  /* It's a PARM_DECL.  */
-	  build_mangled_name (TREE_TYPE (parm), 0, 0);
-	  build_overload_value (parm, arg, uses_template_parms (arglist));
+	  build_mangled_name_for_type (TREE_TYPE (parm));
+	  build_overload_value (TREE_TYPE (parm), arg, 
+				uses_template_parms (arglist));
 	}
     }
  }
 
+/* Output the representation for NAME, which is either a TYPE_DECL or
+   an IDENTIFIER.  */
 
 static void
 build_overload_identifier (name)
@@ -893,10 +919,10 @@ build_overload_identifier (name)
 				       (TREE_TYPE (name))))
 	      == FUNCTION_DECL)))
     {
+      /* NAME is the TYPE_DECL for a template specialization.  */
       tree template, parmlist, arglist, tname;
-      template = CLASSTYPE_TEMPLATE_INFO (TREE_TYPE (name));
-      arglist = TREE_VALUE (template);
-      template = TREE_PURPOSE (template);
+      template = CLASSTYPE_TI_TEMPLATE (TREE_TYPE (name));
+      arglist = CLASSTYPE_TI_ARGS (TREE_TYPE (name));
       tname = DECL_NAME (template);
       parmlist = DECL_INNERMOST_TEMPLATE_PARMS (template);
       OB_PUTC ('t');
@@ -946,8 +972,8 @@ build_qualified_name (decl)
   /* if we can't find a Ktype, do it the hard way */
   if (check_ktype (context, FALSE) == -1)
     {
-      /* count type scopes */
-      while (DECL_CONTEXT (context))
+      /* count type and namespace scopes */
+      while (DECL_CONTEXT (context) && DECL_CONTEXT (context) != global_namespace)
 	{
 	  i += 1;
 	  context = DECL_CONTEXT (context);
@@ -956,25 +982,6 @@ build_qualified_name (decl)
 	  if (TREE_CODE_CLASS (TREE_CODE (context)) == 't')
 	    context = TYPE_NAME (context);
 	}
-      /* now count namespace scopes */
-      if (TREE_CODE (decl) == NAMESPACE_DECL)
-	{
-	  i = 0; /* we have nothing done, yet: reset */
-	  context = decl;
-	}
-      else
-	/* decl must be a type, which we have to scope with the
-	   namespace */
-	{
-	  /* XXX MvL somehow, types have no lang_decl, so no namespace */
-	  context = current_namespace;
-	}    
-    }
-
-  while (context != global_namespace)
-    {
-      i += 1;
-      context = DECL_NAMESPACE (context);
     }
 
   if (i > 1)
@@ -984,6 +991,32 @@ build_qualified_name (decl)
       numeric_output_need_bar = 0;
     }
   build_overload_nested_name (decl);
+}
+
+/* Output the mangled representation for TYPE.  If EXTRA_GCODE is
+   non-zero, mangled names for structure/union types are intentionally
+   mangled differently from the method described in the ARM.  */
+
+void 
+build_mangled_name_for_type_with_Gcode (type, extra_Gcode)
+     tree type;
+     int extra_Gcode;
+{
+  if (TYPE_PTRMEMFUNC_P (type))
+    type = TYPE_PTRMEMFUNC_FN_TYPE (type);
+  type = canonical_type_variant (type);
+  process_modifiers (type);
+  process_overload_item (type, extra_Gcode);
+}
+
+/* Like build_mangled_name_for_type_with_Gcode, but never outputs the
+   `G'.  */
+
+void
+build_mangled_name_for_type (type)
+     tree type;
+{
+  build_mangled_name_for_type_with_Gcode (type, 0);
 }
 
 /* Given a list of parameters in PARMTYPES, create an unambiguous
@@ -1010,107 +1043,116 @@ build_overload_name (parmtypes, begin, end)
   return ret ;
 }
 
+/* Output the mangled representation for PARMTYPES.  If PARMTYPES is a
+   TREE_LIST, then it is a list of parameter types.  Otherwise,
+   PARMTYPES must be a single type.  */
+
 static char *
 build_mangled_name (parmtypes, begin, end)
      tree parmtypes;
      int begin, end;
 {
-  tree parmtype;
-
   if (begin) 
     OB_INIT ();
-  numeric_output_need_bar = 0;
 
-  if (TREE_CODE (parmtypes) != TREE_LIST)  /* just one item */
+  if (TREE_CODE (parmtypes) != TREE_LIST)  
+    /* There is only one type.  */
+    build_mangled_name_for_type (parmtypes);
+  else  
     {
-      if (TYPE_PTRMEMFUNC_P (parmtypes))
-        parmtypes = TYPE_PTRMEMFUNC_FN_TYPE (parmtypes);
-      process_modifiers (parmtypes);
-      process_overload_item (parmtypes, FALSE);
-    }
-  else  {
-    for ( ; parmtypes!=NULL; parmtypes = TREE_CHAIN (parmtypes))
-      {
-        parmtype = TREE_VALUE (parmtypes);
-        parmtype = build_type_variant (TYPE_MAIN_VARIANT (parmtype), 
-                      TYPE_READONLY (parmtype), TYPE_VOLATILE (parmtype));
-        if (flag_do_squangling)       /* squangling style repeats */
-          {
-            if (parmtype == lasttype) 
-              {
-                nrepeats++;
-                continue;
-              }
-            else 
-              if (nrepeats != 0) 
-                {
-                  issue_nrepeats (lasttype);
-                }
-            lasttype = parmtype;
-          }
-        else 
-          if (!nofold && typevec)
-            {
-              /* Every argument gets counted.  */
-              typevec[maxtype++] = parmtype;
+      /* There are several types in a parameter list.  */
+      int nrepeats = 0;
+      int old_style_repeats = !flag_do_squangling && !nofold && typevec;
+      tree last_type = NULL_TREE;
 
-              if (TREE_USED (parmtype) && parmtype == typevec[maxtype-2]
-		  && ! is_java_type (parmtype))
-                {
-                  Nrepeats++;
-                  continue;
-                }
+      for (; parmtypes && parmtypes != void_list_node;
+	   parmtypes = TREE_CHAIN (parmtypes))
+	{
+	  tree parmtype = canonical_type_variant (TREE_VALUE (parmtypes));
 
-              if (Nrepeats)
-                flush_repeats (typevec[maxtype-2]);
+	  if (old_style_repeats)
+	    {
+	      /* Every argument gets counted.  */
+	      my_friendly_assert (maxtype < typevec_size, 387);
+	      typevec[maxtype++] = parmtype;
+	    }
 
-              if (TREE_USED (parmtype))
-                {
+	  if (parmtype == last_type)
+	    {
+	      if (flag_do_squangling 
+		  || (old_style_repeats && TREE_USED (parmtype)
+		      && !TYPE_FOR_JAVA (parmtype)))
+		{
+		  /* The next type is the same as this one.  Keep
+		     track of the repetition, and output the repeat
+		     count later.  */
+		  nrepeats++;
+		  continue;
+		}
+	    }
+	  else if (nrepeats != 0)
+	    {
+	      /* Indicate how many times the previous parameter was
+		 repeated.  */
+	      if (old_style_repeats)
+		flush_repeats (nrepeats, last_type);
+	      else
+		issue_nrepeats (nrepeats, last_type);
+	      nrepeats = 0;
+	    }
+	  
+	  last_type = parmtype;
+
+	  if (old_style_repeats)
+	    {
+	      if (nrepeats)
+		{
+		  flush_repeats (nrepeats, last_type);
+		  nrepeats = 0;
+		}
+
+	      if (TREE_USED (parmtype))
+		{
 #if 0
-                  /* We can turn this on at some point when we want
-                     improved symbol mangling.  */
-                  Nrepeats++;
+		  /* We can turn this on at some point when we want
+		     improved symbol mangling.  */
+		  nrepeats++;
 #else
-                  /* This is bug compatible with 2.7.x  */
-                  flush_repeats (parmtype);
+		  /* This is bug compatible with 2.7.x  */
+		  flush_repeats (nrepeats, parmtype);
 #endif
-                  continue;
-                }
-
-              /* Only cache types which take more than one character.  */
-              if ((parmtype != TYPE_MAIN_VARIANT (parmtype)
+		  nrepeats = 0;
+		  continue;
+		}
+	      
+	      /* Only cache types which take more than one character.  */
+	      if ((parmtype != TYPE_MAIN_VARIANT (parmtype)
 		   || (TREE_CODE (parmtype) != INTEGER_TYPE
 		       && TREE_CODE (parmtype) != REAL_TYPE))
-		  && ! is_java_type (parmtype))
-                TREE_USED (parmtype) = 1;
-            }
-        if (TYPE_PTRMEMFUNC_P (parmtype))
-          parmtype = TYPE_PTRMEMFUNC_FN_TYPE (parmtype);
-        process_modifiers (parmtype);
-        if (TREE_CODE(parmtype)==VOID_TYPE) 
-	  {
-#if 0
-	      extern tree void_list_node;
+		  && ! TYPE_FOR_JAVA (parmtype))
+		TREE_USED (parmtype) = 1;
+	    }
 
-	      /* See if anybody is wasting memory.  */
-	      my_friendly_assert (parmtypes == void_list_node, 247);
-#endif
-	      /* This is the end of a parameter list.  */
-	      if (end) 
-                OB_FINISH ();
-	      return (char *)obstack_base (&scratch_obstack);
-	  }
-        process_overload_item (parmtype, TRUE);
-      }
-      if (flag_do_squangling && nrepeats != 0)
-        issue_nrepeats (lasttype);
-      else 
-        if (Nrepeats && typevec)
-          flush_repeats (typevec[maxtype-1]);
+	  /* Output the PARMTYPE.  */
+	  build_mangled_name_for_type_with_Gcode (parmtype, 1);
+	}
 
-      /* To get here, parms must end with `...'.  */
-      OB_PUTC ('e');
-  }
+      /* Output the repeat count for the last parameter, if
+	 necessary.  */
+      if (nrepeats != 0)
+	{
+	  if (old_style_repeats)
+	    flush_repeats (nrepeats, last_type);
+	  else
+	    issue_nrepeats (nrepeats, last_type);
+	  nrepeats = 0;
+	}
+
+      if (!parmtypes)
+	/* The parameter list ends in an ellipsis.  */
+	OB_PUTC ('e');
+    }
+
   if (end) 
     OB_FINISH ();
   return (char *)obstack_base (&scratch_obstack);
@@ -1121,80 +1163,57 @@ void
 process_modifiers (parmtype) 
      tree parmtype;
 {
-
-
   if (TREE_READONLY (parmtype))
     OB_PUTC ('C');
   if (TREE_CODE (parmtype) == INTEGER_TYPE
       && (TYPE_MAIN_VARIANT (parmtype)
 	  == unsigned_type (TYPE_MAIN_VARIANT (parmtype)))
-      && ! is_java_type (parmtype))
-    {
-      OB_PUTC ('U');
-    }
+      && ! TYPE_FOR_JAVA (parmtype))
+    OB_PUTC ('U');
   if (TYPE_VOLATILE (parmtype))
     OB_PUTC ('V');
 }
 
-/* True iff TYPE was declared as a "Java" type (inside extern "Java"). */
+/* Check to see if TYPE has been entered into the Bcode typelist.  If
+   so, return 1 and emit a backreference to TYPE.  Otherwise, add TYPE
+   to the list of back-referenceable types and return 0.  */
 
-int
-is_java_type (type)
+int 
+check_btype (type) 
      tree type;
-{
-  if (TYPE_NAME (type) != NULL_TREE)
-    {
-      tree decl = TYPE_NAME (type);
-      if (TREE_CODE (decl) == TYPE_DECL
-	  && DECL_LANG_SPECIFIC (decl) != NULL
-	  && DECL_LANGUAGE (decl) == lang_java)
-	return 1;
-    }
-  return 0;
-}
-
-/* Check to see if a tree node has been entered into the Bcode typelist 
-   if not, add it. Otherwise emit the code and return TRUE */
-static int 
-check_btype (node) 
-     tree node;
 {
   int x;
 
   if (btypelist == NULL)
     return 0;
 
-  switch (TREE_CODE (node)) 
-    {
-    case INTEGER_TYPE:
-    case REAL_TYPE:
-    case VOID_TYPE:
-    case BOOLEAN_TYPE:
-      return 0;         /* don't compress single char basic types */
+  if (!is_back_referenceable_type (type))
+    return 0;
 
-    default:
-      break;
-    }
+  /* We assume that our caller has put out any necessary
+     qualifiers.  */
+  type = TYPE_MAIN_VARIANT (type);
 
-  node = TYPE_MAIN_VARIANT (node);
   for (x = 0; x < maxbtype; x++) 
-    {
-      if (node == btypelist[x]) 
-        {
-          OB_PUTC ('B');
-          icat (x);
-          if (x > 9)
-            OB_PUTC ('_');
-          return 1 ;
-        }
-    }
-  /* didn't find it, so add it here */
+    if (type == btypelist[x]) 
+      {
+	OB_PUTC ('B');
+	icat (x);
+	if (x > 9)
+	  OB_PUTC ('_');
+	return 1 ;
+      }
+
   if (maxbsize <= maxbtype) 
     {
+      /* Enlarge the table.  */
       maxbsize = maxbsize * 3 / 2;
       btypelist = (tree *)xrealloc (btypelist, sizeof (tree) * maxbsize); 
     }
-  btypelist[maxbtype++] = node;
+  
+  /* Register the TYPE.  */
+  btypelist[maxbtype++] = type;
+
   return 0;
 }
 
@@ -1204,6 +1223,7 @@ process_overload_item (parmtype, extra_Gcode)
   tree parmtype;
   int extra_Gcode;
 {
+  numeric_output_need_bar = 0;
 
   /* These tree types are considered modifiers for B code squangling , */
   /* and therefore should not get entries in the Btypelist             */
@@ -1218,18 +1238,22 @@ process_overload_item (parmtype, extra_Gcode)
     case ARRAY_TYPE:
 #if PARM_CAN_BE_ARRAY_TYPE
       {
-        tree length;
-
         OB_PUTC ('A');
         if (TYPE_DOMAIN (parmtype) == NULL_TREE)
-          error("pointer/reference to array of unknown bound in parm type");
+	  OB_PUTC ('_');
         else
-          {
-            length = array_type_nelts (parmtype);
-            if (TREE_CODE (length) == INTEGER_CST)
-              icat (TREE_INT_CST_LOW (length) + 1);
-          }
-        OB_PUTC ('_');
+	  {
+	    tree length = array_type_nelts (parmtype);
+	    if (TREE_CODE (length) != INTEGER_CST || flag_do_squangling)
+	      {
+		length = fold (build (PLUS_EXPR, TREE_TYPE (length),
+				      length, integer_one_node));
+		STRIP_NOPS (length);
+	      }
+	    build_overload_value (sizetype, length, 1);
+	  }
+	if (numeric_output_need_bar && ! flag_do_squangling)
+	  OB_PUTC ('_');
         goto more;
       }
 #else
@@ -1240,7 +1264,7 @@ process_overload_item (parmtype, extra_Gcode)
     case POINTER_TYPE:
       OB_PUTC ('P');
     more:
-      build_mangled_name (TREE_TYPE (parmtype), 0, 0);
+      build_mangled_name_for_type (TREE_TYPE (parmtype));
       return;
       break;
 
@@ -1248,115 +1272,73 @@ process_overload_item (parmtype, extra_Gcode)
       break;
     }
   
-  /* check if type is already in the typelist. If not, add it now */
-
-  if (flag_do_squangling && btypelist != NULL) {
-    if (check_btype (parmtype))    /* emits the code if it finds it */
-      return;
-  }
+  if (flag_do_squangling && check_btype (parmtype)) 
+    /* If PARMTYPE is already in the list of back-referenceable types,
+       then check_btype will output the appropriate reference, and
+       there's nothing more to do.  */
+    return;
 
   switch (TREE_CODE (parmtype))
     {
     case OFFSET_TYPE:
       OB_PUTC ('O');
-      build_mangled_name (TYPE_OFFSET_BASETYPE (parmtype), 0, 0);
+      build_mangled_name_for_type (TYPE_OFFSET_BASETYPE (parmtype));
       OB_PUTC ('_');
-      build_mangled_name (TREE_TYPE (parmtype), 0, 0);
+      build_mangled_name_for_type (TREE_TYPE (parmtype));
       break;
 
     case FUNCTION_TYPE:
     case METHOD_TYPE:
       {
-        tree firstarg = TYPE_ARG_TYPES (parmtype);
-        /* Otherwise have to implement reentrant typevecs,
-           unmark and remark types, etc.  */
-        int old_nofold = nofold;
-        if (!flag_do_squangling) {
-          nofold = 1;
-          if (Nrepeats)
-            flush_repeats (typevec[maxtype-1]);
-        }
-        else 
-          if (nrepeats != 0)
-            issue_nrepeats (lasttype);
+        tree parms = TYPE_ARG_TYPES (parmtype);
 
-        /* @@ It may be possible to pass a function type in
-           which is not preceded by a 'P'.  */
-        if (TREE_CODE (parmtype) == FUNCTION_TYPE)
-          {
-            OB_PUTC ('F');
-            if (firstarg == NULL_TREE)
-              OB_PUTC ('e');
-            else if (firstarg == void_list_node)
-              OB_PUTC ('v');
-            else
-              build_mangled_name (firstarg, 0, 0);
-          }
-        else
-          {
-            int constp = TYPE_READONLY (TREE_TYPE (TREE_VALUE (firstarg)));
-            int volatilep = TYPE_VOLATILE (TREE_TYPE (TREE_VALUE (firstarg)));
+	/* Rather than implementing a reentrant TYPEVEC, we turn off
+	   repeat codes here, unless we're squangling.  Squangling
+	   doesn't make use of the TYPEVEC, so there's no reentrancy
+	   problem.  */
+	int old_nofold = nofold;
+	if (!flag_do_squangling)
+	  nofold = 1;
+
+	if (TREE_CODE (parmtype) == METHOD_TYPE)
+	  {
+	    /* Mark this as a method.  */
             OB_PUTC ('M');
-            firstarg = TREE_CHAIN (firstarg);
+	    /* Output the class of which this method is a member.  */
+            build_mangled_name_for_type (TYPE_METHOD_BASETYPE (parmtype));
+	    /* Output any qualifiers for the `this' parameter.  */
+	    process_modifiers (TREE_TYPE (TREE_VALUE (parms)));
+	  }
 
-            build_mangled_name (TYPE_METHOD_BASETYPE (parmtype), 0, 0);
-            if (constp)
-              OB_PUTC ('C');
-            if (volatilep)
-              OB_PUTC ('V');
+	/* Output the parameter types.  */
+	OB_PUTC ('F');
+	if (parms == NULL_TREE)
+	  OB_PUTC ('e');
+	else if (parms == void_list_node)
+	  OB_PUTC ('v');
+	else
+	  build_mangled_name (parms, 0, 0);
 
-            /* For cfront 2.0 compatibility.  */
-            OB_PUTC ('F');
-
-            if (firstarg == NULL_TREE)
-              OB_PUTC ('e');
-            else if (firstarg == void_list_node)
-              OB_PUTC ('v');
-            else
-              build_mangled_name (firstarg, 0, 0);
-          }
-
-        /* Separate args from return type.  */
+        /* Output the return type.  */
         OB_PUTC ('_');
-        build_mangled_name (TREE_TYPE (parmtype), 0, 0);
+        build_mangled_name_for_type (TREE_TYPE (parmtype));
+
         nofold = old_nofold;
         break;
       }
 
     case INTEGER_TYPE:
-      /* "Java" integer types should mangle the same on all platforms,
-	 and only depend on precision, not target 'int' size. */
-      if (is_java_type (parmtype))
-	{
-	  if (TREE_UNSIGNED (parmtype))
-	    {
-	      switch (TYPE_PRECISION (parmtype))
-		{
-		case  8:  OB_PUTC ('b');  return;
-		case 16:  OB_PUTC ('w');  return;
-		}
-	    }
-	  else
-	    {
-	      switch (TYPE_PRECISION (parmtype))
-		{
-		case  8:  OB_PUTC ('c');  return;
-		case 16:  OB_PUTC ('s');  return;
-		case 32:  OB_PUTC ('i');  return;
-		case 64:  OB_PUTC ('x');  return;
-		}
-	    }
-	}
-
       parmtype = TYPE_MAIN_VARIANT (parmtype);
       if (parmtype == integer_type_node
-          || parmtype == unsigned_type_node)
+          || parmtype == unsigned_type_node
+	  || parmtype == java_int_type_node)
         OB_PUTC ('i');
       else if (parmtype == long_integer_type_node
                || parmtype == long_unsigned_type_node)
         OB_PUTC ('l');
       else if (parmtype == short_integer_type_node
-               || parmtype == short_unsigned_type_node)
+               || parmtype == short_unsigned_type_node
+	       || parmtype == java_short_type_node)
         OB_PUTC ('s');
       else if (parmtype == signed_char_type_node)
         {
@@ -1364,12 +1346,15 @@ process_overload_item (parmtype, extra_Gcode)
           OB_PUTC ('c');
         }
       else if (parmtype == char_type_node
-               || parmtype == unsigned_char_type_node)
+               || parmtype == unsigned_char_type_node
+	       || parmtype == java_byte_type_node)
         OB_PUTC ('c');
-      else if (parmtype == wchar_type_node)
+      else if (parmtype == wchar_type_node
+	       || parmtype == java_char_type_node)
         OB_PUTC ('w');
       else if (parmtype == long_long_integer_type_node
-          || parmtype == long_long_unsigned_type_node)
+	       || parmtype == long_long_unsigned_type_node
+	       || parmtype == java_long_type_node)
         OB_PUTC ('x');
 #if 0
       /* it would seem there is no way to enter these in source code,
@@ -1378,6 +1363,8 @@ process_overload_item (parmtype, extra_Gcode)
           || parmtype == long_long_long_unsigned_type_node)
         OB_PUTC ('q');
 #endif
+      else if (parmtype == java_boolean_type_node)
+	OB_PUTC ('b');
       else
         my_friendly_abort (73);
       break;
@@ -1390,16 +1377,18 @@ process_overload_item (parmtype, extra_Gcode)
       parmtype = TYPE_MAIN_VARIANT (parmtype);
       if (parmtype == long_double_type_node)
         OB_PUTC ('r');
-      else if (parmtype == double_type_node)
+      else if (parmtype == double_type_node
+	       || parmtype == java_double_type_node)
         OB_PUTC ('d');
-      else if (parmtype == float_type_node)
+      else if (parmtype == float_type_node
+	       || parmtype == java_float_type_node)
         OB_PUTC ('f');
       else my_friendly_abort (74);
       break;
 
     case COMPLEX_TYPE:
       OB_PUTC ('J');
-      build_mangled_name (TREE_TYPE (parmtype), 0, 0);
+      build_mangled_name_for_type (TREE_TYPE (parmtype));
       break;
 
     case VOID_TYPE:
@@ -1421,11 +1410,6 @@ process_overload_item (parmtype, extra_Gcode)
       {
         tree name = TYPE_NAME (parmtype);
 
-        if (TREE_CODE (name) == IDENTIFIER_NODE)
-          {
-            build_overload_identifier (TYPE_NAME (parmtype));
-            break;
-          }
         my_friendly_assert (TREE_CODE (name) == TYPE_DECL, 248);
 
         build_qualified_name (name);
@@ -1507,7 +1491,10 @@ build_static_name (context, name)
   return get_identifier ((char *)obstack_base (&scratch_obstack));
 }
 
-static tree 
+/* FOR_METHOD should be 1 if the declaration in question is for a member
+   of a class (including a static member) and 2 if the declaration is
+   for a constructor.  */
+tree 
 build_decl_overload_real (dname, parms, ret_type, tparms, targs,
 			  for_method) 
      tree dname;
@@ -1541,41 +1528,22 @@ build_decl_overload_real (dname, parms, ret_type, tparms, targs,
      and figure out its name without any extra encoding.  */
 
   OB_PUTC2 ('_', '_');
-  if (for_method)
-    {
-#if 0
-      /* We can get away without doing this.  */
-      OB_PUTC ('M');
-#endif
-      if (tparms != NULL_TREE)
-	OB_PUTC ('H');
-      {
-	tree this_type = TREE_VALUE (parms);
-
-	if (TREE_CODE (this_type) == RECORD_TYPE)  /* a signature pointer */
-	  parms = temp_tree_cons (NULL_TREE, SIGNATURE_TYPE (this_type),
-				  TREE_CHAIN (parms));
-	else
-	  parms = temp_tree_cons (NULL_TREE, TREE_TYPE (this_type),
-				  TREE_CHAIN (parms));
-      }
-    }
-  else if (tparms)
-    OB_PUTC ('H');
-  /* XXX this works only if we call this in the same namespace
-     as the declaration. Unfortunately, we don't have the _DECL,
-     only its name */
-  else if (current_namespace == global_namespace)
-    OB_PUTC ('F');
+  numeric_output_need_bar = 0;
 
   if (tparms)
     {
+      OB_PUTC ('H');
       build_template_parm_names (tparms, targs);
       OB_PUTC ('_');
     }
+  else if (!for_method && current_namespace == global_namespace)
+    /* XXX this works only if we call this in the same namespace
+       as the declaration. Unfortunately, we don't have the _DECL,
+       only its name */
+    OB_PUTC ('F');
 
-  /* qualify with namespace */
   if (!for_method && current_namespace != global_namespace)
+    /* qualify with namespace */
     build_qualified_name (current_namespace);
 
   if (parms == NULL_TREE)
@@ -1587,18 +1555,36 @@ build_decl_overload_real (dname, parms, ret_type, tparms, targs,
       if (!flag_do_squangling)    /* Allocate typevec array. */
         {
           maxtype = 0;
-          Nrepeats = 0;
-          typevec = (tree *)alloca (list_length (parms) * sizeof (tree));
+	  typevec_size = list_length (parms);
+	  if (!for_method && current_namespace != global_namespace)
+	    /* the namespace of a global function needs one slot */
+	    typevec_size++;
+          typevec = (tree *)alloca (typevec_size * sizeof (tree));
         }
       nofold = 0;
+
       if (for_method)
 	{
-	  build_mangled_name (TREE_VALUE (parms), 0, 0);
+	  tree this_type = TREE_VALUE (parms);
 
-          if (!flag_do_squangling) {
-            typevec[maxtype++] = TREE_VALUE (parms);
-            TREE_USED (TREE_VALUE (parms)) = 1;
-          }
+	  if (TREE_CODE (this_type) == RECORD_TYPE)  /* a signature pointer */
+	    this_type = SIGNATURE_TYPE (this_type);
+	  else
+	    this_type = TREE_TYPE (this_type);
+
+	  build_mangled_name_for_type (this_type);
+
+          if (!flag_do_squangling) 
+	    {
+	      my_friendly_assert (maxtype < typevec_size, 387);
+	      typevec[maxtype++] = this_type;
+	      TREE_USED (this_type) = 1;
+
+	      /* By setting up PARMS in this way, the loop below will
+		 automatically clear TREE_USED on THIS_TYPE.  */
+	      parms = temp_tree_cons (NULL_TREE, this_type,
+				      TREE_CHAIN (parms));
+	    }
 
 	  if (TREE_CHAIN (parms))
 	    build_mangled_name (TREE_CHAIN (parms), 0, 0);
@@ -1611,7 +1597,10 @@ build_decl_overload_real (dname, parms, ret_type, tparms, targs,
 	     will count as type */
 	  if (current_namespace != global_namespace
 	      && !flag_do_squangling)
-	    typevec[maxtype++] = current_namespace;
+	    {
+	      my_friendly_assert (maxtype < typevec_size, 387);
+	      typevec[maxtype++] = current_namespace;
+	    }
 	  build_mangled_name (parms, 0, 0);
 	}
 
@@ -1624,8 +1613,7 @@ build_decl_overload_real (dname, parms, ret_type, tparms, targs,
               tree temp = TREE_VALUE (t);
               TREE_USED (temp) = 0;
               /* clear out the type variant in case we used it */
-              temp = build_type_variant (TYPE_MAIN_VARIANT (temp),
-                    TYPE_READONLY (temp), TYPE_VOLATILE (temp));
+              temp = canonical_type_variant (temp);
               TREE_USED (temp) = 0;
               t = TREE_CHAIN (t);
             }
@@ -1636,7 +1624,7 @@ build_decl_overload_real (dname, parms, ret_type, tparms, targs,
     {
       /* Add the return type. */
       OB_PUTC ('_');
-      build_mangled_name (ret_type, 0, 0);
+      build_mangled_name_for_type (ret_type);
     }
 
   OB_FINISH ();
@@ -1668,23 +1656,31 @@ build_decl_overload (dname, parms, for_method)
 				   NULL_TREE, for_method); 
 }
 
+/* Set the mangled name (DECL_ASSEMBLER_NAME) for DECL.  */
 
-/* Like build_decl_overload, but for template functions. */
-
-tree
-build_template_decl_overload (dname, parms, ret_type, tparms, targs,
-			      for_method) 
-     tree dname;
-     tree parms;
-     tree ret_type;
-     tree tparms;
-     tree targs;
-     int for_method;
+void
+set_mangled_name_for_decl (decl)
+     tree decl;
 {
-  return build_decl_overload_real (dname, parms, ret_type, tparms, targs,
-				   for_method); 
-}
+  tree parm_types = TYPE_ARG_TYPES (TREE_TYPE (decl));
 
+  if (DECL_STATIC_FUNCTION_P (decl))
+    parm_types = 
+      hash_tree_chain (build_pointer_type (DECL_CLASS_CONTEXT (decl)),
+					   parm_types);
+  else
+    /* The only member functions whose type is a FUNCTION_TYPE, rather
+       than a METHOD_TYPE, should be static members.  */
+    my_friendly_assert (!DECL_CONTEXT (decl)
+			|| !IS_AGGR_TYPE_CODE (TREE_CODE (DECL_CONTEXT (decl)))
+			|| TREE_CODE (TREE_TYPE (decl)) != FUNCTION_TYPE,
+			0);
+
+  DECL_ASSEMBLER_NAME (decl)
+    = build_decl_overload (DECL_NAME (decl), parm_types, 
+			   DECL_FUNCTION_MEMBER_P (decl)
+			   + DECL_CONSTRUCTOR_P (decl));
+}
 
 /* Build an overload name for the type expression TYPE.  */
 
@@ -1733,6 +1729,16 @@ get_id_2 (name, name2)
   OB_PUTID (name2);
   OB_FINISH ();
   return get_identifier (obstack_base (&scratch_obstack));
+}
+
+/* Returns a DECL_ASSEMBLER_NAME for the destructor of type TYPE.  */
+
+tree
+build_destructor_name (type)
+     tree type;
+{
+  return build_overload_with_type (get_identifier (DESTRUCTOR_DECL_PREFIX),
+				   type);
 }
 
 /* Given a tree_code CODE, and some arguments (at least one),
@@ -1805,6 +1811,9 @@ hack_identifier (value, name)
 
 	      fndecl = TREE_VALUE (fields);
 	      my_friendly_assert (TREE_CODE (fndecl) == FUNCTION_DECL, 251);
+	      /* I could not trigger this code. MvL */
+	      my_friendly_abort (980325);
+#ifdef DEAD
 	      if (DECL_CHAIN (fndecl) == NULL_TREE)
 		{
 		  warning ("methods cannot be converted to function pointers");
@@ -1816,6 +1825,7 @@ hack_identifier (value, name)
 			 IDENTIFIER_POINTER (name));
 		  return error_mark_node;
 		}
+#endif
 	    }
 	}
       if (flag_labels_ok && IDENTIFIER_LABEL_VALUE (name))
@@ -1830,8 +1840,16 @@ hack_identifier (value, name)
     {
       if (current_class_ptr == NULL_TREE)
 	{
-	  error ("request for member `%s' in static member function",
-		 IDENTIFIER_POINTER (DECL_NAME (value)));
+	  if (current_function_decl 
+	      && DECL_STATIC_FUNCTION_P (current_function_decl))
+	    cp_error ("invalid use of member `%D' in static member function",
+		      value);
+	  else
+	    /* We can get here when processing a bad default
+	       argument, like:
+	         struct S { int a; void f(int i = a); }  */
+	    cp_error ("invalid use of member `%D'", value);
+
 	  return error_mark_node;
 	}
       TREE_USED (current_class_ptr) = 1;
@@ -1856,6 +1874,9 @@ hack_identifier (value, name)
 	}
 #endif
     }
+  else if (TREE_CODE (value) == OVERLOAD)
+    /* not really overloaded function */
+    mark_used (OVL_FUNCTION (value));
   else if (TREE_CODE (value) == TREE_LIST)
     {
       /* Ambiguous reference to base members, possibly other cases?.  */
@@ -1865,6 +1886,16 @@ hack_identifier (value, name)
 	  mark_used (TREE_VALUE (t));
 	  t = TREE_CHAIN (t);
 	}
+    }
+  else if (TREE_CODE (value) == NAMESPACE_DECL)
+    {
+      cp_error ("use of namespace `%D' as expression", value);
+      return error_mark_node;
+    }
+  else if (DECL_CLASS_TEMPLATE_P (value))
+    {
+      cp_error ("use of class template `%T' as expression", value);
+      return error_mark_node;
     }
   else
     mark_used (value);
@@ -1915,17 +1946,12 @@ hack_identifier (value, name)
     }
   else if (TREE_CODE (value) == TREE_LIST && TREE_NONLOCAL_FLAG (value))
     {
-      if (type == 0)
-	{
-	  error ("request for member `%s' is ambiguous in multiple inheritance lattice",
-		 IDENTIFIER_POINTER (name));
-	  return error_mark_node;
-	}
-
-      return value;
+      error ("request for member `%s' is ambiguous in multiple inheritance lattice",
+	     IDENTIFIER_POINTER (name));
+      return error_mark_node;
     }
 
-  if (TREE_CODE (type) == REFERENCE_TYPE && ! processing_template_decl)
+  if (! processing_template_decl)
     value = convert_from_reference (value);
   return value;
 }
@@ -1936,28 +1962,36 @@ make_thunk (function, delta)
      tree function;
      int delta;
 {
-  char *buffer;
   tree thunk_id;
   tree thunk;
-  char *func_name;
   tree func_decl;
+
   if (TREE_CODE (function) != ADDR_EXPR)
     abort ();
   func_decl = TREE_OPERAND (function, 0);
   if (TREE_CODE (func_decl) != FUNCTION_DECL)
     abort ();
-  func_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (func_decl));
-  buffer = (char *)alloca (strlen (func_name) + 32);
-  if (delta<=0)
-    sprintf (buffer, "__thunk_%d_%s", -delta, func_name);
+
+  OB_INIT ();
+  OB_PUTS ("__thunk_");
+  if (delta > 0)
+    {
+      OB_PUTC ('n');
+      icat (delta);
+    }
   else
-    sprintf (buffer, "__thunk_n%d_%s", delta, func_name);
-  thunk_id = get_identifier (buffer);
+    icat (-delta);
+  OB_PUTC ('_');
+  OB_PUTID (DECL_ASSEMBLER_NAME (func_decl));
+  OB_FINISH ();
+  thunk_id = get_identifier (obstack_base (&scratch_obstack));
+
   thunk = IDENTIFIER_GLOBAL_VALUE (thunk_id);
   if (thunk && TREE_CODE (thunk) != THUNK_DECL)
     {
       cp_error ("implementation-reserved name `%D' used", thunk_id);
-      IDENTIFIER_GLOBAL_VALUE (thunk_id) = thunk = NULL_TREE;
+      thunk = NULL_TREE;
+      SET_IDENTIFIER_GLOBAL_VALUE (thunk_id, thunk);
     }
   if (thunk == NULL_TREE)
     {
@@ -2010,6 +2044,7 @@ emit_thunk (thunk_fndecl)
       = build_decl (RESULT_DECL, 0, integer_type_node);
     fnname = XSTR (XEXP (DECL_RTL (thunk_fndecl), 0), 0);
     init_function_start (thunk_fndecl, input_filename, lineno);
+    current_function_is_thunk = 1;
     assemble_start_function (thunk_fndecl, fnname);
     ASM_OUTPUT_MI_THUNK (asm_out_file, thunk_fndecl, delta, function);
     assemble_end_function (thunk_fndecl, fnname);
@@ -2182,8 +2217,7 @@ do_build_copy_constructor (fndecl)
 		continue;
 	    }
 	  else if ((t = TREE_TYPE (field)) != NULL_TREE
-		   && TREE_CODE (t) == UNION_TYPE
-		   && ANON_AGGRNAME_P (TYPE_IDENTIFIER (t))
+		   && ANON_UNION_TYPE_P (t)
 		   && TYPE_FIELDS (t) != NULL_TREE)
 	    {
 	      do
@@ -2192,8 +2226,7 @@ do_build_copy_constructor (fndecl)
 		  field = largest_union_member (t);
 		}
 	      while ((t = TREE_TYPE (field)) != NULL_TREE
-		     && TREE_CODE (t) == UNION_TYPE
-		     && ANON_AGGRNAME_P (TYPE_IDENTIFIER (t))
+		     && ANON_UNION_TYPE_P (t)
 		     && TYPE_FIELDS (t) != NULL_TREE);
 	    }
 	  else
@@ -2292,8 +2325,7 @@ do_build_assign_ref (fndecl)
 		continue;
 	    }
 	  else if ((t = TREE_TYPE (field)) != NULL_TREE
-		   && TREE_CODE (t) == UNION_TYPE
-		   && ANON_AGGRNAME_P (TYPE_IDENTIFIER (t))
+		   && ANON_UNION_TYPE_P (t)
 		   && TYPE_FIELDS (t) != NULL_TREE)
 	    {
 	      do
@@ -2303,8 +2335,7 @@ do_build_assign_ref (fndecl)
 		  field = largest_union_member (t);
 		}
 	      while ((t = TREE_TYPE (field)) != NULL_TREE
-		     && TREE_CODE (t) == UNION_TYPE
-		     && ANON_AGGRNAME_P (TYPE_IDENTIFIER (t))
+		     && ANON_UNION_TYPE_P (t)
 		     && TYPE_FIELDS (t) != NULL_TREE);
 	    }
 	  else

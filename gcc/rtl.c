@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include "system.h"
 #include "rtl.h"
 #include "real.h"
+#include "bitmap.h"
 
 #include "obstack.h"
 #define	obstack_chunk_alloc	xmalloc
@@ -59,13 +60,15 @@ char *rtx_name[] = {
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, SIZE, UNIT, WIDER)  NAME,
 
-char *mode_name[(int) MAX_MACHINE_MODE] = {
+char *mode_name[(int) MAX_MACHINE_MODE + 1] = {
 #include "machmode.def"
 
 #ifdef EXTRA_CC_MODES
-  EXTRA_CC_NAMES
+  EXTRA_CC_NAMES,
 #endif
-
+  /* Add an extra field to avoid a core dump if someone tries to convert
+     MAX_MACHINE_MODE to a string.   */
+  ""
 };
 
 #undef DEF_MACHMODE
@@ -108,13 +111,22 @@ int mode_unit_size[(int) MAX_MACHINE_MODE] = {
    use this.  */
 
 #define DEF_MACHMODE(SYM, NAME, CLASS, SIZE, UNIT, WIDER)  \
-  (enum machine_mode) WIDER,
+  (unsigned char) WIDER,
 
-enum machine_mode mode_wider_mode[(int) MAX_MACHINE_MODE] = {
+unsigned char mode_wider_mode[(int) MAX_MACHINE_MODE] = {
 #include "machmode.def"		/* machine modes are documented here */
 };
 
 #undef DEF_MACHMODE
+
+#define DEF_MACHMODE(SYM, NAME, CLASS, SIZE, UNIT, WIDER)  \
+  ((SIZE) * BITS_PER_UNIT >= HOST_BITS_PER_WIDE_INT) ? ~(unsigned HOST_WIDE_INT)0 : ((unsigned HOST_WIDE_INT) 1 << (SIZE) * BITS_PER_UNIT) - 1,
+
+/* Indexed by machine mode, gives mask of significant bits in mode.  */
+
+const unsigned HOST_WIDE_INT mode_mask_array[(int) MAX_MACHINE_MODE] = {
+#include "machmode.def"
+};
 
 /* Indexed by mode class, gives the narrowest mode for each class.  */
 
@@ -145,7 +157,9 @@ char *rtx_format[] = {
      "V" like "E", but optional:
 	 the containing rtx may end before this operand
      "u" a pointer to another insn
-         prints the uid of the insn.  */
+         prints the uid of the insn.
+     "b" is a pointer to a bitmap header.
+     "t" is a tree pointer. */
 
 #define DEF_RTL_EXPR(ENUM, NAME, FORMAT, CLASS)   FORMAT ,
 #include "rtl.def"		/* rtl expressions are defined here */
@@ -171,7 +185,8 @@ char *note_insn_name[] = { 0                    , "NOTE_INSN_DELETED",
 			   "NOTE_INSN_PROLOGUE_END", "NOTE_INSN_EPILOGUE_BEG",
 			   "NOTE_INSN_DELETED_LABEL", "NOTE_INSN_FUNCTION_BEG",
 			   "NOTE_INSN_EH_REGION_BEG", "NOTE_INSN_EH_REGION_END",
-			   "NOTE_REPEATED_LINE_NUMBER" };
+			   "NOTE_REPEATED_LINE_NUMBER", "NOTE_INSN_RANGE_START",
+			   "NOTE_INSN_RANGE_END", "NOTE_INSN_LIVE" };
 
 char *reg_note_name[] = { "", "REG_DEAD", "REG_INC", "REG_EQUIV", "REG_WAS_0",
 			  "REG_EQUAL", "REG_RETVAL", "REG_LIBCALL",
@@ -179,7 +194,8 @@ char *reg_note_name[] = { "", "REG_DEAD", "REG_INC", "REG_EQUIV", "REG_WAS_0",
 			  "REG_CC_SETTER", "REG_CC_USER", "REG_LABEL",
 			  "REG_DEP_ANTI", "REG_DEP_OUTPUT", "REG_BR_PROB",
 			  "REG_EXEC_COUNT", "REG_NOALIAS", "REG_SAVE_AREA",
-			  "REG_BR_PRED", "REG_EH_CONTEXT" };
+			  "REG_BR_PRED", "REG_EH_CONTEXT",
+			  "REG_FRAME_RELATED_EXPR" };
 
 static void dump_and_abort	PROTO((int, int, FILE *));
 static void read_name		PROTO((char *, FILE *));
@@ -299,6 +315,18 @@ copy_rtx (orig)
 	      for (j = 0; j < XVECLEN (copy, i); j++)
 		XVECEXP (copy, i, j) = copy_rtx (XVECEXP (orig, i, j));
 	    }
+	  break;
+
+	case 'b':
+	  {
+	    bitmap new_bits = BITMAP_OBSTACK_ALLOC (rtl_obstack);
+	    bitmap_copy (new_bits, XBITMAP (orig, i));
+	    XBITMAP (copy, i) = new_bits;
+	    break;
+	  }
+
+	case 't':
+	  XTREE (copy, i) = XTREE (orig, i);
 	  break;
 
 	case 'w':
@@ -838,8 +866,8 @@ init_rtl ()
       mode_class[i] = MODE_CC;
       mode_size[i] = mode_size[(int) CCmode];
       mode_unit_size[i] = mode_unit_size[(int) CCmode];
-      mode_wider_mode[i - 1] = (enum machine_mode) i;
-      mode_wider_mode[i] = VOIDmode;
+      mode_wider_mode[i - 1] = i;
+      mode_wider_mode[i] = (unsigned char)VOIDmode;
     }
 #endif
 

@@ -45,11 +45,6 @@ Boston, MA 02111-1307, USA.  */
    FUNCTION_EPILOGUE.  Those instructions never exist as rtl.  */
 
 #include "config.h"
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #include "system.h"
 
 #include "tree.h"
@@ -68,18 +63,33 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
+#include "reload.h"
 
 /* Get N_SLINE and N_SOL from stab.h if we can expect the file to exist.  */
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
-#if defined (USG) || defined (NO_STAB_H)
+#include "dbxout.h"
+#if defined (USG) || !defined (HAVE_STAB_H)
 #include "gstab.h"  /* If doing DBX on sysV, use our own stab.h.  */
 #else
-#include <stab.h>  /* On BSD, use the system's stab.h.  */
-#endif /* not USG */
+#include <stab.h>
+#endif
+
 #endif /* DBX_DEBUGGING_INFO || XCOFF_DEBUGGING_INFO */
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
+#endif
+
+#ifdef DWARF_DEBUGGING_INFO
+#include "dwarfout.h"
+#endif
+
+#if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
+#include "dwarf2out.h"
+#endif
+
+#ifdef SDB_DEBUGGING_INFO
+#include "sdbout.h"
 #endif
 
 /* .stabd code for line number.  */
@@ -114,6 +124,10 @@ Boston, MA 02111-1307, USA.  */
 /* Is the given character a logical line separator for the assembler?  */
 #ifndef IS_ASM_LOGICAL_LINE_SEPARATOR
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C) ((C) == ';')
+#endif
+
+#ifndef JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION 0
 #endif
 
 /* Nonzero means this function is a leaf function, with no function calls. 
@@ -635,9 +649,14 @@ int insn_current_align;
    for each insn we'll call the alignment chain of this insn in the following
    comments.  */
 
-rtx *uid_align;
-int *uid_shuid;
-short *label_align;
+struct label_alignment {
+  short alignment;
+  short max_skip;
+};
+
+static rtx *uid_align;
+static int *uid_shuid;
+static struct label_alignment *label_align;
 
 /* Indicate that branch shortening hasn't yet been done.  */
 
@@ -780,12 +799,24 @@ get_attr_length (insn)
 #define LABEL_ALIGN(LABEL) 0
 #endif
 
+#ifndef LABEL_ALIGN_MAX_SKIP
+#define LABEL_ALIGN_MAX_SKIP 0
+#endif
+
 #ifndef LOOP_ALIGN
 #define LOOP_ALIGN(LABEL) 0
 #endif
 
+#ifndef LOOP_ALIGN_MAX_SKIP
+#define LOOP_ALIGN_MAX_SKIP 0
+#endif
+
 #ifndef LABEL_ALIGN_AFTER_BARRIER
 #define LABEL_ALIGN_AFTER_BARRIER(LABEL) 0
+#endif
+
+#ifndef LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP
+#define LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP 0
 #endif
 
 #ifndef ADDR_VEC_ALIGN
@@ -812,7 +843,10 @@ final_addr_vec_align (addr_vec)
 static int min_labelno, max_labelno;
 
 #define LABEL_TO_ALIGNMENT(LABEL) \
-  (label_align[CODE_LABEL_NUMBER (LABEL) - min_labelno])
+  (label_align[CODE_LABEL_NUMBER (LABEL) - min_labelno].alignment)
+
+#define LABEL_TO_MAX_SKIP(LABEL) \
+  (label_align[CODE_LABEL_NUMBER (LABEL) - min_labelno].max_skip)
 
 /* For the benefit of port specific code do this also as a function.  */
 int
@@ -948,6 +982,7 @@ shorten_branches (first)
   int max_uid;
   int i;
   int max_log;
+  int max_skip;
 #ifdef HAVE_ATTR_length
 #define MAX_CODE_ALIGN 16
   rtx seq;
@@ -987,8 +1022,8 @@ shorten_branches (first)
 
   max_labelno = max_label_num ();
   min_labelno = get_first_label_num ();
-  label_align
-    = (short*) xcalloc ((max_labelno - min_labelno + 1), sizeof (short));
+  label_align = (struct label_alignment **)
+    xcalloc ((max_labelno - min_labelno + 1), sizeof (struct label_alignment));
 
   uid_shuid = (int *) xmalloc (max_uid * sizeof *uid_shuid);
 
@@ -998,7 +1033,10 @@ shorten_branches (first)
      impose on the next CODE_LABEL (or the current one if we are processing
      the CODE_LABEL itself).  */
      
-  for (max_log = 0, insn = get_insns (), i = 1; insn; insn = NEXT_INSN (insn))
+  max_log = 0;
+  max_skip = 0;
+
+  for (insn = get_insns (), i = 1; insn; insn = NEXT_INSN (insn))
     {
       int log;
 
@@ -1017,24 +1055,36 @@ shorten_branches (first)
 
 	  log = LABEL_ALIGN (insn);
 	  if (max_log < log)
-	    max_log = log;
-	  next = NEXT_INSN (insn);
-/* ADDR_VECs only take room if read-only data goes into the text section.  */
-#if !defined(READONLY_DATA_SECTION) || defined(JUMP_TABLES_IN_TEXT_SECTION)
-	  if (next && GET_CODE (next) == JUMP_INSN)
 	    {
-	      rtx nextbody = PATTERN (next);
-	      if (GET_CODE (nextbody) == ADDR_VEC
-		  || GET_CODE (nextbody) == ADDR_DIFF_VEC)
-		{
-		  log = ADDR_VEC_ALIGN (next);
-		  if (max_log < log)
-		    max_log = log;
-		}
+	      max_log = log;
+	      max_skip = LABEL_ALIGN_MAX_SKIP;
 	    }
+	  next = NEXT_INSN (insn);
+	  /* ADDR_VECs only take room if read-only data goes into the text
+	     section.  */
+	  if (JUMP_TABLES_IN_TEXT_SECTION
+#if !defined(READONLY_DATA_SECTION)
+	      || 1
 #endif
+	      )
+	    if (next && GET_CODE (next) == JUMP_INSN)
+	      {
+		rtx nextbody = PATTERN (next);
+		if (GET_CODE (nextbody) == ADDR_VEC
+		    || GET_CODE (nextbody) == ADDR_DIFF_VEC)
+		  {
+		    log = ADDR_VEC_ALIGN (next);
+		    if (max_log < log)
+		      {
+			max_log = log;
+			max_skip = LABEL_ALIGN_MAX_SKIP;
+		      }
+		  }
+	      }
 	  LABEL_TO_ALIGNMENT (insn) = max_log;
+	  LABEL_TO_MAX_SKIP (insn) = max_skip;
 	  max_log = 0;
+	  max_skip = 0;
 	}
       else if (GET_CODE (insn) == BARRIER)
 	{
@@ -1046,7 +1096,10 @@ shorten_branches (first)
 	      {
 		log = LABEL_ALIGN_AFTER_BARRIER (insn);
 		if (max_log < log)
-		  max_log = log;
+		  {
+		    max_log = log;
+		    max_skip = LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP;
+		  }
 		break;
 	      }
 	}
@@ -1062,7 +1115,10 @@ shorten_branches (first)
 	      {
 		log = LOOP_ALIGN (insn);
 		if (max_log < log)
-		  max_log = log;
+		  {
+		    max_log = log;
+		    max_skip = LOOP_ALIGN_MAX_SKIP;
+		  }
 		break;
 	      }
 	}
@@ -1196,11 +1252,15 @@ shorten_branches (first)
 	{
 	  /* This only takes room if read-only data goes into the text
 	     section.  */
-#if !defined(READONLY_DATA_SECTION) || defined(JUMP_TABLES_IN_TEXT_SECTION)
-	  insn_lengths[uid] = (XVECLEN (body, GET_CODE (body) == ADDR_DIFF_VEC)
-			       * GET_MODE_SIZE (GET_MODE (body)));
-	  /* Alignment is handled by ADDR_VEC_ALIGN.  */
+	  if (JUMP_TABLES_IN_TEXT_SECTION
+#if !defined(READONLY_DATA_SECTION)
+	      || 1
 #endif
+	      )
+	    insn_lengths[uid] = (XVECLEN (body,
+					  GET_CODE (body) == ADDR_DIFF_VEC)
+				 * GET_MODE_SIZE (GET_MODE (body)));
+	  /* Alignment is handled by ADDR_VEC_ALIGN.  */
 	}
       else if (asm_noperands (body) >= 0)
 	insn_lengths[uid] = asm_insn_count (body) * insn_default_length (insn);
@@ -1391,13 +1451,19 @@ shorten_branches (first)
 	      PUT_MODE (body, CASE_VECTOR_SHORTEN_MODE (min_addr - rel_addr,
 							max_addr - rel_addr,
 							body));
-#if !defined(READONLY_DATA_SECTION) || defined(JUMP_TABLES_IN_TEXT_SECTION)
-	      insn_lengths[uid]
-		= (XVECLEN (body, 1) * GET_MODE_SIZE (GET_MODE (body)));
-	      insn_current_address += insn_lengths[uid];
-	      if (insn_lengths[uid] != old_length)
-		something_changed = 1;
+	      if (JUMP_TABLES_IN_TEXT_SECTION
+#if !defined(READONLY_DATA_SECTION)
+		  || 1
 #endif
+		  )
+		{
+		  insn_lengths[uid]
+		    = (XVECLEN (body, 1) * GET_MODE_SIZE (GET_MODE (body)));
+		  insn_current_address += insn_lengths[uid];
+		  if (insn_lengths[uid] != old_length)
+		    something_changed = 1;
+		}
+
 	      continue;
 	    }
 #endif /* CASE_VECTOR_SHORTEN_MODE */
@@ -1520,7 +1586,7 @@ final_start_function (first, file, optimize)
       int i;
 
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (!call_used_regs[i] && !call_fixed_regs[i])
+	if (!call_used_regs[i])
 	  regs_ever_live[i] = 1;
     }
 #endif
@@ -1908,6 +1974,18 @@ final (first, file, optimize, prescan)
         max_uid = INSN_UID (insn);
       if (GET_CODE (insn) == NOTE && NOTE_LINE_NUMBER (insn) > 0)
         line_note_exists[NOTE_LINE_NUMBER (insn)] = 1;
+#ifdef HAVE_cc0
+      /* If CC tracking across branches is enabled, record the insn which
+	 jumps to each branch only reached from one place.  */
+      if (optimize && GET_CODE (insn) == JUMP_INSN)
+	{
+	  rtx lab = JUMP_LABEL (insn);
+	  if (lab && LABEL_NUSES (lab) == 1)
+	    {
+	      LABEL_REFS (lab) = insn;
+	    }
+	}
+#endif
     }
 
   /* Initialize insn_eh_region table if eh is being used. */
@@ -1981,7 +2059,8 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  && ! exceptions_via_longjmp)
 	{
 	  ASM_OUTPUT_INTERNAL_LABEL (file, "LEHB", NOTE_BLOCK_NUMBER (insn));
-	  add_eh_table_entry (NOTE_BLOCK_NUMBER (insn));
+          if (! flag_new_exceptions)
+            add_eh_table_entry (NOTE_BLOCK_NUMBER (insn));
 #ifdef ASM_OUTPUT_EH_REGION_BEG
 	  ASM_OUTPUT_EH_REGION_BEG (file, NOTE_BLOCK_NUMBER (insn));
 #endif
@@ -1992,6 +2071,8 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  && ! exceptions_via_longjmp)
 	{
 	  ASM_OUTPUT_INTERNAL_LABEL (file, "LEHE", NOTE_BLOCK_NUMBER (insn));
+          if (flag_new_exceptions)
+            add_eh_table_entry (NOTE_BLOCK_NUMBER (insn));
 #ifdef ASM_OUTPUT_EH_REGION_END
 	  ASM_OUTPUT_EH_REGION_END (file, NOTE_BLOCK_NUMBER (insn));
 #endif
@@ -2197,11 +2278,44 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
       if (CODE_LABEL_NUMBER (insn) <= max_labelno)
 	{
 	  int align = LABEL_TO_ALIGNMENT (insn);
+#ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
+	  int max_skip = LABEL_TO_MAX_SKIP (insn);
+#endif
 
 	  if (align && NEXT_INSN (insn))
+#ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
+	    ASM_OUTPUT_MAX_SKIP_ALIGN (file, align, max_skip);
+#else
 	    ASM_OUTPUT_ALIGN (file, align);
+#endif
 	}
+#ifdef HAVE_cc0
       CC_STATUS_INIT;
+      /* If this label is reached from only one place, set the condition
+	 codes from the instruction just before the branch.  */
+
+      /* Disabled because some insns set cc_status in the C output code
+	 and NOTICE_UPDATE_CC alone can set incorrect status.  */
+      if (0 /* optimize && LABEL_NUSES (insn) == 1*/)
+	{
+	  rtx jump = LABEL_REFS (insn);
+	  rtx barrier = prev_nonnote_insn (insn);
+	  rtx prev;
+	  /* If the LABEL_REFS field of this label has been set to point
+	     at a branch, the predecessor of the branch is a regular
+	     insn, and that branch is the only way to reach this label,
+	     set the condition codes based on the branch and its
+	     predecessor.  */
+	  if (barrier && GET_CODE (barrier) == BARRIER
+	      && jump && GET_CODE (jump) == JUMP_INSN
+	      && (prev = prev_nonnote_insn (jump))
+	      && GET_CODE (prev) == INSN)
+	    {
+	      NOTICE_UPDATE_CC (PATTERN (prev), prev);
+	      NOTICE_UPDATE_CC (PATTERN (jump), jump);
+	    }
+	}
+#endif
       if (prescan > 0)
 	break;
       new_block = 1;
@@ -2239,21 +2353,29 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	  if (GET_CODE (nextbody) == ADDR_VEC
 	      || GET_CODE (nextbody) == ADDR_DIFF_VEC)
 	    {
-#ifndef JUMP_TABLES_IN_TEXT_SECTION
-	      readonly_data_section ();
+#if defined(ASM_OUTPUT_ADDR_VEC) || defined(ASM_OUTPUT_ADDR_DIFF_VEC)
+	      /* In this case, the case vector is being moved by the
+		 target, so don't output the label at all.  Leave that
+		 to the back end macros.  */
+#else
+	      if (! JUMP_TABLES_IN_TEXT_SECTION)
+		{
+		  readonly_data_section ();
 #ifdef READONLY_DATA_SECTION
-	      ASM_OUTPUT_ALIGN (file,
-				exact_log2 (BIGGEST_ALIGNMENT
-					    / BITS_PER_UNIT));
+		  ASM_OUTPUT_ALIGN (file,
+				    exact_log2 (BIGGEST_ALIGNMENT
+						/ BITS_PER_UNIT));
 #endif /* READONLY_DATA_SECTION */
-#else /* JUMP_TABLES_IN_TEXT_SECTION */
-	      function_section (current_function_decl);
-#endif /* JUMP_TABLES_IN_TEXT_SECTION */
+		}
+	      else
+		function_section (current_function_decl);
+
 #ifdef ASM_OUTPUT_CASE_LABEL
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
 				     NEXT_INSN (insn));
 #else
 	      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
+#endif
 #endif
 	      break;
 	    }
@@ -2308,6 +2430,24 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 		app_on = 0;
 	      }
 
+#if defined(ASM_OUTPUT_ADDR_VEC) || defined(ASM_OUTPUT_ADDR_DIFF_VEC)
+	    if (GET_CODE (body) == ADDR_VEC)
+	      {
+#ifdef ASM_OUTPUT_ADDR_VEC
+		ASM_OUTPUT_ADDR_VEC (PREV_INSN (insn), body);
+#else
+		abort();
+#endif
+	      }
+	    else
+	      {
+#ifdef ASM_OUTPUT_ADDR_DIFF_VEC
+		ASM_OUTPUT_ADDR_DIFF_VEC (PREV_INSN (insn), body);
+#else
+		abort();
+#endif
+	      }
+#else
 	    vlen = XVECLEN (body, GET_CODE (body) == ADDR_DIFF_VEC);
 	    for (idx = 0; idx < vlen; idx++)
 	      {
@@ -2337,6 +2477,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	    ASM_OUTPUT_CASE_END (file,
 				 CODE_LABEL_NUMBER (PREV_INSN (insn)),
 				 insn);
+#endif
 #endif
 
 	    function_section (current_function_decl);
@@ -2773,7 +2914,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
 	    /* If we didn't split the insn, go away.  */
 	    if (new == insn && PATTERN (new) == body)
-	      abort ();
+	      fatal_insn ("Could not split insn", insn);
 	      
 #ifdef HAVE_ATTR_length
 	    /* This instruction should have been split in shorten_branches,
@@ -2932,6 +3073,8 @@ alter_subreg (x)
 		   - MIN (UNITS_PER_WORD, GET_MODE_SIZE (GET_MODE (y))));
       PUT_CODE (x, MEM);
       MEM_VOLATILE_P (x) = MEM_VOLATILE_P (y);
+      MEM_IN_STRUCT_P (x) = MEM_IN_STRUCT_P (y);
+      MEM_ALIAS_SET (x) = MEM_ALIAS_SET (y);
       XEXP (x, 0) = plus_constant (XEXP (y, 0), offset);
     }
 

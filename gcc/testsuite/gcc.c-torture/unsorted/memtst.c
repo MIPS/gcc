@@ -1,20 +1,9 @@
-memtst (int *p, int a)
-{
-  do
-    {
-      if (p[a] == 1)
-	break;
-    }
-  while (--a);
-}
+#ifdef STACK_SIZE
+#define SIZE STACK_SIZE / 8
+#else
+#define SIZE 65536
+#endif
 
-main ()
-{
-  int a[65536];
-  int i;
-  bzero (a, 65536 * 4);
-  for (i = 0;  i < 100;  i++)
-    {
-      memtst (a, 65536);
-    }
-}
+  int a[SIZE];
+  bzero (a, SIZE * 4);
+      memtst (a, SIZE);

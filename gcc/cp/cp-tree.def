@@ -29,6 +29,11 @@ Boston, MA 02111-1307, USA.  */
    just won't work for us.  */
 DEFTREECODE (OFFSET_REF, "offset_ref", 'r', 2)
 
+/* A pointer-to-member constant.  For a pointer-to-member constant
+   `X::Y' The PTRMEM_CST_CLASS is the RECORD_TYPE for `X' and the
+   PTRMEM_CST_MEMBER is the _DECL for `Y'.  */
+DEFTREECODE (PTRMEM_CST, "ptrmem_cst", 'c', 1)
+
 /* For NEW_EXPR, operand 0 is the placement list.
    Operand 1 is the new-declarator.
    Operand 2 is the initializer.  */
@@ -163,20 +168,33 @@ DEFTREECODE (DEFAULT_ARG, "default_arg", 'c', 2)
    template will be a FUNCTION_DECL, TEMPLATE_DECL, or a list of
    overloaded functions and templates if the template-id refers to
    a global template.  If the template-id refers to a member template,
-   the template will be an IDENTIFIER_NODE.  */
+   the template may be an IDENTIFIER_NODE.  */
 DEFTREECODE (TEMPLATE_ID_EXPR, "template_id_expr", 'e', 2)
 
-/* has two fields: scope and value */
-/* XXX: could recycle some of the common fields */
+/* An association between namespace and entity. Parameters are the
+   scope and the (non-type) value.
+   TREE_TYPE indicates the type bound to the name. */
 DEFTREECODE (CPLUS_BINDING, "binding", 'x', 2)
+
+/* A list-like node for chaining overloading candidates. TREE_TYPE is 
+   the original name, and the parameter is the FUNCTION_DECL.  */
+DEFTREECODE (OVERLOAD, "overload", 'x', 1)
 
 /* A generic wrapper for something not tree that we want to include in
    tree structure.  */
 DEFTREECODE (WRAPPER, "wrapper", 'x', 1)
 
+/* A node to remember a source position.  */
+DEFTREECODE (SRCLOC, "srcloc", 'x', 2)
+
+/* Used to represent deferred name lookup for dependent names while
+   parsing a template declaration.  The first argument is an
+   IDENTIFIER_NODE for the name in question.  The TREE_TYPE is
+   unused.  */
+DEFTREECODE (LOOKUP_EXPR, "lookup_expr", 'e', 1)
+
 /* A whole bunch of tree codes for the initial, superficial parsing of
    templates.  */
-DEFTREECODE (LOOKUP_EXPR, "lookup_expr", 'e', 2)
 DEFTREECODE (MODOP_EXPR, "modop_expr", 'e', 3)
 DEFTREECODE (CAST_EXPR, "cast_expr", '1', 1)
 DEFTREECODE (REINTERPRET_CAST_EXPR, "reinterpret_cast_expr", '1', 1)

@@ -24,11 +24,6 @@ Boston, MA 02111-1307, USA.  */
    Error messages and low-level interface to malloc also handled here.  */
 
 #include "config.h"
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 #undef FLOAT /* This is for hpux. They should change hpux.  */
 #undef FFS  /* Some systems define this in param.h.  */
 #include "system.h"
@@ -56,7 +51,24 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "except.h"
 #include "toplev.h"
+#include "expr.h"
 #include "ggc.h"
+
+#ifdef DWARF_DEBUGGING_INFO
+#include "dwarfout.h"
+#endif
+
+#if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
+#include "dwarf2out.h"
+#endif
+
+#if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
+#include "dbxout.h"
+#endif
+
+#ifdef SDB_DEBUGGING_INFO
+#include "sdbout.h"
+#endif
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -154,20 +166,16 @@ extern void print_rtl_with_bb ();
 void rest_of_decl_compilation ();
 void error_with_file_and_line PVPROTO((char *file, int line, char *s, ...));
 void error_with_decl PVPROTO((tree decl, char *s, ...));
-void error_for_asm PVPROTO((rtx insn, char *s, ...));
 void error PVPROTO((char *s, ...));
 void fatal PVPROTO((char *s, ...));
 void warning_with_file_and_line PVPROTO((char *file, int line, char *s, ...));
 void warning_with_decl PVPROTO((tree decl, char *s, ...));
-void warning_for_asm PVPROTO((rtx insn, char *s, ...));
 void warning PVPROTO((char *s, ...));
 void pedwarn PVPROTO((char *s, ...));
 void pedwarn_with_decl PVPROTO((tree decl, char *s, ...));
 void pedwarn_with_file_and_line PVPROTO((char *file, int line, char *s, ...));
 void sorry PVPROTO((char *s, ...));
-void really_sorry PVPROTO((char *s, ...));
-void fancy_abort ();
-void set_target_switch ();
+static void set_target_switch PROTO((char *));
 static char *decl_name PROTO((tree, int));
 static void vmessage PROTO((char *, char *, va_list));
 static void v_message_with_file_and_line PROTO((char *, int, char *,
@@ -178,7 +186,7 @@ static void v_error_with_file_and_line PROTO((char *, int, char *, va_list));
 static void v_error_with_decl PROTO((tree, char *, va_list));
 static void v_error_for_asm PROTO((rtx, char *, va_list));
 static void verror PROTO((char *, va_list));
-static void vfatal PROTO((char *, va_list));
+static void vfatal PROTO((char *, va_list)) ATTRIBUTE_NORETURN;
 static void v_warning_with_file_and_line PROTO ((char *, int, char *, va_list));
 static void v_warning_with_decl PROTO((tree, char *, va_list));
 static void v_warning_for_asm PROTO((rtx, char *, va_list));
@@ -187,7 +195,7 @@ static void vpedwarn PROTO((char *, va_list));
 static void v_pedwarn_with_decl PROTO((tree, char *, va_list));
 static void v_pedwarn_with_file_and_line PROTO((char *, int, char *, va_list));
 static void vsorry PROTO((char *, va_list));
-static void v_really_sorry PROTO((char *, va_list));
+static void v_really_sorry PROTO((char *, va_list)) ATTRIBUTE_NORETURN;
 static void float_signal PROTO((int));
 static void pipe_closed PROTO((int));
 static void output_lang_identify PROTO((FILE *));
@@ -196,10 +204,13 @@ static void close_dump_file PROTO((void (*) (FILE *, rtx), rtx));
 static void dump_rtl PROTO((char *, tree, void (*) (FILE *, rtx), rtx));
 static void clean_dump_file PROTO((char *));
 static void compile_file PROTO((char *));
+static void display_help PROTO ((void));
 
-void print_version ();
-int print_single_switch ();
-void print_switch_values ();
+static void print_version PROTO((FILE *, char *));
+static int print_single_switch PROTO((FILE *, int, int, char *, char *, char *,
+				      char *, char *));
+static void print_switch_values PROTO((FILE *, int, int, char *, char *,
+				       char *));
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
 
@@ -254,6 +265,7 @@ int rtl_dump_and_exit = 0;
 int jump_opt_dump = 0;
 int addressof_dump = 0;
 int cse_dump = 0;
+int gcse_dump = 0;
 int loop_dump = 0;
 int cse2_dump = 0;
 int branch_prob_dump = 0;
@@ -329,16 +341,20 @@ int sorrycount = 0;
      2: and any other information that might be interesting, such as function
         parameter types in C++.  */
 
-char *(*decl_printable_name) (/* tree decl, int verbosity */);
+char *(*decl_printable_name)		PROTO ((tree, int));
 
 /* Pointer to function to compute rtl for a language-specific tree code.  */
 
-struct rtx_def *(*lang_expand_expr) ();
+typedef rtx (*lang_expand_expr_t)
+  PROTO ((union tree_node *, rtx, enum machine_mode,
+	  enum expand_modifier modifier));
+
+lang_expand_expr_t lang_expand_expr = 0;
 
 /* Pointer to function to finish handling an incomplete decl at the
    end of compilation.  */
 
-void (*incomplete_decl_finalize_hook) () = 0;
+void (*incomplete_decl_finalize_hook) PROTO((tree)) = 0;
 
 /* Highest label number used at the end of reload.  */
 
@@ -481,6 +497,11 @@ int flag_move_all_movables = 0;
 
 int flag_reduce_all_givs = 0;
 
+/* Nonzero to perform full register move optimization passes.  This is the
+   default for -O2.  */
+
+int flag_regmove = 0;
+
 /* Nonzero for -fwritable-strings:
    store string constants in data segment and don't uniquize them.  */
 
@@ -501,6 +522,10 @@ int flag_omit_frame_pointer = 0;
    which support arbitrary section names and unlimited numbers of sections.  */
 
 int flag_function_sections = 0;
+
+/* ... and similar for data.  */
+ 
+int flag_data_sections = 0;
 
 /* Nonzero to inhibit use of define_optimization peephole opts.  */
 
@@ -524,6 +549,10 @@ int flag_volatile_global;
 /* Nonzero means just do syntax checking; don't output anything.  */
 
 int flag_syntax_only = 0;
+
+/* Nonzero means perform global cse.  */
+
+static int flag_gcse;
 
 /* Nonzero means to rerun cse after loop optimization.  This increases
    compilation time about 20% and picks up a few more common expressions.  */
@@ -580,7 +609,12 @@ int flag_pic;
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
 
-int flag_exceptions = 2;
+int flag_exceptions;
+
+/* Nonzero means use the new model for exception handling. Replaces 
+   -DNEW_EH_MODEL as a compile option. */
+
+int flag_new_exceptions = 0;
 
 /* Nonzero means don't place uninitialized global data in common storage
    by default.  */
@@ -678,8 +712,6 @@ int flag_check_memory_usage = 0;
    -fcheck-memory-usage.  */
 int flag_prefix_function_name = 0;
 
-int flag_regmove = 0;
-
 /* 0 if pointer arguments may alias each other.  True in C.
    1 if pointer arguments may not alias each other but may alias
    global variables.
@@ -688,190 +720,394 @@ int flag_regmove = 0;
    This defaults to 0 for C.  */
 int flag_argument_noalias = 0;
 
+/* Nonzero if we should do (language-dependent) alias analysis.
+   Typically, this analysis will assume that expressions of certain
+   types do not alias expressions of certain other types.  Only used
+   if alias analysis (in general) is enabled.  */
+int flag_strict_aliasing = 0;
+
+/* Instrument functions with calls at entry and exit, for profiling.  */
+int flag_instrument_function_entry_exit = 0;
+
+
+/* Table of supported debugging formats.  */
+static struct
+{
+  char * arg;
+  /* Since PREFERRED_DEBUGGING_TYPE isn't necessarily a
+     constant expression, we use NO_DEBUG in its place.  */
+  enum debug_info_type debug_type;
+  int use_extensions_p;
+  char * description;
+} *da,
+debug_args[] =
+{
+  { "g",    NO_DEBUG, DEFAULT_GDB_EXTENSIONS,
+    "Generate default debug format output" },
+  { "ggdb", NO_DEBUG, 1, "Generate default extended debug format output" },
+#ifdef DBX_DEBUGGING_INFO
+  { "gstabs",  DBX_DEBUG, 0, "Generate STABS format debug output" },
+  { "gstabs+", DBX_DEBUG, 1, "Generate extended STABS format debug output" },
+#endif
+#ifdef DWARF_DEBUGGING_INFO
+  { "gdwarf",  DWARF_DEBUG, 0, "Generate DWARF-1 format debug output"},
+  { "gdwarf+", DWARF_DEBUG, 1,
+    "Generated extended DWARF-1 format debug output" },
+#endif
+#ifdef DWARF2_DEBUGGING_INFO
+  { "gdwarf-2", DWARF2_DEBUG, 0, "Enable DWARF-2 debug output" },
+#endif
+#ifdef XCOFF_DEBUGGING_INFO
+  { "gxcoff",  XCOFF_DEBUG, 0, "Generate XCOFF format debug output" },
+  { "gxcoff+", XCOFF_DEBUG, 1, "Generate extended XCOFF format debug output" },
+#endif
+#ifdef SDB_DEBUGGING_INFO
+  { "gcoff", SDB_DEBUG, 0, "Generate COFF format debug output" },
+#endif
+  { 0, 0, 0 }
+};
+
+typedef struct
+{
+  char * string;
+  int *  variable;
+  int    on_value;
+  char * description;
+}
+lang_independent_options;
+
 /* Table of language-independent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
    ON_VALUE is the value to store in VARIABLE
     if `-fSTRING' is seen as an option.
    (If `-fno-STRING' is seen as an option, the opposite value is stored.)  */
 
-struct { char *string; int *variable; int on_value;} f_options[] =
+lang_independent_options f_options[] =
 {
-  {"float-store", &flag_float_store, 1},
-  {"volatile", &flag_volatile, 1},
-  {"volatile-global", &flag_volatile_global, 1},
-  {"defer-pop", &flag_defer_pop, 1},
-  {"omit-frame-pointer", &flag_omit_frame_pointer, 1},
-  {"cse-follow-jumps", &flag_cse_follow_jumps, 1},
-  {"cse-skip-blocks", &flag_cse_skip_blocks, 1},
-  {"expensive-optimizations", &flag_expensive_optimizations, 1},
-  {"thread-jumps", &flag_thread_jumps, 1},
-  {"strength-reduce", &flag_strength_reduce, 1},
-  {"unroll-loops", &flag_unroll_loops, 1},
-  {"unroll-all-loops", &flag_unroll_all_loops, 1},
-  {"move-all-movables", &flag_move_all_movables, 1},
-  {"reduce-all-givs", &flag_reduce_all_givs, 1},
-  {"writable-strings", &flag_writable_strings, 1},
-  {"peephole", &flag_no_peephole, 0},
-  {"force-mem", &flag_force_mem, 1},
-  {"force-addr", &flag_force_addr, 1},
-  {"function-cse", &flag_no_function_cse, 0},
-  {"inline-functions", &flag_inline_functions, 1},
-  {"keep-inline-functions", &flag_keep_inline_functions, 1},
-  {"inline", &flag_no_inline, 0},
-  {"keep-static-consts", &flag_keep_static_consts, 1},
-  {"syntax-only", &flag_syntax_only, 1},
-  {"shared-data", &flag_shared_data, 1},
-  {"caller-saves", &flag_caller_saves, 1},
-  {"pcc-struct-return", &flag_pcc_struct_return, 1},
-  {"reg-struct-return", &flag_pcc_struct_return, 0},
-  {"delayed-branch", &flag_delayed_branch, 1},
-  {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1},
-  {"rerun-loop-opt", &flag_rerun_loop_opt, 1},
-  {"pretend-float", &flag_pretend_float, 1},
-  {"schedule-insns", &flag_schedule_insns, 1},
-  {"schedule-insns2", &flag_schedule_insns_after_reload, 1},
+  {"float-store", &flag_float_store, 1,
+   "Do not store floats in registers" },
+  {"volatile", &flag_volatile, 1,
+   "Consider all mem refs through pointers as volatile"},
+  {"volatile-global", &flag_volatile_global, 1,
+   "Consider all mem refs to global data to be volatile" },
+  {"defer-pop", &flag_defer_pop, 1,
+   "Defer popping functions args from stack until later" },
+  {"omit-frame-pointer", &flag_omit_frame_pointer, 1,
+   "When possible do not generate stack frames"},
+  {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
+   "When running CSE, follow jumps to their targets" },
+  {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
+   "When running CSE, follow conditional jumps" },
+  {"expensive-optimizations", &flag_expensive_optimizations, 1,
+   "Perform a number of minor, expensive optimisations" },
+  {"thread-jumps", &flag_thread_jumps, 1,
+   "Perform jump threading optimisations"},
+  {"strength-reduce", &flag_strength_reduce, 1,
+   "Perform strength reduction optimisations" },
+  {"unroll-loops", &flag_unroll_loops, 1,
+   "Perform loop unrolling when interation count is known" },
+  {"unroll-all-loops", &flag_unroll_all_loops, 1,
+   "Perofm loop onrolling for all loops" },
+  {"move-all-movables", &flag_move_all_movables, 1,
+   "Force all loop invariant computations out of loops" },
+  {"reduce-all-givs", &flag_reduce_all_givs, 1,
+   "Strength reduce all loop general induction variables" },
+  {"writable-strings", &flag_writable_strings, 1,
+   "Store strings in writable data section" },
+  {"peephole", &flag_no_peephole, 0,
+   "Enable machine specific peephole optimisations" },
+  {"force-mem", &flag_force_mem, 1,
+   "Copy memory operands into registers before using" },
+  {"force-addr", &flag_force_addr, 1,
+   "Copy memory address constants into regs before using" },
+  {"function-cse", &flag_no_function_cse, 0,
+   "Allow function addresses to be held in registers" },
+  {"inline-functions", &flag_inline_functions, 1,
+   "Integrate simple functions into their callers" },
+  {"keep-inline-functions", &flag_keep_inline_functions, 1,
+   "Generate code for funcs even if they are fully inlined" },
+  {"inline", &flag_no_inline, 0,
+   "Pay attention to the 'inline' keyword"},
+  {"keep-static-consts", &flag_keep_static_consts, 1,
+   "Emit static const variables even if they are not used" },
+  {"syntax-only", &flag_syntax_only, 1,
+   "Check for syntax errors, then stop" },
+  {"shared-data", &flag_shared_data, 1,
+   "Mark data as shared rather than private" },
+  {"caller-saves", &flag_caller_saves, 1,
+   "Enable saving registers around function calls" },
+  {"pcc-struct-return", &flag_pcc_struct_return, 1,
+   "Return 'short' aggregates in memory, not registers" },
+  {"reg-struct-return", &flag_pcc_struct_return, 0,
+   "Return 'short' aggregates in registers" },
+  {"delayed-branch", &flag_delayed_branch, 1,
+   "Attempt to fill delay slots of branch instructions" },
+  {"gcse", &flag_gcse, 1,
+   "Perform the global common subexpression elimination" },
+  {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1,
+   "Run CSE pass after loop optimisations"},
+  {"rerun-loop-opt", &flag_rerun_loop_opt, 1,
+   "Run the loop optimiser twice"},
+  {"pretend-float", &flag_pretend_float, 1,
+   "Pretend that host and target use the same FP format"},
+  {"schedule-insns", &flag_schedule_insns, 1,
+   "Reschedule instructions to avoid pipeline stalls"},
+  {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
+  "Run two passes of the instruction scheduler"},
 #ifdef HAIFA
-  {"sched-interblock",&flag_schedule_interblock, 1},
-  {"sched-spec",&flag_schedule_speculative, 1},
-  {"sched-spec-load",&flag_schedule_speculative_load, 1},
-  {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1},
-  {"branch-count-reg",&flag_branch_on_count_reg, 1},
+  {"sched-interblock",&flag_schedule_interblock, 1,
+   "Enable scheduling across basic blocks" },
+  {"sched-spec",&flag_schedule_speculative, 1,
+   "Allow speculative motion of non-loads" },
+  {"sched-spec-load",&flag_schedule_speculative_load, 1,
+   "Allow speculative motion of some loads" },
+  {"sched-spec-load-dangerous",&flag_schedule_speculative_load_dangerous, 1,
+   "Allow speculative motion of more loads" },
+  {"branch-count-reg",&flag_branch_on_count_reg, 1,
+   "Replace add,compare,branch with branch on count reg"},
 #endif  /* HAIFA */
-  {"pic", &flag_pic, 1},
-  {"PIC", &flag_pic, 2},
-  {"exceptions", &flag_exceptions, 1},
-  {"sjlj-exceptions", &exceptions_via_longjmp, 1},
-  {"asynchronous-exceptions", &asynchronous_exceptions, 1},
-  {"profile-arcs", &profile_arc_flag, 1},
-  {"test-coverage", &flag_test_coverage, 1},
-  {"branch-probabilities", &flag_branch_probabilities, 1},
-  {"fast-math", &flag_fast_math, 1},
-  {"common", &flag_no_common, 0},
-  {"inhibit-size-directive", &flag_inhibit_size_directive, 1},
-  {"function-sections", &flag_function_sections, 1},
-  {"verbose-asm", &flag_verbose_asm, 1},
-  {"gnu-linker", &flag_gnu_linker, 1},
-  {"regmove", &flag_regmove, 1},
-  {"pack-struct", &flag_pack_struct, 1},
-  {"stack-check", &flag_stack_check, 1},
-  {"argument-alias", &flag_argument_noalias, 0},
-  {"argument-noalias", &flag_argument_noalias, 1},
-  {"argument-noalias-global", &flag_argument_noalias, 2},
-  {"check-memory-usage", &flag_check_memory_usage, 1},
-  {"prefix-function-name", &flag_prefix_function_name, 1}
+  {"pic", &flag_pic, 1,
+   "Generate position independent code, if possible"},
+  {"PIC", &flag_pic, 2, ""},
+  {"exceptions", &flag_exceptions, 1,
+   "Enable exception handling" },
+  {"new-exceptions", &flag_new_exceptions, 1,
+   "Use the new model for exception handling" },
+  {"sjlj-exceptions", &exceptions_via_longjmp, 1,
+   "Use setjmp/longjmp to handle exceptions" },
+  {"asynchronous-exceptions", &asynchronous_exceptions, 1,
+   "Support asynchronous exceptions" },
+  {"profile-arcs", &profile_arc_flag, 1,
+   "Insert arc based program profiling code" },
+  {"test-coverage", &flag_test_coverage, 1,
+   "Create data files needed by gcov" },
+  {"branch-probabilities", &flag_branch_probabilities, 1,
+   "Use profiling information for branch porbabilities" },
+  {"fast-math", &flag_fast_math, 1,
+   "Improve FP speed by violating ANSI & IEEE rules" },
+  {"common", &flag_no_common, 0,
+   "Do not put unitialised globals in the common section" },
+  {"inhibit-size-directive", &flag_inhibit_size_directive, 1,
+   "Do not generate .size directives" },
+  {"function-sections", &flag_function_sections, 1,
+   "place each function into its own section" },
+  {"data-sections", &flag_data_sections, 1,
+   "place data items into their own section" },
+  {"verbose-asm", &flag_verbose_asm, 1,
+   "Add extra commentry to assembler output"},
+  {"gnu-linker", &flag_gnu_linker, 1,
+   "Output GNU ld formatted global initialisers"},
+  {"regmove", &flag_regmove, 1,
+   "Enables a regoster move optimisation"},
+  {"optimize-register-move", &flag_regmove, 1},
+  {"pack-struct", &flag_pack_struct, 1,
+   "Pack structure members together without holes" },
+  {"stack-check", &flag_stack_check, 1,
+   "Insert stack checking code into the program" },
+  {"argument-alias", &flag_argument_noalias, 0,
+   "Specify that arguments may alias each other & globals"},
+  {"argument-noalias", &flag_argument_noalias, 1,
+   "Assume arguments may alias globals but not each other"},
+  {"argument-noalias-global", &flag_argument_noalias, 2,
+   "Assume arguments do not alias each other or globals" },
+  {"strict-aliasing", &flag_strict_aliasing, 1,
+   "Assume strict aliasing rules apply" },
+  {"check-memory-usage", &flag_check_memory_usage, 1,
+   "Generate code to check every memory access" },
+  {"prefix-function-name", &flag_prefix_function_name, 1,
+   "Add a prefix to all function names" },
+  {"dump-unnumbered", &flag_dump_unnumbered, 1},
+  {"instrument-functions", &flag_instrument_function_entry_exit, 1,
+   "Instrument function entry/exit with profiling calls"},
 };
+
+#define NUM_ELEM(a)  (sizeof (a) / sizeof ((a)[0]))
 
 /* Table of language-specific options.  */
 
-char *lang_options[] =
+static struct lang_opt
 {
-  "-ansi",
-  "-fallow-single-precision",
+  char * option;
+  char * description;
+}
+documented_lang_options[] =
+{
+  /* In order not to overload the --help output, the convention
+     used here is to only describe those options which are not
+     enabled by default.  */
 
-  "-fsigned-bitfields",
-  "-funsigned-bitfields",
-  "-fno-signed-bitfields",
-  "-fno-unsigned-bitfields",
-  "-fsigned-char",
-  "-funsigned-char",
-  "-fno-signed-char",
-  "-fno-unsigned-char",
+  { "-ansi", "Compile just for ANSI C" },
+  { "-fallow-single-precision",
+    "Do not promote floats to double if using -traditional" },
 
-  "-ftraditional",
-  "-traditional",
-  "-fnotraditional",
-  "-fno-traditional",
+  { "-fsigned-bitfields", "" },
+  { "-funsigned-bitfields","Make bitfields by unsigned by default" },
+  { "-fno-signed-bitfields", "" },
+  { "-fno-unsigned-bitfields","" },
+  { "-fsigned-char", "Make 'char' be signed by default"},
+  { "-funsigned-char", "Make 'char' be unsigned by default"},
+  { "-fno-signed-char", "" },
+  { "-fno-unsigned-char", "" },
 
-  "-fasm",
-  "-fno-asm",
-  "-fbuiltin",
-  "-fno-builtin",
-  "-fhosted",
-  "-fno-hosted",
-  "-ffreestanding",
-  "-fno-freestanding",
-  "-fcond-mismatch",
-  "-fno-cond-mismatch",
-  "-fdollars-in-identifiers",
-  "-fno-dollars-in-identifiers",
-  "-fident",
-  "-fno-ident",
-  "-fshort-double",
-  "-fno-short-double",
-  "-fshort-enums",
-  "-fno-short-enums",
+  { "-ftraditional", "" },
+  { "-traditional", "Attempt to support traditional K&R style C"},
+  { "-fnotraditional", "" },
+  { "-fno-traditional", "" },
 
-  "-Wall",
-  "-Wbad-function-cast",
-  "-Wno-bad-function-cast",
-  "-Wcast-qual",
-  "-Wno-cast-qual",
-  "-Wchar-subscripts",
-  "-Wno-char-subscripts",
-  "-Wcomment",
-  "-Wno-comment",
-  "-Wcomments",
-  "-Wno-comments",
-  "-Wconversion",
-  "-Wno-conversion",
-  "-Wformat",
-  "-Wno-format",
-  "-Wimport",
-  "-Wno-import",
-  "-Wimplicit-function-declaration",
-  "-Wno-implicit-function-declaration",
-  "-Werror-implicit-function-declaration",
-  "-Wimplicit-int",
-  "-Wno-implicit-int",
-  "-Wimplicit",
-  "-Wno-implicit",
-  "-Wmain",
-  "-Wno-main",
-  "-Wmissing-braces",
-  "-Wno-missing-braces",
-  "-Wmissing-declarations",
-  "-Wno-missing-declarations",
-  "-Wmissing-prototypes",
-  "-Wno-missing-prototypes",
-  "-Wnested-externs",
-  "-Wno-nested-externs",
-  "-Wparentheses",
-  "-Wno-parentheses",
-  "-Wpointer-arith",
-  "-Wno-pointer-arith",
-  "-Wredundant-decls",
-  "-Wno-redundant-decls",
-  "-Wsign-compare",
-  "-Wno-sign-compare",
-  "-Wunknown-pragmas",
-  "-Wno-unknown-pragmas",
-  "-Wstrict-prototypes",
-  "-Wno-strict-prototypes",
-  "-Wtraditional",
-  "-Wno-traditional",
-  "-Wtrigraphs",
-  "-Wno-trigraphs",
-  "-Wundef",
-  "-Wno-undef",
-  "-Wwrite-strings",
-  "-Wno-write-strings",
+  { "-fasm", "" },
+  { "-fno-asm", "Do not recognise the 'asm' keyword" },
+  { "-fbuiltin", "" },
+  { "-fno-builtin", "Do not recognise any built in functions" },
+  { "-fhosted", "Assume normal C execution environment" },
+  { "-fno-hosted", "" },
+  { "-ffreestanding",
+    "Assume that standard libraries & main might not exist" },
+  { "-fno-freestanding", "" },
+  { "-fcond-mismatch", "Allow different types as args of ? operator"},
+  { "-fno-cond-mismatch", "" },
+  { "-fdollars-in-identifiers", "Allow the use of $ inside indentifiers" },
+  { "-fno-dollars-in-identifiers", "" },
+  { "-fident", "" },
+  { "-fno-ident", "Ignore #ident directives" },
+  { "-fshort-double", "Use the same size for double as for float" },
+  { "-fno-short-double", "" },
+  { "-fshort-enums", "Use the smallest fitting integer to hold enums"},
+  { "-fno-short-enums", "" },
 
-  /* these are for obj c */
-  "-lang-objc",
-  "-gen-decls",
-  "-fgnu-runtime",
-  "-fno-gnu-runtime",
-  "-fnext-runtime",
-  "-fno-next-runtime",
-  "-Wselector",
-  "-Wno-selector",
-  "-Wprotocol",
-  "-Wno-protocol",
-  "-print-objc-runtime-info",
+  { "-Wall", "Enable most warning messages" },
+  { "-Wbad-function-cast",
+    "Warn about casting functions to incompatible types" },
+  { "-Wno-bad-function-cast", "" },
+  { "-Wcast-qual", "Warn about casts which discard qualifiers"},
+  { "-Wno-cast-qual", "" },
+  { "-Wchar-subscripts", "Warn about subscripts whose type is 'char'"},
+  { "-Wno-char-subscripts", "" },
+  { "-Wcomment", "Warn if nested comments are detected" },
+  { "-Wno-comment", },
+  { "-Wcomments", },
+  { "-Wno-comments", },
+  { "-Wconversion", "Warn about possibly confusing type conversions" },
+  { "-Wno-conversion", "" },
+  { "-Wformat", "Warn about printf format anomalies" },
+  { "-Wno-format", "" },
+  { "-Wimplicit-function-declaration",
+    "Warn about implicit function declarations" },
+  { "-Wno-implicit-function-declaration", "" },
+  { "-Werror-implicit-function-declaration", "" },
+  { "-Wimplicit-int", "Warn when a declaration does not specify a type" },
+  { "-Wno-implicit-int", "" },
+  { "-Wimplicit", "" },
+  { "-Wno-implicit", "" },
+  { "-Wimport", "Warn about the use of the #import directive" },
+  { "-Wno-import", "" },
+  { "-Wlong-long","" },
+  { "-Wno-long-long", "Do not warn about using 'long long' when -pedantic" },
+  { "-Wmain", "Warn about suspicious declarations of main" },
+  { "-Wno-main", "" },
+  { "-Wmissing-braces",
+    "Warn about possibly missing braces around initialisers" },
+  { "-Wno-missing-braces", "" },
+  { "-Wmissing-declarations",
+    "Warn about global funcs without previous declarations"},
+  { "-Wno-missing-declarations", "" },
+  { "-Wmissing-prototypes", "Warn about global funcs without prototypes" },
+  { "-Wno-missing-prototypes", "" },
+  { "-Wmultichar", "Warn about use of multicharacter literals"},
+  { "-Wno-multichar", "" },
+  { "-Wnested-externs", "Warn about externs not at file scope level" },
+  { "-Wno-nested-externs", "" },
+  { "-Wparentheses", "Warn about possible missing parentheses" },
+  { "-Wno-parentheses", "" },
+  { "-Wpointer-arith", "Warn about function pointer arithmetic" },
+  { "-Wno-pointer-arith", "" },
+  { "-Wredundant-decls",
+    "Warn about multiple declarations of the same object" },
+  { "-Wno-redundant-decls", "" },
+  { "-Wsign-compare", "Warn about signed/unsigned comparisons" },
+  { "-Wno-sign-compare", "" },
+  { "-Wunknown-pragmas", "Warn about unrecognised pragmas" },
+  { "-Wno-unknown-pragmas", "" },
+  { "-Wstrict-prototypes", "Warn about non-prototyped function decls" },
+  { "-Wno-strict-prototypes", "" },
+  { "-Wtraditional", "Warn about constructs whose meaning change in ANSI C"},
+  { "-Wno-traditional", "" },
+  { "-Wtrigraphs", "Warn when trigraphs are encountered" },
+  { "-Wno-trigraphs", "" },
+  { "-Wundef", "" },
+  { "-Wno-undef", "" },
+  { "-Wwrite-strings", "Mark strings as 'const char *'"},
+  { "-Wno-write-strings", "" },
+
+  /* These are for languages with USE_CPPLIB.  */
+  /* These options are already documented in cpplib.c */
+  { "--help", "" },
+  { "-A", "" },
+  { "-D", "" },
+  { "-I", "" },
+  { "-U", "" },
+  { "-idirafter", "" },
+  { "-imacros", "" },
+  { "-include", "" },
+  { "-iprefix", "" },
+  { "-isystem", "" },
+  { "-iwithprefix", "" },
+  { "-iwithprefixbefore", "" },
+  { "-lang-c", "" },
+  { "-lang-c89", "" },
+  { "-lang-c++", "" },
+  { "-remap", "" },
+  { "-nostdinc", "" },
+  { "-nostdinc++", "" },
+  { "-trigraphs", "" },
+  { "-undef", "" },
+  
+#define DEFINE_LANG_NAME(NAME) { NULL, NAME },
+  
+  /* These are for obj c.  */
+  DEFINE_LANG_NAME ("Objective C")
+  
+  { "-lang-objc", "" },
+  { "-gen-decls", "Dump decls to a .decl file" },
+  { "-fgnu-runtime", "Generate code for GNU runtime envrionment" },
+  { "-fno-gnu-runtime", "" },
+  { "-fnext-runtime", "Generate code for NeXT runtime environment" },
+  { "-fno-next-runtime", "" },
+  { "-Wselector", "Warn if a selector has multiple methods" },
+  { "-Wno-selector", "" },
+  { "-Wprotocol", "" },
+  { "-Wno-protocol", "Do not warn if inherited methods are unimplemented"},
+  { "-print-objc-runtime-info",
+    "Generate C header of platform specific features" },
 
 #include "options.h"
-  0
+  
 };
+
+/* Here is a table, controlled by the tm.h file, listing each -m switch
+   and which bits in `target_switches' it should set or clear.
+   If VALUE is positive, it is bits to set.
+   If VALUE is negative, -VALUE is bits to clear.
+   (The sign bit is not used so there is no confusion.)  */
+
+struct
+{
+  char * name;
+  int    value;
+  char * description;
+}
+target_switches [] = TARGET_SWITCHES;
+
+/* This table is similar, but allows the switch to have a value.  */
+
+#ifdef TARGET_OPTIONS
+struct
+{
+  char *  prefix;
+  char ** variable;
+  char *  description;
+}
+target_options [] = TARGET_OPTIONS;
+#endif
 
 /* Options controlling warnings */
 
@@ -938,16 +1174,21 @@ int warn_aggregate_return;
 
 /* Likewise for -W.  */
 
-struct { char *string; int *variable; int on_value;} W_options[] =
+lang_independent_options W_options[] =
 {
-  {"unused", &warn_unused, 1},
-  {"error", &warnings_are_errors, 1},
-  {"shadow", &warn_shadow, 1},
-  {"switch", &warn_switch, 1},
-  {"aggregate-return", &warn_aggregate_return, 1},
-  {"cast-align", &warn_cast_align, 1},
-  {"uninitialized", &warn_uninitialized, 1},
-  {"inline", &warn_inline, 1}
+  {"unused", &warn_unused, 1, "Warn when a variable is unused" },
+  {"error", &warnings_are_errors, 1, ""},
+  {"shadow", &warn_shadow, 1, "Warn when one local variable shadows another" },
+  {"switch", &warn_switch, 1,
+   "Warn about enumerated switches missing a specific case" },
+  {"aggregate-return", &warn_aggregate_return, 1,
+   "Warn about returning structures, unions or arrays" },
+  {"cast-align", &warn_cast_align, 1,
+   "Warn about pointer casts which increase alignment" },
+  {"uninitialized", &warn_uninitialized, 1,
+   "Warn about unitialized automatic variables"},
+  {"inline", &warn_inline, 1,
+   "Warn when an inlined function cannot be inlined"}
 };
 
 /* Output files for assembler code (real compiler output)
@@ -964,6 +1205,7 @@ int varconst_time;
 int integration_time;
 int jump_time;
 int cse_time;
+int gcse_time;
 int loop_time;
 int cse2_time;
 int branch_prob_time;
@@ -1154,7 +1396,7 @@ fatal_insn_not_found (insn)
 static char *
 decl_name (decl, verbosity)
      tree decl;
-     int verbosity;
+     int verbosity ATTRIBUTE_UNUSED;
 {
   return IDENTIFIER_POINTER (DECL_NAME (decl));
 }
@@ -1903,7 +2145,7 @@ do_abort ()
 
 void
 botch (s)
-  char * s;
+  char * s ATTRIBUTE_UNUSED;
 {
   abort ();
 }
@@ -1914,8 +2156,13 @@ char *
 xmalloc (size)
      unsigned size;
 {
-  register char *value = (char *) malloc (size);
-  if (value == 0 && size != 0)
+  register char *value;
+
+  if (size == 0)
+    size = 1;
+
+  value = (char *) malloc (size);
+  if (value == 0)
     fatal ("virtual memory exhausted");
   return value;
 }
@@ -1923,11 +2170,16 @@ xmalloc (size)
 /* Same as `calloc' but report error if no memory available.  */
 
 char *
-xcalloc (nelt, size)
-     unsigned nelt, size;
+xcalloc (size1, size2)
+     unsigned size1, size2;
 {
-  register char *value = (char *) calloc (nelt, size);
-  if (value == 0 && nelt != 0 && size != 0)
+  register char *value;
+
+  if (size1 == 0 || size2 == 0)
+    size1 = size2 = 1;
+
+  value = (char *) calloc (size1, size2);
+  if (value == 0)
     fatal ("virtual memory exhausted");
   return value;
 }
@@ -1940,11 +2192,18 @@ xrealloc (ptr, size)
      char *ptr;
      int size;
 {
-  char *result = (ptr
-		  ? (char *) realloc (ptr, size)
-		  : (char *) malloc (size));
+  char *result;
+
+  if (size == 0)
+    size = 1;
+
+  result = (ptr
+	    ? (char *) realloc (ptr, size)
+	    : (char *) malloc (size));
+
   if (!result)
     fatal ("virtual memory exhausted");
+
   return result;
 }
 
@@ -2005,7 +2264,7 @@ jmp_buf float_handler;
 static void
 float_signal (signo)
      /* If this is missing, some compilers complain.  */
-     int signo;
+     int signo ATTRIBUTE_UNUSED;
 {
   if (float_handled == 0)
     abort ();
@@ -2047,10 +2306,10 @@ push_float_handler (handler, old_handler)
 
   float_handled = 1;
   if (was_handled)
-    bcopy ((char *) float_handler, (char *) old_handler,
+    memcpy ((char *) old_handler, (char *) float_handler,
 	   sizeof (float_handler));
 
-  bcopy ((char *) handler, (char *) float_handler, sizeof (float_handler));
+  memcpy ((char *) float_handler, (char *) handler, sizeof (float_handler));
   return was_handled;
 }
 
@@ -2072,7 +2331,7 @@ pop_float_handler (handled, handler)
 static void
 pipe_closed (signo)
      /* If this is missing, some compilers complain.  */
-     int signo;
+     int signo ATTRIBUTE_UNUSED;
 {
   fatal ("output pipe has been closed");
 }
@@ -2276,6 +2535,7 @@ compile_file (name)
   integration_time = 0;
   jump_time = 0;
   cse_time = 0;
+  gcse_time = 0;
   loop_time = 0;
   cse2_time = 0;
   branch_prob_time = 0;
@@ -2364,6 +2624,8 @@ compile_file (name)
   if (dbr_sched_dump)
     clean_dump_file (".dbr");
 #endif
+  if (gcse_dump)
+    clean_dump_file (".gcse");
 #ifdef STACK_REGS
   if (stack_reg_dump)
     clean_dump_file (".stack");
@@ -2410,32 +2672,10 @@ compile_file (name)
   input_file_stack->next = 0;
   input_file_stack->name = input_filename;
 
-  /* Gross. Gross.  lang_init is (I think) the first callback into
-     the language front end, and is thus the first opportunity to
-     have the selected language override the default value for any
-     -f option.
-
-     So the default value for flag_exceptions is 2 (uninitialized).
-     If we encounter -fno-exceptions or -fexceptions, then flag_exceptions
-     will be set to zero or one respectively.
-
-     flag_exceptions can also be set by lang_init to something other
-     than the default "uninitialized" value of 2.
-
-     After lang_init, if the value is still 2, then we default to
-     -fno-exceptions (value will be reset to zero).
-
-     When our EH mechanism is low enough overhead that we can enable
-     it by default for languages other than C++, then all this braindamage
-     will go away.  */
-  
   /* Perform language-specific initialization.
      This may set main_input_filename.  */
   lang_init ();
 
-  if (flag_exceptions == 2)
-    flag_exceptions = 0;
-     
   /* If the input doesn't start with a #line, use the input name
      as the official input file name.  */
   if (main_input_filename == 0)
@@ -2473,6 +2713,11 @@ compile_file (name)
     {
       warning ("-ffunction-sections not supported for this target.");
       flag_function_sections = 0;
+    }
+  if (flag_data_sections)
+    {
+      warning ("-fdata-sections not supported for this target.");
+      flag_data_sections = 0;
     }
 #endif
 
@@ -2846,6 +3091,7 @@ compile_file (name)
       print_time ("integration", integration_time);
       print_time ("jump", jump_time);
       print_time ("cse", cse_time);
+      print_time ("gcse", gcse_time);
       print_time ("loop", loop_time);
       print_time ("cse2", cse2_time);
       print_time ("branch-prob", branch_prob_time);
@@ -2948,8 +3194,13 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
 
 void
 rest_of_type_compilation (type, toplev)
+#if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO) || defined (SDB_DEBUGGING_INFO)
      tree type;
      int toplev;
+#else
+     tree type ATTRIBUTE_UNUSED;
+     int toplev ATTRIBUTE_UNUSED;
+#endif
 {
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
   if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
@@ -3042,7 +3293,8 @@ rest_of_compilation (decl)
 	 for those functions that need to be output.  Also defer those
 	 functions that we are supposed to defer.  We cannot defer
 	 functions containing nested functions since the nested function
-	 data is in our non-saved obstack.  */
+	 data is in our non-saved obstack.  We cannot defer nested
+	 functions for the same reason.  */
 
       /* If this is a nested inline, remove ADDRESSOF now so we can
 	 finish compiling ourselves.  Otherwise, wait until EOF.
@@ -3145,8 +3397,9 @@ rest_of_compilation (decl)
 	}
 
       /* If specified extern inline but we aren't inlining it, we are
-	 done.  */
-      if (DECL_INLINE (decl) && DECL_EXTERNAL (decl))
+	 done.  This goes for anything that gets here with DECL_EXTERNAL
+	 set, not just things with DECL_INLINE.  */
+      if (DECL_EXTERNAL (decl))
 	goto exit_rest_of_compilation;
     }
 
@@ -3262,6 +3515,18 @@ rest_of_compilation (decl)
   if (addressof_dump)
     dump_rtl (".addressof", decl, print_rtl, insns);
   
+  /* Perform global cse.  */
+
+  if (optimize > 0 && flag_gcse)
+    {
+      if (gcse_dump)
+	open_dump_file (".gcse", IDENTIFIER_POINTER (DECL_NAME (decl)));
+      
+      TIMEVAR (gcse_time, gcse_main (insns, rtl_dump_file));
+
+      if (gcse_dump)
+	close_dump_file (print_rtl, insns);
+    }
   /* Move constant computations out of loops.  */
 
   if (optimize > 0)
@@ -3276,7 +3541,7 @@ rest_of_compilation (decl)
 	     {
 	       /* We only want to perform unrolling once.  */
 	       
-	       loop_optimize (insns, rtl_dump_file, 0);
+	       loop_optimize (insns, rtl_dump_file, 0, 0);
 	       
 	
 	       /* The first call to loop_optimize makes some instructions
@@ -3289,7 +3554,7 @@ rest_of_compilation (decl)
 		  analysis code depends on this information.  */
 	       reg_scan (insns, max_reg_num (), 1);
 	     }
-	   loop_optimize (insns, rtl_dump_file, flag_unroll_loops);
+	   loop_optimize (insns, rtl_dump_file, flag_unroll_loops, 1);
 	 });
       
       /* Dump rtl code after loop opt, if we are doing that.  */
@@ -3456,6 +3721,7 @@ rest_of_compilation (decl)
   if (!obey_regdecls)
     TIMEVAR (local_alloc_time,
 	     {
+	       recompute_reg_usage (insns);
 	       regclass (insns, max_reg_num ());
 	       local_alloc ();
 	     });
@@ -3491,11 +3757,6 @@ rest_of_compilation (decl)
 	       failure = reload (insns, 0, rtl_dump_file);
 	   });
 
-  if (global_reg_dump)
-    {
-      TIMEVAR (dump_time, dump_global_regs (rtl_dump_file));
-      close_dump_file (print_rtl_with_bb, insns);
-    }
 
   if (failure)
     goto exit_rest_of_compilation;
@@ -3513,6 +3774,11 @@ rest_of_compilation (decl)
 
   thread_prologue_and_epilogue_insns (insns);
 
+  if (global_reg_dump)
+    {
+      TIMEVAR (dump_time, dump_global_regs (rtl_dump_file));
+      close_dump_file (print_rtl_with_bb, insns);
+    }
   if (optimize > 0 && flag_schedule_insns_after_reload)
     {
       if (sched2_dump)
@@ -3580,6 +3846,9 @@ rest_of_compilation (decl)
 	   });
 
 #ifdef STACK_REGS
+  if (stack_reg_dump)
+    open_dump_file (".stack", decl_printable_name (decl, 2));
+
   TIMEVAR (stack_reg_time, reg_to_stack (insns, rtl_dump_file));
 
   if (stack_reg_dump)
@@ -3666,21 +3935,22 @@ rest_of_compilation (decl)
 
   reload_completed = 0;
 
-  /* Clear out the insn_length contents now that they are no longer valid.  */
-  init_insn_lengths ();
+  TIMEVAR (final_time,
+	   {
+	      /* Clear out the insn_length contents now that they are no
+		 longer valid.  */
+	      init_insn_lengths ();
 
-  /* Clear out the real_constant_chain before some of the rtx's
-     it runs through become garbage.  */
+	      /* Clear out the real_constant_chain before some of the rtx's
+		 it runs through become garbage.  */
+	      clear_const_double_mem ();
 
-  clear_const_double_mem ();
+	      /* Cancel the effect of rtl_in_current_obstack.  */
+	      resume_temporary_allocation ();
 
-  /* Cancel the effect of rtl_in_current_obstack.  */
-
-  resume_temporary_allocation ();
-
-  /* Show no temporary slots allocated.  */
-
-  init_temp_slots ();
+	      /* Show no temporary slots allocated.  */
+	      init_temp_slots ();
+	   });
 
   /* Make sure volatile mem refs aren't considered valid operands for
      arithmetic insns.  We must call this here if this is a nested inline
@@ -3701,15 +3971,242 @@ rest_of_compilation (decl)
   parse_time -= get_run_time () - start_time;
 }
 
+static void
+display_help ()
+{
+  int    undoc;
+  unsigned long	 i;
+  char * lang;
+  
+#ifndef USE_CPPLIB  
+  printf ("Usage: %s input [switches]\n", progname);
+  printf ("Switches:\n");
+#endif
+  printf ("  -ffixed-<register>      Mark <register> as being unavailable to the compiler\n");
+  printf ("  -fcall-used-<register>  Mark <register> as being corrupted by function calls\n");
+  printf ("  -fcall-saved-<register> Mark <register> as being preserved across functions\n");
+
+  for (i = NUM_ELEM (f_options); i--;)
+    {
+      char * description = f_options[i].description;
+      
+      if (description != NULL && * description != 0)
+	printf ("  -f%-21s %s\n",
+		f_options[i].string, description);
+    }
+  
+  printf ("  -O[number]              Set optimisation level to [number]\n");
+  printf ("  -Os                     Optimise for space rather than speed\n");
+  printf ("  -pedantic               Issue warnings needed by strict compliance to ANSI C\n");
+  printf ("  -pedantic-errors        Like -pedantic except that errors are produced\n");
+  printf ("  -w                      Suppress warnings\n");
+  printf ("  -W                      Enable extra warnings\n");
+  
+  for (i = NUM_ELEM (W_options); i--;)
+    {
+      char * description = W_options[i].description;
+      
+      if (description != NULL && * description != 0)
+	printf ("  -W%-21s %s\n",
+		W_options[i].string, description);
+    }
+  
+  printf ("  -Wid-clash-<num>        Warn if 2 identifiers have the same first <num> chars\n");
+  printf ("  -Wlarger-than-<number>  Warn if an object is larger than <number> bytes\n");
+  printf ("  -p                      Enable function profiling\n");
+#if defined (BLOCK_PROFILER) || defined (FUNCTION_BLOCK_PROFILER)
+  printf ("  -a                      Enable block profiling \n");
+#endif  
+#if defined (BLOCK_PROFILER) || defined (FUNCTION_BLOCK_PROFILER) || defined FUNCTION_BLOCK_PROFILER_EXIT
+  printf ("  -ax                     Enable jump profiling \n");
+#endif  
+  printf ("  -o <file>               Place output into <file> \n");
+  printf ("  -G <number>             Put global and static data smaller than <number>\n");
+  printf ("                           bytes into a special section (on some targets)\n");
+  
+  for (i = NUM_ELEM (debug_args); i--;)
+    {
+      if (debug_args[i].description != NULL)
+	printf ("  -%-22s %s\n", debug_args[i].arg, debug_args[i].description);
+    }
+  
+  printf ("  -aux-info <file>        Emit declaration info into <file>.X\n");
+  printf ("  -quiet                  Do not display functions compiled or elapsed time\n");
+  printf ("  -version                Display the compiler's version\n");
+  printf ("  -d[letters]             Enable dumps from specific passes of the compiler\n");
+  printf ("  -dumpbase <file>        Base name to be used for dumps from specific passes\n");
+#if defined HAIFA || defined INSN_SCHEDULING
+  printf ("  -sched-verbose-<number> Set the verbosity level of the scheduler\n");
+#endif
+  printf ("  --help                  Display this information\n");
+
+  undoc = 0;
+  lang  = "language";
+  
+  /* Display descriptions of language specific options.
+     If there is no description, note that there is an undocumented option.
+     If the description is empty, do not display anything.  (This allows
+     options to be deliberately undocumented, for whatever reason).
+     If the option string is missing, then this is a marker, indicating
+     that the description string is in fact the name of a language, whose
+     language specific options are to follow.  */
+  
+  if (NUM_ELEM (documented_lang_options) > 1)
+    {
+      printf ("\nLanguage specific options:\n");
+
+      for (i = 0; i < NUM_ELEM (documented_lang_options); i++)
+	{
+	  char * description = documented_lang_options[i].description;
+	  char * option      = documented_lang_options[i].option;
+
+	  if (description == NULL)
+	    undoc = 1;
+	  else if (* description == 0)
+	    continue;
+	  else if (option == NULL)
+	    {
+	      if (undoc)
+		printf
+		  ("\nThere are undocumented %s specific options as well.\n",
+			lang);
+	      undoc = 0;
+	      
+	      printf ("\n Options for %s:\n", description);
+
+	      lang = description;
+	    }
+	  else
+	    printf ("  %-23.23s %s\n", option, description);
+	}
+    }
+
+  if (undoc)
+    printf ("\nThere are undocumented %s specific options as well.\n", lang);
+
+  if (NUM_ELEM (target_switches) > 1
+#ifdef TARGET_OPTIONS
+      || NUM_ELEM (target_options) > 1
+#endif
+      )
+    {
+      int doc = 0;
+      
+      undoc = 0;
+  
+      printf ("\nTarget specific options:\n");
+
+      for (i = NUM_ELEM (target_switches); i--;)
+	{
+	  char * option      = target_switches[i].name;
+	  char * description = target_switches[i].description;
+
+	  if (option == NULL)
+	    continue;
+	  else if (description == NULL)
+	    undoc = 1;
+	  else if (* description != 0)
+	    doc += printf ("  %-23.23s %s\n", option, description);
+	}
+      
+#ifdef TARGET_OPTIONS      
+      for (i = NUM_ELEM (target_options); i--;)
+	{
+	  char * option      = target_options[i].prefix;
+	  char * description = target_options[i].description;
+
+	  if (option == NULL)
+	    continue;
+	  else if (description == NULL)
+	    undoc = 1;
+	  else if (* description != 0)
+	    doc += printf ("  %-23.23s %s\n", option, description);
+	}
+#endif
+      if (undoc)
+	{
+	  if (doc)
+	    printf ("\nThere are undocumented target specific options as well.\n");
+	  else
+	    printf ("  They exist, but they are not documented.\n");
+	}
+    }
+}
+
+/* Compare the user specified 'option' with the language
+   specific 'lang_option'.  Return true if they match, or
+   if 'option' is a viable prefix of 'lang_option'.  */
+
+static int
+check_lang_option (option, lang_option)
+     char * option;
+     char * lang_option;
+{
+  lang_independent_options * indep_options;
+  int    len;
+  long    k;
+
+  /* Ignore NULL entries.  */
+  if (option == NULL || lang_option == NULL)
+    return 0;
+
+  len = strlen (lang_option);
+
+  /* If they do not match to the first n characters then fail.  */
+  if (strncmp (option, lang_option, len) != 0)
+    return 0;
+	  
+  /* Do not accept a lang option, if it matches a normal -f or -W
+     option.  Chill defines a -fpack, but we want to support
+     -fpack-struct.  */
+	  
+  /* An exact match is OK  */
+  if (strlen (option) == len)
+    return 1;
+
+  /* If it is not an -f or -W option allow the match */
+  if (option[0] != '-')
+    return 1;
+
+  switch (option[1])
+    {
+    case 'f': indep_options = f_options; break;
+    case 'W': indep_options = W_options; break;
+    default:  return 1;
+    }
+
+  /* The option is a -f or -W option.
+     Skip past the prefix and search for the remainder in the
+     appropriate table of options.  */
+  option += 2;
+	  
+  if (option[0] == 'n' && option[1] == 'o' && option[2] == '-')
+    option += 3;
+
+  for (k = NUM_ELEM (indep_options); k--;)
+    {
+      if (!strcmp (option, indep_options[k].string))
+	{
+	  /* The option matched a language independent option,
+	     do not allow the language specific match.  */
+
+	  return 0;
+	}
+    }
+
+  /* The option matches the start of the langauge specific option
+     and it is not an exact match for a language independent option.  */
+  return 1;
+}
+
 /* Entry point of cc1/c++.  Decode command args, then call compile_file.
    Exit code is 35 if can't open files, 34 if fatal error,
    33 if had nonfatal errors, else success.  */
 
 int
-main (argc, argv, envp)
+main (argc, argv)
      int argc;
      char **argv;
-     char **envp;
 {
   register int i;
   char *filename = 0;
@@ -3749,7 +4246,7 @@ main (argc, argv, envp)
 #endif
 
   decl_printable_name = decl_name;
-  lang_expand_expr = (struct rtx_def *(*)()) do_abort;
+  lang_expand_expr = (lang_expand_expr_t) do_abort;
 
   /* Initialize whether `char' is signed.  */
   flag_signed_char = DEFAULT_SIGNED_CHAR;
@@ -3757,6 +4254,9 @@ main (argc, argv, envp)
   /* Initialize how much space enums occupy, by default.  */
   flag_short_enums = DEFAULT_SHORT_ENUMS;
 #endif
+
+  /* Perform language-specific options intialization.  */
+  lang_init_options ();
 
   /* Scan to see what optimization level has been specified.  That will
      determine the default value of many flags.  */
@@ -3807,6 +4307,7 @@ main (argc, argv, envp)
     {
       flag_cse_follow_jumps = 1;
       flag_cse_skip_blocks = 1;
+      flag_gcse = 1;
       flag_expensive_optimizations = 1;
       flag_strength_reduce = 1;
       flag_rerun_cse_after_loop = 1;
@@ -3818,6 +4319,7 @@ main (argc, argv, envp)
       flag_schedule_insns_after_reload = 1;
 #endif
       flag_regmove = 1;
+      flag_strict_aliasing = 1;
     }
 
   if (optimize >= 3)
@@ -3841,16 +4343,28 @@ main (argc, argv, envp)
   for (i = 1; i < argc; i++)
     {
       size_t j;
+      
       /* If this is a language-specific option,
 	 decode it in a language-specific way.  */
-      for (j = 0; lang_options[j] != 0; j++)
-	if (!strncmp (argv[i], lang_options[j],
-		      strlen (lang_options[j])))
+      for (j = NUM_ELEM (documented_lang_options); j--;)
+	if (check_lang_option (argv[i], documented_lang_options[j].option))
 	  break;
-      if (lang_options[j] != 0)
-	/* If the option is valid for *some* language,
-	   treat it as valid even if this language doesn't understand it.  */
-	lang_decode_option (argv[i]);
+      
+      if (j != (size_t)-1)
+	{
+	  /* If the option is valid for *some* language,
+	     treat it as valid even if this language doesn't understand it.  */
+	  int strings_processed = lang_decode_option (argc - i, argv + i);
+	  
+	  if (!strcmp (argv[i], "--help"))
+	    {
+	      display_help ();
+	      exit (0);
+	    }
+	  
+	  if (strings_processed != 0)
+	    i += strings_processed - 1;
+	}
       else if (argv[i][0] == '-' && argv[i][1] != 0)
 	{
 	  register char *str = argv[i] + 1;
@@ -3885,6 +4399,7 @@ main (argc, argv, envp)
 		    regmove_dump = 1;
  		    rtl_dump = 1;
  		    cse_dump = 1, cse2_dump = 1;
+		    gcse_dump = 1;
  		    sched_dump = 1;
  		    sched2_dump = 1;
 #ifdef STACK_REGS
@@ -3916,6 +4431,9 @@ main (argc, argv, envp)
 		    break;
 		  case 'g':
 		    global_reg_dump = 1;
+		    break;
+		  case 'G':
+		    gcse_dump = 1;
 		    break;
 		  case 'j':
 		    jump_opt_dump = 1;
@@ -4155,38 +4673,9 @@ main (argc, argv, envp)
 		 -g and -ggdb don't explicitly set the debugging format so
 		 -gdwarf -g3 is equivalent to -gdwarf3.  */
 	      static int type_explicitly_set_p = 0;
-	      /* Table of supported debugging formats.  */
-	      static struct {
-		char *arg;
-		/* Since PREFERRED_DEBUGGING_TYPE isn't necessarily a
-		   constant expression, we use NO_DEBUG in its place.  */
-		enum debug_info_type debug_type;
-		int use_extensions_p;
-	      } *da, debug_args[] = {
-		{ "g", NO_DEBUG, DEFAULT_GDB_EXTENSIONS },
-		{ "ggdb", NO_DEBUG, 1 },
-#ifdef DBX_DEBUGGING_INFO
-		{ "gstabs", DBX_DEBUG, 0 },
-		{ "gstabs+", DBX_DEBUG, 1 },
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-		{ "gdwarf", DWARF_DEBUG, 0 },
-		{ "gdwarf+", DWARF_DEBUG, 1 },
-#endif
-#ifdef DWARF2_DEBUGGING_INFO
-		{ "gdwarf-2", DWARF2_DEBUG, 0 },
-#endif
-#ifdef XCOFF_DEBUGGING_INFO
-		{ "gxcoff", XCOFF_DEBUG, 0 },
-		{ "gxcoff+", XCOFF_DEBUG, 1 },
-#endif
-#ifdef SDB_DEBUGGING_INFO
-		{ "gcoff", SDB_DEBUG, 0 },
-#endif
-		{ 0, 0, 0 }
-	      };
 	      /* Indexed by enum debug_info_type.  */
-	      static char *debug_type_names[] = {
+	      static char *debug_type_names[] =
+	      {
 		"none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff"
 	      };
 
@@ -4293,6 +4782,11 @@ main (argc, argv, envp)
 	      flag_gen_aux_info = 1;
 	      aux_info_file_name = (str[8] != '\0' ? str+8 : argv[++i]);
 	    }
+	  else if (!strcmp (str, "-help"))
+	    {
+	      display_help ();
+	      exit (0);
+	    }
 	  else
 	    error ("Invalid option `%s'", argv[i]);
 	}
@@ -4380,8 +4874,7 @@ main (argc, argv, envp)
     {
       char *lim = (char *) sbrk (0);
 
-      fprintf (stderr, "Data size %d.\n",
-	       lim - (char *) &environ);
+      fprintf (stderr, "Data size %ld.\n", (long)(lim - (char *) &environ));
       fflush (stderr);
 
 #ifndef __MSDOS__
@@ -4403,26 +4896,9 @@ main (argc, argv, envp)
 }
 
 /* Decode -m switches.  */
-
-/* Here is a table, controlled by the tm.h file, listing each -m switch
-   and which bits in `target_switches' it should set or clear.
-   If VALUE is positive, it is bits to set.
-   If VALUE is negative, -VALUE is bits to clear.
-   (The sign bit is not used so there is no confusion.)  */
-
-struct {char *name; int value;} target_switches []
-  = TARGET_SWITCHES;
-
-/* This table is similar, but allows the switch to have a value.  */
-
-#ifdef TARGET_OPTIONS
-struct {char *prefix; char ** variable;} target_options []
-  = TARGET_OPTIONS;
-#endif
-
 /* Decode the switch -mNAME.  */
 
-void
+static void
 set_target_switch (name)
      char *name;
 {
@@ -4460,7 +4936,7 @@ set_target_switch (name)
    Each line begins with INDENT (for the case where FILE is the
    assembler output file).  */
 
-void
+static void
 print_version (file, indent)
      FILE *file;
      char *indent;
@@ -4482,7 +4958,7 @@ print_version (file, indent)
    ??? We don't handle error returns from fprintf (disk full); presumably
    other code will catch a disk full though.  */
 
-int
+static int
 print_single_switch (file, pos, max, indent, sep, term, type, name)
      FILE *file;
      int pos, max;
@@ -4513,7 +4989,7 @@ print_single_switch (file, pos, max, indent, sep, term, type, name)
    Each line begins with INDENT and ends with TERM.
    Each switch is separated from the next by SEP.  */
 
-void
+static void
 print_switch_values (file, pos, max, indent, sep, term)
      FILE *file;
      int pos, max;

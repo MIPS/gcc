@@ -72,11 +72,11 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #undef STARTFILE_SPEC
-#define STARTFILE_SPEC "%{!shared:crt0.o%s crtsysc.o%s} crtinit.o%s"
+#define STARTFILE_SPEC "%{!shared:crt0.o%s} crtinit.o%s"
 
 
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC "crtfini.o%s"
+#define ENDFILE_SPEC "-lgloss crtfini.o%s"
 
      
 #undef LIB_SPEC
@@ -434,7 +434,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 #define FIXED_REGISTERS \
 { 0, 0, 0, 0, 0, 0, 0, 0,	\
   0, 0, 0, 0, 0, 0, 0, 1,	\
-  1, 0 }
+  1, 1 }
 
 
 /* 1 for registers not available across function calls.
@@ -606,16 +606,17 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define INT32_P(X) ((X) >= (-(HOST_WIDE_INT) 0x7fffffff - 1) \
 		    && (X) <= (unsigned HOST_WIDE_INT) 0xffffffff)
 #define UINT5_P(X) ((unsigned) (X) < 32)
+#define INVERTED_SIGNED_8BIT(VAL) ((VAL) >= -127 && (VAL) <= 128)
 
-#define CONST_OK_FOR_LETTER_P(VALUE, C) \
-((C) == 'I' ? INT8_P (VALUE)		\
- : (C) == 'J' ? INT16_P (VALUE)	\
- : (C) == 'K' ? UINT16_P (VALUE)	\
- : (C) == 'L' ? UPPER16_P (VALUE)	\
- : (C) == 'M' ? UINT24_P (VALUE)	\
- : (C) == 'N' ? INT32_P (VALUE)		\
- : (C) == 'O' ? UINT5_P (VALUE)		\
- : (C) == 'P' ? CMP_INT16_P (VALUE)	\
+#define CONST_OK_FOR_LETTER_P(VALUE, C)					\
+((C) == 'I' ? INT8_P (VALUE)						\
+ : (C) == 'J' ? INT16_P (VALUE)						\
+ : (C) == 'K' ? UINT16_P (VALUE)					\
+ : (C) == 'L' ? UPPER16_P (VALUE)					\
+ : (C) == 'M' ? UINT24_P (VALUE)					\
+ : (C) == 'N' ? INVERTED_SIGNED_8BIT (VALUE)				\
+ : (C) == 'O' ? UINT5_P (VALUE)						\
+ : (C) == 'P' ? CMP_INT16_P (VALUE)					\
  : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -623,8 +624,8 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
    For the m32r, handle a few constants inline.
    ??? We needn't treat DI and DF modes differently, but for now we do.  */
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C) \
-((C) == 'G' ? easy_di_const (VALUE) \
- : (C) == 'H' ? easy_df_const (VALUE) \
+((C) == 'G' ? easy_di_const (VALUE)					\
+ : (C) == 'H' ? easy_df_const (VALUE)					\
  : 0)
 
 /* A C expression that defines the optional machine-dependent constraint
@@ -635,19 +636,25 @@ extern enum reg_class m32r_regno_reg_class[FIRST_PSEUDO_REGISTER];
    be 0 regardless of VALUE.  */
 /* Q is for symbolic addresses loadable with ld24.
    R is for symbolic addresses when ld24 can't be used.
-   S is for an 8 bit signed integer in the range +128 to -127 */
+   S is unused.
+   T is for indirect of a pointer.
+   U is for pushes and pops of the stack pointer.  */
 
-#define INVERTED_SIGNED_8BIT(VAL) ((VAL) >= -127 && (VAL) <= 128)
-
-#define EXTRA_CONSTRAINT(VALUE, C) \
-((C) == 'Q' \
- ? ((TARGET_ADDR24 && GET_CODE (VALUE) == LABEL_REF) \
-    || addr24_operand (VALUE, VOIDmode)) \
- : (C) == 'R' \
- ? ((TARGET_ADDR32 && GET_CODE (VALUE) == LABEL_REF) \
-    || addr32_operand (VALUE, VOIDmode)) \
- : (C) == 'S' \
- ?  ((GET_CODE (VALUE) == CONST_INT) && INVERTED_SIGNED_8BIT (INTVAL (VALUE))) \
+#define EXTRA_CONSTRAINT(VALUE, C)					\
+((C) == 'Q'								\
+ ? ((TARGET_ADDR24 && GET_CODE (VALUE) == LABEL_REF)			\
+    || addr24_operand (VALUE, VOIDmode))				\
+ : (C) == 'R'								\
+ ? ((TARGET_ADDR32 && GET_CODE (VALUE) == LABEL_REF)			\
+    || addr32_operand (VALUE, VOIDmode))				\
+ : (C) == 'S'								\
+ ? 0									\
+ : (C) == 'T'								\
+ ?  (GET_CODE (VALUE) == MEM						\
+     && memreg_operand (VALUE, GET_MODE (VALUE)))			\
+ : (C) == 'U'								\
+ ?  (GET_CODE (VALUE) == MEM						\
+     && PUSH_POP_P (GET_MODE (VALUE), XEXP (VALUE, 0)))			\
  : 0)
 
 /* Stack layout and stack pointer usage.  */
@@ -835,6 +842,12 @@ M32R_STACK_ALIGN (current_function_outgoing_args_size)
    or for a library call it is an identifier node for the subroutine name.
    SIZE is the number of bytes of arguments passed on the stack.  */
 #define RETURN_POPS_ARGS(DECL, FUNTYPE, SIZE) 0
+
+/* Nonzero if we do not know how to pass TYPE solely in registers. */
+#define MUST_PASS_IN_STACK(MODE,TYPE)			\
+  ((TYPE) != 0						\
+   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST	\
+       || TREE_ADDRESSABLE (TYPE)))
 
 /* Define a data type for recording info about an argument list
    during the scan of that argument list.  This data type should
@@ -1069,7 +1082,7 @@ m32r_output_function_epilogue (FILE, SIZE)
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
-#define FUNCTION_PROFILER(FILE, LABELNO)
+#define FUNCTION_PROFILER(FILE, LABELNO) abort ()
 
 /* Trampolines.  */
 
@@ -1184,24 +1197,37 @@ do { \
 (GET_CODE (X) == CONST_INT && INT16_P (INTVAL (X)))
 
 /* local to this file */
-#define LEGITIMATE_OFFSET_ADDRESS_P(MODE, X) \
-(GET_CODE (X) == PLUS				\
- && RTX_OK_FOR_BASE_P (XEXP (X, 0))		\
+#define LEGITIMATE_OFFSET_ADDRESS_P(MODE, X)				\
+(GET_CODE (X) == PLUS							\
+ && RTX_OK_FOR_BASE_P (XEXP (X, 0))					\
  && RTX_OK_FOR_OFFSET_P (XEXP (X, 1)))
 
 /* local to this file */
-#define LEGITIMATE_LO_SUM_ADDRESS_P(MODE, X) \
-(GET_CODE (X) == LO_SUM				\
- && RTX_OK_FOR_BASE_P (XEXP (X, 0))		\
+/* For LO_SUM addresses, do not allow them if the MODE is > 1 word,
+   since more than one instruction will be required.  */
+#define LEGITIMATE_LO_SUM_ADDRESS_P(MODE, X)				\
+(GET_CODE (X) == LO_SUM							\
+ && (MODE != BLKmode && GET_MODE_SIZE (MODE) <= UNITS_PER_WORD)		\
+ && RTX_OK_FOR_BASE_P (XEXP (X, 0))					\
  && CONSTANT_P (XEXP (X, 1)))
 
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR) \
-{ if (RTX_OK_FOR_BASE_P (X))				\
-    goto ADDR;						\
-  if (LEGITIMATE_OFFSET_ADDRESS_P ((MODE), (X)))	\
-    goto ADDR;						\
-  if (LEGITIMATE_LO_SUM_ADDRESS_P ((MODE), (X)))	\
-    goto ADDR;						\
+/* local to this file */
+/* Memory address that is a push/pop of the stack pointer.  */
+#define PUSH_POP_P(MODE, X)						\
+((MODE) == SImode							\
+ && (GET_CODE (X) == POST_INC						\
+     || GET_CODE (X) == PRE_INC						\
+     || GET_CODE (X) == PRE_DEC))
+
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
+{ if (RTX_OK_FOR_BASE_P (X))						\
+    goto ADDR;								\
+  if (LEGITIMATE_OFFSET_ADDRESS_P ((MODE), (X)))			\
+    goto ADDR;								\
+  if (LEGITIMATE_LO_SUM_ADDRESS_P ((MODE), (X)))			\
+    goto ADDR;								\
+  if (PUSH_POP_P ((MODE), (X)))						\
+    goto ADDR;								\
 }
 
 /* Try machine-dependent ways of modifying an illegitimate address
@@ -1223,14 +1249,13 @@ do { \
 
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL) \
-do {					\
-  if (GET_CODE (ADDR) == PRE_DEC)	\
-    goto LABEL;				\
-  if (GET_CODE (ADDR) == PRE_INC)	\
-    goto LABEL;				\
-  if (GET_CODE (ADDR) == POST_INC)	\
-    goto LABEL;				\
+#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)			\
+do {									\
+  if (GET_CODE (ADDR) == PRE_DEC					\
+      || GET_CODE (ADDR) == PRE_INC					\
+      || GET_CODE (ADDR) == POST_INC					\
+      || GET_CODE (ADDR) == LO_SUM)					\
+    goto LABEL;								\
 } while (0)
 
 /* Condition code usage.  */
@@ -1286,7 +1311,7 @@ do {					\
 /* Compute the cost of moving data between registers and memory.  */
 /* Memory is 3 times as expensive as registers.
    ??? Is that the right way to look at it?  */
-#define MEMORY_MOVE_COST(MODE,CLASS,IN) \
+#define MEMORY_MOVE_COST(MODE,CLASS,IN_P) \
 (GET_MODE_SIZE (MODE) <= UNITS_PER_WORD ? 6 : 12)
 
 /* The cost of a branch insn.  */
@@ -1355,7 +1380,10 @@ do {					\
 #define HAIFA_P 0
 #endif
 
-/* Indicate how many instructions can be issued at the same time.  */
+/* Indicate how many instructions can be issued at the same time.
+   This is 1/2 of a lie.  The m32r can issue only 1 long insn at
+   once, but 2.  However doing so allows the scheduler to group
+   the two short insns together.  */
 #define ISSUE_RATE 2
 
 /* When the `length' insn attribute is used, this macro specifies the
@@ -1635,6 +1663,32 @@ do {							\
   fprintf (FILE, "%s%s", USER_LABEL_PREFIX, real_name);	\
 } while (0)           
 
+/* If -Os, don't force line number labels to begin at the beginning of
+   the word; we still want the assembler to try to put things in parallel,
+   should that be possible.
+   For m32r/d, instructions are never in parallel (other than with a nop)
+   and the simulator and stub both handle a breakpoint in the middle of
+   a word so don't ever force line number labels to begin at the beginning
+   of a word.  */
+
+#undef	ASM_OUTPUT_SOURCE_LINE
+#define ASM_OUTPUT_SOURCE_LINE(file, line)				\
+do									\
+  {									\
+    static int sym_lineno = 1;						\
+    fprintf (file, ".stabn 68,0,%d,.LM%d-",				\
+	     line, sym_lineno);						\
+    assemble_name (file,						\
+		   XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0));\
+    fprintf (file,							\
+	     (optimize_size || TARGET_M32R)				\
+	     ? "\n\t.debugsym .LM%d\n"					\
+	     : "\n.LM%d:\n",						\
+	     sym_lineno);						\
+    sym_lineno += 1;							\
+  }									\
+while (0)
+
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
    LABELNO is an integer which is different for each call.  */
@@ -1869,7 +1923,7 @@ do {									\
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
 /* ??? The M32R doesn't have full 32 bit pointers, but making this PSImode has
-   it's own problems (you have to add extendpsisi2 and truncsipsi2).
+   its own problems (you have to add extendpsisi2 and truncsipsi2).
    Try to avoid it.  */
 #define Pmode SImode
 
@@ -1933,6 +1987,7 @@ enum m32r_function_type
 { "cmp_int16_operand",		{ CONST_INT }},				\
 { "call_address_operand",	{ SYMBOL_REF, LABEL_REF, CONST }},	\
 { "small_insn_p",		{ INSN, CALL_INSN, JUMP_INSN }},	\
+{ "m32r_block_immediate_operand",{ CONST_INT }},			\
 { "large_insn_p",		{ INSN, CALL_INSN, JUMP_INSN }},
 
 /* Functions declared in m32r.c */
@@ -1944,7 +1999,7 @@ enum m32r_function_type
 #endif
 #endif
 
-#ifdef BUFSIZE		/* stdio.h has been included, ok to use FILE * */
+#ifdef BUFSIZ		/* stdio.h has been included, ok to use FILE * */
 #define STDIO_PROTO(ARGS) PROTO(ARGS)
 #else
 #define STDIO_PROTO(ARGS) ()
@@ -1998,6 +2053,7 @@ extern int  small_insn_p			PROTO((Rtx, int));
 extern int  large_insn_p			PROTO((Rtx, int));
 extern int  m32r_select_cc_mode			PROTO((int, Rtx, Rtx));
 extern Rtx  gen_compare				PROTO((int, Rtx, Rtx, int));
+extern Rtx  gen_split_move_double		PROTO((Rtx *));
 extern int  function_arg_partial_nregs		PROTO((CUMULATIVE_ARGS *,
 						       int, Tree, int));
 extern void m32r_setup_incoming_varargs		PROTO((CUMULATIVE_ARGS *,
@@ -2008,6 +2064,7 @@ extern enum m32r_function_type m32r_compute_function_type
 						PROTO((Tree));
 extern unsigned m32r_compute_frame_size		PROTO((int));
 extern int  m32r_first_insn_address		PROTO((void));
+extern void m32r_expand_prologue		PROTO((void));
 extern void m32r_output_function_prologue	STDIO_PROTO((FILE *, int));
 extern void m32r_output_function_epilogue	STDIO_PROTO((FILE *, int));
 extern void m32r_finalize_pic			PROTO((void));
@@ -2022,3 +2079,7 @@ extern char *emit_cond_move			PROTO((Rtx *, Rtx));
 
 /* Needed by a peephole optimisation.  */
 #define PRESERVE_DEATH_INFO_REGNO_P(regno) (regno < FIRST_PSEUDO_REGISTER)
+
+extern char * m32r_output_block_move PROTO((Rtx, Rtx *));
+extern int    m32r_block_immediate_operand PROTO((Rtx, int));
+extern void   m32r_expand_block_move PROTO((Rtx *));

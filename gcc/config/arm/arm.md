@@ -1199,6 +1199,15 @@
 [(set_attr "conds" "set")
  (set_attr "length" "8")])
 
+;;; ??? This pattern is bogus.  If operand3 has bits outside the range
+;;; represented by the bitfield, then this will produce incorrect results.
+;;; Somewhere, the value needs to be truncated.  On targets like the m68k,
+;;; which have a real bitfield insert instruction, the truncation happens
+;;; in the bitfield insert instruction itself.  Since arm does not have a
+;;; bitfield insert instruction, we would have to emit code here to truncate
+;;; the value before we insert.  This loses some of the advantage of having
+;;; this insv pattern, so this pattern needs to be reevalutated.
+
 (define_expand "insv"
   [(set (zero_extract:SI (match_operand:SI 0 "s_register_operand" "")
                          (match_operand:SI 1 "general_operand" "")
@@ -1207,9 +1216,11 @@
   ""
   "
 {
-  HOST_WIDE_INT mask = (((HOST_WIDE_INT)1) << INTVAL (operands[1])) - 1;
+  int start_bit = INTVAL (operands[2]);
+  int width = INTVAL (operands[1]);
+  HOST_WIDE_INT mask = (((HOST_WIDE_INT)1) << width) - 1;
   rtx target, subtarget;
-
+  
   target = operands[0];
   /* Avoid using a subreg as a subtarget, and avoid writing a paradoxical 
      subreg as the final target.  */
@@ -1228,16 +1239,19 @@
       /* Since we are inserting a known constant, we may be able to
 	 reduce the number of bits that we have to clear so that
 	 the mask becomes simple.  */
+      /* ??? This code does not check to see if the new mask is actually
+	 simpler.  It may not be.  */
       rtx op1 = gen_reg_rtx (SImode);
-      HOST_WIDE_INT mask2 = ((mask & ~INTVAL (operands[3]))
-			     << INTVAL (operands[2]));
+      /* ??? Truncate operand3 to fit in the bitfield.  See comment before
+	 start of this pattern.  */
+      HOST_WIDE_INT op3_value = mask & INTVAL (operands[3]);
+      HOST_WIDE_INT mask2 = ((mask & ~op3_value) << start_bit);
 
       emit_insn (gen_andsi3 (op1, operands[0], GEN_INT (~mask2)));
       emit_insn (gen_iorsi3 (subtarget, op1,
-			     GEN_INT (INTVAL (operands[3])
-				      << INTVAL (operands[2]))));
+			     GEN_INT (op3_value << start_bit)));
     }
-  else if (INTVAL (operands[2]) == 0
+  else if (start_bit == 0
 	   && ! (const_ok_for_arm (mask)
 		 || const_ok_for_arm (~mask)))
     {
@@ -1245,18 +1259,18 @@
 	 we can shift operand[3] up, operand[0] down, OR them together
 	 and rotate the result back again.  This takes 3 insns, and
 	 the third might be mergable into another op.  */
-
+      /* The shift up copes with the possibility that operand[3] is
+         wider than the bitfield.  */
       rtx op0 = gen_reg_rtx (SImode);
       rtx op1 = gen_reg_rtx (SImode);
 
-      emit_insn (gen_ashlsi3 (op0, operands[3],
-			      GEN_INT (32 - INTVAL (operands[1]))));
+      emit_insn (gen_ashlsi3 (op0, operands[3], GEN_INT (32 - width)));
       emit_insn (gen_iorsi3 (op1, gen_rtx (LSHIFTRT, SImode, operands[0],
 					   operands[1]),
 			     op0));
       emit_insn (gen_rotlsi3 (subtarget, op1, operands[1]));
     }
-  else if ((INTVAL (operands[1]) + INTVAL (operands[2]) == 32)
+  else if ((width + start_bit == 32)
 	   && ! (const_ok_for_arm (mask)
 		 || const_ok_for_arm (~mask)))
     {
@@ -1265,8 +1279,7 @@
       rtx op0 = gen_reg_rtx (SImode);
       rtx op1 = gen_reg_rtx (SImode);
 
-      emit_insn (gen_ashlsi3 (op0, operands[3],
-			      GEN_INT (32 - INTVAL (operands[1]))));
+      emit_insn (gen_ashlsi3 (op0, operands[3], GEN_INT (32 - width)));
       emit_insn (gen_ashlsi3 (op1, operands[0], operands[1]));
       emit_insn (gen_iorsi3 (subtarget,
 			     gen_rtx (LSHIFTRT, SImode, op1,
@@ -1286,13 +1299,14 @@
 	  op0 = tmp;
 	}
 
+      /* Mask out any bits in operand[3] that are not needed.  */
       emit_insn (gen_andsi3 (op1, operands[3], op0));
 
       if (GET_CODE (op0) == CONST_INT
-	  && (const_ok_for_arm (mask << INTVAL (operands[2]))
-	      || const_ok_for_arm (~ (mask << INTVAL (operands[2])))))
+	  && (const_ok_for_arm (mask << start_bit)
+	      || const_ok_for_arm (~ (mask << start_bit))))
 	{
-	  op0 = GEN_INT (~(mask << INTVAL (operands[2])));
+	  op0 = GEN_INT (~(mask << start_bit));
 	  emit_insn (gen_andsi3 (op2, operands[0], op0));
 	}
       else
@@ -1305,12 +1319,13 @@
 	      op0 = tmp;
 	    }
 
-	  if (INTVAL (operands[2]) != 0)
+	  if (start_bit != 0)
 	    op0 = gen_rtx (ASHIFT, SImode, op0, operands[2]);
+	    
 	  emit_insn (gen_andsi_notsi_si (op2, operands[0], op0));
 	}
 
-      if (INTVAL (operands[2]) != 0)
+      if (start_bit != 0)
 	op1 = gen_rtx (ASHIFT, SImode, op1, operands[2]);
 
       emit_insn (gen_iorsi3 (subtarget, op1, op2));
@@ -2258,19 +2273,32 @@
 }")
 
 (define_expand "extendhisi2_mem"
-  [(set (match_dup 2) (zero_extend:SI (mem:QI (match_operand:HI 1 "" ""))))
+  [(set (match_dup 2) (zero_extend:SI (match_operand:HI 1 "" "")))
    (set (match_dup 3)
-	(zero_extend:SI (mem:QI (plus:SI (match_dup 1) (const_int 1)))))
+	(zero_extend:SI (match_dup 7)))
    (set (match_dup 6) (ashift:SI (match_dup 4) (const_int 24)))
    (set (match_operand:SI 0 "" "")
 	(ior:SI (ashiftrt:SI (match_dup 6) (const_int 16)) (match_dup 5)))]
   ""
   "
+{
+  rtx mem1, mem2;
+  rtx addr = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
+
+  mem1 = gen_rtx (MEM, QImode, addr);
+  MEM_VOLATILE_P (mem1) = MEM_VOLATILE_P (operands[1]);
+  MEM_IN_STRUCT_P (mem1) = MEM_IN_STRUCT_P (operands[1]);
+  RTX_UNCHANGING_P (mem1) = RTX_UNCHANGING_P (operands[1]);
+  mem2 = gen_rtx (MEM, QImode, plus_constant (addr, 1));
+  MEM_VOLATILE_P (mem2) = MEM_VOLATILE_P (operands[1]);
+  MEM_IN_STRUCT_P (mem2) = MEM_IN_STRUCT_P (operands[1]);
+  RTX_UNCHANGING_P (mem2) = RTX_UNCHANGING_P (operands[1]);
   operands[0] = gen_lowpart (SImode, operands[0]);
-  operands[1] = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
+  operands[1] = mem1;
   operands[2] = gen_reg_rtx (SImode);
   operands[3] = gen_reg_rtx (SImode);
   operands[6] = gen_reg_rtx (SImode);
+  operands[7] = mem2;
 
   if (BYTES_BIG_ENDIAN)
     {
@@ -2282,6 +2310,7 @@
       operands[4] = operands[3];
       operands[5] = operands[2];
     }
+}
 ")
 
 (define_insn "*extendhisi_insn"
@@ -2344,16 +2373,59 @@
   operands[2] = gen_reg_rtx (SImode);
 }")
 
+; Rather than restricting all byte accesses to memory addresses that ldrsb
+; can handle, we fix up the ones that ldrsb can't grok with a split.
 (define_insn "*extendqihi_insn"
   [(set (match_operand:HI 0 "s_register_operand" "=r")
-	(sign_extend:HI (match_operand:QI 1 "memory_operand" "o<>")))]
+	(sign_extend:HI (match_operand:QI 1 "memory_operand" "m")))]
   "arm_arch4"
-  "ldr%?sb\\t%0, %1"
-[(set_attr "type" "load")])
+  "*
+  /* If the address is invalid, this will split the instruction into two. */
+  if (bad_signed_byte_operand(operands[1], QImode))
+    return \"#\";
+  return \"ldr%?sb\\t%0, %1\";
+"
+[(set_attr "type" "load")
+ (set_attr "length" "8")])
+
+(define_split
+  [(set (match_operand:HI 0 "s_register_operand" "")
+	(sign_extend:HI (match_operand:QI 1 "bad_signed_byte_operand" "")))]
+  "arm_arch4 && reload_completed"
+  [(set (match_dup 3) (match_dup 1))
+   (set (match_dup 0) (sign_extend:HI (match_dup 2)))]
+  "
+  {
+    HOST_WIDE_INT offset;
+
+    operands[3] = gen_rtx (REG, SImode, REGNO (operands[0]));
+    operands[2] = gen_rtx (MEM, QImode, operands[3]);
+    MEM_VOLATILE_P (operands[2]) = MEM_VOLATILE_P (operands[1]);
+    MEM_IN_STRUCT_P (operands[2]) = MEM_IN_STRUCT_P (operands[1]);
+    RTX_UNCHANGING_P (operands[2]) = RTX_UNCHANGING_P (operands[1]);
+    operands[1] = XEXP (operands[1], 0);
+    if (GET_CODE (operands[1]) == PLUS
+	&& GET_CODE (XEXP (operands[1], 1)) == CONST_INT
+	&& ! (const_ok_for_arm (offset = INTVAL (XEXP (operands[1], 1)))
+	      || const_ok_for_arm (-offset)))
+      {
+	HOST_WIDE_INT low = (offset > 0
+			     ? (offset & 0xff) : -((-offset) & 0xff));
+	XEXP (operands[2], 0) = plus_constant (operands[3], low);
+	operands[1] = plus_constant (XEXP (operands[1], 0), offset - low);
+      }
+    /* Ensure the sum is in correct canonical form */
+    else if (GET_CODE (operands[1]) == PLUS
+	     && GET_CODE (XEXP (operands[1], 1)) != CONST_INT
+	     && ! s_register_operand (XEXP (operands[1], 1), VOIDmode))
+      operands[1] = gen_rtx (PLUS, GET_MODE (operands[1]),
+			     XEXP (operands[1], 1), XEXP (operands[1], 0));
+  }
+")
 
 (define_expand "extendqisi2"
   [(set (match_dup 2)
-	(ashift:SI (match_operand:QI 1 "s_register_operand" "")
+	(ashift:SI (match_operand:QI 1 "general_operand" "")
 		   (const_int 24)))
    (set (match_operand:SI 0 "s_register_operand" "")
 	(ashiftrt:SI (match_dup 2)
@@ -2373,12 +2445,54 @@
   operands[2] = gen_reg_rtx (SImode);
 }")
 
+; Rather than restricting all byte accesses to memory addresses that ldrsb
+; can handle, we fix up the ones that ldrsb can't grok with a split.
 (define_insn "*extendqisi_insn"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(sign_extend:SI (match_operand:QI 1 "memory_operand" "o<>")))]
+	(sign_extend:SI (match_operand:QI 1 "memory_operand" "m")))]
   "arm_arch4"
-  "ldr%?sb\\t%0, %1"
-[(set_attr "type" "load")])
+  "*
+  /* If the address is invalid, this will split the instruction into two. */
+  if (bad_signed_byte_operand(operands[1], QImode))
+    return \"#\";
+  return \"ldr%?sb\\t%0, %1\";
+"
+[(set_attr "type" "load")
+ (set_attr "length" "8")])
+
+(define_split
+  [(set (match_operand:SI 0 "s_register_operand" "")
+	(sign_extend:SI (match_operand:QI 1 "bad_signed_byte_operand" "")))]
+  "arm_arch4 && reload_completed"
+  [(set (match_dup 0) (match_dup 1))
+   (set (match_dup 0) (sign_extend:SI (match_dup 2)))]
+  "
+  {
+    HOST_WIDE_INT offset;
+
+    operands[2] = gen_rtx (MEM, QImode, operands[0]);
+    MEM_VOLATILE_P (operands[2]) = MEM_VOLATILE_P (operands[1]);
+    MEM_IN_STRUCT_P (operands[2]) = MEM_IN_STRUCT_P (operands[1]);
+    RTX_UNCHANGING_P (operands[2]) = RTX_UNCHANGING_P (operands[1]);
+    operands[1] = XEXP (operands[1], 0);
+    if (GET_CODE (operands[1]) == PLUS
+	&& GET_CODE (XEXP (operands[1], 1)) == CONST_INT
+	&& ! (const_ok_for_arm (offset = INTVAL (XEXP (operands[1], 1)))
+	      || const_ok_for_arm (-offset)))
+      {
+	HOST_WIDE_INT low = (offset > 0
+			     ? (offset & 0xff) : -((-offset) & 0xff));
+	XEXP (operands[2], 0) = plus_constant (operands[0], low);
+	operands[1] = plus_constant (XEXP (operands[1], 0), offset - low);
+      }
+    /* Ensure the sum is in correct canonical form */
+    else if (GET_CODE (operands[1]) == PLUS
+	     && GET_CODE (XEXP (operands[1], 1)) != CONST_INT
+	     && ! s_register_operand (XEXP (operands[1], 1), VOIDmode))
+      operands[1] = gen_rtx (PLUS, GET_MODE (operands[1]),
+			     XEXP (operands[1], 1), XEXP (operands[1], 0));
+  }
+")
 
 (define_insn "extendsfdf2"
   [(set (match_operand:DF 0 "s_register_operand" "=f")
@@ -2774,9 +2888,14 @@
 		      && REGNO_POINTER_ALIGN (REGNO (base)) >= 4)
 		    {
 		      HOST_WIDE_INT new_offset = INTVAL (offset) & ~2;
+		      rtx new;
 
-		      emit_insn (gen_movsi (reg, gen_rtx (MEM, SImode,
-					   plus_constant (base, new_offset))));
+		      new = gen_rtx (MEM, SImode,
+				     plus_constant (base, new_offset));
+		      MEM_VOLATILE_P (new) = MEM_VOLATILE_P (operands[1]);
+		      MEM_IN_STRUCT_P (new) = MEM_IN_STRUCT_P (operands[1]);
+		      RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (operands[1]);
+		      emit_insn (gen_movsi (reg, new));
 		      if (((INTVAL (offset) & 2) != 0)
 			  ^ (BYTES_BIG_ENDIAN ? 1 : 0))
 			{
@@ -2803,21 +2922,25 @@
 		      && REGNO_POINTER_ALIGN (REGNO (base)) >= 4)
 		    {
 		      rtx reg = gen_reg_rtx (SImode);
-		      rtx new_mem;
+		      rtx new;
 
 		      if ((INTVAL (offset) & 2) == 2)
 			{
 			  HOST_WIDE_INT new_offset = INTVAL (offset) ^ 2;
-			  new_mem = gen_rtx (MEM, SImode,
-					     plus_constant (base, new_offset));
-
-			  emit_insn (gen_movsi (reg, new_mem));
+			  new = gen_rtx (MEM, SImode,
+					 plus_constant (base, new_offset));
+			  MEM_VOLATILE_P (new) = MEM_VOLATILE_P (operands[1]);
+			  MEM_IN_STRUCT_P (new) = MEM_IN_STRUCT_P (operands[1]);
+			  RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (operands[1]);
+			  emit_insn (gen_movsi (reg, new));
 			}
 		      else
 			{
-			  new_mem = gen_rtx (MEM, SImode,
-					     XEXP (operands[1], 0));
-			  emit_insn (gen_rotated_loadsi (reg, new_mem));
+			  new = gen_rtx (MEM, SImode, XEXP (operands[1], 0));
+			  MEM_VOLATILE_P (new) = MEM_VOLATILE_P (operands[1]);
+			  MEM_IN_STRUCT_P (new) = MEM_IN_STRUCT_P (operands[1]);
+			  RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (operands[1]);
+			  emit_insn (gen_rotated_loadsi (reg, new));
 			}
 
 		      operands[1] = gen_lowpart (HImode, reg);
@@ -2865,17 +2988,30 @@
 [(set_attr "type" "load")])
 
 (define_expand "movhi_bytes"
-  [(set (match_dup 2) (zero_extend:SI (mem:QI (match_operand:HI 1 "" ""))))
+  [(set (match_dup 2) (zero_extend:SI (match_operand:HI 1 "" "")))
    (set (match_dup 3)
-	(zero_extend:SI (mem:QI (plus:SI (match_dup 1) (const_int 1)))))
+	(zero_extend:SI (match_dup 6)))
    (set (match_operand:SI 0 "" "")
 	 (ior:SI (ashift:SI (match_dup 4) (const_int 8)) (match_dup 5)))]
   ""
   "
+{
+  rtx mem1, mem2;
+  rtx addr = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
+
+  mem1 = gen_rtx (MEM, QImode, addr);
+  MEM_VOLATILE_P (mem1) = MEM_VOLATILE_P (operands[1]);
+  MEM_IN_STRUCT_P (mem1) = MEM_IN_STRUCT_P (operands[1]);
+  RTX_UNCHANGING_P (mem1) = RTX_UNCHANGING_P (operands[1]);
+  mem2 = gen_rtx (MEM, QImode, plus_constant (addr, 1));
+  MEM_VOLATILE_P (mem2) = MEM_VOLATILE_P (operands[1]);
+  MEM_IN_STRUCT_P (mem2) = MEM_IN_STRUCT_P (operands[1]);
+  RTX_UNCHANGING_P (mem2) = RTX_UNCHANGING_P (operands[1]);
   operands[0] = gen_lowpart (SImode, operands[0]);
-  operands[1] = copy_to_mode_reg (SImode, XEXP (operands[1], 0));
+  operands[1] = mem1;
   operands[2] = gen_reg_rtx (SImode);
   operands[3] = gen_reg_rtx (SImode);
+  operands[6] = mem2;
 
   if (BYTES_BIG_ENDIAN)
     {
@@ -2887,6 +3023,7 @@
       operands[4] = operands[3];
       operands[5] = operands[2];
     }
+}
 ")
 
 (define_expand "movhi_bigend"

@@ -118,6 +118,7 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "output.h"
 #include "except.h"
+#include "toplev.h"
 
 #include "obstack.h"
 #define obstack_chunk_alloc xmalloc
@@ -173,7 +174,11 @@ static int num_scratch;
 
 /* Indexed by n, giving various register information */
 
-reg_info *reg_n_info;
+varray_type reg_n_info;
+
+/* Size of the reg_n_info table.  */
+
+unsigned int reg_n_max;
 
 /* Element N is the next insn that uses (hard or pseudo) register number N
    within the current basic block; or zero, if there is no such insn.
@@ -256,9 +261,6 @@ static HARD_REG_SET elim_reg_set;
 static void find_basic_blocks_1		PROTO((rtx, rtx, int));
 static void mark_label_ref		PROTO((rtx, rtx, int));
 static void life_analysis_1		PROTO((rtx, int));
-void allocate_for_life_analysis		PROTO((void));
-void init_regset_vector			PROTO((regset *, int, struct obstack *));
-void free_regset_vector			PROTO((regset *, int));
 static void propagate_block		PROTO((regset, rtx, rtx, int, 
 					       regset, int));
 static rtx flow_delete_insn		PROTO((rtx));
@@ -280,6 +282,11 @@ static void add_pred_succ		PROTO ((int, int, int_list_ptr *,
 static int_list_ptr alloc_int_list_node PROTO ((int_list_block **));
 static int_list_ptr add_int_list_node   PROTO ((int_list_block **,
 						int_list **, int));
+static void init_regset_vector		PROTO ((regset *, int,
+						struct obstack *));
+static void count_reg_sets_1		PROTO ((rtx));
+static void count_reg_sets		PROTO ((rtx));
+static void count_reg_references	PROTO ((rtx));
 
 /* Find basic blocks of the current function.
    F is the first insn of the function and NREGS the number of register numbers
@@ -299,6 +306,7 @@ find_basic_blocks (f, nregs, file, live_reachable_p)
   register int i;
   rtx nonlocal_label_list = nonlocal_label_rtx_list ();
   int in_libcall_block = 0;
+  int extra_uids_for_flow = 0;
 
   /* Count the basic blocks.  Also find maximum insn uid value used.  */
 
@@ -311,7 +319,6 @@ find_basic_blocks (f, nregs, file, live_reachable_p)
 
     for (insn = f, i = 0; insn; insn = NEXT_INSN (insn))
       {
-
 	/* Track when we are inside in LIBCALL block.  */
 	if (GET_RTX_CLASS (GET_CODE (insn)) == 'i'
 	    && find_reg_note (insn, REG_LIBCALL, NULL_RTX))
@@ -320,16 +327,37 @@ find_basic_blocks (f, nregs, file, live_reachable_p)
 	code = GET_CODE (insn);
 	if (INSN_UID (insn) > max_uid_for_flow)
 	  max_uid_for_flow = INSN_UID (insn);
-	if (code == CODE_LABEL
-	    || (GET_RTX_CLASS (code) == 'i'
-		&& (prev_code == JUMP_INSN
-		    || (prev_code == CALL_INSN
-			&& (nonlocal_label_list != 0 || eh_region)
-			&& ! in_libcall_block)
-		    || prev_code == BARRIER)))
+	if (code == CODE_LABEL)
 	  i++;
+	else if (GET_RTX_CLASS (code) == 'i')
+	  {
+	    if (prev_code == JUMP_INSN || prev_code == BARRIER)
+	      i++;
+	    else if (prev_code == CALL_INSN)
+	      {
+		if (nonlocal_label_list != 0 || eh_region)
+		  i++;
+		else
+		  {
+		    /* Else this call does not force a new block to be
+		       created.  However, it may still be the end of a basic
+		       block if it is followed by a CODE_LABEL or a BARRIER.
 
-	if (code == CALL_INSN && find_reg_note (insn, REG_RETVAL, NULL_RTX))
+		       To disambiguate calls which force new blocks to be
+		       created from those which just happen to be at the end
+		       of a block we insert nops during find_basic_blocks_1
+		       after calls which are the last insn in a block by
+		       chance.  We must account for such insns in
+		       max_uid_for_flow.  */
+
+		    extra_uids_for_flow++;
+		  }
+	      }
+	  }
+
+	/* We change the code of the CALL_INSN, so that it won't start a
+	   new block.  */
+	if (code == CALL_INSN && in_libcall_block)
 	  code = INSN;
 
 	if (code != NOTE)
@@ -352,6 +380,7 @@ find_basic_blocks (f, nregs, file, live_reachable_p)
      These cases are rare, so we don't need too much space.  */
   max_uid_for_flow += max_uid_for_flow / 10;
 #endif
+  max_uid_for_flow += extra_uids_for_flow;
 
   /* Allocate some tables that last till end of compiling this function
      and some needed only in find_basic_blocks and life_analysis.  */
@@ -391,7 +420,8 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
   register char *block_marked = (char *) alloca (n_basic_blocks);
   /* An array of CODE_LABELs, indexed by UID for the start of the active
      EH handler for each insn in F.  */
-  rtx *active_eh_handler;
+  int *active_eh_region;
+  int *nested_eh_region;
   /* List of label_refs to all labels whose addresses are taken
      and used as data.  */
   rtx label_value_list;
@@ -399,9 +429,12 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
   enum rtx_code prev_code, code;
   int depth, pass;
   int in_libcall_block = 0;
+  int deleted_handler = 0;
+  int call_had_abnormal_edge = 0;
 
   pass = 1;
-  active_eh_handler = (rtx *) alloca ((max_uid_for_flow + 1) * sizeof (rtx));
+  active_eh_region = (int *) alloca ((max_uid_for_flow + 1) * sizeof (int));
+  nested_eh_region = (int *) alloca ((max_label_num () + 1) * sizeof (int));
  restart:
 
   label_value_list = 0;
@@ -409,7 +442,8 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
   bzero (block_live, n_basic_blocks);
   bzero (block_marked, n_basic_blocks);
   bzero (basic_block_computed_jump_target, n_basic_blocks);
-  bzero (active_eh_handler, (max_uid_for_flow + 1) * sizeof (rtx));
+  bzero ((char *) active_eh_region, (max_uid_for_flow + 1) * sizeof (int));
+  bzero ((char *) nested_eh_region, (max_label_num () + 1) * sizeof (int));
   current_function_has_computed_jump = 0;
 
   /* Initialize with just block 0 reachable and no blocks marked.  */
@@ -443,9 +477,7 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
       else if (code == CODE_LABEL
 	       || (GET_RTX_CLASS (code) == 'i'
 		   && (prev_code == JUMP_INSN
-		       || (prev_code == CALL_INSN
-			   && (nonlocal_label_list != 0 || eh_note)
-			   && ! in_libcall_block)
+		       || (prev_code == CALL_INSN && call_had_abnormal_edge)
 		       || prev_code == BARRIER)))
 	{
 	  basic_block_head[++i] = insn;
@@ -454,12 +486,26 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
 
 	  if (code == CODE_LABEL)
 	    {
-		LABEL_REFS (insn) = insn;
-		/* Any label that cannot be deleted
-		   is considered to start a reachable block.  */
-		if (LABEL_PRESERVE_P (insn))
-		  block_live[i] = 1;
-	      }
+	      LABEL_REFS (insn) = insn;
+	      /* Any label that cannot be deleted
+		 is considered to start a reachable block.  */
+	      if (LABEL_PRESERVE_P (insn))
+		block_live[i] = 1;
+	    }
+
+	  /* If the previous insn was a call that did not create an
+	     abnormal edge, we want to add a nop so that the CALL_INSN
+	     itself is not at basic_block_end.  This allows us to easily
+	     distinguish between normal calls and those which create
+	     abnormal edges in the flow graph.  */
+
+	  if (i > 0 && !call_had_abnormal_edge
+	      && GET_CODE (basic_block_end[i-1]) == CALL_INSN)
+	    {
+	      rtx nop = gen_rtx_USE (VOIDmode, const0_rtx);
+	      nop = emit_insn_after (nop, basic_block_end[i-1]);
+	      basic_block_end[i-1] = nop;
+	    }
 	}
 
       else if (GET_RTX_CLASS (code) == 'i')
@@ -472,25 +518,24 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
 	{
 	  /* Make a list of all labels referred to other than by jumps.  */
 	  for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
-	    if (REG_NOTE_KIND (note) == REG_LABEL)
+	    if (REG_NOTE_KIND (note) == REG_LABEL
+		&& XEXP (note, 0) != eh_return_stub_label)
 	      label_value_list = gen_rtx_EXPR_LIST (VOIDmode, XEXP (note, 0),
 						    label_value_list);
 	}
 
-      /* Keep a lifo list of the currently active exception handlers.  */
+      /* Keep a lifo list of the currently active exception notes.  */
       if (GET_CODE (insn) == NOTE)
 	{
 	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG)
 	    {
-	      for (x = exception_handler_labels; x; x = XEXP (x, 1))
-		if (CODE_LABEL_NUMBER (XEXP (x, 0)) == NOTE_BLOCK_NUMBER (insn))
-		  {
-		    eh_note = gen_rtx_EXPR_LIST (VOIDmode,
-						 XEXP (x, 0), eh_note);
-		    break;
-		  }
-	      if (x == NULL_RTX)
-		abort ();
+              if (eh_note)
+                nested_eh_region [NOTE_BLOCK_NUMBER (insn)] = 
+                                     NOTE_BLOCK_NUMBER (XEXP (eh_note, 0));
+              else
+                nested_eh_region [NOTE_BLOCK_NUMBER (insn)] = 0;
+	      eh_note = gen_rtx_EXPR_LIST (VOIDmode,
+						 insn, eh_note);
 	    }
 	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)
 	    eh_note = XEXP (eh_note, 1);
@@ -504,9 +549,18 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
 	       && (asynchronous_exceptions
 		   || (GET_CODE (insn) == CALL_INSN
 		       && ! in_libcall_block)))
-	active_eh_handler[INSN_UID (insn)] = XEXP (eh_note, 0);
-
+	active_eh_region[INSN_UID (insn)] = 
+                                        NOTE_BLOCK_NUMBER (XEXP (eh_note, 0));
       BLOCK_NUM (insn) = i;
+
+      /* We change the code of the CALL_INSN, so that it won't start a
+	 new block.  */
+      if (code == CALL_INSN && in_libcall_block)
+	code = INSN;
+
+      /* Record whether this call created an edge.  */
+      if (code == CALL_INSN)
+	call_had_abnormal_edge = (nonlocal_label_list != 0 || eh_note);
 
       if (code != NOTE)
 	prev_code = code;
@@ -579,7 +633,6 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
 		  {
 		    if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
 		      {
-			
 			/* References to labels in non-jumping insns have
 			   REG_LABEL notes attached to them.
 
@@ -599,12 +652,16 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
 			   associated insns aren't marked dead, so we make
 			   the block in question live and create an edge from
 			   this insn to the label.  This is not strictly
-			   correct, but it is close enough for now.  */
+			   correct, but it is close enough for now.  
+
+			   See below for code that handles the eh_stub labels
+			   specially.  */
 			for (note = REG_NOTES (insn);
 			     note;
 			     note = XEXP (note, 1))
 			  {
-			    if (REG_NOTE_KIND (note) == REG_LABEL)
+			    if (REG_NOTE_KIND (note) == REG_LABEL
+				&& XEXP (note, 0) != eh_return_stub_label)
 			      {
 				x = XEXP (note, 0);
 				block_live[BLOCK_NUM (x)] = 1;
@@ -650,11 +707,20 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
 				     && ! find_reg_note (insn, REG_RETVAL,
 							 NULL_RTX)))
 			  {
-			    if (active_eh_handler[INSN_UID (insn)])
-			      mark_label_ref (gen_rtx_LABEL_REF (VOIDmode,
-								 active_eh_handler[INSN_UID (insn)]),
-					      insn, 0);
-
+			    if (active_eh_region[INSN_UID (insn)]) 
+                              {
+                                int region;
+                                handler_info *ptr;
+                                region = active_eh_region[INSN_UID (insn)];
+                                for ( ; region; 
+                                             region = nested_eh_region[region]) 
+                                  {
+                                    ptr = get_first_handler (region);
+                                    for ( ; ptr ; ptr = ptr->next)
+                                      mark_label_ref (gen_rtx_LABEL_REF 
+                                       (VOIDmode, ptr->handler_label), insn, 0);
+                                  }
+                              }
 			    if (!asynchronous_exceptions)
 			      {
 				for (x = nonlocal_label_list;
@@ -675,6 +741,19 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
 			       use them could possibly do nonlocal gotos.  */
 			  }
 		      }
+		  }
+		/* We know something about the structure of the function
+		   __throw in libgcc2.c.  It is the only function that ever
+		   contains eh_stub labels.  It modifies its return address
+		   so that the last block returns to one of the eh_stub labels
+		   within it.  So we have to make additional edges in the
+		   flow graph.  */
+		if (i + 1 == n_basic_blocks
+		    && eh_return_stub_label != 0)
+		  {
+		    mark_label_ref (gen_rtx_LABEL_REF (VOIDmode,
+						       eh_return_stub_label),
+				    basic_block_end[i], 0);
 		  }
 	      }
 	}
@@ -756,23 +835,9 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
 			    XEXP (x, 1) = NULL_RTX;
 			    XEXP (x, 0) = NULL_RTX;
 
-			    /* Now we have to find the EH_BEG and EH_END notes
-			       associated with this label and remove them.  */
-
-			    for (x = get_insns (); x; x = NEXT_INSN (x))
-			      {
-				if (GET_CODE (x) == NOTE
-				    && ((NOTE_LINE_NUMBER (x)
-					 == NOTE_INSN_EH_REGION_BEG)
-					|| (NOTE_LINE_NUMBER (x)
-					    == NOTE_INSN_EH_REGION_END))
-				    && (NOTE_BLOCK_NUMBER (x)
-					== CODE_LABEL_NUMBER (insn)))
-				  {
-				    NOTE_LINE_NUMBER (x) = NOTE_INSN_DELETED;
-				    NOTE_SOURCE_FILE (x) = 0;
-				  }
-			      }
+                            /* Remove the handler from all regions */
+                            remove_handler (insn);
+                            deleted_handler = 1;
 			    break;
 			  }
 			prev = &XEXP (x, 1);
@@ -842,6 +907,24 @@ find_basic_blocks_1 (f, nonlocal_label_list, live_reachable_p)
 		    }
 	      }
 	  }
+      /* If we deleted an exception handler, we may have EH region
+         begin/end blocks to remove as well. */
+      if (deleted_handler)
+        for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+          if (GET_CODE (insn) == NOTE)
+            {
+              if ((NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG) ||
+                  (NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_END)) 
+                {
+                  int num = CODE_LABEL_NUMBER (insn);
+                  /* A NULL handler indicates a region is no longer needed */
+                  if (get_first_handler (num) == NULL)
+                    {
+                      NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
+                      NOTE_SOURCE_FILE (insn) = 0;
+                    }
+                }
+            }
 
       /* There are pathological cases where one function calling hundreds of
 	 nested inline functions can generate lots and lots of unreachable
@@ -1478,7 +1561,7 @@ allocate_for_life_analysis ()
    NELTS elements, and space is allocated from the ALLOC_OBSTACK
    obstack.  */
 
-void
+static void
 init_regset_vector (vector, nelts, alloc_obstack)
      regset *vector;
      int nelts;
@@ -2007,10 +2090,10 @@ libcall_dead_p (x, needed, note, insn)
   return 1;
 }
 
-/* Return 1 if register REGNO was used before it was set.
-   In other words, if it is live at function entry.
-   Don't count global register variables or variables in registers
-   that can be used for function arg passing, though.  */
+/* Return 1 if register REGNO was used before it was set, i.e. if it is
+   live at function entry.  Don't count global register variables, variables
+   in registers that can be used for function arg passing, or variables in
+   fixed hard registers.  */
 
 int
 regno_uninitialized (regno)
@@ -2018,7 +2101,9 @@ regno_uninitialized (regno)
 {
   if (n_basic_blocks == 0
       || (regno < FIRST_PSEUDO_REGISTER
-	  && (global_regs[regno] || FUNCTION_ARG_REGNO_P (regno))))
+	  && (global_regs[regno]
+	      || fixed_regs[regno]
+	      || FUNCTION_ARG_REGNO_P (regno))))
     return 0;
 
   return REGNO_REG_SET_P (basic_block_live_at_start[0], regno);
@@ -2085,6 +2170,19 @@ mark_set_1 (needed, dead, x, insn, significant)
 {
   register int regno;
   register rtx reg = SET_DEST (x);
+
+  /* Some targets place small structures in registers for
+     return values of functions.  We have to detect this
+     case specially here to get correct flow information.  */
+  if (GET_CODE (reg) == PARALLEL
+      && GET_MODE (reg) == BLKmode)
+    {
+      register int i;
+
+      for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
+	  mark_set_1 (needed, dead, XVECEXP (reg, 0, i), insn, significant);
+      return;
+    }
 
   /* Modifying just one hardware register of a multi-reg value
      or just a byte field of a register
@@ -2358,7 +2456,7 @@ find_auto_inc (needed, x, insn)
 	    {
 	      /* We have *p followed sometime later by q = p+size.
 		 Both p and q must be live afterward,
-		 and q is not used between INSN and it's assignment.
+		 and q is not used between INSN and its assignment.
 		 Change it to q = p, ...*q..., q = q+size.
 		 Then fall into the usual case.  */
 	      rtx insns, temp;
@@ -2747,15 +2845,17 @@ mark_used_regs (needed, live, x, final, insn)
 	/* If this is a store into a register,
 	   recursively scan the value being stored.  */
 
-	if (GET_CODE (testreg) == REG
-	    && (regno = REGNO (testreg), regno != FRAME_POINTER_REGNUM)
+	if ((GET_CODE (testreg) == PARALLEL
+	     && GET_MODE (testreg) == BLKmode)
+	    || (GET_CODE (testreg) == REG
+		&& (regno = REGNO (testreg), regno != FRAME_POINTER_REGNUM)
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-	    && regno != HARD_FRAME_POINTER_REGNUM
+		&& regno != HARD_FRAME_POINTER_REGNUM
 #endif
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
-	    && ! (regno == ARG_POINTER_REGNUM && fixed_regs[regno])
+		&& ! (regno == ARG_POINTER_REGNUM && fixed_regs[regno])
 #endif
-	    )
+		))
 	  /* We used to exclude global_regs here, but that seems wrong.
 	     Storing in them is like storing in mem.  */
 	  {
@@ -3034,6 +3134,11 @@ dump_flow_info (file)
 		 i, REG_N_REFS (i), REG_LIVE_LENGTH (i));
 	if (REG_BASIC_BLOCK (i) >= 0)
 	  fprintf (file, " in block %d", REG_BASIC_BLOCK (i));
+	if (REG_N_SETS (i))
+  	  fprintf (file, "; set %d time%s", REG_N_SETS (i),
+   		   (REG_N_SETS (i) == 1) ? "" : "s");
+	if (REG_USERVAR_P (regno_reg_rtx[i]))
+  	  fprintf (file, "; user var");
 	if (REG_N_DEATHS (i) != 1)
 	  fprintf (file, "; dies in %d places", REG_N_DEATHS (i));
 	if (REG_N_CALLS_CROSSED (i) == 1)
@@ -3141,6 +3246,8 @@ print_rtl_with_bb (outf, rtx_first)
 
       for (tmp_rtx = rtx_first; NULL != tmp_rtx; tmp_rtx = NEXT_INSN (tmp_rtx))
 	{
+	  int did_output;
+
 	  if ((bb = start[INSN_UID (tmp_rtx)]) >= 0)
 	    {
 	      fprintf (outf, ";; Start of basic block %d, registers live:",
@@ -3163,12 +3270,13 @@ print_rtl_with_bb (outf, rtx_first)
 	  else if (in_bb_p[ INSN_UID(tmp_rtx)] == IN_MULTIPLE_BB)
 	    fprintf (outf, ";; Insn is in multiple basic blocks\n");
 
-	  print_rtl_single (outf, tmp_rtx);
+	  did_output = print_rtl_single (outf, tmp_rtx);
 
 	  if ((bb = end[INSN_UID (tmp_rtx)]) >= 0)
 	    fprintf (outf, ";; End of basic block %d\n", bb);
 
-	  putc ('\n', outf);
+	  if (did_output)
+	    putc ('\n', outf);
 	}
     }
 }
@@ -3535,13 +3643,7 @@ void
 sbitmap_copy (dst, src)
      sbitmap dst, src;
 {
-  int i;
-  sbitmap_ptr d,s;
-
-  s = src->elms;
-  d = dst->elms;
-  for (i = 0; i < dst->size; i++)
-    *d++ = *s++;
+  bcopy (src->elms, dst->elms, sizeof (SBITMAP_ELT_TYPE) * dst->size);
 }
 
 /* Zero all elements in a bitmap.  */
@@ -3971,4 +4073,291 @@ compute_dominators (dominators, post_dominators, s_preds, s_succs)
     }
 
   free (temp_bitmap);
+}
+
+/* Count for a single SET rtx, X.  */
+
+static void
+count_reg_sets_1 (x)
+     rtx x;
+{
+  register int regno;
+  register rtx reg = SET_DEST (x);
+
+  /* Find the register that's set/clobbered.  */
+  while (GET_CODE (reg) == SUBREG || GET_CODE (reg) == ZERO_EXTRACT
+	 || GET_CODE (reg) == SIGN_EXTRACT
+	 || GET_CODE (reg) == STRICT_LOW_PART)
+    reg = XEXP (reg, 0);
+
+  if (GET_CODE (reg) == PARALLEL
+      && GET_MODE (reg) == BLKmode)
+    {
+      register int i;
+      for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
+	count_reg_sets_1 (XVECEXP (reg, 0, i));
+      return;
+    }
+
+  if (GET_CODE (reg) == REG)
+    {
+      regno = REGNO (reg);
+      if (regno >= FIRST_PSEUDO_REGISTER)
+	{
+	  /* Count (weighted) references, stores, etc.  This counts a
+	     register twice if it is modified, but that is correct.  */
+	  REG_N_SETS (regno)++;
+
+	  REG_N_REFS (regno) += loop_depth;
+	}
+    }
+}
+
+/* Increment REG_N_SETS for each SET or CLOBBER found in X; also increment
+   REG_N_REFS by the current loop depth for each SET or CLOBBER found.  */
+
+static void
+count_reg_sets  (x)
+     rtx x;
+{
+  register RTX_CODE code = GET_CODE (x);
+
+  if (code == SET || code == CLOBBER)
+    count_reg_sets_1 (x);
+  else if (code == PARALLEL)
+    {
+      register int i;
+      for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+	{
+	  code = GET_CODE (XVECEXP (x, 0, i));
+	  if (code == SET || code == CLOBBER)
+	    count_reg_sets_1 (XVECEXP (x, 0, i));
+	}
+    }
+}
+
+/* Increment REG_N_REFS by the current loop depth each register reference
+   found in X.  */
+
+static void
+count_reg_references (x)
+     rtx x;
+{
+  register RTX_CODE code;
+
+ retry:
+  code = GET_CODE (x);
+  switch (code)
+    {
+    case LABEL_REF:
+    case SYMBOL_REF:
+    case CONST_INT:
+    case CONST:
+    case CONST_DOUBLE:
+    case PC:
+    case ADDR_VEC:
+    case ADDR_DIFF_VEC:
+    case ASM_INPUT:
+      return;
+
+#ifdef HAVE_cc0
+    case CC0:
+      return;
+#endif
+
+    case CLOBBER:
+      /* If we are clobbering a MEM, mark any registers inside the address
+	 as being used.  */
+      if (GET_CODE (XEXP (x, 0)) == MEM)
+	count_reg_references (XEXP (XEXP (x, 0), 0));
+      return;
+
+    case SUBREG:
+      /* While we're here, optimize this case.  */
+      x = SUBREG_REG (x);
+
+      /* In case the SUBREG is not of a register, don't optimize */
+      if (GET_CODE (x) != REG)
+	{
+	  count_reg_references (x);
+	  return;
+	}
+
+      /* ... fall through ...  */
+
+    case REG:
+      if (REGNO (x) >= FIRST_PSEUDO_REGISTER)
+	REG_N_REFS (REGNO (x)) += loop_depth;
+      return;
+
+    case SET:
+      {
+	register rtx testreg = SET_DEST (x);
+	int mark_dest = 0;
+
+	/* If storing into MEM, don't show it as being used.  But do
+	   show the address as being used.  */
+	if (GET_CODE (testreg) == MEM)
+	  {
+	    count_reg_references (XEXP (testreg, 0));
+	    count_reg_references (SET_SRC (x));
+	    return;
+	  }
+	    
+	/* Storing in STRICT_LOW_PART is like storing in a reg
+	   in that this SET might be dead, so ignore it in TESTREG.
+	   but in some other ways it is like using the reg.
+
+	   Storing in a SUBREG or a bit field is like storing the entire
+	   register in that if the register's value is not used
+	   then this SET is not needed.  */
+	while (GET_CODE (testreg) == STRICT_LOW_PART
+	       || GET_CODE (testreg) == ZERO_EXTRACT
+	       || GET_CODE (testreg) == SIGN_EXTRACT
+	       || GET_CODE (testreg) == SUBREG)
+	  {
+	    /* Modifying a single register in an alternate mode
+	       does not use any of the old value.  But these other
+	       ways of storing in a register do use the old value.  */
+	    if (GET_CODE (testreg) == SUBREG
+		&& !(REG_SIZE (SUBREG_REG (testreg)) > REG_SIZE (testreg)))
+	      ;
+	    else
+	      mark_dest = 1;
+
+	    testreg = XEXP (testreg, 0);
+	  }
+
+	/* If this is a store into a register,
+	   recursively scan the value being stored.  */
+
+	if ((GET_CODE (testreg) == PARALLEL
+	     && GET_MODE (testreg) == BLKmode)
+	    || GET_CODE (testreg) == REG)
+	  {
+	    count_reg_references (SET_SRC (x));
+	    if (mark_dest)
+	      count_reg_references (SET_DEST (x));
+	    return;
+	  }
+      }
+      break;
+
+    default:
+      break;
+    }
+
+  /* Recursively scan the operands of this expression.  */
+
+  {
+    register char *fmt = GET_RTX_FORMAT (code);
+    register int i;
+    
+    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
+      {
+	if (fmt[i] == 'e')
+	  {
+	    /* Tail recursive case: save a function call level.  */
+	    if (i == 0)
+	      {
+		x = XEXP (x, 0);
+		goto retry;
+	      }
+	    count_reg_references (XEXP (x, i));
+	  }
+	else if (fmt[i] == 'E')
+	  {
+	    register int j;
+	    for (j = 0; j < XVECLEN (x, i); j++)
+	      count_reg_references (XVECEXP (x, i, j));
+	  }
+      }
+  }
+}
+
+/* Recompute register set/reference counts immediately prior to register
+   allocation.
+
+   This avoids problems with set/reference counts changing to/from values
+   which have special meanings to the register allocators.
+
+   Additionally, the reference counts are the primary component used by the
+   register allocators to prioritize pseudos for allocation to hard regs.
+   More accurate reference counts generally lead to better register allocation.
+
+   It might be worthwhile to update REG_LIVE_LENGTH, REG_BASIC_BLOCK and
+   possibly other information which is used by the register allocators.  */
+
+void
+recompute_reg_usage (f)
+     rtx f;
+{
+  rtx insn;
+  int i, max_reg;
+
+  /* Clear out the old data.  */
+  max_reg = max_reg_num ();
+  for (i = FIRST_PSEUDO_REGISTER; i < max_reg; i++)
+    {
+      REG_N_SETS (i) = 0;
+      REG_N_REFS (i) = 0;
+    }
+
+  /* Scan each insn in the chain and count how many times each register is
+     set/used.  */
+  loop_depth = 1;
+  for (insn = f; insn; insn = NEXT_INSN (insn))
+    {
+      /* Keep track of loop depth.  */
+      if (GET_CODE (insn) == NOTE)
+	{
+	  /* Look for loop boundaries.  */
+	  if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END)
+	    loop_depth--;
+	  else if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG)
+	    loop_depth++;
+
+	  /* If we have LOOP_DEPTH == 0, there has been a bookkeeping error. 
+	     Abort now rather than setting register status incorrectly.  */
+	  if (loop_depth == 0)
+	    abort ();
+	}
+      else if (GET_RTX_CLASS (GET_CODE (insn)) == 'i')
+	{
+	  rtx links;
+
+	  /* This call will increment REG_N_SETS for each SET or CLOBBER
+	     of a register in INSN.  It will also increment REG_N_REFS
+	     by the loop depth for each set of a register in INSN.  */
+	  count_reg_sets (PATTERN (insn));
+
+	  /* count_reg_sets does not detect autoincrement address modes, so
+	     detect them here by looking at the notes attached to INSN.  */
+	  for (links = REG_NOTES (insn); links; links = XEXP (links, 1))
+	    {
+	      if (REG_NOTE_KIND (links) == REG_INC)
+		/* Count (weighted) references, stores, etc.  This counts a
+		   register twice if it is modified, but that is correct.  */
+		REG_N_SETS (REGNO (XEXP (links, 0)))++;
+	    }
+
+	  /* This call will increment REG_N_REFS by the current loop depth for
+	     each reference to a register in INSN.  */
+	  count_reg_references (PATTERN (insn));
+
+	  /* count_reg_references will not include counts for arguments to
+	     function calls, so detect them here by examining the
+	     CALL_INSN_FUNCTION_USAGE data.  */
+	  if (GET_CODE (insn) == CALL_INSN)
+	    {
+	      rtx note;
+
+	      for (note = CALL_INSN_FUNCTION_USAGE (insn);
+		   note;
+		   note = XEXP (note, 1))
+		if (GET_CODE (XEXP (note, 0)) == USE)
+		  count_reg_references (SET_DEST (XEXP (note, 0)));
+	    }
+	}
+    }
 }

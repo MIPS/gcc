@@ -967,3 +967,28 @@ ret:	rts
 	mov	r4,r0
 
 #endif
+#ifdef L_set_fpscr
+#if defined (__SH3E__)
+	.global ___set_fpscr
+___set_fpscr:
+	lds r4,fpscr
+	mov.l ___set_fpscr_L1,r1
+	swap.w r4,r0
+	or #24,r0
+	xor #16,r0
+	swap.w r0,r2
+	mov.l r2,@r1
+	xor #8,r0
+	swap.w r0,r3
+	rts
+	mov.l r3,@(4,r1)
+	.align 2
+___set_fpscr_L1:
+	.long ___fpscr_values
+#ifdef __ELF__
+        .comm   ___fpscr_values,8,4
+#else
+        .comm   ___fpscr_values,8
+#endif /* ELF */
+#endif /* SH3E */
+#endif /* L_set_fpscr */

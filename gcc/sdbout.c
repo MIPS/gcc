@@ -52,6 +52,8 @@ AT&T C compiler.  From the example below I would conclude the following:
 #include "flags.h"
 #include "insn-config.h"
 #include "reload.h"
+#include "output.h"
+#include "toplev.h"
 
 /* Mips systems use the SDB functions to dump out symbols, but do not
    supply usable syms.h include files.  Which syms.h file to use is a
@@ -100,9 +102,7 @@ extern FILE *asm_out_file;
 
 extern tree current_function_decl;
 
-void sdbout_init ();
-void sdbout_symbol ();
-void sdbout_types();
+#include "sdbout.h"
 
 static char *gen_fake_label		PROTO((void));
 static int plain_type			PROTO((tree));
@@ -173,7 +173,13 @@ static void sdbout_reg_parms		PROTO((tree));
 #endif
 
 #ifndef PUT_SDB_INT_VAL
-#define PUT_SDB_INT_VAL(a) fprintf (asm_out_file, "\t.val\t%d%s", (a), SDB_DELIM)
+#define PUT_SDB_INT_VAL(a) \
+ do {									\
+   fputs ("\t.val\t", asm_out_file);		       			\
+   fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT)(a));	\
+   fprintf (asm_out_file, "%s", SDB_DELIM);				\
+ } while (0)
+
 #endif
 
 #ifndef PUT_SDB_VAL
@@ -203,7 +209,12 @@ do { fprintf (asm_out_file, "\t.def\t");	\
 #endif
 
 #ifndef PUT_SDB_SIZE
-#define PUT_SDB_SIZE(a) fprintf(asm_out_file, "\t.size\t%d%s", a, SDB_DELIM)
+#define PUT_SDB_SIZE(a) \
+ do {									\
+   fputs ("\t.size\t", asm_out_file);					\
+   fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT)(a));	\
+   fprintf (asm_out_file, "%s", SDB_DELIM);				\
+ } while(0)
 #endif
 
 #ifndef PUT_SDB_START_DIM
@@ -1071,10 +1082,18 @@ sdbout_field_types (type)
   tree tail;
 
   for (tail = TYPE_FIELDS (type); tail; tail = TREE_CHAIN (tail))
-    if (POINTER_TYPE_P (TREE_TYPE (tail)))
-      sdbout_one_type (TREE_TYPE (TREE_TYPE (tail)));
-    else
-      sdbout_one_type (TREE_TYPE (tail));
+    /* This condition should match the one for emitting the actual members
+       below.  */
+    if (TREE_CODE (tail) == FIELD_DECL
+	&& DECL_NAME (tail) != 0
+	&& TREE_CODE (DECL_SIZE (tail)) == INTEGER_CST
+	&& TREE_CODE (DECL_FIELD_BITPOS (tail)) == INTEGER_CST)
+      {
+	if (POINTER_TYPE_P (TREE_TYPE (tail)))
+	  sdbout_one_type (TREE_TYPE (TREE_TYPE (tail)));
+	else
+	  sdbout_one_type (TREE_TYPE (tail));
+      }
 }
 
 /* Use this to put out the top level defined record and union types
@@ -1187,34 +1206,41 @@ sdbout_one_type (type)
 
 	/* Print out the base class information with fields
 	   named after the types they hold.  */
-	if (TYPE_BINFO (type)
-	    && TYPE_BINFO_BASETYPES (type))
-	  n_baseclasses = TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type));
-	for (i = 0; i < n_baseclasses; i++)
+	/* This is only relevent to aggregate types.  TYPE_BINFO is used
+	   for other purposes in an ENUMERAL_TYPE, so we must exclude that
+	   case.  */
+	if (TREE_CODE (type) != ENUMERAL_TYPE)
 	  {
-	    tree child = TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (type)), i);
-	    tree child_type = BINFO_TYPE (child);
-	    tree child_type_name;
-	    if (TYPE_NAME (child_type) == 0)
-	      continue;
-	    if (TREE_CODE (TYPE_NAME (child_type)) == IDENTIFIER_NODE)
-	      child_type_name = TYPE_NAME (child_type);
-	    else if (TREE_CODE (TYPE_NAME (child_type)) == TYPE_DECL)
+	    if (TYPE_BINFO (type)
+		&& TYPE_BINFO_BASETYPES (type))
+	      n_baseclasses = TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type));
+	    for (i = 0; i < n_baseclasses; i++)
 	      {
-		child_type_name = DECL_NAME (TYPE_NAME (child_type));
-		if (child_type_name && template_name_p (child_type_name))
-		  child_type_name
-		    = DECL_ASSEMBLER_NAME (TYPE_NAME (child_type));
-	      }
-	    else
-	      continue;
+		tree child = TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (type)),
+					   i);
+		tree child_type = BINFO_TYPE (child);
+		tree child_type_name;
+		if (TYPE_NAME (child_type) == 0)
+		  continue;
+		if (TREE_CODE (TYPE_NAME (child_type)) == IDENTIFIER_NODE)
+		  child_type_name = TYPE_NAME (child_type);
+		else if (TREE_CODE (TYPE_NAME (child_type)) == TYPE_DECL)
+		  {
+		    child_type_name = DECL_NAME (TYPE_NAME (child_type));
+		    if (child_type_name && template_name_p (child_type_name))
+		      child_type_name
+			= DECL_ASSEMBLER_NAME (TYPE_NAME (child_type));
+		  }
+		else
+		  continue;
 
-	    CONTIN;
-	    PUT_SDB_DEF (IDENTIFIER_POINTER (child_type_name));
-	    PUT_SDB_INT_VAL (TREE_INT_CST_LOW (BINFO_OFFSET (child)));
-	    PUT_SDB_SCL (member_scl);
-	    sdbout_type (BINFO_TYPE (child));
-	    PUT_SDB_ENDEF;
+		CONTIN;
+		PUT_SDB_DEF (IDENTIFIER_POINTER (child_type_name));
+		PUT_SDB_INT_VAL (TREE_INT_CST_LOW (BINFO_OFFSET (child)));
+		PUT_SDB_SCL (member_scl);
+		sdbout_type (BINFO_TYPE (child));
+		PUT_SDB_ENDEF;
+	      }
 	  }
 
 	/* output the individual fields */

@@ -19,11 +19,13 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#ifndef NULL_TREE
-#define tree int *
+#if !defined(NULL_TREE) && !defined(tree)
+typedef union union_node *_function_tree;
+#define tree _function_tree
 #endif
-#ifndef GET_CODE
-#define rtx int *
+#if !defined(NULL_RTX) && !defined(rtx)
+typedef struct rtx_def *_function_rtx;
+#define rtx _function_rtx
 #endif
 
 struct var_refs_queue
@@ -100,6 +102,7 @@ struct function
   rtx tail_recursion_label;
   rtx tail_recursion_reentry;
   rtx internal_arg_pointer;
+  char *cannot_inline;
   rtx arg_pointer_save_area;
   tree rtl_expr_chain;
   rtx last_parm_insn;
@@ -110,6 +113,7 @@ struct function
   int temp_slot_level;
   int target_temp_slot_level;
   int var_temp_slot_level;
+  int instrument_entry_exit;
   /* This slot is initialized as 0 and is added to
      during the nested function.  */
   struct var_refs_queue *fixup_var_refs_queue;
@@ -133,6 +137,7 @@ struct function
 
   /* For exception handling information.  */
   struct eh_stack ehstack;
+  struct eh_stack catchstack;
   struct eh_queue ehqueue;
   rtx catch_clauses;
   struct label_node *false_label_stack;
@@ -255,6 +260,8 @@ extern void save_emit_status		PROTO((struct function *));
 extern void restore_emit_status		PROTO((struct function *));
 extern void save_storage_status		PROTO((struct function *));
 extern void restore_storage_status	PROTO((struct function *));
+
+extern rtx get_first_block_beg		PROTO((void));
 
 #ifdef rtx
 #undef rtx

@@ -156,6 +156,7 @@ enum unroll_types { UNROLL_COMPLETELY, UNROLL_MODULO, UNROLL_NAIVE };
 #include "flags.h"
 #include "expr.h"
 #include "loop.h"
+#include "toplev.h"
 
 /* This controls which loops are unrolled, and by how much we unroll
    them.  */
@@ -188,11 +189,11 @@ static int *splittable_regs_updates;
 /* Values describing the current loop's iteration variable.  These are set up
    by loop_iterations, and used by precondition_loop_p.  */
 
-static rtx loop_iteration_var;
-static rtx loop_initial_value;
-static rtx loop_increment;
-static rtx loop_final_value;
-static enum rtx_code loop_comparison_code;
+rtx loop_iteration_var;
+rtx loop_initial_value;
+rtx loop_increment;
+rtx loop_final_value;
+enum rtx_code loop_comparison_code;
 
 /* Forward declarations.  */
 
@@ -312,8 +313,11 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
     loop_n_iterations = 0;
 
   if (loop_dump_stream && loop_n_iterations > 0)
-    fprintf (loop_dump_stream,
-	     "Loop unrolling: %d iterations.\n", loop_n_iterations);
+    {
+      fputs ("Loop unrolling: ", loop_dump_stream);
+      fprintf (loop_dump_stream, HOST_WIDE_INT_PRINT_DEC, loop_n_iterations);
+      fputs (" iterations.\n", loop_dump_stream);
+    }
 
   /* Find and save a pointer to the last nonnote insn in the loop.  */
 
@@ -427,15 +431,34 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 
   if (unroll_type == UNROLL_COMPLETELY || unroll_type == UNROLL_MODULO)
     {
-      /* Loops of these types should never start with a jump down to
-	 the exit condition test.  For now, check for this case just to
-	 be sure.  UNROLL_NAIVE loops can be of this form, this case is
-	 handled below.  */
+      /* Loops of these types can start with jump down to the exit condition
+	 in rare circumstances.
+
+	 Consider a pair of nested loops where the inner loop is part
+	 of the exit code for the outer loop.
+
+	 In this case jump.c will not duplicate the exit test for the outer
+	 loop, so it will start with a jump to the exit code.
+
+	 Then consider if the inner loop turns out to iterate once and
+	 only once.  We will end up deleting the jumps associated with
+	 the inner loop.  However, the loop notes are not removed from
+	 the instruction stream.
+
+	 And finally assume that we can compute the number of iterations
+	 for the outer loop.
+
+	 In this case unroll may want to unroll the outer loop even though
+	 it starts with a jump to the outer loop's exit code.
+
+	 We could try to optimize this case, but it hardly seems worth it.
+	 Just return without unrolling the loop in such cases.  */
+
       insn = loop_start;
       while (GET_CODE (insn) != CODE_LABEL && GET_CODE (insn) != JUMP_INSN)
 	insn = NEXT_INSN (insn);
       if (GET_CODE (insn) == JUMP_INSN)
-	abort ();
+	return;
     }
 
   if (unroll_type == UNROLL_COMPLETELY)
@@ -687,6 +710,8 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 
   for (insn = copy_start; insn != loop_end; insn = NEXT_INSN (insn))
     {
+      rtx note;
+
       if (GET_CODE (insn) == CODE_LABEL)
 	local_label[CODE_LABEL_NUMBER (insn)] = 1;
       else if (GET_CODE (insn) == JUMP_INSN)
@@ -712,6 +737,9 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 		}
 	    }
 	}
+      else if ((note = find_reg_note (insn, REG_LABEL, NULL_RTX)))
+	set_label_in_map (map, CODE_LABEL_NUMBER (XEXP (note, 0)),
+			  XEXP (note, 0));
     }
 
   /* Allocate space for the insn map.  */
@@ -1099,13 +1127,6 @@ unroll_loop (loop_end, insn_count, loop_start, end_insert_before,
 	  /* Set unroll type to MODULO now.  */
 	  unroll_type = UNROLL_MODULO;
 	  loop_preconditioned = 1;
-
-#ifdef HAIFA
-	  /* Fix the initial value for the loop as needed.  */
-	  if (loop_n_iterations <= 0)
-	    loop_start_value [uid_loop_num [INSN_UID (loop_start)]]
-	      = initial_value;
-#endif
 	}
     }
 
@@ -1311,9 +1332,13 @@ precondition_loop_p (initial_value, final_value, increment, loop_start,
       *final_value = GEN_INT (loop_n_iterations);
 
       if (loop_dump_stream)
-	fprintf (loop_dump_stream,
-		 "Preconditioning: Success, number of iterations known, %d.\n",
-		 loop_n_iterations);
+	{
+	  fputs ("Preconditioning: Success, number of iterations known, ",
+		 loop_dump_stream);
+	  fprintf (loop_dump_stream, HOST_WIDE_INT_PRINT_DEC,
+		   loop_n_iterations);
+	  fputs (".\n", loop_dump_stream);
+	}
       return 1;
     }
 
@@ -2664,9 +2689,10 @@ verify_addresses (v, giv_inc, unroll_number)
       || ! validate_replace_rtx (*v->location, last_addr, v->insn))
     ret = 0;
 
-  /* Now put things back the way they were before.  This will always
+  /* Now put things back the way they were before.  This should always
    succeed.  */
-  validate_change (v->insn, v->location, orig_addr, 0);
+  if (! validate_replace_rtx (*v->location, orig_addr, v->insn))
+    abort ();
 
   return ret;
 }
@@ -2906,7 +2932,6 @@ find_splittable_givs (bl, unroll_type, loop_start, loop_end, increment,
 
 		  rtx tem = gen_reg_rtx (v->mode);
 		  record_base_value (REGNO (tem), v->add_val, 0);
-		  v->unrolled = 1;
 
 		  /* If the address giv has a constant in its new_reg value,
 		     then this constant can be pulled out and put in value,
@@ -2959,6 +2984,10 @@ find_splittable_givs (bl, unroll_type, loop_start, loop_end, increment,
 		      continue;
 		    }
 		  
+		  /* We set this after the address check, to guarantee that
+		     the register will be initialized.  */
+		  v->unrolled = 1;
+
 		  /* To initialize the new register, just move the value of
 		     new_reg into it.  This is not guaranteed to give a valid
 		     instruction on machines with complex addressing modes.

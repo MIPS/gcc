@@ -23,14 +23,18 @@ Boston, MA 02111-1307, USA.  */
 /* Write out the correct language type definition for the header files.  
    Unless we have assembler language, write out the symbols for C.  */
 #define CPP_SPEC "\
-%{!.S:	-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C}}  \
-%{.S:	-D__LANGUAGE_ASSEMBLY__ -D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY}} \
-%{.cc:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
-%{.cxx:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
-%{.C:	-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus} \
-%{.m:	-D__LANGUAGE_OBJECTIVE_C__ -D__LANGUAGE_OBJECTIVE_C} \
-%{mieee:-D_IEEE_FP} \
-%{mieee-with-inexact:-D_IEEE_FP -D_IEEE_FP_INEXACT}"
+%{!undef:\
+%{.S:-D__LANGUAGE_ASSEMBLY__ -D__LANGUAGE_ASSEMBLY %{!ansi:-DLANGUAGE_ASSEMBLY }}\
+%{.cc|.cxx|.C:-D__LANGUAGE_C_PLUS_PLUS__ -D__LANGUAGE_C_PLUS_PLUS -D__cplusplus }\
+%{.m:-D__LANGUAGE_OBJECTIVE_C__ -D__LANGUAGE_OBJECTIVE_C }\
+%{!.S:%{!.cc:%{!.cxx:%{!.C:%{!.m:-D__LANGUAGE_C__ -D__LANGUAGE_C %{!ansi:-DLANGUAGE_C }}}}}}\
+%{mieee:-D_IEEE_FP }\
+%{mieee-with-inexact:-D_IEEE_FP -D_IEEE_FP_INEXACT }}\
+%(cpp_cpu) %(cpp_subtarget)"
+
+#ifndef CPP_SUBTARGET_SPEC
+#define CPP_SUBTARGET_SPEC ""
+#endif
 
 /* Set the spec to use for signed char.  The default tests the above macro
    but DEC's compiler can't handle the conditional in a "constant"
@@ -171,7 +175,9 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #ifndef TARGET_AS_CAN_SUBTRACT_LABELS
 #define TARGET_AS_CAN_SUBTRACT_LABELS TARGET_GAS
 #endif
-
+#ifndef TARGET_CAN_FAULT_IN_PROLOGUE
+#define TARGET_CAN_FAULT_IN_PROLOGUE 0
+#endif
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,
@@ -237,6 +243,88 @@ extern char *alpha_mlat_string;	/* For -mmemory-latency= */
   {"trap-precision=",	&alpha_tp_string},	\
   {"memory-latency=",	&alpha_mlat_string},	\
 }
+
+/* Attempt to describe CPU characteristics to the preprocessor.  */
+
+/* Corresponding to amask... */
+#define CPP_AM_BWX_SPEC	"-D__alpha_bwx__ -Acpu(bwx)"
+#define CPP_AM_MAX_SPEC	"-D__alpha_max__ -Acpu(max)"
+#define CPP_AM_CIX_SPEC	"-D__alpha_cix__ -Acpu(cix)"
+
+/* Corresponding to implver... */
+#define CPP_IM_EV4_SPEC	"-D__alpha_ev4__ -Acpu(ev4)"
+#define CPP_IM_EV5_SPEC	"-D__alpha_ev5__ -Acpu(ev5)"
+#define CPP_IM_EV6_SPEC	"-D__alpha_ev6__ -Acpu(ev6)"
+
+/* Common combinations.  */
+#define CPP_CPU_EV4_SPEC	"%(cpp_im_ev4)"
+#define CPP_CPU_EV5_SPEC	"%(cpp_im_ev5)"
+#define CPP_CPU_EV56_SPEC	"%(cpp_im_ev5) %(cpp_am_bwx)"
+#define CPP_CPU_PCA56_SPEC	"%(cpp_im_ev5) %(cpp_am_bwx) %(cpp_am_max)"
+#define CPP_CPU_EV6_SPEC	"%(cpp_im_ev6) %(cpp_am_bwx) %(cpp_am_max) %(cpp_am_cix)"
+
+#ifndef CPP_CPU_DEFAULT_SPEC
+# if TARGET_CPU_DEFAULT & MASK_CPU_EV6
+#  define CPP_CPU_DEFAULT_SPEC		CPP_CPU_EV6_SPEC
+# else
+#  if TARGET_CPU_DEFAULT & MASK_CPU_EV5
+#   if TARGET_CPU_DEFAULT & MASK_MAX
+#    define CPP_CPU_DEFAULT_SPEC	CPP_CPU_PCA56_SPEC
+#   else
+#    if TARGET_CPU_DEFAULT & MASK_BWX
+#     define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV56_SPEC
+#    else
+#     define CPP_CPU_DEFAULT_SPEC	CPP_CPU_EV5_SPEC
+#    endif
+#   endif
+#  else
+#   define CPP_CPU_DEFAULT_SPEC		CPP_CPU_EV4_SPEC
+#  endif
+# endif
+#endif /* CPP_CPU_DEFAULT_SPEC */
+
+#ifndef CPP_CPU_SPEC
+#define CPP_CPU_SPEC "\
+%{!undef:-Acpu(alpha) -Amachine(alpha) -D__alpha -D__alpha__ \
+%{mcpu=ev4|mcpu=21064:%(cpp_cpu_ev4) }\
+%{mcpu=ev5|mcpu=21164:%(cpp_cpu_ev5) }\
+%{mcpu=ev56|mcpu=21164a:%(cpp_cpu_ev56) }\
+%{mcpu=pca56|mcpu=21164pc|mcpu=21164PC:%(cpp_cpu_pca56) }\
+%{mcpu=ev6|mcpu=21264:%(cpp_cpu_ev6) }\
+%{!mcpu*:%(cpp_cpu_default) }}"
+#endif
+
+/* This macro defines names of additional specifications to put in the
+   specs that can be used in various specifications like CC1_SPEC.  Its
+   definition is an initializer with a subgrouping for each command option.
+
+   Each subgrouping contains a string constant, that defines the
+   specification name, and a string constant that used by the GNU CC driver
+   program.
+
+   Do not define this macro if it does not need to do anything.  */
+
+#ifndef SUBTARGET_EXTRA_SPECS
+#define SUBTARGET_EXTRA_SPECS
+#endif
+
+#define EXTRA_SPECS				\
+  { "cpp_am_bwx", CPP_AM_BWX_SPEC },		\
+  { "cpp_am_max", CPP_AM_MAX_SPEC },		\
+  { "cpp_am_cix", CPP_AM_CIX_SPEC },		\
+  { "cpp_im_ev4", CPP_IM_EV4_SPEC },		\
+  { "cpp_im_ev5", CPP_IM_EV5_SPEC },		\
+  { "cpp_im_ev6", CPP_IM_EV6_SPEC },		\
+  { "cpp_cpu_ev4", CPP_CPU_EV4_SPEC },		\
+  { "cpp_cpu_ev5", CPP_CPU_EV5_SPEC },		\
+  { "cpp_cpu_ev56", CPP_CPU_EV56_SPEC },	\
+  { "cpp_cpu_pca56", CPP_CPU_PCA56_SPEC },	\
+  { "cpp_cpu_ev6", CPP_CPU_EV6_SPEC },		\
+  { "cpp_cpu_default", CPP_CPU_DEFAULT_SPEC },	\
+  { "cpp_cpu", CPP_CPU_SPEC },			\
+  { "cpp_subtarget", CPP_SUBTARGET_SPEC },	\
+  SUBTARGET_EXTRA_SPECS
+
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -371,7 +459,7 @@ extern void override_options ();
 #define STACK_BOUNDARY 64
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
-#define FUNCTION_BOUNDARY 64
+#define FUNCTION_BOUNDARY 256
 
 /* Alignment of field after `int : 0' in a structure.  */
 #define EMPTY_FIELD_BOUNDARY 64
@@ -387,20 +475,16 @@ extern void override_options ();
    ??? Kludge this and the next macro for the moment by not doing anything if
    we don't optimize and also if we are writing ECOFF symbols to work around
    a bug in DEC's assembler. */
-/* Aligning past 2**3 wastes insn cache lines, and doesn't buy much 
-   issue-wise on average anyway.  */
 
 #define LOOP_ALIGN(LABEL) \
-  (optimize > 0 && write_symbols != SDB_DEBUG ? 3 : 0)
+  (optimize > 0 && write_symbols != SDB_DEBUG ? 4 : 0)
 
-/* This is how to align an instruction for optimal branching.
-   On Alpha we'll get better performance by aligning on a quadword
+/* This is how to align an instruction for optimal branching.  On
+   Alpha we'll get better performance by aligning on an octaword
    boundary.  */
-/* Aligning past 2**3 wastes insn cache lines, and doesn't buy much 
-   issue-wise on average anyway.  */
 
-#define ALIGN_LABEL_AFTER_BARRIER(FILE)	\
-  (optimize > 0 && write_symbols != SDB_DEBUG ? 3 : 0)
+#define LABEL_ALIGN_AFTER_BARRIER(FILE)	\
+  (optimize > 0 && write_symbols != SDB_DEBUG ? 4 : 0)
 
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 64
@@ -678,12 +762,17 @@ enum reg_class { NO_REGS, GENERAL_REGS, FLOAT_REGS, ALL_REGS,
 
    For the Alpha, `Q' means that this is a memory operand but not a
    reference to an unaligned location.
+
    `R' is a SYMBOL_REF that has SYMBOL_REF_FLAG set or is the current
-   function.  */
+   function.
+
+   'S' is a 6-bit constant (valid for a shift insn).  */
 
 #define EXTRA_CONSTRAINT(OP, C)				\
-  ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) != AND \
-   : (C) == 'R' ? current_file_function_operand (OP, Pmode)	\
+  ((C) == 'Q' ? GET_CODE (OP) == MEM && GET_CODE (XEXP (OP, 0)) != AND	\
+   : (C) == 'R' ? current_file_function_operand (OP, Pmode)		\
+   : (C) == 'S' ? (GET_CODE (OP) == CONST_INT				\
+		   && (unsigned HOST_WIDE_INT) INTVAL (OP) < 64)	\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -1076,6 +1165,7 @@ extern int alpha_memory_latency;
    insns and emitted.  */
 extern struct rtx_def *alpha_emit_set_const ();
 extern struct rtx_def *alpha_emit_set_long_const ();
+extern struct rtx_def *alpha_emit_conditional_branch ();
 extern struct rtx_def *alpha_emit_conditional_move ();
 
 /* Generate necessary RTL for __builtin_saveregs().
@@ -1090,8 +1180,11 @@ extern struct rtx_def *alpha_builtin_saveregs ();
 extern struct rtx_def *alpha_compare_op0, *alpha_compare_op1;
 extern int alpha_compare_fp_p;
 
-/* Make (or fake) .linkage entry for function call.
+/* Define the information needed to modify the epilogue for EH.  */
 
+extern struct rtx_def *alpha_eh_epilogue_sp_ofs;
+
+/* Make (or fake) .linkage entry for function call.
    IS_LOCAL is 0 if name is used in call, 1 if name is used in definition.  */
 extern void alpha_need_linkage ();
 
@@ -1099,25 +1192,26 @@ extern void alpha_need_linkage ();
 
 #define ASM_COMMENT_START " #"
 
-/* This macro produces the initial definition of a function name.  On the
-   Alpha, we need to save the function name for the prologue and epilogue.  */
+/* This macro produces the initial definition of a function.  */
 
-extern char *alpha_function_name;
+#define ASM_DECLARE_FUNCTION_NAME(FILE,NAME,DECL) \
+  alpha_start_function(FILE,NAME,DECL);
+extern void alpha_start_function ();
 
-#define ASM_DECLARE_FUNCTION_NAME(FILE,NAME,DECL)	\
-{							\
-   alpha_function_name = NAME;				\
-}
+/* This macro closes up a function definition for the assembler.  */
+
+#define ASM_DECLARE_FUNCTION_SIZE(FILE,NAME,DECL) \
+  alpha_end_function(FILE,NAME,DECL)
+extern void alpha_end_function ();
    
-/* This macro generates the assembly code for function entry.
-   FILE is a stdio stream to output the code to.
-   SIZE is an int: how many units of temporary storage to allocate.
-   Refer to the array `regs_ever_live' to determine which registers
-   to save; `regs_ever_live[I]' is nonzero if register number I
-   is ever used in the function.  This macro is responsible for
-   knowing which registers should not be saved even if used.  */
+/* This macro notes the end of the prologue.  */
 
-#define FUNCTION_PROLOGUE(FILE, SIZE)  output_prolog (FILE, SIZE)
+#define FUNCTION_END_PROLOGUE(FILE)  output_end_prologue (FILE)
+extern void output_end_prologue ();
+
+/* Output any profiling code before the prologue.  */
+
+#define PROFILE_BEFORE_PROLOGUE 1
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  Under OSF/1, profiling is enabled
@@ -1167,19 +1261,6 @@ extern char *alpha_function_name;
    No definition is equivalent to always zero.  */
 
 #define EXIT_IGNORE_STACK 1
-
-/* This macro generates the assembly code for function exit,
-   on machines that need it.  If FUNCTION_EPILOGUE is not defined
-   then individual return instructions are generated for each
-   return statement.  Args are same as for FUNCTION_PROLOGUE.
-
-   The function epilogue should not depend on the current stack pointer!
-   It should use the frame pointer only.  This is mandatory because
-   of alloca; we also take advantage of it to omit stack adjustments
-   before returning.  */
-
-#define FUNCTION_EPILOGUE(FILE, SIZE)	output_epilog (FILE, SIZE)
-
 
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.
@@ -1191,13 +1272,13 @@ extern char *alpha_function_name;
    aligned to FUNCTION_BOUNDARY, which is 64 bits.  */
 
 #define TRAMPOLINE_TEMPLATE(FILE)		\
-{						\
+do {						\
   fprintf (FILE, "\tldq $1,24($27)\n");		\
   fprintf (FILE, "\tldq $27,16($27)\n");	\
   fprintf (FILE, "\tjmp $31,($27),0\n");	\
   fprintf (FILE, "\tnop\n");			\
   fprintf (FILE, "\t.quad 0,0\n");		\
-}
+} while (0)
 
 /* Section in which to place the trampoline.  On Alpha, instructions
    may only be placed in a text segment.  */
@@ -1210,77 +1291,28 @@ extern char *alpha_function_name;
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
-   CXT is an RTX for the static chain value for the function.  We assume
-   here that a function will be called many more times than its address
-   is taken (e.g., it might be passed to qsort), so we take the trouble 
-   to initialize the "hint" field in the JMP insn.  Note that the hint
-   field is PC (new) + 4 * bits 13:0.  */
+   CXT is an RTX for the static chain value for the function.  */
 
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			\
-{									\
-  rtx _temp, _temp1, _addr;						\
-									\
-  _addr = memory_address (Pmode, plus_constant ((TRAMP), 16));		\
-  emit_move_insn (gen_rtx (MEM, Pmode, _addr), (FNADDR));		\
-  _addr = memory_address (Pmode, plus_constant ((TRAMP), 24));		\
-  emit_move_insn (gen_rtx (MEM, Pmode, _addr), (CXT));			\
-									\
-  _temp = force_operand (plus_constant ((TRAMP), 12), NULL_RTX);	\
-  _temp = expand_binop (DImode, sub_optab, (FNADDR), _temp, _temp, 1,	\
-			OPTAB_WIDEN);					\
-  _temp = expand_shift (RSHIFT_EXPR, Pmode, _temp,			\
-			build_int_2 (2, 0), NULL_RTX, 1);		\
-  _temp = expand_and (gen_lowpart (SImode, _temp),			\
-		      GEN_INT (0x3fff), 0); 				\
-									\
-  _addr = memory_address (SImode, plus_constant ((TRAMP), 8));		\
-  _temp1 = force_reg (SImode, gen_rtx (MEM, SImode, _addr));		\
-  _temp1 = expand_and (_temp1, GEN_INT (0xffffc000), NULL_RTX);		\
-  _temp1 = expand_binop (SImode, ior_optab, _temp1, _temp, _temp1, 1,	\
-			 OPTAB_WIDEN);					\
-									\
-  emit_move_insn (gen_rtx (MEM, SImode, _addr), _temp1);		\
-									\
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode,			\
-			      "__enable_execute_stack"),		\
-		     0, VOIDmode, 1,_addr, Pmode);			\
-									\
-  emit_insn (gen_rtx (UNSPEC_VOLATILE, VOIDmode,			\
-		      gen_rtvec (1, const0_rtx), 0));			\
-}
-
-/* Attempt to turn on access permissions for the stack.  */
-
-#define TRANSFER_FROM_TRAMPOLINE					\
-									\
-void									\
-__enable_execute_stack (addr)						\
-     void *addr;							\
-{									\
-  long size = getpagesize ();						\
-  long mask = ~(size-1);						\
-  char *page = (char *) (((long) addr) & mask);				\
-  char *end  = (char *) ((((long) (addr + TRAMPOLINE_SIZE)) & mask) + size); \
-									\
-  /* 7 is PROT_READ | PROT_WRITE | PROT_EXEC */				\
-  if (mprotect (page, end - page, 7) < 0)				\
-    perror ("mprotect of trampoline code");				\
-}
+#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT) \
+  alpha_initialize_trampoline (TRAMP, FNADDR, CXT, 16, 24, 8)
+extern void alpha_initialize_trampoline ();
 
 /* A C expression whose value is RTL representing the value of the return
    address for the frame COUNT steps up from the current frame.
    FRAMEADDR is the frame pointer of the COUNT frame, or the frame pointer of
-   the COUNT-1 frame if RETURN_ADDR_IN_PREVIOUS_FRAME} is defined.  */
+   the COUNT-1 frame if RETURN_ADDR_IN_PREVIOUS_FRAME is defined.  */
 
 #define RETURN_ADDR_RTX  alpha_return_addr
 extern struct rtx_def *alpha_return_addr ();
+
+/* Before the prologue, RA lives in $26. */
+#define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (Pmode, 26)
 
 /* Initialize data used by insn expanders.  This is called from insn_emit,
    once for every function before code is generated.  */
 
 #define INIT_EXPANDERS  alpha_init_expanders ()
 extern void alpha_init_expanders ();
-
 
 /* Addressing modes, and classification of registers for them.  */
 
@@ -1558,9 +1590,11 @@ do {									\
 
 #define MOVE_MAX 8
 
-/* Controls how many units are moved by expr.c before resorting to movstr.
-   Without byte/word accesses, we want no more than one; with, several single
-   byte accesses are better.   */
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction pairs, we will do a movstr or libcall instead.
+
+   Without byte/word accesses, we want no more than four instructions;
+   with, several single byte accesses are better.   */
 
 #define MOVE_RATIO  (TARGET_BWX ? 7 : 2)
 
@@ -1654,6 +1688,12 @@ do {									\
 
 /* The EV4 is dual issue; EV5/EV6 are quad issue.  */
 #define ISSUE_RATE  (alpha_cpu == PROCESSOR_EV4 ? 2 : 4)
+
+/* Describe the fact that MULTI instructions are multiple instructions
+   and so to assume they don't pair with anything.  */
+#define MD_SCHED_VARIABLE_ISSUE(DUMP, SCHED_VERBOSE, INSN, CAN_ISSUE_MORE) \
+  if (recog_memoized (INSN) < 0 || get_attr_type (INSN) == TYPE_MULTI)	   \
+     (CAN_ISSUE_MORE) = 0
 
 /* Compute the cost of computing a constant rtl expression RTX
    whose rtx-code is CODE.  The body of this macro is a portion
@@ -1819,8 +1859,8 @@ do {									\
    sized text section with no associated exception handling info.  The
    DEC linker sees this text section, and gives a warning saying that
    the exception handling info is missing.  */
-#define ASM_IDENTIFY_GCC
-#define ASM_IDENTIFY_LANGUAGE
+#define ASM_IDENTIFY_GCC(x)
+#define ASM_IDENTIFY_LANGUAGE(x)
 
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
@@ -1987,12 +2027,12 @@ literal_section ()						\
 
 #define ASM_OUTPUT_SHORT(FILE,VALUE)  \
   fprintf (FILE, "\t.word %d\n",		\
-    (GET_CODE (VALUE) == CONST_INT		\
+    (int)(GET_CODE (VALUE) == CONST_INT		\
      ? INTVAL (VALUE) & 0xffff : (abort (), 0)))
 
 #define ASM_OUTPUT_CHAR(FILE,VALUE)		\
   fprintf (FILE, "\t.byte %d\n",		\
-    (GET_CODE (VALUE) == CONST_INT		\
+    (int)(GET_CODE (VALUE) == CONST_INT		\
      ? INTVAL (VALUE) & 0xff : (abort (), 0)))
 
 /* We use the default ASCII-output routine, except that we don't write more
@@ -2059,7 +2099,7 @@ literal_section ()						\
 /* This is how to output an assembler line for a numeric constant byte.  */
 
 #define ASM_OUTPUT_BYTE(FILE,VALUE)  \
-  fprintf (FILE, "\t.byte 0x%x\n", (VALUE) & 0xff)
+  fprintf (FILE, "\t.byte 0x%x\n", (int) ((VALUE) & 0xff))
 
 /* This is how to output an element of a case-vector that is absolute.
    (Alpha does not use such vectors, but we must define this macro anyway.)  */
@@ -2120,21 +2160,15 @@ literal_section ()						\
 
 #define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
 do {									\
-  char *fn_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (FUNCTION));	\
+  char *fn_name = XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0);		\
+  int reg;								\
 									\
-  fprintf (FILE, "\t.ent ");						\
-  assemble_name (FILE, alpha_function_name);				\
-  fputc ('\n', FILE);							\
-  ASM_OUTPUT_LABEL (FILE, alpha_function_name);				\
-  fprintf (FILE, "\tldgp $29,0($27)\n");				\
-  fputc ('$', FILE);							\
-  assemble_name (FILE, alpha_function_name);				\
-  fprintf (FILE, "..ng:\n");						\
-  fprintf (FILE, "\t.frame $30,0,$26,0\n");				\
-  fprintf (FILE, "\t.prologue 1\n");					\
+  /* Mark end of prologue.  */						\
+  output_end_prologue (FILE);						\
 									\
   /* Rely on the assembler to macro expand a large delta.  */		\
-  fprintf (FILE, "\tlda $16,%ld($16)\n", (long)(DELTA));		\
+  reg = aggregate_value_p (TREE_TYPE (TREE_TYPE (FUNCTION))) ? 17 : 16;	\
+  fprintf (FILE, "\tlda $%d,%ld($%d)\n", reg, (long)(DELTA), reg);	\
 									\
   if (current_file_function_operand (XEXP (DECL_RTL (FUNCTION), 0)))	\
     {									\
@@ -2144,19 +2178,13 @@ do {									\
     }									\
   else									\
     {									\
-      fprintf (FILE, "\tlda $27,");					\
-      assemble_name (FILE, fn_name);					\
-      fprintf (FILE, "\n\tjmp $31,($27),");				\
+      fprintf (FILE, "\tjmp $31,");					\
       assemble_name (FILE, fn_name);					\
       fputc ('\n', FILE);						\
     }									\
-									\
-  fprintf (FILE, "\t.end ");						\
-  assemble_name (FILE, alpha_function_name);				\
-  fputc ('\n', FILE);							\
 } while (0)
-
 
+
 /* Define results of standard character escape sequences.  */
 #define TARGET_BELL 007
 #define TARGET_BS 010
@@ -2184,6 +2212,9 @@ do {									\
    '	Generates trap-mode suffix for instructions that accept the
         su suffix only (cmpt et al).
 
+   `    Generates trap-mode suffix for instructions that accept the
+	v and sv suffix.  The only instruction that needs this is cvtql.
+
    (	Generates trap-mode suffix for instructions that accept the
 	v, sv, and svi suffix.  The only instruction that needs this
 	is cvttq.
@@ -2203,8 +2234,8 @@ do {									\
    */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
-  ((CODE) == '&' || (CODE) == '\'' || (CODE) == '(' || (CODE) == ')'	\
-   || (CODE) == '+' || (CODE) == ',' || (CODE) == '-')
+  ((CODE) == '&' || (CODE) == '`' || (CODE) == '\'' || (CODE) == '('	\
+   || (CODE) == ')' || (CODE) == '+' || (CODE) == ',' || (CODE) == '-')
 
 /* Print a memory address as an operand to reference that memory location.  */
 
@@ -2227,40 +2258,41 @@ do {									\
   else							\
     abort ();						\
 							\
-  fprintf (FILE, "%d($%d)", offset, basereg);		\
+  fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, offset);		\
+  fprintf (FILE, "($%d)", basereg);		\
 }
 /* Define the codes that are matched by predicates in alpha.c.  */
 
-#define PREDICATE_CODES \
-  {"reg_or_0_operand", {SUBREG, REG, CONST_INT}},	\
-  {"reg_or_6bit_operand", {SUBREG, REG, CONST_INT}},	\
-  {"reg_or_8bit_operand", {SUBREG, REG, CONST_INT}},	\
-  {"cint8_operand", {CONST_INT}},                       \
-  {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},	\
-  {"add_operand", {SUBREG, REG, CONST_INT}},		\
-  {"sext_add_operand", {SUBREG, REG, CONST_INT}},	\
-  {"const48_operand", {CONST_INT}},			\
-  {"and_operand", {SUBREG, REG, CONST_INT}},		\
-  {"or_operand", {SUBREG, REG, CONST_INT}},		\
-  {"mode_mask_operand", {CONST_INT}},			\
-  {"mul8_operand", {CONST_INT}},			\
-  {"mode_width_operand", {CONST_INT}},			\
-  {"reg_or_fp0_operand", {SUBREG, REG, CONST_DOUBLE}},	\
-  {"alpha_comparison_operator", {EQ, LE, LT, LEU, LTU}}, \
-  {"alpha_swapped_comparison_operator", {EQ, GE, GT, GEU, GTU}}, \
-  {"signed_comparison_operator", {EQ, NE, LE, LT, GE, GT}}, \
-  {"divmod_operator", {DIV, MOD, UDIV, UMOD}},		\
-  {"fp0_operand", {CONST_DOUBLE}},			\
-  {"current_file_function_operand", {SYMBOL_REF}},	\
-  {"call_operand", {REG, SYMBOL_REF}},			\
-  {"input_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,	\
-		     SYMBOL_REF, CONST, LABEL_REF}},	\
-  {"some_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE, \
-		    SYMBOL_REF, CONST, LABEL_REF}},	\
-  {"aligned_memory_operand", {MEM}},			\
-  {"unaligned_memory_operand", {MEM}},			\
-  {"reg_or_unaligned_mem_operand", {SUBREG, REG, MEM}},	\
-  {"any_memory_operand", {MEM}},			\
+#define PREDICATE_CODES 						\
+  {"reg_or_0_operand", {SUBREG, REG, CONST_INT}},			\
+  {"reg_or_6bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
+  {"reg_or_8bit_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
+  {"cint8_operand", {CONST_INT, CONSTANT_P_RTX}},                       \
+  {"reg_or_cint_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
+  {"add_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},		\
+  {"sext_add_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},	\
+  {"const48_operand", {CONST_INT}},					\
+  {"and_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},		\
+  {"or_operand", {SUBREG, REG, CONST_INT, CONSTANT_P_RTX}},		\
+  {"mode_mask_operand", {CONST_INT}},					\
+  {"mul8_operand", {CONST_INT}},					\
+  {"mode_width_operand", {CONST_INT}},					\
+  {"reg_or_fp0_operand", {SUBREG, REG, CONST_DOUBLE}},			\
+  {"alpha_comparison_operator", {EQ, LE, LT, LEU, LTU}},		\
+  {"alpha_swapped_comparison_operator", {EQ, GE, GT, GEU, GTU}},	\
+  {"signed_comparison_operator", {EQ, NE, LE, LT, GE, GT}},		\
+  {"divmod_operator", {DIV, MOD, UDIV, UMOD}},				\
+  {"fp0_operand", {CONST_DOUBLE}},					\
+  {"current_file_function_operand", {SYMBOL_REF}},			\
+  {"call_operand", {REG, SYMBOL_REF}},					\
+  {"input_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,		\
+		     SYMBOL_REF, CONST, LABEL_REF, CONSTANT_P_RTX}},	\
+  {"some_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,		\
+		    SYMBOL_REF, CONST, LABEL_REF, CONSTANT_P_RTX}},	\
+  {"aligned_memory_operand", {MEM}},					\
+  {"unaligned_memory_operand", {MEM}},					\
+  {"reg_or_unaligned_mem_operand", {SUBREG, REG, MEM}},			\
+  {"any_memory_operand", {MEM}},					\
   {"hard_fp_register_operand", {SUBREG, REG}},
 
 /* Tell collect that the object format is ECOFF.  */
@@ -2387,7 +2419,7 @@ do {							\
 
 #define PUT_SDB_FUNCTION_END(LINE)
 
-#define PUT_SDB_EPILOGUE_END(NAME)
+#define PUT_SDB_EPILOGUE_END(NAME) ((void)(NAME))
 
 /* Macros for mips-tfile.c to encapsulate stabs in ECOFF, and for
    mips-tdump.c to print them out.
@@ -2417,6 +2449,47 @@ do {							\
 /* The system headers under Alpha systems are generally C++-aware.  */
 #define NO_IMPLICIT_EXTERN_C
 
-/* Prototypes for alpha.c functions used in the md file.  */
+/* Prototypes for alpha.c functions used in the md file & elsewhere.  */
 extern struct rtx_def *get_unaligned_address ();
- 
+extern void alpha_write_verstamp ();
+extern void alpha_reorg ();
+extern int check_float_value ();
+extern int direct_return ();
+extern int const48_operand ();
+extern int add_operand ();
+extern int and_operand ();
+extern int unaligned_memory_operand ();
+extern int zap_mask ();
+extern int current_file_function_operand ();
+extern int alpha_sa_size ();
+extern int alpha_adjust_cost ();
+extern void print_operand ();
+extern int reg_or_0_operand ();
+extern int reg_or_8bit_operand ();
+extern int mul8_operand ();
+extern int reg_or_6bit_operand ();
+extern int alpha_comparison_operator ();
+extern int alpha_swapped_comparison_operator ();
+extern int sext_add_operand ();
+extern int cint8_operand ();
+extern int mode_mask_operand ();
+extern int or_operand ();
+extern int mode_width_operand ();
+extern int reg_or_fp0_operand ();
+extern int signed_comparison_operator ();
+extern int fp0_operand ();
+extern int some_operand ();
+extern int input_operand ();
+extern int divmod_operator ();
+extern int call_operand ();
+extern int reg_or_cint_operand ();
+extern int hard_fp_register_operand ();
+extern void alpha_set_memflags ();
+extern int aligned_memory_operand ();
+extern void get_aligned_mem ();
+extern void alpha_expand_unaligned_load ();
+extern void alpha_expand_unaligned_store ();
+extern int alpha_expand_block_move ();
+extern int alpha_expand_block_clear ();
+extern void alpha_expand_prologue ();
+extern void alpha_expand_epilogue ();

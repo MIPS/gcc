@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "parse.h"
 #include "flags.h"
 #include "obstack.h"
+#include "toplev.h"
 
 /* This takes a token stream that hasn't decided much about types and
    tries to figure out as much as it can, with excessive lookahead and
@@ -47,7 +48,7 @@ struct token  {
 
 static int do_aggr PROTO((void));
 static int probe_obstack PROTO((struct obstack *, tree, unsigned int));
-static void scan_tokens PROTO((int));
+static void scan_tokens PROTO((unsigned int));
 
 #ifdef SPEW_DEBUG
 static int num_tokens PROTO((void));
@@ -155,9 +156,9 @@ consume_token ()
 
 static void
 scan_tokens (n)
-     int n;
+     unsigned int n;
 {
-  int i;
+  unsigned int i;
   struct token *tmp;
 
   /* We cannot read past certain tokens, so make sure we don't.  */
@@ -244,7 +245,8 @@ int
 yylex ()
 {
   struct token tmp_token;
-  tree trrr;
+  tree trrr = NULL_TREE;
+  int old_looking_for_typename = 0;
 
  retry:
 #ifdef SPEW_DEBUG
@@ -306,8 +308,11 @@ yylex ()
     case IDENTIFIER:
       scan_tokens (1);
       if (nth_token (1)->yychar == SCOPE)
-	/* Don't interfere with the setting from an 'aggr' prefix.  */
-	looking_for_typename++;
+	{
+	  /* Don't interfere with the setting from an 'aggr' prefix.  */
+	  old_looking_for_typename = looking_for_typename;
+	  looking_for_typename = 1;
+	}
       else if (nth_token (1)->yychar == '<')
 	looking_for_template = 1;
 
@@ -323,7 +328,10 @@ yylex ()
 	    case NSNAME:
 	    case PTYPENAME:
 	      lastiddecl = trrr;
-	      if (got_scope)
+
+	      /* If this got special lookup, remember it.  In these cases,
+	         we don't have to worry about being a declarator-id. */
+	      if (got_scope || got_object)
 		tmp_token.yylval.ttype = trrr;
 	      break;
 
@@ -346,12 +354,26 @@ yylex ()
     case PTYPENAME:
     case PTYPENAME_DEFN:
       consume_token ();
-      if (looking_for_typename > 0)
-	looking_for_typename--;
+      /* If we see a SCOPE next, restore the old value.
+	 Otherwise, we got what we want. */
+      looking_for_typename = old_looking_for_typename;
       looking_for_template = 0;
       break;
 
     case SCSPEC:
+      /* If export, warn that it's unimplemented and go on. */
+      if (tmp_token.yylval.ttype == get_identifier("export"))
+	{
+	  warning ("keyword 'export' not implemented and will be ignored");
+	  consume_token ();
+	  goto retry;
+	}
+      else
+	{
+	  ++first_token;
+	  break;
+	}
+
     case NEW:
       /* do_aggr needs to check if the previous token was RID_NEW,
 	 so just increment first_token instead of calling consume_token.  */
@@ -368,13 +390,17 @@ yylex ()
       /* fall through to output...  */
     case ENUM:
       /* Set this again, in case we are rescanning.  */
-      looking_for_typename = 1;
+      looking_for_typename = 2;
       /* fall through...  */
     default:
       consume_token ();
     }
 
-  got_object = NULL_TREE;
+  /* class member lookup only applies to the first token after the object
+     expression, except for explicit destructor calls.  */
+  if (tmp_token.yychar != '~')
+    got_object = NULL_TREE;
+
   yylval = tmp_token.yylval;
   yychar = tmp_token.yychar;
   end_of_file = tmp_token.end_of_file;

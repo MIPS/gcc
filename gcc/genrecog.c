@@ -191,7 +191,7 @@ static void change_state	PROTO((char *, char *, int));
 static char *copystr		PROTO((char *));
 static void mybzero		PROTO((char *, unsigned));
 static void mybcopy		PROTO((char *, char *, unsigned));
-static void fatal		PROTO((char *));
+static void fatal		PVPROTO((char *, ...)) ATTRIBUTE_PRINTF_1;
 char *xrealloc			PROTO((char *, unsigned));
 char *xmalloc			PROTO((unsigned));
 void fancy_abort		PROTO((void));
@@ -451,6 +451,19 @@ add_to_sequence (pattern, last, position)
       goto restart;
 
     case SET:
+      /* The operands of a SET must have the same mode unless one is VOIDmode.  */
+      if (GET_MODE (SET_SRC (pattern)) != VOIDmode
+	  && GET_MODE (SET_DEST (pattern)) != VOIDmode
+	  && GET_MODE (SET_SRC (pattern)) != GET_MODE (SET_DEST (pattern))
+	  /* The mode of an ADDRESS_OPERAND is the mode of the memory reference,
+	     not the mode of the address.  */
+	  && ! (GET_CODE (SET_SRC (pattern)) == MATCH_OPERAND
+		&& ! strcmp (XSTR (SET_SRC (pattern), 1), "address_operand")))
+	{
+	  print_rtl (stderr, pattern);
+	  fputc ('\n', stderr);
+	  fatal ("mode mismatch in SET");
+	}
       newpos[depth] = '0';
       new = add_to_sequence (SET_DEST (pattern), &new->success, newpos);
       this->success.first->enforce_mode = 1;
@@ -998,19 +1011,19 @@ write_subroutine (tree, type)
     printf (", pnum_clobbers");
 
   printf (")\n");
-  printf ("     register rtx x0;\n     rtx insn;\n");
+  printf ("     register rtx x0;\n     rtx insn ATTRIBUTE_UNUSED;\n");
   if (type == RECOG)
-    printf ("     int *pnum_clobbers;\n");
+    printf ("     int *pnum_clobbers ATTRIBUTE_UNUSED;\n");
 
   printf ("{\n");
   printf ("  register rtx *ro = &recog_operand[0];\n");
 
   printf ("  register rtx ");
   for (i = 1; i < max_depth; i++)
-    printf ("x%d, ", i);
+    printf ("x%d ATTRIBUTE_UNUSED, ", i);
 
-  printf ("x%d;\n", max_depth);
-  printf ("  %s tem;\n", type == SPLIT ? "rtx" : "int");
+  printf ("x%d ATTRIBUTE_UNUSED;\n", max_depth);
+  printf ("  %s tem ATTRIBUTE_UNUSED;\n", type == SPLIT ? "rtx" : "int");
   write_tree (tree, "", NULL_PTR, 1, type);
   printf (" ret0: return %d;\n}\n\n", type == SPLIT ? 0 : -1);
 }
@@ -1669,11 +1682,22 @@ xmalloc (size)
 }
 
 static void
-fatal (s)
-     char *s;
+fatal VPROTO ((char *format, ...))
 {
+#ifndef __STDC__
+  char *format;
+#endif
+  va_list ap;
+
+  VA_START (ap, format);
+
+#ifndef __STDC__
+  format = va_arg (ap, char *);
+#endif
+
   fprintf (stderr, "genrecog: ");
-  fprintf (stderr, s);
+  vfprintf (stderr, format, ap);
+  va_end (ap);
   fprintf (stderr, "\n");
   fprintf (stderr, "after %d definitions\n", next_index);
   exit (FATAL_EXIT_CODE);

@@ -30,14 +30,16 @@
 #include "typeinfo"
 #include "exception"
 #include <stddef.h>
+#include "eh-common.h"
 
 /* Define terminate, unexpected, set_terminate, set_unexpected as
    well as the default terminate func and default unexpected func.  */
 
-extern terminate_handler __terminate_func __attribute__((__noreturn__));
+extern std::terminate_handler __terminate_func __attribute__((__noreturn__));
+using std::terminate;
 
 void
-terminate ()
+std::terminate ()
 {
   __terminate_func ();
 }
@@ -48,29 +50,29 @@ __default_unexpected ()
   terminate ();
 }
 
-static unexpected_handler __unexpected_func __attribute__((__noreturn__))
+static std::unexpected_handler __unexpected_func __attribute__((__noreturn__))
   = __default_unexpected;
 
-terminate_handler
-set_terminate (terminate_handler func)
+std::terminate_handler
+std::set_terminate (std::terminate_handler func)
 {
-  terminate_handler old = __terminate_func;
+  std::terminate_handler old = __terminate_func;
 
   __terminate_func = func;
   return old;
 }
 
-unexpected_handler
-set_unexpected (unexpected_handler func)
+std::unexpected_handler
+std::set_unexpected (std::unexpected_handler func)
 {
-  unexpected_handler old = __unexpected_func;
+  std::unexpected_handler old = __unexpected_func;
 
   __unexpected_func = func;
   return old;
 }
 
 void
-unexpected ()
+std::unexpected ()
 {
   __unexpected_func ();
 }
@@ -84,12 +86,14 @@ unexpected ()
 
 struct cp_eh_info
 {
+  __eh_info eh_info;
   void *value;
   void *type;
   void (*cleanup)(void *, int);
   bool caught;
   cp_eh_info *next;
   long handlers;
+  void *original_value;
 };
 
 /* Language-specific EH info pointer, defined in libgcc2. */
@@ -100,11 +104,23 @@ extern "C" cp_eh_info **__get_eh_info (); 	// actually void **
 
 extern bool __is_pointer (void *);
 
+
+/* OLD Compiler hook to return a pointer to the info for the current exception.
+   Used by get_eh_info ().  This fudges the actualy returned value to
+   point to the beginning of what USE to be the cp_eh_info structure.
+   THis is so that old code that dereferences this pointer will find
+   things where it expects it to be.*/
+extern "C" void *
+__cp_exception_info (void)
+{
+  return &((*__get_eh_info ())->value);
+}
+
 /* Compiler hook to return a pointer to the info for the current exception.
    Used by get_eh_info ().  */
 
 extern "C" cp_eh_info *
-__cp_exception_info (void)
+__cp_eh_info (void)
 {
   return *__get_eh_info ();
 }
@@ -132,6 +148,34 @@ __eh_free (void *p)
   free (p);
 }
 
+
+typedef void * (* rtimetype) (void);
+
+extern "C" void *
+__cplus_type_matcher (cp_eh_info *info, rtimetype match_info, 
+                                 exception_descriptor *exception_table)
+{
+  void *ret;
+
+  /* No exception table implies the old style mechanism, so don't check. */
+  if (exception_table != NULL 
+      && exception_table->lang.language != EH_LANG_C_plus_plus)
+    return NULL;
+
+  if (match_info == CATCH_ALL_TYPE)
+    return info->value;
+
+  /* we don't worry about version info yet, there is only one version! */
+  
+  void *match_type = match_info ();
+  ret = __throw_type_match_rtti (match_type, info->type, info->original_value);
+  /* change value of exception */
+  if (ret)
+    info->value = ret;
+  return ret;
+}
+
+
 /* Compiler hook to push a new exception onto the stack.
    Used by expand_throw().  */
 
@@ -145,6 +189,11 @@ __cp_push_exception (void *value, void *type, void (*cleanup)(void *, int))
   p->cleanup = cleanup;
   p->handlers = 0;
   p->caught = false;
+  p->original_value = value;
+
+  p->eh_info.match_function = __cplus_type_matcher;
+  p->eh_info.language = EH_LANG_C_plus_plus;
+  p->eh_info.version = 1;
 
   cp_eh_info **q = __get_eh_info ();
 
@@ -192,7 +241,7 @@ __cp_pop_exception (cp_eh_info *p)
 extern "C" void
 __uncatch_exception (void)
 {
-  cp_eh_info *p = __cp_exception_info ();
+  cp_eh_info *p = __cp_eh_info ();
   if (p == 0)
     terminate ();
   p->caught = false;
@@ -213,7 +262,7 @@ __uncatch_exception (void)
 extern "C" void
 __check_eh_spec (int n, const void **spec)
 {
-  cp_eh_info *p = __cp_exception_info ();
+  cp_eh_info *p = __cp_eh_info ();
 
   for (int i = 0; i < n; ++i)
     {
@@ -223,7 +272,7 @@ __check_eh_spec (int n, const void **spec)
 
   try
     {
-      unexpected ();
+      std::unexpected ();
     }
   catch (...)
     {
@@ -238,11 +287,11 @@ __check_eh_spec (int n, const void **spec)
 	    }
 	}
 
-      const type_info &bad_exc = typeid (bad_exception);
+      const std::type_info &bad_exc = typeid (std::bad_exception);
       for (int i = 0; i < n; ++i)
 	{
 	  if (__throw_type_match_rtti (spec[i], &bad_exc, p->value))
-	    throw bad_exception ();
+	    throw std::bad_exception ();
 	}
 
       terminate ();
@@ -252,25 +301,25 @@ __check_eh_spec (int n, const void **spec)
 extern "C" void
 __throw_bad_cast (void)
 {
-  throw bad_cast ();
+  throw std::bad_cast ();
 }
 
 extern "C" void
 __throw_bad_typeid (void)
 {
-  throw bad_typeid ();
+  throw std::bad_typeid ();
 }
 
 /* Has the current exception been caught?  */
 
 bool
-uncaught_exception ()
+std::uncaught_exception ()
 {
-  cp_eh_info *p = __cp_exception_info ();
+  cp_eh_info *p = __cp_eh_info ();
   return p && ! p->caught;
 }
 
-const char * exception::
+const char * std::exception::
 what () const
 {
   return typeid (*this).name ();

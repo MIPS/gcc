@@ -40,7 +40,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "expr.h"
 #include "except.h"
 #include "dwarf2.h"
+#include "dwarf2out.h"
 #include "toplev.h"
+#include "dyn-string.h"
 
 /* We cannot use <assert.h> in GCC source, since that would include
    GCC's assert.h, which may not be compatible with the host compiler.  */
@@ -58,6 +60,9 @@ int
 dwarf2out_do_frame ()
 {
   return (write_symbols == DWARF2_DEBUG
+#ifdef DWARF2_FRAME_INFO
+          || DWARF2_FRAME_INFO
+#endif
 #ifdef DWARF2_UNWIND_INFO
 	  || (flag_exceptions && ! exceptions_via_longjmp)
 #endif
@@ -274,7 +279,7 @@ static void dwarf2out_stack_adjust	PROTO((rtx));
 
 #ifndef ASM_OUTPUT_DWARF_DATA1
 #define ASM_OUTPUT_DWARF_DATA1(FILE,VALUE) \
-  fprintf ((FILE), "\t%s\t0x%x", ASM_BYTE_OP, VALUE)
+  fprintf ((FILE), "\t%s\t0x%x", ASM_BYTE_OP, (unsigned) (VALUE))
 #endif
 
 #ifndef ASM_OUTPUT_DWARF_DELTA1
@@ -341,6 +346,16 @@ static void dwarf2out_stack_adjust	PROTO((rtx));
   } while (0)
 #endif
 
+/* ??? This macro takes an RTX in dwarfout.c and a string in dwarf2out.c.
+   We resolve the conflict by creating a new macro ASM_OUTPUT_DWARF2_ADDR_CONST
+   for ports that want to support both DWARF1 and DWARF2.  This needs a better
+   solution.  See also the comments in sparc/sp64-elf.h.  */
+#ifdef ASM_OUTPUT_DWARF2_ADDR_CONST
+#undef ASM_OUTPUT_DWARF_ADDR_CONST
+#define ASM_OUTPUT_DWARF_ADDR_CONST(FILE,ADDR) \
+  ASM_OUTPUT_DWARF2_ADDR_CONST (FILE, ADDR)
+#endif
+
 #ifndef ASM_OUTPUT_DWARF_ADDR_CONST
 #define ASM_OUTPUT_DWARF_ADDR_CONST(FILE,ADDR)				\
   fprintf ((FILE), "\t%s\t%s", UNALIGNED_WORD_ASM_OP, (ADDR))
@@ -362,24 +377,24 @@ static void dwarf2out_stack_adjust	PROTO((rtx));
 
 #ifndef ASM_OUTPUT_DWARF_DATA2
 #define ASM_OUTPUT_DWARF_DATA2(FILE,VALUE) \
-  fprintf ((FILE), "\t%s\t0x%x", UNALIGNED_SHORT_ASM_OP, (unsigned) VALUE)
+  fprintf ((FILE), "\t%s\t0x%x", UNALIGNED_SHORT_ASM_OP, (unsigned) (VALUE))
 #endif
 
 #ifndef ASM_OUTPUT_DWARF_DATA4
 #define ASM_OUTPUT_DWARF_DATA4(FILE,VALUE) \
-  fprintf ((FILE), "\t%s\t0x%x", UNALIGNED_INT_ASM_OP, (unsigned) VALUE)
+  fprintf ((FILE), "\t%s\t0x%x", UNALIGNED_INT_ASM_OP, (unsigned) (VALUE))
 #endif
 
 #ifndef ASM_OUTPUT_DWARF_DATA
 #define ASM_OUTPUT_DWARF_DATA(FILE,VALUE) \
   fprintf ((FILE), "\t%s\t0x%lx", UNALIGNED_OFFSET_ASM_OP, \
-	   (unsigned long) VALUE)
+	   (unsigned long) (VALUE))
 #endif
 
 #ifndef ASM_OUTPUT_DWARF_ADDR_DATA
 #define ASM_OUTPUT_DWARF_ADDR_DATA(FILE,VALUE) \
   fprintf ((FILE), "\t%s\t0x%lx", UNALIGNED_WORD_ASM_OP, \
-	   (unsigned long) VALUE)
+	   (unsigned long) (VALUE))
 #endif
 
 #ifndef ASM_OUTPUT_DWARF_DATA8
@@ -387,13 +402,13 @@ static void dwarf2out_stack_adjust	PROTO((rtx));
   do {									\
     if (WORDS_BIG_ENDIAN)						\
       {									\
-	fprintf ((FILE), "\t%s\t0x%lx\n", UNALIGNED_INT_ASM_OP, HIGH_VALUE); \
-	fprintf ((FILE), "\t%s\t0x%lx", UNALIGNED_INT_ASM_OP, LOW_VALUE);\
+	fprintf ((FILE), "\t%s\t0x%lx\n", UNALIGNED_INT_ASM_OP, (HIGH_VALUE));\
+	fprintf ((FILE), "\t%s\t0x%lx", UNALIGNED_INT_ASM_OP, (LOW_VALUE));\
       }									\
     else								\
       {									\
-	fprintf ((FILE), "\t%s\t0x%lx\n", UNALIGNED_INT_ASM_OP, LOW_VALUE);\
-	fprintf ((FILE), "\t%s\t0x%lx", UNALIGNED_INT_ASM_OP, HIGH_VALUE); \
+	fprintf ((FILE), "\t%s\t0x%lx\n", UNALIGNED_INT_ASM_OP, (LOW_VALUE)); \
+	fprintf ((FILE), "\t%s\t0x%lx", UNALIGNED_INT_ASM_OP, (HIGH_VALUE)); \
       }									\
   } while (0)
 #endif
@@ -511,17 +526,19 @@ expand_builtin_dwarf_fp_regnum ()
 #endif
 
 /* Return a pointer to a copy of the section string name S with all
-   attributes stripped off.  */
+   attributes stripped off, and an asterisk prepended (for assemble_name).  */
 
 static inline char *
 stripattributes (s)
      char *s;
 {
-  char *stripped = xstrdup (s);
+  char *stripped = xmalloc (strlen (s) + 2);
   char *p = stripped;
 
-  while (*p && *p != ',')
-    p++;
+  *p++ = '*';
+
+  while (*s && *s != ',')
+    *p++ = *s++;
 
   *p = '\0';
   return stripped;
@@ -625,24 +642,28 @@ expand_builtin_dwarf_reg_size (reg_tree, target)
     }
   else
     {
+      /* Initialize last_end to be larger than any possible
+	 DWARF_FRAME_REGNUM.  */
+      int last_end = 0x7fffffff;
       --n_ranges;
       t = build_int_2 (ranges[n_ranges].size, 0);
-      size = DWARF_FRAME_REGNUM (ranges[n_ranges].beg);
-      for (; n_ranges--; )
+      do
 	{
-	  if ((DWARF_FRAME_REGNUM (ranges[n_ranges].end)
-	       - DWARF_FRAME_REGNUM (ranges[n_ranges].beg))
-	      != ranges[n_ranges].end - ranges[n_ranges].beg)
+	  int beg = DWARF_FRAME_REGNUM (ranges[n_ranges].beg);
+	  int end = DWARF_FRAME_REGNUM (ranges[n_ranges].end);
+	  if (beg < 0)
+	    continue;
+	  if (end >= last_end)
 	    abort ();
-	  if (DWARF_FRAME_REGNUM (ranges[n_ranges].beg) >= size)
+	  last_end = end;
+	  if (end - beg != ranges[n_ranges].end - ranges[n_ranges].beg)
 	    abort ();
-	  size = DWARF_FRAME_REGNUM (ranges[n_ranges].beg);
 	  t2 = fold (build (LE_EXPR, integer_type_node, reg_tree,
-			    build_int_2 (DWARF_FRAME_REGNUM
-					 (ranges[n_ranges].end), 0)));
+			    build_int_2 (end, 0)));
 	  t = fold (build (COND_EXPR, integer_type_node, t2,
 			   build_int_2 (ranges[n_ranges].size, 0), t));
 	}
+      while (--n_ranges > 0);
     }
   return expand_expr (t, target, Pmode, 0);
 }
@@ -1206,7 +1227,12 @@ dwarf2out_frame_debug (insn)
 
   label = dwarf2out_cfi_label ();
     
-  insn = PATTERN (insn);
+  src = find_reg_note (insn, REG_FRAME_RELATED_EXPR, NULL_RTX);
+  if (src)
+    insn = XEXP (src, 0);
+  else
+    insn = PATTERN (insn);
+
   /* Assume that in a PARALLEL prologue insn, only the first elt is
      significant.  Currently this is true.  */
   if (GET_CODE (insn) == PARALLEL)
@@ -1373,6 +1399,13 @@ dwarf2out_frame_debug (insn)
 	  if (cfa_store_reg != REGNO (XEXP (XEXP (dest, 0), 0)))
 	    abort ();
 	  offset -= cfa_store_offset;
+	  break;
+
+	  /* Without an offset.  */
+	case REG:
+	  if (cfa_store_reg != REGNO (XEXP (dest, 0)))
+	    abort();
+	  offset = -cfa_store_offset;
 	  break;
 
 	default:
@@ -1619,6 +1652,11 @@ output_cfi (cfi, fde)
   } while (0)
 #endif
 #endif
+#endif
+
+/* If we aren't using crtstuff to run ctors, don't use it for EH.  */
+#if !defined (HAS_INIT_SECTION) && !defined (INIT_SECTION_ASM_OP)
+#undef EH_FRAME_SECTION
 #endif
 
 /* Output the call frame information used to used to record information
@@ -1941,7 +1979,7 @@ dwarf2out_frame_finish ()
 /* And now, the support for symbolic debugging information.  */
 #ifdef DWARF2_DEBUGGING_INFO
 
-extern char *getpwd ();
+extern char *getpwd PROTO((void));
 
 /* NOTE: In the comments in this file, many references are made to
    "Debugging Information Entries".  This term is abbreviated as `DIE'
@@ -2361,7 +2399,7 @@ static tree dwarf_last_decl;
 
 /* Forward declarations for functions defined in this file.  */
 
-static void addr_const_to_string	PROTO((char *, rtx));
+static void addr_const_to_string	PROTO((dyn_string_t, rtx));
 static char *addr_to_string		PROTO((rtx));
 static int is_pseudo_reg		PROTO((rtx));
 static tree type_main_variant		PROTO((tree));
@@ -2370,7 +2408,9 @@ static char *dwarf_tag_name		PROTO((unsigned));
 static char *dwarf_attr_name		PROTO((unsigned));
 static char *dwarf_form_name		PROTO((unsigned));
 static char *dwarf_stack_op_name	PROTO((unsigned));
+#if 0
 static char *dwarf_type_encoding_name	PROTO((unsigned));
+#endif
 static tree decl_ultimate_origin	PROTO((tree));
 static tree block_ultimate_origin	PROTO((tree));
 static tree decl_class_context		PROTO((tree));
@@ -2501,10 +2541,14 @@ static void add_type_attribute		PROTO((dw_die_ref, tree, int, int,
 					       dw_die_ref));
 static char *type_tag			PROTO((tree));
 static tree member_declared_type	PROTO((tree));
+#if 0
 static char *decl_start_label		PROTO((tree));
+#endif
 static void gen_array_type_die		PROTO((tree, dw_die_ref));
 static void gen_set_type_die		PROTO((tree, dw_die_ref));
+#if 0
 static void gen_entry_point_die		PROTO((tree, dw_die_ref));
+#endif
 static void pend_type			PROTO((tree));
 static void output_pending_types_for_scope PROTO((dw_die_ref));
 static void gen_inlined_enumeration_type_die PROTO((tree, dw_die_ref));
@@ -2620,9 +2664,9 @@ static char text_end_label[MAX_ARTIFICIAL_LABEL_BYTES];
 #define ASM_NAME_TO_STRING(STR, NAME) \
   do {									      \
       if ((NAME)[0] == '*')						      \
-	strcpy (STR, NAME+1);						      \
+	dyn_string_append (STR, NAME + 1);				      \
       else								      \
-	strcpy (STR, NAME);                                                   \
+	dyn_string_append (STR, NAME);                                        \
   }                                                                           \
   while (0)
 #endif
@@ -2635,50 +2679,44 @@ static char text_end_label[MAX_ARTIFICIAL_LABEL_BYTES];
 
 static void
 addr_const_to_string (str, x)
-     char *str;
+     dyn_string_t str;
      rtx x;
 {
   char buf1[256];
-  char buf2[256];
 
 restart:
-  str[0] = '\0';
   switch (GET_CODE (x))
     {
     case PC:
       if (flag_pic)
-	strcat (str, ",");
+	dyn_string_append (str, ",");
       else
 	abort ();
       break;
 
     case SYMBOL_REF:
-      ASM_NAME_TO_STRING (buf1, XSTR (x, 0));
-      strcat (str, buf1);
+      ASM_NAME_TO_STRING (str, XSTR (x, 0));
       break;
 
     case LABEL_REF:
       ASM_GENERATE_INTERNAL_LABEL (buf1, "L", CODE_LABEL_NUMBER (XEXP (x, 0)));
-      ASM_NAME_TO_STRING (buf2, buf1);
-      strcat (str, buf2);
+      ASM_NAME_TO_STRING (str, buf1);
       break;
 
     case CODE_LABEL:
       ASM_GENERATE_INTERNAL_LABEL (buf1, "L", CODE_LABEL_NUMBER (x));
-      ASM_NAME_TO_STRING (buf2, buf1);
-      strcat (str, buf2);
+      ASM_NAME_TO_STRING (str, buf1);
       break;
 
     case CONST_INT:
       sprintf (buf1, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
-      strcat (str, buf1);
+      dyn_string_append (str, buf1);
       break;
 
     case CONST:
       /* This used to output parentheses around the expression, but that does 
          not work on the 386 (either ATT or BSD assembler).  */
-      addr_const_to_string (buf1, XEXP (x, 0));
-      strcat (str, buf1);
+      addr_const_to_string (str, XEXP (x, 0));
       break;
 
     case CONST_DOUBLE:
@@ -2693,7 +2731,7 @@ restart:
 	  else
 	    sprintf (buf1, HOST_WIDE_INT_PRINT_DEC,
 		     CONST_DOUBLE_LOW (x));
-	  strcat (str, buf1);
+	  dyn_string_append (str, buf1);
 	}
       else
 	/* We can't handle floating point constants; PRINT_OPERAND must
@@ -2705,23 +2743,19 @@ restart:
       /* Some assemblers need integer constants to appear last (eg masm).  */
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
-	  addr_const_to_string (buf1, XEXP (x, 1));
-	  strcat (str, buf1);
+	  addr_const_to_string (str, XEXP (x, 1));
 	  if (INTVAL (XEXP (x, 0)) >= 0)
-	    strcat (str, "+");
+	    dyn_string_append (str, "+");
 
-	  addr_const_to_string (buf1, XEXP (x, 0));
-	  strcat (str, buf1);
+	  addr_const_to_string (str, XEXP (x, 0));
 	}
       else
 	{
-	  addr_const_to_string (buf1, XEXP (x, 0));
-	  strcat (str, buf1);
+	  addr_const_to_string (str, XEXP (x, 0));
 	  if (INTVAL (XEXP (x, 1)) >= 0)
-	    strcat (str, "+");
+	    dyn_string_append (str, "+");
 
-	  addr_const_to_string (buf1, XEXP (x, 1));
-	  strcat (str, buf1);
+	  addr_const_to_string (str, XEXP (x, 1));
 	}
       break;
 
@@ -2732,28 +2766,22 @@ restart:
       if (GET_CODE (x) != MINUS)
 	goto restart;
 
-      addr_const_to_string (buf1, XEXP (x, 0));
-      strcat (str, buf1);
-      strcat (str, "-");
+      addr_const_to_string (str, XEXP (x, 0));
+      dyn_string_append (str, "-");
       if (GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && INTVAL (XEXP (x, 1)) < 0)
 	{
-	  strcat (str, ASM_OPEN_PAREN);
-	  addr_const_to_string (buf1, XEXP (x, 1));
-	  strcat (str, buf1);
-	  strcat (str, ASM_CLOSE_PAREN);
+	  dyn_string_append (str, ASM_OPEN_PAREN);
+	  addr_const_to_string (str, XEXP (x, 1));
+	  dyn_string_append (str, ASM_CLOSE_PAREN);
 	}
       else
-	{
-	  addr_const_to_string (buf1, XEXP (x, 1));
-	  strcat (str, buf1);
-	}
+	addr_const_to_string (str, XEXP (x, 1));
       break;
 
     case ZERO_EXTEND:
     case SIGN_EXTEND:
-      addr_const_to_string (buf1, XEXP (x, 0));
-      strcat (str, buf1);
+      addr_const_to_string (str, XEXP (x, 0));
       break;
 
     default:
@@ -2768,9 +2796,16 @@ static char *
 addr_to_string (x)
      rtx x;
 {
-  char buf[1024];
-  addr_const_to_string (buf, x);
-  return xstrdup (buf);
+  dyn_string_t ds = dyn_string_new (256);
+  char *s;
+
+  addr_const_to_string (ds, x);
+  
+  /* Return the dynamically allocated string, but free the
+     dyn_string_t itself.  */
+  s = ds->s;
+  free (ds);
+  return s;
 }
 
 /* Test if rtl node points to a pseudo register.  */
@@ -3467,6 +3502,7 @@ dwarf_stack_op_name (op)
 
 /* Convert a DWARF type code into its string name.  */
 
+#if 0
 static char *
 dwarf_type_encoding_name (enc)
      register unsigned enc;
@@ -3493,6 +3529,7 @@ dwarf_type_encoding_name (enc)
       return "DW_ATE_<unknown>";
     }
 }
+#endif
 
 /* Determine the "ultimate origin" of a decl.  The decl may be an inlined
    instance of an inlined instance of a decl which is local to an inline
@@ -3504,24 +3541,14 @@ static tree
 decl_ultimate_origin (decl)
      register tree decl;
 {
-  register tree immediate_origin = DECL_ABSTRACT_ORIGIN (decl);
+#ifdef ENABLE_CHECKING 
+  if (DECL_FROM_INLINE (DECL_ORIGIN (decl)))
+    /* Since the DECL_ABSTRACT_ORIGIN for a DECL is supposed to be the
+       most distant ancestor, this should never happen.  */
+    abort ();
+#endif
 
-  if (immediate_origin == NULL_TREE)
-    return NULL_TREE;
-  else
-    {
-      register tree ret_val;
-      register tree lookahead = immediate_origin;
-
-      do
-	{
-	  ret_val = lookahead;
-	  lookahead = DECL_ABSTRACT_ORIGIN (ret_val);
-	}
-      while (lookahead != NULL && lookahead != ret_val);
-
-      return ret_val;
-    }
+  return DECL_ABSTRACT_ORIGIN (decl);
 }
 
 /* Determine the "ultimate origin" of a block.  The block may be an inlined
@@ -4433,29 +4460,18 @@ build_abbrev_table (die)
     build_abbrev_table (c);
 }
 
-/* Return the size of a string, including the null byte.  */
+/* Return the size of a string, including the null byte.
+
+   This used to treat backslashes as escapes, and hence they were not included
+   in the count.  However, that conflicts with what ASM_OUTPUT_ASCII does,
+   which treats a backslash as a backslash, escaping it if necessary, and hence
+   we must include them in the count.  */
 
 static unsigned long
 size_of_string (str)
      register char *str;
 {
-  register unsigned long size = 0;
-  register unsigned long slen = strlen (str);
-  register unsigned long i;
-  register unsigned c;
-
-  for (i = 0; i < slen; ++i)
-    {
-      c = str[i];
-      if (c == '\\')
-	++i;
-
-      size += 1;
-    }
-
-  /* Null terminator.  */
-  size += 1;
-  return size;
+  return strlen (str) + 1;
 }
 
 /* Return the size of a location descriptor.  */
@@ -5574,12 +5590,13 @@ output_aranges ()
 	     ASM_COMMENT_START, 2 * PTR_SIZE);
 
   fputc ('\n', asm_out_file);
-  ASM_OUTPUT_DWARF_ADDR (asm_out_file, TEXT_SECTION);
+  ASM_OUTPUT_DWARF_ADDR (asm_out_file, stripattributes (TEXT_SECTION));
   if (flag_debug_asm)
     fprintf (asm_out_file, "\t%s Address", ASM_COMMENT_START);
 
   fputc ('\n', asm_out_file);
-  ASM_OUTPUT_DWARF_ADDR_DELTA (asm_out_file, text_end_label, TEXT_SECTION);
+  ASM_OUTPUT_DWARF_ADDR_DELTA (asm_out_file, text_end_label,
+			       stripattributes (TEXT_SECTION));
   if (flag_debug_asm)
     fprintf (asm_out_file, "%s Length", ASM_COMMENT_START);
 
@@ -5764,14 +5781,14 @@ output_line_info ()
   fputc ('\n', asm_out_file);
   ASM_OUTPUT_DWARF_DATA1 (asm_out_file, DW_LNE_set_address);
   fputc ('\n', asm_out_file);
-  ASM_OUTPUT_DWARF_ADDR (asm_out_file, TEXT_SECTION);
+  ASM_OUTPUT_DWARF_ADDR (asm_out_file, stripattributes (TEXT_SECTION));
   fputc ('\n', asm_out_file);
 
   /* Generate the line number to PC correspondence table, encoded as
      a series of state machine operations.  */
   current_file = 1;
   current_line = 1;
-  strcpy (prev_line_label, TEXT_SECTION);
+  strcpy (prev_line_label, stripattributes (TEXT_SECTION));
   for (lt_index = 1; lt_index < line_info_table_in_use; ++lt_index)
     {
       register dw_line_info_ref line_info;
@@ -6172,7 +6189,7 @@ base_type_die (type)
   base_type_result = new_die (DW_TAG_base_type, comp_unit_die);
   add_AT_string (base_type_result, DW_AT_name, type_name);
   add_AT_unsigned (base_type_result, DW_AT_byte_size,
-		   TYPE_PRECISION (type) / BITS_PER_UNIT);
+		   int_size_in_bytes (type));
   add_AT_unsigned (base_type_result, DW_AT_encoding, encoding);
 
   return base_type_result;
@@ -7723,6 +7740,7 @@ member_declared_type (member)
 /* Get the decl's label, as described by its RTL. This may be different
    from the DECL_NAME name used in the source file.  */
 
+#if 0
 static char *
 decl_start_label (decl)
      register tree decl;
@@ -7740,6 +7758,7 @@ decl_start_label (decl)
   fnname = XSTR (x, 0);
   return fnname;
 }
+#endif
 
 /* These routines generate the internal representation of the DIE's for
    the compilation unit.  Debugging information is collected by walking
@@ -7814,6 +7833,7 @@ gen_set_type_die (type, context_die)
   add_type_attribute (type_die, TREE_TYPE (type), 0, 0, context_die);
 }
 
+#if 0
 static void
 gen_entry_point_die (decl, context_die)
      register tree decl;
@@ -7835,6 +7855,7 @@ gen_entry_point_die (decl, context_die)
   else
     add_AT_lbl_id (decl_die, DW_AT_low_pc, decl_start_label (decl));
 }
+#endif
 
 /* Remember a type in the pending_types_list.  */
 
@@ -8042,8 +8063,7 @@ gen_unspecified_parameters_die (decl_or_type, context_die)
      register tree decl_or_type;
      register dw_die_ref context_die;
 {
-  register dw_die_ref parm_die = new_die (DW_TAG_unspecified_parameters,
-					  context_die);
+  new_die (DW_TAG_unspecified_parameters, context_die);
 }
 
 /* Generate a list of nameless DW_TAG_formal_parameter DIEs (and perhaps a
@@ -8157,7 +8177,17 @@ gen_subprogram_die (decl, context_die)
 	= lookup_filename (DECL_SOURCE_FILE (decl));
 
       if (get_AT_flag (old_die, DW_AT_declaration) != 1)
-	abort ();
+	{
+	  /* ??? This can happen if there is a bug in the program, for
+	     instance, if it has duplicate function definitions.  Ideally,
+	     we should detect this case and ignore it.  For now, if we have
+	     already reported an error, any error at all, then assume that
+	     we got here because of a input error, not a dwarf2 bug.  */
+	  extern int errorcount;
+	  if (errorcount)
+	    return;
+	  abort ();
+	}
 
       /* If the definition comes from the same place as the declaration,
 	 maybe use the old DIE.  We always want the DIE for this function
@@ -9178,7 +9208,7 @@ gen_block_die (stmt, context_die, depth)
 }
 
 /* Generate all of the decls declared within a given scope and (recursively)
-   all of it's sub-blocks.  */
+   all of its sub-blocks.  */
 
 static void
 decls_for_scope (stmt, context_die, depth)
@@ -9404,7 +9434,7 @@ dwarf2out_decl (decl)
   if (DECL_IGNORED_P (decl))
     {
       if (TREE_CODE (decl) == FUNCTION_DECL
-	  && DECL_INITIAL (decl) != NULL)
+          && DECL_INITIAL (decl) != NULL)
 	abort ();
 
       return;
@@ -9667,7 +9697,7 @@ dwarf2out_line (filename, line)
 
 void
 dwarf2out_start_source_file (filename)
-     register char *filename;
+     register char *filename ATTRIBUTE_UNUSED;
 {
 }
 
@@ -9702,8 +9732,8 @@ dwarf2out_define (lineno, buffer)
 
 void
 dwarf2out_undef (lineno, buffer)
-     register unsigned lineno;
-     register char *buffer;
+     register unsigned lineno ATTRIBUTE_UNUSED;
+     register char *buffer ATTRIBUTE_UNUSED;
 {
 }
 
@@ -9828,7 +9858,8 @@ dwarf2out_finish ()
 	 was in .text.  */
       if (separate_line_info_table_in_use == 0)
 	{
-	  add_AT_lbl_id (comp_unit_die, DW_AT_low_pc, TEXT_SECTION);
+	  add_AT_lbl_id (comp_unit_die, DW_AT_low_pc,
+			 stripattributes (TEXT_SECTION));
 	  add_AT_lbl_id (comp_unit_die, DW_AT_high_pc, text_end_label);
 	}
 

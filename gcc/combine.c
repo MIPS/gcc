@@ -75,27 +75,21 @@ Boston, MA 02111-1307, USA.  */
    combine anyway.  */
 
 #include "config.h"
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
-/* stdio.h must precede rtl.h for FFS.  */
 #include "system.h"
-
-#include "rtl.h"
+#include "rtl.h" /* stdio.h must precede rtl.h for FFS.  */
 #include "flags.h"
 #include "regs.h"
 #include "hard-reg-set.h"
-#include "expr.h"
 #include "basic-block.h"
 #include "insn-config.h"
+/* Include expr.h after insn-config.h so we get HAVE_conditional_move. */
+#include "expr.h"
 #include "insn-flags.h"
 #include "insn-codes.h"
 #include "insn-attr.h"
 #include "recog.h"
 #include "real.h"
+#include "toplev.h"
 
 /* It is not safe to use ordinary gen_lowpart in combine.
    Use gen_lowpart_for_combine instead.  See comments there.  */
@@ -956,8 +950,14 @@ can_combine_p (insn, i3, pred, succ, pdest, psrc)
       /* Don't substitute into an incremented register.  */
       || FIND_REG_INC_NOTE (i3, dest)
       || (succ && FIND_REG_INC_NOTE (succ, dest))
+#if 0
       /* Don't combine the end of a libcall into anything.  */
+      /* ??? This gives worse code, and appears to be unnecessary, since no
+	 pass after flow uses REG_LIBCALL/REG_RETVAL notes.  Local-alloc does
+	 use REG_RETVAL notes for noconflict blocks, but other code here
+	 makes sure that those insns don't disappear.  */
       || find_reg_note (insn, REG_RETVAL, NULL_RTX)
+#endif
       /* Make sure that DEST is not used after SUCC but before I3.  */
       || (succ && ! all_adjacent
 	  && reg_used_between_p (dest, succ, i3))
@@ -1369,7 +1369,12 @@ try_combine (i3, i2, i1)
   if (GET_RTX_CLASS (GET_CODE (i3)) != 'i'
       || GET_RTX_CLASS (GET_CODE (i2)) != 'i'
       || (i1 && GET_RTX_CLASS (GET_CODE (i1)) != 'i')
-      || find_reg_note (i3, REG_LIBCALL, NULL_RTX))
+#if 0
+      /* ??? This gives worse code, and appears to be unnecessary, since no
+	 pass after flow uses REG_LIBCALL/REG_RETVAL notes.  */
+      || find_reg_note (i3, REG_LIBCALL, NULL_RTX)
+#endif
+)
     return 0;
 
   combine_attempts++;
@@ -3768,10 +3773,12 @@ simplify_rtx (x, op0_mode, last, in_dest)
 	return SUBREG_REG (XEXP (x, 0));
 
       /* If we know that the value is already truncated, we can
-         replace the TRUNCATE with a SUBREG.  */
-      if (GET_MODE_BITSIZE (GET_MODE (XEXP (x, 0))) <= HOST_BITS_PER_WIDE_INT
-	  && (nonzero_bits (XEXP (x, 0), GET_MODE (XEXP (x, 0)))
-	      &~ GET_MODE_MASK (mode)) == 0)
+         replace the TRUNCATE with a SUBREG if TRULY_NOOP_TRUNCATION is
+	 nonzero for the corresponding modes.  */
+      if (TRULY_NOOP_TRUNCATION (GET_MODE_BITSIZE (mode),
+				 GET_MODE_BITSIZE (GET_MODE (XEXP (x, 0))))
+	  && num_sign_bit_copies (XEXP (x, 0), GET_MODE (XEXP (x, 0)))
+	     >= GET_MODE_BITSIZE (mode) + 1)
 	return gen_lowpart_for_combine (mode, XEXP (x, 0));
 
       /* A truncate of a comparison can be replaced with a subreg if
@@ -4700,7 +4707,7 @@ simplify_set (x)
      we only care about the low bits of the result.
 
      However, on machines without WORD_REGISTER_OPERATIONS defined, we cannot
-     perform a narrower operation that requested since the high-order bits will
+     perform a narrower operation than requested since the high-order bits will
      be undefined.  On machine where it is defined, this transformation is safe
      as long as M1 and M2 have the same number of words.  */
  
@@ -5202,7 +5209,7 @@ expand_compound_operation (x)
 	  && subreg_lowpart_p (XEXP (x, 0))
 	  && GET_MODE_BITSIZE (GET_MODE (x)) <= HOST_BITS_PER_WIDE_INT
 	  && (nonzero_bits (SUBREG_REG (XEXP (x, 0)), GET_MODE (x))
-	      & ~ GET_MODE_MASK (GET_MODE (SUBREG_REG (x)))) == 0)
+	      & ~ GET_MODE_MASK (GET_MODE (XEXP (x, 0)))) == 0)
 	return SUBREG_REG (XEXP (x, 0));
 
       /* (zero_extend:DI (truncate:SI foo:DI)) is just foo:DI when foo
@@ -5379,6 +5386,24 @@ expand_field_assignment (x)
 	inner = SUBREG_REG (inner);
 
       compute_mode = GET_MODE (inner);
+
+      /* Don't attempt bitwise arithmetic on non-integral modes.  */
+      if (! INTEGRAL_MODE_P (compute_mode))
+	{
+	  enum machine_mode imode;
+
+	  /* Something is probably seriously wrong if this matches.  */
+	  if (! FLOAT_MODE_P (compute_mode))
+	    break;
+
+	  /* Try to find an integral mode to pun with.  */
+	  imode = mode_for_size (GET_MODE_BITSIZE (compute_mode), MODE_INT, 0);
+	  if (imode == BLKmode)
+	    break;
+
+	  compute_mode = imode;
+	  inner = gen_lowpart_for_combine (imode, inner);
+	}
 
       /* Compute a mask of LEN bits, if we can do this on the host machine.  */
       if (len < HOST_BITS_PER_WIDE_INT)
@@ -5601,27 +5626,45 @@ make_extraction (mode, inner, pos, pos_rtx, len,
 #ifdef HAVE_insv
   if (in_dest)
     {
-      wanted_inner_reg_mode = insn_operand_mode[(int) CODE_FOR_insv][0];
-      pos_mode = insn_operand_mode[(int) CODE_FOR_insv][2];
-      extraction_mode = insn_operand_mode[(int) CODE_FOR_insv][3];
+      wanted_inner_reg_mode
+	= (insn_operand_mode[(int) CODE_FOR_insv][0] == VOIDmode
+	   ? word_mode
+	   : insn_operand_mode[(int) CODE_FOR_insv][0]);
+      pos_mode = (insn_operand_mode[(int) CODE_FOR_insv][2] == VOIDmode
+		  ? word_mode : insn_operand_mode[(int) CODE_FOR_insv][2]);
+      extraction_mode = (insn_operand_mode[(int) CODE_FOR_insv][3] == VOIDmode
+			 ? word_mode
+			 : insn_operand_mode[(int) CODE_FOR_insv][3]);
     }
 #endif
 
 #ifdef HAVE_extzv
   if (! in_dest && unsignedp)
     {
-      wanted_inner_reg_mode = insn_operand_mode[(int) CODE_FOR_extzv][1];
-      pos_mode = insn_operand_mode[(int) CODE_FOR_extzv][3];
-      extraction_mode = insn_operand_mode[(int) CODE_FOR_extzv][0];
+      wanted_inner_reg_mode
+	= (insn_operand_mode[(int) CODE_FOR_extzv][1] == VOIDmode
+	   ? word_mode
+	   : insn_operand_mode[(int) CODE_FOR_extzv][1]);
+      pos_mode = (insn_operand_mode[(int) CODE_FOR_extzv][3] == VOIDmode
+		  ? word_mode : insn_operand_mode[(int) CODE_FOR_extzv][3]);
+      extraction_mode = (insn_operand_mode[(int) CODE_FOR_extzv][0] == VOIDmode
+			 ? word_mode
+			 : insn_operand_mode[(int) CODE_FOR_extzv][0]);
     }
 #endif
 
 #ifdef HAVE_extv
   if (! in_dest && ! unsignedp)
     {
-      wanted_inner_reg_mode = insn_operand_mode[(int) CODE_FOR_extv][1];
-      pos_mode = insn_operand_mode[(int) CODE_FOR_extv][3];
-      extraction_mode = insn_operand_mode[(int) CODE_FOR_extv][0];
+      wanted_inner_reg_mode
+	= (insn_operand_mode[(int) CODE_FOR_extv][1] == VOIDmode
+	   ? word_mode
+	   : insn_operand_mode[(int) CODE_FOR_extv][1]);
+      pos_mode = (insn_operand_mode[(int) CODE_FOR_extv][3] == VOIDmode
+		  ? word_mode : insn_operand_mode[(int) CODE_FOR_extv][3]);
+      extraction_mode = (insn_operand_mode[(int) CODE_FOR_extv][0] == VOIDmode
+			 ? word_mode
+			 : insn_operand_mode[(int) CODE_FOR_extv][0]);
     }
 #endif
 
@@ -6951,8 +6994,6 @@ rtx_equal_for_field_assignment_p (x, y)
      rtx x;
      rtx y;
 {
-  rtx last_x, last_y;
-
   if (x == y || rtx_equal_p (x, y))
     return 1;
 
@@ -6974,19 +7015,12 @@ rtx_equal_for_field_assignment_p (x, y)
 		      gen_lowpart_for_combine (GET_MODE (SUBREG_REG (x)), y)))
     return 1;
 
-  last_x = get_last_value (x);
-  last_y = get_last_value (y);
-
-  return ((last_x != 0
-	   && GET_CODE (last_x) != CLOBBER
-	   && rtx_equal_for_field_assignment_p (last_x, y))
-	  || (last_y != 0
-	      && GET_CODE (last_y) != CLOBBER
-	      && rtx_equal_for_field_assignment_p (x, last_y))
-	  || (last_x != 0 && last_y != 0
-	      && GET_CODE (last_x) != CLOBBER
-	      && GET_CODE (last_y) != CLOBBER
-	      && rtx_equal_for_field_assignment_p (last_x, last_y)));
+  /* We used to see if get_last_value of X and Y were the same but that's
+     not correct.  In one direction, we'll cause the assignment to have
+     the wrong destination and in the case, we'll import a register into this
+     insn that might have already have been dead.   So fail if none of the
+     above cases are true.  */
+  return 0;
 }
 
 /* See if X, a SET operation, can be rewritten as a bit-field assignment.
@@ -7692,15 +7726,23 @@ nonzero_bits (x, mode)
 	{
 	  nonzero &= nonzero_bits (SUBREG_REG (x), mode);
 
-#ifndef WORD_REGISTER_OPERATIONS
-	  /* On many CISC machines, accessing an object in a wider mode
-	     causes the high-order bits to become undefined.  So they are
-	     not known to be zero.  */
-	  if (GET_MODE_SIZE (GET_MODE (x))
-	      > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
-	    nonzero |= (GET_MODE_MASK (GET_MODE (x))
-			& ~ GET_MODE_MASK (GET_MODE (SUBREG_REG (x))));
+#if defined (WORD_REGISTER_OPERATIONS) && defined (LOAD_EXTEND_OP)
+	  /* If this is a typical RISC machine, we only have to worry
+	     about the way loads are extended.  */
+	  if (LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
+	      ? (nonzero
+		 & (1L << (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (x))) - 1)))
+	      : LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) != ZERO_EXTEND)
 #endif
+	    {
+	      /* On many CISC machines, accessing an object in a wider mode
+		 causes the high-order bits to become undefined.  So they are
+		 not known to be zero.  */
+	      if (GET_MODE_SIZE (GET_MODE (x))
+		  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
+		nonzero |= (GET_MODE_MASK (GET_MODE (x))
+			    & ~ GET_MODE_MASK (GET_MODE (SUBREG_REG (x))));
+	    }
 	}
       break;
 
@@ -9471,10 +9513,10 @@ simplify_comparison (code, pop0, pop1)
 		  > GET_MODE_SIZE (GET_MODE (SUBREG_REG (inner_op0))))
 	      && (GET_MODE (SUBREG_REG (inner_op0))
 		  == GET_MODE (SUBREG_REG (inner_op1)))
-	      && (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)))
+	      && (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (inner_op0)))
 		  <= HOST_BITS_PER_WIDE_INT)
 	      && (0 == ((~c0) & nonzero_bits (SUBREG_REG (inner_op0),
-					     GET_MODE (SUBREG_REG (op0)))))
+					     GET_MODE (SUBREG_REG (inner_op0)))))
 	      && (0 == ((~c1) & nonzero_bits (SUBREG_REG (inner_op1),
 					     GET_MODE (SUBREG_REG (inner_op1))))))
 	    {
@@ -9759,12 +9801,16 @@ simplify_comparison (code, pop0, pop1)
 	      && (i = exact_log2 (INTVAL (XEXP (op0, 0)))) >= 0)
 	    {
 	      if (BITS_BIG_ENDIAN)
+		{
 #ifdef HAVE_extzv
-		i = (GET_MODE_BITSIZE
-		     (insn_operand_mode[(int) CODE_FOR_extzv][1]) - 1 - i);
+		  mode = insn_operand_mode[(int) CODE_FOR_extzv][1];
+		  if (mode == VOIDmode)
+		    mode = word_mode;
+		  i = (GET_MODE_BITSIZE (mode) - 1 - i);
 #else
-	        i = BITS_PER_WORD - 1 - i;
+	          i = BITS_PER_WORD - 1 - i;
 #endif
+		}
 
 	      op0 = XEXP (op0, 2);
 	      op1 = GEN_INT (i);
@@ -10150,14 +10196,30 @@ simplify_comparison (code, pop0, pop1)
 	  if (GET_CODE (XEXP (op0, 0)) == SUBREG
 	      && ((mode_width
 		   >= GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (XEXP (op0, 0)))))
-		  || subreg_lowpart_p (XEXP (op0, 0)))
+#ifdef WORD_REGISTER_OPERATIONS
+		  || subreg_lowpart_p (XEXP (op0, 0))
+#endif
+		  )
+#ifndef WORD_REGISTER_OPERATIONS
+	      /* It is unsafe to commute the AND into the SUBREG if the SUBREG
+		 is paradoxical and WORD_REGISTER_OPERATIONS is not defined.
+		 As originally written the upper bits have a defined value
+		 due to the AND operation.  However, if we commute the AND
+		 inside the SUBREG then they no longer have defined values
+		 and the meaning of the code has been changed.  */
+	      && (GET_MODE_SIZE (GET_MODE (XEXP (op0, 0)))
+		  <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (XEXP (op0, 0)))))
+#endif
 	      && GET_CODE (XEXP (op0, 1)) == CONST_INT
 	      && mode_width <= HOST_BITS_PER_WIDE_INT
 	      && (GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (XEXP (op0, 0))))
 		  <= HOST_BITS_PER_WIDE_INT)
 	      && (INTVAL (XEXP (op0, 1)) & ~ mask) == 0
 	      && 0 == (~ GET_MODE_MASK (GET_MODE (SUBREG_REG (XEXP (op0, 0))))
-		       & INTVAL (XEXP (op0, 1))))
+		       & INTVAL (XEXP (op0, 1)))
+	      && INTVAL (XEXP (op0, 1)) != mask
+	      && (INTVAL (XEXP (op0, 1))
+		  != GET_MODE_MASK (GET_MODE (SUBREG_REG (XEXP (op0, 0))))))
 		       
 	    {
 	      op0
@@ -11501,6 +11563,7 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 		    {
 		      rtx set = single_set (tem);
 		      rtx inner_dest = 0;
+		      rtx cc0_setter = NULL_RTX;
 
 		      if (set != 0)
 			for (inner_dest = SET_DEST (set);
@@ -11511,10 +11574,21 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 			  ;
 
 		      /* Verify that it was the set, and not a clobber that
-			 modified the register.  */
+			 modified the register. 
+
+			 CC0 targets must be careful to maintain setter/user
+			 pairs.  If we cannot delete the setter due to side
+			 effects, mark the user with an UNUSED note instead
+			 of deleting it.  */
 
 		      if (set != 0 && ! side_effects_p (SET_SRC (set))
-			  && rtx_equal_p (XEXP (note, 0), inner_dest))
+			  && rtx_equal_p (XEXP (note, 0), inner_dest)
+#ifdef HAVE_cc0
+			  && (! reg_mentioned_p (cc0_rtx, SET_SRC (set))
+			      || ((cc0_setter = prev_cc0_setter (tem)) != NULL
+				  && sets_cc0_p (PATTERN (cc0_setter)) > 0))
+#endif
+			  )
 			{
 			  /* Move the notes and links of TEM elsewhere.
 			     This might delete other dead insns recursively. 
@@ -11530,6 +11604,23 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 			  PUT_CODE (tem, NOTE);
 			  NOTE_LINE_NUMBER (tem) = NOTE_INSN_DELETED;
 			  NOTE_SOURCE_FILE (tem) = 0;
+
+#ifdef HAVE_cc0
+			  /* Delete the setter too.  */
+			  if (cc0_setter)
+			    {
+			      PATTERN (cc0_setter) = pc_rtx;
+
+			      distribute_notes (REG_NOTES (cc0_setter),
+						cc0_setter, cc0_setter,
+						NULL_RTX, NULL_RTX, NULL_RTX);
+			      distribute_links (LOG_LINKS (cc0_setter));
+
+			      PUT_CODE (cc0_setter, NOTE);
+			      NOTE_LINE_NUMBER (cc0_setter) = NOTE_INSN_DELETED;
+			      NOTE_SOURCE_FILE (cc0_setter) = 0;
+			    }
+#endif
 			}
 		      /* If the register is both set and used here, put the
 			 REG_DEAD note here, but place a REG_UNUSED note
@@ -11542,8 +11633,9 @@ distribute_notes (notes, from_insn, i3, i2, elim_i2, elim_i1)
 			  if (! find_regno_note (tem, REG_UNUSED,
 						 REGNO (XEXP (note, 0))))
 			    REG_NOTES (tem)
-			      = gen_rtx (EXPR_LIST, REG_UNUSED, XEXP (note, 0),
-					 REG_NOTES (tem));
+			      = gen_rtx_EXPR_LIST (REG_UNUSED,
+						   XEXP (note, 0),
+						   REG_NOTES (tem));
 			}
 		      else
 			{

@@ -142,6 +142,81 @@ extern enum insn_code reload_in_optab[];
 extern enum insn_code reload_out_optab[];
 #endif
 
+struct needs
+{
+  /* [0] is normal, [1] is nongroup.  */
+  short regs[2][N_REG_CLASSES];
+  short groups[N_REG_CLASSES];
+};
+
+#if defined SET_HARD_REG_BIT && defined CLEAR_REG_SET
+/* This structure describes instructions which are relevant for reload.
+   Apart from all regular insns, this also includes CODE_LABELs, since they
+   must be examined for register elimination.  */
+struct insn_chain 
+{
+  /* Links to the neighbour instructions.  */
+  struct insn_chain *next, *prev;
+
+  /* Link through a chains set up by calculate_needs_all_insns, containing
+     all insns that need reloading.  */
+  struct insn_chain *next_need_reload;
+
+  /* The basic block this insn is in.  */
+  int block;
+  /* The rtx of the insn.  */
+  rtx insn;
+  /* Register life information: record all live hard registers, and all
+     live pseudos that have a hard register.
+     This information is recorded for the point immediately before the insn
+     (in live_before), and for the point within the insn at which all
+     outputs have just been written to (in live_after).  */
+  regset live_before;
+  regset live_after;
+
+  /* For each class, size of group of consecutive regs
+     that is needed for the reloads of this class.  */
+  char group_size[N_REG_CLASSES];
+  /* For each class, the machine mode which requires consecutive
+     groups of regs of that class.
+     If two different modes ever require groups of one class,
+     they must be the same size and equally restrictive for that class,
+     otherwise we can't handle the complexity.  */
+  enum machine_mode group_mode[N_REG_CLASSES];
+
+  /* Indicates if a register was counted against the need for
+     groups.  0 means it can count against max_nongroup instead.  */
+  HARD_REG_SET counted_for_groups;
+
+  /* Indicates if a register was counted against the need for
+     non-groups.  0 means it can become part of a new group.
+     During choose_reload_regs, 1 here means don't use this reg
+     as part of a group, even if it seems to be otherwise ok.  */
+  HARD_REG_SET counted_for_nongroups;
+
+  /* Indicates which registers have already been used for spills.  */
+  HARD_REG_SET used_spill_regs;
+
+  /* Describe the needs for reload registers of this insn.  */
+  struct needs need;
+
+  /* Nonzero if find_reloads said the insn requires reloading.  */
+  unsigned int need_reload:1;
+  /* Nonzero if eliminate_regs_in_insn said it requires eliminations.  */
+  unsigned int need_elim:1;
+  /* Nonzero if this insn was inserted by perform_caller_saves.  */
+  unsigned int is_caller_save_insn:1;
+};
+
+/* A chain of insn_chain structures to describe all non-note insns in
+   a function.  */
+extern struct insn_chain *reload_insn_chain;
+
+/* Allocate a new insn_chain structure.  */
+extern struct insn_chain *new_insn_chain	PROTO((void));
+
+#endif
+
 /* Functions from reload.c:  */
 
 /* Return a memory location that will be used to copy X in mode MODE.  
@@ -156,6 +231,9 @@ extern void clear_secondary_mem PROTO((void));
 /* Transfer all replacements that used to be in reload FROM to be in
    reload TO.  */
 extern void transfer_replacements PROTO((int, int));
+
+/* Remove all replacements in reload FROM.  */
+extern void remove_replacements PROTO((int));
 
 /* Like rtx_equal_p except that it allows a REG and a SUBREG to match
    if they are the same hard reg, and has special hacks for
@@ -217,6 +295,8 @@ extern int regno_clobbered_p PROTO((int, rtx));
 
 /* Functions in reload1.c:  */
 
+extern int reloads_conflict		PROTO ((int, int));
+
 int count_occurrences            PROTO((rtx, rtx));
 
 /* Initialize the reload pass once per compilation.  */
@@ -247,7 +327,7 @@ extern void init_caller_save PROTO((void));
 extern void init_save_areas PROTO((void));
 
 /* Allocate save areas for any hard registers that might need saving.  */
-extern int setup_save_areas PROTO((int *));
+extern void setup_save_areas PROTO((void));
 
 /* Find the places where hard regs are live across calls and save them.  */
-extern void save_call_clobbered_regs PROTO((enum machine_mode));
+extern void save_call_clobbered_regs PROTO((void));

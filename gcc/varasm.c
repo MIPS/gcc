@@ -42,6 +42,8 @@ Boston, MA 02111-1307, USA.  */
 #include "defaults.h"
 #include "real.h"
 #include "toplev.h"
+#include "dbxout.h"
+#include "sdbout.h"
 #include "ggc.h"
 
 #include "obstack.h"
@@ -85,6 +87,7 @@ extern FILE *asm_out_file;
 
 /* The (assembler) name of the first globally-visible object output.  */
 char *first_global_object_name;
+char *weak_global_object_name;
 
 extern struct obstack *current_obstack;
 extern struct obstack *saveable_obstack;
@@ -113,20 +116,6 @@ int size_directive_output;
    this holds 0.  */
 
 tree last_assemble_variable_decl;
-
-
-#ifdef HANDLE_PRAGMA_WEAK
-/* Any weak symbol declarations waiting to be emitted.  */
-
-struct weak_syms
-{
-  struct weak_syms *next;
-  char *name;
-  char *value;
-};
-
-static struct weak_syms *weak_decls;
-#endif
 
 /* Nonzero if at least one function definition has been seen.  */
 
@@ -164,9 +153,11 @@ static void output_constructor		PROTO((tree, int));
 #ifdef ASM_OUTPUT_BSS
 static void asm_output_bss		PROTO((FILE *, tree, char *, int, int));
 #endif
+#ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_ALIGNED_BSS
 static void asm_output_aligned_bss	PROTO((FILE *, tree, char *, int, int));
 #endif
+#endif /* BSS_SECTION_ASM_OP */
 
 static enum in_section { no_section, in_text, in_data, in_named
 #ifdef BSS_SECTION_ASM_OP
@@ -658,8 +649,6 @@ make_decl_rtl (decl, asmspec, top_level)
      same DECL node.  Don't discard the RTL already made.  */
   if (DECL_RTL (decl) == 0)
     {
-      DECL_RTL (decl) = 0;
-
       /* First detect errors in declaring global registers.  */
       if (TREE_CODE (decl) != FUNCTION_DECL
 	  && DECL_REGISTER (decl) && reg_number == -1)
@@ -742,12 +731,6 @@ make_decl_rtl (decl, asmspec, top_level)
 	      ASM_FORMAT_PRIVATE_NAME (label, name, var_labelno);
 	      name = obstack_copy0 (saveable_obstack, label, strlen (label));
 	      var_labelno++;
-
-	      /* We've changed the name by which this entity is
-		 known.  In order that we can generate 
-		 correct references to it, we update its
-		 DECL_ASSEMBLER_NAME.  */
-	      DECL_ASSEMBLER_NAME (decl) = get_identifier (name);
 	    }
 
 	  if (name == 0)
@@ -769,7 +752,8 @@ make_decl_rtl (decl, asmspec, top_level)
 
 	  DECL_RTL (decl) = gen_rtx_MEM (DECL_MODE (decl),
 					 gen_rtx_SYMBOL_REF (Pmode, name));
-
+	  MEM_ALIAS_SET (DECL_RTL (decl)) = get_alias_set (decl);
+	    
 	  /* If this variable is to be treated as volatile, show its
 	     tree node has side effects.  If it has side effects, either
 	     because of this test or from TREE_THIS_VOLATILE also
@@ -1007,22 +991,26 @@ assemble_start_function (decl, fnname)
 
   if (TREE_PUBLIC (decl))
     {
-      if (!first_global_object_name && ! DECL_WEAK (decl)
-	  && ! DECL_ONE_ONLY (decl))
+      if (! first_global_object_name)
 	{
 	  char *p;
+	  char **name;
+
+	  if (! DECL_WEAK (decl) && ! DECL_ONE_ONLY (decl))
+	    name = &first_global_object_name;
+	  else
+	    name = &weak_global_object_name;
 
 	  STRIP_NAME_ENCODING (p, fnname);
-	  first_global_object_name = permalloc (strlen (p) + 1);
-	  strcpy (first_global_object_name, p);
+	  *name = permalloc (strlen (p) + 1);
+	  strcpy (*name, p);
 	}
 
+      ASM_GLOBALIZE_LABEL (asm_out_file, fnname);
 #ifdef ASM_WEAKEN_LABEL
       if (DECL_WEAK (decl))
 	ASM_WEAKEN_LABEL (asm_out_file, fnname);
-      else
 #endif
-      ASM_GLOBALIZE_LABEL (asm_out_file, fnname);
     }
 
   /* Do any machine/system dependent processing of the function name */
@@ -1272,6 +1260,43 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       strcpy (first_global_object_name, p);
     }
 
+  /* Compute the alignment of this data.  */
+
+  align = DECL_ALIGN (decl);
+
+  /* In the case for initialing an array whose length isn't specified,
+     where we have not yet been able to do the layout,
+     figure out the proper alignment now.  */
+  if (dont_output_data && DECL_SIZE (decl) == 0
+      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+    align = MAX (align, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
+
+  /* Some object file formats have a maximum alignment which they support.
+     In particular, a.out format supports a maximum alignment of 4.  */
+#ifndef MAX_OFILE_ALIGNMENT
+#define MAX_OFILE_ALIGNMENT BIGGEST_ALIGNMENT
+#endif
+  if (align > MAX_OFILE_ALIGNMENT)
+    {
+      warning_with_decl (decl,
+	"alignment of `%s' is greater than maximum object file alignment. Using %d.",
+                    MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
+      align = MAX_OFILE_ALIGNMENT;
+    }
+
+  /* On some machines, it is good to increase alignment sometimes.  */
+#ifdef DATA_ALIGNMENT
+  align = DATA_ALIGNMENT (TREE_TYPE (decl), align);
+#endif
+#ifdef CONSTANT_ALIGNMENT
+  if (DECL_INITIAL (decl) != 0 && DECL_INITIAL (decl) != error_mark_node)
+    align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
+#endif
+
+  /* Reset the alignment in case we have made it tighter, so we can benefit
+     from it in get_pointer_alignment.  */
+  DECL_ALIGN (decl) = align;
+
   /* Handle uninitialized definitions.  */
 
   if ((DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node)
@@ -1293,7 +1318,13 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       rounded += (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1;
       rounded = (rounded / (BIGGEST_ALIGNMENT / BITS_PER_UNIT)
 		 * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
-
+      
+#if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
+      if ( (DECL_ALIGN (decl) / BITS_PER_UNIT) > rounded)
+         warning_with_decl 
+           (decl, "requested alignment for %s is greater than implemented alignment of %d.",rounded);
+#endif
+       
 #ifdef DBX_DEBUGGING_INFO
       /* File-scope global variables are output here.  */
       if (write_symbols == DBX_DEBUG && top_level)
@@ -1395,12 +1426,11 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   /* First make the assembler name(s) global if appropriate.  */
   if (TREE_PUBLIC (decl) && DECL_NAME (decl))
     {
+      ASM_GLOBALIZE_LABEL (asm_out_file, name);
 #ifdef ASM_WEAKEN_LABEL
       if (DECL_WEAK (decl))
 	ASM_WEAKEN_LABEL (asm_out_file, name);
-      else
 #endif
-      ASM_GLOBALIZE_LABEL (asm_out_file, name);
     }
 #if 0
   for (d = equivalents; d; d = TREE_CHAIN (d))
@@ -1419,7 +1449,9 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
     reloc = output_addressed_constants (DECL_INITIAL (decl));
 
 #ifdef ASM_OUTPUT_SECTION_NAME
-  if (UNIQUE_SECTION_P (decl))
+  if ((flag_data_sections != 0
+       && DECL_SECTION_NAME (decl) == NULL_TREE)
+      || UNIQUE_SECTION_P (decl))
     UNIQUE_SECTION (decl, reloc);
 #endif
 
@@ -1461,42 +1493,10 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   if (in_section != saved_in_section)
     variable_section (decl, reloc);
 
-  /* Compute and output the alignment of this data.  */
-
-  align = DECL_ALIGN (decl);
-  /* In the case for initialing an array whose length isn't specified,
-     where we have not yet been able to do the layout,
-     figure out the proper alignment now.  */
-  if (dont_output_data && DECL_SIZE (decl) == 0
-      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
-    align = MAX (align, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (decl))));
-
-  /* Some object file formats have a maximum alignment which they support.
-     In particular, a.out format supports a maximum alignment of 4.  */
-#ifndef MAX_OFILE_ALIGNMENT
-#define MAX_OFILE_ALIGNMENT BIGGEST_ALIGNMENT
-#endif
-  if (align > MAX_OFILE_ALIGNMENT)
-    {
-      warning_with_decl (decl,
-	  "alignment of `%s' is greater than maximum object file alignment");
-      align = MAX_OFILE_ALIGNMENT;
-    }
-#ifdef DATA_ALIGNMENT
-  /* On some machines, it is good to increase alignment sometimes.  */
-  align = DATA_ALIGNMENT (TREE_TYPE (decl), align);
-#endif
-#ifdef CONSTANT_ALIGNMENT
-  if (DECL_INITIAL (decl))
-    align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
-#endif
-
-  /* Reset the alignment in case we have made it tighter, so we can benefit
-     from it in get_pointer_alignment.  */
-  DECL_ALIGN (decl) = align;
-
+  /* Output the alignment of this data.  */
   if (align > BITS_PER_UNIT)
-    ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
+    ASM_OUTPUT_ALIGN (asm_out_file,
+		      floor_log2 (DECL_ALIGN (decl) / BITS_PER_UNIT));
 
   /* Do any machine/system dependent processing of the object.  */
 #ifdef ASM_DECLARE_OBJECT_NAME
@@ -1676,13 +1676,6 @@ assemble_static_space (size)
   char name[12];
   char *namestring;
   rtx x;
-#ifndef ASM_OUTPUT_ALIGNED_LOCAL
-  /* Round size up to multiple of BIGGEST_ALIGNMENT bits
-     so that each uninitialized object starts on such a boundary.  */
-  int rounded = ((size + (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1)
-		 / (BIGGEST_ALIGNMENT / BITS_PER_UNIT)
-		 * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
-#endif
 
 #if 0
   if (flag_shared_data)
@@ -1705,7 +1698,14 @@ assemble_static_space (size)
 #ifdef ASM_OUTPUT_ALIGNED_LOCAL
   ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size, BIGGEST_ALIGNMENT);
 #else
-  ASM_OUTPUT_LOCAL (asm_out_file, name, size, rounded);
+  {
+    /* Round size up to multiple of BIGGEST_ALIGNMENT bits
+       so that each uninitialized object starts on such a boundary.  */
+    int rounded = ((size + (BIGGEST_ALIGNMENT / BITS_PER_UNIT) - 1)
+		   / (BIGGEST_ALIGNMENT / BITS_PER_UNIT)
+		   * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
+    ASM_OUTPUT_LOCAL (asm_out_file, name, size, rounded);
+  }
 #endif
 #endif
   return x;
@@ -2057,6 +2057,8 @@ immed_real_const_1 (d, mode)
   else if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst1, d))
     return CONST1_RTX (mode);
 
+  if (sizeof u == sizeof (HOST_WIDE_INT))
+    return immed_double_const (u.i[0], 0, mode);
   if (sizeof u == 2 * sizeof (HOST_WIDE_INT))
     return immed_double_const (u.i[0], u.i[1], mode);
 
@@ -2548,6 +2550,7 @@ compare_constant_1 (exp, p)
 
     case PLUS_EXPR:
     case MINUS_EXPR:
+    case RANGE_EXPR:
       p = compare_constant_1 (TREE_OPERAND (exp, 0), p);
       if (p == 0)
 	return 0;
@@ -2724,6 +2727,7 @@ record_constant_1 (exp)
 
     case PLUS_EXPR:
     case MINUS_EXPR:
+    case RANGE_EXPR:
       record_constant_1 (TREE_OPERAND (exp, 0));
       record_constant_1 (TREE_OPERAND (exp, 1));
       return;
@@ -3439,6 +3443,10 @@ force_const_mem (mode, x)
       align = (mode == VOIDmode) ? UNITS_PER_WORD : GET_MODE_SIZE (mode);
       if (align > BIGGEST_ALIGNMENT / BITS_PER_UNIT)
 	align = BIGGEST_ALIGNMENT / BITS_PER_UNIT;
+#ifdef CONSTANT_ALIGNMENT
+      align = CONSTANT_ALIGNMENT (make_tree (type_for_mode (mode, 0), x),
+				 align * BITS_PER_UNIT) / BITS_PER_UNIT;
+#endif
 
       pool_offset += align - 1;
       pool_offset &= ~ (align - 1);
@@ -4242,38 +4250,6 @@ output_constructor (exp, size)
     assemble_zeros (size - total_bytes);
 }
 
-/* Output asm to handle ``#pragma weak'' */
-
-void
-handle_pragma_weak (what, name, value)
-     enum pragma_state what;
-     char *name, *value;
-{
-#ifdef HANDLE_PRAGMA_WEAK
-  if (what == ps_name || what == ps_value)
-    {
-      struct weak_syms *weak =
-	(struct weak_syms *)permalloc (sizeof (struct weak_syms));
-      weak->next = weak_decls;
-      weak->name = permalloc (strlen (name) + 1);
-      strcpy (weak->name, name);
-
-      if (what != ps_value)
-	weak->value = NULL_PTR;
-
-      else
-	{
-	  weak->value = permalloc (strlen (value) + 1);
-	  strcpy (weak->value, value);
-	}
-
-      weak_decls = weak;
-    }
-  else if (! (what == ps_done || what == ps_start))
-    warning ("malformed `#pragma weak'");
-#endif /* HANDLE_PRAGMA_WEAK */
-}
-
 /* Declare DECL to be a weak symbol.  */
 
 void
@@ -4290,6 +4266,10 @@ declare_weak (decl)
 
 /* Emit any pending weak declarations.  */
 
+#ifdef HANDLE_PRAGMA_WEAK
+struct weak_syms * weak_decls;
+#endif
+
 void
 weak_finish ()
 {
@@ -4299,6 +4279,7 @@ weak_finish ()
       struct weak_syms *t;
       for (t = weak_decls; t; t = t->next)
 	{
+	  ASM_GLOBALIZE_LABEL (asm_out_file, t->name);
 	  ASM_WEAKEN_LABEL (asm_out_file, t->name);
 	  if (t->value)
 	    ASM_OUTPUT_DEF (asm_out_file, t->name, t->value);
@@ -4321,12 +4302,11 @@ assemble_alias (decl, target)
 
   if (TREE_PUBLIC (decl))
     {
+      ASM_GLOBALIZE_LABEL (asm_out_file, name);
 #ifdef ASM_WEAKEN_LABEL
       if (DECL_WEAK (decl))
 	ASM_WEAKEN_LABEL (asm_out_file, name);
-      else
 #endif
-	ASM_GLOBALIZE_LABEL (asm_out_file, name);
     }
 
   ASM_OUTPUT_DEF (asm_out_file, name, IDENTIFIER_POINTER (target));

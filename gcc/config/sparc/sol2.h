@@ -107,7 +107,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL,PREFIX,NUM)	\
-  sprintf (LABEL, "*.L%s%d", PREFIX, NUM)
+  sprintf ((LABEL), "*.L%s%ld", (PREFIX), (long)(NUM))
 
 
 /* We don't use the standard svr4 STARTFILE_SPEC because it's wrong for us.
@@ -193,6 +193,17 @@ Boston, MA 02111-1307, USA.  */
 #define MODDI3_LIBCALL "__rem64"
 #define UMODDI3_LIBCALL "__urem64"
 
+#undef INIT_SUBTARGET_OPTABS
+#define INIT_SUBTARGET_OPTABS	\
+  fixsfdi_libfunc = gen_rtx_SYMBOL_REF (Pmode, \
+	TARGET_ARCH64 ? "__ftol" : "__ftoll");	\
+  fixunssfdi_libfunc = gen_rtx_SYMBOL_REF (Pmode, \
+	TARGET_ARCH64 ? "__ftoul" : "__ftoull");	\
+  fixdfdi_libfunc = gen_rtx_SYMBOL_REF (Pmode, \
+	TARGET_ARCH64 ? "__dtol" : "__dtoll");	\
+  fixunsdfdi_libfunc = gen_rtx_SYMBOL_REF (Pmode, \
+	TARGET_ARCH64 ? "__dtoul" : "__dtoull")
+
 /* No weird SPARC variants on Solaris */
 #undef TARGET_LIVE_G0
 #define TARGET_LIVE_G0	0
@@ -203,4 +214,23 @@ Boston, MA 02111-1307, USA.  */
    sparc_override_options will disable V8+ if not generating V9 code.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU + MASK_V8PLUS)
+
+/* Override MACHINE_STATE_{SAVE,RESTORE} because we have special
+   traps available which can get and set the condition codes
+   reliably.  */
+#undef MACHINE_STATE_SAVE
+#define MACHINE_STATE_SAVE(ID)				\
+  unsigned long int ms_flags, ms_saveret;		\
+  asm volatile("ta	0x20\n\t"			\
+	       "mov	%%g1, %0\n\t"			\
+	       "mov	%%g2, %1\n\t"			\
+	       : "=r" (ms_flags), "=r" (ms_saveret));
+
+#undef MACHINE_STATE_RESTORE
+#define MACHINE_STATE_RESTORE(ID)			\
+  asm volatile("mov	%0, %%g1\n\t"			\
+	       "mov	%1, %%g2\n\t"			\
+	       "ta	0x21\n\t"			\
+	       : /* no outputs */			\
+	       : "r" (ms_flags), "r" (ms_saveret));
 

@@ -1,6 +1,6 @@
 /* target.c -- Implementation File (module.c template V1.0)
    Copyright (C) 1995-1998 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.ai.mit.edu).
+   Contributed by James Craig Burley (burley@gnu.org).
 
 This file is part of GNU Fortran.
 
@@ -69,7 +69,6 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Include files. */
 
 #include "proj.h"
-#include <ctype.h>
 #include "glimits.j"
 #include "target.h"
 #include "bad.h"
@@ -131,7 +130,7 @@ ffetarget_print_char_ (FILE *f, unsigned char c)
       break;
 
     default:
-      if (isprint (c) && isascii (c))
+      if (ISPRINT (c))
 	fputc (c, f);
       else
 	fprintf (f, "\\%03o", (unsigned int) c);
@@ -215,17 +214,22 @@ ffetarget_align (ffetargetAlign *updated_alignment,
   ffetargetAlign i;
   ffetargetAlign j;
 
+  assert (alignment > 0);
+  assert (*updated_alignment > 0);
+  
   assert (*updated_modulo < *updated_alignment);
   assert (modulo < alignment);
 
-  /* The easy case: similar alignment requirements. */
-
+  /* The easy case: similar alignment requirements.  */
   if (*updated_alignment == alignment)
     {
       if (modulo > *updated_modulo)
 	pad = alignment - (modulo - *updated_modulo);
       else
 	pad = *updated_modulo - modulo;
+      if (offset < 0)
+	/* De-negatize offset, since % wouldn't do the expected thing.  */
+	offset = alignment - ((- offset) % alignment);
       pad = (offset + pad) % alignment;
       if (pad != 0)
 	pad = alignment - pad;
@@ -241,7 +245,12 @@ ffetarget_align (ffetargetAlign *updated_alignment,
 
   cnt = ua / alignment;
 
-  min_pad = ~(ffetargetAlign) 0;/* Set to largest value. */
+  if (offset < 0)
+    /* De-negatize offset, since % wouldn't do the expected thing.  */
+    offset = ua - ((- offset) % ua);
+
+  /* Set to largest value.  */
+  min_pad = ~(ffetargetAlign) 0;
 
   /* Find all combinations of modulo values the two alignment requirements
      have; pick the combination that results in the smallest padding
@@ -252,21 +261,20 @@ ffetarget_align (ffetargetAlign *updated_alignment,
     {
       for (m = modulo, j = 0; j < cnt; m += alignment, ++j)
 	{
-	  if (m > um)		/* This code is similar to the "easy case"
-				   code above. */
+	  /* This code is similar to the "easy case" code above. */
+	  if (m > um)
 	    pad = ua - (m - um);
 	  else
 	    pad = um - m;
 	  pad = (offset + pad) % ua;
-	  if (pad != 0)
-	    pad = ua - pad;
-	  else
-	    {			/* A zero pad means we've got something
-				   useful. */
+	  if (pad == 0)
+	    {
+	      /* A zero pad means we've got something useful.  */
 	      *updated_alignment = ua;
 	      *updated_modulo = um;
 	      return 0;
 	    }
+	  pad = ua - pad;
 	  if (pad < min_pad)
 	    {			/* New minimum padding value. */
 	      min_pad = pad;
@@ -2386,7 +2394,7 @@ ffetarget_typeless_binary (ffetargetTypeless *xvalue, ffelexToken token)
       new_value <<= 1;
       if ((new_value >> 1) != value)
 	overflow = TRUE;
-      if (isdigit (c))
+      if (ISDIGIT (c))
 	new_value += c - '0';
       else
 	bad_digit = TRUE;
@@ -2430,7 +2438,7 @@ ffetarget_typeless_octal (ffetargetTypeless *xvalue, ffelexToken token)
       new_value <<= 3;
       if ((new_value >> 3) != value)
 	overflow = TRUE;
-      if (isdigit (c))
+      if (ISDIGIT (c))
 	new_value += c - '0';
       else
 	bad_digit = TRUE;
@@ -2474,7 +2482,7 @@ ffetarget_typeless_hex (ffetargetTypeless *xvalue, ffelexToken token)
       new_value <<= 4;
       if ((new_value >> 4) != value)
 	overflow = TRUE;
-      if (isdigit (c))
+      if (ISDIGIT (c))
 	new_value += c - '0';
       else if ((c >= 'A') && (c <= 'F'))
 	new_value += c - 'A' + 10;

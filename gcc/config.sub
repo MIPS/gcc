@@ -117,6 +117,9 @@ case $os in
 		# Don't forget version if it is 3.2v4 or newer.
 		basic_machine=`echo $1 | sed -e 's/86-.*/86-pc/'`
 		;;
+	-udk*)
+		basic_machine=`echo $1 | sed -e 's/86-.*/86-pc/'`
+		;;
 	-sco*)
 		os=-sco3.2v2
 		basic_machine=`echo $1 | sed -e 's/86-.*/86-pc/'`
@@ -156,7 +159,7 @@ case $basic_machine in
 		| i370 | sh | powerpc | powerpcle | 1750a | dsp16xx | pdp11 \
 		| mips64 | mipsel | mips64el | mips64orion | mips64orionel \
 		| mipstx39 | mipstx39el \
-		| sparc | sparclet | sparclite | sparc64 | v850)
+		| sparc | sparclet | sparclite | sparc64 | sparcv9 | v850)
 		basic_machine=$basic_machine-unknown
 		;;
 	thumb | thumbel)
@@ -182,7 +185,7 @@ case $basic_machine in
 	      | alpha-* | alphaev5-* | alphaev56-* | we32k-* | cydra-* \
 	      | ns16k-* | pn-* | np1-* | xps100-* | clipper-* | orion-* \
 	      | sparclite-* | pdp11-* | sh-* | powerpc-* | powerpcle-* \
-	      | sparc64-* | mips64-* | mipsel-* \
+	      | sparc64-* | sparcv9-* | mips64-* | mipsel-* \
 	      | mips64el-* | mips64orion-* | mips64orionel-*  \
 	      | mipstx39-* | mipstx39el-* \
 	      | f301-*)
@@ -663,7 +666,7 @@ case $basic_machine in
 	we32k)
 		basic_machine=we32k-att
 		;;
-	sparc)
+	sparc | sparcv9)
 		basic_machine=sparc-sun
 		;;
         cydra)
@@ -732,7 +735,7 @@ case $os in
 	      | -ptx* | -coff* | -ecoff* | -winnt* | -domain* | -vsta* \
 	      | -udi* | -eabi* | -lites* | -ieee* | -go32* | -aux* \
 	      | -cygwin32* | -pe* | -psos* | -moss* | -proelf* | -rtems* \
-	      | -mingw32* | -linux-gnu* | -uxpv* | -beos* )
+	      | -win32* | -mingw32* | -linux-gnu* | -uxpv* | -beos*  | -udk* )
 	# Remember, each alternative MUST END IN *, to match a version number.
 		;;
 	-linux*)

@@ -266,7 +266,17 @@ do {									\
 /* Default ABI to compile code for */
 #define DEFAULT_ABI rs6000_current_abi
 
-#include "rs6000/powerpc.h"
+#define CPP_DEFAULT_SPEC "-D_ARCH_PPC"
+
+#define ASM_DEFAULT_SPEC "-mppc"
+
+#include "rs6000/rs6000.h"
+
+#undef TARGET_DEFAULT
+#define TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS)
+
+#undef PROCESSOR_DEFAULT
+#define PROCESSOR_DEFAULT PROCESSOR_PPC601
 
 /* System V.4 uses register 13 as a pointer to the small data area,
    so it is not available to the normal user.  */
@@ -331,6 +341,7 @@ do {									\
 
 /* Put jump tables in read-only memory, rather than in .text.  */
 #undef JUMP_TABLES_IN_TEXT_SECTION
+#define JUMP_TABLES_IN_TEXT_SECTION 0
 
 /* Disable AIX-ism that disables turning -B into -L if the argument specifies a
    relative file name.  This breaks setting GCC_EXEC_PREFIX to D:\path under
@@ -409,21 +420,21 @@ do {									\
 /* Use ELF style section commands.  */
 
 #undef TEXT_SECTION_ASM_OP
-#define TEXT_SECTION_ASM_OP	"\t.section \".text\""
+#define TEXT_SECTION_ASM_OP	"\t.section\t\".text\""
 
 #undef DATA_SECTION_ASM_OP
-#define DATA_SECTION_ASM_OP	"\t.section \".data\""
+#define DATA_SECTION_ASM_OP	"\t.section\t\".data\""
 
 #undef BSS_SECTION_ASM_OP
-#define BSS_SECTION_ASM_OP	"\t.section \".bss\""
+#define BSS_SECTION_ASM_OP	"\t.section\t\".bss\""
 
 #undef INIT_SECTION_ASM_OP
-#define INIT_SECTION_ASM_OP "\t.section \".init\",\"ax\""
+#define INIT_SECTION_ASM_OP "\t.section\t\".init\",\"ax\""
 
 #undef FINI_SECTION_ASM_OP
-#define FINI_SECTION_ASM_OP "\t.section \".fini\",\"ax\""
+#define FINI_SECTION_ASM_OP "\t.section\t\".fini\",\"ax\""
 
-#define TOC_SECTION_ASM_OP "\t.section \".got\",\"aw\""
+#define TOC_SECTION_ASM_OP "\t.section\t\".got\",\"aw\""
 
 /* Put PC relative got entries in .got2 */
 #define MINIMAL_TOC_SECTION_ASM_OP \
@@ -435,10 +446,10 @@ do {									\
   ((TARGET_RELOCATABLE || flag_pic) ? "\t.section\t\".data\"\t# .rodata" : "\t.section\t\".rodata\"")
 
 
-#define SDATA_SECTION_ASM_OP "\t.section \".sdata\",\"aw\""
-#define SDATA2_SECTION_ASM_OP "\t.section \".sdata2\",\"a\""
+#define SDATA_SECTION_ASM_OP "\t.section\t\".sdata\",\"aw\""
+#define SDATA2_SECTION_ASM_OP "\t.section\t\".sdata2\",\"a\""
 #define SBSS_SECTION_ASM_OP \
-  ((DEFAULT_ABI == ABI_SOLARIS) ? "\t.section \".sbss\",\"aw\"" : "\t.section \".sbss\",\"aw\",@nobits")
+  ((DEFAULT_ABI == ABI_SOLARIS) ? "\t.section\t\".sbss\",\"aw\"" : "\t.section\t\".sbss\",\"aw\",@nobits")
 
 
 /* Besides the usual ELF sections, we need a toc section.  */
@@ -771,7 +782,7 @@ do {									\
       fprintf (FILE, "\t.long (");					\
       output_addr_const (FILE, (VALUE));				\
       fprintf (FILE, ")@fixup\n");					\
-      fprintf (FILE, "\t.section \".fixup\",\"aw\"\n");			\
+      fprintf (FILE, "\t.section\t\".fixup\",\"aw\"\n");			\
       ASM_OUTPUT_ALIGN (FILE, 2);					\
       fprintf (FILE, "\t.long\t%s\n", p);				\
       fprintf (FILE, "\t.previous\n");					\
@@ -892,14 +903,14 @@ do {									\
       s->type = type;							\
       s->next = sections;						\
       sections = s;							\
-      fprintf (FILE, ".section\t%s,\"%s\"\n", NAME, mode);		\
+      fprintf (FILE, "\t.section\t\"%s\",\"%s\"\n", NAME, mode);	\
     }									\
   else									\
     {									\
       if (DECL && s->type != type)					\
 	error_with_decl (DECL, "%s causes a section type conflict");	\
 									\
-      fprintf (FILE, ".section\t%s\n", NAME);				\
+      fprintf (FILE, "\t.section\t\"%s\"\n", NAME);			\
     }									\
 } while (0)
 

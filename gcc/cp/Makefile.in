@@ -34,6 +34,10 @@
 # Suppress smart makes who think they know how to automake Yacc files
 .y.c:
 
+# It defines the c++ interface name. It should be changed when the
+# c++ interface is changed.
+INTERFACE = 1
+
 # Variables that exist for you to override.
 # See below for how to change them for certain systems.
 
@@ -55,9 +59,9 @@ X_CPPFLAGS =
 T_CPPFLAGS =
 
 CC = @CC@
-BISON = bison
+BISON = `if [ -f ../../bison/bison ] ; then echo ../../bison/bison -L $(srcdir)/../../bison/ ;  else echo bison ; fi`
 BISONFLAGS =
-LEX = flex
+LEX = `if [ -f ../../flex/flex ] ; then echo ../../flex/flex ;  else echo flex ; fi`
 LEXFLAGS =
 AR = ar
 AR_FLAGS = rc
@@ -82,6 +86,12 @@ GCC_CFLAGS=$(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS)
 # Tools to use when building a cross-compiler.
 # These are used because `configure' appends `cross-make'
 # to the makefile when making a cross-compiler.
+
+# We don't use cross-make.  Instead we use the tools
+# from the build tree, if they are available.
+# program_transform_name and objdir are set by configure.in.
+program_transform_name =
+objdir = .
 
 target=@target@
 xmake_file=@dep_host_xmake_file@
@@ -150,7 +160,7 @@ LIBS = $(SUBDIR_OBSTACK) $(SUBDIR_USE_ALLOCA) $(SUBDIR_MALLOC) $(CLIB)
 # Both . and srcdir are used, in that order,
 # so that tm.h and config.h will be found in the compilation
 # subdirectory rather than in the source directory.
-INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config
+INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config -I$(srcdir)/../../include
 
 # Always use -I$(srcdir)/config when compiling.
 .c.o:
@@ -170,7 +180,8 @@ INCLUDES = -I. -I.. -I$(srcdir) -I$(srcdir)/.. -I$(srcdir)/../config
 
 CXX_OBJS = call.o decl.o errfn.o expr.o pt.o sig.o typeck2.o \
  class.o decl2.o error.o lex.o parse.o ptree.o rtti.o spew.o typeck.o cvt.o \
- except.o friend.o init.o method.o search.o semantics.o tree.o xref.o repo.o
+ except.o friend.o init.o method.o search.o semantics.o tree.o xref.o \
+ repo.o @extra_cxx_objs@
 
 # Language-independent object files.
 OBJS = `cat ../stamp-objlist` ../c-common.o ../c-pragma.o
@@ -200,13 +211,15 @@ TREE_H = $(srcdir)/../tree.h $(srcdir)/../real.h $(srcdir)/../tree.def \
 CXX_TREE_H = $(TREE_H) cp-tree.h cp-tree.def
 PARSE_H = $(srcdir)/parse.h
 PARSE_C = $(srcdir)/parse.c
+EXPR_H = $(srcdir)/../expr.h ../insn-codes.h
 
 parse.o : $(PARSE_C) $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h lex.h \
-	$(srcdir)/../except.h $(srcdir)/../output.h $(srcdir)/../system.h
+	$(srcdir)/../except.h $(srcdir)/../output.h $(srcdir)/../system.h \
+	$(srcdir)/../toplev.h
 	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $(BIG_SWITCHFLAG) \
   `echo $(PARSE_C) | sed 's,^\./,,'`
 
-CONFLICTS = expect 21 shift/reduce conflicts and 49 reduce/reduce conflicts.
+CONFLICTS = expect 25 shift/reduce conflicts and 42 reduce/reduce conflicts.
 $(PARSE_H) : $(PARSE_C)
 $(PARSE_C) : $(srcdir)/parse.y
 	@echo $(CONFLICTS)
@@ -227,26 +240,26 @@ $(PARSE_C) : $(srcdir)/parse.y
 # if gxx.gpref got touched, say.
 # Thus you have to remove hash.h to force it to be re-made.
 $(srcdir)/hash.h:
-	gperf -p -j1 -g -o -t -N is_reserved_word '-k1,4,7,$$' \
-		$(srcdir)/gxx.gperf >$(srcdir)/hash.h
+	gperf -L KR-C -F ', 0, 0' -p -j1 -g -o -t -N is_reserved_word \
+		'-k1,4,7,$$' $(srcdir)/gxx.gperf >$(srcdir)/hash.h
 
-spew.o : spew.c $(CONFIG_H) $(CXX_TREE_H) \
-  $(PARSE_H) $(srcdir)/../flags.h lex.h $(srcdir)/../system.h
+spew.o : spew.c $(CONFIG_H) $(CXX_TREE_H) $(PARSE_H) $(srcdir)/../flags.h \
+  lex.h $(srcdir)/../system.h $(srcdir)/../toplev.h
 lex.o : lex.c $(CONFIG_H) $(CXX_TREE_H) \
   $(PARSE_H) input.c $(srcdir)/../flags.h hash.h lex.h \
-  $(srcdir)/../c-pragma.h $(srcdir)/../system.h $(srcdir)/../toplev.h
+  $(srcdir)/../c-pragma.h $(srcdir)/../system.h $(srcdir)/../toplev.h \
+  $(srcdir)/../output.h $(srcdir)/../mbchar.h
 decl.o : decl.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h \
   lex.h decl.h $(srcdir)/../stack.h $(srcdir)/../output.h  \
   $(srcdir)/../except.h $(srcdir)/../system.h $(srcdir)/../toplev.h
 decl2.o : decl2.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h \
-  lex.h decl.h $(srcdir)/../expr.h ../insn-codes.h $(srcdir)/../except.h \
+  lex.h decl.h $(EXPR_H) $(srcdir)/../except.h \
   $(srcdir)/../output.h $(srcdir)/../except.h $(srcdir)/../system.h \
-  $(srcdir)/../toplev.h
+  $(srcdir)/../toplev.h $(srcdir)/../dwarf2out.h $(srcdir)/../dwarfout.h
 typeck2.o : typeck2.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h \
   $(srcdir)/../system.h $(srcdir)/../toplev.h
 typeck.o : typeck.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h $(RTL_H) \
-  $(srcdir)/../expr.h ../insn-codes.h $(srcdir)/../system.h \
-  $(srcdir)/../toplev.h
+  $(EXPR_H) $(srcdir)/../system.h $(srcdir)/../toplev.h
 class.o : class.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h \
   $(srcdir)/../system.h $(srcdir)/../toplev.h
 call.o : call.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h \
@@ -254,8 +267,7 @@ call.o : call.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h \
 friend.o : friend.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h $(RTL_H) \
   $(srcdir)/../system.h $(srcdir)/../toplev.h
 init.o : init.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h $(RTL_H) \
-  $(srcdir)/../expr.h ../insn-codes.h $(srcdir)/../system.h \
-  $(srcdir)/../toplev.h
+  $(EXPR_H) $(srcdir)/../system.h $(srcdir)/../toplev.h
 method.o : method.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../system.h \
   $(srcdir)/../toplev.h
 cvt.o : cvt.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../system.h
@@ -269,8 +281,7 @@ rtti.o : rtti.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h \
 except.o : except.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../flags.h $(RTL_H) \
   $(srcdir)/../except.h $(srcdir)/../system.h $(srcdir)/../toplev.h
 expr.o : expr.c $(CONFIG_H) $(CXX_TREE_H) $(RTL_H) $(srcdir)/../flags.h \
-  $(srcdir)/../expr.h ../insn-codes.h $(srcdir)/../system.h \
-  $(srcdir)/../toplev.h
+  $(EXPR_H) $(srcdir)/../system.h $(srcdir)/../toplev.h
 xref.o : xref.c $(CONFIG_H) $(CXX_TREE_H) $(srcdir)/../input.h \
   $(srcdir)/../system.h $(srcdir)/../toplev.h
 pt.o : pt.c $(CONFIG_H) $(CXX_TREE_H) decl.h $(PARSE_H) lex.h \

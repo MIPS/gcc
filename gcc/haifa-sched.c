@@ -87,7 +87,8 @@
    broken by
    6.  choose insn with the least dependences upon the previously
    scheduled insn, or finally
-   7.  choose insn with lowest UID.
+   7   choose the insn which has the most insns dependent on it.
+   8.  choose insn with lowest UID.
 
    Memory references complicate matters.  Only if we can be certain
    that memory references are not part of the data dependency graph
@@ -164,6 +165,7 @@
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "except.h"
+#include "toplev.h"
 
 extern char *reg_known_equiv_p;
 extern rtx *reg_known_value;
@@ -451,9 +453,9 @@ static void new_insn_dead_notes PROTO ((rtx, rtx, rtx, rtx));
 static void update_n_sets PROTO ((rtx, int));
 static void update_flow_info PROTO ((rtx, rtx, rtx, rtx));
 static char *safe_concat PROTO ((char *, char *, char *));
-
-/* Main entry point of this file.  */
-void schedule_insns PROTO ((FILE *));
+static int insn_issue_delay PROTO ((rtx));
+static int birthing_insn_p PROTO ((rtx));
+static void adjust_priority PROTO ((rtx));
 
 /* Mapping of insns to their original block prior to scheduling.  */
 static int *insn_orig_block;
@@ -741,11 +743,11 @@ static void find_post_sched_live PROTO ((int));
 static void update_reg_usage PROTO ((void));
 static int queue_to_ready PROTO ((rtx [], int));
 
-void debug_ready_list PROTO ((rtx[], int));
-static void init_target_units PROTO (());
+static void debug_ready_list PROTO ((rtx[], int));
+static void init_target_units PROTO ((void));
 static void insn_print_units PROTO ((rtx));
-static int get_visual_tbl_length PROTO (());
-static void init_block_visualization PROTO (());
+static int get_visual_tbl_length PROTO ((void));
+static void init_block_visualization PROTO ((void));
 static void print_block_visualization PROTO ((int, char *));
 static void visualize_scheduled_insns PROTO ((int, int));
 static void visualize_no_unit PROTO ((rtx));
@@ -830,10 +832,10 @@ alloc_EXPR_LIST (kind, val, next)
 {
   rtx r;
 
-  if (unused_insn_list)
+  if (unused_expr_list)
     {
-      r = unused_insn_list;
-      unused_insn_list = XEXP (r, 1);
+      r = unused_expr_list;
+      unused_expr_list = XEXP (r, 1);
       XEXP (r, 0) = val;
       XEXP (r, 1) = next;
       PUT_REG_NOTE_KIND (r, kind);
@@ -969,6 +971,10 @@ schedule_insns (dump_file)
 #else
 #ifndef __GNUC__
 #define __inline
+#endif
+
+#ifndef HAIFA_INLINE
+#define HAIFA_INLINE __inline
 #endif
 
 /* Computation of memory dependencies.  */
@@ -1463,7 +1469,7 @@ find_rgns (s_preds, s_succs, num_preds, num_succs, dom)
 {
   int *max_hdr, *dfs_nr, *stack, *queue, *degree;
   char no_loops = 1;
-  int node, child, loop_head, i, j, head, tail;
+  int node, child, loop_head, i, head, tail;
   int count = 0, sp, idx = 0, current_edge = out_edges[0];
   int num_bbs, num_insns, unreachable;
   int too_large_failure;
@@ -2107,6 +2113,16 @@ check_live_1 (src, x)
 	 || GET_CODE (reg) == STRICT_LOW_PART)
     reg = XEXP (reg, 0);
 
+  if (GET_CODE (reg) == PARALLEL
+      && GET_MODE (reg) == BLKmode)
+    {
+      register int i;
+      for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
+	if (check_live_1 (src, XVECEXP (reg, 0, i)))
+	  return 1;
+      return 0;
+    }
+
   if (GET_CODE (reg) != REG)
     return 1;
 
@@ -2174,6 +2190,15 @@ update_live_1 (src, x)
 	 || GET_CODE (reg) == SIGN_EXTRACT
 	 || GET_CODE (reg) == STRICT_LOW_PART)
     reg = XEXP (reg, 0);
+
+  if (GET_CODE (reg) == PARALLEL
+      && GET_MODE (reg) == BLKmode)
+    {
+      register int i;
+      for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
+	update_live_1 (src, XVECEXP (reg, 0, i));
+      return;
+    }
 
   if (GET_CODE (reg) != REG)
     return;
@@ -2619,6 +2644,10 @@ haifa_classify_insn (insn)
 	      tmp_class =
 		WORST_CLASS (tmp_class,
 			   may_trap_exp (SET_SRC (XVECEXP (pat, 0, i)), 0));
+	      break;
+	    case TRAP_IF:
+	      tmp_class = TRAP_RISKY;
+	      break;
 	    default:;
 	    }
 	  insn_class = WORST_CLASS (insn_class, tmp_class);
@@ -2644,6 +2673,10 @@ haifa_classify_insn (insn)
 	  tmp_class =
 	    WORST_CLASS (tmp_class,
 			 may_trap_exp (SET_SRC (pat), 0));
+	  break;
+	case TRAP_IF:
+	  tmp_class = TRAP_RISKY;
+	  break;
 	default:;
 	}
       insn_class = tmp_class;
@@ -2736,7 +2769,7 @@ is_exception_free (insn, bb_src, bb_trg)
 /* Return the INSN_LIST containing INSN in LIST, or NULL
    if LIST does not contain INSN.  */
 
-__inline static rtx
+HAIFA_INLINE static rtx
 find_insn_list (insn, list)
      rtx insn;
      rtx list;
@@ -2753,7 +2786,7 @@ find_insn_list (insn, list)
 
 /* Return 1 if the pair (insn, x) is found in (LIST, LIST1), or 0 otherwise.  */
 
-__inline static char
+HAIFA_INLINE static char
 find_insn_mem_list (insn, x, list, list1)
      rtx insn, x;
      rtx list, list1;
@@ -2776,7 +2809,7 @@ find_insn_mem_list (insn, x, list, list1)
    mask if the value is negative.  A function unit index is the
    non-negative encoding.  */
 
-__inline static int
+HAIFA_INLINE static int
 insn_unit (insn)
      rtx insn;
 {
@@ -2813,7 +2846,7 @@ insn_unit (insn)
    These values are encoded in an int where the upper half gives the
    minimum value and the lower half gives the maximum value.  */
 
-__inline static unsigned int
+HAIFA_INLINE static unsigned int
 blockage_range (unit, insn)
      int unit;
      rtx insn;
@@ -2860,7 +2893,7 @@ clear_units ()
 
 /* Return the issue-delay of an insn */
 
-__inline static int
+HAIFA_INLINE static int
 insn_issue_delay (insn)
      rtx insn;
 {
@@ -2890,7 +2923,7 @@ insn_issue_delay (insn)
    instance INSTANCE at time CLOCK if the previous actual hazard cost
    was COST.  */
 
-__inline static int
+HAIFA_INLINE static int
 actual_hazard_this_instance (unit, instance, insn, clock, cost)
      int unit, instance, clock, cost;
      rtx insn;
@@ -2927,7 +2960,7 @@ actual_hazard_this_instance (unit, instance, insn, clock, cost)
 /* Record INSN as having begun execution on the units encoded by UNIT at
    time CLOCK.  */
 
-__inline static void
+HAIFA_INLINE static void
 schedule_unit (unit, insn, clock)
      int unit, clock;
      rtx insn;
@@ -2959,7 +2992,7 @@ schedule_unit (unit, insn, clock)
 /* Return the actual hazard cost of executing INSN on the units encoded by
    UNIT at time CLOCK if the previous actual hazard cost was COST.  */
 
-__inline static int
+HAIFA_INLINE static int
 actual_hazard (unit, insn, clock, cost)
      int unit, clock, cost;
      rtx insn;
@@ -3008,7 +3041,7 @@ actual_hazard (unit, insn, clock, cost)
    to be used is chosen in preference to one with a unit that is less
    used.  We are trying to minimize a subsequent actual hazard.  */
 
-__inline static int
+HAIFA_INLINE static int
 potential_hazard (unit, insn, cost)
      int unit, cost;
      rtx insn;
@@ -3053,7 +3086,7 @@ potential_hazard (unit, insn, cost)
    This is the number of cycles between instruction issue and
    instruction results.  */
 
-__inline static int
+HAIFA_INLINE static int
 insn_cost (insn, link, used)
      rtx insn, link, used;
 {
@@ -3269,6 +3302,17 @@ sched_analyze_1 (x, insn)
 
   if (dest == 0)
     return;
+
+  if (GET_CODE (dest) == PARALLEL
+      && GET_MODE (dest) == BLKmode)
+    {
+      register int i;
+      for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
+	sched_analyze_1 (XVECEXP (dest, 0, i), insn);
+      if (GET_CODE (x) == SET)
+	sched_analyze_2 (SET_SRC (x), insn);
+      return;
+    }
 
   while (GET_CODE (dest) == STRICT_LOW_PART || GET_CODE (dest) == SUBREG
       || GET_CODE (dest) == ZERO_EXTRACT || GET_CODE (dest) == SIGN_EXTRACT)
@@ -3550,10 +3594,14 @@ sched_analyze_2 (x, insn)
 	return;
       }
 
+    /* Force pending stores to memory in case a trap handler needs them.  */
+    case TRAP_IF:
+      flush_pending_lists (insn, 1);
+      break;
+
     case ASM_OPERANDS:
     case ASM_INPUT:
     case UNSPEC_VOLATILE:
-    case TRAP_IF:
       {
 	rtx u;
 
@@ -3665,36 +3713,54 @@ sched_analyze_insn (x, insn, loop_notes)
 	  sched_analyze_2 (XEXP (link, 0), insn);
       }
 
-  /* If there is a {LOOP,EHREGION}_{BEG,END} note in the middle of a basic block, then
-     we must be sure that no instructions are scheduled across it.
+  /* If there is a {LOOP,EHREGION}_{BEG,END} note in the middle of a basic
+     block, then we must be sure that no instructions are scheduled across it.
      Otherwise, the reg_n_refs info (which depends on loop_depth) would
      become incorrect.  */
 
   if (loop_notes)
     {
       int max_reg = max_reg_num ();
+      int schedule_barrier_found = 0;
       rtx link;
 
-      for (i = 0; i < max_reg; i++)
-	{
-	  rtx u;
-	  for (u = reg_last_uses[i]; u; u = XEXP (u, 1))
-	    add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
-	  reg_last_uses[i] = 0;
-
-	  /* reg_last_sets[r] is now a list of insns */
-	  for (u = reg_last_sets[i]; u; u = XEXP (u, 1))
-	    add_dependence (insn, XEXP (u, 0), 0);
-	}
-      reg_pending_sets_all = 1;
-
-      flush_pending_lists (insn, 0);
-
+      /* Update loop_notes with any notes from this insn.  Also determine
+	 if any of the notes on the list correspond to instruction scheduling
+	 barriers (loop, eh & setjmp notes, but not range notes.  */
       link = loop_notes;
       while (XEXP (link, 1))
-	link = XEXP (link, 1);
+	{
+	  if (INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_BEG
+	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_LOOP_END
+	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_BEG
+	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_EH_REGION_END
+	      || INTVAL (XEXP (link, 0)) == NOTE_INSN_SETJMP)
+	    schedule_barrier_found = 1;
+
+	  link = XEXP (link, 1);
+	}
       XEXP (link, 1) = REG_NOTES (insn);
       REG_NOTES (insn) = loop_notes;
+
+      /* Add dependencies if a scheduling barrier was found.  */
+      if (schedule_barrier_found)
+	{
+	  for (i = 0; i < max_reg; i++)
+	    {
+	      rtx u;
+	      for (u = reg_last_uses[i]; u; u = XEXP (u, 1))
+		add_dependence (insn, XEXP (u, 0), REG_DEP_ANTI);
+	      reg_last_uses[i] = 0;
+
+	      /* reg_last_sets[r] is now a list of insns */
+	      for (u = reg_last_sets[i]; u; u = XEXP (u, 1))
+		add_dependence (insn, XEXP (u, 0), 0);
+	    }
+	  reg_pending_sets_all = 1;
+
+	  flush_pending_lists (insn, 0);
+	}
+
     }
 
   /* After reload, it is possible for an instruction to have a REG_DEAD note
@@ -3791,6 +3857,10 @@ sched_analyze (head, tail)
     {
       if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN)
 	{
+	  /* Make each JUMP_INSN a scheduling barrier for memory references.  */
+	  if (GET_CODE (insn) == JUMP_INSN)
+	    last_pending_memory_flush
+	      = alloc_INSN_LIST (insn, last_pending_memory_flush);
 	  sched_analyze_insn (PATTERN (insn), insn, loop_notes);
 	  loop_notes = 0;
 	}
@@ -3886,6 +3956,18 @@ sched_analyze (head, tail)
 	}
 
       /* See comments on reemit_notes as to why we do this.  */
+      /* ??? Actually, the reemit_notes just say what is done, not why.  */
+
+      else if (GET_CODE (insn) == NOTE
+	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RANGE_START
+		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_RANGE_END))
+	{
+	  loop_notes = alloc_EXPR_LIST (REG_DEAD, NOTE_RANGE_INFO (insn),
+					loop_notes);
+	  loop_notes = alloc_EXPR_LIST (REG_DEAD,
+					GEN_INT (NOTE_LINE_NUMBER (insn)),
+					loop_notes);
+	}
       else if (GET_CODE (insn) == NOTE
 	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
@@ -3925,6 +4007,15 @@ sched_note_set (x, death)
 
   if (reg == 0)
     return;
+
+  if (GET_CODE (reg) == PARALLEL
+      && GET_MODE (reg) == BLKmode)
+    {
+      register int i;
+      for (i = XVECLEN (reg, 0) - 1; i >= 0; i--)
+	sched_note_set (XVECEXP (reg, 0, i), death);
+      return;
+    }
 
   while (GET_CODE (reg) == SUBREG || GET_CODE (reg) == STRICT_LOW_PART
 	 || GET_CODE (reg) == SIGN_EXTRACT || GET_CODE (reg) == ZERO_EXTRACT)
@@ -4018,7 +4109,7 @@ rank_for_schedule (x, y)
   rtx tmp = *(rtx *)y;
   rtx tmp2 = *(rtx *)x;
   rtx link;
-  int tmp_class, tmp2_class;
+  int tmp_class, tmp2_class, depend_count1, depend_count2;
   int val, priority_val, spec_val, prob_val, weight_val;
 
 
@@ -4079,6 +4170,21 @@ rank_for_schedule (x, y)
 	return val;
     }
 
+  /* Prefer the insn which has more later insns that depend on it. 
+     This gives the scheduler more freedom when scheduling later
+     instructions at the expense of added register pressure.  */
+  depend_count1 = 0;
+  for (link = INSN_DEPEND (tmp); link; link = XEXP (link, 1))
+    depend_count1++;
+
+  depend_count2 = 0;
+  for (link = INSN_DEPEND (tmp2); link; link = XEXP (link, 1))
+    depend_count2++;
+
+  val = depend_count2 - depend_count1;
+  if (val)
+    return val;
+  
   /* If insns are equally good, sort by INSN_LUID (original insn order),
      so that we make the sort stable.  This minimizes instruction movement,
      thus minimizing sched's effect on debugging and cross-jumping.  */
@@ -4087,7 +4193,7 @@ rank_for_schedule (x, y)
 
 /* Resort the array A in which only element at index N may be out of order.  */
 
-__inline static void
+HAIFA_INLINE static void
 swap_sort (a, n)
      rtx *a;
      int n;
@@ -4109,7 +4215,7 @@ static int max_priority;
    N_CYCLES after the currently executing insn.  Preserve insns
    chain for debugging purposes.  */
 
-__inline static void
+HAIFA_INLINE static void
 queue_insn (insn, n_cycles)
      rtx insn;
      int n_cycles;
@@ -4134,7 +4240,7 @@ queue_insn (insn, n_cycles)
 /* Return nonzero if PAT is the pattern of an insn which makes a
    register live.  */
 
-__inline static int
+HAIFA_INLINE static int
 birthing_insn_p (pat)
      rtx pat;
 {
@@ -4144,18 +4250,31 @@ birthing_insn_p (pat)
     return 0;
 
   if (GET_CODE (pat) == SET
-      && GET_CODE (SET_DEST (pat)) == REG)
+      && (GET_CODE (SET_DEST (pat)) == REG
+	  || (GET_CODE (SET_DEST (pat)) == PARALLEL
+	      && GET_MODE (SET_DEST (pat)) == BLKmode)))
     {
       rtx dest = SET_DEST (pat);
-      int i = REGNO (dest);
+      int i;
 
       /* It would be more accurate to use refers_to_regno_p or
-         reg_mentioned_p to determine when the dest is not live before this
-         insn.  */
-
-      if (REGNO_REG_SET_P (bb_live_regs, i))
-	return (REG_N_SETS (i) == 1);
-
+	 reg_mentioned_p to determine when the dest is not live before this
+	 insn.  */
+      if (GET_CODE (dest) == REG)
+	{
+	  i = REGNO (dest);
+	  if (REGNO_REG_SET_P (bb_live_regs, i))
+	    return (REG_N_SETS (i) == 1);
+	}
+      else
+	{
+	  for (i = XVECLEN (dest, 0) - 1; i >= 0; i--)
+	    {
+	      int regno = REGNO (SET_DEST (XVECEXP (dest, 0, i)));
+	      if (REGNO_REG_SET_P (bb_live_regs, regno))
+		return (REG_N_SETS (regno) == 1);
+	    }
+	}
       return 0;
     }
   if (GET_CODE (pat) == PARALLEL)
@@ -4170,7 +4289,7 @@ birthing_insn_p (pat)
 /* PREV is an insn that is ready to execute.  Adjust its priority if that
    will help shorten register lifetimes.  */
 
-__inline static void
+HAIFA_INLINE static void
 adjust_priority (prev)
      rtx prev;
 {
@@ -4217,6 +4336,9 @@ adjust_priority (prev)
 #endif
     }
 }
+
+/* Clock at which the previous instruction was issued.  */
+static int last_clock_var;
 
 /* INSN is the "currently executing insn".  Launch each insn which was
    waiting on INSN.  READY is a vector of insns which are ready to fire.
@@ -4300,6 +4422,17 @@ schedule_insn (insn, ready, n_ready, clock)
 	  else
 	    queue_insn (next, effective_cost);
 	}
+    }
+
+  /* Annotate the instruction with issue information -- TImode 
+     indicates that the instruction is expected not to be able
+     to issue on the same cycle as the previous insn.  A machine
+     may use this information to decide how the instruction should
+     be aligned.  */
+  if (reload_completed && issue_rate > 1)
+    {
+      PUT_MODE (insn, clock > last_clock_var ? TImode : VOIDmode);
+      last_clock_var = clock;
     }
 
   return n_ready;
@@ -4553,6 +4686,16 @@ attach_deaths (x, insn, set_p)
       attach_deaths (XEXP (x, 2), insn, 0);
       return;
 
+    case PARALLEL:
+      if (set_p
+	  && GET_MODE (x) == BLKmode)
+	{
+	  for (i = XVECLEN (x, 0) - 1; i >= 0; i--)
+	    attach_deaths (SET_DEST (XVECEXP (x, 0, i)), insn, 1);
+	  return;
+	}
+
+      /* fallthrough */
     default:
       /* Other cases: walk the insn.  */
       fmt = GET_RTX_FORMAT (code);
@@ -4648,6 +4791,8 @@ unlink_other_notes (insn, tail)
       if (NOTE_LINE_NUMBER (insn) != NOTE_INSN_SETJMP
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_LOOP_END
+	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_START
+	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_RANGE_END
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_BEG
 	  && NOTE_LINE_NUMBER (insn) != NOTE_INSN_EH_REGION_END)
 	{
@@ -4697,7 +4842,7 @@ unlink_line_notes (insn, tail)
 
 /* Return the head and tail pointers of BB.  */
 
-__inline static void
+HAIFA_INLINE static void
 get_block_head_tail (bb, headp, tailp)
      int bb;
      rtx *headp;
@@ -5486,7 +5631,7 @@ queue_to_ready (ready, n_ready)
 
 /* Print the ready list for debugging purposes. Callable from debugger.  */
 
-extern void
+static void
 debug_ready_list (ready, n_ready)
      rtx ready[];
      int n_ready;
@@ -6235,36 +6380,6 @@ print_insn (buf, x, verbose)
     }
 }				/* print_insn */
 
-void
-print_insn_chain (rtx_first)
-     rtx rtx_first;
-{
-  register rtx tmp_rtx;
-  char str[BUF_LEN];
-
-  strcpy (str, "(nil)\n");
-  if (rtx_first != 0)
-    switch (GET_CODE (rtx_first))
-      {
-      case INSN:
-      case JUMP_INSN:
-      case CALL_INSN:
-      case NOTE:
-      case CODE_LABEL:
-      case BARRIER:
-	for (tmp_rtx = rtx_first; tmp_rtx != NULL;
-	     tmp_rtx = NEXT_INSN (tmp_rtx))
-	  {
-	    print_insn (str, tmp_rtx, 0);
-	    printf ("%s\n", str);
-	  }
-	break;
-      default:
-	print_insn (str, rtx_first, 0);
-	printf ("%s\n", str);
-      }
-}				/* print_insn_chain */
-
 /* Print visualization debugging info */
 
 static void
@@ -6414,12 +6529,21 @@ reemit_notes (insn, last)
       if (REG_NOTE_KIND (note) == REG_DEAD
 	  && GET_CODE (XEXP (note, 0)) == CONST_INT)
 	{
-	  if (INTVAL (XEXP (note, 0)) == NOTE_INSN_SETJMP)
+	  int note_type = INTVAL (XEXP (note, 0));
+	  if (note_type == NOTE_INSN_SETJMP)
 	    {
-	      retval = emit_note_after (INTVAL (XEXP (note, 0)), insn);
+	      retval = emit_note_after (NOTE_INSN_SETJMP, insn);
 	      CONST_CALL_P (retval) = CONST_CALL_P (note);
 	      remove_note (insn, note);
 	      note = XEXP (note, 1);
+	    }
+	  else if (note_type == NOTE_INSN_RANGE_START
+                   || note_type == NOTE_INSN_RANGE_END)
+	    {
+	      last = emit_note_before (note_type, last);
+	      remove_note (insn, note);
+	      note = XEXP (note, 1);
+	      NOTE_RANGE_INFO (last) = XEXP (note, 0);
 	    }
 	  else
 	    {
@@ -6683,15 +6807,22 @@ schedule_block (bb, rgn_n_insns)
 	  }
       }
 
+#ifdef MD_SCHED_INIT
+  MD_SCHED_INIT (dump, sched_verbose);
+#endif
+
   /* no insns scheduled in this block yet */
   last_scheduled_insn = 0;
 
   /* Sort the ready list */
   SCHED_SORT (ready, n_ready);
+#ifdef MD_SCHED_REORDER
+  MD_SCHED_REORDER (dump, sched_verbose, ready, n_ready);
+#endif
 
   if (sched_verbose >= 2)
     {
-      fprintf (dump, ";;\t\tReady list initially:  ");
+      fprintf (dump, ";;\t\tReady list initially:             ");
       debug_ready_list (ready, n_ready);
     }
 
@@ -6699,6 +6830,7 @@ schedule_block (bb, rgn_n_insns)
   q_ptr = 0;
   q_size = 0;
   clock_var = 0;
+  last_clock_var = 0;
   bzero ((char *) insn_queue, sizeof (insn_queue));
 
   /* We start inserting insns after PREV_HEAD.  */
@@ -6734,10 +6866,13 @@ schedule_block (bb, rgn_n_insns)
 
       /* Sort the ready list.  */
       SCHED_SORT (ready, n_ready);
+#ifdef MD_SCHED_REORDER
+      MD_SCHED_REORDER (dump, sched_verbose, ready, n_ready);
+#endif
 
       if (sched_verbose)
 	{
-	  fprintf (dump, ";;\tReady list (t =%3d):  ", clock_var);
+	  fprintf (dump, "\n;;\tReady list (t =%3d):  ", clock_var);
 	  debug_ready_list (ready, n_ready);
 	}
 
@@ -6823,7 +6958,11 @@ schedule_block (bb, rgn_n_insns)
 	      last = move_insn (insn, last);
 	      sched_n_insns++;
 
+#ifdef MD_SCHED_VARIABLE_ISSUE
+	      MD_SCHED_VARIABLE_ISSUE (dump, sched_verbose, insn, can_issue_more);
+#else
 	      can_issue_more--;
+#endif
 
 	      n_ready = schedule_insn (insn, ready, n_ready, clock_var);
 
@@ -7967,7 +8106,7 @@ update_flow_info (notes, first, last, orig_insn)
 		    break;
 		  /* Likewise for multi-word memory references.  */
 		  if (GET_CODE (orig_dest) == MEM
-		      && SIZE_FOR_MODE (orig_dest) > MOVE_MAX)
+		      && SIZE_FOR_MODE (orig_dest) > UNITS_PER_WORD)
 		    break;
 		  abort ();
 		}
@@ -8406,17 +8545,17 @@ schedule_insns (dump_file)
 
   max_uid = (get_max_uid () + 1);
 
-  cant_move = (char *) alloca (max_uid * sizeof (char));
+  cant_move = (char *) xmalloc (max_uid * sizeof (char));
   bzero ((char *) cant_move, max_uid * sizeof (char));
 
-  fed_by_spec_load = (char *) alloca (max_uid * sizeof (char));
+  fed_by_spec_load = (char *) xmalloc (max_uid * sizeof (char));
   bzero ((char *) fed_by_spec_load, max_uid * sizeof (char));
 
-  is_load_insn = (char *) alloca (max_uid * sizeof (char));
+  is_load_insn = (char *) xmalloc (max_uid * sizeof (char));
   bzero ((char *) is_load_insn, max_uid * sizeof (char));
 
-  insn_orig_block = (int *) alloca (max_uid * sizeof (int));
-  insn_luid = (int *) alloca (max_uid * sizeof (int));
+  insn_orig_block = (int *) xmalloc (max_uid * sizeof (int));
+  insn_luid = (int *) xmalloc (max_uid * sizeof (int));
 
   luid = 0;
   for (b = 0; b < n_basic_blocks; b++)
@@ -8536,18 +8675,22 @@ schedule_insns (dump_file)
     }
 
   /* Allocate data for this pass.  See comments, above,
-     for what these vectors do.  */
-  insn_priority = (int *) alloca (max_uid * sizeof (int));
-  insn_reg_weight = (int *) alloca (max_uid * sizeof (int));
-  insn_tick = (int *) alloca (max_uid * sizeof (int));
-  insn_costs = (short *) alloca (max_uid * sizeof (short));
-  insn_units = (short *) alloca (max_uid * sizeof (short));
-  insn_blockage = (unsigned int *) alloca (max_uid * sizeof (unsigned int));
-  insn_ref_count = (int *) alloca (max_uid * sizeof (int));
+     for what these vectors do.
+
+     We use xmalloc instead of alloca, because max_uid can be very large
+     when there is a lot of function inlining.  If we used alloca, we could
+     exceed stack limits on some hosts for some inputs.  */
+  insn_priority = (int *) xmalloc (max_uid * sizeof (int));
+  insn_reg_weight = (int *) xmalloc (max_uid * sizeof (int));
+  insn_tick = (int *) xmalloc (max_uid * sizeof (int));
+  insn_costs = (short *) xmalloc (max_uid * sizeof (short));
+  insn_units = (short *) xmalloc (max_uid * sizeof (short));
+  insn_blockage = (unsigned int *) xmalloc (max_uid * sizeof (unsigned int));
+  insn_ref_count = (int *) xmalloc (max_uid * sizeof (int));
 
   /* Allocate for forward dependencies */
-  insn_dep_count = (int *) alloca (max_uid * sizeof (int));
-  insn_depend = (rtx *) alloca (max_uid * sizeof (rtx));
+  insn_dep_count = (int *) xmalloc (max_uid * sizeof (int));
+  insn_depend = (rtx *) xmalloc (max_uid * sizeof (rtx));
 
   if (reload_completed == 0)
     {
@@ -8575,7 +8718,7 @@ schedule_insns (dump_file)
     {
       rtx line;
 
-      line_note = (rtx *) alloca (max_uid * sizeof (rtx));
+      line_note = (rtx *) xmalloc (max_uid * sizeof (rtx));
       bzero ((char *) line_note, max_uid * sizeof (rtx));
       line_note_head = (rtx *) alloca (n_basic_blocks * sizeof (rtx));
       bzero ((char *) line_note_head, n_basic_blocks * sizeof (rtx));
@@ -8661,6 +8804,26 @@ schedule_insns (dump_file)
 	}
       fprintf (dump, "\n\n");
     }
+
+  free (cant_move);
+  free (fed_by_spec_load);
+  free (is_load_insn);
+  free (insn_orig_block);
+  free (insn_luid);
+
+  free (insn_priority);
+  free (insn_reg_weight);
+  free (insn_tick);
+  free (insn_costs);
+  free (insn_units);
+  free (insn_blockage);
+  free (insn_ref_count);
+
+  free (insn_dep_count);
+  free (insn_depend);
+
+  if (write_symbols != NO_DEBUG)
+    free (line_note);
 
   if (bb_live_regs)
     FREE_REG_SET (bb_live_regs);

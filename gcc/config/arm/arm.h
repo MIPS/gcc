@@ -759,12 +759,12 @@ extern int arm_arch4;
    least likely to contain a function parameter; in addition results are
    returned in r0.
    */
-#define REG_ALLOC_ORDER  \
+#define REG_ALLOC_ORDER  	    \
 {                                   \
-    3, 2, 1, 0, 12, 14,	4, 5,       \
-    6, 7, 8, 10, 9, 11, 13, 15,     \
+     3,  2,  1,  0, 12, 14,  4,  5, \
+     6,  7,  8, 10,  9, 11, 13, 15, \
     16, 17, 18, 19, 20, 21, 22, 23, \
-    24, 25			    \
+    24, 25, 26			    \
 }
 
 /* Register and constant classes.  */
@@ -873,8 +873,11 @@ enum reg_class
    ? GENERAL_REGS : NO_REGS)
 
 /* If we need to load shorts byte-at-a-time, then we need a scratch. */
-#define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,X)			\
-  (((MODE) == HImode && TARGET_SHORT_BY_BYTES && true_regnum (X) == -1)	\
+#define SECONDARY_INPUT_RELOAD_CLASS(CLASS,MODE,X)		\
+  (((MODE) == HImode && ! arm_arch4 && TARGET_SHORT_BY_BYTES	\
+    && (GET_CODE (X) == MEM					\
+	|| ((GET_CODE (X) == REG || GET_CODE (X) == SUBREG)	\
+	    && true_regnum (X) == -1)))				\
    ? GENERAL_REGS : NO_REGS)
 
 /* Try a machine-dependent way of reloading an illegitimate address
@@ -1408,7 +1411,9 @@ do									\
 	      && INTVAL (op) <= 31)					\
 	    goto LABEL;							\
         }								\
-      range = (MODE) == HImode ? (arm_arch4 ? 256 : 4095) : 4096;	\
+      /* NASTY: Since this limits the addressing of unsigned byte loads */      \
+      range = ((MODE) == HImode || (MODE) == QImode)                    \
+              ? (arm_arch4 ? 256 : 4095) : 4096;                        \
       if (code == CONST_INT && INTVAL (INDEX) < range			\
 	  && INTVAL (INDEX) > -range)  	      				\
         goto LABEL;							\
@@ -1759,6 +1764,7 @@ do								\
     {								\
       rtx const_op = OP1;					\
       CODE = arm_canonicalize_comparison ((CODE), &const_op);	\
+      OP1 = const_op;						\
     }								\
 } while (0)
 
@@ -1781,6 +1787,7 @@ extern int arm_compare_fp;
   {"fpu_rhs_operand", {SUBREG, REG, CONST_DOUBLE}},			\
   {"arm_not_operand", {SUBREG, REG, CONST_INT}},			\
   {"offsettable_memory_operand", {MEM}},				\
+  {"bad_signed_byte_operand", {MEM}},					\
   {"alignable_memory_operand", {MEM}},					\
   {"shiftable_operator", {PLUS, MINUS, AND, IOR, XOR}},			\
   {"minmax_operator", {SMIN, SMAX, UMIN, UMAX}},			\
@@ -1982,8 +1989,7 @@ do {									\
 	}								\
     }									\
   fputs ("\tb\t", FILE);						\
-  assemble_name (FILE,							\
-		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (FUNCTION)));	\
+  assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
   fputc ('\n', FILE);							\
 } while (0)
 
@@ -2025,7 +2031,7 @@ struct rtx_def *legitimize_pic_address (/* struct rtx_def *,
 int is_pic (/* struct rtx_def * */);
 void arm_finalize_pic (/* void */);
 int arm_rtx_costs (/* struct rtx_def *, enum rtx_code, enum rtx_code */);
-int arm_adjust_code (/* struct rtx_def *, struct rtx_def *, 
+int arm_adjust_cost (/* struct rtx_def *, struct rtx_def *, 
 			struct rtx_def *, int */);
 int const_double_rtx_ok_for_fpu (/* struct rtx_def * */);
 int neg_const_double_rtx_ok_for_fpu (/* struct rtx_def * */);
@@ -2039,6 +2045,7 @@ int arm_add_operand (/* struct rtx_def *, enum machine_mode */);
 int arm_not_operand (/* struct rtx_def *, enum machine_mode */);
 int offsettable_memory_operand (/* struct rtx_def *, enum machine_mode */);
 int alignable_memory_operand (/* struct rtx_def *, enum machine_mode */);
+int bad_signed_byte_operand (/* struct rtx_def *, enum machine_mode */);
 int fpu_rhs_operand (/* struct rtx_def *, enum machine_mode */);
 int fpu_add_operand (/* struct rtx_def *, enum machine_mode */);
 int power_of_two_operand (/* struct rtx_def *, enum machine_mode */);

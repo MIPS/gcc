@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Hitachi H8/300.
-   Copyright (C) 1992, 93, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1992, 93, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
@@ -127,7 +127,7 @@ byte_reg (x, b)
    (interrupt_handler						\
     || pragma_saveall						\
     || (regno == FRAME_POINTER_REGNUM && regs_ever_live[regno])	\
-    || (regs_ever_live[regno] & !call_used_regs[regno])))
+    || (regs_ever_live[regno] && !call_used_regs[regno])))
 
 /* Output assembly language to FILE for the operation OP with operand size
    SIZE to adjust the stack pointer.  */
@@ -856,17 +856,13 @@ eq_operator (x, mode)
    with this attribute may be safely used in an interrupt vector.  */
 
 int
-handle_pragma (file, t)
-     FILE *file;
-     tree t;
+handle_pragma (p_getc, p_ungetc, pname)
+     int (*  p_getc) PROTO ((void));
+     void (* p_ungetc) PROTO ((int));
+     char * pname;
 {
   int retval = 0;
-  register char *pname;
 
-  if (TREE_CODE (t) != IDENTIFIER_NODE)
-    return 0;
-
-  pname = IDENTIFIER_POINTER (t);
   if (strcmp (pname, "interrupt") == 0)
     interrupt_handler = retval = 1;
   else if (strcmp (pname, "saveall") == 0)
@@ -1024,7 +1020,6 @@ const_costs (r, c)
    'E' like s but negative.
    'F' like t but negative.
    'G' constant just the negative
-   'L' fake label, changed after used twice.
    'M' turn a 'M' constant into its negative mod 2.
    'P' if operand is incing/decing sp, print .w, otherwise .b.
    'R' print operand as a byte:8 address if appropriate, else fall back to
@@ -1098,9 +1093,6 @@ print_operand (file, x, code)
      rtx x;
      int code;
 {
-  /* This is used to general unique labels for the 'L' code.  */
-  static int lab = 1000;
-
   /* This is used for communication between the 'P' and 'U' codes.  */
   static char *last_p;
 
@@ -1148,12 +1140,6 @@ print_operand (file, x, code)
       if (GET_CODE (x) != CONST_INT)
 	abort ();
       fprintf (file, "#%d", 0xff & (-INTVAL (x)));
-      break;
-    case 'L':
-      /* 'L' must always be used twice in a single pattern.  It generates
-	 the same label twice, and then will generate a unique label the
-	 next time it is used.  */
-      asm_fprintf (file, "tl%d", (lab++) / 2);
       break;
     case 'M':
       /* For 3/-3 and 4/-4, the other 2 is handled separately.  */
@@ -1588,8 +1574,7 @@ initial_offset (from, to)
       int regno;
 
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
-	if ((regs_ever_live[regno]
-	     && (!call_used_regs[regno] || regno == FRAME_POINTER_REGNUM)))
+	if (WORD_REG_USED (regno))
 	  offset += UNITS_PER_WORD;
 
       /* See the comments for get_frame_size.  We need to round it up to
@@ -2378,6 +2363,24 @@ get_shift_alg (cpu, shift_type, mode, count, assembler_p,
 	      return SHIFT_SPECIAL;
 	    }
 	}
+      else if (count == 8 && !TARGET_H8300)
+	{
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
+	      *assembler_p = "mov.w\t%e0,%f4\n\tmov.b\t%s4,%t4\n\tmov.b\t%t0,%s4\n\tmov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tmov.w\t%f4,%e0";
+	      *cc_valid_p = 0;
+	      return SHIFT_SPECIAL;
+	    case SHIFT_LSHIFTRT:
+	      *assembler_p = "mov.w\t%e0,%f4\n\tmov.b\t%t0,%s0\n\tmov.b\t%s4,%t0\n\tmov.b\t%t4,%s4\n\textu.w\t%f4\n\tmov.w\t%f4,%e0";
+	      *cc_valid_p = 0;
+	      return SHIFT_SPECIAL;
+	    case SHIFT_ASHIFTRT:
+	      *assembler_p = "mov.w\t%e0,%f4\n\tmov.b\t%t0,%s0\n\tmov.b\t%s4,%t0\n\tmov.b\t%t4,%s4\n\texts.w\t%f4\n\tmov.w\t%f4,%e0";
+	      *cc_valid_p = 0;
+	      return SHIFT_SPECIAL;
+	    }
+	}
       else if (count == 16)
 	{
 	  switch (shift_type)
@@ -2485,6 +2488,24 @@ get_shift_alg (cpu, shift_type, mode, count, assembler_p,
 	      return SHIFT_SPECIAL;
 	    case SHIFT_ASHIFTRT:
 	      *assembler_p = "mov.w\t%e0,%f0\n\texts.l\t%S0\n\tshar.l\t#2,%S0\n\tshar.l\t#2,%S0";
+	      *cc_valid_p = 0;
+	      return SHIFT_SPECIAL;
+	    }
+	}
+      else if (count == 24 && !TARGET_H8300)
+	{
+	  switch (shift_type)
+	    {
+	    case SHIFT_ASHIFT:
+	      *assembler_p = "mov.b\t%s0,%t0\n\tsub.b\t%s0,%s0\n\tmov.w\t%f0,%e0\n\tsub.w\t%f0,%f0";
+	      *cc_valid_p = 0;
+	      return SHIFT_SPECIAL;
+	    case SHIFT_LSHIFTRT:
+	      *assembler_p = "mov.w\t%e0,%f0\n\tmov.b\t%t0,%s0\n\textu.w\t%f0\n\textu.l\t%S0";
+	      *cc_valid_p = 0;
+	      return SHIFT_SPECIAL;
+	    case SHIFT_ASHIFTRT:
+	      *assembler_p = "mov.w\t%e0,%f0\n\tmov.b\t%t0,%s0\n\texts.w\t%f0\n\texts.l\t%S0";
 	      *cc_valid_p = 0;
 	      return SHIFT_SPECIAL;
 	    }
@@ -2970,7 +2991,7 @@ h8300_encode_label (decl)
   newstr = obstack_alloc (saveable_obstack, len + 2);
 
   strcpy (newstr + 1, str);
-  *newstr = '*';
+  *newstr = '&';
   XSTR (XEXP (DECL_RTL (decl), 0), 0) = newstr;
 }
 
@@ -3001,7 +3022,7 @@ output_simode_bld (bild, log2, operands)
   return "";
 }
 
-/* Given INSN and it's current length LENGTH, return the adjustment
+/* Given INSN and its current length LENGTH, return the adjustment
    (in bytes) to correctly compute INSN's length.
 
    We use this to get the lengths of various memory references correct.  */

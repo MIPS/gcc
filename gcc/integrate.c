@@ -36,15 +36,13 @@ Boston, MA 02111-1307, USA.  */
 #include "real.h"
 #include "except.h"
 #include "function.h"
+#include "toplev.h"
 
 #include "obstack.h"
 #define	obstack_chunk_alloc	xmalloc
 #define	obstack_chunk_free	free
 
 extern struct obstack *function_maybepermanent_obstack;
-
-extern tree pushdecl ();
-extern tree poplevel ();
 
 /* Similar, but round to the next highest integer that meets the
    alignment.  */
@@ -61,25 +59,32 @@ extern tree poplevel ();
    : (8 * (8 + list_length (DECL_ARGUMENTS (DECL)))))
 #endif
 
-static rtx initialize_for_inline PROTO((tree, int, int, int, int));
-static void finish_inline	PROTO((tree, rtx));
-static void adjust_copied_decl_tree PROTO((tree));
-static tree copy_decl_list	PROTO((tree));
-static tree copy_decl_tree	PROTO((tree));
-static void copy_decl_rtls	PROTO((tree));
-static void save_constants	PROTO((rtx *));
-static void note_modified_parmregs PROTO((rtx, rtx));
-static rtx copy_for_inline	PROTO((rtx));
-static void integrate_parm_decls PROTO((tree, struct inline_remap *, rtvec));
-static void integrate_decl_tree	PROTO((tree, int, struct inline_remap *));
+static rtx initialize_for_inline	PROTO((tree, int, int, int, int));
+static void finish_inline		PROTO((tree, rtx));
+static void adjust_copied_decl_tree	PROTO((tree));
+static tree copy_decl_list		PROTO((tree));
+static tree copy_decl_tree		PROTO((tree));
+static void copy_decl_rtls		PROTO((tree));
+static void save_constants		PROTO((rtx *));
+static void note_modified_parmregs	PROTO((rtx, rtx));
+static rtx copy_for_inline		PROTO((rtx));
+static void integrate_parm_decls	PROTO((tree, struct inline_remap *,
+					       rtvec));
+static void integrate_decl_tree		PROTO((tree, int,
+					       struct inline_remap *));
 static void save_constants_in_decl_trees PROTO ((tree));
-static void subst_constants	PROTO((rtx *, rtx, struct inline_remap *));
-static void restore_constants	PROTO((rtx *));
-static void set_block_origin_self PROTO((tree));
-static void set_decl_origin_self PROTO((tree));
-static void set_block_abstract_flags PROTO((tree, int));
+static void subst_constants		PROTO((rtx *, rtx,
+					       struct inline_remap *));
+static void restore_constants		PROTO((rtx *));
+static void set_block_origin_self	PROTO((tree));
+static void set_decl_origin_self	PROTO((tree));
+static void set_block_abstract_flags	PROTO((tree, int));
+static void process_reg_param		PROTO((struct inline_remap *, rtx,
+					       rtx));
 
-void set_decl_abstract_flags	PROTO((tree, int));
+
+void set_decl_abstract_flags		PROTO((tree, int));
+static tree copy_and_set_decl_abstract_origin PROTO((tree));
 
 /* Returns the Ith entry in the label_map contained in MAP.  If the
    Ith entry has not yet been set, return a fresh label.  This function
@@ -94,7 +99,12 @@ get_label_from_map (map, i)
   rtx x = map->label_map[i];
 
   if (x == NULL_RTX)
-    x = map->label_map[i] = gen_label_rtx();
+    {                     
+      push_obstacks_nochange ();
+      end_temporary_allocation ();
+      x = map->label_map[i] = gen_label_rtx();
+      pop_obstacks ();
+    }
 
   return x;
 }
@@ -126,6 +136,9 @@ function_cannot_inline_p (fndecl)
   if (current_function_contains_functions)
     return "function with nested functions cannot be inline";
 
+  if (current_function_cannot_inline)
+    return current_function_cannot_inline;
+
   /* If its not even close, don't even look.  */
   if (!DECL_INLINE (fndecl) && get_max_uid () > 3 * max_insns)
     return "function too large to be inline";
@@ -145,11 +158,6 @@ function_cannot_inline_p (fndecl)
   /* We can't inline functions that return structures
      the old-fashioned PCC way, copying into a static block.  */
   if (current_function_returns_pcc_struct)
-    return "inline functions not supported for this return value type";
-
-  /* We can't inline functions that return BLKmode structures in registers.  */
-  if (TYPE_MODE (TREE_TYPE (TREE_TYPE (fndecl))) == BLKmode
-      && ! aggregate_value_p (TREE_TYPE (TREE_TYPE (fndecl))))
     return "inline functions not supported for this return value type";
 
   /* We can't inline functions that return structures of varying size.  */
@@ -553,10 +561,7 @@ save_for_inline_copying (fndecl)
   regno_reg_rtx = reg_map;
 
   /* Put copies of all the virtual register rtx into the new regno_reg_rtx.  */
-  regno_reg_rtx[VIRTUAL_INCOMING_ARGS_REGNUM] = virtual_incoming_args_rtx;
-  regno_reg_rtx[VIRTUAL_STACK_VARS_REGNUM] = virtual_stack_vars_rtx;
-  regno_reg_rtx[VIRTUAL_STACK_DYNAMIC_REGNUM] = virtual_stack_dynamic_rtx;
-  regno_reg_rtx[VIRTUAL_OUTGOING_ARGS_REGNUM] = virtual_outgoing_args_rtx;
+  init_virtual_regs ();
 
   /* Likewise each label rtx must have a unique rtx as its copy.  */
 
@@ -656,10 +661,28 @@ save_for_inline_copying (fndecl)
 	  if (NOTE_LINE_NUMBER (copy) == NOTE_INSN_EH_REGION_BEG
 	      || NOTE_LINE_NUMBER (copy) == NOTE_INSN_EH_REGION_END)
 	    {
+              int new_region = CODE_LABEL_NUMBER 
+                                        (label_map[NOTE_BLOCK_NUMBER (copy)]);
+
+              /* we have to duplicate the handlers for the original */
+              if (NOTE_LINE_NUMBER (copy) == NOTE_INSN_EH_REGION_BEG) 
+                {
+                  handler_info *ptr, *temp;
+                  int nr;
+                  nr = new_eh_region_entry (new_region);
+                  ptr = get_first_handler (NOTE_BLOCK_NUMBER (copy));
+                  for ( ; ptr; ptr = ptr->next)
+                    {
+                      temp = get_new_handler (
+                           label_map[CODE_LABEL_NUMBER (ptr->handler_label)],
+                                                               ptr->type_info);
+                      add_new_handler (nr, temp);
+                    }
+                }
+                
 	      /* We have to forward these both to match the new exception
 		 region.  */
-	      NOTE_BLOCK_NUMBER (copy)
-		= CODE_LABEL_NUMBER (label_map[NOTE_BLOCK_NUMBER (copy)]);
+	      NOTE_BLOCK_NUMBER (copy) = new_region;
 	      
 	    }
 	  RTX_INTEGRATED_P (copy) = RTX_INTEGRATED_P (insn);
@@ -727,11 +750,30 @@ save_for_inline_copying (fndecl)
     free (label_map);
 }
 
+/* Copy NODE (as with copy_node).  NODE must be a DECL.  Set the
+   DECL_ABSTRACT_ORIGIN for the new accordinly.  */
+
+static tree
+copy_and_set_decl_abstract_origin (node)
+     tree node;
+{
+  tree copy = copy_node (node);
+  if (DECL_ABSTRACT_ORIGIN (copy) != NULL_TREE)
+    /* That means that NODE already had a DECL_ABSTRACT_ORIGIN.  (This
+       situation occurs if we inline a function which itself made
+       calls to inline functions.)  Since DECL_ABSTRACT_ORIGIN is the
+       most distant ancestor, we don't have to do anything here.  */
+    ;
+  else
+    /* The most distant ancestor must be NODE.  */
+    DECL_ABSTRACT_ORIGIN (copy) = node;
+
+  return copy;
+}
+
 /* Return a copy of a chain of nodes, chained through the TREE_CHAIN field.
    For example, this can copy a list made of TREE_LIST nodes.  While copying,
-   for each node copied which doesn't already have is DECL_ABSTRACT_ORIGIN
-   set to some non-zero value, set the DECL_ABSTRACT_ORIGIN of the copy to
-   point to the corresponding (abstract) original node.  */
+   set DECL_ABSTRACT_ORIGIN appropriately.  */
 
 static tree
 copy_decl_list (list)
@@ -743,17 +785,13 @@ copy_decl_list (list)
   if (list == 0)
     return 0;
 
-  head = prev = copy_node (list);
-  if (DECL_ABSTRACT_ORIGIN (head) == NULL_TREE)
-    DECL_ABSTRACT_ORIGIN (head) = list;
+  head = prev = copy_and_set_decl_abstract_origin (list);
   next = TREE_CHAIN (list);
   while (next)
     {
       register tree copy;
 
-      copy = copy_node (next);
-      if (DECL_ABSTRACT_ORIGIN (copy) == NULL_TREE)
-	DECL_ABSTRACT_ORIGIN (copy) = next;
+      copy = copy_and_set_decl_abstract_origin (next);
       TREE_CHAIN (prev) = copy;
       prev = copy;
       next = TREE_CHAIN (next);
@@ -993,7 +1031,7 @@ save_constants (px)
 static void
 note_modified_parmregs (reg, x)
      rtx reg;
-     rtx x;
+     rtx x ATTRIBUTE_UNUSED;
 {
   if (GET_CODE (reg) == REG && in_nonparm_insns
       && REGNO (reg) < max_parm_reg
@@ -1267,6 +1305,38 @@ int global_const_equiv_map_size;
    && REGNO (XEXP (X, 0)) >= FIRST_VIRTUAL_REGISTER		\
    && REGNO (XEXP (X, 0)) <= LAST_VIRTUAL_REGISTER)
 
+/* Called to set up a mapping for the case where a parameter is in a
+   register.  If it is read-only and our argument is a constant, set up the
+   constant equivalence.
+
+   If LOC is REG_USERVAR_P, the usual case, COPY must also have that flag set
+   if it is a register.
+
+   Also, don't allow hard registers here; they might not be valid when
+   substituted into insns.  */
+static void
+process_reg_param (map, loc, copy)
+     struct inline_remap *map;
+     rtx loc, copy;
+{
+  if ((GET_CODE (copy) != REG && GET_CODE (copy) != SUBREG)
+      || (GET_CODE (copy) == REG && REG_USERVAR_P (loc)
+	  && ! REG_USERVAR_P (copy))
+      || (GET_CODE (copy) == REG
+	  && REGNO (copy) < FIRST_PSEUDO_REGISTER))
+    {
+      rtx temp = copy_to_mode_reg (GET_MODE (loc), copy);
+      REG_USERVAR_P (temp) = REG_USERVAR_P (loc);
+      if ((CONSTANT_P (copy) || FIXED_BASE_PLUS_P (copy))
+	  && REGNO (temp) < map->const_equiv_map_size)
+	{
+	  map->const_equiv_map[REGNO (temp)] = copy;
+	  map->const_age_map[REGNO (temp)] = CONST_AGE_PARM;
+	}
+      copy = temp;
+    }
+  map->reg_map[REGNO (loc)] = copy;
+}
 /* Integrate the procedure defined by FNDECL.  Note that this function
    may wind up calling itself.  Since the static variables are not
    reentrant, we do not assign them until after the possibility
@@ -1577,87 +1647,16 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	  ;
 	}
       else if (GET_CODE (loc) == REG)
-	{
-	  /* This is the good case where the parameter is in a register.
-	     If it is read-only and our argument is a constant, set up the
-	     constant equivalence.
-
-	     If LOC is REG_USERVAR_P, the usual case, COPY must also have
-	     that flag set if it is a register.
-
-	     Also, don't allow hard registers here; they might not be valid
-	     when substituted into insns.  */
-
-	  if ((GET_CODE (copy) != REG && GET_CODE (copy) != SUBREG)
-	      || (GET_CODE (copy) == REG && REG_USERVAR_P (loc)
-		  && ! REG_USERVAR_P (copy))
-	      || (GET_CODE (copy) == REG
-		  && REGNO (copy) < FIRST_PSEUDO_REGISTER))
-	    {
-	      temp = copy_to_mode_reg (GET_MODE (loc), copy);
-	      REG_USERVAR_P (temp) = REG_USERVAR_P (loc);
-	      if ((CONSTANT_P (copy) || FIXED_BASE_PLUS_P (copy))
-		  && REGNO (temp) < map->const_equiv_map_size)
-		{
-		  map->const_equiv_map[REGNO (temp)] = copy;
-		  map->const_age_map[REGNO (temp)] = CONST_AGE_PARM;
-		}
-	      copy = temp;
-	    }
-	  map->reg_map[REGNO (loc)] = copy;
-	}
+	process_reg_param (map, loc, copy);
       else if (GET_CODE (loc) == CONCAT)
 	{
-	  /* This is the good case where the parameter is in a
-	     pair of separate pseudos.
-	     If it is read-only and our argument is a constant, set up the
-	     constant equivalence.
-
-	     If LOC is REG_USERVAR_P, the usual case, COPY must also have
-	     that flag set if it is a register.
-
-	     Also, don't allow hard registers here; they might not be valid
-	     when substituted into insns.  */
 	  rtx locreal = gen_realpart (GET_MODE (XEXP (loc, 0)), loc);
 	  rtx locimag = gen_imagpart (GET_MODE (XEXP (loc, 0)), loc);
 	  rtx copyreal = gen_realpart (GET_MODE (locreal), copy);
 	  rtx copyimag = gen_imagpart (GET_MODE (locimag), copy);
 
-	  if ((GET_CODE (copyreal) != REG && GET_CODE (copyreal) != SUBREG)
-	      || (GET_CODE (copyreal) == REG && REG_USERVAR_P (locreal)
-		  && ! REG_USERVAR_P (copyreal))
-	      || (GET_CODE (copyreal) == REG
-		  && REGNO (copyreal) < FIRST_PSEUDO_REGISTER))
-	    {
-	      temp = copy_to_mode_reg (GET_MODE (locreal), copyreal);
-	      REG_USERVAR_P (temp) = REG_USERVAR_P (locreal);
-	      if ((CONSTANT_P (copyreal) || FIXED_BASE_PLUS_P (copyreal))
-		  && REGNO (temp) < map->const_equiv_map_size)
-		{
-		  map->const_equiv_map[REGNO (temp)] = copyreal;
-		  map->const_age_map[REGNO (temp)] = CONST_AGE_PARM;
-		}
-	      copyreal = temp;
-	    }
-	  map->reg_map[REGNO (locreal)] = copyreal;
-
-	  if ((GET_CODE (copyimag) != REG && GET_CODE (copyimag) != SUBREG)
-	      || (GET_CODE (copyimag) == REG && REG_USERVAR_P (locimag)
-		  && ! REG_USERVAR_P (copyimag))
-	      || (GET_CODE (copyimag) == REG
-		  && REGNO (copyimag) < FIRST_PSEUDO_REGISTER))
-	    {
-	      temp = copy_to_mode_reg (GET_MODE (locimag), copyimag);
-	      REG_USERVAR_P (temp) = REG_USERVAR_P (locimag);
-	      if ((CONSTANT_P (copyimag) || FIXED_BASE_PLUS_P (copyimag))
-		  && REGNO (temp) < map->const_equiv_map_size)
-		{
-		  map->const_equiv_map[REGNO (temp)] = copyimag;
-		  map->const_age_map[REGNO (temp)] = CONST_AGE_PARM;
-		}
-	      copyimag = temp;
-	    }
-	  map->reg_map[REGNO (locimag)] = copyimag;
+	  process_reg_param (map, locreal, copyreal);
+	  process_reg_param (map, locimag, copyimag);
 	}
       else
 	abort ();
@@ -1766,7 +1765,23 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 	 Let the combiner substitute the MEM if that is valid.  */
       if (target == 0 || GET_CODE (target) != REG
 	  || GET_MODE (target) != departing_mode)
+	{
+	  /* Don't make BLKmode registers.  If this looks like
+	     a BLKmode object being returned in a register, get
+	     the mode from that, otherwise abort. */
+	  if (departing_mode == BLKmode)
+	    {
+	      if (REG == GET_CODE (DECL_RTL (DECL_RESULT (fndecl))))
+		{
+		  departing_mode = GET_MODE (DECL_RTL (DECL_RESULT (fndecl)));
+		  arriving_mode = departing_mode;
+		}
+	      else
+		abort();
+	    }
+	      
 	target = gen_reg_rtx (departing_mode);
+	}
 
       /* If function's value was promoted before return,
 	 avoid machine mode mismatch when we substitute INLINE_TARGET.
@@ -2036,6 +2051,22 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 		  rtx label
 		    = get_label_from_map (map, NOTE_BLOCK_NUMBER (copy));
 
+                  /* we have to duplicate the handlers for the original */
+                  if (NOTE_LINE_NUMBER (copy) == NOTE_INSN_EH_REGION_BEG)
+                    {
+                      handler_info *ptr, *temp;
+                      int nr;
+                      nr = new_eh_region_entry (CODE_LABEL_NUMBER (label));
+                      ptr = get_first_handler (NOTE_BLOCK_NUMBER (copy));
+                      for ( ; ptr; ptr = ptr->next)
+                        {
+                          temp = get_new_handler ( get_label_from_map (map, 
+                                      CODE_LABEL_NUMBER (ptr->handler_label)),
+                                                               ptr->type_info);
+                          add_new_handler (nr, temp);
+                        }
+                    }
+
 		  /* We have to forward these both to match the new exception
 		     region.  */
 		  NOTE_BLOCK_NUMBER (copy) = CODE_LABEL_NUMBER (label);
@@ -2110,6 +2141,12 @@ expand_inline_function (fndecl, parms, target, ignore, type,
 
   emit_line_note (input_filename, lineno);
 
+  /* If the function returns a BLKmode object in a register, copy it
+     out of the temp register into a BLKmode memory object. */
+  if (TYPE_MODE (TREE_TYPE (TREE_TYPE (fndecl))) == BLKmode
+      && ! aggregate_value_p (TREE_TYPE (TREE_TYPE (fndecl))))
+    target = copy_blkmode_from_reg (0, target, TREE_TYPE (TREE_TYPE (fndecl)));
+  
   if (structure_value_addr)
     {
       target = gen_rtx_MEM (TYPE_MODE (type),
@@ -2151,7 +2188,7 @@ integrate_parm_decls (args, map, arg_vector)
       /* These args would always appear unused, if not for this.  */
       TREE_USED (decl) = 1;
       /* Prevent warning for shadowing with these.  */
-      DECL_ABSTRACT_ORIGIN (decl) = tail;
+      DECL_ABSTRACT_ORIGIN (decl) = DECL_ORIGIN (tail);
       pushdecl (decl);
       /* Fully instantiate the address with the equivalent form so that the
 	 debugging information contains the actual register, instead of the
@@ -2190,7 +2227,7 @@ integrate_decl_tree (let, level, map)
 
       push_obstacks_nochange ();
       saveable_allocation ();
-      d = copy_node (t);
+      d = copy_and_set_decl_abstract_origin (t);
       pop_obstacks ();
 
       if (DECL_RTL (t) != 0)
@@ -2205,8 +2242,6 @@ integrate_decl_tree (let, level, map)
 	}
       /* These args would always appear unused, if not for this.  */
       TREE_USED (d) = 1;
-      /* Prevent warning for shadowing with these.  */
-      DECL_ABSTRACT_ORIGIN (d) = t;
 
       if (DECL_LANG_SPECIFIC (d))
 	copy_lang_decl (d);
@@ -2376,12 +2411,13 @@ copy_rtx_and_substitute (orig, map)
 	    {
 	      /* This is a reference to the function return value.  If
 		 the function doesn't have a return value, error.  If the
-		 mode doesn't agree, make a SUBREG.  */
+		 mode doesn't agree, and it ain't BLKmode, make a SUBREG.  */
 	      if (map->inline_target == 0)
 		/* Must be unrolling loops or replicating code if we
 		   reach here, so return the register unchanged.  */
 		return orig;
-	      else if (mode != GET_MODE (map->inline_target))
+	      else if (GET_MODE (map->inline_target) != BLKmode
+		       && mode != GET_MODE (map->inline_target))
 		return gen_lowpart (mode, map->inline_target);
 	      else
 		return map->inline_target;
@@ -2647,6 +2683,7 @@ copy_rtx_and_substitute (orig, map)
       XEXP (copy, 0) = copy_rtx_and_substitute (XEXP (orig, 0), map);
       MEM_IN_STRUCT_P (copy) = MEM_IN_STRUCT_P (orig);
       MEM_VOLATILE_P (copy) = MEM_VOLATILE_P (orig);
+      MEM_ALIAS_SET (copy) = MEM_ALIAS_SET (orig);
 
       /* If doing function inlining, this MEM might not be const in the
 	 function that it is being inlined into, and thus may not be
@@ -3055,7 +3092,7 @@ subst_constants (loc, insn, map)
 void
 mark_stores (dest, x)
      rtx dest;
-     rtx x;
+     rtx x ATTRIBUTE_UNUSED;
 {
   int regno = -1;
   enum machine_mode mode;

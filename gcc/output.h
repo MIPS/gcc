@@ -83,6 +83,15 @@ extern void output_operand_lossage  PROTO((char *));
    Defined in final.c.  */
 extern void output_asm_insn	PROTO((char *, rtx *));
 
+/* Compute a worst-case reference address of a branch so that it
+   can be safely used in the presence of aligned labels.
+   Defined in final.c.  */
+extern int insn_current_reference_address	PROTO((rtx));
+
+/* Find the alignment associated with a CODE_LABEL.
+   Defined in final.c.  */
+extern int label_to_alignment	PROTO((rtx));
+
 /* Output a LABEL_REF, or a bare CODE_LABEL, as an assembler symbol.  */
 extern void output_asm_label	PROTO((rtx));
 
@@ -119,7 +128,10 @@ extern void allocate_for_life_analysis	PROTO((void));
 extern int regno_uninitialized		PROTO((int));
 extern int regno_clobbered_at_setjmp	PROTO((int));
 extern void dump_flow_info		PROTO((FILE *));
-extern void flow_analysis		PROTO((rtx, int, FILE *));
+extern void find_basic_blocks         PROTO((rtx, int, FILE *, int));
+extern void free_basic_block_vars     PROTO((int));
+extern void set_block_num             PROTO((rtx, int));
+extern void life_analysis             PROTO((rtx, int, FILE *));
 #endif
 
 /* Functions in varasm.c.  */
@@ -136,6 +148,10 @@ extern void readonly_data_section	PROTO((void));
 
 /* Determine if we're in the text section. */
 extern int in_text_section		PROTO((void));
+
+#ifdef EH_FRAME_SECTION_ASM_OP
+extern void eh_frame_section		PROTO ((void));
+#endif
 
 #ifdef TREE_CODE
 /* Tell assembler to change to section NAME for DECL.
@@ -155,6 +171,13 @@ extern void exception_section		PROTO((void));
    The rtl is stored into DECL.  */
 extern void make_function_rtl		PROTO((tree));
 
+/* Declare DECL to be a weak symbol.  */
+extern void declare_weak		PROTO ((tree));
+#endif /* TREE_CODE */
+
+/* Emit any pending weak declarations.  */
+extern void weak_finish			PROTO ((void));
+
 /* Decode an `asm' spec for a declaration as a register name.
    Return the register number, or -1 if nothing specified,
    or -2 if the ASMSPEC is not `cc' or `memory' and is not recognized,
@@ -164,6 +187,7 @@ extern void make_function_rtl		PROTO((tree));
    Prefixes such as % are optional.  */
 extern int decode_reg_name		PROTO((char *));
 
+#ifdef TREE_CODE
 /* Create the DECL_RTL for a declaration for a static or external variable
    or static or external function.
    ASMSPEC, if not 0, is the string which the user specified
@@ -179,6 +203,8 @@ extern void make_var_volatile		PROTO((tree));
 
 /* Output alignment directive to align for constant expression EXP.  */
 extern void assemble_constant_align	PROTO((tree));
+
+extern void assemble_alias		PROTO((tree, tree));
 
 /* Output a string of literal assembler code
    for an `asm' keyword used between functions.  */
@@ -232,7 +258,7 @@ extern void assemble_variable		PROTO((tree, int, int, int));
    (Most assemblers don't need this, so we normally output nothing.)
    Do nothing if DECL is not external.  */
 extern void assemble_external		PROTO((tree));
-#endif
+#endif /* TREE_CODE */
 
 #ifdef RTX_CODE
 /* Similar, for calling a library function FUN.  */
@@ -417,6 +443,9 @@ extern int current_function_uses_pic_offset_table;
 
 /* This is nonzero if the current function uses the constant pool.  */
 extern int current_function_uses_const_pool;
+
+/* Language-specific reason why the current function cannot be made inline.  */
+extern char *current_function_cannot_inline;
 
 /* The line number of the beginning of the current function.
    sdbout.c needs this so that it can output relative linenumbers.  */

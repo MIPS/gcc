@@ -382,6 +382,15 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	set message [concat $message $tmp]
     }
 
+    set expect_crash \
+      [process-option $prog "crash test - " "a crash" CRASH $text]
+    if {$expect_crash != "" 
+        && [lindex [lindex $expect_crash 0] 1] == "XCRASH"} then {
+       set expect_crash 1
+    } else {
+       set expect_crash 0
+    }
+
 #
 #  run the compiler and analyze the results
 #
@@ -394,21 +403,20 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
     # Delete things like "ld.so: warning" messages.
     set comp_output [prune_warnings $comp_output]
 
-    if [string match "*Internal compiler error: program*got fatal signal 6" $comp_output] then {
-	fail "$name Got Signal 6"
-	remote_file build delete $output
-	return 1
-    }
-    if [string match "*Internal compiler error: program*got fatal signal 11" $comp_output] then {
-	fail "$name Got Signal 11"
-	remote_file build delete $output
-	return 1
+    if [string match "*Internal compiler error*" $comp_output] then {
+        if $expect_crash then {
+	    setup_xfail "*-*-*"
+	}
+        fail "$name caused compiler crash"
+        remote_file build delete $output
+        return 1
     }
 
     #send_user "\nold_dejagnu.exp: comp_output1 = :$comp_output:\n\n"
     #send_user "\nold_dejagnu.exp: message = :$message:\n\n"
     #send_user "\nold_dejagnu.exp: message length = [llength $message]\n\n"
 
+    set last_line 0
     foreach i $message {
 
 	#send_user "\nold_dejagnu.exp: i = :$i:\n\n"
@@ -417,7 +425,15 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
 	# in the source file.  If we find any, success!
 	set line [lindex $i 0]
 	set pattern [lindex $i 2]
-	if [regsub -all "(^|\n)\[^\n\]+:$line:\[^\n\]*" $comp_output "" comp_output] then {
+
+	# Multiple tests one one line don't work, because we remove all 
+	# messages on the line for the first test.  So skip later ones.
+	if { $line == $last_line } {
+	    continue
+	}
+	set last_line $line
+
+	if [regsub -all "(^|\n)\[^\n\]+:$line:\[^\n\]*" $comp_output "" comp_output] {
             set comp_output [string trimleft $comp_output]
 	    set ok pass
 	    set uhoh fail
@@ -489,6 +505,8 @@ proc old-dejagnu { compiler prog cflagsx default_cflags libs } {
     #look to see if this is all thats left, if so, all messages have been handled
     #send_user "comp_output: $comp_output\n"
     regsub -all "(^|\n)\[^\n\]*: In (function|method) \[^\n\]*" $comp_output "" comp_output
+    regsub -all "(^|\n)\[^\n\]*: In instantiation of \[^\n\]*" $comp_output "" comp_output
+    regsub -all "(^|\n)\[^\n\]*:   instantiated from \[^\n\]*" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*: At top level:\[^\n\]*" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*file path prefix \[^\n\]* never used" $comp_output "" comp_output
     regsub -all "(^|\n)\[^\n\]*linker input file unused since linking not done" $comp_output "" comp_output

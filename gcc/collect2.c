@@ -39,13 +39,6 @@ Boston, MA 02111-1307, USA.  */
 #include <process.h>
 #endif
 
-#ifndef HAVE_STRERROR
-extern char *sys_errlist[];
-extern int sys_nerr;
-#else
-char *strerror();
-#endif
-
 /* Obstack allocation and deallocation routines.  */
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
@@ -67,7 +60,7 @@ char *strerror();
 #define WEXITSTATUS(S) (((S) & 0xff00) >> 8)
 #endif
 
-extern char *choose_temp_base ();
+extern char *make_temp_file PROTO ((char *));
 
 /* On certain systems, we have code that works by scanning the object file
    directly.  But this code uses system-specific header files and library
@@ -144,7 +137,7 @@ extern char *choose_temp_base ();
 
 /* Default flags to pass to nm.  */
 #ifndef NM_FLAGS
-#define NM_FLAGS "-p"
+#define NM_FLAGS "-n"
 #endif
 
 #endif /* OBJECT_FORMAT_NONE */
@@ -193,11 +186,6 @@ enum pass {
   PASS_SECOND				/* with constructors linked in */
 };
 
-#ifndef NO_SYS_SIGLIST
-#ifndef SYS_SIGLIST_DECLARED
-extern char *sys_siglist[];
-#endif
-#endif
 extern char *version_string;
 
 int vflag;				/* true if -v */
@@ -211,8 +199,6 @@ int debug;				/* true if -debug */
 
 static int shared_obj;		        /* true if -shared */
 
-static int   temp_filename_length;	/* Length of temp_filename */
-static char *temp_filename;		/* Base of temp filenames */
 static char *c_file;			/* <xxx>.c for constructor/destructor list.  */
 static char *o_file;			/* <xxx>.o for constructor/destructor list.  */
 #ifdef COLLECT_EXPORT_LIST
@@ -245,12 +231,10 @@ char * temporary_firstobj;
 /* Defined in the automatically-generated underscore.c.  */
 extern int prepends_underscore;
 
-extern char *getenv ();
-extern char *mktemp ();
 extern FILE *fdopen ();
 
-#ifndef GET_ENVIRONMENT
-#define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ENV_VALUE = getenv (ENV_NAME)
+#ifndef GET_ENV_PATH_LIST
+#define GET_ENV_PATH_LIST(VAR,NAME)	do { (VAR) = getenv (NAME); } while (0)
 #endif
 
 /* Structure to hold all the directories in which to search for files to
@@ -279,9 +263,8 @@ static struct path_prefix *libpaths[3] = {&cmdline_lib_dirs,
 static char *libexts[3] = {"a", "so", NULL};  /* possible library extentions */
 #endif
 
-void collect_exit		PROTO((int));
-void collect_execute		PROTO((char *, char **, char *));
-void dump_file			PROTO((char *));
+static char *my_strerror	PROTO((int));
+static const char *my_strsignal	PROTO((int));
 static void handler		PROTO((int));
 static int is_ctor_dtor		PROTO((char *));
 static char *find_a_file	PROTO((struct path_prefix *, char *));
@@ -292,9 +275,15 @@ static void do_wait		PROTO((char *));
 static void fork_execute	PROTO((char *, char **));
 static void maybe_unlink	PROTO((char *));
 static void add_to_list		PROTO((struct head *, char *));
+static int  extract_init_priority PROTO((char *));
+static void sort_ids		PROTO((struct head *));
 static void write_list		PROTO((FILE *, char *, struct id *));
+#ifdef COLLECT_EXPORT_LIST
 static void dump_list		PROTO((FILE *, char *, struct id *));
+#endif
+#if 0
 static void dump_prefix_list	PROTO((FILE *, char *, struct prefix_list *));
+#endif
 static void write_list_with_asm PROTO((FILE *, char *, struct id *));
 static void write_c_file	PROTO((FILE *, char *));
 static void scan_prog_file	PROTO((char *, enum pass));
@@ -336,7 +325,7 @@ dup2 (oldfd, newfd)
 }
 #endif
 
-char *
+static char *
 my_strerror (e)
      int e;
 {
@@ -356,6 +345,29 @@ my_strerror (e)
   sprintf (buffer, "Unknown error %d", e);
   return buffer;
 #endif
+}
+
+static const char *
+my_strsignal (s)
+     int s;
+{
+#ifdef HAVE_STRSIGNAL
+  return strsignal (s);
+#else
+  if (s >= 0 && s < NSIG)
+    {
+# ifdef NO_SYS_SIGLIST
+      static char buffer[30];
+
+      sprintf (buffer, "Unknown signal %d", s);
+      return buffer;
+# else
+      return sys_siglist[s];
+# endif
+    }
+  else
+    return NULL;
+#endif /* HAVE_STRSIGNAL */
 }
 
 /* Delete tempfiles and exit function.  */
@@ -850,7 +862,7 @@ prefix_from_env (env, pprefix)
      struct path_prefix *pprefix;
 {
   char *p;
-  GET_ENVIRONMENT (p, env);
+  GET_ENV_PATH_LIST (p, env);
 
   if (p)
     prefix_from_string (p, pprefix);
@@ -938,7 +950,7 @@ main (argc, argv)
   char **object_lst	= (char **) xcalloc (sizeof (char *), argc);
   char **object		= object_lst;
   int first_file;
-  int num_c_args	= argc+7;
+  int num_c_args	= argc+9;
 
 #ifdef DEBUG
   debug = 1;
@@ -1063,6 +1075,12 @@ main (argc, argv)
   /* Try to discover a valid linker/nm/strip to use.  */
 
   /* Maybe we know the right file to use (if not cross).  */
+  ld_file_name = 0;
+#ifdef DEFAULT_LINKER
+  if (access (DEFAULT_LINKER, X_OK) == 0)
+    ld_file_name = DEFAULT_LINKER;
+  if (ld_file_name == 0)
+#endif
 #ifdef REAL_LD_FILE_NAME
   ld_file_name = find_a_file (&path, REAL_LD_FILE_NAME);
   if (ld_file_name == 0)
@@ -1137,23 +1155,16 @@ main (argc, argv)
   *ld1++ = *ld2++ = ld_file_name;
 
   /* Make temp file names.  */
-  temp_filename = choose_temp_base ();
-  temp_filename_length = strlen (temp_filename);
-  c_file = xcalloc (temp_filename_length + sizeof (".c"), 1);
-  o_file = xcalloc (temp_filename_length + sizeof (".o"), 1);
+  c_file = make_temp_file (".c");
+  o_file = make_temp_file (".o");
 #ifdef COLLECT_EXPORT_LIST
-  export_file = xmalloc (temp_filename_length + sizeof (".x"));
-  import_file = xmalloc (temp_filename_length + sizeof (".p"));
+  export_file = make_temp_file (".x");
+  import_file = make_temp_file (".p");
 #endif
-  ldout = xmalloc (temp_filename_length + sizeof (".ld"));
-  sprintf (ldout, "%s.ld", temp_filename);
-  sprintf (c_file, "%s.c", temp_filename);
-  sprintf (o_file, "%s.o", temp_filename);
-#ifdef COLLECT_EXPORT_LIST
-  sprintf (export_file, "%s.x", temp_filename);
-  sprintf (import_file, "%s.p", temp_filename);
-#endif
+  ldout = make_temp_file (".ld");
   *c_ptr++ = c_file_name;
+  *c_ptr++ = "-x";
+  *c_ptr++ = "c";
   *c_ptr++ = "-c";
   *c_ptr++ = "-o";
   *c_ptr++ = o_file;
@@ -1428,7 +1439,11 @@ main (argc, argv)
 
   /* If -r or they will be run via some other method, do not build the
      constructor or destructor list, just return now.  */
-  if (rflag || ! do_collecting)
+  if (rflag
+#ifndef COLLECT_EXPORT_LIST
+      || ! do_collecting
+#endif
+      )
     {
 #ifdef COLLECT_EXPORT_LIST
       /* But make sure we delete the export file we may have created.  */
@@ -1437,6 +1452,8 @@ main (argc, argv)
       if (import_file != 0 && import_file[0])
 	maybe_unlink (import_file);
 #endif
+      maybe_unlink (c_file);
+      maybe_unlink (o_file);
       return 0;
     }
 
@@ -1487,8 +1504,14 @@ main (argc, argv)
       maybe_unlink (export_file);
       maybe_unlink (import_file);
 #endif
+      maybe_unlink (c_file);
+      maybe_unlink (o_file);
       return 0;
     }
+
+  /* Sort ctor and dtor lists by priority. */
+  sort_ids (&constructors);
+  sort_ids (&destructors);
 
   maybe_unlink(output_file);
   outf = fopen (c_file, "w");
@@ -1580,18 +1603,11 @@ collect_wait (prog)
       if (WIFSIGNALED (status))
 	{
 	  int sig = WTERMSIG (status);
-#ifdef NO_SYS_SIGLIST
-	  error ("%s terminated with signal %d %s",
-		 prog,
-		 sig,
-		 (status & 0200) ? ", core dumped" : "");
-#else
 	  error ("%s terminated with signal %d [%s]%s",
 		 prog,
 		 sig,
-		 sys_siglist[sig],
+		 my_strsignal(sig),
 		 (status & 0200) ? ", core dumped" : "");
-#endif
 
 	  collect_exit (FATAL_EXIT_CODE);
 	}
@@ -1704,6 +1720,8 @@ maybe_unlink (file)
 }
 
 
+static long sequence_number = 0;
+
 /* Add a name to a linked list.  */
 
 static void
@@ -1714,7 +1732,6 @@ add_to_list (head_ptr, name)
   struct id *newid
     = (struct id *) xcalloc (sizeof (struct id) + strlen (name), 1);
   struct id *p;
-  static long sequence_number = 0;
   strcpy (newid->name, name);
 
   if (head_ptr->first)
@@ -1737,6 +1754,66 @@ add_to_list (head_ptr, name)
   newid->sequence = ++sequence_number;
   head_ptr->last = newid;
   head_ptr->number++;
+}
+
+/* Grab the init priority number from an init function name that
+   looks like "_GLOBAL_.I.12345.foo".  */
+
+static int
+extract_init_priority (name)
+     char *name;
+{
+  int pos = 0;
+
+  while (name[pos] == '_')
+    ++pos;
+  pos += 10; /* strlen ("GLOBAL__X_") */
+
+  /* Extract init_p number from ctor/dtor name. */
+  return atoi (name + pos);
+}
+
+/* Insertion sort the ids from ctor/dtor list HEAD_PTR in descending order.
+   ctors will be run from right to left, dtors from left to right.  */
+
+static void
+sort_ids (head_ptr)
+     struct head *head_ptr;
+{
+  /* id holds the current element to insert.  id_next holds the next
+     element to insert.  id_ptr iterates through the already sorted elements
+     looking for the place to insert id.  */
+  struct id *id, *id_next, **id_ptr;
+
+  id = head_ptr->first;
+
+  /* We don't have any sorted elements yet.  */
+  head_ptr->first = NULL;
+
+  for (; id; id = id_next)
+    {
+      id_next = id->next;
+      id->sequence = extract_init_priority (id->name);
+
+      for (id_ptr = &(head_ptr->first); ; id_ptr = &((*id_ptr)->next))
+	if (*id_ptr == NULL
+	    /* If the sequence numbers are the same, we put the id from the
+	       file later on the command line later in the list.  */
+	    || id->sequence > (*id_ptr)->sequence
+	    /* Hack: do lexical compare, too.
+	    || (id->sequence == (*id_ptr)->sequence
+	        && strcmp (id->name, (*id_ptr)->name) > 0) */
+	    )
+	  {
+	    id->next = *id_ptr;
+	    *id_ptr = id;
+	    break;
+	  }
+    }
+
+  /* Now set the sequence numbers properly so write_c_file works.  */
+  for (id = head_ptr->first; id; id = id->next)
+    id->sequence = ++sequence_number;
 }
 
 /* Write: `prefix', the names on list LIST, `suffix'.  */
@@ -1771,6 +1848,7 @@ is_in_list (prefix, list)
 #endif
 
 /* Added for debugging purpose.  */
+#ifdef COLLECT_EXPORT_LIST
 static void
 dump_list (stream, prefix, list)
      FILE *stream;
@@ -1783,7 +1861,9 @@ dump_list (stream, prefix, list)
       list = list->next;
     }
 }
+#endif
 
+#if 0
 static void
 dump_prefix_list (stream, prefix, list)
      FILE *stream;
@@ -1796,6 +1876,7 @@ dump_prefix_list (stream, prefix, list)
       list = list->next;
     }
 }
+#endif
 
 static void
 write_list_with_asm (stream, prefix, list)
@@ -2820,8 +2901,8 @@ scan_prog_file (prog_name, which_pass)
 #else
 		      if (debug)
 			fprintf (stderr,
-				 "\tiss = %5d, value = %5d, index = %5d, name = %s\n",
-				 symbol.iss, symbol.value, symbol.index, name);
+				 "\tiss = %5d, value = %5ld, index = %5d, name = %s\n",
+				 symbol.iss, (long) symbol.value, symbol.index, name);
 #endif
 		    }
 #ifdef COLLECT_EXPORT_LIST

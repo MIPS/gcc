@@ -287,9 +287,9 @@ to access them.
 @section Flags in an RTL Expression
 @cindex flags in RTL expression
 
-RTL expressions contain several flags (one-bit bitfields) that are used
-in certain types of expression.  Most often they are accessed with the
-following macros:
+RTL expressions contain several flags (one-bit bitfields) and other
+values that are used in certain types of expression.  Most often they
+are accessed with the following macros:
 
 @table @code
 @findex MEM_VOLATILE_P
@@ -309,6 +309,15 @@ In @code{mem} expressions, nonzero for reference to an entire
 structure, union or array, or to a component of one.  Zero for
 references to a scalar variable or through a pointer to a scalar.
 Stored in the @code{in_struct} field and printed as @samp{/s}.
+
+@findex MEM_ALIAS_SET
+@item MEM_ALIAS_SET (@var{x})
+In @code{mem} expressions, the alias set to which @var{x} belongs.  If
+zero, @var{x} is not in any alias set, and may alias anything.  If
+nonzero, @var{x} may only alias objects in the same alias set.  This
+value is set (in a language-specific manner) by the front-end.  This
+field is not a bit-field; it is in an integer, found as the second
+argument to the @code{mem}.
 
 @findex REG_LOOP_TEST_P
 @cindex @code{reg} and @samp{/s}
@@ -380,8 +389,7 @@ other functions or by aliasing.)  Stored in the
 @cindex @code{integrated}, in @code{insn}
 @item RTX_INTEGRATED_P (@var{insn})
 Nonzero in an insn if it resulted from an in-line function call.
-Stored in the @code{integrated} field and printed as @samp{/i}.  This
-may be deleted; nothing currently depends on it.
+Stored in the @code{integrated} field and printed as @samp{/i}.
 
 @findex SYMBOL_REF_USED
 @cindex @code{used}, in @code{symbol_ref}
@@ -2360,14 +2368,23 @@ Appears following each call to @code{setjmp} or a related function.
 These codes are printed symbolically when they appear in debugging dumps.
 @end table
 
+@cindex @code{TImode}, in @code{insn}
 @cindex @code{HImode}, in @code{insn}
 @cindex @code{QImode}, in @code{insn}
 The machine mode of an insn is normally @code{VOIDmode}, but some
 phases use the mode for various purposes; for example, the reload pass
 sets it to @code{HImode} if the insn needs reloading but not register
-elimination and @code{QImode} if both are required.  The common
-subexpression elimination pass sets the mode of an insn to @code{QImode}
-when it is the first insn in a block that has already been processed.
+elimination and @code{QImode} if both are required. 
+
+The common subexpression elimination pass sets the mode of an insn to
+@code{QImode} when it is the first insn in a block that has already
+been processed.
+
+The second Haifa scheduling pass, for targets that can multiple issue,
+sets the mode of an insn to @code{TImode} when it is believed that the
+instruction begins an issue group.  That is, when the instruction 
+cannot issue simultaneously with the previous.  This may be relied on
+by later passes, in particular machine-dependant reorg.
 
 Here is a table of the extra fields of @code{insn}, @code{jump_insn}
 and @code{call_insn} insns:
@@ -2674,6 +2691,12 @@ probability that the branch will be taken.
 These notes are found in JUMP insns after delayed branch scheduling
 has taken place.  They indicate both the direction and the likelyhood
 of the JUMP.  The format is a bitmask of ATTR_FLAG_* values.
+
+@findex REG_FRAME_RELATED_EXPR
+@item REG_FRAME_RELATED_EXPR
+This is used on an RTX_FRAME_RELATED_P insn wherein the attached expression
+is used in place of the actual insn pattern.  This is done in cases where
+the pattern is either complex or misleading.
 @end table
 
 For convenience, the machine mode in an @code{insn_list} or

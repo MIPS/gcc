@@ -56,3 +56,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef STDC_VALUE
 #define STDC_VALUE 0
+
+/* Enable parsing of #pragma pack(push,<n>) and #pragma pack(pop).  */
+#define HANDLE_PRAGMA_PACK_PUSH_POP 1

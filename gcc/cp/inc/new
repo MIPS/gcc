@@ -10,9 +10,7 @@
 
 extern "C++" {
 
-#if 0
 namespace std {
-#endif
 
   class bad_alloc : public exception {
   public:
@@ -24,19 +22,17 @@ namespace std {
   typedef void (*new_handler)();
   new_handler set_new_handler (new_handler);
 
-#if 0
 } // namespace std
-#endif
 
 // replaceable signatures
 void *operator new (size_t) throw (std::bad_alloc);
 void *operator new[] (size_t) throw (std::bad_alloc);
 void operator delete (void *) throw();
 void operator delete[] (void *) throw();
-void *operator new (size_t, const nothrow_t&) throw();
-void *operator new[] (size_t, const nothrow_t&) throw();
-void operator delete (void *, const nothrow_t&) throw();
-void operator delete[] (void *, const nothrow_t&) throw();
+void *operator new (size_t, const std::nothrow_t&) throw();
+void *operator new[] (size_t, const std::nothrow_t&) throw();
+void operator delete (void *, const std::nothrow_t&) throw();
+void operator delete[] (void *, const std::nothrow_t&) throw();
 
 // default placement versions of operator new
 inline void *operator new(size_t, void *place) throw() { return place; }

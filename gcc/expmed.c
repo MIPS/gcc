@@ -93,8 +93,9 @@ init_expmed ()
   /* Since we are on the permanent obstack, we must be sure we save this
      spot AFTER we call start_sequence, since it will reuse the rtl it
      makes.  */
-
   free_point = (char *) oballoc (0);
+
+  reg = gen_rtx (REG, word_mode, 10000);
 
   zero_cost = rtx_cost (const0_rtx, 0);
   add_cost = rtx_cost (gen_rtx_PLUS (word_mode, reg, reg), SET);
@@ -122,7 +123,7 @@ init_expmed ()
   shift_cost[0] = 0;
   shiftadd_cost[0] = shiftsub_cost[0] = add_cost;
 
-  for (m = 1; m < BITS_PER_WORD; m++)
+  for (m = 1; m < MAX_BITS_PER_WORD; m++)
     {
       shift_cost[m] = shiftadd_cost[m] = shiftsub_cost[m] = 32000;
 
@@ -210,10 +211,10 @@ negate_rtx (mode, x)
 /* ??? Note that there are two different ideas here for how
    to determine the size to count bits within, for a register.
    One is BITS_PER_WORD, and the other is the size of operand 3
-   of the insv pattern.  (The latter assumes that an n-bit machine
-   will be able to insert bit fields up to n bits wide.)
-   It isn't certain that either of these is right.
-   extract_bit_field has the same quandary.  */
+   of the insv pattern.
+
+   If operand 3 of the insv pattern is VOIDmode, then we will use BITS_PER_WORD
+   else, we use the mode of operand 3.  */
 
 rtx
 store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
@@ -229,6 +230,14 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
   register int offset = bitnum / unit;
   register int bitpos = bitnum % unit;
   register rtx op0 = str_rtx;
+#ifdef HAVE_insv
+  int insv_bitsize;
+
+  if (insn_operand_mode[(int) CODE_FOR_insv][3] == VOIDmode)
+    insv_bitsize = GET_MODE_BITSIZE (word_mode);
+  else
+    insv_bitsize = GET_MODE_BITSIZE (insn_operand_mode[(int) CODE_FOR_insv][3]);
+#endif
 
   if (GET_CODE (str_rtx) == MEM && ! MEM_IN_STRUCT_P (str_rtx))
     abort ();
@@ -399,21 +408,22 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, align, total_size)
       && GET_MODE (value) != BLKmode
       && !(bitsize == 1 && GET_CODE (value) == CONST_INT)
       /* Ensure insv's size is wide enough for this field.  */
-      && (GET_MODE_BITSIZE (insn_operand_mode[(int) CODE_FOR_insv][3])
-	  >= bitsize)
+      && (insv_bitsize >= bitsize)
       && ! ((GET_CODE (op0) == REG || GET_CODE (op0) == SUBREG)
-	    && (bitsize + bitpos
-		> GET_MODE_BITSIZE (insn_operand_mode[(int) CODE_FOR_insv][3]))))
+	    && (bitsize + bitpos > insv_bitsize)))
     {
       int xbitpos = bitpos;
       rtx value1;
       rtx xop0 = op0;
       rtx last = get_last_insn ();
       rtx pat;
-      enum machine_mode maxmode
-	= insn_operand_mode[(int) CODE_FOR_insv][3];
-
+      enum machine_mode maxmode;
       int save_volatile_ok = volatile_ok;
+
+      maxmode = insn_operand_mode[(int) CODE_FOR_insv][3];
+      if (maxmode == VOIDmode)
+	maxmode = word_mode;
+
       volatile_ok = 1;
 
       /* If this machine's insv can only insert into a register, copy OP0
@@ -893,6 +903,27 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
   register rtx op0 = str_rtx;
   rtx spec_target = target;
   rtx spec_target_subreg = 0;
+#ifdef HAVE_extv
+  int extv_bitsize;
+#endif
+#ifdef HAVE_extzv
+  int extzv_bitsize;
+#endif
+
+#ifdef HAVE_extv
+  if (insn_operand_mode[(int) CODE_FOR_extv][0] == VOIDmode)
+    extv_bitsize = GET_MODE_BITSIZE (word_mode);
+  else
+    extv_bitsize = GET_MODE_BITSIZE (insn_operand_mode[(int) CODE_FOR_extv][0]);
+#endif
+
+#ifdef HAVE_extzv
+  if (insn_operand_mode[(int) CODE_FOR_extzv][0] == VOIDmode)
+    extzv_bitsize = GET_MODE_BITSIZE (word_mode);
+  else
+    extzv_bitsize
+      = GET_MODE_BITSIZE (insn_operand_mode[(int) CODE_FOR_extzv][0]);
+#endif
 
   /* Discount the part of the structure before the desired byte.
      We need to know how many bytes are safe to reference after it.  */
@@ -952,6 +983,10 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
       && ((bitsize >= BITS_PER_WORD && bitsize == GET_MODE_BITSIZE (mode)
 	   && bitpos % BITS_PER_WORD == 0)
 	  || (mode_for_size (bitsize, GET_MODE_CLASS (tmode), 0) != BLKmode
+	      /* ??? The big endian test here is wrong.  This is correct
+		 if the value is in a register, and if mode_for_size is not
+		 the same mode as op0.  This causes us to get unnecessarily
+		 inefficient code from the Thumb port when -mbig-endian.  */
 	      && (BYTES_BIG_ENDIAN
 		  ? bitpos + bitsize == BITS_PER_WORD
 		  : bitpos == 0))))
@@ -1072,11 +1107,9 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
     {
 #ifdef HAVE_extzv
       if (HAVE_extzv
-	  && (GET_MODE_BITSIZE (insn_operand_mode[(int) CODE_FOR_extzv][0])
-	      >= bitsize)
+	  && (extzv_bitsize >= bitsize)
 	  && ! ((GET_CODE (op0) == REG || GET_CODE (op0) == SUBREG)
-		&& (bitsize + bitpos
-		    > GET_MODE_BITSIZE (insn_operand_mode[(int) CODE_FOR_extzv][0]))))
+		&& (bitsize + bitpos > extzv_bitsize)))
 	{
 	  int xbitpos = bitpos, xoffset = offset;
 	  rtx bitsize_rtx, bitpos_rtx;
@@ -1086,8 +1119,11 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 	  rtx xspec_target = spec_target;
 	  rtx xspec_target_subreg = spec_target_subreg;
 	  rtx pat;
-	  enum machine_mode maxmode
-	    = insn_operand_mode[(int) CODE_FOR_extzv][0];
+	  enum machine_mode maxmode;
+
+	  maxmode = insn_operand_mode[(int) CODE_FOR_extzv][0];
+	  if (maxmode == VOIDmode)
+	    maxmode = word_mode;
 
 	  if (GET_CODE (xop0) == MEM)
 	    {
@@ -1212,11 +1248,9 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
     {
 #ifdef HAVE_extv
       if (HAVE_extv
-	  && (GET_MODE_BITSIZE (insn_operand_mode[(int) CODE_FOR_extv][0])
-	      >= bitsize)
+	  && (extv_bitsize >= bitsize)
 	  && ! ((GET_CODE (op0) == REG || GET_CODE (op0) == SUBREG)
-		&& (bitsize + bitpos
-		    > GET_MODE_BITSIZE (insn_operand_mode[(int) CODE_FOR_extv][0]))))
+		&& (bitsize + bitpos > extv_bitsize)))
 	{
 	  int xbitpos = bitpos, xoffset = offset;
 	  rtx bitsize_rtx, bitpos_rtx;
@@ -1225,8 +1259,11 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 	  rtx xspec_target = spec_target;
 	  rtx xspec_target_subreg = spec_target_subreg;
 	  rtx pat;
-	  enum machine_mode maxmode
-	    = insn_operand_mode[(int) CODE_FOR_extv][0];
+	  enum machine_mode maxmode;
+
+	  maxmode = insn_operand_mode[(int) CODE_FOR_extv][0];
+	  if (maxmode == VOIDmode)
+	    maxmode = word_mode;
 
 	  if (GET_CODE (xop0) == MEM)
 	    {
@@ -1614,7 +1651,7 @@ extract_split_bit_field (op0, bitsize, bitpos, unsignedp, align)
 {
   int unit;
   int bitsdone = 0;
-  rtx result;
+  rtx result = NULL_RTX;
   int first = 1;
 
   /* Make sure UNIT isn't larger than BITS_PER_WORD, we can only handle that
@@ -2277,7 +2314,8 @@ expand_mult (mode, op0, op1, target, unsignedp)
 	      rtx shift_subtarget = preserve ? 0 : accum;
 	      rtx add_target
 		= (opno == alg.ops - 1 && target != 0 && variant != add_variant
-		  ? target : 0);
+		   && ! preserve)
+		  ? target : 0;
 	      rtx accum_target = preserve ? 0 : accum;
 	      
 	      switch (alg.op[opno])
@@ -2746,6 +2784,7 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
   optab optab1, optab2;
   int op1_is_constant, op1_is_pow2;
   int max_cost, extra_cost;
+  static HOST_WIDE_INT last_div_const = 0;
 
   op1_is_constant = GET_CODE (op1) == CONST_INT;
   op1_is_pow2 = (op1_is_constant
@@ -2855,8 +2894,15 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
   size = GET_MODE_BITSIZE (mode);
 #endif
 
+  /* Only deduct something for a REM if the last divide done was
+     for a different constant.   Then set the constant of the last
+     divide.  */
   max_cost = div_cost[(int) compute_mode]
-    - (rem_flag ? mul_cost[(int) compute_mode] + add_cost : 0);
+    - (rem_flag && ! (last_div_const != 0 && op1_is_constant
+		      && INTVAL (op1) == last_div_const)
+       ? mul_cost[(int) compute_mode] + add_cost : 0);
+
+  last_div_const = ! rem_flag && op1_is_constant ? INTVAL (op1) : 0;
 
   /* Now convert to the best mode to use.  */
   if (compute_mode != mode)
@@ -3663,10 +3709,22 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
 
       if (rem_flag)
 	{
-	  /* Try to produce the remainder directly without a library call.  */
-	  remainder = sign_expand_binop (compute_mode, umod_optab, smod_optab,
-					 op0, op1, target,
-					 unsignedp, OPTAB_WIDEN);
+	  /* Try to produce the remainder without producing the quotient.
+	     If we seem to have a divmod patten that does not require widening,
+	     don't try windening here.  We should really have an WIDEN argument
+	     to expand_twoval_binop, since what we'd really like to do here is
+	     1) try a mod insn in compute_mode
+	     2) try a divmod insn in compute_mode
+	     3) try a div insn in compute_mode and multiply-subtract to get
+	        remainder
+	     4) try the same things with widening allowed.  */
+	  remainder
+	    = sign_expand_binop (compute_mode, umod_optab, smod_optab,
+				 op0, op1, target,
+				 unsignedp,
+				 ((optab2->handlers[(int) compute_mode].insn_code
+				   != CODE_FOR_nothing)
+				  ? OPTAB_DIRECT : OPTAB_WIDEN));
 	  if (remainder == 0)
 	    {
 	      /* No luck there.  Can we do remainder and divide at once
@@ -3757,7 +3815,9 @@ make_tree (type, x)
     {
     case CONST_INT:
       t = build_int_2 (INTVAL (x),
-		       TREE_UNSIGNED (type) || INTVAL (x) >= 0 ? 0 : -1);
+		       (TREE_UNSIGNED (type)
+			&& (GET_MODE_BITSIZE (TYPE_MODE (type)) < HOST_BITS_PER_WIDE_INT))
+		       || INTVAL (x) >= 0 ? 0 : -1);
       TREE_TYPE (t) = type;
       return t;
 

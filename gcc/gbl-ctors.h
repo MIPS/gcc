@@ -60,7 +60,7 @@ extern func_ptr __DTOR_LIST__[];
 
 /* Declare the routine which need to get invoked at program exit time.  */
 
-extern void __do_global_dtors ();
+extern void __do_global_dtors (void);
 
 /* Define a macro with the code which needs to be executed at program
    start-up time.  This macro is used in two places in crtstuff.c (for
@@ -83,7 +83,7 @@ extern void __do_global_dtors ();
 do {									\
   unsigned long nptrs = (unsigned long) __CTOR_LIST__[0];		\
   unsigned i;								\
-  if (nptrs == -1)							\
+  if (nptrs == (unsigned long)-1)				        \
     for (nptrs = 0; __CTOR_LIST__[nptrs + 1] != 0; nptrs++);		\
   for (i = nptrs; i >= 1; i--)						\
     __CTOR_LIST__[i] ();						\

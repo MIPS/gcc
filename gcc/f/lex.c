@@ -1,6 +1,6 @@
 /* Implementation of Fortran lexer
-   Copyright (C) 1995-1997 Free Software Foundation, Inc.
-   Contributed by James Craig Burley (burley@gnu.ai.mit.edu).
+   Copyright (C) 1995-1998 Free Software Foundation, Inc.
+   Contributed by James Craig Burley (burley@gnu.org).
 
 This file is part of GNU Fortran.
 
@@ -20,7 +20,6 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
 #include "proj.h"
-#include <ctype.h>
 #include "top.h"
 #include "bad.h"
 #include "com.h"
@@ -28,10 +27,11 @@ the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "malloc.h"
 #include "src.h"
 #if FFECOM_targetCURRENT == FFECOM_targetGCC
-#include "config.j"
 #include "flags.j"
 #include "input.j"
+#include "toplev.j"
 #include "tree.j"
+#include "output.j"  /* Must follow tree.j so TREE_CODE is defined! */
 #endif
 
 #ifdef DWARF_DEBUGGING_INFO
@@ -769,7 +769,7 @@ ffelex_cfelex_ (ffelexToken *xtoken, FILE *finput, int c)
 	      r = &q[buffer_length];
 	    }
 	  c = ffelex_getc_ (finput);
-	  if (!isdigit (c))
+	  if (! ISDIGIT (c))
 	    break;
 	}
       *p = '\0';
@@ -1077,6 +1077,23 @@ ffelex_get_directive_line_ (char **text, FILE *finput)
    Returns the next character unhandled, which is always newline or EOF.  */
 
 #if FFECOM_targetCURRENT == FFECOM_targetGCC
+
+#if defined HANDLE_PRAGMA
+/* Local versions of these macros, that can be passed as function pointers.  */
+static int
+pragma_getc ()
+{
+  return getc (finput);
+}
+
+static void
+pragma_ungetc (arg)
+     int arg;
+{
+  ungetc (arg, finput);
+}
+#endif /* HANDLE_PRAGMA */
+
 static int
 ffelex_hash_ (FILE *finput)
 {
@@ -1105,17 +1122,42 @@ ffelex_hash_ (FILE *finput)
 	      && ((c = getc (finput)) == ' ' || c == '\t' || c == '\n'
 		  || c == EOF))
 	    {
-	      goto skipline;
 #if 0	/* g77 doesn't handle pragmas, so ignores them FOR NOW. */
-#ifdef HANDLE_SYSV_PRAGMA
-	      return handle_sysv_pragma (finput, c);
-#else /* !HANDLE_SYSV_PRAGMA */
+	      static char buffer [128];
+	      char * buff = buffer;
+
+	      /* Read the pragma name into a buffer.  */
+	      while (isspace (c = getc (finput)))
+		continue;
+	      
+	      do
+		{
+		  * buff ++ = c;
+		  c = getc (finput);
+		}
+	      while (c != EOF && ! isspace (c) && c != '\n'
+		     && buff < buffer + 128);
+
+	      pragma_ungetc (c);
+		
+	      * -- buff = 0;
 #ifdef HANDLE_PRAGMA
-	      HANDLE_PRAGMA (finput);
+	      if (HANDLE_PRAGMA (pragma_getc, pragma_ungetc, buffer))
+		goto skipline;
 #endif /* HANDLE_PRAGMA */
-	      goto skipline;
-#endif /* !HANDLE_SYSV_PRAGMA */
+#ifdef HANDLE_GENERIC_PRAGMAS
+	      if (handle_generic_pragma (buffer))
+		goto skipline;
+#endif /* !HANDLE_GENERIC_PRAGMAS */
+
+	      /* Issue a warning message if we have been asked to do so.
+		 Ignoring unknown pragmas in system header file unless
+		 an explcit -Wunknown-pragmas has been given. */
+	      if (warn_unknown_pragmas > 1
+		  || (warn_unknown_pragmas && ! in_system_header))
+		warning ("ignoring pragma: %s", token_buffer);
 #endif /* 0 */
+	      goto skipline;
 	    }
 	}
 
@@ -1811,10 +1853,10 @@ ffelex_expecting_character ()
 ffelexHandler
 ffelex_file_fixed (ffewhereFile wf, FILE *f)
 {
-  register int c;		/* Character currently under consideration. */
-  register ffewhereColumnNumber column;	/* Not really; 0 means column 1... */
+  register int c = 0;		/* Character currently under consideration. */
+  register ffewhereColumnNumber column = 0;	/* Not really; 0 means column 1... */
   bool disallow_continuation_line;
-  bool ignore_disallowed_continuation;
+  bool ignore_disallowed_continuation = FALSE;
   int latest_char_in_file = 0;	/* For getting back into comment-skipping
 				   code. */
   ffelexType lextype;
@@ -1848,6 +1890,23 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
   ffelex_current_wl_ = ffewhere_line_unknown ();
   ffelex_current_wc_ = ffewhere_column_unknown ();
   latest_char_in_file = '\n';
+
+  if (ffe_is_null_version ())
+    {
+      /* Just substitute a "program" directly here.  */
+
+      char line[] = "      call g77__fvers;call g77__ivers;call g77__uvers;end";
+      char *p;
+
+      column = 0;
+      for (p = &line[0]; *p != '\0'; ++p)
+	column = ffelex_image_char_ (*p, column);
+
+      c = EOF;
+
+      goto have_line;		/* :::::::::::::::::::: */
+    }
+
   goto first_line;		/* :::::::::::::::::::: */
 
   /* Come here to get a new line. */
@@ -1995,6 +2054,9 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
 
       column = ffelex_final_nontab_column_;
     }
+
+ have_line:			/* :::::::::::::::::::: */
+
   ffelex_card_image_[column] = '\0';
   ffelex_card_length_ = column;
 
@@ -3012,11 +3074,11 @@ ffelex_file_fixed (ffewhereFile wf, FILE *f)
 ffelexHandler
 ffelex_file_free (ffewhereFile wf, FILE *f)
 {
-  register int c;		/* Character currently under consideration. */
-  register ffewhereColumnNumber column;	/* Not really; 0 means column 1... */
-  bool continuation_line;
+  register int c = 0;		/* Character currently under consideration. */
+  register ffewhereColumnNumber column = 0;	/* Not really; 0 means column 1... */
+  bool continuation_line = FALSE;
   ffewhereColumnNumber continuation_column;
-  int latest_char_in_file;	/* For getting back into comment-skipping
+  int latest_char_in_file = 0;	/* For getting back into comment-skipping
 				   code. */
 
   /* Lex is called for a particular file, not for a particular program unit.
@@ -4293,7 +4355,7 @@ ffelex_splice_tokens (ffelexHandler first, ffelexToken master,
 
   while (*p != '\0')
     {
-      if (isdigit (*p))
+      if (ISDIGIT (*p))
 	{
 	  t = ffelex_token_number_from_names (master, i);
 	  p += ffelex_token_length (t);

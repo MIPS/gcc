@@ -653,7 +653,7 @@ dtors_section ()							\
    (current_function_calls_setjmp || current_function_calls_longjmp))
 
 #undef JUMP_TABLES_IN_TEXT_SECTION
-#define JUMP_TABLES_IN_TEXT_SECTION 1
+#define JUMP_TABLES_IN_TEXT_SECTION (TARGET_ELF && flag_pic)
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX						\
@@ -731,6 +731,14 @@ dtors_section ()							\
 #undef HANDLE_SYSV_PRAGMA
 #define HANDLE_SYSV_PRAGMA 1
 
+/* Though OpenServer support .weak in COFF, g++ doesn't play nice with it
+ * so we'll punt on it for now
+ */
+#define SUPPORTS_WEAK (TARGET_ELF)
+#define ASM_WEAKEN_LABEL(FILE,NAME) \
+  do { fputs ("\t.weak\t", FILE); assemble_name (FILE, NAME);		\
+	fputc ('\n', FILE); } while (0)
+
 #undef SCCS_DIRECTIVE
 #define SCCS_DIRECTIVE 1
 
@@ -777,19 +785,29 @@ dtors_section ()							\
 
    SCO also allows you to compile, link and generate either ELF or COFF
    binaries. With gcc, unlike the SCO compiler, the default is ELF.
-   Specify -mcoff to gcc to produce elf binaries. -fpic will get the
+   Specify -mcoff to gcc to produce COFF binaries. -fpic will get the
    assembler and linker to produce PIC code.
 */
 
 /* Set up assembler flags for PIC and ELF compilations */
 #undef ASM_SPEC
+
+#if USE_GAS
+  /* Leave ASM_SPEC undefined so we pick up the master copy from gcc.c 
+   * Undef MD_EXEC_PREFIX becuase we don't know where GAS is, but it's not
+   * likely in /usr/ccs/bin/ 
+   */
+#undef MD_EXEC_PREFIX 
+#else
+
 #define ASM_SPEC \
- "-b %{!mcoff:elf}%{mcoff:coff \
-   %{static:%e-static not valid with -mcoff} \
-   %{shared:%e-shared not valid with -mcoff} \
-   %{symbolic:%e-symbolic not valid with -mcoff}} \
-  %{Ym,*} %{Yd,*} %{Wa,*:%*} \
-  %{!mcoff:-E%{Xa:a}%{!Xa:%{Xc:c}%{!Xc:%{Xk:k}%{!Xk:%{Xt:t}%{!Xt:a}}}},%{ansi:ansi}%{!ansi:%{posix:posix}%{!posix:%{Xpg4:xpg4}%{!Xpg4:%{Xpg4plus:XPG4PLUS}%{!Xpg4plus:%{Xods30:ods30}%{!Xods30:XPG4PLUS}}}}},ELF %{Qn:} %{!Qy:-Qn}}"
+   "-b %{!mcoff:elf}%{mcoff:coff \
+     %{static:%e-static not valid with -mcoff} \
+     %{shared:%e-shared not valid with -mcoff} \
+     %{symbolic:%e-symbolic not valid with -mcoff}} \
+    %{Ym,*} %{Yd,*} %{Wa,*:%*} \
+    %{!mcoff:-E%{Xa:a}%{!Xa:%{Xc:c}%{!Xc:%{Xk:k}%{!Xk:%{Xt:t}%{!Xt:a}}}},%{ansi:ansi}%{!ansi:%{posix:posix}%{!posix:%{Xpg4:xpg4}%{!Xpg4:%{Xpg4plus:XPG4PLUS}%{!Xpg4plus:%{Xods30:ods30}%{!Xods30:XPG4PLUS}}}}},ELF %{Qn:} %{!Qy:-Qn}}"
+#endif
 
 /* Use crt1.o as a startup file and crtn.o as a closing file.  */
 
@@ -822,7 +840,7 @@ dtors_section ()							\
 /* You are in a maze of GCC specs ... all alike */
 
 #undef CPP_SPEC
-#define CPP_SPEC "%(cpp_cpu) %[cpp_cpu] \
+#define CPP_SPEC "%(cpp_cpu) \
   %{fpic:%{mcoff:%e-fpic is not valid with -mcoff}} \
   %{fPIC:%{mcoff:%e-fPIC is not valid with -mcoff}} \
   -D__i386 -D__unix -D_SCO_DS=1 -D_M_I386 -D_M_XENIX -D_M_UNIX \
@@ -897,6 +915,11 @@ dtors_section ()							\
 	{ "elf", -MASK_COFF },
 
 #define NO_DOLLAR_IN_LABEL
+
+/* Implicit library calls should use memcpy, not bcopy, etc.  They are 
+   faster on OpenServer libraries. */
+
+#define TARGET_MEM_FUNCTIONS
 
 /*
 Here comes some major hackery to get the crt stuff to compile properly.

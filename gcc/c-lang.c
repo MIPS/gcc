@@ -24,16 +24,25 @@ Boston, MA 02111-1307, USA.  */
 #include "tree.h"
 #include "input.h"
 #include "c-tree.h"
+#include "c-lex.h"
+#include "toplev.h"
+#include "output.h"
 #include "ggc.h"
 
 /* Each of the functions defined here
    is an alternative to a function in objc-actions.c.  */
    
 int
-lang_decode_option (p)
-     char *p;
+lang_decode_option (argc, argv)
+     int argc;
+     char **argv;
 {
-  return c_decode_option (p);
+  return c_decode_option (argc, argv);
+}
+
+void
+lang_init_options ()
+{
 }
 
 void
@@ -67,9 +76,9 @@ print_lang_statistics ()
 
 void
 lang_print_xnode (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+     FILE *file ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
+     int indent ATTRIBUTE_UNUSED;
 {
 }
 
@@ -77,35 +86,36 @@ lang_print_xnode (file, node, indent)
 
 tree
 lookup_interface (arg)
-     tree arg;
+     tree arg ATTRIBUTE_UNUSED;
 {
   return 0;
 }
 
 tree
 is_class_name (arg)
-    tree arg;
+    tree arg ATTRIBUTE_UNUSED;
 {
   return 0;
 }
 
 void
 maybe_objc_check_decl (decl)
-     tree decl;
+     tree decl ATTRIBUTE_UNUSED;
 {
 }
 
 int
 maybe_objc_comptypes (lhs, rhs, reflexive)
-     tree lhs, rhs;
-     int reflexive;
+     tree lhs ATTRIBUTE_UNUSED;
+     tree rhs ATTRIBUTE_UNUSED;
+     int reflexive ATTRIBUTE_UNUSED;
 {
   return -1;
 }
 
 tree
 maybe_objc_method_name (decl)
-    tree decl;
+    tree decl ATTRIBUTE_UNUSED;
 {
   return 0;
 }
@@ -124,23 +134,11 @@ recognize_objc_keyword ()
 
 tree
 build_objc_string (len, str)
-    int len;
-    char *str;
+    int len ATTRIBUTE_UNUSED;
+    char *str ATTRIBUTE_UNUSED;
 {
   abort ();
   return NULL_TREE;
-}
-
-void
-GNU_xref_begin ()
-{
-  fatal ("GCC does not yet support XREF");
-}
-
-void
-GNU_xref_end ()
-{
-  fatal ("GCC does not yet support XREF");
 }
 
 /* Called at end of parsing, but before end-of-file processing.  */

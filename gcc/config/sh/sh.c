@@ -1335,13 +1335,13 @@ gen_shl_and (dest, left_rtx, mask_rtx, source)
       }
     case 4:
       shift_gen_fun = gen_shifty_op;
-    case 2:
     case 3:
       /* If the topmost bit that matters is set, set the topmost bits
 	 that don't matter.  This way, we might be able to get a shorter
 	 signed constant.  */
       if (mask & ((HOST_WIDE_INT)1 << 31 - total_shift))
 	mask |= (HOST_WIDE_INT)~0 << (31 - total_shift);
+    case 2:
       /* Don't expand fine-grained when combining, because that will
          make the pattern fail.  */
       if (rtx_equal_function_value_matters
@@ -1349,6 +1349,10 @@ gen_shl_and (dest, left_rtx, mask_rtx, source)
 	{
 	  rtx operands[3];
   
+	  /* Cases 3 and 4 should be handled by this split
+	     only while combining  */
+	  if (kind > 2)
+	    abort ();
 	  if (right)
 	    {
 	      emit_insn (gen_lshrsi3 (dest, source, GEN_INT (right)));
@@ -1596,8 +1600,16 @@ gen_shl_sext (dest, left_rtx, size_rtx, source)
     case 5:
       {
 	int i = 16 - size;
-	emit_insn (gen_shl_sext_ext (dest, source, GEN_INT (16 - insize),
-				     GEN_INT (16)));
+	if (! rtx_equal_function_value_matters
+	    && ! reload_in_progress && ! reload_completed)
+	  emit_insn (gen_shl_sext_ext (dest, source, left_rtx, size_rtx));
+	else
+	  {
+	    operands[0] = dest;
+	    operands[2] = GEN_INT (16 - insize);
+	    gen_shifty_hi_op (ASHIFT, operands);
+	    emit_insn (gen_extendhisi2 (dest, gen_lowpart (HImode, dest)));
+	  }
 	/* Don't use gen_ashrsi3 because it generates new pseudos.  */
 	while (--i >= 0)
 	  gen_ashift (ASHIFTRT, 1, dest);
@@ -3696,17 +3708,13 @@ initial_elimination_offset (from, to)
    compiler.  */
 
 int
-handle_pragma (file, t)
-     FILE *file;
-     tree t;
+sh_handle_pragma (p_getc, p_ungetc, pname)
+     int (*  p_getc)   PROTO((void));
+     void (* p_ungetc) PROTO((int));
+     char *  pname;
 {
   int retval = 0;
-  register char *pname;
 
-  if (TREE_CODE (t) != IDENTIFIER_NODE)
-    return 0;
-
-  pname = IDENTIFIER_POINTER (t);
   if (strcmp (pname, "interrupt") == 0)
     pragma_interrupt = retval = 1;
   else if (strcmp (pname, "trapa") == 0)

@@ -36,6 +36,13 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 
+#if USE_CPPLIB
+#include "cpplib.h"
+extern cpp_reader  parse_in;
+extern cpp_options parse_options;
+static int cpp_initialized;
+#endif
+
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
 { NORMAL,			/* Ordinary declaration */
@@ -490,6 +497,10 @@ int flag_no_ident = 0;
 
 int warn_implicit_int;
 
+/* Nonzero means warn about usage of long long when `-pedantic'.  */
+
+int warn_long_long = 1;
+
 /* Nonzero means message about use of implicit function declarations;
  1 means warning; 2 means error. */
 
@@ -499,7 +510,7 @@ int mesg_implicit_function_declaration;
    to get extra warnings from them.  These warnings will be too numerous
    to be useful, except in thoroughly ANSIfied programs.  */
 
-int warn_write_strings;
+int flag_const_strings;
 
 /* Nonzero means warn about pointer casts that can drop a type qualifier
    from the pointer target type.  */
@@ -582,6 +593,10 @@ int warn_unknown_pragmas = 0; /* Tri state variable.  */
 
 int warn_sign_compare = -1;
 
+/* Nonzero means warn about use of multicharacter literals.  */
+
+int warn_multichar = 1;
+
 /* Nonzero means `$' can be in an identifier.  */
 
 #ifndef DOLLARS_IN_IDENTIFIERS
@@ -590,13 +605,28 @@ int warn_sign_compare = -1;
 int dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
 
 /* Decode the string P as a language-specific option for C.
-   Return 1 if it is recognized (and handle it);
-   return 0 if not recognized.  */
+   Return the number of strings consumed.  */
    
 int
-c_decode_option (p)
-     char *p;
+c_decode_option (argc, argv)
+     int argc;
+     char **argv;
 {
+  int strings_processed;
+  char *p = argv[0];
+#if USE_CPPLIB
+  if (! cpp_initialized)
+    {
+      cpp_reader_init (&parse_in);
+      parse_in.data = &parse_options;
+      cpp_options_init (&parse_options);
+      cpp_initialized = 1;
+    }
+  strings_processed = cpp_handle_option (&parse_in, argc, argv);
+#else
+  strings_processed = 0;
+#endif /* ! USE_CPPLIB */
+
   if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
     {
       flag_traditional = 1;
@@ -690,10 +720,14 @@ c_decode_option (p)
     }
   else if (!strcmp (p, "-Wno-implicit"))
     warn_implicit_int = 0, mesg_implicit_function_declaration = 0;
+  else if (!strcmp (p, "-Wlong-long"))
+    warn_long_long = 1;
+  else if (!strcmp (p, "-Wno-long-long"))
+    warn_long_long = 0;
   else if (!strcmp (p, "-Wwrite-strings"))
-    warn_write_strings = 1;
+    flag_const_strings = 1;
   else if (!strcmp (p, "-Wno-write-strings"))
-    warn_write_strings = 0;
+    flag_const_strings = 0;
   else if (!strcmp (p, "-Wcast-qual"))
     warn_cast_qual = 1;
   else if (!strcmp (p, "-Wno-cast-qual"))
@@ -782,6 +816,10 @@ c_decode_option (p)
     warn_sign_compare = 1;
   else if (!strcmp (p, "-Wno-sign-compare"))
     warn_sign_compare = 0;
+  else if (!strcmp (p, "-Wmultichar"))
+    warn_multichar = 1;
+  else if (!strcmp (p, "-Wno-multichar"))
+    warn_multichar = 0;
   else if (!strcmp (p, "-Wunknown-pragmas"))
     /* Set to greater than 1, so that even unknown pragmas in system
        headers will be warned about.  */
@@ -811,7 +849,7 @@ c_decode_option (p)
       warn_unknown_pragmas = 1;
     }
   else
-    return 0;
+    return strings_processed;
 
   return 1;
 }
@@ -820,17 +858,17 @@ c_decode_option (p)
 
 void
 print_lang_decl (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+     FILE *file ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
+     int indent ATTRIBUTE_UNUSED;
 {
 }
 
 void
 print_lang_type (file, node, indent)
-     FILE *file;
-     tree node;
-     int indent;
+     FILE *file ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
+     int indent ATTRIBUTE_UNUSED;
 {
 }
 
@@ -1905,6 +1943,9 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	{
 	  DECL_STATIC_CONSTRUCTOR(newdecl) |= DECL_STATIC_CONSTRUCTOR(olddecl);
 	  DECL_STATIC_DESTRUCTOR (newdecl) |= DECL_STATIC_DESTRUCTOR (olddecl);
+
+	  DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (newdecl)
+	    |= DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (olddecl);
 	}
 
       pop_obstacks ();
@@ -1991,14 +2032,21 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	  DECL_SAVED_INSNS (newdecl) = DECL_SAVED_INSNS (olddecl);
 	  DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
 	  if (DECL_INLINE (newdecl))
-	    DECL_ABSTRACT_ORIGIN (newdecl) = olddecl;
+	    DECL_ABSTRACT_ORIGIN (newdecl) = DECL_ORIGIN (olddecl);
 	}
     }
   if (different_binding_level)
     {
       /* Don't output a duplicate symbol or debugging information for this
-	 declaration.  */
-      TREE_ASM_WRITTEN (newdecl) = DECL_IGNORED_P (newdecl) = 1;
+	 declaration.
+
+	 Do not set TREE_ASM_WRITTEN for a FUNCTION_DECL since we may actually
+	 just have two declarations without a definition.  VAR_DECLs may need
+	 the same treatment, I'm not sure.  */
+      if (TREE_CODE (newdecl) == FUNCTION_DECL)
+	DECL_IGNORED_P (newdecl) = 1;
+      else
+	TREE_ASM_WRITTEN (newdecl) = DECL_IGNORED_P (newdecl) = 1;
       return 0;
     }
 
@@ -2348,7 +2396,7 @@ pushdecl (x)
 		      DECL_ARGUMENTS (x) = DECL_ARGUMENTS (oldglobal);
 		      DECL_RESULT (x) = DECL_RESULT (oldglobal);
 		      TREE_ASM_WRITTEN (x) = TREE_ASM_WRITTEN (oldglobal);
-		      DECL_ABSTRACT_ORIGIN (x) = oldglobal;
+		      DECL_ABSTRACT_ORIGIN (x) = DECL_ORIGIN (oldglobal);
 		    }
 		  /* Inner extern decl is built-in if global one is.  */
 		  if (DECL_BUILT_IN (oldglobal))
@@ -3024,7 +3072,7 @@ init_decl_processing ()
   pushdecl (build_decl (TYPE_DECL, NULL_TREE, intDI_type_node));
 
   intTI_type_node = make_signed_type (GET_MODE_BITSIZE (TImode));
-  pushdecl (build_decl (TYPE_DECL, NULL_TREE, intDI_type_node));
+  pushdecl (build_decl (TYPE_DECL, NULL_TREE, intTI_type_node));
 
   unsigned_intQI_type_node = make_unsigned_type (GET_MODE_BITSIZE (QImode));
   pushdecl (build_decl (TYPE_DECL, NULL_TREE, unsigned_intQI_type_node));
@@ -3273,8 +3321,8 @@ init_decl_processing ()
   builtin_function ("__builtin_unwind_init",
 		    build_function_type (void_type_node, endlink),
 		    BUILT_IN_UNWIND_INIT, NULL_PTR);
-  builtin_function ("__builtin_fp", ptr_ftype_void, BUILT_IN_FP, NULL_PTR);
-  builtin_function ("__builtin_sp", ptr_ftype_void, BUILT_IN_SP, NULL_PTR);
+  builtin_function ("__builtin_dwarf_cfa", ptr_ftype_void,
+		    BUILT_IN_DWARF_CFA, NULL_PTR);
   builtin_function ("__builtin_dwarf_fp_regnum",
 		    build_function_type (unsigned_type_node, endlink),
 		    BUILT_IN_DWARF_FP_REGNUM, NULL_PTR);
@@ -3284,22 +3332,16 @@ init_decl_processing ()
 		    BUILT_IN_FROB_RETURN_ADDR, NULL_PTR);
   builtin_function ("__builtin_extract_return_addr", ptr_ftype_ptr,
 		    BUILT_IN_EXTRACT_RETURN_ADDR, NULL_PTR);
-  builtin_function ("__builtin_set_return_addr_reg",
-		    build_function_type (void_type_node, 
-					 tree_cons (NULL_TREE,
-						    ptr_type_node,
-						    endlink)),
-		    BUILT_IN_SET_RETURN_ADDR_REG, NULL_PTR);
-  builtin_function ("__builtin_eh_stub", ptr_ftype_void,
-		    BUILT_IN_EH_STUB, NULL_PTR);
   builtin_function
-    ("__builtin_set_eh_regs",
+    ("__builtin_eh_return",
      build_function_type (void_type_node,
 			  tree_cons (NULL_TREE, ptr_type_node,
 				     tree_cons (NULL_TREE,
 						type_for_mode (ptr_mode, 0),
-						endlink))),
-     BUILT_IN_SET_EH_REGS, NULL_PTR);
+					        tree_cons (NULL_TREE,
+							   ptr_type_node,
+							   endlink)))),
+     BUILT_IN_EH_RETURN, NULL_PTR);
 
   builtin_function ("__builtin_alloca",
 		    build_function_type (ptr_type_node,
@@ -3431,6 +3473,9 @@ init_decl_processing ()
 					   integer_type_node,
 					   endlink))),
 		    BUILT_IN_LONGJMP, NULL_PTR);
+  builtin_function ("__builtin_trap",
+		    build_function_type (void_type_node, endlink),
+		    BUILT_IN_TRAP, NULL_PTR);
 
   /* In an ANSI C program, it is okay to supply built-in meanings
      for these functions, since applications cannot validly use them
@@ -3509,6 +3554,8 @@ init_decl_processing ()
   init_iterators ();
 
   incomplete_decl_finalize_hook = finish_incomplete_decl;
+
+  lang_get_alias_set = c_get_alias_set;
 
   /* Record our roots.  */
 
@@ -3606,7 +3653,7 @@ shadow_tag_warned (declspecs, warned)
      following code.  */
   split_specs_attrs (declspecs, &specs, &attrs);
 
-  for (link = declspecs; link; link = TREE_CHAIN (link))
+  for (link = specs; link; link = TREE_CHAIN (link))
     {
       register tree value = TREE_VALUE (link);
       register enum tree_code code = TREE_CODE (value);
@@ -3719,7 +3766,8 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   /* The corresponding pop_obstacks is in finish_decl.  */
   push_obstacks_nochange ();
 
-  if (warn_main && !strcmp (IDENTIFIER_POINTER (declarator), "main"))
+  if (warn_main && TREE_CODE (decl) != FUNCTION_DECL 
+      && !strcmp (IDENTIFIER_POINTER (DECL_NAME (decl)), "main"))
     warning_with_decl (decl, "`%s' is usually a function");
 
   if (initialized)
@@ -3813,6 +3861,10 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
      This matters only for variables with external linkage.  */
   if (! flag_no_common || ! TREE_PUBLIC (decl))
     DECL_COMMON (decl) = 1;
+
+#ifdef SET_DEFAULT_DECL_ATTRIBUTES
+  SET_DEFAULT_DECL_ATTRIBUTES (decl, attributes);
+#endif
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
   decl_attributes (decl, attributes, prefix_attributes);
@@ -4136,7 +4188,7 @@ finish_decl (decl, init, asmspec_tree)
 
 tree
 maybe_build_cleanup (decl)
-     tree decl;
+     tree decl ATTRIBUTE_UNUSED;
 {
   /* There are no cleanups in C.  */
   return NULL_TREE;
@@ -4410,7 +4462,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 		      error ("`long long long' is too long for GCC");
 		    else
 		      {
-			if (pedantic && ! in_system_header)
+			if (pedantic && ! in_system_header && warn_long_long)
 			  pedwarn ("ANSI C does not support `long long'");
 			longlong = 1;
 		      }
@@ -4463,6 +4515,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       if ((! (specbits & ((1 << (int) RID_LONG) | (1 << (int) RID_SHORT)
 			  | (1 << (int) RID_SIGNED)
 			  | (1 << (int) RID_UNSIGNED))))
+	  /* Don't warn about typedef foo = bar.  */
+	  && ! (specbits & (1 << (int) RID_TYPEDEF) && initialized)
 	  && ! (in_system_header && ! allocation_temporary_p ()))
 	{
 	  /* C9x will probably require a diagnostic here.
@@ -5227,8 +5281,6 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	/* Record presence of `inline', if it is reasonable.  */
 	if (inlinep)
 	  {
-	    tree last = tree_last (TYPE_ARG_TYPES (type));
-
 	    if (! strcmp (IDENTIFIER_POINTER (declarator), "main"))
 	      warning ("cannot inline function `main'");
 	    else
@@ -6212,6 +6264,7 @@ finish_enum (enumtype, values, attributes)
       TYPE_MIN_VALUE (tem) = TYPE_MIN_VALUE (enumtype);
       TYPE_MAX_VALUE (tem) = TYPE_MAX_VALUE (enumtype);
       TYPE_SIZE (tem) = TYPE_SIZE (enumtype);
+      TYPE_SIZE_UNIT (tem) = TYPE_SIZE_UNIT (enumtype);
       TYPE_MODE (tem) = TYPE_MODE (enumtype);
       TYPE_PRECISION (tem) = TYPE_PRECISION (enumtype);
       TYPE_ALIGN (tem) = TYPE_ALIGN (enumtype);
@@ -6423,6 +6476,10 @@ start_function (declspecs, declarator, prefix_attributes, attributes, nested)
      except for defining how to inline.  So set DECL_EXTERNAL in that case.  */
   DECL_EXTERNAL (decl1) = current_extern_inline;
 
+#ifdef SET_DEFAULT_DECL_ATTRIBUTES
+  SET_DEFAULT_DECL_ATTRIBUTES (decl1, attributes);
+#endif
+  
   /* This function exists in static storage.
      (This does not mean `static' in the C sense!)  */
   TREE_STATIC (decl1) = 1;
@@ -7350,6 +7407,6 @@ pop_c_function_context ()
 
 void
 copy_lang_decl (node)
-     tree node;
+     tree node ATTRIBUTE_UNUSED;
 {
 }

@@ -118,7 +118,9 @@ readonly_error (arg, string, soft)
     (*fn) ("%s of read-only reference `%D'", string, TREE_OPERAND (arg, 0));
   else if (TREE_CODE (arg) == RESULT_DECL)
     (*fn) ("%s of read-only named return value `%D'", string, arg);
-  else	       
+  else if (TREE_CODE (arg) == FUNCTION_DECL)
+    (*fn) ("%s of function `%D'", string, arg);
+  else
     (*fn) ("%s of read-only location", string);
 }
 
@@ -485,13 +487,18 @@ initializer_constant_valid_p (value, endtype)
 	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
 					     endtype);
 
-      /* Likewise conversions from int to pointers.  */
+      /* Likewise conversions from int to pointers, but also allow
+	 conversions from 0.  */
       if (TREE_CODE (TREE_TYPE (value)) == POINTER_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE
-	  && (TYPE_PRECISION (TREE_TYPE (value))
-	      <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0)))))
-	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
-					     endtype);
+	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (value, 0))) == INTEGER_TYPE)
+	{
+	  if (integer_zerop (TREE_OPERAND (value, 0)))
+	    return null_pointer_node;
+	  else if (TYPE_PRECISION (TREE_TYPE (value))
+		   <= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (value, 0))))
+	    return initializer_constant_valid_p (TREE_OPERAND (value, 0),
+						 endtype);
+	}
 
       /* Allow conversions to union types if the value inside is okay.  */
       if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
@@ -779,7 +786,15 @@ digest_init (type, init, tail)
 
   if (code == ARRAY_TYPE)
     {
-      tree typ1 = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+      tree typ1;
+
+      if (TREE_CODE (init) == TREE_LIST)
+	{
+	  error ("initializing array with parameter list");
+	  return error_mark_node;
+	}
+
+      typ1 = TYPE_MAIN_VARIANT (TREE_TYPE (type));
       if ((typ1 == char_type_node
 	   || typ1 == signed_char_type_node
 	   || typ1 == unsigned_char_type_node
@@ -1097,6 +1112,11 @@ process_init_constructor (type, init, elts)
 	  else if (TREE_CODE (TREE_TYPE (field)) == REFERENCE_TYPE)
 	    error ("member `%s' is uninitialized reference",
 		   IDENTIFIER_POINTER (DECL_NAME (field)));
+	  /* Warn when some struct elements are implicitly initialized
+	      to zero.  */
+	  else if (extra_warnings)
+	    warning ("missing initializer for member `%s'",
+		     IDENTIFIER_POINTER (DECL_NAME (field)));
 	}
     }
 
@@ -1488,6 +1508,15 @@ build_functional_cast (exp, parms)
   if (parms && TREE_CHAIN (parms) == NULL_TREE)
     return build_c_cast (type, TREE_VALUE (parms));
 
+  /* We need to zero-initialize POD types.  Let's do that for everything
+     that doesn't need a constructor.  */
+  if (parms == NULL_TREE && !TYPE_NEEDS_CONSTRUCTING (type)
+      && TYPE_HAS_DEFAULT_CONSTRUCTOR (type))
+    {
+      exp = build (CONSTRUCTOR, type, NULL_TREE, NULL_TREE);
+      return get_target_expr (exp);
+    }
+
   exp = build_method_call (NULL_TREE, ctor_identifier, parms,
 			   TYPE_BINFO (type), LOOKUP_NORMAL);
 
@@ -1517,8 +1546,8 @@ enum_name_string (value, type)
       char *buf = (char *)oballoc (16 + TYPE_NAME_LENGTH (type));
 
       /* Value must have been cast.  */
-      sprintf (buf, "(enum %s)%d",
-	       TYPE_NAME_STRING (type), intval);
+      sprintf (buf, "(enum %s)%ld",
+	       TYPE_NAME_STRING (type), (long) intval);
       return buf;
     }
   return IDENTIFIER_POINTER (TREE_PURPOSE (values));
