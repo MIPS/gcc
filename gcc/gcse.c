@@ -4939,6 +4939,7 @@ gcse_emit_move_after (src, dest, insn)
 
   new = emit_insn_after (gen_rtx_SET (VOIDmode, dest, src), insn);
 
+#if 0
   /* Note the equivalence for local CSE pass.  */
   if ((note = find_reg_note (insn, REG_EQUAL, NULL)))
     {
@@ -4958,6 +4959,7 @@ gcse_emit_move_after (src, dest, insn)
 	= alloc_EXPR_LIST (REG_EQUAL, copy_insn_1 (SET_SRC (set)),
 			   REG_NOTES (new));
     }
+#endif
   return new;
 }
 

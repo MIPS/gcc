@@ -2351,6 +2351,14 @@ hoist_insn_after (insn, after, val, new)
   while ((note = find_reg_note (insn, REG_UNUSED, NULL_RTX)))
     remove_note (insn, note);
 
+  /* To get this working callers must ensure to move everything referenced
+     by REG_EQUAL/REG_EQUIV notes too.  Lets remove them, it is probably
+     easier.  */
+  while ((note = find_reg_note (insn, REG_EQUAL, NULL_RTX)))
+    remove_note (insn, note);
+  while ((note = find_reg_note (insn, REG_EQUIV, NULL_RTX)))
+    remove_note (insn, note);
+
   /* Remove REG_DEAD notes as they might not be valid anymore in case
      we create redundancy.  */
   while ((note = find_reg_note (insn, REG_DEAD, NULL_RTX)))
