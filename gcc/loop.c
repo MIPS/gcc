@@ -9261,7 +9261,7 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 	{
 	case LE:
 	  if ((unsigned HOST_WIDE_INT) const_val != max_val >> 1)
-	    code = LT, op1 = GEN_INT (const_val + 1);
+	    code = LT, op1 = gen_int_mode (GET_MODE (op0), const_val + 1);
 	  break;
 
 	/* When cross-compiling, const_val might be sign-extended from
@@ -9270,17 +9270,17 @@ canonicalize_condition (insn, cond, reverse, earliest, want_reg)
 	  if ((HOST_WIDE_INT) (const_val & max_val)
 	      != (((HOST_WIDE_INT) 1
 		   << (GET_MODE_BITSIZE (GET_MODE (op0)) - 1))))
-	    code = GT, op1 = GEN_INT (const_val - 1);
+	    code = GT, op1 = gen_int_mode (GET_MODE (op0), const_val - 1);
 	  break;
 
 	case LEU:
 	  if (uconst_val < max_val)
-	    code = LTU, op1 = GEN_INT (uconst_val + 1);
+	    code = LTU, op1 = gen_int_mode (GET_MODE (op0), uconst_val + 1);
 	  break;
 
 	case GEU:
 	  if (uconst_val != 0)
-	    code = GTU, op1 = GEN_INT (uconst_val - 1);
+	    code = GTU, op1 = gen_int_mode (GET_MODE (op0), uconst_val - 1);
 	  break;
 
 	default:
