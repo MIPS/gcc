@@ -2107,10 +2107,9 @@ rewrite_stmt (si, block_defs_p, block_avail_exprs_p)
     fold_stmt (stmt);
 
   /* Step 2.  Check for redundant computations.  Do this optimization only
-     for assignments that make no calls and have no aliased nor volatile
-     references and no side effects (i.e., no VDEFs).  */
-  may_optimize_p = !ann->makes_aliased_loads
-		   && !ann->makes_aliased_stores
+     for assignments that make no calls and have no aliased stores
+     nor volatile references and no side effects (i.e., no VDEFs).  */
+  may_optimize_p = !ann->makes_aliased_stores
 		   && !ann->has_volatile_ops
 		   && vdefs == NULL;
 
@@ -2604,7 +2603,7 @@ avail_expr_hash (p)
       if (TREE_CODE (op) == SSA_NAME)
 	val = iterative_hash_object (SSA_NAME_VERSION (op), val);
       else
-	val = iterative_hash_object (op, val);
+	val = iterative_hash_expr (op, val);
     }
 
   /* Add the SSA version numbers of every vuse operand.  This is important

@@ -1,3 +1,10 @@
+2003-05-29  Jeff Law  <law@redhat.com>
+
+	* tree-ssa.c (rewrite_stmt): Detect and remove redundant
+	memory loads.
+	(avail_expr_hash): Use iterative_hash_expr, not iterative_hash_object
+	as needed.
+
 2003-05-27  Jason Merrill  <jason@redhat.com>
 
 	* gimplify.c (shortcut_cond_expr): Avoid jumps to jumps.
