@@ -477,9 +477,8 @@ build_call (function, parms)
 extern int n_build_method_call;
 #endif
 
-/* FIXME: This is remarkably hokey.  We should not be doing name
-   lookup here!  We should have the DECL or OVERLOAD for the
-   functionwe want to call as input.  */
+/* FIXME: Should basetype_path just come from NAME which should be a
+   BASELINK?  */
 
 tree
 build_method_call (instance, name, parms, basetype_path, flags)
@@ -2375,7 +2374,7 @@ build_user_type_conversion_1 (totype, expr, flags)
     {
       tree t;
 
-      ctors = TREE_VALUE (ctors);
+      ctors = BASELINK_FUNCTIONS (ctors);
 
       t = build_int_2 (0, 0);
       TREE_TYPE (t) = build_pointer_type (totype);
@@ -2668,10 +2667,10 @@ build_object_call (obj, args)
 
   if (fns)
     {
-      tree base = BINFO_TYPE (TREE_PURPOSE (fns));
+      tree base = BINFO_TYPE (BASELINK_SUBOBJECT (fns));
       mem_args = tree_cons (NULL_TREE, build_this (obj), args);
 
-      for (fns = TREE_VALUE (fns); fns; fns = OVL_NEXT (fns))
+      for (fns = BASELINK_FUNCTIONS (fns); fns; fns = OVL_NEXT (fns))
 	{
 	  tree fn = OVL_CURRENT (fns);
 	  if (TREE_CODE (fn) == TEMPLATE_DECL)
@@ -3303,9 +3302,9 @@ build_new_op (code, flags, arg1, arg2, arg3)
 
   if (fns)
     {
-      tree basetype = BINFO_TYPE (TREE_PURPOSE (fns));
+      tree basetype = BINFO_TYPE (BASELINK_SUBOBJECT (fns));
       mem_arglist = tree_cons (NULL_TREE, build_this (arg1), TREE_CHAIN (arglist));
-      for (fns = TREE_VALUE (fns); fns; fns = OVL_NEXT (fns))
+      for (fns = BASELINK_FUNCTIONS (fns); fns; fns = OVL_NEXT (fns))
 	{
 	  tree fn = OVL_CURRENT (fns);
 	  tree this_arglist;
@@ -3627,7 +3626,7 @@ build_op_delete_call (code, addr, size, flags, placement)
 
       /* Go through the `operator delete' functions looking for one
 	 with a matching type.  */
-      for (fn = BASELINK_P (fns) ? TREE_VALUE (fns) : fns; 
+      for (fn = BASELINK_P (fns) ? BASELINK_FUNCTIONS (fns) : fns; 
 	   fn; 
 	   fn = OVL_NEXT (fn))
 	{
@@ -4568,11 +4567,10 @@ build_new_method_call (instance, name, args, basetype_path, flags)
       tree fn;
       tree return_type;
 
-      if (TREE_CODE (name) == IDENTIFIER_NODE
-	  || BASELINK_P (fns))
+      if (BASELINK_P (fns))
 	{
-	  base = BINFO_TYPE (TREE_PURPOSE (fns));
-	  fn = TREE_VALUE (fns);
+	  base = BINFO_TYPE (BASELINK_SUBOBJECT (fns));
+	  fn = BASELINK_FUNCTIONS (fns);
 	  return_type = TREE_TYPE (fns);
 	}
       else

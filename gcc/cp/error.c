@@ -1974,7 +1974,8 @@ dump_expr (t, flags)
 	      /* A::f */
 	      dump_expr (t, flags | TFF_EXPR_IN_PARENS);
 	    else if (BASELINK_P (t))
-	      dump_expr (OVL_CURRENT (TREE_VALUE (t)), flags | TFF_EXPR_IN_PARENS);
+	      dump_expr (OVL_CURRENT (BASELINK_FUNCTIONS (t)), 
+			 flags | TFF_EXPR_IN_PARENS);
 	    else
 	      dump_decl (t, flags);
 	  }

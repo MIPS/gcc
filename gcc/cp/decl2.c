@@ -3747,6 +3747,7 @@ build_expr_from_tree (t)
       if (LOOKUP_EXPR_GLOBAL (t))
 	return do_scoped_id (TREE_OPERAND (t, 0), 0);
       else
+	/* FIXME: Break up do_identifier and share it with the parser.  */
 	return do_identifier (TREE_OPERAND (t, 0), 0, NULL_TREE);
 
     case TEMPLATE_ID_EXPR:

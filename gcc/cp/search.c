@@ -1124,7 +1124,7 @@ friend_accessible_p (scope, decl, binfo)
    context, DECL is accessible.  If TYPE is actually a BINFO node,
    then we can tell in what context the access is occurring by looking
    at the most derived class along the path indicated by BINFO.  */
-/* FIXME: TYPE should never be a BINFO any more.  */
+
 int 
 accessible_p (type, decl)
      tree type;
@@ -1622,20 +1622,9 @@ lookup_member (xbasetype, name, protect, want_type)
 						TREE_TYPE (rval)));
 
   if (rval && is_overloaded_fn (rval)) 
-    {
-      /* Note that the binfo we put in the baselink is the binfo where
-	 we found the functions, which we need for overload
-	 resolution, but which should not be passed to enforce_access;
-	 rather, enforce_access wants a binfo which refers to the
-	 scope in which we started looking for the function.  This
-	 will generally be the binfo passed into this function as
-	 xbasetype.  */
-
-      rval = tree_cons (rval_binfo, rval, NULL_TREE);
-      SET_BASELINK_P (rval);
-      if (IDENTIFIER_TYPENAME_P (name))
-	TREE_TYPE (rval) = TREE_TYPE (name);
-    }
+    rval = make_baselink (rval, rval_binfo, basetype_path,
+			  (IDENTIFIER_TYPENAME_P (name)
+			   ? TREE_TYPE (name) : NULL_TREE));
 
   return rval;
 }
@@ -1668,7 +1657,7 @@ lookup_fnfields (xbasetype, name, protect)
   tree rval = lookup_member (xbasetype, name, protect, /*want_type=*/0);
 
   /* Ignore non-functions.  */
-  if (rval && TREE_CODE (rval) != TREE_LIST)
+  if (rval && !BASELINK_P (rval))
     return NULL_TREE;
 
   return rval;
@@ -2984,7 +2973,7 @@ setup_class_bindings (name, type_binding_p)
 	{
 	  if (BASELINK_P (value_binding))
 	    /* NAME is some overloaded functions.  */
-	    value_binding = TREE_VALUE (value_binding);
+	    value_binding = BASELINK_FUNCTIONS (value_binding);
 	  pushdecl_class_level (value_binding);
 	}
     }

@@ -192,6 +192,12 @@ DEFTREECODE (CPLUS_BINDING, "binding", 'x', 2)
    the original name, and the parameter is the FUNCTION_DECL.  */
 DEFTREECODE (OVERLOAD, "overload", 'x', 1)
 
+/* A BASELINK represents a set of (possibly) overloaded member
+   functions, together with the subobject in which they were found.
+   If the member functions are type conversion operators, then the
+   TREE_TYPE is the type that was used to look them up.  */
+DEFTREECODE (BASELINK, "baselink", 'x', 3)
+
 /* A generic wrapper for something not tree that we want to include in
    tree structure.  */
 DEFTREECODE (WRAPPER, "wrapper", 'x', 1)

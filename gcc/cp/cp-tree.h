@@ -52,7 +52,6 @@ Boston, MA 02111-1307, USA.  */
       (TREE_CALLS_NEW) (in _EXPR or _REF) (commented-out).
       TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (in _TYPE).
       INHERITED_VALUE_BINDING_P (in CPLUS_BINDING)
-      BASELINK_P (in TREE_LIST)
       ICS_ELLIPSIS_FLAG (in _CONV)
       BINFO_ACCESS (in BINFO)
       BV_GENERATE_THUNK_WITH_VTABLE_P (in TREE_LIST)
@@ -397,15 +396,33 @@ struct tree_overload
   tree function;
 };
 
-/* A `baselink' is a TREE_LIST whose TREE_PURPOSE is a BINFO
-   indicating a particular base class, and whose TREE_VALUE is a
-   (possibly overloaded) function from that base class.  If the
-   function is a type conversion operator, the TREE_TYPE of the
-   baselink is the type that was used when performing the look up.  */
-#define BASELINK_P(NODE) \
-  (TREE_CODE (NODE) == TREE_LIST && TREE_LANG_FLAG_1 (NODE))
-#define SET_BASELINK_P(NODE) \
-  (TREE_LANG_FLAG_1 (NODE) = 1)
+/* Returns TRUE iff NODE is a BASELINK.  */
+#define BASELINK_P(NODE) (TREE_CODE (NODE) == BASELINK)
+/* The functions referred to by the BASELINK; either a FUNCTION_DECL
+   or an OVERLOAD.  */
+#define BASELINK_FUNCTIONS(NODE) \
+  (((struct tree_baselink *)BASELINK_CHECK (NODE))->functions)
+/* The subobject in which the functions are located; the BINFO_TYPE
+   for this subobject will generally be the same as DECL_CONTEXT for 
+   the BASELINK_FUNCTIONS.  (This invariant may not hold if the
+   functions are static members, or in the presence of
+   using-declarations.)  */
+#define BASELINK_SUBOBJECT(NODE) \
+  (((struct tree_baselink *)BASELINK_CHECK (NODE))->subobject)
+/* The subobject in which the functions were looked up.  */
+#define BASELINK_NAMING_SUBOBJECT(NODE) \
+  (((struct tree_baselink *)BASELINK_CHECK (NODE))->naming_subobject)
+/* If the baselink indicates a conversion operator, the type to which
+   the conversion will occur.  */
+#define BASELINK_TYPE(NODE) TREE_TYPE (NODE)
+
+struct tree_baselink
+{
+  struct tree_common common;
+  tree functions;
+  tree subobject;
+  tree naming_subobject;
+};
 
 #define WRAPPER_PTR(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->u.ptr)
 #define WRAPPER_INT(NODE) (((struct tree_wrapper*)WRAPPER_CHECK (NODE))->u.i)
@@ -4369,6 +4386,7 @@ extern tree walk_tree_without_duplicates        PARAMS ((tree *,
 extern tree copy_tree_r                         PARAMS ((tree *, int *, void *));
 extern int cp_valid_lang_attribute		PARAMS ((tree, tree, tree, tree));
 extern tree make_ptrmem_cst                     PARAMS ((tree, tree));
+extern tree make_baselink                       PARAMS ((tree, tree, tree, tree));
 extern tree cp_build_qualified_type_real        PARAMS ((tree, int, int));
 extern void remap_save_expr                     PARAMS ((tree *, splay_tree, tree, int *));
 #define cp_build_qualified_type(TYPE, QUALS) \

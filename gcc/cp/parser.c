@@ -193,9 +193,9 @@ static void cp_lexer_print_token
 static bool cp_lexer_debugging_p 
   PARAMS ((cp_lexer *));
 static void cp_lexer_start_debugging
-  PARAMS ((cp_lexer *));
+  PARAMS ((cp_lexer *)) ATTRIBUTE_UNUSED;
 static void cp_lexer_stop_debugging
-  PARAMS ((cp_lexer *));
+  PARAMS ((cp_lexer *)) ATTRIBUTE_UNUSED;
 
 /* Manifest constants.  */
 
@@ -6930,7 +6930,7 @@ cp_parser_template_name (parser, template_keyword_p)
      templates, is a template-name.  However, such a name should be a
      template-name; otherwise, there is no way to form a template-id
      for the overloaded templates.  */
-  fns = BASELINK_P (decl) ? TREE_VALUE (decl) : decl;
+  fns = BASELINK_P (decl) ? BASELINK_FUNCTIONS (decl) : decl;
   if (TREE_CODE (fns) == OVERLOAD)
     {
       tree fn;
@@ -8252,15 +8252,26 @@ cp_parser_init_declarator (parser,
   tree initializer;
   tree decl;
   tree scope;
+  tree declarator_access_checks;
   bool is_initialized;
   bool is_parenthesized_init;
   bool ctor_dtor_or_conv_p;
 
+  /* Defer access checks while parsing the declarator; we cannot know
+     what names are accessible until we know what is being 
+     declared.  */
+  cp_parser_start_deferring_access_checks (parser);
   /* Parse the declarator.  */
   declarator 
     = cp_parser_declarator (parser,
 			    /*abstract_p=*/false,
 			    &ctor_dtor_or_conv_p);
+  /* Gather up the deferred checks.  */
+  declarator_access_checks 
+    = cp_parser_stop_deferring_access_checks (parser);
+
+  /* If the DECLARATOR was erroneous, there's no need to go
+     further.  */
   if (declarator == error_mark_node)
     return error_mark_node;
 
@@ -8323,17 +8334,13 @@ cp_parser_init_declarator (parser,
      initializer will be looked up in SCOPE.  */
   if (scope)
     push_scope (scope);
-  /* Perform deferred access control checks, now that we know in which
-     SCOPE the declared entity resides.  */
-  cp_parser_perform_deferred_access_checks (access_checks);
   /* Enter the newly declared entry in the symbol table.  If we're
      processing a declaration in a class-specifier, we wait until
      after processing the initializer.  */
   /* FIXME: Does that really work?  Will names from the declaration
      actually be in scope?  I bet this program:
 
-       struct S {
-       static const int i = sizeof (i);
+       struct S { static const int i = sizeof (i); };
 
      fails, and did with old versions of GCC, too.  */
   if (!member_p)
@@ -8342,6 +8349,31 @@ cp_parser_init_declarator (parser,
 		       is_initialized,
 		       attributes,
 		       prefix_attributes);
+
+  /* Perform deferred access control checks, now that we know in which
+     SCOPE the declared entity resides.  */
+  if (!member_p && decl) 
+    {
+      tree saved_current_function_decl;
+
+      /* If the entity being declared is a function, pretend that we
+	 are in its scope.  If it is a `friend', it may have access to
+	 things that would not otherwise be accessible. */
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  saved_current_function_decl = current_function_decl;
+	  current_function_decl = decl;
+	}
+	
+      /* Perform the access control checks for the decl-specifiers.  */
+      cp_parser_perform_deferred_access_checks (access_checks);
+      /* And for the declarator.  */
+      cp_parser_perform_deferred_access_checks (declarator_access_checks);
+
+      /* Restore the saved value.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	current_function_decl = saved_current_function_decl;
+    }
 
   /* Parse the initializer.  */
   if (is_initialized)
@@ -9444,6 +9476,7 @@ cp_parser_function_definition (parser,
   cp_token *token;
   bool declares_class_or_enum;
   bool member_p;
+  bool success_p;
   /* The saved value of the PEDANTIC flag.  */
   int saved_pedantic;
 
@@ -9475,11 +9508,6 @@ cp_parser_function_definition (parser,
 				    CP_PARSER_FLAGS_OPTIONAL,
 				    &attributes,
 				    &declares_class_or_enum);
-  /* Gather up any access checks that occurred.  */
-  if (!member_p)
-    access_checks = cp_parser_stop_deferring_access_checks (parser);
-  else
-    access_checks = NULL_TREE;
   /* Figure out whether this declaration is a `friend'.  */
   if (friend_p)
     *friend_p = cp_parser_friend_p (decl_specifiers);
@@ -9488,6 +9516,13 @@ cp_parser_function_definition (parser,
   declarator = cp_parser_declarator (parser, 
 				     /*abstract_p=*/false,
 				     /*ctor_dtor_or_conv_p=*/NULL);
+
+  /* Gather up any access checks that occurred.  */
+  if (!member_p)
+    access_checks = cp_parser_stop_deferring_access_checks (parser);
+  else
+    access_checks = NULL_TREE;
+
   /* If something has already gone wrong, we may as well stop now.  */
   if (declarator == error_mark_node)
     {
@@ -9607,14 +9642,20 @@ cp_parser_function_definition (parser,
      initializer will be looked up in SCOPE.  */
   if (scope)
     push_scope (scope);
-  /* If there were names looked up in the decl-specifier-seq that we
-     did not check, check them now.  */
-  cp_parser_perform_deferred_access_checks (access_checks);
   /* Begin the function-definition.  */
-  if (!begin_function_definition (decl_specifiers, 
-				  attributes, 
-				  declarator))
-    /* If that failed, skip the entire function body.  */
+  success_p = begin_function_definition (decl_specifiers, 
+					 attributes, 
+					 declarator);
+
+  /* If there were names looked up in the decl-specifier-seq that we
+     did not check, check them now.  We must wait until we are in the
+     scope of the function to perform the checks, since the function
+     might be a friend.  */
+  cp_parser_perform_deferred_access_checks (access_checks);
+
+  if (!success_p)
+    /* If begin_function_definition didn't like the definition, skip
+       the entire function.  */
     cp_parser_skip_to_end_of_block_or_statement (parser);
   else
     /* Parse the body of the function itself.  */
@@ -11534,7 +11575,7 @@ cp_parser_lookup_name (parser, name, check_access, is_type)
     return error_mark_node;
 
   /* If it's a TREE_LIST, the result of the lookup was ambiguous.  */
-  if (!BASELINK_P (decl) && TREE_CODE (decl) == TREE_LIST)
+  if (TREE_CODE (decl) == TREE_LIST)
     return error_mark_node;
 
   my_friendly_assert (DECL_P (decl) 

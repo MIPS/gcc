@@ -64,6 +64,7 @@ static void casts_away_constness_r PARAMS ((tree *, tree *));
 static int casts_away_constness PARAMS ((tree, tree));
 static void maybe_warn_about_returning_address_of_local PARAMS ((tree));
 static tree strip_all_pointer_quals PARAMS ((tree));
+static tree get_binfo_for_member PARAMS ((tree, tree, tree));
 
 /* Return the target type of TYPE, which means return T for:
    T*, T&, T[], T (...), and otherwise, just T.  */
@@ -1901,11 +1902,61 @@ string_conv_p (totype, exp, warn)
   return 1;
 }
 
+
+/* OBJECT is an expression with class type.  MEMBER is one of the
+   members of that class, or of one of its base classes.  Return the
+   base subobject of the class type that contains the indicated
+   MEMBER.  If MEMBER is `static', the subobject corresponding to the
+   entire object is returned.  If there is no appropriate subobject,
+   the ERROR_MARK_NODE is returned.  If QUALIFYING_TYPE is non-NULL,
+   it is the type that was used to qualify the lookup of MEMBER.  */
+
+static tree
+get_binfo_for_member (object, qualifying_type, member)
+     tree object;
+     tree qualifying_type;
+     tree member;
+{
+  tree subobject;
+
+  /* [class.member.lookup]
+
+     A static member, a nested type, or an enumerator defined in a
+     base class T can unambiguously be found even if an object has
+     more than one base class subobject of type T.  */
+  if (TREE_CODE (member) == VAR_DECL
+      || (TREE_CODE (member) == FUNCTION_DECL
+	  && DECL_STATIC_FUNCTION_P (member))
+      || TYPE_P (member)
+      || TREE_CODE (member) == CONST_DECL)
+    subobject = TYPE_BINFO (TREE_TYPE (object));
+  /* But, for non-static members, an unambiguous base class must be
+     located.  */
+  else 
+    {
+      /* If there is no QUALIFYING_TYPE, the MEMBER was looked up 
+	 via unqualified lookup; we will have to look for a base
+	 corresponding to the class of which it is a member.  */
+      if (!qualifying_type)
+	qualifying_type = DECL_CONTEXT (member);
+      subobject = binfo_or_else (qualifying_type, TREE_TYPE (object));
+      if (!subobject)
+	subobject = error_mark_node;
+    }
+
+  return subobject;
+}
+
+/* Called when an expression of the form DATUM.BASETYPE::FIELD has
+   been encountered.  */
+
 tree
 build_object_ref (datum, basetype, field)
      tree datum, basetype, field;
 {
   tree dtype;
+  tree binfo;
+
   if (datum == error_mark_node)
     return error_mark_node;
 
@@ -1918,14 +1969,19 @@ build_object_ref (datum, basetype, field)
 		basetype, field, dtype);
       return error_mark_node;
     }
-  else if (is_aggr_type (basetype, 1))
-    {
-      tree binfo = binfo_or_else (basetype, dtype);
-      if (binfo)
-	return build_x_component_ref (build_scoped_ref (datum, basetype),
-				      field, binfo);
-    }
-  return error_mark_node;
+  if (!is_aggr_type (basetype, 1))
+    return error_mark_node;
+
+  /* Find the base subobject in which this member is located.  */
+  binfo = get_binfo_for_member (datum, basetype, field);
+  if (binfo == error_mark_node)
+    return error_mark_node;
+
+  if (BASELINK_P (field))
+    BASELINK_NAMING_SUBOBJECT (field) = binfo;
+
+  return build_x_component_ref (build_scoped_ref (datum, basetype),
+				field, binfo);
 }
 
 /* Given a COND_EXPR, MIN_EXPR, or MAX_EXPR in T, return it in a form that we
@@ -2679,9 +2735,12 @@ build_x_function_call (function, params, decl)
       /* Undo what we did in build_component_ref.  */
       decl = TREE_OPERAND (function, 0);
       function = TREE_OPERAND (function, 1);
-
+      
       return build_method_call (decl, function, params,
-				NULL_TREE, LOOKUP_NORMAL);
+				(BASELINK_P (function)
+				 ? BASELINK_NAMING_SUBOBJECT (function)
+				 : NULL_TREE),
+				LOOKUP_NORMAL);
     }
   else if (really_overloaded_fn (function))
     {

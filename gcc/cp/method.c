@@ -160,7 +160,7 @@ hack_identifier (value, name)
 	    {
 	      tree fndecl;
 
-	      fndecl = TREE_VALUE (fields);
+	      fndecl = BASELINK_FUNCTIONS (fields);
 	      my_friendly_assert (TREE_CODE (fndecl) == FUNCTION_DECL, 251);
 	      /* I could not trigger this code. MvL */
 	      my_friendly_abort (980325);

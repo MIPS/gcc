@@ -1556,7 +1556,7 @@ build_offset_ref (type, member)
       tree fnfields = member;
       tree t;
 
-      t = TREE_VALUE (fnfields);
+      t = BASELINK_FUNCTIONS (fnfields);
 
       if (!really_overloaded_fn (t))
 	{
@@ -1574,8 +1574,6 @@ build_offset_ref (type, member)
 	  return t;
 	}
 
-      TREE_TYPE (fnfields) = unknown_type_node;
-      
       t = build (OFFSET_REF, unknown_type_node, decl, fnfields);
       PTRMEM_OK_P (t) = 1;
       return t;

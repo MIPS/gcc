@@ -1531,7 +1531,7 @@ handle_using_decl (using_decl, t)
 
   if (BASELINK_P (fdecl))
     /* Ignore base type this came from. */
-    fdecl = TREE_VALUE (fdecl);
+    fdecl = BASELINK_FUNCTIONS (fdecl);
 
   old_value = IDENTIFIER_CLASS_VALUE (name);
   if (old_value)
@@ -6356,7 +6356,8 @@ instantiate_type (lhstype, rhs, flags)
     case OFFSET_REF:
       rhs = TREE_OPERAND (rhs, 1);
       if (BASELINK_P (rhs))
-	return instantiate_type (lhstype, TREE_VALUE (rhs),
+	return instantiate_type (lhstype, 
+				 BASELINK_FUNCTIONS (rhs),
 	                         flags | allow_ptrmem);
 
       /* This can happen if we are forming a pointer-to-member for a
@@ -6371,7 +6372,7 @@ instantiate_type (lhstype, rhs, flags)
 	tree args = TREE_OPERAND (rhs, 1);
 
 	if (BASELINK_P (fns))
-	  fns = TREE_VALUE (fns);
+	  fns = BASELINK_FUNCTIONS (fns);
 
 	return
 	  resolve_address_of_overloaded_function (lhstype,

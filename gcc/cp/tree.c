@@ -922,7 +922,7 @@ is_overloaded_fn (x)
   if (TREE_CODE (x) == OFFSET_REF)
     x = TREE_OPERAND (x, 1);
   if (BASELINK_P (x))
-    x = TREE_VALUE (x);
+    x = BASELINK_FUNCTIONS (x);
   return (TREE_CODE (x) == FUNCTION_DECL
 	  || TREE_CODE (x) == TEMPLATE_ID_EXPR
 	  || DECL_FUNCTION_TEMPLATE_P (x)
@@ -937,7 +937,7 @@ really_overloaded_fn (x)
   if (TREE_CODE (x) == OFFSET_REF)
     x = TREE_OPERAND (x, 1);
   if (BASELINK_P (x))
-    x = TREE_VALUE (x);
+    x = BASELINK_FUNCTIONS (x);
   return (TREE_CODE (x) == OVERLOAD 
 	  && (TREE_CHAIN (x) != NULL_TREE
 	      || DECL_FUNCTION_TEMPLATE_P (OVL_FUNCTION (x))));
@@ -953,7 +953,7 @@ get_overloaded_fn (fns)
   if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
     fns = TREE_OPERAND (fns, 0);
   if (BASELINK_P (fns))
-    fns = TREE_VALUE (fns);
+    fns = BASELINK_FUNCTIONS (fns);
   return fns;
 }
 
@@ -1323,9 +1323,7 @@ walk_tree (tp, func, data, htab)
       break;
 
     case TREE_LIST:
-      /* A BASELINK_P's TREE_PURPOSE is a BINFO, and hence circular.  */
-      if (!BASELINK_P (*tp))
-        WALK_SUBTREE (TREE_PURPOSE (*tp));
+      WALK_SUBTREE (TREE_PURPOSE (*tp));
       WALK_SUBTREE (TREE_VALUE (*tp));
       WALK_SUBTREE (TREE_CHAIN (*tp));
       break;
@@ -1333,6 +1331,10 @@ walk_tree (tp, func, data, htab)
     case OVERLOAD:
       WALK_SUBTREE (OVL_FUNCTION (*tp));
       WALK_SUBTREE (OVL_CHAIN (*tp));
+      break;
+
+    case BASELINK:
+      WALK_SUBTREE (BASELINK_FUNCTIONS (*tp));
       break;
 
     case TREE_VEC:
@@ -2341,6 +2343,37 @@ make_ptrmem_cst (type, member)
   TREE_TYPE (ptrmem_cst) = type;
   PTRMEM_CST_MEMBER (ptrmem_cst) = member;
   return ptrmem_cst;
+}
+
+/* Make a BASELINK for the indicated FUNCTIONS, located in SUBOBJECT.
+   The NAMING_SUBOBJECT indicates the subobject in which they were
+   named.  If the FUNCTIONS indicated type-conversion operators, TYPE
+   will be the TYPE that was originally looked up.  */
+
+tree
+make_baselink (functions, subobject, naming_subobject, type)
+     tree functions;
+     tree subobject;
+     tree naming_subobject;
+     tree type;
+{
+  tree baselink;
+
+  baselink = make_node (BASELINK);
+  my_friendly_assert ((TREE_CODE (functions) == FUNCTION_DECL
+		       || TREE_CODE (functions) == OVERLOAD),
+		      20010809);
+  BASELINK_FUNCTIONS (baselink) = functions;
+  my_friendly_assert (TREE_CODE (subobject) == TREE_VEC,
+		      20010809);
+  BASELINK_SUBOBJECT (baselink) = subobject;
+  my_friendly_assert (TREE_CODE (naming_subobject) == TREE_VEC,
+		      20010809);
+  BASELINK_NAMING_SUBOBJECT (baselink) = naming_subobject;
+  my_friendly_assert (!type || TYPE_P (type), 20010809);
+  BASELINK_TYPE (baselink) = type;
+
+  return baselink;
 }
 
 /* Initialize tree.c.  */

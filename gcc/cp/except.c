@@ -186,7 +186,7 @@ dtor_nothrow (type)
     return 1;
 
   fn = lookup_member (type, dtor_identifier, 0, 0);
-  fn = TREE_VALUE (fn);
+  fn = BASELINK_FUNCTIONS (fn);
   return TREE_NOTHROW (fn);
 }
 
@@ -673,7 +673,7 @@ build_throw (exp)
 	{
 	  cleanup = lookup_fnfields (TYPE_BINFO (TREE_TYPE (object)),
 				     complete_dtor_identifier, 0);
-	  cleanup = TREE_VALUE (cleanup);
+	  cleanup = BASELINK_FUNCTIONS (cleanup);
 	  mark_used (cleanup);
 	  mark_addressable (cleanup);
 	  /* Pretend it's a normal function.  */

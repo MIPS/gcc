@@ -984,7 +984,7 @@ determine_specialization (template_id, decl, targs_out,
 
   /* Check for baselinks. */
   if (BASELINK_P (fns))
-    fns = TREE_VALUE (fns);
+    fns = BASELINK_FUNCTIONS (fns);
 
   if (!is_overloaded_fn (fns))
     {

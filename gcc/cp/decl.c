@@ -5797,6 +5797,13 @@ warn_about_implicit_typename_lookup (typename, binding)
     }
 }
 
+/* Look up NAME (an IDENTIFIER_NODE) in SCOPE (either a NAMESPACE_DECL
+   or a class TYPE).  If IS_TYPE_P is TRUE, then ignore non-type
+   bindings.  
+
+   Returns a DECL (or OVERLOAD, or BASELINK) representing the
+   declaration found.  */
+
 tree
 lookup_qualified_name (scope, name, is_type_p)
      tree scope;
