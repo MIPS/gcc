@@ -1701,6 +1701,12 @@ init_spec (void)
   obstack_grow0 (&obstack, link_spec, strlen (link_spec));
   link_spec = obstack_finish (&obstack);
 #endif
+#ifdef SYSROOT_SUFFIX_LINK_SPEC
+  obstack_grow (&obstack, SYSROOT_SUFFIX_LINK_SPEC, 
+		sizeof (SYSROOT_SUFFIX_LINK_SPEC) - 1);
+  obstack_grow0 (&obstack, link_spec, strlen (link_spec));
+  link_spec = obstack_finish (&obstack);
+#endif
 
   specs = sl;
 }
