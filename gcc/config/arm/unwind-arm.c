@@ -39,6 +39,8 @@ bool __attribute__((weak)) __cxa_type_match(_Unwind_Control_Block *ucbp,
 					    const type_info *rttip,
 					    void **matched_object);
 
+_Unwind_Ptr __attribute__((weak))
+__gnu_Unwind_Find_exidx (_Unwind_Ptr, int *);
 
 /* Misc constants.  */
 #define R_IP	12
@@ -331,30 +333,43 @@ selfrel_offset31 (const _uw *p)
   return offset + (_uw) p;
 }
 
-/* Comparison function for eh index table entries.  */
 
-static int 
-EIT_comparator (const void *ck, const void *ce)
+/* Perform a binary search of an index table.  */
+
+static const __EIT_entry *
+search_EIT_table (const __EIT_entry * table, int nrec, _uw return_address)
 {
-  _uw return_address = *(_uw *) ck;
-  const __EIT_entry *eitp = (const __EIT_entry *) ce;
-  const __EIT_entry *next_eitp = eitp + 1;
   _uw next_fn;
   _uw this_fn;
+  int n, left, right;
 
-  this_fn = selfrel_offset31 (&eitp->fnoffset);
-  if (next_eitp != &__exidx_end)
-    next_fn = selfrel_offset31 (&next_eitp->fnoffset);
-  else
-    next_fn = ~(_uw) 0;
+  if (nrec == 0)
+    return (__EIT_entry *) 0;
 
-  if (return_address < this_fn)
-    return -1;
-  if (return_address >= next_fn)
-    return 1;
-  return 0;
+  left = 0;
+  right = nrec - 1;
+
+  while (1)
+    {
+      n = (left + right) / 2;
+      this_fn = selfrel_offset31 (&table[n].fnoffset);
+      if (n != nrec - 1)
+	next_fn = selfrel_offset31 (&table[n + 1].fnoffset);
+      else
+	next_fn = ~(_uw) 0;
+
+      if (return_address < this_fn)
+	{
+	  if (n == left)
+	    return (__EIT_entry *) 0;
+	  right = n - 1;
+	}
+      else if (return_address < next_fn)
+	return &table[n];
+      else
+	left = n + 1;
+    }
 }
-
 
 /* Find the exception index table eintry for the given address.
    Fill in the relevant fields of the UCB.  */
@@ -363,10 +378,26 @@ static _Unwind_Reason_Code
 get_eit_entry (_Unwind_Control_Block *ucbp, _uw return_address)
 {
   const __EIT_entry * eitp;
-  int nrec = &__exidx_end - &__exidx_start;
+  int nrec;
+  
+  if (__gnu_Unwind_Find_exidx)
+    {
+      eitp = (const __EIT_entry *) __gnu_Unwind_Find_exidx (return_address,
+							    &nrec);
+      if (!eitp)
+	{
+	  UCB_PR_ADDR (ucbp) = 0;
+	  return _URC_FAILURE;
+	}
+    }
+  else
+    {
+      eitp = &__exidx_start;
+      nrec = &__exidx_end - &__exidx_start;
+    }
 
-  eitp = (const __EIT_entry *) bsearch (&return_address, &__exidx_start,
-      nrec, sizeof (__EIT_entry), EIT_comparator);
+  eitp = search_EIT_table (eitp, nrec, return_address);
+
   if (!eitp)
     {
       UCB_PR_ADDR (ucbp) = 0;
