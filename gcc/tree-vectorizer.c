@@ -3429,7 +3429,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 		}
 	      return false;
 	    }
-	
+
 	  /* Find and record the memtag assigned to this data-ref.  */
 	  if (TREE_CODE (symbl) == VAR_DECL 
 	      || (TREE_CODE (symbl) == COMPONENT_REF 
@@ -3888,6 +3888,24 @@ vect_analyze_loop_form (struct loop *loop)
 	    fprintf (dump_file, "no pre-header BB for loop.");
 	}
 
+      return NULL;
+    }
+
+  /* We assume that the loop exit condition is at the end of the loop. i.e,
+     that the loop is represented as a do-while (with a proper if-guard
+     before the loop if needed), where the loop header contains all the
+     executable statements, and the latch is empty.  */
+  if (!empty_block_p (loop->latch))
+    {
+      if (vect_debug_stats (loop) || vect_debug_details (loop))     
+        fprintf (dump_file, "not vectorized: unexpectd loop form.");
+      return NULL;
+    }
+
+  if (empty_block_p (loop->header))
+    {
+      if (vect_debug_stats (loop) || vect_debug_details (loop))     
+        fprintf (dump_file, "not vectorized: empty loop.");
       return NULL;
     }
 

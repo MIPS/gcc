@@ -632,6 +632,9 @@ struct tree_niter_desc
 			   the loop), then the information would be lost.  */
 };
 
+/* In tree-ssa-phiopt.c */
+bool empty_block_p (basic_block);
+
 /* In tree-ssa-loop*.c  */
 
 void tree_ssa_lim (struct loops *);

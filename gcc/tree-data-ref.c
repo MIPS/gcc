@@ -100,9 +100,10 @@ static unsigned int data_ref_id = 0;
 
 
 /* This is the simplest data dependence test: determines whether the
-   data references A and B access the same array. If can't determine -
+   data references A and B access the same array/region. If can't determine -
    return false; Otherwise, return true, and DIFFER_P will record
-   the result.  */
+   the result. This utility will not be necessary when alias_sets_conflict_p
+   will be less conservative.  */
 
 bool
 array_base_name_differ_p (struct data_reference *a,
@@ -117,12 +118,14 @@ array_base_name_differ_p (struct data_reference *a,
 
   /** Determine if same base  **/
 
+  /* array accesses: a[i],b[i] or pointer accesses: *a,*b. bases are a,b.  */
   if (base_a == base_b)
     {
       *differ_p = false;
       return true;
     }
 
+  /* pointer based accesses - (*p)[i],(*q)[j]. bases are (*p),(*q)  */
   if (TREE_CODE (base_a) == INDIRECT_REF && TREE_CODE (base_b) == INDIRECT_REF
       && TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0))
     {
@@ -130,6 +133,7 @@ array_base_name_differ_p (struct data_reference *a,
       return true;
     }
 
+  /* record/union based accesses - s.a[i], t.b[j]. bases are s.a,t.b.  */ 
   if (TREE_CODE (base_a) == COMPONENT_REF && TREE_CODE (base_b) == COMPONENT_REF
       && TREE_OPERAND (base_a, 0) == TREE_OPERAND (base_b, 0)
       && TREE_OPERAND (base_a, 1) == TREE_OPERAND (base_b, 1))
@@ -141,25 +145,31 @@ array_base_name_differ_p (struct data_reference *a,
 
   /** Determine if different bases  **/
 
-  if (TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == VAR_DECL
-      && base_a != base_b)
+  /* at this point we know that base_a != base_b. However, pointer accesses
+     of the form x=(*p) and y=(*q), which bases are p and q, may still by pointing
+     to the same base. In SSAed GIMPLE p and q will be SSA_NAMES in this case.
+     Therefore, here we check if it's really two diferent declarations.  */
+  if (TREE_CODE (base_a) == VAR_DECL && TREE_CODE (base_b) == VAR_DECL)
     {
       *differ_p = true;
       return true;
     }
 
+  /* compare two record/union bases s.a and t.b: 
+     s != t or (a != b and s and t are not unions)  */
   if (TREE_CODE (base_a) == COMPONENT_REF && TREE_CODE (base_b) == COMPONENT_REF
       && ((TREE_CODE (TREE_OPERAND (base_a, 0)) == VAR_DECL
-	   && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
+           && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL
            && TREE_OPERAND (base_a, 0) != TREE_OPERAND (base_b, 0))
-          || (TREE_CODE (TREE_OPERAND (base_a, 1)) == FIELD_DECL
-	      && TREE_CODE (TREE_OPERAND (base_b, 1)) == FIELD_DECL
+          || (TREE_CODE (TREE_TYPE (TREE_OPERAND (base_a, 0))) == RECORD_TYPE 
+              && TREE_CODE (TREE_TYPE (TREE_OPERAND (base_b, 0))) == RECORD_TYPE
               && TREE_OPERAND (base_a, 1) != TREE_OPERAND (base_b, 1))))
     {
       *differ_p = true;
       return true;
     }
 
+  /* compare a record/union access and an array access.  */ 
   if ((TREE_CODE (base_a) == VAR_DECL
        && (TREE_CODE (base_b) == COMPONENT_REF
            && TREE_CODE (TREE_OPERAND (base_b, 0)) == VAR_DECL))
@@ -181,10 +191,10 @@ array_base_name_differ_p (struct data_reference *a,
      insn reading or writing through a different pointer, in the same
      block/scope.
    */
-  if ((!DR_IS_READ(a)
-        && TREE_CODE (ta) == POINTER_TYPE && TYPE_RESTRICT (ta))
-      || (!DR_IS_READ(b)
-           && TREE_CODE (tb) == POINTER_TYPE && TYPE_RESTRICT (tb)))
+  if ((TREE_CODE (ta) == POINTER_TYPE && TYPE_RESTRICT (ta)
+       && !DR_IS_READ(a))
+      || (TREE_CODE (tb) == POINTER_TYPE && TYPE_RESTRICT (tb)
+	  && !DR_IS_READ(b)))
     {
       *differ_p = true;
       return true;

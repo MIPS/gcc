@@ -1,3 +1,12 @@
+2004-07-22  Dorit Naishlos <dorit@il.ibm.com>
+
+        * tree-data-ref.c (array_base_name_differ_p): Add comments, and consider
+        union case.
+        * tree-ssa-phiopt.c (empty_block_p): Expose for usage out of file.
+        * tree-flow.h (empty_block_p): Same.
+        * tree-vectorizer.c (vect_analyze_loop_form): Use empty_block_p to
+        check that latch is empty.
+
 2004-07-22  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloop.c (flow_loop_nodes_find): Export.
