@@ -43,6 +43,12 @@ import java.awt.event.ItemListener;
 import java.awt.peer.CheckboxPeer;
 import java.io.Serializable;
 
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleAction;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.accessibility.AccessibleValue;
+
 /**
  * This class implements a component which has an on/off state.  Two
  * or more Checkboxes can be grouped by a CheckboxGroup.
@@ -50,7 +56,8 @@ import java.io.Serializable;
  * @author Aaron M. Renn (arenn@urbanophile.com)
  * @author Tom Tromey <tromey@redhat.com>
  */
-public class Checkbox extends Component implements ItemSelectable, Serializable
+public class Checkbox extends Component
+  implements ItemSelectable, Accessible, Serializable
 {
 
 // FIXME: Need readObject/writeObject for this.
@@ -85,6 +92,99 @@ private boolean state;
 
 // The list of listeners for this object.
 private transient ItemListener item_listeners;
+
+protected class AccessibleAWTCheckBox
+  extends AccessibleAWTComponent
+  implements ItemListener, AccessibleAction, AccessibleValue
+{
+  
+
+  /* (non-Javadoc)
+   * @see java.awt.event.ItemListener#itemStateChanged(java.awt.event.ItemEvent)
+   */
+  public void itemStateChanged(ItemEvent event)
+  {
+    // TODO Auto-generated method stub
+    
+  }
+  
+  public AccessibleAction getAccessibleAction()
+  {
+    return this;
+  }
+  
+  public AccessibleValue getAccessibleValue()
+  {
+    return this;
+  }
+  
+  /* (non-Javadoc)
+   * @see javax.accessibility.AccessibleAction#getAccessibleActionCount()
+   */
+  public int getAccessibleActionCount()
+  {
+    // 1.4.1 does this
+    return 0;
+  }
+
+  /* (non-Javadoc)
+   * @see javax.accessibility.AccessibleAction#getAccessibleActionDescription(int)
+   */
+  public String getAccessibleActionDescription(int i)
+  {
+    return null;
+  }
+
+  /* (non-Javadoc)
+   * @see javax.accessibility.AccessibleAction#doAccessibleAction(int)
+   */
+  public boolean doAccessibleAction(int i)
+  {
+    return false;
+  }
+
+  /* (non-Javadoc)
+   * @see javax.accessibility.AccessibleValue#getCurrentAccessibleValue()
+   */
+  public Number getCurrentAccessibleValue()
+  {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  /* (non-Javadoc)
+   * @see javax.accessibility.AccessibleValue#setCurrentAccessibleValue(java.lang.Number)
+   */
+  public boolean setCurrentAccessibleValue(Number number)
+  {
+    // TODO Auto-generated method stub
+    return false;
+  }
+
+  /* (non-Javadoc)
+   * @see javax.accessibility.AccessibleValue#getMinimumAccessibleValue()
+   */
+  public Number getMinimumAccessibleValue()
+  {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  /* (non-Javadoc)
+   * @see javax.accessibility.AccessibleValue#getMaximumAccessibleValue()
+   */
+  public Number getMaximumAccessibleValue()
+  {
+    // TODO Auto-generated method stub
+    return null;
+  }
+  
+  public AccessibleRole getAccessibleRole() 
+  {
+    return AccessibleRole.CHECK_BOX;
+  }
+  
+}
 
 /*************************************************************************/
 
@@ -390,6 +490,11 @@ paramString()
 {
   return ("label=" + label + ",state=" + state + ",group=" + group
 	  + "," + super.paramString());
+}
+
+public AccessibleContext getAccessibleContext()
+{
+  return new AccessibleAWTCheckBox();
 }
 
 } // class Checkbox 
