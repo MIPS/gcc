@@ -1527,8 +1527,7 @@ check_explicit_specialization (declarator, decl, template_count, flags)
 	  tree fns = NULL_TREE;
 	  int idx;
 
-	  if (name == constructor_name (ctype) 
-	      || name == constructor_name_full (ctype))
+	  if (constructor_name_p (name, ctype))
 	    {
 	      int is_constructor = DECL_CONSTRUCTOR_P (decl);
 	      
@@ -2497,7 +2496,7 @@ template_parm_this_level_p (t, data)
      tree t;
      void *data;
 {
-  int this_level = (int)data;
+  int this_level = *(int *)data;
   int level;
 
   if (TREE_CODE (t) == TEMPLATE_PARM_INDEX)
@@ -2733,13 +2732,14 @@ push_template_decl_real (decl, is_friend)
       DECL_PRIMARY_TEMPLATE (tmpl) = tmpl;
       if (DECL_CONV_FN_P (tmpl))
 	{
+	  int depth = TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (tmpl));
+
 	  /* It is a conversion operator. See if the type converted to
 	     depends on innermost template operands.  */
 	  
-	  if (for_each_template_parm
-	      (TREE_TYPE (TREE_TYPE (tmpl)),
-	       template_parm_this_level_p,
-	       (void *)TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (tmpl))))
+	  if (for_each_template_parm (TREE_TYPE (TREE_TYPE (tmpl)),
+				      template_parm_this_level_p,
+				      &depth))
 	    DECL_TEMPLATE_CONV_FN_P (tmpl) = 1;
 	}
     }
@@ -4910,7 +4910,7 @@ tsubst_friend_class (friend_tmpl, args)
 /* Returns zero if TYPE cannot be completed later due to circularity.
    Otherwise returns one.  */
 
-int
+static int
 can_complete_type_without_circularity (type)
      tree type;
 {

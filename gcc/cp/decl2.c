@@ -1811,29 +1811,15 @@ constructor_name (thing)
   return t;
 }
 
-/* Returns a representation for the name of a destructor for an object
-   of the indicated TYPE.  The returns is a BIT_NOT_EXPR whose
-   argument is the TYPE.  (The argument is a TYPE, and not a
-   TYPE_DECL, because there are sometime destructors for types that do
-   not have corresponding TYPE_DECLs.  For example, consider:
+/* Returns TRUE if NAME is the name for the constructor for TYPE.  */
 
-     template <typename T> void f(T t) { t.~T(); }
-
-   If `T' is instantiated with `int *', then we need a destructor name
-   for `~int *' but there is no corresponding type declaration.)
-
-   Rather than using a BIT_NOT_EXPR, it would be better to use an
-   IDENTIFIER_NODE with a bit set indicating that it is a destructor,
-   ala IDENTIFIER_TYPENAME_P.  That would make the invariant that all
-   names are IDENTIFIER_NODEs hold.  */
-
-tree
-destructor_name (tree type)
+bool
+constructor_name_p (tree name, tree type)
 {
-  my_friendly_assert (TYPE_P (type), 20010905);
-
-  return build1 (BIT_NOT_EXPR, NULL_TREE, type);
+  return (name == constructor_name (type)
+	  || name == constructor_name_full (type));
 }
+
 
 /* Defer the compilation of the FN until the end of compilation.  */
 

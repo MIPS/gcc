@@ -498,6 +498,17 @@ struct tree_srcloc GTY(())
 #define C_SET_EXP_ORIGINAL_CODE(EXP, CODE) \
   (TREE_COMPLEXITY (EXP) = (int)(CODE))
 
+/* The tokens stored in the default argument.  */
+
+#define DEFARG_TOKENS(NODE) \
+  (((struct tree_default_arg *)DEFAULT_ARG_CHECK (NODE))->tokens)
+
+struct tree_default_arg GTY (())
+{
+  struct tree_common common;
+  struct cp_token_block *tokens;
+};
+
 enum cp_tree_node_structure_enum {
   TS_CP_COMMON,
   TS_CP_GENERIC,
@@ -508,6 +519,7 @@ enum cp_tree_node_structure_enum {
   TS_CP_OVERLOAD,
   TS_CP_WRAPPER,
   TS_CP_SRCLOC,
+  TS_CP_DEFAULT_ARG,
   LAST_TS_CP_ENUM
 };
 
@@ -523,6 +535,7 @@ union lang_tree_node GTY((desc ("cp_tree_node_structure (&%h)")))
   struct tree_overload GTY ((tag ("TS_CP_OVERLOAD"))) overload;
   struct tree_wrapper GTY ((tag ("TS_CP_WRAPPER"))) wrapper;
   struct tree_srcloc GTY ((tag ("TS_CP_SRCLOC"))) srcloc;
+  struct tree_default_arg GTY ((tag ("TS_CP_DEFAULT_ARG"))) default_arg;
   struct lang_identifier GTY ((tag ("TS_CP_IDENTIFIER"))) identifier;
 };
 
@@ -1888,7 +1901,7 @@ struct lang_decl GTY(())
 	union lang_decl_u3
 	{
 	  tree GTY ((tag ("0"))) sorted_fields;
-	  struct unparsed_text * GTY ((tag ("2"))) pending_inline_info;
+	  struct cp_token_block * GTY ((tag ("2"))) pending_inline_info;
 	  struct language_function * GTY ((tag ("1"))) 
 	       saved_language_function;
 	} GTY ((desc ("%1.u3sel + %1.pending_inline_p"))) u;
@@ -1910,8 +1923,6 @@ struct lang_decl GTY(())
   (&DECL_LANG_SPECIFIC (NODE)->decl_flags.u2)
 
 #endif /* ENABLE_TREE_CHECKING */
-
-#define DEFARG_POINTER(NODE) (DEFAULT_ARG_CHECK (NODE)->identifier.id.str)
 
 /* DECL_NEEDED_P holds of a declaration when we need to emit its
    definition.  This is true when the back-end tells us that
@@ -3826,6 +3837,7 @@ extern tree make_typename_type			PARAMS ((tree, tree, tsubst_flags_t));
 extern tree make_unbound_class_template		PARAMS ((tree, tree, int));
 extern tree lookup_name_nonclass		PARAMS ((tree));
 extern tree lookup_function_nonclass            PARAMS ((tree, tree));
+extern tree lookup_qualified_name               (tree, tree, bool, int);
 extern tree lookup_name				PARAMS ((tree, int));
 extern tree lookup_name_current_level		PARAMS ((tree));
 extern tree lookup_type_current_level		PARAMS ((tree));
@@ -3845,7 +3857,7 @@ extern tree push_void_library_fn		PARAMS ((tree, tree));
 extern tree push_throw_library_fn		PARAMS ((tree, tree));
 extern int init_type_desc			PARAMS ((void));
 extern tree check_tag_decl			PARAMS ((tree));
-extern void shadow_tag				PARAMS ((tree));
+extern tree shadow_tag				PARAMS ((tree));
 extern tree groktypename			PARAMS ((tree));
 extern tree start_decl				PARAMS ((tree, tree, int, tree, tree));
 extern void start_decl_1			PARAMS ((tree));
@@ -3912,6 +3924,7 @@ extern tree declare_global_var                  PARAMS ((tree, tree));
 extern void register_dtor_fn                    PARAMS ((tree));
 extern tmpl_spec_kind current_tmpl_spec_kind    PARAMS ((int));
 extern tree cp_fname_init			PARAMS ((const char *));
+extern bool have_extern_spec;
 
 /* in decl2.c */
 extern int check_java_method			PARAMS ((tree));
@@ -3933,7 +3946,7 @@ extern tree grokoptypename			PARAMS ((tree, tree));
 extern void cplus_decl_attributes		PARAMS ((tree *, tree, int));
 extern tree constructor_name_full		PARAMS ((tree));
 extern tree constructor_name			PARAMS ((tree));
-extern tree destructor_name                     PARAMS ((tree));
+extern bool constructor_name_p                  (tree, tree);
 extern void defer_fn            		PARAMS ((tree));
 extern void finish_anon_union			PARAMS ((tree));
 extern tree finish_table			PARAMS ((tree, tree, tree, int));
@@ -4068,6 +4081,7 @@ extern void note_got_semicolon			PARAMS ((tree));
 extern void note_list_got_semicolon		PARAMS ((tree));
 extern void do_pending_lang_change		PARAMS ((void));
 extern void see_typename			PARAMS ((void));
+extern void unqualified_name_lookup_error       PARAMS ((tree));
 extern tree do_identifier			PARAMS ((tree, int, tree));
 extern tree do_scoped_id			PARAMS ((tree, tree));
 extern tree identifier_typedecl_value		PARAMS ((tree));
@@ -4293,7 +4307,7 @@ extern tree finish_fname                        (tree);
 extern void save_type_access_control		PARAMS ((tree));
 extern void reset_type_access_control           PARAMS ((void));
 extern void decl_type_access_control		PARAMS ((tree));
-extern int begin_function_definition            PARAMS ((tree, tree));
+extern int begin_function_definition            (tree, tree, tree);
 extern tree begin_constructor_declarator        PARAMS ((tree, tree));
 extern tree finish_declarator                   PARAMS ((tree, tree, tree, tree, int));
 extern void finish_translation_unit             PARAMS ((void));
@@ -4327,7 +4341,7 @@ extern void setup_vtbl_ptr			PARAMS ((tree, tree));
 extern void clear_out_block                     PARAMS ((void));
 extern tree begin_global_stmt_expr              PARAMS ((void));
 extern tree finish_global_stmt_expr             PARAMS ((tree));
-
+extern tree check_template_template_default_arg (tree);
 
 /* in spew.c */
 extern void init_spew				PARAMS ((void));

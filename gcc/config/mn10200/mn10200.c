@@ -690,13 +690,23 @@ expand_prologue ()
     }
 
   /* Now put the static chain back where the rest of the function
-     expects to find it.  */
+     expects to find it. 
+
+     Note that we may eliminate all references to this later, so we
+     mark the static chain as maybe dead.  */
   if (current_function_needs_context)
     {
-      emit_move_insn (gen_rtx_REG (PSImode, STATIC_CHAIN_REGNUM),
-		      gen_rtx (MEM, PSImode,
-			       gen_rtx_PLUS (PSImode, stack_pointer_rtx,
-					     GEN_INT (size))));
+      rtx insn;
+
+      insn = emit_move_insn (gen_rtx_REG (PSImode, STATIC_CHAIN_REGNUM),
+			     gen_rtx (MEM, PSImode,
+				      gen_rtx_PLUS (PSImode,
+						    stack_pointer_rtx,
+						    GEN_INT (size))));
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_MAYBE_DEAD,
+                                            const0_rtx,
+                                            REG_NOTES (insn));
+  
     }
 }
 
@@ -712,10 +722,8 @@ expand_epilogue ()
   size = total_frame_size ();
 
   if (DECL_RESULT (current_function_decl)
-      && DECL_RTL (DECL_RESULT (current_function_decl))
-      && REG_P (DECL_RTL (DECL_RESULT (current_function_decl))))
-    temp_regno = (REGNO (DECL_RTL (DECL_RESULT (current_function_decl))) == 4
-		  ? 0 : 4);
+      && POINTER_TYPE_P (TREE_TYPE (DECL_RESULT (current_function_decl))))
+    temp_regno = 0;
   else
     temp_regno = 4;
 

@@ -1,3 +1,17 @@
+2002-07-10  Jeffrey A Law  <law@redhat.com>
+
+        * gcc.c-torture/compile/981006-1.x: Do not use -fpic for mn102.
+
+        * gcc.c-torture/compile/930326-1.x: Remove.  No longer needed.
+
+2002-07-09  Aldy Hernandez  <aldyh@redhat.com>
+
+        * gcc.dg/20020312-2.c: Check for __PPC__.
+
+2002-07-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* gcc.c-torture/compile/20020709-1.c: New test.
+
 2002-07-07  Roger Sayle  <roger@eyesopen.com>
 
 	* g++.dg/template/qualttp21.C: New test case.

@@ -1555,20 +1555,17 @@ reset_type_access_control ()
   current_type_lookups = NULL_TREE;
 }
 
-/* Begin a function definition declared with DECL_SPECS and
-   DECLARATOR.  Returns non-zero if the function-declaration is
+/* Begin a function definition declared with DECL_SPECS, ATTRIBUTES,
+   and DECLARATOR.  Returns non-zero if the function-declaration is
    legal.  */
 
 int
-begin_function_definition (decl_specs, declarator)
+begin_function_definition (decl_specs, attributes, declarator)
      tree decl_specs;
+     tree attributes;
      tree declarator;
 {
-  tree specs;
-  tree attrs;
-
-  split_specs_attrs (decl_specs, &specs, &attrs);
-  if (!start_function (specs, declarator, attrs, SF_DEFAULT))
+  if (!start_function (decl_specs, declarator, attributes, SF_DEFAULT))
     return 0;
 
   deferred_type_access_control ();
@@ -1661,6 +1658,25 @@ finish_template_template_parm (aggr, identifier)
   my_friendly_assert (DECL_TEMPLATE_PARMS (tmpl), 20010110);
 
   return finish_template_type_parm (aggr, tmpl);
+}
+
+/* ARGUMENT is the default-argument value for a template template
+   parameter.  If ARGUMENT is invalid, issue error messages and return
+   the ERROR_MARK_NODE.  Otherwise, ARGUMENT itself is returned.  */
+
+tree
+check_template_template_default_arg (tree argument)
+{
+  if (TREE_CODE (argument) != TEMPLATE_DECL
+      && TREE_CODE (argument) != TEMPLATE_TEMPLATE_PARM
+      && TREE_CODE (argument) != TYPE_DECL
+      && TREE_CODE (argument) != UNBOUND_CLASS_TEMPLATE)
+    {
+      error ("invalid default template argument");
+      return error_mark_node;
+    }
+
+  return argument;
 }
 
 /* Finish a parameter list, indicated by PARMS.  If ELLIPSIS is

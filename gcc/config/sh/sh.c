@@ -6275,6 +6275,29 @@ extend_reg_or_0_operand (op, mode)
 	  : arith_reg_or_0_operand) (op, mode);
 }
 
+int
+general_extend_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return (GET_CODE (op) == TRUNCATE
+	  ? arith_operand
+	  : nonimmediate_operand) (op, mode);
+}
+
+int
+inqhi_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  if (GET_CODE (op) != TRUNCATE || mode != GET_MODE (op))
+    return 0;
+  op = XEXP (op, 0);
+  /* Can't use true_regnum here because copy_cost wants to know about
+     SECONDARY_INPUT_RELOAD_CLASS.  */
+  return GET_CODE (op) == REG && FP_REGISTER_P (REGNO (op));
+}
+
 /* Return nonzero if V is a zero vector matching MODE.  */
 int
 zero_vec_operand (v, mode)
@@ -6962,7 +6985,18 @@ sh_adjust_cost (insn, link, dep_insn, cost)
 {
   rtx reg;
 
-  if (GET_CODE(insn) == CALL_INSN)
+  if (TARGET_SHMEDIA)
+    {
+      /* On SHmedia, if the dependence is an anti-dependence or
+         output-dependence, there is no cost. */              
+      if (REG_NOTE_KIND (link) != 0)
+        cost = 0;
+
+      if (get_attr_is_mac_media (insn)
+          && get_attr_is_mac_media (dep_insn))
+        cost = 1;
+    }
+  else if (GET_CODE(insn) == CALL_INSN)
     {
       /* The only input for a call that is timing-critical is the
 	 function's address.  */

@@ -1,3 +1,223 @@
+2002-07-10  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	Revert all patches for optimization of Complex .op. Real.
+	* complex_part_zero_p: Remove
+	* expand_cmplxdiv_straight: Replace complex_part_zero_p(x)
+	with x.
+	* expand_cmplxdiv_wide: Ditto.
+	* expand_binop: Ditto.
+
+2002-07-10  Marek Michalkiewicz  <marekm@amelek.gda.pl>
+
+	* config/avr/avr.md: Fix two 0x80000000 constants to make them
+	negative also on 64-bit hosts.
+
+	Default to -fno-reorder-blocks when optimizing for size.
+	* config/avr/avr-protos.h (avr_optimization_options): Declare.
+	* config/avr/avr.c (avr_optimization_options): New function.
+	* config/avr/avr.h (OPTIMIZATION_OPTIONS): New.
+
+	Optimize returning from simple functions.
+	* config/avr/avr-protos.h (avr_simple_epilogue): Declare.
+	* config/avr/avr.c (avr_simple_epilogue): New function.
+	* config/avr/avr.md (return): New insn.
+
+2002-07-10  Douglas B Rupp  <rupp@gnat.com>
+
+	* config/i386/i386.c  (ix86_svr3_asm_out_constructor): Add
+	HAS_INIT_SECTION to protection.
+
+2002-07-10  Mark Mitchell  <mark@codesourcery.com>
+
+	* doc/invoke.texi (Debugging Options): Mention that -gdwarf is
+	deprecated.
+
+Wed Jul 10 19:50:03 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* combine.c (gen_lowpart_for_combine): Handle vector modes.
+	Supply non-VOID mode to simplify_gen_subreg.
+
+Wed Jul 10 18:48:55 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_init_mmx_sse_builtins): Fix thinko.
+
+2002-07-10  Jeffrey A Law  <law@redhat.com>
+
+	* mn10200.c (expand_prologue): Create REG_MAYBE_DEAD notes
+	as appropriate.
+
+        * mn10200.c (expand_epilogue): Fix test to determine which scratch
+        register to use.
+
+Wed Jul 10 16:06:00 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* cse.c (cse_insn): Supply proper SUBREG_BYTE to simplify_gen_subreg.
+	Get mode from dest.
+	If simplify_gen_subreg fails, try next equivalent.
+
+2002-07-09  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* diagnostic.h: #include location.h
+	(location_t): Move definition to..
+	* location.h: ... here.  New file.
+	* tree.h: #include location.h
+	(DECL_SOURCE_LOCATION): New macro.
+	(DECL_SOURCE_FILE): Use.
+	(DECL_SOURCE_LINE): Likewise.
+	(struct tree_decl): REplace filename and linenum with locus.
+	* Makefile.in (TREE_H): add location.h
+	(diagnostic.o): Depends on gt-location.h
+	(gt-location.h): Depends on s-gtype
+
+2002-07-09  Matt Kraai  <kraai@alumni.cmu.edu>
+
+	* config/rs6000/aix.h: Convert CPP_PREDEFINES to
+	TARGET_OS_CPP_BUILTINS.
+	* config/rs6000/aix31.h: Likewise.
+	* config/rs6000/aix41.h: Likewise.
+	* config/rs6000/aix43.h: Likewise.
+	* config/rs6000/aix51.h: Likewise.
+	* config/rs6000/beos.h: Likewise.
+	* config/rs6000/darwin.h: Likewise.
+	* config/rs6000/eabi.h: Likewise.
+	* config/rs6000/eabisim.h: Likewise.
+	* config/rs6000/linux.h: Likewise.
+	* config/rs6000/linux64.h: Likewise.
+	* config/rs6000/lynx.h: Likewise.
+	* config/rs6000/mach.h: Likewise.
+	* config/rs6000/rtems.h: Likewise.
+	* config/rs6000/sysv4.h: Likewise.
+	* config/rs6000/vxppc.h: Likewise.
+
+2002-07-09 Devang Patel <dpatel@apple.com>
+	* objc/objc-act.c (adjust_type_for_id_default): Fix my previous patch.
+	Do not allow ObjC objects as a parameter type for Objective-C methods.
+	My previous patch restricted  'struct' also.
+	
+2002-07-09  Neil Booth  <neil@daikokuya.co.uk>
+
+	* cpperror.c (cpp_error): Default to directive_line within
+	directives here.
+	* cppexp.c (cpp_interpret_integer): Only use traditional
+	number semantics in directives.
+	* cpplib.c (prepare_directive_trad): Don't reset pfile->line.
+	(do_include_common): Similarly.
+	* cpptrad.c (scan_out_logical_line): Implement accurate
+	quoting of <> in #include.
+	* doc/cpp.texi: Update.
+
+Tue Jul  9 22:37:44 2002  Stephen Clarke <stephen.clarke@superh.com>
+                          J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.c (sh_adjust_cost): Special handling of SHMEDIA code.
+	* sh.md (attribute issues): Replace with:
+	(attribute pipe_model).  All users changed.
+	(attribute type): Change pt / ptabs to pt_media / ptabs_media.
+	All users changed.
+	(function units sh5issue, sh5fds): New.
+	(attribute is_mac_media): New.
+	(adddi3_media, subdi3_media, divsi3_i1_media, anddi3): Add type.
+	(andcdi3, iordi3, xordi3, ashldi3_media, lshrdi3_media): Likewise.
+	(ashrdi3_media, negdi_media, extendsidi2, movqi_media): Likewise.
+	(movhi_media, shori_media, movv2sf_i, jump_media): Likewise.
+	(call_media, call_value_media, sibcall_media): Likewise.
+	(casesi_jump_media, casesi_shift_media, casesi_load_media): Likewise.
+	(return_media_i, addsf3_media, subsf3_media, mulsf3_media): Likewise.
+	(mac_media, divsf3_media, floatdisf2, floatsisf2_media): Likewise.
+	(fix_truncsfdi2, fix_truncsfsi2_media, cmpeqsf_media): Likewise.
+	(cmpgtsf_media, cmpgesf_media, cmpunsf_media, negsf2_media): Likewise.
+	(sqrtsf2_media, abssf2_media, adddf3_media, subdf3_media): Likewise.
+	(muldf3_media, divdf3_media, floatdidf2, floatsidf2_media): Likewise.
+	(fix_truncdfdi2, fix_truncdfsi2_media, cmpeqdf_media): Likewise.
+	(cmpgtdf_media, cmpgedf_media,cmpundf_media, negdf2_media): Likewise.
+	(sqrtdf2_media, absdf2_media, extendsfdf2_media): Likewise.
+	(truncdfsf2_media): Likewise.
+	(movsi_media, movsi_media_nofpu, movdi_media): Use new types.
+	(movdi_media_nofpui, movdf_media, movdf_media_nofpu): Likewise.
+
+Tue Jul  9 21:39:50 2002  J"orn Rennecke <joern.rennecke@superh.com>
+
+	* sh.h (PREDICATE_CODES): Add general_extend_operand and inqhi_operand.
+	* sh.c (general_extend_operand, inqhi_operand): New functions.
+	* sh.md (cmpeqdi_media, cmpgtdi_media, cmpgtudi_media): Collapse
+	alternatives using 'N' modifier.  Add type.
+	(adddi3z_media): Likewise.  Enable generator function generation.
+	(movdicc_false, movdicc_true, addsi3_media, subsi3_media): Use more
+	exact predicates / constraints.  Add type.
+	(subsi3): Allow 0 for SHMEDIA.
+	(udivsi3_i4_media): Use match_operand for input values
+	rather than hard registers.
+	(udivsi3 - TARGET_SHMEDIA_FPU case): Don't ferry values
+	unnecessarily through hard registers.  Keep copies of pseudo
+	registers outside of the libcall sequence.
+	(mulsidi3_media, umulsidi3_media): Use more exact predicates.  Add type.
+	(ashlsi3_media, ashrsi3_media, lshrsi3_media): Likewise.
+	(zero_extendsidi2, zero_extendhidi2, zero_extendqidi2): Likewise.
+	(extendhidi2, extendqidi2): Likewise.
+	(andsi3_compact): Name.
+	(andcdi3): Enable generator function generation.
+	(zero_extendhisi2, zero_extendqisi2): Rename to
+	(zero_extendhisi2_compact, zero_extendqisi2_compact).
+	(extendhisi2, extendqisi2): Rename to
+	(extendhisi2_compact, extendqisi2_compact).
+	(rotldi3, rotldi3_mextr, rotrdi3, rotrdi3_mextr): New patterns.
+	(loaddi_trunc, zero_extendhisi2, zero_extendhisi2_media): Likewise.
+	(zero_extendhisi2_media+1, zero_extendqisi2): Likewise.
+	(zero_extendqisi2_media, extendhisi2, extendhisi2_media): Likewise.
+	(extendhisi2_media, extendhisi2_media+1, extendqisi2): Likewise.
+	(extendqisi2_media, extendqisi2_media+1, truncdisi2): Likewise.
+	(truncdihi2, truncdiqi2, reload_inqi, reload_inhi): Likewise.
+	(shmedia32_initialize_trampoline_big): Likewise.
+	(shmedia32_initialize_trampoline_little): Likewise.
+	(nsb, nsbsi, nsbdi, ffsdi2, ffssi2, byterev): Likewise.
+	(negdi2): Remove spurious T clobber.
+	(zero_extendhidi2+1, extendhidi2+1, extendqidi2+1): Handle TRUNCATE.
+	(movsi_media, movsi_media_nofpu): Remove spurious *k after b.
+	(movdi_media, movdi_media_nofpu, pt, ptb): Likewise.
+	(movsi_media_nofpu+2, movhi_media+1): Only do split after reload.
+	(ic_invalidate_line_media): Write back data cache before invalidating
+	instruction cache.  Add type.
+	(movsf_media): Sign-extend when the destination is a general
+	purpose register.  Add type.
+	(bgt_media, bge_media, bgtu_media, bgeu_media, blt_media_i): Allow 0.
+	(casesi_worker_0+1): Only increment ref count for proper label.
+	(casesi_worker_0+2): Likewise.
+
+2002-07-09  Mark Mitchell  <mark@codesourcery.com>
+
+	* dwarfout.c (dwarfout_init): Warn that DWARF1 is deprecated.
+
+2002-07-09  Steve Ellcey  <sje@cup.hp.com>
+
+	* gcc/except.c (expand_eh_region_end_cleanup): Change exception pointer
+	from Pmode to ptr_mode.
+	(get_exception_pointer): Ditto.
+	(connect_post_landing_pads): Ditto.
+	(dw2_build_landing_pads): Ditto.
+
+2002-07-08  Steve Ellcey  <sje@cup.hp.com>
+	* gcc/c-pragma.h (add_to_renaming_pragma_list): New function.
+	* gcc/c-pragma.c (add_to_renaming_pragma_list): New function.
+	(handle_pragma_redefine_extname): Change to use new function.
+
+2002-07-08  Roger Sayle  <roger@eyesopen.com>
+
+	* combine.c (combine_simplify_rtx): Add an explicit cast
+	to avoid signed/unsigned comparison warning.
+	(simplify_if_then_else): Likewise.
+	(extended_count): Likewise.
+	(simplify_shift_const): Likewise.
+	(simplify_comparison): Likewise.
+
+2002-07-08  Richard Sandiford  <rsandifo@redhat.com>
+
+	* config/mips/mips.md: Add imadd type.  Update scheduler description
+	to use imadd as well as imul.
+	(*mul_acc_si, *madsi): Change imul alternatives to imadd.
+	(*mul_acc_di, *mul_acc_64bit_di): Likewise.
+	(*mul_sub_si): Likewise for first alternative.  Change second
+	alternative from imul to multi.
+
 2002-07-07  Neil Booth  <neil@daikokuya.co.uk>
 
 	* c-common.c (c_common_post_options): Update prototype;

@@ -43,11 +43,6 @@ static bool dummy() { return false; }
 #define diagnostic_tentative_p(x) dummy ()
 #define diagnostic_issue_tentatively(x) dummy ()
 
-/* Prototypes.  */
-
-static void ggc_mark_token_obstack 
-  PARAMS ((struct obstack *));
-
 
 /* The lexer.  */
 
@@ -78,7 +73,7 @@ static void ggc_mark_token_obstack
 
 /* A C++ token.  */
 
-typedef struct cp_token
+typedef struct cp_token GTY (())
 {
   /* The kind of token.  */
   enum cpp_ttype type;
@@ -93,14 +88,62 @@ typedef struct cp_token
   int line_number;
 } cp_token;
 
+/* The number of tokens in a single token block.  */
+
+#define CP_TOKEN_BLOCK_NUM_TOKENS 32
+
+/* A group of tokens.  These groups are chained together to store
+   large numbers of tokens.  (For example, a token block is created
+   when the body of an inline member function is first encountered;
+   the tokens are processed later after the class definition is
+   complete.)  
+
+   This somewhat ungainly data structure (as opposed to, say, a
+   variable-length array, is used due to contraints imposed by the
+   current garbage-collection methodology.  If it is made more
+   flexible, we could perhaps simplify the data structures involved.  */
+
+typedef struct cp_token_block GTY (())
+{
+  /* The tokens.  */
+  cp_token tokens[CP_TOKEN_BLOCK_NUM_TOKENS];
+  /* The number of tokens in this block.  */
+  size_t num_tokens;
+  /* The next token block in the chain.  */
+  struct cp_token_block *next;
+} cp_token_block;
+
+/* Prototypes. */
+
+/* Add *TOKEN to **BLOCK.  If *BLOCK is full, a new block may be
+   created as a side-effect.  Both *BLOCK and *NEXT_TOKEN are modified
+   by this function.  */
+
+static void
+cp_token_block_add_token (cp_token_block **block, 
+			  cp_token *token)
+{
+  cp_token_block *b = *block;
+
+  /* See if we need to allocate a new token block.  */
+  if (!b || b->num_tokens == CP_TOKEN_BLOCK_NUM_TOKENS)
+    {
+      cp_token_block *new_block
+	= ((cp_token_block *) ggc_alloc_cleared (sizeof (cp_token_block)));
+      *block = b = new_block;
+    }
+  /* Add this token to the current token block.  */
+  b->tokens[b->num_tokens++] = *token;
+}
+
 /* The cp_lexer structure represents the C++ lexer.  It is responsible
    for managing the token stream from the preprocessor and supplying
    it to the parser.  */
 
-typedef struct cp_lexer
+typedef struct cp_lexer GTY (())
 {
   /* The memory allocated for the buffer.  Never NULL.  */
-  cp_token *buffer;
+  cp_token * GTY ((length ("(%h.buffer_end - %h.buffer)"))) buffer;
   /* A pointer just past the end of the memory allocated for the buffer.  */
   cp_token *buffer_end;
   /* The first valid token in the buffer, or NULL if none.  */
@@ -116,11 +159,6 @@ typedef struct cp_lexer
      highest memory address in the BUFFER.  */
   cp_token *last_token;
 
-  /* The input stream from which we should read tokens, or NULL if we
-     are not reading from a real input stream.  */
-  /* FIXME: This value is not actually passed to c_lex.  */
-  struct cpp_reader *input_stream;
-
   /* A stack indicating positions at which cp_lexer_save_tokens was
      called.  The top entry is the most recent position at which we
      began saving tokens.  
@@ -135,18 +173,23 @@ typedef struct cp_lexer
      consumed token will be gone forever.  */
   varray_type saved_tokens;
 
-  /* Non-zero if we should output debugging information.  */
-  int debugging_p;
-  /* The stream to which debugging information should be written.  */
-  FILE *debug_stream;
+  /* True if we should obtain more tokens from the preprocessor; false
+     if we are processing a saved token cache.  */
+  bool main_lexer_p;
+
+  /* True if we should output debugging information.  */
+  bool debugging_p;
+
+  /* The next lexer in a linked list of lexers.  */
+  struct cp_lexer *next;
 } cp_lexer;
 
 /* Prototypes.  */
 
 static cp_lexer *cp_lexer_new
-  PARAMS ((cpp_reader *));
+  PARAMS ((bool));
 static cp_lexer *cp_lexer_new_from_tokens
-  PARAMS ((struct obstack *));
+  PARAMS ((struct cp_token_block *));
 static void cp_lexer_delete
   PARAMS ((cp_lexer *));
 static int cp_lexer_saving_tokens
@@ -181,8 +224,6 @@ static void cp_lexer_rollback_tokens
   PARAMS ((cp_lexer *));
 static void cp_lexer_set_source_position_from_token 
   PARAMS ((cp_lexer *, const cp_token *));
-static void cp_lexer_ggc_mark
-  PARAMS ((void *));
 static void cp_lexer_print_token
   PARAMS ((FILE *, cp_token *));
 static bool cp_lexer_debugging_p 
@@ -200,27 +241,38 @@ static void cp_lexer_stop_debugging
 /* A token type for keywords, as opposed to ordinary identifiers.  */
 #define CPP_KEYWORD ((enum cpp_ttype) (N_TTYPES + 1))
 
-/* Create a new C++ lexer, reading from the INPUT_STREAM.  */
+/* A token type for tokens that are not tokens at all; these are used
+   to mark the end of a token block.  */
+#define CPP_NONE (CPP_KEYWORD + 1)
+
+/* Variables.  */
+
+/* The stream to which debugging output should be written.  */
+static FILE *cp_lexer_debug_stream;
+
+/* Create a new C++ lexer.  If MAIN_LEXER_P is true the new lexer is
+   the main lexer -- i.e, the lexer that gets tokens from the
+   preprocessor.  Otherwise, it is a lexer that uses a cache of stored
+   tokens.  */
 
 static cp_lexer *
-cp_lexer_new (input_stream)
-     cpp_reader *input_stream;
+cp_lexer_new (bool main_lexer_p)
 {
   cp_lexer *lexer;
 
   /* Allocate the memory.  */
-  lexer = (cp_lexer *) xcalloc (1, sizeof (cp_lexer));
+  lexer = (cp_lexer *) ggc_alloc_cleared (sizeof (cp_lexer));
 
   /* Create the circular buffer.  */
   lexer->buffer = ((cp_token *) 
-		   xmalloc (CP_TOKEN_BUFFER_SIZE * sizeof (cp_token)));
+		   ggc_alloc (CP_TOKEN_BUFFER_SIZE * sizeof (cp_token)));
   lexer->buffer_end = lexer->buffer + CP_TOKEN_BUFFER_SIZE;
 
   /* There are no tokens in the buffer.  */
   lexer->last_token = lexer->buffer;
 
-  /* Record the INPUT_STREAM.  */
-  lexer->input_stream = input_stream;
+  /* This lexer obtains more tokens by calling c_lex.  */
+  lexer->main_lexer_p = main_lexer_p;
 
   /* Create the SAVED_TOKENS stack.  */
   VARRAY_GENERIC_PTR_INIT (lexer->saved_tokens,
@@ -228,12 +280,7 @@ cp_lexer_new (input_stream)
 			   "saved_tokens");
 
   /* Assume we are not debugging.  */
-  lexer->debugging_p = 0;
-  /* But, if we are, use STDERR as the debugging output stream.  */
-  lexer->debug_stream = stderr;
-
-  /* Register the new lexer with the garbage collector.  */
-  ggc_add_root (lexer, 1, sizeof (cp_lexer), &cp_lexer_ggc_mark);
+  lexer->debugging_p = false;
 
   return lexer;
 }
@@ -242,32 +289,35 @@ cp_lexer_new (input_stream)
    When these tokens are exhausted, no new tokens will be read.  */
 
 static cp_lexer *
-cp_lexer_new_from_tokens (tokens)
-     struct obstack *tokens;
+cp_lexer_new_from_tokens (cp_token_block *tokens)
 {
-  cp_token *first_token;
-  cp_token *last_token;
   cp_lexer *lexer;
+  cp_token *token;
+  cp_token_block *block;
   ptrdiff_t num_tokens;
 
-  /* Figure out where the first and last tokens are.  */
-  first_token = (cp_token *) obstack_base (tokens);
-  last_token = (cp_token *) obstack_next_free (tokens);
-
   /* Create the lexer.  */
-  lexer = cp_lexer_new (/*input_stream=*/NULL);
+  lexer = cp_lexer_new (/*main_lexer_p=*/false);
 
   /* Destroy the old buffer.  */
   free (lexer->buffer);
 
   /* Create a new one, appropriately sized.  */
-  num_tokens = last_token - first_token;
+  num_tokens = 0;
+  for (block = tokens; block != NULL; block = block->next)
+    num_tokens += block->num_tokens;
   lexer->buffer = ((cp_token *) 
-		   xmalloc (num_tokens * sizeof (cp_token)));
+		   ggc_alloc (num_tokens * sizeof (cp_token)));
   lexer->buffer_end = lexer->buffer + num_tokens;
   
   /* Install the tokens.  */
-  memcpy (lexer->buffer, first_token, num_tokens * sizeof (cp_token));
+  token = lexer->buffer;
+  for (block = tokens; block != NULL; block = block->next)
+    {
+      memcpy (token, block->tokens, block->num_tokens * sizeof (cp_token));
+      token += block->num_tokens;
+    }
+
   /* The FIRST_TOKEN is the beginning of the buffer.  */
   lexer->first_token = lexer->buffer;
   /* The next available token is also at the beginning of the buffer.  */
@@ -284,12 +334,7 @@ static void
 cp_lexer_delete (lexer)
      cp_lexer *lexer;
 {
-  /* Unregister ourselves from the garbage collector.  */
-  ggc_del_root (lexer);
-
-  free (lexer->buffer);
   VARRAY_FREE (lexer->saved_tokens);
-  free (lexer);
 }
 
 /* Non-zero if we are presently saving tokens.  */
@@ -512,8 +557,8 @@ cp_lexer_get_preprocessor_token (lexer, token)
   int saved_lineno;
   bool done;
 
-  /* If there's no INPUT_STREAM, return a terminating CPP_EOF token.  */
-  if (!lexer->input_stream)
+  /* If this not the main lexer, return a terminating CPP_EOF token.  */
+  if (!lexer->main_lexer_p)
     {
       token->type = CPP_EOF;
       token->line_number = 0;
@@ -543,9 +588,7 @@ cp_lexer_get_preprocessor_token (lexer, token)
       tentative_diagnostics_p = diagnostic_tentative_p (diagnostic_buffer);
       if (tentative_diagnostics_p)
 	diagnostic_issue_immediately (diagnostic_buffer);
-      /* Get a new token from the preprocessor.  The call to c_lex should
-	 really require us to pass the INPUT_STREAM, but it is hardwired
-	 to use a global value.  */
+      /* Get a new token from the preprocessor.  */
       token->type = c_lex (&token->value);
       /* Issue messages about tokens we cannot process.  */
       switch (token->type)
@@ -609,9 +652,9 @@ cp_lexer_peek_token (lexer)
   /* Provide debugging output.  */
   if (cp_lexer_debugging_p (lexer))
     {
-      fprintf (lexer->debug_stream, "cp_lexer: peeking at token: ");
-      cp_lexer_print_token (lexer->debug_stream, lexer->next_token);
-      fprintf (lexer->debug_stream, "\n");
+      fprintf (cp_lexer_debug_stream, "cp_lexer: peeking at token: ");
+      cp_lexer_print_token (cp_lexer_debug_stream, lexer->next_token);
+      fprintf (cp_lexer_debug_stream, "\n");
     }
 
   return lexer->next_token;
@@ -730,9 +773,9 @@ cp_lexer_consume_token (lexer)
   /* Provide debugging output.  */
   if (cp_lexer_debugging_p (lexer))
     {
-      fprintf (lexer->debug_stream, "cp_lexer: consuming token: ");
-      cp_lexer_print_token (lexer->debug_stream, token);
-      fprintf (lexer->debug_stream, "\n");
+      fprintf (cp_lexer_debug_stream, "cp_lexer: consuming token: ");
+      cp_lexer_print_token (cp_lexer_debug_stream, token);
+      fprintf (cp_lexer_debug_stream, "\n");
     }
 
   /* Now that we've consumed this token, we've moved on to a new
@@ -752,7 +795,7 @@ cp_lexer_save_tokens (lexer)
 {
   /* Provide debugging output.  */
   if (cp_lexer_debugging_p (lexer))
-    fprintf (lexer->debug_stream, "cp_lexer: saving tokens\n");
+    fprintf (cp_lexer_debug_stream, "cp_lexer: saving tokens\n");
 
   /* Make sure that LEXER->NEXT_TOKEN is non-NULL so that we can
      restore the tokens if required.  */
@@ -771,7 +814,7 @@ cp_lexer_commit_tokens (lexer)
 {
   /* Provide debugging output.  */
   if (cp_lexer_debugging_p (lexer))
-    fprintf (lexer->debug_stream, "cp_lexer: committing tokens\n");
+    fprintf (cp_lexer_debug_stream, "cp_lexer: committing tokens\n");
 
   VARRAY_POP (lexer->saved_tokens);
 }
@@ -787,7 +830,7 @@ cp_lexer_rollback_tokens (lexer)
 
   /* Provide debugging output.  */
   if (cp_lexer_debugging_p (lexer))
-    fprintf (lexer->debug_stream, "cp_lexer: restoring tokens\n");
+    fprintf (cp_lexer_debug_stream, "cp_lexer: restoring tokens\n");
 
   /* Find the token that was the NEXT_TOKEN when we started saving
      tokens.  */
@@ -822,33 +865,6 @@ cp_lexer_set_source_position_from_token (lexer, token)
   /* Update the line number.  */
   lineno = token->line_number;
   input_filename = token->file_name;
-}
-
-/* Mark the lexer for GC.  DATA is really a `cp_lexer *'.  */
-
-static void
-cp_lexer_ggc_mark (data)
-     void *data;
-{
-  cp_lexer *lexer = (cp_lexer *) data;
-  cp_token *token;
-
-  /* If there are no saved tokens, there is nothing to do.  */
-  if (!lexer->first_token)
-    return;
-
-  /* Iterate through all the valid tokens.  There is at least one; if
-     FIRST_TOKEN and LAST_TOKEN are the same then the entire buffer is
-     full.  */
-  token = lexer->first_token; 
-  do 
-    {
-      /* Mark this token.  */
-      ggc_mark_tree (token->value);
-      /* Move on to the next token.  */
-      token = cp_lexer_next_token (lexer, token);
-    }
-  while (token != lexer->last_token);
 }
 
 /* Print a representation of the TOKEN on the STREAM.  */
@@ -1080,11 +1096,11 @@ typedef enum cp_parser_status_kind
 
 /* Context that is saved and restored when parsing tentatively.  */
 
-typedef struct cp_parser_context
+typedef struct cp_parser_context GTY (())
 {
   /* If this is a tentative parsing context, the status of the
      tentative parse.  */
-  cp_parser_status_kind status;
+  enum cp_parser_status_kind status;
   /* If non-NULL, we have just seen a `x->' or `x.' expression.  Names
      that are looked up in this context must be looked up both in the
      scope given by OBJECT_TYPE (the type of `x' or `*x') and also in
@@ -1120,8 +1136,6 @@ typedef struct cp_parser_context
 
 static cp_parser_context *cp_parser_context_new
   PARAMS ((cp_parser_context *));
-static void cp_parser_context_delete
-  PARAMS ((cp_parser_context *));
 
 /* Constructors and destructors.  */
 
@@ -1136,7 +1150,7 @@ cp_parser_context_new (next)
 
   /* Allocate the storage.  */
   context = ((cp_parser_context *) 
-	     xcalloc (1, sizeof (cp_parser_context)));
+	     ggc_alloc_cleared (sizeof (cp_parser_context)));
   /* No errors have occurred yet in this context.  */
   context->status = CP_PARSER_STATUS_KIND_NO_ERROR;
   /* If this is not the bottomost context, copy information that we
@@ -1157,18 +1171,9 @@ cp_parser_context_new (next)
   return context;
 }
 
-/* Delete a context.  */
-
-static void
-cp_parser_context_delete (context)
-     cp_parser_context *context;
-{
-  free (context);
-}
-
 /* The cp_parser structure represents the C++ parser.  */
 
-typedef struct cp_parser
+typedef struct cp_parser GTY(())
 {
   /* The lexer from which we are obtaining tokens.  */
   cp_lexer *lexer;
@@ -1267,8 +1272,6 @@ typedef tree (*cp_parser_expression_fn) PARAMS ((cp_parser *));
 
 static cp_parser *cp_parser_new
   PARAMS ((void));
-static void cp_parser_delete
-  PARAMS ((cp_parser *));
 
 /* Routines to parse various constructs.  
 
@@ -1688,8 +1691,6 @@ static tree cp_parser_stop_deferring_access_checks
   PARAMS ((cp_parser *));
 static void cp_parser_perform_deferred_access_checks
   PARAMS ((tree));
-static void cp_parser_ggc_mark 
-  PARAMS ((void *));
 static void cp_parser_unimplemented
   PARAMS ((void));
 
@@ -1992,8 +1993,8 @@ cp_parser_new ()
 {
   cp_parser *parser;
 
-  parser = (cp_parser *) xcalloc (1, sizeof (cp_parser));
-  parser->lexer = cp_lexer_new (parse_in);
+  parser = (cp_parser *) ggc_alloc_cleared (sizeof (cp_parser));
+  parser->lexer = cp_lexer_new (/*main_lexer_p=*/true);
   parser->context = cp_parser_context_new (NULL);
 
   /* For now, we always accept GNU extensions.  */
@@ -2026,39 +2027,7 @@ cp_parser_new ()
   /* No template parameters apply.  */
   parser->num_template_parameter_lists = 0;
 
-  /* Register the new parser with the garbage collector.  */
-  ggc_add_root (parser, 1, sizeof (cp_parser), &cp_parser_ggc_mark);
-
   return parser;
-}
-
-/* Destroy the PARSER.  */
-
-static void
-cp_parser_delete (parser)
-     cp_parser *parser;
-{
-  cp_parser_context *context;
-  cp_parser_context *next_context;
-
-  /* When we're done parsing, we should not be in the midst of any
-     tentative parsing.  */
-  my_friendly_assert (!cp_parser_parsing_tentatively (parser),
-		      20010712);
-
-  /* Destroy the lexer.  */
-  cp_lexer_delete (parser->lexer);
-  /* Destroy all of the parsing contexts.  */
-  for (context = parser->context; context; context = next_context)
-    {
-      next_context = context->next;
-      cp_parser_context_delete (context);
-    }
-
-  /* Garbage collection of this object is no longer required.  */
-  ggc_del_root (parser);
-
-  free (parser);
 }
 
 /* Lexical conventions [gram.lex]  */
@@ -2661,11 +2630,11 @@ cp_parser_id_expression (parser,
 
    Returns a representation of unqualified-id.  For the `identifier'
    production, an IDENTIFIER_NODE is returned.  For the `~ class-name'
-   production a BIT_NOT_EXPR is returned; the argument to the
-   BIT_NOT_EXPR is a TYPE indicating the class.  For the other
-   productions, see the documentation accompanying the corresponding
-   parsing functions.  If CHECK_DEPENDENCY_P is false, names are
-   looked up in uninstantiated templates.  */
+   production a BIT_NOT_EXPR is returned; the operand of the
+   BIT_NOT_EXPR is an IDENTIFIER_NODE for the class-name.  For the
+   other productions, see the documentation accompanying the
+   corresponding parsing functions.  If CHECK_DEPENDENCY_P is false,
+   names are looked up in uninstantiated templates.  */
 
 static tree
 cp_parser_unqualified_id (parser, template_keyword_p,
@@ -2745,7 +2714,8 @@ cp_parser_unqualified_id (parser, template_keyword_p,
 	if (type_decl == error_mark_node)
 	  return error_mark_node;
 
-	return destructor_name (TREE_TYPE (type_decl));
+	return build_nt (BIT_NOT_EXPR, 
+			 constructor_name (TREE_TYPE (type_decl)));
       }
 
     case CPP_KEYWORD:
@@ -9144,11 +9114,10 @@ cp_parser_direct_declarator (parser, abstract_p, ctor_dtor_or_conv_p)
 		= cp_parser_exception_specification_opt (parser);
 
 	      /* Create the function-declarator.  */
-	      declarator 
-		= make_function_declarator (declarator,
-					    params,
-					    cv_qualifiers,
-					    exception_specification);
+	      declarator = make_call_declarator (declarator,
+						 params,
+						 cv_qualifiers,
+						 exception_specification);
 	    }
 	  /* Otherwise, we must be done with the declarator.  */
 	  else
@@ -9713,16 +9682,14 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
 	 default argument must be saved and processed later.  */
       if (at_class_scope_p () && TYPE_BEING_DEFINED (current_class_type))
 	{
-	  struct obstack *expression;
 	  unsigned depth = 0;
 
-	  /* Create the obstack that will contain the tokens for the
-	     default argument.  */
-	  expression = (struct obstack *) xmalloc (sizeof (struct obstack));
-	  gcc_obstack_init (expression);
+	  /* Create a DEFAULT_ARG to represented the unparsed default
+             argument.  */
+	  default_argument = make_node (DEFAULT_ARG);
 
-	  /* Add tokens to the obstack until we have processed the
-	     entire default argument.  */
+	  /* Add tokens until we have processed the entire default
+	     argument.  */
 	  while (true)
 	    {
 	      bool done = false;
@@ -9782,16 +9749,10 @@ cp_parser_parameter_declaration (parser, greater_than_is_operator_p)
 	      if (done)
 		break;
 	      
-	      /* Otherwise, add this token to the obstack.  */
-	      obstack_grow (expression, token, sizeof (cp_token));
-	      /* And consume the token.  */
-	      token = cp_lexer_consume_token (parser->lexer);
+	      /* Add the token to the token block.  */
+	      cp_token_block_add_token (&DEFARG_TOKENS (default_argument),
+					token);
 	    }
-
-	  /* Create a DEFAULT_ARG to represented the unparsed default
-             argument.  */
-	  default_argument = make_node (DEFAULT_ARG);
-	  DEFARG_POINTER (default_argument) = (char *)expression;
 	}
       /* Outside of a class definition, we can just parse the
          assignment-expression.  */
@@ -9957,7 +9918,7 @@ cp_parser_function_definition (parser, friend_p)
   if (member_p)
     {
       int depth;
-      struct obstack *inline_definition;
+      cp_token_block *block = NULL;
 
       /* Create the function-declaration.  */
       fn = start_method (decl_specifiers, declarator, NULL_TREE);
@@ -9970,14 +9931,6 @@ cp_parser_function_definition (parser, friend_p)
 	    cp_parser_skip_to_end_of_block_or_statement (parser);
 	  return error_mark_node;
 	}
-      /* Create the obstack that will contain the tokens for the
-	 inline definition.  It does not make sense to allocate this
-	 with ggc_alloc, since if it is ever collected we will leak
-	 the obstack.  (We do not have finalization functions in the
-	 garbage collector.)  */
-      inline_definition 
-	= (struct obstack *) xmalloc (sizeof (*inline_definition));
-      gcc_obstack_init (inline_definition);
 
       /* Save away the tokens that make up the body of the 
 	 function.  */
@@ -10005,7 +9958,7 @@ cp_parser_function_definition (parser, friend_p)
 	    }
 
 	  /* Add this token to the tokens we are saving.  */
-	  obstack_grow (inline_definition, token, sizeof (cp_token));
+	  cp_token_block_add_token (&block, token);
 
 	  /* If this token was the closing `}' of the function
 	     definition, then we are done -- unless the next token is
@@ -10020,7 +9973,7 @@ cp_parser_function_definition (parser, friend_p)
 
       /* Save away the inline definition; we will process it when the
 	 class is complete.  */
-      DECL_PENDING_INLINE_INFO (fn) = inline_definition;
+      DECL_PENDING_INLINE_INFO (fn) = block;
       DECL_PENDING_INLINE_P (fn) = 1;
 
       /* We're done with the inline definition.  */
@@ -10430,7 +10383,7 @@ cp_parser_class_specifier (parser)
        struct A { struct B; };
        struct A::B { void f() { } };
 
-     there is no need do delay the parsing of `A::B::f'.  */
+     there is no need to delay the parsing of `A::B::f'.  */
   if (--parser->num_classes_being_defined == 0) 
     {
       tree last_scope = NULL_TREE;
@@ -10581,9 +10534,10 @@ cp_parser_class_head (parser,
       /* Although the grammar says `identifier', it really means
 	 `class-name' or `template-name'.  You are only allowed to
 	 define a class that has already been declared with this
-	 syntax.  The proposed resolution for Core Issue 180 says that
-	 whever you see `class T::X' you should treat `X' as a
-	 type-name.
+	 syntax.  
+
+	 The proposed resolution for Core Issue 180 says that whever
+	 you see `class T::X' you should treat `X' as a type-name.
 	 
 	 It is OK to define an inaccessible class; for example:
 	 
@@ -10597,8 +10551,6 @@ cp_parser_class_head (parser,
 	 class-name is a template-id; if we looked for the
 	 template-name first we would stop after the template-name.  */
       cp_parser_parse_tentatively (parser);
-      /* FIXME: In fact, it means a class-name that is not a
-	 typedef-name.  */
       type = cp_parser_class_name (parser,
 				   /*typename_keyword_p=*/false,
 				   /*template_keyword_p=*/false,
@@ -10630,7 +10582,7 @@ cp_parser_class_head (parser,
       if (type == error_mark_node)
 	{
 	  nested_name_specifier = NULL_TREE;
-	  id = make_error_name ();
+	  id = make_anon_name ();
 	}
       /* Otherwise, count the number of templates used in TYPE and its
 	 containing scopes.  */
@@ -10709,7 +10661,8 @@ cp_parser_class_head (parser,
       /* If the class was unnamed, create a dummy name.  */
       if (!id)
 	id = make_anon_name ();
-      type = xref_tag (class_key, id, /*globalize=*/0);
+      type = xref_tag (class_key, id, /*attributes=*/NULL_TREE,
+		       /*globalize=*/0);
     }
   else
     {
@@ -10905,8 +10858,6 @@ cp_parser_member_declaration (parser)
       return;
     }
   
-  /* FIXME: Handle the old-style access-declarations.  */
-
   /* We can't tell whether we're looking at a declaration or a
      function-definition.  */
   cp_parser_parse_tentatively (parser);
@@ -10940,9 +10891,11 @@ cp_parser_member_declaration (parser)
 	{
 	  tree type;
 	  
+	  /* See if this declaration is a friend.  */
+	  friend_p = cp_parser_friend_p (decl_specifiers);
 	  /* If there were decl-specifiers, check to see if there was
 	     a class-declaration.  */
-	  type = check_tag_decl (decl_specifiers, &friend_p);
+	  type = check_tag_decl (decl_specifiers);
 	  /* If not, the user should have had a declarator.  */
 	  if (!type || !declares_class_or_enum)
 	    error ("expected declarator");
@@ -11028,7 +10981,6 @@ cp_parser_member_declaration (parser)
 					/*abstract_p=*/false,
 					&ctor_dtor_or_conv_p);
 
-	      /* FIXME: Complain about absent decl-specifiers.  */
 	      /* If something went wrong parsing the declarator, make sure
 		 that we at least consume some tokens.  */
 	      if (declarator == error_mark_node)
@@ -12056,8 +12008,8 @@ cp_parser_label_declaration (parser)
 
    In cases not explicitly covered above, this function returns a
    DECL, OVERLOAD, or baselink representing the result of the lookup.
-   If there was no entity with the indicated NAME, the
-   ERROR_MARK_NODE.
+   If there was no entity with the indicated NAME, the ERROR_MARK_NODE
+   is returned.
 
    If CHECK_ACCESS is TRUE, then access control is performed on the
    declaration to which the name resolves, and an error message is
@@ -12102,9 +12054,14 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
       tree type;
 
       /* Figure out to which type this destructor applies.  */
-      type = DESTRUCTOR_NAME_TYPE (name);
+      if (parser->scope)
+	type = parser->scope;
+      else if (object_type)
+	type = object_type;
+      else
+	type = current_class_type;
       /* If that's not a class type, there is no destructor.  */
-      if (!CLASS_TYPE_P (type))
+      if (!type || !CLASS_TYPE_P (type))
 	return error_mark_node;
       /* If it was a class type, return the destructor.  */
       return CLASSTYPE_DESTRUCTORS (type);
@@ -12129,10 +12086,10 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 	{
 	  if (!is_type)
 	    decl = build_nt (SCOPE_REF, parser->scope, name);
-	  /* The resolution to Core Issue 180 says that `struct A::B'
-	     should be considered a type-name, even if `A' is
-	     dependent.  */
 	  else
+	    /* The resolution to Core Issue 180 says that `struct A::B'
+	       should be considered a type-name, even if `A' is
+	       dependent.  */
 	    decl = TYPE_NAME (make_typename_type (parser->scope,
 						  name,
 						  /*complain=*/1));
@@ -12150,7 +12107,8 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 	     || COMPLETE_TYPE_P (parser->scope));
 	  if (!complete_p)
 	    diagnostic_issue_immediately (diagnostic_buffer);
-	  decl = lookup_qualified_name (parser->scope, name, is_type);
+	  decl = lookup_qualified_name (parser->scope, name, is_type,
+					/*flags=*/0);
 	  if (!complete_p)
 	    diagnostic_cease_issuing_immediately (diagnostic_buffer);
 	}
@@ -12179,8 +12137,6 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 	}
       /* Look it up in the enclosing context, too.  */
       decl = lookup_name (name, is_type);
-      /* FIXME: Check for consistency between OBJECT_DECL and 
-	 DECL.  */
       if (object_decl)
 	decl = object_decl;
     }
@@ -12208,6 +12164,7 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 		      || BASELINK_P (decl),
 		      20000619);
 
+#if 0
   /* If we have resolved the name of a member declaration, check to
      see if the declaration is accessible.  When the name resolves to
      set of overloaded functions, accesibility is checked when
@@ -12235,6 +12192,7 @@ cp_parser_lookup_name (parser, name, check_access, is_type,
 	    enforce_access (qualifying_type, decl);
 	}
     }
+#endif
 
   return decl;
 }
@@ -12954,7 +12912,6 @@ cp_parser_late_parsing_for_member (parser, member_function)
      tree member_function;
 {
   cp_lexer *saved_lexer;
-  struct obstack *tokens;
 
   /* If this member is a template, get the underlying
      FUNCTION_DECL.  */
@@ -12984,6 +12941,7 @@ cp_parser_late_parsing_for_member (parser, member_function)
   if (DECL_PENDING_INLINE_P (member_function))
     {
       tree function_scope;
+      cp_token_block *tokens;
 
       /* The function is no longer pending; we are processing it.  */
       tokens = DECL_PENDING_INLINE_INFO (member_function);
@@ -12999,12 +12957,7 @@ cp_parser_late_parsing_for_member (parser, member_function)
       saved_lexer = parser->lexer;
       /* Make a new lexer to feed us the tokens saved for this function.  */
       parser->lexer = cp_lexer_new_from_tokens (tokens);
-      /* We do not need the obstack any more.  We free it before any
-	 thing that might cause garbage-collection can occur, since
-	 the TOKENS are no longer pointed to from the MEMBER_FUNCTION.  */
-      obstack_free (tokens, NULL);
-      /* We are all done with the DEFINITION.  */
-      free (tokens);
+      parser->lexer->next = saved_lexer;
       
       /* Set the current source position to be the location of the first
 	 token in the saved inline body.  */
@@ -13047,7 +13000,7 @@ cp_parser_late_parsing_default_args (parser, type)
      tree type;
 {
   cp_lexer *saved_lexer;
-  struct obstack *tokens;
+  cp_token_block *tokens;
   bool saved_local_variables_forbidden_p;
   tree parameters;
   
@@ -13062,11 +13015,8 @@ cp_parser_late_parsing_default_args (parser, type)
        /* Save away the current lexer.  */
       saved_lexer = parser->lexer;
        /* Create a new one, using the tokens we have saved.  */
-      tokens = (struct obstack *) DEFARG_POINTER (TREE_PURPOSE (parameters));
+      tokens =  DEFARG_TOKENS (TREE_PURPOSE (parameters));
       parser->lexer = cp_lexer_new_from_tokens (tokens);
-       /* We no longer need the saved tokens.  */
-      obstack_free (tokens, NULL);
-      free (tokens);
 
        /* Set the current source position to be the location of the
      	  first token in the default argument.  */
@@ -13164,7 +13114,7 @@ cp_parser_sizeof_operand (parser, keyword)
 }
 
 /* If the DECL_SPECIFIER_SEQ declares a class, and constitutes the
-   entire declaration, return the TYPE for the class.  Otherwise,
+   entire declaration, return the TYPE_DECL for the class.  Otherwise,
    return NULL_TREE.  Issues an error message if nothing was declared
    by this declaration.  */
 
@@ -13176,7 +13126,11 @@ cp_parser_declares_only_class_p (cp_parser *parser,
      declarator.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)
       || cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
-    return shadow_tag (decl_specifier_seq);
+    {
+      tree type = shadow_tag (decl_specifier_seq);
+      if (type)
+	return TYPE_NAME (type);
+    }
 
   return NULL_TREE;
 }
@@ -13441,8 +13395,6 @@ cp_parser_parse_definitely (parser)
       diagnostic_rollback (diagnostic_buffer);
       return false;
     }
-  /* Destroy the old context.  */
-  cp_parser_context_delete (context);
 }
 
 /* Returns non-zero if we are parsing tentatively.  */
@@ -13485,95 +13437,30 @@ cp_parser_allow_gnu_extensions_p (parser)
   return parser->allow_gnu_extensions_p;
 }
 
-/* Mark DATA (which is really a `cp_parser *') for
-   garbage-collection.  */
-
-static void
-cp_parser_ggc_mark (data)
-     void *data;
-{
-  cp_parser *parser;
-  cp_parser_context *context;
-
-  parser = (cp_parser *) data;
-  ggc_mark_tree (parser->scope);
-  for (context = parser->context; context; context = context->next)
-    {
-      ggc_mark_tree (context->object_type);
-      ggc_mark_tree (context->deferred_access_checks);
-    }
-  ggc_mark_tree (parser->unparsed_functions_queues);
-}
-
 
+
+/* The parser.  */
+
+static GTY (()) cp_parser *the_parser;
+
 /* External interface.  */
 
-/* Parse the entire translation unit.  Return a non-zero value if an
-   error occurs.  */
+/* Parse the entire translation unit.  */
 
 int
-cp_parse_translation_unit ()
+yyparse ()
 {
-  int error_ocurred;
-  cp_parser *the_parser;
+  bool error_occurred;
 
   the_parser = cp_parser_new ();
-  error_ocurred = !cp_parser_translation_unit (the_parser);
-  cp_parser_delete (the_parser);
+  error_occurred = cp_parser_translation_unit (the_parser);
   the_parser = NULL;
 
-  return error_ocurred;
+  return error_occurred;
 }
 
-/* Mark TOKENS, which is an obstack containing `cp_token' entries.  */
+/* This variable must be provided by every front end.  */
 
-static void
-ggc_mark_token_obstack (tokens)
-     struct obstack *tokens;
-{
-  cp_token *first_token;
-  cp_token *last_token;
+int yydebug;
 
-  /* Figure out what the first and last tokens are.  */
-  first_token = (cp_token *) obstack_base (tokens);
-  last_token = (cp_token *) obstack_next_free (tokens);
-
-  /* Loop over all the tokens, marking any trees pointed to by them.  */
-  while (first_token != last_token)
-    {
-      /* Mark the VALUE field.  */
-      ggc_mark_tree (first_token->value);
-      /* Move to the next token.  */
-      ++first_token;
-    }
-}
-
-/* Mark the DECL_PENDING_INLINE_INFO for FN.  */
-
-void
-ggc_mark_inline_definition (fn)
-     tree fn;
-{
-  ggc_mark_token_obstack ((struct obstack *)
-			  DECL_PENDING_INLINE_INFO (fn));
-}
-
-/* Mark the DEFAULT_ARG.   */
-
-void
-ggc_mark_default_arg (default_arg)
-     tree default_arg;
-{
-  ggc_mark_token_obstack ((struct obstack *)
-			  DEFARG_POINTER (default_arg));
-}
-
-/* This function must be provided by every front-end.  */
-
-void
-set_yydebug (debug_p)
-     int debug_p ATTRIBUTE_UNUSED;
-{
-  warning ("no parser debugging available in C++");
-}
-
+#include "gt-cp-parser.h"

@@ -306,6 +306,11 @@ static enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
    being flagged as deprecated or reported as using deprecated
    types.  */
 int adding_implicit_members = 0;
+
+/* True if a declaration with an `extern' linkage specifier is being
+   processed.  */
+bool have_extern_spec;
+
 
 /* For each binding contour we allocate a binding_level structure
    which records the names defined in that contour.
@@ -5922,6 +5927,32 @@ warn_about_implicit_typename_lookup (typename, binding)
     }
 }
 
+/* Look up NAME (an IDENTIFIER_NODE) in SCOPE (either a NAMESPACE_DECL
+   or a class TYPE).  If IS_TYPE_P is TRUE, then ignore non-type
+   bindings.  
+
+   Returns a DECL (or OVERLOAD, or BASELINK) representing the
+   declaration found.  */
+
+tree
+lookup_qualified_name (tree scope, tree name, bool is_type_p, int flags)
+{
+  if (TREE_CODE (scope) == NAMESPACE_DECL)
+    {
+      tree val;
+
+      val = make_node (CPLUS_BINDING);
+      flags |= LOOKUP_COMPLAIN;
+      if (is_type_p)
+	flags |= LOOKUP_PREFER_TYPES;
+      if (!qualified_lookup_using_namespace (name, scope, val, flags))
+	return NULL_TREE;
+      return select_decl (val, flags);
+    }
+  else
+    return lookup_member (scope, name, 0, is_type_p);
+}
+
 /* Check to see whether or not DECL is a variable that would have been
    in scope under the ARM, but is not in scope under the ANSI/ISO
    standard.  If so, issue an error message.  If name lookup would
@@ -6041,33 +6072,32 @@ lookup_name_real (name, prefer_type, nonclass, namespaces_only)
 
 	  if (TREE_CODE (type) == VOID_TYPE)
 	    type = global_namespace;
-	  if (TREE_CODE (type) == NAMESPACE_DECL)
-	    {
-	      val = make_node (CPLUS_BINDING);
-	      flags |= LOOKUP_COMPLAIN;
-	      if (!qualified_lookup_using_namespace (name, type, val, flags))
-		return NULL_TREE;
-	      val = select_decl (val, flags);
-	    }
-	  else if (! IS_AGGR_TYPE (type)
-		   || TREE_CODE (type) == TEMPLATE_TYPE_PARM
-		   || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM
-		   || TREE_CODE (type) == TYPENAME_TYPE)
+
+	  if (TREE_CODE (type) != NAMESPACE_DECL
+	      && (!IS_AGGR_TYPE (type)
+		  || TREE_CODE (type) == TEMPLATE_TYPE_PARM
+		  || TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM
+		  || TREE_CODE (type) == TYPENAME_TYPE))
 	    /* Someone else will give an error about this if needed.  */
 	    val = NULL_TREE;
 	  else if (type == current_class_type)
 	    val = IDENTIFIER_CLASS_VALUE (name);
-	  else
+	  else 
 	    {
-	      val = lookup_member (type, name, 0, prefer_type);
-	      type_access_control (type, val);
-
-	      /* Restore the containing TYPENAME_TYPE if we looked
-		 through it before.  */
-	      if (got_scope && got_scope != type
-		  && val && TREE_CODE (val) == TYPE_DECL
-		  && TREE_CODE (TREE_TYPE (val)) == TYPENAME_TYPE)
-		TYPE_CONTEXT (TREE_TYPE (val)) = got_scope;
+	      val = lookup_qualified_name (type, name, prefer_type, flags);
+	      if (TREE_CODE (type) == NAMESPACE_DECL && !val)
+		return NULL_TREE;
+	      else if (TYPE_P (type))
+		{
+		  type_access_control (type, val);
+		  
+		  /* Restore the containing TYPENAME_TYPE if we looked
+		     through it before.  */
+		  if (got_scope && got_scope != type
+		      && val && TREE_CODE (val) == TYPE_DECL
+		      && TREE_CODE (TREE_TYPE (val)) == TYPENAME_TYPE)
+		    TYPE_CONTEXT (TREE_TYPE (val)) = got_scope;
+		}
 	    }
 	}
       else
@@ -7122,23 +7152,27 @@ check_tag_decl (declspecs)
    Otherwise, it is an error.
 
    C++: may have to grok the declspecs to learn about static,
-   complain for anonymous unions.  */
+   complain for anonymous unions.  
 
-void
+   Returns the TYPE declared -- or NULL_TREE if none.  */
+
+tree
 shadow_tag (declspecs)
      tree declspecs;
 {
   tree t = check_tag_decl (declspecs);
 
-  if (t)
-    maybe_process_partial_specialization (t);
+  if (!t)
+    return NULL_TREE;
+
+  maybe_process_partial_specialization (t);
 
   /* This is where the variables in an anonymous union are
      declared.  An anonymous union declaration looks like:
      union { ... } ;
      because there is no declarator after the union, the parser
      sends that declaration here.  */
-  if (t && ANON_AGGR_TYPE_P (t))
+  if (ANON_AGGR_TYPE_P (t))
     {
       fixup_anonymous_aggr (t);
 
@@ -7149,6 +7183,8 @@ shadow_tag (declspecs)
 	  finish_anon_union (decl);
 	}
     }
+
+  return t;
 }
 
 /* Decode a "typename", such as "int **", returning a ..._TYPE node.  */
@@ -7193,8 +7229,6 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
   tree decl;
   register tree type, tem;
   tree context;
-  extern int have_extern_spec;
-  extern int used_extern_spec;
 
 #if 0
   /* See code below that used this.  */
@@ -7202,11 +7236,11 @@ start_decl (declarator, declspecs, initialized, attributes, prefix_attributes)
 #endif
 
   /* This should only be done once on the top most decl.  */
-  if (have_extern_spec && !used_extern_spec)
+  if (have_extern_spec)
     {
       declspecs = tree_cons (NULL_TREE, get_identifier ("extern"),
 			     declspecs);
-      used_extern_spec = 1;
+      have_extern_spec = false;
     }
 
   /* An object declared as __attribute__((deprecated)) suppresses
@@ -9887,10 +9921,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    if (ctype
 		&& TREE_OPERAND (decl, 0)
 		&& (TREE_CODE (TREE_OPERAND (decl, 0)) == TYPE_DECL
-		    && ((DECL_NAME (TREE_OPERAND (decl, 0))
-			 == constructor_name_full (ctype))
-			|| (DECL_NAME (TREE_OPERAND (decl, 0))
-			    == constructor_name (ctype)))))
+		    && constructor_name_p (DECL_NAME (TREE_OPERAND (decl, 0)),
+					   ctype)))
 	      TREE_OPERAND (decl, 0) = constructor_name (ctype);
 	    next = &TREE_OPERAND (decl, 0);
 	    decl = *next;
@@ -9997,10 +10029,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		}
 
 	      if (ctype && TREE_CODE (TREE_OPERAND (decl, 1)) == TYPE_DECL
-		  && ((DECL_NAME (TREE_OPERAND (decl, 1))
-		       == constructor_name_full (ctype))
-		      || (DECL_NAME (TREE_OPERAND (decl, 1))
-			  == constructor_name (ctype))))
+		  && constructor_name_p (DECL_NAME (TREE_OPERAND (decl, 1)),
+					 ctype))
 		TREE_OPERAND (decl, 1) = constructor_name (ctype);
 	      next = &TREE_OPERAND (decl, 1);
 	      decl = *next;
@@ -10014,8 +10044,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    }
 		  else if (TREE_CODE (decl) == BIT_NOT_EXPR
 			   && TREE_CODE (TREE_OPERAND (decl, 0)) == IDENTIFIER_NODE
-			   && (constructor_name (ctype) == TREE_OPERAND (decl, 0)
-			       || constructor_name_full (ctype) == TREE_OPERAND (decl, 0)))
+			   && constructor_name_p (TREE_OPERAND (decl, 0),
+						  ctype))
 		    {
 		      sfk = sfk_destructor;
 		      ctor_return_type = ctype;
@@ -13543,8 +13573,6 @@ start_function (declspecs, declarator, attrs, flags)
   tree ctype = NULL_TREE;
   tree fntype;
   tree restype;
-  extern int have_extern_spec;
-  extern int used_extern_spec;
   int doing_friend = 0;
   struct cp_binding_level *bl;
   tree current_function_parms;
@@ -13554,10 +13582,10 @@ start_function (declspecs, declarator, attrs, flags)
   my_friendly_assert (TREE_CHAIN (void_list_node) == NULL_TREE, 161);
 
   /* This should only be done once on the top most decl.  */
-  if (have_extern_spec && !used_extern_spec)
+  if (have_extern_spec)
     {
       declspecs = tree_cons (NULL_TREE, get_identifier ("extern"), declspecs);
-      used_extern_spec = 1;
+      have_extern_spec = false;
     }
 
   if (flags & SF_PRE_PARSED)

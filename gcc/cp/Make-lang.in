@@ -119,7 +119,7 @@ $(srcdir)/cp/cfns.h: $(srcdir)/cp/cfns.gperf
 		$(srcdir)/cp/cfns.gperf > $(srcdir)/cp/cfns.h
 
 gtype-cp.h gt-cp-call.h gt-cp-decl.h gt-cp-decl2.h : s-gtype; @true
-gt-cp-pt.h gt-cp-repo.h gt-cp-spew.h : s-gtype; @true
+gt-cp-pt.h gt-cp-repo.h gt-cp-spew.h gt-cp-parser.h : s-gtype; @true
 gt-cp-tree.h : s-gtype; @true
 
 #
@@ -285,7 +285,7 @@ cp/optimize.o: cp/optimize.c $(CXX_TREE_H) rtl.h integrate.h insn-config.h \
   input.h $(PARAMS_H) debug.h tree-inline.h
 cp/mangle.o: cp/mangle.c $(CXX_TREE_H) toplev.h real.h
 
-cp/parser.o: cp/parser.c $(CXX_TREE_H) diagnostic.h
+cp/parser.o: cp/parser.c $(CXX_TREE_H) diagnostic.h gt-cp-parser.h
 
 #
 # These exist for maintenance purposes.

@@ -98,10 +98,6 @@ do {									\
    error message if the user supplies an empty conditional expression.  */
 static const char *cond_stmt_keyword;
 
-/* Nonzero if we have an `extern "C"' acting as an extern specifier.  */
-int have_extern_spec;
-int used_extern_spec;
-
 /* List of types and structure classes of the current declaration.  */
 static GTY(()) tree current_declspecs;
 
@@ -134,6 +130,7 @@ static tree parse_scoped_id PARAMS ((tree));
 static tree parse_xref_tag (tree, tree, int);
 static tree parse_handle_class_head (tree, tree, tree, int, int *);
 static void parse_decl_instantiation (tree, tree, tree);
+static int parse_begin_function_definition (tree, tree);
 
 /* Cons up an empty parameter list.  */
 static inline tree
@@ -163,7 +160,7 @@ frob_specs (specs_attrs, lookups)
   if (current_declspecs
       && TREE_CODE (current_declspecs) != TREE_LIST)
     current_declspecs = build_tree_list (NULL_TREE, current_declspecs);
-  if (have_extern_spec && !used_extern_spec)
+  if (have_extern_spec)
     {
       /* We have to indicate that there is an "extern", but that it
          was part of a language specifier.  For instance,
@@ -174,7 +171,7 @@ frob_specs (specs_attrs, lookups)
       current_declspecs = tree_cons (error_mark_node,
 				     get_identifier ("extern"),
 				     current_declspecs);
-      used_extern_spec = 1;
+      have_extern_spec = false;
     }
 }
 
@@ -510,12 +507,11 @@ extdefs_opt:
 	;
 
 .hush_warning:
-		{ have_extern_spec = 1;
-		  used_extern_spec = 0;
+		{ have_extern_spec = true;
 		  $<ttype>$ = NULL_TREE; }
 	;
 .warning_ok:
-		{ have_extern_spec = 0; }
+		{ have_extern_spec = false; }
 	;
 
 extension:
@@ -715,14 +711,7 @@ template_parm:
 		{ $$ = build_tree_list (NULL_TREE, $1); }
 	| template_template_parm '=' template_arg
 		{
-		  if (TREE_CODE ($3) != TEMPLATE_DECL
-		      && TREE_CODE ($3) != TEMPLATE_TEMPLATE_PARM
-		      && TREE_CODE ($3) != TYPE_DECL
-		      && TREE_CODE ($3) != UNBOUND_CLASS_TEMPLATE)
-		    {
-		      error ("invalid default template argument");
-		      $3 = error_mark_node;
-		    }
+		  $3 = check_template_template_default_arg ($3);
 		  $$ = build_tree_list ($3, $1);
 		}
 	;
@@ -868,19 +857,19 @@ constructor_declarator:
 fn.def1:
 	  typed_declspecs declarator
 		{ check_for_new_type ("return type", $1);
-		  if (!begin_function_definition ($1.t, $2))
+		  if (!parse_begin_function_definition ($1.t, $2))
 		    YYERROR1; }
 	| declmods notype_declarator
-		{ if (!begin_function_definition ($1.t, $2))
+		{ if (!parse_begin_function_definition ($1.t, $2))
 		    YYERROR1; }
 	| notype_declarator
-		{ if (!begin_function_definition (NULL_TREE, $1))
+		{ if (!parse_begin_function_definition (NULL_TREE, $1))
 		    YYERROR1; }
 	| declmods constructor_declarator
-		{ if (!begin_function_definition ($1.t, $2))
+		{ if (!parse_begin_function_definition ($1.t, $2))
 		    YYERROR1; }
 	| constructor_declarator
-		{ if (!begin_function_definition (NULL_TREE, $1))
+		{ if (!parse_begin_function_definition (NULL_TREE, $1))
 		    YYERROR1; }
 	;
 
@@ -4095,6 +4084,19 @@ parse_decl_instantiation (tree declspecs, tree declarator, tree storage)
 {
   tree decl = grokdeclarator (declarator, declspecs, NORMAL, 0, NULL);
   do_decl_instantiation (decl, storage);
+}
+
+/* Like begin_function_definition, but SPECS_ATTRS is a combined list
+   containing both a decl-specifier-seq and attributes.  */
+
+static int
+parse_begin_function_definition (tree specs_attrs, tree declarator)
+{
+  tree specs;
+  tree attrs;
+  
+  split_specs_attrs (specs_attrs, &specs, &attrs);
+  return begin_function_definition (specs, attrs, declarator);
 }
 
 #include "gt-cp-parse.h"

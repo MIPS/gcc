@@ -747,7 +747,7 @@ const struct attribute_spec ix86_attribute_table[];
 static tree ix86_handle_cdecl_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static tree ix86_handle_regparm_attribute PARAMS ((tree *, tree, tree, int, bool *));
 
-#ifdef DO_GLOBAL_CTORS_BODY
+#if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
 #endif
 
@@ -11941,7 +11941,7 @@ ix86_init_mmx_sse_builtins ()
 				long_long_unsigned_type_node, NULL_TREE);
 
   tree v2si_ftype_v2sf
-    = build_function_type_list (V2SI_type_node, V2SFmode, NULL_TREE);
+    = build_function_type_list (V2SI_type_node, V2SF_type_node, NULL_TREE);
   tree v2sf_ftype_v2si
     = build_function_type_list (V2SF_type_node, V2SI_type_node, NULL_TREE);
   tree v2si_ftype_v2si
@@ -13517,7 +13517,7 @@ ix86_memory_move_cost (mode, class, in)
     }
 }
 
-#ifdef DO_GLOBAL_CTORS_BODY
+#if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void
 ix86_svr3_asm_out_constructor (symbol, priority)
      rtx symbol;

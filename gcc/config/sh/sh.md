@@ -168,9 +168,12 @@
 (define_attr "fmovd" "yes,no"
   (const (if_then_else (symbol_ref "TARGET_FMOVD")
 		       (const_string "yes") (const_string "no"))))
-;; issues/clock
-(define_attr "issues" "1,2"
-  (const (if_then_else (symbol_ref "TARGET_SUPERSCALAR") (const_string "2") (const_string "1"))))
+;; pipeline model
+(define_attr "pipe_model" "sh1,sh4,sh5media"
+  (const
+   (cond [(symbol_ref "TARGET_SHMEDIA") (const_string "sh5media")
+          (symbol_ref "TARGET_SUPERSCALAR") (const_string "sh4")]
+         (const_string "sh1"))))
 
 ;; cbranch	conditional branch instructions
 ;; jump		unconditional jumps
@@ -200,10 +203,37 @@
 ;; gp_fpul	move between general purpose register and fpul
 ;; dfp_arith, dfp_cmp,dfp_conv
 ;; dfdiv	double precision floating point divide (or square root)
+;; arith_media	SHmedia arithmetic, logical, and shift instructions
+;; cbranch_media SHmedia conditional branch instructions
+;; cmp_media	SHmedia compare instructions
+;; dfdiv_media	SHmedia double precision divide and square root
+;; dfmul_media	SHmedia double precision multiply instruction
+;; dfparith_media SHmedia double precision floating point arithmetic
+;; dfpconv_media SHmedia double precision floating point conversions
+;; dmpy_media	SHmedia longword multiply
+;; fcmp_media	SHmedia floating point compare instructions
+;; fdiv_media	SHmedia single precision divide and square root
+;; fload_media	SHmedia floating point register load instructions
+;; fmove_media	SHmedia floating point register moves (inc. fabs and fneg)
+;; fparith_media SHmedia single precision floating point arithmetic
+;; fpconv_media	SHmedia single precision floating point conversions
+;; fstore_media	SHmedia floating point register store instructions
+;; gettr_media	SHmedia gettr instruction
+;; invalidate_line_media SHmedia invaldiate_line sequence
+;; jump_media	SHmedia unconditional branch instructions
+;; load_media	SHmedia general register load instructions
+;; pt_media	SHmedia pt instruction (expanded by assembler)
+;; ptabs_media	SHmedia ptabs instruction
+;; store_media	SHmedia general register store instructions
+;; mcmp_media	SHmedia multimedia compare, absolute, saturating ops
+;; mac_media	SHmedia mac-style fixed point operations
+;; d2mpy_media	SHmedia: two 32 bit integer multiplies
+;; atrans	SHmedia approximate transcendential functions
+;; ustore_media	SHmedia unaligned stores
 ;; nil		no-op move, will be deleted.
 
 (define_attr "type"
- "cbranch,jump,jump_ind,arith,arith3,arith3b,dyn_shift,load,load_si,store,move,fmove,smpy,dmpy,return,pload,prset,pstore,prget,pcload,pcload_si,rte,sfunc,call,fp,fdiv,dfp_arith,dfp_cmp,dfp_conv,dfdiv,gp_fpul,arith_media,cbranch_media,cmp_media,dfdiv_media,dfmul_media,dfparith_media,dfpconv_media,dmpy_media,fcmp_media,fdiv_media,fload_media,fmove_media,fparith_media,fpconv_media,fstore_media,gettr_media,invalidate_line_media,jump_media,load_media,pt,ptabs,store_media,mcmp_media,mac_media,d2mpy_media,atrans_media,ustore_media,nil,other"
+ "cbranch,jump,jump_ind,arith,arith3,arith3b,dyn_shift,load,load_si,store,move,fmove,smpy,dmpy,return,pload,prset,pstore,prget,pcload,pcload_si,rte,sfunc,call,fp,fdiv,dfp_arith,dfp_cmp,dfp_conv,dfdiv,gp_fpul,arith_media,cbranch_media,cmp_media,dfdiv_media,dfmul_media,dfparith_media,dfpconv_media,dmpy_media,fcmp_media,fdiv_media,fload_media,fmove_media,fparith_media,fpconv_media,fstore_media,gettr_media,invalidate_line_media,jump_media,load_media,pt_media,ptabs_media,store_media,mcmp_media,mac_media,d2mpy_media,atrans_media,ustore_media,nil,other"
   (const_string "other"))
 
 ;; We define a new attribute namely "insn_class".We use
@@ -359,7 +389,7 @@
 		(ne (symbol_ref ("flag_pic")) (const_int 0))
 		(const_int 22)
 		] (const_int 14))
-	 (eq_attr "type" "pt")
+	 (eq_attr "type" "pt_media")
 	 (if_then_else (ne (symbol_ref "TARGET_SHMEDIA64") (const_int 0))
 		       (const_int 20) (const_int 12))
 	 ] (if_then_else (ne (symbol_ref "TARGET_SHMEDIA") (const_int 0))
@@ -386,33 +416,33 @@
 ;; We only do this for SImode loads of general registers, to make the work
 ;; for ADJUST_COST easier.
 (define_function_unit "memory" 1 0
-  (and (eq_attr "issues" "1")
+  (and (eq_attr "pipe_model" "sh1")
        (eq_attr "type" "load_si,pcload_si"))
   3 2)
 (define_function_unit "memory" 1 0
-  (and (eq_attr "issues" "1")
+  (and (eq_attr "pipe_model" "sh1")
        (eq_attr "type" "load,pcload,pload,store,pstore"))
   2 2)
 
 (define_function_unit "int"    1 0
-  (and (eq_attr "issues" "1") (eq_attr "type" "arith3,arith3b")) 3 3)
+  (and (eq_attr "pipe_model" "sh1") (eq_attr "type" "arith3,arith3b")) 3 3)
 
 (define_function_unit "int"    1 0
-  (and (eq_attr "issues" "1") (eq_attr "type" "dyn_shift")) 2 2)
+  (and (eq_attr "pipe_model" "sh1") (eq_attr "type" "dyn_shift")) 2 2)
 
 (define_function_unit "int"    1 0
-  (and (eq_attr "issues" "1") (eq_attr "type" "!arith3,arith3b,dyn_shift")) 1 1)
+  (and (eq_attr "pipe_model" "sh1") (eq_attr "type" "!arith3,arith3b,dyn_shift")) 1 1)
 
 ;; ??? These are approximations.
 (define_function_unit "mpy"    1 0
-  (and (eq_attr "issues" "1") (eq_attr "type" "smpy")) 2 2)
+  (and (eq_attr "pipe_model" "sh1") (eq_attr "type" "smpy")) 2 2)
 (define_function_unit "mpy"    1 0
-  (and (eq_attr "issues" "1") (eq_attr "type" "dmpy")) 3 3)
+  (and (eq_attr "pipe_model" "sh1") (eq_attr "type" "dmpy")) 3 3)
 
 (define_function_unit "fp"     1 0
-  (and (eq_attr "issues" "1") (eq_attr "type" "fp,fmove")) 2 1)
+  (and (eq_attr "pipe_model" "sh1") (eq_attr "type" "fp,fmove")) 2 1)
 (define_function_unit "fp"     1 0
-  (and (eq_attr "issues" "1") (eq_attr "type" "fdiv")) 13 12)
+  (and (eq_attr "pipe_model" "sh1") (eq_attr "type" "fdiv")) 13 12)
 
 
 ;; SH4 scheduling
@@ -430,11 +460,11 @@
 ;; We use an 'issue' function unit to do that, and a cost factor of 10.
 
 (define_function_unit "issue" 2 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "!nil,arith3"))
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "!nil,arith3"))
   10 10)
 
 (define_function_unit "issue" 2 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "arith3"))
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "arith3"))
   30 30)
 
 ;; There is no point in providing exact scheduling information about branches,
@@ -446,13 +476,13 @@
 ;; default is dual-issue, but can't be paired with an insn that
 ;; uses multiple function units.
 (define_function_unit "single_issue"     1 0
-  (and (eq_attr "issues" "2")
+  (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "!smpy,dmpy,pload,pstore,dfp_cmp,gp_fpul,call,sfunc,arith3,arith3b"))
   1 10
   [(eq_attr "type" "smpy,dmpy,pload,pstore,dfp_cmp,gp_fpul")])
 
 (define_function_unit "single_issue"     1 0
-  (and (eq_attr "issues" "2")
+  (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "smpy,dmpy,pload,pstore,dfp_cmp,gp_fpul"))
   10 10
   [(const_int 1)])
@@ -460,7 +490,7 @@
 ;; arith3 insns are always pairable at the start, but not inecessarily at
 ;; the end; however, there doesn't seem to be a way to express that.
 (define_function_unit "single_issue"     1 0
-  (and (eq_attr "issues" "2")
+  (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "arith3"))
   30 20
   [(const_int 1)])
@@ -470,14 +500,14 @@
 ;; When the following branch is immediately adjacent, we can redirect the
 ;; internal branch, which is likly to be a larger win.
 (define_function_unit "single_issue"     1 0
-  (and (eq_attr "issues" "2")
+  (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "arith3b"))
   20 20
   [(const_int 1)])
 
 ;; calls introduce a longisch delay that is likely to flush the pipelines.
 (define_function_unit "single_issue"     1 0
-  (and (eq_attr "issues" "2")
+  (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "call,sfunc"))
   160 160
   [(eq_attr "type" "!call") (eq_attr "type" "call")])
@@ -505,37 +535,37 @@
 ;; load_store, load and load_si.
 
 (define_function_unit "load_si" 1 0
-  (and (eq_attr "issues" "2")
+  (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "load_si,pcload_si")) 30 10)
 (define_function_unit "load" 1 0
-  (and (eq_attr "issues" "2")
+  (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "load,pcload,pload")) 20 10)
 (define_function_unit "load_store" 1 0
-  (and (eq_attr "issues" "2")
+  (and (eq_attr "pipe_model" "sh4")
        (eq_attr "type" "load_si,pcload_si,load,pcload,pload,store,pstore,fmove"))
   10 10)
 
 (define_function_unit "int"    1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "arith,dyn_shift")) 10 10)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "arith,dyn_shift")) 10 10)
 
 ;; Again, we have to pretend a lower latency for the "int" unit to avoid a
 ;; spurious FIFO constraint; the multiply instructions use the "int"
 ;; unit actually only for two cycles.
 (define_function_unit "int"    1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "smpy,dmpy")) 20 20)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "smpy,dmpy")) 20 20)
 
 ;; We use a fictous "mpy" unit to express the actual latency.
 (define_function_unit "mpy"    1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "smpy,dmpy")) 40 20)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "smpy,dmpy")) 40 20)
 
 ;; Again, we have to pretend a lower latency for the "int" unit to avoid a
 ;; spurious FIFO constraint.
 (define_function_unit "int"     1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "gp_fpul")) 10 10)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "gp_fpul")) 10 10)
 
 ;; We use a fictous "gp_fpul" unit to express the actual latency.
 (define_function_unit "gp_fpul"     1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "gp_fpul")) 20 10)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "gp_fpul")) 20 10)
 
 ;; ??? multiply uses the floating point unit, but with a two cycle delay.
 ;; Thus, a simple single-precision fp operation could finish if issued in
@@ -550,19 +580,19 @@
 ;; However, simple double-precision operations always conflict.
 
 (define_function_unit "fp"    1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "smpy,dmpy")) 40 40
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "smpy,dmpy")) 40 40
   [(eq_attr "type" "dfp_cmp,dfp_conv,dfp_arith")])
 
 ;; The "fp" unit is for pipeline stages F1 and F2.
 
 (define_function_unit "fp"     1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "fp")) 30 10)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "fp")) 30 10)
 
 ;; Again, we have to pretend a lower latency for the "fp" unit to avoid a
 ;; spurious FIFO constraint; the bulk of the fdiv type insns executes in
 ;; the F3 stage.
 (define_function_unit "fp"     1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "fdiv")) 30 10)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "fdiv")) 30 10)
 
 ;; The "fdiv" function unit models the aggregate effect of the F1, F2 and F3
 ;; pipeline stages on the pipelining of fdiv/fsqrt insns.
@@ -570,27 +600,80 @@
 ;; fsqrt is actually one cycle faster than fdiv (and the value used here),
 ;; but that will hardly matter in practice for scheduling.
 (define_function_unit "fdiv"     1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "fdiv")) 120 100)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "fdiv")) 120 100)
 
 ;; There is again a late use of the "fp" unit by [d]fdiv type insns
 ;; that we can't express.
 
 (define_function_unit "fp"     1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "dfp_cmp,dfp_conv")) 40 20)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "dfp_cmp,dfp_conv")) 40 20)
 
 (define_function_unit "fp"     1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "dfp_arith")) 80 60)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "dfp_arith")) 80 60)
 
 (define_function_unit "fp"     1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "dfdiv")) 230 10)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "dfdiv")) 230 10)
 
 (define_function_unit "fdiv"     1 0
-  (and (eq_attr "issues" "2") (eq_attr "type" "dfdiv")) 230 210)
+  (and (eq_attr "pipe_model" "sh4") (eq_attr "type" "dfdiv")) 230 210)
 
-;; This should be enough for pt insns to be moved 5 insns ahead of
-;; corresponding branches.
-(define_function_unit "pt" 1 0
-  (eq_attr "type" "pt,ptabs") 10 2)
+;; SH-5 SHmedia scheduling
+;; When executing SHmedia code, the SH-5 is a fairly straightforward
+;; single-issue machine.  It has four pipelines, the branch unit (br),
+;; the integer and multimedia unit (imu), the load/store unit (lsu), and
+;; the floating point unit (fpu).
+;; Here model the instructions with a latency greater than one cycle.
+
+;; Every instruction on SH-5 occupies the issue resource for at least one
+;; cycle.
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media")
+       (eq_attr "type" "!pt_media,ptabs_media,invalidate_line_media,dmpy_media,load_media,fload_media,fcmp_media,fmove_media,fparith_media,dfparith_media,fpconv_media,dfpconv_media,dfmul_media,store_media,fstore_media,mcmp_media,mac_media,d2mpy_media,atrans_media,ustore_media")) 1 1)
+
+;; Specify the various types of instruction which have latency > 1
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media")
+       (eq_attr "type" "mcmp_media")) 2 1)
+
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media")
+       (eq_attr "type" "dmpy_media,load_media,fcmp_media,mac_media")) 3 1)
+;; but see sh_adjust_cost for mac_media exception.
+
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media")
+       (eq_attr "type" "fload_media,fmove_media")) 4 1)
+
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media")
+       (eq_attr "type" "d2mpy_media")) 4 2)
+
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media")
+       (eq_attr "type" "pt_media,ptabs_media")) 5 1)
+
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media")
+       (eq_attr "type" "fparith_media,dfparith_media,fpconv_media,dfpconv_media")) 6 1)
+
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media")
+       (eq_attr "type" "invalidate_line_media")) 7 7)
+
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media") (eq_attr "type" "dfmul_media")) 9 4)
+
+(define_function_unit "sh5issue" 1 0
+  (and (eq_attr "pipe_model" "sh5media") (eq_attr "type" "atrans_media")) 10 5)
+
+;; Floating-point divide and square-root occupy an additional resource,
+;; which is not internally pipelined.  However, other instructions
+;; can continue to issue.
+(define_function_unit "sh5fds" 1 0
+  (and (eq_attr "pipe_model" "sh5media") (eq_attr "type" "fdiv_media"))  19 19)
+
+(define_function_unit "sh5fds" 1 0
+  (and (eq_attr "pipe_model" "sh5media") (eq_attr "type" "dfdiv_media")) 35 35)
 
 ; Definitions for filling branch delay slots.
 
@@ -615,6 +698,9 @@
 
 (define_attr "is_sfunc" ""
   (if_then_else (eq_attr "type" "sfunc") (const_int 1) (const_int 0)))
+
+(define_attr "is_mac_media" ""
+  (if_then_else (eq_attr "type" "mac_media") (const_int 1) (const_int 0)))
 
 (define_delay
   (eq_attr "needs_delay_slot" "yes")
@@ -844,33 +930,29 @@
    (set_attr "type" "arith3")])
 
 (define_insn "cmpeqdi_media"
-  [(set (match_operand:DI 0 "register_operand" "=r,r")
-	(eq:DI (match_operand:DI 1 "register_operand" "%r,r")
-	       (match_operand:DI 2 "arith_reg_or_0_operand" "N,r")))]
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(eq:DI (match_operand:DI 1 "register_operand" "%r")
+	       (match_operand:DI 2 "arith_reg_or_0_operand" "Nr")))]
   "TARGET_SHMEDIA"
-  "@
-	cmpeq	%1, r63, %0
-	cmpeq	%1, %2, %0")
+  "cmpeq	%1, %N2, %0"
+  [(set_attr "type" "cmp_media")])
 
 (define_insn "cmpgtdi_media"
-  [(set (match_operand:DI 0 "register_operand" "=r,r,r")
-	(gt:DI (match_operand:DI 1 "arith_reg_or_0_operand" "N,r,r")
-	       (match_operand:DI 2 "arith_reg_or_0_operand" "r,N,r")))]
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(gt:DI (match_operand:DI 1 "arith_reg_or_0_operand" "Nr")
+	       (match_operand:DI 2 "arith_reg_or_0_operand" "rN")))]
   "TARGET_SHMEDIA"
-  "@
-	cmpgt	r63, %2, %0
-	cmpgt	%1, r63, %0
-	cmpgt	%1, %2, %0")
+  "cmpgt	%N1, %N2, %0"
+  [(set_attr "type" "cmp_media")])
 
 (define_insn "cmpgtudi_media"
-  [(set (match_operand:DI 0 "register_operand" "=r,r,r")
-	(gtu:DI (match_operand:DI 1 "arith_reg_or_0_operand" "N,r,r")
-		(match_operand:DI 2 "arith_reg_or_0_operand" "r,N,r")))]
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(gtu:DI (match_operand:DI 1 "arith_reg_or_0_operand" "Nr")
+		(match_operand:DI 2 "arith_reg_or_0_operand" "rN")))]
   "TARGET_SHMEDIA"
   "@
-	cmpgtu	r63, %2, %0
-	cmpgtu	%1, r63, %0
-	cmpgtu	%1, %2, %0")
+	cmpgtu	%N1, %N2, %0"
+  [(set_attr "type" "cmp_media")])
 
 ;; We save the compare operands in the cmpxx patterns and use them when
 ;; we generate the branch.
@@ -894,22 +976,24 @@
 ;; if op1 == 0, and cmvne does it if op1 != 0.
 
 (define_insn "movdicc_false"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(if_then_else:DI (eq (match_operand:DI 1 "register_operand" "r")
+  [(set (match_operand:DI 0 "arith_reg_dest" "=r")
+	(if_then_else:DI (eq (match_operand:DI 1 "arith_reg_operand" "r")
 			     (const_int 0))
-	 (match_operand:DI 2 "register_operand" "r")
-	 (match_operand:DI 3 "register_operand" "0")))]
+	 (match_operand:DI 2 "arith_reg_or_0_operand" "rN")
+	 (match_operand:DI 3 "arith_reg_operand" "0")))]
   "TARGET_SHMEDIA"
-  "cmveq	%1, %2, %0")
+  "cmveq	%1, %N2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_insn "movdicc_true"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(if_then_else:DI (ne (match_operand:DI 1 "register_operand" "r")
+  [(set (match_operand:DI 0 "arith_reg_dest" "=r")
+	(if_then_else:DI (ne (match_operand:DI 1 "arith_reg_operand" "r")
 			     (const_int 0))
-	 (match_operand:DI 2 "register_operand" "r")
-	 (match_operand:DI 3 "register_operand" "0")))]
+	 (match_operand:DI 2 "arith_reg_or_0_operand" "rN")
+	 (match_operand:DI 3 "arith_reg_operand" "0")))]
   "TARGET_SHMEDIA"
-  "cmvne	%1, %2, %0")
+  "cmvne	%1, %N2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_expand "movdicc"
   [(set (match_operand:DI 0 "register_operand" "")
@@ -1037,17 +1121,17 @@
   "TARGET_SHMEDIA"
   "@
 	add	%1, %2, %0
-	addi	%1, %2, %0")
+	addi	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
-(define_insn "*adddi3z_media"
-  [(set (match_operand:DI 0 "arith_reg_operand" "=r,r")
+(define_insn "adddi3z_media"
+  [(set (match_operand:DI 0 "arith_reg_operand" "=r")
 	(zero_extend:DI
-	 (plus:SI (match_operand:SI 1 "arith_reg_operand" "r,r")
-		  (match_operand:SI 2 "arith_reg_or_0_operand" "r,n"))))]
+	 (plus:SI (match_operand:SI 1 "extend_reg_operand" "r")
+		  (match_operand:SI 2 "extend_reg_or_0_operand" "rN"))))]
   "TARGET_SHMEDIA"
-  "@
-	addz.l	%1, %2, %0
-	addz.l	%1, r63, %0")
+  "addz.l	%1, %N2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_insn "adddi3_compact"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
@@ -1116,12 +1200,13 @@
 
 (define_insn "addsi3_media"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
-	(plus:SI (match_operand:SI 1 "arith_reg_operand" "%r,r")
+	(plus:SI (match_operand:SI 1 "extend_reg_operand" "%r,r")
 		 (match_operand:SI 2 "arith_operand" "r,P")))]
   "TARGET_SHMEDIA"
   "@
 	add.l	%1, %2, %0
-	addi.l	%1, %2, %0")
+	addi.l	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_insn "*addsi3_compact"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r")
@@ -1156,7 +1241,8 @@
 	(minus:DI (match_operand:DI 1 "arith_reg_or_0_operand" "rN")
 		  (match_operand:DI 2 "arith_reg_operand" "r")))]
   "TARGET_SHMEDIA"
-  "sub	%N1, %2, %0")
+  "sub	%N1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_insn "subdi3_compact"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
@@ -1223,10 +1309,11 @@
 
 (define_insn "*subsi3_media"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r")
-	(minus:SI (match_operand:SI 1 "arith_reg_operand" "r")
-		  (match_operand:SI 2 "arith_reg_operand" "r")))]
+	(minus:SI (match_operand:SI 1 "extend_reg_or_0_operand" "rN")
+		  (match_operand:SI 2 "extend_reg_operand" "r")))]
   "TARGET_SHMEDIA"
-  "sub.l	%1, %2, %0")
+  "sub.l	%N1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 ;; Convert `constant - reg' to `neg rX; add rX, #const' since this
 ;; will sometimes save one instruction.  Otherwise we might get
@@ -1248,9 +1335,10 @@
     }
   if (TARGET_SHMEDIA)
     {
-      if (no_new_pseudos && ! arith_reg_operand (operands[1], SImode))
+      if (no_new_pseudos && ! arith_reg_or_0_operand (operands[1], SImode))
 	FAIL;
-      operands[1] = force_reg (SImode, operands[1]);
+      if (operands[1] != const0_rtx)
+	operands[1] = force_reg (SImode, operands[1]);
     }
 }")
 
@@ -1317,21 +1405,26 @@
    (set_attr "needs_delay_slot" "yes")])
 
 (define_expand "udivsi3_i4_media"
-  [(set (match_dup 2) (zero_extend:DI (reg:SI R4_REG)))
-   (set (match_dup 3) (zero_extend:DI (reg:SI R5_REG)))
-   (set (match_dup 4) (float:DF (match_dup 2)))
+  [(set (match_dup 3)
+	(zero_extend:DI (match_operand:SI 1 "register_operand" "")))
+   (set (match_dup 4)
+	(zero_extend:DI (match_operand:SI 2 "register_operand" "")))
    (set (match_dup 5) (float:DF (match_dup 3)))
-   (set (match_dup 6) (div:DF (match_dup 4) (match_dup 5)))
+   (set (match_dup 6) (float:DF (match_dup 4)))
+   (set (match_dup 7) (div:DF (match_dup 5) (match_dup 6)))
+   (set (match_dup 8) (fix:DI (match_dup 7)))
    (set (subreg:DI (match_operand:SI 0 "register_operand" "=r") 0)
-	(fix:DI (match_dup 6)))]
+	(sign_extend:DI (match_dup 9)))]
   "TARGET_SHMEDIA_FPU"
   "
 {
-  operands[2] = gen_reg_rtx (DImode);
   operands[3] = gen_reg_rtx (DImode);
-  operands[4] = gen_reg_rtx (DFmode);
+  operands[4] = gen_reg_rtx (DImode);
   operands[5] = gen_reg_rtx (DFmode);
   operands[6] = gen_reg_rtx (DFmode);
+  operands[7] = gen_reg_rtx (DFmode);
+  operands[8] = gen_reg_rtx (DImode);
+  operands[9] = gen_lowpart_common (SImode, operands[8]);
 }")
 
 (define_insn "udivsi3_i4"
@@ -1386,7 +1479,7 @@
   ""
   "
 {
-  rtx first, last;
+  rtx first = 0, last;
 
   operands[3] = gen_reg_rtx (Pmode);
   /* Emit the move of the address to a pseudo outside of the libcall.  */
@@ -1400,7 +1493,12 @@
 	last = gen_udivsi3_i4 (operands[0], operands[3]);
     }
   else if (TARGET_SHMEDIA_FPU)
-    last = gen_udivsi3_i4_media (operands[0]);
+    {
+      operands[1] = force_reg (SImode, operands[1]);
+      operands[2] = force_reg (SImode, operands[2]);
+      last = gen_udivsi3_i4_media (operands[0], operands[1], operands[2]);
+      first = last;
+    }
   else if (TARGET_SH5)
     {
       emit_move_insn (operands[3],
@@ -1426,8 +1524,11 @@
 		      gen_rtx_SYMBOL_REF (SImode, \"__udivsi3\"));
       last = gen_udivsi3_i1 (operands[0], operands[3]);
     }
-  first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
-  emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
+  if (! first)
+    {
+      first = emit_move_insn (gen_rtx_REG (SImode, 4), operands[1]);
+      emit_move_insn (gen_rtx_REG (SImode, 5), operands[2]);
+    }
   last = emit_insn (last);
   /* Wrap the sequence in REG_LIBCALL / REG_RETVAL notes so that loop
      invariant code motion can move it.  */
@@ -1451,7 +1552,7 @@
    (set_attr "needs_delay_slot" "yes")])
 
 ; Since shmedia-nofpu code could be linked against shcompact code, and
-; the udivsi3 libcall has the same name, we must consider all registers
+; the sdivsi3 libcall has the same name, we must consider all registers
 ; clobbered that are in the union of the registers clobbered by the
 ; shmedia and the shcompact implementation.  Note, if the shcompact
 ; implemenation actually used shcompact code, we'd need to clobber
@@ -1471,7 +1572,8 @@
    (clobber (reg:DI TR2_REG))
    (use (match_operand:DI 1 "target_operand" "b"))]
   "TARGET_SHMEDIA && ! TARGET_SHMEDIA_FPU"
-  "blink	%1, r18")
+  "blink	%1, r18"
+  [(set_attr "type" "sfunc")])
 
 (define_expand "divsi3_i4_media"
   [(set (match_dup 3) (float:DF (match_operand:SI 1 "register_operand" "r")))
@@ -1768,10 +1870,11 @@
 
 (define_insn "mulsidi3_media"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
-	(mult:DI (sign_extend:DI (match_operand:SI 1 "arith_reg_operand" "%r"))
-		 (sign_extend:DI (match_operand:SI 2 "arith_reg_operand" "r"))))]
+	(mult:DI (sign_extend:DI (match_operand:SI 1 "extend_reg_operand" "%r"))
+		 (sign_extend:DI (match_operand:SI 2 "extend_reg_operand" "r"))))]
   "TARGET_SHMEDIA"
-  "muls.l	%1, %2, %0")
+  "muls.l	%1, %2, %0"
+  [(set_attr "type" "dmpy_media")])
 
 (define_insn "mulsidi3_compact"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
@@ -1838,10 +1941,11 @@
 
 (define_insn "umulsidi3_media"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
-	(mult:DI (zero_extend:DI (match_operand:SI 1 "arith_reg_operand" "%r"))
-		 (zero_extend:DI (match_operand:SI 2 "arith_reg_operand" "r"))))]
+	(mult:DI (zero_extend:DI (match_operand:SI 1 "extend_reg_operand" "%r"))
+		 (zero_extend:DI (match_operand:SI 2 "extend_reg_operand" "r"))))]
   "TARGET_SHMEDIA"
-  "mulu.l	%1, %2, %0")
+  "mulu.l	%1, %2, %0"
+  [(set_attr "type" "dmpy_media")])
 
 (define_insn "umulsidi3_compact"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
@@ -1964,7 +2068,7 @@
 ;; Logical operations
 ;; -------------------------------------------------------------------------
 
-(define_insn ""
+(define_insn "*andsi3_compact"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,z")
 	(and:SI (match_operand:SI 1 "arith_reg_operand" "%0,0")
 		(match_operand:SI 2 "logical_operand" "r,L")))]
@@ -2010,14 +2114,16 @@
   else
     emit_insn (gen_mshfhi_l_di (operands[0], CONST0_RTX (DImode), operands[1]));
   DONE;
-}")
+}"
+  [(set_attr "type" "arith_media")])
 
-(define_insn "*andcdi3"
+(define_insn "andcdi3"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
 	(and:DI (match_operand:DI 1 "arith_reg_operand" "r")
 		(not:DI (match_operand:DI 2 "arith_reg_operand" "r"))))]
   "TARGET_SHMEDIA"
-  "andc	%1,%2,%0")
+  "andc	%1,%2,%0"
+  [(set_attr "type" "arith_media")])
 
 (define_insn "iorsi3"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,z")
@@ -2035,7 +2141,8 @@
   "TARGET_SHMEDIA"
   "@
 	or	%1, %2, %0
-	ori	%1, %2, %0")
+	ori	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_insn "xorsi3"
   [(set (match_operand:SI 0 "arith_reg_operand" "=z,r")
@@ -2053,11 +2160,55 @@
   "TARGET_SHMEDIA"
   "@
 	xor	%1, %2, %0
-	xori	%1, %2, %0")
+	xori	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 ;; -------------------------------------------------------------------------
 ;; Shifts and rotates
 ;; -------------------------------------------------------------------------
+
+(define_expand "rotldi3"
+  [(set (match_operand:DI 0 "arith_reg_dest" "=r")
+	(rotate:DI (match_operand:DI 1 "arith_reg_operand" "r")
+		   (match_operand:HI 2 "mextr_bit_offset" "i")))]
+  "TARGET_SHMEDIA"
+  "if (! mextr_bit_offset (operands[2], HImode)) FAIL;")
+
+(define_insn "rotldi3_mextr"
+  [(set (match_operand:DI 0 "arith_reg_dest" "=r")
+	(rotate:DI (match_operand:DI 1 "arith_reg_operand" "r")
+		   (match_operand:HI 2 "mextr_bit_offset" "i")))]
+  "TARGET_SHMEDIA"
+  "*
+{
+  static char templ[16];
+
+  sprintf (templ, \"mextr%d\\t%%1,%%1,%%0\",
+	   8 - (int) (INTVAL (operands[2]) >> 3));
+  return templ;
+}"
+  [(set_attr "type" "arith_media")])
+
+(define_expand "rotrdi3"
+  [(set (match_operand:DI 0 "arith_reg_dest" "=r")
+	(rotatert:DI (match_operand:DI 1 "arith_reg_operand" "r")
+		     (match_operand:HI 2 "mextr_bit_offset" "i")))]
+  "TARGET_SHMEDIA"
+  "if (! mextr_bit_offset (operands[2], HImode)) FAIL;")
+
+(define_insn "rotrdi3_mextr"
+  [(set (match_operand:DI 0 "arith_reg_dest" "=r")
+	(rotatert:DI (match_operand:DI 1 "arith_reg_operand" "r")
+		     (match_operand:HI 2 "mextr_bit_offset" "i")))]
+  "TARGET_SHMEDIA"
+  "*
+{
+  static char templ[16];
+
+  sprintf (templ, \"mextr%d\\t%%1,%%1,%%0\", (int) INTVAL (operands[2]) >> 3);
+  return templ;
+}"
+  [(set_attr "type" "arith_media")])
 
 (define_insn "rotlsi3_1"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r")
@@ -2241,12 +2392,13 @@
 
 (define_insn "ashlsi3_media"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
-	(ashift:SI (match_operand:SI 1 "arith_reg_operand" "r,r")
+	(ashift:SI (match_operand:SI 1 "extend_reg_operand" "r,r")
 		   (match_operand:SI 2 "nonmemory_operand" "r,n")))]
   "TARGET_SHMEDIA"
   "@
 	shlld.l	%1, %2, %0
-	shlli.l	%1, %2, %0")
+	shlli.l	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_expand "ashlsi3"
   [(parallel [(set (match_operand:SI 0 "arith_reg_operand" "")
@@ -2398,12 +2550,13 @@
 
 (define_insn "ashrsi3_media"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
-	(ashiftrt:SI (match_operand:SI 1 "arith_reg_operand" "r,r")
+	(ashiftrt:SI (match_operand:SI 1 "extend_reg_operand" "r,r")
 		     (match_operand:SI 2 "nonmemory_operand" "r,n")))]
   "TARGET_SHMEDIA"
   "@
 	shard.l	%1, %2, %0
-	shari.l	%1, %2, %0")
+	shari.l	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_expand "ashrsi3"
   [(parallel [(set (match_operand:SI 0 "arith_reg_operand" "")
@@ -2489,12 +2642,13 @@
 
 (define_insn "lshrsi3_media"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
-	(lshiftrt:SI (match_operand:SI 1 "arith_reg_operand" "r,r")
+	(lshiftrt:SI (match_operand:SI 1 "extend_reg_operand" "r,r")
 		     (match_operand:SI 2 "nonmemory_operand" "r,n")))]
   "TARGET_SHMEDIA"
   "@
 	shlrd.l	%1, %2, %0
-	shlri.l	%1, %2, %0")
+	shlri.l	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_expand "lshrsi3"
   [(parallel [(set (match_operand:SI 0 "arith_reg_operand" "")
@@ -2543,7 +2697,8 @@
   "TARGET_SHMEDIA"
   "@
 	shlld	%1, %2, %0
-	shlli	%1, %2, %0")
+	shlli	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_expand "ashldi3"
   [(parallel [(set (match_operand:DI 0 "arith_reg_operand" "")
@@ -2583,7 +2738,8 @@
   "TARGET_SHMEDIA"
   "@
 	shlrd	%1, %2, %0
-	shlri	%1, %2, %0")
+	shlri	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_expand "lshrdi3"
   [(parallel [(set (match_operand:DI 0 "arith_reg_operand" "")
@@ -2623,7 +2779,8 @@
   "TARGET_SHMEDIA"
   "@
 	shard	%1, %2, %0
-	shari	%1, %2, %0")
+	shari	%1, %2, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_expand "ashrdi3"
   [(parallel [(set (match_operand:DI 0 "arith_reg_operand" "")
@@ -2882,12 +3039,12 @@
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
 	(neg:DI (match_operand:DI 1 "arith_reg_operand" "r")))]
   "TARGET_SHMEDIA"
-  "sub	r63, %1, %0")
+  "sub	r63, %1, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_expand "negdi2"
   [(set (match_operand:DI 0 "arith_reg_operand" "")
-	(neg:DI (match_operand:DI 1 "arith_reg_operand" "")))
-   (clobber (reg:SI T_REG))]
+	(neg:DI (match_operand:DI 1 "arith_reg_operand" "")))]
   ""
   "
 {
@@ -2937,34 +3094,63 @@
 
 (define_insn "zero_extendsidi2"
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(zero_extend:DI (match_operand:SI 1 "register_operand" "r")))]
+	(zero_extend:DI (match_operand:SI 1 "extend_reg_operand" "r")))]
   "TARGET_SHMEDIA"
-  "addz.l	%1, r63, %0")
+  "addz.l	%1, r63, %0"
+  [(set_attr "type" "arith_media")])
 
 (define_insn "zero_extendhidi2"
   [(set (match_operand:DI 0 "register_operand" "=r,r")
-	(zero_extend:DI (match_operand:HI 1 "nonimmediate_operand" "r,m")))]
+	(zero_extend:DI (match_operand:HI 1 "general_extend_operand" "r,m")))]
   "TARGET_SHMEDIA"
   "@
 	#
-	ld%M1.uw	%m1, %0")
+	ld%M1.uw	%m1, %0"
+  [(set_attr "type" "*,load_media")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(zero_extend:DI (match_operand:HI 1 "register_operand" "r")))]
+	(zero_extend:DI (match_operand:HI 1 "extend_reg_operand" "r")))]
   "TARGET_SHMEDIA && reload_completed"
   [(set (match_dup 0) (ashift:DI (subreg:DI (match_dup 1) 0) (const_int 48)))
-   (set (match_dup 0) (lshiftrt:DI (match_dup 0) (const_int 48)))])
+   (set (match_dup 0) (lshiftrt:DI (match_dup 0) (const_int 48)))]
+  "
+{
+  if (GET_CODE (operands[1]) == TRUNCATE)
+    operands[1] = XEXP (operands[1], 0);
+}")
+
+;; ??? when a truncated input to a zero_extrend is reloaded, reload will
+;; reload the entrire truncate expression.
+(define_insn_and_split "*loaddi_trunc"
+  [(set (match_operand 0 "register_operand" "=r")
+	(truncate (match_operand:DI 1 "memory_operand" "m")))]
+  "TARGET_SHMEDIA && reload_completed"
+  "#"
+  "TARGET_SHMEDIA && reload_completed"
+  [(set (match_dup 0) (match_dup 1))]
+  "operands[0] = gen_rtx_REG (DImode, true_regnum (operands[0]));")
 
 (define_insn "zero_extendqidi2"
   [(set (match_operand:DI 0 "register_operand" "=r,r")
-	(zero_extend:DI (match_operand:QI 1 "nonimmediate_operand" "r,m")))]
+	(zero_extend:DI (match_operand:QI 1 "general_extend_operand" "r,m")))]
   "TARGET_SHMEDIA"
   "@
 	andi	%1, 255, %0
-	ld%M1.ub	%m1, %0")
+	ld%M1.ub	%m1, %0"
+  [(set_attr "type" "arith_media,load_media")])
 
-(define_insn "zero_extendhisi2"
+(define_expand "zero_extendhisi2"
+  [(set (match_operand:SI 0 "arith_reg_operand" "")
+	(zero_extend:SI (match_operand:HI 1 "general_extend_operand" "")))]
+  ""
+  "
+{
+  if (! TARGET_SHMEDIA && ! arith_reg_operand (operands[1], HImode))
+    operands[1] = copy_to_mode_reg (HImode, operands[1]);
+}")
+
+(define_insn "*zero_extendhisi2_compact"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r")
 	(zero_extend:SI (match_operand:HI 1 "arith_reg_operand" "r")))]
   "TARGET_SH1"
@@ -2972,13 +3158,53 @@
   [(set_attr "type" "arith")
    (set_attr "insn_class" "ex_group")])
 
-(define_insn "zero_extendqisi2"
+(define_insn "*zero_extendhisi2_media"
+  [(set (match_operand:SI 0 "register_operand" "=r,r")
+	(zero_extend:SI (match_operand:HI 1 "general_extend_operand" "r,m")))]
+  "TARGET_SHMEDIA"
+  "@
+	#
+	ld%M1.uw	%m1, %0"
+  [(set_attr "type" "arith_media,load_media")])
+
+(define_split
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(zero_extend:SI (match_operand:HI 1 "extend_reg_operand" "r")))]
+  "TARGET_SHMEDIA && reload_completed"
+  [(set (match_dup 0) (ashift:SI (subreg:SI (match_dup 1) 0) (const_int 16)))
+   (set (match_dup 0) (lshiftrt:SI (match_dup 0) (const_int 16)))]
+  "
+{
+  if (GET_CODE (operands[1]) == TRUNCATE)
+    operands[1] = XEXP (operands[1], 0);
+}")
+
+(define_expand "zero_extendqisi2"
+  [(set (match_operand:SI 0 "arith_reg_operand" "")
+	(zero_extend:SI (match_operand:QI 1 "general_extend_operand" "")))]
+  ""
+  "
+{
+  if (! TARGET_SHMEDIA && ! arith_reg_operand (operands[1], QImode))
+    operands[1] = copy_to_mode_reg (QImode, operands[1]);
+}")
+
+(define_insn "*zero_extendqisi2_compact"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r")
 	(zero_extend:SI (match_operand:QI 1 "arith_reg_operand" "r")))]
   "TARGET_SH1"
   "extu.b	%1,%0"
   [(set_attr "type" "arith")
    (set_attr "insn_class" "ex_group")])
+
+(define_insn "*zero_extendqisi2_media"
+  [(set (match_operand:SI 0 "register_operand" "=r,r")
+	(zero_extend:SI (match_operand:QI 1 "general_extend_operand" "r,m")))]
+  "TARGET_SHMEDIA"
+  "@
+	andi	%1, 255, %0
+	ld%M1.ub	%m1, %0"
+  [(set_attr "type" "arith_media,load_media")])
 
 (define_insn "zero_extendqihi2"
   [(set (match_operand:HI 0 "arith_reg_operand" "=r")
@@ -3002,39 +3228,58 @@
   "TARGET_SHMEDIA"
   "@
 	add.l	%1, r63, %0
-	ld%M1.l	%m1, %0")
+	ld%M1.l	%m1, %0"
+  [(set_attr "type" "arith_media,load_media")])
 
 (define_insn "extendhidi2"
   [(set (match_operand:DI 0 "register_operand" "=r,r")
-	(sign_extend:DI (match_operand:HI 1 "nonimmediate_operand" "r,m")))]
+	(sign_extend:DI (match_operand:HI 1 "general_extend_operand" "r,m")))]
   "TARGET_SHMEDIA"
   "@
 	#
-	ld%M1.w	%m1, %0")
+	ld%M1.w	%m1, %0"
+  [(set_attr "type" "*,load_media")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(sign_extend:DI (match_operand:HI 1 "register_operand" "r")))]
+	(sign_extend:DI (match_operand:HI 1 "extend_reg_operand" "r")))]
   "TARGET_SHMEDIA && reload_completed"
   [(set (match_dup 0) (ashift:DI (subreg:DI (match_dup 1) 0) (const_int 48)))
-   (set (match_dup 0) (ashiftrt:DI (match_dup 0) (const_int 48)))])
+   (set (match_dup 0) (ashiftrt:DI (match_dup 0) (const_int 48)))]
+  "
+{
+  if (GET_CODE (operands[1]) == TRUNCATE)
+    operands[1] = XEXP (operands[1], 0);
+}")
 
 (define_insn "extendqidi2"
   [(set (match_operand:DI 0 "register_operand" "=r,r")
-	(sign_extend:DI (match_operand:QI 1 "nonimmediate_operand" "r,m")))]
+	(sign_extend:DI (match_operand:QI 1 "general_extend_operand" "r,m")))]
   "TARGET_SHMEDIA"
   "@
 	#
-	ld%M1.b	%m1, %0")
+	ld%M1.b	%m1, %0"
+  [(set_attr "type" "*,load_media")])
 
 (define_split
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(sign_extend:DI (match_operand:QI 1 "register_operand" "r")))]
+	(sign_extend:DI (match_operand:QI 1 "extend_reg_operand" "r")))]
   "TARGET_SHMEDIA && reload_completed"
   [(set (match_dup 0) (ashift:DI (subreg:DI (match_dup 1) 0) (const_int 56)))
-   (set (match_dup 0) (ashiftrt:DI (match_dup 0) (const_int 56)))])
+   (set (match_dup 0) (ashiftrt:DI (match_dup 0) (const_int 56)))]
+  "
+{
+  if (GET_CODE (operands[1]) == TRUNCATE)
+    operands[1] = XEXP (operands[1], 0);
+}")
 
-(define_insn "extendhisi2"
+(define_expand "extendhisi2"
+  [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
+       (sign_extend:SI (match_operand:HI 1 "general_extend_operand" "r,m")))]
+  ""
+  "")
+
+(define_insn "*extendhisi2_compact"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
 	(sign_extend:SI (match_operand:HI 1 "general_movsrc_operand" "r,m")))]
   "TARGET_SH1"
@@ -3044,7 +3289,34 @@
   [(set_attr "type" "arith,load")
    (set_attr "insn_class" "ex_group,*")])
 
-(define_insn "extendqisi2"
+(define_insn "*extendhisi2_media"
+  [(set (match_operand:SI 0 "register_operand" "=r,r")
+	(sign_extend:SI (match_operand:HI 1 "general_extend_operand" "r,m")))]
+  "TARGET_SHMEDIA"
+  "@
+	#
+	ld%M1.w	%m1, %0"
+  [(set_attr "type" "arith_media,load_media")])
+
+(define_split
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(sign_extend:SI (match_operand:HI 1 "extend_reg_operand" "r")))]
+  "TARGET_SHMEDIA && reload_completed"
+  [(set (match_dup 0) (ashift:SI (subreg:SI (match_dup 1) 0) (const_int 16)))
+   (set (match_dup 0) (ashiftrt:SI (match_dup 0) (const_int 16)))]
+  "
+{
+  if (GET_CODE (operands[1]) == TRUNCATE)
+    operands[1] = XEXP (operands[1], 0);
+}")
+
+(define_expand "extendqisi2"
+  [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
+	(sign_extend:SI (match_operand:QI 1 "general_extend_operand" "r,m")))]
+  ""
+  "")
+
+(define_insn "*extendqisi2_compact"
   [(set (match_operand:SI 0 "arith_reg_operand" "=r,r")
 	(sign_extend:SI (match_operand:QI 1 "general_movsrc_operand" "r,m")))]
   "TARGET_SH1"
@@ -3053,6 +3325,27 @@
 	mov.b	%1,%0"
   [(set_attr "type" "arith,load")
    (set_attr "insn_class" "ex_group,*")])
+
+(define_insn "*extendqisi2_media"
+  [(set (match_operand:SI 0 "register_operand" "=r,r")
+	(sign_extend:SI (match_operand:QI 1 "general_extend_operand" "r,m")))]
+  "TARGET_SHMEDIA"
+  "@
+	#
+	ld%M1.b	%m1, %0"
+  [(set_attr "type" "arith_media,load_media")])
+
+(define_split
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(sign_extend:SI (match_operand:QI 1 "extend_reg_operand" "r")))]
+  "TARGET_SHMEDIA && reload_completed"
+  [(set (match_dup 0) (ashift:SI (subreg:SI (match_dup 1) 0) (const_int 24)))
+   (set (match_dup 0) (ashiftrt:SI (match_dup 0) (const_int 24)))]
+   "
+{
+  if (GET_CODE (operands[1]) == TRUNCATE)
+    operands[1] = XEXP (operands[1], 0);
+}")
 
 (define_insn "extendqihi2"
   [(set (match_operand:HI 0 "arith_reg_operand" "=r,r")
@@ -3063,6 +3356,42 @@
 	mov.b	%1,%0"
   [(set_attr "type" "arith,load")
    (set_attr "insn_class" "ex_group,*")])
+
+/* It would seem useful to combine the truncXi patterns into the movXi
+   patterns, but unary operators are ignored when matching constraints,
+   so we need separate patterns.  */
+(define_insn "truncdisi2"
+  [(set (match_operand:SI 0 "register_operand" "=r,m,m,f,r,f")
+	(truncate:SI (match_operand:DI 1 "register_operand" "r,r,f,r,f,f")))]
+  "TARGET_SHMEDIA"
+  "@
+	add.l	%1, r63, %0
+	st%M0.l	%m0, %1
+	fst%M0.s	%m0, %T1
+	fmov.ls	%1, %0
+	fmov.sl	%T1, %0
+	fmov.s	%T1, %0"
+  [(set_attr "type"   "arith_media,store_media,fstore_media,fload_media,fpconv_media,fmove_media")])
+
+
+(define_insn "truncdihi2"
+  [(set (match_operand:HI 0 "register_operand" "=?r,m")
+	(truncate:HI (match_operand:DI 1 "register_operand" "r,r")))]
+  "TARGET_SHMEDIA"
+  "@
+	shlli\\t%1,48,%0\;shlri\\t%0,48,%0
+	st%M0.w	%m0, %1"
+  [(set_attr "type"   "arith_media,store_media")
+   (set_attr "length" "8,4")])
+
+(define_insn "truncdiqi2"
+  [(set (match_operand:QI 0 "general_movdst_operand" "=r,m")
+	(truncate:QI (match_operand:DI 1 "register_operand" "r,r")))]
+  "TARGET_SHMEDIA"
+  "@
+	andi	%1, 255, %0
+	st%M0.b	%m0, %1"
+  [(set_attr "type"   "arith_media,store")])
 
 ;; -------------------------------------------------------------------------
 ;; Move instructions
@@ -3228,8 +3557,8 @@
   [(set_attr "type" "pcload,move,load,move,prget,move,store,pcload")])
 
 (define_insn "*movsi_media"
-  [(set (match_operand:SI 0 "general_movdst_operand" "=r,r,r,r,m,f,m,f,r,f,*b*k,r,b*k")
-	(match_operand:SI 1 "general_movsrc_operand" "r,JS,ns,m,r,m,f,r,f,f,r,*b*k,T"))]
+  [(set (match_operand:SI 0 "general_movdst_operand" "=r,r,r,r,m,f,m,f,r,f,*b,r,b")
+	(match_operand:SI 1 "general_movsrc_operand" "r,JS,ns,m,r,m,f,r,f,f,r,*b,T"))]
   "TARGET_SHMEDIA_FPU
    && (register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode))"
@@ -3247,12 +3576,12 @@
 	ptabs	%1, %0
 	gettr	%1, %0
 	pt	%1, %0"
-  [(set_attr "type"   "move,move,*,load,store,load,store,move,move,move,ptabs,move,pt")
+  [(set_attr "type"   "arith_media,arith_media,*,load_media,store_media,fload_media,fstore_media,fload_media,fpconv_media,fmove_media,ptabs_media,gettr_media,pt_media")
    (set_attr "length" "4,4,8,4,4,4,4,4,4,4,4,4,12")])
 
 (define_insn "*movsi_media_nofpu"
-  [(set (match_operand:SI 0 "general_movdst_operand" "=r,r,r,r,m,*b*k,r,b*k")
-	(match_operand:SI 1 "general_movsrc_operand" "r,JS,ns,m,r,r,*b*k,T"))]
+  [(set (match_operand:SI 0 "general_movdst_operand" "=r,r,r,r,m,*b,r,b")
+	(match_operand:SI 1 "general_movsrc_operand" "r,JS,ns,m,r,r,*b,T"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], SImode)
        || register_operand (operands[1], SImode))"
@@ -3265,7 +3594,7 @@
 	ptabs	%1, %0
 	gettr	%1, %0
 	pt	%1, %0"
-  [(set_attr "type"   "move,move,*,load,store,ptabs,move,pt")
+  [(set_attr "type"   "arith_media,arith_media,*,load_media,store_media,ptabs_media,gettr_media,pt_media")
    (set_attr "length" "4,4,8,4,4,4,4,12")])
 
 (define_split
@@ -3283,7 +3612,7 @@
 (define_split
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(match_operand:SI 1 "immediate_operand" "n"))]
-  "TARGET_SHMEDIA
+  "TARGET_SHMEDIA && reload_completed
    && ((GET_CODE (operands[1]) == CONST_INT
 	&& ! CONST_OK_FOR_J (INTVAL (operands[1])))
        || GET_CODE (operands[1]) == CONST_DOUBLE)"
@@ -3338,8 +3667,9 @@
   [(unspec_volatile [(match_operand 0 "register_operand" "r")]
 		    UNSPEC_ICACHE)]
   "TARGET_SHMEDIA"
-  "icbi	%0, 0\;synci"
-  [(set_attr "length" "8")])
+  "ocbwb	%0,0\;synco\;icbi	%0, 0\;synci"
+  [(set_attr "length" "16")
+   (set_attr "type" "invalidate_line_media")])
 
 (define_insn "ic_invalidate_line_compact"
   [(unspec_volatile [(match_operand:SI 0 "register_operand" "z")
@@ -3376,13 +3706,30 @@
 	add.l	%1, r63, %0
 	movi	%1, %0
 	ld%M1.b	%m1, %0
-	st%M0.b	%m0, %1")
+	st%M0.b	%m0, %1"
+  [(set_attr "type" "arith_media,arith_media,load_media,store_media")])
 
 (define_expand "movqi"
   [(set (match_operand:QI 0 "general_operand" "")
 	(match_operand:QI 1 "general_operand"  ""))]
   ""
   "{ if (prepare_move_operands (operands, QImode)) DONE; }")
+
+(define_expand "reload_inqi"
+  [(set (match_operand:SI 2 "" "=&r")
+	(match_operand:QI 1 "inqhi_operand" ""))
+   (set (match_operand:QI 0 "arith_reg_operand" "=r")
+	(truncate:HI (match_dup 3)))]
+  "TARGET_SHMEDIA"
+  "
+{
+  rtx inner = XEXP (operands[1], 0);
+  int regno = REGNO (inner);
+
+  regno += HARD_REGNO_NREGS (regno, GET_MODE (inner)) - 1;
+  operands[1] = gen_rtx_REG (SImode, regno);
+  operands[3] = gen_rtx_REG (DImode, REGNO (operands[2]));
+}")
 
 (define_insn "movhi_i"
   [(set (match_operand:HI 0 "general_movdst_operand" "=r,r,r,r,m,r,l,r")
@@ -3412,12 +3759,14 @@
 	movi	%1, %0
 	#
 	ld%M1.w	%m1, %0
-	st%M0.w	%m0, %1")
+	st%M0.w	%m0, %1"
+  [(set_attr "type" "arith_media,arith_media,*,load_media,store_media")])
 
 (define_split
   [(set (match_operand:HI 0 "register_operand" "=r")
 	(match_operand:HI 1 "immediate_operand" "n"))]
-  "TARGET_SHMEDIA && ! CONST_OK_FOR_J (INTVAL (operands[1]))"
+  "TARGET_SHMEDIA && reload_completed
+   && ! CONST_OK_FOR_J (INTVAL (operands[1]))"
   [(set (subreg:DI (match_dup 0) 0) (match_dup 1))])
 
 (define_expand "movhi"
@@ -3425,6 +3774,22 @@
 	(match_operand:HI 1 "general_movsrc_operand"  ""))]
   ""
   "{ if (prepare_move_operands (operands, HImode)) DONE; }")
+
+(define_expand "reload_inhi"
+  [(set (match_operand:SI 2 "" "=&r")
+	(match_operand:HI 1 "inqhi_operand" ""))
+   (set (match_operand:HI 0 "arith_reg_operand" "=r")
+	(truncate:HI (match_dup 3)))]
+  "TARGET_SHMEDIA"
+  "
+{
+  rtx inner = XEXP (operands[1], 0);
+  int regno = REGNO (inner);
+
+  regno += HARD_REGNO_NREGS (regno, GET_MODE (inner)) - 1;
+  operands[1] = gen_rtx_REG (SImode, regno);
+  operands[3] = gen_rtx_REG (DImode, REGNO (operands[2]));
+}")
 
 ;; ??? This should be a define expand.
 
@@ -3490,8 +3855,8 @@
 }")
 
 (define_insn "*movdi_media"
-  [(set (match_operand:DI 0 "general_movdst_operand" "=r,r,r,rl,m,f,m,f,r,f,*b*k,r,b*k")
-	(match_operand:DI 1 "general_movsrc_operand" "r,JS,iF,m,rl,m,f,r,f,f,r,*b*k,T"))]
+  [(set (match_operand:DI 0 "general_movdst_operand" "=r,r,r,rl,m,f,m,f,r,f,*b,r,b")
+	(match_operand:DI 1 "general_movsrc_operand" "r,JS,iF,m,rl,m,f,r,f,f,r,*b,T"))]
   "TARGET_SHMEDIA_FPU
    && (register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))"
@@ -3509,12 +3874,12 @@
 	ptabs	%1, %0
 	gettr	%1, %0
 	pt	%1, %0"
-  [(set_attr "type"   "move,move,*,load,store,load,store,move,move,move,ptabs,move,pt")
+  [(set_attr "type"   "arith_media,arith_media,*,load_media,store_media,fload_media,fstore_media,fload_media,dfpconv_media,fmove_media,ptabs_media,gettr_media,pt_media")
    (set_attr "length" "4,4,16,4,4,4,4,4,4,4,4,4,*")])
 
 (define_insn "*movdi_media_nofpu"
-  [(set (match_operand:DI 0 "general_movdst_operand" "=r,r,r,rl,m,*b*k,r,b*k")
-	(match_operand:DI 1 "general_movsrc_operand" "r,JS,iF,m,rl,r,*b*k,T"))]
+  [(set (match_operand:DI 0 "general_movdst_operand" "=r,r,r,rl,m,*b,r,b")
+	(match_operand:DI 1 "general_movsrc_operand" "r,JS,iF,m,rl,r,*b,T"))]
   "TARGET_SHMEDIA
    && (register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))"
@@ -3527,7 +3892,7 @@
 	ptabs	%1, %0
 	gettr	%1, %0
 	pt	%1, %0"
-  [(set_attr "type"   "move,move,*,load,store,ptabs,move,pt")
+  [(set_attr "type"   "arith_media,arith_media,*,load_media,store_media,ptabs_media,gettr_media,pt_media")
    (set_attr "length" "4,4,16,4,4,4,4,*")])
 
 (define_split
@@ -3786,7 +4151,8 @@
   "TARGET_SHMEDIA"
   "@
 	shori	%u2, %0
-	#")
+	#"
+  [(set_attr "type" "arith_media,*")])
 
 (define_expand "movdi"
   [(set (match_operand:DI 0 "general_movdst_operand" "")
@@ -3810,7 +4176,7 @@
 	fst%M0.d	%m0, %1
 	ld%M1.q	%m1, %0
 	st%M0.q	%m0, %1"
-  [(set_attr "type" "move,move,move,move,*,load,store,load,store")])
+  [(set_attr "type" "fmove_media,fload_media,dfpconv_media,arith_media,*,fload_media,fstore_media,load_media,store_media")])
 
 (define_insn "movdf_media_nofpu"
   [(set (match_operand:DF 0 "general_movdst_operand" "=r,r,r,m")
@@ -3823,7 +4189,7 @@
 	#
 	ld%M1.q	%m1, %0
 	st%M0.q	%m0, %1"
-  [(set_attr "type" "move,*,load,store")])
+  [(set_attr "type" "arith_media,*,load_media,store_media")])
 
 (define_split
   [(set (match_operand:DF 0 "arith_reg_operand" "")
@@ -4332,7 +4698,8 @@
   "@
 	#
 	fld%M1.p	%m1, %0
-	fst%M0.p	%m0, %1")
+	fst%M0.p	%m0, %1"
+  [(set_attr "type" "*,fload_media,fstore_media")])
 
 (define_split
   [(set (match_operand:V2SF 0 "nonimmediate_operand" "=f")
@@ -4466,13 +4833,13 @@
 	fmov.s	%1, %0
 	fmov.ls	%1, %0
 	fmov.sl	%1, %0
-	add	%1, r63, %0
+	add.l	%1, r63, %0
 	#
 	fld%M1.s	%m1, %0
 	fst%M0.s	%m0, %1
 	ld%M1.l	%m1, %0
 	st%M0.l	%m0, %1"
-  [(set_attr "type" "move,move,move,move,*,load,store,load,store")])
+  [(set_attr "type" "fmove_media,fload_media,fpconv_media,arith_media,*,fload_media,fstore_media,load_media,store_media")])
 
 (define_insn "movsf_media_nofpu"
   [(set (match_operand:SF 0 "general_movdst_operand" "=r,r,r,m")
@@ -4481,11 +4848,11 @@
    && (register_operand (operands[0], SFmode)
        || register_operand (operands[1], SFmode))"
   "@
-	add	%1, r63, %0
+	add.l	%1, r63, %0
 	#
 	ld%M1.l	%m1, %0
 	st%M0.l	%m0, %1"
-  [(set_attr "type" "move,*,load,store")])
+  [(set_attr "type" "arith_media,*,load_media,store_media")])
 
 (define_split
   [(set (match_operand:SF 0 "arith_reg_operand" "")
@@ -4731,8 +5098,8 @@
 
 (define_expand "bgt_media"
   [(set (pc)
-	(if_then_else (gt (match_operand:DI 1 "arith_reg_operand" "r")
-			  (match_operand:DI 2 "arith_reg_operand" "r"))
+	(if_then_else (gt (match_operand:DI 1 "arith_reg_or_0_operand" "r")
+			  (match_operand:DI 2 "arith_reg_or_0_operand" "r"))
 		      (label_ref:DI (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_SHMEDIA"
@@ -4740,8 +5107,8 @@
 
 (define_expand "bge_media"
   [(set (pc)
-	(if_then_else (ge (match_operand:DI 1 "arith_reg_operand" "r")
-			  (match_operand:DI 2 "arith_reg_operand" "r"))
+	(if_then_else (ge (match_operand:DI 1 "arith_reg_or_0_operand" "r")
+			  (match_operand:DI 2 "arith_reg_or_0_operand" "r"))
 		      (label_ref:DI (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_SHMEDIA"
@@ -4749,8 +5116,8 @@
 
 (define_expand "bgtu_media"
   [(set (pc)
-	(if_then_else (gtu (match_operand:DI 1 "arith_reg_operand" "r")
-			   (match_operand:DI 2 "arith_reg_operand" "r"))
+	(if_then_else (gtu (match_operand:DI 1 "arith_reg_or_0_operand" "r")
+			   (match_operand:DI 2 "arith_reg_or_0_operand" "r"))
 		      (label_ref:DI (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_SHMEDIA"
@@ -4758,8 +5125,8 @@
 
 (define_expand "bgeu_media"
   [(set (pc)
-	(if_then_else (geu (match_operand:DI 1 "arith_reg_operand" "r")
-			   (match_operand:DI 2 "arith_reg_operand" "r"))
+	(if_then_else (geu (match_operand:DI 1 "arith_reg_or_0_operand" "r")
+			   (match_operand:DI 2 "arith_reg_or_0_operand" "r"))
 		      (label_ref:DI (match_operand 0 "" ""))
 		      (pc)))]
   "TARGET_SHMEDIA"
@@ -4777,11 +5144,11 @@
   [(set_attr "type" "cbranch_media")])
 
 ;; These are only needed to make invert_jump() happy.
-(define_insn "*ble_media_i"
+(define_insn "*blt_media_i"
   [(set (pc)
 	(if_then_else (match_operator 3 "less_comparison_operator"
-			[(match_operand:DI 1 "arith_reg_operand" "rN")
-			 (match_operand:DI 2 "arith_reg_operand" "rN")])
+			[(match_operand:DI 1 "arith_reg_or_0_operand" "rN")
+			 (match_operand:DI 2 "arith_reg_or_0_operand" "rN")])
 		      (match_operand:DI 0 "target_operand" "b")
 		      (pc)))]
   "TARGET_SHMEDIA"
@@ -5121,7 +5488,8 @@
   [(set (pc)
 	(match_operand:DI 0 "target_operand" "b"))]
   "TARGET_SHMEDIA"
-  "blink	%0, r63")
+  "blink	%0, r63"
+  [(set_attr "type" "jump_media")])
 
 (define_expand "jump"
   [(set (pc)
@@ -5246,7 +5614,8 @@
 	 (match_operand 1 "" ""))
    (clobber (reg:DI PR_MEDIA_REG))]
   "TARGET_SHMEDIA"
-  "blink	%0, r18")
+  "blink	%0, r18"
+  [(set_attr "type" "jump_media")])
 
 (define_insn "call_valuei"
   [(set (match_operand 0 "" "=rf")
@@ -5349,7 +5718,8 @@
 	      (match_operand 2 "" "")))
    (clobber (reg:DI PR_MEDIA_REG))]
   "TARGET_SHMEDIA"
-  "blink	%1, r18")
+  "blink	%1, r18"
+  [(set_attr "type" "jump_media")])
 
 (define_expand "call"
   [(parallel [(call (mem:SI (match_operand 0 "arith_reg_operand" ""))
@@ -5779,7 +6149,8 @@
 	 (match_operand 1 "" ""))
    (return)]
   "TARGET_SHMEDIA"
-  "blink	%0, r63")
+  "blink	%0, r63"
+  [(set_attr "type" "jump_media")])
 
 (define_expand "sibcall"
   [(parallel
@@ -6124,7 +6495,8 @@
   [(set (pc) (match_operand:DI 0 "target_reg_operand" "b"))
    (use (label_ref (match_operand 1 "" "")))]
   "TARGET_SHMEDIA"
-  "blink	%0, r63")
+  "blink	%0, r63"
+  [(set_attr "type" "jump_media")])
 
 ;; Call subroutine returning any type.
 ;; ??? This probably doesn't work.
@@ -6256,22 +6628,22 @@
 ;; them to do, because they can't be loaded directly into
 ;; non-branch-target registers.
 (define_insn "*pt"
-  [(set (match_operand:DI 0 "target_reg_operand" "=b*k")
+  [(set (match_operand:DI 0 "target_reg_operand" "=b")
 	(match_operand:DI 1 "" "T"))]
   "TARGET_SHMEDIA && flag_pic
    && EXTRA_CONSTRAINT_T (operands[1])"
   "pt	%1, %0"
-  [(set_attr "type" "pt")
+  [(set_attr "type" "pt_media")
    (set_attr "length" "*")])
 
 (define_insn "*ptb"
-  [(set (match_operand:DI 0 "target_reg_operand" "=b*k")
+  [(set (match_operand:DI 0 "target_reg_operand" "=b")
 	(const:DI (unspec:DI [(match_operand:DI 1 "" "T")]
 			     UNSPEC_DATALABEL)))]
   "TARGET_SHMEDIA && flag_pic
    && EXTRA_CONSTRAINT_T (operands[1])"
   "ptb/u	datalabel %1, %0"
-  [(set_attr "type" "pt")
+  [(set_attr "type" "pt_media")
    (set_attr "length" "*")])
 
 (define_insn "ptrel"
@@ -6281,7 +6653,7 @@
    (match_operand:DI 2 "" "")]
   "TARGET_SHMEDIA"
   "%O2: ptrel/u	%1, %0"
-  [(set_attr "type" "ptabs")])
+  [(set_attr "type" "ptabs_media")])
 
 (define_expand "builtin_setjmp_receiver"
   [(match_operand 0 "" "")]
@@ -6546,7 +6918,7 @@
 		       (label_ref (match_dup 2))] UNSPEC_CASESI))
 	      (clobber (match_dup 3))])
    (set (match_dup 0) (plus:SI (match_dup 0) (reg:SI R0_REG)))]
-  "LABEL_NUSES (operands[2])++;")
+  "if (GET_CODE (operands[2]) == CODE_LABEL) LABEL_NUSES (operands[2])++;")
 
 (define_split
   [(set (match_operand:SI 0 "register_operand" "")
@@ -6560,7 +6932,7 @@
 	      (unspec:SI [(reg:SI R0_REG) (match_dup 1)
 		       (label_ref (match_dup 2))] UNSPEC_CASESI))
 	      (clobber (match_dup 3))])]
-  "LABEL_NUSES (operands[2])++;")
+  "if (GET_CODE (operands[2]) == CODE_LABEL) LABEL_NUSES (operands[2])++;")
 
 (define_insn "*casesi_worker"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
@@ -6617,7 +6989,8 @@
     default:
       abort ();
     }
-}")
+}"
+  [(set_attr "type" "arith_media")])
 
 (define_insn "casesi_load_media"
   [(set (match_operand:DI 0 "arith_reg_operand" "=r")
@@ -6649,7 +7022,8 @@
     default:
       abort ();
     }
-}")
+}"
+  [(set_attr "type" "load_media")])
 
 (define_expand "return"
   [(return)]
@@ -6710,7 +7084,8 @@
 (define_insn "return_media_i"
   [(parallel [(return) (use (match_operand:DI 0 "target_reg_operand" "k"))])]
   "TARGET_SHMEDIA && reload_completed"
-  "blink	%0, r63")
+  "blink	%0, r63"
+  [(set_attr "type" "jump_media")])
 
 (define_expand "return_media"
   [(return)]
@@ -6773,6 +7148,62 @@
        || INTVAL (operands[0]) == - SHMEDIA_REGS_STACK_ADJUST ())"
   "jsr @r0%#"
   [(set_attr "needs_delay_slot" "yes")])
+
+;; ??? could make arg 0 an offsettable memory operand - and do likewise
+;; for cache invalidation - to allow to save an add in the code that
+;; calculates the address.
+(define_insn "shmedia32_initialize_trampoline_big"
+  [(set (mem:BLK (match_operand:SI 0 "arith_reg_operand" "r"))
+	(unspec [(match_operand:SI 1 "arith_reg_operand" "r")
+		 (match_operand:SI 2 "arith_reg_operand" "r")]
+	 UNSPEC_INIT_TRAMP))
+   (clobber (match_scratch:SI 3 "=&r"))
+   (clobber (match_scratch:SI 4 "=&r"))]
+  "TARGET_SHMEDIA32 && ! TARGET_LITTLE_ENDIAN"
+  "movi 0x433,%3
+   shori 0x432,%3
+   mshflo.w %1,%3,%4
+   mextr7 %4,%4,%4
+   shlli %4,2,%4
+   st.q %0,0,%4
+   mshflo.w %2,%3,%4
+   shlli %4,10,%4
+   addi %4,0x10,%4
+   movi 0x6bf1,%3
+   shori 0x0600,%3
+   mextr4 %4,%3,%3
+   st.q %0,8,%3
+   shori 0x4401,%4
+   shori 0xfff0,%4
+   st.q %0,16,%4"
+  [(set_attr "length" "64")])
+
+(define_insn "shmedia32_initialize_trampoline_little"
+  [(set (mem:BLK (match_operand:SI 0 "arith_reg_operand" "r"))
+	(unspec [(match_operand:SI 1 "arith_reg_operand" "r")
+		 (match_operand:SI 2 "arith_reg_operand" "r")]
+	 UNSPEC_INIT_TRAMP))
+   (clobber (match_scratch:SI 3 "=&r"))
+   (clobber (match_scratch:SI 4 "=&r"))]
+  "TARGET_SHMEDIA32 && TARGET_LITTLE_ENDIAN"
+  "movi 0x433,%3
+   shori 0x432,%3
+   mshflo.w %1,%3,%4
+   mextr3 %4,%4,%4
+   shlli %4,2,%4
+   st.q %0,0,%4
+   mshflo.w %2,%3,%4
+   shlli %4,10,%4
+   addi %4,0x10,%4
+   movi 0x6bf1,%3
+   shori 0x0600,%3
+   shori 0x4401,%3
+   shori 0xfff0,%3
+   st.l %0,16,%r4
+   st.l %0,20,%r3
+   mshfhi.l %3,%4,%4
+   st.q %0,8,%4"
+  [(set_attr "length" "68")])
 
 (define_expand "prologue"
   [(const_int 0)]
@@ -7607,7 +8038,8 @@
 	(plus:SF (match_operand:SF 1 "fp_arith_reg_operand" "%f")
 		 (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fadd.s	%1, %2, %0")
+  "fadd.s	%1, %2, %0"
+  [(set_attr "type" "fparith_media")])
 
 (define_insn "addsf3_i"
   [(set (match_operand:SF 0 "arith_reg_operand" "=f")
@@ -7638,7 +8070,8 @@
 	(minus:SF (match_operand:SF 1 "fp_arith_reg_operand" "f")
 		  (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fsub.s	%1, %2, %0")
+  "fsub.s	%1, %2, %0"
+  [(set_attr "type" "fparith_media")])
 
 (define_insn "subsf3_i"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -7675,7 +8108,8 @@
 	(mult:SF (match_operand:SF 1 "fp_arith_reg_operand" "%f")
 		 (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fmul.s	%1, %2, %0")
+  "fmul.s	%1, %2, %0"
+  [(set_attr "type" "fparith_media")])
 
 (define_insn "mulsf3_i4"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -7701,7 +8135,8 @@
 			  (match_operand:SF 2 "fp_arith_reg_operand" "f"))
 		 (match_operand:SF 3 "fp_arith_reg_operand" "0")))]
   "TARGET_SHMEDIA_FPU"
-  "fmac.s %1, %2, %0")
+  "fmac.s %1, %2, %0"
+  [(set_attr "type" "fparith_media")])
 
 (define_insn "*macsf3"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -7733,7 +8168,8 @@
 	(div:SF (match_operand:SF 1 "fp_arith_reg_operand" "f")
 		(match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fdiv.s	%1, %2, %0")
+  "fdiv.s	%1, %2, %0"
+  [(set_attr "type" "fdiv_media")])
 
 (define_insn "divsf3_i"
   [(set (match_operand:SF 0 "arith_reg_operand" "=f")
@@ -7749,7 +8185,8 @@
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
 	(float:SF (match_operand:DI 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "float.qs %1, %0")
+  "float.qs %1, %0"
+  [(set_attr "type" "fpconv_media")])
 
 (define_expand "floatsisf2"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "")
@@ -7768,7 +8205,8 @@
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
 	(float:SF (match_operand:SI 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "float.ls	%1, %0")
+  "float.ls	%1, %0"
+  [(set_attr "type" "fpconv_media")])
 
 (define_insn "floatsisf2_i4"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -7790,7 +8228,8 @@
   [(set (match_operand:DI 0 "fp_arith_reg_operand" "=f")
 	(fix:DI (match_operand:SF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "ftrc.sq %1, %0")
+  "ftrc.sq %1, %0"
+  [(set_attr "type" "fpconv_media")])
 
 (define_expand "fix_truncsfsi2"
   [(set (match_operand:SI 0 "fpul_operand" "=y")
@@ -7809,7 +8248,8 @@
   [(set (match_operand:SI 0 "fp_arith_reg_operand" "=f")
 	(fix:SI (match_operand:SF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "ftrc.sl	%1, %0")
+  "ftrc.sl	%1, %0"
+  [(set_attr "type" "fpconv_media")])
 
 (define_insn "fix_truncsfsi2_i4"
   [(set (match_operand:SI 0 "fpul_operand" "=y")
@@ -7913,28 +8353,32 @@
 	(eq:DI (match_operand:SF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcmpeq.s	%1, %2, %0")
+  "fcmpeq.s	%1, %2, %0"
+  [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpgtsf_media"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(gt:DI (match_operand:SF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcmpgt.s	%1, %2, %0")
+  "fcmpgt.s	%1, %2, %0"
+  [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpgesf_media"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(ge:DI (match_operand:SF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcmpge.s	%1, %2, %0")
+  "fcmpge.s	%1, %2, %0"
+  [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpunsf_media"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(unordered:DI (match_operand:SF 1 "fp_arith_reg_operand" "f")
 		      (match_operand:SF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcmpun.s	%1, %2, %0")
+  "fcmpun.s	%1, %2, %0"
+  [(set_attr "type" "fcmp_media")])
 
 (define_expand "cmpsf"
   [(set (reg:SI T_REG)
@@ -7965,7 +8409,8 @@
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
 	(neg:SF (match_operand:SF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fneg.s	%1, %0")
+  "fneg.s	%1, %0"
+  [(set_attr "type" "fmove_media")])
 
 (define_insn "negsf2_i"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -7993,7 +8438,8 @@
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
 	(sqrt:SF (match_operand:SF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fsqrt.s	%1, %0")
+  "fsqrt.s	%1, %0"
+  [(set_attr "type" "fdiv_media")])
 
 (define_insn "sqrtsf2_i"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -8021,7 +8467,8 @@
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
 	(abs:SF (match_operand:SF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fabs.s	%1, %0")
+  "fabs.s	%1, %0"
+  [(set_attr "type" "fmove_media")])
 
 (define_insn "abssf2_i"
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
@@ -8051,7 +8498,8 @@
 	(plus:DF (match_operand:DF 1 "fp_arith_reg_operand" "%f")
 		 (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fadd.d	%1, %2, %0")
+  "fadd.d	%1, %2, %0"
+  [(set_attr "type" "dfparith_media")])
 
 (define_insn "adddf3_i"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
@@ -8082,7 +8530,8 @@
 	(minus:DF (match_operand:DF 1 "fp_arith_reg_operand" "f")
 		  (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fsub.d	%1, %2, %0")
+  "fsub.d	%1, %2, %0"
+  [(set_attr "type" "dfparith_media")])
 
 (define_insn "subdf3_i"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
@@ -8113,7 +8562,8 @@
 	(mult:DF (match_operand:DF 1 "fp_arith_reg_operand" "%f")
 		 (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fmul.d	%1, %2, %0")
+  "fmul.d	%1, %2, %0"
+  [(set_attr "type" "dfmul_media")])
 
 (define_insn "muldf3_i"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
@@ -8144,7 +8594,8 @@
 	(div:DF (match_operand:DF 1 "fp_arith_reg_operand" "f")
 		(match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fdiv.d	%1, %2, %0")
+  "fdiv.d	%1, %2, %0"
+  [(set_attr "type" "dfdiv_media")])
 
 (define_insn "divdf3_i"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
@@ -8160,7 +8611,8 @@
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
 	(float:DF (match_operand:DI 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "float.qd	%1, %0")
+  "float.qd	%1, %0"
+  [(set_attr "type" "dfpconv_media")])
 
 (define_expand "floatsidf2"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "")
@@ -8180,7 +8632,8 @@
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
 	(float:DF (match_operand:SI 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "float.ld	%1, %0")
+  "float.ld	%1, %0"
+  [(set_attr "type" "dfpconv_media")])
 
 (define_insn "floatsidf2_i"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
@@ -8195,7 +8648,8 @@
   [(set (match_operand:DI 0 "fp_arith_reg_operand" "=f")
 	(fix:DI (match_operand:DF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "ftrc.dq	%1, %0")
+  "ftrc.dq	%1, %0"
+  [(set_attr "type" "dfpconv_media")])
 
 (define_expand "fix_truncdfsi2"
   [(set (match_operand:SI 0 "fpul_operand" "")
@@ -8215,7 +8669,8 @@
   [(set (match_operand:SI 0 "fp_arith_reg_operand" "=f")
 	(fix:SI (match_operand:DF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "ftrc.dl	%1, %0")
+  "ftrc.dl	%1, %0"
+  [(set_attr "type" "dfpconv_media")])
 
 (define_insn "fix_truncdfsi2_i"
   [(set (match_operand:SI 0 "fpul_operand" "=y")
@@ -8284,28 +8739,32 @@
 	(eq:DI (match_operand:DF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcmpeq.d	%1,%2,%0")
+  "fcmpeq.d	%1,%2,%0"
+  [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpgtdf_media"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(gt:DI (match_operand:DF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcmpgt.d	%1,%2,%0")
+  "fcmpgt.d	%1,%2,%0"
+  [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpgedf_media"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(ge:DI (match_operand:DF 1 "fp_arith_reg_operand" "f")
 	       (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcmpge.d	%1,%2,%0")
+  "fcmpge.d	%1,%2,%0"
+  [(set_attr "type" "fcmp_media")])
 
 (define_insn "cmpundf_media"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(unordered:DI (match_operand:DF 1 "fp_arith_reg_operand" "f")
 		      (match_operand:DF 2 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcmpun.d	%1,%2,%0")
+  "fcmpun.d	%1,%2,%0"
+  [(set_attr "type" "fcmp_media")])
 
 (define_expand "cmpdf"
   [(set (reg:SI T_REG)
@@ -8336,7 +8795,8 @@
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
 	(neg:DF (match_operand:DF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fneg.d	%1, %0")
+  "fneg.d	%1, %0"
+  [(set_attr "type" "fmove_media")])
 
 (define_insn "negdf2_i"
   [(set (match_operand:DF 0 "arith_reg_operand" "=f")
@@ -8364,7 +8824,8 @@
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
 	(sqrt:DF (match_operand:DF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fsqrt.d	%1, %0")
+  "fsqrt.d	%1, %0"
+  [(set_attr "type" "dfdiv_media")])
 
 (define_insn "sqrtdf2_i"
   [(set (match_operand:DF 0 "arith_reg_operand" "=f")
@@ -8392,7 +8853,8 @@
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
 	(abs:DF (match_operand:DF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fabs.d	%1, %0")
+  "fabs.d	%1, %0"
+  [(set_attr "type" "fmove_media")])
 
 (define_insn "absdf2_i"
   [(set (match_operand:DF 0 "arith_reg_operand" "=f")
@@ -8421,7 +8883,8 @@
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
 	(float_extend:DF (match_operand:SF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcnv.sd	%1, %0")
+  "fcnv.sd	%1, %0"
+  [(set_attr "type" "dfpconv_media")])
 
 (define_insn "extendsfdf2_i4"
   [(set (match_operand:DF 0 "fp_arith_reg_operand" "=f")
@@ -8450,7 +8913,8 @@
   [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
 	(float_truncate:SF (match_operand:DF 1 "fp_arith_reg_operand" "f")))]
   "TARGET_SHMEDIA_FPU"
-  "fcnv.ds	%1, %0")
+  "fcnv.ds	%1, %0"
+  [(set_attr "type" "dfpconv_media")])
 
 (define_insn "truncdfsf2_i4"
   [(set (match_operand:SF 0 "fpul_operand" "=y")
@@ -9830,6 +10294,88 @@
   "TARGET_SHMEDIA"
   "ftrv %1, %2, %0"
   [(set_attr "type" "fparith_media")])
+
+(define_insn "nsb"
+  [(set (match_operand:QI 0 "arith_reg_dest" "=r")
+	(unspec:QI [(match_operand:DI 1 "arith_reg_operand" "r")]
+		   UNSPEC_NSB))]
+  "TARGET_SHMEDIA"
+  "nsb	%1, %0"
+  [(set_attr "type" "arith_media")])
+
+(define_insn "nsbsi"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r")
+	(zero_extend:SI
+	 (unspec:QI [(match_operand:DI 1 "arith_reg_operand" "r")]
+		    UNSPEC_NSB)))]
+  "TARGET_SHMEDIA"
+  "nsb	%1, %0"
+  [(set_attr "type" "arith_media")])
+
+(define_insn "nsbdi"
+  [(set (match_operand:DI 0 "arith_reg_dest" "=r")
+	(zero_extend:DI
+	 (unspec:QI [(match_operand:DI 1 "arith_reg_operand" "r")]
+		    UNSPEC_NSB)))]
+  "TARGET_SHMEDIA"
+  "nsb	%1, %0"
+  [(set_attr "type" "arith_media")])
+
+(define_expand "ffsdi2"
+  [(set (match_operand:DI 0 "arith_reg_dest" "")
+	(ffs:DI (match_operand:DI 1 "arith_reg_operand" "")))]
+  "TARGET_SHMEDIA"
+  "
+{
+  rtx scratch = gen_reg_rtx (DImode);
+  rtx last;
+
+  emit_insn (gen_adddi3 (scratch, operands[1], GEN_INT (-1)));
+  emit_insn (gen_xordi3 (scratch, operands[1], scratch));
+  emit_insn (gen_lshrdi3_media (scratch, scratch, const1_rtx));
+  emit_insn (gen_nsbdi (scratch, scratch));
+  emit_insn (gen_adddi3 (scratch, scratch, GEN_INT (-64)));
+  emit_insn (gen_movdicc_false (scratch, operands[1], const0_rtx, scratch));
+  last = emit_insn (gen_subdi3 (operands[0], const0_rtx, scratch));
+  REG_NOTES (last)
+    = gen_rtx_EXPR_LIST (REG_EQUAL,
+			 gen_rtx_FFS (DImode, operands[0]), REG_NOTES (last));
+  DONE;
+}")
+
+(define_expand "ffssi2"
+  [(set (match_operand:SI 0 "arith_reg_dest" "")
+	(ffs:SI (match_operand:SI 1 "arith_reg_operand" "")))]
+  "TARGET_SHMEDIA"
+  "
+{
+  rtx scratch = gen_reg_rtx (SImode);
+  rtx discratch = gen_reg_rtx (DImode);
+  rtx last;
+
+  emit_insn (gen_adddi3z_media (discratch, operands[1],
+				force_reg (SImode, GEN_INT (-1))));
+  emit_insn (gen_andcdi3 (discratch, discratch,
+			  simplify_gen_subreg (DImode, operands[1],
+					       SImode, 0)));
+  emit_insn (gen_nsbsi (scratch, discratch));
+  last = emit_insn (gen_subsi3 (operands[0],
+				force_reg (SImode, GEN_INT (-64)), scratch));
+  REG_NOTES (last)
+    = gen_rtx_EXPR_LIST (REG_EQUAL,
+			 gen_rtx_FFS (SImode, operands[0]), REG_NOTES (last));
+  DONE;
+}")
+
+(define_insn "byterev"
+  [(set (match_operand:V8QI 0 "arith_reg_dest" "=r")
+	(vec_select:V8QI (match_operand:V8QI 1 "arith_reg_operand" "r")
+			 (parallel [(const_int 7) (const_int 6) (const_int 5)
+				    (const_int 4) (const_int 3) (const_int 2)
+				    (const_int 1) (const_int 0)])))]
+  "TARGET_SHMEDIA"
+  "byterev	%1, %0"
+  [(set_attr "type" "arith_media")])
 
 ;; The following description  models the
 ;; SH4 pipeline using the DFA based scheduler. 
