@@ -101,7 +101,7 @@ static void find_alias_for		PARAMS ((tree, tree));
 static bool may_alias_p			PARAMS ((tree, tree, HOST_WIDE_INT,
 						 tree, tree, HOST_WIDE_INT));
 static void find_may_aliases_for	PARAMS ((int));
-static bool may_access_global_mem 	PARAMS ((tree, tree));
+static bool may_access_global_mem_p 	PARAMS ((tree, tree));
 static void set_def			PARAMS ((tree *, tree));
 static void add_use			PARAMS ((tree *, tree));
 static void add_vdef			PARAMS ((tree, tree, voperands_t));
@@ -334,21 +334,14 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
   if (code == ARRAY_REF)
     {
       /* Add the virtual variable for the ARRAY_REF to VDEFS or VUSES
-	 according to the value of IS_DEF.  */
-      add_stmt_operand (expr_p, stmt, is_def, false, prev_vops);
-      
-      /* Look for variable uses in every dimension of the array.  */
-      do
-	{
-	  add_stmt_operand (&TREE_OPERAND (expr, 1), stmt, false, false,
-			    prev_vops);
+	 according to the value of IS_DEF.  Recurse if the LHS of the
+	 ARRAY_REF node is not a regular variable.  */
+      if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
+	add_stmt_operand (expr_p, stmt, is_def, false, prev_vops);
+      else
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), is_def, prev_vops);
 
-	  expr = (TREE_CODE (expr) == ARRAY_REF)
-		 ? TREE_OPERAND (expr, 0)
-	         : NULL_TREE;
-	}
-      while (expr && TREE_CODE (expr) == ARRAY_REF);
-
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), false, prev_vops);
       return;
     }
 
@@ -365,6 +358,8 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
 	   definitions to 'a' will kill each other.  */
   if (code == IMAGPART_EXPR || code == REALPART_EXPR || code == COMPONENT_REF)
     {
+      /* If the LHS of the compound reference is not a regular variable,
+	 recurse to keep looking for more operands in the subexpression.  */
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
 	add_stmt_operand (expr_p, stmt, is_def, false, prev_vops);
       else
@@ -520,7 +515,7 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
      voperands_t prev_vops;
 {
   bool is_scalar;
-  tree var, deref;
+  tree var;
   varray_type aliases;
   size_t i;
 
@@ -582,30 +577,48 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
 	}
     }
 
-  /* A definition of a pointer variable 'p' clobbers its associated
-     indirect variable '*p', because now 'p' is pointing to a different
-     memory location.  */
-  deref = indirect_ref (var);
+  /* An assignment to a pointer variable 'p' may make 'p' point to memory
+     outside of the current scope.  Therefore, dereferences of 'p' should be
+     treated as references to global variables.  */
   if (is_def
-      && deref != NULL_TREE
       && SSA_DECL_P (var)
       && POINTER_TYPE_P (TREE_TYPE (var)))
     {
-      /* Add a VDEF for '*p' (or its aliases if it has any).  */
-      aliases = may_aliases (deref);
-      if (aliases == NULL)
-	add_vdef (deref, stmt, prev_vops);
-      else
-	for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
-	  add_vdef (VARRAY_TREE (aliases, i), stmt, prev_vops);
+      tree deref;
 
-      /* If the relocation of 'p' is due to an expression that may
-	 point to global memory, then mark '*p' as an alias for
-	 global memory.  */
       if (TREE_CODE (stmt) == MODIFY_EXPR
-	  && may_access_global_mem (TREE_OPERAND (stmt, 1),
+	  && may_access_global_mem_p (TREE_OPERAND (stmt, 1),
 		  		    get_base_symbol (TREE_OPERAND (stmt, 1))))
-	set_may_alias_global_mem (deref);
+	set_may_point_to_global_mem (var);
+
+      /* A definition of a pointer variable 'p' clobbers its associated
+	 indirect variable '*p', because now 'p' is pointing to a different
+	 memory location.  */
+      deref = indirect_ref (var);
+      if (deref)
+	{
+	  /* Add a VDEF for '*p' (or its aliases if it has any).  */
+	  aliases = may_aliases (deref);
+	  if (aliases == NULL)
+	    add_vdef (deref, stmt, prev_vops);
+	  else
+	    for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
+	      add_vdef (VARRAY_TREE (aliases, i), stmt, prev_vops);
+
+	  /* If 'p' may point to global memory, then '*p' and its aliases are
+	     an alias for global memory.  */
+	  if (may_point_to_global_mem_p (var))
+	    {
+	      varray_type aliases = may_aliases (deref);
+	      set_may_alias_global_mem (deref);
+	      for (i = 0; aliases && i < VARRAY_ACTIVE_SIZE (aliases); i++)
+		{
+		  tree alias = VARRAY_TREE (aliases, i);
+		  set_may_alias_global_mem (alias);
+		  set_may_point_to_global_mem (TREE_OPERAND (alias, 0));
+		}
+	    }
+	}
     }
   else
     {
@@ -1122,6 +1135,9 @@ dump_variable (file, var)
   if (is_vla_decl (var))
     fprintf (file, ", is used to declare a VLA");
 
+  if (may_point_to_global_mem_p (var))
+    fprintf (file, ", may point to global memory");
+
   fprintf (file, "\n");
 }
 
@@ -1586,7 +1602,10 @@ compute_alias_sets ()
 
   /* Debugging dumps.  */
   if (tree_ssa_dump_file && tree_ssa_dump_flags & TDF_ALIAS)
-    dump_alias_info (tree_ssa_dump_file);
+    {
+      dump_alias_info (tree_ssa_dump_file);
+      dump_referenced_vars (tree_ssa_dump_file);
+    }
 
   /* Deallocate memory used by ALIAS_SETS.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_sets); i++)
@@ -1930,22 +1949,17 @@ add_may_alias (var, var_sym, alias, alias_sym)
     if (alias == VARRAY_TREE (v_ann->may_aliases, i))
       return;
 
-  /* If either VAR or ALIAS may access global memory, and the other
-     variable is a pointer then mark it as a potential global memory
-     alias.  */
+  /* If either VAR or ALIAS may access global memory, then mark the other
+     one as a global memory alias.  */
   if (var != alias)
     {
       if (a_ann == NULL)
 	a_ann = create_var_ann (alias);
 
-      if (POINTER_TYPE_P (TREE_TYPE (alias_sym))
-	  && (v_ann->may_alias_global_mem
-	      || may_access_global_mem (var, var_sym)))
+      if (may_access_global_mem_p (var, var_sym))
 	a_ann->may_alias_global_mem = 1;
 
-      if (POINTER_TYPE_P (TREE_TYPE (var_sym))
-	  && (a_ann->may_alias_global_mem
-	      || may_access_global_mem (alias, alias_sym)))
+      if (may_access_global_mem_p (alias, alias_sym))
 	v_ann->may_alias_global_mem = 1;
     }
 
@@ -2021,7 +2035,7 @@ debug_alias_info ()
    function scope.  */
 
 static bool
-may_access_global_mem (expr, expr_base)
+may_access_global_mem_p (expr, expr_base)
      tree expr;
      tree expr_base;
 {
@@ -2035,6 +2049,15 @@ may_access_global_mem (expr, expr_base)
     {
       if (TREE_CODE (expr_base) == PARM_DECL
 	  || decl_function_context (expr_base) == NULL_TREE)
+	return true;
+    }
+
+  /* If the expression is a variable that may point to or alias global memory,
+     return true.  */
+  if (SSA_VAR_P (expr))
+    {
+      var_ann_t ann = var_ann (expr);
+      if (ann->may_point_to_global_mem || ann->may_alias_global_mem)
 	return true;
     }
 
@@ -2054,7 +2077,7 @@ may_access_global_mem (expr, expr_base)
       unsigned char i;
 
       for (i = 0; i < TREE_CODE_LENGTH (TREE_CODE (expr)); i++)
-	if (may_access_global_mem (TREE_OPERAND (expr, i),
+	if (may_access_global_mem_p (TREE_OPERAND (expr, i),
 				   get_base_symbol (TREE_OPERAND (expr, i))))
 	  return true;
     }
@@ -2241,6 +2264,26 @@ add_referenced_var (var, sym, data)
       if (! ann)
 	ann = create_var_ann (var);
       ann->uid = num_referenced_vars++;
+
+      /* Arguments or global variable pointers may point to memory outside
+	 the current function.  */
+      if (POINTER_TYPE_P (TREE_TYPE (var))
+	  && DECL_P (var)
+	  && (TREE_CODE (var) == PARM_DECL
+	      || decl_function_context (var) == NULL_TREE))
+	set_may_point_to_global_mem (var);
+
+      /* Dereferences of pointers that may point to global memory must be
+	 marked as global memory aliases.  Note that we still can't use the
+	 may_point_to_global_mem_p predicate here, because we may not have
+	 processed the base pointer yet.  */
+      if (TREE_CODE (var) == INDIRECT_REF
+	  && (TREE_CODE (sym) == PARM_DECL
+	      || decl_function_context (sym) == NULL_TREE))
+	{
+	  set_may_point_to_global_mem (sym);
+	  set_may_alias_global_mem (var);
+	}
     }
 }
 
@@ -2310,24 +2353,6 @@ call_may_clobber (expr)
   callee = get_callee_fndecl (expr);
   flags = (callee) ? flags_from_decl_or_type (callee) : 0;
   return (! (flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)));
-}
-
-
-/* Mark VAR as an alias for global memory.  This means that loads or stores
-   to VAR may reference data outside the scope of the current function.  */
-
-void
-set_may_alias_global_mem (var)
-     tree var;
-{
-  var_ann_t ann = var_ann (var);
-  if (ann == NULL)
-    ann = create_var_ann (var);
-  ann->may_alias_global_mem = 1;
-  if (SSA_DECL_P (var)
-      && POINTER_TYPE_P (TREE_TYPE (var))
-      && ann->indirect_ref)
-    set_may_alias_global_mem (ann->indirect_ref);
 }
 
 

@@ -1,3 +1,30 @@
+2003-02-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* toplev.c (parse_options_and_default_flags): Enable SSA DCE by
+	default.
+
+	* tree-dfa.c (get_expr_operands): Recurse into LHS of an ARRAY_REF
+	when it's not a regular variable.  Always recurse into the RHS.
+	(add_stmt_operand): Set may_point_to_global_mem for pointers that
+	are assigned expressions that may reference global memory.  Also
+	set its dereference variable to be an alias of global memory.
+	(dump_variable): Show may_point_to_global_mem flag.
+	(compute_alias_sets): Also dump all referenced variables when
+	dumping alias information.
+	(add_may_alias): Check for global memory aliasing.
+	(may_access_global_mem_p): Rename from may_access_global_mem.
+	Return true if the expression is a variable that may point to or
+	alias global memory.
+	(add_referenced_var): Pointer arguments and global pointers may
+	point to global memory.
+	(set_may_alias_global_mem): Move ...
+	* tree-flow-inline.h (set_may_alias_global_mem): ... here.
+	(set_may_point_to_global_mem): New function.
+	(may_point_to_global_mem_p): New function.
+
+	* tree-ssa-dce.c (stmt_useful_p): VA_ARG_EXPRs are inherently live.
+	* tree-ssa.c (rewrite_into_ssa): Don't call dump_referenced_vars.
+
 2003-02-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (struct alias_tags, alias_tags, num_alias_tags):

@@ -75,12 +75,47 @@ may_aliases (var)
   return ann ? ann->may_aliases : NULL;
 }
 
+static inline void
+set_may_alias_global_mem (var)
+     tree var;
+{
+  var_ann_t ann = var_ann (var);
+  if (ann == NULL)
+    ann = create_var_ann (var);
+  ann->may_alias_global_mem = 1;
+}
+
 static inline bool
 may_alias_global_mem_p (var)
      tree var;
 {
   var_ann_t ann = var_ann (var);
   return ann ? ann->may_alias_global_mem : false;
+}
+
+static inline void
+set_may_point_to_global_mem (var)
+     tree var;
+{
+  var_ann_t ann;
+
+#if defined ENABLE_CHECKING
+  if (!POINTER_TYPE_P (TREE_TYPE (var)))
+    abort ();
+#endif
+
+  ann = var_ann (var);
+  if (ann == NULL)
+    ann = create_var_ann (var);
+  ann->may_point_to_global_mem = 1;
+}
+
+static inline bool
+may_point_to_global_mem_p (var)
+     tree var;
+{
+  var_ann_t ann = var_ann (var);
+  return ann ? ann->may_point_to_global_mem : false;
 }
 
 static inline void

@@ -55,6 +55,9 @@ struct var_ann_d GTY(())
   /* Nonzero if this variable may alias global memory.  */
   unsigned may_alias_global_mem : 1;
 
+  /* Nonzero if this pointer may point to global memory.  */
+  unsigned may_point_to_global_mem : 1;
+
   /* Nonzero if this variable is used to declare a VLA (see
      find_vla_decl_r).  */
   unsigned is_vla_decl : 1;
@@ -176,7 +179,10 @@ static inline void unmodify_stmt		PARAMS ((tree));
 static inline bool stmt_modified_p		PARAMS ((tree));
 static inline tree create_indirect_ref		PARAMS ((tree));
 static inline varray_type may_aliases		PARAMS ((tree));
+static inline void set_may_alias_global_mem	PARAMS ((tree));
 static inline bool may_alias_global_mem_p 	PARAMS ((tree));
+static inline bool may_point_to_global_mem_p 	PARAMS ((tree));
+static inline void set_may_point_to_global_mem	PARAMS ((tree));
 static inline void set_indirect_ref		PARAMS ((tree, tree));
 static inline tree indirect_ref			PARAMS ((tree));
 static inline int get_lineno			PARAMS ((tree));
@@ -348,7 +354,6 @@ extern tree copy_stmt			PARAMS ((tree));
 extern void dump_alias_info		PARAMS ((FILE *));
 extern void debug_alias_info		PARAMS ((void));
 extern tree get_virtual_var		PARAMS ((tree));
-extern void set_may_alias_global_mem	PARAMS ((tree));
 
 /* Flags used when computing reaching definitions and reached uses.  */
 #define TDFA_USE_OPS		1 << 0

@@ -249,8 +249,6 @@ rewrite_into_ssa (fndecl)
   /* Debugging dumps.  */
   if (tree_ssa_dump_file)
     {
-      dump_referenced_vars (tree_ssa_dump_file);
-
       if (tree_ssa_dump_flags & TDF_STATS)
 	dump_dfa_stats (tree_ssa_dump_file);
 

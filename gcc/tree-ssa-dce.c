@@ -296,10 +296,16 @@ stmt_useful_p (stmt)
   if ((TREE_CODE (stmt) == ASM_EXPR)
       || (TREE_CODE (stmt) == RETURN_EXPR)
       || (TREE_CODE (stmt) == CASE_LABEL_EXPR)
-      || (TREE_CODE (stmt) == CALL_EXPR)
       || (TREE_CODE (stmt) == LABEL_EXPR)
+      || (TREE_CODE (stmt) == CALL_EXPR)
       || ((TREE_CODE (stmt) == MODIFY_EXPR)
-	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR)))
+	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == CALL_EXPR))
+      /* FIXME: Hmph, VA_ARG_EXPR has side effects that the dataflow
+	 routines don't register.  This was causing cp/error.c to be
+	 miscompiled with DCE enabled.  */
+      || (TREE_CODE (stmt) == VA_ARG_EXPR)
+      || ((TREE_CODE (stmt) == MODIFY_EXPR)
+	  && (TREE_CODE (TREE_OPERAND (stmt, 1)) == VA_ARG_EXPR)))
     return true;
 
   /* GOTO_EXPR nodes to nonlocal labels need to be kept (This fixes

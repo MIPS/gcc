@@ -1,3 +1,7 @@
+2003-02-08  Diego Novillo  <dnovillo@redhat.com>
+
+	* lib/c-torture.exp: Remove -ftree-dce from compiler flags.
+
 2003-02-06  Diego Novillo  <dnovillo@redhat.com>
 
 	* gcc.c-torture/compile/20001226-1.c: Remove deliberate syntax
