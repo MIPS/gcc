@@ -610,8 +610,7 @@ function_section (decl)
     named_section (decl, (char *) 0, 0);
   else if (decl == current_function_decl)
     {
-      if (!flag_reorder_functions
-	  || debug_info_level != DINFO_LEVEL_NONE)
+      if (!flag_reorder_functions)
 	text_section ();
       else
 	switch (cfun->function_frequency)
