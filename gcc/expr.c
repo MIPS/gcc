@@ -6710,8 +6710,11 @@ expand_expr (exp, target, tmode, modifier)
       return const0_rtx;
 
     case EXIT_EXPR:
-      expand_exit_loop_if_false (NULL,
-				 invert_truthvalue (TREE_OPERAND (exp, 0)));
+      if (EXIT_EXPR_IS_LOOP_COND (exp))
+	expand_exit_loop_if_false (NULL, EXIT_EXPR_COND (exp));
+      else
+	expand_exit_loop_if_false (NULL,
+				   invert_truthvalue (EXIT_EXPR_COND (exp)));
       return const0_rtx;
 
     case LABELED_BLOCK_EXPR:
@@ -6730,7 +6733,7 @@ expand_expr (exp, target, tmode, modifier)
 
     case LOOP_EXPR:
       push_temp_slots ();
-      expand_start_loop (1);
+      expand_start_loop (0);
       expand_expr_stmt_value (TREE_OPERAND (exp, 0), 0, 1);
       expand_end_loop ();
       pop_temp_slots ();
@@ -9059,6 +9062,39 @@ expand_expr (exp, target, tmode, modifier)
       /* Function descriptors are not valid except for as
 	 initialization constants, and should not be expanded.  */
       abort ();
+
+    case SWITCH_EXPR:
+      expand_start_case (0, SWITCH_COND (exp), integer_type_node,
+			 "switch");
+      expand_expr_stmt (SWITCH_BODY (exp));
+      expand_end_case (SWITCH_COND (exp));
+      return const0_rtx;
+
+    case LABEL_EXPR:
+      expand_label (TREE_OPERAND (exp, 0));
+      return const0_rtx;
+
+    case CASE_LABEL_EXPR:
+      {
+	tree duplicate = 0;
+	add_case_node (CASE_LOW (exp), CASE_HIGH (exp),
+		       build_decl (LABEL_DECL, NULL_TREE, NULL_TREE), 
+		       &duplicate);
+	if (duplicate)
+	  abort ();
+	return const0_rtx;
+      }
+
+    case ASM_EXPR:
+      if (ASM_INPUT_P (exp))
+	expand_asm (ASM_STRING (exp));
+      else
+	expand_asm_operands (ASM_STRING (exp), ASM_OUTPUTS (exp),
+			     ASM_INPUTS (exp), ASM_CLOBBERS (exp),
+			     ASM_CV_QUAL (exp) != NULL_TREE,
+			     input_filename, lineno);
+      /* FIXME copy outputs into proper locations?  */
+      return const0_rtx;
 
     default:
       return (*lang_hooks.expand_expr) (exp, original_target, tmode, modifier);

@@ -23,6 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #define _TREE_FLOW_H 1
 
 #include "bitmap.h"
+#include "basic-block.h"
 
 /* Types of references.  */
 

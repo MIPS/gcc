@@ -569,6 +569,9 @@ copy_body (id)
   body = DECL_SAVED_TREE (VARRAY_TOP_TREE (id->fns));
   walk_tree (&body, copy_body_r, id, NULL);
 
+  if (!statement_code_p (TREE_CODE (body)))
+    body = build_stmt (EXPR_STMT, body);
+
   return body;
 }
 
@@ -972,6 +975,7 @@ expand_call_inline (tp, walk_subtrees, data)
 #else /* INLINER_FOR_JAVA */
   tree retvar;
 #endif /* INLINER_FOR_JAVA */
+  tree decl;
   tree fn;
   tree arg_inits;
   tree *inlined_body;
@@ -1154,21 +1158,25 @@ expand_call_inline (tp, walk_subtrees, data)
     BLOCK_ABSTRACT_ORIGIN (SCOPE_STMT_BLOCK (scope_stmt)) = DECL_ORIGIN (fn);
 
   /* Declare the return variable for the function.  */
-  COMPOUND_BODY (stmt)
-    = chainon (COMPOUND_BODY (stmt),
-	       declare_return_variable (id, &use_stmt));
+  decl = declare_return_variable (id, &use_stmt);
+  COMPOUND_BODY (stmt) = chainon (COMPOUND_BODY (stmt), decl);
+  if (TREE_CODE (decl) == DECL_STMT)
+    BLOCK_VARS (SCOPE_STMT_BLOCK (scope_stmt))
+      = chainon (BLOCK_VARS (SCOPE_STMT_BLOCK (scope_stmt)),
+		 DECL_STMT_DECL (decl));
+  else
+    abort ();
+	
 #else /* INLINER_FOR_JAVA */
-  {
-    /* Declare the return variable for the function.  */
-    tree decl = declare_return_variable (id, &retvar);
-    if (retvar)
-      {
-	tree *next = &BLOCK_VARS (expr);
-	while (*next)
-	  next = &TREE_CHAIN (*next);	
-	*next = decl;
-      }
-  }
+  /* Declare the return variable for the function.  */
+  decl = declare_return_variable (id, &retvar);
+  if (retvar)
+    {
+      tree *next = &BLOCK_VARS (expr);
+      while (*next)
+	next = &TREE_CHAIN (*next);	
+      *next = decl;
+    }
 #endif /* INLINER_FOR_JAVA */
 
   /* After we've initialized the parameters, we insert the body of the

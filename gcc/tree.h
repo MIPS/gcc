@@ -155,7 +155,7 @@ struct tree_common GTY(())
   unsigned lang_flag_4 : 1;
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
-  unsigned unused_1 : 1;
+  unsigned visited : 1;
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -185,6 +185,10 @@ struct tree_common GTY(())
        CLEANUP_EH_ONLY in
            TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT,
 	   TREE_LIST elements of a block's cleanup list.
+       EXIT_EXPR_IS_LOOP_COND in
+           EXIT_EXPR
+       ASM_EXPR_INPUT_P in
+           ASM_EXPR
 
    public_flag:
 
@@ -274,6 +278,10 @@ struct tree_common GTY(())
 
 	TREE_DEPRECATED in
 	   ..._DECL
+
+   visited:
+
+   	Used in tree traversals to mark visited nodes.
 */
 
 /* Define accessors for the fields that all tree nodes have
@@ -885,6 +893,42 @@ struct tree_vec GTY(())
 #define TARGET_EXPR_INITIAL(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 1)
 #define TARGET_EXPR_CLEANUP(NODE) TREE_OPERAND (TARGET_EXPR_CHECK (NODE), 2)
 
+#define EXIT_EXPR_IS_LOOP_COND(NODE) TREE_STATIC (NODE)
+#define EXIT_EXPR_COND(NODE)	     TREE_OPERAND (EXIT_EXPR_CHECK (NODE), 0)
+
+/* SWITCH_STMT accessors. These give access to the condition, body and
+   original condition type (before any compiler conversions)
+   of the switch statement, respectively.  */
+#define SWITCH_COND(NODE)       TREE_OPERAND ((NODE), 0)
+#define SWITCH_BODY(NODE)       TREE_OPERAND ((NODE), 1)
+
+/* CASE_LABEL accessors. These give access to the high and low values
+   of a case label, respectively.  */
+#define CASE_LOW(NODE)          TREE_OPERAND ((NODE), 0)
+#define CASE_HIGH(NODE)         TREE_OPERAND ((NODE), 1)
+
+/* The operands of a BIND_EXPR.  */
+#define BIND_EXPR_VARS(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 0))
+#define BIND_EXPR_BODY(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 1))
+#define BIND_EXPR_BLOCK(NODE) (TREE_OPERAND (BIND_EXPR_CHECK (NODE), 2))
+
+/* GOTO_STMT accessor. This gives access to the label associated with
+   a goto statement.  */
+#define GOTO_DESTINATION(NODE)  TREE_OPERAND ((NODE), 0)
+
+/* ASM_STMT accessors. ASM_STRING returns a STRING_CST for the
+   instruction (e.g., "mov x, y"). ASM_OUTPUTS, ASM_INPUTS, and
+   ASM_CLOBBERS represent the outputs, inputs, and clobbers for the
+   statement.  */
+#define ASM_CV_QUAL(NODE)       TREE_OPERAND ((NODE), 0)
+#define ASM_STRING(NODE)        TREE_OPERAND ((NODE), 1)
+#define ASM_OUTPUTS(NODE)       TREE_OPERAND ((NODE), 2)
+#define ASM_INPUTS(NODE)        TREE_OPERAND ((NODE), 3)
+#define ASM_CLOBBERS(NODE)      TREE_OPERAND ((NODE), 4)
+/* Nonzero if we want to create an ASM_INPUT instead of an
+   ASM_OPERAND with no operands.  */
+#define ASM_INPUT_P(NODE) (TREE_STATIC (NODE))
+
 struct tree_exp GTY(())
 {
   struct tree_common common;
@@ -1123,6 +1167,10 @@ struct tree_block GTY(())
 #define TYPE_LANG_FLAG_4(NODE) (TYPE_CHECK (NODE)->type.lang_flag_4)
 #define TYPE_LANG_FLAG_5(NODE) (TYPE_CHECK (NODE)->type.lang_flag_5)
 #define TYPE_LANG_FLAG_6(NODE) (TYPE_CHECK (NODE)->type.lang_flag_6)
+
+/* Used to keep track of visited nodes in tree traversals.  This is set to
+   0 by copy_node and make_node.  */
+#define TREE_VISITED(NODE) ((NODE)->common.visited)
 
 /* If set in an ARRAY_TYPE, indicates a string type (for languages
    that distinguish string from array of char).
@@ -1940,6 +1988,8 @@ enum tree_index
   TI_SIZE_ZERO,
   TI_SIZE_ONE,
 
+  TI_EMPTY_STMT,
+
   TI_BITSIZE_ZERO,
   TI_BITSIZE_ONE,
   TI_BITSIZE_UNIT,
@@ -2012,6 +2062,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define bitsize_zero_node		global_trees[TI_BITSIZE_ZERO]
 #define bitsize_one_node		global_trees[TI_BITSIZE_ONE]
 #define bitsize_unit_node		global_trees[TI_BITSIZE_UNIT]
+
+#define empty_stmt_node 		global_trees[TI_EMPTY_STMT]
 
 #define null_pointer_node		global_trees[TI_NULL_POINTER]
 
@@ -2896,6 +2948,7 @@ extern void gcc_obstack_init		PARAMS ((struct obstack *));
 extern void init_ttree			PARAMS ((void));
 extern void build_common_tree_nodes	PARAMS ((int));
 extern void build_common_tree_nodes_2	PARAMS ((int));
+extern tree add_to_compound_expr	PARAMS ((tree, tree));
 
 /* In function.c */
 extern void setjmp_protect_args		PARAMS ((void));
@@ -3059,7 +3112,7 @@ extern void dwarf2out_return_save	PARAMS ((const char *, long));
 
 extern void dwarf2out_return_reg	PARAMS ((const char *, unsigned));
 
-/* The type of a function that walks over tree structure.  */
+/* The type of a callback function for walking over tree structure.  */
 
 typedef tree (*walk_tree_fn)		PARAMS ((tree *, int *, void *));
 

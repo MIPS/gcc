@@ -33,6 +33,7 @@ extern tree declare_tmp_vars           PARAMS ((tree, tree));
 extern tree deep_copy_list             PARAMS ((tree));
 extern tree deep_copy_node             PARAMS ((tree));
 extern tree update_line_number         PARAMS ((tree, int));
+extern tree rationalize_compound_expr  PARAMS ((tree));
 
 /* Validation of SIMPLE expressions.  */
 int is_simple_expr                     PARAMS ((tree));
@@ -61,7 +62,20 @@ int is_simple_constructor              PARAMS ((tree));
 int is_simple_constructor_elt          PARAMS ((tree));
 int is_simple_initializer              PARAMS ((tree));
 int is_simplifiable_builtin            PARAMS ((tree));
-int is_simple_decl_stmt                PARAMS ((tree));
+int is_simple_stmt                     PARAMS ((tree));
+
+
+typedef struct simplify_ctx
+{
+  /* PRE_P points to the list for side effects that must happen before
+     the current expression is evaluated.  */
+  tree *pre_p;
+  /* POST_P points to the list for side effects that must happen after
+     the current expression is evaluated.  */
+  tree *post_p;
+  /* DECL_SCOPE points to the BIND_EXPR for the current scope.  */
+  tree decl_scope;
+} simplify_ctx;
 
 /* FIXME this needs a better name.  */
 tree add_tree			       PARAMS ((tree, tree *));
@@ -74,6 +88,7 @@ typedef enum fallback_t {
 int simplify_expr		       PARAMS ((tree *, tree *, tree *,
 						int (*) PARAMS ((tree)),
 						fallback_t));
+int simplify_stmt		       PARAMS ((tree *));
 
 /* Miscellaneous helpers.  */
 tree get_base_symbol                   PARAMS ((tree));

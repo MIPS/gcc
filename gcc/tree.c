@@ -372,6 +372,7 @@ copy_node (node)
 
   TREE_CHAIN (t) = 0;
   TREE_ASM_WRITTEN (t) = 0;
+  TREE_VISITED (t) = 0;
 
   if (TREE_CODE_CLASS (code) == 'd')
     DECL_UID (t) = next_decl_uid++;
@@ -1023,7 +1024,6 @@ tree
 chainon (op1, op2)
      tree op1, op2;
 {
-
   if (op1)
     {
       tree t1;
@@ -4707,6 +4707,9 @@ build_common_tree_nodes_2 (short_double)
      so we might as well not have any types that claim to have it.  */
   TYPE_ALIGN (void_type_node) = BITS_PER_UNIT;
   TYPE_USER_ALIGN (void_type_node) = 0;
+
+  /* Used in the tree IR to represent empty statements and blocks. */
+  empty_stmt_node = build1 (NOP_EXPR, void_type_node, size_zero_node);
 
   null_pointer_node = build_int_2 (0, 0);
   TREE_TYPE (null_pointer_node) = build_pointer_type (void_type_node);

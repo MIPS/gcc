@@ -6520,6 +6520,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
   if (!flag_disable_simple
       && simplify_function_tree (fndecl))
     {
+#if 0
       if (flag_mudflap)
 	{
 	  mudflap_c_function (fndecl);
@@ -6531,6 +6532,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
       /* Invoke the SSA tree optimizer.  */
       if (flag_tree_ssa)
 	optimize_function_tree (fndecl);
+#endif
     }
 
   /* Set up parameters and prepare for return, for the function.  */
@@ -6544,7 +6546,11 @@ c_expand_body (fndecl, nested_p, can_defer_p)
     expand_main_function ();
 
   /* Generate the RTL for this function.  */
-  expand_stmt (DECL_SAVED_TREE (fndecl));
+  if (statement_code_p (TREE_CODE (DECL_SAVED_TREE (fndecl))))
+    expand_stmt (DECL_SAVED_TREE (fndecl));
+  else
+    expand_expr_stmt (DECL_SAVED_TREE (fndecl));
+
   if (uninlinable)
     {
       /* Allow the body of the function to be garbage collected.  */

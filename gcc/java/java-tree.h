@@ -330,7 +330,6 @@ enum java_tree_index
   JTI_DOUBLE_ZERO_NODE,
   JTI_INTEGER_TWO_NODE,
   JTI_INTEGER_FOUR_NODE,
-  JTI_EMPTY_STMT_NODE,
 
   JTI_METHODTABLE_TYPE,
   JTI_METHODTABLE_PTR_TYPE,
@@ -553,8 +552,6 @@ extern GTY(()) tree java_global_trees[JTI_MAX];
   java_global_trees[JTI_INTEGER_TWO_NODE]
 #define integer_four_node \
   java_global_trees[JTI_INTEGER_FOUR_NODE]
-#define empty_stmt_node \
-  java_global_trees[JTI_EMPTY_STMT_NODE]
 
 /* The type for struct methodtable. */
 #define methodtable_type \
