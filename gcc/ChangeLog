@@ -1,7 +1,7 @@
-Fri Nov 29 19:57:10 2002  J"orn Rennecke <joern.rennecke@superh.com>
+Fri Nov 29 20:10:56 2002  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* expmed.c (store_bit_field): Use int_mode_for_mode to find
-	corresponding mode of non-integer mode.
+	corresponding mode of non-integer mode, unless it is VOIDmode.
 
 Thu Nov 28 23:56:24 CET 2002  Jan Hubicka  <jh@suse.cz>
 
