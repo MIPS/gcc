@@ -21,12 +21,6 @@ Boston, MA 02111-1307, USA.  */
 
 #include "rs6000/rs6000.h"
 
-/* Undefine some things which are defined by the generic svr4.h.  */
-
-#undef ASM_FILE_END
-#undef READONLY_DATA_SECTION
-#undef SELECT_SECTION
-
 /* Use the regular svr4 definitions.  */
 
 #include "svr4.h"
@@ -297,12 +291,6 @@ do {									\
 
 #define FIXED_R13 1
 
-/* System V.4 passes the first 8 floating arguments in registers,
-   instead of the first 13 like AIX does.  */
-#undef	FP_ARG_MAX_REG
-#define	FP_ARG_MAX_REG ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_AIX_NODESC) \
-			? FP_ARG_AIX_MAX_REG : FP_ARG_V4_MAX_REG)
-
 /* Size of the V.4 varargs area if needed */
 #undef	RS6000_VARARGS_AREA
 #define RS6000_VARARGS_AREA ((rs6000_sysv_varargs_p) ? RS6000_VARARGS_SIZE : 0)
@@ -328,19 +316,12 @@ do {									\
 			 ? (TARGET_64BIT ? 64 : 32)			\
 			 : 0)
 
-/* Size of the fixed area on the stack.  For AIX, use the standard 6 word
-   area, otherwise use 2 words to store back chain & LR.  */
-#undef	RS6000_SAVE_AREA
-#define RS6000_SAVE_AREA \
-  (((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_AIX_NODESC) ? 24 : 8) << (TARGET_64BIT ? 1 : 0))
-
 /* Define cutoff for using external functions to save floating point.
    Currently on V.4, always use inline stores */
 #undef	FP_SAVE_INLINE
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
 
 /* Put jump tables in read-only memory, rather than in .text.  */
-#undef JUMP_TABLES_IN_TEXT_SECTION
 #define JUMP_TABLES_IN_TEXT_SECTION 0
 
 /* Prefix and suffix to use to saving floating point */
@@ -827,7 +808,6 @@ do {									\
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define	DBX_DEBUGGING_INFO
-#define	DWARF_DEBUGGING_INFO
 
 /* If we are referencing a function that is static or is known to be
    in this file, make the SYMBOL_REF special.  We can use this to indicate

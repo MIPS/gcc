@@ -125,6 +125,131 @@ Boston, MA 02111-1307, USA.  */
     }						\
 }
 
+/* Output at end of assembler file.
+
+   On the RS/6000, referencing data should automatically pull in text.  */
+
+#define ASM_FILE_END(FILE)					\
+{								\
+  text_section ();						\
+  fputs ("_section_.text:\n", FILE);				\
+  data_section ();						\
+  fputs (TARGET_32BIT						\
+	 ? "\t.long _section_.text\n" : "\t.llong _section_.text\n", FILE); \
+}
+
+/* Define the extra sections we need.  We define three: one is the read-only
+   data section which is used for constants.  This is a csect whose name is
+   derived from the name of the input file.  The second is for initialized
+   global variables.  This is a csect whose name is that of the variable.
+   The third is the TOC.  */
+
+#define EXTRA_SECTIONS \
+   read_only_data, private_data, read_only_private_data, toc, bss
+
+/* Define the routines to implement these extra sections.
+   BIGGEST_ALIGNMENT is 64, so align the sections that much.  */
+
+#define EXTRA_SECTION_FUNCTIONS				\
+							\
+void							\
+read_only_data_section ()				\
+{							\
+  if (in_section != read_only_data)			\
+    {							\
+      fprintf (asm_out_file, "\t.csect %s[RO],3\n",	\
+	       xcoff_read_only_section_name);		\
+      in_section = read_only_data;			\
+    }							\
+}							\
+							\
+void							\
+private_data_section ()					\
+{							\
+  if (in_section != private_data)			\
+    {							\
+      fprintf (asm_out_file, "\t.csect %s[RW],3\n",	\
+	       xcoff_private_data_section_name);	\
+      in_section = private_data;			\
+    }							\
+}							\
+							\
+void							\
+read_only_private_data_section ()			\
+{							\
+  if (in_section != read_only_private_data)		\
+    {							\
+      fprintf (asm_out_file, "\t.csect %s[RO],3\n",	\
+	       xcoff_private_data_section_name);	\
+      in_section = read_only_private_data;		\
+    }							\
+}							\
+							\
+void							\
+toc_section ()						\
+{							\
+  if (TARGET_MINIMAL_TOC)				\
+    {							\
+      /* toc_section is always called at least once from ASM_FILE_START, \
+	 so this is guaranteed to always be defined once and only once   \
+	 in each file.  */						 \
+      if (! toc_initialized)				\
+	{						\
+	  fputs ("\t.toc\nLCTOC..0:\n", asm_out_file);	\
+	  fputs ("\t.tc toc_table[TC],toc_table[RW]\n", asm_out_file); \
+	  toc_initialized = 1;				\
+	}						\
+							\
+      if (in_section != toc)				\
+	fprintf (asm_out_file, "\t.csect toc_table[RW]%s\n",	\
+		 (TARGET_32BIT ? "" : ",3"));		\
+    }							\
+  else							\
+    {							\
+      if (in_section != toc)				\
+        fputs ("\t.toc\n", asm_out_file);		\
+    }							\
+  in_section = toc;					\
+}
+
+/* Define the name of our readonly data section.  */
+
+#define READONLY_DATA_SECTION read_only_data_section
+
+/* Select the section for an initialized data object.
+
+   On the RS/6000, we have a special section for all variables except those
+   that are static.  */
+
+#define SELECT_SECTION(EXP,RELOC)			\
+{							\
+  if ((TREE_CODE (EXP) == STRING_CST			\
+       && ! flag_writable_strings)			\
+      || (TREE_CODE_CLASS (TREE_CODE (EXP)) == 'd'	\
+	  && TREE_READONLY (EXP) && ! TREE_THIS_VOLATILE (EXP) \
+	  && DECL_INITIAL (EXP)				\
+	  && (DECL_INITIAL (EXP) == error_mark_node	\
+	      || TREE_CONSTANT (DECL_INITIAL (EXP)))	\
+	  && ! (RELOC)))				\
+    {							\
+      if (TREE_PUBLIC (EXP))				\
+        read_only_data_section ();			\
+      else						\
+        read_only_private_data_section ();		\
+    }							\
+  else							\
+    {							\
+      if (TREE_PUBLIC (EXP))				\
+        data_section ();				\
+      else						\
+        private_data_section ();			\
+    }							\
+}
+
+/* Indicate that jump tables go in the text section.  */
+
+#define JUMP_TABLES_IN_TEXT_SECTION 1
+
 /* Enable AIX XL compiler calling convention breakage compatibility.  */
 #undef TARGET_XL_CALL
 #define MASK_XL_CALL		0x40000000

@@ -1,3 +1,67 @@
+2000-01-12  Geoff Keating  <geoffk@cygnus.com>
+
+	* rs6000.h (ASM_FILE_END): Move to aix.h.
+	(EXTRA_SECTIONS): Move to aix.h.
+	(READONLY_DATA_SECTION): Move to aix.h.
+	(EXTRA_SECTION_FUNCTIONS): Move to aix.h.
+	(SELECT_SECTION): Move to aix.h.
+	(JUMP_TABLES_IN_TEXT_SECTION): Move to aix.h.
+	(INT_REGNO_P): Use symbolic name for ARG_POINTER_REGNUM.
+	(LINK_REGISTER_REGNUM): New definition.
+	(RETURN_ADDR_RTX): Use symbolic name for LINK_REGISTER_REGNUM.
+	(SLOW_UNALIGNED_ACCESS): Define in a way suitable for both
+	AIX and SVR4.
+	* sysv4.h: Delete the code between the inclusion of rs6000.h
+	and svr4.h.
+	(DWARF_DEBUGGING_INFO): Don't define, it's defined in elfos.h.
+	(FP_ARG_MAX_REG): Move generic definition to rs6000.h.
+	(RS6000_REG_SAVE): Move generic definition to rs6000.h.
+	(RS6000_SAVE_AREA): Move generic definition to rs6000.h.
+	* rs6000.md (floatsidf2_loadaddr): The first arg here is Pmode.
+	(fix_truncdfsi2_internal): Rename to fix_truncdfsi2_internal_si.
+	(fix_truncdfsi2_internal_di): New pattern.
+	(fix_truncdfsi2_store): The second arg here is Pmode too.
+	(fix_truncdfsi2_load): The second arg here is Pmode too.
+	(tablejumpdi): Now that switch tables hold only SImode values,
+	gcc needs to know how to add them to the pc which is DImode.
+	* rs6000.c (rs6000_stack_info): Use symbolic name for 
+	LINK_REGISTER_REGNUM.
+	(output_mi_thunk) [!TARGET_ELF]: Don't define sp, it's not used.
+	(output_toc): Delete unused variables s1 and s2.
+	(output_ascii): Use fputs not fprintf on a variable string.
+
+2000-01-07  David Edelsohn  <edelsohn@gnu.org>
+
+        * rs6000.c (processor_target_table): Add power3 as alias for 630.
+        * aix43.h: Revert Aug 2 change.
+        (HAS_INIT_SECTION): Define, not visible yet.
+        (LD_INIT_SWITCH): Define, not visible yet.
+        * t-aix43 (MULTILIB_OPTIONS): Revert Aug 2 change.
+
+2000-01-04  Joel Sherrill (joel@OARcorp.com>
+
+        * config/rs6000/rtems.h: Include config/rtems.h.
+
+2000-01-04  David Edelsohn  <edelsohn@gnu.org>
+
+        * rs6000.h (HANDLE_PRAGMA_PACK): Define.
+        (SLOW_UNALIGNED_ACCESS): Define.
+        (CASE_VECTOR_MODE): Always use 32-bit offsets.
+        (ASM_FILE_END): Generate 64-bit symbol in 64-bit mode.
+        (EXTRA_SECTOIN_FUNCTIONS): Indent .csect pseudo-op.
+        (toc_section): Likewise and .toc pseudo-op.
+        (ASM_DECLARE_FUNCTION): Likewise.  Align text more strictly in
+        64-bit mode.
+        (TEXT_SECTION_ASM_OP): Likewise.
+        (ASM_OUTPUT_ADD_VEC_ELT, ASM_OUTPUT_ADDR_DIFF_ELT): Always use
+        32-bit offsets.
+
+1999-12-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/rs6000/rs6000.h (TARGET_POWERPC64): Make sure
+	UNITS_PER_WORD and BITS_PER_WORD are compile time constants when
+	compiling libgcc2.
+	
 2000-01-06  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
 
 	* rs6000.h: Move more stuff from here...

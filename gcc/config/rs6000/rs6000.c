@@ -186,6 +186,9 @@ rs6000_override_options (default_cpu)
 	 {"power2", PROCESSOR_POWER,
 	    MASK_POWER | MASK_POWER2 | MASK_MULTIPLE | MASK_STRING,
 	    POWERPC_MASKS | MASK_NEW_MNEMONICS},
+	 {"power3", PROCESSOR_PPC630,
+	    MASK_POWERPC | MASK_PPC_GFXOPT | MASK_NEW_MNEMONICS,
+	    POWER_MASKS | MASK_PPC_GPOPT},
 	 {"powerpc", PROCESSOR_POWERPC,
 	    MASK_POWERPC | MASK_NEW_MNEMONICS,
 	    POWER_MASKS | POWERPC_OPT_MASKS | MASK_POWERPC64},
@@ -1243,7 +1246,6 @@ small_data_operand (op, mode)
   return 0;
 #endif
 }
-
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -3804,7 +3806,7 @@ rs6000_stack_info ()
     }
 
   /* Determine if we need to save the link register */
-  if (regs_ever_live[65]
+  if (regs_ever_live[LINK_REGISTER_REGNUM]
       || (DEFAULT_ABI == ABI_AIX && profile_flag)
 #ifdef TARGET_RELOCATABLE
       || (TARGET_RELOCATABLE && (get_pool_size () != 0))
@@ -3816,7 +3818,7 @@ rs6000_stack_info ()
       || info_ptr->calls_p)
     {
       info_ptr->lr_save_p = 1;
-      regs_ever_live[65] = 1;
+      regs_ever_live[LINK_REGISTER_REGNUM] = 1;
       if (abi == ABI_NT)
 	info_ptr->lr_size = reg_size;
     }
@@ -4895,7 +4897,9 @@ output_mi_thunk (file, thunk_fndecl, delta, function)
   const char *prefix;
   char *fname;
   const char *r0	 = reg_names[0];
+#if TARGET_ELF
   const char *sp	 = reg_names[1];
+#endif
   const char *toc	 = reg_names[2];
   const char *schain	 = reg_names[11];
   const char *r12	 = reg_names[12];
@@ -5287,7 +5291,6 @@ output_toc (file, x, labelno)
       else  /* This is indeed a duplicate.  
 	       Set this label equal to that label.  */
 	{
-	  char s1[40], s2[40];
 	  fputs ("\t.set ", file);
 	  ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LC");
 	  fprintf (file, "%d,", labelno);
@@ -5536,7 +5539,7 @@ output_ascii (file, p, n)
 
   /* Now close the string if we have written one.  Then end the line.  */
   if (to_close)
-    fprintf (file, to_close);
+    fputs (to_close, file);
 }
 
 /* Generate a unique section name for FILENAME for a section type
