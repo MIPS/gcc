@@ -346,6 +346,9 @@ public class JMenuItem extends AbstractButton implements Accessible,
 	    ButtonModel model = item.getModel();
 	    if (item.isRolloverEnabled())
 	      model.setRollover(false);
+
+	    if (! (event.getSource() instanceof JMenu))
+	      setArmed(false);
 	  }
 	break;
       case MouseEvent.MOUSE_PRESSED:

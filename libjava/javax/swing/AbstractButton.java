@@ -760,7 +760,7 @@ public abstract class AbstractButton extends JComponent
 
   public void setDisplayedMnemonicIndex(int index)
   {
-    if (index < -1 || index >= text.length())
+    if (index < -1 || (text != null && index >= text.length()))
       throw new IllegalArgumentException();
     else
       mnemonicIndex = index;

@@ -302,19 +302,17 @@ public class BasicMenuUI extends BasicMenuItemUI
 
     public void mouseEntered(MouseEvent e)
     {
-
       /* When mouse enters menu item, it should be considered selected
 
        if (i) if this menu is a submenu in some other menu
           (ii) or if this menu is in a menu bar and some other menu in a menu bar was just
                selected. (If nothing was selected, menu should be pressed before
-               it will be selected)      
+               it will be selected)
       */
-      
       JMenu menu = (JMenu) menuItem;
       if (! menu.isTopLevelMenu()
           || (menu.isTopLevelMenu()
-          && (((JMenuBar) menu.getParent()).isSelected())))
+          && (((JMenuBar) menu.getParent()).isSelected() && ! menu.isArmed())))
         {
 	  // set new selection and forward this event to MenuSelectionManager
 	  MenuSelectionManager manager = MenuSelectionManager.defaultManager();
@@ -335,29 +333,24 @@ public class BasicMenuUI extends BasicMenuItemUI
 
     public void mousePressed(MouseEvent e)
     {
-
       MenuSelectionManager manager = MenuSelectionManager.defaultManager();
       JMenu menu = (JMenu) menuItem;
       manager.processMouseEvent(e);
-      
+
       // Menu should be displayed when the menu is pressed only if 
       // it is top-level menu
       if (menu.isTopLevelMenu())
         {
 	  if (menu.getPopupMenu().isVisible())
-	    {
-	      // If menu is visible and menu button was pressed.. 
-	      // then need to cancel the menu
-	      menu.fireMenuCanceled();
-	      manager.clearSelectedPath();
-	    }
+	    // If menu is visible and menu button was pressed.. 
+	    // then need to cancel the menu
+	    manager.clearSelectedPath();
 	  else
 	    {
 	      // Display the menu
 	      int x = 0;
 	      int y = menu.getHeight();
 
-	      menu.fireMenuSelected();
 	      manager.setSelectedPath(getPath());
 
 	      JMenuBar mb = (JMenuBar) menu.getParent();
@@ -382,30 +375,44 @@ public class BasicMenuUI extends BasicMenuItemUI
   {
     /**
      * This method is called when menu is cancelled. The menu is cancelled
-     * when its popup menu is closed without selection.
+     * when its popup menu is closed without selection. It clears selected index
+     * in the selectionModel of the menu parent.
      *
      * @param e The MenuEvent.
      */
     public void menuCanceled(MenuEvent e)
     {
+      menuDeselected(e);
     }
 
     /**
-     * This method is called when menu is deselected.
+     * This method is called when menu is deselected. It clears selected index
+     * in the selectionModel of the menu parent.
      *
      * @param e The MenuEvent.
      */
     public void menuDeselected(MenuEvent e)
     {
+      JMenu menu = (JMenu) menuItem;
+      if (menu.isTopLevelMenu())
+	((JMenuBar) menu.getParent()).getSelectionModel().clearSelection();
+      else
+	((JPopupMenu) menu.getParent()).getSelectionModel().clearSelection();
     }
 
     /**
-     * This method is called when menu is selected.
+     * This method is called when menu is selected.  It sets selected index
+     * in the selectionModel of the menu parent.
      *
      * @param e The MenuEvent.
      */
     public void menuSelected(MenuEvent e)
     {
+      JMenu menu = (JMenu) menuItem;
+      if (menu.isTopLevelMenu())
+	((JMenuBar) menu.getParent()).setSelected(menu);
+      else
+	((JPopupMenu) menu.getParent()).setSelected(menu);
     }
   }
 

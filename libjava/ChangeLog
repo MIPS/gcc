@@ -1,3 +1,18 @@
+2004-06-22  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/AbstractButton.java:
+	(setDisplayedMnemonicIndex): Check if button
+	text is not null before checking its length.
+	* javax/swing/JMenuItem.java:
+	(processMouseEvent): Disarm menu item if mouse has
+	exited it.
+	* javax/swing/plaf/basic/BasicMenuUI.java:
+	(MouseInputHandler.mouseEntered): Do not raise
+	popup menu if this menu is already selected.
+	(MouseInputHandler.mousePressed): Do not fire 
+	MenuEvents.
+	(MenuHandler): Implemented.	
+
 2004-06-21  Olga Rodimina  <rodimina@redhat.com>
 
 	* javax/swing/AbstractButton.java:
