@@ -1,4 +1,12 @@
-2003-12-09  Per Bothner  <per@bothner.com>
+2003-12-09  Per Bothner  <pbothner@apple.com>
+
+	Share buffer and fragments for files that have same path.
+	* cppfiles.c (struct _cpp_file_data):  New type.
+	(struct _cpp_file):  Move "buffer-related" fields to _cpp_file_data.
+	(open_file):  Look for path in file_hash.  If found, reuse its
+	_cpp_file_data.  Otherwise, if file found, enter path in file_hash.
+
+2003-12-09  Per Bothner  <pbothner@apple.com>
 
 	* emit-rtl.c:  Partually revert yesterday's change - resetting
 	label_num causes problems if reload re-uses inline functions.
