@@ -49,7 +49,6 @@ static void d30v_build_long_insn PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT,
 static void d30v_add_gc_roots PARAMS ((void));
 static void d30v_init_machine_status PARAMS ((struct function *));
 static void d30v_mark_machine_status PARAMS ((struct function *));
-static void d30v_free_machine_status PARAMS ((struct function *));
 static void d30v_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void d30v_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static int d30v_adjust_cost PARAMS ((rtx, rtx, rtx, int));
@@ -3548,30 +3547,14 @@ d30v_init_machine_status (p)
      struct function *p;
 {
   p->machine =
-    (machine_function *) xcalloc (1, sizeof (machine_function));
+    (machine_function *) ggc_alloc_cleared (sizeof (machine_function));
 }
 
 static void
 d30v_mark_machine_status (p)
      struct function * p;
 {
-  if (p->machine == NULL)
-    return;
-  
   ggc_mark_rtx (p->machine->eh_epilogue_sp_ofs);
-}
-
-static void
-d30v_free_machine_status (p)
-     struct function *p;
-{
-  struct machine_function *machine = p->machine;
-
-  if (machine == NULL)
-    return;
-
-  free (machine);
-  p->machine = NULL;
 }
 
 /* Do anything needed before RTL is emitted for each function.  */
@@ -3582,7 +3565,6 @@ d30v_init_expanders ()
   /* Arrange to save and restore machine status around nested functions.  */
   init_machine_status = d30v_init_machine_status;
   mark_machine_status = d30v_mark_machine_status;
-  free_machine_status = d30v_free_machine_status;
 }
 
 /* Find the current function's return address.

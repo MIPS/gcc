@@ -564,10 +564,9 @@ extern HOST_WIDE_INT get_frame_size	PARAMS ((void));
 /* Likewise, but for a different than the current function.  */
 extern HOST_WIDE_INT get_func_frame_size	PARAMS ((struct function *));
 
-/* These variables hold pointers to functions to create and destroy
+/* These variables hold pointers to functions to create
    target specific, per-function data structures.  */
 extern void (*init_machine_status)	PARAMS ((struct function *));
-extern void (*free_machine_status)	PARAMS ((struct function *));
 /* This variable holds a pointer to a function to register any
    data items in the target specific, per-function data structure
    that will need garbage collection.  */
@@ -578,6 +577,7 @@ extern void (*init_lang_status)         PARAMS ((struct function *));
 extern void (*mark_lang_status)		PARAMS ((struct function *));
 extern void (*save_lang_status)		PARAMS ((struct function *));
 extern void (*restore_lang_status)	PARAMS ((struct function *));
+/* This is obsolete.  Do not set it.  */
 extern void (*free_lang_status)         PARAMS ((struct function *));
 
 /* Save and restore status information for a nested function.  */

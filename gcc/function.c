@@ -123,10 +123,9 @@ int current_function_uses_only_leaf_regs;
    post-instantiation libcalls.  */
 int virtuals_instantiated;
 
-/* These variables hold pointers to functions to create and destroy
+/* These variables hold pointers to functions to create
    target specific, per-function data structures.  */
 void (*init_machine_status) PARAMS ((struct function *));
-void (*free_machine_status) PARAMS ((struct function *));
 /* This variable holds a pointer to a function to register any
    data items in the target specific, per-function data structure
    that will need garbage collection.  */
@@ -137,6 +136,7 @@ void (*init_lang_status) PARAMS ((struct function *));
 void (*save_lang_status) PARAMS ((struct function *));
 void (*restore_lang_status) PARAMS ((struct function *));
 void (*mark_lang_status) PARAMS ((struct function *));
+/* This is obsolete; do not set it.  */
 void (*free_lang_status) PARAMS ((struct function *));
 
 /* The FUNCTION_DECL for an inline function currently being expanded.  */
@@ -439,9 +439,7 @@ free_after_compilation (f)
   f->expr = NULL;
   f->emit = NULL;
   f->varasm = NULL;
-
-  if (free_machine_status)
-    (*free_machine_status) (f);
+  f->machine = NULL;
 
   f->x_temp_slots = NULL;
   f->arg_offset_rtx = NULL;
@@ -7928,8 +7926,12 @@ ggc_mark_struct_function (f)
   mark_emit_status (f->emit);
   mark_varasm_status (f->varasm);
 
-  if (mark_machine_status)
-    (*mark_machine_status) (f);
+  if (f->machine)
+    {
+      ggc_mark (f->machine);
+      if (mark_machine_status)
+	(*mark_machine_status) (f);
+    }
   if (mark_lang_status)
     (*mark_lang_status) (f);
 

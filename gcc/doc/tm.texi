@@ -807,8 +807,8 @@ to their own specific data.
 If a target needs per-function specific data it should define the type
 @code{struct machine_function} and also the macro
 @code{INIT_EXPANDERS}.  This macro should be used to initialize some or
-all of the function pointers @code{init_machine_status},
-@code{free_machine_status} and @code{mark_machine_status}.  These
+all of the function pointers @code{init_machine_status}
+and @code{mark_machine_status}.  These
 pointers are explained below.
 
 One typical use of per-function, target specific data is to create an
@@ -845,19 +845,18 @@ specific initialization of the @code{struct function} structure.  It is
 intended that this would be used to initialize the @code{machine} of
 that structure.
 
-@findex free_machine_status
-@item   free_machine_status
-This is a @code{void (*)(struct function *)} function pointer.  If this
-pointer is non-@code{NULL} it will be called once per function, after the
-function has been compiled, in order to allow any memory allocated
-during the @code{init_machine_status} function call to be freed.
+@code{struct machine_function} structures are expected to be freed by GC.
+Generally, any memory that they reference must be allocated by using
+@code{ggc_alloc}, including the structure itself.
 
 @findex mark_machine_status
 @item   mark_machine_status
 This is a @code{void (*)(struct function *)} function pointer.  If this
-pointer is non-@code{NULL} it will be called once per function in order to mark
-any data items in the @code{struct machine_function} structure which
-need garbage collection.
+pointer is non-@code{NULL} it will be called once per function in order
+to mark any data items in the @code{struct machine_function} structure
+which need garbage collection.  It will not be called if @code{machine}
+of the function structure is @code{NULL}.  It need not mark
+its argument.
 
 @end table
 

@@ -13664,12 +13664,8 @@ start_function (declspecs, declarator, attrs, flags)
 
   /* If we are (erroneously) defining a function that we have already
      defined before, wipe out what we knew before.  */
-  if (!DECL_PENDING_INLINE_P (decl1)
-      && DECL_SAVED_FUNCTION_DATA (decl1))
-    {
-      free (DECL_SAVED_FUNCTION_DATA (decl1));
-      DECL_SAVED_FUNCTION_DATA (decl1) = NULL;
-    }
+  if (!DECL_PENDING_INLINE_P (decl1))
+    DECL_SAVED_FUNCTION_DATA (decl1) = NULL;
 
   if (ctype && !doing_friend && !DECL_STATIC_FUNCTION_P (decl1))
     {
@@ -13887,7 +13883,7 @@ save_function_data (decl)
 
   /* Make a copy.  */
   f = ((struct cp_language_function *)
-       xmalloc (sizeof (struct cp_language_function)));
+       ggc_alloc (sizeof (struct cp_language_function)));
   memcpy (f, cp_function_chain, sizeof (struct cp_language_function));
   DECL_SAVED_FUNCTION_DATA (decl) = f;
 
@@ -14566,7 +14562,7 @@ push_cp_function_context (f)
 {
   struct cp_language_function *p
     = ((struct cp_language_function *)
-       xcalloc (1, sizeof (struct cp_language_function)));
+       ggc_alloc_cleared (sizeof (struct cp_language_function)));
   f->language = (struct language_function *) p;
 
   /* It takes an explicit call to expand_body to generate RTL for a
@@ -14591,7 +14587,6 @@ pop_cp_function_context (f)
 	(struct cp_language_function *) f->language;
       if (cp->x_local_names)
 	VARRAY_FREE (cp->x_local_names);
-      free (f->language);
     }
   f->language = 0;
 }

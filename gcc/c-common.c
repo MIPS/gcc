@@ -3438,6 +3438,7 @@ mark_c_language_function (f)
   if (!f)
     return;
 
+  ggc_mark (f);
   mark_stmt_tree (&f->x_stmt_tree);
   ggc_mark_tree (f->x_scope_stmt_stack);
 }

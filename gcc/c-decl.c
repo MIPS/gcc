@@ -7236,7 +7236,7 @@ push_c_function_context (f)
 {
   struct c_language_function *p;
   p = ((struct c_language_function *)
-       xmalloc (sizeof (struct c_language_function)));
+       ggc_alloc (sizeof (struct c_language_function)));
   f->language = (struct language_function *) p;
 
   p->base.x_stmt_tree = c_stmt_tree;
@@ -7288,8 +7288,7 @@ pop_c_function_context (f)
   current_extern_inline = p->extern_inline;
   current_binding_level = p->binding_level;
 
-  free (p);
-  f->language = 0;
+  f->language = NULL;
 }
 
 /* Mark the language specific parts of F for GC.  */

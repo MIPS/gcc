@@ -84,7 +84,6 @@ static Mmode     select_dominance_cc_mode	PARAMS ((rtx, rtx, Hint));
 static Ccstar    shift_op			PARAMS ((rtx, Hint *));
 static void      arm_init_machine_status	PARAMS ((struct function *));
 static void      arm_mark_machine_status        PARAMS ((struct function *));
-static void      arm_free_machine_status        PARAMS ((struct function *));
 static int       number_of_first_bit_set        PARAMS ((int));
 static void      replace_symbols_in_block       PARAMS ((tree, rtx, rtx));
 static void      thumb_exit                     PARAMS ((FILE *, int, rtx));
@@ -10051,8 +10050,7 @@ arm_mark_machine_status (p)
 {
   machine_function *machine = p->machine;
 
-  if (machine)
-    ggc_mark_rtx (machine->eh_epilogue_sp_ofs);
+  ggc_mark_rtx (machine->eh_epilogue_sp_ofs);
 }
 
 static void
@@ -10060,22 +10058,11 @@ arm_init_machine_status (p)
      struct function * p;
 {
   p->machine =
-    (machine_function *) xcalloc (1, sizeof (machine_function));
+    (machine_function *) ggc_alloc_cleared (sizeof (machine_function));
 
 #if ARM_FT_UNKNOWWN != 0  
   ((machine_function *) p->machine)->func_type = ARM_FT_UNKNOWN;
 #endif
-}
-
-static void
-arm_free_machine_status (p)
-     struct function * p;
-{
-  if (p->machine)
-    {
-      free (p->machine);
-      p->machine = NULL;
-    }
 }
 
 /* Return an RTX indicating where the return address to the
@@ -10107,7 +10094,6 @@ arm_init_expanders ()
   /* Arrange to initialize and mark the machine per-function status.  */
   init_machine_status = arm_init_machine_status;
   mark_machine_status = arm_mark_machine_status;
-  free_machine_status = arm_free_machine_status;
 }
 
 /* Generate the rest of a function's prologue.  */

@@ -2525,7 +2525,6 @@ genrtl_start_function (fn)
 	current_function_cannot_inline = cp_function_chain->cannot_inline;
 
       /* We don't need the saved data anymore.  */
-      free (DECL_SAVED_FUNCTION_DATA (fn));
       DECL_SAVED_FUNCTION_DATA (fn) = NULL;
     }
 

@@ -220,7 +220,6 @@ static rtx gen_conditional_move PARAMS ((rtx));
 static rtx fixup_subreg_mem PARAMS ((rtx x));
 static enum machine_mode xtensa_find_mode_for_size PARAMS ((unsigned));
 static void xtensa_init_machine_status PARAMS ((struct function *p));
-static void xtensa_free_machine_status PARAMS ((struct function *p));
 static void printx PARAMS ((FILE *, signed int));
 static rtx frame_size_const;
 static int current_function_arg_words;
@@ -1525,16 +1524,7 @@ xtensa_init_machine_status (p)
      struct function *p;
 {
   p->machine = (struct machine_function *)
-    xcalloc (1, sizeof (struct machine_function));
-}
-
-
-static void
-xtensa_free_machine_status (p)
-     struct function *p;
-{
-  free (p->machine);
-  p->machine = NULL;
+    ggc_alloc_cleared (1, sizeof (struct machine_function));
 }
 
 
@@ -1817,7 +1807,6 @@ override_options ()
     }
 
   init_machine_status = xtensa_init_machine_status;
-  free_machine_status = xtensa_free_machine_status;
 
   /* Check PIC settings.  There's no need for -fPIC on Xtensa and
      some targets need to always use PIC.  */

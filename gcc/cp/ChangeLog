@@ -1,3 +1,12 @@
+2002-02-18  Geoffrey Keating  <geoffk@redhat.com>
+
+	* decl.c (start_function): Don't free 'struct
+	cp_language_function'.
+	(pop_cp_function_context): Likewise.
+	(save_function_data): Allocate it using GC.
+	* semantics.c (genrtl_start_function): Don't free 'struct
+	cp_language_function'.
+
 2002-02-11  Jason Merrill  <jason@redhat.com>
 
 	* parse.y (reserved_declspecs): Don't handle attributes.

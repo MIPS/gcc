@@ -134,7 +134,6 @@ static int toc_hash_eq PARAMS ((const void *, const void *));
 static int toc_hash_mark_entry PARAMS ((void **, void *));
 static void toc_hash_mark_table PARAMS ((void *));
 static int constant_pool_expr_1 PARAMS ((rtx, int *, int *));
-static void rs6000_free_machine_status PARAMS ((struct function *));
 static void rs6000_init_machine_status PARAMS ((struct function *));
 static bool rs6000_assemble_integer PARAMS ((rtx, unsigned int, int));
 static int rs6000_ra_ever_killed PARAMS ((void));
@@ -577,7 +576,6 @@ rs6000_override_options (default_cpu)
 
   /* Arrange to save and restore machine status around nested functions.  */
   init_machine_status = rs6000_init_machine_status;
-  free_machine_status = rs6000_free_machine_status;
 }
 
 /* Handle -mabi= options.  */
@@ -6065,20 +6063,9 @@ static void
 rs6000_init_machine_status (p)
      struct function *p;
 {
-  p->machine = (machine_function *) xcalloc (1, sizeof (machine_function));
+  p->machine = ((machine_function *) 
+		ggc_alloc_cleared (sizeof (machine_function)));
 }
-
-static void
-rs6000_free_machine_status (p)
-     struct function *p;
-{
-  if (p->machine == NULL)
-    return;
-
-  free (p->machine);
-  p->machine = NULL;
-}
-
 
 /* Print an operand.  Recognize special options, documented below.  */
 
