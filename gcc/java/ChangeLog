@@ -1,5 +1,17 @@
 2005-02-21  Tom Tromey  <tromey@redhat.com>
 
+	* classobj.hh (class_object_creator::fill_in_vtable): Declare.
+	* abi.cc (get_vtable): Updated.
+	* abi.hh (gcj_abi::get_vtable): Removed 'lay_out' argument.
+	(cxx_abi::get_vtable): Updated.
+	(bc_abi::get_vtable): Updated.
+	* classobj.cc (fill_in_vtable): New method.
+	(create_class_instance): Use it.
+	* builtins.hh (tree_builtins::get_vtable_decl): Declare.
+	* builtins.cc (get_vtable_decl): Removed 'lay_out' argument.
+
+2005-02-21  Tom Tromey  <tromey@redhat.com>
+
 	* classobj.cc (create_one_method_record): Correctly compute
 	"index" field.
 	* abi.cc (get_vtable_index): New method.

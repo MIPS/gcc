@@ -378,6 +378,48 @@ class_object_creator::create_constants ()
 }
 
 void
+class_object_creator::fill_in_vtable (tree decl)
+{
+  // We are passed the address of the actual decl.
+  assert (TREE_CODE (decl) == ADDR_EXPR);
+  decl = TREE_OPERAND (decl, 0);
+
+  tree klass_ptr_type = builtins->lay_out_class (klass->get ());
+  tree klass_record = TREE_TYPE (klass_record);
+
+  tree vtable = BINFO_VTABLE (TYPE_BINFO (TREE_TYPE (klass_ptr_type)));
+
+  // FIXME: this isn't really correct.
+  // it fails where a pointer-to-function is wider.
+  tree vtype
+    = build_array_type (type_nativecode_ptr,
+			build_index_type (build_int_cst (type_jint,
+							 TREE_VEC_LENGTH (vtable))));
+
+  tree cons = NULL_TREE;
+  for (int i = 0; i < TREE_VEC_LENGTH (vtable); ++i)
+    cons = tree_cons (build_int_cst (type_jint, i), TREE_VEC_ELT (vtable, i),
+		      cons);
+  cons = nreverse (cons);
+
+  tree init = build_constructor (vtype, cons);
+  // Also set these on the decl?
+  TREE_CONSTANT (init) = 1;
+  TREE_INVARIANT (init) = 1;
+  TREE_READONLY (init) = 1;
+
+  DECL_INITIAL (decl) = init;
+
+  // FIXME: make a helper method for this sequence.
+  // Is it even correct?  We do something with cgraph in
+  // treegen.cc.
+  layout_decl (decl, 0);
+  rest_of_decl_compilation (decl, 1, 0);
+  make_decl_rtl (decl);
+
+}
+
+void
 class_object_creator::create_class_instance (tree class_tree)
 {
   assert (TREE_CODE (class_tree) == RECORD_TYPE);
@@ -433,7 +475,10 @@ class_object_creator::create_class_instance (tree class_tree)
   inst.set_field ("static_field_count",
 		  build_int_cst (type_jshort, num_static_fields));
 
-  inst.set_field ("dtable", abi->get_vtable (builtins, klass->get (), true));
+  tree dtable = abi->get_vtable (builtins, klass->get ());
+  if (dtable != null_pointer_node)
+    fill_in_vtable (dtable);
+  inst.set_field ("dtable", dtable);
 
   tree table, syms;
   create_index_table (klass->get_otable (), table, syms);

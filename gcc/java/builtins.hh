@@ -120,10 +120,8 @@ public:
   /// Return a new unique symbol name.
   tree get_symbol ();
 
-  /// Return the decl for a given class' vtable.  If the second
-  /// argument is true, assume we are laying out the vtable, so go
-  /// ahead and fill it in.
-  tree get_vtable_decl (model_class *, bool = false);
+  /// Return the decl for a given class' vtable.
+  tree get_vtable_decl (model_class *);
 };
 
 #endif // GCC_TREE_BUILTINS_HH

@@ -111,8 +111,7 @@ public:
   /// Return a pointer to the vtable for the indicated class.  If the
   /// bool argument is true, we are creating the Class object for
   /// KLASS and need a fully-filled-in vtable, not just a decl.
-  virtual tree get_vtable (tree_builtins *builtins, model_class *klass,
-			   bool lay_out = false) = 0;
+  virtual tree get_vtable (tree_builtins *builtins, model_class *klass) = 0;
 
   /// Return tree representing index into vtable where this method can
   /// be found.  Should return -1 for a static method or constructor.
@@ -154,7 +153,7 @@ public:
     return JV_STATE_COMPILED;
   }
 
-  tree get_vtable (tree_builtins *, model_class *, bool);
+  tree get_vtable (tree_builtins *, model_class *);
 
   tree get_vtable_index (aot_class *klass, model_method *method);
 };
@@ -194,7 +193,7 @@ public:
     return JV_STATE_PRELOADING;
   }
 
-  tree get_vtable (tree_builtins *, model_class *, bool)
+  tree get_vtable (tree_builtins *, model_class *)
   {
     // The BC ABI lays out all vtables at runtime.
     return null_pointer_node;

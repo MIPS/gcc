@@ -473,7 +473,7 @@ tree_builtins::map_utf8const (const std::string &value)
 }
 
 tree
-tree_builtins::get_vtable_decl (model_class *klass, bool lay_out)
+tree_builtins::get_vtable_decl (model_class *klass)
 {
   if (vtable_map.find (klass) == vtable_map.end ())
     {
@@ -484,37 +484,6 @@ tree_builtins::get_vtable_decl (model_class *klass, bool lay_out)
       mangler m (klass, true);
       SET_DECL_ASSEMBLER_NAME (decl,
 			       get_identifier (m.get ().c_str ()));
-
-      if (lay_out)
-	{
-	  lay_out_class (klass);
-
-	  tree klass_ptr_type = map_type (klass);
-	  tree vtable = BINFO_VTABLE (TYPE_BINFO (TREE_TYPE (klass_ptr_type)));
-
-	  // FIXME: this isn't really correct.
-	  // it fails where a pointer-to-function is wider.
-	  tree vtype
-	    = build_array_type (type_nativecode_ptr,
-				build_index_type (build_int_cst (type_jint,
-								 TREE_VEC_LENGTH (vtable))));
-	  tree cons = NULL_TREE;
-
-	  TREE_TYPE (decl) = vtype;
-
-	  // FIXME: set these on the initializer when we make it.
-	  // Also set them on the decl?
-	  // TREE_CONSTANT (init) = 1;
-	  // TREE_INVARIANT (init) = 1;
-	  // TREE_READONLY (init) = 1;
-
-	  // FIXME: make a helper method for this sequence.
-	  // Is it even correct?  We do something with cgraph in
-	  // treegen.cc.
-	  layout_decl (decl, 0);
-	  rest_of_decl_compilation (decl, 1, 0);
-	  make_decl_rtl (decl);
-	}
 
       vtable_map[klass] = decl;
     }
@@ -533,13 +502,14 @@ tree_builtins::lay_out_vtable (model_class *mklass)
   // Create a new tree vector to represent the vtable, and fill it in.
   // Note that we have two empty slots at the beginning; this is kept
   // in sync with aot_class.  FIXME: define a constant.
+  // FIXME: should move into aotclass.
   tree vtable_tree = make_tree_vec (2 + vtable.size ());
   int index = 2;
   for (std::vector<model_method *>::const_iterator i = vtable.begin ();
        i != vtable.end ();
        ++i)
     {
-      TREE_VEC_ELT (vtable_tree, index) = map_method (*i);
+      TREE_VEC_ELT (vtable_tree, index) = build_address_of (map_method (*i));
       ++index;
     }
 

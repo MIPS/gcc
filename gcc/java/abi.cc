@@ -195,10 +195,9 @@ cxx_abi::build_new (tree_builtins *builtins, aot_class *current,
 }
 
 tree
-cxx_abi::get_vtable (tree_builtins *builtins, model_class *klass,
-		     bool lay_out)
+cxx_abi::get_vtable (tree_builtins *builtins, model_class *klass)
 {
-  return build_address_of (builtins->get_vtable_decl (klass, lay_out));
+  return build_address_of (builtins->get_vtable_decl (klass));
 }
 
 tree

@@ -74,6 +74,7 @@ class class_object_creator
 			   tree &, tree &);
   void create_class_instance (tree);
   tree create_constants ();
+  void fill_in_vtable (tree);
 
 public:
 
