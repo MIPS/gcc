@@ -105,8 +105,8 @@ Boston, MA 02111-1307, USA.  */
    compiling the profiling functions.  Since we break Acorn CC
    compatibility below a little more won't hurt.  */
 
-#undef FUNCTION_PROFILER
-#define FUNCTION_PROFILER(STREAM,LABELNO)  				    \
+#undef  ARM_FUNCTION_PROFILER
+#define ARM_FUNCTION_PROFILER(STREAM,LABELNO)  				    \
 {									    \
   fprintf(STREAM, "\tmov\t%sip, %slr\n", REGISTER_PREFIX, REGISTER_PREFIX); \
   fprintf(STREAM, "\tbl\tmcount\n");					    \

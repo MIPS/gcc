@@ -304,8 +304,8 @@ const_section ()							\
 #define FP_DEFAULT FP_SOFT3
 
 /* Call the function profiler with a given profile label.  */
-#undef  FUNCTION_PROFILER
-#define FUNCTION_PROFILER(STREAM, LABELNO)  				\
+#undef  ARM_FUNCTION_PROFILER
+#define ARM_FUNCTION_PROFILER(STREAM, LABELNO)  			\
 {									\
   fprintf (STREAM, "\tbl\tmcount%s\n", NEED_PLT_RELOC ? "(PLT)" : "");	\
 }
