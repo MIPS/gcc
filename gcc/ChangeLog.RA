@@ -1,3 +1,8 @@
+Mon Jul 30 20:21:07 2001  Denis Chertykov  <denisc@overta.ru>
+
+	* ra.c (get_free_reg): Wrong test removed.
+	(reg_alloc): Fix formatting.
+
 2001-07-29  Daniel Berlin  <dan@cgsoftware.com>
 
 	Add support for simple rematerialization (not lattice based right

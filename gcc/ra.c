@@ -3124,12 +3124,6 @@ get_free_reg (dont_begin_colors, free_colors, mode)
 	int i, size;
 	size = HARD_REGNO_NREGS (c, mode);
 	for (i = 1; i < size && TEST_HARD_REG_BIT (free_colors, c + i); i++);
-	if (i != size)
-	  {
-	    c += i;
-	    continue;
-	  }
-	for (i = 1; i < size && HARD_REGNO_MODE_OK (c + i, mode); i++);
 	if (i == size)
 	  {
 	    if (size < 2 || (c & 1) == 0)
@@ -4135,7 +4129,8 @@ reg_alloc (void)
       else
 	{
 	  allocate_reg_info (max_reg_num (), FALSE, TRUE);
-	  reg_scan_update (get_insns(), BLOCK_END (n_basic_blocks - 1), max_regno);
+	  reg_scan_update (get_insns(), BLOCK_END (n_basic_blocks - 1),
+			   max_regno);
 	  regclass (get_insns (), max_reg_num (), rtl_dump_file);
 	}
       dump_ra (df);
