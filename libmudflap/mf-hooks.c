@@ -45,7 +45,7 @@ XXX: libgcc license?
   }                                         \
   else                                      \
   {                                         \
-     TRACE_IN;                              \
+     TRACE ("mf: %s\n", __PRETTY_FUNCTION__); \
      old_state = __mf_state;                \
      __mf_state = reentrant;                \
   }
@@ -53,7 +53,6 @@ XXX: libgcc license?
 #define END_PROTECT(ty, fname, ...)              \
   result = (ty) CALL_REAL(fname, __VA_ARGS__);   \
   __mf_state = old_state;                        \
-  TRACE_OUT;                                     \
   return result;
 
 
@@ -81,7 +80,6 @@ WRAPPER(void *, malloc, size_t c)
 		     __MF_TYPE_HEAP, "malloc region");
     }
 
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -114,7 +112,6 @@ WRAPPER(void *, calloc, size_t c, size_t n)
 		     __MF_TYPE_HEAP, "calloc region");
     }
   
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -148,7 +145,6 @@ WRAPPER(void *, realloc, void *buf, size_t c)
 		     __MF_TYPE_HEAP, "realloc region");
     }
 
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -181,7 +177,7 @@ WRAPPER(void, free, void *buf)
   if (UNLIKELY(buf == NULL))
     return;
 
-  TRACE_IN;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
 
   __mf_unregister ((uintptr_t) buf, 0);
 
@@ -224,7 +220,6 @@ WRAPPER(void, free, void *buf)
     }
   
   __mf_state = old_state;
-  TRACE_OUT;
 }
 #endif
 
@@ -236,7 +231,6 @@ WRAPPER(void *, dlopen, const char *filename, int flag)
   BEGIN_PROTECT(void *, dlopen, filename, flag);
   result = CALL_REAL(dlopen, filename, flag);
   __mf_state = old_state;
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -269,7 +263,6 @@ WRAPPER(void *, mmap,
 		     "(heuristic) mmap region");
     }
 
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -311,7 +304,7 @@ WRAPPER(void *, alloca, size_t c)
   char *result;
   struct alloca_tracking *track;
 
-  TRACE_IN;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   VERBOSE_TRACE ("mf: alloca stack level %08lx\n", (uintptr_t) stack);
 
   /* Free any previously alloca'd blocks that belong to deeper-nested functions,
@@ -350,7 +343,6 @@ WRAPPER(void *, alloca, size_t c)
 	}
     }
   
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -604,7 +596,6 @@ WRAPPER(char *, strdup, const char *s)
   if (UNLIKELY(!result))
     {
       __mf_state = old_state;
-      TRACE_OUT;
       return result;
     }
 
@@ -615,7 +606,6 @@ WRAPPER(char *, strdup, const char *s)
   __mf_register ((uintptr_t) result, CLAMPADD(n,1), 
 		 __MF_TYPE_HEAP, "strdup region");
   __mf_state = old_state;
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -642,7 +632,6 @@ WRAPPER(char *, strndup, const char *s, size_t n)
   if (UNLIKELY(!result))
     {
       __mf_state = old_state;
-      TRACE_OUT;
       return result;
     }
 
@@ -653,7 +642,6 @@ WRAPPER(char *, strndup, const char *s, size_t n)
   __mf_register ((uintptr_t) result, CLAMPADD(n,1), 
 		 __MF_TYPE_HEAP, "strndup region");
   __mf_state = old_state;
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -727,7 +715,6 @@ WRAPPER(size_t, strlen, const char *s)
   result = CALL_REAL(strlen, s);
   MF_VALIDATE_EXTENT(s, CLAMPADD(result, 1), "strlen region");
   __mf_state = old_state;
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -741,7 +728,6 @@ WRAPPER(size_t, strnlen, const char *s, size_t n)
   result = CALL_REAL(strnlen, s, n);
   MF_VALIDATE_EXTENT(s, result, "strnlen region");
   __mf_state = old_state;
-  TRACE_OUT;
   return result;
 }
 #endif
@@ -757,13 +743,12 @@ WRAPPER(void, bzero, void *s, size_t n)
       CALL_REAL(bzero, s, n);
       return;
     }
-  TRACE_IN;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   old_state = __mf_state;
   __mf_state = reentrant;
   MF_VALIDATE_EXTENT(s, n, "bzero region");
   CALL_REAL(bzero, s, n);
   __mf_state = old_state;
-  TRACE_OUT;
 }
 #endif
 
@@ -778,14 +763,13 @@ WRAPPER(void, bcopy, const void *src, void *dest, size_t n)
       CALL_REAL(bcopy, src, dest, n);
       return;
     }
-  TRACE_IN;
+  TRACE ("mf: %s\n", __PRETTY_FUNCTION__);
   old_state = __mf_state;
   __mf_state = reentrant;
   MF_VALIDATE_EXTENT(src, n, "bcopy src");
   MF_VALIDATE_EXTENT(dest, n, "bcopy dest");
   CALL_REAL(bcopy, src, dest, n);
   __mf_state = old_state;
-  TRACE_OUT;
 }
 #endif
 

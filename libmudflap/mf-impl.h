@@ -185,10 +185,6 @@ extern struct __mf_dynamic __mf_dynamic;
   if (UNLIKELY (__mf_opts.trace_mf_calls)) \
       fprintf (stderr, __VA_ARGS__);
 
-#define TRACE_IN VERBOSE_TRACE ("mf: enter %s\n", __PRETTY_FUNCTION__)
-#define TRACE_OUT VERBOSE_TRACE ("mf: exit %s\n", __PRETTY_FUNCTION__)
-
-
 #define __MF_PERSIST_MAX 256
 #define __MF_FREEQ_MAX 256
 

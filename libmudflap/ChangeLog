@@ -1,3 +1,16 @@
+2002-09-16  Frank Ch. Eigler  <fche@redhat.com>
+
+	* test/pass20-frag.c: New test file.
+	* Makefile.am (TESTS): Reorganize.  Add pass20 test.
+	* Makefile.in: Regenerated.
+
+	* mf-impl.h (TRACE_IN, TRACE_OUT): Remove macros.  Update callers.
+	* mf-hooks.c (BEGIN_PROTECT): Add hook tracing here.
+	* mf-heuristic.c (__mf_heuristic_check): Track seen /proc/self/map
+	entries to avoid repeat registration.
+	* mf-runtime.c (__mf_object_cemetary): Don't bother bury GUESS regions.
+	(__mf_register, __mf_unregister): Rewrite GUESS handling logic.
+	
 2002-09-09  Frank Ch. Eigler  <fche@redhat.com>
 
 	* Makefile.am: Create test sources with #include, not cat>>.

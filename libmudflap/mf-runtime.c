@@ -357,7 +357,6 @@ resolve_single_dynamic (void **target, const char *name)
 void 
 __mf_resolve_dynamics () 
 {
-  TRACE_IN;
 #define RESOLVE(fname) \
 resolve_single_dynamic (&__mf_dynamic.dyn_ ## fname, #fname)
   RESOLVE(bcmp);
@@ -395,7 +394,6 @@ resolve_single_dynamic (&__mf_dynamic.dyn_ ## fname, #fname)
   RESOLVE(strrchr);
   RESOLVE(strstr);
 #undef RESOLVE
-  TRACE_OUT;
 }
 
 #endif /* PIC */
@@ -427,17 +425,14 @@ void __mf_init ()
     }
 
   __mf_state = active;
-
-  TRACE_OUT;
 }
 
 
 extern void __mf_fini () DTOR;
 void __mf_fini ()
 {
-  TRACE_IN;
+  TRACE ("mf: __mf_fini\n");
   __mf_report ();
-  TRACE_OUT;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -484,9 +479,9 @@ typedef struct __mf_object_tree
 
 /* Live objects: binary tree on __mf_object_t.low */
 __mf_object_tree_t *__mf_object_root;
-/* Dead objects: circular arrays */
+/* Dead objects: circular arrays; exclude __MF_TYPE_GUESS. */
 unsigned __mf_object_dead_head[__MF_TYPE_GUESS+1]; /* next empty spot */
-__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_GUESS+1][__MF_PERSIST_MAX];
+__mf_object_tree_t *__mf_object_cemetary[__MF_TYPE_GUESS][__MF_PERSIST_MAX];
 
 static __mf_object_tree_t *__mf_find_object (uintptr_t low, uintptr_t high);
 static unsigned __mf_find_objects (uintptr_t ptr_low, uintptr_t ptr_high, 
@@ -590,7 +585,6 @@ void __mf_check (uintptr_t ptr, uintptr_t sz, const char *location)
 		    __MF_VIOL_CHECK);
 }
 
-/* __mf_register */
 
 static __mf_object_tree_t *
 __mf_insert_new_object (uintptr_t low, uintptr_t high, int type, 
@@ -650,6 +644,14 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
   TRACE ("mf: register p=%08lx s=%lu t=%d n='%s'\n", ptr, sz, 
 	type, name ? name : "");
 
+  if (__mf_opts.collect_stats)
+    {
+      __mf_count_register ++;
+      __mf_total_register_size [(type < 0) ? 0 :
+				(type > __MF_TYPE_MAX) ? 0 : 
+				type] += sz;
+    }
+
   switch (__mf_opts.mudflap_mode)
     {
     case mode_nop:
@@ -669,8 +671,7 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 
     case mode_check:
       {
-	enum { max_objs = 1 };
-	__mf_object_tree_t *ovr_obj [max_objs];
+	__mf_object_tree_t *ovr_objs [1];
 	unsigned num_overlapping_objs;
 	uintptr_t low = ptr;
 	uintptr_t high = CLAMPSZ (ptr, sz);
@@ -681,136 +682,132 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	/* Treat unknown size indication as 1.  */
 	if (UNLIKELY (sz == 0)) sz = 1;
 	
-	num_overlapping_objs = __mf_find_objects (low, high, ovr_obj, max_objs);
+	num_overlapping_objs = __mf_find_objects (low, high, ovr_objs, 1);
+
+	/* Handle overlaps.  */
 	if (UNLIKELY (num_overlapping_objs > 0))
 	  {
-	    /* Normally, this would be a violation.  However, accept a
-	       single duplicate registration for static objects, since these
-	       may come from distinct compilation units.  */
+	    __mf_object_tree_t *ovr_obj = ovr_objs[0];
+	    
+	    /* Quietly accept a single duplicate registration for
+	       static objects, since these may come from distinct
+	       compilation units.  */
 	    if (type == __MF_TYPE_STATIC &&
-		num_overlapping_objs == 1 &&
-		ovr_obj[0]->data.type == __MF_TYPE_STATIC &&
-		ovr_obj[0]->data.low == low &&
-		ovr_obj[0]->data.high == high)
+		ovr_obj->data.type == __MF_TYPE_STATIC &&
+		ovr_obj->data.low == low &&
+		ovr_obj->data.high == high)
 	      {
 		/* do nothing */
-		VERBOSE_TRACE ("mf: duplicate static reg %08lx\n", low);
+		VERBOSE_TRACE ("mf: duplicate static reg %08lx-%08lx\n", low, high);
 		END_RECURSION_PROTECT;
 		return;
 	      }
+
+	    /* Quietly accept a single duplicate registration for
+	       guess objects too.  */
+	    if (type == __MF_TYPE_GUESS &&
+		ovr_obj->data.type == __MF_TYPE_GUESS &&
+		ovr_obj->data.low == low &&
+		ovr_obj->data.high == high)
+	      {
+		/* do nothing */
+		VERBOSE_TRACE ("mf: duplicate guess reg %08lx-%08lx\n", low, high);
+		END_RECURSION_PROTECT;
+		return;
+	      }
+
+	    /* Quietly accept new a guess registration that overlaps
+	       at least one existing object.  Trim it down to size.  */
 	    else if (type == __MF_TYPE_GUESS)
 	      {
-		unsigned i;
-		int all_guesses = 1;
+		/* We need to split this new GUESS region into some
+		   smaller ones.  Or we may not need to insert it at
+		   all if it is covered by the overlapping region.  */
 
-		/* XXX: need generalization for max_objs > 1 */
-		for (i = 0; i < min (num_overlapping_objs, max_objs); ++i)
-		  {
-		    if (ovr_obj[i]->data.type != __MF_TYPE_GUESS)
-		      {
-			all_guesses = 0;
-			break;
-		      }
-		  }
+		/* First, identify all the overlapping objects.  */
+		__mf_object_tree_t **all_ovr_objs;
+		unsigned num_ovr_objs, n;
+		uintptr_t next_low;
+		DECLARE (void *, malloc, size_t c);
+		DECLARE (void, free, void *p);
 
-		/* XXX: the following logic is too restrictive.
-		   We should handle the case of inserting a big GUESS
-		   on top of a little (say) HEAP area.  The new GUESS
-		   thingie should be split up the same way as if the
-		   little HEAPie was added second.  */
-		if (all_guesses)
-		  {
-		    VERBOSE_TRACE ("mf: replacing %d existing guess%s at %08lx "
-				   "with %08lx - %08lx\n", 
-			   num_overlapping_objs,
-			   (num_overlapping_objs > 1 ? "es" : ""),
-			   low,
-			   low, high);
+		all_ovr_objs = CALL_REAL (malloc, (sizeof (__mf_object_tree_t *) *
+						   num_overlapping_objs));
+		if (all_ovr_objs == NULL) abort ();
+		num_ovr_objs = __mf_find_objects (low, high, all_ovr_objs,
+						  num_overlapping_objs);
+		/* assert (num_ovr_objs == num_overlapping_objs); */
 
-		    for (i = 0; i < min (max_objs, num_overlapping_objs); ++i)
-		      {
-			DECLARE (void, free, void *ptr);
-			__mf_remove_old_object (ovr_obj[i]);
-			CALL_REAL (free, ovr_obj[i]->data.alloc_backtrace);
-			CALL_REAL (free, ovr_obj[i]);
-		      }
+		VERBOSE_TRACE ("mf: splitting guess %08lx-%08lx, # overlaps: %u\n",
+			       low, high, num_ovr_objs);
 
-		    __mf_insert_new_object (low, high, __MF_TYPE_GUESS, 
-					    name, pc);
-		  } 
-		else 
-		  {
-		    VERBOSE_TRACE ("mf: preserving %d regions at %08lx\n", 
-				   num_overlapping_objs, low);
-		  }		
+		/* Add GUESS regions between the holes: before each
+		   overlapping region.  */
 		END_RECURSION_PROTECT;
+		next_low = low;
+		/* This makes use of the assumption that __mf_find_objects() returns
+		   overlapping objects in an increasing sequence.  */
+		for (n=0; n < min (num_ovr_objs, num_overlapping_objs); n++)
+		  {
+		    if (all_ovr_objs[n]->data.low > next_low) /* Gap? */
+		      {
+			uintptr_t next_high = CLAMPSUB (all_ovr_objs[n]->data.low, 1);
+			__mf_register (next_low, next_high-next_low+1,
+				       __MF_TYPE_GUESS, name);
+		      }
+		    next_low = CLAMPADD (all_ovr_objs[n]->data.high, 1);
+		  }
+		/* Add in any leftover room at the top.  */
+		if (next_low <= high)
+		  __mf_register (next_low, high-next_low+1,
+				 __MF_TYPE_GUESS, name);
+
+		/* XXX: future optimization: allow consecutive GUESS regions to
+		   be glued together.  */
+		CALL_REAL (free, all_ovr_objs);
 		return;
 	      }
+
+	    /* Quietly accept a non-GUESS region overlaying a GUESS
+	       region.  Handle it by removing the GUESS region
+	       temporarily, then recursively adding this new object,
+	       and then the GUESS back.  The latter will be split up
+	       by the recursive process above.  */
+	    else if (ovr_obj->data.type == __MF_TYPE_GUESS)
+	      {
+		uintptr_t old_low = ovr_obj->data.low;
+		uintptr_t old_high = ovr_obj->data.high;
+		const char* old_name = ovr_obj->data.name;
+
+		/* Now to recursively remove the guess piece, and
+  		   reinsert them in the opposite order.  Recursion
+  		   should bottom out if another non-GUESS overlapping
+  		   region is found for this new object (resulting in a
+  		   violation), or if no further overlap occurs.  The
+  		   located GUESS region should end up being split up
+  		   in any case.  */
+		END_RECURSION_PROTECT;
+		__mf_unregister (old_low, old_high-old_low+1);
+		__mf_register (low, sz, type, name);
+		__mf_register (old_low, old_high-old_low+1, __MF_TYPE_GUESS, old_name);
+		return;
+	      }
+
+	    /* Alas, a genuine violation.  */
 	    else
 	      {
-		unsigned i;
-		for (i = 0; i < min (num_overlapping_objs, max_objs) ; ++i)
-		  {
-		    if (ovr_obj[i]->data.type == __MF_TYPE_GUESS)
-		      {
-			/* We're going to split our existing guess
-			   into 2 and put this new region in the
-			   middle. */
-			
-			uintptr_t guess1_low, guess1_high;
-			uintptr_t guess2_low, guess2_high;
-			uintptr_t guess_pc;
-			const char *guess_name;
-			DECLARE (void, free, void *ptr);
-		
-			guess_pc = ovr_obj[i]->data.alloc_pc;
-			guess_name = ovr_obj[i]->data.name;
-
-			guess1_low = ovr_obj[i]->data.low;
-			guess1_high = CLAMPSUB (low, (1 + __mf_opts.crumple_zone));
-
-			guess2_low = CLAMPADD (high, (1 + __mf_opts.crumple_zone));
-			guess2_high = ovr_obj[i]->data.high;
-
-			VERBOSE_TRACE ("mf: splitting guess region %08lx-%08lx\n", 
-				       guess1_low, guess2_high);
-		    
-			/* NB: split regions may disappear if low > high. */
-
-			__mf_remove_old_object (ovr_obj[i]);
-		        CALL_REAL(free, ovr_obj[i]->data.alloc_backtrace);
-			CALL_REAL(free, ovr_obj[i]);
-			ovr_obj[i] = NULL;
-
-			/* XXX: preserve other information: stats? backtraces */
-
-			if (guess1_low <= guess1_high)
-			  {
-			    __mf_insert_new_object (guess1_low, guess1_high, 
-						    __MF_TYPE_GUESS, 
-						    guess_name, guess_pc);
-			  }
-
-			if (guess2_low <= guess2_high)
-			  {
-			    __mf_insert_new_object (guess2_low, guess2_high, 
-						    __MF_TYPE_GUESS, 
-						    guess_name, guess_pc);
-			  }
-		      }
-		    else
-		      {
-			/* Two or more *real* mappings here. */
-			__mf_violation 
-			  (ptr, sz, 
-			   (uintptr_t) __builtin_return_address (0), NULL,
-			   __MF_VIOL_REGISTER);
-		      }
-		  }
+		/* Two or more *real* mappings here. */
+		__mf_violation (ptr, sz,
+				(uintptr_t) __builtin_return_address (0), NULL,
+				__MF_VIOL_REGISTER);
 	      }
 	  }
-
-	__mf_insert_new_object (low, high, type, name, pc);
+	
+	/* No overlapping objects: AOK.  */
+	else
+	  {
+	    __mf_insert_new_object (low, high, type, name, pc);
+	  }
 	
 	/* We could conceivably call __mf_check() here to prime the cache,
 	   but then the check_count field is not reliable.  */
@@ -818,19 +815,10 @@ __mf_register (uintptr_t ptr, uintptr_t sz, int type, const char *name)
 	END_RECURSION_PROTECT;
 	break;
       }
-
     } /* end switch (__mf_opts.mudflap_mode) */
-
-  if (__mf_opts.collect_stats)
-    {
-      __mf_count_register ++;
-      __mf_total_register_size [(type < 0) ? 0 :
-				(type > __MF_TYPE_MAX) ? 0 : 
-				type] += sz;
-    }
 }
 
-/* __mf_unregister */
+
 
 void
 __mf_unregister (uintptr_t ptr, uintptr_t sz)
@@ -868,19 +856,8 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	
 	num_overlapping_objs = __mf_find_objects (ptr, CLAMPSZ (ptr, sz), objs, 1);
 
-	{
-	  /* do not unregister guessed regions */
-	  unsigned i;
-	  for (i = 0; i < num_overlapping_objs; ++i)
-	    {
-	      if (objs[i]->data.type == __MF_TYPE_GUESS)
-		{
-		  VERBOSE_TRACE ("mf: ignored guess unreg %08lx\n", objs[i]->data.low);
-		  END_RECURSION_PROTECT;
-		  return;
-		}
-	    }	    
-	}
+	/* XXX: handle unregistration of big old GUESS region, that has since
+	   been splintered.  */
 
 	if (UNLIKELY (num_overlapping_objs != 1))
 	  {
@@ -894,12 +871,10 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	
 	old_obj = objs[0];
 
-	VERBOSE_TRACE ("mf: removing %08lx-%08lx\n",
-		       old_obj->data.low, old_obj->data.high); 
-
 	__mf_remove_old_object (old_obj);
 	
-	if (__mf_opts.persistent_count > 0)
+	if (__mf_opts.persistent_count > 0 && 
+	    old_obj->data.type != __MF_TYPE_GUESS)
 	  {
 	    old_obj->data.deallocated_p = 1;
 	    old_obj->left = old_obj->right = NULL;
@@ -911,12 +886,11 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 		__mf_backtrace (& old_obj->data.dealloc_backtrace,
 				NULL, 2);
 
-	    
 	    /* Put this object into the cemetary.  This may require this plot to
 	       be recycled, and the previous resident to be designated del_obj.  */
 	    
 	    assert (old_obj->data.type >= __MF_TYPE_UNKNOWN && 
-		    old_obj->data.type <= __MF_TYPE_GUESS);
+		    old_obj->data.type < __MF_TYPE_GUESS);
 	    {
 	      unsigned row = old_obj->data.type;
 	      unsigned plot = __mf_object_dead_head [row];
@@ -929,9 +903,9 @@ __mf_unregister (uintptr_t ptr, uintptr_t sz)
 	      __mf_object_dead_head [row] = plot;
 	    }
 	    
-	  } else {
-	    del_obj = old_obj;
 	  }
+	else
+	  del_obj = old_obj;
 	
 	if (__mf_opts.print_leaks)
 	  {
@@ -1001,7 +975,7 @@ __mf_validate_object_cemetary ()
   unsigned cls;
   unsigned i;
 
-  for (cls = __MF_TYPE_UNKNOWN; cls <= __MF_TYPE_GUESS; cls++)
+  for (cls = __MF_TYPE_UNKNOWN; cls < __MF_TYPE_GUESS; cls++)
     {
       assert (__mf_object_dead_head [cls] >= 0 &&
 	      __mf_object_dead_head [cls] < __mf_opts.persistent_count);
@@ -1246,7 +1220,7 @@ __mf_find_dead_objects (uintptr_t low, uintptr_t high,
 	{
 	  count = 0;
 	  
-	  for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_GUESS; row ++)
+	  for (row = __MF_TYPE_UNKNOWN; row < __MF_TYPE_GUESS; row ++)
 	    {
 	      unsigned plot;
 	      unsigned i;
@@ -1406,7 +1380,7 @@ __mf_report ()
 	{
 	  unsigned dead_count = 0;
 	  unsigned row, plot;
-	  for (row = __MF_TYPE_UNKNOWN; row <= __MF_TYPE_GUESS; row ++)
+	  for (row = __MF_TYPE_UNKNOWN; row < __MF_TYPE_GUESS; row ++)
 	    for (plot = 0 ; plot < __mf_opts.persistent_count; plot ++)
 	      if (__mf_object_cemetary [row][plot] != 0)
 		dead_count ++;
