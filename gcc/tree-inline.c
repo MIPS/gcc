@@ -1266,6 +1266,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       /* Assign cost of 1 to usual operations.
 	 ??? We may consider mapping RTL costs to this.  */
     case COND_EXPR:
+    case VEC_COND_EXPR:
 
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -1371,6 +1372,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       }
     default:
       /* Abort here se we know we don't miss any nodes.  */
+debug_tree (x);
       gcc_unreachable ();
     }
   return NULL;

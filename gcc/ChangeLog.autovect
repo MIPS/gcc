@@ -1,3 +1,35 @@
+2005-04-05  Ira Rosen  <irar@il.ibm.com>
+
+	* tree-inline.c (estimate_num_insns_1): Add VEC_COND_EXPR case.
+
+2005-04-05  Keith Besaw  <kbesaw@us.ibm.com>
+
+	* common.opt: add the ftree-vect-loop-version option
+	and the flag flag_tree_vect_loop_version initialized to 1.
+	* tree-data-ref.c (init_data_ref): New parm with points-to
+	info (type ptr_info_def *) used to set DR_POINTSTO_INFO
+	for the new data reference.	
+	(analyze_array): init DR_POINTSTO_INFO to NULL.
+	(analyze_indirect_ref): extract points-to info when base
+	is an SSA_NAME and passes it to init_data_ref.
+	(object_analysis): move DR_POINTSTO_INFO to final data ref.
+	(create_data_ref): print DR_POINTSTO_INFO to dump_file.
+	* tree-data-ref.h (struct data_reference): add field
+	pointsto_info and extraction macro DR_POINTSTO_INFO.
+	* tree-ssanames.c (duplicate_ssa_name): Replace common
+	code with call to duplicate_ssa_name_ptr_info.
+	(duplicate_ssa_name_ptr_info): New.
+	duplicates points-to info into a new SSA_NAME.
+	* tree-vect-analyze.c (vect_enhance_data_refs_alignment):
+	Add checks of flag_tree_vect_loop_version and optimize_size
+	to control lop versioning.
+	* tree-vect-transform.c (vect_create_data_ref_ptr): use
+	DR_POINTSTO_INFO from scalar data ref to define vector
+	pointer SSA_NAME replacement.
+	* tree.h (duplicate_ssa_name_ptr_info): declare extern.
+	* invoke.texi: Add documentation for
+	ftree-vect-loop-version.
+
 2005-04-03  Dorit Naishlos  <dorit@il.ibm.com>
 
 	* defaults.h (TARGET_VECT_NUM_PATTERNS): New.

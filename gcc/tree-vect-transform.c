@@ -339,7 +339,7 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   if (vect_print_dump_info (REPORT_DETAILS, UNKNOWN_LOC))
     {
       tree data_ref_base = base_name;
-      fprintf (vect_dump, "create array_ref of type: ");
+      fprintf (vect_dump, "create vector-pointer variable to type: ");
       print_generic_expr (vect_dump, vectype, TDF_SLIM);
       if (TREE_CODE (data_ref_base) == VAR_DECL)
         fprintf (vect_dump, "  vectorizing a one dimensional array ref: ");
@@ -360,7 +360,8 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   add_referenced_tmp_var (vect_ptr);
   
   
-  /** (2) Handle aliasing information of the new vector-pointer:  **/
+  /** (2) Add aliasing information to the new vector-pointer:
+          (The points-to info (SSA_NAME_PTR_INFO) may be defined later.)  **/
   
   tag = DR_MEMTAG (dr);
   gcc_assert (tag);
@@ -391,7 +392,12 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   /** (4) Handle the updating of the vector-pointer inside the loop: **/
 
   if (only_init) /* No update in loop is required.  */
-    return vect_ptr_init;
+    {
+      /* Copy the points-to information if it exists. */
+      if (DR_POINTSTO_INFO (dr))
+        duplicate_ssa_name_ptr_info (vect_ptr_init, DR_POINTSTO_INFO (dr));
+      return vect_ptr_init;
+    }
 
   idx = vect_create_index_for_vector_ref (loop_vinfo);
 
@@ -421,6 +427,10 @@ vect_create_data_ref_ptr (tree stmt, block_stmt_iterator *bsi, tree offset,
   TREE_OPERAND (vec_stmt, 0) = new_temp;
   bsi_insert_before (bsi, vec_stmt, BSI_SAME_STMT);
   data_ref_ptr = TREE_OPERAND (vec_stmt, 0);
+
+  /* Copy the points-to information if it exists. */
+  if (DR_POINTSTO_INFO (dr))
+    duplicate_ssa_name_ptr_info (data_ref_ptr, DR_POINTSTO_INFO (dr));
 
   return data_ref_ptr;
 }

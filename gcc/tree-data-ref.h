@@ -67,6 +67,7 @@ struct data_reference
 
   /* Aliasing information.  */
   tree memtag;
+  struct ptr_info_def *pointsto_info;
 
   /* Alignment information. Whether the base of the data-reference is aligned 
      to vectype.  */
@@ -88,6 +89,7 @@ struct data_reference
 #define DR_INIT_OFFSET(DR)         (DR)->initial_offset
 #define DR_STEP(DR)                (DR)->step
 #define DR_MEMTAG(DR)              (DR)->memtag
+#define DR_POINTSTO_INFO(DR)       (DR)->pointsto_info
 #define DR_BASE_ALIGNED(DR)        (DR)->base_aligned
 #define DR_OFFSET_MISALIGNMENT(DR) (DR)->misalignment
 

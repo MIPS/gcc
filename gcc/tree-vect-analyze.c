@@ -1093,67 +1093,70 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   /* (2) Versioning to force alignment.  */
 
   /* Try versioning if:
-     1) there is at least one unsupported misaligned data ref with an unknown
+     1) flag_tree_vect_loop_version is TRUE
+     2) optimize_size is FALSE
+     3) there is at least one unsupported misaligned data ref with an unknown
         misalignment, and
-     2) all misaligned data refs with a known misalignment are supported, and
-     3) the number of runtime alignment checks is within reason.  */
-  do_versioning = true;
-  datarefs = loop_datarefs;
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
+     4) all misaligned data refs with a known misalignment are supported, and
+     5) the number of runtime alignment checks is within reason.  */
+
+  do_versioning = flag_tree_vect_loop_version && (!optimize_size);
+
+  if (do_versioning)
     {
-      struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
-
-      if (aligned_access_p (dr))
-	continue;
-
-      supportable_dr_alignment = vect_supportable_dr_alignment (dr);
-
-      if (!supportable_dr_alignment)
-	{
-	  tree stmt;
-	  int mask;
-	  tree vectype;
-
-	  if (known_alignment_for_access_p (dr)
-	      || VARRAY_ACTIVE_SIZE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo))
-	      >= MAX_RUNTIME_ALIGNMENT_CHECKS)
-	    {
-	      do_versioning = false;
-	      break;
-	    }
-
-	  stmt = DR_STMT (dr);
-	  vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
-	  gcc_assert (vectype);
-	  
-	  /* The rightmost bits of an aligned address must be zeros.
-	     Construct the mask needed for this test.  For example,
-	     GET_MODE_SIZE for the vector mode V4SI is 16 bytes so the
-	     mask must be 15 = 0xf. */
-	  mask = GET_MODE_SIZE (TYPE_MODE (vectype)) - 1;
-	  
-	  /* FORNOW: using the same mask to test all potentially unaligned
-	     references in the loop.  The vectorizer currently supports a
-	     single vector size, see the reference to
-	     GET_MODE_NUNITS (TYPE_MODE (vectype)) where the vectorization
-	     factor is computed.  */
-	  gcc_assert (!LOOP_VINFO_PTR_MASK (loop_vinfo)
-		      || LOOP_VINFO_PTR_MASK (loop_vinfo) == mask);
-	  LOOP_VINFO_PTR_MASK (loop_vinfo) = mask;
-	  VARRAY_PUSH_TREE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo),
-			    DR_STMT (dr));
-	}
-  
-      if (!do_versioning)
+      datarefs = loop_datarefs;
+      for (i = 0; i < VARRAY_ACTIVE_SIZE (datarefs); i++)
         {
-          varray_clear (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
-          break;
+          struct data_reference *dr = VARRAY_GENERIC_PTR (datarefs, i);
+
+          if (aligned_access_p (dr))
+            continue;
+
+          supportable_dr_alignment = vect_supportable_dr_alignment (dr);
+
+          if (!supportable_dr_alignment)
+            {
+              tree stmt;
+              int mask;
+              tree vectype;
+
+              if (known_alignment_for_access_p (dr)
+                  || VARRAY_ACTIVE_SIZE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo))
+                     >= MAX_RUNTIME_ALIGNMENT_CHECKS)
+                {
+                  do_versioning = false;
+                  break;
+                }
+
+              stmt = DR_STMT (dr);
+              vectype = STMT_VINFO_VECTYPE (vinfo_for_stmt (stmt));
+              gcc_assert (vectype);
+  
+              /* The rightmost bits of an aligned address must be zeros.
+                 Construct the mask needed for this test.  For example,
+                 GET_MODE_SIZE for the vector mode V4SI is 16 bytes so the
+                 mask must be 15 = 0xf. */
+              mask = GET_MODE_SIZE (TYPE_MODE (vectype)) - 1;
+
+              /* FORNOW: using the same mask to test all potentially unaligned
+                 references in the loop.  The vectorizer currently supports a
+                 single vector size, see the reference to
+                 GET_MODE_NUNITS (TYPE_MODE (vectype)) where the vectorization
+                 factor is computed.  */
+              gcc_assert (!LOOP_VINFO_PTR_MASK (loop_vinfo)
+                          || LOOP_VINFO_PTR_MASK (loop_vinfo) == mask);
+              LOOP_VINFO_PTR_MASK (loop_vinfo) = mask;
+              VARRAY_PUSH_TREE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo),
+                                DR_STMT (dr));
+            }
         }
-    }
       
-  /* Versioning requires at least one candidate misaligned data reference.  */
-  if (VARRAY_ACTIVE_SIZE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo)) == 0)
-    do_versioning = false;
+      /* Versioning requires at least one candidate misaligned data reference.  */
+      if (VARRAY_ACTIVE_SIZE (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo)) == 0)
+        do_versioning = false;
+      else if (!do_versioning)
+        varray_clear (LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo));
+    }
 
   if (do_versioning)
     {
@@ -1169,7 +1172,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
           stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
           struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
           DR_MISALIGNMENT (dr) = 0;
-	  if (vect_print_dump_info (REPORT_UNVECTORIZED_LOOPS, 
+	  if (vect_print_dump_info (REPORT_ALIGNMENT, 
 				    LOOP_LOC (loop_vinfo)))
             fprintf (vect_dump, "Alignment of access forced using versioning.");
         }

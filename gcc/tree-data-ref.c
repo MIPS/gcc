@@ -132,7 +132,8 @@ static tree address_analysis (tree, tree, bool, tree, bool,
 			      struct data_reference *, 
 			      tree *, tree *, tree *, bool *);
 static struct data_reference * init_data_ref (tree, tree, tree, tree, bool, 
-				      tree, tree, tree, tree, bool, tree);
+				      tree, tree, tree, tree, bool, tree,
+				      struct ptr_info_def *);
 static struct data_reference * analyze_indirect_ref (tree, tree, bool);
 static struct data_reference * create_data_ref (tree, tree, bool, tree, bool);
 static bool base_addr_differ_p (struct data_reference *,
@@ -694,6 +695,7 @@ analyze_array (tree stmt, tree ref, bool is_read)
   DR_OFFSET_MISALIGNMENT (res) = NULL_TREE;
   DR_BASE_ALIGNED (res) = false;
   DR_MEMTAG (res) = NULL_TREE;
+  DR_POINTSTO_INFO (res) = NULL;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
@@ -710,12 +712,16 @@ analyze_array (tree stmt, tree ref, bool is_read)
 static struct data_reference *
 analyze_indirect_ref (tree stmt, tree ref, bool is_read) 
 {
-    
   struct loop *loop = loop_containing_stmt (stmt);
-  tree access_fn = analyze_scalar_evolution (loop, TREE_OPERAND (ref, 0));
+  tree ptr_ref = TREE_OPERAND (ref, 0);
+  tree access_fn = analyze_scalar_evolution (loop, ptr_ref);
   tree init = initial_condition_in_loop_num (access_fn, loop->num);
   tree base_address = NULL_TREE, evolution, step = NULL_TREE;
- 
+  struct ptr_info_def *pointsto_info = NULL;
+
+  if (TREE_CODE (ptr_ref) == SSA_NAME)
+    pointsto_info = SSA_NAME_PTR_INFO (ptr_ref);
+
   STRIP_NOPS (init);   
   if (access_fn == chrec_dont_know || init == chrec_dont_know)
     {
@@ -762,7 +768,8 @@ analyze_indirect_ref (tree stmt, tree ref, bool is_read)
 	  fprintf (dump_file, "\nunknown evolution of ptr.\n");	
     }
   return init_data_ref (stmt, ref, NULL_TREE, access_fn, is_read, base_address, 
-			NULL_TREE, step, NULL_TREE, false, NULL_TREE);
+			NULL_TREE, step, NULL_TREE, false, NULL_TREE,
+			pointsto_info);
 }
 
 
@@ -780,7 +787,8 @@ init_data_ref (tree stmt,
 	       tree step,
 	       tree misalign,
 	       bool base_aligned,
-	       tree memtag)
+	       tree memtag,
+               struct ptr_info_def *pointsto_info)
 {
   struct data_reference *res;
 
@@ -806,6 +814,7 @@ init_data_ref (tree stmt,
   DR_OFFSET_MISALIGNMENT (res) = misalign;
   DR_BASE_ALIGNED (res) = base_aligned;
   DR_MEMTAG (res) = memtag;
+  DR_POINTSTO_INFO (res) = pointsto_info;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, ")\n");
@@ -1258,7 +1267,7 @@ address_analysis (tree expr, tree stmt, bool is_read, tree alignment,
               ALIGNMENT or NULL_TREE if the computation is impossible
    STEP - evolution of the DR_REF in the loop
    BASE_ALIGNED - indicates if BASE is aligned
-   MEMTAG - memory tag for aliasing purposes  
+   MEMTAG - memory tag for aliasing purposes
 
    If the analysis of MEMREF evolution in the loop fails, NULL_TREE is returned, 
    but DR can be created anyway.
@@ -1395,7 +1404,7 @@ object_analysis (tree memref, tree stmt, bool is_read, tree alignment,
 
   /* Part 1:  Case 3. INDIRECT_REFs.  */
   else if (TREE_CODE (memref) == INDIRECT_REF)
-    { 
+    {
       /* 3.1 build data-reference structure for MEMREF.  */
       ptr_dr = analyze_indirect_ref (stmt, memref, is_read);
       if (!ptr_dr)
@@ -1444,7 +1453,10 @@ object_analysis (tree memref, tree stmt, bool is_read, tree alignment,
       object_step = size_binop (PLUS_EXPR, object_step, ptr_step);
 
       /* 3.3 set data-reference structure for MEMREF.  */
-      *dr = (*dr) ? *dr : ptr_dr;
+      if (*dr)
+        DR_POINTSTO_INFO (*dr) = DR_POINTSTO_INFO (ptr_dr);
+      else
+        *dr = ptr_dr;
 
       /* 3.4 call address_analysis to analyze INIT of the access 
 	 function.  */
@@ -1515,7 +1527,7 @@ object_analysis (tree memref, tree stmt, bool is_read, tree alignment,
    
    Create a data-reference structure for MEMREF. Set its DR_BASE_ADDRESS,
    DR_INIT_OFFSET, DR_STEP, DR_OFFSET_MISALIGNMENT, DR_BASE_ALIGNED (if 
-   ALIGNMENT is not NULL_TREE) and DR_MEMTAG fields. 
+   ALIGNMENT is not NULL_TREE), DR_MEMTAG, and DR_POINTSTO_INFO fields. 
 
    Input:
    MEMREF - the memory reference that is being analyzed
@@ -1573,6 +1585,8 @@ create_data_ref (tree memref, tree stmt, bool is_read, tree alignment,
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
+      struct ptr_info_def *pi = DR_POINTSTO_INFO (dr);
+
       fprintf (dump_file, "\nCreated dr for ");
       print_generic_expr (dump_file, memref, TDF_SLIM);
       fprintf (dump_file, "\n\tbase_address: ");
@@ -1593,6 +1607,12 @@ create_data_ref (tree memref, tree stmt, bool is_read, tree alignment,
       fprintf (dump_file, "\n\tmemtag: ");
       print_generic_expr (dump_file, DR_MEMTAG (dr), TDF_SLIM);
       fprintf (dump_file, "\n");
+      if (pi && pi->name_mem_tag)
+        {
+          fprintf (dump_file, "\n\tnametag: ");
+          print_generic_expr (dump_file, pi->name_mem_tag, TDF_SLIM);
+          fprintf (dump_file, "\n");
+        }
     }
   
   return dr;  
@@ -3499,6 +3519,7 @@ find_data_references_in_loop (struct loop *loop, tree alignment,
 	      DR_OFFSET_MISALIGNMENT (res) = NULL_TREE;
 	      DR_BASE_ALIGNED (res) = false;
 	      DR_MEMTAG (res) = NULL_TREE;
+              DR_POINTSTO_INFO (res) = NULL;
 	    }
 	  else if (res)
 	    {

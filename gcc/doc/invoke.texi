@@ -321,7 +321,8 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-pre  -ftree-ccp  -ftree-dce -ftree-loop-optimize @gol
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename @gol
--ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
+-ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre @gol
+-ftree-vectorize -ftree-vect-loop-version @gol
 -ftree-elim-checks @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
@@ -4123,7 +4124,8 @@ optimizations designed to reduce code size.
 
 @option{-Os} disables the following optimization flags:
 @gccoptlist{-falign-functions  -falign-jumps  -falign-loops @gol
--falign-labels  -freorder-blocks  -freorder-blocks-and-partition -fprefetch-loop-arrays}
+-falign-labels  -freorder-blocks  -freorder-blocks-and-partition @gol
+-fprefetch-loop-arrays  -ftree-vect-loop-version}
 
 If you use multiple @option{-O} options, with or without level numbers,
 the last such option is the one that is effective.
@@ -4720,6 +4722,15 @@ optimization later.  This is enabled by default at @option{-O} and higher.
 
 @item -ftree-vectorize
 Perform loop vectorization on trees.
+
+@item -ftree-vect-loop-version
+@opindex ftree-vect-loop-version
+Perform loop versioning when doing loop vectorization on trees.  When a loop
+appears to be vectorizable except that data alignment or data dependence cannot
+be determined at compile time then vectorized and non-vectorized versions of
+the loop are generated along with runtime checks for alignment or dependence
+to control which version is executed.  This option is enabled by default
+except at level @option{-Os} where it is disabled.
 
 @item -ftracer
 @opindex ftracer
