@@ -260,23 +260,31 @@ bool cgraph_is_master_clone (struct cgraph_node *);
 bool cgraph_is_immortal_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_immortal_master_clone (struct cgraph_node *);
+void cgraph_mark_needed_node (struct cgraph_node *);
+void cgraph_mark_reachable_node (struct cgraph_node *);
+bool cgraph_inline_p (struct cgraph_edge *, const char **);
 
 /* In cgraphunit.c  */
 bool cgraph_assemble_pending_functions (void);
 void cgraph_finalize_function (tree, bool);
 void cgraph_lower_function (struct cgraph_node *);
 void cgraph_finalize_compilation_unit (void);
-void cgraph_create_edges (struct cgraph_node *, tree);
 void cgraph_optimize (void);
-void cgraph_mark_needed_node (struct cgraph_node *);
-void cgraph_mark_reachable_node (struct cgraph_node *);
-bool cgraph_inline_p (struct cgraph_edge *, const char **);
 bool cgraph_preserve_function_body_p (tree);
 void verify_cgraph (void);
 void verify_cgraph_node (struct cgraph_node *);
-void cgraph_mark_inline_edge (struct cgraph_edge *);
-void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool);
 void cgraph_build_static_cdtor (char, tree, int);
 void init_cgraph (void);
+
+/* In ipa.c  */
+bool cgraph_remove_unreachable_nodes (bool, FILE *);
+int cgraph_postorder (struct cgraph_node **);
+
+/* In ipa-inline.c  */
+void cgraph_analyze_function_inlinability (struct cgraph_node *node);
+void cgraph_decide_inlining_incrementally (struct cgraph_node *);
+void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool);
+void cgraph_mark_inline_edge (struct cgraph_edge *);
+bool cgraph_default_inline_p (struct cgraph_node *);
 
 #endif  /* GCC_CGRAPH_H  */

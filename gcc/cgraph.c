@@ -957,4 +957,13 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
   return AVAIL_AVAILABLE;
 }
 
+/* Return true when CALLER_DECL should be inlined into CALLEE_DECL.  */
+
+bool
+cgraph_inline_p (struct cgraph_edge *e, const char **reason)
+{
+  *reason = e->inline_failed;
+  return !e->inline_failed;
+}
+
 #include "gt-cgraph.h"

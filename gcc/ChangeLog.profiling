@@ -1,3 +1,37 @@
+2004-11-30  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (ipa.o,ipa-inline.o): New.
+	* cgraph.h: Reorganize prototypes.
+	(cgraph_remove_unreachable_nodes, cgraph_postorder,
+	cgraph_default_inline_p, cgraph_analyze_function_inlinability,
+	cgraph_decide_inlining_incrementally): Declare.
+	* cgraph.c (cgraph_inline_p): Move here from...
+	* cgraphunit.c (cgraph_inline_p): ... here.
+	Update overall comment.
+	Do not include fibheap.h
+	(cgraph_create_edges): Make static.
+	(cgraph_postorder, cgraph_remove_unreachable_nodes): Move to ipa.c
+	(INSN_PER_CALL, cgraph_default_inline_p,
+	cgraph_decide_inlining_incrementally, ncalls_inlined,
+	nfunction_inlined, initial_insns, overall_insns, max_insns,
+	cgraph_estimate_size_after_inlining, cgraph_estimate_growth,
+	already_cloned, cgraph_clone_inlined_nodes_1,
+	cgraph_clone_inlined_nodes, cgraph_mark_inline_edge,
+	cgraph_mark_inline, cgraph_check_inline_limits,
+	cgraph_default_inline_p, cgraph_recursive_inlinig_p,
+	update_callee_keys, lookup_recursive_calls,
+	cgraph_decide_recursive_inlining, cgraph_set_inline_failed,
+	cgraph_desirability, cgraph_pick_most_desirable_edge,
+	cgraph_profile_driven_inlining,
+	cgraph_decide_inlining_of_small_functions, cgraph_decide_inlining,
+	cgraph_decide_inlining_incrementally, cgraph_apply_inline,
+	cgraph_gate_inlining, pass_ipa_inlinine): Move to ipa-inline.c
+	(cgraph_inline_p): Move to cgraph.c
+	(cgraph_function_and_variable_visibility): Update 
+	cgraph_remove_unreachable_nodes call.
+	* ipa-inline.c: New file; all code from cgraphunit.c
+	* ipa.c: Likewise.
+
 2004-11-29  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_decide_inlining_of_small_function): Kill
