@@ -65,7 +65,7 @@ BOOT_LANGUAGES = c @all_boot_languages@
 # TCFLAGS is used for compilations with the GCC just built.
 XCFLAGS =
 TCFLAGS =
-CFLAGS =  
+CFLAGS = -g
 STAGE1_CFLAGS = -g @stage1_cflags@ 
 BOOT_CFLAGS = -g -O2 
 
