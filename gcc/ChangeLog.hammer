@@ -1,3 +1,7 @@
+Wed Feb 12 16:58:29 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* predict.c (estimate_probability):  Fix roundoff error.
+
 Tue Feb 11 19:07:08 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* combine.c (combine_simplify_rtx): Fix folding of
