@@ -1,6 +1,19 @@
+2003-10-19  Andreas Jaeger  <aj@suse.de>
+
+	Merge from mainline:
+
+	2003-09-26  Andreas Krebbel <krebbel1@de.ibm.com>
+	* config/s390/s390.md ("builtin_setjmp_setup"): Insn deleted.
+	("builtin_longjmp"): Insn deleted.
+	("save_stack_nonlocal"): Save literal pool base pointer behind 
+	backchain and stack pointer.
+	("restore_stack_nonlocal"): Restore literal pool base pointer.
+	* config/s390/s390.h ("STACK_SAVEAREA_MODE"): Double size of
+	the stack save area for the nonlocal goto case.
+
 2003-10-19  Jan Hubicka  <jh@suse.cz>
 
-	* Mege from 3.3 branch (gcc_3_3_2_release)
+	* Merge from 3.3 branch (gcc_3_3_2_release)
 
 2003-10-19  Josef Zlomek  <zlomekj@suse.cz>
 
