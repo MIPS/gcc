@@ -1,3 +1,14 @@
+2004-04-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c: Update comments and reformat for legibility.
+	(find_vars_r): Remove special casing of MODIFY_EXPR and
+	simplify logic.
+	(compute_reached_uses, compute_reaching_defs, remove_decl,
+	find_decl_location): Remove.
+	(discover_nonconstat_array_refs_r,
+	discover_nonconstant_array_refs): Move ...
+	* tree-outof-ssa.c: ... here.
+
 2004-04-05  Richard Henderson  <rth@redhat.com>
 
 	* tree-simple.c (is_gimple_min_invariant): Disallow &a+i.
@@ -29,12 +40,12 @@
 	(discover_nonconstant_array_refs_r): Go through BIT_FIELD_REFs.
 	* tree-simple.c: Document that BIT_FIELD_REFs are valid lvalues.
 	* tree-ssa.c (set_is_used): Go through BIT_FIELD_REFs.
-        * tree-ssa-operands.c (get_expr_operands): Mark VA_ARG_EXPR
+	* tree-ssa-operands.c (get_expr_operands): Mark VA_ARG_EXPR
 	nodes as making volatile references.
 
 2004-04-02  Fariborz Jahanian <fjahanian@apple.com>
 
-        * c-convert.c (convert): Make convert work when converting 
+	* c-convert.c (convert): Make convert work when converting 
 	to compatible types across translation unit.
 
 2004-04-02  Andrew Pinski  <pinskia@physics.uc.edu>

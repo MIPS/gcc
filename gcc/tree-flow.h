@@ -494,16 +494,11 @@ extern void dump_immediate_uses (FILE *);
 extern void debug_immediate_uses (void);
 extern void dump_immediate_uses_for (FILE *, tree);
 extern void debug_immediate_uses_for (tree);
-extern void remove_decl (tree, tree);
-extern tree *find_decl_location (tree, tree);
-extern void compute_reached_uses (int);
 extern void compute_immediate_uses (int, bool (*)(tree));
 extern void free_df (void);
-extern void compute_reaching_defs (int);
 extern tree get_virtual_var (tree);
 extern void add_referenced_tmp_var (tree var);
 extern void mark_new_vars_to_rename (tree, bitmap);
-extern void discover_nonconstant_array_refs (void);
 extern void redirect_immediate_uses (tree, tree);
 
 /* Flags used when computing reaching definitions and reached uses.  */
