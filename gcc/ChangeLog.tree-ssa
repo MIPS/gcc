@@ -1,3 +1,8 @@
+2003-12-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-sra.c (can_be_scalarized_p): Print details about why something
+	could not be scalarized to the dump file.
+
 2003-12-01  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (OBJS-common): Add tree-phinodes.o.

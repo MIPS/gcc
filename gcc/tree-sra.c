@@ -166,7 +166,15 @@ can_be_scalarized_p (tree var)
   int nfields;
 
   if (!is_gimple_non_addressable (var))
-    return false;
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "Cannot scalarize variable ");
+	  print_generic_expr (dump_file, var, 0);	 
+	  fprintf (dump_file, " because it must live in memory\n");
+	}
+      return false;
+    }
 
   type = TREE_TYPE (var);
   nfields = 0;
@@ -176,18 +184,51 @@ can_be_scalarized_p (tree var)
 	continue;
 
       if (AGGREGATE_TYPE_P (TREE_TYPE (field)))
-	return false;
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (dump_file, var, 0);	 
+	      fprintf (dump_file,
+		       " because it contains an aggregate type field, ");
+	      print_generic_expr (dump_file, field, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  return false;
+	}
 
       /* FIXME.  We don't scalarize structures with bit fields yet.  To
 	 support this, we should make sure that all the fields fit in one
 	 word and modify every operation done on the scalarized bit fields
 	 to mask them properly.  */
       if (DECL_BIT_FIELD (field))
-	return false;
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (dump_file, var, 0);	 
+	      fprintf (dump_file,
+		       " because it contains a bit-field, ");
+	      print_generic_expr (dump_file, field, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  return false;
+	}
+      
 
       nfields++;
       if (nfields > MAX_NFIELDS_FOR_SRA)
-	return false;
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Cannot scalarize variable ");
+	      print_generic_expr (dump_file, var, 0);	 
+	      fprintf (dump_file,
+		       " because it contains more than %d fields\n", 
+		       MAX_NFIELDS_FOR_SRA);
+	    }
+	  return false;
+	}
     }
 
   /* If the structure had no FIELD_DECLs, then don't bother
