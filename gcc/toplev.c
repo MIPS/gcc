@@ -274,7 +274,7 @@ int flag_complex_divide_method = 0;
    AUTODETECT_FLAG_VAR_TRACKING it will be set according to optimize
    and default_debug_hooks in process_options ().  */
 
-int flag_web = AUTODETECT_FLAG_VAR_TRACKING;
+int flag_web = 0;
 
 /* Nonzero means that we don't want inlining by virtue of -fno-inline,
    not just because the tree inliner turned us off.  */
