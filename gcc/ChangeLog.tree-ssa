@@ -1,3 +1,10 @@
+2003-12-14  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (record_call_1): Do not call analyze_expr hook
+	* langhooks-def.h (LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR): Kill.
+	(LANG_HOOKS_CALLGRAPH_INITIALIZER): Update.
+	* longhooks.h (lang_hooks_for_callgraph): Kill analyze_expr.
+
 2003-12-13  Jan Hubicka  <jh@suse.cz>
 
 	* timevar.def (TV_TREE_STMT_VERIFY, TV_CFG_VERIFY, TV_CGRAPH_VERIFY):

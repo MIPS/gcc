@@ -3740,7 +3740,6 @@ extern tree build_artificial_parm (tree, tree);
 extern tree get_guard (tree);
 extern tree get_guard_cond (tree);
 extern tree set_guard (tree);
-extern tree cxx_callgraph_analyze_expr (tree *, int *, tree);
 
 /* XXX Not i18n clean.  */
 #define cp_deprecated(STR)						\

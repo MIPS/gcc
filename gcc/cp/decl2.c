@@ -2504,37 +2504,6 @@ generate_ctor_and_dtor_functions_for_priority (splay_tree_node n, void * data)
   return 0;
 }
 
-/* Called via LANGHOOK_CALLGRAPH_ANALYZE_EXPR.  It is supposed to mark
-   decls referenced from frontend specific constructs; it will be called
-   only for language-specific tree nodes.
-
-   Here we must deal with member pointers.  */
-
-tree
-cxx_callgraph_analyze_expr (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
-			    tree from ATTRIBUTE_UNUSED)
-{
-  tree t = *tp;
-
-  if (flag_unit_at_a_time)
-    switch (TREE_CODE (t))
-      {
-      case PTRMEM_CST:
-	if (TYPE_PTRMEMFUNC_P (TREE_TYPE (t)))
-	  cgraph_mark_needed_node (cgraph_node (PTRMEM_CST_MEMBER (t)));
-	break;
-      case BASELINK:
-	if (TREE_CODE (BASELINK_FUNCTIONS (t)) == FUNCTION_DECL)
-	  cgraph_mark_needed_node (cgraph_node (BASELINK_FUNCTIONS (t)));
-	break;
-
-      default:
-	break;
-      }
-
-  return NULL;
-}
-
 /* This routine is called from the last rule in yyparse ().
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction

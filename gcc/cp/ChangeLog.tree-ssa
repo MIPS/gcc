@@ -1,3 +1,9 @@
+2003-12-14  Jan Hubicka  <jh@suse.cz>
+
+	* cp-lang.c (LANG_HOOKS_CALLGRAPH_ANALYZE_EXPR): Kill.
+	* cp-tree.h (cxx_callgraph_analyze_expr): Kill.
+	* decl2.c (cxx_callgraph_analyze_expr): Kill.
+
 2003-11-24  Richard Henderson  <rth@redhat.com>
 
 	* Make-lang.in (tree.o, typeck.o): Remove -Wno-error.
