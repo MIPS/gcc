@@ -1,3 +1,30 @@
+2003-01-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9328
+	* g++.dg/ext/typeof3.C: New test.
+
+2003-01-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.c-torture/execute/20030120-1.c: New.
+
+2003-01-15  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.c-torture/execute/builtin-constant.x: XFAIL the test.
+
+2003-01-15  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* gcc.c-torture/compile/20000804-1.x: Don't execute this test at
+	all for HC11/HC12.
+	* gcc.c-torture/compile/20001205-1.x: Likewise.
+	* gcc.c-torture/compile/20001226-1.x: Likewise.
+	* gcc.c-torture/compile/920520-1.x: Likewise.
+	* gcc.c-torture/compile/961203-1.x: Likewise.
+	* gcc.c-torture/compile/20020604-1.x: Likewise.
+
+2003-01-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-mmx-3.c: New test.
+
 2003-01-10  Josef Zlomek  <zlomekj@suse.cz>
 
 	* gcc.c-torture/compile/20030110-1.c: New test.

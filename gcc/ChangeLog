@@ -1,3 +1,224 @@
+2003-01-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR other/7341
+	* invoke.texi (ftest-coverage): Fix broken cross-reference.
+	Change @code to @command for gcov command.
+
+	* gcc.texi: Adjust title of gcov section.
+	Adjust copyright.
+	* gcov.texi: Likewise.
+
+2003-01-23  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR other/7448
+	* doc/passes.texi (fssa-ccp): Remove misplaced line.
+
+2003-01-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.h (HARD_REGNO_MODE_OK): Fix warning regression
+	introduced by last change.
+
+2003-01-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in: Make --disable-checking the default.
+	* configure: Regenerate.
+	
+2003-01-22  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390-protos.h (preferred_la_operand_p):
+	Remove second parameter.
+	* config/s390/s390.c (preferred_la_operand_p): Likewise.
+	* config/s390/s390.h (FRAME_REGNO_P, FRAME_REG_P): New macros.
+	(HARD_REGNO_MODE_OK): Use FRAME_REGNO_P.
+	* config/s390/s390.md ("*la_cc_64", "*la_cc_31", splitters): Remove.
+	Add peepholes to transform ADD to LOAD ADDRESS.
+
+Mon Jan 20 14:36:23 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (SSE cmov splitter):  Handle memory operand in operand 5.
+
+2003-01-21  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+        PR opt/7507
+        * calls.c (fix_unsafe_tree): Split out from ...
+        (expand_call): ... here.  Use it on the function address too.
+
+2003-01-20  Richard Henderson  <rth@redhat.com>
+
+        PR opt/7154
+        * stmt.c (expand_asm_operands): Validize memory operands.
+
+2003-01-20  Richard Henderson  <rth@redhat.com>
+
+	PR opt/8848
+	* ifcvt.c (noce_process_if_block): Correct arguments to
+	modified_between_p for no-else-block case.
+
+2003-01-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* ifcvt.c (noce_emit_store_flag): Don't emit store flag if mode of x
+	is not a scalar int mode.
+
+2003-01-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c (notice_update_cc): Don't assume that
+	recog_data.operands[0] is always associated with cc0.
+
+2003-01-19  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.c (stack_push_word, stack_pop_word,
+	z_reg, z_reg_qi): Declare static and GTY().
+	(da_reg): Remove.
+	(create_regs_rtx): Don't create da_reg.
+	("gt-m68hc11.h"): Include for GTY roots.
+	(m68hc11_autoinc_compatible_p): Remove.
+	(autoinc_mode): Declare prototype.
+	(m68hc11_make_autoinc_notes): Likewise.
+	* config/m68hc11/m68hc11.h (ix_reg, iy_reg, d_reg): Declare extern
+	and GTY() here.
+	(m68hc11_compare_op0, m68hc11_compare_op1): Likewise.
+	(m68hc11_soft_tmp_reg): Likewise.
+	* config/m68hc11/m68hc11-protos.h: Remove above declarations.
+
+2003-01-18  Roger Sayle  <roger@eyesopen.com>
+
+	* config/pa/pa.md (muldi3): Avoid invalid sharing of SUBREG RTXs.
+
+2003-01-10  Geoffrey Keating  <geoffk@apple.com>
+
+	* varasm.c (struct constant_descriptor_rtx): Remove unused
+	`label' field.
+
+	* ggc-page.c (ggc_collect): Avoid overflow computing
+	min_expand.
+
+2002-12-20  Geoffrey Keating  <geoffk@apple.com>
+
+	* integrate.c (output_inline_function): Don't hold private
+	pointers to 'struct function' over GC calls.
+
+2003-01-17  Alexandre Oliva  <aoliva@redhat.com>
+
+	* config/mips/mips.h: Don't use #elif.  Reported by Kaveh
+	R. Ghazi.
+
+2003-01-16  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+        * config/sh/sh.c (sh_initialize_trampoline): Emit rotrdi3_mextr
+        instead of rotldi3_mextr.
+
+2003-01-16  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.c (m68hc11_check_z_replacement): Fix handling
+	68HC12 pre/post inc/dec side effects.
+
+2003-01-16  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.h (MASK_M6812): Define.
+
+2003-01-16  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.c (expand_prologue): Use push/pop to 
+	allocate 4-bytes of locals on 68HC11.
+	(expand_epilogue): Likewise.
+	(m68hc11_memory_move_cost): Increase cost of HI/QI soft registers.
+
+2003-01-15  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* som.h (SUPPORTS_WEAK, SUPPORTS_ONE_ONLY, MAKE_DECL_ONE_ONLY,
+	ASM_WEAKEN_LABEL, GTHREAD_USE_WEAK): Define.
+	* pa.h (TARGET_SOM_SDEF): Define.
+	* pa-hpux11.h (TARGET_SOM_SDEF): Define.
+
+2003-01-15  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.h (ASM_SPEC): Handle -m68hcs12; Pass -mshort
+	and -mshort-double to the assembler to specify the ABI.
+	(LINK_SPEC): Likewise.
+	(CPP_SPEC): Pass HCS12 specific define.
+	(MASK_M68S12): New define.
+	(TARGET_M68S12): Likewise.
+	(TARGET_SWITCHES): New options -m68hcs12 and -m68S12.
+	(TARGET_VERSION): Update.
+	* config/m68hc11/m68hc12.h (CPP_SPEC): Pass HCS12 specific define.
+	(LINK_SPEC): Update.
+	(ASM_SPEC): Update.
+	* config/m68hc11/m68hc11.c (m68hc11_asm_file_start): Update.
+	* doc/invoke.texi (M68hc1x Options): Document -m68hcs12.
+
+2003-01-15  John David Anglin  <dave.anglin@nrc.gc.ca>
+
+	* gengtype-lex.l (malloc, realloc): Move defines after include of
+	system.h.
+
+2003-01-15  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* config/m68hc11/m68hc11.md ("return"): Use emit_jump_insn to emit
+	the return code.
+
+2003-01-15  Josef Zlomek  <zlomekj@suse.cz>
+
+	* cfganal.c (set_edge_can_fallthru_flag): Clear the EDGE_CAN_FALLTHRU
+	flag before setting it.
+
+2003-01-15  Josef Zlomek  <zlomekj@suse.cz>
+
+	Segher Boessenkool  <segher@koffie.nl>
+
+	* predict.c (real_inv_br_prob_base): New variable.
+	(propagate_freq): Use multiply by reciprocal instead of
+	division.  Don't divide by 1.0 at all.
+	(estimate_bb_frequencies): Similar.
+
+2003-01-15  Alexandre Oliva  <aoliva@redhat.com>
+
+	* configure.in (libgcc_visibility): Force disabled on IRIX 6 too.
+	* configure: Rebuilt.
+
+	* config/mips/mips.h (CRT_CALL_STATIC_FUNCTION): Define so as
+	to set $gp before the call.
+
+2003-01-10  Andrew Haley  <aph@redhat.com>
+
+        * config/i386/linux64.h (MD_FALLBACK_FRAME_STATE_FOR): Rename
+        registers to be in correct order.  Add rip.
+
+2003-01-14  Denis Chertykov  <denisc@overta.ru>
+
+	* config/ip2k/ip2k.h (VALID_MACHINE_DECL_ATTRIBUTE): Remove.
+	(VALID_MACHINE_TYPE_ATTRIBUTE): Remove.
+
+	* config/ip2k/ip2k.c (ip2k_attribute_table): New table of
+        attributes.
+	(TARGET_ATTRIBUTE_TABLE): New macro.
+	(valid_machine_type_attribute): Remove.
+	(valid_machine_decl_attribute): Remove.
+	(ip2k_handle_progmem_attribute): New function.
+	(ip2k_handle_fndecl_attribute): New function.
+
+2003-01-14  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/8870, PR target/9195
+
+	Backport from mainline:
+
+	2003-01-10  Richard Henderson  <rth@redhat.com>
+
+	* combine.c (make_compound_operation): Use SCALAR_INT_MODE_P,
+	not INTEGRAL_MODE_P when widening extensions.
+
+2003-01-13  Alexandre Oliva  <aoliva@redhat.com>
+
+	* aclocal.m4 (gcc_AC_PROG_GNAT): Don't try to prepend
+	${ac_tool_prefix} to ADAC or CC.  Protect them from word
+	splitting.
+	* configure: Rebuilt.
+
+2003-01-12  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* unwind-dw2-fde.h (last_fde): Mark parameter with __attribute__
+	((__unused__)).
+
 2003-01-12  Alan Modra  <amodra@bigpond.net.au>
 
 	* expr.c (expand_expr <RDIV_EXPR>): Correct recursive call args.
@@ -17,7 +238,7 @@ Sat Jan 11 11:10:19 CET 2003  Jan Hubicka  <jh@suse.cz>
 Wed Jan  8 14:09:30 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	PR target/8213
-	* i386.c (ix86_expand_int_movcc): FIx RTL sharing problem.
+	* i386.c (ix86_expand_int_movcc): Fix RTL sharing problem.
 
 2003-01-09  Kazu Hirata  <kazu@cs.umass.edu>
 
