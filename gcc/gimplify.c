@@ -3492,5 +3492,32 @@ gimplify_function_tree (tree fndecl)
 
   gimplify_body (&DECL_SAVED_TREE (fndecl), fndecl);
 
+  /* If we're instrumenting function entry/exit, then prepend the call to
+     the entry hook and wrap the whole function in a TRY_FINALLY_EXPR to
+     catch the exit hook.  */
+  /* ??? Add some way to ignore exceptions for this TFE.  */
+  if (flag_instrument_function_entry_exit
+      && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (fndecl))
+    {
+      tree tf, x, bind;
+
+      tf = build (TRY_FINALLY_EXPR, void_type_node, NULL, NULL);
+      TREE_SIDE_EFFECTS (tf) = 1;
+      x = DECL_SAVED_TREE (fndecl);
+      append_to_statement_list (x, &TREE_OPERAND (tf, 0));
+      x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_EXIT];
+      x = build_function_call_expr (x, NULL);
+      append_to_statement_list (x, &TREE_OPERAND (tf, 1));
+
+      bind = build (BIND_EXPR, void_type_node, NULL, NULL, NULL);
+      TREE_SIDE_EFFECTS (bind) = 1;
+      x = implicit_built_in_decls[BUILT_IN_PROFILE_FUNC_ENTER];
+      x = build_function_call_expr (x, NULL);
+      append_to_statement_list (x, &BIND_EXPR_BODY (bind));
+      append_to_statement_list (tf, &BIND_EXPR_BODY (bind));
+
+      DECL_SAVED_TREE (fndecl) = bind;
+    }
+
   current_function_decl = oldfn;
 }

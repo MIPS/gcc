@@ -6548,10 +6548,6 @@ expand_function_start (tree subr, int parms_have_cleanups)
      valid operands of arithmetic insns.  */
   init_recog_no_volatile ();
 
-  current_function_instrument_entry_exit
-    = (flag_instrument_function_entry_exit
-       && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (subr));
-
   current_function_profile
     = (profile_flag
        && ! DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (subr));
@@ -6716,21 +6712,6 @@ expand_function_start (tree subr, int parms_have_cleanups)
 	    save_expr_regs = gen_rtx_EXPR_LIST (VOIDmode, last_ptr,
 						save_expr_regs);
 	}
-    }
-
-  if (current_function_instrument_entry_exit)
-    {
-      rtx fun = DECL_RTL (current_function_decl);
-      if (GET_CODE (fun) == MEM)
-	fun = XEXP (fun, 0);
-      else
-	abort ();
-      emit_library_call (profile_function_entry_libfunc, LCT_NORMAL, VOIDmode,
-			 2, fun, Pmode,
-			 expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
-						     0,
-						     hard_frame_pointer_rtx),
-			 Pmode);
     }
 
   if (current_function_profile)
@@ -6981,21 +6962,6 @@ expand_function_end (void)
      structure returning.  */
   if (return_label)
     emit_label (return_label);
-
-  if (current_function_instrument_entry_exit)
-    {
-      rtx fun = DECL_RTL (current_function_decl);
-      if (GET_CODE (fun) == MEM)
-	fun = XEXP (fun, 0);
-      else
-	abort ();
-      emit_library_call (profile_function_exit_libfunc, LCT_NORMAL, VOIDmode,
-			 2, fun, Pmode,
-			 expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
-						     0,
-						     hard_frame_pointer_rtx),
-			 Pmode);
-    }
 
   /* Let except.c know where it should emit the call to unregister
      the function context for sjlj exceptions.  */

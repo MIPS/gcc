@@ -1,3 +1,7 @@
+2003-12-10  Richard Henderson  <rth@redhat.com>
+
+	* options.c (gfc_post_options): Don't ever use rtl inlining.
+
 2003-12-05  Canqun Yang  <canqun@nudt.edu.cn>
 
 	* trans-common.c: Re-implement COMMON blocks and EQUIVALENCE lists.

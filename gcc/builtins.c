@@ -4916,6 +4916,32 @@ expand_builtin_sprintf (tree arglist, rtx target, enum machine_mode mode)
 
   return 0;
 }
+
+/* Expand a call to either the entry or exit function profiler.  */
+
+static rtx
+expand_builtin_profile_func (bool exitp)
+{
+  rtx this, which;
+
+  this = DECL_RTL (current_function_decl);
+  if (GET_CODE (this) == MEM)
+    this = XEXP (this, 0);
+  else
+    abort ();
+
+  if (exitp)
+    which = profile_function_exit_libfunc;
+  else
+    which = profile_function_entry_libfunc;
+
+  emit_library_call (which, LCT_NORMAL, VOIDmode, 2, this, Pmode,
+		     expand_builtin_return_addr (BUILT_IN_RETURN_ADDRESS,
+						 0, hard_frame_pointer_rtx),
+		     Pmode);
+
+  return const0_rtx;
+}
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -5457,6 +5483,10 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       expand_builtin_prefetch (arglist);
       return const0_rtx;
 
+    case BUILT_IN_PROFILE_FUNC_ENTER:
+      return expand_builtin_profile_func (false);
+    case BUILT_IN_PROFILE_FUNC_EXIT:
+      return expand_builtin_profile_func (true);
 
     default:	/* just do library call, if unknown builtin */
       if (!DECL_ASSEMBLER_NAME_SET_P (fndecl))

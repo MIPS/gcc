@@ -1,3 +1,15 @@
+2003-12-10  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (expand_builtin_profile_func): New.
+	(expand_builtin): Use it.
+	* builtins.def (BUILT_IN_PROFILE_FUNC_ENTER): New.
+	(BUILT_IN_PROFILE_FUNC_EXIT): New.
+	* function.c (expand_function_start, expand_function_end): Don't
+	do function instrumentation here.
+	* gimplify.c (gimplify_function_tree): Do it here.
+
+	* c-opts.c (c_common_post_options): Don't ever use rtl inlining.
+
 2003-12-10  Diego Novillo  <dnovillo@redhat.com>
 
 	* ifcvt.c (dead_or_predicable): Initialize local variable
