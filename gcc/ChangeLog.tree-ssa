@@ -1,4 +1,8 @@
 2003-07-22  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-ssa-pre.c (finalize_1): Change to not use bsi_last.
+	
+2003-07-22  Daniel Berlin  <dberlin@dberlin.org>
 	
 	* tree-cfg.c (remove_stmt): Revert 07-15 change. Turns out the bug is in
 	the reverse iterator.

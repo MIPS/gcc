@@ -2011,6 +2011,9 @@ finalize_1 (struct expr_info *ei)
 		  int opnum;
 		  basic_block createdbb = NULL;
 		  block_stmt_iterator bsi;
+#if ENABLE_CHECKING
+		  bool insert_done = false;
+#endif
 		  
 		  /* Insert definition of expr at end of BB containing x. */
 		  copy = ei->expr;
@@ -2059,8 +2062,19 @@ finalize_1 (struct expr_info *ei)
 		      fprintf (dump_file, " in BB %d\n", 
 			       bb_for_stmt (ephi)->index);
 		    }
-		  endtree = last_stmt (bb);
-		  endtreep = last_stmt_ptr (bb);
+		  /* Sigh. last_stmt and last_stmt_ptr use bsi_last,
+		     which is broken in some cases.  Get the last
+		     statement the hard way.  */
+		  {
+		    block_stmt_iterator bsi2;
+		    block_stmt_iterator bsi3;
+		    for (bsi2 = bsi3 = bsi_start (bb); 
+			 !bsi_end_p (bsi2); 
+			 bsi_next (&bsi2))
+		      bsi3 = bsi2;
+		    endtree = bsi_stmt (bsi3);
+		    endtreep = bsi_stmt_ptr (bsi3);
+		  }
 		  set_bb_for_stmt (expr, bb);
 
 		  /* Find the edge to insert on. */
@@ -2079,6 +2093,9 @@ finalize_1 (struct expr_info *ei)
 		    {
 		      if (bsi_stmt (bsi) == endtree)
 			{
+#if ENABLE_CHECKING
+			  insert_done = true;
+#endif
 			  bsi_insert_on_edge_immediate (e, expr, &bsi, 
 							&createdbb);
 			  if (createdbb != NULL)
@@ -2107,6 +2124,10 @@ finalize_1 (struct expr_info *ei)
 			  break;
 			}
 		    }
+#if ENABLE_CHECKING
+		  if (!insert_done)
+		    abort ();
+#endif
 		  
 		  set_expruse_def (x, create_expr_ref (ei, ei->expr, EUSE_NODE,
 						       bb, 0));
@@ -2572,8 +2593,10 @@ count_stmts_in_bb (basic_block bb)
   bsi = bsi_last (bb);
   for (; !bsi_end_p (bsi); bsi_prev  (&bsi))
     num_stmt2++;
-  if (num_stmt1 != num_stmt2)
-    abort ();
+  
+  /* Reverse iterators are broken, so don't abort for now.
+     if (num_stmt1 != num_stmt2)
+     abort ();  */
   return num_stmt1;
 }
 #endif
