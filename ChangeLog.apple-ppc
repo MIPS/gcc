@@ -1,3 +1,7 @@
+2004-11-09  Geoffrey Keating  <geoffk@apple.com>
+
+	* build_gcc: lipo the libexec/.../install-tools files together.
+
 2004-11-08  Geoffrey Keating  <geoffk@apple.com>
 
 	* fixincludes/inclhack.def (darwin_macosx_deployment_target): New.
