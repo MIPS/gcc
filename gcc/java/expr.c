@@ -492,7 +492,7 @@ static void
 java_stack_swap (void)
 {
   tree type1, type2;
-  rtx temp;
+  tree temp;
   tree decl1, decl2;
 
   if (stack_pointer < 2
@@ -506,10 +506,15 @@ java_stack_swap (void)
   flush_quick_stack ();
   decl1 = find_stack_slot (stack_pointer - 1, type1);
   decl2 = find_stack_slot (stack_pointer - 2, type2);
-  temp = copy_to_reg (DECL_RTL (decl1));
-  emit_move_insn (DECL_RTL (find_stack_slot (stack_pointer - 1, type2)), 
-		  DECL_RTL (decl2));
-  emit_move_insn (DECL_RTL (find_stack_slot (stack_pointer - 2, type1)), temp);
+  temp = build_decl (VAR_DECL, NULL_TREE, type1);
+  java_add_local_var (temp);
+  java_add_stmt (build (MODIFY_EXPR, type1, temp, decl1));
+  java_add_stmt (build (MODIFY_EXPR, type2, 
+			find_stack_slot (stack_pointer - 1, type2),
+			decl2));
+  java_add_stmt (build (MODIFY_EXPR, type1, 
+			find_stack_slot (stack_pointer - 2, type1),
+			temp));
   stack_type_map[stack_pointer - 1] = type2;
   stack_type_map[stack_pointer - 2] = type1;
 }
@@ -554,7 +559,8 @@ java_stack_dup (int size, int offset)
 	  tree src_decl = find_stack_slot (src_index, type);
 	  tree dst_decl = find_stack_slot (dst_index, type);
 
-	  java_add_stmt (build (MODIFY_EXPR, TREE_TYPE (dst_decl), dst_decl, src_decl));
+	  java_add_stmt 
+	    (build (MODIFY_EXPR, TREE_TYPE (dst_decl), dst_decl, src_decl));
 	  stack_type_map[dst_index] = type;
 	}
     }
@@ -1117,9 +1123,6 @@ expand_load_internal (int index, tree type, int pc)
      value into it.  Then we push this new local on the stack.
      Hopefully this all gets optimized out.  */
   copy = build_decl (VAR_DECL, NULL_TREE, type);
-  DECL_CONTEXT (copy) = current_function_decl;
-  MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (copy);
-
   java_add_local_var (copy);
   java_add_stmt (build (MODIFY_EXPR, TREE_TYPE (var), copy, var));
   
@@ -1278,6 +1281,7 @@ expand_iinc (unsigned int local_var_index, int ival, int pc)
     constant_value = build_int_2 (ival, ival < 0 ? -1 : 0);
     res = fold (build (PLUS_EXPR, int_type_node, local_var, constant_value));
     java_add_stmt (build (MODIFY_EXPR, TREE_TYPE (local_var), local_var, res));
+    update_aliases (local_var, local_var_index);
 }
 
       
@@ -1557,7 +1561,6 @@ lookup_label (int pc)
       /* The type of the address of a label is return_address_type_node. */
       tree decl = create_label_decl (name);
       LABEL_PC (decl) = pc;
-      label_rtx (decl);
       return pushdecl (decl);
     }
 }
@@ -2914,8 +2917,7 @@ expand_byte_code (JCF *jcf, tree method)
 	      linenumber_pointer += 4;
 	      if (pc == PC)
 		{
-		  input_line = GET_u2 (linenumber_pointer - 2);
-		  emit_line_note (input_location);
+		  input_location.line = GET_u2 (linenumber_pointer - 2);
 		  if (!(instruction_bits[PC] & BCODE_HAS_MULTI_LINENUMBERS))
 		    break;
 		}
@@ -3151,13 +3153,14 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
 #define STORE_INTERNAL(OPTYPE, OPVALUE)				\
   {								\
     tree decl, value;						\
-    int var = OPVALUE;						\
+    int index = OPVALUE;					\
     tree type = OPTYPE;						\
     value = pop_value (type);					\
     type = TREE_TYPE (value);					\
-    decl = find_local_variable (var, type, oldpc);		\
-    set_local_type (var, type);					\
+    decl = find_local_variable (index, type, oldpc);		\
+    set_local_type (index, type);				\
     java_add_stmt (build (MODIFY_EXPR, type, decl, value));	\
+    update_aliases (decl, index);				\
   }
 
 #define STORE(OPERAND_TYPE, OPERAND_VALUE) \

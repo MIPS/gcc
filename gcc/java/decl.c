@@ -101,35 +101,51 @@ indent (void)
 }
 #endif /* defined(DEBUG_JAVA_BINDING_LEVELS) */
 
+/* Copy the value in decl into every alias in the same local variable
+   slot.  */
+void 
+update_aliases (tree decl, int index)
+{
+  tree tmp = TREE_VEC_ELT (decl_map, index);
+  tree type = TREE_TYPE (decl);
+  while (tmp != NULL_TREE)
+    {
+      if (tmp != decl
+	  && ! LOCAL_VAR_OUT_OF_SCOPE_P (tmp)
+	  && TYPE_MODE (type) == TYPE_MODE (TREE_TYPE (tmp)))
+	{
+	  tree src = build1 (NOP_EXPR, TREE_TYPE (tmp), decl);
+	  java_add_stmt 
+	    (build (MODIFY_EXPR, TREE_TYPE (tmp), tmp, src));
+	}
+      tmp = DECL_LOCAL_SLOT_CHAIN (tmp);      
+    }
+}
+
 static tree
 push_jvm_slot (int index, tree decl)
 {
-  struct rtx_def *rtl = NULL;
   tree type = TREE_TYPE (decl);
   tree tmp;
 
   DECL_CONTEXT (decl) = current_function_decl;
   layout_decl (decl, 0);
 
-  /* See if we have an appropriate rtl (i.e. same mode) at this index.
-     If so, we must use it. */ 
+  /* Look for another variable of the same mode in this slot.  */ 
   tmp = TREE_VEC_ELT (decl_map, index);
   while (tmp != NULL_TREE)
     {
-      if (TYPE_MODE (type) == TYPE_MODE (TREE_TYPE (tmp))
-	  && ! LOCAL_VAR_OUT_OF_SCOPE_P (tmp))
-	rtl = DECL_RTL_IF_SET (tmp);
-      if (rtl != NULL)
-	break;
-     tmp = DECL_LOCAL_SLOT_CHAIN (tmp);
-    }
-  if (rtl != NULL)
-    SET_DECL_RTL (decl, rtl);
-  else
-    {
-      if (index >= DECL_MAX_LOCALS (current_function_decl))
-	DECL_REGISTER (decl) = 1;
-      expand_decl (decl);
+      if (! LOCAL_VAR_OUT_OF_SCOPE_P (tmp)
+	  && TYPE_MODE (type) == TYPE_MODE (TREE_TYPE (tmp)))
+	{
+	  /* At the point of its creation this decl inherits whatever
+	     is in the slot.  */
+	  tree src = build1 (NOP_EXPR, TREE_TYPE (decl), tmp);
+	  java_add_stmt 
+	    (build (MODIFY_EXPR, TREE_TYPE (decl), decl, src));	
+	  break;
+	}
+      tmp = DECL_LOCAL_SLOT_CHAIN (tmp);
     }
 
   /* Now link the decl into the decl_map. */
@@ -1817,12 +1833,6 @@ start_java_method (tree fndecl)
 
   build_result_decl (fndecl);
 
-  /* Initialize the RTL code for the function.  */
-  init_function_start (fndecl);
-
-  /* Set up parameters and prepare for return, for the function.  */
-  expand_function_start (fndecl, 0);
-
   /* Push local variables.  */
   pushlevel (2);
 }
@@ -1840,6 +1850,7 @@ end_java_method (void)
 
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
 
+  flag_unit_at_a_time = 0;
   finish_method (fndecl);
 
   current_function_decl = NULL_TREE;
@@ -1986,6 +1997,8 @@ java_add_local_var (tree decl)
   tree next = *vars;
   TREE_CHAIN (decl) = next;
   *vars = decl;
+  DECL_CONTEXT (decl) = current_function_decl;
+  MAYBE_CREATE_VAR_LANG_DECL_SPECIFIC (decl);
   return decl;
 }
 

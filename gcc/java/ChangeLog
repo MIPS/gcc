@@ -1,3 +1,23 @@
+2003-11-28  Andrew Haley  <aph@redhat.com>
+
+	* expr.c (java_stack_swap): Rewrite to use trees, not RTL.
+	(java_stack_dup): Fix layout only.
+	(expand_iinc): Call update_aliases.
+	(STORE_INTERNAL): Call update_aliases.
+	(lookup_label): Don't call label_rtx().
+	(expand_load_internal): Don't set DECL_CONTEXT and
+	VAR_LANG_DECL_SPECIFIC.
+	(expand_byte_code): Set input_location.line.
+	* decl.c (push_jvm_slot): Remove unused var rtl;
+	(update_aliases): New function.
+	(push_jvm_slot): Instead of sharing RTL between decls, set a new
+	decl to the value of whatever is in this slot beforehand.
+	(start_java_method): Don't call back end expanders.
+	(end_java_method): Force flag_unit_at_a_time to 0.
+	(java_add_local_var): Set DECL_CONTEXT and VAR_LANG_DECL_SPECIFIC
+	of the new decl.
+	* java-tree.h (update_aliases): Declare.
+
 2003-11-20  Joseph S. Myers  <jsm@polyomino.org.uk>
 
 	* Make-lang.in (java.extraclean): Delete.
