@@ -1448,6 +1448,8 @@ init_one_web (web, reg)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (TEST_HARD_REG_BIT (web->usable_regs, i))
 	  web->num_freedom++;
+      if (!web->num_freedom)
+	abort();
     }
   web->move_related = 0;
   web->defs = NULL;
@@ -3039,7 +3041,7 @@ static long
 default_spill_heuristic (w)
      struct web *w;
 {
-  return (w->weight * w->spill_cost) / w->num_conflicts;
+  return (w->weight * w->spill_cost) / (w->num_conflicts + 1);
 }
 
 /* Select the cheapest spill to be potentially spilled (we don't
@@ -4066,31 +4068,32 @@ reg_alloc (void)
 	  delete_moves ();
 	  dump_constraints ();
 	}
+      else
+	{
+	  allocate_reg_info (max_reg_num (), FALSE, TRUE);
+	  reg_scan_update (get_insns(), BLOCK_END (n_basic_blocks - 1), max_regno);
+	  regclass (get_insns (), max_reg_num (), rtl_dump_file);
+	}
       dump_ra (df);
       if (changed && rtl_dump_file)
 	{
-	  /*print_rtl_with_bb (rtl_dump_file, get_insns ());*/
+	  print_rtl_with_bb (rtl_dump_file, get_insns ());
+	  fflush (rtl_dump_file);
 	}
       free_all_lists ();
       free_mem (df);
       df_finish (df);
     }
   while (changed);
-  /*if (rtl_dump_file)
-    print_rtl_with_bb (rtl_dump_file, get_insns ());*/
-
-  no_new_pseudos = 0;
+/*   if (rtl_dump_file)
+    print_rtl_with_bb (rtl_dump_file, get_insns ()); */
+  no_new_pseudos = 1;
   compute_bb_for_insn (get_max_uid ());
+  allocate_reg_info (max_reg_num (), 0, 1);
+  no_new_pseudos = 0;
   store_motion();
   allocate_reg_info (max_reg_num (), 0, 1);
   no_new_pseudos = 1;
-  /*recompute_reg_usage (get_insns (), TRUE);
-  regclass (get_insns (), max_reg_num (), rtl_dump_file);*/
-  /*count_or_remove_death_notes (NULL, 1);
-  allocate_reg_life_data ();
-  update_life_info (NULL, UPDATE_LIFE_GLOBAL, PROP_REG_INFO
-		    | PROP_DEATH_NOTES | PROP_SCAN_DEAD_CODE
-		    | PROP_KILL_DEAD_CODE);*/
   find_basic_blocks (get_insns (), max_reg_num (), rtl_dump_file);
   life_analysis (get_insns (), rtl_dump_file, PROP_FINAL);
   recompute_reg_usage (get_insns (), TRUE);

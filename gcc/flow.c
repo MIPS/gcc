@@ -5283,8 +5283,8 @@ propagate_block (bb, live, local_set, cond_local_set, flags)
     }
 
   /* Scan the block an insn at a time from end to beginning.  */
-
-  for (insn = bb->end;; insn = prev)
+  prev = bb->end;
+  for (insn = bb->end; prev; insn = prev)
     {
       /* If this is a call to `setjmp' et al, warn if any
 	 non-volatile datum is live.  */

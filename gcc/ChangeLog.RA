@@ -1,6 +1,36 @@
+2001-07-26  Daniel Berlin  <dan@cgsoftware.com>
+
+	* gcse.c: Use rtl_dump_file instead of gcse_file, remove gcse_file, 
+	and parameter file to gcse_main.
+	(build_store_vectors): Take st_antloc into account as well.
+	
+	* rtl.h: Change gcse_main prototype.
+
+	* toplev.c: Don't pass file to gcse_main.
+
+	* ra.c : (default_spill_heuristic): Add one to num_conflicts, 
+	so that a web with 0 conflicts doesn't have a 0 spill cost.
+	(init_one_web): If we don't think we have any registers we can put
+	this thing in, ever, something is wrong, so abort (I.E. if
+	web->num_freedom == 0, abort)
+	(reg_alloc): Call reg_scan_update and regclass if stuff changed,
+	since we'll have more registers now.
+
+	* regclass.c (reg_scan_mark_refs): When we increase REG_N_SETS,
+	increase REG_N_REFS (like flow does), so that regclass doesn't
+	think a reg is useless, and thus, not calculate a class, when it
+	really should have.
+
+	* flow.c (propagate_block): When prev is null, but we haven't hit
+	the beginning of the block, we crash.  So just set prev to
+	something other than null at the start, and stop if it becomes
+	null. I think this is just a symptom of some *other* problem,
+	but I can't figure out what it is.
+	
+
 2001-07-25  Daniel Berlin  <dan@cgsoftware.com>
 
-	* gcse.c: Store motion stuff from patch submitted to mainline.l
+	* gcse.c: Store motion stuff from patch submitted to mainline.
 
 	* ra.c: Call store motion when we are done.
 

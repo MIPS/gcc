@@ -2,144 +2,144 @@
    and global constant/copy propagation for GNU compiler.
    Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+   This file is part of GNU CC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GNU CC is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GNU CC is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GNU CC; see the file COPYING.  If not, write to
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 /* TODO
    - reordering of memory allocation and freeing to be more space efficient
    - do rough calc of how many regs are needed in each block, and a rough
-     calc of how many regs are available in each class and use that to
-     throttle back the code in cases where RTX_COST is minimal.
+   calc of how many regs are available in each class and use that to
+   throttle back the code in cases where RTX_COST is minimal.
    - a store to the same address as a load does not kill the load if the
-     source of the store is also the destination of the load.  Handling this
-     allows more load motion, particularly out of loops.
+   source of the store is also the destination of the load.  Handling this
+   allows more load motion, particularly out of loops.
    - ability to realloc sbitmap vectors would allow one initial computation
-     of reg_set_in_block with only subsequent additions, rather than
-     recomputing it for each pass
+   of reg_set_in_block with only subsequent additions, rather than
+   recomputing it for each pass
 
 */
 
 /* References searched while implementing this.
 
-   Compilers Principles, Techniques and Tools
-   Aho, Sethi, Ullman
-   Addison-Wesley, 1988
+Compilers Principles, Techniques and Tools
+Aho, Sethi, Ullman
+Addison-Wesley, 1988
 
-   Global Optimization by Suppression of Partial Redundancies
-   E. Morel, C. Renvoise
-   communications of the acm, Vol. 22, Num. 2, Feb. 1979
+Global Optimization by Suppression of Partial Redundancies
+E. Morel, C. Renvoise
+communications of the acm, Vol. 22, Num. 2, Feb. 1979
 
-   A Portable Machine-Independent Global Optimizer - Design and Measurements
-   Frederick Chow
-   Stanford Ph.D. thesis, Dec. 1983
+A Portable Machine-Independent Global Optimizer - Design and Measurements
+Frederick Chow
+Stanford Ph.D. thesis, Dec. 1983
 
-   A Fast Algorithm for Code Movement Optimization
-   D.M. Dhamdhere
-   SIGPLAN Notices, Vol. 23, Num. 10, Oct. 1988
+A Fast Algorithm for Code Movement Optimization
+D.M. Dhamdhere
+SIGPLAN Notices, Vol. 23, Num. 10, Oct. 1988
 
-   A Solution to a Problem with Morel and Renvoise's
-   Global Optimization by Suppression of Partial Redundancies
-   K-H Drechsler, M.P. Stadel
-   ACM TOPLAS, Vol. 10, Num. 4, Oct. 1988
+A Solution to a Problem with Morel and Renvoise's
+Global Optimization by Suppression of Partial Redundancies
+K-H Drechsler, M.P. Stadel
+ACM TOPLAS, Vol. 10, Num. 4, Oct. 1988
 
-   Practical Adaptation of the Global Optimization
-   Algorithm of Morel and Renvoise
-   D.M. Dhamdhere
-   ACM TOPLAS, Vol. 13, Num. 2. Apr. 1991
+Practical Adaptation of the Global Optimization
+Algorithm of Morel and Renvoise
+D.M. Dhamdhere
+ACM TOPLAS, Vol. 13, Num. 2. Apr. 1991
 
-   Efficiently Computing Static Single Assignment Form and the Control
-   Dependence Graph
-   R. Cytron, J. Ferrante, B.K. Rosen, M.N. Wegman, and F.K. Zadeck
-   ACM TOPLAS, Vol. 13, Num. 4, Oct. 1991
+Efficiently Computing Static Single Assignment Form and the Control
+Dependence Graph
+R. Cytron, J. Ferrante, B.K. Rosen, M.N. Wegman, and F.K. Zadeck
+ACM TOPLAS, Vol. 13, Num. 4, Oct. 1991
 
-   Lazy Code Motion
-   J. Knoop, O. Ruthing, B. Steffen
-   ACM SIGPLAN Notices Vol. 27, Num. 7, Jul. 1992, '92 Conference on PLDI
+Lazy Code Motion
+J. Knoop, O. Ruthing, B. Steffen
+ACM SIGPLAN Notices Vol. 27, Num. 7, Jul. 1992, '92 Conference on PLDI
 
-   What's In a Region?  Or Computing Control Dependence Regions in Near-Linear
-   Time for Reducible Flow Control
-   Thomas Ball
-   ACM Letters on Programming Languages and Systems,
-   Vol. 2, Num. 1-4, Mar-Dec 1993
+What's In a Region?  Or Computing Control Dependence Regions in Near-Linear
+Time for Reducible Flow Control
+Thomas Ball
+ACM Letters on Programming Languages and Systems,
+Vol. 2, Num. 1-4, Mar-Dec 1993
 
-   An Efficient Representation for Sparse Sets
-   Preston Briggs, Linda Torczon
-   ACM Letters on Programming Languages and Systems,
-   Vol. 2, Num. 1-4, Mar-Dec 1993
+An Efficient Representation for Sparse Sets
+Preston Briggs, Linda Torczon
+ACM Letters on Programming Languages and Systems,
+Vol. 2, Num. 1-4, Mar-Dec 1993
 
-   A Variation of Knoop, Ruthing, and Steffen's Lazy Code Motion
-   K-H Drechsler, M.P. Stadel
-   ACM SIGPLAN Notices, Vol. 28, Num. 5, May 1993
+A Variation of Knoop, Ruthing, and Steffen's Lazy Code Motion
+K-H Drechsler, M.P. Stadel
+ACM SIGPLAN Notices, Vol. 28, Num. 5, May 1993
 
-   Partial Dead Code Elimination
-   J. Knoop, O. Ruthing, B. Steffen
-   ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
+Partial Dead Code Elimination
+J. Knoop, O. Ruthing, B. Steffen
+ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
 
-   Effective Partial Redundancy Elimination
-   P. Briggs, K.D. Cooper
-   ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
+Effective Partial Redundancy Elimination
+P. Briggs, K.D. Cooper
+ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
 
-   The Program Structure Tree: Computing Control Regions in Linear Time
-   R. Johnson, D. Pearson, K. Pingali
-   ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
+The Program Structure Tree: Computing Control Regions in Linear Time
+R. Johnson, D. Pearson, K. Pingali
+ACM SIGPLAN Notices, Vol. 29, Num. 6, Jun. 1994
 
-   Optimal Code Motion: Theory and Practice
-   J. Knoop, O. Ruthing, B. Steffen
-   ACM TOPLAS, Vol. 16, Num. 4, Jul. 1994
+Optimal Code Motion: Theory and Practice
+J. Knoop, O. Ruthing, B. Steffen
+ACM TOPLAS, Vol. 16, Num. 4, Jul. 1994
 
-   The power of assignment motion
-   J. Knoop, O. Ruthing, B. Steffen
-   ACM SIGPLAN Notices Vol. 30, Num. 6, Jun. 1995, '95 Conference on PLDI
+The power of assignment motion
+J. Knoop, O. Ruthing, B. Steffen
+ACM SIGPLAN Notices Vol. 30, Num. 6, Jun. 1995, '95 Conference on PLDI
 
-   Global code motion / global value numbering
-   C. Click
-   ACM SIGPLAN Notices Vol. 30, Num. 6, Jun. 1995, '95 Conference on PLDI
+Global code motion / global value numbering
+C. Click
+ACM SIGPLAN Notices Vol. 30, Num. 6, Jun. 1995, '95 Conference on PLDI
 
-   Value Driven Redundancy Elimination
-   L.T. Simpson
-   Rice University Ph.D. thesis, Apr. 1996
+Value Driven Redundancy Elimination
+L.T. Simpson
+Rice University Ph.D. thesis, Apr. 1996
 
-   Value Numbering
-   L.T. Simpson
-   Massively Scalar Compiler Project, Rice University, Sep. 1996
+Value Numbering
+L.T. Simpson
+Massively Scalar Compiler Project, Rice University, Sep. 1996
 
-   High Performance Compilers for Parallel Computing
-   Michael Wolfe
-   Addison-Wesley, 1996
+High Performance Compilers for Parallel Computing
+Michael Wolfe
+Addison-Wesley, 1996
 
-   Advanced Compiler Design and Implementation
-   Steven Muchnick
-   Morgan Kaufmann, 1997
+Advanced Compiler Design and Implementation
+Steven Muchnick
+Morgan Kaufmann, 1997
 
-   Building an Optimizing Compiler
-   Robert Morgan
-   Digital Press, 1998
+Building an Optimizing Compiler
+Robert Morgan
+Digital Press, 1998
 
-   People wishing to speed up the code here should read:
-     Elimination Algorithms for Data Flow Analysis
-     B.G. Ryder, M.C. Paull
-     ACM Computing Surveys, Vol. 18, Num. 3, Sep. 1986
+People wishing to speed up the code here should read:
+Elimination Algorithms for Data Flow Analysis
+B.G. Ryder, M.C. Paull
+ACM Computing Surveys, Vol. 18, Num. 3, Sep. 1986
 
-     How to Analyze Large Programs Efficiently and Informatively
-     D.M. Dhamdhere, B.K. Rosen, F.K. Zadeck
-     ACM SIGPLAN Notices Vol. 27, Num. 7, Jul. 1992, '92 Conference on PLDI
+How to Analyze Large Programs Efficiently and Informatively
+D.M. Dhamdhere, B.K. Rosen, F.K. Zadeck
+ACM SIGPLAN Notices Vol. 27, Num. 7, Jul. 1992, '92 Conference on PLDI
 
-   People wishing to do something different can find various possibilities
-   in the above papers and elsewhere.
+People wishing to do something different can find various possibilities
+in the above papers and elsewhere.
 */
 
 #include "config.h"
@@ -242,10 +242,10 @@ Boston, MA 02111-1307, USA.  */
    3) Delete the redundant instructions
 
    4) Insert the required copies [if any] that make the partially
-      redundant instructions fully redundant.
+   redundant instructions fully redundant.
 
    5) For other reaching expressions, insert an instruction to copy the value
-      to a newly created pseudo that will reach the redundant instruction.
+   to a newly created pseudo that will reach the redundant instruction.
 
    The deletion is done first so that when we do insertions we
    know which pseudo reg to use.
@@ -275,15 +275,13 @@ Boston, MA 02111-1307, USA.  */
 
 /* GCSE global vars.  */
 
-/* -dG dump file.  */
-static FILE *gcse_file;
 
 /* Note whether or not we should run jump optimization after gcse.  We
    want to do this for two cases.
 
-    * If we changed any jumps via cprop.
+   * If we changed any jumps via cprop.
 
-    * If we added any labels via edge splitting.  */
+   * If we added any labels via edge splitting.  */
 
 static int run_jump_opt_after_gcse;
 
@@ -412,26 +410,26 @@ static int n_sets;
 
 /* Table of registers that are modified.
 
-   For each register, each element is a list of places where the pseudo-reg
-   is set.
+For each register, each element is a list of places where the pseudo-reg
+is set.
 
-   For simplicity, GCSE is done on sets of pseudo-regs only.  PRE GCSE only
-   requires knowledge of which blocks kill which regs [and thus could use
-   a bitmap instead of the lists `reg_set_table' uses].
+For simplicity, GCSE is done on sets of pseudo-regs only.  PRE GCSE only
+requires knowledge of which blocks kill which regs [and thus could use
+a bitmap instead of the lists `reg_set_table' uses].
 
-   `reg_set_table' and could be turned into an array of bitmaps (num-bbs x
-   num-regs) [however perhaps it may be useful to keep the data as is].  One
-   advantage of recording things this way is that `reg_set_table' is fairly
-   sparse with respect to pseudo regs but for hard regs could be fairly dense
-   [relatively speaking].  And recording sets of pseudo-regs in lists speeds
-   up functions like compute_transp since in the case of pseudo-regs we only
-   need to iterate over the number of times a pseudo-reg is set, not over the
-   number of basic blocks [clearly there is a bit of a slow down in the cases
-   where a pseudo is set more than once in a block, however it is believed
-   that the net effect is to speed things up].  This isn't done for hard-regs
-   because recording call-clobbered hard-regs in `reg_set_table' at each
-   function call can consume a fair bit of memory, and iterating over
-   hard-regs stored this way in compute_transp will be more expensive.  */
+`reg_set_table' and could be turned into an array of bitmaps (num-bbs x
+num-regs) [however perhaps it may be useful to keep the data as is].  One
+advantage of recording things this way is that `reg_set_table' is fairly
+sparse with respect to pseudo regs but for hard regs could be fairly dense
+[relatively speaking].  And recording sets of pseudo-regs in lists speeds
+up functions like compute_transp since in the case of pseudo-regs we only
+need to iterate over the number of times a pseudo-reg is set, not over the
+number of basic blocks [clearly there is a bit of a slow down in the cases
+where a pseudo is set more than once in a block, however it is believed
+that the net effect is to speed things up].  This isn't done for hard-regs
+because recording call-clobbered hard-regs in `reg_set_table' at each
+function call can consume a fair bit of memory, and iterating over
+hard-regs stored this way in compute_transp will be more expensive.  */
 
 typedef struct reg_set
 {
@@ -696,9 +694,8 @@ static void free_store_memory		PARAMS ((void));
    F is the first instruction in the function.  */
 
 int
-gcse_main (f, file)
+gcse_main (f)
      rtx f;
-     FILE *file;
 {
   int changed, pass;
   /* Bytes used at start of pass.  */
@@ -722,14 +719,13 @@ gcse_main (f, file)
 
   /* For calling dump_foo fns from gdb.  */
   debug_stderr = stderr;
-  gcse_file = file;
 
   /* Identify the basic block information for this function, including
      successors and predecessors.  */
   max_gcse_regno = max_reg_num ();
 
-  if (file)
-    dump_flow_info (file);
+  if (rtl_dump_file)
+    dump_flow_info (rtl_dump_file);
 
   orig_bb_count = n_basic_blocks;
   /* Return if there's nothing to do.  */
@@ -797,8 +793,8 @@ gcse_main (f, file)
   while (changed && pass < MAX_GCSE_PASSES)
     {
       changed = 0;
-      if (file)
-	fprintf (file, "GCSE pass %d\n\n", pass + 1);
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, "GCSE pass %d\n\n", pass + 1);
 
       /* Initialize bytes_used to the space for the pred/succ lists,
 	 and the reg_set_table data.  */
@@ -871,10 +867,10 @@ gcse_main (f, file)
 	    max_pass_bytes = bytes_used;
         }
 
-      if (file)
+      if (rtl_dump_file)
 	{
-	  fprintf (file, "\n");
-	  fflush (file);
+	  fprintf (rtl_dump_file, "\n");
+	  fflush (rtl_dump_file);
 	}
 
       obstack_free (&gcse_obstack, gcse_obstack_bottom);
@@ -890,11 +886,11 @@ gcse_main (f, file)
   one_cprop_pass (pass + 1, 1);
   free_gcse_mem ();
 
-  if (file)
+  if (rtl_dump_file)
     {
-      fprintf (file, "GCSE of %s: %d basic blocks, ",
+      fprintf (rtl_dump_file, "GCSE of %s: %d basic blocks, ",
 	       current_function_name, n_basic_blocks);
-      fprintf (file, "%d pass%s, %d bytes\n\n",
+      fprintf (rtl_dump_file, "%d pass%s, %d bytes\n\n",
 	       pass, pass > 1 ? "es" : "", max_pass_bytes);
     }
 
@@ -2993,8 +2989,8 @@ compute_rd ()
       passes++;
     }
 
-  if (gcse_file)
-    fprintf (gcse_file, "reaching def computation: %d passes\n", passes);
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, "reaching def computation: %d passes\n", passes);
 }
 
 /* Classic GCSE available expression support.  */
@@ -3461,11 +3457,11 @@ handle_avail_expr (insn, expr)
       if (changed)
 	{
 	  gcse_subst_count++;
-	  if (gcse_file != NULL)
+	  if (rtl_dump_file != NULL)
 	    {
-	      fprintf (gcse_file, "GCSE: Replacing the source in insn %d with",
+	      fprintf (rtl_dump_file, "GCSE: Replacing the source in insn %d with",
 		       INSN_UID (insn));
-	      fprintf (gcse_file, " reg %d %s insn %d\n",
+	      fprintf (rtl_dump_file, " reg %d %s insn %d\n",
 		       REGNO (to), use_src ? "from" : "set in",
 		       INSN_UID (insn_computes_expr));
 	    }
@@ -3498,14 +3494,14 @@ handle_avail_expr (insn, expr)
       record_one_set (REGNO (to), new_insn);
 
       gcse_create_count++;
-      if (gcse_file != NULL)
+      if (rtl_dump_file != NULL)
 	{
-	  fprintf (gcse_file, "GCSE: Creating insn %d to copy value of reg %d",
+	  fprintf (rtl_dump_file, "GCSE: Creating insn %d to copy value of reg %d",
 		   INSN_UID (NEXT_INSN (insn_computes_expr)),
 		   REGNO (SET_SRC (PATTERN (NEXT_INSN (insn_computes_expr)))));
-	  fprintf (gcse_file, ", computed in insn %d,\n",
+	  fprintf (rtl_dump_file, ", computed in insn %d,\n",
 		   INSN_UID (insn_computes_expr));
-	  fprintf (gcse_file, "      into newly allocated reg %d\n",
+	  fprintf (rtl_dump_file, "      into newly allocated reg %d\n",
 		   REGNO (to));
 	}
 
@@ -3522,14 +3518,14 @@ handle_avail_expr (insn, expr)
       if (changed)
 	{
 	  gcse_subst_count++;
-	  if (gcse_file != NULL)
+	  if (rtl_dump_file != NULL)
 	    {
-	      fprintf (gcse_file,
+	      fprintf (rtl_dump_file,
 		       "GCSE: Replacing the source in insn %d with reg %d ",
 		       INSN_UID (insn),
 		       REGNO (SET_DEST (PATTERN (NEXT_INSN
 						 (insn_computes_expr)))));
-	      fprintf (gcse_file, "set in insn %d\n",
+	      fprintf (rtl_dump_file, "set in insn %d\n",
 		       INSN_UID (insn_computes_expr)); 
 	    }
 	}
@@ -3610,8 +3606,8 @@ one_classic_gcse_pass (pass)
   alloc_expr_hash_table (max_cuid);
   alloc_rd_mem (n_basic_blocks, max_cuid);
   compute_expr_hash_table ();
-  if (gcse_file)
-    dump_hash_table (gcse_file, "Expression", expr_hash_table,
+  if (rtl_dump_file)
+    dump_hash_table (rtl_dump_file, "Expression", expr_hash_table,
 		     expr_hash_table_size, n_exprs);
 
   if (n_exprs > 0)
@@ -3629,12 +3625,12 @@ one_classic_gcse_pass (pass)
   free_rd_mem ();
   free_expr_hash_table ();
 
-  if (gcse_file)
+  if (rtl_dump_file)
     {
-      fprintf (gcse_file, "\n");
-      fprintf (gcse_file, "GCSE of %s, pass %d: %d bytes needed, %d substs,",
+      fprintf (rtl_dump_file, "\n");
+      fprintf (rtl_dump_file, "GCSE of %s, pass %d: %d bytes needed, %d substs,",
 	       current_function_name, pass, bytes_used, gcse_subst_count);
-      fprintf (gcse_file, "%d insns created\n", gcse_create_count);
+      fprintf (rtl_dump_file, "%d insns created\n", gcse_create_count);
     }
 
   return changed;
@@ -4049,13 +4045,13 @@ cprop_jump (insn, from, src)
   run_jump_opt_after_gcse = 1;
 
   const_prop_count++;
-  if (gcse_file != NULL)
+  if (rtl_dump_file != NULL)
     {
-      fprintf (gcse_file,
+      fprintf (rtl_dump_file,
 	       "CONST-PROP: Replacing reg %d in insn %d with constant ",
 	       REGNO (from), INSN_UID (insn));
-      print_rtl (gcse_file, src);
-      fprintf (gcse_file, "\n");
+      print_rtl (rtl_dump_file, src);
+      fprintf (rtl_dump_file, "\n");
     }
 
   return 1;
@@ -4157,14 +4153,14 @@ cprop_insn (insn, alter_jumps)
 	    {
 	      changed = 1;
 	      const_prop_count++;
-	      if (gcse_file != NULL)
+	      if (rtl_dump_file != NULL)
 		{
-		  fprintf (gcse_file, "CONST-PROP: Replacing reg %d in ",
+		  fprintf (rtl_dump_file, "CONST-PROP: Replacing reg %d in ",
 			   regno);
-		  fprintf (gcse_file, "insn %d with constant ",
+		  fprintf (rtl_dump_file, "insn %d with constant ",
 			   INSN_UID (insn));
-		  print_rtl (gcse_file, src);
-		  fprintf (gcse_file, "\n");
+		  print_rtl (rtl_dump_file, src);
+		  fprintf (rtl_dump_file, "\n");
 		}
 
 	      /* The original insn setting reg_used may or may not now be
@@ -4207,11 +4203,11 @@ cprop_insn (insn, alter_jumps)
 	    {
 	      changed = 1;
 	      copy_prop_count++;
-	      if (gcse_file != NULL)
+	      if (rtl_dump_file != NULL)
 		{
-		  fprintf (gcse_file, "COPY-PROP: Replacing reg %d in insn %d",
+		  fprintf (rtl_dump_file, "COPY-PROP: Replacing reg %d in insn %d",
 			   regno, INSN_UID (insn));
-		  fprintf (gcse_file, " with reg %d\n", REGNO (src));
+		  fprintf (rtl_dump_file, " with reg %d\n", REGNO (src));
 		}
 
 	      /* The original insn setting reg_used may or may not now be
@@ -4260,8 +4256,8 @@ cprop (alter_jumps)
 	}
     }
 
-  if (gcse_file != NULL)
-    fprintf (gcse_file, "\n");
+  if (rtl_dump_file != NULL)
+    fprintf (rtl_dump_file, "\n");
 
   return changed;
 }
@@ -4282,8 +4278,8 @@ one_cprop_pass (pass, alter_jumps)
 
   alloc_set_hash_table (max_cuid);
   compute_set_hash_table ();
-  if (gcse_file)
-    dump_hash_table (gcse_file, "SET", set_hash_table, set_hash_table_size,
+  if (rtl_dump_file)
+    dump_hash_table (rtl_dump_file, "SET", set_hash_table, set_hash_table_size,
 		     n_sets);
   if (n_sets > 0)
     {
@@ -4295,11 +4291,11 @@ one_cprop_pass (pass, alter_jumps)
 
   free_set_hash_table ();
 
-  if (gcse_file)
+  if (rtl_dump_file)
     {
-      fprintf (gcse_file, "CPROP of %s, pass %d: %d bytes needed, ",
+      fprintf (rtl_dump_file, "CPROP of %s, pass %d: %d bytes needed, ",
 	       current_function_name, pass, bytes_used);
-      fprintf (gcse_file, "%d const props, %d copy props\n\n",
+      fprintf (rtl_dump_file, "%d const props, %d copy props\n\n",
 	       const_prop_count, copy_prop_count);
     }
 
@@ -4440,7 +4436,7 @@ compute_pre_data ()
       sbitmap_not (ae_kill[i], ae_kill[i]);
     }
 
-  edge_list = pre_edge_lcm (gcse_file, n_exprs, transp, comp, antloc,
+  edge_list = pre_edge_lcm (rtl_dump_file, n_exprs, transp, comp, antloc,
 			    ae_kill, &pre_insert_map, &pre_delete_map);
   sbitmap_vector_free (antloc);
   antloc = NULL;
@@ -4722,11 +4718,11 @@ insert_insn_end_bb (expr, bb, pre)
 
   gcse_create_count++;
 
-  if (gcse_file)
+  if (rtl_dump_file)
     {
-      fprintf (gcse_file, "PRE/HOIST: end of bb %d, insn %d, ",
+      fprintf (rtl_dump_file, "PRE/HOIST: end of bb %d, insn %d, ",
 	       bb->index, INSN_UID (new_insn));
-      fprintf (gcse_file, "copying expression %d to reg %d\n",
+      fprintf (rtl_dump_file, "copying expression %d to reg %d\n",
 	       expr->bitmap_index, regno);
     }
 }
@@ -4793,12 +4789,12 @@ pre_edge_insert (edge_list, index_map)
 			    insert_insn_on_edge (insn, eg);
 			  }
 
-			if (gcse_file)
+			if (rtl_dump_file)
 			  {
-			    fprintf (gcse_file, "PRE/HOIST: edge (%d,%d), ",
+			    fprintf (rtl_dump_file, "PRE/HOIST: edge (%d,%d), ",
 				     bb->index,
 				     INDEX_EDGE_SUCC_BB (edge_list, e)->index);
-			    fprintf (gcse_file, "copy expression %d\n",
+			    fprintf (rtl_dump_file, "copy expression %d\n",
 				     expr->bitmap_index);
 			  }
 
@@ -4845,8 +4841,8 @@ pre_insert_copy_insn (expr, insn)
 
   gcse_create_count++;
 
-  if (gcse_file)
-    fprintf (gcse_file,
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file,
 	     "PRE: bb %d, insn %d, copy expression %d in insn %d to reg %d\n",
 	      BLOCK_NUM (insn), INSN_UID (new_insn), indx,
 	      INSN_UID (insn), regno);
@@ -4970,12 +4966,12 @@ pre_delete ()
 		    gcse_subst_count++;
 		  }
 
-		if (gcse_file)
+		if (rtl_dump_file)
 		  {
-		    fprintf (gcse_file,
+		    fprintf (rtl_dump_file,
 			     "PRE: redundant insn %d (expression %d) in ",
 			       INSN_UID (insn), indx);
-		    fprintf (gcse_file, "bb %d, reaching reg is %d\n",
+		    fprintf (rtl_dump_file, "bb %d, reaching reg is %d\n",
 			     bb->index, REGNO (expr->reaching_reg));
 		  }
 	      }
@@ -5068,8 +5064,8 @@ one_pre_gcse_pass (pass)
 
   compute_expr_hash_table ();
   trim_ld_motion_mems ();
-  if (gcse_file)
-    dump_hash_table (gcse_file, "Expression", expr_hash_table,
+  if (rtl_dump_file)
+    dump_hash_table (rtl_dump_file, "Expression", expr_hash_table,
 		     expr_hash_table_size, n_exprs);
 
   if (n_exprs > 0)
@@ -5085,11 +5081,11 @@ one_pre_gcse_pass (pass)
   remove_fake_edges ();
   free_expr_hash_table ();
 
-  if (gcse_file)
+  if (rtl_dump_file)
     {
-      fprintf (gcse_file, "\nPRE GCSE of %s, pass %d: %d bytes needed, ",
+      fprintf (rtl_dump_file, "\nPRE GCSE of %s, pass %d: %d bytes needed, ",
 	       current_function_name, pass, bytes_used);
-      fprintf (gcse_file, "%d substs, %d insns created\n",
+      fprintf (rtl_dump_file, "%d substs, %d insns created\n",
 	       gcse_subst_count, gcse_create_count);
     }
 
@@ -5584,8 +5580,8 @@ compute_code_hoist_vbeinout ()
       passes++;
     }
 
-  if (gcse_file)
-    fprintf (gcse_file, "hoisting vbeinout computation: %d passes\n", passes);
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, "hoisting vbeinout computation: %d passes\n", passes);
 }
 
 /* Top level routine to do the dataflow analysis needed by code hoisting.  */
@@ -5597,8 +5593,8 @@ compute_code_hoist_data ()
   compute_transpout ();
   compute_code_hoist_vbeinout ();
   calculate_dominance_info (NULL, dominators, CDI_DOMINATORS);
-  if (gcse_file)
-    fprintf (gcse_file, "\n");
+  if (rtl_dump_file)
+    fprintf (rtl_dump_file, "\n");
 }
 
 /* Determine if the expression identified by EXPR_INDEX would
@@ -5843,8 +5839,8 @@ one_code_hoisting_pass ()
 
   alloc_expr_hash_table (max_cuid);
   compute_expr_hash_table ();
-  if (gcse_file)
-    dump_hash_table (gcse_file, "Code Hosting Expressions", expr_hash_table,
+  if (rtl_dump_file)
+    dump_hash_table (rtl_dump_file, "Code Hosting Expressions", expr_hash_table,
 		     expr_hash_table_size, n_exprs);
 
   if (n_exprs > 0)
@@ -6214,8 +6210,8 @@ trim_ld_motion_mems ()
     }
 
   /* Show the world what we've found.  */
-  if (gcse_file && pre_ldst_mems != NULL)
-    print_ldst_list (gcse_file);
+  if (rtl_dump_file && pre_ldst_mems != NULL)
+    print_ldst_list (rtl_dump_file);
 }
 
 /* This routine will take an expression which we are replacing with
@@ -6255,13 +6251,13 @@ update_ld_motion_stores (expr)
 	  if (expr->reaching_reg == src)
 	    continue;
 	  
-	  if (gcse_file)
+	  if (rtl_dump_file)
 	    {
-	      fprintf (gcse_file, "PRE:  store updated with reaching reg ");
-	      print_rtl (gcse_file, expr->reaching_reg);
-	      fprintf (gcse_file, ":\n	");
-	      print_inline_rtx (gcse_file, insn, 8);
-	      fprintf (gcse_file, "\n");
+	      fprintf (rtl_dump_file, "PRE:  store updated with reaching reg ");
+	      print_rtl (rtl_dump_file, expr->reaching_reg);
+	      fprintf (rtl_dump_file, ":\n	");
+	      print_inline_rtx (rtl_dump_file, insn, 8);
+	      fprintf (rtl_dump_file, "\n");
 	    }
 	  
 	  copy = gen_move_insn ( reg, SET_SRC (pat));
@@ -6788,16 +6784,16 @@ build_store_vectors ()
   */
 
   for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr (ptr))
-      {
+    {
       /* Make sure we don't have a load-only expr, which we never seem
 	 to, but i don't think there's actually a guarantee */
       if (ptr->stores != NULL)
-	  {
+	{
 	  /* First mark the regs used by the mem */
 	  mark_mem_regs (ptr->pattern, used);
 	  /* Now see if it had any regs */
 	  if (!(sbitmap_first_set_bit (used) == -1))
-    {
+	    {
 	      /* For each register, see if we've tested it */
 	      EXECUTE_IF_SET_IN_SBITMAP (used, 0, i, 
 	      {
@@ -6813,7 +6809,8 @@ build_store_vectors ()
 						   BASIC_BLOCK (j), FALSE))
 			  {
 			    SET_BIT (ae_kill[j], ptr->index);
-			    if (!TEST_BIT (ae_gen[j], ptr->index))
+			    if (!TEST_BIT (ae_gen[j], ptr->index) 
+				|| !TEST_BIT (st_antloc[j], ptr->index))
 			      RESET_BIT (transp[j], ptr->index);
 			  }
 		      }
@@ -6836,7 +6833,8 @@ build_store_vectors ()
 			    /* It's not okay, so it's killed and maybe
 			       not transparent */
 			    SET_BIT (ae_kill[j], ptr->index);
-			    if (!TEST_BIT (ae_gen[j], ptr->index))
+			    if (!TEST_BIT (ae_gen[j], ptr->index)
+				|| !TEST_BIT (st_antloc[j], ptr->index))
 			      {
 				RESET_BIT (transp[j], ptr->index);
 			      }
@@ -6848,17 +6846,18 @@ build_store_vectors ()
 						BASIC_BLOCK (j), FALSE))
 			  {
 			    SET_BIT (ae_kill[j], ptr->index);
-			    if (!TEST_BIT (ae_gen[j], ptr->index))
+			    if (!TEST_BIT (ae_gen[j], ptr->index)
+				|| !TEST_BIT (st_antloc[j], ptr->index))
 			      {
 				RESET_BIT (transp[j], ptr->index);
 			      }
 			  }
 		      }
-    }
+		  }
 	      });
 	      /* Reset the used list */
 	      sbitmap_zero (used);
-}
+	    }
 	  /* If it had no registers, we come here, and do the
 	     approriate testing */
 	  else
@@ -6869,15 +6868,16 @@ build_store_vectors ()
 					  BASIC_BLOCK (j), FALSE))
 		    {
 		      SET_BIT (ae_kill[j], ptr->index);
-		      if (!TEST_BIT (ae_gen[j], ptr->index))
+		      if (!TEST_BIT (ae_gen[j], ptr->index)
+			  || !TEST_BIT (st_antloc[j], ptr->index))
 			{
 			  RESET_BIT (transp[j], ptr->index);
 			}
 		    }
 		}
 	    }  
+	}
     }
-}
   sbitmap_free (tested);
   sbitmap_free (used);
   sbitmap_vector_free (result);
@@ -7117,8 +7117,8 @@ store_motion ()
   sbitmap_zero (trapping_expr);
   for (ptr = first_ls_expr (); ptr != NULL; ptr = next_ls_expr(ptr))
     {
-	    if (may_trap_p (ptr->pattern))
-		    SET_BIT (trapping_expr, ptr->index);
+      if (may_trap_p (ptr->pattern))
+	SET_BIT (trapping_expr, ptr->index);
     }
   for (i = 0; i < n_basic_blocks; i++)
     {

@@ -3059,7 +3059,7 @@ rest_of_compilation (decl)
 
       find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE);
-      tem = gcse_main (insns, rtl_dump_file);
+      tem = gcse_main (insns);
 
       save_csb = flag_cse_skip_blocks;
       save_cfj = flag_cse_follow_jumps;
