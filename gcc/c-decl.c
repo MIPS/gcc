@@ -330,6 +330,7 @@ static void clone_underlying_type (tree);
 static bool flexible_array_type_p (tree);
 static hashval_t link_hash_hash	(const void *);
 static int link_hash_eq (const void *, const void *);
+static void finish_incomplete_vars (tree, int);
 
 /* States indicating how grokdeclarator() should handle declspecs marked
    with __attribute__((deprecated)).  An object declared as
@@ -459,9 +460,13 @@ restore_fragment_bindings (tree bindings)
 		  TYPE_FIELDS (type) = NULL_TREE;
 		}
 	    }
-	  if (fields != NULL)
+	  if (size != NULL_TREE)
 	    {
-	      for (x = TYPE_MAIN_VARIANT (type); x; x = TYPE_NEXT_VARIANT (x))
+	      x = TYPE_MAIN_VARIANT (type);
+	      if (TREE_CODE (x) == RECORD_TYPE
+		  || TREE_CODE (x) == UNION_TYPE)
+		finish_incomplete_vars (x, 1);
+	      for (; x; x = TYPE_NEXT_VARIANT (x))
 		{
 		  TYPE_FIELDS (x) = fields;
 		  TYPE_SIZE (x) = size;
@@ -5328,11 +5333,22 @@ finish_struct (tree t, tree fieldlist, tree attributes)
       warning ("union cannot be made transparent");
     }
 
-  /* If this structure or union completes the type of any previous
-     variable declaration, lay it out and output its rtl.  */
-  for (x = C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t));
-       x;
-       x = TREE_CHAIN (x))
+  finish_incomplete_vars (TYPE_MAIN_VARIANT (t), toplevel);
+
+  /* Finish debugging output for this type.  */
+  rest_of_type_compilation (t, toplevel);
+
+  return t;
+}
+
+/* If this structure or union completes the type of any previous
+   variable declaration, lay it out and output its rtl.  */
+
+static void
+finish_incomplete_vars (tree t, int toplevel)
+{
+  tree x;
+  for (x = C_TYPE_INCOMPLETE_VARS (t);  x;  x = TREE_CHAIN (x))
     {
       tree decl = TREE_VALUE (x);
       if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
@@ -5347,12 +5363,7 @@ finish_struct (tree t, tree fieldlist, tree attributes)
 	    expand_decl (decl);
 	}
     }
-  C_TYPE_INCOMPLETE_VARS (TYPE_MAIN_VARIANT (t)) = 0;
-
-  /* Finish debugging output for this type.  */
-  rest_of_type_compilation (t, toplevel);
-
-  return t;
+  C_TYPE_INCOMPLETE_VARS (t) = 0;
 }
 
 /* Lay out the type T, and its element type, and so on.  */

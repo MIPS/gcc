@@ -1,3 +1,12 @@
+2003-12-12  Per Bothner  <pbothner@apple.com>
+
+	* c-decl.c (finish_struct):  Move C_TYPE_INCOMPLETE_VARS processing to
+	(finish_incomplete_vars):  ... this new function.
+	(restore_fragment_bindings):  Call finish_incomplete_vars.  Needed if
+	one compilation defines a tag, and another restores it as an incomplete
+	structure-type-references, uses it for decls, and then restores the
+	tag definition, at which point we need to complete those decls.
+
 2003-12-12  Mike Stump  <mrs@apple.com>
 
 	* cppfiles.c (validate_pch): Grab file->data after open_file, as
