@@ -1,3 +1,15 @@
+2004-11-06  Noa Resare  <noa@resare.com>
+
+	* java/awt/Choice.java (add):
+	Implement correct selection behavior when peer == null.
+	(insert): Likewise.
+	(remove): Likewise.
+
+2004-11-06  Mark Wielaard  <mark@klomp.org>
+
+	* gnu/java/awt/peer/gtk/GtkChoicePeer.java (GtkChoicePeer):
+	Call select() when Choice has a selected item.
+
 2004-11-06  Michael Koch  <address@bogus.example.com>
 
 	* jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c,
