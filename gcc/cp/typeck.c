@@ -3838,7 +3838,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	      compound = build (COMPOUND_EXPR, TREE_TYPE (arg), modify, value);
 
 	      /* Eliminate warning about unused result of + or -.  */
-	      TREE_NO_UNUSED_WARNING (compound) = 1;
+	      TREE_NO_WARNING (compound) = 1;
 	      return compound;
 	    }
 
@@ -4126,7 +4126,7 @@ unary_complex_lvalue (enum tree_code code, tree arg)
     {
       tree real_result = build_unary_op (code, TREE_OPERAND (arg, 0), 0);
       arg = build (COMPOUND_EXPR, TREE_TYPE (real_result), arg, real_result);
-      TREE_NO_UNUSED_WARNING (arg) = 1;
+      TREE_NO_WARNING (arg) = 1;
       return arg;
     }
 
@@ -5235,7 +5235,7 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
   if (olhs)
     {
       result = build (COMPOUND_EXPR, olhstype, result, olhs);
-      TREE_NO_UNUSED_WARNING (result) = 1;
+      TREE_NO_WARNING (result) = 1;
       return result;
     }
   return convert_for_assignment (olhstype, result, "assignment",

@@ -2363,7 +2363,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	TREE_SIDE_EFFECTS (val) = 1;
 	val = convert (result_type, val);
 	if (TREE_CODE (val) != code)
-	  TREE_NO_UNUSED_WARNING (val) = 1;
+	  TREE_NO_WARNING (val) = 1;
 	return val;
       }
 

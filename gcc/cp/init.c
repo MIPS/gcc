@@ -1829,7 +1829,7 @@ build_new (tree placement, tree decl, tree init, int use_global_new)
 
   /* Wrap it in a NOP_EXPR so warn_if_unused_value doesn't complain.  */
   rval = build1 (NOP_EXPR, TREE_TYPE (rval), rval);
-  TREE_NO_UNUSED_WARNING (rval) = 1;
+  TREE_NO_WARNING (rval) = 1;
 
   return rval;
 }

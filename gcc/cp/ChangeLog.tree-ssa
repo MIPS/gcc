@@ -1,3 +1,10 @@
+2004-02-03  Richard Henderson  <rth@redhat.com>
+
+	PR middle-end/13325
+	* call.c, cvt.c, init.c, typeck.c: Use TREE_NO_WARNING instead
+	of TREE_NO_UNUSED_WARNING.
+	* cvt.c (convert_to_void): Also use it for "has no effect" warning.
+	
 2004-01-30  Frank Ch. Eigler  <fche@redhat.com>
 
 	* cp-mudflap.c (mflang_flush_calls): Mark static ctor as TREE_USED.

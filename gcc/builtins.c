@@ -6608,8 +6608,8 @@ fold_builtin_strncmp (tree exp)
 /* Used by constant folding to eliminate some builtin calls early.  EXP is
    the CALL_EXPR of a call to a builtin function.  */
 
-tree
-fold_builtin (tree exp)
+static tree
+fold_builtin_1 (tree exp)
 {
   tree fndecl = get_callee_fndecl (exp);
   tree arglist = TREE_OPERAND (exp, 1);
@@ -7031,6 +7031,24 @@ fold_builtin (tree exp)
     }
 
   return 0;
+}
+
+/* A wrapper function for builtin folding that prevents warnings for
+   "statement without effect" and the like, caused by removing the 
+   call node earlier than the warning is generated.  */
+
+tree
+fold_builtin (tree exp)
+{
+  exp = fold_builtin_1 (exp);
+  if (exp)
+    {
+      /* ??? Don't clobber shared nodes such as integer_zero_node.  */
+      if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c')
+	exp = build1 (NOP_EXPR, TREE_TYPE (exp), exp);
+      TREE_NO_WARNING (exp) = 1;
+    }
+  return exp;
 }
 
 /* Conveniently construct a function call expression.  */

@@ -1,3 +1,16 @@
+2004-02-03  Richard Henderson  <rth@redhat.com>
+
+        PR middle-end/13325
+	* builtins.c (fold_builtin_1): Rename from fold_builtin.
+	(fold_builtin): New.
+	* c-simplify.c (gimplify_expr_stmt): Check TREE_NO_WARNING.
+	* stmt.c (expand_expr_stmt_value): Likewise.
+	* tree.h (struct tree_common): Add nowarning_flag.
+	(TREE_NO_WARNING): New.
+	(TREE_NO_UNUSED_WARNING): Remove.
+	* c-typeck.c (build_unary_op): Use TREE_NO_WARNING instead.
+	* stmt.c (warn_if_unused_value): Likewise.
+
 2004-02-03  Steven Bosscher  <stevenb@suse.de>
 
 	* tree-ssa-dce.c: Partial rewrite.  The old DCE is now called

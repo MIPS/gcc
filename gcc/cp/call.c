@@ -4561,7 +4561,7 @@ build_over_call (struct z_candidate *cand, int flags)
 	  val = build (MODIFY_EXPR, as_base, to_as_base, arg_as_base);
 	  val = convert_to_void (val, NULL);
 	  val = build (COMPOUND_EXPR, type, val, save_to);
-	  TREE_NO_UNUSED_WARNING (val) = 1;
+	  TREE_NO_WARNING (val) = 1;
 	}
       
       return val;

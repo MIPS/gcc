@@ -142,7 +142,7 @@ struct tree_common GTY(())
   unsigned readonly_flag : 1;
   unsigned unsigned_flag : 1;
   unsigned asm_written_flag: 1;
-  unsigned : 1;
+  unsigned nowarning_flag : 1;
 
   unsigned used_flag : 1;
   unsigned nothrow_flag : 1;
@@ -180,8 +180,6 @@ struct tree_common GTY(())
 
        TREE_STATIC in
            VAR_DECL, FUNCTION_DECL, CONSTRUCTOR, ADDR_EXPR
-       TREE_NO_UNUSED_WARNING in
-           CONVERT_EXPR, NOP_EXPR, COMPOUND_EXPR
        TREE_VIA_VIRTUAL in
            TREE_LIST or TREE_VEC
        TREE_CONSTANT_OVERFLOW in
@@ -291,6 +289,10 @@ struct tree_common GTY(())
 	TREE_INVARIANT in
 	    all expressions.
 
+   nowarning_flag:
+
+       TREE_NO_WARNING in
+           ... any expr node
 */
 
 /* Define accessors for the fields that all tree nodes have
@@ -603,9 +605,9 @@ extern void tree_operand_check_failed (int, enum tree_code,
    executed if an exception is thrown, not on normal exit of its scope.  */
 #define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
 
-/* In a CONVERT_EXPR, NOP_EXPR or COMPOUND_EXPR, this means the node was
-   made implicitly and should not lead to an "unused value" warning.  */
-#define TREE_NO_UNUSED_WARNING(NODE) ((NODE)->common.static_flag)
+/* In an expr node (usually a conversion) this means the node was made
+   implicitly and should not lead to any sort of warning.  */
+#define TREE_NO_WARNING(NODE) ((NODE)->common.nowarning_flag)
 
 /* Nonzero for a TREE_LIST or TREE_VEC node means that the derivation
    chain is via a `virtual' declaration.  */

@@ -2228,7 +2228,7 @@ expand_expr_stmt_value (tree exp, int want_value, int maybe_last)
     {
       if (TREE_SIDE_EFFECTS (exp))
 	warn_if_unused_value (exp);
-      else if (!VOID_TYPE_P (TREE_TYPE (exp)))
+      else if (!VOID_TYPE_P (TREE_TYPE (exp)) && !TREE_NO_WARNING (exp))
 	warning ("%Hstatement with no effect", &emit_locus);
     }
 
@@ -2328,7 +2328,7 @@ warn_if_unused_value (tree exp)
       return warn_if_unused_value (TREE_OPERAND (exp, 1));
 
     case COMPOUND_EXPR:
-      if (TREE_NO_UNUSED_WARNING (exp))
+      if (TREE_NO_WARNING (exp))
 	return 0;
       if (warn_if_unused_value (TREE_OPERAND (exp, 0)))
 	return 1;
@@ -2341,7 +2341,7 @@ warn_if_unused_value (tree exp)
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
       /* Don't warn about conversions not explicit in the user's program.  */
-      if (TREE_NO_UNUSED_WARNING (exp))
+      if (TREE_NO_WARNING (exp))
 	return 0;
       /* Assignment to a cast usually results in a cast of a modify.
 	 Don't complain about that.  There can be an arbitrary number of
