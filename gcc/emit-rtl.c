@@ -1520,6 +1520,40 @@ component_ref_for_mem_expr (tree ref)
 		  TREE_OPERAND (ref, 1));
 }
 
+/* Returns 1 if both MEM_EXPR can be considered equal
+   and 0 otherwise.  */
+
+int
+mem_expr_equal_p (tree expr1, tree expr2)
+{
+  if (expr1 == expr2)
+    return 1;
+
+  if (! expr1 || ! expr2)
+    return 0;
+
+  if (TREE_CODE (expr1) != TREE_CODE (expr2))
+    return 0;
+
+  if (TREE_CODE (expr1) == COMPONENT_REF)
+    return 
+      mem_expr_equal_p (TREE_OPERAND (expr1, 0),
+			TREE_OPERAND (expr2, 0))
+      && mem_expr_equal_p (TREE_OPERAND (expr1, 1), /* field decl */
+			   TREE_OPERAND (expr2, 1));
+  
+  if (TREE_CODE (expr1) == INDIRECT_REF)
+    return mem_expr_equal_p (TREE_OPERAND (expr1, 0),
+			     TREE_OPERAND (expr2, 0));
+  
+  /* Decls with different pointers can't be equal.  */
+  if (DECL_P (expr1))
+    return 0;
+
+  abort(); /* ARRAY_REFs, ARRAY_RANGE_REFs and BIT_FIELD_REFs should already
+	      have been resolved here.  */
+}
+
 /* Given REF, a MEM, and T, either the type of X or the expression
    corresponding to REF, set the memory attributes.  OBJECTP is nonzero
    if we are making a new object of this type.  BITPOS is nonzero if
@@ -1840,6 +1874,9 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
     mode = GET_MODE (memref);
   if (addr == 0)
     addr = XEXP (memref, 0);
+  if (mode == GET_MODE (memref) && addr == XEXP (memref, 0)
+      && (!validate || memory_address_p (mode, addr)))
+    return memref;
 
   if (validate)
     {
@@ -1866,15 +1903,29 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
 rtx
 change_address (rtx memref, enum machine_mode mode, rtx addr)
 {
-  rtx new = change_address_1 (memref, mode, addr, 1);
+  rtx new = change_address_1 (memref, mode, addr, 1), size;
   enum machine_mode mmode = GET_MODE (new);
+  unsigned int align;
+
+  size = mmode == BLKmode ? 0 : GEN_INT (GET_MODE_SIZE (mmode));
+  align = mmode == BLKmode ? BITS_PER_UNIT : GET_MODE_ALIGNMENT (mmode);
+
+  /* If there are no changes, just return the original memory reference.  */
+  if (new == memref)
+    {
+      if (MEM_ATTRS (memref) == 0
+	  || (MEM_EXPR (memref) == NULL
+	      && MEM_OFFSET (memref) == NULL
+	      && MEM_SIZE (memref) == size
+	      && MEM_ALIGN (memref) == align))
+	return new;
+
+      new = gen_rtx_MEM (mmode, XEXP (memref, 0));
+      MEM_COPY_ATTRIBUTES (new, memref);
+    }
 
   MEM_ATTRS (new)
-    = get_mem_attrs (MEM_ALIAS_SET (memref), 0, 0,
-		     mmode == BLKmode ? 0 : GEN_INT (GET_MODE_SIZE (mmode)),
-		     (mmode == BLKmode ? BITS_PER_UNIT
-		      : GET_MODE_ALIGNMENT (mmode)),
-		     mmode);
+    = get_mem_attrs (MEM_ALIAS_SET (memref), 0, 0, size, align, mmode);
 
   return new;
 }
@@ -1894,6 +1945,11 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
   rtx memoffset = MEM_OFFSET (memref);
   rtx size = 0;
   unsigned int memalign = MEM_ALIGN (memref);
+
+  /* If there are no changes, just return the original memory reference.  */
+  if (mode == GET_MODE (memref) && !offset
+      && (!validate || memory_address_p (mode, addr)))
+    return memref;
 
   /* ??? Prefer to create garbage instead of creating shared rtl.
      This may happen even if offset is nonzero -- consider
@@ -1985,6 +2041,10 @@ offset_address (rtx memref, rtx offset, unsigned HOST_WIDE_INT pow2)
   update_temp_slot_address (XEXP (memref, 0), new);
   new = change_address_1 (memref, VOIDmode, new, 1);
 
+  /* If there are no changes, just return the original memory reference.  */
+  if (new == memref)
+    return new;
+
   /* Update the alignment to reflect the offset.  Reset the offset, which
      we don't know.  */
   MEM_ATTRS (new)
@@ -2028,6 +2088,10 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
   tree expr = MEM_EXPR (new);
   rtx memoffset = MEM_OFFSET (new);
   unsigned int size = GET_MODE_SIZE (mode);
+
+  /* If there are no changes, just return the original memory reference.  */
+  if (new == memref)
+    return new;
 
   /* If we don't know what offset we were at within the expression, then
      we can't know if we've overstepped the bounds.  */
@@ -3174,7 +3238,7 @@ mark_label_nuses (rtx x)
   const char *fmt;
 
   code = GET_CODE (x);
-  if (code == LABEL_REF)
+  if (code == LABEL_REF && LABEL_P (XEXP (x, 0)))
     LABEL_NUSES (XEXP (x, 0))++;
 
   fmt = GET_RTX_FORMAT (code);
@@ -3950,7 +4014,7 @@ remove_unnecessary_notes (void)
 /* Make X be output before the instruction BEFORE.  */
 
 rtx
-emit_insn_before (rtx x, rtx before)
+emit_insn_before_noloc (rtx x, rtx before)
 {
   rtx last = before;
   rtx insn;
@@ -4000,7 +4064,7 @@ emit_insn_before (rtx x, rtx before)
    and output it before the instruction BEFORE.  */
 
 rtx
-emit_jump_insn_before (rtx x, rtx before)
+emit_jump_insn_before_noloc (rtx x, rtx before)
 {
   rtx insn, last = NULL_RTX;
 
@@ -4046,7 +4110,7 @@ emit_jump_insn_before (rtx x, rtx before)
    and output it before the instruction BEFORE.  */
 
 rtx
-emit_call_insn_before (rtx x, rtx before)
+emit_call_insn_before_noloc (rtx x, rtx before)
 {
   rtx last = NULL_RTX, insn;
 
@@ -4177,7 +4241,7 @@ emit_insn_after_1 (rtx first, rtx after)
 /* Make X be output after the insn AFTER.  */
 
 rtx
-emit_insn_after (rtx x, rtx after)
+emit_insn_after_noloc (rtx x, rtx after)
 {
   rtx last = after;
 
@@ -4236,7 +4300,7 @@ emit_insn_after_with_line_notes (rtx x, rtx after, rtx from)
    and output it after the insn AFTER.  */
 
 rtx
-emit_jump_insn_after (rtx x, rtx after)
+emit_jump_insn_after_noloc (rtx x, rtx after)
 {
   rtx last;
 
@@ -4275,7 +4339,7 @@ emit_jump_insn_after (rtx x, rtx after)
    and output it after the instruction AFTER.  */
 
 rtx
-emit_call_insn_after (rtx x, rtx after)
+emit_call_insn_after_noloc (rtx x, rtx after)
 {
   rtx last;
 
@@ -4377,16 +4441,19 @@ emit_note_copy_after (rtx orig, rtx after)
   return note;
 }
 
-/* Like emit_insn_after, but set INSN_LOCATOR according to SCOPE.  */
+/* Like emit_insn_after_noloc, but set INSN_LOCATOR according to SCOPE.  */
 rtx
 emit_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
-  rtx last = emit_insn_after (pattern, after);
+  rtx last = emit_insn_after_noloc (pattern, after);
+
+  if (pattern == NULL_RTX || !loc)
+    return last;
 
   after = NEXT_INSN (after);
   while (1)
     {
-      if (active_insn_p (after))
+      if (active_insn_p (after) && !INSN_LOCATOR (after))
 	INSN_LOCATOR (after) = loc;
       if (after == last)
 	break;
@@ -4395,16 +4462,29 @@ emit_insn_after_setloc (rtx pattern, rtx after, int loc)
   return last;
 }
 
-/* Like emit_jump_insn_after, but set INSN_LOCATOR according to SCOPE.  */
+/* Like emit_insn_after_noloc, but set INSN_LOCATOR according to AFTER.  */
+rtx
+emit_insn_after (rtx pattern, rtx after)
+{
+  if (INSN_P (after))
+    return emit_insn_after_setloc (pattern, after, INSN_LOCATOR (after));
+  else
+    return emit_insn_after_noloc (pattern, after);
+}
+
+/* Like emit_jump_insn_after_noloc, but set INSN_LOCATOR according to SCOPE.  */
 rtx
 emit_jump_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
-  rtx last = emit_jump_insn_after (pattern, after);
+  rtx last = emit_jump_insn_after_noloc (pattern, after);
+
+  if (pattern == NULL_RTX || !loc)
+    return last;
 
   after = NEXT_INSN (after);
   while (1)
     {
-      if (active_insn_p (after))
+      if (active_insn_p (after) && !INSN_LOCATOR (after))
 	INSN_LOCATOR (after) = loc;
       if (after == last)
 	break;
@@ -4413,16 +4493,29 @@ emit_jump_insn_after_setloc (rtx pattern, rtx after, int loc)
   return last;
 }
 
-/* Like emit_call_insn_after, but set INSN_LOCATOR according to SCOPE.  */
+/* Like emit_jump_insn_after_noloc, but set INSN_LOCATOR according to AFTER.  */
+rtx
+emit_jump_insn_after (rtx pattern, rtx after)
+{
+  if (INSN_P (after))
+    return emit_jump_insn_after_setloc (pattern, after, INSN_LOCATOR (after));
+  else
+    return emit_jump_insn_after_noloc (pattern, after);
+}
+
+/* Like emit_call_insn_after_noloc, but set INSN_LOCATOR according to SCOPE.  */
 rtx
 emit_call_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
-  rtx last = emit_call_insn_after (pattern, after);
+  rtx last = emit_call_insn_after_noloc (pattern, after);
+
+  if (pattern == NULL_RTX || !loc)
+    return last;
 
   after = NEXT_INSN (after);
   while (1)
     {
-      if (active_insn_p (after))
+      if (active_insn_p (after) && !INSN_LOCATOR (after))
 	INSN_LOCATOR (after) = loc;
       if (after == last)
 	break;
@@ -4431,23 +4524,111 @@ emit_call_insn_after_setloc (rtx pattern, rtx after, int loc)
   return last;
 }
 
-/* Like emit_insn_before, but set INSN_LOCATOR according to SCOPE.  */
+/* Like emit_call_insn_after_noloc, but set INSN_LOCATOR according to AFTER.  */
+rtx
+emit_call_insn_after (rtx pattern, rtx after)
+{
+  if (INSN_P (after))
+    return emit_call_insn_after_setloc (pattern, after, INSN_LOCATOR (after));
+  else
+    return emit_call_insn_after_noloc (pattern, after);
+}
+
+/* Like emit_insn_before_noloc, but set INSN_LOCATOR according to SCOPE.  */
 rtx
 emit_insn_before_setloc (rtx pattern, rtx before, int loc)
 {
   rtx first = PREV_INSN (before);
-  rtx last = emit_insn_before (pattern, before);
+  rtx last = emit_insn_before_noloc (pattern, before);
+
+  if (pattern == NULL_RTX || !loc)
+    return last;
 
   first = NEXT_INSN (first);
   while (1)
     {
-      if (active_insn_p (first))
+      if (active_insn_p (first) && !INSN_LOCATOR (first))
 	INSN_LOCATOR (first) = loc;
       if (first == last)
 	break;
       first = NEXT_INSN (first);
     }
   return last;
+}
+
+/* Like emit_insn_before_noloc, but set INSN_LOCATOR according to BEFORE.  */
+rtx
+emit_insn_before (rtx pattern, rtx before)
+{
+  if (INSN_P (before))
+    return emit_insn_before_setloc (pattern, before, INSN_LOCATOR (before));
+  else
+    return emit_insn_before_noloc (pattern, before);
+}
+
+/* like emit_insn_before_noloc, but set insn_locator according to scope.  */
+rtx
+emit_jump_insn_before_setloc (rtx pattern, rtx before, int loc)
+{
+  rtx first = PREV_INSN (before);
+  rtx last = emit_jump_insn_before_noloc (pattern, before);
+
+  if (pattern == NULL_RTX)
+    return last;
+
+  first = NEXT_INSN (first);
+  while (1)
+    {
+      if (active_insn_p (first) && !INSN_LOCATOR (first))
+	INSN_LOCATOR (first) = loc;
+      if (first == last)
+	break;
+      first = NEXT_INSN (first);
+    }
+  return last;
+}
+
+/* Like emit_jump_insn_before_noloc, but set INSN_LOCATOR according to BEFORE.  */
+rtx
+emit_jump_insn_before (rtx pattern, rtx before)
+{
+  if (INSN_P (before))
+    return emit_jump_insn_before_setloc (pattern, before, INSN_LOCATOR (before));
+  else
+    return emit_jump_insn_before_noloc (pattern, before);
+}
+
+/* like emit_insn_before_noloc, but set insn_locator according to scope.  */
+rtx
+emit_call_insn_before_setloc (rtx pattern, rtx before, int loc)
+{
+  rtx first = PREV_INSN (before);
+  rtx last = emit_call_insn_before_noloc (pattern, before);
+
+  if (pattern == NULL_RTX)
+    return last;
+
+  first = NEXT_INSN (first);
+  while (1)
+    {
+      if (active_insn_p (first) && !INSN_LOCATOR (first))
+	INSN_LOCATOR (first) = loc;
+      if (first == last)
+	break;
+      first = NEXT_INSN (first);
+    }
+  return last;
+}
+
+/* like emit_call_insn_before_noloc,
+   but set insn_locator according to before.  */
+rtx
+emit_call_insn_before (rtx pattern, rtx before)
+{
+  if (INSN_P (before))
+    return emit_call_insn_before_setloc (pattern, before, INSN_LOCATOR (before));
+  else
+    return emit_call_insn_before_noloc (pattern, before);
 }
 
 /* Take X and emit it at the end of the doubly-linked

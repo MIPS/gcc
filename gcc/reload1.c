@@ -1,6 +1,6 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -4316,6 +4316,7 @@ reload_reg_free_p (unsigned int regno, int opnum, enum reload_type type)
       /* In use for anything means we can't use it for RELOAD_OTHER.  */
       if (TEST_HARD_REG_BIT (reload_reg_used_in_other_addr, regno)
 	  || TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno)
+	  || TEST_HARD_REG_BIT (reload_reg_used_in_op_addr_reload, regno)
 	  || TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno))
 	return 0;
 
@@ -4494,6 +4495,7 @@ reload_reg_reaches_end_p (unsigned int regno, int opnum, enum reload_type type)
 	  return 0;
 
       return (! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr, regno)
+	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_op_addr_reload, regno)
 	      && ! TEST_HARD_REG_BIT (reload_reg_used_in_insn, regno)
 	      && ! TEST_HARD_REG_BIT (reload_reg_used, regno));
 

@@ -791,6 +791,7 @@ dump_decl (tree t, int flags)
       /* Else fall through.  */
     case FIELD_DECL:
     case PARM_DECL:
+    case ALIAS_DECL:
       dump_simple_decl (t, TREE_TYPE (t), flags);
       break;
 
@@ -937,6 +938,13 @@ dump_decl (tree t, int flags)
 
     case NON_DEPENDENT_EXPR:
       dump_expr (t, flags);
+      break;
+
+    case TEMPLATE_TYPE_PARM:
+      if (flags & TFF_DECL_SPECIFIERS)
+        pp_cxx_declaration (cxx_pp, t);
+      else
+        pp_type_id (cxx_pp, t);
       break;
 
     default:
@@ -1309,6 +1317,11 @@ dump_expr (tree t, int flags)
     case STRING_CST:
     case REAL_CST:
        pp_c_constant (pp_c_base (cxx_pp), t);
+      break;
+
+    case THROW_EXPR:
+      pp_identifier (cxx_pp, "throw");
+      dump_expr (TREE_OPERAND (t, 0), flags);
       break;
 
     case PTRMEM_CST:

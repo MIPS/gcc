@@ -1,6 +1,6 @@
 /* Optimize by combining instructions for GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -90,6 +90,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "toplev.h"
 #include "target.h"
+
+#ifndef SHIFT_COUNT_TRUNCATED
+#define SHIFT_COUNT_TRUNCATED 0
+#endif
 
 /* It is not safe to use ordinary gen_lowpart in combine.
    Use gen_lowpart_for_combine instead.  See comments there.  */
@@ -958,6 +962,7 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
       for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
 	{
 	  rtx elt = XVECEXP (PATTERN (insn), 0, i);
+	  rtx note;
 
 	  switch (GET_CODE (elt))
 	    {
@@ -1008,6 +1013,8 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED, rtx succ,
 	      /* Ignore SETs whose result isn't used but not those that
 		 have side-effects.  */
 	      if (find_reg_note (insn, REG_UNUSED, SET_DEST (elt))
+		  && (!(note = find_reg_note (insn, REG_EH_REGION, NULL_RTX))
+		      || INTVAL (XEXP (note, 0)) <= 0)
 		  && ! side_effects_p (elt))
 		break;
 
@@ -2012,7 +2019,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
   insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
 
   /* If the result isn't valid, see if it is a PARALLEL of two SETs where
-     the second SET's destination is a register that is unused.  In that case,
+     the second SET's destination is a register that is unused and isn't
+     marked as an instruction that might trap in an EH region.  In that case,
      we just need the first SET.   This can occur when simplifying a divmod
      insn.  We *must* test for this case here because the code below that
      splits two independent SETs doesn't handle this case correctly when it
@@ -2028,37 +2036,42 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
     {
       rtx set0 = XVECEXP (newpat, 0, 0);
       rtx set1 = XVECEXP (newpat, 0, 1);
-  
+      rtx note;
+
       if (((GET_CODE (SET_DEST (set1)) == REG
-            && find_reg_note (i3, REG_UNUSED, SET_DEST (set1)))
-          || (GET_CODE (SET_DEST (set1)) == SUBREG
-              && find_reg_note (i3, REG_UNUSED, SUBREG_REG (SET_DEST (set1)))))
-          && ! side_effects_p (SET_SRC (set1)))
-        {
-          newpat = set0;
-          insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
-        }
-  
+	    && find_reg_note (i3, REG_UNUSED, SET_DEST (set1)))
+	   || (GET_CODE (SET_DEST (set1)) == SUBREG
+	       && find_reg_note (i3, REG_UNUSED, SUBREG_REG (SET_DEST (set1)))))
+	  && (!(note = find_reg_note (i3, REG_EH_REGION, NULL_RTX))
+	      || INTVAL (XEXP (note, 0)) <= 0)
+	  && ! side_effects_p (SET_SRC (set1)))
+	{
+	  newpat = set0;
+	  insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
+	}
+
       else if (((GET_CODE (SET_DEST (set0)) == REG
-                && find_reg_note (i3, REG_UNUSED, SET_DEST (set0)))
-                || (GET_CODE (SET_DEST (set0)) == SUBREG
-                    && find_reg_note (i3, REG_UNUSED,
-                                      SUBREG_REG (SET_DEST (set0)))))
-              && ! side_effects_p (SET_SRC (set0)))
-        {
-          newpat = set1;
-          insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
-    
-          if (insn_code_number >= 0)
-            {
-              /* If we will be able to accept this, we have made a
-                 change to the destination of I3.  This requires us to
-                 do a few adjustments.  */
-            
-              PATTERN (i3) = newpat;
-              adjust_for_new_dest (i3);
-            }
-        }
+		 && find_reg_note (i3, REG_UNUSED, SET_DEST (set0)))
+		|| (GET_CODE (SET_DEST (set0)) == SUBREG
+		    && find_reg_note (i3, REG_UNUSED,
+				      SUBREG_REG (SET_DEST (set0)))))
+	       && (!(note = find_reg_note (i3, REG_EH_REGION, NULL_RTX))
+		   || INTVAL (XEXP (note, 0)) <= 0)
+	       && ! side_effects_p (SET_SRC (set0)))
+	{
+	  newpat = set1;
+	  insn_code_number = recog_for_combine (&newpat, i3, &new_i3_notes);
+
+	  if (insn_code_number >= 0)
+	    {
+	      /* If we will be able to accept this, we have made a
+		 change to the destination of I3.  This requires us to
+		 do a few adjustments.  */
+
+	      PATTERN (i3) = newpat;
+	      adjust_for_new_dest (i3);
+	    }
+	}
     }
 
   /* If we were combining three insns and the result is a simple SET
@@ -4545,7 +4558,6 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
 	return simplify_shift_const (x, code, mode, XEXP (x, 0),
 				     INTVAL (XEXP (x, 1)));
 
-#ifdef SHIFT_COUNT_TRUNCATED
       else if (SHIFT_COUNT_TRUNCATED && GET_CODE (XEXP (x, 1)) != REG)
 	SUBST (XEXP (x, 1),
 	       force_to_mode (XEXP (x, 1), GET_MODE (XEXP (x, 1)),
@@ -4553,8 +4565,6 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
 			       << exact_log2 (GET_MODE_BITSIZE (GET_MODE (x))))
 			      - 1,
 			      NULL_RTX, 0));
-#endif
-
       break;
 
     case VEC_SELECT:
@@ -4928,6 +4938,7 @@ simplify_if_then_else (rtx x)
   /* (IF_THEN_ELSE (NE REG 0) (0) (8)) is REG for nonzero_bits (REG) == 8.  */
   if (true_code == NE && XEXP (cond, 1) == const0_rtx
       && false_rtx == const0_rtx && GET_CODE (true_rtx) == CONST_INT
+      && GET_MODE (XEXP (cond, 0)) == mode
       && (INTVAL (true_rtx) & GET_MODE_MASK (mode))
 	  == nonzero_bits (XEXP (cond, 0), mode)
       && (i = exact_log2 (INTVAL (true_rtx) & GET_MODE_MASK (mode))) >= 0)
@@ -9124,10 +9135,8 @@ simplify_shift_const (rtx x, enum rtx_code code,
   /* Make sure and truncate the "natural" shift on the way in.  We don't
      want to do this inside the loop as it makes it more difficult to
      combine shifts.  */
-#ifdef SHIFT_COUNT_TRUNCATED
   if (SHIFT_COUNT_TRUNCATED)
     orig_count &= GET_MODE_BITSIZE (mode) - 1;
-#endif
 
   /* If we were given an invalid count, don't do anything except exactly
      what was requested.  */
@@ -9870,7 +9879,7 @@ recog_for_combine (rtx *pnewpat, rtx insn, rtx *pnotes)
   int num_clobbers_to_add = 0;
   int i;
   rtx notes = 0;
-  rtx dummy_insn;
+  rtx old_notes, old_pat;
 
   /* If PAT is a PARALLEL, check to see if it contains the CLOBBER
      we use to indicate that something didn't match.  If we find such a
@@ -9881,13 +9890,12 @@ recog_for_combine (rtx *pnewpat, rtx insn, rtx *pnotes)
 	  && XEXP (XVECEXP (pat, 0, i), 0) == const0_rtx)
 	return -1;
 
-  /* *pnewpat does not have to be actual PATTERN (insn), so make a dummy
-     instruction for pattern recognition.  */
-  dummy_insn = shallow_copy_rtx (insn);
-  PATTERN (dummy_insn) = pat;
-  REG_NOTES (dummy_insn) = 0;
+  old_pat = PATTERN (insn);
+  old_notes = REG_NOTES (insn);
+  PATTERN (insn) = pat;
+  REG_NOTES (insn) = 0;
 
-  insn_code_number = recog (pat, dummy_insn, &num_clobbers_to_add);
+  insn_code_number = recog (pat, insn, &num_clobbers_to_add);
 
   /* If it isn't, there is the possibility that we previously had an insn
      that clobbered some register as a side effect, but the combined
@@ -9912,9 +9920,11 @@ recog_for_combine (rtx *pnewpat, rtx insn, rtx *pnotes)
       if (pos == 1)
 	pat = XVECEXP (pat, 0, 0);
 
-      PATTERN (dummy_insn) = pat;
-      insn_code_number = recog (pat, dummy_insn, &num_clobbers_to_add);
+      PATTERN (insn) = pat;
+      insn_code_number = recog (pat, insn, &num_clobbers_to_add);
     }
+  PATTERN (insn) = old_pat;
+  REG_NOTES (insn) = old_notes;
 
   /* Recognize all noop sets, these will be killed by followup pass.  */
   if (insn_code_number < 0 && GET_CODE (pat) == SET && set_noop_p (pat))
@@ -10523,8 +10533,10 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	     a constant that has only a single bit set and are comparing it
 	     with zero, we can convert this into an equality comparison
 	     between the position and the location of the single bit.  */
-
-	  if (GET_CODE (XEXP (op0, 0)) == CONST_INT
+	  /* Except we can't if SHIFT_COUNT_TRUNCATED is set, since we might
+	     have already reduced the shift count modulo the word size.  */
+	  if (!SHIFT_COUNT_TRUNCATED
+	      && GET_CODE (XEXP (op0, 0)) == CONST_INT
 	      && XEXP (op0, 1) == const1_rtx
 	      && equality_comparison_p && const_op == 0
 	      && (i = exact_log2 (INTVAL (XEXP (op0, 0)))) >= 0)

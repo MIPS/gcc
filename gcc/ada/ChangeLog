@@ -1,3 +1,59 @@
+2004-04-18  Release Manager
+
+	* GCC 3.4.0 released.
+
+2004-03-20  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	PR other/14630
+	* gnat_ug.texi: Add info directory category and entry.
+	* gnat_ug_unx.texi, gnat_ug_vms.texi, gnat_ug_vxw.texi,
+	gnat_ug_wnt.texi: Regenerate.
+
+2004-03-19  Laurent GUERBY <laurent@guerby.net>
+
+	* sem_prag.adb (Suppress_Unsuppress_Echeck): use loop instead of 
+	aggregate, allows bootstrap from 3.3 on powerpc-darwin.
+
+2004-03-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* misc.c (default_pass_by_ref): Update INIT_CUMULATIVE_ARGS call.
+
+2004-01-30  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in (doc/gnat_ug_unx.dvi): Use $(abs_docdir). 
+	(doc/gnat_ug_vms.dvi, doc/gnat_ug_unx.dvi): Likewise.
+	(doc/gnat_ug_unx.dvi, doc/gnat-style.dvi): Likewise.
+
+2004-01-26  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* Makefile.in (mips-sgi-irix5): Remove -lathread from THREADSLIB.
+
+	* 5fsystem.ads (Functions_Return_By_DSP): Set to False.
+	(ZCX_By_Default): Likewise.
+	(Front_End_ZCX_Support): Likewise.
+
+	* 5gtaprop.adb (Stack_Guard): Mark T, On unreferenced.
+	(Initialize_Lock): Mark Level unreferenced.
+	(Sleep): Mark Reason unreferenced.
+	(Timed_Sleep): Likewise.
+	(Wakeup): Likewise.
+	(Exit_Task): Use Result.
+	(Check_No_Locks): Mark Self_ID unreferenced.
+	
+	* 5gtasinf.adb (New_Sproc): Make Attr constant.
+	(Bound_Thread_Attributes): Make Sproc constant.
+	(New_Bound_Thread_Attributes): Likewise.
+
+2004-01-20  Kelley Cook  <kcook@gcc.gnu.org>
+
+	* Make-lang.in: Replace $(docdir) with doc.
+	(doc/gnat_ug_unx.info, doc/gnat_ug_vwx.info, doc/gnat_ug_vms.info
+	doc/gnat_ug_wnt.info, doc/gnat_rm.info, doc/gnat-style.info): Update
+	to use consistent MAKEINFO rule.
+	(ada.man, ada.srcman): Dummy entry.
+	(ADA_INFOFILES): Define.
+	(ada.info, ada.srcinfo): New rules.
+
 2004-01-16  Andreas Jaeger  <aj@suse.de>
 
 	* Makefile.in: Add $(DESTDIR).

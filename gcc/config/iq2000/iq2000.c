@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Vitesse IQ2000 processors
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2309,7 +2309,7 @@ iq2000_expand_prologue (void)
      variable arguments.
 
      This is only needed if store_args_on_stack is true.  */
-  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, 0);
+  INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, 0, 0);
   regno = GP_ARG_FIRST;
 
   for (cur_arg = fnargs; cur_arg != 0; cur_arg = next_arg)

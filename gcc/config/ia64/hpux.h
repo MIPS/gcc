@@ -86,7 +86,7 @@ do {							\
 #ifndef CROSS_COMPILE
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC \
-  "%{shared-libgcc:%{!mlp64:-lgcc_s_hpux32}%{mlp64:-lgcc_s_hpux64} -lgcc} \
+  "%{shared-libgcc:%{!mlp64:-lgcc_s}%{mlp64:-lgcc_s_hpux64} -lgcc} \
    %{!shared-libgcc:-lgcc}"
 #endif
 
@@ -94,6 +94,8 @@ do {							\
 #define SUBTARGET_SWITCHES \
   { "ilp32",    MASK_ILP32,     "Generate ILP32 code" }, \
   { "lp64",    -MASK_ILP32,     "Generate LP64 code" },
+
+#define MULTILIB_DEFAULTS { "milp32" }
 
 /* A C expression whose value is zero if pointers that need to be extended
    from being `POINTER_SIZE' bits wide to `Pmode' are sign-extended and
@@ -108,13 +110,13 @@ do {							\
 #define TARGET_DEFAULT (MASK_DWARF2_ASM | MASK_BIG_ENDIAN | MASK_ILP32)
 
 /* This needs to be set to force structure arguments with a single
-   field to be treated as structures and not as the type of their
-   field.  Without this a structure with a single char will be
-   returned just like a char variable and that is wrong on HP-UX
-   IA64.  */
+   integer field to be treated as structures and not as the type of
+   their field.  Without this a structure with a single char will be
+   returned just like a char variable, instead of being returned at the
+   top of the register as specified for big-endian IA64.  */
 
 #define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
-  (TREE_CODE (TREE_TYPE (FIELD)) != REAL_TYPE || MODE == TFmode)
+  (!FLOAT_MODE_P (MODE) || (MODE) == TFmode)
 
 /* ASM_OUTPUT_EXTERNAL_LIBCALL defaults to just a globalize_label call,
    but that doesn't put out the @function type information which causes

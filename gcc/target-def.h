@@ -1,5 +1,5 @@
 /* Default initializers for a generic GCC target.
-   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -314,6 +314,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_ENCODE_SECTION_INFO default_encode_section_info
 #endif
 
+#define TARGET_FIXED_CONDITION_CODE_REGS hook_bool_uintp_uintp_false
+
+#define TARGET_CC_MODES_COMPATIBLE default_cc_modes_compatible
+
 #define TARGET_MACHINE_DEPENDENT_REORG 0
 
 #define TARGET_BUILD_BUILTIN_VA_LIST std_build_builtin_va_list
@@ -332,7 +336,9 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #define TARGET_EXPAND_BUILTIN_SAVEREGS default_expand_builtin_saveregs
 #define TARGET_SETUP_INCOMING_VARARGS default_setup_incoming_varargs
 #define TARGET_STRICT_ARGUMENT_NAMING default_strict_argument_naming
-#define TARGET_PRETEND_OUTGOING_VARARGS_NAMED default_pretend_outgoing_varargs_named
+#define TARGET_PRETEND_OUTGOING_VARARGS_NAMED \
+  default_pretend_outgoing_varargs_named
+#define TARGET_SPLIT_COMPLEX_ARG NULL
 
 #define TARGET_CALLS {						\
    TARGET_PROMOTE_FUNCTION_ARGS,				\
@@ -345,6 +351,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
    TARGET_SETUP_INCOMING_VARARGS,				\
    TARGET_STRICT_ARGUMENT_NAMING,				\
    TARGET_PRETEND_OUTGOING_VARARGS_NAMED,			\
+   TARGET_SPLIT_COMPLEX_ARG,					\
    }
 
 /* The whole shebang.  */
@@ -380,10 +387,13 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_RTX_COSTS,				\
   TARGET_ADDRESS_COST,				\
   TARGET_DWARF_REGISTER_SPAN,                   \
+  TARGET_FIXED_CONDITION_CODE_REGS,		\
+  TARGET_CC_MODES_COMPATIBLE,			\
   TARGET_MACHINE_DEPENDENT_REORG,		\
   TARGET_BUILD_BUILTIN_VA_LIST,			\
   TARGET_GET_PCH_VALIDITY,			\
   TARGET_PCH_VALID_P,				\
+  TARGET_CALLS,					\
   TARGET_HAVE_NAMED_SECTIONS,			\
   TARGET_HAVE_CTORS_DTORS,			\
   TARGET_HAVE_TLS,				\
@@ -391,7 +401,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
   TARGET_TERMINATE_DW2_EH_FRAME_INFO,		\
   TARGET_ASM_FILE_START_APP_OFF,		\
   TARGET_ASM_FILE_START_FILE_DIRECTIVE,		\
-  TARGET_CALLS,					\
 }
 
 #include "hooks.h"

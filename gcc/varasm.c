@@ -2057,7 +2057,7 @@ struct rtx_const GTY(())
 
 /* Uniquize all constants that appear in memory.
    Each constant in memory thus far output is recorded
-   in `const_hash_table'.  */
+   in `const_desc_table'.  */
 
 struct constant_descriptor_tree GTY(())
 {
@@ -2104,9 +2104,18 @@ const_hash_1 (const tree exp)
       return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
-      p = TREE_STRING_POINTER (exp);
-      len = TREE_STRING_LENGTH (exp);
+      if (flag_writable_strings)
+	{
+	  p = (char *) &exp;
+	  len = sizeof exp;
+	}
+      else
+	{
+	  p = TREE_STRING_POINTER (exp);
+	  len = TREE_STRING_LENGTH (exp);
+	}
       break;
+
     case COMPLEX_CST:
       return (const_hash_1 (TREE_REALPART (exp)) * 5
 	      + const_hash_1 (TREE_IMAGPART (exp)));
@@ -2221,7 +2230,7 @@ compare_constant (const tree t1, const tree t2)
 
     case STRING_CST:
       if (flag_writable_strings)
-	return 0;
+	return t1 == t2;
 
       if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
@@ -2425,7 +2434,10 @@ build_constant_desc (tree exp)
   struct constant_descriptor_tree *desc;
 
   desc = ggc_alloc (sizeof (*desc));
-  desc->value = copy_constant (exp);
+  if (flag_writable_strings && TREE_CODE (exp) == STRING_CST)
+    desc->value = exp;
+  else
+    desc->value = copy_constant (exp);
 
   /* Create a string containing the label name, in LABEL.  */
   labelno = const_labelno++;
@@ -2466,7 +2478,7 @@ build_constant_desc (tree exp)
    If DEFER is nonzero, this constant can be deferred and output only
    if referenced in the function after all optimizations.
 
-   The const_hash_table records which constants already have label strings.  */
+   `const_desc_table' records which constants already have label strings.  */
 
 rtx
 output_constant_def (tree exp, int defer)
@@ -3594,8 +3606,10 @@ initializer_constant_valid_p (tree value, tree endtype)
 						 endtype);
 	}
 
-      /* Allow conversions to union types if the value inside is okay.  */
-      if (TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
+      /* Allow conversions to struct or union types if the value
+	 inside is okay.  */
+      if (TREE_CODE (TREE_TYPE (value)) == RECORD_TYPE
+	  || TREE_CODE (TREE_TYPE (value)) == UNION_TYPE)
 	return initializer_constant_valid_p (TREE_OPERAND (value, 0),
 					     endtype);
       break;
@@ -4490,16 +4504,16 @@ make_decl_one_only (tree decl)
 
   TREE_PUBLIC (decl) = 1;
 
-  if (TREE_CODE (decl) == VAR_DECL
-      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
-    DECL_COMMON (decl) = 1;
-  else if (SUPPORTS_ONE_ONLY)
+  if (SUPPORTS_ONE_ONLY)
     {
 #ifdef MAKE_DECL_ONE_ONLY
       MAKE_DECL_ONE_ONLY (decl);
 #endif
       DECL_ONE_ONLY (decl) = 1;
     }
+  else if (TREE_CODE (decl) == VAR_DECL
+      && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
+    DECL_COMMON (decl) = 1;
   else if (SUPPORTS_WEAK)
     DECL_WEAK (decl) = 1;
   else

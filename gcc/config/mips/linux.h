@@ -1,5 +1,5 @@
 /* Definitions for MIPS running Linux-based GNU systems with ELF format.
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -58,6 +58,7 @@ Boston, MA 02111-1307, USA.  */
 	LINUX_TARGET_OS_CPP_BUILTINS();				\
 	builtin_define ("__PIC__");				\
 	builtin_define ("__pic__");				\
+        builtin_assert ("machine=mips");			\
 	/* The GNU C++ standard library requires this.  */	\
 	if (c_dialect_cxx ())					\
 	  builtin_define ("_GNU_SOURCE");			\

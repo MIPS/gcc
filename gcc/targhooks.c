@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -68,6 +68,14 @@ default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 #ifdef ASM_OUTPUT_EXTERNAL_LIBCALL
   ASM_OUTPUT_EXTERNAL_LIBCALL(asm_out_file, fun);
 #endif
+}
+
+enum machine_mode
+default_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
+{
+  if (m1 == m2)
+    return m1;
+  return VOIDmode;
 }
 
 bool

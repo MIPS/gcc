@@ -324,7 +324,7 @@ proc dg-require-gc-sections { args } {
 # If this target does not support profiling, skip this test.
 
 proc dg-require-profiling { args } {
-    if { ![ check_profiling_available ] } {
+    if { ![ check_profiling_available ${args} ] } {
 	upvar dg-do-what dg-do-what
 	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
 	return
@@ -346,6 +346,17 @@ proc dg-require-dll { args } {
 
     upvar dg-do-what dg-do-what
     set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+}
+
+# If this target does not support named sections skip this test.
+
+proc dg-require-named-sections { args } {
+   upvar name name
+
+   if { ![ check_named_sections_available ] } {
+       upvar dg-do-what dg-do-what
+       set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+   }
 }
 
 # Prune any messages matching ARGS[1] (a regexp) from test output.

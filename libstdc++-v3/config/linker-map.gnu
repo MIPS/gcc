@@ -1,6 +1,6 @@
 ## Linker script for GNU ld 2.13.91+ only.
 ##
-## Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ##
@@ -55,6 +55,11 @@ GLIBCXX_3.4 {
       std::locale::_S_normalize_category*;
       std::locale::_[T-Za-z]*;
       std::[A-Zm-z]*;
+      std::_List_node_base::hook*;
+      std::_List_node_base::swap*;
+      std::_List_node_base::unhook*;
+      std::_List_node_base::reverse*;
+      std::_List_node_base::transfer*;
       std::__throw_*;
       std::__basic_file*;
       std::__timepunct*;
@@ -66,10 +71,14 @@ GLIBCXX_3.4 {
       std::__moneypunct_cache*;
       std::__numpunct_cache*;
       std::__timepunct_cache*;
-      __gnu_norm::*;
       __gnu_debug::_Safe_iterator_base*;
       __gnu_debug::_Safe_sequence_base*;
-      __gnu_debug::_Error_formatter*
+      __gnu_debug::_Error_formatter*;
+      __gnu_norm::_List_node_base::hook*;
+      __gnu_norm::_List_node_base::swap*;
+      __gnu_norm::_List_node_base::unhook*;
+      __gnu_norm::_List_node_base::reverse*;
+      __gnu_norm::_List_node_base::transfer*
     };
 
     # Names not in an 'extern' block are mangled names.
@@ -150,6 +159,8 @@ GLIBCXX_3.4 {
     _ZTISt10__num_base;
     _ZTISt21__ctype_abstract_baseI[cw]E;
     _ZTISt23__codecvt_abstract_baseI[cw]c11__mbstate_tE;
+    _ZTIN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
+    _ZTIN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
 
     # typeinfo name
     _ZTSNSt8ios_base7failureE;
@@ -161,6 +172,8 @@ GLIBCXX_3.4 {
     _ZTSSt10__num_base;
     _ZTSSt21__ctype_abstract_baseI[cw]E;
     _ZTSSt23__codecvt_abstract_baseI[cw]c11__mbstate_tE;
+    _ZTSN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
+    _ZTSN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
 
     # function-scope static objects requires a guard variable.
     _ZGVNSt*;
@@ -203,22 +216,17 @@ GLIBCXX_3.4 {
     sqrtf;
     sqrtl;
     copysignf;
-    nan;
     __signbit;
     __signbitf;
     __signbitl;
 
-    # __gnu_cxx::__pool_alloc
-    _ZN9__gnu_cxx12__pool_allocILb1ELi0EE8allocateE[jm];
-    _ZN9__gnu_cxx12__pool_allocILb1ELi0EE10deallocateEPv[jm];
-
     # __gnu_cxx::stdio_sync_filebuf
     _ZTVN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
 
-    # Needed only when generic cpu's atomicity.h is in use.
-    _ZN9__gnu_cxx17_Atomic_add_mutexE;
-    _ZN9__gnu_cxx22_Atomic_add_mutex_onceE;
-    _ZN9__gnu_cxx31__gthread_atomic_add_mutex_onceEv;
+    # __gnu_cxx::__atomic_add
+    # __gnu_cxx::__exchange_and_add
+    _ZN9__gnu_cxx12__atomic_add*;
+    _ZN9__gnu_cxx18__exchange_and_add*;
 
   # DO NOT DELETE THIS LINE.  Port-specific symbols, if any, will be here.
 

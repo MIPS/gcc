@@ -214,12 +214,6 @@ struct diagnostic_context;
 
 #endif
 
-/* Returns TRUE if generated code should match ABI version N or
-   greater is in use.  */
-
-#define abi_version_at_least(N) \
-  (flag_abi_version == 0 || flag_abi_version >= (N))
-
 
 /* Language-dependent contents of an identifier.  */
 
@@ -706,7 +700,6 @@ struct saved_scope GTY(())
   tree x_previous_class_type;
   tree x_previous_class_values;
   tree x_saved_tree;
-  tree last_parms;
 
   HOST_WIDE_INT x_processing_template_decl;
   int x_processing_specialization;
@@ -794,7 +787,7 @@ struct language_function GTY(())
   int in_base_initializer;
 
   /* True if this function can throw an exception.  */
-  bool can_throw : 1;
+  BOOL_BITFIELD can_throw : 1;
 
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
@@ -863,6 +856,14 @@ struct language_function GTY(())
 
 #define current_function_return_value \
   (cp_function_chain->x_return_value)
+
+/* True if NAME is the IDENTIFIER_NODE for an overloaded "operator
+   new" or "operator delete".  */
+#define NEW_DELETE_OPNAME_P(NAME)		\
+  ((NAME) == ansi_opname (NEW_EXPR) 		\
+   || (NAME) == ansi_opname (VEC_NEW_EXPR) 	\
+   || (NAME) == ansi_opname (DELETE_EXPR) 	\
+   || (NAME) == ansi_opname (VEC_DELETE_EXPR))
 
 #define ansi_opname(CODE) \
   (operator_name_info[(int) (CODE)].identifier)
@@ -1013,15 +1014,15 @@ enum languages { lang_c, lang_cplusplus, lang_java };
    are put in this structure to save space.  */
 struct lang_type_header GTY(())
 {
-  CHAR_BITFIELD is_lang_type_class : 1;
+  BOOL_BITFIELD is_lang_type_class : 1;
 
-  CHAR_BITFIELD has_type_conversion : 1;
-  CHAR_BITFIELD has_init_ref : 1;
-  CHAR_BITFIELD has_default_ctor : 1;
-  CHAR_BITFIELD uses_multiple_inheritance : 1;
-  CHAR_BITFIELD const_needs_init : 1;
-  CHAR_BITFIELD ref_needs_init : 1;
-  CHAR_BITFIELD has_const_assign_ref : 1;
+  BOOL_BITFIELD has_type_conversion : 1;
+  BOOL_BITFIELD has_init_ref : 1;
+  BOOL_BITFIELD has_default_ctor : 1;
+  BOOL_BITFIELD uses_multiple_inheritance : 1;
+  BOOL_BITFIELD const_needs_init : 1;
+  BOOL_BITFIELD ref_needs_init : 1;
+  BOOL_BITFIELD has_const_assign_ref : 1;
 };
 
 /* This structure provides additional information above and beyond
@@ -3299,7 +3300,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
 #define B_CLR(A,X) ((A)[(X)>>3] &= ~(1 << ((X)&7)))
 #define B_TST(A,X) ((A)[(X)>>3] &   (1 << ((X)&7)))
 
-/* These are uses as bits in flags passed to build_method_call
+/* These are uses as bits in flags passed to build_new_method_call
    to control its error reporting behavior.
 
    LOOKUP_PROTECT means flag access violations.
@@ -3512,7 +3513,6 @@ extern tree build_vfield_ref			(tree, tree);
 extern tree build_conditional_expr		(tree, tree, tree);
 extern tree build_addr_func (tree);
 extern tree build_call (tree, tree);
-extern tree build_method_call (tree, tree, tree, tree, int);
 extern bool null_ptr_cst_p (tree);
 extern bool sufficient_parms_p (tree);
 extern tree type_decays_to (tree);
@@ -3521,7 +3521,7 @@ extern tree build_new_function_call (tree, tree);
 extern tree build_operator_new_call (tree, tree, tree *, tree *);
 extern tree build_new_method_call (tree, tree, tree, tree, int);
 extern tree build_special_member_call (tree, tree, tree, tree, int);
-extern tree build_new_op (enum tree_code, int, tree, tree, tree);
+extern tree build_new_op (enum tree_code, int, tree, tree, tree, bool *);
 extern tree build_op_delete_call (enum tree_code, tree, tree, int, tree);
 extern bool can_convert (tree, tree);
 extern bool can_convert_arg (tree, tree, tree);
@@ -3665,7 +3665,7 @@ extern tree get_scope_of_declarator             (tree);
 extern void grok_special_member_properties	(tree);
 extern int grok_ctor_properties			(tree, tree);
 extern bool grok_op_properties			(tree, int, bool);
-extern tree xref_tag				(enum tag_types, tree, tree, bool, bool);
+extern tree xref_tag				(enum tag_types, tree, bool, bool);
 extern tree xref_tag_from_type			(tree, tree, int);
 extern void xref_basetypes			(tree, tree);
 extern tree start_enum				(tree);
@@ -3712,7 +3712,6 @@ extern tree cxx_builtin_type_decls              (void);
 extern void warn_extern_redeclared_static (tree, tree);
 
 extern bool have_extern_spec;
-extern GTY(()) tree last_function_parms;
 
 /* in decl2.c */
 extern bool check_java_method (tree);
@@ -3722,7 +3721,7 @@ extern void maybe_retrofit_in_chrg (tree);
 extern void maybe_make_one_only	(tree);
 extern void grokclassfn	(tree, tree, enum overload_flags, tree);
 extern tree grok_array_decl (tree, tree);
-extern tree delete_sanity (tree, tree, int, int);
+extern tree delete_sanity (tree, tree, bool, int);
 extern tree check_classfn (tree, tree, bool);
 extern void check_member_template (tree);
 extern tree grokfield (tree, tree, tree, tree, tree);
@@ -3793,7 +3792,7 @@ extern tree cplus_expand_constant               (tree);
 extern int is_friend				(tree, tree);
 extern void make_friend_class			(tree, tree, bool);
 extern void add_friend                          (tree, tree, bool);
-extern tree do_friend				(tree, tree, tree, tree, tree, enum overload_flags, tree, int);
+extern tree do_friend				(tree, tree, tree, tree, enum overload_flags, tree, int);
 
 /* in init.c */
 extern tree expand_member_init			(tree);
@@ -3928,6 +3927,7 @@ extern tree template_for_substitution           (tree);
 extern tree build_non_dependent_expr            (tree);
 extern tree build_non_dependent_args            (tree);
 extern bool reregister_specialization           (tree, tree, tree);
+extern tree fold_non_dependent_expr             (tree);
 
 /* in repo.c */
 extern void repo_template_used (tree);
@@ -4062,7 +4062,6 @@ extern tree perform_koenig_lookup               (tree, tree);
 extern tree finish_call_expr                    (tree, tree, bool, bool);
 extern tree finish_increment_expr               (tree, enum tree_code);
 extern tree finish_this_expr                    (void);
-extern tree finish_object_call_expr             (tree, tree, tree);
 extern tree finish_pseudo_destructor_expr       (tree, tree, tree);
 extern tree finish_unary_op_expr                (enum tree_code, tree);
 extern tree finish_compound_literal             (tree, tree);
@@ -4106,6 +4105,8 @@ extern void simplify_aggr_init_expr		(tree *);
 extern void lang_check_failed			(const char *, int,
 							 const char *);
 extern tree stabilize_expr			(tree, tree *);
+extern void stabilize_call			(tree, tree *);
+extern bool stabilize_init			(tree, tree *);
 extern tree cxx_unsave_expr_now			(tree);
 extern tree cxx_maybe_build_cleanup		(tree);
 extern void init_tree			        (void);
@@ -4156,6 +4157,7 @@ extern tree maybe_dummy_object			(tree, tree *);
 extern int is_dummy_object			(tree);
 extern const struct attribute_spec cxx_attribute_table[];
 extern tree make_ptrmem_cst                     (tree, tree);
+extern tree cp_build_type_attribute_variant     (tree, tree);
 extern tree cp_build_qualified_type_real        (tree, int, tsubst_flags_t);
 #define cp_build_qualified_type(TYPE, QUALS) \
   cp_build_qualified_type_real ((TYPE), (QUALS), tf_error | tf_warning)
@@ -4206,7 +4208,8 @@ extern tree build_indirect_ref			(tree, const char *);
 extern tree build_array_ref			(tree, tree);
 extern tree get_member_function_from_ptrfunc	(tree *, tree);
 extern tree convert_arguments			(tree, tree, tree, int);
-extern tree build_x_binary_op			(enum tree_code, tree, tree);
+extern tree build_x_binary_op			(enum tree_code, tree, tree, 
+						 bool *);
 extern tree build_x_unary_op			(enum tree_code, tree);
 extern tree unary_complex_lvalue		(enum tree_code, tree);
 extern tree build_x_conditional_expr		(tree, tree, tree);

@@ -1,7 +1,7 @@
 /* Report error messages, build initializers, and perform
    some front-end optimizations for C++ compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -379,6 +379,7 @@ split_nonconstant_init (tree dest, tree init)
       code = build1 (STMT_EXPR, void_type_node, code);
       TREE_SIDE_EFFECTS (code) = 1;
       DECL_INITIAL (dest) = init;
+      TREE_READONLY (dest) = 0;
     }
   else
     code = build (INIT_EXPR, TREE_TYPE (dest), dest, init);
@@ -1090,7 +1091,8 @@ build_x_arrow (tree expr)
   if (IS_AGGR_TYPE (type))
     {
       while ((expr = build_new_op (COMPONENT_REF, LOOKUP_NORMAL, expr,
-				   NULL_TREE, NULL_TREE)))
+				   NULL_TREE, NULL_TREE,
+				   /*overloaded_p=*/NULL)))
 	{
 	  if (expr == error_mark_node)
 	    return error_mark_node;

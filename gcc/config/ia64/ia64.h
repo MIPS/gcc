@@ -1350,7 +1350,7 @@ typedef struct ia64_args
 /* A C statement (sans semicolon) for initializing the variable CUM for the
    state at the beginning of the argument list.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
 do {									\
   (CUM).words = 0;							\
   (CUM).int_regs = 0;							\
@@ -1444,11 +1444,6 @@ do {									\
    and union return values are decided by the `RETURN_IN_MEMORY' macro.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
-
-/* If the structure value address is passed in a register, then
-   `STRUCT_VALUE_REGNUM' should be the number of that register.  */
-
-#define STRUCT_VALUE_REGNUM GR_REG (8)
 
 
 /* Caller-Saves Register Allocation */
