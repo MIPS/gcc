@@ -1,5 +1,16 @@
 2005-01-13  Sebastian Pop  <pop@cri.ensmp.fr>
 
+	* tree-scalar-evolution.c (already_unified): New bitmap.
+	(follow_ssa_edge): Include a comment for the return value.
+	(unify_peeled_chrec): New function...
+	(analyze_evolution_in_loop): ... called from here.
+	(scev_initialize): Initialize already_unified.
+	(scev_finalize): Free already_unified.
+	* tree-ssa-loop-ivopts.c (find_bivs): Allow the scev analyzer
+	to remove or add loop phi nodes in the analyzed loop.
+
+2005-01-13  Sebastian Pop  <pop@cri.ensmp.fr>
+
 	* tree-data-ref.c (analyze_subscript_affine_affine): Clarify
 	function's comment.  Include a FIXME note for the symbolic case.
 	(analyze_siv_subscript, analyze_miv_subscript): Ensure that no 

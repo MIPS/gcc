@@ -858,6 +858,25 @@ find_bivs (struct ivopts_data *data)
   tree phi, step, type, base;
   bool found = false;
   struct loop *loop = data->current_loop;
+  int i;
+  VEC (tree) *loop_phis;
+
+  /* For allowing scev to remove some loop phi nodes in
+     unify_peeled_chrec, we have to compute the scev information
+     before assuming that each phi node is an induction variable.  */
+  loop_phis = VEC_alloc (tree, 2);
+  for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
+    {
+      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)))
+	continue;
+
+      VEC_safe_push (tree, loop_phis, phi);
+    }
+
+  for (i = 0; VEC_iterate(tree, loop_phis, i, phi); i++)
+    determine_biv_step (phi);
+  
+  VEC_free (tree, loop_phis);
 
   for (phi = phi_nodes (loop->header); phi; phi = PHI_CHAIN (phi))
     {
