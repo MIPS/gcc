@@ -1,3 +1,8 @@
+2003-12-09  Per Bothner  <per@bothner.com>
+
+	* emit-rtl.c:  Partually revert yesterday's change - resetting
+	label_num causes problems if reload re-uses inline functions.
+
 2003-12-08  Per Bothner  <pbothner@apple.com>
 
 	* c-common.c (restore_fragment, cb_enter_fragment, cb_exit_fragment):
