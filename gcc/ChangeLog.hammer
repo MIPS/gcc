@@ -1,3 +1,32 @@
+2004-03-08  Alan Modra  <amodra@bigpond.net.au>
+
+	Merge from gcc-3.4
+	2004-02-26  Aldy Hernandez  <aldyh@redhat.com>
+	* config/rs6000/rs6000.md: Add fixuns_truncsfsi2 and
+	fix_truncsfsi2.
+	* config/rs6000/spe.md: Delete spe_efsctuiz.
+	Add spe_fixuns_truncsfsi2.
+	Add spe_fix_truncsfsi2.
+
+	2004-02-24  Aldy Hernandez  <aldyh@redhat.com>
+	* config/rs6000/spe.md (spe_fix_truncsfsi2): Delete.
+	(spe_fixuns_truncsfsi2): Delete.
+	* config/rs6000/rs6000.md (fix_truncsfsi2): Delete.
+	(fixuns_truncsfsi2): Delete.
+
+	2004-02-19  Aldy Hernandez  <aldyh@redhat.com>
+	* config/rs6000/spe.md (spe_fixunssfsi2): Rename to
+	spe_fixuns_truncsfsi2.
+	* config/rs6000/rs6000.md (fixunssfsi2): Rename to
+	fixuns_truncsfsi2.
+
+	2004-02-10  Aldy Hernandez  <aldyh@redhat.com>
+	* config/rs6000/spe.md ("*movv2si_internal"): Check for register
+	operand.
+	(movv4hi_internal): Same.
+	(movv2sf_internal): Same.
+	(movv1di_internal): Same.
+
 2004-03-07  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (vars_copy_1): Cleanup and speedup chain operations.
