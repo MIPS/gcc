@@ -1,3 +1,7 @@
+2004-12-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20041222-1.c: New test.
+
 2002-04-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/altivec-5.c: New test.

@@ -1,3 +1,9 @@
+2004-02-26  Alan Modra  <amodra@bigpond.net.au>
+
+	PR rtl-optimization/14279
+	* gcse.c (delete_null_pointer_checks_1): Do not delete CC setter
+	unless HAVE_cc0.
+
 2004-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Disallow
