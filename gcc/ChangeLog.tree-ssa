@@ -1,3 +1,9 @@
+2003-01-21  Jose Renau  <renau@uiuc.edu>
+
+        * tree-flow-inline.h (get_lineno): Return -1 for nodes without
+        locus information.
+        (get_filename): Return "???" for nodes without locus information.
+
 2003-01-21  Jeff Law <law@redhat.com>
 
 	* tree-cfg.c (cleanup_switch_expr_graph): Wrap declaration of

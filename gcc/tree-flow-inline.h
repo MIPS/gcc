@@ -245,6 +245,9 @@ get_lineno (expr)
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
+  if (! TREE_LOCUS (expr))
+    return -1;
+
   return TREE_LINENO (expr);
 }
 
@@ -258,7 +261,7 @@ get_filename (expr)
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
-  if (TREE_FILENAME (expr))
+  if (TREE_LOCUS (expr) && TREE_FILENAME (expr))
     return TREE_FILENAME (expr);
   else
     return "???";
