@@ -3,7 +3,7 @@
 	* Makefile.in (GMPINC): Set and use.
 	(GMPLIBS): Set it.
 	* configure.in: Add test and switches for the GMP library.
-	(al_need_gmp): Set from config-lang.in.
+	(all_need_gmp): Set from config-lang.in.
 	* sourcebuild.texi: Document need_gmp.
 	* configure: regen
 
