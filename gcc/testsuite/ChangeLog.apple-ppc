@@ -1,3 +1,10 @@
+2004-07-13  Matt Austern  <austern@apple.com>
+
+	Radar 3278745, 3419910, 3432773
+	* gcc.apple/inttypes-2.c: New test.
+	* gcc.apple/inttypes-wchar-1.c: New test.
+	* gcc.apple/inttypes-wchar-2.c: New test.
+	
 2006-06-29  Andrew Pinski  <apinski@apple.com>
 
 	Radar #: 3717673

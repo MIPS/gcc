@@ -1,3 +1,8 @@
+2004-07-13  Matt Austern  <austern@apple.com>
+
+	Radar 3278745, 3419910, 3432773
+	* Fix small problems in more-hdrs/stdint.h and more-hdrs/inttypes.h
+
 2004-06-25  Matthew Sachs  <msachs@apple.com>
 
 	Radar 3693177
