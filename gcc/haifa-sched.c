@@ -2229,6 +2229,27 @@ schedule_block (b, rgn_n_insns)
   head = NEXT_INSN (prev_head);
   tail = last_scheduled_insn;
 
+  if (!reload_completed)
+    {
+      rtx insn, link, next;
+      
+      /* INSN_TICK (minimum clock tick at which the insn becomes
+         ready) may be not correct for the insn in the subsequent
+         blocks of the region.  We should use a correct value of
+         `clock_var' or modify INSN_TICK.  It is better to keep
+         clock_var value equal to 0 at the start of a basic block.
+         Therefore we modify INSN_TICK here.  */
+      for (insn = head; insn != tail; insn = NEXT_INSN (insn))
+	if (INSN_P (insn))
+	  {
+	    for (link = INSN_DEPEND (insn); link != 0; link = XEXP (link, 1))
+	      {
+		next = XEXP (link, 0);
+		INSN_TICK (next) -= clock_var;
+	      }
+	  }
+    }
+
   /* Restore-other-notes: NOTE_LIST is the end of a chain of notes
      previously found among the insns.  Insert them at the beginning
      of the insns.  */

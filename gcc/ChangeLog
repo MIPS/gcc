@@ -1,3 +1,8 @@
+2002-10-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* haifa-sched.c (schedule_block): Modify INSN_TICK of depended
+	insns at the end of block insn scheduling.
+
 2002-09-12  Geoffrey Keating  <geoffk@apple.com>
 
 	* ggc-common.c (ggc_mark_rtx_children_1): Update for changed name
