@@ -4890,9 +4890,7 @@ build_over_call (struct z_candidate *cand, int flags)
 				ba_any | ba_quiet,
 				NULL) != NULL);
 
-	if (BINFO_N_BASE_BINFOS (TYPE_BINFO (call_site_type)) > 0
-	    /* || TYPE_USES_VIRTUAL_BASECLASSES (call_site_type) */
-	    /* MERGE FIXME, does this get regular classes?  */
+	if (BINFO_N_BASE_BINFOS (TYPE_BINFO (call_site_type)) > 1
 	    || CLASSTYPE_VBASECLASSES (call_site_type))
 	  error ("indirect virtual calls are invalid for a type that uses multiple or virtual inheritance");
 
