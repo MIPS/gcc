@@ -1,3 +1,8 @@
+2003-12-23  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (tree_find_edge_insert_loc): Do not use the target
+	block as an insertion location if the target block has PHI nodes.
+ 
 2003-12-23  Jan Hubicka  <jh@suse.cz>
 
 	* cgraphunit.c (cgraph_mark_inline): Accept argument edge; return
@@ -7,9 +12,9 @@
 
 2003-12-22  Toon Moene  <toon@moene.indiv.nluug.nl>
 
-	* tree-alias-common.c (find_func_aliases): Do not call intra_function_call
-	for languages assuring no aliasing between arguments (by themselves) and
-	and global memory.
+	* tree-alias-common.c (find_func_aliases): Do not call
+	intra_function_call for languages assuring no aliasing between
+	arguments (by themselves) and and global memory.
 
 2003-12-21  Jan Hubicka  <jh@suse.cz>
 

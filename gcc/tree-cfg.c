@@ -2496,9 +2496,16 @@ tree_find_edge_insert_loc (edge e, block_stmt_iterator *bsi)
   dest = e->dest;
  restart:
 
-  /* If the destination has one predecessor, insert there.  Except
-     for the exit block.  */
-  if (dest->pred->pred_next == NULL && dest != EXIT_BLOCK_PTR)
+  /* If the destination has one predecessor which has no PHI nodes,
+     insert there.  Except for the exit block. 
+
+     The requirement for no PHI nodes could be relaxed.  Basically we
+     would have to examine the PHIs to prove that none of them used
+     the value set by the statement we want to insert on E.   That
+     hardly seems worth the effort.  */
+  if (dest->pred->pred_next == NULL
+      && ! phi_nodes (dest)
+      && dest != EXIT_BLOCK_PTR)
     {
       *bsi = bsi_start (dest);
       if (bsi_end_p (*bsi))
