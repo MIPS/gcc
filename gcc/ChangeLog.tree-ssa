@@ -1,3 +1,11 @@
+2002-10-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* cp/Make-lang.in (CXX_C_OBJS): Remove tree-cfg.o, tree-dfa.o,
+	tree-optimize.o, tree-ssa.o, tree-ssa-pre.o, gimplify.o, tree-simple.o,
+	tree-alias-steen.o, tree-alias-ecr.o, tree-alias-type.o,
+	disjoint-set.o, tree-ssa-ccp.o, tree-dchain.o, tree-alias-common.o,
+	and tree-ssa-dce.o.
+
 2002-10-17  Diego Novillo  <dnovillo@redhat.com>
 
 	* Makefile.in (TREE_FLOW_H): Add bitmap.h, basic-block.h,
