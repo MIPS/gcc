@@ -535,7 +535,6 @@ typedef bool (*walk_use_def_chains_fn) (tree, tree, void *);
 
 /* In tree-ssa.c  */
 extern void init_tree_ssa (void);
-extern void rewrite_into_ssa (void);
 extern void rewrite_vars_out_of_ssa (bitmap);
 extern void dump_reaching_defs (FILE *);
 extern void debug_reaching_defs (void);
@@ -553,6 +552,9 @@ extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern void register_new_def (tree, tree, varray_type *, varray_type);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *);
+
+/* In tree-into-ssa.c  */
+extern void rewrite_into_ssa (void);
 
 extern unsigned int highest_ssa_version;
 

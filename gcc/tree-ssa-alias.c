@@ -515,7 +515,12 @@ ptr_is_dereferenced_by (tree ptr, tree stmt, bool *is_store)
 
 
 /* Traverse use-def links for all the pointers in the program to collect
-   address escape and points-to information.  */
+   address escape and points-to information.
+   
+   This is loosely based on the same idea described in R. Hasti and S.
+   Horwitz, ``Using static single assignment form to improve
+   flow-insensitive pointer analysis,'' in SIGPLAN Conference on
+   Programming Language Design and Implementation, pp. 97-105, 1998.  */
 
 static void
 compute_points_to_and_addr_escape (struct alias_info *ai)

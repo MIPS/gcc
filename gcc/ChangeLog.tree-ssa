@@ -1,3 +1,24 @@
+2004-03-18  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (TREE_FLOW_H): Reformat.
+	(OBJS-common): Add tree-into-ssa.o and tree-outof-ssa.o.
+	(tree-ssa.o): Remove dependency on domwalk.h and tree-ssa-live.h
+	(tree-into-ssa.o): New.
+	(tree-outof-ssa.o): New.
+	(GTFILES): Remove tree-ssa.c.
+	(gt-tree-ssa.h): Remove.
+	* tree-into-ssa.c: New file.
+	Move all the functions used to rename into SSA from tree-ssa.c.
+	Update/add comments.
+	Remove unused variables and structures.
+	Don't use GGC for memory allocation.
+	* tree-outof-ssa.c: New file.
+	Move all the functions used to rename out of SSA from
+	tree-ssa.c.
+	Update/add comments.
+	* tree-ssa-alias.c (compute_points_to_and_addr_escape): Add
+	bibliographic reference.
+
 2003-03-18  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (tree-tailcall.o): Depend on langhooks.h.
