@@ -262,7 +262,7 @@ factor_computed_gotos (void)
 	continue;
 
       /* If the last statement is a compted goto, factor it.  */
-      if (is_computed_goto (last))
+      if (computed_goto_p (last))
 	{
 	  tree assignment;
 	  block_stmt_iterator bsi = bsi_last (bb);
@@ -432,7 +432,7 @@ make_blocks (tree *first_p, basic_block bb)
 	 codes.  */
       append_stmt_to_bb (stmt_p, bb);
 
-      if (is_computed_goto (*stmt_p))
+      if (computed_goto_p (*stmt_p))
 	found_computed_goto = true;
 
       /* All BIND_EXPRs except for the outermost one are lowered already.  */
@@ -568,11 +568,16 @@ static void
 make_ctrl_stmt_edges (basic_block bb)
 {
   tree last = last_stmt (bb);
+  tree first = first_stmt (bb);
 
 #if defined ENABLE_CHECKING
   if (last == NULL_TREE)
     abort();
 #endif
+
+  if (TREE_CODE (first) == LABEL_EXPR
+      && NONLOCAL_LABEL (LABEL_EXPR_LABEL (first)))
+    make_edge (ENTRY_BLOCK_PTR, bb, EDGE_ABNORMAL);
 
   switch (TREE_CODE (last))
     {
@@ -581,11 +586,7 @@ make_ctrl_stmt_edges (basic_block bb)
 
       /* If this is potentially a nonlocal goto, then this should also
 	 create an edge to the exit block.   */
-      if ((TREE_CODE (GOTO_DESTINATION (last)) == LABEL_DECL
-	   && (decl_function_context (GOTO_DESTINATION (last))
-	       != current_function_decl))
-	  || (TREE_CODE (GOTO_DESTINATION (last)) != LABEL_DECL
-	      && DECL_CONTEXT (current_function_decl)))
+      if (nonlocal_goto_p (last))
 	make_edge (bb, EXIT_BLOCK_PTR, EDGE_ABNORMAL);
       break;
 
@@ -752,7 +753,7 @@ make_goto_expr_edges (basic_block bb)
       for_call = 0;
 
       /* A GOTO to a local label creates normal edges.  */
-      if (TREE_CODE (dest) == LABEL_DECL && ! NONLOCAL_LABEL (dest))
+      if (simple_goto_p (goto_t))
 	{
 	  make_edge (bb, label_to_block (dest), 0);
 	  return;
@@ -2401,12 +2402,34 @@ call_expr_flags (tree t)
 /* Return true if T is a computed goto.  */
 
 bool
-is_computed_goto (tree t)
+computed_goto_p (tree t)
 {
   return (TREE_CODE (t) == GOTO_EXPR
           && TREE_CODE (GOTO_DESTINATION (t)) != LABEL_DECL);
 }
 
+/* Return true when GOTO is an non-local goto.  */
+bool
+nonlocal_goto_p (tree stmt)
+{
+ return ((TREE_CODE (GOTO_DESTINATION (stmt)) == LABEL_DECL
+	   && (decl_function_context (GOTO_DESTINATION (stmt))
+	       != current_function_decl))
+	  || (TREE_CODE (GOTO_DESTINATION (stmt)) != LABEL_DECL
+	      && DECL_CONTEXT (current_function_decl)));
+}
+
+/* Checks whether EXPR is a simple local goto.  */
+
+bool
+simple_goto_p (tree expr)
+{
+  return  (TREE_CODE (expr) == GOTO_EXPR
+	   && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL
+	   && ! NONLOCAL_LABEL (GOTO_DESTINATION (expr))
+	   && (decl_function_context (GOTO_DESTINATION (expr))
+	       == current_function_decl));
+}
 
 /* Return true if T should start a new basic block.  PREV_T is the
    statement preceding T.  It is used when T is a label or a case label.

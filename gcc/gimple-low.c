@@ -51,7 +51,6 @@ static void lower_stmt_body (tree *, struct lower_data *);
 static void lower_stmt (tree_stmt_iterator *, struct lower_data *);
 static void lower_bind_expr (tree_stmt_iterator *, struct lower_data *);
 static void lower_cond_expr (tree_stmt_iterator *, struct lower_data *);
-static bool simple_goto_p (tree);
 
 /* Lowers the BODY.  */
 void
@@ -193,18 +192,6 @@ lower_bind_expr (tree_stmt_iterator *tsi, struct lower_data *data)
      of it.  */
   tsi_link_chain_before (tsi, BIND_EXPR_BODY (stmt), TSI_SAME_STMT);
   tsi_delink (tsi);
-}
-
-/* Checks whether EXPR is a simple local goto.  */
-
-static bool
-simple_goto_p (tree expr)
-{
-  return  (TREE_CODE (expr) == GOTO_EXPR
-	   && TREE_CODE (GOTO_DESTINATION (expr)) == LABEL_DECL
-	   && ! NONLOCAL_LABEL (GOTO_DESTINATION (expr))
-	   && (decl_function_context (GOTO_DESTINATION (expr))
-	       == current_function_decl));
 }
 
 /* Lowers a cond_expr TSI.  DATA is passed through the recursion.  */

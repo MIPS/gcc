@@ -1,5 +1,18 @@
 2003-11-07  Jan Hubicka  <jh@suse.cz>
 
+	* gimple-low.c (simple_goto_p): Move to...
+	* tree-cfg.c: (simple_goto_p): ... here;
+	(nonlocal_goto_p): New.
+	(is_computed_goto): Rename to ...
+	(computed_goto_p): ... this; make global.
+	(factor_computed_gotos, make_blocks):  Update calls.
+	(make_ctrl_stmt_edges): Add edge for nonlocal labels; use new functions.
+	* tree-flow.h (is_coputed_goto): Kill.
+	(nonlocal_goto_p, simple_goto_p, computed_goto_p): Declare.
+	* tree-ssa-ccp (visit_stmt): Update.
+
+2003-11-07  Jan Hubicka  <jh@suse.cz>
+
 	* fold-const.c (tree_expr_nonzero_p): Fix typo.
 
 	* fold-const.c (tree_expr_nonzero_p): New function.

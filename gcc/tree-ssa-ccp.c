@@ -608,7 +608,7 @@ visit_stmt (tree stmt)
 
       /* If STMT is a computed goto, then mark all the output edges
 	 executable.  */
-      if (is_computed_goto (stmt))
+      if (computed_goto_p (stmt))
 	add_outgoing_control_edges (bb_for_stmt (stmt));
     }
 
