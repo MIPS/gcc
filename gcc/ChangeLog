@@ -1,3 +1,8 @@
+2002-09-06  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/rs6000/rs6000.md (extzvsi_internal2): Revert most of
+	2002-07-26 change.  Comment.
+
 2003-05-06  Richard Henderson  <rth@redhat.com>
 
         * unwind-dw2.c (uw_update_context_1): Only set cfa as sp if 
