@@ -926,10 +926,33 @@ remove_bb (bb, remove_stmts)
 
   /* Remove the edges into and out of this block.  */
   while (bb->pred != NULL)
-    remove_edge (bb->pred);
+    {
+      tree phi;
+
+      /* Since this block is no longer reachable, we can just delete all
+         of its PHI nodes.  */
+      phi = phi_nodes (bb);
+      while (phi)
+        {
+	  tree next = TREE_CHAIN (phi);
+	  remove_phi_node (phi, NULL_TREE, bb);
+	  phi = next;
+        }
+
+      remove_edge (bb->pred);
+    }
 
   while (bb->succ != NULL)
-    remove_edge (bb->succ);
+    {
+      tree phi;
+
+      /* PHI nodes in successors of this block now have one less
+         alternative.  */
+      for (phi = phi_nodes (bb->succ->dest); phi; phi = TREE_CHAIN (phi))
+	remove_phi_arg (phi, bb);
+      remove_edge (bb->succ);
+    }
+
 
   bb->pred = NULL;
   bb->succ = NULL;
@@ -1172,7 +1195,15 @@ cleanup_cond_expr_graph (bb)
 	{
 	  next = e->succ_next;
 	  if (e != taken_edge)
-	    remove_edge (e);
+	    {
+	      tree phi;
+
+	      /* Remove the appropriate PHI alternative in the
+	         target block for each unexecutable edge.  */
+	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+		remove_phi_arg (phi, e->dest);
+	      remove_edge (e);
+	    }
 	}
     }
 }
@@ -1211,7 +1242,15 @@ cleanup_switch_expr_graph (switch_bb)
 	  basic_block chain_bb = successor_block (switch_bb);
 	  edge e = find_edge (switch_bb, chain_bb);
 	  if (e)
-	    remove_edge (e);
+	    {
+	      tree phi;
+
+	      /* Remove the appropriate PHI alternative in the
+	         target block for each unexecutable edge.  */
+	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+		remove_phi_arg (phi, e->src);
+	      remove_edge (e);
+	    }
 	  break;
 	}
     }
@@ -1256,7 +1295,15 @@ disconnect_unreachable_case_labels (bb)
 			to create this silly edge to begin with (see FIXME
 			note in make_ctrl_stmt_edges).  */
 	      && label_stmt != switch_body)
-	    remove_edge (e);
+	    {
+	      tree phi;
+
+	      /* Remove the appropriate PHI alternative in the
+	         target block for each unexecutable edge.  */
+	      for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))
+		remove_phi_arg (phi, e->src);
+	      remove_edge (e);
+	    }
 	}
     }
 }

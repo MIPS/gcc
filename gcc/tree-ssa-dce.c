@@ -144,34 +144,43 @@ mark_necessary (t)
 {
   if (mark_tree_necessary (t))
     {
-      /* Mark all statements in control parent blocks as necessary.  */
+      /* Mark control statements in control parent blocks as necessary.  */
       if (bb_for_stmt (t))
 	mark_control_parent_necessary (parent_block (bb_for_stmt (t)));
     }
 }
 
 
-/* Mark all statements in all nested control parent block as necessary
-   statements.  */
+/* Mark control statements in the control parent blocks as necessary.
+ 
+   Right now this also includes BIND_EXPRs, but one day that should not
+   be necessary.  */
    
 static void
 mark_control_parent_necessary (bb)
      basic_block bb;
 {
-  block_stmt_iterator i;
   tree t;
 
-  /* Loops through the stmts in this block, marking them as necessary. */
+  /* Iterate through each of the control parents.  */
   while (bb != NULL && bb->index != INVALID_BLOCK)
     {
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
-	{
-	  /* Avoid needless calls back to this routine by directly calling 
-	     mark_tree since we know we are going to cycle through all parent 
-	     blocks and their statements.  */
-	  t = bsi_stmt (i);
-	  mark_tree_necessary (t);
-	}
+      /* The first statement may be interesting (it could be a LOOP_EXPR
+         or BIND_EXPR.  */
+      t = *(bb->head_tree_p);
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	t = TREE_OPERAND (t, 0);
+      if (is_ctrl_stmt (t) || TREE_CODE (t) == BIND_EXPR)
+	mark_tree_necessary (t);
+
+      /* The last statement in the block may also be interesting such
+         as a COND_EXPR or SWITCH_EXPR.  */
+      t = *(bb->end_tree_p);
+      if (TREE_CODE (t) == COMPOUND_EXPR)
+	t = TREE_OPERAND (t, 0);
+      if (is_ctrl_stmt (t) || TREE_CODE (t) == BIND_EXPR)
+	mark_tree_necessary (t);
+
       bb = parent_block (bb);
     }
 }

@@ -1,5 +1,14 @@
 2003-02-20  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (remove_bb): Update PHI nodes as edges are removed.
+	(cleanup_cond_expr_graph): Likewise.
+	(cleanup_switch_expr_graph): Likewise.
+	(disconnect_unreachable_case_labels): Likewise.
+
+	* tree-ssa-dce.c (mark_control_parent_necessary): Be much more
+	selective about what statements in the control parents are marked
+	as necessary.
+	
 	* tree-dfa.c (INDIRECT_REFs and ADDRESSABLE_VARs varrays): Replace
 	with a single ALIASED_OBJECTs set of varrays.
 	(dump_dfa_stats): Corresponding changes.
