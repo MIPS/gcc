@@ -170,8 +170,7 @@ struct rename_context;
 static inline rtx * phi_alternative
   PARAMS ((rtx, int));
 static void compute_dominance_frontiers_1
-  PARAMS ((bitmap *frontiers, dominance_info idom, int bb,
-	   sbitmap done, basic_block * cached_idoms));
+  PARAMS ((bitmap *frontiers, dominance_info idom, int bb, sbitmap done));
 static void find_evaluations_1
   PARAMS ((rtx dest, rtx set, void *data));
 static void find_evaluations
@@ -520,12 +519,11 @@ find_evaluations (evals, nregs)
 */
 
 static void
-compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
+compute_dominance_frontiers_1 (frontiers, idom, bb, done)
      bitmap *frontiers;
      dominance_info idom;
      int bb;
      sbitmap done;
-     basic_block *cached_idoms;
 {
   basic_block b = BASIC_BLOCK (bb);
   edge e;
@@ -567,8 +565,7 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
       {
         c = BASIC_BLOCK (i);
         if (! TEST_BIT (done, c->index))
-          compute_dominance_frontiers_1 (frontiers, idom, c->index,
-				         done, cached_idoms);
+          compute_dominance_frontiers_1 (frontiers, idom, c->index, done);
       });
       
   /* Find blocks conforming to rule (1) above.  */
@@ -576,7 +573,7 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
     {
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
-      if (cached_idoms[e->dest->index]->index != bb)
+      if (get_immediate_dominator (idom, e->dest)->index != bb)
         bitmap_set_bit (frontiers[bb], e->dest->index);
     }
 
@@ -589,7 +586,7 @@ compute_dominance_frontiers_1 (frontiers, idom, bb, done, cached_idoms)
 
         EXECUTE_IF_SET_IN_BITMAP (frontiers[c->index], 0, x,
 	  {
-	    if (cached_idoms[BASIC_BLOCK (x)->index]->index != bb)
+	    if (get_immediate_dominator (idom, BASIC_BLOCK (x))->index != bb)
 	      bitmap_set_bit (frontiers[bb], x);
 	  });
       });
@@ -605,21 +602,14 @@ compute_dominance_frontiers (frontiers, idom)
      bitmap *frontiers;
      dominance_info idom;
 {
-  basic_block bb, *cached_idoms;
   sbitmap done = sbitmap_alloc (last_basic_block);
 
   timevar_push (TV_DOM_FRONTIERS);
 
   sbitmap_zero (done);
 
-  cached_idoms = xmalloc (n_basic_blocks * sizeof (bb));
+  compute_dominance_frontiers_1 (frontiers, idom, 0, done);
 
-  FOR_EACH_BB (bb)
-    cached_idoms[bb->index] = get_immediate_dominator (idom, bb);
-
-  compute_dominance_frontiers_1 (frontiers, idom, 0, done, cached_idoms);
-
-  free (cached_idoms);
   sbitmap_free (done);
 
   timevar_pop (TV_DOM_FRONTIERS);

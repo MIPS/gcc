@@ -1,5 +1,12 @@
 2003-02-20  Jeff Law  <law@redhat.com>
 
+	* ssa.c: Revert caching of immediate dominators change made on
+	Jan 28, 2003.
+
+	* tree-dfa.c: Fix comment.
+
+2003-02-20  Jeff Law  <law@redhat.com>
+
 	* tree-cfg.c (remove_bb): Update PHI nodes as edges are removed.
 	(cleanup_cond_expr_graph): Likewise.
 	(cleanup_switch_expr_graph): Likewise.

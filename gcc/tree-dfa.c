@@ -2190,7 +2190,7 @@ find_vars_r (tp, walk_subtrees, data)
    same tree.
    
    Also add VAR to the ALIASED_OBJECTS set of varrays that are needed for
-   alias analysis.  DATA is an array with three two tables used to avoid
+   alias analysis.  DATA is an array with two hash tables used to avoid
    adding the same variable more than once to its corresponding set as
    well as a bit indicating if we're processing a load or store.  Note
    that this function assumes that VAR is a valid SSA variable.  */
