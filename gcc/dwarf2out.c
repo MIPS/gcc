@@ -8053,6 +8053,9 @@ loc_descriptor (rtl)
 {
   dw_loc_descr_ref loc_result = NULL;
 
+  if (!rtl)
+    return 0;
+
   switch (GET_CODE (rtl))
     {
     case SUBREG:
@@ -8104,7 +8107,7 @@ loc_descriptor (rtl)
 	}  
       break;
     default:
-      abort ();
+      return 0;
     }
 
   return loc_result;
@@ -9100,7 +9103,8 @@ add_location_or_const_value_attribute (die, decl)
       
       if (DECL_SECTION_NAME (decl))
 	secname = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
-      else if (DECL_SECTION_NAME (current_function_decl))
+      else if (current_function_decl
+	       && DECL_SECTION_NAME (current_function_decl))
 	secname = TREE_STRING_POINTER (DECL_SECTION_NAME (current_function_decl));
       else
 	secname = TEXT_SECTION_NAME;

@@ -3770,7 +3770,10 @@ rest_of_compilation (decl)
     }
   cfun = 0;
 
+  /* Keep the rtl in memory until debug info is output.  */
+#if 0
   ggc_collect ();
+#endif
 
   timevar_pop (TV_REST_OF_COMPILATION);
 }
