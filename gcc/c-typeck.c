@@ -111,7 +111,25 @@ static void set_nonincremental_init_from_string (tree);
 static tree find_init_member (tree);
 static int lvalue_or_else (tree, enum lvalue_use);
 static void readonly_error (tree, enum lvalue_use);
-
+static int comptypes_internal (tree, tree);
+/* The C standard says that two structures in different translation
+   units are compatible with each other only if the types of their
+   fields are compatible (among other things).  So, consider two copies
+   of this structure:  */
+
+struct tagged_tu_seen {
+  const struct tagged_tu_seen * next;
+  tree t1;
+  tree t2;
+  int val;
+};
+
+/* Can they be compatible with each other?  We choose to break the
+   recursion by allowing those types to be compatible.  */
+
+static const struct tagged_tu_seen * tagged_tu_seen_base;
+static void free_all_tagged_tu_seen_up_to (const struct tagged_tu_seen *);
+
 /* Do `exp = require_complete_type (exp);' to make sure exp
    does not have an incomplete type.  (That includes void types.)  */
 
@@ -587,13 +605,29 @@ common_type (tree t1, tree t2)
   else
     return t2;
 }
-
+
 /* Return 1 if TYPE1 and TYPE2 are compatible types for assignment
    or various other operations.  Return 2 if they are compatible
    but a warning may be needed if you use them together.  */
 
 int
 comptypes (tree type1, tree type2)
+{
+  const struct tagged_tu_seen * tagged_tu_seen_base1 = tagged_tu_seen_base;
+  int val;
+
+  val = comptypes_internal (type1, type2);
+  free_all_tagged_tu_seen_up_to (tagged_tu_seen_base1);
+  
+  return val;
+}
+/* Return 1 if TYPE1 and TYPE2 are compatible types for assignment
+   or various other operations.  Return 2 if they are compatible
+   but a warning may be needed if you use them together.  This
+   differs from comptypes, in that we don't free the seen types.  */
+
+static int
+comptypes_internal (tree type1, tree type2)
 {
   tree t1 = type1;
   tree t2 = type2;
@@ -660,7 +694,7 @@ comptypes (tree type1, tree type2)
       if (c_dialect_objc () && (val = objc_comptypes (t1, t2, 0)) >= 0)
 	break;
       val = (TREE_TYPE (t1) == TREE_TYPE (t2)
-	     ? 1 : comptypes (TREE_TYPE (t1), TREE_TYPE (t2)));
+	     ? 1 : comptypes_internal (TREE_TYPE (t1), TREE_TYPE (t2)));
       break;
 
     case FUNCTION_TYPE:
@@ -677,7 +711,7 @@ comptypes (tree type1, tree type2)
 
 	/* Target types must match incl. qualifiers.  */
 	if (TREE_TYPE (t1) != TREE_TYPE (t2)
-	    && 0 == (val = comptypes (TREE_TYPE (t1), TREE_TYPE (t2))))
+	    && 0 == (val = comptypes_internal (TREE_TYPE (t1), TREE_TYPE (t2))))
 	  return 0;
 
 	/* Sizes must match unless one is missing or variable.  */
@@ -715,12 +749,16 @@ comptypes (tree type1, tree type2)
     case ENUMERAL_TYPE:
     case UNION_TYPE:
       if (val != 1 && !same_translation_unit_p (t1, t2))
-	val = tagged_types_tu_compatible_p (t1, t2);
+        {
+	  if (attrval != 2)
+	    return tagged_types_tu_compatible_p (t1, t2);
+	  val = tagged_types_tu_compatible_p (t1, t2);
+	}
       break;
 
     case VECTOR_TYPE:
       val = TYPE_VECTOR_SUBPARTS (t1) == TYPE_VECTOR_SUBPARTS (t2)
-	    && comptypes (TREE_TYPE (t1), TREE_TYPE (t2));
+	    && comptypes_internal (TREE_TYPE (t1), TREE_TYPE (t2));
       break;
 
     default:
@@ -789,21 +827,34 @@ same_translation_unit_p (tree t1, tree t2)
   return t1 == t2;
 }
 
-/* The C standard says that two structures in different translation
-   units are compatible with each other only if the types of their
-   fields are compatible (among other things).  So, consider two copies
-   of this structure:  */
+/* Allocate the seen two types. */
 
-struct tagged_tu_seen {
-  const struct tagged_tu_seen * next;
-  tree t1;
-  tree t2;
-};
+static struct tagged_tu_seen *
+alloc_tagged_tu_seen (tree t1, tree t2)
+{
+  struct tagged_tu_seen *tu = xmalloc (sizeof (struct tagged_tu_seen));
+  tu->next = tagged_tu_seen_base;
+  tu->t1 = t1;
+  tu->t2 = t2;
+  tagged_tu_seen_base = tu;
+  tu->val = 1;
+  return tu;
+}
 
-/* Can they be compatible with each other?  We choose to break the
-   recursion by allowing those types to be compatible.  */
+/* Free the seen types until we get to TU_TIL. */
 
-static const struct tagged_tu_seen * tagged_tu_seen_base;
+static void
+free_all_tagged_tu_seen_up_to (const struct tagged_tu_seen *tu_til)
+{
+  const struct tagged_tu_seen *tu = tagged_tu_seen_base;
+  while (tu != tu_til)
+    {
+      struct tagged_tu_seen *tu1 = (struct tagged_tu_seen*)tu;
+      tu = tu1->next;
+      free (tu1);
+    }
+  tagged_tu_seen_base = tu_til;
+}
 
 /* Return 1 if two 'struct', 'union', or 'enum' types T1 and T2 are
    compatible.  If the two types are not the same (which has been
@@ -848,70 +899,120 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
     const struct tagged_tu_seen * tts_i;
     for (tts_i = tagged_tu_seen_base; tts_i != NULL; tts_i = tts_i->next)
       if (tts_i->t1 == t1 && tts_i->t2 == t2)
-	return 1;
+	return tts_i->val;
   }
 
   switch (TREE_CODE (t1))
     {
     case ENUMERAL_TYPE:
       {
-
+	struct tagged_tu_seen *tu = alloc_tagged_tu_seen (t1, t2);
         /* Speed up the case where the type values are in the same order.  */
         tree tv1 = TYPE_VALUES (t1);
         tree tv2 = TYPE_VALUES (t2);
 
         if (tv1 == tv2)
-          return 1;
+	  {
+	    return 1;
+	  }
 
         for (;tv1 && tv2; tv1 = TREE_CHAIN (tv1), tv2 = TREE_CHAIN (tv2))
           {
             if (TREE_PURPOSE (tv1) != TREE_PURPOSE (tv2))
               break;
             if (simple_cst_equal (TREE_VALUE (tv1), TREE_VALUE (tv2)) != 1)
-              return 0;
+	      {
+	        tu->val = 0;
+		return 0;
+	      }
           }
 
         if (tv1 == NULL_TREE && tv2 == NULL_TREE)
-          return 1;
+	  {
+	    return 1;
+	  }
         if (tv1 == NULL_TREE || tv2 == NULL_TREE)
-          return 0;
+	  {
+	    tu->val = 0;
+	    return 0;
+	  }
 
 	if (list_length (TYPE_VALUES (t1)) != list_length (TYPE_VALUES (t2)))
-	  return 0;
+	  {
+	    tu->val = 0;
+	    return 0;
+	  }
 
 	for (s1 = TYPE_VALUES (t1); s1; s1 = TREE_CHAIN (s1))
 	  {
 	    s2 = purpose_member (TREE_PURPOSE (s1), TYPE_VALUES (t2));
 	    if (s2 == NULL
 		|| simple_cst_equal (TREE_VALUE (s1), TREE_VALUE (s2)) != 1)
-	      return 0;
+	      {
+		tu->val = 0;
+		return 0;
+	      }
 	  }
 	return 1;
       }
 
     case UNION_TYPE:
       {
+	struct tagged_tu_seen *tu = alloc_tagged_tu_seen (t1, t2);
 	if (list_length (TYPE_FIELDS (t1)) != list_length (TYPE_FIELDS (t2)))
-	  return 0;
+	  {
+	    tu->val = 0;
+	    return 0;
+	  }
+	
+	/*  Speed up the common case where the fields are in the same order. */
+	for (s1 = TYPE_FIELDS (t1), s2 = TYPE_FIELDS (t2); s1 && s2;
+	     s1 = TREE_CHAIN (s1), s2 = TREE_CHAIN (s2))
+	  {
+	    int result;
+	    
+	    
+	    if (DECL_NAME (s1) == NULL
+	        || DECL_NAME (s1) != DECL_NAME (s2))
+	      break;
+	    result = comptypes_internal (TREE_TYPE (s1), TREE_TYPE (s2));
+	    if (result == 0)
+	      {
+		tu->val = 0;
+		return 0;
+	      }
+	    if (result == 2)
+	      needs_warning = true;
+
+	    if (TREE_CODE (s1) == FIELD_DECL
+		&& simple_cst_equal (DECL_FIELD_BIT_OFFSET (s1),
+				     DECL_FIELD_BIT_OFFSET (s2)) != 1)
+	      {
+		tu->val = 0;
+		return 0;
+	      }
+	  }
+	if (!s1 && !s2)
+	  {
+	    tu->val = needs_warning ? 2 : 1;
+	    return tu->val;
+	  }
 
 	for (s1 = TYPE_FIELDS (t1); s1; s1 = TREE_CHAIN (s1))
 	  {
 	    bool ok = false;
-	    struct tagged_tu_seen tts;
-
-	    tts.next = tagged_tu_seen_base;
-	    tts.t1 = t1;
-	    tts.t2 = t2;
-	    tagged_tu_seen_base = &tts;
 
 	    if (DECL_NAME (s1) != NULL)
 	      for (s2 = TYPE_FIELDS (t2); s2; s2 = TREE_CHAIN (s2))
 		if (DECL_NAME (s1) == DECL_NAME (s2))
 		  {
 		    int result;
-		    result = comptypes (TREE_TYPE (s1), TREE_TYPE (s2));
+		    result = comptypes_internal (TREE_TYPE (s1), TREE_TYPE (s2));
 		    if (result == 0)
-		      break;
+		      {
+			tu->val = 0;
+			return 0;
+		      }
 		    if (result == 2)
 		      needs_warning = true;
 
@@ -923,21 +1024,19 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
 		    ok = true;
 		    break;
 		  }
-	    tagged_tu_seen_base = tts.next;
 	    if (!ok)
-	      return 0;
+	      {
+		tu->val = 0;
+		return 0;
+	      }
 	  }
-	return needs_warning ? 2 : 1;
+	tu->val = needs_warning ? 2 : 10;
+	return tu->val;
       }
 
     case RECORD_TYPE:
       {
-	struct tagged_tu_seen tts;
-
-	tts.next = tagged_tu_seen_base;
-	tts.t1 = t1;
-	tts.t2 = t2;
-	tagged_tu_seen_base = &tts;
+        struct tagged_tu_seen *tu = alloc_tagged_tu_seen (t1, t2);
 
 	for (s1 = TYPE_FIELDS (t1), s2 = TYPE_FIELDS (t2);
 	     s1 && s2;
@@ -947,7 +1046,7 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
 	    if (TREE_CODE (s1) != TREE_CODE (s2)
 		|| DECL_NAME (s1) != DECL_NAME (s2))
 	      break;
-	    result = comptypes (TREE_TYPE (s1), TREE_TYPE (s2));
+	    result = comptypes_internal (TREE_TYPE (s1), TREE_TYPE (s2));
 	    if (result == 0)
 	      break;
 	    if (result == 2)
@@ -958,10 +1057,11 @@ tagged_types_tu_compatible_p (tree t1, tree t2)
 				     DECL_FIELD_BIT_OFFSET (s2)) != 1)
 	      break;
 	  }
-	tagged_tu_seen_base = tts.next;
 	if (s1 && s2)
-	  return 0;
-	return needs_warning ? 2 : 1;
+	  tu->val = 0;
+	else
+	  tu->val = needs_warning ? 2 : 1;
+	return tu->val;
       }
 
     default:
@@ -998,7 +1098,7 @@ function_types_compatible_p (tree f1, tree f2)
   if (TYPE_VOLATILE (ret2))
     ret2 = build_qualified_type (TYPE_MAIN_VARIANT (ret2),
 				 TYPE_QUALS (ret2) & ~TYPE_QUAL_VOLATILE);
-  val = comptypes (ret1, ret2);
+  val = comptypes_internal (ret1, ret2);
   if (val == 0)
     return 0;
 
@@ -1072,7 +1172,7 @@ type_lists_compatible_p (tree args1, tree args2)
       else if (TREE_CODE (TREE_VALUE (args1)) == ERROR_MARK
 	       || TREE_CODE (TREE_VALUE (args2)) == ERROR_MARK)
 	;
-      else if (!(newval = comptypes (TYPE_MAIN_VARIANT (TREE_VALUE (args1)),
+      else if (!(newval = comptypes_internal (TYPE_MAIN_VARIANT (TREE_VALUE (args1)),
 				     TYPE_MAIN_VARIANT (TREE_VALUE (args2)))))
 	{
 	  /* Allow  wait (union {union wait *u; int *i} *)
@@ -1087,7 +1187,7 @@ type_lists_compatible_p (tree args1, tree args2)
 	      tree memb;
 	      for (memb = TYPE_FIELDS (TREE_VALUE (args1));
 		   memb; memb = TREE_CHAIN (memb))
-		if (comptypes (TREE_TYPE (memb), TREE_VALUE (args2)))
+		if (comptypes_internal (TREE_TYPE (memb), TREE_VALUE (args2)))
 		  break;
 	      if (memb == 0)
 		return 0;
@@ -1102,7 +1202,7 @@ type_lists_compatible_p (tree args1, tree args2)
 	      tree memb;
 	      for (memb = TYPE_FIELDS (TREE_VALUE (args2));
 		   memb; memb = TREE_CHAIN (memb))
-		if (comptypes (TREE_TYPE (memb), TREE_VALUE (args1)))
+		if (comptypes_internal (TREE_TYPE (memb), TREE_VALUE (args1)))
 		  break;
 	      if (memb == 0)
 		return 0;

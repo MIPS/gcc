@@ -76,6 +76,8 @@ static void free_edge (edge);
 #define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
 
 
+#define RDIV(X,Y) (((X) + (Y) / 2) / (Y))
+
 /* Called once at initialization time.  */
 
 void

@@ -1195,7 +1195,6 @@ remove_useless_stmts_warn_notreached (tree stmt)
   return false;
 }
 
-#if 0
 static void
 remove_useless_stmts_cond (tree *stmt_p, struct rus_data *data)
 {
@@ -1450,7 +1449,7 @@ remove_useless_stmts_bind (tree *stmt_p, struct rus_data *data)
       data->repeat = true;
     }
 }
-#endif
+
 
 static void
 remove_useless_stmts_goto (tree *stmt_p, struct rus_data *data)
@@ -1541,15 +1540,20 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
   switch (TREE_CODE (t))
     {
     case COND_EXPR:
-      /*remove_useless_stmts_cond (tp, data);*/
-      fold_stmt (tp);
+      remove_useless_stmts_cond (tp, data);
       break;
 
     case TRY_FINALLY_EXPR:
+      remove_useless_stmts_tf (tp, data);
+      break;
+
     case TRY_CATCH_EXPR:
+      remove_useless_stmts_tc (tp, data);
+      break;
+
     case BIND_EXPR:
-      /* We're gimple now.  */
-      abort ();
+      remove_useless_stmts_bind (tp, data);
+      break;
 
     case GOTO_EXPR:
       remove_useless_stmts_goto (tp, data);
@@ -1561,12 +1565,6 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 
     case RETURN_EXPR:
       fold_stmt (tp);
-      op = get_call_expr_in (t);
-      if (op)
-	{
-	  update_call_expr_flags (op);
-	  notice_special_calls (op);
-	}
       data->last_goto = NULL;
       data->may_branch = true;
       break;
@@ -1593,6 +1591,31 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
 	data->may_throw = true;
       break;
 
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator i = tsi_start (t);
+	while (!tsi_end_p (i))
+	  {
+	    t = tsi_stmt (i);
+	    if (IS_EMPTY_STMT (t))
+	      {
+		tsi_delink (&i);
+		continue;
+	      }
+	    
+	    remove_useless_stmts_1 (tsi_stmt_ptr (i), data);
+
+	    t = tsi_stmt (i);
+	    if (TREE_CODE (t) == STATEMENT_LIST)
+	      {
+		tsi_link_before (&i, t, TSI_SAME_STMT);
+		tsi_delink (&i);
+	      }
+	    else
+	      tsi_next (&i);
+	  }
+      }
+      break;
     case SWITCH_EXPR:
       fold_stmt (tp);
       data->last_goto = NULL;
@@ -1604,74 +1627,17 @@ remove_useless_stmts_1 (tree *tp, struct rus_data *data)
     }
 }
 
-/* This cleanup runs just after the inliner; it does not
-   currently do any CFG optimizations, but could be made 
-   to do this.  It will, however, remove EH edges in the 
-   case where a statement that was believed to throw becomes 
-   known not to after fold_stmt is called; that is needed for
-   correctness.
-   Tree has been gimplified and EH has been lowered.  */
-
 static void
 remove_useless_stmts (void)
 {
   struct rus_data data;
-  basic_block bb;
 
   clear_special_calls ();
 
   do
     {
       memset (&data, 0, sizeof (data));
-      FOR_EACH_BB (bb)
-	{
-	  block_stmt_iterator bsi = bsi_start (bb);
-	  tree last_t = last_stmt (bb);
-	  while (!bsi_end_p (bsi))
-	    {
-	      tree *tp = bsi_stmt_ptr (bsi);
-	      tree t = *tp;
-	      bool could_throw = false;
-	      if (IS_EMPTY_STMT (t))
-		{
-		  bsi_remove (&bsi);
-		  continue;
-		}
-
-	      if (t == last_t && tree_could_throw_p (t))
-		could_throw = true;
-
-	      remove_useless_stmts_1 (tp, &data);
-
-	      t = bsi_stmt (bsi);
-	      if (TREE_CODE (t) == STATEMENT_LIST)
-		/* Don't think this can happen... */
-		bsi_replace (&bsi, t, true);
-	      else
-		{
-		  /* If this tree used to throw and we have
-		     decided otherwise, remove the tree from its
-		     EH region and remove any EH edges.  */
-		  if (could_throw && !tree_could_throw_p (t))
-		    {
-		      edge_iterator ei;
-		      edge e;
-
-		      for (ei = ei_start (bb->succs);
-			   (e = ei_safe_edge (ei)); )
-			{
-			  if (e->flags & EDGE_EH)
-			    remove_edge (e);
-			  else
-			    ei_next (&ei);
-			}
-
-		      remove_stmt_from_eh_region (t);
-		    }
-		  bsi_next (&bsi);
-		}
-	    }
-	}
+      remove_useless_stmts_1 (&DECL_SAVED_TREE (current_function_decl), &data);
     }
   while (data.repeat);
 }
@@ -2685,11 +2651,7 @@ set_bb_for_stmt (tree t, basic_block bb)
 	    {
 	      LABEL_DECL_UID (t) = uid = cfun->last_label_uid++;
 	      if (VARRAY_SIZE (label_to_block_map) <= (unsigned) uid)
-		{
-		  unsigned tmp_u = 3 * MAX (uid, 2);
-		  /* Force the multiply to happen before the divide.  */
-		  VARRAY_GROW (label_to_block_map, tmp_u / 2);
-		}
+		VARRAY_GROW (label_to_block_map, 3 * uid / 2);
 	    }
 	  else
 	    /* We're moving an existing label.  Make sure that we've
@@ -5018,6 +4980,14 @@ need_fake_edge_p (tree t)
      figured out from the RTL in mark_constant_function, and
      the counter incrementation code from -fprofile-arcs
      leads to different results from -fbranch-probabilities.  */
+
+  /* FIXME The previous comment is wrong in many ways.  We now allow
+     PURE functions to have loops so if the fake edge is because of
+     this, PURE would need to be checked.  Also, we do the analysis
+     earlier than we used to as well as there are also functions which
+     were marked in the source. Currently we mark these function in
+     ipa-static-vars-analysis. */
+
   call = get_call_expr_in (t);
   if (call
       && !(call_expr_flags (call) & 
@@ -5027,7 +4997,6 @@ need_fake_edge_p (tree t)
   if (TREE_CODE (t) == ASM_EXPR
        && (ASM_VOLATILE_P (t) || ASM_INPUT_P (t)))
     return true;
-
 
   return false;
 }

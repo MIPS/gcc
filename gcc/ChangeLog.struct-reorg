@@ -1,3 +1,12 @@
+2004-12-09 Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+	* tree-gimple.c (get_base_var): missing const_decl case.
+	* cgraphunit.c (cgraph_mark_nonexportable): remove.
+	(cgraph_function_and_variable_visibility): added global_export
+	attribute.
+
+2004-12-09 Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+	merged in tree-profiling branch as of 2004-12-08
+
 2004-12-06 Mostafa Hagog  <mustafa@il.ibm.com>
 	* params.def (PARAM_STRUCT_REORG_DISTANCE_THRESHOLD): New.
 	* params.h (STRUCT_REORG_DISTANCE_THRESHOLD): New.

@@ -730,9 +730,6 @@ enum reg_note
   REG_NOTE_MAX
 };
 
-/* The base value for branch probability notes.  */
-#define REG_BR_PROB_BASE  10000
-
 /* Define macros to extract and insert the reg-note kind in an EXPR_LIST.  */
 #define REG_NOTE_KIND(LINK) ((enum reg_note) GET_MODE (LINK))
 #define PUT_REG_NOTE_KIND(LINK, KIND) \
@@ -2155,7 +2152,6 @@ extern int canon_true_dependence (rtx, enum machine_mode, rtx, rtx,
 extern int read_dependence (rtx, rtx);
 extern int anti_dependence (rtx, rtx);
 extern int output_dependence (rtx, rtx);
-extern void mark_constant_function (void);
 extern void init_alias_once (void);
 extern void init_alias_analysis (void);
 extern void end_alias_analysis (void);

@@ -35,10 +35,10 @@ enum availability
   /* Function body/variable initializer is known but might be replaced
      by a different one from other compilation unit and thus can be
      dealt with only as a hint.  */
-  AVAIL_OVERWRITTABLE,
-  /* Same as AVAIL_OVERWRITTABLE except the front end has said that
+  AVAIL_OVERWRITABLE,
+  /* Same as AVAIL_OVERWRITABLE except the front end has said that
      this instance is stable enough to analyze or even inline.  */
-  AVAIL_OVERWRITTABLE_BUT_INLINABLE,
+  AVAIL_OVERWRITABLE_BUT_INLINABLE,
   /* Function body/variable initializer is known and will be used in final
      program.  */
   AVAIL_AVAILABLE,
@@ -67,14 +67,6 @@ struct cgraph_local_info GTY(())
   /* Set when function is visible by other units.  */
   bool externally_visible;
 
-  /* Set when this function calls another function external to the
-     compilation unit or if the function has a asm clobber of memory.
-     In general, such calls are modeled as reading and writing all
-     variables (both bits on) but sometime there are attributes on the
-     called function so we can do better.  */
-  bool calls_read_all;
-  bool calls_write_all;
-
   /* Set once it has been finalized so we consider it to be output.  */
   bool finalized;
 
@@ -99,6 +91,8 @@ struct cgraph_global_info GTY(())
 
   /* Estimated size of the function after inlining.  */
   int insns;
+  /* Estimated growth after inlining.  INT_MIN if not computed.  */
+  int estimated_growth;
 
   /* Set iff the function has been inlined at least once.  */
   bool inlined;
@@ -110,8 +104,6 @@ struct cgraph_global_info GTY(())
 struct cgraph_rtl_info GTY(())
 {
    int preferred_incoming_stack_boundary;
-   bool const_function;
-   bool pure_function;
 };
 
 /* The cgraph data structure.
@@ -151,6 +143,8 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
      variables modified by function calls.  */
   ipa_static_vars_info_t GTY ((skip)) static_vars_info;
 
+  /* Expected number of executions: calculated in profile.c.  */
+  gcov_type count;
   /* Unique id of the node.  */
   int uid;
   /* Set when function must be output - it is externally visible
@@ -159,6 +153,8 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Set when function is reachable by call from other function
      that is either reachable or needed.  */
   bool reachable;
+  /* Set once the function is lowered (ie it's CFG is built).  */
+  bool lowered;
   /* Set once the function has been instantiated and its callee
      lists created.  */
   bool analyzed;
@@ -166,12 +162,6 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool output;
   /* Used only while constructing the callgraph.  */
   basic_block current_basic_block;
-  /* Estimated size of this function, with no inlining, in insns.  */
-  gcov_type insn_size;
-  /* Estimated growth of this function due to inlining, in insns.  */
-  gcov_type insn_growth;
-  /* The CALL within this function that we'd like to inline next.  */
-  struct cgraph_edge *most_desirable;
 };
 
 struct cgraph_edge GTY((chain_next ("%h.next_caller")))
@@ -190,9 +180,6 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   const char *inline_failed;
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
-  /* Desirability of this edge for inlining.  Higher numbers are more
-     likely to be inlined.  */
-  gcov_type desirability;
 };
 
 /* The cgraph_varpool data structure.
@@ -204,9 +191,12 @@ struct cgraph_varpool_node GTY(())
   /* Pointer to the next function in cgraph_varpool_nodes_queue.  */
   struct cgraph_varpool_node *next_needed;
 
-  /* Set when function must be output - it is externally visible
-     or it's address is taken.  */
+  /* Set when variable is visible - it is externally visible,
+     it is used directly or it's address is taken.  */
   bool needed;
+  /* Needed variables might become dead by optimization.  This flag
+     forces the variable to be output even if it appears dead otherwise.  */
+  bool force_output;
   /* Set once the variable has been instantiated and its callee
      lists created.  */
   bool analyzed;
@@ -216,6 +206,10 @@ struct cgraph_varpool_node GTY(())
   bool output;
   /* Set when function is visible by other units.  */
   bool externally_visible;
+  /* Some datastructures (such as typeinfos for EH handling) can be output
+     late during the RTL compilation.  We need to make these invisible to
+     IPA optimizers or we confuse them badly.  */
+  bool non_ipa;
 };
 
 #define INDIRECT_CALLS(node)   (node)->indirect_calls
@@ -254,8 +248,8 @@ struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
 struct cgraph_rtl_info *cgraph_rtl_info (tree);
 const char * cgraph_node_name (struct cgraph_node *);
-struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree);
-struct cgraph_node * cgraph_clone_node (struct cgraph_node *);
+struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree, int);
+struct cgraph_node * cgraph_clone_node (struct cgraph_node *, gcov_type);
 
 struct cgraph_varpool_node *cgraph_varpool_node (tree);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
@@ -272,24 +266,35 @@ bool cgraph_is_master_clone (struct cgraph_node *);
 bool cgraph_is_immortal_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_immortal_master_clone (struct cgraph_node *);
-
-/* In cgraphunit.c  */
-void cgraph_build_cfg (tree);
-bool cgraph_assemble_pending_functions (void);
-void cgraph_finalize_function (tree, bool);
-void cgraph_finalize_compilation_unit (void);
-void cgraph_create_edges (struct cgraph_node *, tree);
-void cgraph_optimize (void);
+void cgraph_varpool_enqueue_needed_node (struct cgraph_varpool_node *);
+void cgraph_varpool_reset_queue (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
 bool cgraph_inline_p (struct cgraph_edge *, const char **);
+
+
+/* In cgraphunit.c  */
+bool cgraph_assemble_pending_functions (void);
+void cgraph_finalize_function (tree, bool);
+void cgraph_lower_function (struct cgraph_node *);
+void cgraph_finalize_compilation_unit (void);
+void cgraph_optimize (void);
 bool cgraph_preserve_function_body_p (tree);
 void verify_cgraph (void);
 void verify_cgraph_node (struct cgraph_node *);
-void cgraph_mark_inline_edge (struct cgraph_edge *);
-void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool);
 void cgraph_build_static_cdtor (char, tree, int);
 void init_cgraph (void);
+
+/* In ipa.c  */
+bool cgraph_remove_unreachable_nodes (bool, FILE *);
+int cgraph_postorder (struct cgraph_node **);
+ 
+/* In ipa-inline.c  */
+void cgraph_analyze_function_inlinability (struct cgraph_node *node);
+void cgraph_decide_inlining_incrementally (struct cgraph_node *);
+void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool);
+void cgraph_mark_inline_edge (struct cgraph_edge *);
+bool cgraph_default_inline_p (struct cgraph_node *);
 
 /* In struct-reorg.c  */
 void peel_structs (void);

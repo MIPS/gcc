@@ -162,12 +162,31 @@ is_gimple_condexpr (tree t)
   return (is_gimple_val (t) || COMPARISON_CLASS_P (t));
 }
 
+/* Return true if T is a gimple component reference.  */
+
+static bool
+is_gimple_component (tree t)
+{
+  switch (TREE_CODE (t))
+    {
+    case COMPONENT_REF:
+    case ARRAY_REF:
+    case ARRAY_RANGE_REF:
+    case VIEW_CONVERT_EXPR:
+      return true;
+
+    default:
+      return false;;
+    }
+}
+
 /*  Return true if T is something whose address can be taken.  */
 
 bool
 is_gimple_addressable (tree t)
 {
-  return (is_gimple_id (t) || handled_component_p (t)
+  return (is_gimple_id (t)
+	  || is_gimple_component (t)
 	  || TREE_CODE (t) == REALPART_EXPR
 	  || TREE_CODE (t) == IMAGPART_EXPR
 	  || INDIRECT_REF_P (t));
@@ -442,7 +461,8 @@ get_base_var (tree t)
   while (!SSA_VAR_P (t) 
 	 && (!CONSTANT_CLASS_P (t))
 	 && TREE_CODE (t) != LABEL_DECL
-	 && TREE_CODE (t) != FUNCTION_DECL)
+	 && TREE_CODE (t) != FUNCTION_DECL
+	 && TREE_CODE (t) != CONST_DECL)
     {
       t = TREE_OPERAND (t, 0);
     }
@@ -457,8 +477,10 @@ get_base_var (tree t)
 tree
 get_base_address (tree t)
 {
-  while (TREE_CODE (t) == REALPART_EXPR || TREE_CODE (t) == IMAGPART_EXPR
-	 || handled_component_p (t))
+  while (TREE_CODE (t) == REALPART_EXPR
+	 || TREE_CODE (t) == IMAGPART_EXPR
+	 || TREE_CODE (t) == BIT_FIELD_REF
+	 || is_gimple_component (t))
     t = TREE_OPERAND (t, 0);
   
   if (SSA_VAR_P (t)

@@ -23,20 +23,29 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    the compilation unit are used.  It is to be run after the call
    graph is built and after inlining decisions have been made.
 
-   First each function is analyzed to determine which local static
-   variables are either read or written or have their address taken.
-   Any local static that has its address taken is removed from
-   consideration.  Once the local read and writes are determined, a
-   transitive closure of this information is performed over the call
-   graph to determine the worst case set of side effects of each call.
-   In later parts of the compiler, these local and global sets are
-   examined to make the call clobbering less traumatic, promote some
-   statics to registers, and improve aliasing information.
+   First each function and static variable initialization is analyzed
+   to determine which local static variables are either read, written,
+   or have their address taken.  Any local static that has its address
+   taken is removed from consideration.  Once the local read and
+   writes are determined, a transitive closure of this information is
+   performed over the call graph to determine the worst case set of
+   side effects of each call.  In later parts of the compiler, these
+   local and global sets are examined to make the call clobbering less
+   traumatic, promote some statics to registers, and improve aliasing
+   information.
+   
+   As a direct result of the information gathered here, the
+   TREE_READONLY bits can be set and TREE_ADDRESSABLE can be cleared
+   for all compilation unit level static variables that satisfy those
+   criteria.
+
+   Lastly, all of this information is used to mark functions as being
+   either const (TREE_READONLY) or pure (DECL_IS_PURE).
 
    This must be run after inlining decisions have been made since
    otherwise, the local sets will not contain information that is
-   consistent with post inlined state.  The global sets are less prone
-   to problems since they are by definition transitive.  */
+   consistent with post inlined state.  The global sets are not prone
+   to this problem since they are by definition transitive.  */
 
 /* The code in this module is called by the ipa pass manager. It
    should be one of the later passes since it's information is used by
@@ -59,6 +68,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "cgraph.h"
 #include "output.h"
 #include "flags.h"
+#include "timevar.h"
 
 /* FIXME -- PROFILE-RESTRUCTURE: change comment from DECL_UID to var-ann. */    
 /* This splay tree contains all of the static variables that are
@@ -75,6 +85,10 @@ static GTY((param1_is(int), param2_is(tree)))
    uid.  */
 static bitmap module_statics_escape;
 
+/* This bitmap is used to knock out the module static variables that
+   are not readonly.  This is indexed by uid.  */
+static bitmap module_statics_written;
+
 /* FIXME -- PROFILE-RESTRUCTURE: change comment from DECL_UID to var-ann. */    
 /* A bit is set for every module static we are considering and is
    indexed by DECL_UID.  This is ored into the local info when asm
@@ -86,6 +100,16 @@ static bitmap all_module_statics;
    once because it gets a new htab upon each recursive call from
    scan_for_static_refs.  */
 static struct pointer_set_t *visited_nodes;
+
+enum initialization_status_t
+{
+  UNINITIALIZED,
+  RUNNING,
+  FINISHED
+};
+
+static enum initialization_status_t initialization_status = UNINITIALIZED;
+  
 
 tree memory_identifier_string;
 
@@ -486,9 +510,6 @@ void add_static_var (tree var)
   splay_tree_insert (static_vars_to_consider_by_uid,
 		     DECL_UID (var), (splay_tree_value)var);
   
-  if (dump_file)
-    fprintf (dump_file, "\nConsidering var:%s",
-	     lang_hooks.decl_printable_name (var, 2));
   /* FIXME -- PROFILE-RESTRUCTURE: Change the call from
      DECL_UID to get the uid from the var_ann field. */    
   bitmap_set_bit (all_module_statics, DECL_UID (var));
@@ -501,38 +522,92 @@ void add_static_var (tree var)
 /* Return true if the variable T is the right kind of static variable to
    perform compilation unit scope escape analysis.  */
 
-static inline
-bool has_proper_scope_for_analysis (tree t)
+static inline bool 
+has_proper_scope_for_analysis (ipa_local_static_vars_info_t local, 
+			       tree t, bool checking_write)
 {
-  bool result = (TREE_STATIC (t)) && !(TREE_PUBLIC (t)) && !(TREE_THIS_VOLATILE (t));
-  if ((result) && !bitmap_bit_p (all_module_statics, DECL_UID (t)))
+  /* Do not want to do anything with volatile except mark any
+     function that uses one to be not const or pure.  */
+  if (TREE_THIS_VOLATILE (t)) 
+    { 
+      if (local && local->pure_const_not_set_in_source)
+	local->pure_const_state = IPA_NEITHER;
+      return false;
+    }
+
+  /* Do not care about a local automatic that is not static.  */
+  if (!TREE_STATIC (t) && !DECL_EXTERNAL (t))
+    return false;
+
+  /* Since we have dispatched the locals and params, if we are writing, this
+     cannot be a pure or constant function.  */
+  if (checking_write && local && local->pure_const_not_set_in_source) 
+    local->pure_const_state = IPA_NEITHER;
+
+  if (DECL_EXTERNAL (t) || TREE_PUBLIC (t))
+    {
+      /* If the front end set the variable to be READONLY and
+	 constant, we can allow this variable in pure or const
+	 functions but the scope is too large for our analysis to set
+	 these bits ourselves.  */
+      
+      if (TREE_READONLY (t)
+	  && DECL_INITIAL (t)
+	  && is_gimple_min_invariant (DECL_INITIAL (t)))
+	; /* Read of a constant, do not change the function state.  */
+      else 
+	/* Just a regular read.  */
+	if (local 
+	    && local->pure_const_not_set_in_source
+	    && local->pure_const_state == IPA_CONST)
+	  local->pure_const_state = IPA_PURE;
+
+      return false;
+    }
+
+  /* This is a variable we care about.  Check if we have seen it
+     before, and if not add it the set of variables we care about.  */
+  if (!bitmap_bit_p (all_module_statics, DECL_UID (t)))
     add_static_var (t);
-  return result;
+
+  return true;
 }
 
 /* If T is a VAR_DECL for a static that we are interrested in, add the
    uid to the bitmap.  */
 
 static void
-check_operand (tree t, bitmap bm)
+check_operand (ipa_local_static_vars_info_t local, 
+	       tree t, bool checking_write)
 {
   if (!t) return;
 
   /* FIXME -- PROFILE-RESTRUCTURE: Change the call from DECL_UID to
      get the uid from the var_ann field. */    
-  if ((TREE_CODE (t) == VAR_DECL) && has_proper_scope_for_analysis (t))
-    bitmap_set_bit (bm, DECL_UID (t));
+  if ((TREE_CODE (t) == VAR_DECL) 
+      && has_proper_scope_for_analysis (local, t, checking_write)) 
+    {
+      if (checking_write)
+	{
+	  if (local)
+	    bitmap_set_bit (local->statics_written_by_decl_uid, DECL_UID (t));
+	  /* Mark the write so we can tell which statics are
+	     readonly.  */
+	  bitmap_set_bit (module_statics_written, DECL_UID (t));
+	}
+      else if (local)
+	bitmap_set_bit (local->statics_read_by_decl_uid, DECL_UID (t));
+    }
+  else return;
 }
 
 /* Examine tree T for references to static variables. All internal
    references like array references or indirect references are added
-   to the INTERNAL_BM. Direct references are added to BASE_BM.  When
-   this is called from the rhs or recursively, both bitmap operands
-   are for the read bitmap.  When called from the lhs, the BASE_BM is
-   the write bitmap.  */
+   to the READ_BM. Direct references are added to either READ_BM or
+   WRITE_BM depending on the value of CHECKING_WRITE.   */
 
 static void
-check_tree (tree t, bitmap base_bm, bitmap internal_bm)
+check_tree (ipa_local_static_vars_info_t local, tree t, bool checking_write)
 {
   if ((TREE_CODE (t) == EXC_PTR_EXPR) || (TREE_CODE (t) == FILTER_EXPR))
     return;
@@ -542,77 +617,99 @@ check_tree (tree t, bitmap base_bm, bitmap internal_bm)
 	 || handled_component_p (t))
     {
       if (TREE_CODE (t) == ARRAY_REF)
-	check_operand (TREE_OPERAND (t, 1), internal_bm);
+	check_operand (local, TREE_OPERAND (t, 1), false);
       t = TREE_OPERAND (t, 0);
     }
 
   /* The bottom of an indirect reference can only be read, not
-     written.  So just recurse and but what ever we find, check it
-     against the read bitmaps.  */
+     written.  So just recurse and whatever we find, check it against
+     the read bitmaps.  */
   if (INDIRECT_REF_P (t))
-    check_tree (TREE_OPERAND (t, 0), internal_bm, internal_bm);
+    {
+      check_tree (local, TREE_OPERAND (t, 0), false);
+      
+      if (local && local->pure_const_not_set_in_source)
+	{
+	  /* Any indirect reference that occurs on the lhs
+	     disqualifies the function from being pure or const. Any
+	     indirect reference that occurs on the rhs disqualifies
+	     the function from being const.  */
+	  if (checking_write) 
+	    local->pure_const_state = IPA_NEITHER;
+	  else 
+	    if (local->pure_const_state == IPA_CONST)
+	      local->pure_const_state = IPA_PURE;
+	}
+    }
 
   if (SSA_VAR_P (t))
-    check_operand (t, base_bm);
+    check_operand (local, t, checking_write);
 }
 
 /* Scan tree T to see if there are any addresses taken in within T.  */
 
 static void 
-look_for_address_of (tree t)
+look_for_address_of (ipa_local_static_vars_info_t local, tree t)
 {
   if (TREE_CODE (t) == ADDR_EXPR)
     {
       tree x = get_base_var (t);
-      if ((TREE_CODE (x) == VAR_DECL) && has_proper_scope_for_analysis (x))
+      if (TREE_CODE (x) == VAR_DECL) 
 	{
-	  if (dump_file)
-	    fprintf (dump_file, "\nadding address:%s",
-		     lang_hooks.decl_printable_name (x, 2));
+	  if (has_proper_scope_for_analysis (local, x, false))
+	    /* FIXME -- PROFILE-RESTRUCTURE: Change the call from
+	       DECL_UID to get the uid from the var_ann field. */    
+	    bitmap_set_bit (module_statics_escape, DECL_UID (x));
 	  
-	  /* FIXME -- PROFILE-RESTRUCTURE: Change the call from
-	     DECL_UID to get the uid from the var_ann field. */    
-	  bitmap_set_bit (module_statics_escape, DECL_UID (x));
+	  /* Taking the address of something appears to be reasonable
+	     in PURE code.  Not allowed in const.  */
+	  if (local && local->pure_const_not_set_in_source
+	      && local->pure_const_state == IPA_CONST)
+	    local->pure_const_state = IPA_PURE;
 	}
     }
 }
 
 
 /* Check to see if T is a read or address of operation on a static var
-   we are interested in analyzing.  FN is passed in to get access to
+   we are interested in analyzing.  LOCAL is passed in to get access to
    its bit vectors.  */
 
 static void
-check_rhs_var (struct cgraph_node *fn, tree t)
+check_rhs_var (ipa_local_static_vars_info_t local, tree t)
 {
-  look_for_address_of (t);
+  look_for_address_of (local, t);
 
-  if (fn == NULL) 
+  if (local == NULL) 
     return;
 
-  /* FIXME -- PROFILE-RESTRUCTURE: Change the call from DECL_UID to
-     get the uid from the var_ann field. */    
-  check_tree(t,
-	     fn->static_vars_info->local->statics_read_by_decl_uid,
-	     fn->static_vars_info->local->statics_read_by_decl_uid);
+  /* Memcmp and strlen can both trap and they are declared pure.  */
+  if (tree_could_trap_p (t)
+      && local->pure_const_not_set_in_source
+      && local->pure_const_state == IPA_CONST)
+    local->pure_const_state = IPA_PURE;
+
+  check_tree(local, t, false);
 }
 
 /* Check to see if T is an assignment to a static var we are
-   interrested in analyzing.  FN is passed in to get access to its bit
+   interrested in analyzing.  LOCAL is passed in to get access to its bit
    vectors.
 */
 
 static void
-check_lhs_var (struct cgraph_node *fn, tree t)
+check_lhs_var (ipa_local_static_vars_info_t local, tree t)
 {
-  if (fn == NULL) 
+  if (local == NULL) 
     return;
 
-  /* FIXME -- PROFILE-RESTRUCTURE: Change the call from DECL_UID to
-     get the uid from the var_ann field. */    
-  check_tree(t, 
-	     fn->static_vars_info->local->statics_written_by_decl_uid,
-	     fn->static_vars_info->local->statics_read_by_decl_uid);
+  /* Memcmp and strlen can both trap and they are declared pure.  */
+  if (tree_could_trap_p (t)
+      && local->pure_const_not_set_in_source
+      && local->pure_const_state == IPA_CONST)
+    local->pure_const_state = IPA_PURE;
+    
+  check_tree(local, t, true);
 }
 
 /* This is a scaled down version of get_asm_expr_operands from
@@ -623,7 +720,7 @@ check_lhs_var (struct cgraph_node *fn, tree t)
    function being analyzed and STMT is the actual asm statement.  */
 
 static void
-get_asm_expr_operands (struct cgraph_node * fn, tree stmt)
+get_asm_expr_operands (ipa_local_static_vars_info_t local, tree stmt)
 {
   int noutputs = list_length (ASM_OUTPUTS (stmt));
   const char **oconstraints
@@ -640,10 +737,7 @@ get_asm_expr_operands (struct cgraph_node * fn, tree stmt)
       parse_output_constraint (&constraint, i, 0, 0,
 			       &allows_mem, &allows_reg, &is_inout);
       
-      /* Memory operands are addressable.  Note that STMT needs the
-	 address of this operand.  */
-      if (!allows_reg && allows_mem) 
-	check_lhs_var (fn, TREE_VALUE (link));
+      check_lhs_var (local, TREE_VALUE (link));
     }
 
   for (link = ASM_INPUTS (stmt); link; link = TREE_CHAIN (link))
@@ -653,19 +747,22 @@ get_asm_expr_operands (struct cgraph_node * fn, tree stmt)
       parse_input_constraint (&constraint, 0, 0, noutputs, 0,
 			      oconstraints, &allows_mem, &allows_reg);
       
-      /* Memory operands are addressable.  Note that STMT needs the
-	 address of this operand.  */
-      if (!allows_reg && allows_mem) 
-	check_rhs_var (fn, TREE_VALUE (link));
+      check_rhs_var (local, TREE_VALUE (link));
     }
   
   for (link = ASM_CLOBBERS (stmt); link; link = TREE_CHAIN (link))
     if (simple_cst_equal(TREE_VALUE (link), memory_identifier_string) == 1) 
       {
 	/* Abandon all hope, ye who enter here. */
-	fn->local.calls_read_all = true;
-	fn->local.calls_write_all = true;
+	local->calls_read_all = true;
+	local->calls_write_all = true;
+	if (local->pure_const_not_set_in_source)
+	  local->pure_const_state = IPA_NEITHER;
       }      
+
+  if (ASM_VOLATILE_P (stmt))
+    if (local->pure_const_not_set_in_source)
+      local->pure_const_state = IPA_NEITHER;
 }
 
 /* Check the parameters of a function call from CALLER to CALL_EXPR to
@@ -676,45 +773,102 @@ get_asm_expr_operands (struct cgraph_node * fn, tree stmt)
    the tree node for the entire call expression.  */
 
 static void
-process_call_for_static_vars(struct cgraph_node * caller, tree call_expr) 
+process_call_for_static_vars(ipa_local_static_vars_info_t local, tree call_expr) 
 {
   int flags = call_expr_flags(call_expr);
   tree operandList = TREE_OPERAND (call_expr, 1);
   tree operand;
   tree callee_t = get_callee_fndecl (call_expr);
+  struct cgraph_node* callee;
+  enum availability avail = AVAIL_NOT_AVAILABLE;
 
   for (operand = operandList;
        operand != NULL_TREE;
        operand = TREE_CHAIN (operand))
     {
       tree argument = TREE_VALUE (operand);
-      check_rhs_var (caller, argument);
+      check_rhs_var (local, argument);
     }
-  
+
+  /* The const and pure flags are set by a variety of places in the
+     compiler (including here).  If someone has already set the flags
+     for the callee, (such as for some of the builtins) we will use
+     them, otherwise we will compute our own information.  */
+
   /* Const and pure functions have less clobber effects than other
      functions so we process these first.  Otherwise if it is a call
      outside the compilation unit or an indirect call we punt.  This
      leaves local calls which will be processed by following the call
      graph.  */  
 
+
+  if (callee_t)
+    {
+      callee = cgraph_node(callee_t);
+      avail = cgraph_function_body_availability (callee);
+
+      /* When bad things happen to bad functions, they cannot be const
+	 or pure.  */
+      if (local && local->pure_const_not_set_in_source)
+	if (setjmp_call_p (callee_t))
+	  local->pure_const_state = IPA_NEITHER;
+
+      if (DECL_BUILT_IN_CLASS (callee_t) == BUILT_IN_NORMAL)
+	switch (DECL_FUNCTION_CODE (callee_t))
+	  {
+	  case BUILT_IN_LONGJMP:
+	  case BUILT_IN_NONLOCAL_GOTO:
+	    local->pure_const_state = IPA_NEITHER;
+	    break;
+	  default:
+	    break;
+	  }
+    }
+
+  /* If the callee has already been marked as ECF_CONST, we need look
+     no further since it cannot look at any memory except
+     constants. However, if the callee is only ECF_PURE we need to
+     look because if there is also code, we need to mark the variables
+     it is reading from. */
   if (flags & ECF_CONST) 
     return;
-  else if (flags & ECF_PURE) 
-    caller->local.calls_write_all = true;
-  else 
-    {
-      enum availability avail = AVAIL_NOT_AVAILABLE;
-      if (callee_t)
-	{
-	  struct cgraph_node* callee = cgraph_node(callee_t);
-	  avail = cgraph_function_body_availability (callee);
-	}
 
-      /* Indirect call or external call. */
-      if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITTABLE) 
+  if (!local) return;
+
+  /* The callee is either unknown (indirect call) or there is just no
+     scanable code for it (external call) .  We look to see if there
+     are any bits available for the callee (such as by declaration or
+     because it is builtin) and process solely on the basis of those
+     bits. */
+
+  if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITABLE)
+    {
+      if (flags & ECF_PURE) 
 	{
-	  caller->local.calls_read_all = true;
-	  caller->local.calls_write_all = true;
+	  local->calls_read_all = true;
+	  if (local->pure_const_not_set_in_source
+	      && local->pure_const_state == IPA_CONST)
+	    local->pure_const_state = IPA_PURE;
+	}
+      else 
+	{
+	  local->calls_read_all = true;
+	  local->calls_write_all = true;
+	  if (local->pure_const_not_set_in_source)
+	    local->pure_const_state = IPA_NEITHER;
+	}
+    }
+  else
+    {
+      /* We have the code and we will scan it for the effects. */
+      if (flags & ECF_PURE) 
+	{
+	  /* Since we have the code for the function, we do not need to
+	     set calls_read_all, we can determine the precise reads
+	     ourself.  */
+	  if (local->pure_const_not_set_in_source
+	      && local->pure_const_state == IPA_CONST)
+	    local->pure_const_state = IPA_PURE;
 	}
     }
 }
@@ -733,46 +887,53 @@ process_call_for_static_vars(struct cgraph_node * caller, tree call_expr)
 
 static tree
 scan_for_static_refs (tree *tp, 
-		      int *walk_subtrees ATTRIBUTE_UNUSED, 
+		      int *walk_subtrees, 
 		      void *data)
 {
   struct cgraph_node *fn = data;
   tree t = *tp;
+  ipa_local_static_vars_info_t local = NULL;
+  if (fn)
+    local = fn->static_vars_info->local;
   
   switch (TREE_CODE (t))  
     {
     case VAR_DECL:
       if (DECL_INITIAL (t))
 	walk_tree (&DECL_INITIAL (t), scan_for_static_refs, fn, visited_nodes);
+      *walk_subtrees = 0;
       break;
 
     case MODIFY_EXPR:
       {
 	/* First look on the lhs and see what variable is stored to */
 	tree rhs = TREE_OPERAND (t, 1);
-	check_lhs_var (fn, TREE_OPERAND (t, 0));
+	check_lhs_var (local, TREE_OPERAND (t, 0));
+
 	/* Next check the operands on the rhs to see if they are ok. */
 	switch (TREE_CODE_CLASS (TREE_CODE (rhs))) 
 	  {
 	  case tcc_binary:
-	    check_rhs_var (fn, TREE_OPERAND (rhs, 0));
-	    check_rhs_var (fn, TREE_OPERAND (rhs, 1));
+	    check_rhs_var (local, TREE_OPERAND (rhs, 0));
+	    check_rhs_var (local, TREE_OPERAND (rhs, 1));
 	    break;
 	  case tcc_unary:
+	    check_rhs_var (local, TREE_OPERAND (rhs, 0));
+	    break;
 	  case tcc_reference:
-	    check_rhs_var (fn, TREE_OPERAND (rhs, 0));
+	    check_rhs_var (local, rhs);
 	    break;
 	  case tcc_declaration:
-	    check_rhs_var (fn, rhs);
+	    check_rhs_var (local, rhs);
 	    break;
 	  case tcc_expression:
 	    switch (TREE_CODE (rhs)) 
 	      {
 	      case ADDR_EXPR:
-		check_rhs_var (fn, rhs);
+		check_rhs_var (local, rhs);
 		break;
 	      case CALL_EXPR: 
-		process_call_for_static_vars (fn, rhs);
+		process_call_for_static_vars (local, rhs);
 		break;
 	      default:
 		break;
@@ -781,21 +942,52 @@ scan_for_static_refs (tree *tp,
 	  default:
 	    break;
 	  }
+	*walk_subtrees = 0;
       }
       break;
-      
-      
+
+    case ADDR_EXPR:
+      /* This case is here to find addresses on rhs of constructors in
+	 decl_initial of static variables. */
+      check_rhs_var (local, t);
+      *walk_subtrees = 0;
+      break;
+
+    case LABEL_EXPR:
+      if (DECL_NONLOCAL (TREE_OPERAND (t, 0)))
+	{
+	  /* Target of long jump. */
+	  local->calls_read_all = true;
+	  local->calls_write_all = true;
+	  if (local->pure_const_not_set_in_source)
+	    local->pure_const_state = IPA_NEITHER;
+	}
+      break;
+
     case CALL_EXPR: 
-      process_call_for_static_vars (fn, t);
+      process_call_for_static_vars (local, t);
+      *walk_subtrees = 0;
       break;
       
     case ASM_EXPR:
-      get_asm_expr_operands (fn, t);
+      get_asm_expr_operands (local, t);
+      *walk_subtrees = 0;
       break;
       
     default:
       break;
     }
+  return NULL;
+}
+
+/* Lookup the tree node for the static variable that has UID.  */
+static tree
+get_static_decl_by_uid (int index)
+{
+  splay_tree_node stn = 
+    splay_tree_lookup (static_vars_to_consider_by_uid, index);
+  if (stn)
+    return (tree)stn->value;
   return NULL;
 }
 
@@ -805,7 +997,8 @@ scan_for_static_refs (tree *tp,
 static const char *
 get_static_name_by_uid (int index)
 {
-  splay_tree_node stn = splay_tree_lookup (static_vars_to_consider_by_uid, index);
+  splay_tree_node stn = 
+    splay_tree_lookup (static_vars_to_consider_by_uid, index);
   if (stn)
     return lang_hooks.decl_printable_name ((tree)(stn->value), 2);
   return NULL;
@@ -834,11 +1027,19 @@ propagate_bits (struct cgraph_node *x)
 	{
 	  if (y->static_vars_info)
 	    {
-	      ipa_static_vars_info_t y_info; 
-	      ipa_global_static_vars_info_t y_global;
-	      y_info = y->static_vars_info;
-	      y_global = y_info->global;
+	      ipa_static_vars_info_t y_info = y->static_vars_info;
+	      ipa_global_static_vars_info_t y_global = y_info->global;
 	      
+	      if (x_global->pure_const_state < y_global->pure_const_state)
+		{
+		  if (dump_file)
+		  fprintf (dump_file, "$$$$raising level for call: %s(%d) -> %s(%d)\n",  
+			   lang_hooks.decl_printable_name(x->decl, 2), 
+			   x_global->pure_const_state,
+			   lang_hooks.decl_printable_name(y->decl, 2),
+			   y_global->pure_const_state); 
+		  x_global->pure_const_state = y_global->pure_const_state;
+		}
 	      if (x_global->statics_read_by_decl_uid != all_module_statics)
 		{
 		  if (y_global->statics_read_by_decl_uid 
@@ -877,7 +1078,7 @@ propagate_bits (struct cgraph_node *x)
 	    }
 	  else 
 	    {
-
+	      abort ();
 	    }
 	}
     }
@@ -922,8 +1123,8 @@ merge_callee_local_info (struct cgraph_node *target,
 	      bitmap_a_or_b (x_l->statics_written_by_decl_uid,
 			     x_l->statics_written_by_decl_uid,
 			     y_l->statics_written_by_decl_uid);
-	      target->local.calls_read_all |= y->local.calls_read_all;
-	      target->local.calls_write_all |= y->local.calls_write_all;
+	      x_l->calls_read_all |= y_l->calls_read_all;
+	      x_l->calls_write_all |= y_l->calls_write_all;
 	      merge_callee_local_info (target, y);
 	    }
 	  else 
@@ -941,18 +1142,21 @@ merge_callee_local_info (struct cgraph_node *target,
   x->aux = NULL;
 }
 
-/* The init routine for analyzing global static variable usage. See
+/* The init routine for analyzing global static variable usage.  See
    comments at top for description.  */
 
 static void 
 ipa_init (void) 
 {
+  initialization_status = RUNNING;
+
   memory_identifier_string = build_string(7, "memory");
 
   static_vars_to_consider_by_uid =
     splay_tree_new_ggc (splay_tree_compare_ints);
 
   module_statics_escape = BITMAP_XMALLOC ();
+  module_statics_written = BITMAP_XMALLOC ();
   all_module_statics = BITMAP_XMALLOC ();
 
   /* There are some shared nodes, in particular the initializers on
@@ -964,7 +1168,7 @@ ipa_init (void)
 
 /* Check out the rhs of a static or global initialization VNODE to see
    if any of them contain addressof operations.  Note that some of
-   these variables may not even be referenced in the code in this
+   these variables may  not even be referenced in the code in this
    compilation unit but their right hand sides may contain references
    to variables defined within this unit.  */
 
@@ -972,12 +1176,30 @@ static void
 analyze_variable (struct cgraph_varpool_node *vnode)
 {
   tree global = vnode->decl;
-  if (!memory_identifier_string) ipa_init();
+  switch (initialization_status) 
+    {
+    case UNINITIALIZED:
+      ipa_init();
+      break;
+
+    case RUNNING:
+      break;
+
+    case FINISHED:
+/*       fprintf(stderr,  */
+/* 	      "AV analyze_variable called after execute for variable %s\n" , */
+/* 	      lang_hooks.decl_printable_name (global, 2)); */
+      /*abort ();*/
+      break;
+    }
 
   if (TREE_CODE (global) == VAR_DECL)
-    if (DECL_INITIAL (global)) 
-      walk_tree (&DECL_INITIAL (global), scan_for_static_refs, 
-		 NULL, visited_nodes);
+    {
+      if (DECL_INITIAL (global)) 
+	walk_tree (&DECL_INITIAL (global), scan_for_static_refs, 
+		   NULL, visited_nodes);
+    } 
+  else abort();
 }
 
 /* This is the main routine for finding the reference patterns for
@@ -986,14 +1208,33 @@ analyze_variable (struct cgraph_varpool_node *vnode)
 static void
 analyze_function (struct cgraph_node *fn)
 {
-  tree decl = fn->decl;
   ipa_static_vars_info_t info 
     = xcalloc (1, sizeof (struct ipa_static_vars_info_d));
   ipa_local_static_vars_info_t l
     = xcalloc (1, sizeof (struct ipa_local_static_vars_info_d));
   var_ann_t var_ann = get_var_ann (fn->decl);
+  tree decl = fn->decl;
 
-  if (!memory_identifier_string) ipa_init();
+  switch (initialization_status) 
+    {
+    case UNINITIALIZED:
+      ipa_init();
+      break;
+
+    case RUNNING:
+      break;
+
+    case FINISHED:
+      abort ();
+    }
+
+/*   fprintf (stderr, "AF called %s(%d)\n", cgraph_node_name (fn), fn->uid); */
+/*  		  fprintf(stderr, "decl=%x\n", */
+/*  			  fn->decl); */
+/* 		  fprintf(stderr, "cfun=%x\n", */
+/* 			  DECL_STRUCT_FUNCTION (fn->decl)); */
+/* 		  fprintf(stderr, "cfg=%x\n", */
+/* 			  DECL_STRUCT_FUNCTION (fn->decl) -> cfg); */
 
   /* Add the info to the tree's annotation.  */
   fn->static_vars_info = info;
@@ -1005,10 +1246,69 @@ analyze_function (struct cgraph_node *fn)
   l->statics_read_by_ann_uid = BITMAP_XMALLOC ();
   l->statics_written_by_ann_uid = BITMAP_XMALLOC ();
 
+  l->pure_const_not_set_in_source = true;
+  l->pure_const_state = IPA_CONST;
+
+  /* If this is a volatile function, do not touch this unless it has
+     been marked as const or pure by the front end.  */
+  if (TREE_THIS_VOLATILE (decl))
+    l->pure_const_state = IPA_NEITHER;
+
+  if (TREE_READONLY (decl))
+    {
+      l->pure_const_state = IPA_CONST;
+      l->pure_const_not_set_in_source = false;
+    }
+  if (DECL_IS_PURE (decl))
+    {
+      l->pure_const_state = IPA_PURE;
+      l->pure_const_not_set_in_source = false;
+    }
+
   if (dump_file)
     fprintf (dump_file, "\n local analysis of %s", cgraph_node_name (fn));
   
-  walk_tree (&DECL_SAVED_TREE (decl), scan_for_static_refs, fn, visited_nodes);
+  {
+    struct function *this_cfun = DECL_STRUCT_FUNCTION (decl);
+    basic_block this_block;
+
+    FOR_EACH_BB_FN (this_block, this_cfun)
+      {
+	block_stmt_iterator bsi;
+	for (bsi = bsi_start (this_block); !bsi_end_p (bsi); bsi_next (&bsi))
+	  walk_tree (bsi_stmt_ptr (bsi), scan_for_static_refs, 
+		     fn, visited_nodes);
+      }
+  }
+
+  /* FIXME - When Jan gets the local statics promoted to the global
+     variable list, the next two loops go away.  */
+  /* Walk over any private statics that may take addresses of functions.  */
+  if (TREE_CODE (DECL_INITIAL (decl)) == BLOCK)
+    {
+      tree step;
+      for (step = BLOCK_VARS (DECL_INITIAL (decl));
+	   step;
+	   step = TREE_CHAIN (step))
+	if (DECL_INITIAL (step))
+	  walk_tree (&DECL_INITIAL (step), scan_for_static_refs, 
+		     fn, visited_nodes);
+    }
+  
+  /* Also look here for private statics.  */
+  if (DECL_STRUCT_FUNCTION (decl))
+    {
+      tree step;
+      for (step = DECL_STRUCT_FUNCTION (decl)->unexpanded_var_list;
+	   step;
+	   step = TREE_CHAIN (step))
+	{
+	  tree var = TREE_VALUE (step);
+	  if (DECL_INITIAL (var) && TREE_STATIC (var))
+	    walk_tree (&DECL_INITIAL (var), scan_for_static_refs, 
+		       fn, visited_nodes);
+	}
+    }
 }
 
 /* Produce the global information by preforming a transitive closure
@@ -1026,7 +1326,23 @@ static_execute (void)
   int order_pos = order_pos = reduced_inorder (order, false);
   int i;
 
-  if (!memory_identifier_string) ipa_init();
+  switch (initialization_status) 
+    {
+    case UNINITIALIZED:
+      ipa_init();
+      break;
+
+    case RUNNING:
+      break;
+
+    case FINISHED:
+      abort ();
+    }
+
+  /* This will force an abort if analyze_variable or analyze_function
+     is called after static_execute.  */
+  initialization_status = FINISHED;
+
   pointer_set_destroy (visited_nodes);
   visited_nodes = NULL;
   if (dump_file) 
@@ -1037,15 +1353,57 @@ static_execute (void)
   {
     int index;
     bitmap_iterator bi;
+    bitmap module_statics_readonly = BITMAP_XMALLOC ();
+    bitmap module_statics_const = BITMAP_XMALLOC ();
+    bitmap bm_temp = BITMAP_XMALLOC ();
 
     EXECUTE_IF_SET_IN_BITMAP (module_statics_escape, 0, index, bi)
       {
 	splay_tree_remove (static_vars_to_consider_by_uid, index);
       }
+
     bitmap_operation (all_module_statics, all_module_statics,
 		      module_statics_escape, BITMAP_AND_COMPL);
 
+    bitmap_operation (module_statics_readonly, all_module_statics,
+		      module_statics_written, BITMAP_AND_COMPL);
+
+    /* If the address is not taken, we can unset the addressable bit
+       on this variable.  */
+    EXECUTE_IF_SET_IN_BITMAP (all_module_statics, 0, index, bi)
+      {
+	tree var = get_static_decl_by_uid (index);
+ 	TREE_ADDRESSABLE (var) = 0;
+	if (dump_file) 
+	  fprintf (dump_file, "&&&&NOT TREE ADDRESSABLE VAR %s\n",
+		   get_static_name_by_uid (index));
+      }
+
+    /* If the variable is never written, we can set the TREE_READONLY
+       flag.  Additionally if it has a DECL_INITIAL that is made up of
+       constants we can treat the entire global as a constant.  */
+
+    bitmap_operation (module_statics_readonly, all_module_statics,
+		      module_statics_written, BITMAP_AND_COMPL);
+    EXECUTE_IF_SET_IN_BITMAP (module_statics_readonly, 0, index, bi)
+      {
+	tree var = get_static_decl_by_uid (index);
+	TREE_READONLY (var) = 1;
+	if (dump_file)
+	  fprintf (dump_file, "&&&&READONLY VAR %s\n", 
+		   get_static_name_by_uid (index)); 
+	if (DECL_INITIAL (var)
+	    && is_gimple_min_invariant (DECL_INITIAL (var)))
+	  {
+ 	    bitmap_set_bit (module_statics_const, index);
+	    if (dump_file)
+	      fprintf (dump_file, "&&&&READONLY CONST %s\n",
+		       get_static_name_by_uid (index));
+	  }
+      }
+
     BITMAP_XFREE(module_statics_escape);
+    BITMAP_XFREE(module_statics_written);
 
     if (0) {
       FILE *ok_statics_file = fopen("/home/zadeck/ok_statics", "r");
@@ -1071,14 +1429,98 @@ static_execute (void)
 		   get_static_name_by_uid (index));
 	}
 
-    /* Remove any variables from the local maps that are not in
-       all_module_statics.  This will include all of the variables
-       that were found to escape in the function scanning.  */
     for (i = 0; i < order_pos; i++ )
       {
 	ipa_local_static_vars_info_t l;
 	node = order[i];
 	l = node->static_vars_info->local;
+
+	/* First we check the bitmaps to see if there is anything in
+	   them that would disqualify the CONST or PURE status. */
+	/* WARNING, this case statement has drop throughs.  */
+	if (l->pure_const_not_set_in_source)
+	  switch (l->pure_const_state)
+	    {
+	    case IPA_CONST:
+	      /* Any bits in the read bitmap that are not in the
+		 module_statics_const bitmap disqualify a function from
+		 being const.  There is no reason to check the
+		 calls_read_all flag since if the bit has been set the
+		 function cannot have been marked const.  */
+	      bitmap_operation (bm_temp, l->statics_read_by_decl_uid,
+				module_statics_const, BITMAP_AND_COMPL);
+	      if (bitmap_first_set_bit(bm_temp) != -1)
+		l->pure_const_state = IPA_PURE;
+	      else 
+		{
+		  tree old_decl = current_function_decl;
+		  /* Const functions cannot have back edges (an
+		     indication of possible infinite loop side
+		     effect.  */
+
+		  current_function_decl = node->decl;
+		  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+/* 		  fprintf(stderr, "decl=%x\n", */
+/* 			  node->decl); */
+/* 		  fprintf(stderr, "cfun=%x\n", */
+/* 			  DECL_STRUCT_FUNCTION (node->decl)); */
+/* 		  fprintf(stderr, "cfg=%x\n", */
+/* 			  DECL_STRUCT_FUNCTION (node->decl) -> cfg); */
+
+/* 		  fprintf (stderr, "n_basic_block=%d\n",  */
+/* 			   n_basic_blocks); */
+
+		  /* This is an utter HACK FIXEME PLEASE!!!!!!!  The
+		     C++ front end, for reasons that are only apparent
+		     to it's designers, decides that it was only
+		     kidding when it generated some of the functions.
+		     As a further joke it then decides, after
+		     compilation is underway, to null out the
+		     DECL_STRUCT_FUNCTION (node->decl) field of these
+		     function so that no one can use them.  What a
+		     funny joke!!!!  */
+		  
+		  if (DECL_STRUCT_FUNCTION (node->decl))
+		    {
+		      if (mark_dfs_back_edges ())
+			l->pure_const_state = IPA_NEITHER;
+		    }
+		  else 
+		    {
+/* 		      fprintf (stderr, "jan it is still happening\n"); */
+		      l->pure_const_state = IPA_NEITHER;
+		    }
+
+		  current_function_decl = old_decl;
+		  pop_cfun ();
+		}
+	      
+	    case IPA_PURE:
+	      /* There is no reason to check the calls_write_all flag
+		 since if the bit has been set the function cannot have
+		 been marked const.  Any bits in the function's write
+		 bitmap disqualify pure and const.  */
+	      if (bitmap_first_set_bit(l->statics_written_by_decl_uid) != -1)
+		l->pure_const_state = IPA_NEITHER;
+	      
+	    default:
+	      break;
+	    }
+
+/* 	if (l->pure_const_state == IPA_PURE) */
+/* 	  { */
+/* 	    fprintf (stderr, " before %s(%d)=%d\n", cgraph_node_name (node),  */
+/* 		     node->uid, l->pure_const_state); */
+/* 	  l->pure_const_state = IPA_NEITHER; */
+
+
+/* 	  } */
+
+	
+	/* Any variables that are not in all_module_statics are
+	   removed from the local maps.  This will include all of the
+	   variables that were found to escape in the function
+	   scanning.  */
 
 	bitmap_a_and_b (l->statics_read_by_decl_uid, 
 			l->statics_read_by_decl_uid,
@@ -1087,6 +1529,10 @@ static_execute (void)
 			l->statics_written_by_decl_uid,
 			all_module_statics);
       }
+
+    BITMAP_XFREE(module_statics_readonly);
+    BITMAP_XFREE(module_statics_const);
+    BITMAP_XFREE(bm_temp);
   }
 
   if (dump_file)
@@ -1136,6 +1582,7 @@ static_execute (void)
       
       bool read_all;
       bool write_all;
+      enum ipa_static_pure_const_state pure_const_state;
 
       node = order[i];
       node_info = node->static_vars_info;
@@ -1149,16 +1596,21 @@ static_execute (void)
       node_info->global = node_g;
       node_l = node_info->local;
 
-      read_all = node->local.calls_read_all;
-      write_all = node->local.calls_write_all;
+      read_all = node_l->calls_read_all;
+      write_all = node_l->calls_write_all;
+      pure_const_state = node_l->pure_const_state;
 
       /* If any node in a cycle is calls_read_all or calls_write_all
 	 they all are. */
       w = node->next_cycle;
       while (w)
 	{
-	  read_all |= w->local.calls_read_all;
-	  write_all |= w->local.calls_write_all;
+	  ipa_local_static_vars_info_t w_l = w->static_vars_info->local;
+	  read_all |= w_l->calls_read_all;
+	  write_all |= w_l->calls_write_all;
+	  if (node_l->pure_const_state < w_l->pure_const_state)
+	    pure_const_state = w_l->pure_const_state;
+
 	  w = w->next_cycle;
 	}
 
@@ -1180,6 +1632,10 @@ static_execute (void)
 	  bitmap_copy (node_g->statics_written_by_decl_uid, 
 		       node_l->statics_written_by_decl_uid);
 	}
+
+      /* Copy the region's pure_const_state which is shared by all
+	 nodes in the region.  */
+      node_g->pure_const_state = pure_const_state;
 
       w = node->next_cycle;
       while (w)
@@ -1205,9 +1661,7 @@ static_execute (void)
 	  w = w->next_cycle;
 	}
 
-      propagate_bits (node);
-
-      w = node->next_cycle;
+      w = node;
       while (w)
 	{
 	  propagate_bits (w);
@@ -1316,8 +1770,8 @@ static_execute (void)
 			  all_module_statics,
 			  node_g->statics_written_by_decl_uid,
 			  BITMAP_AND_COMPL);
-      w = node;
 
+      w = node;
       while (w)
 	{
 	  struct cgraph_node * last = w;
@@ -1325,6 +1779,27 @@ static_execute (void)
 	  ipa_local_static_vars_info_t w_l = w_info->local;
 	  w_l->var_anns_valid = false;
 
+	  if (w_l->pure_const_not_set_in_source) 
+	    switch (node_g->pure_const_state)
+	      {
+	      case IPA_CONST:
+  		TREE_READONLY (w->decl) = 1;
+		if (dump_file)
+		  fprintf (dump_file, "$$$$CONST: %s\n",  
+			   lang_hooks.decl_printable_name(w->decl, 2)); 
+		break;
+		
+	      case IPA_PURE:
+  		DECL_IS_PURE (w->decl) = 1;
+		if (dump_file)
+		  fprintf (dump_file, "$$$$PURE: %s\n",  
+			   lang_hooks.decl_printable_name(w->decl, 2)); 
+		break;
+		
+	      default:
+		break;
+	      }
+	  
 	  w = w->next_cycle;
 	  last->next_cycle = NULL;
 	}
@@ -1332,7 +1807,6 @@ static_execute (void)
 
   free (order);
 }
-
 
 static bool
 gate_static_vars (void)
@@ -1347,11 +1821,12 @@ struct tree_opt_pass pass_ipa_static =
   analyze_function,                     /* IPA function */
   analyze_variable,		        /* IPA variable */
   static_execute,			/* execute */
-  NULL, NULL,				/* IPA modification */
+  NULL,                                 /* IPA function */
+  NULL,	                                /* IPA variable */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */
-  0,				        /* tv_id */
+  TV_IPA_STATIC_VAR,		        /* tv_id */
   0,	                                /* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
@@ -1359,6 +1834,5 @@ struct tree_opt_pass pass_ipa_static =
   0,                                    /* todo_flags_finish */
   0					/* letter */
 };
-
 
 #include "gt-ipa-static-vars-anal.h"

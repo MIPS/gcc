@@ -40,7 +40,9 @@ DEFTIMEVAR (TV_GC                    , "garbage collection")
 DEFTIMEVAR (TV_DUMP                  , "dump files")
 
 DEFTIMEVAR (TV_CGRAPH                , "callgraph construction")
-DEFTIMEVAR (TV_CGRAPHOPT             , "callgraph optimization")
+DEFTIMEVAR (TV_IPA_OPT               , "ipa optimization")
+DEFTIMEVAR (TV_IPA_ANALYSIS          , "ipa analysis")
+DEFTIMEVAR (TV_IPA_STATIC_VAR        , "ipa static vars")
 /* Time spent by constructing CFG.  */
 DEFTIMEVAR (TV_CFG                   , "cfg construction")
 /* Time spent by cleaning up CFG.  */
@@ -60,6 +62,7 @@ DEFTIMEVAR (TV_LEX		     , "lexical analysis")
 DEFTIMEVAR (TV_PARSE                 , "parser")
 DEFTIMEVAR (TV_PEEL_STRUCTS	     , "peel structs") 
 DEFTIMEVAR (TV_NAME_LOOKUP           , "name lookup")
+DEFTIMEVAR (TV_INLINE_HEURISTICS     , "inline heuristics")
 DEFTIMEVAR (TV_INTEGRATION           , "integration")
 DEFTIMEVAR (TV_TREE_GIMPLIFY	     , "tree gimplify")
 DEFTIMEVAR (TV_TREE_EH		     , "tree eh")

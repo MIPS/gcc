@@ -166,6 +166,7 @@ cgraph_create_node (void)
     cgraph_nodes->previous = node;
   node->previous = NULL;
   node->static_vars_info = NULL;
+  node->global.estimated_growth = INT_MIN;
   cgraph_nodes = node;
   cgraph_n_nodes++;
   return node;
@@ -681,6 +682,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   fprintf (f, "%s/%i:", cgraph_node_name (node), node->uid);
   if (node->master_clone && node->master_clone->uid != node->uid)
     fprintf (f, "(%i)", node->master_clone->uid);
+  if (node->count)
+    fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
+	     (HOST_WIDEST_INT)node->count);
   if (node->global.inlined_to)
     fprintf (f, " (inline copy in %s/%i)",
 	     cgraph_node_name (node->global.inlined_to),
@@ -709,10 +713,6 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " externally_visible");
   if (node->local.finalized)
     fprintf (f, " finalized");
-  if (node->local.calls_read_all)
-    fprintf (f, " calls_read_all");
-  if (node->local.calls_write_all)
-    fprintf (f, " calls_write_all");
   if (node->local.disregard_inline_limits)
     fprintf (f, " always_inline");
   else if (node->local.inlinable)
@@ -729,6 +729,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 	       edge->caller->uid);
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
+      if (edge->count)
+	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
+		 (HOST_WIDEST_INT)edge->count);
     }
 
   fprintf (f, "\n  calls: ");
@@ -738,6 +741,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 	       edge->callee->uid);
       if (!edge->inline_failed)
 	fprintf(f, "(inlined) ");
+      if (edge->count)
+	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
+		 (HOST_WIDEST_INT)edge->count);
     }
   fprintf (f, "\n  cycle: ");
   n = node->next_cycle;
@@ -851,10 +857,10 @@ change_decl_assembler_name (tree decl, tree name)
   SET_DECL_ASSEMBLER_NAME (decl, name);
 }
 
-/* Helped function for finalization code - add node into lists so it will
+/* Helper function for finalization code - add node into lists so it will
    be analyzed and compiled.  */
-static void
-enqueue_needed_varpool_node (struct cgraph_varpool_node *node)
+void
+cgraph_varpool_enqueue_needed_node (struct cgraph_varpool_node *node)
 {
   if (cgraph_varpool_last_needed_node)
     cgraph_varpool_last_needed_node->next_needed = node;
@@ -867,13 +873,22 @@ enqueue_needed_varpool_node (struct cgraph_varpool_node *node)
   notice_global_symbol (node->decl);
 }
 
+/* Reset the queue of needed nodes.  */
+void
+cgraph_varpool_reset_queue (void)
+{
+  cgraph_varpool_last_needed_node = NULL;
+  cgraph_varpool_nodes_queue = NULL;
+  cgraph_varpool_first_unanalyzed_node = NULL;
+}
+
 /* Notify finalize_compilation_unit that given node is reachable
    or needed.  */
 void
 cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
 {
   if (!node->needed && node->finalized)
-    enqueue_needed_varpool_node (node);
+    cgraph_varpool_enqueue_needed_node (node);
   node->needed = 1;
 }
 
@@ -942,7 +957,7 @@ cgraph_varpool_finalize_decl (tree decl)
       return;
     }
   if (node->needed)
-    enqueue_needed_varpool_node (node);
+    cgraph_varpool_enqueue_needed_node (node);
   node->finalized = true;
 
   if (decide_is_variable_needed (node, decl))
@@ -963,20 +978,25 @@ cgraph_function_possibly_inlined_p (tree decl)
 
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
-cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n, tree call_expr)
+cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
+		   tree call_expr, int count_scale)
 {
   struct cgraph_edge *new = cgraph_create_edge (n, e->callee, call_expr);
 
   new->inline_failed = e->inline_failed;
+  new->count = e->count * count_scale / REG_BR_PROB_BASE;
+  e->count -= new->count;
   return new;
 }
 
-/* Create node representing clone of N.  */
+/* Create node representing clone of N executed COUNT times.  Decrease
+   the execution counts from original node too.  */
 struct cgraph_node *
-cgraph_clone_node (struct cgraph_node *n)
+cgraph_clone_node (struct cgraph_node *n, gcov_type count)
 {
   struct cgraph_node *new = cgraph_create_node ();
   struct cgraph_edge *e;
+  int count_scale;
 
   new->decl = n->decl;
   new->origin = n->origin;
@@ -991,9 +1011,15 @@ cgraph_clone_node (struct cgraph_node *n)
   new->global = n->global;
   new->rtl = n->rtl;
   new->master_clone = n->master_clone;
+  new->count = count;
+  if (n->count)
+    count_scale = new->count * REG_BR_PROB_BASE / n->count;
+  else
+    count_scale = 0;
+  n->count -= count;
 
   for (e = n->callees;e; e=e->next_callee)
-    cgraph_clone_edge (e, new, e->call_expr);
+    cgraph_clone_edge (e, new, e->call_expr, count_scale);
 
   new->next_clone = n->next_clone;
   n->next_clone = new;
@@ -1032,7 +1058,7 @@ cgraph_master_clone (struct cgraph_node *n)
 {
   enum availability avail = cgraph_function_body_availability (n);
    
-  if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITTABLE)
+  if (avail == AVAIL_NOT_AVAILABLE || avail == AVAIL_OVERWRITABLE)
     return NULL;
 
   if (!n->master_clone) 
@@ -1091,7 +1117,7 @@ cgraph_function_body_availability (struct cgraph_node *node)
   else if (!node->local.externally_visible)
     avail = AVAIL_AVAILABLE;
 
-  /* If the function can be overwritten, return OVERWRITTABLE.  Take
+  /* If the function can be overwritten, return OVERWRITABLE.  Take
      care at least of two notable extensions - the COMDAT functions
      used to share template instantiations in C++ (this is symmetric
      to code cp_cannot_inline_tree_fn and probably shall be shared and
@@ -1108,10 +1134,10 @@ cgraph_function_body_availability (struct cgraph_node *node)
   
   else if (!(*targetm.binds_local_p) (node->decl)
 	   && !DECL_COMDAT (node->decl) && !DECL_EXTERNAL (node->decl))
-    if (tree_inlinable_function_p (node->decl))
-      avail = AVAIL_OVERWRITTABLE_BUT_INLINABLE;
+    if (DECL_DECLARED_INLINE_P (node->decl))
+      avail = AVAIL_OVERWRITABLE_BUT_INLINABLE;
     else 
-      avail = AVAIL_OVERWRITTABLE;
+      avail = AVAIL_OVERWRITABLE;
   else avail = AVAIL_AVAILABLE;
   node->local.avail = avail;
   return avail;
@@ -1126,12 +1152,21 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
     return AVAIL_NOT_AVAILABLE;
   if (!TREE_PUBLIC (node->decl))
     return AVAIL_AVAILABLE;
-  /* If the variable can be overwritted, return OVERWRITTABLE.  Takes
+  /* If the variable can be overwritted, return OVERWRITABLE.  Takes
      care of at least two notable extensions - the COMDAT variables
      used to share template instantiations in C++.  */
   if (!(*targetm.binds_local_p) (node->decl) && !DECL_COMDAT (node->decl))
-    return AVAIL_OVERWRITTABLE;
+    return AVAIL_OVERWRITABLE;
   return AVAIL_AVAILABLE;
+}
+
+/* Return true when CALLER_DECL should be inlined into CALLEE_DECL.  */
+
+bool
+cgraph_inline_p (struct cgraph_edge *e, const char **reason)
+{
+  *reason = e->inline_failed;
+  return !e->inline_failed;
 }
 
 #include "gt-cgraph.h"

@@ -1,3 +1,489 @@
+2004-12-07  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+	* ipa-static-vars-anal.c (get_asm_expr_operands): keep any function		with volatile asm from being marked const or pure.
+	(static_execute): turn off pure if the function contains backedges.
+
+2004-12-07  Jan Hubicka  <jh@suse.cz>
+
+	* basic-block.h (REG_BR_PROB_BASE): Define here.
+	* cgraph.c (cgraph_create_node): Set estimated_growth.
+	(dump_cgraph_node): Print profile.
+	(cgraph_clone_edge): Add count argument.
+	(cgraph_clone_node): Likewise; update profile.
+	* cgraph.h (cgraph_global_info): Add estimated_growth.
+	(cgraph_node): Add count; kill most_desirable.
+	(cgraph_edge): Kill desirability and undesirable fields.
+	(cgraph_clone_edge, cgraph_clone_node): Update prototypes.
+	* cgraphunit.c (cgraph_reset_node): Requeue nodes to reanalyze.
+	(cgraph_analyze_function): Initialize profile, do not perform IPA.
+	(cgraph_finalize_compilation_unit): Update comment; avoid
+	redundant work when called multiple times; do not dump cgraph
+	to avoid quadratic dumping on IMA; prettier -Q output.
+	(cgraph_optimize): Prettier -Q output; analyze functions.
+	* ipa-inline.c: Change heuristics to work per edge, not per inline
+	candidate, replace previous profile driven heuristics by common
+	implementation.
+	(max_insns): change into int.
+	(max_count): New static variable.
+	(cgraph_clone_inlined_nodes, cgraph_clone_inlined_nodes_1,
+	cgraph_mark_inline_edge): Rever the changes from cfginliner patch;
+	update profile.
+	(cgraph_estimate_growth): Cache result.
+	(update_caller_keys): Likewise
+	(update_callee_keys): Use update_caller_keys.
+	(lookup_recursive_calls): Use priority heap.
+	(cgraph_decide_recursive_inlining): Reorganize to use priority heap.
+	(cgraph_edge_badness): New function.
+	(cgraph_decide_inlining_of_small_functions): Reorganize to work per
+	edge instead of per inline candidate.
+	(cgraph_decide_inlining): Add TV_INLINE_HEURISTICS timevar; 
+	do not call cgraph_profile_driven_inlining.
+	(cgraph_profile_driven_inlining, cgraph_pick_most_desirable_edge,
+	cgraph_desirability): Kill.
+	* rtl.h (REG_BR_PROB_BASE): Move definition to basic-block.h.
+	* timevar.def (TV_INLINE_HEURISTICS): New TV.
+	* tree-inline.c (copy_cfg_body, copy_body): New count argument;
+	update profile.
+	(copy_body_r, expand_call_inline): Update profiling.
+	* tree-optimize.c (tree_rest_of_compilation): Update.
+
+2004-12-02  Dale Johannesen  <dalej@apple.com>
+
+        * basic-block.h (scale_bbs_frequencies_int):  New declaration.
+        (scale_bbs_frequencies_gcov_type):  New declaration.
+        * cfgloopmanip.c (scale_bbs_frequencies):  Renamed to
+        scale_bbs_frequencies_int and moved to cfg.c.
+        (scale_loop_frequencies):  Adjust call to it.
+        (duplicate_loop_to_header_edge):  Adjust calls to it.
+        * cfg.c (RDIV): New (copied from cfgloopmanip.c).
+        (scale_bbs_frequencies_int):  Moved from cfgloopmanip.c.
+        (scale_bbs_frequencies_gcov_type):  New.
+        * tree-ssa-loop-ch.c (copy_loop_headers):  Propagate profiling info.
+
+2004-12-05  Dale Johannesen  <dalej@apple.com>
+
+        * except.c (get_maybe_saved_eh_throw_stmt_table):  Remove.
+        * except.h (get_maybe_saved_eh_throw_stmt_table):  Remove.
+        * tree-eh.c (duplicate_stmt_eh_region_mapping):   Call
+        get_eh_throw_stmt_table instead of above.
+        * tree-inline.c (struct inline_data):  Add callee_cfun.
+        (copy_body_r):  Use it.
+        (copy_cfg_body):  Set and use it.
+        (clone_body):  Set it.
+        (save_body):  Set it.
+
+2004-12-05  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* c-typeck.c (tagged_tu_seen): Add val field.
+	(comptypes): Move functional to comptypes_internal
+	and free tagged_tu_seen.
+	(comptypes_internal): New function and call comptypes_internal
+	instead of comptypes. Speed up by sibcalling
+	tagged_types_tu_compatible_p.
+	(alloc_tagged_tu_seen): New function
+	(free_all_tagged_tu_seen_up_to): New function.
+	(tagged_types_tu_compatible_p): Return the val of the seen two
+	types.
+	Add that the two types are the same to tagged_tu_seen_base
+	if they are and call comptypes_internal instead of comptypes.
+	<case UNION_TYPE>: Speed up common type where the fields are
+	in the same order.
+	(function_types_compatible_p): Call comptypes_internal instead of
+	comptypes.
+	(type_lists_compatible_p): Likewise.
+
+2004-12-03  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c: Fix whitespace problems introduced by previous patch.
+	* cgraphunit.c: Kill bogues FIXME comment introduced by previous
+	patch; re-enable cgraph checking
+	* ipa.c (cgraph_remove_unreachable_nodes): Kill hack brought in by
+	previous patch.
+
+2004-12-02  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+
+	Removal of const and pure detection from rtl level:	
+	* alias.c (nonlocal_mentioned_p_1,nonlocal_mentioned_p,
+	nonlocal_referenced_p_1,nonlocal_referenced_p,nonlocal_set_p_1,
+	nonlocal_set_p,mark_constant_function): removed
+	* calls.c (flags_from_decl_or_type):removed cgraph_rtl_info refs
+	* passes.c (rest_of_handle_cfg) remove calls to mark_constant_function
+	* cgraph.h (const_function, pure_function) flags removed from 
+	cgraph_rtl_info
+
+	Addition of const and pure function detection to ipa static as well as
+	detection of readonly static variables are removal of addressable bit 
+	from static varaiables.:
+	* ipa_static_vars_anal.c (bool has_proper_scope_for_analysis,
+	check_operand,check_tree,look_for_address_of,check_rhs_var,
+	check_lhs_var,get_asm_expr_operands,process_call_for_static_vars,
+	scan_for_static_refs,get_static_name_by_uid,propagate_bits,ipa_init
+	analyze_variable,analyze_function,static_execute) added functionality.
+	* tree-cfg.c (need_fake_edge_p): added comment that needs work.
+	
+	* ipa_static_vars_anal.c (add_static_var): added debugging.
+	* tree-inline.c (inline_forbidden_p): added debugging.
+
+	Move calls_read_all and calls_write_all from cgraph_node structure to 
+	ipa_static_info structure.
+	* cgraph.c (dump_cgraph_node) removed refs vars. 
+
+	Fixed spelling error in *_OVERWRITTABLE
+	* cgraph.h
+	* cgraph.c (cgraph_master_clone,cgraph_function_body_availability,
+	cgraph_variable_initializer_availability)
+
+	Fixed indention and nesting problem in source:
+	cgraphunit.c (record_call_1)
+
+
+2004-12-02  Jan Hubicka  <jh@suse.cz> committed by Kenneth Zadeck
+	Fixes to make variable and functions appear at proper time in ipa analysis.
+	*cgraph.c (enqueue_needed_varpool_node): renamed to 
+	cgraph_varpool_enqueue_needed_node	
+	(cgraph_varpool_reset_queue): new function. 
+	(cgraph_varpool_mark_needed_node, decide_is_variable_needed) add calls.
+	(cgraph_varpool_finalize_decl) renamed function call
+	* cgraphunit.c (cgraph_optimize) disabled recovery of useless nodes.
+	* ipa.c (cgraph_remove_unreachable_nodes) disabled detection.
+
+2004-12-02  Jan Hubicka  <jh@suse.cz>
+
+	Temporarily avoid unreachable node removal for IPA stuff.
+	* cgraphunit.c (cgraph_optimize): Remove unreachable nodes.
+	* ipa-inline.c (cgraph_decide_inlining): Do not remove unreachable
+	nodes.
+
+2004-12-02  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_varpool_node): Add non_ipa field.
+	* cgraphunit.c (cgraph-varpool_analyze_pending_decls): Set noipa flag
+	for declarations comming late.
+	(cgraph_varpool_assemble_pending_decls): Do not call IPA for nonipa variables.
+	(cgraph_optimize): Analyze pending decls early.
+	(cgraph_remove_unreachable_node): Clear analyzed flag.
+
+2004-12-02  Steven Bosscher  <stevenb@suse.de>
+
+	* tree-inline.c: Fix indenting and other style issues.
+
+2004-12-01  Jan Hubicka  <jh@suse.cz>
+
+	* tree-inline.c (copy_body_r): Do not alter source stmt when
+	removing return of void.
+
+2004-12-01  Jan Hubicka  <jh@suse.cz>
+
+	* cfg.c (update_bb_profile_for_threading): Watch for overflow.
+
+2004-12-01  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_node): Kill unused fileds brought by cfg inliner
+	patch.
+	(cgraph_edge): Add undesirable field.
+	* cgraphunit.c: Include coverage.h
+	(cgraph_estimate_size_after_inlining): Rever hack brought by cfg
+	inliner patch; add sanity check.
+	(cgraph_decide_recursive_inlining): Don't work hard if function
+	has no uninlined callees.
+	(cgraph_maybe_hot_edge_p): New predicate.
+	(cgraph_desirability): Compute something nonzero.
+	(cgraph_pick_most_desirable_edge): Don't inline already inlined;
+	don't bypass inline limits.
+	(cgraph_analyze_function_inlinability): Compute nonzero function sizes.
+	* tree-inline.c (estimate_num_insns): Kill bogus void cast.
+
+2004-11-30  Jan Hubicka  <jh@suse.cz>
+
+	* Makefile.in (ipa.o,ipa-inline.o): New.
+	* cgraph.h: Reorganize prototypes.
+	(cgraph_remove_unreachable_nodes, cgraph_postorder,
+	cgraph_default_inline_p, cgraph_analyze_function_inlinability,
+	cgraph_decide_inlining_incrementally): Declare.
+	* cgraph.c (cgraph_inline_p): Move here from...
+	* cgraphunit.c (cgraph_inline_p): ... here.
+	Update overall comment.
+	Do not include fibheap.h
+	(cgraph_create_edges): Make static.
+	(cgraph_postorder, cgraph_remove_unreachable_nodes): Move to ipa.c
+	(INSN_PER_CALL, cgraph_default_inline_p,
+	cgraph_decide_inlining_incrementally, ncalls_inlined,
+	nfunction_inlined, initial_insns, overall_insns, max_insns,
+	cgraph_estimate_size_after_inlining, cgraph_estimate_growth,
+	already_cloned, cgraph_clone_inlined_nodes_1,
+	cgraph_clone_inlined_nodes, cgraph_mark_inline_edge,
+	cgraph_mark_inline, cgraph_check_inline_limits,
+	cgraph_default_inline_p, cgraph_recursive_inlinig_p,
+	update_callee_keys, lookup_recursive_calls,
+	cgraph_decide_recursive_inlining, cgraph_set_inline_failed,
+	cgraph_desirability, cgraph_pick_most_desirable_edge,
+	cgraph_profile_driven_inlining,
+	cgraph_decide_inlining_of_small_functions, cgraph_decide_inlining,
+	cgraph_decide_inlining_incrementally, cgraph_apply_inline,
+	cgraph_gate_inlining, pass_ipa_inlinine): Move to ipa-inline.c
+	(cgraph_inline_p): Move to cgraph.c
+	(cgraph_function_and_variable_visibility): Update 
+	cgraph_remove_unreachable_nodes call.
+	* ipa-inline.c: New file; all code from cgraphunit.c
+	* ipa.c: Likewise.
+
+2004-11-29  Jan Hubicka  <jh@suse.cz>
+
+	* cgraphunit.c (cgraph_decide_inlining_of_small_function): Kill
+	forgotten sanity check.
+	* passes.c (rest_of_clean_state): Do not call coverage_end_function.
+	* profile.c (branch_prob): Call it here.
+
+2004-11-29  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_node): Add "lowered" flag.
+	(cgraph_build_cfg): Kill.
+	(cgraph_lower_function): New.
+	* cgraphunit.c: Kill bunch of includes introduced by cfg inliner patch.
+	(cgraph_build_cfg): Kill.
+	(cgraph_finalize_function): Set lowered flag.
+	(cgraph_lower_function): New function.
+	(cgraph_analyze_function): Lower the function; do early local passes iff
+	unit-at-a-time
+	(cgraph_expand_function): Do early passes iff !unit_at_a_time
+	(cgraph_build_static_cdtor): Lower the function.
+	* tree-optimize.c (all_lowering_passes): New static variable.
+	(init_tree_optimization_passes): Split up lowering and optimization.
+	(tree_early_local_passes): Do not lower function body.
+	(tree_lowering_pass): New.
+	* tree-pass.h (tree_lowering_passes): Declare.
+	* cp/method.c: Include tree-pass.h
+	(use_thunk): lower the body by hand.
+
+2004-11-28  Jan Hubicka  <jh@suse.cz>
+
+	* Changelog.profiling:  Fix up entries
+	* Changelog: Move tree-profiling entries where they belong
+	* cgraph.c (cgraph_function_body_availability): Fix inlining condition.
+	* cgraphunit.c (cgraph_build_cfg): Do not build profile.
+	(cgraph_varpool_analye_pending_decls): Add timevar.
+	(cgraph_analyze_function): Do early optimizations passes,
+	push/pop context.
+	(cgraph_optimize): Add timevars.
+	(cgraph_build_static_cdtor): Do early passes.
+	* ipa-static-vars-anal.c: Include timevar.h.
+	(analyze_function): Reorganize to work on CFG.
+	(pass_ipa_static): Set timevar.
+	* timevar.def (TV_CGRAPHOPT): Kill.
+	(TV_IPA_OPT, TV_IPA_ANALYSIS, TV_IPA_STATIC_VAR): New.
+	* tree-cfg.c: Undo all of cfg inliner merge patch except
+	for build_tree_cfg bits.
+	* tree-optimize.c (pass_gimple): Revert cfg inliner patch.
+	(all_early_local_passes): New static variable.
+	(init_tree_optimization_passes): Cleanup mess introduced by cfg inliner patch;
+	re-enable profiling and ipa-static vars, introduce early passes.
+	(tree_early_local_passes): New function.
+	* tree-pass.h (tree_early_local_passes): Declare.
+	(pass_lower_cf): Revert cfg inliner patch.
+
+2004-11-17  Stuart Hastings <stuarth@apple.com>
+	    Dale Johannesen  <dalej@apple.com>
+
+	* Makefile.in (tree-inline.o): Add dependency on $(TREE_FLOW_H) and
+	on except.h.
+	(tree-eh.o): Don't depend on gt-tree-eh.h.
+	(tree-pretty-print.o): Don't depend on tree-iterator.h.
+	(except.o): Add dependency on $(TREE_FLOW_H).
+	(cgraph.o): Likewise.
+	(cgraphunit.o): Add dependency on except.h and coverage.h.
+	(GTFILES): Remove $(srcdir)/except.c.  Add $(srcdir)/tree-inline.c.
+	* basic-block.h (FOR_EACH_BB_FN, FOR_EACH_BB_REVERSE_FN): New.
+	(FOR_EACH_BB, FOR_EACH_BB_REVERSE): Define in terms of the above.
+	* cfg.c (init_flow): Don't clear n_edges.
+	* cfglayout.c (flow_obstack): Don't declare.
+	* cgraph.c: Include basic-block.h.
+	(cgraph_create_edge): Set edge_count.
+	(cgraph_remove_node): Remove nodes for inlined nested functions.
+	* cgraph.h: Include tree.h and basic-block.h.
+	(struct cgraph_node): Add the fields current_basic_block,
+	insn_size, and most_desirable.
+	(cgraph_node, cgraph_edge, cgraph_varpool_node, cgraph_inline_p,
+	cgraph_mark_inline_edge, cgraph_clone_inlined_nodes,
+	cgraph_build_static_cdtor): Cleanup prototypes.
+	* cgraphunit.c: Include basic-block.h, tree-iterator.h, tree-flow.h,
+	value-prof.h, coverage.h, and except.h.
+	(cgraph_build_cfg): New.  Build the CFG for a function.
+	(record_call_1): Don't look at STATEMENT_LIST nodes.
+	(cgraph_create_edges): Handle FUNCTION_DECLs as special cases when
+	looking for things to add to the call graph.
+	(verify_cgraph_node): Use walk_tree with a pointer set instead of
+	walk_tree_without_duplicates.
+	(cgraph_varpool_analyze_pending_decls): Only look at DECL_INITIAL
+	for things to add to the call graph when it is non-NULL.
+	(cgraph_analyze_function): Build the CFG from here.
+	(cgraph_expand_function): Make sure there is a CFG at this point.
+	(cgraph_estimate_growth): Avoid negative size estimates.
+	(cgraph_clone_inlined_nodes): Avoid cleating duplicate, unnecessary
+	clones.
+	(cgraph_clone_inlined_nodes_1): New, callback for the above.
+	(cgraph_mark_inline_edge): Handle simple recursion.
+	(cgraph_desirability): New, determine how "desirable" it is for
+	some given function to be inlined.
+	(cgraph_pick_most_desirable_edge): New, find the inline candidate
+	most desirable to be inlined.
+	(cgraph_profile_driven_inlining): New.
+	(cgraph_decide_inlining_of_small_function): Don't compute max_insns
+	from here.
+	(cgraph_decide_inlining): Do it here.
+	(cgraph_build_static_cdtor): If all else fails, build a CFG from here,
+	for irregular functions such as mudflap.
+	* except.c: Include tree-iterator.h, tree-inline.h, and tree-flow.h.
+	(struct eh_status): Add per-function throw_stmt_table hash table.
+	(eh_region_must_not_throw_p): New.
+	(expand_resx_expr): Add sanity check.
+	(current_function_has_exception_handlers):
+	(duplicate_eh_region_1): Rewrite for trees.
+	(duplicate_eh_region_2): Likewise.
+	(duplicate_eh_regions): Likewise.
+	(remove_eh_handler): No longer static.  Make sure there is EH info
+	for the current function cfun.
+	(change_to_nothrow): New, fixup EH statements for which we've later
+	figured out that they don't actually throw.
+	(set_nothrow_function_flags): Call it.
+	(set_eh_throw_stmt_table): New.
+	(get_eh_throw_stmt_table): New.
+	(get_maybe_saved_eh_throw_stmt_table): New.
+	(get_eh_last_region_number): New.
+	(get_eh_cur_region): New.
+	(set_eh_cur_region): New.
+	* except.h (duplicate_eh_regions): Adjust prototype after rewrite.
+	(add_stmt_to_eh_region_fn, remove_stmt_from_eh_region_fn,
+	lookup_stmt_eh_region_fn): New prototypes.
+	(struct throw_stmt_node): Moved from tree-eh.c.
+	(remove_eh_handler, set_eh_throw_stmt_table, get_eh_throw_stmt_table,
+	get_maybe_saved_eh_throw_stmt_table, get_eh_last_region_number,
+	get_eh_cur_region, set_eh_cur_region, eh_region_must_not_throw_p):
+	More new prototypes.
+	* expr.c (expand_expr_real): Beware of MODIFY_EXPRs and RETURN_EXPRs
+	that might throw at the end of a function.
+	* function.c (allocate_struct_function): Clear n_edges here.
+	* function.h (struct function): Add saved_eh and saved_cfg fields.
+	* gengtype.c (open_base_files): Remove except.h from headers to
+	analyze.
+	* gimple-low.c (lower_function_body): No longer static.
+	* integrate.c (copy_decl_for_inlining): Clear LABEL_DECL_UID for
+	copied labels.
+	* langhooks-def.h (lhd_tree_inlining_add_pending_fn_decls,
+	lhd_tree_inlining_start_inlining, lhd_tree_inlining_end_inlining):
+	Remove prototypes.
+	(lhd_tree_inlining_copy_res_decl_for_inlining): Add prototype.
+	(LANG_HOOKS_TREE_INLINING_ADD_PENDING_FN_DECLS,
+	LANG_HOOKS_TREE_INLINING_START_INLINING,
+	LANG_HOOKS_TREE_INLINING_END_INLINING): Remove.
+	(LANG_HOOKS_TREE_INLINING_COPY_RES_DECL_FOR_INLINING): New hook.
+	(lhd_tree_inlining_disregard_inline_limit):
+	(lhd_tree_inlining_add_pending_fn_decls):
+	(lhd_tree_inlining_auto_var_in_fn_p):
+	(lhd_tree_inlining_copy_res_decl_for_inlining):
+	(lhd_tree_inlining_anon_aggr_type_p):
+	(lhd_tree_inlining_start_inlining):
+	(lhd_tree_inlining_end_inlining):
+	* langhooks.c (lhd_tree_inlining_add_pending_fn_decls,
+	lhd_tree_inlining_start_inlining, lhd_tree_inlining_end_inlining):
+	Remove.
+	(lhd_tree_inlining_copy_res_decl_for_inlining): New default hook.
+	* langhooks.h (struct lang_hooks_for_tree_inlining): Adjust.
+	* passes.c: Don't include alloc-pool.h.
+	* print-tree.c: Include tree-iterator.h.
+	(print_node): Print STATEMENT_LIST nodes.
+	* tree-cfg.c (build_tree_cfg): No longer static.  Create
+	ENTRY_BLOCK_PTR and EXIT_BLOCK_PTR here.
+	(make_blocks): Purge basic_block_info.  Rechain split statements.
+	Let statements in an EH region end a basic block.
+	(make_edges): Make edges for blocks ending with an EH statement.
+	(label_to_block): Rename to...
+	(label_to_block_fn): ... this.  Work per function.
+	(remove_useless_stmts_warn_notreached): Disable.
+	(remove_useless_stmts_bind): Likewise.
+	(remove_useless_stmts_1): Don't use them. Tighten up checks.
+	(remove_useless_stmts): Rewrite to be basic block aware.
+	(set_bb_for_stmt): Force the multiply to happen before the divide.
+	(tree_forwarder_block_p): Don't forward forced labels.
+	* tree-eh.c (struct throw_stmt_node): Removed here, moved to except.c.
+	(add_stmt_to_eh_region_fn): New.
+	(remove_stmt_from_eh_region_fn): New.
+	(lookup_stmt_eh_region_fn): New.
+	(record_stmt_eh_region): Get the table from cfun.
+	(add_stmt_to_eh_region): Likewise.
+	(remove_stmt_from_eh_region): Likewise.
+	(lookup_stmt_eh_region): Likewise.
+	(duplicate_stmt_eh_region_mapping): New function to preserve stmt EH
+	mapping during inlining.
+	(honor_protect_cleanup_actions): Use build_resx.
+	(lower_try_finally_onedest): Likewise.
+	(lower_try_finally_copy): Likewise.
+	(lower_try_finally_switch): Likewise.
+	(lower_eh_constructs): No longer static.
+	(make_eh_edges): If a MUST_NOT_THROW region contains a call that
+	throws, don't remove it.
+	* tree-flow.h (build_tree_cfg): New prototype.
+	(label_to_block): Make it a define.  Rename prototype to...
+	(label_to_block_fn): ... this.
+	(do_tree_profiling): New prototype.
+	* tree-inline.c: Mostly rewritten for CFG inlining.
+	* tree-inline.h (remap_decl_v): New prototype.
+	(push_cfun, pop_cfun): Likewise.
+	* tree-optimize.c (pass_gimple): Remove.
+	(pass_lower_cf, pass_lower_eh, pass_build_cfg): Disable, we do
+	this much earlier.  Needs to be cleaned up.
+	(pass_tree_profile, pass_profile): Disable for now.
+	(init_tree_optimization_passes): Hard-code initial properties.
+	(tree_rest_of_compilation): Register the tree cfg hooks.  Preserve
+	the CFG and EH data before optimizing.
+	(pass_ipa_static): Disable for now, see the comments in that pass that
+	need addressing.
+	* tree-pass.h (pass_lower_cf): Remove.
+	* tree-pretty-print.c: Don't include tree-iterator.h.
+	* tree-profile.c (do_tree_profiling): No longer static.
+	* tree.c (build_resx): New.
+	* tree.h (lower_function_body, duplicate_stmt_eh_region_mapping,
+	lower_eh_constructs): New prototypes.
+
+2004-11-08  Kenneth Zadeck  <Kenneth.Zadeck@NaturalBridge.com>
+
+	* Makefile.in (cgraph.h, ipa-static.h, ipa-static-vars-anal.c): 
+	Add dependencies.
+	* (ipa-static.h, ipa-static-vars-anal.c) : New files to implement
+	the analysis if compilation wide static variables.
+	* cgraph.c (cgraph_create_node, cgraph_remove_node
+	dump_cgraph_node): Now handles master_clone_nodes and ipa_static info.
+	(cgraph_is_master_clone, cgraph_master_clone,
+	cgraph_immortal_master_clone): Added.
+	(cgraph_function_body_availability): Handles inlinable and
+	overwrittable functions. 
+	* cgraph.h (availablilty):Handles inlinable and
+	overwrittable functions. 
+	(cgraph_node) Has static vars analyis info.
+	* cgraph_unit (cgraph_function_and_variable_visibility): Fixed
+	comments and removed external bit.
+	* regclass.c (regset_release_memory): removed call to
+	bitmap_release_memory which does not work with ipa reorganization.
+	* tree-dfa.c: (find_referenced_vars) Add initialization code for 
+	static vars analysis.
+	* tree-flow.h: (static_vars_info): Added.
+	* tree-gimple.c (get_base_var) Added.
+	* tree.h (get_base_var) Added.
+	* tree-pass.h (pass_ipa_static) Added.
+	* tree-sra.c (sra_insert_before, sra_insert_after) Made public.
+	(sra_type_can_be_decomposed_p) renamed from
+	type_can_be_decomposed_p and made public. 
+	(sra_init_cache): new.
+	(tree_sra) Added call to sra_init_cache. 
+	* tree-ssa-operands.c: (get_call_expr_operands,
+	add_call_clobber_ops, add_call_read_ops) changed to clobber fewer
+	static variables.
+	
+2004-11-27  Jan Hubicka  <jh@suse.cz>
+
+	Temporarily apply Zdenek Dvorak's patch:
+	PR tree-optimization/18040
+	* tree-gimple.c (is_gimple_component): New function.
+	(is_gimple_addressable, get_base_address): Use is_gimple_component.
+
 2004-11-08  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* Makefile.in: Rename ipa_static-vars-anal.o to
@@ -33,7 +519,7 @@
 	Ported from mainline:
 	2004-10-22  Kazu Hirata  <kazu@cs.umass.edu>
 	* sbitmap.h (EXECUTE_IF_SET_IN_SBITMAP): Don't access PTR
-        beyond its end.
+	beyond its end.
 
 2004-10-24  Kenneth Zadeck <zadeck@naturalbridge.com>
 
@@ -308,12 +794,12 @@
 
 2004-08-28  Razya Ladelsky  <razya@il.ibm.com>
 
-        * ipa_prop.c: New File: IPA constant propagation. 
-        * ipa_prop.h: New File: Same.
-        * Makefile.in (ipa_prop.c, ipa_prop.h): Add new files.
-        * common.opt (fipa-cp, fipa-no-cloning): New flags for IPA
+	* ipa_prop.c: New File: IPA constant propagation. 
+	* ipa_prop.h: New File: Same.
+	* Makefile.in (ipa_prop.c, ipa_prop.h): Add new files.
+	* common.opt (fipa-cp, fipa-no-cloning): New flags for IPA
 	constant propagation. 
-        * cgraphunit.c (cgraph_optimize, record_call_1): Support for IPA 
+	* cgraphunit.c (cgraph_optimize, record_call_1): Support for IPA 
 	constant propagation.
 
 2004-08-16  Jan Hubicka  <jh@suse.cz>
@@ -364,6 +850,7 @@
 
 2004-06-10  Steven Bosscher  <stevenb@suse.de>
 
+	Based on patch by Stuart Hastings <stuart@apple.com>
 	* Makefile.in: Add function.h to BASIC_BLOCK_H.  Remove all
 	references to gt-tree-cfg.h.
 	* basic-block.h (struct basic_block_def): Don't skip rbi

@@ -55,7 +55,28 @@ bitmap vars_to_rename;
 bool in_gimple_form;
 
 /* The root of the compilation pass tree, once constructed.  */
-static struct tree_opt_pass *all_passes, *all_ipa_passes;
+static struct tree_opt_pass *all_passes, *all_lowering_passes, *all_early_local_passes, *all_ipa_passes;
+
+/* Pass: dump the gimplified, inlined, functions.  */
+
+static struct tree_opt_pass pass_gimple = 
+{
+  "gimple",				/* name */
+  NULL,					/* gate */
+  NULL, NULL,				/* IPA analysis */
+  NULL,					/* execute */
+  NULL, NULL,				/* IPA modification */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  0,					/* tv_id */
+  0,					/* properties_required */
+  PROP_gimple_any,			/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func,			/* todo_flags_finish */
+  0					/* letter */
+};
 
 /* Do cleanup_cfg explicitely for first time.  */
 static void 
@@ -350,6 +371,32 @@ init_tree_optimization_passes (void)
 
 #define NEXT_PASS(PASS)  (p = next_pass_1 (p, &PASS))
 
+  /* All passes needed to lower the function into shape optimizers can
+     operate on.  We need these to be separate from local optimization
+     because C++ needs to go into lowered form earlier to perfrom
+     template instantiation.  */
+  p = &all_lowering_passes;
+  NEXT_PASS (pass_gimple); 
+  NEXT_PASS (pass_remove_useless_stmts);
+  NEXT_PASS (pass_mudflap_1);
+  NEXT_PASS (pass_lower_cf); 
+  NEXT_PASS (pass_lower_eh); 
+  NEXT_PASS (pass_build_cfg); 
+  NEXT_PASS (pass_pre_expand);
+  *p = NULL;
+  
+  /* Optimizations passes run before the intraprocedural passes are done.  */
+  p = &all_early_local_passes;
+  NEXT_PASS (pass_tree_profile); 
+  NEXT_PASS (pass_cleanup_cfg);
+  *p = NULL;
+ 
+  /* Intraprocedural optimization passes.  */
+  p = &all_ipa_passes;
+  NEXT_PASS (pass_ipa_inline);
+  NEXT_PASS (pass_ipa_static);
+  *p = NULL;
+   
   p = &all_passes;
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
@@ -379,7 +426,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_ch);
-  /* NEXT_PASS (pass_profile); */  /* FIXME: allow RTL profiling  */
+  NEXT_PASS (pass_profile);
   NEXT_PASS (pass_sra);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
@@ -423,16 +470,13 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_loop_done);
   *p = NULL;
 
-  p = &all_ipa_passes;
-  NEXT_PASS (pass_ipa_inline);
-/* Disabled until this pass can work on low GIMPLE and use the CFG.
-  NEXT_PASS (pass_ipa_static);  */
-  *p = NULL;
-
 #undef NEXT_PASS
 
-  /* Register the passes with the tree dump code.  */
-  /* HACK, PROP_* should go away.  */
+  register_dump_files (all_lowering_passes, false, 0);
+  register_dump_files (all_early_local_passes, false, PROP_gimple_any
+					  | PROP_gimple_lcf
+					  | PROP_gimple_leh
+					  | PROP_cfg);
   register_dump_files (all_passes, false, PROP_gimple_any
 					  | PROP_gimple_lcf
 					  | PROP_gimple_leh
@@ -625,6 +669,34 @@ execute_pass_list (struct tree_opt_pass *pass, enum execute_pass_hook hook,
 }
 
 void
+tree_lowering_passes (tree fn)
+{
+  tree saved_current_function_decl = current_function_decl;
+
+  current_function_decl = fn;
+  push_cfun (DECL_STRUCT_FUNCTION (fn));
+  tree_register_cfg_hooks ();
+  execute_pass_list (all_lowering_passes, EXECUTE_HOOK, NULL, NULL);
+  current_function_decl = saved_current_function_decl;
+  compact_blocks ();
+  pop_cfun ();
+}
+
+void
+tree_early_local_passes (tree fn)
+{
+  tree saved_current_function_decl = current_function_decl;
+
+  current_function_decl = fn;
+  push_cfun (DECL_STRUCT_FUNCTION (fn));
+  tree_register_cfg_hooks ();
+  execute_pass_list (all_early_local_passes, EXECUTE_HOOK, NULL, NULL);
+  current_function_decl = saved_current_function_decl;
+  compact_blocks ();
+  pop_cfun ();
+}
+
+void
 ipa_analyze_function (struct cgraph_node *node)
 {
    execute_pass_list (all_ipa_passes, ANALYZE_FUNCTION_HOOK, node, NULL);
@@ -706,7 +778,7 @@ tree_rest_of_compilation (tree fndecl)
 	  struct cgraph_edge *e;
 
 	  node = cgraph_node (current_function_decl);
-	  saved_node = cgraph_clone_node (node);
+	  saved_node = cgraph_clone_node (node, node->count);
 	  for (e = saved_node->callees; e; e = e->next_callee)
 	    if (!e->inline_failed)
 	      cgraph_clone_inlined_nodes (e, true);

@@ -875,28 +875,6 @@ rest_of_handle_cfg (void)
     cleanup_cfg (CLEANUP_EXPENSIVE
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
-  /* It may make more sense to mark constant functions after dead code is
-     eliminated by life_analysis, but we need to do it early, as -fprofile-arcs
-     may insert code making function non-constant, but we still must consider
-     it as constant, otherwise -fbranch-probabilities will not read data back.
-
-     life_analysis rarely eliminates modification of external memory.
-
-     FIXME: now with tree based profiling we are in the trap described above
-     again.  It seems to be easiest to disable the optimization for time
-     being before the problem is either solved by moving the transformation
-     to the IPA level (we need the CFG for this) or the very early optimization
-     passes are made to ignore the const/pure flags so code does not change.  */
-  if (optimize
-      && (!flag_tree_based_profiling
-	  || (!profile_arc_flag && !flag_branch_probabilities)))
-    {
-      /* Alias analysis depends on this information and mark_constant_function
-       depends on alias analysis.  */
-      reg_scan (get_insns (), max_reg_num (), 1);
-      mark_constant_function ();
-    }
-
   close_dump_file (DFI_cfg, print_rtl_with_bb, get_insns ());
 }
 
@@ -1491,7 +1469,6 @@ static void
 rest_of_clean_state (void)
 {
   rtx insn, next;
-  coverage_end_function ();
 
   /* It is very important to decompose the RTL instruction chain here:
      debug information keeps pointing into CODE_LABEL insns inside the function

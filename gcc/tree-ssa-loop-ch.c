@@ -181,8 +181,8 @@ copy_loop_headers (void)
 	    exit = EDGE_SUCC (header, 0);
 	  else
 	    exit = EDGE_SUCC (header, 1);
-	  gcc_assert (bbs_size > n_bbs);
 	  bbs[n_bbs++] = header;
+	  gcc_assert (bbs_size > n_bbs);
 	  header = exit->dest;
 	}
 
