@@ -197,20 +197,12 @@ mark_defs_for_rewrite (basic_block bb)
   stmt_ann_t ann;
   def_optype defs;
   vdef_optype vdefs;
-  vuse_optype vuses;
   unsigned i;
 
   for (stmt = phi_nodes (bb); stmt; stmt = TREE_CHAIN (stmt))
     {
-      var = SSA_NAME_VAR (PHI_RESULT (stmt));
-      bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-
-      /* If we have a type_mem_tag, add it as well.  Due to rewriting the
-	 variable out of ssa, we lose its name tag, so we use type_mem_tag
-	 instead.  */
-      var = var_ann (var)->type_mem_tag;
-      if (var)
-	bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+      var = PHI_RESULT (stmt);
+      bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
     }
 
   for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
@@ -222,33 +214,15 @@ mark_defs_for_rewrite (basic_block bb)
       defs = DEF_OPS (ann);
       for (i = 0; i < NUM_DEFS (defs); i++)
 	{
-	  var = SSA_NAME_VAR (DEF_OP (defs, i));
-	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-
-	  /* If we have a type_mem_tag, add it as well.  Due to rewriting the
-	     variable out of ssa, we lose its name tag, so we use type_mem_tag
-	     instead.  */
-	  var = var_ann (var)->type_mem_tag;
-	  if (var)
-	    bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	  var = DEF_OP (defs, i);
+	  bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
 	}
 
       vdefs = VDEF_OPS (ann);
       for (i = 0; i < NUM_VDEFS (vdefs); i++)
 	{
-	  var = SSA_NAME_VAR (VDEF_RESULT (vdefs, i));
-	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
-	}
-
-      /* We also need to rewrite vuses, since we will copy the statements
-	 and the ssa versions could not be recovered in the copy.  We do
-	 not have to do this for operands of VDEFS explicitly, since
-	 they have the same underlying variable as the results.  */
-      vuses = VUSE_OPS (ann);
-      for (i = 0; i < NUM_VUSES (vuses); i++)
-	{
-	  var = SSA_NAME_VAR (VUSE_OP (vuses, i));
-	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	  var = VDEF_RESULT (vdefs, i);
+	  bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
 	}
     }
 }
@@ -261,8 +235,11 @@ duplicate_blocks (varray_type bbs_to_duplicate)
   unsigned i;
   edge preheader_edge, e, e1;
   basic_block header, new_header;
-  tree phi;
-  size_t old_num_referenced_vars = num_referenced_vars;
+  tree phi, new_phi, var;
+
+  /* TODO: It should be quite easy to keep the dominance information
+     up-to-date.  */
+  free_dominance_info (CDI_DOMINATORS);
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (bbs_to_duplicate); i++)
     {
@@ -276,30 +253,26 @@ duplicate_blocks (varray_type bbs_to_duplicate)
       mark_defs_for_rewrite (header);
     }
 
-  rewrite_vars_out_of_ssa (vars_to_rename);
-
-  for (i = old_num_referenced_vars; i < num_referenced_vars; i++)
-    {
-      bitmap_set_bit (vars_to_rename, i);
-      var_ann (referenced_var (i))->out_of_ssa_tag = 0;
-    }
-
   for (i = 0; i < VARRAY_ACTIVE_SIZE (bbs_to_duplicate); i++)
     {
       preheader_edge = VARRAY_GENERIC_PTR_NOGC (bbs_to_duplicate, i);
       header = preheader_edge->dest;
 
-      /* We might have split the edge into the loop header when we have
-	 eliminated the phi nodes, so find the edge to that we want to
-	 copy the header.  */
-      while (!header->aux)
-	{
-	  preheader_edge = header->succ;
-	  header = preheader_edge->dest;
-	}
+      if (!header->aux)
+	abort ();
       header->aux = NULL;
 
       new_header = duplicate_block (header, preheader_edge);
+
+      /* Create the phi nodes on on entry to new_header.  */
+      for (phi = phi_nodes (header), var = PENDING_STMT (preheader_edge);
+	   phi;
+	   phi = TREE_CHAIN (phi), var = TREE_CHAIN (var))
+	{
+	  new_phi = create_phi_node (PHI_RESULT (phi), new_header);
+	  add_phi_arg (&new_phi, TREE_VALUE (var), preheader_edge);
+	}
+      PENDING_STMT (preheader_edge) = NULL;
 
       /* Add the phi arguments to the outgoing edges.  */
       for (e = header->succ; e; e = e->succ_next)
@@ -314,6 +287,11 @@ duplicate_blocks (varray_type bbs_to_duplicate)
 	    }
 	}
     }
+
+  calculate_dominance_info (CDI_DOMINATORS);
+
+  rewrite_ssa_into_ssa (vars_to_rename);
+  bitmap_clear (vars_to_rename);
 }
 
 /* Checks whether LOOP is a do-while style loop.  */
@@ -355,9 +333,6 @@ copy_loop_headers (void)
   if (!loops)
     return;
   
-  /* We are not going to need or update dominators.  */
-  free_dominance_info (CDI_DOMINATORS);
-
   /* We do not try to keep the information about irreducible regions
      up-to-date.  */
   loops->state &= ~LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS;
@@ -449,7 +424,6 @@ struct tree_opt_pass pass_ch =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  (TODO_rename_vars
-   | TODO_dump_func
+  (TODO_dump_func
    | TODO_verify_ssa)			/* todo_flags_finish */
 };
