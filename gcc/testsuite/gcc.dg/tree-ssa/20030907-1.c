@@ -22,6 +22,5 @@ int main()
    exit(0); 
 }
 
-/* The abort() call clearly is unreachable.  Only the "extern abort"
-   declaration should survive optimization.  */
-/* { dg-final { scan-tree-dump-times "abort" 1 "optimized"} } */
+/* The abort() call clearly is unreachable.  */
+/* { dg-final { scan-tree-dump-times "abort" 0 "optimized"} } */

@@ -8,7 +8,7 @@ typedef struct dw_attr_struct
   int dw_attr;
 }
 dw_attr_node;
-static void
+void
 foo (int attr_kind, unsigned long offset)
 {
   dw_attr_ref attr = (dw_attr_ref) ggc_alloc (sizeof (dw_attr_node));

@@ -1,3 +1,11 @@
+2003-11-13  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/20030730-1.c: No longer expect abort declaration
+	to be present.
+
+        * gcc.dg/tree-ssa/20030730-1.c: Make "foo" have external linkage.
+        * gcc.dg/tree-ssa/20030730-2.c: Similarly.
+
 2003-11-13  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.dg/tree-ssa/ssa-dce-1.c: New test.
