@@ -520,5 +520,58 @@ cgraph_varpool_assemble_pending_decls ()
   return changed;
 }
 
+/* Set the DECL_ASSEMBLER_NAME and update cgraph hashtables.  */
+void
+cgraph_set_decl_assembler_name (tree decl, tree name)
+{
+  struct cgraph_node *node = NULL;
+  struct cgraph_varpool_node *vnode = NULL;
+  void **slot;
+
+  if (TREE_CODE (decl) == FUNCTION_DECL && cgraph_hash)
+    {
+      slot = 
+	htab_find_slot_with_hash (cgraph_hash, DECL_ASSEMBLER_NAME (decl),
+				  IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+							 (decl)), 0);
+      if (slot)
+	{
+	  node = *slot;
+	  htab_clear_slot (cgraph_hash, slot);
+	}
+    }
+  if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl) && cgraph_varpool_hash)
+    {
+      slot = 
+	htab_find_slot_with_hash (cgraph_varpool_hash,
+	    			  DECL_ASSEMBLER_NAME (decl),
+				  IDENTIFIER_HASH_VALUE (DECL_ASSEMBLER_NAME
+							 (decl)), 0);
+      if (slot)
+	{
+	  vnode = *slot;
+	  htab_clear_slot (cgraph_varpool_hash, slot);
+	}
+    }
+  SET_DECL_ASSEMBLER_NAME (decl, name);
+  if (node)
+    {
+      slot = 
+	htab_find_slot_with_hash (cgraph_hash, name,
+				  IDENTIFIER_HASH_VALUE (name), 1);
+      if (*slot)
+	abort ();
+      *slot = node;
+    }
+  if (vnode)
+    {
+      slot = 
+	htab_find_slot_with_hash (cgraph_varpool_hash, name,
+				  IDENTIFIER_HASH_VALUE (name), 1);
+      if (*slot)
+	abort ();
+      *slot = node;
+    }
+}
 
 #include "gt-cgraph.h"

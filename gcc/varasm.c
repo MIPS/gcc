@@ -925,7 +925,7 @@ make_decl_rtl (decl, asmspec)
 
   if (name != new_name)
     {
-      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (new_name));
+      cgraph_set_decl_assembler_name (decl, get_identifier (new_name));
       name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
     }
 

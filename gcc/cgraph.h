@@ -170,6 +170,7 @@ struct cgraph_varpool_node *cgraph_varpool_node_for_identifier (tree id);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
+void cgraph_set_decl_assembler_name (tree decl, tree name);
 
 /* In cgraphunit.c  */
 void cgraph_finalize_function		PARAMS ((tree, tree));
