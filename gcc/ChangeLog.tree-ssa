@@ -1,3 +1,8 @@
+2004-02-16  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* config/rs6000/rs6000.c (output_function_profiler): Check
+	cfun->static_chain_decl instead of current_function_needs_context.
+
 2004-02-16  Jeff Law  <law@redhat.com>
 
 	* Makefile.in (OBJS-common): Add tree-ssa-dse.o

@@ -13581,7 +13581,7 @@ output_function_profiler (FILE *file, int labelno)
 	  asm_fprintf (file, "\tmflr %s\n", reg_names[0]);
 	  asm_fprintf (file, "\tstd %s,16(%s)\n", reg_names[0], reg_names[1]);
 
-	  if (current_function_needs_context)
+	  if (cfun->static_chain_decl != NULL)
 	    {
 	      asm_fprintf (file, "\tstd %s,24(%s)\n",
 			   reg_names[STATIC_CHAIN_REGNUM], reg_names[1]);
