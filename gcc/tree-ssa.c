@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "errors.h"
 #include "expr.h"
 #include "c-common.h"
-#include "tree-opt.h"
+#include "tree-optimize.h"
 #include "tree-flow.h"
 #include "ssa.h"
 
@@ -93,7 +93,7 @@ tree_build_ssa ()
       for (i = 0; i < n_basic_blocks; i++)
 	{
 	  basic_block bb = BASIC_BLOCK (i);
-	  tree_debug_bb (bb);
+	  tree_dump_bb (dump_file, "", bb, 0);
 	  dump_varref_list (dump_file, "    ", BB_REFS (bb), 0, 1);
 	  fputs ("\n\n", dump_file);
 	}

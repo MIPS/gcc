@@ -30,7 +30,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "c-common.h"
 #include "diagnostic.h"
-#include "tree-opt.h"
+#include "tree-optimize.h"
 #include "tree-flow.h"
 
 /* {{{ optimize_tree()
@@ -46,10 +46,6 @@ optimize_tree (t)
 
   tree_find_basic_blocks (t);
 
-  /* Don't bother doing anything else if we found errors in the program.  */
-  if (errorcount > 0)
-    return;
-
   if (n_basic_blocks > 0)
     {
       tree_find_varrefs ();
@@ -59,17 +55,6 @@ optimize_tree (t)
   /* Flush out DFA and SSA data.  */
   delete_varref_list (&ref_symbols_list);
   delete_cfg ();
-}
-
-/* }}} */
-
-/* {{{ init_tree_opt()
-
-   Initialize the tree IL analysis and optimization routines.  */
-
-void
-init_tree_opt ()
-{
 }
 
 /* }}} */

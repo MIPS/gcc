@@ -1,3 +1,30 @@
+2001-08-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (C_AND_OBJC_OBJS): Replace tree-opt.o with
+	tree-optimize.o.
+	(c-decl.o): Ditto.
+	(tree-ssa.o): Ditto.
+	(tree-cfg.o): Ditto.
+	(tree-dfa.o): Ditto.
+	(tree-opt.o): Ditto.
+	* c-decl.c: Replace tree-opt.h with tree-optimize.h.
+	(c_expand_body): Remove call to init_tree_opt.
+	* flow.c (flow_loop_dump): Do not display insn UIDs if this is not
+	an RTL basic block.
+	* tree-cfg.c: Replace tree-opt.h with tree-optimize.h.
+	(block_invalidates_loop): New local function.
+	(validate_loops): New function.
+	(tree_dump_bb): Display the loop depth of the block.
+	* tree-dfa.c: Replace tree-opt.h with tree-optimize.h.
+	* tree-flow.h (validate_loops): Declare.
+	* tree-opt.c: Rename to tree-optimize.c.
+	* tree-opt.h: Rename to tree-optimize.h.
+	* tree-optimize.c: Rename from tree-opt.c.
+	* tree-optimize.h: Rename from tree-opt.h.
+	* tree-ssa.c: Replace tree-opt.h with tree-optimize.h.
+	(tree_build_ssa): Call tree_dump_bb instead of tree_debug_bb.
+	* cp/Make-lang.in: Replace tree-opt.h with tree-optimize.h.
+
 2001-08-20  Diego Novillo  <dnovillo@redhat.com>
 
 	* basic-block.h (basic_block): Remove field 'reachable'.

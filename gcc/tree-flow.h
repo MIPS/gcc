@@ -249,6 +249,7 @@ extern basic_block condition_block PARAMS ((basic_block));
 extern basic_block switch_parent PARAMS ((basic_block));
 extern tree first_exec_stmt PARAMS ((tree));
 extern int is_exec_stmt PARAMS ((tree));
+extern void validate_loops PARAMS ((struct loops *));
 
 /* }}} */
 

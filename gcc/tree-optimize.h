@@ -1,4 +1,4 @@
-/* {{{ Tree transformation functions.
+/* Tree transformation functions.
    Copyright (C) 2001 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
@@ -19,16 +19,13 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* }}} */
-
-#ifndef _TREE_OPT_H
-#define _TREE_OPT_H 1
+#ifndef _TREE_OPTIMIZE_H
+#define _TREE_OPTIMIZE_H 1
 
 /* {{{ Function prototypes.  */
 
 void optimize_tree PARAMS ((tree));
-void init_tree_opt PARAMS ((void));
 
 /* }}} */
 
-#endif /* _TREE_OPT_H */
+#endif /* _TREE_OPTIMIZE_H */

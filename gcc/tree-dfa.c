@@ -31,7 +31,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "c-common.h"
 #include "ggc.h"
-#include "tree-opt.h"
+#include "tree-optimize.h"
 #include "tree-flow.h"
 
 /* {{{ Local declarations.  */

@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "c-common.h"
 #include "ggc.h"
 #include "diagnostic.h"
-#include "tree-opt.h"
+#include "tree-optimize.h"
 #include "tree-flow.h"
 
 /* {{{ Local declarations.  */
@@ -75,6 +75,7 @@ static void make_return_stmt_edges PARAMS ((sbitmap *, basic_block));
 
 /* Various helpers.  */
 static basic_block successor_block PARAMS ((basic_block));
+static int block_invalidates_loop PARAMS ((basic_block, struct loop *));
 
 /* }}} */
 
@@ -989,6 +990,78 @@ delete_block (bb)
 
 /* }}} */
 
+/* {{{ validate_loops()
+
+   Scan all the loops in the flowgraph verifying their validity.   A valid
+   loop L contains no calls to user functions, no returns, no jumps out of
+   the loop and non-local gotos.  */
+
+void
+validate_loops (loops)
+     struct loops *loops;
+{
+  int i;
+
+  for (i = 0; i < loops->num; i++)
+    {
+      struct loop *loop = &(loops->array[i]);
+      sbitmap nodes = loop->nodes;
+      int n;
+
+      EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, n,
+	  {
+	    if (block_invalidates_loop (BASIC_BLOCK (n), loop))
+	      {
+		loop->invalid = 1;
+		break;
+	      }
+	  });
+    }
+}
+
+/* }}} */
+
+/* {{{ block_invalidates_loop()
+
+   Returns 1 if the basic block BB makes the LOOP invalid.  This occurs if
+   the block contains a call to a user function, a return, a jump out of
+   the loop or a non-local goto.  */
+
+static int
+block_invalidates_loop (bb, loop)
+     basic_block bb;
+     struct loop *loop;
+{
+  tree t;
+
+  /* Valid loops cannot contain a return statement.  */
+  if (TREE_CODE (bb->end_tree) == RETURN_STMT)
+    return 1;
+
+  /* If the destination node of a goto statement is not in the loop, mark it
+     invalid.  */
+  if (TREE_CODE (bb->end_tree) == GOTO_STMT
+      && ! TEST_BIT (loop->nodes, bb->succ->dest->index))
+    return 1;
+
+  for (t = bb->head_tree; t; t = TREE_CHAIN (t))
+    {
+      /* Call to user function.
+	 FIXME: Should check that this is actually a user function.  */
+
+      if (TREE_CODE (t) == EXPR_STMT
+	  && TREE_CODE (EXPR_STMT_EXPR (t)) == CALL_EXPR)
+	return 1;
+
+      if (t == bb->end_tree)
+	break;
+    }
+
+  return 0;
+}
+
+/* }}} */
+
 
 /* Helper functions and predicates.  */
 
@@ -1365,6 +1438,8 @@ tree_dump_bb (outf, prefix, bb, indent)
     fprintf (outf, "%d\n", BB_PARENT (bb)->index);
   else
     fputs ("nil\n", outf);
+
+  fprintf (outf, "%s%sLoop depth: %d\n", s_indent, prefix, bb->loop_depth);
 }
 
 /* }}} */
