@@ -96,11 +96,11 @@ case "${host}" in
 	slow_pthread_self=yes
 	;;
   x86_64-*)
- 	CHECKREFSPEC="%{m32:-fcheck-references}"
 	sysdeps_dir=x86-64
 	libgcj_flags="${libgcj_flags} -ffloat-store -fno-omit-frame-pointer"
 	libgcj_cxxflags="-D__NO_MATH_INLINES"
 	libgcj_cflags="-D__NO_MATH_INLINES"
+ 	DIVIDESPEC=-f%{m32:no-}use-divide-subroutine
 	enable_hash_synchronization_default=yes
 	slow_pthread_self=yes
 	libgcj_interpreter=yes
