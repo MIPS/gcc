@@ -568,7 +568,7 @@ extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern struct ptr_info_def *get_ptr_info (tree);
-extern VEC(tree_on_heap) *get_fake_vars_for_component_ref (tree);
+extern VEC(tree_on_heap) *get_fake_vars_for_component_ref (tree, bool *);
 extern VEC(tree_on_heap) *get_fake_vars_for_var (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching

@@ -689,7 +689,7 @@ finalize_ssa_v_must_defs (v_must_def_optype *old_ops_p,
     return NULL;
 
   /* There should only be a single V_MUST_DEF per assignment.  */
-  gcc_assert (TREE_CODE (stmt) != MODIFY_EXPR || num <= 1);
+  /*  gcc_assert (TREE_CODE (stmt) != MODIFY_EXPR || num <= 1); */
 
   old_ops = *old_ops_p;
 
@@ -912,7 +912,6 @@ build_ssa_operands (tree stmt, stmt_ann_t ann, stmt_operands_p old_ops,
 	  lhs = TREE_OPERAND (lhs, 0);
 
 	if (TREE_CODE (lhs) != ARRAY_REF && TREE_CODE (lhs) != ARRAY_RANGE_REF
-	    && TREE_CODE (lhs) != COMPONENT_REF
 	    && TREE_CODE (lhs) != BIT_FIELD_REF
 	    && TREE_CODE (lhs) != REALPART_EXPR
 	    && TREE_CODE (lhs) != IMAGPART_EXPR)
@@ -1087,7 +1086,7 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	    tree v;
 	    int i;
 	    for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
-	      add_stmt_operand (&v, s_ann, flags  & ~opf_kill_def);
+	      add_stmt_operand (&v, s_ann, flags);
 	    VEC_free (tree_on_heap, vars);
 	  }
 	else
@@ -1130,15 +1129,17 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
     case REALPART_EXPR:
     case IMAGPART_EXPR:
       {
-	
+	bool okay_for_killdef;
 	/* This becomes an access to all of the fake variables, but *NOT* the
 	   real one.  */
 	VEC(tree_on_heap) *vars = NULL;
-	vars = get_fake_vars_for_component_ref (expr);
+	vars = get_fake_vars_for_component_ref (expr, &okay_for_killdef);
 	if (vars)
 	  {	  
 	    tree v;
 	    int i;
+	    if (!okay_for_killdef)
+	      flags &= ~opf_kill_def;
 	    for (i = 0; VEC_iterate (tree_on_heap, vars, i, v); i++)
 	      add_stmt_operand (&v, s_ann, flags);
 	    VEC_free (tree_on_heap, vars);
@@ -1149,9 +1150,9 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	   If the LHS of the compound reference is not a regular variable,
 	 recurse to keep looking for more operands in the subexpression.  */
 	else if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
-	  add_stmt_operand (expr_p, s_ann, flags /*& ~opf_kill_def*/); 
+	  add_stmt_operand (expr_p, s_ann, flags & ~opf_kill_def); 
 	else
-	  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags /*& ~opf_kill_def*/);
+	  get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags & ~opf_kill_def);
 	
 	if (code == COMPONENT_REF)
 	  get_expr_operands (stmt, &TREE_OPERAND (expr, 2), opf_none);
@@ -1187,7 +1188,6 @@ get_expr_operands (tree stmt, tree *expr_p, int flags)
 	  op = TREE_OPERAND (expr, 0);
 	if (TREE_CODE (op) == ARRAY_REF
 	    || TREE_CODE (op) == ARRAY_RANGE_REF
-	    || TREE_CODE (op) == COMPONENT_REF
 	    || TREE_CODE (op) == REALPART_EXPR
 	    || TREE_CODE (op) == IMAGPART_EXPR)
 	  subflags = opf_is_def;
@@ -1652,7 +1652,7 @@ note_addressable (tree var, stmt_ann_t s_ann)
   
   /* We take the address of all the fake variables, plus the real ones.  */
   if (TREE_CODE (var) == COMPONENT_REF 
-      && (vars = get_fake_vars_for_component_ref (var)))
+      && (vars = get_fake_vars_for_component_ref (var, NULL)))
     {
       tree v;
       int i;

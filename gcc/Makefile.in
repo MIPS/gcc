@@ -929,7 +929,8 @@ OBJS-common = \
  varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
  rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o          \
- lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-structalias.o
+ lambda-trans.o	lambda-code.o tree-loop-linear.o tree-ssa-structalias.o    
+ 
 
 OBJS-md = $(out_object_file)
 OBJS-archive = $(EXTRA_OBJS) $(host_hook_obj) tree-inline.o		   \

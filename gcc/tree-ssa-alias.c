@@ -1012,8 +1012,10 @@ compute_flow_insensitive_aliasing (struct alias_info *ai)
 		  VEC_free (tree_on_heap, vars);
 		  
 		}
-	      /* XXX: Maybe should be in else clause */
-	      add_may_alias (tag, var);
+	      else
+		{
+		  add_may_alias (tag, var);
+		}
 
 	      /* Update the total number of virtual operands due to
 		 aliasing.  Since we are adding one more alias to TAG's
@@ -1938,8 +1940,10 @@ add_pointed_to_var (struct alias_info *ai, tree ptr, tree value)
   else 
     pt_var = addrop;
 
+  /* If this is a component_ref, see if we can get a smaller number of
+     variables to take the address of.  */
   if (TREE_CODE (addrop) == COMPONENT_REF
-      && (vars = get_fake_vars_for_component_ref (addrop)))
+      && (vars = get_fake_vars_for_component_ref (addrop, NULL)))
     {    
       tree v;
       int i;
@@ -2625,6 +2629,11 @@ bitpos_of_field (const tree fdecl)
     + tree_low_cst (DECL_FIELD_BIT_OFFSET (fdecl), 1);
 }
 
+/* Given a TYPE, and a vector of field offsets FIELDSTACK, push all the fields
+   of TYPE onto fieldstack, recording their offsets along the way.
+   OFFSET is used to keep track of the offset in this entire structure, rather
+   than just the immediately containing structure.  */
+
 static void
 push_fields_onto_fieldstack (tree type, VEC(fieldoff_t) **fieldstack, 
 			     unsigned HOST_WIDE_INT offset)
@@ -2678,6 +2687,11 @@ push_fields_onto_fieldstack (tree type, VEC(fieldoff_t) **fieldstack,
 	}
     }
 }
+
+/* This structure represents a fake variable used to represent some part of a
+   structure or aggregate. All the fake variables for a given aggregate are
+   linked together in a single linked list.  */
+
 typedef struct subvar
 {
   tree var;
@@ -2686,13 +2700,18 @@ typedef struct subvar
   struct subvar *next;
 } *subvar_t;
 
+/* This structure is used in the hash table that maps between variables and
+   their associated fake variables.  */
 typedef struct var_subvar
 {
   tree var;
   subvar_t subvars;
 } *var_subvar_t;
 
+/* Hash table that maps between the variables and the fake variables */
 static htab_t subvars_for_var;
+
+/* Hash P and return the hash value.  */
 
 static hashval_t
 var_subvar_hash (const void *p)
@@ -2700,6 +2719,8 @@ var_subvar_hash (const void *p)
   const var_subvar_t vs = (var_subvar_t) p;
   return htab_hash_pointer (vs->var);
 }
+
+/* Free a given var_subvar structure, including all of it's subvars.   */
 
 static void
 var_subvar_free (void *p)
@@ -2720,7 +2741,8 @@ var_subvar_free (void *p)
   free (vs);  
 }
 
-  
+/* Return true if P! and P2 are for the same fake variable.  */  
+
 static int
 var_subvar_eq (const void *p1, const void *p2)
 {
@@ -2728,6 +2750,10 @@ var_subvar_eq (const void *p1, const void *p2)
   const var_subvar_t vs2 = (var_subvar_t) p2;
   return vs1->var == vs2->var;
 }
+
+/* Given a real variable VAR, lookup and return the list of fake variables for
+   it, or NULL, if there are none.  */
+
 static subvar_t
 lookup_subvars_for_var (tree var)
 {
@@ -2739,6 +2765,10 @@ lookup_subvars_for_var (tree var)
     return pair->subvars;  
   return NULL;
 }
+
+/* Given a real variable VAR, lookup or create the list of fake variables for
+   it.
+   Return a pointer to the list of fake variables.  */
 
 static subvar_t *
 get_subvars_for_var (tree var)
@@ -2758,6 +2788,9 @@ get_subvars_for_var (tree var)
   return &new_pair->subvars;    
 }
 
+/* Given an aggregate VAR, create the fake variables that represent it's
+   fields.  */
+
 static void
 create_overlap_variables_for (tree var)
 {
@@ -2769,6 +2802,9 @@ create_overlap_variables_for (tree var)
       fieldoff_t fo;
       bool notokay = false;
       int i;
+     
+      /* Not all fields have DECL_SIZE set for some reason.  Also, we can't
+	 handle variable sized fields.  */
       for (i = 0; VEC_iterate (fieldoff_t, fieldstack, i, fo); i++)
 	{
 	  if (!DECL_SIZE (fo->field) 
@@ -2778,15 +2814,18 @@ create_overlap_variables_for (tree var)
 	      break;
 	    }
 	}
+      /* Cleanup after ourselves if we can't create overlap variables.  */
       if (notokay)
 	{
 	  while (VEC_length (fieldoff_t, fieldstack) != 0)
 	    {
 	      fo = VEC_pop (fieldoff_t, fieldstack);
 	      free (fo);
-	      return;
 	    }
+	  VEC_free (fieldoff_t, fieldstack);
+	  return;
 	}
+      /* Otherwise, create the variables.  */
       subvars = get_subvars_for_var (var);
       while (VEC_length (fieldoff_t, fieldstack) != 0)
 	{
@@ -2815,11 +2854,15 @@ create_overlap_variables_for (tree var)
 
 	  add_referenced_tmp_var (sv->var);
 	  *subvars = sv;
+	  free (fo);
 	}
     }
   
   VEC_free (fieldoff_t, fieldstack);
 }
+
+/* Create structure field variables for structures used in this function.  */
+
 static void
 create_structure_vars (void)
 {
@@ -2842,6 +2885,8 @@ create_structure_vars (void)
     }
 }
 
+/* Return true if REF, a component_ref, has an ARRAY_REF somewhere in it.  */
+
 static bool
 ref_contains_array_ref (tree ref)
 {
@@ -2854,16 +2899,21 @@ ref_contains_array_ref (tree ref)
   return false;
 }
 
+/* Given a real variable VAR, return a vector of trees containing the fake
+   variables for VAR.  */
+
 VEC(tree_on_heap) *
 get_fake_vars_for_var (tree var)
 {
   VEC(tree_on_heap) *result = NULL;
   subvar_t subvars = lookup_subvars_for_var (var);
   subvar_t sv = subvars;
-  
+
+  gcc_assert (SSA_VAR_P (var));  
+
   if (subvars_for_var == NULL)
     return NULL;
-  gcc_assert (SSA_VAR_P (var));
+
   while (sv)
     {
       VEC_safe_push (tree_on_heap, result, sv->var);
@@ -2872,8 +2922,13 @@ get_fake_vars_for_var (tree var)
   return result;
 }
 
+/* Given a REF, return the list of fake variables it can access.
+   OKAY_FOR_KILLDEF is a boolean that will be set to true if we know exactly
+   what variables this component_ref is going to touch.  This isn't true if we
+   have overlaps, or return the conservative answer of every fake variable.  */
+
 VEC(tree_on_heap) *
-get_fake_vars_for_component_ref (tree ref)
+get_fake_vars_for_component_ref (tree ref, bool *okay_for_killdef)
 {
   VEC(tree_on_heap) *result = NULL;
   HOST_WIDE_INT bitsize;
@@ -2886,6 +2941,8 @@ get_fake_vars_for_component_ref (tree ref)
     return NULL;
   
   gcc_assert (!SSA_VAR_P (ref));
+  if (okay_for_killdef)
+    *okay_for_killdef = false;
 
   if (ref_contains_array_ref (ref))
     return result;
@@ -2898,16 +2955,29 @@ get_fake_vars_for_component_ref (tree ref)
     {
       subvar_t subvars = lookup_subvars_for_var (ref);
       subvar_t sv = subvars;
+      bool overlap = false;
       while (sv)
 	{
-	  if (bitpos >= sv->offset && bitpos < (sv->offset + sv->size))
-	    VEC_safe_push (tree_on_heap, result, sv->var);
+	  if (bitpos == sv->offset && bitsize == sv->size)
+	    {
+	      VEC_safe_push (tree_on_heap, result, sv->var);
+	    }	 
+	  else if (bitpos >= sv->offset && bitpos < (sv->offset + sv->size))
+	    {
+	      VEC_safe_push (tree_on_heap, result, sv->var);
+	      overlap = true;
+	    }
 	  else if (bitpos < sv->offset 
 		   && (bitpos + bitsize > sv->offset))
-	    VEC_safe_push (tree_on_heap, result, sv->var);
+	    {
+	      VEC_safe_push (tree_on_heap, result, sv->var);
+	      overlap = true;
+	    }
 	    
 	  sv = sv->next;
 	}
+      if (!overlap && okay_for_killdef)
+	*okay_for_killdef = true;
     }
   else if (SSA_VAR_P (ref))    
     return get_fake_vars_for_var (ref);

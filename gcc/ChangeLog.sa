@@ -1,4 +1,34 @@
-2004-12-22 Daniel Berlin <dberlin@dberlin.org>
+2004-12-20 Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-flow.h (get_fake_vars_for_component_ref): Update prototype.
+	* tree-ssa-alias.c (compute_flow_insensitive_aliasing): Move
+	add_may_alias to else clause.
+	(add_pointed_to_var): Add comment.
+	(push_fields_onto_fieldstack): Ditto.
+	(var_subvar): Ditto.
+	(var_subvar_hash): Ditto.
+	(subvars_for_var): Ditto.
+	(var_subvar_free): Ditto.
+	(var_subvar_eq): Ditto.
+	(ref_contains_array_ref): Ditto.
+	(get_fake_vars_for_component_ref): Ditto.
+	(create_structure_vars): Ditto.
+	(lookup_subvars_for_var): Ditto.
+	(get_subvars_for_var): Ditto.
+	(create_overlap_variables_for): Ditto.
+	Fix bug in cleanup when we return false.
+	(get_fake_vars_for_component_ref): Add argument, okay_for_killdef.
+	Set it based on whether we have overlaps or conservative answers.
+	Update callers.
+	* tree-ssa-operands.c (finalize_ssa_v_must_defs): Comment out
+	assert for now.
+	(build_ssa_operands): COMPONENT_REF's are now presumptively
+	kill-defs.
+	(get_expr_operands): Don't use & ~opf_kill_def all the time.
+	If okay_for_killdef, don't clear opf_kill_def, but if not okay, or
+	we recurse, clear it.
+	
+2004-12-19 Daniel Berlin <dberlin@dberlin.org>
 
 	* tree-ssa-alias.c: Include vec.h.
 	(get_fake_vars_for_var): New function.
