@@ -1,3 +1,8 @@
+2004-06-09  Michael Koch  <konqueror@gmx.de>
+
+	* javax/swing/ImageIcon.java
+	(ImageIcon): Added missing constructor.
+
 2004-06-08  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/JToggleButton.java

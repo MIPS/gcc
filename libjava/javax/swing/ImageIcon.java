@@ -62,6 +62,10 @@ public class ImageIcon implements Icon, Serializable
 	this(s, s);
     }
 
+  public ImageIcon(Image image)
+  {
+  }
+
   public ImageIcon(String file,
 	      String descr)
     {
