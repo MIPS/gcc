@@ -1586,6 +1586,7 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
   _gcc_COMPUTE_GAS_VERSION
   rm -f as$host_exeext
   $symbolic_link ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
+  gcc_cv_as=./as$host_exeext
   in_tree_gas_is_elf=no
   if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      || (grep 'obj_format = multi' ../gas/Makefile \
@@ -1696,7 +1697,7 @@ elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
 	for f in $gcc_cv_ld_bfd_srcdir/configure $gcc_cv_ld_gld_srcdir/configure $gcc_cv_ld_gld_srcdir/configure.in $gcc_cv_ld_gld_srcdir/Makefile.in
 	do
 changequote(,)dnl
-		gcc_cv_gld_version=`grep '^VERSION=[0-9]*\.[0-9]*' $f`
+		gcc_cv_gld_version=`sed -n -e 's/^[[ 	]]*\(VERSION=[[0-9]]*\.[[0-9]]*.*\)/\1/p' < $f`
 changequote([,])dnl
 		if test x$gcc_cv_gld_version != x; then
 			break
@@ -1709,6 +1710,7 @@ changequote([,])dnl
 	rm -f collect-ld$host_exeext
 	$symbolic_link ../ld/ld-new$host_exeext collect-ld$host_exeext \
 		2>/dev/null
+	gcc_cv_ld=./collect-ld$host_exeext
 fi
 
 if test "x$gcc_cv_ld" = x; then
