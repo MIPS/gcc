@@ -309,8 +309,6 @@ static void leaf_renumber_regs	PROTO((rtx));
 #ifdef HAVE_cc0
 static int alter_cond		PROTO((rtx));
 #endif
-
-extern char *getpwd ();
 
 /* Initialize data in final at the beginning of a compilation.  */
 
@@ -3095,6 +3093,7 @@ alter_subreg (x)
 
   if (GET_CODE (y) == REG)
     {
+      int regno;
       /* If the word size is larger than the size of this register,
 	 adjust the register number to compensate.  */
       /* ??? Note that this just catches stragglers created by/for
@@ -3102,13 +3101,14 @@ alter_subreg (x)
 	 earlier, or kept _all_ subregs until now and eliminate
 	 gen_lowpart and friends.  */
 
-      PUT_CODE (x, REG);
 #ifdef ALTER_HARD_SUBREG
-      REGNO (x) = ALTER_HARD_SUBREG(GET_MODE (x), SUBREG_WORD (x),
-				    GET_MODE (y), REGNO (y));
+      regno = ALTER_HARD_SUBREG(GET_MODE (x), SUBREG_WORD (x),
+				GET_MODE (y), REGNO (y));
 #else
-      REGNO (x) = REGNO (y) + SUBREG_WORD (x);
+      regno = REGNO (y) + SUBREG_WORD (x);
 #endif
+      PUT_CODE (x, REG);
+      REGNO (x) = regno;
       /* This field has a different meaning for REGs and SUBREGs.  Make sure
 	 to clear it!  */
       x->used = 0;

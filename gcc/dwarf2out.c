@@ -2022,8 +2022,6 @@ dwarf2out_frame_finish ()
 /* And now, the support for symbolic debugging information.  */
 #ifdef DWARF2_DEBUGGING_INFO
 
-extern char *getpwd PROTO((void));
-
 /* NOTE: In the comments in this file, many references are made to
    "Debugging Information Entries".  This term is abbreviated as `DIE'
    throughout the remainder of this file.  */
@@ -2222,7 +2220,6 @@ limbo_die_node;
 
 extern int flag_traditional;
 extern char *version_string;
-extern char *language_string;
 
 /* Fixed size portion of the DWARF compilation unit header.  */
 #define DWARF_COMPILE_UNIT_HEADER_SIZE (2 * DWARF_OFFSET_SIZE + 3)
