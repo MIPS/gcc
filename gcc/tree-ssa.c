@@ -846,6 +846,13 @@ kill_redundant_phi_nodes (void)
 	  ver = SSA_NAME_VERSION (var);
 	  ssa_names[ver] = var;
 
+	  if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (var))
+	    {
+	      /* Prevent copy propagation from replacing this ssa name.  */
+	      raise_value (phi, var, eq_to);
+	      continue;
+	    }
+
 	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
 	    {
 	      t = PHI_ARG_DEF (phi, i);
@@ -860,12 +867,18 @@ kill_redundant_phi_nodes (void)
 	      aver = SSA_NAME_VERSION (t);
 	      ssa_names[aver] = t;
 
+	      /* If the argument is associated with an abnormal edge,
+		 we cannot allow it being copy propagated.  */
+	      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (t))
+		{
+		  raise_value (phi, var, eq_to);
+		  break;
+		}
+
 	      /* If the defining statement for this argument is not a
-		 phi node or the argument is associated with an abnormal
-		 edge, then we need to recursively start the forward
+		 phi node, we need to recursively start the forward
 		 dataflow starting with PHI.  */
-	      if (TREE_CODE (stmt) != PHI_NODE
-		  || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (t))
+	      if (TREE_CODE (stmt) != PHI_NODE)
 		{
 		  eq_to[aver] = t;
 		  raise_value (phi, t, eq_to);

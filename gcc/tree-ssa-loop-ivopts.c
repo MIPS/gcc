@@ -1186,6 +1186,9 @@ get_var_def (struct ivopts_data *data, tree var, tree *base, tree *step)
       return true;
     }
 
+  if (TREE_CODE (var) != SSA_NAME)
+    return false;
+
   iv = get_iv (data, var);
   if (!iv)
     return false;

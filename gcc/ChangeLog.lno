@@ -1,5 +1,17 @@
 2004-03-31  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* tree-into-ssa.c (ssa_rewrite_initialize_block): Update
+	SSA_NAME_OCCURS_IN_ABNORMAL_PHI.
+	(ssa_rewrite_phi_arguments): Ditto.
+	* tree-ssa.c (kill_redundant_phi_nodes): Prevent replacing
+	ssa names that occur in abnormal phi nodes.
+	* tree-ssa-loop-ivopts.c (get_var_def): Handle non-invariant
+	non-ssa name operands.
+	* java/decl.c (java_init_decl_processing): Initialize
+	long_integer_type_node.
+
+2004-03-31  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* tree-ssa-loop-ivopts.c (idx_find_step): Prevent misscompilation
 	in case the index overflows.
 

@@ -737,9 +737,16 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
   struct rewrite_block_data *bd
     = (struct rewrite_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
   bitmap names_to_rename = walk_data->global_data;
+  edge e;
+  bool abnormal_phi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
+
+  for (e = bb->pred; e; e = e->pred_next)
+    if (e->flags & EDGE_ABNORMAL)
+      break;
+  abnormal_phi = (e != NULL);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -752,6 +759,9 @@ ssa_rewrite_initialize_block (struct dom_walk_data *walk_data, basic_block bb)
 	{
 	  new_name = duplicate_ssa_name (result, phi);
 	  PHI_RESULT (phi) = new_name;
+
+	  if (abnormal_phi)
+	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (new_name) = 1;
 	}
       else
 	new_name = result;
@@ -817,6 +827,8 @@ ssa_rewrite_phi_arguments (struct dom_walk_data *walk_data, basic_block bb)
 	    continue;
 
 	  *op = get_reaching_def (*op);
+	  if (e->flags & EDGE_ABNORMAL)
+	    SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*op) = 1;
 	}
     }
 }
