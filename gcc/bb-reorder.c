@@ -546,9 +546,12 @@ find_traces_1_round (branch_th, exec_th, traces, n_traces, round, heap,
 		}
 	      else if (RBI (best_edge->dest)->visited)
 		{
-		  /* ??? Why disqualify first/last BB?  This should be already
-		     checked by cfg_layout_can_duplicate_bb_p.  */
-		  if (best_edge->dest->index > 0 
+		  /* We don't want to insert something before first BB of the
+		     function.  */
+		  if (best_edge->dest != ENTRY_BLOCK_PTR->next_bb
+		      /* start_of_trace is not initialized for new blocks,
+		         but this is not problem, since new blocks are not
+		         first blocks of any trace anyway.  */
 		      && best_edge->dest->index < original_last_basic_block
 		      && start_of_trace[best_edge->dest->index] >= 0)
 		    {
