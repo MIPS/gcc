@@ -1,3 +1,21 @@
+2001-07-06  Michael Matz <matzmich@cs.tu-berlin.de>
+ 
+        This makes the whole SPECint2000 (besides eon) work.
+ 
+        * ra.c : (struct bb_begin_info): New.
+        (visited): Remove.
+        (live_in): Before processing predecessors of a block, check if that
+        wasn't already done.
+        Remember use-undefined over multiple predecessors blocks.
+        (build_web_parts_and_conflicts): Don't allocate/free visited.
+        Allocate and free a bb_begin_info entry for all basic blocks.
+ 
+        * reload.c : (push_reload): Don't use REG_DEAD notes for finding
+        a reg_rtx for input reloads.
+ 
+        * reload1.c : (scan_paradoxical_subregs): Commenting wrongness of
+        reg_max_ref_width[] setting.
+
 2001-07-05  Michael Matz <matzmich@cs.tu-berlin.de>
  
 	* ra.c : (copy_insn_p): Bitfield extraction are no simple copy

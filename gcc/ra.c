@@ -46,17 +46,18 @@
    * handle REG_NO_CONFLICTS blocks correctly (the current ad hoc approach
      might miss some conflicts due to insns which only seem to be in a 
      REG_NO_CONLICTS block)
-   * we really _need_ to handle SUBREGs as only taking one hardreg.
+     -- Don't necessary anymore, I believe, because SUBREG tracking is
+     implemented.
    * create definitions of ever-life regs at the beginning of
      the insn chain
    * create webs for all hardregs, not just those actually defined
      (so we later can use that to implement every constraint)
-   * insert only one spill per insn and use/def
    * insert loads as soon, stores as late as possile
    * insert spill insns as outward as possible (either looptree, or LCM)
    * reuse stack-slots
    * use the frame-pointer, when we can
-   * delete coalesced insns
+   * delete coalesced insns.  Partly done.  The rest can only go, when we get
+     rid of reload.
    * don't insert hard-regs, but a limited set of pseudo-reg
      in emit_colors, and setup reg_renumber accordingly (done, but this
      needs reload, which I want to go away)
@@ -64,13 +65,6 @@
      is possible, as we don't use global liveness
    * don't destroy coalescing information completely when spilling
    * use the constraints from asms
-   * correctly handle SUBREG as being one hardreg on it's
-     own, to handle such things:
-     (set (subreg:SI (reg:DI 40) 0) (...))
-     (set (reg:SI 41) (...)) 
-     where it's clear from constraints, that 40 should go to
-     0 and 41 to 1.  For now they conflict for the code below, although
-     they don't in reality.
    * implement spill coalescing/propagation
    * implement optimistic coalescing
   */
@@ -364,11 +358,13 @@ static sbitmap igraph;
    conflicting webs, were only parts of them are in conflict.  */
 static sbitmap sup_igraph;
 
-/* XXX use Briggs sparse bitset, or eliminate visited alltogether (by 
-   marking only block ends; this would work, as we also use
-   visit_trace[] for a similar thing.  */
+struct bb_begin_info
+{
+  unsigned int pass;
+  unsigned HOST_WIDE_INT undefined;
+  void *old_aux;
+};
 static unsigned int visited_pass;
-static unsigned int *visited;
 static sbitmap move_handled;
 
 static struct web_part *web_parts;
@@ -952,7 +948,8 @@ live_out_1 (df, use, insn)
 		       not be colored in a way which would conflict with
 		       the USE.  This is only true for partial overlap,
 		       because only then the DEF and USE have bits in common,
-		       which makes the DEF move, if the USE moves.
+		       which makes the DEF move, if the USE moves, making them
+		       aligned.
 		       If they have no bits in common (lap == -1), they are
 		       really independent.  Therefore we there make a
 		       conflict.  */
@@ -1035,7 +1032,6 @@ live_in (df, use, insn)
      rtx insn;
 {
   unsigned int loc_vpass = visited_pass;
-  unsigned int *loc_v = visited;
 
   /* Note, that, even _if_ we are called with use->wp a root-part, this might
      become non-root in the for() loop below (due to live_out() unioning
@@ -1044,25 +1040,36 @@ live_in (df, use, insn)
   while (1)
     {
       int uid = INSN_UID (insn);
+      basic_block bb = BLOCK_FOR_INSN (insn);
       rtx p;
-      if (loc_v[uid] == loc_vpass)
-	return;
-      loc_v[uid] = loc_vpass;
       number_seen[uid]++;
 
       p = prev_real_insn (insn);
       if (!p)
 	return;
-      if (BLOCK_FOR_INSN (insn) != BLOCK_FOR_INSN (p))
+      if (bb != BLOCK_FOR_INSN (p))
 	{
 	  edge e;
-	  /* All but the last predecessor are handled recursively.  */
-	  for (e = BLOCK_FOR_INSN (insn)->pred; e && e->pred_next;
-	       e = e->pred_next)
-	    if (live_out (df, use, e->src->end))
-	      live_in (df, use, e->src->end);
-	  if (!e)
+	  unsigned HOST_WIDE_INT undef = use->undefined;
+	  struct bb_begin_info *info = (struct bb_begin_info *)bb->aux;
+	  if ((e = bb->pred) == NULL)
 	    return;
+	  /* We now check, if we already traversed the predecessors of this
+	     block for the current pass and the current set of undefined
+	     bits.  If yes, we don't need to check the predecessors again.
+	     I.e. conceptually this information is tagged to the first
+	     insn of a basic block.  */
+	  if (info->pass == loc_vpass && (undef & ~info->undefined) == 0)
+	    return;
+	  info->pass = loc_vpass;
+	  info->undefined = undef;
+	  /* All but the last predecessor are handled recursively.  */
+	  for (; e->pred_next; e = e->pred_next)
+	    {
+	      if (live_out (df, use, e->src->end))
+	        live_in (df, use, e->src->end);
+	      use->undefined = undef;
+	    }
 	  p = e->src->end;
 	}
       if (live_out (df, use, p))
@@ -1115,6 +1122,7 @@ build_web_parts_and_conflicts (df)
 {
   struct df_link *link;
   struct curr_use use;
+  int b;
 
   /* Setup copy cache, for copy_insn_p ().  */
   copy_cache = (struct copy_p_cache *)
@@ -1122,8 +1130,17 @@ build_web_parts_and_conflicts (df)
   number_seen = (int *) xcalloc (get_max_uid (), sizeof (int));
   visit_trace = (struct visit_trace *) xcalloc (get_max_uid (),
 					      sizeof (visit_trace[0]));
-  visited = (unsigned int *) xcalloc (get_max_uid (), sizeof (unsigned int));
 
+  for (b = 0; b < n_basic_blocks + 2; b++)
+    {
+      basic_block bb = (b == n_basic_blocks) ? ENTRY_BLOCK_PTR :
+	  (b == n_basic_blocks + 1) ? EXIT_BLOCK_PTR :
+	  BASIC_BLOCK (b);
+      struct bb_begin_info *info = (struct bb_begin_info *) xmalloc (sizeof
+								     *info);
+      info->old_aux = bb->aux;
+      bb->aux = (void *)info;
+    }
   /* Here's the main loop.
      It goes through all insn's, connects web parts along the way, notes
      conflicts between webparts, and remembers move instructions.  */
@@ -1145,13 +1162,20 @@ build_web_parts_and_conflicts (df)
 	}
 
   dump_number_seen ();
-  free (visited);
+  for (b = 0; b < n_basic_blocks + 2; b++)
+    {
+      basic_block bb = (b == n_basic_blocks) ? ENTRY_BLOCK_PTR :
+	  (b == n_basic_blocks + 1) ? EXIT_BLOCK_PTR :
+	  BASIC_BLOCK (b);
+      struct bb_begin_info *info = (struct bb_begin_info *) bb->aux;
+      bb->aux = info->old_aux;
+      free (info);
+    }
   free (visit_trace);
   free (number_seen);
   free (copy_cache);
   /* Catch prohibited uses of copy_insn_p () early.  */
   copy_cache = NULL;
-  visited = NULL;
 }
 
 /* Handle tricky asm insns.  */

@@ -1461,6 +1461,15 @@ push_reload (in, out, inloc, outloc, class,
 	if (REG_NOTE_KIND (note) == REG_DEAD
 	    && GET_CODE (XEXP (note, 0)) == REG
 	    && (regno = REGNO (XEXP (note, 0))) < FIRST_PSEUDO_REGISTER
+	    /* We can't do this with the new regalloc.  A REG_DEAD note
+	       does not mean, that the hardreg really dies here.  It meant,
+	       that the pseudo dies here.  Still reg_renumber[] was set up
+	       for this pseudo, so it was included in the REG_DEAD note
+	       and now it looks like the hardreg dies.  I'm not sure, what
+	       the old allocator did.  Either for those pseudos it was
+	       reg_renumber[]==-1, or there were no REG_DEAD notes for these.
+	       */
+            && 0
 	    && reg_mentioned_p (XEXP (note, 0), in)
 	    && ! refers_to_regno_for_reload_p (regno,
 					       (regno

@@ -3772,6 +3772,8 @@ scan_paradoxical_subregs (x)
     case SUBREG:
       if (GET_CODE (SUBREG_REG (x)) == REG
 	  && GET_MODE_SIZE (GET_MODE (x)) > GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
+	/* XXX this is not calculating the max width, but instead simply
+	   overwriting it.  (matz) */
 	reg_max_ref_width[REGNO (SUBREG_REG (x))]
 	  = GET_MODE_SIZE (GET_MODE (x));
       return;
