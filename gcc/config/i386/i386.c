@@ -3819,8 +3819,9 @@ ix86_expand_fp_compare (code, op0, op1, unordered)
   if (TARGET_IEEE_FP)
     unordered = 1;
 
-  /* All of the unordered compare instructions only work on registers.  */
-  if (unordered)
+  /* All of the unordered compare instructions only work on registers.
+     The same is true of the XFmode compare instructions.  */
+  if (unordered || GET_MODE (op0) == XFmode)
     {
       op0 = force_reg (GET_MODE (op0), op0);
       op1 = force_reg (GET_MODE (op1), op1);

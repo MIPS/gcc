@@ -1,3 +1,8 @@
+1999-07-01  Richard Henderson  <rth@cygnus.com>
+
+	* i386.c (ix86_expand_fp_compare): Force XFmode compare operands
+	into registers.
+
 1999-06-08  Richard Henderson  <rth@cygnus.com>
 
 	* loop.c (loop_emit_jump_insn_before): Return the jump insn.
