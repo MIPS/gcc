@@ -397,8 +397,9 @@ find_traces_1_round (branch_th, exec_th, count_th, traces, n_traces, round,
 	fprintf (rtl_dump_file, "Getting bb %d\n", bb->index);
 
       /* If the BB's frequency is too low send BB to the next round.  */
-      if (bb->frequency < exec_th || bb->count < count_th
-	  || ((round < N_ROUNDS - 1) && probably_never_executed_bb_p (bb)))
+      if (round < N_ROUNDS - 1
+	  && (bb->frequency < exec_th || bb->count < count_th
+	      || probably_never_executed_bb_p (bb)))
 	{
 	  int key = bb_to_key (bb);
 	  bb_heap[bb->index] = new_heap;
