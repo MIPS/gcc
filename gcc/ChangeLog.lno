@@ -1,3 +1,8 @@
+2004-09-16  Daniel Berlin  <dberlin@dberlin.org>
+
+	* lambda-code.c (perfect_nestify): Update dominators properly,
+	remove call to calculate_dominance_info.
+
 2004-09-15  Daniel Berlin  <dberlin@dberlin.org>
 
 	* lambda-code.c (perfect_nestify): Factor out test whether

@@ -2205,7 +2205,12 @@ perfect_nestify (struct loops *loops,
   add_bb_to_loop (bodybb, newloop);
   add_bb_to_loop (headerbb, newloop);
   add_bb_to_loop (preheaderbb, olddest->loop_father);
-
+  set_immediate_dominator (CDI_DOMINATORS, bodybb, headerbb);
+  set_immediate_dominator (CDI_DOMINATORS, headerbb, preheaderbb);
+  set_immediate_dominator (CDI_DOMINATORS, preheaderbb, 
+			   loop->single_exit->src);
+  set_immediate_dominator (CDI_DOMINATORS, latchbb, bodybb);
+  set_immediate_dominator (CDI_DOMINATORS, olddest, bodybb);
   /* Create the new iv.  */
   ivvar = create_tmp_var (integer_type_node, "perfectiv");
   add_referenced_tmp_var (ivvar);
@@ -2262,8 +2267,6 @@ perfect_nestify (struct loops *loops,
 	}
     }
   free (bbs);
-  free_dominance_info (CDI_DOMINATORS);
-  calculate_dominance_info (CDI_DOMINATORS);
   flow_loops_find (loops, LOOP_ALL);
   return perfect_nest_p (loop);
 }
