@@ -427,6 +427,21 @@ target_char_cast (tree cst, char *p)
   return 0;
 }
 
+/* Similar to save_expr, but assumes that arbitrary code is not executed
+   in between the multiple evaluations.  In particular, we assume that a
+   non-addressable local variable will not be modified.  */
+
+static tree
+builtin_save_expr (tree exp)
+{
+  if (TREE_ADDRESSABLE (exp) == 0
+      && (TREE_CODE (exp) == PARM_DECL
+	  || (TREE_CODE (exp) == VAR_DECL && !TREE_STATIC (exp))))
+    return exp;
+
+  return save_expr (exp);
+}
+
 /* Given TEM, a pointer to a stack frame, follow the dynamic chain COUNT
    times to get the address of either a higher stack frame, or a return
    address located within it (depending on FNDECL_CODE).  */
@@ -1722,7 +1737,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
       /* Wrap the computation of the argument in a SAVE_EXPR, as we may
 	 need to expand the argument again.  This way, we will not perform
 	 side-effects more the once.  */
-      narg = save_expr (arg);
+      narg = builtin_save_expr (arg);
       if (narg != arg)
 	{
 	  arglist = build_tree_list (NULL_TREE, arg);
@@ -1853,8 +1868,8 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   if (! flag_errno_math || ! HONOR_NANS (mode))
     errno_set = false;
 
-  /* Alway stabilize the argument list.  */
-  narg = save_expr (arg1);
+  /* Always stabilize the argument list.  */
+  narg = builtin_save_expr (arg1);
   if (narg != arg1)
     {
       temp = build_tree_list (NULL_TREE, narg);
@@ -1863,7 +1878,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   else
     temp = TREE_CHAIN (arglist);
 
-  narg = save_expr (arg0);
+  narg = builtin_save_expr (arg0);
   if (narg != arg0)
     {
       arglist = tree_cons (NULL_TREE, narg, temp);
@@ -3385,8 +3400,8 @@ expand_builtin_strcmp (tree exp, rtx target, enum machine_mode mode)
       result = gen_reg_rtx (insn_mode);
 
     /* Stabilize the arguments in case gen_cmpstrsi fails.  */
-    arg1 = save_expr (arg1);
-    arg2 = save_expr (arg2);
+    arg1 = builtin_save_expr (arg1);
+    arg2 = builtin_save_expr (arg2);
 
     arg1_rtx = get_memory_rtx (arg1);
     arg2_rtx = get_memory_rtx (arg2);
@@ -3556,9 +3571,9 @@ expand_builtin_strncmp (tree exp, rtx target, enum machine_mode mode)
       result = gen_reg_rtx (insn_mode);
 
     /* Stabilize the arguments in case gen_cmpstrsi fails.  */
-    arg1 = save_expr (arg1);
-    arg2 = save_expr (arg2);
-    len = save_expr (len);
+    arg1 = builtin_save_expr (arg1);
+    arg2 = builtin_save_expr (arg2);
+    len = builtin_save_expr (len);
 
     arg1_rtx = get_memory_rtx (arg1);
     arg2_rtx = get_memory_rtx (arg2);
@@ -3628,7 +3643,7 @@ expand_builtin_strcat (tree arglist, rtx target, enum machine_mode mode)
 	      arglist = tree_cons (NULL_TREE, src, arglist);
 	      
 	      /* We're going to use dst more than once.  */
-	      dst = save_expr (dst);
+	      dst = builtin_save_expr (dst);
 
 	      /* Create strlen (dst).  */
 	      newdst =
@@ -5871,13 +5886,13 @@ fold_builtin_cabs (tree fndecl, tree arglist, tree type)
 	{
 	  tree rpart, ipart, result, arglist;
 
-	  arg = save_expr (arg);
+	  arg = builtin_save_expr (arg);
 
 	  rpart = fold (build1 (REALPART_EXPR, type, arg));
 	  ipart = fold (build1 (IMAGPART_EXPR, type, arg));
 
-	  rpart = save_expr (rpart);
-	  ipart = save_expr (ipart);
+	  rpart = builtin_save_expr (rpart);
+	  ipart = builtin_save_expr (ipart);
 
 	  result = fold (build (PLUS_EXPR, type,
 				fold (build (MULT_EXPR, type,

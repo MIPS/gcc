@@ -1,3 +1,10 @@
+2004-01-06  Richard Henderson  <rth@redhat.com>
+
+	* builtins.c (builtin_save_expr): New.
+	(expand_builtin_mathfn, expand_builtin_mathfn_2,
+	expand_builtin_strcmp, expand_builtin_strncmp,
+	expand_builtin_strcat, fold_builtin_cabs): Use it.
+
 2004-01-06  Jan Hubicka  <jh@suse.cz>
 
 	* fold-const.c (fold): Do not rebuild comparison when nothing
