@@ -1,5 +1,5 @@
 /* Generate attribute information (insn-attr.h) from machine description.
-   Copyright (C) 1991, 1994, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1994, 1996, 1998 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GNU CC.
@@ -20,8 +20,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#include <stdio.h>
 #include "hconfig.h"
+#include "system.h"
 #include "rtl.h"
 #include "obstack.h"
 
@@ -31,12 +31,18 @@ struct obstack *rtl_obstack = &obstack;
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
-extern void free PROTO((void *));
 extern rtx read_rtx PROTO((FILE *));
 
 char *xmalloc PROTO((unsigned));
-static void fatal ();
-void fancy_abort PROTO((void));
+
+#ifdef HAVE_VPRINTF
+void fatal PVPROTO((char *, ...));
+#else
+/* We must not provide any prototype here, even if ANSI C.  */
+void fatal PROTO(());
+#endif
+
+void fancy_abort ();
 
 /* A range of values.  */
 
@@ -213,6 +219,30 @@ xrealloc (ptr, size)
   return result;
 }
 
+#ifdef HAVE_VPRINTF
+
+void
+fatal VPROTO((char *s, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  char *s;
+#endif
+  va_list ap;
+
+  VA_START (ap, s);
+
+#ifndef ANSI_PROTOTYPES
+  s = va_arg (ap, char *);
+#endif
+
+  fprintf (stderr, "genattr: ");
+  vfprintf (stderr, s, ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  exit (FATAL_EXIT_CODE);
+}
+#else /* not HAVE_VPRINTF */
+
 static void
 fatal (s, a1, a2)
      char *s;
@@ -222,6 +252,7 @@ fatal (s, a1, a2)
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
+#endif /* not HAVE_VPRINTF */
 
 /* More 'friendly' abort that prints the line and file.
    config.h can #define abort fancy_abort if you like that sort of thing.  */

@@ -1,5 +1,5 @@
 /* Top level of GNU C compiler
-   Copyright (C) 1987, 88, 89, 92-7, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 89, 92-97, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -24,39 +24,9 @@ Boston, MA 02111-1307, USA.  */
    Error messages and low-level interface to malloc also handled here.  */
 
 #include "config.h"
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-#include <stdio.h>
+#include "system.h"
 #include <signal.h>
 #include <setjmp.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-
-#undef FLOAT
-#ifdef HAVE_SYS_PARAM_H
-#include <sys/param.h>
-#endif
-
-#undef FLOAT /* This is for hpux. They should change hpux.  */
-#undef FFS  /* Some systems define this in param.h.  */
-
-#ifdef TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# if HAVE_SYS_TIME_H
-# include <sys/time.h>
-# else
-#  include <time.h>
-#endif
-#endif
 
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
@@ -1234,12 +1204,13 @@ vnotice (file, msgid, ap)
   vfprintf (file, _(msgid), ap);
 #else
   {
-    HOST_WIDE_INT v1 = va_arg(ap, HOST_WIDE_INT);
-    HOST_WIDE_INT v2 = va_arg(ap, HOST_WIDE_INT);
-    HOST_WIDE_INT v3 = va_arg(ap, HOST_WIDE_INT);
-    HOST_WIDE_INT v4 = va_arg(ap, HOST_WIDE_INT);
-    HOST_WIDE_INT v5 = va_arg(ap, HOST_WIDE_INT);
-    HOST_WIDE_INT v6 = va_arg(ap, HOST_WIDE_INT);
+    HOST_WIDE_INT v1 = va_arg (ap, HOST_WIDE_INT);
+    HOST_WIDE_INT v2 = va_arg (ap, HOST_WIDE_INT);
+    HOST_WIDE_INT v3 = va_arg (ap, HOST_WIDE_INT);
+    HOST_WIDE_INT v4 = va_arg (ap, HOST_WIDE_INT);
+    HOST_WIDE_INT v5 = va_arg (ap, HOST_WIDE_INT);
+    HOST_WIDE_INT v6 = va_arg (ap, HOST_WIDE_INT);
+
     fprintf (file, _(msgid), v1, v2, v3, v4, v5, v6);
   }
 #endif
@@ -1248,14 +1219,14 @@ vnotice (file, msgid, ap)
 void
 notice VPROTO((char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   char *msgid;
 #endif
   va_list ap;
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   msgid = va_arg (ap, char *);
 #endif
 
@@ -1266,7 +1237,7 @@ notice VPROTO((char *msgid, ...))
 void
 fnotice VPROTO((FILE *file, char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   FILE *file;
   char *msgid;
 #endif
@@ -1274,7 +1245,7 @@ fnotice VPROTO((FILE *file, char *msgid, ...))
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   file = va_arg (ap, FILE *);
   msgid = va_arg (ap, char *);
 #endif
@@ -1354,10 +1325,11 @@ v_message_with_decl (decl, warn, msgid, ap)
 	      vfprintf (stderr, p + 2, ap);
 #else
 	      {
-		HOST_WIDE_INT v1 = va_arg(ap, HOST_WIDE_INT);
-		HOST_WIDE_INT v2 = va_arg(ap, HOST_WIDE_INT);
-		HOST_WIDE_INT v3 = va_arg(ap, HOST_WIDE_INT);
-		HOST_WIDE_INT v4 = va_arg(ap, HOST_WIDE_INT);
+		HOST_WIDE_INT v1 = va_arg (ap, HOST_WIDE_INT);
+		HOST_WIDE_INT v2 = va_arg (ap, HOST_WIDE_INT);
+		HOST_WIDE_INT v3 = va_arg (ap, HOST_WIDE_INT);
+		HOST_WIDE_INT v4 = va_arg (ap, HOST_WIDE_INT);
+
 		fprintf (stderr, p + 2, v1, v2, v3, v4);
 	      }
 #endif
@@ -1425,7 +1397,7 @@ v_error_with_file_and_line (file, line, msgid, ap)
 void
 error_with_file_and_line VPROTO((char *file, int line, char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   char *file;
   int line;
   char *msgid;
@@ -1434,7 +1406,7 @@ error_with_file_and_line VPROTO((char *file, int line, char *msgid, ...))
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   file = va_arg (ap, char *);
   line = va_arg (ap, int);
   msgid = va_arg (ap, char *);
@@ -1462,7 +1434,7 @@ v_error_with_decl (decl, msgid, ap)
 void
 error_with_decl VPROTO((tree decl, char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   tree decl;
   char *msgid;
 #endif
@@ -1470,7 +1442,7 @@ error_with_decl VPROTO((tree decl, char *msgid, ...))
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   decl = va_arg (ap, tree);
   msgid = va_arg (ap, char *);
 #endif
@@ -1501,7 +1473,7 @@ v_error_for_asm (insn, msgid, ap)
 void
 error_for_asm VPROTO((rtx insn, char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   rtx insn;
   char *msgid;
 #endif
@@ -1509,7 +1481,7 @@ error_for_asm VPROTO((rtx insn, char *msgid, ...))
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   insn = va_arg (ap, rtx);
   msgid = va_arg (ap, char *);
 #endif
@@ -1531,14 +1503,14 @@ verror (msgid, ap)
 void
 error VPROTO((char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   char *msgid;
 #endif
   va_list ap;
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   msgid = va_arg (ap, char *);
 #endif
 
@@ -1546,13 +1518,28 @@ error VPROTO((char *msgid, ...))
   va_end (ap);
 }
 
-/* Report a fatal error at the current line number.  */
+/* Report a fatal error at the current line number.   Allow a front end to
+   intercept the message.  */
+
+static void (*fatal_function) PROTO((char *, va_list));
+
+/* Set the function to call when a fatal error occurs.  */
+
+void
+set_fatal_function (f)
+     void (*f) PROTO((char *, va_list));
+{
+  fatal_function = f;
+}
 
 static void
 vfatal (msgid, ap)
      char *msgid;
      va_list ap;
 {
+   if (fatal_function != 0)
+     (*fatal_function) (_(msgid), ap);
+
   verror (msgid, ap);
   exit (FATAL_EXIT_CODE);
 }
@@ -1560,14 +1547,14 @@ vfatal (msgid, ap)
 void
 fatal VPROTO((char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   char *msgid;
 #endif
   va_list ap;
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   msgid = va_arg (ap, char *);
 #endif
 
@@ -1594,7 +1581,7 @@ v_warning_with_file_and_line (file, line, msgid, ap)
 void
 warning_with_file_and_line VPROTO((char *file, int line, char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   char *file;
   int line;
   char *msgid;
@@ -1603,7 +1590,7 @@ warning_with_file_and_line VPROTO((char *file, int line, char *msgid, ...))
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   file = va_arg (ap, char *);
   line = va_arg (ap, int);
   msgid = va_arg (ap, char *);
@@ -1633,7 +1620,7 @@ v_warning_with_decl (decl, msgid, ap)
 void
 warning_with_decl VPROTO((tree decl, char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   tree decl;
   char *msgid;
 #endif
@@ -1641,7 +1628,7 @@ warning_with_decl VPROTO((tree decl, char *msgid, ...))
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   decl = va_arg (ap, tree);
   msgid = va_arg (ap, char *);
 #endif
@@ -1674,7 +1661,7 @@ v_warning_for_asm (insn, msgid, ap)
 void
 warning_for_asm VPROTO((rtx insn, char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   rtx insn;
   char *msgid;
 #endif
@@ -1682,7 +1669,7 @@ warning_for_asm VPROTO((rtx insn, char *msgid, ...))
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   insn = va_arg (ap, rtx);
   msgid = va_arg (ap, char *);
 #endif
@@ -1704,14 +1691,14 @@ vwarning (msgid, ap)
 void
 warning VPROTO((char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   char *msgid;
 #endif
   va_list ap;
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   msgid = va_arg (ap, char *);
 #endif
 
@@ -1736,14 +1723,14 @@ vpedwarn (msgid, ap)
 void
 pedwarn VPROTO((char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   char *msgid;
 #endif
   va_list ap;
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   msgid = va_arg (ap, char *);
 #endif
 
@@ -1776,7 +1763,7 @@ v_pedwarn_with_decl (decl, msgid, ap)
 void
 pedwarn_with_decl VPROTO((tree decl, char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   tree decl;
   char *msgid;
 #endif
@@ -1784,7 +1771,7 @@ pedwarn_with_decl VPROTO((tree decl, char *msgid, ...))
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   decl = va_arg (ap, tree);
   msgid = va_arg (ap, char *);
 #endif
@@ -1809,7 +1796,7 @@ v_pedwarn_with_file_and_line (file, line, msgid, ap)
 void
 pedwarn_with_file_and_line VPROTO((char *file, int line, char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   char *file;
   int line;
   char *msgid;
@@ -1818,7 +1805,7 @@ pedwarn_with_file_and_line VPROTO((char *file, int line, char *msgid, ...))
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   file = va_arg (ap, char *);
   line = va_arg (ap, int);
   msgid = va_arg (ap, char *);
@@ -1848,14 +1835,14 @@ vsorry (msgid, ap)
 void
 sorry VPROTO((char *msgid, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   char *msgid;
 #endif
   va_list ap;
 
   VA_START (ap, msgid);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   msgid = va_arg (ap, char *);
 #endif
 
@@ -2236,7 +2223,7 @@ compile_file (name)
   if (flag_caller_saves)
     init_caller_save ();
 
-  /* How that we can emit RTL, see if the value of flag_regmove was
+  /* Now that we can emit RTL, see if the value of flag_regmove was
      defaulted from -O2 and, if so, set its proper default.  */
   if (flag_regmove == 2)
     flag_regmove = regmove_profitable_p ();
@@ -3244,12 +3231,14 @@ rest_of_compilation (decl)
       TIMEVAR (cse_time, reg_scan (insns, max_reg_num (), 1));
 
       if (flag_thread_jumps)
-	/* Hacks by tiemann & kenner.  */
 	TIMEVAR (jump_time, thread_jumps (insns, max_reg_num (), 1));
 
       TIMEVAR (cse_time, tem = cse_main (insns, max_reg_num (),
 					 0, cse_dump_file));
       TIMEVAR (cse_time, delete_dead_from_cse (insns, max_reg_num ()));
+
+      /* We are no longer anticipating cse in this function, at least.  */
+      cse_not_expected = 1;
 
       if (tem || optimize > 1)
 	TIMEVAR (jump_time, jump_optimize (insns, 0, 0, 0));
@@ -3336,6 +3325,7 @@ rest_of_compilation (decl)
       TIMEVAR (jump_time, reg_scan (insns, max_reg_num (), 0));
       TIMEVAR (jump_time, thread_jumps (insns, max_reg_num (), 0));
     }
+
   /* Dump rtl code after cse, if we are doing that.  */
 
   if (cse2_dump)
@@ -3366,15 +3356,12 @@ rest_of_compilation (decl)
 	       if (! quiet_flag)
 		 fflush (branch_prob_dump_file);
 	     });
-  /* We are no longer anticipating cse in this function, at least.  */
-
-  cse_not_expected = 1;
 
   /* Now we choose between stupid (pcc-like) register allocation
      (if we got the -noreg switch and not -opt)
      and smart register allocation.  */
 
-  if (optimize > 0)			/* Stupid allocation probably won't work */
+  if (optimize > 0)		/* Stupid allocation probably won't work */
     obey_regdecls = 0;		/* if optimizations being done.  */
 
   regclass_init ();

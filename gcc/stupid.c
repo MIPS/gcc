@@ -1,5 +1,5 @@
 /* Dummy data flow analysis for GNU compiler in nonoptimizing mode.
-   Copyright (C) 1987, 91, 94, 95, 96, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 91, 94, 95, 96, 97, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -43,7 +43,7 @@ Boston, MA 02111-1307, USA.  */
    and assigned hard regs in priority order.  */
 
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "regs.h"
@@ -528,8 +528,9 @@ stupid_mark_refs (x, insn)
 		  && REGNO_LAST_UID (regno) == INSN_UID (insn)
 		  && (code == CLOBBER || ! reg_mentioned_p (SET_DEST (x),
 							    SET_SRC (x))))
-		REG_NOTES (insn) = gen_rtx (EXPR_LIST, REG_UNUSED,
-					    SET_DEST (x), REG_NOTES (insn));
+		REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_UNUSED,
+						      SET_DEST (x),
+						      REG_NOTES (insn));
 	    }
 	}
 

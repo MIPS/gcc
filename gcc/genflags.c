@@ -1,8 +1,7 @@
 /* Generate from machine description:
-
    - some flags HAVE_... saying which simple standard instructions are
    available for this machine.
-   Copyright (C) 1987, 1991, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1991, 1995, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -22,8 +21,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#include <stdio.h>
 #include "hconfig.h"
+#include "system.h"
 #include "rtl.h"
 #include "obstack.h"
 
@@ -33,11 +32,17 @@ struct obstack *rtl_obstack = &obstack;
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
-extern void free ();
 extern rtx read_rtx ();
 
 char *xmalloc ();
-static void fatal ();
+
+#ifdef HAVE_VPRINTF
+void fatal PVPROTO((char *, ...));
+#else
+/* We must not provide any prototype here, even if ANSI C.  */
+void fatal PROTO(());
+#endif
+
 void fancy_abort ();
 
 /* Names for patterns.  Need to allow linking with print-rtl.  */
@@ -195,7 +200,31 @@ xrealloc (ptr, size)
   return result;
 }
 
-static void
+
+#ifdef HAVE_VPRINTF
+void
+fatal VPROTO((char *s, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  char *s;
+#endif
+  va_list ap;
+
+  VA_START (ap, s);
+
+#ifndef ANSI_PROTOTYPES
+  s = va_arg (ap, char *);
+#endif
+
+  fprintf (stderr, "genflags: ");
+  vfprintf (stderr, s, ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  exit (FATAL_EXIT_CODE);
+}
+#else /* not HAVE_VPRINTF */
+
+void
 fatal (s, a1, a2)
      char *s;
 {
@@ -204,6 +233,7 @@ fatal (s, a1, a2)
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
+#endif /* not HAVE_VPRINTF */
 
 /* More 'friendly' abort that prints the line and file.
    config.h can #define abort fancy_abort if you like that sort of thing.  */

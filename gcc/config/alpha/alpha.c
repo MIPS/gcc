@@ -21,7 +21,7 @@ Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -322,7 +322,7 @@ sext_add_operand (op, mode)
     return ((unsigned HOST_WIDE_INT) INTVAL (op) < 255
 	    || (unsigned HOST_WIDE_INT) (- INTVAL (op)) < 255);
 
-  return register_operand (op, mode);
+  return reg_not_elim_operand (op, mode);
 }
 
 /* Return 1 if OP is the constant 4 or 8.  */
@@ -763,8 +763,8 @@ get_aligned_mem (ref, paligned_mem, pbitnum)
   if (GET_CODE (base) == PLUS)
     offset += INTVAL (XEXP (base, 1)), base = XEXP (base, 0);
 
-  *paligned_mem = gen_rtx (MEM, SImode,
-			   plus_constant (base, offset & ~3));
+  *paligned_mem = gen_rtx_MEM (SImode,
+			       plus_constant (base, offset & ~3));
   MEM_IN_STRUCT_P (*paligned_mem) = MEM_IN_STRUCT_P (ref);
   MEM_VOLATILE_P (*paligned_mem) = MEM_VOLATILE_P (ref);
   RTX_UNCHANGING_P (*paligned_mem) = RTX_UNCHANGING_P (ref);
@@ -1628,9 +1628,9 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt)
 
   /* Store function address and CXT.  */
   addr = memory_address (Pmode, plus_constant (tramp, 16));
-  emit_move_insn (gen_rtx (MEM, Pmode, addr), fnaddr);
+  emit_move_insn (gen_rtx_MEM (Pmode, addr), fnaddr);
   addr = memory_address (Pmode, plus_constant (tramp, 24));
-  emit_move_insn (gen_rtx (MEM, Pmode, addr), cxt);
+  emit_move_insn (gen_rtx_MEM (Pmode, addr), cxt);
 
   /* Compute hint value.  */
   temp = force_operand (plus_constant (tramp, 12), NULL_RTX);
@@ -1641,18 +1641,18 @@ alpha_initialize_trampoline (tramp, fnaddr, cxt)
 
   /* Merge in the hint.  */
   addr = memory_address (SImode, plus_constant (tramp, 8));
-  temp1 = force_reg (SImode, gen_rtx (MEM, SImode, addr));
+  temp1 = force_reg (SImode, gen_rtx_MEM (SImode, addr));
   temp1 = expand_and (temp1, GEN_INT (0xffffc000), NULL_RTX);
   temp1 = expand_binop (SImode, ior_optab, temp1, temp, temp1, 1, OPTAB_WIDEN);
-  emit_move_insn (gen_rtx (MEM, SImode, addr), temp1);
+  emit_move_insn (gen_rtx_MEM (SImode, addr), temp1);
 
 #ifdef TRANSFER_FROM_TRAMPOLINE
-  emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__enable_execute_stack"),
+  emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__enable_execute_stack"),
 		     0, VOIDmode, 1, addr, Pmode);
 #endif
 
-  emit_insn (gen_rtx (UNSPEC_VOLATILE, VOIDmode,
-		      gen_rtvec (1, const0_rtx), 0));
+  emit_insn (gen_rtx_UNSPEC_VOLATILE (VOIDmode,
+				      gen_rtvec (1, const0_rtx), 0));
 }
 
 /* Do what is necessary for `va_start'.  The argument is ignored;
@@ -1722,7 +1722,7 @@ alpha_builtin_saveregs (arglist)
       dest = change_address (block, ptr_mode, XEXP (block, 0));
       emit_move_insn (dest, addr);
 
-      if (flag_check_memory_usage)
+      if (current_function_check_memory_usage)
 	emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
 			   dest, ptr_mode,
 			   GEN_INT (GET_MODE_SIZE (ptr_mode)),
@@ -1736,7 +1736,7 @@ alpha_builtin_saveregs (arglist)
 					    POINTER_SIZE/BITS_PER_UNIT));
       emit_move_insn (dest, argsize);
 
-      if (flag_check_memory_usage)
+      if (current_function_check_memory_usage)
 	emit_library_call (chkr_set_right_libfunc, 1, VOIDmode, 3,
 			   dest, ptr_mode,
 			   GEN_INT (GET_MODE_SIZE
@@ -1777,8 +1777,8 @@ alpha_return_addr ()
     {
       alpha_return_addr_rtx = ret = gen_reg_rtx (Pmode);
 
-      emit_insn_after (gen_rtx (SET, VOIDmode, ret,
-			        gen_rtx (REG, Pmode, REG_RA)),
+      emit_insn_after (gen_rtx_SET (VOIDmode, ret,
+				    gen_rtx_REG (Pmode, REG_RA)),
 		       get_insns ());
     }
 
@@ -1933,6 +1933,34 @@ alpha_sa_size ()
 
 #endif /* ! OPEN_VMS */
 
+/* Returns 1 if OP is a register which is not eliminable (i.e., not SP or FP).
+
+   This is used in the patterns used for the integer multiply-add
+   insn to avoid creating complex expressions that will cause trouble
+   during reload and need numerous additional patterns to be 
+   recognized.  */
+
+int
+reg_not_elim_operand (op, mode)
+      register rtx op;
+      enum machine_mode mode;
+{
+  if (op == frame_pointer_rtx || op == arg_pointer_rtx)
+    return 0;
+
+  return register_operand (op, mode);
+}
+
+/* Likewise, but allow 8 bit constants as well.  */
+
+int
+reg_not_elim_or_8bit_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  return reg_not_elim_operand (op, mode) || cint8_operand (op, mode);
+}
+
 /* Return 1 if this function can directly return via $26.  */
 
 int

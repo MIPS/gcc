@@ -1,5 +1,5 @@
 /* Generate code from machine description to extract operands from insn as rtl.
-   Copyright (C) 1987, 1991, 1992, 1993, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 91, 92, 93, 97, 1988 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -19,8 +19,9 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#include <stdio.h>
 #include "hconfig.h"
+#include "system.h"
+#include <stdio.h>
 #include "rtl.h"
 #include "obstack.h"
 #include "insn-config.h"
@@ -31,7 +32,6 @@ struct obstack *rtl_obstack = &obstack;
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
-extern void free ();
 extern rtx read_rtx ();
 
 /* Names for patterns.  Need to allow linking with print-rtl.  */
@@ -102,7 +102,12 @@ static void walk_rtx ();
 static void print_path ();
 char *xmalloc ();
 char *xrealloc ();
-static void fatal ();
+#ifdef HAVE_VPRINTF
+void fatal PVPROTO((char *, ...));
+#else
+/* We must not provide any prototype here, even if ANSI C.  */
+void fatal PROTO(());
+#endif
 static char *copystr ();
 static void mybzero ();
 void fancy_abort ();
@@ -364,7 +369,30 @@ xrealloc (ptr, size)
   return result;
 }
 
-static void
+#ifdef HAVE_VPRINTF
+void
+fatal VPROTO((char *s, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  char *s;
+#endif
+  va_list ap;
+
+  VA_START (ap, s);
+
+#ifndef ANSI_PROTOTYPES
+  s = va_arg (ap, char *);
+#endif
+
+  fprintf (stderr, "genextract: ");
+  vfprintf (stderr, s, ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  exit (FATAL_EXIT_CODE);
+}
+#else /* not HAVE_VPRINTF */
+
+void
 fatal (s, a1, a2)
      char *s;
 {
@@ -373,6 +401,7 @@ fatal (s, a1, a2)
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
+#endif /* not HAVE_VPRINTF */
 
 /* More 'friendly' abort that prints the line and file.
    config.h can #define abort fancy_abort if you like that sort of thing.  */
@@ -441,7 +470,7 @@ main (argc, argv)
 from the machine description file `md'.  */\n\n");
 
   printf ("#include \"config.h\"\n");
-  printf ("#include <stdio.h>\n");
+  printf ("#include \"system.h\"\n");
   printf ("#include \"rtl.h\"\n\n");
 
   /* This variable exists only so it can be the "location"

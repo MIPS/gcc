@@ -1,5 +1,5 @@
 /* Generate code from to output assembler insns as recognized from rtl.
-   Copyright (C) 1987, 88, 92, 94, 95, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 88, 92, 94, 95, 97, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -90,8 +90,8 @@ insn_template[24] to be "clrd %0", and insn_n_operands[24] to be 1.
 It would not make an case in output_insn_hairy because the template
 given in the entry is a constant (it does not start with `*').  */
 
-#include <stdio.h>
 #include "hconfig.h"
+#include "system.h"
 #include "rtl.h"
 #include "obstack.h"
 
@@ -111,7 +111,12 @@ extern void free ();
 extern rtx read_rtx ();
 
 char *xmalloc ();
-static void fatal ();
+#ifdef HAVE_VPRINTF
+void fatal PVPROTO((char *, ...));
+#else
+/* We must not provide any prototype here, even if ANSI C.  */
+void fatal PROTO(());
+#endif
 void fancy_abort ();
 static void error ();
 static void mybcopy ();
@@ -180,7 +185,7 @@ output_prologue ()
 from the machine description file `md'.  */\n\n");
 
   printf ("#include \"config.h\"\n");
-  printf ("#include <stdio.h>\n");
+  printf ("#include \"system.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"regs.h\"\n");
@@ -911,7 +916,30 @@ mybcopy (b1, b2, length)
     *b2++ = *b1++;
 }
 
-static void
+#ifdef HAVE_VPRINTF
+void
+fatal VPROTO((char *s, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  char *s;
+#endif
+  va_list ap;
+
+  VA_START (ap, s);
+
+#ifndef ANSI_PROTOTYPES
+  s = va_arg (ap, char *);
+#endif
+
+  fprintf (stderr, "genoutput: ");
+  vfprintf (stderr, s, ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  exit (FATAL_EXIT_CODE);
+}
+#else /* not HAVE_VPRINTF */
+
+void
 fatal (s, a1, a2, a3, a4)
      char *s;
 {
@@ -920,6 +948,7 @@ fatal (s, a1, a2, a3, a4)
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
+#endif /* not HAVE_VPRINTF */
 
 /* More 'friendly' abort that prints the line and file.
    config.h can #define abort fancy_abort if you like that sort of thing.  */

@@ -24,7 +24,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    instruction to avoid the move instruction.  */
 
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "recog.h"
@@ -60,10 +60,10 @@ enum operand_use {READ, WRITE, READWRITE};
 
 struct match
 {
-  char with[MAX_RECOG_OPERANDS];
+  int with[MAX_RECOG_OPERANDS];
   enum operand_use use[MAX_RECOG_OPERANDS];
-  char commutative[MAX_RECOG_OPERANDS];
-  char early_clobber[MAX_RECOG_OPERANDS];
+  int commutative[MAX_RECOG_OPERANDS];
+  int early_clobber[MAX_RECOG_OPERANDS];
 };
 
 static rtx next_insn_for_regmove	PROTO((rtx));
@@ -191,7 +191,7 @@ try_auto_increment (insn, inc_insn, inc_set, reg, increment, pre)
       if (! apply_change_group ())
 	return 0;
 
-      REG_NOTES (insn) = gen_rtx (EXPR_LIST, REG_INC, reg, REG_NOTES (insn));
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_INC, reg, REG_NOTES (insn));
 
       if (inc_set == 0)
 	{
@@ -818,6 +818,7 @@ find_matches (insn, matchp)
 	    break;
 
 	  case '0': case '1': case '2': case '3': case '4':
+	  case '5': case '6': case '7': case '8': case '9':
 	    c -= '0';
 	    if (c < operand_number && likely_spilled[c])
 	      break;
@@ -1410,8 +1411,8 @@ regmove_optimize (f, nregs, regmove_dump_file)
 		     >= GET_MODE_SIZE (GET_MODE (SUBREG_REG (dst))))
 		{
 		  src_subreg
-		    = gen_rtx (SUBREG, GET_MODE (SUBREG_REG (dst)),
-			       src, SUBREG_WORD (dst));
+		    = gen_rtx_SUBREG (GET_MODE (SUBREG_REG (dst)),
+				      src, SUBREG_WORD (dst));
 		  dst = SUBREG_REG (dst);
 		}
 
@@ -1762,9 +1763,16 @@ regmove_profitable_p ()
 	  if (i + 2 >= FIRST_PSEUDO_REGISTER)
 	    break;
 
-	  reg0 = gen_rtx (REG, insn_operand_mode[icode][0], i);
-	  reg1 = gen_rtx (REG, insn_operand_mode[icode][1], i + 1);
-	  reg2 = gen_rtx (REG, insn_operand_mode[icode][2], i + 2);
+	  reg0 = gen_rtx_REG (insn_operand_mode[icode][0], i);
+	  reg1 = gen_rtx_REG (insn_operand_mode[icode][1], i + 1);
+
+	  /* Use CONST_INT for a shift since some machines do odd things
+	     in the register case (e.g., PA).  */
+	  if (tstoptab->code == ASHIFT)
+	    reg2 = const1_rtx;
+	  else
+	    reg2 = gen_rtx_REG (insn_operand_mode[icode][2], i + 2);
+
 	  if (! (*insn_operand_predicate[icode][0]) (reg0, VOIDmode)
 	      || ! (*insn_operand_predicate[icode][1]) (reg1, VOIDmode)
 	      || ! (*insn_operand_predicate[icode][2]) (reg2, VOIDmode))
@@ -1787,13 +1795,17 @@ regmove_profitable_p ()
 	    break;
 
 	  if (find_matches (pat, &match) >= 0)
-	    return 1;
+	    {
+	      obfree (free_point);
+	      return 1;
+	    }
 
 	  break;
 	}
   while (tstoptab != ashl_optab && (tstoptab = ashl_optab, 1));
-#endif /* REGISTER_CONSTRAINTS */
 
   obfree (free_point);
+#endif /* REGISTER_CONSTRAINTS */
+
   return 0;
 }

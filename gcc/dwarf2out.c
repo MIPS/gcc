@@ -27,8 +27,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    information.  */
 
 #include "config.h"
+#include "system.h"
 #include "defaults.h"
-#include <stdio.h>
 #include "tree.h"
 #include "flags.h"
 #include "rtl.h"
@@ -40,6 +40,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "expr.h"
 #include "except.h"
 #include "dwarf2.h"
+#include "dyn-string.h"
 
 /* We cannot use <assert.h> in GCC source, since that would include
    GCC's assert.h, which may not be compatible with the host compiler.  */
@@ -396,27 +397,27 @@ static unsigned reg_number		PROTO((rtx));
    .debug_frame.  */
 
 #define ASM_OUTPUT_DWARF_ADDR(FILE,LABEL) \
-  assemble_integer (gen_rtx (SYMBOL_REF, Pmode, LABEL), PTR_SIZE, 1)
+  assemble_integer (gen_rtx_SYMBOL_REF (Pmode, LABEL), PTR_SIZE, 1)
 
 #define ASM_OUTPUT_DWARF_OFFSET(FILE,LABEL) \
-  assemble_integer (gen_rtx (SYMBOL_REF, SImode, LABEL), 4, 1)
+  assemble_integer (gen_rtx_SYMBOL_REF (SImode, LABEL), 4, 1)
 
 #define ASM_OUTPUT_DWARF_DELTA2(FILE,LABEL1,LABEL2)			\
-  assemble_integer (gen_rtx (MINUS, HImode,			      	\
-			     gen_rtx (SYMBOL_REF, Pmode, LABEL1),   	\
-			     gen_rtx (SYMBOL_REF, Pmode, LABEL2)),	\
+  assemble_integer (gen_rtx_MINUS (HImode,			      	\
+				   gen_rtx_SYMBOL_REF (Pmode, LABEL1),  \
+				   gen_rtx_SYMBOL_REF (Pmode, LABEL2)),	\
 		    2, 1)
   
 #define ASM_OUTPUT_DWARF_DELTA4(FILE,LABEL1,LABEL2)			\
-  assemble_integer (gen_rtx (MINUS, SImode,			      	\
-			     gen_rtx (SYMBOL_REF, Pmode, LABEL1),   	\
-			     gen_rtx (SYMBOL_REF, Pmode, LABEL2)),	\
+  assemble_integer (gen_rtx_MINUS (SImode,			      	\
+				   gen_rtx_SYMBOL_REF (Pmode, LABEL1),  \
+				   gen_rtx_SYMBOL_REF (Pmode, LABEL2)),	\
 		    4, 1)
 
 #define ASM_OUTPUT_DWARF_ADDR_DELTA(FILE,LABEL1,LABEL2)			\
-  assemble_integer (gen_rtx (MINUS, Pmode,				\
-			     gen_rtx (SYMBOL_REF, Pmode, LABEL1),	\
-			     gen_rtx (SYMBOL_REF, Pmode, LABEL2)),	\
+  assemble_integer (gen_rtx_MINUS (Pmode,				\
+				   gen_rtx_SYMBOL_REF (Pmode, LABEL1),	\
+				   gen_rtx_SYMBOL_REF (Pmode, LABEL2)),	\
 		    PTR_SIZE, 1)
 
 #define ASM_OUTPUT_DWARF_DELTA(FILE,LABEL1,LABEL2) \
@@ -426,7 +427,7 @@ static unsigned reg_number		PROTO((rtx));
   assemble_integer (GEN_INT (VALUE), 4, 1)
 
 #define ASM_OUTPUT_DWARF_VALUE4(FILE,LABEL) \
-  assemble_integer (gen_rtx (SYMBOL_REF, Pmode, LABEL), 4, 1)
+  assemble_integer (gen_rtx_SYMBOL_REF (Pmode, LABEL), 4, 1)
 
 #endif /* UNALIGNED_INT_ASM_OP */
 
@@ -2250,7 +2251,7 @@ static tree dwarf_last_decl;
 
 /* Forward declarations for functions defined in this file.  */
 
-static void addr_const_to_string	PROTO((char *, rtx));
+static void addr_const_to_string	PROTO((dyn_string_t, rtx));
 static char *addr_to_string		PROTO((rtx));
 static int is_pseudo_reg		PROTO((rtx));
 static tree type_main_variant		PROTO((tree));
@@ -2509,9 +2510,9 @@ static char text_end_label[MAX_ARTIFICIAL_LABEL_BYTES];
 #define ASM_NAME_TO_STRING(STR, NAME) \
   do {									      \
       if ((NAME)[0] == '*')						      \
-	strcpy (STR, NAME+1);						      \
+	dyn_string_append (STR, NAME + 1);				      \
       else								      \
-	strcpy (STR, NAME);                                                   \
+	dyn_string_append (STR, NAME);                                        \
   }                                                                           \
   while (0)
 #endif
@@ -2524,50 +2525,44 @@ static char text_end_label[MAX_ARTIFICIAL_LABEL_BYTES];
 
 static void
 addr_const_to_string (str, x)
-     char *str;
+     dyn_string_t str;
      rtx x;
 {
   char buf1[256];
-  char buf2[256];
 
 restart:
-  str[0] = '\0';
   switch (GET_CODE (x))
     {
     case PC:
       if (flag_pic)
-	strcat (str, ",");
+	dyn_string_append (str, ",");
       else
 	abort ();
       break;
 
     case SYMBOL_REF:
-      ASM_NAME_TO_STRING (buf1, XSTR (x, 0));
-      strcat (str, buf1);
+      ASM_NAME_TO_STRING (str, XSTR (x, 0));
       break;
 
     case LABEL_REF:
       ASM_GENERATE_INTERNAL_LABEL (buf1, "L", CODE_LABEL_NUMBER (XEXP (x, 0)));
-      ASM_NAME_TO_STRING (buf2, buf1);
-      strcat (str, buf2);
+      ASM_NAME_TO_STRING (str, buf1);
       break;
 
     case CODE_LABEL:
       ASM_GENERATE_INTERNAL_LABEL (buf1, "L", CODE_LABEL_NUMBER (x));
-      ASM_NAME_TO_STRING (buf2, buf1);
-      strcat (str, buf2);
+      ASM_NAME_TO_STRING (str, buf1);
       break;
 
     case CONST_INT:
       sprintf (buf1, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
-      strcat (str, buf1);
+      dyn_string_append (str, buf1);
       break;
 
     case CONST:
       /* This used to output parentheses around the expression, but that does 
          not work on the 386 (either ATT or BSD assembler).  */
-      addr_const_to_string (buf1, XEXP (x, 0));
-      strcat (str, buf1);
+      addr_const_to_string (str, XEXP (x, 0));
       break;
 
     case CONST_DOUBLE:
@@ -2582,7 +2577,7 @@ restart:
 	  else
 	    sprintf (buf1, HOST_WIDE_INT_PRINT_DEC,
 		     CONST_DOUBLE_LOW (x));
-	  strcat (str, buf1);
+	  dyn_string_append (str, buf1);
 	}
       else
 	/* We can't handle floating point constants; PRINT_OPERAND must
@@ -2594,23 +2589,19 @@ restart:
       /* Some assemblers need integer constants to appear last (eg masm).  */
       if (GET_CODE (XEXP (x, 0)) == CONST_INT)
 	{
-	  addr_const_to_string (buf1, XEXP (x, 1));
-	  strcat (str, buf1);
+	  addr_const_to_string (str, XEXP (x, 1));
 	  if (INTVAL (XEXP (x, 0)) >= 0)
-	    strcat (str, "+");
+	    dyn_string_append (str, "+");
 
-	  addr_const_to_string (buf1, XEXP (x, 0));
-	  strcat (str, buf1);
+	  addr_const_to_string (str, XEXP (x, 0));
 	}
       else
 	{
-	  addr_const_to_string (buf1, XEXP (x, 0));
-	  strcat (str, buf1);
+	  addr_const_to_string (str, XEXP (x, 0));
 	  if (INTVAL (XEXP (x, 1)) >= 0)
-	    strcat (str, "+");
+	    dyn_string_append (str, "+");
 
-	  addr_const_to_string (buf1, XEXP (x, 1));
-	  strcat (str, buf1);
+	  addr_const_to_string (str, XEXP (x, 1));
 	}
       break;
 
@@ -2621,28 +2612,22 @@ restart:
       if (GET_CODE (x) != MINUS)
 	goto restart;
 
-      addr_const_to_string (buf1, XEXP (x, 0));
-      strcat (str, buf1);
-      strcat (str, "-");
+      addr_const_to_string (str, XEXP (x, 0));
+      dyn_string_append (str, "-");
       if (GET_CODE (XEXP (x, 1)) == CONST_INT
 	  && INTVAL (XEXP (x, 1)) < 0)
 	{
-	  strcat (str, ASM_OPEN_PAREN);
-	  addr_const_to_string (buf1, XEXP (x, 1));
-	  strcat (str, buf1);
-	  strcat (str, ASM_CLOSE_PAREN);
+	  dyn_string_append (str, ASM_OPEN_PAREN);
+	  addr_const_to_string (str, XEXP (x, 1));
+	  dyn_string_append (str, ASM_CLOSE_PAREN);
 	}
       else
-	{
-	  addr_const_to_string (buf1, XEXP (x, 1));
-	  strcat (str, buf1);
-	}
+	addr_const_to_string (str, XEXP (x, 1));
       break;
 
     case ZERO_EXTEND:
     case SIGN_EXTEND:
-      addr_const_to_string (buf1, XEXP (x, 0));
-      strcat (str, buf1);
+      addr_const_to_string (str, XEXP (x, 0));
       break;
 
     default:
@@ -2657,9 +2642,16 @@ static char *
 addr_to_string (x)
      rtx x;
 {
-  char buf[1024];
-  addr_const_to_string (buf, x);
-  return xstrdup (buf);
+  dyn_string_t ds = dyn_string_new (256);
+  char *s;
+
+  addr_const_to_string (ds, x);
+  
+  /* Return the dynamically allocated string, but free the
+     dyn_string_t itself.  */
+  s = ds->s;
+  free (ds);
+  return s;
 }
 
 /* Test if rtl node points to a pseudo register.  */
@@ -7071,7 +7063,7 @@ add_bound_info (subrange_die, bound_attr, bound)
 	      rtx new_addr = fix_lexical_addr (XEXP (loc, 0), bound);
 
 	      if (XEXP (loc, 0) != new_addr)
-		loc = gen_rtx (MEM, GET_MODE (loc), new_addr);
+		loc = gen_rtx_MEM (GET_MODE (loc), new_addr);
 	    }
 
 	  add_AT_flag (decl_die, DW_AT_artificial, 1);

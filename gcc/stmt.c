@@ -34,10 +34,7 @@ Boston, MA 02111-1307, USA.  */
    after parsing the then-clause.  */
 
 #include "config.h"
-
-#include <stdio.h>
-#include <ctype.h>
-
+#include "system.h"
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
@@ -635,7 +632,7 @@ expand_computed_goto (exp)
 
       emit_queue ();
       /* Be sure the function is executable.  */
-      if (flag_check_memory_usage)
+      if (current_function_check_memory_usage)
 	emit_library_call (chkr_check_exec_libfunc, 1,
 			   VOIDmode, 1, x, ptr_mode);
 
@@ -726,7 +723,7 @@ expand_goto (label)
   if (context != 0 && context != current_function_decl)
     {
       struct function *p = find_function_data (context);
-      rtx label_ref = gen_rtx (LABEL_REF, Pmode, label_rtx (label));
+      rtx label_ref = gen_rtx_LABEL_REF (Pmode, label_rtx (label));
       rtx temp;
 
       p->has_nonlocal_label = 1;
@@ -779,9 +776,9 @@ expand_goto (label)
 	  emit_move_insn (static_chain_rtx, label_ref);
 	  /* USE of hard_frame_pointer_rtx added for consistency; not clear if
 	     really needed.  */
-	  emit_insn (gen_rtx (USE, VOIDmode, hard_frame_pointer_rtx));
-	  emit_insn (gen_rtx (USE, VOIDmode, stack_pointer_rtx));
-	  emit_insn (gen_rtx (USE, VOIDmode, static_chain_rtx));
+	  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+	  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+	  emit_insn (gen_rtx_USE (VOIDmode, static_chain_rtx));
 	  emit_indirect_jump (temp);
 	}
      }
@@ -1364,17 +1361,17 @@ expand_asm (body)
       return;
     }
 
-  if (flag_check_memory_usage)
+  if (current_function_check_memory_usage)
     {
-      error ("`asm' cannot be used with `-fcheck-memory-usage'");
+      error ("`asm' cannot be used in function where memory usage is checked");
       return;
     }
 
   if (TREE_CODE (body) == ADDR_EXPR)
     body = TREE_OPERAND (body, 0);
 
-  emit_insn (gen_rtx (ASM_INPUT, VOIDmode,
-		      TREE_STRING_POINTER (body)));
+  emit_insn (gen_rtx_ASM_INPUT (VOIDmode,
+				TREE_STRING_POINTER (body)));
   last_expr_type = 0;
 }
 
@@ -1426,9 +1423,9 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       return;
     }
 
-  if (flag_check_memory_usage)
+  if (current_function_check_memory_usage)
     {
-      error ("`asm' cannot be used with `-fcheck-memory-usage'");
+      error ("`asm' cannot be used in function where memory usage is checked");
       return;
     }
 
@@ -1561,9 +1558,9 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   argvec = rtvec_alloc (ninputs);
   constraints = rtvec_alloc (ninputs);
 
-  body = gen_rtx (ASM_OPERANDS, VOIDmode,
-		  TREE_STRING_POINTER (string), "", 0, argvec, constraints,
-		  filename, line);
+  body = gen_rtx_ASM_OPERANDS (VOIDmode,
+			       TREE_STRING_POINTER (string), "", 0, argvec,
+			       constraints, filename, line);
 
   MEM_VOLATILE_P (body) = vol;
 
@@ -1664,8 +1661,8 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	}
 	  
       XVECEXP (body, 4, i)      /* constraints */
-	= gen_rtx (ASM_INPUT, TYPE_MODE (TREE_TYPE (TREE_VALUE (tail))),
-		   TREE_STRING_POINTER (TREE_PURPOSE (tail)));
+	= gen_rtx_ASM_INPUT (TYPE_MODE (TREE_TYPE (TREE_VALUE (tail))),
+			     TREE_STRING_POINTER (TREE_PURPOSE (tail)));
       i++;
     }
 
@@ -1688,7 +1685,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       XVECEXP (body, 3, ninputs - ninout + i)      /* argvec */
 	= output_rtx[j];
       XVECEXP (body, 4, ninputs - ninout + i)      /* constraints */
-	= gen_rtx (ASM_INPUT, inout_mode[j], match[j]);
+	= gen_rtx_ASM_INPUT (inout_mode[j], match[j]);
     }
 
   /* Now, for each output, construct an rtx
@@ -1699,7 +1696,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
   if (noutputs == 1 && nclobbers == 0)
     {
       XSTR (body, 1) = TREE_STRING_POINTER (TREE_PURPOSE (outputs));
-      insn = emit_insn (gen_rtx (SET, VOIDmode, output_rtx[0], body));
+      insn = emit_insn (gen_rtx_SET (VOIDmode, output_rtx[0], body));
     }
   else if (noutputs == 0 && nclobbers == 0)
     {
@@ -1711,20 +1708,22 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
       rtx obody = body;
       int num = noutputs;
       if (num == 0) num = 1;
-      body = gen_rtx (PARALLEL, VOIDmode, rtvec_alloc (num + nclobbers));
+      body = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (num + nclobbers));
 
       /* For each output operand, store a SET.  */
 
       for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
 	{
 	  XVECEXP (body, 0, i)
-	    = gen_rtx (SET, VOIDmode,
-		       output_rtx[i],
-		       gen_rtx (ASM_OPERANDS, VOIDmode,
-				TREE_STRING_POINTER (string),
-				TREE_STRING_POINTER (TREE_PURPOSE (tail)),
-				i, argvec, constraints,
-				filename, line));
+	    = gen_rtx_SET (VOIDmode,
+			   output_rtx[i],
+			   gen_rtx_ASM_OPERANDS
+			   (VOIDmode,
+			    TREE_STRING_POINTER (string),
+			    TREE_STRING_POINTER (TREE_PURPOSE (tail)),
+			    i, argvec, constraints,
+			    filename, line));
+
 	  MEM_VOLATILE_P (SET_SRC (XVECEXP (body, 0, i))) = vol;
 	}
 
@@ -1749,9 +1748,10 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	      if (j == -4)	/* `memory', don't cache memory across asm */
 		{
 		  XVECEXP (body, 0, i++)
-		    = gen_rtx (CLOBBER, VOIDmode,
-			       gen_rtx (MEM, BLKmode,
-					gen_rtx (SCRATCH, VOIDmode, 0)));
+		    = gen_rtx_CLOBBER (VOIDmode,
+				       gen_rtx_MEM
+				       (BLKmode,
+					gen_rtx_SCRATCH (VOIDmode)));
 		  continue;
 		}
 
@@ -1761,7 +1761,7 @@ expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
 	  /* Use QImode since that's guaranteed to clobber just one reg.  */
 	  XVECEXP (body, 0, i++)
-	    = gen_rtx (CLOBBER, VOIDmode, gen_rtx (REG, QImode, j));
+	    = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (QImode, j));
 	}
 
       insn = emit_insn (body);
@@ -2622,7 +2622,7 @@ expand_value_return (val)
     }
   if (GET_CODE (return_reg) == REG
       && REGNO (return_reg) < FIRST_PSEUDO_REGISTER)
-    emit_insn (gen_rtx (USE, VOIDmode, return_reg));
+    emit_insn (gen_rtx_USE (VOIDmode, return_reg));
   /* Handle calls that return values in multiple non-contiguous locations.
      The Irix 6 ABI has examples of this.  */
   else if (GET_CODE (return_reg) == PARALLEL)
@@ -2635,7 +2635,7 @@ expand_value_return (val)
 
 	  if (GET_CODE (x) == REG
 	      && REGNO (x) < FIRST_PSEUDO_REGISTER)
-	    emit_insn (gen_rtx (USE, VOIDmode, x));
+	    emit_insn (gen_rtx_USE (VOIDmode, x));
 	}
     }
 
@@ -2925,7 +2925,7 @@ expand_return (retval)
 	      result_pseudos[xbitpos / BITS_PER_WORD] = dst;
 
 	      /* Clobber the destination before we move anything into it.  */
-	      emit_insn (gen_rtx (CLOBBER, VOIDmode, dst));
+	      emit_insn (gen_rtx_CLOBBER (VOIDmode, dst));
 	    }
 
 	  /* We need a new source operand each time bitpos is on a word
@@ -3324,7 +3324,7 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
 
       start_sequence ();
       emit_move_insn (nonlocal_goto_handler_slot,
-		      gen_rtx (LABEL_REF, Pmode, handler_label));
+		      gen_rtx_LABEL_REF (Pmode, handler_label));
       insns = get_insns ();
       end_sequence ();
       emit_insns_before (insns, thisblock->data.block.first_insn);
@@ -3399,7 +3399,8 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
 	    rtx not_this = gen_label_rtx ();
 	    rtx this = gen_label_rtx ();
 	    do_jump_if_equal (static_chain_rtx,
-			      gen_rtx (LABEL_REF, Pmode, DECL_RTL (TREE_VALUE (link))),
+			      gen_rtx_LABEL_REF (Pmode,
+						 DECL_RTL (TREE_VALUE (link))),
 			      this, 0);
 	    emit_jump (not_this);
 	    emit_label (this);
@@ -3407,7 +3408,7 @@ expand_end_bindings (vars, mark_ends, dont_jump_in)
 	    emit_label (not_this);
 	  }
       /* If label is not recognized, abort.  */
-      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "abort"), 0,
+      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "abort"), 0,
 			 VOIDmode, 0);
       emit_barrier ();
       emit_label (afterward);
@@ -3574,7 +3575,7 @@ expand_decl (decl)
   /* Create the RTL representation for the variable.  */
 
   if (type == error_mark_node)
-    DECL_RTL (decl) = gen_rtx (MEM, BLKmode, const0_rtx);
+    DECL_RTL (decl) = gen_rtx_MEM (BLKmode, const0_rtx);
   else if (DECL_SIZE (decl) == 0)
     /* Variable with incomplete type.  */
     {
@@ -3584,7 +3585,7 @@ expand_decl (decl)
       else
 	/* An initializer is going to decide the size of this array.
 	   Until we know the size, represent its address with a reg.  */
-	DECL_RTL (decl) = gen_rtx (MEM, BLKmode, gen_reg_rtx (Pmode));
+	DECL_RTL (decl) = gen_rtx_MEM (BLKmode, gen_reg_rtx (Pmode));
       MEM_IN_STRUCT_P (DECL_RTL (decl)) = AGGREGATE_TYPE_P (type);
     }
   else if (DECL_MODE (decl) != BLKmode
@@ -3596,7 +3597,7 @@ expand_decl (decl)
 	   && ! TREE_ADDRESSABLE (decl)
 	   && (DECL_REGISTER (decl) || ! obey_regdecls)
 	   /* if -fcheck-memory-usage, check all variables.  */
-	   && ! flag_check_memory_usage)
+	   && ! current_function_check_memory_usage)
     {
       /* Automatic variable that can go in a register.  */
       int unsignedp = TREE_UNSIGNED (type);
@@ -3695,7 +3696,7 @@ expand_decl (decl)
 					      TYPE_ALIGN (TREE_TYPE (decl)));
 
       /* Reference the variable indirect through that rtx.  */
-      DECL_RTL (decl) = gen_rtx (MEM, DECL_MODE (decl), address);
+      DECL_RTL (decl) = gen_rtx_MEM (DECL_MODE (decl), address);
 
       /* If this is a memory ref that contains aggregate components,
 	 mark it as such for cse and loop optimize.  */
@@ -4157,7 +4158,7 @@ expand_anon_union_decl (decl, cleanup, decl_elts)
 	    DECL_RTL (decl_elt) = x;
 	  else
 	    {
-	      DECL_RTL (decl_elt) = gen_rtx (MEM, mode, copy_rtx (XEXP (x, 0)));
+	      DECL_RTL (decl_elt) = gen_rtx_MEM (mode, copy_rtx (XEXP (x, 0)));
 	      MEM_IN_STRUCT_P (DECL_RTL (decl_elt)) = MEM_IN_STRUCT_P (x);
 	      RTX_UNCHANGING_P (DECL_RTL (decl_elt)) = RTX_UNCHANGING_P (x);
 	    }
@@ -4167,7 +4168,7 @@ expand_anon_union_decl (decl, cleanup, decl_elts)
 	  if (mode == GET_MODE (x))
 	    DECL_RTL (decl_elt) = x;
 	  else
-	    DECL_RTL (decl_elt) = gen_rtx (SUBREG, mode, x, 0);
+	    DECL_RTL (decl_elt) = gen_rtx_SUBREG (mode, x, 0);
 	}
       else
 	abort ();
@@ -5185,7 +5186,9 @@ check_for_full_enumeration_handling (type)
   bytes_needed = (size + HOST_BITS_PER_CHAR) / HOST_BITS_PER_CHAR;
 
   if (size > 0 && size < 600000
-      /* We deliberately use malloc here - not xmalloc.  */
+      /* We deliberately use malloc here, not xmalloc, so that we can suppress
+	 this optimization if we don't have enough memory rather than 
+	 aborting, as xmalloc would do.  */
       && (cases_seen = (unsigned char *) malloc (bytes_needed)) != NULL)
     {
       long i;
@@ -5674,7 +5677,7 @@ expand_end_case (orig_index)
 	      while (1)
 		{
 		  labelvec[i]
-		    = gen_rtx (LABEL_REF, Pmode, label_rtx (n->code_label));
+		    = gen_rtx_LABEL_REF (Pmode, label_rtx (n->code_label));
 		  if (i + TREE_INT_CST_LOW (orig_minval)
 		      == TREE_INT_CST_LOW (n->high))
 		    break;
@@ -5685,7 +5688,7 @@ expand_end_case (orig_index)
 	  /* Fill in the gaps with the default.  */
 	  for (i = 0; i < ncases; i++)
 	    if (labelvec[i] == 0)
-	      labelvec[i] = gen_rtx (LABEL_REF, Pmode, default_label);
+	      labelvec[i] = gen_rtx_LABEL_REF (Pmode, default_label);
 
 	  /* Output the table */
 	  emit_label (table_label);
@@ -5697,12 +5700,13 @@ expand_end_case (orig_index)
 	      1 ||
 #endif
 	      flag_pic)
-	    emit_jump_insn (gen_rtx (ADDR_DIFF_VEC, CASE_VECTOR_MODE,
-				     gen_rtx (LABEL_REF, Pmode, table_label),
-				     gen_rtvec_v (ncases, labelvec)));
+	    emit_jump_insn (gen_rtx_ADDR_DIFF_VEC
+			    (CASE_VECTOR_MODE,
+			     gen_rtx_LABEL_REF (Pmode, table_label),
+			     gen_rtvec_v (ncases, labelvec)));
 	  else
-	    emit_jump_insn (gen_rtx (ADDR_VEC, CASE_VECTOR_MODE,
-				     gen_rtvec_v (ncases, labelvec)));
+	    emit_jump_insn (gen_rtx_ADDR_VEC (CASE_VECTOR_MODE,
+					      gen_rtvec_v (ncases, labelvec)));
 
 	  /* If the case insn drops through the table,
 	     after the table we must jump to the default-label.

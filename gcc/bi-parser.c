@@ -11,8 +11,8 @@
 #line 22 "bi-parser.y"
 
 
-#include <stdio.h>
 #include "hconfig.h"
+#include "system.h"
 #include "bi-defs.h"
 
 extern char yytext[];

@@ -93,6 +93,13 @@ if [[[ x$enable_c_cpplib != xno ]]]; then
   extra_c_flags=-DUSE_CPPLIB=1
 fi)
 
+# Enable Multibyte Characters for C/C++
+AC_ARG_ENABLE(c-mbchar,
+[  --enable-c-mbchar       Enable multibyte characters for C and C++.],
+if [[[ x$enable_c_mbchar != xno ]]]; then
+  extra_c_flags=-DMULTIBYTE_CHARS=1
+fi)
+  
 # Enable threads
 # Pass with no value to take the default
 # Pass with a value to specify a thread package
@@ -134,52 +141,46 @@ AC_PROG_MAKE_SET
 # Find some useful tools
 AC_PROG_AWK
 AC_PROG_LEX
+GCC_C_VOLATILE
 AC_PROG_RANLIB
 AC_PROG_YACC
 AC_PROG_INSTALL
 
 AC_HEADER_STDC
 AC_HEADER_TIME
-AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h fcntl.h unistd.h stab.h sys/file.h sys/time.h sys/resource.h sys/param.h sys/times.h)
+GCC_HEADER_STRING
+GCC_HEADER_INTTYPES
+AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \
+		 fcntl.h unistd.h stab.h sys/file.h sys/time.h malloc.h \
+		 sys/resource.h sys/param.h sys/times.h sys/types.h sys/stat.h)
 
-# Use <inttypes.h> only if it exists,
-# doesn't clash with <sys/types.h>, and declares intmax_t.
-AC_MSG_CHECKING(for inttypes.h)
-AC_CACHE_VAL(gcc_cv_header_inttypes_h,
-[AC_TRY_COMPILE(
-  [#include <sys/types.h>
-#include <inttypes.h>],
-  [intmax_t i = -1;],
-  gcc_cv_header_inttypes_h=yes,
-  gcc_cv_header_inttypes_h=no)])
-AC_MSG_RESULT($gcc_cv_header_inttypes_h)
-if test $gcc_cv_header_inttypes_h = yes; then
-  AC_DEFINE(HAVE_INTTYPES_H)
-fi
+AC_CHECK_FUNCS(strtoul bsearch strerror putenv popen bcopy bzero bcmp index \
+	       rindex kill getrlimit setrlimit atoll atoq sysconf isascii \
+	       gettimeofday strsignal)
 
-AC_CHECK_FUNCS(strerror)
-AC_CHECK_FUNCS(putenv)
-AC_CHECK_FUNCS(popen)
-AC_CHECK_FUNCS(vprintf)
-AC_CHECK_FUNCS(bcopy)
-AC_CHECK_FUNCS(bzero)
-AC_CHECK_FUNCS(bcmp)
-AC_CHECK_FUNCS(index)
-AC_CHECK_FUNCS(rindex)
-AC_CHECK_FUNCS(kill)
-AC_CHECK_FUNCS(getrlimit)
-AC_CHECK_FUNCS(setrlimit)
-AC_CHECK_FUNCS(sysconf)
 
-GCC_NEED_DECLARATION(malloc)
-GCC_NEED_DECLARATION(realloc)
-GCC_NEED_DECLARATION(calloc)
-GCC_NEED_DECLARATION(free)
-GCC_NEED_DECLARATION(index)
-GCC_NEED_DECLARATION(rindex)
-GCC_NEED_DECLARATION(getenv)
-GCC_NEED_DECLARATION(sbrk)
+GCC_FUNC_VFPRINTF_DOPRNT
+GCC_FUNC_PRINTF_PTR
+AC_FUNC_VFORK
 
+GCC_NEED_DECLARATIONS(bcopy bzero bcmp index rindex getenv atol sbrk abort \
+		      strerror getcwd getwd strsignal)
+
+GCC_NEED_DECLARATIONS(getrlimit setrlimit, [
+#include <sys/types.h>
+#ifdef HAVE_SYS_RESOURCE_H
+#include <sys/resource.h>
+#endif
+])
+
+GCC_NEED_DECLARATIONS(malloc realloc calloc free, [
+#ifdef HAVE_MALLOC_H
+#include <malloc.h>
+#endif
+])
+
+GCC_CHECK_STRINGIFY
 AC_DECL_SYS_SIGLIST
 
 # File extensions
@@ -386,6 +387,13 @@ for machine in $build $host $target; do
 		;;
  	alpha*-*-vxworks*)
 		tm_file="${tm_file} dbx.h alpha/vxworks.h"
+		# If we're on an Alpha, we assume we use the system assembler,
+		# so check it to see if we should put in .arch lines.
+		case $host in
+		  *-*-osf4.0[[b-z]] | *-*-osf4.[[1-9]]*)
+		    target_cpu_default=MASK_SUPPORT_ARCH
+		    ;;
+		esac
 		if [ x$gas != xyes ]
 		then
 			extra_passes="mips-tfile mips-tdump"
@@ -2944,6 +2952,37 @@ fi
 # the first file included by config.h.
 null_defines=
 host_xm_file="auto-config.h ${host_xm_file}"
+
+# If host=build, it is correct to have hconfig include auto-config.h
+# as well.  If host!=build, we are in error and need to do more 
+# work to find out the build config parameters.
+if test x$host = x$build
+then
+	build_xm_file="auto-config.h ${build_xm_file}"
+else
+	# We create a subdir, then run autoconf in the subdir.
+	# To prevent recursion we set host and build for the new
+	# invocation of configure to the build for this invocation
+	# of configure. 
+	tempdir=build.$$
+	rm -rf $tempdir
+	mkdir $tempdir
+	cd $tempdir
+	case ${srcdir} in
+	/*) realsrcdir=${srcdir};;
+	*) realsrcdir=../${srcdir};;
+	esac
+	CC=${CC_FOR_BUILD} ${realsrcdir}/configure \
+		--target=$target --host=$build --build=$build
+
+	# We just finished tests for the build machine, so rename
+	# the file auto-build.h in the gcc directory.
+	mv auto-config.h ../auto-build.h
+	cd ..
+	rm -rf $tempdir
+	build_xm_file="auto-build.h ${build_xm_file}"
+fi
+
 vars="host_xm_file tm_file xm_file build_xm_file"
 links="config.h tm.h tconfig.h hconfig.h"
 defines="host_xm_defines null_defines xm_defines build_xm_defines"
@@ -3098,12 +3137,20 @@ done
 
 host_xm_file_list=
 for f in $host_xm_file; do
-	host_xm_file_list="${host_xm_file_list} \$(srcdir)/config/$f"
+	if [[ $f != "auto-config.h" ]]; then
+		host_xm_file_list="${host_xm_file_list} \$(srcdir)/config/$f"
+	else
+		host_xm_file_list="${host_xm_file_list} $f"
+	fi
 done
 
 build_xm_file_list=
 for f in $build_xm_file; do
-	build_xm_file_list="${build_xm_file_list} \$(srcdir)/config/$f"
+	if [[ $f != "auto-config.h" -a $f != "auto-build.h" ]]; then
+		build_xm_file_list="${build_xm_file_list} \$(srcdir)/config/$f"
+	else
+		build_xm_file_list="${build_xm_file_list} $f"
+	fi
 done
 
 # Define macro CROSS_COMPILE in compilation

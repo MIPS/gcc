@@ -1,5 +1,5 @@
 ;;- Machine description for SPARC chip for GNU C compiler
-;;  Copyright (C) 1987, 88, 89, 92-96, 1997 Free Software Foundation, Inc.
+;;  Copyright (C) 1987, 88, 89, 92-97, 1998 Free Software Foundation, Inc.
 ;;  Contributed by Michael Tiemann (tiemann@cygnus.com)
 ;;  64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
 ;;  at Cygnus Support.
@@ -1804,7 +1804,9 @@
 
 (define_insn "*sethi_di_medium_pic"
   [(set (match_operand:DI 0 "register_operand" "=r")
-	(high:DI (match_operand 1 "sp64_medium_pic_operand" "")))]
+	(high:DI (match_operand 1 "sp64_medium_pic_operand" "")))
+  ;; The clobber is here because emit_move_sequence assumes the worst case.
+   (clobber (reg:DI 1))]
   "(TARGET_CM_MEDLOW || TARGET_CM_EMBMEDANY) && check_pic (1)"
   "sethi %%hi(%a1),%0"
   [(set_attr "type" "move")
@@ -2872,8 +2874,7 @@
       operand1 = XEXP (operand1, 0);
     }
 
-  emit_insn (gen_ashlsi3 (temp, gen_rtx (SUBREG, SImode, operand1,
-					 op1_subword),
+  emit_insn (gen_ashlsi3 (temp, gen_rtx_SUBREG (SImode, operand1, op1_subword),
 			  shift_16));
   emit_insn (gen_lshrsi3 (operand0, temp, shift_16));
   DONE;
@@ -2950,8 +2951,7 @@
       operand1 = XEXP (operand1, 0);
     }
 
-  emit_insn (gen_ashldi3 (temp, gen_rtx (SUBREG, DImode, operand1,
-					 op1_subword),
+  emit_insn (gen_ashldi3 (temp, gen_rtx_SUBREG (DImode, operand1, op1_subword),
 			  shift_48));
   emit_insn (gen_lshrdi3 (operand0, temp, shift_48));
   DONE;
@@ -3044,8 +3044,7 @@
       operand1 = XEXP (operand1, 0);
     }
 
-  emit_insn (gen_ashlsi3 (temp, gen_rtx (SUBREG, SImode, operand1,
-					 op1_subword),
+  emit_insn (gen_ashlsi3 (temp, gen_rtx_SUBREG (SImode, operand1, op1_subword),
 			  shift_16));
   emit_insn (gen_ashrsi3 (operand0, temp, shift_16));
   DONE;
@@ -3079,11 +3078,10 @@
       op0_subword = SUBREG_WORD (operand0);
       operand0 = XEXP (operand0, 0);
     }
-  emit_insn (gen_ashlsi3 (temp, gen_rtx (SUBREG, SImode, operand1,
-					 op1_subword),
+  emit_insn (gen_ashlsi3 (temp, gen_rtx_SUBREG (SImode, operand1, op1_subword),
 			  shift_24));
   if (GET_MODE (operand0) != SImode)
-    operand0 = gen_rtx (SUBREG, SImode, operand0, op0_subword);
+    operand0 = gen_rtx_SUBREG (SImode, operand0, op0_subword);
   emit_insn (gen_ashrsi3 (operand0, temp, shift_24));
   DONE;
 }")
@@ -3111,8 +3109,7 @@
       operand1 = XEXP (operand1, 0);
     }
 
-  emit_insn (gen_ashlsi3 (temp, gen_rtx (SUBREG, SImode, operand1,
-					 op1_subword),
+  emit_insn (gen_ashlsi3 (temp, gen_rtx_SUBREG (SImode, operand1, op1_subword),
 			  shift_24));
   emit_insn (gen_ashrsi3 (operand0, temp, shift_24));
   DONE;
@@ -3141,8 +3138,7 @@
       operand1 = XEXP (operand1, 0);
     }
 
-  emit_insn (gen_ashldi3 (temp, gen_rtx (SUBREG, DImode, operand1,
-					 op1_subword),
+  emit_insn (gen_ashldi3 (temp, gen_rtx_SUBREG (DImode, operand1, op1_subword),
 			  shift_56));
   emit_insn (gen_ashrdi3 (operand0, temp, shift_56));
   DONE;
@@ -3171,8 +3167,7 @@
       operand1 = XEXP (operand1, 0);
     }
 
-  emit_insn (gen_ashldi3 (temp, gen_rtx (SUBREG, DImode, operand1,
-					 op1_subword),
+  emit_insn (gen_ashldi3 (temp, gen_rtx_SUBREG (DImode, operand1, op1_subword),
 			  shift_48));
   emit_insn (gen_ashrdi3 (operand0, temp, shift_48));
   DONE;
@@ -3579,12 +3574,15 @@
 {
   if (! TARGET_ARCH64)
     {
-      emit_insn (gen_rtx (PARALLEL, VOIDmode, gen_rtvec (2,
-			  gen_rtx (SET, VOIDmode, operands[0],
-				   gen_rtx (PLUS, DImode, operands[1],
-						  operands[2])),
-			  gen_rtx (CLOBBER, VOIDmode,
-				   gen_rtx (REG, SImode, SPARC_ICC_REG)))));
+      emit_insn (gen_rtx_PARALLEL
+		 (VOIDmode,
+		  gen_rtvec (2,
+			     gen_rtx_SET (VOIDmode, operands[0],
+					  gen_rtx_PLUS (DImode, operands[1],
+							operands[2])),
+			     gen_rtx_CLOBBER (VOIDmode,
+					      gen_rtx_REG (SImode,
+							   SPARC_ICC_REG)))));
       DONE;
     }
 }")
@@ -3681,12 +3679,15 @@
 {
   if (! TARGET_ARCH64)
     {
-      emit_insn (gen_rtx (PARALLEL, VOIDmode, gen_rtvec (2,
-			  gen_rtx (SET, VOIDmode, operands[0],
-				   gen_rtx (MINUS, DImode, operands[1],
-						   operands[2])),
-			  gen_rtx (CLOBBER, VOIDmode,
-				   gen_rtx (REG, SImode, SPARC_ICC_REG)))));
+      emit_insn (gen_rtx_PARALLEL
+		 (VOIDmode,
+		  gen_rtvec (2,
+			     gen_rtx_SET (VOIDmode, operands[0],
+					  gen_rtx_MINUS (DImode, operands[1],
+							 operands[2])),
+			     gen_rtx_CLOBBER (VOIDmode,
+					      gen_rtx_REG (SImode,
+							   SPARC_ICC_REG)))));
       DONE;
     }
 }")
@@ -4517,11 +4518,14 @@
 {
   if (! TARGET_ARCH64)
     {
-      emit_insn (gen_rtx (PARALLEL, VOIDmode, gen_rtvec (2,
-			  gen_rtx (SET, VOIDmode, operand0,
-				   gen_rtx (NEG, DImode, operand1)),
-			  gen_rtx (CLOBBER, VOIDmode,
-				   gen_rtx (REG, SImode, SPARC_ICC_REG)))));
+      emit_insn (gen_rtx_PARALLEL
+		 (VOIDmode,
+		  gen_rtvec (2,
+			     gen_rtx_SET (VOIDmode, operand0,
+					  gen_rtx_NEG (DImode, operand1)),
+			     gen_rtx_CLOBBER (VOIDmode,
+					      gen_rtx_REG (SImode,
+							   SPARC_ICC_REG)))));
       DONE;
     }
 }")
@@ -5118,21 +5122,19 @@
 
       if (! TARGET_ARCH64 && INTVAL (operands[3]) != 0)
 	emit_jump_insn
-	  (gen_rtx (PARALLEL, VOIDmode,
-		    gen_rtvec (3,
-			       gen_rtx (SET, VOIDmode, pc_rtx,
-					XEXP (operands[0], 0)),
-			       GEN_INT (INTVAL (operands[3]) & 0xfff),
-			       gen_rtx (CLOBBER, VOIDmode,
-					gen_rtx (REG, Pmode, 15)))));
+	  (gen_rtx_PARALLEL
+	   (VOIDmode,
+	    gen_rtvec (3,
+		       gen_rtx_SET (VOIDmode, pc_rtx, XEXP (operands[0], 0)),
+		       GEN_INT (INTVAL (operands[3]) & 0xfff),
+		       gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))));
       else
 	emit_jump_insn
-	  (gen_rtx (PARALLEL, VOIDmode,
-		    gen_rtvec (2,
-			       gen_rtx (SET, VOIDmode, pc_rtx,
-					XEXP (operands[0], 0)),
-			       gen_rtx (CLOBBER, VOIDmode,
-					gen_rtx (REG, Pmode, 15)))));
+	  (gen_rtx_PARALLEL
+	   (VOIDmode,
+	    gen_rtvec (2,
+		       gen_rtx_SET (VOIDmode, pc_rtx, XEXP (operands[0], 0)),
+		       gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))));
       goto finish_call;
     }
 
@@ -5152,17 +5154,17 @@
 
   if (! TARGET_ARCH64 && INTVAL (operands[3]) != 0)
     emit_call_insn
-      (gen_rtx (PARALLEL, VOIDmode,
-		gen_rtvec (3, gen_rtx (CALL, VOIDmode, fn_rtx, nregs_rtx),
-			   GEN_INT (INTVAL (operands[3]) & 0xfff),
-			   gen_rtx (CLOBBER, VOIDmode,
-				    gen_rtx (REG, Pmode, 15)))));
+      (gen_rtx_PARALLEL
+       (VOIDmode,
+	gen_rtvec (3, gen_rtx_CALL (VOIDmode, fn_rtx, nregs_rtx),
+		   GEN_INT (INTVAL (operands[3]) & 0xfff),
+		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))));
   else
     emit_call_insn
-      (gen_rtx (PARALLEL, VOIDmode,
-		gen_rtvec (2, gen_rtx (CALL, VOIDmode, fn_rtx, nregs_rtx),
-			   gen_rtx (CLOBBER, VOIDmode,
-				    gen_rtx (REG, Pmode, 15)))));
+      (gen_rtx_PARALLEL
+       (VOIDmode,
+	gen_rtvec (2, gen_rtx_CALL (VOIDmode, fn_rtx, nregs_rtx),
+		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)))));
 
  finish_call:
 #if 0
@@ -5285,19 +5287,19 @@
 
 #if 0
   if (operands[3])
-    nregs_rtx = gen_rtx (CONST_INT, VOIDmode, REGNO (operands[3]) - 8);
+    nregs_rtx = GEN_INT (REGNO (operands[3]) - 8);
   else
-    nregs_rtx = gen_rtx (CONST_INT, VOIDmode, 6);
+    nregs_rtx = GEN_INT (6);
 #else
   nregs_rtx = const0_rtx;
 #endif
 
   vec = gen_rtvec (2,
-		   gen_rtx (SET, VOIDmode, operands[0],
-			    gen_rtx (CALL, VOIDmode, fn_rtx, nregs_rtx)),
-		   gen_rtx (CLOBBER, VOIDmode, gen_rtx (REG, Pmode, 15)));
+		   gen_rtx_SET (VOIDmode, operands[0],
+				gen_rtx_CALL (VOIDmode, fn_rtx, nregs_rtx)),
+		   gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (Pmode, 15)));
 
-  emit_call_insn (gen_rtx (PARALLEL, VOIDmode, vec));
+  emit_call_insn (gen_rtx_PARALLEL (VOIDmode, vec));
 
   DONE;
 }")
@@ -5387,20 +5389,20 @@
   ""
   "
 {
-  rtx valreg1 = gen_rtx (REG, DImode, 24);
-  rtx valreg2 = gen_rtx (REG, TARGET_ARCH64 ? TFmode : DFmode, 32);
+  rtx valreg1 = gen_rtx_REG (DImode, 24);
+  rtx valreg2 = gen_rtx_REG (TARGET_ARCH64 ? TFmode : DFmode, 32);
   rtx result = operands[0];
 
   if (! TARGET_ARCH64)
     {
-      rtx rtnreg = gen_rtx (REG, SImode, (leaf_function ? 15 : 31));
+      rtx rtnreg = gen_rtx_REG (SImode, (leaf_function ? 15 : 31));
       rtx value = gen_reg_rtx (SImode);
 
       /* Fetch the instruction where we will return to and see if it's an unimp
 	 instruction (the most significant 10 bits will be zero).  If so,
 	 update the return address to skip the unimp instruction.  */
       emit_move_insn (value,
-		      gen_rtx (MEM, SImode, plus_constant (rtnreg, 8)));
+		      gen_rtx_MEM (SImode, plus_constant (rtnreg, 8)));
       emit_insn (gen_lshrsi3 (value, value, GEN_INT (22)));
       emit_insn (gen_update_return (rtnreg, value));
     }
@@ -5412,8 +5414,8 @@
 				  plus_constant (XEXP (result, 0), 8)));
 
   /* Put USE insns before the return.  */
-  emit_insn (gen_rtx (USE, VOIDmode, valreg1));
-  emit_insn (gen_rtx (USE, VOIDmode, valreg2));
+  emit_insn (gen_rtx_USE (VOIDmode, valreg1));
+  emit_insn (gen_rtx_USE (VOIDmode, valreg2));
 
   /* Construct the return.  */
   expand_null_return ();
@@ -5481,7 +5483,7 @@
   emit_move_insn (virtual_stack_vars_rtx, operands[0]);
   /* Find the containing function's current nonlocal goto handler,
      which will do any cleanups and then jump to the label.  */
-  emit_move_insn (gen_rtx (REG, Pmode, 8), operands[1]);
+  emit_move_insn (gen_rtx_REG (Pmode, 8), operands[1]);
   /* Restore %fp from stack pointer value for containing function.
      The restore insn that follows will move this to %sp,
      and reload the appropriate value into %fp.  */
@@ -5490,9 +5492,9 @@
   emit_move_insn (static_chain_rtx, operands[3]);
   /* USE of frame_pointer_rtx added for consistency; not clear if
      really needed.  */
-  emit_insn (gen_rtx (USE, VOIDmode, frame_pointer_rtx));
-  emit_insn (gen_rtx (USE, VOIDmode, stack_pointer_rtx));
-  emit_insn (gen_rtx (USE, VOIDmode, static_chain_rtx));
+  emit_insn (gen_rtx_USE (VOIDmode, frame_pointer_rtx));
+  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+  emit_insn (gen_rtx_USE (VOIDmode, static_chain_rtx));
   /* Return, restoring reg window and jumping to goto handler.  */
   emit_insn (gen_goto_handler_and_restore ());
   emit_barrier ();
@@ -5601,8 +5603,9 @@
   "
 {
   operands[3] = XEXP (operands[0], 0);
-  operands[4] = gen_rtx (MEM, GET_MODE (operands[0]),
-			 gen_rtx (LO_SUM, SImode, operands[2], operands[3]));
+  operands[4] = gen_rtx_MEM (GET_MODE (operands[0]),
+			     gen_rtx_LO_SUM (SImode, operands[2],
+					     operands[3]));
   MEM_IN_STRUCT_P (operands[4]) = MEM_IN_STRUCT_P (operands[0]);
   MEM_VOLATILE_P (operands[4]) = MEM_VOLATILE_P (operands[0]);
   RTX_UNCHANGING_P (operands[4]) = RTX_UNCHANGING_P (operands[0]);
@@ -5619,7 +5622,7 @@
   rtx addr = legitimize_pic_address (XEXP (operands[0], 0),
 				     GET_MODE (operands[0]),
 				     operands[2]);
-  operands[3] = gen_rtx (MEM, GET_MODE (operands[0]), addr);
+  operands[3] = gen_rtx_MEM (GET_MODE (operands[0]), addr);
   MEM_IN_STRUCT_P (operands[3]) = MEM_IN_STRUCT_P (operands[0]);
   MEM_VOLATILE_P (operands[3]) = MEM_VOLATILE_P (operands[0]);
   RTX_UNCHANGING_P (operands[3]) = RTX_UNCHANGING_P (operands[0]);
@@ -5635,7 +5638,7 @@
   rtx addr = legitimize_pic_address (XEXP (operands[1], 0),
 				     GET_MODE (operands[1]),
 				     operands[0]);
-  operands[2] = gen_rtx (MEM, GET_MODE (operands[1]), addr);
+  operands[2] = gen_rtx_MEM (GET_MODE (operands[1]), addr);
   MEM_IN_STRUCT_P (operands[2]) = MEM_IN_STRUCT_P (operands[1]);
   MEM_VOLATILE_P (operands[2]) = MEM_VOLATILE_P (operands[1]);
   RTX_UNCHANGING_P (operands[2]) = RTX_UNCHANGING_P (operands[1]);
@@ -5653,7 +5656,7 @@
   rtx addr = legitimize_pic_address (XEXP (operands[2], 0),
 				     GET_MODE (operands[2]),
 				     operands[0]);
-  operands[3] = gen_rtx (MEM, GET_MODE (operands[2]), addr);
+  operands[3] = gen_rtx_MEM (GET_MODE (operands[2]), addr);
   MEM_IN_STRUCT_P (operands[3]) = MEM_IN_STRUCT_P (operands[2]);
   MEM_VOLATILE_P (operands[3]) = MEM_VOLATILE_P (operands[2]);
   RTX_UNCHANGING_P (operands[3]) = RTX_UNCHANGING_P (operands[2]);
@@ -5968,8 +5971,9 @@
 {
   /* Go by way of output_move_double in case the register in operand 2
      is not properly aligned for ldd.  */
-  operands[1] = gen_rtx (MEM, DFmode,
-			 gen_rtx (LO_SUM, SImode, operands[0], operands[1]));
+  operands[1] = gen_rtx_MEM (DFmode,
+			     gen_rtx_LO_SUM (SImode, operands[0],
+					     operands[1]));
   operands[0] = operands[2];
   return output_move_double (operands);
 }")

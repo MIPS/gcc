@@ -1,5 +1,5 @@
 /* Definitions of floating-point access for GNU compiler.
-   Copyright (C) 1989, 1991, 1994, 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1989, 91, 94, 96, 97, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -165,7 +165,8 @@ extern REAL_VALUE_TYPE ereal_from_double PROTO((HOST_WIDE_INT *));
 /* These return REAL_VALUE_TYPE: */
 #define REAL_VALUE_RNDZINT(x) (etrunci (x))
 #define REAL_VALUE_UNSIGNED_RNDZINT(x) (etruncui (x))
-extern REAL_VALUE_TYPE real_value_truncate ();
+extern REAL_VALUE_TYPE real_value_truncate	PROTO((enum machine_mode,
+						       REAL_VALUE_TYPE));
 #define REAL_VALUE_TRUNCATE(mode, x)  real_value_truncate (mode, x)
 
 /* These return HOST_WIDE_INT: */
@@ -175,7 +176,11 @@ extern REAL_VALUE_TYPE real_value_truncate ();
    toward zero. */
 #define REAL_VALUE_UNSIGNED_FIX(x) (efixui (x))
 
-#define REAL_VALUE_ATOF ereal_atof
+/* Convert ASCII string S to floating point in mode M.
+   Decimal input uses ATOF.  Hexadecimal uses HTOF.  */
+#define REAL_VALUE_ATOF(s,m) ereal_atof(s,m)
+#define REAL_VALUE_HTOF(s,m) ereal_atof(s,m)
+
 #define REAL_VALUE_NEGATE ereal_negate
 
 #define REAL_VALUE_MINUS_ZERO(x) \
@@ -336,6 +341,9 @@ extern double ldexp ();
 /* Use real.c to convert decimal numbers to binary, ... */
 REAL_VALUE_TYPE ereal_atof ();
 #define REAL_VALUE_ATOF(x, s) ereal_atof (x, s)
+/* Could use ereal_atof here for hexadecimal floats too, but real_hex_to_f
+   is OK and it uses faster native fp arithmetic.  */
+/* #define REAL_VALUE_HTOF(x, s) ereal_atof (x, s) */
 #else
 /* ... or, if you like the host computer's atof, go ahead and use it: */
 #define REAL_VALUE_ATOF(x, s) atof (x)
@@ -350,6 +358,13 @@ extern double (atof) ();
 #endif
 #endif
 
+/* Hexadecimal floating constant input for use with host computer's
+   fp arithmetic.  */
+#ifndef REAL_VALUE_HTOF
+extern REAL_VALUE_TYPE real_hex_to_f PROTO((char *, enum machine_mode));
+#define REAL_VALUE_HTOF(s,m) real_hex_to_f(s,m)
+#endif
+
 /* Negate the floating-point value X.  */
 #ifndef REAL_VALUE_NEGATE
 #define REAL_VALUE_NEGATE(x) (- (x))
@@ -360,7 +375,8 @@ extern double (atof) ();
    size and where `float' is SFmode.  */
 
 /* Don't use REAL_VALUE_TRUNCATE directly--always call real_value_truncate.  */
-extern REAL_VALUE_TYPE real_value_truncate PROTO((enum machine_mode, REAL_VALUE_TYPE));
+extern REAL_VALUE_TYPE real_value_truncate PROTO((enum machine_mode,
+						  REAL_VALUE_TYPE));
 
 #ifndef REAL_VALUE_TRUNCATE
 #define REAL_VALUE_TRUNCATE(mode, x) \
@@ -383,9 +399,9 @@ extern REAL_VALUE_TYPE real_value_truncate PROTO((enum machine_mode, REAL_VALUE_
 #define REAL_VALUE_NEGATIVE(x) (target_negative (x))
 #endif
 
-extern int target_isnan			PROTO ((REAL_VALUE_TYPE));
-extern int target_isinf			PROTO ((REAL_VALUE_TYPE));
-extern int target_negative		PROTO ((REAL_VALUE_TYPE));
+extern int target_isnan			PROTO((REAL_VALUE_TYPE));
+extern int target_isinf			PROTO((REAL_VALUE_TYPE));
+extern int target_negative		PROTO((REAL_VALUE_TYPE));
 
 /* Determine whether a floating-point value X is minus 0. */
 #ifndef REAL_VALUE_MINUS_ZERO
@@ -427,9 +443,9 @@ union real_extract
 
 /* Function to return a real value (not a tree node)
    from a given integer constant.  */
-REAL_VALUE_TYPE real_value_from_int_cst ();
-
-/* Given a CONST_DOUBLE in FROM, store into TO the value it represents.  */
+union tree_node;
+REAL_VALUE_TYPE real_value_from_int_cst	PROTO((union tree_node *,
+					       union tree_node *));
 
 #define REAL_VALUE_FROM_CONST_DOUBLE(to, from)		\
 do { union real_extract u;				\
@@ -451,11 +467,18 @@ extern struct rtx_def *immed_real_const_1	PROTO((REAL_VALUE_TYPE,
 #endif
 
 /* Replace R by 1/R in the given machine mode, if the result is exact.  */
-extern int exact_real_inverse PROTO((enum machine_mode, REAL_VALUE_TYPE *));
-
-extern void debug_real			PROTO ((REAL_VALUE_TYPE));
+extern int exact_real_inverse	PROTO((enum machine_mode, REAL_VALUE_TYPE *));
+extern int target_isnan		PROTO((REAL_VALUE_TYPE));
+extern int target_isinf		PROTO((REAL_VALUE_TYPE));
+extern int target_negative	PROTO((REAL_VALUE_TYPE));
+extern void debug_real		PROTO((REAL_VALUE_TYPE));
 
 /* In varasm.c */
-extern void assemble_real		PROTO ((REAL_VALUE_TYPE,
-						enum machine_mode));
+extern void assemble_real		PROTO((REAL_VALUE_TYPE,
+					       enum machine_mode));
+extern void debug_real			PROTO((REAL_VALUE_TYPE));
+
+/* In varasm.c */
+extern void assemble_real		PROTO((REAL_VALUE_TYPE,
+					       enum machine_mode));
 #endif /* Not REAL_H_INCLUDED */

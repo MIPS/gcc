@@ -60,7 +60,7 @@ Boston, MA 02111-1307, USA.  */
    here if their preferred class is likely to be used by spills.  */
 
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include "rtl.h"
 #include "flags.h"
 #include "basic-block.h"
@@ -337,6 +337,7 @@ alloc_qty_for_scratch (scratch, n, insn, insn_code_num, insn_number)
       case '#':  case '&':  case '!':
       case '*':  case '%':  
       case '0':  case '1':  case '2':  case '3':  case '4':
+      case '5':  case '6':  case '7':  case '8':  case '9':
       case 'm':  case '<':  case '>':  case 'V':  case 'o':
       case 'E':  case 'F':  case 'G':  case 'H':
       case 's':  case 'i':  case 'n':
@@ -817,8 +818,8 @@ update_equiv_regs ()
 	  && ! memref_used_between_p (SET_DEST (set),
 				      reg_equiv_init_insn[regno], insn))
 	REG_NOTES (reg_equiv_init_insn[regno])
-	  = gen_rtx (EXPR_LIST, REG_EQUIV, dest,
-		     REG_NOTES (reg_equiv_init_insn[regno]));
+	  = gen_rtx_EXPR_LIST (REG_EQUIV, dest,
+			       REG_NOTES (reg_equiv_init_insn[regno]));
 
       /* We only handle the case of a pseudo register being set
 	 once and only if neither the source nor the destination are
@@ -862,8 +863,8 @@ update_equiv_regs ()
       if (note == 0 && REG_BASIC_BLOCK (regno) >= 0
 	  && GET_CODE (SET_SRC (set)) == MEM
 	  && validate_equiv_mem (insn, dest, SET_SRC (set)))
-	REG_NOTES (insn) = note = gen_rtx (EXPR_LIST, REG_EQUIV, SET_SRC (set),
-					   REG_NOTES (insn));
+	REG_NOTES (insn) = note = gen_rtx_EXPR_LIST (REG_EQUIV, SET_SRC (set),
+						     REG_NOTES (insn));
 
       if (note)
 	{
@@ -1425,8 +1426,8 @@ block_alloc (b)
 	  {
 	    if (GET_CODE (qty_scratch_rtx[q]) == REG)
 	      abort ();
-	    qty_scratch_rtx[q] = gen_rtx (REG, GET_MODE (qty_scratch_rtx[q]),
-					  qty_phys_reg[q]);
+	    qty_scratch_rtx[q] = gen_rtx_REG (GET_MODE (qty_scratch_rtx[q]),
+					      qty_phys_reg[q]);
 	    scratch_block[scratch_index] = b;
 	    scratch_list[scratch_index++] = qty_scratch_rtx[q];
 
@@ -2168,7 +2169,8 @@ requires_inout (p)
       case '=':  case '+':  case '?':
       case '#':  case '&':  case '!':
       case '*':  case '%':
-      case '1':  case '2':  case '3':  case '4':
+      case '1':  case '2':  case '3':  case '4': case '5':
+      case '6':  case '7':  case '8':  case '9':
       case 'm':  case '<':  case '>':  case 'V':  case 'o':
       case 'E':  case 'F':  case 'G':  case 'H':
       case 's':  case 'i':  case 'n':

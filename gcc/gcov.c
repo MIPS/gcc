@@ -1,6 +1,6 @@
 /* Gcov.c: prepend line execution counts and branch probabilities to a
    source file.
-   Copyright (C) 1990, 91, 92, 93, 94, 96, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1990, 91, 92-97, 1998 Free Software Foundation, Inc.
    Contributed by James E. Wilson of Cygnus Support.
    Mangled by Bob Manson of Cygnus Support.
 
@@ -42,33 +42,18 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
    only get execution counts for one or the other of the including files.  */
 
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include "gansidecl.h"
-#include <sys/types.h>
-#include <sys/stat.h>
 #include "intl.h"
-
-#ifdef __STDC__
-#include <stdarg.h>
-#endif
-
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>
-#endif
-
-#ifdef HAVE_STRING_H
-#include <string.h>
-#else
-#ifdef HAVE_STRINGS_H
-#include <strings.h>
-#endif
-#endif
-
 #include "gcov-io.h"
-
-#ifdef NEED_DECLARATION_RINDEX
-extern char *rindex ();
+#ifdef HAVE_VPRINTF
+void fatal PVPROTO((char *, ...));
+#else
+/* We must not provide any prototype here, even if ANSI C.  */
+void fatal PROTO(());
 #endif
+void fancy_abort ();
+
 
 /* The .bb file format consists of several lists of 4-byte integers
    which are the line numbers of each basic block in the file.  Each
@@ -264,7 +249,8 @@ main (argc, argv)
   return 0;
 }
 
-#if defined __STDC__ && defined HAVE_VPRINTF
+#if defined (__STDC__) && defined (HAVE_VPRINTF)
+
 static void
 fnotice (FILE *file, char *msgid, ...)
 {
@@ -273,7 +259,9 @@ fnotice (FILE *file, char *msgid, ...)
   vfprintf (file, _(msgid), args);
   va_end (args);
 }
+
 #else
+
 static void
 fnotice (file, msgid, arg1, arg2, arg3, arg4)
      FILE *file;
@@ -296,6 +284,40 @@ xmalloc (size)
     }
   return value;
 }
+
+#ifdef HAVE_VPRINTF
+void
+fatal VPROTO((char *s, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  char *s;
+#endif
+  va_list ap;
+
+  VA_START (ap, s);
+
+#ifndef ANSI_PROTOTYPES
+  s = va_arg (ap, char *);
+#endif
+
+  fprintf (stderr, "genattrtab: ");
+  vfprintf (stderr, s, ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  exit (FATAL_EXIT_CODE);
+}
+#else /* not HAVE_VPRINTF */
+
+void
+fatal (s, a1, a2)
+     char *s;
+{
+  fprintf (stderr, "genattrtab: ");
+  fprintf (stderr, s, a1, a2);
+  fprintf (stderr, "\n");
+  exit (FATAL_EXIT_CODE);
+}
+#endif /* not HAVE_VPRINTF */
 
 /* More 'friendly' abort that prints the line and file.
    config.h can #define abort fancy_abort if you like that sort of thing.  */

@@ -20,7 +20,7 @@ Boston, MA 02111-1307, USA.  */
 
 
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include "machmode.h"
 #include "rtl.h"
 #include "tree.h"
@@ -111,8 +111,8 @@ static rtx saveregs_value;
 static rtx apply_args_value;
 
 /* Don't check memory usage, since code is being emitted to check a memory
-   usage.  Used when flag_check_memory_usage is true, to avoid infinite
-   recursion.  */
+   usage.  Used when current_function_check_memory_usage is true, to avoid
+   infinite recursion.  */
 static int in_check_memory_usage;
 
 /* This structure is used by move_by_pieces to describe the move to
@@ -124,11 +124,13 @@ struct move_by_pieces
   int autinc_to;
   int explicit_inc_to;
   int to_struct;
+  int to_readonly;
   rtx from;
   rtx from_addr;
   int autinc_from;
   int explicit_inc_from;
   int from_struct;
+  int from_readonly;
   int len;
   int offset;
   int reverse;
@@ -165,14 +167,18 @@ static int queued_subexp_p	PROTO((rtx));
 static void init_queue		PROTO((void));
 static void move_by_pieces	PROTO((rtx, rtx, int, int));
 static int move_by_pieces_ninsns PROTO((unsigned int, int));
-static void move_by_pieces_1	PROTO((rtx (*) (), enum machine_mode,
+static void move_by_pieces_1	PROTO((rtx (*) PVPROTO((rtx, ...)),
+				       enum machine_mode,
 				       struct move_by_pieces *));
 static void clear_by_pieces	PROTO((rtx, int, int));
-static void clear_by_pieces_1	PROTO((rtx (*) (), enum machine_mode,
+static void clear_by_pieces_1	PROTO((rtx (*) PVPROTO((rtx, ...)),
+				       enum machine_mode,
 				       struct clear_by_pieces *));
 static int is_zeros_p		PROTO((tree));
 static int mostly_zeros_p	PROTO((tree));
-static void store_constructor	PROTO((tree, rtx, int));
+static void store_constructor_field PROTO((rtx, int, int, enum machine_mode,
+					   tree, tree, int, int));
+static void store_constructor	PROTO((tree, rtx, int, int));
 static rtx store_field		PROTO((rtx, int, int, enum machine_mode, tree,
 				       enum machine_mode, int, int, int));
 static tree save_noncopied_parts PROTO((tree, tree));
@@ -222,8 +228,8 @@ extern tree truthvalue_conversion       PROTO((tree));
 static char direct_load[NUM_MACHINE_MODES];
 static char direct_store[NUM_MACHINE_MODES];
 
-/* MOVE_RATIO is the number of move instructions that is better than
-   a block move.  */
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction sequences, we will do a movstr or libcall instead.  */
 
 #ifndef MOVE_RATIO
 #if defined (HAVE_movstrqi) || defined (HAVE_movstrhi) || defined (HAVE_movstrsi) || defined (HAVE_movstrdi) || defined (HAVE_movstrti)
@@ -303,10 +309,10 @@ init_expr_once ()
   /* Try indexing by frame ptr and try by stack ptr.
      It is known that on the Convex the stack ptr isn't a valid index.
      With luck, one or the other is valid on any machine.  */
-  mem = gen_rtx (MEM, VOIDmode, stack_pointer_rtx);
-  mem1 = gen_rtx (MEM, VOIDmode, frame_pointer_rtx);
+  mem = gen_rtx_MEM (VOIDmode, stack_pointer_rtx);
+  mem1 = gen_rtx_MEM (VOIDmode, frame_pointer_rtx);
 
-  insn = emit_insn (gen_rtx (SET, 0, NULL_RTX, NULL_RTX));
+  insn = emit_insn (gen_rtx_SET (0, NULL_RTX, NULL_RTX));
   pat = PATTERN (insn);
 
   for (mode = VOIDmode; (int) mode < NUM_MACHINE_MODES;
@@ -331,7 +337,7 @@ init_expr_once ()
 	    if (! HARD_REGNO_MODE_OK (regno, mode))
 	      continue;
 
-	    reg = gen_rtx (REG, mode, regno);
+	    reg = gen_rtx_REG (mode, regno);
 
 	    SET_SRC (pat) = mem;
 	    SET_DEST (pat) = reg;
@@ -426,8 +432,8 @@ static rtx
 enqueue_insn (var, body)
      rtx var, body;
 {
-  pending_chain = gen_rtx (QUEUED, GET_MODE (var),
-			   var, NULL_RTX, NULL_RTX, body, pending_chain);
+  pending_chain = gen_rtx_QUEUED (GET_MODE (var), var, NULL_RTX, NULL_RTX,
+				  body, pending_chain);
   return pending_chain;
 }
 
@@ -470,7 +476,7 @@ protect_from_queue (x, modify)
 	  && GET_CODE (XEXP (x, 0)) == QUEUED && !modify)
 	{
 	  register rtx y = XEXP (x, 0);
-	  register rtx new = gen_rtx (MEM, GET_MODE (x), QUEUED_VAR (y));
+	  register rtx new = gen_rtx_MEM (GET_MODE (x), QUEUED_VAR (y));
 
 	  MEM_IN_STRUCT_P (new) = MEM_IN_STRUCT_P (x);
 	  RTX_UNCHANGING_P (new) = RTX_UNCHANGING_P (x);
@@ -897,7 +903,7 @@ convert_move (to, from, unsignedp)
 		   != CODE_FOR_nothing))
 	{
 	  if (GET_CODE (to) == REG)
-	    emit_insn (gen_rtx (CLOBBER, VOIDmode, to));
+	    emit_insn (gen_rtx_CLOBBER (VOIDmode, to));
 	  convert_move (gen_lowpart (word_mode, to), from, unsignedp);
 	  emit_unop_insn (code, to,
 			  gen_lowpart (word_mode, to), equiv_code);
@@ -1453,6 +1459,8 @@ move_by_pieces (to, from, len, align)
 
   data.to_struct = MEM_IN_STRUCT_P (to);
   data.from_struct = MEM_IN_STRUCT_P (from);
+  data.to_readonly = RTX_UNCHANGING_P (to);
+  data.from_readonly = RTX_UNCHANGING_P (from);
 
   /* If copying requires more than two move insns,
      copy addresses to registers (to make displacements shorter)
@@ -1578,7 +1586,7 @@ move_by_pieces_ninsns (l, align)
 
 static void
 move_by_pieces_1 (genfun, mode, data)
-     rtx (*genfun) ();
+     rtx (*genfun) PVPROTO((rtx, ...));
      enum machine_mode mode;
      struct move_by_pieces *data;
 {
@@ -1590,19 +1598,21 @@ move_by_pieces_1 (genfun, mode, data)
       if (data->reverse) data->offset -= size;
 
       to1 = (data->autinc_to
-	     ? gen_rtx (MEM, mode, data->to_addr)
+	     ? gen_rtx_MEM (mode, data->to_addr)
 	     : copy_rtx (change_address (data->to, mode,
 					 plus_constant (data->to_addr,
 							data->offset))));
       MEM_IN_STRUCT_P (to1) = data->to_struct;
+      RTX_UNCHANGING_P (to1) = data->to_readonly;
 
       from1
 	= (data->autinc_from
-	   ? gen_rtx (MEM, mode, data->from_addr)
+	   ? gen_rtx_MEM (mode, data->from_addr)
 	   : copy_rtx (change_address (data->from, mode,
 				       plus_constant (data->from_addr,
 						      data->offset))));
       MEM_IN_STRUCT_P (from1) = data->from_struct;
+      RTX_UNCHANGING_P (from1) = data->from_readonly;
 
 #ifdef HAVE_PRE_DECREMENT
       if (data->explicit_inc_to < 0)
@@ -1762,7 +1772,7 @@ move_block_to_reg (regno, x, nregs, mode)
   if (HAVE_load_multiple)
     {
       last = get_last_insn ();
-      pat = gen_load_multiple (gen_rtx (REG, word_mode, regno), x,
+      pat = gen_load_multiple (gen_rtx_REG (word_mode, regno), x,
 			       GEN_INT (nregs));
       if (pat)
 	{
@@ -1775,7 +1785,7 @@ move_block_to_reg (regno, x, nregs, mode)
 #endif
 
   for (i = 0; i < nregs; i++)
-    emit_move_insn (gen_rtx (REG, word_mode, regno + i),
+    emit_move_insn (gen_rtx_REG (word_mode, regno + i),
 		    operand_subword_force (x, i, mode));
 }
 
@@ -1801,7 +1811,7 @@ move_block_from_reg (regno, x, nregs, size)
       && (mode = mode_for_size (size * BITS_PER_UNIT, MODE_INT, 0)) != BLKmode)
     {
       emit_move_insn (change_address (x, mode, NULL),
-		      gen_rtx (REG, mode, regno));
+		      gen_rtx_REG (mode, regno));
       return;
     }
     
@@ -1817,7 +1827,7 @@ move_block_from_reg (regno, x, nregs, size)
 	abort ();
 
       shift = expand_shift (LSHIFT_EXPR, word_mode,
-			    gen_rtx (REG, word_mode, regno),
+			    gen_rtx_REG (word_mode, regno),
 			    build_int_2 ((UNITS_PER_WORD - size)
 					 * BITS_PER_UNIT, 0), NULL_RTX, 0);
       emit_move_insn (tem, shift);
@@ -1829,7 +1839,7 @@ move_block_from_reg (regno, x, nregs, size)
   if (HAVE_store_multiple)
     {
       last = get_last_insn ();
-      pat = gen_store_multiple (x, gen_rtx (REG, word_mode, regno),
+      pat = gen_store_multiple (x, gen_rtx_REG (word_mode, regno),
 				GEN_INT (nregs));
       if (pat)
 	{
@@ -1848,7 +1858,7 @@ move_block_from_reg (regno, x, nregs, size)
       if (tem == 0)
 	abort ();
 
-      emit_move_insn (tem, gen_rtx (REG, word_mode, regno + i));
+      emit_move_insn (tem, gen_rtx_REG (word_mode, regno + i));
     }
 }
 
@@ -1963,8 +1973,8 @@ use_reg (call_fusage, reg)
     abort();
 
   *call_fusage
-    = gen_rtx (EXPR_LIST, VOIDmode,
-	       gen_rtx (USE, VOIDmode, reg), *call_fusage);
+    = gen_rtx_EXPR_LIST (VOIDmode,
+			 gen_rtx_USE (VOIDmode, reg), *call_fusage);
 }
 
 /* Add USE expressions to *CALL_FUSAGE for each of NREGS consecutive regs,
@@ -1982,7 +1992,7 @@ use_regs (call_fusage, regno, nregs)
     abort ();
 
   for (i = 0; i < nregs; i++)
-    use_reg (call_fusage, gen_rtx (REG, reg_raw_mode[regno + i], regno + i));
+    use_reg (call_fusage, gen_rtx_REG (reg_raw_mode[regno + i], regno + i));
 }
 
 /* Add USE expressions to *CALL_FUSAGE for each REG contained in the
@@ -2103,7 +2113,7 @@ clear_by_pieces (to, len, align)
 
 static void
 clear_by_pieces_1 (genfun, mode, data)
-     rtx (*genfun) ();
+     rtx (*genfun) PVPROTO((rtx, ...));
      enum machine_mode mode;
      struct clear_by_pieces *data;
 {
@@ -2115,7 +2125,7 @@ clear_by_pieces_1 (genfun, mode, data)
       if (data->reverse) data->offset -= size;
 
       to1 = (data->autinc_to
-	     ? gen_rtx (MEM, mode, data->to_addr)
+	     ? gen_rtx_MEM (mode, data->to_addr)
 	     : copy_rtx (change_address (data->to, mode,
 					 plus_constant (data->to_addr,
 							data->offset))));
@@ -2326,17 +2336,17 @@ emit_move_insn_1 (x, y)
 	     regardless of machine's endianness.  */
 #ifdef STACK_GROWS_DOWNWARD
 	  emit_insn (GEN_FCN (mov_optab->handlers[(int) submode].insn_code)
-		     (gen_rtx (MEM, submode, (XEXP (x, 0))),
+		     (gen_rtx_MEM (submode, (XEXP (x, 0))),
 		      gen_imagpart (submode, y)));
 	  emit_insn (GEN_FCN (mov_optab->handlers[(int) submode].insn_code)
-		     (gen_rtx (MEM, submode, (XEXP (x, 0))),
+		     (gen_rtx_MEM (submode, (XEXP (x, 0))),
 		      gen_realpart (submode, y)));
 #else
 	  emit_insn (GEN_FCN (mov_optab->handlers[(int) submode].insn_code)
-		     (gen_rtx (MEM, submode, (XEXP (x, 0))),
+		     (gen_rtx_MEM (submode, (XEXP (x, 0))),
 		      gen_realpart (submode, y)));
 	  emit_insn (GEN_FCN (mov_optab->handlers[(int) submode].insn_code)
-		     (gen_rtx (MEM, submode, (XEXP (x, 0))),
+		     (gen_rtx_MEM (submode, (XEXP (x, 0))),
 		      gen_imagpart (submode, y)));
 #endif
 	}
@@ -2372,7 +2382,7 @@ emit_move_insn_1 (x, y)
 			     
       /* Show the output dies here.  */
       if (x != y)
-        emit_insn (gen_rtx (CLOBBER, VOIDmode, x));
+        emit_insn (gen_rtx_CLOBBER (VOIDmode, x));
 
       for (i = 0;
 	   i < (GET_MODE_SIZE (mode)  + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD;
@@ -2445,11 +2455,11 @@ push_block (size, extra, below)
     temp = plus_constant (virtual_outgoing_args_rtx,
 			  - INTVAL (size) - (below ? 0 : extra));
   else if (extra != 0 && !below)
-    temp = gen_rtx (PLUS, Pmode, virtual_outgoing_args_rtx,
-		    negate_rtx (Pmode, plus_constant (size, extra)));
+    temp = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
+			 negate_rtx (Pmode, plus_constant (size, extra)));
   else
-    temp = gen_rtx (PLUS, Pmode, virtual_outgoing_args_rtx,
-		    negate_rtx (Pmode, size));
+    temp = gen_rtx_PLUS (Pmode, virtual_outgoing_args_rtx,
+			 negate_rtx (Pmode, size));
 #endif
 
   return memory_address (GET_CLASS_NARROWEST_MODE (MODE_INT), temp);
@@ -2471,9 +2481,9 @@ get_push_address (size)
   register rtx temp;
 
   if (STACK_PUSH_CODE == POST_DEC)
-    temp = gen_rtx (PLUS, Pmode, stack_pointer_rtx, GEN_INT (size));
+    temp = gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (size));
   else if (STACK_PUSH_CODE == POST_INC)
-    temp = gen_rtx (MINUS, Pmode, stack_pointer_rtx, GEN_INT (size));
+    temp = gen_rtx_MINUS (Pmode, stack_pointer_rtx, GEN_INT (size));
   else
     temp = stack_pointer_rtx;
 
@@ -2598,10 +2608,10 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	      && where_pad != none && where_pad != stack_direction)
 	    anti_adjust_stack (GEN_INT (extra));
 
-	  move_by_pieces (gen_rtx (MEM, BLKmode, gen_push_operand ()), xinner,
+	  move_by_pieces (gen_rtx_MEM (BLKmode, gen_push_operand ()), xinner,
 			  INTVAL (size) - used, align);
 
-	  if (flag_check_memory_usage && ! in_check_memory_usage)
+	  if (current_function_check_memory_usage && ! in_check_memory_usage)
 	    {
 	      rtx temp;
 	      
@@ -2654,10 +2664,11 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 						  skip + INTVAL (args_so_far)));
 	  else
 	    temp = memory_address (BLKmode,
-				   plus_constant (gen_rtx (PLUS, Pmode,
-							   args_addr, args_so_far),
+				   plus_constant (gen_rtx_PLUS (Pmode,
+								args_addr,
+								args_so_far),
 						  skip));
-	  if (flag_check_memory_usage && ! in_check_memory_usage)
+	  if (current_function_check_memory_usage && ! in_check_memory_usage)
 	    {
 	      rtx target;
 	      
@@ -2682,7 +2693,7 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	      && (move_by_pieces_ninsns ((unsigned) INTVAL (size), align)
 		  < MOVE_RATIO))
 	    {
-	      move_by_pieces (gen_rtx (MEM, BLKmode, temp), xinner,
+	      move_by_pieces (gen_rtx_MEM (BLKmode, temp), xinner,
 			      INTVAL (size), align);
 	      goto ret;
 	    }
@@ -2690,7 +2701,7 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 	    {
 	      rtx opalign = GEN_INT (align);
 	      enum machine_mode mode;
-	      rtx target = gen_rtx (MEM, BLKmode, temp);
+	      rtx target = gen_rtx_MEM (BLKmode, temp);
 
 	      for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
 		   mode != VOIDmode;
@@ -2850,14 +2861,14 @@ emit_push_insn (x, mode, type, size, align, partial, reg, extra,
 				plus_constant (args_addr, 
 					       INTVAL (args_so_far)));
           else
-	    addr = memory_address (mode, gen_rtx (PLUS, Pmode, args_addr,
-						  args_so_far));
+	    addr = memory_address (mode, gen_rtx_PLUS (Pmode, args_addr,
+						       args_so_far));
 	  target = addr;
 	}
 
-      emit_move_insn (gen_rtx (MEM, mode, addr), x);
+      emit_move_insn (gen_rtx_MEM (mode, addr), x);
 
-      if (flag_check_memory_usage && ! in_check_memory_usage)
+      if (current_function_check_memory_usage && ! in_check_memory_usage)
 	{
 	  in_check_memory_usage = 1;
 	  if (target == 0)
@@ -2978,9 +2989,11 @@ expand_assignment (to, from, want_value, suggest_reg)
 	  if (GET_CODE (to_rtx) != MEM)
 	    abort ();
 	  to_rtx = change_address (to_rtx, VOIDmode,
-				   gen_rtx (PLUS, ptr_mode, XEXP (to_rtx, 0),
-					    force_reg (ptr_mode, offset_rtx)));
+				   gen_rtx_PLUS (ptr_mode, XEXP (to_rtx, 0),
+						 force_reg (ptr_mode,
+							    offset_rtx)));
 	}
+
       if (volatilep)
 	{
 	  if (GET_CODE (to_rtx) == MEM)
@@ -3011,7 +3024,7 @@ expand_assignment (to, from, want_value, suggest_reg)
 	}
 
       /* Check the access.  */
-      if (flag_check_memory_usage && GET_CODE (to_rtx) == MEM)
+      if (current_function_check_memory_usage && GET_CODE (to_rtx) == MEM)
 	{
 	  rtx to_addr;
 	  int size;
@@ -3131,7 +3144,7 @@ expand_assignment (to, from, want_value, suggest_reg)
 			      EXPAND_MEMORY_USE_DONT);
 
       /* Copy the rights of the bitmap.  */
-      if (flag_check_memory_usage)
+      if (current_function_check_memory_usage)
 	emit_library_call (chkr_copy_bitmap_libfunc, 1, VOIDmode, 3,
 			   XEXP (to_rtx, 0), ptr_mode,
 			   XEXP (from_rtx, 0), ptr_mode,
@@ -3353,7 +3366,7 @@ store_expr (exp, target, want_value)
     temp = convert_modes (GET_MODE (target), TYPE_MODE (TREE_TYPE (exp)),
 			  temp, TREE_UNSIGNED (TREE_TYPE (exp)));
 
-  if (flag_check_memory_usage
+  if (current_function_check_memory_usage
       && GET_CODE (target) == MEM
       && AGGREGATE_TYPE_P (TREE_TYPE (exp)))
     {
@@ -3454,7 +3467,7 @@ store_expr (exp, target, want_value)
 	      if (size != const0_rtx)
 		{
 		  /* Be sure we can write on ADDR.  */
-		  if (flag_check_memory_usage)
+		  if (current_function_check_memory_usage)
 		    emit_library_call (chkr_check_addr_libfunc, 1, VOIDmode, 3,
 				       addr, ptr_mode,
 				       size, TYPE_MODE (sizetype),
@@ -3587,7 +3600,7 @@ mostly_zeros_p (exp)
 /* Helper function for store_constructor.
    TARGET, BITSIZE, BITPOS, MODE, EXP are as for store_field.
    TYPE is the type of the CONSTRUCTOR, not the element type.
-   CLEARED is as for store_constructor.
+   ALIGN and CLEARED are as for store_constructor.
 
    This provides a recursive shortcut back to store_constructor when it isn't
    necessary to go through store_field.  This is so that we can pass through
@@ -3596,11 +3609,12 @@ mostly_zeros_p (exp)
 
 static void
 store_constructor_field (target, bitsize, bitpos,
-			 mode, exp, type, cleared)
+			 mode, exp, type, align, cleared)
      rtx target;
      int bitsize, bitpos;
      enum machine_mode mode;
      tree exp, type;
+     int align;
      int cleared;
 {
   if (TREE_CODE (exp) == CONSTRUCTOR
@@ -3614,20 +3628,21 @@ store_constructor_field (target, bitsize, bitpos,
 	target = change_address (target, VOIDmode,
 				 plus_constant (XEXP (target, 0),
 						bitpos / BITS_PER_UNIT));
-      store_constructor (exp, target, cleared);
+      store_constructor (exp, target, align, cleared);
     }
   else
-    store_field (target, bitsize, bitpos, mode, exp,
-		 VOIDmode, 0, TYPE_ALIGN (type) / BITS_PER_UNIT,
+    store_field (target, bitsize, bitpos, mode, exp, VOIDmode, 0, 
+		 (align + BITS_PER_UNIT - 1) / BITS_PER_UNIT,
 		 int_size_in_bytes (type));
 }
 
 /* Store the value of constructor EXP into the rtx TARGET.
    TARGET is either a REG or a MEM.
+   ALIGN is the maximum known alignment for TARGET, in bits.
    CLEARED is true if TARGET is known to have been zero'd.  */
 
 static void
-store_constructor (exp, target, cleared)
+store_constructor (exp, target, align, cleared)
      tree exp;
      rtx target;
      int cleared;
@@ -3656,7 +3671,7 @@ store_constructor (exp, target, cleared)
       /* Inform later passes that the whole union value is dead.  */
       if (TREE_CODE (type) == UNION_TYPE
 	  || TREE_CODE (type) == QUAL_UNION_TYPE)
-	emit_insn (gen_rtx (CLOBBER, VOIDmode, target));
+	emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
 
       /* If we are building a static constructor into a register,
 	 set the initial value as zero so we can fold the value into
@@ -3680,13 +3695,13 @@ store_constructor (exp, target, cleared)
 	{
 	  if (! cleared)
 	    clear_storage (target, expr_size (exp),
-			   TYPE_ALIGN (type) / BITS_PER_UNIT);
+			   (align + BITS_PER_UNIT - 1) / BITS_PER_UNIT);
 
 	  cleared = 1;
 	}
       else
 	/* Inform later passes that the old value is dead.  */
-	emit_insn (gen_rtx (CLOBBER, VOIDmode, target));
+	emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
 
       /* Store each element of the constructor into
 	 the corresponding field of TARGET.  */
@@ -3745,9 +3760,11 @@ store_constructor (exp, target, cleared)
 
 	      to_rtx
 		= change_address (to_rtx, VOIDmode,
-				  gen_rtx (PLUS, ptr_mode, XEXP (to_rtx, 0),
-					   force_reg (ptr_mode, offset_rtx)));
+				  gen_rtx_PLUS (ptr_mode, XEXP (to_rtx, 0),
+						force_reg (ptr_mode,
+							   offset_rtx)));
 	    }
+
 	  if (TREE_READONLY (field))
 	    {
 	      if (GET_CODE (to_rtx) == MEM)
@@ -3756,8 +3773,11 @@ store_constructor (exp, target, cleared)
 	      RTX_UNCHANGING_P (to_rtx) = 1;
 	    }
 
-	  store_constructor_field (to_rtx, bitsize, bitpos,
-				   mode, TREE_VALUE (elt), type, cleared);
+	  store_constructor_field (to_rtx, bitsize, bitpos, mode,
+				   TREE_VALUE (elt), type, 
+				   MIN (align,
+					DECL_ALIGN (TREE_PURPOSE (elt))),
+				   cleared);
 	}
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
@@ -3817,12 +3837,12 @@ store_constructor (exp, target, cleared)
 	{
 	  if (! cleared)
 	    clear_storage (target, expr_size (exp),
-			   TYPE_ALIGN (type) / BITS_PER_UNIT);
+			   (align + BITS_PER_UNIT - 1) / BITS_PER_UNIT);
 	  cleared = 1;
 	}
       else
 	/* Inform later passes that the old value is dead.  */
-	emit_insn (gen_rtx (CLOBBER, VOIDmode, target));
+	emit_insn (gen_rtx_CLOBBER (VOIDmode, target));
 
       /* Store each element of the constructor into
 	 the corresponding element of TARGET, determined
@@ -3836,6 +3856,7 @@ store_constructor (exp, target, cleared)
 	  int bitpos;
 	  int unsignedp;
 	  tree value = TREE_VALUE (elt);
+	  int align = TYPE_ALIGN (TREE_TYPE (value));
 	  tree index = TREE_PURPOSE (elt);
 	  rtx xtarget = target;
 
@@ -3871,8 +3892,8 @@ store_constructor (exp, target, cleared)
 		  for (; lo <= hi; lo++)
 		    {
 		      bitpos = lo * TREE_INT_CST_LOW (TYPE_SIZE (elttype));
-		      store_constructor_field (target, bitsize, bitpos,
-					       mode, value, type, cleared);
+		      store_constructor_field (target, bitsize, bitpos, mode,
+					       value, type, align, cleared);
 		    }
 		}
 	      else
@@ -3908,10 +3929,10 @@ store_constructor (exp, target, cleared)
 						     TYPE_MIN_VALUE (domain)),
 					 position);
 		  pos_rtx = expand_expr (position, 0, VOIDmode, 0);
-		  addr = gen_rtx (PLUS, Pmode, XEXP (target, 0), pos_rtx);
+		  addr = gen_rtx_PLUS (Pmode, XEXP (target, 0), pos_rtx);
 		  xtarget = change_address (target, mode, addr);
 		  if (TREE_CODE (value) == CONSTRUCTOR)
-		    store_constructor (value, xtarget, cleared);
+		    store_constructor (value, xtarget, align, cleared);
 		  else
 		    store_expr (value, xtarget, 0);
 
@@ -3928,7 +3949,7 @@ store_constructor (exp, target, cleared)
 		  /* Needed by stupid register allocation. to extend the
 		     lifetime of pseudo-regs used by target past the end
 		     of the loop.  */
-		  emit_insn (gen_rtx (USE, GET_MODE (target), target));
+		  emit_insn (gen_rtx_USE (GET_MODE (target), target));
 		}
 	    }
 	  else if ((index != 0 && TREE_CODE (index) != INTEGER_CST)
@@ -3947,7 +3968,7 @@ store_constructor (exp, target, cleared)
 				     size_int (BITS_PER_UNIT));
 	      position = size_binop (MULT_EXPR, index, position);
 	      pos_rtx = expand_expr (position, 0, VOIDmode, 0);
-	      addr = gen_rtx (PLUS, Pmode, XEXP (target, 0), pos_rtx);
+	      addr = gen_rtx_PLUS (Pmode, XEXP (target, 0), pos_rtx);
 	      xtarget = change_address (target, mode, addr);
 	      store_expr (value, xtarget, 0);
 	    }
@@ -3958,8 +3979,8 @@ store_constructor (exp, target, cleared)
 			  * TREE_INT_CST_LOW (TYPE_SIZE (elttype)));
 	      else
 		bitpos = (i * TREE_INT_CST_LOW (TYPE_SIZE (elttype)));
-	      store_constructor_field (target, bitsize, bitpos,
-				       mode, value, type, cleared);
+	      store_constructor_field (target, bitsize, bitpos, mode, value,
+				       type, align, cleared);
 	    }
 	}
     }
@@ -4132,7 +4153,7 @@ store_constructor (exp, target, cleared)
 	  else
 #endif
 	    {
-	      emit_library_call (gen_rtx (SYMBOL_REF, Pmode, "__setbits"),
+	      emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__setbits"),
 				 0, VOIDmode, 4, XEXP (targetx, 0), Pmode,
 				 bitlength_rtx, TYPE_MODE (sizetype),
 				 startbit_rtx, TYPE_MODE (sizetype),
@@ -5036,8 +5057,9 @@ expand_expr (exp, target, tmode, modifier)
 	    push_obstacks (p->function_obstack,
 			   p->function_maybepermanent_obstack);
 
-	    p->forced_labels = gen_rtx (EXPR_LIST, VOIDmode,
-					label_rtx (exp), p->forced_labels);
+	    p->forced_labels
+	      = gen_rtx_EXPR_LIST (VOIDmode, label_rtx (exp),
+				   p->forced_labels);
 	    p->addresses_labels = 1;
 	    pop_obstacks ();
 	  }
@@ -5045,12 +5067,12 @@ expand_expr (exp, target, tmode, modifier)
 	  {
 	    current_function_addresses_labels = 1;
 	    if (modifier == EXPAND_INITIALIZER)
-	      forced_labels = gen_rtx (EXPR_LIST, VOIDmode,
-				       label_rtx (exp), forced_labels);
+	      forced_labels
+		= gen_rtx_EXPR_LIST (VOIDmode, label_rtx (exp), forced_labels);
 	  }
 
-	temp = gen_rtx (MEM, FUNCTION_MODE,
-			gen_rtx (LABEL_REF, Pmode, label_rtx (exp)));
+	temp = gen_rtx_MEM (FUNCTION_MODE,
+			    gen_rtx_LABEL_REF (Pmode, label_rtx (exp)));
 	if (function != current_function_decl
 	    && function != inline_function_decl && function != 0)
 	  LABEL_REF_NONLOCAL_P (XEXP (temp, 0)) = 1;
@@ -5079,13 +5101,16 @@ expand_expr (exp, target, tmode, modifier)
 	  pop_obstacks ();
 	}
 
-      /* Only check automatic variables.  Currently, function arguments are
-         not checked (this can be done at compile-time with prototypes).
-         Aggregates are not checked.  */
-      if (flag_check_memory_usage && code == VAR_DECL
+      /* Although static-storage variables start off initialized, according to
+	 ANSI C, a memcpy could overwrite them with uninitialized values.  So
+	 we check them too.  This also lets us check for read-only variables
+	 accessed via a non-const declaration, in case it won't be detected
+	 any other way (e.g., in an embedded system or OS kernel without
+	 memory protection).
+
+	 Aggregates are not checked here; they're handled elsewhere.  */
+      if (current_function_check_memory_usage && code == VAR_DECL
 	  && GET_CODE (DECL_RTL (exp)) == MEM
-	  && DECL_CONTEXT (exp) != NULL_TREE
-	  && ! TREE_STATIC (exp)
 	  && ! AGGREGATE_TYPE_P (TREE_TYPE (exp)))
 	{
 	  enum memory_use_mode memory_usage;
@@ -5144,8 +5169,8 @@ expand_expr (exp, target, tmode, modifier)
 	    abort ();
 	  addr = XEXP (DECL_RTL (exp), 0);
 	  if (GET_CODE (addr) == MEM)
-	    addr = gen_rtx (MEM, Pmode,
-			    fix_lexical_addr (XEXP (addr, 0), exp));
+	    addr = gen_rtx_MEM (Pmode,
+				fix_lexical_addr (XEXP (addr, 0), exp));
 	  else
 	    addr = fix_lexical_addr (addr, exp);
 	  temp = change_address (DECL_RTL (exp), mode, addr);
@@ -5199,7 +5224,7 @@ expand_expr (exp, target, tmode, modifier)
 	      != promote_mode (type, DECL_MODE (exp), &unsignedp, 0))
 	    abort ();
 
-	  temp = gen_rtx (SUBREG, mode, DECL_RTL (exp), 0);
+	  temp = gen_rtx_SUBREG (mode, DECL_RTL (exp), 0);
 	  SUBREG_PROMOTED_VAR_P (temp) = 1;
 	  SUBREG_PROMOTED_UNSIGNED_P (temp) = unsignedp;
 	  return temp;
@@ -5290,8 +5315,8 @@ expand_expr (exp, target, tmode, modifier)
 
 	  SAVE_EXPR_RTL (exp) = temp;
 	  if (!optimize && GET_CODE (temp) == REG)
-	    save_expr_regs = gen_rtx (EXPR_LIST, VOIDmode, temp,
-				      save_expr_regs);
+	    save_expr_regs = gen_rtx_EXPR_LIST (VOIDmode, temp,
+						save_expr_regs);
 
 	  /* If the mode of TEMP does not match that of the expression, it
 	     must be a promoted value.  We pass store_expr a SUBREG of the
@@ -5301,7 +5326,7 @@ expand_expr (exp, target, tmode, modifier)
 
 	  if (GET_CODE (temp) == REG && GET_MODE (temp) != mode)
 	    {
-	      temp = gen_rtx (SUBREG, mode, SAVE_EXPR_RTL (exp), 0);
+	      temp = gen_rtx_SUBREG (mode, SAVE_EXPR_RTL (exp), 0);
 	      SUBREG_PROMOTED_VAR_P (temp) = 1;
 	      SUBREG_PROMOTED_UNSIGNED_P (temp) = unsignedp;
 	    }
@@ -5324,7 +5349,7 @@ expand_expr (exp, target, tmode, modifier)
 	{
 	  /* Compute the signedness and make the proper SUBREG.  */
 	  promote_mode (type, mode, &unsignedp, 0);
-	  temp = gen_rtx (SUBREG, mode, SAVE_EXPR_RTL (exp), 0);
+	  temp = gen_rtx_SUBREG (mode, SAVE_EXPR_RTL (exp), 0);
 	  SUBREG_PROMOTED_VAR_P (temp) = 1;
 	  SUBREG_PROMOTED_UNSIGNED_P (temp) = unsignedp;
 	  return temp;
@@ -5503,7 +5528,7 @@ expand_expr (exp, target, tmode, modifier)
 			&& (move_by_pieces_ninsns
 			    (TREE_INT_CST_LOW (TYPE_SIZE (type))/BITS_PER_UNIT,
 			     TYPE_ALIGN (type) / BITS_PER_UNIT)
-			    > MOVE_RATIO)
+			    >= MOVE_RATIO)
 			&& ! mostly_zeros_p (exp))))
 	       || (modifier == EXPAND_INITIALIZER && TREE_CONSTANT (exp)))
 	{
@@ -5541,7 +5566,7 @@ expand_expr (exp, target, tmode, modifier)
 	      RTX_UNCHANGING_P (target) = 1;
 	    }
 
-	  store_constructor (exp, target, 0);
+	  store_constructor (exp, target, TYPE_ALIGN (TREE_TYPE (exp)), 0);
 	  return target;
 	}
 
@@ -5553,7 +5578,8 @@ expand_expr (exp, target, tmode, modifier)
 	op0 = expand_expr (exp1, NULL_RTX, VOIDmode, EXPAND_SUM);
 	op0 = memory_address (mode, op0);
 
-	if (flag_check_memory_usage && !AGGREGATE_TYPE_P (TREE_TYPE (exp)))
+	if (current_function_check_memory_usage
+	    && ! AGGREGATE_TYPE_P (TREE_TYPE (exp)))
 	  {
 	    enum memory_use_mode memory_usage;
 	    memory_usage = get_memory_usage_from_modifier (modifier);
@@ -5571,7 +5597,7 @@ expand_expr (exp, target, tmode, modifier)
 	      }
 	  }
 
-	temp = gen_rtx (MEM, mode, op0);
+	temp = gen_rtx_MEM (mode, op0);
 	/* If address was computed by addition,
 	   mark this as an element of an aggregate.  */
 	if (TREE_CODE (exp1) == PLUS_EXPR
@@ -5806,8 +5832,9 @@ expand_expr (exp, target, tmode, modifier)
 	    if (GET_CODE (op0) != MEM)
 	      abort ();
 	    op0 = change_address (op0, VOIDmode,
-				  gen_rtx (PLUS, ptr_mode, XEXP (op0, 0),
-					   force_reg (ptr_mode, offset_rtx)));
+				  gen_rtx_PLUS (ptr_mode, XEXP (op0, 0),
+						force_reg (ptr_mode,
+							   offset_rtx)));
 	  }
 
 	/* Don't forget about volatility even if this is a bitfield.  */
@@ -5818,7 +5845,7 @@ expand_expr (exp, target, tmode, modifier)
 	  }
 
 	/* Check the access.  */
-	if (flag_check_memory_usage && GET_CODE (op0) == MEM)
+	if (current_function_check_memory_usage && GET_CODE (op0) == MEM)
           {
 	    enum memory_use_mode memory_usage;
 	    memory_usage = get_memory_usage_from_modifier (modifier);
@@ -5934,8 +5961,8 @@ expand_expr (exp, target, tmode, modifier)
 	/* Get a reference to just this component.  */
 	if (modifier == EXPAND_CONST_ADDRESS
 	    || modifier == EXPAND_SUM || modifier == EXPAND_INITIALIZER)
-	  op0 = gen_rtx (MEM, mode1, plus_constant (XEXP (op0, 0),
-						    (bitpos / BITS_PER_UNIT)));
+	  op0 = gen_rtx_MEM (mode1, plus_constant (XEXP (op0, 0),
+						   (bitpos / BITS_PER_UNIT)));
 	else
 	  op0 = change_address (op0, mode1,
 				plus_constant (XEXP (op0, 0),
@@ -6053,7 +6080,7 @@ expand_expr (exp, target, tmode, modifier)
 
 	/* Extract the bit we want to examine */
 	bit = expand_shift (RSHIFT_EXPR, byte_mode,
-			    gen_rtx (MEM, byte_mode, addr),
+			    gen_rtx_MEM (byte_mode, addr),
 			    make_tree (TREE_TYPE (index), rem),
 			    NULL_RTX, 1);
 	result = expand_binop (byte_mode, and_optab, bit, const1_rtx,
@@ -6298,9 +6325,9 @@ expand_expr (exp, target, tmode, modifier)
 	    op0 = temp;
 	  /* Ensure that MULT comes first if there is one.  */
 	  else if (GET_CODE (op0) == MULT)
-	    op0 = gen_rtx (PLUS, mode, op0, XEXP (op1, 0));
+	    op0 = gen_rtx_PLUS (mode, op0, XEXP (op1, 0));
 	  else
-	    op0 = gen_rtx (PLUS, mode, XEXP (op1, 0), op0);
+	    op0 = gen_rtx_PLUS (mode, XEXP (op1, 0), op0);
 
 	  /* Let's also eliminate constants from op0 if possible.  */
 	  op0 = eliminate_constant_term (op0, &constant_term);
@@ -6314,7 +6341,7 @@ expand_expr (exp, target, tmode, modifier)
 	  if (temp != 0)
 	    op1 = temp;
 	  else
-	    op1 = gen_rtx (PLUS, mode, constant_term, XEXP (op1, 1));
+	    op1 = gen_rtx_PLUS (mode, constant_term, XEXP (op1, 1));
 	}
 
       /* Put a constant term last and put a multiplication first.  */
@@ -6322,7 +6349,7 @@ expand_expr (exp, target, tmode, modifier)
 	temp = op1, op1 = op0, op0 = temp;
 
       temp = simplify_binary_operation (PLUS, mode, op0, op1);
-      return temp ? temp : gen_rtx (PLUS, mode, op0, op1);
+      return temp ? temp : gen_rtx_PLUS (mode, op0, op1);
 
     case MINUS_EXPR:
       /* For initializers, we are allowed to return a MINUS of two
@@ -6344,7 +6371,7 @@ expand_expr (exp, target, tmode, modifier)
 	  if (GET_CODE (op1) == CONST_INT)
 	    return plus_constant (op0, - INTVAL (op1));
 	  else
-	    return gen_rtx (MINUS, mode, op0, op1);
+	    return gen_rtx_MINUS (mode, op0, op1);
 	}
       /* Convert A - const to A + (-const).  */
       if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
@@ -6401,18 +6428,22 @@ expand_expr (exp, target, tmode, modifier)
 	  /* Apply distributive law if OP0 is x+c.  */
 	  if (GET_CODE (op0) == PLUS
 	      && GET_CODE (XEXP (op0, 1)) == CONST_INT)
-	    return gen_rtx (PLUS, mode,
-			    gen_rtx (MULT, mode, XEXP (op0, 0),
-				     GEN_INT (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)))),
-			    GEN_INT (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1))
-				     * INTVAL (XEXP (op0, 1))));
+	    return
+	      gen_rtx_PLUS
+		(mode,
+		 gen_rtx_MULT
+		 (mode, XEXP (op0, 0),
+		  GEN_INT (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)))),
+		 GEN_INT (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1))
+			  * INTVAL (XEXP (op0, 1))));
 
 	  if (GET_CODE (op0) != REG)
 	    op0 = force_operand (op0, NULL_RTX);
 	  if (GET_CODE (op0) != REG)
 	    op0 = copy_to_mode_reg (mode, op0);
 
-	  return gen_rtx (MULT, mode, op0,
+	  return
+	    gen_rtx_MULT (mode, op0,
 			  GEN_INT (TREE_INT_CST_LOW (TREE_OPERAND (exp, 1))));
 	}
 
@@ -7287,10 +7318,9 @@ expand_expr (exp, target, tmode, modifier)
 
 	  op0 = protect_from_queue (op0, 0);
 
-	  /* We would like the object in memory.  If it is a constant,
-	     we can have it be statically allocated into memory.  For
-	     a non-constant (REG, SUBREG or CONCAT), we need to allocate some
-	     memory and store the value into it.  */
+	  /* We would like the object in memory.  If it is a constant, we can
+	     have it be statically allocated into memory.  For a non-constant,
+	     we need to allocate some memory and store the value into it.  */
 
 	  if (CONSTANT_P (op0))
 	    op0 = force_const_mem (TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0))),
@@ -7302,7 +7332,7 @@ expand_expr (exp, target, tmode, modifier)
 	    }
 
 	  else if (GET_CODE (op0) == REG || GET_CODE (op0) == SUBREG
-		   || GET_CODE (op0) == CONCAT)
+		   || GET_CODE (op0) == CONCAT || GET_CODE (op0) == ADDRESSOF)
 	    {
 	      /* If this object is in a register, it must be not
 		 be BLKmode.  */
@@ -7450,14 +7480,14 @@ expand_expr (exp, target, tmode, modifier)
     case POPDCC_EXPR:
       {
 	rtx dcc = get_dynamic_cleanup_chain ();
-	emit_move_insn (dcc, validize_mem (gen_rtx (MEM, Pmode, dcc)));
+	emit_move_insn (dcc, validize_mem (gen_rtx_MEM (Pmode, dcc)));
 	return const0_rtx;
       }
 
     case POPDHC_EXPR:
       {
 	rtx dhc = get_dynamic_handler_chain ();
-	emit_move_insn (dhc, validize_mem (gen_rtx (MEM, Pmode, dhc)));
+	emit_move_insn (dhc, validize_mem (gen_rtx_MEM (Pmode, dhc)));
 	return const0_rtx;
       }
 
@@ -8213,7 +8243,7 @@ expand_builtin_return_addr (fndecl_code, count, tem)
       tem = DYNAMIC_CHAIN_ADDRESS (tem);
 #endif
       tem = memory_address (Pmode, tem);
-      tem = copy_to_reg (gen_rtx (MEM, Pmode, tem));
+      tem = copy_to_reg (gen_rtx_MEM (Pmode, tem));
     }
 
   /* For __builtin_frame_address, return what we've got.  */
@@ -8227,7 +8257,7 @@ expand_builtin_return_addr (fndecl_code, count, tem)
 #else
   tem = memory_address (Pmode,
 			plus_constant (tem, GET_MODE_SIZE (Pmode)));
-  tem = gen_rtx (MEM, Pmode, tem);
+  tem = gen_rtx_MEM (Pmode, tem);
 #endif
   return tem;
 }
@@ -8296,18 +8326,18 @@ expand_builtin_setjmp (buf_addr, target)
 #define BUILTIN_SETJMP_FRAME_VALUE virtual_stack_vars_rtx
 #endif
 
-  emit_move_insn (gen_rtx (MEM, Pmode, buf_addr), BUILTIN_SETJMP_FRAME_VALUE);
+  emit_move_insn (gen_rtx_MEM (Pmode, buf_addr), BUILTIN_SETJMP_FRAME_VALUE);
 
   emit_move_insn
-    (validize_mem (gen_rtx (MEM, Pmode,
+    (validize_mem (gen_rtx_MEM (Pmode,
+				plus_constant (buf_addr,
+					       GET_MODE_SIZE (Pmode)))),
+     gen_rtx_LABEL_REF (Pmode, lab1));
+
+
+  stack_save = gen_rtx_MEM (sa_mode,
 			    plus_constant (buf_addr,
-					   GET_MODE_SIZE (Pmode)))),
-     gen_rtx (LABEL_REF, Pmode, lab1));
-
-
-  stack_save = gen_rtx (MEM, sa_mode,
-			plus_constant (buf_addr,
-				       2 * GET_MODE_SIZE (Pmode)));
+					   2 * GET_MODE_SIZE (Pmode)));
   emit_stack_save (SAVE_NONLOCAL, &stack_save, NULL_RTX);
 
 #ifdef HAVE_setjmp
@@ -8323,11 +8353,11 @@ expand_builtin_setjmp (buf_addr, target)
 
   /* Note that setjmp clobbers FP when we get here, so we have to make
      sure it's marked as used by this function.  */
-  emit_insn (gen_rtx (USE, VOIDmode, hard_frame_pointer_rtx));
+  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
 
   /* Mark the static chain as clobbered here so life information
      doesn't get messed up for it.  */
-  emit_insn (gen_rtx (CLOBBER, VOIDmode, static_chain_rtx));
+  emit_insn (gen_rtx_CLOBBER (VOIDmode, static_chain_rtx));
 
   /* Now put in the code to restore the frame pointer, and argument
      pointer, if needed.  The code below is from expand_end_bindings
@@ -8385,13 +8415,13 @@ expand_builtin_setjmp (buf_addr, target)
   op0 = memory_address (FUNCTION_MODE, op0);
 
   INIT_CUMULATIVE_ARGS (args_so_far, NULL_TREE,
-			gen_rtx (SYMBOL_REF, Pmode, "__dummy"), 1);
+			gen_rtx_SYMBOL_REF (Pmode, "__dummy"), 1);
   next_arg_reg = FUNCTION_ARG (args_so_far, VOIDmode, void_type_node, 1);
 
 #ifndef ACCUMULATE_OUTGOING_ARGS
 #ifdef HAVE_call_pop
   if (HAVE_call_pop)
-    emit_call_insn (gen_call_pop (gen_rtx (MEM, FUNCTION_MODE, op0),
+    emit_call_insn (gen_call_pop (gen_rtx_MEM (FUNCTION_MODE, op0),
 				  const0_rtx, next_arg_reg,
 				  GEN_INT (return_pops)));
   else
@@ -8400,7 +8430,7 @@ expand_builtin_setjmp (buf_addr, target)
 
 #ifdef HAVE_call
     if (HAVE_call)
-      emit_call_insn (gen_call (gen_rtx (MEM, FUNCTION_MODE, op0),
+      emit_call_insn (gen_call (gen_rtx_MEM (FUNCTION_MODE, op0),
 				const0_rtx, next_arg_reg, const0_rtx));
     else
 #endif
@@ -8530,7 +8560,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	    rtx errno_rtx = GEN_ERRNO_RTX;
 #else
 	    rtx errno_rtx
-	      = gen_rtx (MEM, word_mode, gen_rtx (SYMBOL_REF, Pmode, "errno"));
+	      = gen_rtx_MEM (word_mode, gen_rtx_SYMBOL_REF (Pmode, "errno"));
 #endif
 
 	    emit_move_insn (errno_rtx, GEN_INT (TARGET_EDOM));
@@ -8830,11 +8860,45 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	{
 	  tree arg = TREE_VALUE (arglist);
 
+	  /* We return 1 for a numeric type that's known to be a constant
+	     value at compile-time or for an aggregate type that's a
+	     literal constant.  */
 	  STRIP_NOPS (arg);
-	  return (TREE_CODE_CLASS (TREE_CODE (arg)) == 'c'
-		  || (TREE_CODE (arg) == ADDR_EXPR
-		      && TREE_CODE (TREE_OPERAND (arg, 0)) == STRING_CST)
-		  ? const1_rtx : const0_rtx);
+
+	  /* If we know this is a constant, emit the constant of one.  */
+	  if (TREE_CODE_CLASS (TREE_CODE (arg)) == 'c'
+	      || (TREE_CODE (arg) == CONSTRUCTOR
+		  && TREE_CONSTANT (arg))
+	      || (TREE_CODE (arg) == ADDR_EXPR
+		  && TREE_CODE (TREE_OPERAND (arg, 0)) == STRING_CST))
+	    return const1_rtx;
+
+	  /* If we aren't going to be running CSE or this expression
+	     has side effects, show we don't know it to be a constant.
+	     Likewise if it's a pointer or aggregate type since in those
+	     case we only want literals, since those are only optimized
+	     when generating RTL, not later.  */
+	  else if (TREE_SIDE_EFFECTS (arg) || cse_not_expected
+		   || AGGREGATE_TYPE_P (TREE_TYPE (arg))
+		   || POINTER_TYPE_P (TREE_TYPE (arg)))
+	    return const0_rtx;
+
+	  /* Otherwise, emit (const (constant_p_rtx (ARG))) and let CSE
+	     get a chance to see if it can deduce whether ARG is constant. 
+	     We always generate the CONST in ptr_mode since that's
+	     certain to be valid on this machine, then convert it to
+	     whatever we need.  */
+	  else
+	    return
+	      convert_to_mode
+		(mode,
+		 gen_rtx_CONST
+		 (ptr_mode,
+		  gen_rtx_CONSTANT_P_RTX (ptr_mode,
+					  expand_expr (arg, NULL_RTX,
+						       VOIDmode, 0))),
+		 0);
+	  
 	}
 
     case BUILT_IN_FRAME_ADDRESS:
@@ -8986,7 +9050,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	    src_rtx = copy_to_mode_reg (Pmode, src_rtx);
 
 	  /* Check the string is readable and has an end.  */
-	  if (flag_check_memory_usage)
+	  if (current_function_check_memory_usage)
 	    emit_library_call (chkr_check_str_libfunc, 1, VOIDmode, 2,
 			       src_rtx, ptr_mode,
 			       GEN_INT (MEMORY_USE_RO),
@@ -8998,7 +9062,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	    char_rtx = copy_to_mode_reg (char_mode, char_rtx);
 
 	  emit_insn (GEN_FCN (icode) (result,
-				      gen_rtx (MEM, BLKmode, src_rtx),
+				      gen_rtx_MEM (BLKmode, src_rtx),
 				      char_rtx, GEN_INT (align)));
 
 	  /* Return the value in the proper mode for this function.  */
@@ -9075,20 +9139,20 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	    }
 
 	  dest_rtx = expand_expr (dest, NULL_RTX, ptr_mode, EXPAND_SUM);
-	  dest_mem = gen_rtx (MEM, BLKmode,
-			      memory_address (BLKmode, dest_rtx));
+	  dest_mem = gen_rtx_MEM (BLKmode,
+				  memory_address (BLKmode, dest_rtx));
 	  /* There could be a void* cast on top of the object.  */
 	  while (TREE_CODE (dest) == NOP_EXPR)
 	    dest = TREE_OPERAND (dest, 0);
 	  type = TREE_TYPE (TREE_TYPE (dest));
 	  MEM_IN_STRUCT_P (dest_mem) = AGGREGATE_TYPE_P (type);
 	  src_rtx = expand_expr (src, NULL_RTX, ptr_mode, EXPAND_SUM);
-	  src_mem = gen_rtx (MEM, BLKmode,
-			     memory_address (BLKmode, src_rtx));
+	  src_mem = gen_rtx_MEM (BLKmode,
+				 memory_address (BLKmode, src_rtx));
 	  len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
 
 	  /* Just copy the rights of SRC to the rights of DEST.  */
-	  if (flag_check_memory_usage)
+	  if (current_function_check_memory_usage)
 	    emit_library_call (chkr_copy_bitmap_libfunc, 1, VOIDmode, 3,
 			       dest_rtx, ptr_mode,
 			       src_rtx, ptr_mode,
@@ -9149,12 +9213,12 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	    break;
 
 	  dest_rtx = expand_expr (dest, NULL_RTX, ptr_mode, EXPAND_SUM);
-	  dest_mem = gen_rtx (MEM, BLKmode,
-			      memory_address (BLKmode, dest_rtx));
+	  dest_mem = gen_rtx_MEM (BLKmode,
+				  memory_address (BLKmode, dest_rtx));
 	  len_rtx = expand_expr (len, NULL_RTX, VOIDmode, 0);
 
 	  /* Just check DST is writable and mark it as readable.  */
-	  if (flag_check_memory_usage)
+	  if (current_function_check_memory_usage)
 	    emit_library_call (chkr_check_addr_libfunc, 1, VOIDmode, 3,
 			       dest_rtx, ptr_mode,
 			       len_rtx, TYPE_MODE (sizetype),
@@ -9186,7 +9250,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	break;
 
       /* If we need to check memory accesses, call the library function.  */
-      if (flag_check_memory_usage)
+      if (current_function_check_memory_usage)
 	break;
 
       if (arglist == 0
@@ -9243,7 +9307,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	break;
 
       /* If we need to check memory accesses, call the library function.  */
-      if (flag_check_memory_usage)
+      if (current_function_check_memory_usage)
 	break;
 
       if (arglist == 0
@@ -9285,14 +9349,14 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	  result = gen_reg_rtx (insn_mode);
 
 	emit_insn (gen_cmpstrsi (result,
-				 gen_rtx (MEM, BLKmode,
-					  expand_expr (arg1, NULL_RTX,
-						       ptr_mode,
-						       EXPAND_NORMAL)),
-				 gen_rtx (MEM, BLKmode,
-					  expand_expr (arg2, NULL_RTX,
-						       ptr_mode,
-						       EXPAND_NORMAL)),
+				 gen_rtx_MEM (BLKmode,
+					      expand_expr (arg1, NULL_RTX,
+							   ptr_mode,
+							   EXPAND_NORMAL)),
+				 gen_rtx_MEM (BLKmode,
+					      expand_expr (arg2, NULL_RTX,
+							   ptr_mode,
+							   EXPAND_NORMAL)),
 				 expand_expr (len, NULL_RTX, VOIDmode, 0),
 				 GEN_INT (MIN (arg1_align, arg2_align))));
 
@@ -9350,9 +9414,10 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 					   NULL_RTX,
 					   VOIDmode, 0));
 #endif
-	rtx fp = gen_rtx (MEM, Pmode, buf_addr);
-	rtx lab = gen_rtx (MEM, Pmode,
-			   plus_constant (buf_addr, GET_MODE_SIZE (Pmode)));
+	rtx fp = gen_rtx_MEM (Pmode, buf_addr);
+	rtx lab = gen_rtx_MEM (Pmode,
+			       plus_constant (buf_addr,
+					      GET_MODE_SIZE (Pmode)));
 	enum machine_mode sa_mode
 	  = (
 #ifdef HAVE_save_stack_nonlocal
@@ -9369,9 +9434,9 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	sa_mode = STACK_SAVEAREA_MODE (sa_mode, SAVE_NONLOCAL);
 #endif
 
-	stack = gen_rtx (MEM, sa_mode,
-			 plus_constant (buf_addr,
-					2 * GET_MODE_SIZE (Pmode)));
+	stack = gen_rtx_MEM (sa_mode,
+			     plus_constant (buf_addr,
+					    2 * GET_MODE_SIZE (Pmode)));
 	DECL_EXTERNAL (dummy_decl) = 1;
 	TREE_PUBLIC (dummy_decl) = 1;
 	make_decl_rtl (dummy_decl, NULL_PTR, 1);
@@ -9399,9 +9464,9 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	  /* Put in the static chain register the address of the dummy
 	     function.  */
 	  emit_move_insn (static_chain_rtx, XEXP (DECL_RTL (dummy_decl), 0));
-	  emit_insn (gen_rtx (USE, VOIDmode, hard_frame_pointer_rtx));
-	  emit_insn (gen_rtx (USE, VOIDmode, stack_pointer_rtx));
-	  emit_insn (gen_rtx (USE, VOIDmode, static_chain_rtx));
+	  emit_insn (gen_rtx_USE (VOIDmode, hard_frame_pointer_rtx));
+	  emit_insn (gen_rtx_USE (VOIDmode, stack_pointer_rtx));
+	  emit_insn (gen_rtx_USE (VOIDmode, static_chain_rtx));
 	  emit_indirect_jump (lab);
 	}
 
@@ -9632,15 +9697,15 @@ result_vector (savep, result)
 	align = GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT;
 	if (size % align != 0)
 	  size = CEIL (size, align) * align;
-	reg = gen_rtx (REG, mode, savep ? regno : INCOMING_REGNO (regno));
+	reg = gen_rtx_REG (mode, savep ? regno : INCOMING_REGNO (regno));
 	mem = change_address (result, mode,
 			      plus_constant (XEXP (result, 0), size));
 	savevec[nelts++] = (savep
-			    ? gen_rtx (SET, VOIDmode, mem, reg)
-			    : gen_rtx (SET, VOIDmode, reg, mem));
+			    ? gen_rtx_SET (VOIDmode, mem, reg)
+			    : gen_rtx_SET (VOIDmode, reg, mem));
 	size += GET_MODE_SIZE (mode);
       }
-  return gen_rtx (PARALLEL, VOIDmode, gen_rtvec_v (nelts, savevec));
+  return gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nelts, savevec));
 }
 #endif /* HAVE_untyped_call or HAVE_untyped_return */
 
@@ -9673,13 +9738,13 @@ expand_builtin_apply_args ()
 	if (size % align != 0)
 	  size = CEIL (size, align) * align;
 
-	tem = gen_rtx (REG, mode, INCOMING_REGNO (regno));
+	tem = gen_rtx_REG (mode, INCOMING_REGNO (regno));
 
 #ifdef STACK_REGS
         /* For reg-stack.c's stack register household.
 	   Compare with a similar piece of code in function.c.  */
 
-        emit_insn (gen_rtx (USE, mode, tem));
+        emit_insn (gen_rtx_USE (mode, tem));
 #endif
 
 	emit_move_insn (change_address (registers, mode,
@@ -9730,7 +9795,7 @@ expand_builtin_apply (function, arguments, argsize)
   /* Fetch the arg pointer from the ARGUMENTS block.  */
   incoming_args = gen_reg_rtx (Pmode);
   emit_move_insn (incoming_args,
-		  gen_rtx (MEM, Pmode, arguments));
+		  gen_rtx_MEM (Pmode, arguments));
 #ifndef STACK_GROWS_DOWNWARD
   incoming_args = expand_binop (Pmode, sub_optab, incoming_args, argsize,
 				incoming_args, 0, OPTAB_LIB_WIDEN);
@@ -9756,14 +9821,14 @@ expand_builtin_apply (function, arguments, argsize)
      but it's likely that the source and/or destination addresses in
      the block copy will need updating in machine specific ways.  */
   dest = allocate_dynamic_stack_space (argsize, 0, 0);
-  emit_block_move (gen_rtx (MEM, BLKmode, dest),
-		   gen_rtx (MEM, BLKmode, incoming_args),
+  emit_block_move (gen_rtx_MEM (BLKmode, dest),
+		   gen_rtx_MEM (BLKmode, incoming_args),
 		   argsize,
 		   PARM_BOUNDARY / BITS_PER_UNIT);
 
   /* Refer to the argument block.  */
   apply_args_size ();
-  arguments = gen_rtx (MEM, BLKmode, arguments);
+  arguments = gen_rtx_MEM (BLKmode, arguments);
 
   /* Walk past the arg-pointer and structure value address.  */
   size = GET_MODE_SIZE (Pmode);
@@ -9778,7 +9843,7 @@ expand_builtin_apply (function, arguments, argsize)
 	align = GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT;
 	if (size % align != 0)
 	  size = CEIL (size, align) * align;
-	reg = gen_rtx (REG, mode, regno);
+	reg = gen_rtx_REG (mode, regno);
 	emit_move_insn (reg,
 			change_address (arguments, mode,
 					plus_constant (XEXP (arguments, 0),
@@ -9816,7 +9881,7 @@ expand_builtin_apply (function, arguments, argsize)
   /* Generate the actual call instruction and save the return value.  */
 #ifdef HAVE_untyped_call
   if (HAVE_untyped_call)
-    emit_call_insn (gen_untyped_call (gen_rtx (MEM, FUNCTION_MODE, function),
+    emit_call_insn (gen_untyped_call (gen_rtx_MEM (FUNCTION_MODE, function),
 				      result, result_vector (1, result)));
   else
 #endif
@@ -9834,11 +9899,11 @@ expand_builtin_apply (function, arguments, argsize)
 	  {
 	    if (valreg)
 	      abort (); /* HAVE_untyped_call required.  */
-	    valreg = gen_rtx (REG, mode, regno);
+	    valreg = gen_rtx_REG (mode, regno);
 	  }
 
       emit_call_insn (gen_call_value (valreg,
-				      gen_rtx (MEM, FUNCTION_MODE, function),
+				      gen_rtx_MEM (FUNCTION_MODE, function),
 				      const0_rtx, NULL_RTX, const0_rtx));
 
       emit_move_insn (change_address (result, GET_MODE (valreg),
@@ -9897,7 +9962,7 @@ expand_builtin_return (result)
   rtx call_fusage = 0;
 
   apply_result_size ();
-  result = gen_rtx (MEM, BLKmode, result);
+  result = gen_rtx_MEM (BLKmode, result);
 
 #ifdef HAVE_untyped_return
   if (HAVE_untyped_return)
@@ -9916,14 +9981,14 @@ expand_builtin_return (result)
 	align = GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT;
 	if (size % align != 0)
 	  size = CEIL (size, align) * align;
-	reg = gen_rtx (REG, mode, INCOMING_REGNO (regno));
+	reg = gen_rtx_REG (mode, INCOMING_REGNO (regno));
 	emit_move_insn (reg,
 			change_address (result, mode,
 					plus_constant (XEXP (result, 0),
 						       size)));
 
 	push_to_sequence (call_fusage);
-	emit_insn (gen_rtx (USE, VOIDmode, reg));
+	emit_insn (gen_rtx_USE (VOIDmode, reg));
 	call_fusage = get_insns ();
 	end_sequence ();
 	size += GET_MODE_SIZE (mode);
@@ -10137,7 +10202,7 @@ expand_increment (exp, post, ignore)
 
   /* Increment however we can.  */
   op1 = expand_binop (mode, this_optab, value, op1,
-  		      flag_check_memory_usage ? NULL_RTX : op0,
+  		      current_function_check_memory_usage ? NULL_RTX : op0,
 		      TREE_UNSIGNED (TREE_TYPE (exp)), OPTAB_LIB_WIDEN);
   /* Make sure the value is stored into OP0.  */
   if (op1 != op0)
@@ -11408,10 +11473,12 @@ do_tablejump (index, mode, range, table_label, default_label)
      GET_MODE_SIZE, because this indicates how large insns are.  The other
      uses should all be Pmode, because they are addresses.  This code
      could fail if addresses and insns are not the same size.  */
-  index = gen_rtx (PLUS, Pmode,
-		   gen_rtx (MULT, Pmode, index,
-			    GEN_INT (GET_MODE_SIZE (CASE_VECTOR_MODE))),
-		   gen_rtx (LABEL_REF, Pmode, table_label));
+  index
+    = gen_rtx_PLUS (Pmode,
+		    gen_rtx_MULT (Pmode, index,
+				  GEN_INT (GET_MODE_SIZE (CASE_VECTOR_MODE))),
+		    gen_rtx_LABEL_REF (Pmode, table_label));
+
 #ifdef PIC_CASE_VECTOR_ADDRESS
   if (flag_pic)
     index = PIC_CASE_VECTOR_ADDRESS (index);
@@ -11419,7 +11486,7 @@ do_tablejump (index, mode, range, table_label, default_label)
 #endif
     index = memory_address_noforce (CASE_VECTOR_MODE, index);
   temp = gen_reg_rtx (CASE_VECTOR_MODE);
-  vector = gen_rtx (MEM, CASE_VECTOR_MODE, index);
+  vector = gen_rtx_MEM (CASE_VECTOR_MODE, index);
   RTX_UNCHANGING_P (vector) = 1;
   convert_move (temp, vector, 0);
 

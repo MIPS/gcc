@@ -474,14 +474,14 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
    otherwise, FUNC is 0. */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC)  \
-  gen_rtx(REG,TYPE_MODE(VALTYPE),0)
+  gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE. */
 /* 1750 note: no libcalls yet */
 
 #define LIBCALL_VALUE(MODE)  printf("LIBCALL_VALUE called!\n"), \
-  gen_rtx(REG,MODE,0)
+  gen_rtx_REG (MODE, 0)
 
 /* 1 if N is a possible register number for a function value. */
 
@@ -696,8 +696,8 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
 
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)  printf("INITIALIZE_TRAMPO called\n")
 /* {									\
-  emit_move_insn (gen_rtx (MEM, QImode, plus_constant (TRAMP, 1)), CXT); \
-  emit_move_insn (gen_rtx (MEM, QImode, plus_constant (TRAMP, 6)), FNADDR); \
+  emit_move_insn (gen_rtx_MEM (QImode, plus_constant (TRAMP, 1)), CXT); \
+  emit_move_insn (gen_rtx_MEM (QImode, plus_constant (TRAMP, 6)), FNADDR); \
 } */
 
 
@@ -853,8 +853,8 @@ enum reg_class { NO_REGS, R2, R0_1, INDEX_REGS, BASE_REGS, ALL_REGS, LIM_REG_CLA
    in one reasonably fast instruction.  */
 #define MOVE_MAX 65536
 
-/* MOVE_RATIO is the number of move instructions that is better than a
-   block move.  */
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction pairs, we will do a movstr or libcall instead.  */
 #define MOVE_RATIO 4
 
 /* Define this if zero-extension is slow (more than one real instruction).  */

@@ -19,8 +19,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#include <stdio.h>
 #include "hconfig.h"
+#include "system.h"
 #include "rtl.h"
 #include "obstack.h"
 
@@ -30,11 +30,17 @@ struct obstack *rtl_obstack = &obstack;
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
-extern void free ();
 extern rtx read_rtx ();
 
 char *xmalloc ();
-static void fatal ();
+
+#ifdef HAVE_VPRINTF
+void fatal PVPROTO((char *, ...));
+#else
+/* We must not provide any prototype here, even if ANSI C.  */
+void fatal PROTO(());
+#endif
+
 void fancy_abort ();
 
 static int max_opno;
@@ -188,7 +194,7 @@ gen_exp (x)
       return;
 
     case MATCH_SCRATCH:
-      printf ("gen_rtx (SCRATCH, %smode, 0)", GET_MODE_NAME (GET_MODE (x)));
+      printf ("gen_rtx_SCRATCH (%smode)", GET_MODE_NAME (GET_MODE (x)));
       return;
 
     case ADDRESS:
@@ -227,9 +233,9 @@ gen_exp (x)
       abort ();
     }
 
-  printf ("gen_rtx (");
+  printf ("gen_rtx_");
   print_code (code);
-  printf (", %smode", GET_MODE_NAME (GET_MODE (x)));
+  printf (" (%smode", GET_MODE_NAME (GET_MODE (x)));
 
   fmt = GET_RTX_FORMAT (code);
   len = GET_RTX_LENGTH (code);
@@ -368,7 +374,9 @@ gen_insn (insn)
     }
   else
     {
-      printf ("  return gen_rtx (PARALLEL, VOIDmode, gen_rtvec (%d", XVECLEN (insn, 1));
+      printf ("  return gen_rtx_PARALLEL (VOIDmode, gen_rtvec (%d",
+	      XVECLEN (insn, 1));
+
       for (i = 0; i < XVECLEN (insn, 1); i++)
 	{
 	  printf (",\n\t\t");
@@ -691,7 +699,30 @@ xrealloc (ptr, size)
   return result;
 }
 
-static void
+#ifdef HAVE_VPRINTF
+void
+fatal VPROTO((char *s, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  char *s;
+#endif
+  va_list ap;
+
+  VA_START (ap, s);
+
+#ifndef ANSI_PROTOTYPES
+  s = va_arg (ap, char *);
+#endif
+
+  fprintf (stderr, "genemit: ");
+  vfprintf (stderr, s, ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  exit (FATAL_EXIT_CODE);
+}
+#else /* not HAVE_VPRINTF */
+
+void
 fatal (s, a1, a2)
      char *s;
 {
@@ -700,6 +731,7 @@ fatal (s, a1, a2)
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
+#endif /* not HAVE_VPRINTF */
 
 /* More 'friendly' abort that prints the line and file.
    config.h can #define abort fancy_abort if you like that sort of thing.  */
@@ -743,7 +775,7 @@ main (argc, argv)
 from the machine description file `md'.  */\n\n");
 
   printf ("#include \"config.h\"\n");
-  printf ("#include <stdio.h>\n");
+  printf ("#include \"system.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"expr.h\"\n");
   printf ("#include \"real.h\"\n");

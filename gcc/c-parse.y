@@ -55,11 +55,8 @@ State 434 contains 2 shift/reduce conflicts.  (Four ways to parse this.)  */
 
 %{
 #include "config.h"
-
-#include <stdio.h>
-#include <errno.h>
+#include "system.h"
 #include <setjmp.h>
-
 #include "tree.h"
 #include "input.h"
 #include "c-lex.h"

@@ -917,25 +917,24 @@ enum reg_class { NO_REGS, GENERAL_REGS, FLOAT_REGS, ALL_REGS,
    $f0 for floating-point functions.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC)	\
-  gen_rtx (REG,							\
-	   ((INTEGRAL_TYPE_P (VALTYPE)				\
-	     && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
-	    || POINTER_TYPE_P (VALTYPE))			\
-	   ? word_mode : TYPE_MODE (VALTYPE),			\
-	   ((TARGET_FPREGS					\
-	     && (TREE_CODE (VALTYPE) == REAL_TYPE		\
-		 || TREE_CODE (VALTYPE) == COMPLEX_TYPE))	\
-	    ? 32 : 0))
+  gen_rtx_REG (((INTEGRAL_TYPE_P (VALTYPE)			\
+		 && TYPE_PRECISION (VALTYPE) < BITS_PER_WORD)	\
+		|| POINTER_TYPE_P (VALTYPE))			\
+	       ? word_mode : TYPE_MODE (VALTYPE),		\
+	       ((TARGET_FPREGS					\
+		 && (TREE_CODE (VALTYPE) == REAL_TYPE		\
+		     || TREE_CODE (VALTYPE) == COMPLEX_TYPE))	\
+		? 32 : 0))
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 
 #define LIBCALL_VALUE(MODE)	\
-   gen_rtx (REG, MODE,						\
-	    (TARGET_FPREGS					\
-	     && (GET_MODE_CLASS (MODE) == MODE_FLOAT		\
-		 || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT) \
-	     ? 32 : 0))
+   gen_rtx_REG (MODE,						\
+		(TARGET_FPREGS					\
+		 && (GET_MODE_CLASS (MODE) == MODE_FLOAT	\
+		     || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT) \
+		 ? 32 : 0))
 
 /* The definition of this macro implies that there are cases where
    a scalar value cannot be returned in registers.
@@ -1013,11 +1012,12 @@ enum reg_class { NO_REGS, GENERAL_REGS, FLOAT_REGS, ALL_REGS,
 
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
 ((CUM) < 6 && ! MUST_PASS_IN_STACK (MODE, TYPE)	\
- ? gen_rtx(REG, (MODE),				\
-	   (CUM) + 16 + ((TARGET_FPREGS		\
-			  && (GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT  \
-			      || GET_MODE_CLASS (MODE) == MODE_FLOAT)) \
-			 * 32))			\
+ ? gen_rtx_REG ((MODE),				\
+		(CUM) + 16			\
+		+ ((TARGET_FPREGS		\
+		    && (GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT  \
+			|| GET_MODE_CLASS (MODE) == MODE_FLOAT)) \
+		   * 32))			\
  : 0)
 
 /* Specify the padding direction of arguments.
@@ -1071,15 +1071,15 @@ enum reg_class { NO_REGS, GENERAL_REGS, FLOAT_REGS, ALL_REGS,
 	{								\
 	  move_block_from_reg						\
 	    (16 + CUM,							\
-	     gen_rtx (MEM, BLKmode,					\
-		      plus_constant (virtual_incoming_args_rtx,		\
-				     ((CUM) + 6)* UNITS_PER_WORD)),	\
+	     gen_rtx_MEM (BLKmode,					\
+			  plus_constant (virtual_incoming_args_rtx,	\
+					 ((CUM) + 6)* UNITS_PER_WORD)),	\
 	     6 - (CUM), (6 - (CUM)) * UNITS_PER_WORD);			\
 	  move_block_from_reg						\
 	    (16 + (TARGET_FPREGS ? 32 : 0) + CUM,			\
-	     gen_rtx (MEM, BLKmode,					\
-		      plus_constant (virtual_incoming_args_rtx,		\
-				     (CUM) * UNITS_PER_WORD)),		\
+	     gen_rtx_MEM (BLKmode,					\
+			  plus_constant (virtual_incoming_args_rtx,	\
+					 (CUM) * UNITS_PER_WORD)),	\
 	     6 - (CUM), (6 - (CUM)) * UNITS_PER_WORD);			\
 	 }								\
       PRETEND_SIZE = 12 * UNITS_PER_WORD;				\
@@ -1495,9 +1495,8 @@ extern void final_prescan_insn ();
 
 #define FIXUNS_TRUNC_LIKE_FIX_TRUNC
 
-/* Max number of bytes we can move to or from memory
-   in one reasonably fast instruction.  */
-
+/* If a memory-to-memory move would take MOVE_RATIO or more simple
+   move-instruction pairs, we will do a movstr or libcall instead.  */
 #define MOVE_MAX 8
 
 /* Largest number of bytes of an object that can be placed in a register.
@@ -2108,35 +2107,37 @@ literal_section ()						\
 /* Define the codes that are matched by predicates in alpha.c.  */
 
 #define PREDICATE_CODES \
+  {"add_operand", {SUBREG, REG, CONST_INT}},		\
+  {"aligned_memory_operand", {MEM}},			\
+  {"alpha_comparison_operator", {EQ, LE, LT, LEU, LTU}}, \
+  {"alpha_swapped_comparison_operator", {EQ, GE, GT, GEU, GTU}}, \
+  {"and_operand", {SUBREG, REG, CONST_INT}},		\
+  {"any_memory_operand", {MEM}},			\
+  {"call_operand", {REG, SYMBOL_REF}},			\
+  {"cint8_operand", {CONST_INT}},                       \
+  {"const48_operand", {CONST_INT}},			\
+  {"current_file_function_operand", {SYMBOL_REF}},	\
+  {"divmod_operator", {DIV, MOD, UDIV, UMOD}},		\
+  {"fp0_operand", {CONST_DOUBLE}},			\
+  {"input_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,	\
+		     SYMBOL_REF, CONST, LABEL_REF}},	\
+  {"mode_mask_operand", {CONST_INT}},			\
+  {"mode_width_operand", {CONST_INT}},			\
+  {"mul8_operand", {CONST_INT}},			\
+  {"or_operand", {SUBREG, REG, CONST_INT}},		\
+  {"reg_not_elim_operand", {SUBREG, REG}},		\
+  {"reg_not_elim_or_8bit_operand", {SUBREG, REG, CONST_INT}}, \
   {"reg_or_0_operand", {SUBREG, REG, CONST_INT}},	\
   {"reg_or_6bit_operand", {SUBREG, REG, CONST_INT}},	\
   {"reg_or_8bit_operand", {SUBREG, REG, CONST_INT}},	\
-  {"cint8_operand", {CONST_INT}},                       \
   {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},	\
-  {"add_operand", {SUBREG, REG, CONST_INT}},		\
-  {"sext_add_operand", {SUBREG, REG, CONST_INT}},	\
-  {"const48_operand", {CONST_INT}},			\
-  {"and_operand", {SUBREG, REG, CONST_INT}},		\
-  {"or_operand", {SUBREG, REG, CONST_INT}},		\
-  {"mode_mask_operand", {CONST_INT}},			\
-  {"mul8_operand", {CONST_INT}},			\
-  {"mode_width_operand", {CONST_INT}},			\
   {"reg_or_fp0_operand", {SUBREG, REG, CONST_DOUBLE}},	\
-  {"alpha_comparison_operator", {EQ, LE, LT, LEU, LTU}}, \
-  {"alpha_swapped_comparison_operator", {EQ, GE, GT, GEU, GTU}}, \
+  {"reg_or_unaligned_mem_operand", {SUBREG, REG, MEM}},	\
+  {"sext_add_operand", {SUBREG, REG, CONST_INT}},	\
   {"signed_comparison_operator", {EQ, NE, LE, LT, GE, GT}}, \
-  {"divmod_operator", {DIV, MOD, UDIV, UMOD}},		\
-  {"fp0_operand", {CONST_DOUBLE}},			\
-  {"current_file_function_operand", {SYMBOL_REF}},	\
-  {"call_operand", {REG, SYMBOL_REF}},			\
-  {"input_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE,	\
-		     SYMBOL_REF, CONST, LABEL_REF}},	\
   {"some_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE, \
 		    SYMBOL_REF, CONST, LABEL_REF}},	\
-  {"aligned_memory_operand", {MEM}},			\
-  {"unaligned_memory_operand", {MEM}},			\
-  {"reg_or_unaligned_mem_operand", {SUBREG, REG, MEM}},	\
-  {"any_memory_operand", {MEM}},
+  {"unaligned_memory_operand", {MEM}},
 
 /* Tell collect that the object format is ECOFF.  */
 #define OBJECT_FORMAT_COFF

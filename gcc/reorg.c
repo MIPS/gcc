@@ -116,7 +116,7 @@ Boston, MA 02111-1307, USA.  */
    effect to the ARM, differing mostly in which insn is "in charge".   */
 
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "conditions.h"
@@ -875,7 +875,7 @@ emit_delay_sequence (insn, list, length, avail)
 
   /* Allocate the the rtvec to hold the insns and the SEQUENCE.  */
   rtvec seqv = rtvec_alloc (length + 1);
-  rtx seq = gen_rtx (SEQUENCE, VOIDmode, seqv);
+  rtx seq = gen_rtx_SEQUENCE (VOIDmode, seqv);
   rtx seq_insn = make_insn_raw (seq);
   rtx first = get_insns ();
   rtx last = get_last_insn ();
@@ -988,7 +988,7 @@ add_to_delay_list (insn, delay_list)
       if (tinfo)
 	tinfo->block = -1;
 
-      return gen_rtx (INSN_LIST, VOIDmode, insn, NULL_RTX);
+      return gen_rtx_INSN_LIST (VOIDmode, insn, NULL_RTX);
     }
 
   /* Otherwise this must be an INSN_LIST.  Add INSN to the end of the
@@ -1185,7 +1185,8 @@ optimize_skip (insn)
      we have one insn followed by a branch to the same label we branch to.
      In both of these cases, inverting the jump and annulling the delay
      slot give the same effect in fewer insns.  */
-  if ((next_trial == next_active_insn (JUMP_LABEL (insn)))
+  if ((next_trial == next_active_insn (JUMP_LABEL (insn))
+       && ! (next_trial == 0 && current_function_epilogue_delay_list != 0))
       || (next_trial != 0
 	  && GET_CODE (next_trial) == JUMP_INSN
 	  && JUMP_LABEL (insn) == JUMP_LABEL (next_trial)
@@ -1926,7 +1927,7 @@ try_merge_delay_insns (insn, thread)
 	      INSN_FROM_TARGET_P (next_to_match) = 0;
 	    }
 	  else
-	    merged_insns = gen_rtx (INSN_LIST, VOIDmode, trial, merged_insns);
+	    merged_insns = gen_rtx_INSN_LIST (VOIDmode, trial, merged_insns);
 
 	  if (++slot_number == num_slots)
 	    break;
@@ -1978,8 +1979,8 @@ try_merge_delay_insns (insn, thread)
 		  INSN_FROM_TARGET_P (next_to_match) = 0;
 		}
 	      else
-		merged_insns = gen_rtx (INSN_LIST, SImode, dtrial,
-					merged_insns);
+		merged_insns = gen_rtx_INSN_LIST (SImode, dtrial,
+						  merged_insns);
 
 	      if (++slot_number == num_slots)
 		break;
@@ -2340,7 +2341,7 @@ update_block (insn, where)
   if (INSN_FROM_TARGET_P (insn))
     return;
 
-  emit_insn_before (gen_rtx (USE, VOIDmode, insn), where);
+  emit_insn_before (gen_rtx_USE (VOIDmode, insn), where);
 
   /* INSN might be making a value live in a block where it didn't use to
      be.  So recompute liveness information for this block.  */
@@ -3052,13 +3053,13 @@ fill_simple_delay_slots (first, non_jumps_p)
 	  || (GET_CODE (insn) != JUMP_INSN && ! non_jumps_p))
 	continue;
      
-      if (GET_CODE (insn) == JUMP_INSN)
-	flags = get_jump_flags (insn, JUMP_LABEL (insn));
-      else
-	flags = get_jump_flags (insn, NULL_RTX);
+      /* It may have been that this insn used to need delay slots, but
+	 now doesn't; ignore in that case.  This can happen, for example,
+	 on the HP PA RISC, where the number of delay slots depends on
+	 what insns are nearby.  */
       slots_to_fill = num_delay_slots (insn);
       if (slots_to_fill == 0)
-	abort ();
+	continue;
 
       /* This insn needs, or can use, some delay slots.  SLOTS_TO_FILL
 	 says how many.  After initialization, first try optimizing
@@ -3080,6 +3081,11 @@ fill_simple_delay_slots (first, non_jumps_p)
 
       slots_filled = 0;
       delay_list = 0;
+
+      if (GET_CODE (insn) == JUMP_INSN)
+	flags = get_jump_flags (insn, JUMP_LABEL (insn));
+      else
+	flags = get_jump_flags (insn, NULL_RTX);
 
       if ((trial = next_active_insn (insn))
 	  && GET_CODE (trial) == JUMP_INSN
@@ -3153,8 +3159,7 @@ fill_simple_delay_slots (first, non_jumps_p)
 		  && ! insn_sets_resource_p (trial, &needed, 1)
 #ifdef HAVE_cc0
 		  /* Can't separate set of cc0 from its use.  */
-		  && ! (reg_mentioned_p (cc0_rtx, pat)
-			&& ! sets_cc0_p (cc0_rtx, pat))
+		  && ! (reg_mentioned_p (cc0_rtx, pat) && ! sets_cc0_p (pat))
 #endif
 		  )
 		{
@@ -3168,8 +3173,8 @@ fill_simple_delay_slots (first, non_jumps_p)
 			 tail, of the list.  */
 
 		      update_reg_dead_notes (trial, insn);
-		      delay_list = gen_rtx (INSN_LIST, VOIDmode,
-					    trial, delay_list);
+		      delay_list = gen_rtx_INSN_LIST (VOIDmode,
+						      trial, delay_list);
 		      update_block (trial, trial);
 		      delete_insn (trial);
 		      if (slots_to_fill == ++slots_filled)
@@ -3458,8 +3463,8 @@ fill_simple_delay_slots (first, non_jumps_p)
 		 insns we find on the head of the list.  */
 
 	      current_function_epilogue_delay_list
-		= gen_rtx (INSN_LIST, VOIDmode, trial,
-			   current_function_epilogue_delay_list);
+		= gen_rtx_INSN_LIST (VOIDmode, trial,
+				     current_function_epilogue_delay_list);
 	      mark_referenced_resources (trial, &end_of_function_needs, 1);
 	      update_block (trial, trial);
 	      delete_insn (trial);
@@ -3825,7 +3830,7 @@ fill_slots_from_thread (insn, condition, thread, opposite_thread, likely,
 	    new_arith = gen_rtx (GET_CODE (src) == PLUS ? MINUS : PLUS,
 				 GET_MODE (src), dest, other);
 
-	  ninsn = emit_insn_after (gen_rtx (SET, VOIDmode, dest, new_arith),
+	  ninsn = emit_insn_after (gen_rtx_SET (VOIDmode, dest, new_arith),
 				   insn);
 
 	  if (recog_memoized (ninsn) < 0
@@ -3929,7 +3934,7 @@ fill_eager_delay_slots (first)
 
       slots_to_fill = num_delay_slots (insn);
       if (slots_to_fill == 0)
-	abort ();
+	continue;
 
       slots_filled = 0;
       target_label = JUMP_LABEL (insn);

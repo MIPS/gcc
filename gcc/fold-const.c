@@ -43,7 +43,7 @@ Boston, MA 02111-1307, USA.  */
    forces the value to fit the type.  It returns an overflow indicator.  */
 
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include <setjmp.h>
 #include "flags.h"
 #include "tree.h"
@@ -93,6 +93,7 @@ static tree unextend		PROTO((tree, int, int, tree));
 static tree fold_truthop	PROTO((enum tree_code, tree, tree, tree));
 static tree strip_compound_expr PROTO((tree, tree));
 static int count_cond		PROTO((tree, int));
+static int multiple_of_p	PROTO((tree, tree, tree));
 
 #ifndef BRANCH_COST
 #define BRANCH_COST 1
@@ -961,6 +962,235 @@ fail:
   *r = y.d;
   return 1;
 }
+
+
+/* Convert C9X hexadecimal floating point string constant S.  Return
+   real value type in mode MODE.  This function uses the host computer's
+   fp arithmetic when there is no REAL_ARITHMETIC.  */
+
+REAL_VALUE_TYPE
+real_hex_to_f (s, mode)
+   char *s;
+   enum machine_mode mode;
+{
+   REAL_VALUE_TYPE ip;
+   char *p = s;
+   unsigned HOST_WIDE_INT low, high;
+   int frexpon, expon, shcount, nrmcount, k;
+   int sign, expsign, decpt, isfloat, isldouble, gotp, lost;
+   char c;
+
+   isldouble = 0;
+   isfloat = 0;
+   frexpon = 0;
+   expon = 0;
+   expsign = 1;
+   ip = 0.0;
+
+   while (*p == ' ' || *p == '\t')
+     ++p;
+
+   /* Sign, if any, comes first.  */
+   sign = 1;
+   if (*p == '-')
+     {
+       sign = -1;
+       ++p;
+     }
+
+   /* The string is supposed to start with 0x or 0X .  */
+   if (*p == '0')
+     {
+       ++p;
+       if (*p == 'x' || *p == 'X')
+	 ++p;
+       else
+	 abort ();
+     }
+   else
+     abort ();
+
+   while (*p == '0')
+     ++p;
+
+   high = 0;
+   low = 0;
+   lost = 0; /* Nonzero low order bits shifted out and discarded.  */
+   frexpon = 0;  /* Bits after the decimal point.  */
+   expon = 0;  /* Value of exponent.  */
+   decpt = 0;  /* How many decimal points.  */
+   gotp = 0;  /* How many P's.  */
+   shcount = 0;
+   while ((c = *p) != '\0')
+     {
+       if ((c >= '0' && c <= '9') || (c >= 'A' && c <= 'F')
+	   || (c >= 'a' && c <= 'f'))
+	 {
+	   k = c & 0x7f;
+	   if (k >= 'a')
+	     k = k - 'a' + 10;
+	   else if (k >= 'A')
+	     k = k - 'A' + 10;
+	   else
+	     k = k - '0';
+
+	   if ((high & 0xf0000000) == 0)
+	     {
+	       high = (high << 4) + ((low >> 28) & 15);
+	       low = (low << 4) + k;
+	       shcount += 4;
+	       if (decpt)
+		 frexpon += 4;
+	     }
+	   else
+	     {
+	       /* Record nonzero lost bits.  */
+	       lost |= k;
+	       if (!decpt)
+		 frexpon -= 4;
+	     }
+	   ++p;
+	 }
+       else if ( c == '.')
+	 {
+	   ++decpt;
+	   ++p;
+	 }
+       else if (c == 'p' || c == 'P')
+	 {
+	   ++gotp;
+	   ++p;
+	   /* Sign of exponent.  */
+	   if (*p == '-')
+	     {
+	       expsign = -1;
+	       ++p;
+	     }
+	   /* Value of exponent.
+	      The exponent field is a decimal integer.  */
+	   while (isdigit(*p))
+	     {
+	       k = (*p++ & 0x7f) - '0';
+	       expon = 10 * expon + k;
+	     }
+	   expon *= expsign;
+	   /* F suffix is ambiguous in the significand part
+	      so it must appear after the decimal exponent field.  */
+	   if (*p == 'f' || *p == 'F')
+	     {
+	       isfloat = 1;
+	       ++p;
+	       break;
+	     }
+	 }
+       else if (c == 'l' || c == 'L')
+	 {
+	   isldouble = 1;
+	   ++p;
+	   break;
+	 }
+       else
+	 break;
+     }
+   /* Abort if last character read was not legitimate.  */
+   c = *p;
+   if ((c != '\0' && c != ' ' && c != '\n' && c != '\r') || (decpt > 1))
+     abort ();
+   /* There must be either one decimal point or one p.  */
+   if (decpt == 0 && gotp == 0)
+     abort ();
+   shcount -= 4;
+   if ((high == 0) && (low == 0))
+     {
+       return dconst0;
+     }
+
+   /* Normalize.  */
+   nrmcount = 0;
+   if (high == 0)
+     {
+       high = low;
+       low = 0;
+       nrmcount += 32;
+     }
+   /* Leave a high guard bit for carry-out.  */
+   if ((high & 0x80000000) != 0)
+     {
+       lost |= low & 1;
+       low = (low >> 1) | (high << 31);
+       high = high >> 1;
+       nrmcount -= 1;
+     }
+   if ((high & 0xffff8000) == 0)
+     {
+       high = (high << 16) + ((low >> 16) & 0xffff);
+       low = low << 16;
+       nrmcount += 16;
+     }
+   while ((high & 0xc0000000) == 0)
+     {
+       high = (high << 1) + ((low >> 31) & 1);
+       low = low << 1;
+       nrmcount += 1;
+     }
+   if (isfloat || GET_MODE_SIZE(mode) == UNITS_PER_WORD)
+     {
+       /* Keep 24 bits precision, bits 0x7fffff80.
+	  Rounding bit is 0x40.  */
+       lost = lost | low | (high & 0x3f);
+       low = 0;
+       if (high & 0x40)
+	 {
+	   if ((high & 0x80) || lost)
+	     high += 0x40;
+	 }
+       high &= 0xffffff80;
+     }
+   else
+     {
+       /* We need real.c to do long double formats, so here default
+	  to double precision.  */
+#if HOST_FLOAT_FORMAT == IEEE_FLOAT_FORMAT
+       /* IEEE double.
+	  Keep 53 bits precision, bits 0x7fffffff fffffc00.
+	  Rounding bit is low word 0x200.  */
+       lost = lost | (low & 0x1ff);
+       if (low & 0x200)
+	 {
+	   if ((low & 0x400) || lost)
+	     {
+	       low = (low + 0x200) & 0xfffffc00;
+	       if (low == 0)
+		 high += 1;
+	     }
+	 }
+       low &= 0xfffffc00;
+#else
+       /* Assume it's a VAX with 56-bit significand,
+          bits 0x7fffffff ffffff80.  */
+       lost = lost | (low & 0x7f);
+       if (low & 0x40)
+	 {
+	   if ((low & 0x80) || lost)
+	     {
+	       low = (low + 0x40) & 0xffffff80;
+	       if (low == 0)
+		 high += 1;
+	     }
+	 }
+       low &= 0xffffff80;
+#endif
+     }
+   ip = (double) high;
+   ip =  REAL_VALUE_LDEXP (ip, 32) + (double) low;
+   /* Apply shifts and exponent value as power of 2.  */
+   ip = REAL_VALUE_LDEXP (ip, expon - (nrmcount + frexpon));
+
+   if (sign < 0)
+     ip = -ip;
+   return ip;
+}
+
 #endif /* no REAL_ARITHMETIC */
 
 /* Split a tree IN into a constant and a variable part
@@ -3224,7 +3454,7 @@ fold_range_test (exp)
 		      TREE_TYPE (exp), TREE_OPERAND (exp, 0),
 		      TREE_OPERAND (exp, 1));
 
-      else if (current_function_decl != 0
+      else if (global_bindings_p () == 0
 	       && ! contains_placeholder_p (lhs))
 	{
 	  tree common = save_expr (lhs);
@@ -3902,7 +4132,7 @@ fold (expr)
 	       && (TREE_CODE (arg0) != COND_EXPR
 		   || count_cond (arg0, 25) + count_cond (arg1, 25) <= 25)
 	       && (! TREE_SIDE_EFFECTS (arg0)
-		   || (current_function_decl != 0
+		   || (global_bindings_p () == 0
 		       && ! contains_placeholder_p (arg0))))
 	{
 	  tree test, true_value, false_value;
@@ -3937,7 +4167,7 @@ fold (expr)
 	     in that case.  */
 
 	  if (TREE_CODE (arg0) != SAVE_EXPR && ! TREE_CONSTANT (arg0)
-	      && current_function_decl != 0
+	      && global_bindings_p () == 0
 	      && ((TREE_CODE (arg0) != VAR_DECL
 		   && TREE_CODE (arg0) != PARM_DECL)
 		  || TREE_SIDE_EFFECTS (arg0)))
@@ -3977,7 +4207,7 @@ fold (expr)
 	       && (TREE_CODE (arg1) != COND_EXPR
 		   || count_cond (arg0, 25) + count_cond (arg1, 25) <= 25)
 	       && (! TREE_SIDE_EFFECTS (arg1)
-		   || (current_function_decl != 0
+		   || (global_bindings_p () == 0
 		       && ! contains_placeholder_p (arg1))))
 	{
 	  tree test, true_value, false_value;
@@ -3998,7 +4228,7 @@ fold (expr)
 	    }
 
 	  if (TREE_CODE (arg1) != SAVE_EXPR && ! TREE_CONSTANT (arg0)
-	      && current_function_decl != 0
+	      && global_bindings_p () == 0
 	      && ((TREE_CODE (arg1) != VAR_DECL
 		   && TREE_CODE (arg1) != PARM_DECL)
 		  || TREE_SIDE_EFFECTS (arg1)))
@@ -4543,7 +4773,7 @@ fold (expr)
 	  if (real_onep (arg1))
 	    return non_lvalue (convert (type, arg0));
 	  /* x*2 is x+x */
-	  if (! wins && real_twop (arg1) && current_function_decl != 0
+	  if (! wins && real_twop (arg1) && global_bindings_p () == 0
 	      && ! contains_placeholder_p (arg0))
 	    {
 	      tree arg = save_expr (arg0);
@@ -4711,6 +4941,17 @@ fold (expr)
 	return non_lvalue (convert (type, arg0));
       if (integer_zerop (arg1))
 	return t;
+
+      /* If arg0 is a multiple of arg1, rewrite to the fastest div operation,
+	 EXACT_DIV_EXPR.
+
+	 ??? Note that only CEIL_DIV_EXPR is rewritten now, only because the
+	 others seem to be faster in some cases.  This is probably just due
+	 to more work being done to optimize others in expmed.c than on
+	 EXACT_DIV_EXPR.  */
+      if (code == CEIL_DIV_EXPR
+	  && multiple_of_p (type, arg0, arg1))
+	return fold (build (EXACT_DIV_EXPR, type, arg0, arg1));
 
       /* If we have ((a / C1) / C2) where both division are the same type, try
 	 to simplify.  First see if C1 * C2 overflows or not.  */
@@ -5987,4 +6228,92 @@ fold (expr)
     default:
       return t;
     } /* switch (code) */
+}
+
+/* Determine if first argument is a multiple of second argument.  Return 0 if
+   it is not, or we cannot easily determined it to be.
+
+   An example of the sort of thing we care about (at this point; this routine
+   could surely be made more general, and expanded to do what the *_DIV_EXPR's
+   fold cases do now) is discovering that
+
+     SAVE_EXPR (I) * SAVE_EXPR (J * 8)
+
+   is a multiple of
+
+     SAVE_EXPR (J * 8)
+
+   when we know that the two SAVE_EXPR (J * 8) nodes are the same node.
+
+   This code also handles discovering that
+
+     SAVE_EXPR (I) * SAVE_EXPR (J * 8)
+
+   is a multiple of 8 so we don't have to worry about dealing with a
+   possible remainder.
+
+   Note that we *look* inside a SAVE_EXPR only to determine how it was
+   calculated; it is not safe for fold to do much of anything else with the
+   internals of a SAVE_EXPR, since it cannot know when it will be evaluated
+   at run time.  For example, the latter example above *cannot* be implemented
+   as SAVE_EXPR (I) * J or any variant thereof, since the value of J at
+   evaluation time of the original SAVE_EXPR is not necessarily the same at
+   the time the new expression is evaluated.  The only optimization of this
+   sort that would be valid is changing
+
+     SAVE_EXPR (I) * SAVE_EXPR (SAVE_EXPR (J) * 8)
+
+   divided by 8 to
+
+     SAVE_EXPR (I) * SAVE_EXPR (J)
+
+   (where the same SAVE_EXPR (J) is used in the original and the
+   transformed version).  */
+
+static int
+multiple_of_p (type, top, bottom)
+     tree type;
+     tree top;
+     tree bottom;
+{
+  if (operand_equal_p (top, bottom, 0))
+    return 1;
+
+  if (TREE_CODE (type) != INTEGER_TYPE)
+    return 0;
+
+  switch (TREE_CODE (top))
+    {
+    case MULT_EXPR:
+      return (multiple_of_p (type, TREE_OPERAND (top, 0), bottom)
+	      || multiple_of_p (type, TREE_OPERAND (top, 1), bottom));
+
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+      return (multiple_of_p (type, TREE_OPERAND (top, 0), bottom)
+	      && multiple_of_p (type, TREE_OPERAND (top, 1), bottom));
+
+    case NOP_EXPR:
+      /* Can't handle conversions from non-integral or wider integral type.  */
+      if ((TREE_CODE (TREE_TYPE (TREE_OPERAND (top, 0))) != INTEGER_TYPE)
+	  || (TYPE_PRECISION (type)
+	      < TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (top, 0)))))
+	return 0;
+
+      /* .. fall through ... */
+
+    case SAVE_EXPR:
+      return multiple_of_p (type, TREE_OPERAND (top, 0), bottom);
+
+    case INTEGER_CST:
+      if ((TREE_CODE (bottom) != INTEGER_CST)
+	  || (tree_int_cst_sgn (top) < 0)
+	  || (tree_int_cst_sgn (bottom) < 0))
+	return 0;
+      return integer_zerop (const_binop (TRUNC_MOD_EXPR,
+					 top, bottom, 0));
+
+    default:
+      return 0;
+    }
 }

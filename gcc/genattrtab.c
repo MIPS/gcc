@@ -96,26 +96,9 @@ Boston, MA 02111-1307, USA.  */
 
 
 #include "hconfig.h"
-/* varargs must always be included after *config.h.  */
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-#include <stdio.h>
+#include "system.h"
 #include "rtl.h"
 #include "insn-config.h"	/* For REGISTER_CONSTRAINTS */
-
-#ifdef TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# if HAVE_SYS_TIME_H
-# include <sys/time.h>
-# else
-#  include <time.h>
-#endif
-#endif
 
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
@@ -139,7 +122,12 @@ char **insn_name_ptr = 0;
 extern void free ();
 extern rtx read_rtx ();
 
-static void fatal ();
+#ifdef HAVE_VPRINTF
+void fatal PVPROTO((char *, ...));
+#else
+/* We must not provide any prototype here, even if ANSI C.  */
+void fatal PROTO(());
+#endif
 void fancy_abort ();
 
 /* enough space to reserve for printing out ints */
@@ -553,7 +541,7 @@ attr_hash_add_string (hashcode, str)
 static rtx
 attr_rtx VPROTO((enum rtx_code code, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   enum rtx_code code;
 #endif
   va_list p;
@@ -566,7 +554,7 @@ attr_rtx VPROTO((enum rtx_code code, ...))
 
   VA_START (p, code);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   code = va_arg (p, enum rtx_code);
 #endif
 
@@ -752,7 +740,7 @@ attr_rtx VPROTO((enum rtx_code code, ...))
 static char *
 attr_printf VPROTO((register int len, char *fmt, ...))
 {
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   register int len;
   char *fmt;
 #endif
@@ -761,7 +749,7 @@ attr_printf VPROTO((register int len, char *fmt, ...))
 
   VA_START (p, fmt);
 
-#ifndef __STDC__
+#ifndef ANSI_PROTOTYPES
   len = va_arg (p, int);
   fmt = va_arg (p, char *);
 #endif
@@ -5526,16 +5514,39 @@ copy_rtx_unchanging (orig)
 #endif
 }
 
-static void
+#ifdef HAVE_VPRINTF
+void
+fatal VPROTO((char *s, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  char *s;
+#endif
+  va_list ap;
+
+  VA_START (ap, s);
+
+#ifndef ANSI_PROTOTYPES
+  s = va_arg (ap, char *);
+#endif
+
+  fprintf (stderr, "genattrtab: ");
+  vfprintf (stderr, s, ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  exit (FATAL_EXIT_CODE);
+}
+#else /* not HAVE_VPRINTF */
+
+void
 fatal (s, a1, a2)
      char *s;
-     char *a1, *a2;
 {
   fprintf (stderr, "genattrtab: ");
   fprintf (stderr, s, a1, a2);
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
+#endif /* not HAVE_VPRINTF */
 
 /* More 'friendly' abort that prints the line and file.
    config.h can #define abort fancy_abort if you like that sort of thing.  */
@@ -5701,7 +5712,7 @@ from the machine description file `md'.  */\n\n");
     expand_units ();
 
   printf ("#include \"config.h\"\n");
-  printf ("#include <stdio.h>\n");
+  printf ("#include \"system.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"insn-config.h\"\n");
   printf ("#include \"recog.h\"\n");

@@ -1,6 +1,6 @@
 /* Generate from machine description:
    - some #define configuration flags.
-   Copyright (C) 1987, 1991, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1991, 1997, 1998 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -20,8 +20,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 
-#include <stdio.h>
 #include "hconfig.h"
+#include "system.h"
 #include "rtl.h"
 #include "obstack.h"
 
@@ -31,7 +31,6 @@ struct obstack *rtl_obstack = &obstack;
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free free
 
-extern void free ();
 extern rtx read_rtx ();
 
 /* flags to determine output of machine description dependent #define's.  */
@@ -41,6 +40,7 @@ static int max_clobbers_per_insn;
 static int register_constraint_flag;
 static int have_cc0_flag;
 static int have_cmove_flag;
+static int have_cond_arith_flag;
 static int have_lo_sum_flag;
 
 /* Maximum number of insns seen in a split.  */
@@ -50,7 +50,12 @@ static int clobbers_seen_this_insn;
 static int dup_operands_seen_this_insn;
 
 char *xmalloc ();
-static void fatal ();
+#ifdef HAVE_VPRINTF
+void fatal PVPROTO((char *, ...));
+#else
+/* We must not provide any prototype here, even if ANSI C.  */
+void fatal PROTO(());
+#endif
 void fancy_abort ();
 
 /* RECOG_P will be non-zero if this pattern was seen in a context where it will
@@ -130,12 +135,21 @@ walk_insn_part (part, recog_p, non_pc_set_src)
 	 two arms of the IF_THEN_ELSE are both MATCH_OPERAND.  Otherwise,
 	 we have some specific IF_THEN_ELSE construct (like the doz
 	 instruction on the RS/6000) that can't be used in the general
-	 context we want it for.  */
+	 context we want it for.  If the first operand is an arithmetic
+	 operation and the second is a MATCH_OPERNAND, show we have
+	 conditional arithmetic.  */
 
       if (recog_p && non_pc_set_src
 	  && GET_CODE (XEXP (part, 1)) == MATCH_OPERAND
 	  && GET_CODE (XEXP (part, 2)) == MATCH_OPERAND)
 	have_cmove_flag = 1;
+      else if (recog_p && non_pc_set_src
+	       && (GET_RTX_CLASS (GET_CODE (XEXP (part, 1))) == '1'
+		   || GET_RTX_CLASS (GET_CODE (XEXP (part, 1))) == '2'
+		   || GET_RTX_CLASS (GET_CODE (XEXP (part, 1))) == 'c')
+	       && GET_CODE (XEXP (XEXP (part, 1), 0)) == MATCH_OPERAND
+	       && GET_CODE (XEXP (part, 2)) == MATCH_OPERAND)
+	have_cond_arith_flag = 1;
       break;
 
     case REG: case CONST_INT: case SYMBOL_REF:
@@ -261,7 +275,30 @@ xrealloc (ptr, size)
   return result;
 }
 
-static void
+#ifdef HAVE_VPRINTF
+void
+fatal VPROTO((char *s, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  char *s;
+#endif
+  va_list ap;
+
+  VA_START (ap, s);
+
+#ifndef ANSI_PROTOTYPES
+  s = va_arg (ap, char *);
+#endif
+
+  fprintf (stderr, "genconfig: ");
+  vfprintf (stderr, s, ap);
+  va_end (ap);
+  fprintf (stderr, "\n");
+  exit (FATAL_EXIT_CODE);
+}
+#else /* not HAVE_VPRINTF */
+
+void
 fatal (s, a1, a2)
      char *s;
 {
@@ -270,6 +307,7 @@ fatal (s, a1, a2)
   fprintf (stderr, "\n");
   exit (FATAL_EXIT_CODE);
 }
+#endif /* not HAVE_VPRINTF */
 
 /* More 'friendly' abort that prints the line and file.
    config.h can #define abort fancy_abort if you like that sort of thing.  */
@@ -347,6 +385,9 @@ from the machine description file `md'.  */\n\n");
 
   if (have_cmove_flag)
     printf ("#define HAVE_conditional_move\n");
+
+  if (have_cond_arith_flag)
+    printf ("#define HAVE_conditional_arithmetic\n");
 
   if (have_lo_sum_flag)
     printf ("#define HAVE_lo_sum\n");

@@ -24,7 +24,7 @@ Boston, MA 02111-1307, USA.  */
    and a function init_reg_sets to initialize the tables.  */
 
 #include "config.h"
-#include <stdio.h>
+#include "system.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "flags.h"
@@ -440,7 +440,7 @@ init_regs ()
        memory_move_secondary_cost.  */
     int i;
     for (i = 0; i < MAX_MACHINE_MODE; i++)
-      top_of_stack[i] = gen_rtx (MEM, i, stack_pointer_rtx);
+      top_of_stack[i] = gen_rtx_MEM (i, stack_pointer_rtx);
   }
 #endif
 }
@@ -727,7 +727,7 @@ regclass (f, nregs)
 
   for (i = 0; i < N_REG_CLASSES; i++)
     {
-      rtx r = gen_rtx (REG, VOIDmode, 0);
+      rtx r = gen_rtx_REG (VOIDmode, 0);
       enum machine_mode m;
 
       for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
@@ -1122,6 +1122,9 @@ record_reg_classes (n_alts, n_ops, ops, modes, constraints, insn)
 	  int win = 0;
 	  char c;
 
+	  /* Initially show we know nothing about the register class.  */
+	  classes[i] = NO_REGS;
+
 	  /* If this operand has no constraints at all, we can conclude 
 	     nothing about it since anything is valid.  */
 
@@ -1133,12 +1136,20 @@ record_reg_classes (n_alts, n_ops, ops, modes, constraints, insn)
 	      continue;
 	    }
 
-	  if (*p == '%')
-	    p++;
-
 	  /* If this alternative is only relevant when this operand
 	     matches a previous operand, we do different things depending
-	     on whether this operand is a pseudo-reg or not.  */
+	     on whether this operand is a pseudo-reg or not.  We must process
+	     any modifiers for the operand before we can make this test.  */
+
+	  while (*p == '%' || *p == '=' || *p == '+' || *p == '&')
+	    {
+	      if (*p == '=')
+		op_types[i] = OP_WRITE;
+	      else if (*p == '+')
+		op_types[i] = OP_READ_WRITE;
+
+	      p++;
+	    }
 
 	  if (p[0] >= '0' && p[0] <= '0' + i && (p[1] == ',' || p[1] == 0))
 	    {
@@ -1200,32 +1211,22 @@ record_reg_classes (n_alts, n_ops, ops, modes, constraints, insn)
 		}
 	    }
 
-	  /* Scan all the constraint letters.  See if the operand matches
-	     any of the constraints.  Collect the valid register classes
-	     and see if this operand accepts memory.  */
+	  /* Scan all the remaining constraint letters.  See if the operand
+	     matches any of the constraints.  Collect the valid register
+	     classes and see if this operand accepts memory.  */
 
-	  classes[i] = NO_REGS;
 	  while (*p && (c = *p++) != ',')
 	    switch (c)
 	      {
-	      case '=':
-		op_types[i] = OP_WRITE;
-		break;
-
-	      case '+':
-		op_types[i] = OP_READ_WRITE;
-		break;
-
 	      case '*':
 		/* Ignore the next letter for this pass.  */
 		p++;
 		break;
 
-	      case '%':
-	      case '?':  case '!':  case '#':
-	      case '&':
+	      case '=':  case '+':  case '?':  case '!':  case '#':
+	      case '&':  case 'p':
 	      case '0':  case '1':  case '2':  case '3':  case '4':
-	      case 'p':
+	      case '5':  case '6':  case '7':  case '8':  case '9':
 		break;
 
 	      case 'm':  case 'o':  case 'V':
@@ -1464,7 +1465,8 @@ record_reg_classes (n_alts, n_ops, ops, modes, constraints, insn)
 		    {
 		      for (nr = 0; nr < HARD_REGNO_NREGS(regno, mode); nr++)
 			{
-			  if (!TEST_HARD_REG_BIT (reg_class_contents[class], regno + nr))
+			  if (! TEST_HARD_REG_BIT (reg_class_contents[class],
+						   regno + nr))
 			    break;
 			}
 
@@ -1717,22 +1719,22 @@ auto_inc_dec_reg_p (reg, mode)
      enum machine_mode mode;
 {
 #ifdef HAVE_POST_INCREMENT
-  if (memory_address_p (mode, gen_rtx (POST_INC, Pmode, reg)))
+  if (memory_address_p (mode, gen_rtx_POST_INC (Pmode, reg)))
     return 1;
 #endif
 
 #ifdef HAVE_POST_DECREMENT
-  if (memory_address_p (mode, gen_rtx (POST_DEC, Pmode, reg)))
+  if (memory_address_p (mode, gen_rtx_POST_DEC (Pmode, reg)))
     return 1;
 #endif
 
 #ifdef HAVE_PRE_INCREMENT
-  if (memory_address_p (mode, gen_rtx (PRE_INC, Pmode, reg)))
+  if (memory_address_p (mode, gen_rtx_PRE_INC (Pmode, reg)))
     return 1;
 #endif
 
 #ifdef HAVE_PRE_DECREMENT
-  if (memory_address_p (mode, gen_rtx (PRE_DEC, Pmode, reg)))
+  if (memory_address_p (mode, gen_rtx_PRE_DEC (Pmode, reg)))
     return 1;
 #endif
 
@@ -1885,8 +1887,13 @@ reg_scan_mark_refs (x, insn, note_flag)
 
   switch (code)
     {
-    case CONST_INT:
     case CONST:
+      if (GET_CODE (XEXP (x, 0)) == CONSTANT_P_RTX)
+	reg_scan_mark_refs (XEXP (XEXP (x, 0), 0), insn, note_flag);
+
+      /* ... fall through ... */
+
+    case CONST_INT:
     case CONST_DOUBLE:
     case CC0:
     case PC:
