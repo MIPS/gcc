@@ -1,3 +1,7 @@
+2004-02-11  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-tools.in: Merge changes from mainline gcc/ada/Makefile.in.
+
 2005-02-02  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Remove use of cc_set_by_configure; just use

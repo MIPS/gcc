@@ -229,86 +229,79 @@ ifeq ($(TOOLSCASE),cross)
   vpath %.h   ../
 endif
 
+GCC_LINK="$(CC) -static-libgcc $(ADA_INCLUDES)"
+
 ../../gnatchop$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatchop --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatchop 
-	$(GNATLINK) -v gnatchop -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		$(TOOLS_LIBS)
+	$(GNATLINK) -v gnatchop -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnat$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatcmd --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatcmd 
-	$(GNATLINK) -v gnatcmd -o $@ --GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
+	$(GNATLINK) -v gnatcmd -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnatkr$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatkr --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatkr 
-	$(GNATLINK) -v gnatkr -o $@ --GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
+	$(GNATLINK) -v gnatkr -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnatls$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatls --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatls 
-	$(GNATLINK) -v gnatls -o $@ --GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
+	$(GNATLINK) -v gnatls -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnatname$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatname --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatname 
-	$(GNATLINK) -v gnatname -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
+	$(GNATLINK) -v gnatname -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gprmake$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gprmake --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gprmake
-	$(GNATLINK) -v gprmake -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
+	$(GNATLINK) -v gprmake -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnatprep$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatprep --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatprep 
-	$(GNATLINK) -v gnatprep -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
+	$(GNATLINK) -v gnatprep -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnatxref$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatxref --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatxref 
-	$(GNATLINK) -v gnatxref -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
+	$(GNATLINK) -v gnatxref -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnatfind$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatfind --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatfind 
-	$(GNATLINK) -v gnatfind -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		    $(TOOLS_LIBS)
+	$(GNATLINK) -v gnatfind -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnatclean$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatclean --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatclean
-	$(GNATLINK) -v gnatclean -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-	            $(TOOLS_LIBS)
+	$(GNATLINK) -v gnatclean -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnatsym$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatsym --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatsym
-	$(GNATLINK) -v gnatsym -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-                    $(TOOLS_LIBS)
+	$(GNATLINK) -v gnatsym -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../gnatdll$(exeext): 
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatdll --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) $(GNATBIND_FLAGS) gnatdll
-	$(GNATLINK) -v gnatdll -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		$(TOOLS_LIBS)
+	$(GNATLINK) -v gnatdll -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 ../../vxaddr2line$(exeext): 
 	$(GNATMAKE) -c  $(ADA_INCLUDES) vxaddr2line --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) vxaddr2line 
-	$(GNATLINK) -v vxaddr2line -o $@ --GCC="$(CC) $(ADA_INCLUDES)" $(CLIB)
+	$(GNATLINK) -v vxaddr2line -o $@ --GCC=$(GCC_LINK) $(CLIB)
 
 gnatmake-re:  link.o
 	$(GNATMAKE) $(ADA_INCLUDES) -u sdefault --GCC="$(CC) $(MOST_ADA_FLAGS)"
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatmake --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatmake 
 	$(GNATLINK) -v gnatmake -o ../../gnatmake$(exeext) \
-		--GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
+		--GCC=$(GCC_LINK) $(TOOLS_LIBS)
 
 # Note the use of the "mv" command in order to allow gnatlink to be linked with
 # with the former version of gnatlink itself which cannot override itself.
@@ -316,7 +309,7 @@ gnatlink-re:  link.o
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatlink --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatlink 
 	$(GNATLINK) -v gnatlink -o ../../gnatlinknew$(exeext) \
-		    --GCC="$(CC) $(ADA_INCLUDES)" $(TOOLS_LIBS)
+		    --GCC=$(GCC_LINK) $(TOOLS_LIBS)
 	$(MV)  ../../gnatlinknew$(exeext)  ../../gnatlink$(exeext)
   
 # Needs to be built with CC=gcc
@@ -376,5 +369,4 @@ link.o    : link.c
 ../../gnatlbr$(exeext): ../../prefix.o
 	$(GNATMAKE) -c $(ADA_INCLUDES) gnatlbr --GCC="$(CC) $(ALL_ADAFLAGS)"
 	$(GNATBIND) $(ADA_INCLUDES) $(GNATBIND_FLAGS) gnatlbr
-	$(GNATLINK) -v gnatlbr -o $@ --GCC="$(CC) $(ADA_INCLUDES)" \
-		$(TOOLS_LIBS)
+	$(GNATLINK) -v gnatlbr -o $@ --GCC=$(GCC_LINK) $(TOOLS_LIBS)
