@@ -1,0 +1,50 @@
+2004-09-21  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-ssa-copy.o): Add dependency on
+	tree-ssa-propagate.h.
+	* common.opt (ftree-copy-prop): New switch.
+	* opts.c (decode_options): Set flag_tree_copy_prop at -O1 and
+	higher.
+	* timevar.def (TV_TREE_COPY_PROP): Define.
+	* tree-cfg.c (tree_can_merge_blocks_p): Update comment.
+	(find_taken_edge): Call fold if VAL is a comparison operator.
+	* tree-flow.h (get_ptr_info): Declare.
+	(kill_redundant_phi_nodes): Remove.
+	(execute_ssa_ccp): Declare.
+	(execute_copy_prop): Declare.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	pass_copy_prop and pass_fre.  Add more instances of pass_ccp.
+	* tree-pass.h (pass_copy_prop): Declare.
+	* tree-ssa-alias.c (get_ptr_info): Remove static declaration.
+	* tree-ssa-ccp.c (get_default_value): Add parameter
+	may_use_default_p.
+	Update all callers.
+	(set_lattice_value): Set SSA_NAME_VALUE.
+	(need_imm_uses_for): Return true on PHI nodes and assignments
+	that have no V_MAY_DEFs.
+	(ccp_initialize): Do not initialize to VARYING DEFs and
+	V_MUST_DEFs whose default value is VARYING.
+	(execute_ssa_ccp): Make extern.
+	* tree-ssa-copy.c: Update header documentation.
+	(may_propagate_copy): Do not abort if ORIG is a GIMPLE reg.
+	(merge_alias_info): Synchronize flow sensitive alias
+	information.
+	(need_imm_uses_for, get_first_copy_of, get_last_copy_of,
+	set_first_copy_of, dump_copy_of, copy_prop_visit_assignment,
+	copy_prop_visit_cond_stmt, copy_prop_visit_stmt,
+	copy_prop_visit_phi_node, init_copy_prop, fini_copy_prop,
+	execute_copy_prop): New local functions.
+	* tree-ssa-pre.c (compute_avail): Also process DECLs.
+	(execute_fre): Make extern.
+	* tree-ssa-propagate.c: Update copyright years.
+	(ssa_prop_init): Clear SSA_NAME_VALUE for every name.
+	(replace_uses_in, replace_vuse_in, substitute_and_fold): Move
+	from tree-ssa-ccp.c.
+	* tree-ssa-propagate.h: Update copyright years.
+	(replace_uses_in, substitute_and_fold): Declare.
+	* tree-ssa.c (propagate_into_addr, replace_immediate_uses,
+	get_eq_name, check_phi_redundancy, kill_redundant_phi_nodes,
+	pass_redundant_phi): Remove.
+	* tree.h (struct tree_ssa_name): Update comment for field
+	value_handle.
+	* doc/invoke.texi: Document -ftree-copy-prop.

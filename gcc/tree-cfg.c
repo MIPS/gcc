@@ -1036,8 +1036,7 @@ tree_can_merge_blocks_p (basic_block a, basic_block b)
       && DECL_NONLOCAL (LABEL_EXPR_LABEL (stmt)))
     return false;
 
-  /* There may be no phi nodes at the start of b.  Most of these degenerate
-     phi nodes should be cleaned up by kill_redundant_phi_nodes.  */
+  /* There may be no PHI nodes at the start of b.  */
   if (phi_nodes (b))
     return false;
 
@@ -2003,20 +2002,8 @@ find_taken_edge (basic_block bb, tree val)
   /* If VAL is a predicate of the form N RELOP N, where N is an
      SSA_NAME, we can always determine its truth value (except when
      doing floating point comparisons that may involve NaNs).  */
-  if (val
-      && COMPARISON_CLASS_P (val)
-      && TREE_OPERAND (val, 0) == TREE_OPERAND (val, 1)
-      && TREE_CODE (TREE_OPERAND (val, 0)) == SSA_NAME
-      && (TREE_CODE (TREE_TYPE (TREE_OPERAND (val, 0))) != REAL_TYPE
-	  || !HONOR_NANS (TYPE_MODE (TREE_TYPE (TREE_OPERAND (val, 0))))))
-    {
-      enum tree_code code = TREE_CODE (val);
-
-      if (code == EQ_EXPR || code == LE_EXPR || code == GE_EXPR)
-	val = boolean_true_node;
-      else if (code == LT_EXPR || code == GT_EXPR || code == NE_EXPR)
-	val = boolean_false_node;
-    }
+  if (val && COMPARISON_CLASS_P (val))
+    val = fold (val);
 
   /* If VAL is not a constant, we can't determine which edge might
      be taken.  */

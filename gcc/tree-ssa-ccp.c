@@ -178,17 +178,20 @@ get_default_value (tree var)
   return val;
 }
 
-/* Get the constant value associated with variable VAR.  */
+
+/* Get the constant value associated with variable VAR.  If
+   MAY_USE_DEFAULT_P is true, call get_default_value on variables that
+   have the lattice value UNINITIALIZED.  */
 
 static value *
-get_value (tree var)
+get_value (tree var, bool may_use_default_p)
 {
   value *val;
 
   gcc_assert (TREE_CODE (var) == SSA_NAME);
 
   val = &value_vector[SSA_NAME_VERSION (var)];
-  if (val->lattice_val == UNINITIALIZED)
+  if (may_use_default_p && val->lattice_val == UNINITIALIZED)
     *val = get_default_value (var);
 
   return val;
@@ -201,7 +204,7 @@ get_value (tree var)
 static bool
 set_lattice_value (tree var, value val)
 {
-  value *old = get_value (var);
+  value *old = get_value (var, false);
 
   if (val.lattice_val == UNDEFINED)
     {
@@ -240,6 +243,7 @@ set_lattice_value (tree var, value val)
 	}
 
       *old = val;
+      SSA_NAME_VALUE (var) = val.const_val;
       return true;
     }
 
@@ -293,7 +297,7 @@ likely_value (tree stmt)
 
   FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_USE)
     {
-      value *val = get_value (use);
+      value *val = get_value (use, true);
 
       if (val->lattice_val == UNDEFINED)
 	return UNDEFINED;
@@ -307,7 +311,7 @@ likely_value (tree stmt)
   if (NUM_VUSES (vuses))
     {
       tree vuse = VUSE_OP (vuses, 0);
-      value *val = get_value (vuse);
+      value *val = get_value (vuse, true);
       
       if (val->lattice_val == UNKNOWN_VAL)
         return UNKNOWN_VAL;
@@ -329,7 +333,18 @@ likely_value (tree stmt)
 static bool
 need_imm_uses_for (tree var)
 {
-  return get_value (var)->lattice_val != VARYING;
+  tree def_stmt = SSA_NAME_DEF_STMT (var);
+
+  if (TREE_CODE (def_stmt) == PHI_NODE)
+    return get_value (PHI_RESULT (def_stmt), false)->lattice_val != VARYING;
+  else if (TREE_CODE (def_stmt) == MODIFY_EXPR)
+    {
+      /* The only assignments that never produce useful constants are
+	 those with V_MAY_DEFs.  */
+      return NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (def_stmt)) == 0;
+    }
+  else
+    return false;
 }
 
 
@@ -363,18 +378,10 @@ ccp_initialize (void)
 
 	  get_stmt_operands (stmt);
 
-	  /* Get the default value for each DEF and V_MUST_DEF.  */
-	  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, 
-				     (SSA_OP_DEF | SSA_OP_VMUSTDEF))
-	    {
-	      if (get_value (def)->lattice_val == VARYING)
-		is_varying = true;
-	    }
-
 	  /* Mark all V_MAY_DEF operands VARYING.  */
 	  FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_VMAYDEF)
 	    {
-	      get_value (def)->lattice_val = VARYING;
+	      get_value (def, false)->lattice_val = VARYING;
 	      SET_BIT (is_may_def, SSA_NAME_VERSION (def));
 	    }
 
@@ -393,22 +400,23 @@ ccp_initialize (void)
   /* Now process PHI nodes.  */
   FOR_EACH_BB (bb)
     {
-      tree phi, var;
-      int x;
+      tree phi;
 
       for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
 	{
-	  value *val = get_value (PHI_RESULT (phi));
+	  int i;
+	  tree arg;
+	  value *val = get_value (PHI_RESULT (phi), false);
 
-	  for (x = 0; x < PHI_NUM_ARGS (phi); x++)
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
 	    {
-	      var = PHI_ARG_DEF (phi, x);
+	      arg = PHI_ARG_DEF (phi, i);
 
-	      /* If one argument has a V_MAY_DEF, the result is
-		 VARYING.  */
-	      if (TREE_CODE (var) == SSA_NAME)
+	      if (TREE_CODE (arg) == SSA_NAME)
 		{
-		  if (TEST_BIT (is_may_def, SSA_NAME_VERSION (var)))
+		  /* If one argument has a V_MAY_DEF, the result is
+		     VARYING.  */
+		  if (TEST_BIT (is_may_def, SSA_NAME_VERSION (arg)))
 		    {
 		      val->lattice_val = VARYING;
 		      SET_BIT (is_may_def, SSA_NAME_VERSION (PHI_RESULT (phi)));
@@ -425,167 +433,6 @@ ccp_initialize (void)
 
   /* Compute immediate uses for variables we care about.  */
   compute_immediate_uses (TDFA_USE_OPS | TDFA_USE_VOPS, need_imm_uses_for);
-}
-
-
-/* Replace USE references in statement STMT with their immediate reaching
-   definition.  Return true if at least one reference was replaced.  If
-   REPLACED_ADDRESSES_P is given, it will be set to true if an address
-   constant was replaced.  */
-
-static bool
-replace_uses_in (tree stmt, bool *replaced_addresses_p)
-{
-  bool replaced = false;
-  use_operand_p use;
-  ssa_op_iter iter;
-
-  if (replaced_addresses_p)
-    *replaced_addresses_p = false;
-
-  get_stmt_operands (stmt);
-
-  FOR_EACH_SSA_USE_OPERAND (use, stmt, iter, SSA_OP_USE)
-    {
-      value *val = get_value (USE_FROM_PTR (use));
-
-      if (val->lattice_val == CONSTANT)
-	{
-	  SET_USE (use, val->const_val);
-	  replaced = true;
-	  if (POINTER_TYPE_P (TREE_TYPE (USE_FROM_PTR (use))) 
-	      && replaced_addresses_p)
-	    *replaced_addresses_p = true;
-	}
-    }
-
-  return replaced;
-}
-
-
-/* Replace the VUSE references in statement STMT with its immediate reaching
-   definition.  Return true if the reference was replaced.  If
-   REPLACED_ADDRESSES_P is given, it will be set to true if an address
-   constant was replaced.  */
-
-static bool
-replace_vuse_in (tree stmt, bool *replaced_addresses_p)
-{
-  bool replaced = false;
-  vuse_optype vuses;
-  use_operand_p vuse;
-  value *val;
-
-  if (replaced_addresses_p)
-    *replaced_addresses_p = false;
-
-  get_stmt_operands (stmt);
-
-  vuses = STMT_VUSE_OPS (stmt);
-
-  if (NUM_VUSES (vuses) != 1)
-    return false;
-
-  vuse = VUSE_OP_PTR (vuses, 0);
-  val = get_value (USE_FROM_PTR (vuse));
-
-  if (val->lattice_val == CONSTANT
-      && TREE_CODE (stmt) == MODIFY_EXPR
-      && DECL_P (TREE_OPERAND (stmt, 1))
-      && TREE_OPERAND (stmt, 1) == SSA_NAME_VAR (USE_FROM_PTR (vuse)))
-    {
-      TREE_OPERAND (stmt, 1) = val->const_val;
-      replaced = true;
-      if (POINTER_TYPE_P (TREE_TYPE (USE_FROM_PTR (vuse))) 
-          && replaced_addresses_p)
-        *replaced_addresses_p = true;
-    }
-
-  return replaced;
-}
-
-
-/* Perform final substitution and folding.  After this pass the program
-   should still be in SSA form.  */
-
-static void
-substitute_and_fold (void)
-{
-  basic_block bb;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file,
-	     "\nSubstituing constants and folding statements\n\n");
-
-  /* Substitute constants in every statement of every basic block.  */
-  FOR_EACH_BB (bb)
-    {
-      block_stmt_iterator i;
-      tree phi;
-
-      /* Propagate our known constants into PHI nodes.  */
-      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
-	{
-	  int i;
-
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	    {
-	      value *new_val;
-	      use_operand_p orig_p = PHI_ARG_DEF_PTR (phi, i);
-	      tree orig = USE_FROM_PTR (orig_p);
-
-	      if (! SSA_VAR_P (orig))
-		break;
-
-	      new_val = get_value (orig);
-	      if (new_val->lattice_val == CONSTANT
-		  && may_propagate_copy (orig, new_val->const_val))
-		SET_USE (orig_p, new_val->const_val);
-	    }
-	}
-
-      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
-	{
-          bool replaced_address;
-	  tree stmt = bsi_stmt (i);
-
-	  /* Skip statements that have been folded already.  */
-	  if (stmt_modified_p (stmt) || !is_exec_stmt (stmt))
-	    continue;
-
-	  /* Replace the statement with its folded version and mark it
-	     folded.  */
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "Line %d: replaced ", get_lineno (stmt));
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-	    }
-
-	  if (replace_uses_in (stmt, &replaced_address)
-	      || replace_vuse_in (stmt, &replaced_address))
-	    {
-	      bool changed = fold_stmt (bsi_stmt_ptr (i));
-	      stmt = bsi_stmt(i);
-	      /* If we folded a builtin function, we'll likely
-		 need to rename VDEFs.  */
-	      if (replaced_address || changed)
-		{
-		  mark_new_vars_to_rename (stmt, vars_to_rename);
-		  if (maybe_clean_eh_stmt (stmt))
-		    tree_purge_dead_eh_edges (bb);
-		}
-	      else
-		modify_stmt (stmt);
-	    }
-
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, " with ");
-	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
-	      fprintf (dump_file, "\n");
-	    }
-	}
-    }
 }
 
 
@@ -674,7 +521,7 @@ ccp_visit_phi_node (tree phi)
       print_generic_expr (dump_file, phi, dump_flags);
     }
 
-  old_val = get_value (PHI_RESULT (phi));
+  old_val = get_value (PHI_RESULT (phi), false);
   switch (old_val->lattice_val)
     {
     case VARYING:
@@ -732,7 +579,7 @@ ccp_visit_phi_node (tree phi)
 	      rdef_val = &val;
 	    }
 	  else
-	    rdef_val = get_value (rdef);
+	    rdef_val = get_value (rdef, true);
 
 	  new_val = ccp_lattice_meet (new_val, *rdef_val);
 
@@ -796,11 +643,11 @@ ccp_fold (tree stmt)
   /* If the RHS is just a variable, then that variable must now have
      a constant value that we can return directly.  */
   if (TREE_CODE (rhs) == SSA_NAME)
-    return get_value (rhs)->const_val;
+    return get_value (rhs, true)->const_val;
   else if (DECL_P (rhs) 
            && NUM_VUSES (vuses) == 1
            && rhs == SSA_NAME_VAR (VUSE_OP (vuses, 0)))
-    return get_value (VUSE_OP (vuses, 0))->const_val;
+    return get_value (VUSE_OP (vuses, 0), true)->const_val;
 
   /* Unary operators.  Note that we know the single operand must
      be a constant.  So this should almost always return a
@@ -813,9 +660,9 @@ ccp_fold (tree stmt)
       /* Simplify the operand down to a constant.  */
       if (TREE_CODE (op0) == SSA_NAME)
 	{
-	  value *val = get_value (op0);
+	  value *val = get_value (op0, true);
 	  if (val->lattice_val == CONSTANT)
-	    op0 = get_value (op0)->const_val;
+	    op0 = get_value (op0, true)->const_val;
 	}
 
       retval = nondestructive_fold_unary_to_constant (code,
@@ -859,14 +706,14 @@ ccp_fold (tree stmt)
       /* Simplify the operands down to constants when appropriate.  */
       if (TREE_CODE (op0) == SSA_NAME)
 	{
-	  value *val = get_value (op0);
+	  value *val = get_value (op0, true);
 	  if (val->lattice_val == CONSTANT)
 	    op0 = val->const_val;
 	}
 
       if (TREE_CODE (op1) == SSA_NAME)
 	{
-	  value *val = get_value (op1);
+	  value *val = get_value (op1, true);
 	  if (val->lattice_val == CONSTANT)
 	    op1 = val->const_val;
 	}
@@ -1015,7 +862,7 @@ visit_assignment (tree stmt, tree *output_p)
   if (TREE_CODE (rhs) == SSA_NAME)
     {
       /* For a simple copy operation, we copy the lattice values.  */
-      value *nval = get_value (rhs);
+      value *nval = get_value (rhs, true);
       val = *nval;
     }
   else if (DECL_P (rhs) 
@@ -1024,7 +871,7 @@ visit_assignment (tree stmt, tree *output_p)
     {
       /* Same as above, but the rhs is not a gimple register and yet
         has a known VUSE.  */
-      value *nval = get_value (VUSE_OP (vuses, 0));
+      value *nval = get_value (VUSE_OP (vuses, 0), true);
       val = *nval;
     }
   else
@@ -1168,7 +1015,7 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 
    [ DESCRIBE MAIN ALGORITHM HERE ]  */
 
-static void
+void
 execute_ssa_ccp (void)
 {
   ccp_initialize ();

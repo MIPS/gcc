@@ -832,6 +832,10 @@ ftree-copyrename
 Common Report Var(flag_tree_copyrename)
 Replace SSA temporaries with better names in copies.
 
+ftree-copy-prop
+Common Report Var(flag_tree_copy_prop)
+Enable expression propagation and simplification on trees
+
 ftree-dce
 Common Report Var(flag_tree_dce)
 Enable SSA dead code elimination optimization on trees

@@ -1339,7 +1339,8 @@ struct tree_ssa_name GTY(())
   /* Pointer attributes used for alias analysis.  */
   struct ptr_info_def *ptr_info;
 
-  /* Value for SSA name used by GVN.  */
+  /* Value for SSA name used by various propagation passes (PRE,
+     SSA-CCP, copy propagation).  */
   tree GTY((skip)) value_handle;
 
   /* Auxiliary information stored with the ssa name.  */

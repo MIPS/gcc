@@ -153,7 +153,6 @@ static void collect_points_to_info_for (struct alias_info *, tree);
 static bool ptr_is_dereferenced_by (tree, tree, bool *);
 static void maybe_create_global_var (struct alias_info *ai);
 static void group_aliases (struct alias_info *);
-static struct ptr_info_def *get_ptr_info (tree t);
 static void set_pt_anything (tree ptr);
 static void set_pt_malloc (tree ptr);
 
@@ -2223,7 +2222,12 @@ dump_alias_info (FILE *file)
   for (i = 1; i < num_ssa_names; i++)
     {
       tree ptr = ssa_name (i);
-      struct ptr_info_def *pi = SSA_NAME_PTR_INFO (ptr);
+      struct ptr_info_def *pi;
+
+      if (ptr == NULL_TREE)
+	continue;
+      
+      pi = SSA_NAME_PTR_INFO (ptr);
       if (!SSA_NAME_IN_FREE_LIST (ptr)
 	  && pi
 	  && pi->name_mem_tag)
@@ -2255,7 +2259,7 @@ debug_alias_info (void)
 /* Return the alias information associated with pointer T.  It creates a
    new instance if none existed.  */
 
-static struct ptr_info_def *
+struct ptr_info_def *
 get_ptr_info (tree t)
 {
   struct ptr_info_def *pi;
@@ -2457,4 +2461,3 @@ may_be_aliased (tree var)
 
   return true;
 }
-

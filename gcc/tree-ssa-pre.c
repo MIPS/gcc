@@ -1778,7 +1778,8 @@ compute_avail (basic_block block)
 
 	      STRIP_USELESS_TYPE_CONVERSION (rhs);
 	      if (TREE_CODE (rhs) == SSA_NAME
-		  || is_gimple_min_invariant (rhs))
+		  || is_gimple_min_invariant (rhs)
+		  || DECL_P (rhs))
 		{
 		  /* Compute a value number for the RHS of the statement
 		     and add its value to the AVAIL_OUT set for the block.
@@ -1791,8 +1792,9 @@ compute_avail (basic_block block)
 		    value_insert_into_set (EXP_GEN (block), rhs);
 		  continue;
 		}	   
-	      else if (UNARY_CLASS_P (rhs) || BINARY_CLASS_P (rhs)
-		       || TREE_CODE (rhs) == INDIRECT_REF)
+	      else if (UNARY_CLASS_P (rhs)
+		       || BINARY_CLASS_P (rhs)
+		       || TREE_CODE (rhs) == tcc_reference)
 		{
 		  /* For binary, unary, and reference expressions,
 		     create a duplicate expression with the operands
@@ -2076,7 +2078,7 @@ struct tree_opt_pass pass_pre =
 /* Gate and execute functions for FRE.  */
 
 static void
-do_fre (void)
+execute_fre (void)
 {
   execute_pre (true);
 }
@@ -2091,7 +2093,7 @@ struct tree_opt_pass pass_fre =
 {
   "fre",				/* name */
   gate_fre,				/* gate */
-  do_fre,				/* execute */
+  execute_fre,				/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

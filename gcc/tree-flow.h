@@ -564,6 +564,7 @@ extern void debug_points_to_info (void);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
+extern struct ptr_info_def *get_ptr_info (tree);
 
 /* Call-back function for walk_use_def_chains().  At each reaching
    definition, a function with this prototype is called.  */
@@ -586,7 +587,6 @@ extern void verify_ssa (void);
 extern void delete_tree_ssa (void);
 extern void register_new_def (tree, varray_type *);
 extern void walk_use_def_chains (tree, walk_use_def_chains_fn, void *, bool);
-extern void kill_redundant_phi_nodes (void);
 
 /* In tree-into-ssa.c  */
 extern void rewrite_into_ssa (bool);
@@ -596,6 +596,7 @@ void compute_global_livein (bitmap, bitmap);
 tree duplicate_ssa_name (tree, tree);
 
 /* In tree-ssa-ccp.c  */
+void execute_ssa_ccp (void);
 bool fold_stmt (tree *);
 tree widen_bitfield (tree, tree, tree);
 
@@ -608,6 +609,7 @@ extern void propagate_value (use_operand_p, tree);
 extern void propagate_tree_value (tree *, tree);
 extern void replace_exp (use_operand_p, tree);
 extern bool may_propagate_copy (tree, tree);
+extern void execute_copy_prop (void);
 
 /* Description of number of iterations of a loop.  All the expressions inside
    the structure can be evaluated at the end of the loop's preheader
@@ -728,6 +730,7 @@ void vn_delete (void);
 
 /* In tree-sra.c  */
 void insert_edge_copies (tree stmt, basic_block bb);
+
 
 /* In tree-ssa-operands.c  */
 extern void build_ssa_operands (tree, stmt_ann_t, stmt_operands_p, 

@@ -1,5 +1,5 @@
 /* Generic SSA value propagation engine.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
    This file is part of GCC.
@@ -458,6 +458,7 @@ ssa_prop_init (void)
 {
   edge e;
   basic_block bb;
+  size_t i;
 
   /* Worklists of SSA edges.  */
   VARRAY_TREE_INIT (interesting_ssa_edges, 20, "interesting_ssa_edges");
@@ -473,6 +474,11 @@ ssa_prop_init (void)
     dump_immediate_uses (dump_file);
 
   VARRAY_BB_INIT (cfg_blocks, 20, "cfg_blocks");
+
+  /* Initialize the values for every SSA_NAME.  */
+  for (i = 1; i < num_ssa_names; i++)
+    if (ssa_name (i))
+      SSA_NAME_VALUE (ssa_name (i)) = NULL_TREE;
 
   /* Initially assume that every edge in the CFG is not executable.  */
   FOR_EACH_BB (bb)
@@ -667,6 +673,198 @@ ssa_propagate (ssa_prop_visit_stmt_fn visit_stmt,
     }
 
   ssa_prop_fini ();
+}
+
+/*---------------------------------------------------------------------------
+		   Common functions used in value propagation
+---------------------------------------------------------------------------*/
+/* Replace USE references in statement STMT with the value held in
+   each name's SSA_NAME_VALUE. Return true if at least one reference
+   was replaced.  If REPLACED_ADDRESSES_P is given, it will be set to
+   true if an address constant was replaced.  */ 
+
+bool
+replace_uses_in (tree stmt, bool *replaced_addresses_p)
+{
+  use_operand_p use;
+  ssa_op_iter iter;
+  bool replaced = false;
+
+  get_stmt_operands (stmt);
+
+  FOR_EACH_SSA_USE_OPERAND (use, stmt, iter, SSA_OP_USE)
+    {
+      tree var = USE_FROM_PTR (use);
+      tree val = SSA_NAME_VALUE (var);
+
+      if (val && val != var && may_propagate_copy (var, val))
+	{
+	  propagate_value (use, val);
+	  replaced = true;
+	  if (POINTER_TYPE_P (TREE_TYPE (USE_FROM_PTR (use))) 
+	      && replaced_addresses_p)
+	    *replaced_addresses_p = true;
+	}
+    }
+
+  return replaced;
+}
+
+
+/* Replace the VUSE references in statement STMT with its immediate reaching
+   definition.  Return true if the reference was replaced.  If
+   REPLACED_ADDRESSES_P is given, it will be set to true if an address
+   constant was replaced.  */
+
+static bool
+replace_vuse_in (tree stmt, bool *replaced_addresses_p)
+{
+  bool replaced = false;
+  ssa_op_iter iter;
+  use_operand_p vuse_op;
+
+  get_stmt_operands (stmt);
+
+  FOR_EACH_SSA_USE_OPERAND (vuse_op, stmt, iter, SSA_OP_VIRTUAL_USES)
+    {
+      tree var = USE_FROM_PTR (vuse_op);
+      tree val = SSA_NAME_VALUE (var);
+
+      if (val && var != val)
+	{
+	  /* Notice that we are making a very specific replacement here.
+	     We need to handle two different cases:
+
+	     1- If the value of A_i is another name for A (say A_j),
+		then A_j is the result of copy propagation.  In this
+		case, the statement is irrelevant because we just
+		need to replace the VUSE operand.
+
+	     2- If the value of A_i is a constant C, then the RHS can
+		only be the VAR_DECL A, and there must be exactly one
+		VUSE operand.  Because the assumption is that
+		this value comes from a V_MUST_DEF operation to A
+		itself.  */
+	  if (TREE_CODE (val) == SSA_NAME
+	      && SSA_NAME_VAR (val) == SSA_NAME_VAR (var))
+	    propagate_value (vuse_op, val);
+	  else if (TREE_CODE (stmt) == MODIFY_EXPR
+		   && DECL_P (TREE_OPERAND (stmt, 1))
+		   && TREE_OPERAND (stmt, 1) == SSA_NAME_VAR (var)
+		   && NUM_VUSES (STMT_VUSE_OPS (stmt)) == 1
+		   && is_gimple_min_invariant (val))
+	    TREE_OPERAND (stmt, 1) = val;
+	  else
+	    continue;
+
+	  replaced = true;
+	  if (POINTER_TYPE_P (TREE_TYPE (var))
+	      && replaced_addresses_p)
+	    *replaced_addresses_p = true;
+	}
+    }
+
+  return replaced;
+}
+
+
+/* Perform final substitution and folding of propagated values.  */
+
+void
+substitute_and_fold (void)
+{
+  basic_block bb;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file,
+	     "\nSubstituing values and folding statements\n\n");
+
+  /* Substitute values in every statement of every basic block.  */
+  FOR_EACH_BB (bb)
+    {
+      block_stmt_iterator i;
+      tree phi;
+
+      /* Propagate our known values into PHI nodes.  */
+      for (phi = phi_nodes (bb); phi; phi = PHI_CHAIN (phi))
+	{
+	  int i;
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Replaced ");
+	      print_generic_stmt (dump_file, phi, TDF_SLIM);
+	    }
+
+	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	    {
+	      tree arg = PHI_ARG_DEF (phi, i);
+
+	      if (TREE_CODE (arg) == SSA_NAME)
+		{
+		  tree val = SSA_NAME_VALUE (arg);
+		  if (val && val != arg && may_propagate_copy (arg, val))
+		    {
+		      SET_PHI_ARG_DEF (phi, i, val);
+		      
+		      /* If we propagated a copy and this argument
+			 flows through an abnormal edge, update the
+			 replacement accordingly.  */
+		      if (TREE_CODE (val) == SSA_NAME
+			  && PHI_ARG_EDGE (phi, i)->flags & EDGE_ABNORMAL)
+			SSA_NAME_OCCURS_IN_ABNORMAL_PHI (val) = 1;
+		    }
+		}
+	    }
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, " with ");
+	      print_generic_stmt (dump_file, phi, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+	}
+
+      for (i = bsi_start (bb); !bsi_end_p (i); bsi_next (&i))
+	{
+          bool replaced_address, did_replace;
+	  tree stmt = bsi_stmt (i);
+
+	  /* Replace the statement with its folded version and mark it
+	     folded.  */
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Replaced ");
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	    }
+
+	  replaced_address = false;
+	  did_replace = replace_uses_in (stmt, &replaced_address);
+	  did_replace |= replace_vuse_in (stmt, &replaced_address);
+	  if (did_replace)
+	    {
+	      bool changed = fold_stmt (bsi_stmt_ptr (i));
+	      stmt = bsi_stmt(i);
+	      /* If we folded a builtin function, we'll likely
+		 need to rename VDEFs.  */
+	      if (replaced_address || changed)
+		{
+		  mark_new_vars_to_rename (stmt, vars_to_rename);
+		  if (maybe_clean_eh_stmt (stmt))
+		    tree_purge_dead_eh_edges (bb);
+		}
+	      else
+		modify_stmt (stmt);
+	    }
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, " with ");
+	      print_generic_stmt (dump_file, stmt, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+	}
+    }
 }
 
 #include "gt-tree-ssa-propagate.h"
