@@ -1,3 +1,57 @@
+2000-04-27  Tom Tromey  <tromey@cygnus.com>
+
+	Fix for PR gcj/2:
+	* expr.c (expand_invoke): Generate check to see if object pointer
+	is null in nonvirtual invocation case.
+	* java-tree.h (soft_nullpointer_node): Declare.
+	* decl.c (soft_nullpointer_node): New global.
+	(init_decl_processing): Initialize soft_nullpointer_node.
+	* parse.y (invocation_mode): Return INVOKE_NONVIRTUAL for `final'
+	or `private' methods.
+	(patch_invoke): Handle INVOKE_NONVIRTUAL case.
+
+Wed Apr 26 14:29:33 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* decl.c (complete_start_java_method): Don't call _Jv_InitClass
+ 	from <clinit>
+
+2000-04-26  Tom Tromey  <tromey@cygnus.com>
+
+	* zextract.c (find_zip_file_start): New function.
+	(read_zip_archive): Use it.
+
+2000-04-25  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (register_incomplete_type): Handle JDEP_ANONYMOUS.
+
+Mon Apr 24 14:59:36 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (end_class_declaration): Reset the interface number
+ 	counter.
+
+2000-04-24  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * parse.y (source_start_java_method): Deleted unecessary code.
+        (patch_method_invocation): Fixed comment.
+
+2000-04-24  Robert Lipe <robertlipe@usa.net>
+
+	* parse.h (_jdep): Member `kind' now ENUM_BITFIELD.
+
+2000-04-23  Tom Tromey  <tromey@cygnus.com>
+
+	* boehm.c (mark_reference_fields): Use int_byte_position.
+
+2000-04-22  Tom Tromey  <tromey@cygnus.com>
+
+	* boehm.c (mark_reference_fields): Only call byte_position on
+	non-static fields.
+
+2000-04-22  Tom Tromey  <tromey@cygnus.com>
+
+	* boehm.c (mark_reference_fields): Added `last_view_index'
+	argument.  Use DECL_FIELD_OFFSET to determine field's offset.
+
 Thu Apr 20 17:41:28 2000  Mo DeJong  <mdejong@cygnus.com>
 
 	* parse.h (INTERFACE_INNER_MODIFIERS): New macro.
@@ -21,6 +75,14 @@ Thu Apr 20 17:41:28 2000  Mo DeJong  <mdejong@cygnus.com>
 Thu Apr 20 18:20:58 2000  Jason Schroeder  <shrode@subnature.com>
 
 	* jcf-dump.c (SPECIAL_IINC): Fixed typo printing iinc instruction.
+
+2000-04-19  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (lookup_field_wrapper): Search for final local aliases.
+	(resolve_expression_name): Let lookup_field_wrapper search for
+	final local aliases. Force the value of `name' if one is found.
+	(qualify_ambiguous_name): CONVERT_EXPR is enough to now we have
+	an expression name. Fixed comments.
 
 2000-04-19  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
@@ -65,6 +127,18 @@ Thu Apr 20 18:20:58 2000  Jason Schroeder  <shrode@subnature.com>
 	reduction.
 	(patch_binop): New temp `cn'. Call patch_string on LHS/RHS of
 	the `==' and `!=' operators.
+
+2000-04-05  Tom Tromey  <tromey@cygnus.com>
+
+	Fix for PR gcj/2:
+	* expr.c (expand_invoke): Generate check to see if object pointer
+	is null in nonvirtual invocation case.
+	* java-tree.h (soft_nullpointer_node): Declare.
+	* decl.c (soft_nullpointer_node): New global.
+	(init_decl_processing): Initialize soft_nullpointer_node.
+	* parse.y (invocation_mode): Return INVOKE_NONVIRTUAL for `final'
+	or `private' methods.
+	(patch_invoke): Handle INVOKE_NONVIRTUAL case.
 
 2000-04-05  Tom Tromey  <tromey@cygnus.com>
 

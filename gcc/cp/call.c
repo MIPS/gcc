@@ -680,6 +680,26 @@ standard_conversion (to, from, expr)
   else if (fromref || (expr && real_lvalue_p (expr)))
     conv = build_conv (RVALUE_CONV, from, conv);
 
+   /* Allow conversion between `__complex__' data types  */
+  if (tcode == COMPLEX_TYPE && fcode == COMPLEX_TYPE)
+    {
+      /* The standard conversion sequence to convert FROM to TO is
+         the standard conversion sequence to perform componentwise
+         conversion.  */
+      tree part_conv = standard_conversion
+        (TREE_TYPE (to), TREE_TYPE (from), NULL_TREE);
+      
+      if (part_conv)
+        {
+          conv = build_conv (TREE_CODE (part_conv), to, conv);
+          ICS_STD_RANK (conv) = ICS_STD_RANK (part_conv);
+        }
+      else
+        conv = NULL_TREE;
+
+      return conv;
+    }
+
   if (same_type_p (from, to))
     return conv;
 
@@ -693,8 +713,8 @@ standard_conversion (to, from, expr)
       enum tree_code ufcode = TREE_CODE (TREE_TYPE (from));
       enum tree_code utcode = TREE_CODE (TREE_TYPE (to));
 
-      if (same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (from)),
-		       TYPE_MAIN_VARIANT (TREE_TYPE (to))))
+      if (same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (from),
+						     TREE_TYPE (to)))
 	;
       else if (utcode == VOID_TYPE && ufcode != OFFSET_TYPE
 	       && ufcode != FUNCTION_TYPE)
@@ -710,9 +730,9 @@ standard_conversion (to, from, expr)
 	  tree tbase = TYPE_OFFSET_BASETYPE (TREE_TYPE (to));
 
 	  if (DERIVED_FROM_P (fbase, tbase)
-	      && (same_type_p 
-		  (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (from))),
-		   TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (to))))))
+	      && (same_type_ignoring_top_level_qualifiers_p
+		  (TREE_TYPE (TREE_TYPE (from)),
+		   TREE_TYPE (TREE_TYPE (to)))))
 	    {
 	      from = build_offset_type (tbase, TREE_TYPE (TREE_TYPE (from)));
 	      from = build_pointer_type (from);
@@ -988,8 +1008,7 @@ direct_reference_binding (type, conv)
      either an identity conversion or, if the conversion function
      returns an entity of a type that is a derived class of the
      parameter type, a derived-to-base conversion.  */
-  if (!same_type_p (TYPE_MAIN_VARIANT (t),
-		    TYPE_MAIN_VARIANT (TREE_TYPE (conv))))
+  if (!same_type_ignoring_top_level_qualifiers_p (t, TREE_TYPE (conv)))
     {
       /* Represent the derived-to-base conversion.  */
       conv = build_conv (BASE_CONV, t, conv);
@@ -3701,7 +3720,7 @@ convert_like_real (convs, expr, fn, argnum, inner)
   /* Convert a non-array constant variable to its underlying value, unless we
      are about to bind it to a reference, in which case we need to
      leave it as an lvalue.  */
-  if (TREE_READONLY_DECL_P (expr) && TREE_CODE (convs) != REF_BIND
+  if (TREE_CODE (convs) != REF_BIND
       && TREE_CODE (TREE_TYPE (expr)) != ARRAY_TYPE)
     expr = decl_constant_value (expr);
 
@@ -4057,8 +4076,8 @@ build_over_call (cand, args, flags)
       if (TREE_CODE (targ) == ADDR_EXPR)
 	{
 	  targ = TREE_OPERAND (targ, 0);
-	  if (!same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (arg))),
-			    TYPE_MAIN_VARIANT (TREE_TYPE (targ))))
+	  if (!same_type_ignoring_top_level_qualifiers_p 
+	      (TREE_TYPE (TREE_TYPE (arg)), TREE_TYPE (targ)))
 	    targ = NULL_TREE;
 	}
       else
@@ -4461,8 +4480,7 @@ is_properly_derived_from (derived, base)
 
   /* We only allow proper derivation here.  The DERIVED_FROM_P macro
      considers every class derived from itself.  */
-  return (!same_type_p (TYPE_MAIN_VARIANT (derived),
-			TYPE_MAIN_VARIANT (base))
+  return (!same_type_ignoring_top_level_qualifiers_p (derived, base)
 	  && DERIVED_FROM_P (base, derived));
 }
 
@@ -4851,8 +4869,7 @@ compare_ics (ics1, ics2)
      which the reference initialized by S1 refers */
       
   if (ref_binding1 && ref_binding2
-      && same_type_p (TYPE_MAIN_VARIANT (to_type1),
-		      TYPE_MAIN_VARIANT (to_type2)))
+      && same_type_ignoring_top_level_qualifiers_p (to_type1, to_type2))
     return comp_cv_qualification (target_type2, target_type1);
 
   /* Neither conversion sequence is better than the other.  */

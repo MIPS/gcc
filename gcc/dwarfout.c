@@ -161,7 +161,7 @@ extern int flag_traditional;
 
 struct filename_entry {
   unsigned	number;
-  char *	name;
+  const char *	name;
 };
 
 typedef struct filename_entry filename_entry;
@@ -189,11 +189,11 @@ static unsigned ft_entries;
 /* Local pointer to the name of the main input file.  Initialized in
    dwarfout_init.  */
 
-static char *primary_filename;
+static const char *primary_filename;
 
 /* Pointer to the most recent filename for which we produced some line info.  */
 
-static char *last_filename;
+static const char *last_filename;
 
 /* Counter to generate unique names for DIEs.  */
 
@@ -379,7 +379,7 @@ static inline void src_coords_attribute PARAMS ((unsigned, unsigned));
 static inline void pure_or_virtual_attribute PARAMS ((tree));
 static void name_and_src_coords_attributes PARAMS ((tree));
 static void type_attribute		PARAMS ((tree, int, int));
-static char *type_tag			PARAMS ((tree));
+static const char *type_tag		PARAMS ((tree));
 static inline void dienum_push		PARAMS ((void));
 static inline void dienum_pop		PARAMS ((void));
 static inline tree member_declared_type PARAMS ((tree));
@@ -3136,11 +3136,11 @@ type_attribute (type, decl_const, decl_volatile)
    a pointer to the (string) tag name for the given type, or zero if the
    type was declared without a tag.  */
 
-static char *
+static const char *
 type_tag (type)
      register tree type;
 {
-  register char *name = 0;
+  register const char *name = 0;
 
   if (TYPE_NAME (type) != 0)
     {
@@ -3689,7 +3689,7 @@ static void
 output_compile_unit_die (arg)
      register void *arg;
 {
-  register char *main_input_filename = arg;
+  register const char *main_input_filename = arg;
 
   ASM_OUTPUT_DWARF_TAG (asm_out_file, TAG_compile_unit);
   sibling_attribute ();
@@ -3722,7 +3722,7 @@ output_compile_unit_die (arg)
   last_filename = xstrdup (main_input_filename);
 
   {
-    char *wd = getpwd ();
+    const char *wd = getpwd ();
     if (wd)
       comp_dir_attribute (wd);
   }
@@ -4791,6 +4791,13 @@ output_decl (decl, containing_scope)
 	  output_type (origin, containing_scope);
       }
 
+      /* If we're emitting an out-of-line copy of an inline function,
+	 set up to refer to the abstract instance emitted from
+	 note_deferral_of_defined_inline_function.  */
+      if (DECL_INLINE (decl) && ! DECL_ABSTRACT (decl)
+	  && ! (containing_scope && TYPE_P (containing_scope)))
+	set_decl_origin_self (decl);
+
       /* If the following DIE will represent a function definition for a
 	 function with "extern" linkage, output a special "pubnames" DIE
 	 label just ahead of the actual DIE.  A reference to this label
@@ -5082,6 +5089,10 @@ output_decl (decl, containing_scope)
 
       output_type (TREE_TYPE (decl), containing_scope);
       output_die (output_formal_parameter_die, decl);
+      break;
+
+    case NAMESPACE_DECL:
+      /* Ignore for now.  */
       break;
 
     default:
@@ -5772,7 +5783,7 @@ dwarfout_init (asm_out_file, main_input_filename)
 	  ASM_OUTPUT_PUSH_SECTION (asm_out_file, SFNAMES_SECTION);
 	  ASM_OUTPUT_LABEL (asm_out_file, SFNAMES_BEGIN_LABEL);
 	  {
-	    register char *pwd = getpwd ();
+	    register const char *pwd = getpwd ();
 	    register char *dirname;
 
 	    if (!pwd)

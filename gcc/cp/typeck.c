@@ -1516,8 +1516,8 @@ comp_target_parms (parms1, parms2, strict)
 	      continue;
 	    }
 	  if (IS_AGGR_TYPE (TREE_TYPE (p1))
-	      && !same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (p1)),
-			       TYPE_MAIN_VARIANT (TREE_TYPE (p2))))
+	      && !same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (p1),
+							     TREE_TYPE (p2)))
 	    return 0;
 	}
       /* Note backwards order due to contravariance.  */
@@ -1710,7 +1710,7 @@ decay_conversion (exp)
      don't do this for arrays, though; we want the address of the
      first element of the array, not the address of the first element
      of its initializing constant.  */
-  else if (TREE_READONLY_DECL_P (exp) && code != ARRAY_TYPE)
+  else if (code != ARRAY_TYPE)
     {
       exp = decl_constant_value (exp);
       type = TREE_TYPE (exp);
@@ -5135,8 +5135,7 @@ build_compound_expr (list)
   register tree rest;
   tree first;
 
-  if (TREE_READONLY_DECL_P (TREE_VALUE (list)))
-    TREE_VALUE (list) = decl_constant_value (TREE_VALUE (list));
+  TREE_VALUE (list) = decl_constant_value (TREE_VALUE (list));
 
   if (TREE_CHAIN (list) == 0)
     {
@@ -5230,8 +5229,9 @@ build_static_cast (type, expr)
     }
   else if (TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
     {
-      if (same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (type))),
-		       TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (intype))))
+      if (same_type_ignoring_top_level_qualifiers_p
+	  (TREE_TYPE (TREE_TYPE (type)),
+	   TREE_TYPE (TREE_TYPE (intype)))
 	  && (binfo = get_binfo (TYPE_OFFSET_BASETYPE (TREE_TYPE (type)),
 				 TYPE_OFFSET_BASETYPE (TREE_TYPE (intype)), 0))
 	  && ! TREE_VIA_VIRTUAL (binfo))
@@ -5307,8 +5307,7 @@ build_reinterpret_cast (type, expr)
 	expr = build_indirect_ref (expr, 0);
       return expr;
     }
-  else if (same_type_p (TYPE_MAIN_VARIANT (intype), 
-			TYPE_MAIN_VARIANT (type)))
+  else if (same_type_ignoring_top_level_qualifiers_p (intype, type))
     return build_static_cast (type, expr);
 
   if (TYPE_PTR_P (type) && (TREE_CODE (intype) == INTEGER_TYPE
@@ -5323,8 +5322,7 @@ build_reinterpret_cast (type, expr)
   else if ((TYPE_PTRFN_P (type) && TYPE_PTRFN_P (intype))
 	   || (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype)))
     {
-      if (TREE_READONLY_DECL_P (expr))
-	expr = decl_constant_value (expr);
+      expr = decl_constant_value (expr);
       return fold (build1 (NOP_EXPR, type, expr));
     }
   else if ((TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
@@ -5334,16 +5332,14 @@ build_reinterpret_cast (type, expr)
 	cp_pedwarn ("reinterpret_cast from `%T' to `%T' casts away const (or volatile)",
 		    intype, type);
 
-      if (TREE_READONLY_DECL_P (expr))
-	expr = decl_constant_value (expr);
+      expr = decl_constant_value (expr);
       return fold (build1 (NOP_EXPR, type, expr));
     }
   else if ((TYPE_PTRFN_P (type) && TYPE_PTROBV_P (intype))
 	   || (TYPE_PTRFN_P (intype) && TYPE_PTROBV_P (type)))
     {
       pedwarn ("ISO C++ forbids casting between pointer-to-function and pointer-to-object");
-      if (TREE_READONLY_DECL_P (expr))
-	expr = decl_constant_value (expr);
+      expr = decl_constant_value (expr);
       return fold (build1 (NOP_EXPR, type, expr));
     }
   else
@@ -5394,8 +5390,8 @@ build_const_cast (type, expr)
     }
 
   intype = TREE_TYPE (expr);
-
-  if (same_type_p (TYPE_MAIN_VARIANT (intype), TYPE_MAIN_VARIANT (type)))
+  
+  if (same_type_ignoring_top_level_qualifiers_p (intype, type))
     return build_static_cast (type, expr);
   else if (TREE_CODE (type) == REFERENCE_TYPE)
     {
@@ -5549,8 +5545,7 @@ build_c_cast (type, expr)
     {
       tree ovalue;
 
-      if (TREE_READONLY_DECL_P (value))
-	value = decl_constant_value (value);
+      value = decl_constant_value (value);
 
       ovalue = value;
       value = convert_force (type, value, CONV_C_CAST);
@@ -6544,7 +6539,7 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
   /* Simplify the RHS if possible.  */
   if (TREE_CODE (rhs) == CONST_DECL)
     rhs = DECL_INITIAL (rhs);
-  else if (TREE_READONLY_DECL_P (rhs) && coder != ARRAY_TYPE)
+  else if (coder != ARRAY_TYPE)
     rhs = decl_constant_value (rhs);
 
   /* [expr.ass]
@@ -6721,6 +6716,10 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	  expand_expr (build_modify_expr (o[i], NOP_EXPR, TREE_VALUE (tail)),
 		       const0_rtx, VOIDmode, EXPAND_NORMAL);
 	  free_temp_slots ();
+
+	  /* Restore the original value so that it's correct the next
+	     time we expand this function.  */
+	  TREE_VALUE (tail) = o[i];
 	}
       /* Detect modification of read-only values.
 	 (Otherwise done by build_modify_expr.)  */
@@ -7031,7 +7030,7 @@ comp_ptr_ttypes_real (to, from, constp)
 
       if (TREE_CODE (to) != POINTER_TYPE)
 	return 
-	  same_type_p (TYPE_MAIN_VARIANT (to), TYPE_MAIN_VARIANT (from))
+	  same_type_ignoring_top_level_qualifiers_p (to, from)
 	  && (constp >= 0 || to_more_cv_qualified);
     }
 }
@@ -7089,8 +7088,7 @@ comp_ptr_ttypes_const (to, from)
 	  continue;
 
       if (TREE_CODE (to) != POINTER_TYPE)
-	return same_type_p (TYPE_MAIN_VARIANT (to), 
-			    TYPE_MAIN_VARIANT (from));
+	return same_type_ignoring_top_level_qualifiers_p (to, from);
     }
 }
 

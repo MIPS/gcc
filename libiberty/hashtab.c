@@ -56,6 +56,16 @@ Boston, MA 02111-1307, USA.  */
 #define DELETED_ENTRY  ((void *) 1)
 
 static unsigned long higher_prime_number PARAMS ((unsigned long));
+static hashval_t hash_pointer PARAMS ((const void *));
+static int eq_pointer PARAMS ((const void *, const void *));
+static void htab_expand PARAMS ((htab_t));
+static void **find_empty_slot_for_expand  PARAMS ((htab_t, hashval_t));
+
+/* At some point, we could make these be NULL, and modify the
+   hash-table routines to handle NULL specially; that would avoid
+   function-call overhead for the common case of hashing pointers.  */
+htab_hash htab_hash_pointer = hash_pointer;
+htab_eq htab_eq_pointer = eq_pointer;
 
 /* The following function returns the nearest prime number which is
    greater than a given source number, N. */
@@ -86,6 +96,25 @@ higher_prime_number (n)
        }
 
   return n;
+}
+
+/* Returns a hash code for P.  */
+
+static hashval_t
+hash_pointer (p)
+     const void *p;
+{
+  return (hashval_t) p;
+}
+
+/* Returns non-zero if P1 and P2 are equal.  */
+
+static int
+eq_pointer (p1, p2)
+     const void *p1;
+     const void *p2;
+{
+  return p1 == p2;
 }
 
 /* This function creates table with length slightly longer than given
@@ -197,7 +226,7 @@ htab_expand (htab)
   olimit = oentries + htab->size;
 
   htab->size = higher_prime_number (htab->size * 2);
-  htab->entries = xcalloc (htab->size, sizeof (void **));
+  htab->entries = (void **) xcalloc (htab->size, sizeof (void **));
 
   htab->n_elements -= htab->n_deleted;
   htab->n_deleted = 0;

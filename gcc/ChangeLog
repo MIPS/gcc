@@ -1,3 +1,1081 @@
+2000-05-01  Richard Henderson  <rth@cygnus.com>
+
+	* ifcvt.c (if_convert): Only verify_flow_info if ENABLE_CHECKING.
+
+2000-05-01  Jason Merrill  <jason@casey.cygnus.com>
+
+	* integrate.c (copy_decl_for_inlining): Copy TREE_READONLY and
+	TREE_THIS_VOLATILE.
+
+2000-05-01  Richard Henderson  <rth@cygnus.com>
+
+	* ifcvt.c (noce_emit_cmove): Conditionally compile call to
+	emit_conditional_move.
+
+2000-05-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/linux.h (LINK_SPEC): Use /lib/ld-linux-ia64.so.1
+	as the dynamic linker.
+
+2000-05-01  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cppfiles.c (open_include_file): Open file in blocking mode.
+	(read_include_file): Don't fcntl(fd, F_SETFL, 0) anymore.
+	Only exclude block devices and directories.
+
+	* cpphash.c (_cpp_make_hashnode): Rename make_HASHNODE, now
+	static.  Allocate the hashnode and its string in the same
+	block of memory.
+	(del_HASHNODE): Don't free h->name.
+	(_cpp_lookup): If there is no entry for this string, create
+	one, of type T_VOID.
+	(_cpp_lookup_slot): Delete.
+	* cpphash.h: Update prototypes.
+
+	* cpplex.c (maybe_macroexpand): Check for hp->type == T_VOID,
+	not hp == NULL.
+	* cpplib.c (do_define, do_undef, do_pragma_poison, do_assert,
+	do_unassert, cpp_defined): Use _cpp_lookup.  Don't create a
+	node here, just fill in the value field properly.  "Delete"
+	entries by setting the value field to T_VOID.  Check for
+	hp->type == T_VOID, not hp == NULL.
+
+	* Makefile.in (cpplib.o): Don't depend on $(HASHTAB_H).
+	* cpperror.c, cppexp.c, cpplex.c, cpplib.c:  Don't include
+	hashtab.h.
+
+2000-05-01  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.c (print_operand_address): Do not add
+	zero to SP.
+
+	* config/mn10300/mn10300.c (expand_epilogue): If SP is to be
+	adjusted by less than 256 bytes, use ret regardless of having any
+	callee-saved register to restore.
+
+2000-05-01 Laurynas Biveinis <lauras@softhome.net>
+
+	* tm.texi (TARGET_HAS_F_SETFLKW): Fix typo.
+
+2000-05-01 Mark Elbrecht <snowball3@bigfoot.com>
+
+	* config/i386/djgpp.h (INT_ASM_OP): Define.
+	(CPP_PREDEFINES): Rename MSDOS to __MSDOS__.
+	(ASM_WEAKEN_LABEL): Define.
+	(MASK_BNU210): Define.
+	(SUBTARGET_SWITCHES): Define.
+	(SUPPORTS_WEAK, SUPPORTS_ONE_ONLY): Define.
+	(MAKE_DECL_ONE_ONLY): Define.
+	(UNIQUE_SECTION_P, UNIQUE_SECTION): Define.
+
+2000-05-01  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* i386/cygwin.h (INT_ASM_OP): Define.
+
+Mon May  1 18:20:06 2000  Denis Chertykov  <denisc@overta.ru>
+
+	* config/avr/avr.c (address_cost): renamed to avr_address_cost.
+	* config/avr/avr.h (ADDRESS_COST): use avr_address_cost.
+
+Mon May  1 17:50:44 2000  Denis Chertykov  <denisc@overta.ru>
+
+	* config/avr/avr.c (asm_file_start): output 0 as r0 and 1 as r1 in
+	__tmp_reg__ and __zero_reg__ initialization.
+
+2000-04-30  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (propagate_one_insn): Mark sets even when the insn is dead.
+
+	* ifcvt.c (noce_process_if_block): Fail the conversion if X is
+	referenced bewteen the condition and the jump.  Don't delete
+	anything but the jump.
+
+Sun Apr 30 22:48:24 2000  Jason Eckhardt  <jle@cygnus.com>
+
+	* bb-reorder.c (scope_def): New struct.
+	(scope_forest_info): New struct.
+	(struct reorder_block_def): New member "scope".
+	(REORDER_BLOCK_SCOPE): New macro.
+	(relate_bbs_with_scopes): New function and prototype.
+	(make_new_scope): Likewise.
+	(build_scope_forest): Likewise.
+	(remove_scope_notes): Likewise.
+	(insert_intra_1): Likewise.
+	(insert_intra_bb_scope_notes): Likewise.
+	(insert_inter_bb_scope_notes): Likewise.
+	(rebuild_scope_notes): Likewise.
+	(free_scope_forest_1): Likewise.
+	(free_scope_forest): Likewise.
+	(dump_scope_forest): Likewise.
+	(dump_scope_forest_1): Likewise.
+	(chain_reorder_blocks): Set REORDER_BLOCK_SCOPE for new block.
+	Update REORDER_BLOCK_EFF_HEAD and REORDER_BLOCK_EFF_END for new
+	block.
+	(reorder_basic_blocks): Added calls to build_scope_scope_forest
+	and remove_scope_notes before reordering is done. Added calls to
+	rebuild_scope_notes, free_scope_forest, and reorder_blocks after
+	after reordering is done.
+
+2000-40-30  Bruce Korb  <bkorb@gnu.org>
+
+	* fixinc/inclhack.def:  Added definitions needed by OSR5,
+	removed two stale entries (defined away with OLD_CPP).
+	* fixinc/inclhack.sh: regen
+	* fixinc/fixincl.x: regen
+
+2000-04-30  Richard Henderson  <rth@cygnus.com>
+
+	* ifcvt.c (dead_or_predicable): Manually squeeze non-movable notes
+	from the last insn in the sequence.
+
+2000-04-30  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpplex.c (cpp_idcmp): New function.
+	* cpplib.h: Prototype it.
+	* scan_decls.c (scan_decls): Use it to inspect token names.
+	* fix-header.c (read_scan_file): Likewise.  Set system_header_p on
+	the file being run through the preprocessor.
+	(check_macro_names): Provide length of token to cpp_defined.
+
+	* Makefile.in: Remove stale warning message.
+
+	* cppfiles.c (redundant_include_p): Provide length of token to
+	cpp_defined.
+	* cpphash.c (_cpp_make_hashnode, _cpp_lookup_slot): Hash
+	values are unsigned int.
+	(_cpp_lookup, _cpp_lookup_slot): Do not calculate the length.
+	(_cpp_lookup_slot): Do not calculate the hash, either.
+	* cpphash.h: Update prototypes.
+	* cpplib.c (do_define, do_undef, do_pragma_poison, do_assert):
+	Hashes are unsigned int.  Calculate hash here, pass by value
+	to _cpp_lookup_slot.
+
+2000-04-30  Bernd Schmidt  <bernds@cygnus.co.uk>
+
+	* simplify-rtx.c (check_value_useless): Delete function.
+	(discard_useless_locs): Don't call it; manage N_USELES_VALUES counter
+	by hand.
+	(cselib_invalidate_regno): Likewise.
+	(cselib_invalidate_mem_1): Likewise.
+	(references_value_p): Recognize useless values by the fact that they
+	have no locations.
+	(discard_useless_values): Likewise.
+	(cselib_record_set): This may turn a useless value
+	into a useful one.
+
+2000-04-30  Richard Henderson  <rth@cygnus.com>
+
+	* config/d30v: New port.
+
+	* configure.in (d30v-*): Set fp format.
+	* configure: Rebuild.
+
+2000-04-30  Richard Henderson  <rth@cygnus.com>
+
+	* ifcvt.c: New file.
+	* Makefile.in (OBJS): Add it.
+	(ifcvt.o): New target.
+	* jump.c (jump_optimize_1): Remove all code related to if-conversion,
+	and conditional arithmetic.
+	(find_insert_position): Remove.
+	* timevar.def (TV_IFCVT, TV_IFCVT2): New.
+	* toplev.c (DFI_ce, DFI_ce2): New.
+	(dump_file): Add ce and ce2 dumps.
+	(rest_of_compilation): Run if_convert a couple o times.  Set
+	cse_not_expected after cse2.  Don't set no_new_pseudos until
+	after sched1 or recompute_reg_usage.
+
+2000-04-30  Richard Henderson  <rth@cygnus.com>
+
+	* config/alpha/t-crtbe (crtbegin.o): Add "-I.".
+	(crtend.o, crtbeginS.o, crtendS.o): Likewise.
+
+2000-04-30  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (struct reg_cond_life_info): New.
+	(struct propagate_block_info): Add reg_cond_dead and reg_cond_reg.
+	(init_propagate_block_info): Initialize them.
+	(free_propagate_block_info): Destruct them.
+	(mark_set_1): Consider conditional life before killing a register.
+	(mark_regno_cond_dead): New.
+	(free_reg_cond_life_info): New.
+	(flush_reg_cond_reg_1, flush_reg_cond_reg): New.
+	(ior_reg_cond, not_reg_cond, nand_reg_cond): New.
+	(mark_used_reg): Record conditional life.
+
+	* haifa-sched.c (schedule_insns): Disable death counting
+	sanity check for HAVE_conditional_execution.
+
+2000-04-30  Richard Henderson  <rth@cygnus.com>
+
+	* Makefile.in (TIMEVAR_H): New.
+	(ggc-simple.o, ggc-page.o, toplev.o, timevar.o): Use it.
+	(timevar.h): Remove rule.
+
+2000-04-29  Richard Henderson  <rth@cygnus.com>
+
+	* config/alpha/crtend.asm: Use C comments instead of #.
+	* config/alpha/crtbegin.asm: Likewise.  Mark __dso_handle hidden.
+
+	* config/alpha/elf.h (SELECT_SECTION): Treat CONSTRUCTOR like VAR_DECL.
+
+2000-04-29  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.h (enum node_type: Take out T_MCONST.
+	(union hashval): Move into struct hashnode.
+	(struct hashnode): Pack tighter.  Remove file, line, col
+	members.
+	* cpphash.c: Constify most of the macro-definition structures.
+	(struct definition): Replace by struct object_defn
+	and struct funct_defn.  Put file, line, column information
+	here.  All users updated to match.
+	(_cpp_create_definition, _cpp_macroexpand): Remove special
+	case for #define WORD OTHERWORD.
+	* cpplib.c (do_undef): Remove T_MCONST case.
+
+	* cpphash.h: Move struct reflist, struct definition, and the
+	DEFINITION typedef to cpphash.c.  Use 'struct definition *' in
+	union hashval.  _cpp_free_definition takes a HASHNODE pointer.
+	* cpphash.c (_cpp_free_definition): Free data pointed to by
+	MCONST, XCONST, MACRO, and FMACRO nodes properly.
+	(_cpp_create_definition, del_HASHNODE): Just call
+	_cpp_free_definition to clear out a hashnode.
+	* cpplib.c (do_pragma_poison): Likewise.
+
+Sat Apr 29 12:25:17 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (FIRST_DATA_REGNUM,
+	LAST_DATA_REGNUM, FIRST_ADDRESS_REGNUM, LAST_ADDRESS_REGNUM,
+	FIRST_EXTENDED_REGNUM, LAST_EXTENDED_REGNUM): New macros.
+	(REGNO_SP_P): Redefine in terms of STACK_POINTER_REGNUM.
+	(REGNO_DATA_P, REGNO_ADDRESS_P, REGNO_EXTENDED_P,
+	REGNO_AM33_P): Redefine in terms of the new macros.
+	(CONDITIONAL_REGISTER_USAGE, REGNO_REG_CLASS): Likewise.
+	(FUNCTION_VALUE, LIBCALL_VALUE, FUNCTION_VALUE_REGNO_P,
+	STRUCT_VALUE): Likewise.
+	(STACK_POINTER_REGNUM, FRAME_POINTER_REGNUM,
+	ARG_POINTER_REGNUM, STATIC_CHAIN_REGNUM): Likewise.  Moved.
+
+Sat Apr 29 01:18:45 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* regmove.c (struct record_stack_memrefs_data): New.
+	(record_stack_memrefs): New function.
+	(combine_stack_adjustments_for_block): Use it.
+
+Sat Apr 29 01:15:27 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* calls.c (calls_function_1):  Propertly handle TREE_LIST expressions;
+	use special_function_p to detect alloca.
+
+Fri Apr 28 16:30:33 2000  Marc Espie <espie@cvs.openbsd.org>
+
+	* gcc.texi: Fixes for makeinfo 4.0 --html.
+
+2000-04-28  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* pcp.h: Delete file.
+
+2000-04-28  Kazu Hirata  <kazu@hxi.com>
+
+	* h8300.c (function_epilogue): Clean up flags when the last insn
+	in a function is a barrier.
+
+2000-04-28  Chris Demetriou  <cgd@sibyte.com>
+
+	* configure.in (sparc-hal-solaris2*): protect [] glob from
+	my expansion.
+	(mips*-*-ecoff*, mips*-*-elf*, mips*-*-*): use MASK_ defines
+	rather than hard-coded constants in target_cpu_default2.
+	* configure: Regenerate.
+
+2000-04-28  Jason Merrill  <jason@casey.cygnus.com>
+
+	* tree.c (get_callee_fndecl): Extract the initial value from
+	a readonly decl.
+
+2000-04-28  Richard Henderson  <rth@cygnus.com>
+
+	* varasm.c (record_constant_1): Record the CODE_LABEL when
+	taking the address of a LABEL_REF.
+
+2000-04-28  Richard Henderson  <rth@cygnus.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	* calls.c (combine_pending_stack_adjustment_and_call): Return the
+	adjustment; don't do the stack adjust.
+	(expand_call): Call compute_argument_block_size right before
+	allocating the block; update comment; don't do alignment sanity
+	checking for sibling call; use args_size instead of
+	unadjusted_args_size before args_size is adjusted.  Use
+	combine_pending_stack_adjustment_and_call to compute stack adjust
+	for must_preallocate case.
+
+	* expr.c (push_block): Remove shadow `temp' in inner scope.
+
+2000-04-28  Jason Merrill  <jason@casey.cygnus.com>
+
+	* toplev.c (rest_of_compilation): Call
+	note_deferral_of_defined_inline_function even if the function
+	can't be inlined.
+
+2000-04-28  Scott Bambrough  <scottb@netwinder.org>
+
+	* cpplex.c (_cpp_scan_line): Fix buffer overwrite.
+
+2000-04-28  Richard Henderson  <rth@cygnus.com>
+
+	* toplev.c (rest_of_type_compilation): Fix sdb TIMEVAR typo.
+
+2000-04-28  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* timevar.c (init_timevar): DeANSIfy function definition.
+
+2000-04-27  Alex Samuel  <samuel@codesourcery.com>
+
+	* Makefile.in (timevar.o): Depend on flags.h.
+	* timevar.c (unused_stack_instances): New variable.
+	(timevar_push): Take a timevar_stack_def from
+	unused_stack_instances if available.
+	(timevar_pop): Push the popped timevar_stack_def onto
+	unused_stack_instances.
+	(TIMEVAR_ENABLE): New macro.
+	(timevar_def): Make standalone a 1-bit field.  Add field used.
+	(get_time): Rename parameter to now.  Return after clearing it if
+	not TIMEVAR_ENABLE.
+	(init_timevar): Do nothing if not TIMEVAR_ENABLE.
+	(timevar_pop): Likewise.
+	(timevar_stop): Likewise.
+	(timevar_push): Likewise.  Mark the timing variable as used.
+	(timevar_start): Likewise.
+	(timevar_print): Do nothing if not TIMEVAR_ENABLE.  Don't print
+	timevars that were never used.
+
+2000-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* c-commom.c (c_apply_type_quals_to_decl): REFERENCE_TYPES are
+	always TREE_READONLY.
+
+2000-04-27  Ulrich Drepper  <drepper@cygnus.com>
+
+	* i386.h (FUNCTION_BLOCK_PROFILER_EXIT): Generate mem reference
+ 	for call instruction with mode QImode.
+
+2000-04-27  Alex Samuel  <samuel@codesourcery.com>
+
+	* Makefile.in (OBJS): Add timevar.o.
+	(toplev.o): Depend on timevar.h.
+	(ggc-simple.o): Likewise.
+	(ggc-page.o): Likewise.
+	(timevar.o): New rule.
+	(timevar.h): New rule.
+
+	* timevar.h: New file.
+	* timevar.c: Likewise.
+	* timevar.def: Likewise.
+
+	* toplev.h (gc_time, parse_time, varconst_time): Remove.
+	* toplev.c: Use timevar_push and timevar_pop instead of TIMEVAR
+	throughout.
+	(TIMEVAR): Remove macro.
+	(gc_time, parse_time, varconst_time, integration_time, jump_time,
+	cse_time, gcse_time, loop_time, cse2_time, branch_prob_time,
+	flow_time, combine_time, regmove_time, sched_time,
+	local_alloc_time, global_alloc_time, flow2_time, peephole2_time,
+	sched2_time, dbr_sched_time, reorder_blocks_time,
+	rename_registers_time, shorten_branch_time, stack_reg_time,
+	to_ssa_time, from_ssa_time, final_time, symout_time, dump_time,
+	all_time): Remove.
+	(compile_file): Don't initialize time variables.  Call
+	init_timevar and start TV_TOTAL timer.  Call timevar_print instead
+	of many calls to print_time.
+	(rest_of_compilation): Add timing for reload_cse_regs.
+	(get_run_time): Removed to timevar.c.
+	(print_time): Likewise.
+	(get_run_time): Implement using TV_TOTAL time variable.
+	(print_time): Get total run time from get_run_time.
+	* ggc-page.c (ggc_collect): Push and pop TV_GC instead of
+	computing elapsed time explicitly.
+	* ggc-simple.c (ggc_collect): Likewise.
+	(gc_time): Remove declaration.
+
+2000-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* calls.c (combine_pending_stack_adjustment_and_call): New function.
+	(expand_call): Use it.
+
+2000-04-27  Jan Hubicka  <jh@suse.cz>
+
+	* flow.c (mark_set_1):  Handle MEMs in ZERO_EXTRACT/SIGN_EXTRACT
+	fields.
+
+Thu Apr 27 12:47:00 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.md (movhi): Simplify.  Prefer data
+	registers.
+
+Thu Apr 27 17:33:05 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* function.c (epilogue_done): Pass whole insn to record_insns.
+
+Thu Apr 27 16:55:28 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* cse.c (CSE_ADDRESS_COST): Remove.
+	(find_best_addr): Add new parameter "MODE", use address_cost instead
+	of CSE_ADDRESS_COST
+	(address_cost): New.
+	(fold_rtx): Update call of find_best_addr.
+	* rtl.h (address_cost): Declare.
+	* loop.c (general_induction_var): Add new parameter "MODE", use
+	address_cost instead of ADDRESS_COST
+	(init_loop): Use address_cost instead of ADDRESS_COST.
+	(check_insn_for_givs): Update call of general_induction_var.
+	(find_mem_givs): Likewise.
+	(consec_sets_giv): Likewise.
+	* config/i386/i386.h (ADDRESS_COST): Call ix86_address_cost.
+	* i386.c (ix86_address_cost): New.
+	* i386-protos.h (ix86_address_cost): Declare.
+
+Thu Apr 27 11:45:16 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.md (movqi): Simplify.  Prefer data
+	registers.
+
+Thu Apr 27 16:11:00 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* expr.c (store_expr): Use clear_storage instead of direct memset
+	libcall.
+
+Thu Apr 27 10:36:51 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.c (mn10300_address_cost): Test
+	ASHIFT, AND and LABEL_REF.
+
+Thu Apr 27 15:08:46 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* invoke.texi (-foptimize-sibling-calls): Fix.
+
+Thu Apr 27 14:54:22 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (load_mems)  Don't use hard registers for the hoisting.
+
+	* unroll.c (unroll_loop): Avoid overflow in the n_iterations
+	calculation; rename const_equiv array in the preconditioning code
+	from loop_unroll to loop_unroll_precondition
+
+2000-04-27  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (struct propagate_block_info): Remove new_dead, new_live;
+	add new_set.
+	(propagate_one_insn): Clear it.  Don't update reg_live here.
+	(init_propagate_block_info): Update for pbi member changes.
+	(free_propagate_block_info): Likewise.
+	(mark_set_1): Know that zero_extract, sign_extract, and
+	strict_low_part don't kill their argument.  Alter hard subregs.
+	Update new_set for non-CLOBBER sets.  Update reg_live.
+	(find_auto_inc): Update reg_live, not new_dead.
+	(mark_used_reg): Update reg_live, not new_live.  Examine new_set
+	to determine if the reg in question was set this insn.  Only update
+	reg info with PROP_REG_INFO.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (allocate_reg_life_data): Set max_regno here ...
+	(life_analysis): ... not here.
+
+	* flow.c (calculate_global_regs_live): Force stack pointer
+	live at end.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* jump.c (redirect_exp_1): Rework from old redirect_exp.  Never
+	commit change group changes.
+	(invert_exp_1): Similarly.
+	(redirect_exp, invert_exp): Use them.
+	(redirect_jump_1): New.
+	(invert_jump_1): New.
+	(jump_optimize_1): Remove code subsumed by condexec.c.
+	* rtl.h (invert_jump_1, redirect_jump_1): Declare.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* rtlanal.c (dead_or_set_regno_p): Use find_regno_note.
+
+	* genconfig.c (main): Set all HAVE_foo to 1.
+
+	* graph.c (node_data): Use GET_NOTE_INSN_NAME instead of local array.
+
+2000-04-26  Alex Samuel  <samuel@codesourcery.com>
+
+	* invoke.texi: Document -fssa flag.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (count_reg_sets_1): Remove.
+	(count_reg_sets, count_reg_references): Remove.
+	(recompute_reg_usage): Implement with update_life_info.
+	Reallocate life data.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (update_life_info): Consider blocks null to mean the
+	universal set.
+	(calculate_global_regs_live): Likewise.
+	(life_analysis): Do that instead of collecting all_blocks.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (tidy_fallthru_edge): Don't delete the jump when it's
+	a still-valid conditional jump.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* jump.c (invert_jump): Always invert REG_BR_PROB.  Do it correctly.
+
+	* bb-reorder.c (reorder_basic_blocks): Don't run estimate_probability.
+	* flow.c (calculate_loop_depth): Remove.
+	* output.h (calculate_loop_depth): Don't declare.
+	* toplev.c (rest_of_compilation): Expand calculate_loop_depth
+	inline; run estimate_probability at the same time.
+
+2000-04-26  Neil Booth  <NeilB@earthling.net>
+
+	* cpplib.h: "~=" is not a single pp-token.
+	* cpplex.c: Correct commentary.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (mark_set_1): New arguments code and flags; update all
+	callers.  Track regno_first and regno_last; do HARD_REGNO_NREGS
+	test in one place.  Tidy flags tests.  Don't bias REG_N_REFS by
+	loop_depth when optimizing for size.  Do new_dead update after
+	emitting REG_UNUSED notes.  Merge mark_set_reg code.
+	(mark_set_reg): Remove.
+	(propagate_one_insn): Use mark_set_1 for call-clobbered registers;
+	arrange to not emit REG_UNUSED notes.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (find_auto_inc): Use pbi->bb instead of BLOCK_FOR_INSN.
+	* ssa.c (convert_from_ssa): Don't run compute_bb_for_insn.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (propagate_one_insn): Break out from propagate_block.
+	(init_propagate_block_info): Likewise.
+	(free_propagate_block_info): Likewise.
+	(propagate_block): Use them.  Export.
+	* basic-block.h: Declare them all.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* basic-block.h (life_analysis): Declare here ...
+	* output.h: ... not here.
+	* flow.c (life_analysis): Remove nregs parameter; replace
+	remove_dead_code with flags.  Remove ssa dead code check.
+	Only init alias analysis if we'll use it.
+	* reg-stack.c (reg_to_stack): Update life_analysis arguments.
+	* ssa.c (convert_to_ssa): Likewise.
+	(convert_from_ssa): Likewise.
+	* toplev.c (rest_of_compilation): Likewise.
+
+2000-04-26  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (flow_delete_block): Rename from delete_block.  Export.
+	* basic-block.h (flow_delete_block): Declare.
+
+2000-04-26  David S. Miller  <davem@redhat.com>
+
+	* optabs.c (emit_libcall_block): Verify insns with INSN_P before
+	taking a PATTERN of it.
+
+2000-04-26  <NeilB@earthling.net>
+
+	* cpplex.c (spell_other, spell_char): Remove.
+	(SPELL_CHAR): New.
+	(token_spelling, trigraph_map): Use unsigned chars.
+	(_cpp_lex_line): Tidy up the switch statement.
+	* cpplib.h: Implement spell_char with spell_string.
+	(C): New.
+
+2000-04-26  <RodneyBrown@pmsc.com>
+
+	* pa/pa32-regs.h (HARD_REGNO_MODE_OK): Warning removal.
+	* pa/pa64-regs.h (HARD_REGNO_MODE_OK): Warning removal.
+
+2000-04-26  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* dwarf2out.c (dw_cfi_oprnd_struct, dw_fde_struct, add_fde_cfi,
+	reg_save, dwarf2out_frame_debug_expr, dwarf2out_def_cfa,
+	dwarf2out_window_save, dwarf2out_args_size, dwarf2out_reg_save,
+	dwarf2out_return_save, dwarf2out_return_reg,
+	dwarf2out_stack_adjust, dwarf2out_frame_debug, primary_filename,
+	add_AT_lbl_id, add_AT_lbl_offset, type_tag, decl_start_label,
+	gen_compile_unit_die, dwarf2out_init): Constify a char*.
+
+	* dwarf2out.h (dwarf2out_init): Likewise.
+
+	* dwarfout.c (filename_entry, primary_filename, last_filename,
+	type_tag, output_compile_unit_die, dwarfout_init): Likewise.
+
+	* tree.h (dwarf2out_def_cfa, dwarf2out_window_save,
+	dwarf2out_args_size, dwarf2out_reg_save, dwarf2out_return_save,
+	dwarf2out_return_reg): Likewise.
+
+2000-04-26  Andreas Jaeger  <aj@suse.de>
+
+	* extend.texi (Function Attributes): Fix description of pure
+	attribute.
+
+2000-04-26  Jason Merrill  <jason@casey.cygnus.com>
+
+	* integrate.c (output_inline_function): Do clear DECL_DEFER_OUTPUT
+	before calling rest_of_compilation.
+
+2000-04-26  Andreas Jaeger  <aj@suse.de>
+
+	* config/mips/linux.h: Remove erroneous commit of #if 0/#endif in
+	last patch.
+
+2000-04-25  Richard Henderson  <rth@cygnus.com>
+
+	* cse.c (cse_insn): Emit barrier after unconditional jump.
+
+	* calls.c (expand_call): Disable tail call generation once
+	rtx_equal_function_value_matters is false.
+
+	* reg-stack.c (convert_regs_1): Treat EDGE_ABNORMAL_CALL edges
+	like EDGE_EH edges.
+
+2000-04-25  Jason Merrill  <jason@casey.cygnus.com>
+
+	* dwarf2out.c (add_bound_info): Don't crash on an unexpanded SAVE_EXPR.
+
+	* dwarfout.c (output_decl): Ignore NAMESPACE_DECLs.
+
+	* dwarf2out.c (gen_subprogram_die): The class-scope declaration DIE
+	is the primary DIE for a member function.
+	(gen_decl_die): Call set_decl_origin_self here.
+	* dwarfout.c (output_decl): And here.
+	* integrate.c (output_inline_function): Not here.
+	Don't clear DECL_INLINE until after calling rest_of_compilation.
+	(set_decl_origin_self): No longer static.
+	* tree.h: Add prototype.
+	* toplev.c (note_deferral_of_defined_inline_function): Only write
+	out abstract instance for actual inlines.
+
+2000-04-25  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (REG_CLASS_FROM_LETTER): Return
+	EXTENDED_REGS only if TARGET_AM33.
+	* config/mn10300/mn10300.md (movsi, addsi): Avoid exposing
+	SP_REGS to register allocation and reloading unless absolutely
+	necessary.
+	(movsi3): Remove special-case of adding non-constants to SP.
+
+2000-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* aclocal.m4 (gcc_AC_NEED_DECLARATION): This macro now requires
+	INCLUDES to search and does not provide any of its own.  Also it
+	now accepts optional ACTION-IF-NEEDED and ACTION-IF-NOT-NEEDED
+	parameters.  Also it does not call AC_DEFINE.
+	(gcc_AC_NEED_DECLARATIONS): Likewise.  Also this macro now calls
+	AC_DEFINE and provides for automatic entries for autoheader.
+	(gcc_AC_FUNC_PRINTF_PTR): Cleanup C code in test.
+
+	* configure.in (gcc_AC_NEED_DECLARATIONS): Save and restore CFLAGS
+	so we can pass -I flags and include gansidecl.h/system.h in this
+	test.
+
+	* acconfig.h: Delete all NEED_DECLARATION_* entries.
+
+2000-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* acconfig.h (ENABLE_STD_NAMESPACE, ENABLE_CHECKING,
+	ENABLE_TREE_CHECKING, ENABLE_RTL_CHECKING, ENABLE_GC_CHECKING,
+	ENABLE_GC_ALWAYS_COLLECT): Delete entries.
+
+	* configure.in (ENABLE_STD_NAMESPACE, ENABLE_CHECKING,
+	ENABLE_TREE_CHECKING, ENABLE_RTL_CHECKING, ENABLE_GC_CHECKING,
+	ENABLE_GC_ALWAYS_COLLECT): Use three argument form of AC_DEFINE
+	for these macros.  Clean up spacing and linewraps.
+
+2000-04-26  Jason Merrill  <jason@casey.cygnus.com>
+
+	* calls.c (expand_call): Use get_callee_fndecl.
+
+	* print-tree.c (print_node): Print the chain of an _EXPR.
+
+Tue Apr 25 16:16:04 2000  Andrew MacLeod  <amacleod@cygnus.com>
+			  Jim Wilson  <wilson@cygnus.com>
+			  Andrew Haley  <aph@cygnus.com>
+
+	* config/ia64/crtbegin.asm: Add IA-64 unwind support.  Correct alloc
+	and gp save/restore problems.
+	* config/ia64/crtend.asm: Add IA-64 unwind support.
+	* config/ia64/ia64.c (ia64_compute_frame_size): Don't include pr_size
+	in fr_pad_size calculation.
+	(save_restore_insns): Move PR save area.  Correct uses of
+ 	RTX_FRAME_RELATED_P.
+	(ia64_expand_prologue): Mark alloc with RTX_FRAME_RELATED_P.
+	(ia64_expand_epilogue): Add eh_epilogue support.
+	(ia64_function_prologue): Emit .prologue directive.
+	(ia64_init_machine_status, ia64_mark_machine_status): New functions.
+	(ia64_override_options): Set init_machine_status and
+	mark_machine_status.
+	(rtx_needs_barrier): Handle bsp reads and writes.
+	(spill_offset, sp_offset, spill_offset_emitted, tmp_reg, tmp_saved):
+	New static variables.
+	(process_set, process_for_unwind_directive): New functions.
+	* config/ia64/ia64.h (ASM_OUTPUT_XDATA_CHAR, ASM_OUTPUT_XDATA_SHORT,
+	ASM_OUTPUT_XDATA_INT, ASM_OUTPUT_XDATA_DOUBLE_INT, ASM_OUTPUT_EH_CHAR,
+	ASM_OUTPUT_EH_SHORT, ASM_OUTPUT_EH_INT, ASM_OUTPUT_EH_DOUBLE_INT): New
+	macros.
+	(EH_FRAME_SECTION_ASM_OP): Define to IA_64.unwind section.
+	(IA64_UNWIND_INFO, HANDLER_SECTION, IA64_UNWIND_EMIT): Define.
+	(struct machine_function): Define.
+	* config/ia64/ia64.md (bsp_value, set_bsp, eh_epilogue): New patterns.
+
+2000-04-25  Bruce Korb  <bkorb@gnu.org>
+
+	* fixinc/Makefile.in: make the removal of old programs more
+	robust
+	* fixinc/mkfixinc.sh: use the two new targets in the Makefile:
+	install-bin and install-sh
+
+2000-04-25  Nick Clifton  <nickc@cygnus.com>
+
+	* integrate.c (FUNCTION_ATTRIBUTE_INLINABLE_P): If not
+	defined, define to return zero.
+	(function_cannot_inline_p): If a function has any target
+	specific attributes, then use the macro
+	FUNCTION_ATTRIBUTE_INLINABLE_P to allow the target to decide
+	whether it can be inlined.  If it cannot, issue a suitable
+	explanation.
+
+	* tm.texi: Add a new node 'Inlining' to document the new macro
+	FUNCTION_ATTRIBUTE_INLINABLE_P.
+
+2000-04-25  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpplib.h (struct cpp_buffer): Add 'mapped' flag; fix
+	commentary.
+
+2000-04-25  Neil Booth  <NeilB@earthling.net>
+
+	Restore previous patch, plus the following fixes:
+
+	* cpphash.c (_cpp_create_definition): Test PREV_WHITESPACE in
+	flags, not CPP_OPEN_PAREN.
+	* cpplex.c (expand_token_space, init_token_list,
+	cpp_free_token_list): Put the dummy token at list->tokens[-1].
+	(_cpp_lex_line, _cpp_lex_file): token list is 0-based.
+
+Tue Apr 25 14:06:40 2000  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* config/i386/freebsd.h (INT_ASM_OP): Define.
+
+Tue Apr 25 14:51:07 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (strength_reduce): Fix typo in the last checkin.
+
+Tue Apr 25 07:33:12 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* stor-layout.c (finalize_record_size): Simplify to use existing
+	functions.
+	(compute_record_mode): No longer static.
+	* tree.h (compute_record_mode): New declaration.
+
+2000-04-25  Neil Booth  <NeilB@earthling.net>
+
+	* Revert my patch below until cause of build failures
+	determined.
+
+2000-04-25  Richard Henderson  <rth@cygnus.com>
+
+	* combine.c (combine_instructions): Add missing argument
+	to try_combine.
+
+	* toplev.c (rest_of_compilation): Delay sibcall optimization
+	until after emit_eh_context.
+
+2000-04-24  Nick Clifton  <nickc@redhat.com>
+
+	* combine.c (combine_instructions): Do not try to combine a
+	sequence of insns when the second insn has been replaced by a
+	note.
+
+Mon Apr 24 17:34:18 2000  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* gcc.c (load_specs): New static function.
+	(read_specs): Use it.
+
+	* gcc.c (lookup_compiler): Make multiple passes for case
+	insensitive filesystems.
+
+2000-04-24  Neil Booth  <NeilB@earthling.net>
+
+	* cpphash.c: replace HSPACE_BEFORE with PREV_WHITESPACE.
+	* cpphash.h (_cpp_check_directive): new.
+	* cpplex.c (handle_newline, cpp_free_token_list,
+	init_trigraph_map, trigraph_ok, trigraph_replace,
+	backslash_start, skip_block_comment, skip_line_comment,
+	skip_whitespace, parse_name, parse_number, parse_string,
+	copy_comment, _cpp_lex_line, spell_char, spell_string,
+	spell_comment, spell_name, spell_other, _cpp_lex_file,
+	_cpp_output_list): new.
+	(expand_name_space): take length argument.
+	(init_token_list): add comment list initialisation.
+	(cpp_scan_line): use auto_expand_name_space.  PREV_WHITESPACE
+	instead of HSPACE_BEFORE.
+
+	* cpplib.c (_cpp_check_directive): new
+	* cpplib.h (cpp_name, PREV_WHITESPACE, PREV_COMMENT,
+	DIGRAPH, UNSIGNED_INT, TOK_NAME): new.
+	(HSPACE_BEFORE): delete.
+	(TTYPE_TABLE): rearrange.
+	(struct cpp_toklist): update.
+
+2000-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* aclocal.m4 (gcc_AC_HEADER_STRING, gcc_AC_FUNC_PRINTF_PTR,
+	gcc_AC_C_VOLATILE, gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG): Use the three
+	argument form of AC_DEFINE.
+
+	* configure.in (DEFAULT_LINKER, DEFAULT_ASSEMBLER,
+	HAVE_INTTYPES_H, PACKAGE, VERSION, ENABLE_WIN32_REGISTRY,
+	WIN32_REGISTRY_KEY, HAVE_GAS_SUBSECTION_ORDERING, HAVE_GAS_WEAK,
+	HAVE_GAS_HIDDEN, HAVE_AS_REGISTER_PSEUDO_OP, AS_SPARC64_FLAG,
+	HAVE_AS_OFFSETABLE_LO10, ENABLE_NEW_GXX_ABI): Likewise.
+
+	* acconfig.h: Delete stubs made redundant by 3-arg AC_DEFINE.
+
+2000-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (GCC_FOR_TARGET, GCC_CFLAGS, LIBGCC2_INCLUDES,
+	deduced.h): Use -isystem, not -I, for including system headers.
+
+2000-04-24  Nick Clifton  <nickc@cygnus.com>
+
+	* config/fr30/fr30.md (addsi3): Do not use small add instruction if
+	the source register is the frame pointer or arg pointer.
+	(addsi3_small_int): Disallow if source register is the frame
+	pointer or arg pointer.
+
+2000-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (ENUM_BITFIELDS_ARE_UNSIGNED): Delete redundant
+	call to AC_MSG_RESULT.
+
+2000-04-24  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* invoke.texi: Correct grammatical errors, document
+	-fno-gnu-keywords as identical to -fno-asm for C++.
+
+2000-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* aclocal.m4: (GCC_HEADER_STRING, GCC_NEED_DECLARATION,
+	GCC_NEED_DECLARATIONS, GCC_FUNC_VFPRINTF_DOPRNT,
+	GCC_FUNC_PRINTF_PTR, GCC_PROG_LN_S, GCC_PROG_LN, GCC_C_VOLATILE,
+	AC_GCC_C_LONG_DOUBLE, GCC_FUNC_MKDIR_TAKES_ONE_ARG,
+	EGCS_PROG_INSTALL): Rename autoconf macros with prefix gcc_AC_.
+
+	* configure.in (AC_GCC_C_LONG_DOUBLE, GCC_PROG_LN, GCC_PROG_LN_S,
+	GCC_C_VOLATILE, EGCS_PROG_INSTALL, GCC_HEADER_STRING,
+	GCC_FUNC_VFPRINTF_DOPRNT, GCC_FUNC_PRINTF_PTR,
+	GCC_NEED_DECLARATIONS, GCC_FUNC_MKDIR_TAKES_ONE_ARG): Invoke with
+	new macros names.
+
+2000-04-24  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* c-pragma.c (push_alignment): Use BITS_PER_UNIT macro.
+	(pop_alignment): Likewise.
+	(handle_pragma_token): Likewise.
+
+2000-04-24  Robert Lipe <robertlipe@usa.net>
+
+	* tree.h (tree_decl): Member `mode' now ENUM_BITFIELD.
+
+2000-04-24  Hiroyuki Machida <machida@sm.sony.co.jp>
+
+	* combine.c (try_combine): Update reg_nonzero_bits of
+	newi2pat before newpat.
+
+Mon Apr 24 10:19:48 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (strength_reduce): Simplify test to INSN_P.
+	(record_giv): Attempt to simplify the add value, use CONSTANT_P
+	expressions instead of CONST_INT.
+	(express_from_1): Likewise.
+
+2000-04-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* regs.h (reg_n_max): Don't declare.
+	* flow.c (reg_n_max): Don't define.
+	* regclass.c (renumber): Don't initialize to zero.
+	(regno_allocated): Likewise.
+	(reg_n_max): Define.
+	(allocate_reg_info): Don't initialize unnecessarily.
+
+Mon Apr 24 00:21:36 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* genattrtab.c (find_attr): Initialize unsigned_p, func_units_p
+	and blockage_p in the newly allocated attribute.
+
+Sun Apr 23 20:16:49 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.md (addsi): `inc4' on address
+	registers does not modify cc, but `inc' on an extended
+	register does.
+
+Sun Apr 23 16:24:35 2000  Denis Chertykov  <denisc@overta.ru>
+
+	* reload.c (find_equiv_reg): Checks all valueno regs
+	as a reload_reg_p regs.
+
+2000-04-23  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.c (collect_objlike_expansion): Add sanity check.
+	(special_symbol): Remove case T_CONST, T_XCONST, T_MCONST.  If
+	the buffer is the empty string, return.  Mark __DATE__ and
+	__TIME__ as XCONST nodes, not MCONST.
+	(_cpp_macroexpand): Avoid pushing an empty buffer.
+	(funlike_macroexpand): Don't pop token_buffer here.
+
+Sun Apr 23 18:37:53 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (REGNO_IN_RANGE_P): New macro.
+	(REGNO_DATA_P, REGNO_ADDRESS_P, REGNO_SP_P): New macros.
+	(REGNO_EXTENDED_P, REGNO_AM33_P): New macros.
+	(REGNO_OK_FOR_BASE_P): Define in terms of them.
+	(REGNO_OK_FOR_BIT_BASE_P, REGNO_OK_FOR_INDEX_P): Likewise.
+	(REG_OK_FOR_BASE_P): Define in terms of the REGNO macro.
+	(REG_OK_FOR_BIT_BASE_P, REG_OK_FOR_INDEX_P): Likewise.
+
+Sun Apr 23 22:23:08 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (simplify_giv_expr):  Be more agressive on simplifying
+	constant MULT givs.
+
+2000-04-23  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.h (struct definition): Move file, line, col members...
+	(struct hashnode): ... here.  Also add 'disabled' flag.
+	(enum node_type): Add T_VOID, T_XCONST, T_FMACRO, and
+	T_IDENTITY.  Remove T_DISABLED.
+	Update prototypes.
+
+	* cpphash.c (_cpp_dump_definition): Split out dump_DEFINITION.
+	(collect_expansion): Split into collect_objlike_expansion and
+	collect_funlike_expansion.
+	(_cpp_macroexpand): Split out scan_arguments, stringify, and
+	funlike_macroexpand.
+	(_cpp_compare_defs): Rename compare_defs, make static.
+	(_cpp_make_hashnode): Initialize hp->disabled.
+	(macro_cleanup): Adjust for new token types.  Clear
+	m->disabled.
+	(_cpp_create_definition): Move code here to determine what
+	sort of macro it is, and code to check for redefinitions, from
+	do_define.  Implement a few simple cases without creating a
+	full DEFINITION.
+	(_cpp_macroexpand, special_symbol, _cpp_dump_definition):
+	Handle the simple cases.
+	(push_macro_expansion): Set buf->has_escapes and hp->disabled
+	here.
+
+	* cppinit.c (builtin_array): Change MCONST to XCONST
+	everywhere.
+	* cpplex.c (maybe_macroexpand): Handle IDENTITY macros here;
+	fix check for disabled and function-like macros.
+	* cpplib.c (do_define): Move most logic to
+	_cpp_create_definition.
+	(do_undef): Handle new special token types.
+
+Sun Apr 23 14:27:44 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (maybe_eliminate_biv_1): Use GET_CODE (x) == CONST_INT instead
+	of CONSTANT_P for mult_val; always use validate_change to update insn.
+
+2000-04-22  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.c (trad_stringify, add_pat): New functions.
+	(collect_expansion): Restore support for -traditional syntax.
+	Use trad_stringify and add_pat.
+	(_cpp_macroexpand): Restore support for -traditional semantics.
+	* cpplex.c (_cpp_scan_line): Don't change space_before if we
+	get a COMMENT token.
+	(_cpp_lex_token): Provide COMMENT tokens to caller if
+	traditional and parsing_define_directive.
+	(skip_comment): Warn about // comments if -Wtraditional.
+	* cpplib.c (do_define): Fix typo.  Create EMPTY nodes with
+	proper node type.
+	(do_undef): Don't warn about undefining EMPTY nodes.
+
+Sat Apr 22 22:35:38 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (strength_reduce): Fix biv removal code.
+
+2000-04-22  Richard Henderson  <rth@cygnus.com>
+
+	* predict.c (estimate_probability): Examine both sides of
+	a branch for no exits.  Use 90% not 50% for predict taken.
+	Reorg for one copy of note generation code.
+
+2000-04-22  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (mark_used_reg): Hack around rs6000 eliminable pic reg.
+
+2000-04-22  Richard Henderson  <rth@cygnus.com>
+
+	* diagnostic.c (init_output_buffer): Don't initialize format_args.
+	(output_clear): Likewise.
+	(output_printf): Use va_copy.
+	(vline_wrapper_message_with_location): Likewise.
+	(v_message_with_decl): Likewise.
+	(line_wrapper_printf): VA_START infor buffer.format_args directly.
+	* system.h (va_copy): Provide default implementation.
+
+2000-04-22  Richard Henderson  <rth@cygnus.com>
+
+	* predict.c (expected_value_to_br_prob): Don't bomb if op1 of
+	the collected condition is not a constant.
+
+2000-04-22  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* diagnostic.h: New file.
+
+	* Makefile.in (diagnostic.o): Depends on diagnostic.h
+
+	* diagnostic.c: Tweak.  Rationalize the output logic.  Adjust
+	various function prototypes.
+	(diagnostic.h): #include.
+	(struct output_buffer): Move into diagnostic.h.
+	(get_output_prefix): Rename to output_get_prefix.  Export.
+	(init_output_buffer): Export. Break out.  Ajust intialization.
+	(output_space_left, output_append): Export.
+	(output_newline): Rename to output_add_newline.  Export.
+	(output_clear): Nullify additional output_buffer fields.
+	(output_puts): Rename to output_add_string.  Export.
+	(dump_output): Rename to output_flush_on.  Export.
+	(build_location_prefix): Constify return-type.
+	(emit_output_prefix): Rename to output_emit_prefix. Export.
+	(set_real_maximum_length): New function.
+	(output_set_maximum_length): Ditto
+	(output_clear): Ditto.
+	(output_add_character): Ditto.
+	(output_add_integer): Ditto.
+	(output_add_space): Ditto.
+	(output_format): Ditto.
+	(output_printf): Adjust buffer initialization.
+	(vline_wrapper_message_with_location): Ditto.
+	(v_message_with_decl): Ditto.  Adjust call to output_puts
+	and get_output_prefix.
+	(default_print_error_function): Adjust buffer intialization.
+
+Sat Apr 22 06:45:04 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* expr.c (preexpand_calls, case CALL_EXPR): Don't look at TYPE_SIZE
+	of VOID_TYPE.
+
 Fri Apr 21 18:33:09 2000  Alexandre Oliva  <aoliva@cygnus.com>
 
 	* config/mn10300/mn10300.h (REGNO_REG_CLASS): Use NO_REGS instead
@@ -99,8 +1177,8 @@ Fri Apr 21 13:30:26 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* cpplib.h (enum cpp_ttype): Add token types for all
 	punctuators.  Distinguish pp-numbers from valid C numbers.
-	Give some tokens better names.  Initialize from macro.    
-	(struct cpp_name, cpp_token, cpp_toklist): New data   
+	Give some tokens better names.  Initialize from macro.
+	(struct cpp_name, cpp_token, cpp_toklist): New data
 	structures.
 	Update prototypes.
 	* cpplex.c (bump_column, expand_name_space,
@@ -216,7 +1294,7 @@ Tue Apr 18 16:04:12 2000  Jim Wilson  <wilson@cygnus.com>
 	cexp.c/cexp.y.
 	* xm-linux.h, xm-os2.h, romp.h: Remove definition of BSTRING,
 	which is no longer tested anywhere.
-	
+
 	* cppinit.c (handle_option): Don't run error message through
 	gettext twice.
 
@@ -272,7 +1350,7 @@ Tue Apr 18 14:16:47 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(ENUM_BITFIELDS): Added.
 	* rtl.h (rtx_def): Members `code', `mode', now ENUM_BITFIELD.
 	(SHORT_ENUM_BUG): Deleted.
-	* tree.h (tree_common): Members `code', `mode', `built_in_class', 
+	* tree.h (tree_common): Members `code', `mode', `built_in_class',
 	now ENUM_BITFIELD.
 	* config/i386/xm-sco.h (ONLY_INT_FIELDS): Deleted.
 	(CODE_FIELD_BUG): Likewise.
@@ -585,7 +1663,7 @@ Fri Apr 14 16:58:45 2000  Jim Wilson  <wilson@cygnus.com>
 	(cpp_get_token): Don't increment pfile->lineno or emit line
 	commands here.  Return EOF if there's no buffer when we get
 	EOF.
-	* cpplib.c (do_define, skip_if_group): 
+	* cpplib.c (do_define, skip_if_group):
 	No need to disable line commands.
 	(_cpp_output_line_command): Delete function.
 	(do_line): Don't emit line commands here, but set things up so
@@ -609,7 +1687,7 @@ Fri Apr 14 16:58:45 2000  Jim Wilson  <wilson@cygnus.com>
 
 	* config/rs6000/sysv4.h (ENDFILE_SPEC): Use the %(endfile_*) macros.
 
-	* config/rs6000/eabi.asm (__eabi): Call __init rather than 
+	* config/rs6000/eabi.asm (__eabi): Call __init rather than
 	__do_global_ctors to handle constructors.
 	* config/rs6000/sysv4.h (STARTFILE_ADS_SPEC): Use crtbegin.
 	(STARTFILE_YELLOWKNIFE_SPEC): Likewise.
@@ -627,7 +1705,7 @@ Fri Apr 14 16:58:45 2000  Jim Wilson  <wilson@cygnus.com>
 	(EXTRA_MULTILIB_PARTS): Build crtbeginS/crtendS.
 	(CRTSTUFF_T_CFLAGS_S): Define.
 	* config/rs6000/eabi-ctors.c: Delete.
-	
+
 	* config/rs6000/eabi-ci.asm (__init): Align stack to 16-byte
 	boundary.
 	(__fini): Likewise.
@@ -795,7 +1873,7 @@ Wed Apr 12 15:54:11 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 	stack pointer.
 
 Wed Apr 12 07:51:54 2000  Catherine Moore  <clm@cygnus.com>
- 
+
 	* calls.c (emit_library_call_value_1): Change 3rd arg to
 	locate_and_pad_parm to disregard the setting of partial.
 
@@ -932,7 +2010,7 @@ Tue Apr 11 09:55:59 2000  Jeffrey A Law  (law@cygnus.com)
 	(scc patterns, movstrsi): Not available for TARGET_64BIT.
 	(64bit conditional arithmetic): New patterns.
 	(absdi2, smindi3, umindi3, smaxdi3, umaxdi3): New patterns.
-	(movsicc): Not available if modes on all the operands to not match.	
+	(movsicc): Not available if modes on all the operands to not match.
 	(movdicc): New expander and associated patterns.
 	(64bit branches): New patterns.
 	(pre_load, post_store): Generate appropriate code for TARGET_64BIT.
@@ -1017,7 +2095,7 @@ Tue Apr 11 09:55:59 2000  Jeffrey A Law  (law@cygnus.com)
 	(arm_poke_function_name): Use HOST_UINT.
 	(arm_output_epilogue): Use arm_volatile_func().
 	(output_thumb_prologue): Use arm_strip_name_encoding().
-	
+
 Mon Apr 10 15:40:59 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* sbitmap.c (sbitmap_a_subset_b_p): Rework loop to avoid potential
@@ -1048,7 +2126,7 @@ Mon Apr 10 07:21:13 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(sbitmap_union_of_preds): Likewise.
 	(sbitmap_first_set_bit, dump_sbitmap): Local variables now unsigned.
 	(debug_sbitmap): New function.
-	
+
 	* c-convert.c (convert): Handle REFERENCE_TYPE like POINTER_TYPE.
 	* c-typeck.c (convert_for_assignment): Likewise.
 
@@ -1079,7 +2157,7 @@ Mon Apr 10 07:21:13 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* invoke.texi (-fno-gnu-keywords): Remove classof, headof,
 	__classof__, and __headof__ from the list of gnu keywords.
-	(-ansi): Remove -foperator-names from list of implied options. 
+	(-ansi): Remove -foperator-names from list of implied options.
 	Do not call it ANSI C++.
 	(-foperator-names): Document as -fno-operator-names.
 
@@ -1099,7 +2177,7 @@ Mon Apr 10 07:21:13 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	-traditional treatment.  Count the length of builtin_array.
 	Render version_string here.
 	* cpphash.h: Remove T_VERSION.  Add T_MCONST.
-	* cpplib.h (struct cpp_reader): Remove timebuf.	
+	* cpplib.h (struct cpp_reader): Remove timebuf.
 
 2000-04-09  Richard Henderson  <rth@cygnus.com>
 
@@ -1131,7 +2209,7 @@ Mon Apr 10 07:21:13 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 2000-04-09  Philip Blundell  <philb@gnu.org>
 
 	* config/arm/arm.h (ARM_NAME_ENCODING_LENGTHS): Strip `*' too.
-	
+
 Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 
 	* i386.md (fix_truncsfhi2, fix_truncdfhi2,
@@ -1141,7 +2219,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 2000-04-08  Alex Samuel  <samuel@codesourcery.com>
 
 	* ssa.c (convert_to_ssa): Eliminate dead code when calling
-	life_analysis.  
+	life_analysis.
 	(convert_from_ssa): Call compute_bb_for_insn before life_analysis.
 	(for_each_successor_phi): Change parameter to basic_block.
 	(coalesce_regs_in_successor_phi_nodes): Likewise.
@@ -1156,7 +2234,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	(convert_from_ssa): Likewise.
 	(successor_phi_fn): Likewise.
 	(in_ssa_form): Likewise.
-	(for_each_successor_phi): Likewise.  Change parameter to basic_block. 
+	(for_each_successor_phi): Likewise.  Change parameter to basic_block.
 	* flow.c (calculate_global_regs_live): Pass a basic_block to
 	for_each_successor_phi.
 
@@ -1192,9 +2270,9 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 
 	2000-03-31  Richard Earnshaw (rearnsha@arm.com)
 
-	* Merge trunk code from tag merged-arm-thumb-backend-merge_20000325 
+	* Merge trunk code from tag merged-arm-thumb-backend-merge_20000325
 	into branch.
-	
+
 	* arm.md (eh_epilogue): New function.
 	* arm.h (struct machine_function): Move to here ...
 	* arm.c: ... from here.
@@ -1221,7 +2299,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 
 	Various formating tidyups, elimination of compile time
 	warnings and synchronisation with internal sources:
-	
+
 	* config/arm/arm-protos.h (assemble_align): Add prototype.
 	(gen_rotated_half_load): Rename to arm_gen_rotated_half_load.
 	(gen_comapre_reg): Rename to arm_gen_compare_reg.
@@ -1253,7 +2331,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	* config/arm/elf.h (ASM_OUTPUT_DEF_FROM_DECLS): Move definition
 	into arm.h (so that COFF ports can support thumb based aliases).
 	(ASM_SPEC): Move definition into arm.h
-	
+
 	* config/arm/linux-elf.h (SUBTARGET_EXTRA_ASM_SPEC): Remove
 	redundant apcs spec.
 	(ASM_SPEC): Move definition to arm.h
@@ -1305,7 +2383,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	* arm.c (minipool_node, minipool_fix): New types.
 	(minifix): Delete type.
 	(arm_add_minipool_constant): Delete.
-	(arm_compute_minipool_offsets, arm_find_barrier, 
+	(arm_compute_minipool_offsets, arm_find_barrier,
 	arm_find_minipool_constant, fixup_compare, sort_fixups): Likewise.
 	(get_jump_table_size): Now returns HOST_WIDE_INT.
 	(move_minipool_fix_forward_ref, add_minipool_forward_ref): New
@@ -1316,7 +2394,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	(arm_barrier_cost): New function.
 	(create_fix_barrier): New function.
 	(push_minipool_barrier): New function.
-	(push_minipool_fix): Record additional information about the fixup 
+	(push_minipool_fix): Record additional information about the fixup
 	required.
 	(note_invalid_constants): Remove push for (UNSPEC 3).  Don't
 	check the mode of what needs fixing.
@@ -1325,7 +2403,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	2000-03-08  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.md (indirect_jump): Force constant addresses into
-	a register. 
+	a register.
 
 	2000-03-01  Bernd Schmidt <bernds@cygnus.co.uk>
 
@@ -1339,7 +2417,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	aligned.
 
 	* config/arm/elf.h (ASM_FILE_START): Fix type of version string.
-	
+
 	2000-02-24  Bernd Schmidt <bernds@cygnus.com>
 
 	* config/arm/arm.h (THUMB_GO_IF_LEGITIMATE_ADDRESS): Allow frame
@@ -1347,7 +2425,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 
 	2000-02-10  Richard Earnshaw  <rearnsha@arm.com>
 
-	* arm.c (find_barrier): Find the last barrier within the allowed 
+	* arm.c (find_barrier): Find the last barrier within the allowed
 	range.
 
 	2000-02-09  Nick Clifton  <nickc@cygnus.com>
@@ -1357,10 +2435,10 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	2000-02-09  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/linux-elf.h (FUNCTION_PROFILER): Rename to
-	ARM_FUNCTION_PROFILER. 
+	ARM_FUNCTION_PROFILER.
 
 	* config/arm/netbsd.h (FUNCTION_PROFILER): Rename to
-	ARM_FUNCTION_PROFILER. 
+	ARM_FUNCTION_PROFILER.
 
 	* config/arm/linux-oldld.h: Imported from mainline sources.
 
@@ -1368,13 +2446,13 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 
 	* config/arm/lib1funcs.asm: Merge in thumb functions from
 	lib1thumb.asm.
-	
+
 	* config/arm/lib1thumb.asm: Delete.
 
 	2000-02-04  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.c: Sychronised with current Red hat local
-	sources. 
+	sources.
 	* config/arm/arm.h: Ditto.
 	* config/arm/arm-protos.h: Ditto.
 
@@ -1390,8 +2468,8 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	* config/arm/thumb.c (thumb_exit): Additional fix for same bug.
 
 	* config/arm/arm.md (epilogue): Fix rtl checking abort because
-	(return) was emited using an emit_insn() call. 
-	
+	(return) was emited using an emit_insn() call.
+
 	2000-01-31  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.c (output_thumb_prologue): Fix bug generating
@@ -1401,7 +2479,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 
 	2000-01-13  Richard Earnshaw (rearnsha@arm.com)
 
-	* Merge trunk code from tag merged-arm-thumb-backend-merge_20000113 
+	* Merge trunk code from tag merged-arm-thumb-backend-merge_20000113
 	into branch.
 
 	1999-12-15  Bernd Schmidt  <bernds@cygnus.co.uk>
@@ -1449,7 +2527,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	Fri Oct 29 15:23:48 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/pe.h (ARM_PE): Define.
-	
+
 	* config/arm/arm.c (arm_valid_machine_decl_attribute): Allow
 	interfacearm attribute if this is a PE toolchain.
 	(output_return_instruction): Do not emit anything if the function
@@ -1478,10 +2556,10 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 
 	* arm.c (thumb_expand_epilogue): Add a use of the adjusted stack
 	pointer.
-	* arm.h (CONDITIONAL_REGISTER_USAGE): Nail down the 
+	* arm.h (CONDITIONAL_REGISTER_USAGE): Nail down the
 	ARM_HARD_FRAME_POINTER_REGNUM when TARGET_APCS_FRAME.
 	(FRAME_POINTER_REQUIRED): Only check TARGET_APCS_FRAME if TARGET_ARM.
-	
+
 	Wed Oct 27 14:40:48 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/linux-gas.h: oops - this file was missed out when the
@@ -1509,11 +2587,11 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	(arm_return_addr): Renamed from arm_return_addr_rtx.  Rewrite.
 	(thumb_expand_prologue): Delete code referencing thumb_return_addr_rtx.
 	* arm.h (RETURN_ADDR_RTX): Call arm_return_addr().
-	
+
 	Tue Oct 26 13:24:16 1999  Nick Clifton  <nickc@cygnus.com>
 
 	* configure.in : Fix arm-*-aout target to use new t-arm-aout
-	script. 
+	script.
 	* config/arm/t-arm-aout: New file: Makefile script for arm-*-aout
 	targets.
 
@@ -1524,18 +2602,18 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 
 	* config/arm/arm-protos.h: Add prototypes for functions defined in
 	arm/pe.h.
-	
-	* config/arm/arm.c (arm_override_options): Fix selection of 
+
+	* config/arm/arm.c (arm_override_options): Fix selection of
 	attributes of default processor.
-	
+
 	* config/arm/coff.h: Delete needless #include.
-	
+
 	* config/arm/pe.c: Delete unused code.
-	
+
 	* config/arm/pe.h (CPP_DEFINES): Delete
 	(SUBTARGET_CPP_SPEC): Define.
 	(ASM_DECLARE_FUNCTION_NAME): Use ARM_DECLARE_FUNCTION_NAME.
-	
+
 	* config/arm/t-pe: Add -DInhibit_libc to allof libgcc.a to build.
 
 	Mon Oct 25 15:42:09 1999  Richard Earnshaw (rearnsha@arm.com)
@@ -1546,7 +2624,7 @@ Sun Apr  9 15:16:14 EDT 2000  John Wehle  (john@feith.com)
 	(FIXED_REGISTERS): Make r11 call-saved.
 	(CALL_USED_REGISTERS): Likewise.
 	(CONDITIONAL_REGISTER_USAGE): Fix r11 if TARGET_APCS_FRAME.
-	(FRAME_POINTER_REQUIRED): Correct logic for determining when a 
+	(FRAME_POINTER_REQUIRED): Correct logic for determining when a
 	frame-pointer is required.
 	(TARGET_DEFAULT): Make default setting include ARM_FLAG_APCS_FRAME.
 	* arm.c (arm_override_options): Warn about -mno-apcs-frame and -g
@@ -1744,13 +2822,13 @@ Fri Apr  7 11:50:54 2000  Jim Wilson  <wilson@cygnus.com>
 	(rest_of_compilation): Time convert_to_ssa and convert_from_ssa.
 	(print_time): Compute percent fraction as integer.
 	* ssa.c (PHI_NODE_P): Moved to rtl.h.
-	(convert_to_ssa): Check if we're already in SSA.  
+	(convert_to_ssa): Check if we're already in SSA.
 	Don't eliminate dead code in life_analysis.
 	Rerun flow and life analysis at bottom.
 	(eliminate_phi): Use canonical regnos when adding nodes.
 	(mark_reg_in_phi): New function.
 	(mark_phi_and_copy_regs): Likewise.
-	(convert_from_ssa): Rerun life analysis at top.  
+	(convert_from_ssa): Rerun life analysis at top.
 	Use coalesced partition.
 	Check for removing a phi node at the end of the block.
 	(compute_coalesced_reg_partition): New function.
@@ -1819,7 +2897,7 @@ Thu Apr  6 19:11:47 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
 2000-04-06  Clinton Popetz  <cpopetz@cygnus.com>
 
 	* regrename.c (regrename_optimize): Handle no REG_ALLOC_ORDER.
-	
+
 2000-04-06  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* cpphash.c (CPP_IS_MACRO_BUFFER, FORWARD, PEEKC): Delete.
@@ -1883,9 +2961,9 @@ Thu Apr  6 19:11:47 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
 	(validate_else): Use _cpp_get_directive_token.
 	(do_assert, do_unassert): Don't save pointers into the
 	token_buffer across calls to the lexer.  Use
-	_cpp_get_directive_token.  
+	_cpp_get_directive_token.
 
-	* cpplib.h (cpp_buffer): Remove alimit and colno.  Make mark a 
+	* cpplib.h (cpp_buffer): Remove alimit and colno.  Make mark a
 	pointer, not an offset.  Replace 'data', which was a generic
 	pointer, with 'macro', which points to a struct hashnode.
 	(cpp_reader): Add 'potential_control_macro' pointer.
@@ -1925,7 +3003,7 @@ Thu Apr  6 19:11:47 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
 	the ggc_pending_trees.
 	* Makefile.in (GGC_H): New variable.  Use it throughout in place
 	of ggc.h.
-	
+
 Thu Apr  6 00:30:50 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
 
 	* sh.h (FUNCTION_ARG_PARTIAL_NREGS): Accomodate an unsigned
@@ -2040,8 +3118,8 @@ Wed Apr  5 09:34:26 2000  Philippe De Muyter <phdm@macqel.be>
 	* config/rs6000/sysv4le.h: Don't include sysv4.h.
 	* config/rs6000/t-ppc: Delete.
 	* config/rs6000/t-ppcgas: Correct comment.
-	* config/rs6000/t-ppcos: Correct comment.  Don't build 
-	multilibs for -fPIC, rather use -fPIC -mstrict-align 
+	* config/rs6000/t-ppcos: Correct comment.  Don't build
+	multilibs for -fPIC, rather use -fPIC -mstrict-align
 	as default.
 	* config/rs6000/t-ppc: Delete.
 	* config/rs6000/vxppc.h: Don't include sysv4.h.
@@ -2057,7 +3135,7 @@ Wed Apr  5 09:34:26 2000  Philippe De Muyter <phdm@macqel.be>
 
 	* calls.c (try_to_integrate): Initialize reg_parm_stack_space.
 
-2000-04-04  Stan Cox  <scox@cygnus.com>	
+2000-04-04  Stan Cox  <scox@cygnus.com>
 
 	* Makefile.in: Add rules for regrename.o
 	* regrename.c: New file.
@@ -2066,8 +3144,8 @@ Wed Apr  5 09:34:26 2000  Philippe De Muyter <phdm@macqel.be>
 	(compile_file, decode_d_option): Add support for -frename-registers.
 	(rest_of_compilation): Call regrename_optimize.
 	* config/ia64/ia64.h (HARD_REGNO_RENAME_OK, RENAME_EXTENDED_BLOCKS):
-	New macros.	
-	
+	New macros.
+
 2000-04-04  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
 
 	* Makefile (gccbug): New target.
@@ -2211,7 +3289,7 @@ Tue Apr  4 00:41:53 2000  Jeffrey A Law  (law@cygnus.com)
 2000-04-03  Felix Lee  <flee@cygnus.com>
 
 	* fixinc/server.c (find_shell): New function.  Avoid $SHELL.
-	(run_shell): Use it. 
+	(run_shell): Use it.
 
 2000-04-03  Jonathan Larmour  <jlarmour@redhat.co.uk>
 
@@ -2259,7 +3337,7 @@ Mon Apr  3 00:02:59 2000  Brad Lucier <lucier@math.purdue.edu>
 
 2000-04-02  Neil Booth <NeilB@earthling.net>
 
-	* cppexp.c:  New typedef op_t.  struct operation and struct 
+	* cppexp.c:  New typedef op_t.  struct operation and struct
 	token updated to use it.
 	(op_to_str): New function.
 	(_cpp_parse_expr): Error messages modified to use op_to_str.
@@ -2327,7 +3405,7 @@ Mon Apr  3 00:02:59 2000  Brad Lucier <lucier@math.purdue.edu>
 	(open_dump_file): Take a dump_file_index not a suffix, and a decl
 	not a string.  Clean out file if we havn't yet done so.  Do nothing
 	if the dump isn't enabled.
-	(close_dump_file): Do nothing if the dump isn't open.  Dump 
+	(close_dump_file): Do nothing if the dump isn't open.  Dump
 	graph data if requested.
 	(dump_rtl, clean_dump_file): Remove.
 	(compile_file): Don't clean the dump files.  Only finalize .bp dump
@@ -2353,13 +3431,13 @@ Mon Apr  3 00:02:59 2000  Brad Lucier <lucier@math.purdue.edu>
 	the switch naturally.  '(' tokens handled by forcing
 	immediate shift.  ')' handled by forcing immediate reduce to
 	the previous '('.  New error messages.
-	
+
 2000-03-31  Geoff Keating  <geoffk@cygnus.com>
 
 	* config/rs6000/rs6000.c (print_operand): Don't use %l for 'low
 	part', it's already in use.  Use %K instead.  Add a return at the
 	end of what is now %K.
-	* config/rs6000/rs6000.md (elf_low): Use %K instead of %l. 
+	* config/rs6000/rs6000.md (elf_low): Use %K instead of %l.
 
 Sat Apr  1 02:05:29 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
@@ -2389,7 +3467,7 @@ Sat Apr  1 02:05:29 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 2000-03-31  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* cpplib.h: Merge struct cpp_options into struct cpp_reader.
-	Reorder struct cpp_options and struct cpp_reader for better 
+	Reorder struct cpp_options and struct cpp_reader for better
 	packing.  Replace CPP_OPTIONS macro with CPP_OPTION which
 	takes two args.  Change all 'char' flags to 'unsigned char'.
 	Move show_column flag into struct cpp_options.  Don't
@@ -2405,7 +3483,7 @@ Sat Apr  1 02:05:29 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 	directly.
 	(cpp_options_init): Delete.
 	(cpp_reader_init): Turn on on-by-default options here.
-	Allocate the pending structure here.		  
+	Allocate the pending structure here.
 	(cl_options, enum opt_code): Define these from the same table,
 	kept in a large macro.  Add -fshow-column and -fno-show-column
 	options.
@@ -2438,7 +3516,7 @@ Sat Apr  1 02:05:29 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 	(_cpp_parse_expr): Check for multiple unary +/- operators.
 	Correct priorities of ':' and '?'.  Treat ')' as having a
 	value.	Ensure conditional expression is not void.
-	
+
 2000-03-31  Mark Mitchell  <mark@codesourcery.com>
 
 	* alias.c (canon_rtx): Make it global.
@@ -2557,7 +3635,7 @@ Thu Mar 30 06:32:51 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* stor-layout.c (get_mode_alignment): Minor cleanup.
 	* config/rs6000/rs6000.h (SLOW_UNALIGNED_ACCESS): Align is in bits.
 	* config/sh/sh.h (MOVE_BY_PIECES_P): Likewise.
-	
+
 2000-03-29  Nick Clifton  <nickc@cygnus.com>
 
 	* config/arm/arm.h: Undo effects of previous delta:
@@ -2565,7 +3643,7 @@ Thu Mar 30 06:32:51 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(SUBTARGET_EXTRA_ASM_SPEC): Do not define.
 
 	* config/arm/linux-elf.h: (SUBTARGET_EXTRA_ASM_SPEC) Fix
-	typo. 
+	typo.
 
 2000-03-29  Zack Weinberg  <zack@wolery.cumb.org>
 
@@ -2706,7 +3784,7 @@ Wed Mar 29 11:51:13 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 2000-03-29  Nathan Sidwell  <nathan@codesourcery.com>
 
-	* except.c (add_eh_table_entry): Mark type_info's as referenced.	
+	* except.c (add_eh_table_entry): Mark type_info's as referenced.
 
 2000-03-29  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
 
@@ -2718,7 +3796,7 @@ Wed Mar 29 11:51:13 MET DST 2000  Jan Hubicka  <jh@suse.cz>
 
 2000-03-28  Richard Henderson  <rth@cygnus.com>
 
-	* rtl.h: Redistribute enum reg_note documentation. 
+	* rtl.h: Redistribute enum reg_note documentation.
 	Kill trailing whitespace.
 	* rtl.c (reg_note_name): Adjust to match enum reg_note tweeks.
 	Kill trailing whitespace.
@@ -2837,17 +3915,17 @@ Tue Mar 28 08:29:46 2000  Jan Hubicka  <jh@suse.cz>
 	(x86_shift_adj_1): Use CCZ.
 	(*dbra_ge+1, *dbra_ge+2, ffssi2, ffssi_1): Likewise.
 
-2000-03-27  Stan Cox  <scox@cygnus.com>	
+2000-03-27  Stan Cox  <scox@cygnus.com>
 
 	* resource.h (mark_resource_type): New.
-	* resource.c (find_dead_or_set_registers, mark_target_live_regs, 
+	* resource.c (find_dead_or_set_registers, mark_target_live_regs,
 	find_free_register): Use mark_resource_type.
 	(mark_set_resources): Change include_delayed_effects
 	to mark_resource_type.
-	* reorg.c (steal_delay_list_from_target, try_merge_delay_insns, 
-	redundant_insn, fill_simple_delay_slots, fill_slots_from_thread): 
+	* reorg.c (steal_delay_list_from_target, try_merge_delay_insns,
+	redundant_insn, fill_simple_delay_slots, fill_slots_from_thread):
 	Use mark_resource_type.
-	
+
 2000-03-27  Richard Henderson  <rth@cygnus.com>
 
 	* i386.md (call_pop_0, call_value_pop_0): New.
@@ -2889,7 +3967,7 @@ Sun Mar 26 20:15:26 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* stor-layout.c (layout_decl): Only check DECL_PACKED and
 	DECL_BIT_FIELD of FIELD_DECL.
 	* tree.h (DECL_RESULT_FLD): New macro.
-	
+
 	* expr.c (expand_assignment): Add code to handle variable-sized
 	BLKmode case.
 
@@ -3233,7 +4311,7 @@ Sat Mar 25 09:12:10 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(output_constructor): bitpos and offsets are HOST_WIDE_INT;
 	use tree_low_cst and int_bit_position.
 	* objc/objc-act.c (build_ivar_list_initializer): Use byte_position.
-	
+
 Fri Mar 24 20:13:49 2000  Jason Eckhardt  <jle@cygnus.com>
 
 	* bb-reorder.c (REORDER_MOVED_BLOCK_END): Removed.
@@ -3388,7 +4466,7 @@ Thu Mar 23 16:04:40 2000  Andrew Haley  <aph@cygnus.com>
 	* frame.h (frame_state): Revert last change.
 	* frame.c (execute_cfa_insn): Just don't record the save of a CFA reg.
 	* libgcc2.c (throw_helper): Revert last change.
-	
+
 2000-03-22  Richard Henderson  <rth@cygnus.com>
 
 	* stmt.c (expand_asm_operands): Don't promote the temporary.
@@ -3425,7 +4503,7 @@ Thu Mar 23 16:04:40 2000  Andrew Haley  <aph@cygnus.com>
 	callee-saved.
 	* frame.h (frame_state): Add cfa_saved field.
 	* frame.c (execute_cfa_insn): Set it.
-	* libgcc2.c (throw_helper): Don't adjust sp if it's restored in 
+	* libgcc2.c (throw_helper): Don't adjust sp if it's restored in
 	the epilogue.
 	* function.c (ARG_POINTER_CFA_OFFSET): Default to FIRST_PARM_OFFSET.
 	Now takes a parm.
@@ -3553,7 +4631,7 @@ Mon Mar 20 19:53:53 2000  Jim Wilson  <wilson@cygnus.com>
 	(bunle): New expander.
 	(bunlt): New expander.
 	(bltgt): New expander.
- 
+
 	* config/rs6000/rs6000.c (ccr_bit): Handle unordered comparisons.
 	(ccr_bit_negated_p): New function.
 	(print_operand): For %C, generate appropriate cror for UNEQ,
@@ -3669,7 +4747,7 @@ Sun Mar 19 13:27:30 2000  Hans-Peter Nilsson  <hp@axis.com>
 
 	* expr.c: Include intl.h.
 	* Makefile.in (expr.o): Depend on intl.h.
-	
+
 2000-03-18  Richard Henderson  <rth@cygnus.com>
 
 	* expr.c (emit_move_insn_1): Clarify cannot_inline message.
@@ -3761,7 +4839,7 @@ Sat Mar 18 14:38:00 2000  Jason Eckhardt  <jle@cygnus.com>
 	* integrate.c (save_parm_insns): Recurse on CALL_PLACEHOLDER patterns.
 	Broken out from ...
 	(save_for_inline_nocopy): ... here.
-	(copy_insn_list): Recurse on CALL_PLACEHOLDER patterns. 
+	(copy_insn_list): Recurse on CALL_PLACEHOLDER patterns.
 	Broken out from ...
 	(expand_inline_function): ... here.
 	(copy_rtx_and_substitute): Handle NOTE_INSN_DELETED_LABEL.
@@ -3849,7 +4927,7 @@ Fri Mar 17 08:09:14 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(generate_shared_structures): Convert size.
 	(encode_type, encode_complete_bitfield): Use integer_zerop.
 	(encode_bitfield): Use tree_low_cst and int_bit_position.
-	
+
 2000-03-17  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
 
 	* config/c4x/c4x.h (CPP_SPEC): Fix typo.
@@ -3865,9 +4943,9 @@ Fri Mar 17 08:09:14 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(C33_FLAG, TARGET_C3X): Add macros.
 	(TARGET_SWITCHES): Add -m33 option.
 	* config/c4x/c4x.c (c4x_override_options): Test for TARGET_C33.
-	
+
 2000-03-17  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
-	
+
 	* config/c4x/c4x.h (PARALLEL_INSN_FLAG): Add.
 	(PARALLEL_PACK_FLAG): Delete.
 	(TARGET_SWITCHES): Update.
@@ -3984,8 +5062,8 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	(xer_operand) New.
 	(rs6000_reg_names, alt_reg_names): Change fpmem to xer.
 	(machine_function): Remove fpmem_size, fpmem_offset, save_toc_p.
-	(rs6000_save_machine_status, rs6000_restore_machine_status, 
-	rs6000_init_expanders, rs6000_stack_info, debug_stack_info): Remove 
+	(rs6000_save_machine_status, rs6000_restore_machine_status,
+	rs6000_init_expanders, rs6000_stack_info, debug_stack_info): Remove
 	references to above variables.
 	(gpc_reg_operand): Use XER_REGNO_P instead of FPMEM_REGNO_P.
 	* config/rs6000/rs6000.h (REG_ALLOC_ORDER, REGISTER_NAMES,
@@ -3994,12 +5072,12 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	(XER_REGNO_P, XER_REGNO): New.
 	(rs6000_stack): Remove fpmem_p, fpmem_offset, fpmem_size.
 	(PREDICATE_CODES): Change fpmem_operand to xer_operand.
-	(HARD_REGNO_NREGS, HARD_REGNO_MODE_OK): Change FPMEM_REGNO_P to 
+	(HARD_REGNO_NREGS, HARD_REGNO_MODE_OK): Change FPMEM_REGNO_P to
 	XER_REGNO_P.
 	(reg_class, REG_CLASS_NAMES, REG_CLASS_CONTENTS, REGNO_REG_CLASS,
 	REG_CLASS_FROM_LETTER, CLASS_MAX_NREGS): Change FPMEM_REGS to XER_REGS,		and remove FLOAT_OR_FPMEM_REGS.
 	(CLASS_CANNOT_CHANGE_SIZE): Change to FLOAT_REGS.
-	
+
 	2000-02-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
 
 	* aix.h (FP_SAVE_INLINE, ASM_OUTPUT_INTERNAL_LABEL_PREFIX,
@@ -4026,12 +5104,12 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 
 	2000-02-29  Clinton Popetz  <cpopetz@cygnus.com>
 
-	* config/rs6000/rs6000.h (MQ_REGNO, CR0_REGNO, CR1_REGNO, CR2_REGNO, 
+	* config/rs6000/rs6000.h (MQ_REGNO, CR0_REGNO, CR1_REGNO, CR2_REGNO,
 	CR3_REGNO, CR4_REGNO, MAX_CR_REGNO): Define.
 	(CR0_REGNO_P) Remove.
-	* config/rs6000/rs6000.c (gpc_reg_operand, and64_operand, and_operand, 
-	setup_incoming_varargs, mtcrf_operation, print_operand, 
-	rs6000_stack_info, rs6000_emit_prologue, rs6000_emit_epilogue): 
+	* config/rs6000/rs6000.c (gpc_reg_operand, and64_operand, and_operand,
+	setup_incoming_varargs, mtcrf_operation, print_operand,
+	rs6000_stack_info, rs6000_emit_prologue, rs6000_emit_epilogue):
 	Use the above macros.
 
 	2000-02-24  Clinton Popetz  <cpopetz@cygnus.com>
@@ -4066,7 +5144,7 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	specified with 'asm' even with -fleading-underscore.
 	* rs6000.c (print_operand): Use assemble_name when !TARGET_AIX.
 	(output_epilog): Likewise.
-	(output_toc): Likewise. 
+	(output_toc): Likewise.
 	* tramp.asm: Handle -fleading-underscore correctly.
 
 	* rs6000.md (builtin_setjmp_receiver): Also run for -fPIC and
@@ -4106,7 +5184,7 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	(scc insns): Generate DImode compares.
 	(mfcr insns): Create DImode versions.
 	(sge matchers): New patterns.
-	
+
 	2000-02-15  Gabriel Paubert  <paubert@iram.es>
 
 	* rs6000.md: Correct instructions length attributes and
@@ -4158,7 +5236,7 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	[TARGET_AIX] (rs6000_emit_eh_toc_restore): New function.
 	* rs6000-protos.h: Prototype rs6000_emit_eh_toc_restore,
 	rs6000_aix_emit_builtin_unwind_init.
-	* rs6000.md (eh_epilogue) [TARGET_AIX]: Call 
+	* rs6000.md (eh_epilogue) [TARGET_AIX]: Call
 	rs6000_emit_eh_toc_restore on AIX.
 	(return_eh_si): Use r2.
 	(return_eh_di): Use r2.
@@ -4188,10 +5266,10 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	(LEGITIMIZE_ADDRESS, LEGITIMIZE_RELOAD_ADDRESS): Turn symbol_refs
 	into explicit TOC_REGISTER offsets.
 	(TOC_REGISTER): New macro.
-	* config/rs6000/rs6000.md (movsi, movdi): Emit rtl under 
+	* config/rs6000/rs6000.md (movsi, movdi): Emit rtl under
 	TARGET_TOC to reference TOC_REGISTER.
 	(load_toc_v4_PIC_1b): Add 4 to offset for toc reload.
-	* config/rs6000/sysv4.h (ASM_DECLARE_FUNCTION_NAME): Call  
+	* config/rs6000/sysv4.h (ASM_DECLARE_FUNCTION_NAME): Call
 	uses_TOC before emitting label references.
 
 	2000-02-05  Geoff Keating  <geoffk@cygnus.com>
@@ -4289,10 +5367,10 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	* rs6000-protos.h: New file.
 
 	* rs6000.c: Include tm_p.h.  Fix compile time warnings.
-	
+
 	* rs6000.h: Move prototypes to rs6000-protos.h.  Fix compile time
 	warnings.
-	
+
 	* sysv4.h: Likewise.
 
 	2000-01-28  Geoff Keating  <geoffk@cygnus.com>
@@ -4503,7 +5581,7 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	(fix_truncdfsi2_load): The second arg here is Pmode too.
 	(tablejumpdi): Now that switch tables hold only SImode values,
 	gcc needs to know how to add them to the pc which is DImode.
-	* rs6000.c (rs6000_stack_info): Use symbolic name for 
+	* rs6000.c (rs6000_stack_info): Use symbolic name for
 	LINK_REGISTER_REGNUM.
 	(output_mi_thunk) [!TARGET_ELF]: Don't define sp, it's not used.
 	(output_toc): Delete unused variables s1 and s2.
@@ -4540,7 +5618,7 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	* config/rs6000/rs6000.h (TARGET_POWERPC64): Make sure
 	UNITS_PER_WORD and BITS_PER_WORD are compile time constants when
 	compiling libgcc2.
-	
+
 	2000-01-06  Franz Sirl <Franz.Sirl-kernel@lauterbach.com>
 
 	* rs6000.h: Move more stuff from here...
@@ -4593,7 +5671,7 @@ Thu Mar 16 02:14:16 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	included and the others override it.
 	* aix.h: New file.
 
-	* x-aix41-gld: Remove.  
+	* x-aix41-gld: Remove.
 	* x-aix43: Remove.
 	* x-aix41: Remove target-specific switches, and don't specify
 	-Wl,-bbigtoc as we don't need it any more.
@@ -4909,7 +5987,7 @@ Tue Mar 14 08:42:21 2000  Jeffrey A Law  (law@cygnus.com)
 	* Makefile.in (install-common): Install gccbug.
 	(GCCBUG_INSTALL_NAME): New variable.
 	* configure: Rebuilt.
-	
+
 2000-03-13  Jason Merrill  <jason@casey.cygnus.com>
 
 	* function.c (put_var_into_stack): Use type_for_mode to calculate
@@ -5033,7 +6111,7 @@ Tue Mar 14 08:42:21 2000  Jeffrey A Law  (law@cygnus.com)
 	(finalize_type_size): New function, broken out from layout_type.
 	(finish_record_layout): Likewise.
 	(layout_type): Use them.
-	
+
 2000-03-12  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* cpphash.c: Don't include version.h.
@@ -5127,9 +6205,9 @@ Sat Mar 11 16:18:12 2000  Jim Wilson  <wilson@cygnus.com>
 
 2000-03-11  Neil Booth  <NeilB@earthling.net>
 
-	* cppinit.c (struct pending option): Replace undef with a 
+	* cppinit.c (struct pending option): Replace undef with a
 	pointer to a directive handling routine.
-	(struct cpp_pending): Replace separate assert_ and define_ 
+	(struct cpp_pending): Replace separate assert_ and define_
 	lists with one directive_ list.
 	(new_pending_define): Rename new_pending_directive. Extra
 	argument is the directive's handling routine.
@@ -5154,7 +6232,7 @@ Sat Mar 11 16:18:12 2000  Jim Wilson  <wilson@cygnus.com>
 	do_assert, do_unassert): Similarly.
 	* cpplib.h (cpp_buffer, cpp_options): Update types.  Update
 	function prototypes.
-	* mkdeps.c (deps_add_target, deps_add_dep): cast allocations.	
+	* mkdeps.c (deps_add_target, deps_add_dep): cast allocations.
 
 2000-03-10  Richard Henderson  <rth@cygnus.com>
 
@@ -5185,7 +6263,7 @@ Sat Mar 11 16:18:12 2000  Jim Wilson  <wilson@cygnus.com>
 
 2000-03-09  Richard Henderson  <rth@cygnus.com>
 	    Alex Samuel  <samuel@codesourcery.com> and others
-	
+
 	* Makefile.in (ssa.o): New rule.
 	(OBJS): Add ssa.o.
 	(STAGESTUFF): Add *.ssa and *.ussa.
@@ -5204,7 +6282,7 @@ Sat Mar 11 16:18:12 2000  Jim Wilson  <wilson@cygnus.com>
 	(rest_of_compilation): Go to and from SSA if enabled.
 	(decide_d_option): Handle -de for SSA dump files.
 	* ssa.c: New file.
-	
+
 Thu Mar  9 20:01:38 2000  Jim Wilson  <wilson@cygnus.com>
 
 	* expr.c (expand_assignment): For a CALL_EXPR, special case PARM_DECL
@@ -5234,7 +6312,7 @@ Thu Mar  9 18:10:02 2000  Jeffrey A Law  (law@cygnus.com)
 	* print-tree.c (print_node): Adjust.
 	* tree.c (stabilize_reference, build, build1): Don't set TREE_RAISES.
 	(stabilize_reference_1, get_unwidened, get_narrower): Likewise.
-	* calls.c (emit_call_1): Add 'nothrow' parm.  Add 
+	* calls.c (emit_call_1): Add 'nothrow' parm.  Add
 	REG_EH_REGION note as appropriate.
 	(libfunc_nothrow): New fn.
 	(emit_library_call, emit_library_call_value): Use it.
@@ -5272,7 +6350,7 @@ Thu Mar  9 18:10:02 2000  Jeffrey A Law  (law@cygnus.com)
 	* recog.c (preprocess_constraints): Matching constraints affect
 	same alternative/different operand, not same operand/different
 	alternative.
-	
+
 	* reload1.c (eliminate_regs_in_insn): Handle additions of eliminable
 	register and a constant specially.
 
@@ -5304,7 +6382,7 @@ Wed Mar  8 16:19:42 2000  Jim Wilson  <wilson@cygnus.com>
 	(cpp_finish): Pop off all buffers, not just one.
 	* cpplib.c (eval_if_expr): Return int.
 	(do_xifdef): Rename do_ifdef.
-	(handle_directive): Don't use CPP_PREPROCESSED.	
+	(handle_directive): Don't use CPP_PREPROCESSED.
 	(cpp_get_token): Don't use CPP_C89.
 	* fix-header.c: Don't use CPP_OPTIONS.
 
@@ -5390,14 +6468,14 @@ Wed Mar  8 16:19:42 2000  Jim Wilson  <wilson@cygnus.com>
 
 2000-03-08  Gavin Romig-Koch  <gavin@cetus.cygnus.com>
 
-	* mips.c (mips_expand_prologue): If the last 
+	* mips.c (mips_expand_prologue): If the last
 	named argument is the vararg marker "va_list", treat it as
 	an unnamed argument.
 
 2000-03-08  Clinton Popetz  <cpopetz@cygnus.com>
 
-	* dbxout.c (dbxout_parms): When correcting for promoted 
-	big-endian parameters, use the mode of the DECL_RTL rather 
+	* dbxout.c (dbxout_parms): When correcting for promoted
+	big-endian parameters, use the mode of the DECL_RTL rather
 	than UNITS_PER_WORD.
 
 2000-03-08  Nathan Sidwell  <nathan@codesourcery.com>
@@ -5420,7 +6498,7 @@ Tue Mar  7 23:50:31 2000  Jeffrey A Law  (law@cygnus.com)
 2000-03-07  Steve Chamberlain  <sac@pobox.com>
 
 	* pj.c (pj_expand_prologue): current_function->args_info is
-	now current_function_args_info.  
+	now current_function_args_info.
 
 	* pj.h (STORE_FLAG_VALUE, USER_LABEL_PREFIX,
 	LOCAL_LABEL_PREFIX, ASM_GENERATE_INTERNAL_LABEL,
@@ -5457,7 +6535,7 @@ Tue Mar  7 23:50:31 2000  Jeffrey A Law  (law@cygnus.com)
 
 	* mkdeps.c (munge): Fix off-by-one bug and inconsistencies in
 	backslash counting loops.  Problem noted by Matt Kraai <kraai@ghs.com>.
-	
+
 	* cppfiles.c (_cpp_find_include_file): Make sure ih->name is
 	initialized.
 	* cppinit.c (cpp_cleanup): Free imp->nshort also.
@@ -5497,7 +6575,7 @@ Tue Mar  7 23:50:31 2000  Jeffrey A Law  (law@cygnus.com)
 	* rtl.h (rtunion_def): Constify member `rtstr'.
 	(emit_line_note_after, emit_line_note, emit_line_note_force,
 	emit_note, decode_asm_operands): Constify.
-	
+
 	* cse.c (canon_hash): Likewise.
 
 	* dbxout.c (dbxout_block): Likewise.
@@ -5662,7 +6740,7 @@ Tue Mar  7 23:50:31 2000  Jeffrey A Law  (law@cygnus.com)
 	v850_encode_data_area): Likewise.
 
 2000-03-07  Clinton Popetz  <cpopetz@cygnus.com>
-	
+
 	* config/mips/mips.md (zero_extendsidi2): Always force operand
 	one to memory for mips16.
 
@@ -5830,7 +6908,7 @@ Mon Mar  6 15:22:29 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* function.c (free_temps_for_rtl_expr): Don't free slots
 	that have been pushed into a higher level.
-	
+
 	Revert this patch:
 	2000-03-05  Mark Mitchell  <mark@codesourcery.com>
 
@@ -5900,7 +6978,7 @@ Mon Mar  6 15:22:29 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(mark_temp_slot): Don't mark the rtl_expr.
 	* stmt.c (expand_start_stmt_expr): Use start_sequence, not
 	start_sequence_for_rtl_expr.
-	
+
 2000-03-04  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* mkdeps.c, mkdeps.h: New files.
@@ -5934,7 +7012,7 @@ Sat Mar  4 11:32:30 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(mode_for_size_tree): New function.
 	(layout_decl, layout_type): Call it and clean up BLKmode checks.
 	* tree.h (mode_for_size_tree): New declaration.
-	
+
 	* toplev.c (debug_ignore_block): Mark arg BLOCK as possibly unused.
 
 2000-03-04  Jason Merrill  <jason@casey.cygnus.com>
@@ -5949,7 +7027,7 @@ Sat Mar  4 11:32:30 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 2000-03-03  Zack Weinberg  <zack@wolery.cumb.org>
 
 	* config/vax/xm-vms.h: Define OBJECT_SUFFIX and EXECUTABLE_SUFFIX.
-	
+
 	* cpplib.h (_dollar_ok): New macro.
 	(is_idchar, is_idstart): Use it.
 	(IStable): Rename to _cpp_IStable.  Declare it const if
@@ -6143,7 +7221,7 @@ Wed Mar  1 12:14:31 MET 2000  Jan Hubicka  <jh@suse.cz>
 	* cpplib.h (CPP_ASSERTION, CPP_STRINGIZE, CPP_TOKPASTE): New
 	token types.
 	(struct cpp_reader): Add parsing_if_directive and
-	parsing_define_directive flags.		      
+	parsing_define_directive flags.
 	(struct cpp_options): Remove output_conditionals flag.
 	(check_macro_name): Delete prototype.
 
@@ -6239,7 +7317,7 @@ Tue Feb 29 10:45:59 2000  Jeffrey A Law  (law@cygnus.com)
 
 	* calls.c (emit_library_call): Do not abort if FUNCTION_ARG
 	returns a PARALLEL.  Use emit_group_load and use_group_regs
-	as needed.  
+	as needed.
 	(emit_library_call_value): Similarly.
 
 	* pa/t-pa: Use quadlib.c instead of quadlib.asm.
@@ -6287,7 +7365,7 @@ Mon Feb 28 21:07:59 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* extend.texi: Document ARM's support for long/short calls.
 
 	* invoke.texi: Document ARM's -mlong-calls command line switch.
-	
+
 	* config/arm/arm-protos.h (arm_is_longcall_p): Add prototype.
 	(arm_encode_call_attribute): Add prototype.
 	(arm_set_default_type_attribute): Add prototype.
@@ -6350,7 +7428,7 @@ Mon Feb 28 21:07:59 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(arm_dllimport_name_p): Ditto.
 	(arm_mark_dllexport): Use ARM_PE_FLAG_CHAR.
 	(arm_mark_dllimport): Ditto.
-	
+
 Mon Feb 28 22:11:12 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
 
 	* sh.h (DWARF_LINE_MIN_INSTR_LENGTH): Define.
@@ -6376,7 +7454,7 @@ Mon Feb 28 14:21:15 2000  Catherine Moore  <clm@cygnus.com>
 
 	* config/pa/som.h (MAKE_DECL_ONE_ONLY): Define.
 	(ASM_WEAKEN_LABEL): Define.
- 
+
 Mon Feb 28 13:07:19 MET 2000  Jan Hubicka  <jh@suse.cz>
 
 	* expr.c (store_constructor): Do not emit USE.
@@ -6386,10 +7464,10 @@ Mon Feb 28 07:03:27 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* function.c (number_blocks): Reset next_block_index based on
 	what debugging format is used, not what is defined.
-	
+
 	* lcm.c: Minor reformatting throughout.
 	(reg_dies, reg_becomes_live): Properly handle multiple hard regs.
-	
+
 	* toplev.c (rest_of_compilation): Account for time in
 	optimize_mode_switching.
 
@@ -6440,7 +7518,7 @@ Mon Feb 28 11:34:43 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
 	(decls_for_scope): Don't increment next_block_number.
 	* dwarfout.c (next_block_number): Remove.
 	(output_lexical_block_die): Use BLOCK_NUMBER, not next_block_number,
-	to determine block numbers. 
+	to determine block numbers.
 	(output_inlined_subroutine_die): Likewise.
 	(output_block): Only output blocks that have TREE_ASM_WRITTEN set.
 	(output_decls_for_scope): Don't increment next_block_number.
@@ -6452,7 +7530,7 @@ Mon Feb 28 11:34:43 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
 	(xcoffout_begin_block): Don't set next_block_number.
 	(xcoffout_begin_function): Likewise. Use BLOCK_NUMBER, not
 	next_block_number.
-	
+
 Sun Feb 27 16:40:33 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* builtins.c (c_strlen): Use size_diffop and return ssizetype value.
@@ -6776,7 +7854,7 @@ Wed Feb 23 07:26:27 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* dwarf2out.c (output_line_info): Put the marker for the end of
 	the line number info at the actual end.
-	(gen_struct_or_union_type_die): Use decl_function_context 
+	(gen_struct_or_union_type_die): Use decl_function_context
 	to check for local classes.
 	* dwarfout.c (output_type): Likewise.
 
@@ -6850,7 +7928,7 @@ Mon Feb 21 17:06:27 2000  Jason Eckhardt  <jle@cygnus.com>
 	sparc_flat_output_function_epilogue): Cast value to unsigned in
 	comparison.
 	(sparc_emit_float_lib_cmp): Remove unused variable `cmp'.
-	
+
 	* sparc.md: Add default case in switch.
 
 2000-02-19  Richard Henderson  <rth@cygnus.com>
@@ -7018,7 +8096,7 @@ Fri Feb 18 01:29:22 EST 2000  John Wehle  (john@feith.com)
 	(__dso_handle): New variable.
 	* alpha/crtend.asm (__do_global_ctors_aux): Remove runtime
 	bias to __CTOR_END__.
-	
+
 2000-02-16  Richard Henderson  <rth@cygnus.com>
 
 	* Makefile.in (s-crtS, crtbeginS, crtendS): Prefix usage with $(T).
@@ -7075,11 +8153,11 @@ Wed Feb 16 21:07:53 2000  Denis Chertykov  <denisc@overta.ru>
 	* version.c: Include gansidecl.h and version.h.
 
 	* version.h: Wrap entire file in macro __GCC_VERSION_H__.
-	
+
 	* configure.in (gcc_version): When setting, narrow search to
 	lines containing `version_string'.
 
-	* Makefile.in (mainversion): Likewise. 
+	* Makefile.in (mainversion): Likewise.
 	(GCC_H): New variable.
 	(gcc.h): Delete target.
 	(gcc.o, gccspec.o, cppspec.o): Depend on $(GCC_H), not gcc.h.
@@ -7218,7 +8296,7 @@ Tue Feb 15 22:30:36 2000  J"orn Rennecke <amylaar@cygnus.co.uk>
 	* protoize.c: Likewise.
 	* toplev.c: Likewise.
 	* tree.h: Likewise.
-	
+
 	* version.c (version_string): Constify a char*.
 
 	* version.h: New file.
@@ -7326,7 +8404,7 @@ Sat Feb 12 01:44:26 MET 2000  Jan Hubicka  <jh@suse.cz>
 
 	* config/arm/arm.c (arm_init_cumulative_args); New function:
 	Initlaise the CUMULATIE_ARGS strcuture for a function
-	defintion. 
+	defintion.
 	(arm_function_arg): New function: Determine where to place a
 	function's argument.  Also handles deciding the function's
 	call cookie.
@@ -7347,9 +8425,9 @@ Sat Feb 12 01:44:26 MET 2000  Jan Hubicka  <jh@suse.cz>
 	(INIT_CUMULATIVE_ARGS): Redefine to call
 	arm_init_cumulative_args.
 	(FUNCTION_ARG_ADVANCE): Redefine to use correct structure
-	field. 
-	(SETUP_INCOMING_VARARGS): Redefine to use correct structure 
-	field. 
+	field.
+	(SETUP_INCOMING_VARARGS): Redefine to use correct structure
+	field.
 	(ARM_MARK_NEARBY_FUNCTION): New macro: Mark already compiled
 	functions.
 	(ENCODE_SECTION): Add call to ARM_MARK_NEARBY_FUNCTION.
@@ -7444,7 +8522,7 @@ Feb 11 12:30:53 2000  Jeffrey A Law  (law@cygnus.com)
 	* configure: Rebuilt.
 
 2000-02-11  Rodney Brown  <RodneyBrown@pmsc.com>
-	
+
 	* pa-protos.h: Wrap function_arg_padding in TREE_CODE #ifdef.
 
 Fri Feb 11 02:59:05 2000  Jeffrey A Law  (law@cygnus.com)
@@ -7460,7 +8538,7 @@ Fri Feb 11 02:48:30 2000  Brad Lucier  (lucier@math.purdue.edu)
 	* sbitmap.h: Make SBITMAP_ELT_BITS unsigned.
 
 2000-02-11  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
-	
+
 	* config/c4x/c4x.c (fp_zero_operand): Check for CONST_DOUBLE.
 
 2000-02-11  Michael Hayes  <m.hayes@elec.canterbury.ac.nz>
@@ -7527,9 +8605,9 @@ Thu Feb 10 16:26:49 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(make_field_assignment, nonzero_bits): Likewise.
 	* expmed.c (store_fixed_bit_field): ALIGN arg now unsigned.
 	(store_split_bit_field, extract_split_bit_field): Likewise.
-	(extract_fixed_bit_field, store_bit_field, 
+	(extract_fixed_bit_field, store_bit_field,
 	* expr.c: Change alignment to be unsigned everywhere.
-	(move_by_pieces, store_constructor_field, store_constructor): 
+	(move_by_pieces, store_constructor_field, store_constructor):
 	Alignment parm is unsigned.
 	(emit_block_move, emit_group_load, emit_group_store): Likewise.
 	(clear_storage, emit_push_insn, compare_from_rtx): Likewise.
@@ -7577,7 +8655,7 @@ Thu Feb 10 12:56:47 2000  Jim Wilson  <wilson@cygnus.com>
 
 	* config/arm/thumb.md (epilogue): Include a (return) in the
 	generated insn, and emit it using emit_jump_insn not
-	emit_insn. 
+	emit_insn.
 
 Thu Feb 10 18:28:59 MET 2000  Jan Hubicka  <jh@suse.cz>
 
@@ -7632,7 +8710,7 @@ Thu Feb 10 18:28:59 MET 2000  Jan Hubicka  <jh@suse.cz>
 2000-02-09  Robert Lipe  <robertl@sco.com>
 
 	* Makefile.in (gen-protos): Don't depend on HOST_LIBDEPS.
-	Don't link with HOST_LIBS. 
+	Don't link with HOST_LIBS.
 
 2000-02-09  Zack Weinberg  <zack@wolery.cumb.org>
 
@@ -7671,7 +8749,7 @@ Thu Feb 10 18:28:59 MET 2000  Jan Hubicka  <jh@suse.cz>
 	* cppfiles.c: Move INCLUDE_LEN_FUDGE default defn here.
 	* cppexp.c, cppfiles.c, cppinit.c, cpplib.c, fix-header.c: All
 	callers of cpp_lookup and cpp_install updated.
-	
+
 	* cpphash.c (macarg): Hoist all the flag diddling out of the
 	function...
 	(macroexpand): ... and out of the loop that calls macarg.
@@ -7736,7 +8814,7 @@ Wed Feb  9 14:18:08 MET 2000  Jan Hubicka  <jh@suse.cz>
 	* dwarf2out.c (dwarf_cfi_name): Print name of new constant.
 	(reg_save): Use DW_CFA_GNU_negative_offset_extended when needed.
 	(output_cfi): Handle output of DW_CFA_GNU_negative_offset_extended.
-	* frame.c (execute_cfa_insn): Handle 
+	* frame.c (execute_cfa_insn): Handle
 	DW_CFA_GNU_negative_offset_extended.
 
 2000-02-08  Richard Henderson  <rth@cygnus.com>
@@ -7755,11 +8833,11 @@ Tue Feb  8 15:51:50 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	(gen_protos.o): Don't depend on cpplib.h or cpphash.h.
 	(fix-header.o): Don't depend on cpphash.h.
 
-	* scan.c (hashstr): New function. 
+	* scan.c (hashstr): New function.
 	* scan.h: Prototype it.
-	* fix-header.c: Don't include cpphash.h.  Use hashstr.  
+	* fix-header.c: Don't include cpphash.h.  Use hashstr.
 	* gen-protos.c: Don't include cpphash.h or cpplib.h.  Use
-	hashstr.  Report hash table statistics.  Add private     
+	hashstr.  Report hash table statistics.  Add private
 	definition of xrealloc.
 
 2000-02-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
@@ -7908,7 +8986,7 @@ Mon Feb  7 18:36:41 MET 2000  Jan Hubicka  <jh@suse.cz>
 	Return 1 for '# not_a_directive'.
 	(get_directive_token): Pop macro buffers here, so that
 	cpp_get_token can't sneakily move past a newline.
-	Add sanity checks. 
+	Add sanity checks.
 	(cpp_get_token): goto randomchar if handle_directive returns 0.
 
 	* cppalloc.c: Update copyright.
@@ -7972,9 +9050,9 @@ Mon Feb  7 18:36:41 MET 2000  Jan Hubicka  <jh@suse.cz>
 	* toplev.h (set_fatal_function): Likewise.
 
 	* toplev.c (set_fatal_function): Delete prototype.
-	
+
 	* diagnostic.c: Deconstify functions returning malloc'ed ptrs.
-	
+
 2000-02-05  Geoff Keating  <geoffk@cygnus.com>
 
 	* ginclude/ppc-asm.h (FUNC_START): Use USER_LABEL_PREFIX.
@@ -8135,7 +9213,7 @@ Wed Feb  2 13:07:10 2000  Jim Wilson  <wilson@cygnus.com>
 	FP constants.  Add ! TARGET_FPU check for FP constants.
 
 2000-02-02  Clinton Popetz  <cpopetz@cygnus.com>
-	
+
 	* flow.c (find_basic_blocks): Don't kill label_value_list
 	here.
 	(cleanup_cfg): Kill it here.
@@ -8147,7 +9225,7 @@ Wed Feb  2 08:12:30 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2000-02-02  Richard Henderson  <rth@cygnus.com>
 
-	* jump.c (delete_insn): Partially revert 19 Jan change; 
+	* jump.c (delete_insn): Partially revert 19 Jan change;
 	don't convert unused code labels to notes at -O0.
 
 2000-02-02 Herman A.J. ten Brugge <Haj.Ten.Brugge@net.HCC.nl>
@@ -8253,7 +9331,7 @@ Tue Feb  1 19:53:27 CET 2000  Jan Hubicka  <jh@suse.cz>
 	* builtins.c (expand_builtin_memset): Expand for variable sized
 	lengths too.
 
-2000-02-01  David Billinghurst <David.Billinghurst@riotinto.com.au> 
+2000-02-01  David Billinghurst <David.Billinghurst@riotinto.com.au>
 
 	* config/mips/iris6.h (SUBTARGET_ASM_SPEC) : Default ISA based
 	on ABI.
@@ -8268,9 +9346,9 @@ Tue Feb  1 00:57:40 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 
 	* combine.c (try_combine) [HAVE_cc0]: Trying to check the missed
 	case 3->2 combining (combining with splitting) in which 2 is CC0
-	setter/user and 3 is user. The rest of cases 2->1 and 3->2 are 
-	checked at the begining of the function with the aid of calling 
-	function 'can_combine_p'. 
+	setter/user and 3 is user. The rest of cases 2->1 and 3->2 are
+	checked at the begining of the function with the aid of calling
+	function 'can_combine_p'.
 
 2000-01-31  Dave Brolley  <brolley@redhat.com>
 
@@ -8284,7 +9362,7 @@ Tue Feb  1 00:57:40 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 2000-01-31  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* gansidecl.h (PROTO, VPROTO, PVPROTO): Delete macros.
-	
+
 	* sbitmap.h (sbitmap_first_set_bit, sbitmap_last_set_bit):
 	PROTO -> PARAMS.
 
@@ -8300,7 +9378,7 @@ Tue Feb  1 00:57:40 2000  Hans-Peter Nilsson  <hp@bitrange.com>
 	i386/sequent.h, i386/sun.h, i386/sysv4.h, i386/uwin.h, i386/vsta.h,
 	i386/vxi386.h, i386/win-nt.h, i386/win32.h:
 	Remove -Di386 -Acpu(i386) -Amachine(i386) from CPP_PREDEFINES.
-	
+
 	* i386/osf1elf.h, i386/scodbx.h, i386/seq-sysv3.h, i386/sysv5.h:
 	Add %(cpp_cpu) to CPP_SPEC.
 
@@ -10668,7 +11746,7 @@ Tue Jan  4 22:30:16 2000  Jeffrey A Law  (law@cygnus.com)
 	(SLOW_UNALIGNED_ACCESS): Define.
 	(CASE_VECTOR_MODE): Always use 32-bit offsets.
 	(ASM_FILE_END): Generate 64-bit symbol in 64-bit mode.
-	(EXTRA_SECTOIN_FUNCTIONS): Indent .csect pseudo-op.
+	(EXTRA_SECTION_FUNCTIONS): Indent .csect pseudo-op.
 	(toc_section): Likewise and .toc pseudo-op.
 	(ASM_DECLARE_FUNCTION): Likewise.  Align text more strictly in
 	64-bit mode.
@@ -25325,5 +26403,3 @@ Wed May 19 00:34:40 1999  Jeffrey A Law  (law@cygnus.com)
 	gcc-2.95 branch.
 
 See ChangeLog.1 for earlier changes.
-
-	

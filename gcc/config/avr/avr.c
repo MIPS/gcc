@@ -3336,8 +3336,8 @@ asm_file_start (file)
       sprintf (buf, "0x%x", avr_mcu_type->stack);
     }
   
-  fputs ("__tmp_reg__ = r0\n" 
-	 "__zero_reg__ = r1\n"
+  fputs ("__tmp_reg__ = 0\n" 
+	 "__zero_reg__ = 1\n"
 	 "_PC_ = 2\n", file);
   
   commands_in_file = 0;
@@ -3481,7 +3481,7 @@ default_rtx_costs (X, code, outer_code)
 /* Calculate the cost of a memory address */
 
 int
-address_cost (rtx x)
+avr_address_cost (rtx x)
 {
   if (GET_CODE (x) == PLUS
       && GET_CODE (XEXP (x,1)) == CONST_INT

@@ -34,6 +34,7 @@ toolexeclibdir = $(toolexecdir)/lib$(MULTISUBDIR)
 endif
 
 toolexeclib_LTLIBRARIES = libstdc++.la
+EXTRA_LTLIBRARIES = libinst-string.la libinst-wstring.la
 
 
 WERROR = -Werror
@@ -41,7 +42,7 @@ WERROR = -Werror
 #                      -fdata-sections -ffunction-sections \
 #		       -fvtable-gc -Wl,--gc-sections
 # AC_CXXFLAGS = @OPTLEVEL@ @DEBUGFLAGS@ @NAMESPACES@
-AC_CXXFLAGS = @DEBUGFLAGS@ 
+AC_CXXFLAGS = @CPUFLAGS@ @DEBUGFLAGS@ 
 AM_CXXFLAGS = -fno-implicit-templates \
 	      -Wall -Wno-format -W -Wwrite-strings -Winline $(WERROR) \
 	      $(OPTIMIZE_CXXFLAGS) $(AC_CXXFLAGS) 
@@ -165,7 +166,7 @@ generated_headers = \
 	bits/std_limits.h bits/c++config.h bits/c++threads.h bits/c++io.h
 
 cpu_headers = \
-	 $(top_srcdir)/@cpu_include_dir@/atomicity.h 
+	 $(top_srcdir)/@cpu_include_dir@/bits/atomicity.h 
 
 string_sources = \
 	stringMAIN.cc stringCTORNC.cc stringCTORAL.cc \
@@ -212,8 +213,7 @@ sources = \
 	complex.cc complexf.cc complexl.cc complex_io.cc \
 	stdexcept.cc ios.cc stdstreams.cc strstream.cc \
 	locale.cc localename.cc  \
-	locale-inst.cc stl-inst.cc misc-inst.cc valarray-inst.cc \
-	$(string_sources) $(wstring_sources)
+	locale-inst.cc stl-inst.cc misc-inst.cc valarray-inst.cc 
 
 VPATH += $(top_srcdir) $(top_srcdir)/std $(top_srcdir)/src
 VPATH += $(top_srcdir)/@ctype_include_dir@
@@ -224,9 +224,17 @@ EXTRA_sources = string-inst.cc
 
 libstdc___la_SOURCES = $(sources)
 
-libstdc___la_LIBADD = ../math/libmath.la ../libio/libio.la 
+libinst_string_la_SOURCES = $(string_sources)
+
+libinst_wstring_la_SOURCES = $(wstring_sources)
+
+libstdc___la_LIBADD = \
+	../math/libmath.la ../libio/libio.la \
+	libinst-string.la @libinst_wstring_la@
 
 libstdc___la_LDFLAGS = -version-info 3:0:0 -lm
+
+libstdc___la_DEPENDENCIES = $(libstdc___la_LIBADD)
 
 
 # We cannot use the default rules to install headers since we cannot
@@ -254,8 +262,8 @@ myinstallheaders: $(headers:%=$(myincludep)%)
           echo "$(INSTALL_DATA) $$i $(myincludep)"; \
                 $(INSTALL_DATA) $$i $(myincludep); \
 	done; \
-	echo "$(INSTALL_DATA) $(cpu_headers) $(myincludep)"; \
-	$(INSTALL_DATA) $(cpu_headers) $(myincludep); \
+	echo "$(INSTALL_DATA) $(cpu_headers) $(myincludep)bits/"; \
+	$(INSTALL_DATA) $(cpu_headers) $(myincludep)bits/; \
 	fi;
 
 $(headers:%=$(myincludep)%): $(myincludep)%: %

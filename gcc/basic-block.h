@@ -231,6 +231,7 @@ extern void make_edge			PARAMS ((sbitmap *, basic_block,
 						 basic_block, int));
 extern void remove_edge			PARAMS ((edge));
 extern void create_basic_block		PARAMS ((int, rtx, rtx, rtx));
+extern int flow_delete_block		PARAMS ((basic_block));
 extern void merge_blocks_nomove		PARAMS ((basic_block, basic_block));
 extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
 						 basic_block));
@@ -426,9 +427,17 @@ enum update_life_extent
 #define PROP_AUTOINC		32	/* Create autoinc mem references.  */
 #define PROP_FINAL		63	/* All of the above.  */
 
+extern void life_analysis	PARAMS ((rtx, FILE *, int));
 extern void update_life_info	PARAMS ((sbitmap, enum update_life_extent,
 					 int));
 extern int count_or_remove_death_notes	PARAMS ((sbitmap, int));
+extern void propagate_block	PARAMS ((basic_block, regset, regset, int));
+
+struct propagate_block_info;
+extern rtx propagate_one_insn	PARAMS ((struct propagate_block_info *, rtx));
+extern struct propagate_block_info *init_propagate_block_info
+  PARAMS ((basic_block, regset, regset, int));
+extern void free_propagate_block_info PARAMS ((struct propagate_block_info *));
 
 /* In lcm.c */
 extern struct edge_list *pre_edge_lcm 	PARAMS ((FILE *, int, sbitmap *,

@@ -44,6 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "dwarf2out.h"
 #include "dwarfout.h"
 #include "ggc.h"
+#include "timevar.h"
 
 #if USE_CPPLIB
 #include "cpplib.h"
@@ -3429,7 +3430,6 @@ generate_ctor_and_dtor_functions_for_priority (n, data)
 void
 finish_file ()
 {
-  long start_time, this_time;
   tree vars;
   int reconsider;
   size_t i;
@@ -3439,8 +3439,6 @@ finish_file ()
   /* Bad parse errors.  Just forget about it.  */
   if (! global_bindings_p () || current_class_type || decl_namespace_list)
     return;
-
-  start_time = get_run_time ();
 
   /* Otherwise, GDB can get confused, because in only knows
      about source for LINENO-1 lines.  */
@@ -3465,10 +3463,7 @@ finish_file ()
      generating the intiailzer for an object may cause templates to be
      instantiated, etc., etc.  */
 
-  this_time = get_run_time ();
-  parse_time -= this_time - start_time;
-  varconst_time += this_time - start_time;
-  start_time = get_run_time ();
+  timevar_push (TV_VARCONST);
 
   if (new_abi_rtti_p ())
     emit_support_tinfos ();
@@ -3528,7 +3523,7 @@ finish_file ()
 	     in reverse order so that the most recently constructed
 	     variable is the first destroyed.  If we're using
 	     __cxa_atexit, then we don't need to do this; functions
-	     we're registered at initialization time to destroy the
+	     were registered at initialization time to destroy the
 	     local statics.  */
 	  if (!flag_use_cxa_atexit)
 	    {
@@ -3691,9 +3686,7 @@ finish_file ()
   if (back_end_hook)
     (*back_end_hook) (global_namespace);
 
-  this_time = get_run_time ();
-  parse_time -= this_time - start_time;
-  varconst_time += this_time - start_time;
+  timevar_pop (TV_VARCONST);
 
   if (flag_detailed_statistics)
     {
@@ -4148,12 +4141,8 @@ check_cp_case_value (value)
 
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
   STRIP_TYPE_NOPS (value);
-
-  if (TREE_READONLY_DECL_P (value))
-    {
-      value = decl_constant_value (value);
-      STRIP_TYPE_NOPS (value);
-    }
+  value = decl_constant_value (value);
+  STRIP_TYPE_NOPS (value);
   value = fold (value);
 
   if (TREE_CODE (value) != INTEGER_CST

@@ -3061,7 +3061,7 @@ check_bitfield_decl (field)
       /* detect invalid field size.  */
       if (TREE_CODE (w) == CONST_DECL)
 	w = DECL_INITIAL (w);
-      else if (TREE_READONLY_DECL_P (w))
+      else
 	w = decl_constant_value (w);
 
       if (TREE_CODE (w) != INTEGER_CST)
@@ -5215,7 +5215,7 @@ resolves_to_fixed_type_p (instance, nonnull)
     return 0;
   if (POINTER_TYPE_P (t))
     t = TREE_TYPE (t);
-  return same_type_p (TYPE_MAIN_VARIANT (t), TYPE_MAIN_VARIANT (fixed));
+  return same_type_ignoring_top_level_qualifiers_p (t, fixed);
 }
 
 

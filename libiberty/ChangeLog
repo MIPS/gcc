@@ -1,3 +1,51 @@
+2000-04-29  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* Makefile.in (maintainer-clean-subdir): Fix handling of empty
+	SUBDIRS.
+
+2000-04-28  Kenneth Block  <block@zk3.dec.com>
+	    Jason Merrill  <jason@casey.cygnus.com>
+
+        * cplus-dem.c (libiberty_demanglers): New table for demangle styles.
+        (cplus_demangle_set_style): New function for setting style.
+        (cplus_demangle_name_to_style): New function to translate name.
+
+2000-04-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* aclocal.m4: New file with new test libiberty_AC_FUNC_STRNCMP.
+
+	* configure.in (AC_CHECK_HEADERS): Add sys/mman.h fcntl.h.
+	(libiberty_AC_FUNC_STRNCMP): Invoke.
+
+	* strncmp.c: New file.
+
+Thu Apr 27 16:58:43 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* hashtab.c (htab_expand): Add prototype.
+	(find_empty_slot_for_expand): Likewise.
+
+2000-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* hashtab.c (hash_pointer, eq_pointer): Make definition static to
+	match prototype.
+	(htab_expand): Cast the return value of xcalloc.
+
+2000-04-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* hashtab.c (hash_pointer): New function.
+	(eq_pointer): Likewise.
+	(htab_hash_pointer): New variable.
+	(htab_eq_pointer): Likewise.
+
+2000-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* sort.c (sort_pointers): Fix endianness bugs.
+
+	* sort.c: New file.
+	* Makefile.in (CFILES): Add sort.c
+	(REQUIRED_OFILES): Add sort.o.
+	(sort.o): New target.
+
 2000-04-21  Michael Sokolov  <msokolov@ivan.Harhan.ORG>
 
 	* Makefile.in (*-subdir): Revamp slightly to avoid losing on

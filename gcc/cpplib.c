@@ -22,10 +22,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 
-#include "hashtab.h"
 #include "cpplib.h"
 #include "cpphash.h"
-#include "hashtab.h"
 #include "intl.h"
 #include "symcat.h"
 
@@ -149,6 +147,29 @@ DIRECTIVE_TABLE
 };
 #undef D
 #undef DIRECTIVE_TABLE
+
+/* Check if a token's name matches that of a known directive.  Put in
+   this file to save exporting dtable and other unneeded information.  */
+void
+_cpp_check_directive (list, token)
+     cpp_toklist *list;
+     cpp_token *token;
+{
+  const char *name = list->namebuf + token->val.name.offset;
+  size_t len = token->val.name.len;
+  unsigned int i;
+
+  list->dir_handler = 0;
+  list->dir_flags = 0;
+
+  for (i = 0; i < N_DIRECTIVES; i++)
+    if (dtable[i].length == len && !strncmp (dtable[i].name, name, len)) 
+      {
+	list->dir_handler = dtable[i].func;
+	list->dir_flags = dtable[i].flags;
+	break;
+      }
+}
 
 /* Handle a possible # directive.
    '#' has already been read.  */
@@ -315,11 +336,8 @@ static int
 do_define (pfile)
      cpp_reader *pfile;
 {
-  HASHNODE **slot;
-  DEFINITION *def = 0;
-  unsigned long hash;
+  HASHNODE *node;
   int len;
-  int funlike = 0, empty = 0;
   U_CHAR *sym;
   cpp_toklist *list = &pfile->directbuf;
 
@@ -350,89 +368,21 @@ do_define (pfile)
       goto out;
     }
 
-
-  if (list->tokens_used == 2 && list->tokens[1].type == CPP_VSPACE)
-    empty = 0;  /* Empty definition of object-like macro.  */
-
-  /* If the next character, with no intervening whitespace, is '(',
-     then this is a function-like macro.  Otherwise it is an object-
-     like macro, and C99 requires whitespace after the name
-     (6.10.3 para 3).  */
-  else if (!(list->tokens[1].flags & HSPACE_BEFORE))
+  node = _cpp_lookup (pfile, sym, len);
+  /* Check for poisoned identifiers now.  All other checks
+     are done in cpphash.c.  */
+  if (node->type == T_POISON)
     {
-      if (list->tokens[1].type == CPP_OPEN_PAREN)
-	funlike = 1;
-      else
-	cpp_pedwarn (pfile,
-		     "The C standard requires whitespace after #define %.*s",
-		     len, sym);
+      cpp_error (pfile, "redefining poisoned `%.*s'", len, sym);
+      goto out;
     }
-
-  if (! empty)
-    {
-      def = _cpp_create_definition (pfile, list, funlike);
-      if (def == 0)
-	goto out;
-    }
-
-  slot = _cpp_lookup_slot (pfile, sym, len, INSERT, &hash);
-  if (*slot)
-    {
-      int ok;
-      HASHNODE *hp = *slot;
-
-      /* Redefining a macro is ok if the definitions are the same.  */
-      if (hp->type == T_MACRO)
-	ok = ! empty && ! _cpp_compare_defs (pfile, def, hp->value.defn);
-      else if (hp->type == T_EMPTY)
-	ok = empty;
-      /* Redefining a constant is ok with -D.  */
-      else if (hp->type == T_CONST || hp->type == T_STDC)
-        ok = ! pfile->done_initializing;
-      /* Otherwise it's not ok.  */
-      else
-	ok = 0;
-      /* Print the warning or error if it's not ok.  */
-      if (! ok)
-	{
-	  if (hp->type == T_POISON)
-	    cpp_error (pfile, "redefining poisoned `%.*s'", len, sym);
-	  else
-	    cpp_pedwarn (pfile, "`%.*s' redefined", len, sym);
-	  if (hp->type == T_MACRO && pfile->done_initializing)
-	    {
-	      DEFINITION *d = hp->value.defn;
-	      cpp_pedwarn_with_file_and_line (pfile, d->file, d->line, d->col,
-			"this is the location of the previous definition");
-	    }
-	}
-      if (hp->type != T_POISON)
-	{
-	  /* Replace the old definition.  */
-	  if (hp->type == T_MACRO)
-	    _cpp_free_definition (hp->value.defn);
-	  if (empty)
-	    {
-	      hp->type = T_EMPTY;
-	      hp->value.defn = 0;
-	    }
-	  else
-	    {
-	      hp->type = T_MACRO;
-	      hp->value.defn = def;
-	    }
-	}
-    }
-  else
-    {
-      HASHNODE *hp = _cpp_make_hashnode (sym, len, T_MACRO, hash);
-      hp->value.defn = def;
-      *slot = hp;
-    }
+    
+  if (_cpp_create_definition (pfile, list, node) == 0)
+    goto out;
 
   if (CPP_OPTION (pfile, debug_output)
       || CPP_OPTION (pfile, dump_macros) == dump_definitions)
-    _cpp_dump_definition (pfile, sym, len, def);
+    _cpp_dump_definition (pfile, node);
   else if (CPP_OPTION (pfile, dump_macros) == dump_names)
     pass_thru_directive (sym, len, pfile, T_DEFINE);
 
@@ -728,7 +678,7 @@ do_undef (pfile)
      cpp_reader *pfile;
 {
   int len;
-  HASHNODE **slot;
+  HASHNODE *hp;
   U_CHAR *name;
   long here = CPP_WRITTEN (pfile);
   enum cpp_ttype token;
@@ -755,24 +705,24 @@ do_undef (pfile)
   name = pfile->token_buffer + here;
   CPP_SET_WRITTEN (pfile, here);
 
-  slot = _cpp_lookup_slot (pfile, name, len, NO_INSERT, 0);
-  if (slot)
+  hp = _cpp_lookup (pfile, name, len);
+  if (hp->type == T_VOID)
+    ; /* Not defined in the first place - do nothing.  */
+  else if (hp->type == T_POISON)
+    cpp_error (pfile, "cannot undefine poisoned \"%s\"", hp->name);
+  else
     {
-      HASHNODE *hp = *slot;
-      if (hp->type == T_POISON)
-	cpp_error (pfile, "cannot undefine poisoned `%s'", hp->name);
-      else
-	{
-	  /* If we are generating additional info for debugging (with -g) we
-	     need to pass through all effective #undef commands.  */
-	  if (CPP_OPTION (pfile, debug_output))
-	    pass_thru_directive (hp->name, len, pfile, T_UNDEF);
+      /* If we are generating additional info for debugging (with -g) we
+	 need to pass through all effective #undef commands.  */
+      if (CPP_OPTION (pfile, debug_output))
+	pass_thru_directive (hp->name, len, pfile, T_UNDEF);
 
-	  if (hp->type != T_MACRO)
-	    cpp_warning (pfile, "undefining `%s'", hp->name);
+      if (hp->type != T_MACRO && hp->type != T_FMACRO
+	  && hp->type != T_EMPTY && hp->type != T_IDENTITY)
+	cpp_warning (pfile, "undefining `%s'", hp->name);
 
-	  htab_clear_slot (pfile->hashtab, (void **)slot);
-	}
+      _cpp_free_definition (hp);
+      hp->type = T_VOID;
     }
 
   return 0;
@@ -985,12 +935,11 @@ do_pragma_poison (pfile)
   /* Poison these symbols so that all subsequent usage produces an
      error message.  */
   U_CHAR *p;
-  HASHNODE **slot;
+  HASHNODE *hp;
   long written;
   size_t len;
   enum cpp_ttype token;
   int writeit;
-  unsigned long hash;
 
   /* As a rule, don't include #pragma poison commands in output,  
      unless the user asks for them.  */
@@ -1013,24 +962,15 @@ do_pragma_poison (pfile)
 
       p = pfile->token_buffer + written;
       len = CPP_PWRITTEN (pfile) - p;
-      slot = _cpp_lookup_slot (pfile, p, len, INSERT, &hash);
-      if (*slot)
-	{
-	  HASHNODE *hp = *slot;
-	  if (hp->type != T_POISON)
-	    {
-	      cpp_warning (pfile, "poisoning existing macro `%s'", hp->name);
-	      if (hp->type == T_MACRO)
-		_cpp_free_definition (hp->value.defn);
-	      hp->value.defn = 0;
-	      hp->type = T_POISON;
-	    }
-	}
+      hp = _cpp_lookup (pfile, p, len);
+      if (hp->type == T_POISON)
+	;  /* It is allowed to poison the same identifier twice.  */
       else
 	{
-	  HASHNODE *hp = _cpp_make_hashnode (p, len, T_POISON, hash);
-	  hp->value.cpval = 0;
-	  *slot = hp;
+	  if (hp->type != T_VOID)
+	    cpp_warning (pfile, "poisoning existing macro `%s'", hp->name);
+	  _cpp_free_definition (hp);
+	  hp->type = T_POISON;
 	}
       if (writeit)
 	CPP_PUTC (pfile, ' ');
@@ -1548,9 +1488,7 @@ do_assert (pfile)
   U_CHAR *sym;
   int ret;
   HASHNODE *base, *this;
-  HASHNODE **bslot, **tslot;
   size_t blen, tlen;
-  unsigned long bhash, thash;
 
   old_written = CPP_WRITTEN (pfile);	/* remember where it starts */
   ret = _cpp_parse_assertion (pfile);
@@ -1568,33 +1506,24 @@ do_assert (pfile)
       cpp_error (pfile, "junk at end of #assert");
       goto error;
     }
-
   sym = pfile->token_buffer + old_written;
-  blen = (U_CHAR *) strchr (sym, '(') - sym;
-  tslot = _cpp_lookup_slot (pfile, sym, tlen, INSERT, &thash);
-  if (*tslot)
+
+  this = _cpp_lookup (pfile, sym, tlen);
+  if (this->type == T_ASSERT)
     {
       cpp_warning (pfile, "%s re-asserted", sym);
       goto error;
     }
-
-  bslot = _cpp_lookup_slot (pfile, sym, blen, INSERT, &bhash);
-  if (! *bslot)
+      
+  blen = (U_CHAR *) strchr (sym, '(') - sym;
+  base = _cpp_lookup (pfile, sym, blen);
+  if (base->type == T_VOID)
     {
-      *bslot = base = _cpp_make_hashnode (sym, blen, T_ASSERT, bhash);
+      base->type = T_ASSERT;
       base->value.aschain = 0;
     }
-  else
-    {
-      base = *bslot;
-      if (base->type != T_ASSERT)
-	{
-	  /* Token clash - but with what?! */
-	  cpp_ice (pfile, "base->type != T_ASSERT in do_assert");
-	  goto error;
-	}
-    }
-  *tslot = this = _cpp_make_hashnode (sym, tlen, T_ASSERT, thash);
+
+  this->type = T_ASSERT;
   this->value.aschain = base->value.aschain;
   base->value.aschain = this;
 
@@ -1617,13 +1546,13 @@ do_unassert (pfile)
   old_written = CPP_WRITTEN (pfile);
   ret = _cpp_parse_assertion (pfile);
   if (ret == 0)
-    goto error;
+    goto out;
   thislen = CPP_WRITTEN (pfile) - old_written;
 
   if (_cpp_get_directive_token (pfile) != CPP_VSPACE)
     {
       cpp_error (pfile, "junk at end of #unassert");
-      goto error;
+      goto out;
     }
   sym = pfile->token_buffer + old_written;
   CPP_SET_WRITTEN (pfile, old_written);
@@ -1631,40 +1560,43 @@ do_unassert (pfile)
   if (ret == 1)
     {
       base = _cpp_lookup (pfile, sym, thislen);
-      if (! base)
-	goto error;  /* It isn't an error to #undef what isn't #defined,
-			so it isn't an error to #unassert what isn't
-			#asserted either. */
-      
+      if (base->type == T_VOID)
+	goto out;  /* It isn't an error to #undef what isn't #defined,
+		      so it isn't an error to #unassert what isn't
+		      #asserted either. */
+
       for (this = base->value.aschain; this; this = next)
         {
 	  next = this->value.aschain;
-	  htab_remove_elt (pfile->hashtab, this);
+	  this->value.aschain = NULL;
+	  this->type = T_VOID;
 	}
-      htab_remove_elt (pfile->hashtab, base);
+      base->value.aschain = NULL;
+      base->type = T_VOID;
     }
   else
     {
       baselen = (U_CHAR *) strchr (sym, '(') - sym;
       base = _cpp_lookup (pfile, sym, baselen);
-      if (! base) goto error;
+      if (base->type == T_VOID) goto out;
       this = _cpp_lookup (pfile, sym, thislen);
-      if (! this) goto error;
+      if (this->type == T_VOID) goto out;
 
       next = base;
       while (next->value.aschain != this)
 	next = next->value.aschain;
 
       next->value.aschain = this->value.aschain;
-      htab_remove_elt (pfile->hashtab, this);
+      this->value.aschain = NULL;
+      this->type = T_VOID;
 
       if (base->value.aschain == NULL)
 	/* Last answer for this predicate deleted. */
-	htab_remove_elt (pfile->hashtab, base);
+	base->type = T_VOID;
     }
   return 0;
-  
- error:
+
+ out:
   _cpp_skip_rest_of_line (pfile);
   CPP_SET_WRITTEN (pfile, old_written);
   return 0;
@@ -1767,10 +1699,10 @@ cpp_defined (pfile, id, len)
      int len;
 {
   HASHNODE *hp = _cpp_lookup (pfile, id, len);
-  if (hp && hp->type == T_POISON)
+  if (hp->type == T_POISON)
     {
       cpp_error (pfile, "attempt to use poisoned `%s'", hp->name);
       return 0;
     }
-  return (hp != NULL);
+  return (hp->type != T_VOID);
 }

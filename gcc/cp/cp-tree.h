@@ -43,6 +43,7 @@ Boston, MA 02111-1307, USA.  */
       AGGR_INIT_VIA_CTOR_P (in AGGR_INIT_EXPR)
       SCOPE_BEGIN_P (in SCOPE_STMT)
       CTOR_BEGIN_P (in CTOR_STMT)
+      DECL_PRETTY_FUNCTION_P (in VAR_DECL)
    1: IDENTIFIER_VIRTUAL_P.
       TI_PENDING_TEMPLATE_FLAG.
       TEMPLATE_PARMS_FOR_INLINE.
@@ -1857,11 +1858,7 @@ struct lang_type
 
 struct lang_decl_flags
 {
-#ifdef ONLY_INT_FIELDS
-  int language : 8;
-#else
-  enum languages language : 8;
-#endif
+  ENUM_BITFIELD(languages) language : 8;
 
   unsigned operator_attr : 1;
   unsigned constructor_attr : 1;
@@ -1870,7 +1867,7 @@ struct lang_decl_flags
   unsigned static_function : 1;
   unsigned pure_virtual : 1;
   unsigned has_in_charge_parm_p : 1;
-  unsigned pretty_function_p : 1;
+  unsigned bitfield : 1;
 
   unsigned mutable_flag : 1;
   unsigned deferred : 1;
@@ -1880,12 +1877,11 @@ struct lang_decl_flags
   unsigned not_really_extern : 1;
   unsigned needs_final_overrider : 1;
 
-  unsigned bitfield : 1;
   unsigned defined_in_class : 1;
   unsigned pending_inline_p : 1;
   unsigned global_ctor_p : 1;
   unsigned global_dtor_p : 1;
-  unsigned dummy : 3;
+  unsigned dummy : 4;
 
   tree context;
 
@@ -1930,7 +1926,7 @@ struct lang_decl
 
 /* Non-zero if NODE is a _DECL with TREE_READONLY set.  */
 #define TREE_READONLY_DECL_P(NODE) \
-  (TREE_READONLY (NODE) && TREE_CODE_CLASS (TREE_CODE (NODE)) == 'd')
+  (TREE_READONLY (NODE) && DECL_P (NODE))
 
 /* Non-zero iff DECL is memory-based.  The DECL_RTL of
    certain const variables might be a CONST_INT, or a REG
@@ -2110,7 +2106,7 @@ struct lang_decl
 /* Nonzero if this DECL is the __PRETTY_FUNCTION__ variable in a
    template function.  */
 #define DECL_PRETTY_FUNCTION_P(NODE) \
-  (DECL_LANG_SPECIFIC(NODE)->decl_flags.pretty_function_p)
+  (TREE_LANG_FLAG_0 (NODE))
 
 /* The _TYPE context in which this _DECL appears.  This field holds the
    class where a virtual function instance is actually defined. */
@@ -3672,6 +3668,11 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, OP_FLAG, TYPENAME_FLAG };
    sense of `same'.  */
 #define same_type_p(type1, type2) \
   comptypes ((type1), (type2), COMPARE_STRICT)
+
+/* Returns nonzero iff TYPE1 and TYPE2 are the same type, ignoring
+   top-level qualifiers.  */
+#define same_type_ignoring_top_level_qualifiers_p(type1, type2) \
+  same_type_p (TYPE_MAIN_VARIANT (type1), TYPE_MAIN_VARIANT (type2))
 
 /* Returns nonzero iff TYPE1 and TYPE2 are the same type, or if TYPE2
    is derived from TYPE1, or if TYPE2 is a pointer (reference) to a

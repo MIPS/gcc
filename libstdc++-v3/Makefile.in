@@ -68,6 +68,7 @@ AS = @AS@
 BUILD_LIBIO_INCLUDE = @BUILD_LIBIO_INCLUDE@
 CC = @CC@
 CPP = @CPP@
+CPUFLAGS = @CPUFLAGS@
 CSTDIO_CC = @CSTDIO_CC@
 CSTDIO_H = @CSTDIO_H@
 CXX = @CXX@
@@ -100,6 +101,7 @@ WERRORSUPPRESS = @WERRORSUPPRESS@
 cpu_include_dir = @cpu_include_dir@
 ctype_include_dir = @ctype_include_dir@
 glibcpp_basedir = @glibcpp_basedir@
+libinst_wstring_la = @libinst_wstring_la@
 
 AUTOMAKE_OPTIONS = 1.3 cygnus
 MAINT_CHARSET = latin1
@@ -187,7 +189,7 @@ AM_MAKEFLAGS = \
 	"NM=$(NM)" \
 	"NM_FOR_BUILD=$(NM_FOR_BUILD)" \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
-	"DESTDIR=$(DESTDIR)"
+	"DESTDIR=$(DESTDIR)" 
 
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/../mkinstalldirs

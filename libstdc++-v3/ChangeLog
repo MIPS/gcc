@@ -1,3 +1,97 @@
+2000-05-01  Benjamin Kosnik  <bkoz@haight.constant.com>
+
+	* src/Makefile.am (AC_CXXFLAGS): Add CPUFLAGS here.
+	* src/Makefile.in: Regenerate.
+	* acinclude.m4 (GLIBCPP_ENABLE_DEBUG): Revert.
+
+2000-04-30  Benjamin Kosnik  <bkoz@gnu.org>
+
+	* config/cpu/powerpc/bits/atomicity.h (__compare_and_swap): Fix typo.
+
+	* mknumeric_limits (trait_name): Fix copyright notice.
+	* src/gen-num-limits.cc: Explicitly instantiate epsilon and
+	round_error data members of struct value. This works around
+	weak-linking issues on AIX, HPUX.
+
+2000-04-29  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* docs/download.html:  Add link to list of mirror sites.
+
+2000-04-28  Loren J. Rittle  <ljrittle@acm.org>
+
+        * mkcheck.in: Rely on exit status instead of the presence of a
+        core file.  Added comments on how/where to save core and exe
+        files.  Move shell wildcards outside quotes and fix core path.
+	
+2000-04-27  scott snyder  <snyder@fnal.gov>
+
+        * src/misc-inst.cc: Explicitly instantiate ifstream and ofstream
+        classes.
+
+2000-04-26  Nathan C. Myers  <ncm@cantrip.org>
+
+	* bits/basic_string.h: include <bits/atomicity.h> instead
+        of <atomicity.h>, and use the uglified names.
+        * config/cpu/*/atomicity.h: replace with bits/atomicity.h;
+        uglify names, eliminate dependence on <inttypes.h>.
+        * src/Makefile.in, src/Makefile.am: refer to correct place
+        for atomicity.h header.
+
+2000-04-25 Steven King <sxking@uswest.net>
+
+        * bits/basic_string.h: Fix syntax error.
+
+2000-04-25  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CHECK_MATH_SUPPORT): Improve checks for
+	USE_LONG_DOUBLE.
+	(GLIBCPP_ENABLE_DEBUG): If alpha, use -gdwarf-2.
+	* math/Makefile.am (EXTRA_LONG_DOUBLE_yes): Add all the long
+	versions to this as copysignl is needed anyway for these targets.
+	* math/Makefile.in: Regenerate.
+	
+	* bits/streambuf.tcc (streambuf::xsgetn): Tweak.
+	* bits/fstream.tcc (underflow): Cast to libio types.
+	* bits/basic_file.h (seekoff): Fixes for alpha: use __c_streamoff.
+	* config/c_io_libio.cc (seekoff): And here.
+	
+2000-04-24  Loren J. Rittle  <ljrittle@acm.org>
+
+        * mkcheck.in: Report compiler version used for test.  Find
+        the built _G_config.h instead of any old installed version.
+
+2000-04-24  Loren J. Rittle  <ljrittle@acm.org>
+
+        * config/generic/ctype.cc (do_toupper): Remove dependence on
+        non-portable/non-existent lookup table.
+        (do_tolower): Same.
+	
+2000-04-24  Nathan Myers  <ncm@cantrip.org>
+
+	* src/string-inst.cc: More fixing.
+
+2000-04-24  Benjamin Kosnik  <bkoz@gnu.org>
+
+	* bits/stl_iterator.h: Pedantic fixing.
+	* bits/std_sstream.h: And here.
+	* bits/string.tcc: And here.
+
+2000-04-24  Felix Natter <fnatter@gmx.net> 
+
+	* docs/17_intro/howto.html: Add bits.
+	* docs/17_intro/porting-howto.html: New file.
+	
+2000-04-24  Branko Cibej  <branko.cibej@hermes.si>
+
+        * acinclude.m4(GLIBCPP_CHECK_WCHAR_T_SUPPORT): Expand
+        @libinst_wstring_la@ to libinst-wstring.la when specializing for
+        wchar_t, to empty string otherwise.
+        * src/Makefile.am: (EXTRA_LTLIBRARIES): New.
+        (sources): Remove $(string_sources) and $(wstring_sources).
+        (libstdc___la_LIBADD): Add libinst-string.la and @libinst_wstring_la@.
+        (libstdc___la_DEPENDENCIES): New.
+        (libinst_string_la_SOURCES, libinst_wstring_la_SOURCES): New.
+
 2000-04-20  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* bits/std_sstream.h: Tweak formatting.

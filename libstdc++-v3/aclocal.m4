@@ -250,16 +250,19 @@ AC_DEFUN(GLIBCPP_CHECK_BUILTIN_MATH_SUPPORT, [
 
 
 dnl
+
 dnl Check to see what architecture we are compiling for. If it's
 dnl supported, use special hand-crafted routines to provide thread
-dnl primitives.
+dnl primitives. Also, if architecture-specific flags are required for 
+dnl compilation, add them here.
 dnl 
-dnl Depending on what is found, select various configure/cpu/*/atomicity.h 
-dnl If not found, select configure/cpu/generic/atomicity.h
+dnl Depending on what is found, select configure/cpu/*/bits/atomicity.h 
+dnl If not found, select configure/cpu/generic/bits/atomicity.h
 dnl
 dnl GLIBCPP_CHECK_CPU
 AC_DEFUN(GLIBCPP_CHECK_CPU, [
     AC_MSG_CHECKING([for cpu primitives directory])
+    CPUFLAGS=			
     case "$target_cpu" in
       alpha*)
 	cpu_include_dir="config/cpu/alpha"
@@ -272,6 +275,7 @@ AC_DEFUN(GLIBCPP_CHECK_CPU, [
         ;;
       powerpc | rs6000)
 	cpu_include_dir="config/cpu/powerpc"
+    	CPUFLAGS='-mnew-mnemonics -Wa,-mppc -mpowerpc'
         ;;
       sparc64 | ultrasparc)
 	cpu_include_dir="config/cpu/sparc/sparc64"
@@ -285,6 +289,7 @@ AC_DEFUN(GLIBCPP_CHECK_CPU, [
     esac
     AC_MSG_RESULT($cpu_include_dir)
     AC_SUBST(cpu_include_dir)
+    AC_SUBST(CPUFLAGS)
 ])
 
  
@@ -426,9 +431,9 @@ AC_DEFUN(GLIBCPP_CHECK_MATH_SUPPORT, [
   carg cargf nan hypot hypotf atan2f expf copysignf)
 
   dnl We compile the long double complex functions only if the function 
-  dnl provides the non-complex functions.
+  dnl provides the non-complex long double functions.
   USE_LONG_DOUBLE=no
-  AC_CHECK_FUNC(sinl,
+  AC_CHECK_FUNC(copysignl,
   USE_LONG_DOUBLE=yes
   AC_REPLACE_MATHFUNCS(ccoshl ccosl cexpl cpowl csinhl csinl \
   csqrtl ctanhl ctanl cargl hypotl signbitl c_logl clog10l))
@@ -496,12 +501,15 @@ AC_DEFUN(GLIBCPP_CHECK_WCHAR_T_SUPPORT, [
 
   dnl Tests for wide character functions.
   AC_REPLACE_STRINGFUNCS(wcslen wmemchr wmemcmp wmemcpy wmemmove wmemset)
+  AC_SUBST(libinst_wstring_la)
 
   AC_MSG_CHECKING([for wide character support])
   if test $has_weof = "yes" && test $has_wchar_minmax = "yes"; then
+    libinst_wstring_la="libinst-wstring.la"
     AC_DEFINE(_GLIBCPP_USE_WCHAR_T)
     AC_MSG_RESULT(ok)
   else
+    libinst_wstring_la=""
     AC_MSG_RESULT("not specializing for wchar_t")
   fi
   ],[
@@ -613,10 +621,12 @@ changequote([, ])dnl
 enable_debug=GLIBCPP_ENABLE_DEBUG_DEFAULT)dnl
 dnl Option parsed, now set things appropriately
 case "$enable_debug" in
-    yes)  DEBUGFLAGS='-ggdb -O0'
-          ;;
-    no)   DEBUGFLAGS='-g'
-          ;;
+    yes) 
+	DEBUGFLAGS='-O0 -ggdb'			
+	;;
+    no)   
+	DEBUGFLAGS='-g'
+        ;;
 esac
 AC_SUBST(DEBUGFLAGS)
 ])
@@ -737,6 +747,11 @@ AC_DEFUN(GLIBCPP_ENABLE_CSTDIO, [
 		  need_libio=yes
   		fi
   		AC_SUBST(BUILD_LIBIO_INCLUDE)
+
+		# see if the _G_config.h header needs to be built. 
+		# NB: This replaces the _G_CONFIG_H machinery in libio-v2
+		AC_CHECK_HEADER(_G_config.h,  has_gconf_h=yes, has_gconf_h=no)
+  		AM_CONDITIONAL(GLIBCPP_NEED_LIBIO_CONFIG_H, test "$has_gconf_h" = no)
 		;;
         xwince)
                 CSTDIO_H=c_io_wince.h

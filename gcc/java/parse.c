@@ -6567,6 +6567,13 @@ end_class_declaration (resume)
   POP_CPC ();
   if (resume && no_error_occured)
     java_parser_context_resume ();
+
+  /* We're ending a class declaration, this is a good time to reset
+     the interface cout. Note that might have been already done in
+     create_interface, but if at that time an inner class was being
+     dealt with, the interface count was reset in a context created
+     for the sake of handling inner classes declaration. */
+  ctxp->interface_number = 0;
 }
 
 static void
@@ -6684,6 +6691,21 @@ lookup_field_wrapper (class, name)
   tree decl;
   java_parser_context_save_global ();
   decl = lookup_field (&type, name);
+
+  /* Last chance: if we're within the context of an inner class, we
+     might be trying to access a local variable defined in an outer
+     context. We try to look for it now. */
+  if (INNER_CLASS_TYPE_P (class) && (!decl || decl == error_mark_node))
+    {
+      char *alias_buffer;
+      MANGLE_OUTER_LOCAL_VARIABLE_NAME (alias_buffer, name);
+      name = get_identifier (alias_buffer);
+      type = class;
+      decl = lookup_field (&type, name);
+      if (decl && decl != error_mark_node)
+	FIELD_LOCAL_ALIAS_USED (decl) = 1;
+    }
+
   java_parser_context_restore_global ();
   return decl == error_mark_node ? NULL : decl;
 }
@@ -7189,7 +7211,7 @@ finish_method_declaration (method_body)
       && TREE_TYPE (current_function_decl) 
       && TREE_TYPE (TREE_TYPE (current_function_decl)) == void_type_node)
     method_body = build1 (RETURN_EXPR, void_type_node, NULL);
-    
+
   BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (current_function_decl)) = method_body;
   maybe_absorb_scoping_blocks ();
   /* Exit function's body */
@@ -7612,7 +7634,9 @@ register_incomplete_type (kind, wfl, decl, ptr)
   JDEP_WFL (new) = wfl;
   JDEP_CHAIN (new) = NULL;
   JDEP_MISC (new) = NULL_TREE;
-  if ((kind == JDEP_SUPER || kind == JDEP_INTERFACE)
+  /* For some dependencies, set the enclosing class of the current
+     class to be the enclosing context */
+  if ((kind == JDEP_SUPER || kind == JDEP_INTERFACE || kind == JDEP_ANONYMOUS)
       && GET_ENCLOSING_CPC ())
     JDEP_ENCLOSING (new) = TREE_VALUE (GET_ENCLOSING_CPC ());
   else
@@ -9545,10 +9569,6 @@ source_start_java_method (fndecl)
   tree tem;
   tree parm_decl;
   int i;
-#if 0
-  int flag_inner = DECL_CONSTRUCTOR_P (fndecl)
-      && (INNER_CLASS_TYPE_P (DECL_CONTEXT (fndecl)) ? 1 : 0);
-#endif
 
   if (!fndecl)
     return;
@@ -9585,29 +9605,6 @@ source_start_java_method (fndecl)
 	LOCAL_FINAL (parm_decl) = 1;
 
       BLOCK_CHAIN_DECL (parm_decl);
-
-#if 0
-      /* If this is a constructor of a inner class, hide the extra
-         this$<n> parameter */
-      if (i == 0 && flag_inner)
-	{
-	  tree link = TREE_CHAIN (tem);
-	  tree type = DECL_CONTEXT (TYPE_NAME (DECL_CONTEXT (fndecl)));
-
-	  type = build_pointer_type (TREE_TYPE (type));
-	  parm_decl = build_decl (PARM_DECL,
-				  build_current_thisn (current_class), type);
-	  BLOCK_CHAIN_DECL (parm_decl);
-	  /* We hide the this$<n> decl in the name field of its
-	     parameter declaration. */
-	  parm_decl = build_tree_list (DECL_NAME (parm_decl), type);
-	  TREE_CHAIN (tem) = parm_decl;
-	  TREE_CHAIN (parm_decl) = link;
-	  tem = parm_decl;
-	  i++;
-	}
-#endif
-
     }
   tem = BLOCK_EXPR_DECLS (DECL_FUNCTION_BODY (current_function_decl));
   BLOCK_EXPR_DECLS (DECL_FUNCTION_BODY (current_function_decl)) =
@@ -9999,8 +9996,7 @@ java_complete_expand_methods (class_decl)
   for (decl = first_decl; decl; decl = TREE_CHAIN (decl))
     {
       /* Skip abstract or native methods */
-      if (METHOD_ABSTRACT (decl) || METHOD_NATIVE (decl) 
-	  || DECL_CONSTRUCTOR_P (decl) || DECL_CLINIT_P (decl))
+      if (METHOD_ABSTRACT (decl) || METHOD_NATIVE (decl))
 	continue;
       java_complete_expand_method (decl);
     }
@@ -10135,6 +10131,7 @@ java_complete_expand_method (mdecl)
 	    check_for_initialization (block_body);
 	  ctxp->explicit_constructor_p = 0;
 	}
+
       BLOCK_EXPR_BODY (fbody) = block_body;
 
       /* If we saw a return but couldn't evaluate it properly, we'll
@@ -11175,25 +11172,17 @@ resolve_expression_name (id, orig)
       else 
         {
 	  decl = lookup_field_wrapper (current_class, name);
-
-	  /* Last chance: if we're within the context of an inner
-	     class, we might be trying to access a local variable
-	     defined in an outer context. We try to look for it
-	     now. */
-	  if (!decl && INNER_CLASS_TYPE_P (current_class))
-	    {
-	      char *alias_buffer;
-	      MANGLE_OUTER_LOCAL_VARIABLE_NAME (alias_buffer, name);
-	      name = get_identifier (alias_buffer);
-	      decl = lookup_field_wrapper (current_class, name);
-	      if (decl)
-		FIELD_LOCAL_ALIAS_USED (decl) = 1;
-	    }
-
 	  if (decl)
 	    {
 	      tree access = NULL_TREE;
 	      int fs = FIELD_STATIC (decl);
+
+	      /* If we're accessing an outer scope local alias, make
+		 sure we change the name of the field we're going to
+		 build access to. */
+	      if (FIELD_LOCAL_ALIAS_USED (decl))
+		name = DECL_NAME (decl);
+
 	      /* Instance variable (8.3.1.1) can't appear within
 		 static method, static initializer or initializer for
 		 a static variable. */
@@ -12177,9 +12166,9 @@ patch_method_invocation (patch, primary, where, is_static, ret_decl)
 	     access$0(access$0(...(this$0))). 
 	     
 	     maybe_use_access_method returns a non zero value if the
-	     this_arg has to be deplaced into the (then generated)
-	     stub argument list. In the mean time, the selected
-	     function might have be replaced by a generated stub. */
+	     this_arg has to be moved into the (then generated) stub
+	     argument list. In the mean time, the selected function
+	     might have be replaced by a generated stub. */
 	  if (maybe_use_access_method (is_super_init, &list, &this_arg))
 	    args = tree_cons (NULL_TREE, this_arg, args);
 	}
@@ -12373,10 +12362,11 @@ patch_invoke (patch, method, args)
 {
   tree dtable, func;
   tree original_call, t, ta;
+  tree cond = NULL_TREE;
 
   /* Last step for args: convert build-in types. If we're dealing with
      a new TYPE() type call, the first argument to the constructor
-     isn't found in the incomming argument list, but delivered by
+     isn't found in the incoming argument list, but delivered by
      `new' */
   t = TYPE_ARG_TYPES (TREE_TYPE (method));
   if (TREE_CODE (patch) == NEW_CLASS_EXPR)
@@ -12404,6 +12394,22 @@ patch_invoke (patch, method, args)
 	  func = build_invokevirtual (dtable, method);
 	  break;
 
+	case INVOKE_NONVIRTUAL:
+	  /* If the object for the method call is null, we throw an
+	     exception.  We don't do this if the object is the current
+	     method's `this'.  In other cases we just rely on an
+	     optimization pass to eliminate redundant checks.  */
+	  if (TREE_VALUE (args) != current_this)
+	    {
+	      /* We use a SAVE_EXPR here to make sure we only evaluate
+		 the new `self' expression once.  */
+	      tree save_arg = save_expr (TREE_VALUE (args));
+	      TREE_VALUE (args) = save_arg;
+	      cond = build (EQ_EXPR, boolean_type_node, save_arg,
+			    null_pointer_node);
+	    }
+	  /* Fall through.  */
+
 	case INVOKE_SUPER:
 	case INVOKE_STATIC:
 	  func = build_known_method_ref (method, TREE_TYPE (method),
@@ -12429,7 +12435,7 @@ patch_invoke (patch, method, args)
   TREE_OPERAND (patch, 1) = args;
   original_call = patch;
 
-  /* We're processing a `new TYPE ()' form. New is called an its
+  /* We're processing a `new TYPE ()' form. New is called and its
      returned value is the first argument to the constructor. We build
      a COMPOUND_EXPR and use saved expression so that the overall NEW
      expression value is a pointer to a newly created and initialized
@@ -12459,6 +12465,26 @@ patch_invoke (patch, method, args)
       TREE_SET_CODE (original_call, CALL_EXPR);
       patch = build (COMPOUND_EXPR, TREE_TYPE (new), patch, saved_new);
     }
+
+  /* If COND is set, then we are building a check to see if the object
+     is NULL.  */
+  if (cond != NULL_TREE)
+    {
+      /* We have to make the `then' branch a compound expression to
+	 make the types turn out right.  This seems bizarre.  */
+      patch = build (COND_EXPR, TREE_TYPE (patch), cond,
+		     build (COMPOUND_EXPR, TREE_TYPE (patch),
+			    build (CALL_EXPR, void_type_node,
+				   build_address_of (soft_nullpointer_node),
+				   NULL_TREE, NULL_TREE),
+			    (FLOAT_TYPE_P (TREE_TYPE (patch))
+			     ? build_real (TREE_TYPE (patch), dconst0)
+			     : build1 (CONVERT_EXPR, TREE_TYPE (patch),
+				       integer_zero_node))),
+		     patch);
+      TREE_SIDE_EFFECTS (patch) = 1;
+    }
+
   return patch;
 }
 
@@ -12472,17 +12498,22 @@ invocation_mode (method, super)
   if (super)
     return INVOKE_SUPER;
 
-  if (access & ACC_STATIC || access & ACC_FINAL || access & ACC_PRIVATE)
+  if (access & ACC_STATIC)
     return INVOKE_STATIC;
 
-  if (CLASS_FINAL (TYPE_NAME (DECL_CONTEXT (method))))
-    return INVOKE_STATIC;
-  
-  if (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))))
-    return INVOKE_INTERFACE;
-  
+  /* We have to look for a constructor before we handle nonvirtual
+     calls; otherwise the constructor will look nonvirtual.  */
   if (DECL_CONSTRUCTOR_P (method))
     return INVOKE_STATIC;
+
+  if (access & ACC_FINAL || access & ACC_PRIVATE)
+    return INVOKE_NONVIRTUAL;
+
+  if (CLASS_FINAL (TYPE_NAME (DECL_CONTEXT (method))))
+    return INVOKE_NONVIRTUAL;
+
+  if (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))))
+    return INVOKE_INTERFACE;
 
   return INVOKE_VIRTUAL;
 }
@@ -12879,8 +12910,9 @@ qualify_ambiguous_name (id)
 	qual = TREE_CHAIN (qual);
 	again = new_array_found = 1;
 	continue;
-      case NEW_CLASS_EXPR:
       case CONVERT_EXPR:
+	break;
+      case NEW_CLASS_EXPR:
 	qual_wfl = TREE_OPERAND (qual_wfl, 0);
 	break;
       case ARRAY_REF:
@@ -12965,10 +12997,10 @@ qualify_ambiguous_name (id)
       }
   } while (again);
   
-  /* If name appears within the scope of a location variable
-     declaration or parameter declaration, then it is an expression
-     name. We don't carry this test out if we're in the context of the
-     use of SUPER or THIS */
+  /* If name appears within the scope of a local variable declaration
+     or parameter declaration, then it is an expression name. We don't
+     carry this test out if we're in the context of the use of SUPER
+     or THIS */
   if (!this_found && !super_found 
       && TREE_CODE (name) != STRING_CST && TREE_CODE (name) != INTEGER_CST
       && (decl = IDENTIFIER_LOCAL_VALUE (name)))
@@ -13004,7 +13036,7 @@ qualify_ambiguous_name (id)
       QUAL_RESOLUTION (qual) = decl;
     }
 
-  /* Method call are expression name */
+  /* Method call, array references and cast are expression name */
   else if (TREE_CODE (QUAL_WFL (qual)) == CALL_EXPR
 	   || TREE_CODE (QUAL_WFL (qual)) == ARRAY_REF
 	   || TREE_CODE (QUAL_WFL (qual)) == CONVERT_EXPR)

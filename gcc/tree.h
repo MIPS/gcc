@@ -1551,11 +1551,7 @@ struct tree_decl
   int linenum;
   unsigned int uid;
   union tree_node *size;
-#ifdef ONLY_INT_FIELDS
-  int mode : 8;
-#else
-  enum machine_mode mode : 8;
-#endif
+  ENUM_BITFIELD(machine_mode) mode : 8;
 
   unsigned external_flag : 1;
   unsigned nonlocal_flag : 1;
@@ -2060,6 +2056,7 @@ extern tree rli_size_unit_so_far	PARAMS ((record_layout_info));
 extern tree rli_size_so_far		PARAMS ((record_layout_info));
 extern void normalize_rli		PARAMS ((record_layout_info));
 extern void place_field			PARAMS ((record_layout_info, tree));
+extern void compute_record_mode		PARAMS ((tree));
 extern void finish_record_layout	PARAMS ((record_layout_info));
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
@@ -2562,28 +2559,28 @@ extern char *dwarf2out_cfi_label	PARAMS ((void));
 
 /* Entry point to update the canonical frame address (CFA).  */
 
-extern void dwarf2out_def_cfa		PARAMS ((char *, unsigned, long));
+extern void dwarf2out_def_cfa		PARAMS ((const char *, unsigned, long));
 
 /* Add the CFI for saving a register window.  */
 
-extern void dwarf2out_window_save	PARAMS ((char *));
+extern void dwarf2out_window_save	PARAMS ((const char *));
 
 /* Add a CFI to update the running total of the size of arguments pushed
    onto the stack.  */
 
-extern void dwarf2out_args_size		PARAMS ((char *, long));
+extern void dwarf2out_args_size		PARAMS ((const char *, long));
 
 /* Entry point for saving a register to the stack.  */
 
-extern void dwarf2out_reg_save		PARAMS ((char *, unsigned, long));
+extern void dwarf2out_reg_save		PARAMS ((const char *, unsigned, long));
 
 /* Entry point for saving the return address in the stack.  */
 
-extern void dwarf2out_return_save	PARAMS ((char *, long));
+extern void dwarf2out_return_save	PARAMS ((const char *, long));
 
 /* Entry point for saving the return address in a register.  */
 
-extern void dwarf2out_return_reg	PARAMS ((char *, unsigned));
+extern void dwarf2out_return_reg	PARAMS ((const char *, unsigned));
 
 /* Output a marker (i.e. a label) for the beginning of a function, before
    the prologue.  */
@@ -2832,6 +2829,7 @@ extern void save_for_inline_nocopy	PARAMS ((tree));
 extern void save_for_inline_copying	PARAMS ((tree));
 extern void set_decl_abstract_flags	PARAMS ((tree, int));
 extern void output_inline_function	PARAMS ((tree));
+extern void set_decl_origin_self	PARAMS ((tree));
 
 /* In c-lex.c */
 extern void set_yydebug			PARAMS ((int));
@@ -2901,28 +2899,28 @@ extern char *dwarf2out_cfi_label	PARAMS ((void));
 
 /* Entry point to update the canonical frame address (CFA).  */
 
-extern void dwarf2out_def_cfa		PARAMS ((char *, unsigned, long));
+extern void dwarf2out_def_cfa		PARAMS ((const char *, unsigned, long));
 
 /* Add the CFI for saving a register window.  */
 
-extern void dwarf2out_window_save	PARAMS ((char *));
+extern void dwarf2out_window_save	PARAMS ((const char *));
 
 /* Add a CFI to update the running total of the size of arguments pushed
    onto the stack.  */
 
-extern void dwarf2out_args_size		PARAMS ((char *, long));
+extern void dwarf2out_args_size		PARAMS ((const char *, long));
 
 /* Entry point for saving a register to the stack.  */
 
-extern void dwarf2out_reg_save		PARAMS ((char *, unsigned, long));
+extern void dwarf2out_reg_save		PARAMS ((const char *, unsigned, long));
 
 /* Entry point for saving the return address in the stack.  */
 
-extern void dwarf2out_return_save	PARAMS ((char *, long));
+extern void dwarf2out_return_save	PARAMS ((const char *, long));
 
 /* Entry point for saving the return address in a register.  */
 
-extern void dwarf2out_return_reg	PARAMS ((char *, unsigned));
+extern void dwarf2out_return_reg	PARAMS ((const char *, unsigned));
 
 /* Output a marker (i.e. a label) for the beginning of a function, before
    the prologue.  */

@@ -635,7 +635,7 @@ static const struct builtin builtin_array[] =
   { "__LINE__",			0, T_SPECLINE,		0 },
   { "__INCLUDE_LEVEL__",	0, T_INCLUDE_LEVEL,	0 },
 
-  { "__VERSION__",		0,		 T_MCONST, DUMP|VERS },
+  { "__VERSION__",		0,		 T_XCONST, DUMP|VERS },
   { "__USER_LABEL_PREFIX__",	0,		 T_CONST,  DUMP|ULP  },
   { "__STDC__",			"1",		 T_STDC,   DUMP },
   { "__REGISTER_PREFIX__",	REGISTER_PREFIX, T_CONST,  DUMP },
@@ -679,10 +679,9 @@ initialize_builtins (pfile)
 	val = b->value;
 
       len = strlen (b->name);
-      hp = _cpp_make_hashnode (b->name, len, b->type,
-			       _cpp_calc_hash (b->name, len));
+      hp = _cpp_lookup (pfile, b->name, len);
       hp->value.cpval = val;
-      *(htab_find_slot (pfile->hashtab, (void *) hp, INSERT)) = hp;
+      hp->type = b->type;
 
       if ((b->flags & DUMP) && CPP_OPTION (pfile, debug_output))
 	dump_special_to_buffer (pfile, b->name);

@@ -60,6 +60,8 @@ typedef struct inline_data
   /* Nonzero if we are currently within the cleanup for a
      TARGET_EXPR.  */
   int in_target_cleanup_p;
+  /* A stack of the TARGET_EXPRs that we are currently processing.  */
+  varray_type target_exprs;
 } inline_data;
 
 /* Prototypes.  */
@@ -306,6 +308,7 @@ copy_body_r (tp, walk_subtrees, data)
       new_decl = remap_decl (*tp, id);
       my_friendly_assert (new_decl != NULL_TREE, 19991203);
       /* Replace this variable with the copy.  */
+      STRIP_TYPE_NOPS (new_decl);
       *tp = new_decl;
     }
   else if (nonstatic_local_decl_p (*tp) 
@@ -384,7 +387,40 @@ initialize_inlined_parameters (id, args, fn)
     {
       tree init_stmt;
       tree var;
+      tree value;
+      
+      /* Find the initializer.  */
+      value = TREE_VALUE (a);
+      /* If the parameter is never assigned to, we may not need to
+	 create a new variable here at all.  Instead, we may be able
+	 to just use the argument value.  */
+      if (TREE_READONLY (p) 
+	  && !TREE_ADDRESSABLE (p)
+	  && !TREE_SIDE_EFFECTS (value))
+	{
+	  /* Simplify the value, if possible.  */
+	  value = fold (decl_constant_value (value));
+	  
+	  /* We can't risk substituting complex expressions.  They
+	     might contain variables that will be assigned to later.
+	     Theoretically, we could check the expression to see if
+	     all of the variables that determine its value are
+	     read-only, but we don't bother.  */
+	  if (TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value))
+	    {
+	      /* If this is a declaration, wrap it a NOP_EXPR so that
+		 we don't try to put the VALUE on the list of
+		 BLOCK_VARS.  */
+	      if (DECL_P (value))
+		value = build1 (NOP_EXPR, TREE_TYPE (value), value);
 
+	      splay_tree_insert (id->decl_map,
+				 (splay_tree_key) p,
+				 (splay_tree_value) value);
+	      continue;
+	    }
+	}
+	
       /* Make an equivalent VAR_DECL.  */
       var = copy_decl_for_inlining (p, fn, VARRAY_TREE (id->fns, 0));
       /* Register the VAR_DECL as the equivalent for the PARM_DECL;
@@ -400,7 +436,7 @@ initialize_inlined_parameters (id, args, fn)
 	 object will be constructed in VAR.  */
       init_stmt = build_min_nt (EXPR_STMT,
 				build (INIT_EXPR, TREE_TYPE (p),
-				       var, TREE_VALUE (a)));
+				       var, value));
       /* Declare this new variable.  Note that we do this *after* the
 	 initialization because we are going to reverse all the
 	 initialization statements below.  */
@@ -428,6 +464,7 @@ declare_return_variable (id, use_stmt)
   tree fn = VARRAY_TOP_TREE (id->fns);
   tree result = DECL_RESULT (fn);
   tree var;
+  int aggregate_return_p;
 
   /* We don't need to do anything for functions that don't return
      anything.  */
@@ -438,8 +475,30 @@ declare_return_variable (id, use_stmt)
       return NULL_TREE;
     }
 
-  /* Make an appropriate copy.  */
-  var = copy_decl_for_inlining (result, fn, VARRAY_TREE (id->fns, 0));
+  /* Figure out whether or not FN returns an aggregate.  */
+  aggregate_return_p = IS_AGGR_TYPE (TREE_TYPE (result));
+
+  /* If FN returns an aggregate then the caller will always create the
+     temporary (using a TARGET_EXPR) and the call will be the
+     initializing expression for the TARGET_EXPR.  If we were just to
+     create a new VAR_DECL here, then the result of this function
+     would be copied (bitwise) into the variable initialized by the
+     TARGET_EXPR.  That's incorrect, so we must transform any
+     references to the RESULT into references to the target.  */
+  if (aggregate_return_p)
+    {
+      my_friendly_assert (id->target_exprs->elements_used != 0,
+			  20000430);
+      var = TREE_OPERAND (VARRAY_TOP_TREE (id->target_exprs), 0);
+      my_friendly_assert 
+	(same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (var), 
+						    TREE_TYPE (result)),
+	 20000430);
+    }
+  /* Otherwise, make an appropriate copy.  */
+  else
+    var = copy_decl_for_inlining (result, fn, VARRAY_TREE (id->fns, 0));
+
   /* Register the VAR_DECL as the equivalent for the RESULT_DECL; that
      way, when the RESULT_DECL is encountered, it will be
      automatically replaced by the VAR_DECL.  */
@@ -450,8 +509,14 @@ declare_return_variable (id, use_stmt)
   /* Build the USE_STMT.  */
   *use_stmt = build_min_nt (EXPR_STMT, var);
 
-  /* Build the declaration statement.  */
-  return build_min_nt (DECL_STMT, var);
+  /* Build the declaration statement if FN does not return an
+     aggregate.  */
+  if (!aggregate_return_p)
+    return build_min_nt (DECL_STMT, var);
+  /* If FN does return an aggregate, there's no need to declare the
+     return variable; we're using a variable in our caller's frame.  */
+  else
+    return NULL_TREE;
 }
 
 /* Returns non-zero if FN is a function that can be inlined.  */
@@ -482,10 +547,9 @@ inlinable_function_p (fn, id)
   else if (varargs_function_p (fn))
     ;
   /* All is well.  We can inline this function.  Traditionally, GCC
-     has refused to inline functions using setjmp or alloca, or
-     functions whose values are returned in a PARALLEL, and a few
-     other such obscure conditions.  We are not equally constrained at
-     the tree level.  */
+     has refused to inline functions using alloca, or functions whose
+     values are returned in a PARALLEL, and a few other such obscure
+     conditions.  We are not equally constrained at the tree level.  */
   else
     inlinable = 1;
 
@@ -553,6 +617,9 @@ expand_call_inline (tp, walk_subtrees, data)
       /* We're walking our own subtrees.  */
       *walk_subtrees = 0;
 
+      /* Push *TP on the stack of pending TARGET_EXPRs.  */
+      VARRAY_PUSH_TREE (id->target_exprs, *tp);
+
       /* Actually walk over them.  This loop is the body of
 	 walk_trees, omitting the case where the TARGET_EXPR
 	 itself is handled.  */
@@ -564,6 +631,9 @@ expand_call_inline (tp, walk_subtrees, data)
 	  if (i == 2)
 	    --id->in_target_cleanup_p;
 	}
+
+      /* We're done with this TARGET_EXPR now.  */
+      VARRAY_POP (id->target_exprs);
 
       return NULL_TREE;
     }
@@ -747,12 +817,16 @@ optimize_function (fn)
 	    prev_fn = s->function_decl;
 	  }
 
+      /* Create the stack of TARGET_EXPRs.  */
+      VARRAY_TREE_INIT (id.target_exprs, 32, "target_exprs");
+
       /* Replace all calls to inline functions with the bodies of those
 	 functions.  */
       expand_calls_inline (&DECL_SAVED_TREE (fn), &id);
 
       /* Clean up.  */
       VARRAY_FREE (id.fns);
+      VARRAY_FREE (id.target_exprs);
     }
 }
 

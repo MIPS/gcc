@@ -145,6 +145,31 @@ extern int target_flags;
 
 #define FIRST_PSEUDO_REGISTER 18
 
+/* Specify machine-specific register numbers.  */
+#define FIRST_DATA_REGNUM 0
+#define LAST_DATA_REGNUM 3
+#define FIRST_ADDRESS_REGNUM 4
+#define LAST_ADDRESS_REGNUM 8
+#define FIRST_EXTENDED_REGNUM 10
+#define LAST_EXTENDED_REGNUM 17
+
+/* Specify the registers used for certain standard purposes.
+   The values of these macros are register numbers.  */
+
+/* Register to use for pushing function arguments.  */
+#define STACK_POINTER_REGNUM (LAST_ADDRESS_REGNUM+1)
+
+/* Base register for access to local variables of the function.  */
+#define FRAME_POINTER_REGNUM (LAST_ADDRESS_REGNUM-1)
+
+/* Base register for access to arguments of the function.  This
+   is a fake register and will be eliminated into either the frame
+   pointer or stack pointer.  */
+#define ARG_POINTER_REGNUM LAST_ADDRESS_REGNUM
+
+/* Register in which static-chain is passed to a function.  */
+#define STATIC_CHAIN_REGNUM (FIRST_ADDRESS_REGNUM+1)
+
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.  */
 
@@ -169,7 +194,8 @@ extern int target_flags;
 {						\
   if (!TARGET_AM33)				\
     {						\
-      for (i = 10; i < 18; i++) 		\
+      for (i = FIRST_EXTENDED_REGNUM; 		\
+	   i <= LAST_EXTENDED_REGNUM; i++) 	\
 	fixed_regs[i] = call_used_regs[i] = 1; 	\
     }						\
 }
@@ -272,10 +298,10 @@ enum reg_class {
    or could index an array.  */
 
 #define REGNO_REG_CLASS(REGNO) \
-  ((REGNO) < 4 ? DATA_REGS : \
-   (REGNO) < 9 ? ADDRESS_REGS : \
-   (REGNO) == 9 ? SP_REGS : \
-   (REGNO) < 18 ? EXTENDED_REGS : \
+  ((REGNO) <= LAST_DATA_REGNUM ? DATA_REGS : \
+   (REGNO) <= LAST_ADDRESS_REGNUM ? ADDRESS_REGS : \
+   (REGNO) == STACK_POINTER_REGNUM ? SP_REGS : \
+   (REGNO) <= LAST_EXTENDED_REGNUM ? EXTENDED_REGS : \
    NO_REGS)
 
 /* The class value for index registers, and the one for base regs.  */
@@ -287,31 +313,66 @@ enum reg_class {
 #define REG_CLASS_FROM_LETTER(C) \
   ((C) == 'd' ? DATA_REGS : \
    (C) == 'a' ? ADDRESS_REGS : \
+   (C) == 'y' ? SP_REGS : \
+   ! TARGET_AM33 ? NO_REGS : \
    (C) == 'x' ? EXTENDED_REGS : \
-   (C) == 'y' ? SP_REGS : NO_REGS)
+   NO_REGS)
 
 /* Macros to check register numbers against specific register classes.  */
+
+/* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
+   and check its validity for a certain class.
+   We have two alternate definitions for each of them.
+   The usual definition accepts all pseudo regs; the other rejects
+   them unless they have been allocated suitable hard regs.
+   The symbol REG_OK_STRICT causes the latter definition to be used.
+
+   Most source files want to accept pseudo regs in the hope that
+   they will get allocated to the class that the insn wants them to be in.
+   Source files for reload pass need to be strict.
+   After reload, it makes no difference, since pseudo regs have
+   been eliminated by then.  */
 
 /* These assume that REGNO is a hard or pseudo reg number.
    They give nonzero only if REGNO is a hard reg of the suitable class
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
- 
+
+#ifndef REG_OK_STRICT
+# define REGNO_IN_RANGE_P(regno,min,max) \
+  (((regno) >= (min) && (regno) <= (max)) || (regno) >= FIRST_PSEUDO_REGISTER)
+#else
+# define REGNO_IN_RANGE_P(regno,min,max) \
+  (((regno) >= (min) && (regno) <= (max)) \
+   || (reg_renumber \
+       && reg_renumber[(regno)] >= (min) && reg_renumber[(regno)] <= (max)))
+#endif
+
+#define REGNO_DATA_P(regno) \
+  REGNO_IN_RANGE_P ((regno), FIRST_DATA_REGNUM, LAST_DATA_REGNUM)
+#define REGNO_ADDRESS_P(regno) \
+  REGNO_IN_RANGE_P ((regno), FIRST_ADDRESS_REGNUM, LAST_ADDRESS_REGNUM)
+#define REGNO_SP_P(regno) \
+  REGNO_IN_RANGE_P ((regno), STACK_POINTER_REGNUM, STACK_POINTER_REGNUM)
+#define REGNO_EXTENDED_P(regno) \
+  REGNO_IN_RANGE_P ((regno), FIRST_EXTENDED_REGNUM, LAST_EXTENDED_REGNUM)
+#define REGNO_AM33_P(regno) \
+  (REGNO_DATA_P ((regno)) || REGNO_ADDRESS_P ((regno)) \
+   || REGNO_EXTENDED_P ((regno)))
+
 #define REGNO_OK_FOR_BASE_P(regno) \
-  (((regno) > 3 && regno < FIRST_PSEUDO_REGISTER)	\
-   || (reg_renumber[regno] > 3 && reg_renumber[regno] < FIRST_PSEUDO_REGISTER))
+  (REGNO_SP_P ((regno)) \
+   || REGNO_ADDRESS_P ((regno)) || REGNO_EXTENDED_P ((regno)))
+#define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
 
 #define REGNO_OK_FOR_BIT_BASE_P(regno) \
-  (((regno) > 3 && regno < 10)	\
-   || (reg_renumber[regno] > 3 && reg_renumber[regno] < 10))
+  (REGNO_SP_P ((regno)) || REGNO_ADDRESS_P ((regno)))
+#define REG_OK_FOR_BIT_BASE_P(X) REGNO_OK_FOR_BIT_BASE_P (REGNO (X))
 
 #define REGNO_OK_FOR_INDEX_P(regno) \
-  (((regno) >= 0 && regno < 4)	\
-   || ((regno) >= 10 && regno < 18)	\
-   || (reg_renumber[regno] >= 10 && reg_renumber[regno] < 18) \
-   || (reg_renumber[regno] >= 0 && reg_renumber[regno] < 4))
-
+  (REGNO_DATA_P ((regno)) || REGNO_EXTENDED_P ((regno)))
+#define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
@@ -399,23 +460,6 @@ enum reg_class {
    saved since the value is used before we know.  */
 
 #define FIRST_PARM_OFFSET(FNDECL) 4
-
-/* Specify the registers used for certain standard purposes.
-   The values of these macros are register numbers.  */
-
-/* Register to use for pushing function arguments.  */
-#define STACK_POINTER_REGNUM 9
-
-/* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 7
-
-/* Base register for access to arguments of the function.  This
-   is a fake register and will be eliminated into either the frame
-   pointer or stack pointer.  */
-#define ARG_POINTER_REGNUM 8
-
-/* Register in which static-chain is passed to a function.  */
-#define STATIC_CHAIN_REGNUM 5
 
 #define ELIMINABLE_REGS				\
 {{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
@@ -523,16 +567,18 @@ struct cum_arg {int nbytes; };
    otherwise, FUNC is 0.   */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), POINTER_TYPE_P (VALTYPE) ? 4 : 0)
+  gen_rtx_REG (TYPE_MODE (VALTYPE), POINTER_TYPE_P (VALTYPE) \
+	       ? FIRST_ADDRESS_REGNUM : FIRST_DATA_REGNUM)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 
-#define LIBCALL_VALUE(MODE) gen_rtx_REG (MODE, 0)
+#define LIBCALL_VALUE(MODE) gen_rtx_REG (MODE, FIRST_DATA_REGNUM)
 
 /* 1 if N is a possible register number for a function value.  */
 
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == 0 || (N) == 4)
+#define FUNCTION_VALUE_REGNO_P(N) \
+  ((N) == FIRST_DATA_REGNUM || (N) == FIRST_ADDRESS_REGNUM)
 
 /* Return values > 8 bytes in length in memory.  */
 #define DEFAULT_PCC_STRUCT_RETURN 0
@@ -543,7 +589,7 @@ struct cum_arg {int nbytes; };
    is passed to a function.  On the MN10300 it's passed as
    the first parameter.  */
 
-#define STRUCT_VALUE 0
+#define STRUCT_VALUE FIRST_DATA_REGNUM
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -645,39 +691,6 @@ struct cum_arg {int nbytes; };
 /* Maximum number of registers that can appear in a valid memory address.  */
 
 #define MAX_REGS_PER_ADDRESS 2
-
-/* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
-   and check its validity for a certain class.
-   We have two alternate definitions for each of them.
-   The usual definition accepts all pseudo regs; the other rejects
-   them unless they have been allocated suitable hard regs.
-   The symbol REG_OK_STRICT causes the latter definition to be used.
-
-   Most source files want to accept pseudo regs in the hope that
-   they will get allocated to the class that the insn wants them to be in.
-   Source files for reload pass need to be strict.
-   After reload, it makes no difference, since pseudo regs have
-   been eliminated by then.  */
-
-#ifndef REG_OK_STRICT
-/* Nonzero if X is a hard reg that can be used as an index
-   or if it is a pseudo reg.  */
-#define REG_OK_FOR_INDEX_P(X)  \
-  ((REGNO (X) >= 0 && REGNO(X) <= 3) || REGNO (X) >= 10)
-/* Nonzero if X is a hard reg that can be used as a base reg
-   or if it is a pseudo reg.  */
-#define REG_OK_FOR_BASE_P(X) \
-  ((REGNO (X) >= 4 && REGNO(X) <= 9) || REGNO (X) >= 10)
-#define REG_OK_FOR_BIT_BASE_P(X) \
-  ((REGNO (X) >= 4 && REGNO(X) <= 9))
-#else
-/* Nonzero if X is a hard reg that can be used as an index.  */
-#define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
-/* Nonzero if X is a hard reg that can be used as a base reg.  */
-#define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
-/* Nonzero if X is a hard reg that can be used as a base reg.  */
-#define REG_OK_FOR_BIT_BASE_P(X) REGNO_OK_FOR_BIT_BASE_P (REGNO (X))
-#endif
 
 
 #define HAVE_POST_INCREMENT (TARGET_AM33)

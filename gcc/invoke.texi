@@ -166,7 +166,7 @@ in the following sections.
 -fno-function-cse  -fno-inline  -fno-peephole
 -fomit-frame-pointer  -foptimize-register-moves -foptimize-sibling-calls
 -fregmove -frerun-cse-after-loop  -frerun-loop-opt  -freduce-all-givs
--fschedule-insns  -fschedule-insns2  -fstrength-reduce
+-fschedule-insns  -fschedule-insns2  -fssa -fstrength-reduce
 -fstrict-aliasing  -fthread-jumps  -funroll-all-loops
 -funroll-loops
 -O  -O0  -O1  -O2  -O3 -Os
@@ -745,8 +745,7 @@ instead.  @samp{-ansi} implies @samp{-fno-asm}.
 
 In C++, this switch only affects the @code{typeof} keyword, since
 @code{asm} and @code{inline} are standard keywords.  You may want to
-use the @samp{-fno-gnu-keywords} flag instead, as it also disables the
-other, C++-specific, extension keywords such as @code{headof}.
+use the @samp{-fno-gnu-keywords} flag instead, which has the same effect.
 
 @item -fno-builtin
 @cindex builtin functions
@@ -1099,9 +1098,9 @@ but to allow and give a warning for old-style code that would
 otherwise be invalid, or have different behavior.
 
 @item -fno-gnu-keywords
-Do not recognize @code{typeof} as a keyword, so that code can use these
-words as identifiers. You can use the keywords @code{__typeof__}
-instead.  @samp{-ansi} implies @samp{-fno-gnu-keywords}.
+Do not recognize @code{typeof} as a keyword, so that code can use this
+word as an identifier. You can use the keyword @code{__typeof__} instead.  
+@samp{-ansi} implies @samp{-fno-gnu-keywords}.
 
 @item -fguiding-decls
 Treat a function declaration with the same type as a potential function
@@ -2470,9 +2469,6 @@ restore frame pointers; it also makes an extra register available
 in many functions.  @strong{It also makes debugging impossible on
 some machines.}
 
-@item -foptimize-sibling-calls
-Optimize sibling and tail recursive calls.
-
 @ifset INTERNALS
 On some machines, such as the Vax, this flag has no effect, because
 the standard calling sequence automatically handles the frame pointer
@@ -2488,6 +2484,9 @@ machine-description macro @code{FRAME_POINTER_REQUIRED} controls
 whether a target machine supports this flag.  @xref{Registers,,Register
 Usage, gcc.info, Using and Porting GCC}.@refill
 @end ifclear
+
+@item -foptimize-sibling-calls
+Optimize sibling and tail recursive calls.
 
 @item -fno-inline
 Don't pay attention to the @code{inline} keyword.  Normally this option
@@ -2832,6 +2831,13 @@ bytes like @samp{-falign-functions}.  In this case, no dummy operations
 need be executed.
 
 If @var{n} is not specified, use a machine-dependent default.
+
+@item -fssa
+Perform optimizations in static single assignment form.  Each function's
+flow graph is translated into SSA form, optimizations are performed, and
+the flow graph is translated back from SSA form.  (Currently, no
+SSA-based optimizations are implemented, but converting into and out of
+SSA form is not an invariant operation, and generated code may differ.)
 
 @end table
 

@@ -278,7 +278,7 @@ static int basic_induction_var PARAMS ((const struct loop *, rtx,
 					rtx *, rtx *, rtx **, int *));
 static rtx simplify_giv_expr PARAMS ((const struct loop *, rtx, int *));
 static int general_induction_var PARAMS ((const struct loop *loop, rtx, rtx *,
-					  rtx *, rtx *, int, int *));
+					  rtx *, rtx *, int, int *, enum machine_mode));
 static int consec_sets_giv PARAMS ((const struct loop *, int, rtx,
 				    rtx, rtx, rtx *, rtx *, rtx *));
 static int check_dbra_loop PARAMS ((struct loop *, int));
@@ -367,11 +367,7 @@ init_loop ()
 
   add_cost = rtx_cost (gen_rtx_PLUS (word_mode, reg, reg), SET);
 
-#ifdef ADDRESS_COST
-  reg_address_cost = ADDRESS_COST (reg);
-#else
-  reg_address_cost = rtx_cost (reg, MEM);
-#endif
+  reg_address_cost = address_cost (reg, SImode);
 
   /* We multiply by 2 to reconcile the difference in scale between
      these two ways of computing costs.  Otherwise the cost of a copy
@@ -3977,8 +3973,7 @@ strength_reduce (loop, insn_count, unroll_p, bct_p)
       if (GET_CODE (p) == CALL_INSN)
 	call_seen = 1;
 
-      if (GET_CODE (p) == INSN || GET_CODE (p) == JUMP_INSN
-	  || GET_CODE (p) == CALL_INSN)
+      if (INSN_P (p))
 	note_stores (PATTERN (p), record_initial, NULL);
 
       /* Record any test of a biv that branches around the loop if no store
@@ -4124,13 +4119,13 @@ strength_reduce (loop, insn_count, unroll_p, bct_p)
 
 		  for (next = NEXT_INSN (dominator); ; next = NEXT_INSN (next))
 		    {
-		      if ((GET_RTX_CLASS (GET_CODE (next)) == 'i'
+		      if ((INSN_P (next)
 			   && (reg_mentioned_p (giv, PATTERN (next))
 			       || reg_set_p (bl2->biv->src_reg, next)))
 			  || GET_CODE (next) == JUMP_INSN)
 			break;
 #ifdef HAVE_cc0
-		      if (GET_RTX_CLASS (GET_CODE (next)) != 'i'
+		      if (! INSN_P (next)
 			  || ! sets_cc0_p (PATTERN (next)))
 #endif
 			dominator = next;
@@ -4160,19 +4155,7 @@ strength_reduce (loop, insn_count, unroll_p, bct_p)
 				 INSN_LUID (p));
 		}
 	      /* Remove this biv from the chain.  */
-	      if (bl->next)
-		{
-		  /* We move the following giv from *bl->next into *bl.
-		     We have to update reg_biv_class for that moved biv
-		     to point to its new address.  */
-		  *bl = *bl->next;
-		  reg_biv_class[bl->regno] = bl;
-		}
-	      else
-		{
-		  *backbl = 0;
-		  break;
-		}
+	      *backbl = bl->next;
 	    }
 
 	  /* If we can't make it a giv,
@@ -4295,7 +4278,7 @@ strength_reduce (loop, insn_count, unroll_p, bct_p)
 		   p != next->insn;
 		   p = next_insn_in_loop (loop, p))
 		{
-		  if (GET_RTX_CLASS (GET_CODE (p)) != 'i')
+		  if (!INSN_P (p))
 		    continue;
 		  if (reg_mentioned_p (old_reg, PATTERN (p)))
 		    {
@@ -5146,12 +5129,12 @@ check_insn_for_givs (loop, p, not_every_iteration, maybe_multiple)
 
       if (/* SET_SRC is a giv.  */
 	  (general_induction_var (loop, SET_SRC (set), &src_reg, &add_val,
-				  &mult_val, 0, &benefit)
+				  &mult_val, 0, &benefit, VOIDmode)
 	   /* Equivalent expression is a giv.  */
 	   || ((regnote = find_reg_note (p, REG_EQUAL, NULL_RTX))
 	       && general_induction_var (loop, XEXP (regnote, 0), &src_reg,
 					 &add_val, &mult_val, 0,
-					 &benefit)))
+					 &benefit, VOIDmode)))
 	  /* Don't try to handle any regs made by loop optimization.
 	     We have nothing on them in regno_first_uid, etc.  */
 	  && REGNO (dest_reg) < max_reg_before_loop
@@ -5289,7 +5272,7 @@ find_mem_givs (loop, x, insn, not_every_iteration, maybe_multiple)
 	   this one would not be seen.   */
 
 	if (general_induction_var (loop, XEXP (x, 0), &src_reg, &add_val,
-				   &mult_val, 1, &benefit))
+				   &mult_val, 1, &benefit, GET_MODE (x)))
 	  {
 	    /* Found one; record it.  */
 	    struct induction *v
@@ -5457,6 +5440,12 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
   struct induction *b;
   struct iv_class *bl;
   rtx set = single_set (insn);
+  rtx temp;
+
+  /* Attempt to prove constantness of the values.  */
+  temp = simplify_rtx (add_val);
+  if (temp)
+    add_val = temp;
 
   v->insn = insn;
   v->src_reg = src_reg;
@@ -5615,11 +5604,11 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
     v->no_const_addval = 1;
     if (tem == const0_rtx)
       ;
-    else if (GET_CODE (tem) == CONST_INT)
+    else if (CONSTANT_P (add_val))
       v->no_const_addval = 0;
-    else if (GET_CODE (tem) == PLUS)
+    if (GET_CODE (tem) == PLUS)
       {
-        while (1)
+	while (1)
 	  {
 	    if (GET_CODE (XEXP (tem, 0)) == PLUS)
 	      tem = XEXP (tem, 0);
@@ -5628,8 +5617,8 @@ record_giv (loop, v, insn, src_reg, dest_reg, mult_val, add_val, benefit,
 	    else
 	      break;
 	  }
-        if (GET_CODE (XEXP (tem, 1)) == CONST_INT)
-          v->no_const_addval = 0;
+	if (CONSTANT_P (XEXP (tem, 1)))
+	  v->no_const_addval = 0;
       }
   }
 
@@ -6133,7 +6122,8 @@ basic_induction_var (loop, x, mode, dest_reg, p, inc_val, mult_val,
      such that the value of X is biv * mult + add;  */
 
 static int
-general_induction_var (loop, x, src_reg, add_val, mult_val, is_addr, pbenefit)
+general_induction_var (loop, x, src_reg, add_val, mult_val, is_addr,
+		       pbenefit, addr_mode)
      const struct loop *loop;
      rtx x;
      rtx *src_reg;
@@ -6141,6 +6131,7 @@ general_induction_var (loop, x, src_reg, add_val, mult_val, is_addr, pbenefit)
      rtx *mult_val;
      int is_addr;
      int *pbenefit;
+     enum machine_mode addr_mode;
 {
   rtx orig_x = x;
   char *storage;
@@ -6214,13 +6205,7 @@ general_induction_var (loop, x, src_reg, add_val, mult_val, is_addr, pbenefit)
     *mult_val = XEXP (*mult_val, 0);
 
   if (is_addr)
-    {
-#ifdef ADDRESS_COST
-      *pbenefit += ADDRESS_COST (orig_x) - reg_address_cost;
-#else
-      *pbenefit += rtx_cost (orig_x, MEM) - reg_address_cost;
-#endif
-    }
+    *pbenefit += address_cost (orig_x, addr_mode) - reg_address_cost;
   else
     *pbenefit += rtx_cost (orig_x, SET);
 
@@ -6414,25 +6399,40 @@ simplify_giv_expr (loop, x, benefit)
 	  return GEN_INT (INTVAL (arg0) * INTVAL (arg1));
 
 	case USE:
-	  /* invar * invar.  It is a giv, but very few of these will 
-	     actually pay off, so limit to simple registers.  */
+	  /* invar * invar is a giv, but attempt to simplify it somehow.  */
 	  if (GET_CODE (arg1) != CONST_INT)
 	    return NULL_RTX;
 
 	  arg0 = XEXP (arg0, 0);
-	  if (GET_CODE (arg0) == REG)
-	    tem = gen_rtx_MULT (mode, arg0, arg1);
-	  else if (GET_CODE (arg0) == MULT
-		   && GET_CODE (XEXP (arg0, 0)) == REG
-		   && GET_CODE (XEXP (arg0, 1)) == CONST_INT)
+	  if (GET_CODE (arg0) == MULT)
 	    {
-	      tem = gen_rtx_MULT (mode, XEXP (arg0, 0), 
-				  GEN_INT (INTVAL (XEXP (arg0, 1))
-					   * INTVAL (arg1)));
+	      /* (invar_0 * invar_1) * invar_2.  Associate.  */
+	      return simplify_giv_expr (loop,
+					gen_rtx_MULT (mode,
+						      XEXP (arg0, 0),
+						      gen_rtx_MULT (mode,
+								    XEXP (arg0,
+									  1),
+								    arg1)),
+					benefit);
 	    }
-	  else
-	    return NULL_RTX;
-	  return gen_rtx_USE (mode, tem);
+	  /* Porpagate the MULT expressions to the intermost nodes.  */
+	  else if (GET_CODE (arg0) == PLUS)
+	    {
+	      /* (invar_0 + invar_1) * invar_2.  Distribute.  */
+	      return simplify_giv_expr (loop,
+					gen_rtx_PLUS (mode,
+						      gen_rtx_MULT (mode,
+								    XEXP (arg0,
+									  0),
+								    arg1),
+						      gen_rtx_MULT (mode,
+								    XEXP (arg0,
+									  1),
+								    arg1)),
+					benefit);
+	    }
+	  return gen_rtx_USE (mode, gen_rtx_MULT (mode, arg0, arg1));
 
 	case MULT:
 	  /* (a * invar_1) * invar_2.  Associate.  */
@@ -6737,11 +6737,12 @@ consec_sets_giv (loop, first_benefit, p, src_reg, dest_reg,
 	  && GET_CODE (SET_DEST (set)) == REG
 	  && SET_DEST (set) == dest_reg
 	  && (general_induction_var (loop, SET_SRC (set), &src_reg,
-				     add_val, mult_val, 0, &benefit)
+				     add_val, mult_val, 0, &benefit, VOIDmode)
 	      /* Giv created by equivalent expression.  */
 	      || ((temp = find_reg_note (p, REG_EQUAL, NULL_RTX))
 		  && general_induction_var (loop, XEXP (temp, 0), &src_reg,
-					    add_val, mult_val, 0, &benefit)))
+					    add_val, mult_val, 0, &benefit,
+					    VOIDmode)))
 	  && src_reg == v->src_reg)
 	{
 	  if (find_reg_note (p, REG_RETVAL, NULL_RTX))
@@ -6865,6 +6866,10 @@ express_from_1 (a, b, mult)
   else if (GET_CODE (a) == CONST_INT)
     {
       return plus_constant (b, -INTVAL (a) * INTVAL (mult));
+    }
+  else if (CONSTANT_P (a))
+    {
+      return simplify_gen_binary (MINUS, GET_MODE (b), const0_rtx, a);
     }
   else if (GET_CODE (b) == PLUS)
     {
@@ -8541,7 +8546,7 @@ maybe_eliminate_biv_1 (loop, x, insn, bl, eliminate_p, where)
 	     overflows.  */
 
 	  for (v = bl->giv; v; v = v->next_iv)
-	    if (CONSTANT_P (v->mult_val) && v->mult_val != const0_rtx
+	    if (GET_CODE (v->mult_val) == CONST_INT && v->mult_val != const0_rtx
 		&& v->add_val == const0_rtx
 		&& ! v->ignore && ! v->maybe_dead && v->always_computable
 		&& v->mode == mode
@@ -8573,7 +8578,7 @@ maybe_eliminate_biv_1 (loop, x, insn, bl, eliminate_p, where)
 	     overflow problem.  */
 
 	  for (v = bl->giv; v; v = v->next_iv)
-	    if (CONSTANT_P (v->mult_val) && v->mult_val != const0_rtx
+	    if (GET_CODE (v->mult_val) == CONST_INT && v->mult_val != const0_rtx
 		&& ! v->ignore && ! v->maybe_dead && v->always_computable
 		&& v->mode == mode
 		&& (GET_CODE (v->add_val) == SYMBOL_REF
@@ -8638,7 +8643,7 @@ maybe_eliminate_biv_1 (loop, x, insn, bl, eliminate_p, where)
 	     negative mult_val, but it seems complex to do it in general.  */
 
 	  for (v = bl->giv; v; v = v->next_iv)
-	    if (CONSTANT_P (v->mult_val) && INTVAL (v->mult_val) > 0
+	    if (GET_CODE (v->mult_val) == CONST_INT && INTVAL (v->mult_val) > 0
 		&& (GET_CODE (v->add_val) == SYMBOL_REF
 		    || GET_CODE (v->add_val) == LABEL_REF
 		    || GET_CODE (v->add_val) == CONST
@@ -8654,28 +8659,29 @@ maybe_eliminate_biv_1 (loop, x, insn, bl, eliminate_p, where)
 		  return 1;
 
 		/* Replace biv with the giv's reduced reg.  */
-		XEXP (x, 1-arg_operand) = v->new_reg;
+		validate_change (insn, &XEXP (x, 1-arg_operand), v->new_reg, 1);
 
 		/* If all constants are actually constant integers and
 		   the derived constant can be directly placed in the COMPARE,
 		   do so.  */
 		if (GET_CODE (arg) == CONST_INT
 		    && GET_CODE (v->mult_val) == CONST_INT
-		    && GET_CODE (v->add_val) == CONST_INT
-		    && validate_change (insn, &XEXP (x, arg_operand),
-					GEN_INT (INTVAL (arg)
-						 * INTVAL (v->mult_val)
-						 + INTVAL (v->add_val)), 0))
+		    && GET_CODE (v->add_val) == CONST_INT)
+		  {
+		    validate_change (insn, &XEXP (x, arg_operand),
+				     GEN_INT (INTVAL (arg)
+					     * INTVAL (v->mult_val)
+					     + INTVAL (v->add_val)), 1);
+		  }
+		else
+		  {
+		    /* Otherwise, load it into a register.  */
+		    tem = gen_reg_rtx (mode);
+		    emit_iv_add_mult (arg, v->mult_val, v->add_val, tem, where);
+		    validate_change (insn, &XEXP (x, arg_operand), tem, 1);
+		  }
+		if (apply_change_group ())
 		  return 1;
-
-		/* Otherwise, load it into a register.  */
-		tem = gen_reg_rtx (mode);
-		emit_iv_add_mult (arg, v->mult_val, v->add_val, tem, where);
-		if (validate_change (insn, &XEXP (x, arg_operand), tem, 0))
-		  return 1;
-
-		/* If that failed, put back the change we made above.  */
-		XEXP (x, 1-arg_operand) = reg;
 	      }
 	  
 	  /* Look for giv with positive constant mult_val and nonconst add_val.
@@ -8683,7 +8689,7 @@ maybe_eliminate_biv_1 (loop, x, insn, bl, eliminate_p, where)
 	     ??? Turn this off due to possible overflow.  */
 
 	  for (v = bl->giv; v; v = v->next_iv)
-	    if (CONSTANT_P (v->mult_val) && INTVAL (v->mult_val) > 0
+	    if (GET_CODE (v->mult_val) == CONST_INT && INTVAL (v->mult_val) > 0
 		&& ! v->ignore && ! v->maybe_dead && v->always_computable
 		&& v->mode == mode
 		&& 0)
@@ -8719,7 +8725,7 @@ maybe_eliminate_biv_1 (loop, x, insn, bl, eliminate_p, where)
 		 ??? Turn this off due to possible overflow.  */
 
 	      for (v = bl->giv; v; v = v->next_iv)
-		if (CONSTANT_P (v->mult_val) && INTVAL (v->mult_val) > 0
+		if (GET_CODE (v->mult_val) == CONST_INT && INTVAL (v->mult_val) > 0
 		    && ! v->ignore && ! v->maybe_dead && v->always_computable
 		    && v->mode == mode
 		    && 0)
@@ -9874,7 +9880,13 @@ load_mems (loop)
 		{
 		  if (CONSTANT_P (equiv->loc))
 		    const_equiv = equiv;
-		  else if (GET_CODE (equiv->loc) == REG)
+		  else if (GET_CODE (equiv->loc) == REG
+			   /* Extending hard register lifetimes cuases crash
+			      on SRC targets.  Doing so on non-SRC is
+			      probably also not good idea, since we most
+			      probably have pseudoregister equivalence as
+			      well.  */
+			   && REGNO (equiv->loc) >= FIRST_PSEUDO_REGISTER)
 		    best_equiv = equiv;
 		}
 	      /* Use the constant equivalence if that is cheap enough.  */

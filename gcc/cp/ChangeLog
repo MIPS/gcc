@@ -1,3 +1,151 @@
+2000-05-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (same_type_ignoring_top_level_qualifiers_p): New
+	macro.
+	* call.c (standard_conversion): Use it.
+	(direct_reference_binding): Likewise.
+	(build_over_call): Likewise.
+	(is_properly_derived_from): Likewise.
+	(compare_ics): Likewise.
+	* class.c (resolves_to_fixed_type_p): Likewise.
+	* optimize.c (declare_return_variable): Likewise.
+	* pt.c (is_specialization_of): Likewise.
+	(unify): Likewise.
+	* typeck.c (comp_target_parms): Likeiwse.
+	(build_static_cast): Likewise.
+	(build_reinterpret_cast): Likewise.
+	(build_const_cast): Likewise.
+	(comp_ptr_ttypes_real): Likewise.
+	(comp_ptr_ttypes_const): Likewise.
+	* typeck2.c (process_init_constructor): Likewise.
+
+2000-04-30  Scott Snyder <snyder@fnal.gov>
+
+	* decl.c (finish_destructor_body): Use the base destructor when
+	destroying virtual bases.
+
+2000-04-30  Mark Mitchell  <mark@codesourcery.com>
+
+	* expr.c (cplus_expand_expr): Preserve temporaries when expanding
+	STMT_EXPRs.
+	* optimize.c (struct inline_data): Add target_exprs field.
+	(declare_return_variable): When a function returns an aggregate,
+	use the variable declared in the TARGET_EXPR as the remapped
+	DECL_RESULT.
+	(expand_call_inline): Update the pending target_exprs stack.
+	(optimize_function): Initialize the stack.
+	
+	* decl2.c (finish_file): Fix typo in comment.
+
+	* method.c (emit_thunk): Don't try to return a `void' value.
+
+	* optimize.c (initialize_inlined_parameters): If the parameter is
+	addressable, we need to make a new VAR_DECL, even if the
+	initializer is constant.
+
+2000-04-28  Cosmin Truta  <cosmint@cs.ubbcluj.ro>
+
+	* decl.c (grok_op_properties): Add an extra check of argtypes.
+
+2000-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* optimize.c (copy_body_r): Use STRIP_TYPE_NOPS when copying
+	variables.
+	(initialize_inlined_parameters): Try to avoid creating new
+	VAR_DECLs.
+
+2000-04-27  Alex Samuel  <samuel@codesourcery.com>
+
+	* lex.c (my_get_run_time): Remove.
+	(init_filename_times): Use get_run_time instead of my_get_run_time.
+	(check_newline): Likewise.
+	(dump_time_statistics): Likewise.
+	* decl2.c (finish_file): Push and pop timevar TV_VARCONST instead
+	of computing elapsed time explicitly.
+
+2000-04-26  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (TREE_READONLY_DECL_P): Use DECL_P.
+	* init.c (decl_constant_value): Check TREE_READONLY_DECL_P.
+	* call.c (convert_like_real): Don't test TREE_READONLY_DECL_P
+	before calling decl_constant_value.
+	* class.c (check_bitfield_decl): Likewise.
+	* cvt.c (ocp_convert): Likewise.
+	(convert): Likewise.
+	* decl.c (compute_array_index_type): Likewise.
+	(build_enumerator): Likewise.
+	* decl2.c (check_cp_case_value): Likewise.
+	* pt.c (convert_nontype_argument): Likewise.
+	(tsubst): Likewise.
+	* typeck.c (decay_conversion): Likewise.
+	(build_compound_expr): Likewise.
+	(build_reinterpret_cast): Likewise.
+	(build_c_cast): Likewise.
+	(convert_for_assignment): Likewise.
+	
+2000-04-26  Jason Merrill  <jason@casey.cygnus.com>
+
+	* decl.c (finish_function): Don't play games with DECL_INLINE.
+
+2000-04-25  Gabriel Dos Reis  <dosreis@cmla.ens-cachan.fr>
+
+	* ir.texi: Correct typo.
+
+2000-04-25  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl.c (grokdeclarator): Reject VLAs as members.
+
+2000-04-24  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* call.c (standard_conversion): Accept conversion between
+	COMPLEX_TYPEs 
+
+	* cvt.c (ocp_convert): Handle conversion to COMPLEX_TYPE
+
+2000-04-24  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* decl2.c (finish_file): Remove double setup for accounting
+	compile time.
+
+2000-04-24  Robert Lipe <robertlipe@usa.net>
+
+	* cp-tree.h (lang_type): Member `language' now ENUM_BITFIELD.
+
+2000-04-23  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* new.cc (set_new_handler): Needs to be in std::.
+
+2000-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (lang_decl): Remove pretty_function_p.
+	(DECL_PRETTY_FUNCTION_P): Use TREE_LANG_FLAG_0, not a bit in the
+	language-specific node.
+	* decl.c (cp_make_fname_decl): Use build_decl, not
+	build_lang_decl, to build the variables.
+	(grokvardecl): Don't call build_lang_decl for local variables in
+	templates.
+	(grokdeclarator): Don't call build_lang_decl for local type
+	declarations in templates.
+	* lex.c (retrofit_lang_decl): Use ggc_alloc_obj to allocated
+	zero'd memory, rather than calling memset.
+	* pt.c: Include hashtab.h.
+	(local_specializations): New variable.
+	(retrieve_local_specialization): Use it.
+	(register_local_specialization): Likewise.
+	(tsubst_decl): Don't assume local variables have
+	DECL_LANG_SPECIFIC.
+	(instantiate_decl): Set up local_specializations.
+	* Makefile.in (HTAB_H): New variable.
+
+2000-04-23  Richard Henderson  <rth@cygnus.com>
+
+	* typeck.c (c_expand_asm_operands): Restore the original
+	contents of the output list.
+
+2000-04-22  Gabriel Dos Reis <gdr@codesourcery.com>
+
+	* ir.texi:  Document complex number representation.
+	
 2000-04-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* rtti.c (init_rtti_processing): Set tinfo_var_id in new-abi.
@@ -540,7 +688,7 @@ Sat Apr 15 16:00:01 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2000-04-05  Benjamin Kosnik  <bkoz@cygnus.com>
 
-        * decl2.c: Make flag_honor_std dependant on ENABLE_STD_NAMESPACE.
+	* decl2.c: Make flag_honor_std dependant on ENABLE_STD_NAMESPACE.
 
 2000-04-05  Mark Mitchell  <mark@codesourcery.com>
 

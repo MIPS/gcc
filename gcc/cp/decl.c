@@ -6546,7 +6546,7 @@ cp_make_fname_decl (id, name, type_dep)
           (build_qualified_type (char_type_node, TYPE_QUAL_CONST),
 	   domain);
 
-  decl = build_lang_decl (VAR_DECL, id, type);
+  decl = build_decl (VAR_DECL, id, type);
   TREE_STATIC (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_SOURCE_LINE (decl) = 0;
@@ -8920,9 +8920,9 @@ grokvardecl (type, declarator, specbits_in, initialized, constp, in_namespace)
       else
 	context = NULL_TREE;
 
-      if (processing_template_decl)
-	/* If we're in a template, we need DECL_LANG_SPECIFIC so that
-	   we can call push_template_decl.  */
+      if (processing_template_decl && context)
+	/* For global variables, declared in a template, we need the
+	   full lang_decl.  */
 	decl = build_lang_decl (VAR_DECL, declarator, type);
       else
 	decl = build_decl (VAR_DECL, declarator, type);
@@ -9120,8 +9120,7 @@ compute_array_index_type (name, size)
   STRIP_TYPE_NOPS (size);
 
   /* It might be a const variable or enumeration constant.  */
-  if (TREE_READONLY_DECL_P (size))
-    size = decl_constant_value (size);
+  size = decl_constant_value (size);
 
   /* If this involves a template parameter, it will be a constant at
      instantiation time, but we don't know what the value is yet.
@@ -10368,6 +10367,20 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    declarator = TREE_OPERAND (declarator, 0);
 
 	    type = create_array_type_for_decl (dname, type, size);
+
+	    /* VLAs never work as fields. */
+	    if (decl_context == FIELD && !processing_template_decl 
+		&& TREE_CODE (type) == ARRAY_TYPE
+		&& TYPE_DOMAIN (type) != NULL_TREE
+		&& !TREE_CONSTANT (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))
+	      {
+		cp_error ("size of member `%D' is not constant", dname);
+		/* Proceed with arbitrary constant size, so that offset
+		   computations don't get confused. */
+		type = create_array_type_for_decl (dname, TREE_TYPE (type),
+						   integer_one_node);
+	      }
+
 	    ctype = NULL_TREE;
 	  }
 	  break;
@@ -10949,14 +10962,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	  decl = build_lang_decl (TYPE_DECL, declarator, type);
 	}
       else
-	{
-	  /* Make sure this typedef lives as long as its type,
-	     since it might be used as a template parameter. */
-	  if (processing_template_decl)
-	    decl = build_lang_decl (TYPE_DECL, declarator, type);
-	  else
-	    decl = build_decl (TYPE_DECL, declarator, type);
-	}
+	decl = build_decl (TYPE_DECL, declarator, type);
 
       /* If the user declares "typedef struct {...} foo" then the
 	 struct will have an anonymous name.  Fill that name in now.
@@ -12387,20 +12393,21 @@ grok_op_properties (decl, virtualp, friendp)
 	cp_warning ("`%D' should return by value", decl);
 
       /* 13.4.0.8 */
-      if (argtypes)
-	for (; argtypes != void_list_node ; argtypes = TREE_CHAIN (argtypes))
-	  if (TREE_PURPOSE (argtypes))
-	    {
-	      TREE_PURPOSE (argtypes) = NULL_TREE;
-	      if (name == ansi_opname[(int) POSTINCREMENT_EXPR]
-		  || name == ansi_opname[(int) POSTDECREMENT_EXPR])
-		{
-		  if (pedantic)
-		    cp_pedwarn ("`%D' cannot have default arguments", decl);
-		}
-	      else
-		cp_error ("`%D' cannot have default arguments", decl);
-	    }
+      for (; argtypes && argtypes != void_list_node;
+          argtypes = TREE_CHAIN (argtypes))
+        if (TREE_PURPOSE (argtypes))
+          {
+            TREE_PURPOSE (argtypes) = NULL_TREE;
+            if (name == ansi_opname[(int) POSTINCREMENT_EXPR] 
+                || name == ansi_opname[(int) POSTDECREMENT_EXPR])   
+              {
+                if (pedantic)
+                  cp_pedwarn ("`%D' cannot have default arguments", decl);
+              }
+            else
+              cp_error ("`%D' cannot have default arguments", decl);
+          }
+
     }
 }
 
@@ -13044,8 +13051,7 @@ build_enumerator (name, value, enumtype)
       /* Validate and default VALUE.  */
       if (value != NULL_TREE)
 	{
-	  if (TREE_READONLY_DECL_P (value))
-	    value = decl_constant_value (value);
+	  value = decl_constant_value (value);
 
 	  if (TREE_CODE (value) == INTEGER_CST)
 	    {
@@ -13903,7 +13909,7 @@ finish_destructor_body ()
 		     TYPE_BINFO (current_class_type));
 		  finish_expr_stmt
 		    (build_scoped_method_call
-		     (current_class_ref, vb, complete_dtor_identifier,
+		     (current_class_ref, vb, base_dtor_identifier,
 		      NULL_TREE));
 		}
 	      vbases = TREE_CHAIN (vbases);
@@ -14200,22 +14206,7 @@ finish_function (flags)
 
       /* Run the optimizers and output the assembler code for this
          function.  */
-      if (DECL_ARTIFICIAL (fndecl))
-	{
-	  /* Do we really *want* to inline this synthesized method?  */
-
-	  int save_fif = flag_inline_functions;
-	  flag_inline_functions = 1;
-
-	  /* Turn off DECL_INLINE for the moment so function_cannot_inline_p
-	     will check our size.  */
-	  DECL_INLINE (fndecl) = 0;
-
-	  rest_of_compilation (fndecl);
-	  flag_inline_functions = save_fif;
-	}
-      else
-	rest_of_compilation (fndecl);
+      rest_of_compilation (fndecl);
 
       /* Undo the call to ggc_push_context above.  */
       if (function_depth > 1)
