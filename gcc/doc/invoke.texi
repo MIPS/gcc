@@ -7626,13 +7626,13 @@ are provided for backwards compatibility.
 @item -fapple-kext
 @c APPLE LOCAL KEXT indirect-virtual-calls --sts
 @itemx -findirect-virtual-calls
-@c APPLE LOCAL terminated-vtables
+@c APPLE LOCAL KEXT terminated-vtables
 @itemx -fterminated-vtables
 @c APPLE LOCAL KEXT
 @opindex fapple-kext
 @c APPLE LOCAL KEXT indirect-virtual-calls --sts
 @opindex findirect-virtual-calls
-@c APPLE LOCAL terminated-vtables
+@c APPLE LOCAL KEXT terminated-vtables
 @opindex fterminated-vtables
 @c APPLE LOCAL begin KEXT
 Alter vtables, destructors, and other implementation details to more
