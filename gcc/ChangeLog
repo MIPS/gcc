@@ -1,3 +1,11 @@
+2003-03-19  Jason Merrill  <jason@redhat.com>
+
+	RH Issue Tracker #14363
+	* cpplib.h (struct cpp_options): Add warn_deprecated field.
+	* cppinit.c (cpp_create_reader): Turn it on by default.
+	* cpplib.c (do_pragma_once): Only complain about #pragma once
+	if warn_deprecated is set.
+
 2003-03-12  Richard Henderson  <rth@redhat.com>
 
         PR opt/8178

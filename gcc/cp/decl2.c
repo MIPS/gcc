@@ -497,8 +497,10 @@ cxx_decode_option (argc, argv)
 {
   int strings_processed;
   const char *p = argv[0];
+  cpp_options *cpp_opts;
 
   strings_processed = cpp_handle_option (parse_in, argc, argv, 0);
+  cpp_opts = cpp_get_options (parse_in);
 
   if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
     /* ignore */;
@@ -681,7 +683,10 @@ cxx_decode_option (argc, argv)
       else if (!strcmp (p, "non-template-friend"))
 	warn_nontemplate_friend = setting;
       else if (!strcmp (p, "deprecated"))
-        warn_deprecated = setting;
+	{
+	  warn_deprecated = setting;
+	  cpp_opts->warn_deprecated = setting;
+	}
       else if (!strcmp (p, "comment"))
 	;			/* cpp handles this one.  */
       else if (!strcmp (p, "comments"))

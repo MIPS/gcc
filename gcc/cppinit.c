@@ -545,6 +545,7 @@ cpp_create_reader (lang)
   CPP_OPTION (pfile, show_column) = 1;
   CPP_OPTION (pfile, tabstop) = 8;
   CPP_OPTION (pfile, operator_names) = 1;
+  CPP_OPTION (pfile, warn_deprecated) = 1;
 #if DEFAULT_SIGNED_CHAR
   CPP_OPTION (pfile, signed_char) = 1;
 #else

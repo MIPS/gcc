@@ -1,3 +1,9 @@
+2003-03-19  Jason Merrill  <jason@redhat.com>
+
+	RH Issue Tracker #14363
+	* decl2.c (cxx_decode_option): Set cpp_opts->warn_deprecated
+	based on -Wdeprecated.
+
 2003-03-13  Jason Merrill  <jason@redhat.com>
 
 	PR c++/9420
