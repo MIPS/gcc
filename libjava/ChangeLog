@@ -1,3 +1,10 @@
+2004-06-26  Andreas Tobler  <a.tobler@schweiz.ch>
+
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkMainThread.c
+	(init_dpi_conversion_factor): Check for int_dpi < 0 in case
+	gtk-xft-dpi can no calculate the right value.
+	(dpi_changed_cb): Mark *pspec as unsused.
+
 2004-06-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
 	* libgcj.spec.in: Add -l-java-util-logging.

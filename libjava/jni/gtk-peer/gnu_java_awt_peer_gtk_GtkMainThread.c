@@ -218,7 +218,7 @@ Java_gnu_java_awt_peer_gtk_GtkMainThread_gtkMain
 
 /* This is a big hack, needed until this pango bug is resolved:
    http://bugzilla.gnome.org/show_bug.cgi?id=119081.
-   See: http://www.geocrawler.com/archives/3/522/2003/8/0/10579352/
+   See: http://mail.gnome.org/archives/gtk-i18n-list/2003-August/msg00001.html
    for details. */
 static void
 init_dpi_conversion_factor ()
@@ -231,6 +231,10 @@ init_dpi_conversion_factor ()
     {
       int int_dpi;
       g_object_get (settings, "gtk-xft-dpi", &int_dpi, NULL);
+      /* If int_dpi == -1 gtk-xft-dpi returns the default value. So we
+         have to do approximate calculation here.  The value is 1024 *
+         dots.  We take 96 for dots.  */
+      if (int_dpi < 0)  int_dpi = 98304;
       dpi_conversion_factor = PANGO_SCALE * 72.0 / (int_dpi / PANGO_SCALE);
       g_signal_connect (settings, "notify::gtk-xft-dpi",
                         G_CALLBACK (dpi_changed_cb), NULL);
@@ -242,7 +246,7 @@ init_dpi_conversion_factor ()
 
 static void
 dpi_changed_cb (GtkSettings  *settings,
-                GParamSpec   *pspec)
+                GParamSpec *pspec __attribute__((unused)))
 {
   int int_dpi;
   g_object_get (settings, "gtk-xft-dpi", &int_dpi, NULL);
