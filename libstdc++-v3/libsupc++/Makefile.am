@@ -30,6 +30,11 @@ toolexeclib_LTLIBRARIES = libsupc++.la
 # 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
 noinst_LTLIBRARIES = libsupc++convenience.la
 
+if LIBSUPCXX_PRONLY
+sources = \
+	eh_personality.cc
+
+else
 
 headers = \
 	exception new typeinfo cxxabi.h exception_defines.h
@@ -68,6 +73,7 @@ sources = \
 	tinfo2.cc \
 	vec.cc \
 	vterminate.cc
+endif
 
 libsupc___la_SOURCES = $(sources) $(c_sources)
 libsupc__convenience_la_SOURCES = $(sources) $(c_sources)

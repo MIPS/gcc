@@ -1,3 +1,8 @@
+2005-03-10  Julian Brown  <julian@codesourcery.com>
+
+	* config.gcc: Disable shared libgcc for SymbianOS.
+	* config/arm/t-symbian (LIB2ADDEH): Include config/arm/pr-support.c.
+
 2005-03-07  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* config/arm/arm.c (arm_all_abis): Add aapcs-linux.
