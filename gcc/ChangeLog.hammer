@@ -1,5 +1,7 @@
 Fri Feb  7 12:59:54 CET 2003  Jan Hubicka  <jh@suse.cz>
 
+	* combine.c (combine_simplify_rtx):  Use reversed_comparison_code_parts.
+
 	* toplev.c (rest_of_compilation): Move -fweb past new loop.
 	(parse_options_and_default_flags):  Enable -fweb only at -O3.
 
