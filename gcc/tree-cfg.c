@@ -105,8 +105,7 @@ static tree *first_exec_stmt (tree *);
 static basic_block switch_parent (basic_block);
 static inline bool stmt_starts_bb_p (tree, tree);
 static inline bool stmt_ends_bb_p (tree);
-static void find_contained_blocks_and_edge_targets
-		(tree *, bitmap, bitmap, tree **);
+static void find_contained_blocks (tree *, bitmap, tree **);
 static void compute_reachable_eh (tree);
 
 /* Flowgraph optimization and cleanup.  */
@@ -895,16 +894,18 @@ make_edges (void)
       basic_block last_bb;
       int bb;
       bitmap try_blocks = BITMAP_XMALLOC ();
-      bitmap try_targets = BITMAP_XMALLOC ();
+
+      /* We need to know the last statement in the FINALLY so that
+	 we know where to wire up the additional outgoing edges from
+	 the FINALLY block.  */
+      last_bb = last_exec_block (finally_p);
 
       /* Get bitmaps for the basic blocks within the TRY block as
 	 well as bitmap for the blocks which the TRY block can
 	 reach.  */
       finally_last_p = NULL;
-      find_contained_blocks_and_edge_targets (&TREE_OPERAND (try_finally, 0),
-		      			      try_blocks,
-					      try_targets,
-					      &finally_last_p);
+      find_contained_blocks (&TREE_OPERAND (try_finally, 0),
+			     try_blocks, &finally_last_p);
 
       /* If the FINALLY is not empty, then we'll need to create some more
 	 edges.  */
@@ -917,43 +918,26 @@ make_edges (void)
 
 	      /* Look at each outgoing edge from the block, if the
 		 destination of the edge is not inside the TRY block,
-		 then wire up an edge from this block to the FINALLY block.  */
+		 then wire up an edge from this block to the FINALLY block
+	         and an edge from the end of the FINALLY block to the target
+		 of this edge.
+
+		 For now all the edges created below must be abnormal
+		 edges.  As the edge splitting code improves we can probably
+		 relax this restriction.  */
 	      for (e = BASIC_BLOCK (bb)->succ; e; e = e->succ_next)
 		if (! bitmap_bit_p (try_blocks, e->dest->index))
-		  make_edge (BASIC_BLOCK (bb), finally_bb, EDGE_ABNORMAL);
+		  {
+		    make_edge (BASIC_BLOCK (bb), finally_bb, EDGE_ABNORMAL);
+
+		    /* Do not create an artificial loop in the FINALLY
+		       block.  */
+		    if (e->dest != finally_bb)
+		      make_edge (last_bb, e->dest, EDGE_ABNORMAL);
+		  }
 	    });
 	}
 
-      /* We need to know the last statement in the FINALLY so that
-	 we know where to wire up the additional outgoing edges from
-	 the FINALLY block.  */
-      last_bb = last_exec_block (&TREE_OPERAND (try_finally, 1));
-
-      /* Find edges which exited the TRY block.  For each of those
-	 edges, we want to create a new edge from the FINALLY block
-	 to the destination of the edge out of the TRY block.
-
-	 Note that we need to create the edges as abnormal edges until
-	 such time as these transfers of control appear more directly
-	 in the tree nodes.  Otherwise out of SSA may try to insert
-	 a copy of one of these edges and we do not know how to
-	 actually perform such as insertion.  */
-      if (last_bb)
-	EXECUTE_IF_AND_COMPL_IN_BITMAP (try_targets, try_blocks, 0, bb,
-	  {
-	    basic_block b
-	      = (bb == last_basic_block ? EXIT_BLOCK_PTR : BASIC_BLOCK (bb));
-
-	    /* Ignore original edges from the TRY block to the start of the
-	       FINALLY block.  Failure to do so will create an unnecessary
-	       loop within the FINALLY block since we create an edge from
-	       the end of the FINALLY to the target of edges out of the
-	       TRY block (ie the start of the FINALLY).  */
-	    if (b->index != finally_bb->index)
-	      make_edge (last_bb, b, EDGE_ABNORMAL);
-	  });
-
-      BITMAP_XFREE (try_targets);
       BITMAP_XFREE (try_blocks);
     }
 
@@ -973,8 +957,7 @@ make_edges (void)
    last statement processed in *last_p.  */
 
 static void
-find_contained_blocks_and_edge_targets (tree *stmt_p, bitmap my_blocks,
-					bitmap my_targets, tree **last_p)
+find_contained_blocks (tree *stmt_p, bitmap my_blocks, tree **last_p)
 {
   tree_stmt_iterator tsi;
 
@@ -983,7 +966,6 @@ find_contained_blocks_and_edge_targets (tree *stmt_p, bitmap my_blocks,
       tree stmt;
       enum tree_code code;
       basic_block bb;
-      edge e;
 
       stmt = tsi_stmt (tsi);
       if (!stmt || ! stmt_ann (stmt))
@@ -996,83 +978,41 @@ find_contained_blocks_and_edge_targets (tree *stmt_p, bitmap my_blocks,
       bb = bb_for_stmt (stmt);
       bitmap_set_bit (my_blocks, bb->index);
 
-      /* Now mark all destinations of edges out of this block.  */
-      for (e = bb->succ; e; e = e->succ_next)
-	{
-	  int blocknum
-	    = (e->dest == EXIT_BLOCK_PTR ? last_basic_block : e->dest->index);
-
-	  bitmap_set_bit (my_targets, blocknum);
-	}
-
       /* And recurse down into control structures.  */
       code = TREE_CODE (stmt);
       if (code == LOOP_EXPR)
 	{
-	  find_contained_blocks_and_edge_targets (&LOOP_EXPR_BODY (stmt),
-			 			  my_blocks,
-						  my_targets,
-						  last_p);
+	  find_contained_blocks (&LOOP_EXPR_BODY (stmt), my_blocks, last_p);
 	}
       else if (code == COND_EXPR)
 	{
-	  find_contained_blocks_and_edge_targets (&COND_EXPR_COND (stmt),
-			 			  my_blocks,
-						  my_targets,
-						  last_p);
-	  find_contained_blocks_and_edge_targets (&COND_EXPR_THEN (stmt),
-			  			  my_blocks,
-						  my_targets,
-						  last_p);
-	  find_contained_blocks_and_edge_targets (&COND_EXPR_ELSE (stmt),
-			 			  my_blocks,
-						  my_targets,
-						  last_p);
+	  find_contained_blocks (&COND_EXPR_COND (stmt), my_blocks, last_p);
+	  find_contained_blocks (&COND_EXPR_THEN (stmt), my_blocks, last_p);
+	  find_contained_blocks (&COND_EXPR_ELSE (stmt), my_blocks, last_p);
 	}
       else if (code == CATCH_EXPR)
 	{
-	  find_contained_blocks_and_edge_targets (&CATCH_BODY (stmt),
-						  my_blocks,
-						  my_targets,
-						  last_p);
+	  find_contained_blocks (&CATCH_BODY (stmt), my_blocks, last_p);
 	}
       else if (code == EH_FILTER_EXPR)
 	{
-	  find_contained_blocks_and_edge_targets (&EH_FILTER_FAILURE (stmt),
-			 			  my_blocks,
-						  my_targets,
-						  last_p);
+	  find_contained_blocks (&EH_FILTER_FAILURE (stmt), my_blocks, last_p);
 	}
       else if (code == TRY_CATCH_EXPR
 	       || code == TRY_FINALLY_EXPR
 	       || code == COMPOUND_EXPR)
 	{
-	  find_contained_blocks_and_edge_targets (&TREE_OPERAND (stmt, 0),
-			 			  my_blocks,
-						  my_targets,
-						  last_p);
-	  find_contained_blocks_and_edge_targets (&TREE_OPERAND (stmt, 1),
-			  			  my_blocks,
-						  my_targets,
-						  last_p);
+	  find_contained_blocks (&TREE_OPERAND (stmt, 0), my_blocks, last_p);
+	  find_contained_blocks (&TREE_OPERAND (stmt, 1), my_blocks, last_p);
 	}
       else if (code == SWITCH_EXPR)
 	{
-	  find_contained_blocks_and_edge_targets (&SWITCH_COND (stmt),
-			 			  my_blocks,
-						  my_targets,
-						  last_p);
-	  find_contained_blocks_and_edge_targets (&SWITCH_BODY (stmt),
-			  			  my_blocks,
-						  my_targets,
-						  last_p);
+	  find_contained_blocks (&SWITCH_COND (stmt), my_blocks, last_p);
+	  find_contained_blocks (&SWITCH_BODY (stmt), my_blocks, last_p);
 	}
       else if (code == BIND_EXPR)
 	{
-	  find_contained_blocks_and_edge_targets (&BIND_EXPR_BODY (stmt),
-			  			  my_blocks,
-						  my_targets,
-						  last_p);
+	  find_contained_blocks (&BIND_EXPR_BODY (stmt), my_blocks, last_p);
 	}
     }
 }
@@ -2992,8 +2932,7 @@ last_exec_block (entry_p)
 {
   bitmap dummy_bitmap = BITMAP_XMALLOC ();
   tree *last_p = NULL;
-  find_contained_blocks_and_edge_targets (entry_p, dummy_bitmap, dummy_bitmap,
-					  &last_p);
+  find_contained_blocks (entry_p, dummy_bitmap, &last_p);
   BITMAP_XFREE (dummy_bitmap);
   return bb_for_stmt (*last_p);
 }

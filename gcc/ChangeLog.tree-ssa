@@ -1,3 +1,13 @@
+2003-06-23  Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (find_contained_blocks): Renamed from
+	find_contained_blocks_and_edge_targets.  Remove targets
+	bitmap argument and no longer record targets of edges.
+	All callers changed.
+	(make_edges): No longer need TRY_TARGETS bitmap.  Kill it.
+	Simplify code which creates additional edges out of the TRY
+	block and the FINALLY block in a TRY_FINALLY_EXPR.  
+
 2003-06-23  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-alias-common.c (ptr_may_alias_var): Don't handle memory
@@ -42,6 +52,9 @@
 
 2003-06-23  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (make_edges): Walk TRY_FINALLYs inner to outer and
+	simplify creation of special edges related to the TRY_FINALLY_EXPR.
+ 
 	* tree-cfg.c (remove_useless_stmts_and_vars): More aggressively
 	remove TRY_CATCH_EXPRs and TRY_FINALLY_EXPRs.
                                                                                 
