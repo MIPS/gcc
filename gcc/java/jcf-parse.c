@@ -1112,9 +1112,7 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
   java_expand_classes ();
   if (!java_report_errors () && !flag_syntax_only)
     {
-      /* Optimize and expand all classes compiled from source.  */
-      cgraph_finalize_compilation_unit ();
-      cgraph_optimize ();
+      /* Expand all classes compiled from source.  */
       java_finish_classes ();
 
       /* Emit the .jcf section.  */
@@ -1131,6 +1129,11 @@ java_parse_file (int set_yydebug ATTRIBUTE_UNUSED)
 	     atable_decl, atable_methods, atable_syms_decl, ptr_type_node);
 	}
       emit_catch_table ();
+
+      /* Only finalize the compilation unit after we've told cgraph which
+	 functions have their addresses stored.  */
+      cgraph_finalize_compilation_unit ();
+      cgraph_optimize ();
     }
 
   write_resource_constructor ();
