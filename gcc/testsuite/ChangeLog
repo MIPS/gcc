@@ -1,4 +1,10 @@
 2004-12-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-weakimport-1.c: Remove check for variables
+	producing warning.
+	* gcc.dg/darwin-weakimport-2.c: New.
+
+2004-12-16  Geoffrey Keating  <geoffk@apple.com>
 	    Robert Bowdidge <bowdidge@apple.com>
 
 	* gcc.dg/cpp/subframework1.c: New.

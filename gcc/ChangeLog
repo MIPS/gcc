@@ -1,3 +1,8 @@
+2004-12-16  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin.c (darwin_handle_weak_import_attribute): Permit
+	VAR_DECLs to have weak_import attribute.
+
 2004-12-09  Stan Shebs  <shebs@apple.com>
 
 	* config/rs6000/darwin-asm.h: New file, 32/64-bit assembly macros

@@ -1462,7 +1462,8 @@ darwin_handle_weak_import_attribute (tree *node, tree name,
 				     int ARG_UNUSED (flags),
 				     bool * no_add_attrs)
 {
-  if (TREE_CODE (*node) != FUNCTION_DECL)
+  /* APPLE LOCAL put in 4.1 */
+  if (TREE_CODE (*node) != FUNCTION_DECL && TREE_CODE (*node) != VAR_DECL)
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
       *no_add_attrs = true;
