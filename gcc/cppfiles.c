@@ -77,8 +77,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #undef strcmp
 
 /* This structure is used for the table of all includes.  */
-struct include_file
-{
+struct include_file {
   const char *name;		/* actual path name of file */
   const cpp_hashnode *cmacro;	/* macro, if any, preventing reinclusion.  */
   const struct search_path *foundhere;
@@ -106,7 +105,7 @@ struct include_file
    included again.  If it's NEVER_REREAD, the file is never to be
    included again.  Otherwise it is a macro hashnode, and the file is
    to be included again if the macro is defined.  */
-#define NEVER_REREAD ((const cpp_hashnode *)-1)
+#define NEVER_REREAD ((const cpp_hashnode *) -1)
 #define DO_NOT_REREAD(inc) \
 ((inc)->cmacro && ((inc)->cmacro == NEVER_REREAD \
 		   || (inc)->cmacro->type == NT_MACRO))
@@ -168,7 +167,7 @@ static void
 destroy_node (v)
      splay_tree_value v;
 {
-  struct include_file *f = (struct include_file *)v;
+  struct include_file *f = (struct include_file *) v;
 
   if (f)
     {
@@ -318,9 +317,12 @@ stack_include_file (pfile, inc)
   sysp = MAX ((pfile->map ? pfile->map->sysp : 0),
 	      (inc->foundhere ? inc->foundhere->sysp : 0));
 
-  /* For -M, add the file to the dependencies on its first inclusion.  */
-  if (CPP_OPTION (pfile, print_deps) > sysp && !inc->include_count)
-    deps_add_dep (pfile->deps, inc->name);
+  /* Add the file to the dependencies on its first inclusion.  */
+  if (CPP_OPTION (pfile, deps.style) > !!sysp && !inc->include_count)
+    {
+      if (pfile->buffer || CPP_OPTION (pfile, deps.ignore_main_file) == 0)
+	deps_add_dep (pfile->deps, inc->name);
+    }
 
   /* Not in cache?  */
   if (! inc->buffer)
@@ -350,7 +352,7 @@ stack_include_file (pfile, inc)
   fp->inc = inc;
   fp->inc->refcnt++;
 
-  /* Initialise controlling macro state.  */
+  /* Initialize controlling macro state.  */
   pfile->mi_valid = true;
   pfile->mi_cmacro = 0;
 
@@ -413,7 +415,7 @@ read_include_file (pfile, inc)
       if (SHOULD_MMAP (size, pagesize))
 	{
 	  buf = (uchar *) mmap (0, size, PROT_READ, MAP_PRIVATE, inc->fd, 0);
-	  if (buf == (uchar *)-1)
+	  if (buf == (uchar *) -1)
 	    goto perror_fail;
 	  inc->mapped = 1;
 	}
@@ -639,7 +641,7 @@ report_missing_guard (n, b)
      void *b;
 {
   struct include_file *f = (struct include_file *) n->value;
-  int *bannerp = (int *)b;
+  int *bannerp = (int *) b;
 
   if (f && f->cmacro == 0 && f->include_count == 1)
     {
@@ -655,7 +657,7 @@ report_missing_guard (n, b)
 }
 
 /* Create a dependency for file FNAME, or issue an error message as
-   appropriate.  ANGLE_BRACKETS is non-zero if the file was bracketed
+   appropriate.  ANGLE_BRACKETS is nonzero if the file was bracketed
    like <..>.  */
 static void
 handle_missing_header (pfile, fname, angle_brackets)
@@ -663,9 +665,10 @@ handle_missing_header (pfile, fname, angle_brackets)
      const char *fname;
      int angle_brackets;
 {
-  int print_dep = CPP_PRINT_DEPS(pfile) > (angle_brackets || pfile->map->sysp);
+  bool print_dep
+    = CPP_OPTION (pfile, deps.style) > (angle_brackets || pfile->map->sysp);
 
-  if (CPP_OPTION (pfile, print_deps_missing_files) && print_dep)
+  if (CPP_OPTION (pfile, deps.missing_files) && print_dep)
     deps_add_dep (pfile->deps, fname);
   /* If -M was specified, then don't count this as an error, because
      we can still produce correct output.  Otherwise, we can't produce
@@ -673,7 +676,7 @@ handle_missing_header (pfile, fname, angle_brackets)
      the missing file, and we don't know what directory this missing
      file exists in.  */
   else
-    cpp_errno (pfile, CPP_PRINT_DEPS (pfile) && ! print_dep
+    cpp_errno (pfile, CPP_OPTION (pfile, deps.style) && ! print_dep
 	       ? DL_WARNING: DL_ERROR, fname);
 }
 
@@ -826,8 +829,7 @@ search_from (pfile, type)
    such as DOS.  The format of the file name map file is just a series
    of lines with two tokens on each line.  The first token is the name
    to map, and the second token is the actual name to use.  */
-struct file_name_map
-{
+struct file_name_map {
   struct file_name_map *map_next;
   char *map_from;
   char *map_to;
@@ -847,10 +849,10 @@ read_filename_string (ch, f)
 
   len = 20;
   set = alloc = xmalloc (len + 1);
-  if (! is_space(ch))
+  if (! is_space (ch))
     {
       *set++ = ch;
-      while ((ch = getc (f)) != EOF && ! is_space(ch))
+      while ((ch = getc (f)) != EOF && ! is_space (ch))
 	{
 	  if (set - alloc == len)
 	    {
@@ -867,8 +869,7 @@ read_filename_string (ch, f)
 }
 
 /* This structure holds a linked list of file name maps, one per directory.  */
-struct file_name_map_list
-{
+struct file_name_map_list {
   struct file_name_map_list *map_list_next;
   char *map_list_name;
   struct file_name_map *map_list_map;
@@ -908,17 +909,16 @@ read_name_map (pfile, dirname)
   if (f)
     {
       int ch;
-      int dirlen = strlen (dirname);
 
       while ((ch = getc (f)) != EOF)
 	{
 	  char *from, *to;
 	  struct file_name_map *ptr;
 
-	  if (is_space(ch))
+	  if (is_space (ch))
 	    continue;
 	  from = read_filename_string (ch, f);
-	  while ((ch = getc (f)) != EOF && is_hspace(ch))
+	  while ((ch = getc (f)) != EOF && is_hspace (ch))
 	    ;
 	  to = read_filename_string (ch, f);
 
@@ -931,10 +931,7 @@ read_name_map (pfile, dirname)
 	    ptr->map_to = to;
 	  else
 	    {
-	      ptr->map_to = xmalloc (dirlen + strlen (to) + 2);
-	      strcpy (ptr->map_to, dirname);
-	      ptr->map_to[dirlen] = '/';
-	      strcpy (ptr->map_to + dirlen + 1, to);
+	      ptr->map_to = concat (dirname, "/", to, NULL);
 	      free (to);
 	    }
 

@@ -25,9 +25,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "hashtab.h"
 
-#define	obstack_chunk_alloc	xmalloc
-#define	obstack_chunk_free	free
-
 static htab_t md_constants;
 
 static void fatal_with_file_and_line PARAMS ((FILE *, const char *, ...))
@@ -38,7 +35,7 @@ static char *read_string	PARAMS ((struct obstack *, FILE *, int));
 static char *read_quoted_string	PARAMS ((struct obstack *, FILE *));
 static char *read_braced_string	PARAMS ((struct obstack *, FILE *));
 static void read_escape		PARAMS ((struct obstack *, FILE *));
-static unsigned def_hash PARAMS ((const void *));
+static hashval_t def_hash	PARAMS ((const void *));
 static int def_name_eq_p PARAMS ((const void *, const void *));
 static void read_constants PARAMS ((FILE *infile, char *tmp_char));
 static void validate_const_int PARAMS ((FILE *, const char *));
@@ -404,7 +401,7 @@ atoll (p)
 #endif
 
 /* Given a constant definition, return a hash code for its name.  */
-static unsigned
+static hashval_t
 def_hash (def)
      const void *def;
 {

@@ -44,9 +44,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "mbchar.h"
 #include <locale.h>
 #endif /* MULTIBYTE_CHARS */
-#ifndef GET_ENVIRONMENT
-#define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ((ENV_VALUE) = getenv (ENV_NAME))
-#endif
 
 /* The current line map.  */
 static const struct line_map *map;
@@ -137,9 +134,6 @@ init_c_lex (filename)
 
   /* Start it at 0.  */
   lineno = 0;
-
-  if (filename == NULL || !strcmp (filename, "-"))
-    filename = "";
 
   return cpp_read_main_file (parse_in, filename, ident_hash);
 }
@@ -322,20 +316,21 @@ cb_def_pragma (pfile, line)
      -Wunknown-pragmas has been given.  */
   if (warn_unknown_pragmas > in_system_header)
     {
-      const unsigned char *space, *name = 0;
+      const unsigned char *space, *name;
       const cpp_token *s;
 
+      space = name = (const unsigned char *) "";
       s = cpp_get_token (pfile);
-      space = cpp_token_as_text (pfile, s);
-      s = cpp_get_token (pfile);
-      if (s->type == CPP_NAME)
-	name = cpp_token_as_text (pfile, s);
+      if (s->type != CPP_EOF)
+	{
+	  space = cpp_token_as_text (pfile, s);
+	  s = cpp_get_token (pfile);
+	  if (s->type == CPP_NAME)
+	    name = cpp_token_as_text (pfile, s);
+	}
 
       lineno = SOURCE_LINE (map, line);
-      if (name)
-	warning ("ignoring #pragma %s %s", space, name);
-      else
-	warning ("ignoring #pragma %s", space);
+      warning ("ignoring #pragma %s %s", space, name);
     }
 }
 
@@ -840,7 +835,7 @@ interpret_integer (token, flags)
 	{
 	  /* In C99, decimal constants are always signed.
 	     In C89, decimal constants that don't fit in long have
-	     undefined behaviour; we try to make them unsigned long.
+	     undefined behavior; we try to make them unsigned long.
 	     In GCC's extended C89, that last is true of decimal
 	     constants that don't fit in long long, too.  */
 
@@ -852,10 +847,10 @@ interpret_integer (token, flags)
 		  if (itk_u < itk_unsigned_long)
 		    itk_u = itk_unsigned_long;
 		  itk = itk_u;
-		  warning ("this decimal constant is unsigned only in ISO C89");
+		  warning ("this decimal constant is unsigned only in ISO C90");
 		}
 	      else if (warn_traditional)
-		warning ("this decimal constant would be unsigned in ISO C89");
+		warning ("this decimal constant would be unsigned in ISO C90");
 	    }
 	}
     }
@@ -930,13 +925,8 @@ interpret_float (token, flags)
   memcpy (copy, token->val.str.text, copylen);
   copy[copylen] = '\0';
 
-  /* The second argument, machine_mode, of REAL_VALUE_ATOF tells the
-     desired precision of the binary result of decimal-to-binary
-     conversion.  */
-  if (flags & CPP_N_HEX)
-    real = REAL_VALUE_HTOF (copy, TYPE_MODE (type));
-  else
-    real = REAL_VALUE_ATOF (copy, TYPE_MODE (type));
+  real_from_string (&real, copy);
+  real_convert (&real, TYPE_MODE (type), &real);
 
   /* A diagnostic is required for "soft" overflow by some ISO C
      testsuites.  This is not pedwarn, because some people don't want
@@ -1021,7 +1011,7 @@ lex_string (str, len, wide)
 #ifdef MULTIBYTE_CHARS
       else if (char_len > 1)
 	{
-	  /* We're dealing with a multibyte character. */
+	  /* We're dealing with a multibyte character.  */
 	  for ( ; char_len >0; --char_len)
 	    {
 	      *q++ = *(p - char_len);
@@ -1080,8 +1070,7 @@ lex_charconst (token)
     type = wchar_type_node;
   /* In C, a character constant has type 'int'.
      In C++ 'char', but multi-char charconsts have type 'int'.  */
-  else if ((c_language == clk_c || c_language == clk_objective_c)
-	   || chars_seen > 1)
+  else if ((c_language == clk_c) || chars_seen > 1)
     type = integer_type_node;
   else
     type = char_type_node;

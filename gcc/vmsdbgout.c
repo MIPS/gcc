@@ -31,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "vmsdbg.h"
 #include "debug.h"
 #include "langhooks.h"
+#include "function.h"
 
 /* Difference in seconds between the VMS Epoch and the Unix Epoch */
 static const long long vms_epoch_offset = 3506716800ll;
@@ -123,13 +124,6 @@ static unsigned int line_info_table_in_use;
 /* Size (in elements) of increments by which we may expand line_info_table.  */
 #define LINE_INFO_TABLE_INCREMENT 1024
 
-/* The number of the current function definition for which debugging
-   information is being generated.  These numbers range from 1 up to the
-   maximum number of function definitions contained within the current
-   compilation unit.  These numbers are used to create unique label id's unique
-   to each function definition.  */
-static unsigned int current_funcdef_number = 0;
-
 /* Forward declarations for functions defined in this file.  */
 static char *full_name 		PARAMS ((const char *));
 static unsigned int lookup_filename PARAMS ((const char *));
@@ -162,7 +156,9 @@ static void vmsdbgout_end_block		PARAMS ((unsigned int, unsigned int));
 static bool vmsdbgout_ignore_block	PARAMS ((tree));
 static void vmsdbgout_source_line	PARAMS ((unsigned int, const char *));
 static void vmsdbgout_begin_prologue	PARAMS ((unsigned int, const char *));
-static void vmsdbgout_end_epilogue	PARAMS ((void));
+static void vmsdbgout_end_prologue	PARAMS ((unsigned int, const char *));
+static void vmsdbgout_end_function	PARAMS ((unsigned int));
+static void vmsdbgout_end_epilogue	PARAMS ((unsigned int, const char *));
 static void vmsdbgout_begin_function	PARAMS ((tree));
 static void vmsdbgout_decl		PARAMS ((tree));
 static void vmsdbgout_global_decl	PARAMS ((tree));
@@ -182,10 +178,10 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
    vmsdbgout_ignore_block,
    vmsdbgout_source_line,
    vmsdbgout_begin_prologue,
-   debug_nothing_int,		/* end_prologue */
-   vmsdbgout_end_epilogue,	/* end_epilogue */
-   vmsdbgout_begin_function,	/* begin_function */
-   debug_nothing_int,		/* end_function */
+   vmsdbgout_end_prologue,
+   vmsdbgout_end_epilogue,
+   vmsdbgout_begin_function,
+   vmsdbgout_end_function,
    vmsdbgout_decl,
    vmsdbgout_global_decl,
    debug_nothing_tree,		/* deferred_inline_function */
@@ -236,11 +232,6 @@ const struct gcc_debug_hooks vmsdbg_debug_hooks
   (NUMBYTES(OFFSET) == 4 \
    ? UNALIGNED_LONG_ASM_OP \
    : (NUMBYTES(OFFSET) == 2 ? UNALIGNED_SHORT_ASM_OP : ASM_BYTE_OP))
-#endif
-
-/* Pseudo-op for defining a new section.  */
-#ifndef SECTION_ASM_OP
-#define SECTION_ASM_OP	".section"
 #endif
 
 /* Definitions of defaults for formats and names of various special
@@ -535,7 +526,7 @@ restart:
 
 /* Output the debug header HEADER.  Also output COMMENT if flag_verbose_asm is
    set.  Return the header size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_header (header, comment, dosizeonly)
@@ -567,7 +558,7 @@ write_debug_header (header, comment, dosizeonly)
 
 /* Output the address of SYMBOL.  Also output COMMENT if flag_verbose_asm is
    set.  Return the address size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_addr (symbol, comment, dosizeonly)
@@ -588,7 +579,7 @@ write_debug_addr (symbol, comment, dosizeonly)
 
 /* Output the single byte DATA1.  Also output COMMENT if flag_verbose_asm is
    set.  Return the data size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_data1 (data1, comment, dosizeonly)
@@ -609,7 +600,7 @@ write_debug_data1 (data1, comment, dosizeonly)
 
 /* Output the single word DATA2.  Also output COMMENT if flag_verbose_asm is
    set.  Return the data size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_data2 (data2, comment, dosizeonly)
@@ -629,7 +620,7 @@ write_debug_data2 (data2, comment, dosizeonly)
 }
 
 /* Output double word DATA4.  Also output COMMENT if flag_verbose_asm is set.
-   Return the data size.  Just return the size if DOSIZEONLY is non-zero.  */
+   Return the data size.  Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_debug_data4 (data4, comment, dosizeonly)
@@ -649,7 +640,7 @@ write_debug_data4 (data4, comment, dosizeonly)
 }
 
 /* Output quad word DATA8.  Also output COMMENT if flag_verbose_asm is set.
-   Return the data size.  Just return the size if DOSIZEONLY is non-zero.  */
+   Return the data size.  Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_debug_data8 (data8, comment, dosizeonly)
@@ -670,7 +661,7 @@ write_debug_data8 (data8, comment, dosizeonly)
 
 /* Output the difference between LABEL1 and LABEL2.  Also output COMMENT if
    flag_verbose_asm is set.  Return the data size.  Just return the size if
-   DOSIZEONLY is non-zero.  */
+   DOSIZEONLY is nonzero.  */
 
 static int
 write_debug_delta4 (label1, label2, comment, dosizeonly)
@@ -692,7 +683,7 @@ write_debug_delta4 (label1, label2, comment, dosizeonly)
 
 /* Output a character string STRING.  Also write COMMENT if flag_verbose_asm is
    set.  Return the string length.  Just return the length if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_debug_string (string, comment, dosizeonly)
@@ -712,7 +703,7 @@ write_debug_string (string, comment, dosizeonly)
 }
 
 /* Output a module begin header and return the header size.  Just return the
-   size if DOSIZEONLY is non-zero.  */
+   size if DOSIZEONLY is nonzero.  */
 
 static int
 write_modbeg (dosizeonly)
@@ -776,7 +767,7 @@ write_modbeg (dosizeonly)
 }
 
 /* Output a module end trailer and return the trailer size.   Just return
-   the size if DOSIZEONLY is non-zero.  */
+   the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_modend (dosizeonly)
@@ -796,7 +787,7 @@ write_modend (dosizeonly)
 }
 
 /* Output a routine begin header routine RTNNUM and return the header size.
-   Just return the size if DOSIZEONLY is non-zero.  */
+   Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_rtnbeg (rtnnum, dosizeonly)
@@ -804,7 +795,7 @@ write_rtnbeg (rtnnum, dosizeonly)
      int dosizeonly;
 {
   char *rtnname;
-  int rtnnamelen, rtnentrynamelen;
+  int rtnnamelen;
   char *rtnentryname;
   int totsize = 0;
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
@@ -813,10 +804,7 @@ write_rtnbeg (rtnnum, dosizeonly)
 
   rtnname = func_table[rtnnum];
   rtnnamelen = strlen (rtnname);
-  rtnentrynamelen = rtnnamelen + 4; /* "..en" */
-  rtnentryname = (char *) xmalloc (rtnentrynamelen + 1);
-  strcpy (rtnentryname, rtnname);
-  strcat (rtnentryname, "..en");
+  rtnentryname = concat (rtnname, "..en", NULL);
 
   if (!strcmp (rtnname, "main"))
     {
@@ -894,7 +882,7 @@ write_rtnbeg (rtnnum, dosizeonly)
 }
 
 /* Output a routine end trailer for routine RTNNUM and return the header size.
-   Just return the size if DOSIZEONLY is non-zero.  */
+   Just return the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_rtnend (rtnnum, dosizeonly)
@@ -938,7 +926,7 @@ write_rtnend (rtnnum, dosizeonly)
   : (I) < 65536 ? DST_K_INCR_LINUM_W : DST_K_INCR_LINUM_L)
 
 /* Output the PC to line number correlations and return the size.  Just return
-   the size if DOSIZEONLY is non-zero */
+   the size if DOSIZEONLY is nonzero */
 
 static int
 write_pclines (dosizeonly)
@@ -998,8 +986,8 @@ write_pclines (dosizeonly)
   totsize += write_debug_data1 (pcline.dst_b_pcline_command,
 				"line_num (SET LINUM LONG)", dosizeonly);
 
-  sprintf (buff, "line_num (%d)", ln - 1);
-  totsize += write_debug_data4 (ln - 1, buff, dosizeonly);
+  sprintf (buff, "line_num (%d)", ln ? ln - 1 : 0);
+  totsize += write_debug_data4 (ln ? ln - 1 : 0, buff, dosizeonly);
 
   lastln = ln;
   strcpy (lastlabel, TEXT_SECTION_ASM_OP);
@@ -1069,7 +1057,7 @@ write_pclines (dosizeonly)
 
 /* Output a source correlation for file FILEID using information saved in
    FILE_INFO_ENTRY and return the size.  Just return the size if DOSIZEONLY is
-   non-zero.  */
+   nonzero.  */
 
 static int
 write_srccorr (fileid, file_info_entry, dosizeonly)
@@ -1198,69 +1186,73 @@ write_srccorr (fileid, file_info_entry, dosizeonly)
   src_header.dst_a_source_corr_header.dst__header_type.dst_w_type
     = DST_K_SOURCE;
 
-  totsize += write_debug_header (&src_header.dst_a_source_corr_header,
-				 "source corr", dosizeonly);
-
-  totsize += write_debug_data1 (src_command_sf.dst_b_src_command,
-				"source_corr (src setfile)", dosizeonly);
-
-  totsize += write_debug_data2
-    (src_command_sf.dst_a_src_cmd_fields.dst_w_src_unsword,
-     "source_corr (fileid)", dosizeonly);
-
-  totsize += write_debug_data1 (src_command_sr.dst_b_src_command,
-				"source_corr (setrec)", dosizeonly);
-
-  totsize += write_debug_data2
-    (src_command_sr.dst_a_src_cmd_fields.dst_w_src_unsword,
-     "source_corr (recnum)", dosizeonly);
-
-  totsize += write_debug_data1 (src_command_sl.dst_b_src_command,
-				"source_corr (setlnum)", dosizeonly);
-
-  totsize += write_debug_data4
-    (src_command_sl.dst_a_src_cmd_fields.dst_l_src_unslong,
-     "source_corr (linenum)", dosizeonly);
-
-  totsize += write_debug_data1 (src_command_dl.dst_b_src_command,
-				"source_corr (deflines)", dosizeonly);
-
-  sprintf (buff, "source_corr (%d)",
-	   src_command_dl.dst_a_src_cmd_fields.dst_w_src_unsword);
-  totsize += write_debug_data2
-    (src_command_dl.dst_a_src_cmd_fields.dst_w_src_unsword, buff, dosizeonly);
-
-  while (linesleft > 0)
+  if (src_command_dl.dst_a_src_cmd_fields.dst_w_src_unsword)
     {
-      src_header.dst_a_source_corr_header.dst__header_length.dst_w_length
-	= DST_K_SOURCE_CORR_HEADER_SIZE + 3 - 1;
-      src_header.dst_a_source_corr_header.dst__header_type.dst_w_type
-	= DST_K_SOURCE;
-      src_command_dl.dst_b_src_command = DST_K_SRC_DEFLINES_W;
-
-      if (linesleft > 65534)
-	linesleft = linesleft - 65534, linestodo = 65534;
-      else
-	linestodo = linesleft, linesleft = 0;
-
-      src_command_dl.dst_a_src_cmd_fields.dst_w_src_unsword = linestodo;
-
       totsize += write_debug_header (&src_header.dst_a_source_corr_header,
 				     "source corr", dosizeonly);
+
+      totsize += write_debug_data1 (src_command_sf.dst_b_src_command,
+				    "source_corr (src setfile)", dosizeonly);
+
+      totsize += write_debug_data2
+	(src_command_sf.dst_a_src_cmd_fields.dst_w_src_unsword,
+	 "source_corr (fileid)", dosizeonly);
+
+      totsize += write_debug_data1 (src_command_sr.dst_b_src_command,
+				    "source_corr (setrec)", dosizeonly);
+
+      totsize += write_debug_data2
+	(src_command_sr.dst_a_src_cmd_fields.dst_w_src_unsword,
+	 "source_corr (recnum)", dosizeonly);
+
+      totsize += write_debug_data1 (src_command_sl.dst_b_src_command,
+				    "source_corr (setlnum)", dosizeonly);
+
+      totsize += write_debug_data4
+	(src_command_sl.dst_a_src_cmd_fields.dst_l_src_unslong,
+	 "source_corr (linenum)", dosizeonly);
+
       totsize += write_debug_data1 (src_command_dl.dst_b_src_command,
 				    "source_corr (deflines)", dosizeonly);
+
       sprintf (buff, "source_corr (%d)",
 	       src_command_dl.dst_a_src_cmd_fields.dst_w_src_unsword);
       totsize += write_debug_data2
 	(src_command_dl.dst_a_src_cmd_fields.dst_w_src_unsword,
 	 buff, dosizeonly);
+
+      while (linesleft > 0)
+	{
+	  src_header.dst_a_source_corr_header.dst__header_length.dst_w_length
+	    = DST_K_SOURCE_CORR_HEADER_SIZE + 3 - 1;
+	  src_header.dst_a_source_corr_header.dst__header_type.dst_w_type
+	    = DST_K_SOURCE;
+	  src_command_dl.dst_b_src_command = DST_K_SRC_DEFLINES_W;
+
+	  if (linesleft > 65534)
+	    linesleft = linesleft - 65534, linestodo = 65534;
+	  else
+	    linestodo = linesleft, linesleft = 0;
+
+	  src_command_dl.dst_a_src_cmd_fields.dst_w_src_unsword = linestodo;
+
+	  totsize += write_debug_header (&src_header.dst_a_source_corr_header,
+					 "source corr", dosizeonly);
+	  totsize += write_debug_data1 (src_command_dl.dst_b_src_command,
+					"source_corr (deflines)", dosizeonly);
+	  sprintf (buff, "source_corr (%d)",
+		   src_command_dl.dst_a_src_cmd_fields.dst_w_src_unsword);
+	  totsize += write_debug_data2
+	    (src_command_dl.dst_a_src_cmd_fields.dst_w_src_unsword,
+	     buff, dosizeonly);
+	}
     }
 
   return totsize;
 }
 
 /* Output all the source correlation entries and return the size.  Just return
-   the size if DOSIZEONLY is non-zero.  */
+   the size if DOSIZEONLY is nonzero.  */
 
 static int
 write_srccorrs (dosizeonly)
@@ -1290,9 +1282,8 @@ vmsdbgout_begin_prologue (line, file)
 
   if (debug_info_level > DINFO_LEVEL_NONE)
     {
-      current_funcdef_number++;
       ASM_GENERATE_INTERNAL_LABEL (label, FUNC_BEGIN_LABEL,
-				   current_funcdef_number);
+				   current_function_funcdef_no);
       ASM_OUTPUT_LABEL (asm_out_file, label);
     }
 }
@@ -1300,17 +1291,35 @@ vmsdbgout_begin_prologue (line, file)
 /* Output a marker (i.e. a label) for the beginning of a function, after
    the prologue.  */
 
-void
-vmsdbgout_after_prologue ()
+static void
+vmsdbgout_end_prologue (line, file)
+     unsigned int line;
+     const char *file;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
+
+  if (write_symbols == VMS_AND_DWARF2_DEBUG)
+    (*dwarf2_debug_hooks.end_prologue) (line, file);
 
   if (debug_info_level > DINFO_LEVEL_TERSE)
     {
       ASM_GENERATE_INTERNAL_LABEL (label, FUNC_PROLOG_LABEL,
-				   current_funcdef_number);
+				   current_function_funcdef_no);
       ASM_OUTPUT_LABEL (asm_out_file, label);
+
+      /* VMS PCA expects every PC range to correlate to some line and file */
+      vmsdbgout_source_line (line, file);
     }
+}
+
+/* No output for VMS debug, but make obligatory call to Dwarf2 debug */
+
+static void
+vmsdbgout_end_function (line)
+     unsigned int line;
+{
+  if (write_symbols == VMS_AND_DWARF2_DEBUG)
+    (*dwarf2_debug_hooks.end_function) (line);
 }
 
 /* Output a marker (i.e. a label) for the absolute end of the generated code
@@ -1318,20 +1327,25 @@ vmsdbgout_after_prologue ()
    been generated.  */
 
 static void
-vmsdbgout_end_epilogue ()
+vmsdbgout_end_epilogue (line, file)
+     unsigned int line;
+     const char *file;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
   if (write_symbols == VMS_AND_DWARF2_DEBUG)
-    (*dwarf2_debug_hooks.end_epilogue) ();
+    (*dwarf2_debug_hooks.end_epilogue) (line, file);
 
   if (debug_info_level > DINFO_LEVEL_NONE)
     {
       /* Output a label to mark the endpoint of the code generated for this
          function.  */
       ASM_GENERATE_INTERNAL_LABEL (label, FUNC_END_LABEL,
-				   current_funcdef_number);
+				   current_function_funcdef_no);
       ASM_OUTPUT_LABEL (asm_out_file, label);
+
+      /* VMS PCA expects every PC range to correlate to some line and file */
+      vmsdbgout_source_line (line, file);
     }
 }
 
@@ -1645,10 +1659,7 @@ vmsdbgout_init (main_input_filename)
   else
     module_language = DST_K_UNKNOWN;
 
-  module_producer
-    = (char *) xmalloc (strlen (language_string) + 1
-			+ strlen (version_string) + 1);
-  sprintf (module_producer, "%s %s", language_string, version_string);
+  module_producer = concat (language_string, " ", version_string, NULL);
 
   ASM_GENERATE_INTERNAL_LABEL (text_end_label, TEXT_END_LABEL, 0);
 

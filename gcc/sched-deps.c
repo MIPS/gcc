@@ -222,8 +222,7 @@ add_dependence (insn, elem, dep_type)
      setters of the condition codes, so we must skip past notes here.
      Otherwise, NOTEs are impossible here.  */
   next = next_nonnote_insn (elem);
-  if (next && SCHED_GROUP_P (next)
-      && GET_CODE (next) != CODE_LABEL)
+  if (next && INSN_P (next) && SCHED_GROUP_P (next))
     {
       /* Notes will never intervene here though, so don't bother checking
          for them.  */
@@ -235,8 +234,8 @@ add_dependence (insn, elem, dep_type)
 
       rtx nnext;
       while ((nnext = next_nonnote_insn (next)) != NULL
-	     && SCHED_GROUP_P (nnext)
-	     && GET_CODE (nnext) != CODE_LABEL)
+	     && INSN_P (nnext)
+	     && SCHED_GROUP_P (nnext))
 	next = nnext;
 
       /* Again, don't depend an insn on itself.  */
@@ -448,7 +447,7 @@ group_leader (insn)
       prev = insn;
       insn = next_nonnote_insn (insn);
     }
-  while (insn && SCHED_GROUP_P (insn) && (GET_CODE (insn) != CODE_LABEL));
+  while (insn && INSN_P (insn) && SCHED_GROUP_P (insn));
 
   return prev;
 }
@@ -923,7 +922,15 @@ sched_analyze_insn (deps, x, insn, loop_notes)
       code = GET_CODE (x);
     }
   if (code == SET || code == CLOBBER)
-    sched_analyze_1 (deps, x, insn);
+    {
+      sched_analyze_1 (deps, x, insn);
+
+      /* Bare clobber insns are used for letting life analysis, reg-stack
+	 and others know that a value is dead.  Depend on the last call
+	 instruction so that reg-stack won't get confused.  */
+      if (code == CLOBBER)
+	add_dependence_list (insn, deps->last_function_call, REG_DEP_OUTPUT);
+    }
   else if (code == PARALLEL)
     {
       int i;
@@ -1118,8 +1125,6 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i,
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->sets, REG_DEP_OUTPUT);
-	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
 	      if (reg_last->uses_length > MAX_PENDING_LIST_LENGTH
 		  || reg_last->clobbers_length > MAX_PENDING_LIST_LENGTH)
 		{
@@ -1129,6 +1134,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 						REG_DEP_ANTI);
 		  add_dependence_list_and_free (insn, &reg_last->clobbers,
 						REG_DEP_OUTPUT);
+		  reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
 		  reg_last->clobbers_length = 0;
 		  reg_last->uses_length = 0;
 		}

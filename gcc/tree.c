@@ -27,11 +27,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    nodes of that code.
 
    It is intended to be language-independent, but occasionally
-   calls language-dependent routines defined (for C) in typecheck.c.
-
-   The low-level allocation routines oballoc and permalloc
-   are used also for allocating many other kinds of objects
-   by all passes of the compiler.  */
+   calls language-dependent routines defined (for C) in typecheck.c.  */
 
 #include "config.h"
 #include "system.h"
@@ -48,15 +44,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
 /* obstack.[ch] explicitly declined to prototype this.  */
 extern int _obstack_allocated_p PARAMS ((struct obstack *h, PTR obj));
 
-/* Objects allocated on this obstack last forever.  */
-
-struct obstack permanent_obstack;
-
+#ifdef GATHER_STATISTICS
 /* Statistics-gathering stuff.  */
 typedef enum
 {
@@ -96,6 +87,7 @@ static const char * const tree_node_kind_names[] = {
   "lang_decl kinds",
   "lang_type kinds"
 };
+#endif /* GATHER_STATISTICS */
 
 /* Unique id for next decl created.  */
 static int next_decl_uid;
@@ -127,7 +119,7 @@ static GTY ((if_marked ("type_hash_marked_p"), param_is (struct type_hash)))
 static void set_type_quals PARAMS ((tree, int));
 static void append_random_chars PARAMS ((char *));
 static int type_hash_eq PARAMS ((const void *, const void *));
-static unsigned int type_hash_hash PARAMS ((const void *));
+static hashval_t type_hash_hash PARAMS ((const void *));
 static void print_type_hash_statistics PARAMS((void));
 static void finish_vector_type PARAMS((tree));
 static tree make_vector PARAMS ((enum machine_mode, tree, int));
@@ -136,43 +128,17 @@ static int type_hash_marked_p PARAMS ((const void *));
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
 
-/* Init the principal obstacks.  */
+/* Init tree.c.  */
 
 void
-init_obstacks ()
+init_ttree ()
 {
-  gcc_obstack_init (&permanent_obstack);
-
   /* Initialize the hash table of types.  */
   type_hash_table = htab_create (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
 				 type_hash_eq, 0);
 }
 
 
-/* Allocate SIZE bytes in the permanent obstack
-   and return a pointer to them.  */
-
-char *
-permalloc (size)
-     int size;
-{
-  return (char *) obstack_alloc (&permanent_obstack, size);
-}
-
-/* Allocate NELEM items of SIZE bytes in the permanent obstack
-   and return a pointer to them.  The storage is cleared before
-   returning the value.  */
-
-char *
-perm_calloc (nelem, size)
-     int nelem;
-     long size;
-{
-  char *rval = (char *) obstack_alloc (&permanent_obstack, nelem * size);
-  memset (rval, 0, nelem * size);
-  return rval;
-}
-
 /* The name of the object as the assembler will see it (but before any
    translations made by ASM_OUTPUT_LABELREF).  Often this is the same
    as DECL_NAME.  It is an IDENTIFIER_NODE.  */
@@ -211,7 +177,7 @@ tree_size (node)
     case '1':  /* a unary arithmetic expression */
     case '2':  /* a binary arithmetic expression */
       return (sizeof (struct tree_exp)
-	      + (TREE_CODE_LENGTH (code) - 1) * sizeof (char *));
+	      + TREE_CODE_LENGTH (code) * sizeof (char *) - sizeof (char *));
 
     case 'c':  /* a constant */
       /* We can't use TREE_CODE_LENGTH for INTEGER_CST, since the number of
@@ -233,7 +199,7 @@ tree_size (node)
 	length = (sizeof (struct tree_common)
 		  + TREE_CODE_LENGTH (code) * sizeof (char *));
 	if (code == TREE_VEC)
-	  length += (TREE_VEC_LENGTH (node) - 1) * sizeof (char *);
+	  length += TREE_VEC_LENGTH (node) * sizeof (char *) - sizeof (char *);
 	return length;
       }
 
@@ -508,11 +474,8 @@ build_real (type, d)
   REAL_VALUE_TYPE *dp;
   int overflow = 0;
 
-  /* Check for valid float value for this type on this target machine;
-     if not, can print error message and store a valid value in D.  */
-#ifdef CHECK_FLOAT_VALUE
-  CHECK_FLOAT_VALUE (TYPE_MODE (type), d, overflow);
-#endif
+  /* ??? Used to check for overflow here via CHECK_FLOAT_TYPE.
+     Consider doing it via real_convert now.  */
 
   v = make_node (REAL_CST);
   dp = ggc_alloc (sizeof (REAL_VALUE_TYPE));
@@ -2636,7 +2599,7 @@ default_ms_bitfield_layout_p (record)
   return false;
 }
 
-/* Return non-zero if IDENT is a valid name for attribute ATTR,
+/* Return nonzero if IDENT is a valid name for attribute ATTR,
    or zero if not.
 
    We try both `text' and `__text__', ATTR may be either one.  */
@@ -2866,7 +2829,8 @@ get_qualified_type (type, type_quals)
      like the one we need to have.  If so, use that existing one.  We must
      preserve the TYPE_NAME, since there is code that depends on this.  */
   for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
-    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type))
+    if (TYPE_QUALS (t) == type_quals && TYPE_NAME (t) == TYPE_NAME (type)
+        && TYPE_CONTEXT (t) == TYPE_CONTEXT (type))
       return t;
 
   return NULL_TREE;
@@ -2972,7 +2936,7 @@ type_hash_eq (va, vb)
 
 /* Return the cached hash value.  */
 
-static unsigned int
+static hashval_t
 type_hash_hash (item)
      const void *item;
 {
@@ -3799,6 +3763,32 @@ build_function_type (value_type, arg_types)
   return t;
 }
 
+/* Build a function type.  The RETURN_TYPE is the type retured by the
+   function.  If additional arguments are provided, they are
+   additional argument types.  The list of argument types must always
+   be terminated by NULL_TREE.  */
+
+tree
+build_function_type_list VPARAMS ((tree return_type, ...))
+{
+  tree t, args, last;
+
+  VA_OPEN (p, return_type);
+  VA_FIXEDARG (p, tree, return_type);
+
+  t = va_arg (p, tree);
+  for (args = NULL_TREE; t != NULL_TREE; t = va_arg (p, tree))
+    args = tree_cons (NULL_TREE, t, args);
+
+  last = args;
+  args = nreverse (args);
+  TREE_CHAIN (last) = void_list_node;
+  args = build_function_type (return_type, args);
+
+  VA_CLOSE (p);
+  return args;
+}
+
 /* Construct, lay out and return the type of methods belonging to class
    BASETYPE and whose arguments and values are described by TYPE.
    If that type exists already, reuse it.
@@ -4161,6 +4151,65 @@ int_fits_type_p (c, type)
     }
 }
 
+/* Returns true if T is, contains, or refers to a type with variable
+   size.  This concept is more general than that of C99 'variably
+   modified types': in C99, a struct type is never variably modified
+   because a VLA may not appear as a structure member.  However, in
+   GNU C code like:
+    
+     struct S { int i[f()]; };
+
+   is valid, and other languages may define similar constructs.  */
+
+bool
+variably_modified_type_p (type)
+     tree type;
+{
+  /* If TYPE itself has variable size, it is variably modified.  
+
+     We do not yet have a representation of the C99 '[*]' syntax.
+     When a representation is chosen, this function should be modified
+     to test for that case as well.  */
+  if (TYPE_SIZE (type) 
+      && TYPE_SIZE (type) != error_mark_node
+      && TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST)
+    return true;
+
+  /* If TYPE is a pointer or reference, it is variably modified if 
+     the type pointed to is variably modified.  */
+  if ((TREE_CODE (type) == POINTER_TYPE
+       || TREE_CODE (type) == REFERENCE_TYPE)
+      && variably_modified_type_p (TREE_TYPE (type)))
+    return true;
+  
+  /* If TYPE is an array, it is variably modified if the array
+     elements are.  (Note that the VLA case has already been checked
+     above.)  */
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && variably_modified_type_p (TREE_TYPE (type)))
+    return true;
+
+  /* If TYPE is a function type, it is variably modified if any of the
+     parameters or the return type are variably modified.  */
+  if (TREE_CODE (type) == FUNCTION_TYPE
+      || TREE_CODE (type) == METHOD_TYPE)
+    {
+      tree parm;
+
+      if (variably_modified_type_p (TREE_TYPE (type)))
+	return true;
+      for (parm = TYPE_ARG_TYPES (type); 
+	   parm && parm != void_list_node; 
+	   parm = TREE_CHAIN (parm))
+	if (variably_modified_type_p (TREE_VALUE (parm)))
+	  return true;
+    }
+
+  /* The current language may have other cases to check, but in general,
+     all other types are not variably modified.  */
+  return (*lang_hooks.tree_inlining.var_mod_type_p) (type);
+}
+
 /* Given a DECL or TYPE, return the scope in which it was declared, or
    NULL_TREE if there is no containing scope.  */
 
@@ -4333,13 +4382,10 @@ dump_tree_statistics ()
 #else
   fprintf (stderr, "(No per-node statistics)\n");
 #endif
-  print_obstack_statistics ("permanent_obstack", &permanent_obstack);
   print_type_hash_statistics ();
   (*lang_hooks.print_statistics) ();
 }
 
-#define FILE_FUNCTION_PREFIX_LEN 9
-
 #define FILE_FUNCTION_FORMAT "_GLOBAL__%s_%s"
 
 /* Appends 6 random characters to TEMPLATE to (hopefully) avoid name
@@ -4619,10 +4665,26 @@ tree_class_check_failed (node, cl, file, line, function)
      tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
 
+/* Similar to above, except that the check is for the bounds of a TREE_VEC's
+   (dynamically sized) vector.  */
+
+void
+tree_vec_elt_check_failed (idx, len, file, line, function)
+     int idx;
+     int len;
+     const char *file;
+     int line;
+     const char *function;
+{
+  internal_error
+    ("tree check: accessed elt %d of tree_vec with %d elts in %s, at %s:%d",
+     idx + 1, len, function, trim_filename (file), line);
+}
+
 #endif /* ENABLE_TREE_CHECKING */
 
 /* For a new vector type node T, build the information necessary for
-   debuggint output.  */
+   debugging output.  */
 
 static void
 finish_vector_type (t)
@@ -4776,6 +4838,8 @@ build_common_tree_nodes_2 (short_double)
 
   unsigned_V4SI_type_node
     = make_vector (V4SImode, unsigned_intSI_type_node, 1);
+  unsigned_V2HI_type_node
+    = make_vector (V2HImode, unsigned_intHI_type_node, 1);
   unsigned_V2SI_type_node
     = make_vector (V2SImode, unsigned_intSI_type_node, 1);
   unsigned_V2DI_type_node
@@ -4788,10 +4852,13 @@ build_common_tree_nodes_2 (short_double)
     = make_vector (V8HImode, unsigned_intHI_type_node, 1);
   unsigned_V16QI_type_node
     = make_vector (V16QImode, unsigned_intQI_type_node, 1);
+  unsigned_V1DI_type_node
+    = make_vector (V1DImode, unsigned_intDI_type_node, 1);
 
   V16SF_type_node = make_vector (V16SFmode, float_type_node, 0);
   V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
   V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
+  V2HI_type_node = make_vector (V2HImode, intHI_type_node, 0);
   V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);
   V2DI_type_node = make_vector (V2DImode, intDI_type_node, 0);
   V4HI_type_node = make_vector (V4HImode, intHI_type_node, 0);
@@ -4800,6 +4867,7 @@ build_common_tree_nodes_2 (short_double)
   V2SF_type_node = make_vector (V2SFmode, float_type_node, 0);
   V2DF_type_node = make_vector (V2DFmode, double_type_node, 0);
   V16QI_type_node = make_vector (V16QImode, intQI_type_node, 0);
+  V1DI_type_node = make_vector (V1DImode, intDI_type_node, 0);
 }
 
 /* Returns a vector tree node given a vector mode, the inner type, and

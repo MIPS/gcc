@@ -121,9 +121,6 @@ static struct obstack obstack1, obstack2;
 struct obstack *hash_obstack = &obstack1;
 struct obstack *temp_obstack = &obstack2;
 
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* enough space to reserve for printing out ints */
 #define MAX_DIGITS (HOST_BITS_PER_INT * 3 / 10 + 3)
 
@@ -393,7 +390,6 @@ static void expand_units	PARAMS ((void));
 static rtx simplify_knowing	PARAMS ((rtx, rtx));
 static rtx encode_units_mask	PARAMS ((rtx));
 static void fill_attr		PARAMS ((struct attr_desc *));
-/* dpx2 compiler chokes if we specify the arg types of the args.  */
 static rtx substitute_address	PARAMS ((rtx, rtx (*) (rtx), rtx (*) (rtx)));
 static void make_length_attrs	PARAMS ((void));
 static rtx identity_fn		PARAMS ((rtx));
@@ -1842,7 +1838,7 @@ operate_exp (op, left, right)
    The first produces a function `function_units_used' which is given an
    insn and produces an encoding showing which function units are required
    for the execution of that insn.  If the value is non-negative, the insn
-   uses that unit; otherwise, the value is a one's compliment mask of units
+   uses that unit; otherwise, the value is a one's complement mask of units
    used.
 
    The second produces a function `result_ready_cost' which is used to
@@ -2097,7 +2093,7 @@ expand_units ()
 	     fill the unit given the minimum issue delay.  FILL-TIME is the
 	     constant "MIN (ISSUE-DELAY (*,*)) * (SIMULTANEITY - 1)", and
 	     the simultaneity constraint is "READY-COST (E) - FILL-TIME"
-	     if SIMULTANEITY is non-zero and zero otherwise.
+	     if SIMULTANEITY is nonzero and zero otherwise.
 
 	     Thus, BLOCKAGE (E,C) when SIMULTANEITY is zero is
 
@@ -2250,7 +2246,7 @@ simplify_knowing (exp, known_true)
 /* Translate the CONST_STRING expressions in X to change the encoding of
    value.  On input, the value is a bitmask with a one bit for each unit
    used; on output, the value is the unit number (zero based) if one
-   and only one unit is used or the one's compliment of the bitmask.  */
+   and only one unit is used or the one's complement of the bitmask.  */
 
 static rtx
 encode_units_mask (x)
@@ -2268,7 +2264,7 @@ encode_units_mask (x)
     case CONST_STRING:
       i = atoi (XSTR (x, 0));
       if (i < 0)
-	/* The sign bit encodes a one's compliment mask.  */
+	/* The sign bit encodes a one's complement mask.  */
 	abort ();
       else if (i != 0 && i == (i & -i))
 	/* Only one bit is set, so yield that unit number.  */
@@ -4319,7 +4315,7 @@ count_alternatives (exp)
   return 0;
 }
 
-/* Returns non-zero if the given expression contains an EQ_ATTR with the
+/* Returns nonzero if the given expression contains an EQ_ATTR with the
    `alternative' attribute.  */
 
 static int
@@ -4352,7 +4348,7 @@ compares_alternatives_p (exp)
   return 0;
 }
 
-/* Returns non-zero is INNER is contained in EXP.  */
+/* Returns nonzero is INNER is contained in EXP.  */
 
 static int
 contained_in_p (inner, exp)
@@ -4562,7 +4558,7 @@ gen_unit (def, lineno)
 /* Given a piece of RTX, print a C expression to test its truth value.
    We use AND and IOR both for logical and bit-wise operations, so
    interpret them as logical unless they are inside a comparison expression.
-   The first bit of FLAGS will be non-zero in that case.
+   The first bit of FLAGS will be nonzero in that case.
 
    Set the second bit of FLAGS to make references to attribute values use
    a cached local variable instead of calling a function.  */
@@ -5492,7 +5488,7 @@ write_indent (indent)
 }
 
 /* Write a subroutine that is given an insn that requires a delay slot, a
-   delay slot ordinal, and a candidate insn.  It returns non-zero if the
+   delay slot ordinal, and a candidate insn.  It returns nonzero if the
    candidate can be placed in the specified delay slot of the insn.
 
    We can write as many as three subroutines.  `eligible_for_delay'
@@ -5811,7 +5807,7 @@ next_comma_elt (pstr)
 }
 
 /* Return a `struct attr_desc' pointer for a given named attribute.  If CREATE
-   is non-zero, build a new attribute, if one does not exist.  */
+   is nonzero, build a new attribute, if one does not exist.  */
 
 static struct attr_desc *
 find_attr (name, create)
@@ -6250,7 +6246,7 @@ from the machine description file `md'.  */\n\n");
       /* Write out information about function units.  */
       write_function_unit_info ();
       /* Output code for pipeline hazards recognition based on DFA
-	 (deterministic finite state automata. */
+	 (deterministic finite state automata.  */
       write_automata ();
     }
 

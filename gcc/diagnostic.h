@@ -23,6 +23,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_DIAGNOSTIC_H
 
 #include "obstack.h"
+#include "location.h"
 
 /* The type of a text to be formatted according a format specification
    along with a list of things.  */
@@ -40,16 +41,6 @@ typedef enum
 #undef DEFINE_DIAGNOSTIC_KIND
   DK_LAST_DIAGNOSTIC_KIND
 } diagnostic_t;
-
-/* The data structure used to record the location of a diagnostic.  */
-typedef struct
-{
-  /* The name of the source file involved in the diagnostic.  */     
-  const char *file;
-
-  /* The line-location in the source file.  */
-  int line;
-} location_t;
 
 /* A diagnostic is described by the MESSAGE to send, the FILE and LINE of
    its context and its KIND (ice, error, warning, note, ...)  See complete
@@ -169,6 +160,14 @@ struct output_buffer
 /* True if BUFFER is in line-wrapping mode.  */
 #define output_is_line_wrapping(BUFFER) (output_line_cutoff (BUFFER) > 0)
 
+#define output_formatted_scalar(BUFFER, FORMAT, INTEGER)	\
+  do								\
+    {								\
+      sprintf ((BUFFER)->digit_buffer, FORMAT, INTEGER);	\
+      output_add_string (BUFFER, (BUFFER)->digit_buffer);	\
+    }								\
+  while (0)
+
 /*  Forward declarations.  */
 typedef struct diagnostic_context diagnostic_context;
 typedef void (*diagnostic_starter_fn) PARAMS ((diagnostic_context *,
@@ -276,7 +275,7 @@ extern diagnostic_context *global_dc;
 /* Similarly, but for sorrys.  */
 #define sorrycount diagnostic_kind_count (global_dc, DK_SORRY)
 
-/* Returns non-zero if warnings should be emitted.  */
+/* Returns nonzero if warnings should be emitted.  */
 #define diagnostic_report_warnings_p()			\
   (!inhibit_warnings					\
    && !(in_system_header && !warn_system_headers))
@@ -317,6 +316,7 @@ extern void output_add_character	PARAMS ((output_buffer *, int));
 extern void output_decimal		PARAMS ((output_buffer *, int));
 extern void output_add_string		PARAMS ((output_buffer *,
 						 const char *));
+extern void output_add_identifier	PARAMS ((output_buffer *, tree));
 extern const char *output_finalize_message PARAMS ((output_buffer *));
 extern void output_clear_message_text	PARAMS ((output_buffer *));
 extern void output_printf		PARAMS ((output_buffer *, const char *,
@@ -326,5 +326,6 @@ extern void output_verbatim		PARAMS ((output_buffer *, const char *,
 extern void verbatim			PARAMS ((const char *, ...))
      ATTRIBUTE_PRINTF_1;
 extern char *file_name_as_prefix	PARAMS ((const char *));
+extern void inform                      PARAMS ((const char *, ...));
 
 #endif /* ! GCC_DIAGNOSTIC_H */

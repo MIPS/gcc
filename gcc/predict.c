@@ -49,6 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "real.h"
 #include "params.h"
 #include "target.h"
+#include "loop.h"
 
 /* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE, 0.5,
                    REAL_BB_FREQ_MAX.  */
@@ -56,11 +57,8 @@ static REAL_VALUE_TYPE real_zero, real_one, real_almost_one, real_br_prob_base,
 		       real_one_half, real_bb_freq_max;
 
 /* Random guesstimation given names.  */
-#define PROB_NEVER		(0)
 #define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 10 - 1)
-#define PROB_UNLIKELY		(REG_BR_PROB_BASE * 4 / 10 - 1)
 #define PROB_EVEN		(REG_BR_PROB_BASE / 2)
-#define PROB_LIKELY		(REG_BR_PROB_BASE - PROB_UNLIKELY)
 #define PROB_VERY_LIKELY	(REG_BR_PROB_BASE - PROB_VERY_UNLIKELY)
 #define PROB_ALWAYS		(REG_BR_PROB_BASE)
 
@@ -73,13 +71,16 @@ static void estimate_loops_at_level	 PARAMS ((struct loop *loop));
 static void propagate_freq		 PARAMS ((struct loop *));
 static void estimate_bb_frequencies	 PARAMS ((struct loops *));
 static void counts_to_freqs		 PARAMS ((void));
-static void process_note_predictions	 PARAMS ((basic_block, int *, int *,
-						  sbitmap *));
-static void process_note_prediction	 PARAMS ((basic_block, int *, int *,
-						  sbitmap *, int, int));
+static void process_note_predictions	 PARAMS ((basic_block, int *,
+						  dominance_info,
+						  dominance_info));
+static void process_note_prediction	 PARAMS ((basic_block, int *, 
+						  dominance_info,
+						  dominance_info, int, int));
 static bool last_basic_block_p           PARAMS ((basic_block));
 static void compute_function_frequency	 PARAMS ((void));
 static void choose_function_section	 PARAMS ((void));
+static bool can_predict_insn_p		 PARAMS ((rtx));
 
 /* Information we hold about each branch predictor.
    Filled using information from predict.def.  */
@@ -228,6 +229,18 @@ predict_edge (e, predictor, probability)
     probability = REG_BR_PROB_BASE - probability;
 
   predict_insn (last_insn, predictor, probability);
+}
+
+/* Return true when we can store prediction on insn INSN.
+   At the moment we represent predictions only on conditional
+   jumps, not at computed jump or other complicated cases.  */
+static bool
+can_predict_insn_p (insn)
+	rtx insn;
+{
+  return (GET_CODE (insn) == JUMP_INSN
+	  && any_condjump_p (insn)
+	  && BLOCK_FOR_INSN (insn)->succ->succ_next);
 }
 
 /* Predict edge E by given predictor if possible.  */
@@ -408,14 +421,13 @@ void
 estimate_probability (loops_info)
      struct loops *loops_info;
 {
-  sbitmap *dominators, *post_dominators;
+  dominance_info dominators, post_dominators;
   basic_block bb;
   int i;
 
-  dominators = sbitmap_vector_alloc (last_basic_block, last_basic_block);
-  post_dominators = sbitmap_vector_alloc (last_basic_block, last_basic_block);
-  calculate_dominance_info (NULL, dominators, CDI_DOMINATORS);
-  calculate_dominance_info (NULL, post_dominators, CDI_POST_DOMINATORS);
+  connect_infinite_loops_to_exit ();
+  dominators = calculate_dominance_info (CDI_DOMINATORS);
+  post_dominators = calculate_dominance_info (CDI_POST_DOMINATORS);
 
   /* Try to predict out blocks in a loop that are not part of a
      natural loop.  */
@@ -441,7 +453,8 @@ estimate_probability (loops_info)
 	     statements construct loops via "non-loop" constructs
 	     in the source language and are better to be handled
 	     separately.  */
-	  if (predicted_by_p (bb, PRED_CONTINUE))
+	  if (!can_predict_insn_p (bb->end)
+	      || predicted_by_p (bb, PRED_CONTINUE))
 	    continue;
 
 	  /* Loop branch heuristics - predict an edge back to a
@@ -475,7 +488,7 @@ estimate_probability (loops_info)
       rtx cond, earliest;
       edge e;
 
-      if (GET_CODE (last_insn) != JUMP_INSN || ! any_condjump_p (last_insn))
+      if (! can_predict_insn_p (last_insn))
 	continue;
 
       for (e = bb->succ; e; e = e->succ_next)
@@ -495,8 +508,8 @@ estimate_probability (loops_info)
 	  /* Look for block we are guarding (ie we dominate it,
 	     but it doesn't postdominate us).  */
 	  if (e->dest != EXIT_BLOCK_PTR && e->dest != bb
-	      && TEST_BIT (dominators[e->dest->index], e->src->index)
-	      && !TEST_BIT (post_dominators[e->src->index], e->dest->index))
+	      && dominated_by_p (dominators, e->dest, e->src)
+	      && !dominated_by_p (post_dominators, e->src, e->dest))
 	    {
 	      rtx insn;
 
@@ -613,9 +626,10 @@ estimate_probability (loops_info)
 	&& bb->succ->succ_next != NULL)
       combine_predictions_for_insn (bb->end, bb);
 
-  sbitmap_vector_free (post_dominators);
-  sbitmap_vector_free (dominators);
+  free_dominance_info (post_dominators);
+  free_dominance_info (dominators);
 
+  remove_fake_edges ();
   estimate_bb_frequencies (loops_info);
 }
 
@@ -717,8 +731,8 @@ static void
 process_note_prediction (bb, heads, dominators, post_dominators, pred, flags)
      basic_block bb;
      int *heads;
-     int *dominators;
-     sbitmap *post_dominators;
+     dominance_info dominators;
+     dominance_info post_dominators;
      int pred;
      int flags;
 {
@@ -733,38 +747,41 @@ process_note_prediction (bb, heads, dominators, post_dominators, pred, flags)
       /* This is first time we need this field in heads array; so
          find first dominator that we do not post-dominate (we are
          using already known members of heads array).  */
-      int ai = bb->index;
-      int next_ai = dominators[bb->index];
+      basic_block ai = bb;
+      basic_block next_ai = get_immediate_dominator (dominators, bb);
       int head;
 
-      while (heads[next_ai] < 0)
+      while (heads[next_ai->index] < 0)
 	{
-	  if (!TEST_BIT (post_dominators[next_ai], bb->index))
+	  if (!dominated_by_p (post_dominators, next_ai, bb))
 	    break;
-	  heads[next_ai] = ai;
+	  heads[next_ai->index] = ai->index;
 	  ai = next_ai;
-	  next_ai = dominators[next_ai];
+	  next_ai = get_immediate_dominator (dominators, next_ai);
 	}
-      if (!TEST_BIT (post_dominators[next_ai], bb->index))
-	head = next_ai;
+      if (!dominated_by_p (post_dominators, next_ai, bb))
+	head = next_ai->index;
       else
-	head = heads[next_ai];
-      while (next_ai != bb->index)
+	head = heads[next_ai->index];
+      while (next_ai != bb)
 	{
 	  next_ai = ai;
-	  ai = heads[ai];
-	  heads[next_ai] = head;
+	  if (heads[ai->index] == ENTRY_BLOCK)
+	    ai = ENTRY_BLOCK_PTR;
+	  else
+	    ai = BASIC_BLOCK (heads[ai->index]);
+	  heads[next_ai->index] = head;
 	}
     }
   y = heads[bb->index];
 
   /* Now find the edge that leads to our branch and aply the prediction.  */
 
-  if (y == last_basic_block)
+  if (y == last_basic_block || !can_predict_insn_p (BASIC_BLOCK (y)->end))
     return;
   for (e = BASIC_BLOCK (y)->succ; e; e = e->succ_next)
     if (e->dest->index >= 0
-	&& TEST_BIT (post_dominators[e->dest->index], bb->index))
+	&& dominated_by_p (post_dominators, e->dest, bb))
       predict_edge_def (e, pred, taken);
 }
 
@@ -776,8 +793,8 @@ static void
 process_note_predictions (bb, heads, dominators, post_dominators)
      basic_block bb;
      int *heads;
-     int *dominators;
-     sbitmap *post_dominators;
+     dominance_info dominators;
+     dominance_info post_dominators;
 {
   rtx insn;
   edge e;
@@ -838,18 +855,15 @@ void
 note_prediction_to_br_prob ()
 {
   basic_block bb;
-  sbitmap *post_dominators;
-  int *dominators, *heads;
+  dominance_info post_dominators, dominators;
+  int *heads;
 
   /* To enable handling of noreturn blocks.  */
   add_noreturn_fake_exit_edges ();
   connect_infinite_loops_to_exit ();
 
-  dominators = xmalloc (sizeof (int) * last_basic_block);
-  memset (dominators, -1, sizeof (int) * last_basic_block);
-  post_dominators = sbitmap_vector_alloc (last_basic_block, last_basic_block);
-  calculate_dominance_info (NULL, post_dominators, CDI_POST_DOMINATORS);
-  calculate_dominance_info (dominators, NULL, CDI_DOMINATORS);
+  post_dominators = calculate_dominance_info (CDI_POST_DOMINATORS);
+  dominators = calculate_dominance_info (CDI_DOMINATORS);
 
   heads = xmalloc (sizeof (int) * last_basic_block);
   memset (heads, -1, sizeof (int) * last_basic_block);
@@ -860,8 +874,8 @@ note_prediction_to_br_prob ()
   FOR_EACH_BB (bb)
     process_note_predictions (bb, heads, dominators, post_dominators);
 
-  sbitmap_vector_free (post_dominators);
-  free (dominators);
+  free_dominance_info (post_dominators);
+  free_dominance_info (dominators);
   free (heads);
 
   remove_fake_edges ();
@@ -1148,9 +1162,7 @@ estimate_bb_frequencies (loops)
 	{
 	  rtx last_insn = bb->end;
 
-	  if (GET_CODE (last_insn) != JUMP_INSN || !any_condjump_p (last_insn)
-	      /* Avoid handling of conditional jumps jumping to fallthru edge.  */
-	      || bb->succ->succ_next == NULL)
+	  if (!can_predict_insn_p (last_insn))
 	    {
 	      /* We can predict only conditional jumps at the moment.
 	         Expect each edge to be equally probable.
@@ -1247,7 +1259,12 @@ static void
 choose_function_section ()
 {
   if (DECL_SECTION_NAME (current_function_decl)
-      || !targetm.have_named_sections)
+      || !targetm.have_named_sections
+      /* Theoretically we can split the gnu.linkonce text section too,
+ 	 but this requires more work as the frequency needs to match
+	 for all generated objects so we need to merge the frequency
+	 of all instances.  For now just never set frequency for these.  */
+      || !DECL_ONE_ONLY (current_function_decl))
     return;
   if (cfun->function_frequency == FUNCTION_FREQUENCY_HOT)
     DECL_SECTION_NAME (current_function_decl) =

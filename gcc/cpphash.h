@@ -98,7 +98,14 @@ struct cpp_macro
 
   /* If macro defined in system header.  */
   unsigned int syshdr   : 1;
+
+  /* Nonzero if it has been expanded or had its existence tested.  */
+  unsigned int used     : 1;
 };
+
+#define _cpp_mark_macro_used(NODE) do {					\
+  if ((NODE)->type == NT_MACRO && !((NODE)->flags & NODE_BUILTIN))	\
+    (NODE)->value.macro->used = 1; } while (0)
 
 /* A generic memory buffer, and operations on it.  */
 typedef struct _cpp_buff _cpp_buff;
@@ -134,7 +141,7 @@ struct search_path
      of an earlier directory on the search path.  */
   ino_t ino;
   dev_t dev;
-  /* Non-zero if it is a system include directory.  */
+  /* Nonzero if it is a system include directory.  */
   int sysp;
   /* Mapping of file names for this directory.  Only used on MS-DOS
      and related platforms.  */
@@ -159,10 +166,10 @@ struct tokenrun
 };
 
 /* Accessor macros for struct cpp_context.  */
-#define FIRST(c) (c->u.iso.first)
-#define LAST(c) (c->u.iso.last)
-#define CUR(c) (c->u.trad.cur)
-#define RLIMIT(c) (c->u.trad.rlimit)
+#define FIRST(c) ((c)->u.iso.first)
+#define LAST(c) ((c)->u.iso.last)
+#define CUR(c) ((c)->u.trad.cur)
+#define RLIMIT(c) ((c)->u.trad.rlimit)
 
 typedef struct cpp_context cpp_context;
 struct cpp_context
@@ -211,6 +218,9 @@ struct lexer_state
   /* Nonzero if in a directive that takes angle-bracketed headers.  */
   unsigned char angled_headers;
 
+  /* Nonzero if in a #if or #elif directive.  */
+  unsigned char in_expression;
+
   /* Nonzero to save comments.  Turned off if discard_comments, and in
      all directives apart from #define.  */
   unsigned char save_comments;
@@ -241,6 +251,18 @@ struct spec_nodes
   cpp_hashnode *n_true;			/* C++ keyword true */
   cpp_hashnode *n_false;		/* C++ keyword false */
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
+};
+
+/* Encapsulates state used to convert a stream of tokens into a text
+   file.  */
+struct printer
+{
+  FILE *outf;			/* Stream to write to.  */
+  const struct line_map *map;	/* Logical to physical line mappings.  */
+  const cpp_token *prev;	/* Previous token.  */
+  const cpp_token *source;	/* Source token for spacing.  */
+  unsigned int line;		/* Line currently being written.  */
+  unsigned char printed;	/* Nonzero if something output at line.  */
 };
 
 /* Represents the contents of a file cpplib has read in.  */
@@ -298,7 +320,7 @@ struct cpp_buffer
   struct search_path dir;
 
   /* Used for buffer overlays by cpptrad.c.  */
-  const uchar *saved_cur, *saved_rlimit, *saved_line_base;
+  const uchar *saved_cur, *saved_rlimit;
 };
 
 /* A cpp_reader encapsulates the "state" of a pre-processor run.
@@ -308,6 +330,9 @@ struct cpp_reader
 {
   /* Top of buffer stack.  */
   cpp_buffer *buffer;
+
+  /* Overlaid buffer (can be different after processing #include).  */
+  cpp_buffer *overlaid_buffer;
 
   /* Lexer state.  */
   struct lexer_state state;
@@ -347,7 +372,7 @@ struct cpp_reader
   tokenrun base_run, *cur_run;
   unsigned int lookaheads;
 
-  /* Non-zero prevents the lexer from re-using the token runs.  */
+  /* Nonzero prevents the lexer from re-using the token runs.  */
   unsigned int keep_tokens;
 
   /* Error counter for exit code.  */
@@ -364,15 +389,18 @@ struct cpp_reader
      for include files.  (Altered as we get more of them.)  */
   unsigned int max_include_len;
 
-  /* Date and time tokens.  Calculated together if either is requested.  */
-  cpp_token date;
-  cpp_token time;
+  /* Macros on or after this line are warned about if unused.  */
+  unsigned int first_unused_line;
+
+  /* Date and time text.  Calculated together if either is requested.  */
+  const uchar *date;
+  const uchar *time;
 
   /* EOF token, and a token forcing paste avoidance.  */
   cpp_token avoid_paste;
   cpp_token eof;
 
-  /* Opaque handle to the dependencies of mkdeps.c.  Used by -M etc.  */
+  /* Opaque handle to the dependencies of mkdeps.c.  */
   struct deps *deps;
 
   /* Obstack holding all macro hash nodes.  This never shrinks.
@@ -402,6 +430,9 @@ struct cpp_reader
   /* Special nodes - identifiers with predefined significance to the
      preprocessor.  */
   struct spec_nodes spec_nodes;
+
+  /* Used when doing preprocessed output.  */
+  struct printer print;
 
   /* Whether cpplib owns the hashtable.  */
   unsigned char our_hashtable;
@@ -449,7 +480,6 @@ extern unsigned char _cpp_trigraph_map[UCHAR_MAX + 1];
 
 /* Macros.  */
 
-#define CPP_PRINT_DEPS(PFILE) CPP_OPTION (PFILE, print_deps)
 #define CPP_IN_SYSTEM_HEADER(PFILE) ((PFILE)->map && (PFILE)->map->sysp)
 #define CPP_PEDANTIC(PF) CPP_OPTION (PF, pedantic)
 #define CPP_WTRADITIONAL(PF) CPP_OPTION (PF, warn_traditional)
@@ -469,7 +499,10 @@ extern bool _cpp_save_parameter		PARAMS ((cpp_reader *, cpp_macro *,
 extern bool _cpp_arguments_ok		PARAMS ((cpp_reader *, cpp_macro *,
 						 const cpp_hashnode *,
 						 unsigned int));
-
+extern const uchar *_cpp_builtin_macro_text PARAMS ((cpp_reader *,
+						     cpp_hashnode *));
+int _cpp_warn_if_unused_macro		PARAMS ((cpp_reader *, cpp_hashnode *,
+						 void *));
 /* In cpphash.c */
 extern void _cpp_init_hashtable		PARAMS ((cpp_reader *, hash_table *));
 extern void _cpp_destroy_hashtable	PARAMS ((cpp_reader *));
@@ -522,11 +555,11 @@ extern bool _cpp_read_logical_line_trad PARAMS ((cpp_reader *));
 extern void _cpp_overlay_buffer PARAMS ((cpp_reader *pfile, const uchar *,
 					 size_t));
 extern void _cpp_remove_overlay PARAMS ((cpp_reader *));
-extern cpp_hashnode *_cpp_lex_identifier_trad PARAMS ((cpp_reader *));
-extern void _cpp_set_trad_context PARAMS ((cpp_reader *));
 extern bool _cpp_create_trad_definition PARAMS ((cpp_reader *, cpp_macro *));
 extern bool _cpp_expansions_different_trad PARAMS ((const cpp_macro *,
 						    const cpp_macro *));
+extern uchar *_cpp_copy_replacement_text PARAMS ((const cpp_macro *, uchar *));
+extern size_t _cpp_replacement_text_len PARAMS ((const cpp_macro *));
 
 /* Utility routines and macros.  */
 #define DSC(str) (const uchar *)str, sizeof str - 1

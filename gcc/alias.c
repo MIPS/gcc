@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
 This file is part of GCC.
@@ -332,8 +332,8 @@ objects_must_conflict_p (t1, t2)
      then they may not conflict.  */
   if ((t1 != 0 && readonly_fields_p (t1))
       || (t2 != 0 && readonly_fields_p (t2))
-      || (t1 != 0 && TYPE_READONLY (t1))
-      || (t2 != 0 && TYPE_READONLY (t2)))
+      || (t1 != 0 && lang_hooks.honor_readonly && TYPE_READONLY (t1))
+      || (t2 != 0 && lang_hooks.honor_readonly && TYPE_READONLY (t2)))
     return 0;
 
   /* If they are the same type, they must conflict.  */
@@ -575,6 +575,14 @@ get_alias_set (t)
      and references to functions, but that's different.)  */
   else if (TREE_CODE (t) == FUNCTION_TYPE)
     set = 0;
+
+  /* Unless the language specifies otherwise, let vector types alias
+     their components.  This avoids some nasty type punning issues in
+     normal usage.  And indeed lets vectors be treated more like an
+     array slice.  */
+  else if (TREE_CODE (t) == VECTOR_TYPE)
+    set = get_alias_set (TREE_TYPE (t));
+
   else
     /* Otherwise make a new alias set for this type.  */
     set = new_alias_set ();
@@ -1949,6 +1957,14 @@ nonoverlapping_memrefs_p (x, y)
       moffsetx = adjust_offset_for_component_ref (exprx, moffsetx);
       exprx = t;
     }
+  else if (TREE_CODE (exprx) == INDIRECT_REF)
+    {
+      exprx = TREE_OPERAND (exprx, 0);
+      if (flag_argument_noalias < 2
+	  || TREE_CODE (exprx) != PARM_DECL)
+	return 0;
+    }
+
   moffsety = MEM_OFFSET (y);
   if (TREE_CODE (expry) == COMPONENT_REF)
     {
@@ -1957,6 +1973,13 @@ nonoverlapping_memrefs_p (x, y)
 	return 0;
       moffsety = adjust_offset_for_component_ref (expry, moffsety);
       expry = t;
+    }
+  else if (TREE_CODE (expry) == INDIRECT_REF)
+    {
+      expry = TREE_OPERAND (expry, 0);
+      if (flag_argument_noalias < 2
+	  || TREE_CODE (expry) != PARM_DECL)
+	return 0;
     }
 
   if (! DECL_P (exprx) || ! DECL_P (expry))
@@ -2176,8 +2199,8 @@ canon_true_dependence (mem, mem_mode, mem_addr, x, varies)
 					      varies);
 }
 
-/* Returns non-zero if a write to X might alias a previous read from
-   (or, if WRITEP is non-zero, a write to) MEM.  */
+/* Returns nonzero if a write to X might alias a previous read from
+   (or, if WRITEP is nonzero, a write to) MEM.  */
 
 static int
 write_dependence_p (mem, x, writep)
@@ -2366,7 +2389,7 @@ nonlocal_mentioned_p_1 (loc, data)
   return 0;
 }
 
-/* Returns non-zero if X might mention something which is not
+/* Returns nonzero if X might mention something which is not
    local to the function and is not constant.  */
 
 static int
@@ -2464,7 +2487,7 @@ nonlocal_referenced_p_1 (loc, data)
   return 0;
 }
 
-/* Returns non-zero if X might reference something which is not
+/* Returns nonzero if X might reference something which is not
    local to the function and is not constant.  */
 
 static int
@@ -2544,7 +2567,7 @@ nonlocal_set_p_1 (loc, data)
   return 0;
 }
 
-/* Returns non-zero if X might set something which is not
+/* Returns nonzero if X might set something which is not
    local to the function and is not constant.  */
 
 static int

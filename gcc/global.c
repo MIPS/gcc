@@ -171,10 +171,6 @@ static int allocno_row_words;
  (conflicts[(I) * allocno_row_words + (unsigned) (J) / INT_BITS]	\
   & ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
 
-#define SET_CONFLICT(I, J) \
- (conflicts[(I) * allocno_row_words + (unsigned) (J) / INT_BITS]	\
-  |= ((INT_TYPE) 1 << ((unsigned) (J) % INT_BITS)))
-
 /* For any allocno set in ALLOCNO_SET, set ALLOCNO to that allocno,
    and execute CODE.  */
 #define EXECUTE_IF_SET_IN_ALLOCNO_SET(ALLOCNO_SET, ALLOCNO, CODE)	\
@@ -231,12 +227,8 @@ static int local_reg_freq[FIRST_PSEUDO_REGISTER];
 
 static int local_reg_live_length[FIRST_PSEUDO_REGISTER];
 
-/* Test a bit in TABLE, a vector of HARD_REG_SETs,
-   for vector element I, and hard register number J.  */
-
-#define REGBITP(TABLE, I, J)     TEST_HARD_REG_BIT (allocno[I].TABLE, J)
-
-/* Set to 1 a bit in a vector of HARD_REG_SETs.  Works like REGBITP.  */
+/* Set to 1 a bit in a vector TABLE of HARD_REG_SETs, for vector
+   element I, and hard register number J.  */
 
 #define SET_REGBIT(TABLE, I, J)  SET_HARD_REG_BIT (allocno[I].TABLE, J)
 
@@ -246,10 +238,6 @@ static INT_TYPE *allocnos_live;
 
 /* Test, set or clear bit number I in allocnos_live,
    a bit vector indexed by allocno.  */
-
-#define ALLOCNO_LIVE_P(I)				\
-  (allocnos_live[(unsigned) (I) / INT_BITS]		\
-   & ((INT_TYPE) 1 << ((unsigned) (I) % INT_BITS)))
 
 #define SET_ALLOCNO_LIVE(I)				\
   (allocnos_live[(unsigned) (I) / INT_BITS]		\
@@ -379,8 +367,8 @@ global_alloc (file)
      that need a register window.  So prefer the ones that can be used in
      a leaf function.  */
   {
-    char *cheap_regs;
-    char *leaf_regs = LEAF_REGISTERS;
+    const char *cheap_regs;
+    const char *const leaf_regs = LEAF_REGISTERS;
 
     if (only_leaf_regs_used () && leaf_function_p ())
       cheap_regs = leaf_regs;
@@ -963,7 +951,7 @@ prune_preferences ()
    of a long enough stretch of hard regs none of which conflicts with ALLOCNO.
    The registers marked in PREFREGS are tried first.
 
-   LOSERS, if non-zero, is a HARD_REG_SET indicating registers that cannot
+   LOSERS, if nonzero, is a HARD_REG_SET indicating registers that cannot
    be used for this allocation.
 
    If ALT_REGS_P is zero, consider only the preferred class of ALLOCNO's reg.
@@ -986,10 +974,7 @@ find_reg (num, losers, alt_regs_p, accept_call_clobbered, retrying)
      int retrying;
 {
   int i, best_reg, pass;
-#ifdef HARD_REG_SET
-  register		/* Declare it register if it's a scalar.  */
-#endif
-    HARD_REG_SET used, used1, used2;
+  HARD_REG_SET used, used1, used2;
 
   enum reg_class class = (alt_regs_p
 			  ? reg_alternate_class (allocno[num].reg)
@@ -1013,10 +998,8 @@ find_reg (num, losers, alt_regs_p, accept_call_clobbered, retrying)
 
   IOR_HARD_REG_SET (used1, allocno[num].hard_reg_conflicts);
 
-#ifdef CLASS_CANNOT_CHANGE_MODE
-  if (REG_CHANGES_MODE (allocno[num].reg))
-    IOR_HARD_REG_SET (used1,
-		      reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE]);
+#ifdef CANNOT_CHANGE_MODE_CLASS
+  cannot_change_mode_set_regs (&used1, mode, allocno[num].reg);
 #endif
 
   /* Try each hard reg to see if it fits.  Do this in two passes.
@@ -1212,11 +1195,9 @@ find_reg (num, losers, alt_regs_p, accept_call_clobbered, retrying)
 	      && (allocno[num].calls_crossed == 0
 		  || accept_call_clobbered
 		  || ! HARD_REGNO_CALL_PART_CLOBBERED (regno, mode))
-#ifdef CLASS_CANNOT_CHANGE_MODE
-	      && ! (REG_CHANGES_MODE (allocno[num].reg)
-		    && (TEST_HARD_REG_BIT
-			(reg_class_contents[(int) CLASS_CANNOT_CHANGE_MODE],
-			 regno)))
+#ifdef CANNOT_CHANGE_MODE_CLASS
+	      && ! invalid_mode_change_p (regno, REGNO_REG_CLASS (regno),
+					  mode)
 #endif
 	      )
 	    {

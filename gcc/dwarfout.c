@@ -1,6 +1,6 @@
 /* Output Dwarf format symbol table information from the GNU C compiler.
-   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 2002,
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com) of Network Computing Devices.
 
 This file is part of GCC.
@@ -43,7 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
  The generation of DWARF debugging information by the GNU version 2.x C
  compiler has now been tested rather extensively for m88k, i386, i860, and
- Sparc targets.  The DWARF output of the GNU C compiler appears to inter-
+ SPARC targets.  The DWARF output of the GNU C compiler appears to inter-
  operate well with the standard SVR4 SDB debugger on these kinds of target
  systems (but of course, there are no guarantees).
 
@@ -569,6 +569,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "dwarf.h"
 #include "tree.h"
 #include "flags.h"
+#include "function.h"
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -599,7 +600,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
   fprintf ((FILE), "%s", reg_names[REGNO (RTX)])
 #endif
 
-/* Define a macro which returns non-zero for any tagged type which is
+/* Define a macro which returns nonzero for any tagged type which is
    used (directly or indirectly) in the specification of either some
    function's return type or some formal parameter of some function.
    We use this macro when we are operating in "terse" mode to help us
@@ -611,12 +612,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    for these nodes.  For now, we have to just fake it.  It it safe for
    us to simply return zero for all complete tagged types (which will
    get forced out anyway if they were used in the specification of some
-   formal or return type) and non-zero for all incomplete tagged types.
+   formal or return type) and nonzero for all incomplete tagged types.
 */
 
 #define TYPE_USED_FOR_FUNCTION(tagged_type) (TYPE_SIZE (tagged_type) == 0)
 
-/* Define a macro which returns non-zero for a TYPE_DECL which was
+/* Define a macro which returns nonzero for a TYPE_DECL which was
    implicitly generated for a tagged type.
 
    Note that unlike the gcc front end (which generates a NULL named
@@ -706,7 +707,7 @@ static unsigned pending_siblings_allocated;
 
 #define PENDING_SIBLINGS_INCREMENT 64
 
-/* Non-zero if we are performing our file-scope finalization pass and if
+/* Nonzero if we are performing our file-scope finalization pass and if
    we should force out Dwarf descriptions of any and all file-scope
    tagged types which are still incomplete types.  */
 
@@ -756,14 +757,6 @@ static unsigned incomplete_types;
 
 static tree fake_containing_scope;
 
-/* The number of the current function definition that we are generating
-   debugging information for.  These numbers range from 1 up to the maximum
-   number of function definitions contained within the current compilation
-   unit.  These numbers are used to create unique labels for various things
-   contained within various function definitions.  */
-
-static unsigned current_funcdef_number = 1;
-
 /* A pointer to the ..._DECL node which we have most recently been working
    on.  We keep this around just in case something about it looks screwy
    and we want to tell the user what the source coordinates for the actual
@@ -789,9 +782,9 @@ static void dwarfout_end_source_file	PARAMS ((unsigned));
 static void dwarfout_end_source_file_check PARAMS ((unsigned));
 static void dwarfout_begin_block	PARAMS ((unsigned, unsigned));
 static void dwarfout_end_block		PARAMS ((unsigned, unsigned));
-static void dwarfout_end_epilogue	PARAMS ((void));
+static void dwarfout_end_epilogue	PARAMS ((unsigned int, const char *));
 static void dwarfout_source_line	PARAMS ((unsigned int, const char *));
-static void dwarfout_end_prologue	PARAMS ((unsigned int));
+static void dwarfout_end_prologue	PARAMS ((unsigned int, const char *));
 static void dwarfout_end_function	PARAMS ((unsigned int));
 static void dwarfout_function_decl	PARAMS ((tree));
 static void dwarfout_global_decl	PARAMS ((tree));
@@ -941,9 +934,6 @@ static void retry_incomplete_types	PARAMS ((void));
 
 #ifndef FILE_ASM_OP
 #define FILE_ASM_OP		"\t.file\t"
-#endif
-#ifndef VERSION_ASM_OP
-#define VERSION_ASM_OP		"\t.version\t"
 #endif
 #ifndef SET_ASM_OP
 #define SET_ASM_OP		"\t.set\t"
@@ -1148,18 +1138,6 @@ static void retry_incomplete_types	PARAMS ((void));
 #ifndef BOUND_END_LABEL_FMT
 #define BOUND_END_LABEL_FMT	"*.L_b%u_%u_%c_e"
 #endif
-#ifndef DERIV_BEGIN_LABEL_FMT
-#define DERIV_BEGIN_LABEL_FMT	"*.L_d%u"
-#endif
-#ifndef DERIV_END_LABEL_FMT
-#define DERIV_END_LABEL_FMT	"*.L_d%u_e"
-#endif
-#ifndef SL_BEGIN_LABEL_FMT
-#define SL_BEGIN_LABEL_FMT	"*.L_sl%u"
-#endif
-#ifndef SL_END_LABEL_FMT
-#define SL_END_LABEL_FMT	"*.L_sl%u_e"
-#endif
 #ifndef BODY_BEGIN_LABEL_FMT
 #define BODY_BEGIN_LABEL_FMT	"*.L_b%u"
 #endif
@@ -1347,7 +1325,7 @@ type_main_variant (type)
   return type;
 }
 
-/* Return non-zero if the given type node represents a tagged type.  */
+/* Return nonzero if the given type node represents a tagged type.  */
 
 static inline int
 is_tagged_type (type)
@@ -1972,7 +1950,7 @@ write_modifier_bytes (type, decl_const, decl_volatile)
   write_modifier_bytes_1 (type, decl_const, decl_volatile, 0);
 }
 
-/* Given a pointer to an arbitrary ..._TYPE tree node, return non-zero if the
+/* Given a pointer to an arbitrary ..._TYPE tree node, return nonzero if the
    given input type is a Dwarf "fundamental" type.  Otherwise return zero.  */
 
 static inline int
@@ -2084,7 +2062,8 @@ output_reg_number (rtl)
 
   if (regno >= DWARF_FRAME_REGISTERS)
     {
-      warning_with_decl (dwarf_last_decl, "internal regno botch: regno = %d\n",
+      warning_with_decl (dwarf_last_decl, 
+			 "internal regno botch: `%s' has regno = %d\n",
 			 regno);
       regno = 0;
     }
@@ -2301,7 +2280,8 @@ output_bound_representation (bound, dim_num, u_or_l)
 		   || TREE_CODE (bound) == CONVERT_EXPR)
 	      bound = TREE_OPERAND (bound, 0);
 
-	    if (TREE_CODE (bound) == SAVE_EXPR)
+	    if (TREE_CODE (bound) == SAVE_EXPR 
+		&& SAVE_EXPR_RTL (bound))
 	      output_loc_descriptor
 		(eliminate_regs (SAVE_EXPR_RTL (bound), 0, NULL_RTX));
 	  }
@@ -3326,6 +3306,13 @@ member_attribute (context)
 }
 
 #if 0
+#ifndef SL_BEGIN_LABEL_FMT
+#define SL_BEGIN_LABEL_FMT	"*.L_sl%u"
+#endif
+#ifndef SL_END_LABEL_FMT
+#define SL_END_LABEL_FMT	"*.L_sl%u_e"
+#endif
+
 static inline void
 string_length_attribute (upper_bound)
      tree upper_bound;
@@ -3894,13 +3881,14 @@ output_global_subroutine_die (arg)
 	  char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
 	  low_pc_attribute (function_start_label (decl));
-	  sprintf (label, FUNC_END_LABEL_FMT, current_funcdef_number);
+	  sprintf (label, FUNC_END_LABEL_FMT, current_function_funcdef_no);
 	  high_pc_attribute (label);
 	  if (use_gnu_debug_info_extensions)
 	    {
-	      sprintf (label, BODY_BEGIN_LABEL_FMT, current_funcdef_number);
+	      sprintf (label, BODY_BEGIN_LABEL_FMT,
+		       current_function_funcdef_no);
 	      body_begin_attribute (label);
-	      sprintf (label, BODY_END_LABEL_FMT, current_funcdef_number);
+	      sprintf (label, BODY_END_LABEL_FMT, current_function_funcdef_no);
 	      body_end_attribute (label);
 	    }
 	}
@@ -4275,13 +4263,14 @@ output_local_subroutine_die (arg)
 	{
 	  char label[MAX_ARTIFICIAL_LABEL_BYTES];
 	  low_pc_attribute (function_start_label (decl));
-	  sprintf (label, FUNC_END_LABEL_FMT, current_funcdef_number);
+	  sprintf (label, FUNC_END_LABEL_FMT, current_function_funcdef_no);
 	  high_pc_attribute (label);
 	  if (use_gnu_debug_info_extensions)
 	    {
-	      sprintf (label, BODY_BEGIN_LABEL_FMT, current_funcdef_number);
+	      sprintf (label, BODY_BEGIN_LABEL_FMT,
+		       current_function_funcdef_no);
 	      body_begin_attribute (label);
-	      sprintf (label, BODY_END_LABEL_FMT, current_funcdef_number);
+	      sprintf (label, BODY_END_LABEL_FMT, current_function_funcdef_no);
 	      body_end_attribute (label);
 	    }
 	}
@@ -4544,7 +4533,7 @@ pend_type (type)
   TREE_ASM_WRITTEN (type) = 1;
 }
 
-/* Return non-zero if it is legitimate to output DIEs to represent a
+/* Return nonzero if it is legitimate to output DIEs to represent a
    given type while we are generating the list of child DIEs for some
    DIE (e.g. a function or lexical block DIE) associated with a given scope.
 
@@ -5809,9 +5798,6 @@ dwarfout_file_scope_decl (decl, set_finalizing)
     }
 
   ASM_OUTPUT_POP_SECTION (asm_out_file);
-
-  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_INITIAL (decl) != NULL)
-    current_funcdef_number++;
 }
 
 /* Output a marker (i.e. a label) for the beginning of the generated code
@@ -5849,8 +5835,9 @@ dwarfout_end_block (line, blocknum)
    to their home locations).  */
 
 static void
-dwarfout_end_prologue (line)
+dwarfout_end_prologue (line, file)
      unsigned int line ATTRIBUTE_UNUSED;
+     const char *file ATTRIBUTE_UNUSED;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
@@ -5858,7 +5845,7 @@ dwarfout_end_prologue (line)
     return;
 
   function_section (current_function_decl);
-  sprintf (label, BODY_BEGIN_LABEL_FMT, current_funcdef_number);
+  sprintf (label, BODY_BEGIN_LABEL_FMT, current_function_funcdef_no);
   ASM_OUTPUT_LABEL (asm_out_file, label);
 }
 
@@ -5874,7 +5861,7 @@ dwarfout_end_function (line)
   if (! use_gnu_debug_info_extensions)
     return;
   function_section (current_function_decl);
-  sprintf (label, BODY_END_LABEL_FMT, current_funcdef_number);
+  sprintf (label, BODY_END_LABEL_FMT, current_function_funcdef_no);
   ASM_OUTPUT_LABEL (asm_out_file, label);
 }
 
@@ -5883,14 +5870,16 @@ dwarfout_end_function (line)
    has been generated.	*/
 
 static void
-dwarfout_end_epilogue ()
+dwarfout_end_epilogue (line, file)
+     unsigned int line ATTRIBUTE_UNUSED;
+     const char *file ATTRIBUTE_UNUSED;
 {
   char label[MAX_ARTIFICIAL_LABEL_BYTES];
 
   /* Output a label to mark the endpoint of the code generated for this
      function.	*/
 
-  sprintf (label, FUNC_END_LABEL_FMT, current_funcdef_number);
+  sprintf (label, FUNC_END_LABEL_FMT, current_function_funcdef_no);
   ASM_OUTPUT_LABEL (asm_out_file, label);
 }
 
@@ -6189,6 +6178,8 @@ static void
 dwarfout_init (main_input_filename)
      const char *main_input_filename;
 {
+  warning ("support for the DWARF1 debugging format is deprecated");
+
   /* Remember the name of the primary input file.  */
 
   primary_filename = main_input_filename;

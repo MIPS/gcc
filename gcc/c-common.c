@@ -31,7 +31,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "expr.h"
 #include "c-common.h"
-#include "tree-inline.h"
 #include "diagnostic.h"
 #include "tm_p.h"
 #include "obstack.h"
@@ -39,6 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "langhooks.h"
 #include "except.h"		/* For USING_SJLJ_EXCEPTIONS.  */
+#include "tree-inline.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -82,10 +82,6 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 		     : ((LONG_TYPE_SIZE == LONG_LONG_TYPE_SIZE)	\
 			? "long unsigned int"			\
 			: "long long unsigned int"))
-#endif
-
-#ifndef STDC_0_IN_SYSTEM_HEADERS
-#define STDC_0_IN_SYSTEM_HEADERS 0
 #endif
 
 #ifndef REGISTER_PREFIX
@@ -192,12 +188,17 @@ enum c_language_kind c_language;
 
 tree c_global_trees[CTI_MAX];
 
+/* Switches common to the C front ends.  */
+
 /* Nonzero if prepreprocessing only.  */
 int flag_preprocess_only;
 
 /* Nonzero if an ISO standard was selected.  It rejects macros in the
    user's namespace.  */
 int flag_iso;
+
+/* Nonzero whenever Objective-C functionality is being used.  */
+int flag_objc;
 
 /* Nonzero if -undef was given.  It suppresses target built-in macros
    and assertions.  */
@@ -220,9 +221,179 @@ int flag_short_double;
 
 int flag_short_wchar;
 
-/* Nonzero means warn about use of multicharacter literals.  */
+/* Nonzero means allow Microsoft extensions without warnings or errors.  */
+int flag_ms_extensions;
 
-int warn_multichar = 1;
+/* Nonzero means don't recognize the keyword `asm'.  */
+
+int flag_no_asm;
+
+/* Nonzero means give string constants the type `const char *', as mandated
+   by the standard.  */
+
+int flag_const_strings;
+
+/* Nonzero means `$' can be in an identifier.  */
+
+#ifndef DOLLARS_IN_IDENTIFIERS
+#define DOLLARS_IN_IDENTIFIERS 1
+#endif
+int dollars_in_ident = DOLLARS_IN_IDENTIFIERS;
+
+/* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
+
+int flag_signed_bitfields = 1;
+int explicit_flag_signed_bitfields;
+
+/* Nonzero means warn about pointer casts that can drop a type qualifier
+   from the pointer target type.  */
+
+int warn_cast_qual;
+
+/* Warn about functions which might be candidates for format attributes.  */
+
+int warn_missing_format_attribute;
+
+/* Nonzero means warn about sizeof(function) or addition/subtraction
+   of function pointers.  */
+
+int warn_pointer_arith;
+
+/* Nonzero means warn for any global function def
+   without separate previous prototype decl.  */
+
+int warn_missing_prototypes;
+
+/* Warn if adding () is suggested.  */
+
+int warn_parentheses;
+
+/* Warn if initializer is not completely bracketed.  */
+
+int warn_missing_braces;
+
+/* Warn about comparison of signed and unsigned values.
+   If -1, neither -Wsign-compare nor -Wno-sign-compare has been specified.  */
+
+int warn_sign_compare;
+
+/* Nonzero means warn about usage of long long when `-pedantic'.  */
+
+int warn_long_long = 1;
+
+/* Nonzero means warn about deprecated conversion from string constant to
+   `char *'.  */
+
+int warn_write_strings;
+
+/* Nonzero means warn about multiple (redundant) decls for the same single
+   variable or function.  */
+
+int warn_redundant_decls;
+
+/* Warn about testing equality of floating point numbers.  */
+
+int warn_float_equal;
+
+/* Warn about a subscript that has type char.  */
+
+int warn_char_subscripts;
+
+/* Warn if a type conversion is done that might have confusing results.  */
+
+int warn_conversion;
+
+/* Warn about #pragma directives that are not recognized.  */      
+
+int warn_unknown_pragmas; /* Tri state variable.  */  
+
+/* Warn about format/argument anomalies in calls to formatted I/O functions
+   (*printf, *scanf, strftime, strfmon, etc.).  */
+
+int warn_format;
+
+/* Warn about Y2K problems with strftime formats.  */
+
+int warn_format_y2k;
+
+/* Warn about excess arguments to formats.  */
+
+int warn_format_extra_args;
+
+/* Warn about zero-length formats.  */
+
+int warn_format_zero_length;
+
+/* Warn about non-literal format arguments.  */
+
+int warn_format_nonliteral;
+
+/* Warn about possible security problems with calls to format functions.  */
+
+int warn_format_security;
+
+
+/* C/ObjC language option variables.  */
+
+
+/* Nonzero means message about use of implicit function declarations;
+ 1 means warning; 2 means error.  */
+
+int mesg_implicit_function_declaration = -1;
+
+/* Nonzero means allow type mismatches in conditional expressions;
+   just make their values `void'.  */
+
+int flag_cond_mismatch;
+
+/* Nonzero means enable C89 Amendment 1 features.  */
+
+int flag_isoc94;
+
+/* Nonzero means use the ISO C99 dialect of C.  */
+
+int flag_isoc99;
+
+/* Nonzero means that we have builtin functions, and main is an int */
+
+int flag_hosted = 1;
+
+/* Nonzero means add default format_arg attributes for functions not
+   in ISO C.  */
+
+int flag_noniso_default_format_attributes = 1;
+
+/* Nonzero means warn when casting a function call to a type that does
+   not match the return type (e.g. (float)sqrt() or (anything*)malloc()
+   when there is no previous declaration of sqrt or malloc.  */
+
+int warn_bad_function_cast;
+
+/* Warn about traditional constructs whose meanings changed in ANSI C.  */
+
+int warn_traditional;
+
+/* Nonzero means warn for non-prototype function decls
+   or non-prototyped defs without previous prototype.  */
+
+int warn_strict_prototypes;
+
+/* Nonzero means warn for any global function def
+   without separate previous decl.  */
+
+int warn_missing_declarations;
+
+/* Nonzero means warn about declarations of objects not at
+   file-scope level and about *all* declarations of functions (whether
+   or static) not at file-scope level.  Note that we exclude
+   implicit function declarations.  To get warnings about those, use
+   -Wimplicit.  */
+
+int warn_nested_externs;
+
+/* Warn if main is suspicious.  */
+
+int warn_main;
 
 /* Nonzero means warn about possible violations of sequence point rules.  */
 
@@ -231,10 +402,253 @@ int warn_sequence_point;
 /* Nonzero means to warn about compile-time division by zero.  */
 int warn_div_by_zero = 1;
 
+/* Nonzero means warn about use of implicit int.  */
+
+int warn_implicit_int;
+
 /* Warn about NULL being passed to argument slots marked as requiring
    non-NULL.  */ 
       
 int warn_nonnull;
+
+
+/* ObjC language option variables.  */
+
+
+/* Open and close the file for outputting class declarations, if
+   requested (ObjC).  */
+
+int flag_gen_declaration;
+
+/* Generate code for GNU or NeXT runtime environment.  */
+
+#ifdef NEXT_OBJC_RUNTIME
+int flag_next_runtime = 1;
+#else
+int flag_next_runtime = 0;
+#endif
+
+/* Tells the compiler that this is a special run.  Do not perform any
+   compiling, instead we are to test some platform dependent features
+   and output a C header file with appropriate definitions.  */
+
+int print_struct_values;
+
+/* ???.  Undocumented.  */
+
+const char *constant_string_class_name;
+
+/* Warn if multiple methods are seen for the same selector, but with
+   different argument types.  Performs the check on the whole selector
+   table at the end of compilation.  */
+
+int warn_selector;
+
+/* Warn if a @selector() is found, and no method with that selector
+   has been previously declared.  The check is done on each
+   @selector() as soon as it is found - so it warns about forward
+   declarations.  */
+
+int warn_undeclared_selector;
+
+/* Warn if methods required by a protocol are not implemented in the 
+   class adopting it.  When turned off, methods inherited to that
+   class are also considered implemented.  */
+
+int warn_protocol = 1;
+
+
+/* C++ language option variables.  */
+
+
+/* Nonzero means don't recognize any extension keywords.  */
+
+int flag_no_gnu_keywords;
+
+/* Nonzero means do emit exported implementations of functions even if
+   they can be inlined.  */
+
+int flag_implement_inlines = 1;
+
+/* Nonzero means do emit exported implementations of templates, instead of
+   multiple static copies in each file that needs a definition.  */
+
+int flag_external_templates;
+
+/* Nonzero means that the decision to emit or not emit the implementation of a
+   template depends on where the template is instantiated, rather than where
+   it is defined.  */
+
+int flag_alt_external_templates;
+
+/* Nonzero means that implicit instantiations will be emitted if needed.  */
+
+int flag_implicit_templates = 1;
+
+/* Nonzero means that implicit instantiations of inline templates will be
+   emitted if needed, even if instantiations of non-inline templates
+   aren't.  */
+
+int flag_implicit_inline_templates = 1;
+
+/* Nonzero means generate separate instantiation control files and
+   juggle them at link time.  */
+
+int flag_use_repository;
+
+/* Nonzero if we want to issue diagnostics that the standard says are not
+   required.  */
+
+int flag_optional_diags = 1;
+
+/* Nonzero means we should attempt to elide constructors when possible.  */
+
+int flag_elide_constructors = 1;
+
+/* Nonzero means that member functions defined in class scope are
+   inline by default.  */
+
+int flag_default_inline = 1;
+
+/* Controls whether compiler generates 'type descriptor' that give
+   run-time type information.  */
+
+int flag_rtti = 1;
+
+/* Nonzero if we want to conserve space in the .o files.  We do this
+   by putting uninitialized data and runtime initialized data into
+   .common instead of .data at the expense of not flagging multiple
+   definitions.  */
+
+int flag_conserve_space;
+
+/* Nonzero if we want to obey access control semantics.  */
+
+int flag_access_control = 1;
+
+/* Nonzero if we want to check the return value of new and avoid calling
+   constructors if it is a null pointer.  */
+
+int flag_check_new;
+
+/* Nonzero if we want the new ISO rules for pushing a new scope for `for'
+   initialization variables.
+   0: Old rules, set by -fno-for-scope.
+   2: New ISO rules, set by -ffor-scope.
+   1: Try to implement new ISO rules, but with backup compatibility
+   (and warnings).  This is the default, for now.  */
+
+int flag_new_for_scope = 1;
+
+/* Nonzero if we want to emit defined symbols with common-like linkage as
+   weak symbols where possible, in order to conform to C++ semantics.
+   Otherwise, emit them as local symbols.  */
+
+int flag_weak = 1;
+
+/* Nonzero to use __cxa_atexit, rather than atexit, to register
+   destructors for local statics and global objects.  */
+
+int flag_use_cxa_atexit = DEFAULT_USE_CXA_ATEXIT;
+
+/* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
+
+int flag_vtable_gc;
+
+/* Nonzero means make the default pedwarns warnings instead of errors.
+   The value of this flag is ignored if -pedantic is specified.  */
+
+int flag_permissive;
+
+/* Nonzero means to implement standard semantics for exception
+   specifications, calling unexpected if an exception is thrown that
+   doesn't match the specification.  Zero means to treat them as
+   assertions and optimize accordingly, but not check them.  */
+
+int flag_enforce_eh_specs = 1;
+
+/*  The version of the C++ ABI in use.  The following values are
+    allowed:
+
+    0: The version of the ABI believed most conformant with the 
+       C++ ABI specification.  This ABI may change as bugs are
+       discovered and fixed.  Therefore, 0 will not necessarily
+       indicate the same ABI in different versions of G++.
+
+    1: The version of the ABI first used in G++ 3.2.
+
+    Additional positive integers will be assigned as new versions of
+    the ABI become the default version of the ABI.  */
+
+int flag_abi_version = 1;
+
+/* Nonzero means warn about things that will change when compiling
+   with an ABI-compliant compiler.  */
+
+int warn_abi = 0;
+
+/* Nonzero means warn about implicit declarations.  */
+
+int warn_implicit = 1;
+
+/* Nonzero means warn when all ctors or dtors are private, and the class
+   has no friends.  */
+
+int warn_ctor_dtor_privacy = 1;
+
+/* Nonzero means warn in function declared in derived class has the
+   same name as a virtual in the base class, but fails to match the
+   type signature of any virtual function in the base class.  */
+
+int warn_overloaded_virtual;
+
+/* Nonzero means warn when declaring a class that has a non virtual
+   destructor, when it really ought to have a virtual one.  */
+
+int warn_nonvdtor;
+
+/* Nonzero means warn when the compiler will reorder code.  */
+
+int warn_reorder;
+
+/* Nonzero means warn when synthesis behavior differs from Cfront's.  */
+
+int warn_synth;
+
+/* Nonzero means warn when we convert a pointer to member function
+   into a pointer to (void or function).  */
+
+int warn_pmf2ptr = 1;
+
+/* Nonzero means warn about violation of some Effective C++ style rules.  */
+
+int warn_ecpp;
+
+/* Nonzero means warn where overload resolution chooses a promotion from
+   unsigned to signed over a conversion to an unsigned of the same size.  */
+
+int warn_sign_promo;
+
+/* Nonzero means warn when an old-style cast is used.  */
+
+int warn_old_style_cast;
+
+/* Nonzero means warn when non-templatized friend functions are
+   declared within a template */
+
+int warn_nontemplate_friend = 1;
+
+/* Nonzero means complain about deprecated features.  */
+
+int warn_deprecated = 1;
+
+/* Maximum template instantiation depth.  This limit is rather
+   arbitrary, but it exists to limit the time it takes to notice
+   infinite template instantiations.  */
+
+int max_tinst_depth = 500;
+
+
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
@@ -299,8 +713,6 @@ static int if_stack_space = 0;
 /* Stack pointer.  */
 static int if_stack_pointer = 0;
 
-static void cb_register_builtins PARAMS ((cpp_reader *));
-
 static tree handle_packed_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_nocommon_attribute	PARAMS ((tree *, tree, tree, int,
@@ -337,6 +749,8 @@ static tree handle_alias_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
 static tree handle_visibility_attribute	PARAMS ((tree *, tree, tree, int,
 						 bool *));
+static tree handle_tls_model_attribute	PARAMS ((tree *, tree, tree, int,
+						 bool *));
 static tree handle_no_instrument_function_attribute PARAMS ((tree *, tree,
 							     tree, int,
 							     bool *));
@@ -364,8 +778,16 @@ static bool get_nonnull_operand		PARAMS ((tree,
 						 unsigned HOST_WIDE_INT *));
 void builtin_define_std PARAMS ((const char *));
 static void builtin_define_with_value PARAMS ((const char *, const char *,
-					       int));
+                                               int));
+static void builtin_define_with_int_value PARAMS ((const char *,
+						   HOST_WIDE_INT));
+static void builtin_define_with_hex_fp_value PARAMS ((const char *, tree,
+						      int, const char *,
+						      const char *));
 static void builtin_define_type_max PARAMS ((const char *, tree, int));
+static void builtin_define_type_precision PARAMS ((const char *, tree));
+static void builtin_define_float_constants PARAMS ((const char *,
+						    const char *, tree));
 
 /* Table of machine-independent attributes common to all C-like languages.  */
 const struct attribute_spec c_common_attribute_table[] =
@@ -427,6 +849,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_vector_size_attribute },
   { "visibility",	      1, 1, true,  false, false,
 			      handle_visibility_attribute },
+  { "tls_model",	      1, 1, true,  false, false,
+			      handle_tls_model_attribute },
   { "nonnull",                0, -1, false, true, true,
 			      handle_nonnull_attribute },
   { "nothrow",                0, 0, true,  false, false,
@@ -711,6 +1135,13 @@ fname_decl (rid, id)
   if (!decl)
     {
       tree saved_last_tree = last_tree;
+      /* If a tree is built here, it would normally have the lineno of
+	 the current statement.  Later this tree will be moved to the
+	 beginning of the function and this line number will be wrong.
+	 To avoid this problem set the lineno to 0 here; that prevents
+	 it from appearing in the RTL.  */
+      int saved_lineno = lineno;
+      lineno = 0;
       
       decl = (*make_fname_decl) (id, fname_vars[ix].pretty);
       if (last_tree != saved_last_tree)
@@ -726,6 +1157,7 @@ fname_decl (rid, id)
 						 saved_function_name_decls);
 	}
       *fname_vars[ix].decl = decl;
+      lineno = saved_lineno;
     }
   if (!ix && !current_function_decl)
     pedwarn_with_decl (decl, "`%s' is not defined outside of function scope");
@@ -1412,7 +1844,7 @@ verify_tree (x, pbefore_sp, pno_sp, writer)
     }
 }
 
-/* Try to warn for undefined behaviour in EXPR due to missing sequence
+/* Try to warn for undefined behavior in EXPR due to missing sequence
    points.  */
 
 static void
@@ -1599,38 +2031,37 @@ c_common_type_for_mode (mode, unsignedp)
   if (mode == TYPE_MODE (build_pointer_type (integer_type_node)))
     return build_pointer_type (integer_type_node);
 
-#ifdef VECTOR_MODE_SUPPORTED_P
-  if (VECTOR_MODE_SUPPORTED_P (mode))
+  switch (mode)
     {
-      switch (mode)
-	{
-	case V16QImode:
-	  return unsignedp ? unsigned_V16QI_type_node : V16QI_type_node;
-	case V8HImode:
-	  return unsignedp ? unsigned_V8HI_type_node : V8HI_type_node;
-	case V4SImode:
-	  return unsignedp ? unsigned_V4SI_type_node : V4SI_type_node;
-	case V2DImode:
-	  return unsignedp ? unsigned_V2DI_type_node : V2DI_type_node;
-	case V2SImode:
-	  return unsignedp ? unsigned_V2SI_type_node : V2SI_type_node;
-	case V4HImode:
-	  return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
-	case V8QImode:
-	  return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
-	case V16SFmode:
-	  return V16SF_type_node;
-	case V4SFmode:
-	  return V4SF_type_node;
-	case V2SFmode:
-	  return V2SF_type_node;
-	case V2DFmode:
-	  return V2DF_type_node;
-	default:
-	  break;
-	}
+    case V16QImode:
+      return unsignedp ? unsigned_V16QI_type_node : V16QI_type_node;
+    case V8HImode:
+      return unsignedp ? unsigned_V8HI_type_node : V8HI_type_node;
+    case V4SImode:
+      return unsignedp ? unsigned_V4SI_type_node : V4SI_type_node;
+    case V2DImode:
+      return unsignedp ? unsigned_V2DI_type_node : V2DI_type_node;
+    case V2SImode:
+      return unsignedp ? unsigned_V2SI_type_node : V2SI_type_node;
+    case V2HImode:
+      return unsignedp ? unsigned_V2HI_type_node : V2HI_type_node;
+    case V4HImode:
+      return unsignedp ? unsigned_V4HI_type_node : V4HI_type_node;
+    case V8QImode:
+      return unsignedp ? unsigned_V8QI_type_node : V8QI_type_node;
+    case V1DImode:
+      return unsignedp ? unsigned_V1DI_type_node : V1DI_type_node;
+    case V16SFmode:
+      return V16SF_type_node;
+    case V4SFmode:
+      return V4SF_type_node;
+    case V2SFmode:
+      return V2SF_type_node;
+    case V2DFmode:
+      return V2DF_type_node;
+    default:
+      break;
     }
-#endif
 
   return 0;
 }
@@ -2369,12 +2800,12 @@ c_common_truthvalue_conversion (expr)
     case ABS_EXPR:
     case FLOAT_EXPR:
     case FFS_EXPR:
-      /* These don't change whether an object is non-zero or zero.  */
+      /* These don't change whether an object is nonzero or zero.  */
       return c_common_truthvalue_conversion (TREE_OPERAND (expr, 0));
 
     case LROTATE_EXPR:
     case RROTATE_EXPR:
-      /* These don't change whether an object is zero or non-zero, but
+      /* These don't change whether an object is zero or nonzero, but
 	 we can't ignore them if their second arg has side-effects.  */
       if (TREE_SIDE_EFFECTS (TREE_OPERAND (expr, 1)))
 	return build (COMPOUND_EXPR, boolean_type_node, TREE_OPERAND (expr, 1),
@@ -2458,7 +2889,7 @@ c_common_truthvalue_conversion (expr)
 
 static tree builtin_function_2 PARAMS ((const char *, const char *, tree, tree,
 					int, enum built_in_class, int, int,
-					int));
+					tree));
 
 /* Make a variant type in the proper way for C/C++, propagating qualifiers
    down to the element type of an array.  */
@@ -2529,10 +2960,6 @@ c_common_get_alias_set (t)
 {
   tree u;
   
-  /* We know nothing about vector types */
-  if (TREE_CODE (t) == VECTOR_TYPE)
-    return 0;          
-  
   /* Permit type-punning when accessing a union, provided the access
      is directly through the union.  For example, this code does not
      permit taking the address of a union member and then storing
@@ -2546,20 +2973,20 @@ c_common_get_alias_set (t)
 	&& TREE_CODE (TREE_TYPE (TREE_OPERAND (u, 0))) == UNION_TYPE)
       return 0;
 
-  /* If this is a char *, the ANSI C standard says it can alias
-     anything.  Note that all references need do this.  */
-  if (TREE_CODE_CLASS (TREE_CODE (t)) == 'r'
-      && TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE
-      && TYPE_PRECISION (TREE_TYPE (t)) == TYPE_PRECISION (char_type_node))
-    return 0;
-
-  /* If it has the may_alias attribute, it can alias anything.  */
-  if (TYPE_P (t) && lookup_attribute ("may_alias", TYPE_ATTRIBUTES (t)))
-    return 0;
-
   /* That's all the expressions we handle specially.  */
   if (! TYPE_P (t))
     return -1;
+
+  /* The C standard guarantess that any object may be accessed via an
+     lvalue that has character type.  */
+  if (t == char_type_node
+      || t == signed_char_type_node
+      || t == unsigned_char_type_node)
+    return 0;
+
+  /* If it has the may_alias attribute, it can alias anything.  */
+  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (t)))
+    return 0;
 
   /* The C standard specifically allows aliasing between signed and
      unsigned variants of the same type.  We treat the signed
@@ -2607,36 +3034,66 @@ c_common_get_alias_set (t)
   return -1;
 }
 
-/* Implement the __alignof keyword: Return the minimum required
-   alignment of TYPE, measured in bytes.  */
-
+/* Compute the value of 'sizeof (TYPE)' or '__alignof__ (TYPE)', where the
+   second parameter indicates which OPERATOR is being applied.  The COMPLAIN
+   flag controls whether we should diagnose possibly ill-formed
+   constructs or not.  */
 tree
-c_alignof (type)
+c_sizeof_or_alignof_type (type, op, complain)
      tree type;
+     enum tree_code op;
+     int complain;
 {
-  enum tree_code code = TREE_CODE (type);
-  tree t;
-
-  /* In C++, sizeof applies to the referent.  Handle alignof the same way.  */
-  if (code == REFERENCE_TYPE)
+  const char *op_name;
+  tree value = NULL;
+  enum tree_code type_code = TREE_CODE (type);
+  
+  my_friendly_assert (op == SIZEOF_EXPR || op == ALIGNOF_EXPR, 20020720);
+  op_name = op == SIZEOF_EXPR ? "sizeof" : "__alignof__";
+  
+  if (type_code == FUNCTION_TYPE)
     {
-      type = TREE_TYPE (type);
-      code = TREE_CODE (type);
+      if (op == SIZEOF_EXPR)
+	{
+	  if (complain && (pedantic || warn_pointer_arith))
+	    pedwarn ("invalid application of `sizeof' to a function type");
+	  value = size_one_node;
+	}
+      else
+	value = size_int (FUNCTION_BOUNDARY / BITS_PER_UNIT);
     }
-
-  if (code == FUNCTION_TYPE)
-    t = size_int (FUNCTION_BOUNDARY / BITS_PER_UNIT);
-  else if (code == VOID_TYPE || code == ERROR_MARK)
-    t = size_one_node;
+  else if (type_code == VOID_TYPE || type_code == ERROR_MARK)
+    {
+      if (type_code == VOID_TYPE 
+	  && complain && (pedantic || warn_pointer_arith))
+	pedwarn ("invalid application of `%s' to a void type", op_name);
+      value = size_one_node;
+    }
   else if (!COMPLETE_TYPE_P (type))
     {
-      error ("__alignof__ applied to an incomplete type");
-      t = size_zero_node;
+      if (complain)
+	error ("invalid application of `%s' to an incomplete type", op_name);
+      value = size_zero_node;
     }
   else
-    t = size_int (TYPE_ALIGN (type) / BITS_PER_UNIT);
+    {
+      if (op == SIZEOF_EXPR)
+	/* Convert in case a char is more than one unit.  */
+	value = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
+			    size_int (TYPE_PRECISION (char_type_node)
+				      / BITS_PER_UNIT));
+      else
+	value = size_int (TYPE_ALIGN (type) / BITS_PER_UNIT);
+    }
 
-  return fold (build1 (NOP_EXPR, c_size_type_node, t));
+  /* VALUE will have an integer type with TYPE_IS_SIZETYPE set.
+     TYPE_IS_SIZETYPE means that certain things (like overflow) will
+     never happen.  However, this node should really have type
+     `size_t', which is just a typedef for an ordinary integer type.  */
+  value = fold (build1 (NOP_EXPR, c_size_type_node, value));
+  my_friendly_assert (!TYPE_IS_SIZETYPE (TREE_TYPE (value)), 20001021);
+  
+  return value;
 }
 
 /* Implement the __alignof keyword: Return the minimum required
@@ -2687,6 +3144,30 @@ c_alignof_expr (expr)
   return fold (build1 (NOP_EXPR, c_size_type_node, t));
 }
 
+/* Handle C and C++ default attributes.  */
+
+enum built_in_attribute
+{
+#define DEF_ATTR_NULL_TREE(ENUM) ENUM,
+#define DEF_ATTR_INT(ENUM, VALUE) ENUM,
+#define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
+#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
+#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE) /* No entry needed in enum.  */
+#include "builtin-attrs.def"
+#undef DEF_ATTR_NULL_TREE
+#undef DEF_ATTR_INT
+#undef DEF_ATTR_IDENT
+#undef DEF_ATTR_TREE_LIST
+#undef DEF_FN_ATTR
+  ATTR_LAST
+};
+
+static GTY(()) tree built_in_attributes[(int) ATTR_LAST];
+
+static bool c_attrs_initialized = false;
+
+static void c_init_attributes PARAMS ((void));
+
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
 
@@ -3047,8 +3528,11 @@ c_common_nodes_and_builtins ()
 #undef DEF_FUNCTION_TYPE_VAR_1
 #undef DEF_POINTER_TYPE
 
-#define DEF_BUILTIN(ENUM, NAME, CLASS,					\
-                    TYPE, LIBTYPE, BOTH_P, FALLBACK_P, NONANSI_P)	\
+  if (!c_attrs_initialized)
+    c_init_attributes ();
+
+#define DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE,			\
+		    BOTH_P, FALLBACK_P, NONANSI_P, ATTRS)		\
   if (NAME)								\
     {									\
       tree decl;							\
@@ -3061,7 +3545,8 @@ c_common_nodes_and_builtins ()
 				 CLASS,					\
 				 (FALLBACK_P				\
 				  ? (NAME + strlen ("__builtin_"))	\
-				  : NULL));				\
+				  : NULL),				\
+				 built_in_attributes[(int) ATTRS]);	\
       else								\
 	decl = builtin_function_2 (NAME,				\
 				   NAME + strlen ("__builtin_"),	\
@@ -3071,34 +3556,12 @@ c_common_nodes_and_builtins ()
 				   CLASS,				\
 				   FALLBACK_P,				\
 				   NONANSI_P,				\
-				   /*noreturn_p=*/0);			\
+				   built_in_attributes[(int) ATTRS]);	\
 									\
       built_in_decls[(int) ENUM] = decl;				\
     }									
 #include "builtins.def"
 #undef DEF_BUILTIN
-
-  /* Declare _exit and _Exit just to mark them as non-returning.  */
-  builtin_function_2 (NULL, "_exit", NULL_TREE, 
-		      builtin_types[BT_FN_VOID_INT],
-		      0, NOT_BUILT_IN, 0, 1, 1);
-  builtin_function_2 (NULL, "_Exit", NULL_TREE, 
-		      builtin_types[BT_FN_VOID_INT],
-		      0, NOT_BUILT_IN, 0, !flag_isoc99, 1);
-
-  /* Declare these functions non-returning
-     to avoid spurious "control drops through" warnings.  */
-  builtin_function_2 (NULL, "abort",
-		      NULL_TREE, ((c_language == clk_cplusplus)
-				  ? builtin_types[BT_FN_VOID]
-				  : builtin_types[BT_FN_VOID_VAR]),
-		      0, NOT_BUILT_IN, 0, 0, 1);
-
-  builtin_function_2 (NULL, "exit",
-		      NULL_TREE, ((c_language == clk_cplusplus)
-				  ? builtin_types[BT_FN_VOID_INT]
-				  : builtin_types[BT_FN_VOID_VAR]),
-		      0, NOT_BUILT_IN, 0, 0, 1);
 
   main_identifier_node = get_identifier ("main");
 }
@@ -3167,15 +3630,15 @@ builtin_function_disabled_p (name)
    conflicts with headers.  FUNCTION_CODE and CLASS are as for
    builtin_function.  If LIBRARY_NAME_P is nonzero, NAME is passed as
    the LIBRARY_NAME parameter to builtin_function when declaring BUILTIN_NAME.
-   If NONANSI_P is nonzero, the name NAME is treated as a non-ANSI name; if
-   NORETURN_P is nonzero, the function is marked as non-returning.
+   If NONANSI_P is nonzero, the name NAME is treated as a non-ANSI name;
+   ATTRS is the tree list representing the builtin's function attributes.
    Returns the declaration of BUILTIN_NAME, if any, otherwise
    the declaration of NAME.  Does not declare NAME if flag_no_builtin,
    or if NONANSI_P and flag_no_nonansi_builtin.  */
 
 static tree
 builtin_function_2 (builtin_name, name, builtin_type, type, function_code,
-		    class, library_name_p, nonansi_p, noreturn_p)
+		    class, library_name_p, nonansi_p, attrs)
      const char *builtin_name;
      const char *name;
      tree builtin_type;
@@ -3184,31 +3647,23 @@ builtin_function_2 (builtin_name, name, builtin_type, type, function_code,
      enum built_in_class class;
      int library_name_p;
      int nonansi_p;
-     int noreturn_p;
+     tree attrs;
 {
   tree bdecl = NULL_TREE;
   tree decl = NULL_TREE;
   if (builtin_name != 0)
     {
       bdecl = builtin_function (builtin_name, builtin_type, function_code,
-				class, library_name_p ? name : NULL);
-      if (noreturn_p)
-	{
-	  TREE_THIS_VOLATILE (bdecl) = 1;
-	  TREE_SIDE_EFFECTS (bdecl) = 1;
-	}
+				class, library_name_p ? name : NULL,
+				attrs);
     }
   if (name != 0 && !flag_no_builtin && !builtin_function_disabled_p (name)
       && !(nonansi_p && flag_no_nonansi_builtin))
     {
-      decl = builtin_function (name, type, function_code, class, NULL);
+      decl = builtin_function (name, type, function_code, class, NULL,
+			       attrs);
       if (nonansi_p)
 	DECL_BUILT_IN_NONANSI (decl) = 1;
-      if (noreturn_p)
-	{
-	  TREE_THIS_VOLATILE (decl) = 1;
-	  TREE_SIDE_EFFECTS (decl) = 1;
-	}
     }
   return (bdecl != 0 ? bdecl : decl);
 }
@@ -3433,7 +3888,7 @@ expand_tree_builtin (function, params, coerced_params)
   return NULL_TREE;
 }
 
-/* Returns non-zero if CODE is the code for a statement.  */
+/* Returns nonzero if CODE is the code for a statement.  */
 
 int
 statement_code_p (code)
@@ -3767,6 +4222,7 @@ c_expand_expr (exp, target, tmode, modifier)
 	tree rtl_expr;
 	rtx result;
 	bool preserve_result = false;
+	bool return_target = false;
 
 	/* Since expand_expr_stmt calls free_temp_slots after every
 	   expression statement, we must call push_temp_slots here.
@@ -3794,8 +4250,20 @@ c_expand_expr (exp, target, tmode, modifier)
 	    if (TREE_CODE (last) == SCOPE_STMT
 		&& TREE_CODE (expr) == EXPR_STMT)
 	      {
-	        TREE_ADDRESSABLE (expr) = 1;
-		preserve_result = true;
+		if (target && TREE_CODE (EXPR_STMT_EXPR (expr)) == VAR_DECL
+		    && DECL_RTL_IF_SET (EXPR_STMT_EXPR (expr)) == target)
+		  /* If the last expression is a variable whose RTL is the
+		     same as our target, just return the target; if it
+		     isn't valid expanding the decl would produce different
+		     RTL, and store_expr would try to do a copy.  */
+		  return_target = true;
+		else
+		  {
+		    /* Otherwise, note that we want the value from the last
+		       expression.  */
+		    TREE_ADDRESSABLE (expr) = 1;
+		    preserve_result = true;
+		  }
 	      }
 	  }
 
@@ -3803,7 +4271,9 @@ c_expand_expr (exp, target, tmode, modifier)
 	expand_end_stmt_expr (rtl_expr);
 
 	result = expand_expr (rtl_expr, target, tmode, modifier);
-	if (preserve_result && GET_CODE (result) == MEM)
+	if (return_target)
+	  result = target;
+	else if (preserve_result && GET_CODE (result) == MEM)
 	  {
 	    if (GET_MODE (result) != BLKmode)
 	      result = copy_to_reg (result);
@@ -4236,92 +4706,181 @@ boolean_increment (code, arg)
   return val;
 }
 
-/* Handle C and C++ default attributes.  */
-
-enum built_in_attribute
+/* Define NAME with value TYPE precision.  */
+static void
+builtin_define_type_precision (name, type)
+     const char *name;
+     tree type;
 {
-#define DEF_ATTR_NULL_TREE(ENUM) ENUM,
-#define DEF_ATTR_INT(ENUM, VALUE) ENUM,
-#define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
-#define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
-#define DEF_FN_ATTR(NAME, ATTRS, PREDICATE) /* No entry needed in enum.  */
-#include "builtin-attrs.def"
-#undef DEF_ATTR_NULL_TREE
-#undef DEF_ATTR_INT
-#undef DEF_ATTR_IDENT
-#undef DEF_ATTR_TREE_LIST
-#undef DEF_FN_ATTR
-  ATTR_LAST
-};
-
-static GTY(()) tree built_in_attributes[(int) ATTR_LAST];
-
-static bool c_attrs_initialized = false;
-
-static void c_init_attributes PARAMS ((void));
-
-/* Common initialization before parsing options.  */
-void
-c_common_init_options (lang)
-     enum c_language_kind lang;
-{
-  c_language = lang;
-  parse_in = cpp_create_reader (lang == clk_c || lang == clk_objective_c
-				? CLK_GNUC89 : CLK_GNUCXX);
-  if (lang == clk_objective_c)
-    cpp_get_options (parse_in)->objc = 1;
-
-  /* Mark as "unspecified" (see c_common_post_options).  */
-  flag_bounds_check = -1;
+  builtin_define_with_int_value (name, TYPE_PRECISION (type));
 }
 
-/* Post-switch processing.  */
-void
-c_common_post_options ()
+/* Define the float.h constants for TYPE using NAME_PREFIX and FP_SUFFIX.  */
+static void
+builtin_define_float_constants (name_prefix, fp_suffix, type)
+     const char *name_prefix;
+     const char *fp_suffix;
+     tree type;
 {
-  cpp_post_options (parse_in);
+  /* Used to convert radix-based values to base 10 values in several cases.
 
-  flag_inline_trees = 1;
+     In the max_exp -> max_10_exp conversion for 128-bit IEEE, we need at
+     least 6 significant digits for correct results.  Using the fraction
+     formed by (log(2)*1e6)/(log(10)*1e6) overflows a 32-bit integer as an
+     intermediate; perhaps someone can find a better approximation, in the
+     mean time, I suspect using doubles won't harm the bootstrap here.  */
 
-  /* Use tree inlining if possible.  Function instrumentation is only
-     done in the RTL level, so we disable tree inlining.  */
-  if (! flag_instrument_function_entry_exit)
+  const double log10_2 = .30102999566398119521;
+  double log10_b;
+  const struct real_format *fmt;
+
+  char name[64], buf[128];
+  int dig, min_10_exp, max_10_exp;
+  int decimal_dig;
+
+  fmt = real_format_for_mode[TYPE_MODE (type) - QFmode];
+
+  /* The radix of the exponent representation.  */
+  if (type == float_type_node)
+    builtin_define_with_int_value ("__FLT_RADIX__", fmt->b);
+  log10_b = log10_2 * fmt->log2_b;
+
+  /* The number of radix digits, p, in the floating-point significand.  */
+  sprintf (name, "__%s_MANT_DIG__", name_prefix);
+  builtin_define_with_int_value (name, fmt->p);
+
+  /* The number of decimal digits, q, such that any floating-point number
+     with q decimal digits can be rounded into a floating-point number with
+     p radix b digits and back again without change to the q decimal digits,
+
+	p log10 b			if b is a power of 10
+ 	floor((p - 1) log10 b)		otherwise
+  */
+  dig = (fmt->p - 1) * log10_b;
+  sprintf (name, "__%s_DIG__", name_prefix);
+  builtin_define_with_int_value (name, dig);
+
+  /* The minimum negative int x such that b**(x-1) is a normalized float.  */
+  sprintf (name, "__%s_MIN_EXP__", name_prefix);
+  sprintf (buf, "(%d)", fmt->emin);
+  builtin_define_with_value (name, buf, 0);
+
+  /* The minimum negative int x such that 10**x is a normalized float,
+
+	  ceil (log10 (b ** (emin - 1)))
+	= ceil (log10 (b) * (emin - 1))
+
+     Recall that emin is negative, so the integer truncation calculates
+     the ceiling, not the floor, in this case.  */
+  min_10_exp = (fmt->emin - 1) * log10_b;
+  sprintf (name, "__%s_MIN_10_EXP__", name_prefix);
+  sprintf (buf, "(%d)", min_10_exp);
+  builtin_define_with_value (name, buf, 0);
+
+  /* The maximum int x such that b**(x-1) is a representable float.  */
+  sprintf (name, "__%s_MAX_EXP__", name_prefix);
+  builtin_define_with_int_value (name, fmt->emax);
+
+  /* The maximum int x such that 10**x is in the range of representable
+     finite floating-point numbers,
+
+	  floor (log10((1 - b**-p) * b**emax))
+	= floor (log10(1 - b**-p) + log10(b**emax))
+	= floor (log10(1 - b**-p) + log10(b)*emax)
+
+     The safest thing to do here is to just compute this number.  But since
+     we don't link cc1 with libm, we cannot.  We could implement log10 here
+     a series expansion, but that seems too much effort because:
+
+     Note that the first term, for all extant p, is a number exceedingly close
+     to zero, but slightly negative.  Note that the second term is an integer
+     scaling an irrational number, and that because of the floor we are only
+     interested in its integral portion.
+
+     In order for the first term to have any effect on the integral portion
+     of the second term, the second term has to be exceedingly close to an
+     integer itself (e.g. 123.000000000001 or something).  Getting a result
+     that close to an integer requires that the irrational multiplicand have
+     a long series of zeros in its expansion, which doesn't occur in the
+     first 20 digits or so of log10(b).
+
+     Hand-waving aside, crunching all of the sets of constants above by hand
+     does not yield a case for which the first term is significant, which
+     in the end is all that matters.  */
+  max_10_exp = fmt->emax * log10_b;
+  sprintf (name, "__%s_MAX_10_EXP__", name_prefix);
+  builtin_define_with_int_value (name, max_10_exp);
+
+  /* The number of decimal digits, n, such that any floating-point number
+     can be rounded to n decimal digits and back again without change to
+     the value. 
+
+	p * log10(b)			if b is a power of 10
+	ceil(1 + p * log10(b))		otherwise
+
+     The only macro we care about is this number for the widest supported
+     floating type, but we want this value for rendering constants below.  */
+  {
+    double d_decimal_dig = 1 + fmt->p * log10_b;
+    decimal_dig = d_decimal_dig;
+    if (decimal_dig < d_decimal_dig)
+      decimal_dig++;
+  }
+  if (type == long_double_type_node)
+    builtin_define_with_int_value ("__DECIMAL_DIG__", decimal_dig);
+
+  /* Since, for the supported formats, B is always a power of 2, we
+     construct the following numbers directly as a hexadecimal
+     constants.  */
+
+  /* The maximum representable finite floating-point number,
+     (1 - b**-p) * b**emax  */
+  {
+    int i, n;
+    char *p;
+
+    strcpy (buf, "0x0.");
+    n = fmt->p * fmt->log2_b;
+    for (i = 0, p = buf + 4; i + 3 < n; i += 4)
+      *p++ = 'f';
+    if (i < n)
+      *p++ = "08ce"[n - i];
+    sprintf (p, "p%d", fmt->emax * fmt->log2_b);
+  }
+  sprintf (name, "__%s_MAX__", name_prefix);
+  builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
+
+  /* The minimum normalized positive floating-point number,
+     b**(emin-1).  */
+  sprintf (name, "__%s_MIN__", name_prefix);
+  sprintf (buf, "0x1p%d", (fmt->emin - 1) * fmt->log2_b);
+  builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
+
+  /* The difference between 1 and the least value greater than 1 that is
+     representable in the given floating point type, b**(1-p).  */
+  sprintf (name, "__%s_EPSILON__", name_prefix);
+  sprintf (buf, "0x1p%d", (1 - fmt->p) * fmt->log2_b);
+  builtin_define_with_hex_fp_value (name, type, decimal_dig, buf, fp_suffix);
+
+  /* For C++ std::numeric_limits<T>::denorm_min.  The minimum denormalized
+     positive floating-point number, b**(emin-p).  Zero for formats that
+     don't support denormals.  */
+  sprintf (name, "__%s_DENORM_MIN__", name_prefix);
+  if (fmt->has_denorm)
     {
-      if (!flag_no_inline)
-	flag_no_inline = 1;
-      if (flag_inline_functions)
-	{
-	  flag_inline_trees = 2;
-	  flag_inline_functions = 0;
-	}
+      sprintf (buf, "0x1p%d", (fmt->emin - fmt->p) * fmt->log2_b);
+      builtin_define_with_hex_fp_value (name, type, decimal_dig,
+					buf, fp_suffix);
     }
-
-  /* If still "unspecified", make it match -fbounded-pointers.  */
-  if (flag_bounds_check == -1)
-    flag_bounds_check = flag_bounded_pointers;
-
-  /* Special format checking options don't work without -Wformat; warn if
-     they are used.  */
-  if (warn_format_y2k && !warn_format)
-    warning ("-Wformat-y2k ignored without -Wformat");
-  if (warn_format_extra_args && !warn_format)
-    warning ("-Wformat-extra-args ignored without -Wformat");
-  if (warn_format_zero_length && !warn_format)
-    warning ("-Wformat-zero-length ignored without -Wformat");
-  if (warn_format_nonliteral && !warn_format)
-    warning ("-Wformat-nonliteral ignored without -Wformat");
-  if (warn_format_security && !warn_format)
-    warning ("-Wformat-security ignored without -Wformat");
-  if (warn_missing_format_attribute && !warn_format)
-    warning ("-Wmissing-format-attribute ignored without -Wformat");
-
-  /* If an error has occurred in cpplib, note it so we fail
-     immediately.  */
-  errorcount += cpp_errors (parse_in);
+  else
+    {
+      sprintf (buf, "0.0%s", fp_suffix);
+      builtin_define_with_value (name, buf, 0);
+    }
 }
 
 /* Hook that registers front end and target-specific built-ins.  */
-static void
+void
 cb_register_builtins (pfile)
      cpp_reader *pfile;
 {
@@ -4335,7 +4894,15 @@ cb_register_builtins (pfile)
 	cpp_define (pfile, "__GXX_WEAK__=1");
       else
 	cpp_define (pfile, "__GXX_WEAK__=0");
+      if (flag_exceptions)
+	cpp_define (pfile, "__EXCEPTIONS");
+      if (warn_deprecated)
+	cpp_define (pfile, "__DEPRECATED");
     }
+
+  /* represents the C++ ABI version, always defined so it can be used while
+     preprocessing C and assembler.  */
+  cpp_define (pfile, "__GXX_ABI_VERSION=102");
 
   /* libgcc needs to know this.  */
   if (USING_SJLJ_EXCEPTIONS)
@@ -4353,12 +4920,18 @@ cb_register_builtins (pfile)
   builtin_define_type_max ("__INT_MAX__", integer_type_node, 0);
   builtin_define_type_max ("__LONG_MAX__", long_integer_type_node, 1);
   builtin_define_type_max ("__LONG_LONG_MAX__", long_long_integer_type_node, 2);
+  builtin_define_type_max ("__WCHAR_MAX__", wchar_type_node, 0);
 
-  {
-    char buf[8];
-    sprintf (buf, "%d", (int) TYPE_PRECISION (signed_char_type_node));
-    builtin_define_with_value ("__CHAR_BIT__", buf, 0);
-  }
+  builtin_define_type_precision ("__CHAR_BIT__", char_type_node);
+
+  /* float.h needs to know these.  */
+
+  builtin_define_with_int_value ("__FLT_EVAL_METHOD__",
+				 TARGET_FLT_EVAL_METHOD);
+
+  builtin_define_float_constants ("FLT", "F", float_type_node);
+  builtin_define_float_constants ("DBL", "", double_type_node);
+  builtin_define_float_constants ("LDBL", "L", long_double_type_node);
 
   /* For use in assembly language.  */
   builtin_define_with_value ("__REGISTER_PREFIX__", REGISTER_PREFIX, 0);
@@ -4381,8 +4954,14 @@ cb_register_builtins (pfile)
 
   if (fast_math_flags_set_p ())
     cpp_define (pfile, "__FAST_MATH__");
-  if (flag_no_inline)
+  if (flag_really_no_inline)
     cpp_define (pfile, "__NO_INLINE__");
+  if (flag_signaling_nans)
+    cpp_define (pfile, "__SUPPORT_SNAN__");
+  if (flag_finite_math_only)
+    cpp_define (pfile, "__FINITE_MATH_ONLY__=1");
+  else
+    cpp_define (pfile, "__FINITE_MATH_ONLY__=0");
 
   if (flag_iso)
     cpp_define (pfile, "__STRICT_ANSI__");
@@ -4390,9 +4969,17 @@ cb_register_builtins (pfile)
   if (!flag_signed_char)
     cpp_define (pfile, "__CHAR_UNSIGNED__");
 
+  if (c_language == clk_cplusplus && TREE_UNSIGNED (wchar_type_node))
+    cpp_define (pfile, "__WCHAR_UNSIGNED__");
+
+  /* Make the choice of ObjC runtime visible to source code.  */
+  if (flag_objc && flag_next_runtime)
+    cpp_define (pfile, "__NEXT_RUNTIME__");
+
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */
 # define preprocessing_asm_p() (cpp_get_options (pfile)->lang == CLK_ASM)
+# define preprocessing_trad_p() (cpp_get_options (pfile)->traditional)
 # define builtin_define(TXT) cpp_define (pfile, TXT)
 # define builtin_assert(TXT) cpp_assert (pfile, TXT)
   TARGET_CPU_CPP_BUILTINS ();
@@ -4471,6 +5058,54 @@ builtin_define_with_value (macro, expansion, is_str)
   cpp_define (parse_in, buf);
 }
 
+/* Pass an object-like macro and an integer value to define it to.  */
+static void
+builtin_define_with_int_value (macro, value)
+     const char *macro;
+     HOST_WIDE_INT value;
+{
+  char *buf;
+  size_t mlen = strlen (macro);
+  size_t vlen = 18;
+  size_t extra = 2; /* space for = and NUL.  */
+
+  buf = alloca (mlen + vlen + extra);
+  memcpy (buf, macro, mlen);
+  buf[mlen] = '=';
+  sprintf (buf + mlen + 1, HOST_WIDE_INT_PRINT_DEC, value);
+
+  cpp_define (parse_in, buf);
+}
+
+/* Pass an object-like macro a hexadecimal floating-point value.  */
+static void
+builtin_define_with_hex_fp_value (macro, type, digits, hex_str, fp_suffix)
+     const char *macro;
+     tree type ATTRIBUTE_UNUSED;
+     int digits;
+     const char *hex_str;
+     const char *fp_suffix;
+{
+  REAL_VALUE_TYPE real;
+  char dec_str[64], buf[256];
+
+  /* Hex values are really cool and convenient, except that they're
+     not supported in strict ISO C90 mode.  First, the "p-" sequence
+     is not valid as part of a preprocessor number.  Second, we get a
+     pedwarn from the preprocessor, which has no context, so we can't
+     suppress the warning with __extension__.
+
+     So instead what we do is construct the number in hex (because 
+     it's easy to get the exact correct value), parse it as a real,
+     then print it back out as decimal.  */
+
+  real_from_string (&real, hex_str);
+  real_to_decimal (dec_str, &real, sizeof (dec_str), digits, 0);
+
+  sprintf (buf, "%s=%s%s", macro, dec_str, fp_suffix);
+  cpp_define (parse_in, buf);
+}
+
 /* Define MAX for TYPE based on the precision of the type, which is assumed
    to be signed.  IS_LONG is 1 for type "long" and 2 for "long long".  */
 
@@ -4517,62 +5152,6 @@ builtin_define_type_max (macro, type, is_long)
 	   (is_long == 1 ? "L" : is_long == 2 ? "LL" : ""));
 
   cpp_define (parse_in, buf);
-}
-
-/* Front end initialization common to C, ObjC and C++.  */
-const char *
-c_common_init (filename)
-     const char *filename;
-{
-  cpp_options *options = cpp_get_options (parse_in);
-
-  /* Set up preprocessor arithmetic.  Must be done after call to
-     c_common_nodes_and_builtins for wchar_type_node to be good.  */
-  options->precision = TYPE_PRECISION (intmax_type_node);
-  options->char_precision = TYPE_PRECISION (char_type_node);
-  options->int_precision = TYPE_PRECISION (integer_type_node);
-  options->wchar_precision = TYPE_PRECISION (wchar_type_node);
-  options->unsigned_wchar = TREE_UNSIGNED (wchar_type_node);
-  options->unsigned_char = !flag_signed_char;
-  options->warn_multichar = warn_multichar;
-  options->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
-
-  /* We want -Wno-long-long to override -pedantic -std=non-c99
-     whatever the ordering.  */
-  options->warn_long_long = warn_long_long && !flag_isoc99 && pedantic;
-
-  /* Register preprocessor built-ins before calls to
-     cpp_main_file.  */
-  cpp_get_callbacks (parse_in)->register_builtins = cb_register_builtins;
-
-  /* NULL is passed up to toplev.c and we exit quickly.  */
-  if (flag_preprocess_only)
-    {
-      cpp_preprocess_file (parse_in);
-      return NULL;
-    }
-
-  /* Do this before initializing pragmas, as then cpplib's hash table
-     has been set up.  */
-  filename = init_c_lex (filename);
-
-  init_pragma ();
-
-  if (!c_attrs_initialized)
-    c_init_attributes ();
-
-  return filename;
-}
-
-/* Common finish hook for the C, ObjC and C++ front ends.  */
-void
-c_common_finish ()
-{
-  cpp_finish (parse_in);
-
-  /* For performance, avoid tearing down cpplib's internal structures.
-     Call cpp_errors () instead of cpp_destroy ().  */
-  errorcount += cpp_errors (parse_in);
 }
 
 static void
@@ -5055,8 +5634,20 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
 		     (mode, TREE_UNSIGNED (type))))
 	error ("no data type for mode `%s'", p);
       else
-	*node = typefm;
-        /* No need to layout the type here.  The caller should do this.  */
+	{
+	  /* If this is a vector, make sure we either have hardware
+	     support, or we can emulate it.  */
+	  if ((GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+	       || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+	      && !vector_mode_valid_p (mode))
+	    {
+	      error ("unable to emulate '%s'", GET_MODE_NAME (mode));
+	      return NULL_TREE;
+	    }
+
+	  *node = typefm;
+	  /* No need to layout the type here.  The caller should do this.  */
+	}
     }
 
   return NULL_TREE;
@@ -5311,6 +5902,49 @@ handle_visibility_attribute (node, name, args, flags, no_add_attrs)
   return NULL_TREE;
 }
 
+/* Handle an "tls_model" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_tls_model_attribute (node, name, args, flags, no_add_attrs)
+     tree *node;
+     tree name;
+     tree args;
+     int flags ATTRIBUTE_UNUSED;
+     bool *no_add_attrs;
+{
+  tree decl = *node;
+
+  if (! DECL_THREAD_LOCAL (decl))
+    {
+      warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+  else
+    {
+      tree id;
+
+      id = TREE_VALUE (args);
+      if (TREE_CODE (id) != STRING_CST)
+	{
+	  error ("tls_model arg not a string");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+      if (strcmp (TREE_STRING_POINTER (id), "local-exec")
+	  && strcmp (TREE_STRING_POINTER (id), "initial-exec")
+	  && strcmp (TREE_STRING_POINTER (id), "local-dynamic")
+	  && strcmp (TREE_STRING_POINTER (id), "global-dynamic"))
+	{
+	  error ("tls_model arg must be one of \"local-exec\", \"initial-exec\", \"local-dynamic\" or \"global-dynamic\"");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "no_instrument_function" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -5489,7 +6123,7 @@ handle_deprecated_attribute (node, name, args, flags, no_add_attrs)
    The normal mechanism to prevent duplicates is to use type_hash_canon, but
    since we want to distinguish types that are essentially identical (except
    for their debug representation), we use a local list here.  */
-static tree vector_type_node_list = 0;
+static GTY(()) tree vector_type_node_list = 0;
 
 /* Handle a "vector_size" attribute; arguments as in
    struct attribute_spec.handler.  */
@@ -5600,6 +6234,16 @@ handle_vector_size_attribute (node, name, args, flags, no_add_attrs)
 	}
 
       new_type = build_type_copy (new_type);
+
+      /* If this is a vector, make sure we either have hardware
+         support, or we can emulate it.  */
+      if ((GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+	   || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+	  && !vector_mode_valid_p (mode))
+	{
+	  error ("unable to emulate '%s'", GET_MODE_NAME (mode));
+	  return NULL_TREE;
+	}
 
       /* Set the debug information here, because this is the only
 	 place where we know the underlying type for a vector made

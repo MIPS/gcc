@@ -360,13 +360,15 @@ flow_delete_block_noexpunge (b)
      and remove the associated NOTE_INSN_EH_REGION_BEG and
      NOTE_INSN_EH_REGION_END notes.  */
 
-  /* Get rid of all NOTE_INSN_PREDICTIONs hanging before the block.  */
+  /* Get rid of all NOTE_INSN_PREDICTIONs and NOTE_INSN_LOOP_CONTs
+     hanging before the block.  */
 
   for (insn = PREV_INSN (b->head); insn; insn = PREV_INSN (insn))
     {
       if (GET_CODE (insn) != NOTE)
 	break;
-      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
+      if (NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION
+	  || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_CONT)
 	NOTE_LINE_NUMBER (insn) = NOTE_INSN_DELETED;
     }
 
@@ -963,9 +965,21 @@ force_nonfallthru_and_redirect (e, target)
   if (e->src->succ->succ_next)
     {
       /* Create the new structures.  */
+
+      /* Position the new block correctly relative to loop notes.  */
       note = last_loop_beg_note (e->src->end);
-      jump_block
-	= create_basic_block (NEXT_INSN (note), NULL, e->src);
+      note = NEXT_INSN (note);
+
+      /* ... and ADDR_VECs.  */
+      if (note != NULL
+	  && GET_CODE (note) == CODE_LABEL
+	  && NEXT_INSN (note)
+	  && GET_CODE (NEXT_INSN (note)) == JUMP_INSN
+	  && (GET_CODE (PATTERN (NEXT_INSN (note))) == ADDR_DIFF_VEC
+	      || GET_CODE (PATTERN (NEXT_INSN (note))) == ADDR_VEC))
+	note = NEXT_INSN (NEXT_INSN (note));
+
+      jump_block = create_basic_block (note, NULL, e->src);
       jump_block->count = e->count;
       jump_block->frequency = EDGE_FREQUENCY (e);
       jump_block->loop_depth = target->loop_depth;

@@ -53,7 +53,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "output.h"
 #include "basic-block.h"
-#include "obstack.h"
 #include "toplev.h"
 #include "hashtab.h"
 #include "ggc.h"
@@ -75,7 +74,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    must define both, or neither.  */
 #ifndef NAME__MAIN
 #define NAME__MAIN "__main"
-#define SYMBOL__MAIN __main
 #endif
 
 /* Round a value to the lowest integer less than it that is a multiple of
@@ -124,8 +122,8 @@ int current_function_uses_only_leaf_regs;
    post-instantiation libcalls.  */
 int virtuals_instantiated;
 
-/* Assign unique numbers to labels generated for profiling.  */
-static int profile_label_no;
+/* Assign unique numbers to labels generated for profiling, debugging, etc.  */
+static int funcdef_no;
 
 /* These variables hold pointers to functions to create and destroy
    target specific, per-function data structures.  */
@@ -183,13 +181,13 @@ struct temp_slot GTY(())
   tree type;
   /* The value of `sequence_rtl_expr' when this temporary is allocated.  */
   tree rtl_expr;
-  /* Non-zero if this temporary is currently in use.  */
+  /* Nonzero if this temporary is currently in use.  */
   char in_use;
-  /* Non-zero if this temporary has its address taken.  */
+  /* Nonzero if this temporary has its address taken.  */
   char addr_taken;
   /* Nesting level at which this slot is being used.  */
   int level;
-  /* Non-zero if this should survive a call to free_temp_slots.  */
+  /* Nonzero if this should survive a call to free_temp_slots.  */
   int keep;
   /* The offset of the slot from the frame_pointer, including extra space
      for alignment.  This info is for combine_temp_slots.  */
@@ -257,10 +255,8 @@ static int instantiate_virtual_regs_1 PARAMS ((rtx *, rtx, int));
 static void delete_handlers	PARAMS ((void));
 static void pad_to_arg_alignment PARAMS ((struct args_size *, int,
 					  struct args_size *));
-#ifndef ARGS_GROW_DOWNWARD
 static void pad_below		PARAMS ((struct args_size *, enum machine_mode,
 					 tree));
-#endif
 static rtx round_trampoline_addr PARAMS ((rtx));
 static rtx adjust_trampoline_addr PARAMS ((rtx));
 static tree *identify_blocks_1	PARAMS ((rtx, tree *, tree *, tree *));
@@ -642,6 +638,7 @@ assign_stack_temp_for_type (mode, size, keep, type)
 {
   unsigned int align;
   struct temp_slot *p, *best_p = 0;
+  rtx slot;
 
   /* If SIZE is -1 it means that somebody tried to allocate a temporary
      of a variable size.  */
@@ -787,29 +784,27 @@ assign_stack_temp_for_type (mode, size, keep, type)
       p->keep = keep;
     }
 
-  /* We may be reusing an old slot, so clear any MEM flags that may have been
-     set from before.  */
-  RTX_UNCHANGING_P (p->slot) = 0;
-  MEM_IN_STRUCT_P (p->slot) = 0;
-  MEM_SCALAR_P (p->slot) = 0;
-  MEM_VOLATILE_P (p->slot) = 0;
-  set_mem_alias_set (p->slot, 0);
+
+  /* Create a new MEM rtx to avoid clobbering MEM flags of old slots.  */
+  slot = gen_rtx_MEM (mode, XEXP (p->slot, 0));
+  stack_slot_list = gen_rtx_EXPR_LIST (VOIDmode, slot, stack_slot_list);
 
   /* If we know the alias set for the memory that will be used, use
      it.  If there's no TYPE, then we don't know anything about the
      alias set for the memory.  */
-  set_mem_alias_set (p->slot, type ? get_alias_set (type) : 0);
-  set_mem_align (p->slot, align);
+  set_mem_alias_set (slot, type ? get_alias_set (type) : 0);
+  set_mem_align (slot, align);
 
   /* If a type is specified, set the relevant flags.  */
   if (type != 0)
     {
-      RTX_UNCHANGING_P (p->slot) = TYPE_READONLY (type);
-      MEM_VOLATILE_P (p->slot) = TYPE_VOLATILE (type);
-      MEM_SET_IN_STRUCT_P (p->slot, AGGREGATE_TYPE_P (type));
+      RTX_UNCHANGING_P (slot) = (lang_hooks.honor_readonly 
+				 && TYPE_READONLY (type));
+      MEM_VOLATILE_P (slot) = TYPE_VOLATILE (type);
+      MEM_SET_IN_STRUCT_P (slot, AGGREGATE_TYPE_P (type));
     }
 
-  return p->slot;
+  return slot;
 }
 
 /* Allocate a temporary stack slot and record it for possible later
@@ -3287,10 +3282,10 @@ insns_for_mem_hash (k)
 {
   /* Use the address of the key for the hash value.  */
   struct insns_for_mem_entry *m = (struct insns_for_mem_entry *) k;
-  return (hashval_t) m->key;
+  return htab_hash_pointer (m->key);
 }
 
-/* Return non-zero if K1 and K2 (two REGs) are the same.  */
+/* Return nonzero if K1 and K2 (two REGs) are the same.  */
 
 static int
 insns_for_mem_comp (k1, k2)
@@ -3646,7 +3641,7 @@ instantiate_decls_1 (let, valid_only)
 /* Subroutine of the preceding procedures: Given RTL representing a
    decl and the size of the object, do any instantiation required.
 
-   If VALID_ONLY is non-zero, it means that the RTL should only be
+   If VALID_ONLY is nonzero, it means that the RTL should only be
    changed if the new address is valid.  */
 
 static void
@@ -4292,17 +4287,6 @@ assign_parms (fndecl)
   rtx conversion_insns = 0;
   struct args_size alignment_pad;
 
-  /* Nonzero if the last arg is named `__builtin_va_alist',
-     which is used on some machines for old-fashioned non-ANSI varargs.h;
-     this should be stuck onto the stack as if it had arrived there.  */
-  int hide_last_arg
-    = (current_function_varargs
-       && fnargs
-       && (parm = tree_last (fnargs)) != 0
-       && DECL_NAME (parm)
-       && (! strcmp (IDENTIFIER_POINTER (DECL_NAME (parm)),
-		     "__builtin_va_alist")));
-
   /* Nonzero if function takes extra anonymous args.
      This means the last named arg must be on the stack
      right before the anonymous ones.  */
@@ -4371,7 +4355,7 @@ assign_parms (fndecl)
 
       /* Set LAST_NAMED if this is last named arg before last
 	 anonymous args.  */
-      if (stdarg || current_function_varargs)
+      if (stdarg)
 	{
 	  tree tem;
 
@@ -4398,11 +4382,6 @@ assign_parms (fndecl)
 	  TREE_USED (parm) = 1;
 	  continue;
 	}
-
-      /* For varargs.h function, save info about regs and stack space
-	 used by the individual args, not including the va_alist arg.  */
-      if (hide_last_arg && last_named)
-	current_function_args_info = args_so_far;
 
       /* Find mode of arg as it is passed, and mode of arg
 	 as it should be during execution of this function.  */
@@ -4441,6 +4420,15 @@ assign_parms (fndecl)
 	  )
 	{
 	  passed_type = nominal_type = build_pointer_type (passed_type);
+	  passed_pointer = 1;
+	  passed_mode = nominal_mode = Pmode;
+	}
+      /* See if the frontend wants to pass this by invisible reference.  */
+      else if (passed_type != nominal_type
+	       && POINTER_TYPE_P (passed_type)
+	       && TREE_TYPE (passed_type) == nominal_type)
+	{
+	  nominal_type = passed_type;
 	  passed_pointer = 1;
 	  passed_mode = nominal_mode = Pmode;
 	}
@@ -5127,8 +5115,7 @@ assign_parms (fndecl)
   /* For stdarg.h function, save info about
      regs and stack space used by the named args.  */
 
-  if (!hide_last_arg)
-    current_function_args_info = args_so_far;
+  current_function_args_info = args_so_far;
 
   /* Set the rtx used for the function return value.  Put this in its
      own variable so any optimizers that need this information don't have
@@ -5218,7 +5205,7 @@ promoted_input_arg (regno, pmode, punsignedp)
    The starting offset and size for this parm are returned in *OFFSET_PTR
    and *ARG_SIZE_PTR, respectively.
 
-   IN_REGS is non-zero if the argument will be passed in registers.  It will
+   IN_REGS is nonzero if the argument will be passed in registers.  It will
    never be set if REG_PARM_STACK_SPACE is not defined.
 
    FNDECL is the function in which the argument was defined.
@@ -5256,6 +5243,9 @@ locate_and_pad_parm (passed_mode, type, in_regs, fndecl,
     = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
   enum direction where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
   int boundary = FUNCTION_ARG_BOUNDARY (passed_mode, type);
+#ifdef ARGS_GROW_DOWNWARD
+  tree s2 = sizetree;
+#endif
 
 #ifdef REG_PARM_STACK_SPACE
   /* If we have found a stack parm before we reach the end of the
@@ -5301,13 +5291,20 @@ locate_and_pad_parm (passed_mode, type, in_regs, fndecl,
       offset_ptr->constant = -initial_offset_ptr->constant;
       offset_ptr->var = 0;
     }
+
   if (where_pad != none
       && (!host_integerp (sizetree, 1)
 	  || (tree_low_cst (sizetree, 1) * BITS_PER_UNIT) % PARM_BOUNDARY))
-    sizetree = round_up (sizetree, PARM_BOUNDARY / BITS_PER_UNIT);
-  SUB_PARM_SIZE (*offset_ptr, sizetree);
-  if (where_pad != downward)
+    s2 = round_up (s2, PARM_BOUNDARY / BITS_PER_UNIT);
+  SUB_PARM_SIZE (*offset_ptr, s2);
+
+  if (!in_regs
+#ifdef REG_PARM_STACK_SPACE
+      || REG_PARM_STACK_SPACE (fndecl) > 0
+#endif
+     )
     pad_to_arg_alignment (offset_ptr, boundary, alignment_pad);
+
   if (initial_offset_ptr->var)
     arg_size_ptr->var = size_binop (MINUS_EXPR,
 				    size_binop (MINUS_EXPR,
@@ -5318,6 +5315,13 @@ locate_and_pad_parm (passed_mode, type, in_regs, fndecl,
   else
     arg_size_ptr->constant = (-initial_offset_ptr->constant
 			      - offset_ptr->constant);
+
+  /* Pad_below needs the pre-rounded size to know how much to pad below.
+     We only pad parameters which are not in registers as they have their
+     padding done elsewhere.  */
+  if (where_pad == downward
+      && !in_regs)
+    pad_below (offset_ptr, passed_mode, sizetree);
 
 #else /* !ARGS_GROW_DOWNWARD */
   if (!in_regs
@@ -5404,7 +5408,6 @@ pad_to_arg_alignment (offset_ptr, boundary, alignment_pad)
     }
 }
 
-#ifndef ARGS_GROW_DOWNWARD
 static void
 pad_below (offset_ptr, passed_mode, sizetree)
      struct args_size *offset_ptr;
@@ -5432,7 +5435,6 @@ pad_below (offset_ptr, passed_mode, sizetree)
 	}
     }
 }
-#endif
 
 /* Walk the tree of blocks describing the binding levels within a function
    and warn about uninitialized variables.
@@ -5709,12 +5711,8 @@ trampoline_address (function)
 #else
   /* If rounding needed, allocate extra space
      to ensure we have TRAMPOLINE_SIZE bytes left after rounding up.  */
-#ifdef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_REAL_SIZE \
   (TRAMPOLINE_SIZE + (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT) - 1)
-#else
-#define TRAMPOLINE_REAL_SIZE (TRAMPOLINE_SIZE)
-#endif
   tramp = assign_stack_local_1 (BLKmode, TRAMPOLINE_REAL_SIZE, 0,
 				fp ? fp : cfun);
 #endif
@@ -5749,7 +5747,6 @@ static rtx
 round_trampoline_addr (tramp)
      rtx tramp;
 {
-#ifdef TRAMPOLINE_ALIGNMENT
   /* Round address up to desired boundary.  */
   rtx temp = gen_reg_rtx (Pmode);
   rtx addend = GEN_INT (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1);
@@ -5759,7 +5756,7 @@ round_trampoline_addr (tramp)
 			       temp, 0, OPTAB_LIB_WIDEN);
   tramp = expand_simple_binop (Pmode, AND, temp, mask,
 			       temp, 0, OPTAB_LIB_WIDEN);
-#endif
+
   return tramp;
 }
 
@@ -6280,8 +6277,7 @@ prepare_function_start ()
   /* Indicate we have no need of a frame pointer yet.  */
   frame_pointer_needed = 0;
 
-  /* By default assume not varargs or stdarg.  */
-  current_function_varargs = 0;
+  /* By default assume not stdarg.  */
   current_function_stdarg = 0;
 
   /* We haven't made any trampolines for this function yet.  */
@@ -6292,11 +6288,15 @@ prepare_function_start ()
 
   current_function_outgoing_args_size = 0;
 
+  current_function_funcdef_no = funcdef_no++;
+
   cfun->arc_profile = profile_arc_flag || flag_test_coverage;
 
   cfun->arc_profile = profile_arc_flag || flag_test_coverage;
 
   cfun->function_frequency = FUNCTION_FREQUENCY_NORMAL;
+
+  cfun->max_jumptable_ents = 0;
 
   (*lang_hooks.function.init) (cfun);
   if (init_machine_status)
@@ -6379,15 +6379,6 @@ init_function_for_compilation ()
   VARRAY_GROW (sibcall_epilogue, 0);
 }
 
-/* Indicate that the current function uses extra args
-   not explicitly mentioned in the argument list in any fashion.  */
-
-void
-mark_varargs ()
-{
-  current_function_varargs = 1;
-}
-
 /* Expand a call to __main at the beginning of a possible main function.  */
 
 #if defined(INIT_SECTION_ASM_OP) && !defined(INVOKE__main)
@@ -6440,8 +6431,6 @@ expand_main_function ()
 #endif
 }
 
-extern struct obstack permanent_obstack;
-
 /* The PENDING_SIZES represent the sizes of variable-sized types.
    Create RTL for the various sizes now (using temporary variables),
    so that we can refer to the sizes from the RTL we are generating
@@ -6669,9 +6658,8 @@ expand_function_start (subr, parms_have_cleanups)
 
   if (current_function_profile)
     {
-      current_function_profile_label_no = profile_label_no++;
 #ifdef PROFILE_HOOK
-      PROFILE_HOOK (current_function_profile_label_no);
+      PROFILE_HOOK (current_function_funcdef_no);
 #endif
     }
 
@@ -6835,7 +6823,7 @@ expand_function_end (filename, line, end_bindings)
 #ifdef TRAMPOLINE_TEMPLATE
       blktramp = replace_equiv_address (initial_trampoline, tramp);
       emit_block_move (blktramp, initial_trampoline,
-		       GEN_INT (TRAMPOLINE_SIZE));
+		       GEN_INT (TRAMPOLINE_SIZE), BLOCK_OP_NORMAL);
 #endif
       INITIALIZE_TRAMPOLINE (tramp, XEXP (DECL_RTL (function), 0), context);
       seq = get_insns ();
@@ -7747,7 +7735,8 @@ epilogue_done:
 	continue;
 
       start_sequence ();
-      seq = gen_sibcall_epilogue ();
+      emit_insn (gen_sibcall_epilogue ());
+      seq = get_insns ();
       end_sequence ();
 
       /* Retain a map of the epilogue insns.  Used in life analysis to
@@ -7772,7 +7761,7 @@ epilogue_done:
 	 note before the end of the first basic block, if there isn't
 	 one already there.
 
-	 ??? This behaviour is completely broken when dealing with
+	 ??? This behavior is completely broken when dealing with
 	 multiple entry functions.  We simply place the note always
 	 into first basic block and let alternate entry points
 	 to be missed.

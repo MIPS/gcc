@@ -54,7 +54,7 @@ static rtx extract_split_bit_field	PARAMS ((rtx, unsigned HOST_WIDE_INT,
 static void do_cmp_and_jump		PARAMS ((rtx, rtx, enum rtx_code,
 						 enum machine_mode, rtx));
 
-/* Non-zero means divides or modulus operations are relatively cheap for
+/* Nonzero means divides or modulus operations are relatively cheap for
    powers of two, so don't use branches; emit the operation instead.
    Usually, this will mean that the MD file will emit non-branch
    sequences.  */
@@ -404,6 +404,7 @@ store_bit_field (str_rtx, bitsize, bitnum, fieldmode, value, total_size)
      But as we have it, it counts within whatever size OP0 now has.
      On a bigendian machine, these are not the same, so convert.  */
   if (BYTES_BIG_ENDIAN
+      && !FUNCTION_ARG_REG_LITTLE_ENDIAN
       && GET_CODE (op0) != MEM
       && unit > GET_MODE_BITSIZE (GET_MODE (op0)))
     bitpos += unit - GET_MODE_BITSIZE (GET_MODE (op0));
@@ -1031,25 +1032,15 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
 
   if (tmode == VOIDmode)
     tmode = mode;
+
   while (GET_CODE (op0) == SUBREG)
     {
-      int outer_size = GET_MODE_BITSIZE (GET_MODE (op0));
-      int inner_size = GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (op0)));
-
-      offset += SUBREG_BYTE (op0) / UNITS_PER_WORD;
-
-      inner_size = MIN (inner_size, BITS_PER_WORD);
-
-      if (BYTES_BIG_ENDIAN && (outer_size < inner_size))
+      bitpos += SUBREG_BYTE (op0) * BITS_PER_UNIT;
+      if (bitpos > unit)
 	{
-	  bitpos += inner_size - outer_size;
-	  if (bitpos > unit)
-	    {
-	      offset += (bitpos / unit);
-	      bitpos %= unit;
-	    }
+	  offset += (bitpos / unit);
+	  bitpos %= unit;
 	}
-
       op0 = SUBREG_REG (op0);
     }
 
@@ -1086,9 +1077,13 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
       set_mem_expr (op0, 0);
     }
 
-  /* ??? We currently assume TARGET is at least as big as BITSIZE.
-     If that's wrong, the solution is to test for it and set TARGET to 0
-     if needed.  */
+  /* Extraction of a full-word or multi-word value from a structure
+     in a register or aligned memory can be done with just a SUBREG.
+     A subword value in the least significant part of a register
+     can also be extracted with a SUBREG.  For this, we need the
+     byte offset of the value in op0.  */
+
+  byte_offset = bitpos / BITS_PER_UNIT + offset * UNITS_PER_WORD;
 
   /* If OP0 is a register, BITPOS must count within a word.
      But as we have it, it counts within whatever size OP0 now has.
@@ -1098,14 +1093,9 @@ extract_bit_field (str_rtx, bitsize, bitnum, unsignedp,
       && unit > GET_MODE_BITSIZE (GET_MODE (op0)))
     bitpos += unit - GET_MODE_BITSIZE (GET_MODE (op0));
 
-  /* Extracting a full-word or multi-word value
-     from a structure in a register or aligned memory.
-     This can be done with just SUBREG.
-     So too extracting a subword value in
-     the least significant part of the register.  */
-
-  byte_offset = (bitnum % BITS_PER_WORD) / BITS_PER_UNIT
-                + (offset * UNITS_PER_WORD);
+  /* ??? We currently assume TARGET is at least as big as BITSIZE.
+     If that's wrong, the solution is to test for it and set TARGET to 0
+     if needed.  */
 
   mode1  = (VECTOR_MODE_P (tmode)
 	    ? mode
@@ -3049,9 +3039,12 @@ expand_divmod (rem_flag, code, mode, op0, op1, target, unsignedp)
      not straightforward to generalize this.  Maybe we should make an array
      of possible modes in init_expmed?  Save this for GCC 2.7.  */
 
-  optab1 = (op1_is_pow2 ? (unsignedp ? lshr_optab : ashr_optab)
+  optab1 = ((op1_is_pow2 && op1 != const0_rtx)
+	    ? (unsignedp ? lshr_optab : ashr_optab)
 	    : (unsignedp ? udiv_optab : sdiv_optab));
-  optab2 = (op1_is_pow2 ? optab1 : (unsignedp ? udivmod_optab : sdivmod_optab));
+  optab2 = ((op1_is_pow2 && op1 != const0_rtx)
+	    ? optab1
+	    : (unsignedp ? udivmod_optab : sdivmod_optab));
 
   for (compute_mode = mode; compute_mode != VOIDmode;
        compute_mode = GET_MODE_WIDER_MODE (compute_mode))
@@ -4136,6 +4129,13 @@ make_tree (type, x)
 			    build (TRUNC_DIV_EXPR, t,
 				   make_tree (t, XEXP (x, 0)),
 				   make_tree (t, XEXP (x, 1)))));
+
+    case SIGN_EXTEND:
+    case ZERO_EXTEND:
+      t = (*lang_hooks.types.type_for_mode) (GET_MODE (XEXP (x, 0)),
+					     GET_CODE (x) == ZERO_EXTEND);
+      return fold (convert (type, make_tree (t, XEXP (x, 0))));
+
    default:
       t = make_node (RTL_EXPR);
       TREE_TYPE (t) = type;
@@ -4160,7 +4160,7 @@ make_tree (type, x)
    MODE is the machine mode for the computation.
    X and MULT must have mode MODE.  ADD may have a different mode.
    So can X (defaults to same as MODE).
-   UNSIGNEDP is non-zero to do unsigned multiplication.  */
+   UNSIGNEDP is nonzero to do unsigned multiplication.  */
 
 bool
 const_mult_add_overflow_p (x, mult, add, mode, unsignedp)
@@ -4198,7 +4198,7 @@ const_mult_add_overflow_p (x, mult, add, mode, unsignedp)
    MODE is the machine mode for the computation.
    X and MULT must have mode MODE.  ADD may have a different mode.
    So can X (defaults to same as MODE).
-   UNSIGNEDP is non-zero to do unsigned multiplication.
+   UNSIGNEDP is nonzero to do unsigned multiplication.
    This may emit insns.  */
 
 rtx
@@ -4612,7 +4612,7 @@ emit_store_flag (target, code, op0, op1, mode, unsignedp, normalizep)
   if (code == EQ || code == NE)
     {
       /* For EQ or NE, one way to do the comparison is to apply an operation
-	 that converts the operand into a positive number if it is non-zero
+	 that converts the operand into a positive number if it is nonzero
 	 or zero if it was originally zero.  Then, for EQ, we subtract 1 and
 	 for NE we negate.  This puts the result in the sign bit.  Then we
 	 normalize with a shift, if needed.

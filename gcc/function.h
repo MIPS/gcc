@@ -105,7 +105,10 @@ struct emit_status GTY(())
   tree * GTY ((length ("%h.regno_pointer_align_length"))) regno_decl;
 
   /* Indexed by pseudo register number, gives the rtx for that pseudo.
-     Allocated in parallel with regno_pointer_align.  */
+     Allocated in parallel with regno_pointer_align. 
+
+     Note MEM expressions can appear in this array due to the actions
+     of put_var_into_stack.  */
   rtx * GTY ((length ("%h.regno_pointer_align_length"))) x_regno_reg_rtx;
 };
 
@@ -135,7 +138,7 @@ struct expr_status GTY(())
      since code outside the conditional won't know whether or not the
      arguments need to be popped.)
 
-     When INHIBIT_DEFER_POP is non-zero, however, the compiler does not
+     When INHIBIT_DEFER_POP is nonzero, however, the compiler does not
      attempt to defer pops.  Instead, the stack is popped immediately
      after each call.  Rather then setting this variable directly, use
      NO_DEFER_POP and OK_DEFER_POP.  */
@@ -219,7 +222,7 @@ struct function GTY(())
      used for the current function's args.  */
   CUMULATIVE_ARGS args_info;
 
-  /* If non-zero, an RTL expression for the location at which the current 
+  /* If nonzero, an RTL expression for the location at which the current
      function returns its result.  If the current function returns its
      result in a register, current_function_return_rtx will always be
      the hard register containing the result.  */
@@ -365,8 +368,8 @@ struct function GTY(())
   /* Highest label number in current function.  */
   int inl_max_label_num;
 
-  /* Profile label number.  */
-  int profile_label_no;
+  /* Function sequence number for profiling, debugging, etc.  */
+  int funcdef_no;
 
   /* For md files.  */
 
@@ -434,6 +437,13 @@ struct function GTY(())
      we should try to cut corners where we can.  */
   unsigned int is_thunk : 1;
 
+  /* This bit is used by the exception handling logic.  It is set if all
+     calls (if any) are sibling calls.  Such functions do not have to
+     have EH tables generated, as they cannot throw.  A call to such a
+     function, however, should be treated as throwing if any of its callees
+     can throw.  */
+  unsigned int all_throwers_are_sibcalls : 1;
+ 
   /* Nonzero if instrumentation calls for function entry and exit should be
      generated.  */
   unsigned int instrument_entry_exit : 1;
@@ -448,12 +458,7 @@ struct function GTY(())
      function.  */
   unsigned int limit_stack : 1;
 
-  /* Nonzero if current function uses varargs.h or equivalent.
-     Zero for functions that use stdarg.h.  */
-  unsigned int varargs : 1;
-
-  /* Nonzero if current function uses stdarg.h or equivalent.
-     Zero for functions that use varargs.h.  */
+  /* Nonzero if current function uses stdarg.h or equivalent.  */
   unsigned int stdarg : 1;
 
   /* Nonzero if this function is being processed in function-at-a-time
@@ -495,6 +500,10 @@ struct function GTY(())
        (set only when profile feedback is available).  */
     FUNCTION_FREQUENCY_HOT
   } function_frequency;
+
+  /* Maximal number of entities in the single jumptable.  Used to estimate
+     final flowgraph size.  */
+  int max_jumptable_ents;
 };
 
 /* The function currently being compiled.  */
@@ -522,13 +531,12 @@ extern int virtuals_instantiated;
 #define current_function_pretend_args_size (cfun->pretend_args_size)
 #define current_function_outgoing_args_size (cfun->outgoing_args_size)
 #define current_function_arg_offset_rtx (cfun->arg_offset_rtx)
-#define current_function_varargs (cfun->varargs)
 #define current_function_stdarg (cfun->stdarg)
 #define current_function_internal_arg_pointer (cfun->internal_arg_pointer)
 #define current_function_return_rtx (cfun->return_rtx)
 #define current_function_instrument_entry_exit (cfun->instrument_entry_exit)
 #define current_function_profile (cfun->profile)
-#define current_function_profile_label_no (cfun->profile_label_no)
+#define current_function_funcdef_no (cfun->funcdef_no)
 #define current_function_limit_stack (cfun->limit_stack)
 #define current_function_uses_pic_offset_table (cfun->uses_pic_offset_table)
 #define current_function_uses_const_pool (cfun->uses_const_pool)

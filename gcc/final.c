@@ -222,6 +222,7 @@ static void profile_after_prologue PARAMS ((FILE *));
 static void notice_source_line	PARAMS ((rtx));
 static rtx walk_alter_subreg	PARAMS ((rtx *));
 static void output_asm_name	PARAMS ((void));
+static void output_alternate_entry_point PARAMS ((FILE *, rtx));
 static tree get_mem_expr_from_op	PARAMS ((rtx, int *));
 static void output_asm_operand_names PARAMS ((rtx *, int *, int));
 static void output_operand	PARAMS ((rtx, int));
@@ -310,7 +311,6 @@ end_final (filename)
 	strcpy (da_filename, cwd);
 	strcat (da_filename, "/");
 	strcat (da_filename, filename);
-	strip_off_ending (da_filename, da_filename_len - 3);
 	strcat (da_filename, ".da");
 	da_filename_len = strlen (da_filename);
 	string_cst = build_string (da_filename_len + 1, da_filename);
@@ -997,7 +997,7 @@ compute_alignments ()
 	 align it.  It is most likely an first block of loop.  */
       if (has_fallthru
 	  && branch_frequency + fallthru_frequency > BB_FREQ_MAX / 10
-	  && branch_frequency > fallthru_frequency * 5)
+	  && branch_frequency > fallthru_frequency * 2)
 	{
 	  log = LOOP_ALIGN (label);
 	  if (max_log < log)
@@ -1681,12 +1681,6 @@ final_start_function (first, file, optimize)
   /* First output the function prologue: code to set up the stack frame.  */
   (*targetm.asm_out.function_prologue) (file, get_frame_size ());
 
-#ifdef VMS_DEBUGGING_INFO
-  /* Output label after the prologue of the function.  */
-  if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
-    vmsdbgout_after_prologue ();
-#endif
-
   /* If the machine represents the prologue as RTL, the profiling code must
      be emitted when NOTE_INSN_PROLOGUE_END is scanned.  */
 #ifdef HAVE_prologue
@@ -1724,7 +1718,7 @@ profile_function (file)
 #ifndef NO_PROFILE_COUNTERS
   data_section ();
   ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
-  ASM_OUTPUT_INTERNAL_LABEL (file, "LP", current_function_profile_label_no);
+  ASM_OUTPUT_INTERNAL_LABEL (file, "LP", current_function_funcdef_no);
   assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, align, 1);
 #endif
 
@@ -1754,7 +1748,7 @@ profile_function (file)
 #endif
 #endif
 
-  FUNCTION_PROFILER (file, current_function_profile_label_no);
+  FUNCTION_PROFILER (file, current_function_funcdef_no);
 
 #if defined(STATIC_CHAIN_INCOMING_REGNUM) && defined(ASM_OUTPUT_REG_PUSH)
   if (cxt)
@@ -1797,12 +1791,12 @@ final_end_function ()
   (*targetm.asm_out.function_epilogue) (asm_out_file, get_frame_size ());
 
   /* And debug output.  */
-  (*debug_hooks->end_epilogue) ();
+  (*debug_hooks->end_epilogue) (last_linenum, last_filename);
 
 #if defined (DWARF2_UNWIND_INFO)
   if (write_symbols != DWARF2_DEBUG && write_symbols != VMS_AND_DWARF2_DEBUG
       && dwarf2out_do_frame ())
-    dwarf2out_end_epilogue ();
+    dwarf2out_end_epilogue (last_linenum, last_filename);
 #endif
 }
 
@@ -1921,7 +1915,8 @@ final (first, file, optimize, prescan)
       functions_tail = &new_item->next;
 
       new_item->next = 0;
-      new_item->name = xstrdup (current_function_name);
+      new_item->name = xstrdup (IDENTIFIER_POINTER
+				 (DECL_ASSEMBLER_NAME (current_function_decl)));
       new_item->cfg_checksum = profile_info.current_function_cfg_checksum;
       new_item->count_edges = profile_info.count_edges_instrumented_now;
     }
@@ -1947,6 +1942,39 @@ get_insn_template (code, insn)
 	abort ();
       return (*(insn_output_fn) output) (recog_data.operand, insn);
 
+    default:
+      abort ();
+    }
+}
+
+/* Emit the appropriate declaration for an alternate-entry-point
+   symbol represented by INSN, to FILE.  INSN is a CODE_LABEL with
+   LABEL_KIND != LABEL_NORMAL.
+
+   The case fall-through in this function is intentional.  */
+static void
+output_alternate_entry_point (file, insn)
+     FILE *file;
+     rtx insn;
+{
+  const char *name = LABEL_NAME (insn);
+
+  switch (LABEL_KIND (insn))
+    {
+    case LABEL_WEAK_ENTRY:
+#ifdef ASM_WEAKEN_LABEL
+      ASM_WEAKEN_LABEL (file, name);
+#endif
+    case LABEL_GLOBAL_ENTRY:
+      (*targetm.asm_out.globalize_label) (file, name);
+    case LABEL_STATIC_ENTRY:
+#ifdef ASM_OUTPUT_TYPE_DIRECTIVE
+      ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
+#endif
+      ASM_OUTPUT_LABEL (file, name);
+      break;
+
+    case LABEL_NORMAL:
     default:
       abort ();
     }
@@ -2028,7 +2056,7 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 
 	case NOTE_INSN_FUNCTION_BEG:
 	  app_disable ();
-	  (*debug_hooks->end_prologue) (last_linenum);
+	  (*debug_hooks->end_prologue) (last_linenum, last_filename);
 	  break;
 
 	case NOTE_INSN_BLOCK_BEG:
@@ -2158,7 +2186,11 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
 	      ASM_OUTPUT_MAX_SKIP_ALIGN (file, align, max_skip);
 #else
+#ifdef ASM_OUTPUT_ALIGN_WITH_NOP
+              ASM_OUTPUT_ALIGN_WITH_NOP (file, align);
+#else
 	      ASM_OUTPUT_ALIGN (file, align);
+#endif
 #endif
 	    }
 	}
@@ -2242,17 +2274,14 @@ final_scan_insn (insn, file, optimize, prescan, nopeepholes)
 	      ASM_OUTPUT_CASE_LABEL (file, "L", CODE_LABEL_NUMBER (insn),
 				     NEXT_INSN (insn));
 #else
-	      if (LABEL_ALTERNATE_NAME (insn))
-		ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
-	      else
-		ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
+	      ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
 #endif
 #endif
 	      break;
 	    }
 	}
-      if (LABEL_ALTERNATE_NAME (insn))
-	ASM_OUTPUT_ALTERNATE_LABEL_NAME (file, insn);
+      if (LABEL_ALT_ENTRY_P (insn))
+	output_alternate_entry_point (file, insn);
       else
 	ASM_OUTPUT_INTERNAL_LABEL (file, "L", CODE_LABEL_NUMBER (insn));
       break;

@@ -92,6 +92,12 @@ print_mem_expr (outfile, expr)
 	fprintf (outfile, ".%s",
 		 IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (expr, 1))));
     }
+  else if (TREE_CODE (expr) == INDIRECT_REF)
+    {
+      fputs (" (*", outfile);
+      print_mem_expr (outfile, TREE_OPERAND (expr, 0));
+      fputs (")", outfile);
+    }
   else if (DECL_NAME (expr))
     fprintf (outfile, " %s", IDENTIFIER_POINTER (DECL_NAME (expr)));
   else if (TREE_CODE (expr) == RESULT_DECL)
@@ -189,6 +195,11 @@ print_rtx (in_rtx)
 	}
     }
 
+#ifndef GENERATOR_FILE
+  if (GET_CODE (in_rtx) == CONST_DOUBLE && FLOAT_MODE_P (GET_MODE (in_rtx)))
+    i = 5;
+#endif
+
   /* Get the format string and skip the first elements if we have handled
      them already.  */
   format_ptr = GET_RTX_FORMAT (GET_CODE (in_rtx)) + i;
@@ -228,7 +239,7 @@ print_rtx (in_rtx)
 	      fprintf (outfile, " [%d]", ORIGINAL_REGNO (in_rtx));
 	    break;
 	  }
-	if (i == 3 && GET_CODE (in_rtx) == NOTE)
+	if (i == 4 && GET_CODE (in_rtx) == NOTE)
 	  {
 	    switch (NOTE_LINE_NUMBER (in_rtx))
 	      {
@@ -323,7 +334,7 @@ print_rtx (in_rtx)
 		     print_rtx_head, indent * 2, "");
 	    sawclose = 0;
 	  }
-	fputs ("[ ", outfile);
+	fputs (" [", outfile);
 	if (NULL != XVEC (in_rtx, i))
 	  {
 	    indent += 2;
@@ -338,7 +349,7 @@ print_rtx (in_rtx)
 	if (sawclose)
 	  fprintf (outfile, "\n%s%*s", print_rtx_head, indent * 2, "");
 
-	fputs ("] ", outfile);
+	fputs ("]", outfile);
 	sawclose = 1;
 	indent -= 2;
 	break;
@@ -356,7 +367,7 @@ print_rtx (in_rtx)
 	break;
 
       case 'i':
-	if (i == 5 && GET_CODE (in_rtx) == NOTE)
+	if (i == 6 && GET_CODE (in_rtx) == NOTE)
 	  {
 	    /* This field is only used for NOTE_INSN_DELETED_LABEL, and
 	       other times often contains garbage from INSN->NOTE death.  */
@@ -507,18 +518,18 @@ print_rtx (in_rtx)
       fputc (']', outfile);
       break;
 
-#if 0
-    /* It would be nice to do this, but it would require real.o to
-       be linked into the MD-generator programs.  Maybe we should
-       do that.  -zw 2002-03-03  */
+#ifndef GENERATOR_FILE
     case CONST_DOUBLE:
       if (FLOAT_MODE_P (GET_MODE (in_rtx)))
 	{
-	  REAL_VALUE_TYPE val;
-	  char s[30];
+	  char s[60];
 
-	  REAL_VALUE_FROM_CONST_DOUBLE (val, in_rtx);
-	  REAL_VALUE_TO_DECIMAL (val, "%.16g", s);
+	  real_to_decimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx),
+			   sizeof (s), 0, 1);
+	  fprintf (outfile, " %s", s);
+
+	  real_to_hexadecimal (s, CONST_DOUBLE_REAL_VALUE (in_rtx),
+			       sizeof (s), 0, 1);
 	  fprintf (outfile, " [%s]", s);
 	}
       break;
@@ -526,9 +537,14 @@ print_rtx (in_rtx)
 
     case CODE_LABEL:
       fprintf (outfile, " [%d uses]", LABEL_NUSES (in_rtx));
-      if (LABEL_ALTERNATE_NAME (in_rtx))
-	fprintf (outfile, " [alternate name: %s]",
-		 LABEL_ALTERNATE_NAME (in_rtx));
+      switch (LABEL_KIND (in_rtx))
+	{
+	  case LABEL_NORMAL: break;
+	  case LABEL_STATIC_ENTRY: fputs (" [entry]", outfile); break;
+	  case LABEL_GLOBAL_ENTRY: fputs (" [global entry]", outfile); break;
+	  case LABEL_WEAK_ENTRY: fputs (" [weak entry]", outfile); break;
+	  default: abort();
+	}
       break;
 
     case CALL_PLACEHOLDER:
@@ -616,6 +632,7 @@ debug_rtx (x)
      rtx x;
 {
   outfile = stderr;
+  sawclose = 0;
   print_rtx (x);
   fprintf (stderr, "\n");
 }
@@ -652,7 +669,10 @@ debug_rtx_list (x, n)
       }
 
   for (i = count, insn = x; i > 0 && insn != 0; i--, insn = NEXT_INSN (insn))
-    debug_rtx (insn);
+    {
+      debug_rtx (insn);
+      fprintf (stderr, "\n");
+    }
 }
 
 /* Call this function to print an rtx list from START to END inclusive.  */
@@ -664,6 +684,7 @@ debug_rtx_range (start, end)
   while (1)
     {
       debug_rtx (start);
+      fprintf (stderr, "\n");
       if (!start || start == end)
 	break;
       start = NEXT_INSN (start);

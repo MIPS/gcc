@@ -50,6 +50,7 @@ struct lang_hooks_for_tree_inlining
 							  void *, int *,
 							  void *));
   int (*anon_aggr_type_p) PARAMS ((union tree_node *));
+  bool (*var_mod_type_p) PARAMS ((union tree_node *));
   int (*start_inlining) PARAMS ((union tree_node *));
   void (*end_inlining) PARAMS ((union tree_node *));
   union tree_node *(*convert_parm_for_inlining) PARAMS ((union tree_node *,
@@ -78,7 +79,7 @@ struct lang_hooks_for_functions
 
 struct lang_hooks_for_tree_dump
 {
-  /* Dump language-specific parts of tree nodes.  Returns non-zero if it
+  /* Dump language-specific parts of tree nodes.  Returns nonzero if it
      does not want the usual dumping of the second argument.  */
   int (*dump_tree) PARAMS ((void *, tree));
 
@@ -142,7 +143,7 @@ struct lang_hooks_for_decls
      FUNCTIONBODY -- nonzero if this level is the body of a function.  */
   tree (*poplevel) PARAMS ((int, int, int));
 
-  /* Returns non-zero if we are in the global binding level.  Ada
+  /* Returns nonzero if we are in the global binding level.  Ada
      returns -1 for an undocumented reason used in stor-layout.c.  */
   int (*global_bindings_p) PARAMS ((void));
 
@@ -186,7 +187,7 @@ struct lang_hooks
   /* Function called with an option vector as argument, to decode a
      single option (typically starting with -f or -W or +).  It should
      return the number of command-line arguments it uses if it handles
-     the option, or 0 and not complain if it does not recognise the
+     the option, or 0 and not complain if it does not recognize the
      option.  If this function returns a negative number, then its
      absolute value is the number of command-line arguments used, but,
      in addition, no language-independent option processing should be
@@ -198,9 +199,12 @@ struct lang_hooks
      initialization should be left to the "init" callback, since GC
      and the identifier hashes are set up between now and then.
 
-     If errorcount is non-zero after this call the compiler exits
+     Should return zero unless the compiler back-end does not need to
+     be initialized, such as with the -E option.
+     
+     If errorcount is nonzero after this call the compiler exits
      immediately and the finish hook is not called.  */
-  void (*post_options) PARAMS ((void));
+  bool (*post_options) PARAMS ((void));
 
   /* Called after post_options, to initialize the front end.  The main
      input filename is passed, which may be NULL; the front end should
@@ -213,7 +217,7 @@ struct lang_hooks
   /* Called at the end of compilation, as a finalizer.  */
   void (*finish) PARAMS ((void));
 
-  /* Parses the entire file.  The argument is non-zero to cause bison
+  /* Parses the entire file.  The argument is nonzero to cause bison
      parsers to dump debugging information during parsing.  */
   void (*parse_file) PARAMS ((int));
 
@@ -296,6 +300,10 @@ struct lang_hooks
      assembler does not talk about it.  */
   void (*set_decl_assembler_name) PARAMS ((tree));
 
+  /* Return nonzero if fold-const is free to use bit-field
+     optimizations, for instance in fold_truthop().  */
+  bool (*can_use_bit_fields_p) PARAMS ((void));
+
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;
 
@@ -324,6 +332,12 @@ struct lang_hooks
   /* Called by report_error_function to print out function name.  */
   void (*print_error_function) PARAMS ((struct diagnostic_context *,
 					const char *));
+
+  /* Called from expr_size to calculate the size of the value of an
+     expression in a language-dependent way.  Returns a tree for the size
+     in bytes.  A frontend can call lhd_expr_size to get the default
+     semantics in cases that it doesn't want to handle specially.  */
+  tree (*expr_size) PARAMS ((tree));
 
   /* Pointers to machine-independent attribute tables, for front ends
      using attribs.c.  If one is NULL, it is ignored.  Respectively, a

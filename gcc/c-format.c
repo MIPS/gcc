@@ -29,33 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "diagnostic.h"
 #include "langhooks.h"
 
-/* Command line options and their associated flags.  */
-
-/* Warn about format/argument anomalies in calls to formatted I/O functions
-   (*printf, *scanf, strftime, strfmon, etc.).  */
-
-int warn_format;
-
-/* Warn about Y2K problems with strftime formats.  */
-
-int warn_format_y2k;
-
-/* Warn about excess arguments to formats.  */
-
-int warn_format_extra_args;
-
-/* Warn about zero-length formats.  */
-
-int warn_format_zero_length;
-
-/* Warn about non-literal format arguments.  */
-
-int warn_format_nonliteral;
-
-/* Warn about possible security problems with calls to format functions.  */
-
-int warn_format_security;
-
 /* Set format warning options according to a -Wformat=n option.  */
 
 void
@@ -313,7 +286,7 @@ decode_format_attr (args, info, validated_p)
 
 /* Check a call to a format function against a parameter list.  */
 
-/* The meaningfully distinct length modifiers for format checking recognised
+/* The meaningfully distinct length modifiers for format checking recognized
    by GCC.  */
 enum format_lengths
 {
@@ -356,7 +329,7 @@ enum format_std_version
 				 ? "ISO C++"			\
 				 : ((FEATURE_VER) == STD_EXT	\
 				    ? "ISO C"			\
-				    : "ISO C89"))
+				    : "ISO C90"))
 /* Adjust a C standard version, which may be STD_C9L, to account for
    -Wno-long-long.  Returns other standard versions unchanged.  */
 #define ADJ_STD(VER)		((int)((VER) == STD_C9L			      \
@@ -466,7 +439,7 @@ typedef struct
   /* The flag character in question (0 for end of array).  */
   const int flag_char;
   /* Zero if this entry describes the flag character in general, or a
-     non-zero character that may be found in flags2 if it describes the
+     nonzero character that may be found in flags2 if it describes the
      flag when used with certain formats only.  If the latter, only
      the first such entry found that applies to the current conversion
      specifier is used; the values of `name' and `long_name' it supplies
@@ -496,11 +469,11 @@ typedef struct
   const int flag_char1;
   /* The second flag character.  */
   const int flag_char2;
-  /* Non-zero if the message should say that the first flag is ignored with
+  /* Nonzero if the message should say that the first flag is ignored with
      the second, zero if the combination should simply be objected to.  */
   const int ignored;
   /* Zero if this entry applies whenever this flag combination occurs,
-     a non-zero character from flags2 if it only applies in some
+     a nonzero character from flags2 if it only applies in some
      circumstances (e.g. 'i' for printf formats ignoring 0 with precision).  */
   const int predicate;
 } format_flag_pair;
@@ -717,7 +690,6 @@ static const format_flag_pair strfmon_flag_pairs[] =
 
 #define T_I	&integer_type_node
 #define T89_I	{ STD_C89, NULL, T_I }
-#define T99_I	{ STD_C99, NULL, T_I }
 #define T_L	&long_integer_type_node
 #define T89_L	{ STD_C89, NULL, T_L }
 #define T_LL	&long_long_integer_type_node
@@ -727,7 +699,6 @@ static const format_flag_pair strfmon_flag_pairs[] =
 #define T89_S	{ STD_C89, NULL, T_S }
 #define T_UI	&unsigned_type_node
 #define T89_UI	{ STD_C89, NULL, T_UI }
-#define T99_UI	{ STD_C99, NULL, T_UI }
 #define T_UL	&long_unsigned_type_node
 #define T89_UL	{ STD_C89, NULL, T_UL }
 #define T_ULL	&long_long_unsigned_type_node

@@ -51,7 +51,7 @@ static int missing_braces_mentioned;
 static int undeclared_variable_notice;
 
 static tree qualify_type		PARAMS ((tree, tree));
-static int comp_target_types		PARAMS ((tree, tree));
+static int comp_target_types		PARAMS ((tree, tree, int));
 static int function_types_compatible_p	PARAMS ((tree, tree));
 static int type_lists_compatible_p	PARAMS ((tree, tree));
 static tree decl_constant_value_for_broken_optimization PARAMS ((tree));
@@ -568,7 +568,7 @@ comptypes (type1, type2)
       }
 
     case RECORD_TYPE:
-      if (maybe_objc_comptypes (t1, t2, 0) == 1)
+      if (flag_objc && objc_comptypes (t1, t2, 0) == 1)
 	val = 1;
       break;
 
@@ -579,16 +579,21 @@ comptypes (type1, type2)
 }
 
 /* Return 1 if TTL and TTR are pointers to types that are equivalent,
-   ignoring their qualifiers.  */
+   ignoring their qualifiers.  REFLEXIVE is only used by ObjC - set it
+   to 1 or 0 depending if the check of the pointer types is meant to
+   be reflexive or not (typically, assignments are not reflexive,
+   while comparisons are reflexive).
+*/
 
 static int
-comp_target_types (ttl, ttr)
+comp_target_types (ttl, ttr, reflexive)
      tree ttl, ttr;
+     int reflexive;
 {
   int val;
 
-  /* Give maybe_objc_comptypes a crack at letting these types through.  */
-  if ((val = maybe_objc_comptypes (ttl, ttr, 1)) >= 0)
+  /* Give objc_comptypes a crack at letting these types through.  */
+  if ((val = objc_comptypes (ttl, ttr, reflexive)) >= 0)
     return val;
 
   val = comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (ttl)),
@@ -736,71 +741,6 @@ type_lists_compatible_p (args1, args2)
     }
 }
 
-/* Compute the value of the `sizeof' operator.  */
-
-tree
-c_sizeof (type)
-     tree type;
-{
-  enum tree_code code = TREE_CODE (type);
-  tree size;
-
-  if (code == FUNCTION_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("sizeof applied to a function type");
-      size = size_one_node;
-    }
-  else if (code == VOID_TYPE)
-    {
-      if (pedantic || warn_pointer_arith)
-	pedwarn ("sizeof applied to a void type");
-      size = size_one_node;
-    }
-  else if (code == ERROR_MARK)
-    size = size_one_node;
-  else if (!COMPLETE_TYPE_P (type))
-    {
-      error ("sizeof applied to an incomplete type");
-      size = size_zero_node;
-    }
-  else
-    /* Convert in case a char is more than one unit.  */
-    size = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
-		       size_int (TYPE_PRECISION (char_type_node)
-			         / BITS_PER_UNIT));
-
-  /* SIZE will have an integer type with TYPE_IS_SIZETYPE set.
-     TYPE_IS_SIZETYPE means that certain things (like overflow) will
-     never happen.  However, this node should really have type
-     `size_t', which is just a typedef for an ordinary integer type.  */
-  return fold (build1 (NOP_EXPR, c_size_type_node, size));
-}
-
-tree
-c_sizeof_nowarn (type)
-     tree type;
-{
-  enum tree_code code = TREE_CODE (type);
-  tree size;
-
-  if (code == FUNCTION_TYPE || code == VOID_TYPE || code == ERROR_MARK)
-    size = size_one_node;
-  else if (!COMPLETE_TYPE_P (type))
-    size = size_zero_node;
-  else
-    /* Convert in case a char is more than one unit.  */
-    size = size_binop (CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
-		       size_int (TYPE_PRECISION (char_type_node)
-			         / BITS_PER_UNIT));
-
-  /* SIZE will have an integer type with TYPE_IS_SIZETYPE set.
-     TYPE_IS_SIZETYPE means that certain things (like overflow) will
-     never happen.  However, this node should really have type
-     `size_t', which is just a typedef for an ordinary integer type.  */
-  return fold (build1 (NOP_EXPR, c_size_type_node, size));
-}
-
 /* Compute the size to increment a pointer by.  */
 
 tree
@@ -1362,7 +1302,7 @@ build_array_ref (array, index)
 	  if (TREE_CODE (foo) == VAR_DECL && DECL_REGISTER (foo))
 	    pedwarn ("ISO C forbids subscripting `register' array");
 	  else if (! flag_isoc99 && ! lvalue_p (foo))
-	    pedwarn ("ISO C89 forbids subscripting non-lvalue array");
+	    pedwarn ("ISO C90 forbids subscripting non-lvalue array");
 	}
 
       type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (array)));
@@ -1506,7 +1446,8 @@ build_external_ref (id, fun)
   if (TREE_TYPE (ref) == error_mark_node)
     return error_mark_node;
 
-  assemble_external (ref);
+  if (!skip_evaluation)
+    assemble_external (ref);
   TREE_USED (ref) = 1;
 
   if (TREE_CODE (ref) == CONST_DECL)
@@ -2022,7 +1963,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
       /* Subtraction of two similar pointers.
 	 We must subtract them as integers, then divide by object size.  */
       if (code0 == POINTER_TYPE && code1 == POINTER_TYPE
-	  && comp_target_types (type0, type1))
+	  && comp_target_types (type0, type1, 1))
 	return pointer_diff (op0, op1);
       /* Handle pointer minus int.  Just like pointer plus int.  */
       else if (code0 == POINTER_TYPE && code1 == INTEGER_TYPE)
@@ -2046,9 +1987,9 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	warning ("division by zero");
 
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
-	   || code0 == COMPLEX_TYPE)
+	   || code0 == COMPLEX_TYPE || code0 == VECTOR_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
-	      || code1 == COMPLEX_TYPE))
+	      || code1 == COMPLEX_TYPE || code1 == VECTOR_TYPE))
 	{
 	  if (!(code0 == INTEGER_TYPE && code1 == INTEGER_TYPE))
 	    resultcode = RDIV_EXPR;
@@ -2071,6 +2012,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     case BIT_XOR_EXPR:
       if (code0 == INTEGER_TYPE && code1 == INTEGER_TYPE)
 	shorten = -1;
+      else if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE)
+	common = 1;
       break;
 
     case TRUNC_MOD_EXPR:
@@ -2197,9 +2140,11 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	 but don't convert the args to int!  */
       build_type = integer_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
-	   || code0 == COMPLEX_TYPE)
+	   || code0 == COMPLEX_TYPE
+	   || code0 == VECTOR_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
-	      || code1 == COMPLEX_TYPE))
+	      || code1 == COMPLEX_TYPE
+	      || code1 == VECTOR_TYPE))
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
@@ -2208,7 +2153,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	  /* Anything compares with void *.  void * compares with anything.
 	     Otherwise, the targets must be compatible
 	     and both must be object or both incomplete.  */
-	  if (comp_target_types (type0, type1))
+	  if (comp_target_types (type0, type1, 1))
 	    result_type = common_type (type0, type1);
 	  else if (VOID_TYPE_P (tt0))
 	    {
@@ -2255,7 +2200,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	shorten = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
-	  if (comp_target_types (type0, type1))
+	  if (comp_target_types (type0, type1, 1))
 	    {
 	      result_type = common_type (type0, type1);
 	      if (pedantic 
@@ -2280,7 +2225,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
-	  if (comp_target_types (type0, type1))
+	  if (comp_target_types (type0, type1, 1))
 	    {
 	      result_type = common_type (type0, type1);
 	      if (!COMPLETE_TYPE_P (TREE_TYPE (type0))
@@ -2342,9 +2287,11 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
       break;
     }
 
-  if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE || code0 == COMPLEX_TYPE)
+  if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE || code0 == COMPLEX_TYPE
+       || code0 == VECTOR_TYPE)
       &&
-      (code1 == INTEGER_TYPE || code1 == REAL_TYPE || code1 == COMPLEX_TYPE))
+      (code1 == INTEGER_TYPE || code1 == REAL_TYPE || code1 == COMPLEX_TYPE
+       || code1 == VECTOR_TYPE))
     {
       int none_complex = (code0 != COMPLEX_TYPE && code1 != COMPLEX_TYPE);
 
@@ -2521,7 +2468,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		     constant expression involving such literals or a
 		     conditional expression involving such literals)
 		     and it is non-negative.  */
-		  if (tree_expr_nonnegative_p (sop))
+		  if (c_tree_expr_nonnegative_p (sop))
 		    /* OK */;
 		  /* Do not warn if the comparison is an equality operation,
 		     the unsigned quantity is an integral constant, and it
@@ -2637,6 +2584,27 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
   }
 }
 
+
+/* Return true if `t' is known to be non-negative.  */
+
+int
+c_tree_expr_nonnegative_p (t)
+     tree t;
+{
+  if (TREE_CODE (t) == STMT_EXPR)
+    {
+      t=COMPOUND_BODY (STMT_EXPR_STMT (t));
+
+      /* Find the last statement in the chain, ignoring the final
+	     * scope statement */
+      while (TREE_CHAIN (t) != NULL_TREE 
+             && TREE_CODE (TREE_CHAIN (t)) != SCOPE_STMT)
+        t=TREE_CHAIN (t);
+      return tree_expr_nonnegative_p (TREE_OPERAND (t, 0));
+    }
+  return tree_expr_nonnegative_p (t);
+}
+
 /* Return a tree for the difference of pointers OP0 and OP1.
    The resulting tree has type int.  */
 
@@ -2763,7 +2731,8 @@ build_unary_op (code, xarg, flag)
 
     case NEGATE_EXPR:
       if (!(typecode == INTEGER_TYPE || typecode == REAL_TYPE
-	    || typecode == COMPLEX_TYPE))
+	    || typecode == COMPLEX_TYPE
+	    || typecode == VECTOR_TYPE))
 	{
 	  error ("wrong type argument to unary minus");
 	  return error_mark_node;
@@ -2773,7 +2742,12 @@ build_unary_op (code, xarg, flag)
       break;
 
     case BIT_NOT_EXPR:
-      if (typecode == COMPLEX_TYPE)
+      if (typecode == INTEGER_TYPE || typecode == VECTOR_TYPE)
+	{
+	  if (!noconvert)
+	    arg = default_conversion (arg);
+	}
+      else if (typecode == COMPLEX_TYPE)
 	{
 	  code = CONJ_EXPR;
 	  if (pedantic)
@@ -2781,13 +2755,11 @@ build_unary_op (code, xarg, flag)
 	  if (!noconvert)
 	    arg = default_conversion (arg);
 	}
-      else if (typecode != INTEGER_TYPE)
+      else
 	{
 	  error ("wrong type argument to bit-complement");
 	  return error_mark_node;
 	}
-      else if (!noconvert)
-	arg = default_conversion (arg);
       break;
 
     case ABS_EXPR:
@@ -3460,8 +3432,8 @@ build_conditional_expr (ifexp, op1, op2)
 	      /* Do not warn if the signed quantity is an unsuffixed
 		 integer literal (or some static constant expression
 		 involving such literals) and it is non-negative.  */
-	      else if ((unsigned_op2 && tree_expr_nonnegative_p (op1))
-		       || (unsigned_op1 && tree_expr_nonnegative_p (op2)))
+	      else if ((unsigned_op2 && c_tree_expr_nonnegative_p (op1))
+		       || (unsigned_op1 && c_tree_expr_nonnegative_p (op2)))
 		/* OK */;
 	      else
 		warning ("signed and unsigned type in conditional expression");
@@ -3476,7 +3448,7 @@ build_conditional_expr (ifexp, op1, op2)
     }
   else if (code1 == POINTER_TYPE && code2 == POINTER_TYPE)
     {
-      if (comp_target_types (type1, type2))
+      if (comp_target_types (type1, type2, 1))
 	result_type = common_type (type1, type2);
       else if (integer_zerop (op1) && TREE_TYPE (type1) == void_type_node
 	       && TREE_CODE (orig_op1) != NOP_EXPR)
@@ -3631,7 +3603,12 @@ build_c_cast (type, expr)
   
   if (type == error_mark_node || expr == error_mark_node)
     return error_mark_node;
-  type = TYPE_MAIN_VARIANT (type);
+
+  /* The ObjC front-end uses TYPE_MAIN_VARIANT to tie together types differing
+     only in <protocol> qualifications.  But when constructing cast expressions,
+     the protocols do matter and must be kept around.  */
+  if (!flag_objc || !objc_is_id (type))
+    type = TYPE_MAIN_VARIANT (type);
 
 #if 0
   /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
@@ -3782,6 +3759,23 @@ build_c_cast (type, expr)
 	  && !TREE_CONSTANT (value))
 	warning ("cast to pointer from integer of different size");
 
+      if (TREE_CODE (type) == POINTER_TYPE
+	  && TREE_CODE (otype) == POINTER_TYPE
+	  && TREE_CODE (expr) == ADDR_EXPR
+	  && DECL_P (TREE_OPERAND (expr, 0))
+	  && flag_strict_aliasing && warn_strict_aliasing
+	  && !VOID_TYPE_P (TREE_TYPE (type)))
+	{
+ 	  /* Casting the address of a decl to non void pointer. Warn
+	     if the cast breaks type based aliasing.  */
+	  if (!COMPLETE_TYPE_P (TREE_TYPE (type)))
+	    warning ("type-punning to incomplete type might break strict-aliasing rules");
+	  else if (!alias_sets_conflict_p
+		   (get_alias_set (TREE_TYPE (TREE_OPERAND (expr, 0))),
+		    get_alias_set (TREE_TYPE (type))))
+	    warning ("dereferencing type-punned pointer will break strict-aliasing rules");
+	}
+      
       ovalue = value;
       value = convert (type, value);
 
@@ -4038,9 +4032,11 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (rhstype))
     {
       overflow_warning (rhs);
-      /* Check for Objective-C protocols.  This will issue a warning if
-	 there are protocol violations.  No need to use the return value.  */
-      maybe_objc_comptypes (type, rhstype, 0);
+      /* Check for Objective-C protocols.  This will automatically
+	 issue a warning if there are protocol violations.  No need to
+	 use the return value.  */
+      if (flag_objc)
+	objc_comptypes (type, rhstype, 0);
       return rhs;
     }
 
@@ -4079,7 +4075,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
   else if ((codel == INTEGER_TYPE || codel == REAL_TYPE 
 	    || codel == ENUMERAL_TYPE || codel == COMPLEX_TYPE
 	    || codel == BOOLEAN_TYPE)
-	   && (coder == INTEGER_TYPE || coder == REAL_TYPE 
+	   && (coder == INTEGER_TYPE || coder == REAL_TYPE
 	       || coder == ENUMERAL_TYPE || coder == COMPLEX_TYPE
 	       || coder == BOOLEAN_TYPE))
     return convert_and_check (type, rhs);
@@ -4113,7 +4109,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 		 Meanwhile, the lhs target must have all the qualifiers of
 		 the rhs.  */
 	      if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		  || comp_target_types (memb_type, rhstype))
+		  || comp_target_types (memb_type, rhstype, 0))
 		{
 		  /* If this type won't generate any warnings, use it.  */
 		  if (TYPE_QUALS (ttl) == TYPE_QUALS (ttr)
@@ -4188,7 +4184,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-	  || comp_target_types (type, rhstype)
+	  || comp_target_types (type, rhstype, 0)
 	  || (c_common_unsigned_type (TYPE_MAIN_VARIANT (ttl))
 	      == c_common_unsigned_type (TYPE_MAIN_VARIANT (ttr))))
 	{
@@ -4213,7 +4209,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
 	      /* If this is not a case of ignoring a mismatch in signedness,
 		 no warning.  */
 	      else if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
-		       || comp_target_types (type, rhstype))
+		       || comp_target_types (type, rhstype, 0))
 		;
 	      /* If there is a mismatch, do warn.  */
 	      else if (pedantic)
@@ -4268,7 +4264,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
     {
       if (funname)
  	{
- 	  tree selector = maybe_building_objc_message_expr ();
+ 	  tree selector = objc_message_selector ();
  
  	  if (selector && parmnum > 2)
  	    error ("incompatible type for argument %d of `%s'",
@@ -4313,7 +4309,8 @@ c_convert_parm_for_inlining (parm, value, fn)
 
 /* Print a warning using MSGID.
    It gets OPNAME as its one parameter.
-   If OPNAME is null, it is replaced by "passing arg ARGNUM of `FUNCTION'".
+   if OPNAME is null and ARGNUM is 0, it is replaced by "passing arg of `FUNCTION'".
+   Otherwise if OPNAME is null, it is replaced by "passing arg ARGNUM of `FUNCTION'".
    FUNCTION and ARGNUM are handled specially if we are building an
    Objective-C selector.  */
 
@@ -4326,7 +4323,7 @@ warn_for_assignment (msgid, opname, function, argnum)
 {
   if (opname == 0)
     {
-      tree selector = maybe_building_objc_message_expr ();
+      tree selector = objc_message_selector ();
       char * new_opname;
       
       if (selector && argnum > 2)
@@ -4334,7 +4331,27 @@ warn_for_assignment (msgid, opname, function, argnum)
 	  function = selector;
 	  argnum -= 2;
 	}
-      if (function)
+      if (argnum == 0)
+	{
+	  if (function)
+	    {	    
+	      /* Function name is known; supply it.  */
+	      const char *const argstring = _("passing arg of `%s'");
+	      new_opname = (char *) alloca (IDENTIFIER_LENGTH (function)
+					    + strlen (argstring) + 1
+					    + 1);
+	      sprintf (new_opname, argstring,
+		       IDENTIFIER_POINTER (function));
+	    }
+	  else
+	    {
+	      /* Function name unknown (call through ptr).  */
+	      const char *const argnofun = _("passing arg of pointer to function");
+	      new_opname = (char *) alloca (strlen (argnofun) + 1 + 1);
+	      sprintf (new_opname, argnofun);
+	    }
+	}
+      else if (function)
 	{
 	  /* Function name is known; supply it.  */
 	  const char *const argstring = _("passing arg %d of `%s'");
@@ -4500,15 +4517,6 @@ static int spelling_size;		/* Size of the spelling stack.  */
 
 #define SPELLING_DEPTH() (spelling - spelling_base)
 #define RESTORE_SPELLING_DEPTH(DEPTH) (spelling = spelling_base + (DEPTH))
-
-/* Save and restore the spelling stack around arbitrary C code.  */
-
-#define SAVE_SPELLING_DEPTH(code)		\
-{						\
-  int __depth = SPELLING_DEPTH ();		\
-  code;						\
-  RESTORE_SPELLING_DEPTH (__depth);		\
-}
 
 /* Push an element on the spelling stack with type KIND and assign VALUE
    to MEMBER.  */
@@ -5585,7 +5593,7 @@ pop_init_level (implicit)
 }
 
 /* Common handling for both array range and field name designators.
-   ARRAY argument is non-zero for array ranges.  Returns zero for success.  */
+   ARRAY argument is nonzero for array ranges.  Returns zero for success.  */
 
 static int
 set_designator (array)
@@ -6949,7 +6957,11 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 
   /* Record the contents of OUTPUTS before it is modified.  */
   for (i = 0, tail = outputs; tail; tail = TREE_CHAIN (tail), i++)
-    o[i] = TREE_VALUE (tail);
+    {
+      o[i] = TREE_VALUE (tail);
+      if (o[i] == error_mark_node)
+	return;
+    }
 
   /* Generate the ASM_OPERANDS insn; store into the TREE_VALUEs of
      OUTPUTS some trees for where the values were actually stored.  */

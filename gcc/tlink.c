@@ -31,10 +31,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define MAX_ITERATIONS 17
 
-/* Obstack allocation and deallocation routines.  */
-#define obstack_chunk_alloc xmalloc
-#define obstack_chunk_free free
-
 /* Defined in the automatically-generated underscore.c.  */
 extern int prepends_underscore;
 
@@ -77,8 +73,8 @@ hash_string_eq (s1_p, s2_p)
      const void *s1_p;
      const void *s2_p;
 {
-  const char *const *s1 = (const char *const *)s1_p;
-  const char *s2 = (const char *)s2_p;
+  const char *const *s1 = (const char *const *) s1_p;
+  const char *s2 = (const char *) s2_p;
   return strcmp (*s1, s2) == 0;
 }
 
@@ -86,7 +82,7 @@ static hashval_t
 hash_string_hash (s_p)
      const void *s_p;
 {
-  const char *const *s = (const char *const *)s_p;
+  const char *const *s = (const char *const *) s_p;
   return (*htab_hash_string) (*s);
 }
 
@@ -124,7 +120,7 @@ symbol_hash_lookup (string, create)
 {
   PTR *e;
   e = htab_find_slot_with_hash (symbol_table, string,
-				(*htab_hash_string)(string),
+				(*htab_hash_string) (string),
 				create ? INSERT : NO_INSERT);
   if (e == NULL)
     return NULL;
@@ -147,7 +143,7 @@ file_hash_lookup (string)
 {
   PTR *e;
   e = htab_find_slot_with_hash (file_table, string,
-				(*htab_hash_string)(string),
+				(*htab_hash_string) (string),
 				INSERT);
   if (*e == NULL)
     {
@@ -169,7 +165,7 @@ demangled_hash_lookup (string, create)
 {
   PTR *e;
   e = htab_find_slot_with_hash (demangled_table, string,
-				(*htab_hash_string)(string),
+				(*htab_hash_string) (string),
 				create ? INSERT : NO_INSERT);
   if (e == NULL)
     return NULL;
@@ -338,7 +334,7 @@ static char *
 pfgets (stream)
      FILE *stream;
 {
-  return obstack_fgets (stream, &permanent_obstack);
+  return xstrdup (tfgets (stream));
 }
 
 /* Real tlink code.  */
@@ -587,20 +583,20 @@ scan_linker_output (fname)
       symbol *sym;
       int end;
 
-      while (*p && ISSPACE ((unsigned char)*p))
+      while (*p && ISSPACE ((unsigned char) *p))
 	++p;
 
       if (! *p)
 	continue;
 
-      for (q = p; *q && ! ISSPACE ((unsigned char)*q); ++q)
+      for (q = p; *q && ! ISSPACE ((unsigned char) *q); ++q)
 	;
 
       /* Try the first word on the line.  */
       if (*p == '.')
 	++p;
-      if (*p == '_' && prepends_underscore)
-	++p;
+      if (!strncmp (p, USER_LABEL_PREFIX, strlen (USER_LABEL_PREFIX)))
+	p += strlen (USER_LABEL_PREFIX);
 
       end = ! *q;
       *q = 0;
@@ -609,21 +605,21 @@ scan_linker_output (fname)
       /* Some SVR4 linkers produce messages like
 	 ld: 0711-317 ERROR: Undefined symbol: .g__t3foo1Zi
 	 */
-      if (! sym && ! end && strstr (q+1, "Undefined symbol: "))
+      if (! sym && ! end && strstr (q + 1, "Undefined symbol: "))
 	{
-	  char *p = strrchr (q+1, ' ');
+	  char *p = strrchr (q + 1, ' ');
 	  p++;
 	  if (*p == '.')
 	    p++;
-	  if (*p == '_' && prepends_underscore)
-	    p++;
+	  if (!strncmp (p, USER_LABEL_PREFIX, strlen (USER_LABEL_PREFIX)))
+	    p += strlen (USER_LABEL_PREFIX);
 	  sym = symbol_hash_lookup (p, false);
 	}
 
       if (! sym && ! end)
 	/* Try a mangled name in quotes.  */
 	{
-	  const char *oldq = q+1;
+	  const char *oldq = q + 1;
 	  demangled *dem = 0;
 	  q = 0;
 
@@ -653,8 +649,9 @@ scan_linker_output (fname)
 		sym = symbol_hash_lookup (dem->mangled, false);
 	      else
 		{
-		  if (*p == '_' && prepends_underscore)
-		    ++p;
+		  if (!strncmp (p, USER_LABEL_PREFIX,
+				strlen (USER_LABEL_PREFIX)))
+		    p += strlen (USER_LABEL_PREFIX);
 		  sym = symbol_hash_lookup (p, false);
 		}
 	    }

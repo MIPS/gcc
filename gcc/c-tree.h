@@ -48,7 +48,8 @@ struct lang_identifier GTY(())
 /* The resulting tree type.  */
 
 union lang_tree_node 
-  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE")))
+  GTY((desc ("TREE_CODE (&%h.generic) == IDENTIFIER_NODE"),
+       chain_next ("(union lang_tree_node *)TREE_CHAIN (&%h.generic)")))
 {
   union tree_node GTY ((tag ("0"), 
 			desc ("tree_node_structure (&%h)"))) 
@@ -165,11 +166,11 @@ struct lang_type GTY(())
 /* in c-lang.c and objc-act.c */
 extern tree lookup_interface			PARAMS ((tree));
 extern tree is_class_name			PARAMS ((tree));
-extern void maybe_objc_check_decl		PARAMS ((tree));
+extern tree objc_is_id				PARAMS ((tree));
+extern void objc_check_decl			PARAMS ((tree));
 extern void finish_file				PARAMS ((void));
-extern int maybe_objc_comptypes                 PARAMS ((tree, tree, int));
-extern tree maybe_building_objc_message_expr    PARAMS ((void));
-extern int recognize_objc_keyword		PARAMS ((void));
+extern int objc_comptypes                 	PARAMS ((tree, tree, int));
+extern tree objc_message_selector		PARAMS ((void));
 extern tree lookup_objc_ivar			PARAMS ((tree));
 
 
@@ -195,8 +196,6 @@ extern void c_dup_lang_specific_decl		PARAMS ((tree));
 extern void c_print_identifier			PARAMS ((FILE *, tree, int));
 extern tree build_array_declarator              PARAMS ((tree, tree, int, int));
 extern tree build_enumerator                    PARAMS ((tree, tree));
-extern int  c_decode_option                     PARAMS ((int, char **));
-extern void c_mark_varargs                      PARAMS ((void));
 extern void check_for_loop_decls                PARAMS ((void));
 extern void clear_parm_order                    PARAMS ((void));
 extern int  complete_array_type                 PARAMS ((tree, tree, int));
@@ -256,10 +255,10 @@ extern bool c_warn_unused_global_decl		PARAMS ((tree));
 			  ((CONST_P) ? TYPE_QUAL_CONST : 0) |	  \
 			  ((VOLATILE_P) ? TYPE_QUAL_VOLATILE : 0))
 
+#define c_sizeof_nowarn(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 0)
 /* in c-typeck.c */
 extern tree require_complete_type		PARAMS ((tree));
 extern int comptypes				PARAMS ((tree, tree));
-extern tree c_sizeof_nowarn			PARAMS ((tree));
 extern tree c_size_in_bytes                     PARAMS ((tree));
 extern bool c_mark_addressable			PARAMS ((tree));
 extern void c_incomplete_type_error		PARAMS ((tree, tree));
@@ -270,6 +269,7 @@ extern tree build_array_ref                     PARAMS ((tree, tree));
 extern tree build_external_ref			PARAMS ((tree, int));
 extern tree parser_build_binary_op              PARAMS ((enum tree_code,
 							 tree, tree));
+extern int c_tree_expr_nonnegative_p          	PARAMS ((tree));
 extern void readonly_warning			PARAMS ((tree, const char *));
 extern tree build_conditional_expr              PARAMS ((tree, tree, tree));
 extern tree build_compound_expr                 PARAMS ((tree));
@@ -313,86 +313,9 @@ extern int current_function_returns_null;
 
 extern int current_function_returns_abnormally;
 
-/* Nonzero means the expression being parsed will never be evaluated.
-   This is a count, since unevaluated expressions can nest.  */
-
-extern int skip_evaluation;
-
-/* Nonzero means `$' can be in an identifier.  */
-
-extern int dollars_in_ident;
-
-/* Nonzero means allow type mismatches in conditional expressions;
-   just make their values `void'.  */
-
-extern int flag_cond_mismatch;
-
-/* Nonzero means don't recognize the keyword `asm'.  */
-
-extern int flag_no_asm;
-
-/* Nonzero means warn about implicit declarations.  */
-
-extern int warn_implicit;
-
-/* Nonzero means warn for all old-style non-prototype function decls.  */
-
-extern int warn_strict_prototypes;
-
-/* Nonzero means warn about multiple (redundant) decls for the same single
-   variable or function.  */
-
-extern int warn_redundant_decls;
-
-/* Nonzero means warn about extern declarations of objects not at
-   file-scope level and about *all* declarations of functions (whether
-   extern or static) not at file-scope level.  Note that we exclude
-   implicit function declarations.  To get warnings about those, use
-   -Wimplicit.  */
-
-extern int warn_nested_externs;
-
-/* Nonzero means warn about pointer casts that can drop a type qualifier
-   from the pointer target type.  */
-
-extern int warn_cast_qual;
-
-/* Nonzero means warn when casting a function call to a type that does
-   not match the return type (e.g. (float)sqrt() or (anything*)malloc()
-   when there is no previous declaration of sqrt or malloc.  */
-
-extern int warn_bad_function_cast;
-
-/* Warn about traditional constructs whose meanings changed in ANSI C.  */
-
-extern int warn_traditional;
-
-/* Warn about a subscript that has type char.  */
-
-extern int warn_char_subscripts;
-
-/* Warn if main is suspicious.  */
-
-extern int warn_main;
-
-/* Warn if initializer is not completely bracketed.  */
-
-extern int warn_missing_braces;
-
-/* Warn about comparison of signed and unsigned values.  */
-
-extern int warn_sign_compare;
-
-/* Warn about testing equality of floating point numbers.  */
-
-extern int warn_float_equal;
-
 /* Nonzero means we are reading code that came from a system header file.  */
 
 extern int system_header_p;
-
-/* Warn about implicit declarations.  1 = warning, 2 = error.  */
-extern int mesg_implicit_function_declaration;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl PARAMS ((tree));
