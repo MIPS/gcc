@@ -1,3 +1,11 @@
+2004-05-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* g++.dg/parse/stack1.C: Remove XFAIL.
+	* g++.old-deja/g++.bugs/900205_03.C: Likewise.
+	* g++.old-deja/g++.ext/arrnew2.C: Likewise.
+	* g++.old-deja/g++.mike/p646.C: Likewise.
+	* gcc.c-torture/execute/string-opt-19.x: Remove.
+
 2004-05-05  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR c/15062
