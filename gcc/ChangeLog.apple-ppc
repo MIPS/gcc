@@ -1,3 +1,8 @@
+2004-07-30  Matt Austern  <austern@apple.com>
+
+        * config/darwin-c.c (darwin_pragma_call_on_load): Deprecate.
+	(darwin_pragma_call_on_unload): Likewise.
+
 2004-07-15  Devang Patel  <dpatel@apple.com>
 
         * tree-if-conv.c: Add brief description at the beginning.
