@@ -111,9 +111,7 @@ copyprop_stmt (tree stmt)
       tree *use_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
       tree orig = get_original (*use_p);
 
-      if (orig
-	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (*use_p)
-	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
+      if (orig && may_propagate_copy (*use_p, orig))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -209,10 +207,10 @@ get_original (tree var)
 void
 propagate_copy (tree *op_p, tree var)
 {
-  /* FIXME: Hideous hack.  If *OP_P is a variable forced into a register by
-     the user, don't copy propagate into it.  */
-  if (DECL_LANG_FLAG_4 (SSA_NAME_VAR (*op_p)))
-    return;
+#if defined ENABLE_CHECKING
+  if (!may_propagate_copy (*op_p, var))
+    abort ();
+#endif
 
   /* If VAR doesn't have a memory tag, copy the one from the original
      operand.  */

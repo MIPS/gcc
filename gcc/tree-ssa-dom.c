@@ -474,6 +474,11 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
       val = get_value_for (*op_p, const_and_copies);
       if (val)
 	{
+	  /* Make sure that copy propagation can be done here.  */
+	  if (TREE_CODE (val) == SSA_NAME
+	      && !may_propagate_copy (*op_p, val))
+	    continue;
+
 	  /* Gather statistics.  */
 	  if (is_unchanging_value (val)
 	      || is_optimizable_addr_expr (val))

@@ -2923,7 +2923,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 		 keyword indicates that we should place the variable
 		 in a particular register.  */
 	      if (DECL_REGISTER (decl))
-		DECL_C_HARD_REGISTER (decl) = 1;
+		DECL_HARD_REGISTER (decl) = 1;
 
 	      /* If this is not a static variable, issue a warning.
 		 It doesn't make any sense to give an ASMSPEC for an

@@ -536,4 +536,12 @@ is_optimizable_addr_expr (tree val)
 	      || TREE_CODE (TREE_OPERAND (val, 0)) == PARM_DECL));
 }
 
+static inline bool
+may_propagate_copy (tree dest, tree orig)
+{
+  return (!SSA_NAME_OCCURS_IN_ABNORMAL_PHI (dest)
+	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig)
+	  && !DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
+}
+
 #endif /* _TREE_FLOW_INLINE_H  */

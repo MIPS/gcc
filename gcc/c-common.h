@@ -1186,10 +1186,6 @@ extern int anon_aggr_type_p (tree);
 #define CLEAR_DECL_C_BIT_FIELD(NODE) \
   (DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE)) = 0)
 
-/* In a VAR_DECL, nonzero if the decl is a register variable with
-   an explicit asm specification.  */
-#define DECL_C_HARD_REGISTER(DECL)  DECL_LANG_FLAG_4 (VAR_DECL_CHECK (DECL))
-
 extern void emit_local_var (tree);
 extern void make_rtl_for_local_static (tree);
 extern tree expand_cond (tree);

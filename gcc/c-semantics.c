@@ -269,7 +269,7 @@ emit_local_var (tree decl)
   /* Create RTL for this variable.  */
   if (!DECL_RTL_SET_P (decl))
     {
-      if (DECL_C_HARD_REGISTER (decl))
+      if (DECL_HARD_REGISTER (decl))
 	/* The user specified an assembler name for this variable.
 	   Set that up now.  */
 	rest_of_decl_compilation

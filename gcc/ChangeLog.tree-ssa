@@ -1,3 +1,17 @@
+2003-07-23  Jason Merrill  <jason@redhat.com>
+	    Diego Novillo  <dnovillo@redhat.com>
+
+	* c-common.h (DECL_C_HARD_REGISTER): Replace ...
+	* tree.h (DECL_HARD_REGISTER): ... with this.  Update all users.
+
+2003-07-23  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-flow-inline.h (may_propagate_copy): New function.
+	* tree-flow.h (may_propagate_copy): Declare.
+	* tree-ssa-copyprop.c (copyprop_stmt): Call it.
+	(get_original): Likewise.
+	* tree-ssa-dom.c (optimize_stmt): Likewise.
+
 2003-07-23  Frank Ch. Eigler  <fche@redhat.com>
 
 	* gcc.c (MFWRAP_SPEC): Also wrap pthread_join and pthread_exit.

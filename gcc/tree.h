@@ -1785,6 +1785,10 @@ struct tree_type GTY(())
    where it is called.  */
 #define DECL_INLINE(NODE) (FUNCTION_DECL_CHECK (NODE)->decl.inline_flag)
 
+/* In a VAR_DECL, nonzero if the decl is a register variable with
+   an explicit asm specification.  */
+#define DECL_HARD_REGISTER(NODE)  (DECL_CHECK (NODE)->decl.inline_flag)
+
 /* Nonzero in a FUNCTION_DECL means this function has been found inlinable
    only by virtue of -finline-functions  */
 #define DID_INLINE_FUNC(NODE) \

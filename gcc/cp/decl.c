@@ -7837,7 +7837,7 @@ make_rtl_for_nonlocal_decl (tree decl, tree init, const char* asmspec)
 	 asm-specification, indicates that the variable should be
 	 placed in a particular register.  */
       if (DECL_REGISTER (decl))
-	DECL_C_HARD_REGISTER (decl) = 1;
+	DECL_HARD_REGISTER (decl) = 1;
     }
 
   /* We don't create any RTL for local variables.  */
