@@ -179,7 +179,8 @@ get_alias_var_decl (decl)
     newvar = create_fun_alias_var  (decl, 0);
   else
     {
-      if (decl_function_context (decl) == NULL && decl != global_var)
+      if ((DECL_CONTEXT (decl) == NULL || TREE_PUBLIC (decl) 
+	   || decl_function_context (decl) == NULL) && decl != global_var)
 	return get_alias_var (global_var);
       else
 	newvar = create_alias_var (decl);
@@ -634,16 +635,19 @@ find_func_aliases (tp, walk_subtrees, data)
 	  else if (TREE_CODE (op0) == INDIRECT_REF
 		   && is_gimple_cast (op1))
 	    {
-	      /* This becomes temp = (cast) y and  *x = temp. */
-	      alias_typevar tempvar;
-	      tree temp;
-	      temp = create_tmp_alias_var (void_type_node, "aliastmp");
-	      tempvar = current_alias_ops->add_var (current_alias_ops, temp);
-	      
-	      current_alias_ops->simple_assign (current_alias_ops, tempvar, 
-						rhsAV);
-	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
-					     tempvar);
+	      if (rhsAV != NULL)
+		{
+		  /* This becomes temp = (cast) y and  *x = temp. */
+		  alias_typevar tempvar;
+		  tree temp;
+		  temp = create_tmp_alias_var (void_type_node, "aliastmp");
+		  tempvar = current_alias_ops->add_var (current_alias_ops,
+							temp);
+		  current_alias_ops->simple_assign (current_alias_ops,
+						    tempvar, rhsAV);
+		  current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
+						 tempvar);
+		}
 	      *walk_subtrees = 0;
 	    }
 	  /* *x = <something else> */
@@ -1075,16 +1079,27 @@ ptr_may_alias_var (ptr, var)
   
   ptrcontext = DECL_CONTEXT (ptr);
   varcontext = DECL_CONTEXT (var);
-  if (ptrcontext != NULL)
-    ptrcontext = decl_function_context (ptr);
-  if (varcontext != NULL)
-    varcontext = decl_function_context (var);
-  if (ptrcontext == NULL)
+  if (TREE_PUBLIC (ptr))
     ptr = global_var;
-  if (varcontext == NULL)
+  else
+    {
+      if (ptrcontext != NULL && TREE_CODE (ptrcontext) != FUNCTION_DECL)
+	ptrcontext = decl_function_context (ptr);
+      if (ptrcontext == NULL)
+	ptr = global_var;
+    }
+  if (TREE_PUBLIC (var))
     var = global_var;
+  else
+    {
+      if (varcontext != NULL && TREE_CODE (varcontext) != FUNCTION_DECL)
+	varcontext = decl_function_context (var);
+      if (varcontext == NULL)
+	var = global_var;
+    }
   if (ptr == var || (ptrcontext == NULL && varcontext == NULL))
     return true;
+  
   if (DECL_P (ptr))
     {
       ptrtv = DECL_PTA_TYPEVAR (ptr);

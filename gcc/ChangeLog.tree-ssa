@@ -1,3 +1,11 @@
+2003-06-17  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-alias-common.c (find_func_aliases): Guard cast op
+	properly.
+	(ptr_may_alias_var): Small optimization to avoid calling
+	decl_function_context so often.
+	* tree-alias-ander.c (ander_simple_assign): Ignore if lhs == rhs.
+
 2003-06-17  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* timevar.def (TV_TREE_BUILD_FUD_CHAINS): Remove.

@@ -533,7 +533,8 @@ andersen_simple_assign (ops, lhs, rhs)
     fprintf (dump_file, "Simple assignment %s = %s\n",
 	     alias_get_name (ALIAS_TVAR_DECL (lhs)),
 	     alias_get_name (ALIAS_TVAR_DECL (rhs)));
-  
+  if (lhs == rhs)
+    return;
   pta_assignment (ALIAS_TVAR_ATERM (lhs),
 		  pta_rvalue (ALIAS_TVAR_ATERM (rhs)));
 }
