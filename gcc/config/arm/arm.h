@@ -106,7 +106,7 @@
 /* The various ARM cores.  */
 enum processor_type
 {
-#define ARM_CORE(NAME, FLAGS) \
+#define ARM_CORE(NAME, FLAGS, COSTS) \
   NAME,
 #include "arm-cores.def"
 #undef ARM_CORE

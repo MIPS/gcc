@@ -123,7 +123,10 @@ static void arm_internal_label (FILE *, const char *, unsigned long);
 static void arm_output_mi_thunk (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 				 tree);
 static int arm_rtx_costs_1 (rtx, enum rtx_code, enum rtx_code);
-static bool arm_rtx_costs (rtx, int, int, int *);
+static bool arm_slowmul_rtx_costs (rtx, int, int, int *);
+static bool arm_fastmul_rtx_costs (rtx, int, int, int *);
+static bool arm_xscale_rtx_costs (rtx, int, int, int *);
+static bool arm_9e_rtx_costs (rtx, int, int, int *);
 static int arm_address_cost (rtx);
 static bool arm_memory_load_p (rtx);
 static bool arm_cirrus_insn_p (rtx);
@@ -219,8 +222,9 @@ static void aof_file_end (void);
 #undef  TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
+/* This will be overridden in arm_override_options.  */
 #undef  TARGET_RTX_COSTS
-#define TARGET_RTX_COSTS arm_rtx_costs
+#define TARGET_RTX_COSTS arm_slowmul_rtx_costs
 #undef  TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST arm_address_cost
 
@@ -391,6 +395,7 @@ struct processors
   const char *const name;
   enum processor_type core;
   const unsigned long flags;
+  bool (* rtx_costs) (rtx, int, int, int *);
 };
 
 /* Not all of these give usefully different compilation alternatives,
@@ -398,33 +403,35 @@ struct processors
 static const struct processors all_cores[] =
 {
   /* ARM Cores */
-#define ARM_CORE(NAME, FLAGS) \
-  {#NAME, arm_none, FLAGS},
+#define ARM_CORE(NAME, FLAGS, COSTS) \
+  {#NAME, arm_none, FLAGS, arm_##COSTS##_rtx_costs},
 #include "arm-cores.def"
 #undef ARM_CORE
-  {NULL, arm_none, 0}
+  {NULL, arm_none, 0, NULL}
 };
 
 static const struct processors all_architectures[] =
 {
   /* ARM Architectures */
+  /* We don't specify rtx_costs here as it will be figured out
+     from the core.  */
   
-  { "armv2",     arm2,       FL_CO_PROC | FL_MODE26 },
-  { "armv2a",    arm2,       FL_CO_PROC | FL_MODE26 },
-  { "armv3",     arm6,       FL_CO_PROC | FL_MODE26 | FL_MODE32 },
-  { "armv3m",    arm7m,      FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT },
-  { "armv4",     arm7tdmi,   FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 },
+  { "armv2",     arm2,       FL_CO_PROC | FL_MODE26 , NULL},
+  { "armv2a",    arm2,       FL_CO_PROC | FL_MODE26 , NULL},
+  { "armv3",     arm6,       FL_CO_PROC | FL_MODE26 | FL_MODE32 , NULL},
+  { "armv3m",    arm7m,      FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT , NULL},
+  { "armv4",     arm7tdmi,   FL_CO_PROC | FL_MODE26 | FL_MODE32 | FL_FAST_MULT | FL_ARCH4 , NULL},
   /* Strictly, FL_MODE26 is a permitted option for v4t, but there are no
      implementations that support it, so we will leave it out for now.  */
-  { "armv4t",    arm7tdmi,   FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB },
-  { "armv5",     arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
-  { "armv5t",    arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 },
-  { "armv5te",   arm1026ejs, FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E },
-  { "armv6",     arm1136js,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J },
-  { "armv6j",    arm1136js,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J },
-  { "ep9312",	 ep9312, 			      FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_LDSCHED | FL_CIRRUS },
-  {"iwmmxt",     iwmmxt,                              FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT },
-  { NULL, arm_none, 0 }
+  { "armv4t",    arm7tdmi,   FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB , NULL},
+  { "armv5",     arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 , NULL},
+  { "armv5t",    arm10tdmi,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 , NULL},
+  { "armv5te",   arm1026ejs, FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E , NULL},
+  { "armv6",     arm1136js,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J , NULL},
+  { "armv6j",    arm1136js,  FL_CO_PROC |             FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_ARCH5 | FL_ARCH5E | FL_ARCH6J , NULL},
+  { "ep9312",	 ep9312, 			      FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_LDSCHED | FL_CIRRUS , NULL},
+  {"iwmmxt",     iwmmxt,                              FL_MODE32 | FL_FAST_MULT | FL_ARCH4 | FL_THUMB | FL_LDSCHED | FL_STRONG | FL_ARCH5 | FL_ARCH5E | FL_XSCALE | FL_IWMMXT , NULL},
+  { NULL, arm_none, 0 , NULL}
 };
 
 /* This is a magic structure.  The 'string' field is magically filled in
@@ -684,12 +691,13 @@ arm_override_options (void)
 	arm_tune = (enum processor_type) (sel - all_cores);
     }
   
-  /* The processor for which we shoudl tune should now have been
+  /* The processor for which we should tune should now have been
      chosen.  */
   if (arm_tune == arm_none)
     abort ();
   
   tune_flags = all_cores[(int)arm_tune].flags;
+  targetm.rtx_costs = all_cores[(int)arm_tune].rtx_costs;
 
   /* Make sure that the processor choice does not conflict with any of the
      other command line choices.  */
@@ -3190,6 +3198,125 @@ arm_legitimize_address (rtx x, rtx orig_x, enum machine_mode mode)
 #ifndef COSTS_N_INSNS
 #define COSTS_N_INSNS(N) ((N) * 4 - 2)
 #endif
+static inline int
+thumb_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
+{
+  enum machine_mode mode = GET_MODE (x);
+
+  switch (code)
+    {
+    case ASHIFT:
+    case ASHIFTRT:
+    case LSHIFTRT:
+    case ROTATERT:	
+    case PLUS:
+    case MINUS:
+    case COMPARE:
+    case NEG:
+    case NOT:	
+      return COSTS_N_INSNS (1);
+      
+    case MULT:							
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT)			
+	{								
+	  int cycles = 0;						
+	  unsigned HOST_WIDE_INT i = INTVAL (XEXP (x, 1));
+	  
+	  while (i)						
+	    {							
+	      i >>= 2;						
+	      cycles++;						
+	    }							
+	  return COSTS_N_INSNS (2) + cycles;			
+	}
+      return COSTS_N_INSNS (1) + 16;
+      
+    case SET:							
+      return (COSTS_N_INSNS (1)					
+	      + 4 * ((GET_CODE (SET_SRC (x)) == MEM)		
+		     + GET_CODE (SET_DEST (x)) == MEM));
+      
+    case CONST_INT:						
+      if (outer == SET)						
+	{							
+	  if ((unsigned HOST_WIDE_INT) INTVAL (x) < 256)		
+	    return 0;						
+	  if (thumb_shiftable_const (INTVAL (x)))			
+	    return COSTS_N_INSNS (2);				
+	  return COSTS_N_INSNS (3);				
+	}								
+      else if ((outer == PLUS || outer == COMPARE)
+	       && INTVAL (x) < 256 && INTVAL (x) > -256)		
+	return 0;
+      else if (outer == AND
+	       && INTVAL (x) < 256 && INTVAL (x) >= -256)
+	return COSTS_N_INSNS (1);
+      else if (outer == ASHIFT || outer == ASHIFTRT		
+	       || outer == LSHIFTRT)				
+	return 0;							
+      return COSTS_N_INSNS (2);
+      
+    case CONST:							
+    case CONST_DOUBLE:						
+    case LABEL_REF:						
+    case SYMBOL_REF:						
+      return COSTS_N_INSNS (3);
+      
+    case UDIV:
+    case UMOD:
+    case DIV:
+    case MOD:
+      return 100;
+
+    case TRUNCATE:
+      return 99;
+
+    case AND:
+    case XOR:
+    case IOR: 
+      /* XXX guess. */
+      return 8;
+
+    case ADDRESSOF:
+    case MEM:
+      /* XXX another guess.  */
+      /* Memory costs quite a lot for the first word, but subsequent words
+	 load at the equivalent of a single insn each.  */
+      return (10 + 4 * ((GET_MODE_SIZE (mode) - 1) / UNITS_PER_WORD)
+	      + ((GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
+		 ? 4 : 0));
+
+    case IF_THEN_ELSE:
+      /* XXX a guess. */
+      if (GET_CODE (XEXP (x, 1)) == PC || GET_CODE (XEXP (x, 2)) == PC)
+	return 14;
+      return 2;
+
+    case ZERO_EXTEND:
+      /* XXX still guessing.  */
+      switch (GET_MODE (XEXP (x, 0)))
+	{
+	case QImode:
+	  return (1 + (mode == DImode ? 4 : 0)
+		  + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
+	  
+	case HImode:
+	  return (4 + (mode == DImode ? 4 : 0)
+		  + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
+	  
+	case SImode:
+	  return (1 + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
+      
+	default:
+	  return 99;
+	}
+      
+    default:
+      return 99;
+    }
+}
+
+
 /* Worker routine for arm_rtx_costs.  */
 static inline int
 arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
@@ -3198,121 +3325,6 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
   enum rtx_code subcode;
   int extra_cost;
 
-  if (TARGET_THUMB)
-    {
-      switch (code)
-	{
-	case ASHIFT:
-	case ASHIFTRT:
-	case LSHIFTRT:
-	case ROTATERT:	
-	case PLUS:
-	case MINUS:
-	case COMPARE:
-	case NEG:
-	case NOT:	
-	  return COSTS_N_INSNS (1);
-	  
-	case MULT:							
-	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)			
-	    {								
-	      int cycles = 0;						
-	      unsigned HOST_WIDE_INT i = INTVAL (XEXP (x, 1));
-	      
-	      while (i)						
-		{							
-		  i >>= 2;						
-		  cycles++;						
-		}							
-	      return COSTS_N_INSNS (2) + cycles;			
-	    }
-	  return COSTS_N_INSNS (1) + 16;
-	  
-	case SET:							
-	  return (COSTS_N_INSNS (1)					
-		  + 4 * ((GET_CODE (SET_SRC (x)) == MEM)		
-			 + GET_CODE (SET_DEST (x)) == MEM));
-	  
-	case CONST_INT:						
-	  if (outer == SET)						
-	    {							
-	      if ((unsigned HOST_WIDE_INT) INTVAL (x) < 256)		
-		return 0;						
-	      if (thumb_shiftable_const (INTVAL (x)))			
-		return COSTS_N_INSNS (2);				
-	      return COSTS_N_INSNS (3);				
-	    }								
-	  else if ((outer == PLUS || outer == COMPARE)
-		   && INTVAL (x) < 256 && INTVAL (x) > -256)		
-	    return 0;
-	  else if (outer == AND
-		   && INTVAL (x) < 256 && INTVAL (x) >= -256)
-	    return COSTS_N_INSNS (1);
-	  else if (outer == ASHIFT || outer == ASHIFTRT		
-		   || outer == LSHIFTRT)				
-	    return 0;							
-	  return COSTS_N_INSNS (2);
-	  
-	case CONST:							
-	case CONST_DOUBLE:						
-	case LABEL_REF:						
-	case SYMBOL_REF:						
-	  return COSTS_N_INSNS (3);
-	  
-	case UDIV:
-	case UMOD:
-	case DIV:
-	case MOD:
-	  return 100;
-
-	case TRUNCATE:
-	  return 99;
-
-	case AND:
-	case XOR:
-	case IOR: 
-	  /* XXX guess. */
-	  return 8;
-
-	case ADDRESSOF:
-	case MEM:
-	  /* XXX another guess.  */
-	  /* Memory costs quite a lot for the first word, but subsequent words
-	     load at the equivalent of a single insn each.  */
-	  return (10 + 4 * ((GET_MODE_SIZE (mode) - 1) / UNITS_PER_WORD)
-		  + ((GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
-		     ? 4 : 0));
-
-	case IF_THEN_ELSE:
-	  /* XXX a guess. */
-	  if (GET_CODE (XEXP (x, 1)) == PC || GET_CODE (XEXP (x, 2)) == PC)
-	    return 14;
-	  return 2;
-
-	case ZERO_EXTEND:
-	  /* XXX still guessing.  */
-	  switch (GET_MODE (XEXP (x, 0)))
-	    {
-	    case QImode:
-	      return (1 + (mode == DImode ? 4 : 0)
-		      + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
-	      
-	    case HImode:
-	      return (4 + (mode == DImode ? 4 : 0)
-		      + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
-	      
-	    case SImode:
-	      return (1 + (GET_CODE (XEXP (x, 0)) == MEM ? 10 : 0));
-	  
-	    default:
-	      return 99;
-	    }
-	  
-	default:
-	  return 99;
-	}
-    }
-  
   switch (code)
     {
     case MEM:
@@ -3443,62 +3455,8 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
       return 8;
 
     case MULT:
-      /* There is no point basing this on the tuning, since it is always the
-	 fast variant if it exists at all.  */
-      if (arm_fast_multiply && mode == DImode
-	  && (GET_CODE (XEXP (x, 0)) == GET_CODE (XEXP (x, 1)))
-	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
-	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
-	return 8;
-
-      if (GET_MODE_CLASS (mode) == MODE_FLOAT
-	  || mode == DImode)
-	return 30;
-
-      if (GET_CODE (XEXP (x, 1)) == CONST_INT)
-	{
-	  unsigned HOST_WIDE_INT i = (INTVAL (XEXP (x, 1))
-				      & (unsigned HOST_WIDE_INT) 0xffffffff);
-	  int cost, const_ok = const_ok_for_arm (i);
-	  int j, booth_unit_size;
-
-	  if (arm_tune_xscale)
-	    {
-	      unsigned HOST_WIDE_INT masked_const;
-
-	      /* The cost will be related to two insns.
-		 First a load of the constant (MOV or LDR), then a multiply. */
-	      cost = 2;
-	      if (! const_ok)
-		cost += 1;      /* LDR is probably more expensive because
-				   of longer result latency. */
-	      masked_const = i & 0xffff8000;
-	      if (masked_const != 0 && masked_const != 0xffff8000)
-		{
-		  masked_const = i & 0xf8000000;
-		  if (masked_const == 0 || masked_const == 0xf8000000)
-		    cost += 1;
-		  else
-		    cost += 2;
-		}
-	      return cost;
-	    }
-	  
-	  /* Tune as appropriate.  */ 
-	  cost = const_ok ? 4 : 8;
-	  booth_unit_size = ((tune_flags & FL_FAST_MULT) ? 8 : 2);
-	  for (j = 0; i && j < 32; j += booth_unit_size)
-	    {
-	      i >>= booth_unit_size;
-	      cost += 2;
-	    }
-
-	  return cost;
-	}
-
-      return (((tune_flags & FL_FAST_MULT) ? 8 : 30)
-	      + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4)
-	      + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : 4));
+      /* This should have been handled by the CPU specific routines.  */
+      abort ();
 
     case TRUNCATE:
       if (arm_fast_multiply && mode == SImode
@@ -3594,13 +3552,262 @@ arm_rtx_costs_1 (rtx x, enum rtx_code code, enum rtx_code outer)
     }
 }
 
+/* RTX costs for cores with a slow MUL implimentation.  */
+
 static bool
-arm_rtx_costs (rtx x, int code, int outer_code, int *total)
+arm_slowmul_rtx_costs (rtx x, int code, int outer_code, int *total)
 {
-  *total = arm_rtx_costs_1 (x, code, outer_code);
-  return true;
+  enum machine_mode mode = GET_MODE (x);
+
+  if (TARGET_THUMB)
+    {
+      *total = thumb_rtx_costs (x, code, outer_code);
+      return true;
+    }
+  
+  switch (code)
+    {
+    case MULT:
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT
+	  || mode == DImode)
+	{
+	  *total = 30;
+	  return true;
+	}
+
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+	{
+	  unsigned HOST_WIDE_INT i = (INTVAL (XEXP (x, 1))
+				      & (unsigned HOST_WIDE_INT) 0xffffffff);
+	  int cost, const_ok = const_ok_for_arm (i);
+	  int j, booth_unit_size;
+
+	  /* Tune as appropriate.  */ 
+	  cost = const_ok ? 4 : 8;
+	  booth_unit_size = 2;
+	  for (j = 0; i && j < 32; j += booth_unit_size)
+	    {
+	      i >>= booth_unit_size;
+	      cost += 2;
+	    }
+
+	  *total = cost;
+	  return true;
+	}
+
+      *total = 30 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4)
+	          + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : 4);
+      return true;
+  
+    default:
+      *total = arm_rtx_costs_1 (x, code, outer_code);
+      return true;
+    }
 }
 
+
+/* RTX cost for cores with a fast multiply unit (M variants).  */
+
+static bool
+arm_fastmul_rtx_costs (rtx x, int code, int outer_code, int *total)
+{
+  enum machine_mode mode = GET_MODE (x);
+
+  if (TARGET_THUMB)
+    {
+      *total = thumb_rtx_costs (x, code, outer_code);
+      return true;
+    }
+  
+  switch (code)
+    {
+    case MULT:
+      /* There is no point basing this on the tuning, since it is always the
+	 fast variant if it exists at all.  */
+      if (mode == DImode
+	  && (GET_CODE (XEXP (x, 0)) == GET_CODE (XEXP (x, 1)))
+	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
+	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
+	{
+	  *total = 8;
+	  return true;
+	}
+      
+
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT
+	  || mode == DImode)
+	{
+	  *total = 30;
+	  return true;
+	}
+
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+	{
+	  unsigned HOST_WIDE_INT i = (INTVAL (XEXP (x, 1))
+				      & (unsigned HOST_WIDE_INT) 0xffffffff);
+	  int cost, const_ok = const_ok_for_arm (i);
+	  int j, booth_unit_size;
+
+	  /* Tune as appropriate.  */ 
+	  cost = const_ok ? 4 : 8;
+	  booth_unit_size = 8;
+	  for (j = 0; i && j < 32; j += booth_unit_size)
+	    {
+	      i >>= booth_unit_size;
+	      cost += 2;
+	    }
+
+	  *total = cost;
+	  return true;
+	}
+
+      *total = 8 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4)
+	         + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : 4);
+      return true;
+  
+    default:
+      *total = arm_rtx_costs_1 (x, code, outer_code);
+      return true;
+    }
+}
+
+
+/* RTX cost for XScale CPUs.  */
+
+static bool
+arm_xscale_rtx_costs (rtx x, int code, int outer_code, int *total)
+{
+  enum machine_mode mode = GET_MODE (x);
+
+  if (TARGET_THUMB)
+    {
+      *total = thumb_rtx_costs (x, code, outer_code);
+      return true;
+    }
+  
+  switch (code)
+    {
+    case MULT:
+      /* There is no point basing this on the tuning, since it is always the
+	 fast variant if it exists at all.  */
+      if (mode == DImode
+	  && (GET_CODE (XEXP (x, 0)) == GET_CODE (XEXP (x, 1)))
+	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
+	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
+	{
+	  *total = 8;
+	  return true;
+	}
+      
+
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT
+	  || mode == DImode)
+	{
+	  *total = 30;
+	  return true;
+	}
+
+      if (GET_CODE (XEXP (x, 1)) == CONST_INT)
+	{
+	  unsigned HOST_WIDE_INT i = (INTVAL (XEXP (x, 1))
+				      & (unsigned HOST_WIDE_INT) 0xffffffff);
+	  int cost, const_ok = const_ok_for_arm (i);
+	  unsigned HOST_WIDE_INT masked_const;
+
+	  /* The cost will be related to two insns.
+	     First a load of the constant (MOV or LDR), then a multiply. */
+	  cost = 2;
+	  if (! const_ok)
+	    cost += 1;      /* LDR is probably more expensive because
+			       of longer result latency. */
+	  masked_const = i & 0xffff8000;
+	  if (masked_const != 0 && masked_const != 0xffff8000)
+	    {
+	      masked_const = i & 0xf8000000;
+	      if (masked_const == 0 || masked_const == 0xf8000000)
+		cost += 1;
+	      else
+		cost += 2;
+	    }
+	  *total = cost;
+	  return true;
+	}
+
+      *total = 8 + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : 4)
+		 + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : 4);
+      return true;
+  
+    default:
+      *total = arm_rtx_costs_1 (x, code, outer_code);
+      return true;
+    }
+}
+
+
+/* RTX costs for 9e (and later) cores.  */
+
+static bool
+arm_9e_rtx_costs (rtx x, int code, int outer_code, int *total)
+{
+  enum machine_mode mode = GET_MODE (x);
+  int nonreg_cost;
+  int cost;
+  
+  if (TARGET_THUMB)
+    {
+      switch (code)
+	{
+	case MULT:
+	  *total = COSTS_N_INSNS (3);
+	  return true;
+	  
+	default:
+	  *total = thumb_rtx_costs (x, code, outer_code);
+	  return true;
+	}
+    }
+  
+  switch (code)
+    {
+    case MULT:
+      /* There is no point basing this on the tuning, since it is always the
+	 fast variant if it exists at all.  */
+      if (mode == DImode
+	  && (GET_CODE (XEXP (x, 0)) == GET_CODE (XEXP (x, 1)))
+	  && (GET_CODE (XEXP (x, 0)) == ZERO_EXTEND
+	      || GET_CODE (XEXP (x, 0)) == SIGN_EXTEND))
+	{
+	  *total = 3;
+	  return true;
+	}
+      
+
+      if (GET_MODE_CLASS (mode) == MODE_FLOAT)
+	{
+	  *total = 30;
+	  return true;
+	}
+      if (mode == DImode)
+	{
+	  cost = 7;
+	  nonreg_cost = 8;
+	}
+      else
+	{
+	  cost = 2;
+	  nonreg_cost = 4;
+	}
+
+
+      *total = cost + (REG_OR_SUBREG_REG (XEXP (x, 0)) ? 0 : nonreg_cost)
+		    + (REG_OR_SUBREG_REG (XEXP (x, 1)) ? 0 : nonreg_cost);
+      return true;
+  
+    default:
+      *total = arm_rtx_costs_1 (x, code, outer_code);
+      return true;
+    }
+}
 /* All address computations that can be done are free, but rtx cost returns
    the same for practically all of them.  So we weight the different types
    of address here in the order (most pref first):

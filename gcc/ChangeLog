@@ -1,3 +1,15 @@
+2003-12-29  Paul Brook  <paul@codesourcery.com>
+
+	* config/arm/arm-cores.def: Add cost function.
+	* config/arm/arm.c (arm_*_rtx_costs): New functions.
+	(arm_rtx_costs): Remove
+	(struct processors): Add rtx_costs field.
+	(all_cores, all_architectures): Ditto.
+	(arm_override_options): Set targetm.rtx_costs.
+	(thumb_rtx_costs): New function.
+	(arm_rtx_costs_1): Remove cases handled elsewhere.
+	* config/arm/arm.h (processor_type): Add COSTS parameter.
+
 2003-12-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/arm/arm.md (generic_sched): arm926 has its own scheduler.
