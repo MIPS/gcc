@@ -826,7 +826,7 @@ create_fq_dominators (dom)
   int *sons = xmalloc (sizeof (int) * n_basic_blocks);
   basic_block bb, d;
   int i, n, act;
-  int *stack = xmalloc (sizeof (int) * n_edges);
+  int *stack = xmalloc (sizeof (int) * (n_basic_blocks + 1));
   int stack_top = 1;
 
   ret++;

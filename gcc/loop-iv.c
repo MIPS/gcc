@@ -117,6 +117,7 @@ static rtx iv_simplify_plus		PARAMS ((rtx));
 static rtx iv_simplify_rtx		PARAMS ((rtx));
 static void simplify_ivs_using_values	PARAMS ((rtx *, rtx *));
 static void clear_reg_values		PARAMS ((rtx));
+static rtx earliest_value_at_for	PARAMS ((basic_block, int));
 static rtx get_reg_value_at		PARAMS ((basic_block, rtx,
 						 struct ref *));
 static void compute_reg_values		PARAMS ((basic_block, rtx));
@@ -206,7 +207,7 @@ gen_iteration (mode)
   return iteration_rtx[mode];
 }
 
-/* Generate a VALUE_AT rtx for register REGNO at INSN (if after, immediatelly
+/* Generate a VALUE_AT rtx for register REGNO at INSN (if AFTER, immediatelly
    after it).  */
 static rtx
 gen_value_at (regno, insn, after)
@@ -1374,6 +1375,21 @@ clear_reg_values (insn)
     use->ref->aux = NULL_RTX;
 }
 
+/* Generates VALUE_AT for register REGNO as near to entry as possible, startin
+   at basic block BB.  */
+static rtx
+earliest_value_at_for (bb, regno)
+     basic_block bb;
+     int regno;
+{
+  /* We may continue backwards as long as we have an unique predecessor;
+     if the register was altered in any such block, it would have just this
+     single definition and we would not be called.  */
+  while (bb->pred && !bb->pred->pred_next)
+    bb = bb->pred->src;
+  return gen_value_at (regno, bb->head, false);
+}
+
 /* Computes value of register referenced by REF immediately before INSN in
    basic block BB. */
 static rtx
@@ -1386,9 +1402,29 @@ get_reg_value_at (bb, insn, ref)
   struct loop *loop = bb->loop_father, *def_loop;
   basic_block def_bb;
   rtx def_insn;
+  rtx constant = NULL_RTX, value;
   unsigned regno = DF_REF_REGNO (ref);
   unsigned defno;
 
+  /* If all definitions have the same constant value, we are a bit more
+     clever and choose this constant.  */
+  for (def = DF_REF_CHAIN (ref); def; def = def->next)
+    {
+      def_insn = DF_REF_INSN (def->ref);
+      def_bb = BLOCK_FOR_INSN (def_insn);
+  
+      compute_reg_values (def_bb, def_insn);
+      value = get_def_value (def_insn, regno);
+      if (!value || !good_constant_p (value))
+	break;
+      if (!constant)
+	constant = value;
+      else if (!rtx_equal_p (constant, value))
+	break;
+    }
+  if (!def)
+    return constant;
+  
   /* There are three cases:
      -- a single definition inside loop strictly dominates us, and is not
 	part of any subloop -- then this is the value we want.
@@ -1397,6 +1433,7 @@ get_reg_value_at (bb, insn, ref)
      -- any number of other definitions (outside, or inside of loop but
 	only reaching us through latch/outside of loop) -- then the
 	value is the initial one.  */
+
   for (def = DF_REF_CHAIN (ref); def; def = def->next)
     {
       def_insn = DF_REF_INSN (def->ref);
@@ -1420,7 +1457,7 @@ get_reg_value_at (bb, insn, ref)
 
       /* The definition that does not dominate us, but reaches us.  */
       if (bitmap_bit_p (loop_rd_in[bb->index], defno))
-	return NULL_RTX;
+	return earliest_value_at_for (bb, regno);
     }
 
   if (!def)
@@ -1429,13 +1466,11 @@ get_reg_value_at (bb, insn, ref)
   /* The def dominates us.  If it is not the last one,  the remaining
      def(s) must reach us from inside of the loop and cannot dominate us.  */
   if (def->next)
-    return NULL_RTX;
+    return earliest_value_at_for (bb, regno);
 
-  /* Make sure the value is computed.  This is called only if the def
-     strictly dominates this reference, so it will not recurse infinitely.
-     Strictly said the depth of recusion is unbounded, but usually
-     the dominating block comes before dominated one and def chains are
-     short, so it should not cause problems.  */
+  /* Make sure the value is computed.  Strictly said the depth of recusion
+     is unbounded, but usually the def chains are short and refer backwards
+     to values we have already computed, so it should not cause problems.  */
   compute_reg_values (def_bb, def_insn);
 
   return get_def_value (def_insn, regno);
@@ -1785,17 +1820,28 @@ compute_initial_values (loop)
   sbitmap invalid = sbitmap_alloc (max_regno);
   basic_block preheader = loop_preheader_edge (loop)->src;
   struct loop *outer = loop->outer;
+  rtx outer_preheader_end;
+  int outer_preheader_end_after;
   rtx *outer_values = initial_values[outer->num];
   struct ref *def;
   basic_block def_bb;
-  
+
+  if (outer && outer->outer)
+    {
+      outer_preheader_end = loop_preheader_edge (loop)->src->end;
+      outer_preheader_end_after = true;
+    }
+  else
+    {
+      outer_preheader_end = ENTRY_BLOCK_PTR->succ->dest->head;
+      outer_preheader_end_after = false;
+    }
   sbitmap_zero (invalid);
 
   /* Check definitions reaching the end of the loop's preheader.  We are able
      to determine values of registers that are either only defined outside of
      the outer loop (using the initial values of the outer loop), or have
-     exactly one definition directly in the outer loop that dominates the
-     preheader.  */
+     exactly one definition in the outer loop that dominates the preheader.  */
   EXECUTE_IF_SET_IN_BITMAP (DF_BB_INFO (df, preheader)->rd_out, 0, defno,
     {
       def = df->defs[defno];
@@ -1805,9 +1851,8 @@ compute_initial_values (loop)
 	  regno = DF_REF_REGNO (def);
 	  if (flow_bb_inside_loop_p (outer, def_bb))
 	    {
-	      if (def_bb->loop_father != outer
-		  || !fast_dominated_by_p (dom, preheader, def_bb))
-      		SET_BIT (invalid, regno);
+	      if (!fast_dominated_by_p (dom, preheader, def_bb))
+		SET_BIT (invalid, regno);
 	      else if (found_def[regno])
 		abort ();
 	      else
@@ -1818,12 +1863,23 @@ compute_initial_values (loop)
 
   for (regno = FIRST_PSEUDO_REGISTER; regno < max_regno; regno++)
     {
+      def = found_def[regno];
       if (!TEST_BIT (interesting_reg, regno))
 	values[regno] = NULL_RTX;
       else if (TEST_BIT (invalid, regno))
 	values[regno] = gen_value_at (regno, preheader->end, true);
-      else if (found_def[regno])
-	values[regno] = found_def[regno]->aux;
+      else if (def)
+	{
+	  if (DF_REF_BB (def)->loop_father != outer
+	      && expr_mentions_code_p (def->aux, ITERATION))
+	    values[regno] = gen_value_at (regno, def->insn, true);
+	  else
+	    values[regno] = def->aux;
+	}
+      else if (outer_values[regno]
+	       && expr_mentions_code_p (outer_values[regno], ITERATION))
+	values[regno] = gen_value_at (regno, outer_preheader_end,
+				      outer_preheader_end_after);
       else
 	values[regno] = outer_values[regno];
     }

@@ -1,5 +1,15 @@
 2003-04-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* dominance.c (create_fq_dominators): Do not allocate unnecessary
+	memory.
+	* loop-iv.c (earliest_value_at_for): New.
+	(get_reg_value_at): Be more clever about constant values.  Use
+	earliest_value_at_for.
+	(compute_initial_values): Allow values in outer loop to refer to
+	iteration.
+
+2003-04-06  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* loop-iv.c: New.
 	* Makefile.in (loop-iv.o): New.
 	* basic-block.h (fast_dominance_info, fast_dominated_by_p,
