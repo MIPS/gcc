@@ -1,5 +1,11 @@
 2005-02-17  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 4006978
+	* obj-c++.dg/isa-field-1.mm: New.
+	* objc.dg/isa-field-1.m: New.
+
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3635843, 3922342
 	* obj-c++.dg/objc-fast-1.mm: New.
 	* obj-c++.dg/objc-fast-2.mm: New.

@@ -1,5 +1,10 @@
 2005-02-17  Ziemowit Laski  <zlaski@apple.com>
 
+	Radar 4006978
+	* objc-act.c (objc_is_public): Remove unneeded code.
+
+2005-02-17  Ziemowit Laski  <zlaski@apple.com>
+
 	Radar 3635843, 3922342
 	* objc-act.c (OBJC_VERSION): Bump to '6' for the NeXT.
 	(objc_is_gcable_type, objc_substitute_decl, 

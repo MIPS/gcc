@@ -7133,12 +7133,8 @@ objc_is_public (tree expr, tree identifier)
 	      return 0;
 	    }
 	}
-
-      else if (objc_implementation_context && (basetype == objc_object_reference))
-	{
-	  expr = convert (uprivate_record, expr);
-	  warning ("static access to object of type `id'");
-	}
+      /* APPLE LOCAL Objective-C */
+      /* Unneeded code removed.  */
     }
 
   return 1;
