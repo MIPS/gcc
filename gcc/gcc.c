@@ -1451,27 +1451,21 @@ store_arg (arg, delete_always, delete_failure)
     record_temp_file (arg, delete_always, delete_failure);
 }
 
-/* Read compilation specs from a file named FILENAME,
-   replacing the default ones.
+/* Load specs from a file name named FILENAME, replacing occurances of
+   various different types of line-endings, \r\n, \n\r and just \r, with 
+   a single \n.  */
 
-   A suffix which starts with `*' is a definition for
-   one of the machine-specific sub-specs.  The "suffix" should be
-   *asm, *cc1, *cpp, *link, *startfile, *signed_char, etc.
-   The corresponding spec is stored in asm_spec, etc.,
-   rather than in the `compilers' vector.
-
-   Anything invalid in the file is a fatal error.  */
-
-static void
-read_specs (filename, main_p)
+static char*
+load_specs (filename)
      const char *filename;
-     int main_p;
 {
   int desc;
   int readlen;
   struct stat statbuf;
   char *buffer;
-  register char *p;
+  char *buffer_p;
+  char *specs;
+  char *specs_p;
 
   if (verbose_flag)
     notice ("Reading specs from %s\n", filename);
@@ -1490,6 +1484,51 @@ read_specs (filename, main_p)
     pfatal_with_name (filename);
   buffer[readlen] = 0;
   close (desc);
+
+  specs = xmalloc (readlen + 1);
+  specs_p = specs;
+  for (buffer_p = buffer; buffer_p && *buffer_p; buffer_p++)
+    {
+      int skip = 0;
+      char c = *buffer_p;
+      if (c == '\r')
+        {
+	  if (buffer_p > buffer && *(buffer_p-1) == '\n')	/* \n\r */
+	    skip = 1;
+	  else if (*(buffer_p+1) == '\n')			/* \r\n */
+	    skip = 1;
+	  else							/* \r */
+	    c = '\n';
+	}
+      if (! skip)
+	*specs_p++ = c;
+    }
+  *specs_p = '\0';
+
+  free (buffer);
+  return (specs);
+}
+
+/* Read compilation specs from a file named FILENAME,
+   replacing the default ones.
+
+   A suffix which starts with `*' is a definition for
+   one of the machine-specific sub-specs.  The "suffix" should be
+   *asm, *cc1, *cpp, *link, *startfile, *signed_char, etc.
+   The corresponding spec is stored in asm_spec, etc.,
+   rather than in the `compilers' vector.
+
+   Anything invalid in the file is a fatal error.  */
+
+static void
+read_specs (filename, main_p)
+     const char *filename;
+     int main_p;
+{
+  char *buffer;
+  register char *p;
+
+  buffer = load_specs (filename);
 
   /* Scan BUFFER for specs, putting them in the vector.  */
   p = buffer;
@@ -5638,38 +5677,53 @@ lookup_compiler (name, length, language)
 	  (!strcmp (cp->suffix, "-") && !strcmp (name, "-"))
 	  || (strlen (cp->suffix) < length
 	      /* See if the suffix matches the end of NAME.  */
-#ifdef OS2
-	      && ((!strcmp (cp->suffix,
-			   name + length - strlen (cp->suffix))
-		   || !strpbrk (cp->suffix, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
-		  && !strcasecmp (cp->suffix,
-				  name + length - strlen (cp->suffix)))
-#else
 	      && !strcmp (cp->suffix,
 			  name + length - strlen (cp->suffix))
-#endif
 	 ))
+        break;
+    }
+
+#if defined (OS2) ||defined (HAVE_DOS_BASED_FILE_SYSTEM)
+  /* look again, but case-insensitively this time.  */
+  if (cp < compilers)
+    for (cp = compilers + n_compilers - 1; cp >= compilers; cp--)
+      {
+	if (/* The suffix `-' matches only the file name `-'.  */
+	    (!strcmp (cp->suffix, "-") && !strcmp (name, "-"))
+	    || (strlen (cp->suffix) < length
+		/* See if the suffix matches the end of NAME.  */
+		&& ((!strcmp (cp->suffix,
+			     name + length - strlen (cp->suffix))
+		     || !strpbrk (cp->suffix, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+		    && !strcasecmp (cp->suffix,
+				    name + length - strlen (cp->suffix)))
+	   ))
+	  break;
+      }
+#endif
+
+
+  if (cp >= compilers)
+    {
+      if (cp->spec[0][0] == '@')
 	{
-	  if (cp->spec[0][0] == '@')
-	    {
-	      struct compiler *new;
+	  struct compiler *new;
 
-	      /* An alias entry maps a suffix to a language.
-		 Search for the language; pass 0 for NAME and LENGTH
-		 to avoid infinite recursion if language not found.
-		 Construct the new compiler spec.  */
-	      language = cp->spec[0] + 1;
-	      new = (struct compiler *) xmalloc (sizeof (struct compiler));
-	      new->suffix = cp->suffix;
-	      memcpy (new->spec,
-		      lookup_compiler (NULL_PTR, 0, language)->spec,
-		      sizeof new->spec);
-	      return new;
-	    }
-
-	  /* A non-alias entry: return it.  */
-	  return cp;
+	  /* An alias entry maps a suffix to a language.
+	     Search for the language; pass 0 for NAME and LENGTH
+	     to avoid infinite recursion if language not found.
+	     Construct the new compiler spec.  */
+	  language = cp->spec[0] + 1;
+	  new = (struct compiler *) xmalloc (sizeof (struct compiler));
+	  new->suffix = cp->suffix;
+	  memcpy (new->spec,
+		  lookup_compiler (NULL_PTR, 0, language)->spec,
+		  sizeof new->spec);
+	  return new;
 	}
+
+      /* A non-alias entry: return it.  */
+      return cp;
     }
 
   return 0;

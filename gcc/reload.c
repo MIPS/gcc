@@ -6112,18 +6112,22 @@ find_equiv_reg (goal, insn, class, other, reload_reg_p, goalreg, mode)
       && regno < valueno + (int) HARD_REGNO_NREGS (valueno, mode))
     return 0;
 
+  nregs = HARD_REGNO_NREGS (regno, mode);
+  valuenregs = HARD_REGNO_NREGS (valueno, mode);
+
   /* Reject VALUE if it is one of the regs reserved for reloads.
      Reload1 knows how to reuse them anyway, and it would get
      confused if we allocated one without its knowledge.
      (Now that insns introduced by reload are ignored above,
      this case shouldn't happen, but I'm not positive.)  */
 
-  if (reload_reg_p != 0 && reload_reg_p != (short *) (HOST_WIDE_INT) 1
-      && reload_reg_p[valueno] >= 0)
-    return 0;
-
-  nregs = HARD_REGNO_NREGS (regno, mode);
-  valuenregs = HARD_REGNO_NREGS (valueno, mode);
+  if (reload_reg_p != 0 && reload_reg_p != (short *) (HOST_WIDE_INT) 1)
+    {
+      int i;
+      for (i = 0; i < valuenregs; ++i)
+	if (reload_reg_p[valueno + i] >= 0)
+	  return 0;
+    }
 
   /* Reject VALUE if it is a register being used for an input reload
      even if it is not one of those reserved.  */
@@ -6160,16 +6164,23 @@ find_equiv_reg (goal, insn, class, other, reload_reg_p, goalreg, mode)
 
       /* Don't trust the conversion past a function call
 	 if either of the two is in a call-clobbered register, or memory.  */
-      if (GET_CODE (p) == CALL_INSN
-	  && ((regno >= 0 && regno < FIRST_PSEUDO_REGISTER
-	       && call_used_regs[regno])
-	      ||
-	      (valueno >= 0 && valueno < FIRST_PSEUDO_REGISTER
-	       && call_used_regs[valueno])
-	      ||
-	      goal_mem
-	      || need_stable_sp))
-	return 0;
+      if (GET_CODE (p) == CALL_INSN)
+	{
+	  int i;
+	  
+	  if (goal_mem || need_stable_sp)
+	    return 0;
+	  
+	  if (regno >= 0 && regno < FIRST_PSEUDO_REGISTER)
+	    for (i = 0; i < nregs; ++i)
+	      if (call_used_regs[regno + i])
+		return 0;
+
+	  if (valueno >= 0 && valueno < FIRST_PSEUDO_REGISTER)
+	    for (i = 0; i < valuenregs; ++i)
+	      if (call_used_regs[valueno + i])
+		return 0;
+	}
 
 #ifdef NON_SAVING_SETJMP
       if (NON_SAVING_SETJMP && GET_CODE (p) == NOTE

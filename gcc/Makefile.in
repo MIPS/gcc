@@ -161,12 +161,12 @@ INSTALL_ASSERT_H = install-assert-h
 # The GCC to use for compiling libgcc2.a, enquire, and libgcc1-test.
 # Usually the one we just built.
 # Don't use this as a dependency--use $(GCC_PASSES) or $(GCC_PARTS).
-GCC_FOR_TARGET = ./xgcc -B$(build_tooldir)/bin/ -B./ -I$(build_tooldir)/include
+GCC_FOR_TARGET = ./xgcc -B$(build_tooldir)/bin/ -B./ -isystem $(build_tooldir)/include
 
 # This is used instead of ALL_CFLAGS when compiling with GCC_FOR_TARGET.
 # It omits XCFLAGS, and specifies -B./.
-# It also specifies -I./include to find, e.g., stddef.h.
-GCC_CFLAGS=$(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS) -I./include $(TCFLAGS)
+# It also specifies -isystem ./include to find, e.g., stddef.h.
+GCC_CFLAGS=$(INTERNAL_CFLAGS) $(X_CFLAGS) $(T_CFLAGS) $(CFLAGS) -isystem ./include $(TCFLAGS)
 
 # Specify the abi to use when building the c++ runtime
 GXX_ABI_FLAG=@GXX_ABI_FLAG@
@@ -360,7 +360,7 @@ LIBGCC2_DEBUG_CFLAGS = -g1
 LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(TARGET_LIBGCC2_CFLAGS) $(LIBGCC2_DEBUG_CFLAGS) $(GTHREAD_FLAGS) -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED @inhibit_libc@
 
 # Additional options to use when compiling libgcc2.a.
-# Some targets override this to -Iinclude
+# Some targets override this to -isystem include
 LIBGCC2_INCLUDES =
 
 # Additional target-dependent options for compiling libgcc2.a.
@@ -1497,9 +1497,10 @@ print-tree.o : print-tree.c $(CONFIG_H) system.h $(TREE_H) $(GGC_H)
 stor-layout.o : stor-layout.c $(CONFIG_H) system.h $(TREE_H) flags.h \
    function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H)
 fold-const.o : fold-const.c $(CONFIG_H) system.h $(TREE_H) flags.h toplev.h \
-   $(RTL_H) $(GGC_H)
-diagnostic.o : diagnostic.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) tm_p.h flags.h \
-   input.h insn-attr.h insn-codes.h insn-config.h toplev.h intl.h 
+   $(RTL_H) ggc.h
+diagnostic.o : diagnostic.c diagnostic.h \
+   $(CONFIG_H) system.h $(TREE_H) $(RTL_H) tm_p.h flags.h \
+   $(GGC_H) input.h insn-attr.h insn-codes.h insn-config.h toplev.h intl.h 
 toplev.o : toplev.c $(CONFIG_H) system.h $(TREE_H) $(RTL_H) function.h \
    flags.h input.h insn-attr.h xcoffout.h defaults.h output.h \
    insn-codes.h insn-config.h intl.h $(RECOG_H) Makefile toplev.h dwarfout.h \
@@ -2239,7 +2240,7 @@ stmp-fixinc: fixinc.sh gsyslimits.h
 deduced.h: $(GCC_PASSES) $(srcdir)/scan-types.sh stmp-int-hdrs
 	if [ -d $(SYSTEM_HEADER_DIR) ]; \
 	then \
-	  CC="$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(ALL_CPPFLAGS) -I. -I$(srcdir) -Iinclude -I${SYSTEM_HEADER_DIR}"; \
+	  CC="$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(ALL_CPPFLAGS) -I. -I$(srcdir) -isystem include -isystem ${SYSTEM_HEADER_DIR}"; \
 	  export CC; \
 	  $(SHELL) $(srcdir)/scan-types.sh "$(srcdir)" >tmp-deduced.h; \
 	  mv tmp-deduced.h deduced.h; \

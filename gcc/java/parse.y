@@ -3348,7 +3348,7 @@ check_class_interface_creation (is_interface, flags, raw_name, qualified_name, d
 	sca = (GET_CPC_LIST () ? ACC_STATIC : 0);
     }
 
-  /* Inner classes and interfaces can be declared private or protected
+  /* Inner classes can be declared private or protected
      within their enclosing classes. */
   if (CPC_INNER_P ())
     {
@@ -3364,11 +3364,20 @@ check_class_interface_creation (is_interface, flags, raw_name, qualified_name, d
 	}
     }
 
-  if (is_interface)
-    check_modifiers ("Illegal modifier `%s' for interface declaration",
-		     flags, INTERFACE_MODIFIERS);
+  if (is_interface) 
+    {
+      if (CPC_INNER_P ())
+	uaaf = INTERFACE_INNER_MODIFIERS;
+      else
+	uaaf = INTERFACE_MODIFIERS;
+      
+      check_modifiers ("Illegal modifier `%s' for interface declaration", 
+		       flags, uaaf);
+    }
   else
-    check_modifiers ("Illegal modifier `%s' for class declaration",
+    check_modifiers ((current_function_decl ?
+		      "Illegal modifier `%s' for local class declaration" :
+		      "Illegal modifier `%s' for class declaration"),
 		     flags, uaaf|sca|icaf);
   return 0;
 }
@@ -3748,7 +3757,7 @@ create_anonymous_class (location, type_name)
   return class;
 }
 
-/* Create an class in pass1 and return its decl. Return class
+/* Create a class in pass1 and return its decl. Return class
    interface's decl in pass 2.  */
 
 static tree
@@ -3860,6 +3869,13 @@ end_class_declaration (resume)
   POP_CPC ();
   if (resume && no_error_occured)
     java_parser_context_resume ();
+
+  /* We're ending a class declaration, this is a good time to reset
+     the interface cout. Note that might have been already done in
+     create_interface, but if at that time an inner class was being
+     dealt with, the interface count was reset in a context created
+     for the sake of handling inner classes declaration. */
+  ctxp->interface_number = 0;
 }
 
 static void
@@ -3977,6 +3993,21 @@ lookup_field_wrapper (class, name)
   tree decl;
   java_parser_context_save_global ();
   decl = lookup_field (&type, name);
+
+  /* Last chance: if we're within the context of an inner class, we
+     might be trying to access a local variable defined in an outer
+     context. We try to look for it now. */
+  if (INNER_CLASS_TYPE_P (class) && (!decl || decl == error_mark_node))
+    {
+      char *alias_buffer;
+      MANGLE_OUTER_LOCAL_VARIABLE_NAME (alias_buffer, name);
+      name = get_identifier (alias_buffer);
+      type = class;
+      decl = lookup_field (&type, name);
+      if (decl && decl != error_mark_node)
+	FIELD_LOCAL_ALIAS_USED (decl) = 1;
+    }
+
   java_parser_context_restore_global ();
   return decl == error_mark_node ? NULL : decl;
 }
@@ -5390,8 +5421,32 @@ do_resolve_class (enclosing, class_type, decl, cl)
   /* Maybe some code here should be added to load the class or
      something, at least if the class isn't an inner class and ended
      being loaded from class file. FIXME. */
-  if ((new_class_decl = find_as_inner_class (enclosing, class_type, cl)))
-    return new_class_decl;
+  while (enclosing)
+    {
+      tree name;
+
+      if ((new_class_decl = find_as_inner_class (enclosing, class_type, cl)))
+        return new_class_decl;
+
+      /* Now go to the upper classes, bail out if necessary. */
+      enclosing = CLASSTYPE_SUPER (TREE_TYPE (enclosing));
+      if (!enclosing || enclosing == object_type_node)
+	break;
+      
+      if (TREE_CODE (enclosing) == RECORD_TYPE)
+	{
+	  enclosing = TYPE_NAME (enclosing);
+	  continue;
+	}
+
+      if (TREE_CODE (enclosing) == IDENTIFIER_NODE)
+	{
+	  BUILD_PTR_FROM_NAME (name, enclosing);
+	}
+      else
+	name = enclosing;
+      enclosing = do_resolve_class (NULL, name, NULL, NULL);
+    }
 
   /* 1- Check for the type in single imports */
   if (find_in_imports (class_type))
@@ -6814,10 +6869,6 @@ source_start_java_method (fndecl)
   tree tem;
   tree parm_decl;
   int i;
-#if 0
-  int flag_inner = DECL_CONSTRUCTOR_P (fndecl)
-      && (INNER_CLASS_TYPE_P (DECL_CONTEXT (fndecl)) ? 1 : 0);
-#endif
 
   if (!fndecl)
     return;
@@ -6854,29 +6905,6 @@ source_start_java_method (fndecl)
 	LOCAL_FINAL (parm_decl) = 1;
 
       BLOCK_CHAIN_DECL (parm_decl);
-
-#if 0
-      /* If this is a constructor of a inner class, hide the extra
-         this$<n> parameter */
-      if (i == 0 && flag_inner)
-	{
-	  tree link = TREE_CHAIN (tem);
-	  tree type = DECL_CONTEXT (TYPE_NAME (DECL_CONTEXT (fndecl)));
-
-	  type = build_pointer_type (TREE_TYPE (type));
-	  parm_decl = build_decl (PARM_DECL,
-				  build_current_thisn (current_class), type);
-	  BLOCK_CHAIN_DECL (parm_decl);
-	  /* We hide the this$<n> decl in the name field of its
-	     parameter declaration. */
-	  parm_decl = build_tree_list (DECL_NAME (parm_decl), type);
-	  TREE_CHAIN (tem) = parm_decl;
-	  TREE_CHAIN (parm_decl) = link;
-	  tem = parm_decl;
-	  i++;
-	}
-#endif
-
     }
   tem = BLOCK_EXPR_DECLS (DECL_FUNCTION_BODY (current_function_decl));
   BLOCK_EXPR_DECLS (DECL_FUNCTION_BODY (current_function_decl)) =
@@ -8444,25 +8472,17 @@ resolve_expression_name (id, orig)
       else 
         {
 	  decl = lookup_field_wrapper (current_class, name);
-
-	  /* Last chance: if we're within the context of an inner
-	     class, we might be trying to access a local variable
-	     defined in an outer context. We try to look for it
-	     now. */
-	  if (!decl && INNER_CLASS_TYPE_P (current_class))
-	    {
-	      char *alias_buffer;
-	      MANGLE_OUTER_LOCAL_VARIABLE_NAME (alias_buffer, name);
-	      name = get_identifier (alias_buffer);
-	      decl = lookup_field_wrapper (current_class, name);
-	      if (decl)
-		FIELD_LOCAL_ALIAS_USED (decl) = 1;
-	    }
-
 	  if (decl)
 	    {
 	      tree access = NULL_TREE;
 	      int fs = FIELD_STATIC (decl);
+
+	      /* If we're accessing an outer scope local alias, make
+		 sure we change the name of the field we're going to
+		 build access to. */
+	      if (FIELD_LOCAL_ALIAS_USED (decl))
+		name = DECL_NAME (decl);
+
 	      /* Instance variable (8.3.1.1) can't appear within
 		 static method, static initializer or initializer for
 		 a static variable. */
@@ -9125,14 +9145,14 @@ not_accessible_p (reference, member, from_super)
 
       /* Otherwise, access is granted if occuring from the class where
 	 member is declared or a subclass of it */
-      if (inherits_from_p (reference, current_class))
+      if (inherits_from_p (reference, DECL_CONTEXT (member)))
 	return 0;
       return 1;
     }
 
   /* Check access on private members. Access is granted only if it
-     occurs from within the class in witch it is declared. Exceptions
-     are access from inner-classes. This section is probably not
+     occurs from within the class in which it is declared. Exceptions
+     are accesses from inner-classes. This section is probably not
      complete. FIXME */
   if (access_flag & ACC_PRIVATE)
     return (current_class == DECL_CONTEXT (member) ? 0 : 
@@ -9143,7 +9163,7 @@ not_accessible_p (reference, member, from_super)
      REFERENCE is defined in the current package */
   if (ctxp->package)
     return !class_in_current_package (reference);
-  
+
   /* Otherwise, access is granted */
   return 0;
 }
@@ -9446,9 +9466,9 @@ patch_method_invocation (patch, primary, where, is_static, ret_decl)
 	     access$0(access$0(...(this$0))). 
 	     
 	     maybe_use_access_method returns a non zero value if the
-	     this_arg has to be deplaced into the (then generated)
-	     stub argument list. In the mean time, the selected
-	     function might have be replaced by a generated stub. */
+	     this_arg has to be moved into the (then generated) stub
+	     argument list. In the mean time, the selected function
+	     might have be replaced by a generated stub. */
 	  if (maybe_use_access_method (is_super_init, &list, &this_arg))
 	    args = tree_cons (NULL_TREE, this_arg, args);
 	}
@@ -10148,8 +10168,9 @@ qualify_ambiguous_name (id)
 	qual = TREE_CHAIN (qual);
 	again = new_array_found = 1;
 	continue;
-      case NEW_CLASS_EXPR:
       case CONVERT_EXPR:
+	break;
+      case NEW_CLASS_EXPR:
 	qual_wfl = TREE_OPERAND (qual_wfl, 0);
 	break;
       case ARRAY_REF:
@@ -10234,10 +10255,10 @@ qualify_ambiguous_name (id)
       }
   } while (again);
   
-  /* If name appears within the scope of a location variable
-     declaration or parameter declaration, then it is an expression
-     name. We don't carry this test out if we're in the context of the
-     use of SUPER or THIS */
+  /* If name appears within the scope of a local variable declaration
+     or parameter declaration, then it is an expression name. We don't
+     carry this test out if we're in the context of the use of SUPER
+     or THIS */
   if (!this_found && !super_found 
       && TREE_CODE (name) != STRING_CST && TREE_CODE (name) != INTEGER_CST
       && (decl = IDENTIFIER_LOCAL_VALUE (name)))
@@ -10273,7 +10294,7 @@ qualify_ambiguous_name (id)
       QUAL_RESOLUTION (qual) = decl;
     }
 
-  /* Method call are expression name */
+  /* Method call, array references and cast are expression name */
   else if (TREE_CODE (QUAL_WFL (qual)) == CALL_EXPR
 	   || TREE_CODE (QUAL_WFL (qual)) == ARRAY_REF
 	   || TREE_CODE (QUAL_WFL (qual)) == CONVERT_EXPR)

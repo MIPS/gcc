@@ -62,6 +62,12 @@ extern struct obstack *function_maybepermanent_obstack;
    ? (1 + (3 * list_length (DECL_ARGUMENTS (DECL))) / 2) \
    : (8 * (8 + list_length (DECL_ARGUMENTS (DECL)))))
 #endif
+
+/* Decide whether a function with a target specific attribute 
+   attached can be inlined.  By default we disallow this.  */
+#ifndef FUNCTION_ATTRIBUTE_INLINABLE_P
+#define FUNCTION_ATTRIBUTE_INLINABLE_P(FNDECL) 0
+#endif
 
 static rtvec initialize_for_inline	PARAMS ((tree));
 static void note_modified_parmregs	PARAMS ((rtx, rtx, void *));
@@ -72,7 +78,6 @@ static tree integrate_decl_tree		PARAMS ((tree,
 static void subst_constants		PARAMS ((rtx *, rtx,
 						 struct inline_remap *, int));
 static void set_block_origin_self	PARAMS ((tree));
-static void set_decl_origin_self	PARAMS ((tree));
 static void set_block_abstract_flags	PARAMS ((tree, int));
 static void process_reg_param		PARAMS ((struct inline_remap *, rtx,
 						 rtx));
@@ -240,7 +245,14 @@ function_cannot_inline_p (fndecl)
   if (result && GET_CODE (result) == PARALLEL)
     return N_("inline functions not supported for this return value type");
 
-  return 0;
+  /* If the function has a target specific attribute attached to it,
+     then we assume that we should not inline it.  This can be overriden
+     by the target if it defines FUNCTION_ATTRIBUTE_INLINABLE_P.  */
+  if (DECL_MACHINE_ATTRIBUTES (fndecl)
+      && ! FUNCTION_ATTRIBUTE_INLINABLE_P (fndecl))
+    return N_("function with target specific attribute(s) cannot be inlined");
+
+  return NULL;
 }
 
 /* Map pseudo reg number into the PARM_DECL for the parm living in the reg.
@@ -1156,7 +1168,7 @@ expand_inline_function (fndecl, parms, target, ignore, type,
      This line number note is still needed for debugging though, so we can't
      delete it.  */
   if (flag_test_coverage)
-    emit_note (0, NOTE_REPEATED_LINE_NUMBER);
+    emit_note (0, NOTE_INSN_REPEATED_LINE_NUMBER);
 
   emit_line_note (input_filename, lineno);
 
@@ -2634,7 +2646,7 @@ set_block_origin_self (stmt)
    set *their* DECL_ABSTRACT_ORIGIN or BLOCK_ABSTRACT_ORIGIN values to
    point to themselves.  */
 
-static void
+void
 set_decl_origin_self (decl)
      register tree decl;
 {
@@ -2725,16 +2737,8 @@ output_inline_function (fndecl)
 
   set_new_last_label_num (f->inl_max_label_num);
 
-  /* We must have already output DWARF debugging information for the
-     original (abstract) inline function declaration/definition, so
-     we want to make sure that the debugging information we generate
-     for this special instance of the inline function refers back to
-     the information we already generated.  To make sure that happens,
-     we simply have to set the DECL_ABSTRACT_ORIGIN for the function
-     node (and for all of the local ..._DECL nodes which are its children)
-     so that they all point to themselves.  */
-
-  set_decl_origin_self (fndecl);
+  /* Compile this function all the way down to assembly code.  */
+  rest_of_compilation (fndecl);
 
   /* We're not deferring this any longer.  */
   DECL_DEFER_OUTPUT (fndecl) = 0;
@@ -2742,9 +2746,6 @@ output_inline_function (fndecl)
   /* We can't inline this anymore.  */
   f->inlinable = 0;
   DECL_INLINE (fndecl) = 0;
-
-  /* Compile this function all the way down to assembly code.  */
-  rest_of_compilation (fndecl);
 
   cfun = old_cfun;
   current_function_decl = old_cfun ? old_cfun->decl : 0;

@@ -6550,7 +6550,7 @@ cp_make_fname_decl (id, name, type_dep)
           (build_qualified_type (char_type_node, TYPE_QUAL_CONST),
 	   domain);
 
-  decl = build_lang_decl (VAR_DECL, id, type);
+  decl = build_decl (VAR_DECL, id, type);
   TREE_STATIC (decl) = 1;
   TREE_READONLY (decl) = 1;
   DECL_SOURCE_LINE (decl) = 0;
@@ -8924,9 +8924,9 @@ grokvardecl (type, declarator, specbits_in, initialized, constp, in_namespace)
       else
 	context = NULL_TREE;
 
-      if (processing_template_decl)
-	/* If we're in a template, we need DECL_LANG_SPECIFIC so that
-	   we can call push_template_decl.  */
+      if (processing_template_decl && context)
+	/* For global variables, declared in a template, we need the
+	   full lang_decl.  */
 	decl = build_lang_decl (VAR_DECL, declarator, type);
       else
 	decl = build_decl (VAR_DECL, declarator, type);
@@ -10352,6 +10352,20 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	    declarator = TREE_OPERAND (declarator, 0);
 
 	    type = create_array_type_for_decl (dname, type, size);
+
+	    /* VLAs never work as fields. */
+	    if (decl_context == FIELD && !processing_template_decl 
+		&& TREE_CODE (type) == ARRAY_TYPE
+		&& TYPE_DOMAIN (type) != NULL_TREE
+		&& !TREE_CONSTANT (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))
+	      {
+		cp_error ("size of member `%D' is not constant", dname);
+		/* Proceed with arbitrary constant size, so that offset
+		   computations don't get confused. */
+		type = create_array_type_for_decl (dname, TREE_TYPE (type),
+						   integer_one_node);
+	      }
+
 	    ctype = NULL_TREE;
 	  }
 	  break;
@@ -10917,14 +10931,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	  decl = build_lang_decl (TYPE_DECL, declarator, type);
 	}
       else
-	{
-	  /* Make sure this typedef lives as long as its type,
-	     since it might be used as a template parameter. */
-	  if (processing_template_decl)
-	    decl = build_lang_decl (TYPE_DECL, declarator, type);
-	  else
-	    decl = build_decl (TYPE_DECL, declarator, type);
-	}
+	decl = build_decl (TYPE_DECL, declarator, type);
 
       /* If the user declares "typedef struct {...} foo" then the
 	 struct will have an anonymous name.  Fill that name in now.
@@ -14166,22 +14173,7 @@ finish_function (flags)
 
       /* Run the optimizers and output the assembler code for this
          function.  */
-      if (DECL_ARTIFICIAL (fndecl))
-	{
-	  /* Do we really *want* to inline this synthesized method?  */
-
-	  int save_fif = flag_inline_functions;
-	  flag_inline_functions = 1;
-
-	  /* Turn off DECL_INLINE for the moment so function_cannot_inline_p
-	     will check our size.  */
-	  DECL_INLINE (fndecl) = 0;
-
-	  rest_of_compilation (fndecl);
-	  flag_inline_functions = save_fif;
-	}
-      else
-	rest_of_compilation (fndecl);
+      rest_of_compilation (fndecl);
 
       /* Undo the call to ggc_push_context above.  */
       if (function_depth > 1)

@@ -1,3 +1,63 @@
+Mon Apr 24 14:59:36 2000  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (end_class_declaration): Reset the interface number
+ 	counter.
+
+2000-04-24  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+        * parse.y (source_start_java_method): Deleted unecessary code.
+        (patch_method_invocation): Fixed comment.
+
+2000-04-24  Robert Lipe <robertlipe@usa.net>
+
+	* parse.h (_jdep): Member `kind' now ENUM_BITFIELD.
+
+2000-04-23  Tom Tromey  <tromey@cygnus.com>
+
+	* boehm.c (mark_reference_fields): Use int_byte_position.
+
+2000-04-22  Tom Tromey  <tromey@cygnus.com>
+
+	* boehm.c (mark_reference_fields): Only call byte_position on
+	non-static fields.
+
+2000-04-22  Tom Tromey  <tromey@cygnus.com>
+
+	* boehm.c (mark_reference_fields): Added `last_view_index'
+	argument.  Use DECL_FIELD_OFFSET to determine field's offset.
+
+Thu Apr 20 17:41:28 2000  Mo DeJong  <mdejong@cygnus.com>
+
+	* parse.h (INTERFACE_INNER_MODIFIERS): New macro.
+	* parse.y (check_class_interface_creation): Fixed comments. Select
+ 	permitted modifiers for (inner) interfaces. Changed error message
+ 	to report rejected modifiers used with local classes.
+
+2000-04-20  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.h (INNER_ENCLOSING_SCOPE_CHECK): Immediate inner classes
+	of directly inherited type considered in scope.
+	* parse.y (do_resolve_class): Search inherited classes for inner
+	classes.
+
+2000-04-20  Tom Tromey  <tromey@cygnus.com>
+
+	* parse.y (not_accessible_p): Use member's class, not current
+	class, when doing inheritance check for protected reference.
+	Fixes PR gcj/124.
+
+Thu Apr 20 18:20:58 2000  Jason Schroeder  <shrode@subnature.com>
+
+	* jcf-dump.c (SPECIAL_IINC): Fixed typo printing iinc instruction.
+
+2000-04-19  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+	* parse.y (lookup_field_wrapper): Search for final local aliases.
+	(resolve_expression_name): Let lookup_field_wrapper search for
+	final local aliases. Force the value of `name' if one is found.
+	(qualify_ambiguous_name): CONVERT_EXPR is enough to now we have
+	an expression name. Fixed comments.
+
 2000-04-19  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 
 	* parse.y (yyerror): `msg' can be null, don't use it in that case.

@@ -66,7 +66,6 @@ static int read_line_number		PARAMS ((cpp_reader *, int *));
 static U_CHAR *detect_if_not_defined	PARAMS ((cpp_reader *));
 static int consider_directive_while_skipping
 					PARAMS ((cpp_reader *, IF_STACK *));
-static int get_macro_name		PARAMS ((cpp_reader *));
 
 /* Values for the flags field of the table below.  KANDR and COND
    directives come from traditional (K&R) C.  The difference is, if we
@@ -150,6 +149,29 @@ DIRECTIVE_TABLE
 };
 #undef D
 #undef DIRECTIVE_TABLE
+
+/* Check if a token's name matches that of a known directive.  Put in
+   this file to save exporting dtable and other unneeded information.  */
+void
+_cpp_check_directive (list, token)
+     cpp_toklist *list;
+     cpp_token *token;
+{
+  const char *name = list->namebuf + token->val.name.offset;
+  size_t len = token->val.name.len;
+  unsigned int i;
+
+  list->dir_handler = 0;
+  list->dir_flags = 0;
+
+  for (i = 0; i < N_DIRECTIVES; i++)
+    if (dtable[i].length == len && !strncmp (dtable[i].name, name, len)) 
+      {
+	list->dir_handler = dtable[i].func;
+	list->dir_flags = dtable[i].flags;
+	break;
+      }
+}
 
 /* Handle a possible # directive.
    '#' has already been read.  */
@@ -310,36 +332,6 @@ pass_thru_directive (buf, len, pfile, keyword)
   CPP_PUTS_Q (pfile, buf, len);
 }
 
-/* Subroutine of do_define: determine the name of the macro to be
-   defined.  */
-
-static int
-get_macro_name (pfile)
-     cpp_reader *pfile;
-{
-  long here, len;
-
-  here = CPP_WRITTEN (pfile);
-  if (_cpp_get_directive_token (pfile) != CPP_NAME)
-    {
-      cpp_error (pfile, "`#define' must be followed by an identifier");
-      goto invalid;
-    }
-
-  len = CPP_WRITTEN (pfile) - here;
-  if (len == 7 && !strncmp (pfile->token_buffer + here, "defined", 7))
-    {
-      cpp_error (pfile, "`defined' is not a legal macro name");
-      goto invalid;
-    }
-
-  return len;
-
- invalid:
-  _cpp_skip_rest_of_line (pfile);
-  return 0;
-}
-
 /* Process a #define command.  */
 
 static int
@@ -347,110 +339,58 @@ do_define (pfile)
      cpp_reader *pfile;
 {
   HASHNODE **slot;
-  DEFINITION *def = 0;
-  long here;
   unsigned long hash;
   int len;
-  int funlike = 0, empty = 0;
   U_CHAR *sym;
-  enum cpp_ttype token;
+  cpp_toklist *list = &pfile->directbuf;
 
   pfile->no_macro_expand++;
   pfile->parsing_define_directive++;
   CPP_OPTION (pfile, discard_comments)++;
 
-  here = CPP_WRITTEN (pfile);
-  len = get_macro_name (pfile);
-  if (len == 0)
-    goto out;
+  _cpp_scan_line (pfile, list);
 
-  /* Copy out the name so we can pop the token buffer.  */
-  len = CPP_WRITTEN (pfile) - here;
-  sym = (U_CHAR *) alloca (len + 1);
-  memcpy (sym, pfile->token_buffer + here, len);
-  sym[len] = '\0';
-
-  /* If the next character, with no intervening whitespace, is '(',
-     then this is a function-like macro.
-     XXX Layering violation.  */
-  CPP_SET_MARK (pfile);
-  token = _cpp_get_directive_token (pfile);
-  if (token == CPP_VSPACE)
-    empty = 0;  /* Empty definition of object like macro.  */
-  else if (token == CPP_OPEN_PAREN && ADJACENT_TO_MARK (pfile))
-    funlike = 1;
-  else if (ADJACENT_TO_MARK (pfile))
-    /* If this is an object-like macro, C99 requires white space after
-       the name.  */
-    cpp_pedwarn (pfile, "missing white space after `#define %.*s'", len, sym);
-  CPP_GOTO_MARK (pfile);
-  CPP_SET_WRITTEN (pfile, here);
-
-  if (! empty)
+  /* First token on the line must be a NAME.  There must be at least
+     one token (the VSPACE at the end).  */
+  if (list->tokens[0].type != CPP_NAME)
     {
-      def = _cpp_create_definition (pfile, funlike);
-      if (def == 0)
-	goto out;
+      cpp_error_with_line (pfile, list->line, list->tokens[0].col,
+			   "#define must be followed by an identifier");
+      goto out;
+    }
+
+  sym = list->namebuf + list->tokens[0].val.name.offset;
+  len = list->tokens[0].val.name.len;
+
+  /* That NAME is not allowed to be "defined".  (Not clear if the
+     standard requires this.)  */
+  if (len == 7 && !strncmp (sym, "defined", 7))
+    {
+      cpp_error_with_line (pfile, list->line, list->tokens[0].col,
+			   "\"defined\" is not a legal macro name");
+      goto out;
     }
 
   slot = _cpp_lookup_slot (pfile, sym, len, INSERT, &hash);
   if (*slot)
     {
-      int ok;
-      HASHNODE *hp = *slot;
-
-      /* Redefining a macro is ok if the definitions are the same.  */
-      if (hp->type == T_MACRO)
-	ok = ! empty && ! _cpp_compare_defs (pfile, def, hp->value.defn);
-      else if (hp->type == T_EMPTY)
-	ok = empty;
-      /* Redefining a constant is ok with -D.  */
-      else if (hp->type == T_CONST || hp->type == T_STDC)
-        ok = ! pfile->done_initializing;
-      /* Otherwise it's not ok.  */
-      else
-	ok = 0;
-      /* Print the warning or error if it's not ok.  */
-      if (! ok)
+      /* Check for poisoned identifiers now.  All other checks
+	 are done in cpphash.c.  */
+      if ((*slot)->type == T_POISON)
 	{
-	  if (hp->type == T_POISON)
-	    cpp_error (pfile, "redefining poisoned `%.*s'", len, sym);
-	  else
-	    cpp_pedwarn (pfile, "`%.*s' redefined", len, sym);
-	  if (hp->type == T_MACRO && pfile->done_initializing)
-	    {
-	      DEFINITION *d = hp->value.defn;
-	      cpp_pedwarn_with_file_and_line (pfile, d->file, d->line, d->col,
-			"this is the location of the previous definition");
-	    }
-	}
-      if (hp->type != T_POISON)
-	{
-	  /* Replace the old definition.  */
-	  if (hp->type == T_MACRO)
-	    _cpp_free_definition (hp->value.defn);
-	  if (empty)
-	    {
-	      hp->type = T_EMPTY;
-	      hp->value.defn = 0;
-	    }
-	  else
-	    {
-	      hp->type = T_MACRO;
-	      hp->value.defn = def;
-	    }
+	  cpp_error (pfile, "redefining poisoned `%.*s'", len, sym);
+	  goto out;
 	}
     }
   else
-    {
-      HASHNODE *hp = _cpp_make_hashnode (sym, len, T_MACRO, hash);
-      hp->value.defn = def;
-      *slot = hp;
-    }
+    *slot = _cpp_make_hashnode (sym, len, T_VOID, hash);
+    
+  if (_cpp_create_definition (pfile, list, *slot) == 0)
+    goto out;
 
   if (CPP_OPTION (pfile, debug_output)
       || CPP_OPTION (pfile, dump_macros) == dump_definitions)
-    _cpp_dump_definition (pfile, sym, len, def);
+    _cpp_dump_definition (pfile, *slot);
   else if (CPP_OPTION (pfile, dump_macros) == dump_names)
     pass_thru_directive (sym, len, pfile, T_DEFINE);
 
@@ -786,7 +726,9 @@ do_undef (pfile)
 	  if (CPP_OPTION (pfile, debug_output))
 	    pass_thru_directive (hp->name, len, pfile, T_UNDEF);
 
-	  if (hp->type != T_MACRO)
+	  if (hp->type != T_MACRO && hp->type != T_FMACRO
+	      && hp->type != T_MCONST
+	      && hp->type != T_EMPTY && hp->type != T_IDENTITY)
 	    cpp_warning (pfile, "undefining `%s'", hp->name);
 
 	  htab_clear_slot (pfile->hashtab, (void **)slot);

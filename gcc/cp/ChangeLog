@@ -1,3 +1,66 @@
+2000-04-26  Jason Merrill  <jason@casey.cygnus.com>
+
+	* decl.c (finish_function): Don't play games with DECL_INLINE.
+
+2000-04-25  Gabriel Dos Reis  <dosreis@cmla.ens-cachan.fr>
+
+	* ir.texi: Correct typo.
+
+2000-04-25  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* decl.c (grokdeclarator): Reject VLAs as members.
+
+2000-04-24  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* call.c (standard_conversion): Accept conversion between
+	COMPLEX_TYPEs 
+
+	* cvt.c (ocp_convert): Handle conversion to COMPLEX_TYPE
+
+2000-04-24  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* decl2.c (finish_file): Remove double setup for accounting
+	compile time.
+
+2000-04-24  Robert Lipe <robertlipe@usa.net>
+
+	* cp-tree.h (lang_type): Member `language' now ENUM_BITFIELD.
+
+2000-04-23  Benjamin Kosnik  <bkoz@cygnus.com>
+
+	* new.cc (set_new_handler): Needs to be in std::.
+
+2000-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* cp-tree.h (lang_decl): Remove pretty_function_p.
+	(DECL_PRETTY_FUNCTION_P): Use TREE_LANG_FLAG_0, not a bit in the
+	language-specific node.
+	* decl.c (cp_make_fname_decl): Use build_decl, not
+	build_lang_decl, to build the variables.
+	(grokvardecl): Don't call build_lang_decl for local variables in
+	templates.
+	(grokdeclarator): Don't call build_lang_decl for local type
+	declarations in templates.
+	* lex.c (retrofit_lang_decl): Use ggc_alloc_obj to allocated
+	zero'd memory, rather than calling memset.
+	* pt.c: Include hashtab.h.
+	(local_specializations): New variable.
+	(retrieve_local_specialization): Use it.
+	(register_local_specialization): Likewise.
+	(tsubst_decl): Don't assume local variables have
+	DECL_LANG_SPECIFIC.
+	(instantiate_decl): Set up local_specializations.
+	* Makefile.in (HTAB_H): New variable.
+
+2000-04-23  Richard Henderson  <rth@cygnus.com>
+
+	* typeck.c (c_expand_asm_operands): Restore the original
+	contents of the output list.
+
+2000-04-22  Gabriel Dos Reis <gdr@codesourcery.com>
+
+	* ir.texi:  Document complex number representation.
+	
 2000-04-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* rtti.c (init_rtti_processing): Set tinfo_var_id in new-abi.
@@ -540,7 +603,7 @@ Sat Apr 15 16:00:01 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 2000-04-05  Benjamin Kosnik  <bkoz@cygnus.com>
 
-        * decl2.c: Make flag_honor_std dependant on ENABLE_STD_NAMESPACE.
+	* decl2.c: Make flag_honor_std dependant on ENABLE_STD_NAMESPACE.
 
 2000-04-05  Mark Mitchell  <mark@codesourcery.com>
 

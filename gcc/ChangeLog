@@ -1,3 +1,536 @@
+2000-04-25  Richard Henderson  <rth@cygnus.com>
+
+        * cse.c (cse_insn): Emit barrier after unconditional jump.
+
+	* calls.c (expand_call): Disable tail call generation once
+	rtx_equal_function_value_matters is false.
+
+	* reg-stack.c (convert_regs_1): Treat EDGE_ABNORMAL_CALL edges
+	like EDGE_EH edges.
+
+2000-04-25  Jason Merrill  <jason@casey.cygnus.com>
+
+	* dwarf2out.c (add_bound_info): Don't crash on an unexpanded SAVE_EXPR.
+
+	* dwarfout.c (output_decl): Ignore NAMESPACE_DECLs.
+
+	* dwarf2out.c (gen_subprogram_die): The class-scope declaration DIE
+	is the primary DIE for a member function.
+	(gen_decl_die): Call set_decl_origin_self here.
+	* dwarfout.c (output_decl): And here.
+	* integrate.c (output_inline_function): Not here.
+	Don't clear DECL_INLINE until after calling rest_of_compilation.
+	(set_decl_origin_self): No longer static.
+	* tree.h: Add prototype.
+	* toplev.c (note_deferral_of_defined_inline_function): Only write
+	out abstract instance for actual inlines.
+
+2000-04-25  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (REG_CLASS_FROM_LETTER): Return
+	EXTENDED_REGS only if TARGET_AM33.
+	* config/mn10300/mn10300.md (movsi, addsi): Avoid exposing
+	SP_REGS to register allocation and reloading unless absolutely
+	necessary.
+	(movsi3): Remove special-case of adding non-constants to SP.
+
+2000-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* aclocal.m4 (gcc_AC_NEED_DECLARATION): This macro now requires
+	INCLUDES to search and does not provide any of its own.  Also it
+	now accepts optional ACTION-IF-NEEDED and ACTION-IF-NOT-NEEDED
+	parameters.  Also it does not call AC_DEFINE.
+	(gcc_AC_NEED_DECLARATIONS): Likewise.  Also this macro now calls
+	AC_DEFINE and provides for automatic entries for autoheader.
+	(gcc_AC_FUNC_PRINTF_PTR): Cleanup C code in test.
+
+	* configure.in (gcc_AC_NEED_DECLARATIONS): Save and restore CFLAGS
+	so we can pass -I flags and include gansidecl.h/system.h in this
+	test.
+
+	* acconfig.h: Delete all NEED_DECLARATION_* entries.
+
+2000-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+        * acconfig.h (ENABLE_STD_NAMESPACE, ENABLE_CHECKING,
+	ENABLE_TREE_CHECKING, ENABLE_RTL_CHECKING, ENABLE_GC_CHECKING,
+	ENABLE_GC_ALWAYS_COLLECT): Delete entries.
+	        
+        * configure.in (ENABLE_STD_NAMESPACE, ENABLE_CHECKING,
+	ENABLE_TREE_CHECKING, ENABLE_RTL_CHECKING, ENABLE_GC_CHECKING,
+	ENABLE_GC_ALWAYS_COLLECT): Use three argument form of AC_DEFINE
+	for these macros.  Clean up spacing and linewraps.
+
+2000-04-26  Jason Merrill  <jason@casey.cygnus.com>
+
+	* calls.c (expand_call): Use get_callee_fndecl.
+
+	* print-tree.c (print_node): Print the chain of an _EXPR.
+
+Tue Apr 25 16:16:04 2000  Andrew MacLeod  <amacleod@cygnus.com>
+			  Jim Wilson  <wilson@cygnus.com>
+			  Andrew Haley  <aph@cygnus.com>
+	
+	* config/ia64/crtbegin.asm: Add IA-64 unwind support.  Correct alloc
+	and gp save/restore problems.
+	* config/ia64/crtend.asm: Add IA-64 unwind support.
+	* config/ia64/ia64.c (ia64_compute_frame_size): Don't include pr_size
+	in fr_pad_size calculation.
+	(save_restore_insns): Move PR save area.  Correct uses of
+ 	RTX_FRAME_RELATED_P.
+	(ia64_expand_prologue): Mark alloc with RTX_FRAME_RELATED_P.
+	(ia64_expand_epilogue): Add eh_epilogue support.
+	(ia64_function_prologue): Emit .prologue directive.
+	(ia64_init_machine_status, ia64_mark_machine_status): New functions.
+	(ia64_override_options): Set init_machine_status and
+	mark_machine_status.
+	(rtx_needs_barrier): Handle bsp reads and writes.
+	(spill_offset, sp_offset, spill_offset_emitted, tmp_reg, tmp_saved):
+	New static variables.
+	(process_set, process_for_unwind_directive): New functions.
+	* config/ia64/ia64.h (ASM_OUTPUT_XDATA_CHAR, ASM_OUTPUT_XDATA_SHORT,
+	ASM_OUTPUT_XDATA_INT, ASM_OUTPUT_XDATA_DOUBLE_INT, ASM_OUTPUT_EH_CHAR,
+	ASM_OUTPUT_EH_SHORT, ASM_OUTPUT_EH_INT, ASM_OUTPUT_EH_DOUBLE_INT): New
+	macros.
+	(EH_FRAME_SECTION_ASM_OP): Define to IA_64.unwind section.
+	(IA64_UNWIND_INFO, HANDLER_SECTION, IA64_UNWIND_EMIT): Define.
+	(struct machine_function): Define.
+	* config/ia64/ia64.md (bsp_value, set_bsp, eh_epilogue): New patterns.
+	
+2000-04-25  Bruce Korb  <bkorb@gnu.org>
+
+	* fixinc/Makefile.in: make the removal of old programs more
+	robust
+	* fixinc/mkfixinc.sh: use the two new targets in the Makefile:
+	install-bin and install-sh
+
+2000-04-25  Nick Clifton  <nickc@cygnus.com>
+
+	* integrate.c (FUNCTION_ATTRIBUTE_INLINABLE_P): If not
+	defined, define to return zero.
+	(function_cannot_inline_p): If a function has any target
+	specific attributes, then use the macro
+	FUNCTION_ATTRIBUTE_INLINABLE_P to allow the target to decide
+	whether it can be inlined.  If it cannot, issue a suitable
+	explanation.
+
+	* tm.texi: Add a new node 'Inlining' to document the new macro
+	FUNCTION_ATTRIBUTE_INLINABLE_P. 
+
+2000-04-25  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpplib.h (struct cpp_buffer): Add 'mapped' flag; fix
+	commentary. 
+
+2000-04-25  Neil Booth  <NeilB@earthling.net>
+
+	Restore previous patch, plus the following fixes:
+
+	* cpphash.c (_cpp_create_definition): Test PREV_WHITESPACE in
+	flags, not CPP_OPEN_PAREN.
+	* cpplex.c (expand_token_space, init_token_list,
+	cpp_free_token_list): Put the dummy token at list->tokens[-1].
+	(_cpp_lex_line, _cpp_lex_file): token list is 0-based.
+
+Tue Apr 25 14:06:40 2000  Alexandre Oliva  <oliva@lsd.ic.unicamp.br>
+
+	* config/i386/freebsd.h (INT_ASM_OP): Define.
+
+Tue Apr 25 14:51:07 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (strength_reduce): Fix typo in the last checkin.
+
+Tue Apr 25 07:33:12 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* stor-layout.c (finalize_record_size): Simplify to use existing
+	functions.
+	(compute_record_mode): No longer static.
+	* tree.h (compute_record_mode): New declaration.
+
+2000-04-25  Neil Booth  <NeilB@earthling.net>
+
+	* Revert my patch below until cause of build failures
+	determined.
+
+2000-04-25  Richard Henderson  <rth@cygnus.com>
+
+	* combine.c (combine_instructions): Add missing argument
+	to try_combine.
+
+	* toplev.c (rest_of_compilation): Delay sibcall optimization
+	until after emit_eh_context.
+
+2000-04-24  Nick Clifton  <nickc@redhat.com>
+
+	* combine.c (combine_instructions): Do not try to combine a
+	sequence of insns when the second insn has been replaced by a
+	note.
+
+Mon Apr 24 17:34:18 2000  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* gcc.c (load_specs): New static function.
+	(read_specs): Use it.
+
+	* gcc.c (lookup_compiler): Make multiple passes for case
+	insensitive filesystems.
+
+2000-04-24  Neil Booth  <NeilB@earthling.net>
+
+	* cpphash.c: replace HSPACE_BEFORE with PREV_WHITESPACE.
+	* cpphash.h (_cpp_check_directive): new.
+	* cpplex.c (handle_newline, cpp_free_token_list,
+	init_trigraph_map, trigraph_ok, trigraph_replace,
+	backslash_start, skip_block_comment, skip_line_comment,
+	skip_whitespace, parse_name, parse_number, parse_string,
+	copy_comment, _cpp_lex_line, spell_char, spell_string,
+	spell_comment, spell_name, spell_other, _cpp_lex_file,
+	_cpp_output_list): new.
+	(expand_name_space): take length argument.
+	(init_token_list): add comment list initialisation.
+	(cpp_scan_line): use auto_expand_name_space.  PREV_WHITESPACE
+	instead of HSPACE_BEFORE.
+
+	* cpplib.c (_cpp_check_directive): new
+	* cpplib.h (cpp_name, PREV_WHITESPACE, PREV_COMMENT,
+	DIGRAPH, UNSIGNED_INT, TOK_NAME): new.
+	(HSPACE_BEFORE): delete.
+	(TTYPE_TABLE): rearrange.
+	(struct cpp_toklist): update.	
+
+2000-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* aclocal.m4 (gcc_AC_HEADER_STRING, gcc_AC_FUNC_PRINTF_PTR,
+	gcc_AC_C_VOLATILE, gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG): Use the three
+	argument form of AC_DEFINE.
+
+	* configure.in (DEFAULT_LINKER, DEFAULT_ASSEMBLER,
+	HAVE_INTTYPES_H, PACKAGE, VERSION, ENABLE_WIN32_REGISTRY,
+	WIN32_REGISTRY_KEY, HAVE_GAS_SUBSECTION_ORDERING, HAVE_GAS_WEAK,
+	HAVE_GAS_HIDDEN, HAVE_AS_REGISTER_PSEUDO_OP, AS_SPARC64_FLAG,
+	HAVE_AS_OFFSETABLE_LO10, ENABLE_NEW_GXX_ABI): Likewise.
+
+	* acconfig.h: Delete stubs made redundant by 3-arg AC_DEFINE.
+
+2000-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* Makefile.in (GCC_FOR_TARGET, GCC_CFLAGS, LIBGCC2_INCLUDES,
+	deduced.h): Use -isystem, not -I, for including system headers.
+
+2000-04-24  Nick Clifton  <nickc@cygnus.com>
+
+	* config/fr30/fr30.md (addsi3): Do not use small add instruction if
+	the source register is the frame pointer or arg pointer.
+	(addsi3_small_int): Disallow if source register is the frame
+	pointer or arg pointer.
+
+2000-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* configure.in (ENUM_BITFIELDS_ARE_UNSIGNED): Delete redundant
+	call to AC_MSG_RESULT.
+
+2000-04-24  Martin v. Löwis  <loewis@informatik.hu-berlin.de>
+
+	* invoke.texi: Correct grammatical errors, document
+	-fno-gnu-keywords as identical to -fno-asm for C++.
+
+2000-04-24  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* aclocal.m4: (GCC_HEADER_STRING, GCC_NEED_DECLARATION,
+	GCC_NEED_DECLARATIONS, GCC_FUNC_VFPRINTF_DOPRNT,
+	GCC_FUNC_PRINTF_PTR, GCC_PROG_LN_S, GCC_PROG_LN, GCC_C_VOLATILE,
+	AC_GCC_C_LONG_DOUBLE, GCC_FUNC_MKDIR_TAKES_ONE_ARG,
+	EGCS_PROG_INSTALL): Rename autoconf macros with prefix gcc_AC_.
+
+	* configure.in (AC_GCC_C_LONG_DOUBLE, GCC_PROG_LN, GCC_PROG_LN_S,
+	GCC_C_VOLATILE, EGCS_PROG_INSTALL, GCC_HEADER_STRING,
+	GCC_FUNC_VFPRINTF_DOPRNT, GCC_FUNC_PRINTF_PTR,
+	GCC_NEED_DECLARATIONS, GCC_FUNC_MKDIR_TAKES_ONE_ARG): Invoke with
+	new macros names.
+
+2000-04-24  Mumit Khan  <khan@xraylith.wisc.edu>
+
+	* c-pragma.c (push_alignment): Use BITS_PER_UNIT macro. 
+	(pop_alignment): Likewise.
+	(handle_pragma_token): Likewise.
+
+2000-04-24  Robert Lipe <robertlipe@usa.net>
+
+	* tree.h (tree_decl): Member `mode' now ENUM_BITFIELD.
+
+2000-04-24  Hiroyuki Machida <machida@sm.sony.co.jp>
+
+	* combine.c (try_combine): Update reg_nonzero_bits of
+	newi2pat before newpat.
+
+Mon Apr 24 10:19:48 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (strength_reduce): Simplify test to INSN_P.
+	(record_giv): Attempt to simplify the add value, use CONSTANT_P
+	expressions instead of CONST_INT.
+	(express_from_1): Likewise.
+
+2000-04-24  Mark Mitchell  <mark@codesourcery.com>
+
+	* regs.h (reg_n_max): Don't declare.
+	* flow.c (reg_n_max): Don't define.
+	* regclass.c (renumber): Don't initialize to zero.
+	(regno_allocated): Likewise.
+	(reg_n_max): Define.
+	(allocate_reg_info): Don't initialize unnecessarily.
+	
+Mon Apr 24 00:21:36 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* genattrtab.c (find_attr): Initialize unsigned_p, func_units_p
+	and blockage_p in the newly allocated attribute.
+
+Sun Apr 23 20:16:49 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.md (addsi): `inc4' on address
+	registers does not modify cc, but `inc' on an extended
+	register does.
+
+Sun Apr 23 16:24:35 2000  Denis Chertykov  <denisc@overta.ru>
+
+	* reload.c (find_equiv_reg): Checks all valueno regs
+	as a reload_reg_p regs.
+
+2000-04-23  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.c (collect_objlike_expansion): Add sanity check.
+	(special_symbol): Remove case T_CONST, T_XCONST, T_MCONST.  If
+	the buffer is the empty string, return.  Mark __DATE__ and
+	__TIME__ as XCONST nodes, not MCONST.
+	(_cpp_macroexpand): Avoid pushing an empty buffer.
+	(funlike_macroexpand): Don't pop token_buffer here.
+
+Sun Apr 23 18:37:53 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (REGNO_IN_RANGE_P): New macro.
+	(REGNO_DATA_P, REGNO_ADDRESS_P, REGNO_SP_P): New macros.
+	(REGNO_EXTENDED_P, REGNO_AM33_P): New macros.
+	(REGNO_OK_FOR_BASE_P): Define in terms of them.
+	(REGNO_OK_FOR_BIT_BASE_P, REGNO_OK_FOR_INDEX_P): Likewise.
+	(REG_OK_FOR_BASE_P): Define in terms of the REGNO macro.
+	(REG_OK_FOR_BIT_BASE_P, REG_OK_FOR_INDEX_P): Likewise.
+
+Sun Apr 23 22:23:08 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (simplify_giv_expr):  Be more agressive on simplifying
+	constant MULT givs.
+
+2000-04-23  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.h (struct definition): Move file, line, col members...
+	(struct hashnode): ... here.  Also add 'disabled' flag.
+	(enum node_type): Add T_VOID, T_XCONST, T_FMACRO, and
+	T_IDENTITY.  Remove T_DISABLED.		      
+	Update prototypes.
+
+	* cpphash.c (_cpp_dump_definition): Split out dump_DEFINITION.     
+	(collect_expansion): Split into collect_objlike_expansion and
+	collect_funlike_expansion.				   
+	(_cpp_macroexpand): Split out scan_arguments, stringify, and
+	funlike_macroexpand.
+	(_cpp_compare_defs): Rename compare_defs, make static.
+	(_cpp_make_hashnode): Initialize hp->disabled.	
+	(macro_cleanup): Adjust for new token types.  Clear
+	m->disabled.
+	(_cpp_create_definition): Move code here to determine what     
+	sort of macro it is, and code to check for redefinitions, from
+	do_define.  Implement a few simple cases without creating a   
+	full DEFINITION.
+	(_cpp_macroexpand, special_symbol, _cpp_dump_definition):
+	Handle the simple cases.				 
+	(push_macro_expansion): Set buf->has_escapes and hp->disabled
+	here.
+
+	* cppinit.c (builtin_array): Change MCONST to XCONST
+	everywhere.
+	* cpplex.c (maybe_macroexpand): Handle IDENTITY macros here;
+	fix check for disabled and function-like macros.
+	* cpplib.c (do_define): Move most logic to
+	_cpp_create_definition.
+	(do_undef): Handle new special token types.
+
+Sun Apr 23 14:27:44 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (maybe_eliminate_biv_1): Use GET_CODE (x) == CONST_INT instead
+	of CONSTANT_P for mult_val; always use validate_change to update insn.
+
+2000-04-22  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.c (trad_stringify, add_pat): New functions.
+	(collect_expansion): Restore support for -traditional syntax.
+	Use trad_stringify and add_pat.
+	(_cpp_macroexpand): Restore support for -traditional semantics.
+	* cpplex.c (_cpp_scan_line): Don't change space_before if we
+	get a COMMENT token.
+	(_cpp_lex_token): Provide COMMENT tokens to caller if
+	traditional and parsing_define_directive.
+	(skip_comment): Warn about // comments if -Wtraditional.
+	* cpplib.c (do_define): Fix typo.  Create EMPTY nodes with
+	proper node type.
+	(do_undef): Don't warn about undefining EMPTY nodes.
+
+Sat Apr 22 22:35:38 MET DST 2000  Jan Hubicka  <jh@suse.cz>
+
+	* loop.c (strength_reduce): Fix biv removal code.
+
+2000-04-22  Richard Henderson  <rth@cygnus.com>
+
+	* predict.c (estimate_probability): Examine both sides of
+	a branch for no exits.  Use 90% not 50% for predict taken.
+	Reorg for one copy of note generation code.
+
+2000-04-22  Richard Henderson  <rth@cygnus.com>
+
+	* flow.c (mark_used_reg): Hack around rs6000 eliminable pic reg.
+
+2000-04-22  Richard Henderson  <rth@cygnus.com>
+
+	* diagnostic.c (init_output_buffer): Don't initialize format_args.
+	(output_clear): Likewise.
+	(output_printf): Use va_copy.
+	(vline_wrapper_message_with_location): Likewise.
+	(v_message_with_decl): Likewise.
+	(line_wrapper_printf): VA_START infor buffer.format_args directly.
+	* system.h (va_copy): Provide default implementation.
+
+2000-04-22  Richard Henderson  <rth@cygnus.com>
+
+	* predict.c (expected_value_to_br_prob): Don't bomb if op1 of
+	the collected condition is not a constant.
+
+2000-04-22  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* diagnostic.h: New file.
+
+	* Makefile.in (diagnostic.o): Depends on diagnostic.h
+
+	* diagnostic.c: Tweak.  Rationalize the output logic.  Adjust
+	various function prototypes.
+	(diagnostic.h): #include.
+	(struct output_buffer): Move into diagnostic.h.
+	(get_output_prefix): Rename to output_get_prefix.  Export.
+	(init_output_buffer): Export. Break out.  Ajust intialization.
+	(output_space_left, output_append): Export.
+	(output_newline): Rename to output_add_newline.  Export.
+	(output_clear): Nullify additional output_buffer fields.
+	(output_puts): Rename to output_add_string.  Export.
+	(dump_output): Rename to output_flush_on.  Export.
+	(build_location_prefix): Constify return-type.
+	(emit_output_prefix): Rename to output_emit_prefix. Export.
+	(set_real_maximum_length): New function.
+	(output_set_maximum_length): Ditto
+	(output_clear): Ditto.
+	(output_add_character): Ditto.
+	(output_add_integer): Ditto.
+	(output_add_space): Ditto.
+	(output_format): Ditto.
+	(output_printf): Adjust buffer initialization.
+	(vline_wrapper_message_with_location): Ditto.
+	(v_message_with_decl): Ditto.  Adjust call to output_puts
+	and get_output_prefix.
+	(default_print_error_function): Adjust buffer intialization.
+
+Sat Apr 22 06:45:04 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* expr.c (preexpand_calls, case CALL_EXPR): Don't look at TYPE_SIZE
+	of VOID_TYPE.
+
+Fri Apr 21 18:33:09 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (REGNO_REG_CLASS): Use NO_REGS instead
+	of explicit 0.
+
+Fri Apr 21 18:30:00 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (REGISTER_MOVE_COST): Provide more
+	accurate data about SP moves.
+
+Fri Apr 21 18:28:28 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (ADDITIONAL_REGISTER_NAMES): Added
+	aliases to AM33 registers.
+
+Fri Apr 21 18:26:17 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.h (REG_CLASS_CONTENTS): Added register 16
+	to all EXTENDED bitmaps.
+
+Fri Apr 21 18:17:12 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300-protos.h (mn10300_address_cost): Declare.
+	* config/mn10300/mn10300.h (ADDRESS_COST): New macro.
+	* config/mn10300/mn10300.c (mn10300_address_cost): New function.
+
+Fri Apr 21 18:11:56 2000  Alexandre Oliva  <aoliva@cygnus.com>
+
+	* config/mn10300/mn10300.md (movdi, movdf): Do not use `movu' when
+	the operand is not constant.
+
+Fri Apr 21 14:58:29 2000  Denis Chertykov  <denisc@overta.ru>
+
+	* reload.c (find_equiv_reg): Checks all valueno and regno regs
+	as a call-clobbered regs.
+
+Fri Apr 21 13:30:26 2000  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* rtl.c: Use NOTE_INSN_REPEATED_LINE_NUMBER and NOTE_INSN_RANGE_BEG.
+	* rtl.h: Likewise.
+	* rtl.def: Update comment.
+	* function.c (expand_function): Use NOTE_INSN_REPEATED_LINE_NUMBER.
+	* integrate.c (expand_inline_function): Likewise.
+	* profile.c (branch_prob): Likewise.
+	* ggc-common.c (ggc_mark_rtx_children): Use NOTE_INSN_RANGE_BEG.
+	* print-rtl.c (print_rtx): Likewise.
+	* haifa-sched.c (sched_analyze, unlink_other_notes): Likewise.
+	(reemit_notes): Likewise; also use enum insn_note.
+
+	* stor-layout.c (layout_decl): Only set DECL_MODE if not already set.
+	(place_field): Properly compute know and actual alignment.
+
+	* gengenrtl.c (gencode): Write obstack_alloc_rtx function start
+	in proper format.
+
+	* cse.c (cse_insn): In (set REG0 REG1) case, remove a REG_EQUAL
+	note for REG1.
+
+2000-04-21  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* cpphash.c (struct arg, struct arglist): Const-ify strings.
+	(warn_trad_stringify, duplicate_arg_p): New helper functions.
+	(collect_expansion): Rewrite to scan over a token list.
+	Remove -traditional support.
+	(collect_formal_parameters): Rename to collect_params; rewrite
+	to scan over a token list.
+	(_cpp_create_definition): Adjust to scan a token list.
+	(_cpp_macroexpand): Remove -traditional support.
+	(_cpp_compare_defs): Whitespace is now canonicalized.
+	(comp_def_part): Delete function.
+
+	* cpphash.h: Update prototypes.
+	* cpplex.c (init_token_list): Don't set lineno if there is no
+	buffer.
+	(pedantic_whitespace): New function.
+	(_cpp_scan_line): Mark tokens that had hspace before.  Don't
+	consume a newline.  Use pedantic_whitespace.
+	(_cpp_lex_token): Remove support for -traditional macros.
+	(_cpp_get_define_token): Delete.
+	(_cpp_get_directive_token): Do the real work here.  Use
+	pedantic_whitespace.
+	(_cpp_init_input_buffer): Initialize pfile->directbuf.
+
+	* cpplib.c (get_macro_name): Delete.
+	(do_define): Read the entire line into pfile->directbuf, then
+	feed the token list to _cpp_create_definition.
+	* cpplib.h (HSPACE_BEFORE): new define.
+	(struct cpp_reader): Add a toklist member, "directbuf".
+
+	* predict.c (estimate_probability): New heuristic: if a jump
+	branches around a block with no successors, predict it taken.
+	Disentangle control flow.
+
 2000-04-20  Richard Henderson  <rth@cygnus.com>
 
 	* loop.c (emit_iv_add_mult): Revert last change.

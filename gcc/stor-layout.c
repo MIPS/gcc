@@ -51,7 +51,6 @@ unsigned int maximum_field_alignment;
 unsigned int set_alignment = 0;
 
 static void finalize_record_size	PARAMS ((record_layout_info));
-static void compute_record_mode		PARAMS ((tree));
 static void finalize_type_size		PARAMS ((tree));
 static void place_union_field		PARAMS ((record_layout_info, tree));
 
@@ -306,10 +305,12 @@ layout_decl (decl, known_align)
      also happens with other fields.  For example, the C++ front-end creates
      zero-sized fields corresponding to empty base classes, and depends on
      layout_type setting DECL_FIELD_BITPOS correctly for the field.  Set the
-     size in bytes from the size in bits.  */
+     size in bytes from the size in bits.  If we have already set the mode,
+     don't set it again since we can be called twice for FIELD_DECLs.  */
 
-  DECL_MODE (decl) = TYPE_MODE (type);
   TREE_UNSIGNED (decl) = TREE_UNSIGNED (type);
+  if (DECL_MODE (decl) == VOIDmode)
+    DECL_MODE (decl) = TYPE_MODE (type);
 
   if (DECL_SIZE (decl) == 0)
     {
@@ -642,9 +643,11 @@ place_field (rli, field)
 
   /* Work out the known alignment so far.  Note that A & (-A) is the
      value of the least-significant bit in A that is one.  */
-  if (! integer_zerop (rli->bitpos) && TREE_CONSTANT (rli->offset))
+  if (! integer_zerop (rli->bitpos))
     known_align = (tree_low_cst (rli->bitpos, 1)
 		   & - tree_low_cst (rli->bitpos, 1));
+  else if (integer_zerop (rli->offset))
+    known_align = BIGGEST_ALIGNMENT;
   else if (host_integerp (rli->offset, 1))
     known_align = (BITS_PER_UNIT
 		   * (tree_low_cst (rli->offset, 1)
@@ -833,10 +836,11 @@ place_field (rli, field)
   /* If this field ended up more aligned than we thought it would be (we
      approximate this by seeing if its position changed), lay out the field
      again; perhaps we can use an integral mode for it now.  */
-  if (! integer_zerop (DECL_FIELD_BIT_OFFSET (field))
-      && TREE_CONSTANT (DECL_FIELD_OFFSET (field)))
+  if (! integer_zerop (DECL_FIELD_BIT_OFFSET (field)))
     actual_align = (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
 		    & - tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1));
+  else if (integer_zerop (DECL_FIELD_OFFSET (field)))
+    actual_align = BIGGEST_ALIGNMENT;
   else if (host_integerp (DECL_FIELD_OFFSET (field), 1))
     actual_align = (BITS_PER_UNIT
 		   * (tree_low_cst (DECL_FIELD_OFFSET (field), 1)
@@ -885,13 +889,10 @@ finalize_record_size (rli)
 {
   tree unpadded_size, unpadded_size_unit;
 
-  /* Next move any full bytes of bits into the byte size.  */
-  rli->offset
-    = size_binop (PLUS_EXPR, rli->offset,
-		  convert (sizetype,
-			   size_binop (TRUNC_DIV_EXPR, rli->bitpos,
-				       bitsize_unit_node)));
-  rli->bitpos = size_binop (TRUNC_MOD_EXPR, rli->bitpos, bitsize_unit_node);
+  /* Now we want just byte and bit offsets, so set the offset alignment
+     to be a byte and then normalize.  */
+  rli->offset_align = BITS_PER_UNIT;
+  normalize_rli (rli);
 
   /* Determine the desired alignment.  */
 #ifdef ROUND_TYPE_ALIGN
@@ -901,16 +902,14 @@ finalize_record_size (rli)
   TYPE_ALIGN (rli->t) = MAX (TYPE_ALIGN (rli->t), rli->record_align);
 #endif
 
-  unpadded_size
-    = size_binop (PLUS_EXPR, rli->bitpos,
-		  size_binop (MULT_EXPR, convert (bitsizetype, rli->offset),
-			      bitsize_unit_node));
-
-  unpadded_size_unit
-    = size_binop (PLUS_EXPR, rli->offset,
-		  convert (sizetype, 
-			   size_binop (CEIL_DIV_EXPR, rli->bitpos,
-				       bitsize_unit_node)));
+  /* Compute the size so far.  Be sure to allow for extra bits in the
+     size in bytes.  We have guaranteed above that it will be no more
+     than a single byte.  */
+  unpadded_size = rli_size_so_far (rli);
+  unpadded_size_unit = rli_size_unit_so_far (rli);
+  if (! integer_zerop (rli->bitpos))
+    unpadded_size_unit
+      = size_binop (PLUS_EXPR, unpadded_size_unit, size_one_node);
 
   /* Record the un-rounded size in the binfo node.  But first we check
      the size of TYPE_BINFO to make sure that BINFO_SIZE is available.  */
@@ -988,7 +987,7 @@ finalize_record_size (rli)
 
 /* Compute the TYPE_MODE for the TYPE (which is a RECORD_TYPE).  */
 
-static void
+void
 compute_record_mode (type)
      tree type;
 {

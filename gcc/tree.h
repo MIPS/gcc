@@ -1354,11 +1354,7 @@ struct tree_decl
   int linenum;
   unsigned int uid;
   union tree_node *size;
-#ifdef ONLY_INT_FIELDS
-  int mode : 8;
-#else
-  enum machine_mode mode : 8;
-#endif
+  ENUM_BITFIELD(machine_mode) mode : 8;
 
   unsigned external_flag : 1;
   unsigned nonlocal_flag : 1;
@@ -1804,6 +1800,7 @@ extern tree rli_size_unit_so_far	PARAMS ((record_layout_info));
 extern tree rli_size_so_far		PARAMS ((record_layout_info));
 extern void normalize_rli		PARAMS ((record_layout_info));
 extern void place_field			PARAMS ((record_layout_info, tree));
+extern void compute_record_mode		PARAMS ((tree));
 extern void finish_record_layout	PARAMS ((record_layout_info));
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
@@ -2570,6 +2567,7 @@ extern void save_for_inline_nocopy	PARAMS ((tree));
 extern void save_for_inline_copying	PARAMS ((tree));
 extern void set_decl_abstract_flags	PARAMS ((tree, int));
 extern void output_inline_function	PARAMS ((tree));
+extern void set_decl_origin_self	PARAMS ((tree));
 
 /* In c-lex.c */
 extern void set_yydebug			PARAMS ((int));
