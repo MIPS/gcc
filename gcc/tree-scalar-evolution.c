@@ -2776,6 +2776,14 @@ scev_linear_transform (void)
   linear_transform_loops (current_loops, *scalar_evolution_info);
 }
 
+/* Runs the canonical iv creation pass.  */
+
+static void
+scev_iv_canon (void)
+{
+  canonicalize_induction_variables (current_loops);
+}
+
 /* Runs the vectorization pass.  */
 
 static void
@@ -2796,6 +2804,7 @@ scev_done (void)
       VARRAY_CLEAR (*scalar_evolution_info);
       VARRAY_CLEAR (*already_instantiated);
       loop_optimizer_finalize (current_loops, NULL);
+      cleanup_tree_cfg ();
       current_loops = NULL;
     }
 
@@ -2836,6 +2845,19 @@ gate_scev_linear_transform (void)
   return current_loops && flag_tree_loop_linear != 0;
 }
 
+static bool
+gate_scev_iv_canon (void)
+{
+  return (current_loops
+	  /* Only run this pass if
+	     1) We will be able to eliminate the superfluous ivs
+		we create.   */
+	  && flag_tree_loop
+	  /* 2) Someone at rtl level will be able to use the information
+		provided.  */
+	  && (flag_unroll_loops
+	      || flag_branch_on_count_reg));
+}
 
 static bool
 gate_scev_vectorize (void)
@@ -2939,6 +2961,21 @@ struct tree_opt_pass pass_scev_linear_transform =
   TODO_dump_func                	/* todo_flags_finish */
 };
 
+struct tree_opt_pass pass_scev_iv_canon =
+{
+  "ivcan",				/* name */
+  gate_scev_iv_canon,			/* gate */
+  scev_iv_canon,	       		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_LOOP_IVCANON,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func                	/* todo_flags_finish */
+};
 
 struct tree_opt_pass pass_scev_elim_checks = 
 {

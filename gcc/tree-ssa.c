@@ -622,9 +622,9 @@ mark_def_sites (struct dom_walk_data *walk_data,
 	{
 	  VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
 
-	  set_def_block (VDEF_RESULT (vdefs, i), bb);
 	  if (!TEST_BIT (kills, uid))
 	    set_livein_block (VDEF_OP (vdefs, i), bb);
+	  set_def_block (VDEF_RESULT (vdefs, i), bb);
 	}
     }
 

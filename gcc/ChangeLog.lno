@@ -1,3 +1,35 @@
+2004-03-12  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* tree-ssa-loop-ivcanon.o: New file.
+	* Makefile.in (tree-ssa-loop-ivcanon.o): Add.
+	* flags.h (flag_unroll_loops): Declare.
+	* loop-invariant.c (record_use): Fix.
+	* params.def (PARAM_MAX_COMPLETELY_PEELED_INSNS): Increment.
+	* timevar.def (TV_TREE_LOOP_IVCANON): New.
+	* toplev.h (flag_unroll_loops): Declaration moved to flags.h.
+	* tree-flow.h (enum tree_ann_type): Remove MISC_ANN.
+	(struct tree_ann_common_d): Add aux field.
+	(struct misc_ann_d): Removed.
+	(struct stmt_ann_d): Removed aux field.
+	(union tree_ann_d): Removed misc field.
+	(canonicalize_induction_variables): Declare.
+	* tree-optimize.c (init_tree_optimization_passes): Add
+	pass_scev_iv_canon.
+	* tree-pass.h (pass_scev_iv_canon): Declare.
+	* tree-scalar-evolution.c (scev_iv_canon, gate_scev_iv_canon,
+	pass_scev_iv_canon): New.
+	(scev_done): Run cfg cleanup.
+	* tree-ssa-loop-im.c (LIM_DATA, determine_invariantness_stmt,
+	move_computations_stmt, schedule_sm): Use aux field in common
+	part of annotations.
+	* tree-ssa-loop-manip.c (allocate_new_names, rename_op,
+	free_new_names): Use common aux field.
+	(tree_duplicate_loop_to_header_edge): Fix memory leak.
+	* tree-ssa.c (mark_def_sites): Fix.
+	* tree-vectorizer.h (set_stmt_info, vinfo_for_stmt): Use aux field in
+	common part of annotations.
+	* gcc.dg/tree-ssa/ivcanon-1.c: New test.
+
 2004-03-11  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* Makefile.in (lambda-mat.o, lambda-trans.o, lambda-code.o): Add TM_H

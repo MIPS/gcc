@@ -156,20 +156,19 @@ allocate_new_names (tree definitions, unsigned ndupl)
 {
   tree def;
   unsigned i;
-  struct misc_ann_d *ann;
+  ssa_name_ann_t ann;
   tree *new_names;
 
   for (; definitions; definitions = TREE_CHAIN (definitions))
     {
       def = TREE_VALUE (definitions);
-      ann = xmalloc (sizeof (struct misc_ann_d));
+      ann = get_ssa_name_ann (def);
       new_names = xmalloc (sizeof (tree) * (ndupl + 1));
-      ann->data = new_names;
+      ann->common.aux = new_names;
 
       for (i = 0; i <= ndupl; i++)
 	new_names[i] = make_ssa_name (SSA_NAME_VAR (def),
 				      SSA_NAME_DEF_STMT (def));
-      def->common.ann = (union tree_ann_d *) ann;
     }
 }
 
@@ -180,14 +179,14 @@ allocate_new_names (tree definitions, unsigned ndupl)
 static void
 rename_op (tree *op_p, bool def, tree stmt, unsigned n_copy)
 {
-  struct misc_ann_d *ann;
+  ssa_name_ann_t ann;
   tree *new_names;
 
   if (TREE_CODE (*op_p) != SSA_NAME)
     return;
 
-  ann = &(*op_p)->common.ann->misc;
-  new_names = ann ? ann->data : NULL;
+  ann = ssa_name_ann (*op_p);
+  new_names = ann ? ann->common.aux : NULL;
 
   /* Something defined outside of the loop.  */
   if (!new_names)
@@ -277,16 +276,15 @@ static void
 free_new_names (tree definitions, bool free_vars)
 {
   tree def;
-  struct misc_ann_d *ann;
+  ssa_name_ann_t ann;
 
   for (; definitions; definitions = TREE_CHAIN (definitions))
     {
       def = TREE_VALUE (definitions);
-      ann = &def->common.ann->misc;
+      ann = ssa_name_ann (def);
 
-      free (ann->data);
-      free (ann);
-      def->common.ann = NULL;
+      free (ann->common.aux);
+      ann->common.aux = NULL;
 
       if (free_vars)
 	release_ssa_name (def);
@@ -322,7 +320,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   unsigned first_new_block;
   basic_block exit_block = NULL, bb;
   unsigned n_exits, i;
-  edge *exits = get_loop_exit_edges (loop, &n_exits);
+  edge *exits;
   bool peeling = (e != loop_latch_edge (loop));
   edge latch, latch_copy, ae, oe;
   tree phi, arg, map, def;
@@ -333,6 +331,7 @@ tree_duplicate_loop_to_header_edge (struct loop *loop, edge e,
   if (!(loops->state & LOOPS_HAVE_PREHEADERS))
     return false;
 
+  exits = get_loop_exit_edges (loop, &n_exits);
   for (i = 0; i < n_exits; i++)
     {
       /* Edges to exit can be safely ignored, since no uses may be reached

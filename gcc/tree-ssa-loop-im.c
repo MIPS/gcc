@@ -79,7 +79,7 @@ struct lim_aux_data
 				   well.  */
 };
 
-#define LIM_DATA(STMT) ((struct lim_aux_data *) (stmt_ann (STMT)->aux))
+#define LIM_DATA(STMT) ((struct lim_aux_data *) (stmt_ann (STMT)->common.aux))
 
 /* Description of a use.  */
 
@@ -432,7 +432,7 @@ determine_invariantness_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	  continue;
 	}
 
-      stmt_ann (stmt)->aux = xcalloc (1, sizeof (struct lim_aux_data));
+      stmt_ann (stmt)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
       LIM_DATA (stmt)->always_executed_in = outermost;
 
       if (maybe_never && pos == MOVE_PRESERVE_EXECUTION)
@@ -520,7 +520,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
       cost = LIM_DATA (stmt)->cost;
       level = LIM_DATA (stmt)->tgt_loop;
       free_lim_aux_data (LIM_DATA (stmt));
-      stmt_ann (stmt)->aux = NULL;
+      stmt_ann (stmt)->common.aux = NULL;
 
       if (!level)
 	{
@@ -773,7 +773,7 @@ schedule_sm (struct loop *loop, edge *exits, unsigned n_exits, tree addr,
   /* Emit the load & stores.  */
   load = build (MODIFY_EXPR, void_type_node, tmp_var, addr);
   modify_stmt (load);
-  stmt_ann (load)->aux = xcalloc (1, sizeof (struct lim_aux_data));
+  stmt_ann (load)->common.aux = xcalloc (1, sizeof (struct lim_aux_data));
   LIM_DATA (load)->max_loop = loop;
   LIM_DATA (load)->tgt_loop = loop;
 

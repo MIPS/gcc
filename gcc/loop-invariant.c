@@ -356,6 +356,12 @@ static void
 record_use (struct def *def, rtx *use, rtx insn)
 {
   struct use *u = xmalloc (sizeof (struct use));
+
+  if (GET_CODE (*use) == SUBREG)
+    use = &SUBREG_REG (*use);
+  if (!REG_P (*use))
+    abort ();
+
   u->pos = use;
   u->insn = insn;
   u->next = def->uses;

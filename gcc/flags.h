@@ -291,6 +291,9 @@ extern int flag_prefetch_loop_arrays;
 
 extern int flag_reduce_all_givs;
 
+/* Nonzero enables loop unrolling.  */
+extern int flag_unroll_loops;
+
 /* Nonzero for -fcse-follow-jumps:
    have cse follow jumps to do a more extensive job.  */
 

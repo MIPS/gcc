@@ -46,7 +46,6 @@ enum tree_ann_type
   TREE_ANN_COMMON,
   VAR_ANN,
   STMT_ANN,
-  MISC_ANN,
   SSA_NAME_ANN
 };
 
@@ -54,6 +53,9 @@ struct tree_ann_common_d GTY(())
 {
   /* Annotation type.  */
   enum tree_ann_type type;
+
+  /* Auxiliary info specific to a pass.  */
+  PTR GTY ((skip (""))) aux;
 };
 
 /* It is advantageous to avoid things like life analysis for variables which
@@ -211,13 +213,6 @@ struct dataflow_d GTY(())
 
 typedef struct dataflow_d *dataflow_t;
 
-struct misc_ann_d GTY(())
-{
-  struct tree_ann_common_d common;
-
-  PTR GTY ((skip (""))) data; 
-};
-
 struct stmt_ann_d GTY(())
 {
   struct tree_ann_common_d common;
@@ -268,9 +263,6 @@ struct stmt_ann_d GTY(())
      by each pass on an as-needed basis in any order convenient for the
      pass which needs statement UIDs.  */
   unsigned int uid;
-
-  /* Auxiliary info specific to a pass.  */
-  PTR GTY ((skip (""))) aux;
 };
 
 
@@ -304,7 +296,6 @@ union tree_ann_d GTY((desc ("ann_type ((tree_ann)&%h)")))
   struct tree_ann_common_d GTY((tag ("TREE_ANN_COMMON"))) common;
   struct var_ann_d GTY((tag ("VAR_ANN"))) decl;
   struct stmt_ann_d GTY((tag ("STMT_ANN"))) stmt;
-  struct misc_ann_d GTY((tag ("MISC_ANN"))) misc;
   struct ssa_name_ann_d GTY((tag ("SSA_NAME_ANN"))) ssa_name;
 };
 
@@ -607,6 +598,7 @@ void tree_ssa_dce_no_cfg_changes (void);
 /* In tree-ssa-loop*.c  */
 void tree_ssa_lim (struct loops *loops);
 void tree_ssa_iv_optimize (struct loops *);
+void canonicalize_induction_variables (struct loops *loops);
 void test_unrolling_and_peeling (struct loops *loops);
 bool tree_duplicate_loop_to_header_edge (struct loop *, edge, struct loops *,
 					 unsigned int, sbitmap,

@@ -117,7 +117,6 @@ extern int flag_peel_loops;
 extern int flag_rerun_cse_after_loop;
 extern int flag_thread_jumps;
 extern int flag_tracer;
-extern int flag_unroll_loops;
 extern int flag_unroll_all_loops;
 extern int flag_unswitch_loops;
 extern int flag_cprop_registers;
