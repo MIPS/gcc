@@ -205,13 +205,19 @@ DEF_UNUSED_BUILTIN(BUILT_IN_FCEIL)
 DEF_UNUSED_BUILTIN(BUILT_IN_FMOD)
 DEF_UNUSED_BUILTIN(BUILT_IN_FREM)
 
-/* The system prototypes for `bzero' and `bcmp' functions have many
-   variations, so don't specify parameters to avoid conflicts.  The
-   expand_* functions check the argument types anyway.  */
+/* The system prototypes for `bzero', 'bcopy' and `bcmp' functions
+   have many variations, so don't specify parameters to avoid conflicts.
+   The expand_* functions check the argument types anyway.  */
 DEF_BUILTIN (BUILT_IN_BZERO,
 	     "__builtin_bzero",
 	     BUILT_IN_NORMAL,
 	     BT_FN_VOID_TRAD_PTR_LEN, 
+	     BT_FN_VOID_VAR,
+	     true, true, true)
+DEF_BUILTIN (BUILT_IN_BCOPY,
+	     "__builtin_bcopy",
+	     BUILT_IN_NORMAL,
+	     BT_FN_VOID_CONST_PTR_PTR_SIZE, 
 	     BT_FN_VOID_VAR,
 	     true, true, true)
 DEF_BUILTIN (BUILT_IN_BCMP,
@@ -233,6 +239,9 @@ DEF_EXT_LIB_BUILTIN(BUILT_IN_RINDEX,
 
 DEF_LIB_BUILTIN(BUILT_IN_MEMCPY,
 		"__builtin_memcpy",
+		BT_FN_TRAD_PTR_PTR_CONST_PTR_SIZE)
+DEF_LIB_BUILTIN(BUILT_IN_MEMMOVE,
+		"__builtin_memmove",
 		BT_FN_TRAD_PTR_PTR_CONST_PTR_SIZE)
 DEF_LIB_BUILTIN(BUILT_IN_MEMCMP,
 		"__builtin_memcmp",
