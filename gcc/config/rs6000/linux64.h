@@ -564,10 +564,9 @@ while (0)
 
 #define ASM_FILE_END(FILE) \
   do {									\
-    if (!TARGET_64BIT)							\
-      named_section_flags (".note.GNU-stack",				\
-			   SECTION_DEBUG				\
-			   | (trampolines_created ? SECTION_CODE : 0));	\
+    named_section_flags (".note.GNU-stack",				\
+			 SECTION_DEBUG					\
+			 | (trampolines_created ? SECTION_CODE : 0));	\
   } while (0)
 
 /* Do code reading to identify a signal frame, and set the frame

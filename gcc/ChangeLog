@@ -1,3 +1,9 @@
+2004-05-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/ia64/linux.h (ASM_FILE_END): Define.
+	* config/rs6000/linux64.h (ASM_FILE_END): Emit .note.GNU-stack
+	section even if TARGET_64BIT.
+
 2004-08-14  Roger Sayle  <roger@eyesopen.com>
 
 	* fixinc/tests/base/obstack.h: Backport from mainline.

@@ -5,6 +5,13 @@
 
 #define TARGET_VERSION fprintf (stderr, " (IA-64) Linux");
 
+#define ASM_FILE_END(FILE) \
+  do {									\
+    named_section_flags (".note.GNU-stack",			  	\
+			 SECTION_DEBUG					\
+			 | (trampolines_created ? SECTION_CODE : 0));   \
+  } while (0)
+
 /* This is for -profile to use -lc_p instead of -lc.  */
 #undef CC1_SPEC
 #define CC1_SPEC "%{profile:-p} %{G*}"
