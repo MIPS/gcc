@@ -942,7 +942,7 @@ static const struct compiler default_compilers[] =
 		    cc1 -fpreprocessed %{save-temps:%b.i} %{!save-temps:%g.i} \
 			%(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:%{!no-integrated-cpp:\
-		%{!server:cc1} %{server:@.cc1-server} %(cpp_unique_options) %(cc1_options)}}}\
+		%{!server:cc1} %{server:@.cc1} %(cpp_unique_options) %(cc1_options)}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\

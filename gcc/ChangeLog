@@ -1,3 +1,7 @@
+2003-10-07  Mike Stump  <mrs@apple.com>
+
+	* gcc.c (default_compilers): Don't include -server in name.
+
 2003-09-30  Mike Stump  <mrs@apple.com>
 
 	* opts.c (add_input_filename): Allocate "-" using malloc, as later
