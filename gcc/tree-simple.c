@@ -206,6 +206,11 @@ is_gimple_rhs (tree t)
     case CONSTRUCTOR:
       /* FIXME lower VA_ARG_EXPR.  */
     case VA_ARG_EXPR:
+    case INTEGER_CST:
+    case REAL_CST:
+    case STRING_CST:
+    case COMPLEX_CST:
+    case VECTOR_CST:
       return 1;
 
     default:
@@ -316,7 +321,7 @@ is_gimple_min_invariant (tree t)
     case STRING_CST:
     case COMPLEX_CST:
     case VECTOR_CST:
-      return true;
+      return !TREE_OVERFLOW (t);
 
     default:
       return false;

@@ -2098,6 +2098,10 @@ record_equivalences_from_stmt (tree stmt,
 	    rhs = widen_bitfield (rhs, TREE_OPERAND (lhs, 1), lhs);
 	  else
 	    rhs = NULL;
+
+	  /* If the value overflowed, then we can not use this equivalence.  */
+	  if (rhs && ! is_gimple_min_invariant (rhs))
+	    rhs = NULL;
 	}
 
       if (rhs)

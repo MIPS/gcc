@@ -2815,11 +2815,17 @@ static bool
 tree_node_shared_p (tree t)
 {
   if (TYPE_P (t) || DECL_P (t)
+      /* We check for constants explicitly since they are not considered
+	 gimple invariants if they overflowed.  */
+      || TREE_CODE_CLASS (TREE_CODE (t)) == 'c'
       || is_gimple_min_invariant (t)
       || TREE_CODE (t) == SSA_NAME)
     return true;
   while ((TREE_CODE (t) == ARRAY_REF
-          && is_gimple_min_invariant (TREE_OPERAND (t, 1)))
+	  /* We check for constants explicitly since they are not considered
+	     gimple invariants if they overflowed.  */
+          && (TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (t, 1))) == 'c'
+	      || is_gimple_min_invariant (TREE_OPERAND (t, 1))))
 	 || (TREE_CODE (t) == COMPONENT_REF
 	     || TREE_CODE (t) == REALPART_EXPR
 	     || TREE_CODE (t) == IMAGPART_EXPR))

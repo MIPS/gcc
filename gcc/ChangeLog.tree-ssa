@@ -1,3 +1,14 @@
+2003-12-18  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+	    Jeff Law  <law@redhat.com>
+
+	* tree-cfg.c (tree_node_shared_p): Explicitly allow sharing of
+	CST nodes.
+	* tree-simple.c (is_gimple_rhs): Allow CST nodes.
+	(is_gimple_min_invariant): Reject constants with TREE_OVERFLOW set.
+	* tree-ssa-ccp (visit_assignment): Test is_gimple_min_invariant
+	after munging bitfields.
+	* tree-ssa-dom.c (record_equivalences_from_stmt): Similarly.
+
 2003-12-17  Jan Hubicka  <jh@suse.cz>
 
 	Based on patch by Dale Johannesen

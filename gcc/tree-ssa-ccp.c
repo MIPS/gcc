@@ -661,7 +661,7 @@ visit_assignment (tree stmt)
       {
 	tree w = widen_bitfield (val.const_val, TREE_OPERAND (lhs, 1), lhs);
 
-	if (w)
+	if (w && is_gimple_min_invariant (w))
 	  val.const_val = w;
 	else
 	  {
