@@ -3553,12 +3553,9 @@ bsi_insert_before (curr_bsi, t, mode)
   tsi_link_before (&inserted_tsi, t, TSI_NEW_STMT);
   add_stmt_to_bb (tsi_container (inserted_tsi), curr_bb, parent);
 
-  same_tsi = inserted_tsi;
-  tsi_next (&same_tsi);
-
   if (curr_container == curr_bb->head_tree_p)
     {
-      curr_bb->head_tree_p = tsi_container (same_tsi);
+      curr_bb->head_tree_p = tsi_container (inserted_tsi);
       /* If the parent block is a COND_EXPR or LOOP_EXPR, check if this
 	 is the block which they point to and update if necessary.  */
       if (parent)
@@ -3584,6 +3581,16 @@ bsi_insert_before (curr_bsi, t, mode)
 	    }
 	}
     }
+
+  same_tsi = inserted_tsi;
+  tsi_next (&same_tsi);
+
+  /* The end block pointer can be modified when we insert before the last stmt
+     in a block.  This occurs because we insert a new container for the last
+     stmt.  */
+
+  if (curr_container == curr_bb->end_tree_p)
+    curr_bb->end_tree_p = tsi_container (same_tsi);
 
   if (mode == BSI_SAME_STMT)
     bsi_update_from_tsi (curr_bsi, same_tsi);

@@ -1,3 +1,11 @@
+2003-06-02  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-cfg.c (bsi_insert_before): Update end of block pointer if we
+	inserted before the last stmt in a block. (The container changed).
+	* tree-ssa.c (elim_backward): Inserting copy should be within 
+	conditional check.
+	(elim_create): Only select one bit instead of the all.
+
 2003-06-01  Jason Merrill  <jason@redhat.com>
 
 	* Makefile.in: Remove lots of -Wno-error targets.
