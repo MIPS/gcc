@@ -1,5 +1,11 @@
 2003-11-10  Michael Matz  <matz@suse.de>
 
+	* ra-colorize.c (build_worklists): Don't special-case stack
+	pseudos.
+	(select_spill): Prefer to spill stack pseudos.
+
+2003-11-10  Michael Matz  <matz@suse.de>
+
 	* ra-rewrite.c (emit_loads): Do loads from rematerializable webs.
 
 2003-11-06  Michael Matz  <matz@suse.de>

@@ -329,7 +329,7 @@ build_worklists (struct df *df ATTRIBUTE_UNUSED)
     {
       struct web *web = DLIST_WEB (d);
       d_next = d->next;
-      if (web->type == PRECOLORED || SPILL_SLOT_P (web->regno))
+      if (web->type == PRECOLORED)
         continue;
 
       remove_list (d, &WEBS(INITIAL));
@@ -339,46 +339,6 @@ build_worklists (struct df *df ATTRIBUTE_UNUSED)
 	put_web (web, FREEZE);
       else
 	put_web (web, SIMPLIFY);
-    }
-
-  /* If we are not the first pass, put all stackwebs (which are still
-     backed by a new pseudo, but conceptually can stand for a stackslot,
-     i.e. it doesn't really matter if they get a color or not), on
-     the SELECT stack first, those with lowest cost first.  This way
-     they will be colored last, so do not constrain the coloring of the
-     normal webs.  But still those with the highest count are colored
-     before, i.e. get a color more probable.  The use of stackregs is
-     a pure optimization, and all would work, if we used real stackslots
-     from the begin.  */
-  if (ra_pass > 1)
-    {
-      unsigned int i, num, max_num;
-      struct web **order2web;
-      max_num = num_webs - num_subwebs;
-      order2web = xmalloc (max_num * sizeof (order2web[0]));
-      for (i = 0, num = 0; i < max_num; i++)
-	if (SPILL_SLOT_P (id2web[i]->regno))
-	  order2web[num++] = id2web[i];
-      if (num)
-	{
-	  qsort (order2web, num, sizeof (order2web[0]), comp_webs_maxcost);
-	  /*for (i = num - 1;; i--)*/
-	  for (i = 0; i < num; i++)
-	    {
-	      struct web *web = order2web[i];
-	      remove_list (web->dlink, &WEBS(INITIAL));
-	      put_web (web, SIMPLIFY);
-	      /*put_web (web, SELECT);
-	      for (wl = web->conflict_list; wl; wl = wl->next)
-		{
-		  struct web *pweb = wl->t;
-		  pweb->num_conflicts -= 1 + web->add_hardregs;
-		}
-	      if (i == 0)
-		break;*/
-	    }
-	}
-      free (order2web);
     }
 
   /* And put all moves on the worklist for iterated coalescing.
@@ -999,7 +959,15 @@ select_spill (void)
     {
       struct web *w = DLIST_WEB (d);
       unsigned HOST_WIDE_INT cost = spill_heuristic (w);
-      if ((!w->spill_temp) && cost < best)
+      if (SPILL_SLOT_P (w->regno)
+	  && (!bestd
+	      || !SPILL_SLOT_P (DLIST_WEB (bestd)->regno)
+	      || cost < best))
+	{
+	  best = cost;
+	  bestd = d;
+	}
+      else if ((!w->spill_temp) && cost < best)
 	{
 	  best = cost;
 	  bestd = d;
