@@ -1,3 +1,8 @@
+2004-01-28  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* config/s390/s390.md ("cmpmem_long_64", "cmpmem_long_31"):
+	Fix merge problem.
+
 2004-01-26  Jakub Jelinek  <jakub@redhat.com>
 	
 	Backport from mainline:
