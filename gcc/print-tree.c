@@ -513,10 +513,6 @@ print_node (file, prefix, node, indent)
       else if (TREE_CODE (node) == ARRAY_TYPE
 	       && TYPE_NONALIASED_COMPONENT (node))
 	fputs (" nonaliased-component", file);
-      else if ((TREE_CODE (node) == FUNCTION_TYPE
-		|| TREE_CODE (node) == METHOD_TYPE)
-	       && TYPE_AMBIENT_BOUNDEDNESS (node))
-	fputs (" ambient-boundedness", file);
 
       if (TYPE_PACKED (node))
 	fputs (" packed", file);
@@ -524,7 +520,6 @@ print_node (file, prefix, node, indent)
 	fputs (" restrict", file);
       if (TYPE_POINTER_DEPTH (node))
 	fprintf (file, " pointer_depth=%d", TYPE_POINTER_DEPTH (node));
-      /* GKM FIXME: handle TYPE_AMBIENT_BOUNDEDNESS */
 
       if (TYPE_LANG_FLAG_0 (node))
 	fputs (" type_0", file);

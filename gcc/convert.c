@@ -42,8 +42,6 @@ convert_to_pointer (type, expr)
   if (integer_zerop (expr))
     return build_null_pointer_node (type);
 
-  /* GKM FIXME: should we build CONVERT_EXPR nodes for BP conversions,
-     or instead build BP constructors and field refs?  */
   if (TREE_BOUNDED (expr) != BOUNDED_POINTER_TYPE_P (TREE_TYPE (expr)))
     abort ();
 

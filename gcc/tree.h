@@ -1102,13 +1102,6 @@ struct tree_block
 
 #define TYPE_POINTER_DEPTH(TYPE) (TYPE_CHECK (TYPE)->type.pointer_depth)
 
-/* In a FUNCTION_TYPE node, this bit stores the value of
-   default_pointer_boundedness at the time TYPE was created.  It is
-   useful for choosing default boundedness of function arguments for
-   non-prototype function decls and for varargs/stdarg lists.  */
-#define TYPE_AMBIENT_BOUNDEDNESS(TYPE) \
-  (TYPE_CHECK (TYPE)->type.transparent_union_flag)
-
 /* Pointer depth >= 2 characterizes an interface that is too complex
    for automatically-mediated mixing of bounded and unbounded pointer
    code.  */

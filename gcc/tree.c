@@ -1088,8 +1088,6 @@ make_node (code)
       /* Note that we have not yet computed the alias set for this
 	 type.  */
       TYPE_ALIAS_SET (t) = -1;
-      if (code == FUNCTION_TYPE || code == METHOD_TYPE)
-	TYPE_AMBIENT_BOUNDEDNESS (t) = default_pointer_boundedness;
       break;
 
     case 'c':
@@ -1219,8 +1217,6 @@ copy_node (node)
 	 but the optimizer should catch that.  */
       TYPE_SYMTAB_POINTER (t) = 0;
       TYPE_SYMTAB_ADDRESS (t) = 0;
-      if (code == FUNCTION_TYPE || code == METHOD_TYPE)
-	TYPE_AMBIENT_BOUNDEDNESS (t) = default_pointer_boundedness;
     }
 
   TREE_SET_PERMANENT (t);
@@ -3665,7 +3661,6 @@ tree
 build_type_attribute_variant (ttype, attribute)
      tree ttype, attribute;
 {
-  /* GKM FIXME: I think this is OK as it stands.  */
   if ( ! attribute_list_equal (TYPE_ATTRIBUTES (ttype), attribute))
     {
       unsigned int hashcode;

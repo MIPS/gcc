@@ -3294,10 +3294,6 @@ c_make_fname_decl (id, name, type_dep)
    If LIBRARY_NAME is nonzero, use that for DECL_ASSEMBLER_NAME,
    the name to be called if we can't opencode the function.  */
 
-/* GKM FIXME: we shouldn't declare builtins at init time,
-   but rather declare them lazily when user code has a decl
-   or a use so we know the desired boundedness.  */
-
 tree
 builtin_function (name, type, function_code, class, library_name)
      const char *name;

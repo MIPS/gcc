@@ -169,7 +169,6 @@ static void record_function_format	PARAMS ((tree, tree, enum format_type,
 						 int, int));
 static void record_international_format	PARAMS ((tree, tree, int));
 static int default_valid_lang_attribute PARAMS ((tree, tree, tree, tree));
-static tree type_change_boundedness	PARAMS ((tree, int, int));
 
 /* Keep a stack of if statements.  We record the number of compound
    statements seen up to the if keyword, as well as the line number
@@ -1120,145 +1119,8 @@ decl_attributes (node, attributes, prefix_attributes)
 	  else
 	    DECL_NO_LIMIT_STACK (decl) = 1;
 	  break;
-	case A_UNBOUNDED:
-	case A_BOUNDED:
-	  {
-	    int boundedp = (id == A_BOUNDED);
-	    int depth = 1;
-	    int save_default_pointer_boundedness = default_pointer_boundedness;
-	    if (args)
-	      {
-		tree expr = TREE_VALUE (args);
-		/* Strip any NOPs of any kind.  */
-		while (TREE_CODE (expr) == NOP_EXPR
-		       || TREE_CODE (expr) == CONVERT_EXPR
-		       || TREE_CODE (expr) == NON_LVALUE_EXPR)
-		  expr = TREE_OPERAND (expr, 0);
-		if (TREE_CODE (expr) != INTEGER_CST)
-		  {
-		    error ("requested boundedness depth is not a constant");
-		    continue;
-		  }
-		depth = TREE_INT_CST_LOW (expr);
-	      }
-	    default_pointer_boundedness = boundedp;
-	    type = TREE_TYPE (decl) = type_change_boundedness (type, boundedp, depth);
-	    default_pointer_boundedness = save_default_pointer_boundedness;
-	  }
-	  break;
 	}
     }
-}
-
-/* Recursively descend TYPE as deeply as DEPTH, changing boundedness
-   to BOUNDEDP.  Negative DEPTH is effectively infinite.  */
-
-static tree
-type_change_boundedness (type, boundedp, depth)
-     tree type;
-     int boundedp;
-     int depth;
-{
-  if (TYPE_POINTER_DEPTH (type) == 0 || depth == 0)
-    return type;
-
-  if (MAYBE_BOUNDED_POINTER_TYPE_P (type))
-    {
-      int type_quals = ((TYPE_QUALS (type) & ~TYPE_QUAL_BOUNDED)
-			| (boundedp * TYPE_QUAL_BOUNDED));
-      if (TYPE_POINTER_DEPTH (type) > 1 && depth > 1)
-	type = build_pointer_type (type_change_boundedness (TREE_TYPE (type),
-							    boundedp, --depth));
-      type = build_qualified_type (type, type_quals);
-    }
-  else if (TREE_CODE (type) == FUNCTION_TYPE)
-    {
-      tree value_type = type_change_boundedness (TREE_TYPE (type),
-						  boundedp, depth);
-      tree old_types;
-      tree new_types = NULL_TREE;
-      int changedp = 0;
-      for (old_types = TYPE_ARG_TYPES (type); old_types; old_types = TREE_CHAIN (old_types))
-	{
-	  tree arg_type = type_change_boundedness (TREE_VALUE (old_types),
-						   boundedp, depth);
-	  if (TREE_PURPOSE (old_types))
-	    abort ();
-	  if (arg_type != TREE_VALUE (old_types))
-	    changedp = 1;
-	  new_types = tree_cons (NULL_TREE, arg_type, new_types);
-	}
-      if (changedp)
-	type = build_function_type (value_type, nreverse (new_types));
-      else if (value_type != TREE_TYPE (type))
-	type = build_function_type (value_type, TYPE_ARG_TYPES (type));
-      TYPE_BOUNDED (type) = boundedp;
-    }
-  else if (TREE_CODE (type) == RECORD_TYPE || TREE_CODE (type) == UNION_TYPE)
-    {
-      tree old_fields;
-      tree new_fields = NULL_TREE;
-      int changedp = 0;
-      for (old_fields = TYPE_FIELDS (type); old_fields; old_fields = TREE_CHAIN (old_fields))
-	{
-	  tree value = TREE_VALUE (old_fields);
-	  if (TREE_PURPOSE (old_fields))
-	    abort ();
-	  if (TREE_CODE (value) == FIELD_DECL)
-	    {
-	      tree field_type = type_change_boundedness (TREE_TYPE (value),
-							 boundedp, depth);
-	      if (field_type != TREE_TYPE (value))
-		{
-		  changedp = 1;
-		  /* GKM FIXME: build new FIELD_DECL */
-		  abort ();
-		}
-	    }
-	  new_fields = tree_cons (NULL_TREE, value, new_fields);
-	}
-      if (changedp)
-	{
-	  type = copy_node (type);
-	  TYPE_FIELDS (type) = nreverse (new_fields);
-	  TYPE_SIZE (type) = TYPE_SIZE_UNIT (type) = NULL_TREE;
-	  layout_type (type);
-	}
-    }
-  else if (TREE_CODE (type) == ARRAY_TYPE)
-    {
-      tree elttype = type_change_boundedness (TREE_TYPE (type), boundedp, depth);
-      if (elttype != TREE_TYPE (type))
-	{
-	  type = copy_node (type);
-	  TREE_TYPE (type) = elttype;
-	  TYPE_SIZE (type) = TYPE_SIZE_UNIT (type) = NULL_TREE;
-	  layout_type (type);
-	}
-    }
-  else if (TREE_CODE (type) == TREE_LIST)
-    {
-      tree node;
-      tree list = NULL_TREE;
-      int changedp = 0;
-      for (node = type; node; node = TREE_CHAIN (node))
-	{
-	  tree value = TREE_VALUE (node);
-	  tree purpose = TREE_PURPOSE (node);
-	  type = type_change_boundedness (TREE_TYPE (value), boundedp, depth);
-	  if (type != TREE_TYPE (value))
-	    {
-	      /* GKM FIXME: redo decl with changed type */
-	      changedp = 1;
-	    }
-	  list = tree_cons (purpose, value, list);
-	}
-      if (changedp)
-	type = nreverse (list);
-    }
-  else
-    abort ();
-  return type;
 }
 
 /* Split SPECS_ATTRS, a list of declspecs and prefix attributes, into two
@@ -4028,7 +3890,6 @@ c_common_nodes_and_builtins (cplus_mode, no_builtins, no_nonansi_builtins)
   double_endlink = tree_cons (NULL_TREE, double_type_node, endlink);
   unsigned_endlink = tree_cons (NULL_TREE, unsigned_type_node, endlink);
 
-  /* GKM FIXME: do we need unbounded_ptr versions of these? */
   default_pointer_boundedness = 0;
   ptr_ftype = build_function_type (unbounded_ptr_type_node, NULL_TREE);
   ptr_ftype_unsigned = build_function_type (unbounded_ptr_type_node, unsigned_endlink);

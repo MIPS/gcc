@@ -1,7 +1,7 @@
 /* install-info -- create Info directory entry(ies) for an Info file.
-   $Id: install-info.c,v 1.1.1.3 1998/03/24 18:20:30 law Exp $
+   $Id: install-info.c,v 1.6 1998/03/24 19:41:39 law Exp $
 
-   Copyright (C) 1996, 97, 98 Free Software Foundation, Inc.
+   Copyright (C) 1996, 97, 98, 00 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -26,12 +26,6 @@
 
 /* Name this program was invoked with.  */
 char *progname;
-
-char *readfile ();
-struct line_data *findlines ();
-void fatal ();
-void insert_entry_here ();
-int compare_section_names ();
 
 struct spec_entry;
 
@@ -110,6 +104,12 @@ struct menu_section
   int end_line;
 };
 
+char *readfile (char *, int *);
+struct line_data *findlines (char *, int, int *);
+void fatal (char *, char *, char *);
+void insert_entry_here (struct spec_entry *, int, struct line_data *, int);
+int compare_section_names (struct spec_section **, struct spec_section **);
+
 /* Memory allocation and string operations.  */
 
 /* Like malloc but get fatal error if memory is exhausted.  */
@@ -120,7 +120,7 @@ xmalloc (size)
   extern void *malloc ();
   void *result = malloc (size);
   if (result == NULL)
-    fatal (_("virtual memory exhausted"), 0);
+    fatal (_("virtual memory exhausted"), 0, 0);
   return result;
 }
 
@@ -133,7 +133,7 @@ xrealloc (obj, size)
   extern void *realloc ();
   void *result = realloc (obj, size);
   if (result == NULL)
-    fatal (_("virtual memory exhausted"), 0);
+    fatal (_("virtual memory exhausted"), 0, 0);
   return result;
 }
 
@@ -211,7 +211,7 @@ pfatal_with_name (name)
      char *name;
 {
   char *s = concat ("", strerror (errno), _(" for %s"));
-  fatal (s, name);
+  fatal (s, name, 0);
 }
 
 /* Given the full text of a menu entry, null terminated,
@@ -551,9 +551,9 @@ For more information about these matters, see the files named COPYING.\n"),
     }
 
   if (!infile)
-    fatal (_("No input file specified; try --help for more information."));
+    fatal (_("No input file specified; try --help for more information."), 0, 0);
   if (!dirfile)
-    fatal (_("No dir file specified; try --help for more information."));
+    fatal (_("No dir file specified; try --help for more information."), 0, 0);
 
   /* Read the Info file and parse it into lines.  */
 
@@ -605,7 +605,7 @@ For more information about these matters, see the files named COPYING.\n"),
               && sizeof ("START-INFO-DIR-ENTRY") - 1 == input_lines[i].size)
             {
               if (start_of_this_entry != 0)
-                fatal (_("START-INFO-DIR-ENTRY without matching END-INFO-DIR-ENTRY"));
+                fatal (_("START-INFO-DIR-ENTRY without matching END-INFO-DIR-ENTRY"), 0, 0);
               start_of_this_entry = input_lines[i + 1].start;
             }
           if (!strncmp ("END-INFO-DIR-ENTRY", input_lines[i].start,
@@ -624,11 +624,11 @@ For more information about these matters, see the files named COPYING.\n"),
                   start_of_this_entry = 0;
                 }
               else
-                fatal (_("END-INFO-DIR-ENTRY without matching START-INFO-DIR-ENTRY"));
+                fatal (_("END-INFO-DIR-ENTRY without matching START-INFO-DIR-ENTRY"), 0, 0);
             }
         }
       if (start_of_this_entry != 0)
-        fatal (_("START-INFO-DIR-ENTRY without matching END-INFO-DIR-ENTRY"));
+        fatal (_("START-INFO-DIR-ENTRY without matching END-INFO-DIR-ENTRY"), 0, 0);
     }
 
   if (!delete_flag)

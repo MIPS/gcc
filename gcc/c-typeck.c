@@ -1499,8 +1499,7 @@ build_array_ref (array, index)
 	  && ! int_fits_type_p (index, TYPE_VALUES (TREE_TYPE (array))))
 	{
 #if 0
-	  /* GKM FIXME: doesn't handle var-arrays properly.
-	     We need to use pointer bounds.  */
+	  /* GKM FIXME: doesn't handle flexible array members properly.  */
 	  if (flag_bounds_check)
 	    warning ("array bounds violation");
 #endif
@@ -1788,9 +1787,6 @@ convert_arguments (typelist, values, name, fundecl, funtype)
   int parmnum;
   int depth = (fundecl ? DECL_POINTER_DEPTH (fundecl)
 	       : TYPE_POINTER_DEPTH (funtype));
-  int varargs_boundedp = (funtype == default_function_type
-			  ? default_pointer_boundedness
-			  : TYPE_AMBIENT_BOUNDEDNESS (funtype));
   int boundedp = TYPE_BOUNDED (funtype);
 
   /* Scan the given expressions and types, producing individual
@@ -1814,14 +1810,6 @@ convert_arguments (typelist, values, name, fundecl, funtype)
 	    error ("too many arguments to function");
 	  break;
 	}
-#if 0
-      /* GKM FIXME: we don't do this anymore */
-      else if (type && TREE_CODE (type) == INTEGER_CST)
-	{
-	  varargs_boundedp = TREE_INT_CST_LOW (type);
-	  type = NULL_TREE;
-	}
-#endif
       /* Strip NON_LVALUE_EXPRs since we aren't using as an lvalue.  */
       /* Do not use STRIP_NOPS here!  We do not want an enumerator with value 0
 	 to convert automatically to a pointer.  */
@@ -1837,7 +1825,7 @@ convert_arguments (typelist, values, name, fundecl, funtype)
 		       || (TREE_CODE (type) == UNION_TYPE
 			   && TYPE_TRANSPARENT_UNION (type)
 			   && TYPE_BOUNDED (type)))
-	       : varargs_boundedp)
+	       : default_pointer_boundedness)
 	  && !(fundecl && DECL_BUILT_IN (fundecl)
 	       /* GKM FIXME: what other builtins need this? */
 	       && (DECL_FUNCTION_CODE (fundecl) == BUILT_IN_STDARG_START
@@ -1961,7 +1949,7 @@ convert_arguments (typelist, values, name, fundecl, funtype)
 	    }
 	}
       else if (TREE_CODE (TREE_TYPE (val)) == POINTER_TYPE
-	       && varargs_boundedp)
+	       && default_pointer_boundedness)
 	/* GKM FIXME: BUG: this generates 0..0 bounds. */
 	parmval = convert_for_assignment
 	  (build_qualified_type (TREE_TYPE (val), (TYPE_QUALS (TREE_TYPE (val))
@@ -3074,7 +3062,6 @@ pointer_int_sum (resultcode, ptrop, intop)
   if (folded == result)
     TREE_CONSTANT (folded) = TREE_CONSTANT (ptrop) & TREE_CONSTANT (intop);
 
-  /* GKM FIXME: propagate the pointer's bounds to the result */
   return folded;
 }
 
@@ -3493,7 +3480,6 @@ build_unary_op (code, xarg, noconvert)
 					  TREE_READONLY (arg),
 					  TREE_THIS_VOLATILE (arg));
 
-      /* GKM FIXME: why don't we build a BP constructor here? */
       argtype = build_pointer_type (argtype);
 
       if (mark_addressable (arg) == 0)
@@ -3523,11 +3509,9 @@ build_unary_op (code, xarg, noconvert)
 
 	    if (TREE_BOUNDED (addr))
 	      {
-		/* If the final field has array type, it might have
-		   variable length, so we must preserve the high_bound of
-		   the entire record as the high_bound of the field.  */
-		/* GKM FIXME: is this test sufficent to identify the
-                   final field?  */
+		/* If the final field has array type, it might be a flexible
+		   array member, so we must preserve the high_bound of
+		   the enclosing record as the high_bound of the field.  */
 		if (FINAL_FIELD_P (field))
 		  high_bound = build_bounded_ptr_field_ref (addr, 2);
 		addr = build_bounded_ptr_field_ref (addr, 0);
@@ -3590,7 +3574,7 @@ build_bounded_ptr_constructor (addr)
     abort ();
 
   if (addr == error_mark_node
-      /* GKM FIXME: this is rather brutish */
+      /* GKM FIXME: this is rather brutish.  */
       || !default_pointer_boundedness)
     return addr;
 
@@ -3666,7 +3650,7 @@ build_high_bound (addr)
 }
 
 /* Build a phony VAR_DECL to represent the end address of VAR.
-   GKM FIXME: We should The linker should synthesize a definition if none exists.  */
+   GKM FIXME: ld should synthesize a definition, if none exists.  */
 
 tree
 get_high_bound_decl (decl)
@@ -3711,7 +3695,7 @@ build_bounded_ptr_constructor_2 (addr, bounds)
     abort ();
 
   if (addr == error_mark_node
-      /* GKM FIXME: this is rather brutish */
+      /* GKM FIXME: this is rather brutish.  */
       || !default_pointer_boundedness)
     return addr;
 
@@ -3735,7 +3719,7 @@ build_bounded_ptr_constructor_3 (addr, low_bound, high_bound)
     abort ();
 
   if (addr == error_mark_node
-      /* GKM FIXME: this is rather brutish */
+      /* GKM FIXME: this is rather brutish.  */
       || !default_pointer_boundedness)
     return addr;
 
@@ -4383,26 +4367,37 @@ build_c_cast (type, expr)
 	{
 	  tree in_type = type;
 	  tree in_otype = otype;
-	  int warn = 0;
+	  int cv_warn = 0;
+	  int bp_warn = 0;
 
-	  /* GKM FIXME: warn about altering boundedness of intermediates. */
 	  /* Check that the qualifiers on IN_TYPE are a superset of
 	     the qualifiers of IN_OTYPE.  The outermost level of
 	     POINTER_TYPE nodes is uninteresting and we stop as soon
 	     as we hit a non-POINTER_TYPE node on either type.  */
 	  do
 	    {
+	      tree out_type = in_type;
+	      tree out_otype = in_otype;
 	      in_otype = TREE_TYPE (in_otype);
 	      in_type = TREE_TYPE (in_type);
-	      warn |= (TYPE_QUALS (in_otype) & ~TYPE_QUALS (in_type));
+	      if (MAYBE_BOUNDED_POINTER_TYPE_P (in_type)
+		  && MAYBE_BOUNDED_POINTER_TYPE_P (in_otype)
+		  && (BOUNDED_POINTER_TYPE_P (out_type)
+		      != BOUNDED_POINTER_TYPE_P (out_otype)))
+		bp_warn = 1;
+	      cv_warn |= (TYPE_QUALS (in_otype) & ~TYPE_QUALS (in_type));
 	    }
-	  while (MAYBE_BOUNDED_POINTER_TYPE_P (in_type) == POINTER_TYPE
-		 && MAYBE_BOUNDED_POINTER_TYPE_P (in_otype) == POINTER_TYPE);
+	  while (MAYBE_BOUNDED_POINTER_TYPE_P (in_type)
+		 && MAYBE_BOUNDED_POINTER_TYPE_P (in_otype));
 
-	  if (warn)
+	  if (cv_warn)
 	    /* There are qualifiers present in IN_OTYPE that are not
 	       present in IN_TYPE.  */
 	    warning ("cast discards qualifiers from pointer target type");
+	  if (bp_warn)
+	    /* There are qualifiers present in IN_OTYPE that are not
+	       present in IN_TYPE.  */
+	    warning ("cast alters boundedness of inner pointers in multi-level pointer type");
 	}
 
       /* Warn about possible alignment problems.  */
@@ -4437,11 +4432,23 @@ build_c_cast (type, expr)
 	  && !TREE_CONSTANT (value))
 	warning ("cast to pointer from integer of different size");
 
-      if (BOUNDED_POINTER_TYPE_P (type) && ! TREE_BOUNDED (value)
-	  && ! integer_zerop (value))
+      if (BOUNDED_POINTER_TYPE_P (type) && ! TREE_BOUNDED (value))
 	{
-	  /* GKM FIXME: print better diagnostic message */
-	  warning ("cast to bounded pointer from unbounded type");
+	  if (TREE_CODE (value) == INTEGER_CST)
+	    {
+	      /* Programs often use small integer constants,
+		 especially negative constants, to encode error status
+		 in pointer variables.  We allow such assignments
+		 without warning, though dereferencing such a pointer
+		 still causes a trap at runtime.  */
+	      HOST_WIDE_INT ival = tree_low_cst (value, 0);
+	      if (ival < -100 || ival > 100)
+		warning ("cast from integer constant to bounded pointer type");
+	    }
+	  else if (TREE_CODE (otype) == POINTER_TYPE)
+	    warning ("cast from unbounded to bounded pointer type");
+	  else
+	    warning ("cast to bounded pointer type from unbounded type");
 	  type = TYPE_UNBOUNDED_TYPE (type);
 	}
 

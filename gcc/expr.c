@@ -7125,6 +7125,7 @@ expand_expr (exp, target, tmode, modifier)
       if (TREE_OPERAND (exp, 0) == error_mark_node)
 	return const0_rtx;
 
+      /* GKM FIXME: is this code used anymore ???  */
       /* GKM FIXME: these are the only warnings in the whole file,
 	 which leads me to wonder if they should be pushed back into
 	 the front end.  */

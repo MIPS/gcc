@@ -6562,7 +6562,6 @@ fold (expr)
 	    }
 	}
 
-      /* GKM FIXME: handle BP case? */
       /* An unsigned comparison against 0 can be simplified.  */
       if (integer_zerop (arg1)
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (arg1))

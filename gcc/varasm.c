@@ -543,11 +543,8 @@ prefix_function_name (name, boundedp)
   if (boundedp)
     {
       if (strstr (name, BP_PREFIX))
-	/* GKM FIXME: reinstate abort here?  Only happens legitimately
-	   when defining an explicit thunk *and* flag_bounded_pointers,
-	   but thunks should be defined when !flag_bounded_pointers.  */
-	/* When explicitly defining a thunk, the source code name
-	   already has the BP_PREFIX, so don't add another. */
+	/* When explicitly defining a thunk, as for glibc syscalls,
+	   the source code-name already has the BP_PREFIX.  */
 	return get_identifier (name);
       prefix_len += BP_PREFIX_SIZE;
     }
