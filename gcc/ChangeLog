@@ -1,3 +1,8 @@
+2002-10-19  Roger Sayle  <roger@eyesopen.com>
+
+	* doc/invoke.texi: Document the -funsafe-profile-arcs option.
+	Fix up some overfull hboxes in "make dvi".
+
 2002-06-19  Mark Mitchell  <mark@codesourcery.com>
 
 	* Makefile.in (QMTEST_DIR): Simplify definition.

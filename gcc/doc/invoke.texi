@@ -247,8 +247,8 @@ in the following sections.
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
 -fdump-tree-original@r{[}-@var{n}@r{]} -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
--fmem-report @gol
--fprofile-arcs  -ftest-coverage  -ftime-report @gol
+-fmem-report  -fprofile-arcs  -funsafe-profile-arcs @gol
+-ftest-coverage  -ftime-report @gol
 -g  -g@var{level}  -gcoff  -gdwarf  -gdwarf-1  -gdwarf-1+  -gdwarf-2 @gol
 -ggdb  -gstabs  -gstabs+  -gvms  -gxcoff  -gxcoff+ @gol
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
@@ -447,7 +447,7 @@ in the following sections.
 -mno-relocatable  -mrelocatable-lib  -mno-relocatable-lib @gol
 -mtoc  -mno-toc -mlittle  -mlittle-endian  -mbig  -mbig-endian @gol
 -mcall-aix -mcall-sysv -mcall-netbsd @gol
--maix-struct-return -msvr4-struct-return
+-maix-struct-return -msvr4-struct-return @gol
 -mabi=altivec -mabi=no-altivec @gol
 -mprototype  -mno-prototype @gol
 -msim  -mmvme  -mads  -myellowknife  -memb -msdata @gol
@@ -612,7 +612,8 @@ in the following sections.
 
 @emph{D30V Options}
 @gccoptlist{
--mextmem  -mextmemory  -monchip  -mno-asm-optimize  -masm-optimize @gol
+-mextmem  -mextmemory  -monchip @gol
+-mno-asm-optimize  -masm-optimize @gol
 -mbranch-cost=@var{n} -mcond-exec=@var{n}}
 
 @emph{S/390 and zSeries Options}
@@ -677,7 +678,8 @@ in the following sections.
 -fverbose-asm  -fpack-struct  -fstack-check @gol
 -fstack-limit-register=@var{reg}  -fstack-limit-symbol=@var{sym} @gol
 -fargument-alias  -fargument-noalias @gol
--fargument-noalias-global  -fleading-underscore -ftls-model=@var{model}}
+-fargument-noalias-global  -fleading-underscore @gol
+-ftls-model=@var{model}}
 @end table
 
 @menu
@@ -2850,6 +2852,13 @@ This option makes it possible to estimate branch probabilities and to
 calculate basic block execution counts.  In general, basic block
 execution counts as provided by @option{-a} do not give enough
 information to estimate all branch probabilities.
+
+@item -funsafe-profile-arcs
+@opindex funsafe-profile-arcs
+When instrumenting the code with @option{-fprofile-arcs}, assume that
+the application is run single-threaded.  This avoids the thread safety
+overhead required to update profile information in multi-threaded
+applications.
 
 @need 2000
 @item -ftest-coverage
