@@ -192,13 +192,20 @@ struct dom_walk_block_data
   varray_type vrp_variables;
 };
 
+struct eq_expr_value
+{
+  tree src;
+  tree dst;
+};
+
 /* Local functions.  */
 static bool optimize_stmt (block_stmt_iterator, varray_type *, varray_type *);
 static inline tree get_value_for (tree, varray_type table);
 static inline void set_value_for (tree, tree, varray_type table);
 static tree lookup_avail_expr (tree, varray_type *, bool);
-static tree get_eq_expr_value (tree, int, varray_type *, varray_type *,
-			       basic_block, varray_type *);
+static struct eq_expr_value get_eq_expr_value (tree, int, varray_type *,
+					       varray_type *, basic_block,
+					       varray_type *);
 static hashval_t avail_expr_hash (const void *);
 static int avail_expr_eq (const void *, const void *);
 static hashval_t true_false_expr_hash (const void *);
@@ -936,9 +943,12 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 					tree parent_block_last_stmt)
 {
   int edge_flags;
-  tree eq_expr_value = NULL_TREE;
+  struct eq_expr_value eq_expr_value;
   struct dom_walk_block_data *bd
     = (struct dom_walk_block_data *)VARRAY_TOP_GENERIC_PTR (walk_data->block_data_stack);
+
+  eq_expr_value.src = NULL;
+  eq_expr_value.dst = NULL;
 
   /* If we have a single predecessor, then extract EDGE_FLAGS from
      our single incoming edge.  Otherwise clear EDGE_FLAGS and
@@ -1017,8 +1027,8 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 	      && CASE_LOW (match_case)
 	      && !CASE_HIGH (match_case))
 	    {
-	      eq_expr_value = build (MODIFY_EXPR, TREE_TYPE (switch_cond),
-				     switch_cond, CASE_LOW (match_case));
+	      eq_expr_value.dst = switch_cond;
+	      eq_expr_value.src = CASE_LOW (match_case);
 	    }
 	}
     }
@@ -1027,10 +1037,10 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
   /* If EQ_EXPR_VALUE (VAR == VALUE) is given, register the VALUE as a
      new value for VAR, so that occurrences of VAR can be replaced with
      VALUE while re-writing the THEN arm of a COND_EXPR.  */
-  if (eq_expr_value)
+  if (eq_expr_value.src && eq_expr_value.dst)
     {
-      tree dest = TREE_OPERAND (eq_expr_value, 0);
-      tree src = TREE_OPERAND (eq_expr_value, 1);
+      tree dest = eq_expr_value.dst;
+      tree src = eq_expr_value.src;
       tree prev_value = get_value_for (dest, const_and_copies);
 
       set_value_for (dest, src, const_and_copies);
@@ -1508,9 +1518,7 @@ find_equivalent_equality_comparison (tree cond)
 	     condition which uses the source of the typecast and the
 	     new constant (which has only changed its type).  */
 	  new = fold (build1 (NOP_EXPR, def_rhs_inner_type, op1));
-	  if (is_gimple_val (new)
-	      && integer_onep (fold (build (EQ_EXPR, boolean_type_node,
-					    new, op1))))
+	  if (is_gimple_val (new) && tree_int_cst_equal (new, op1))
 	    return build (TREE_CODE (cond), TREE_TYPE (cond),
 			  def_rhs_inner, new);
 	}
@@ -1664,11 +1672,10 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 		     Similarly the high value for the merged range is the
 		     minimum of the previous high value and the high value of
 		     this record.  */
-		  low = fold (build (MAX_EXPR, TREE_TYPE (low),
-				     low, tmp_low));
-		  high = fold (build (MIN_EXPR, TREE_TYPE (high),
-				      high, tmp_high));
-
+		  low = (tree_int_cst_compare (low, tmp_low) == 1
+			 ? low : tmp_low);
+		  high = (tree_int_cst_compare (high, tmp_high) == -1
+			  ? high : tmp_high);
 		}
 
 	      /* And record the computed range.  */
@@ -1684,10 +1691,8 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	     low value is the same low value as the conditional.
 	     Similarly for the current high value and the high value
 	     for the conditional.  */
-	  lowequal = integer_onep (fold (build (EQ_EXPR, boolean_type_node,
-						low, cond_low)));
-	  highequal = integer_onep (fold (build (EQ_EXPR, boolean_type_node,
-						 high, cond_high)));
+	  lowequal = tree_int_cst_equal (low, cond_low);
+	  highequal = tree_int_cst_equal (high, cond_high);
 
 	  if (lowequal && highequal)
 	    return (cond_inverted ? boolean_false_node : boolean_true_node);
@@ -1696,11 +1701,9 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	     to swap the two ranges so that the larger of the two
 	     ranges occurs "first".  */
 	  swapped = 0;
-	  if (integer_onep (fold (build (GT_EXPR, boolean_type_node,
-					 low, cond_low)))
+	  if (tree_int_cst_compare (low, cond_low) == 1
 	      || (lowequal 
-		  && integer_onep (fold (build (GT_EXPR, boolean_type_node,
-						cond_high, high)))))
+		  && tree_int_cst_compare (cond_high, high) == 1))
 	    {
 	      tree temp;
 
@@ -1715,11 +1718,8 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 
 	  /* Now determine if there is no overlap in the ranges
 	     or if the second range is a subset of the first range.  */
-	  no_overlap = integer_onep (fold (build (LT_EXPR,
-						   boolean_type_node,
-						   high, cond_low)));
-	  subset = integer_onep (fold (build (LE_EXPR, boolean_type_node,
-					      cond_high, high)));
+	  no_overlap = tree_int_cst_lt (high, cond_low);
+	  subset = tree_int_cst_compare (cond_high, high) != 1;
 
 	  /* If there was no overlap in the ranges, then this conditional
 	     always has a false value (unless we had to invert this
@@ -1737,15 +1737,14 @@ simplify_cond_and_lookup_avail_expr (tree stmt,
 	  /* We were unable to determine the result of the conditional.
 	     However, we may be able to simplify the conditional.  First
 	     merge the ranges in the same manner as range merging above.  */
-	  low = fold (build (MAX_EXPR, TREE_TYPE (low), low, cond_low));
-	  high = fold (build (MIN_EXPR, TREE_TYPE (high), high, cond_high));
+	  low = tree_int_cst_compare (low, cond_low) == 1 ? low : cond_low;
+	  high = tree_int_cst_compare (high, cond_high) == -1 ? high : cond_high;
 	  
 	  /* If the range has converged to a single point, then turn this
 	     into an equality comparison.  */
 	  if (TREE_CODE (cond) != EQ_EXPR
 	      && TREE_CODE (cond) != NE_EXPR
-	      && integer_onep (fold (build (EQ_EXPR, boolean_type_node,
-					    high, low))))
+	      && tree_int_cst_equal (low, high))
 	    {
 	      TREE_SET_CODE (cond, EQ_EXPR);
 	      TREE_OPERAND (cond, 1) = high;
@@ -2550,7 +2549,7 @@ record_range (tree cond, basic_block bb, varray_type *vrp_variables_p)
    This allows us to lookup the condition in a dominated block and
    get back a constant indicating if the condition is true.  */
 
-static tree
+static struct eq_expr_value
 get_eq_expr_value (tree if_stmt,
 		   int true_arm,
 		   varray_type *block_true_exprs_p,
@@ -2558,16 +2557,21 @@ get_eq_expr_value (tree if_stmt,
 		   basic_block bb,
 		   varray_type *vrp_variables_p)
 {
-  tree cond, value;
+  tree cond;
+  struct eq_expr_value retval;
 
   cond = COND_EXPR_COND (if_stmt);
-  value = NULL;
+  retval.src = NULL;
+  retval.dst = NULL;
 
   /* If the conditional is a single variable 'X', return 'X = 1' for
      the true arm and 'X = 0' on the false arm.   */
   if (TREE_CODE (cond) == SSA_NAME)
-    return build (MODIFY_EXPR, TREE_TYPE (cond), cond,
-		  (true_arm ? integer_one_node : integer_zero_node));
+    {
+      retval.dst = cond;
+      retval.src = (true_arm ? integer_one_node : integer_zero_node);
+      return retval;
+    }
 
   /* If we have a comparison expression, then record its result into
      the available expression table.  */
@@ -2600,7 +2604,11 @@ get_eq_expr_value (tree if_stmt,
 		/* If the conditional is of the form 'X == Y', return 'X = Y'
 		   for the true arm.  */
 	      if (TREE_CODE (cond) == EQ_EXPR)
-		value = build (MODIFY_EXPR, TREE_TYPE (cond), op0, op1);
+		{
+		  retval.dst = op0;
+		  retval.src = op1;
+		  return retval;
+		}
 	    }
 	  else
 	    {
@@ -2614,12 +2622,16 @@ get_eq_expr_value (tree if_stmt,
 		/* If the conditional is of the form 'X != Y', return 'X = Y'
 		   for the false arm.  */
 	      if (TREE_CODE (cond) == NE_EXPR)
-		value = build (MODIFY_EXPR, TREE_TYPE (cond), op0, op1);
+		{
+		  retval.dst = op0;
+		  retval.src = op1;
+		  return retval;
+		}
 	    }
 	}
     }
 
-  return value;
+  return retval;
 }
 
 /* Hashing for expressions which are going to be entered into the true/false

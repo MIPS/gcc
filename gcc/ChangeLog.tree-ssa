@@ -5,6 +5,13 @@
 
 2003-11-25  Jeff law  <law@redhat.com>
 
+	* tree-ssa-dom.c (get_eq_expr_value): Return a struct rather than
+	a tree node.
+	(record_equivalences_from_incoming_edge): Corresponding changes.
+	(find_equivalent_equality_comparison): Use tree_int_cst_XXX rather
+	then building and folding nodes.
+	(simplify_cond_and_lookup_avail_expr): Likewise.
+
 	* Makefile.in (OBJS-common): Add tree-phinodes.o.
 	(tree-phinodes.o): Add dependencies.
 	* tree-phinodes.c: New file.
