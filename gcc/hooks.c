@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -141,4 +141,12 @@ const char *
 hook_constcharptr_tree_null (tree t ATTRIBUTE_UNUSED)
 {
   return NULL;
+}
+
+bool
+hook_bool_uintp_uintp_false (a, b)
+     unsigned int *a ATTRIBUTE_UNUSED;
+     unsigned int *b ATTRIBUTE_UNUSED;
+{
+  return false;
 }

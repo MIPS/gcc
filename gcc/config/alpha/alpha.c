@@ -505,6 +505,9 @@ override_options ()
 	  warning ("trap mode not supported for VAX floats");
 	  alpha_fptm = ALPHA_FPTM_SU;
 	}
+      if (target_flags_explicit & MASK_LONG_DOUBLE_128)
+	warning ("128-bit long double not supported for VAX floats");
+      target_flags &= ~MASK_LONG_DOUBLE_128;
     }
 
   {
@@ -1824,6 +1827,10 @@ alpha_in_small_data_p (exp)
 {
   /* We want to merge strings, so we never consider them small data.  */
   if (TREE_CODE (exp) == STRING_CST)
+    return false;
+
+  /* Functions are never in the small data area.  Duh.  */
+  if (TREE_CODE (exp) == FUNCTION_DECL)
     return false;
 
   if (TREE_CODE (exp) == VAR_DECL && DECL_SECTION_NAME (exp))

@@ -1103,15 +1103,19 @@ convert_class_to_reference (t, s, expr)
 					   LOOKUP_NORMAL);
 	  
 	  if (cand)
-	    /* Build a standard conversion sequence indicating the
-	       binding from the reference type returned by the
-	       function to the desired REFERENCE_TYPE.  */
-	    cand->second_conv
-	      = (direct_reference_binding 
-		 (reference_type, 
-		  build1 (IDENTITY_CONV, 
-			  TREE_TYPE (TREE_TYPE (TREE_TYPE (cand->fn))),
-			  NULL_TREE)));
+            {
+              /* Build a standard conversion sequence indicating the
+                 binding from the reference type returned by the
+                 function to the desired REFERENCE_TYPE.  */
+              cand->second_conv
+                = (direct_reference_binding 
+                   (reference_type, 
+                    build1 (IDENTITY_CONV, 
+                            TREE_TYPE (TREE_TYPE (TREE_TYPE (cand->fn))),
+                            NULL_TREE)));
+              ICS_BAD_FLAG (cand->second_conv)
+                |= ICS_BAD_FLAG (TREE_VEC_ELT (cand->convs, 0));
+            }
 	}
       conversions = TREE_CHAIN (conversions);
     }
@@ -3250,11 +3254,27 @@ build_conditional_expr (arg1, arg2, arg3)
 	   type of the other and is an rvalue.
 
 	 --Both the second and the third operands have type void; the
-	   result is of type void and is an rvalue.  */
-      if ((TREE_CODE (arg2) == THROW_EXPR)
-	  ^ (TREE_CODE (arg3) == THROW_EXPR))
-	result_type = ((TREE_CODE (arg2) == THROW_EXPR) 
-		       ? arg3_type : arg2_type);
+	   result is of type void and is an rvalue.  
+
+         We must avoid calling force_rvalue for expressions of type
+	 "void" because it will complain that their value is being
+	 used.   */
+      if (TREE_CODE (arg2) == THROW_EXPR 
+	  && TREE_CODE (arg3) != THROW_EXPR)
+	{
+	  if (!VOID_TYPE_P (arg3_type))
+	    arg3 = force_rvalue (arg3);
+	  arg3_type = TREE_TYPE (arg3);
+	  result_type = arg3_type;
+	}
+      else if (TREE_CODE (arg2) != THROW_EXPR 
+	       && TREE_CODE (arg3) == THROW_EXPR)
+	{
+	  if (!VOID_TYPE_P (arg2_type))
+	    arg2 = force_rvalue (arg2);
+	  arg2_type = TREE_TYPE (arg2);
+	  result_type = arg2_type;
+	}
       else if (VOID_TYPE_P (arg2_type) && VOID_TYPE_P (arg3_type))
 	result_type = void_type_node;
       else
@@ -4105,7 +4125,7 @@ convert_like_real (tree convs, tree expr, tree fn, int argnum, int inner,
   
   if (issue_conversion_warnings)
     expr = dubious_conversion_warnings
-             (totype, expr, "argument", fn, argnum);
+             (totype, expr, "converting", fn, argnum);
   switch (TREE_CODE (convs))
     {
     case USER_CONV:
@@ -6202,6 +6222,16 @@ initialize_reference (type, expr, decl, cleanup)
 	  type = TREE_TYPE (expr);
 	  var = make_temporary_var_for_ref_to_temp (decl, type);
 	  layout_decl (var, 0);
+	  /* If the rvalue is the result of a function call it will be
+	     a TARGET_EXPR.  If it is some other construct (such as a
+	     member access expression where the underlying object is
+	     itself the result of a function call), turn it into a
+	     TARGET_EXPR here.  It is important that EXPR be a
+	     TARGET_EXPR below since otherwise the INIT_EXPR will
+	     attempt to make a bitwise copy of EXPR to intialize
+	     VAR. */
+	  if (TREE_CODE (expr) != TARGET_EXPR)
+	    expr = get_target_expr (expr);
 	  /* Create the INIT_EXPR that will initialize the temporary
 	     variable.  */
 	  init = build (INIT_EXPR, type, var, expr);

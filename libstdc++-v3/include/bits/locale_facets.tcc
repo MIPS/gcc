@@ -925,11 +925,11 @@ namespace std
 	const bool __fixed = __io.flags() & ios_base::fixed;
 	const int __max_exp = numeric_limits<_ValueT>::max_exponent10;
 
-	// ios_base::fixed outputs may need up to __max_exp+1 chars
-	// for the integer part + up to __prec chars for the
-	// fractional part + 3 chars for sign, decimal point, '\0'. On
-	// the other hand, for non-fixed outputs __max_digits * 2 chars
-	// + __prec are largely sufficient.
+	// ios_base::fixed outputs may need up to __max_exp + 1 chars
+	// for the integer part + __prec chars for the fractional part
+	// + 3 chars for sign, decimal point, '\0'. On the other hand,
+	// for non-fixed outputs __max_digits * 2 chars + __prec are
+	// largely sufficient.
 	const int __cs_size = __fixed ? __max_exp + __prec + 4 
 	                              : __max_digits * 2 + __prec;
 	char* __cs = static_cast<char*>(__builtin_alloca(__cs_size));

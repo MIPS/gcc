@@ -789,8 +789,18 @@ reload (first, global)
 		     that is not a legitimate memory operand.  As later
 		     stages of reload assume that all addresses found
 		     in the reg_equiv_* arrays were originally legitimate,
-		     we ignore such REG_EQUIV notes.  */
-		  if (memory_operand (x, VOIDmode))
+		     we ignore such REG_EQUIV notes.
+
+		     It also can happen that a REG_EQUIV note contains a MEM
+		     that carries the /u flag, for example when GCSE turns
+		     the load of a constant into a move from a pseudo that
+		     already contains the constant and attaches a REG_EQUAL
+		     note to the insn, which is later promoted to REQ_EQUIV
+		     by local-alloc.  If the destination pseudo happens not
+		     to be assigned to a hard reg, it will be replaced by
+		     the MEM as the destination of the move, thus generating
+		     a store to a possibly read-only memory location.  */
+		  if (memory_operand (x, VOIDmode) && ! RTX_UNCHANGING_P (x))
 		    {
 		      /* Always unshare the equivalence, so we can
 			 substitute into this insn without touching the
@@ -8366,6 +8376,8 @@ reload_cse_simplify_operands (insn, testreg)
     {
       cselib_val *v;
       struct elt_loc_list *l;
+      rtx op;
+      enum machine_mode mode;
 
       CLEAR_HARD_REG_SET (equiv_regs[i]);
 
@@ -8377,7 +8389,52 @@ reload_cse_simplify_operands (insn, testreg)
 	      && recog_data.operand_mode[i] == VOIDmode))
 	continue;
 
-      v = cselib_lookup (recog_data.operand[i], recog_data.operand_mode[i], 0);
+      op = recog_data.operand[i];
+      mode = GET_MODE (op);
+#ifdef LOAD_EXTEND_OP
+      if (GET_CODE (op) == MEM
+	  && GET_MODE_BITSIZE (mode) < BITS_PER_WORD
+	  && LOAD_EXTEND_OP (mode) != NIL)
+	{
+	  rtx set = single_set (insn);
+
+	  /* We might have multiple sets, some of which do implict
+	     extension.  Punt on this for now.  */
+	  if (! set)
+	    continue;
+	  /* If the destination is a also MEM or a STRICT_LOW_PART, no
+	     extension applies.
+	     Also, if there is an explicit extension, we don't have to
+	     worry about an implicit one.  */
+	  else if (GET_CODE (SET_DEST (set)) == MEM
+		   || GET_CODE (SET_DEST (set)) == STRICT_LOW_PART
+		   || GET_CODE (SET_SRC (set)) == ZERO_EXTEND
+		   || GET_CODE (SET_SRC (set)) == SIGN_EXTEND)
+	    ; /* Continue ordinary processing.  */
+	  /* If this is a straight load, make the extension explicit.  */
+	  else if (GET_CODE (SET_DEST (set)) == REG
+		   && recog_data.n_operands == 2
+		   && SET_SRC (set) == op
+		   && SET_DEST (set) == recog_data.operand[1-i])
+	    {
+	      validate_change (insn, recog_data.operand_loc[i],
+			       gen_rtx_fmt_e (LOAD_EXTEND_OP (mode),
+					      word_mode, op),
+			       1);
+	      validate_change (insn, recog_data.operand_loc[1-i],
+			       gen_rtx_REG (word_mode, REGNO (SET_DEST (set))),
+			       1);
+	      if (!apply_change_group ())
+		return 0;
+	      return reload_cse_simplify_operands (insn, testreg);
+	    }
+	  else
+	    /* ??? There might be arithmetic operations with memory that are
+	       safe to optimize, but is it worth the trouble?  */
+	    continue;
+	}
+#endif /* LOAD_EXTEND_OP */
+      v = cselib_lookup (op, recog_data.operand_mode[i], 0);
       if (! v)
 	continue;
 

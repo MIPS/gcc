@@ -36,6 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #include "splay-tree.h"
 #include "langhooks.h"
 #include "cgraph.h"
+#include "diagnostic.h"
 
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
@@ -1481,6 +1482,13 @@ optimize_inline_calls (fn)
   inline_data id;
   tree prev_fn;
 
+
+  /* There is no point in performing inlining if errors have already
+     occurred -- and we might crash if we try to inline invalid
+     code.  */
+  if (errorcount || sorrycount)
+    return;
+        
   /* Clear out ID.  */
   memset (&id, 0, sizeof (id));
 

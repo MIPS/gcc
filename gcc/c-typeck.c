@@ -2160,11 +2160,9 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	 but don't convert the args to int!  */
       build_type = integer_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
-	   || code0 == COMPLEX_TYPE
-	   || code0 == VECTOR_TYPE)
+	   || code0 == COMPLEX_TYPE)
 	  && (code1 == INTEGER_TYPE || code1 == REAL_TYPE
-	      || code1 == COMPLEX_TYPE
-	      || code1 == VECTOR_TYPE))
+	      || code1 == COMPLEX_TYPE))
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
 	{
@@ -2974,10 +2972,10 @@ build_unary_op (code, xarg, flag)
 
 	/* Report a read-only lvalue.  */
 	if (TREE_READONLY (arg))
-	  readonly_warning (arg, 
-			    ((code == PREINCREMENT_EXPR
-			      || code == POSTINCREMENT_EXPR)
-			     ? "increment" : "decrement"));
+	  readonly_error (arg, 
+                          ((code == PREINCREMENT_EXPR
+                            || code == POSTINCREMENT_EXPR)
+                           ? "increment" : "decrement"));
 
 	if (TREE_CODE (TREE_TYPE (arg)) == BOOLEAN_TYPE)
 	  val = boolean_increment (code, arg);
@@ -3257,23 +3255,23 @@ pedantic_lvalue_warning (code)
 /* Warn about storing in something that is `const'.  */
 
 void
-readonly_warning (arg, msgid)
+readonly_error (arg, msgid)
      tree arg;
      const char *msgid;
 {
   if (TREE_CODE (arg) == COMPONENT_REF)
     {
       if (TYPE_READONLY (TREE_TYPE (TREE_OPERAND (arg, 0))))
-	readonly_warning (TREE_OPERAND (arg, 0), msgid);
+	readonly_error (TREE_OPERAND (arg, 0), msgid);
       else
-	pedwarn ("%s of read-only member `%s'", _(msgid),
-		 IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (arg, 1))));
+	error ("%s of read-only member `%s'", _(msgid),
+               IDENTIFIER_POINTER (DECL_NAME (TREE_OPERAND (arg, 1))));
     }
   else if (TREE_CODE (arg) == VAR_DECL)
-    pedwarn ("%s of read-only variable `%s'", _(msgid),
-	     IDENTIFIER_POINTER (DECL_NAME (arg)));
+    error ("%s of read-only variable `%s'", _(msgid),
+           IDENTIFIER_POINTER (DECL_NAME (arg)));
   else
-    pedwarn ("%s of read-only location", _(msgid));
+    error ("%s of read-only location", _(msgid));
 }
 
 /* Mark EXP saying that we need to be able to take the
@@ -3318,7 +3316,7 @@ c_mark_addressable (exp)
 	if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x)
 	    && DECL_NONLOCAL (x))
 	  {
-	    if (TREE_PUBLIC (x))
+	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
 	      {
 		error ("global register variable `%s' used in nested function",
 		       IDENTIFIER_POINTER (DECL_NAME (x)));
@@ -3329,7 +3327,7 @@ c_mark_addressable (exp)
 	  }
 	else if (DECL_REGISTER (x) && !TREE_ADDRESSABLE (x))
 	  {
-	    if (TREE_PUBLIC (x))
+	    if (TREE_PUBLIC (x) || TREE_STATIC (x) || DECL_EXTERNAL (x))
 	      {
 		error ("address of global register variable `%s' requested",
 		       IDENTIFIER_POINTER (DECL_NAME (x)));
@@ -3963,7 +3961,7 @@ build_modify_expr (lhs, modifycode, rhs)
       || ((TREE_CODE (lhstype) == RECORD_TYPE
 	   || TREE_CODE (lhstype) == UNION_TYPE)
 	  && C_TYPE_FIELDS_READONLY (lhstype)))
-    readonly_warning (lhs, "assignment");
+    readonly_error (lhs, "assignment");
 
   /* If storing into a structure or union member,
      it has probably been given type `int'.
@@ -5524,6 +5522,10 @@ pop_init_level (implicit)
 	abort ();
     }
 
+  /* Now output all pending elements.  */
+  constructor_incremental = 1;
+  output_pending_init_elements (1);
+
   p = constructor_stack;
 
   /* Error for initializing a flexible array member, or a zero-length
@@ -5577,10 +5579,6 @@ pop_init_level (implicit)
 	    RESTORE_SPELLING_DEPTH (constructor_depth);
 	  }
     }
-
-  /* Now output all pending elements.  */
-  constructor_incremental = 1;
-  output_pending_init_elements (1);
 
   /* Pad out the end of the structure.  */
   if (p->replacement_value)
@@ -6268,6 +6266,11 @@ output_init_element (value, type, field, pending)
      tree value, type, field;
      int pending;
 {
+  if (type == error_mark_node)
+    {
+      constructor_erroneous = 1;
+      return;
+    }
   if (TREE_CODE (TREE_TYPE (value)) == FUNCTION_TYPE
       || (TREE_CODE (TREE_TYPE (value)) == ARRAY_TYPE
 	  && !(TREE_CODE (value) == STRING_CST
@@ -7061,7 +7064,7 @@ c_expand_asm_operands (string, outputs, inputs, clobbers, vol, filename, line)
 	      || ((TREE_CODE (type) == RECORD_TYPE
 		   || TREE_CODE (type) == UNION_TYPE)
 		  && C_TYPE_FIELDS_READONLY (type)))
-	    readonly_warning (o[i], "modification by `asm'");
+	    readonly_error (o[i], "modification by `asm'");
 	}
     }
 

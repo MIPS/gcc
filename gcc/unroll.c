@@ -795,8 +795,8 @@ unroll_loop (loop, insn_count, strength_reduce_p)
       for (r = FIRST_PSEUDO_REGISTER; r < max_reg_before_loop; ++r)
 	if (REGNO_FIRST_UID (r) > 0 && REGNO_FIRST_UID (r) < max_uid_for_loop
 	    && REGNO_FIRST_LUID (r) >= copy_start_luid
-	    && REGNO_LAST_UID (r) > 0 && REGNO_LAST_UID (r) < max_uid_for_loop
-	    && REGNO_LAST_LUID (r) <= copy_end_luid)
+	    && REGNO_LAST_NOTE_UID (r) > 0 && REGNO_LAST_NOTE_UID (r) < max_uid_for_loop
+	    && REGNO_LAST_NOTE_LUID (r) <= copy_end_luid)
 	  {
 	    /* However, we must also check for loop-carried dependencies.
 	       If the value the pseudo has at the end of iteration X is
@@ -1119,6 +1119,11 @@ unroll_loop (loop, insn_count, strength_reduce_p)
 	  /* Set unroll type to MODULO now.  */
 	  unroll_type = UNROLL_MODULO;
 	  loop_preconditioned = 1;
+
+	  /* Preconditioning changes the loop's initial value.  We set
+	     it to an unknown value so that doloop_optimize won't get
+	     confused.  */
+	  loop_info->initial_value = 0;
 
 	  /* Clean up.  */
 	  free (labels);

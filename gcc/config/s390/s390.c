@@ -2487,7 +2487,7 @@ legitimize_pic_address (orig, reg)
 
 	  else if (GET_CODE (op0) == UNSPEC
 	           && GET_CODE (op1) == CONST_INT
-		   && XINT (op0, 1) == 100)
+	           && XINT (op0, 1) == 100)
             {
 	      if (XVECLEN (op0, 0) != 1)
                 abort ();

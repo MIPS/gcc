@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003 Free Software Foundation, Inc.
+   2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -801,6 +801,10 @@ static rtx maybe_get_pool_constant PARAMS ((rtx));
 static rtx ix86_expand_int_compare PARAMS ((enum rtx_code, rtx, rtx));
 static enum rtx_code ix86_prepare_fp_compare_args PARAMS ((enum rtx_code,
 							   rtx *, rtx *));
+static bool ix86_fixed_condition_code_regs PARAMS ((unsigned int *,
+						    unsigned int *));
+static enum machine_mode ix86_cc_modes_compatible PARAMS ((enum machine_mode,
+							   enum machine_mode));
 static rtx get_thread_pointer PARAMS ((void));
 static void get_pc_thunk_name PARAMS ((char [32], unsigned int));
 static rtx gen_push PARAMS ((rtx));
@@ -1002,6 +1006,11 @@ static void init_ext_80387_constants PARAMS ((void));
 #define TARGET_ASM_OUTPUT_MI_THUNK x86_output_mi_thunk
 #undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
 #define TARGET_ASM_CAN_OUTPUT_MI_THUNK x86_can_output_mi_thunk
+
+#undef TARGET_FIXED_CONDITION_CODE_REGS
+#define TARGET_FIXED_CONDITION_CODE_REGS ix86_fixed_condition_code_regs
+#undef TARGET_CC_MODES_COMPATIBLE
+#define TARGET_CC_MODES_COMPATIBLE ix86_cc_modes_compatible
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -2074,6 +2083,8 @@ classify_argument (mode, type, classes, bit_offset)
 	mode_alignment = 128;
       else if (mode == XCmode)
 	mode_alignment = 256;
+      if (COMPLEX_MODE_P (mode))
+	mode_alignment /= 2;
       /* Misaligned fields are always returned in memory.  */
       if (bit_offset % mode_alignment)
 	return 0;
@@ -2255,7 +2266,8 @@ construct_container (mode, type, in_return, nintregs, nsseregs, intreg, sse_regn
       default:
 	abort ();
       }
-  if (n == 2 && class[0] == X86_64_SSE_CLASS && class[1] == X86_64_SSEUP_CLASS)
+  if (n == 2 && class[0] == X86_64_SSE_CLASS && class[1] == X86_64_SSEUP_CLASS
+      && mode != BLKmode)
     return gen_rtx_REG (mode, SSE_REGNO (sse_regno));
   if (n == 2
       && class[0] == X86_64_X87_CLASS && class[1] == X86_64_X87UP_CLASS)
@@ -2267,7 +2279,8 @@ construct_container (mode, type, in_return, nintregs, nsseregs, intreg, sse_regn
     return gen_rtx_REG (mode, intreg[0]);
   if (n == 4
       && class[0] == X86_64_X87_CLASS && class[1] == X86_64_X87UP_CLASS
-      && class[2] == X86_64_X87_CLASS && class[3] == X86_64_X87UP_CLASS)
+      && class[2] == X86_64_X87_CLASS && class[3] == X86_64_X87UP_CLASS
+      && mode != BLKmode)
     return gen_rtx_REG (TCmode, FIRST_STACK_REG);
 
   /* Otherwise figure out the entries of the PARALLEL.  */
@@ -8865,6 +8878,68 @@ ix86_cc_mode (code, op0, op1)
       return CCmode;
     default:
       abort ();
+    }
+}
+
+/* Return the fixed registers used for condition codes.  */
+
+static bool
+ix86_fixed_condition_code_regs (p1, p2)
+     unsigned int *p1;
+     unsigned int *p2;
+{
+  *p1 = FLAGS_REG;
+  *p2 = FPSR_REG;
+  return true;
+}
+
+/* If two condition code modes are compatible, return a condition code
+   mode which is compatible with both.  Otherwise, return
+   VOIDmode.  */
+
+static enum machine_mode
+ix86_cc_modes_compatible (m1, m2)
+     enum machine_mode m1;
+     enum machine_mode m2;
+{
+  if (m1 == m2)
+    return m1;
+
+  if (GET_MODE_CLASS (m1) != MODE_CC || GET_MODE_CLASS (m2) != MODE_CC)
+    return VOIDmode;
+
+  if ((m1 == CCGCmode && m2 == CCGOCmode)
+      || (m1 == CCGOCmode && m2 == CCGCmode))
+    return CCGCmode;
+
+  switch (m1)
+    {
+    default:
+      abort ();
+
+    case CCmode:
+    case CCGCmode:
+    case CCGOCmode:
+    case CCNOmode:
+    case CCZmode:
+      switch (m2)
+	{
+	default:
+	  return VOIDmode;
+
+	case CCmode:
+	case CCGCmode:
+	case CCGOCmode:
+	case CCNOmode:
+	case CCZmode:
+	  return CCmode;
+	}
+
+    case CCFPmode:
+    case CCFPUmode:
+      /* These are only compatible with themselves, which we already
+	 checked above.  */
+      return VOIDmode;
     }
 }
 

@@ -1520,7 +1520,7 @@ cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) \
    output.h function.h cselib.h $(GGC_H) $(TM_P_H) gt-cselib.h
 cse.o : cse.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h flags.h \
    real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h output.h function.h \
-   $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H)
+   $(BASIC_BLOCK_H) $(GGC_H) $(TM_P_H) $(TIMEVAR_H) $(TARGET_H)
 gcse.o : gcse.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) hard-reg-set.h \
    flags.h real.h insn-config.h ggc.h $(RECOG_H) $(EXPR_H) $(BASIC_BLOCK_H) \
    function.h output.h toplev.h $(TM_P_H) $(PARAMS_H) except.h gt-gcse.h
@@ -3658,7 +3658,7 @@ stage1-start:
 	-if [ -f as$(exeext) ] ; then (cd stage1 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage1 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage1/libgcc.a stage1/libgcc_eh.a
+	-rm -f stage1/libgcc.a stage1/libgcc_eh.a stage1/libgcc_s*$(SHLIB_EXT)
 	-cp libgcc.a stage1
 	-if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) stage1/libgcc.a; \
@@ -3667,6 +3667,7 @@ stage1-start:
 	  if $(RANLIB_TEST_FOR_TARGET) ; then \
 	   $(RANLIB_FOR_TARGET) stage1/libgcc_eh.a; \
 	  else true; fi; fi
+	-cp libgcc_s*$(SHLIB_EXT) stage1/
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage1/$${f} . ; \
 	else true; \
@@ -3687,7 +3688,7 @@ stage2-start:
 	-if [ -f as$(exeext) ] ; then (cd stage2 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage2 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage2/libgcc.a stage2/libgcc_eh.a
+	-rm -f stage2/libgcc.a stage2/libgcc_eh.a stage2/libgcc_s*$(SHLIB_EXT)
 	-cp libgcc.a stage2
 	-if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) stage2/libgcc.a; \
@@ -3696,6 +3697,7 @@ stage2-start:
 	  if $(RANLIB_TEST_FOR_TARGET) ; then \
 	   $(RANLIB_FOR_TARGET) stage2/libgcc_eh.a; \
 	  else true; fi; fi
+	-cp libgcc_s*$(SHLIB_EXT) stage2/
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage2/$${f} . ; \
 	else true; \
@@ -3716,7 +3718,7 @@ stage3-start:
 	-if [ -f as$(exeext) ] ; then (cd stage3 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage3 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage3/libgcc.a stage3/libgcc_eh.a
+	-rm -f stage3/libgcc.a stage3/libgcc_eh.a stage3/libgcc_s*$(SHLIB_EXT)
 	-cp libgcc.a stage3
 	-if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) stage3/libgcc.a; \
@@ -3725,6 +3727,7 @@ stage3-start:
 	  if $(RANLIB_TEST_FOR_TARGET) ; then \
 	   $(RANLIB_FOR_TARGET) stage3/libgcc_eh.a; \
 	  else true; fi; fi
+	-cp libgcc_s*$(SHLIB_EXT) stage3/
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage3/$${f} . ; \
 	else true; \
@@ -3745,7 +3748,7 @@ stage4-start:
 	-if [ -f as$(exeext) ] ; then (cd stage4 && $(LN_S) ../as$(exeext) .) ; else true ; fi
 	-if [ -f ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../ld$(exeext) .) ; else true ; fi
 	-if [ -f collect-ld$(exeext) ] ; then (cd stage4 && $(LN_S) ../collect-ld$(exeext) .) ; else true ; fi
-	-rm -f stage4/libgcc.a stage4/libgcc_eh.a
+	-rm -f stage4/libgcc.a stage4/libgcc_eh.a stage4/libgcc_s*$(SHLIB_EXT)
 	-cp libgcc.a stage4
 	-if $(RANLIB_TEST_FOR_TARGET) ; then \
 	  $(RANLIB_FOR_TARGET) stage4/libgcc.a; \
@@ -3754,6 +3757,7 @@ stage4-start:
 	  if $(RANLIB_TEST_FOR_TARGET) ; then \
 	   $(RANLIB_FOR_TARGET) stage4/libgcc_eh.a; \
 	  else true; fi; fi
+	-cp libgcc_s*$(SHLIB_EXT) stage4/
 	-for f in .. $(EXTRA_MULTILIB_PARTS); do if [ x$${f} != x.. ]; then \
 	  cp stage4/$${f} . ; \
 	else true; \

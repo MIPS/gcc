@@ -1510,7 +1510,11 @@ put_reg_into_stack (function, reg, type, promoted_mode, decl_mode, volatile_p,
     regno = REGNO (reg);
 
   if (regno < func->x_max_parm_reg)
-    new = func->x_parm_reg_stack_loc[regno];
+    {
+      if (!func->x_parm_reg_stack_loc)
+	abort ();
+      new = func->x_parm_reg_stack_loc[regno];
+    }
 
   if (new == 0)
     new = assign_stack_local_1 (decl_mode, GET_MODE_SIZE (decl_mode), 0, func);
@@ -7159,6 +7163,14 @@ expand_function_end (filename, line, end_bindings)
 
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
+
+  /* ???  This is a kludge.  We want to ensure that instructions that
+     may trap are not moved into the epilogue by scheduling, because
+     we don't always emit unwind information for the epilogue.
+     However, not all machine descriptions define a blockage insn, so
+     emit an ASM_INPUT to act as one.  */
+  if (flag_non_call_exceptions)
+    emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 
   /* Mark the end of the function body.
      If control reaches this insn, the function can drop through

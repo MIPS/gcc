@@ -1,6 +1,6 @@
 /* Output Dwarf2 format symbol table information from the GNU C compiler.
-   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -3638,8 +3638,10 @@ static void add_AT_long_long		PARAMS ((dw_die_ref,
 						 enum dwarf_attribute,
 						 unsigned long,
 						 unsigned long));
-static void add_AT_vec			PARAMS ((dw_die_ref, unsigned,
-						 unsigned, void *));
+static void add_AT_vec			PARAMS ((dw_die_ref,
+						 enum dwarf_attribute,
+						 unsigned int, unsigned int,
+						 unsigned char *));
 static void add_AT_string		PARAMS ((dw_die_ref,
 						 enum dwarf_attribute,
 						 const char *));
@@ -4658,16 +4660,17 @@ add_AT_long_long (die, attr_kind, val_hi, val_low)
 /* Add a floating point attribute value to a DIE and return it.  */
 
 static inline void
-add_AT_vec (die, length, elt_size, array)
+add_AT_vec (die, attr_kind, length, elt_size, array)
      dw_die_ref die;
-     unsigned length;
-     unsigned elt_size;
-     void *array;
+     enum dwarf_attribute attr_kind;
+     unsigned int length;
+     unsigned int elt_size;
+     unsigned char *array;
 {
   dw_attr_ref attr = (dw_attr_ref) xmalloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
-  attr->dw_attr = DW_AT_const_value;
+  attr->dw_attr = attr_kind;
   attr->dw_attr_val.val_class = dw_val_class_vec;
   attr->dw_attr_val.v.val_vec.length = length;
   attr->dw_attr_val.v.val_vec.elt_size = elt_size;
@@ -6934,9 +6937,9 @@ output_die (die)
 
 	case dw_val_class_vec:
 	  {
-	    unsigned elt_size = a->dw_attr_val.v.val_vec.elt_size;
-	    unsigned len = a->dw_attr_val.v.val_vec.length;
-	    unsigned i;
+	    unsigned int elt_size = a->dw_attr_val.v.val_vec.elt_size;
+	    unsigned int len = a->dw_attr_val.v.val_vec.length;
+	    unsigned int i;
 	    unsigned char *p;
 
 	    dw2_asm_output_data (1, len * elt_size, "%s", name);
@@ -9401,7 +9404,7 @@ add_data_member_location_attribute (die, decl)
 static void
 insert_int (val, size, dest)
      HOST_WIDE_INT val;
-     unsigned size;
+     unsigned int size;
      unsigned char *dest;
 {
   while (size != 0)
@@ -9417,7 +9420,7 @@ insert_int (val, size, dest)
 static HOST_WIDE_INT
 extract_int (src, size)
      const unsigned char *src;
-     unsigned size;
+     unsigned int size;
 {
   HOST_WIDE_INT val = 0;
 
@@ -9520,11 +9523,11 @@ add_const_value_attribute (die, rtl)
 
 	if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	  {
-	    unsigned length = GET_MODE_SIZE (mode);
+	    unsigned int length = GET_MODE_SIZE (mode);
 	    unsigned char *array = xmalloc (length);
 
 	    insert_float (rtl, array);
-	    add_AT_vec (die, length / 4, 4, array);
+	    add_AT_vec (die, DW_AT_const_value, length / 4, 4, array);
 	  }
 	else
 	  {
@@ -9541,10 +9544,10 @@ add_const_value_attribute (die, rtl)
     case CONST_VECTOR:
       {
 	enum machine_mode mode = GET_MODE (rtl);
-	unsigned elt_size = GET_MODE_UNIT_SIZE (mode);
-	unsigned length = CONST_VECTOR_NUNITS (rtl);
+	unsigned int elt_size = GET_MODE_UNIT_SIZE (mode);
+	unsigned int length = CONST_VECTOR_NUNITS (rtl);
 	unsigned char *array = xmalloc (length * elt_size);
-	unsigned i;
+	unsigned int i;
 	unsigned char *p;
 
 	if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
@@ -9596,7 +9599,7 @@ add_const_value_attribute (die, rtl)
 	else
 	  abort ();
 
-	add_AT_vec (die, length, elt_size, array);
+	add_AT_vec (die, DW_AT_const_value, length, elt_size, array);
       }
       break;
 
@@ -10940,20 +10943,20 @@ gen_enumeration_type_die (type, context_die)
 	   link != NULL; link = TREE_CHAIN (link))
 	{
 	  dw_die_ref enum_die = new_die (DW_TAG_enumerator, type_die, link);
+	  tree value = TREE_VALUE (link);
 
 	  add_name_attribute (enum_die,
 			      IDENTIFIER_POINTER (TREE_PURPOSE (link)));
 
-	  if (host_integerp (TREE_VALUE (link), 
-			     TREE_UNSIGNED (TREE_TYPE (TREE_VALUE (link)))))
-	    {
-	      if (tree_int_cst_sgn (TREE_VALUE (link)) < 0)
-		add_AT_int (enum_die, DW_AT_const_value,
-			    tree_low_cst (TREE_VALUE (link), 0));
-	      else
-		add_AT_unsigned (enum_die, DW_AT_const_value,
-				 tree_low_cst (TREE_VALUE (link), 1));
-	    }
+	  if (host_integerp (value, TREE_UNSIGNED (TREE_TYPE (value))))
+	    /* DWARF2 does not provide a way of indicating whether or
+	       not enumeration constants are signed or unsigned.  GDB
+	       always assumes the values are signed, so we output all
+	       values as if they were signed.  That means that
+	       enumeration constants with very large unsigned values
+	       will appear to have negative values in the debugger.  */
+	    add_AT_int (enum_die, DW_AT_const_value,
+			tree_low_cst (value, tree_int_cst_sgn (value) > 0));
 	}
     }
   else
@@ -13216,6 +13219,22 @@ dwarf2out_finish (input_filename)
 {
   limbo_die_node *node, *next_node;
   dw_die_ref die = 0;
+
+  if (get_AT (comp_unit_die, DW_AT_comp_dir) == NULL)
+    {
+      char *wd = getpwd ();
+      unsigned i;
+
+      if (wd != NULL)
+	{
+	  for (i = 1; i < file_table.in_use; i++)
+	    if (file_table.table[i][0] != DIR_SEPARATOR)
+	      {
+		add_AT_string (comp_unit_die, DW_AT_comp_dir, wd);
+		break;
+	      }
+	}
+    }
 
   /* Traverse the limbo die list, and add parent/child links.  The only
      dies without parents that should be here are concrete instances of

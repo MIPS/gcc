@@ -673,9 +673,9 @@ struct cp_binding_level GTY(())
 /* The binding level currently in effect.  */
 
 #define current_binding_level			\
-  (cfun && cp_function_chain->bindings		\
-   ? cp_function_chain->bindings		\
-   : scope_chain->bindings)
+  (*(cfun && cp_function_chain->bindings	\
+   ? &cp_function_chain->bindings		\
+   : &scope_chain->bindings))
 
 /* The binding level of the current class, if any.  */
 
@@ -1075,7 +1075,8 @@ void
 maybe_push_cleanup_level (type)
      tree type;
 {
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+  if (type != error_mark_node
+      && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
       && current_binding_level->more_cleanups_ok == 0)
     {
       keep_next_level (2);
@@ -1286,9 +1287,13 @@ add_decl_to_level (decl, b)
       b->names = decl;
       b->names_size++;
 
-      /* If appropriate, add decl to separate list of statics */
+      /* If appropriate, add decl to separate list of statics.  We
+	 include extern variables because they might turn out to be 
+	 static later.  It's OK for this list to contain a few false
+	 positives. */
       if (b->namespace_p)
-	if ((TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+	if ((TREE_CODE (decl) == VAR_DECL
+	     && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
 	    || (TREE_CODE (decl) == FUNCTION_DECL
 		&& (!TREE_PUBLIC (decl) || DECL_DECLARED_INLINE_P (decl))))
 	  VARRAY_PUSH_TREE (b->static_decls, decl);
@@ -7868,8 +7873,6 @@ start_decl_1 (decl)
   if (type == error_mark_node)
     return;
 
-  maybe_push_cleanup_level (type);
-
   if (initialized)
     /* Is it valid for this decl to have an initializer at all?
        If not, set INITIALIZED to zero, which will indirectly
@@ -7925,6 +7928,14 @@ start_decl_1 (decl)
 
   if (! initialized)
     DECL_INITIAL (decl) = NULL_TREE;
+
+  /* Create a new scope to hold this declaration if necessary.
+     Whether or not a new scope is necessary cannot be determined
+     until after the type has been completed; if the type is a
+     specialization of a class template it is not until after
+     instantiation has occurred that TYPE_HAS_NONTRIVIAL_DESTRUCTOR
+     will be set correctly.  */
+  maybe_push_cleanup_level (type);
 }
 
 /* Handle initialization of references.  DECL, TYPE, and INIT have the
@@ -8395,7 +8406,7 @@ reshape_init (tree type, tree *initp)
 	      TREE_CHAIN (element_init) = CONSTRUCTOR_ELTS (new_init);
 	      CONSTRUCTOR_ELTS (new_init) = element_init;
 	      if (TREE_PURPOSE (element_init))
-		index = TREE_PURPOSE (element_init);
+		index = convert (sizetype, TREE_PURPOSE (element_init));
 	    }
 	}
       else
@@ -8428,6 +8439,7 @@ static tree
 check_initializer (tree decl, tree init, int flags, tree *cleanup)
 {
   tree type = TREE_TYPE (decl);
+  tree init_code = NULL;
 
   /* If `start_decl' didn't like having an initialization, ignore it now.  */
   if (init != NULL_TREE && DECL_INITIAL (decl) == NULL_TREE)
@@ -8544,7 +8556,10 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
 	{
 	dont_use_constructor:
 	  if (TREE_CODE (init) != TREE_VEC)
-	    init = store_init_value (decl, init);
+	    {
+	      init_code = store_init_value (decl, init);
+	      init = NULL;
+	    }
 	}
     }
   else if (DECL_EXTERNAL (decl))
@@ -8567,9 +8582,9 @@ check_initializer (tree decl, tree init, int flags, tree *cleanup)
     check_for_uninitialized_const_var (decl);
 
   if (init && init != error_mark_node)
-    init = build (INIT_EXPR, type, decl, init);
+    init_code = build (INIT_EXPR, type, decl, init);
 
-  return init;
+  return init_code;
 }
 
 /* If DECL is not a local variable, give it RTL.  */
@@ -8885,16 +8900,17 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
   if (TREE_CODE (decl) != FUNCTION_DECL)
     ttype = target_type (type);
 
-  if (! DECL_EXTERNAL (decl) && TREE_READONLY (decl)
-      && (TYPE_NEEDS_CONSTRUCTING (type) 
-	  || TREE_CODE (type) == REFERENCE_TYPE))
+  
+  /* Currently, GNU C++ puts constants in text space, making them
+     impossible to initialize.  In the future, one would hope for
+     an operating system which understood the difference between
+     initialization and the running of a program.  */
+  if (! DECL_EXTERNAL (decl) && TREE_READONLY (decl))
     {
-      /* Currently, GNU C++ puts constants in text space, making them
-	 impossible to initialize.  In the future, one would hope for
-	 an operating system which understood the difference between
-	 initialization and the running of a program.  */
       was_readonly = 1;
-      TREE_READONLY (decl) = 0;
+      if (TYPE_NEEDS_CONSTRUCTING (type) 
+	  || TREE_CODE (type) == REFERENCE_TYPE)
+	TREE_READONLY (decl) = 0;
     }
 
   if (TREE_CODE (decl) == FIELD_DECL && asmspec)
@@ -12711,8 +12727,6 @@ require_complete_types_for_parms (parms)
 	  layout_decl (parms, 0);
 	  DECL_ARG_TYPE (parms) = type_passed_as (TREE_TYPE (parms));
 	}
-      else
-        TREE_TYPE (parms) = error_mark_node;
     }
 }
 
@@ -13700,25 +13714,7 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
       if (code == ENUMERAL_TYPE)
 	{
 	  error ("use of enum `%#D' without previous declaration", name);
-
-	  ref = make_node (ENUMERAL_TYPE);
-
-	  /* Give the type a default layout like unsigned int
-	     to avoid crashing if it does not get defined.  */
-	  TYPE_MODE (ref) = TYPE_MODE (unsigned_type_node);
-	  TYPE_ALIGN (ref) = TYPE_ALIGN (unsigned_type_node);
-	  TYPE_USER_ALIGN (ref) = 0;
-	  TREE_UNSIGNED (ref) = 1;
-	  TYPE_PRECISION (ref) = TYPE_PRECISION (unsigned_type_node);
-	  TYPE_MIN_VALUE (ref) = TYPE_MIN_VALUE (unsigned_type_node);
-	  TYPE_MAX_VALUE (ref) = TYPE_MAX_VALUE (unsigned_type_node);
-
-	  /* Enable us to recognize when a type is created in class context.
-	     To do nested classes correctly, this should probably be cleared
-	     out when we leave this classes scope.  Currently this in only
-	     done in `start_enum'.  */
-
-	  pushtag (name, ref, globalize);
+          POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 	}
       else
 	{
