@@ -15607,26 +15607,43 @@ x86_function_profiler (file, labelno)
    quite safely that we are informed about all 1 byte insns and memory
    address sizes.  This is enought to elliminate unnecesary padding in
    99% of cases.  */
+
 static int
 min_insn_size (insn)
      rtx insn;
 {
   int l = 0;
 
-  if (!INSN_P (insn) && !active_insn_p (insn))
+  if (!INSN_P (insn) || !active_insn_p (insn))
     return 0;
+
+  /* Discard alignments we've emit and jump instructions.  */
   if (GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
       && XINT (PATTERN (insn), 1) == UNSPECV_ALIGN)
     return 0;
+  if (GET_CODE (insn) == JUMP_INSN
+      && (GET_CODE (PATTERN (insn)) == ADDR_VEC
+	  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC))
+    return 0;
+
   /* Important case - calls are always 5 bytes.
      It is common to have many calls in the row.  */
   if (GET_CODE (insn) == CALL_INSN
+      && symbolic_reference_mentioned_p (PATTERN (insn))
       && !SIBLING_CALL_P (insn))
     return 5;
   if (get_attr_length (insn) <= 1)
     return 1;
+
+  /* For normal instructions we may rely on the sizes of addresses
+     and the presence of symbol to require 4 bytes of encoding.
+     This is not the case for jumps where references are PC relative.  */
   if (GET_CODE (insn) != JUMP_INSN)
-    l = get_attr_length_address (insn);
+    {
+      l = get_attr_length_address (insn);
+      if (l < 4 && symbolic_reference_mentioned_p (PATTERN (insn)))
+	l = 4;
+    }
   if (l)
     return 1+l;
   else
@@ -15635,59 +15652,65 @@ min_insn_size (insn)
 
 /* AMD K8 core misspredicts jumps when there are more than 3 jumps in 16 byte
    window.  */
+
 static void
 k8_avoid_jump_misspredicts (first)
      rtx first;
 {
   rtx insn, start = first;
   int nbytes = 0, njumps = 0;
+  int isjump = 0;
 
+  /* Look for all minimal intervals of instructions containing 4 jumps.
+     The intervals are bounded by START and INSN.  NBYTES is the total
+     size of instructions in the interval including INSN and not including
+     START.  When the NBYTES is smaller than 16 bytes, it is possible
+     that the end of START and INSN ends up in the same 16byte page.
+
+     The smallest offset in the page INSN can start is the case where START
+     ends on the offset 0.  Offset of INSN is then NBYTES - sizeof (INSN).
+     We add p2align to 16byte window with maxskip 17 - NBYTES + sizeof (INSN).
+     */
   for (insn = first; insn; insn = NEXT_INSN (insn))
     {
-      int size;
-      bool jump = false;
 
+      nbytes += min_insn_size (insn);
+      if (rtl_dump_file)
+        fprintf(stderr,"Insn %i estimated to %i bytes\n",
+		INSN_UID (insn), min_insn_size (insn));
       if ((GET_CODE (insn) == JUMP_INSN
 	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
 	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
 	  || GET_CODE (insn) == CALL_INSN)
-	njumps++, jump = true;
-      nbytes += min_insn_size (insn);
-      while (nbytes - (size = min_insn_size (start)) >= 16)
+	njumps++;
+      else
+	continue;
+
+      while (njumps > 3)
 	{
-	  nbytes -= size;
+	  start = NEXT_INSN (start);
 	  if ((GET_CODE (start) == JUMP_INSN
 	       && GET_CODE (PATTERN (start)) != ADDR_VEC
 	       && GET_CODE (PATTERN (start)) != ADDR_DIFF_VEC)
 	      || GET_CODE (start) == CALL_INSN)
-	    njumps--;
-	  start = NEXT_INSN (start);
+	    njumps--, isjump = 1;
+	  else
+	    isjump = 0;
+	  nbytes -= min_insn_size (start);
 	}
-      if (njumps > 3 && jump)
-	{
-	  int padsize = 0;
-	  rtx tmp = start;
-	  int n = njumps;
+      if (njumps < 0)
+	abort ();
+      if (rtl_dump_file)
+        fprintf(stderr,"Interval %i to %i has %i bytes\n",
+		INSN_UID (start), INSN_UID (insn), nbytes);
 
-	  size = 0;
-	  while (n > 3)
-	    {
-	      padsize += size;
-	      size += min_insn_size (tmp);
-	      if ((GET_CODE (tmp) == JUMP_INSN
-		   && GET_CODE (PATTERN (tmp)) != ADDR_VEC
-		   && GET_CODE (PATTERN (tmp)) != ADDR_DIFF_VEC)
-		  || GET_CODE (tmp) == CALL_INSN)
-		n--;
-	      tmp = NEXT_INSN (tmp);
-	    }
-	  padsize += 1;
+      if (njumps == 3 && isjump && nbytes < 16)
+	{
+	  int padsize = 16 - nbytes + min_insn_size (insn);
+
 	  if (rtl_dump_file)
 	    fprintf (rtl_dump_file, "Padding insn %i by %i bytes!\n", INSN_UID (insn), padsize);
-	  if (padsize)
-	    {
-	      emit_insn_before (gen_align (GEN_INT (padsize)), insn);
-	    }
+          emit_insn_before (gen_align (GEN_INT (padsize)), insn);
 	}
     }
 }
