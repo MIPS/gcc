@@ -227,6 +227,9 @@ pexec (program, argv, search, stdin_fd, stdout_fd, stderr_fd)
   memset (&si, 0, sizeof si);
   si.cb = sizeof si;
   si.dwFlags = STARTF_USESTDHANDLES;
+  si.hStdInput = INVALID_HANDLE_VALUE;
+  si.hStdOutput = INVALID_HANDLE_VALUE;
+  si.hStdError = INVALID_HANDLE_VALUE;
 
   me = GetCurrentProcess();
 
@@ -258,7 +261,6 @@ pexec (program, argv, search, stdin_fd, stdout_fd, stderr_fd)
 		     &si, &pinf))
     goto cleanup;
 
-  CloseHandle (pinf.hProcess);
   CloseHandle (pinf.hThread);
   
  done:
@@ -266,12 +268,25 @@ pexec (program, argv, search, stdin_fd, stdout_fd, stderr_fd)
      managed to create a child).  */
   xclose (stdin_fd);
   xclose (stdout_fd);
-  xclose (stderr_fd);
+  if (stderr_fd != stdout_fd)
+    xclose (stderr_fd);
+  if (si.hStdInput != INVALID_HANDLE_VALUE)
+    CloseHandle (si.hStdInput);
+  if (si.hStdOutput != INVALID_HANDLE_VALUE)
+    CloseHandle (si.hStdOutput);
+  if (si.hStdError != INVALID_HANDLE_VALUE)
+    CloseHandle (si.hStdError);
 
   free (executable);
   free (cmdline);
 
-  return pinf.dwProcessId;
+  /* Treat the process handle as an integer.  It would be cleaner to
+     define a pid_t type that would be used by all libiberty callers;
+     that type would be HANDLE under Windows.  However, that would
+     require changing a lot of existing code.  */
+  if (sizeof (HANDLE) != sizeof (int))
+    abort ();
+  return (int) pinf.hProcess;
 
  cleanup:
   {
@@ -281,10 +296,9 @@ pexec (program, argv, search, stdin_fd, stdout_fd, stderr_fd)
 	     this_program, program, errstr);
     LocalFree (errstr);
   }
-  CloseHandle (si.hStdInput);
-  CloseHandle (si.hStdOutput);
-  CloseHandle (si.hStdError);
-  pinf.dwProcessId = -1;
+  /* Fortuitously, INVALID_HANDLE_VALUE is -1, which is the
+     conventional error return value for pwait.  */
+  pinf.hProcess = INVALID_HANDLE_VALUE;
   goto done;
 }
 
@@ -390,10 +404,8 @@ pwait (pid, status, flags)
      int *status;
      int flags ATTRIBUTE_UNUSED;
 {
-  HANDLE proch = OpenProcess (SYNCHRONIZE | PROCESS_QUERY_INFORMATION,
-			      FALSE, pid);
-  if (proch == 0)
-    return -1;
+  /* The return value from pexecute is actually a HANDLE.  */
+  HANDLE proch = (HANDLE) pid;
   if (WaitForSingleObject (proch, INFINITE) != WAIT_OBJECT_0)
     {
       CloseHandle (proch);

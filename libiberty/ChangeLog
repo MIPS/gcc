@@ -1,3 +1,10 @@
+2004-01-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* pex-win32.c (pexec): Close duplicated handles in parent
+	after spawning child.  Return a process HANDLE, not a process
+	identifier.
+	(pwait): Expect a process HANDLE, not a process identifier.
+
 2003-12-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* cp-demangle.c (is_ctor_or_dtor): Fix error in last change.
