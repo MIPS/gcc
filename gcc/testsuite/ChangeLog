@@ -1,3 +1,16 @@
+2002-11-27  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gcc.dg/bitfld-6.c: New test.
+
+Wed Nov 27 14:37:34 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.c-torture/execute/20021127.[cx]: New test.
+
+2002-11-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/init/brace2.C: New test.
+	* g++.old-deja/g++.mike/p9129.C: Correct.
+
 2002-11-26  Mark Mitchell  <mark@codesourcery.com>
 
 	* g++.dg/abi/empty10.C: Don't run on non-x86 targets.

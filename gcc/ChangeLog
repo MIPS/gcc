@@ -1,3 +1,98 @@
+2002-11-27  Casper S. Hornstrup  <chorns@users.sourceforge.net>
+
+	* config/i386/i386.h (DLL_IMPORT_EXPORT_PREFIX): Define.
+	* config/i386/winnt.c (i386_pe_dllexport_name_p): Use
+	DLL_IMPORT_EXPORT_PREFIX, not '@'.
+	(i386_pe_dllimport_name_p): Likewise.
+	(i386_pe_mark_dllexport): Likewise.
+	(i386_pe_mark_dllimport): Likewise.
+	(i386_pe_encode_section_info): Likewise.
+	(i386_pe_strip_name_encoding): Likewise.
+
+2002-11-27  Richard Henderson  <rth@redhat.com>
+
+	* mkmap-symver.awk (BEGIN): Set sawsymbol false.
+	(nm && NF == 3): Set sawsymbol true.
+	(END): Exit if no symbols seen.
+	(output): Fix map syntax error if no globals for the version.
+
+Wed Nov 27 14:45:46 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.def (DEF_C99_BUILTIN): Fix.
+
+2002-11-26  Andrew Haley  <aph@redhat.com>
+
+	* unwind-sjlj.c (_Unwind_FindEnclosingFunction): Rename
+	from_Unwind_Find_Enclosing_Function.
+	* unwind-dw2.c (_Unwind_FindEnclosingFunction): Likewise.
+	* config/ia64/unwind-ia64.c (_Unwind_FindEnclosingFunction): Likewise.
+	* libgcc-std.ver (_Unwind_FindEnclosingFunction): Rename from
+	_Unwind_Find_Enclosing_Function, export @@GCC_3.3.
+	* unwind.h (_Unwind_FindEnclosingFunction): Add.
+	
+2002-11-26  Hartmut Penner  <hpenner@de.ibm.com>
+
+	* config/s390/s390.c (390_output_constant_pool): Set alignment 
+	before label in 64 bit mode, behind otherwise.  
+
+2002-11-26  Richard Henderson  <rth@redhat.com>
+
+	* c-common.c (handle_visibility_attribute): Accept "default".
+	* tree.h (enum symbol_visibility): New.
+	(decl_visibility): Declare.
+	* target.h (gcc_target.visibility): Take visibility arg as integer.
+	* varasm.c (default_assemble_visibility): Likewise.
+	(decl_visibility): New.
+	(maybe_assemble_visibility): Use it.
+	* output.h (default_assemble_visibility): Update prototype.
+	* config/rs6000/rs6000.c (rs6000_assemble_visibility): Take
+	visibility arg as integer.
+	* doc/extend.texi: Document default visibility.
+
+2002-11-26  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c: Adjust spacing.
+	* config/h8300/h8300.h: Likewise.
+
+2002-11-26  Richard Henderson  <rth@redhat.com>
+
+	* hooks.c (hook_bool_void_false, hook_void_tree_int,
+	hook_void_FILEptr_constcharptr): Rename so that the return
+	type is first.
+	(hook_int_tree_tree_1, hook_void_tree, hook_void_tree_treeptr,
+	hook_bool_tree_false): New.
+	* hooks.h: Update.
+	* langhooks-def.h: Update for renames.
+	* target-def.h: Likewise.
+	* tree.c (default_comp_type_attributes,
+	default_set_default_type_attributes, default_insert_attributes, 
+	default_function_attribute_inlinable_p,
+	default_ms_bitfield_layout_p): Remove.
+	* tree.h: Update.
+
+2002-11-26  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* pa-protos.h (function_value): New prototype.
+	* pa.c (function_value): Use a PARALLEL to return small aggregates on
+	TARGET_64BIT.
+	* pa.h (FUNCTION_VALUE): Use function_value.
+	* pa.md (call_value_internal_symref, call_value_internal_reg_64bit,
+	call_value_internal_reg, sibcall_value_internal_symref,
+	sibcall_value_internal_symref_64bit): Remove =rf constraint on return
+	value.
+
+2002-11-26  John David Anglin  <dave@hiauly1.hia.nrc.ca>
+
+	* expr.c (gen_group_rtx, emit_group_move): New functions.
+	* expr.h (gen_group_rtx, emit_group_move): Prototype.
+	* function.c (expand_function_start): Use gen_group_rtx to create a
+	PARALLEL rtx to hold the return value when the real return rtx is a
+	PARALLEL.
+	(expand_function_end): Use emit_group_move to move the return value
+	from a PARALLEL to the real return registers.
+	* rtl.h (REG_FUNCTION_VALUE_P): Allow function values to be returned
+	in PARALLELs.
+
 2002-11-26  Jason Thorpe  <thorpej@wasabisystems.com>
 
 	* config/t-libc-ok: Fix typo.
@@ -57,25 +152,25 @@
 
 2002-11-25  Aldy Hernandez  <aldyh@redhat.com>
 
-        * config/rs6000/spe.h (__ev_create_sfix32_fs): Change macro into
-        new function.
-        (__ev_create_ufix32_fs): Same.
-        (__ev_get_sfix32_fs_internal): New.
-        (__ev_get_sfix32_fs): Define to use function.
-        (__ev_get_ufix32_fs_internal): New.
-        (__ev_get_ufix32_fs): Define to use function.
-        (__ev_get_upper_ufix32_fs): Call __ev_get_ufix32_fs.
-        (__ev_get_lower_ufix32_fs): Same.
-        (__ev_get_upper_sfix32_fs): Call __ev_get_sfix32_fs.
-        (__ev_get_lower_sfix32_fs): Same.
-        (__ev_set_sfix32_fs_internal): New.
-        (__ev_set_ufix32_fs_internal): New.
-        (__ev_set_sfix32_fs): Call __ev_set_sfix32_fs_internal.
-        (__ev_set_ufix32_fs): Call __ev_set_ufix32_fs_internal.
-        (__ev_set_upper_sfix32_fs): Call function.
-        (__ev_set_lower_sfix32_fs): Same.
-        (__ev_set_upper_ufix32_fs): Same.
-        (__ev_set_lower_ufix32_fs): Same.
+	* config/rs6000/spe.h (__ev_create_sfix32_fs): Change macro into
+	new function.
+	(__ev_create_ufix32_fs): Same.
+	(__ev_get_sfix32_fs_internal): New.
+	(__ev_get_sfix32_fs): Define to use function.
+	(__ev_get_ufix32_fs_internal): New.
+	(__ev_get_ufix32_fs): Define to use function.
+	(__ev_get_upper_ufix32_fs): Call __ev_get_ufix32_fs.
+	(__ev_get_lower_ufix32_fs): Same.
+	(__ev_get_upper_sfix32_fs): Call __ev_get_sfix32_fs.
+	(__ev_get_lower_sfix32_fs): Same.
+	(__ev_set_sfix32_fs_internal): New.
+	(__ev_set_ufix32_fs_internal): New.
+	(__ev_set_sfix32_fs): Call __ev_set_sfix32_fs_internal.
+	(__ev_set_ufix32_fs): Call __ev_set_ufix32_fs_internal.
+	(__ev_set_upper_sfix32_fs): Call function.
+	(__ev_set_lower_sfix32_fs): Same.
+	(__ev_set_upper_ufix32_fs): Same.
+	(__ev_set_lower_ufix32_fs): Same.
 
 2002-11-25  Douglas B Rupp  <rupp@gnat.com>
 
@@ -165,10 +260,10 @@
 
 2002-11-25  Andrew Haley  <aph@redhat.com>
 
-        * libgcc-std.ver (_Unwind_Find_Enclosing_Function): Add.
-        * config/ia64/unwind-ia64.c (_Unwind_Find_Enclosing_Function): New.
-        * unwind-sjlj.c (_Unwind_Find_Enclosing_Function): Likewise.
-        * unwind-dw2.c (_Unwind_Find_Enclosing_Function): Likewise.
+	* libgcc-std.ver (_Unwind_Find_Enclosing_Function): Add.
+	* config/ia64/unwind-ia64.c (_Unwind_Find_Enclosing_Function): New.
+	* unwind-sjlj.c (_Unwind_Find_Enclosing_Function): Likewise.
+	* unwind-dw2.c (_Unwind_Find_Enclosing_Function): Likewise.
 
 2002-11-24  Kazu Hirata  <kazu@cs.umass.edu>
 
@@ -219,7 +314,7 @@
 
 2002-11-22  Dale Johannesen  <dalej@apple.com>
 
-        * toplev.c (rest_of_compilation):  Fix comments.
+	* toplev.c (rest_of_compilation):  Fix comments.
 
 2002-11-22  Geoffrey Keating  <geoffk@apple.com>
 
@@ -445,7 +540,7 @@ Thu Nov 21 23:52:04 CET 2002  Jan Hubicka  <jH@suse.cz>
 	directory.
 	(MULTILIB_DIRNAMES): Create target dependent directory
 	'normal'.
-        (MULTILIB_EXCEPTIONS): Don't turn on -mn on H8/300.
+	(MULTILIB_EXCEPTIONS): Don't turn on -mn on H8/300.
 	* doc/invoke.texi (gccoptlist): Describe the new switch -mn.
 
 Tue Nov 19 23:50:56 CET 2002  Jan Hubicka  <jh@suse.cz>
