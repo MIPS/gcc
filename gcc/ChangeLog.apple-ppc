@@ -1,3 +1,10 @@
+2004-06-08  Fariborz Jahanian <fjahanian@apple.com>
+	* varasm.c (assemble_variable): Resotored zerofill size optimization.
+	* config/rs6000/rs6000.c (rs6000_override_options): Place 
+	rs6000_init_hard_regno_mode_ok after setting of -fast flags.
+	* cp/decl2.c (maybe_emit_vtables, import_export_decl, get_guard):
+	Resore various APPLE LOCAL coalescing codes.
+
 2004-06-08  Caroline Tice  <ctice@apple.com>
         
         * common.opt (fcreate-profile):  Add new command line option.
