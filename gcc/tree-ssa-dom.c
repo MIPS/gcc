@@ -2223,7 +2223,6 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
     {
       fprintf (tree_dump_file, "Optimizing statement ");
       print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
-      fprintf (tree_dump_file, "\n");
     }
 
   /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
@@ -2239,6 +2238,12 @@ optimize_stmt (struct dom_walk_data *walk_data, block_stmt_iterator si)
 	{
 	  stmt = bsi_stmt (si);
 	  ann = stmt_ann (stmt);
+
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (tree_dump_file, "  Folded to: ");
+	      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+	    }
 	}
 
       /* Constant/copy propagation above may change the set of 

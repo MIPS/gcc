@@ -1,3 +1,8 @@
+2004-01-15  Richard Henderson  <rth@redhat.com>
+
+	* tree-ssa-dom.c (optimize_stmt): Dump new statement if
+	folding succeeded.
+
 2004-01-15  Kazu Hirata  <kazu@cs.umass.edu>
 
 	* tree-cfg.c: Fix comment typos.
