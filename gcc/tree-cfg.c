@@ -1451,14 +1451,21 @@ remove_useless_stmts_and_vars (first_p)
 	}
       else if (code == BIND_EXPR)
 	{
+	  tree block;
 	  /* First remove anything underneath the BIND_EXPR.  */
 	  repeat |= remove_useless_stmts_and_vars (&BIND_EXPR_BODY (*stmt_p));
 
 	  /* If the BIND_EXPR has no variables, then we can pull everything
 	     up one level and remove the BIND_EXPR, unless this is the
-	     toplevel BIND_EXPR.  */
-	  if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
-	      && *stmt_p != DECL_SAVED_TREE (current_function_decl))
+	     toplevel BIND_EXPR for the current function or an inlined
+	     function.  */
+	  block = BIND_EXPR_BLOCK (*stmt_p);
+  	  if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
+	      && *stmt_p != DECL_SAVED_TREE (current_function_decl)
+	      && (! block
+		  || ! BLOCK_ABSTRACT_ORIGIN (block)
+		  || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
+		      != FUNCTION_DECL)))
 	    *stmt_p = BIND_EXPR_BODY (*stmt_p);
 
 	  /* If we removed the BIND_EXPR completely and were left with

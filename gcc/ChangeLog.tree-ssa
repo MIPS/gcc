@@ -1,5 +1,8 @@
 2003-05-07  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (remove_useless_stmts_and_vars): Do not remove
+	the toplevel BIND_EXPR for an inlined function.
+
 	* tree-dfa.c (find_hidden_use_vars): Look at the size of
 	VAR_DECLs, not the size of ARRAY_TYPES.  Also make sure
 	to reset *inside_vla to its original value when done
