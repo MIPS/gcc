@@ -1,3 +1,12 @@
+2003-04-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-ssa-live.c (compact_var_map): Add parameter to exclude variables
+	with a single SSA version.
+	(init_root_var): Allow that a var_map might not be compacted yet.
+	* tree-ssa-live.h (compact_var_map): Change Prototype.
+	* tree-ssa.c (rewrite_out_of_ssa): When coalescing, don't include single
+	reference variables during the compaction.
+
 2003-04-25  Jeff Law  <law@redhat.com>
 
 	* tree-optimize.c (optimize_function_tree): Simplify slightly.

@@ -144,12 +144,14 @@ var_union (map, var1, var2)
    denser.  */
 
 void 
-compact_var_map (map)
+compact_var_map (map, use_singles)
      var_map map;
+     int use_singles;
 {
   sbitmap used;
-  int x, limit, count, tmp;
+  int x, limit, count, tmp, root, root_i;
   tree var;
+  root_var_p rv = NULL;
 
   limit = map->partition_size;
   used = sbitmap_alloc (limit);
@@ -157,9 +159,18 @@ compact_var_map (map)
 
   /* Already compressed? Abandon the old one.  */
   if (map->partition_to_compact)
-    free (map->partition_to_compact);
+    {
+      free (map->partition_to_compact);
+      map->partition_to_compact = NULL;
+    }
   if (map->compact_to_partition)
-    free (map->compact_to_partition);
+    {
+      free (map->compact_to_partition);
+      map->partition_to_compact = NULL;
+    }
+
+  if (use_singles)
+    rv = init_root_var (map);
 
   map->partition_to_compact = (int *)xmalloc (limit * sizeof (int));
   memset (map->partition_to_compact, 0xff, (limit * sizeof (int)));
@@ -171,11 +182,20 @@ compact_var_map (map)
       tmp = partition_find (map->var_partition, x);
       if (!TEST_BIT (used, tmp) && map->partition_to_var[tmp] != NULL_TREE)
         {
+	  /* It is referenced, check to see if there is more than one version
+	     in the root_var table, if one is available.  */
+	  if (rv)
+	    {
+	      root = find_root_var (rv, tmp);
+	      root_i = first_root_var_partition (rv, root);
+	      /* If there is only one, don't include this in the compaction.  */
+	      if (next_root_var_partition (rv, root_i) == ROOT_VAR_NONE)
+	        continue;
+	    }
 	  SET_BIT (used, tmp);
 	  count++;
 	}
     }
-  
 
   /* Build a compacted partitioning.  */
   if (count != limit)
@@ -200,6 +220,9 @@ compact_var_map (map)
     }
 
   map->num_partitions = count;
+
+  if (rv)
+    delete_root_var (rv);
   sbitmap_free (used);
 }
 
@@ -575,6 +598,9 @@ init_root_var (map)
   for (x = num_partitions - 1; x >= 0; x--)
     {
       t = partition_to_var (map, x);
+      /* The var map may not be compacted yet, so check for NULL.  */
+      if (!t) 
+        continue;
       if (TREE_CODE (t) == SSA_NAME)
 	t = SSA_NAME_VAR (t);
       ann = var_ann (t);

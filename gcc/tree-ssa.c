@@ -1442,13 +1442,15 @@ rewrite_out_of_ssa (fndecl)
 
   map = create_ssa_var_map ();
 
-  /* Shrink the map to include only referenced variables.  */
-  compact_var_map (map);
+  /* Shrink the map to include only referenced variables.  Exclude variables
+     which have only one SSA version since there is nothing to coalesce.  */
+  compact_var_map (map, 1);
 
   coalesce_ssa_name (map);
 
   /* This is the final var list, so assign real variables to the different
-     partitions.  */
+     partitions.  Include single reference vars this time. */
+  compact_var_map (map, 0);
   assign_vars (map);
 
   g = new_elim_graph (map->num_partitions);

@@ -50,10 +50,10 @@ typedef struct _var_map
 extern var_map init_var_map		PARAMS ((int));
 extern void delete_var_map		PARAMS ((var_map));
 extern void dump_var_map		PARAMS ((FILE *, var_map, int));
-extern void compact_var_map		PARAMS ((var_map));
 extern int var_union			PARAMS ((var_map, tree, tree));
 extern void change_partition_var	PARAMS ((var_map, tree, int));
 extern var_map create_ssa_var_map	PARAMS ((void));
+extern void compact_var_map		PARAMS ((var_map, int));
 
 static inline int num_var_partitions	PARAMS ((var_map));
 static inline tree var_to_partition_to_var	PARAMS ((var_map, tree));
@@ -255,7 +255,6 @@ extern root_var_p init_root_var		PARAMS ((var_map));
 extern void delete_root_var		PARAMS ((root_var_p));
 extern void dump_root_var		PARAMS ((FILE *, root_var_p));
 extern void remove_root_var_partition	PARAMS ((root_var_p, int, int));
-
 
 /* Value returned when there are no more partitions associated with a root
    variable.  */
