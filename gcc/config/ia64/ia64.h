@@ -1269,6 +1269,7 @@ enum reg_class
 typedef struct ia64_args
 {
   int words;			/* # words of arguments so far  */
+  int int_regs;			/* # GR registers used so far  */
   int fp_regs;			/* # FR registers used so far  */
   int prototype;		/* whether function prototyped  */
 } CUMULATIVE_ARGS;
@@ -1279,6 +1280,7 @@ typedef struct ia64_args
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
 do {									\
   (CUM).words = 0;							\
+  (CUM).int_regs = 0;							\
   (CUM).fp_regs = 0;							\
   (CUM).prototype = ((FNTYPE) && TYPE_ARG_TYPES (FNTYPE)) || (LIBNAME);	\
 } while (0)
@@ -1292,6 +1294,7 @@ do {									\
 #define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME) \
 do {									\
   (CUM).words = 0;							\
+  (CUM).int_regs = 0;							\
   (CUM).fp_regs = 0;							\
   (CUM).prototype = 1;							\
 } while (0)
@@ -2348,7 +2351,8 @@ do {									\
 { "ar_pfs_reg_operand", {REG}},						\
 { "general_tfmode_operand", {SUBREG, REG, CONST_DOUBLE, MEM}},		\
 { "destination_tfmode_operand", {SUBREG, REG, MEM}},			\
-{ "tfreg_or_fp01_operand", {REG, CONST_DOUBLE}},
+{ "tfreg_or_fp01_operand", {REG, CONST_DOUBLE}},			\
+{ "basereg_operand", {SUBREG, REG}},
 
 /* An alias for a machine mode name.  This is the machine mode that elements of
    a jump-table should have.  */

@@ -36,7 +36,7 @@ Boston, MA 02111-1307, USA.  */
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT \
   (MASK_V9 + MASK_PTR64 + MASK_64BIT /* + MASK_HARD_QUAD */ \
-   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU + MASK_LONG_DOUBLE_128)
+   + MASK_STACK_BIAS + MASK_APP_REGS + MASK_FPU + MASK_LONG_DOUBLE_128)
 #endif
 
 #undef ASM_CPU_DEFAULT_SPEC
@@ -145,8 +145,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
-
-#undef MAX_WCHAR_TYPE_SIZE
 
 /* Define for support of TFmode long double.
    Sparc ABI says that long double is 4 words.  */
@@ -327,6 +325,9 @@ do {									\
 #undef COMMON_ASM_OP
 #define COMMON_ASM_OP "\t.common\t"
 
+#undef  LOCAL_LABEL_PREFIX
+#define LOCAL_LABEL_PREFIX  "."
+
 /* This is how to output a definition of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
 
@@ -363,3 +364,5 @@ do {									\
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif
 
+/* Don't be different from other Linux platforms in this regard.  */
+#define HANDLE_PRAGMA_PACK_PUSH_POP

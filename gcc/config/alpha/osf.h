@@ -47,7 +47,8 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CPP_SUBTARGET_SPEC
 #define CPP_SUBTARGET_SPEC \
-"%{pthread|threads:-D_REENTRANT} %{threads:-D_PTHREAD_USE_D4} %(cpp_xfloat)"
+"%{pthread|threads:-D_REENTRANT} %{threads:-D_PTHREAD_USE_D4} %(cpp_xfloat) \
+-D__EXTERN_PREFIX"
 
 /* Under OSF4, -p and -pg require -lprof1, and -lprof1 requires -lpdf.  */
 
@@ -93,19 +94,18 @@ Boston, MA 02111-1307, USA.  */
 
 #define ASM_OLDAS_SPEC ""
 
-/* No point in running CPP on our assembler output.  */
-#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_GAS) != 0
-/* Don't pass -g to GNU as, because some versions don't accept this option.  */
-#define ASM_SPEC "%{malpha-as:-g %(asm_oldas)} -nocpp %{pg}"
-#else
 /* In OSF/1 v3.2c, the assembler by default does not output file names which
    causes mips-tfile to fail.  Passing -g to the assembler fixes this problem.
    ??? Strictly speaking, we need -g only if the user specifies -g.  Passing
    it always means that we get slightly larger than necessary object files
    if the user does not specify -g.  If we don't pass -g, then mips-tfile
    will need to be fixed to work in this case.  Pass -O0 since some
-   optimization are broken and don't help us anyway.  */
-#define ASM_SPEC "%{!mgas:-g %(asm_oldas)} -nocpp %{pg} -O0"
+   optimization are broken and don't help us anyway.  Pass -nocpp because
+   there's no point in running CPP on our assembler output.  */
+#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_GAS) != 0
+#define ASM_SPEC "%{malpha-as:-g %(asm_oldas) -nocpp %{pg} -O0}"
+#else
+#define ASM_SPEC "%{!mgas:-g %(asm_oldas) -nocpp %{pg} -O0}"
 #endif
 
 /* Specify to run a post-processor, mips-tfile after the assembler
@@ -209,3 +209,7 @@ __enable_execute_stack (addr)						\
 /* Handle #pragma weak and #pragma pack.  */
 #undef HANDLE_SYSV_PRAGMA
 #define HANDLE_SYSV_PRAGMA 1
+
+/* Handle #pragma extern_prefix.  Technically only needed for Tru64 5.x,
+   but easier to manipulate preprocessor bits from here.  */
+#define HANDLE_PRAGMA_EXTERN_PREFIX 1

@@ -44,7 +44,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "debug.h"
-
+#include "langhooks.h"
 
 static bool s390_assemble_integer PARAMS ((rtx, unsigned int, int));
 static int s390_adjust_cost PARAMS ((rtx, rtx, rtx, int));
@@ -3177,15 +3177,15 @@ s390_emit_epilogue ()
 
       if (frame.save_fprs_p)
 	for (i = 24; i < 32; i++)
-	  if (regs_ever_live[i])
+	  if (regs_ever_live[i] && !global_regs[i])
 	    restore_fpr (frame_pointer, 
 			 offset - 64 + (i-24) * 8, i);
     }
   else
     {
-      if (regs_ever_live[18])
+      if (regs_ever_live[18] && !global_regs[18])
 	restore_fpr (frame_pointer, offset + STACK_POINTER_OFFSET - 16, 18);
-      if (regs_ever_live[19]) 
+      if (regs_ever_live[19] && !global_regs[19])
 	restore_fpr (frame_pointer, offset + STACK_POINTER_OFFSET - 8, 19);
     }
 
@@ -3198,6 +3198,24 @@ s390_emit_epilogue ()
   if (frame.first_restore_gpr != -1)
     {
       rtx addr;
+      int i;
+
+      /* Check for global register and save them 
+	 to stack location from where they get restored.  */
+
+      for (i = frame.first_restore_gpr; 
+	   i <= frame.last_save_gpr;
+	   i++)
+	{
+	  if (global_regs[i])
+	    {
+	      addr = plus_constant (frame_pointer, 
+		     offset + i * UNITS_PER_WORD);
+	      addr = gen_rtx_MEM (Pmode, addr);
+	      set_mem_alias_set (addr, s390_sr_alias_set);
+	      emit_move_insn (addr, gen_rtx_REG (Pmode, i));
+	    }  
+	}
 
       /* Fetch return address from stack before load multiple,
 	 this will do good for scheduling.  */
@@ -3402,7 +3420,7 @@ s390_build_va_list ()
 {
   tree f_gpr, f_fpr, f_ovf, f_sav, record, type_decl;
 
-  record = make_lang_type (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
 
   type_decl =
     build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);

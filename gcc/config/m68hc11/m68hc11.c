@@ -778,7 +778,7 @@ m68hc11_reload_operands (operands)
 
 	  /* Create the lowest part offset that still remains to be added.
 	     If it's not a valid offset, do a 16-bit add.  */
-	  offset = gen_rtx (CONST_INT, VOIDmode, vl);
+	  offset = GEN_INT (vl);
 	  if (!VALID_CONSTANT_OFFSET_P (offset, mode))
 	    {
 	      emit_insn (gen_rtx (SET, VOIDmode, reg,
@@ -789,8 +789,7 @@ m68hc11_reload_operands (operands)
 	    {
 	      emit_insn (gen_rtx (SET, VOIDmode, reg,
 				  gen_rtx (PLUS, HImode, reg,
-					   gen_rtx (CONST_INT,
-						    VOIDmode, vh << 8))));
+					   GEN_INT (vh << 8))));
 	    }
 	  emit_move_insn (operands[0],
 			  gen_rtx (MEM, GET_MODE (operands[1]),
@@ -1874,20 +1873,18 @@ m68hc11_gen_lowpart (mode, x)
 	      return second;
 	    }
 	  if (mode == SImode)
-	    return gen_rtx (CONST_INT, VOIDmode, l[0]);
+	    return GEN_INT (l[0]);
 
-	  return gen_rtx (CONST_INT, VOIDmode,
-                          trunc_int_for_mode (l[0], HImode));
+	  return gen_int_mode (l[0], HImode);
 	}
       else
 	{
 	  l[0] = CONST_DOUBLE_LOW (x);
 	}
       if (mode == SImode)
-	return gen_rtx (CONST_INT, VOIDmode, l[0]);
+	return GEN_INT (l[0]);
       else if (mode == HImode && GET_MODE (x) == SFmode)
-	return gen_rtx (CONST_INT, VOIDmode,
-                        trunc_int_for_mode (l[0], HImode));
+	return gen_int_mode (l[0], HImode);
       else
 	abort ();
     }
@@ -1953,10 +1950,9 @@ m68hc11_gen_highpart (mode, x)
 	      return first;
 	    }
 	  if (mode == SImode)
-	    return gen_rtx (CONST_INT, VOIDmode, l[1]);
+	    return GEN_INT (l[1]);
 
-	  return gen_rtx (CONST_INT, VOIDmode,
-                          trunc_int_for_mode ((l[1] >> 16), HImode));
+	  return gen_int_mode ((l[1] >> 16), HImode);
 	}
       else
 	{
@@ -1964,10 +1960,9 @@ m68hc11_gen_highpart (mode, x)
 	}
 
       if (mode == SImode)
-	return gen_rtx (CONST_INT, VOIDmode, l[1]);
+	return GEN_INT (l[1]);
       else if (mode == HImode && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
-	return gen_rtx (CONST_INT, VOIDmode,
-                        trunc_int_for_mode ((l[0] >> 16), HImode));
+	return gen_int_mode ((l[0] >> 16), HImode);
       else
 	abort ();
     }
@@ -1977,13 +1972,11 @@ m68hc11_gen_highpart (mode, x)
 
       if (mode == QImode)
 	{
-	  return gen_rtx (CONST_INT, VOIDmode,
-                          trunc_int_for_mode (val >> 8, QImode));
+	  return gen_int_mode (val >> 8, QImode);
 	}
       else if (mode == HImode)
 	{
-	  return gen_rtx (CONST_INT, VOIDmode,
-                          trunc_int_for_mode (val >> 16, HImode));
+	  return gen_int_mode (val >> 16, HImode);
 	}
     }
   if (mode == QImode && D_REG_P (x))
@@ -2690,6 +2683,39 @@ m68hc11_expand_compare_and_branch (code, op0, op1, label)
   return 0;
 }
 
+/* Return 1 if the TO and FROM operands contain compatible address
+   increment and decrement modes for a split_move.  One of the two
+   operands must not use an autoinc mode or both must go in the
+   same direction.  */
+static int
+m68hc11_autoinc_compatible_p (to, from)
+     rtx to, from;
+{
+  enum { INCOP, DECOP } type_to, type_from;
+
+  /* If one of them is not a MEM, it is ok.  */
+  if (GET_CODE (to) != MEM || GET_CODE (from) != MEM)
+    return 1;
+
+  to = XEXP (to, 0);
+  from = XEXP (from, 0);
+
+  if (GET_CODE (to) == PRE_INC || GET_CODE (to) == POST_INC)
+    type_to = INCOP;
+  else if (GET_CODE (to) == PRE_DEC || GET_CODE (to) == POST_DEC)
+    type_to = DECOP;
+  else
+    return 1;
+  
+  if (GET_CODE (from) == PRE_INC || GET_CODE (from) == POST_INC)
+    type_from = INCOP;
+  else if (GET_CODE (from) == PRE_DEC || GET_CODE (from) == POST_DEC)
+    type_from = DECOP;
+  else
+    return 1;
+
+  return type_to == type_from;
+}
 
 /* Split a DI, SI or HI move into several smaller move operations.
    The scratch register 'scratch' is used as a temporary to load
@@ -2710,6 +2736,30 @@ m68hc11_split_move (to, from, scratch)
     mode = HImode;
   else
     mode = QImode;
+
+  /* If the TO and FROM contain autoinc modes that are not compatible
+     together (one pop and the other a push), we must change one to
+     an offsetable operand and generate an appropriate add at the end.  */
+  if (TARGET_M6812 && m68hc11_autoinc_compatible_p (to, from) == 0)
+    {
+      rtx reg;
+      int code;
+
+      /* Decide to change the source.  */
+      code = GET_CODE (XEXP (from, 0));
+      reg = XEXP (XEXP (from, 0), 0);
+      offset = GET_MODE_SIZE (GET_MODE (from));
+      if (code == PRE_DEC || code == POST_DEC)
+        offset = -offset;
+
+      if (code == PRE_DEC || code == PRE_INC)
+        emit_insn (gen_addhi3 (reg, reg, GEN_INT (offset)));
+      m68hc11_split_move (to, gen_rtx_MEM (GET_MODE (from), reg), scratch);
+      if (code == POST_DEC || code == POST_INC)
+        emit_insn (gen_addhi3 (reg, reg, GEN_INT (offset)));
+
+      return;
+    }
 
   if (TARGET_M6812
       && IS_STACK_PUSH (to)
@@ -2752,6 +2802,10 @@ m68hc11_split_move (to, from, scratch)
       m68hc11_split_move (high_to, high_from, scratch);
     }
   else if (H_REG_P (to) || H_REG_P (from)
+	   || (low_from == const0_rtx
+	       && high_from == const0_rtx
+	       && ! push_operand (to, GET_MODE (to))
+	       && ! H_REG_P (scratch))
 	   || (TARGET_M6812
 	       && (!m68hc11_register_indirect_p (from, GET_MODE (from))
 		   || m68hc11_small_indexed_indirect_p (from,
@@ -4758,12 +4812,7 @@ m68hc11_z_replacement (insn)
 	      src = SET_SRC (body);
 	      dst = SET_DEST (body);
 	      if (SP_REG_P (src) && Z_REG_P (dst))
-		{
-		  emit_insn_after (gen_addhi3 (dst,
-					       dst,
-					       gen_rtx (CONST_INT,
-							VOIDmode, 2)), insn);
-		}
+		emit_insn_after (gen_addhi3 (dst, dst, const2_rtx), insn);
 	    }
 
 	  /* Replace any (REG:HI Z) occurrence by either X or Y.  */
@@ -4944,7 +4993,10 @@ m68hc11_reorg (first)
   /* After some splitting, there are some oportunities for CSE pass.
      This happens quite often when 32-bit or above patterns are split.  */
   if (optimize > 0 && split_done)
-    reload_cse_regs (first);
+    {
+      find_basic_blocks (first, max_reg_num (), 0);
+      reload_cse_regs (first);
+    }
 
   /* Re-create the REG_DEAD notes.  These notes are used in the machine
      description to use the best assembly directives.  */

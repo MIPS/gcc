@@ -1,3 +1,21 @@
+2002-03-30  Krister Walfridsson  <cato@df.lth.se>
+
+	* configure.in (i*86-*-netbsdelf*): Don't disable libgcj.
+
+2002-03-27  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in (alpha*-dec-osf*): Enable libgcj.
+
+2003-03-27  Matthew Gingell <gingell@gnat.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2002-03-24  Nick Clifton  <nickc@cambridge.redhat.com>
+
+	Fix for: PR bootstrap/3591, target/5676
+	* configure.in (mcore-pe): Disable the configuration of
+	libstdc++-v3 since exceptions are not supported.
+
 2002-03-20  Anthony Green  <green@redhat.com>
 
 	* configure.in: Enable libgcj for xscale-elf target.

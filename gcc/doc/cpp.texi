@@ -9,7 +9,7 @@
 @macro copyrightnotice
 @c man begin COPYRIGHT
 Copyright @copyright{} 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996,
-1997, 1998, 1999, 2000, 2001
+1997, 1998, 1999, 2000, 2001, 2002
 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
@@ -48,6 +48,7 @@ This manual contains no Invariant Sections.  The Front-Cover Texts are
 
 @c Create a separate index for command line options.
 @defcodeindex op
+@syncodeindex vr op
 
 @c Used in cppopts.texi and cppenv.texi.
 @set cppmanual
@@ -75,6 +76,7 @@ This manual contains no Invariant Sections.  The Front-Cover Texts are
 @contents
 @page
 
+@ifnottex
 @node Top
 @top
 The C preprocessor implements the macro language used to transform C,
@@ -96,8 +98,8 @@ useful on its own.
 * Invocation::
 * Environment Variables::
 * GNU Free Documentation License::
-* Option Index::
 * Index of Directives::
+* Option Index::
 * Concept Index::
 
 @detailmenu
@@ -179,7 +181,6 @@ Obsolete Features
 @end detailmenu
 @end menu
 
-@ifnottex
 @copyrightnotice{}
 @covertexts{}
 @end ifnottex
@@ -402,26 +403,8 @@ extremely confusing and should not be used in code intended to be
 readable.
 
 There is no way to prevent a backslash at the end of a line from being
-interpreted as a backslash-newline.
-
-@example
-"foo\\
-bar"
-@end example
-
-@noindent
-is equivalent to @code{"foo\bar"}, not to @code{"foo\\bar"}.  To avoid
-having to worry about this, do not use the deprecated GNU extension
-which permits multi-line strings.  Instead, use string literal
-concatenation:
-
-@example
-   "foo\\"
-   "bar"
-@end example
-
-@noindent
-Your program will be more portable this way, too.
+interpreted as a backslash-newline.  This cannot affect any correct
+program, however.
 
 @node Tokenization
 @section Tokenization
@@ -536,11 +519,10 @@ closing quote or angle bracket.  The preprocessor looks for the header
 file in different places depending on which form you use.  @xref{Include
 Operation}.
 
-In standard C, no string literal may extend past the end of a line.  GNU
-CPP accepts multi-line string constants, but not multi-line character
-constants or header file names.  This extension is deprecated and will
-be removed in GCC 3.1.  You may use continued lines instead, or string
-constant concatenation.  @xref{Differences from previous versions}.
+No string literal may extend past the end of a line.  Older versions
+of GCC accepted multi-line string constants.  You may use continued
+lines instead, or string constant concatenation.  @xref{Differences
+from previous versions}.
 
 @cindex punctuators
 @cindex digraphs
@@ -796,10 +778,10 @@ those are merely the typical uses.  Any fragment of a C program can be
 included from another file.  The include file could even contain the
 beginning of a statement that is concluded in the containing file, or
 the end of a statement that was started in the including file.  However,
-a comment or a string or character constant may not start in the
-included file and finish in the including file.  An unterminated
-comment, string constant or character constant in an included file is
-considered to end (with an error message) at the end of the file.
+an included file must consist of complete tokens.  Comments and string
+literals which have not been closed by the end of an included file are
+invalid.  For error recovery, they are considered to end at the end of
+the file.
 
 To avoid confusion, it is best if header files contain only complete
 syntactic units---function declarations or definitions, type
@@ -3785,13 +3767,11 @@ This is the same as @code{#pragma GCC poison}.  The version without the
 @cindex multi-line string constants
 @item Multi-line string constants
 
-GCC currently allows a string constant to extend across multiple logical
-lines of the source file.  This extension is deprecated and will be
-removed in a future version of GCC@.  Such string constants are already
-rejected in all directives apart from @samp{#define}.
-
-Instead, make use of ISO C concatenation of adjacent string literals, or
-use @samp{\n} followed by a backslash-newline.
+Older versions of GCC allowed string constants to extend across
+multiple logical lines of the source file.  This ill-considered
+extension has now been removed.  Instead, make use of ISO C
+concatenation of adjacent string literals, or use @samp{\n} followed
+by a backslash-newline.
 
 @end itemize
 
@@ -3970,21 +3950,22 @@ configuration of GCC@.
 @include cppenv.texi
 @c man end
 
+@page
 @include fdl.texi
 
 @page
-@node Option Index
-@unnumbered Option Index
-
-CPP's command line options are indexed here without any initial
-@samp{-} or @samp{--}.
-
-@printindex op
-
 @node Index of Directives
 @unnumbered Index of Directives
 @printindex fn
 
+@node Option Index
+@unnumbered Option Index
+@noindent
+CPP's command line options and environment variables are indexed here
+without any initial @samp{-} or @samp{--}.
+@printindex op
+
+@page
 @node Concept Index
 @unnumbered Concept Index
 @printindex cp

@@ -2017,8 +2017,9 @@ adjust_address_1 (memref, mode, offset, validate, adjust)
      lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
      if zero.  */
   if (offset != 0)
-    memalign = MIN (memalign,
-		    (unsigned int) (offset & -offset) * BITS_PER_UNIT);
+    memalign
+      = MIN (memalign,
+	     (unsigned HOST_WIDE_INT) (offset & -offset) * BITS_PER_UNIT);
 
   /* We can compute the size in a number of ways.  */
   if (GET_MODE (new) != BLKmode)
@@ -2088,7 +2089,7 @@ offset_address (memref, offset, pow2)
   MEM_ATTRS (new)
     = get_mem_attrs (MEM_ALIAS_SET (memref), MEM_EXPR (memref), 0, 0,
 		     MIN (MEM_ALIGN (memref),
-			  (unsigned int) pow2 * BITS_PER_UNIT),
+			  (unsigned HOST_WIDE_INT) pow2 * BITS_PER_UNIT),
 		     GET_MODE (new));
   return new;
 }
@@ -3410,7 +3411,7 @@ add_insn_after (insn, after)
     }
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
       set_block_for_insn (insn, bb);
@@ -3479,7 +3480,7 @@ add_insn_before (insn, before)
     }
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (before) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (before) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (before)))
     {
       set_block_for_insn (insn, bb);
@@ -3559,15 +3560,15 @@ remove_insn (insn)
 	abort ();
     }
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (insn) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (insn) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (insn)))
     {
       if (INSN_P (insn))
         bb->flags |= BB_DIRTY;
       if (bb->head == insn)
 	{
-	  /* Never ever delete the basic block note without deleting whole basic
-	     block.  */
+	  /* Never ever delete the basic block note without deleting whole
+	     basic block.  */
 	  if (GET_CODE (insn) == NOTE)
 	    abort ();
 	  bb->head = next;
@@ -3637,14 +3638,15 @@ reorder_insns (from, to, after)
   reorder_insns_nobb (from, to, after);
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
       bb->flags |= BB_DIRTY;
  
       if (basic_block_for_insn
-	  && (unsigned int)INSN_UID (from) < basic_block_for_insn->num_elements
+	  && ((unsigned int) INSN_UID (from)
+	      < basic_block_for_insn->num_elements)
 	  && (bb2 = BLOCK_FOR_INSN (from)))
 	{
 	  if (bb2->end == to)
@@ -4192,7 +4194,7 @@ emit_insns_after (first, after)
     return after;
 
   if (basic_block_for_insn
-      && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
+      && (unsigned int) INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
       bb->flags |= BB_DIRTY;
@@ -5104,23 +5106,17 @@ init_emit_once (line_numbers)
 
   for (i = 0; i <= 2; i++)
     {
+      REAL_VALUE_TYPE *r =
+	(i == 0 ? &dconst0 : i == 1 ? &dconst1 : &dconst2);
+
       for (mode = GET_CLASS_NARROWEST_MODE (MODE_FLOAT); mode != VOIDmode;
 	   mode = GET_MODE_WIDER_MODE (mode))
 	{
 	  rtx tem = rtx_alloc (CONST_DOUBLE);
-	  union real_extract u;
-
-	  /* Zero any holes in a structure.  */
-	  memset ((char *) &u, 0, sizeof u);
-	  u.d = i == 0 ? dconst0 : i == 1 ? dconst1 : dconst2;
-
-	  /* Avoid trailing garbage in the rtx.  */
-	  if (sizeof (u) < sizeof (HOST_WIDE_INT))
-	    CONST_DOUBLE_LOW (tem) = 0;
-	  if (sizeof (u) < 2 * sizeof (HOST_WIDE_INT))
-	    CONST_DOUBLE_HIGH (tem) = 0;
-
-	  memcpy (&CONST_DOUBLE_LOW (tem), &u, sizeof u);
+ 
+	  /* Can't use CONST_DOUBLE_FROM_REAL_VALUE here; that uses the
+	     tables we're setting up right now.  */
+	  memcpy (&CONST_DOUBLE_LOW (tem), r, sizeof (REAL_VALUE_TYPE));
 	  CONST_DOUBLE_CHAIN (tem) = NULL_RTX;
 	  PUT_MODE (tem, mode);
 

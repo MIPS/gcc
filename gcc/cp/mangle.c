@@ -1111,7 +1111,7 @@ write_integer_cst (cst)
 	  chunk *= chunk;
 	}
       
-      type = signed_or_unsigned_type (1, TREE_TYPE (cst));
+      type = c_common_signed_or_unsigned_type (1, TREE_TYPE (cst));
       base = build_int_2 (chunk, 0);
       n = build_int_2 (TREE_INT_CST_LOW (cst), TREE_INT_CST_HIGH (cst));
       TREE_TYPE (n) = TREE_TYPE (base) = type;
@@ -1560,7 +1560,8 @@ write_builtin_type (type)
 
 	  if (itk == itk_none)
 	    {
-	      tree t = type_for_mode (TYPE_MODE (type), TREE_UNSIGNED (type));
+	      tree t = c_common_type_for_mode (TYPE_MODE (type),
+					       TREE_UNSIGNED (type));
 	      if (type == t)
 		{
 		  if (TYPE_PRECISION (type) == 128)

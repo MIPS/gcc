@@ -1,3 +1,183 @@
+2002-04-01  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* call.c (build_addr_func): Update.
+	* class.c (resolve_address_of_overloaded_function): Update.
+	* cp-lang.c (LANG_HOOKS_MARK_ADDRESSABLE): Redefine.
+	* cp-tree.h (cxx_mark_addressable): New.
+	* decl.c (register_dtor_fn, cxx_maybe_build_cleanup): Update.
+	* decl2.c (build_cleanup): Update.
+	* except.c (build_throw): Update.
+	* init.c (resolve_offset_ref): Update.
+	* pt.c (convert_nontype_argument): Update.
+	* semantics.c (finish_asm_stmt, simplify_affr_init_exprs_r): Update.
+	* typeck.c (decay_conversion, build_array_ref, build_unary_op,
+	unary_complex_lvalue): Update.
+	(mark_addressable): Rename.
+
+2002-04-01  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/5998:
+	* decl.c (duplicate_decls):  Overwrite the RTL when (and only
+	when) overwriting a built-in function.  Don't use COPY_DECL_RTL,
+	but follow the SET_DECL_RTL idiom used elsewhere in the function.
+
+2002-04-01  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_SIGNED_TYPE, LANG_HOOKS_UNSIGNED_TYPE,
+	LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): New.
+	* decl.c (grokdeclarator): Update.
+	* mangle.c (write_integer_cst): Update.
+	* typeck.c (build_binary_op): Update.
+
+2002-03-31  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_UNSAFE_FOR_REEVAL): Redefine.
+	* lex.c (cxx_init): Don't set hook.
+
+2002-03-31  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* Make-lang.in (error.o): Update.
+	* cp-lang.c (LANG_HOOKS_PRINT_ERROR_FUNCTION): Redefine.
+	* cp-tree.h (struct diagnostic_context): Predeclare.
+	(cxx_print_error_function): New.
+	* error.c: Include langhooks-def.h.
+	(lang_print_error_function): Rename.  Update.
+	(init_error): Don't set hook.
+
+2002-03-29  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_TYPE_FOR_MODE, LANG_HOOKS_TYPE_FOR_SIZE):
+	Redefine.
+	* cvt.c (cp_convert_to_pointer, type_promotes_to): Use new hooks.
+	* decl.c (finish_enum): Similarly.
+	* error.c (dump_type): Similarly.
+	* lex.c (cxx_init): Similarly.
+	* mangle.c (write_builtin_type): Similarly.
+	* typeck.c (comptypes): Similarly.
+
+2002-03-28  Roger Sayle  <roger@eyesopen.com>
+
+	PR c++/5998:
+	* decl.c (cxx_init_decl_processing): Re-enable built-in functions
+	in the g++ front-end.
+	(duplicate_decl): Allow redefinition of anticipated built-ins.
+	Fix inlining problem by over-writing the old DECL_RTL.
+	(lookup_namespace_name): Fail to find an identifier in the
+	specified namespace if its still anticipated.
+	(builtin_function_1): New function split out from builtin_function
+	to create a builtin in the current namespace with given context.
+	(builtin_function): Call builtin_function_1 to define the
+	appropriate builtins in both the std and global namespaces.
+	(select_decl): Don't test for anticipated decls here.
+	(unqualified_namespace_lookup): Instead ignore them whilst
+	searching through scopes and namespaces.
+	* decl2.c (do_nonmember_using_decl): If a using declaration
+	specifies an anticipated built-in function, mark it as no longer
+	anticipated in that scope.
+	(ambiguous_decl):  Avoid resolving to an anticipated decl.
+	* lex.c (do_scoped_id): Fail to find an identifier in the global
+	namespace if its still anticipated.
+
+2002-03-29  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_MAKE_TYPE): Redefine.
+	* cp-tree.h (cp_make_lang_type): Rename.
+	* lex.c (cp_make_lang_type): Rename.
+	(make_aggr_type): Update.
+	* tree.c (init_tree): Don't set make_lang_type_fn.
+
+2002-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/6073
+	* class.c (finish_struct_1): Update static field's DECL_MODE even
+	if its type is a variant of t.
+
+2002-03-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES): Redefine.
+	* cp-tree.h (cxx_insert_default_attributes): New.
+	* decl.c (insert_default_attributes): Rename.
+
+2002-03-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/4884
+	* call.c (build_op_delete_call): Allow for the fact the placement
+	may be a COMPOUND_EXPR.
+	
+2002-03-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_EXPAND_EXPR): Redefine.
+	* cp-tree.h (init_cplus_expand): Remove.
+	(cxx_expand_expr): New.
+	* expr.c (cplus_expand_expr): Rename cxx_expand_expr,
+	fix prototype.
+	(init_cplus_expand): Remove.
+	* lex.c (cxx_init): Don't call init_cplus_expand.
+
+2002-03-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/4884.
+	* init.c (build_new_1): Allow for the fact the result of
+	build_function_call may be a COMPOUND_EXPR.
+
+2002-03-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/5682
+	* cp-tree.h (BINFO_PRIMARY_P): Explain meaning better.
+	(dfs_skip_nonprimary_vbases_unmarkedp): Remove.
+	(dfs_skip_nonprimary_vbases_markedp): Remove.
+	* search.c (get_shared_vbase_if_not_primary): Remove.
+	(dfs_skip_nonprimary_vbases_unmarkedp): Remove.
+	(dfs_skip_nonprimary_vbases_markedp): Remove.
+	(dfs_unmarked_real_bases_queue_p): Just get the canonical binfo.
+	(dfs_marked_real_bases_queue_p): Likewise.
+
+2002-03-26  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-lang.c (LANG_HOOKS_MARK_TREE): Redefine.
+	* cp-tree.h (cxx_mark_tree): New.
+	* decl.c (lang_mark_tree): Rename cxx_mark_tree.
+
+2002-03-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* cp-tree.h (cxx_maybe_build_cleanup): New.
+	* decl.c (destroy_local_var, hack_incomplete_structures): Update.
+	(maybe_build_cleanup): Rename cxx_maybe_build_cleanup.
+	* tree.c (build_target_expr): Update.
+	* cp-lang.c (LANG_HOOKS_MAYBE_BUILD_CLEANUP): Redefine.
+
+2002-03-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* decl2.c (cxx_decode_option): Handle -E.
+	* lang-specs.h (default_compilers): Preprocess with cc1plus.
+	* lex.c (cxx_init): Exit quickly if c_common_init returns NULL.
+
+2002-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/6037
+	* decl.c (start_enum): Don't set TREE_ADDRESSABLE on TREE_LIST node.
+
+2002-03-23  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	* error.c (dump_type): Be careful about implicit typenames.
+
+2002-03-21  Gabriel Dos Reis  <gdr@merlin.codesourcery.com>
+
+	PR C++/3656
+	* semantics.c (finish_base_specifier): Handle erronous base
+	classes. 
+
+2002-03-22  Zack Weinberg  <zack@codesourcery.com>
+
+	* error.c: Always use REAL_VALUE_TO_DECIMAL; don't test
+	REAL_IS_NOT_DOUBLE.
+
+2002-03-22  Jeff Knaggs  <jknaggs@redhat.com>
+
+	* typeck.c (expand_ptrmemfunc_cst): Scale idx down to an index
+	into the vtable_entry array regardless of
+	TARGET_PTRMEMFUNC_VBIT_LOCATION.
+
 2002-03-21  Aldy Hernandez  <aldyh@redhat.com>
 
         * tree.c (cp_cannot_inline_tree_fn): Same.

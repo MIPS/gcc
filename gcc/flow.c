@@ -1072,6 +1072,16 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
   regset_head new_live_at_end_head;
   int i;
 
+  /* Some passes used to forget clear aux field of basic block causing
+     sick behaviour here.  */
+#ifdef ENABLE_CHECKING
+  if (ENTRY_BLOCK_PTR->aux || EXIT_BLOCK_PTR->aux)
+    abort ();
+  for (i = 0; i < n_basic_blocks; i++)
+    if (BASIC_BLOCK (i)->aux)
+      abort ();
+#endif
+
   tmp = INITIALIZE_REG_SET (tmp_head);
   new_live_at_end = INITIALIZE_REG_SET (new_live_at_end_head);
   call_used = INITIALIZE_REG_SET (call_used_head);
@@ -1113,6 +1123,11 @@ calculate_global_regs_live (blocks_in, blocks_out, flags)
 	  bb->aux = bb;
 	}
     }
+
+  /* We clean aux when we remove the initially-enqueued bbs, but we
+     don't enqueue ENTRY and EXIT initially, so clean them upfront and
+     unconditionally.  */
+  ENTRY_BLOCK_PTR->aux = EXIT_BLOCK_PTR->aux = NULL;
 
   if (blocks_out)
     sbitmap_zero (blocks_out);

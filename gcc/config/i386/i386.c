@@ -42,6 +42,7 @@ Boston, MA 02111-1307, USA.  */
 #include "ggc.h"
 #include "target.h"
 #include "target-def.h"
+#include "langhooks.h"
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -392,6 +393,7 @@ const int x86_accumulate_outgoing_args = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_prologue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_epilogue_using_move = m_ATHLON | m_PENT4 | m_PPRO;
 const int x86_decompose_lea = m_PENT4;
+const int x86_arch_always_fancy_math_387 = m_PENT|m_PPRO|m_ATHLON|m_PENT4;
 
 /* In case the avreage insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -1117,6 +1119,11 @@ override_options ()
   if (flag_unsafe_math_optimizations)
     target_flags &= ~MASK_IEEE_FP;
 
+  /* If the architecture always has an FPU, turn off NO_FANCY_MATH_387,
+     since the insns won't need emulation.  */
+  if (x86_arch_always_fancy_math_387 & (1 << ix86_arch))
+    target_flags &= ~MASK_NO_FANCY_MATH_387;
+
   if (TARGET_64BIT)
     {
       if (TARGET_ALIGN_DOUBLE)
@@ -1726,7 +1733,8 @@ classify_argument (mode, type, classes, bit_offset)
 	    classes[i] = subclasses[i % num];
 	}
       /* Unions are similar to RECORD_TYPE but offset is always 0.  */
-      else if (TREE_CODE (type) == UNION_TYPE)
+      else if (TREE_CODE (type) == UNION_TYPE
+	       || TREE_CODE (type) == QUAL_UNION_TYPE)
 	{
 	  for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
 	    {
@@ -2296,7 +2304,7 @@ ix86_build_va_list ()
   if (!TARGET_64BIT)
     return build_pointer_type (char_type_node);
 
-  record = make_lang_type (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
   type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
 
   f_gpr = build_decl (FIELD_DECL, get_identifier ("gp_offset"), 
@@ -3459,6 +3467,11 @@ aligned_operand (op, mode)
   if (! ix86_decompose_address (op, &parts))
     abort ();
 
+  if (parts.base && GET_CODE (parts.base) == SUBREG)
+    parts.base = SUBREG_REG (parts.base);
+  if (parts.index && GET_CODE (parts.index) == SUBREG)
+    parts.index = SUBREG_REG (parts.index);
+
   /* Look for some component that isn't known to be aligned.  */
   if (parts.index)
     {
@@ -4396,7 +4409,7 @@ ix86_decompose_address (addr, out)
   rtx scale_rtx = NULL_RTX;
   int retval = 1;
 
-  if (GET_CODE (addr) == REG || GET_CODE (addr) == SUBREG)
+  if (REG_P (addr) || GET_CODE (addr) == SUBREG)
     base = addr;
   else if (GET_CODE (addr) == PLUS)
     {
@@ -4522,6 +4535,11 @@ ix86_address_cost (x)
 
   if (!ix86_decompose_address (x, &parts))
     abort ();
+
+  if (parts.base && GET_CODE (parts.base) == SUBREG)
+    parts.base = SUBREG_REG (parts.base);
+  if (parts.index && GET_CODE (parts.index) == SUBREG)
+    parts.index = SUBREG_REG (parts.index);
 
   /* More complex memory references are better.  */
   if (parts.disp && parts.disp != const0_rtx)
@@ -4737,9 +4755,15 @@ legitimate_address_p (mode, addr, strict)
 
   if (base)
     {
+      rtx reg;
       reason_rtx = base;
 
-      if (GET_CODE (base) != REG)
+      if (GET_CODE (base) == SUBREG)
+	reg = SUBREG_REG (base);
+      else
+	reg = base;
+
+      if (GET_CODE (reg) != REG)
 	{
 	  reason = "base is not a register";
 	  goto report_error;
@@ -4751,8 +4775,8 @@ legitimate_address_p (mode, addr, strict)
 	  goto report_error;
 	}
 
-      if ((strict && ! REG_OK_FOR_BASE_STRICT_P (base))
-	  || (! strict && ! REG_OK_FOR_BASE_NONSTRICT_P (base)))
+      if ((strict && ! REG_OK_FOR_BASE_STRICT_P (reg))
+	  || (! strict && ! REG_OK_FOR_BASE_NONSTRICT_P (reg)))
 	{
 	  reason = "base is not valid";
 	  goto report_error;
@@ -4767,9 +4791,15 @@ legitimate_address_p (mode, addr, strict)
 
   if (index)
     {
+      rtx reg;
       reason_rtx = index;
 
-      if (GET_CODE (index) != REG)
+      if (GET_CODE (index) == SUBREG)
+	reg = SUBREG_REG (index);
+      else
+	reg = index;
+
+      if (GET_CODE (reg) != REG)
 	{
 	  reason = "index is not a register";
 	  goto report_error;
@@ -4781,8 +4811,8 @@ legitimate_address_p (mode, addr, strict)
 	  goto report_error;
 	}
 
-      if ((strict && ! REG_OK_FOR_INDEX_STRICT_P (index))
-	  || (! strict && ! REG_OK_FOR_INDEX_NONSTRICT_P (index)))
+      if ((strict && ! REG_OK_FOR_INDEX_STRICT_P (reg))
+	  || (! strict && ! REG_OK_FOR_INDEX_NONSTRICT_P (reg)))
 	{
 	  reason = "index is not valid";
 	  goto report_error;
@@ -5965,6 +5995,8 @@ print_operand (file, x, code)
       else if (CONSTANT_ADDRESS_P (x) && code =='P'
 	       && GET_CODE (x) != CONST_INT)
 	output_addr_const (file, x);
+      else if (this_is_asm_operands && ! address_operand (x, VOIDmode))
+	output_operand_lossage ("invalid constraints for operand");
       else
 	output_address (x);
     }
@@ -6650,7 +6682,7 @@ ix86_output_addr_diff_elt (file, value, rel)
      int value, rel;
 {
   if (TARGET_64BIT)
-    fprintf (file, "%s%s%d-.+4+(.-%s%d)\n",
+    fprintf (file, "%s%s%d-.+(.-%s%d)\n",
 	     ASM_LONG, LPREFIX, value, LPREFIX, rel);
   else if (HAVE_AS_GOTOFF_IN_DATA)
     fprintf (file, "%s%s%d@GOTOFF\n", ASM_LONG, LPREFIX, value);
@@ -8063,8 +8095,7 @@ ix86_expand_int_movcc (operands)
 	       */
 	      tmp = expand_simple_binop (mode, AND,
 					 tmp,
-					 GEN_INT (trunc_int_for_mode
-						  (cf - ct, mode)),
+					 gen_int_mode (cf - ct, mode),
 					 tmp, 1, OPTAB_DIRECT);
 	      if (ct)
 	       	tmp = expand_simple_binop (mode, PLUS,
@@ -8218,8 +8249,7 @@ ix86_expand_int_movcc (operands)
 				     out, 1, OPTAB_DIRECT);
 	  out = expand_simple_binop (mode, AND,
 				     out,
-				     GEN_INT (trunc_int_for_mode
-					      (cf - ct, mode)),
+				     gen_int_mode (cf - ct, mode),
 				     out, 1, OPTAB_DIRECT);
 	  out = expand_simple_binop (mode, PLUS,
 				     out, GEN_INT (ct),
@@ -8570,7 +8600,7 @@ ix86_split_to_parts (operand, parts, mode)
 		case XFmode:
 		case TFmode:
 		  REAL_VALUE_TO_TARGET_LONG_DOUBLE (r, l);
-		  parts[2] = GEN_INT (trunc_int_for_mode (l[2], SImode));
+		  parts[2] = gen_int_mode (l[2], SImode);
 		  break;
 		case DFmode:
 		  REAL_VALUE_TO_TARGET_DOUBLE (r, l);
@@ -8578,8 +8608,8 @@ ix86_split_to_parts (operand, parts, mode)
 		default:
 		  abort ();
 		}
-	      parts[1] = GEN_INT (trunc_int_for_mode (l[1], SImode));
-	      parts[0] = GEN_INT (trunc_int_for_mode (l[0], SImode));
+	      parts[1] = gen_int_mode (l[1], SImode);
+	      parts[0] = gen_int_mode (l[0], SImode);
 	    }
 	  else
 	    abort ();
@@ -8614,13 +8644,13 @@ ix86_split_to_parts (operand, parts, mode)
 	      /* Do not use shift by 32 to avoid warning on 32bit systems.  */
 	      if (HOST_BITS_PER_WIDE_INT >= 64)
 	        parts[0]
-		  = GEN_INT (trunc_int_for_mode
+		  = gen_int_mode
 		      ((l[0] & (((HOST_WIDE_INT) 2 << 31) - 1))
 		       + ((((HOST_WIDE_INT) l[1]) << 31) << 1),
-		       DImode));
+		       DImode);
 	      else
 	        parts[0] = immed_double_const (l[0], l[1], DImode);
-	      parts[1] = GEN_INT (trunc_int_for_mode (l[2], SImode));
+	      parts[1] = gen_int_mode (l[2], SImode);
 	    }
 	  else
 	    abort ();
@@ -9643,8 +9673,7 @@ ix86_expand_strlensi_unroll_1 (out, align_rtx)
   emit_insn (gen_one_cmplsi2 (scratch, scratch));
   emit_insn (gen_andsi3 (tmpreg, tmpreg, scratch));
   emit_insn (gen_andsi3 (tmpreg, tmpreg,
-			 GEN_INT (trunc_int_for_mode
-				  (0x80808080, SImode))));
+			 gen_int_mode (0x80808080, SImode)));
   emit_cmp_and_jump_insns (tmpreg, const0_rtx, EQ, 0, SImode, 1,
 			   align_4_label);
 
@@ -10765,10 +10794,10 @@ x86_initialize_trampoline (tramp, fnaddr, cxt)
 			   disp,
 			   NULL_RTX, 1, OPTAB_DIRECT);
       emit_move_insn (gen_rtx_MEM (QImode, tramp),
-		      GEN_INT (trunc_int_for_mode (0xb9, QImode)));
+		      gen_int_mode (0xb9, QImode));
       emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 1)), cxt);
       emit_move_insn (gen_rtx_MEM (QImode, plus_constant (tramp, 5)),
-		      GEN_INT (trunc_int_for_mode (0xe9, QImode)));
+		      gen_int_mode (0xe9, QImode));
       emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, 6)), disp);
     }
   else
@@ -10781,7 +10810,7 @@ x86_initialize_trampoline (tramp, fnaddr, cxt)
 	{
 	  fnaddr = copy_to_mode_reg (DImode, fnaddr);
 	  emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
-			  GEN_INT (trunc_int_for_mode (0xbb41, HImode)));
+			  gen_int_mode (0xbb41, HImode));
 	  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (tramp, offset + 2)),
 			  gen_lowpart (SImode, fnaddr));
 	  offset += 6;
@@ -10789,22 +10818,22 @@ x86_initialize_trampoline (tramp, fnaddr, cxt)
       else
 	{
 	  emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
-			  GEN_INT (trunc_int_for_mode (0xbb49, HImode)));
+			  gen_int_mode (0xbb49, HImode));
 	  emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, offset + 2)),
 			  fnaddr);
 	  offset += 10;
 	}
       /* Load static chain using movabs to r10.  */
       emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
-		      GEN_INT (trunc_int_for_mode (0xba49, HImode)));
+		      gen_int_mode (0xba49, HImode));
       emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, offset + 2)),
 		      cxt);
       offset += 10;
       /* Jump to the r11 */
       emit_move_insn (gen_rtx_MEM (HImode, plus_constant (tramp, offset)),
-		      GEN_INT (trunc_int_for_mode (0xff49, HImode)));
+		      gen_int_mode (0xff49, HImode));
       emit_move_insn (gen_rtx_MEM (QImode, plus_constant (tramp, offset+2)),
-		      GEN_INT (trunc_int_for_mode (0xe3, QImode)));
+		      gen_int_mode (0xe3, QImode));
       offset += 3;
       if (offset > TRAMPOLINE_SIZE)
 	abort ();

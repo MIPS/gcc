@@ -35,6 +35,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "intl.h"
 #include "diagnostic.h"
 #include "langhooks.h"
+#include "langhooks-def.h"
 
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free  free
@@ -112,12 +113,6 @@ static tree last_error_function = NULL;
 
 /* Used to detect when input_file_stack has changed since last described.  */
 static int last_error_tick;
-
-/* Called by report_error_function to print out function name.
-   Default may be overridden by language front-ends.  */
-
-void (*print_error_function) PARAMS ((diagnostic_context *, const char *))
-     = default_print_error_function;
 
 /* Prevent recursion into the error handler.  */
 static int diagnostic_lock;
@@ -1087,7 +1082,7 @@ announce_function (decl)
    an error.  */
 
 void
-default_print_error_function (context, file)
+lhd_print_error_function (context, file)
      diagnostic_context *context;
      const char *file;
 {
@@ -1130,7 +1125,7 @@ report_error_function (file)
   const char *file ATTRIBUTE_UNUSED;
 {
   report_problematic_module ((output_buffer *) global_dc);
-  (*print_error_function) (global_dc, input_filename);
+  (*lang_hooks.print_error_function) (global_dc, input_filename);
 }
 
 void

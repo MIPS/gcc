@@ -658,13 +658,14 @@ static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
    appropriate -B options.  */
 
 static const char *trad_capable_cpp =
-"%{traditional|ftraditional|traditional-cpp:trad}cpp0";
+"%{traditional|ftraditional|traditional-cpp:tradcpp0}\
+ %{!traditional:%{!ftraditional:%{!traditional-cpp:cc1 -E}}}";
 
 static const char *cpp_unique_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
- %{nostdinc*} %{C} %{v} %{I*} %{P} %{$} %I\
- %{MD:-M -MF %W{!o: %b.d}%W{o*:%.d%*}}\
- %{MMD:-MM -MF %W{!o: %b.d}%W{o*:%.d%*}}\
+ %{!Q:-quiet} %{nostdinc*} %{C} %{v} %{I*} %{P} %{$} %I\
+ %{MD:-MD %W{!o: %b.d}%W{o*:%.d%*}}\
+ %{MMD:-MMD %W{!o: %b.d}%W{o*:%.d%*}}\
  %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
  %{!E:%{!M:%{!MM:%{MD|MMD:%{o*:-MQ %*}}}}}\
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
@@ -680,7 +681,7 @@ static const char *cpp_unique_options =
 /* This contains cpp options which are common with cc1_options and are passed
    only when preprocessing only to avoid duplication.  */
 static const char *cpp_options =
-"%(cpp_unique_options) %{std*} %{d*} %{W*} %{w} %{pedantic*}\
+"%(cpp_unique_options) %{std*} %{d*} %{W*&pedantic*} %{w}\
  %{fshow-column} %{fno-show-column}\
  %{fsigned-char&funsigned-char}\
  %{fleading-underscore} %{fno-leading-underscore}\
@@ -690,7 +691,7 @@ static const char *cpp_options =
 static const char *cc1_options =
 "%{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
  %1 %{!Q:-quiet} -dumpbase %B %{d*} %{m*} %{a*}\
- %{g*} %{O*} %{W*} %{w} %{pedantic*} %{std*} %{ansi}\
+ %{g*} %{O*} %{W*&pedantic*} %{w} %{std*} %{ansi}\
  %{v:-version} %{pg:-p} %{p} %{f*}\
  %{Qn:-fno-ident} %{--help:--help}\
  %{--target-help:--target-help}\

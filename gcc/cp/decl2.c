@@ -700,6 +700,8 @@ cxx_decode_option (argc, argv)
 	}
       else return strings_processed;
     }
+  else if (!strcmp (p, "-E"))
+    flag_preprocess_only = 1;
   else if (!strcmp (p, "-ansi"))
     flag_no_nonansi_builtin = 1, flag_ansi = 1,
     flag_noniso_default_format_attributes = 0, flag_no_gnu_keywords = 1;
@@ -2565,7 +2567,7 @@ build_cleanup (decl)
     temp = decl;
   else
     {
-      mark_addressable (decl);
+      cxx_mark_addressable (decl);
       temp = build1 (ADDR_EXPR, build_pointer_type (type), decl);
     }
   temp = build_delete (TREE_TYPE (temp), temp,
@@ -4176,6 +4178,11 @@ ambiguous_decl (name, old, new, flags)
         if (LOOKUP_TYPES_ONLY (flags))
           val = NULL_TREE;
         break;
+      case FUNCTION_DECL:
+        /* Ignore built-in functions that are still anticipated.  */
+        if (LOOKUP_QUALIFIERS_ONLY (flags) || DECL_ANTICIPATED (val))
+          val = NULL_TREE;
+        break;
       default:
         if (LOOKUP_QUALIFIERS_ONLY (flags))
           val = NULL_TREE;
@@ -4928,6 +4935,15 @@ do_nonmember_using_decl (scope, name, oldval, oldtype, newval, newtype)
 	      else if (compparms (TYPE_ARG_TYPES (TREE_TYPE (new_fn)),
 		  		  TYPE_ARG_TYPES (TREE_TYPE (old_fn))))
 		{
+                  /* If this using declaration introduces a function
+                     recognized as a built-in, no longer mark it as
+                     anticipated in this scope.  */
+                  if (DECL_ANTICIPATED (old_fn))
+                    {
+                      DECL_ANTICIPATED (old_fn) = 0;
+                      break;
+                    }
+
 	          /* There was already a non-using declaration in
 		     this scope with the same parameter types. If both
 	             are the same extern "C" functions, that's ok.  */

@@ -87,8 +87,75 @@
   "ialu,compare,shift,load,sload,store,uncond_branch,branch,call,sibcall,call_no_delay_slot,return,imul,idiv,fpload,fpstore,fp,fpmove,fpcmove,fpcmp,fpmul,fpdivs,fpdivd,fpsqrts,fpsqrtd,cmove,multi,misc"
   (const_string "ialu"))
 
+;; true if branch/call has empty delay slot and will emit a nop in it
+(define_attr "empty_delay_slot" "false,true"
+  (symbol_ref "empty_delay_slot (insn)"))
+
+(define_attr "branch_type" "none,icc,fcc,reg" (const_string "none"))
+
 ;; Length (in # of insns).
-(define_attr "length" "" (const_int 1))
+(define_attr "length" ""
+  (cond [(eq_attr "type" "uncond_branch,call,sibcall")
+	   (if_then_else (eq_attr "empty_delay_slot" "true")
+	     (const_int 2)
+	     (const_int 1))
+	 (eq_attr "branch_type" "icc")
+	   (if_then_else (match_operand 0 "noov_compare64_op" "")
+	     (if_then_else (lt (pc) (match_dup 1))
+	       (if_then_else (lt (minus (match_dup 1) (pc)) (const_int 260000))
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+		   (const_int 2)
+		   (const_int 1))
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+		   (const_int 4)
+		   (const_int 3)))
+	       (if_then_else (lt (minus (pc) (match_dup 1)) (const_int 260000))
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+		   (const_int 2)
+		   (const_int 1))
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+		   (const_int 4)
+		   (const_int 3))))
+	     (if_then_else (eq_attr "empty_delay_slot" "true")
+	       (const_int 2)
+	       (const_int 1)))
+	 (eq_attr "branch_type" "fcc")
+	   (if_then_else (match_operand 0 "fcc0_reg_operand" "")
+	     (if_then_else (eq_attr "empty_delay_slot" "true")
+	       (const_int 2)
+	       (const_int 1))
+	     (if_then_else (lt (pc) (match_dup 2))
+	       (if_then_else (lt (minus (match_dup 2) (pc)) (const_int 260000))
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+		   (const_int 2)
+		   (const_int 1))
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+		   (const_int 4)
+		   (const_int 3)))
+	       (if_then_else (lt (minus (pc) (match_dup 2)) (const_int 260000))
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+		   (const_int 2)
+		   (const_int 1))
+		 (if_then_else (eq_attr "empty_delay_slot" "true")
+		   (const_int 4)
+		   (const_int 3)))))
+	 (eq_attr "branch_type" "reg")
+	   (if_then_else (lt (pc) (match_dup 2))
+	     (if_then_else (lt (minus (match_dup 2) (pc)) (const_int 32000))
+	       (if_then_else (eq_attr "empty_delay_slot" "true")
+		 (const_int 2)
+		 (const_int 1))
+	       (if_then_else (eq_attr "empty_delay_slot" "true")
+		 (const_int 4)
+		 (const_int 3)))
+	     (if_then_else (lt (minus (pc) (match_dup 2)) (const_int 32000))
+	       (if_then_else (eq_attr "empty_delay_slot" "true")
+		 (const_int 2)
+		 (const_int 1))
+	       (if_then_else (eq_attr "empty_delay_slot" "true")
+		 (const_int 4)
+		 (const_int 3))))
+	 ] (const_int 1)))
 
 ;; FP precision.
 (define_attr "fptype" "single,double" (const_string "single"))
@@ -1898,18 +1965,7 @@
 			 ! final_sequence, insn);
 }"
   [(set_attr "type" "branch")
-   (set (attr "length")
-	(if_then_else (match_operand 0 "noov_compare64_op" "")
-		      (if_then_else (lt (pc) (match_dup 1))
-				    (if_then_else (lt (minus (match_dup 1) (pc))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3))
-				    (if_then_else (lt (minus (pc) (match_dup 1))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3)))
-		      (const_int 1)))])
+   (set_attr "branch_type" "icc")])
 
 ;; XXX fpcmp nop braindamage
 (define_insn "*inverted_branch"
@@ -1926,18 +1982,7 @@
 			 ! final_sequence, insn);
 }"
   [(set_attr "type" "branch")
-   (set (attr "length")
-	(if_then_else (match_operand 0 "noov_compare64_op" "")
-		      (if_then_else (lt (pc) (match_dup 1))
-				    (if_then_else (lt (minus (match_dup 1) (pc))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3))
-				    (if_then_else (lt (minus (pc) (match_dup 1))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3)))
-		      (const_int 1)))])
+   (set_attr "branch_type" "icc")])
 
 ;; XXX fpcmp nop braindamage
 (define_insn "*normal_fp_branch"
@@ -1955,18 +2000,7 @@
 			 ! final_sequence, insn);
 }"
   [(set_attr "type" "branch")
-   (set (attr "length")
-	(if_then_else (match_operand 0 "fcc0_reg_operand" "")
-		      (const_int 1)
-		      (if_then_else (lt (pc) (match_dup 2))
-				    (if_then_else (lt (minus (match_dup 2) (pc))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3))
-				    (if_then_else (lt (minus (pc) (match_dup 2))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3)))))])
+   (set_attr "branch_type" "fcc")])
 
 ;; XXX fpcmp nop braindamage
 (define_insn "*inverted_fp_branch"
@@ -1984,18 +2018,7 @@
 			 ! final_sequence, insn);
 }"
   [(set_attr "type" "branch")
-   (set (attr "length")
-	(if_then_else (match_operand 0 "fcc0_reg_operand" "")
-		      (const_int 1)
-		      (if_then_else (lt (pc) (match_dup 2))
-				    (if_then_else (lt (minus (match_dup 2) (pc))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3))
-				    (if_then_else (lt (minus (pc) (match_dup 2))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3)))))])
+   (set_attr "branch_type" "fcc")])
 
 ;; XXX fpcmp nop braindamage
 (define_insn "*normal_fpe_branch"
@@ -2013,18 +2036,7 @@
 			 ! final_sequence, insn);
 }"
   [(set_attr "type" "branch")
-   (set (attr "length")
-	(if_then_else (match_operand 0 "fcc0_reg_operand" "")
-		      (const_int 1)
-		      (if_then_else (lt (pc) (match_dup 2))
-				    (if_then_else (lt (minus (match_dup 2) (pc))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3))
-				    (if_then_else (lt (minus (pc) (match_dup 2))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3)))))])
+   (set_attr "branch_type" "fcc")])
 
 ;; XXX fpcmp nop braindamage
 (define_insn "*inverted_fpe_branch"
@@ -2042,18 +2054,7 @@
 			 ! final_sequence, insn);
 }"
   [(set_attr "type" "branch")
-   (set (attr "length")
-	(if_then_else (match_operand 0 "fcc0_reg_operand" "")
-		      (const_int 1)
-		      (if_then_else (lt (pc) (match_dup 2))
-				    (if_then_else (lt (minus (match_dup 2) (pc))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3))
-				    (if_then_else (lt (minus (pc) (match_dup 2))
-						      (const_int 260000))
-						  (const_int 1)
-						  (const_int 3)))))])
+   (set_attr "branch_type" "fcc")])
 
 ;; Sparc V9-specific jump insns.  None of these are guaranteed to be
 ;; in the architecture.
@@ -2076,16 +2077,7 @@
 			  ! final_sequence, insn);
 }"
   [(set_attr "type" "branch")
-   (set (attr "length")
-        (if_then_else (lt (pc) (match_dup 2))
-		      (if_then_else (lt (minus (match_dup 2) (pc))
-					(const_int 32000))
-				    (const_int 1)
-				    (const_int 3))
-		      (if_then_else (lt (minus (pc) (match_dup 2))
-					(const_int 32000))
-				    (const_int 1)
-				    (const_int 3))))])
+   (set_attr "branch_type" "reg")])
 
 ;; XXX
 (define_insn "*inverted_int_branch_sp64"
@@ -2103,16 +2095,7 @@
 			  ! final_sequence, insn);
 }"
   [(set_attr "type" "branch")
-   (set (attr "length")
-        (if_then_else (lt (pc) (match_dup 2))
-		      (if_then_else (lt (minus (match_dup 2) (pc))
-					(const_int 32000))
-				    (const_int 1)
-				    (const_int 3))
-		      (if_then_else (lt (minus (pc) (match_dup 2))
-					(const_int 32000))
-				    (const_int 1)
-				    (const_int 3))))])
+   (set_attr "branch_type" "reg")])
 
 ;; Load program counter insns.
 
@@ -5243,6 +5226,12 @@
   [(set_attr "type" "fp")
    (set_attr "fptype" "double")])
 
+(define_expand "floatunsdisf2"
+  [(use (match_operand:SF 0 "register_operand" ""))
+   (use (match_operand:DI 1 "register_operand" ""))]
+  "TARGET_ARCH64 && TARGET_FPU"
+  "sparc_emit_floatunsdi (operands); DONE;")
+
 (define_insn "floatdidf2"
   [(set (match_operand:DF 0 "register_operand" "=e")
 	(float:DF (match_operand:DI 1 "register_operand" "e")))]
@@ -5250,6 +5239,12 @@
   "fxtod\\t%1, %0"
   [(set_attr "type" "fp")
    (set_attr "fptype" "double")])
+
+(define_expand "floatunsdidf2"
+  [(use (match_operand:DF 0 "register_operand" ""))
+   (use (match_operand:DI 1 "register_operand" ""))]
+  "TARGET_ARCH64 && TARGET_FPU"
+  "sparc_emit_floatunsdi (operands); DONE;")
 
 (define_expand "floatditf2"
   [(set (match_operand:TF 0 "register_operand" "=e")
@@ -6461,7 +6456,7 @@
   [(set_attr "type" "multi")
    (set (attr "length")
 	(if_then_else (eq_attr "isa" "v9")
-		      (const_int 4) (const_int 7)))])
+		      (const_int 4) (const_int 6)))])
 
 (define_insn "divsi3_sp64"
   [(set (match_operand:SI 0 "register_operand" "=r")
@@ -8487,7 +8482,7 @@
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tunimp\\t%2"
   [(set_attr "type" "call_no_delay_slot")
-   (set_attr "length" "2")])
+   (set_attr "length" "3")])
 
 ;; This is a call that wants a structure value.
 ;; There is no such critter for v9 (??? we may need one anyway).
@@ -8500,7 +8495,7 @@
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) >= 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tunimp\\t%2"
   [(set_attr "type" "call_no_delay_slot")
-   (set_attr "length" "2")])
+   (set_attr "length" "3")])
 
 ;; This is a call that may want a structure value.  This is used for
 ;; untyped_calls.
@@ -8513,7 +8508,7 @@
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tnop"
   [(set_attr "type" "call_no_delay_slot")
-   (set_attr "length" "2")])
+   (set_attr "length" "3")])
 
 ;; This is a call that wants a structure value.
 (define_insn "*call_symbolic_untyped_struct_value_sp32"
@@ -8525,7 +8520,7 @@
   "! TARGET_ARCH64 && GET_CODE (operands[2]) == CONST_INT && INTVAL (operands[2]) < 0"
   "call\\t%a0, %1\\n\\tnop\\n\\tnop"
   [(set_attr "type" "call_no_delay_slot")
-   (set_attr "length" "2")])
+   (set_attr "length" "3")])
 
 (define_expand "call_value"
   ;; Note that this expression is not used for generating RTL.
@@ -8749,21 +8744,6 @@
   [(set_attr "type" "multi")
    (set_attr "length" "3")])
 
-(define_insn "return"
-  [(return)
-   (use (reg:SI 31))]
-  "! TARGET_EPILOGUE"
-  "* return output_return (operands);"
-  [(set_attr "type" "return")])
-
-(define_peephole
-  [(set (match_operand:SI 0 "register_operand" "=r")
-	(match_operand:SI 1 "arith_operand" "rI"))
-   (parallel [(return)
-	      (use (reg:SI 31))])]
-  "sparc_return_peephole_ok (operands[0], operands[1])"
-  "return\\t%%i7+8\\n\\tmov\\t%Y1, %Y0")
-
 (define_insn "nop"
   [(const_int 0)]
   ""
@@ -9160,14 +9140,14 @@
 		   (compare:CC (match_dup 1) (const_int 0)))])]
   "")
 
-;; Return peepholes.  First the "normal" ones.
-;; These are necessary to catch insns ending up in the epilogue delay list.
+;; Return peepholes.  These are generated by sparc_nonflat_function_epilogue
+;; who then immediately calls final_scan_insn.
 
 (define_insn "*return_qi"
   [(set (match_operand:QI 0 "restore_operand" "")
 	(match_operand:QI 1 "arith_operand" "rI"))
    (return)]
-  "! TARGET_EPILOGUE"
+  "sparc_emitting_epilogue"
   "*
 {
   if (! TARGET_ARCH64 && current_function_returns_struct)
@@ -9185,7 +9165,7 @@
   [(set (match_operand:HI 0 "restore_operand" "")
 	(match_operand:HI 1 "arith_operand" "rI"))
    (return)]
-  "! TARGET_EPILOGUE"
+  "sparc_emitting_epilogue"
   "*
 {
   if (! TARGET_ARCH64 && current_function_returns_struct)
@@ -9203,7 +9183,7 @@
   [(set (match_operand:SI 0 "restore_operand" "")
 	(match_operand:SI 1 "arith_operand" "rI"))
    (return)]
-  "! TARGET_EPILOGUE"
+  "sparc_emitting_epilogue"
   "*
 {
   if (! TARGET_ARCH64 && current_function_returns_struct)
@@ -9217,15 +9197,11 @@
   [(set_attr "type" "multi")
    (set_attr "length" "2")])
 
-;; The following pattern is only generated by delayed-branch scheduling,
-;; when the insn winds up in the epilogue.  This can happen not only when
-;; ! TARGET_FPU because we move complex types around by parts using
-;; SF mode SUBREGs.
 (define_insn "*return_sf_no_fpu"
   [(set (match_operand:SF 0 "restore_operand" "=r")
 	(match_operand:SF 1 "register_operand" "r"))
    (return)]
-  "! TARGET_EPILOGUE"
+  "sparc_emitting_epilogue"
   "*
 {
   if (! TARGET_ARCH64 && current_function_returns_struct)
@@ -9242,7 +9218,7 @@
   [(set (match_operand:DF 0 "restore_operand" "=r")
 	(match_operand:DF 1 "register_operand" "r"))
    (return)]
-  "! TARGET_EPILOGUE && TARGET_ARCH64"
+  "sparc_emitting_epilogue && TARGET_ARCH64"
   "*
 {
   if (IN_OR_GLOBAL_P (operands[1]))
@@ -9258,7 +9234,7 @@
 	(plus:SI (match_operand:SI 1 "register_operand" "r")
 		 (match_operand:SI 2 "arith_operand" "rI")))
    (return)]
-  "! TARGET_EPILOGUE"
+  "sparc_emitting_epilogue"
   "*
 {
   if (! TARGET_ARCH64 && current_function_returns_struct)
@@ -9279,7 +9255,7 @@
 	(lo_sum:SI (match_operand:SI 1 "register_operand" "r")
 		   (match_operand:SI 2 "immediate_operand" "in")))
    (return)]
-  "! TARGET_EPILOGUE && ! TARGET_CM_MEDMID"
+  "sparc_emitting_epilogue && ! TARGET_CM_MEDMID"
   "*
 {
   if (! TARGET_ARCH64 && current_function_returns_struct)
@@ -9297,7 +9273,7 @@
   [(set (match_operand:DI 0 "restore_operand" "")
 	(match_operand:DI 1 "arith_double_operand" "rHI"))
    (return)]
-  "TARGET_ARCH64 && ! TARGET_EPILOGUE"
+  "sparc_emitting_epilogue && TARGET_ARCH64"
   "ret\;restore %%g0, %1, %Y0"
   [(set_attr "type" "multi")
    (set_attr "length" "2")])
@@ -9307,7 +9283,7 @@
 	(plus:DI (match_operand:DI 1 "arith_operand" "%r")
 		 (match_operand:DI 2 "arith_double_operand" "rHI")))
    (return)]
-  "TARGET_ARCH64 && ! TARGET_EPILOGUE"
+  "sparc_emitting_epilogue && TARGET_ARCH64"
   "ret\;restore %r1, %2, %Y0"
   [(set_attr "type" "multi")
    (set_attr "length" "2")])
@@ -9317,18 +9293,16 @@
 	(lo_sum:DI (match_operand:DI 1 "arith_operand" "%r")
 		   (match_operand:DI 2 "immediate_operand" "in")))
    (return)]
-  "TARGET_ARCH64 && ! TARGET_EPILOGUE && ! TARGET_CM_MEDMID"
+  "sparc_emitting_epilogue && TARGET_ARCH64 && ! TARGET_CM_MEDMID"
   "ret\;restore %r1, %%lo(%a2), %Y0"
   [(set_attr "type" "multi")
    (set_attr "length" "2")])
 
-;; The following pattern is only generated by delayed-branch scheduling,
-;; when the insn winds up in the epilogue.
 (define_insn "*return_sf"
   [(set (reg:SF 32)
 	(match_operand:SF 0 "register_operand" "f"))
    (return)]
-  "! TARGET_EPILOGUE"
+  "sparc_emitting_epilogue"
   "ret\;fmovs\\t%0, %%f0"
   [(set_attr "type" "multi")
    (set_attr "length" "2")])

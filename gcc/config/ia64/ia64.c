@@ -864,6 +864,21 @@ tfreg_or_fp01_operand (op, mode)
     return 0;
   return fr_reg_or_fp01_operand (op, mode);
 }
+
+/* Return 1 if OP is valid as a base register in a reg + offset address.  */
+
+int
+basereg_operand (op, mode)
+     rtx op;
+     enum machine_mode mode;
+{
+  /* ??? Should I copy the flag_omit_frame_pointer and cse_not_expected
+     checks from pa.c basereg_operand as well?  Seems to be OK without them
+     in test runs.  */
+
+  return (register_operand (op, mode) &&
+	  REG_POINTER ((GET_CODE (op) == SUBREG) ? SUBREG_REG (op) : op));
+}
 
 /* Return 1 if the operands of a move are ok.  */
 
@@ -1144,7 +1159,8 @@ ia64_expand_call (retval, addr, nextarg, sibcall_p)
      rtx nextarg;
      int sibcall_p;
 {
-  rtx insn, b0, pfs, gp_save, narg_rtx;
+  rtx insn, b0, pfs, gp_save, narg_rtx, dest;
+  bool indirect_p;
   int narg;
 
   addr = XEXP (addr, 0);
@@ -1171,61 +1187,36 @@ ia64_expand_call (retval, addr, nextarg, sibcall_p)
       return;
     }
 
-  if (sibcall_p)
+  indirect_p = ! symbolic_operand (addr, VOIDmode);
+
+  if (sibcall_p || (TARGET_CONST_GP && !indirect_p))
     gp_save = NULL_RTX;
   else
     gp_save = ia64_gp_save_reg (setjmp_operand (addr, VOIDmode));
 
+  if (gp_save)
+    emit_move_insn (gp_save, pic_offset_table_rtx);
+
   /* If this is an indirect call, then we have the address of a descriptor.  */
-  if (! symbolic_operand (addr, VOIDmode))
+  if (indirect_p)
     {
-      rtx dest;
-
-      if (! sibcall_p)
-	emit_move_insn (gp_save, pic_offset_table_rtx);
-
       dest = force_reg (DImode, gen_rtx_MEM (DImode, addr));
       emit_move_insn (pic_offset_table_rtx,
 		      gen_rtx_MEM (DImode, plus_constant (addr, 8)));
-
-      if (sibcall_p)
-	insn = gen_sibcall_pic (dest, narg_rtx, b0, pfs);
-      else if (! retval)
-	insn = gen_call_pic (dest, narg_rtx, b0);
-      else
-	insn = gen_call_value_pic (retval, dest, narg_rtx, b0);
-      emit_call_insn (insn);
-
-      if (! sibcall_p)
-	emit_move_insn (pic_offset_table_rtx, gp_save);
-    }
-  else if (TARGET_CONST_GP)
-    {
-      if (sibcall_p)
-	insn = gen_sibcall_nopic (addr, narg_rtx, b0, pfs);
-      else if (! retval)
-	insn = gen_call_nopic (addr, narg_rtx, b0);
-      else
-	insn = gen_call_value_nopic (retval, addr, narg_rtx, b0);
-      emit_call_insn (insn);
     }
   else
-    {
-      if (sibcall_p)
-	emit_call_insn (gen_sibcall_pic (addr, narg_rtx, b0, pfs));
-      else
-	{
-	  emit_move_insn (gp_save, pic_offset_table_rtx);
+    dest = addr;
 
-	  if (! retval)
-	    insn = gen_call_pic (addr, narg_rtx, b0);
-	  else
-	    insn = gen_call_value_pic (retval, addr, narg_rtx, b0);
-	  emit_call_insn (insn);
+  if (sibcall_p)
+    insn = gen_sibcall_pic (dest, narg_rtx, b0, pfs);
+  else if (! retval)
+    insn = gen_call_pic (dest, narg_rtx, b0);
+  else
+    insn = gen_call_value_pic (retval, dest, narg_rtx, b0);
+  emit_call_insn (insn);
 
-	  emit_move_insn (pic_offset_table_rtx, gp_save);
-	}
-    }
+  if (gp_save)
+    emit_move_insn (pic_offset_table_rtx, gp_save);
 }
 
 /* Begin the assembly file.  */
@@ -2047,7 +2038,7 @@ ia64_expand_prologue ()
   /* We don't need an alloc instruction if we've used no outputs or locals.  */
   if (current_frame_info.n_local_regs == 0
       && current_frame_info.n_output_regs == 0
-      && current_frame_info.n_input_regs <= current_function_args_info.words)
+      && current_frame_info.n_input_regs <= current_function_args_info.int_regs)
     {
       /* If there is no alloc, but there are input registers used, then we
 	 need a .regstk directive.  */
@@ -3188,14 +3179,14 @@ ia64_function_arg_advance (cum, mode, type, named)
      FR registers, then FP values must also go in general registers.  This can
      happen when we have a SFmode HFA.  */
   else if (! FLOAT_MODE_P (mode) || cum->fp_regs == MAX_ARGUMENT_SLOTS)
-    return;
+    cum->int_regs = cum->words;
 
   /* If there is a prototype, then FP values go in a FR register when
      named, and in a GR registeer when unnamed.  */
   else if (cum->prototype)
     {
       if (! named)
-	return;
+	cum->int_regs = cum->words;
       else
 	/* ??? Complex types should not reach here.  */
 	cum->fp_regs += (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT ? 2 : 1);
@@ -3203,10 +3194,11 @@ ia64_function_arg_advance (cum, mode, type, named)
   /* If there is no prototype, then FP values go in both FR and GR
      registers.  */
   else
-    /* ??? Complex types should not reach here.  */
-    cum->fp_regs += (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT ? 2 : 1);
-
-  return;
+    { 
+      /* ??? Complex types should not reach here.  */
+      cum->fp_regs += (GET_MODE_CLASS (mode) == MODE_COMPLEX_FLOAT ? 2 : 1);
+      cum->int_regs = cum->words;
+    }
 }
 
 /* Implement va_start.  */
@@ -4772,6 +4764,7 @@ group_barrier_needed_p (insn)
 	  /* We play dependency tricks with the epilogue in order
 	     to get proper schedules.  Undo this for dv analysis.  */
 	case CODE_FOR_epilogue_deallocate_stack:
+	case CODE_FOR_prologue_allocate_stack:
 	  pat = XVECEXP (pat, 0, 0);
 	  break;
 
@@ -5243,21 +5236,22 @@ ia64_single_set (insn)
     x = COND_EXEC_CODE (x);
   if (GET_CODE (x) == SET)
     return x;
-  ret = single_set_2 (insn, x);
-  if (ret == NULL && GET_CODE (x) == PARALLEL)
+
+  /* Special case here prologue_allocate_stack and epilogue_deallocate_stack.
+     Although they are not classical single set, the second set is there just
+     to protect it from moving past FP-relative stack accesses.  */
+  switch (recog_memoized (insn))
     {
-      /* Special case here prologue_allocate_stack and
-	 epilogue_deallocate_stack.  Although it is not a classical
-	 single set, the second set is there just to protect it
-	 from moving past FP-relative stack accesses.  */
-      if (XVECLEN (x, 0) == 2
-	  && GET_CODE (XVECEXP (x, 0, 0)) == SET
-	  && GET_CODE (XVECEXP (x, 0, 1)) == SET
-	  && GET_CODE (SET_DEST (XVECEXP (x, 0, 1))) == REG
-	  && SET_DEST (XVECEXP (x, 0, 1)) == SET_SRC (XVECEXP (x, 0, 1))
-	  && ia64_safe_itanium_class (insn) == ITANIUM_CLASS_IALU)
-	ret = XVECEXP (x, 0, 0);
+    case CODE_FOR_prologue_allocate_stack:
+    case CODE_FOR_epilogue_deallocate_stack:
+      ret = XVECEXP (x, 0, 0);
+      break;
+
+    default:
+      ret = single_set_2 (insn, x);
+      break;
     }
+
   return ret;
 }
 

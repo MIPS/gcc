@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #undef FFS  /* Some systems define this in param.h.  */
 #include "system.h"
 #include <signal.h>
-#include <setjmp.h>
 
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
@@ -109,9 +108,7 @@ static void finalize PARAMS ((void));
 
 static void set_target_switch PARAMS ((const char *));
 
-static void float_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
 static void crash_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
-static void set_float_handler PARAMS ((jmp_buf));
 static void compile_file PARAMS ((void));
 static void display_help PARAMS ((void));
 static void display_target_options PARAMS ((void));
@@ -361,19 +358,6 @@ tree current_function_decl;
 /* Set to the FUNC_BEGIN label of the current function, or NULL_TREE
    if none.  */
 tree current_function_func_begin_label;
-
-/* Pointer to function to compute rtl for a language-specific tree code.  */
-
-typedef rtx (*lang_expand_expr_t)
-  PARAMS ((union tree_node *, rtx, enum machine_mode,
-	  enum expand_modifier modifier));
-
-lang_expand_expr_t lang_expand_expr = 0;
-
-/* Pointer to function to finish handling an incomplete decl at the
-   end of compilation.  */
-
-void (*incomplete_decl_finalize_hook) PARAMS ((tree)) = 0;
 
 /* Nonzero if doing dwarf2 duplicate elimination.  */
 
@@ -638,6 +622,14 @@ static int flag_gcse;
 
 /* Nonzero means performs web construction pass.  */
 static int flag_web;
+
+/* Nonzero means perform loop optimizer.  */
+
+static int flag_loop_optimize;
+
+/* Nonzero means perform crossjumping.  */
+
+static int flag_crossjumping;
 
 /* Nonzero means to use global dataflow analysis to eliminate
    useless null pointer tests.  */
@@ -1069,6 +1061,10 @@ static const lang_independent_options f_options[] =
    N_("Perform enhanced load motion during global subexpression elimination") },
   {"gcse-sm", &flag_gcse_sm, 1,
    N_("Perform store motion after global subexpression elimination") },
+  {"loop-optimize", &flag_loop_optimize, 1,
+   N_("Perform the loop optimizations") },
+  {"crossjumping", &flag_crossjumping, 1,
+   N_("Perform cross-jumping optimization") },
   {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1,
    N_("Run CSE pass after loop optimizations") },
   {"rerun-loop-opt", &flag_rerun_loop_opt, 1,
@@ -1437,9 +1433,19 @@ int warn_uninitialized;
 
 int warn_shadow;
 
-/* Warn if a switch on an enum fails to have a case for every enum value.  */
+/* Warn if a switch on an enum, that does not have a default case,
+   fails to have a case for every enum value.  */
 
 int warn_switch;
+
+/* Warn if a switch does not have a default case.  */
+
+int warn_switch_default;
+
+/* Warn if a switch on an enum fails to have a case for every enum
+   value (regardless of the presence or otherwise of a default case).  */
+
+int warn_switch_enum;
 
 /* Nonzero means warn about function definitions that default the return type
    or that use a null return and have a return-type other than void.  */
@@ -1510,7 +1516,11 @@ static const lang_independent_options W_options[] =
   {"shadow", &warn_shadow, 1,
    N_("Warn when one local variable shadows another") },
   {"switch", &warn_switch, 1,
-   N_("Warn about enumerated switches missing a specific case") },
+   N_("Warn about enumerated switches, with no default, missing a case") },
+  {"switch-default", &warn_switch_default, 1,
+   N_("Warn about enumerated switches missing a default case") },
+  {"switch-enum", &warn_switch_enum, 1,
+   N_("Warn about all enumerated switches missing a specific case") },
   {"aggregate-return", &warn_aggregate_return, 1,
    N_("Warn about returning structures, unions or arrays") },
   {"cast-align", &warn_cast_align, 1,
@@ -1659,73 +1669,6 @@ floor_log2_wide (x)
     log++,
     x >>= 1;
   return log;
-}
-
-static int float_handler_set;
-int float_handled;
-jmp_buf float_handler;
-
-/* Signals actually come here.  */
-
-static void
-float_signal (signo)
-     /* If this is missing, some compilers complain.  */
-     int signo ATTRIBUTE_UNUSED;
-{
-  if (float_handled == 0)
-    crash_signal (signo);
-  float_handled = 0;
-
-  /* On System-V derived systems, we must reinstall the signal handler.
-     This is harmless on BSD-derived systems.  */
-  signal (SIGFPE, float_signal);
-  longjmp (float_handler, 1);
-}
-
-/* Specify where to longjmp to when a floating arithmetic error happens.
-   If HANDLER is 0, it means don't handle the errors any more.  */
-
-static void
-set_float_handler (handler)
-     jmp_buf handler;
-{
-  float_handled = (handler != 0);
-  if (handler)
-    memcpy (float_handler, handler, sizeof (float_handler));
-
-  if (float_handled && ! float_handler_set)
-    {
-      signal (SIGFPE, float_signal);
-      float_handler_set = 1;
-    }
-}
-
-/* This is a wrapper function for code which might elicit an
-   arithmetic exception.  That code should be passed in as a function
-   pointer FN, and one argument DATA.  DATA is usually a struct which
-   contains the real input and output for function FN.  This function
-   returns 0 (failure) if longjmp was called (i.e. an exception
-   occurred.)  It returns 1 (success) otherwise.  */
-
-int
-do_float_handler (fn, data)
-     void (*fn) PARAMS ((PTR));
-     PTR data;
-{
-  jmp_buf buf;
-
-  if (setjmp (buf))
-    {
-      /* We got here via longjmp () caused by an exception in function
-         fn ().  */
-      set_float_handler (NULL);
-      return 0;
-    }
-
-  set_float_handler (buf);
-  (*fn)(data);
-  set_float_handler (NULL);
-  return 1;
 }
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
@@ -1928,9 +1871,8 @@ wrapup_global_declarations (vec, len)
       /* We're not deferring this any longer.  */
       DECL_DEFER_OUTPUT (decl) = 0;
 
-      if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0
-	  && incomplete_decl_finalize_hook != 0)
-	(*incomplete_decl_finalize_hook) (decl);
+      if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
+	(*lang_hooks.finish_incomplete_decl) (decl);
     }
 
   /* Now emit any global variables or functions that we have been
@@ -2582,7 +2524,6 @@ rest_of_compilation (decl)
      carry magic hard reg data throughout the function.  */
   rtx_equal_function_value_matters = 0;
   purge_hard_subreg_sets (get_insns ());
-  emit_initial_value_sets ();
 
   /* Early return if there were errors.  We can run afoul of our
      consistency checks, and there's not really much point in fixing them.
@@ -2635,6 +2576,10 @@ rest_of_compilation (decl)
       close_dump_file (DFI_eh, print_rtl, get_insns ());
       timevar_pop (TV_JUMP);
     }
+
+  /* Delay emitting hard_reg_initial_value sets until after EH landing pad
+     generation, which might create new sets.  */
+  emit_initial_value_sets ();
 
 #ifdef FINALIZE_PIC
   /* If we are doing position-independent code generation, now
@@ -2948,7 +2893,7 @@ rest_of_compilation (decl)
 
   /* Call old loop optimizer.  */
 
-  if (optimize > 0)
+  if (optimize > 0 && flag_loop_optimize)
     {
       timevar_push (TV_LOOP);
       delete_dead_jumptables ();
@@ -3007,7 +2952,8 @@ rest_of_compilation (decl)
 
      life_analyzis rarely eliminates modification of external memory.
    */
-  mark_constant_function ();
+  if (optimize)
+    mark_constant_function ();
 
   if (optimize)
     {
@@ -3468,7 +3414,8 @@ rest_of_compilation (decl)
   if (optimize)
     {
       life_analysis (insns, rtl_dump_file, PROP_FINAL);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_CROSSJUMP | CLEANUP_UPDATE_LIFE);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
+		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
       /* This is kind of a heuristic.  We need to run combine_stack_adjustments
          even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -3574,7 +3521,7 @@ rest_of_compilation (decl)
 	 and insn splitting possibly introduced more crossjumping
 	 oppurtuntities.  */
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
-		   | CLEANUP_CROSSJUMP);
+		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
       if (flag_reorder_blocks)
 	{
 	  reorder_basic_blocks ();
@@ -4785,10 +4732,6 @@ general_init (argv0)
 
   gcc_init_libintl ();
 
-  /* Install handler for SIGFPE, which may be received while we do
-     compile-time floating point arithmetic.  */
-  signal (SIGFPE, float_signal);
-
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
   signal (SIGSEGV, crash_signal);
@@ -4804,6 +4747,9 @@ general_init (argv0)
 #endif
 #if defined SIGIOT && (!defined SIGABRT || SIGABRT != SIGIOT)
   signal (SIGIOT, crash_signal);
+#endif
+#ifdef SIGFPE
+  signal (SIGFPE, crash_signal);
 #endif
 
   /* Initialize the diagnostics reporting machinery, so option parsing
@@ -4886,6 +4832,8 @@ parse_options_and_default_flags (argc, argv)
 #endif
       flag_guess_branch_prob = 1;
       flag_cprop_registers = 1;
+      flag_loop_optimize = 1;
+      flag_crossjumping = 1;
     }
 
   if (optimize >= 2)
@@ -5244,8 +5192,6 @@ process_options ()
 static void
 lang_independent_init ()
 {
-  lang_expand_expr = (lang_expand_expr_t) do_abort;
-
   /* Initialize the garbage-collector, and string pools.  */
   init_ggc ();
   ggc_add_rtx_root (&stack_limit_rtx, 1);

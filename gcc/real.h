@@ -43,10 +43,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define INTEL_EXTENDED_IEEE_FORMAT 0
 #endif
 
-#if TARGET_FLOAT_FORMAT == IEEE_FLOAT_FORMAT
-#define REAL_INFINITY
-#endif
-
 /* If FLOAT_WORDS_BIG_ENDIAN and HOST_FLOAT_WORDS_BIG_ENDIAN are not defined
    in the header files, then this implies the word-endianness is the same as
    for integers.  */
@@ -79,43 +75,20 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /* **** Start of software floating point emulator interface macros **** */
 
-/* Support 80-bit extended real XFmode if LONG_DOUBLE_TYPE_SIZE
-   has been defined to be 96 in the tm.h machine file.  */
-#if (MAX_LONG_DOUBLE_TYPE_SIZE == 96)
-#define REAL_IS_NOT_DOUBLE
-typedef struct {
-  HOST_WIDE_INT r[(11 + sizeof (HOST_WIDE_INT))/(sizeof (HOST_WIDE_INT))];
-} realvaluetype;
-#define REAL_VALUE_TYPE realvaluetype
-
-#else /* no XFmode support */
-
-#if (MAX_LONG_DOUBLE_TYPE_SIZE == 128)
-
-#define REAL_IS_NOT_DOUBLE
-typedef struct {
-  HOST_WIDE_INT r[(19 + sizeof (HOST_WIDE_INT))/(sizeof (HOST_WIDE_INT))];
-} realvaluetype;
-#define REAL_VALUE_TYPE realvaluetype
-
-#else /* not TFmode */
-
-#if HOST_FLOAT_FORMAT != TARGET_FLOAT_FORMAT
-/* If no XFmode support, then a REAL_VALUE_TYPE is 64 bits wide
-   but it is not necessarily a host machine double.  */
-#define REAL_IS_NOT_DOUBLE
-typedef struct {
-  HOST_WIDE_INT r[(7 + sizeof (HOST_WIDE_INT))/(sizeof (HOST_WIDE_INT))];
-} realvaluetype;
-#define REAL_VALUE_TYPE realvaluetype
+/* REAL_VALUE_TYPE is an array of the minimum number of HOST_WIDE_INTs
+   required to hold MAX_LONG_DOUBLE_TYPE_SIZE bits.  */
+#if MAX_LONG_DOUBLE_TYPE_SIZE == 128
+/* For 128 bit reals, we calculate internally with extra precision.  */
+#define N (160 / BITS_PER_UNIT)
 #else
-/* If host and target formats are compatible, then a REAL_VALUE_TYPE
-   is actually a host machine double.  */
-#define REAL_VALUE_TYPE double
+#define N (MAX_LONG_DOUBLE_TYPE_SIZE / BITS_PER_UNIT)
 #endif
-
-#endif /* no TFmode support */
-#endif /* no XFmode support */
+#define S sizeof (HOST_WIDE_INT)
+typedef struct {
+  HOST_WIDE_INT r[N/S + (N%S ? 1 : 0)]; /* round up */
+} REAL_VALUE_TYPE;
+#undef N
+#undef S
 
 extern unsigned int significand_size	PARAMS ((enum machine_mode));
 
@@ -188,6 +161,10 @@ extern REAL_VALUE_TYPE real_value_truncate PARAMS ((enum machine_mode,
 
 #define REAL_VALUE_NEGATE ereal_negate
 
+/* Compute the absolute value of a floating-point value X.  */
+#define REAL_VALUE_ABS(x) \
+   (REAL_VALUE_NEGATIVE (x) ? REAL_VALUE_NEGATE (x) : (x))
+
 /* Determine whether a floating-point value X is infinite.  */
 #define REAL_VALUE_ISINF(x) (target_isinf (x))
 
@@ -246,15 +223,6 @@ extern REAL_VALUE_TYPE dconst1;
 extern REAL_VALUE_TYPE dconst2;
 extern REAL_VALUE_TYPE dconstm1;
 
-/* Union type used for extracting real values from CONST_DOUBLEs
-   or putting them in.  */
-
-union real_extract 
-{
-  REAL_VALUE_TYPE d;
-  HOST_WIDE_INT i[sizeof (REAL_VALUE_TYPE) / sizeof (HOST_WIDE_INT)];
-};
-
 /* Given a CONST_DOUBLE in FROM, store into TO the value it represents.  */
 /* Function to return a real value (not a tree node)
    from a given integer constant.  */
@@ -263,9 +231,7 @@ REAL_VALUE_TYPE real_value_from_int_cst	PARAMS ((union tree_node *,
 						union tree_node *));
 
 #define REAL_VALUE_FROM_CONST_DOUBLE(to, from)		\
-do { union real_extract u;				\
-     memcpy (&u, &CONST_DOUBLE_LOW ((from)), sizeof u); \
-     to = u.d; } while (0)
+  memcpy (&(to), &CONST_DOUBLE_LOW ((from)), sizeof (REAL_VALUE_TYPE))
 
 /* Return a CONST_DOUBLE with value R and mode M.  */
 

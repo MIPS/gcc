@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "target.h"
 #include "target-def.h"
 #include "debug.h"
+#include "langhooks.h"
 
 /* Specify which cpu to schedule for.  */
 
@@ -2250,8 +2251,18 @@ alpha_emit_set_const (target, mode, c, n)
     }
 
   /* Try 1 insn, then 2, then up to N.  */
-  for (i = 1; i <= n && result == 0; i++)
-    result = alpha_emit_set_const_1 (target, mode, c, i);
+  for (i = 1; i <= n; i++)
+    {
+      result = alpha_emit_set_const_1 (target, mode, c, i);
+      if (result)
+	{
+	  rtx insn = get_last_insn ();
+	  rtx set = single_set (insn);
+	  if (! CONSTANT_P (SET_SRC (set)))
+	    set_unique_reg_note (get_last_insn (), REG_EQUAL, GEN_INT (c));
+	  break;
+	}
+    }
 
   /* Allow for the case where we changed the mode of TARGET.  */
   if (result == target)
@@ -2275,15 +2286,6 @@ alpha_emit_set_const_1 (target, mode, c, n)
   rtx subtarget
     = (flag_expensive_optimizations && !no_new_pseudos ? 0 : target);
   rtx temp, insn;
-
-#if HOST_BITS_PER_WIDE_INT == 64
-  /* We are only called for SImode and DImode.  If this is SImode, ensure that
-     we are sign extended to a full word.  This does not make any sense when
-     cross-compiling on a narrow machine.  */
-
-  if (mode == SImode)
-    c = ((c & 0xffffffff) ^ 0x80000000) - 0x80000000;
-#endif
 
   /* If this is a sign-extended 32-bit constant, we can do this in at most
      three insns, so do it if we have enough insns left.  We always have
@@ -2337,6 +2339,7 @@ alpha_emit_set_const_1 (target, mode, c, n)
 	      insn = gen_rtx_PLUS (mode, temp, GEN_INT (extra << 16));
 	      insn = gen_rtx_SET (VOIDmode, subtarget, insn);
 	      emit_insn (insn);
+	      temp = subtarget;
 	    }
 
 	  if (target == NULL)
@@ -2810,21 +2813,29 @@ alpha_emit_conditional_branch (code)
 	    1  true
 	 Convert the compare against the raw return value.  */
 
-      if (code == UNORDERED || code == ORDERED)
-	cmp_code = EQ;
-      else
-	cmp_code = code;
+      switch (code)
+	{
+	case UNORDERED:
+	  cmp_code = EQ;
+	  code = LT;
+	  break;
+	case ORDERED:
+	  cmp_code = EQ;
+	  code = GE;
+	  break;
+	case NE:
+	  cmp_code = NE;
+	  code = NE;
+	  break;
+	default:
+	  cmp_code = code;
+	  code = GT;
+	  break;
+	}
 
       op0 = alpha_emit_xfloating_compare (cmp_code, op0, op1);
       op1 = const0_rtx;
       alpha_compare.fp_p = 0;
-
-      if (code == UNORDERED)
-	code = LT;
-      else if (code == ORDERED)
-	code = GE;
-      else
-        code = GT;
     }
 
   /* The general case: fold the comparison code to the types of compares
@@ -5011,7 +5022,10 @@ alpha_return_addr (count, frame)
 rtx
 alpha_gp_save_rtx ()
 {
-  return get_hard_reg_initial_val (DImode, 29);
+  rtx r = get_hard_reg_initial_val (DImode, 29);
+  if (GET_CODE (r) != MEM)
+    r = gen_mem_addressof (r, NULL_TREE);
+  return r;
 }
 
 static int
@@ -5694,7 +5708,7 @@ alpha_build_va_list ()
   if (TARGET_ABI_OPEN_VMS || TARGET_ABI_UNICOSMK)
     return ptr_type_node;
 
-  record = make_lang_type (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
   type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
   TREE_CHAIN (record) = type_decl;
   TYPE_NAME (record) = type_decl;
@@ -5811,6 +5825,17 @@ alpha_va_arg (valist, type)
 		      valist, base_field);
   offset_field = build (COMPONENT_REF, TREE_TYPE (offset_field),
 			valist, offset_field);
+
+  /* If the type could not be passed in registers, skip the block
+     reserved for the registers.  */
+  if (MUST_PASS_IN_STACK (TYPE_MODE (type), type))
+    {
+      t = build (MODIFY_EXPR, TREE_TYPE (offset_field), offset_field,
+		 build (MAX_EXPR, TREE_TYPE (offset_field), 
+			offset_field, build_int_2 (6*8, 0)));
+      TREE_SIDE_EFFECTS (t) = 1;
+      expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+    }
 
   wide_type = make_signed_type (64);
   wide_ofs = save_expr (build1 (CONVERT_EXPR, wide_type, offset_field));

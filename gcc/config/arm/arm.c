@@ -6534,11 +6534,11 @@ output_move_double (operands)
 	{
 	  if (GET_MODE (operands[1]) == DFmode)
 	    {
+	      REAL_VALUE_TYPE r;
 	      long l[2];
-	      union real_extract u;
 
-	      memcpy (&u, &CONST_DOUBLE_LOW (operands[1]), sizeof (u));
-	      REAL_VALUE_TO_TARGET_DOUBLE (u.d, l);
+	      REAL_VALUE_FROM_CONST_DOUBLE (r, operands[1]);
+	      REAL_VALUE_TO_TARGET_DOUBLE (r, l);
 	      otherops[1] = GEN_INT (l[1]);
 	      operands[1] = GEN_INT (l[0]);
 	    }
@@ -8568,7 +8568,8 @@ arm_print_operand (stream, x, code)
       return;
 
     case 'd':
-      if (!x)
+      /* CONST_TRUE_RTX means always -- that's the default.  */
+      if (x == const_true_rtx)
 	return;
       
       if (TARGET_ARM)
@@ -8579,8 +8580,10 @@ arm_print_operand (stream, x, code)
       return;
 
     case 'D':
-      if (!x)
-	return;
+      /* CONST_TRUE_RTX means not always -- ie never.  We shouldn't ever
+	 want to do that.  */
+      if (x == const_true_rtx)
+	abort ();
 
       if (TARGET_ARM)
 	fputs (arm_condition_codes[ARM_INVERSE_CONDITION_CODE

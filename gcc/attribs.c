@@ -32,6 +32,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "obstack.h"
 #include "cpplib.h"
 #include "target.h"
+#include "langhooks.h"
 
 static void init_attributes		PARAMS ((void));
 
@@ -279,7 +280,7 @@ decl_attributes (node, attributes, flags)
 
   if (DECL_P (*node) && TREE_CODE (*node) == FUNCTION_DECL
       && !(flags & (int) ATTR_FLAG_BUILT_IN))
-    insert_default_attributes (*node);
+    (*lang_hooks.insert_default_attributes) (*node);
 
   for (a = attributes; a; a = TREE_CHAIN (a))
     {
@@ -839,8 +840,8 @@ handle_mode_attribute (node, name, args, flags, no_add_attrs)
 
       if (mode == VOIDmode)
 	error ("unknown machine mode `%s'", p);
-      else if (0 == (typefm = type_for_mode (mode,
-					     TREE_UNSIGNED (type))))
+      else if (0 == (typefm = (*lang_hooks.types.type_for_mode)
+		     (mode, TREE_UNSIGNED (type))))
 	error ("no data type for mode `%s'", p);
       else
 	*node = typefm;
@@ -1378,7 +1379,8 @@ handle_vector_size_attribute (node, name, args, flags, no_add_attrs)
     {
       tree index, array, rt;
 
-      new_type = type_for_mode (new_mode, TREE_UNSIGNED (type));
+      new_type = (*lang_hooks.types.type_for_mode) (new_mode,
+						    TREE_UNSIGNED (type));
 
       if (!new_type)
 	{

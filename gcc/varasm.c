@@ -1453,16 +1453,9 @@ asm_emit_uninitialised (decl, name, size, rounded)
 	destination = asm_dest_common;
     }
 
-  switch (destination)
-    {
-    case asm_dest_common:
-      if (! DECL_WEAK (decl))
-	break;
-    case asm_dest_bss:
-      globalize_decl (decl);
-    default:
-      break;
-    }
+  if (destination == asm_dest_bss)
+    globalize_decl (decl);
+  resolve_unique_section (decl, 0);
 
   if (flag_shared_data)
     {
@@ -1487,8 +1480,6 @@ asm_emit_uninitialised (decl, name, size, rounded)
 	  break;
 	}
     }
-
-  resolve_unique_section (decl, 0);
 
   switch (destination)
     {
@@ -2273,13 +2264,7 @@ immed_real_const_1 (d, mode)
      REAL_VALUE_TYPE d;
      enum machine_mode mode;
 {
-  union real_extract u;
   rtx r;
-
-  /* Get the desired `double' value as a sequence of ints
-     since that is how they are stored in a CONST_DOUBLE.  */
-
-  u.d = d;
 
   /* Detect special cases.  Check for NaN first, because some ports
      (specifically the i386) do not emit correct ieee-fp code by default, and
@@ -2292,10 +2277,10 @@ immed_real_const_1 (d, mode)
   else if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst2, d))
     return CONST2_RTX (mode);
 
-  if (sizeof u == sizeof (HOST_WIDE_INT))
-    return immed_double_const (u.i[0], 0, mode);
-  if (sizeof u == 2 * sizeof (HOST_WIDE_INT))
-    return immed_double_const (u.i[0], u.i[1], mode);
+  if (sizeof (REAL_VALUE_TYPE) == sizeof (HOST_WIDE_INT))
+    return immed_double_const (d.r[0], 0, mode);
+  if (sizeof (REAL_VALUE_TYPE) == 2 * sizeof (HOST_WIDE_INT))
+    return immed_double_const (d.r[0], d.r[1], mode);
 
   /* The rest of this function handles the case where
      a float value requires more than 2 ints of space.
@@ -2305,7 +2290,7 @@ immed_real_const_1 (d, mode)
      If one is found, return it.  */
   if (cfun != 0)
     for (r = const_double_chain; r; r = CONST_DOUBLE_CHAIN (r))
-      if (! memcmp ((char *) &CONST_DOUBLE_LOW (r), (char *) &u, sizeof u)
+      if (! memcmp ((char *) &CONST_DOUBLE_LOW (r), (char *) &d, sizeof d)
 	  && GET_MODE (r) == mode)
 	return r;
 
@@ -2317,7 +2302,7 @@ immed_real_const_1 (d, mode)
      freed memory.  */
   r = rtx_alloc (CONST_DOUBLE);
   PUT_MODE (r, mode);
-  memcpy ((char *) &CONST_DOUBLE_LOW (r), (char *) &u, sizeof u);
+  memcpy ((char *) &CONST_DOUBLE_LOW (r), (char *) &d, sizeof d);
 
   /* If we aren't inside a function, don't put r on the
      const_double_chain.  */
@@ -2441,7 +2426,7 @@ struct rtx_const
   ENUM_BITFIELD(kind) kind : 16;
   ENUM_BITFIELD(machine_mode) mode : 16;
   union {
-    union real_extract du;
+    REAL_VALUE_TYPE du;
     struct addr_const addr;
     struct {HOST_WIDE_INT high, low;} di;
 
@@ -3629,8 +3614,7 @@ decode_rtx_const (mode, x, value)
       if (GET_MODE (x) != VOIDmode)
 	{
 	  value->mode = GET_MODE (x);
-	  memcpy ((char *) &value->un.du,
-		  (char *) &CONST_DOUBLE_LOW (x), sizeof value->un.du);
+	  REAL_VALUE_FROM_CONST_DOUBLE (value->un.du, x);
 	}
       else
 	{
@@ -3873,7 +3857,8 @@ force_const_mem (mode, x)
   /* Align the location counter as required by EXP's data type.  */
   align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
 #ifdef CONSTANT_ALIGNMENT
-  align = CONSTANT_ALIGNMENT (make_tree (type_for_mode (mode, 0), x), align);
+  align = CONSTANT_ALIGNMENT (make_tree ((*lang_hooks.types.type_for_mode)
+					 (mode, 0), x), align);
 #endif
 
   pool_offset += (align / BITS_PER_UNIT) - 1;
@@ -3911,7 +3896,7 @@ force_const_mem (mode, x)
   pool->desc->rtl = def
     = gen_rtx_MEM (mode, gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (label)));
   set_mem_alias_set (def, const_alias_set);
-  set_mem_attributes (def, type_for_mode (mode, 0), 1);
+  set_mem_attributes (def, (*lang_hooks.types.type_for_mode) (mode, 0), 1);
   RTX_UNCHANGING_P (def) = 1;
 
   /* Add label to symbol hash table.  */
@@ -4020,7 +4005,7 @@ output_constant_pool (fnname, fndecl)
 {
   struct pool_constant *pool;
   rtx x;
-  union real_extract u;
+  REAL_VALUE_TYPE r;
 
   /* It is possible for gcc to call force_const_mem and then to later
      discard the instructions which refer to the constant.  In such a
@@ -4098,8 +4083,8 @@ output_constant_pool (fnname, fndecl)
 	  if (GET_CODE (x) != CONST_DOUBLE)
 	    abort ();
 
-	  memcpy ((char *) &u, (char *) &CONST_DOUBLE_LOW (x), sizeof u);
-	  assemble_real (u.d, pool->mode, pool->align);
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+	  assemble_real (r, pool->mode, pool->align);
 	  break;
 
 	case MODE_INT:
@@ -4120,10 +4105,8 @@ output_constant_pool (fnname, fndecl)
 	    for (i = 0; i < units; i++)
 	      {
 		elt = CONST_VECTOR_ELT (x, i);
-		memcpy ((char *) &u,
-			(char *) &CONST_DOUBLE_LOW (elt),
-			sizeof u);
-		assemble_real (u.d, GET_MODE_INNER (pool->mode), pool->align);
+		REAL_VALUE_FROM_CONST_DOUBLE (r, elt);
+		assemble_real (r, GET_MODE_INNER (pool->mode), pool->align);
 	      }
 	  }
 	  break;

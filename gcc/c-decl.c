@@ -581,6 +581,8 @@ c_decode_option (argc, argv)
 	  flag_isoc99 = 1;
 	  flag_isoc94 = 1;
 	}
+      else if (!strcmp (argstart, "c++98"))
+	; /* Handled by cpplib.  */
       else
 	error ("unknown C standard `%s'", argstart);
     }
@@ -685,6 +687,8 @@ c_decode_option (argc, argv)
       /* Only warn about unknown pragmas that are not in system headers.  */
       warn_unknown_pragmas = 1;
     }
+  else if (!strcmp (p, "-E"))
+    flag_preprocess_only = 1;
   else
     {
       size_t i;
@@ -730,7 +734,7 @@ c_print_identifier (file, node, indent)
    for a top-level tentative array defn that wasn't complete before.  */
 
 void
-finish_incomplete_decl (decl)
+c_finish_incomplete_decl (decl)
      tree decl;
 {
   if (TREE_CODE (decl) == VAR_DECL)
@@ -2981,8 +2985,6 @@ c_init_decl_processing ()
   make_fname_decl = c_make_fname_decl;
   start_fname_decls ();
 
-  incomplete_decl_finalize_hook = finish_incomplete_decl;
-
   /* Record our roots.  */
 
   ggc_add_tree_root (c_global_trees, CTI_MAX);
@@ -3083,7 +3085,7 @@ builtin_function (name, type, function_code, class, library_name)
    attributes.  */
 
 void
-insert_default_attributes (decl)
+c_insert_default_attributes (decl)
      tree decl;
 {
   if (!TREE_PUBLIC (decl))
@@ -3453,6 +3455,8 @@ finish_decl (decl, init, asmspec_tree)
   const char *asmspec = 0;
 
   /* If a name was specified, get the string.  */
+  if (current_binding_level == global_binding_level)
+    asmspec_tree = maybe_apply_renaming_pragma (decl, asmspec_tree);
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
 
@@ -3649,17 +3653,6 @@ finish_decl (decl, init, asmspec_tree)
      computing them in the following function definition.  */
   if (current_binding_level == global_binding_level)
     get_pending_sizes ();
-}
-
-/* If DECL has a cleanup, build and return that cleanup here.
-   This is a callback called by expand_expr.  */
-
-tree
-maybe_build_cleanup (decl)
-     tree decl ATTRIBUTE_UNUSED;
-{
-  /* There are no cleanups in C.  */
-  return NULL_TREE;
 }
 
 /* Given a parsed parameter declaration,
@@ -4167,7 +4160,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       else if (type == char_type_node)
 	type = unsigned_char_type_node;
       else if (typedef_decl)
-	type = unsigned_type (type);
+	type = c_common_unsigned_type (type);
       else
 	type = unsigned_type_node;
     }
@@ -4377,7 +4370,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	  tree itype = NULL_TREE;
 	  tree size = TREE_OPERAND (declarator, 1);
 	  /* The index is a signed object `sizetype' bits wide.  */
-	  tree index_type = signed_type (sizetype);
+	  tree index_type = c_common_signed_type (sizetype);
 
 	  array_ptr_quals = TREE_TYPE (declarator);
 	  array_parm_static = TREE_STATIC (declarator);
@@ -5029,7 +5022,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
        Otherwise, the fact that those components are volatile
        will be ignored, and would even crash the compiler.  */
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl)))
-      mark_addressable (decl);
+      c_mark_addressable (decl);
 
     decl_attributes (&decl, returned_attrs, 0);
 
@@ -5849,7 +5842,7 @@ finish_enum (enumtype, values, attributes)
 		   min_precision (maxnode, unsign));
   if (TYPE_PACKED (enumtype) || precision > TYPE_PRECISION (integer_type_node))
     {
-      tree narrowest = type_for_size (precision, unsign);
+      tree narrowest = c_common_type_for_size (precision, unsign);
       if (narrowest == 0)
 	{
 	  warning ("enumeration values exceed range of largest integer");
@@ -5862,7 +5855,7 @@ finish_enum (enumtype, values, attributes)
     precision = TYPE_PRECISION (integer_type_node);
 
   if (precision == TYPE_PRECISION (integer_type_node))
-    enum_value_type = type_for_size (precision, 0);
+    enum_value_type = c_common_type_for_size (precision, 0);
   else
     enum_value_type = enumtype;
 
@@ -5990,10 +5983,11 @@ build_enumerator (name, value)
   /* Now create a declaration for the enum value name.  */
 
   type = TREE_TYPE (value);
-  type = type_for_size (MAX (TYPE_PRECISION (type),
-			     TYPE_PRECISION (integer_type_node)),
-			(TYPE_PRECISION (type) >= TYPE_PRECISION (integer_type_node)
-			 && TREE_UNSIGNED (type)));
+  type = c_common_type_for_size (MAX (TYPE_PRECISION (type),
+				      TYPE_PRECISION (integer_type_node)),
+				 (TYPE_PRECISION (type)
+				  >= TYPE_PRECISION (integer_type_node)
+				  && TREE_UNSIGNED (type)));
 
   decl = build_decl (CONST_DECL, name, type);
   DECL_INITIAL (decl) = convert (type, value);
@@ -6692,11 +6686,13 @@ store_parm_decls ()
 
    This is called after parsing the body of the function definition.
 
-   NESTED is nonzero if the function being finished is nested in another.  */
+   NESTED is nonzero if the function being finished is nested in another.
+   CAN_DEFER_P is nonzero if the function may be deferred.  */
 
 void
-finish_function (nested)
+finish_function (nested, can_defer_p)
      int nested;
+     int can_defer_p;
 {
   tree fndecl = current_function_decl;
 
@@ -6765,7 +6761,7 @@ finish_function (nested)
   if (! nested)
     {
       /* Generate RTL for the body of this function.  */
-      c_expand_body (fndecl, nested, 1);
+      c_expand_body (fndecl, nested, can_defer_p);
 
       /* Let the error reporting routines know that we're outside a
 	 function.  For a nested function, this value is used in
@@ -7154,7 +7150,7 @@ c_dup_lang_specific_decl (decl)
 /* Mark the language specific bits in T for GC.  */
 
 void
-lang_mark_tree (t)
+c_mark_tree (t)
      tree t;
 {
   if (TREE_CODE (t) == IDENTIFIER_NODE)

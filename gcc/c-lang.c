@@ -50,8 +50,20 @@ static void c_post_options PARAMS ((void));
 #define LANG_HOOKS_GET_ALIAS_SET c_common_get_alias_set
 #undef LANG_HOOKS_SAFE_FROM_P
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
+#undef LANG_HOOKS_MARK_TREE
+#define LANG_HOOKS_MARK_TREE c_mark_tree
+#undef LANG_HOOKS_EXPAND_EXPR
+#define LANG_HOOKS_EXPAND_EXPR c_expand_expr
+#undef LANG_HOOKS_MARK_ADDRESSABLE
+#define LANG_HOOKS_MARK_ADDRESSABLE c_mark_addressable
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
+#undef LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
+#define LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES c_insert_default_attributes
+#undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
+#define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
+#undef LANG_HOOKS_UNSAFE_FOR_REEVAL
+#define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_STATICP
 #define LANG_HOOKS_STATICP c_staticp
 #undef LANG_HOOKS_PRINT_IDENTIFIER
@@ -73,6 +85,17 @@ static void c_post_options PARAMS ((void));
 #undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   c_convert_parm_for_inlining
+
+#undef LANG_HOOKS_TYPE_FOR_MODE
+#define LANG_HOOKS_TYPE_FOR_MODE c_common_type_for_mode
+#undef LANG_HOOKS_TYPE_FOR_SIZE
+#define LANG_HOOKS_TYPE_FOR_SIZE c_common_type_for_size
+#undef LANG_HOOKS_SIGNED_TYPE
+#define LANG_HOOKS_SIGNED_TYPE c_common_signed_type
+#undef LANG_HOOKS_UNSIGNED_TYPE
+#define LANG_HOOKS_UNSIGNED_TYPE c_common_unsigned_type
+#undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
+#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE c_common_signed_or_unsigned_type
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 

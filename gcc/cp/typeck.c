@@ -910,9 +910,9 @@ comptypes (t1, t2, strict)
       /* Treat an enum type as the unsigned integer type of the same width.  */
 
       if (TREE_CODE (t1) == ENUMERAL_TYPE)
-	t1 = type_for_size (TYPE_PRECISION (t1), 1);
+	t1 = c_common_type_for_size (TYPE_PRECISION (t1), 1);
       if (TREE_CODE (t2) == ENUMERAL_TYPE)
-	t2 = type_for_size (TYPE_PRECISION (t2), 1);
+	t2 = c_common_type_for_size (TYPE_PRECISION (t2), 1);
 
       if (t1 == t2)
 	return 1;
@@ -1726,7 +1726,7 @@ decay_conversion (exp)
 	     is not the target type of the type of the ADDR_EXPR itself.
 	     Question is, can this lossage be avoided?  */
 	  adr = build1 (ADDR_EXPR, ptrtype, exp);
-	  if (mark_addressable (exp) == 0)
+	  if (!cxx_mark_addressable (exp))
 	    return error_mark_node;
 	  TREE_CONSTANT (adr) = staticp (exp);
 	  TREE_SIDE_EFFECTS (adr) = 0;   /* Default would be, same as EXP.  */
@@ -2446,7 +2446,7 @@ build_array_ref (array, idx)
 	      && (TREE_CODE (TYPE_SIZE (TREE_TYPE (TREE_TYPE (array))))
 		  != INTEGER_CST)))
 	{
-	  if (mark_addressable (array) == 0)
+	  if (!cxx_mark_addressable (array))
 	    return error_mark_node;
 	}
 
@@ -2458,7 +2458,7 @@ build_array_ref (array, idx)
 	  && TYPE_VALUES (TREE_TYPE (array))
 	  && ! int_fits_type_p (idx, TYPE_VALUES (TREE_TYPE (array))))
 	{
-	  if (mark_addressable (array) == 0)
+	  if (!cxx_mark_addressable (array))
 	    return error_mark_node;
 	}
 
@@ -2890,19 +2890,18 @@ get_member_function_from_ptrfunc (instance_ptrptr, function)
 	 load-with-sign-extend, while the second used normal load then
 	 shift to sign-extend.  An optimizer flaw, perhaps, but it's
 	 easier to make this change.  */
+      idx = cp_build_binary_op (TRUNC_DIV_EXPR, 
+				build1 (NOP_EXPR, vtable_index_type, e3),
+				TYPE_SIZE_UNIT (vtable_entry_type));
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
 	case ptrmemfunc_vbit_in_pfn:
-	  idx = cp_build_binary_op (TRUNC_DIV_EXPR, 
-				    build1 (NOP_EXPR, vtable_index_type, e3),
-				    TYPE_SIZE_UNIT (vtable_entry_type));
 	  e1 = cp_build_binary_op (BIT_AND_EXPR,
 				   build1 (NOP_EXPR, vtable_index_type, e3),
 				   integer_one_node);
 	  break;
 
 	case ptrmemfunc_vbit_in_delta:
-	  idx = build1 (NOP_EXPR, vtable_index_type, e3);
 	  e1 = cp_build_binary_op (BIT_AND_EXPR,
 				   delta, integer_one_node);
 	  delta = cp_build_binary_op (RSHIFT_EXPR,
@@ -3783,24 +3782,22 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		  == TYPE_PRECISION (TREE_TYPE (arg0)))
 	      && unsigned0 == unsigned1
 	      && (unsigned0 || !uns))
-	    result_type
-	      = signed_or_unsigned_type (unsigned0,
-					 common_type (TREE_TYPE (arg0),
-						      TREE_TYPE (arg1)));
+	    result_type = c_common_signed_or_unsigned_type
+	      (unsigned0, common_type (TREE_TYPE (arg0), TREE_TYPE (arg1)));
 	  else if (TREE_CODE (arg0) == INTEGER_CST
 		   && (unsigned1 || !uns)
 		   && (TYPE_PRECISION (TREE_TYPE (arg1))
 		       < TYPE_PRECISION (result_type))
-		   && (type = signed_or_unsigned_type (unsigned1,
-						       TREE_TYPE (arg1)),
+		   && (type = c_common_signed_or_unsigned_type
+		       (unsigned1, TREE_TYPE (arg1)),
 		       int_fits_type_p (arg0, type)))
 	    result_type = type;
 	  else if (TREE_CODE (arg1) == INTEGER_CST
 		   && (unsigned0 || !uns)
 		   && (TYPE_PRECISION (TREE_TYPE (arg0))
 		       < TYPE_PRECISION (result_type))
-		   && (type = signed_or_unsigned_type (unsigned0,
-						       TREE_TYPE (arg0)),
+		   && (type = c_common_signed_or_unsigned_type
+		       (unsigned0, TREE_TYPE (arg0)),
 		       int_fits_type_p (arg1, type)))
 	    result_type = type;
 	}
@@ -3835,8 +3832,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	    {
 	      /* Do an unsigned shift if the operand was zero-extended.  */
 	      result_type
-		= signed_or_unsigned_type (unsigned_arg,
-					   TREE_TYPE (arg0));
+		= c_common_signed_or_unsigned_type (unsigned_arg,
+						    TREE_TYPE (arg0));
 	      /* Convert value-to-be-shifted to that type.  */
 	      if (TREE_TYPE (op0) != result_type)
 		op0 = cp_convert (result_type, op0);
@@ -3909,11 +3906,11 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	     not use the most significant bit of result_type.  */
 	  else if ((resultcode == EQ_EXPR || resultcode == NE_EXPR)
 		   && ((op0_signed && TREE_CODE (orig_op1) == INTEGER_CST
-			&& int_fits_type_p (orig_op1,
-					    signed_type (result_type)))
+			&& int_fits_type_p (orig_op1, c_common_signed_type
+					    (result_type)))
 			|| (op1_signed && TREE_CODE (orig_op0) == INTEGER_CST
-			    && int_fits_type_p (orig_op0,
-						signed_type (result_type)))))
+			    && int_fits_type_p (orig_op0, c_common_signed_type
+						(result_type)))))
 	    /* OK */;
 	  else
 	    warning ("comparison between signed and unsigned integer expressions");
@@ -4542,7 +4539,7 @@ build_unary_op (code, xarg, noconvert)
       /* For &x[y], return x+y */
       if (TREE_CODE (arg) == ARRAY_REF)
 	{
-	  if (mark_addressable (TREE_OPERAND (arg, 0)) == 0)
+	  if (!cxx_mark_addressable (TREE_OPERAND (arg, 0)))
 	    return error_mark_node;
 	  return cp_build_binary_op (PLUS_EXPR, TREE_OPERAND (arg, 0),
 				     TREE_OPERAND (arg, 1));
@@ -4630,7 +4627,7 @@ build_unary_op (code, xarg, noconvert)
       if (argtype != error_mark_node)
 	argtype = build_pointer_type (argtype);
 
-      if (mark_addressable (arg) == 0)
+      if (!cxx_mark_addressable (arg))
 	return error_mark_node;
 
       {
@@ -4814,18 +4811,18 @@ unary_complex_lvalue (code, arg)
 
 /* Mark EXP saying that we need to be able to take the
    address of it; it should not be allocated in a register.
-   Value is 1 if successful.
+   Value is true if successful.
 
    C++: we do not allow `current_class_ptr' to be addressable.  */
 
-int
-mark_addressable (exp)
+bool
+cxx_mark_addressable (exp)
      tree exp;
 {
   register tree x = exp;
 
   if (TREE_ADDRESSABLE (x) == 1)
-    return 1;
+    return true;
 
   while (1)
     switch (TREE_CODE (x))
@@ -4843,7 +4840,7 @@ mark_addressable (exp)
 	  {
             error ("cannot take the address of `this', which is an rvalue expression");
 	    TREE_ADDRESSABLE (x) = 1; /* so compiler doesn't die later */
-	    return 1;
+	    return true;
 	  }
       case VAR_DECL:
 	/* Caller should not be trying to mark initialized
@@ -4860,24 +4857,24 @@ mark_addressable (exp)
 	  warning ("address requested for `%D', which is declared `register'",
 		      x);
 	TREE_ADDRESSABLE (x) = 1;
-	return 1;
+	return true;
 
       case FUNCTION_DECL:
 	TREE_ADDRESSABLE (x) = 1;
 	TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (x)) = 1;
-	return 1;
+	return true;
 
       case CONSTRUCTOR:
 	TREE_ADDRESSABLE (x) = 1;
-	return 1;
+	return true;
 
       case TARGET_EXPR:
 	TREE_ADDRESSABLE (x) = 1;
-	mark_addressable (TREE_OPERAND (x, 0));
-	return 1;
+	cxx_mark_addressable (TREE_OPERAND (x, 0));
+	return true;
 
       default:
-	return 1;
+	return true;
     }
 }
 

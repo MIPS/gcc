@@ -5191,7 +5191,7 @@ finish_struct_1 (t)
      working on.  */
   for (x = TYPE_FIELDS (t); x; x = TREE_CHAIN (x))
     if (TREE_CODE (x) == VAR_DECL && TREE_STATIC (x)
-	&& TREE_TYPE (x) == t)
+	&& same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (x)), t))
       DECL_MODE (x) = TYPE_MODE (t);
 
   /* Done with FIELDS...now decide whether to sort these for
@@ -6061,7 +6061,7 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
       /* The target must be a REFERENCE_TYPE.  Above, build_unary_op
 	 will mark the function as addressed, but here we must do it
 	 explicitly.  */
-      mark_addressable (fn);
+      cxx_mark_addressable (fn);
 
       return fn;
     }

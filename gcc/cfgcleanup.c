@@ -54,7 +54,8 @@ enum bb_flags
 {
     /* Set if BB is the forwarder block to avoid too many
        forwarder_block_p calls.  */
-    BB_FORWARDER_BLOCK = 1
+    BB_FORWARDER_BLOCK = 1,
+    BB_NONTHREADABLE_BLOCK = 2
 };
 
 #define BB_FLAGS(BB) (enum bb_flags) (BB)->aux
@@ -278,17 +279,28 @@ thread_jump (mode, e, b)
   regset nonequal;
   bool failed = false;
 
+  if (BB_FLAGS (b) & BB_NONTHREADABLE_BLOCK)
+    return NULL;
+
   /* At the moment, we do handle only conditional jumps, but later we may
      want to extend this code to tablejumps and others.  */
   if (!e->src->succ->succ_next || e->src->succ->succ_next->succ_next)
     return NULL;
   if (!b->succ || !b->succ->succ_next || b->succ->succ_next->succ_next)
-    return NULL;
+    {
+      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      return NULL;
+    }
 
   /* Second branch must end with onlyjump, as we will eliminate the jump.  */
-  if (!any_condjump_p (e->src->end) || !any_condjump_p (b->end)
-      || !onlyjump_p (b->end))
+  if (!any_condjump_p (e->src->end))
     return NULL;
+  
+  if (!any_condjump_p (b->end) || !onlyjump_p (b->end))
+    {
+      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      return NULL;
+    }
 
   set1 = pc_set (e->src->end);
   set2 = pc_set (b->end);
@@ -323,7 +335,10 @@ thread_jump (mode, e, b)
   for (insn = NEXT_INSN (b->head); insn != NEXT_INSN (b->end);
        insn = NEXT_INSN (insn))
     if (INSN_P (insn) && side_effects_p (PATTERN (insn)))
-      return NULL;
+      {
+	BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+	return NULL;
+      }
 
   cselib_init ();
 
@@ -362,7 +377,10 @@ thread_jump (mode, e, b)
   /* Later we should clear nonequal of dead registers.  So far we don't
      have life information in cfg_cleanup.  */
   if (failed)
-    goto failed_exit;
+    {
+      BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
+      goto failed_exit;
+    }
 
   /* cond2 must not mention any register that is not equal to the
      former block.  */
@@ -1455,6 +1473,7 @@ try_crossjump_bb (mode, bb)
 {
   edge e, e2, nexte2, nexte, fallthru;
   bool changed;
+  int n = 0;
 
   /* Nothing to do if there is not at least two incoming edges.  */
   if (!bb->pred || !bb->pred->pred_next)
@@ -1463,9 +1482,13 @@ try_crossjump_bb (mode, bb)
   /* It is always cheapest to redirect a block that ends in a branch to
      a block that falls through into BB, as that adds no branches to the
      program.  We'll try that combination first.  */
-  for (fallthru = bb->pred; fallthru; fallthru = fallthru->pred_next)
-    if (fallthru->flags & EDGE_FALLTHRU)
-      break;
+  for (fallthru = bb->pred; fallthru; fallthru = fallthru->pred_next, n++)
+    {
+      if (fallthru->flags & EDGE_FALLTHRU)
+	break;
+      if (n > 100)
+	return false;
+    }
 
   changed = false;
   for (e = bb->pred; e; e = nexte)
@@ -1706,8 +1729,7 @@ try_optimize_cfg (mode)
   if (mode & CLEANUP_CROSSJUMP)
     remove_fake_edges ();
 
-  for (i = 0; i < n_basic_blocks; i++)
-    BASIC_BLOCK (i)->aux = NULL;
+  clear_aux_for_blocks ();
 
   return changed_overall;
 }

@@ -122,7 +122,6 @@ struct type_hash
 
 htab_t type_hash_table;
 
-static void build_real_from_int_cst_1 PARAMS ((PTR));
 static void set_type_quals PARAMS ((tree, int));
 static void append_random_chars PARAMS ((char *));
 static int type_hash_eq PARAMS ((const void*, const void*));
@@ -133,10 +132,6 @@ static tree make_vector PARAMS ((enum machine_mode, tree, int));
 static int type_hash_marked_p PARAMS ((const void *));
 static void type_hash_mark PARAMS ((const void *));
 static int mark_tree_hashtable_entry PARAMS((void **, void *));
-
-/* If non-null, these are language-specific helper functions for
-   unsafe_for_reeval.  Return negative to not handle some tree.  */
-int (*lang_unsafe_for_reeval) PARAMS ((tree));
 
 /* Set the DECL_ASSEMBLER_NAME for a node.  If it is the sort of thing
    that the assembler should talk about, set DECL_ASSEMBLER_NAME to an
@@ -422,21 +417,6 @@ make_node (code)
 
   return t;
 }
-
-/* A front-end can reset this to an appropriate function if types need
-   special handling.  */
-
-tree (*make_lang_type_fn) PARAMS ((enum tree_code)) = make_node;
-
-/* Return a new type (with the indicated CODE), doing whatever
-   language-specific processing is required.  */
-
-tree
-make_lang_type (code)
-     enum tree_code code;
-{
-  return (*make_lang_type_fn) (code);
-}
 
 /* Return a new node with the same contents as NODE except that its
    TREE_CHAIN is zero and it has a fresh uid.  */
@@ -591,31 +571,8 @@ real_value_from_int_cst (type, i)
   return d;
 }
 
-/* Args to pass to and from build_real_from_int_cst_1.  */
-
-struct brfic_args
-{
-  tree type;			/* Input: type to conver to.  */
-  tree i;			/* Input: operand to convert.  */
-  REAL_VALUE_TYPE d;		/* Output: floating point value.  */
-};
-
-/* Convert an integer to a floating point value while protected by a floating
-   point exception handler.  */
-
-static void
-build_real_from_int_cst_1 (data)
-     PTR data;
-{
-  struct brfic_args *args = (struct brfic_args *) data;
-
-  args->d = real_value_from_int_cst (args->type, args->i);
-}
-
 /* Given a tree representing an integer constant I, return a tree
-   representing the same value as a floating-point constant of type TYPE.
-   We cannot perform this operation if there is no way of doing arithmetic
-   on floating-point values.  */
+   representing the same value as a floating-point constant of type TYPE.  */
 
 tree
 build_real_from_int_cst (type, i)
@@ -625,27 +582,13 @@ build_real_from_int_cst (type, i)
   tree v;
   int overflow = TREE_OVERFLOW (i);
   REAL_VALUE_TYPE d;
-  struct brfic_args args;
 
   v = make_node (REAL_CST);
   TREE_TYPE (v) = type;
 
-  /* Setup input for build_real_from_int_cst_1() */
-  args.type = type;
-  args.i = i;
-
-  if (do_float_handler (build_real_from_int_cst_1, (PTR) &args))
-    /* Receive output from build_real_from_int_cst_1() */
-    d = args.d;
-  else
-    {
-      /* We got an exception from build_real_from_int_cst_1() */
-      d = dconst0;
-      overflow = 1;
-    }
+  d = real_value_from_int_cst (type, i);
 
   /* Check for valid float value for this type on this target machine.  */
-
 #ifdef CHECK_FLOAT_VALUE
   CHECK_FLOAT_VALUE (TYPE_MODE (type), d, overflow);
 #endif
@@ -1741,12 +1684,9 @@ unsafe_for_reeval (expr)
       break;
 
     default:
-      if (lang_unsafe_for_reeval != 0)
-	{
-	  tmp = (*lang_unsafe_for_reeval) (expr);
-	  if (tmp >= 0)
-	    return tmp;
-	}
+      tmp = (*lang_hooks.unsafe_for_reeval) (expr);
+      if (tmp >= 0)
+	return tmp;
       break;
     }
 
@@ -4077,8 +4017,8 @@ get_unwidened (op, for_type)
     {
       unsigned int innerprec
 	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
-
-      type = type_for_size (innerprec, TREE_UNSIGNED (TREE_OPERAND (op, 1)));
+      int unsignedp = TREE_UNSIGNED (TREE_OPERAND (op, 1));
+      type = (*lang_hooks.types.type_for_size) (innerprec, unsignedp);
 
       /* We can get this structure field in the narrowest type it fits in.
 	 If FOR_TYPE is 0, do this only for a field that matches the
@@ -4088,8 +4028,7 @@ get_unwidened (op, for_type)
 
       if (innerprec < TYPE_PRECISION (TREE_TYPE (op))
 	  && (for_type || ! DECL_BIT_FIELD (TREE_OPERAND (op, 1)))
-	  && (! uns || final_prec <= innerprec
-	      || TREE_UNSIGNED (TREE_OPERAND (op, 1)))
+	  && (! uns || final_prec <= innerprec || unsignedp)
 	  && type != 0)
 	{
 	  win = build (COMPONENT_REF, type, TREE_OPERAND (op, 0),
@@ -4163,7 +4102,8 @@ get_narrower (op, unsignedp_ptr)
     {
       unsigned HOST_WIDE_INT innerprec
 	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
-      tree type = type_for_size (innerprec, TREE_UNSIGNED (op));
+      tree type = (*lang_hooks.types.type_for_size) (innerprec,
+						     TREE_UNSIGNED (op));
 
       /* We can get this structure field in a narrower type that fits it,
 	 but the resulting extension to its nominal type (a fullword type)

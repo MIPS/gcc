@@ -1731,7 +1731,7 @@ build_module_descriptor ()
 
     c_expand_expr_stmt (decelerator);
 
-    finish_function (0);
+    finish_function (0, 0);
 
     return XEXP (DECL_RTL (init_function_decl), 0);
   }
@@ -7265,7 +7265,7 @@ void
 finish_method_def ()
 {
   lang_expand_function_end = objc_expand_function_end;
-  finish_function (0);
+  finish_function (0, 1);
   lang_expand_function_end = NULL;
 
   /* Required to implement _msgSuper. This must be done AFTER finish_function,
@@ -8306,7 +8306,7 @@ handle_impent (impent)
       tree decl, init;
 
       init = build_int_2 (0, 0);
-      TREE_TYPE (init) = type_for_size (BITS_PER_WORD, 1);
+      TREE_TYPE (init) = c_common_type_for_size (BITS_PER_WORD, 1);
       decl = build_decl (VAR_DECL, get_identifier (string), TREE_TYPE (init));
       TREE_PUBLIC (decl) = 1;
       TREE_READONLY (decl) = 1;

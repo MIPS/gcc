@@ -65,11 +65,9 @@ static tree split_tree		PARAMS ((tree, enum tree_code, tree *, tree *,
 					 int));
 static tree associate_trees	PARAMS ((tree, tree, enum tree_code, tree));
 static tree int_const_binop	PARAMS ((enum tree_code, tree, tree, int));
-static void const_binop_1	PARAMS ((PTR));
 static tree const_binop		PARAMS ((enum tree_code, tree, tree, int));
 static hashval_t size_htab_hash	PARAMS ((const void *));
 static int size_htab_eq		PARAMS ((const void *, const void *));
-static void fold_convert_1	PARAMS ((PTR));
 static tree fold_convert	PARAMS ((tree, tree));
 static enum tree_code invert_tree_comparison PARAMS ((enum tree_code));
 static enum tree_code swap_tree_comparison PARAMS ((enum tree_code));
@@ -1199,32 +1197,6 @@ int_const_binop (code, arg1, arg2, notrunc)
   return t;
 }
 
-/* Define input and output argument for const_binop_1.  */
-struct cb_args
-{
-  enum tree_code code;		/* Input: tree code for operation.  */
-  tree type;			/* Input: tree type for operation.  */
-  REAL_VALUE_TYPE d1, d2;	/* Input: floating point operands.  */
-  tree t;			/* Output: constant for result.  */
-};
-
-/* Do the real arithmetic for const_binop while protected by a
-   float overflow handler.  */
-
-static void
-const_binop_1 (data)
-     PTR data;
-{
-  struct cb_args *args = (struct cb_args *) data;
-  REAL_VALUE_TYPE value;
-
-  REAL_ARITHMETIC (value, args->code, args->d1, args->d2);
-
-  args->t
-    = build_real (args->type,
-		  real_value_truncate (TYPE_MODE (args->type), value));
-}
-
 /* Combine two constants ARG1 and ARG2 under operation CODE to produce a new
    constant.  We assume ARG1 and ARG2 have the same data type, or at least
    are the same kind of constant and the same machine mode.
@@ -1247,9 +1219,8 @@ const_binop (code, arg1, arg2, notrunc)
     {
       REAL_VALUE_TYPE d1;
       REAL_VALUE_TYPE d2;
-      int overflow = 0;
+      REAL_VALUE_TYPE value;
       tree t;
-      struct cb_args args;
 
       d1 = TREE_REAL_CST (arg1);
       d2 = TREE_REAL_CST (arg2);
@@ -1261,24 +1232,14 @@ const_binop (code, arg1, arg2, notrunc)
       else if (REAL_VALUE_ISNAN (d2))
 	return arg2;
 
-      /* Setup input for const_binop_1() */
-      args.type = TREE_TYPE (arg1);
-      args.d1 = d1;
-      args.d2 = d2;
-      args.code = code;
+      REAL_ARITHMETIC (value, code, d1, d2);
 
-      if (do_float_handler (const_binop_1, (PTR) &args))
-	/* Receive output from const_binop_1.  */
-	t = args.t;
-      else
-	{
-	  /* We got an exception from const_binop_1.  */
-	  t = copy_node (arg1);
-	  overflow = 1;
-	}
+      t = build_real (TREE_TYPE (arg1),
+		      real_value_truncate (TYPE_MODE (TREE_TYPE (arg1)),
+					   value));
 
       TREE_OVERFLOW (t)
-	= (force_fit_type (t, overflow)
+	= (force_fit_type (t, 0)
 	   | TREE_OVERFLOW (arg1) | TREE_OVERFLOW (arg2));
       TREE_CONSTANT_OVERFLOW (t)
 	= TREE_OVERFLOW (t)
@@ -1530,27 +1491,6 @@ size_diffop (arg0, arg1)
 		       convert (ctype, size_binop (MINUS_EXPR, arg1, arg0)));
 }
 
-/* This structure is used to communicate arguments to fold_convert_1.  */
-struct fc_args
-{
-  tree arg1;			/* Input: value to convert.  */
-  tree type;			/* Input: type to convert value to.  */
-  tree t;			/* Output: result of conversion.  */
-};
-
-/* Function to convert floating-point constants, protected by floating
-   point exception handler.  */
-
-static void
-fold_convert_1 (data)
-     PTR data;
-{
-  struct fc_args *args = (struct fc_args *) data;
-
-  args->t = build_real (args->type,
-			real_value_truncate (TYPE_MODE (args->type),
-					     TREE_REAL_CST (args->arg1)));
-}
 
 /* Given T, a tree representing type conversion of ARG1, a constant,
    return a constant tree representing the result of conversion.  */
@@ -1650,8 +1590,6 @@ fold_convert (t, arg1)
 	return build_real_from_int_cst (type, arg1);
       if (TREE_CODE (arg1) == REAL_CST)
 	{
-	  struct fc_args args;
-
 	  if (REAL_VALUE_ISNAN (TREE_REAL_CST (arg1)))
 	    {
 	      t = arg1;
@@ -1659,24 +1597,12 @@ fold_convert (t, arg1)
 	      return t;
 	    }
 
-	  /* Setup input for fold_convert_1() */
-	  args.arg1 = arg1;
-	  args.type = type;
-
-	  if (do_float_handler (fold_convert_1, (PTR) &args))
-	    {
-	      /* Receive output from fold_convert_1() */
-	      t = args.t;
-	    }
-	  else
-	    {
-	      /* We got an exception from fold_convert_1() */
-	      overflow = 1;
-	      t = copy_node (arg1);
-	    }
+	  t = build_real (type,
+			  real_value_truncate (TYPE_MODE (type),
+					       TREE_REAL_CST (arg1)));
 
 	  TREE_OVERFLOW (t)
-	    = TREE_OVERFLOW (arg1) | force_fit_type (t, overflow);
+	    = TREE_OVERFLOW (arg1) | force_fit_type (t, 0);
 	  TREE_CONSTANT_OVERFLOW (t)
 	    = TREE_OVERFLOW (t) | TREE_CONSTANT_OVERFLOW (arg1);
 	  return t;
@@ -2011,9 +1937,8 @@ operand_equal_for_comparison_p (arg0, arg1, other)
 
       /* Make sure shorter operand is extended the right way
 	 to match the longer operand.  */
-      primarg1 = convert (signed_or_unsigned_type (unsignedp1,
-						   TREE_TYPE (primarg1)),
-			  primarg1);
+      primarg1 = convert ((*lang_hooks.types.signed_or_unsigned_type)
+			  (unsignedp1, TREE_TYPE (primarg1)), primarg1);
 
       if (operand_equal_p (arg0, convert (type, primarg1), 0))
 	return 1;
@@ -2500,8 +2425,8 @@ optimize_bit_field_compare (code, compare_type, lhs, rhs)
 
   /* Set signed and unsigned types of the precision of this mode for the
      shifts below.  */
-  signed_type = type_for_mode (nmode, 0);
-  unsigned_type = type_for_mode (nmode, 1);
+  signed_type = (*lang_hooks.types.type_for_mode) (nmode, 0);
+  unsigned_type = (*lang_hooks.types.type_for_mode) (nmode, 1);
 
   /* Compute the bit position and size for the new reference and our offset
      within it. If the new reference is the same size as the original, we
@@ -2664,7 +2589,7 @@ decode_field_reference (exp, pbitsize, pbitpos, pmode, punsignedp,
     return 0;
 
   /* Compute the mask to access the bitfield.  */
-  unsigned_type = type_for_size (*pbitsize, 1);
+  unsigned_type = (*lang_hooks.types.type_for_size) (*pbitsize, 1);
   precision = TYPE_PRECISION (unsigned_type);
 
   mask = build_int_2 (~0, ~0);
@@ -2696,7 +2621,7 @@ all_ones_mask_p (mask, size)
   tree tmask;
 
   tmask = build_int_2 (~0, ~0);
-  TREE_TYPE (tmask) = signed_type (type);
+  TREE_TYPE (tmask) = (*lang_hooks.types.signed_type) (type);
   force_fit_type (tmask, 0);
   return
     tree_int_cst_equal (mask,
@@ -3034,7 +2959,8 @@ make_range (exp, pin_p, plow, phigh)
 	     be interpreted as positive.  */
 	  if (TREE_UNSIGNED (type) && ! TREE_UNSIGNED (TREE_TYPE (exp)))
 	    {
-	      tree equiv_type = type_for_mode (TYPE_MODE (type), 1);
+	      tree equiv_type = (*lang_hooks.types.type_for_mode)
+		(TYPE_MODE (type), 1);
 	      tree high_positive;
 
 	      /* A range without an upper bound is, naturally, unbounded.
@@ -3136,7 +3062,7 @@ build_range_check (type, exp, in_p, low, high)
 
   else if (integer_zerop (low))
     {
-      utype = unsigned_type (etype);
+      utype = (*lang_hooks.types.unsigned_type) (etype);
       return build_range_check (type, convert (utype, exp), 1, 0,
 				convert (utype, high));
     }
@@ -3389,7 +3315,7 @@ unextend (c, p, unsignedp, mask)
      zero or one, and the conversion to a signed type can never overflow.
      We could get an overflow if this conversion is done anywhere else.  */
   if (TREE_UNSIGNED (type))
-    temp = convert (signed_type (type), temp);
+    temp = convert ((*lang_hooks.types.signed_type) (type), temp);
 
   temp = const_binop (LSHIFT_EXPR, temp, size_int (modesize - 1), 0);
   temp = const_binop (RSHIFT_EXPR, temp, size_int (modesize - p - 1), 0);
@@ -3583,7 +3509,7 @@ fold_truthop (code, truth_type, lhs, rhs)
 
   lnbitsize = GET_MODE_BITSIZE (lnmode);
   lnbitpos = first_bit & ~ (lnbitsize - 1);
-  lntype = type_for_size (lnbitsize, 1);
+  lntype = (*lang_hooks.types.type_for_size) (lnbitsize, 1);
   xll_bitpos = ll_bitpos - lnbitpos, xrl_bitpos = rl_bitpos - lnbitpos;
 
   if (BYTES_BIG_ENDIAN)
@@ -3654,7 +3580,7 @@ fold_truthop (code, truth_type, lhs, rhs)
 
       rnbitsize = GET_MODE_BITSIZE (rnmode);
       rnbitpos = first_bit & ~ (rnbitsize - 1);
-      rntype = type_for_size (rnbitsize, 1);
+      rntype = (*lang_hooks.types.type_for_size) (rnbitsize, 1);
       xlr_bitpos = lr_bitpos - rnbitpos, xrr_bitpos = rr_bitpos - rnbitpos;
 
       if (BYTES_BIG_ENDIAN)
@@ -5379,11 +5305,12 @@ fold (expr)
       goto binary;
 
     case RDIV_EXPR:
-      /* In most cases, do nothing with a divide by zero.  */
-#ifndef REAL_INFINITY
-      if (TREE_CODE (arg1) == REAL_CST && real_zerop (arg1))
+      /* Don't touch a floating-point divide by zero unless the mode
+	 of the constant can represent infinity.  */
+      if (TREE_CODE (arg1) == REAL_CST
+	  && !MODE_HAS_INFINITIES (TYPE_MODE (TREE_TYPE (arg1)))
+	  && real_zerop (arg1))
 	return t;
-#endif
 
       /* (-A) / (-B) -> A / B  */
       if (TREE_CODE (arg0) == NEGATE_EXPR && TREE_CODE (arg1) == NEGATE_EXPR)
@@ -5793,7 +5720,7 @@ fold (expr)
 			|| integer_onep (folded_compare))
 		      return omit_one_operand (type, folded_compare, varop);
 
-		    unsigned_type = type_for_size (size, 1);
+		    unsigned_type = (*lang_hooks.types.type_for_size)(size, 1);
 		    precision = TYPE_PRECISION (unsigned_type);
 		    mask = build_int_2 (~0, ~0);
 		    TREE_TYPE (mask) = unsigned_type;
@@ -5854,7 +5781,7 @@ fold (expr)
 			|| integer_onep (folded_compare))
 		      return omit_one_operand (type, folded_compare, varop);
 
-		    unsigned_type = type_for_size (size, 1);
+		    unsigned_type = (*lang_hooks.types.type_for_size)(size, 1);
 		    precision = TYPE_PRECISION (unsigned_type);
 		    mask = build_int_2 (~0, ~0);
 		    TREE_TYPE (mask) = TREE_TYPE (varop);
@@ -6011,7 +5938,7 @@ fold (expr)
 	      || TREE_CODE (arg0) == ROUND_MOD_EXPR)
 	  && integer_pow2p (TREE_OPERAND (arg0, 1)))
 	{
-	  tree newtype = unsigned_type (TREE_TYPE (arg0));
+	  tree newtype = (*lang_hooks.types.unsigned_type) (TREE_TYPE (arg0));
 	  tree newmod = build (TREE_CODE (arg0), newtype,
 			       convert (newtype, TREE_OPERAND (arg0, 0)),
 			       convert (newtype, TREE_OPERAND (arg0, 1)));
@@ -6186,25 +6113,18 @@ fold (expr)
 		     && TREE_UNSIGNED (TREE_TYPE (arg1))
 		     /* signed_type does not work on pointer types.  */
 		     && INTEGRAL_TYPE_P (TREE_TYPE (arg1)))
-	      switch (TREE_CODE (t))
-		{
-		case LE_EXPR:
-		  return fold (build (GE_EXPR, type,
-				      convert (signed_type (TREE_TYPE (arg0)),
-					       arg0),
-				      convert (signed_type (TREE_TYPE (arg1)),
-					       integer_zero_node)));
-		case GT_EXPR:
-		  return fold (build (LT_EXPR, type,
-				      convert (signed_type (TREE_TYPE (arg0)),
-					       arg0),
-				      convert (signed_type (TREE_TYPE (arg1)),
-					       integer_zero_node)));
-
-		default:
-		  break;
-		}
-
+	      {
+		if (TREE_CODE (t) == LE_EXPR || TREE_CODE (t) == GT_EXPR)
+		  {
+		    tree st0, st1;
+		    st0 = (*lang_hooks.types.signed_type) (TREE_TYPE (arg0));
+		    st1 = (*lang_hooks.types.signed_type) (TREE_TYPE (arg1));
+		    return fold
+		      (build (TREE_CODE (t) == LE_EXPR ? GE_EXPR: LT_EXPR,
+			      type, convert (st0, arg0),
+			      convert (st1, integer_zero_node)));
+		  }
+	      }
             else if (TREE_INT_CST_HIGH (arg1) == 0
 		     && (TREE_INT_CST_LOW (arg1)
 			 == ((unsigned HOST_WIDE_INT) 2 << (width - 1)) - 1)
@@ -6578,14 +6498,16 @@ fold (expr)
 	      case GE_EXPR:
 	      case GT_EXPR:
 		if (TREE_UNSIGNED (TREE_TYPE (arg1)))
-		  arg1 = convert (signed_type (TREE_TYPE (arg1)), arg1);
+		  arg1 = convert ((*lang_hooks.types.signed_type)
+				  (TREE_TYPE (arg1)), arg1);
 		return pedantic_non_lvalue
 		  (convert (type, fold (build1 (ABS_EXPR,
 						TREE_TYPE (arg1), arg1))));
 	      case LE_EXPR:
 	      case LT_EXPR:
 		if (TREE_UNSIGNED (TREE_TYPE (arg1)))
-		  arg1 = convert (signed_type (TREE_TYPE (arg1)), arg1);
+		  arg1 = convert ((lang_hooks.types.signed_type)
+				  (TREE_TYPE (arg1)), arg1);
 		return pedantic_non_lvalue
 		  (negate_expr (convert (type,
 					 fold (build1 (ABS_EXPR,

@@ -34,6 +34,8 @@ Boston, MA 02111-1307, USA.  */
 
 #include "c-common.h"
 
+struct diagnostic_context;
+
 /* Usage of TREE_LANG_FLAG_?:
    0: BINFO_MARKED (BINFO nodes).
       IDENTIFIER_MARKED (IDENTIFIER_NODEs)
@@ -1638,12 +1640,10 @@ struct lang_type
 #define SET_BINFO_PUSHDECLS_MARKED(NODE) SET_BINFO_VTABLE_PATH_MARKED (NODE)
 #define CLEAR_BINFO_PUSHDECLS_MARKED(NODE) CLEAR_BINFO_VTABLE_PATH_MARKED (NODE)
 
-/* Nonzero if this BINFO is a primary base class.
+/* Nonzero if this BINFO is a primary base class.  Note, this can be
+   set for non-canononical virtual bases. For a virtual primary base
+   you might also need to check whether it is canonical.  */
 
-   In the TYPE_BINFO hierarchy, this flag is never set for a base
-   class of a non-primary virtual base.  This flag is only valid for
-   paths (given by BINFO_INHERITANCE_CHAIN) that really exist in the
-   final object.  */
 #define BINFO_PRIMARY_P(NODE) \
   (BINFO_PRIMARY_BASE_OF (NODE) != NULL_TREE)
 
@@ -3628,6 +3628,8 @@ extern void cxx_print_xnode			PARAMS ((FILE *, tree, int));
 extern void cxx_print_decl			PARAMS ((FILE *, tree, int));
 extern void cxx_print_type			PARAMS ((FILE *, tree, int));
 extern void cxx_print_identifier		PARAMS ((FILE *, tree, int));
+extern void cxx_print_error_function	PARAMS ((struct diagnostic_context *,
+						 const char *));
 extern void cxx_set_yydebug			PARAMS ((int));
 extern void build_self_reference		PARAMS ((void));
 extern int same_signature_p			PARAMS ((tree, tree));
@@ -3668,6 +3670,9 @@ extern void insert_block			PARAMS ((tree));
 extern void set_block				PARAMS ((tree));
 extern tree pushdecl				PARAMS ((tree));
 extern void cxx_init_decl_processing		PARAMS ((void));
+extern void cxx_mark_tree			PARAMS ((tree));
+extern void cxx_insert_default_attributes	PARAMS ((tree));
+extern bool cxx_mark_addressable		PARAMS ((tree));
 extern int toplevel_bindings_p			PARAMS ((void));
 extern int namespace_bindings_p			PARAMS ((void));
 extern void keep_next_level			PARAMS ((int));
@@ -3908,8 +3913,10 @@ extern void check_handlers			PARAMS ((tree));
 extern void choose_personality_routine		PARAMS ((enum languages));
 
 /* in expr.c */
-extern void init_cplus_expand			PARAMS ((void));
 extern int extract_init				PARAMS ((tree, tree));
+extern rtx cxx_expand_expr			PARAMS ((tree, rtx,
+							 enum machine_mode,
+							 int));
 extern tree cplus_expand_constant               PARAMS ((tree));
 
 /* friend.c */
@@ -3969,7 +3976,7 @@ extern tree build_lang_decl			PARAMS ((enum tree_code, tree, tree));
 extern void retrofit_lang_decl			PARAMS ((tree));
 extern tree copy_decl                           PARAMS ((tree));
 extern tree copy_type                           PARAMS ((tree));
-extern tree cp_make_lang_type			PARAMS ((enum tree_code));
+extern tree cxx_make_type			PARAMS ((enum tree_code));
 extern tree make_aggr_type			PARAMS ((enum tree_code));
 extern void compiler_error			PARAMS ((const char *, ...))
   ATTRIBUTE_PRINTF_1;
@@ -4115,8 +4122,6 @@ extern tree dfs_walk_real                      PARAMS ((tree,
 extern tree dfs_unmark                          PARAMS ((tree, void *));
 extern tree markedp                             PARAMS ((tree, void *));
 extern tree unmarkedp                           PARAMS ((tree, void *));
-extern tree dfs_skip_nonprimary_vbases_unmarkedp PARAMS ((tree, void *));
-extern tree dfs_skip_nonprimary_vbases_markedp  PARAMS ((tree, void *));
 extern tree dfs_unmarked_real_bases_queue_p     PARAMS ((tree, void *));
 extern tree dfs_marked_real_bases_queue_p       PARAMS ((tree, void *));
 extern tree dfs_skip_vbases                     PARAMS ((tree, void *));
@@ -4241,6 +4246,7 @@ extern void end_input				PARAMS ((void));
 /* in tree.c */
 extern tree stabilize_expr		PARAMS ((tree, tree *));
 extern tree cxx_unsave_expr_now		PARAMS ((tree));
+extern tree cxx_maybe_build_cleanup		PARAMS ((tree));
 extern void init_tree			        PARAMS ((void));
 extern int pod_type_p				PARAMS ((tree));
 extern tree canonical_type_variant              PARAMS ((tree));

@@ -104,7 +104,7 @@ static void find_in_imports PARAMS ((tree, tree));
 static void check_inner_class_access PARAMS ((tree, tree, tree));
 static int check_pkg_class_access PARAMS ((tree, tree, bool));
 static void register_package PARAMS ((tree));
-static tree resolve_package PARAMS ((tree, tree *));
+static tree resolve_package PARAMS ((tree, tree *, tree *));
 static tree lookup_package_type PARAMS ((const char *, int));
 static tree resolve_class PARAMS ((tree, tree, tree, tree));
 static void declare_local_variables PARAMS ((int, tree, tree));
@@ -4209,6 +4209,13 @@ lookup_field_wrapper (class, name)
       decl = lookup_field (&type, name);
     }
 
+  /* If the field still hasn't been found, try the next enclosing context. */
+  if (!decl && INNER_CLASS_TYPE_P (class))
+    {
+      tree outer_type = TREE_TYPE (DECL_CONTEXT (TYPE_NAME (class)));
+      decl = lookup_field_wrapper (outer_type, name);
+    }
+
   java_parser_context_restore_global ();
   return decl == error_mark_node ? NULL : decl;
 }
@@ -5238,14 +5245,23 @@ check_inner_circular_reference (source, target)
 
   if (!basetype_vec)
     return NULL_TREE;
-  
+
   for (i = 0; i < TREE_VEC_LENGTH (basetype_vec); i++)
     {
-      tree su = BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i));
+      tree su;
+
+      /* We can end up with a NULL_TREE or an incomplete type here if
+	 we encountered previous type resolution errors. It's safe to
+	 simply ignore these cases.  */
+      if (TREE_VEC_ELT (basetype_vec, i) == NULL_TREE)
+	continue;
+      su = BINFO_TYPE (TREE_VEC_ELT (basetype_vec, i));
+      if (INCOMPLETE_TYPE_P (su))
+	continue;
 
       if (inherits_from_p (su, target))
 	return lookup_cl (TYPE_NAME (su));
-      
+
       for (ctx = DECL_CONTEXT (TYPE_NAME (su)); ctx; ctx = DECL_CONTEXT (ctx))
 	{
 	  /* An enclosing context shouldn't be TARGET */
@@ -5852,18 +5868,20 @@ do_resolve_class (enclosing, class_type, decl, cl)
      applicable and use the matching DECL instead. */
   if (!decl_result && QUALIFIED_P (TYPE_NAME (class_type)))
     {
-      tree name = TYPE_NAME (class_type);
       char *separator;
+      tree name = TYPE_NAME (class_type);
+      char *namebuffer = alloca (IDENTIFIER_LENGTH (name) + 1);
+
+      strcpy (namebuffer, IDENTIFIER_POINTER (name));
+
       do {
 
        /* Reach the last '.', and if applicable, replace it by a `$' and
           see if this exists as a type. */
-       if ((separator = strrchr (IDENTIFIER_POINTER (name), '.')))
+       if ((separator = strrchr (namebuffer, '.')))
          {
-           int c = *separator;
            *separator = '$';
-           name = get_identifier (IDENTIFIER_POINTER (name));
-           *separator = c;
+           name = get_identifier (namebuffer);
            decl_result = IDENTIFIER_CLASS_VALUE (name);
          }
       } while (!decl_result && separator);
@@ -7024,49 +7042,32 @@ register_package (name)
 }
 
 static tree
-resolve_package (pkg, next)
-     tree pkg, *next;
+resolve_package (pkg, next, type_name)
+     tree pkg, *next, *type_name;
 {
-  tree current, acc;
-  tree type_name = NULL_TREE;
-  const char *name = IDENTIFIER_POINTER (EXPR_WFL_NODE (pkg));
+  tree current;
+  tree decl = NULL_TREE;
+  *type_name = NULL_TREE;
 
   /* The trick is to determine when the package name stops and were
      the name of something contained in the package starts. Then we
      return a fully qualified name of what we want to get. */
 
-  /* Do a quick search on well known package names */
-  if (!strncmp (name, "java.lang.reflect", 17))
-    {
-      *next = 
-	TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (EXPR_WFL_QUALIFICATION (pkg))));
-      type_name = lookup_package_type (name, 17);
-    }
-  else if (!strncmp (name, "java.lang", 9))
-    {
-      *next = TREE_CHAIN (TREE_CHAIN (EXPR_WFL_QUALIFICATION (pkg)));
-      type_name = lookup_package_type (name, 9);
-    }
-
-  /* If we found something here, return */
-  if (type_name)
-    return type_name; 
-
   *next = EXPR_WFL_QUALIFICATION (pkg);
 
   /* Try to progressively construct a type name */
   if (TREE_CODE (pkg) == EXPR_WITH_FILE_LOCATION)
-    for (acc = NULL_TREE, current = EXPR_WFL_QUALIFICATION (pkg); 
+    for (current = EXPR_WFL_QUALIFICATION (pkg); 
 	 current; current = TREE_CHAIN (current))
       {
 	/* If we don't have what we're expecting, exit now. TYPE_NAME
 	   will be null and the error caught later. */
 	if (TREE_CODE (QUAL_WFL (current)) != EXPR_WITH_FILE_LOCATION)
 	  break;
-	acc = merge_qualified_name (acc, EXPR_WFL_NODE (QUAL_WFL (current)));
-	if ((type_name = resolve_no_layout (acc, NULL_TREE)))
+	*type_name = 
+	  merge_qualified_name (*type_name, EXPR_WFL_NODE (QUAL_WFL (current)));
+	if ((decl = resolve_no_layout (*type_name, NULL_TREE)))
 	  {
-	    type_name = acc;
 	    /* resolve_package should be used in a loop, hence we
 	       point at this one to naturally process the next one at
 	       the next iteration. */
@@ -7074,22 +7075,9 @@ resolve_package (pkg, next)
 	    break;
 	  }
       }
-  return type_name;
+  return decl;
 }
 
-static tree
-lookup_package_type (name, from)
-     const char *name;
-     int from;
-{
-  char subname [128];
-  const char *sub = &name[from+1];
-  while (*sub != '.' && *sub)
-    sub++;
-  strncpy (subname, name, sub-name);
-  subname [sub-name] = '\0';
-  return get_identifier (subname);
-}
 
 /* Check accessibility of inner classes according to member access rules. 
    DECL is the inner class, ENCLOSING_DECL is the class from which the
@@ -9670,11 +9658,12 @@ resolve_qualified_expression_name (wfl, found_decl, where_found, type_found)
 	 assume a variable/class name was meant. */
       if (RESOLVE_PACKAGE_NAME_P (qual_wfl))
 	{
-	  tree name = resolve_package (wfl, &q);
-	  if (name)
+	  tree name;
+	  if ((decl = resolve_package (wfl, &q, &name)))
 	    {
 	      tree list;
-	      *where_found = decl = resolve_no_layout (name, qual_wfl);
+	      *where_found = decl;
+
 	      /* We want to be absolutely sure that the class is laid
                  out. We're going to search something inside it. */
 	      *type_found = type = TREE_TYPE (decl);
@@ -9704,7 +9693,7 @@ resolve_qualified_expression_name (wfl, found_decl, where_found, type_found)
 	      else
 		parse_error_context
 		  (qual_wfl, "Undefined variable or class name: `%s'",
-		   IDENTIFIER_POINTER (EXPR_WFL_NODE (qual_wfl)));
+		   IDENTIFIER_POINTER (name));
 	      return 1;
 	    }
 	}
@@ -9804,7 +9793,7 @@ resolve_qualified_expression_name (wfl, found_decl, where_found, type_found)
 		    (qual_wfl, "Attempt to reference field `%s' in `%s %s'",
 		     IDENTIFIER_POINTER (EXPR_WFL_NODE (qual_wfl)),
 		     lang_printable_name (type, 0),
-		     IDENTIFIER_POINTER (DECL_NAME (field_decl)));
+		     IDENTIFIER_POINTER (DECL_NAME (decl)));
 		  return 1;
 		}
 	      
@@ -13413,7 +13402,7 @@ patch_binop (node, wfl_op1, wfl_op2)
       if (code == URSHIFT_EXPR && ! flag_emit_class_files)
 	{
 	  tree to_return;
-          tree utype = unsigned_type (prom_type);
+          tree utype = java_unsigned_type (prom_type);
           op1 = convert (utype, op1);
 	  TREE_SET_CODE (node, RSHIFT_EXPR);
           TREE_OPERAND (node, 0) = op1;
@@ -16013,6 +16002,10 @@ init_src_parse ()
 {
   /* Register roots with the garbage collector.  */
   ggc_add_tree_root (src_parse_roots, ARRAY_SIZE (src_parse_roots));
+
+  /* Sanity check; we've been bit by this before.  */
+  if (ARRAY_SIZE (ctxp->modifier_ctx) != MODIFIER_TK - PUBLIC_TK)
+    abort ();
 }
 
 

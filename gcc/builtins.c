@@ -639,7 +639,7 @@ void
 expand_builtin_longjmp (buf_addr, value)
      rtx buf_addr, value;
 {
-  rtx fp, lab, stack, insn;
+  rtx fp, lab, stack, insn, last;
   enum machine_mode sa_mode = STACK_SAVEAREA_MODE (SAVE_NONLOCAL);
 
   if (setjmp_alias_set == -1)
@@ -662,6 +662,7 @@ expand_builtin_longjmp (buf_addr, value)
 
   current_function_calls_longjmp = 1;
 
+  last = get_last_insn ();
 #ifdef HAVE_builtin_longjmp
   if (HAVE_builtin_longjmp)
     emit_insn (gen_builtin_longjmp (buf_addr));
@@ -707,6 +708,8 @@ expand_builtin_longjmp (buf_addr, value)
      internal exception handling use only.  */
   for (insn = get_last_insn (); insn; insn = PREV_INSN (insn))
     {
+      if (insn == last)
+	abort ();
       if (GET_CODE (insn) == JUMP_INSN)
 	{
 	  REG_NOTES (insn) = alloc_EXPR_LIST (REG_NON_LOCAL_GOTO, const0_rtx,
@@ -3076,7 +3079,7 @@ expand_builtin_va_arg (valist, type)
   else if ((promoted_type = (*lang_type_promotes_to) (type)) != NULL_TREE)
     {
       const char *name = "<anonymous type>", *pname = 0;
-      static int gave_help;
+      static bool gave_help;
 
       if (TYPE_NAME (type))
 	{
@@ -3095,13 +3098,24 @@ expand_builtin_va_arg (valist, type)
 	    pname = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (promoted_type)));
 	}
 
-      error ("`%s' is promoted to `%s' when passed through `...'", name, pname);
+      /* Unfortunately, this is merely undefined, rather than a constraint
+	 violation, so we cannot make this an error.  If this call is never
+	 executed, the program is still strictly conforming.  */
+      warning ("`%s' is promoted to `%s' when passed through `...'",
+	       name, pname);
       if (! gave_help)
 	{
-	  gave_help = 1;
-	  error ("(so you should pass `%s' not `%s' to `va_arg')", pname, name);
+	  gave_help = true;
+	  warning ("(so you should pass `%s' not `%s' to `va_arg')",
+		   pname, name);
 	}
 
+      /* We can, however, treat "undefined" any way we please.
+	 Call abort to encourage the user to fix the program.  */
+      expand_builtin_trap ();
+
+      /* This is dead code, but go ahead and finish so that the
+	 mode of the result comes out right.  */
       addr = const0_rtx;
     }
   else
@@ -3553,6 +3567,18 @@ expand_builtin_expect_jump (exp, if_false_label, if_true_label)
 
   return ret;
 }
+
+void
+expand_builtin_trap ()
+{
+#ifdef HAVE_trap
+  if (HAVE_trap)
+    emit_insn (gen_trap ());
+  else
+#endif
+    emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
+  emit_barrier ();
+}
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -3887,13 +3913,7 @@ expand_builtin (exp, target, subtarget, mode, ignore)
 	}
 
     case BUILT_IN_TRAP:
-#ifdef HAVE_trap
-      if (HAVE_trap)
-	emit_insn (gen_trap ());
-      else
-#endif
-	error ("__builtin_trap not supported by this target");
-      emit_barrier ();
+      expand_builtin_trap ();
       return const0_rtx;
 
     case BUILT_IN_PUTCHAR:

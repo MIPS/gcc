@@ -56,6 +56,15 @@ lhd_return_tree (t)
   return t;
 }
 
+/* Do nothing (return NULL_TREE).  */
+
+tree
+lhd_return_null_tree (t)
+     tree t ATTRIBUTE_UNUSED;
+{
+  return NULL_TREE;
+}
+
 /* Do nothing; the default hook to decode an option.  */
 
 int
@@ -84,6 +93,15 @@ lhd_safe_from_p (x, exp)
      tree exp ATTRIBUTE_UNUSED;
 {
   return 1;
+}
+
+/* Called from unsafe_for_reeval.  */
+
+int
+lhd_unsafe_for_reeval (t)
+     tree t ATTRIBUTE_UNUSED;
+{
+  return -1;
 }
 
 /* Called from staticp.  */
@@ -132,6 +150,18 @@ hook_get_alias_set_0 (t)
      tree t ATTRIBUTE_UNUSED;
 {
   return 0;
+}
+
+/* This is the default expand_expr function.  */
+
+rtx
+lhd_expand_expr (t, r, mm, em)
+     tree t ATTRIBUTE_UNUSED;
+     rtx r ATTRIBUTE_UNUSED;
+     enum machine_mode mm ATTRIBUTE_UNUSED;
+     int em ATTRIBUTE_UNUSED;
+{
+  abort ();
 }
 
 /* This is the default decl_printable_name function.  */

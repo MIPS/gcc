@@ -441,7 +441,7 @@ java_init_decl_processing ()
   set_sizetype (make_unsigned_type (POINTER_SIZE));
 
   /* Define these next since types below may used them.  */
-  integer_type_node = type_for_size (INT_TYPE_SIZE, 0);
+  integer_type_node = java_type_for_size (INT_TYPE_SIZE, 0);
   integer_zero_node = build_int_2 (0, 0);
   integer_one_node = build_int_2 (1, 0);
   integer_two_node = build_int_2 (2, 0);
@@ -1565,17 +1565,6 @@ java_dup_lang_specific_decl (node)
   DECL_LANG_SPECIFIC (node) = x;
 }
 
-/* If DECL has a cleanup, build and return that cleanup here.
-   This is a callback called by expand_expr.  */
-
-tree
-maybe_build_cleanup (decl)
-  tree decl ATTRIBUTE_UNUSED;
-{
-  /* There are no cleanups in Java (I think).  */
-  return NULL_TREE;
-}
-
 void
 give_name_to_locals (jcf)
      JCF *jcf;
@@ -1846,7 +1835,7 @@ end_java_method ()
 /* Mark language-specific parts of T for garbage-collection.  */
 
 void
-lang_mark_tree (t)
+java_mark_tree (t)
      tree t;
 {
   if (TREE_CODE (t) == IDENTIFIER_NODE)

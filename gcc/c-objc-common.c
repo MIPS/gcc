@@ -217,13 +217,12 @@ c_objc_common_init (filename)
   c_init_decl_processing ();
 
   filename = c_common_init (filename);
-
-  lang_unsafe_for_reeval = c_unsafe_for_reeval;
+  if (filename == NULL)
+    return NULL;
 
   save_lang_status = &push_c_function_context;
   restore_lang_status = &pop_c_function_context;
   mark_lang_status = &mark_c_function_context;
-  lang_expand_expr = c_expand_expr;
   lang_expand_decl_stmt = c_expand_decl_stmt;
 
   /* These were not defined in the Objective-C front end, but I'm
@@ -325,7 +324,7 @@ finish_cdtor (body)
 
   RECHAIN_STMTS (body, COMPOUND_BODY (body));
 
-  finish_function (0);
+  finish_function (0, 0);
 }
 
 /* Called at end of parsing, but before end-of-file processing.  */

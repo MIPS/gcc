@@ -220,7 +220,7 @@ in the following sections.
 -Wimplicit  -Wimplicit-int  @gol
 -Wimplicit-function-declaration @gol
 -Werror-implicit-function-declaration @gol
--Wimport  -Winline @gol
+-Wimport  -Winline -Wno-endif-labels @gol
 -Wlarger-than-@var{len}  -Wlong-long @gol
 -Wmain  -Wmissing-braces  -Wmissing-declarations @gol
 -Wmissing-format-attribute  -Wmissing-noreturn @gol
@@ -228,8 +228,8 @@ in the following sections.
 -Wno-import  -Wpacked  -Wpadded @gol
 -Wparentheses  -Wpointer-arith  -Wredundant-decls @gol
 -Wreturn-type  -Wsequence-point  -Wshadow @gol
--Wsign-compare  -Wswitch  -Wsystem-headers @gol
--Wtrigraphs  -Wundef  -Wuninitialized @gol
+-Wsign-compare  -Wswitch  -Wswitch-default -Wswitch-enum @gol
+-Wsystem-headers -Wtrigraphs  -Wundef  -Wuninitialized @gol
 -Wunknown-pragmas  -Wunreachable-code @gol
 -Wunused  -Wunused-function  -Wunused-label  -Wunused-parameter @gol
 -Wunused-value  -Wunused-variable  -Wwrite-strings}
@@ -266,7 +266,7 @@ in the following sections.
 -fdelayed-branch  -fdelete-null-pointer-checks @gol
 -fexpensive-optimizations  -ffast-math  -ffloat-store @gol
 -fforce-addr  -fforce-mem  -ffunction-sections @gol
--fgcse  -fgcse-lm  -fgcse-sm @gol
+-fgcse  -fgcse-lm  -fgcse-sm -floop-optimize -fcrossjumping @gol
 -finline-functions  -finline-limit=@var{n}  -fkeep-inline-functions @gol
 -fkeep-static-consts  -fmerge-constants  -fmerge-all-constants @gol
 -fmove-all-movables  -fno-default-inline  -fno-defer-pop @gol
@@ -349,10 +349,10 @@ in the following sections.
 -mcmodel=@var{code-model} @gol
 -m32  -m64 @gol
 -mapp-regs  -mbroken-saverestore  -mcypress @gol
--mepilogue  -mfaster-structs  -mflat @gol
+-mfaster-structs  -mflat @gol
 -mfpu  -mhard-float  -mhard-quad-float @gol
 -mimpure-text  -mlive-g0  -mno-app-regs @gol
--mno-epilogue  -mno-faster-structs  -mno-flat  -mno-fpu @gol
+-mno-faster-structs  -mno-flat  -mno-fpu @gol
 -mno-impure-text  -mno-stack-bias  -mno-unaligned-doubles @gol
 -msoft-float  -msoft-quad-float  -msparclite  -mstack-bias @gol
 -msupersparc  -munaligned-doubles  -mv8}
@@ -1749,7 +1749,9 @@ negative form beginning @samp{-Wno-} to turn off warnings;
 for example, @option{-Wno-implicit}.  This manual lists only one of the
 two forms, whichever is not the default.
 
-These options control the amount and kinds of warnings produced by GCC:
+The following options control the amount and kinds of warnings produced
+by GCC; for further, language-specific options also refer to
+@ref{C++ Dialect Options} and @ref{Objective-C Dialect Options}.
 
 @table @gcctabopt
 @cindex syntax checking
@@ -2032,6 +2034,18 @@ Warn whenever a @code{switch} statement has an index of enumeral type
 and lacks a @code{case} for one or more of the named codes of that
 enumeration.  (The presence of a @code{default} label prevents this
 warning.)  @code{case} labels outside the enumeration range also
+provoke warnings when this option is used.
+
+@item -Wswitch-default
+@opindex Wswitch-switch
+Warn whenever a @code{switch} statement does not have a @code{default}
+case.
+
+@item -Wswitch-enum
+@opindex Wswitch-enum
+Warn whenever a @code{switch} statement has an index of enumeral type
+and lacks a @code{case} for one or more of the named codes of that
+enumeration.  @code{case} labels outside the enumeration range also
 provoke warnings when this option is used.
 
 @item -Wtrigraphs
@@ -2383,6 +2397,10 @@ conversion warnings, for the full set use @option{-Wconversion}.
 @item -Wundef
 @opindex Wundef
 Warn if an undefined identifier is evaluated in an @samp{#if} directive.
+
+@item -Wendif-labels
+@opindex Wendif-labels
+Warn whenever an @samp{#else} or an @samp{#endif} are followed by text.
 
 @item -Wshadow
 @opindex Wshadow
@@ -3497,6 +3515,17 @@ When @option{-fgcse-sm} is enabled, A store motion pass is run after global comm
 subexpression elimination.  This pass will attempt to move stores out of loops.
 When used in conjunction with @option{-fgcse-lm}, loops containing a load/store sequence
 can be changed to a load before the loop and a store after the loop.
+
+@item -floop-optimize
+@opindex floop-optimize
+Perform loop optimizations: move constant expressions out of loops, simplify
+exit test conditions and optionally do strength-reduction and loop unrolling as
+well.
+
+@item -fcrossjumping
+@opindex crossjumping
+Perform cross-jumping transformation. This transformation unifies equivalent code and save code size. The
+resulting code may or may not perform better than without cross-jumping.
 
 @item -fdelete-null-pointer-checks
 @opindex fdelete-null-pointer-checks
@@ -5146,18 +5175,6 @@ a trap handler for one of these instructions, and then the trap handler
 emulates the effect of the instruction.  Because of the trap handler overhead,
 this is much slower than calling the ABI library routines.  Thus the
 @option{-msoft-quad-float} option is the default.
-
-@item -mno-epilogue
-@itemx -mepilogue
-@opindex mno-epilogue
-@opindex mepilogue
-With @option{-mepilogue} (the default), the compiler always emits code for
-function exit at the end of each function.  Any function exit in
-the middle of the function (such as a return statement in C) will
-generate a jump to the exit code at the end of the function.
-
-With @option{-mno-epilogue}, the compiler tries to emit exit code inline
-at every function exit.
 
 @item -mno-flat
 @itemx -mflat
@@ -7349,9 +7366,12 @@ in ordinary CPU registers instead.
 @opindex mno-fancy-math-387
 Some 387 emulators do not support the @code{sin}, @code{cos} and
 @code{sqrt} instructions for the 387.  Specify this option to avoid
-generating those instructions.  This option is the default on FreeBSD@.
-As of revision 2.6.1, these instructions are not generated unless you
-also use the @option{-funsafe-math-optimizations} switch.
+generating those instructions.  This option is the default on FreeBSD,
+OpenBSD and NetBSD@.  This option is overridden when @option{-march}
+indicates that the target cpu will always have an FPU and so the
+instruction will not need emulation.  As of revision 2.6.1, these
+instructions are not generated unless you also use the
+@option{-funsafe-math-optimizations} switch.
 
 @item -malign-double
 @itemx -mno-align-double

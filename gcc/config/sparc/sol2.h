@@ -23,17 +23,26 @@ Boston, MA 02111-1307, USA.  */
 
 /* Supposedly the same as vanilla sparc svr4, except for the stuff below: */
 
+/* Solaris 2 (at least as of 2.5.1) uses a 32-bit wchar_t.  */
+#undef WCHAR_TYPE
+#define WCHAR_TYPE "long int"
+
+#undef WCHAR_TYPE_SIZE
+#define WCHAR_TYPE_SIZE 32
+
 /* Solaris 2 uses a wint_t different from the default. This is required
    by the SCD 2.4.1, p. 6-83, Figure 6-66.  */
 #undef	WINT_TYPE
 #define	WINT_TYPE "long int"
 
 #undef	WINT_TYPE_SIZE
-#define	WINT_TYPE_SIZE BITS_PER_WORD
+#define	WINT_TYPE_SIZE 32
+
+#define HANDLE_PRAGMA_REDEFINE_EXTNAME 1
 
 #undef CPP_PREDEFINES
 #define CPP_PREDEFINES \
-"-Dsparc -Dsun -Dunix -D__svr4__ -D__SVR4 \
+"-Dsparc -Dsun -Dunix -D__svr4__ -D__SVR4 -D__PRAGMA_REDEFINE_EXTNAME \
 -Asystem=unix -Asystem=svr4"
 
 #undef CPP_SUBTARGET_SPEC
@@ -94,6 +103,9 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_OUTPUT_SKIP
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
   fprintf (FILE, "\t.skip %u\n", (SIZE))
+
+#undef  LOCAL_LABEL_PREFIX
+#define LOCAL_LABEL_PREFIX  "."
 
 /* This is how to output a definition of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.  */
@@ -225,7 +237,7 @@ Boston, MA 02111-1307, USA.  */
 /* Solaris allows 64 bit out and global registers in 32 bit mode.
    sparc_override_options will disable V8+ if not generating V9 code.  */
 #undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_EPILOGUE + MASK_FPU + MASK_V8PLUS + MASK_LONG_DOUBLE_128)
+#define TARGET_DEFAULT (MASK_FPU + MASK_V8PLUS + MASK_LONG_DOUBLE_128)
 
 /*
  * Attempt to turn on access permissions for the stack.

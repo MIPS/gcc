@@ -30,15 +30,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "hashtab.h"
 #include "varray.h"
 #include "ggc.h"
+#include "langhooks.h"
 
 /* Statistics about the allocation.  */
 static ggc_statistics *ggc_stats;
-
-/* The FALSE_LABEL_STACK, declared in except.h, has language-dependent
-   semantics.  If a front-end needs to mark the false label stack, it
-   should set this pointer to a non-NULL value.  Otherwise, no marking
-   will be done.  */
-void (*lang_mark_false_label_stack) PARAMS ((struct label_node *));
 
 /* Trees that have been marked, but whose children still need marking.  */
 varray_type ggc_pending_trees;
@@ -442,7 +437,7 @@ ggc_mark_trees ()
 	  break;
 
 	case IDENTIFIER_NODE:
-	  lang_mark_tree (t);
+	  (*lang_hooks.mark_tree) (t);
 	  continue;
 
 	default:
@@ -476,7 +471,7 @@ ggc_mark_trees ()
 	      if (DECL_SAVED_INSNS (t))
 		ggc_mark_struct_function (DECL_SAVED_INSNS (t));
 	    }
-	  lang_mark_tree (t);
+	  (*lang_hooks.mark_tree) (t);
 	  break;
 
 	case 't': /* A type node.  */
@@ -493,7 +488,7 @@ ggc_mark_trees ()
 	  ggc_mark_tree (TYPE_MAIN_VARIANT (t));
 	  ggc_mark_tree (TYPE_BINFO (t));
 	  ggc_mark_tree (TYPE_CONTEXT (t));
-	  lang_mark_tree (t);
+	  (*lang_hooks.mark_tree) (t);
 	  break;
 
 	case 'b': /* A lexical block.  */
@@ -524,7 +519,7 @@ ggc_mark_trees ()
 	  }
 
 	case 'x':
-	  lang_mark_tree (t);
+	  (*lang_hooks.mark_tree) (t);
 	  break;
 	}
     }

@@ -21,6 +21,10 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_LANG_HOOKS_H
 #define GCC_LANG_HOOKS_H
 
+/* This file should be #include-d after tree.h.  */
+
+struct diagnostic_context;
+
 /* A print hook for print_tree ().  */
 typedef void (*lang_print_tree_hook) PARAMS ((FILE *, tree, int indent));
 
@@ -63,6 +67,35 @@ struct lang_hooks_for_tree_dump
 
   /* Determine type qualifiers in a language-specific way.  */
   int (*type_quals) PARAMS ((tree));
+};
+
+/* Hooks related to types.  */
+
+struct lang_hooks_for_types
+{
+  /* Return a new type (with the indicated CODE), doing whatever
+     language-specific processing is required.  */
+  tree (*make_type) PARAMS ((enum tree_code));
+  
+  /* Given MODE and UNSIGNEDP, return a suitable type-tree with that
+     mode.  */
+  tree (*type_for_mode) PARAMS ((enum machine_mode, int));
+
+  /* Given PRECISION and UNSIGNEDP, return a suitable type-tree for an
+     integer type with at least that precision.  */
+  tree (*type_for_size) PARAMS ((unsigned, int));
+
+  /* Given an integer type T, return a type like T but unsigned.
+     If T is unsigned, the value is T.  */
+  tree (*unsigned_type) PARAMS ((tree));
+
+  /* Given an integer type T, return a type like T but signed.
+     If T is signed, the value is T.  */
+  tree (*signed_type) PARAMS ((tree));
+
+  /* Return a type the same as TYPE except unsigned or signed
+     according to UNSIGNEDP.  */
+  tree (*signed_or_unsigned_type) PARAMS ((int, tree));
 };
 
 /* Language hooks related to decls and the symbol table.  */
@@ -159,6 +192,14 @@ struct lang_hooks
      constant equivalent to its input.  */
   tree (*expand_constant) PARAMS ((tree));
 
+  /* Called by expand_expr for language-specific tree codes.
+     Fourth argument is actually an enum expand_modifier.  */
+  rtx (*expand_expr) PARAMS ((tree, rtx, enum machine_mode, int));
+
+  /* Possibly apply default attributes to a function (represented by
+     a FUNCTION_DECL).  */
+  void (*insert_default_attributes) PARAMS ((tree));
+
   /* Hook called by safe_from_p for language-specific tree codes.  It is
      up to the language front-end to install a hook if it has any such
      codes that safe_from_p needs to know about.  Since same_from_p will
@@ -167,6 +208,20 @@ struct lang_hooks
      call safe_from_p; it should always pass `0' as the TOP_P
      parameter.  */
   int (*safe_from_p) PARAMS ((rtx, tree));
+
+  /* Function to finish handling an incomplete decl at the end of
+     compilation.  Default hook is does nothing.  */
+  void (*finish_incomplete_decl) PARAMS ((tree));
+
+  /* Function used by unsafe_for_reeval.  A non-negative number is
+     returned directly from unsafe_for_reeval, a negative number falls
+     through.  The default hook returns a negative number.  */
+  int (*unsafe_for_reeval) PARAMS ((tree));
+
+  /* Mark EXP saying that we need to be able to take the address of
+     it; it should not be allocated in a register.  Return true if
+     successful.  */
+  bool (*mark_addressable) PARAMS ((tree));
 
   /* Hook called by staticp for language-specific tree codes.  */
   int (*staticp) PARAMS ((tree));
@@ -179,6 +234,13 @@ struct lang_hooks
      unsaved.  Modify it in-place so that all the evaluate only once
      things are cleared out.  */
   tree (*unsave_expr_now) PARAMS ((tree));
+
+  /* Called by expand_expr to build and return the cleanup-expression
+     for the passed TARGET_EXPR.  Return NULL if there is none.  */
+  tree (*maybe_build_cleanup) PARAMS ((tree));
+
+  /* Mark nodes held through the lang_specific hooks in the tree.  */
+  void (*mark_tree) PARAMS ((tree));
 
   /* Nonzero if TYPE_READONLY and TREE_READONLY should always be honored.  */
   bool honor_readonly;
@@ -205,6 +267,10 @@ struct lang_hooks
      types in C++.  */
   const char *(*decl_printable_name) PARAMS ((tree decl, int verbosity));
 
+  /* Called by report_error_function to print out function name.  */
+  void (*print_error_function) PARAMS ((struct diagnostic_context *,
+					const char *));
+
   /* Set yydebug for bison-based parsers, when -dy is given on the
      command line.  By default, if the parameter is non-zero, prints a
      warning that the front end does not use such a parser.  */
@@ -215,6 +281,8 @@ struct lang_hooks
   struct lang_hooks_for_tree_dump tree_dump;
 
   struct lang_hooks_for_decls decls;
+
+  struct lang_hooks_for_types types;
 
   /* Whenever you add entries here, make sure you adjust langhooks-def.h
      and langhooks.c accordingly.  */

@@ -481,12 +481,6 @@ gnat_init_decl_processing ()
 {
   lineno = 0;
 
-  /* incomplete_decl_finalize_hook is defined in toplev.c. It needs to be set
-     by each front end to the appropriate routine that handles incomplete 
-     VAR_DECL nodes. This routine will be invoked by compile_file when a  
-     VAR_DECL node of DECL_SIZE zero is encountered.  */
-  incomplete_decl_finalize_hook = finish_incomplete_decl;
-
   /* Make the binding_level structure for global names.  */
   current_function_decl = 0;
   current_binding_level = 0;
@@ -499,7 +493,7 @@ gnat_init_decl_processing ()
   /* In Ada, we use a signed type for SIZETYPE.  Use the signed type
      corresponding to the size of ptr_mode.  Make this here since we need
      this before we can expand the GNAT types.  */
-  set_sizetype (type_for_size (GET_MODE_BITSIZE (ptr_mode), 0));
+  set_sizetype (gnat_type_for_size (GET_MODE_BITSIZE (ptr_mode), 0));
   build_common_tree_nodes_2 (0);
 
   pushdecl (build_decl (TYPE_DECL, get_identifier (SIZE_TYPE), sizetype));
@@ -543,7 +537,7 @@ init_gigi_decls (long_long_float_type, exception_type)
 
   except_type_node = TREE_TYPE (exception_type);
 
-  unsigned_type_node = type_for_size (INT_TYPE_SIZE, 1);
+  unsigned_type_node = gnat_type_for_size (INT_TYPE_SIZE, 1);
   pushdecl (build_decl (TYPE_DECL, get_identifier ("unsigned int"),
 			unsigned_type_node));
 
@@ -579,7 +573,7 @@ init_gigi_decls (long_long_float_type, exception_type)
 
   /* Make the types and functions used for exception processing.    */
   jmpbuf_type
-    = build_array_type (type_for_mode (Pmode, 0),
+    = build_array_type (gnat_type_for_mode (Pmode, 0),
 			build_index_type (build_int_2 (5, 0)));
   pushdecl (build_decl (TYPE_DECL, get_identifier ("JMPBUF_T"), jmpbuf_type));
   jmpbuf_ptr_type = build_pointer_type (jmpbuf_type);
@@ -709,7 +703,7 @@ incomplete_type_error (dont_care_1, dont_care_2)
    init_decl_processing.  */
 
 void
-finish_incomplete_decl (dont_care)
+gnat_finish_incomplete_decl (dont_care)
      tree dont_care ATTRIBUTE_UNUSED;
 {
   gigi_abort (405);
@@ -1367,7 +1361,7 @@ create_var_decl (var_name, asm_name, type, var_init, const_flag, public_flag,
 
   /* If this is volatile, force it into memory.  */
   if (TREE_SIDE_EFFECTS (var_decl))
-    mark_addressable (var_decl);
+    gnat_mark_addressable (var_decl);
 
   if (TREE_CODE (var_decl) != CONST_DECL)
     rest_of_decl_compilation (var_decl, 0, global_bindings_p (), 0);
@@ -1954,7 +1948,7 @@ builtin_function (name, type, function_code, class, library_name)
    it is a signed type.  */
 
 tree
-type_for_size (precision, unsignedp)
+gnat_type_for_size (precision, unsignedp)
      unsigned precision;
      int unsignedp;
 {
@@ -2015,23 +2009,23 @@ float_type_for_size (precision, mode)
    an unsigned type; otherwise a signed type is returned.  */
 
 tree
-type_for_mode (mode, unsignedp)
+gnat_type_for_mode (mode, unsignedp)
      enum machine_mode mode;
      int unsignedp;
 {
   if (GET_MODE_CLASS (mode) == MODE_FLOAT)
     return float_type_for_size (GET_MODE_BITSIZE (mode), mode);
   else
-    return type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
+    return gnat_type_for_size (GET_MODE_BITSIZE (mode), unsignedp);
 }
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
 
 tree
-unsigned_type (type_node)
+gnat_unsigned_type (type_node)
      tree type_node;
 {
-  tree type = type_for_size (TYPE_PRECISION (type_node), 1);
+  tree type = gnat_type_for_size (TYPE_PRECISION (type_node), 1);
 
   if (TREE_CODE (type_node) == INTEGER_TYPE && TYPE_MODULAR_P (type_node))
     {
@@ -2052,10 +2046,10 @@ unsigned_type (type_node)
 /* Return the signed version of a TYPE_NODE, a scalar type.  */
 
 tree
-signed_type (type_node)
+gnat_signed_type (type_node)
      tree type_node;
 {
-  tree type = type_for_size (TYPE_PRECISION (type_node), 0);
+  tree type = gnat_type_for_size (TYPE_PRECISION (type_node), 0);
 
   if (TREE_CODE (type_node) == INTEGER_TYPE && TYPE_MODULAR_P (type_node))
     {
@@ -2077,14 +2071,14 @@ signed_type (type_node)
    UNSIGNEDP.  */
 
 tree
-signed_or_unsigned_type (unsignedp, type)
+gnat_signed_or_unsigned_type (unsignedp, type)
      int unsignedp;
      tree type;
 {
   if (! INTEGRAL_TYPE_P (type) || TREE_UNSIGNED (type) == unsignedp)
     return type;
   else
-    return type_for_size (TYPE_PRECISION (type), unsignedp);
+    return gnat_type_for_size (TYPE_PRECISION (type), unsignedp);
 }
 
 /* EXP is an expression for the size of an object.  If this size contains
@@ -2401,14 +2395,16 @@ build_vms_descriptor (type, mech, gnat_entity)
   field_list
     = chainon (field_list,
 	       make_descriptor_field
-	       ("LENGTH", type_for_size (16, 1), record_type,
+	       ("LENGTH", gnat_type_for_size (16, 1), record_type,
 		size_in_bytes (mech == By_Descriptor_A ? inner_type : type)));
 
   field_list = chainon (field_list,
-			make_descriptor_field ("DTYPE", type_for_size (8, 1),
+			make_descriptor_field ("DTYPE",
+					       gnat_type_for_size (8, 1),
 					       record_type, size_int (dtype)));
   field_list = chainon (field_list,
-			make_descriptor_field ("CLASS", type_for_size (8, 1),
+			make_descriptor_field ("CLASS",
+					       gnat_type_for_size (8, 1),
 					       record_type, size_int (class)));
 
   field_list
@@ -2431,13 +2427,13 @@ build_vms_descriptor (type, mech, gnat_entity)
       field_list
 	= chainon (field_list,
 		   make_descriptor_field 
-		   ("SB_L1", type_for_size (32, 1), record_type,
+		   ("SB_L1", gnat_type_for_size (32, 1), record_type,
 		    TREE_CODE (type) == ARRAY_TYPE
 		    ? TYPE_MIN_VALUE (TYPE_DOMAIN (type)) : size_zero_node));
       field_list
 	= chainon (field_list,
 		   make_descriptor_field
-		   ("SB_L2", type_for_size (32, 1), record_type,
+		   ("SB_L2", gnat_type_for_size (32, 1), record_type,
 		    TREE_CODE (type) == ARRAY_TYPE
 		    ? TYPE_MAX_VALUE (TYPE_DOMAIN (type)) : size_zero_node));
       break;
@@ -2446,20 +2442,20 @@ build_vms_descriptor (type, mech, gnat_entity)
     case By_Descriptor_NCA:
       field_list = chainon (field_list,
 			    make_descriptor_field ("SCALE",
-						   type_for_size (8, 1),
+						   gnat_type_for_size (8, 1),
 						   record_type,
 						   size_zero_node));
 
       field_list = chainon (field_list,
 			    make_descriptor_field ("DIGITS",
-						   type_for_size (8, 1),
+						   gnat_type_for_size (8, 1),
 						   record_type,
 						   size_zero_node));
 
       field_list
 	= chainon (field_list,
 		   make_descriptor_field
-		   ("AFLAGS", type_for_size (8, 1), record_type,
+		   ("AFLAGS", gnat_type_for_size (8, 1), record_type,
 		    size_int (mech == By_Descriptor_NCA
 			      ? 0
 			      /* Set FL_COLUMN, FL_COEFF, and FL_BOUNDS.  */
@@ -2469,13 +2465,13 @@ build_vms_descriptor (type, mech, gnat_entity)
 
       field_list = chainon (field_list,
 			    make_descriptor_field ("DIMCT",
-						   type_for_size (8, 1),
+						   gnat_type_for_size (8, 1),
 						   record_type,
 						   size_int (ndim)));
 
       field_list = chainon (field_list,
 			    make_descriptor_field ("ARSIZE",
-						   type_for_size (32, 1),
+						   gnat_type_for_size (32, 1),
 						   record_type,
 						   size_in_bytes (type)));
 
@@ -2507,11 +2503,11 @@ build_vms_descriptor (type, mech, gnat_entity)
 
 	  fname[0] = (mech == By_Descriptor_NCA ? 'S' : 'M');
 	  fname[1] = '0' + i, fname[2] = 0;
-	  field_list = chainon (field_list,
-				make_descriptor_field (fname,
-						       type_for_size (32, 1),
-						       record_type,
-						       idx_length));
+	  field_list
+	    = chainon (field_list,
+		       make_descriptor_field (fname,
+					      gnat_type_for_size (32, 1),
+					      record_type, idx_length));
 
 	  if (mech == By_Descriptor_NCA)
 	    tem = idx_length;
@@ -2526,14 +2522,14 @@ build_vms_descriptor (type, mech, gnat_entity)
 	  field_list
 	    = chainon (field_list,
 		       make_descriptor_field
-		       (fname, type_for_size (32, 1), record_type,
+		       (fname, gnat_type_for_size (32, 1), record_type,
 			TYPE_MIN_VALUE (idx_arr[i])));
 
 	  fname[0] = 'U';
 	  field_list
 	    = chainon (field_list,
 		       make_descriptor_field
-		       (fname, type_for_size (32, 1), record_type,
+		       (fname, gnat_type_for_size (32, 1), record_type,
 			TYPE_MAX_VALUE (idx_arr[i])));
 	}
       break;
@@ -3348,7 +3344,8 @@ unchecked_convert (type, expr)
 				0))
       && ! (TREE_UNSIGNED (type) && TREE_UNSIGNED (etype)))
     {
-      tree base_type = type_for_mode (TYPE_MODE (type), TREE_UNSIGNED (type));
+      tree base_type = gnat_type_for_mode (TYPE_MODE (type),
+					   TREE_UNSIGNED (type));
       tree shift_expr
 	= convert (base_type,
 		   size_binop (MINUS_EXPR,

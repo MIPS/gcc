@@ -22,7 +22,8 @@ details.  */
 
 // These functions make the Win32 socket API look more POSIXy
 static inline int
-close(int s) {
+close(int s)
+{
   return closesocket(s);
 }
 
@@ -102,7 +103,6 @@ _Jv_accept (int fd, struct sockaddr *addr, socklen_t *addrlen)
 #include <gcj/cni.h>
 #include <gcj/javaprims.h>
 #include <java/io/IOException.h>
-#include <java/io/FileDescriptor.h>
 #include <java/io/InterruptedIOException.h>
 #include <java/net/BindException.h>
 #include <java/net/ConnectException.h>
@@ -234,8 +234,9 @@ java::net::PlainSocketImpl::create (jboolean stream)
 
   _Jv_platform_close_on_exec (sock);
 
+  // We use fnum in place of fd here.  From leaving fd null we avoid
+  // the double close problem in FileDescriptor.finalize.
   fnum = sock;
-  fd = new java::io::FileDescriptor (sock);
 }
 
 void
@@ -402,7 +403,6 @@ java::net::PlainSocketImpl::accept (java::net::PlainSocketImpl *s)
   s->localport = localport;
   s->address = new InetAddress (raddr, NULL);
   s->port = rport;
-  s->fd = new java::io::FileDescriptor (new_socket);
   return;
  error:
   char* strerr = strerror (errno);
@@ -413,6 +413,9 @@ java::net::PlainSocketImpl::accept (java::net::PlainSocketImpl *s)
 void
 java::net::PlainSocketImpl::close()
 {
+  // Avoid races from asynchronous finalization.
+  JvSynchronize sync (this);
+
   // should we use shutdown here? how would that effect so_linger?
   int res = ::close (fnum);
 
@@ -450,6 +453,7 @@ java::net::PlainSocketImpl::write(jint b)
 	  // Some errors should not cause exceptions.
 	  if (errno != ENOTCONN && errno != ECONNRESET && errno != EBADF)
 	    throw new java::io::IOException (JvNewStringUTF (strerror (errno)));
+	  break;
 	}
     }
 }
@@ -481,6 +485,7 @@ java::net::PlainSocketImpl::write(jbyteArray b, jint offset, jint len)
 	  // Some errors should not cause exceptions.
 	  if (errno != ENOTCONN && errno != ECONNRESET && errno != EBADF)
 	    throw new java::io::IOException (JvNewStringUTF (strerror (errno)));
+	  break;
 	}
       written += r;
       len -= r;

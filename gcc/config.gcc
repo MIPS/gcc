@@ -363,7 +363,7 @@ case $machine in
 	*-*-freebsd6 | *-*-freebsd[6].*) fbsd_tm_file="freebsd6.h";;
 	*) echo 'Please update *-*-freebsd* in gcc/config.gcc'; exit 1;;
 	esac
-	tmake_file=t-freebsd
+	tmake_file="t-slibgcc-elf-ver t-freebsd"
 	xmake_file=none
 	xm_defines=POSIX
 	case x${enable_threads} in
@@ -371,6 +371,12 @@ case $machine in
 	x | xyes | xpthreads | xposix)
 		thread_file='posix'
 		tmake_file="${tmake_file} t-freebsd-thread"
+		# Before 5.0, FreeBSD can't bind shared libraries to -lc
+		# when "optionally" threaded via weak pthread_* checks.
+		case $machine in
+		*-*-freebsd[34] | *-*-freebsd[34].*)
+			tmake_file="${tmake_file} t-slibgcc-nolc-override";;
+		esac
 		;;
 	*) echo 'Unknown thread configuration for FreeBSD'; exit 1;;
 	esac
@@ -3080,7 +3086,7 @@ sparcv9-*-solaris2* | sparc64-*-solaris2*)
 		tmake_file="$tmake_file t-slibgcc-sld"
 	fi
 	extra_parts="crt1.o crti.o crtn.o gcrt1.o crtbegin.o crtend.o"
-	float_format=none
+	float_format=sparc
 	if test x${enable_threads} = x ; then
 	    enable_threads=$have_pthread_h
 	    if test x${enable_threads} = x ; then
@@ -3110,7 +3116,7 @@ sparc-hal-solaris2*)
                 float_format=i128
         ;;
         *)
-                float_format=none
+                float_format=sparc
                 ;;
         esac
 	thread_file='solaris'
@@ -3147,7 +3153,7 @@ sparc-*-solaris2*)
 		float_format=i128
 		;;
 	*)
-		float_format=none
+		float_format=sparc
 		;;
 	esac
 	if test x${enable_threads} = x; then

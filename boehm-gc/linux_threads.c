@@ -231,15 +231,16 @@ static void return_freelists(ptr_t *fl, ptr_t *gfl)
 	nwords = i * (GRANULARITY/sizeof(word));
         qptr = fl + i;	
 	q = *qptr;
-	if ((word)q < HBLKSIZE) continue;
-	if (gfl[nwords] == 0) {
+	if ((word)q >= HBLKSIZE) {
+	  if (gfl[nwords] == 0) {
 	    gfl[nwords] = q;
-	} else {
+	  } else {
 	    /* Concatenate: */
 	    for (; (word)q >= HBLKSIZE; qptr = &(obj_link(q)), q = *qptr);
 	    GC_ASSERT(0 == q);
 	    *qptr = gfl[nwords];
 	    gfl[nwords] = fl[i];
+	  }
 	}
 	/* Clear fl[i], since the thread structure may hang around.	*/
 	/* Do it in a way that is likely to trap if we access it.	*/
@@ -412,6 +413,7 @@ GC_PTR GC_local_gcj_malloc(size_t bytes,
 	    /* A memory barrier is probably never needed, since the 	*/
 	    /* action of stopping this thread will cause prior writes	*/
 	    /* to complete.						*/
+	    GC_ASSERT(((void * volatile *)result)[1] == 0); 
 	    *(void * volatile *)result = ptr_to_struct_containing_descr; 
 	    return result;
 	} else if ((word)my_entry - 1 < DIRECT_GRANULES) {
@@ -544,7 +546,7 @@ static void start_mark_threads()
 	  ABORT("pthread_attr_getstacksize failed\n");
 	if (old_size < MIN_STACK_SIZE) {
 	  if (pthread_attr_setstacksize(&attr, MIN_STACK_SIZE) != 0)
-	    ABORT("pthread_attr_getstacksize failed\n");
+		  ABORT("pthread_attr_setstacksize failed\n");
 	}
       }
 #   endif /* HPUX */
@@ -1015,6 +1017,7 @@ int GC_get_nprocs()
 	WARN("Couldn't read /proc/stat\n", 0);
 	return -1;
     }
+    close(f);
     for (i = 0; i < len - 100; ++i) {
         if (stat_buf[i] == '\n' && stat_buf[i+1] == 'c'
 	    && stat_buf[i+2] == 'p' && stat_buf[i+3] == 'u') {
@@ -1358,6 +1361,9 @@ void * GC_start_routine(void * arg)
 	GC_printf1("start_routine = 0x%lx\n", start);
 #   endif
     start_arg = si -> arg;
+#   ifdef DEBUG_THREADS
+        GC_printf1("sem_post from 0x%lx\n", my_pthread);
+#   endif
     sem_post(&(si -> registered));	/* Last action on si.	*/
     					/* OK to deallocate.	*/
     pthread_cleanup_push(GC_thread_exit_proc, 0);
@@ -1426,6 +1432,10 @@ WRAP_FUNC(pthread_create)(pthread_t *new_thread,
         while (0 != sem_wait(&(si -> registered))) {
 	    if (EINTR != errno) ABORT("sem_wait failed");
 	}
+#   ifdef DEBUG_THREADS
+        GC_printf1("sem_wait complete from thread 0x%X\n",
+		   pthread_self());
+#   endif
         sem_destroy(&(si -> registered));
 	LOCK();
 	GC_INTERNAL_FREE(si);

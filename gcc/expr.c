@@ -2113,6 +2113,7 @@ emit_group_store (orig_dst, src, ssize)
       HOST_WIDE_INT bytepos = INTVAL (XEXP (XVECEXP (src, 0, i), 1));
       enum machine_mode mode = GET_MODE (tmps[i]);
       unsigned int bytelen = GET_MODE_SIZE (mode);
+      rtx dest = dst;
 
       /* Handle trailing fragments that run over the size of the struct.  */
       if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
@@ -2126,14 +2127,27 @@ emit_group_store (orig_dst, src, ssize)
 	  bytelen = ssize - bytepos;
 	}
 
+      if (GET_CODE (dst) == CONCAT)
+	{
+	  if (bytepos + bytelen <= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0))))
+	    dest = XEXP (dst, 0);
+	  else if (bytepos >= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0))))
+	    {
+	      bytepos -= GET_MODE_SIZE (GET_MODE (XEXP (dst, 0)));
+	      dest = XEXP (dst, 1);
+	    }
+	  else
+	    abort ();
+	}
+
       /* Optimize the access just a bit.  */
-      if (GET_CODE (dst) == MEM
-	  && MEM_ALIGN (dst) >= GET_MODE_ALIGNMENT (mode)
+      if (GET_CODE (dest) == MEM
+	  && MEM_ALIGN (dest) >= GET_MODE_ALIGNMENT (mode)
 	  && bytepos * BITS_PER_UNIT % GET_MODE_ALIGNMENT (mode) == 0
 	  && bytelen == GET_MODE_SIZE (mode))
-	emit_move_insn (adjust_address (dst, mode, bytepos), tmps[i]);
+	emit_move_insn (adjust_address (dest, mode, bytepos), tmps[i]);
       else
-	store_bit_field (dst, bytelen * BITS_PER_UNIT, bytepos * BITS_PER_UNIT,
+	store_bit_field (dest, bytelen * BITS_PER_UNIT, bytepos * BITS_PER_UNIT,
 			 mode, tmps[i], ssize);
     }
 
@@ -4007,14 +4021,13 @@ store_expr (exp, target, want_value)
 	{
 	  if (TREE_UNSIGNED (TREE_TYPE (exp))
 	      != SUBREG_PROMOTED_UNSIGNED_P (target))
-	    exp
-	      = convert
-		(signed_or_unsigned_type (SUBREG_PROMOTED_UNSIGNED_P (target),
-					  TREE_TYPE (exp)),
-		 exp);
+	    exp = convert
+	      ((*lang_hooks.types.signed_or_unsigned_type)
+	       (SUBREG_PROMOTED_UNSIGNED_P (target), TREE_TYPE (exp)), exp);
 
-	  exp = convert (type_for_mode (GET_MODE (SUBREG_REG (target)),
-					SUBREG_PROMOTED_UNSIGNED_P (target)),
+	  exp = convert ((*lang_hooks.types.type_for_mode)
+			 (GET_MODE (SUBREG_REG (target)),
+			  SUBREG_PROMOTED_UNSIGNED_P (target)),
 			 exp);
 
 	  inner_target = SUBREG_REG (target);
@@ -4512,7 +4525,8 @@ store_constructor (exp, target, cleared, size)
 
 	      if (TYPE_PRECISION (type) < BITS_PER_WORD)
 		{
-		  type = type_for_size (BITS_PER_WORD, TREE_UNSIGNED (type));
+		  type = (*lang_hooks.types.type_for_size)
+		    (BITS_PER_WORD, TREE_UNSIGNED (type));
 		  value = convert (type, value);
 		}
 
@@ -4941,7 +4955,8 @@ store_constructor (exp, target, cleared, size)
 	    {
 	      targetx
 		= assign_temp
-		  ((build_qualified_type (type_for_mode (GET_MODE (target), 0),
+		  ((build_qualified_type ((*lang_hooks.types.type_for_mode)
+					  (GET_MODE (target), 0),
 					  TYPE_QUAL_CONST)),
 		   0, 1, 1);
 	      emit_move_insn (targetx, target);
@@ -6232,7 +6247,7 @@ expand_expr (exp, target, tmode, modifier)
 	  DECL_NONLOCAL (exp) = 1;
 	  if (DECL_NO_STATIC_CHAIN (current_function_decl))
 	    abort ();
-	  mark_addressable (exp);
+	  (*lang_hooks.mark_addressable) (exp);
 	  if (GET_CODE (DECL_RTL (exp)) != MEM)
 	    abort ();
 	  addr = XEXP (DECL_RTL (exp), 0);
@@ -6289,7 +6304,8 @@ expand_expr (exp, target, tmode, modifier)
 	  /* Get the signedness used for this variable.  Ensure we get the
 	     same mode we got when the variable was declared.  */
 	  if (GET_MODE (DECL_RTL (exp))
-	      != promote_mode (type, DECL_MODE (exp), &unsignedp, 0))
+	      != promote_mode (type, DECL_MODE (exp), &unsignedp, 
+			       (TREE_CODE (exp) == RESULT_DECL ? 1 : 0)))
 	    abort ();
 
 	  temp = gen_lowpart_SUBREG (mode, DECL_RTL (exp));
@@ -7000,7 +7016,8 @@ expand_expr (exp, target, tmode, modifier)
 	    if (mode == BLKmode)
 	      {
 		rtx new = assign_temp (build_qualified_type
-				       (type_for_mode (ext_mode, 0),
+				       ((*lang_hooks.types.type_for_mode)
+					(ext_mode, 0),
 					TYPE_QUAL_CONST), 0, 1, 1);
 
 		emit_move_insn (new, op0);
@@ -7225,7 +7242,8 @@ expand_expr (exp, target, tmode, modifier)
         {
 	  if (DECL_BUILT_IN_CLASS (TREE_OPERAND (TREE_OPERAND (exp, 0), 0))
 	      == BUILT_IN_FRONTEND)
-	    return (*lang_expand_expr) (exp, original_target, tmode, modifier);
+	    return (*lang_hooks.expand_expr)
+	      (exp, original_target, tmode, modifier);
 	  else
 	    return expand_builtin (exp, target, subtarget, tmode, ignore);
 	}
@@ -7469,7 +7487,8 @@ expand_expr (exp, target, tmode, modifier)
 	      rtx constant_part;
 
 	      op0 = expand_expr (TREE_OPERAND (exp, 0), subtarget, VOIDmode,
-				 EXPAND_SUM);
+				 (modifier == EXPAND_INITIALIZER
+				 ? EXPAND_INITIALIZER : EXPAND_SUM));
 	      if (! CONSTANT_P (op0))
 		{
 		  op1 = expand_expr (TREE_OPERAND (exp, 1), NULL_RTX,
@@ -8364,7 +8383,8 @@ expand_expr (exp, target, tmode, modifier)
 		   built here.  */
 
 		if (TREE_OPERAND (exp, 2) == 0)
-		  TREE_OPERAND (exp, 2) = maybe_build_cleanup (slot);
+		  TREE_OPERAND (exp, 2)
+		    = (*lang_hooks.maybe_build_cleanup) (slot);
 		cleanups = TREE_OPERAND (exp, 2);
 	      }
 	  }
@@ -8784,7 +8804,7 @@ expand_expr (exp, target, tmode, modifier)
       abort ();
 
     default:
-      return (*lang_expand_expr) (exp, original_target, tmode, modifier);
+      return (*lang_hooks.expand_expr) (exp, original_target, tmode, modifier);
     }
 
   /* Here to do an ordinary binary operator, generating an instruction
@@ -9235,7 +9255,7 @@ do_jump (exp, if_false_label, if_true_label)
 	  && TYPE_PRECISION (TREE_TYPE (exp)) <= HOST_BITS_PER_WIDE_INT
 	  && (i = tree_floor_log2 (TREE_OPERAND (exp, 1))) >= 0
 	  && (mode = mode_for_size (i + 1, MODE_INT, 0)) != BLKmode
-	  && (type = type_for_mode (mode, 1)) != 0
+	  && (type = (*lang_hooks.types.type_for_mode) (mode, 1)) != 0
 	  && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (exp))
 	  && (cmp_optab->handlers[(int) TYPE_MODE (type)].insn_code
 	      != CODE_FOR_nothing))
@@ -9295,7 +9315,7 @@ do_jump (exp, if_false_label, if_true_label)
 	get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode,
 			     &unsignedp, &volatilep);
 
-	type = type_for_size (bitsize, unsignedp);
+	type = (*lang_hooks.types.type_for_size) (bitsize, unsignedp);
 	if (! SLOW_BYTE_ACCESS
 	    && type != 0 && bitsize >= 0
 	    && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (exp))
@@ -10376,8 +10396,8 @@ try_casesi (index_type, index_expr, minval, range,
     {
       if (TYPE_MODE (index_type) != index_mode)
 	{
-	  index_expr = convert (type_for_size (index_bits, 0),
-				index_expr);
+	  index_expr = convert ((*lang_hooks.types.type_for_size)
+				(index_bits, 0), index_expr);
 	  index_type = TREE_TYPE (index_expr);
 	}
 

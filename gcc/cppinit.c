@@ -491,6 +491,7 @@ cpp_create_reader (lang)
   CPP_OPTION (pfile, show_column) = 1;
   CPP_OPTION (pfile, tabstop) = 8;
   CPP_OPTION (pfile, operator_names) = 1;
+  CPP_OPTION (pfile, warn_endif_labels) = 1;
 #if DEFAULT_SIGNED_CHAR
   CPP_OPTION (pfile, signed_char) = 1;
 #else
@@ -1469,6 +1470,7 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  /* fall through */
 	case OPT_pedantic:
  	  CPP_OPTION (pfile, pedantic) = 1;
+	  CPP_OPTION (pfile, warn_endif_labels) = 1;
 	  break;
 	case OPT_trigraphs:
  	  CPP_OPTION (pfile, trigraphs) = 1;
@@ -1572,10 +1574,16 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  CPP_OPTION (pfile, print_deps_missing_files) = 1;
 	  break;
 	case OPT_M:
+	  /* When doing dependencies with -M or -MM, suppress normal
+	     preprocessed output, but still do -dM etc. as software
+	     depends on this.  Preprocessed output occurs if -MD, -MMD
+	     or environment var dependency generation is used.  */
 	  CPP_OPTION (pfile, print_deps) = 2;
+	  CPP_OPTION (pfile, no_output) = 1;
 	  break;
 	case OPT_MM:
 	  CPP_OPTION (pfile, print_deps) = 1;
+	  CPP_OPTION (pfile, no_output) = 1;
 	  break;
 	case OPT_MF:
 	  CPP_OPTION (pfile, deps_file) = arg;
@@ -1589,12 +1597,6 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	  deps_add_target (pfile->deps, arg, opt_code == OPT_MQ);
 	  break;
 
-	  /* -MD and -MMD for cpp0 are deprecated and undocumented
-	     (use -M or -MM with -MF instead), and probably should be
-	     removed with the next major GCC version.  For the moment
-	     we allow these for the benefit of Automake 1.4, which
-	     uses these when dependency tracking is enabled.  Automake
-	     1.5 will fix this.  */
 	case OPT_MD:
 	  CPP_OPTION (pfile, print_deps) = 2;
 	  CPP_OPTION (pfile, deps_file) = arg;
@@ -1735,6 +1737,8 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	    CPP_OPTION (pfile, warnings_are_errors) = 1;
 	  else if (!strcmp (argv[i], "-Wsystem-headers"))
 	    CPP_OPTION (pfile, warn_system_headers) = 1;
+	  else if (!strcmp (argv[i], "-Wendif-labels"))
+	    CPP_OPTION (pfile, warn_endif_labels) = 1;
 	  else if (!strcmp (argv[i], "-Wno-traditional"))
 	    CPP_OPTION (pfile, warn_traditional) = 0;
 	  else if (!strcmp (argv[i], "-Wno-trigraphs"))
@@ -1751,6 +1755,8 @@ cpp_handle_option (pfile, argc, argv, ignore)
 	    CPP_OPTION (pfile, warnings_are_errors) = 0;
 	  else if (!strcmp (argv[i], "-Wno-system-headers"))
 	    CPP_OPTION (pfile, warn_system_headers) = 0;
+	  else if (!strcmp (argv[i], "-Wno-endif-labels"))
+	    CPP_OPTION (pfile, warn_endif_labels) = 0;
 	  else if (! ignore)
 	    return i;
 	  break;
@@ -1884,10 +1890,6 @@ init_dependency_output (pfile)
     /* If -M or -MM was seen without -MF, default output to wherever
        was specified with -o.  out_fname is non-NULL here.  */
     CPP_OPTION (pfile, deps_file) = CPP_OPTION (pfile, out_fname);
-
-  /* When doing dependencies, suppress normal preprocessed output.
-     Still do -dM, -dI etc. as e.g. glibc depends on this.  */
-  CPP_OPTION (pfile, no_output) = 1;
 }
 
 /* Handle --help output.  */

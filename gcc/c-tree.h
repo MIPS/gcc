@@ -175,9 +175,11 @@ extern void insert_block			PARAMS ((tree));
 extern void set_block				PARAMS ((tree));
 extern tree pushdecl				PARAMS ((tree));
 
+extern void c_insert_default_attributes		PARAMS ((tree));
 extern void c_init_decl_processing		PARAMS ((void));
 extern void c_dup_lang_specific_decl		PARAMS ((tree));
 extern void c_print_identifier			PARAMS ((FILE *, tree, int));
+extern void c_mark_tree				PARAMS ((tree));
 extern tree build_array_declarator              PARAMS ((tree, tree, int, int));
 extern tree build_enumerator                    PARAMS ((tree, tree));
 extern int  c_decode_option                     PARAMS ((int, char **));
@@ -190,7 +192,7 @@ extern tree define_label                        PARAMS ((const char *, int,
 							 tree));
 extern void finish_decl                         PARAMS ((tree, tree, tree));
 extern tree finish_enum                         PARAMS ((tree, tree, tree));
-extern void finish_function                     PARAMS ((int));
+extern void finish_function                     PARAMS ((int, int));
 extern tree finish_struct                       PARAMS ((tree, tree, tree));
 extern tree get_parm_info                       PARAMS ((int));
 extern tree grokfield                           PARAMS ((const char *, int, tree, tree, tree));
@@ -246,6 +248,7 @@ extern tree require_complete_type		PARAMS ((tree));
 extern int comptypes				PARAMS ((tree, tree));
 extern tree c_sizeof_nowarn			PARAMS ((tree));
 extern tree c_size_in_bytes                     PARAMS ((tree));
+extern bool c_mark_addressable			PARAMS ((tree));
 extern tree build_component_ref                 PARAMS ((tree, tree));
 extern tree build_indirect_ref                  PARAMS ((tree, const char *));
 extern tree build_array_ref                     PARAMS ((tree, tree));
@@ -381,7 +384,7 @@ extern int system_header_p;
 extern int mesg_implicit_function_declaration;
 
 /* In c-decl.c */
-extern void finish_incomplete_decl PARAMS ((tree));
+extern void c_finish_incomplete_decl PARAMS ((tree));
 
 extern tree static_ctors;
 extern tree static_dtors;

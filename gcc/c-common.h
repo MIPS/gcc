@@ -372,6 +372,9 @@ extern void c_mark_lang_decl                    PARAMS ((struct c_lang_decl *));
 
 extern c_language_kind c_language;
 
+/* Nonzero if prepreprocessing only.  */
+extern int flag_preprocess_only;
+
 /* Nonzero means give string constants the type `const char *', rather
    than `char *'.  */
 
@@ -504,6 +507,12 @@ extern tree handle_format_attribute		PARAMS ((tree *, tree, tree,
 extern tree handle_format_arg_attribute		PARAMS ((tree *, tree, tree,
 							 int, bool *));
 extern void c_common_insert_default_attributes	PARAMS ((tree));
+extern tree c_common_type_for_mode		PARAMS ((enum machine_mode,
+							 int));
+extern tree c_common_type_for_size		PARAMS ((unsigned int, int));
+extern tree c_common_unsigned_type		PARAMS ((tree));
+extern tree c_common_signed_type		PARAMS ((tree));
+extern tree c_common_signed_or_unsigned_type	PARAMS ((int, tree));
 extern void c_apply_type_quals_to_decl		PARAMS ((int, tree));
 extern tree c_sizeof				PARAMS ((tree));
 extern tree c_alignof				PARAMS ((tree));
@@ -839,18 +848,15 @@ extern tree finish_label_address_expr		PARAMS ((tree));
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label			PARAMS ((tree));
 
-/* enum expand_modified is in expr.h, as is the macro below.  */
-
-#ifdef QUEUED_VAR
-extern rtx c_expand_expr            PARAMS ((tree, rtx, enum machine_mode,
-					     enum expand_modifier));
-#endif
+extern rtx c_expand_expr			PARAMS ((tree, rtx,
+							 enum machine_mode,
+							 int));
 
 extern int c_safe_from_p                        PARAMS ((rtx, tree));
 
 extern int c_staticp                            PARAMS ((tree));
 
-extern int c_unsafe_for_reeval			PARAMS ((tree));
+extern int c_common_unsafe_for_reeval		PARAMS ((tree));
 
 /* Information recorded about each file examined during compilation.  */
 

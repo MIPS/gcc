@@ -234,7 +234,7 @@ build_target_expr (decl, value)
   tree t;
 
   t = build (TARGET_EXPR, TREE_TYPE (decl), decl, value, 
-	     maybe_build_cleanup (decl), NULL_TREE);
+	     cxx_maybe_build_cleanup (decl), NULL_TREE);
   /* We always set TREE_SIDE_EFFECTS so that expand_expr does not
      ignore the TARGET_EXPR.  If there really turn out to be no
      side-effects, then the optimizer should be able to get rid of
@@ -2294,7 +2294,6 @@ cp_end_inlining (fn)
 void
 init_tree ()
 {
-  make_lang_type_fn = cp_make_lang_type;
   lang_statement_code_p = cp_statement_code_p;
   lang_set_decl_assembler_name = mangle_decl;
   list_hash_table = htab_create (31, list_hash, list_hash_eq, NULL);

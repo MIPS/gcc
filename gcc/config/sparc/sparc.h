@@ -369,34 +369,11 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 /* ??? This should be 32 bits for v9 but what can we do?  */
 #define WCHAR_TYPE "short unsigned int"
 #define WCHAR_TYPE_SIZE 16
-#define MAX_WCHAR_TYPE_SIZE 16
 
 /* Show we can debug even without a frame pointer.  */
 #define CAN_DEBUG_WITHOUT_FP
 
-/* To make profiling work with -f{pic,PIC}, we need to emit the profiling
-   code into the rtl.  Also, if we are profiling, we cannot eliminate
-   the frame pointer (because the return address will get smashed).  */
-
-#define OVERRIDE_OPTIONS \
-  do {									\
-    if (profile_flag || profile_arc_flag)				\
-      {									\
-	if (flag_pic)							\
-	  {								\
-	    const char *const pic_string = (flag_pic == 1) ? "-fpic" : "-fPIC";\
-	    warning ("%s and profiling conflict: disabling %s",		\
-		     pic_string, pic_string);				\
-	    flag_pic = 0;						\
-	  }								\
-	flag_omit_frame_pointer = 0;					\
-      }									\
-    sparc_override_options ();						\
-    SUBTARGET_OVERRIDE_OPTIONS;						\
-  } while (0)
-
-/* This is meant to be redefined in the host dependent files.  */
-#define SUBTARGET_OVERRIDE_OPTIONS
+#define OVERRIDE_OPTIONS  sparc_override_options ()
 
 /* Generate DBX debugging information.  */
 
@@ -409,11 +386,6 @@ extern int target_flags;
 /* Nonzero if we should generate code to use the fpu.  */
 #define MASK_FPU 1
 #define TARGET_FPU (target_flags & MASK_FPU)
-
-/* Nonzero if we should use function_epilogue().  Otherwise, we
-   use fast return insns, but lose some generality.  */
-#define MASK_EPILOGUE 2
-#define TARGET_EPILOGUE (target_flags & MASK_EPILOGUE)
 
 /* Nonzero if we should assume that double pointers might be unaligned.
    This can happen when linking gcc compiled code with other compilers,
@@ -558,10 +530,6 @@ extern int target_flags;
     {"soft-float", -MASK_FPU,						\
      N_("Do not use hardware fp") },					\
     {"soft-float", MASK_FPU_SET,			NULL },		\
-    {"epilogue", MASK_EPILOGUE,						\
-     N_("Use function_epilogue()") },					\
-    {"no-epilogue", -MASK_EPILOGUE,					\
-     N_("Do not use function_epilogue()") }, 				\
     {"unaligned-doubles", MASK_UNALIGNED_DOUBLES,			\
      N_("Assume possible double misalignment") },			\
     {"no-unaligned-doubles", -MASK_UNALIGNED_DOUBLES,			\
@@ -630,7 +598,7 @@ extern int target_flags;
 /* MASK_APP_REGS must always be the default because that's what
    FIXED_REGISTERS is set to and -ffixed- is processed before
    CONDITIONAL_REGISTER_USAGE is called (where we process -mno-app-regs).  */
-#define TARGET_DEFAULT (MASK_APP_REGS + MASK_EPILOGUE + MASK_FPU)
+#define TARGET_DEFAULT (MASK_APP_REGS + MASK_FPU)
 
 /* This is meant to be redefined in target specific files.  */
 #define SUBTARGET_SWITCHES
@@ -1855,14 +1823,13 @@ do {									\
 #endif
 
 
-/* Output assembler code to FILE to increment profiler label # LABELNO
-   for profiling a function entry.  */
+/* Emit rtl for profiling.  */
+#define PROFILE_HOOK(LABEL)   sparc_profile_hook (LABEL)
 
-#define FUNCTION_PROFILER(FILE, LABELNO) \
-  sparc_function_profiler(FILE, LABELNO)
+/* All the work done in PROFILE_HOOK, but still required.  */
+#define FUNCTION_PROFILER(FILE, LABELNO) do { } while (0)
 
 /* Set the name of the mcount function for the system.  */
-
 #define MCOUNT_FUNCTION "*mcount"
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
@@ -2655,14 +2622,6 @@ do {                                                                    \
   case FLOAT:						\
   case FIX:						\
     return 19;
-
-/* Conditional branches with empty delay slots have a length of two.  */
-#define ADJUST_INSN_LENGTH(INSN, LENGTH)				\
-do {									\
-  if (GET_CODE (INSN) == CALL_INSN					\
-      || (GET_CODE (INSN) == JUMP_INSN && ! simplejump_p (insn)))	\
-    LENGTH += 1;							\
-} while (0)
 
 /* Control the assembler format that we output.  */
 

@@ -1,3 +1,133 @@
+2002-04-01  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* decl.c (gnat_to_gnu_entity): Update.
+	* gigi.h (mark_addressable): Rename.
+	* misc.c (LANG_HOOKS_MARK_ADDRESSABLE): Redefine.
+	* trans.c (tree_transform): Update.
+	* utils.c (create_var_decl): Update.
+	* util2.c (build_binary_op, build_unary_op,
+	fill_vms_descriptor): Update.
+	(mark_addressable): Rename, update.
+
+2002-04-01  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gigi.h (unsigned_type, signed_type, signed_or_unsigned_type):
+	Rename.
+	* misc.c (LANG_HOOKS_SIGNED_TYPE, LANG_HOOKS_UNSIGNED_TYPE,
+	LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE): New.
+	* trans.c (tree_transform, convert_with_check): Update.
+	* utils.c (unsigned_type, signed_type, signed_or_unsigned_type):
+	Rename.
+
+2002-03-31  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gigi.h (finish_incomplete_decl): Rename.
+	* misc.c (LANG_HOOKS_FINISH_INCOMPLETE_DECL): Redefine.
+	* utils.c (gnat_init_decl_processing): Don't set hook.
+	(finish_incomplete_decl): Rename.
+
+2002-03-29  Andreas Schwab  <schwab@suse.de>
+
+	* Makefile.in: Pass VPATH=$(fsrcdir) when calling make in rts
+	directory.
+
+2001-03-28  Robert Dewar <dewar@gnat.com>
+
+	* checks.ads:
+	(Remove_Checks): New procedure
+
+	* checks.adb:
+	(Remove_Checks): New procedure
+
+	* exp_util.adb:
+	Use new Duplicate_Subexpr functions
+	(Duplicate_Subexpr_No_Checks): New procedure
+	(Duplicate_Subexpr_No_Checks_Orig): New procedure
+	(Duplicate_Subexpr): Restore original form (checks duplicated)
+	(Duplicate_Subexpr): Call Remove_Checks
+
+	* exp_util.ads: 
+	(Duplicate_Subexpr_No_Checks): New procedure
+	(Duplicate_Subexpr_No_Checks_Orig): New procedure
+	Add 2002 to copyright notice
+
+	* sem_util.adb: Use new Duplicate_Subexpr functions
+
+	* sem_eval.adb: 	
+	(Eval_Indexed_Component): This is the place to call
+	Constant_Array_Ref and to replace the value. We simply merge
+	the code of this function in here, since it is now no longer
+	used elsewhere. This fixes the problem of the back end not
+	realizing we were clever enough to see that this was
+	constant.
+	(Expr_Val): Remove call to Constant_Array_Ref
+	(Expr_Rep_Val): Remove call to Constant_Array_Ref
+	Minor reformatting
+	(Constant_Array_Ref): Deal with string literals (patch
+	suggested by Zack Weinberg on the gcc list)
+
+2001-03-28  Ed Schonberg <schonber@gnat.com>
+
+	* exp_util.adb: Duplicate_Subexpr_No_Checks_Orig => 
+	Duplicate_Subexpr_Move_Checks.
+
+	* exp_util.ads: Duplicate_Subexpr_No_Checks_Orig => 
+	Duplicate_Subexpr_Move_Checks.
+
+	* sem_eval.adb: (Constant_Array_Ref): Verify that constant 
+	value of array exists before retrieving it (it may a private 
+	protected component in a function).
+
+2002-03-28   Geert Bosch <bosch@gnat.com>
+
+	* prj-pp.adb : New file.
+
+	* prj-pp.ads : New file.
+
+2002-03-28  Andreas Jaeger  <aj@suse.de>
+
+	* Makefile.in (stamp-sdefault): Fix path for Makefile.
+
+2002-03-28  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* misc.c (gnat_expand_expr): Move prototype.
+
+2002-03-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* misc.c (insert_default_attributes): Remove.
+
+2002-03-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* misc.c (LANG_HOOKS_EXPAND_EXPR): Redefine.
+	(gnat_init): Don't set hook.
+	(gnat_expand_expr): Fix prototype.
+
+2002-03-27  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* misc.c (ggc_p): Remove.
+
+2002-03-27  Geert Bosch  <bosch@gnat.com>
+
+	* prj-makr.ads, prj-makr.adb : New files.
+
+2002-03-26  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* misc.c (LANG_HOOKS_MARK_TREE): Redefine.
+	(lang_mark_tree): Make static, rename.
+
+2002-03-25  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* misc.c (maybe_build_cleanup): Remove.
+
+2002-03-24  Neil Booth  <neil@daikokuya.demon.co.uk>
+
+	* gigi.h (yyparse): Remove.
+
+2002-03-23  Florian Weimer  <fw@deneb.enyo.de>
+
+	* gnat_rm.texi: Sync with ACT version. 
+          (From Ben Brosgol <brosgol@gnat.com>)
+
 2002-03-20  Neil Booth  <neil@daikokuya.demon.co.uk>
 
 	* misc.c (LANG_HOOKS_DECL_PRINTABLE_NAME): Redefine.

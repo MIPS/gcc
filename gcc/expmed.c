@@ -33,6 +33,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "optabs.h"
 #include "real.h"
 #include "recog.h"
+#include "langhooks.h"
 
 static void store_fixed_bit_field	PARAMS ((rtx, unsigned HOST_WIDE_INT,
 						 unsigned HOST_WIDE_INT,
@@ -4107,21 +4108,22 @@ make_tree (type, x)
 			  make_tree (type, XEXP (x, 1))));
 
     case LSHIFTRT:
+      t = (*lang_hooks.types.unsigned_type) (type);
       return fold (convert (type,
-			    build (RSHIFT_EXPR, unsigned_type (type),
-				   make_tree (unsigned_type (type),
-					      XEXP (x, 0)),
+			    build (RSHIFT_EXPR, t,
+				   make_tree (t, XEXP (x, 0)),
 				   make_tree (type, XEXP (x, 1)))));
 
     case ASHIFTRT:
+      t = (*lang_hooks.types.signed_type) (type);
       return fold (convert (type,
-			    build (RSHIFT_EXPR, signed_type (type),
-				   make_tree (signed_type (type), XEXP (x, 0)),
+			    build (RSHIFT_EXPR, t,
+				   make_tree (t, XEXP (x, 0)),
 				   make_tree (type, XEXP (x, 1)))));
 
     case DIV:
       if (TREE_CODE (type) != REAL_TYPE)
-	t = signed_type (type);
+	t = (*lang_hooks.types.signed_type) (type);
       else
 	t = type;
 
@@ -4130,7 +4132,7 @@ make_tree (type, x)
 				   make_tree (t, XEXP (x, 0)),
 				   make_tree (t, XEXP (x, 1)))));
     case UDIV:
-      t = unsigned_type (type);
+      t = (*lang_hooks.types.unsigned_type) (type);
       return fold (convert (type,
 			    build (TRUNC_DIV_EXPR, t,
 				   make_tree (t, XEXP (x, 0)),
@@ -4168,9 +4170,10 @@ expand_mult_add (x, target, mult, add, mode, unsignedp)
      enum machine_mode mode;
      int unsignedp;
 {
-  tree type = type_for_mode (mode, unsignedp);
+  tree type = (*lang_hooks.types.type_for_mode) (mode, unsignedp);
   tree add_type = (GET_MODE (add) == VOIDmode
-		   ? type : type_for_mode (GET_MODE (add), unsignedp));
+		   ? type: (*lang_hooks.types.type_for_mode) (GET_MODE (add),
+							      unsignedp));
   tree result =  fold (build (PLUS_EXPR, type,
 			      fold (build (MULT_EXPR, type,
 					   make_tree (type, x),
