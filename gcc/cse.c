@@ -5499,7 +5499,8 @@ cse_insn (rtx insn, rtx libcall_insn)
 
       src = SET_SRC (sets[i].rtl);
       /* APPLE LOCAL begin cse of ZERO/SIGN EXTEND */
-      if (zero_sign_extended_src)
+      if (zero_sign_extended_src
+	  && (GET_CODE (src) == GET_CODE (zero_sign_extended_src)))
         src = XEXP (src, 0);
       /* APPLE LOCAL end cse of ZERO/SIGN EXTEND */
 
