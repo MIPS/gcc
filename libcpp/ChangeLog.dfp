@@ -1,0 +1,6 @@
+2005-03-11  Jon Grimm  <jgrimm2@us.ibm.com>
+
+	* expr.c (interpret_float_suffix): Identify df, dd, and dl
+	suffixes as dfp constants.
+	(cpp_classify_number): Disallow hexadecimal fp constants.
+	* include/cpplib.h (CPP_N_DFLOAT): New.
