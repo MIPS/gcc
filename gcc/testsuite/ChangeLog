@@ -1,3 +1,7 @@
+Tue Sep  3 11:04:26 2002  Nicola Pero  <n.pero@mi.flashnet.it>
+
+	* objc/execute/nil_method-1.m: New testcase.
+
 2002-11-16  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.c-torture/execute/20020920-1.c: New test.
