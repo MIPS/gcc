@@ -2373,7 +2373,8 @@ simplify_binary_operation (enum rtx_code code, enum machine_mode mode,
 struct simplify_plus_minus_op_data
 {
   rtx op;
-  int neg;
+  short neg;
+  short ix;
 };
 
 static int
@@ -2381,9 +2382,13 @@ simplify_plus_minus_op_data_cmp (const void *p1, const void *p2)
 {
   const struct simplify_plus_minus_op_data *d1 = p1;
   const struct simplify_plus_minus_op_data *d2 = p2;
+  int result;
 
-  return (commutative_operand_precedence (d2->op)
-	  - commutative_operand_precedence (d1->op));
+  result = (commutative_operand_precedence (d2->op)
+	    - commutative_operand_precedence (d1->op));
+  if (result)
+    return result;
+  return d1->ix - d2->ix;
 }
 
 static rtx
@@ -2558,7 +2563,12 @@ simplify_plus_minus (enum rtx_code code, enum machine_mode mode, rtx op0,
   /* Pack all the operands to the lower-numbered entries.  */
   for (i = 0, j = 0; j < n_ops; j++)
     if (ops[j].op)
-      ops[i++] = ops[j];
+      {
+	ops[i] = ops[j];
+	/* Stabilize sort.  */
+	ops[i].ix = i;
+	i++;
+      }
   n_ops = i;
 
   /* Sort the operations based on swap_commutative_operands_p.  */
