@@ -1,3 +1,9 @@
+2003-06-20  Aldy Hernandez  <aldyh@redhat.com>
+	
+	PR/11092
+	* config/rs6000/rs6000.h (LEGITIMATE_CONSTANT_P): Adjust for
+	vectors.
+
 2003-06-19  Aldy Hernandez  <aldyh@redhat.com>
 
 	* expr.c (const_vector_from_tree): Initialize remaining elements
