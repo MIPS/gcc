@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -1231,8 +1231,8 @@ namespace std
       wint_t                    _M_widen[1 + static_cast<unsigned char>(-1)];
 
       // Pre-computed elements for do_is.
-      mask                      _M_bit[16];
-      __wmask_type              _M_wmask[16];
+      mask                      _M_bit[sizeof (__wmask_type) * __CHAR_BIT__];
+      __wmask_type              _M_wmask[sizeof (__wmask_type) * __CHAR_BIT__];
 
     public:
       // Data Members:

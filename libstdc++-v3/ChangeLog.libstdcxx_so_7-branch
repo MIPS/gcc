@@ -1,3 +1,10 @@
+2005-01-25  Loren J. Rittle  <ljrittle@acm.org>
+
+	* include/bits/locale_facets.h (ctype<wchar_t>::_M_bit):
+	Base size on bits in __wmask_type.
+	(ctype<wchar_t>::_M_wmask): Likewise.
+	* config/locale/generic/ctype_members.cc: Remove magic numbers.
+
 2005-01-24  Paolo Carlini  <pcarlini@suse.de>
 
         Merged to mainline at tag libstdcxx_so_7-merge-20050124.

@@ -1,6 +1,6 @@
 // std::ctype implementation details, generic version -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -131,10 +131,8 @@ namespace std
   do_is(mask __m, char_type __c) const
   { 
     bool __ret = false;
-    // Generically, 15 (instead of 10) since we don't know the numerical
-    // encoding of the various categories in /usr/include/ctype.h.
-    const size_t __bitmasksize = 15; 
-    for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
+    const size_t __bitmasksize = sizeof _M_bit / sizeof _M_bit[0]; 
+    for (size_t __bitcur = 0; __bitcur < __bitmasksize; ++__bitcur)
       if (__m & _M_bit[__bitcur]
 	  && iswctype(__c, _M_wmask[__bitcur]))
 	{
@@ -150,11 +148,9 @@ namespace std
   {
     for (;__lo < __hi; ++__vec, ++__lo)
       {
-	// Generically, 15 (instead of 10) since we don't know the numerical
-	// encoding of the various categories in /usr/include/ctype.h.
-	const size_t __bitmasksize = 15; 
+	const size_t __bitmasksize = sizeof _M_bit / sizeof _M_bit[0]; 
 	mask __m = 0;
-	for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
+	for (size_t __bitcur = 0; __bitcur < __bitmasksize; ++__bitcur)
 	  if (iswctype(*__lo, _M_wmask[__bitcur]))
 	    __m |= _M_bit[__bitcur];
 	*__vec = __m;
@@ -257,7 +253,7 @@ namespace std
 	 __i < sizeof(_M_widen) / sizeof(wint_t); ++__i)
       _M_widen[__i] = btowc(__i);
 
-    for (size_t __i = 0; __i <= 15; ++__i)
+    for (size_t __i = 0; __i < sizeof _M_bit / sizeof _M_bit[0]; ++__i)
       { 
 	_M_bit[__i] = static_cast<mask>(1 << __i);
 	_M_wmask[__i] = _M_convert_to_wmask(_M_bit[__i]);
