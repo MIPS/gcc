@@ -11,6 +11,15 @@
 
 2003-12-02  Jeff Law  <law@redhat.com>
 
+	* tree-ssa-dom.c (optimize_stmt): Accept and pass down dominator
+	walker structure instead of individual varrays.  Callers updated.
+	(eliminate_redundant_computations): Likewise.
+	(simplify_rhs_and_lookup_avail_expr): Likewise.  Cache and update
+	a dummy COND_EXPR when querying the hash tables when transforming
+	DIV/MOD into RSHIFT/BIT_AND or ABS_EXPR into NEG_EXPR.
+	(dom_opt_walk_stmts): Don't reload the block data pointer each
+	iteration of the loop.  Load it once outside the loop.
+ 
 	* tree-dfa.c (cleanup_operand_arrays): Avoid creating a new 
 	varray for the vuse operands.
 
