@@ -2065,7 +2065,7 @@ output_call_frame_info (int for_eh)
 	  any_eh_needed = any_lsda_needed = true;
         else if (TARGET_USES_WEAK_UNWIND_INFO
 		 && DECL_ONE_ONLY (fde_table[i].decl))
-	  any_eh_needed = 1;
+	  any_eh_needed = true;
 	else if (! fde_table[i].nothrow
 		 && ! fde_table[i].all_throwers_are_sibcalls)
 	  any_eh_needed = true;
@@ -2117,9 +2117,7 @@ output_call_frame_info (int for_eh)
 	 P	Indicates the presence of an encoding + language
 		personality routine in the CIE augmentation.  */
 
-      fde_encoding = TARGET_USES_WEAK_UNWIND_INFO
-	? ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1)
-	: ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
+      fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
       per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
       lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
 
@@ -2230,16 +2228,9 @@ output_call_frame_info (int for_eh)
 
       if (for_eh)
 	{
-	  if (TARGET_USES_WEAK_UNWIND_INFO
-	      && DECL_ONE_ONLY (fde->decl))
-	    dw2_asm_output_encoded_addr_rtx (fde_encoding,
-		     gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER
-					          (DECL_ASSEMBLER_NAME (fde->decl))),
-		     "FDE initial location");
-	  else
-	    dw2_asm_output_encoded_addr_rtx (fde_encoding,
+	  dw2_asm_output_encoded_addr_rtx (fde_encoding,
 		     gen_rtx_SYMBOL_REF (Pmode, fde->dw_fde_begin),
-		     "FDE initial location");
+					   "FDE initial location");
 	  dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				fde->dw_fde_end, fde->dw_fde_begin,
 				"FDE address range");
