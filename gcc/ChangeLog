@@ -1,5 +1,7 @@
 2005-01-22  Tom Tromey  <tromey@redhat.com>
 
+	* gengtype.c (get_output_file_with_visibility): Recognize '.hh'.
+
 	* gengtype.c (get_output_file_with_visibility): Recognize '.cc'.
 
 2005-01-22  Tom Tromey  <tromey@redhat.com>
