@@ -1,3 +1,7 @@
+2004-02-10  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/20040219-1.c: New test.
+
 2004-02-16  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/20030807-4.c: Remove bogus test.
