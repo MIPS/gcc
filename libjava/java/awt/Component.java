@@ -882,6 +882,7 @@ public abstract class Component
         if (peer != null)
           peer.setVisible(true);
         invalidate();
+        dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_SHOWN));
       }
   }
 
@@ -912,6 +913,7 @@ public abstract class Component
           peer.setVisible(false);
         this.visible = false;
         invalidate();
+        dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_HIDDEN));
       }
   }
 
@@ -1156,6 +1158,9 @@ public abstract class Component
    */
   public void move(int x, int y)
   {
+    int oldx = this.x;
+    int oldy = this.y;
+
     if (this.x == x && this.y == y)
       return;
     invalidate ();
@@ -1163,6 +1168,16 @@ public abstract class Component
     this.y = y;
     if (peer != null)
       peer.setBounds (x, y, width, height);
+
+    // Erase old bounds and repaint new bounds for lightweights.
+    if (isLightweight() && width != 0 && height !=0)
+      {
+        parent.repaint(oldx, oldy, width, height);
+        repaint();
+      }
+
+    if (oldx != x || oldy != y)
+      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_MOVED));
   }
 
   /**
@@ -1226,6 +1241,9 @@ public abstract class Component
    */
   public void resize(int width, int height)
   {
+    int oldwidth = this.width;
+    int oldheight = this.height;
+
     if (this.width == width && this.height == height)
       return;
     invalidate ();
@@ -1233,6 +1251,18 @@ public abstract class Component
     this.height = height;
     if (peer != null)
       peer.setBounds (x, y, width, height);
+
+    // Erase old bounds and repaint new bounds for lightweights.
+    if (isLightweight())
+      {
+        if (oldwidth != 0 && oldheight != 0 && parent != null)
+          parent.repaint(x, y, oldwidth, oldheight);
+        if (width != 0 && height != 0)
+          repaint();
+      }
+
+    if (oldwidth != width || oldheight != height)
+      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED));
   }
 
   /**
@@ -1345,6 +1375,11 @@ public abstract class Component
         if (width != 0 && height != 0)
           repaint();
       }
+
+    if (oldx != x || oldy != y)
+      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_MOVED));
+    if (oldwidth != width || oldheight != height)
+      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED));
   }
 
   /**

@@ -1,3 +1,18 @@
+2004-02-16  David Jee  <djee@redhat.com>
+
+	* java/awt/Component.java
+	(show): Dispatch COMPONENT_SHOWN ComponentEvent.
+	(hide): Dispatch COMPONENT_HIDDEN ComponentEvent.
+	(move): Erase old bounds and repaint new bounds. Dispatch
+	COMPONENT_MOVED ComponentEvent.
+	(resize): Erase old bounds and repaint new bounds. Dispatch
+	COMPONENT_RESIZED ComponentEvent.
+	(reshape): Dispatch COMPONENT_RESIZED and COMPONENT_MOVED
+	ComponentEvents.
+	* java/awt/Window.java
+	(setBoundsCallback): Dispatch COMPONENT_RESIZED and COMPONENT_MOVED
+	ComponentEvents.
+
 2004-02-16  Olga Rodimina  <rodimina@redhat.com>
 
 	* gnu/java/awt/peer/gtk/GdkGraphics2D.java:

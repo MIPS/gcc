@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.awt;
 
+import java.awt.event.ComponentEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowFocusListener;
 import java.awt.event.WindowListener;
@@ -784,9 +785,15 @@ public class Window extends Container implements Accessible
     if (this.x == x && this.y == y && width == w && height == h)
       return;
     invalidate();
+    boolean resized = width != w || height != h;
+    boolean moved = this.x != x || this.y != y;
     this.x = x;
     this.y = y;
     width = w;
     height = h;
+    if (resized)
+      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_RESIZED));
+    if (moved)
+      dispatchEvent(new ComponentEvent(this, ComponentEvent.COMPONENT_MOVED));
   }
 }
