@@ -1,3 +1,7 @@
+Fri Aug 15 15:18:03 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* gcse.c (find_moveable_store):  Disqualify asm instructions.
+
 Fri Aug 15 11:13:53 CEST 2003  Jan Hubicka  <jh@suse.cz>
 
 	* cse.c (find_best_addr):  Fold the best address discovered.

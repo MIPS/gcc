@@ -6979,6 +6979,16 @@ find_moveable_store (insn, regs_set_before, regs_set_after)
   int check_anticipatable, check_available;
   basic_block bb = BLOCK_FOR_INSN (insn);
 
+  /* Stores in ASM operands should appear at this level only when the
+     constraints does not allow other choice.
+     
+     ??? In general we should verify here that instruction allows the memory
+     operand to be replaced by register but this is generally the case of
+     store patterns and the test would be dificult and expensive so try to
+     go without it until it causes more problems.  */
+  if (asm_noperands (PATTERN (insn)) >= 0)
+    return;
+
   set = single_set (insn);
   if (!set)
     return;
