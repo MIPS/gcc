@@ -232,6 +232,8 @@ tr1_builddir = ./tr1
 tr1_headers = \
 	${tr1_srcdir}/array \
 	${tr1_srcdir}/functional \
+	${tr1_srcdir}/functional_iterate.h \
+	${tr1_srcdir}/memory \
 	${tr1_srcdir}/tuple \
 	${tr1_srcdir}/utility \
 	${tr1_srcdir}/type_traits \
