@@ -678,7 +678,6 @@ cfg_layout_duplicate_bb (bb, e)
 {
   rtx last = get_last_insn ();
   rtx insn, new = NULL_RTX;
-  rtx note1, note2, link;
   rtx pre_head = NULL_RTX, end = NULL_RTX;
   edge s, n;
   basic_block new_bb;
@@ -691,6 +690,10 @@ cfg_layout_duplicate_bb (bb, e)
     abort ();
 #endif
 
+  /* Avoid updating of boundaries of previous basic block.  The
+     note will get removed from insn stream in fixup.  */
+  last = emit_note (NULL, NOTE_INSN_DELETED);
+
   /* Create copy at the end of INSN chain.  The chain will
      be reordered later.  */
   for (insn = RBI (bb)->eff_head; insn != NEXT_INSN (RBI (bb)->eff_end);
@@ -700,51 +703,7 @@ cfg_layout_duplicate_bb (bb, e)
       switch (GET_CODE (insn))
 	{
 	case INSN:
-	  new = emit_insn (copy_insn (PATTERN (insn)));
-
-	  /* This code is common to INSN, JUMP_INSN and CALL_INSN.  */
-	insn_common:
-	  /* Record the INSN_SCOPE.  */
-	  VARRAY_GROW (insn_scopes, INSN_UID (new) + 1);
-	  VARRAY_TREE (insn_scopes, INSN_UID (new))
-	    = VARRAY_TREE (insn_scopes, INSN_UID (insn));
-
-	  /* Update LABEL_NUSES.  */
-	  mark_jump_label (PATTERN (new), new, 0);
-
-	  /* Copy all REG_NOTES except REG_LABEL since mark_jump_label will
-	     make them.  */
-	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	    if (REG_NOTE_KIND (link) != REG_LABEL)
-	      {
-		if (GET_CODE (link) == EXPR_LIST)
-		  REG_NOTES (new)
-		    = copy_insn_1 (gen_rtx_EXPR_LIST (REG_NOTE_KIND (link),
-						      XEXP (link, 0),
-						      REG_NOTES (new)));
-		else
-		  REG_NOTES (new)
-		    = copy_insn_1 (gen_rtx_INSN_LIST (REG_NOTE_KIND (link),
-						      XEXP (link, 0),
-						      REG_NOTES (new)));
-	      }
-
-	  /* Fix the libcall sequences.  */
-	  if ((note1 = find_reg_note (new, REG_RETVAL, NULL_RTX)) != NULL)
-	    {
-	      rtx p = new;
-	      while ((note2 =
-		      find_reg_note (p, REG_LIBCALL, NULL_RTX)) == NULL)
-		{
-		  p = PREV_INSN (p);
-		  if (p == pre_head)
-		    abort ();
-		}
-	      XEXP (note1, 0) = p;
-	      XEXP (note2, 0) = new;
-	    }
-	  break;
-
+	case CALL_INSN:
 	case JUMP_INSN:
 	  /* Avoid copying of dispatch tables.  We never duplicate
 	     tablejumps, so this can hit only in case the table got
@@ -752,17 +711,12 @@ cfg_layout_duplicate_bb (bb, e)
 	  if (GET_CODE (PATTERN (insn)) == ADDR_VEC
 	      || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC)
 	    break;
-	  new = emit_jump_insn (copy_insn (PATTERN (insn)));
-	  goto insn_common;
-
-	case CALL_INSN:
-	  new = emit_call_insn (copy_insn (PATTERN (insn)));
-	  if (CALL_INSN_FUNCTION_USAGE (insn))
-	    CALL_INSN_FUNCTION_USAGE (new)
-	      = copy_insn (CALL_INSN_FUNCTION_USAGE (insn));
-	  SIBLING_CALL_P (new) = SIBLING_CALL_P (insn);
-	  CONST_OR_PURE_CALL_P (new) = CONST_OR_PURE_CALL_P (insn);
-	  goto insn_common;
+	  new = emit_copy_of_insn_after (insn, get_last_insn ());
+	  /* Record the INSN_SCOPE.  */
+	  VARRAY_GROW (insn_scopes, INSN_UID (new) + 1);
+	  VARRAY_TREE (insn_scopes, INSN_UID (new))
+	    = VARRAY_TREE (insn_scopes, INSN_UID (insn));
+	  break;
 
 	case CODE_LABEL:
 	  break;

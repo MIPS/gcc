@@ -1236,6 +1236,7 @@ extern rtx gen_rtx			PARAMS ((enum rtx_code,
 extern rtvec gen_rtvec			PARAMS ((int, ...));
 extern rtx copy_insn_1			PARAMS ((rtx));
 extern rtx copy_insn			PARAMS ((rtx));
+extern rtx emit_copy_of_insn_after	PARAMS ((rtx, rtx));
 
 /* In rtl.c */
 extern rtx rtx_alloc			PARAMS ((RTX_CODE));

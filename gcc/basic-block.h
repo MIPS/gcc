@@ -222,7 +222,9 @@ typedef struct basic_block_def {
 #define BB_FREQ_MAX 10000
 
 /* Masks for basic_block.flags.  */
-#define BB_REACHABLE		1
+#define BB_DIRTY		1
+#define BB_NEW			2
+#define BB_REACHABLE		4
 
 /* Number of basic blocks in the current function.  */
 
@@ -313,6 +315,7 @@ extern void redirect_edge_pred		PARAMS ((edge, basic_block));
 extern basic_block create_basic_block_structure PARAMS ((int, rtx, rtx, rtx));
 extern basic_block create_basic_block	PARAMS ((int, rtx, rtx));
 extern int flow_delete_block		PARAMS ((basic_block));
+extern void clear_bb_flags		PARAMS ((void));
 extern void merge_blocks_nomove		PARAMS ((basic_block, basic_block));
 extern void tidy_fallthru_edge		PARAMS ((edge, basic_block,
 						 basic_block));
@@ -482,6 +485,14 @@ struct loops
   sbitmap shared_headers;
 };
 
+struct loop_invariants
+{
+  bitmap def_varies;
+  struct loop *loop;
+  struct df *df;
+  rtx store_mems;
+};
+
 extern int flow_loops_find PARAMS ((struct loops *, int flags));
 extern int flow_loops_update PARAMS ((struct loops *, int flags));
 extern void flow_loops_free PARAMS ((struct loops *));
@@ -592,6 +603,8 @@ enum update_life_extent
 extern void life_analysis	PARAMS ((rtx, FILE *, int));
 extern void update_life_info	PARAMS ((sbitmap, enum update_life_extent,
 					 int));
+extern void update_life_info_in_dirty_blocks PARAMS ((enum update_life_extent,
+						      int));
 extern int count_or_remove_death_notes	PARAMS ((sbitmap, int));
 extern int propagate_block	PARAMS ((basic_block, regset, regset, regset,
 					 int));
@@ -699,6 +712,9 @@ extern conflict_graph conflict_graph_compute
 extern bool mark_dfs_back_edges		PARAMS ((void));
 extern void set_edge_can_fallthru_flag	PARAMS ((void));
 extern void update_br_prob_note		PARAMS ((basic_block));
+extern bool can_hoist_insn_p		PARAMS ((rtx, rtx, regset));
+extern rtx hoist_insn_after		PARAMS ((rtx, rtx, rtx, rtx));
+extern rtx hoist_insn_to_edge		PARAMS ((rtx, edge, rtx, rtx));
 
 /* In dominance.c */
 
@@ -710,5 +726,11 @@ enum cdi_direction
 
 extern void calculate_dominance_info	PARAMS ((int *, sbitmap *,
 						 enum cdi_direction));
+
+/* In cfgloopanal.c */
+struct loop_invariants *init_loop_invariants PARAMS ((struct loop *, struct df *));
+void free_loop_invariants	 PARAMS ((struct loop_invariants *inv));
+void test_invariants		 PARAMS ((struct loops *));
+bool loop_invariant_rtx_p PARAMS ((struct loop_invariants *, rtx, rtx));
 
 #endif /* GCC_BASIC_BLOCK_H */

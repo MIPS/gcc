@@ -3233,13 +3233,7 @@ rest_of_compilation (decl)
   timevar_push (TV_MODE_SWITCH);
 
   no_new_pseudos = 0;
-  if (optimize_mode_switching (NULL))
-    {
-      /* We did work, and so had to regenerate global life information.
-	 Take advantage of this and don't re-recompute register life
-	 information below.  */
-      register_life_up_to_date = 1;
-    }
+  optimize_mode_switching (NULL);
   no_new_pseudos = 1;
 
   timevar_pop (TV_MODE_SWITCH);

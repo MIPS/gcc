@@ -3250,6 +3250,8 @@ add_insn_after (insn, after)
       && (bb = BLOCK_FOR_INSN (after)))
     {
       set_block_for_insn (insn, bb);
+      if (INSN_P (insn))
+        bb->flags |= BB_DIRTY;
       /* Should not happen as first in the BB is always
 	 either NOTE or LABEL.  */
       if (bb->end == after
@@ -3317,6 +3319,8 @@ add_insn_before (insn, before)
       && (bb = BLOCK_FOR_INSN (before)))
     {
       set_block_for_insn (insn, bb);
+      if (INSN_P (insn))
+        bb->flags |= BB_DIRTY;
       /* Should not happen as first in the BB is always
 	 either NOTE or LABEl.  */
       if (bb->head == insn
@@ -3394,6 +3398,8 @@ remove_insn (insn)
       && (unsigned int)INSN_UID (insn) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (insn)))
     {
+      if (INSN_P (insn))
+        bb->flags |= BB_DIRTY;
       if (bb->head == insn)
 	{
 	  /* Never ever delete the basic block note without deleting whole basic
@@ -3471,6 +3477,9 @@ reorder_insns (from, to, after)
       && (bb = BLOCK_FOR_INSN (after)))
     {
       rtx x;
+      bb->flags |= BB_DIRTY;
+
+      bb->flags |= BB_DIRTY;
  
       if (basic_block_for_insn
 	  && (unsigned int)INSN_UID (from) < basic_block_for_insn->num_elements
@@ -3478,6 +3487,7 @@ reorder_insns (from, to, after)
 	{
 	  if (bb2->end == to)
 	    bb2->end = prev;
+	  bb2->flags |= BB_DIRTY;
 	}
 
       if (bb->end == after)
@@ -4001,6 +4011,7 @@ emit_insns_after (first, after)
       && (unsigned int)INSN_UID (after) < basic_block_for_insn->num_elements
       && (bb = BLOCK_FOR_INSN (after)))
     {
+      bb->flags |= BB_DIRTY;
       for (last = first; NEXT_INSN (last); last = NEXT_INSN (last))
 	set_block_for_insn (last, bb);
       set_block_for_insn (last, bb);
@@ -5002,4 +5013,69 @@ restore_line_number_status (old_value)
      int old_value;
 {
   no_line_numbers = old_value;
+}
+
+/* Produce exact duplicate of insn INSN after AFTER.
+   Care updating of libcall regions if present.  */
+
+rtx
+emit_copy_of_insn_after (insn, after)
+     rtx insn, after;
+{
+  rtx new;
+  rtx note1, note2, link;
+
+  switch (GET_CODE (insn))
+    {
+    case INSN:
+      new = emit_insn_after (copy_insn (PATTERN (insn)), after);
+      break;
+
+    case JUMP_INSN:
+      new = emit_jump_insn (copy_insn (PATTERN (insn)));
+      break;
+
+    case CALL_INSN:
+      new = emit_call_insn (copy_insn (PATTERN (insn)));
+      if (CALL_INSN_FUNCTION_USAGE (insn))
+	CALL_INSN_FUNCTION_USAGE (new)
+	  = copy_insn (CALL_INSN_FUNCTION_USAGE (insn));
+      SIBLING_CALL_P (new) = SIBLING_CALL_P (insn);
+      CONST_OR_PURE_CALL_P (new) = CONST_OR_PURE_CALL_P (insn);
+      break;
+
+    default:
+      abort ();
+    }
+
+  /* Update LABEL_NUSES.  */
+  mark_jump_label (PATTERN (new), new, 0);
+
+  /* Copy all REG_NOTES except REG_LABEL since mark_jump_label will
+     make them.  */
+  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+    if (REG_NOTE_KIND (link) != REG_LABEL)
+      {
+	if (GET_CODE (link) == EXPR_LIST)
+	  REG_NOTES (new)
+	    = copy_insn_1 (gen_rtx_EXPR_LIST (REG_NOTE_KIND (link),
+					      XEXP (link, 0),
+					      REG_NOTES (new)));
+	else
+	  REG_NOTES (new)
+	    = copy_insn_1 (gen_rtx_INSN_LIST (REG_NOTE_KIND (link),
+					      XEXP (link, 0),
+					      REG_NOTES (new)));
+      }
+
+  /* Fix the libcall sequences.  */
+  if ((note1 = find_reg_note (new, REG_RETVAL, NULL_RTX)) != NULL)
+    {
+      rtx p = new;
+      while ((note2 = find_reg_note (p, REG_LIBCALL, NULL_RTX)) == NULL)
+	p = PREV_INSN (p);
+      XEXP (note1, 0) = p;
+      XEXP (note2, 0) = new;
+    }
+  return new;
 }

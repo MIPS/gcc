@@ -741,6 +741,31 @@ update_life_info (blocks, extent, prop_flags)
 	       ? TV_LIFE_UPDATE : TV_LIFE);
 }
 
+/* Update life information in all blocks where BB_DIRTY is set.  */
+
+void
+update_life_info_in_dirty_blocks (extent, prop_flags)
+     enum update_life_extent extent;
+     int prop_flags;
+{
+  sbitmap update_life_blocks = sbitmap_alloc (n_basic_blocks);
+  int block_num;
+  int n = 0;
+
+  sbitmap_zero (update_life_blocks);
+  for (block_num = 0; block_num < n_basic_blocks; block_num++)
+    if (BASIC_BLOCK (block_num)->flags & BB_DIRTY)
+      {
+	SET_BIT (update_life_blocks, block_num);
+	n++;
+      }
+
+  if (n)
+    update_life_info (update_life_blocks, extent, prop_flags);
+
+  sbitmap_free (update_life_blocks);
+}
+
 /* Free the variables allocated by find_basic_blocks.
 
    KEEP_HEAD_END_P is non-zero if basic_block_info is not to be freed.  */
