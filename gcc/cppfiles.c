@@ -220,19 +220,23 @@ open_file (cpp_reader *pfile, _cpp_file *file)
     }
   else
     {
-      struct file_hash_entry *entry
-	= htab_find_with_hash (pfile->file_hash, path,
-			       htab_hash_string (path));
-
-      entry = search_cache (entry, &pfile->no_search_path);
-      if (entry && entry->u.file->data != NULL)
+      if (file->data == NULL && file->dir != &pfile->no_search_path)
 	{
-	  file->data = entry->u.file->data;
-	  file->err_no = 0;
-	  return true;
+	  struct file_hash_entry *entry
+	    = htab_find_with_hash (pfile->file_hash, path,
+				   htab_hash_string (path));
+
+	  entry = search_cache (entry, &pfile->no_search_path);
+	  if (entry && entry->u.file->data != NULL)
+	    {
+	      file->data = entry->u.file->data;
+	      if (file->data->fd > -1)
+		return true;
+	    }
 	}
 
-      fd = open (file->path, O_RDONLY | O_NOCTTY | O_BINARY, 0666);
+      fd = open (path, O_RDONLY | O_NOCTTY | O_BINARY, 0666);
+      file->err_no = 0;
     }
 
   if (fd != -1)
@@ -799,9 +803,12 @@ _cpp_stack_file (cpp_reader *pfile, _cpp_file *file, bool import)
 	deps_add_dep (pfile->deps, file->path);
     }
 
-  /* Clear buffer_valid since _cpp_clean_line messes it up.  */
 #if 0
-  file->buffer_valid = false;
+  /* Clear buffer_valid since _cpp_clean_line messes it up.  */
+#endif
+#if 0
+  if (pfile->buffer == NULL)
+    file->data->buffer_valid = false;
 #endif
   file->stack_count++;
 
@@ -1219,6 +1226,8 @@ cpp_push_include (cpp_reader *pfile, const char *fname)
 void
 _cpp_pop_file_buffer (cpp_reader *pfile, _cpp_file *file)
 {
+  _cpp_file_data *data = file->data;
+
   /* Record the inclusion-preventing macro, which could be NULL
      meaning no controlling macro.  */
   if (pfile->mi_valid && file->cmacro == NULL)
@@ -1227,9 +1236,8 @@ _cpp_pop_file_buffer (cpp_reader *pfile, _cpp_file *file)
   /* Invalidate control macros in the #including file.  */
   pfile->mi_valid = false;
 
-  if (pfile->buffer == NULL && file->data)
+  if (data && !data->buffer_valid)
     {
-      _cpp_file_data *data = file->data;
       if (data->buffer)
 	{
 	  free ((void *) data->buffer);

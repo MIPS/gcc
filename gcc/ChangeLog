@@ -1,3 +1,14 @@
+2003-12-10  Per Bothner  <pbothner@apple.com>
+
+	* cppfiles.c (open_file):  Tweak previous patch.  Only do extra
+	path lookup if file->data not set yet and not using global search dir.
+
+	* cppfiles.c: Fix 12-01 patch so we can re-compile same file.
+	(_cpp_pop_file_buffer):  Check buffer_valid flag to determine wether
+	to free the buffer and its fragments.
+	(_cpp_stack_file):  If we want to free the main file's buffer do
+	it here, by clearing buffer_valid.  But we probably don't.
+
 2003-12-09  Per Bothner  <pbothner@apple.com>
 
 	Share buffer and fragments for files that have same path.
