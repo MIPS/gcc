@@ -541,4 +541,3 @@
 3765630: gcc.c-torture/execute/ieee/fp-cmp-8l.c execution,  -fast
 #3765772: gcc.dg/compat/scalar-by-value-1 c_compat_x_tst.o-c_compat_y_tst.o execute
 3765772: gcc.dg/compat/struct-by-value-7a c_compat_x_tst.o-c_compat_y_tst.o execute
-3788046: gcc.dg/simd-2.c (test for excess errors)
