@@ -1,3 +1,8 @@
+2004-11-19  Paul Brook  <paul@codesourcery.com>
+
+	* unwind-arm.h: Don't include stdio.h.  Add prototype for abort().
+	* config/arm/unwind-arm.c: Don't include stdio.h. Don't use NULL.
+
 2004-11-18  Paul Brook  <paul@codesourcery.com>
 
 	* config/arm/arm.c (target_float_switch): New variable..

@@ -31,13 +31,14 @@
 #ifndef UNWIND_ARM_H
 #define UNWIND_ARM_H
 
-#include <stdlib.h>
-
 #define __ARM_EABI_UNWINDER__ 1
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+  /* We add a prototype for abort here to avoid creating a dependency on
+     target headers.  */
+  extern void abort();
 
   typedef unsigned _Unwind_Word __attribute__((__mode__(__word__)));
   typedef signed _Unwind_Sword __attribute__((__mode__(__word__)));

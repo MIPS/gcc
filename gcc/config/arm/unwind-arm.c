@@ -25,7 +25,6 @@
    along with this program; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
-#include <stdlib.h>
 #include "unwind-arm.h"
 
 /* Definitions for C++ runtime support routines.  We make these weak
@@ -375,7 +374,7 @@ get_eit_entry (_Unwind_Control_Block *ucbp, _uw return_address)
 
   eitp = (const __EIT_entry *) bsearch (&return_address, &__exidx_start,
       nrec, sizeof (__EIT_entry), EIT_comparator);
-  if (eitp == NULL)
+  if (!eitp)
     {
       UCB_PR_ADDR (ucbp) = 0;
       return _URC_FAILURE;
@@ -968,7 +967,7 @@ __gnu_unwind_pr_common (_Unwind_State state,
 			  rtti = _Unwind_decode_target2 ((_uw) &data[1]);
 			  if (!__cxa_type_match (ucbp, (type_info *) rtti,
 						 &matched))
-			    matched = NULL;
+			    matched = (void *)0;
 			}
 
 		      if (matched)
