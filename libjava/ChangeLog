@@ -1,5 +1,19 @@
 2004-06-10  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/Timer.java
+	(Timer): New constructor.
+	* javax/swing/plaf/basic/BasicProgressBarUI.java
+	(animationTimer): Don't initialize at construction.
+	(startAnimationTimer): Added since tag.
+	(stopAnimationTimer): Likewise.
+	(installUI): Use new Timer constructor.
+	* javax/swing/plaf/basic/BasicScrollBarUI.java
+	(installUI): Likewise.
+	* javax/swing/plaf/basic/BasicSliderUI.java
+	(installUI): Likewise.
+
+2004-06-10  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/ButtonGroup.java
 	(serialVersionUID): Made private.
 	(buttons): Renamed from v, added javadoc.

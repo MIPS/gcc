@@ -87,6 +87,14 @@ public class Timer implements Serializable
     }
   }
 
+  public Timer(int delay, ActionListener listener)
+  {
+    interval = delay;
+
+    if (listener != null)
+      addActionListener(listener);
+  }
+
   public void addActionListener(ActionListener listener)
   {
     listenerList.add (ActionListener.class, listener);

@@ -957,8 +957,7 @@ public class BasicScrollBarUI extends ScrollBarUI implements LayoutManager,
 	trackRect = new Rectangle();
 	thumbRect = new Rectangle();
 
-	scrollTimer = new Timer();
-	scrollTimer.setDelay(200);
+	scrollTimer = new Timer(200, null);
 	scrollTimer.setRepeats(true);
 
 	installComponents();
