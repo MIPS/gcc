@@ -1,3 +1,8 @@
+Wed Oct  2 17:01:36 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (print_operand_address): Use RIP addressing for offsetted
+	label refs too.
+
 2002-10-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (local_symbolic_operand): Move LABEL_REF test
