@@ -1,3 +1,8 @@
+2002-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/7434
+	* gcc.c-torture/compile/20021008-1.c: New test.
+
 2002-10-06  Neil Booth  <neil@daikokuya.co.uk>
 
 	* gcc.dg/cpp/_Pragma4.c: New test.

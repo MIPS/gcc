@@ -1,3 +1,9 @@
+Sat Aug 10 22:14:41 CEST 2002  Jan Hubicka  <jh@suse.cz>
+
+	PR target/7434
+	* i386.c (ix86_split_long_move): Fix modes in the precomputed address
+	references.
+
 Tue Aug 27 22:26:35 CEST 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.h (BIGGEST_FIELD_ALIGNMENT): Set proper default for x86_64.
