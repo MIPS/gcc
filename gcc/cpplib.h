@@ -404,12 +404,11 @@ struct cpp_callbacks
 		   const char *, int);
   /* Notifies front-end end that the current fragment uses some other
      fragment.  Called if non-null when a macro is used. */
-  void (*uses_fragment) PARAMS ((cpp_reader*, cpp_fragment*));
+  void (*uses_fragment) (cpp_reader*, cpp_fragment*);
   /* True if this is a bad place to create a new fragment. */
-  bool (*avoid_new_fragment) PARAMS ((cpp_reader*));
-  bool (*enter_fragment) PARAMS ((cpp_reader *, cpp_fragment *,
-				  const char*, int));
-  void (*exit_fragment) PARAMS ((cpp_reader *, cpp_fragment *));
+  bool (*avoid_new_fragment) (cpp_reader*);
+  bool (*enter_fragment) (cpp_reader *, cpp_fragment *);
+  void (*exit_fragment) (cpp_reader *, cpp_fragment *);
   void (*define) (cpp_reader *, unsigned int, cpp_hashnode *);
   void (*undef) (cpp_reader *, unsigned int, cpp_hashnode *);
   void (*ident) (cpp_reader *, unsigned int, const cpp_string *);

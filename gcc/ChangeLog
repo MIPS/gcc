@@ -1,5 +1,38 @@
 2003-11-30  Per Bothner  <pbothner@apple.com>
 
+	* cpplib.h (struct cpp_callbacks):  Remove use of PARAMS macro.
+	Drop last two parameters of enter_fragment call-back.
+	* cppfiles.c (_cpp_enter_fragment):  Likewise.
+	* c-common.h (cb_enter_fragment):  Likewise.
+	* c-common.h (track_dependencies, track_declarations):  New globals.
+	* c-common.c (track_dependencies, track_declarations):  New globals.
+	(create_builtins_fragment):  Set track_declarations.
+	(register_fragment_dependency):  Do nothing unless track_dependencies.
+	(cb_enter_fragment):  Calculate file name and line internally,
+	rather than being passed as parameters.
+	Set track_dependencies and track_declarations.
+	(cb_exit_fragment):  Clear track_dependencies and track_declarations.
+
+	* c-common.c (cb_enter_fragment):  Tweak inform messages.
+
+	* c-common.c (count_register_fragment_dependency_calls,
+	count_nonredundant_register_fragment_dependency_calls,
+	count_fragment_declarations, count_fragment_tags,
+	int count_new_fragments, count_new_empty_fragments,
+	lines_new_fragments, count_reread_fragments,
+	count_reread_empty_fragments, lines_reread_fragments,
+	count_reused_fragments, count_reused_empty_fragments,
+	lines_reused_fragments, current_fragment_is_new,
+	current_fragment_nested_at_start, current_fragment_nested_at_end):
+	New counters used for gathering statistics.
+	(note_fragment_binding_1, note_fragment_binding_3,
+	register_fragment_dependency, cb_enter_fragment, cb_exit_fragment):
+	Adjust counters.
+	(define gather_fragment_statistics):  Enable/disable statistics.
+	(report_fragment_statistics):  Print out statistics.
+
+2003-11-30  Per Bothner  <pbothner@apple.com>
+
 	* c-objc-common.c (init_c_objc_common_once):  Move INIT_STATEMENT_CODES
 	to here from init_c_objc_common_eachsrc.
 

@@ -603,9 +603,7 @@ _cpp_enter_fragment (pfile, fragment)
 {
   if (pfile->cb.enter_fragment != NULL)
     {
-      if (pfile->cb.enter_fragment (pfile, fragment,
-				    fragment->name,
-				    SOURCE_LINE (linemap_lookup (&pfile->line_maps, pfile->line), pfile->line)))
+      if (pfile->cb.enter_fragment (pfile, fragment))
 	{
 	  pfile->buffer->cur = fragment->end;
 	  pfile->buffer->line_base = fragment->end - 1;

@@ -4204,6 +4204,7 @@ create_builtins_fragment (void)
   builtins_fragment = fragment;
   builtins_c_fragment = st;
   parse_in->do_note_macros = 1;
+  track_declarations = 1;
 }
 
 /* Note that the current fragment depends on USED. */
@@ -4332,12 +4333,18 @@ note_tag (tree tagtype)
     }
 }
 
+int count_register_fragment_dependency_calls;
+int count_nonredundant_register_fragment_dependency_calls;
+int count_fragment_declarations;
+int count_fragment_tags;
+
 void
 note_fragment_binding_1 (tree1)
      tree tree1;
 {
   reserve_fragment_binding (1);
   TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 1) = tree1;
+  count_fragment_declarations++;
 }
 
 void
@@ -4357,6 +4364,7 @@ note_fragment_binding_3 (tree1, tree2, tree3)
   TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 3) = tree1;
   TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 2) = tree2;
   TREE_VEC_ELT (fragment_bindings_stack, fragment_bindings_end - 1) = tree3;
+  count_fragment_tags++;
 }
 
 /* Note that the current fragment depends on (some binding from) USED. */
@@ -4365,6 +4373,9 @@ void
 register_fragment_dependency (used)
      struct c_include_fragment* used;
 {
+  if (! track_dependencies)
+    return;
+  count_register_fragment_dependency_calls++;
   if (! used->used_in_current && used != current_c_fragment
       && used != builtins_c_fragment
       && current_c_fragment != NULL)
@@ -4386,9 +4397,12 @@ register_fragment_dependency (used)
 	= (tree) used;
       current_fragment_deps_end++;
       used->used_in_current = 1;
+      count_nonredundant_register_fragment_dependency_calls++;
     }
 }
 
+int track_dependencies;
+int track_declarations;
 int main_timestamp;
 int c_timestamp;
 /* Inside an incomplete enum, for example. */
@@ -4450,6 +4464,47 @@ dont_defeat_good_checking ()
 }
 
 #define warn_fragment_invalidation (! quiet_flag)
+#define gather_fragment_statistics 0
+
+int count_new_fragments;
+int count_new_empty_fragments;
+int lines_new_fragments;
+int count_reread_fragments;
+int count_reread_empty_fragments;
+int lines_reread_fragments;
+int count_reused_fragments;
+int count_reused_empty_fragments;
+int lines_reused_fragments;
+int current_fragment_is_new;
+int current_fragment_nested_at_start;
+int current_fragment_nested_at_end;
+
+extern void report_fragment_statistics (void);
+void
+report_fragment_statistics (void)
+{
+  if (gather_fragment_statistics)
+    {
+      fprintf (stderr, "%d fragments with %d lines (%d empty)"
+	       " read for the first time\n",
+	       count_new_fragments, lines_new_fragments,
+	       count_new_empty_fragments);
+
+      fprintf (stderr, "%d fragments with %d lines (%d empty)"
+	       " invalidated and re-read\n",
+	       count_reread_fragments, lines_reread_fragments,
+	       count_reread_empty_fragments);
+
+      fprintf (stderr, "%d fragments with %d lines (%d empty) reused\n",
+	       count_reused_fragments, lines_reused_fragments,
+	       count_reused_empty_fragments);
+      fprintf (stderr, "registered %d non-redundant (%d total) fragment dependencies\n",
+	       count_nonredundant_register_fragment_dependency_calls,
+	       count_register_fragment_dependency_calls);
+      fprintf (stderr, "%d declarations and %d tags in fragments\n",
+	       count_fragment_declarations, count_fragment_tags);
+    }
+}
 
 /* Called from cpp at the start of a new fragment.
    Check if the fragment has been seen before and we can re-use the
@@ -4458,16 +4513,16 @@ dont_defeat_good_checking ()
    up so we can remember new bindings as we see them. */
 
 bool
-cb_enter_fragment (reader, fragment, name, line)
-     cpp_reader* reader ATTRIBUTE_UNUSED;
-     cpp_fragment *fragment;
-     const char* name;
-     int line;
+cb_enter_fragment (cpp_reader* reader, cpp_fragment *fragment)
 {
   struct c_include_fragment* st = C_FRAGMENT (fragment);
   bool valid = 0;
+  const char* name = fragment->name;
+#if 0
   input_filename = fragment->name;
-  input_line = line;
+  input_line = SOURCE_LINE (linemap_lookup (&reader->line_maps, reader->line), reader->line);
+#endif
+  current_fragment_is_new = 0;
   if (st == NULL)
     {
       if (!lang_hooks.uses_conditional_symtab)
@@ -4475,6 +4530,9 @@ cb_enter_fragment (reader, fragment, name, line)
 	  st = alloc_include_fragment ();
 	  st->name = name;
 	  st->valid = 0;
+	  if (warn_fragment_invalidation)
+	    inform ("fragment seen for the first time");
+	  current_fragment_is_new = 1;
 	}
     }
   else
@@ -4486,11 +4544,12 @@ cb_enter_fragment (reader, fragment, name, line)
 	{
 	  valid = 0;
 	  if (warn_fragment_invalidation)
- 	    inform ("invalidating cached fragment because it is inside a declaration");
+ 	    inform ("invalidating cached fragment because it begins inside a declaration");
 	}
 
       if (st->include_timestamp >= main_timestamp
 	  && valid
+	  && ! fragment->empty
 	  && dont_defeat_good_checking ())
 	{
 	  /* This fragment has already been included for this main file.
@@ -4542,8 +4601,11 @@ cb_enter_fragment (reader, fragment, name, line)
 	}
       else
 	{
-	  if (warn_fragment_invalidation)
-	    inform ("reusing cached fragment");
+	  if (warn_fragment_invalidation && ! fragment->empty)
+	    {
+	      inform ("reusing cached fragment");
+	      fprintf(stderr, "reuse %d lines (start:%d, end:%d)\n", fragment->end_line - fragment->start_line, fragment->start_line, fragment->end_line);
+	    }
 	  restore_fragment (fragment);
 	}
     }
@@ -4580,6 +4642,17 @@ cb_enter_fragment (reader, fragment, name, line)
   /* Note fragment->was_resued is redundant - it's same as
      st->include_timestamp > st->read_timestamp */
   fragment->was_reused = valid;
+  track_dependencies = !valid;
+  track_declarations = !valid;
+  if (gather_fragment_statistics && valid)
+    {
+      int num_lines = fragment->end_line - fragment->start_line;
+      bool is_empty = fragment->empty;
+      count_reused_fragments++;
+      lines_reused_fragments += num_lines;
+      if (is_empty)
+	count_reused_empty_fragments++;
+    }
   return valid;
 }
 
@@ -4624,6 +4697,9 @@ cb_exit_fragment (reader, fragment)
 {
   struct c_include_fragment* st = C_FRAGMENT (fragment);
   reader->do_note_macros = 0;
+  track_dependencies = 0;
+  track_declarations = 0;
+
   if (st != NULL)
     {
       int i;
@@ -4662,10 +4738,30 @@ cb_exit_fragment (reader, fragment)
 	}
 
       current_c_fragment = NULL;
+      if (gather_fragment_statistics)
+	{
+	  int num_lines = reader->line - fragment->start_line;
+	  bool is_empty = reader->mi_valid;
+	  if (current_fragment_is_new)
+	    {
+	      count_new_fragments++;
+	      lines_new_fragments += num_lines;
+	      if (is_empty)
+		count_new_empty_fragments++;
+	    }
+	  else
+	    {
+	      count_reread_fragments++;
+	      lines_reread_fragments += num_lines;
+	      if (is_empty)
+		count_new_empty_fragments++;
+	    }
+	}
+
       if (currently_nested)
 	{
 	  if (warn_fragment_invalidation)
-	    inform ("invalidating cached fragment because it is inside a declaration");
+	    inform ("invalidating cached fragment because it ends inside a declaration");
 	  st->valid = 0;
 	}
       else

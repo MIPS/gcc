@@ -196,6 +196,8 @@ extern size_t c_tree_size (enum tree_code code);
 #define FRAGMENT_CHAIN(F) (TREE_TYPE (F))
 #define FRAGMENT_GLOBAL_CHAIN(F) (TREE_CHAIN (F))
 
+extern int track_dependencies;
+extern int track_declarations;
 extern int main_timestamp;
 extern int c_timestamp;
 extern GTY(()) struct c_include_fragment *current_c_fragment;
@@ -222,7 +224,7 @@ extern void process_undo_buffer (void);
 
 
 extern tree save_fragment_bindings (void);
-extern bool cb_enter_fragment (cpp_reader*, cpp_fragment*, const char*, int);
+extern bool cb_enter_fragment (cpp_reader*, cpp_fragment*);
 extern void cb_exit_fragment (cpp_reader*, cpp_fragment*);
 extern void cb_uses_fragment (cpp_reader*, cpp_fragment*);
 extern bool cb_avoid_new_fragment (cpp_reader*);
