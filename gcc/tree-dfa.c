@@ -100,7 +100,6 @@ static void register_alias_set		PARAMS ((tree, tree));
 static void find_alias_for		PARAMS ((tree, tree));
 static bool may_alias_p			PARAMS ((tree, tree, HOST_WIDE_INT,
 						 tree, tree, HOST_WIDE_INT));
-static void find_may_aliases_for	PARAMS ((int));
 static bool may_access_global_mem_p 	PARAMS ((tree, tree));
 static void set_def			PARAMS ((tree *, tree));
 static void add_use			PARAMS ((tree *, tree));
@@ -1449,7 +1448,6 @@ clobber_vars_r (tp, walk_subtrees, data)
 void
 compute_may_aliases ()
 {
-  unsigned long i;
   static htab_t vars_found;
   static htab_t indirect_refs_found;
   static htab_t addressable_vars_found;
@@ -1507,13 +1505,7 @@ compute_may_aliases ()
       timevar_pop (TV_TREE_PTA);
     }
 
-  if (flag_tree_points_to == PTA_NONE)
-    compute_alias_sets ();
-  else
-    {
-      for (i = 0; i < num_indirect_refs; i++)
-	find_may_aliases_for (i);
-    }
+  compute_alias_sets ();
 
   num_indirect_refs = 0;
   indirect_refs = 0;
@@ -1870,58 +1862,6 @@ may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set)
   return true;
 }
 
-
-/* Find variables that may be aliased by the variable (V1) at
-   index INDIRECT_REF_INDEX in the INDIRECT_REFS varray.  */
-
-static void
-find_may_aliases_for (indirect_ref_index)
-     int indirect_ref_index;
-{
-  unsigned long i;
-  tree v1 = VARRAY_TREE (indirect_refs, indirect_ref_index);
-  tree v1_base = VARRAY_TREE (indirect_refs_base, indirect_ref_index);
-  HOST_WIDE_INT v1_alias_set
-    = VARRAY_INT (indirect_refs_alias_set, indirect_ref_index);
-
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (v1) != INDIRECT_REF)
-    abort ();
-#endif
-
-  /* Note that our aliasing properties are symmetric, so we can
-     start this loop at INDIRECT_REF_INDEX + 1 to cut down on the
-     runtime for this routine.  */
-  for (i = indirect_ref_index + 1; i < num_indirect_refs; i++)
-    {
-      tree v2 = VARRAY_TREE (indirect_refs, i);
-      tree v2_base = VARRAY_TREE (indirect_refs_base, i);
-      HOST_WIDE_INT v2_alias_set = VARRAY_INT (indirect_refs_alias_set, i);
-
-      if (may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set))
-	{
-	  add_may_alias (v2, v2_base, v1, v1_base);
-	  add_may_alias (v1, v1_base, v2, v2_base);
-	}
-    }
-
-  /* Now check if V1 may alias any of the addressable variables.  */
-  for (i = 0; i < num_addressable_vars; i++)
-    {
-      tree v2 = VARRAY_TREE (addressable_vars, i);
-      tree v2_base = VARRAY_TREE (addressable_vars_base, i);
-      HOST_WIDE_INT v2_alias_set = VARRAY_INT (addressable_vars_alias_set, i);
-
-      if (v1 == v2)
-	continue;
-
-      if (may_alias_p (v1, v1_base, v1_alias_set, v2, v2_base, v2_alias_set))
-	{
-	  add_may_alias (v2, v2_base, v1, v1_base);
-	  add_may_alias (v1, v1_base, v2, v2_base);
-	}
-    }
-}
 
 
 /* Add ALIAS to the set of variables that may alias VAR.  VAR_SYM and
