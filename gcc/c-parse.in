@@ -678,8 +678,8 @@ primary:
 		  if (!last_expr_type)
 		    last_expr_type = void_type_node;
 		  $$ = build1 (STMT_EXPR, last_expr_type, $1);
-		  STMT_LINENO ($$) = input_line;
 		  TREE_SIDE_EFFECTS ($$) = 1;
+		  annotate_with_locus ($$, input_location);
 		}
 	| compstmt_primary_start error ')'
 		{

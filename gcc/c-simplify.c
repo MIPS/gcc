@@ -970,8 +970,15 @@ gimplify_stmt_expr (tree *expr_p)
 	      && VOID_TYPE_P (TREE_TYPE (last_stmt))))
 	{
 	  location_t loc;
-	  loc.file = input_filename;
-	  loc.line = STMT_LINENO (last_stmt ? last_stmt : *expr_p);
+	  if (last_stmt)
+	    {
+	      loc.file = input_filename;
+	      loc.line = STMT_LINENO (last_stmt);
+	    }
+	  else if (EXPR_LOCUS (*expr_p))
+	    loc = *EXPR_LOCUS (*expr_p);
+	  else
+	    loc = input_location;
 	  warning ("%Hstatement-expressions should end with a "
 		   "non-void expression", &loc);
 	  last_expr = NULL_TREE;
