@@ -292,7 +292,7 @@ Boston, MA 02111-1307, USA.  */
    (set_attr "length" "4")])
 
 (define_insn "*save_fpregs_with_label_di"
- [(match_parallel 0 "any_operand"
+ [(match_parallel 0 "any_parallel_operand"
                   [(clobber (match_operand:DI 1 "register_operand" "=l"))
 		   (use (match_operand:DI 2 "call_operand" "s"))
 		   (use (match_operand:DI 3 "" ""))
@@ -310,7 +310,7 @@ Boston, MA 02111-1307, USA.  */
    (set_attr "length" "4")])
 
 (define_insn "*save_vregs_di"
- [(match_parallel 0 "any_operand"
+ [(match_parallel 0 "any_parallel_operand"
                   [(clobber (match_operand:DI 1 "register_operand" "=l"))
 		   (use (match_operand:DI 2 "call_operand" "s"))
 		   (set (match_operand:V4SI 3 "any_operand" "=m")
@@ -321,7 +321,7 @@ Boston, MA 02111-1307, USA.  */
    (set_attr "length" "4")])
 
 (define_insn "*restore_vregs_di"
- [(match_parallel 0 "any_operand"
+ [(match_parallel 0 "any_parallel_operand"
                   [(clobber (match_operand:DI 1 "register_operand" "=l"))
 		   (use (match_operand:DI 2 "call_operand" "s"))
 		   (clobber (match_operand:DI 3 "gpc_reg_operand" "=r"))
@@ -331,7 +331,7 @@ Boston, MA 02111-1307, USA.  */
  "bl %z2")
 
 (define_insn "*save_vregs_with_label_di"
- [(match_parallel 0 "any_operand"
+ [(match_parallel 0 "any_parallel_operand"
                   [(clobber (match_operand:DI 1 "register_operand" "=l"))
 		   (use (match_operand:DI 2 "call_operand" "s"))
 		   (use (match_operand:DI 3 "" ""))

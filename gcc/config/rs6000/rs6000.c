@@ -1971,7 +1971,7 @@ any_operand (rtx op ATTRIBUTE_UNUSED,
 
 int
 any_parallel_operand (rtx op ATTRIBUTE_UNUSED,
-		      enum machine_mode mode ATTRIBUTE_UNUSED)
+			enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   return 1;
 }
@@ -13134,12 +13134,16 @@ rs6000_return_addr (int count, rtx frame)
 }
 
 /* Say whether a function is a candidate for sibcall handling or not.
-   We do not allow indirect calls to be optimized into sibling calls.
+   APPLE LOCAL comment line removed
    Also, we can't do it if there are any vector parameters; there's
    nowhere to put the VRsave code so it works; note that functions with
    vector parameters are required to have a prototype, so the argument
    type info must be available here.  (The tail recursion case can work
-   with vector parameters, but there's no way to distinguish here.) */
+   with vector parameters, but there's no way to distinguish here.) 
+
+   APPLE LOCAL comment
+   On Darwin only, indirect calls may be sibcalls.  This is enabled
+   primarily by target-specific logic in calls.c.  */
 static bool
 rs6000_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
@@ -13147,6 +13151,13 @@ rs6000_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   /* APPLE LOCAL long-branch */
   if (TARGET_LONG_BRANCH)
     return 0;
+
+  /* APPLE LOCAL begin indirect sibcalls */
+  /* This goes with a lot of local changes in expand_call.  */
+  if (DEFAULT_ABI == ABI_DARWIN && !decl)
+    return true;
+  /* APPLE LOCAL end indirect sibcalls */
+
   if (decl)
     {
       if (TARGET_ALTIVEC_VRSAVE)
