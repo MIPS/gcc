@@ -4,6 +4,10 @@
 
 2003-12-03  Jeff Law  <law@redhat.com>
 
+	* ggc-page.c: Resync with mainline sources.  Remove tree-ssa
+	specific hack which disabled special GC pagesizes for 2 operand
+	tree expressions.
+
 	* tree-ssa.c (mark_def_sites): Call prepare_operand_for_rename
 	on the VDEF_RESULT as well, providing a dummy uid argument.
 

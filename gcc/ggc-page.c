@@ -175,10 +175,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define RTL_SIZE(NSLOTS) \
   (RTX_HDR_SIZE + (NSLOTS) * sizeof (rtunion))
 
-#if 0
 #define TREE_EXP_SIZE(OPS) \
   (sizeof (struct tree_exp) + ((OPS) - 1) * sizeof (tree))
-#endif
 
 /* The Ith entry is the maximum size of an object to be stored in the
    Ith extra order.  Adding a new entry to this array is the *only*
@@ -187,13 +185,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 static const size_t extra_order_size_table[] = {
   sizeof (struct tree_decl),
   sizeof (struct tree_list),
-  /* This setting is not good for the branch because tree_common has a
-     different size than mainline.
-
-     See http://gcc.gnu.org/ml/gcc-patches/2003-04/msg02236.html  */
-#if 0
   TREE_EXP_SIZE (2),
-#endif
   RTL_SIZE (2),			/* MEM, PLUS, etc.  */
   RTL_SIZE (9),		/* INSN, CALL_INSN, JUMP_INSN */
 };
