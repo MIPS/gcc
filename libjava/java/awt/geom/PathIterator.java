@@ -1,5 +1,5 @@
 /* PathIterator.java -- describes a shape by iterating over its vertices
-   Copyright (C) 2000, 2002 Free Software Foundation
+   Copyright (C) 2000, 2002, 2003 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -84,7 +84,7 @@ public interface PathIterator
    * (P1), and final interpolated control point (P2):
    * <pre>
    *  P(t) = B(2,0)*CP + B(2,1)*P1 + B(2,2)*P2
-   *    0 <= t <= 1
+   *    0 &lt;= t &lt;= 1
    *  B(n,m) = mth coefficient of nth degree Bernstein polynomial
    *         = C(n,m) * t^(m) * (1 - t)^(n-m)
    *  C(n,m) = Combinations of n things, taken m at a time
@@ -100,7 +100,7 @@ public interface PathIterator
    * (P2), and final interpolated control point (P3):
    * <pre>
    *  P(t) = B(3,0)*CP + B(3,1)*P1 + B(3,2)*P2 + B(3,3)*P3
-   *    0 <= t <= 1
+   *    0 &lt;= t &lt;= 1
    *  B(n,m) = mth coefficient of nth degree Bernstein polynomial
    *         = C(n,m) * t^(m) * (1 - t)^(n-m)
    *  C(n,m) = Combinations of n things, taken m at a time
@@ -125,7 +125,7 @@ public interface PathIterator
   int getWindingRule();
 
   /**
-   * Tests if the iterator is exhausted. If this returns false, currentSegment
+   * Tests if the iterator is exhausted. If this returns true, currentSegment
    * and next may throw a NoSuchElementException (although this is not
    * required).
    *
@@ -135,7 +135,7 @@ public interface PathIterator
 
   /**
    * Advance to the next segment in the iteration. It is not specified what
-   * this does if called when isDone() returns false.
+   * this does if called when isDone() returns true.
    *
    * @throws java.util.NoSuchElementException optional when isDone() is true
    */

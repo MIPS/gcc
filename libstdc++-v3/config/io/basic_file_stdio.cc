@@ -1,6 +1,6 @@
 // Wrapper of C-language FILE struct -*- C++ -*-
 
-// Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,6 +33,40 @@
 
 #include <bits/basic_file.h>
 #include <fcntl.h>
+#include <errno.h>
+
+#ifdef _GLIBCXX_HAVE_POLL
+#include <poll.h>
+#endif
+
+// Pick up ioctl on Solaris 2.8
+#ifdef _GLIBCXX_HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+// Pick up FIONREAD on Solaris 2
+#ifdef _GLIBCXX_HAVE_SYS_IOCTL_H
+#define BSD_COMP 
+#include <sys/ioctl.h>
+#endif
+
+// Pick up FIONREAD on Solaris 2.5.
+#ifdef _GLIBCXX_HAVE_SYS_FILIO_H
+#include <sys/filio.h>
+#endif
+
+#ifdef _GLIBCXX_HAVE_SYS_UIO_H
+#include <sys/uio.h>
+#endif
+
+#if defined(_GLIBCXX_HAVE_S_ISREG) || defined(_GLIBCXX_HAVE_S_IFREG)
+# include <sys/stat.h>
+# ifdef _GLIBCXX_HAVE_S_ISREG
+#  define _GLIBCXX_ISREG(x) S_ISREG(x)
+# else
+#  define _GLIBCXX_ISREG(x) (((x) & S_IFMT) == S_IFREG)
+# endif
+#endif
 
 namespace std 
 {
@@ -58,33 +92,33 @@ namespace std
     if (!__testi && __testo && !__testt && !__testa)
       {
 	strcpy(__c_mode, "w");
-	__p_mode = (O_WRONLY | O_CREAT);
+	__p_mode = O_WRONLY | O_CREAT;
       }
     if (!__testi && __testo && !__testt && __testa)
       {
 	strcpy(__c_mode, "a");
-	__p_mode |=  O_WRONLY | O_CREAT | O_APPEND;
+	__p_mode = O_WRONLY | O_CREAT | O_APPEND;
       }
     if (!__testi && __testo && __testt && !__testa)
       {
 	strcpy(__c_mode, "w");
-	__p_mode |=  O_WRONLY | O_CREAT | O_TRUNC;
+	__p_mode = O_WRONLY | O_CREAT | O_TRUNC;
       }
 
     if (__testi && !__testo && !__testt && !__testa)
       {
 	strcpy(__c_mode, "r");
-	__p_mode |=  O_RDONLY | O_NONBLOCK;
+	__p_mode = O_RDONLY;
       }
     if (__testi && __testo && !__testt && !__testa)
       {
 	strcpy(__c_mode, "r+");
-	__p_mode |=  O_RDWR | O_CREAT;
+	__p_mode = O_RDWR | O_CREAT;
       }
     if (__testi && __testo && __testt && !__testa)
       {
 	strcpy(__c_mode, "w+");
-	__p_mode |=  O_RDWR | O_CREAT | O_TRUNC;
+	__p_mode = O_RDWR | O_CREAT | O_TRUNC;
       }
     if (__testb)
       strcat(__c_mode, "b");
@@ -125,14 +159,6 @@ namespace std
       }
     return __ret;
   }
-
-  int
-  __basic_file<char>::sys_getc() 
-  { return getc(_M_cfile); }
-
-  int
-  __basic_file<char>::sys_ungetc(int __c) 
-  { return ungetc(__c, _M_cfile); }
   
   __basic_file<char>* 
   __basic_file<char>::open(const char* __name, ios_base::openmode __mode, 
@@ -150,11 +176,6 @@ namespace std
 	if ((_M_cfile = fopen(__name, __c_mode)))
 	  {
 	    _M_cfile_created = true;
-
-	    // Set input to nonblocking for fifos.
-	    if (__mode & ios_base::in)
-	      fcntl(this->fd(), F_SETFL, O_NONBLOCK);
-
 	    __ret = this;
 	  }
       }
@@ -175,40 +196,110 @@ namespace std
     __basic_file* __retval = static_cast<__basic_file*>(NULL);
     if (this->is_open())
       {
-	fflush(_M_cfile);
-	if ((_M_cfile_created && fclose(_M_cfile) == 0) || !_M_cfile_created)
-	  {
-	    _M_cfile = 0;
-	    __retval = this;
-	  }
+	if (_M_cfile_created)
+	  fclose(_M_cfile);
+	else
+	  fflush(_M_cfile);
+	_M_cfile = 0;
+	__retval = this;
       }
     return __retval;
   }
  
   streamsize 
   __basic_file<char>::xsgetn(char* __s, streamsize __n)
-  { return fread(__s, 1, __n, _M_cfile); }
-  
+  {
+    streamsize __ret;
+    do
+      __ret = read(this->fd(), __s, __n);
+    while (__ret == -1L && errno == EINTR);
+    return __ret;
+  }
+    
   streamsize 
   __basic_file<char>::xsputn(const char* __s, streamsize __n)
-  { return fwrite(__s, 1, __n, _M_cfile); }
-  
-  streamoff
-  __basic_file<char>::seekoff(streamoff __off, ios_base::seekdir __way, 
-			      ios_base::openmode /*__mode*/)
-  { 
-    fseek(_M_cfile, __off, __way); 
-    return ftell(_M_cfile); 
+  {
+    streamsize __ret;
+    do
+      __ret = write(this->fd(), __s, __n);
+    while (__ret == -1L && errno == EINTR);
+    return __ret;
   }
 
-  streamoff
-  __basic_file<char>::seekpos(streamoff __pos, ios_base::openmode /*__mode*/)
-  { 
-    fseek(_M_cfile, __pos, ios_base::beg); 
-    return ftell(_M_cfile); 
+  streamsize 
+  __basic_file<char>::xsputn_2(const char* __s1, streamsize __n1,
+			       const char* __s2, streamsize __n2)
+  {
+    streamsize __ret = 0;
+#ifdef _GLIBCXX_HAVE_WRITEV
+    struct iovec __iov[2];
+    __iov[0].iov_base = const_cast<char*>(__s1);
+    __iov[0].iov_len = __n1;
+    __iov[1].iov_base = const_cast<char*>(__s2);
+    __iov[1].iov_len = __n2;
+
+    do
+      __ret = writev(this->fd(), __iov, 2);
+    while (__ret == -1L && errno == EINTR);
+#else
+    if (__n1)
+      do
+	__ret = write(this->fd(), __s1, __n1);
+      while (__ret == -1L && errno == EINTR);
+
+    if (__ret == __n1)
+      {
+	do
+	  __ret = write(this->fd(), __s2, __n2);
+	while (__ret == -1L && errno == EINTR);
+	
+	if (__ret != -1L)
+	  __ret += __n1;
+      }
+#endif
+    return __ret;
   }
-  
+
+  streampos
+  __basic_file<char>::seekoff(streamoff __off, ios_base::seekdir __way)
+  { return lseek(this->fd(), __off, __way); }
+
+  streampos
+  __basic_file<char>::seekpos(streampos __pos)
+  { return lseek(this->fd(), __pos, ios_base::beg); }
+
   int 
   __basic_file<char>::sync() 
   { return fflush(_M_cfile); }
+
+  streamsize
+  __basic_file<char>::showmanyc()
+  {
+#ifdef FIONREAD
+    // Pipes and sockets.    
+    int __num = 0;
+    int __r = ioctl(this->fd(), FIONREAD, &__num);
+    if (!__r && __num >= 0)
+      return __num; 
+#endif    
+
+#ifdef _GLIBCXX_HAVE_POLL
+    // Cheap test.
+    struct pollfd __pfd[1];
+    __pfd[0].fd = this->fd();
+    __pfd[0].events = POLLIN;
+    if (poll(__pfd, 1, 0) <= 0)
+      return 0;
+#endif   
+
+#if defined(_GLIBCXX_HAVE_S_ISREG) || defined(_GLIBCXX_HAVE_S_IFREG)
+    // Regular files.
+    struct stat __buffer;
+    int __ret = fstat(this->fd(), &__buffer);
+    if (!__ret && _GLIBCXX_ISREG(__buffer.st_mode))
+	return __buffer.st_size - lseek(this->fd(), 0, ios_base::cur);
+#endif
+    return 0;
+  }
+
 }  // namespace std

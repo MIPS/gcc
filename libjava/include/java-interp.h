@@ -1,6 +1,6 @@
 // java-interp.h - Header file for the bytecode interpreter.  -*- c++ -*-
 
-/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -21,6 +21,8 @@ details.  */
 
 #include <java/lang/Class.h>
 #include <java/lang/ClassLoader.h>
+#include <java/lang/reflect/Modifier.h>
+#include <gnu/gcj/runtime/StackTrace.h>
 
 extern "C" {
 #include <ffi.h>
@@ -29,7 +31,7 @@ extern "C" {
 extern inline jboolean
 _Jv_IsInterpretedClass (jclass c)
 {
-  return (c->loader != 0);
+  return (c->accflags & java::lang::reflect::Modifier::INTERPRETED) != 0;
 }
 
 struct _Jv_ResolvedMethod;
@@ -130,6 +132,7 @@ class _Jv_InterpMethod : public _Jv_MethodBase
 
   static void run_normal (ffi_cif*, void*, ffi_raw*, void*);
   static void run_synch_object (ffi_cif*, void*, ffi_raw*, void*);
+  static void run_class (ffi_cif*, void*, ffi_raw*, void*);
   static void run_synch_class (ffi_cif*, void*, ffi_raw*, void*);
 
   void run (void*, ffi_raw *);
@@ -140,8 +143,13 @@ class _Jv_InterpMethod : public _Jv_MethodBase
   friend class _Jv_ClassReader;
   friend class _Jv_BytecodeVerifier;
   friend class gnu::gcj::runtime::NameFinder;
+  friend class gnu::gcj::runtime::StackTrace;
 
   friend void _Jv_PrepareClass(jclass);
+
+#ifdef JV_MARKOBJ_DECL
+  friend JV_MARKOBJ_DECL;
+#endif
 };
 
 class _Jv_InterpClass : public java::lang::Class
@@ -152,6 +160,7 @@ class _Jv_InterpClass : public java::lang::Class
   friend class _Jv_ClassReader;
   friend class _Jv_InterpMethod;
   friend void  _Jv_PrepareClass(jclass);
+  friend void  _Jv_PrepareMissingMethods (jclass base2, jclass iface_class);
   friend void  _Jv_InitField (jobject, jclass, int);
 #ifdef JV_MARKOBJ_DECL
   friend JV_MARKOBJ_DECL;

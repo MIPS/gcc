@@ -1,6 +1,6 @@
 // Deque implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_DEQUE_H
-#define __GLIBCPP_INTERNAL_DEQUE_H
+#ifndef _DEQUE_H
+#define _DEQUE_H 1
 
 #include <bits/concept_check.h>
 #include <bits/stl_iterator_base_types.h>
@@ -309,7 +309,7 @@ namespace std
     return !(__x < __y);
   }
   
-  // _GLIBCPP_RESOLVE_LIB_DEFECTS
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
   // According to the resolution of DR179 not only the various comparison
   // operators but also operator- must accept mixed iterator/const_iterator
   // parameters.
@@ -319,7 +319,7 @@ namespace std
   operator-(const _Deque_iterator<_Tp, _RefL, _PtrL>& __x,
   	  const _Deque_iterator<_Tp, _RefR, _PtrR>& __y)
   {
-    return _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
+    return typename _Deque_iterator<_Tp, _RefL, _PtrL>::difference_type
       (_Deque_iterator<_Tp, _RefL, _PtrL>::_S_buffer_size()) *
       (__x._M_node - __y._M_node - 1) + (__x._M_cur - __x._M_first) +
       (__y._M_last - __y._M_cur);
@@ -340,7 +340,7 @@ namespace std
    *  and destructor allocate (but don't initialize) storage.  This makes
    *  %exception safety easier.  Second, the base class encapsulates all of
    *  the differences between SGI-style allocators and standard-conforming
-   *  allocators.  (See stl_alloc.h for more on this topic.)  There are two
+   *  allocators.  (See allocator.h for more on this topic.)  There are two
    *  versions:  this ordinary one, and the space-saving specialization for
    *  instanceless allocators.
    *  @endif
@@ -473,10 +473,10 @@ namespace std
   template <typename _Tp, typename _Alloc>
   _Deque_base<_Tp,_Alloc>::~_Deque_base()
   {
-    if (_M_map)
+    if (this->_M_map)
     {
       _M_destroy_nodes(_M_start._M_node, _M_finish._M_node + 1);
-      _M_deallocate_map(_M_map, _M_map_size);
+      _M_deallocate_map(this->_M_map, this->_M_map_size);
     }
   }
   
@@ -497,23 +497,24 @@ namespace std
     size_t __num_nodes = 
       __num_elements / __deque_buf_size(sizeof(_Tp)) + 1;
   
-    _M_map_size = max((size_t) _S_initial_map_size, __num_nodes + 2);
-    _M_map = _M_allocate_map(_M_map_size);
+    this->_M_map_size
+      = std::max((size_t) _S_initial_map_size, __num_nodes + 2);
+    this->_M_map = _M_allocate_map(this->_M_map_size);
   
     // For "small" maps (needing less than _M_map_size nodes), allocation
     // starts in the middle elements and grows outwards.  So nstart may be the
     // beginning of _M_map, but for small maps it may be as far in as _M_map+3.
   
-    _Tp** __nstart = _M_map + (_M_map_size - __num_nodes) / 2;
+    _Tp** __nstart = this->_M_map + (this->_M_map_size - __num_nodes) / 2;
     _Tp** __nfinish = __nstart + __num_nodes;
       
     try 
       { _M_create_nodes(__nstart, __nfinish); }
     catch(...)
       {
-        _M_deallocate_map(_M_map, _M_map_size);
-        _M_map = 0;
-        _M_map_size = 0;
+        _M_deallocate_map(this->_M_map, this->_M_map_size);
+        this->_M_map = 0;
+        this->_M_map_size = 0;
         __throw_exception_again;
       }
     
@@ -531,7 +532,7 @@ namespace std
     try
       {
         for (__cur = __nstart; __cur < __nfinish; ++__cur)
-          *__cur = _M_allocate_node();
+          *__cur = this->_M_allocate_node();
       }
     catch(...)
       { 
@@ -637,7 +638,7 @@ namespace std
     class deque : protected _Deque_base<_Tp, _Alloc>
   {
     // concept requirements
-    __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
+    __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
   
     typedef _Deque_base<_Tp, _Alloc>           _Base;
   
@@ -722,7 +723,7 @@ namespace std
     */
     deque(const deque& __x)
       : _Base(__x.get_allocator(), __x.size()) 
-      { uninitialized_copy(__x.begin(), __x.end(), _M_start); }
+      { std::uninitialized_copy(__x.begin(), __x.end(), this->_M_start); }
   
     /**
      *  @brief  Builds a %deque from a range.
@@ -752,7 +753,7 @@ namespace std
      *  themselves are pointers, the pointed-to memory is not touched in any
      *  way.  Managing the pointer is the user's responsibilty.
     */
-    ~deque() { _Destroy(_M_start, _M_finish); }
+    ~deque() { std::_Destroy(this->_M_start, this->_M_finish); }
   
     /**
      *  @brief  %Deque assignment operator.
@@ -807,42 +808,42 @@ namespace std
      *  %deque.  Iteration is done in ordinary element order.
     */
     iterator
-    begin() { return _M_start; }
+    begin() { return this->_M_start; }
   
     /**
      *  Returns a read-only (constant) iterator that points to the first element
      *  in the %deque.  Iteration is done in ordinary element order.
     */
     const_iterator
-    begin() const { return _M_start; }
+    begin() const { return this->_M_start; }
   
     /**
      *  Returns a read/write iterator that points one past the last element in
      *  the %deque.  Iteration is done in ordinary element order.
     */
     iterator
-    end() { return _M_finish; }
+    end() { return this->_M_finish; }
   
     /**
      *  Returns a read-only (constant) iterator that points one past the last
      *  element in the %deque.  Iteration is done in ordinary element order.
     */
     const_iterator
-    end() const { return _M_finish; }
+    end() const { return this->_M_finish; }
   
     /**
      *  Returns a read/write reverse iterator that points to the last element in
      *  the %deque.  Iteration is done in reverse element order.
     */
     reverse_iterator
-    rbegin() { return reverse_iterator(_M_finish); }
+    rbegin() { return reverse_iterator(this->_M_finish); }
   
     /**
      *  Returns a read-only (constant) reverse iterator that points to the last
      *  element in the %deque.  Iteration is done in reverse element order.
     */
     const_reverse_iterator
-    rbegin() const { return const_reverse_iterator(_M_finish); }
+    rbegin() const { return const_reverse_iterator(this->_M_finish); }
   
     /**
      *  Returns a read/write reverse iterator that points to one before the
@@ -850,7 +851,7 @@ namespace std
      *  order.
     */
     reverse_iterator
-    rend() { return reverse_iterator(_M_start); }
+    rend() { return reverse_iterator(this->_M_start); }
   
     /**
      *  Returns a read-only (constant) reverse iterator that points to one
@@ -858,12 +859,12 @@ namespace std
      *  element order.
     */
     const_reverse_iterator
-    rend() const { return const_reverse_iterator(_M_start); }
+    rend() const { return const_reverse_iterator(this->_M_start); }
   
     // [23.2.1.2] capacity
     /**  Returns the number of elements in the %deque.  */
     size_type
-    size() const { return _M_finish - _M_start; }
+    size() const { return this->_M_finish - this->_M_start; }
   
     /**  Returns the size() of the largest possible %deque.  */
     size_type
@@ -884,9 +885,9 @@ namespace std
     {
       const size_type __len = size();
       if (__new_size < __len) 
-        erase(_M_start + __new_size, _M_finish);
+        erase(this->_M_start + __new_size, this->_M_finish);
       else
-        insert(_M_finish, __new_size - __len, __x);
+        insert(this->_M_finish, __new_size - __len, __x);
     }
   
     /**
@@ -904,7 +905,7 @@ namespace std
     /**
      *  Returns true if the %deque is empty.  (Thus begin() would equal end().)
     */
-    bool empty() const { return _M_finish == _M_start; }
+    bool empty() const { return this->_M_finish == this->_M_start; }
   
     // element access
     /**
@@ -917,7 +918,7 @@ namespace std
      *  lookups are not defined. (For checked lookups see at().)
     */
     reference
-    operator[](size_type __n) { return _M_start[difference_type(__n)]; }
+    operator[](size_type __n) { return this->_M_start[difference_type(__n)]; }
   
     /**
      *  @brief  Subscript access to the data contained in the %deque.
@@ -929,7 +930,9 @@ namespace std
      *  lookups are not defined. (For checked lookups see at().)
     */
     const_reference
-    operator[](size_type __n) const { return _M_start[difference_type(__n)]; }
+    operator[](size_type __n) const {
+      return this->_M_start[difference_type(__n)];
+    }
   
   protected:
     /// @if maint Safety check used only from at().  @endif
@@ -937,7 +940,7 @@ namespace std
     _M_range_check(size_type __n) const
     {
       if (__n >= this->size())
-        __throw_out_of_range("deque [] access out of range");
+        __throw_out_of_range(__N("deque::_M_range_check"));
     }
   
   public:
@@ -972,14 +975,14 @@ namespace std
      *  %deque.
     */
     reference
-    front() { return *_M_start; }
+    front() { return *this->_M_start; }
   
     /**
      *  Returns a read-only (constant) reference to the data at the first
      *  element of the %deque.
     */
     const_reference
-    front() const { return *_M_start; }
+    front() const { return *this->_M_start; }
   
     /**
      *  Returns a read/write reference to the data at the last element of the
@@ -988,7 +991,7 @@ namespace std
     reference
     back()
     {
-      iterator __tmp = _M_finish;
+      iterator __tmp = this->_M_finish;
       --__tmp;
       return *__tmp;
     }
@@ -1000,7 +1003,7 @@ namespace std
     const_reference
     back() const
     {
-      const_iterator __tmp = _M_finish;
+      const_iterator __tmp = this->_M_finish;
       --__tmp;
       return *__tmp;
     }
@@ -1017,38 +1020,13 @@ namespace std
     void
     push_front(const value_type& __x) 
     {
-      if (_M_start._M_cur != _M_start._M_first) {
-        _Construct(_M_start._M_cur - 1, __x);
-        --_M_start._M_cur;
+      if (this->_M_start._M_cur != this->_M_start._M_first) {
+        std::_Construct(this->_M_start._M_cur - 1, __x);
+        --this->_M_start._M_cur;
       }
       else
         _M_push_front_aux(__x);
     }
-  
-  #ifdef _GLIBCPP_DEPRECATED
-    /**
-     *  @brief  Add data to the front of the %deque.
-     *
-     *  This is a typical stack operation.  The function creates a
-     *  default-constructed element at the front of the %deque.  Due to the
-     *  nature of a %deque this operation can be done in constant time.  You
-     *  should consider using push_front(value_type()) instead.
-     *
-     *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
-     *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
-     *        c++config.h.
-    */
-    void
-    push_front()
-    {
-      if (_M_start._M_cur != _M_start._M_first) {
-        _Construct(_M_start._M_cur - 1);
-        --_M_start._M_cur;
-      }
-      else
-        _M_push_front_aux();
-    }
-  #endif
   
     /**
      *  @brief  Add data to the end of the %deque.
@@ -1061,38 +1039,13 @@ namespace std
     void
     push_back(const value_type& __x)
     {
-      if (_M_finish._M_cur != _M_finish._M_last - 1) {
-        _Construct(_M_finish._M_cur, __x);
-        ++_M_finish._M_cur;
+      if (this->_M_finish._M_cur != this->_M_finish._M_last - 1) {
+        std::_Construct(this->_M_finish._M_cur, __x);
+        ++this->_M_finish._M_cur;
       }
       else
         _M_push_back_aux(__x);
     }
-  
-  #ifdef _GLIBCPP_DEPRECATED
-    /**
-     *  @brief  Add data to the end of the %deque.
-     *
-     *  This is a typical stack operation.  The function creates a
-     *  default-constructed element at the end of the %deque.  Due to the nature
-     *  of a %deque this operation can be done in constant time.  You should
-     *  consider using push_back(value_type()) instead.
-     *
-     *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
-     *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
-     *        c++config.h.
-    */
-    void
-    push_back()
-    {
-      if (_M_finish._M_cur != _M_finish._M_last - 1) {
-        _Construct(_M_finish._M_cur);
-        ++_M_finish._M_cur;
-      }
-      else
-        _M_push_back_aux();
-    }
-  #endif
   
     /**
      *  @brief  Removes first element.
@@ -1105,9 +1058,9 @@ namespace std
     void
     pop_front()
     {
-      if (_M_start._M_cur != _M_start._M_last - 1) {
-        _Destroy(_M_start._M_cur);
-        ++_M_start._M_cur;
+      if (this->_M_start._M_cur != this->_M_start._M_last - 1) {
+        std::_Destroy(this->_M_start._M_cur);
+        ++this->_M_start._M_cur;
       }
       else 
         _M_pop_front_aux();
@@ -1124,9 +1077,9 @@ namespace std
     void
     pop_back()
     {
-      if (_M_finish._M_cur != _M_finish._M_first) {
-        --_M_finish._M_cur;
-        _Destroy(_M_finish._M_cur);
+      if (this->_M_finish._M_cur != this->_M_finish._M_first) {
+        --this->_M_finish._M_cur;
+        std::_Destroy(this->_M_finish._M_cur);
       }
       else
         _M_pop_back_aux();
@@ -1144,25 +1097,6 @@ namespace std
     iterator
     insert(iterator position, const value_type& __x);
   
-  #ifdef _GLIBCPP_DEPRECATED
-    /**
-     *  @brief  Inserts an element into the %deque.
-     *  @param  position  An iterator into the %deque.
-     *  @return  An iterator that points to the inserted element.
-     *
-     *  This function will insert a default-constructed element before the
-     *  specified location.  You should consider using
-     *  insert(position,value_type()) instead.
-     *
-     *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
-     *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
-     *        c++config.h.
-    */
-    iterator
-    insert(iterator __position)
-    { return insert(__position, value_type()); }
-  #endif
-  
     /**
      *  @brief  Inserts a number of copies of given data into the %deque.
      *  @param  position  An iterator into the %deque.
@@ -1178,7 +1112,7 @@ namespace std
   
     /**
      *  @brief  Inserts a range into the %deque.
-     *  @param  pos  An iterator into the %deque.
+     *  @param  position  An iterator into the %deque.
      *  @param  first  An input iterator.
      *  @param  last   An input iterator.
      *
@@ -1188,11 +1122,11 @@ namespace std
     */
     template<typename _InputIterator>
       void
-      insert(iterator __pos, _InputIterator __first, _InputIterator __last)
+      insert(iterator __position, _InputIterator __first, _InputIterator __last)
       {
         // Check whether it's an integral type.  If so, it's not an iterator.
         typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
-        _M_insert_dispatch(__pos, __first, __last, _Integral());
+        _M_insert_dispatch(__position, __first, __last, _Integral());
       }
   
     /**
@@ -1242,10 +1176,10 @@ namespace std
     void
     swap(deque& __x)
     {
-      std::swap(_M_start, __x._M_start);
-      std::swap(_M_finish, __x._M_finish);
-      std::swap(_M_map, __x._M_map);
-      std::swap(_M_map_size, __x._M_map_size);
+      std::swap(this->_M_start, __x._M_start);
+      std::swap(this->_M_finish, __x._M_finish);
+      std::swap(this->_M_map, __x._M_map);
+      std::swap(this->_M_map_size, __x._M_map_size);
     }
   
     /**
@@ -1269,18 +1203,19 @@ namespace std
       }
   
     // called by the range constructor to implement [23.1.1]/9
-    template<typename _InputIter>
+    template<typename _InputIterator>
       void
-      _M_initialize_dispatch(_InputIter __first, _InputIter __last,
+      _M_initialize_dispatch(_InputIterator __first, _InputIterator __last,
                              __false_type)
       {
-        typedef typename iterator_traits<_InputIter>::iterator_category
+        typedef typename iterator_traits<_InputIterator>::iterator_category
                          _IterCategory;
         _M_range_initialize(__first, __last, _IterCategory());
       }
   
     // called by the second initialize_dispatch above
-    /** @{
+    //@{
+    /**
      *  @if maint
      *  @brief Fills the deque with whatever is in [first,last).
      *  @param  first  An input iterator.
@@ -1302,7 +1237,7 @@ namespace std
       void
       _M_range_initialize(_ForwardIterator __first, _ForwardIterator __last,
                           forward_iterator_tag);
-    /** @} */
+    //@}
   
     /**
      *  @if maint
@@ -1333,11 +1268,11 @@ namespace std
       }
   
     // called by the range assign to implement [23.1.1]/9
-    template<typename _InputIter>
+    template<typename _InputIterator>
       void
-      _M_assign_dispatch(_InputIter __first, _InputIter __last, __false_type)
+      _M_assign_dispatch(_InputIterator __first, _InputIterator __last, __false_type)
       {
-        typedef typename iterator_traits<_InputIter>::iterator_category
+        typedef typename iterator_traits<_InputIterator>::iterator_category
                          _IterCategory;
         _M_assign_aux(__first, __last, _IterCategory());
       }
@@ -1354,15 +1289,15 @@ namespace std
       _M_assign_aux(_ForwardIterator __first, _ForwardIterator __last,
                     forward_iterator_tag)
       {
-        size_type __len = distance(__first, __last);
+        size_type __len = std::distance(__first, __last);
         if (__len > size()) {
           _ForwardIterator __mid = __first;
-          advance(__mid, size());
-          copy(__first, __mid, begin());
+          std::advance(__mid, size());
+          std::copy(__first, __mid, begin());
           insert(end(), __mid, __last);
         }
         else
-          erase(copy(__first, __last, begin()), end());
+          erase(std::copy(__first, __last, begin()), end());
       }
   
     // Called by assign(n,t), and the range assign when it turns out to be the
@@ -1372,31 +1307,28 @@ namespace std
     {
       if (__n > size())
       {
-        fill(begin(), end(), __val);
+        std::fill(begin(), end(), __val);
         insert(end(), __n - size(), __val);
       }
       else
       {
         erase(begin() + __n, end());
-        fill(begin(), end(), __val);
+        std::fill(begin(), end(), __val);
       }
     }
   
   
-    /** @{
+    //@{
+    /**
      *  @if maint
      *  @brief Helper functions for push_* and pop_*.
      *  @endif
     */
     void _M_push_back_aux(const value_type&);
     void _M_push_front_aux(const value_type&);
-  #ifdef _GLIBCPP_DEPRECATED
-    void _M_push_back_aux();
-    void _M_push_front_aux();
-  #endif
     void _M_pop_back_aux();
     void _M_pop_front_aux();
-    /** @} */
+    //@}
   
   
     // Internal insert functions follow.  The *_aux functions do the actual
@@ -1457,12 +1389,8 @@ namespace std
                     _ForwardIterator __first, _ForwardIterator __last,
                     size_type __n);
   
-  #ifdef _GLIBCPP_DEPRECATED
-    // unused, see comment in implementation
-    iterator _M_insert_aux(iterator __pos);
-  #endif
-  
-    /** @{
+    //@{
+    /**
      *  @if maint
      *  @brief Memory-handling helpers for the previous internal insert
      *         functions.
@@ -1471,19 +1399,20 @@ namespace std
     iterator
     _M_reserve_elements_at_front(size_type __n)
     {
-      size_type __vacancies = _M_start._M_cur - _M_start._M_first;
+      size_type __vacancies = this->_M_start._M_cur - this->_M_start._M_first;
       if (__n > __vacancies) 
         _M_new_elements_at_front(__n - __vacancies);
-      return _M_start - difference_type(__n);
+      return this->_M_start - difference_type(__n);
     }
   
     iterator
     _M_reserve_elements_at_back(size_type __n)
     {
-      size_type __vacancies = (_M_finish._M_last - _M_finish._M_cur) - 1;
+      size_type __vacancies
+	= (this->_M_finish._M_last - this->_M_finish._M_cur) - 1;
       if (__n > __vacancies)
         _M_new_elements_at_back(__n - __vacancies);
-      return _M_finish + difference_type(__n);
+      return this->_M_finish + difference_type(__n);
     }
   
     void
@@ -1491,10 +1420,11 @@ namespace std
   
     void
     _M_new_elements_at_back(size_type __new_elements);
-    /** @} */
+    //@}
   
   
-    /** @{
+    //@{
+    /**
      *  @if maint
      *  @brief Memory-handling helpers for the major %map.
      *
@@ -1506,20 +1436,21 @@ namespace std
     void
     _M_reserve_map_at_back (size_type __nodes_to_add = 1)
     {
-      if (__nodes_to_add + 1 > _M_map_size - (_M_finish._M_node - _M_map))
+      if (__nodes_to_add + 1 
+	  > this->_M_map_size - (this->_M_finish._M_node - this->_M_map))
         _M_reallocate_map(__nodes_to_add, false);
     }
   
     void
     _M_reserve_map_at_front (size_type __nodes_to_add = 1)
     {
-      if (__nodes_to_add > size_type(_M_start._M_node - _M_map))
+      if (__nodes_to_add > size_type(this->_M_start._M_node - this->_M_map))
         _M_reallocate_map(__nodes_to_add, true);
     }
   
     void
     _M_reallocate_map(size_type __nodes_to_add, bool __add_at_front);
-    /** @} */
+    //@}
   };
   
   
@@ -1538,19 +1469,19 @@ namespace std
                          const deque<_Tp, _Alloc>& __y)
   {
     return __x.size() == __y.size() &&
-           equal(__x.begin(), __x.end(), __y.begin());
+           std::equal(__x.begin(), __x.end(), __y.begin());
   }
   
   /**
    *  @brief  Deque ordering relation.
    *  @param  x  A %deque.
    *  @param  y  A %deque of the same type as @a x.
-   *  @return  True iff @a x is lexographically less than @a y.
+   *  @return  True iff @a x is lexicographically less than @a y.
    *
    *  This is a total ordering relation.  It is linear in the size of the
    *  deques.  The elements must be comparable with @c <.
    *
-   *  See std::lexographical_compare() for how the determination is made.
+   *  See std::lexicographical_compare() for how the determination is made.
   */
   template <typename _Tp, typename _Alloc>
   inline bool operator<(const deque<_Tp, _Alloc>& __x,
@@ -1596,4 +1527,4 @@ namespace std
   }
 } // namespace std 
   
-#endif /* __GLIBCPP_INTERNAL_DEQUE_H */
+#endif /* _DEQUE_H */

@@ -1,6 +1,6 @@
 // prims.cc - Code for core of runtime environment.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -86,12 +86,33 @@ const char *_Jv_Jar_Class_Path;
 property_pair *_Jv_Environment_Properties;
 #endif
 
-// The name of this executable.
-static char *_Jv_execName;
-
 // Stash the argv pointer to benefit native libraries that need it.
 const char **_Jv_argv;
 int _Jv_argc;
+
+// Argument support.
+int
+_Jv_GetNbArgs (void)
+{
+  // _Jv_argc is 0 if not explicitly initialized.
+  return _Jv_argc;
+}
+
+const char *
+_Jv_GetSafeArg (int index)
+{
+  if (index >=0 && index < _Jv_GetNbArgs ())
+    return _Jv_argv[index];
+  else
+    return "";
+}
+
+void
+_Jv_SetArgs (int argc, const char **argv)
+{
+  _Jv_argc = argc;
+  _Jv_argv = argv;
+}
 
 #ifdef ENABLE_JVMPI
 // Pointer to JVMPI notification functions.
@@ -101,49 +122,53 @@ void (*_Jv_JVMPI_Notify_THREAD_END) (JVMPI_Event *event);
 #endif
 
 
-extern "C" void _Jv_ThrowSignal (jthrowable) __attribute ((noreturn));
-
-// Just like _Jv_Throw, but fill in the stack trace first.  Although
-// this is declared extern in order that its name not be mangled, it
-// is not intended to be used outside this file.
-void 
-_Jv_ThrowSignal (jthrowable throwable)
+/* Unblock a signal.  Unless we do this, the signal may only be sent
+   once.  */
+static void 
+unblock_signal (int signum)
 {
-  throwable->fillInStackTrace ();
-  throw throwable;
-}
- 
-#ifdef HANDLE_SEGV
-static java::lang::NullPointerException *nullp;
+#ifdef _POSIX_VERSION
+  sigset_t sigs;
 
+  sigemptyset (&sigs);
+  sigaddset (&sigs, signum);
+  sigprocmask (SIG_UNBLOCK, &sigs, NULL);
+#endif
+}
+
+#ifdef HANDLE_SEGV
 SIGNAL_HANDLER (catch_segv)
 {
+  java::lang::NullPointerException *nullp 
+    = new java::lang::NullPointerException;
+  unblock_signal (SIGSEGV);
   MAKE_THROW_FRAME (nullp);
-  _Jv_ThrowSignal (nullp);
+  throw nullp;
 }
 #endif
-
-static java::lang::ArithmeticException *arithexception;
 
 #ifdef HANDLE_FPE
 SIGNAL_HANDLER (catch_fpe)
 {
+  java::lang::ArithmeticException *arithexception 
+    = new java::lang::ArithmeticException (JvNewStringLatin1 ("/ by zero"));
+  unblock_signal (SIGFPE);
 #ifdef HANDLE_DIVIDE_OVERFLOW
   HANDLE_DIVIDE_OVERFLOW;
 #else
   MAKE_THROW_FRAME (arithexception);
 #endif
-  _Jv_ThrowSignal (arithexception);
+  throw arithexception;
 }
 #endif
 
 
 
 jboolean
-_Jv_equalUtf8Consts (Utf8Const* a, Utf8Const *b)
+_Jv_equalUtf8Consts (const Utf8Const* a, const Utf8Const *b)
 {
   int len;
-  _Jv_ushort *aptr, *bptr;
+  const _Jv_ushort *aptr, *bptr;
   if (a == b)
     return true;
   if (a->hash != b->hash)
@@ -151,8 +176,8 @@ _Jv_equalUtf8Consts (Utf8Const* a, Utf8Const *b)
   len = a->length;
   if (b->length != len)
     return false;
-  aptr = (_Jv_ushort *)a->data;
-  bptr = (_Jv_ushort *)b->data;
+  aptr = (const _Jv_ushort *)a->data;
+  bptr = (const _Jv_ushort *)b->data;
   len = (len + 1) >> 1;
   while (--len >= 0)
     if (*aptr++ != *bptr++)
@@ -397,7 +422,7 @@ _Jv_AllocObject (jclass klass, jint size)
   // if there really is an interesting finalizer.
   // Unfortunately, we still have to the dynamic test, since there may
   // be cni calls to this routine.
-  // Nore that on IA64 get_finalizer() returns the starting address of the
+  // Note that on IA64 get_finalizer() returns the starting address of the
   // function, not a function pointer.  Thus this still works.
   if (klass->vtable->get_finalizer ()
       != java::lang::Object::class$.vtable->get_finalizer ())
@@ -458,8 +483,8 @@ _Jv_NewObjectArray (jsize count, jclass elementClass, jobject init)
   size_t size = (size_t) elements (obj);
   size += count * sizeof (jobject);
 
-  // FIXME: second argument should be "current loader"
-  jclass klass = _Jv_GetArrayClass (elementClass, 0);
+  jclass klass = _Jv_GetArrayClass (elementClass,
+				    elementClass->getClassLoaderInternal());
 
   obj = (jobjectArray) _Jv_AllocArray (size, klass);
   // Cast away const.
@@ -592,15 +617,15 @@ _Jv_NewMultiArray (jclass array_type, jint dimensions, ...)
   _Jv_ArrayVTable _Jv_##NAME##VTable;		\
   java::lang::Class _Jv_##NAME##Class __attribute__ ((aligned (8)));
 
-DECLARE_PRIM_TYPE(byte);
-DECLARE_PRIM_TYPE(short);
-DECLARE_PRIM_TYPE(int);
-DECLARE_PRIM_TYPE(long);
-DECLARE_PRIM_TYPE(boolean);
-DECLARE_PRIM_TYPE(char);
-DECLARE_PRIM_TYPE(float);
-DECLARE_PRIM_TYPE(double);
-DECLARE_PRIM_TYPE(void);
+DECLARE_PRIM_TYPE(byte)
+DECLARE_PRIM_TYPE(short)
+DECLARE_PRIM_TYPE(int)
+DECLARE_PRIM_TYPE(long)
+DECLARE_PRIM_TYPE(boolean)
+DECLARE_PRIM_TYPE(char)
+DECLARE_PRIM_TYPE(float)
+DECLARE_PRIM_TYPE(double)
+DECLARE_PRIM_TYPE(void)
 
 void
 _Jv_InitPrimClass (jclass cl, char *cname, char sig, int len, 
@@ -706,22 +731,6 @@ static JArray<jstring> *arg_vec;
 
 // The primary thread.
 static java::lang::Thread *main_thread;
-
-char *
-_Jv_ThisExecutable (void)
-{
-  return _Jv_execName;
-}
-
-void
-_Jv_ThisExecutable (const char *name)
-{
-  if (name)
-    {
-      _Jv_execName = (char *) _Jv_Malloc (strlen (name) + 1);
-      strcpy (_Jv_execName, name);
-    }
-}
 
 #ifndef DISABLE_GETENV_PROPERTIES
 
@@ -916,15 +925,12 @@ _Jv_CreateJavaVM (void* /*vm_args*/)
   INIT_SEGV;
 #ifdef HANDLE_FPE
   INIT_FPE;
-#else
-  arithexception = new java::lang::ArithmeticException
-    (JvNewStringLatin1 ("/ by zero"));
 #endif
-
+  
   no_memory = new java::lang::OutOfMemoryError;
-
+  
   java::lang::VMThrowable::trace_enabled = 1;
-
+  
 #ifdef USE_LTDL
   LTDL_SET_PRELOADED_SYMBOLS ();
 #endif
@@ -955,23 +961,9 @@ void
 _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv, 
 	     bool is_jar)
 {
-  _Jv_argv = argv;
-  _Jv_argc = argc;
+  _Jv_SetArgs (argc, argv);
 
   java::lang::Runtime *runtime = NULL;
-
-
-#ifdef DISABLE_MAIN_ARGS
-  _Jv_ThisExecutable ("[Embedded App]");
-#else
-#ifdef HAVE_PROC_SELF_EXE
-  char exec_name[20];
-  sprintf (exec_name, "/proc/%d/exe", getpid ());
-  _Jv_ThisExecutable (exec_name);
-#else
-  _Jv_ThisExecutable (argv[0]);
-#endif /* HAVE_PROC_SELF_EXE */
-#endif /* DISABLE_MAIN_ARGS */
 
   try
     {
@@ -990,6 +982,12 @@ _Jv_RunMain (jclass klass, const char *name, int argc, const char **argv,
 #else      
       arg_vec = JvConvertArgv (argc - 1, argv + 1);
 #endif
+
+      // We have to initialize this fairly early, to avoid circular
+      // class initialization.  In particular we want to start the
+      // initialization of ClassLoader before we start the
+      // initialization of VMClassLoader.
+      _Jv_InitClass (&java::lang::ClassLoader::class$);
 
       using namespace gnu::gcj::runtime;
       if (klass)
@@ -1102,7 +1100,11 @@ jint
 _Jv_divI (jint dividend, jint divisor)
 {
   if (__builtin_expect (divisor == 0, false))
-    _Jv_ThrowSignal (arithexception);
+    {
+      java::lang::ArithmeticException *arithexception 
+	= new java::lang::ArithmeticException (JvNewStringLatin1 ("/ by zero"));      
+      throw arithexception;
+    }
   
   if (dividend == (jint) 0x80000000L && divisor == -1)
     return dividend;
@@ -1114,11 +1116,15 @@ jint
 _Jv_remI (jint dividend, jint divisor)
 {
   if (__builtin_expect (divisor == 0, false))
-    _Jv_ThrowSignal (arithexception);
+    {
+      java::lang::ArithmeticException *arithexception 
+	= new java::lang::ArithmeticException (JvNewStringLatin1 ("/ by zero"));      
+      throw arithexception;
+    }
   
   if (dividend == (jint) 0x80000000L && divisor == -1)
     return 0;
-
+  
   return dividend % divisor;
 }
 
@@ -1126,8 +1132,12 @@ jlong
 _Jv_divJ (jlong dividend, jlong divisor)
 {
   if (__builtin_expect (divisor == 0, false))
-    _Jv_ThrowSignal (arithexception);
-  
+    {
+      java::lang::ArithmeticException *arithexception 
+	= new java::lang::ArithmeticException (JvNewStringLatin1 ("/ by zero"));      
+      throw arithexception;
+    }
+
   if (dividend == (jlong) 0x8000000000000000LL && divisor == -1)
     return dividend;
 
@@ -1138,10 +1148,32 @@ jlong
 _Jv_remJ (jlong dividend, jlong divisor)
 {
   if (__builtin_expect (divisor == 0, false))
-    _Jv_ThrowSignal (arithexception);
-  
+    {
+      java::lang::ArithmeticException *arithexception 
+	= new java::lang::ArithmeticException (JvNewStringLatin1 ("/ by zero"));      
+      throw arithexception;
+    }
+
   if (dividend == (jlong) 0x8000000000000000LL && divisor == -1)
     return 0;
 
   return dividend % divisor;
+}
+
+
+
+// Return true if SELF_KLASS can access a field or method in
+// OTHER_KLASS.  The field or method's access flags are specified in
+// FLAGS.
+jboolean
+_Jv_CheckAccess (jclass self_klass, jclass other_klass, jint flags)
+{
+  using namespace java::lang::reflect;
+  return ((self_klass == other_klass)
+	  || ((flags & Modifier::PUBLIC) != 0)
+	  || (((flags & Modifier::PROTECTED) != 0)
+	      && other_klass->isAssignableFrom (self_klass))
+	  || (((flags & Modifier::PRIVATE) == 0)
+	      && _Jv_ClassNameSamePackage (self_klass->name,
+					   other_klass->name)));
 }

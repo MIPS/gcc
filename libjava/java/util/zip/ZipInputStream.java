@@ -1,5 +1,5 @@
 /* java.util.zip.ZipInputStream
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,11 +35,12 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.util.zip;
+
 import java.io.EOFException;
 import java.io.InputStream;
 import java.io.IOException;
-import java.util.Enumeration;
 
 /**
  * This is a FilterInputStream that reads the files in an zip archive
@@ -151,7 +152,7 @@ public class ZipInputStream extends InflaterInputStream implements ZipConstants
 	return null;
       }
     if (header != LOCSIG)
-      throw new ZipException("Wrong Local header signature"
+      throw new ZipException("Wrong Local header signature: "
 			     + Integer.toHexString(header));
     /* skip version */
     readLeShort();
@@ -286,6 +287,8 @@ public class ZipInputStream extends InflaterInputStream implements ZipConstants
    */
   public int read(byte[] b, int off, int len) throws IOException
   {
+    if (len == 0)
+      return 0;
     if (crc == null)
       throw new IOException("Stream closed.");
     if (entry == null)

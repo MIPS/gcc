@@ -77,17 +77,19 @@ public class URLDecoder
    * @param s the String to convert
    *
    * @return the converted String
+   *
+   * @deprecated
    */
   public static String decode(String s)
   {
     try
       {
-	return decode(s, "UTF-8");
+        return decode(s, "UTF-8");
       }
     catch (UnsupportedEncodingException uee)
       {
-	// Should never happen since UTF-8 encoding should always be supported
-	return s;
+        // Should never happen since UTF-8 encoding should always be supported
+        return s;
       }
   }
 

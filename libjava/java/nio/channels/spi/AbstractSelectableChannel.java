@@ -75,11 +75,12 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
    * Adjusts this channel's blocking mode.
    */
   public final SelectableChannel configureBlocking (boolean block)
+    throws IOException
   {
     synchronized (LOCK)
       {
-    	blocking = true;
-    	implConfigureBlocking (block);
+        blocking = true;
+        implConfigureBlocking (block);
       }
     
     return this;
@@ -87,8 +88,10 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
 
   /**
    * Closes this channel.
+   *
+   * @exception IOException If an error occurs
    */
-  protected final void implCloseChannel ()
+  protected final void implCloseChannel () throws IOException
   {
     implCloseSelectableChannel ();
   }
@@ -96,12 +99,13 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
   /**
    * Closes this selectable channel.
    */
-  protected abstract void implCloseSelectableChannel ();
+  protected abstract void implCloseSelectableChannel () throws IOException;
   
   /**
    * Adjusts this channel's blocking mode.
    */
-  protected abstract void implConfigureBlocking (boolean block);
+  protected abstract void implConfigureBlocking (boolean block)
+    throws IOException;
 
   /**
    * Tells whether or not every I/O operation on this channel will block
@@ -168,13 +172,17 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
   private void add (SelectionKey key)
   {
     if (keys == null)
-      keys = new LinkedList ();
+      {
+        keys = new LinkedList ();
+      }
     
     keys.add (key);
   }
 
   /**
    * Registers this channel with the given selector, returning a selection key.
+   *
+   * @exception ClosedChannelException If the channel is already closed.
    */
   public final SelectionKey register (Selector selin, int ops, Object att)
     throws ClosedChannelException
@@ -187,19 +195,19 @@ public abstract class AbstractSelectableChannel extends SelectableChannel
 
     synchronized (LOCK)
       {
-    	k = locate (selector);
+        k = locate (selector);
 
-    	if (k != null)
+        if (k != null)
           {
             k.attach (att);
           }
-    	else
+        else
           {
             k = selector.register (this, ops, att);
     		
             if (k != null)
               add (k);
-    	  }
+          }
       }
 
     return k;

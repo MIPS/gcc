@@ -1,5 +1,5 @@
 /* Component.java -- a graphics component
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -677,6 +677,7 @@ public abstract class Component
         if (tk != null)
           return tk;
       }
+    // Get toolkit for lightweight component.
     if (parent != null)
       return parent.getToolkit();
     return Toolkit.getDefaultToolkit();
@@ -844,9 +845,10 @@ public abstract class Component
     // Inspection by subclassing shows that Sun's implementation calls
     // show(boolean) which then calls show() or hide(). It is the show()
     // method that is overriden in subclasses like Window.
-    if (peer != null)
-      peer.setVisible(b);
-    this.visible = b;
+    if (b)
+      show();
+    else
+      hide();
   }
 
   /**
@@ -856,7 +858,9 @@ public abstract class Component
    */
   public void show()
   {
-    setVisible(true);
+    if (peer != null)
+      peer.setVisible(true);
+    this.visible = true;
   }
 
   /**
@@ -877,7 +881,9 @@ public abstract class Component
    */
   public void hide()
   {
-    setVisible(false);
+    if (peer != null)
+      peer.setVisible(false);
+    this.visible = false;
   }
 
   /**
@@ -1447,10 +1453,7 @@ public abstract class Component
    */
   public Dimension getPreferredSize()
   {
-    if (prefSize == null)
-      prefSize = (peer != null ? peer.getPreferredSize()
-                       : new Dimension(width, height));
-    return prefSize;
+    return preferredSize();
   }
 
   /**
@@ -1461,7 +1464,12 @@ public abstract class Component
    */
   public Dimension preferredSize()
   {
-    return getPreferredSize();
+    if (prefSize == null)
+      if (peer == null)
+	return new Dimension(width, height);
+      else 
+        prefSize = peer.getPreferredSize();
+    return prefSize;
   }
 
   /**
@@ -1473,10 +1481,7 @@ public abstract class Component
    */
   public Dimension getMinimumSize()
   {
-    if (minSize == null)
-      minSize = (peer != null ? peer.getMinimumSize()
-                 : new Dimension(width, height));
-    return minSize;
+    return minimumSize();
   }
 
   /**
@@ -1487,7 +1492,10 @@ public abstract class Component
    */
   public Dimension minimumSize()
   {
-    return getMinimumSize();
+    if (minSize == null)
+      minSize = (peer != null ? peer.getMinimumSize()
+                 : new Dimension(width, height));
+    return minSize;
   }
 
   /**
@@ -1858,12 +1866,17 @@ public abstract class Component
    * @param height the height of the image
    * @return the requested image, or null if it is not supported
    */
-  public Image createImage(int width, int height)
+  public Image createImage (int width, int height)
   {
-    if (GraphicsEnvironment.isHeadless())
-      return null;
-    GraphicsConfiguration config = getGraphicsConfiguration();
-    return config == null ? null : config.createCompatibleImage(width, height);
+    Image returnValue = null;
+    if (!GraphicsEnvironment.isHeadless ())
+      {
+	if (isLightweight () && parent != null)
+	  returnValue = parent.createImage (width, height);
+	else if (peer != null)
+	  returnValue = peer.createImage (width, height);
+      }
+    return returnValue;
   }
 
   /**
@@ -1934,7 +1947,10 @@ public abstract class Component
   public boolean prepareImage(Image image, int width, int height,
                               ImageObserver observer)
   {
-    return peer.prepareImage(image, width, height, observer);
+    if (peer != null)
+	return peer.prepareImage(image, width, height, observer);
+    else
+	return getToolkit().prepareImage(image, width, height, observer);
   }
 
   /**
@@ -1950,8 +1966,7 @@ public abstract class Component
    */
   public int checkImage(Image image, ImageObserver observer)
   {
-    return checkImage(image, image.getWidth(observer),
-                      image.getHeight(observer), observer);
+    return checkImage(image, -1, -1, observer);
   }
 
   /**
@@ -4068,43 +4083,59 @@ p   * <li>the set of backward traversal keys
    */
   void dispatchEventImpl(AWTEvent e)
   {
-    // Make use of event id's in order to avoid multiple instanceof tests.
-    if (e.id <= ComponentEvent.COMPONENT_LAST
-        && e.id >= ComponentEvent.COMPONENT_FIRST
-        && (componentListener != null
-            || (eventMask & AWTEvent.COMPONENT_EVENT_MASK) != 0))
+    if (eventTypeEnabled (e.id))
       processEvent(e);
-    else if (e.id <= KeyEvent.KEY_LAST
-             && e.id >= KeyEvent.KEY_FIRST
-             && (keyListener != null
-                 || (eventMask & AWTEvent.KEY_EVENT_MASK) != 0))
-      processEvent(e);
-    else if (e.id <= MouseEvent.MOUSE_LAST
-             && e.id >= MouseEvent.MOUSE_FIRST
-             && (mouseListener != null
-                 || mouseMotionListener != null
-                 || (eventMask & AWTEvent.MOUSE_EVENT_MASK) != 0))
-      processEvent(e);
-    else if (e.id <= FocusEvent.FOCUS_LAST
-             && e.id >= FocusEvent.FOCUS_FIRST
-             && (focusListener != null
-                 || (eventMask & AWTEvent.FOCUS_EVENT_MASK) != 0))
-      processEvent(e);
-    else if (e.id <= InputMethodEvent.INPUT_METHOD_LAST
-             && e.id >= InputMethodEvent.INPUT_METHOD_FIRST
-             && (inputMethodListener != null
-                 || (eventMask & AWTEvent.INPUT_METHOD_EVENT_MASK) != 0))
-      processEvent(e);
-    else if (e.id <= HierarchyEvent.HIERARCHY_LAST
-             && e.id >= HierarchyEvent.HIERARCHY_FIRST
-             && (hierarchyListener != null
-                 || hierarchyBoundsListener != null
-                 || (eventMask & AWTEvent.HIERARCHY_EVENT_MASK) != 0))
-      processEvent(e);
-    else if (e.id <= PaintEvent.PAINT_LAST
-             && e.id >= PaintEvent.PAINT_FIRST
-             && (eventMask & AWTEvent.PAINT_EVENT_MASK) != 0)
-      processEvent(e);
+  }
+
+  /**
+   * Tells whether or not an event type is enabled.
+   */
+  boolean eventTypeEnabled (int type)
+  {
+    if (type > AWTEvent.RESERVED_ID_MAX)
+      return true;
+
+    switch (type)
+      {
+      case ComponentEvent.COMPONENT_HIDDEN:
+      case ComponentEvent.COMPONENT_MOVED:
+      case ComponentEvent.COMPONENT_RESIZED:
+      case ComponentEvent.COMPONENT_SHOWN:
+        return (componentListener != null
+                || (eventMask & AWTEvent.COMPONENT_EVENT_MASK) != 0);
+
+      case KeyEvent.KEY_PRESSED:
+      case KeyEvent.KEY_RELEASED:
+      case KeyEvent.KEY_TYPED:
+        return (keyListener != null
+                || (eventMask & AWTEvent.KEY_EVENT_MASK) != 0);
+
+      case MouseEvent.MOUSE_CLICKED:
+      case MouseEvent.MOUSE_ENTERED:
+      case MouseEvent.MOUSE_EXITED:
+      case MouseEvent.MOUSE_PRESSED:
+      case MouseEvent.MOUSE_RELEASED:
+        return (mouseListener != null
+                || mouseMotionListener != null
+                || (eventMask & AWTEvent.MOUSE_EVENT_MASK) != 0);
+        
+      case FocusEvent.FOCUS_GAINED:
+      case FocusEvent.FOCUS_LOST:
+        return (focusListener != null
+                || (eventMask & AWTEvent.FOCUS_EVENT_MASK) != 0);
+
+      case InputMethodEvent.INPUT_METHOD_TEXT_CHANGED:
+      case InputMethodEvent.CARET_POSITION_CHANGED:
+        return (inputMethodListener != null
+                || (eventMask & AWTEvent.INPUT_METHOD_EVENT_MASK) != 0);
+        
+      case PaintEvent.PAINT:
+      case PaintEvent.UPDATE:
+        return (eventMask & AWTEvent.PAINT_EVENT_MASK) != 0;
+        
+      default:
+        return false;
+      }
   }
 
   /**
@@ -4168,19 +4199,26 @@ p   * <li>the set of backward traversal keys
       return;
 
     Graphics gfx = getGraphics();
-    Shape clip = event.getUpdateRect();
-    gfx.setClip(clip);
-
-    switch (event.id)
+    try
       {
-      case PaintEvent.PAINT:
-        paint(gfx);
-        break;
-      case PaintEvent.UPDATE:
-        update(gfx);
-        break;
-      default:
-        throw new IllegalArgumentException("unknown paint event");
+	Shape clip = event.getUpdateRect();
+	gfx.setClip(clip);
+
+	switch (event.id)
+	  {
+	  case PaintEvent.PAINT:
+	    paint(gfx);
+	    break;
+	  case PaintEvent.UPDATE:
+	    update(gfx);
+	    break;
+	  default:
+	    throw new IllegalArgumentException("unknown paint event");
+	  }
+      }
+    finally
+      {
+	gfx.dispose();
       }
   }
 

@@ -361,9 +361,19 @@ public abstract class Calendar implements Serializable, Cloneable
   static final long serialVersionUID = -1807547505821590642L;
 
   /**
-   * The name of the resource bundle.
+   * The name of the resource bundle. Used only by getBundle()
    */
   private static final String bundleName = "gnu.java.locale.Calendar";
+
+  /**
+   * get resource bundle: 
+   * The resources should be loaded via this method only. Iff an application
+   * uses this method, the resourcebundle is required. 
+   */
+  private static ResourceBundle getBundle(Locale locale) 
+  {
+    return ResourceBundle.getBundle(bundleName, locale);
+  }
 
   /**
    * Constructs a new Calendar with the default time zone and the default
@@ -385,7 +395,7 @@ public abstract class Calendar implements Serializable, Cloneable
     this.zone = zone;
     lenient = true;
 
-    ResourceBundle rb = ResourceBundle.getBundle(bundleName, locale);
+    ResourceBundle rb = getBundle(locale);
 
     firstDayOfWeek = ((Integer) rb.getObject("firstDayOfWeek")).intValue();
     minimalDaysInFirstWeek =
@@ -430,7 +440,7 @@ public abstract class Calendar implements Serializable, Cloneable
   public static synchronized Calendar getInstance(TimeZone zone, Locale locale)
   {
     String calendarClassName = null;
-    ResourceBundle rb = ResourceBundle.getBundle(bundleName, locale);
+    ResourceBundle rb = getBundle(locale);
     calendarClassName = rb.getString("calendarClass");
     if (calendarClassName != null)
       {
@@ -461,8 +471,7 @@ public abstract class Calendar implements Serializable, Cloneable
    */
   public static synchronized Locale[] getAvailableLocales()
   {
-    ResourceBundle rb = ResourceBundle.getBundle(bundleName,
-						 new Locale("", ""));
+    ResourceBundle rb = getBundle(new Locale("", ""));
     return (Locale[]) rb.getObject("availableLocales");
   }
 
@@ -531,8 +540,10 @@ public abstract class Calendar implements Serializable, Cloneable
    * if they are invalid.
    * @param field the time field. One of the time field constants.
    * @return the value of the specified field
+   *
+   * @specnote Not final since JDK 1.4
    */
-  public final int get(int field)
+  public int get(int field)
   {
     // If the requested field is invalid, force all fields to be recomputed.
     if (!isSet[field])
@@ -558,8 +569,10 @@ public abstract class Calendar implements Serializable, Cloneable
    * the time in milliseconds.
    * @param field the time field. One of the time field constants
    * @param value the value to be set.
+   *
+   * @specnote Not final since JDK 1.4
    */
-  public final void set(int field, int value)
+  public void set(int field, int value)
   {
     isTimeSet = false;
     fields[field] = value;

@@ -1,6 +1,6 @@
 // Wrapper for underlying C-language localization -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,14 +33,22 @@
 
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
+#ifndef _C_LOCALE_H
+#define _C_LOCALE_H 1
+
+#pragma GCC system_header
+
+#include <cstring>              // get std::strlen
+#include <cstdlib>              // get std::malloc
+#include <cstdio>               // get std::snprintf or std::sprintf
 #include <clocale>
 #include <langinfo.h>		// For codecvt
 #include <iconv.h>		// For codecvt using iconv, iconv_t
 #include <libintl.h> 		// For messages
 
-#define _GLIBCPP_C_LOCALE_GNU 1
+#define _GLIBCXX_C_LOCALE_GNU 1
 
-#define _GLIBCPP_NUM_CATEGORIES 6
+#define _GLIBCXX_NUM_CATEGORIES 6
 
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
 namespace __gnu_cxx
@@ -53,6 +61,10 @@ namespace std
 {
   typedef __locale_t		__c_locale;
 
+  // Convert numeric value of type _Tv to string and return length of
+  // string.  If snprintf is available use it, otherwise fall back to
+  // the unsafe sprintf which, in general, can be dangerous and should
+  // be avoided.
   template<typename _Tv>
     int
     __convert_from_v(char* __out, const int __size, const char* __fmt,
@@ -63,32 +75,34 @@ namespace std
 #else
 		     _Tv __v, const __c_locale&, int __prec = -1)
     {
-      char* __old = setlocale(LC_ALL, NULL);
-      char* __sav = static_cast<char*>(malloc(strlen(__old) + 1));
+      char* __old = std::setlocale(LC_ALL, NULL);
+      char* __sav = static_cast<char*>(std::malloc(std::strlen(__old) + 1));
       if (__sav)
-        strcpy(__sav, __old);
-      setlocale(LC_ALL, "C");
+        std::strcpy(__sav, __old);
+      std::setlocale(LC_ALL, "C");
 #endif
 
       int __ret;
-#ifdef _GLIBCPP_USE_C99
+#ifdef _GLIBCXX_USE_C99
       if (__prec >= 0)
-        __ret = snprintf(__out, __size, __fmt, __prec, __v);
+        __ret = std::snprintf(__out, __size, __fmt, __prec, __v);
       else
-        __ret = snprintf(__out, __size, __fmt, __v);
+        __ret = std::snprintf(__out, __size, __fmt, __v);
 #else
       if (__prec >= 0)
-        __ret = sprintf(__out, __fmt, __prec, __v);
+        __ret = std::sprintf(__out, __fmt, __prec, __v);
       else
-        __ret = sprintf(__out, __fmt, __v);
+        __ret = std::sprintf(__out, __fmt, __v);
 #endif
 
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
       __gnu_cxx::__uselocale(__old);
 #else
-      setlocale(LC_ALL, __sav);
-      free(__sav);
+      std::setlocale(LC_ALL, __sav);
+      std::free(__sav);
 #endif
       return __ret;
     }
 }
+
+#endif

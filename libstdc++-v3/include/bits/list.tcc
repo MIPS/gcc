@@ -1,6 +1,6 @@
 // List implementation (out of line) -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_LIST_TCC
-#define __GLIBCPP_INTERNAL_LIST_TCC
+#ifndef _LIST_TCC
+#define _LIST_TCC 1
 
 namespace std
 {
@@ -69,18 +69,51 @@ namespace std
     __clear()
     {
       typedef _List_node<_Tp>  _Node;
-      _Node* __cur = static_cast<_Node*>(_M_node->_M_next);
-      while (__cur != _M_node)
+      _Node* __cur = static_cast<_Node*>(this->_M_node._M_next);
+      while (__cur != &this->_M_node)
       {
         _Node* __tmp = __cur;
         __cur = static_cast<_Node*>(__cur->_M_next);
-        _Destroy(&__tmp->_M_data);
+        std::_Destroy(&__tmp->_M_data);
         _M_put_node(__tmp);
       }
-      _M_node->_M_next = _M_node;
-      _M_node->_M_prev = _M_node;
+      this->_M_node._M_next = &this->_M_node;
+      this->_M_node._M_prev = &this->_M_node;
     }
   
+  template<typename _Tp, typename _Alloc>
+    void list<_Tp, _Alloc>::
+    swap(list<_Tp, _Alloc>& __x)
+    {
+      if ( this->_M_node._M_next == &this->_M_node )
+      {
+        if ( __x._M_node._M_next != &__x._M_node )
+        {
+          this->_M_node._M_next = __x._M_node._M_next;
+          this->_M_node._M_prev = __x._M_node._M_prev;
+          
+          this->_M_node._M_next->_M_prev = this->_M_node._M_prev->_M_next = &this->_M_node;
+          __x._M_node._M_next = __x._M_node._M_prev = &__x._M_node;
+        }
+      }
+      else if ( __x._M_node._M_next == &__x._M_node )
+      {
+        __x._M_node._M_next = this->_M_node._M_next;
+        __x._M_node._M_prev = this->_M_node._M_prev;
+        
+        __x._M_node._M_next->_M_prev = __x._M_node._M_prev->_M_next = &__x._M_node;
+        this->_M_node._M_next = this->_M_node._M_prev = &this->_M_node;
+      }
+      else
+      {
+        std::swap(this->_M_node._M_next,__x._M_node._M_next);
+        std::swap(this->_M_node._M_prev,__x._M_node._M_prev);
+      
+        this->_M_node._M_next->_M_prev = this->_M_node._M_prev->_M_next = &this->_M_node;
+        __x._M_node._M_next->_M_prev = __x._M_node._M_prev->_M_next = &__x._M_node;
+      } 
+    }
+ 
   template<typename _Tp, typename _Alloc>
     typename list<_Tp,_Alloc>::iterator
     list<_Tp,_Alloc>::
@@ -104,7 +137,7 @@ namespace std
       _Node* __n = static_cast<_Node*>(__position._M_node);
       __prev_node->_M_next = __next_node;
       __next_node->_M_prev = __prev_node;
-      _Destroy(&__n->_M_data);
+      std::_Destroy(&__n->_M_data);
       _M_put_node(__n);
       return iterator(static_cast<_Node*>(__next_node));
     }
@@ -160,10 +193,10 @@ namespace std
     }
   
   template<typename _Tp, typename _Alloc>
-    template <typename _InputIter>
+    template <typename _InputIterator>
       void
       list<_Tp,_Alloc>::
-      _M_assign_dispatch(_InputIter __first2, _InputIter __last2, __false_type)
+      _M_assign_dispatch(_InputIterator __first2, _InputIterator __last2, __false_type)
       {
         iterator __first1 = begin();
         iterator __last1 = end();
@@ -250,7 +283,8 @@ namespace std
     sort()
     {
       // Do nothing if the list has length 0 or 1.
-      if (_M_node->_M_next != _M_node && _M_node->_M_next->_M_next != _M_node)
+      if (this->_M_node._M_next != &this->_M_node 
+	  && this->_M_node._M_next->_M_next != &this->_M_node)
       {
         list __carry;
         list __counter[64];
@@ -340,7 +374,8 @@ namespace std
     sort(_StrictWeakOrdering __comp)
     {
       // Do nothing if the list has length 0 or 1.
-      if (_M_node->_M_next != _M_node && _M_node->_M_next->_M_next != _M_node)
+      if (this->_M_node._M_next != &this->_M_node && 
+	  this->_M_node._M_next->_M_next != &this->_M_node)
       {
         list __carry;
         list __counter[64];
@@ -365,4 +400,4 @@ namespace std
     }
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_LIST_TCC */
+#endif /* _LIST_TCC */

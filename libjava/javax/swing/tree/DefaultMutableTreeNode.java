@@ -35,17 +35,27 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.tree;
 
-// Imports
-import java.io.*;
-import java.util.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.Random;
+import java.util.Stack;
+import java.util.Vector;
 
 /**
  * DefaultMutableTreeNode
  * @author Andrew Selkirk
  */
-public class DefaultMutableTreeNode implements Cloneable, MutableTreeNode, Serializable {
+public class DefaultMutableTreeNode
+  implements Cloneable, MutableTreeNode, Serializable
+{
+  static final long serialVersionUID = -4298474751201349152L;
 
 	//-------------------------------------------------------------
 	// Variables --------------------------------------------------

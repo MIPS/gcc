@@ -1,6 +1,6 @@
 // Class.h - Header file for java.lang.Class.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -20,6 +20,7 @@ details.  */
 #include <java/lang/reflect/Modifier.h>
 #include <java/security/ProtectionDomain.h>
 #include <java/lang/Package.h>
+#include <gnu/gcj/runtime/StackTrace.h>
 
 // We declare these here to avoid including gcj/cni.h.
 extern "C" void _Jv_InitClass (jclass klass);
@@ -124,6 +125,12 @@ struct _Jv_OffsetTable
   jint offsets[];
 };
 
+struct _Jv_AddressTable
+{
+  jint state;
+  void *addresses[];
+};
+
 #define JV_PRIMITIVE_VTABLE ((_Jv_VTable *) -1)
 
 #define JV_CLASS(Obj) ((jclass) (*(_Jv_VTable **) Obj)->clas)
@@ -137,6 +144,13 @@ public:
   JArray<jclass> *getClasses (void);
 
   java::lang::ClassLoader *getClassLoader (void);
+
+  // This is an internal method that circumvents the usual security
+  // checks when getting the class loader.
+  java::lang::ClassLoader *getClassLoaderInternal (void)
+  {
+    return loader;
+  }
 
   java::lang::reflect::Constructor *getConstructor (JArray<jclass> *);
   JArray<java::lang::reflect::Constructor *> *getConstructors (void);
@@ -174,9 +188,9 @@ public:
   JArray<java::lang::reflect::Method *> *getMethods (void);
 
   inline jint getModifiers (void)
-    {
-      return accflags;
-    }
+  {
+    return accflags & java::lang::reflect::Modifier::ALL_FLAGS;
+  }
 
   jstring getName (void);
 
@@ -235,7 +249,7 @@ public:
 
 private:   
 
-  void checkMemberAccess (jint flags);
+  void memberAccessCheck (jint flags);
 
   void initializeClass (void);
 
@@ -282,6 +296,7 @@ private:
 
   // Friends classes and functions to implement the ClassLoader
   friend class java::lang::ClassLoader;
+  friend class java::lang::VMClassLoader;
 
   friend class java::io::ObjectOutputStream;
   friend class java::io::ObjectInputStream;
@@ -296,6 +311,8 @@ private:
 			       java::lang::ClassLoader *loader);
   friend jclass _Jv_FindClassInCache (_Jv_Utf8Const *name,
 				      java::lang::ClassLoader *loader);
+  friend jclass _Jv_PopClass (void);
+  friend void _Jv_PushClass (jclass k);
   friend void _Jv_NewArrayClass (jclass element,
 				 java::lang::ClassLoader *loader,
 				 _Jv_VTable *array_vtable = 0);
@@ -313,16 +330,22 @@ private:
   friend jstring _Jv_GetMethodString(jclass, _Jv_Utf8Const *);
   friend jshort _Jv_AppendPartialITable (jclass, jclass, void **, jshort);
   friend jshort _Jv_FindIIndex (jclass *, jshort *, jshort);
-  friend void _Jv_LinkOffsetTable (jclass);
+  friend void _Jv_LinkSymbolTable (jclass);
   friend void _Jv_LayoutVTableMethods (jclass klass);
-  friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *);
+  friend void _Jv_SetVTableEntries (jclass, _Jv_VTable *, jboolean *);
   friend void _Jv_MakeVTable (jclass);
+
+  friend jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
+				   jint flags);
 
   // Return array class corresponding to element type KLASS, creating it if
   // necessary.
   inline friend jclass
   _Jv_GetArrayClass (jclass klass, java::lang::ClassLoader *loader)
   {
+    extern void _Jv_NewArrayClass (jclass element,
+				   java::lang::ClassLoader *loader,
+				   _Jv_VTable *array_vtable = 0);
     if (__builtin_expect (!klass->arrayclass, false))
       _Jv_NewArrayClass (klass, loader);
     return klass->arrayclass;
@@ -338,6 +361,7 @@ private:
 					      _Jv_Utf8Const *method_signature);
 
   friend void _Jv_PrepareClass (jclass);
+  friend void _Jv_PrepareMissingMethods (jclass base, jclass iface_class);
 
   friend class _Jv_ClassReader;	
   friend class _Jv_InterpClass;
@@ -349,6 +373,10 @@ private:
 #endif
 
   friend class _Jv_BytecodeVerifier;
+  friend class gnu::gcj::runtime::StackTrace;
+  friend class java::io::VMObjectStreamClass;
+
+  friend void _Jv_sharedlib_register_hook (jclass klass);
 
   // Chain for class pool.
   jclass next;
@@ -382,6 +410,8 @@ private:
   _Jv_OffsetTable *otable;
   // Offset table symbols.
   _Jv_MethodSymbol *otable_syms;
+  _Jv_AddressTable *atable;
+  _Jv_MethodSymbol *atable_syms;
   // Interfaces implemented by this class.
   jclass *interfaces;
   // The class loader for this class.
@@ -403,6 +433,8 @@ private:
   jclass arrayclass;
   // Security Domain to which this class belongs (or null).
   java::security::ProtectionDomain *protectionDomain;
+  // Used by Jv_PopClass and _Jv_PushClass to communicate with StackTrace.
+  jclass chain;
 };
 
 #endif /* __JAVA_LANG_CLASS_H__ */

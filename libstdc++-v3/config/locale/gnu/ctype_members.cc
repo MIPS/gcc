@@ -1,6 +1,6 @@
 // std::ctype implementation details, GNU version -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,7 +34,7 @@
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
 #include <locale>
-#include "c++locale_internal.h"
+#include <bits/c++locale_internal.h>
 
 namespace std
 {
@@ -51,7 +51,7 @@ namespace std
       _M_table = _M_c_locale_ctype->__ctype_b;
     }
 
-#ifdef _GLIBCPP_USE_WCHAR_T  
+#ifdef _GLIBCXX_USE_WCHAR_T  
   ctype<wchar_t>::__wmask_type
   ctype<wchar_t>::_M_convert_to_wmask(const mask __m) const
   {
@@ -95,7 +95,7 @@ namespace std
 	__ret = 0;
       }
     return __ret;
-  };
+  }
   
   wchar_t
   ctype<wchar_t>::do_toupper(wchar_t __c) const
@@ -129,19 +129,42 @@ namespace std
 
   bool
   ctype<wchar_t>::
-  do_is(mask __m, char_type __c) const
+  do_is(mask __m, wchar_t __c) const
   { 
-    return static_cast<bool>(__iswctype_l(__c, _M_convert_to_wmask(__m), 
-					  _M_c_locale_ctype)); 
+    // Highest bitmask in ctype_base == 10, but extra in "C"
+    // library for blank.
+    bool __ret = false;
+    const size_t __bitmasksize = 11; 
+    for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
+      {
+	const mask __bit = static_cast<mask>(_ISbit(__bitcur));
+	if (__m & __bit)
+	  __ret |= __iswctype_l(__c, _M_convert_to_wmask(__bit), 
+				_M_c_locale_ctype); 
+      }
+    return __ret;    
   }
   
   const wchar_t* 
   ctype<wchar_t>::
-  do_is(const wchar_t* __lo, const wchar_t* __hi, mask* __m) const
+  do_is(const wchar_t* __lo, const wchar_t* __hi, mask* __vec) const
   {
-    while (__lo < __hi && !this->do_is(*__m, *__lo))
-      ++__lo;
-    return __lo;
+    for (;__lo < __hi; ++__vec, ++__lo)
+      {
+	// Highest bitmask in ctype_base == 10, but extra in "C"
+	// library for blank.
+	const size_t __bitmasksize = 11; 
+	mask __m = 0;
+	for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
+	  { 
+	    const mask __bit = static_cast<mask>(_ISbit(__bitcur));
+	    if (__iswctype_l(*__lo, _M_convert_to_wmask(__bit), 
+			     _M_c_locale_ctype))
+	      __m |= __bit;
+	  }
+	*__vec = __m;
+      }
+    return __hi;
   }
   
   const wchar_t* 
@@ -169,7 +192,7 @@ namespace std
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
     __c_locale __old = __uselocale(_M_c_locale_ctype);
 #endif
-    wchar_t __ret = btowc(__c);
+    wchar_t __ret = btowc(static_cast<unsigned char>(__c));
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
     __uselocale(__old);
 #endif
@@ -183,9 +206,12 @@ namespace std
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
     __c_locale __old = __uselocale(_M_c_locale_ctype);
 #endif
-    mbstate_t __state;
-    memset(static_cast<void*>(&__state), 0, sizeof(mbstate_t));
-    mbsrtowcs(__dest, &__lo, __hi - __lo, &__state);
+    while (__lo < __hi)
+      {
+	*__dest = btowc(static_cast<unsigned char>(*__lo));
+	++__lo;
+	++__dest;
+      }
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
     __uselocale(__old);
 #endif
@@ -214,27 +240,17 @@ namespace std
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
     __c_locale __old = __uselocale(_M_c_locale_ctype);
 #endif
-    size_t __offset = 0;
-    while (true)
+    while (__lo < __hi)
       {
-	const wchar_t* __start = __lo + __offset;        
-	size_t __len = __hi - __start;
-	
-	mbstate_t __state;
-	memset(static_cast<void*>(&__state), 0, sizeof(mbstate_t));
-	size_t __con = wcsrtombs(__dest + __offset, &__start, __len, &__state);
-	if (__con != __len && __start != 0)
-	  {
-	    __offset = __start - __lo;          
-	    __dest[__offset++] = __dfault;
-	  }
-	else
-	  break;
+	int __c = wctob(*__lo);
+	*__dest = (__c == EOF ? __dfault : static_cast<char>(__c));
+	++__lo;
+	++__dest;
       }
 #if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
     __uselocale(__old);
 #endif
     return __hi;
   }
-#endif //  _GLIBCPP_USE_WCHAR_T
+#endif //  _GLIBCXX_USE_WCHAR_T
 }

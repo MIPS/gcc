@@ -1,5 +1,6 @@
 /* SocketImpl.java -- Abstract socket implementation class
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,9 +36,13 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.net;
 
-import java.io.*;
+import java.io.FileDescriptor;
+import java.io.InputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 
 /* Written using on-line Java Platform 1.2 API Specification.
  * Believed complete and correct.
@@ -74,7 +79,7 @@ public abstract class SocketImpl implements SocketOptions
   /**
    * The port number the socket is bound to locally
    */
-  protected int localport;
+  protected int localport = -1;
 
   /**
    * The port number of the remote end of the socket connection
@@ -271,41 +276,11 @@ public abstract class SocketImpl implements SocketOptions
    */
   public String toString()
   {
-    return "[addr=" + address.toString() + ",port=" + Integer.toString(port)
-      + ",localport=" + Integer.toString(localport) + "]";
+    return "[addr=" + ((address == null) ? "0.0.0.0/0.0.0.0" :
+ 		       address.toString())
+	    + ",port=" + port
+	    + ",localport=" + localport + "]";
   }
-
-  /**
-   * Sets the specified option on a socket to the passed in object.  For
-   * options that take an integer argument, the passed in object is an
-   * <code>Integer</code>.  For options that are set to on or off, the
-   * value passed will be a <code>Boolean</code>.   The <code>option_id</code> 
-   * parameter is one of the defined constants in the superinterface.
-   *
-   * @param option_id The identifier of the option
-   * @param val The value to set the option to
-   *
-   * @exception SocketException If an error occurs
-   * @XXX This redeclaration from SocketOptions is a workaround to a gcj bug.
-   */
-  public abstract void setOption(int option_id, Object val)
-    throws SocketException;
-
-  /**
-   * Returns the current setting of the specified option.  The 
-   * <code>Object</code> returned will be an <code>Integer</code> for options 
-   * that have integer values.  For options that are set to on or off, a 
-   * <code>Boolean</code> will be returned.   The <code>option_id</code>
-   * is one of the defined constants in the superinterface.
-   *
-   * @param option_id The option identifier
-   *
-   * @return The current value of the option
-   *
-   * @exception SocketException If an error occurs
-   * @XXX This redeclaration from SocketOptions is a workaround to a gcj bug.
-   */
-  public abstract Object getOption(int option_id) throws SocketException;
 
   /**
    * Shut down the input side of this socket.  Subsequent reads will
@@ -313,7 +288,10 @@ public abstract class SocketImpl implements SocketOptions
    *
    * @exception IOException if an error occurs
    */
-  protected abstract void shutdownInput () throws IOException;
+  protected void shutdownInput () throws IOException
+  {
+    throw new IOException ("Not implemented in this socket class");
+  }
 
   /**
    * Shut down the output side of this socket.  Subsequent writes will
@@ -321,5 +299,8 @@ public abstract class SocketImpl implements SocketOptions
    *
    * @exception IOException if an error occurs
    */
-  protected abstract void shutdownOutput () throws IOException;
+  protected void shutdownOutput () throws IOException
+  {
+    throw new IOException ("Not implemented in this socket class");
+  }
 }

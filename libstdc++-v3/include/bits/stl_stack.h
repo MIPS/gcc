@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_STACK_H
-#define __GLIBCPP_INTERNAL_STACK_H
+#ifndef _STACK_H
+#define _STACK_H 1
 
 #include <bits/concept_check.h>
 
@@ -107,9 +107,9 @@ namespace std
   {
     // concept requirements
     typedef typename _Sequence::value_type _Sequence_value_type;
-    __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
-    __glibcpp_class_requires(_Sequence, _BackInsertionSequenceConcept)
-    __glibcpp_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
+    __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
+    __glibcxx_class_requires(_Sequence, _BackInsertionSequenceConcept)
+    __glibcxx_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
   
     template <typename _Tp1, typename _Seq1>
     friend bool operator== (const stack<_Tp1, _Seq1>&,
@@ -209,12 +209,12 @@ namespace std
    *  @brief  Stack ordering relation.
    *  @param  x  A %stack.
    *  @param  y  A %stack of the same type as @a x.
-   *  @return  True iff @a x is lexographically less than @a y.
+   *  @return  True iff @a x is lexicographically less than @a y.
    *
    *  This is an total ordering relation.  Complexity and semantics depend on
    *  the underlying sequence type, but the expected rules are:  this relation
    *  is linear in the size of the sequences, the elements must be comparable
-   *  with @c <, and std::lexographical_compare() is usually used to make the
+   *  with @c <, and std::lexicographical_compare() is usually used to make the
    *  determination.
   */
   template <typename _Tp, typename _Seq>
@@ -247,4 +247,4 @@ namespace std
     { return !(__x < __y); }
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_STACK_H */
+#endif /* _STACK_H */

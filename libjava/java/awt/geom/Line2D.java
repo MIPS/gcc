@@ -668,7 +668,7 @@ public abstract class Line2D implements Shape, Cloneable
     return new PathIterator()
     {
       /** Current coordinate. */
-      private int current;
+      private int current = 0;
 
       public int getWindingRule()
       {
@@ -677,7 +677,7 @@ public abstract class Line2D implements Shape, Cloneable
 
       public boolean isDone()
       {
-        return current < 2;
+        return current >= 2;
       }
 
       public void next()
@@ -752,6 +752,10 @@ public abstract class Line2D implements Shape, Cloneable
    * this one.
    *
    * @return the clone
+   *
+   * @exception OutOfMemoryError If there is not enough memory available.
+   *
+   * @since 1.2
    */
   public Object clone()
   {

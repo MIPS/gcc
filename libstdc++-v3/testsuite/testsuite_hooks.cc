@@ -1,6 +1,7 @@
-// Utility subroutines for the C++ library testsuite.
+// -*- C++ -*-
+// Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2002 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,55 +30,189 @@
 
 #include <testsuite_hooks.h>
 
-#ifdef _GLIBCPP_MEM_LIMITS
+#ifdef _GLIBCXX_MEM_LIMITS
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#endif
+#include <list>
+#include <string>
+#include <stdexcept>
+#include <clocale>
+#include <locale>
+#include <cxxabi.h>
 
-void
-__set_testsuite_memlimit(float __size)
+namespace __gnu_test
 {
+#ifdef _GLIBCXX_MEM_LIMITS
+  void 
+  set_memory_limits(float size)
+  {
     struct rlimit r;
     // Cater to the absence of rlim_t.
-    __typeof__ (r.rlim_cur) limit
-      = (__typeof__ (r.rlim_cur))(__size * 1048576);
+    __typeof__ (r.rlim_cur) limit = (__typeof__ (r.rlim_cur))(size * 1048576);
 
     // Heap size, seems to be common.
-#if _GLIBCPP_HAVE_MEMLIMIT_DATA
+#if _GLIBCXX_HAVE_MEMLIMIT_DATA
     getrlimit(RLIMIT_DATA, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_DATA, &r);
 #endif
 
     // Resident set size.
-#if _GLIBCPP_HAVE_MEMLIMIT_RSS
+#if _GLIBCXX_HAVE_MEMLIMIT_RSS
     getrlimit(RLIMIT_RSS, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_RSS, &r);
 #endif
 
     // Mapped memory (brk + mmap).
-#if _GLIBCPP_HAVE_MEMLIMIT_VMEM
+#if _GLIBCXX_HAVE_MEMLIMIT_VMEM
     getrlimit(RLIMIT_VMEM, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_VMEM, &r);
 #endif
 
     // Virtual memory.
-#if _GLIBCPP_HAVE_MEMLIMIT_AS
+#if _GLIBCXX_HAVE_MEMLIMIT_AS
     getrlimit(RLIMIT_AS, &r);
     r.rlim_cur = limit;
     setrlimit(RLIMIT_AS, &r);
 #endif
-}
+  }
+
 #else
-void
-__set_testsuite_memlimit(float) { }
-#endif /* _GLIBCPP_MEM_LIMITS */
+  void
+  set_memory_limits(float) { }
+#endif 
 
 
-gnu_counting_struct::size_type  gnu_counting_struct::count = 0;
+  void 
+  verify_demangle(const char* mangled, const char* wanted)
+  {
+    int status = 0;
+    const char* s = abi::__cxa_demangle(mangled, 0, 0, &status);
+    if (!s)
+      {
+	switch (status)
+	  {
+	  case 0:
+	    s = "error code = 0: success";
+	    break;
+	  case -1:
+	    s = "error code = -1: memory allocation failure";
+	    break;
+	  case -2:
+	    s = "error code = -2: invalid mangled name";
+	    break;
+	  case -3:
+	    s = "error code = -3: invalid arguments";
+	    break;
+	  default:
+	    s = "error code unknown - who knows what happened";
+	  }
+      }
 
-int gnu_copy_tracker::itsCopyCount = 0;
-int gnu_copy_tracker::itsDtorCount = 0;
+    std::string w(wanted);
+    if (w != s)
+      throw std::runtime_error(s);
+  }
 
+  
+  // Useful exceptions.
+  class locale_data : public std::runtime_error 
+  {
+  public:
+    explicit 
+    locale_data(const std::string&  __arg) : runtime_error(__arg) { }
+  };
+
+  class environment_variable: public std::runtime_error 
+  {
+  public:
+    explicit 
+    environment_variable(const std::string&  __arg) : runtime_error(__arg) { }
+  };
+
+  class not_found : public std::runtime_error 
+  {
+  public:
+    explicit 
+    not_found(const std::string&  __arg) : runtime_error(__arg) { }
+  };
+
+  void 
+  run_tests_wrapped_locale(const char* name, const func_callback& l)
+  {
+    using namespace std;
+    bool test = true;
+    
+    // Set the global locale. 
+    locale loc_name = try_named_locale(name);
+    locale orig = locale::global(loc_name);
+
+    const char* res = setlocale(LC_ALL, name);
+    if (res != NULL)
+      {
+	string preLC_ALL = res;
+	const func_callback::test_type* tests = l.tests();
+	for (int i = 0; i < l.size(); ++i)
+	  (*tests[i])();
+	string postLC_ALL= setlocale(LC_ALL, NULL);
+	VERIFY( preLC_ALL == postLC_ALL );
+      }
+    else
+      throw environment_variable(string("LC_ALL for ") + string(name));
+  }
+  
+  void 
+  run_tests_wrapped_env(const char* name, const char* env,
+			const func_callback& l)
+  {
+    using namespace std;
+    bool test = true;
+    
+#ifdef _GLIBCXX_HAVE_SETENV 
+    // Set the global locale. 
+    locale loc_name = try_named_locale(name);
+    locale orig = locale::global(loc_name);
+
+    // Set environment variable env to value in name. 
+    const char* oldENV = getenv(env);
+    if (!setenv(env, name, 1))
+      {
+	const func_callback::test_type* tests = l.tests();
+	for (int i = 0; i < l.size(); ++i)
+	  (*tests[i])();
+	setenv(env, oldENV ? oldENV : "", 1);
+      }
+    else
+      throw environment_variable(string(env) + string(" to ") + string(name));
+#endif
+  }
+
+  std::locale 
+  try_named_locale(const char* name)
+  {
+    try
+      {
+	return std::locale(name);
+      }
+    catch (std::runtime_error& ex)
+      {
+	// Thrown by generic and gnu implemenation if named locale fails.
+	if (std::strstr(ex.what(), "name not valid"))
+	  exit(0);
+	else
+	  throw;
+      }
+  }
+
+  counter::size_type  counter::count = 0;
+  unsigned int copy_constructor::count_ = 0;
+  unsigned int copy_constructor::throw_on_ = 0;
+  unsigned int assignment_operator::count_ = 0;
+  unsigned int assignment_operator::throw_on_ = 0;
+  unsigned int destructor::_M_count = 0;
+  int copy_tracker::next_id_ = 0;
+}; // namespace __cxx_test

@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1996, 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
+  Copyright (c) 1996, 1997, 1998, 1999, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -129,7 +129,7 @@ public RemoteStub getStub(){
 }
 
 
-public boolean unexportObject(Remote obj, boolean force) throws RemoteException {
+public boolean unexportObject(Remote obj, boolean force) {
     // Remove all hashes of methods which may be called.
     buildMethodHash(obj.getClass(), false);
     return UnicastServer.unexportObject(this, force);
@@ -138,8 +138,9 @@ public boolean unexportObject(Remote obj, boolean force) throws RemoteException 
 private Object getHelperClass(Class cls, String type) {
 	try {   
 	    String classname = cls.getName();
-		ClassLoader cl = cls.getClassLoader(); //DONT use "Class scls = Class.forName(classname + type);"
-		Class scls = cl.loadClass(classname + type);
+		ClassLoader cl = cls.getClassLoader();
+		Class scls = cl == null ? Class.forName(classname + type)
+					: cl.loadClass(classname + type);
 		if (type.equals("_Stub")) {
 			try {
 				// JDK 1.2 stubs
@@ -225,7 +226,9 @@ public Object incomingMessageCall(UnicastConnection conn, int method, long hash)
 			 * lets us know that.
 			 */
 			try {
-				args[i] = in.readObject();
+				// need to handle primitive types
+				args[i] = ((RMIObjectInputStream)in).readValue(meth.getParameterTypes()[i]);
+				
 			}
 			catch (Exception t) {
 				t.printStackTrace();
@@ -257,3 +260,5 @@ public Object incomingMessageCall(UnicastConnection conn, int method, long hash)
 }
 
 }
+
+

@@ -42,20 +42,21 @@ import java.awt.Dimension;
 
 public interface ListPeer extends ComponentPeer
 {
-
-public abstract void add(String item, int index);
-public abstract void addItem(String item, int index);
-public abstract void clear();
-public abstract void delItems(int start_index, int end_index);
-public abstract void deselect(int index);
-public abstract int[] getSelectedIndexes();
-public abstract void makeVisible(int index);
-public abstract Dimension minimumSize(int s);
-public abstract Dimension preferredSize(int s);
-public abstract void removeAll();
-public abstract void select(int index);
-public abstract void setMultipleMode(boolean multi);
-public abstract void setMultipleSelections(boolean multi);
-
+  
+  public void add(String item, int index);
+  public void addItem(String item, int index);
+  public void clear();
+  public void delItems(int start_index, int end_index);
+  public void deselect(int index);
+  public int[] getSelectedIndexes();
+  public void makeVisible(int index);
+  public Dimension minimumSize(int s);
+  public Dimension preferredSize(int s);
+  public void removeAll();
+  public void select(int index);
+  public void setMultipleMode(boolean multi);
+  public void setMultipleSelections(boolean multi);
+  public Dimension getPreferredSize(int s);
+  public Dimension getMinimumSize(int s);
 } // interface ListPeer 
 

@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BITS_STL_RAW_STORAGE_ITERATOR_H
-#define _CPP_BITS_STL_RAW_STORAGE_ITERATOR_H 1
+#ifndef _STL_RAW_STORAGE_ITERATOR_H
+#define _STL_RAW_STORAGE_ITERATOR_H 1
 
 namespace std
 {
@@ -84,7 +84,7 @@ namespace std
       raw_storage_iterator& 
       operator=(const _Tp& __element) 
       {
-	_Construct(&*_M_iter, __element);
+	std::_Construct(&*_M_iter, __element);
 	return *this;
       }        
 

@@ -1,6 +1,6 @@
 ## Makefile for the toplevel directory of the GNU C++ Standard library.
 ##
-## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+## Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 ## Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
@@ -22,67 +22,32 @@
 ## Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 ## USA.
 
-AUTOMAKE_OPTIONS = 1.3 cygnus
-MAINT_CHARSET = latin1
+include $(top_srcdir)/fragment.am
 
-SUBDIRS = include libio libmath libsupc++ src po testsuite 
-
-mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
-
-PWD = $${PWDCMD-pwd}
-
-# These two special 'check-script' rules use the bash script 'mkcheck'
-# to do testing. This script is not as portable as the dejagnu test
-# harness, and is thus off by default. It does produce interesting
-# output however, including various performance analysis items like
-# compile time, execution time, and binary size.
-check-script: $(top_builddir)/mkcheck
-	-(chmod + $(top_builddir)/mkcheck; \
-	  cd testsuite; \
-	  @glibcpp_builddir@/mkcheck 0)
-
-check-script-install: $(top_builddir)/mkcheck
-	-(chmod + $(top_builddir)/mkcheck; \
-	  cd testsuite; \
-	  @glibcpp_builddir@/mkcheck 1)
-
-# Use 'new-abi-baseline' to create an initial symbol file.  Then run
-# 'check-abi' to test for changes against that file.
-baseline_file = @baseline_file@
-check-abi: $(top_builddir)/testsuite/abi_check
-	-@(cd testsuite; \
-	  @glibcpp_srcdir@/config/abi/extract_symvers \
-	     ../src/.libs/libstdc++.so \
-	     ./current_symbols.txt && \
-	  ./abi_check --check ./current_symbols.txt ${baseline_file})
-
-new-abi-baseline:
-	-@(output=${baseline_file}; \
-	  if test -f $${output}; then \
-	    output=$${output}.new; \
-	    t=`echo $${output} | sed 's=.*config/abi/=='`; \
-	    echo "Baseline file already exists, writing to $${t} instead."; \
-	  fi; \
-	  @glibcpp_srcdir@/config/abi/extract_symvers \
-	     src/.libs/libstdc++.so $${output})
+if GLIBCXX_HOSTED
+  # Possibly libmath as well...
+  hosted_source = src po
+endif
+## Keep this list sync'd with acinclude.m4:GLIBCXX_CONFIGURE.
+SUBDIRS = include libmath libsupc++ $(hosted_source) testsuite
 
 # These rules are messy, but are hella worth it.
 doxygen:
-	-(srcdir=`cd ${top_srcdir}; ${PWD}`; \
-	  builddir=`${PWD}`; \
-	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
+	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
+	  builddir=`${PWD_COMMAND}`; \
+	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
 	            --mode=user $${srcdir} $${builddir})
 
 doxygen-maint:
-	-(srcdir=`cd ${top_srcdir}; ${PWD}`; \
-	  builddir=`${PWD}`; \
-	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
+	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
+	  builddir=`${PWD_COMMAND}`; \
+	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
 	            --mode=maint $${srcdir} $${builddir})
 
 doxygen-man:
-	-(srcdir=`cd ${top_srcdir}; ${PWD}`; \
-	  builddir=`${PWD}`; \
-	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
+	-(srcdir=`cd ${top_srcdir}; ${PWD_COMMAND}`; \
+	  builddir=`${PWD_COMMAND}`; \
+	  ${SHELL} ${srcdir}/docs/doxygen/run_doxygen \
 	            --mode=man $${srcdir} $${builddir})
 
 .PHONY: doxygen doxygen-maint doxygen-man
@@ -90,7 +55,7 @@ doxygen-man:
 # Multilib support.
 MAKEOVERRIDES=
 
-# Multilib variables.
+# Multilib support variables.
 MULTISRCTOP =
 MULTIBUILDTOP =
 MULTIDIRS =
@@ -98,16 +63,16 @@ MULTISUBDIR =
 MULTIDO = true
 MULTICLEAN = true
 
-# Multilib Makefile bits.
+# Multilib support.
 .PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \
 	maintainer-clean-multi
 
-all-am: all-multi
-install-am: install-multi
-mostlyclean-am: mostlyclean-multi
-clean-am: clean-multi
-distclean-am: distclean-multi
-maintainer-clean-am: maintainer-clean-multi
+all-recursive: all-multi
+install-recursive: install-multi
+mostlyclean-recursive: mostlyclean-multi
+clean-recursive: clean-multi
+distclean-recursive: distclean-multi
+maintainer-clean-recursive: maintainer-clean-multi
 
 all-multi:
 	: $(MAKE) ; exec $(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do
@@ -156,6 +121,7 @@ AM_MAKEFLAGS = \
 	"includedir=$(includedir)" \
 	"prefix=$(prefix)" \
 	"tooldir=$(tooldir)" \
+	"gxx_include_dir=$(gxx_include_dir)" \
 	"AR=$(AR)" \
 	"AS=$(AS)" \
 	"LD=$(LD)" \
@@ -166,7 +132,7 @@ AM_MAKEFLAGS = \
 	"NM_FOR_BUILD=$(NM_FOR_BUILD)" \
 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
 	"DESTDIR=$(DESTDIR)" \
-	"WERROR=$(WERROR)" 
+	"WERROR=$(WERROR)"
 
 # Subdir rules rely on $(FLAGS_TO_PASS)
 FLAGS_TO_PASS = $(AM_MAKEFLAGS)

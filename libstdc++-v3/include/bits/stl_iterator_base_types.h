@@ -61,14 +61,15 @@
  *  such as iterator_traits and struct iterator.
  */
 
-#ifndef __GLIBCPP_INTERNAL_ITERATOR_BASE_TYPES_H
-#define __GLIBCPP_INTERNAL_ITERATOR_BASE_TYPES_H
+#ifndef _ITERATOR_BASE_TYPES_H
+#define _ITERATOR_BASE_TYPES_H 1
 
 #pragma GCC system_header
 
 namespace std
 {
-  /** @{
+  //@{
+  /**
    *  @defgroup iterator_tags Iterator Tags
    *  These are empty types, used to distinguish different iterators.  The
    *  distinction is not made by what they contain, but simply by what they
@@ -160,5 +161,5 @@ namespace std
 
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_ITERATOR_BASE_TYPES_H */
+#endif /* _ITERATOR_BASE_TYPES_H */
 

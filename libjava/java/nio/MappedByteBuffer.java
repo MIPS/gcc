@@ -35,8 +35,32 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.nio;
 
+/**
+ * @author Michael Koch
+ * @since 1.4
+ */
 public abstract class MappedByteBuffer extends ByteBuffer
 {
+  MappedByteBuffer (int capacity, int limit, int position, int mark)
+  {
+    super (capacity, limit, position, mark);
+  }
+  
+  public final MappedByteBuffer force ()
+  {
+    return this;
+  }
+    
+  public final boolean isLoaded ()
+  {
+    return true;
+  }
+    
+  public final MappedByteBuffer load ()
+  {
+    return this;
+  }
 }

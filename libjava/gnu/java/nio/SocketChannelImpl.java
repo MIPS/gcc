@@ -1,5 +1,5 @@
 /* SocketChannelImpl.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,200 +35,292 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.java.nio;
 
+import java.io.InputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import gnu.java.net.PlainSocketImpl;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.SocketTimeoutException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AlreadyConnectedException;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.ConnectionPendingException;
+import java.nio.channels.NoConnectionPendingException;
+import java.nio.channels.NotYetConnectedException;
+import java.nio.channels.UnresolvedAddressException;
+import java.nio.channels.UnsupportedAddressTypeException;
 import java.nio.channels.SocketChannel;
+import java.nio.channels.Selector;
+import java.nio.channels.SelectionKey;
 import java.nio.channels.spi.SelectorProvider;
 import gnu.classpath.Configuration;
 
-public class SocketChannelImpl extends SocketChannel
+public final class SocketChannelImpl extends SocketChannel
 {
-  Socket sock_object;
-  int fd;
-  int local_port;
-  boolean blocking = true;
-  boolean connected = false;
-  InetSocketAddress sa;
+  private NIOSocket socket;
+  private boolean blocking = true;
+  private boolean connected = false;
+  private boolean connectionPending = false;
 
-/*    
-  static native int SocketCreate();
-  static native int SocketConnect(int fd, InetAddress a, int port);
-  static native int SocketBind(int fd, InetAddress host, int port);
-  static native int SocketListen(int fd, int backlog);
-  static native int SocketAvailable(int fd);
-  static native int SocketClose(int fd);
-  static native int SocketRead(int fd, byte b[], int off, int len);
-  static native int SocketWrite(int fd, byte b[], int off, int len);
-*/
-
-  static int SocketCreate() { return 0; };
-  static int SocketConnect(int fd, InetAddress a, int port) { return 0; };
-  static int SocketBind(int fd, InetAddress host, int port) { return 0; };
-  static int SocketListen(int fd, int backlog) { return 0; };
-  static int SocketAvailable(int fd) { return 0; };
-  static int SocketClose(int fd) { return 0; };
-  static int SocketRead(int fd, byte b[], int off, int len) { return 0; };
-  static int SocketWrite(int fd, byte b[], int off, int len) { return 0; };
-
-  public SocketChannelImpl(SelectorProvider provider)		      
+  SocketChannelImpl (SelectorProvider provider)
+    throws IOException
   {
-    super(provider);
-    fd = SocketCreate();
-	
-    if (fd == -1)
-	    {
-        System.err.println("failed to create socket:"+fd);
-	    }
+    super (provider);
+    socket = new NIOSocket (new PlainSocketImpl(), this);
   }
-    
+  
+  SocketChannelImpl (SelectorProvider provider,
+                     NIOSocket socket)
+    throws IOException
+  {
+    super (provider);
+    this.socket = socket;
+    this.connected = socket.isConnected();
+  }
+
   public void finalizer()
   {
-    if (connected)
-	    {
+    if (isConnected())
+      {
         try
           {
-            close();
+            close ();
           }
         catch (Exception e)
           {
           }
-	    }
+      }
   }
 
-  protected void implCloseSelectableChannel()
+  int getNativeFD()
+  {
+    return socket.getImpl().getNativeFD();
+  }
+
+  protected void implCloseSelectableChannel () throws IOException
   {
     connected = false;
-    SocketClose(fd);
-    fd = SocketCreate();
+    socket.close();
   }
 
-  protected void implConfigureBlocking(boolean  block)
+  protected void implConfigureBlocking (boolean blocking) throws IOException
   {
-    if (blocking == block)
-	    return;
+    socket.setSoTimeout (blocking ? 0 : NIOConstants.DEFAULT_TIMEOUT);
+    this.blocking = blocking;
   }   
 
-  public boolean connect(SocketAddress remote)
-    throws IOException
+  public boolean connect (SocketAddress remote) throws IOException
   {
-    if (connected)
-	    {
-        throw new AlreadyConnectedException();
-	    }
+    if (!isOpen())
+      throw new ClosedChannelException();
+    
+    if (isConnected())
+      throw new AlreadyConnectedException();
 
-    // ok, lets connect !
-	
-    sa = (InetSocketAddress) remote;
-	
-    InetAddress addr = sa.getAddress();
-    int port = sa.getPort();
-    int err = SocketConnect(fd, addr, port);
-	
-    if (err < 0) 
-	    {
-        throw new IOException("Connection refused:"+err + ", connect="+err);
-	    }
+    if (connectionPending)
+      throw new ConnectionPendingException();
 
-    local_port = err;
-    connected = true;
-    return blocking;
+    if (!(remote instanceof InetSocketAddress))
+      throw new UnsupportedAddressTypeException();
+
+    if (((InetSocketAddress) remote).isUnresolved())
+      throw new UnresolvedAddressException();
+    
+    if (blocking)
+      {
+        // Do blocking connect.
+        socket.connect (remote);
+        connected = true;
+        return true;
+      }
+
+    // Do non-blocking connect.
+    try
+      {
+        socket.connect (remote, NIOConstants.DEFAULT_TIMEOUT);
+        connected = true;
+        return true;
+      }
+    catch (SocketTimeoutException e)
+      {
+        connectionPending = true;
+        return false;
+      }
   }
     
-  public boolean finishConnect()
+  public boolean finishConnect ()
+    throws IOException
   {
+    if (!isOpen())
+      throw new ClosedChannelException();
+    
+    if (!connectionPending)
+      throw new NoConnectionPendingException();
+    
+    if (isConnected())
+      return true;
+
+    // FIXME: Handle blocking/non-blocking mode.
+
+    Selector selector = provider().openSelector();
+    register (selector, SelectionKey.OP_CONNECT);
+
+    if (isBlocking())
+      {
+        selector.select(); // blocking until channel is connected.
+        connected = true;
+        connectionPending = false;
+        return true;
+      }
+
+    int ready = selector.selectNow(); // non-blocking
+    if (ready == 1)
+      {
+        connected = true;
+        connectionPending = false;
+        return true;
+      }
+
     return false;
   }
 
-  public boolean isConnected()
+  public boolean isConnected ()
   {
     return connected;
   }
     
-  public boolean isConnectionPending()
+  public boolean isConnectionPending ()
   {
-    if (blocking)
-	    return true;
-
-    return false;
+    return connectionPending;
   }
     
-  public Socket socket()
+  public Socket socket ()
   {
-    if (sock_object != null)
-	    {
-        //sock_object.ch = this;
-	    }
-
-    return sock_object;
+    return socket;
   }
 
-  public int read(ByteBuffer dst)
+  public int read (ByteBuffer dst) throws IOException
   {
-    int bytes = 0;
-    int len = 1024;
-    byte[]b = new byte[len];
+    if (!connected)
+      throw new NotYetConnectedException();
+    
+    byte[] data;
+    int offset = 0;
+    int len = dst.remaining();
 	
-    bytes = SocketRead(fd, b, 0, len);
-    dst.put(b, 0, bytes);
+    if (dst.hasArray())
+      {
+        offset = dst.arrayOffset() + dst.position();
+        data = dst.array();
+      }
+    else
+      {
+        data = new byte [len];
+      }
 
-    if (bytes == 0)
-	    {
-        // we've hit eof ?
-        return -1;
-	    }
+    InputStream input = socket.getInputStream();
+    int available = input.available();
 
-    return bytes;
+    if (available == 0)
+      return 0;
+    
+    if (len > available)
+      len = available;
+
+    int readBytes = 0;
+    boolean completed = false;
+
+    try
+      {
+        begin();
+        readBytes = input.read (data, offset, len);
+        completed = true;
+      }
+    finally
+      {
+        end (completed);
+      }
+
+    if (readBytes > 0
+        && !dst.hasArray())
+      {
+        dst.put (data, offset, len);
+      }
+
+    return readBytes;
   }
     
-  public long read(ByteBuffer[] dsts, int offset, int length)
+  public long read (ByteBuffer[] dsts, int offset, int length)
+    throws IOException
   {
-    long bytes = 0;
+    if (!connected)
+      throw new NotYetConnectedException();
+    
+    if ((offset < 0)
+        || (offset > dsts.length)
+        || (length < 0)
+        || (length > (dsts.length - offset)))
+      throw new IndexOutOfBoundsException();
+      
+    long readBytes = 0;
 
-    for (int i=offset; i<length; i++)
-	    {
-        bytes += read(dsts[i]);
-	    }
+    for (int index = offset; index < length; index++)
+      readBytes += read (dsts [index]);
 
-    return bytes;
+    return readBytes;
   }
      
-  public int write(ByteBuffer src)
+  public int write (ByteBuffer src)
+    throws IOException
   {
-    int bytes = 0;
-    int len = src.position();
-
-    if (src instanceof ByteBufferImpl)
-	    {
-        ByteBufferImpl bi = (ByteBufferImpl) src;
-        byte[]b = bi.array();
-        bytes = SocketWrite(fd, b, 0, len);
-	    }
+    if (!connected)
+      throw new NotYetConnectedException();
+    
+    byte[] data;
+    int offset = 0;
+    int len = src.remaining();
+    
+    if (!src.hasArray())
+      {
+        data = new byte [len];
+        src.get (data, 0, len);
+      }
     else
-	    {
-        byte[]b = new byte[len];
-        src.get(b, 0, len);
-        bytes = SocketWrite(fd, b, 0, len);
-	    }
-		
-	  return bytes;
+      {
+        offset = src.arrayOffset() + src.position();
+        data = src.array();
+      }
+
+    System.out.println ("INTERNAL: writing to socket outputstream");
+    
+    OutputStream output = socket.getOutputStream();
+    output.write (data, offset, len);
+    return len;
   }
 
   public long write (ByteBuffer[] srcs, int offset, int length)
+    throws IOException
   {
-    long bytes = 0;
+    if (!connected)
+      throw new NotYetConnectedException();
+    
+    if ((offset < 0)
+        || (offset > srcs.length)
+        || (length < 0)
+        || (length > (srcs.length - offset)))
+      throw new IndexOutOfBoundsException();
+      
+    long writtenBytes = 0;
 
-    for (int i=offset; i<length; i++)
-	    {
-        bytes += write(srcs[i]);
-	    }
+    for (int index = offset; index < length; index++)
+      writtenBytes += write (srcs [index]);
 
-    return bytes;
+    return writtenBytes;
   }
 }

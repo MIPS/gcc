@@ -1,5 +1,6 @@
 /* MulticastSocket.java -- Class for using multicast sockets
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -80,6 +81,7 @@ public class MulticastSocket extends DatagramSocket
   public MulticastSocket() throws IOException
   {
     super(0, null);
+    setReuseAddress (true);
   }
 
   /**
@@ -94,6 +96,7 @@ public class MulticastSocket extends DatagramSocket
   public MulticastSocket(int port) throws IOException
   {
     super(port, null);
+    setReuseAddress (true);
   }
 
   /**
@@ -110,6 +113,7 @@ public class MulticastSocket extends DatagramSocket
   public MulticastSocket(SocketAddress address) throws IOException
   {
     super(address);
+    setReuseAddress (true);
   }
   
   /**
@@ -135,7 +139,7 @@ public class MulticastSocket extends DatagramSocket
    *
    * @deprecated 1.2 Replaced by getTimeToLive()
    *
-   * @see Multicastsocket:getTimeToLive
+   * @see MulticastSocket#getTimeToLive()
    */
   public byte getTTL() throws IOException
   {
@@ -160,16 +164,18 @@ public class MulticastSocket extends DatagramSocket
     return impl.getTimeToLive();
   }
 
-   /**
-    * Sets the interface to use for sending multicast packets.
-    *
-    * @param inf The new interface to use
-    *
-    * @exception SocketException If an error occurs
-    */
-  public void setInterface(InetAddress inf) throws SocketException
+  /**
+   * Sets the interface to use for sending multicast packets.
+   *
+   * @param addr The new interface to use.
+   *
+   * @exception SocketException If an error occurs.
+   *
+   * @since 1.4
+   */
+  public void setInterface(InetAddress addr) throws SocketException
   {
-    impl.setOption(SocketOptions.IP_MULTICAST_IF, inf);
+    impl.setOption(SocketOptions.IP_MULTICAST_IF, addr);
   }
 
   /**
@@ -179,7 +185,7 @@ public class MulticastSocket extends DatagramSocket
    * 
    * @exception SocketException If an error occurs
    * 
-   * @see MulticastSocket:getNetworkInterface
+   * @see MulticastSocket#getNetworkInterface()
    * 
    * @since 1.4
    */
@@ -206,7 +212,7 @@ public class MulticastSocket extends DatagramSocket
    *
    * @exception SocketException If an error occurs
    *
-   * @see MulticastSocket:setNetworkInterface
+   * @see MulticastSocket#setNetworkInterface(NetworkInterface netIf)
    * 
    * @since 1.4
    */
@@ -274,7 +280,7 @@ public class MulticastSocket extends DatagramSocket
    *
    * @deprecated 1.2 Replaced by <code>setTimeToLive</code>
    *
-   * @see MulticastSocket:setTimeToLive
+   * @see MulticastSocket#setTimeToLive(int ttl)
    */
   public void setTTL(byte ttl) throws IOException
   {
@@ -357,8 +363,8 @@ public class MulticastSocket extends DatagramSocket
    * @exception SecurityException If a security manager exists and its
    * checkMulticast method doesn't allow the operation
    *
-   * @see MulticastSocket:setInterface
-   * @see MulticastSocket:setNetworkInterface
+   * @see MulticastSocket#setInterface(InetAddress addr)
+   * @see MulticastSocket#setNetworkInterface(NetworkInterface netIf)
    *
    * @since 1.4
    */
@@ -392,8 +398,8 @@ public class MulticastSocket extends DatagramSocket
    * @exception SecurityException If a security manager exists and its
    * checkMulticast method doesn't allow the operation
    *
-   * @see MulticastSocket:setInterface
-   * @see MulticastSocket:setNetworkInterface
+   * @see MulticastSocket#setInterface(InetAddress addr)
+   * @see MulticastSocket#setNetworkInterface(NetworkInterface netIf)
    *
    * @since 1.4
    */
@@ -423,17 +429,21 @@ public class MulticastSocket extends DatagramSocket
    * @exception IOException If an error occurs
    * @exception SecurityException If a security manager exists and its
    * checkConnect or checkMulticast method doesn't allow the operation
+   *
+   * @deprecated
    */
   public synchronized void send(DatagramPacket p, byte ttl) throws IOException
   {
     SecurityManager s = System.getSecurityManager();
     if (s != null)
       {
-	InetAddress addr = p.getAddress();
-	if (addr.isMulticastAddress())
-	  s.checkMulticast(addr, ttl);
-	else
-	  s.checkConnect(addr.getHostAddress(), p.getPort());
+        InetAddress addr = p.getAddress();
+        if (addr.isMulticastAddress())
+          s.checkPermission (new SocketPermission
+                             (addr.getHostName () + p.getPort (),
+                              "accept,connect"));
+        else
+          s.checkConnect(addr.getHostAddress(), p.getPort());
       }
 
     int oldttl = impl.getTimeToLive();

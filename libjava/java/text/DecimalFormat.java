@@ -1,5 +1,5 @@
 /* DecimalFormat.java -- Formats and parses numbers
-   Copyright (C) 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -456,7 +456,7 @@ public class DecimalFormat extends NumberFormat
 	    exponent = (long) Math.floor (Math.log(number) / Math.log(10));
 	    if (minimumIntegerDigits > 0)
 	      exponent -= minimumIntegerDigits - 1;
-	    baseNumber = (long) (number / Math.pow(10.0, exponent));
+	    baseNumber = (number / Math.pow(10.0, exponent));
 	  }
 	else
 	  baseNumber = number;
@@ -474,7 +474,7 @@ public class DecimalFormat extends NumberFormat
 	    intPart = Math.floor(intPart / 10);
 
 	    // Append group separator if required.
-	    if (groupingUsed && count > 0 && count % groupingSize == 0)
+	    if (groupingUsed && count > 0 && groupingSize != 0 && count % groupingSize == 0)
 	      dest.insert(index, symbols.getGroupingSeparator());
 
 	    dest.insert(index, (char) (symbols.getZeroDigit() + dig));
@@ -602,7 +602,7 @@ public class DecimalFormat extends NumberFormat
 	  }
 
 	// Append group separator if required.
-	if (groupingUsed && count > 0 && count % groupingSize == 0)
+	if (groupingUsed && count > 0 && groupingSize != 0 && count % groupingSize == 0)
 	  dest.insert(index, symbols.getGroupingSeparator());
 
 	dest.insert(index, (char) (symbols.getZeroDigit() + dig));
@@ -693,8 +693,8 @@ public class DecimalFormat extends NumberFormat
     int index = pos.getIndex();
     StringBuffer buf = new StringBuffer ();
 
-      // We have to check both prefixes, because one might be empty.
-      // We want to pick the longest prefix that matches.
+    // We have to check both prefixes, because one might be empty.  We
+    // want to pick the longest prefix that matches.
     boolean got_pos = str.startsWith(positivePrefix, index);
     String np = (negativePrefix != null
 		 ? negativePrefix
@@ -729,11 +729,14 @@ public class DecimalFormat extends NumberFormat
 
     // FIXME: handle Inf and NaN.
 
-      // FIXME: do we have to respect minimum/maxmimum digit stuff?
-      // What about leading zeros?  What about multiplier?
+    // FIXME: do we have to respect minimum digits?
+    // What about leading zeros?  What about multiplier?
 
     int start_index = index;
     int max = str.length();
+    int last = index + maximumIntegerDigits;
+    if (last > 0 && max > last)
+      max = last;
     char zero = symbols.getZeroDigit();
     int last_group = -1;
     boolean int_part = true;
@@ -745,7 +748,8 @@ public class DecimalFormat extends NumberFormat
 	// FIXME: what about grouping size?
 	if (groupingUsed && c == symbols.getGroupingSeparator())
 	  {
-	    if (last_group != -1
+	    if (last_group != -1 
+		&& groupingSize != 0  
 		&& (index - last_group) % groupingSize != 0)
 	      {
 		pos.setErrorIndex(index);
@@ -762,7 +766,8 @@ public class DecimalFormat extends NumberFormat
 	  break;
 	else if (c == symbols.getDecimalSeparator())
 	  {
-	    if (last_group != -1
+	    if (last_group != -1 
+		&& groupingSize != 0 
 		&& (index - last_group) % groupingSize != 0)
 	      {
 		pos.setErrorIndex(index);
@@ -866,22 +871,22 @@ public class DecimalFormat extends NumberFormat
 
   public void setMaximumFractionDigits (int newValue)
   {
-    maximumFractionDigits = Math.min(newValue, 340);
+    super.setMaximumFractionDigits(Math.min(newValue, 340));
   }
 
   public void setMaximumIntegerDigits (int newValue)
   {
-    maximumIntegerDigits = Math.min(newValue, 309);
+    super.setMaximumIntegerDigits(Math.min(newValue, 309));
   }
 
   public void setMinimumFractionDigits (int newValue)
   {
-    minimumFractionDigits = Math.min(newValue, 340);
+    super.setMinimumFractionDigits(Math.min(newValue, 340));
   }
 
   public void setMinimumIntegerDigits (int newValue)
   {
-    minimumIntegerDigits = Math.min(newValue, 309);
+    super.setMinimumIntegerDigits(Math.min(newValue, 309));
   }
 
   public void setMultiplier (int newValue)

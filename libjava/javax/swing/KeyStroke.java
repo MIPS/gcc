@@ -37,16 +37,18 @@ exception statement from your version. */
 
 package javax.swing;
 
-// Imports
-import java.awt.event.*;
-import java.io.*;
+import java.awt.AWTKeyStroke;
+import java.awt.event.KeyEvent;
+import java.io.Serializable;
 
 /**
  * KeyStroke
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public class KeyStroke implements Serializable {
+public class KeyStroke implements Serializable
+{
+  static final long serialVersionUID = -9060180771037902530L;
 
 	//-------------------------------------------------------------
 	// Variables --------------------------------------------------

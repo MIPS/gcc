@@ -1,6 +1,6 @@
 // Threading support -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -45,8 +45,10 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __SGI_STL_INTERNAL_THREADS_H
-#define __SGI_STL_INTERNAL_THREADS_H
+#ifndef _STL_THREADS_H
+#define _STL_THREADS_H 1
+
+#include <cstddef>
 
 // The only supported threading model is GCC's own gthr.h abstraction layer.
 #include "bits/gthr.h"
@@ -97,35 +99,6 @@ namespace std
       return __tmp;
     }
   };
-
-  // Atomic swap on unsigned long
-  // This is guaranteed to behave as though it were atomic only if all
-  // possibly concurrent updates use _Atomic_swap.
-  // In some cases the operation is emulated with a lock.
-#if defined (__GTHREAD_MUTEX_INIT)
-  // This could be optimized to use the atomicity.h abstraction layer.
-  // vyzo: simple _Atomic_swap implementation following the guidelines above
-  // We use a template here only to get a unique initialized instance.
-  template<int __dummy>
-    struct _Swap_lock_struct 
-    { static __gthread_mutex_t _S_swap_lock; };
-
-  template<int __dummy>
-    __gthread_mutex_t
-    _Swap_lock_struct<__dummy>::_S_swap_lock = __GTHREAD_MUTEX_INIT;
-
-  // This should be portable, but performance is expected to be quite
-  // awful.  This really needs platform specific code.
-  inline unsigned long 
-  _Atomic_swap(unsigned long * __p, unsigned long __q) 
-  {
-    __gthread_mutex_lock(&_Swap_lock_struct<0>::_S_swap_lock);
-    unsigned long __result = *__p;
-    *__p = __q;
-    __gthread_mutex_unlock(&_Swap_lock_struct<0>::_S_swap_lock);
-    return __result;
-  }
-#endif
 } //namespace std
 
   // Locking class.  Note that this class *does not have a
@@ -144,11 +117,11 @@ namespace std
 #if !defined(__GTHREAD_MUTEX_INIT) && defined(__GTHREAD_MUTEX_INIT_FUNCTION)
 namespace __gnu_cxx
 {
-  extern __gthread_mutex_t _GLIBCPP_mutex;
-  extern __gthread_mutex_t *_GLIBCPP_mutex_address;
-  extern __gthread_once_t _GLIBCPP_once;
-  extern void _GLIBCPP_mutex_init (void);
-  extern void _GLIBCPP_mutex_address_init (void);
+  extern __gthread_mutex_t _GLIBCXX_mutex;
+  extern __gthread_mutex_t *_GLIBCXX_mutex_address;
+  extern __gthread_once_t _GLIBCXX_once;
+  extern void _GLIBCXX_mutex_init (void);
+  extern void _GLIBCXX_mutex_address_init (void);
 }
 #endif
 
@@ -170,24 +143,24 @@ namespace std
       // There should be no code in this path given the usage rules above.
 #elif defined(__GTHREAD_MUTEX_INIT_FUNCTION)
       if (_M_init_flag) return;
-      if (__gthread_once (&__gnu_cxx::_GLIBCPP_once,
-			  __gnu_cxx::_GLIBCPP_mutex_init) != 0
+      if (__gthread_once (&__gnu_cxx::_GLIBCXX_once,
+			  __gnu_cxx::_GLIBCXX_mutex_init) != 0
 	  && __gthread_active_p ())
 	abort ();
-      __gthread_mutex_lock (&__gnu_cxx::_GLIBCPP_mutex);
+      __gthread_mutex_lock (&__gnu_cxx::_GLIBCXX_mutex);
       if (!_M_init_flag) 
 	{
 	  // Even though we have a global lock, we use __gthread_once to be
 	  // absolutely certain the _M_lock mutex is only initialized once on
 	  // multiprocessor systems.
-	  __gnu_cxx::_GLIBCPP_mutex_address = &_M_lock;
+	  __gnu_cxx::_GLIBCXX_mutex_address = &_M_lock;
 	  if (__gthread_once (&_M_once,
-			      __gnu_cxx::_GLIBCPP_mutex_address_init) != 0
+			      __gnu_cxx::_GLIBCXX_mutex_address_init) != 0
 	    && __gthread_active_p ())
 	    abort ();
 	  _M_init_flag = 1;
 	}
-      __gthread_mutex_unlock (&__gnu_cxx::_GLIBCPP_mutex);
+      __gthread_mutex_unlock (&__gnu_cxx::_GLIBCXX_mutex);
 #endif
     }
 
@@ -237,8 +210,7 @@ namespace std
   private:
     void operator=(const _STL_auto_lock&);
     _STL_auto_lock(const _STL_auto_lock&);
-  };
-  
+  } __attribute__ ((__unused__));
 } // namespace std
 
 #endif 

@@ -1,4 +1,4 @@
-/* Copyright (C) 1999, 2000, 2002  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2002, 2003  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -76,7 +76,7 @@ import gnu.java.awt.Buffers;
  * </ul>
  *
  * @author Rolf W. Rasmussen <rolfwr@ii.uib.no>
- * @author C. Brian Jones (cbj@gnu.org) 
+ * @author C. Brian Jones <cbj@gnu.org>
  */
 public abstract class ColorModel implements Transparency
 {
@@ -113,17 +113,39 @@ public abstract class ColorModel implements Transparency
   {
     this(bits * 4, // total bits, sRGB, four channels
 	 nArray(bits, 4), // bits for each channel
-	 null, // FIXME: should be sRGB
+	 ColorSpace.getInstance(ColorSpace.CS_sRGB), // sRGB
 	 true, // has alpha
 	 false, // not premultiplied
 	 TRANSLUCENT,
 	 Buffers.smallestAppropriateTransferType(bits * 4));
   }
 
+  /**
+   * Constructs a ColorModel that translates pixel values to
+   * color/alpha components.
+   *
+   * @exception IllegalArgumentException If the length of the bit array is less
+   * than the number of color or alpha components in this ColorModel, or if the
+   * transparency is not a valid value, or if the sum of the number of bits in
+   * bits is less than 1 or if any of the elements in bits is less than 0.
+   */
   protected ColorModel(int pixel_bits, int[] bits, ColorSpace cspace,
 		       boolean hasAlpha, boolean isAlphaPremultiplied,
 		       int transparency, int transferType)
   {
+    int bits_sum = 0;
+    for (int i = 0; i < bits.length; i++)
+      {
+        if (bits [i] < 0)
+          throw new IllegalArgumentException ();
+
+        bits_sum |= bits [i];
+      }
+    
+    if ((bits.length < cspace.getNumComponents())
+        || (bits_sum < 1))
+      throw new IllegalArgumentException ();
+
     this.pixel_bits = pixel_bits;
     this.bits = bits;
     this.cspace = cspace;
@@ -131,6 +153,11 @@ public abstract class ColorModel implements Transparency
     this.isAlphaPremultiplied = isAlphaPremultiplied;
     this.transparency = transparency;
     this.transferType = transferType;
+  }
+
+  public void finalize()
+  {
+    // Do nothing here.
   }
 
   /**
@@ -204,7 +231,7 @@ public abstract class ColorModel implements Transparency
    *
    * @see #getRed(int)
    */
-    public abstract int getGreen(int pixel);
+  public abstract int getGreen(int pixel);
     
   /**
    * Converts pixel value to sRGB and extract blue int sample
@@ -362,7 +389,7 @@ public abstract class ColorModel implements Transparency
    */
   public Object getDataElements(int rgb, Object pixel)
   {
-    // FIXME: implement
+    // subclasses has to implement this method.
     throw new UnsupportedOperationException();
   }
 
@@ -381,8 +408,9 @@ public abstract class ColorModel implements Transparency
    * according to the color model. Each component sample is stored
    * as a separate element in the array.
    */
-  public int[] getComponents(int pixel, int[] components, int offset) {
-    // FIXME: implement
+  public int[] getComponents(int pixel, int[] components, int offset)
+  {
+    // subclasses has to implement this method.
     throw new UnsupportedOperationException();
   }
   
@@ -404,6 +432,7 @@ public abstract class ColorModel implements Transparency
    */
   public int[] getComponents(Object pixel, int[] components, int offset)
   {
+    // subclasses has to implement this method.
     throw new UnsupportedOperationException();
   }
 
@@ -424,7 +453,7 @@ public abstract class ColorModel implements Transparency
     for (int i=0; i<numComponents; i++)
     {
       float in = normComponents[normOffset++];
-      int out = (int) (in * ((2<<getComponentSize(i)) - 1));
+      int out = (int) (in * ((1<<getComponentSize(i)) - 1));
       components[offset++] = out;
     }
     return components;
@@ -447,10 +476,23 @@ public abstract class ColorModel implements Transparency
     for (int i=0; i<numComponents; i++)
     {
       float in = components[offset++];
-      float out = in / ((2<<getComponentSize(i)) - 1);
+      float out = in / ((1<<getComponentSize(i)) - 1);
       normComponents[normOffset++] = out;
     }
     return normComponents;
+  }
+
+  /**
+   * Convert unnormalized components to normalized components.
+   *
+   * @since 1.4
+   */
+  public float[] getNormalizedComponents (Object pixel,
+                                          float[] normComponents,
+                                          int normOffset)
+  {
+    // subclasses has to implement this method.
+    throw new UnsupportedOperationException();
   }
 
   /**
@@ -477,14 +519,28 @@ public abstract class ColorModel implements Transparency
    */
   public int getDataElement(int[] components, int offset)
   {
+    // subclasses has to implement this method.
     throw new UnsupportedOperationException();
   }
 
+  public int getDataElement (float[] components, int offset)
+  {
+    // subclasses has to implement this method.
+    throw new UnsupportedOperationException();
+  }
+  
   public Object getDataElements(int[] components, int offset, Object obj)
   {
+    // subclasses has to implement this method.
     throw new UnsupportedOperationException();
   }
 
+  public int getDataElements (float[] components, Object obj)
+  {
+    // subclasses has to implement this method.
+    throw new UnsupportedOperationException();
+  }
+  
   public boolean equals(Object obj)
   {
     if (!(obj instanceof ColorModel)) return false;
@@ -567,8 +623,9 @@ public abstract class ColorModel implements Transparency
     return sm.getTransferType() == transferType;
   }
 
-  public void finalize()
+  public final int getTransferType ()
   {
+    return transferType;
   }
 
   /**

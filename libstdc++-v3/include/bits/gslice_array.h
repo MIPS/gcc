@@ -34,8 +34,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BITS_GSLICE_ARRAY
-#define _CPP_BITS_GSLICE_ARRAY 1
+#ifndef _GSLICE_ARRAY_H
+#define _GSLICE_ARRAY_H 1
 
 #pragma GCC system_header
 
@@ -116,16 +116,16 @@ namespace std {
     inline void
     gslice_array<_Tp>::operator=(const _Tp& __t) const
     { 
-      __valarray_fill(_M_array, _Array<size_t>(_M_index),
-		      _M_index.size(), __t); 
+      std::__valarray_fill(_M_array, _Array<size_t>(_M_index),
+			   _M_index.size(), __t); 
     }
 
   template<typename _Tp>
     inline void
     gslice_array<_Tp>::operator=(const valarray<_Tp>& __v) const
     {
-      __valarray_copy(_Array<_Tp>(__v), __v.size(),
-		      _M_array, _Array<size_t>(_M_index));
+      std::__valarray_copy(_Array<_Tp>(__v), __v.size(),
+			   _M_array, _Array<size_t>(_M_index));
     }
 
   template<typename _Tp>
@@ -133,8 +133,8 @@ namespace std {
       inline void
       gslice_array<_Tp>::operator=(const _Expr<_Dom, _Tp>& __e) const
       {
-	__valarray_copy (__e, _M_index.size(), _M_array,
-			 _Array<size_t>(_M_index));
+	std::__valarray_copy (__e, _M_index.size(), _M_array,
+			      _Array<size_t>(_M_index));
       }
 
 #undef _DEFINE_VALARRAY_OPERATOR
@@ -171,7 +171,7 @@ _DEFINE_VALARRAY_OPERATOR(>>, __shift_right)
 
 } // std::
 
-#endif /* _CPP_BITS_GSLICE_ARRAY */
+#endif /* _GSLICE_ARRAY_H */
 
 // Local Variables:
 // mode:c++

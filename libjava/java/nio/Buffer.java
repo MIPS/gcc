@@ -35,6 +35,7 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.nio;
 
 public abstract class Buffer
@@ -44,6 +45,28 @@ public abstract class Buffer
   int pos = 0;
   int mark = -1;
 
+  // Creates a new Buffer.
+  //
+  // Should be package private.
+  //
+  Buffer (int capacity, int limit, int position, int mark)
+  {
+    if (capacity < 0)
+      throw new IllegalArgumentException ();
+    
+    cap = capacity;
+    limit (limit);
+    position (position);
+    
+    if (mark >= 0)
+    {
+      if (mark > pos)
+        throw new IllegalArgumentException ();
+      
+      this.mark = mark;
+    }
+  }
+  
   /**
    * Retrieves the capacity of the buffer.
    */

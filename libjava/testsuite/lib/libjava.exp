@@ -1,4 +1,4 @@
-# Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation
+# Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation
 
 load_lib "libgloss.exp"
 
@@ -8,6 +8,28 @@ global tmpdir
 
 if ![info exists tmpdir] {
     set tmpdir "/tmp"
+}
+
+# This is like `prune_warnings', but it also prunes away a warning
+# from the bytecode front end that we don't care about.
+proc libjava_prune_warnings {text} {
+    set text [prune_warnings $text]
+    set tlist [split $text \n]
+    set len [llength $tlist]
+    for {set i [expr {$len - 1}]} {$i >= 2} {incr i -1} {
+	if {[string match "*unreachable bytecode*" [lindex $tlist $i]]} {
+	    # Delete this line, all other unreachable warnings and the previous
+	    # two lines containing the method and class.
+	    set j [expr {$i - 1}]
+	    while {[string match "*unreachable bytecode*" [lindex $tlist $j]]} {
+		incr j -1
+	    }
+	    incr j -1
+	    set tlist [lreplace $tlist $j $i]
+	    set i $j
+	}
+    }
+    return [join $tlist \n]
 }
 
 # This is like `target_compile' but it does some surgery to work
@@ -58,7 +80,7 @@ proc find_gcjh {} {
 }
 
 proc find_javac {} {
-    global SUN_JAVAC GCJ_UNDER_TEST env
+    global SUN_JAVAC GCJ_UNDER_TEST env libgcj_jar
     # If JDK doesn't run on your platform but some other
     # JDK-compatible javac does, you may set SUN_JAVAC to point to it.
     # One of the most important properties of a SUN_JAVAC is that it
@@ -71,7 +93,7 @@ proc find_javac {} {
 	if {[info exists env(SUN_JAVAC)]} {
 	    set SUN_JAVAC $env(SUN_JAVAC)
 	} else {
-	    set SUN_JAVAC "$GCJ_UNDER_TEST -C"
+	    set SUN_JAVAC "$GCJ_UNDER_TEST -C -I$libgcj_jar"
 	}
     }
     return $SUN_JAVAC
@@ -178,6 +200,7 @@ proc libjava_init { args } {
     if {$gccdir != ""} {
 	set gccdir [file dirname $gccdir]
 	lappend libjava_libgcc_s_path $gccdir
+	verbose "libjava_libgcc_s_path = $libjava_libgcc_s_path"
 	set compiler ${gccdir}/xgcc
 	if { [is_remote host] == 0 && [which $compiler] != 0 } {
 	    foreach i "[exec $compiler --print-multi-lib]" {
@@ -212,21 +235,24 @@ proc libjava_init { args } {
 proc libjava_find_lib {dir name} {
     global base_dir
     set gp [get_multilibs]
-    foreach sub {.libs _libs} {
-	if {$gp != ""} {
-	    if {[file exists $gp/$dir/$sub/lib${name}.a]} then {
-		# Just return the `-L' option.  The library itself
-		# will be picked up via the spec file.
-		return "-L$gp/$dir/$sub"
+    foreach extension {so dll a} {
+	foreach sub {.libs _libs} {
+	    if {$gp != ""} {
+		if {[file exists $gp/$dir/$sub/lib${name}.${extension}]} then {
+		    # Just return the `-L' option.  The library itself
+		    # will be picked up via the spec file.
+		    return "-L$gp/$dir/$sub"
+		}
 	    }
-	}
-	# Just return the `-L' option.  The library itself will be
-	# picked up via the spec file.
-	set lib [findfile $base_dir/../../$dir/$sub/lib${name}.a \
-		   "-L$base_dir/../../$dir/$sub" \
-		   ""]
-	if {$lib != ""} {
-	    return $lib
+	    # Just return the `-L' option.  The library itself will be
+	    # picked up via the spec file.
+	    set lib [findfile \
+		       $base_dir/../../$dir/$sub/lib${name}.${extension} \
+		       "-L$base_dir/../../$dir/$sub" \
+		       ""]
+	    if {$lib != ""} {
+		return $lib
+	    }
 	}
     }
     return ""
@@ -281,9 +307,6 @@ proc gcj_cleanup {args} {
 proc libjava_arguments {{mode compile}} {
     global base_dir
     global LIBJAVA
-    global LIBGC
-    global LIBQTHREADS
-    global LIBZ
     global srcdir subdir objdir
     global TOOL_OPTIONS
     global GCJ_UNDER_TEST
@@ -300,39 +323,14 @@ proc libjava_arguments {{mode compile}} {
 	set libjava [libjava_find_lib libjava gcj]
     }
 
-    if [info exists LIBGC] {
-	set libgc $LIBGC;
-    } else {
-	set libgc [libjava_find_lib boehm-gc gcjgc]
-    }
-
-    if [info exists LIBQTHREADS] {
-	set libqthreads $LIBQTHREADS
-    } else {
-	set libqthreads [libjava_find_lib qthreads gcjcoop]
-    }
-
-    if [info exists LIBZ] {
-	set libz $LIBZ
-    } else {
-	set libz [libjava_find_lib zlib zgcj]
-    }
-
-    # FIXME: there's no way to determine whether -lpthread is
-    # required.  We should get this info from configure, or it should
-    # just be in the compiler driver.
-
     verbose "using LIBJAVA = $libjava" 2
-    verbose "using LIBGC = $libgc" 2
-    verbose "using LIBQTHREADS = $libqthreads" 2
-    verbose "using LIBZ = $libz" 2
     set args ""
 
     # Basically we want to build up a colon separated path list from
     # the value of $libjava.
 
     set lpath {}
-    foreach dir [list $libjava $libgc $libz] {
+    foreach dir [list $libjava] {
 	foreach item [split $dir " "] {
 	    switch -glob -- $item {
 		"-L*" {
@@ -343,6 +341,7 @@ proc libjava_arguments {{mode compile}} {
     }
 
     set lpath [concat $lpath $libjava_libgcc_s_path]
+    verbose "lpath = $lpath ; libgcc_s_path = $libjava_libgcc_s_path"
     set ld_library_path [join $lpath :]
 
     # That's enough to make things work for the normal case.
@@ -362,13 +361,10 @@ proc libjava_arguments {{mode compile}} {
     set env(CLASSPATH) ".:$srcdir/$subdir:$objdir:$libgcj_jar"
 
     if {$mode == "link"} {
-	global wrapper_file wrap_compile_flags;
-	lappend args "additional_flags=$wrap_compile_flags";
-	lappend args "libs=$wrapper_file";
-	lappend args "libs=$libjava";
-	lappend args "libs=$libgc";
-	lappend args "libs=$libqthreads"
-	lappend args "libs=$libz"
+	global wrapper_file wrap_compile_flags
+	lappend args "additional_flags=$wrap_compile_flags"
+	lappend args "libs=$wrapper_file"
+	lappend args "libs=$libjava"
 	lappend args debug
     }
 
@@ -421,8 +417,8 @@ proc gcj_link {program main files {options {}}} {
 	eval lappend arguments $options
     }
     lappend arguments "additional_flags=--main=$main"
-    set x [prune_warnings [libjava_tcompile $files $program executable \
-			     $arguments]]
+    set x [libjava_prune_warnings \
+	     [libjava_tcompile $files $program executable $arguments]]
     if {$x != ""} {
 	verbose "link failure: $x" 2
 	fail "linking $program"
@@ -433,6 +429,50 @@ proc gcj_link {program main files {options {}}} {
 
     pass "linking $program"
     return 1
+}
+
+# Invoke the program and see what happens.  Return 0 on failure.
+proc gcj_invoke {program expectFile ld_library_additions} {
+  global env
+  set lib_path $env(LD_LIBRARY_PATH)
+
+  set newval .
+  if {[llength $ld_library_additions] > 0} {
+    append newval :[join $ld_library_additions :]
+  }
+  append newval :$lib_path
+
+  setenv LD_LIBRARY_PATH $newval
+  setenv SHLIB_PATH $newval
+
+  verbose "LD_LIBRARY_PATH=$env(LD_LIBRARY_PATH)"
+
+  set result [libjava_load ./$program]
+  set status [lindex $result 0]
+  set output [lindex $result 1]
+
+  # Restore setting
+  setenv LD_LIBRARY_PATH $lib_path
+  setenv SHLIB_PATH $lib_path
+
+  if {$status != "pass"} {
+    verbose "got $output"
+    fail "$program run"
+    untested "$program output"
+    return 0
+  }
+
+  set id [open $expectFile r]
+  set expected [read $id]
+  close $id
+
+  if {! [string compare $output $expected]} {
+    pass "$program output"
+    return 1
+  } else {
+    fail "$program output"
+    return 0
+  }
 }
 
 # Invoke a program and check its output.  EXECUTABLE is the program;
@@ -508,8 +548,6 @@ proc libjava_invoke {errname testName optName executable inpfile resultfile args
 #
 proc test_libjava_from_source { options srcfile compile_args inpfile resultfile exec_args } {
     global base_dir
-    global LIBJAVA
-    global LIBGC
     global srcdir subdir objdir
     global TOOL_OPTIONS
     global GCJ_UNDER_TEST
@@ -569,7 +607,7 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
 
     set removeList [list $executable]
 
-    set x [prune_warnings \
+    set x [libjava_prune_warnings \
 	     [libjava_tcompile $srcfile "$executable" $target $args]]
     if {[info exists opts(xfail-gcj)]} {
 	setup_xfail *-*-*
@@ -615,8 +653,6 @@ proc test_libjava_from_source { options srcfile compile_args inpfile resultfile 
 #
 proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile exec_args } {
     global base_dir
-    global LIBJAVA
-    global LIBGC
     global srcdir subdir objdir
     global TOOL_OPTIONS
     global GCJ_UNDER_TEST
@@ -683,11 +719,11 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
     set jvscan [find_jvscan]
     verbose "jvscan is $jvscan"
     set main_name [string trim \
-		     [prune_warnings \
+		     [libjava_prune_warnings \
 			[lindex [local_exec "$jvscan --encoding=UTF-8 $srcfile --print-main" "" "" 300] 1]]]
     verbose "main name is $main_name"
     set class_out [string trim \
-		     [prune_warnings \
+		     [libjava_prune_warnings \
 			[lindex [local_exec "$jvscan --encoding=UTF-8 $srcfile --list-class" "" "" 300] 1]]]
     verbose "class list is $class_out"
 
@@ -765,8 +801,10 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
     if {$mode == "compile"} {
 	foreach c_file $class_files {
 	    set executable [file rootname [file tail $c_file]].o
-	    set x [prune_warnings \
-		     [libjava_tcompile $c_file "$executable" $type $args]]
+	    # Don't write files which contain $ chars.
+	    regsub -all "\\$" $executable "\^" executable
+	    set x [libjava_prune_warnings \
+		     [libjava_tcompile '$c_file' "$executable" $type $args]]
 	    lappend removeList $executable
 	    if {$x != ""} {
 		break
@@ -781,7 +819,7 @@ proc test_libjava_from_javac { options srcfile compile_args inpfile resultfile e
 	    set hack "$hack $stupid"
 	}
 	lappend removeList $executable
-	set x [prune_warnings \
+	set x [libjava_prune_warnings \
 		 [libjava_tcompile $hack "$executable" $type $args]]
     }
     if {[info exists opts(xfail-byte)]} {

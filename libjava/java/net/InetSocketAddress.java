@@ -47,6 +47,11 @@ package java.net;
 
 public class InetSocketAddress extends SocketAddress
 {
+  /**
+   * Compatible with JDK 1.4+
+   */
+  private static final long serialVersionUID = 5076001401234631237L;
+  
   String hostname;
   InetAddress addr;
   int port;
@@ -63,7 +68,10 @@ public class InetSocketAddress extends SocketAddress
     throws IllegalArgumentException
   {
     if (port < 0 || port > 65535)
-      throw new IllegalArgumentException();
+      throw new IllegalArgumentException ("Bad port number: " + port);
+
+    if (addr == null)
+      addr = InetAddress.ANY_IF;
   
     this.addr = addr;
     this.port = port;
@@ -80,24 +88,8 @@ public class InetSocketAddress extends SocketAddress
   public InetSocketAddress(int port)
     throws IllegalArgumentException
   {
-    if (port < 0 || port > 65535)
-      throw new IllegalArgumentException();
-
-    this.port = port;
-    
-    try
-      {
-	byte[] any = { 0, 0, 0, 0 };
-	this.addr = InetAddress.getByAddress (any);
-	this.hostname = "0.0.0.0";
-      }
-    catch (UnknownHostException e)
-      {
-        this.addr = null;
-	this.hostname = "";
-      }
+    this ((InetAddress) null, port);
   }
-
 
   /**
    * Constructs an InetSocketAddress instance.
@@ -110,8 +102,11 @@ public class InetSocketAddress extends SocketAddress
   public InetSocketAddress(String hostname, int port)
     throws IllegalArgumentException
   {
+    if (hostname == null)
+      throw new IllegalArgumentException ("Null host name value");
+    
     if (port < 0 || port > 65535)
-      throw new IllegalArgumentException();
+      throw new IllegalArgumentException ("Bad port number: " + port);
 
     this.port = port;
     this.hostname = hostname;
@@ -137,8 +132,14 @@ public class InetSocketAddress extends SocketAddress
 
     if (obj instanceof InetSocketAddress)
       {
-        InetSocketAddress a = (InetSocketAddress) obj;
-        return addr.equals(a.addr) && a.port == port;
+        InetSocketAddress sa = (InetSocketAddress) obj;
+	
+        if (addr == null && sa.addr != null)
+          return false;
+        else if (addr == null && sa.addr == null)
+          return hostname.equals (sa.hostname) && sa.port == port;
+        else
+          return addr.equals (sa.addr) && sa.port == port;
       }
     
     return false;
@@ -190,6 +191,6 @@ public class InetSocketAddress extends SocketAddress
    */
   public String toString()
   {
-    return addr + ":" + port;
+    return (addr == null ? hostname : addr.getHostName()) + ":" + port;
   }
 }

@@ -35,8 +35,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_VALARRAY
-#define _CPP_VALARRAY 1
+#ifndef _GLIBCXX_VALARRAY
+#define _GLIBCXX_VALARRAY 1
 
 #pragma GCC system_header
 
@@ -90,7 +90,7 @@ namespace std
 } // namespace std
 
 #include <bits/valarray_array.h>
-#include <bits/valarray_meta.h>
+#include <bits/valarray_before.h>
   
 namespace std
 {
@@ -229,7 +229,9 @@ namespace std
     { return _M_data[__i]; }
 
 } // std::
-      
+
+#include <bits/valarray_after.h>
+
 #include <bits/slice_array.h>
 #include <bits/gslice.h>
 #include <bits/gslice_array.h>
@@ -246,32 +248,32 @@ namespace std
     inline 
     valarray<_Tp>::valarray(size_t __n) 
 	: _M_size(__n), _M_data(__valarray_get_storage<_Tp>(__n))
-    { __valarray_default_construct(_M_data, _M_data + __n); }
+    { std::__valarray_default_construct(_M_data, _M_data + __n); }
 
   template<typename _Tp>
     inline
     valarray<_Tp>::valarray(const _Tp& __t, size_t __n)
       : _M_size(__n), _M_data(__valarray_get_storage<_Tp>(__n))
-    { __valarray_fill_construct(_M_data, _M_data + __n, __t); }
+    { std::__valarray_fill_construct(_M_data, _M_data + __n, __t); }
 
   template<typename _Tp>
     inline
     valarray<_Tp>::valarray(const _Tp* __restrict__ __p, size_t __n)
       : _M_size(__n), _M_data(__valarray_get_storage<_Tp>(__n))
-    { __valarray_copy_construct(__p, __p + __n, _M_data); }
+    { std::__valarray_copy_construct(__p, __p + __n, _M_data); }
 
   template<typename _Tp>
     inline
     valarray<_Tp>::valarray(const valarray<_Tp>& __v)
       : _M_size(__v._M_size), _M_data(__valarray_get_storage<_Tp>(__v._M_size))
-    { __valarray_copy_construct(__v._M_data, __v._M_data + _M_size, _M_data); }
+    { std::__valarray_copy_construct(__v._M_data, __v._M_data + _M_size, _M_data); }
 
   template<typename _Tp>
     inline
     valarray<_Tp>::valarray(const slice_array<_Tp>& __sa)
       : _M_size(__sa._M_sz), _M_data(__valarray_get_storage<_Tp>(__sa._M_sz))
     {
-      __valarray_copy
+      std::__valarray_copy
 	(__sa._M_array, __sa._M_sz, __sa._M_stride, _Array<_Tp>(_M_data));
     }
 
@@ -281,7 +283,7 @@ namespace std
       : _M_size(__ga._M_index.size()),
 	_M_data(__valarray_get_storage<_Tp>(_M_size))
     {
-      __valarray_copy
+      std::__valarray_copy
 	(__ga._M_array, _Array<size_t>(__ga._M_index),
 	 _Array<_Tp>(_M_data), _M_size);
     }
@@ -291,7 +293,7 @@ namespace std
     valarray<_Tp>::valarray(const mask_array<_Tp>& __ma)
       : _M_size(__ma._M_sz), _M_data(__valarray_get_storage<_Tp>(__ma._M_sz))
     {
-      __valarray_copy
+      std::__valarray_copy
 	(__ma._M_array, __ma._M_mask, _Array<_Tp>(_M_data), _M_size);
     }
 
@@ -300,7 +302,7 @@ namespace std
     valarray<_Tp>::valarray(const indirect_array<_Tp>& __ia)
       : _M_size(__ia._M_sz), _M_data(__valarray_get_storage<_Tp>(__ia._M_sz))
     {
-      __valarray_copy
+      std::__valarray_copy
 	(__ia._M_array, __ia._M_index, _Array<_Tp>(_M_data), _M_size);
     }
 
@@ -308,21 +310,21 @@ namespace std
     inline
     valarray<_Tp>::valarray(const _Expr<_Dom, _Tp>& __e)
       : _M_size(__e.size()), _M_data(__valarray_get_storage<_Tp>(_M_size))
-    { __valarray_copy(__e, _M_size, _Array<_Tp>(_M_data)); }
+    { std::__valarray_copy(__e, _M_size, _Array<_Tp>(_M_data)); }
 
   template<typename _Tp>
     inline
     valarray<_Tp>::~valarray()
     {
-      __valarray_destroy_elements(_M_data, _M_data + _M_size);
-      __valarray_release_memory(_M_data);
+      std::__valarray_destroy_elements(_M_data, _M_data + _M_size);
+      std::__valarray_release_memory(_M_data);
     }
 
   template<typename _Tp>
     inline valarray<_Tp>&
     valarray<_Tp>::operator=(const valarray<_Tp>& __v)
     {
-      __valarray_copy(__v._M_data, _M_size, _M_data);
+      std::__valarray_copy(__v._M_data, _M_size, _M_data);
       return *this;
     }
 
@@ -330,7 +332,7 @@ namespace std
     inline valarray<_Tp>&
     valarray<_Tp>::operator=(const _Tp& __t)
     {
-      __valarray_fill(_M_data, _M_size, __t);
+      std::__valarray_fill(_M_data, _M_size, __t);
       return *this;
     }
 
@@ -338,8 +340,8 @@ namespace std
     inline valarray<_Tp>&
     valarray<_Tp>::operator=(const slice_array<_Tp>& __sa)
     {
-      __valarray_copy(__sa._M_array, __sa._M_sz,
-		      __sa._M_stride, _Array<_Tp>(_M_data));
+      std::__valarray_copy(__sa._M_array, __sa._M_sz,
+			   __sa._M_stride, _Array<_Tp>(_M_data));
       return *this;
     }
 
@@ -347,8 +349,8 @@ namespace std
     inline valarray<_Tp>&
     valarray<_Tp>::operator=(const gslice_array<_Tp>& __ga)
     {
-      __valarray_copy(__ga._M_array, _Array<size_t>(__ga._M_index),
-		      _Array<_Tp>(_M_data), _M_size);
+      std::__valarray_copy(__ga._M_array, _Array<size_t>(__ga._M_index),
+			   _Array<_Tp>(_M_data), _M_size);
       return *this;
     }
 
@@ -356,8 +358,8 @@ namespace std
     inline valarray<_Tp>&
     valarray<_Tp>::operator=(const mask_array<_Tp>& __ma)
     {
-      __valarray_copy(__ma._M_array, __ma._M_mask,
-		      _Array<_Tp>(_M_data), _M_size);
+      std::__valarray_copy(__ma._M_array, __ma._M_mask,
+			   _Array<_Tp>(_M_data), _M_size);
       return *this;
     }
 
@@ -365,8 +367,8 @@ namespace std
     inline valarray<_Tp>&
     valarray<_Tp>::operator=(const indirect_array<_Tp>& __ia)
     {
-      __valarray_copy(__ia._M_array, __ia._M_index,
-		       _Array<_Tp>(_M_data), _M_size);
+      std::__valarray_copy(__ia._M_array, __ia._M_index,
+			   _Array<_Tp>(_M_data), _M_size);
       return *this;
     }
 
@@ -374,8 +376,8 @@ namespace std
     inline valarray<_Tp>&
     valarray<_Tp>::operator=(const _Expr<_Dom, _Tp>& __e)
     {
-      __valarray_copy(__e, _M_size, _Array<_Tp>(_M_data));
-	return *this;
+      std::__valarray_copy(__e, _M_size, _Array<_Tp>(_M_data));
+      return *this;
     }
 
   template<typename _Tp>
@@ -458,7 +460,7 @@ namespace std
     inline _Tp
     valarray<_Tp>::sum() const
     {
-      return __valarray_sum(_M_data, _M_data + _M_size);
+      return std::__valarray_sum(_M_data, _M_data + _M_size);
     }
 
 //   template<typename _Tp>
@@ -475,21 +477,21 @@ namespace std
        _Tp* const __a = static_cast<_Tp*>
          (__builtin_alloca(sizeof(_Tp) * _M_size));
        if (__n == 0)                          // no shift
-         __valarray_copy_construct(_M_data, _M_data + _M_size, __a);
+         std::__valarray_copy_construct(_M_data, _M_data + _M_size, __a);
        else if (__n > 0)         // __n > 0: shift left
          {                 
            if (size_t(__n) > _M_size)
-             __valarray_default_construct(__a, __a + __n);
+             std::__valarray_default_construct(__a, __a + __n);
            else
              {
-               __valarray_copy_construct(_M_data+__n, _M_data + _M_size, __a);
-               __valarray_default_construct(__a+_M_size-__n, __a + _M_size);
+               std::__valarray_copy_construct(_M_data+__n, _M_data + _M_size, __a);
+               std::__valarray_default_construct(__a+_M_size-__n, __a + _M_size);
              }
          }
        else                        // __n < 0: shift right
          {                          
-           __valarray_copy_construct (_M_data, _M_data+_M_size+__n, __a-__n);
-           __valarray_default_construct(__a, __a - __n);
+           std::__valarray_copy_construct (_M_data, _M_data+_M_size+__n, __a-__n);
+           std::__valarray_default_construct(__a, __a - __n);
          }
        return valarray<_Tp> (__a, _M_size);
      }
@@ -501,17 +503,17 @@ namespace std
        _Tp* const __a = static_cast<_Tp*>
          (__builtin_alloca (sizeof(_Tp) * _M_size));
        if (__n == 0)               // no cshift
-         __valarray_copy_construct(_M_data, _M_data + _M_size, __a);
+         std::__valarray_copy_construct(_M_data, _M_data + _M_size, __a);
        else if (__n > 0)           // cshift left
          {               
-           __valarray_copy_construct(_M_data, _M_data+__n, __a+_M_size-__n);
-           __valarray_copy_construct(_M_data+__n, _M_data + _M_size, __a);
+           std::__valarray_copy_construct(_M_data, _M_data+__n, __a+_M_size-__n);
+           std::__valarray_copy_construct(_M_data+__n, _M_data + _M_size, __a);
          }
        else                        // cshift right
          {                       
-           __valarray_copy_construct
+           std::__valarray_copy_construct
              (_M_data + _M_size+__n, _M_data + _M_size, __a);
-           __valarray_copy_construct
+           std::__valarray_copy_construct
              (_M_data, _M_data + _M_size+__n, __a - __n);
          }
        return valarray<_Tp>(__a, _M_size);
@@ -524,28 +526,28 @@ namespace std
       // This complication is so to make valarray<valarray<T> > work
       // even though it is not required by the standard.  Nobody should
       // be saying valarray<valarray<T> > anyway.  See the specs.
-      __valarray_destroy_elements(_M_data, _M_data + _M_size);
+      std::__valarray_destroy_elements(_M_data, _M_data + _M_size);
       if (_M_size != __n)
 	{
-	  __valarray_release_memory(_M_data);
+	  std::__valarray_release_memory(_M_data);
 	  _M_size = __n;
 	  _M_data = __valarray_get_storage<_Tp>(__n);
 	}
-      __valarray_fill_construct(_M_data, _M_data + __n, __c);
+      std::__valarray_fill_construct(_M_data, _M_data + __n, __c);
     }
     
   template<typename _Tp>
     inline _Tp
     valarray<_Tp>::min() const
     {
-      return *min_element (_M_data, _M_data+_M_size);
+      return *std::min_element (_M_data, _M_data+_M_size);
     }
 
   template<typename _Tp>
     inline _Tp
     valarray<_Tp>::max() const
     {
-      return *max_element (_M_data, _M_data+_M_size);
+      return *std::max_element (_M_data, _M_data+_M_size);
     }
   
   template<class _Tp>
@@ -687,7 +689,7 @@ _DEFINE_BINARY_OPERATOR(>=, __greater_equal)
 
 } // namespace std
 
-#endif // _CPP_VALARRAY
+#endif /* _GLIBCXX_VALARRAY */
 
 // Local Variables:
 // mode:c++

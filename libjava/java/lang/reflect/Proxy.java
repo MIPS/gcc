@@ -1,5 +1,5 @@
 /* Proxy.java -- build a proxy class that implements reflected interfaces
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -185,7 +185,7 @@ public class Proxy implements Serializable
    * Proxy.
    * @serial invocation handler associated with this proxy instance
    */
-  protected final InvocationHandler h;
+  protected InvocationHandler h;
 
   /**
    * Constructs a new Proxy from a subclass (usually a proxy class),
@@ -269,18 +269,9 @@ public class Proxy implements Serializable
                               ? getProxyData0(loader, interfaces)
                               : ProxyData.getProxyData(pt));
 
-            // FIXME workaround for bug in gcj 3.0.x
-            // Not needed with the latest gcj from cvs
-            //clazz = (Configuration.HAVE_NATIVE_GENERATE_PROXY_CLASS
-            //	       ? generateProxyClass0(loader, data)
-            //         : new ClassFactory(data).generate(loader));
-            if (Configuration.HAVE_NATIVE_GENERATE_PROXY_CLASS)
-              clazz = generateProxyClass0(loader, data);
-            else
-              {
-                ClassFactory cf = new ClassFactory(data);
-                clazz = cf.generate(loader);
-              }
+            clazz = (Configuration.HAVE_NATIVE_GENERATE_PROXY_CLASS
+		     ? generateProxyClass0(loader, data)
+                     : new ClassFactory(data).generate(loader));
           }
 
         Object check = proxyClasses.put(pt, clazz);
@@ -733,7 +724,7 @@ public class Proxy implements Serializable
      * The package this class is in.  Possibly null, meaning the unnamed
      * package.
      */
-    Package pack;
+    String pack;
 
     /**
      * The interfaces this class implements.  Non-null, but possibly empty.
@@ -774,6 +765,21 @@ public class Proxy implements Serializable
      */
     ProxyData()
     {
+    }
+
+    /**
+     * Return the name of a package given the name of a class.
+     * Returns null if no package.  We use this in preference to
+     * using Class.getPackage() to avoid problems with ClassLoaders
+     * that don't set the package.
+     */
+    static String getPackage(Class k)
+    {
+      String name = k.getName();
+      int idx = name.lastIndexOf('.');
+      if (idx >= 0)
+	return name.substring(0, idx);
+      return null;
     }
 
     /**
@@ -818,8 +824,8 @@ public class Proxy implements Serializable
           if (! Modifier.isPublic(inter.getModifiers()))
             if (in_package)
               {
-                Package p = inter.getPackage();
-                if (data.pack != inter.getPackage())
+		String p = getPackage(inter);
+                if (! data.pack.equals(p))
                   throw new IllegalArgumentException("non-public interfaces "
                                                      + "from different "
                                                      + "packages");
@@ -827,7 +833,7 @@ public class Proxy implements Serializable
             else
               {
                 in_package = true;
-                data.pack = inter.getPackage();
+                data.pack = getPackage(inter);
               }
           for (int j = i-1; j >= 0; j--)
             if (data.interfaces[j] == inter)
@@ -954,7 +960,7 @@ public class Proxy implements Serializable
       // access_flags
       putU2(Modifier.SUPER | Modifier.FINAL | Modifier.PUBLIC);
       // this_class
-      qualName = ((data.pack == null ? "" : data.pack.getName() + '.')
+      qualName = ((data.pack == null ? "" : data.pack + '.')
                   + "$Proxy" + data.id);
       putU2(classInfo(TypeSignature.getEncodingOfClass(qualName, false)));
       // super_class
@@ -1320,17 +1326,10 @@ public class Proxy implements Serializable
         {
           // XXX Do we require more native support here?
 
-          // XXX Security hole - it is possible for another thread to grab the
-          // VMClassLoader.defineClass Method object, and abuse it while we
-          // have temporarily made it accessible. Do we need to add some
-          // synchronization lock to prevent user reflection while we use it?
-
-          // XXX This is waiting on VM support for protection domains.
-
           Class vmClassLoader = Class.forName("java.lang.VMClassLoader");
           Class[] types = {ClassLoader.class, String.class,
                            byte[].class, int.class, int.class,
-                           /* ProtectionDomain.class */ };
+                           ProtectionDomain.class };
           Method m = vmClassLoader.getDeclaredMethod("defineClass", types);
 
           // Bypass the security check of setAccessible(true), since this
@@ -1339,7 +1338,7 @@ public class Proxy implements Serializable
           m.flag = true;
           Object[] args = {loader, qualName, bytecode, new Integer(0),
                            new Integer(bytecode.length),
-                           /* Object.class.getProtectionDomain() */ };
+                           Object.class.getProtectionDomain() };
           Class clazz = (Class) m.invoke(null, args);
           m.flag = false;
 

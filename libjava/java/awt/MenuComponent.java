@@ -92,10 +92,14 @@ private static transient Toolkit toolkit = Toolkit.getDefaultToolkit();
 
 /**
   * Default constructor for subclasses.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
-protected
+public
 MenuComponent()
 {
+  if (GraphicsEnvironment.isHeadless())
+    throw new HeadlessException ();
 }
 
 /*************************************************************************/
@@ -182,6 +186,8 @@ setParent(MenuContainer parent)
   * Returns the native windowing system peer for this component.
   *
   * @return The peer for this component.
+  *
+  * @deprecated
   */
 public MenuComponentPeer
 getPeer()

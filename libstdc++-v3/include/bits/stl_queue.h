@@ -1,6 +1,6 @@
 // Queue implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_QUEUE_H
-#define __GLIBCPP_INTERNAL_QUEUE_H
+#ifndef _QUEUE_H
+#define _QUEUE_H 1
 
 #include <bits/concept_check.h>
 
@@ -106,10 +106,10 @@ namespace std
   {
     // concept requirements
     typedef typename _Sequence::value_type _Sequence_value_type;
-    __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
-    __glibcpp_class_requires(_Sequence, _FrontInsertionSequenceConcept)
-    __glibcpp_class_requires(_Sequence, _BackInsertionSequenceConcept)
-    __glibcpp_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
+    __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
+    __glibcxx_class_requires(_Sequence, _FrontInsertionSequenceConcept)
+    __glibcxx_class_requires(_Sequence, _BackInsertionSequenceConcept)
+    __glibcxx_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
   
     template <typename _Tp1, typename _Seq1>
     friend bool operator== (const queue<_Tp1, _Seq1>&,
@@ -228,12 +228,12 @@ namespace std
    *  @brief  Queue ordering relation.
    *  @param  x  A %queue.
    *  @param  y  A %queue of the same type as @a x.
-   *  @return  True iff @a x is lexographically less than @a y.
+   *  @return  True iff @a x is lexicographically less than @a y.
    *
    *  This is an total ordering relation.  Complexity and semantics depend on
    *  the underlying sequence type, but the expected rules are:  this relation
    *  is linear in the size of the sequences, the elements must be comparable
-   *  with @c <, and std::lexographical_compare() is usually used to make the
+   *  with @c <, and std::lexicographical_compare() is usually used to make the
    *  determination.
   */
   template <typename _Tp, typename _Sequence>
@@ -306,11 +306,11 @@ namespace std
   {
     // concept requirements
     typedef typename _Sequence::value_type _Sequence_value_type;
-    __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
-    __glibcpp_class_requires(_Sequence, _SequenceConcept)
-    __glibcpp_class_requires(_Sequence, _RandomAccessContainerConcept)
-    __glibcpp_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
-    __glibcpp_class_requires4(_Compare, bool, _Tp, _Tp, _BinaryFunctionConcept)
+    __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
+    __glibcxx_class_requires(_Sequence, _SequenceConcept)
+    __glibcxx_class_requires(_Sequence, _RandomAccessContainerConcept)
+    __glibcxx_class_requires2(_Tp, _Sequence_value_type, _SameTypeConcept)
+    __glibcxx_class_requires4(_Compare, bool, _Tp, _Tp, _BinaryFunctionConcept)
   
   public:
     typedef typename _Sequence::value_type                value_type;
@@ -332,7 +332,7 @@ namespace std
     priority_queue(const _Compare& __x = _Compare(),
                    const _Sequence& __s = _Sequence()) 
     : c(__s), comp(__x) 
-    { make_heap(c.begin(), c.end(), comp); }
+    { std::make_heap(c.begin(), c.end(), comp); }
   
     /**
      *  @brief  Builds a %queue from a range.
@@ -355,7 +355,7 @@ namespace std
       : c(__s), comp(__x)
       { 
         c.insert(c.end(), __first, __last);
-        make_heap(c.begin(), c.end(), comp);
+        std::make_heap(c.begin(), c.end(), comp);
       }
   
     /**
@@ -389,7 +389,7 @@ namespace std
       try 
         {
           c.push_back(__x); 
-          push_heap(c.begin(), c.end(), comp);
+          std::push_heap(c.begin(), c.end(), comp);
         }
       catch(...)
         {
@@ -413,7 +413,7 @@ namespace std
     {
       try 
         {
-          pop_heap(c.begin(), c.end(), comp);
+          std::pop_heap(c.begin(), c.end(), comp);
           c.pop_back();
         }
       catch(...)
@@ -427,4 +427,4 @@ namespace std
   // No equality/comparison operators are provided for priority_queue.
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_QUEUE_H */
+#endif /* _QUEUE_H */

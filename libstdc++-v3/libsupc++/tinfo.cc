@@ -1,21 +1,21 @@
 // Methods for type_info for -*- C++ -*- Run Time Type Identification.
-// Copyright (C) 1994, 1996, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1994, 1996, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation
 //
-// This file is part of GNU CC.
+// This file is part of GCC.
 //
-// GNU CC is free software; you can redistribute it and/or modify
+// GCC is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation; either version 2, or (at your option)
 // any later version.
 
-// GNU CC is distributed in the hope that it will be useful,
+// GCC is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with GNU CC; see the file COPYING.  If not, write to
+// along with GCC; see the file COPYING.  If not, write to
 // the Free Software Foundation, 59 Temple Place - Suite 330,
 // Boston, MA 02111-1307, USA. 
 
@@ -85,7 +85,7 @@ __do_upcast (const abi::__class_type_info *, void **) const
   return false;
 }
 
-};
+}
 
 namespace {
 
@@ -100,7 +100,7 @@ struct vtable_prefix
   ptrdiff_t whole_object;
 
   // Additional padding if necessary.
-#ifdef _GLIBCPP_VTABLE_PADDING
+#ifdef _GLIBCXX_VTABLE_PADDING
   ptrdiff_t padding1;               
 #endif
 
@@ -108,7 +108,7 @@ struct vtable_prefix
   const __class_type_info *whole_type;  
 
   // Additional padding if necessary.
-#ifdef _GLIBCPP_VTABLE_PADDING
+#ifdef _GLIBCXX_VTABLE_PADDING
   ptrdiff_t padding2;               
 #endif
 
@@ -172,7 +172,7 @@ inline bool contained_nonvirtual_p (__class_type_info::__sub_kind access_path)
 static const __class_type_info *const nonvirtual_base_type =
     static_cast <const __class_type_info *> (0) + 1;
 
-}; // namespace
+} // namespace
 
 namespace __cxxabiv1
 {
@@ -482,8 +482,9 @@ __do_dyncast (ptrdiff_t src2dst,
           result.whole2dst =
               __sub_kind (result.whole2dst | result2.whole2dst);
         }
-      else if ((result.dst_ptr != 0 | result_ambig)
-               && (result2.dst_ptr != 0 | result2_ambig))
+      else if ((result.dst_ptr != 0 & result2.dst_ptr != 0)
+	       || (result.dst_ptr != 0 & result2_ambig)
+	       || (result2.dst_ptr != 0 & result_ambig))
         {
           // Found two different DST_TYPE bases, or a valid one and a set of
           // ambiguous ones, must disambiguate. See whether SRC_PTR is
@@ -735,4 +736,4 @@ __dynamic_cast (const void *src_ptr,    // object started from
   return NULL;
 }
 
-}; // namespace __cxxabiv1
+} // namespace __cxxabiv1

@@ -1,6 +1,6 @@
 // ostream classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -32,6 +32,9 @@
 // ISO C++ 14882: 27.6.2  Output streams
 //
 
+#ifndef _OSTREAM_TCC
+#define _OSTREAM_TCC 1
+
 #pragma GCC system_header
 
 #include <locale>
@@ -41,11 +44,19 @@ namespace std
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>::sentry::
     sentry(basic_ostream<_CharT,_Traits>& __os)
-    : _M_ok(__os.good()), _M_os(__os)
+    : _M_os(__os)
     {
-      // XXX MT 
-      if (_M_ok && __os.tie())
-	__os.tie()->flush();  
+      // XXX MT
+      if (__os.tie() && __os.good())
+	__os.tie()->flush();
+
+      if (__os.good())
+	_M_ok = true;
+      else
+	{
+	  _M_ok = false;
+	  __os.setstate(ios_base::failbit);
+	}
     }
   
   template<typename _CharT, typename _Traits>
@@ -58,11 +69,11 @@ namespace std
 	{ 
 	  try 
 	    { __pf(*this); }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.2.5.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -80,11 +91,11 @@ namespace std
 	{ 
 	  try 
 	    { __pf(*this); }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.2.5.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -102,11 +113,11 @@ namespace std
 	{ 
 	  try 
 	    { __pf(*this); }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.2.5.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -126,11 +137,11 @@ namespace std
 	      if (!__copy_streambufs(*this, __sbin, this->rdbuf()))
 		this->setstate(ios_base::failbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.2.5.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -149,15 +160,15 @@ namespace std
 	{
 	  try 
 	    {
-	      if (_M_check_facet(_M_fnumput))
-		if (_M_fnumput->put(*this, *this, this->fill(), __n).failed())
-		  this->setstate(ios_base::badbit);
+	      const __num_put_type& __np = __check_facet(this->_M_num_put);
+	      if (__np.put(*this, *this, this->fill(), __n).failed())
+		this->setstate(ios_base::badbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -174,27 +185,25 @@ namespace std
 	{
 	  try 
 	    {
+	      bool __b = false;
 	      char_type __c = this->fill();
 	      ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
-	      if (_M_check_facet(_M_fnumput))
+	      const __num_put_type& __np = __check_facet(this->_M_num_put);
+	      if ((__fmt & ios_base::oct) || (__fmt & ios_base::hex))
 		{
-		  bool __b = false;
-		  if ((__fmt & ios_base::oct) || (__fmt & ios_base::hex))
-		    {
-		      unsigned long __l = static_cast<unsigned long>(__n);
-		      __b = _M_fnumput->put(*this, *this, __c, __l).failed();
-		    }
-		  else
-		    __b = _M_fnumput->put(*this, *this, __c, __n).failed();
-		  if (__b)  
-		    this->setstate(ios_base::badbit);
+		  unsigned long __l = static_cast<unsigned long>(__n);
+		  __b = __np.put(*this, *this, __c, __l).failed();
 		}
+	      else
+		__b = __np.put(*this, *this, __c, __n).failed();
+	      if (__b)  
+		this->setstate(ios_base::badbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -211,15 +220,15 @@ namespace std
 	{
 	  try 
 	    {
-	      if (_M_check_facet(_M_fnumput))
-		if (_M_fnumput->put(*this, *this, this->fill(), __n).failed())
-		  this->setstate(ios_base::badbit);
+	      const __num_put_type& __np = __check_facet(this->_M_num_put);
+	      if (__np.put(*this, *this, this->fill(), __n).failed())
+		this->setstate(ios_base::badbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -227,7 +236,7 @@ namespace std
       return *this;
     }
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _CharT, typename _Traits>
     basic_ostream<_CharT, _Traits>& 
     basic_ostream<_CharT, _Traits>::operator<<(long long __n)
@@ -237,28 +246,26 @@ namespace std
 	{
 	  try 
 	    {
+	      bool __b = false;
 	      char_type __c = this->fill();
 	      ios_base::fmtflags __fmt = this->flags() & ios_base::basefield;
-	      if (_M_check_facet(_M_fnumput))
+	      const __num_put_type& __np = __check_facet(this->_M_num_put);
+	      if ((__fmt & ios_base::oct) || (__fmt & ios_base::hex))
 		{
-		  bool __b = false;
-		  if ((__fmt & ios_base::oct) || (__fmt & ios_base::hex))
-		    {
-		      unsigned long long __l;
-		      __l = static_cast<unsigned long long>(__n);
-		      __b = _M_fnumput->put(*this, *this, __c, __l).failed();
-		    }
-		  else
-		    __b = _M_fnumput->put(*this, *this, __c, __n).failed();
-		  if (__b)  
-		    this->setstate(ios_base::badbit);
+		  unsigned long long __l;
+		  __l = static_cast<unsigned long long>(__n);
+		  __b = __np.put(*this, *this, __c, __l).failed();
 		}
+	      else
+		__b = __np.put(*this, *this, __c, __n).failed();
+	      if (__b)  
+		this->setstate(ios_base::badbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -275,15 +282,15 @@ namespace std
 	{
 	  try 
 	    {
-	      if (_M_check_facet(_M_fnumput))
-		if (_M_fnumput->put(*this, *this, this->fill(), __n).failed())
-		  this->setstate(ios_base::badbit);
+	      const __num_put_type& __np = __check_facet(this->_M_num_put);
+	      if (__np.put(*this, *this, this->fill(), __n).failed())
+		this->setstate(ios_base::badbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -301,15 +308,15 @@ namespace std
 	{
 	  try 
 	    {
-	      if (_M_check_facet(_M_fnumput))
-		if (_M_fnumput->put(*this, *this, this->fill(), __n).failed())
-		  this->setstate(ios_base::badbit);
+	      const __num_put_type& __np = __check_facet(this->_M_num_put);
+	      if (__np.put(*this, *this, this->fill(), __n).failed())
+		this->setstate(ios_base::badbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -326,15 +333,15 @@ namespace std
 	{
 	  try 
 	    {
-	      if (_M_check_facet(_M_fnumput))
-		if (_M_fnumput->put(*this, *this, this->fill(), __n).failed())
-		  this->setstate(ios_base::badbit);
+	      const __num_put_type& __np = __check_facet(this->_M_num_put);
+	      if (__np.put(*this, *this, this->fill(), __n).failed())
+		this->setstate(ios_base::badbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -351,15 +358,15 @@ namespace std
 	{
 	  try 
 	    {
-	      if (_M_check_facet(_M_fnumput))
-		if (_M_fnumput->put(*this, *this, this->fill(), __n).failed())
-		  this->setstate(ios_base::badbit);
+	      const __num_put_type& __np = __check_facet(this->_M_num_put);
+	      if (__np.put(*this, *this, this->fill(), __n).failed())
+		this->setstate(ios_base::badbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -374,11 +381,11 @@ namespace std
       sentry __cerb(*this);
       if (__cerb) 
 	{
-	  int_type __put = rdbuf()->sputc(__c); 
+	  int_type __put = this->rdbuf()->sputc(__c); 
 	  if (traits_type::eq_int_type(__put, traits_type::eof()))
 	    this->setstate(ios_base::badbit);
 	}
-      return *this;
+      return *this;  
     }
 
   template<typename _CharT, typename _Traits>
@@ -387,11 +394,7 @@ namespace std
     {
       sentry __cerb(*this);
       if (__cerb)
-	{
-	  streamsize __put = this->rdbuf()->sputn(__s, __n);
-	  if ( __put != __n)
-	    this->setstate(ios_base::badbit);
-	}
+	_M_write(__s, __n);
       return *this;
     }
 
@@ -425,7 +428,7 @@ namespace std
     {
       if (!this->fail())
 	{
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
 	  pos_type __err = this->rdbuf()->pubseekpos(__pos, ios_base::out);
 
@@ -444,7 +447,7 @@ namespace std
     {
       if (!this->fail())
 	{
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
 	  pos_type __err = this->rdbuf()->pubseekoff(__off, __d, 
 						     ios_base::out);
@@ -468,7 +471,7 @@ namespace std
 	{
 	  try 
 	    {
-	      streamsize __w = __out.width();
+	      const streamsize __w = __out.width() > 0 ? __out.width() : 0;
 	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * (__w + 1)));
 	      __pads[0] = __c;
 	      streamsize __len = 1;
@@ -478,14 +481,14 @@ namespace std
 						 &__c, __w, __len, false);
 		  __len = __w;
 		}
-	      __out.write(__pads, __len);
+	      __out._M_write(__pads, __len);
 	      __out.width(0);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      __out.setstate(ios_base::badbit);
+	      __out._M_setstate(ios_base::badbit);
 	      if ((__out.exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -504,7 +507,7 @@ namespace std
 	{
 	  try 
 	    {
-	      streamsize __w = __out.width();
+	      const streamsize __w = __out.width() > 0 ? __out.width() : 0;
 	      char* __pads = static_cast<char*>(__builtin_alloca(__w + 1));
 	      __pads[0] = __c;
 	      streamsize __len = 1;
@@ -514,14 +517,14 @@ namespace std
 					       &__c, __w, __len, false);
 		  __len = __w;
 		}
-	      __out.write(__pads, __len);
+	      __out._M_write(__pads, __len);
 	      __out.width(0);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      __out.setstate(ios_base::badbit);
+	      __out._M_setstate(ios_base::badbit);
 	      if ((__out.exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -539,7 +542,7 @@ namespace std
 	{
 	  try 
 	    {
-	      streamsize __w = __out.width();
+	      const streamsize __w = __out.width() > 0 ? __out.width() : 0;
 	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __w));
 	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
 	      if (__w > __len)
@@ -549,14 +552,14 @@ namespace std
 		  __s = __pads;
 		  __len = __w;
 		}
-	      __out.write(__s, __len);
+	      __out._M_write(__s, __len);
 	      __out.width(0);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      __out.setstate(ios_base::badbit);
+	      __out._M_setstate(ios_base::badbit);
 	      if ((__out.exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -571,7 +574,7 @@ namespace std
     operator<<(basic_ostream<_CharT, _Traits>& __out, const char* __s)
     {
       typedef basic_ostream<_CharT, _Traits> __ostream_type;
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 167.  Improper use of traits_type::length()
 // Note that this is only in 'Review' status.
       typedef char_traits<char>		     __traits_type;
@@ -588,7 +591,7 @@ namespace std
 	  try 
 	    {
 	      streamsize __len = static_cast<streamsize>(__clen);
-	      streamsize __w = __out.width();
+	      const streamsize __w = __out.width() > 0 ? __out.width() : 0;
 	      _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __w));
 	      
 	      if (__w > __len)
@@ -598,14 +601,14 @@ namespace std
 		  __str = __pads;
 		  __len = __w;
 		}
-	      __out.write(__str, __len);
+	      __out._M_write(__str, __len);
 	      __out.width(0);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      __out.setstate(ios_base::badbit);
+	      __out._M_setstate(ios_base::badbit);
 	      if ((__out.exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -626,7 +629,7 @@ namespace std
 	{
 	  try 
 	    {
-	      streamsize __w = __out.width();
+	      const streamsize __w = __out.width() > 0 ? __out.width() : 0;
 	      char* __pads = static_cast<char*>(__builtin_alloca(__w));
 	      streamsize __len = static_cast<streamsize>(_Traits::length(__s));
 
@@ -637,14 +640,14 @@ namespace std
 		  __s = __pads;
 		  __len = __w;
 		}
-	      __out.write(__s, __len);
+	      __out._M_write(__s, __len);
 	      __out.width(0);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      __out.setstate(ios_base::badbit);
+	      __out._M_setstate(ios_base::badbit);
 	      if ((__out.exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -665,10 +668,10 @@ namespace std
       if (__cerb)
 	{
 	  const _CharT* __s = __str.data();
-	  streamsize __w = __out.width();
+	  const streamsize __w = __out.width() > 0 ? __out.width() : 0;
 	  _CharT* __pads = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __w));
 	  streamsize __len = static_cast<streamsize>(__str.size());
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 	  // 25. String operator<< uses width() value wrong
 #endif
 	  if (__w > __len)
@@ -678,10 +681,8 @@ namespace std
 	      __s = __pads;
 	      __len = __w;
 	    }
-	  streamsize __res = __out.rdbuf()->sputn(__s, __len);
+	  __out._M_write(__s, __len);
 	  __out.width(0);
-	  if (__res != __len)
-	    __out.setstate(ios_base::failbit);
 	}
       return __out;
     }
@@ -689,6 +690,7 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
+#if _GLIBCXX_EXTERN_TEMPLATE
   extern template class basic_ostream<char>;
   extern template ostream& endl(ostream&);
   extern template ostream& ends(ostream&);
@@ -700,7 +702,7 @@ namespace std
   extern template ostream& operator<<(ostream&, const unsigned char*);
   extern template ostream& operator<<(ostream&, const signed char*);
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   extern template class basic_ostream<wchar_t>;
   extern template wostream& endl(wostream&);
   extern template wostream& ends(wostream&);
@@ -710,4 +712,7 @@ namespace std
   extern template wostream& operator<<(wostream&, const wchar_t*);
   extern template wostream& operator<<(wostream&, const char*);
 #endif
+#endif
 } // namespace std
+
+#endif

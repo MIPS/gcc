@@ -1,6 +1,6 @@
 // resolve.cc - Code for linking and resolving classes and pool entries.
 
-/* Copyright (C) 1999, 2000, 2001 , 2002 Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -11,6 +11,7 @@ details.  */
 /* Author: Kresten Krab Thorup <krab@gnu.org>  */
 
 #include <config.h>
+#include <platform.h>
 
 #include <java-interp.h>
 
@@ -31,6 +32,7 @@ details.  */
 #include <java/lang/AbstractMethodError.h>
 #include <java/lang/NoClassDefFoundError.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/VMClassLoader.h>
 #include <java/lang/reflect/Modifier.h>
 
 using namespace gcj;
@@ -165,15 +167,7 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
 	      if (! _Jv_equalUtf8Consts (field->name, field_name))
 		continue;
 
-	      // now, check field access. 
-
-	      if (   (cls == klass)
-		  || ((field->flags & Modifier::PUBLIC) != 0)
-		  || (((field->flags & Modifier::PROTECTED) != 0)
-		      && cls->isAssignableFrom (klass))
-		  || (((field->flags & Modifier::PRIVATE) == 0)
-		      && _Jv_ClassNameSamePackage (cls->name,
-						   klass->name)))
+	      if (_Jv_CheckAccess (klass, cls, field->flags))
 		{
 		  /* resove the field using the class' own loader
 		     if necessary */
@@ -238,7 +232,7 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
 
       // First search the class itself.
       the_method = _Jv_SearchMethodInClass (owner, klass, 
-	           method_name, method_signature);
+					    method_name, method_signature);
 
       if (the_method != 0)
         {
@@ -246,9 +240,10 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
           goto end_of_method_search;
 	}
 
-      // If we are resolving an interface method, search the interface's 
-      // superinterfaces (A superinterface is not an interface's superclass - 
-      // a superinterface is implemented by the interface).
+      // If we are resolving an interface method, search the
+      // interface's superinterfaces (A superinterface is not an
+      // interface's superclass - a superinterface is implemented by
+      // the interface).
       if (pool->tags[index] == JV_CONSTANT_InterfaceMethodref)
         {
 	  _Jv_ifaces ifaces;
@@ -257,8 +252,8 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
 	  ifaces.list = (jclass *) _Jv_Malloc (ifaces.len * sizeof (jclass *));
 
 	  _Jv_GetInterfaces (owner, &ifaces);	  
-          
-	  for (int i=0; i < ifaces.count; i++)
+
+	  for (int i = 0; i < ifaces.count; i++)
 	    {
 	      jclass cls = ifaces.list[i];
 	      the_method = _Jv_SearchMethodInClass (cls, klass, method_name, 
@@ -269,9 +264,9 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
                   break;
 		}
 	    }
-	  
+
 	  _Jv_Free (ifaces.list);
-	  
+
 	  if (the_method != 0)
 	    goto end_of_method_search;
 	}
@@ -281,7 +276,7 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
            cls = cls->getSuperclass ())
 	{
 	  the_method = _Jv_SearchMethodInClass (cls, klass, 
-	               method_name, method_signature);
+						method_name, method_signature);
           if (the_method != 0)
 	    {
 	      found_class = cls;
@@ -345,29 +340,64 @@ _Jv_SearchMethodInClass (jclass cls, jclass klass,
 				    method_signature)))
 	continue;
 
-      if (cls == klass 
-	  || ((method->accflags & Modifier::PUBLIC) != 0)
-	  || (((method->accflags & Modifier::PROTECTED) != 0)
-	      && cls->isAssignableFrom (klass))
-	  || (((method->accflags & Modifier::PRIVATE) == 0)
-	      && _Jv_ClassNameSamePackage (cls->name,
-					   klass->name)))
-	{
-	  return method;
-	}
+      if (_Jv_CheckAccess (klass, cls, method->accflags))
+	return method;
       else
-	{
-	  throw new java::lang::IllegalAccessError;
-	}
+	throw new java::lang::IllegalAccessError;
     }
   return 0;
 }
 
-/* this is installed in place of abstract methods */
-static void
-_Jv_abstractMethodError ()
+// A helper for _Jv_PrepareClass.  This adds missing `Miranda methods'
+// to a class.
+void
+_Jv_PrepareMissingMethods (jclass base2, jclass iface_class)
 {
-  throw new java::lang::AbstractMethodError;
+  _Jv_InterpClass *base = reinterpret_cast<_Jv_InterpClass *> (base2);
+  for (int i = 0; i < iface_class->interface_count; ++i)
+    {
+      for (int j = 0; j < iface_class->interfaces[i]->method_count; ++j)
+	{
+	  _Jv_Method *meth = &iface_class->interfaces[i]->methods[j];
+	  // Don't bother with <clinit>.
+	  if (meth->name->data[0] == '<')
+	    continue;
+	  _Jv_Method *new_meth = _Jv_LookupDeclaredMethod (base, meth->name,
+							   meth->signature);
+	  if (! new_meth)
+	    {
+	      // We assume that such methods are very unlikely, so we
+	      // just reallocate the method array each time one is
+	      // found.  This greatly simplifies the searching --
+	      // otherwise we have to make sure that each such method
+	      // found is really unique among all superinterfaces.
+	      int new_count = base->method_count + 1;
+	      _Jv_Method *new_m
+		= (_Jv_Method *) _Jv_AllocBytes (sizeof (_Jv_Method)
+						 * new_count);
+	      memcpy (new_m, base->methods,
+		      sizeof (_Jv_Method) * base->method_count);
+
+	      // Add new method.
+	      new_m[base->method_count] = *meth;
+	      new_m[base->method_count].index = (_Jv_ushort) -1;
+	      new_m[base->method_count].accflags
+		|= java::lang::reflect::Modifier::INVISIBLE;
+
+	      _Jv_MethodBase **new_im
+		= (_Jv_MethodBase **) _Jv_AllocBytes (sizeof (_Jv_MethodBase *)
+						      * new_count);
+	      memcpy (new_im, base->interpreted_methods,
+		      sizeof (_Jv_MethodBase *) * base->method_count);
+
+	      base->methods = new_m;
+	      base->interpreted_methods = new_im;
+	      base->method_count = new_count;
+	    }
+	}
+
+      _Jv_PrepareMissingMethods (base, iface_class->interfaces[i]);
+    }
 }
 
 void 
@@ -406,22 +436,42 @@ _Jv_PrepareClass(jclass klass)
   // resolved.
 
   if (klass->superclass)
-    java::lang::ClassLoader::resolveClass0 (klass->superclass);
+    java::lang::VMClassLoader::resolveClass (klass->superclass);
 
   _Jv_InterpClass *clz = (_Jv_InterpClass*)klass;
 
   /************ PART ONE: OBJECT LAYOUT ***************/
 
+  // Compute the alignment for this type by searching through the
+  // superclasses and finding the maximum required alignment.  We
+  // could consider caching this in the Class.
+  int max_align = __alignof__ (java::lang::Object);
+  jclass super = clz->superclass;
+  while (super != NULL)
+    {
+      int num = JvNumInstanceFields (super);
+      _Jv_Field *field = JvGetFirstInstanceField (super);
+      while (num > 0)
+	{
+	  int field_align = get_alignment_from_class (field->type);
+	  if (field_align > max_align)
+	    max_align = field_align;
+	  ++field;
+	  --num;
+	}
+      super = super->superclass;
+    }
+
   int instance_size;
-  int static_size;
+  int static_size = 0;
 
   // Although java.lang.Object is never interpreted, an interface can
-  // have a null superclass.
+  // have a null superclass.  Note that we have to lay out an
+  // interface because it might have static fields.
   if (clz->superclass)
     instance_size = clz->superclass->size();
   else
     instance_size = java::lang::Object::class$.size();
-  static_size   = 0;
 
   for (int i = 0; i < clz->field_count; i++)
     {
@@ -463,10 +513,15 @@ _Jv_PrepareClass(jclass klass)
 	  instance_size      = ROUND (instance_size, field_align);
 	  field->u.boffset   = instance_size;
 	  instance_size     += field_size;
+	  if (field_align > max_align)
+	    max_align = field_align;
 	}
     }
 
-  // set the instance size for the class
+  // Set the instance size for the class.  Note that first we round it
+  // to the alignment required for this object; this keeps us in sync
+  // with our current ABI.
+  instance_size = ROUND (instance_size, max_align);
   clz->size_in_bytes = instance_size;
 
   // allocate static memory
@@ -523,12 +578,23 @@ _Jv_PrepareClass(jclass klass)
 	}
     }
 
-  if (clz->accflags & Modifier::INTERFACE)
+  if ((clz->accflags & Modifier::INTERFACE))
     {
       clz->state = JV_STATE_PREPARED;
       clz->notifyAll ();
       return;
     }
+
+  // A class might have so-called "Miranda methods".  This is a method
+  // that is declared in an interface and not re-declared in an
+  // abstract class.  Some compilers don't emit declarations for such
+  // methods in the class; this will give us problems since we expect
+  // a declaration for any method requiring a vtable entry.  We handle
+  // this here by searching for such methods and constructing new
+  // internal declarations for them.  We only need to do this for
+  // abstract classes.
+  if ((clz->accflags & Modifier::ABSTRACT))
+    _Jv_PrepareMissingMethods (clz, clz);
 
   clz->vtable_method_count = -1;
   _Jv_MakeVTable (clz);
@@ -648,27 +714,39 @@ _Jv_InitField (jobject obj, jclass klass, int index)
     }
 }
 
+template<typename T>
+struct aligner
+{
+  T field;
+};
+
+#define ALIGNOF(TYPE) (__alignof__ (((aligner<TYPE> *) 0)->field))
+
+// This returns the alignment of a type as it would appear in a
+// structure.  This can be different from the alignment of the type
+// itself.  For instance on x86 double is 8-aligned but struct{double}
+// is 4-aligned.
 static int
 get_alignment_from_class (jclass klass)
 {
   if (klass == JvPrimClass (byte))
-    return  __alignof__ (jbyte);
+    return ALIGNOF (jbyte);
   else if (klass == JvPrimClass (short))
-    return  __alignof__ (jshort);
+    return ALIGNOF (jshort);
   else if (klass == JvPrimClass (int)) 
-    return  __alignof__ (jint);
+    return ALIGNOF (jint);
   else if (klass == JvPrimClass (long))
-    return  __alignof__ (jlong);
+    return ALIGNOF (jlong);
   else if (klass == JvPrimClass (boolean))
-    return  __alignof__ (jboolean);
+    return ALIGNOF (jboolean);
   else if (klass == JvPrimClass (char))
-    return  __alignof__ (jchar);
+    return ALIGNOF (jchar);
   else if (klass == JvPrimClass (float))
-    return  __alignof__ (jfloat);
+    return ALIGNOF (jfloat);
   else if (klass == JvPrimClass (double))
-    return  __alignof__ (jdouble);
+    return ALIGNOF (jdouble);
   else
-    return __alignof__ (jobject);
+    return ALIGNOF (jobject);
 }
 
 
@@ -890,7 +968,10 @@ _Jv_InterpMethod::ncode ()
     }
   else
     {
-      fun = (ffi_closure_fun)&_Jv_InterpMethod::run_normal;
+      if (staticp)
+	fun = (ffi_closure_fun)&_Jv_InterpMethod::run_class;
+      else
+	fun = (ffi_closure_fun)&_Jv_InterpMethod::run_normal;
     }
 
   FFI_PREP_RAW_CLOSURE (&closure->closure,
@@ -901,7 +982,6 @@ _Jv_InterpMethod::ncode ()
   self->ncode = (void*)closure;
   return self->ncode;
 }
-
 
 void *
 _Jv_JNIMethod::ncode ()
@@ -944,7 +1024,7 @@ _Jv_JNIMethod::ncode ()
   memcpy (&jni_arg_types[offset], &closure->arg_types[0],
 	  arg_count * sizeof (ffi_type *));
 
-  if (ffi_prep_cif (&jni_cif, FFI_DEFAULT_ABI,
+  if (ffi_prep_cif (&jni_cif, _Jv_platform_ffi_abi,
 		    extra_args + arg_count, rtype,
 		    jni_arg_types) != FFI_OK)
     throw_internal_error ("ffi_prep_cif failed for JNI function");

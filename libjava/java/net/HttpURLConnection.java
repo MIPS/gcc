@@ -1,7 +1,6 @@
-// HttpURLConnection.java - Subclass of communications links using
-//			Hypertext Transfer Protocol.
-
-/* Copyright (C) 1998, 1999, 2000, 2002 Free Software Foundation
+/* HttpURLConnection.java - Subclass of communications links using
+                            Hypertext Transfer Protocol.
+   Copyright (C) 1998, 1999, 2000, 2002, 2003  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -37,9 +36,12 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.net;
 
-import java.io.*;
+import java.io.InputStream;
+import java.io.IOException;
+import java.io.PushbackInputStream;
 import java.security.Permission;
 
 /*
@@ -142,6 +144,11 @@ public abstract class HttpURLConnection extends URLConnection
    * a conditional GET.
    */
   public static final int HTTP_NOT_MODIFIED = 304;
+
+  /**
+   * The requested resource needs to be accessed through a proxy.
+   */
+  public static final int HTTP_USE_PROXY = 305;
   
   
   /* HTTP Client Error Response Codes */
@@ -237,6 +244,8 @@ public abstract class HttpURLConnection extends URLConnection
 
   /**
    * This error code indicates that some sort of server error occurred.
+   *
+   * @deprecated
    */
   public static final int HTTP_SERVER_ERROR    = 500;
 
@@ -250,7 +259,7 @@ public abstract class HttpURLConnection extends URLConnection
    * The server does not support the requested functionality.  
    * @since 1.3
    */
-  static final int HTTP_NOT_IMPLEMENTED = 501;
+  public static final int HTTP_NOT_IMPLEMENTED = 501;
 
   /**
    * The proxy encountered a bad response from the server it was proxy-ing for
@@ -459,31 +468,36 @@ public abstract class HttpURLConnection extends URLConnection
       connect();
       
     gotResponseVals = true;
-    // Response is the first header received from the connection.
-    String respField = getHeaderField(0);
-    
-    if (respField == null || ! respField.startsWith("HTTP/"))
-      {
-	// Set to default values on failure.
-        responseCode = -1;
-	responseMessage = null;
-	return;
-      }
 
-    int firstSpc, nextSpc;
-    firstSpc = respField.indexOf(' ');
-    nextSpc = respField.indexOf(' ', firstSpc + 1);
-    responseMessage = respField.substring(nextSpc + 1);
-    String codeStr = respField.substring(firstSpc + 1, nextSpc);
-    try
+    // If responseCode not yet explicitly set by subclass
+    if (responseCode == -1)
       {
-	responseCode = Integer.parseInt(codeStr);
-      }
-    catch (NumberFormatException e)
-      {
-	// Set to default values on failure.
-        responseCode = -1;
-	responseMessage = null;
+	// Response is the first header received from the connection.
+	String respField = getHeaderField(0);
+	
+	if (respField == null || ! respField.startsWith("HTTP/"))
+	  {
+	    // Set to default values on failure.
+	    responseCode = -1;
+	    responseMessage = null;
+	    return;
+	  }
+
+	int firstSpc, nextSpc;
+	firstSpc = respField.indexOf(' ');
+	nextSpc = respField.indexOf(' ', firstSpc + 1);
+	responseMessage = respField.substring(nextSpc + 1);
+	String codeStr = respField.substring(firstSpc + 1, nextSpc);
+	try
+	  {
+	    responseCode = Integer.parseInt(codeStr);
+	  }
+	catch (NumberFormatException e)
+	  {
+	    // Set to default values on failure.
+	    responseCode = -1;
+	    responseMessage = null;
+	  }
       }
   }
 

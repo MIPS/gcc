@@ -1,6 +1,6 @@
 // javaprims.h - Main external header file for libgcj.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -120,10 +120,11 @@ extern "Java"
       class SyncFailedException;
       class UTFDataFormatException;
       class UnsupportedEncodingException;
+      class VMObjectStreamClass;
       class ValidatorAndPriority;
       class WriteAbortedException;
       class Writer;
-    };
+    }
 
     namespace lang
     {
@@ -222,7 +223,7 @@ extern "Java"
         class ReferenceQueue;
         class SoftReference;
         class WeakReference;
-      };
+      }
 
       namespace reflect
       {
@@ -230,18 +231,20 @@ extern "Java"
         class Array;
         class Constructor;
         class Field;
-	class InvocationHandler;
+        class InvocationHandler;
         class InvocationTargetException;
         class Member;
         class Method;
         class Modifier;
-	class Proxy;
-	class Proxy$ProxyData;
-	class Proxy$ProxyType;
+        class Proxy;
+        class Proxy$ClassFactory;
+        class Proxy$ProxyData;
+        class Proxy$ProxySignature;
+        class Proxy$ProxyType;
         class ReflectPermission;
-	class UndeclaredThrowableException;
-      };
-    };
+        class UndeclaredThrowableException;
+      }
+    }
 
     namespace util
     {
@@ -334,7 +337,6 @@ extern "Java"
       class RandomAccess;
       class RandomAccessSubList;
       class ResourceBundle;
-      class ResourceBundle$Security;
       class Set;
       class SimpleTimeZone;
       class SortedMap;
@@ -369,7 +371,47 @@ extern "Java"
         class JarInputStream;
         class JarOutputStream;
         class Manifest;
-      };
+      }
+
+      namespace logging
+      {
+        class ConsoleHandler;
+        class ErrorManager;
+        class FileHandler;
+        class Filter;
+        class Formatter;
+        class Handler;
+        class Level;
+        class LogManager;
+        class LogRecord;
+        class Logger;
+        class LoggingPermission;
+        class MemoryHandler;
+        class SimpleFormatter;
+        class SocketHandler;
+        class StreamHandler;
+        class XMLFormatter;
+      }
+
+      namespace prefs
+      {
+        class AbstractPreferences;
+        class BackingStoreException;
+        class InvalidPreferencesFormatException;
+        class NodeChangeEvent;
+        class NodeChangeListener;
+        class PreferenceChangeEvent;
+        class PreferenceChangeListener;
+        class Preferences;
+        class PreferencesFactory;
+      }
+
+      namespace regex
+      {
+        class Matcher;
+        class Pattern;
+        class PatternSyntaxException;
+      }
 
       namespace zip
       {
@@ -393,10 +435,10 @@ extern "Java"
         class ZipFile$ZipEntryEnumeration;
         class ZipInputStream;
         class ZipOutputStream;
-      };
-    };
-  };
-};
+      }
+    }
+  }
+}
   
 typedef struct java::lang::Object* jobject;
 typedef class java::lang::Class* jclass;

@@ -163,7 +163,7 @@
    <p>For those of you new to ISO C++98, no, that isn't a typo, the headers
       really have new names.  Marshall Cline's C++ FAQ Lite has a good
       explanation in
-<a href="http://www.parashift.com/c++-faq-lite/coding-standards.html#faq-26.4">item [26.4]</a>.
+<a href="http://www.parashift.com/c++-faq-lite/coding-standards.html#faq-27.4">item [27.4]</a>.
    </p>
    <p>Return <a href="#top">to top of page</a> or
       <a href="../faq/index.html">to the FAQ</a>.
@@ -188,6 +188,9 @@
    </p>
    <p>For each entry, we give the section number of the standard, when
       applicable.  This list is probably incomplet and inkorrekt.
+   </p>
+   <p><strong>[1.9]/11 #3</strong> If <code>isatty(3)</code> is true, then
+      interactive stream support is implied.
    </p>
    <p><strong>[17.4.4.5]</strong> Non-reentrant functions are probably best
       discussed in the various sections on multithreading (see above).
@@ -216,7 +219,8 @@
       <a href="../18_support/howto.html#5">runtime demangler function</a>.
       (The classes in <code>&lt;stdexcept&gt;</code> have constructors which
       require an argument to use later for <code>what()</code> calls, so the
-      question does not arise in most user-defined exceptions.)
+      problem of <code>what()</code>'s value does not arise in most
+      user-defined exceptions.)
    </p>
    <p><strong>[18.5.1]/7</strong> The return value of
       <code>std::type_info::name()</code> is the mangled type name (see the
@@ -261,8 +265,9 @@
       on the --enable-libio choice:  for stdio, if the written data is
       already in the stdio buffer, the data may be completely safe!
    </p>
-   <p><strong>I/O sentry ctor/dtor</strong> They can perform additional work
-      than the minimum required.  I don't think we're currently taking
+   <p><strong>[27.6.1.1.2]</strong>,<br />
+      <strong>[27.6.2.3]</strong> The I/O sentry ctor and dtor can perform
+      additional work than the minimum required.  We are not currently taking
       advantage of this yet.
    </p>
    <p><strong>[27.7.1.3]/16</strong>,<br />
@@ -286,7 +291,8 @@
       <a href="../configopts.html">the configuration step</a>, with the
       various --enable/--disable choices being translated to #define/#undef).
    </p>
-   <p>All library macros begin with <code>_GLIBCPP_</code>.  The fact that
+   <p>All library macros begin with <code>_GLIBCPP_</code> in earlier
+      versions, and <code>_GLIBCXX_</code> in later versions.  The fact that
       these symbols start with a leading underscore should give you a clue
       that (by default) they aren't meant to be changed by the user.  :-)
    </p>
@@ -305,9 +311,10 @@
       The default state of the symbol is listed.  &quot;Configurable&quot;
       (or &quot;Not configurable&quot;) means that the symbol is initially
       chosen (or not) based on --enable/--disable options at configure time.
+      For 3.1 through 3.3, the prefixes are <code>_GLIBCPP_</code>.
    </p>
     <dl>
-    <dt><code>_GLIBCPP_DEPRECATED</code></dt>
+    <dt><code>_GLIBCXX_DEPRECATED</code></dt>
     <dd>Undefined by default.  Not configurable.  Turning this on enables
         older ARM-style iostreams code, and other anachronisms.  This may be
         useful in updating old C++ programs which no longer meet the
@@ -326,7 +333,7 @@
         you might try undefining this macro.
     </dd>
     -->
-    <dt><code>_GLIBCPP_CONCEPT_CHECKS</code></dt>
+    <dt><code>_GLIBCXX_CONCEPT_CHECKS</code></dt>
     <dd>Undefined by default.  Configurable.  When defined, performs
         compile-time checking on certain template instantiations to detect
         violations of the requirements of the standard.  This is described

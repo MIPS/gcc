@@ -17,25 +17,26 @@
    write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#ifndef _BITS_ATOMICITY_H
-#define _BITS_ATOMICITY_H	1
+#ifndef _GLIBCXX_ATOMICITY_H
+#define _GLIBCXX_ATOMICITY_H	1
 
 typedef int _Atomic_word;
 
 template <int __inst>
 struct __Atomicity_lock
 {
-  static volatile int __attribute__ ((aligned (16))) _S_atomicity_lock;
+  static volatile int _S_atomicity_lock;
 };
 
 template <int __inst>
-volatile int __Atomicity_lock<__inst>::_S_atomicity_lock = 1;
+volatile int
+__Atomicity_lock<__inst>::_S_atomicity_lock __attribute__ ((aligned (16))) = 1;
 
 /* Because of the lack of weak support when using the hpux
    som linker, we explicitly instantiate the atomicity lock
-   in src/misc-inst.cc when _GLIBCPP_INST_ATOMICITY_LOCK
+   in src/misc-inst.cc when _GLIBCXX_INST_ATOMICITY_LOCK
    is defined.  */
-#ifndef _GLIBCPP_INST_ATOMICITY_LOCK
+#ifndef _GLIBCXX_INST_ATOMICITY_LOCK
 template volatile int __Atomicity_lock<0>::_S_atomicity_lock;
 #endif
 
@@ -58,8 +59,9 @@ __exchange_and_add (volatile _Atomic_word* __mem, int __val)
 
   result = *__mem;
   *__mem = result + __val;
-  __asm__ __volatile__("");
-  lock = tmp;
+  /* Reset lock with PA 2.0 "ordered" store.  */
+  __asm__ __volatile__ ("stw,ma %1,0(%0)"
+			: : "r" (&lock), "r" (tmp) : "memory");
   return result;
 }
 
@@ -80,8 +82,9 @@ __atomic_add (_Atomic_word* __mem, int __val)
 			: "r" (&lock));
 
   *__mem += __val;
-  __asm__ __volatile__("");
-  lock = tmp;
+  /* Reset lock with PA 2.0 "ordered" store.  */
+  __asm__ __volatile__ ("stw,ma %1,0(%0)"
+			: : "r" (&lock), "r" (tmp) : "memory");
 }
 
 #endif

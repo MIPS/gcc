@@ -1,6 +1,6 @@
 // Wrapper for underlying C-language localization -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,7 +36,7 @@
 #include <locale>
 #include <stdexcept>
 #include <langinfo.h>
-#include "c++locale_internal.h"
+#include <bits/c++locale_internal.h>
 
 namespace std 
 {
@@ -75,7 +75,7 @@ namespace std
 	}
     }
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
   template<>
     void
     __convert_to_v(const char* __s, long long& __v, ios_base::iostate& __err, 
@@ -172,28 +172,31 @@ namespace std
     if (!__cloc)
       {
 	// This named locale is not supported by the underlying OS.
-	__throw_runtime_error("attempt to create locale from unknown name");
+	__throw_runtime_error("locale::facet::_S_create_c_locale "
+			      "name not valid");
       }
   }
   
   void
   locale::facet::_S_destroy_c_locale(__c_locale& __cloc)
   {
-    if (_S_c_locale != __cloc)
+    if (_S_get_c_locale() != __cloc)
       __freelocale(__cloc); 
   }
 
   __c_locale
   locale::facet::_S_clone_c_locale(__c_locale& __cloc)
   { return __duplocale(__cloc); }
+} // namespace std
 
-  const char* locale::_S_categories[_S_categories_size 
-				    + _S_extra_categories_size] =
+namespace __gnu_cxx
+{
+  const char* const category_names[6 + _GLIBCXX_NUM_CATEGORIES] =
     {
       "LC_CTYPE", 
-      "LC_NUMERIC", 
-      "LC_COLLATE", 
+      "LC_NUMERIC",
       "LC_TIME", 
+      "LC_COLLATE", 
       "LC_MONETARY",
       "LC_MESSAGES", 
       "LC_PAPER", 
@@ -203,4 +206,9 @@ namespace std
       "LC_MEASUREMENT", 
       "LC_IDENTIFICATION" 
     };
+}
+
+namespace std
+{
+  const char* const* const locale::_S_categories = __gnu_cxx::category_names;
 }  // namespace std

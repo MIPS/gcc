@@ -38,21 +38,22 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.io.Serializable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.peer.ListPeer;
-import java.awt.peer.ComponentPeer;
+import java.util.EventListener;
 import java.util.Vector;
+import javax.accessibility.Accessible;
 
 /**
   * Class that implements a listbox widget
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
-public class List extends Component implements ItemSelectable, Serializable
+public class List extends Component
+  implements ItemSelectable, Accessible
 {
 
 /*
@@ -113,6 +114,8 @@ private ActionListener action_listeners;
 /**
   * Initializes a new instance of <code>List</code> with no visible lines
   * and multi-select disabled.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 List()
@@ -127,6 +130,8 @@ List()
   * number of visible lines and multi-select disabled.
   *
   * @param lines The number of visible lines in the list.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 List(int rows)
@@ -143,12 +148,17 @@ List(int rows)
   * @param lines The number of visible lines in the list.
   * @param multipleMode <code>true</code> if multiple lines can be selected
   * simultaneously, <code>false</code> otherwise.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public 
 List(int rows, boolean multipleMode)
 {
   this.rows = rows;
   this.multipleMode = multipleMode;
+
+  if (GraphicsEnvironment.isHeadless())
+    throw new HeadlessException ();
 }
 
 /*************************************************************************/
@@ -287,6 +297,8 @@ setMultipleMode(boolean multipleMode)
   *
   * @param multipleMode <code>true</code> to enable multiple mode,
   * <code>false</code> otherwise.
+  *
+  * @deprecated
   */
 public void
 setMultipleSelections(boolean multipleMode)
@@ -511,6 +523,8 @@ addItem(String item, int index)
   * @param index The index of the item to delete.
   *
   * @exception IllegalArgumentException If the index is not valid
+  *
+  * @deprecated
   */
 public void
 delItem(int index) throws IllegalArgumentException
@@ -1019,4 +1033,38 @@ paramString()
   return "multiple=" + multipleMode + ",rows=" + rows + super.paramString();
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this <code>List</code>. FooListeners are registered using the 
+   * addFooListener method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == ActionListener.class)
+      return AWTEventMulticaster.getListeners (action_listeners, listenerType);
+    
+    if (listenerType == ItemListener.class)
+      return AWTEventMulticaster.getListeners (item_listeners, listenerType);
+
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Returns all action listeners registered to this object.
+   */
+  public ActionListener[] getActionListeners ()
+  {
+    return (ActionListener[]) getListeners (ActionListener.class);
+  }
+  
+  /**
+   * Returns all action listeners registered to this object.
+   */
+  public ItemListener[] getItemListeners ()
+  {
+    return (ItemListener[]) getListeners (ItemListener.class);
+  }
 } // class List

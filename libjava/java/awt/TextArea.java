@@ -38,9 +38,8 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.peer.TextAreaPeer;
-import java.awt.peer.TextComponentPeer;
 import java.awt.peer.ComponentPeer;
+import java.awt.peer.TextAreaPeer;
 
 /**
   * This implements a multi-line text entry widget.
@@ -109,6 +108,8 @@ private int scrollbarVisibility;
   * Initialize a new instance of <code>TextArea</code> that is empty
   * and is one row and one column.  Both horizontal and vertical
   * scrollbars will be used.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   */
 public
 TextArea()
@@ -124,6 +125,8 @@ TextArea()
   * scrollbars will be used.
   *
   * @param text The text to display in this text area.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   */
 public
 TextArea(String text)
@@ -140,6 +143,8 @@ TextArea(String text)
   *
   * @param rows The number of rows in this text area.
   * @param columns The number of columns in this text area.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   */
 public
 TextArea(int rows, int columns)
@@ -156,6 +161,8 @@ TextArea(int rows, int columns)
   * @param text The text to display in this text area.
   * @param rows The number of rows in this text area.
   * @param columns The number of columns in this text area.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   */
 public
 TextArea(String text, int rows, int columns)
@@ -174,11 +181,16 @@ TextArea(String text, int rows, int columns)
   * @param rows The number of rows in this text area.
   * @param columns The number of columns in this text area.
   * @param scrollbarVisibility Which scrollbars to display.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   */
 public
 TextArea(String text, int rows, int columns, int scrollbarVisibility)
 {
   super(text);
+
+  if (GraphicsEnvironment.isHeadless())
+    throw new HeadlessException ();
 
   if ((rows < 1) || (columns < 0))
     throw new IllegalArgumentException("Bad row or column value");
@@ -357,7 +369,11 @@ getPreferredSize(int rows, int columns)
 {
   TextAreaPeer tap = (TextAreaPeer)getPeer();
   if (tap == null)
-    return(null); // FIXME: What do we do if there is no peer?
+    {
+      // Sun's JDK just seems to return Dimension(0,0) in this case.
+      // we do the same.
+      return new Dimension(0, 0);
+    }
 
   return(tap.getPreferredSize(rows, columns));
 }
@@ -391,7 +407,7 @@ preferredSize()
   * <code>getPreferredSize(int)</code>.
   */
 public Dimension
-preferredSize(int columns)
+preferredSize(int rows, int columns)
 {
   return(getPreferredSize(rows, columns));
 }

@@ -38,11 +38,11 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.peer.ChoicePeer;
-import java.awt.peer.ComponentPeer;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.peer.ChoicePeer;
 import java.io.Serializable;
+import java.util.EventListener;
 import java.util.Vector;
 
 /**
@@ -85,13 +85,17 @@ private ItemListener item_listeners;
  * Constructors
  */
 
-/**
-  * Initializes a new instance of <code>Choice</code>.
-  */
-public
-Choice()
-{
-}
+  /**
+   * Initializes a new instance of <code>Choice</code>.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless()
+   * returns true
+   */
+  public Choice()
+  {
+    if (GraphicsEnvironment.isHeadless())
+      throw new HeadlessException ();
+  }
 
 /*************************************************************************/
 
@@ -146,12 +150,16 @@ getItem(int index)
   * Adds the specified item to this choice box.
   *
   * @param item The item to add.
+  *
+  * @exception NullPointerException If the item's value is null
+  *
+  * @since 1.1
   */
 public synchronized void
 add(String item)
 {
   if (item == null)
-    throw new IllegalArgumentException ("item must be non-null");
+    throw new NullPointerException ("item must be non-null");
 
   pItems.addElement(item);
 
@@ -171,7 +179,12 @@ add(String item)
 /**
   * Adds the specified item to this choice box.
   *
+  * This method is oboslete since Java 2 platform 1.1. Please use @see add
+  * instead.
+  *
   * @param item The item to add.
+  *
+  * @exception NullPointerException If the item's value is equal to null
   */
 public synchronized void
 addItem(String item)
@@ -189,10 +202,15 @@ addItem(String item)
  *
  * @param item The item to add.
  * @param index The index at which the item should be inserted.
+ *
+ * @exception IllegalArgumentException If index is less than 0
  */
 public synchronized void
 insert(String item, int index)
 {
+  if (index < 0)
+    throw new IllegalArgumentException ("index may not be less then 0");
+
   if (index > getItemCount ())
     index = getItemCount ();
 
@@ -456,4 +474,31 @@ paramString()
   return ("selectedIndex=" + selectedIndex + "," + super.paramString());
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this Choice. FooListeners are registered using the addFooListener
+   * method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   *
+   * @since 1.3
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == ItemListener.class)
+      return AWTEventMulticaster.getListeners (item_listeners, listenerType);
+    
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Returns all registered item listeners.
+   *
+   * @since 1.4
+   */
+  public ItemListener[] getItemListeners ()
+  {
+    return (ItemListener[]) getListeners (ItemListener.class);
+  }
 } // class Choice 

@@ -35,19 +35,24 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-// Imports
-import java.io.*;
-import java.util.*;
-import javax.swing.event.*;
+import java.io.Serializable;
+import java.util.EventObject;
+import javax.swing.event.CellEditorListener;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.EventListenerList;
 
 /**
  * AbstractCellEditor
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public abstract class AbstractCellEditor implements CellEditor, Serializable {
+public abstract class AbstractCellEditor
+  implements CellEditor, Serializable
+{
+  static final long serialVersionUID = -1048006551406220959L;
 
 	//-------------------------------------------------------------
 	// Variables --------------------------------------------------

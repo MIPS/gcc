@@ -39,11 +39,8 @@ exception statement from your version. */
 package java.awt;
 
 import java.awt.peer.MenuPeer;
-import java.awt.peer.MenuItemPeer;
-import java.awt.peer.MenuComponentPeer;
 import java.io.Serializable;
 import java.util.Vector;
-import java.util.Enumeration;
 
 /**
   * This class represents a pull down or tear off menu in Java's AWT.
@@ -95,6 +92,8 @@ static final MenuItem separator = new MenuItem("-");
 /**
   * Initializes a new instance of <code>Menu</code> with no label and that
   * is not a tearoff;
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 Menu()
@@ -108,6 +107,8 @@ Menu()
   * that has the specified label.
   *
   * @param label The menu label.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 Menu(String label)
@@ -124,6 +125,8 @@ Menu(String label)
   * @param label The label for this menu
   * @param isTearOff <code>true</code> if this menu is a tear off menu,
   * <code>false</code> otherwise.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 Menu(String label, boolean isTearOff)
@@ -134,6 +137,9 @@ Menu(String label, boolean isTearOff)
 
   if (label.equals("Help"))
     isHelpMenu = true;
+
+  if (GraphicsEnvironment.isHeadless())
+    throw new HeadlessException ();
 }
 
 /*************************************************************************/
@@ -166,20 +172,17 @@ getItemCount()
 {
   return(items.size());
 }
- 
-/*************************************************************************/
 
 /**
-  * Returns the number of items in this menu.
-  *
-  * @return The number of items in this menu.
-  *
-  * @deprecated This method is deprecated in favor of <code>getItemCount()</code>.
-  */
-public int
-count()
+ * Returns the number of items in this menu.
+ *
+ * @return The number of items in this menu.
+ *
+ * @deprecated As of JDK 1.1, replaced by getItemCount().
+ */
+public int countItems ()
 {
-  return(items.size());
+  return getItemCount ();
 }
  
 /*************************************************************************/

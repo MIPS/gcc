@@ -35,12 +35,11 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.nio.channels;
 
 import java.nio.channels.spi.AbstractSelectableChannel;
 import java.nio.channels.spi.SelectorProvider;
-import java.nio.ByteOrder;
-import java.nio.ByteBuffer;
 import java.io.IOException;
 import java.net.ServerSocket;
 
@@ -54,15 +53,26 @@ public abstract class ServerSocketChannel
   /**
    * Initializes this channel.
    */
-  public ServerSocketChannel (SelectorProvider provider)
+  protected ServerSocketChannel (SelectorProvider provider)
   {
     super (provider);
   }
   
   /**
-   *  Accepts a connection made to this channel's socket.
+   * Accepts a connection made to this channel's socket.
+   *
+   * @exception IOException If an error occurs
+   * @exception AsynchronousCloseException If another thread closes this
+   * channel while the accept operation is in progress.
+   * @exception ClosedByInterruptException If another thread interrupts the
+   * current thread while the accept operation is in progress, thereby closing
+   * the channel and setting the current thread's interrupt status.
+   * @exception ClosedChannelException If the channel is closed.
+   * @exception NotYetBoundException If the channel's socket is not yet bound.
+   * @exception SecurityException If a security manager has been installed and
+   * it does not permit access to the remote endpoint of the new connection.
    */
-  public abstract SocketChannel accept ();
+  public abstract SocketChannel accept () throws IOException;
   
   /**
    * Retrieves the channels socket.
@@ -70,7 +80,9 @@ public abstract class ServerSocketChannel
   public abstract ServerSocket socket ();
     
   /**
-   * Opens a server socker channel.
+   * Opens a server socket channel.
+   *
+   * @exception IOException If an error occurs
    */
   public static ServerSocketChannel open () throws IOException
   {

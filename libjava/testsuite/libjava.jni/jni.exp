@@ -5,17 +5,33 @@
 # success.
 proc gcj_jni_compile_c_to_so {file {options {}}} {
   global srcdir
+  global host_triplet
+  verbose "options: $options"
+  set options_cxx $options
+  set options ""
 
+# apple uses a different extension for shared/dynamic libraries
+# so we check against powerpc-apple-darwin and set them to 
+# dylib, else we assume it's .so
+
+  if { [ regexp {powerpc-apple-darwin} $host_triplet] } {
+      set so_extension "dylib"
+      set so_flag "-dynamiclib"
+  } else {
+      set so_extension "so"
+      set so_flag "-shared"
+  }
   set name [file rootname [file tail $file]]
-  set soname lib${name}.so
+  set soname lib${name}.${so_extension}
 
-  lappend options "additional_flags=-shared -fPIC"
+  lappend options "additional_flags=${so_flag} -fPIC"
   # Find the generated header.
   lappend options "additional_flags=-I. -I.."
   # Find jni.h.
   lappend options "additional_flags=-I$srcdir/../include"
 
-  set x [prune_warnings [target_compile $file $soname executable $options]]
+  set x [libjava_prune_warnings \
+	   [target_compile $file $soname executable $options]]
   if {$x != ""} {
     verbose "target_compile failed: $x" 2
     fail "$name.c compilation"
@@ -30,7 +46,7 @@ proc gcj_jni_compile_c_to_so {file {options {}}} {
 proc gcj_jni_build_header {file} {
   set gcjh [find_gcjh]
   set file [file rootname $file]
-  set x [string trim [prune_warnings \
+  set x [string trim [libjava_prune_warnings \
 			[lindex [local_exec "$gcjh -jni $file" "" "" 300] 1]]]
   if {$x != ""} {
     verbose "local_exec failed: $x" 2
@@ -42,53 +58,20 @@ proc gcj_jni_build_header {file} {
   return 1
 }
 
-# Invoke the program and see what happens.  Return 0 on failure.
-proc gcj_invoke {program expectFile ld_library_additions} {
-  global env
-  set lib_path $env(LD_LIBRARY_PATH)
-
-  set newval .
-  if {[llength $ld_library_additions] > 0} {
-    append newval :[join $ld_library_additions :]
-  }
-  append newval :$lib_path
-
-  setenv LD_LIBRARY_PATH $newval
-  setenv SHLIB_PATH $newval
-
-  verbose "LD_LIBRARY_PATH=$env(LD_LIBRARY_PATH)"
-
-  set result [libjava_load ./$program]
-  set status [lindex $result 0]
-  set output [lindex $result 1]
-
-  # Restore setting
-  setenv LD_LIBRARY_PATH $lib_path
-  setenv SHLIB_PATH $lib_path
-
-  if {$status != "pass"} {
-    verbose "got $output"
-    fail "$program run"
-    untested "$program output"
-    return 0
-  }
-
-  set id [open $expectFile r]
-  set expected [read $id]
-  close $id
-
-  if {! [string compare $output $expected]} {
-    pass "$program output"
-    return 1
-  } else {
-    fail "$program output"
-    return 0
-  }
-}
-
 # Do all the work for a single JNI test.  Return 0 on failure.
 proc gcj_jni_test_one {file} {
   global runtests
+  global host_triplet
+
+# apple uses a different extension for shared/dynamic libraries
+# so we check against powerpc-apple-darwin and set them to 
+# dylib, else we assume it's .so
+
+  if { [ regexp {powerpc-apple-darwin} $host_triplet] } {
+      set so_extension "dylib"
+  } else {
+      set so_extension "so"
+  }
 
   # The base name.  We use it for several purposes.
   set main [file rootname [file tail $file]]
@@ -155,7 +138,7 @@ proc gcj_jni_test_one {file} {
   }
 
   # When we succeed we remove all our clutter.
-  eval gcj_cleanup [glob -nocomplain -- ${main}.*] [list $main lib${main}.so]
+  eval gcj_cleanup [glob -nocomplain -- ${main}.*] [list $main lib${main}.${so_extension}]
 
   return 1
 }

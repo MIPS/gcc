@@ -1,6 +1,6 @@
 // The  -*- C++ -*- type traits classes for internal use in libstdc++
 
-// Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,8 +34,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BITS_CPP_TYPE_TRAITS_H
-#define _CPP_BITS_CPP_TYPE_TRAITS_H 1
+#ifndef _CPP_TYPE_TRAITS_H
+#define _CPP_TYPE_TRAITS_H 1
 
 #pragma GCC system_header
 
@@ -66,6 +66,38 @@
 
 namespace std
 {
+  // Compare for equality of types.
+  template<typename, typename>
+    struct __are_same
+    {
+      enum
+      {
+        _M_type = 0
+      };
+    };
+
+  template<typename _Tp>
+    struct __are_same<_Tp, _Tp>
+    {
+      enum
+      {
+        _M_type = 1
+      };
+    };
+
+  // Define a nested type if some predicate holds.
+  template<typename, bool>
+    struct __enable_if
+    {
+    };
+
+  template<typename _Tp>
+  struct __enable_if<_Tp, true>
+    {
+      typedef _Tp _M_type;
+    };
+
+  // Holds if the template-argument is a void type.
   template<typename _Tp>
     struct __is_void
     {
@@ -135,7 +167,7 @@ namespace std
     };
   };
 
-# ifdef _GLIBCPP_USE_WCHAR_T
+# ifdef _GLIBCXX_USE_WCHAR_T
   template<>
   struct __is_integer<wchar_t>
   {
@@ -297,4 +329,4 @@ namespace std
 } // namespace std
 
 
-#endif //_CPP_BITS_CPP_TYPE_TRAITS_H
+#endif //_CPP_TYPE_TRAITS_H

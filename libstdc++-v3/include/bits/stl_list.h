@@ -1,6 +1,6 @@
 // List implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_LIST_H
-#define __GLIBCPP_INTERNAL_LIST_H
+#ifndef _LIST_H
+#define _LIST_H 1
 
 #include <bits/concept_check.h>
 
@@ -247,7 +247,7 @@ namespace std
     typename _Alloc_traits<_List_node<_Tp>, _Allocator>::allocator_type
              _M_node_allocator;
   
-    _List_node<_Tp>* _M_node;
+    _List_node_base _M_node;
   };
   
   /// @if maint Specialization for instanceless allocators.  @endif
@@ -278,7 +278,7 @@ namespace std
     _M_put_node(_List_node<_Tp>* __p)
     { _Alloc_type::deallocate(__p, 1); }
   
-    _List_node<_Tp>* _M_node;
+    _List_node_base _M_node;
   };
   
   
@@ -301,16 +301,14 @@ namespace std
     _List_base(const allocator_type& __a)
     : _Base(__a)
     {
-      _M_node = _M_get_node();
-      _M_node->_M_next = _M_node;
-      _M_node->_M_prev = _M_node;
+      this->_M_node._M_next = &this->_M_node;
+      this->_M_node._M_prev = &this->_M_node;
     }
   
     // This is what actually destroys the list.
     ~_List_base()
     {
       __clear();
-      _M_put_node(_M_node);
     }
   
     void
@@ -366,7 +364,7 @@ namespace std
     class list : protected _List_base<_Tp, _Alloc>
   {
     // concept requirements
-    __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
+    __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
   
     typedef _List_base<_Tp, _Alloc>                       _Base;
   
@@ -376,8 +374,8 @@ namespace std
     typedef const value_type*                             const_pointer;
     typedef _List_iterator<_Tp,_Tp&,_Tp*>                 iterator;
     typedef _List_iterator<_Tp,const _Tp&,const _Tp*>     const_iterator;
-    typedef std::reverse_iterator<const_iterator>     const_reverse_iterator;
-    typedef std::reverse_iterator<iterator>                 reverse_iterator;
+    typedef std::reverse_iterator<const_iterator>         const_reverse_iterator;
+    typedef std::reverse_iterator<iterator>               reverse_iterator;
     typedef value_type&                                   reference;
     typedef const value_type&                             const_reference;
     typedef size_t                                        size_type;
@@ -408,9 +406,9 @@ namespace std
     _Node*
     _M_create_node(const value_type& __x)
     {
-      _Node* __p = _M_get_node();
+      _Node* __p = this->_M_get_node();
       try {
-        _Construct(&__p->_M_data, __x);
+        std::_Construct(&__p->_M_data, __x);
       }
       catch(...)
       {
@@ -429,9 +427,9 @@ namespace std
     _Node*
     _M_create_node()
     {
-      _Node* __p = _M_get_node();
+      _Node* __p = this->_M_get_node();
       try {
-        _Construct(&__p->_M_data);
+        std::_Construct(&__p->_M_data);
       }
       catch(...)
       {
@@ -491,8 +489,9 @@ namespace std
      *  @param  first  An input iterator.
      *  @param  last  An input iterator.
      * 
-     *  Create a %list consisting of copies of the elements from [first,last).
-     *  This is linear in N (where N is distance(first,last)).
+     *  Create a %list consisting of copies of the elements from
+     *  [@a first,@a last).  This is linear in N (where N is
+     *  distance(@a first,@a last)).
      *
      *  @if maint
      *  We don't need any dispatching tricks here, because insert does all of
@@ -506,11 +505,11 @@ namespace std
       { this->insert(begin(), __first, __last); }
   
     /**
-     *  The dtor only erases the elements, and note that if the elements
+     *  No explicit dtor needed as the _Base dtor takes care of things.
+     *  The _Base dtor only erases the elements, and note that if the elements
      *  themselves are pointers, the pointed-to memory is not touched in any
      *  way.  Managing the pointer is the user's responsibilty.
     */
-    ~list() { }
   
     /**
      *  @brief  %List assignment operator.
@@ -541,7 +540,7 @@ namespace std
      *  @param  last   An input iterator.
      *
      *  This function fills a %list with copies of the elements in the
-     *  range [first,last).
+     *  range [@a first,@a last).
      *
      *  Note that the assignment completely changes the %list and that the
      *  resulting %list's size is the same as the number of elements assigned.
@@ -566,28 +565,28 @@ namespace std
      *  %list.  Iteration is done in ordinary element order.
     */
     iterator
-    begin() { return static_cast<_Node*>(_M_node->_M_next); }
+    begin() { return static_cast<_Node*>(this->_M_node._M_next); }
   
     /**
      *  Returns a read-only (constant) iterator that points to the first element
      *  in the %list.  Iteration is done in ordinary element order.
     */
     const_iterator
-    begin() const { return static_cast<_Node*>(_M_node->_M_next); }
+    begin() const { return static_cast<_Node*>(this->_M_node._M_next); }
   
     /**
      *  Returns a read/write iterator that points one past the last element in
      *  the %list.  Iteration is done in ordinary element order.
     */
     iterator
-    end() { return _M_node; }
+    end() { return static_cast<_Node*>(&this->_M_node); }
   
     /**
      *  Returns a read-only (constant) iterator that points one past the last
      *  element in the %list.  Iteration is done in ordinary element order.
     */
     const_iterator
-    end() const { return _M_node; }
+    end() const { return const_cast<_Node *>(static_cast<const _Node*>(&this->_M_node)); }
   
     /**
      *  Returns a read/write reverse iterator that points to the last element in
@@ -625,11 +624,11 @@ namespace std
      *  Returns true if the %list is empty.  (Thus begin() would equal end().)
     */
     bool
-    empty() const { return _M_node->_M_next == _M_node; }
+    empty() const { return this->_M_node._M_next == &this->_M_node; }
   
     /**  Returns the number of elements in the %list.  */
     size_type
-    size() const { return distance(begin(), end()); }
+    size() const { return std::distance(begin(), end()); }
   
     /**  Returns the size() of the largest possible %list.  */
     size_type
@@ -702,23 +701,6 @@ namespace std
     void
     push_front(const value_type& __x) { this->insert(begin(), __x); }
   
-  #ifdef _GLIBCPP_DEPRECATED
-    /**
-     *  @brief  Add data to the front of the %list.
-     *
-     *  This is a typical stack operation.  The function creates a
-     *  default-constructed element at the front of the %list.  Due to the
-     *  nature of a %list this operation can be done in constant time.  You
-     *  should consider using push_front(value_type()) instead.
-     *
-     *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
-     *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
-     *        c++config.h.
-    */
-    void
-    push_front() { this->insert(begin(), value_type()); }
-  #endif
-  
     /**
      *  @brief  Removes first element.
      *
@@ -744,23 +726,6 @@ namespace std
     */
     void
     push_back(const value_type& __x) { this->insert(end(), __x); }
-  
-  #ifdef _GLIBCPP_DEPRECATED
-    /**
-     *  @brief  Add data to the end of the %list.
-     *
-     *  This is a typical stack operation.  The function creates a
-     *  default-constructed element at the end of the %list.  Due to the nature
-     *  of a %list this operation can be done in constant time.  You should
-     *  consider using push_back(value_type()) instead.
-     *
-     *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
-     *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
-     *        c++config.h.
-    */
-    void
-    push_back() { this->insert(end(), value_type()); }
-  #endif
   
     /**
      *  @brief  Removes last element.
@@ -794,26 +759,6 @@ namespace std
     iterator
     insert(iterator __position, const value_type& __x);
   
-  #ifdef _GLIBCPP_DEPRECATED
-    /**
-     *  @brief  Inserts an element into the %list.
-     *  @param  position  An iterator into the %list.
-     *  @return  An iterator that points to the inserted element.
-     *
-     *  This function will insert a default-constructed element before the
-     *  specified location.  You should consider using
-     *  insert(position,value_type()) instead.
-     *  Due to the nature of a %list this operation can be done in constant
-     *  time, and does not invalidate iterators and references.
-     *
-     *  @note This was deprecated in 3.2 and will be removed in 3.4.  You must
-     *        define @c _GLIBCPP_DEPRECATED to make this visible in 3.2; see
-     *        c++config.h.
-    */
-    iterator
-    insert(iterator __position) { return insert(__position, value_type()); }
-  #endif
-  
     /**
      *  @brief  Inserts a number of copies of given data into the %list.
      *  @param  position  An iterator into the %list.
@@ -827,28 +772,29 @@ namespace std
      *  time, and does not invalidate iterators and references.
     */
     void
-    insert(iterator __pos, size_type __n, const value_type& __x)
-    { _M_fill_insert(__pos, __n, __x); }
+    insert(iterator __position, size_type __n, const value_type& __x)
+    { _M_fill_insert(__position, __n, __x); }
   
     /**
      *  @brief  Inserts a range into the %list.
-     *  @param  pos  An iterator into the %list.
+     *  @param  position  An iterator into the %list.
      *  @param  first  An input iterator.
      *  @param  last   An input iterator.
      *
-     *  This function will insert copies of the data in the range [first,last)
-     *  into the %list before the location specified by @a pos.
+     *  This function will insert copies of the data in the range
+     *  [@a first,@a last) into the %list before the location specified by @a
+     *  position.
      *
      *  Due to the nature of a %list this operation can be done in constant
      *  time, and does not invalidate iterators and references.
     */
     template<typename _InputIterator>
       void
-      insert(iterator __pos, _InputIterator __first, _InputIterator __last)
+      insert(iterator __position, _InputIterator __first, _InputIterator __last)
       {
         // Check whether it's an integral type.  If so, it's not an iterator.
         typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
-        _M_insert_dispatch(__pos, __first, __last, _Integral());
+        _M_insert_dispatch(__position, __first, __last, _Integral());
       }
   
     /**
@@ -878,7 +824,7 @@ namespace std
      *  @return  An iterator pointing to the element pointed to by @a last
      *           prior to erasing (or end()).
      *
-     *  This function will erase the elements in the range [first,last) and
+     *  This function will erase the elements in the range @a [first,last) and
      *  shorten the %list accordingly.
      *
      *  Due to the nature of a %list this operation can be done in constant
@@ -902,12 +848,11 @@ namespace std
      *  @param  x  A %list of the same element and allocator types.
      *
      *  This exchanges the elements between two lists in constant time.
-     *  (It is only swapping a single pointer, so it should be quite fast.)
      *  Note that the global std::swap() function is specialized such that
      *  std::swap(l1,l2) will feed to this function.
     */
     void
-    swap(list& __x) { std::swap(_M_node, __x._M_node); }
+    swap(list& __x);
   
     /**
      *  Erases all the elements.  Note that this function only erases the
@@ -920,7 +865,12 @@ namespace std
   
     // [23.2.2.4] list operations
     /**
-     *  @doctodo
+     *  @brief  Insert contents of another %list.
+     *  @param  position  Iterator referencing the element to insert before.
+     *  @param  x  Source list.
+     *
+     *  The elements of @a x are inserted in constant time in front of the
+     *  element referenced by @a position.  @a x becomes an empty list.
     */
     void
     splice(iterator __position, list& __x)
@@ -930,7 +880,13 @@ namespace std
     }
   
     /**
-     *  @doctodo
+     *  @brief  Insert element from another %list.
+     *  @param  position  Iterator referencing the element to insert before.
+     *  @param  x  Source list.
+     *  @param  i  Iterator referencing the element to move.
+     *
+     *  Removes the element in list @a x referenced by @a i and inserts it into the
+     *  current list before @a position.
     */
     void
     splice(iterator __position, list&, iterator __i)
@@ -942,8 +898,17 @@ namespace std
     }
   
     /**
-     *  @doctodo
-    */
+     *  @brief  Insert range from another %list.
+     *  @param  position  Iterator referencing the element to insert before.
+     *  @param  x  Source list.
+     *  @param  first  Iterator referencing the start of range in x.
+     *  @param  last  Iterator referencing the end of range in x.
+     *
+     *  Removes elements in the range [first,last) and inserts them before
+     *  @a position in constant time.
+     *
+     *  Undefined if @a position is in [first,last).
+   */
     void
     splice(iterator __position, list&, iterator __first, iterator __last)
     {
@@ -952,58 +917,107 @@ namespace std
     }
   
     /**
-     *  @doctodo
+     *  @brief  Remove all elements equal to value.
+     *  @param  value  The value to remove.
+     *
+     *  Removes every element in the list equal to @a value.  Remaining
+     *  elements stay in list order.  Note that this function only erases the
+     *  elements, and that if the elements themselves are pointers, the
+     *  pointed-to memory is not touched in any way.  Managing the pointer is
+     *  the user's responsibilty.
     */
     void
     remove(const _Tp& __value);
   
     /**
-     *  @doctodo
+     *  @brief  Remove all elements satisfying a predicate.
+     *  @param  Predicate  Unary predicate function or object.
+     *
+     *  Removes every element in the list for which the predicate returns
+     *  true.  Remaining elements stay in list order.  Note that this function
+     *  only erases the elements, and that if the elements themselves are
+     *  pointers, the pointed-to memory is not touched in any way.  Managing
+     *  the pointer is the user's responsibilty.
     */
     template<typename _Predicate>
       void
       remove_if(_Predicate);
   
     /**
-     *  @doctodo
+     *  @brief  Remove consecutive duplicate elements.
+     *
+     *  For each consecutive set of elements with the same value, remove all
+     *  but the first one.  Remaining elements stay in list order.  Note that
+     *  this function only erases the elements, and that if the elements
+     *  themselves are pointers, the pointed-to memory is not touched in any
+     *  way.  Managing the pointer is the user's responsibilty.
     */
     void
     unique();
   
     /**
-     *  @doctodo
+     *  @brief  Remove consecutive elements satisfying a predicate.
+     *  @param  BinaryPredicate  Binary predicate function or object.
+     *
+     *  For each consecutive set of elements [first,last) that satisfy
+     *  predicate(first,i) where i is an iterator in [first,last), remove all
+     *  but the first one.  Remaining elements stay in list order.  Note that
+     *  this function only erases the elements, and that if the elements
+     *  themselves are pointers, the pointed-to memory is not touched in any
+     *  way.  Managing the pointer is the user's responsibilty.
     */
     template<typename _BinaryPredicate>
       void
       unique(_BinaryPredicate);
   
     /**
-     *  @doctodo
+     *  @brief  Merge sorted lists.
+     *  @param  x  Sorted list to merge.
+     *
+     *  Assumes that both @a x and this list are sorted according to
+     *  operator<().  Merges elements of @a x into this list in sorted order,
+     *  leaving @a x empty when complete.  Elements in this list precede
+     *  elements in @a x that are equal.
     */
     void
     merge(list& __x);
   
     /**
-     *  @doctodo
+     *  @brief  Merge sorted lists according to comparison function.
+     *  @param  x  Sorted list to merge.
+     *  @param  StrictWeakOrdering  Comparison function definining sort order.
+     *
+     *  Assumes that both @a x and this list are sorted according to
+     *  StrictWeakOrdering.  Merges elements of @a x into this list in sorted
+     *  order, leaving @a x empty when complete.  Elements in this list precede
+     *  elements in @a x that are equivalent according to StrictWeakOrdering().
     */
     template<typename _StrictWeakOrdering>
       void
       merge(list&, _StrictWeakOrdering);
   
     /**
-     *  @doctodo
+     *  @brief  Reverse the elements in list.
+     *
+     *  Reverse the order of elements in the list in linear time.
     */
     void
-    reverse() { __List_base_reverse(this->_M_node); }
+    reverse() { __List_base_reverse(&this->_M_node); }
   
     /**
-     *  @doctodo
+     *  @brief  Sort the elements.
+     *
+     *  Sorts the elements of this list in NlogN time.  Equivalent elements
+     *  remain in list order.
     */
     void
     sort();
   
     /**
-     *  @doctodo
+     *  @brief  Sort the elements according to comparison function.
+     *
+     *  Sorts the elements of this list in NlogN time.  Equivalent elements
+     *  remain in list order.
     */
     template<typename _StrictWeakOrdering>
       void
@@ -1022,9 +1036,9 @@ namespace std
       }
   
     // called by the range assign to implement [23.1.1]/9
-    template<typename _InputIter>
+    template<typename _InputIterator>
       void
-      _M_assign_dispatch(_InputIter __first, _InputIter __last, __false_type);
+      _M_assign_dispatch(_InputIterator __first, _InputIterator __last, __false_type);
   
     // Called by assign(n,t), and the range assign when it turns out to be the
     // same thing.
@@ -1116,19 +1130,19 @@ namespace std
    *  @brief  List ordering relation.
    *  @param  x  A %list.
    *  @param  y  A %list of the same type as @a x.
-   *  @return  True iff @a x is lexographically less than @a y.
+   *  @return  True iff @a x is lexicographically less than @a y.
    *
    *  This is a total ordering relation.  It is linear in the size of the
    *  lists.  The elements must be comparable with @c <.
    *
-   *  See std::lexographical_compare() for how the determination is made.
+   *  See std::lexicographical_compare() for how the determination is made.
   */
   template<typename _Tp, typename _Alloc>
     inline bool
     operator<(const list<_Tp,_Alloc>& __x, const list<_Tp,_Alloc>& __y)
     {
-      return lexicographical_compare(__x.begin(), __x.end(),
-                                     __y.begin(), __y.end());
+      return std::lexicographical_compare(__x.begin(), __x.end(),
+					  __y.begin(), __y.end());
     }
   
   /// Based on operator==
@@ -1162,4 +1176,4 @@ namespace std
     { __x.swap(__y); }
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_LIST_H */
+#endif /* _LIST_H */

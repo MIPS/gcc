@@ -1,5 +1,5 @@
 /* Time.java -- Wrapper around java.util.Date
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,7 @@ exception statement from your version. */
 
 package java.sql;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
 /**
@@ -52,7 +53,7 @@ import java.text.SimpleDateFormat;
  */
 public class Timestamp extends java.util.Date
 {
-  static final long serialVersionUID = 3581463369166924961L;
+  static final long serialVersionUID = 2745179027874758501L;
 
   /**
    * Used for parsing and formatting this date.
@@ -80,12 +81,16 @@ public class Timestamp extends java.util.Date
   {
     try
       {
-	Date d = (Date) parse_sdf.parseObject(str);
-	return new Timestamp(d.getTime());
+	java.util.Date d = (java.util.Date)parse_sdf.parseObject(str);
+
+	if (d == null)
+	  throw new IllegalArgumentException(str);
+	else
+	  return new Timestamp(d.getTime());
       }
-    catch (Exception e)
+    catch (ParseException e)
       {
-	return null;
+	throw new IllegalArgumentException(str);
       }
   }
 
@@ -237,19 +242,37 @@ public class Timestamp extends java.util.Date
   }
 
   /**
+   * Compare two Timestamp
+   * @param when the other Timestamp.
+   * @return 0, if the date represented
+   * by obj is exactly the same as the time represented by this
+   * object, a negative if this Timestamp is before the other Timestamp, and
+   * a positive value otherwise.  
    * @since 1.2
    */
-   /*
   public int compareTo(Timestamp ts)
   {
-    
-  }*/
-  
+    int s = super.compareTo((java.util.Date) ts);
+    if (s != 0)
+      return s;
+    // If Date components were equal, then we check the nanoseconds.
+    return nanos - ts.nanos;
+  }
+
   /**
+   * Compares this Timestamp to another.  This behaves like
+   * <code>compareTo(Timestamp)</code>, but it may throw a
+   * <code>ClassCastException</code>
+   * @param obj the other Timestamp.
+   * @return 0, if the Timestamp represented
+   * by obj is exactly the same as the time represented by this
+   * object, a negative if this Timestamp is before the other Timestamp, and
+   * a positive value otherwise.  
+   * @exception ClassCastException if obj is not of type Timestamp.
    * @since 1.2
-   *//*
+   */
   public int compareTo(Object obj)
   {
     return compareTo((Timestamp) obj);
-  }*/
+  }
 }

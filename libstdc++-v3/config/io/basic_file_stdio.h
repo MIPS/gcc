@@ -36,8 +36,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BASIC_FILE
-#define _CPP_BASIC_FILE 1
+#ifndef _BASIC_FILE_STDIO_H
+#define _BASIC_FILE_STDIO_H 1
 
 #pragma GCC system_header
 
@@ -56,6 +56,7 @@ namespace std
     {
       // Underlying data source/sink.
       __c_file* 	_M_cfile;
+
       // True iff we opened _M_cfile, and thus must close it ourselves.
       bool 		_M_cfile_created;
 
@@ -75,12 +76,6 @@ namespace std
       __basic_file*
       sys_open(int __fd, ios_base::openmode __mode, bool __del);
 
-      int
-      sys_getc();
-
-      int
-      sys_ungetc(int);
-
       __basic_file* 
       close(); 
 
@@ -96,19 +91,24 @@ namespace std
       xsputn(const char* __s, streamsize __n);
 
       streamsize 
+      xsputn_2(const char* __s1, streamsize __n1,
+	       const char* __s2, streamsize __n2);
+
+      streamsize 
       xsgetn(char* __s, streamsize __n);
 
-      streamoff
-      seekoff(streamoff __off, ios_base::seekdir __way,
-	      ios_base::openmode __mode = ios_base::in | ios_base::out);
+      streampos
+      seekoff(streamoff __off, ios_base::seekdir __way);
 
-      streamoff
-      seekpos(streamoff __pos, 
-	      ios_base::openmode __mode = ios_base::in | ios_base::out);
+      streampos
+      seekpos(streampos __pos);
 
       int 
       sync();
+
+      streamsize
+      showmanyc();
     };
 }  // namespace std
 
-#endif	// _CPP_BASIC_FILE
+#endif	

@@ -1,6 +1,6 @@
 // Concept checking instantiations -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,9 +36,10 @@
 
 #include <bits/concept_check.h>
 
-#ifdef _GLIBCPP_CONCEPT_CHECKS
+#ifdef _GLIBCXX_CONCEPT_CHECKS
 
 #include <memory>
+#include <iterator>
 #include <ostream>
 
 #define _Instantiate(...) template void __function_requires< __VA_ARGS__ > ()
@@ -53,7 +54,7 @@ namespace __gnu_cxx
 
   _Instantiate(_InputIteratorConcept<char const*> );
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   _Instantiate(_InputIteratorConcept<wchar_t*> );
 
   _Instantiate(_InputIteratorConcept<wchar_t const*> );
@@ -74,7 +75,7 @@ namespace __gnu_cxx
   _Instantiate(_OutputIteratorConcept<std::ostreambuf_iterator<
     char, std::char_traits<char> >, char> );
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   _Instantiate(_OutputIteratorConcept<std::ostreambuf_iterator<
     wchar_t, std::char_traits<wchar_t> >, wchar_t> );
 #endif
@@ -89,7 +90,7 @@ namespace __gnu_cxx
   _Instantiate(_RandomAccessIteratorConcept<
     __normal_iterator<char*, std::string> > );
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   _Instantiate(_RandomAccessIteratorConcept<
     __normal_iterator<wchar_t const*,
     std::basic_string<wchar_t, std::char_traits<wchar_t>,

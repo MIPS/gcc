@@ -46,13 +46,13 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_MEMORY
-#define _CPP_MEMORY 1
+#ifndef _GLIBCXX_MEMORY
+#define _GLIBCXX_MEMORY 1
 
 #pragma GCC system_header
 
 #include <bits/stl_algobase.h>
-#include <bits/stl_alloc.h>
+#include <bits/allocator.h>
 #include <bits/stl_construct.h>
 #include <bits/stl_iterator_base_types.h> //for iterator_traits
 #include <bits/stl_uninitialized.h>
@@ -103,7 +103,7 @@ namespace std
   template<typename _Tp>
     inline pair<_Tp*,ptrdiff_t>
     get_temporary_buffer(ptrdiff_t __len)
-    { return __get_temporary_buffer(__len, (_Tp*) 0); }
+    { return std::__get_temporary_buffer(__len, (_Tp*) 0); }
 
   /**
    *  @brief The companion to get_temporary_buffer().
@@ -158,7 +158,7 @@ namespace std
    *  in the libstdc++ testsuite.
    *
    *  @if maint
-   *  _GLIBCPP_RESOLVE_LIB_DEFECTS
+   *  _GLIBCXX_RESOLVE_LIB_DEFECTS
    *  127.  auto_ptr<> conversion issues
    *  These resolutions have all been incorporated.
    *  @endif
@@ -355,4 +355,4 @@ namespace std
   };
 } // namespace std
 
-#endif 
+#endif /* _GLIBCXX_MEMORY */

@@ -1,6 +1,7 @@
 // win32-threads.cc - interface between libjava and Win32 threads.
 
-/* Copyright (C) 1998, 1999  Free Software Foundation, Inc.
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This file is part of libgcj.
 
@@ -70,12 +71,24 @@ DWORD _Jv_ThreadDataKey;
 inline void
 ensure_condvar_initialized(_Jv_ConditionVariable_t *cv)
 {
-  if (cv->ev[0] == 0) {
-    cv->ev[0] = CreateEvent (NULL, 0, 0, NULL);
-    if (cv->ev[0] == 0) JvFail("CreateEvent() failed");
-    cv->ev[1] = CreateEvent (NULL, 1, 0, NULL);
-    if (cv->ev[1] == 0) JvFail("CreateEvent() failed");
-  }
+  if (cv->ev[0] == 0)
+    {
+      cv->ev[0] = CreateEvent (NULL, 0, 0, NULL);
+      if (cv->ev[0] == 0) JvFail("CreateEvent() failed");
+
+      cv->ev[1] = CreateEvent (NULL, 1, 0, NULL);
+      if (cv->ev[1] == 0) JvFail("CreateEvent() failed");
+    }
+}
+
+inline void
+ensure_interrupt_event_initialized(HANDLE& rhEvent)
+{
+  if (!rhEvent)
+    {
+      rhEvent = CreateEvent (NULL, 0, 0, NULL);
+      if (!rhEvent) JvFail("CreateEvent() failed");
+    }
 }
 
 // Reimplementation of the general algorithm described at
@@ -85,11 +98,28 @@ ensure_condvar_initialized(_Jv_ConditionVariable_t *cv)
 int
 _Jv_CondWait(_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu, jlong millis, jint nanos)
 {
+  if (mu->owner != GetCurrentThreadId ( ))
+    return _JV_NOT_OWNER;
 
-  EnterCriticalSection(&cv->count_mutex);
-  ensure_condvar_initialized(cv);
+  _Jv_Thread_t *current = _Jv_ThreadCurrentData ();
+  java::lang::Thread *current_obj = _Jv_ThreadCurrent ();
+
+  // Now that we hold the interrupt mutex, check if this thread has been 
+  // interrupted already.
+  EnterCriticalSection (&current->interrupt_mutex);
+  ensure_interrupt_event_initialized (current->interrupt_event);
+  jboolean interrupted = current_obj->interrupt_flag;
+  LeaveCriticalSection (&current->interrupt_mutex);
+
+  if (interrupted)
+    {
+      return _JV_INTERRUPTED;
+    }
+
+  EnterCriticalSection (&cv->count_mutex);
+  ensure_condvar_initialized (cv);
   cv->blocked_count++;
-  LeaveCriticalSection(&cv->count_mutex);
+  LeaveCriticalSection (&cv->count_mutex);
 
   DWORD time;
   if ((millis == 0) && (nanos > 0)) time = 1;
@@ -98,22 +128,45 @@ _Jv_CondWait(_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu, jlong millis, jint na
 
   _Jv_MutexUnlock (mu);
 
-  DWORD rval = WaitForMultipleObjects (2, &(cv->ev[0]), 0, time);
+  // Set up our array of three events:
+  // - the auto-reset event (for notify())
+  // - the manual-reset event (for notifyAll())
+  // - the interrupt event (for interrupt())
+  // We wait for any one of these to be signaled.
+  HANDLE arh[3];
+  arh[0] = cv->ev[0];
+  arh[1] = cv->ev[1];
+  arh[2] = current->interrupt_event;
+  DWORD rval = WaitForMultipleObjects (3, arh, 0, time);
+
+  EnterCriticalSection (&current->interrupt_mutex);
+
+  // If we were unblocked by the third event (our thread's interrupt
+  // event), set the thread's interrupt flag. I think this sanity
+  // check guards against someone resetting our interrupt flag
+  // in the time between when interrupt_mutex is released in
+  // _Jv_ThreadInterrupt and the interval of time between the
+  // WaitForMultipleObjects call we just made and our acquisition
+  // of interrupt_mutex.
+  if (rval == (WAIT_OBJECT_0 + 2))
+    current_obj->interrupt_flag = true;
+    
+  interrupted = current_obj->interrupt_flag;
+  LeaveCriticalSection (&current->interrupt_mutex);
 
   EnterCriticalSection(&cv->count_mutex);
   cv->blocked_count--;
-  // If we were unblocked by the second event (the broadcast one) and nobody is
-  // left, then reset the signal.
-  int last_waiter = rval == WAIT_OBJECT_0 + 1 && cv->blocked_count == 0;
+  // If we were unblocked by the second event (the broadcast one)
+  // and nobody is left, then reset the event.
+  int last_waiter = (rval == (WAIT_OBJECT_0 + 1)) && (cv->blocked_count == 0);
   LeaveCriticalSection(&cv->count_mutex);
 
-  if (last_waiter) ResetEvent(&cv->ev[1]);
+  if (last_waiter)
+    ResetEvent (cv->ev[1]);
 
   _Jv_MutexLock (mu);
-
-  if (rval == WAIT_FAILED) return GetLastError();
-  else if (rval == WAIT_TIMEOUT) return ETIMEDOUT;
-  else return 0;
+  
+  return interrupted ? _JV_INTERRUPTED : 0;
 }
 
 void
@@ -121,39 +174,56 @@ _Jv_CondInit (_Jv_ConditionVariable_t *cv)
 {
   // we do lazy creation of Events since CreateEvent() is insanely expensive
   cv->ev[0] = 0;
-  InitializeCriticalSection(&cv->count_mutex);
+  InitializeCriticalSection (&cv->count_mutex);
   cv->blocked_count = 0;
 }
 
 void
 _Jv_CondDestroy (_Jv_ConditionVariable_t *cv)
 {
-  if (cv->ev[0] != 0) CloseHandle(cv->ev[0]);
-  cv = NULL;
+  if (cv->ev[0] != 0)
+    {
+      CloseHandle (cv->ev[0]);
+      CloseHandle (cv->ev[1]);
+
+      cv->ev[0] = 0;
+    }
+
+  DeleteCriticalSection (&cv->count_mutex);
 }
 
 int
-_Jv_CondNotify (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *)
+_Jv_CondNotify (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu)
 {
-  EnterCriticalSection(&cv->count_mutex);
-  ensure_condvar_initialized(cv);
-  int somebody_is_blocked = cv->blocked_count > 0;
-  LeaveCriticalSection(&cv->count_mutex);
+  if (mu->owner != GetCurrentThreadId ( ))
+    return _JV_NOT_OWNER;
 
-  if (somebody_is_blocked) return SetEvent (cv->ev[0]) ? 0 : GetLastError();
-  else return 0;
+  EnterCriticalSection (&cv->count_mutex);
+  ensure_condvar_initialized (cv);
+  int somebody_is_blocked = cv->blocked_count > 0;
+  LeaveCriticalSection (&cv->count_mutex);
+
+  if (somebody_is_blocked)
+    SetEvent (cv->ev[0]);
+
+  return 0;
 }
 
 int
-_Jv_CondNotifyAll (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *)
+_Jv_CondNotifyAll (_Jv_ConditionVariable_t *cv, _Jv_Mutex_t *mu)
 {
-  EnterCriticalSection(&cv->count_mutex);
-  ensure_condvar_initialized(cv);
-  int somebody_is_blocked = cv->blocked_count > 0;
-  LeaveCriticalSection(&cv->count_mutex);
+  if (mu->owner != GetCurrentThreadId ( ))
+    return _JV_NOT_OWNER;
 
-  if (somebody_is_blocked) return SetEvent (cv->ev[1]) ? 0 : GetLastError();
-  else return 0;
+  EnterCriticalSection (&cv->count_mutex);
+  ensure_condvar_initialized (cv);
+  int somebody_is_blocked = cv->blocked_count > 0;
+  LeaveCriticalSection (&cv->count_mutex);
+
+  if (somebody_is_blocked)
+    SetEvent (cv->ev[1]);
+
+  return 0;
 }
 
 //
@@ -165,8 +235,8 @@ _Jv_InitThreads (void)
 {
   _Jv_ThreadKey = TlsAlloc();
   _Jv_ThreadDataKey = TlsAlloc();
-  daemon_mutex = CreateMutex(NULL, 0, NULL);
-  daemon_cond = CreateEvent(NULL, 0, 0, NULL);
+  daemon_mutex = CreateMutex (NULL, 0, NULL);
+  daemon_cond = CreateEvent (NULL, 1, 0, NULL);
   non_daemon_count = 0;
 }
 
@@ -176,6 +246,8 @@ _Jv_ThreadInitData (java::lang::Thread* obj)
   _Jv_Thread_t *data = (_Jv_Thread_t*)_Jv_Malloc(sizeof(_Jv_Thread_t));
   data->flags = 0;
   data->thread_obj = obj;
+  data->interrupt_event = 0;
+  InitializeCriticalSection (&data->interrupt_mutex);
 
   return data;
 }
@@ -183,6 +255,9 @@ _Jv_ThreadInitData (java::lang::Thread* obj)
 void
 _Jv_ThreadDestroyData (_Jv_Thread_t *data)
 {
+  DeleteCriticalSection (&data->interrupt_mutex);
+  if (data->interrupt_event)
+    CloseHandle(data->interrupt_event);
   _Jv_Free(data);
 }
 
@@ -255,7 +330,7 @@ really_start (void* x)
       WaitForSingleObject (daemon_mutex, INFINITE);
       non_daemon_count--;
       if (! non_daemon_count)
-          PulseEvent (daemon_cond);
+        SetEvent (daemon_cond);
       ReleaseMutex (daemon_mutex);
     }
 
@@ -287,25 +362,42 @@ _Jv_ThreadStart (java::lang::Thread *thread, _Jv_Thread_t *data, _Jv_ThreadStart
   else
     data->flags |= FLAG_DAEMON;
 
-  HANDLE h = GC_CreateThread(NULL, 0, really_start, info, 0, &id);
+  GC_CreateThread(NULL, 0, really_start, info, 0, &id);
   _Jv_ThreadSetPriority(data, thread->getPriority());
-
-  //if (!h)
-    //JvThrow ();
 }
 
 void
 _Jv_ThreadWait (void)
 {
-  WaitForSingleObject(daemon_mutex, INFINITE);
-  if(non_daemon_count)
-      SignalObjectAndWait(daemon_mutex, daemon_cond, INFINITE, 0);
-  ReleaseMutex(daemon_mutex);
+  WaitForSingleObject (daemon_mutex, INFINITE);
+  if (non_daemon_count)
+    {
+      ReleaseMutex (daemon_mutex);
+      WaitForSingleObject (daemon_cond, INFINITE);
+    }
+}
+
+//
+// Interrupt support
+//
+
+HANDLE
+_Jv_Win32GetInterruptEvent (void)
+{
+  _Jv_Thread_t *current = _Jv_ThreadCurrentData ();
+  EnterCriticalSection (&current->interrupt_mutex);
+  ensure_interrupt_event_initialized (current->interrupt_event);
+  HANDLE hEvent = current->interrupt_event;
+  LeaveCriticalSection (&current->interrupt_mutex);
+  return hEvent;
 }
 
 void
 _Jv_ThreadInterrupt (_Jv_Thread_t *data)
 {
-  MessageBox(NULL, "Unimplemented", "win32-threads.cc:_Jv_ThreadInterrupt", MB_OK);
-  // FIXME:
+  EnterCriticalSection (&data->interrupt_mutex);
+  ensure_interrupt_event_initialized (data->interrupt_event);
+  data->thread_obj->interrupt_flag = true;
+  SetEvent (data->interrupt_event);
+  LeaveCriticalSection (&data->interrupt_mutex);
 }

@@ -35,8 +35,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef _CPP_BITS_INDIRECT_ARRAY_H
-#define _CPP_BITS_INDIRECT_ARRAY_H 1
+#ifndef _INDIRECT_ARRAY_H
+#define _INDIRECT_ARRAY_H 1
 
 #pragma GCC system_header
 
@@ -118,7 +118,7 @@ namespace std
      inline indirect_array<_Tp>&
      indirect_array<_Tp>::operator=(const indirect_array<_Tp>& __a)
      {
-       __valarray_copy(__a._M_array, _M_sz, __a._M_index, _M_array, _M_index);
+       std::__valarray_copy(__a._M_array, _M_sz, __a._M_index, _M_array, _M_index);
        return *this;
      }
 
@@ -126,18 +126,18 @@ namespace std
   template<typename _Tp>
      inline void
      indirect_array<_Tp>::operator=(const _Tp& __t) const
-     { __valarray_fill(_M_array, _M_index, _M_sz, __t); }
+     { std::__valarray_fill(_M_array, _M_index, _M_sz, __t); }
 
   template<typename _Tp>
      inline void
      indirect_array<_Tp>::operator=(const valarray<_Tp>& __v) const
-     { __valarray_copy(_Array<_Tp>(__v), _M_sz, _M_array, _M_index); }
+     { std::__valarray_copy(_Array<_Tp>(__v), _M_sz, _M_array, _M_index); }
 
   template<typename _Tp>
      template<class _Dom>
        inline void
        indirect_array<_Tp>::operator=(const _Expr<_Dom,_Tp>& __e) const
-       { __valarray_copy(__e, _M_sz, _M_array, _M_index); }
+       { std::__valarray_copy(__e, _M_sz, _M_array, _M_index); }
 
 #undef _DEFINE_VALARRAY_OPERATOR
 #define _DEFINE_VALARRAY_OPERATOR(_Op, _Name)				\
@@ -171,7 +171,7 @@ _DEFINE_VALARRAY_OPERATOR(>>, __shift_right)
 
 } // std::
 
-#endif /* _CPP_BITS_INDIRECT_ARRAY_H */
+#endif /* _INDIRECT_ARRAY_H */
 
 // Local Variables:
 // mode:c++

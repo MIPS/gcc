@@ -40,7 +40,6 @@ package java.util;
 
 import java.io.IOException;
 import java.io.InputStream;
-import gnu.java.util.DoubleEnumeration;
 
 /**
  * This class is a concrete <code>ResourceBundle</code> that gets it
@@ -62,8 +61,8 @@ import gnu.java.util.DoubleEnumeration;
  * An example of a properties file for the german language is given
  * here. This extends the example given in ListResourceBundle.
  * Create a file MyResource_de.properties with the following contents
- * and put it in the CLASSPATH. (The char <code>\u00e4<char> is the
- * german &auml;)
+ * and put it in the CLASSPATH. (The char <code>\u00e4</code> is the
+ * german umlaut)
  *
  *
 <pre>

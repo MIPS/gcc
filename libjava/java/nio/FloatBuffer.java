@@ -1,5 +1,5 @@
 /* FloatBuffer.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,133 +35,262 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.nio;
 
-import gnu.java.nio.FloatBufferImpl;
-
+/**
+ * @since 1.4
+ */
 public abstract class FloatBuffer extends Buffer
+  implements Comparable
 {
-  private ByteOrder endian = ByteOrder.BIG_ENDIAN;
-  protected float [] backing_buffer;
+  int array_offset;
+  float[] backing_buffer;
 
-  public static FloatBuffer allocateDirect(int capacity)
+  FloatBuffer (int capacity, int limit, int position, int mark)
   {
-    return new FloatBufferImpl (capacity, 0, capacity);
+    super (capacity, limit, position, mark);
+    array_offset = 0;
   }
 
-  public static FloatBuffer allocate(int capacity)
+  FloatBuffer (float[] buffer, int offset, int capacity, int limit, int position, int mark)
   {
-    return new FloatBufferImpl (capacity, 0, capacity);
+    super (capacity, limit, position, mark);
+    this.backing_buffer = buffer;
+    this.array_offset = offset;
   }
 
-  final public static FloatBuffer wrap(float[] array, int offset, int length)
+  /**
+   * Allocates a new <code>FloatBuffer</code> object with a given capacity.
+   */
+  public static FloatBuffer allocate (int capacity)
   {
-    return new FloatBufferImpl(array, offset, length);
+    return new FloatBufferImpl (capacity);
   }
 
-  final public static FloatBuffer wrap(String a)
+  /**
+   * Wraps a <code>float</code> array into a <code>FloatBuffer</code>
+   * object.
+   *
+   * @exception IndexOutOfBoundsException If the preconditions on the offset
+   * and length parameters do not hold
+   */
+  final public static FloatBuffer wrap (float[] array, int offset, int length)
   {
-    int len = a.length();
-    float[] buffer = new float[len];
-
-    for (int i=0;i<len;i++)
-      {
-        buffer[i] = (float) a.charAt(i);
-      }
-
-    return wrap(buffer, 0, len);
+    return new FloatBufferImpl (array, 0, array.length, offset + length, offset, -1, false);
   }
 
-  final public static FloatBuffer wrap(float[] array)
+  /**
+   * Wraps a <code>float</code> array into a <code>FloatBuffer</code>
+   * object.
+   */
+  final public static FloatBuffer wrap (float[] array)
   {
-    return wrap(array, 0, array.length);
+    return wrap (array, 0, array.length);
   }
-
-  final public FloatBuffer get(float[] dst, int offset, int length)
+  
+  /**
+   * This method transfers <code>floats<code> from this buffer into the given
+   * destination array.
+   *
+   * @param dst The destination array
+   * @param offset The offset within the array of the first <code>float</code>
+   * to be written; must be non-negative and no larger than dst.length.
+   * @param length The maximum number of bytes to be written to the given array;
+   * must be non-negative and no larger than dst.length - offset.
+   *
+   * @exception BufferUnderflowException If there are fewer than length
+   * <code>floats</code> remaining in this buffer.
+   * @exception IndexOutOfBoundsException If the preconditions on the offset
+   * and length parameters do not hold.
+   */
+  public FloatBuffer get (float[] dst, int offset, int length)
   {
     for (int i = offset; i < offset + length; i++)
       {
-        dst[i] = get();
+        dst [i] = get ();
       }
 
     return this;
   }
 
-  final public FloatBuffer get(float[] dst)
+  /**
+   * This method transfers <code>floats<code> from this buffer into the given
+   * destination array.
+   *
+   * @param dst The byte array to write into.
+   *
+   * @exception BufferUnderflowException If there are fewer than dst.length
+   * <code>floats</code> remaining in this buffer.
+   */
+  public FloatBuffer get (float[] dst)
   {
-    return get(dst, 0, dst.length);
+    return get (dst, 0, dst.length);
   }
 
-  final public FloatBuffer put(FloatBuffer src)
+  /**
+   * Writes the content of the the <code>FloatBUFFER</code> src
+   * into the buffer.
+   *
+   * @param src The source data.
+   *
+   * @exception BufferOverflowException If there is insufficient space in this
+   * buffer for the remaining <code>floats<code> in the source buffer.
+   * @exception IllegalArgumentException If the source buffer is this buffer.
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public FloatBuffer put (FloatBuffer src)
   {
-    while (src.hasRemaining())
-      put(src.get());
+    if (src == this)
+      throw new IllegalArgumentException ();
+
+    if (src.remaining () > remaining ())
+      throw new BufferOverflowException ();
+
+    if (src.remaining () > 0)
+      {
+        float[] toPut = new float [src.remaining ()];
+        src.get (toPut);
+        src.put (toPut);
+      }
 
     return this;
   }
 
-  final public FloatBuffer put(float[] src, int offset, int length)
+  /**
+   * Writes the content of the the <code>float array</code> src
+   * into the buffer.
+   *
+   * @param src The array to copy into the buffer.
+   * @param offset The offset within the array of the first byte to be read;
+   * must be non-negative and no larger than src.length.
+   * @param length The number of bytes to be read from the given array;
+   * must be non-negative and no larger than src.length - offset.
+   * 
+   * @exception BufferOverflowException If there is insufficient space in this
+   * buffer for the remaining <code>floats<code> in the source array.
+   * @exception IndexOutOfBoundsException If the preconditions on the offset
+   * and length parameters do not hold
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public FloatBuffer put (float[] src, int offset, int length)
   {
     for (int i = offset; i < offset + length; i++)
-      put(src[i]);
+      put (src [i]);
 
     return this;
   }
 
-  public final FloatBuffer put(float[] src)
+  /**
+   * Writes the content of the the <code>float array</code> src
+   * into the buffer.
+   *
+   * @param src The array to copy into the buffer.
+   * 
+   * @exception BufferOverflowException If there is insufficient space in this
+   * buffer for the remaining <code>floats<code> in the source array.
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public final FloatBuffer put (float[] src)
   {
-    return put(src, 0, src.length);
+    return put (src, 0, src.length);
   }
 
-  public final boolean hasArray()
+  /**
+   * Tells whether ot not this buffer is backed by an accessible
+   * <code>float</code> array.
+   */
+  public final boolean hasArray ()
   {
-    return (backing_buffer != null);
+    return (backing_buffer != null
+            && !isReadOnly ());
   }
 
-  public final float[] array()
+  /**
+   * Returns the <code>float</code> array that backs this buffer.
+   *
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   * @exception UnsupportedOperationException If this buffer is not backed
+   * by an accessible array.
+   */
+  public final float[] array ()
   {
+    if (backing_buffer == null)
+      throw new UnsupportedOperationException ();
+
+    if (isReadOnly ())
+      throw new ReadOnlyBufferException ();
+    
     return backing_buffer;
   }
 
-  public final int arrayOffset()
+  /**
+   * Returns the offset within this buffer's backing array of the first element.
+   *
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   * @exception UnsupportedOperationException If this buffer is not backed
+   * by an accessible array.
+   */
+  public final int arrayOffset ()
   {
-    return 0;
+    if (backing_buffer == null)
+      throw new UnsupportedOperationException ();
+
+    if (isReadOnly ())
+      throw new ReadOnlyBufferException ();
+    
+    return array_offset;
   }
 
-  public int hashCode()
+  /**
+   * Calculates a hash code for this buffer.
+   */
+  public int hashCode ()
   {
-    return super.hashCode();
+    // FIXME: Check what SUN calculates here.
+    return super.hashCode ();
   }
 
-  public boolean equals(Object obj)
+  /**
+   * Checks if this buffer is equal to obj.
+   */
+  public boolean equals (Object obj)
   {
     if (obj instanceof FloatBuffer)
       {
-        return compareTo(obj) == 0;
+        return compareTo (obj) == 0;
       }
+
     return false;
   }
 
-  public int compareTo(Object ob)
+  /**
+   * Compares two <code>FloatBuffer</code> objects.
+   *
+   * @exception ClassCastException If obj is not an object derived from
+   * <code>FloatBuffer</code>.
+   */
+  public int compareTo (Object obj)
   {
-    FloatBuffer a = (FloatBuffer) ob;
+    FloatBuffer a = (FloatBuffer) obj;
 
-    if (a.remaining() != remaining())
+    if (a.remaining () != remaining ())
       return 1;
 
-    if (! hasArray() ||
-        ! a.hasArray())
+    if (! hasArray () ||
+        ! a.hasArray ())
       {
         return 1;
       }
 
-    int r = remaining();
+    int r = remaining ();
     int i1 = position ();
     int i2 = a.position ();
 
-    for (int i=0;i<r;i++)
+    for (int i = 0; i < r; i++)
       {
-        int t = (int) (get(i1)- a.get(i2));
+        int t = (int) (get (i1) - a.get (i2));
+
         if (t != 0)
           {
             return (int) t;
@@ -171,54 +300,74 @@ public abstract class FloatBuffer extends Buffer
     return 0;
   }
 
-  public final ByteOrder order()
-  {
-    return endian;
-  }
+  /**
+   * Returns the byte order of this buffer.
+   */
+  public abstract ByteOrder order ();
 
-  public final FloatBuffer order(ByteOrder bo)
-  {
-    endian = bo;
-    return this;
-  }
+  /**
+   * Reads the <code>float</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferUnderflowException If there are no remaining
+   * <code>floats</code> in this buffer.
+   */
+  public abstract float get ();
 
-  public abstract float get();
-  public abstract java.nio. FloatBuffer put(float b);
-  public abstract float get(int index);
-  public abstract java.nio. FloatBuffer put(int index, float b);
-  public abstract FloatBuffer compact();
-  public abstract boolean isDirect();
-  public abstract FloatBuffer slice();
-  public abstract FloatBuffer duplicate();
-  public abstract FloatBuffer asReadOnlyBuffer();
-  public abstract ShortBuffer asShortBuffer();
-  public abstract CharBuffer asCharBuffer();
-  public abstract IntBuffer asIntBuffer();
-  public abstract LongBuffer asLongBuffer();
-  public abstract FloatBuffer asFloatBuffer();
-  public abstract DoubleBuffer asDoubleBuffer();
-  public abstract char getChar();
-  public abstract FloatBuffer putChar(char value);
-  public abstract char getChar(int index);
-  public abstract FloatBuffer putChar(int index, char value);
-  public abstract short getShort();
-  public abstract FloatBuffer putShort(short value);
-  public abstract short getShort(int index);
-  public abstract FloatBuffer putShort(int index, short value);
-  public abstract int getInt();
-  public abstract FloatBuffer putInt(int value);
-  public abstract int getInt(int index);
-  public abstract FloatBuffer putInt(int index, int value);
-  public abstract long getLong();
-  public abstract FloatBuffer putLong(long value);
-  public abstract long getLong(int index);
-  public abstract FloatBuffer putLong(int index, long value);
-  public abstract float getFloat();
-  public abstract FloatBuffer putFloat(float value);
-  public abstract float getFloat(int index);
-  public abstract FloatBuffer putFloat(int index, float value);
-  public abstract double getDouble();
-  public abstract FloatBuffer putDouble(double value);
-  public abstract double getDouble(int index);
-  public abstract FloatBuffer putDouble(int index, double value);
+  /**
+   * Writes the <code>float</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferOverflowException If there no remaining 
+   * <code>floats</code> in this buffer.
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public abstract FloatBuffer put (float b);
+
+  /**
+   * Absolute get method.
+   *
+   * @exception IndexOutOfBoundsException If index is negative or not smaller
+   * than the buffer's limit.
+   */
+  public abstract float get (int index);
+  
+  /**
+   * Absolute put method.
+   *
+   * @exception IndexOutOfBoundsException If index is negative or not smaller
+   * than the buffer's limit.
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public abstract FloatBuffer put (int index, float b);
+
+  /**
+   * Compacts this buffer.
+   * 
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public abstract FloatBuffer compact ();
+
+  /**
+   * Tells wether or not this buffer is direct.
+   */
+  public abstract boolean isDirect ();
+
+  /**
+   * Creates a new <code>FloatBuffer</code> whose content is a shared
+   * subsequence of this buffer's content.
+   */
+  public abstract FloatBuffer slice ();
+
+  /**
+   * Creates a new <code>FloatBuffer</code> that shares this buffer's
+   * content.
+   */
+  public abstract FloatBuffer duplicate ();
+
+  /**
+   * Creates a new read-only <code>FloatBuffer</code> that shares this
+   * buffer's content.
+   */
+  public abstract FloatBuffer asReadOnlyBuffer ();
 }

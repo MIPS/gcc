@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1996, 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
+  Copyright (c) 1996, 1997, 1998, 1999, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -34,6 +34,7 @@ or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
+
 
 package java.rmi.server;
 
@@ -89,7 +90,7 @@ public static RemoteStub exportObject(Remote obj) throws RemoteException {
     return exportObject(obj, port, null);
   }
   
-  protected static Remote exportObject(Remote obj, int port, RMIServerSocketFactory ssf) 
+  static Remote exportObject(Remote obj, int port, RMIServerSocketFactory ssf) 
     throws RemoteException 
   {
     UnicastServerRef sref = null;
@@ -103,7 +104,7 @@ public static RemoteStub exportObject(Remote obj) throws RemoteException {
   }
 
   /**
-   * FIX ME
+   * FIXME
    */
   public static Remote exportObject(Remote obj, int port, RMIClientSocketFactory csf, 
 				    RMIServerSocketFactory ssf) 
@@ -113,7 +114,7 @@ public static RemoteStub exportObject(Remote obj) throws RemoteException {
   }
 
   public static boolean unexportObject(Remote obj, boolean force) 
-    throws RemoteException, NoSuchObjectException 
+    throws NoSuchObjectException 
   {
     if (obj instanceof RemoteObject)
       {

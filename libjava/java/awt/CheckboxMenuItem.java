@@ -38,11 +38,11 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.peer.CheckboxMenuItemPeer;
-import java.awt.peer.MenuItemPeer;
-import java.awt.peer.MenuComponentPeer;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.peer.CheckboxMenuItemPeer;
+import java.awt.peer.MenuItemPeer;
+import java.util.EventListener;
 
 /**
   * This class implements a menu item that has a checkbox on it indicating
@@ -51,8 +51,7 @@ import java.awt.event.ItemListener;
   * @author Aaron M. Renn (arenn@urbanophile.com)
   * @author Tom Tromey <tromey@redhat.com>
   */
-public class CheckboxMenuItem extends MenuItem implements ItemSelectable,
-                                                          java.io.Serializable
+public class CheckboxMenuItem extends MenuItem implements ItemSelectable
 {
 
 /*
@@ -84,6 +83,9 @@ private transient ItemListener item_listeners;
 /**
   * Initializes a new instance of <code>CheckboxMenuItem</code> with no
   * label and an initial state of off.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless()
+  * returns true.
   */
 public
 CheckboxMenuItem()
@@ -98,6 +100,9 @@ CheckboxMenuItem()
   * specified label and an initial state of off.
   *
   * @param label The label of the menu item.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless()
+  * returns true.
   */
 public
 CheckboxMenuItem(String label)
@@ -114,12 +119,18 @@ CheckboxMenuItem(String label)
   * @param label The label of the menu item.
   * @param state The initial state of the menu item, where <code>true</code>
   * is on, and <code>false</code> is off.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless()
+  * returns true.
   */
 public
 CheckboxMenuItem(String label, boolean state)
 {
   super(label);
   this.state = state;
+
+  if (GraphicsEnvironment.isHeadless())
+    throw new HeadlessException ();
 }
 
 /*************************************************************************/
@@ -284,5 +295,29 @@ paramString()
 	  + "," + super.paramString());
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this <code>CheckboxMenuItem</code>. FooListeners are registered using
+   * the addFooListener method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == ItemListener.class)
+      return AWTEventMulticaster.getListeners (item_listeners, listenerType); 
+	      
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Returns an aray of all item listeners currently registered to this
+   * <code>CheckBoxMenuItem</code>.
+   */
+  public ItemListener[] getItemListeners ()
+  {
+    return (ItemListener[]) getListeners (ItemListener.class);
+  }
 } // class CheckboxMenuItem
 

@@ -39,6 +39,7 @@ exception statement from your version. */
 package java.awt;
 
 import java.awt.image.ImageObserver;
+import java.text.AttributedCharacterIterator;
 
 /**
   * This is the abstract superclass of classes for drawing to graphics
@@ -440,24 +441,6 @@ fill3DRect(int x, int y, int width, int height, boolean raised)
 /*************************************************************************/
 
 /**
-  * Draws the outline of the specified rectangle with a 3D effect
-  *
-  * @param x The X coordinate of the upper left corner of the draw rect.
-  * @param y The Y coordinate of the upper left corner of the draw rect.
-  * @param width The width of the draw rect.
-  * @param height The height of the draw rect.
-  * @param raised <code>true</code> if the rectangle appears raised,
-  * <code>false</code> if it should appear etched.
-  */
-public void
-drawRoundRect(int x, int y, int width, int height, boolean raised)
-{
-  // FIXME: ???
-}
-
-/*************************************************************************/
-
-/**
   * Draws an oval that just fits within the specified rectangle.
   *
   * @param x The X coordinate of the upper left corner of the rect.
@@ -595,6 +578,8 @@ fillPolygon(Polygon polygon)
 public abstract void
 drawString(String string, int x, int y);
 
+public abstract void drawString (AttributedCharacterIterator ci, int x, int y);
+
 /*************************************************************************/
 
 /**
@@ -611,28 +596,6 @@ drawChars(char data[], int offset, int length, int x, int y)
 {
   drawString(new String(data, offset, length), x, y);
 }
-
-/*************************************************************************/
-
-/**
-  * Draws the specified bytes as text starting at the specified point.
-  *
-  * @param data The array of bytes to draw.
-  * @param offset The offset into the array to start drawing bytes from.
-  * @param length The number of bytes to draw.
-  * @param x The X coordinate of the point to draw at.
-  * @param y The Y coordinate of the point to draw at.
-  */
-public void
-drawChars(byte data[], int offset, int length, int x, int y)
-{
-  drawString(new String(data, offset, length), x, y);
-}
-
-/*
-public abstract void drawString(AttributedCharacterIterator iterator,
-	        		  int x, int y)
-*/
 
 public void
 drawBytes(byte[] data, int offset, int length, int x, int y)

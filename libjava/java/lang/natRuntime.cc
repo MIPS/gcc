@@ -1,6 +1,6 @@
 // natRuntime.cc - Implementation of native side of Runtime class.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,6 +9,7 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
+#include <platform.h>
 
 #include <stdlib.h>
 
@@ -27,10 +28,11 @@ details.  */
 #include <java/lang/StringBuffer.h>
 #include <java/lang/Process.h>
 #include <java/lang/ConcreteProcess.h>
+#include <java/lang/ClassLoader.h>
+#include <gnu/gcj/runtime/StackTrace.h>
+#include <java/lang/ArrayIndexOutOfBoundsException.h>
 
 #include <jni.h>
-
-#include "platform.h"
 
 #ifdef HAVE_PWD_H
 #include <pwd.h>
@@ -58,48 +60,28 @@ details.  */
    AC_LTDL_PREOPEN to see if we do.  */
 extern const lt_dlsymlist lt_preloaded_symbols[1] = { { 0, 0 } };
 
-// We keep track of all the libraries loaded by this application.  For
-// now we use them to look up symbols for JNI.  `libraries_size' holds
-// the total size of the buffer.  `libraries_count' is the number of
-// items which are in use.
-static int libraries_size;
-static int libraries_count;
-static lt_dlhandle *libraries;
-
-static void
-add_library (lt_dlhandle lib)
+struct lookup_data
 {
-  if (libraries_count == libraries_size)
-    {
-      int ns = libraries_size * 2;
-      if (ns == 0)
-	ns = 10;
-      lt_dlhandle *n = (lt_dlhandle *) _Jv_Malloc (ns * sizeof (lt_dlhandle));
-      if (libraries)
-	{
-	  memcpy (n, libraries, libraries_size * sizeof (lt_dlhandle));
-	  _Jv_Free (libraries);
-	}
-      libraries = n;
-      libraries_size = ns;
-      for (int i = libraries_count; i < libraries_size; ++i)
-	libraries[i] = NULL;
-    }
+  const char *symname;
+  void *result;
+};
 
-  libraries[libraries_count++] = lib;
+static int
+find_symbol (lt_dlhandle handle, lt_ptr_t data)
+{
+  lookup_data *ld = (lookup_data *) data;
+  ld->result = lt_dlsym (handle, ld->symname);
+  return ld->result != NULL;
 }
 
 void *
 _Jv_FindSymbolInExecutable (const char *symname)
 {
-  for (int i = 0; i < libraries_count; ++i)
-    {
-      void *r = lt_dlsym (libraries[i], symname);
-      if (r)
-	return r;
-    }
-
-  return NULL;
+  lookup_data data;
+  data.symname = symname;
+  data.result = NULL;
+  lt_dlforeach (find_symbol, (lt_ptr_t) &data);
+  return data.result;
 }
 
 void
@@ -154,6 +136,11 @@ java::lang::Runtime::gc (void)
   _Jv_RunGC ();
 }
 
+#ifdef USE_LTDL
+// List of names for JNI_OnLoad.
+static const char *onload_names[] = _Jv_platform_onload_names;
+#endif
+
 void
 java::lang::Runtime::_load (jstring path, jboolean do_search)
 {
@@ -161,18 +148,63 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
   using namespace java::lang;
 #ifdef USE_LTDL
   jint len = _Jv_GetStringUTFLength (path);
-  char buf[len + 1 + 3];
+  char buf[len + 1 + strlen (_Jv_platform_solib_prefix)
+	   + strlen (_Jv_platform_solib_suffix)];
   int offset = 0;
-#ifndef WIN32
-  // On Unix boxes, prefix library name with `lib', for loadLibrary.
   if (do_search)
     {
-      strcpy (buf, "lib");
-      offset = 3;
+      strcpy (buf, _Jv_platform_solib_prefix);
+      offset = strlen (_Jv_platform_solib_prefix);
     }
-#endif
   jsize total = JvGetStringUTFRegion (path, 0, path->length(), &buf[offset]);
   buf[offset + total] = '\0';
+
+  char *lib_name = buf;
+
+  if (do_search)
+    {
+      ClassLoader *sys = ClassLoader::getSystemClassLoader();
+      ClassLoader *look = NULL;
+      gnu::gcj::runtime::StackTrace *t = new gnu::gcj::runtime::StackTrace(10);
+      try
+      	{
+	  for (int i = 0; i < 10; ++i)
+	    {
+	      jclass klass = t->classAt(i);
+	      if (klass != NULL)
+		{
+		  ClassLoader *loader = klass->getClassLoaderInternal();
+		  if (loader != NULL && loader != sys)
+		    {
+		      look = loader;
+		      break;
+		    }
+		}
+	    }
+	}
+      catch (::java::lang::ArrayIndexOutOfBoundsException *e)
+	{
+	}
+
+      if (look != NULL)
+	{
+	  // Don't include solib prefix in string passed to
+	  // findLibrary.
+	  jstring name = look->findLibrary(JvNewStringUTF(&buf[offset]));
+	  if (name != NULL)
+	    {
+	      len = _Jv_GetStringUTFLength (name);
+	      lib_name = (char *) _Jv_AllocBytes(len + 1);
+	      total = JvGetStringUTFRegion (name, 0,
+					    name->length(), lib_name);
+	      lib_name[total] = '\0';
+	      // Don't append suffixes any more; we have the full file
+	      // name.
+	      do_search = false;
+	    }
+	}
+    }
+
   lt_dlhandle h;
   // FIXME: make sure path is absolute.
   {
@@ -180,19 +212,28 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
     // concurrent modification by class registration calls which may be run
     // during the dlopen().
     JvSynchronize sync (&java::lang::Class::class$);
-    h = do_search ? lt_dlopenext (buf) : lt_dlopen (buf);
+    h = do_search ? lt_dlopenext (lib_name) : lt_dlopen (lib_name);
   }
   if (h == NULL)
     {
       const char *msg = lt_dlerror ();
-      jstring str = path->concat (JvNewStringLatin1 (": "));
+      jstring str = JvNewStringLatin1 (lib_name);
+      str = str->concat (JvNewStringLatin1 (": "));
       str = str->concat (JvNewStringLatin1 (msg));
       throw new UnsatisfiedLinkError (str);
     }
 
-  add_library (h);
+  // Search for JNI_OnLoad function.
+  void *onload = NULL;
+  const char **name = onload_names;
+  while (*name != NULL)
+    {
+      onload = lt_dlsym (h, *name);
+      if (onload != NULL)
+	break;
+      ++name;
+    }
 
-  void *onload = lt_dlsym (h, "JNI_OnLoad");
   if (onload != NULL)
     {
       JavaVM *vm = _Jv_GetJavaVM ();
@@ -201,7 +242,7 @@ java::lang::Runtime::_load (jstring path, jboolean do_search)
 	  // FIXME: what?
 	  return;
 	}
-      jint vers = ((jint (*) (JavaVM *, void *)) onload) (vm, NULL);
+      jint vers = ((jint (JNICALL *) (JavaVM *, void *)) onload) (vm, NULL);
       if (vers != JNI_VERSION_1_1 && vers != JNI_VERSION_1_2
 	  && vers != JNI_VERSION_1_4)
 	{
@@ -229,8 +270,6 @@ java::lang::Runtime::loadLibraryInternal (jstring lib)
   buf[total] = '\0';
   // FIXME: make sure path is absolute.
   lt_dlhandle h = lt_dlopenext (buf);
-  if (h != NULL)
-    add_library (h);
   return h != NULL;
 #else
   return false;
@@ -242,9 +281,8 @@ java::lang::Runtime::init (void)
 {
 #ifdef USE_LTDL
   lt_dlinit ();
-  lt_dlhandle self = lt_dlopen (NULL);
-  if (self != NULL)
-    add_library (self);
+  // Make sure self is opened.
+  lt_dlopen (NULL);
 #endif
 }
 
@@ -381,6 +419,12 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
   // redefine `java.home' with `-D' if necessary.
   SET ("java.home", PREFIX);
   SET ("gnu.classpath.home", PREFIX);
+  // This is set to $(libdir) because we use this to find .security
+  // files at runtime.
+  char val2[sizeof ("file://") + sizeof (LIBDIR) + 1];
+  strcpy (val2, "file://");
+  strcat (val2, LIBDIR);
+  SET ("gnu.classpath.home.url", val2);
 
   SET ("file.encoding", default_file_encoding);
 
@@ -520,7 +564,7 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
 
   if (_Jv_Jar_Class_Path)
     newprops->put(JvNewStringLatin1 ("java.class.path"),
-		  JvNewStringLatin1 (_Jv_Jar_Class_Path));
+ 		  JvNewStringLatin1 (_Jv_Jar_Class_Path));
   else
     {
       // FIXME: find libgcj.zip and append its path?
@@ -531,11 +575,7 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
       if (classpath)
 	{
 	  sb->append (JvNewStringLatin1 (classpath));
-#ifdef WIN32
-	  sb->append ((jchar) ';');
-#else
-	  sb->append ((jchar) ':');
-#endif
+	  sb->append (_Jv_platform_path_separator);
 	}
       if (cp != NULL)
 	sb->append (cp);
@@ -546,8 +586,11 @@ java::lang::Runtime::insertSystemProperties (java::util::Properties *newprops)
 		      sb->toString ());
     }
 
+  // The path to libgcj's boot classes
+  SET ("sun.boot.class.path", BOOT_CLASS_PATH);
+
   // The name used to invoke this process (argv[0] in C).
-  SET ("gnu.gcj.progname", _Jv_ThisExecutable());
+  SET ("gnu.gcj.progname", _Jv_GetSafeArg (0));
 
   // Allow platform specific settings and overrides.
   _Jv_platform_initProperties (newprops);
@@ -593,28 +636,11 @@ java::lang::Runtime::nativeGetLibname (jstring pathname, jstring libname)
   java::lang::StringBuffer *sb = new java::lang::StringBuffer ();
   sb->append(pathname);
   if (pathname->length() > 0)
-    {
-      // FIXME: use platform function here.
-#ifdef WIN32
-      sb->append ((jchar) '\\');
-#else
-      sb->append ((jchar) '/');
-#endif
-    }
+    sb->append (_Jv_platform_file_separator);
 
-  // FIXME: use platform function here.
-#ifndef WIN32
-  sb->append (JvNewStringLatin1 ("lib"));
-#endif
-
+  sb->append (JvNewStringLatin1 (_Jv_platform_solib_prefix));
   sb->append(libname);
-
-  // FIXME: use platform function here.
-#ifdef WIN32
-  sb->append (JvNewStringLatin1 ("dll"));
-#else
-  sb->append (JvNewStringLatin1 ("so"));
-#endif
+  sb->append (JvNewStringLatin1 (_Jv_platform_solib_suffix));
 
   return sb->toString();
 }

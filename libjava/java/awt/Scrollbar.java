@@ -1,5 +1,5 @@
 /* Scrollbar.java -- AWT Scrollbar widget
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,11 +38,11 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.peer.ScrollbarPeer;
-import java.awt.peer.ComponentPeer;
-
 import java.awt.event.AdjustmentListener;
 import java.awt.event.AdjustmentEvent;
+import java.awt.peer.ScrollbarPeer;
+import java.util.EventListener;
+import javax.accessibility.Accessible;
 
 /**
   * This class implements a scrollbar widget.
@@ -50,8 +50,8 @@ import java.awt.event.AdjustmentEvent;
   * @author Aaron M. Renn (arenn@urbanophile.com)
   * @author Tom Tromey <tromey@cygnus.com>
   */
-public class Scrollbar extends Component implements Adjustable,
-                                                    java.io.Serializable
+public class Scrollbar extends Component implements Accessible,
+                                                    Adjustable
 {
 
 // FIXME: Serialization readObject/writeObject
@@ -118,6 +118,8 @@ private int visibleAmount;
 // List of AdjustmentListener's.
 private AdjustmentListener adjustment_listeners;
 
+private transient boolean valueIsAdjusting = false;
+
 /*************************************************************************/
 
 /*
@@ -126,7 +128,9 @@ private AdjustmentListener adjustment_listeners;
 
 /**
   * Initializes a new instance of <code>Scrollbar</code> with a
-  * veritical orientation and default values for all other parameters.
+  * vertical orientation and default values for all other parameters.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   */
 public
 Scrollbar()
@@ -145,6 +149,7 @@ Scrollbar()
   *
   * @param orientation The orientation of this scrollbar.
   *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   * @exception IllegalArgumentException If the orientation value is not valid.
   */
 public
@@ -168,12 +173,16 @@ Scrollbar(int orientation) throws IllegalArgumentException
   * @param minimum The minimum value of the scrollbar.
   * @param maximum The maximum value of the scrollbar.
   *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   * @exception IllegalArgumentException If the orientation value is not valid.
   */
 public 
 Scrollbar(int orientation, int value, int visibleAmount, int minimum, 
           int maximum) throws IllegalArgumentException
 {
+  if (GraphicsEnvironment.isHeadless())
+    throw new HeadlessException ();
+
   if ((orientation != HORIZONTAL) && (orientation != VERTICAL))
     throw new IllegalArgumentException("Bad orientation value: "
 				       + orientation);
@@ -382,8 +391,8 @@ setValues(int value, int visibleAmount, int minimum, int maximum)
   if (value > maximum)
     value = maximum;
 
-  if (visibleAmount > value)
-    visibleAmount = value;
+  if (visibleAmount > maximum - minimum)
+    visibleAmount = maximum - minimum;
 
   this.value = value;
   this.visibleAmount = visibleAmount;
@@ -656,6 +665,7 @@ processEvent(AWTEvent event)
 protected void
 processAdjustmentEvent(AdjustmentEvent event)
 {
+  value = event.getValue();
   if (adjustment_listeners != null)
     adjustment_listeners.adjustmentValueChanged(event);
 }
@@ -692,5 +702,49 @@ paramString()
 	 + super.paramString());
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this <code>Scrollbar</code>. FooListeners are registered using the 
+   * addFooListener method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == AdjustmentListener.class)
+      return AWTEventMulticaster.getListeners (adjustment_listeners,
+                                               listenerType);
+
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Returns an array of all registered adjustment listeners.
+   */
+  public AdjustmentListener[] getAdjustmentListeners ()
+  {
+    return (AdjustmentListener[]) getListeners (AdjustmentListener.class);
+  }
+
+  /**
+   * Returns true if the value is in the process of changing.
+   *
+   * @since 1.4
+   */
+  public boolean getValueIsAdjusting ()
+  {
+    return valueIsAdjusting;
+  }
+
+  /**
+   * Sets the value of valueIsAdjusting.
+   *
+   * @since 1.4
+   */
+  public void setValueIsAdjusting (boolean valueIsAdjusting)
+  {
+    this.valueIsAdjusting = valueIsAdjusting;
+  }
 } // class Scrollbar 
 

@@ -40,14 +40,21 @@ package java.awt.dnd;
 
 import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.GraphicsEnvironment;
+import java.awt.HeadlessException;
 import java.awt.Image;
 import java.awt.Point;
+import java.awt.Toolkit;
 import java.awt.datatransfer.FlavorMap;
+import java.awt.datatransfer.SystemFlavorMap;
 import java.awt.datatransfer.Transferable;
 import java.awt.dnd.peer.DragSourceContextPeer;
 import java.io.Serializable;
 import java.util.EventListener;
 
+/**
+ * @since 1.2
+ */
 public class DragSource implements Serializable
 {
   /**
@@ -62,10 +69,25 @@ public class DragSource implements Serializable
   public static final Cursor DefaultMoveNoDrop = null;
   public static final Cursor DefaultLinkNoDrop = null;
 
+  private transient FlavorMap flavorMap = SystemFlavorMap.getDefaultFlavorMap ();
+
+  private transient DragSourceListener dragSourceListener;
+  private transient DragSourceMotionListener dragSourceMotionListener;
+
+  /**
+   * Initializes the drag source.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   */
   public DragSource()
   {
+    if (GraphicsEnvironment.isHeadless())
+      throw new HeadlessException ();
   }
 
+  /**
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   */
   public static DragSource getDefaultDragSource()
   {
     return null;
@@ -76,6 +98,13 @@ public class DragSource implements Serializable
     return false;
   }
 
+  /**
+   * Start a drag, given the DragGestureEvent that initiated the drag.
+   *
+   * @exception InvalidDnDOperationException If the Drag and Drop system is
+   * unable to initiate a drag operation, or if the user attempts to start
+   * a drag while an existing drag operation is still executing.
+   */
   public void startDrag(DragGestureEvent trigger, Cursor dragCursor,
                         Image dragImage, Point imageOffset,
                         Transferable trans, DragSourceListener dsl,
@@ -83,6 +112,13 @@ public class DragSource implements Serializable
   {
   }
 
+  /**
+   * Start a drag, given the DragGestureEvent that initiated the drag.
+   *
+   * @exception InvalidDnDOperationException If the Drag and Drop system is
+   * unable to initiate a drag operation, or if the user attempts to start
+   * a drag while an existing drag operation is still executing.
+   */
   public void startDrag(DragGestureEvent trigger, Cursor dragCursor,
                         Transferable trans, DragSourceListener dsl,
                         FlavorMap map)
@@ -90,6 +126,13 @@ public class DragSource implements Serializable
     startDrag(trigger, dragCursor, null, null, trans, dsl, map);
   }
 
+  /**
+   * Start a drag, given the DragGestureEvent that initiated the drag.
+   *
+   * @exception InvalidDnDOperationException If the Drag and Drop system is
+   * unable to initiate a drag operation, or if the user attempts to start
+   * a drag while an existing drag operation is still executing.
+   */
   public void startDrag(DragGestureEvent trigger, Cursor dragCursor,
                         Image dragImage, Point imageOffset,
                         Transferable trans, DragSourceListener dsl)
@@ -97,12 +140,25 @@ public class DragSource implements Serializable
     startDrag(trigger, dragCursor, dragImage, imageOffset, trans, dsl, null);
   }
 
+  /**
+   * Start a drag, given the DragGestureEvent that initiated the drag.
+   *
+   * @exception InvalidDnDOperationException If the Drag and Drop system is
+   * unable to initiate a drag operation, or if the user attempts to start
+   * a drag while an existing drag operation is still executing.
+   */
   public void startDrag(DragGestureEvent trigger, Cursor dragCursor,
                         Transferable trans, DragSourceListener dsl)
   {
     startDrag(trigger, dragCursor, null, null, trans, dsl, null);
   }
 
+  /**
+   * Creates the DragSourceContext to handle this drag.
+   *
+   * @exception IllegalArgumentException FIXME
+   * @exception NullPointerException If dscp, dgl, dragImage or t is null.
+   */
   protected DragSourceContext
     createDragSourceContext(DragSourceContextPeer peer, DragGestureEvent dge,
                             Cursor cursor, Image image, Point offset,
@@ -113,51 +169,89 @@ public class DragSource implements Serializable
 
   public FlavorMap getFlavorMap()
   {
-    return null;
+    return flavorMap;
   }
 
   public DragGestureRecognizer
     createDragGestureRecognizer(Class recognizer, Component c, int actions,
                                 DragGestureListener dgl)
   {
-    return null;
+    return Toolkit.getDefaultToolkit ()
+                  .createDragGestureRecognizer (recognizer, this, c, actions,
+                                                dgl);
   }
 
   public DragGestureRecognizer
     createDefaultDragGestureRecognizer(Component c, int actions,
                                        DragGestureListener dgl)
   {
-    return null;
+    return createDragGestureRecognizer (MouseDragGestureRecognizer.class, c,
+                                        actions, dgl);
   }
 
+  /**
+   * @since 1.4
+   */
   public void addDragSourceListener(DragSourceListener l)
   {
+    DnDEventMulticaster.add (dragSourceListener, l);
   }
 
+  /**
+   * @since 1.4
+   */
   public void removeDragSourceListener(DragSourceListener l)
   {
+    DnDEventMulticaster.remove (dragSourceListener, l);
   }
 
+  /**
+   * @since 1.4
+   */
   public DragSourceListener[] getDragSourceListeners()
   {
-    return null;
+    return (DragSourceListener[]) getListeners (DragSourceListener.class);
   }
 
+  /**
+   * @since 1.4
+   */
   public void addDragSourceMotionListener(DragSourceMotionListener l)
   {
+    DnDEventMulticaster.add (dragSourceMotionListener, l);
   }
 
+  /**
+   * @since 1.4
+   */
   public void removeDragSourceMotionListener(DragSourceMotionListener l)
   {
+    DnDEventMulticaster.remove (dragSourceMotionListener, l);
   }
 
-  public DragSourceMotionListener[] getDragSourceMotionListeners()
+  /**
+   * @since 1.4
+   */
+  public DragSourceMotionListener[] getDragSourceMotionListeners ()
   {
-    return null;
+    return (DragSourceMotionListener[]) getListeners
+                                         (DragSourceMotionListener.class);
   }
 
-  public EventListener[] getListeners(Class type)
+  /**
+   * @since 1.4
+   */
+  public EventListener[] getListeners (Class listenerType)
   {
-    return null;
+    if (listenerType == DragSourceListener.class)
+      return DnDEventMulticaster.getListeners (dragSourceListener,
+                                               listenerType);
+
+    if (listenerType == DragSourceMotionListener.class)
+      return DnDEventMulticaster.getListeners (dragSourceMotionListener,
+                                               listenerType);
+
+    // Return an empty EventListener array.
+    return new EventListener [0];
   }
 } // class DragSource

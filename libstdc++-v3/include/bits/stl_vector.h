@@ -1,6 +1,6 @@
 // Vector implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_VECTOR_H
-#define __GLIBCPP_INTERNAL_VECTOR_H
+#ifndef _VECTOR_H
+#define _VECTOR_H 1
 
 #include <bits/stl_iterator_base_funcs.h>
 #include <bits/functexcept.h>
@@ -153,13 +153,14 @@ namespace std
       _Vector_base(size_t __n, const allocator_type& __a)
       : _Base(__a)
       {
-	_M_start = _M_allocate(__n);
-	_M_finish = _M_start;
-	_M_end_of_storage = _M_start + __n;
+	this->_M_start = this->_M_allocate(__n);
+	this->_M_finish = this->_M_start;
+	this->_M_end_of_storage = this->_M_start + __n;
       }
       
       ~_Vector_base() 
-      { _M_deallocate(_M_start, _M_end_of_storage - _M_start); }
+      { _M_deallocate(this->_M_start,
+		      this->_M_end_of_storage - this->_M_start); }
     };
   
   
@@ -185,7 +186,7 @@ namespace std
     class vector : protected _Vector_base<_Tp, _Alloc>
     {
       // Concept requirements.
-      __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
+      __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
   
       typedef _Vector_base<_Tp, _Alloc>                     _Base;
       typedef vector<_Tp, _Alloc>                           vector_type;
@@ -238,7 +239,7 @@ namespace std
       vector(size_type __n, const value_type& __value,
 	     const allocator_type& __a = allocator_type())
       : _Base(__n, __a)
-      { _M_finish = uninitialized_fill_n(_M_start, __n, __value); }
+      { this->_M_finish = std::uninitialized_fill_n(this->_M_start, __n, __value); }
   
       /**
        *  @brief  Create a %vector with default elements.
@@ -250,7 +251,8 @@ namespace std
       explicit
       vector(size_type __n)
       : _Base(__n, allocator_type())
-      { _M_finish = uninitialized_fill_n(_M_start, __n, value_type()); }
+      { this->_M_finish = std::uninitialized_fill_n(this->_M_start,
+						    __n, value_type()); }
       
       /**
        *  @brief  %Vector copy constructor.
@@ -263,7 +265,9 @@ namespace std
        */
       vector(const vector& __x)
       : _Base(__x.size(), __x.get_allocator())
-      { _M_finish = uninitialized_copy(__x.begin(), __x.end(), _M_start); }
+      { this->_M_finish = std::uninitialized_copy(__x.begin(), __x.end(),
+						  this->_M_start);
+      }
   
       /**
        *  @brief  Builds a %vector from a range.
@@ -294,7 +298,7 @@ namespace std
        *  themselves are pointers, the pointed-to memory is not touched in any
        *  way.  Managing the pointer is the user's responsibilty.
        */
-      ~vector() { _Destroy(_M_start, _M_finish); }
+      ~vector() { std::_Destroy(this->_M_start, this->_M_finish); }
   
       /**
        *  @brief  %Vector assignment operator.
@@ -352,7 +356,7 @@ namespace std
        *  %vector.  Iteration is done in ordinary element order.
        */
       iterator
-      begin() { return iterator (_M_start); }
+      begin() { return iterator (this->_M_start); }
       
       /**
        *  Returns a read-only (constant) iterator that points to the
@@ -360,7 +364,7 @@ namespace std
        *  element order.
        */
       const_iterator
-      begin() const { return const_iterator (_M_start); }
+      begin() const { return const_iterator (this->_M_start); }
       
       /**
        *  Returns a read/write iterator that points one past the last
@@ -368,14 +372,14 @@ namespace std
        *  element order.
        */
       iterator
-      end() { return iterator (_M_finish); }
+      end() { return iterator (this->_M_finish); }
       
       /**
        *  Returns a read-only (constant) iterator that points one past the last
        *  element in the %vector.  Iteration is done in ordinary element order.
        */
       const_iterator
-      end() const { return const_iterator (_M_finish); }
+      end() const { return const_iterator (this->_M_finish); }
       
       /**
        *  Returns a read/write reverse iterator that points to the
@@ -457,7 +461,7 @@ namespace std
        */
       size_type
       capacity() const
-      { return size_type(const_iterator(_M_end_of_storage) - begin()); }
+      { return size_type(const_iterator(this->_M_end_of_storage) - begin()); }
       
       /**
        *  Returns true if the %vector is empty.  (Thus begin() would
@@ -520,7 +524,7 @@ namespace std
       _M_range_check(size_type __n) const
       {
 	if (__n >= this->size())
-	  __throw_out_of_range("vector [] access out of range");
+	  __throw_out_of_range(__N("vector::_M_range_check"));
       }
       
     public:
@@ -594,10 +598,10 @@ namespace std
       void
       push_back(const value_type& __x)
       {
-	if (_M_finish != _M_end_of_storage)
+	if (this->_M_finish != this->_M_end_of_storage)
 	  {
-	    _Construct(_M_finish, __x);
-	    ++_M_finish;
+	    std::_Construct(this->_M_finish, __x);
+	    ++this->_M_finish;
 	  }
 	else
 	  _M_insert_aux(end(), __x);
@@ -614,8 +618,8 @@ namespace std
       void
       pop_back()
       {
-	--_M_finish;
-	_Destroy(_M_finish);
+	--this->_M_finish;
+	std::_Destroy(this->_M_finish);
       }
       
       /**
@@ -631,28 +635,7 @@ namespace std
        */
       iterator
       insert(iterator __position, const value_type& __x);
-  
-#ifdef _GLIBCPP_DEPRECATED
-      /**
-       *  @brief  Inserts an element into the %vector.
-       *  @param  position  An iterator into the %vector.
-       *  @return  An iterator that points to the inserted element.
-       *
-       *  This function will insert a default-constructed element
-       *  before the specified location.  You should consider using
-       *  insert(position,value_type()) instead.  Note that this kind
-       *  of operation could be expensive for a vector and if it is
-       *  frequently used the user should consider using std::list.
-       *
-       *  @note This was deprecated in 3.2 and will be removed in 3.4.
-       *  You must define @c _GLIBCPP_DEPRECATED to make this visible
-       *  in 3.2; see c++config.h.
-       */
-      iterator
-      insert(iterator __position)
-      { return insert(__position, value_type()); }
-#endif
-      
+
       /**
        *  @brief  Inserts a number of copies of given data into the %vector.
        *  @param  position  An iterator into the %vector.
@@ -667,12 +650,12 @@ namespace std
        *  consider using std::list.
        */
       void
-      insert(iterator __pos, size_type __n, const value_type& __x)
-      { _M_fill_insert(__pos, __n, __x); }
+      insert(iterator __position, size_type __n, const value_type& __x)
+      { _M_fill_insert(__position, __n, __x); }
       
       /**
        *  @brief  Inserts a range into the %vector.
-       *  @param  pos  An iterator into the %vector.
+       *  @param  position  An iterator into the %vector.
        *  @param  first  An input iterator.
        *  @param  last   An input iterator.
        *
@@ -686,11 +669,11 @@ namespace std
        */
       template<typename _InputIterator>
         void
-        insert(iterator __pos, _InputIterator __first, _InputIterator __last)
+        insert(iterator __position, _InputIterator __first, _InputIterator __last)
         {
 	  // Check whether it's an integral type.  If so, it's not an iterator.
 	  typedef typename _Is_integer<_InputIterator>::_Integral _Integral;
-	  _M_insert_dispatch(__pos, __first, __last, _Integral());
+	  _M_insert_dispatch(__position, __first, __last, _Integral());
 	}
       
       /**
@@ -744,9 +727,9 @@ namespace std
       void
       swap(vector& __x)
       {
-	std::swap(_M_start, __x._M_start);
-	std::swap(_M_finish, __x._M_finish);
-	std::swap(_M_end_of_storage, __x._M_end_of_storage);
+	std::swap(this->_M_start, __x._M_start);
+	std::swap(this->_M_finish, __x._M_finish);
+	std::swap(this->_M_end_of_storage, __x._M_end_of_storage);
       }
       
       /**
@@ -770,10 +753,10 @@ namespace std
         _M_allocate_and_copy(size_type __n,
 			     _ForwardIterator __first, _ForwardIterator __last)
         {
-	  pointer __result = _M_allocate(__n);
+	  pointer __result = this->_M_allocate(__n);
 	  try
 	    {
-	      uninitialized_copy(__first, __last, __result);
+	      std::uninitialized_copy(__first, __last, __result);
 	      return __result;
 	    }
 	  catch(...)
@@ -791,18 +774,18 @@ namespace std
         void
         _M_initialize_dispatch(_Integer __n, _Integer __value, __true_type)
         {
-	  _M_start = _M_allocate(__n);
-	  _M_end_of_storage = _M_start + __n;
-	  _M_finish = uninitialized_fill_n(_M_start, __n, __value);
+	  this->_M_start = _M_allocate(__n);
+	  this->_M_end_of_storage = this->_M_start + __n;
+	  this->_M_finish = std::uninitialized_fill_n(this->_M_start, __n, __value);
 	}
       
       // Called by the range constructor to implement [23.1.1]/9
-      template<typename _InputIter>
+      template<typename _InputIterator>
         void
-        _M_initialize_dispatch(_InputIter __first, _InputIter __last,
+        _M_initialize_dispatch(_InputIterator __first, _InputIterator __last,
 			       __false_type)
         {
-	  typedef typename iterator_traits<_InputIter>::iterator_category
+	  typedef typename iterator_traits<_InputIterator>::iterator_category
 	    _IterCategory;
 	  _M_range_initialize(__first, __last, _IterCategory());
 	}
@@ -823,10 +806,11 @@ namespace std
         _M_range_initialize(_ForwardIterator __first,
 			    _ForwardIterator __last, forward_iterator_tag)
         {
-	  size_type __n = distance(__first, __last);
-	  _M_start = _M_allocate(__n);
-	  _M_end_of_storage = _M_start + __n;
-	  _M_finish = uninitialized_copy(__first, __last, _M_start);
+	  size_type __n = std::distance(__first, __last);
+	  this->_M_start = this->_M_allocate(__n);
+	  this->_M_end_of_storage = this->_M_start + __n;
+	  this->_M_finish = std::uninitialized_copy(__first, __last,
+						    this->_M_start);
 	}
       
       
@@ -843,11 +827,11 @@ namespace std
 	}
       
       // Called by the range assign to implement [23.1.1]/9
-      template<typename _InputIter>
+      template<typename _InputIterator>
         void
-        _M_assign_dispatch(_InputIter __first, _InputIter __last, __false_type)
+        _M_assign_dispatch(_InputIterator __first, _InputIterator __last, __false_type)
         {
-	  typedef typename iterator_traits<_InputIter>::iterator_category
+	  typedef typename iterator_traits<_InputIterator>::iterator_category
 	    _IterCategory;
 	  _M_assign_aux(__first, __last, _IterCategory());
 	}
@@ -913,11 +897,6 @@ namespace std
       // Called by insert(p,x)
       void
       _M_insert_aux(iterator __position, const value_type& __x);
-      
-#ifdef _GLIBCPP_DEPRECATED
-      // Unused now (same situation as in deque)
-      void _M_insert_aux(iterator __position);
-#endif
     };
   
   
@@ -936,26 +915,26 @@ namespace std
     operator==(const vector<_Tp,_Alloc>& __x, const vector<_Tp,_Alloc>& __y)
     {
       return __x.size() == __y.size() &&
-             equal(__x.begin(), __x.end(), __y.begin());
+             std::equal(__x.begin(), __x.end(), __y.begin());
     }
   
   /**
    *  @brief  Vector ordering relation.
    *  @param  x  A %vector.
    *  @param  y  A %vector of the same type as @a x.
-   *  @return  True iff @a x is lexographically less than @a y.
+   *  @return  True iff @a x is lexicographically less than @a y.
    *
    *  This is a total ordering relation.  It is linear in the size of the
    *  vectors.  The elements must be comparable with @c <.
    *
-   *  See std::lexographical_compare() for how the determination is made.
+   *  See std::lexicographical_compare() for how the determination is made.
   */
   template<typename _Tp, typename _Alloc>
     inline bool
     operator<(const vector<_Tp,_Alloc>& __x, const vector<_Tp,_Alloc>& __y)
     {
-      return lexicographical_compare(__x.begin(), __x.end(),
-                                     __y.begin(), __y.end());
+      return std::lexicographical_compare(__x.begin(), __x.end(),
+					  __y.begin(), __y.end());
     }
   
   /// Based on operator==
@@ -989,4 +968,4 @@ namespace std
     { __x.swap(__y); }
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_VECTOR_H */
+#endif /* _VECTOR_H */

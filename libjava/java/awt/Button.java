@@ -41,7 +41,6 @@ package java.awt;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.peer.ButtonPeer;
-import java.awt.peer.ComponentPeer;
 import java.lang.reflect.Array;
 import java.util.EventListener;
 
@@ -90,6 +89,9 @@ private transient ActionListener action_listeners;
 
 /**
   * Initializes a new instance of <code>Button</code> with no label.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless()
+  * returns true
   */
 public
 Button()
@@ -104,12 +106,18 @@ Button()
   * label.  The action command name is also initialized to this value.
   *
   * @param label The label to display on the button.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless()
+  * returns true
   */
 public
 Button(String label)
 {
   this.label = label;
   actionCommand = label;
+
+  if (GraphicsEnvironment.isHeadless ())
+    throw new HeadlessException ();
 }
 
 /*************************************************************************/
@@ -211,6 +219,10 @@ removeActionListener(ActionListener listener)
 /** Returns all registered EventListers of the given listenerType. 
  * listenerType must be a subclass of EventListener, or a 
  * ClassClassException is thrown.
+ *
+ * @exception ClassCastException If listenerType doesn't specify a class or
+ * interface that implements @see java.util.EventListener.
+ *
  * @since 1.3 
  */
   public EventListener[] getListeners(Class listenerType)

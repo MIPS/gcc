@@ -1,5 +1,5 @@
 /* ServerSocket.java -- Class for implementing server side sockets
-   Copyright (C) 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,8 +35,10 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.net;
 
+import gnu.java.net.PlainSocketImpl;
 import java.io.IOException;
 import java.nio.channels.IllegalBlockingModeException;
 import java.nio.channels.ServerSocketChannel;
@@ -71,12 +73,19 @@ public class ServerSocket
    */
   private SocketImpl impl;
 
-  /**
-   * ServerSocketChannel of this ServerSocket. This channel only exists
-   * when the socket is created by ServerSocketChannel.open().
-   */
-  private ServerSocketChannel ch;
+  private boolean closed = false;
 
+  /*
+   * This is only used by java.nio.
+   */
+  // FIXME: Workaround a bug in gcj.
+  //ServerSocket (PlainSocketImpl impl) throws IOException
+  ServerSocket (SocketImpl impl) throws IOException
+  {
+    this.impl = impl;
+    this.impl.create (true);
+  }
+  
   /**
    * Constructor that simply sets the implementation.
    * 
@@ -151,19 +160,9 @@ public class ServerSocket
     throws IOException
   {
     this();
-    if (impl == null)
-      throw new IOException("Cannot initialize Socket implementation");
 
-    SecurityManager s = System.getSecurityManager();
-    if (s != null)
-      s.checkListen(port);
-
-    if (bindAddr == null)
-      bindAddr = InetAddress.ANY_IF;
-
-    impl.create(true);
-    impl.bind(bindAddr, port);
-    impl.listen(backlog);
+    // bind/listen socket
+    bind (new InetSocketAddress (bindAddr, port), backlog);
   }
 
   /**
@@ -181,19 +180,7 @@ public class ServerSocket
   public void bind (SocketAddress endpoint)
     throws IOException
   {
-    if (impl == null)
-      throw new IOException ("Cannot initialize Socket implementation");
-
-    if (! (endpoint instanceof InetSocketAddress))
-      throw new IllegalArgumentException ("Address type not supported");
-
-    InetSocketAddress tmp = (InetSocketAddress) endpoint;
-    
-    SecurityManager s = System.getSecurityManager ();
-    if (s != null)
-      s.checkListen (tmp.getPort ());
-
-    impl.bind (tmp.getAddress (), tmp.getPort ());
+    bind (endpoint, 50);
   }
  
   /**
@@ -211,9 +198,9 @@ public class ServerSocket
    */
   public void bind (SocketAddress endpoint, int backlog) throws IOException
   {
-    if (impl == null)
-      throw new IOException ("Cannot initialize Socket implementation");
-
+    if (closed)
+      throw new SocketException ("ServerSocket is closed");
+    
     if (! (endpoint instanceof InetSocketAddress))
       throw new IllegalArgumentException ("Address type not supported");
 
@@ -223,8 +210,26 @@ public class ServerSocket
     if (s != null)
       s.checkListen (tmp.getPort ());
 
-    impl.bind (tmp.getAddress (), tmp.getPort ());
-    impl.listen(backlog);
+    try
+      {
+	impl.bind (tmp.getAddress (), tmp.getPort ());
+	impl.listen(backlog);
+      }
+    catch (IOException exception)
+      {
+        close();
+        throw exception;
+      }
+    catch (RuntimeException exception)
+      {
+        close();
+        throw exception;
+      }
+    catch (Error error)
+      {
+        close();
+        throw error;
+      }
   }
   
   /**
@@ -284,9 +289,6 @@ public class ServerSocket
    */
   public Socket accept () throws IOException
   {
-    if (impl == null)
-      throw new IOException ("Cannot initialize Socket implementation");
-
     SecurityManager sm = System.getSecurityManager ();
     if (sm != null)
       sm.checkListen (impl.getLocalPort ());
@@ -313,7 +315,8 @@ public class ServerSocket
   protected final void implAccept (Socket s)
     throws IOException
   {
-    if (ch != null && !ch.isBlocking())
+    if (getChannel() != null
+        && !getChannel().isBlocking())
       throw new IllegalBlockingModeException();
 	    
     impl.accept(s.impl);
@@ -326,7 +329,12 @@ public class ServerSocket
    */
   public void close () throws IOException
   {
-    impl.close();
+    impl.close ();
+
+    if (getChannel() != null)
+      getChannel().close ();
+    
+    closed = true;
   }
 
   /**
@@ -340,7 +348,7 @@ public class ServerSocket
    */
   public ServerSocketChannel getChannel()
   {
-    return ch;
+    return null;
   }
 
   /**
@@ -356,7 +364,7 @@ public class ServerSocket
       }
     catch (SocketException e)
       {
-	return false;
+        return false;
       }
     
     return true;
@@ -369,8 +377,7 @@ public class ServerSocket
    */
   public boolean isClosed()
   {
-    // FIXME: implement this
-    return false;
+    return closed;
   }
 
   /**
@@ -425,9 +432,6 @@ public class ServerSocket
   public void setReuseAddress (boolean on)
     throws SocketException
   {
-    if (impl == null)
-      throw new SocketException ("Cannot initialize Socket implementation");
-
     impl.setOption (SocketOptions.SO_REUSEADDR, new Boolean (on));
   }
 
@@ -441,9 +445,6 @@ public class ServerSocket
   public boolean getReuseAddress()
     throws SocketException
   {
-    if (impl == null)
-      throw new SocketException ("Cannot initialize Socket implementation");
-
     Object reuseaddr = impl.getOption (SocketOptions.SO_REUSEADDR);
 
     if (!(reuseaddr instanceof Boolean))
@@ -467,9 +468,6 @@ public class ServerSocket
   public void setReceiveBufferSize (int size)
     throws SocketException
   {
-    if (impl == null)
-      throw new SocketException ("Not connected");
-
     if (size <= 0)
       throw new IllegalArgumentException ("SO_RCVBUF value must be > 0");
 
@@ -490,9 +488,6 @@ public class ServerSocket
   public int getReceiveBufferSize ()
     throws SocketException
   {
-    if (impl == null)
-      throw new SocketException ("Not connected");
-
     Object buf = impl.getOption (SocketOptions.SO_RCVBUF);
 
     if (!(buf instanceof Integer))

@@ -40,10 +40,19 @@ package java.rmi.registry;
 import java.rmi.RemoteException;
 import java.rmi.UnknownHostException;
 
-public interface RegistryHandler {
+/**
+ * @deprecated
+ */
+public interface RegistryHandler
+{
+  /**
+   * @deprecated
+   */
+  public Registry registryStub (String host, int port)
+    throws RemoteException, UnknownHostException;
 
-public Registry registryStub(String host, int port) throws RemoteException, UnknownHostException;
-
-public Registry registryImpl(int port) throws RemoteException;
-
+  /**
+   * @deprecated
+   */
+  public Registry registryImpl (int port) throws RemoteException;
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -28,7 +28,7 @@
 
 #include <clocale>
 #include <cstring>
-#include <cassert>
+#include <cstdlib>     // For getenv, free.
 #include <cctype>
 #include <cwctype>     // For towupper, etc.
 #include <locale>
@@ -56,13 +56,17 @@ namespace std
   const locale::category 	locale::all;
 
   // In the future, GLIBCXX_ABI > 5 should remove all uses of
-  // _GLIBCPP_ASM_SYMVER in this file, and remove exports of any
+  // _GLIBCXX_ASM_SYMVER in this file, and remove exports of any
   // static data members of locale.
-  locale::_Impl* 		locale::_S_classic;
+
+  // These are no longer exported.
+  locale::_Impl*                locale::_S_classic;
   locale::_Impl* 		locale::_S_global; 
   const size_t 			locale::_S_categories_size;
-  _GLIBCPP_ASM_SYMVER(_ZNSt6locale18_S_categories_sizeE, _ZNSt6locale17_S_num_categoriesE, GLIBCPP_3.2)
-  const size_t 			locale::_S_extra_categories_size;
+
+#ifdef __GTHREADS
+  __gthread_once_t 		locale::_S_once = __GTHREAD_ONCE_INIT;
+#endif
 
   // Definitions for static const data members of locale::id
   _Atomic_word locale::id::_S_highwater;  // init'd to 0 by linker
@@ -73,7 +77,7 @@ namespace std
   {
     &std::ctype<char>::id, 
     &codecvt<char, char, mbstate_t>::id,
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &std::ctype<wchar_t>::id,
     &codecvt<wchar_t, char, mbstate_t>::id,
 #endif
@@ -86,7 +90,7 @@ namespace std
     &num_get<char>::id,  
     &num_put<char>::id,  
     &numpunct<char>::id, 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &num_get<wchar_t>::id,
     &num_put<wchar_t>::id,
     &numpunct<wchar_t>::id,
@@ -98,7 +102,7 @@ namespace std
   locale::_Impl::_S_id_collate[] =
   {
     &std::collate<char>::id,
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &std::collate<wchar_t>::id,
 #endif
     0
@@ -110,7 +114,7 @@ namespace std
     &__timepunct<char>::id, 
     &time_get<char>::id, 
     &time_put<char>::id, 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &__timepunct<wchar_t>::id, 
     &time_get<wchar_t>::id,
     &time_put<wchar_t>::id,
@@ -125,7 +129,7 @@ namespace std
     &money_put<char>::id,        
     &moneypunct<char, false>::id, 
     &moneypunct<char, true >::id, 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &money_get<wchar_t>::id,
     &money_put<wchar_t>::id,
     &moneypunct<wchar_t, false>::id,
@@ -138,7 +142,7 @@ namespace std
   locale::_Impl::_S_id_messages[] =
   {
     &std::messages<char>::id, 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
     &std::messages<wchar_t>::id,
 #endif
     0
@@ -177,18 +181,19 @@ namespace std
     if (__s)
       {
 	_S_initialize(); 
-	if (strcmp(__s, "C") == 0 || strcmp(__s, "POSIX") == 0)
+	if (std::strcmp(__s, "C") == 0 || std::strcmp(__s, "POSIX") == 0)
 	  (_M_impl = _S_classic)->_M_add_reference();
-	else if (strcmp(__s, "") != 0)
+	else if (std::strcmp(__s, "") != 0)
 	  _M_impl = new _Impl(__s, 1);
 	else
 	  {
 	    // Get it from the environment.
-	    char* __env = getenv("LC_ALL");
+	    char* __env = std::getenv("LC_ALL");
 	    // If LC_ALL is set we are done.
-	    if (__env && strcmp(__env, "") != 0)
+	    if (__env && std::strcmp(__env, "") != 0)
 	      {
-		if (strcmp(__env, "C") == 0 || strcmp(__env, "POSIX") == 0)
+		if (std::strcmp(__env, "C") == 0 
+		    || std::strcmp(__env, "POSIX") == 0)
 		  (_M_impl = _S_classic)->_M_add_reference();
 		else
 		  _M_impl = new _Impl(__env, 1);
@@ -197,9 +202,10 @@ namespace std
 	      {
 		char* __res;
 		// LANG may set a default different from "C".
-		char* __env = getenv("LANG");
-		if (!__env || strcmp(__env, "") == 0 || strcmp(__env, "C") == 0
-		    || strcmp(__env, "POSIX") == 0)
+		char* __env = std::getenv("LANG");
+		if (!__env || std::strcmp(__env, "") == 0 
+		    || std::strcmp(__env, "C") == 0 
+		    || std::strcmp(__env, "POSIX") == 0)
 		  __res = strdup("C");
 		else 
 		  __res = strdup(__env);
@@ -207,58 +213,53 @@ namespace std
 		// Scan the categories looking for the first one
 		// different from LANG.
 		size_t __i = 0;
-		if (strcmp(__res, "C") == 0)
-		  for (__i = 0; 
-		       __i < _S_categories_size + _S_extra_categories_size; 
-		       ++__i)
+		if (std::strcmp(__res, "C") == 0)
+		  for (; __i < _S_categories_size; ++__i)
 		    {
-		      __env = getenv(_S_categories[__i]);
-		      if (__env && strcmp(__env, "") != 0 
-			  && strcmp(__env, "C") != 0 
-			  && strcmp(__env, "POSIX") != 0) 
+		      __env = std::getenv(_S_categories[__i]);
+		      if (__env && std::strcmp(__env, "") != 0 
+			  && std::strcmp(__env, "C") != 0 
+			  && std::strcmp(__env, "POSIX") != 0) 
 			break;
 		    }
 		else
-		  for (__i = 0; 
-		       __i < _S_categories_size + _S_extra_categories_size; 
-		       ++__i)
+		  for (; __i < _S_categories_size; ++__i)
 		    {
-		      __env = getenv(_S_categories[__i]);
-		      if (__env && strcmp(__env, "") != 0 
-			  && strcmp(__env, __res) != 0) 
+		      __env = std::getenv(_S_categories[__i]);
+		      if (__env && std::strcmp(__env, "") != 0 
+			  && std::strcmp(__env, __res) != 0) 
 			break;
 		    }
 	
 		// If one is found, build the complete string of
 		// the form LC_CTYPE=xxx;LC_NUMERIC=yyy; and so on...
-		if (__i < _S_categories_size + _S_extra_categories_size)
+		if (__i < _S_categories_size)
 		  {
 		    string __str;
 		    for (size_t __j = 0; __j < __i; ++__j)
 		      {
 			__str += _S_categories[__j];
-			__str += "=";
+			__str += '=';
 			__str += __res;
-			__str += ";";
+			__str += ';';
 		      }
 		    __str += _S_categories[__i];
-		    __str += "=";
+		    __str += '=';
 		    __str += __env;
-		    __str += ";";
+		    __str += ';';
 		    __i++;
-		    for (; __i < _S_categories_size
-			   + _S_extra_categories_size; ++__i)
+		    for (; __i < _S_categories_size; ++__i)
 		      {
-			__env = getenv(_S_categories[__i]);
-			if (!__env || strcmp(__env, "") == 0)
+			__env = std::getenv(_S_categories[__i]);
+			if (!__env || std::strcmp(__env, "") == 0)
 			  {
 			    __str += _S_categories[__i];
 			    __str += '=';
 			    __str += __res;
 			    __str += ';';
 			  }
-			else if (strcmp(__env, "C") == 0
-				 || strcmp(__env, "POSIX") == 0)
+			else if (std::strcmp(__env, "C") == 0
+				 || std::strcmp(__env, "POSIX") == 0)
 			  {
 			    __str += _S_categories[__i];
 			    __str += "=C;";
@@ -266,9 +267,9 @@ namespace std
 			else
 			  {
 			    __str += _S_categories[__i];
-			    __str += "=";
+			    __str += '=';
 			    __str += __env;
-			    __str += ";";
+			    __str += ';';
 			  }
 		      }
 		    __str.erase(__str.end() - 1);
@@ -276,16 +277,16 @@ namespace std
 		  }
 		// ... otherwise either an additional instance of
 		// the "C" locale or LANG.
-		else if (strcmp(__res, "C") == 0)
+		else if (std::strcmp(__res, "C") == 0)
 		  (_M_impl = _S_classic)->_M_add_reference();
 		else
 		  _M_impl = new _Impl(__res, 1);
-		free(__res);
+		std::free(__res);
 	      }
 	  }
       }
     else
-      __throw_runtime_error("attempt to create locale from NULL name");
+      __throw_runtime_error("locale::locale NULL not valid");
   }
 
   locale::locale(const locale& __base, const char* __s, category __cat)
@@ -323,13 +324,14 @@ namespace std
   locale
   locale::global(const locale& __other)
   {
-    // XXX MT
     _S_initialize();
+
+    // XXX MT
     _Impl* __old = _S_global;
     __other._M_impl->_M_add_reference();
     _S_global = __other._M_impl; 
     if (_S_global->_M_check_same_name() 
-	&& (strcmp(_S_global->_M_names[0], "*") != 0))
+	&& (std::strcmp(_S_global->_M_names[0], "*") != 0))
       setlocale(LC_ALL, __other.name().c_str());
 
     // Reference count sanity check: one reference removed for the
@@ -349,15 +351,13 @@ namespace std
     else
       {
 	__ret += _S_categories[0];
-	__ret += "=";
+	__ret += '=';
 	__ret += _M_impl->_M_names[0]; 
-	for (size_t __i = 1; 
-	     __i < _S_categories_size + _S_extra_categories_size; 
-	     ++__i)
+	for (size_t __i = 1; __i < _S_categories_size; ++__i)
 	  {
-	    __ret += ";";
+	    __ret += ';';
 	    __ret += _S_categories[__i];
-	    __ret += "=";
+	    __ret += '=';
 	    __ret += _M_impl->_M_names[__i];
 	  }
       }
@@ -367,28 +367,32 @@ namespace std
   const locale&
   locale::classic()
   {
-    // Locking protocol: singleton-called-before-threading-starts
-    if (!_S_classic)
-      {
-	try 
-	  {
-	    // 26 Standard facets, 2 references.
-	    // One reference for _S_classic, one for _S_global
-	    _S_classic = new (&c_locale_impl) _Impl(0, 2, true);
-	    _S_global = _S_classic; 	    
-	    new (&c_locale) locale(_S_classic);
-	  }
-	catch(...) 
-	  {
-	    // Just call destructor, so that locale_impl_c's memory is
-	    // not deallocated via a call to delete.
-	    if (_S_classic)
-	      _S_classic->~_Impl();
-	    _S_classic = _S_global = 0;
-	    __throw_exception_again;
-	  }
-      }
+    _S_initialize();
     return c_locale;
+  }
+
+  void
+  locale::_S_initialize_once()
+  {
+    // 2 references.
+    // One reference for _S_classic, one for _S_global
+    _S_classic = new (&c_locale_impl) _Impl(2);
+    _S_global = _S_classic; 	    
+    new (&c_locale) locale(_S_classic);
+  }
+
+  void  
+  locale::_S_initialize()
+  {
+#ifdef __GTHREADS
+    if (__gthread_active_p())
+      __gthread_once(&_S_once, _S_initialize_once);
+    else
+#endif
+      {
+	if (!_S_classic)
+	  _S_initialize_once();
+      }
   }
 
   void
@@ -433,7 +437,7 @@ namespace std
 	  case LC_TIME:     
 	    __ret = time; 
 	    break;
-#ifdef _GLIBCPP_HAVE_LC_MESSAGES
+#ifdef _GLIBCXX_HAVE_LC_MESSAGES
 	  case LC_MESSAGES: 
 	    __ret = messages;
 	    break;
@@ -442,73 +446,82 @@ namespace std
 	    __ret = all;
 	    break;
 	  default:
-	    __throw_runtime_error("bad locale category");
+	    __throw_runtime_error("locale::_S_normalize_category "
+				  "category not found");
 	  }
       }
     return __ret;
   }
 
-  __c_locale
-  locale::facet::_S_c_locale;
-  
+  __c_locale locale::facet::_S_c_locale;
+
+  const char locale::facet::_S_c_name[2] = "C";
+
+#ifdef __GTHREADS
+  __gthread_once_t locale::facet::_S_once = __GTHREAD_ONCE_INIT;
+#endif
+
   locale::facet::
   ~facet() { }
 
-  locale::facet::
-  facet(size_t __refs) throw() : _M_references(__refs ? 1 : 0) 
-  { }
-
-  void  
-  locale::facet::
-  _M_add_reference() throw()
-  { __atomic_add(&_M_references, 1); }
-
-  void  
-  locale::facet::
-  _M_remove_reference() throw()
+  void
+  locale::facet::_S_initialize_once()
   {
-    if (__exchange_and_add(&_M_references, -1) == 1)
-      {
-        try 
-	  { delete this; }  
-	catch (...) 
-	  { }
-      }
+    // Initialize the underlying locale model.
+    _S_create_c_locale(_S_c_locale, _S_c_name);
   }
-  
-  locale::id::id() 
-  { }
 
-  // Definitions for static const data members of time_base
+  __c_locale
+  locale::facet::_S_get_c_locale()
+  {
+#ifdef __GHTREADS
+    if (__gthread_active_p())
+      __gthread_once(&_S_once, _S_initialize_once);
+    else
+#endif
+      {
+	if (!_S_c_locale)
+	  _S_initialize_once();
+      }
+    return _S_c_locale;
+  }
+
+  const char*
+  locale::facet::_S_get_c_name()
+  { return _S_c_name; }
+
+  // Definitions for static const data members of time_base.
   template<> 
     const char*
-    __timepunct<char>::_S_timezones[14] =
+    __timepunct_cache<char>::_S_timezones[14] =
     { 
       "GMT", "HST", "AKST", "PST", "MST", "CST", "EST", "AST", "NST", "CET", 
       "IST", "EET", "CST", "JST"  
     };
  
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   template<> 
     const wchar_t*
-    __timepunct<wchar_t>::_S_timezones[14] =
+    __timepunct_cache<wchar_t>::_S_timezones[14] =
     { 
       L"GMT", L"HST", L"AKST", L"PST", L"MST", L"CST", L"EST", L"AST", 
       L"NST", L"CET", L"IST", L"EET", L"CST", L"JST"  
     };
 #endif
 
-  // Definitions for static const data members of money_base
+  // Definitions for static const data members of money_base.
   const money_base::pattern 
   money_base::_S_default_pattern =  { {symbol, sign, none, value} };
 
-  const char __num_base::_S_atoms[] = "0123456789eEabcdfABCDF";
+  const char* __num_base::_S_atoms_in = "-+xX0123456789eEabcdfABCDF";
+  const char* __num_base::_S_atoms_out ="-+xX0123456789abcdef0123456789ABCDEF";
 
-  bool
-  __num_base::_S_format_float(const ios_base& __io, char* __fptr, char __mod,
-			      streamsize __prec)
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // According to the resolution of DR 231, about 22.2.2.2.2, p11,
+  // "str.precision() is specified in the conversion specification".
+  void
+  __num_base::_S_format_float(const ios_base& __io, char* __fptr, char __mod)
   {
-    bool __incl_prec = false;
     ios_base::fmtflags __flags = __io.flags();
     *__fptr++ = '%';
     // [22.2.2.2.2] Table 60
@@ -516,13 +529,12 @@ namespace std
       *__fptr++ = '+';
     if (__flags & ios_base::showpoint)
       *__fptr++ = '#';
-    // As per [22.2.2.2.2.11]
-    if (__flags & ios_base::fixed || __prec > 0)
-      {
-	*__fptr++ = '.';
-	*__fptr++ = '*';
-	__incl_prec = true;
-      }
+
+    // As per DR 231: _always_, not only when 
+    // __flags & ios_base::fixed || __prec > 0
+    *__fptr++ = '.';
+    *__fptr++ = '*';
+
     if (__mod)
       *__fptr++ = __mod;
     ios_base::fmtflags __fltfield = __flags & ios_base::floatfield;
@@ -533,34 +545,6 @@ namespace std
       *__fptr++ = (__flags & ios_base::uppercase) ? 'E' : 'e';
     else
       *__fptr++ = (__flags & ios_base::uppercase) ? 'G' : 'g';
-    *__fptr = '\0';
-    return __incl_prec;
-  }
-  
-  void
-  __num_base::_S_format_int(const ios_base& __io, char* __fptr, char __mod, 
-			    char __modl)
-  {
-    ios_base::fmtflags __flags = __io.flags();
-    *__fptr++ = '%';
-    // [22.2.2.2.2] Table 60
-    if (__flags & ios_base::showpos)
-      *__fptr++ = '+';
-    if (__flags & ios_base::showbase)
-      *__fptr++ = '#';
-    *__fptr++ = 'l';
-
-    // For long long types.
-    if (__modl)
-      *__fptr++ = __modl;
-
-    ios_base::fmtflags __bsefield = __flags & ios_base::basefield;
-    if (__bsefield == ios_base::hex)
-      *__fptr++ = (__flags & ios_base::uppercase) ? 'X' : 'x';
-    else if (__bsefield == ios_base::oct)
-      *__fptr++ = 'o';
-    else
-      *__fptr++ = __mod;
     *__fptr = '\0';
   }
 } // namespace std

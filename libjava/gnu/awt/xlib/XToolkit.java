@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2002  Free Software Foundation
+/* Copyright (C) 2000, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -173,7 +173,7 @@ public class XToolkit extends Toolkit
   
   public java.awt.image.ColorModel getColorModel()
   {
-    throw new UnsupportedOperationException("not implemented yet");
+    return getDefaultXGraphicsConfiguration().getColorModel();
   }
 
   public String[] getFontList()
@@ -183,12 +183,15 @@ public class XToolkit extends Toolkit
 
   public FontMetrics getFontMetrics(Font font)
   {
-    return defaultConfig.getXFontMetrics(font);
+    return getDefaultXGraphicsConfiguration().getXFontMetrics(font);
   }
 
   public void sync()
   {
-    throw new UnsupportedOperationException("not implemented yet");
+    flushIfIdle ();
+    // FIXME: should instead wait for eventLoop to go idle
+    // (perhaps send a dummy event there and block till it makes
+    // it through the queue)
   }
     
   public Image getImage(String filename)

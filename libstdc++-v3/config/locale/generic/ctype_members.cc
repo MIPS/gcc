@@ -1,6 +1,6 @@
 // std::ctype implementation details, generic version -*- C++ -*-
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -47,7 +47,7 @@ namespace std
       _S_create_c_locale(_M_c_locale_ctype, __s); 
     }
 
-#ifdef _GLIBCPP_USE_WCHAR_T  
+#ifdef _GLIBCXX_USE_WCHAR_T  
   ctype<wchar_t>::__wmask_type
   ctype<wchar_t>::_M_convert_to_wmask(const mask __m) const
   {
@@ -126,15 +126,35 @@ namespace std
   bool
   ctype<wchar_t>::
   do_is(mask __m, char_type __c) const
-  { return static_cast<bool>(iswctype(__c, _M_convert_to_wmask(__m))); }
+  { 
+    bool __ret = false;
+    const size_t __bitmasksize = 10; 
+    for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
+      {
+	const mask __bit = static_cast<mask>(1 << __bitcur);
+	if (__m & __bit)
+	  __ret |= iswctype(__c, _M_convert_to_wmask(__bit));
+      }
+    return __ret;    
+  }
   
   const wchar_t* 
   ctype<wchar_t>::
-  do_is(const wchar_t* __lo, const wchar_t* __hi, mask* __m) const
+  do_is(const wchar_t* __lo, const wchar_t* __hi, mask* __vec) const
   {
-    while (__lo < __hi && !this->do_is(*__m, *__lo))
-      ++__lo;
-    return __lo;
+    for (;__lo < __hi; ++__vec, ++__lo)
+      {
+	const size_t __bitmasksize = 10; 
+	mask __m = 0;
+	for (size_t __bitcur = 0; __bitcur <= __bitmasksize; ++__bitcur)
+	  { 
+	    const mask __bit = static_cast<mask>(1 << __bitcur);
+	    if (iswctype(*__lo, _M_convert_to_wmask(__bit)))
+	      __m |= __bit;
+	  }
+	*__vec = __m;
+      }
+    return __hi;
   }
   
   const wchar_t* 
@@ -158,15 +178,18 @@ namespace std
   wchar_t
   ctype<wchar_t>::
   do_widen(char __c) const
-  { return btowc(__c); }
+  { return btowc(static_cast<unsigned char>(__c)); }
   
   const char* 
   ctype<wchar_t>::
   do_widen(const char* __lo, const char* __hi, wchar_t* __dest) const
   {
-    mbstate_t __state;
-    memset(static_cast<void*>(&__state), 0, sizeof(mbstate_t));
-    mbsrtowcs(__dest, &__lo, __hi - __lo, &__state);
+    while (__lo < __hi)
+      {
+	*__dest = btowc(static_cast<unsigned char>(*__lo));
+	++__lo;
+	++__dest;
+      }
     return __hi;
   }
 
@@ -183,24 +206,14 @@ namespace std
   do_narrow(const wchar_t* __lo, const wchar_t* __hi, char __dfault, 
 	    char* __dest) const
   {
-    size_t __offset = 0;
-    while (true)
+    while (__lo < __hi)
       {
-	const wchar_t* __start = __lo + __offset;        
-	size_t __len = __hi - __start;
-	
-	mbstate_t __state;
-	memset(static_cast<void*>(&__state), 0, sizeof(mbstate_t));
-	size_t __con = wcsrtombs(__dest + __offset, &__start, __len, &__state);
-	if (__con != __len && __start != 0)
-	  {
-	    __offset = __start - __lo;          
-	    __dest[__offset++] = __dfault;
-	  }
-	else
-	  break;
+	int __c = wctob(*__lo);
+	*__dest = (__c == EOF ? __dfault : static_cast<char>(__c));
+	++__lo;
+	++__dest;
       }
     return __hi;
   }
-#endif //  _GLIBCPP_USE_WCHAR_T
+#endif //  _GLIBCXX_USE_WCHAR_T
 }

@@ -81,9 +81,18 @@ public class ImageFilter implements ImageConsumer, Cloneable
      *
      * @see java.lang.Object#clone ()
      */
-    public Object clone() throws CloneNotSupportedException
+    public Object clone()
     {
-	return (super.clone());
+      try
+        {
+          return super.clone();
+        }
+      catch (CloneNotSupportedException e)
+        {
+          // This should never happen as this class implements the
+          // Cloneable interface.
+          throw new InternalError ();
+        }
     }
 
     /**
@@ -99,15 +108,9 @@ public class ImageFilter implements ImageConsumer, Cloneable
 	    throw new IllegalArgumentException("null argument for ImageFilter.getFilterInstance(ImageConsumer)");
 
 	consumer = ic;
-	try { 
-	    ImageFilter f = (ImageFilter)clone();
-	    consumer = null;
-	    return f;
-	} catch ( CloneNotSupportedException cnse ) {
-	    cnse.printStackTrace();
-	    consumer = null;
-	    return null;
-	}
+	ImageFilter f = (ImageFilter)clone();
+	consumer = null;
+	return f;
     }
 
     /**

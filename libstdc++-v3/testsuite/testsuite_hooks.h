@@ -1,6 +1,7 @@
-// Utility subroutines for the C++ library testsuite.
+// -*- C++ -*-
+// Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,159 +30,315 @@
 
 // This file provides the following:
 //
-// 1)  VERIFY(), via DEBUG_ASSERT, from Brent Verner <brent@rcfile.org>.
+// 1)  VERIFY(), via _GLIBCXX_ASSERT, from Brent Verner <brent@rcfile.org>.
 //   This file is included in the various testsuite programs to provide
 //   #define(able) assert() behavior for debugging/testing. It may be
 //   a suitable location for other furry woodland creatures as well.
 //
-// 2)  __set_testsuite_memlimit()
-//   __set_testsuite_memlimit() uses setrlimit() to restrict dynamic memory
+// 2)  set_memory_limits()
+//   set_memory_limits() uses setrlimit() to restrict dynamic memory
 //   allocation.  We provide a default memory limit if none is passed by the
-//   calling application.  The argument to __set_testsuite_memlimit() is the
-//   limit in megabytes (a floating-point number).  If _GLIBCPP_MEM_LIMITS is
+//   calling application.  The argument to set_memory_limits() is the
+//   limit in megabytes (a floating-point number).  If _GLIBCXX_MEM_LIMITS is
 //   not #defined before including this header, then no limiting is attempted.
 //
-// 3)  gnu_counting_struct
+// 3)  counter
 //   This is a POD with a static data member, gnu_counting_struct::count,
 //   which starts at zero, increments on instance construction, and decrements
 //   on instance destruction.  "assert_count(n)" can be called to VERIFY()
 //   that the count equals N.
 //
-// 4)  gnu_copy_tracker, from Stephen M. Webb <stephen@bregmasoft.com>.
+// 4)  copy_tracker, from Stephen M. Webb <stephen@bregmasoft.com>.
 //   A class with nontrivial ctor/dtor that provides the ability to track the
 //   number of copy ctors and dtors, and will throw on demand during copy.
 //
-// 5) gnu_char, gnu_char_traits, abstract character classes and
-// char_traits specializations for testing instantiations.
+// 5) pod_char, pod_int, , abstract character classes and
+//   char_traits specializations for testing instantiations.
 
-#ifndef _GLIBCPP_TESTSUITE_HOOKS_H
-#define _GLIBCPP_TESTSUITE_HOOKS_H
+#ifndef _GLIBCXX_TESTSUITE_HOOKS_H
+#define _GLIBCXX_TESTSUITE_HOOKS_H
 
 #include <bits/c++config.h>
 #include <bits/functexcept.h>
 #include <cstddef>
-
-#ifdef DEBUG_ASSERT
+#ifdef _GLIBCXX_ASSERT
 # include <cassert>
 # define VERIFY(fn) assert(fn)
 #else
 # define VERIFY(fn) test &= (fn)
 #endif
-
-// Defined in GLIBCPP_CONFIGURE_TESTSUITE.
-#ifndef _GLIBCPP_MEM_LIMITS
-// Don't do memory limits.
-extern void
-__set_testsuite_memlimit(float x = 0);
-
+#include <locale>
+#ifdef _GLIBCXX_HAVE_UNISTD_H
+# include <unistd.h>
 #else
-
-// Do memory limits.
-#ifndef MEMLIMIT_MB
-#define MEMLIMIT_MB 16.0
+# define unlink(x)
 #endif
 
-extern void
-__set_testsuite_memlimit(float __size = MEMLIMIT_MB);
-#endif
-
-
-struct gnu_counting_struct
+namespace __gnu_test
 {
+  // All macros are defined in GLIBCXX_CONFIGURE_TESTSUITE and imported
+  // from c++config.h
+
+  // Set memory limits if possible, if not set to 0.
+#ifndef _GLIBCXX_MEM_LIMITS
+#  define MEMLIMIT_MB 0
+#else
+# ifndef MEMLIMIT_MB
+#  define MEMLIMIT_MB 16.0
+# endif
+#endif
+  extern void
+  set_memory_limits(float __size = MEMLIMIT_MB);
+
+
+  // Check mangled name demangles (using __cxa_demangle) as expected.
+  void
+  verify_demangle(const char* mangled, const char* wanted);
+
+
+  // Simple callback structure for variable numbers of tests (all with
+  // same signature).  Assume all unit tests are of the signature
+  // void test01(); 
+  class func_callback
+  {
+  public:
+    typedef void (*test_type) (void);
+
+  private:
+    int		_M_size;
+    test_type	_M_tests[15];
+    
+  public:
+    func_callback(): _M_size(0) { };
+
+    int
+    size() const { return _M_size; }
+
+    const test_type*
+    tests() const { return _M_tests; }
+
+    void
+    push_back(test_type test)
+    {
+      _M_tests[_M_size] = test;
+      ++_M_size;
+    }
+  };
+
+
+  // Run select unit tests after setting global locale.
+  void 
+  run_tests_wrapped_locale(const char*, const func_callback&);
+
+  // Run select unit tests after setting environment variables.
+  void 
+  run_tests_wrapped_env(const char*, const char*, const func_callback&);
+
+  // Try to create a locale with the given name. If it fails, bail.
+  std::locale
+  try_named_locale(const char* name);
+
+
+  // Test data types.
+  struct pod_char
+  {
+    unsigned char c;
+  };
+  
+  struct pod_int
+  {
+    int i;
+  };
+  
+  struct state
+  {
+    unsigned long l;
+    unsigned long l2;
+  };
+
+
+  // Counting.
+  struct counter
+  {
     // Specifically and glaringly-obviously marked 'signed' so that when
     // COUNT mistakenly goes negative, we can track the patterns of
     // deletions more easily.
     typedef  signed int     size_type;
     static size_type   count;
-    gnu_counting_struct() { ++count; }
-    gnu_counting_struct (const gnu_counting_struct&) { ++count; }
-    ~gnu_counting_struct() { --count; }
-};
-
-#define assert_count(n)   VERIFY(gnu_counting_struct::count == n)
-
-
-class gnu_copy_tracker
-{
+    counter() { ++count; }
+    counter (const counter&) { ++count; }
+    ~counter() { --count; }
+  };
+  
+#define assert_count(n)   VERIFY(__gnu_test::counter::count == n)
+  
+  // A (static) class for counting copy constructors and possibly throwing an
+  // exception on a desired count.
+  class copy_constructor
+  {
   public:
-    // Cannot be explicit.  Conversion ctor used by list_modifiers.cc's
-    // test03(), "range fill at beginning".
-    gnu_copy_tracker (int anId, bool throwOnDemand = false)
-    : itsId(anId), willThrow(throwOnDemand)
-    {}
-
-    gnu_copy_tracker (const gnu_copy_tracker& rhs)
-    : itsId(rhs.id()), willThrow(rhs.willThrow)
+    static unsigned int
+    count() { return count_; }
+    
+    static void
+    mark_call()
     {
-      ++itsCopyCount;
-      if (willThrow) 
-	__throw_exception_again "copy tracker exception";
+      count_++;
+      if (count_ == throw_on_)
+	__throw_exception_again "copy constructor exception";
     }
-
-    gnu_copy_tracker& operator=(const gnu_copy_tracker& rhs)
+      
+    static void
+    reset()
     {
-      itsId = rhs.id();
-      // willThrow must obviously already be false to get this far
+      count_ = 0;
+      throw_on_ = 0;
     }
-
-    ~gnu_copy_tracker() { ++itsDtorCount; }
-
-    int
-    id() const
-    { return itsId; }
+      
+    static void
+    throw_on(unsigned int count) { throw_on_ = count; }
 
   private:
-          int   itsId;
-    const bool  willThrow;
+    static unsigned int count_;
+    static unsigned int throw_on_;
+  };
+  
+  // A (static) class for counting assignment operator calls and
+  // possibly throwing an exception on a desired count.
+  class assignment_operator
+  {
+  public:
+    static unsigned int
+    count() { return count_; }
+    
+    static void
+    mark_call()
+    {
+      count_++;
+      if (count_ == throw_on_)
+	__throw_exception_again "assignment operator exception";
+    }
+
+    static void
+    reset()
+    {
+      count_ = 0;
+      throw_on_ = 0;
+    }
+
+    static void
+    throw_on(unsigned int count) { throw_on_ = count; }
+
+  private:
+    static unsigned int count_;
+    static unsigned int throw_on_;
+  };
+  
+  // A (static) class for tracking calls to an object's destructor.
+  class destructor
+  {
+  public:
+    static unsigned int
+    count() { return _M_count; }
+    
+    static void
+    mark_call() { _M_count++; }
+
+    static void
+    reset() { _M_count = 0; }
+
+  private:
+    static unsigned int _M_count;
+  };
+  
+  // An class of objects that can be used for validating various
+  // behaviours and guarantees of containers and algorithms defined in
+  // the standard library.
+  class copy_tracker
+  {
+  public:
+    // Creates a copy-tracking object with the given ID number.  If
+    // "throw_on_copy" is set, an exception will be thrown if an
+    // attempt is made to copy this object.
+    copy_tracker(int id = next_id_--, bool throw_on_copy = false)
+    : id_(id) , throw_on_copy_(throw_on_copy) { }
+
+    // Copy-constructs the object, marking a call to the copy
+    // constructor and forcing an exception if indicated.
+    copy_tracker(const copy_tracker& rhs)
+    : id_(rhs.id()), throw_on_copy_(rhs.throw_on_copy_)
+    {
+      if (throw_on_copy_)
+	copy_constructor::throw_on(copy_constructor::count() + 1);
+      copy_constructor::mark_call();
+    }
+
+    // Assigns the value of another object to this one, tracking the
+    // number of times this member function has been called and if the
+    // other object is supposed to throw an exception when it is
+    // copied, well, make it so.
+    copy_tracker&
+    operator=(const copy_tracker& rhs)
+    { 
+      id_ = rhs.id();
+      if (rhs.throw_on_copy_)
+        assignment_operator::throw_on(assignment_operator::count() + 1);
+      assignment_operator::mark_call();
+      return *this;
+    }
+
+    ~copy_tracker()
+    { destructor::mark_call(); }
+
+    int
+    id() const { return id_; }
+
+  private:
+    int   id_;
+    const bool  throw_on_copy_;
 
   public:
     static void
     reset()
-    { itsCopyCount = 0; itsDtorCount = 0; }
+    {
+      copy_constructor::reset();
+      assignment_operator::reset();
+      destructor::reset();
+    }
 
+    // for backwards-compatibility
     static int
     copyCount() 
-    { return itsCopyCount; }
+    { return copy_constructor::count(); }
 
+    // for backwards-compatibility
     static int
     dtorCount() 
-    { return itsDtorCount; }
+    { return destructor::count(); }
 
   private:
-    static int itsCopyCount;
-    static int itsDtorCount;
-};
+    static int next_id_;
+  };
 
-struct gnu_char
-{
-  unsigned long c;
-};
+  inline bool
+  operator==(const copy_tracker& lhs, const copy_tracker& rhs)
+  { return lhs.id() == rhs.id(); }
+} // namespace __gnu_test
 
-struct gnu_int
-{
-  unsigned long i;
-};
-
-struct gnu_state
-{
-  unsigned long l;
-  unsigned long l2;
-};
-
-// char_traits specialization
 namespace std
 {
   template<class _CharT>
     struct char_traits;
 
+  // char_traits specialization
   template<>
-    struct char_traits<gnu_char>
+    struct char_traits<__gnu_test::pod_char>
     {
-      typedef gnu_char 		char_type;
-      typedef gnu_int  		int_type;
-      typedef long 		pos_type;
-      typedef unsigned long 	off_type;
-      typedef gnu_state 	state_type;
+      typedef __gnu_test::pod_char	char_type;
+      typedef __gnu_test::pod_int  	int_type;
+      typedef long 			pos_type;
+      typedef long 			off_type;
+      typedef __gnu_test::state   	state_type;
       
       static void 
       assign(char_type& __c1, const char_type& __c2);
@@ -227,5 +384,5 @@ namespace std
     };
 } // namespace std
 
-#endif // _GLIBCPP_TESTSUITE_HOOKS_H
+#endif // _GLIBCXX_TESTSUITE_HOOKS_H
 

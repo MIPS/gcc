@@ -58,8 +58,8 @@
  *  You should not attempt to use it directly.
  */
 
-#ifndef __GLIBCPP_INTERNAL_MULTIMAP_H
-#define __GLIBCPP_INTERNAL_MULTIMAP_H
+#ifndef _MULTIMAP_H
+#define _MULTIMAP_H 1
 
 #include <bits/concept_check.h>
 
@@ -105,8 +105,8 @@ namespace std
     class multimap
   {
     // concept requirements
-    __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
-    __glibcpp_class_requires4(_Compare, bool, _Key, _Key, _BinaryFunctionConcept)
+    __glibcxx_class_requires(_Tp, _SGIAssignableConcept)
+    __glibcxx_class_requires4(_Compare, bool, _Key, _Key, _BinaryFunctionConcept)
   
   public:
     typedef _Key                                          key_type;
@@ -479,8 +479,8 @@ namespace std
     /**
      *  @brief Finds the beginning of a subsequence matching given key.
      *  @param  x  Key of (key, value) pair to be located.
-     *  @return  Iterator pointing to first element matching given key, or
-     *           end() if not found.
+     *  @return  Iterator pointing to first element equal to or greater
+     *           than key, or end().
      *
      *  This function returns the first element of a subsequence of elements
      *  that matches the given key.  If unsuccessful it returns an iterator
@@ -494,7 +494,7 @@ namespace std
      *  @brief Finds the beginning of a subsequence matching given key.
      *  @param  x  Key of (key, value) pair to be located.
      *  @return  Read-only (constant) iterator pointing to first element
-     *           matching given key, or end() if not found.
+     *           equal to or greater than key, or end().
      *
      *  This function returns the first element of a subsequence of elements
      *  that matches the given key.  If unsuccessful the iterator will point
@@ -507,7 +507,8 @@ namespace std
     /**
      *  @brief Finds the end of a subsequence matching given key.
      *  @param  x  Key of (key, value) pair to be located.
-     *  @return Iterator pointing to last element matching given key.
+     *  @return Iterator pointing to the first element
+     *          greater than key, or end().
     */
     iterator
     upper_bound(const key_type& __x) { return _M_t.upper_bound(__x); }
@@ -515,8 +516,8 @@ namespace std
     /**
      *  @brief Finds the end of a subsequence matching given key.
      *  @param  x  Key of (key, value) pair to be located.
-     *  @return  Read-only (constant) iterator pointing to last element matching
-     *           given key.
+     *  @return  Read-only (constant) iterator pointing to first iterator
+     *           greater than key, or end().
     */
     const_iterator
     upper_bound(const key_type& __x) const { return _M_t.upper_bound(__x); }
@@ -527,12 +528,12 @@ namespace std
      *  @return  Pair of iterators that possibly points to the subsequence
      *           matching given key.
      *
-     *  This function returns a pair of which the first
-     *  element possibly points to the first element matching the given key
-     *  and the second element possibly points to the last element matching the
-     *  given key.  If unsuccessful the first element of the returned pair will
-     *  contain an iterator pointing to the next greatest element or, if no such
-     *  greater element exists, to end().
+     *  This function is equivalent to
+     *  @code
+     *    std::make_pair(c.lower_bound(val),
+     *                   c.upper_bound(val))
+     *  @endcode
+     *  (but is faster than making the calls separately).
     */
     pair<iterator,iterator>
     equal_range(const key_type& __x) { return _M_t.equal_range(__x); }
@@ -543,12 +544,12 @@ namespace std
      *  @return  Pair of read-only (constant) iterators that possibly points to
      *           the subsequence matching given key.
      *
-     *  This function returns a pair of which the first
-     *  element possibly points to the first element matching the given key
-     *  and the second element possibly points to the last element matching the
-     *  given key.  If unsuccessful the first element of the returned pair will
-     *  contain an iterator pointing to the next greatest element or, if no such
-     *  a greater element exists, to end().
+     *  This function is equivalent to
+     *  @code
+     *    std::make_pair(c.lower_bound(val),
+     *                   c.upper_bound(val))
+     *  @endcode
+     *  (but is faster than making the calls separately).
     */
     pair<const_iterator,const_iterator>
     equal_range(const key_type& __x) const { return _M_t.equal_range(__x); }
@@ -584,12 +585,12 @@ namespace std
    *  @brief  Multimap ordering relation.
    *  @param  x  A %multimap.
    *  @param  y  A %multimap of the same type as @a x.
-   *  @return  True iff @a x is lexographically less than @a y.
+   *  @return  True iff @a x is lexicographically less than @a y.
    *
    *  This is a total ordering relation.  It is linear in the size of the
    *  multimaps.  The elements must be comparable with @c <.
    *
-   *  See std::lexographical_compare() for how the determination is made.
+   *  See std::lexicographical_compare() for how the determination is made.
   */
   template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
     inline bool
@@ -633,4 +634,4 @@ namespace std
     { __x.swap(__y); }
 } // namespace std
 
-#endif /* __GLIBCPP_INTERNAL_MULTIMAP_H */
+#endif /* _MULTIMAP_H */

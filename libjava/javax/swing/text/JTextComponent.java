@@ -41,15 +41,23 @@ import java.awt.AWTEvent;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.Point;
-import javax.accessibility.*;
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.accessibility.AccessibleStateSet;
+import javax.accessibility.AccessibleText;
 import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.KeyStroke;
 import javax.swing.Scrollable;
 import javax.swing.UIManager;
-import javax.swing.event.*;
+import javax.swing.event.CaretEvent;
+import javax.swing.event.CaretListener;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.plaf.TextUI;
 
 public abstract class JTextComponent extends JComponent
@@ -375,6 +383,12 @@ public abstract class JTextComponent extends JComponent
     {
 	//          Get the component this is labelling.  
 	return null;
+    }
+
+    public Insets getMargin()
+    {
+        // FIXME: Not implemented.
+        return null;
     }
 
     public void setText(String text)

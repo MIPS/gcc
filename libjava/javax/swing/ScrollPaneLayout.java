@@ -35,19 +35,25 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-// Imports
-import java.awt.*;
-import java.io.*;
-import javax.swing.plaf.*;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.LayoutManager;
+import java.awt.Rectangle;
+import java.io.Serializable;
 
 /**
  * ScrollPaneLayout
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public class ScrollPaneLayout implements LayoutManager, ScrollPaneConstants, Serializable {
+public class ScrollPaneLayout
+  implements LayoutManager, ScrollPaneConstants, Serializable
+{
+  static final long serialVersionUID = -4480022884523193743L;
 
 	//-------------------------------------------------------------
 	// Classes ----------------------------------------------------

@@ -1,6 +1,6 @@
 // istream classes -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -32,6 +32,9 @@
 // ISO C++ 14882: 27.6.2  Output streams
 //
 
+#ifndef _ISTREAM_TCC
+#define _ISTREAM_TCC 1
+
 #pragma GCC system_header
 
 #include <locale>
@@ -53,13 +56,13 @@ namespace std
 	      __streambuf_type* __sb = __in.rdbuf();
 	      __int_type __c = __sb->sgetc();
 
-	      if (__in._M_check_facet(__in._M_fctype))
-		while (!traits_type::eq_int_type(__c, __eof)
-		       && __in._M_fctype->is(ctype_base::space, 
-					     traits_type::to_char_type(__c)))
+	      const __ctype_type& __ct = __check_facet(__in._M_ctype);
+	      while (!traits_type::eq_int_type(__c, __eof)
+		     && __ct.is(ctype_base::space, 
+				traits_type::to_char_type(__c)))
 		  __c = __sb->snextc();
 
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 //195.  Should basic_istream::sentry's constructor ever set eofbit? 
 	      if (traits_type::eq_int_type(__c, __eof))
 		__in.setstate(ios_base::eofbit);
@@ -114,15 +117,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -140,11 +143,11 @@ namespace std
 	{
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	      long __l;
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __l);
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __l);
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 	      // 118. basic_istream uses nonexistent num_get member functions.
 	      if (!(__err & ios_base::failbit)
 		  && (numeric_limits<short>::min() <= __l 
@@ -155,11 +158,11 @@ namespace std
 #endif
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -178,15 +181,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -204,11 +207,11 @@ namespace std
 	{
 	  try 
 	    {
-	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
 	      long __l;
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __l);
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __l);
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 	      // 118. basic_istream uses nonexistent num_get member functions.
 	      if (!(__err & ios_base::failbit)
 		  && (numeric_limits<int>::min() <= __l 
@@ -219,11 +222,11 @@ namespace std
 #endif
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -242,15 +245,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -269,15 +272,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -296,15 +299,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -312,7 +315,7 @@ namespace std
       return *this;
     }
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
   template<typename _CharT, typename _Traits>
     basic_istream<_CharT, _Traits>& 
     basic_istream<_CharT, _Traits>::
@@ -324,15 +327,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 	      __throw_exception_again;
 	    }
@@ -351,15 +354,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -379,15 +382,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -406,15 +409,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -433,15 +436,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -460,15 +463,15 @@ namespace std
 	  try 
 	    {
 	      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
-	      if (_M_check_facet(_M_fnumget))
-		_M_fnumget->get(*this, 0, *this, __err, __n);
+	      const __num_get_type& __ng = __check_facet(this->_M_num_get);
+	      __ng.get(*this, 0, *this, __err, __n);
 	      this->setstate(__err);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -495,11 +498,11 @@ namespace std
 	       if (!__sbout || !__xtrct)
 		 this->setstate(ios_base::failbit);
 	     }
-	   catch(exception& __fail)
+	   catch(...)
 	     {
 	       // 27.6.2.5.1 Common requirements.
 	       // Turn this on without causing an ios::failure to be thrown.
-	       this->setstate(ios_base::badbit);
+	       this->_M_setstate(ios_base::badbit);
 	       if ((this->exceptions() & ios_base::badbit) != 0)
 		 __throw_exception_again;
 	     }
@@ -527,11 +530,11 @@ namespace std
 	      else
 		this->setstate(ios_base::eofbit | ios_base::failbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -561,11 +564,11 @@ namespace std
 	      else
 		this->setstate(ios_base::eofbit | ios_base::failbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -600,11 +603,11 @@ namespace std
 	      if (traits_type::eq_int_type(__c, __eof))
 		this->setstate(ios_base::eofbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -643,11 +646,11 @@ namespace std
 	      if (traits_type::eq_int_type(__c, __eof))
 		this->setstate(ios_base::eofbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -694,11 +697,11 @@ namespace std
 		    this->setstate(ios_base::failbit);
 		}
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -724,7 +727,7 @@ namespace std
 	      __streambuf_type* __sb = this->rdbuf();
 	      int_type __c;
 	      
-	      __n = min(__n, numeric_limits<streamsize>::max());
+	      __n = std::min(__n, numeric_limits<streamsize>::max());
 	      while (_M_gcount < __n  
 		     && !traits_type::eq_int_type(__c = __sb->sbumpc(), __eof))
 		{
@@ -735,11 +738,11 @@ namespace std
 	      if (traits_type::eq_int_type(__c, __eof))
 		this->setstate(ios_base::eofbit);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -758,12 +761,16 @@ namespace std
       if (__cerb)
 	{
 	  try 
-	    { __c = this->rdbuf()->sgetc(); }
-	  catch(exception& __fail)
+	    {
+	      __c = this->rdbuf()->sgetc();
+	      if (traits_type::eq_int_type(__c, traits_type::eof()))
+		this->setstate(ios_base::eofbit);
+	    }
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -786,17 +793,15 @@ namespace std
 	      if (_M_gcount != __n)
 		this->setstate(ios_base::eofbit | ios_base::failbit);
 	    }	    
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
 	}
-      else
-	this->setstate(ios_base::failbit);
       return *this;
     }
   
@@ -815,24 +820,22 @@ namespace std
 	      streamsize __num = this->rdbuf()->in_avail();
 	      if (__num >= 0)
 		{
-		  __num = min(__num, __n);
+		  __num = std::min(__num, __n);
 		  if (__num)
 		    _M_gcount = this->rdbuf()->sgetn(__s, __num);
 		}
 	      else
 		this->setstate(ios_base::eofbit);		    
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
 	}
-      else
-	this->setstate(ios_base::failbit);
       return _M_gcount;
     }
       
@@ -841,6 +844,10 @@ namespace std
     basic_istream<_CharT, _Traits>::
     putback(char_type __c)
     {
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
+// 60. What is a formatted input function?
+      _M_gcount = 0;
+#endif
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
@@ -852,17 +859,15 @@ namespace std
 		  || traits_type::eq_int_type(__sb->sputbackc(__c), __eof))
 		this->setstate(ios_base::badbit);		    
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
 	}
-      else
-	this->setstate(ios_base::failbit);
       return *this;
     }
   
@@ -871,7 +876,10 @@ namespace std
     basic_istream<_CharT, _Traits>::
     unget(void)
     {
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
+// 60. What is a formatted input function?
       _M_gcount = 0;
+#endif
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
@@ -883,17 +891,15 @@ namespace std
 		  || traits_type::eq_int_type(__sb->sungetc(), __eof))
 		this->setstate(ios_base::badbit);		    
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
 	}
-      else
-	this->setstate(ios_base::failbit);
       return *this;
     }
   
@@ -902,8 +908,8 @@ namespace std
     basic_istream<_CharT, _Traits>::
     sync(void)
     {
+      // DR60.  Do not change _M_gcount.
       int __ret = -1;
-      _M_gcount = 0;
       sentry __cerb(*this, true);
       if (__cerb) 
 	{
@@ -918,11 +924,11 @@ namespace std
 		    __ret = 0;
 		}
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.3 paragraph 1
 	      // Turn this on without causing an ios::failure to be thrown.
-	      this->setstate(ios_base::badbit);
+	      this->_M_setstate(ios_base::badbit);
 	      if ((this->exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -935,6 +941,7 @@ namespace std
     basic_istream<_CharT, _Traits>::
     tellg(void)
     {
+      // DR60.  Do not change _M_gcount.
       pos_type __ret = pos_type(-1);
       if (!this->fail())
 	__ret = this->rdbuf()->pubseekoff(0, ios_base::cur, ios_base::in);
@@ -947,10 +954,10 @@ namespace std
     basic_istream<_CharT, _Traits>::
     seekg(pos_type __pos)
     {
-      _M_gcount = 0;
+      // DR60.  Do not change _M_gcount.
       if (!this->fail())
 	{
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
 	  pos_type __err = this->rdbuf()->pubseekpos(__pos, ios_base::in);
 
@@ -967,10 +974,10 @@ namespace std
     basic_istream<_CharT, _Traits>::
     seekg(off_type __off, ios_base::seekdir __dir)
     {
-      _M_gcount = 0;
+      // DR60.  Do not change _M_gcount.
       if (!this->fail())
 	{
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 // 136.  seekp, seekg setting wrong streams?
 	  pos_type __err = this->rdbuf()->pubseekoff(__off, __dir, 
 						     ios_base::in);
@@ -994,17 +1001,15 @@ namespace std
 	{
 	  try 
 	    { __in.get(__c); }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      __in.setstate(ios_base::badbit);
+	      __in._M_setstate(ios_base::badbit);
 	      if ((__in.exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
 	}
-      else
-	__in.setstate(ios_base::failbit);
       return __in;
     }
 
@@ -1026,36 +1031,38 @@ namespace std
 	    {
 	      // Figure out how many characters to extract.
 	      streamsize __num = __in.width();
-	      if (__num == 0)
+	      if (__num <= 0)
 		__num = numeric_limits<streamsize>::max();
 	      
-	      const __ctype_type& __ctype = use_facet<__ctype_type>(__in.getloc());
+	      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
+
 	      const int_type __eof = _Traits::eof();
 	      __streambuf_type* __sb = __in.rdbuf();
 	      int_type __c = __sb->sgetc();
 	      
 	      while (__extracted < __num - 1 
 		     && !_Traits::eq_int_type(__c, __eof)
-		     && !__ctype.is(ctype_base::space, __c))
+		     && !__ct.is(ctype_base::space, 
+				 _Traits::to_char_type(__c)))
 		{
-		  *__s++ = __c;
+		  *__s++ = _Traits::to_char_type(__c);
 		  ++__extracted;
 		  __c = __sb->snextc();
 		}
 	      if (_Traits::eq_int_type(__c, __eof))
 		__in.setstate(ios_base::eofbit);
 
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 //68.  Extractors for char* should store null at end
 	      *__s = char_type();
 #endif
 	      __in.width(0);
 	    }
-	  catch(exception& __fail)
+	  catch(...)
 	    {
 	      // 27.6.1.2.1 Common requirements.
 	      // Turn this on without causing an ios::failure to be thrown.
-	      __in.setstate(ios_base::badbit);
+	      __in._M_setstate(ios_base::badbit);
 	      if ((__in.exceptions() & ios_base::badbit) != 0)
 		__throw_exception_again;
 	    }
@@ -1075,13 +1082,13 @@ namespace std
       typedef typename __istream_type::__ctype_type 	__ctype_type;
       typedef typename __istream_type::int_type 	__int_type;
 
-      const __ctype_type& __ctype = use_facet<__ctype_type>(__in.getloc());
+      const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
       const __int_type __eof = _Traits::eof();	      
       __streambuf_type* __sb = __in.rdbuf();
       __int_type __c = __sb->sgetc();
 
       while (!_Traits::eq_int_type(__c, __eof) 
-	     && __ctype.is(ctype_base::space, __c))
+	     && __ct.is(ctype_base::space, _Traits::to_char_type(__c)))
 	__c = __sb->snextc();
 
        if (_Traits::eq_int_type(__c, __eof))
@@ -1112,14 +1119,14 @@ namespace std
 	  __size_type __n;
 	  __n = __w > 0 ? static_cast<__size_type>(__w) : __str.max_size();
 
-	  const __ctype_type& __ctype = use_facet<__ctype_type>(__in.getloc());
+	  const __ctype_type& __ct = use_facet<__ctype_type>(__in.getloc());
 	  const __int_type __eof = _Traits::eof();
 	  __streambuf_type* __sb = __in.rdbuf();
 	  __int_type __c = __sb->sgetc();
 	  
 	  while (__extracted < __n 
 		 && !_Traits::eq_int_type(__c, __eof)
-		 && !__ctype.is(ctype_base::space, __c))
+		 && !__ct.is(ctype_base::space, _Traits::to_char_type(__c)))
 	    {
 	      __str += _Traits::to_char_type(__c);
 	      ++__extracted;
@@ -1129,7 +1136,7 @@ namespace std
 	    __in.setstate(ios_base::eofbit);
 	  __in.width(0);
 	}
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
+#ifdef _GLIBCXX_RESOLVE_LIB_DEFECTS
 //211.  operator>>(istream&, string&) doesn't set failbit
       if (!__extracted)
 	__in.setstate (ios_base::failbit);
@@ -1163,8 +1170,7 @@ namespace std
 	  const __int_type __eof = _Traits::eof();
 	  __testdelim = _Traits::eq_int_type(__c, __idelim);
 
-	  while (__extracted <= __n 
-		 && !_Traits::eq_int_type(__c, __eof)
+	  while (__extracted <= __n && !_Traits::eq_int_type(__c, __eof)
 		 && !__testdelim)
 	    {
 	      __str += _Traits::to_char_type(__c);
@@ -1189,6 +1195,7 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
+#if _GLIBCXX_EXTERN_TEMPLATE
   extern template class basic_istream<char>;
   extern template istream& ws(istream&);
   extern template istream& operator>>(istream&, char&);
@@ -1198,10 +1205,13 @@ namespace std
   extern template istream& operator>>(istream&, unsigned char*);
   extern template istream& operator>>(istream&, signed char*);
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   extern template class basic_istream<wchar_t>;
   extern template wistream& ws(wistream&);
   extern template wistream& operator>>(wistream&, wchar_t&);
   extern template wistream& operator>>(wistream&, wchar_t*);
 #endif
+#endif
 } // namespace std
+
+#endif

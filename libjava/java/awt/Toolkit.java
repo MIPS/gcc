@@ -1,5 +1,5 @@
 /* Toolkit.java -- AWT Toolkit superclass
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -96,7 +96,7 @@ public abstract class Toolkit
 {
   /** The default toolkit name. */
   private static String default_toolkit_name
-    = "gnu.awt.gtk.GtkToolkit";
+    = gnu.classpath.Configuration.default_awt_peer_toolkit;
 
   /**
    * The toolkit in use.  Once we load it, we don't ever change it
@@ -123,7 +123,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Button</code>.
    *
    * @param target The <code>Button</code> to create the peer for.
+   * 
    * @return The peer for the specified <code>Button</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract ButtonPeer createButton(Button target);
 
@@ -131,7 +134,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>TextField</code>.
    *
    * @param target The <code>TextField</code> to create the peer for.
+   *
    * @return The peer for the specified <code>TextField</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract TextFieldPeer createTextField(TextField target);
 
@@ -139,7 +145,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Label</code>.
    *
    * @param target The <code>Label</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Label</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract LabelPeer createLabel(Label target);
 
@@ -147,7 +156,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>List</code>.
    *
    * @param target The <code>List</code> to create the peer for.
+   *
    * @return The peer for the specified <code>List</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract ListPeer createList(List target);
 
@@ -155,7 +167,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Checkbox</code>.
    *
    * @param target The <code>Checkbox</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Checkbox</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract CheckboxPeer createCheckbox(Checkbox target);
 
@@ -163,7 +178,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Scrollbar</code>.
    *
    * @param target The <code>Scrollbar</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Scrollbar</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract ScrollbarPeer createScrollbar(Scrollbar target);
 
@@ -171,7 +189,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>ScrollPane</code>.
    *
    * @param target The <code>ScrollPane</code> to create the peer for.
+   *
    * @return The peer for the specified <code>ScrollPane</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract ScrollPanePeer createScrollPane(ScrollPane target);
 
@@ -179,7 +200,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>TextArea</code>.
    *
    * @param target The <code>TextArea</code> to create the peer for.
+   *
    * @return The peer for the specified <code>TextArea</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract TextAreaPeer createTextArea(TextArea target);
 
@@ -187,7 +211,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Choice</code>.
    *
    * @param target The <code>Choice</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Choice</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract ChoicePeer createChoice(Choice target);
 
@@ -195,7 +222,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Frame</code>.
    *
    * @param target The <code>Frame</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Frame</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract FramePeer createFrame(Frame target);
 
@@ -203,6 +233,7 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Canvas</code>.
    *
    * @param target The <code>Canvas</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Canvas</code> object.
    */
   protected abstract CanvasPeer createCanvas(Canvas target);
@@ -211,6 +242,7 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Panel</code>.
    *
    * @param target The <code>Panel</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Panel</code> object.
    */
   protected abstract PanelPeer createPanel(Panel target);
@@ -219,7 +251,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Window</code>.
    *
    * @param target The <code>Window</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Window</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract WindowPeer createWindow(Window target);
 
@@ -227,7 +262,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Dialog</code>.
    *
    * @param target The dialog to create the peer for
+   *
    * @return The peer for the specified font name.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract DialogPeer createDialog(Dialog target);
 
@@ -235,7 +273,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>MenuBar</code>.
    *
    * @param target The <code>MenuBar</code> to create the peer for.
+   *
    * @return The peer for the specified <code>MenuBar</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract MenuBarPeer createMenuBar(MenuBar target);
 
@@ -243,7 +284,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>Menu</code>.
    *
    * @param target The <code>Menu</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Menu</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract MenuPeer createMenu(Menu target);
 
@@ -251,7 +295,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>PopupMenu</code>.
    *
    * @param target The <code>PopupMenu</code> to create the peer for.
+   *
    * @return The peer for the specified <code>PopupMenu</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract PopupMenuPeer createPopupMenu(PopupMenu target);
 
@@ -259,7 +306,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>MenuItem</code>.
    *
    * @param target The <code>MenuItem</code> to create the peer for.
+   *
    * @return The peer for the specified <code>MenuItem</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract MenuItemPeer createMenuItem(MenuItem target);
 
@@ -267,7 +317,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>FileDialog</code>.
    *
    * @param target The <code>FileDialog</code> to create the peer for.
+   *
    * @return The peer for the specified <code>FileDialog</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract FileDialogPeer createFileDialog(FileDialog target);
 
@@ -275,7 +328,10 @@ public abstract class Toolkit
    * Creates a peer object for the specified <code>CheckboxMenuItem</code>.
    *
    * @param target The <code>CheckboxMenuItem</code> to create the peer for.
+   *
    * @return The peer for the specified <code>CheckboxMenuItem</code> object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected abstract CheckboxMenuItemPeer
     createCheckboxMenuItem(CheckboxMenuItem target);
@@ -286,14 +342,13 @@ public abstract class Toolkit
    * with its own native window.  Instead, this method allows the component
    * to draw on its parent window as a "lightweight" widget.
    *
-   * XXX: FIXME
-   *
    * @param target The <code>Component</code> to create the peer for.
+   *
    * @return The peer for the specified <code>Component</code> object.
    */
   protected LightweightPeer createComponent(Component target)
   {
-    return null;
+    return new gnu.java.awt.peer.GLightweightPeer (target);
   }
 
   /**
@@ -301,7 +356,10 @@ public abstract class Toolkit
    *
    * @param name The font to create the peer for.
    * @param style The font style to create the peer for.
+   *
    * @return The peer for the specified font name.
+   *
+   * @deprecated
    */
   protected abstract FontPeer getFontPeer(String name, int style);
 
@@ -310,6 +368,8 @@ public abstract class Toolkit
    * the interface used by the <code>SystemColors</code> class.
    *
    * @param colors The array to copy the system colors into.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected void loadSystemColors(int systemColors[])
   {
@@ -318,6 +378,8 @@ public abstract class Toolkit
 
   /**
    * @since 1.4
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   public void setDynamicLayout(boolean dynamic)
   {
@@ -325,6 +387,8 @@ public abstract class Toolkit
 
   /**
    * @since 1.4
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   protected boolean isDynamicLayoutSet()
   {
@@ -333,6 +397,8 @@ public abstract class Toolkit
 
   /**
    * @since 1.4
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   public boolean isDynamicLayoutActive()
   {
@@ -343,6 +409,8 @@ public abstract class Toolkit
    * Returns the dimensions of the screen in pixels.
    *
    * @return The dimensions of the screen in pixels.
+   * 
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   public abstract Dimension getScreenSize();
 
@@ -350,10 +418,14 @@ public abstract class Toolkit
    * Returns the screen resolution in dots per square inch.
    *
    * @return The screen resolution in dots per square inch.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   public abstract int getScreenResolution();
 
   /**
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   *
    * @since 1.4
    */
   public Insets getScreenInsets(GraphicsConfiguration gc)
@@ -365,6 +437,8 @@ public abstract class Toolkit
    * Returns the color model of the screen.
    *
    * @return The color model of the screen.
+   * 
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   public abstract ColorModel getColorModel();
 
@@ -372,6 +446,8 @@ public abstract class Toolkit
    * Returns the names of the available fonts.
    *
    * @return The names of the available fonts.
+   *
+   * @deprecated
    */
   public abstract String[] getFontList();
 
@@ -379,7 +455,10 @@ public abstract class Toolkit
    * Return the font metrics for the specified font
    *
    * @param name The name of the font to return metrics for.
+   *
    * @return The requested font metrics.
+   *
+   * @deprecated
    */
   public abstract FontMetrics getFontMetrics(Font name);
 
@@ -396,6 +475,7 @@ public abstract class Toolkit
    * if the property is not set.
    *
    * @return An instance of the system default toolkit.
+   *
    * @throws AWTError If the toolkit cannot be loaded.
    */
   public static Toolkit getDefaultToolkit()
@@ -414,9 +494,10 @@ public abstract class Toolkit
         toolkit = (Toolkit) obj;
         return toolkit;
       }
-    catch (Exception e)
+    catch (Throwable t)
       {
-        throw new AWTError("Cannot load AWT toolkit: " + e.getMessage());
+	AWTError e = new AWTError("Cannot load AWT toolkit: " + toolkit_name);
+	throw (AWTError) e.initCause(t);
       }
   }
 
@@ -450,6 +531,7 @@ public abstract class Toolkit
    * @param height The height of the image.
    * @param observer The observer to receive events about the preparation
    * process.
+   *
    * @return <code>true</code> if the image is already prepared for rendering,
    * <code>false</code> otherwise.
    */
@@ -465,6 +547,7 @@ public abstract class Toolkit
    * @param height The height of the image.
    * @param observer The observer to receive events about the preparation
    * process.
+   *
    * @return A union of the bitmasks from
    * <code>java.awt.image.ImageObserver</code> that indicates the current
    * state of the imaging readying process.
@@ -476,6 +559,7 @@ public abstract class Toolkit
    * Creates an image using the specified <code>ImageProducer</code>
    *
    * @param producer The <code>ImageProducer</code> to create the image from.
+   *
    * @return The created image.
    */
   public abstract Image createImage(ImageProducer producer);
@@ -485,6 +569,7 @@ public abstract class Toolkit
    * a recognized format.  Supported formats vary from toolkit to toolkit.
    *
    * @param data The raw image data.
+   *
    * @return The created image.
    */
   public Image createImage(byte[] data)
@@ -500,6 +585,7 @@ public abstract class Toolkit
    * @param data The raw image data.
    * @param offset The offset into the data where the image data starts.
    * @param len The length of the image data.
+   *
    * @return The created image.
    */
   public abstract Image createImage(byte[] data, int offset, int len);
@@ -511,14 +597,35 @@ public abstract class Toolkit
    * @param frame The window initiating the print job.
    * @param title The print job title.
    * @param props The print job properties.
+   *
    * @return The requested print job, or <code>null</code> if the job
    * was cancelled.
+   *
+   * @exception NullPointerException If frame is null,
+   * or GraphicsEnvironment.isHeadless() returns true.
+   * @exception SecurityException If this thread is not allowed to initiate
+   * a print job request.
    */
   public abstract PrintJob getPrintJob(Frame frame, String title,
                                        Properties props);
 
-
   /**
+   * Returns a instance of <code>PrintJob</code> for the specified
+   * arguments.
+   *
+   * @param frame The window initiating the print job.
+   * @param title The print job title.
+   * @param jobAttr A set of job attributes which will control the print job.
+   * @param pageAttr A set of page attributes which will control the print job.
+   *
+   * @exception NullPointerException If frame is null, and either jobAttr is null
+   * or jobAttr.getDialog() returns JobAttributes.DialogType.NATIVE.
+   * @exception IllegalArgumentException If pageAttrspecifies differing cross
+   * feed and feed resolutions, or when GraphicsEnvironment.isHeadless() returns
+   * true.
+   * @exception SecurityException If this thread is not allowed to initiate
+   * a print job request.
+   *
    * @since 1.3
    */
   public PrintJob getPrintJob(Frame frame, String title,
@@ -536,10 +643,16 @@ public abstract class Toolkit
    * Returns the system clipboard.
    *
    * @return THe system clipboard.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   public abstract Clipboard getSystemClipboard();
 
   /**
+   * Gets the singleton instance of the system selection as a Clipboard object.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   *
    * @since 1.4
    */
   public Clipboard getSystemSelection()
@@ -553,27 +666,50 @@ public abstract class Toolkit
    * to change the default.
    *
    * @return The key mask for the menu accelerator key.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
    */
   public int getMenuShortcutKeyMask()
   {
     return Event.CTRL_MASK;
   }
 
+  /**
+   * Returns whether the given locking key on the keyboard is currently in its
+   * "on" state.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   * @exception IllegalArgumentException If keyCode is not one of the valid keys.
+   * @exception UnsupportedOperationException If the host system doesn't allow
+   * getting the state of this key programmatically, or if the keyboard doesn't
+   * have this key.
+   */
   public boolean getLockingKeyState(int keyCode)
   {
     if (keyCode != KeyEvent.VK_CAPS_LOCK
         && keyCode != KeyEvent.VK_NUM_LOCK
         && keyCode != KeyEvent.VK_SCROLL_LOCK)
       throw new IllegalArgumentException();
+    
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Sets the state of the given locking key on the keyboard.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   * @exception IllegalArgumentException If keyCode is not one of the valid keys.
+   * @exception UnsupportedOperationException If the host system doesn't allow
+   * getting the state of this key programmatically, or if the keyboard doesn't
+   * have this key.
+   */
   public void setLockingKeyState(int keyCode, boolean on)
   {
     if (keyCode != KeyEvent.VK_CAPS_LOCK
         && keyCode != KeyEvent.VK_NUM_LOCK
         && keyCode != KeyEvent.VK_SCROLL_LOCK)
       throw new IllegalArgumentException();
+    
     throw new UnsupportedOperationException();
   }
 
@@ -583,6 +719,7 @@ public abstract class Toolkit
    * component.
    *
    * @param component The component to fetch the native container for.
+   *
    * @return The native container object for this component.
    */
   protected static Container getNativeContainer(Component component)
@@ -606,6 +743,13 @@ public abstract class Toolkit
       }
   }
 
+  /**
+   * Creates a new custom cursor object.
+   *
+   * @exception IndexOutOfBoundsException If the hotSpot values are outside
+   * the bounds of the cursor.
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   */
   public Cursor createCustomCursor(Image cursor, Point hotSpot, String name)
   {
     // Presumably the only reason this isn't abstract is for backwards
@@ -613,17 +757,33 @@ public abstract class Toolkit
     return null;
   }
 
+  /**
+   * Returns the supported cursor dimension which is closest to the
+   * desired sizes.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   */
   public Dimension getBestCursorSize(int preferredWidth, int preferredHeight)
   {
     return new Dimension (0,0);
   }
 
+  /**
+   * Returns the maximum number of colors the Toolkit supports in a custom
+   * cursor palette.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   */
   public int getMaximumCursorColors()
   {
     return 0;
   }
 
   /**
+   * Returns whether Toolkit supports this state for Frames.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
+   * 
    * @since 1.4
    */
   public boolean isFrameStateSupported(int state)
@@ -636,29 +796,64 @@ public abstract class Toolkit
    * default value if the property does not exist.
    *
    * @param key The name of the property to retrieve.
-   * @param defThe default value of the property.
+   * @param def The default value of the property.
    */
   public static String getProperty(String key, String def)
   {
     return props.getProperty(key, def);
   }
 
+
   /**
-   * Returns the event queue for the applet.  Despite the word "System"
-   * in the name of this method, there is no guarantee that the same queue
-   * is shared system wide.
+   * Returns the event queue that is suitable for the calling context.
    *
-   * @return The event queue for this applet (or application)
+   * <p>Despite the word &#x201c;System&#x201d; in the name of this
+   * method, a toolkit may provide different event queues for each
+   * applet. There is no guarantee that the same queue is shared
+   * system-wide.
+   *
+   * <p>The implementation first checks whether a
+   * SecurityManager has been installed. If so, its {@link
+   * java.lang.SecurityManager#checkAwtEventQueueAccess()} method gets
+   * called. The security manager will throw a SecurityException if it
+   * does not grant the permission to access the event queue.
+   *
+   * <p>Next, the call is delegated to {@link
+   * #getSystemEventQueueImpl()}.
+   *
+   * @return The event queue for this applet (or application).
+   *
+   * @throws SecurityException if a security manager has been
+   * installed, and it does not grant the permission to access the
+   * event queue.
    */
   public final EventQueue getSystemEventQueue()
   {
+    SecurityManager sm;
+
+    sm = System.getSecurityManager();
+    if (sm != null)
+      sm.checkAwtEventQueueAccess();
+
     return getSystemEventQueueImpl();
   }
 
+
   /**
-   * // FIXME: What does this do?
+   * Returns the event queue that is suitable for the calling context.
+   *
+   * <p>Despite the word &#x201c;System&#x201d; in the name of this
+   * method, a toolkit may provide different event queues for each
+   * applet. There is no guarantee that the same queue is shared
+   * system-wide.
+   *
+   * <p>No security checks are performed, which is why this method
+   * may only be called by Toolkits.
+   *
+   * @see #getSystemEventQueue()
    */
   protected abstract EventQueue getSystemEventQueueImpl();
+
 
   /**
    * @since 1.3

@@ -1,6 +1,6 @@
 // interpret.cc - Code for the interpreter
 
-/* Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -91,7 +91,7 @@ static inline void dupx (_Jv_word *sp, int n, int x)
       sp[top-(n+x)-i] = sp[top-i];
     }
   
-};
+}
 
 // Used to convert from floating types to integral types.
 template<typename TO, typename FROM>
@@ -240,19 +240,21 @@ static jint get4(unsigned char* loc) {
     }									      \
   while (0)
 
-void _Jv_InterpMethod::run_normal (ffi_cif *,
-				   void* ret,
-				   ffi_raw * args,
-				   void* __this)
+void
+_Jv_InterpMethod::run_normal (ffi_cif *,
+			      void* ret,
+			      ffi_raw * args,
+			      void* __this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
   _this->run (ret, args);
 }
 
-void _Jv_InterpMethod::run_synch_object (ffi_cif *,
-					 void* ret,
-					 ffi_raw * args,
-					 void* __this)
+void
+_Jv_InterpMethod::run_synch_object (ffi_cif *,
+				    void* ret,
+				    ffi_raw * args,
+				    void* __this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
 
@@ -262,14 +264,27 @@ void _Jv_InterpMethod::run_synch_object (ffi_cif *,
   _this->run (ret, args);
 }
 
-void _Jv_InterpMethod::run_synch_class (ffi_cif *,
-					void* ret,
-					ffi_raw * args,
-					void* __this)
+void
+_Jv_InterpMethod::run_class (ffi_cif *,
+			     void* ret,
+			     ffi_raw * args,
+			     void* __this)
+{
+  _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
+  _Jv_InitClass (_this->defining_class);
+  _this->run (ret, args);
+}
+
+void
+_Jv_InterpMethod::run_synch_class (ffi_cif *,
+				   void* ret,
+				   ffi_raw * args,
+				   void* __this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
 
   jclass sync = _this->defining_class;
+  _Jv_InitClass (sync);
   JvSynchronize mutex (sync);
 
   _this->run (ret, args);
@@ -312,7 +327,7 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
 
       if (! first_pass)
 	{
-	  insns = (insn_slot *) _Jv_Malloc (sizeof (insn_slot) * next);
+	  insns = (insn_slot *) _Jv_AllocBytes (sizeof (insn_slot) * next);
 	  next = 0;
 	}
 
@@ -2795,7 +2810,10 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 
 	sp -= rmeth->stack_item_count;
 
-	NULLCHECK (sp[0].o);
+	// We don't use NULLCHECK here because we can't rely on that
+	// working for <init>.  So instead we do an explicit test.
+	if (! sp[0].o)
+	  throw new java::lang::NullPointerException;
 
 	fun = (void (*)()) rmeth->method->ncode;
 
@@ -2813,7 +2831,10 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       {
 	rmeth = (_Jv_ResolvedMethod *) AVAL ();
 	sp -= rmeth->stack_item_count;
-	NULLCHECK (sp[0].o);
+	// We don't use NULLCHECK here because we can't rely on that
+	// working for <init>.  So instead we do an explicit test.
+	if (! sp[0].o)
+	  throw new java::lang::NullPointerException;
 	fun = (void (*)()) rmeth->method->ncode;
       }
       goto perform_invoke;
@@ -2827,7 +2848,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 
 	sp -= rmeth->stack_item_count;
 
-	_Jv_InitClass (rmeth->klass);
 	fun = (void (*)()) rmeth->method->ncode;
 
 #ifdef DIRECT_THREADED
@@ -2897,6 +2917,9 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       {
 	int index = GET2U ();
 	jclass klass = (_Jv_ResolvePoolEntry (defining_class, index)).clazz;
+	// We initialize here because otherwise `size_in_bytes' may
+	// not be set correctly, leading us to pass `0' as the size.
+	// FIXME: fix in the allocator?  There is a PR for this.
 	_Jv_InitClass (klass);
 	jobject res = _Jv_AllocObject (klass, klass->size_in_bytes);
 	PUSHA (res);
@@ -2932,7 +2955,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	int index = GET2U ();
 	jclass klass = (_Jv_ResolvePoolEntry (defining_class, index)).clazz;
 	int size  = POPI();
-	_Jv_InitClass (klass);
 	jobject result = _Jv_NewObjectArray (size, klass, 0);
 	PUSHA (result);
 
@@ -3066,7 +3088,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 
 	jclass type    
 	  = (_Jv_ResolvePoolEntry (defining_class, kind_index)).clazz;
-	_Jv_InitClass (type);
 	jint *sizes    = (jint*) __builtin_alloca (sizeof (jint)*dim);
 
 	for (int i = dim - 1; i >= 0; i--)

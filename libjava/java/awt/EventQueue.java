@@ -1,4 +1,4 @@
-/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -37,14 +37,16 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.event.*;
-import java.util.EmptyStackException;
+import java.awt.event.ActionEvent;
+import java.awt.event.InputEvent;
+import java.awt.event.InvocationEvent;
 import java.lang.reflect.InvocationTargetException;
+import java.util.EmptyStackException;
 
 /* Written using on-line Java 2 Platform Standard Edition v1.3 API 
  * Specification, as well as "The Java Class Libraries", 2nd edition 
  * (Addison-Wesley, 1998).
- * Status:  Believed complete, but untested. Check FIXME's.
+ * Status:  Believed complete, but untested.
  */
 
 /**
@@ -65,6 +67,8 @@ public class EventQueue
 
   private EventQueue next;
   private EventQueue prev;
+  private AWTEvent currentEvent;
+  private long lastWhen = System.currentTimeMillis();
 
   private EventDispatchThread dispatchThread = new EventDispatchThread(this);
 
@@ -116,7 +120,8 @@ public class EventQueue
 
     if (next_in != next_out)
       return queue[next_out];
-    else return null;
+    else
+      return null;
   }
 
   /**
@@ -142,7 +147,7 @@ public class EventQueue
       {
         AWTEvent qevt = queue[i];
         if (qevt.id == id)
-	  return qevt;
+          return qevt;
       }
     return null;
   }
@@ -151,15 +156,16 @@ public class EventQueue
    * Posts a new event to the queue.
    *
    * @param event The event to post to the queue.
+   *
+   * @exception NullPointerException If event is null.
    */
   public synchronized void postEvent(AWTEvent evt)
   {
     if (next != null)
       {
         next.postEvent(evt);
-	return;
+        return;
       }
-    // FIXME: Security checks?
 
     /* Check for any events already on the queue with the same source 
        and ID. */	
@@ -167,25 +173,25 @@ public class EventQueue
     while (i != next_in)
       {
         AWTEvent qevt = queue[i];
-	Object src;
-	if (qevt.id == evt.id
-	    && (src = qevt.getSource()) == evt.getSource()
-	    && src instanceof Component)
-	  {
-	    /* If there are, call coalesceEvents on the source component 
-	       to see if they can be combined. */
-	    Component srccmp = (Component) src;
-	    AWTEvent coalesced_evt = srccmp.coalesceEvents(qevt, evt);
-	    if (coalesced_evt != null)
-	      {
-	        /* Yes. Replace the existing event with the combined event. */
-	        queue[i] = coalesced_evt;
-		return;
-	      }
+        Object src;
+        if (qevt.id == evt.id
+            && (src = qevt.getSource()) == evt.getSource()
+            && src instanceof Component)
+          {
+            /* If there are, call coalesceEvents on the source component 
+               to see if they can be combined. */
+            Component srccmp = (Component) src;
+            AWTEvent coalesced_evt = srccmp.coalesceEvents(qevt, evt);
+            if (coalesced_evt != null)
+              {
+                /* Yes. Replace the existing event with the combined event. */
+                queue[i] = coalesced_evt;
+                return;
+              }
             break;
-	  }
-	if (++i == queue.length)
-	  i = 0;
+          }
+        if (++i == queue.length)
+          i = 0;
       }
 
     queue[next_in] = evt;    
@@ -196,20 +202,32 @@ public class EventQueue
       {
         /* Queue is full. Extend it. */
         AWTEvent[] oldQueue = queue;
-	queue = new AWTEvent[queue.length * 2];
+        queue = new AWTEvent[queue.length * 2];
 
-	int len = oldQueue.length - next_out;
-	System.arraycopy(oldQueue, next_out, queue, 0, len);
-	if (next_out != 0)
-	  System.arraycopy(oldQueue, 0, queue, len, next_out);
+        int len = oldQueue.length - next_out;
+        System.arraycopy(oldQueue, next_out, queue, 0, len);
+        if (next_out != 0)
+          System.arraycopy(oldQueue, 0, queue, len, next_out);
 
-	next_out = 0;
-	next_in = oldQueue.length;
+        next_out = 0;
+        next_in = oldQueue.length;
       }
     notify();
   }
 
-  /** @since JDK1.2 */
+  /**
+   * Causes runnable to have its run method called in the dispatch thread of the
+   * EventQueue. This will happen after all pending events are processed. The
+   * call blocks until this has happened. This method will throw an Error if
+   * called from the event dispatcher thread.
+   *
+   * @exception InterruptedException If another thread has interrupted
+   * this thread.
+   * @exception InvocationTargetException If an exception is thrown when running
+   * runnable.
+   *
+   * @since 1.2
+   */
   public static void invokeAndWait(Runnable runnable)
     throws InterruptedException, InvocationTargetException
   {
@@ -223,8 +241,8 @@ public class EventQueue
 
     synchronized (current)
       {
-	eq.postEvent(ie);
-	current.wait();
+        eq.postEvent(ie);
+        current.wait();
       }
 
     Exception exception;
@@ -233,7 +251,13 @@ public class EventQueue
       throw new InvocationTargetException(exception);
   }
 
-  /** @since JDK1.2 */
+  /**
+   * This arranges for runnable to have its run method called in the
+   * dispatch thread of the EventQueue.  This will happen after all
+   * pending events are processed.
+   *
+   * @since 1.2
+   */
   public static void invokeLater(Runnable runnable)
   {
     EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue(); 
@@ -244,26 +268,51 @@ public class EventQueue
     eq.postEvent(ie);
   }
 
+  /**
+   * Return true if the current thread is the AWT event dispatch
+   * thread.
+   */
   public static boolean isDispatchThread()
   {
     EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue(); 
     return (Thread.currentThread() == eq.dispatchThread);
   }
 
-  /** Allows a custom EventQueue implementation to replace this one. 
-    * All pending events are transferred to the new queue. Calls to postEvent,
-    * getNextEvent, and peekEvent are forwarded to the pushed queue until it
-    * is removed with a pop().
-    */
+  /**
+   * Return the event currently being dispatched by the event
+   * dispatch thread.  If the current thread is not the event
+   * dispatch thread, this method returns null.
+   *
+   * @since 1.4
+   */
+  public static AWTEvent getCurrentEvent()
+  {
+    EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue(); 
+    if (Thread.currentThread() != eq.dispatchThread)
+      return null;
+    return eq.currentEvent;
+  }
+
+  /**
+   * Allows a custom EventQueue implementation to replace this one. 
+   * All pending events are transferred to the new queue. Calls to postEvent,
+   * getNextEvent, and peekEvent are forwarded to the pushed queue until it
+   * is removed with a pop().
+   *
+   * @exception NullPointerException if newEventQueue is null.
+   */
   public synchronized void push(EventQueue newEventQueue)
   {
+    if (newEventQueue == null)
+      throw new NullPointerException ();
+
     int i = next_out;
     while (i != next_in)
       {
         newEventQueue.postEvent(queue[i]);
-	next_out = i;
-	if (++i == queue.length)
-	  i = 0;
+        next_out = i;
+        if (++i == queue.length)
+          i = 0;
       }
 
     next = newEventQueue;
@@ -271,7 +320,11 @@ public class EventQueue
   }
 
   /** Transfer any pending events from this queue back to the parent queue that
-    * was previously push()ed. Event dispatch from this queue is suspended. */
+    * was previously push()ed. Event dispatch from this queue is suspended.
+    *
+    * @exception EmptyStackException If no previous push was made on this
+    * EventQueue.
+    */
   protected void pop() throws EmptyStackException
   {
     if (prev == null)
@@ -281,43 +334,58 @@ public class EventQueue
     // occur.
     synchronized (prev)
       {
-	prev.next = null;
+        prev.next = null;
       }
 
     synchronized (this)
       {
-	int i = next_out;
-	while (i != next_in)
-	  {
+        int i = next_out;
+        while (i != next_in)
+          {
             prev.postEvent(queue[i]);
-	    next_out = i;
-	    if (++i == queue.length)
-	      i = 0;
-	  }
+            next_out = i;
+            if (++i == queue.length)
+              i = 0;
+          }
       }
   }
 
+  /**
+   * Dispatches an event. The manner in which the event is dispatched depends
+   * upon the type of the event and the type of the event's source object.
+   *
+   * @exception NullPointerException If event is null.
+   */
   protected void dispatchEvent(AWTEvent evt)
   {
+    currentEvent = evt;
+
+    if (evt instanceof InputEvent)
+      lastWhen = ((InputEvent) evt).getWhen();
+    else if (evt instanceof ActionEvent)
+      lastWhen = ((ActionEvent) evt).getWhen();
+    else if (evt instanceof InvocationEvent)
+      lastWhen = ((InvocationEvent) evt).getWhen();
+
     if (evt instanceof ActiveEvent)
       {
         ActiveEvent active_evt = (ActiveEvent) evt;
-	active_evt.dispatch();
+        active_evt.dispatch();
       }
     else
       {
-	Object source = evt.getSource();
+        Object source = evt.getSource();
 
-	if (source instanceof Component)
-	  {
+        if (source instanceof Component)
+          {
             Component srccmp = (Component) source;
-	    srccmp.dispatchEvent(evt);
-	  }
-	else if (source instanceof MenuComponent)
-	  {
-	    MenuComponent srccmp = (MenuComponent) source;
-	    srccmp.dispatchEvent(evt);
-	  }
+            srccmp.dispatchEvent(evt);
+          }
+        else if (source instanceof MenuComponent)
+          {
+            MenuComponent srccmp = (MenuComponent) source;
+            srccmp.dispatchEvent(evt);
+          }
       }
   }
 
@@ -340,7 +408,9 @@ public class EventQueue
    */
   public static long getMostRecentEventTime()
   {
-    // XXX For now, this ONLY does the current time.
-    return System.currentTimeMillis();
+    EventQueue eq = Toolkit.getDefaultToolkit().getSystemEventQueue(); 
+    if (Thread.currentThread() != eq.dispatchThread)
+      return System.currentTimeMillis();
+    return eq.lastWhen;
   }
-} // class EventQueue
+}

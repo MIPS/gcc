@@ -1,5 +1,5 @@
 /* IntBuffer.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,134 +35,262 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.nio;
 
-import gnu.java.nio.IntBufferImpl;
-
+/**
+ * @since 1.4
+ */
 public abstract class IntBuffer extends Buffer
+  implements Comparable
 {
-  private ByteOrder endian = ByteOrder.BIG_ENDIAN;
-  protected int [] backing_buffer;
+  int array_offset;
+  int[] backing_buffer;
 
-  public static IntBuffer allocateDirect(int capacity)
+  IntBuffer (int capacity, int limit, int position, int mark)
   {
-    return new IntBufferImpl (capacity, 0, capacity);
+    super (capacity, limit, position, mark);
+    array_offset = 0;
   }
 
-  public static IntBuffer allocate(int capacity)
+  IntBuffer (int[] buffer, int offset, int capacity, int limit, int position, int mark)
   {
-    return new IntBufferImpl (capacity, 0, capacity);
+    super (capacity, limit, position, mark);
+    this.backing_buffer = buffer;
+    this.array_offset = offset;
   }
 
-  final public static IntBuffer wrap(int[] array, int offset, int length)
+  /**
+   * Allocates a new <code>IntBuffer</code> object with a given capacity.
+   */
+  public static IntBuffer allocate (int capacity)
   {
-    return new IntBufferImpl(array, offset, length);
+    return new IntBufferImpl (capacity);
   }
 
-  final public static IntBuffer wrap(String a)
+  /**
+   * Wraps a <code>int</code> array into a <code>IntBuffer</code>
+   * object.
+   *
+   * @exception IndexOutOfBoundsException If the preconditions on the offset
+   * and length parameters do not hold
+   */
+  final public static IntBuffer wrap (int[] array, int offset, int length)
   {
-    int len = a.length();
-    int[] buffer = new int[len];
-
-    for (int i=0;i<len;i++)
-      {
-        buffer[i] = (int) a.charAt(i);
-      }
-
-    return wrap(buffer, 0, len);
+    return new IntBufferImpl (array, 0, array.length, offset + length, offset, -1, false);
   }
 
-  final public static IntBuffer wrap(int[] array)
+  /**
+   * Wraps a <code>int</code> array into a <code>IntBuffer</code>
+   * object.
+   */
+  final public static IntBuffer wrap (int[] array)
   {
-    return wrap(array, 0, array.length);
+    return wrap (array, 0, array.length);
   }
-
-  final public IntBuffer get(int[] dst, int offset, int length)
+  
+  /**
+   * This method transfers <code>ints<code> from this buffer into the given
+   * destination array.
+   *
+   * @param dst The destination array
+   * @param offset The offset within the array of the first <code>int</code>
+   * to be written; must be non-negative and no larger than dst.length.
+   * @param length The maximum number of bytes to be written to the given array;
+   * must be non-negative and no larger than dst.length - offset.
+   *
+   * @exception BufferUnderflowException If there are fewer than length
+   * <code>ints</code> remaining in this buffer.
+   * @exception IndexOutOfBoundsException If the preconditions on the offset
+   * and length parameters do not hold.
+   */
+  public IntBuffer get (int[] dst, int offset, int length)
   {
     for (int i = offset; i < offset + length; i++)
       {
-        dst[i] = get();
+        dst [i] = get ();
       }
 
     return this;
   }
 
-  final public IntBuffer get(int[] dst)
+  /**
+   * This method transfers <code>ints<code> from this buffer into the given
+   * destination array.
+   *
+   * @param dst The byte array to write into.
+   *
+   * @exception BufferUnderflowException If there are fewer than dst.length
+   * <code>ints</code> remaining in this buffer.
+   */
+  public IntBuffer get (int[] dst)
   {
-    return get(dst, 0, dst.length);
+    return get (dst, 0, dst.length);
   }
 
-  final public IntBuffer put(IntBuffer src)
+  /**
+   * Writes the content of the the <code>IntBUFFER</code> src
+   * into the buffer.
+   *
+   * @param src The source data.
+   *
+   * @exception BufferOverflowException If there is insufficient space in this
+   * buffer for the remaining <code>ints<code> in the source buffer.
+   * @exception IllegalArgumentException If the source buffer is this buffer.
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public IntBuffer put (IntBuffer src)
   {
-    while (src.hasRemaining())
-      put(src.get());
+    if (src == this)
+      throw new IllegalArgumentException ();
+
+    if (src.remaining () > remaining ())
+      throw new BufferOverflowException ();
+
+    if (src.remaining () > 0)
+      {
+        int[] toPut = new int [src.remaining ()];
+        src.get (toPut);
+        src.put (toPut);
+      }
 
     return this;
   }
 
-  final public IntBuffer put(int[] src, int offset, int length)
+  /**
+   * Writes the content of the the <code>int array</code> src
+   * into the buffer.
+   *
+   * @param src The array to copy into the buffer.
+   * @param offset The offset within the array of the first byte to be read;
+   * must be non-negative and no larger than src.length.
+   * @param length The number of bytes to be read from the given array;
+   * must be non-negative and no larger than src.length - offset.
+   * 
+   * @exception BufferOverflowException If there is insufficient space in this
+   * buffer for the remaining <code>ints<code> in the source array.
+   * @exception IndexOutOfBoundsException If the preconditions on the offset
+   * and length parameters do not hold
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public IntBuffer put (int[] src, int offset, int length)
   {
     for (int i = offset; i < offset + length; i++)
-      put(src[i]);
+      put (src [i]);
 
     return this;
   }
 
-  public final IntBuffer put(int[] src)
+  /**
+   * Writes the content of the the <code>int array</code> src
+   * into the buffer.
+   *
+   * @param src The array to copy into the buffer.
+   * 
+   * @exception BufferOverflowException If there is insufficient space in this
+   * buffer for the remaining <code>ints<code> in the source array.
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public final IntBuffer put (int[] src)
   {
-    return put(src, 0, src.length);
+    return put (src, 0, src.length);
   }
 
-  public final boolean hasArray()
+  /**
+   * Tells whether ot not this buffer is backed by an accessible
+   * <code>int</code> array.
+   */
+  public final boolean hasArray ()
   {
-    return (backing_buffer != null);
+    return (backing_buffer != null
+            && !isReadOnly ());
   }
 
-  public final int[] array()
+  /**
+   * Returns the <code>int</code> array that backs this buffer.
+   *
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   * @exception UnsupportedOperationException If this buffer is not backed
+   * by an accessible array.
+   */
+  public final int[] array ()
   {
+    if (backing_buffer == null)
+      throw new UnsupportedOperationException ();
+
+    if (isReadOnly ())
+      throw new ReadOnlyBufferException ();
+    
     return backing_buffer;
   }
 
-  public final int arrayOffset()
+  /**
+   * Returns the offset within this buffer's backing array of the first element.
+   *
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   * @exception UnsupportedOperationException If this buffer is not backed
+   * by an accessible array.
+   */
+  public final int arrayOffset ()
   {
-    return 0;
+    if (backing_buffer == null)
+      throw new UnsupportedOperationException ();
+
+    if (isReadOnly ())
+      throw new ReadOnlyBufferException ();
+    
+    return array_offset;
   }
 
-  public int hashCode()
+  /**
+   * Calculates a hash code for this buffer.
+   */
+  public int hashCode ()
   {
-    return super.hashCode();
+    // FIXME: Check what SUN calculates here.
+    return super.hashCode ();
   }
 
-  public boolean equals(Object obj)
+  /**
+   * Checks if this buffer is equal to obj.
+   */
+  public boolean equals (Object obj)
   {
     if (obj instanceof IntBuffer)
       {
-        return compareTo(obj) == 0;
+        return compareTo (obj) == 0;
       }
 
     return false;
   }
 
-  public int compareTo(Object ob)
+  /**
+   * Compares two <code>IntBuffer</code> objects.
+   *
+   * @exception ClassCastException If obj is not an object derived from
+   * <code>IntBuffer</code>.
+   */
+  public int compareTo (Object obj)
   {
-    IntBuffer a = (IntBuffer) ob;
+    IntBuffer a = (IntBuffer) obj;
 
-    if (a.remaining() != remaining())
+    if (a.remaining () != remaining ())
       return 1;
 
-    if (! hasArray() ||
-        ! a.hasArray())
+    if (! hasArray () ||
+        ! a.hasArray ())
       {
         return 1;
       }
 
-    int r = remaining();
+    int r = remaining ();
     int i1 = position ();
     int i2 = a.position ();
 
-    for (int i=0;i<r;i++)
+    for (int i = 0; i < r; i++)
       {
-        int t = (int) (get(i1)- a.get(i2));
+        int t = (int) (get (i1) - a.get (i2));
+
         if (t != 0)
           {
             return (int) t;
@@ -172,54 +300,74 @@ public abstract class IntBuffer extends Buffer
     return 0;
   }
 
-  public final ByteOrder order()
-  {
-    return endian;
-  }
+  /**
+   * Returns the byte order of this buffer.
+   */
+  public abstract ByteOrder order ();
 
-  public final IntBuffer order(ByteOrder bo)
-  {
-    endian = bo;
-    return this;
-  }
+  /**
+   * Reads the <code>int</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferUnderflowException If there are no remaining
+   * <code>ints</code> in this buffer.
+   */
+  public abstract int get ();
 
-  public abstract int get();
-  public abstract IntBuffer put(int b);
-  public abstract int get(int index);
-  public abstract IntBuffer put(int index, int b);
-  public abstract IntBuffer compact();
-  public abstract boolean isDirect();
-  public abstract IntBuffer slice();
-  public abstract IntBuffer duplicate();
-  public abstract IntBuffer asReadOnlyBuffer();
-  public abstract ShortBuffer asShortBuffer();
-  public abstract CharBuffer asCharBuffer();
-  public abstract IntBuffer asIntBuffer();
-  public abstract LongBuffer asLongBuffer();
-  public abstract FloatBuffer asFloatBuffer();
-  public abstract DoubleBuffer asDoubleBuffer();
-  public abstract char getChar();
-  public abstract IntBuffer putChar(char value);
-  public abstract char getChar(int index);
-  public abstract IntBuffer putChar(int index, char value);
-  public abstract short getShort();
-  public abstract IntBuffer putShort(short value);
-  public abstract short getShort(int index);
-  public abstract IntBuffer putShort(int index, short value);
-  public abstract int getInt();
-  public abstract IntBuffer putInt(int value);
-  public abstract int getInt(int index);
-  public abstract IntBuffer putInt(int index, int value);
-  public abstract long getLong();
-  public abstract IntBuffer putLong(long value);
-  public abstract long getLong(int index);
-  public abstract IntBuffer putLong(int index, long value);
-  public abstract float getFloat();
-  public abstract IntBuffer putFloat(float value);
-  public abstract float getFloat(int index);
-  public abstract IntBuffer putFloat(int index, float value);
-  public abstract double getDouble();
-  public abstract IntBuffer putDouble(double value);
-  public abstract double getDouble(int index);
-  public abstract IntBuffer putDouble(int index, double value);
+  /**
+   * Writes the <code>int</code> at this buffer's current position,
+   * and then increments the position.
+   *
+   * @exception BufferOverflowException If there no remaining 
+   * <code>ints</code> in this buffer.
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public abstract IntBuffer put (int b);
+
+  /**
+   * Absolute get method.
+   *
+   * @exception IndexOutOfBoundsException If index is negative or not smaller
+   * than the buffer's limit.
+   */
+  public abstract int get (int index);
+  
+  /**
+   * Absolute put method.
+   *
+   * @exception IndexOutOfBoundsException If index is negative or not smaller
+   * than the buffer's limit.
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public abstract IntBuffer put (int index, int b);
+
+  /**
+   * Compacts this buffer.
+   * 
+   * @exception ReadOnlyBufferException If this buffer is read-only.
+   */
+  public abstract IntBuffer compact ();
+
+  /**
+   * Tells wether or not this buffer is direct.
+   */
+  public abstract boolean isDirect ();
+
+  /**
+   * Creates a new <code>IntBuffer</code> whose content is a shared
+   * subsequence of this buffer's content.
+   */
+  public abstract IntBuffer slice ();
+
+  /**
+   * Creates a new <code>IntBuffer</code> that shares this buffer's
+   * content.
+   */
+  public abstract IntBuffer duplicate ();
+
+  /**
+   * Creates a new read-only <code>IntBuffer</code> that shares this
+   * buffer's content.
+   */
+  public abstract IntBuffer asReadOnlyBuffer ();
 }

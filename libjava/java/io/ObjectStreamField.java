@@ -1,5 +1,5 @@
 /* ObjectStreamField.java -- Class used to store name and class of fields
-   Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,14 +41,45 @@ package java.io;
 import gnu.java.lang.reflect.TypeSignature;
 
 // XXX doc
-public class ObjectStreamField implements java.lang.Comparable
+public class ObjectStreamField implements Comparable
 {
+  private String name;
+  private Class type;
+  private String typename;
+  private int offset = -1; // XXX make sure this is correct
+  private boolean unshared;
+  
   public ObjectStreamField (String name, Class type)
+  {
+    this (name, type, false);
+  }
+
+  public ObjectStreamField (String name, Class type, boolean unshared)
   {
     this.name = name;
     this.type = type;
+    this.typename = TypeSignature.getEncodingOfClass(type);
+    this.unshared = unshared;
   }
-
+ 
+  /**
+   * There're many cases you can't get java.lang.Class from typename 
+   * if your context
+   * class loader can't load it, then use typename to construct the field
+   */
+  ObjectStreamField (String name, String typename){
+    this.name = name;
+    this.typename = typename;
+    try
+      {
+        type = TypeSignature.getClassForEncoding(typename);
+      }
+    catch(ClassNotFoundException e)
+      {
+        type = Object.class; //FIXME: ???
+      }
+  }
+  
   public String getName ()
   {
     return name;
@@ -61,12 +92,13 @@ public class ObjectStreamField implements java.lang.Comparable
 
   public char getTypeCode ()
   {
-    return TypeSignature.getEncodingOfClass (type).charAt (0);
+    return typename.charAt (0);
   }
 
   public String getTypeString ()
   {
-    return TypeSignature.getEncodingOfClass (type);
+    // use intern()
+    return typename.intern();
   }
 
   public int getOffset ()
@@ -77,6 +109,11 @@ public class ObjectStreamField implements java.lang.Comparable
   protected void setOffset (int off)
   {
     offset = off;
+  }
+
+  public boolean isUnshared ()
+  {
+    return unshared;
   }
 
   public boolean isPrimitive ()
@@ -103,8 +140,5 @@ public class ObjectStreamField implements java.lang.Comparable
   {
     return "ObjectStreamField< " + type + " " + name + " >";
   }
-
-  private String name;
-  private Class type;
-  private int offset = -1; // XXX make sure this is correct
 }
+

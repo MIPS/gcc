@@ -41,15 +41,15 @@ package java.awt;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.peer.TextFieldPeer;
-import java.awt.peer.TextComponentPeer;
 import java.awt.peer.ComponentPeer;
+import java.util.EventListener;
 
 /**
   * This class implements a single line text entry field widget
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
-public class TextField extends TextComponent implements java.io.Serializable
+public class TextField extends TextComponent
 {
 
 /*
@@ -84,9 +84,11 @@ private ActionListener action_listeners;
  * Constructors
  */
 
-/*
+/**
  * Initializes a new instance of <code>TextField</code> that is empty
  * and has one column.
+ *
+ * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
  */
 public
 TextField()
@@ -102,6 +104,8 @@ TextField()
   * length of the text string.
   *
   * @param text The text to display in the field.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   */
 public
 TextField(String text)
@@ -116,6 +120,8 @@ TextField(String text)
   * and has the specified number of columns.
   *
   * @param columns The number of columns in the text field.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   */
 public
 TextField(int columns)
@@ -131,12 +137,17 @@ TextField(int columns)
   *
   * @param text The text to display in the field.
   * @param columns The number of columns in the field.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true,
   */
 public
 TextField(String text, int columns)
 {
   super(text);
   this.columns = columns;
+
+  if (GraphicsEnvironment.isHeadless())
+    throw new HeadlessException ();
 }
 
 /*************************************************************************/
@@ -333,8 +344,9 @@ getPreferredSize(int columns)
 {
   TextFieldPeer tfp = (TextFieldPeer)getPeer();
   if (tfp == null)
-    return(null); // FIXME: What do we do if there is no peer?
-
+    {
+      return new Dimension(0, 0);
+    }
   return(tfp.getPreferredSize(columns));
 }
 
@@ -478,4 +490,32 @@ paramString()
          getEchoChar());
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this <code>TextField</code>. FooListeners are registered using the
+   * addFooListener method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   *
+   * @since 1.3
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == ActionListener.class)
+      return AWTEventMulticaster.getListeners (action_listeners, listenerType);
+
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Return all ActionListeners register to this <code>TextField</code> object
+   * as an array.
+   *
+   * @since 1.4
+   */
+  public ActionListener[] getActionListeners ()
+  {
+    return (ActionListener[]) getListeners (ActionListener.class);
+  }
 } // class TextField

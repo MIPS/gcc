@@ -1,5 +1,5 @@
 /* NetworkInterface.java
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,17 +37,30 @@ exception statement from your version. */
 
 package java.net;
 
+import gnu.classpath.Configuration;
 import java.util.Enumeration;
 import java.util.Vector;
 
 /**
+ * This class models a network interface on the host computer.  A network
+ * interface contains a name (typically associated with a specific
+ * hardware adapter) and a list of addresses that are bound to it.
+ * For example, an ethernet interface may be named "eth0" and have the
+ * address 192.168.1.101 assigned to it.
+ *
  * @author Michael Koch <konqueror@gmx.de>
  * @since 1.4
  */
 public final class NetworkInterface
 {
-  private static Vector networkInterfaces;
-	
+  static
+  {
+    if (Configuration.INIT_LOAD_LIBRARY)
+      {
+	System.loadLibrary ("javanet");
+      }
+  }
+
   private String name;
   
   private Vector inetAddresses;
@@ -63,7 +76,9 @@ public final class NetworkInterface
     throws SocketException;
 
   /**
-   *  Returns the name of the network interface
+   * Returns the name of the network interface
+   *
+   * @return The name of the interface.
    */
   public String getName ()
   {
@@ -75,8 +90,8 @@ public final class NetworkInterface
    *  
    *  If a @see SecurityManager is available all addresses are checked
    *  with @see SecurityManager::checkConnect() if they are available.
-   *  Only InetAddresses are returned where the security manager doesn't
-   *  thrown an exception.
+   *  Only <code>InetAddresses</code> are returned where the security manager 
+   *  doesn't throw an exception.
    *  
    *  @return An enumeration of all addresses.
    */
@@ -108,6 +123,8 @@ public final class NetworkInterface
 
   /**
    *  Returns the display name of the interface
+   *
+   *  @return The display name of the interface
    */
   public String getDisplayName ()
   {
@@ -125,8 +142,7 @@ public final class NetworkInterface
   public static NetworkInterface getByName (String name)
     throws SocketException
   {
-    if (networkInterfaces == null)
-      networkInterfaces = getRealNetworkInterfaces ();
+    Vector networkInterfaces = getRealNetworkInterfaces ();
 
     for (Enumeration e = networkInterfaces.elements ();
          e.hasMoreElements (); )
@@ -151,8 +167,7 @@ public final class NetworkInterface
   public static NetworkInterface getByInetAddress (InetAddress addr)
     throws SocketException
   {
-    if (networkInterfaces == null)
-      networkInterfaces = getRealNetworkInterfaces ();
+    Vector networkInterfaces = getRealNetworkInterfaces ();
     
     for (Enumeration interfaces = networkInterfaces.elements ();
          interfaces.hasMoreElements (); )
@@ -172,21 +187,19 @@ public final class NetworkInterface
   }
 
   /**
-   *  Return an Enumeration of all available network interfaces
+   *  Return an <code>Enumeration</code> of all available network interfaces
    *
    *  @exception SocketException If an error occurs
    */
   public static Enumeration getNetworkInterfaces ()
     throws SocketException
   {
-    if (networkInterfaces == null)
-      networkInterfaces = getRealNetworkInterfaces ();
+    Vector networkInterfaces = getRealNetworkInterfaces();
 
-    Enumeration tmp = networkInterfaces.elements ();
-    if (tmp.hasMoreElements ())
-      return tmp;
+    if (networkInterfaces.isEmpty())
+      return null;
 
-    return null;
+    return networkInterfaces.elements();
   }
 
   /**
@@ -200,8 +213,9 @@ public final class NetworkInterface
       return false;
    
     NetworkInterface tmp = (NetworkInterface) obj;
-    return name.equals (tmp.name) &&
-           inetAddresses.equals (tmp.inetAddresses);
+
+    return (name.equals (tmp.name)
+            && inetAddresses.equals (tmp.inetAddresses));
   }
 
   /**
@@ -229,7 +243,7 @@ public final class NetworkInterface
          e.hasMoreElements (); )
       {
         InetAddress address = (InetAddress) e.nextElement ();
-        result += address.toString () + separator;
+        result += address.toString () + ";" + separator;
       }
 
     return result;

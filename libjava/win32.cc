@@ -1,6 +1,6 @@
 // win32.cc - Helper functions for Microsoft-flavored OSs.
 
-/* Copyright (C) 2002  Free Software Foundation
+/* Copyright (C) 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,12 +9,14 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
-#include <jvm.h>
+#include <platform.h>
 #include <sys/timeb.h>
 #include <stdlib.h>
 
-#include "platform.h"
 #include <java/lang/ArithmeticException.h>
+#include <java/lang/UnsupportedOperationException.h>
+#include <java/io/IOException.h>
+#include <java/net/SocketException.h>
 #include <java/util/Properties.h>
 
 static LONG CALLBACK
@@ -28,6 +30,111 @@ win32_exception_handler (LPEXCEPTION_POINTERS e)
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
+// Platform-specific executable name
+static char exec_name[MAX_PATH];
+  // initialized in _Jv_platform_initialize()
+
+const char *_Jv_ThisExecutable (void)
+{
+  return exec_name;
+}
+
+// Helper classes and methods implementation
+  
+// class WSAEventWrapper
+WSAEventWrapper::WSAEventWrapper (int fd, DWORD dwSelFlags):
+  m_hEvent(0),
+  m_fd(fd),
+  m_dwSelFlags(dwSelFlags)
+{
+  m_hEvent = WSACreateEvent ();
+  if (dwSelFlags)
+    WSAEventSelect(fd, m_hEvent, dwSelFlags);
+}
+
+WSAEventWrapper::~WSAEventWrapper ()
+{
+  if (m_dwSelFlags)
+  {
+    WSAEventSelect(m_fd, m_hEvent, 0);
+    if (m_dwSelFlags & (FD_ACCEPT | FD_CONNECT))
+    {
+      // Set the socket back to non-blocking mode.
+      // Ignore any error since we're in a destructor.
+      unsigned long lSockOpt = 0L;
+        // blocking mode
+      ::ioctlsocket (m_fd, FIONBIO, &lSockOpt);
+    }
+  }
+  WSACloseEvent (m_hEvent);
+}
+
+// Error string text.
+jstring
+_Jv_WinStrError (LPCTSTR lpszPrologue, int nErrorCode)
+{
+  LPTSTR lpMsgBuf = 0;
+
+  DWORD dwFlags = FORMAT_MESSAGE_ALLOCATE_BUFFER |
+    FORMAT_MESSAGE_FROM_SYSTEM |
+    FORMAT_MESSAGE_IGNORE_INSERTS;
+
+  FormatMessage (dwFlags,
+    NULL,
+    (DWORD) nErrorCode,
+    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+    (LPTSTR) &lpMsgBuf,
+    0,
+    NULL);
+
+  jstring ret;
+  if (lpszPrologue)
+    {
+      LPTSTR lpszTemp =
+        (LPTSTR) _Jv_Malloc (strlen (lpszPrologue) +
+          strlen (lpMsgBuf) + 3);
+      strcpy (lpszTemp, lpszPrologue);
+      strcat (lpszTemp, ": ");
+      strcat (lpszTemp, lpMsgBuf);
+      ret = JvNewStringLatin1 (lpszTemp);
+    } 
+  else
+    {
+      ret = JvNewStringLatin1 (lpMsgBuf);
+    }
+
+  LocalFree(lpMsgBuf);
+  return ret;
+}
+
+jstring
+_Jv_WinStrError (int nErrorCode)
+{
+  return _Jv_WinStrError (0, nErrorCode);
+}
+
+void _Jv_ThrowIOException (DWORD dwErrorCode)
+{
+  throw new java::io::IOException (_Jv_WinStrError (dwErrorCode));
+}
+
+void _Jv_ThrowIOException()
+{
+  DWORD dwErrorCode = WSAGetLastError ();
+  _Jv_ThrowIOException (dwErrorCode);
+}
+
+void _Jv_ThrowSocketException (DWORD dwErrorCode)
+{
+  throw new java::net::SocketException (_Jv_WinStrError (dwErrorCode));
+}
+
+void _Jv_ThrowSocketException()
+{
+  DWORD dwErrorCode = WSAGetLastError ();
+  _Jv_ThrowSocketException (dwErrorCode);
+}
+
 // Platform-specific VM initialization.
 void
 _Jv_platform_initialize (void)
@@ -36,9 +143,13 @@ _Jv_platform_initialize (void)
   WSADATA data;
   if (WSAStartup (MAKEWORD (1, 1), &data))
     MessageBox (NULL, "Error initialising winsock library.", "Error",
-		MB_OK | MB_ICONEXCLAMATION);
+    MB_OK | MB_ICONEXCLAMATION);
+
   // Install exception handler
   SetUnhandledExceptionFilter (win32_exception_handler);
+
+  // Initialize our executable name
+  GetModuleFileName(NULL, exec_name, sizeof(exec_name));
 }
 
 // gettimeofday implementation.
@@ -83,14 +194,14 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
   if (buffer != NULL)
     {
       if (GetCurrentDirectory (buflen, buffer))
-	SET ("user.dir", buffer);
+  SET ("user.dir", buffer);
 
       if (GetTempPath (buflen, buffer))
-	SET ("java.io.tmpdir", buffer);
+  SET ("java.io.tmpdir", buffer);
 
       _Jv_Free (buffer);
     }
-  
+
   // Use GetUserName to set 'user.name'.
   buflen = 257;  // UNLEN + 1
   buffer = (char *) _Jv_MallocUnchecked (buflen);
@@ -101,8 +212,8 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
       _Jv_Free (buffer);
     }
 
-  // According to the api documentation for 'GetWindowsDirectory()', the 
-  // environmental variable HOMEPATH always specifies the user's home 
+  // According to the api documentation for 'GetWindowsDirectory()', the
+  // environmental variable HOMEPATH always specifies the user's home
   // directory or a default directory.  On the 3 windows machines I checked
   // only 1 had it set.  If it's not set, JDK1.3.1 seems to set it to
   // the windows directory, so we'll do the same.
@@ -117,7 +228,7 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
           if (winHome != NULL)
             {
               if (GetWindowsDirectory (winHome, MAX_PATH))
-		SET ("user.home", winHome);
+        SET ("user.home", winHome);
               _Jv_Free (winHome);
             }
         }
@@ -135,7 +246,7 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
       if (buffer != NULL)
         {
           sprintf (buffer, "%d.%d", (int) osvi.dwMajorVersion,
-		   (int) osvi.dwMinorVersion);
+           (int) osvi.dwMinorVersion);
           SET ("os.version", buffer);
           _Jv_Free (buffer);
         }
@@ -150,7 +261,7 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
             else if (osvi.dwMajorVersion == 4 && osvi.dwMinorVersion == 90)
               SET ("os.name", "Windows Me");
             else
-              SET ("os.name", "Windows ??"); 
+              SET ("os.name", "Windows ??");
             break;
 
           case VER_PLATFORM_WIN32_NT:
@@ -173,23 +284,24 @@ _Jv_platform_initProperties (java::util::Properties* newprops)
   // Set the OS architecture.
   SYSTEM_INFO si;
   GetSystemInfo (&si);
-  switch (si.dwProcessorType)
+  switch (si.wProcessorArchitecture)
     {
-      case PROCESSOR_INTEL_386:
-        SET ("os.arch", "i386");
+      case PROCESSOR_ARCHITECTURE_INTEL:
+        SET ("os.arch", "x86");
         break;
-      case PROCESSOR_INTEL_486:
-        SET ("os.arch", "i486");
+      case PROCESSOR_ARCHITECTURE_MIPS:
+        SET ("os.arch", "mips");
         break;
-      case PROCESSOR_INTEL_PENTIUM:
-        SET ("os.arch", "i586");
+      case PROCESSOR_ARCHITECTURE_ALPHA:
+        SET ("os.arch", "alpha");
         break;
-      case PROCESSOR_MIPS_R4000:	
-        SET ("os.arch", "MIPS4000");
+      case PROCESSOR_ARCHITECTURE_PPC:	
+        SET ("os.arch", "ppc");
         break;
-      case PROCESSOR_ALPHA_21064:
-        SET ("os.arch", "ALPHA");
+      case PROCESSOR_ARCHITECTURE_IA64:
+        SET ("os.arch", "ia64");
         break;
+      case PROCESSOR_ARCHITECTURE_UNKNOWN:
       default:
         SET ("os.arch", "unknown");
         break;
@@ -216,4 +328,17 @@ backtrace (void **__array, int __size)
     __array[i++] = (void*)(rfp[1]-4);
   }
   return i;
+}
+
+int
+_Jv_select (int n, fd_set *readfds, fd_set  *writefds,
+      fd_set *exceptfds, struct timeval *timeout)
+{
+  int r = ::select (n, readfds, writefds, exceptfds, timeout);
+  if (r == SOCKET_ERROR)
+    {
+      DWORD dwErrorCode = WSAGetLastError ();
+      throw new java::io::IOException (_Jv_WinStrError (dwErrorCode));
+    }
+  return r;      
 }

@@ -34,6 +34,8 @@
    <li><a href="#7">More on binary I/O</a></li>
    <li><a href="#8">Pathetic performance?  Ditch C.</a></li>
    <li><a href="#9">Threads and I/O</a></li>
+   <li><a href="#10">Which header?</a></li>
+   <li><a href="#11">Using FILE*s and file descriptors with IOStreams</a></li>
 </ul>
 
 <hr />
@@ -157,15 +159,18 @@
       because the data needs to appear quickly (a prime example is a
       log file for security-related information).  The way to do this is
       just to turn off the buffering <em>before any I/O operations at
-      all</em> have been done, i.e., as soon as possible after opening:
+      all</em> have been done (note that opening counts as an I/O operation):
    </p>
    <pre>
-   std::ofstream    os (&quot;/foo/bar/baz&quot;);
-   std::ifstream    is (&quot;/qux/quux/quuux&quot;);
+   std::ofstream    os;
+   std::ifstream    is;
    int   i;
 
    os.rdbuf()-&gt;pubsetbuf(0,0);
    is.rdbuf()-&gt;pubsetbuf(0,0);
+
+   os.open(&quot;/foo/bar/baz&quot;);
+   is.open(&quot;/qux/quux/quuux&quot;);
    ...
    os &lt;&lt; &quot;this data is written immediately\n&quot;;
    is &gt;&gt; i;   // and this will probably cause a disk read </pre>
@@ -180,9 +185,10 @@
       <code>setbuf()</code>-ish functions; the classes derived from
       <code>streambuf</code> each define behavior that &quot;makes 
       sense&quot; for that class:  an argument of (0,0) turns off buffering
-      for <code>filebuf</code> but has undefined behavior for its sibling
-      <code>stringbuf</code>, and specifying anything other than (0,0) has
-      varying effects.  Other user-defined class derived from streambuf can
+      for <code>filebuf</code> but does nothing at all for its siblings
+      <code>stringbuf</code> and <code>strstreambuf</code>, and specifying
+      anything other than (0,0) has varying effects.
+      User-defined classes derived from <code>streambuf</code> can
       do whatever they want.  (For <code>filebuf</code> and arguments for
       <code>(p,s)</code> other than zeros, libstdc++ does what you'd expect:
       the first <code>s</code> bytes of <code>p</code> are used as a buffer,
@@ -390,7 +396,9 @@
     }
    </pre>
    <p>Try it yourself!  More examples can be found in 3.1.x code, in
-      <code>include/ext/*_filebuf.h</code>.
+      <code>include/ext/*_filebuf.h</code>, and on
+      <a href="http://www.informatik.uni-konstanz.de/~kuehl/c++/iostream/">Dietmar
+      K&uuml;hl's IOStreams page</a>.
    </p>
 
 <hr />
@@ -558,6 +566,194 @@
       &quot;interesting&quot; problems.
    </p>
 
+<hr />
+<h2><a name="10">Which header?</a></h2>
+   <p>To minimize the time you have to wait on the compiler, it's good to
+      only include the headers you really need.  Many people simply include
+      &lt;iostream&gt; when they don't need to -- and that can <em>penalize
+      your runtime as well.</em>  Here are some tips on which header to use
+      for which situations, starting with the simplest.
+   </p>
+   <p><strong>&lt;iosfwd&gt;</strong> should be included whenever you simply
+      need the <em>name</em> of an I/O-related class, such as
+      &quot;ofstream&quot; or &quot;basic_streambuf&quot;.  Like the name
+      implies, these are forward declarations.  (A word to all you fellow
+      old school programmers:  trying to forward declare classes like
+      &quot;class istream;&quot; won't work.  Look in the iosfwd header if
+      you'd like to know why.)  For example,
+   </p>
+   <pre>
+    #include &lt;iosfwd&gt;
+
+    class MyClass
+    {
+        ....
+        std::ifstream   input_file;
+    };
+
+    extern std::ostream&amp; operator&lt;&lt; (std::ostream&amp;, MyClass&amp;);
+   </pre>
+   <p><strong>&lt;ios&gt;</strong> declares the base classes for the entire
+      I/O stream hierarchy, std::ios_base and std::basic_ios&lt;charT&gt;, the
+      counting types std::streamoff and std::streamsize, the file
+      positioning type std::fpos, and the various manipulators like
+      std::hex, std::fixed, std::noshowbase, and so forth.
+   </p>
+   <p>The ios_base class is what holds the format flags, the state flags,
+      and the functions which change them (setf(), width(), precision(),
+      etc).  You can also store extra data and register callback functions
+      through ios_base, but that has been historically underused.  Anything
+      which doesn't depend on the type of characters stored is consolidated
+      here.
+   </p>
+   <p>The template class basic_ios is the highest template class in the
+      hierarchy; it is the first one depending on the character type, and
+      holds all general state associated with that type:  the pointer to the
+      polymorphic stream buffer, the facet information, etc.
+   </p>
+   <p><strong>&lt;streambuf&gt;</strong> declares the template class
+      basic_streambuf, and two standard instantiations, streambuf and
+      wstreambuf.  If you need to work with the vastly useful and capable
+      stream buffer classes, e.g., to create a new form of storage
+      transport, this header is the one to include.
+   </p>
+   <p><strong>&lt;istream&gt;</strong>/<strong>&lt;ostream&gt;</strong> are
+      the headers to include when you are using the &gt;&gt;/&lt;&lt;
+      interface, or any of the other abstract stream formatting functions.
+      For example,
+   </p>
+   <pre>
+    #include &lt;istream&gt;
+
+    std::ostream&amp; operator&lt;&lt; (std::ostream&amp; os, MyClass&amp; c)
+    {
+       return os &lt;&lt; c.data1() &lt;&lt; c.data2();
+    }
+   </pre>
+   <p>The std::istream and std::ostream classes are the abstract parents of
+      the various concrete implementations.  If you are only using the
+      interfaces, then you only need to use the appropriate interface header.
+   </p>
+   <p><strong>&lt;iomanip&gt;</strong> provides &quot;extractors and inserters
+      that alter information maintained by class ios_base and its dervied
+      classes,&quot; such as std::setprecision and std::setw.  If you need
+      to write expressions like <code>os &lt;&lt; setw(3);</code> or
+      <code>is &gt;&gt; setbase(8);</code>, you must include &lt;iomanip&gt;.
+   </p>
+   <p><strong>&lt;sstream&gt;</strong>/<strong>&lt;fstream&gt;</strong>
+      declare the six stringstream and fstream classes.  As they are the
+      standard concrete descendants of istream and ostream, you will already
+      know about them.
+   </p>
+   <p>Finally, <strong>&lt;iostream&gt;</strong> provides the eight standard
+      global objects (cin, cout, etc).  To do this correctly, this header
+      also provides the contents of the &lt;istream&gt; and &lt;ostream&gt;
+      headers, but nothing else.  The contents of this header look like
+   </p>
+   <pre>
+    #include &lt;ostream&gt;
+    #include &lt;istream&gt;
+
+    namespace std
+    {
+        extern istream cin;
+        extern ostream cout;
+        ....
+
+        // this is explained below
+        <strong>static ios_base::Init __foo;</strong>    // not its real name
+    }
+   </pre>
+   <p>Now, the runtime penalty mentioned previously:  the global objects
+      must be initialized before any of your own code uses them; this is
+      guaranteed by the standard.  Like any other global object, they must
+      be initialized once and only once.  This is typically done with a
+      construct like the one above, and the nested class ios_base::Init is 
+      specified in the standard for just this reason.
+   </p>
+   <p>How does it work?  Because the header is included before any of your
+      code, the <strong>__foo</strong> object is constructed before any of
+      your objects.  (Global objects are built in the order in which they
+      are declared, and destroyed in reverse order.)  The first time the
+      constructor runs, the eight stream objects are set up.
+   </p>
+   <p>The <code>static</code> keyword means that each object file compiled
+      from a source file containing &lt;iostream&gt; will have its own
+      private copy of <strong>__foo</strong>.  There is no specified order
+      of construction across object files (it's one of those pesky NP
+      problems that make life so interesting), so one copy in each object
+      file means that the stream objects are guaranteed to be set up before
+      any of your code which uses them could run, thereby meeting the
+      requirements of the standard.
+   </p>
+   <p>The penalty, of course, is that after the first copy of
+      <strong>__foo</strong> is constructed, all the others are just wasted
+      processor time.  The time spent is merely for an increment-and-test
+      inside a function call, but over several dozen or hundreds of object
+      files, that time can add up.  (It's not in a tight loop, either.)
+   </p>
+   <p>The lesson?  Only include &lt;iostream&gt; when you need to use one of
+      the standard objects in that source file; you'll pay less startup
+      time.  Only include the header files you need to in general; your
+      compile times will go down when there's less parsing work to do.
+   </p>
+
+
+<hr />
+<h2><a name="11">Using FILE*s and file descriptors with IOStreams</a></h2>
+   <!-- referenced by ext/howto.html#2, update link if numbering changes -->
+   <p>The v2 library included non-standard extensions to construct
+      <code>std::filebuf</code>s from C stdio types such as
+      <code>FILE*</code>s and POSIX file descriptors.
+      Today the recommended way to use stdio types with libstdc++-v3
+      IOStreams is via the <code>stdio_filebuf</code> class (see below),
+      but earlier releases provided slightly different mechanisms.
+   </p>
+   <ul>
+     <li>3.0.x <code>filebuf</code>s have another ctor with this signature:
+         <br />
+        <code>basic_filebuf(__c_file_type*, ios_base::openmode, int_type);</code>
+         <br />This comes in very handy in a number of places, such as
+         attaching Unix sockets, pipes, and anything else which uses file
+         descriptors, into the IOStream buffering classes.  The three
+         arguments are as follows:
+         <ul>
+          <li><code>__c_file_type*      F   </code>
+              // the __c_file_type typedef usually boils down to stdio's FILE
+          </li>
+          <li><code>ios_base::openmode  M   </code>
+              // same as all the other uses of openmode
+          </li>
+          <li><code>int_type            B   </code>
+              // buffer size, defaults to BUFSIZ if not specified
+          </li>
+         </ul>
+         For those wanting to use file descriptors instead of FILE*'s, I
+         invite you to contemplate the mysteries of C's <code>fdopen()</code>.
+     </li>
+     <li>In library snapshot 3.0.95 and later, <code>filebuf</code>s bring
+         back an old extension:  the <code>fd()</code> member function.  The
+         integer returned from this function can be used for whatever file
+         descriptors can be used for on your platform.  Naturally, the
+         library cannot track what you do on your own with a file descriptor,
+         so if you perform any I/O directly, don't expect the library to be
+         aware of it.
+     </li>
+     <li>Beginning with 3.1, the extra <code>filebuf</code> constructor and
+         the <code>fd()</code> function were removed from the standard
+         filebuf.  Instead, <code>&lt;ext/stdio_filebuf.h&gt;</code> contains
+         a derived class called
+         <a href="http://gcc.gnu.org/onlinedocs/libstdc++/latest-doxygen/class____gnu__cxx_1_1stdio__filebuf.html"><code>__gnu_cxx::stdio_filebuf</code></a>.
+         This class can be constructed from a C <code>FILE*</code> or a file
+         descriptor, and provides the <code>fd()</code> function.
+     </li>
+   </ul>
+   <p>If you want to access a <code>filebuf</code>s file descriptor to
+      implement file locking (e.g. using the <code>fcntl()</code> system
+      call) then you might be interested in Henry Suter's
+      <a href="http://suter.home.cern.ch/suter/RWLock.html">RWLock</a>
+      class.
+   </p>
 
 <!-- ####################################################### -->
 

@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2002  Free Software Foundation
+/* Copyright (C) 2000, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -21,9 +21,12 @@ import java.awt.FontMetrics;
 import java.awt.Paint;
 import java.awt.RenderingHints;
 import java.awt.Stroke;
+import java.awt.font.FontRenderContext;
+import java.awt.font.GlyphVector;
 import java.awt.geom.AffineTransform;
 import java.awt.image.ImageObserver;
 import java.awt.image.BufferedImage;
+import java.awt.image.BufferedImageOp;
 import java.awt.image.RenderedImage;
 import java.awt.image.renderable.RenderableImage;
 import java.text.AttributedCharacterIterator;
@@ -102,12 +105,20 @@ public class Graphics2DImpl extends Graphics2D implements Cloneable
     
   public Object clone()
   {
-    Graphics2DImpl gfxCopy = (Graphics2DImpl) super.clone();
-    AbstractGraphicsState stateCopy =
-      (AbstractGraphicsState) state.clone();
-    gfxCopy.setState(stateCopy);
-    
-    return gfxCopy;
+    try
+      {
+	Graphics2DImpl gfxCopy = (Graphics2DImpl) super.clone();
+	AbstractGraphicsState stateCopy =
+	  (AbstractGraphicsState) state.clone();
+	gfxCopy.setState(stateCopy);
+	
+	return gfxCopy;
+      }
+    catch (CloneNotSupportedException ex)
+      {
+	// This should never happen.
+	throw new InternalError ();
+      }
   }
 
 
@@ -459,7 +470,7 @@ public class Graphics2DImpl extends Graphics2D implements Cloneable
     throw new UnsupportedOperationException(msg);
   }
   
-  public void drawImage(BufferedImage image, BufferedImage op, int x, int y)
+  public void drawImage(BufferedImage image, BufferedImageOp op, int x, int y)
   {
     throw new UnsupportedOperationException("not implemented yet");  
   }
@@ -512,6 +523,16 @@ public class Graphics2DImpl extends Graphics2D implements Cloneable
   }
 
   public Stroke getStroke()
+  {
+    throw new UnsupportedOperationException("not implemented yet");
+  }
+
+  public FontRenderContext getFontRenderContext ()
+  {
+    throw new UnsupportedOperationException("not implemented yet");
+  }
+
+  public void drawGlyphVector (GlyphVector g, float x, float y)
   {
     throw new UnsupportedOperationException("not implemented yet");
   }

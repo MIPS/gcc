@@ -1,5 +1,5 @@
 /* ResourceBundle -- aids in loading resource bundles
-   Copyright (C) 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -42,8 +42,6 @@ import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.io.InputStream;
 import java.io.IOException;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import gnu.classpath.Configuration;
 
 /**
@@ -105,44 +103,7 @@ public abstract class ResourceBundle
    */
   private Locale locale;
 
-  /**
-   * We override SecurityManager in order to access getClassContext().
-   */
-  private static final class Security extends SecurityManager
-  {
-    /**
-     * Avoid accessor method of private constructor.
-     */
-    Security()
-    {
-    }
-
-    /**
-     * Return the ClassLoader of the class which called into this
-     * ResourceBundle, or null if it cannot be determined.
-     */
-    ClassLoader getCallingClassLoader()
-    {
-      Class[] stack = getClassContext();
-      for (int i = 0; i < stack.length; i++)
-        if (stack[i] != Security.class && stack[i] != ResourceBundle.class)
-          return stack[i].getClassLoader();
-      return null;
-    }
-  }
-
-  /** A security context for grabbing the correct class loader. */
-  private static final Security security
-    = (Security) AccessController.doPrivileged(new PrivilegedAction()
-      {
-        // This will always work since java.util classes have (all) system
-        // permissions.
-        public Object run()
-        {
-          return new Security();
-        }
-      }
-    );
+  private static native ClassLoader getCallingClassLoader();
 
   /**
    * The resource bundle cache. This is a two-level hash map: The key
@@ -150,7 +111,13 @@ public abstract class ResourceBundle
    * second hash map is the localized name, the value is a soft
    * references to the resource bundle.
    */
-  private static final Map resourceBundleCache = new HashMap();
+  private static Map resourceBundleCache;
+
+  /**
+   * The last default Locale we saw. If this ever changes then we have to
+   * reset our caches.
+   */
+  private static Locale lastDefaultLocale;
 
   /**
    * The `empty' locale is created once in order to optimize
@@ -215,8 +182,9 @@ public abstract class ResourceBundle
       catch (MissingResourceException ex)
         {
         }
-    throw new MissingResourceException("Key not found",
-                                       getClass().getName(), key);
+ 
+    throw new MissingResourceException("Key not found", getClass().getName(),
+				       key);
   }
 
   /**
@@ -256,7 +224,7 @@ public abstract class ResourceBundle
   public static final ResourceBundle getBundle(String baseName)
   {
     return getBundle(baseName, Locale.getDefault(),
-                     security.getCallingClassLoader());
+                     getCallingClassLoader());
   }
 
   /**
@@ -274,7 +242,7 @@ public abstract class ResourceBundle
   public static final ResourceBundle getBundle(String baseName,
                                                Locale locale)
   {
-    return getBundle(baseName, locale, security.getCallingClassLoader());
+    return getBundle(baseName, locale, getCallingClassLoader());
   }
 
   /**
@@ -351,6 +319,12 @@ public abstract class ResourceBundle
   {
     // This implementation searches the bundle in the reverse direction
     // and builds the parent chain on the fly.
+    Locale defaultLocale = Locale.getDefault();
+    if (defaultLocale != lastDefaultLocale)
+      {
+	resourceBundleCache = new HashMap();
+	lastDefaultLocale = defaultLocale;
+      }
     HashMap cache = (HashMap) resourceBundleCache.get(classLoader);
     StringBuffer sb = new StringBuffer(60);
     sb.append(baseName).append('_').append(locale);
@@ -398,9 +372,9 @@ public abstract class ResourceBundle
     // bundle.
     ResourceBundle bundle = tryLocalBundle(baseName, locale,
                                            classLoader, baseBundle, cache);
-    if (bundle == baseBundle && !locale.equals(Locale.getDefault()))
+    if (bundle == baseBundle && !locale.equals(defaultLocale))
       {
-	bundle = tryLocalBundle(baseName, Locale.getDefault(),
+	bundle = tryLocalBundle(baseName, defaultLocale,
 				classLoader, baseBundle, cache);
 	// We need to record that the argument locale maps to the
 	// bundle we just found.  If we didn't find a bundle, record
@@ -497,6 +471,7 @@ public abstract class ResourceBundle
     catch (Exception ex)
       {
         // ignore them all
+	foundBundle = null;
       }
     if (foundBundle == null)
       {

@@ -34,7 +34,7 @@
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
 #include <locale>
-#include "c++locale_internal.h"
+#include <bits/c++locale_internal.h>
 
 namespace std
 {
@@ -58,7 +58,7 @@ namespace std
 #endif
     }
 
-#ifdef _GLIBCPP_USE_WCHAR_T
+#ifdef _GLIBCXX_USE_WCHAR_T
   template<>
     wstring
     messages<wchar_t>::do_get(catalog, int, int, const wstring& __dfault) const

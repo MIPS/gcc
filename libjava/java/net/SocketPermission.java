@@ -1,5 +1,5 @@
 /* SocketPermission.java -- Class modeling permissions for socket operations
-   Copyright (C) 1998, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -96,6 +96,9 @@ import java.security.PermissionCollection;
  *   Can accept connections from 197.197.20.1
  * </pre><p>
  *
+ * This class also supports IPv6 addresses.  These should be specified
+ * in either RFC 2732 format or in full uncompressed form.
+ *
  * @since 1.2
  *
  * @author Aaron M. Renn (arenn@urbanophile.com)
@@ -159,19 +162,18 @@ public final class SocketPermission extends Permission
 
   /**
    * Returns a hash code value for this object.  Overrides the 
-   * Permission.hashCode()
+   * <code>Permission.hashCode()</code>.
    *
    * @return A hash code
    */
   public int hashCode()
   {
     int hash = 100;
-
-    // FIXME: Get a real hash function
-    for (int i = 0; i < hostport.length(); i++)
-      hash = hash + (int) hostport.charAt(i) * 7;
-
-    return (hash);
+    if (hostport != null)
+      hash += hostport.hashCode();
+    if (actions != null)
+      hash += actions.hashCode();
+    return hash;
   }
 
   /**
@@ -234,7 +236,7 @@ public final class SocketPermission extends Permission
    * Returns true if the permission object passed it is implied by the
    * this permission.  This will be true if 
    * <p><ul>
-   * <li>The argument is of type SocketPermission
+   * <li>The argument is of type <code>SocketPermission</code>
    * <li>The actions list of the argument are in this object's actions
    * <li>The port range of the argument is within this objects port range
    * <li>The hostname is equal to or a subset of this objects hostname
@@ -248,7 +250,7 @@ public final class SocketPermission extends Permission
    * wildcards
    * </ul>
    *
-   * @param perm The Permission to check against
+   * @param perm The <code>Permission</code> to check against
    *
    * @return <code>true</code> if the <code>Permission</code> is implied by 
    * this object, <code>false</code> otherwise.
@@ -277,62 +279,62 @@ public final class SocketPermission extends Permission
     // Get ours
     if (hostport.indexOf(":") == -1)
       {
-	ourfirstport = 0;
-	ourlastport = 65535;
+        ourfirstport = 0;
+        ourlastport = 65535;
       }
     else
       {
-	// FIXME:  Needs bulletproofing.
-	// This will dump if hostport if all sorts of bad data was passed to
-	// the constructor
-	String range = hostport.substring(hostport.indexOf(":") + 1);
-	if (range.startsWith("-"))
-	  ourfirstport = 0;
-	else if (range.indexOf("-") == -1)
-	  ourfirstport = Integer.parseInt(range);
-	else
-	  ourfirstport =
-	    Integer.parseInt(range.substring(0, range.indexOf("-")));
+        // FIXME:  Needs bulletproofing.
+        // This will dump if hostport if all sorts of bad data was passed to
+        // the constructor
+        String range = hostport.substring(hostport.indexOf(":") + 1);
+        if (range.startsWith("-"))
+          ourfirstport = 0;
+        else if (range.indexOf("-") == -1)
+          ourfirstport = Integer.parseInt(range);
+        else
+          ourfirstport =
+            Integer.parseInt(range.substring(0, range.indexOf("-")));
 
-	if (range.endsWith("-"))
-	  ourlastport = 65535;
-	else if (range.indexOf("-") == -1)
-	  ourlastport = Integer.parseInt(range);
-	else
-	  ourlastport =
-	    Integer.parseInt(range.
-			     substring(range.indexOf("-") + 1,
-				       range.length()));
+        if (range.endsWith("-"))
+          ourlastport = 65535;
+        else if (range.indexOf("-") == -1)
+          ourlastport = Integer.parseInt(range);
+        else
+          ourlastport =
+            Integer.parseInt(range.
+                             substring(range.indexOf("-") + 1,
+                                       range.length()));
       }
 
     // Get theirs
     if (p.hostport.indexOf(":") == -1)
       {
-	theirfirstport = 0;
-	ourlastport = 65535;
+        theirfirstport = 0;
+        ourlastport = 65535;
       }
     else
       {
-	// This will dump if hostport if all sorts of bad data was passed to
-	// the constructor
-	String range = p.hostport.substring(hostport.indexOf(":") + 1);
-	if (range.startsWith("-"))
-	  theirfirstport = 0;
-	else if (range.indexOf("-") == -1)
-	  theirfirstport = Integer.parseInt(range);
-	else
-	  theirfirstport =
-	    Integer.parseInt(range.substring(0, range.indexOf("-")));
+        // This will dump if hostport if all sorts of bad data was passed to
+        // the constructor
+        String range = p.hostport.substring(hostport.indexOf(":") + 1);
+        if (range.startsWith("-"))
+          theirfirstport = 0;
+        else if (range.indexOf("-") == -1)
+          theirfirstport = Integer.parseInt(range);
+        else
+          theirfirstport =
+            Integer.parseInt(range.substring(0, range.indexOf("-")));
 
-	if (range.endsWith("-"))
-	  theirlastport = 65535;
-	else if (range.indexOf("-") == -1)
-	  theirlastport = Integer.parseInt(range);
-	else
-	  theirlastport =
-	    Integer.parseInt(range.
-			     substring(range.indexOf("-") + 1,
-				       range.length()));
+        if (range.endsWith("-"))
+          theirlastport = 65535;
+        else if (range.indexOf("-") == -1)
+          theirlastport = Integer.parseInt(range);
+        else
+          theirlastport =
+            Integer.parseInt(range.
+                             substring(range.indexOf("-") + 1,
+                                       range.length()));
       }
 
     // Now check them
@@ -362,17 +364,17 @@ public final class SocketPermission extends Permission
     String ourcanonical = null, theircanonical = null;
     try
       {
-	ourcanonical = InetAddress.getByName(ourhost).getHostName();
-	theircanonical = InetAddress.getByName(theirhost).getHostName();
+        ourcanonical = InetAddress.getByName(ourhost).getHostName();
+        theircanonical = InetAddress.getByName(theirhost).getHostName();
       }
     catch (UnknownHostException e)
       {
-	// Who didn't resolve?  Just assume current address is canonical enough
-	// Is this ok to do?
-	if (ourcanonical == null)
-	  ourcanonical = ourhost;
-	if (theircanonical == null)
-	  theircanonical = theirhost;
+        // Who didn't resolve?  Just assume current address is canonical enough
+        // Is this ok to do?
+        if (ourcanonical == null)
+          ourcanonical = ourhost;
+        if (theircanonical == null)
+          theircanonical = theirhost;
       }
 
     if (ourcanonical.equals(theircanonical))
@@ -381,9 +383,9 @@ public final class SocketPermission extends Permission
     // Well, last chance.  Try for a wildcard
     if (ourhost.indexOf("*.") != -1)
       {
-	String wild_domain = ourhost.substring(ourhost.indexOf("*" + 1));
-	if (theircanonical.endsWith(wild_domain))
-	  return (true);
+        String wild_domain = ourhost.substring(ourhost.indexOf("*" + 1));
+        if (theircanonical.endsWith(wild_domain))
+          return (true);
       }
 
     // Didn't make it

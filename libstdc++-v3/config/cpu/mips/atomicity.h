@@ -1,6 +1,6 @@
 // Low-level functions for atomic operations.
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,13 +27,13 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-#ifndef _BITS_ATOMICITY_H
-#define _BITS_ATOMICITY_H 1
+#ifndef _GLIBCXX_ATOMICITY_H
+#define _GLIBCXX_ATOMICITY_H 1
 
 typedef int _Atomic_word;
 
 static inline int
-__attribute__ ((unused))
+__attribute__ ((__unused__))
 __exchange_and_add (volatile _Atomic_word *__mem, int __val)
 {
   int __result, __tmp;
@@ -42,7 +42,9 @@ __exchange_and_add (volatile _Atomic_word *__mem, int __val)
     ("/* Inline exchange & add */\n\t"
      "1:\n\t"
      ".set	push\n\t"
+#if _MIPS_SIM == _MIPS_SIM_ABI32
      ".set	mips2\n\t"
+#endif
      "ll	%0,%3\n\t"
      "addu	%1,%4,%0\n\t"
      "sc	%1,%2\n\t"
@@ -57,7 +59,7 @@ __exchange_and_add (volatile _Atomic_word *__mem, int __val)
 }
 
 static inline void
-__attribute__ ((unused))
+__attribute__ ((__unused__))
 __atomic_add (volatile _Atomic_word *__mem, int __val)
 {
   int __result;
@@ -66,7 +68,9 @@ __atomic_add (volatile _Atomic_word *__mem, int __val)
     ("/* Inline atomic add */\n\t"
      "1:\n\t"
      ".set	push\n\t"
+#if _MIPS_SIM == _MIPS_SIM_ABI32
      ".set	mips2\n\t"
+#endif
      "ll	%0,%2\n\t"
      "addu	%0,%3,%0\n\t"
      "sc	%0,%1\n\t"
