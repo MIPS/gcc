@@ -1070,9 +1070,9 @@ outgoing_edges_match (mode, bb1, bb2)
 	 we require the existing branches to have probabilities that are
 	 roughly similar.  */
       if (match
-	  && (!optimize_size
-	      || !maybe_hot_bb_p (bb1)
-	      || !maybe_hot_bb_p (bb2)))
+	  && !optimize_size
+	  && maybe_hot_bb_p (bb1)
+	  && maybe_hot_bb_p (bb2))
 	{
 	  int prob2;
 
