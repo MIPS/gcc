@@ -1,5 +1,11 @@
 2003-10-12  Richard Henderson  <rth@redhat.com>
 
+        * gimplify.c (gimplify_array_ref_to_plus): Be prepared for
+        null TYPE_DOMAIN or TYPE_MIN_VALUE for the array.
+        * tree-ssa-ccp.c (fold_indirect_refs_r): Likewise.
+
+2003-10-12  Richard Henderson  <rth@redhat.com>
+
 	* tree.h (struct tree_common): Rename unused_1 to invariant_flag.
 	(TREE_INVARIANT): New.
 	* builtins.c (build_string_literal): Set TREE_INVARIANT.

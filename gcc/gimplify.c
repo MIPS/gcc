@@ -1349,16 +1349,20 @@ gimplify_array_ref_to_plus (tree *expr_p, tree *pre_p, tree *post_p)
   tree elttype = TREE_TYPE (arrtype);
   tree size = size_in_bytes (elttype);
   tree ptrtype = build_pointer_type (elttype);
-  tree minidx = TYPE_MIN_VALUE (TYPE_DOMAIN (arrtype));
   enum tree_code add_code = PLUS_EXPR;
   tree idx = TREE_OPERAND (*expr_p, 1);
-  tree offset, addr, result;
+  tree minidx, offset, addr, result;
 
   /* If the array domain does not start at zero, apply the offset.  */
-  if (!integer_zerop (minidx))
+  minidx = TYPE_DOMAIN (arrtype);
+  if (minidx)
     {
-      idx = convert (TREE_TYPE (minidx), idx);
-      idx = fold (build (MINUS_EXPR, TREE_TYPE (minidx), idx, minidx));
+      minidx = TYPE_MIN_VALUE (minidx);
+      if (minidx && !integer_zerop (minidx))
+	{
+	  idx = convert (TREE_TYPE (minidx), idx);
+	  idx = fold (build (MINUS_EXPR, TREE_TYPE (minidx), idx, minidx));
+	}
     }
 
   /* If the index is negative -- a technically invalid situation now

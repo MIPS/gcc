@@ -1570,8 +1570,14 @@ fold_indirect_refs_r (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
       if (TREE_CODE (TREE_TYPE (base)) == ARRAY_TYPE
 	  && (TYPE_MAIN_VARIANT (TREE_TYPE (expr))
 	      == TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (base)))))
-	t = build (ARRAY_REF, TREE_TYPE (expr), base,
-		   TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (expr))));
+	{
+	  t = TYPE_DOMAIN (TREE_TYPE (base));
+	  if (t)
+	    t = TYPE_MIN_VALUE (t);
+	  if (!t)
+	    t = offset;
+	  t = build (ARRAY_REF, TREE_TYPE (expr), base, t);
+	}
       else
 	t = base;
     }
@@ -1605,10 +1611,18 @@ fold_indirect_refs_r (tree *expr_p, int *walk_subtrees ATTRIBUTE_UNUSED,
       idx = build_int_2_wide (lquo, hquo);
 
       /* Re-bias the index by the min index of the array type.  */
-      min_idx = TYPE_MIN_VALUE (TYPE_DOMAIN (TREE_TYPE (base)));
-      idx = convert (TREE_TYPE (min_idx), idx);
-      if (!integer_zerop (min_idx))
-        idx = fold (build (PLUS_EXPR, TREE_TYPE (min_idx), idx, min_idx));
+      min_idx = TYPE_DOMAIN (TREE_TYPE (base));
+      if (min_idx)
+	{
+          min_idx = TYPE_MIN_VALUE (min_idx);
+	  if (min_idx)
+	    {
+	      idx = convert (TREE_TYPE (min_idx), idx);
+	      if (!integer_zerop (min_idx))
+	        idx = fold (build (PLUS_EXPR, TREE_TYPE (min_idx),
+			    idx, min_idx));
+	    }
+	}
 
       t = build (ARRAY_REF, TREE_TYPE (expr), base, idx);
     }
