@@ -208,7 +208,7 @@ do {                                                                    \
       ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);				\
   } while (0)
 
-#define ASM_SPEC   " %| %{fpic:-k} %{fPIC:-k}"
+#define ASM_SPEC   " %| %{fpic|fPIC|fpie|fPIE:-k}"
 #define LINK_SPEC \
   "%{p:%e`-p' not supported; use `-pg' and gprof(1)} \
    %{shared:-Bshareable} \

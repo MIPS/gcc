@@ -46,7 +46,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef ASM_SPEC
 #define ASM_SPEC \
-  "%{m68030} %{m68040} %{fpic:-k} %{fPIC:-k}"
+  "%{m68030} %{m68040} %{fpic|fPIC|fpie|fPIE:-k}"
 
 #undef LIB_SPEC
 #if 1

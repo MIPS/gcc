@@ -40,7 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_SPEC
 #define ASM_SPEC \
   "%{V} %{v:%{!V:-V}} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Wa,*:%*} -s \
-   %{fpic:-K PIC} %{fPIC:-K PIC}"
+   %{fpic|fpie|fPIC|fPIE:-K PIC}"
 
 /* However it appears that Solaris 2.0 uses the same reg numbering as
    the old BSD-style system did.  */

@@ -633,8 +633,8 @@ init_section ()								\
 
 #undef CPP_SPEC
 #define CPP_SPEC "\
-  %{fpic:%{mcoff:%e-fpic is not valid with -mcoff}} \
-  %{fPIC:%{mcoff:%e-fPIC is not valid with -mcoff}} \
+  %{fpic|fpie:%{mcoff:%e-fpic is not valid with -mcoff}} \
+  %{fPIC|fPIE:%{mcoff:%e-fPIC is not valid with -mcoff}} \
   %{!Xods30:-D_STRICT_NAMES} \
   %{!ansi:%{!posix:%{!Xods30:-D_SCO_XPG_VERS=4}}} \
   %{ansi:-isystem include/ansi%s -isystem /usr/include/ansi} \
@@ -666,8 +666,8 @@ init_section ()								\
    %{static:%e-static not valid with -mcoff} \
    %{shared:%e-shared not valid with -mcoff} \
    %{symbolic:%e-symbolic not valid with -mcoff} \
-   %{fpic:%e-fpic not valid with -mcoff} \
-   %{fPIC:%e-fPIC not valid with -mcoff}} \
+   %{fpic|fpie:%e-fpic not valid with -mcoff} \
+   %{fPIC|fPIE:%e-fPIC not valid with -mcoff}} \
   -R%{Xa:a}%{!Xa:%{Xc:c}%{!Xc:%{Xk:k}%{!Xk:%{Xt:t}%{!Xt:a}}}},%{ansi:ansi}%{!ansi:%{posix:posix}%{!posix:%{Xpg4:xpg4}%{!Xpg4:%{Xpg4plus:XPG4PLUS}%{!Xpg4plus:%{Xods30:ods30}%{!Xods30:XPG4PLUS}}}}},%{mcoff:COFF}%{!mcoff:ELF} \
   %{Wl,*%*} %{YP,*} %{YL,*} %{YU,*} \
   %{!YP,*:%{p:-YP,/usr/ccs/libp:/lib/libp:/usr/lib/libp:/usr/ccs/lib:/lib:/usr/lib} \

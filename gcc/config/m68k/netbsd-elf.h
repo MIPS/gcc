@@ -105,7 +105,7 @@ Boston, MA 02111-1307, USA.  */
 #define ASM_SPEC \
   " %| %(asm_default_spec) \
     %{m68010} %{m68020} %{m68030} %{m68040} %{m68060} \
-    %{fpic:-k} %{fPIC:-k -K}"
+    %{fpic|fpie:-k} %{fPIC|fPIE:-k -K}"
 
 /* Provide a LINK_SPEC appropriate for a NetBSD/m68k ELF target.  */
 
