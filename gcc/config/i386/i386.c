@@ -1618,8 +1618,9 @@ ix86_return_pops_args (fundecl, funtype, size)
       && !TARGET_64BIT)
     {
       int nregs = ix86_fntype_regparm (funtype);
+      struct cgraph_local_info *i = fundecl ? cgraph_local_info (fundecl) : 0;
 
-      if (!nregs)
+      if (!nregs && !(i && i->local))
 	return GET_MODE_SIZE (Pmode);
     }
 
@@ -3305,7 +3306,12 @@ pic_symbolic_operand (op, mode)
   op = XEXP (op, 0);
   if (TARGET_64BIT)
     {
-      if (GET_CODE (XEXP (op, 0)) == UNSPEC)
+      if (GET_CODE (op) == UNSPEC
+	  && XINT (op, 1) == UNSPEC_GOTPCREL)
+	return 1;
+      if (GET_CODE (op) == PLUS
+	  && GET_CODE (XEXP (op, 0)) == UNSPEC
+	  && XINT (XEXP (op, 0), 1) == UNSPEC_GOTPCREL)
 	return 1;
     }
   else
@@ -14859,6 +14865,7 @@ x86_this_parameter (function)
      tree function;
 {
   tree type = TREE_TYPE (function);
+  struct cgraph_local_info *i = cgraph_local_info (function);
 
   if (TARGET_64BIT)
     {
@@ -14866,7 +14873,7 @@ x86_this_parameter (function)
       return gen_rtx_REG (DImode, x86_64_int_parameter_registers[n]);
     }
 
-  if (ix86_fntype_regparm (type) > 0)
+  if (ix86_fntype_regparm (type) > 0 || (i && i->local))
     {
       tree parm;
 
@@ -14896,12 +14903,13 @@ x86_can_output_mi_thunk (thunk, delta, vcall_offset, function)
      HOST_WIDE_INT vcall_offset;
      tree function;
 {
+  struct cgraph_local_info *i = cgraph_local_info (function);
   /* 64-bit can handle anything.  */
   if (TARGET_64BIT)
     return true;
 
   /* For 32-bit, everything's fine if we have one free register.  */
-  if (ix86_fntype_regparm (TREE_TYPE (function)) < 3)
+  if (ix86_fntype_regparm (TREE_TYPE (function)) < 3 && !(i && i->local))
     return true;
 
   /* Need a free register for vcall_offset.  */

@@ -1,3 +1,10 @@
+2003-08-08  Jan Hubicka  <jh@suse.cz>
+	    Michael Matz  <matz@suse.de>
+
+	* i386.c (ix86_return_pops_args, x86_this_parameter,
+	x86_can_output_mi_thunk): Also test for local functions.
+	(pic_symbolic_operand): Test for correct form of pic operands.
+ 
 2003-08-05  Josef Zlomek  <zlomekj@suse.cz>
 
 	* gcse.c (try_replace_reg): Fix updating of note.
