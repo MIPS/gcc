@@ -6,7 +6,7 @@
 	* gimple-low.c (lower_function_body, lower_stmt, lower_bind_expr):
 	Eliminate BIND_EXPRs.
 	(expand_used_vars): New.
-	* tree-alias-common.c (create_alias_vars): Valk variables in blocks.
+	* tree-alias-common.c (create_alias_vars): Walk variables in blocks.
 	* tree-cfg.c (make_bind_expr_blocks): Removed.
 	(make_blocks, build_tree_cfg, factor_computed_gotos): Don't handle
 	BIND_EXPRs.
