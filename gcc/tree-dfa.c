@@ -1588,6 +1588,13 @@ compute_may_aliases (fndecl)
   aliased_objects_found = htab_create (50, htab_hash_pointer, htab_eq_pointer,
 				       NULL);
 
+  if (flag_tree_points_to != PTA_NONE)
+    {
+      timevar_push (TV_TREE_PTA);
+      create_alias_vars (fndecl);
+      timevar_pop (TV_TREE_PTA);
+    }
+
   walk_state.vars_found = vars_found;
   walk_state.aliased_objects_found = aliased_objects_found;
   walk_state.is_store = 0;
@@ -1601,16 +1608,10 @@ compute_may_aliases (fndecl)
   htab_delete (vars_found);
   htab_delete (aliased_objects_found);
 
-  if (flag_tree_points_to != PTA_NONE && num_aliased_objects)
-    {
-      timevar_push (TV_TREE_PTA);
-      create_alias_vars (fndecl);
-      timevar_pop (TV_TREE_PTA);
-    }
 
   compute_alias_sets ();
   
-  if (flag_tree_points_to != PTA_NONE && num_aliased_objects)
+  if (flag_tree_points_to != PTA_NONE)
     {
       timevar_push (TV_TREE_PTA);
       delete_alias_vars ();
@@ -2257,7 +2258,7 @@ add_referenced_var (var, walk_state)
 	    {
 	      VARRAY_PUSH_TREE (call_clobbered_vars, var);
 	      num_call_clobbered_vars++;
-	      ann->is_call_clobbered = 1;
+ 	      ann->is_call_clobbered = 1;
 	    }
 	}
     }

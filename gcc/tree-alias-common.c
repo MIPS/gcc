@@ -73,6 +73,7 @@ struct tree_alias_ops *current_alias_ops;
 */
 static varray_type local_alias_vars;
 static varray_type local_alias_varnums;
+						 
 static tree currptadecl;
 static alias_typevar get_alias_var_decl PARAMS ((tree));
 static alias_typevar get_alias_var PARAMS ((tree));
@@ -192,7 +193,7 @@ get_alias_var_decl (decl)
 	{
 	  VARRAY_PUSH_INT (local_alias_varnums, 
 			   VARRAY_ACTIVE_SIZE (alias_vars) - 1);
-	  VARRAY_PUSH_GENERIC_PTR (local_alias_vars, decl);
+	  VARRAY_PUSH_TREE (local_alias_vars, decl);
 	}
     }
   return newvar;
@@ -691,7 +692,7 @@ find_func_decls (tp, walk_subtrees, data)
       create_alias_var (DECL_STMT_DECL (*tp));
       VARRAY_PUSH_INT (local_alias_varnums,
 		       VARRAY_ACTIVE_SIZE (alias_vars) - 1);
-      VARRAY_PUSH_GENERIC_PTR (local_alias_vars, DECL_STMT_DECL (*tp));
+      VARRAY_PUSH_TREE (local_alias_vars, DECL_STMT_DECL (*tp));
     }
   return NULL_TREE;
 }
@@ -999,7 +1000,7 @@ delete_alias_vars ()
   
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
     {
-      entry.key = VARRAY_GENERIC_PTR (local_alias_vars, i);
+      entry.key = VARRAY_TREE (local_alias_vars, i);
       if (!DECL_P (entry.key))
 	{
 	  htab_remove_elt (alias_annot, &entry);
@@ -1029,11 +1030,13 @@ void
 init_alias_vars ()
 {
   current_alias_ops->init (current_alias_ops);
-  VARRAY_GENERIC_PTR_INIT (local_alias_vars, 10, "Local alias vars");
+  VARRAY_TREE_INIT (local_alias_vars, 10, "Local alias vars");
   VARRAY_INT_INIT (local_alias_varnums, 10, "Local alias varnums");
-  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial) || alias_vars == NULL)
+  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial) 
+      || alias_vars == NULL)
     VARRAY_GENERIC_PTR_INIT (alias_vars, 10, "Alias vars");
-  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial) || alias_annot == NULL)
+  if ((!current_alias_ops->ip && !current_alias_ops->ip_partial) 
+      || alias_annot == NULL)
     alias_annot = htab_create_ggc (7, annot_hash, annot_eq, NULL);
   
 }
@@ -1076,14 +1079,15 @@ ptr_may_alias_var (ptr, var)
     ptrcontext = decl_function_context (ptr);
   if (varcontext != NULL)
     varcontext = decl_function_context (var);
-
+  if (ptrcontext == NULL)
+    ptr = global_var;
+  if (varcontext == NULL)
+    var = global_var;
   if (ptr == var || (ptrcontext == NULL && varcontext == NULL))
     return true;
   if (DECL_P (ptr))
     {
       ptrtv = DECL_PTA_TYPEVAR (ptr);
-      if (ptrcontext == NULL)
-	ptrtv = DECL_PTA_TYPEVAR (global_var);
       if (!ptrtv && !current_alias_ops->ip && ptr != global_var)
 	abort ();
       else if (!ptrtv)
@@ -1091,10 +1095,7 @@ ptr_may_alias_var (ptr, var)
     }
   else
     {
-      if (ptrcontext == NULL)
-	entry.key = global_var;
-      else
-	entry.key = ptr;
+      entry.key = ptr;
       result = htab_find (alias_annot, &entry);
       if (!result && !current_alias_ops->ip && ptr != global_var)
 	abort ();
@@ -1105,8 +1106,6 @@ ptr_may_alias_var (ptr, var)
   if (DECL_P (var))
     {
       vartv = DECL_PTA_TYPEVAR (var);
-      if (varcontext == NULL)
-	vartv = DECL_PTA_TYPEVAR (global_var);
       if (!vartv && !current_alias_ops->ip && var != global_var)
 	abort ();
       else if (!vartv)
@@ -1114,10 +1113,7 @@ ptr_may_alias_var (ptr, var)
     }
   else
     {
-      if (varcontext == NULL)
-	entry.key = global_var;
-      else
-	entry.key = var;
+      entry.key = var;
       result = htab_find (alias_annot, &entry);
       if (!result && !current_alias_ops->ip && var != global_var)
 	abort ();

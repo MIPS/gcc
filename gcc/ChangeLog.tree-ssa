@@ -1,3 +1,11 @@
+2003-06-02  Daniel Berlin  <dberlin@dberlin.org>
+
+	* tree-dfa.c (compute_may_aliases): Call delete_alias_vars whenever we
+	call create_alias_vars.
+
+	* tree-alias-common (ptr_may_alias_var): Cleanup determination of
+	global vars and whatnot.
+	
 2003-06-02  Diego Novillo  <dnovillo@redhat.com>
 
         * Makefile.in (tree-ssa.o, tree-cfg.o): Add dependency on cfgloop.h
