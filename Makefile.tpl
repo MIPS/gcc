@@ -864,24 +864,11 @@ configure-build-[+module+]:
 	      srcdiroption="--srcdir=$${topdir}/[+module+]"; \
 	      libsrcdir="$$s/[+module+]"; \
 	    fi; \
-	    if [ -f $${libsrcdir}/configure ] ; then \
-	      rm -f no-such-file skip-this-dir; \
-	      CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
-		$(BUILD_CONFIGARGS) $${srcdiroption} \
-		--with-build-subdir="$(BUILD_SUBDIR)"; \
-	    else \
-	      rm -f no-such-file skip-this-dir; \
-	      CONFIG_SITE=no-such-file $(SHELL) $$s/configure \
-		$(BUILD_CONFIGARGS) $${srcdiroption} \
-		--with-build-subdir="$(BUILD_SUBDIR)"; \
-	    fi || exit 1; \
-	    if [ -f skip-this-dir ] ; then \
-	      sh skip-this-dir; \
-	      rm -f skip-this-dir; \
-	      cd ..; rmdir [+module+] || true; \
-	    else \
-	      true; \
-	    fi; \
+	    rm -f no-such-file || : ; \
+	    CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
+	      $(BUILD_CONFIGARGS) $${srcdiroption} \
+	      --with-build-subdir="$(BUILD_SUBDIR)" \
+	      || exit 1; \
 	  else \
 	    true; \
 	  fi; \
@@ -896,8 +883,7 @@ configure-build-[+module+]:
 .PHONY: all-[+module+] maybe-all-[+module+]
 maybe-all-[+module+]:
 all-[+module+]:
-	@dir=[+module+]; \
-	  r=`${PWD}`; export r; \
+	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
@@ -913,7 +899,6 @@ check-[+module+]:
 # This module is only tested in a native toolchain.
 check-[+module+]:
 	@if [ '$(host_canonical)' = '$(target_canonical)' ] ; then \
-	  dir=[+module+]; \
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
 	    $(SET_LIB_PATH) \
@@ -925,8 +910,7 @@ check-[+module+]:
 [+ ELSE check +]
 .PHONY: check-[+module+]
 check-[+module+]:
-	@dir=[+module+]; \
-	  r=`${PWD}`; export r; \
+	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
@@ -943,8 +927,7 @@ install-[+module+]:
 .PHONY: install-[+module+] maybe-install-[+module+]
 maybe-install-[+module+]:
 install-[+module+]: installdirs
-	@dir=[+module+]; \
-	  r=`${PWD}`; export r; \
+	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd [+module+]; $(MAKE) $(FLAGS_TO_PASS)[+ 
@@ -975,8 +958,7 @@ configure-target-[+module+]:
 	      mv $(TARGET_SUBDIR)/[+module+]/tmpmulti.out $(TARGET_SUBDIR)/[+module+]/multilib.out; \
 	    fi; \
 	fi; exit 0	# break command into two pieces
-	@dir=[+module+] ; \
-	  if [ -d $(srcdir)/[+module+] ]; then \
+	@if [ -d $(srcdir)/[+module+] ]; then \
 	    [ -d $(TARGET_SUBDIR)/[+module+] ] || mkdir $(TARGET_SUBDIR)/[+module+];\
 	    r=`${PWD}`; export r; \
 	    s=`cd $(srcdir); ${PWD}`; export s; \
@@ -1034,24 +1016,11 @@ configure-target-[+module+]:
 	      srcdiroption="--srcdir=$${topdir}/[+module+]"; \
 	      libsrcdir="$$s/[+module+]"; \
 	    fi; \
-	    if [ -f $${libsrcdir}/configure ] ; then \
-	      rm -f no-such-file skip-this-dir; \
-	      CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
-		$(TARGET_CONFIGARGS) $${srcdiroption} \
-		--with-target-subdir="$(TARGET_SUBDIR)"; \
-	    else \
-	      rm -f no-such-file skip-this-dir; \
-	      CONFIG_SITE=no-such-file $(SHELL) $$s/configure \
-		$(TARGET_CONFIGARGS) $${srcdiroption} \
-		--with-target-subdir="$(TARGET_SUBDIR)"; \
-	    fi || exit 1; \
-	    if [ -f skip-this-dir ] ; then \
-	      sh skip-this-dir; \
-	      rm -f skip-this-dir; \
-	      cd ..; rmdir [+module+] || true; \
-	    else \
-	      true; \
-	    fi; \
+	    rm -f no-such-file || : ; \
+	    CONFIG_SITE=no-such-file $(SHELL) $${libsrcdir}/configure \
+	      $(TARGET_CONFIGARGS) $${srcdiroption} \
+	      --with-target-subdir="$(TARGET_SUBDIR)" \
+	      || exit 1; \
 	  else \
 	    true; \
 	  fi
@@ -1059,8 +1028,7 @@ configure-target-[+module+]:
 .PHONY: all-target-[+module+] maybe-all-target-[+module+]
 maybe-all-target-[+module+]:
 all-target-[+module+]:
-	@dir=[+module+] ; \
-	  r=`${PWD}`; export r; \
+	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/[+module+]; \
@@ -1076,8 +1044,7 @@ check-target-[+module+]:
 [+ ELSE check +]
 .PHONY: check-target-[+module+]
 check-target-[+module+]:
-	@dir=[+module+] ; \
-	  r=`${PWD}`; export r; \
+	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/[+module+]; \
@@ -1096,8 +1063,7 @@ install-target-[+module+]:
 .PHONY: install-target-[+module+] maybe-install-target-[+module+]
 maybe-install-target-[+module+]:
 install-target-[+module+]: installdirs
-	@dir=[+module+] ; \
-	  r=`${PWD}`; export r; \
+	@r=`${PWD}`; export r; \
 	  s=`cd $(srcdir); ${PWD}`; export s; \
 	  $(SET_LIB_PATH) \
 	  (cd $(TARGET_SUBDIR)/[+module+]; \

@@ -1,3 +1,74 @@
+Thu Nov 28 23:56:24 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc): Add copy_rtx to avoid invalid RTX
+	sharing when operand is SUBREG.
+
+Thu Nov 28 08:57:26 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* athlon.md (athlon-decodev): New reservation unit.
+	(athlon-direct0): New reservation.
+	(athlon-vector): New use athlon-decodev.
+	(athlon-double, athlon-direct): Better model.
+	(athlon_imul_k8): Use athlon-direct0.
+	(athlon_movlpd_load): New insn reservation.
+
+Wed Nov 27 20:34:13 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (x86_sse_partial_regs_for_cvtsd2ss): New.
+	* i386.h (x86_sse_partial_regs_for_cvtsd2ss): Declare.
+	(TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS): New macro.
+	* i386.md (truncdfsf patterns and splitters): Use
+	TARGET_SSE_PARTIAL_REGS_FOR_CVTSD2SS
+
+2002-11-26  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+        * config/sh/lib1funcs.asm (FUNC, ENDFUNC0, ENDFUNC): New macros.
+	(all): Add .size and .type information.
+
+Tue Nov 26 22:43:50 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (ix86_expand_int_movcc):  Do not emit lea for short mode on
+	partial_reg_stall target.
+
+Tue Nov 26 22:27:47 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (movhicc): Allow general operand.
+	(movqicc): New expander.
+	(movqicc_noc): New pattern.
+	* i386.c (ix86_expand_carry_flag_compare): New function.
+	(ix86_expand_int_movcc): Optimize harder using sbb; support more
+	HImode conversion; support QImode conditional moves
+
+Tue Nov 26 16:30:59 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (FAST_PROLOGUE_INSN_COUNT): Set to 20.
+	(ix86_expand_prologue): Multiply the count by amount of registers to be
+	pushed.
+
+Tue Nov 26 15:55:27 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (override_options): Error about wrong -mcpu on x86-64
+	compilation.
+
+2002-11-26  NIIBE Yutaka  <gniibe@m17n.org>
+
+	* config/sh/linux.h (FUNCTION_PROFILER): Implemented.
+
+Tue Nov 26 00:14:20 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386-protos.h (x86_extended_QIreg_mentioned_p,
+	x86_extended_reg_mentioned_p): Declare.
+	* i386.c (extended_reg_mentioned_1): New static function.
+	(x86_extended_QIreg_mentioned_p,
+	x86_extended_reg_mentioned_p): New global functions.
+	* i386.h (REX_SSE_REGNO_P): New macro.
+	* i386.md (prefix_rex): New attribute.
+	(length attribute): Add rex.
+
+Mon Nov 25 18:32:37 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (pushsf_rex64): Fix typo.
+
 Sun Nov 24 10:38:04 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.c (x86_use_ffreep): New global variable.

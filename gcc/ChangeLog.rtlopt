@@ -1,3 +1,7 @@
+Fri Nov 29 23:40:50 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* Merge from mainline (rtlopt-merge-20022911 tag)
+
 2002-11-29  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* cfgloopanal.c (simple_loop_p): Count desc->n_branches.

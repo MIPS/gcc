@@ -88,6 +88,36 @@ do { \
 			 %{!profile:crt1.o%s}}}} \
    crti.o%s %{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}"
 
+/* Output assembler code to STREAM to call the profiler.  */
+
+#undef FUNCTION_PROFILER
+#define FUNCTION_PROFILER(STREAM,LABELNO)				\
+  do {									\
+    if (flag_pic)							\
+      {									\
+	fprintf (STREAM, "\tmov.l\t3f,r1\n");				\
+	fprintf (STREAM, "\tmova\t3f,r0\n");				\
+	fprintf (STREAM, "\tadd\tr1,r0\n");				\
+	fprintf (STREAM, "\tmov.l\t1f,r1\n");				\
+	fprintf (STREAM, "\tmov.l\t@(r0,r1),r1\n");			\
+      }									\
+    else								\
+      fprintf (STREAM, "\tmov.l\t1f,r1\n");				\
+    fprintf (STREAM, "\tsts.l\tpr,@-r15\n");				\
+    fprintf (STREAM, "\tmova\t2f,r0\n");				\
+    fprintf (STREAM, "\tjmp\t@r1\n");					\
+    fprintf (STREAM, "\tlds\tr0,pr\n");					\
+    fprintf (STREAM, "\t.align\t2\n");					\
+    if (flag_pic)							\
+      {									\
+	fprintf (STREAM, "1:\t.long\tmcount@GOT\n");			\
+	fprintf (STREAM, "3:\t.long\t_GLOBAL_OFFSET_TABLE_\n");		\
+      }									\
+    else								\
+      fprintf (STREAM, "1:\t.long\tmcount\n");				\
+    fprintf (STREAM, "2:\tlds.l\t@r15+,pr\n");				\
+  } while (0)
+
 /* Do code reading to identify a signal frame, and set the frame
    state data appropriately.  See unwind-dw2.c for the structs.  */
 
