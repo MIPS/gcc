@@ -19,6 +19,13 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef GCC_CFGLOOP_H
+#define GCC_CFGLOOP_H
+
+#include "basic-block.h"
+/* For rtx_code.  */
+#include "rtl.h"
+
 /* Structure to hold decision about unrolling/peeling.  */
 enum lpt_dec
 {
@@ -545,3 +552,4 @@ loop_exit_edge (struct loop *loop, unsigned n)
   return loop->exit_edges[n];
 }
 
+#endif /* GCC_CFGLOOP_H */

@@ -39,7 +39,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "ggc.h"
 #include "rtl.h"
-#include "expr.h"
 #include "output.h"
 #include "timevar.h"
 #include "predict.h"
@@ -245,18 +244,6 @@ emit_local_var (tree decl)
 	   /*top_level=*/0, /*at_end=*/0);
       else
 	expand_decl (decl);
-    }
-
-  if (DECL_INITIAL (decl))
-    {
-      /* Actually do the initialization.  */
-      if (stmts_are_full_exprs_p ())
-	expand_start_target_temps ();
-
-      expand_decl_init (decl);
-
-      if (stmts_are_full_exprs_p ())
-	expand_end_target_temps ();
     }
 }
 

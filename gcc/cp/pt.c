@@ -5895,22 +5895,18 @@ tsubst_default_argument (tree fn, tree type, tree arg)
        };
      
      we must be careful to do name lookup in the scope of S<T>,
-     rather than in the current class.
-
-     ??? current_class_type affects a lot more than name lookup.  This is
-     very fragile.  Fortunately, it will go away when we do 2-phase name
-     binding properly.  */
-
-  /* FN is already the desired FUNCTION_DECL.  */
+     rather than in the current class.  */
   push_access_scope (fn);
   /* The default argument expression should not be considered to be
      within the scope of FN.  Since push_access_scope sets
      current_function_decl, we must explicitly clear it here.  */
   current_function_decl = NULL_TREE;
 
+  push_deferring_access_checks(dk_no_deferred);
   arg = tsubst_expr (arg, DECL_TI_ARGS (fn),
 		     tf_error | tf_warning, NULL_TREE);
-  
+  pop_deferring_access_checks();
+
   pop_access_scope (fn);
 
   /* Make sure the default argument is reasonable.  */
@@ -6273,6 +6269,11 @@ tsubst_decl (tree t, tree args, tree type, tsubst_flags_t complain)
 	else if (IDENTIFIER_OPNAME_P (DECL_NAME (r)))
 	  grok_op_properties (r, DECL_FRIEND_P (r),
 			      (complain & tf_error) != 0);
+
+	if (DECL_FRIEND_P (t) && DECL_FRIEND_CONTEXT (t))
+	  SET_DECL_FRIEND_CONTEXT (r,
+				   tsubst (DECL_FRIEND_CONTEXT (t),
+					    args, complain, in_decl));
       }
       break;
 
@@ -7418,6 +7419,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	   enumerators.  */
 	if (DECL_NAMESPACE_SCOPE_P (t))
 	  return t;
+	/* If ARGS is NULL, then T is known to be non-dependent.  */
+	if (args == NULL_TREE)
+	  return decl_constant_value (t);
 
 	/* Unfortunately, we cannot just call lookup_name here.
 	   Consider:
@@ -9543,7 +9547,7 @@ template_decl_level (tree decl)
 
 /* Decide whether ARG can be unified with PARM, considering only the
    cv-qualifiers of each type, given STRICT as documented for unify.
-   Returns nonzero iff the unification is OK on that basis. */
+   Returns nonzero iff the unification is OK on that basis.  */
 
 static int
 check_cv_quals_for_unify (int strict, tree arg, tree parm)
@@ -10126,13 +10130,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 void
 mark_decl_instantiated (tree result, int extern_p)
 {
-  /* We used to set this unconditionally; we moved that to
-     do_decl_instantiation so it wouldn't get set on members of
-     explicit class template instantiations.  But we still need to set
-     it here for the 'extern template' case in order to suppress
-     implicit instantiations.  */
-  if (extern_p)
-    SET_DECL_EXPLICIT_INSTANTIATION (result);
+  SET_DECL_EXPLICIT_INSTANTIATION (result);
 
   /* If this entity has already been written out, it's too late to
      make any modifications.  */
@@ -10636,11 +10634,10 @@ do_decl_instantiation (tree decl, tree storage)
     error ("storage class `%D' applied to template instantiation",
 	      storage);
 
-  SET_DECL_EXPLICIT_INSTANTIATION (result);
   mark_decl_instantiated (result, extern_p);
   repo_template_instantiated (result, extern_p);
   if (! extern_p)
-    instantiate_decl (result, /*defer_ok=*/1);
+    instantiate_decl (result, /*defer_ok=*/1, /*undefined_ok=*/0);
 }
 
 void
@@ -10667,6 +10664,18 @@ bt_instantiate_type_proc (binding_entry entry, void *data)
   if (IS_AGGR_TYPE (entry->type)
       && !uses_template_parms (CLASSTYPE_TI_ARGS (entry->type)))
     do_type_instantiation (TYPE_MAIN_DECL (entry->type), storage, 0);
+}
+
+/* Called from do_type_instantiation to instantiate a member
+   (a member function or a static member variable) of an
+   explicitly instantiated class template. */
+static void
+instantiate_class_member (tree decl, int extern_p)
+{
+  mark_decl_instantiated (decl, extern_p);
+  repo_template_instantiated (decl, extern_p);
+  if (! extern_p)
+    instantiate_decl (decl, /*defer_ok=*/1, /* undefined_ok=*/1);
 }
 
 /* Perform an explicit instantiation of template class T.  STORAGE, if
@@ -10768,7 +10777,6 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
 
   {
     tree tmp;
-    int explicitly_instantiate_members = 0;
 
     /* In contrast to implicit instantiation, where only the
        declarations, and not the definitions, of members are
@@ -10784,50 +10792,18 @@ do_type_instantiation (tree t, tree storage, tsubst_flags_t complain)
        Of course, we can't instantiate member template classes, since
        we don't have any arguments for them.  Note that the standard
        is unclear on whether the instantiation of the members are
-       *explicit* instantiations or not.  We choose to be generous,
-       and not set DECL_EXPLICIT_INSTANTIATION.  Therefore, we allow
-       the explicit instantiation of a class where some of the members
-       have no definition in the current translation unit.  Exception:
-       on some targets (e.g. Darwin), weak symbols do not get put in 
-       a static archive's TOC.  The problematic case is if we're doing
-       a non-extern explicit instantiation of an extern template: we
-       have to put member functions in the TOC in that case, or we'll
-       get unresolved symbols at link time. */
-
-    explicitly_instantiate_members =
-      TARGET_EXPLICIT_INSTANTIATIONS_ONE_ONLY
-      && previous_instantiation_extern_p && ! extern_p
-      && ! TYPE_FOR_JAVA (t);
+       *explicit* instantiations or not.  However, the most natural
+       interpretation is that it should be an explicit instantiation. */
 
     if (! static_p)
       for (tmp = TYPE_METHODS (t); tmp; tmp = TREE_CHAIN (tmp))
 	if (TREE_CODE (tmp) == FUNCTION_DECL
 	    && DECL_TEMPLATE_INSTANTIATION (tmp))
-	  {
-	    if (explicitly_instantiate_members)
-	      do_decl_instantiation (tmp, NULL_TREE);
-	    else
-	      {
-		mark_decl_instantiated (tmp, extern_p);
-		repo_template_instantiated (tmp, extern_p);
-		if (! extern_p)
-		  instantiate_decl (tmp, /*defer_ok=*/1);
-	      }
-	  }
+	  instantiate_class_member (tmp, extern_p);
 
     for (tmp = TYPE_FIELDS (t); tmp; tmp = TREE_CHAIN (tmp))
       if (TREE_CODE (tmp) == VAR_DECL && DECL_TEMPLATE_INSTANTIATION (tmp))
-	{
-	  if (explicitly_instantiate_members)
-	    do_decl_instantiation (tmp, NULL_TREE);
-	  else
-	    {
-	      mark_decl_instantiated (tmp, extern_p);
-	      repo_template_instantiated (tmp, extern_p);
-	      if (! extern_p)
-		instantiate_decl (tmp, /*defer_ok=*/1);
-	    }
-	}
+	instantiate_class_member (tmp, extern_p);
 
     if (CLASSTYPE_NESTED_UTDS (t))
       binding_table_foreach (CLASSTYPE_NESTED_UTDS (t),
@@ -10990,10 +10966,16 @@ template_for_substitution (tree decl)
 
 /* Produce the definition of D, a _DECL generated from a template.  If
    DEFER_OK is nonzero, then we don't have to actually do the
-   instantiation now; we just have to do it sometime.  */
+   instantiation now; we just have to do it sometime.  Normally it is
+   an error if this is an explicit instantiation but D is undefined.
+   If UNDEFINED_OK is nonzero, then instead we treat it as an implicit
+   instantiation.  UNDEFINED_OK is nonzero only if we are being used
+   to instantiate the members of an explicitly instantiated class
+   template. */
+
 
 tree
-instantiate_decl (tree d, int defer_ok)
+instantiate_decl (tree d, int defer_ok, int undefined_ok)
 {
   tree tmpl = DECL_TI_TEMPLATE (d);
   tree gen_args;
@@ -11099,6 +11081,9 @@ instantiate_decl (tree d, int defer_ok)
       if (at_eof)
 	import_export_decl (d);
     }
+
+  if (! pattern_defined && DECL_EXPLICIT_INSTANTIATION (d) && undefined_ok)
+    SET_DECL_IMPLICIT_INSTANTIATION (d);
 
   if (!defer_ok)
     {
@@ -11335,7 +11320,7 @@ instantiate_pending_templates (void)
 			 fn;
 			 fn = TREE_CHAIN (fn))
 		      if (! DECL_ARTIFICIAL (fn))
-			instantiate_decl (fn, /*defer_ok=*/0);
+			instantiate_decl (fn, /*defer_ok=*/0, /*undefined_ok=*/0);
 		  if (COMPLETE_TYPE_P (instantiation))
 		    {
 		      instantiated_something = 1;
@@ -11359,7 +11344,8 @@ instantiate_pending_templates (void)
 		  && !DECL_TEMPLATE_INSTANTIATED (instantiation))
 		{
 		  instantiation = instantiate_decl (instantiation,
-						    /*defer_ok=*/0);
+						    /*defer_ok=*/0,
+						    /*undefined_ok=*/0);
 		  if (DECL_TEMPLATE_INSTANTIATED (instantiation))
 		    {
 		      instantiated_something = 1;

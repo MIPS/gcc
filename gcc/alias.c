@@ -28,7 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree.h"
 #include "tm_p.h"
 #include "function.h"
-#include "expr.h"
+#include "alias.h"
+#include "emit-rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
@@ -182,7 +183,7 @@ static GTY (()) rtx static_reg_base_value[FIRST_PSEUDO_REGISTER];
    Because this array contains only pseudo registers it has no effect
    after reload.  */
 static GTY((length("alias_invariant_size"))) rtx *alias_invariant;
-unsigned GTY(()) int alias_invariant_size;
+static GTY(()) unsigned int alias_invariant_size;
 
 /* Vector indexed by N giving the initial (unchanging) value known for
    pseudo-register N.  This array is initialized in init_alias_analysis,
@@ -736,10 +737,18 @@ static GTY(()) HOST_WIDE_INT varargs_set = -1;
 HOST_WIDE_INT
 get_varargs_alias_set (void)
 {
+#if 1
+  /* We now lower VA_ARG_EXPR, and there's currently no way to attach the
+     varargs alias set to an INDIRECT_REF (FIXME!), so we can't
+     consistently use the varargs alias set for loads from the varargs
+     area.  So don't use it anywhere.  */
+  return 0;
+#else
   if (varargs_set == -1)
     varargs_set = new_alias_set ();
 
   return varargs_set;
+#endif
 }
 
 /* Likewise, but used for the fixed portions of the frame, e.g., register

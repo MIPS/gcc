@@ -28,6 +28,7 @@ Boston, MA 02111-1307, USA.  */
 #include "hashtab.h"
 #include "splay-tree.h"
 #include "varray.h"
+#include "cgraph.h"
 
 #include "c-common.h"
 #include "name-lookup.h"
@@ -1710,8 +1711,10 @@ struct lang_decl GTY(())
    not something is comdat until end-of-file.  */
 #define DECL_NEEDED_P(DECL)					\
   ((at_eof && TREE_PUBLIC (DECL) && !DECL_COMDAT (DECL))	\
-   || (DECL_ASSEMBLER_NAME_SET_P (DECL)				\
-       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (DECL)))	\
+   || (DECL_P (DECL)						\
+       && (TREE_CODE (DECL) == FUNCTION_DECL			\
+	   ? cgraph_node (DECL)->needed 			\
+	   : cgraph_varpool_node (DECL)->needed))		\
    || (((flag_syntax_only || flag_unit_at_a_time) && TREE_USED (DECL))))
 
 /* For a FUNCTION_DECL or a VAR_DECL, the language linkage for the
@@ -3886,7 +3889,7 @@ extern int more_specialized			(tree, tree, int, int);
 extern void mark_class_instantiated		(tree, int);
 extern void do_decl_instantiation		(tree, tree);
 extern void do_type_instantiation		(tree, tree, tsubst_flags_t);
-extern tree instantiate_decl			(tree, int);
+extern tree instantiate_decl			(tree, int, int);
 extern int push_tinst_level			(tree);
 extern void pop_tinst_level			(void);
 extern int more_specialized_class		(tree, tree, tree);
@@ -4111,6 +4114,7 @@ extern tree canonical_type_variant              (tree);
 extern tree copy_base_binfos			(tree, tree, tree);
 extern int member_p				(tree);
 extern cp_lvalue_kind real_lvalue_p             (tree);
+extern int lvalue_or_else			(tree, const char *);
 extern tree build_min				(enum tree_code, tree, ...);
 extern tree build_min_nt			(enum tree_code, ...);
 extern tree build_min_non_dep			(enum tree_code, tree, ...);
@@ -4243,6 +4247,8 @@ extern tree build_ptrmemfunc_access_expr       (tree, tree);
 extern tree build_address                       (tree);
 extern tree build_nop                           (tree, tree);
 extern tree non_reference                       (tree);
+extern tree lookup_anon_field                   (tree, tree);
+extern bool invalid_nonstatic_memfn_p           (tree);
 
 /* in typeck2.c */
 extern void require_complete_eh_spec_types	(tree, tree);

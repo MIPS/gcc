@@ -45,6 +45,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "output.h"
 #include "expr.h"
 #include "ggc.h"
+#include "target.h"
 
 static struct gimplify_ctx
 {
@@ -54,6 +55,7 @@ static struct gimplify_ctx
   tree conditional_cleanups;
   int conditions;
   tree exit_label;
+  tree return_temp;
   varray_type case_labels;
   /* The formal temporary table.  Should this be persistent?  */
   htab_t temp_htab;
@@ -202,6 +204,9 @@ append_to_statement_list_1 (tree t, tree *list_p, bool side_effects)
   tree list = *list_p;
   tree_stmt_iterator i;
 
+  if (!side_effects)
+    return;
+
   if (!list)
     {
       if (t && TREE_CODE (t) == STATEMENT_LIST)
@@ -211,9 +216,6 @@ append_to_statement_list_1 (tree t, tree *list_p, bool side_effects)
 	}
       *list_p = list = alloc_stmt_list ();
     }
-
-  if (!side_effects)
-    return;
 
   i = tsi_last (list);
   tsi_link_after (&i, t, TSI_CONTINUE_LINKING);
@@ -234,6 +236,15 @@ void
 append_to_statement_list_force (tree t, tree *list_p)
 {
   append_to_statement_list_1 (t, list_p, t != NULL);
+}
+
+/* Both gimplify the statement T and append it to LIST_P.  */
+
+void
+gimplify_and_add (tree t, tree *list_p)
+{
+  gimplify_stmt (&t);
+  append_to_statement_list (t, list_p);
 }
 
 /* Add T to the end of a COMPOUND_EXPR pointed by LIST_P.  The type
@@ -282,7 +293,7 @@ create_artificial_label (void)
   return lab;
 }
 
-/* Create a new temporary name with PREFIX.  Returns an indentifier.  */
+/* Create a new temporary name with PREFIX.  Returns an identifier.  */
 
 static GTY(()) unsigned int tmp_var_id_num;
 
@@ -665,7 +676,23 @@ copy_if_shared_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
   /* Otherwise, mark the tree as visited and keep looking.  */
   else
-    TREE_VISITED (t) = 1;
+    {
+      TREE_VISITED (t) = 1;
+      if (TREE_CODE (*tp) == VA_ARG_EXPR
+	  && targetm.calls.gimplify_va_arg_expr == NULL)
+	{
+	  /* Mark any _DECL inside the operand as volatile to avoid
+	     the optimizers messing around with it. We have to do this
+	     early, otherwise we might mark a variable as volatile
+	     after we gimplify other statements that use the variable
+	     assuming it's not volatile.  */
+
+	  /* FIXME once most targets define the above hook, this should
+	     go away (perhaps along with the #include "target.h").  */
+	  walk_tree (&TREE_OPERAND (*tp, 0), mark_decls_volatile_r,
+		     NULL, NULL);
+	}
+    }
 
   return NULL_TREE;
 }
@@ -797,7 +824,7 @@ voidify_wrapper_expr (tree wrapper)
 }
 
 /* Prepare calls to builtins to SAVE and RESTORE the stack as well as
-   temporary through that they comunicate.  */
+   a temporary through which they communicate.  */
 
 static void
 build_stack_save_restore (tree *save, tree *restore)
@@ -876,7 +903,7 @@ static enum gimplify_status
 gimplify_return_expr (tree stmt, tree *pre_p)
 {
   tree ret_expr = TREE_OPERAND (stmt, 0);
-  tree result;
+  tree result_decl, result;
 
   if (!ret_expr || TREE_CODE (ret_expr) == RESULT_DECL)
     return GS_ALL_DONE;
@@ -885,68 +912,52 @@ gimplify_return_expr (tree stmt, tree *pre_p)
     return GS_ERROR;
 
   if (VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
-    result = NULL_TREE;
+    result_decl = NULL_TREE;
   else
     {
-      result = TREE_OPERAND (ret_expr, 0);
+      result_decl = TREE_OPERAND (ret_expr, 0);
 #ifdef ENABLE_CHECKING
       if ((TREE_CODE (ret_expr) != MODIFY_EXPR
 	   && TREE_CODE (ret_expr) != INIT_EXPR)
-	  || TREE_CODE (result) != RESULT_DECL)
+	  || TREE_CODE (result_decl) != RESULT_DECL)
 	abort ();
 #endif
     }
 
-  /* We need to pass the full MODIFY_EXPR down so that special handling
-     can replace it with something else.  */
-  gimplify_stmt (&ret_expr);
-
-  if (result == NULL_TREE)
-    TREE_OPERAND (stmt, 0) = NULL_TREE;
-  else if (ret_expr == TREE_OPERAND (stmt, 0))
-    /* It was already GIMPLE.  */
-    return GS_ALL_DONE;
+  /* If aggregate_value_p is true, then we can return the bare RESULT_DECL.
+     Recall that aggregate_value_p is FALSE for any aggregate type that is
+     returned in registers.  If we're returning values in registers, then
+     we don't want to extend the lifetime of the RESULT_DECL, particularly
+     across another call.  In addition, for those aggregates for which 
+     hard_function_value generates a PARALLEL, we'll abort during normal
+     expansion of structure assignments; there's special code in expand_return
+     to handle this case that does not exist in expand_expr.  */
+  if (!result_decl
+      || aggregate_value_p (result_decl, TREE_TYPE (current_function_decl)))
+    result = result_decl;
+  else if (gimplify_ctxp->return_temp)
+    result = gimplify_ctxp->return_temp;
   else
     {
-      /* If there's still a MODIFY_EXPR of the RESULT_DECL after
-	 gimplification, find it so we can put it in the RETURN_EXPR.  */
-      tree ret = NULL_TREE;
-
-      if (TREE_CODE (ret_expr) == STATEMENT_LIST)
-	{
-	  tree_stmt_iterator si;
-	  for (si = tsi_start (ret_expr); !tsi_end_p (si); tsi_next (&si))
-	    {
-	      tree sub = tsi_stmt (si);
-	      if (TREE_CODE (sub) == MODIFY_EXPR
-		  && TREE_OPERAND (sub, 0) == result)
-		{
-		  ret = sub;
-		  if (tsi_one_before_end_p (si))
-		    tsi_delink (&si);
-		  else
-		    {
-		      /* If there were posteffects after the MODIFY_EXPR,
-			 we need a temporary.  */
-		      tree tmp = create_tmp_var (TREE_TYPE (result), "retval");
-		      TREE_OPERAND (ret, 0) = tmp;
-		      ret = build (MODIFY_EXPR, TREE_TYPE (result),
-				   result, tmp);
-		    }
-		  break;
-		}
-	    }
-	}
-
-      if (ret)
-	TREE_OPERAND (stmt, 0) = ret;
-      else
-	/* The return value must be set up some other way.  Just tell
-	   expand_return that we're returning the RESULT_DECL.  */
-	TREE_OPERAND (stmt, 0) = result;
+      result = create_tmp_var (TREE_TYPE (result_decl), NULL);
+      gimplify_ctxp->return_temp = result;
     }
 
-  append_to_statement_list (ret_expr, pre_p);
+  /* Smash the lhs of the MODIFY_EXPR to the temporary we plan to use.
+     Then gimplify the whole thing.  */
+  if (result != result_decl)
+    TREE_OPERAND (ret_expr, 0) = result;
+  gimplify_stmt (&TREE_OPERAND (stmt, 0));
+  append_to_statement_list (TREE_OPERAND (stmt, 0), pre_p);
+
+  /* If we didn't use a temporary, then the result is just the result_decl.
+     Otherwise we need a simple copy.  This should already be gimple.  */
+  if (result == result_decl)
+    ret_expr = result;
+  else
+    ret_expr = build (MODIFY_EXPR, TREE_TYPE (result), result_decl, result);
+  TREE_OPERAND (stmt, 0) = ret_expr;
+
   return GS_ALL_DONE;
 }
 
@@ -981,6 +992,50 @@ gimplify_loop_expr (tree *expr_p, tree *pre_p)
   return GS_ALL_DONE;
 }
 
+/* Compare two case labels.  Because the front end should already have
+   made sure that case ranges do not overlap, it is enough to only compare
+   the CASE_LOW values of each case label.  */
+
+static int
+compare_case_labels (const void *p1, const void *p2)
+{
+  tree case1 = *(tree *)p1;
+  tree case2 = *(tree *)p2;
+
+  return tree_int_cst_compare (CASE_LOW (case1), CASE_LOW (case2));
+}
+
+/* Sort the case labels in LABEL_VEC in ascending order.  */
+
+void
+sort_case_labels (tree label_vec)
+{
+  size_t len = TREE_VEC_LENGTH (label_vec);
+  tree default_case = TREE_VEC_ELT (label_vec, len - 1);
+
+  if (CASE_LOW (default_case))
+    {
+      size_t i;
+
+      /* The last label in the vector should be the default case
+         but it is not.  */
+      for (i = 0; i < len; ++i)
+	{
+	  tree t = TREE_VEC_ELT (label_vec, i);
+	  if (!CASE_LOW (t))
+	    {
+	      default_case = t;
+	      TREE_VEC_ELT (label_vec, i) = TREE_VEC_ELT (label_vec, len - 1);
+	      TREE_VEC_ELT (label_vec, len - 1) = default_case;
+	      break;
+	    }
+	}
+    }
+
+  qsort (&TREE_VEC_ELT (label_vec, 0), len - 1, sizeof (tree),
+	 compare_case_labels);
+}
+
 /* Gimplify a SWITCH_EXPR, and collect a TREE_VEC of the labels it can
    branch to.  */
 
@@ -996,8 +1051,7 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
   if (SWITCH_BODY (switch_expr))
     {
       varray_type labels, saved_labels;
-      bool saw_default;
-      tree label_vec, t;
+      tree label_vec, default_case = NULL_TREE;
       size_t i, len;
 
       /* If someone can be bothered to fill in the labels, they can
@@ -1014,38 +1068,42 @@ gimplify_switch_expr (tree *expr_p, tree *pre_p)
       gimplify_ctxp->case_labels = saved_labels;
 
       len = VARRAY_ACTIVE_SIZE (labels);
-      saw_default = false;
 
       for (i = 0; i < len; ++i)
 	{
-	  t = VARRAY_TREE (labels, i);
+	  tree t = VARRAY_TREE (labels, i);
 	  if (!CASE_LOW (t))
 	    {
-	      saw_default = true;
+	      /* The default case must be the last label in the list.  */
+	      default_case = t;
+	      VARRAY_TREE (labels, i) = VARRAY_TREE (labels, len - 1);
+	      len--;
 	      break;
 	    }
 	}
 
-      label_vec = make_tree_vec (len + !saw_default);
+      label_vec = make_tree_vec (len + 1);
       SWITCH_LABELS (*expr_p) = label_vec;
-
-      for (i = 0; i < len; ++i)
-	TREE_VEC_ELT (label_vec, i) = VARRAY_TREE (labels, i);
-
       append_to_statement_list (switch_expr, pre_p);
 
-      /* If the switch has no default label, add one, so that we jump
-	 around the switch body.  */
-      if (!saw_default)
+      if (! default_case)
 	{
-	  t = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
-		     NULL_TREE, create_artificial_label ());
-	  TREE_VEC_ELT (label_vec, len) = t;
+	  /* If the switch has no default label, add one, so that we jump
+	     around the switch body.  */
+	  default_case = build (CASE_LABEL_EXPR, void_type_node, NULL_TREE,
+				NULL_TREE, create_artificial_label ());
 	  append_to_statement_list (SWITCH_BODY (switch_expr), pre_p);
-	  *expr_p = build (LABEL_EXPR, void_type_node, CASE_LABEL (t));
+	  *expr_p = build (LABEL_EXPR, void_type_node,
+			   CASE_LABEL (default_case));
 	}
       else
 	*expr_p = SWITCH_BODY (switch_expr);
+
+      for (i = 0; i < len; ++i)
+	TREE_VEC_ELT (label_vec, i) = VARRAY_TREE (labels, i);
+      TREE_VEC_ELT (label_vec, len) = default_case;
+
+      sort_case_labels (label_vec);
 
       SWITCH_BODY (switch_expr) = NULL;
     }
@@ -1294,7 +1352,7 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
 	/* ??? This bit ought not be needed.  For any element not present
 	   in the initializer, we should simply set them to zero.  Except
 	   we'd need to *find* the elements that are not present, and that
-	   requires trickery to avoid quadratic compile-time behaviour in
+	   requires trickery to avoid quadratic compile-time behavior in
 	   large cases or excessive memory use in small cases.  */
 	else
 	  {
@@ -1589,39 +1647,6 @@ gimplify_minimax_expr (tree *expr_p, tree *pre_p, tree *post_p)
     return GS_OK;
 }
 
-/*  Build an expression for the address of T.  Folds away INDIRECT_REF to
-    avoid confusing the gimplify process.  */
-
-static tree
-build_addr_expr_with_type (tree t, tree ptrtype)
-{
-  if (TREE_CODE (t) == INDIRECT_REF)
-    {
-      t = TREE_OPERAND (t, 0);
-      if (TREE_TYPE (t) != ptrtype)
-	t = build1 (NOP_EXPR, ptrtype, t);
-    }
-  else
-    {
-      tree base = t;
-      while (TREE_CODE (base) == COMPONENT_REF
-	     || TREE_CODE (base) == ARRAY_REF)
-	base = TREE_OPERAND (base, 0);
-      if (DECL_P (base))
-	TREE_ADDRESSABLE (base) = 1;
-
-      t = build1 (ADDR_EXPR, ptrtype, t);
-    }
-
-  return t;
-}
-
-static tree
-build_addr_expr (tree t)
-{
-  return build_addr_expr_with_type (t, build_pointer_type (TREE_TYPE (t)));
-}
-
 /* Subroutine of gimplify_compound_lval and gimplify_array_ref.
    Converts an ARRAY_REF to the equivalent *(&array + offset) form.  */
 
@@ -1672,7 +1697,7 @@ gimplify_array_ref_to_plus (tree *expr_p, tree *pre_p, tree *post_p)
   if (ret == GS_ERROR)
     return ret;
 
-  addr = build_addr_expr_with_type (array, ptrtype);
+  addr = build_fold_addr_expr_with_type (array, ptrtype);
   result = fold (build (add_code, ptrtype, addr, offset));
   *expr_p = build1 (INDIRECT_REF, elttype, result);
 
@@ -2173,7 +2198,7 @@ shortcut_cond_expr (tree expr)
       else_ = build_empty_stmt ();
     }
 
-  /* If we aren't hijacking a label for the 'then' branch, it falls through. */
+  /* If we aren't hijacking a label for the 'then' branch, it falls through.  */
   if (true_label)
     true_label_p = &true_label;
   else
@@ -2468,12 +2493,16 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 
 	 FIXME this should be handled by the is_gimple_rhs predicate.  */
 
-      if (TREE_CODE (*from_p) == CALL_EXPR
-	  || (flag_non_call_exceptions && tree_could_trap_p (*from_p))
-	  /* If we're dealing with a renamable type, either source or dest
-	     must be a renamed variable.  */
-	  || (is_gimple_reg_type (TREE_TYPE (*from_p))
-	      && !is_gimple_reg (*to_p)))
+      if (aggregate_value_p (TREE_TYPE (*from_p), NULL_TREE))
+	/* Don't force a temp of a large aggregate type; the copy could be
+	   arbitrarily expensive.  Instead we will generate a V_MAY_DEF for
+	   the assignment.  */;
+      else if (TREE_CODE (*from_p) == CALL_EXPR
+	       || (flag_non_call_exceptions && tree_could_trap_p (*from_p))
+	       /* If we're dealing with a renamable type, either source or dest
+		  must be a renamed variable.  */
+	       || (is_gimple_reg_type (TREE_TYPE (*from_p))
+		   && !is_gimple_reg (*to_p)))
 	gimplify_expr (from_p, pre_p, post_p, is_gimple_val, fb_rvalue);
 
       /* If the value being copied is of variable width, expose the length
@@ -2489,9 +2518,9 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, bool want_value)
 	  t = TYPE_SIZE_UNIT (TREE_TYPE (*to_p));
 	  t = unshare_expr (t);
 	  args = tree_cons (NULL, t, NULL);
-	  t = build_addr_expr (*from_p);
+	  t = build_fold_addr_expr (*from_p);
 	  args = tree_cons (NULL, t, args);
-	  dest = build_addr_expr (*to_p);
+	  dest = build_fold_addr_expr (*to_p);
 	  args = tree_cons (NULL, dest, args);
 	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
 	  t = build_function_call_expr (t, args);
@@ -2584,7 +2613,7 @@ gimplify_compound_expr (tree *expr_p, tree *pre_p, bool want_value)
 }
 
 /* Gimplifies a statement list.  These may be created either by an
-   enlightend front-end, or by shortcut_cond_expr.  */
+   enlightened front-end, or by shortcut_cond_expr.  */
 
 static enum gimplify_status
 gimplify_statement_list (tree *expr_p)
@@ -3007,7 +3036,7 @@ gimplify_target_expr (tree *expr_p, tree *pre_p, tree *post_p)
 /* Gimplification of expression trees.  */
 
 /* Gimplify an expression which appears at statement context; usually, this
-   means replacing it with a suitably gimple COMPOUND_EXPR.  */
+   means replacing it with a suitably gimple STATEMENT_LIST.  */
 
 void
 gimplify_stmt (tree *stmt_p)
@@ -3026,7 +3055,7 @@ gimplify_to_stmt_list (tree *stmt_p)
   if (TREE_CODE (*stmt_p) != STATEMENT_LIST)
     {
       tree t = *stmt_p;
-      *stmt_p = NULL;
+      *stmt_p = alloc_stmt_list ();
       append_to_statement_list (t, stmt_p);
     }
 }
@@ -3195,14 +3224,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 	  break;
 
 	case VA_ARG_EXPR:
-	  /* Mark any _DECL inside the operand as volatile to avoid the
-	     optimizers messing around with it. FIXME: Remove this once
-	     VA_ARG_EXPRs are properly lowered.  */
-	  walk_tree (&TREE_OPERAND (*expr_p, 0), mark_decls_volatile_r,
-		     NULL, NULL);
-
-	  /* va_arg expressions are in GIMPLE form already.  */
-	  ret = GS_ALL_DONE;
+	  ret = gimplify_va_arg_expr (expr_p, pre_p, post_p);
 	  break;
 
 	case CONVERT_EXPR:
@@ -3510,10 +3532,13 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
      gimplified form.  */
   if (is_statement)
     {
-      append_to_statement_list (*expr_p, &internal_pre);
-      append_to_statement_list (internal_post, &internal_pre);
-      annotate_all_with_locus (&internal_pre, input_location);
-      *expr_p = internal_pre;
+      if (internal_pre || internal_post)
+	{
+	  append_to_statement_list (*expr_p, &internal_pre);
+	  append_to_statement_list (internal_post, &internal_pre);
+	  annotate_all_with_locus (&internal_pre, input_location);
+	  *expr_p = internal_pre;
+	}
       goto out;
     }
 
@@ -3539,7 +3564,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
       /* An lvalue will do.  Take the address of the expression, store it
 	 in a temporary, and replace the expression with an INDIRECT_REF of
 	 that temporary.  */
-      tmp = build_addr_expr (*expr_p);
+      tmp = build_fold_addr_expr (*expr_p);
       gimplify_expr (&tmp, pre_p, post_p, is_gimple_reg, fb_rvalue);
       *expr_p = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (tmp)), tmp);
     }
@@ -3709,7 +3734,7 @@ gimplify_body (tree *body_p, tree fndecl)
       tree b = build (BIND_EXPR, void_type_node, NULL_TREE,
 		      NULL_TREE, NULL_TREE);
       TREE_SIDE_EFFECTS (b) = 1;
-      append_to_statement_list (body, &BIND_EXPR_BODY (b));
+      append_to_statement_list_force (body, &BIND_EXPR_BODY (b));
       body = b;
     }
   *body_p = body;

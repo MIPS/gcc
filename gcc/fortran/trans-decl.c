@@ -866,6 +866,32 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 }
 
 
+/* Substitute a temporary variable in place of the real one.  */
+
+void
+gfc_shadow_sym (gfc_symbol * sym, tree decl, gfc_saved_var * save)
+{
+  save->attr = sym->attr;
+  save->decl = sym->backend_decl;
+
+  gfc_clear_attr (&sym->attr);
+  sym->attr.referenced = 1;
+  sym->attr.flavor = FL_VARIABLE;
+
+  sym->backend_decl = decl;
+}
+
+
+/* Restore the original variable.  */
+
+void
+gfc_restore_sym (gfc_symbol * sym, gfc_saved_var * save)
+{
+  sym->attr = save->attr;
+  sym->backend_decl = save->decl;
+}
+
+
 /* Get a basic decl for an external function.  */
 
 tree
@@ -1762,6 +1788,12 @@ gfc_create_module_variable (gfc_symbol * sym)
       && (sym->attr.flavor != FL_PARAMETER || sym->attr.dimension == 0))
     return;
 
+  if (sym->attr.flavor == FL_VARIABLE && sym->ts.type == BT_UNKNOWN)
+    /* TODO: This is a workaround for the issue outlined in PR 15481,
+       and it fixes the bug in PR13372. This should never happen in an
+       ideal frontend.  */
+    return;
+
   /* Don't generate variables from other modules.  */
   if (sym->attr.use_assoc)
     return;
@@ -1891,7 +1923,7 @@ generate_local_decl (gfc_symbol * sym)
       /* warn for unused variables, but not if they're inside a common
 	 block.  */
       else if (warn_unused_variable && !sym->attr.in_common)
-        warning ("unused variable `%s'", sym->name);
+	warning ("unused variable `%s'", sym->name);
     }
 }
 

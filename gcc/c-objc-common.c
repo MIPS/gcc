@@ -26,7 +26,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "rtl.h"
 #include "insn-config.h"
 #include "integrate.h"
-#include "expr.h"
 #include "c-tree.h"
 #include "function.h"
 #include "flags.h"
@@ -271,17 +270,15 @@ c_tree_printer (pretty_printer *pp, text_info *text)
       break;
 
     case 'T':
-      if (TREE_CODE (t) == TYPE_DECL)
+      if (TYPE_P (t))
+	t = TYPE_NAME (t);
+      if (t && TREE_CODE (t) == TYPE_DECL)
 	{
 	  if (DECL_NAME (t))
 	    n = lang_hooks.decl_printable_name (t, 2);
 	}
-      else
-	{
-	  t = TYPE_NAME (t);
-	  if (t)
-	    n = IDENTIFIER_POINTER (t);
-	}
+      else if (t)
+	n = IDENTIFIER_POINTER (t);
       break;
 
     case 'E':

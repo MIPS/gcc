@@ -423,7 +423,7 @@ gfc_match_null (gfc_expr ** result)
     return MATCH_ERROR;
 
   e = gfc_get_expr ();
-  e->where = *gfc_current_locus ();
+  e->where = gfc_current_locus;
   e->expr_type = EXPR_NULL;
   e->ts.type = BT_UNKNOWN;
 
@@ -459,7 +459,7 @@ variable_decl (void)
   if (m != MATCH_YES)
     goto cleanup;
 
-  var_locus = *gfc_current_locus ();
+  var_locus = gfc_current_locus;
 
   /* Now we could see the optional array spec. or character length.  */
   m = gfc_match_array_spec (&as);
@@ -659,7 +659,7 @@ gfc_match_kind_spec (gfc_typespec * ts)
   m = MATCH_NO;
   e = NULL;
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   if (gfc_match_char ('(') == MATCH_NO)
     return MATCH_NO;
@@ -711,7 +711,7 @@ gfc_match_kind_spec (gfc_typespec * ts)
 
 no_match:
   gfc_free_expr (e);
-  gfc_set_locus (&where);
+  gfc_current_locus = where;
   return m;
 }
 
@@ -1028,7 +1028,7 @@ match_attr_spec (void)
   try t;
 
   gfc_clear_attr (&current_attr);
-  start = *gfc_current_locus ();
+  start = gfc_current_locus;
 
   current_as = NULL;
   colon_seen = 0;
@@ -1044,7 +1044,7 @@ match_attr_spec (void)
 	break;
 
       seen[d]++;
-      seen_at[d] = *gfc_current_locus ();
+      seen_at[d] = gfc_current_locus;
 
       if (d == DECL_DIMENSION)
 	{
@@ -1218,7 +1218,7 @@ match_attr_spec (void)
   return MATCH_YES;
 
 cleanup:
-  gfc_set_locus (&start);
+  gfc_current_locus = start;
   gfc_free_array_spec (current_as);
   current_as = NULL;
   return m;
@@ -1558,18 +1558,18 @@ gfc_match_function_decl (void)
 
   gfc_clear_ts (&current_ts);
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
 
   m = match_prefix (&current_ts);
   if (m != MATCH_YES)
     {
-      gfc_set_locus (&old_loc);
+      gfc_current_locus = old_loc;
       return m;
     }
 
   if (gfc_match ("function% %n", name) != MATCH_YES)
     {
-      gfc_set_locus (&old_loc);
+      gfc_current_locus = old_loc;
       return MATCH_NO;
     }
 
@@ -1630,7 +1630,7 @@ gfc_match_function_decl (void)
   return MATCH_YES;
 
 cleanup:
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return m;
 }
 
@@ -1790,7 +1790,7 @@ gfc_match_end (gfc_statement * st)
   const char *target;
   match m;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
   if (gfc_match ("end") != MATCH_YES)
     return MATCH_NO;
 
@@ -1875,10 +1875,15 @@ gfc_match_end (gfc_statement * st)
 
   if (gfc_match_eos () == MATCH_YES)
     {
+      state = gfc_current_state ();
 
       if (*st == ST_ENDIF || *st == ST_ENDDO || *st == ST_END_SELECT
 	  || *st == ST_END_INTERFACE || *st == ST_END_FORALL
-	  || *st == ST_END_WHERE)
+	  || *st == ST_END_WHERE
+	  || /* A contained procedure requires END FUNCTION/SUBROUTINE.  */
+	     ((state == COMP_FUNCTION || state == COMP_SUBROUTINE)
+              && gfc_state_stack->previous != NULL
+              && gfc_state_stack->previous->state == COMP_CONTAINS))
 	{
 
 	  gfc_error ("%s statement expected at %C",
@@ -1943,7 +1948,7 @@ syntax:
   gfc_syntax_error (*st);
 
 cleanup:
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return MATCH_ERROR;
 }
 
@@ -1971,7 +1976,7 @@ attr_decl1 (void)
   if (find_special (name, &sym))
     return MATCH_ERROR;
 
-  var_locus = *gfc_current_locus ();
+  var_locus = gfc_current_locus;
 
   /* Deal with possible array specification for certain attributes.  */
   if (current_attr.dimension
@@ -2423,7 +2428,7 @@ gfc_match_save (void)
       switch (m)
 	{
 	case MATCH_YES:
-	  if (gfc_add_save (&sym->attr, gfc_current_locus ()) == FAILURE)
+	  if (gfc_add_save (&sym->attr, &gfc_current_locus) == FAILURE)
 	    return MATCH_ERROR;
 	  goto next_item;
 

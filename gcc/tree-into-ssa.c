@@ -47,6 +47,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "domwalk.h"
+#include "ggc.h"
 
 /* This file builds the SSA form for a function as described in:
    R. Cytron, J. Ferrante, B. Rosen, M. Wegman, and K. Zadeck. Efficiently
@@ -94,14 +95,24 @@ struct mark_def_sites_global_data
 
   /* Bitmap of names to rename.  */
   sbitmap names_to_rename;
-
-  /* Array of ssa names.  */
-  tree *ssa_names;
 };
 
 struct rewrite_block_data
 {
   varray_type block_defs;
+};
+
+/* Information stored for ssa names.  */
+
+struct ssa_name_info
+{
+  /* This field indicates whether or not the variable may need PHI nodes.
+     See the enum's definition for more detailed information about the
+     states.  */
+  ENUM_BITFIELD (need_phi_state) need_phi_state : 2;
+
+  /* The actual definition of the ssa name.  */
+  tree current_def;
 };
 
 /* Local functions.  */
@@ -117,7 +128,7 @@ static void mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
 static void set_def_block (tree, basic_block, bool, bool);
 static void set_livein_block (tree, basic_block);
 static bool prepare_operand_for_rename (tree *op_p, size_t *uid_p, bool);
-static void insert_phi_nodes (bitmap *, bitmap, tree *);
+static void insert_phi_nodes (bitmap *, bitmap);
 static void rewrite_stmt (struct dom_walk_data *, basic_block,
 			  block_stmt_iterator);
 static inline void rewrite_operand (tree *);
@@ -130,6 +141,17 @@ static int debug_def_blocks_r (void **, void *);
 static inline struct def_blocks_d *get_def_blocks_for (tree);
 static inline struct def_blocks_d *find_def_blocks_for (tree);
 static void htab_statistics (FILE *, htab_t);
+
+/* Get the information associated with NAME.  */
+
+static inline struct ssa_name_info *
+get_ssa_name_ann (tree name)
+{
+  if (!SSA_NAME_AUX (name))
+    SSA_NAME_AUX (name) = xcalloc (1, sizeof (struct ssa_name_info));
+
+  return SSA_NAME_AUX (name);
+}
 
 /* Gets phi_state field for VAR.  */
 
@@ -260,8 +282,6 @@ ssa_mark_def_sites_initialize_block (struct dom_walk_data *walk_data,
       if (!TEST_BIT (gd->names_to_rename, def_uid))
 	continue;
 
-      gd->ssa_names[def_uid] = def;
-
       set_def_block (def, bb, true, true);
       SET_BIT (kills, def_uid);
     }
@@ -320,7 +340,8 @@ mark_def_sites (struct dom_walk_data *walk_data,
 {
   struct mark_def_sites_global_data *gd = walk_data->global_data;
   sbitmap kills = gd->kills;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   vuse_optype vuses;
   def_optype defs;
   use_optype uses;
@@ -358,22 +379,36 @@ mark_def_sites (struct dom_walk_data *walk_data,
     }
 
   /* Note that virtual definitions are irrelevant for computing KILLS
-     because a VDEF does not constitute a killing definition of the
+     because a V_MAY_DEF does not constitute a killing definition of the
      variable.  However, the operand of a virtual definitions is a use
      of the variable, so it may cause the variable to be considered
      live-on-entry.  */
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
-      if (prepare_operand_for_rename (VDEF_OP_PTR (vdefs, i), &uid, true))
+      if (prepare_operand_for_rename (V_MAY_DEF_OP_PTR (v_may_defs, i), 
+                                      &uid, true))
 	{
 	  /* If we do not already have an SSA_NAME for our destination,
 	     then set the destination to the source.  */
-	  if (TREE_CODE (VDEF_RESULT (vdefs, i)) != SSA_NAME)
-	    VDEF_RESULT (vdefs, i) = VDEF_OP (vdefs, i);
+	  if (TREE_CODE (V_MAY_DEF_RESULT (v_may_defs, i)) != SSA_NAME)
+	    V_MAY_DEF_RESULT (v_may_defs, i) = V_MAY_DEF_OP (v_may_defs, i);
+	    
+          set_livein_block (V_MAY_DEF_OP (v_may_defs, i), bb);
+	  set_def_block (V_MAY_DEF_RESULT (v_may_defs, i), bb, false, false);
+	}
+    }
 
-	  set_livein_block (VDEF_OP (vdefs, i), bb);
-	  set_def_block (VDEF_RESULT (vdefs, i), bb, false, false);
+  /* Now process the virtual must-defs made by this statement.  */
+  v_must_defs = V_MUST_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    {
+      tree *def_p = V_MUST_DEF_OP_PTR (v_must_defs, i);
+
+      if (prepare_operand_for_rename (def_p, &uid, false))
+	{
+	  set_def_block (*def_p, bb, false, false);
+	  SET_BIT (kills, uid);
 	}
     }
 
@@ -401,7 +436,8 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
 {
   struct mark_def_sites_global_data *gd = walk_data->global_data;
   sbitmap kills = gd->kills;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   vuse_optype vuses;
   def_optype defs;
   use_optype uses;
@@ -440,25 +476,15 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
 	set_livein_block (use, bb);
     }
 
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
-      def = VDEF_RESULT (vdefs, i);
-      def_uid = SSA_NAME_VERSION (def);
-
-      use = VDEF_OP (vdefs, i);
+      use = V_MAY_DEF_OP (v_may_defs, i);
       uid = SSA_NAME_VERSION (use);
 
       if (TEST_BIT (gd->names_to_rename, uid)
 	  && !TEST_BIT (kills, uid))
 	set_livein_block (use, bb);
-
-      if (TEST_BIT (gd->names_to_rename, def_uid))
-	{
-	  gd->ssa_names[def_uid] = def;
-	  set_def_block (def, bb, false, true);
-	  SET_BIT (kills, def_uid);
-	}
     }
 
   /* Now process the definition made by this statement.  Mark the
@@ -471,7 +497,32 @@ ssa_mark_def_sites (struct dom_walk_data *walk_data,
 
       if (TEST_BIT (gd->names_to_rename, def_uid))
 	{
-	  gd->ssa_names[def_uid] = def;
+	  set_def_block (def, bb, false, true);
+	  SET_BIT (kills, def_uid);
+	}
+    }
+
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+    {
+      def = V_MAY_DEF_RESULT (v_may_defs, i);
+      def_uid = SSA_NAME_VERSION (def);
+
+      if (TEST_BIT (gd->names_to_rename, def_uid))
+	{
+	  set_def_block (def, bb, false, true);
+	  SET_BIT (kills, def_uid);
+	}
+    }
+
+  v_must_defs = V_MUST_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    {
+      def = V_MUST_DEF_OP (v_must_defs, i);
+      def_uid = SSA_NAME_VERSION (def);
+
+      if (TEST_BIT (gd->names_to_rename, def_uid))
+	{
 	  set_def_block (def, bb, false, true);
 	  SET_BIT (kills, def_uid);
 	}
@@ -604,10 +655,10 @@ void insert_phi_nodes_1 (tree var, bitmap *dfs, varray_type *work_stack)
    frontier of definition blocks for variables whose NEED_PHI_STATE
    annotation is marked as ``maybe'' or ``unknown'' (computed by
    mark_def_sites).  If NAMES_TO_RENAME is not NULL, do the same but
-   for ssa name rewriting.  SSA_NAMES then maps versions to ssa names.  */
+   for ssa name rewriting.  */
 
 static void
-insert_phi_nodes (bitmap *dfs, bitmap names_to_rename, tree *ssa_names)
+insert_phi_nodes (bitmap *dfs, bitmap names_to_rename)
 {
   size_t i;
   varray_type work_stack;
@@ -626,8 +677,8 @@ insert_phi_nodes (bitmap *dfs, bitmap names_to_rename, tree *ssa_names)
     {
       EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i,
 	{
-	  if (ssa_names[i])
-	    insert_phi_nodes_1 (ssa_names[i], dfs, &work_stack);
+	  if (ssa_name (i))
+	    insert_phi_nodes_1 (ssa_name (i), dfs, &work_stack);
 	});
     }
   else if (vars_to_rename)
@@ -684,7 +735,7 @@ rewrite_initialize_block_local_data (struct dom_walk_data *walk_data ATTRIBUTE_U
                                                                                 
   /* We get cleared memory from the allocator, so if the memory is
      not cleared, then we are re-using a previously allocated entry.  In
-     that case, we can also re-use the underlying virtal arrays.  Just
+     that case, we can also re-use the underlying virtual arrays.  Just
      make sure we clear them before using them!  */
   if (recycled && bd->block_defs && VARRAY_ACTIVE_SIZE (bd->block_defs) > 0)
     abort ();
@@ -724,16 +775,22 @@ tree
 duplicate_ssa_name (tree name, tree stmt)
 {
   tree new_name = make_ssa_name (SSA_NAME_VAR (name), stmt);
-  ssa_name_ann_t old_ann = get_ssa_name_ann (name);
-  ssa_name_ann_t ann = get_ssa_name_ann (new_name);
+  struct ptr_info_def *old_ptr_info = SSA_NAME_PTR_INFO (name);
+  struct ptr_info_def *new_ptr_info;
 
-  *ann = *old_ann;
-  if (old_ann->pt_vars)
+  if (!old_ptr_info)
+    return new_name;
+
+  new_ptr_info = ggc_alloc (sizeof (struct ptr_info_def));
+  *new_ptr_info = *old_ptr_info;
+
+  if (old_ptr_info->pt_vars)
     {
-      ann->pt_vars = BITMAP_GGC_ALLOC ();
-      bitmap_copy (ann->pt_vars, old_ann->pt_vars);
+      new_ptr_info->pt_vars = BITMAP_GGC_ALLOC ();
+      bitmap_copy (new_ptr_info->pt_vars, old_ptr_info->pt_vars);
     }
 
+  SSA_NAME_PTR_INFO (new_name) = new_ptr_info;
   return new_name;
 }
 
@@ -1097,7 +1154,8 @@ rewrite_stmt (struct dom_walk_data *walk_data,
   stmt_ann_t ann;
   tree stmt;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   def_optype defs;
   use_optype uses;
   struct rewrite_block_data *bd;
@@ -1124,7 +1182,8 @@ rewrite_stmt (struct dom_walk_data *walk_data,
   defs = DEF_OPS (ann);
   uses = USE_OPS (ann);
   vuses = VUSE_OPS (ann);
-  vdefs = VDEF_OPS (ann);
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  v_must_defs = V_MUST_DEF_OPS (ann);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
   for (i = 0; i < NUM_USES (uses); i++)
@@ -1148,18 +1207,32 @@ rewrite_stmt (struct dom_walk_data *walk_data,
     }
 
   /* Register new virtual definitions made by the statement.  */
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
-      rewrite_operand (VDEF_OP_PTR (vdefs, i));
+      rewrite_operand (V_MAY_DEF_OP_PTR (v_may_defs, i));
 
-      if (TREE_CODE (VDEF_RESULT (vdefs, i)) != SSA_NAME)
-	*VDEF_RESULT_PTR (vdefs, i)
-	  = make_ssa_name (VDEF_RESULT (vdefs, i), stmt);
+      if (TREE_CODE (V_MAY_DEF_RESULT (v_may_defs, i)) != SSA_NAME)
+	*V_MAY_DEF_RESULT_PTR (v_may_defs, i)
+	  = make_ssa_name (V_MAY_DEF_RESULT (v_may_defs, i), stmt);
 
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (VDEF_RESULT (vdefs, i), &bd->block_defs);
+      register_new_def (V_MAY_DEF_RESULT (v_may_defs, i), &bd->block_defs);
     }
+        
+  /* Register new virtual mustdefs made by the statement.  */
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    {
+      tree *v_must_def_p = V_MUST_DEF_OP_PTR (v_must_defs, i);
+
+      if (TREE_CODE (*v_must_def_p) != SSA_NAME)
+	*v_must_def_p = make_ssa_name (*v_must_def_p, stmt);
+
+      /* FIXME: We shouldn't be registering new mustdefs if the variable
+	 doesn't need to be renamed.  */
+      register_new_def (*v_must_def_p, &bd->block_defs);
+    }
+    
 }
 
 /* Ditto, for rewriting ssa names.  */
@@ -1173,7 +1246,8 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   stmt_ann_t ann;
   tree stmt, var, *use_p;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   def_optype defs;
   use_optype uses;
   struct rewrite_block_data *bd;
@@ -1201,7 +1275,8 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   defs = DEF_OPS (ann);
   uses = USE_OPS (ann);
   vuses = VUSE_OPS (ann);
-  vdefs = VDEF_OPS (ann);
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  v_must_defs = V_MUST_DEF_OPS (ann);
 
   /* Step 1.  Rewrite USES and VUSES in the statement.  */
   for (i = 0; i < NUM_USES (uses); i++)
@@ -1215,6 +1290,13 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
   for (i = 0; i < NUM_VUSES (vuses); i++)
     {
       use_p = VUSE_OP_PTR (vuses, i);
+      if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (*use_p)))
+	*use_p = get_reaching_def (*use_p);
+    }
+
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+    {
+      use_p = V_MAY_DEF_OP_PTR (v_may_defs, i);
       if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (*use_p)))
 	*use_p = get_reaching_def (*use_p);
     }
@@ -1233,14 +1315,22 @@ ssa_rewrite_stmt (struct dom_walk_data *walk_data,
     }
 
   /* Register new virtual definitions made by the statement.  */
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
-      tree *def_p = VDEF_RESULT_PTR (vdefs, i);
+      tree *def_p = V_MAY_DEF_RESULT_PTR (v_may_defs, i);
       var = *def_p;
 
-      use_p = VDEF_OP_PTR (vdefs, i);
-      if (TEST_BIT (names_to_rename, SSA_NAME_VERSION (*use_p)))
-	*use_p = get_reaching_def (*use_p);
+      if (!TEST_BIT (names_to_rename, SSA_NAME_VERSION (*def_p)))
+	continue;
+
+      *def_p = duplicate_ssa_name (var, stmt);
+      ssa_register_new_def (var, *def_p, &bd->block_defs);
+    }
+
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    {
+      tree *def_p = V_MUST_DEF_OP_PTR (v_must_defs, i);
+      var = *def_p;
 
       if (!TEST_BIT (names_to_rename, SSA_NAME_VERSION (*def_p)))
 	continue;
@@ -1610,7 +1700,7 @@ rewrite_into_ssa (bool all)
   sbitmap_free (mark_def_sites_global_data.kills);
 
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
-  insert_phi_nodes (dfs, NULL, NULL);
+  insert_phi_nodes (dfs, NULL);
 
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
@@ -1668,9 +1758,9 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   basic_block bb;
   struct dom_walk_data walk_data;
   struct mark_def_sites_global_data mark_def_sites_global_data;
-  tree *ssa_names;
   unsigned i;
   sbitmap snames_to_rename;
+  tree name;
   
   if (bitmap_first_set_bit (names_to_rename) < 0)
     return;
@@ -1678,10 +1768,8 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   timevar_push (TV_TREE_SSA_OTHER);
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
-  def_blocks = htab_create (highest_ssa_version,
+  def_blocks = htab_create (num_ssa_names,
 			    def_blocks_hash, def_blocks_eq, def_blocks_free);
-
-  ssa_names = xcalloc (highest_ssa_version, sizeof (tree));
 
   /* Initialize dominance frontier and immediate dominator bitmaps. 
      Also count the number of predecessors for each block.  Doing so
@@ -1718,14 +1806,13 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   walk_data.after_dom_children_walk_stmts =  NULL;
   walk_data.after_dom_children_after_stmts =  NULL;
 
-  snames_to_rename = sbitmap_alloc (highest_ssa_version);
+  snames_to_rename = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (snames_to_rename);
   EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i,
 			    SET_BIT (snames_to_rename, i));
 
-  mark_def_sites_global_data.kills = sbitmap_alloc (highest_ssa_version);
+  mark_def_sites_global_data.kills = sbitmap_alloc (num_ssa_names);
   mark_def_sites_global_data.names_to_rename = snames_to_rename;
-  mark_def_sites_global_data.ssa_names = ssa_names;
   walk_data.global_data = &mark_def_sites_global_data;
 
   /* We do not have any local data.  */
@@ -1743,12 +1830,12 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   /* We no longer need this bitmap, clear and free it.  */
   sbitmap_free (mark_def_sites_global_data.kills);
 
-  for (i = 0; i < highest_ssa_version; i++)
-    if (ssa_names[i])
-      set_current_def (ssa_names[i], NULL_TREE);
+  for (i = 0; i < num_ssa_names; i++)
+    if (ssa_name (i))
+      set_current_def (ssa_name (i), NULL_TREE);
 
   /* Insert PHI nodes at dominance frontiers of definition blocks.  */
-  insert_phi_nodes (dfs, names_to_rename, ssa_names);
+  insert_phi_nodes (dfs, names_to_rename);
 
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
@@ -1795,8 +1882,16 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
 
   htab_delete (def_blocks);
 
-  free (ssa_names);
+  for (i = 0; i < num_ssa_names; i++)
+    {
+      name = ssa_name (i);
+      if (!name
+	  || !SSA_NAME_AUX (name))
+	continue;
 
+      free (SSA_NAME_AUX (name));
+      SSA_NAME_AUX (name) = NULL;
+    }
   timevar_pop (TV_TREE_SSA_OTHER);
 }
 

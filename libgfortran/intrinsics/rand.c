@@ -77,10 +77,17 @@ prefix(irand) (GFC_INTEGER_4 *i)
 }
 
 
-/*  Return a random REAL in the range [0,1).  */
+/*  Return a REAL in the range [0,1).  Cast to double to use the full
+    range of pseudo-random numbers returned by irand().  */
 
 GFC_REAL_4
 prefix(rand) (GFC_INTEGER_4 *i)
 {
-  return normalize_r4_i4 (i - 1, GFC_RAND_M1);
+  GFC_REAL_4 val;
+
+  do 
+    val = (GFC_REAL_4)((double)(prefix(irand) (i) - 1) / (double) GFC_RAND_M1);
+  while (val == 1.0);
+
+  return val;
 }

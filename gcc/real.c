@@ -1080,6 +1080,8 @@ real_compare (int icode, const REAL_VALUE_TYPE *op0,
       return do_compare (op0, op1, 1) >= 0;
     case UNEQ_EXPR:
       return do_compare (op0, op1, 0) == 0;
+    case LTGT_EXPR:
+      return do_compare (op0, op1, 0) != 0;
 
     default:
       abort ();
@@ -4583,5 +4585,13 @@ real_round (REAL_VALUE_TYPE *r, enum machine_mode mode,
   do_fix_trunc (r, r);
   if (mode != VOIDmode)
     real_convert (r, mode, r);
+}
+
+/* Set the sign of R to the sign of X.  */
+
+void
+real_copysign (REAL_VALUE_TYPE *r, const REAL_VALUE_TYPE *x)
+{
+  r->sign = x->sign;
 }
 

@@ -23,6 +23,8 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _TREE_SSA_LIVE_H
 #define _TREE_SSA_LIVE_H 1
 
+#include "partition.h"
+
 /* Used to create the variable mapping when we go out of SSA form.  */
 typedef struct _var_map
 {
@@ -328,7 +330,7 @@ live_var_map (tree_live_info_p live)
 
 
 /* Merge the live on entry information in LIVE for partitions P1 and P2. Place
-   the result into P1.  Clear P2. */
+   the result into P1.  Clear P2.  */
 
 static inline void 
 live_merge_and_clear (tree_live_info_p live, int p1, int p2)

@@ -3012,7 +3012,7 @@ check_field_decls (tree t, tree *access_decls,
 	  /* [class.union]
 
 	     If a union contains a static data member, or a member of
-	     reference type, the program is ill-formed. */
+	     reference type, the program is ill-formed.  */
 	  if (TREE_CODE (x) == VAR_DECL)
 	    {
 	      cp_error_at ("`%D' may not be static because it is a member of a union", x);
@@ -5185,7 +5185,16 @@ finish_struct_1 (tree t)
 
   if (warn_nonvdtor && TYPE_POLYMORPHIC_P (t) && TYPE_HAS_DESTRUCTOR (t)
       && DECL_VINDEX (TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1)) == NULL_TREE)
-    warning ("`%#T' has virtual functions but non-virtual destructor", t);
+
+    {
+      tree dtor = TREE_VEC_ELT (CLASSTYPE_METHOD_VEC (t), 1);
+
+      /* Warn only if the dtor is non-private or the class has friends */
+      if (!TREE_PRIVATE (dtor) ||
+	  (CLASSTYPE_FRIEND_CLASSES (t) ||
+	   DECL_FRIENDLIST (TYPE_MAIN_DECL (t))))
+	warning ("%#T' has virtual functions but non-virtual destructor", t);
+    }
 
   complete_vars (t);
 

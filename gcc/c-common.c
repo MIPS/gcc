@@ -1086,12 +1086,13 @@ finish_fname_decls (void)
 }
 
 /* Return the text name of the current function, suitably prettified
-   by PRETTY_P.  */
+   by PRETTY_P.  Return string must be freed by caller.  */
 
 const char *
 fname_as_string (int pretty_p)
 {
   const char *name = "top level";
+  char *namep;
   int vrb = 2;
 
   if (! pretty_p)
@@ -1103,8 +1104,48 @@ fname_as_string (int pretty_p)
   if (current_function_decl)
     name = lang_hooks.decl_printable_name (current_function_decl, vrb);
 
-  return name;
+  if (c_lex_string_translate)
+    {
+      int len = strlen (name) + 3; /* Two for '"'s.  One for NULL.  */
+      cpp_string cstr = { 0, 0 }, strname;
+
+      namep = xmalloc (len);
+      snprintf (namep, len, "\"%s\"", name);
+      strname.text = (unsigned char *) namep;
+      strname.len = len - 1;
+
+      if (cpp_interpret_string (parse_in, &strname, 1, &cstr, false))
+	return (char *) cstr.text;
+    }
+  else
+    namep = xstrdup (name);
+
+  return namep;
 }
+
+/* Expand DECL if it declares an entity not handled by the
+   common code.  */
+
+int
+c_expand_decl (tree decl)
+{
+  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+    {
+      /* Let the back-end know about this variable.  */
+      if (!anon_aggr_type_p (TREE_TYPE (decl)))
+        emit_local_var (decl);
+      else
+        expand_anon_union_decl (decl, NULL_TREE,
+                                DECL_ANON_UNION_ELEMS (decl));
+    }
+  else if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
+    make_rtl_for_local_static (decl);
+  else
+    return 0;
+
+  return 1;
+}
+
 
 /* Return the VAR_DECL for a const char array naming the current
    function. If the VAR_DECL has not yet been created, create it
@@ -2582,7 +2623,7 @@ c_common_truthvalue_conversion (tree expr)
 
   switch (TREE_CODE (expr))
     {
-    case EQ_EXPR:   case NE_EXPR:   case UNEQ_EXPR:
+    case EQ_EXPR:   case NE_EXPR:   case UNEQ_EXPR: case LTGT_EXPR:
     case LE_EXPR:   case GE_EXPR:   case LT_EXPR:   case GT_EXPR:
     case UNLE_EXPR: case UNGE_EXPR: case UNLT_EXPR: case UNGT_EXPR:
     case ORDERED_EXPR: case UNORDERED_EXPR:
@@ -2803,7 +2844,7 @@ c_apply_type_quals_to_decl (int type_quals, tree decl)
 /* Hash function for the problem of multiple type definitions in
    different files.  This must hash all types that will compare
    equal via comptypes to the same value.  In practice it hashes
-   on some of the simple stuff and leaves the details to comptypes. */
+   on some of the simple stuff and leaves the details to comptypes.  */
 
 static hashval_t
 c_type_hash (const void *p)
@@ -2814,7 +2855,7 @@ c_type_hash (const void *p)
   tree t2;
   switch (TREE_CODE (t))
     {
-      /* For pointers, hash on pointee type plus some swizzling. */
+      /* For pointers, hash on pointee type plus some swizzling.  */
       case POINTER_TYPE:
   return c_type_hash (TREE_TYPE (t)) ^ 0x3003003;
       /* Hash on number of elements and total size.  */
@@ -2934,7 +2975,7 @@ c_common_get_alias_set (tree t)
   if (c_language != clk_c || flag_isoc99)
     return -1;
 
-  /* Save time if there's only one input file. */
+  /* Save time if there's only one input file.  */
   if (!current_file_decl || TREE_CHAIN (current_file_decl) == NULL_TREE)
     return -1;
 
@@ -3019,7 +3060,8 @@ c_sizeof_or_alignof_type (tree type, enum tree_code op, int complain)
   else if (!COMPLETE_TYPE_P (type))
     {
       if (complain)
-	error ("invalid application of `%s' to an incomplete type", op_name);
+	error ("invalid application of `%s' to incomplete type `%T' ", 
+	       op_name, type);
       value = size_zero_node;
     }
   else
@@ -3254,6 +3296,11 @@ c_common_nodes_and_builtins (void)
   lang_hooks.decls.pushdecl
     (build_decl (TYPE_DECL, get_identifier ("complex long double"),
 		 complex_long_double_type_node));
+
+  if (c_dialect_cxx ())
+    /* For C++, make fileptr_type_node a distinct void * type until
+       FILE type is defined.  */
+    fileptr_type_node = build_type_copy (ptr_type_node);
 
   record_builtin_type (RID_VOID, NULL, void_type_node);
 
@@ -4198,7 +4245,7 @@ finish_label_address_expr (tree label)
 
 /* Hook used by expand_expr to expand language-specific tree codes.  */
 /* The only things that should go here are bits needed to expand 
-   constant initalizers.  Everything else should be handled by the
+   constant initializers.  Everything else should be handled by the
    gimplification routines.  */
 
 rtx
@@ -5756,131 +5803,6 @@ resort_sorted_fields (void *obj,
   resort_data.cookie = cookie;
   qsort (&sf->elts[0], sf->len, sizeof (tree),
 	 resort_field_decl_cmp);
-}
-
-/* Used by estimate_num_insns.  Estimate number of instructions seen
-   by given statement.  */
-static tree
-c_estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
-{
-  int *count = data;
-  tree x = *tp;
-
-  if (TYPE_P (x) || DECL_P (x))
-    {
-      *walk_subtrees = 0;
-      return NULL;
-    }
-  /* Assume that constants and references counts nothing.  These should
-     be majorized by amount of operations among them we count later
-     and are common target of CSE and similar optimizations.  */
-  if (TREE_CODE_CLASS (TREE_CODE (x)) == 'c'
-      || TREE_CODE_CLASS (TREE_CODE (x)) == 'r')
-    return NULL;
-  switch (TREE_CODE (x))
-    { 
-    /* Recognize assignments of large structures and constructors of
-       big arrays.  */
-    case MODIFY_EXPR:
-    case CONSTRUCTOR:
-      {
-	HOST_WIDE_INT size;
-
-	size = int_size_in_bytes (TREE_TYPE (x));
-
-	if (size < 0 || size > MOVE_MAX_PIECES * MOVE_RATIO)
-	  *count += 10;
-	else
-	  *count += ((size + MOVE_MAX_PIECES - 1) / MOVE_MAX_PIECES);
-      }
-      break;
-    case CALL_EXPR:
-      {
-	tree decl = get_callee_fndecl (x);
-
-	if (decl && DECL_BUILT_IN (decl))
-	  switch (DECL_FUNCTION_CODE (decl))
-	    {
-	    case BUILT_IN_CONSTANT_P:
-	      *walk_subtrees = 0;
-	      return NULL_TREE;
-	    case BUILT_IN_EXPECT:
-	      return NULL_TREE;
-	    default:
-	      break;
-	    }
-	*count += 10;
-	break;
-      }
-    /* Few special cases of expensive operations.  This is useful
-       to avoid inlining on functions having too many of these.  */
-    case TRUNC_DIV_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
-    case TRUNC_MOD_EXPR:
-    case CEIL_MOD_EXPR:
-    case FLOOR_MOD_EXPR:
-    case ROUND_MOD_EXPR:
-    case RDIV_EXPR:
-      *count += 10;
-      break;
-    /* Various containers that will produce no code themselves.  */
-    case INIT_EXPR:
-    case TARGET_EXPR:
-    case BIND_EXPR:
-    case BLOCK:
-    case TREE_LIST:
-    case TREE_VEC:
-    case IDENTIFIER_NODE:
-    case PLACEHOLDER_EXPR:
-    case WITH_CLEANUP_EXPR:
-    case CLEANUP_POINT_EXPR:
-    case NOP_EXPR:
-    case VIEW_CONVERT_EXPR:
-    case SAVE_EXPR:
-    case UNSAVE_EXPR:
-    case COMPLEX_EXPR:
-    case REALPART_EXPR:
-    case IMAGPART_EXPR:
-    case TRY_CATCH_EXPR:
-    case TRY_FINALLY_EXPR:
-    case LABEL_EXPR:
-    case EXIT_EXPR:
-    case LABELED_BLOCK_EXPR:
-    case EXIT_BLOCK_EXPR:
-
-    case EXPR_STMT:
-    case COMPOUND_STMT:
-    case RETURN_STMT:
-    case LABEL_STMT:
-    case SCOPE_STMT:
-    case CASE_LABEL:
-    case STMT_EXPR:
-    case CLEANUP_STMT:
-
-    case SIZEOF_EXPR:
-    case ARROW_EXPR:
-    case ALIGNOF_EXPR:
-      break;
-    case DECL_STMT:
-      /* Do not account static initializers.  */
-      if (TREE_STATIC (TREE_OPERAND (x, 0)))
-	*walk_subtrees = 0;
-      break;
-    default:
-      (*count)++;
-    }
-  return NULL;
-}
-
-/*  Estimate number of instructions that will be created by expanding the body.  */
-int
-c_estimate_num_insns (tree decl)
-{
-  int num = 0;
-  walk_tree_without_duplicates (&DECL_SAVED_TREE (decl), c_estimate_num_insns_1, &num);
-  return num;
 }
 
 /* Issue the error given by MSGID, indicating that it occurred before

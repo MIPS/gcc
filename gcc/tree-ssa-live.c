@@ -102,7 +102,7 @@ delete_var_map (var_map map)
 
 /* This function will combine the partitions in MAP for VAR1 and VAR2.  It 
    Returns the partition which represents the new partition.  If the two 
-   partitions cannot be combined, NO_PARTITION is returned. */
+   partitions cannot be combined, NO_PARTITION is returned.  */
 
 int
 var_union (var_map map, tree var1, tree var2)
@@ -298,7 +298,8 @@ create_ssa_var_map (int flags)
   tree stmt;
   stmt_ann_t ann;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   use_optype uses;
   def_optype defs;
   unsigned x;
@@ -308,7 +309,7 @@ create_ssa_var_map (int flags)
   sbitmap used_in_virtual_ops;
 #endif
 
-  map = init_var_map (highest_ssa_version + 1);
+  map = init_var_map (num_ssa_names + 1);
 
 #if defined ENABLE_CHECKING
   used_in_real_ops = sbitmap_alloc (num_referenced_vars);
@@ -321,8 +322,8 @@ create_ssa_var_map (int flags)
   if (flags & SSA_VAR_MAP_REF_COUNT)
     {
       map->ref_count
-	= (int *)xmalloc (((highest_ssa_version + 1) * sizeof (int)));
-      memset (map->ref_count, 0, (highest_ssa_version + 1) * sizeof (int));
+	= (int *)xmalloc (((num_ssa_names + 1) * sizeof (int)));
+      memset (map->ref_count, 0, (num_ssa_names + 1) * sizeof (int));
     }
 
   FOR_EACH_BB (bb)
@@ -383,16 +384,26 @@ create_ssa_var_map (int flags)
 #endif
 	    }
 
-	  vdefs = VDEF_OPS (ann);
-	  for (x = 0; x < NUM_VDEFS (vdefs); x++)
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (x = 0; x < NUM_V_MAY_DEFS (v_may_defs); x++)
 	    {
-	      tree var = VDEF_OP (vdefs, x);
+	      tree var = V_MAY_DEF_OP (v_may_defs, x);
 	      set_is_used (var);
 
 #if defined ENABLE_CHECKING
 	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
 #endif
 	    }
+	    
+	  v_must_defs = V_MUST_DEF_OPS (ann);
+	  for (x = 0; x < NUM_V_MUST_DEFS (v_must_defs); x++)
+	    {
+	      tree var = V_MUST_DEF_OP (v_must_defs, x);
+	      set_is_used (var);
+#if defined ENABLE_CHECKING
+	      SET_BIT (used_in_virtual_ops, var_ann (SSA_NAME_VAR (var))->uid);
+#endif
+	    }	    
 	}
     }
 
@@ -838,7 +849,7 @@ tpa_delete (tpa_p tpa)
 }
 
 
-/* This function will remove any tree entires from TPA which have only a single
+/* This function will remove any tree entries from TPA which have only a single
    element.  This will help keep the size of the conflict graph down.  The 
    function returns the number of remaining tree lists.  */
 
@@ -1344,7 +1355,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
 	     This is handled specially here since we may also be interested 
 	     in copies between real variables and SSA_NAME variables.  We may
 	     be interested in trying to coalesce SSA_NAME variables with
-	     root variables in some cases.   */
+	     root variables in some cases.  */
 
 	  if (TREE_CODE (stmt) == MODIFY_EXPR)
 	    {
@@ -1419,7 +1430,7 @@ build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa,
       /* Anything which is still live at this point interferes.  
 	 In order to implement this efficiently, only conflicts between
 	 partitions which have the same TPA root need be added.
-	 TPA roots which have been seen are tracked in 'tpa_nodes'.  A non-zero
+	 TPA roots which have been seen are tracked in 'tpa_nodes'.  A nonzero
 	 entry points to an index into 'partition_link', which then indexes 
 	 into itself forming a linked list of partitions sharing a tpa root 
 	 which have been seen as live up to this point.  Since partitions start
@@ -1732,7 +1743,7 @@ dump_var_map (FILE *f, var_map map)
         continue;
 
       t = 0;
-      for (y = 1; y < highest_ssa_version; y++)
+      for (y = 1; y < num_ssa_names; y++)
         {
 	  p = partition_find (map->var_partition, y);
 	  if (map->partition_to_compact)
@@ -1821,7 +1832,7 @@ register_ssa_partitions_for_vars (bitmap vars, var_map map)
 
 	     Note we delete PHI nodes in this loop if they are 
 	     associated with virtual vars which are going to be
-	     renamed.   */
+	     renamed.  */
 	  for (phi = phi_nodes (bb); phi; phi = next)
 	    {
 	      tree result = SSA_NAME_VAR (PHI_RESULT (phi));

@@ -298,7 +298,7 @@ expand_complex_div_wide (block_stmt_iterator *bsi, tree inner_type,
   t1 = do_binop (bsi, MULT_EXPR, inner_type, min, ratio);
   div = do_binop (bsi, PLUS_EXPR, inner_type, t1, max);
 
-  /* Result is now ((ar + ai*ratio)/div) + i((ai - ar*ratio)/div). */
+  /* Result is now ((ar + ai*ratio)/div) + i((ai - ar*ratio)/div).  */
   t1 = do_binop (bsi, MULT_EXPR, inner_type, ai, ratio);
   t2 = do_binop (bsi, PLUS_EXPR, inner_type, ar, t1);
   rr = do_binop (bsi, code, inner_type, t2, div);
@@ -387,7 +387,7 @@ expand_complex_comparison (block_stmt_iterator *bsi, tree ar, tree ai,
       /* FALLTHRU */
     case MODIFY_EXPR:
       type = TREE_TYPE (TREE_OPERAND (stmt, 1));
-      TREE_OPERAND (stmt, 1) = convert (type, cc);
+      TREE_OPERAND (stmt, 1) = fold_convert (type, cc);
       break;
     case COND_EXPR:
       TREE_OPERAND (stmt, 0) = cc;

@@ -73,13 +73,15 @@ Boston, MA 02111-1307, USA.  */
        op1 -> stmt
        op2 -> array of case labels (as LABEL_DECLs?)
          FIXME: add case value info
+	The SWITCH_LABELS (op2) are sorted in ascending order, and the
+	last label in the vector is always the default case.
    jump-stmt:
        GOTO_EXPR
          op0 -> LABEL_DECL | '*' ID
      | RETURN_EXPR
-         op0 -> modify-stmt | NULL_TREE
-	 (maybe -> RESULT_DECL | NULL_TREE? seems like some of expand_return
-	  depends on getting a MODIFY_EXPR.)
+         op0 -> NULL_TREE
+	      | RESULT_DECL
+	      | MODIFY_EXPR -> RESULT_DECL, varname
      | THROW_EXPR?  do we need/want such a thing for opts, perhaps
          to generate an ERT_THROW region?  I think so.
 	 Hmm...this would only work at the GIMPLE level, where we know that

@@ -1,3 +1,67 @@
+2004-06-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR java/15769
+	* expr.c (java_truthvalue_conversion): Handle
+	UNEQ_EXPR, UNLE_EXPR, UNGE_EXPR, UNLT_EXPR, UNGT_EXPR,
+	ORDERED_EXPR, and UNORDERED_EXPR as comparison operators,
+	i.e. return the expression.
+
+2004-06-03 Mark G. Adams  <mark.g.adams@sympatico.ca>
+
+	* gjavah.c: Include version.h
+
+2004-05-31  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* jcf-write.c (generate_bytecode_conditional): Correct handling
+	of unordered conditionals. Add comment.
+
+2004-05-29  Ranjit Mathew  <rmathew@hotmail.com>
+            Per Bothner  <per@bothner.com>
+
+	* java-tree.h (DECL_LOCAL_FINAL_IUD): New macro to test if a
+	local variable was initialised upon declaration.
+	* parse.y (declare_local_variables): Set DECL_LOCAL_FINAL_IUD if
+	variable was final and initialised upon declaration.
+	* check-init.c (check_final_reassigned): Give error only if a blank
+	final is not definitely unassigned or if an initialised final is
+	reassigned.
+	(check_bool_init): Respect JLS2 16.1.7 requirements for boolean
+	assignment expressions. Remove case MODIFY_EXPR, label do_default.
+	(check_init): Perform initialised-variable-removing-optimisation
+	only on non-final local variables.
+
+2004-05-28  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* jcf-write.c (generate_bytecode_conditional): Handle binops 
+	UNLT_EXPR, UNLE_EXPR, UNGT_EXPR, UNGE_EXPR, UNEQ_EXPR, 
+	and LTGT_EXPR.
+	(generate_bytecode_insns): Likewise.
+
+2004-05-28  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* check-init.c (check_init): Handle binops UNLT_EXPR, UNLE_EXPR,
+    	UNGT_EXPR, UNGE_EXPR, UNEQ_EXPR, and LTGT_EXPR.
+
+2004-05-28  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* gcj.texi (Object allocation): Remove _Jv_AllocBytes.
+	(Mixing with C++): Document JvAllocBytes and RawDataManaged.
+
+2004-05-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* decl.c (struct binding_level): Add GTY marker. Compile
+	binding_depth unconditionally.
+	(current_binding_level, free_binding_level, global_binding_level):
+	Likewise.
+	(clear_binding_level): Unconditionally set binding_depth.
+	(make_binding_level): Use ggc_alloc_cleared, not xmalloc.
+
+2004-05-26  Bryce McKinlay  <mckinlay@redhat.com>
+
+	* lex.c (java_new_lexer): Set 'encoding'.
+	(java_read_char): Improve error message for unrecognized characters.
+	* lex.h (struct java_lexer): New field 'encoding'.
+
 2004-05-23  Paolo Bonzini  <bonzini@gnu.org>
 
 	* Make-lang.in: Link in $(LIBCPP) instead of mkdeps.o.

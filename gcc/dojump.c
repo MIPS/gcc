@@ -338,7 +338,7 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
             && type != 0 && bitsize >= 0
             && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (exp))
             && (cmp_optab->handlers[(int) TYPE_MODE (type)].insn_code
-          != CODE_FOR_nothing))
+		!= CODE_FOR_nothing))
           {
             do_jump (convert (type, exp), if_false_label, if_true_label);
             break;
@@ -525,27 +525,39 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 
     {
       enum rtx_code rcode1;
-      enum tree_code tcode2;
+      enum tree_code tcode1, tcode2;
 
       case UNLT_EXPR:
         rcode1 = UNLT;
+        tcode1 = UNORDERED_EXPR;
         tcode2 = LT_EXPR;
         goto unordered_bcc;
       case UNLE_EXPR:
         rcode1 = UNLE;
+        tcode1 = UNORDERED_EXPR;
         tcode2 = LE_EXPR;
         goto unordered_bcc;
       case UNGT_EXPR:
         rcode1 = UNGT;
+        tcode1 = UNORDERED_EXPR;
         tcode2 = GT_EXPR;
         goto unordered_bcc;
       case UNGE_EXPR:
         rcode1 = UNGE;
+        tcode1 = UNORDERED_EXPR;
         tcode2 = GE_EXPR;
         goto unordered_bcc;
       case UNEQ_EXPR:
         rcode1 = UNEQ;
+        tcode1 = UNORDERED_EXPR;
         tcode2 = EQ_EXPR;
+        goto unordered_bcc;
+      case LTGT_EXPR:
+	/* It is ok for LTGT_EXPR to trap when the result is unordered,
+	   so expand to (a < b) || (a > b).  */
+        rcode1 = LTGT;
+        tcode1 = LT_EXPR;
+        tcode2 = GT_EXPR;
         goto unordered_bcc;
 
       unordered_bcc:
@@ -560,8 +572,8 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
             tree cmp0, cmp1;
 
             /* If the target doesn't support combined unordered
-               compares, decompose into UNORDERED + comparison.  */
-            cmp0 = fold (build (UNORDERED_EXPR, TREE_TYPE (exp), op0, op1));
+               compares, decompose into two comparisons.  */
+            cmp0 = fold (build (tcode1, TREE_TYPE (exp), op0, op1));
             cmp1 = fold (build (tcode2, TREE_TYPE (exp), op0, op1));
             exp = build (TRUTH_ORIF_EXPR, TREE_TYPE (exp), cmp0, cmp1);
             do_jump (exp, if_false_label, if_true_label);

@@ -241,7 +241,7 @@ static void fixup_var_refs_insn (rtx, rtx, enum machine_mode, int, int, rtx);
 static void fixup_var_refs_1 (rtx, enum machine_mode, rtx *, rtx,
 			      struct fixup_replacement **, rtx);
 static rtx fixup_memory_subreg (rtx, rtx, enum machine_mode, int);
-static rtx walk_fixup_memory_subreg (rtx, rtx, enum machine_mode, int);
+static rtx walk_fixup_memory_subreg (rtx, rtx, rtx, enum machine_mode, int);
 static rtx fixup_stack_1 (rtx, rtx);
 static void optimize_bit_field (rtx, rtx, rtx *);
 static void instantiate_decls (tree, int);
@@ -444,7 +444,6 @@ free_after_compilation (struct function *f)
   f->x_save_expr_regs = NULL;
   f->x_stack_slot_list = NULL;
   f->x_rtl_expr_chain = NULL;
-  f->x_tail_recursion_label = NULL;
   f->x_tail_recursion_reentry = NULL;
   f->x_arg_pointer_save_area = NULL;
   f->x_parm_birth_insn = NULL;
@@ -1683,32 +1682,7 @@ fixup_var_refs_insns (rtx insn, rtx var, enum machine_mode promoted_mode,
          pointer now.  */
       rtx next = NEXT_INSN (insn);
 
-      /* CALL_PLACEHOLDERs are special; we have to switch into each of
-	 the three sequences they (potentially) contain, and process
-	 them recursively.  The CALL_INSN itself is not interesting.  */
-
-      if (GET_CODE (insn) == CALL_INSN
-	  && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-	{
-	  int i;
-
-	  /* Look at the Normal call, sibling call and tail recursion
-	     sequences attached to the CALL_PLACEHOLDER.  */
-	  for (i = 0; i < 3; i++)
-	    {
-	      rtx seq = XEXP (PATTERN (insn), i);
-	      if (seq)
-		{
-		  push_to_sequence (seq);
-		  fixup_var_refs_insns (seq, var, promoted_mode, unsignedp, 0,
-					may_share);
-		  XEXP (PATTERN (insn), i) = get_insns ();
-		  end_sequence ();
-		}
-	    }
-	}
-
-      else if (INSN_P (insn))
+      if (INSN_P (insn))
 	fixup_var_refs_insn (insn, var, promoted_mode, unsignedp, toplevel,
 			     may_share);
 
@@ -1717,11 +1691,7 @@ fixup_var_refs_insns (rtx insn, rtx var, enum machine_mode promoted_mode,
 }
 
 /* Look up the insns which reference VAR in HT and fix them up.  Other
-   arguments are the same as fixup_var_refs_insns.
-
-   N.B. No need for special processing of CALL_PLACEHOLDERs here,
-   because the hash table will point straight to the interesting insn
-   (inside the CALL_PLACEHOLDER).  */
+   arguments are the same as fixup_var_refs_insns.  */
 
 static void
 fixup_var_refs_insns_with_hash (htab_t ht, rtx var, enum machine_mode promoted_mode,
@@ -1914,7 +1884,7 @@ fixup_var_refs_insn (rtx insn, rtx var, enum machine_mode promoted_mode,
     {
       if (GET_CODE (note) != INSN_LIST)
 	XEXP (note, 0)
-	  = walk_fixup_memory_subreg (XEXP (note, 0), insn,
+	  = walk_fixup_memory_subreg (XEXP (note, 0), insn, var,
 				      promoted_mode, 1);
       note = XEXP (note, 1);
     }
@@ -2601,17 +2571,17 @@ fixup_memory_subreg (rtx x, rtx insn, enum machine_mode promoted_mode, int uncri
   return result;
 }
 
-/* Do fixup_memory_subreg on all (SUBREG (MEM ...) ...) contained in X.
+/* Do fixup_memory_subreg on all (SUBREG (VAR) ...) contained in X.
+   VAR is a MEM that used to be a pseudo register with mode PROMOTED_MODE.
    Replace subexpressions of X in place.
-   If X itself is a (SUBREG (MEM ...) ...), return the replacement expression.
+   If X itself is a (SUBREG (VAR) ...), return the replacement expression.
    Otherwise return X, with its contents possibly altered.
 
-   INSN, PROMOTED_MODE and UNCRITICAL are as for
-   fixup_memory_subreg.  */
+   INSN and UNCRITICAL are as for fixup_memory_subreg.  */
 
 static rtx
-walk_fixup_memory_subreg (rtx x, rtx insn, enum machine_mode promoted_mode,
-			  int uncritical)
+walk_fixup_memory_subreg (rtx x, rtx insn, rtx var,
+			  enum machine_mode promoted_mode, int uncritical)
 {
   enum rtx_code code;
   const char *fmt;
@@ -2622,7 +2592,7 @@ walk_fixup_memory_subreg (rtx x, rtx insn, enum machine_mode promoted_mode,
 
   code = GET_CODE (x);
 
-  if (code == SUBREG && GET_CODE (SUBREG_REG (x)) == MEM)
+  if (code == SUBREG && SUBREG_REG (x) == var)
     return fixup_memory_subreg (x, insn, promoted_mode, uncritical);
 
   /* Nothing special about this RTX; fix its operands.  */
@@ -2631,14 +2601,14 @@ walk_fixup_memory_subreg (rtx x, rtx insn, enum machine_mode promoted_mode,
   for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
     {
       if (fmt[i] == 'e')
-	XEXP (x, i) = walk_fixup_memory_subreg (XEXP (x, i), insn,
+	XEXP (x, i) = walk_fixup_memory_subreg (XEXP (x, i), insn, var,
 						promoted_mode, uncritical);
       else if (fmt[i] == 'E')
 	{
 	  int j;
 	  for (j = 0; j < XVECLEN (x, i); j++)
 	    XVECEXP (x, i, j)
-	      = walk_fixup_memory_subreg (XVECEXP (x, i, j), insn,
+	      = walk_fixup_memory_subreg (XVECEXP (x, i, j), insn, var,
 					  promoted_mode, uncritical);
 	}
     }
@@ -4651,10 +4621,8 @@ assign_parms (tree fndecl)
 						  offset_rtx));
 
 	set_mem_attributes (stack_parm, parm, 1);
-	if (entry_parm && MEM_ATTRS (stack_parm)->align < PARM_BOUNDARY)
-	  set_mem_align (stack_parm, PARM_BOUNDARY);
-
-	/* Set also REG_ATTRS if parameter was passed in a register.  */
+	set_mem_align (stack_parm, 
+		       FUNCTION_ARG_BOUNDARY (promoted_mode, passed_type));
 	if (entry_parm)
 	  set_reg_attrs_for_parm (entry_parm, stack_parm);
       }
@@ -4722,13 +4690,9 @@ assign_parms (tree fndecl)
       /* If we can't trust the parm stack slot to be aligned enough
 	 for its ultimate type, don't use that slot after entry.
 	 We'll make another stack slot, if we need one.  */
-      {
-	unsigned int thisparm_boundary
-	  = FUNCTION_ARG_BOUNDARY (promoted_mode, passed_type);
-
-	if (GET_MODE_ALIGNMENT (nominal_mode) > thisparm_boundary)
-	  stack_parm = 0;
-      }
+      if (STRICT_ALIGNMENT && stack_parm
+	  && GET_MODE_ALIGNMENT (nominal_mode) > MEM_ALIGN (stack_parm))
+	stack_parm = 0;
 
       /* If parm was passed in memory, and we need to convert it on entry,
 	 don't store it back in that same slot.  */
@@ -5903,7 +5867,7 @@ identify_blocks (void)
 }
 
 /* Subroutine of identify_blocks.  Do the block substitution on the
-   insn chain beginning with INSNS.  Recurse for CALL_PLACEHOLDER chains.
+   insn chain beginning with INSNS.
 
    BLOCK_STACK is pushed and popped for each BLOCK_BEGIN/BLOCK_END pair.
    BLOCK_VECTOR is incremented for each block seen.  */
@@ -5941,20 +5905,6 @@ identify_blocks_1 (rtx insns, tree *block_vector, tree *end_block_vector,
 
 	      NOTE_BLOCK (insn) = *--block_stack;
 	    }
-	}
-      else if (GET_CODE (insn) == CALL_INSN
-	       && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-	{
-	  rtx cp = PATTERN (insn);
-
-	  block_vector = identify_blocks_1 (XEXP (cp, 0), block_vector,
-					    end_block_vector, block_stack);
-	  if (XEXP (cp, 1))
-	    block_vector = identify_blocks_1 (XEXP (cp, 1), block_vector,
-					      end_block_vector, block_stack);
-	  if (XEXP (cp, 2))
-	    block_vector = identify_blocks_1 (XEXP (cp, 2), block_vector,
-					      end_block_vector, block_stack);
 	}
     }
 
@@ -6065,16 +6015,6 @@ reorder_blocks_1 (rtx insns, tree current_block, varray_type *p_block_stack)
 		= blocks_nreverse (BLOCK_SUBBLOCKS (current_block));
 	      current_block = BLOCK_SUPERCONTEXT (current_block);
 	    }
-	}
-      else if (GET_CODE (insn) == CALL_INSN
-	       && GET_CODE (PATTERN (insn)) == CALL_PLACEHOLDER)
-	{
-	  rtx cp = PATTERN (insn);
-	  reorder_blocks_1 (XEXP (cp, 0), current_block, p_block_stack);
-	  if (XEXP (cp, 1))
-	    reorder_blocks_1 (XEXP (cp, 1), current_block, p_block_stack);
-	  if (XEXP (cp, 2))
-	    reorder_blocks_1 (XEXP (cp, 2), current_block, p_block_stack);
 	}
     }
 }

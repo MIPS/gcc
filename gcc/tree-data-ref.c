@@ -1499,43 +1499,31 @@ find_data_references_in_loop (struct loop *loop, varray_type *datarefs)
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
         {
 	  tree stmt = bsi_stmt (bsi);
-	  vdef_optype vdefs = VDEF_OPS (stmt_ann (stmt));
-	  vuse_optype vuses = VUSE_OPS (stmt_ann (stmt));
-	  
-	  if (vuses || vdefs)
-	    switch (TREE_CODE (stmt))
-	      {
-	      case MODIFY_EXPR:
-		/* In the GIMPLE representation, a modify expression
-		   contains a single load or store to memory.  */
-		if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF)
-		  VARRAY_PUSH_GENERIC_PTR 
+	  stmt_ann_t ann = stmt_ann (stmt);
+
+	  if (TREE_CODE (stmt) != MODIFY_EXPR)
+	    continue;
+
+	  if (!VUSE_OPS (ann)
+	      && !V_MUST_DEF_OPS (ann)
+	      && !V_MAY_DEF_OPS (ann))
+	    continue;
+
+	  /* In the GIMPLE representation, a modify expression
+  	     contains a single load or store to memory.  */
+	  if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF)
+	    VARRAY_PUSH_GENERIC_PTR 
 		    (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 0), 
 					       false));
-		
-		else if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ARRAY_REF)
-		  VARRAY_PUSH_GENERIC_PTR 
+
+	  else if (TREE_CODE (TREE_OPERAND (stmt, 1)) == ARRAY_REF)
+	    VARRAY_PUSH_GENERIC_PTR 
 		    (*datarefs, analyze_array (stmt, TREE_OPERAND (stmt, 1), 
 					       true));
 
-		else
-		  VARRAY_PUSH_GENERIC_PTR (*datarefs, 
-					   analyze_array_top (stmt));
-		  
-		break;
-		
-	      case COND_EXPR:
-	      case CALL_EXPR:
-	      case VA_ARG_EXPR:
-	      case ASM_EXPR:
-	      case RETURN_EXPR:
-		/* In the GIMPLE representation, these nodes do not
-		   contain ARRAY_REFs in their operands.  */
-		break;
-		
-	      default:
-		break;
-	      }
+  	  else
+	    VARRAY_PUSH_GENERIC_PTR (*datarefs, 
+				     analyze_array_top (stmt));
 	}
     }
 }

@@ -1,5 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
    and Graydon Hoare <graydon@redhat.com>
 
@@ -63,6 +63,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include <sys/types.h>
 #include <signal.h>
 #include <errno.h>
+#include <ctype.h>
 
 #include "mf-runtime.h"
 #include "mf-impl.h"
@@ -296,7 +297,7 @@ options [] =
     {"collect-stats", 
      "collect statistics on mudflap's operation",
      set_option, 1, &__mf_opts.collect_stats},
-#if HAVE_SIGNAL
+#ifdef SIGUSR1
     {"sigusr1-report",
      "print report upon SIGUSR1",
      set_option, 1, &__mf_opts.sigusr1_report},
@@ -685,6 +686,11 @@ __wrap_main (int argc, char* argv[])
       __mf_register (stdin,  sizeof (*stdin),  __MF_TYPE_STATIC, "stdin");
       __mf_register (stdout, sizeof (*stdout), __MF_TYPE_STATIC, "stdout");
       __mf_register (stderr, sizeof (*stderr), __MF_TYPE_STATIC, "stderr");
+
+      /* Make some effort to register ctype.h static arrays.  */
+      /* XXX: e.g., on Solaris, may need to register __ctype, _ctype, __ctype_mask, __toupper, etc. */
+      /* On modern Linux GLIBC, these are thread-specific and changeable, and are dealt
+         with in mf-hooks2.c.  */
     }
 
 #ifdef PIC
@@ -2244,7 +2250,8 @@ __mf_violation (void *ptr, size_t sz, uintptr_t pc,
       abort ();
       break;
     case viol_gdb:
-      snprintf (buf, 128, "gdb --pid=%d", getpid ());
+
+      snprintf (buf, 128, "gdb --pid=%u", (unsigned) getpid ());
       system (buf);
       /* XXX: should probably fork() && sleep(GDB_WAIT_PARAMETER)
       instead, and let the forked child execlp() gdb.  That way, this
@@ -2354,7 +2361,7 @@ __mf_sigusr1_respond ()
 {
   static int handler_installed;
 
-#if HAVE_SIGNAL
+#ifdef SIGUSR1
   /* Manage handler */
   if (__mf_opts.sigusr1_report && ! handler_installed)
     {

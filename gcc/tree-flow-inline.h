@@ -46,6 +46,47 @@ get_var_ann (tree var)
   return (ann) ? ann : create_var_ann (var);
 }
 
+
+static inline cst_ann_t
+cst_ann (tree t)
+{
+#if defined ENABLE_CHECKING
+  if (TREE_CODE_CLASS (TREE_CODE (t)) != 'c'
+      || (t->common.ann
+	  && t->common.ann->common.type != CST_ANN))
+    abort ();
+#endif
+
+  return (cst_ann_t) t->common.ann;
+}
+
+static inline cst_ann_t
+get_cst_ann (tree var)
+{
+  cst_ann_t ann = cst_ann (var);
+  return (ann) ? ann : create_cst_ann (var);
+}
+
+static inline expr_ann_t
+expr_ann (tree t)
+{
+#if defined ENABLE_CHECKING
+  if (!EXPR_P (t)
+      || (t->common.ann
+	  && t->common.ann->common.type != EXPR_ANN))
+    abort ();
+#endif
+
+  return (expr_ann_t) t->common.ann;
+}
+
+static inline expr_ann_t
+get_expr_ann (tree var)
+{
+  expr_ann_t ann = expr_ann (var);
+  return (ann) ? ann : create_expr_ann (var);
+}
+
 static inline stmt_ann_t
 stmt_ann (tree t)
 {
@@ -62,27 +103,6 @@ get_stmt_ann (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
   return (ann) ? ann : create_stmt_ann (stmt);
-}
-
-static inline ssa_name_ann_t
-ssa_name_ann (tree t)
-{
-#if defined ENABLE_CHECKING
-  if (t == NULL_TREE
-      || TREE_CODE (t) != SSA_NAME
-      || (t->common.ann
-	  && t->common.ann->common.type != SSA_NAME_ANN))
-    abort ();
-#endif
-
-  return (ssa_name_ann_t) t->common.ann;
-}
-
-static inline ssa_name_ann_t
-get_ssa_name_ann (tree var)
-{
-  ssa_name_ann_t ann = ssa_name_ann (var);
-  return (ann) ? ann : create_ssa_name_ann (var);
 }
 
 
@@ -201,16 +221,22 @@ get_use_ops (stmt_ann_t ann)
   return ann ? ann->use_ops : NULL;
 }
 
-static inline vdef_optype
-get_vdef_ops (stmt_ann_t ann)
+static inline v_may_def_optype
+get_v_may_def_ops (stmt_ann_t ann)
 {
-  return ann ? ann->vdef_ops : NULL;
+  return ann ? ann->v_may_def_ops : NULL;
 }
 
 static inline vuse_optype
 get_vuse_ops (stmt_ann_t ann)
 {
   return ann ? ann->vuse_ops : NULL;
+}
+
+static inline v_must_def_optype
+get_v_must_def_ops (stmt_ann_t ann)
+{
+  return ann ? ann->v_must_def_ops : NULL;
 }
 
 static inline tree *
@@ -234,23 +260,23 @@ get_def_op_ptr (def_optype defs, unsigned int index)
 }
 
 static inline tree *
-get_vdef_result_ptr(vdef_optype vdefs, unsigned int index)
+get_v_may_def_result_ptr(v_may_def_optype v_may_defs, unsigned int index)
 {
 #ifdef ENABLE_CHECKING
-  if (index >= vdefs->num_vdefs)
+  if (index >= v_may_defs->num_v_may_defs)
     abort();
 #endif
-  return &(vdefs->vdefs[index * 2]);
+  return &(v_may_defs->v_may_defs[index * 2]);
 }
 
 static inline tree *
-get_vdef_op_ptr(vdef_optype vdefs, unsigned int index)
+get_v_may_def_op_ptr(v_may_def_optype v_may_defs, unsigned int index)
 {
 #ifdef ENABLE_CHECKING
-  if (index >= vdefs->num_vdefs)
+  if (index >= v_may_defs->num_v_may_defs)
     abort();
 #endif
-  return &(vdefs->vdefs[index * 2 + 1]);
+  return &(v_may_defs->v_may_defs[index * 2 + 1]);
 }
 
 static inline tree *
@@ -261,6 +287,16 @@ get_vuse_op_ptr(vuse_optype vuses, unsigned int index)
     abort();
 #endif
   return &(vuses->vuses[index]);
+}
+
+static inline tree *
+get_v_must_def_op_ptr (v_must_def_optype v_must_defs, unsigned int index)
+{
+#ifdef ENABLE_CHECKING
+  if (index >= v_must_defs->num_v_must_defs)
+    abort();
+#endif
+  return &(v_must_defs->v_must_defs[index]);
 }
 
 static inline void

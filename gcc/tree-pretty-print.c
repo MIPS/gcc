@@ -560,7 +560,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	  if (TYPE_METHODS (TREE_TYPE (node)))
 	    {
 	      /* The type is a c++ class: all structures have at least
-		 4 methods. */
+		 4 methods.  */
 	      pp_string (buffer, "class ");
 	      dump_generic_node (buffer, TREE_TYPE (node), spc, flags, false);
 	    }
@@ -907,6 +907,9 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case UNGT_EXPR:
     case UNGE_EXPR:
     case UNEQ_EXPR:
+    case LTGT_EXPR:
+    case ORDERED_EXPR:
+    case UNORDERED_EXPR:
       {
 	const char *op = op_symbol (node);
 	op0 = TREE_OPERAND (node, 0);
@@ -999,14 +1002,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "ABS_EXPR <");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
       pp_character (buffer, '>');
-      break;
-
-    case UNORDERED_EXPR:
-      NIY;
-      break;
-
-    case ORDERED_EXPR:
-      NIY;
       break;
 
     case IN_EXPR:
@@ -1721,6 +1716,14 @@ op_prio (tree op)
     case NE_EXPR:
       return 9;
 
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+    case LTGT_EXPR:
+    case ORDERED_EXPR:
+    case UNORDERED_EXPR:
     case LT_EXPR:
     case LE_EXPR:
     case GT_EXPR:
@@ -1826,28 +1829,41 @@ op_symbol (tree op)
     case BIT_AND_EXPR:
       return "&";
 
+    case ORDERED_EXPR:
+      return "ord";
+    case UNORDERED_EXPR:
+      return "unord";
+
     case EQ_EXPR:
-    case UNEQ_EXPR:
       return "==";
+    case UNEQ_EXPR:
+      return "u==";
 
     case NE_EXPR:
       return "!=";
 
     case LT_EXPR:
-    case UNLT_EXPR:
       return "<";
+    case UNLT_EXPR:
+      return "u<";
 
     case LE_EXPR:
-    case UNLE_EXPR:
       return "<=";
+    case UNLE_EXPR:
+      return "u<=";
 
     case GT_EXPR:
-    case UNGT_EXPR:
       return ">";
+    case UNGT_EXPR:
+      return "u>";
 
     case GE_EXPR:
-    case UNGE_EXPR:
       return ">=";
+    case UNGE_EXPR:
+      return "u>=";
+
+    case LTGT_EXPR:
+      return "<>";
 
     case LSHIFT_EXPR:
       return "<<";
@@ -2085,15 +2101,27 @@ dump_vops (pretty_printer *buffer, tree stmt, int spc, int flags)
 {
   size_t i;
   stmt_ann_t ann = stmt_ann (stmt);
-  vdef_optype vdefs = VDEF_OPS (ann);
+  v_may_def_optype v_may_defs = V_MAY_DEF_OPS (ann);
+  v_must_def_optype v_must_defs = V_MUST_DEF_OPS (ann);
   vuse_optype vuses = VUSE_OPS (ann);
 
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
       pp_string (buffer, "#   ");
-      dump_generic_node (buffer, VDEF_RESULT (vdefs, i), spc + 2, flags, false);
-      pp_string (buffer, " = VDEF <");
-      dump_generic_node (buffer, VDEF_OP (vdefs, i), spc + 2, flags, false);
+      dump_generic_node (buffer, V_MAY_DEF_RESULT (v_may_defs, i), 
+                         spc + 2, flags, false);
+      pp_string (buffer, " = V_MAY_DEF <");
+      dump_generic_node (buffer, V_MAY_DEF_OP (v_may_defs, i), 
+                         spc + 2, flags, false);
+      pp_string (buffer, ">;");
+      newline_and_indent (buffer, spc);
+    }
+
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    {
+      tree v_must_def = V_MUST_DEF_OP (v_must_defs, i);
+      pp_string (buffer, "#   V_MUST_DEF <");
+      dump_generic_node (buffer, v_must_def, spc + 2, flags, false);
       pp_string (buffer, ">;");
       newline_and_indent (buffer, spc);
     }
@@ -2251,7 +2279,8 @@ pp_cfg_jump (pretty_printer *buffer, basic_block bb)
    by INDENT spaces, with details given by FLAGS.  */
 
 static void
-dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent)
+dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent,
+		     int flags)
 {
   edge e;
 
@@ -2263,6 +2292,19 @@ dump_implicit_edges (pretty_printer *buffer, basic_block bb, int indent)
   if (e && e->dest != bb->next_bb)
     {
       INDENT (indent);
+
+      if ((flags & TDF_LINENO) && e->goto_locus)
+	{
+	  pp_character (buffer, '[');
+	  if (e->goto_locus->file)
+	    {
+	      pp_string (buffer, e->goto_locus->file);
+	      pp_string (buffer, " : ");
+	    }
+	  pp_decimal_int (buffer, e->goto_locus->line);
+	  pp_string (buffer, "] ");
+	}
+
       pp_cfg_jump (buffer, e->dest);
       pp_newline (buffer);
     }
@@ -2300,7 +2342,7 @@ dump_generic_bb_buff (pretty_printer *buffer, basic_block bb,
       pp_newline (buffer);
     }
 
-  dump_implicit_edges (buffer, bb, indent);
+  dump_implicit_edges (buffer, bb, indent, flags);
 
   if (flags & TDF_BLOCKS)
     dump_bb_end (buffer, bb, indent, flags);

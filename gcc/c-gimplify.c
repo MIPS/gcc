@@ -722,7 +722,7 @@ gimplify_for_stmt (tree *stmt_p, tree *next_p)
     {
       /* Reorganize the statements so that we do the right thing with a
 	 CLEANUP_STMT.  We want the FOR_STMT and nothing else to be in the
-	 scope of the cleanup, so play with pointers to accomplish that. */
+	 scope of the cleanup, so play with pointers to accomplish that.  */
       FOR_INIT_STMT (stmt) = NULL_TREE;
       chainon (init, stmt);
       *stmt_p = init;
@@ -833,21 +833,8 @@ gimplify_return_stmt (tree *stmt_p)
   return GS_OK;
 }
 
-/* Gimplifies a DECL_STMT node T.
-
-   If a declaration V has an initial value I, create an expression 'V = I'
-   and insert it after the DECL_STMT.
-
-   PRE_P is a queue for effects that should happen before the DECL_STMT.
-
-   MID_P is a queue for effects that should happen after the DECL_STMT,
-   but before uses of the initialized decl.
-
-   POST_P is a queue for effects that should happen after uses of the
-   initialized decl.
-
-   Usually these last two will be the same, but they may need to be
-   different if the DECL_STMT is somehow embedded in an expression.  */
+/* Gimplifies a DECL_STMT node *STMT_P by making any necessary allocation
+   and initialization explicit.  */
 
 static enum gimplify_status
 gimplify_decl_stmt (tree *stmt_p)

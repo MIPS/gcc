@@ -62,7 +62,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* ??? Should probably be using LABEL_NUSES instead.  It would take a
    bit of surgery to be able to use or co-opt the routines in jump.  */
 rtx label_value_list;
-rtx tail_recursion_label_list;
 
 static int can_delete_note_p (rtx);
 static int can_delete_label_p (rtx);
@@ -679,7 +678,7 @@ try_redirect_by_replacing_jump (edge e, basic_block target, bool in_cfglayout)
   
   if (flag_reorder_blocks_and_partition
       && find_reg_note (insn, REG_CROSSING_JUMP, NULL_RTX))
-    return false;
+    return NULL;
 
   /* Verify that all targets will be TARGET.  */
   for (tmp = src->succ; tmp; tmp = tmp->succ_next)

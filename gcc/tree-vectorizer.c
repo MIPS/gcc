@@ -656,9 +656,10 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
   tree ptr_type;
   tree array_ptr;
   tree array_base;
-  vdef_optype vdefs = STMT_VDEF_OPS (stmt);
+  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
   vuse_optype vuses = STMT_VUSE_OPS (stmt);
-  int nvuses = 0, nvdefs = 0;
+  int nvuses, nv_may_defs, nv_must_defs;
   int i;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -689,19 +690,24 @@ vect_create_data_ref (tree ref, tree stmt, block_stmt_iterator *bsi)
   /* CHECKME: update name_mem_tag as well?  */
 
   /* Also mark for renaming all aliased variables:  */ /* CHECKME */
-  if (vuses)
-    nvuses = NUM_VUSES (vuses);
-  if (vdefs)
-    nvdefs = NUM_VDEFS (vdefs);
+  nvuses = NUM_VUSES (vuses);
+  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
+  nv_must_defs = NUM_V_MUST_DEFS (v_must_defs);
   for (i = 0; i < nvuses; i++)
     {
       tree use = VUSE_OP (vuses, i);;
       if (TREE_CODE (use) == SSA_NAME)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (use))->uid);
     }
-  for (i = 0; i < nvdefs; i++)
+  for (i = 0; i < nv_may_defs; i++)
     {
-      tree def = VDEF_RESULT (vdefs, i);
+      tree def = V_MAY_DEF_RESULT (v_may_defs, i);
+      if (TREE_CODE (def) == SSA_NAME)
+        bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
+    }
+  for (i = 0; i < nv_must_defs; i++)
+    {
+      tree def = V_MUST_DEF_OP (v_must_defs, i);
       if (TREE_CODE (def) == SSA_NAME)
         bitmap_set_bit (vars_to_rename, var_ann (SSA_NAME_VAR (def))->uid);
     }
@@ -2258,7 +2264,8 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	  tree vectype;
 	  dataflow_t df;
 	  int j, num_uses;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
+	  v_must_def_optype v_must_defs;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -2285,8 +2292,9 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
 	  /* FORNOW: Make sure that the def of this stmt is not used out
              side the loop. This restriction will be relaxed in the future.  */
-          vdefs = STMT_VDEF_OPS (stmt);
-          if (!vdefs)  /* CHECKME */
+          v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+          v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+          if (v_may_defs || v_must_defs)
             {
               df = get_immediate_uses (stmt);
               num_uses = num_immediate_uses (df);
@@ -3239,25 +3247,25 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 	  bool is_read = false;
 	  tree stmt = bsi_stmt (si);
 	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-	  vdef_optype vdefs = STMT_VDEF_OPS (stmt);
+	  v_may_def_optype v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+	  v_must_def_optype v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
 	  vuse_optype vuses = STMT_VUSE_OPS (stmt);
 	  varray_type *datarefs = NULL;
-	  int nvuses = 0, nvdefs = 0;
+	  int nvuses, nv_may_defs, nv_must_defs;
 	  tree ref = NULL;
 	  tree array_base;
 
 	  /* CHECKME: Relying on the fact that there exists a data-ref
 	     in stmt, if and only if it has vuses/vdefs.  */
 
-	  if (!vuses && !vdefs)
+	  if (!vuses && !v_may_defs && !v_must_defs)
 	    continue;
 
-	  if (vuses)
-	    nvuses = NUM_VUSES (vuses);
-	  if (vdefs)
-	    nvdefs = NUM_VDEFS (vdefs);
+	  nvuses = NUM_VUSES (vuses);
+	  nv_may_defs = NUM_V_MAY_DEFS (v_may_defs);
+	  nv_must_defs = NUM_V_MUST_DEFS (v_must_defs);
 
-	  if (nvuses + nvdefs != 1)
+	  if (nvuses + nv_may_defs + nv_must_defs != 1)
 	    {
 	      /* CHECKME: multiple vdefs/vuses in a GIMPLE stmt are
 	         assumed to indicate a non vectorizable stmt (e.g, ASM,
@@ -3298,7 +3306,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo)
 		}
 	    }
 
-	  if (vdefs)
+	  if (v_may_defs || v_must_defs)
 	    {
 	      if (TREE_CODE (TREE_OPERAND (stmt, 0)) == ARRAY_REF)
 		{
@@ -3405,7 +3413,8 @@ vect_mark_relevant (varray_type worklist, tree stmt)
 static bool
 vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
 {
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   int i;
   dataflow_t df;
@@ -3416,8 +3425,9 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
     return true;
 
   /* changing memory.  */
-  vdefs = STMT_VDEF_OPS (stmt);
-  if (vdefs)
+  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+  if (v_may_defs || v_must_defs)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
         fprintf (dump_file, "vec_stmt_relevant_p: stmt has vdefs:\n");

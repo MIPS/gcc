@@ -108,7 +108,8 @@ mark_defs_for_rewrite (basic_block bb)
   block_stmt_iterator bsi;
   stmt_ann_t ann;
   def_optype defs;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   unsigned i;
 
   for (stmt = phi_nodes (bb); stmt; stmt = TREE_CHAIN (stmt))
@@ -130,10 +131,17 @@ mark_defs_for_rewrite (basic_block bb)
 	  bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
 	}
 
-      vdefs = VDEF_OPS (ann);
-      for (i = 0; i < NUM_VDEFS (vdefs); i++)
+      v_may_defs = V_MAY_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
 	{
-	  var = VDEF_RESULT (vdefs, i);
+	  var = V_MAY_DEF_RESULT (v_may_defs, i);
+	  bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
+	}
+
+      v_must_defs = V_MUST_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+	{
+	  var = V_MUST_DEF_OP (v_must_defs, i);
 	  bitmap_set_bit (vars_to_rename, SSA_NAME_VERSION (var));
 	}
     }

@@ -1,3 +1,7 @@
+2004-06-13  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	Merge from mainline (lno-merge-20040612).
+
 2004-06-13  Dorit Naishlos <dorit@il.ibm.com>
 
 	* tree-chrec.c (evolution_function_is_affine_multivariat): Add check

@@ -348,7 +348,8 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 	{
 	  unsigned int j;
 	  def_optype defs;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
+	  v_must_def_optype v_must_defs;
 	  tree stmt = bsi_stmt (bsi);
 	  stmt_ann_t ann = stmt_ann (stmt);
 
@@ -364,11 +365,18 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 	      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
 	    }
 
-	  vdefs = VDEF_OPS (ann);
-	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
 	    {
-	      tree op = VDEF_RESULT (vdefs, j);
-	      bitmap_set_bit (virtuals_to_rename, var_ann (op)->uid);
+	      tree op = V_MAY_DEF_RESULT (v_may_defs, j);
+	      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
+	    }
+	    
+	  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	    {
+	      tree op = V_MUST_DEF_OP (v_must_defs, j);
+	      bitmap_set_bit (vars_to_rename, var_ann (op)->uid);
 	    }
 	}
 
@@ -550,10 +558,10 @@ tree_ssa_dominator_optimize (void)
 
   /* Create our hash tables.  */
   avail_exprs = htab_create (1024, avail_expr_hash, avail_expr_eq, free);
-  VARRAY_TREE_INIT (const_and_copies, highest_ssa_version, "const_and_copies");
+  VARRAY_TREE_INIT (const_and_copies, num_ssa_names, "const_and_copies");
   nonzero_vars = BITMAP_XMALLOC ();
   VARRAY_EDGE_INIT (redirection_edges, 20, "redirection_edges");
-  VARRAY_GENERIC_PTR_INIT (vrp_data, highest_ssa_version, "vrp_data");
+  VARRAY_GENERIC_PTR_INIT (vrp_data, num_ssa_names, "vrp_data");
 
   /* Setup callbacks for the generic dominator tree walker.  */
   walk_data.walk_stmts_backward = false;
@@ -622,8 +630,8 @@ tree_ssa_dominator_optimize (void)
 
 	  /* The into SSA translation may have created new SSA_NAMES whic
 	     affect the size of CONST_AND_COPIES and VRP_DATA.  */
-	  VARRAY_GROW (const_and_copies, highest_ssa_version);
-	  VARRAY_GROW (vrp_data, highest_ssa_version);
+	  VARRAY_GROW (const_and_copies, num_ssa_names);
+	  VARRAY_GROW (vrp_data, num_ssa_names);
 	}
 
       /* Reinitialize the various tables.  */
@@ -649,7 +657,7 @@ tree_ssa_dominator_optimize (void)
   /* We emptyed the hash table earlier, now delete it completely.  */
   htab_delete (avail_exprs);
 
-  /* It is not nocessary to clear CURRDEFS, REDIRECTION_EDGES, VRP_DATA,
+  /* It is not necessary to clear CURRDEFS, REDIRECTION_EDGES, VRP_DATA,
      CONST_AND_COPIES, and NONZERO_VARS as they all get cleared at the bottom
      of the do-while loop above.  */
 
@@ -1083,7 +1091,7 @@ remove_local_expressions_from_table (varray_type locals,
 }
 
 /* Use the SSA_NAMES in LOCALS to restore TABLE to its original
-   state, stopping when there are LIMIT entires left in LOCALs.  */
+   state, stopping when there are LIMIT entries left in LOCALs.  */
 
 static void
 restore_nonzero_vars_to_original_value (varray_type locals,
@@ -1102,7 +1110,7 @@ restore_nonzero_vars_to_original_value (varray_type locals,
 }
 
 /* Use the source/dest pairs in LOCALS to restore TABLE to its original
-   state, stopping when there are LIMIT entires left in LOCALs.  */
+   state, stopping when there are LIMIT entries left in LOCALs.  */
 
 static void
 restore_vars_to_original_value (varray_type locals,
@@ -1372,7 +1380,7 @@ record_equivalences_from_phis (struct dom_walk_data *walk_data, basic_block bb)
 	 breaking out of the loop, then we have a PHI which may create
 	 a useful equivalence.  We do not need to record unwind data for
 	 this, since this is a true assignment and not an equivalence
-	 infered from a comparison.  All uses of this ssa name are dominated
+	 inferred from a comparison.  All uses of this ssa name are dominated
 	 by this assignment, so unwinding just costs time and space.  */
       if (i == PHI_NUM_ARGS (phi)
 	  && may_propagate_copy (lhs, rhs))
@@ -1457,9 +1465,12 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 				       &bd->avail_exprs,
 				       bb,
 				       &bd->vrp_variables);
-  /* Similarly when the parent block ended in a SWITCH_EXPR.  */
+  /* Similarly when the parent block ended in a SWITCH_EXPR.
+     We can only know the value of the switch's condition if the dominator
+     parent is also the only predecessor of this block.  */
   else if (parent_block_last_stmt
 	   && bb->pred->pred_next == NULL
+	   && bb->pred->src == parent
 	   && TREE_CODE (parent_block_last_stmt) == SWITCH_EXPR)
     {
       tree switch_cond = SWITCH_COND (parent_block_last_stmt);
@@ -1480,7 +1491,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 	      tree elt = TREE_VEC_ELT (switch_vec, i);
 	      if (label_to_block (CASE_LABEL (elt)) == bb)
 		{
-		  if (++case_count > 1)
+		  if (++case_count > 1 || CASE_HIGH (elt))
 		    break;
 		  match_case = elt;
 		}
@@ -1491,6 +1502,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
 	     the exact value of SWITCH_COND which caused us to get to
 	     this block.  Record that equivalence in EQ_EXPR_VALUE.  */
 	  if (case_count == 1
+	      && match_case
 	      && CASE_LOW (match_case)
 	      && !CASE_HIGH (match_case))
 	    {
@@ -1666,7 +1678,7 @@ record_equality (tree x, tree y, varray_type *block_const_and_copies_p)
   /* For IEEE, -0.0 == 0.0, so we don't necessarily know the sign of a
      variable compared against zero.  If we're honoring signed zeros,
      then we cannot record this value unless we know that the value is
-     non-zero.  */
+     nonzero.  */
   if (HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (x)))
       && (TREE_CODE (y) != REAL_CST
 	  || REAL_VALUES_EQUAL (dconst0, TREE_REAL_CST (y))))
@@ -1881,7 +1893,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), LE_EXPR);
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
-		= convert (type, integer_zero_node);
+		= fold_convert (type, integer_zero_node);
 	    }
 	  val = simplify_cond_and_lookup_avail_expr (dummy_cond,
 						     &bd->avail_exprs,
@@ -1892,7 +1904,7 @@ simplify_rhs_and_lookup_avail_expr (struct dom_walk_data *walk_data,
 	      TREE_SET_CODE (TREE_OPERAND (dummy_cond, 0), GE_EXPR);
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 0) = op;
 	      TREE_OPERAND (TREE_OPERAND (dummy_cond, 0), 1)
-		= convert (type, integer_zero_node);
+		= fold_convert (type, integer_zero_node);
 
 	      val = simplify_cond_and_lookup_avail_expr (dummy_cond,
 							 &bd->avail_exprs,
@@ -2295,7 +2307,7 @@ static bool
 eliminate_redundant_computations (struct dom_walk_data *walk_data,
 				  tree stmt, stmt_ann_t ann)
 {
-  vdef_optype vdefs = VDEF_OPS (ann);
+  v_may_def_optype v_may_defs = V_MAY_DEF_OPS (ann);
   tree *expr_p, def = NULL_TREE;
   bool insert = true;
   tree cached_lhs;
@@ -2312,7 +2324,7 @@ eliminate_redundant_computations (struct dom_walk_data *walk_data,
       || ! def
       || TREE_CODE (def) != SSA_NAME
       || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def)
-      || NUM_VDEFS (vdefs) != 0)
+      || NUM_V_MAY_DEFS (v_may_defs) != 0)
     insert = false;
 
   /* Check if the expression has been computed before.  */
@@ -2415,7 +2427,7 @@ record_equivalences_from_stmt (tree stmt,
       /* If the RHS of the assignment is a constant or another variable that
 	 may be propagated, register it in the CONST_AND_COPIES table.  We
 	 do not need to record unwind data for this, since this is a true
-	 assignment and not an equivalence infered from a comparison.  All
+	 assignment and not an equivalence inferred from a comparison.  All
 	 uses of this ssa name are dominated by this assignment, so unwinding
 	 just costs time and space.  */
       if (may_optimize_p
@@ -2517,7 +2529,8 @@ record_equivalences_from_stmt (tree stmt,
 
       if (rhs)
 	{
-	  vdef_optype vdefs = VDEF_OPS (ann);
+	  v_may_def_optype v_may_defs = V_MAY_DEF_OPS (ann);
+	  v_must_def_optype v_must_defs = V_MUST_DEF_OPS (ann);
 
 	  /* Build a new statement with the RHS and LHS exchanged.  */
 	  new = build (MODIFY_EXPR, TREE_TYPE (stmt), rhs, lhs);
@@ -2529,14 +2542,22 @@ record_equivalences_from_stmt (tree stmt,
 	  /* Clear out the virtual operands on the new statement, we are
 	     going to set them explicitly below.  */
 	  remove_vuses (new);
-	  remove_vdefs (new);
+	  remove_v_may_defs (new);
+	  remove_v_must_defs (new);
 
 	  start_ssa_stmt_operands (new);
 	  /* For each VDEF on the original statement, we want to create a
-	     VUSE of the VDEF result on the new statement.  */
-	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
+	     VUSE of the V_MAY_DEF result or V_MUST_DEF op on the new 
+	     statement.  */
+	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
 	    {
-	      tree op = VDEF_RESULT (vdefs, j);
+	      tree op = V_MAY_DEF_RESULT (v_may_defs, j);
+	      add_vuse (op, new);
+	    }
+	    
+	  for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	    {
+	      tree op = V_MUST_DEF_OP (v_must_defs, j);
 	      add_vuse (op, new);
 	    }
 
@@ -2571,7 +2592,6 @@ optimize_stmt (struct dom_walk_data *walk_data,
 {
   stmt_ann_t ann;
   tree stmt;
-  vdef_optype vdefs;
   bool may_optimize_p;
   bool may_have_exposed_new_symbols = false;
   struct dom_walk_block_data *bd
@@ -2581,7 +2601,6 @@ optimize_stmt (struct dom_walk_data *walk_data,
 
   get_stmt_operands (stmt);
   ann = stmt_ann (stmt);
-  vdefs = VDEF_OPS (ann);
   opt_stats.num_stmts++;
   may_have_exposed_new_symbols = false;
 
@@ -2591,7 +2610,7 @@ optimize_stmt (struct dom_walk_data *walk_data,
       print_generic_stmt (dump_file, stmt, TDF_SLIM);
     }
 
-  /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
+  /* Const/copy propagate into USES, VUSES and the RHS of V_MAY_DEFs.  */
   may_have_exposed_new_symbols = cprop_into_stmt (stmt, const_and_copies);
 
   /* If the statement has been modified with constant replacements,
@@ -3177,7 +3196,8 @@ static void
 register_definitions_for_stmt (stmt_ann_t ann, varray_type *block_defs_p)
 {
   def_optype defs;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   unsigned int i;
 
   defs = DEF_OPS (ann);
@@ -3191,12 +3211,21 @@ register_definitions_for_stmt (stmt_ann_t ann, varray_type *block_defs_p)
     }
 
   /* Register new virtual definitions made by the statement.  */
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
     {
       /* FIXME: We shouldn't be registering new defs if the variable
 	 doesn't need to be renamed.  */
-      register_new_def (VDEF_RESULT (vdefs, i), block_defs_p);
+      register_new_def (V_MAY_DEF_RESULT (v_may_defs, i), block_defs_p);
+    }
+    
+  /* Register new virtual mustdefs made by the statement.  */
+  v_must_defs = V_MUST_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    {
+      /* FIXME: We shouldn't be registering new defs if the variable
+	 doesn't need to be renamed.  */
+      register_new_def (V_MUST_DEF_OP (v_must_defs, i), block_defs_p);
     }
 }
 

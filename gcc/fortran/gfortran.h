@@ -58,7 +58,6 @@ char *alloca ();
 
 /* Major control parameters.  */
 
-#define GFC_VERSION "0.23"
 #define GFC_MAX_SYMBOL_LEN 63
 #define GFC_REAL_BITS 100	/* Number of bits in g95's floating point numbers.  */
 #define GFC_MAX_LINE 132	/* Characters beyond this are not seen.  */
@@ -302,6 +301,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_DOT_PRODUCT,
   GFC_ISYM_DPROD,
   GFC_ISYM_EOSHIFT,
+  GFC_ISYM_ETIME,
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
   GFC_ISYM_FLOOR,
@@ -316,6 +316,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_INDEX,
   GFC_ISYM_INT,
   GFC_ISYM_IOR,
+  GFC_ISYM_IRAND,
   GFC_ISYM_ISHFT,
   GFC_ISYM_ISHFTC,
   GFC_ISYM_LBOUND,
@@ -344,12 +345,14 @@ enum gfc_generic_isym_id
   GFC_ISYM_PACK,
   GFC_ISYM_PRESENT,
   GFC_ISYM_PRODUCT,
+  GFC_ISYM_RAND,
   GFC_ISYM_REAL,
   GFC_ISYM_REPEAT,
   GFC_ISYM_RESHAPE,
   GFC_ISYM_RRSPACING,
   GFC_ISYM_SCALE,
   GFC_ISYM_SCAN,
+  GFC_ISYM_SECOND,
   GFC_ISYM_SET_EXPONENT,
   GFC_ISYM_SHAPE,
   GFC_ISYM_SI_KIND,
@@ -538,6 +541,11 @@ typedef struct gfc_actual_arglist
   char name[GFC_MAX_SYMBOL_LEN + 1];
   /* Alternate return label when the expr member is null.  */
   struct gfc_st_label *label;
+
+  /* This is set to the type of an eventual omitted optional
+     argument. This is used to determine if a hidden string length
+     argument has to be added to a function call.  */
+  bt missing_arg_type;
 
   struct gfc_expr *expr;
   struct gfc_actual_arglist *next;
@@ -1289,9 +1297,6 @@ void gfc_add_include_path (const char *);
 void gfc_release_include_path (void);
 FILE *gfc_open_included_file (const char *);
 
-locus *gfc_current_locus (void);
-void gfc_set_locus (locus *);
-
 int gfc_at_end (void);
 int gfc_at_eof (void);
 int gfc_at_bol (void);
@@ -1309,7 +1314,7 @@ try gfc_new_file (const char *, gfc_source_form);
 
 extern gfc_source_form gfc_current_form;
 extern char *gfc_source_file;
-/* extern locus gfc_current_locus; */
+extern locus gfc_current_locus;
 
 /* misc.c */
 void *gfc_getmem (size_t) ATTRIBUTE_MALLOC;

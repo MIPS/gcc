@@ -779,7 +779,7 @@ setup_one_parameter (inline_data *id, tree p, tree value,
      the argument to the proper type in case it was promoted.  */
   if (value)
     {
-      tree rhs = convert (TREE_TYPE (var), value);
+      tree rhs = fold_convert (TREE_TYPE (var), value);
 
       if (rhs == error_mark_node)
 	return;
@@ -1324,6 +1324,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case UNGT_EXPR:
     case UNGE_EXPR:
     case UNEQ_EXPR:
+    case LTGT_EXPR:
 
     case CONVERT_EXPR:
 
@@ -1342,7 +1343,7 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
       *count++;
       break;
 
-    /* Few special cases of expensive operations.  This is usefull
+    /* Few special cases of expensive operations.  This is useful
        to avoid inlining on functions having too many of these.  */
     case TRUNC_DIV_EXPR:
     case CEIL_DIV_EXPR:

@@ -1,3 +1,193 @@
+2004-06-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* Make-lang.in (F95_OBJS, F95_PARSER_OBJS): Alphabetize.  Move data.c
+	* data.c (gfc_get_section_index):  Remove dependency on trans.h.
+
+2004-06-12  Steven G. Kargl  <kargls@comcast.net>
+
+	* check.c (gfc_check_second_sub, gfc_check_irand, gfc_check_rand
+	gfc_check_srand, gfc_check_etime, gfc_check_etime_sub): New functions.
+	* gfortran.h (gfc_generic_isym_id): New symbols GFC_ISYM_ETIME,
+	GFC_ISYM_IRAND, GFC_ISYM_RAND, GFC_ISYM_SECOND.
+	* trans-intrinsic.c:  Use symbols.
+	* intrinsic.c (add_sym_2s): New function.
+	* intrinsic.c: Add etime, dtime, irand, rand, second, srand.
+	* intrinsic.h: Function prototypes.
+	* iresolve.c (gfc_resolve_etime_sub, gfc_resolve_second_sub 
+	gfc_resolve_srand):  New functions.
+
+2004-06-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/14957
+	* decl.c (gfc_match_end): Require END {SUBROUTINE|FUNCTION} for
+	contained procedure.
+	
+2004-06-12  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/12841
+	* interface.c (compare_parameter, compare_actual_formal): Don't
+	check types and array shapes for NULL()
+	* trans-expr.c (conv_function_call): No double indirection for
+	NULL() 
+
+2004-06-09  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* trans-expr.c (gfc_conv_cst_int_power): Compute
+	x**(-n) by converting it to (1/x)**n instead of
+	1/x**n.
+
+2004-06-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/13372
+	* module.c (write_symbol, write_symtree): Don't write symbols
+	wrongly added to namespace.
+	* trans-decl.c (gfc_create_module_variable): Don't create a
+	backend decl for a symbol incorrectly added to namespace.
+
+2004-06-09  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/13201
+	* resolve.c (resolve_symbol): Verify that parameter array has an
+	explicit shape. Fix typos and coding style issues in surrounding
+	lines.
+
+2004-06-05  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15478
+	* gfortran.texi: The documentation doesn't contain infomration on
+	how to report bugs, and shouldn't, so remove the line which
+	says it does.
+
+2004-06-05  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* intrinsic.c (sort_actual): Keep track of type of missing 
+	arguments. (Missing from previous commit.)
+
+2004-06-03  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.h (gfc_actual_arglist): New field missing_arg_type.
+	* interface.c (compare_actual_formal): Keep type of omitted
+	optional arguments.
+	* trans-expr.c (gfc_conv_function_call): Add string length
+	argument for omitted string argument.
+
+2004-06-03  Paul Brook  <paul@codesourcery.com>
+
+	* trans.c (gfc_finish_block, gfc_add_expr_to_block): Build statement
+	lists instead of compound expr chains.
+	(gfc_trans_code): Annotate statement lists.
+
+2004-06-03  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-array.c: Fix spelling in comments.
+
+2004-06-02  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15557
+	* data.c (assign_substring_data_value): New function.
+	(gfc_assign_data_value): Call the new function if we're dealing
+	with a substring LHS.
+
+2004-06-01  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/15477
+	* gfortran.h (GFC_VERSION): Remove.
+	* gfortran.texi (version-gfortran): Remove, replace by version-GCC
+	where used.
+
+2004-05-31  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* trans-types.c: Fix spelling & layout in comments.
+
+2004-05-30  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	PR fortran/14067
+	* trans-const.c (gfc_conv_string_init): Allow variable string
+	length lower than initialization string length.
+
+2004-05-30  Paul Brook  <paul@codesourcery.com>
+
+	PR fortran/15620
+	* trans-decl.c (gfc_shadow_sym, gfc_restore_sym): New functions.
+	* trans-expr.c (gfc_trans_string_copy): New function.
+	(gfc_conv_statement_function): Use them.  Create temp vars.  Enforce
+	character lengths.
+	(gfc_conv_string_parameter): Use gfc_trans_string_copy.
+	* trans-stmt.c (gfc_trans_forall_1): Use gfc_{shadow,restore}_sym.
+	* trans.h (struct gfc_saved_var): Define.
+	(gfc_shadow_sym, gfc_restore_sym): Add prototypes.
+
+2004-05-30  Steven G. Kargl  <kargls@comcast.net>
+
+	* iresolve.c (gfc_resolve_random_number): Clean up conditional.
+
+2004-05-29  Steven G. Kargl  <kargls@comcast.net>
+
+	* simplify.c (gfc_simplify_log): Remove useless line of code.
+
+2004-05-29  Paul Brook  <paul@codesourcery.com>
+
+	* trans-common.c (find_equivalence): Find multiple rules.
+
+2004-05-27  Tobias Schlueter  <tobias.schlueter@physik.uni-muenchen.de>
+
+	* gfortran.h (gfc_current_locus, gfc_set_locus): Remove.
+	(gfc_current_locus): Declare new global variable.
+	* scanner.c (gfc_current_locus, gfc_set_locus): Remove.
+	(gfc_current_locus1): Rename ...
+	(gfc_current_locus): ... to this.
+	(gfc_at_eof, gfc_at_bol, gfc_at_eol, gfc_advance_line, next_char,
+	skip_fixed_comments, skip_free_comments, gfc_next_char_literal,
+	gfc_peek_char, gfc_gobble_whitespace, gfc_new_file): Use
+	gfc_current_locus instead of gfc_current_locus1, gfc_set_locus()
+	and gfc_current_locus(), respectively.
+	* array.c (match_subscript, gfc_match_array_ref, match_array_list,
+	match_array_cons_element, gfc_match_array_constructor):
+	Read/modify gfc_current_locus instead of calling gfc_set_locus()
+	and gfc_current_locus().
+	* decl.c (gfc_match_null, variable_decl, gfc_match_kind_spec,
+	match_attr_spec, gfc_match_function_decl, gfc_match_end,
+	attr_decl1, gfc_match_save): Likewise.
+	* error.c (error_print, gfc_internal_error): Likewise.
+	* expr.c (gfc_int_expr, gfc_default_logical_kind): Likewise.
+	* interface.c (gfc_add_interface): Likewise.
+	* io.c (gfc_match_format, match_dt_format, match_dt_element,
+	match_io_iterator, match_io): Likewise.
+	* match.c (gfc_match_space, gfc_match_eos,
+	gfc_match_small_literal_int, gfc_match_st_label,
+	gfc_match_strings, gfc_match_name, gfc_match_iterator,
+	gfc_match_char, gfc_match, gfc_match_assignment,
+	gfc_match_pointer_assignment, gfc_match_if, gfc_match_do,
+	gfc_match_nullify, gfc_match_call, match_implicit_range,
+	gfc_match_implicit, gfc_match_data, match_case_selector,
+	gfc_match_case, match_forall_iterator): Likewise.
+	* matchexp.c (gfc_match_defined_op_name, next_operator,
+	match_level_1, match_mult_operand, match_ext_mult_operand,
+	match_add_operand, match_ext_add_operand, match_level_2,
+	match_level_3, match_level_4, match_and_operand, match_or_operand,
+	match_equiv_operand, match_level_5, gfc_match_expr): Likewise.
+	* module.c (gfc_match_use, mio_array_ref, mio_expr): Likewise.
+	* parse.c (match_word, decode_statement, next_free, next_fixed,
+	add_statement, verify_st_order, parse_if_block, gfc_parse_file):
+	Likewise.
+	* primary.c (match_digits, match_integer_constant,
+	match_boz_constant, match_real_constant, match_substring,
+	next_string_char, match_charkind_name, match_string_constant,
+	match_logical_constant, match_const_complex_part,
+	match_complex_constant, match_actual_arg, match_keyword_arg,
+	gfc_match_actual_arglist, gfc_match_structure_constructor,
+	gfc_match_rvalue, gfc_match_variable): Likewise.
+	* st.c (gfc_get_code): Likewise.
+	* symbol.c (check_conflict, check_used, check_done,
+	duplicate_attr, add_flavor, gfc_add_procedure, gfc_add_intent,
+	gfc_add_access, gfc_add_explicit_interface, gfc_add_type,
+	gfc_add_component, gfc_reference_st_label, gfc_new_symbol): Likewise.
+
+2004-05-26  Roger Sayle  <roger@eyesopen.com>
+
+	* io.c (format_asterisk): Silence compiler warnings by correcting
+	the number of elements of a "locus" initializer.
+
 2004-05-25  Roger Sayle  <roger@eyesopen.com>
 
 	PR fortran/13912

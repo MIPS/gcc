@@ -1162,7 +1162,7 @@ package Einfo is
 --       types, i.e. record types (Java classes) that hold pointers to each
 --       other. If such a type is an access type, it has no explicit freeze
 --       node, so that the back-end does not attempt to elaborate it.
---       Currently this flag is also used to implement Ada0Y (AI-50217).
+--       Currently this flag is also used to implement Ada 2005 (AI-50217).
 --       It will be renamed to From_Limited_With after removal of the current
 --       GNAT with_type clause???
 
@@ -1250,8 +1250,8 @@ package Einfo is
 --    Has_Completion (Flag26)
 --       Present in all entities that require a completion (functions,
 --       procedures, private types, limited private types, incomplete types,
---       and packages that require a body). Set if the completion has been
---       encountered and analyzed.
+--       constants and packages that require a body). The flag is set if the
+--       completion has been encountered and analyzed.
 
 --    Has_Completion_In_Body (Flag71)
 --       Present in  "Taft amendment types" that is to say incomplete types
@@ -1970,12 +1970,12 @@ package Einfo is
 --       Present in all entities. Relevant (and can be set True) only for
 --       objects of an access type. It is set if the object is currently
 --       known to have a non-null value (meaning that no access checks
---       are needed). The indication can for example3 come from assignment
+--       are needed). The indication can for example come from assignment
 --       of an access parameter or an allocator.
 --
 --       Note: this flag is set according to the sequential flow of the
 --       program, watching the current value of the variable. However,
---       this processing can cases of changing the value of an aliased
+--       this processing can miss cases of changing the value of an aliased
 --       or constant object, so even if this flag is set, it should not
 --       be believed if the variable is aliased or volatile. It would
 --       be a little neater to avoid the flag being set in the first
@@ -2396,7 +2396,7 @@ package Einfo is
 --       fide package with the limited-view list through the first_entity and
 --       first_private attributes. The elements of this list are the shadow
 --       entities created for the types and local packages that are declared
---       in a package that appears in a limited_with clause (Ada0Y: AI-50217)
+--       in a package appearing in a limited_with clause (Ada 2005: AI-50217)
 
 --    Lit_Indexes (Node15)
 --       Present in enumeration types and subtypes. Non-empty only for the
@@ -2566,7 +2566,7 @@ package Einfo is
 
 --    Non_Limited_View (Node17)
 --       Present in incomplete types that are the shadow entities created
---       when analyzing a limited_with_clause (Ada0Y: AI-50217). Points to
+--       when analyzing a limited_with_clause (Ada 2005: AI-50217). Points to
 --       the defining entity in the original declaration.
 
 --    Nonzero_Is_True (Flag162) [base type only]
@@ -4142,6 +4142,7 @@ package Einfo is
    --    Has_Alignment_Clause          (Flag46)
    --    Has_Atomic_Components         (Flag86)
    --    Has_Biased_Representation     (Flag139)
+   --    Has_Completion                (Flag26)   (constants only)
    --    Has_Size_Clause               (Flag29)
    --    Has_Volatile_Components       (Flag87)
    --    Is_Atomic                     (Flag85)

@@ -248,6 +248,7 @@ EOF
 
   # Move message catalogs to source directory.
   mv ../objdir/gcc/po/*.gmo gcc/po/
+  [ -f libcpp/po/cpplib.pot ] && mv ../objdir/libcpp/po/*.gmo libcpp/po/
 
   # Create a "MD5SUMS" file to use for checking the validity of the release.
   find . -type f |sed -e 's:^\./::' -e '/MD5SUMS/d' |sort |xargs md5sum >MD5SUMS
@@ -256,7 +257,7 @@ EOF
 # Buid a single tarfile.  The first argument is the name of the name
 # of the tarfile to build, without any suffixes.  They will be added
 # automatically.  The rest of the arguments are the files or
-# directories to include.
+# directories to include, and possibly other arguments to tar.
 
 build_tarfile() {
   # Get the name of the destination tar file.
@@ -267,6 +268,25 @@ build_tarfile() {
   (${TAR} cf - "$@" | ${BZIP2} > ${TARFILE}) || \
     error "Could not build tarfile"
   FILE_LIST="${FILE_LIST} ${TARFILE}"
+}
+
+# Build a single tarfile if any of the directories listed exist,
+# but not if none of them do (because that component doesn't exist
+# on this branch).
+maybe_build_tarfile() {
+  dest=$1
+  shift
+  dir_exists=0
+  for maybe_dir in "$@"; do
+    if [ -d "$maybe_dir" ]; then
+      dir_exists=1
+    fi
+  done
+  if [ $dir_exists = 1 ]; then
+    build_tarfile "$dest" "$@"
+  else
+    echo "Not building $dest tarfile"
+  fi
 }
 
 # Build the various tar files for the release.
@@ -286,13 +306,13 @@ build_tarfiles() {
   build_tarfile gcc-${RELEASE} `basename ${SOURCE_DIRECTORY}`
 
   # Now, build one for each of the languages.
-  build_tarfile gcc-ada-${RELEASE} ${ADA_DIRS}
-  build_tarfile gcc-g++-${RELEASE} ${CPLUSPLUS_DIRS}
-  build_tarfile gcc-g77-${RELEASE} ${FORTRAN_DIRS}
-  build_tarfile gcc-fortran-${RELEASE} ${FORTRAN95_DIRS}
-  build_tarfile gcc-java-${RELEASE} ${JAVA_DIRS}
-  build_tarfile gcc-objc-${RELEASE} ${OBJECTIVEC_DIRS}
-  build_tarfile gcc-testsuite-${RELEASE} ${TESTSUITE_DIRS}
+  maybe_build_tarfile gcc-ada-${RELEASE} ${ADA_DIRS}
+  maybe_build_tarfile gcc-g++-${RELEASE} ${CPLUSPLUS_DIRS}
+  maybe_build_tarfile gcc-g77-${RELEASE} ${FORTRAN_DIRS}
+  maybe_build_tarfile gcc-fortran-${RELEASE} ${FORTRAN95_DIRS}
+  maybe_build_tarfile gcc-java-${RELEASE} ${JAVA_DIRS}
+  maybe_build_tarfile gcc-objc-${RELEASE} ${OBJECTIVEC_DIRS}
+  maybe_build_tarfile gcc-testsuite-${RELEASE} ${TESTSUITE_DIRS}
    
   # The core is everything else.
   EXCLUDES=""

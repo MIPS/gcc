@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "line-map.h"
 #include "input.h"
 #include "tree.h"
+#include "version.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -264,7 +265,7 @@ int flag_branch_probabilities = 0;
 int flag_reorder_blocks = 0;
 
 /* Nonzero if blocks should be partitioned into hot and cold sections in
-   addition to being reordered. */
+   addition to being reordered.  */
 
 int flag_reorder_blocks_and_partition = 0;
 
@@ -699,7 +700,7 @@ int flag_schedule_speculative_load_dangerous = 0;
 int flag_sched_stalled_insns = 0;
 int flag_sched_stalled_insns_dep = 1;
 
-/* The following flag controls the module scheduling activation. */
+/* The following flag controls the module scheduling activation.  */
 int flag_modulo_sched = 0;
 
 int flag_single_precision_constant;
@@ -817,7 +818,7 @@ int flag_tree_gvn = 0;
 /* Enable the SSA-PRE tree optimization.  */
 int flag_tree_pre = 0;
 
-/* Enable points-to analysis on trees. */
+/* Enable points-to analysis on trees.  */
 enum pta_type flag_tree_points_to = PTA_NONE;
 
 /* Enable SSA-CCP on trees.  */
@@ -1261,23 +1262,6 @@ read_integral_parameter (const char *p, const char *pname, const int  defval)
   return atoi (p);
 }
 
-/* Return the logarithm of X, base 2, considering X unsigned,
-   if X is a power of 2.  Otherwise, returns -1.
-
-   This should be used via the `exact_log2' macro.  */
-
-int
-exact_log2_wide (unsigned HOST_WIDE_INT x)
-{
-  int log = 0;
-  /* Test for 0 or a power of 2.  */
-  if (x == 0 || x != (x & -x))
-    return -1;
-  while ((x >>= 1) != 0)
-    log++;
-  return log;
-}
-
 /* Given X, an unsigned number, return the largest int Y such that 2**Y <= X.
    If X is 0, return -1.
 
@@ -1286,11 +1270,40 @@ exact_log2_wide (unsigned HOST_WIDE_INT x)
 int
 floor_log2_wide (unsigned HOST_WIDE_INT x)
 {
-  int log = -1;
-  while (x != 0)
-    log++,
-    x >>= 1;
-  return log;
+  int t=0;
+  if (x == 0)
+    return -1;
+  if (sizeof (HOST_WIDE_INT) * 8 > 64)
+    if (x >= (unsigned HOST_WIDE_INT) 1 << (t + 64))
+      t += 64;
+  if (sizeof (HOST_WIDE_INT) * 8 > 32)
+    if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 32))
+      t += 32;
+  if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 16))
+    t += 16;
+  if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 8))
+    t += 8;
+  if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 4))
+    t += 4;
+  if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 2))
+    t += 2;
+  if (x >= ((unsigned HOST_WIDE_INT) 1) << (t + 1))
+    t += 1;
+  return t;
+}
+
+/* Return the logarithm of X, base 2, considering X unsigned,
+   if X is a power of 2.  Otherwise, returns -1.
+
+   This should be used via the `exact_log2' macro.  */
+
+int
+exact_log2_wide (unsigned HOST_WIDE_INT x)
+{
+  /* Test for 0 or a power of 2.  */
+  if (x == 0 || x != (x & -x))
+    return -1;
+  return floor_log2_wide (x);
 }
 
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
@@ -1529,12 +1542,12 @@ check_global_declarations (tree *vec, int len)
 	 because many programs have static variables
 	 that exist only to get some text into the object file.  */
       if (TREE_CODE (decl) == FUNCTION_DECL
-	  && (warn_unused_function
-	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
 	  && ! DECL_ARTIFICIAL (decl)
-	  && ! TREE_PUBLIC (decl))
+	  && ! TREE_PUBLIC (decl)
+	  && (warn_unused_function
+	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
 	{
 	  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	    pedwarn ("%J'%F' used but never defined", decl, decl);
@@ -2052,7 +2065,7 @@ init_asm_output (const char *name)
       if (!strcmp (asm_file_name, "-"))
 	asm_out_file = stdout;
       else
-	asm_out_file = fopen (asm_file_name, "w+");
+	asm_out_file = fopen (asm_file_name, "w+b");
       if (asm_out_file == 0)
 	fatal_error ("can't open %s for writing: %m", asm_file_name);
     }

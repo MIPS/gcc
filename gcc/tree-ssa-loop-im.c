@@ -322,7 +322,7 @@ determine_max_movement (tree stmt, bool must_preserve_exec)
   struct lim_aux_data *lim_data = LIM_DATA (stmt);
   use_optype uses;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   stmt_ann_t ann = stmt_ann (stmt);
   unsigned i;
   
@@ -342,9 +342,9 @@ determine_max_movement (tree stmt, bool must_preserve_exec)
     if (!add_dependency (VUSE_OP (vuses, i), lim_data, loop, false))
       return false;
 
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
-    if (!add_dependency (VDEF_OP (vdefs, i), lim_data, loop, false))
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+    if (!add_dependency (V_MAY_DEF_OP (v_may_defs, i), lim_data, loop, false))
       return false;
 
   lim_data->cost += stmt_cost (stmt);
@@ -662,6 +662,25 @@ free_uses (struct use *uses)
     }
 }
 
+/* If VAR is defined in LOOP and the statement it is defined in is not marked
+   in SEEN, add it to QUEUE of length IN_QUEUE.  */
+
+static void
+maybe_queue_var (tree var, struct loop *loop,
+		 sbitmap seen, tree *queue, unsigned *in_queue)
+{
+  tree stmt = SSA_NAME_DEF_STMT (var);
+  basic_block def_bb = bb_for_stmt (stmt);
+	      
+  if (!def_bb
+      || !flow_bb_inside_loop_p (loop, def_bb)
+      || TEST_BIT (seen, stmt_ann (stmt)->uid))
+    return;
+	  
+  SET_BIT (seen, stmt_ann (stmt)->uid);
+  queue[(*in_queue)++] = stmt;
+}
+
 /* Finds the single address inside LOOP corresponding to the virtual
    ssa version defined in STMT.  Stores the list of its uses to USES.  */
 
@@ -674,6 +693,8 @@ single_reachable_address (struct loop *loop, tree stmt, struct use **uses)
   unsigned in_queue = 1;
   dataflow_t df;
   unsigned i, n;
+  v_may_def_optype v_may_defs;
+  vuse_optype vuses;
 
   sbitmap_zero (seen);
 
@@ -704,30 +725,46 @@ single_reachable_address (struct loop *loop, tree stmt, struct use **uses)
 	  addr = *aaddr;
 
 	  record_use (uses, stmt, aaddr);
-	  /* Fallthru.  */
+
+	  /* Traverse also definitions of the VUSES (there may be other
+	     distinct from the one we used to get to this statement).  */
+	  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+	  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+	    maybe_queue_var (V_MAY_DEF_OP (v_may_defs, i), loop,
+			     seen, queue, &in_queue);
+
+	  vuses = STMT_VUSE_OPS (stmt);
+	  for (i = 0; i < NUM_VUSES (vuses); i++)
+	    maybe_queue_var (VUSE_OP (vuses, i), loop,
+			     seen, queue, &in_queue);
+	  break;
 
 	case PHI_NODE:
-	  df = get_immediate_uses (stmt);
-	  n = num_immediate_uses (df);
-
-	  for (i = 0; i < n; i++)
-	    {
-	      stmt = immediate_use (df, i);
-
-	      if (!flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
-		continue;
-
-	      if (TEST_BIT (seen, stmt_ann (stmt)->uid))
-		continue;
-	      SET_BIT (seen, stmt_ann (stmt)->uid);
-
-	      queue[in_queue++] = stmt;
-	    }
-
+	  for (i = 0; i < (unsigned) PHI_NUM_ARGS (stmt); i++)
+	    maybe_queue_var (PHI_ARG_DEF (stmt, i), loop,
+			     seen, queue, &in_queue);
 	  break;
 
 	default:
 	  goto fail;
+	}
+
+      /* Find uses of virtual names.  */
+      df = get_immediate_uses (stmt);
+      n = num_immediate_uses (df);
+
+      for (i = 0; i < n; i++)
+	{
+	  stmt = immediate_use (df, i);
+
+	  if (!flow_bb_inside_loop_p (loop, bb_for_stmt (stmt)))
+	    continue;
+
+	  if (TEST_BIT (seen, stmt_ann (stmt)->uid))
+	    continue;
+	  SET_BIT (seen, stmt_ann (stmt)->uid);
+
+	  queue[in_queue++] = stmt;
 	}
     }
 
@@ -750,17 +787,25 @@ fail:
 static void
 rewrite_uses (tree tmp_var, struct use *uses)
 {
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   vuse_optype vuses;
   unsigned i;
   tree var;
 
   for (; uses; uses = uses->next)
     {
-      vdefs = STMT_VDEF_OPS (uses->stmt);
-      for (i = 0; i < NUM_VDEFS (vdefs); i++)
+      v_may_defs = STMT_V_MAY_DEF_OPS (uses->stmt);
+      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
 	{
-	  var = SSA_NAME_VAR (VDEF_RESULT (vdefs, i));
+	  var = SSA_NAME_VAR (V_MAY_DEF_RESULT (v_may_defs, i));
+	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
+	}
+
+      v_must_defs = STMT_V_MUST_DEF_OPS (uses->stmt);
+      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+	{
+	  var = SSA_NAME_VAR (V_MUST_DEF_OP (v_must_defs, i));
 	  bitmap_set_bit (vars_to_rename, var_ann (var)->uid);
 	}
 

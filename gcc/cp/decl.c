@@ -1200,7 +1200,40 @@ duplicate_decls (tree newdecl, tree olddecl)
 	{
           /* Avoid warnings redeclaring anticipated built-ins.  */
           if (DECL_ANTICIPATED (olddecl))
-            ;  /* Do nothing yet.  */
+	    {
+	      /* Deal with fileptr_type_node.  FILE type is not known
+		 at the time we create the builtins.  */
+	      tree t1, t2;
+
+	      for (t1 = TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
+		   t2 = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
+		   t1 || t2;
+		   t1 = TREE_CHAIN (t1), t2 = TREE_CHAIN (t2))
+		if (!t1 || !t2)
+		  break;
+		else if (TREE_VALUE (t2) == fileptr_type_node)
+		  {
+		    tree t = TREE_VALUE (t1);
+
+		    if (TREE_CODE (t) == POINTER_TYPE
+			&& TYPE_NAME (TREE_TYPE (t))
+			&& DECL_NAME (TYPE_NAME (TREE_TYPE (t)))
+			   == get_identifier ("FILE")
+			&& compparms (TREE_CHAIN (t1), TREE_CHAIN (t2)))
+		      {
+			tree oldargs = TYPE_ARG_TYPES (TREE_TYPE (olddecl));
+
+			TYPE_ARG_TYPES (TREE_TYPE (olddecl))
+			  = TYPE_ARG_TYPES (TREE_TYPE (newdecl));
+			types_match = decls_match (newdecl, olddecl);
+			if (types_match)
+			  return duplicate_decls (newdecl, olddecl);
+			TYPE_ARG_TYPES (TREE_TYPE (olddecl)) = oldargs;
+		      }
+		  }
+		else if (! same_type_p (TREE_VALUE (t1), TREE_VALUE (t2)))
+		  break;
+	    }
 	  else if ((DECL_EXTERN_C_P (newdecl)
 		    && DECL_EXTERN_C_P (olddecl))
 		   || compparms (TYPE_ARG_TYPES (TREE_TYPE (newdecl)),
@@ -3086,6 +3119,9 @@ cp_make_fname_decl (tree id, int type_dep)
   tree type;
   tree init = cp_fname_init (name, &type);
   tree decl = build_decl (VAR_DECL, id, type);
+
+  if (name)
+    free ((char *) name);
 
   /* As we're using pushdecl_with_scope, we must set the context.  */
   DECL_CONTEXT (decl) = current_function_decl;
@@ -5337,6 +5373,7 @@ complete_array_type (tree type, tree initial_value, int do_default)
     {
       tree itype;
       tree domain;
+      tree elt_type;
 
       domain = build_index_type (maxindex);
       TYPE_DOMAIN (type) = domain;
@@ -5354,6 +5391,12 @@ complete_array_type (tree type, tree initial_value, int do_default)
 	 size of the array.  */
       if (! TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)))
 	TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)) = domain;
+
+      elt_type = TREE_TYPE (type);
+      TYPE_NEEDS_CONSTRUCTING (type)
+	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (elt_type));
+      TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (elt_type));      
     }
 
   /* Lay out the type now that we can get the real answer.  */

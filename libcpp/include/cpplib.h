@@ -156,7 +156,7 @@ enum c_lang {CLK_GNUC89 = 0, CLK_GNUC99, CLK_STDC89, CLK_STDC94, CLK_STDC99,
 	     CLK_GNUCXX, CLK_CXX98, CLK_ASM};
 
 /* Payload of a NUMBER, STRING, CHAR or COMMENT token.  */
-struct cpp_string
+struct cpp_string GTY(())
 {
   unsigned int len;
   const unsigned char *text;
@@ -171,22 +171,47 @@ struct cpp_string
 #define NO_EXPAND	(1 << 5) /* Do not macro-expand this token.  */
 #define BOL		(1 << 6) /* Token at beginning of line.  */
 
+/* Specify which field, if any, of the cpp_token union is used.  */
+
+enum cpp_token_fld_kind {
+  CPP_TOKEN_FLD_NODE,
+  CPP_TOKEN_FLD_SOURCE,
+  CPP_TOKEN_FLD_STR,
+  CPP_TOKEN_FLD_ARG_NO,
+  CPP_TOKEN_FLD_NONE
+};
+
 /* A preprocessing token.  This has been carefully packed and should
    occupy 16 bytes on 32-bit hosts and 24 bytes on 64-bit hosts.  */
-struct cpp_token
+struct cpp_token GTY(())
 {
   source_location src_loc;	/* Location of first char of token.  */
   ENUM_BITFIELD(cpp_ttype) type : CHAR_BIT;  /* token type */
   unsigned char flags;		/* flags - see above */
 
-  union
+  union cpp_token_u
   {
-    cpp_hashnode *node;		/* An identifier.  */
-    const cpp_token *source;	/* Inherit padding from this token.  */
-    struct cpp_string str;	/* A string, or number.  */
-    unsigned int arg_no;	/* Argument no. for a CPP_MACRO_ARG.  */
-  } val;
+    /* An identifier.  */
+    cpp_hashnode *
+      GTY ((nested_ptr (union tree_node,
+		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
+			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL"),
+	    tag ("CPP_TOKEN_FLD_NODE")))
+	 node;
+	 
+    /* Inherit padding from this token.  */
+    cpp_token * GTY ((tag ("CPP_TOKEN_FLD_SOURCE"))) source;
+
+    /* A string, or number.  */
+    struct cpp_string GTY ((tag ("CPP_TOKEN_FLD_STR"))) str;
+
+    /* Argument no. for a CPP_MACRO_ARG.  */
+    unsigned int GTY ((tag ("CPP_TOKEN_FLD_ARG_NO"))) arg_no;
+  } GTY ((desc ("cpp_token_val_index (&%1)"))) val;
 };
+
+/* Say which field is in use.  */
+extern enum cpp_token_fld_kind cpp_token_val_index (cpp_token *tok);
 
 /* A type wide enough to hold any multibyte source character.
    cpplib's character constant interpreter requires an unsigned type.
@@ -498,6 +523,23 @@ enum builtin_type
 #define NODE_LEN(NODE)		HT_LEN (&(NODE)->ident)
 #define NODE_NAME(NODE)		HT_STR (&(NODE)->ident)
 
+/* Specify which field, if any, of the union is used.  */
+
+enum {
+  NTV_MACRO,
+  NTV_ANSWER,
+  NTV_BUILTIN,
+  NTV_ARGUMENT,
+  NTV_NONE
+};
+
+#define CPP_HASHNODE_VALUE_IDX(HNODE)				\
+  ((HNODE.flags & NODE_MACRO_ARG) ? NTV_ARGUMENT		\
+   : HNODE.type == NT_MACRO ? ((HNODE.flags & NODE_BUILTIN) 	\
+			       ? NTV_BUILTIN : NTV_MACRO)	\
+   : HNODE.type == NT_ASSERTION ? NTV_ANSWER			\
+   : NTV_NONE)
+
 /* The common part of an identifier node shared amongst all 3 C front
    ends.  Also used to store CPP identifiers, which are a superset of
    identifiers in the grammatical sense.  */
@@ -515,14 +557,14 @@ struct cpp_hashnode GTY(())
   union _cpp_hashnode_value
   {
     /* If a macro.  */
-    cpp_macro * GTY((skip)) macro;
+    cpp_macro * GTY((tag ("NTV_MACRO"))) macro;
     /* Answers to an assertion.  */
-    struct answer * GTY ((skip)) answers;
+    struct answer * GTY ((tag ("NTV_ANSWER"))) answers;
     /* Code for a builtin macro.  */
-    enum builtin_type GTY ((tag ("1"))) builtin;
+    enum builtin_type GTY ((tag ("NTV_BUILTIN"))) builtin;
     /* Macro argument index.  */
-    unsigned short GTY ((tag ("0"))) arg_index;
-  } GTY ((desc ("0"))) value;
+    unsigned short GTY ((tag ("NTV_ARGUMENT"))) arg_index;
+  } GTY ((desc ("CPP_HASHNODE_VALUE_IDX (%1)"))) value;
 };
 
 /* Call this first to get a handle to pass to other functions.
@@ -538,23 +580,18 @@ extern cpp_reader *cpp_create_reader (enum c_lang, struct ht *,
    command line options).  */
 extern void cpp_set_lang (cpp_reader *, enum c_lang);
 
-/* Add a dependency TARGET.  Quote it for "make" if QUOTE.  Can be
-   called any number of times before cpp_read_main_file().  If no
-   targets have been added before cpp_read_main_file(), then the
-   default target is used.  */
-extern void cpp_add_dependency_target (cpp_reader *, const char *, int);
-
 /* Set the include paths.  */
 extern void cpp_set_include_chains (cpp_reader *, cpp_dir *, cpp_dir *, int);
 
-/* Call these to get pointers to the options and callback structures
-   for a given reader.  These pointers are good until you call
-   cpp_finish on that reader.  You can either edit the callbacks
+/* Call these to get pointers to the options, callback, and deps
+   structures for a given reader.  These pointers are good until you
+   call cpp_finish on that reader.  You can either edit the callbacks
    through the pointer returned from cpp_get_callbacks, or set them
    with cpp_set_callbacks.  */
 extern cpp_options *cpp_get_options (cpp_reader *);
 extern cpp_callbacks *cpp_get_callbacks (cpp_reader *);
 extern void cpp_set_callbacks (cpp_reader *, cpp_callbacks *);
+extern struct deps *cpp_get_deps (cpp_reader *);
 
 /* This function reads the file, but does not start preprocessing.  It
    returns the name of the original file; this is the same as the

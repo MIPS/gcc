@@ -98,8 +98,27 @@ static value *value_vector;
 /* Worklist of SSA edges which will need reexamination as their definition
    has changed.  SSA edges are def-use edges in the SSA web.  For each
    edge, we store the definition statement or PHI node D.  The destination
-   nodes that need to be visited are accessed using immediate_uses (D).  */
+   nodes that need to be visited are accessed using immediate_uses
+   (D).  */
 static GTY(()) varray_type ssa_edges;
+
+/* Identical to SSA_EDGES.  For performance reasons, the list of SSA
+   edges is split into two.  One contains all SSA edges who need to be
+   reexamined because their lattice value changed to varying (this
+   worklist), and the other contains all other SSA edges to be
+   reexamined (ssa_edges).
+   
+   Since most values in the program are varying, the ideal situation
+   is to move them to that lattice value as quickly as possible.
+   Thus, it doesn't make sense to process any other type of lattice
+   value until all varying values are propagated fully, which is one
+   thing using the varying worklist achieves.  In addition, if you
+   don't use a separate worklist for varying edges, you end up with
+   situations where lattice values move from
+   undefined->constant->varying instead of undefined->varying.
+*/
+static GTY(()) varray_type varying_ssa_edges;
+
 
 static void initialize (void);
 static void finalize (void);
@@ -109,7 +128,7 @@ static value cp_lattice_meet (value, value);
 static void visit_stmt (tree);
 static void visit_cond_stmt (tree);
 static void visit_assignment (tree);
-static void add_var_to_ssa_edges_worklist (tree);
+static void add_var_to_ssa_edges_worklist (tree, value);
 static void add_outgoing_control_edges (basic_block);
 static void add_control_edge (edge);
 static void def_to_varying (tree);
@@ -132,6 +151,31 @@ static void cfg_blocks_add (basic_block);
 static basic_block cfg_blocks_get (void);
 static bool need_imm_uses_for (tree var);
 
+/* Process an SSA edge worklist.  WORKLIST is the SSA edge worklist to
+   drain. This pops statements off the given WORKLIST and processes
+   them until there are no more statements on WORKLIST.  */
+
+static void
+process_ssa_edge_worklist (varray_type *worklist)
+{
+  /* Drain the entire worklist.  */
+  while (VARRAY_ACTIVE_SIZE (*worklist) > 0)
+    {
+      /* Pull the statement to simulate off the worklist.  */
+      tree stmt = VARRAY_TOP_TREE (*worklist);
+      stmt_ann_t ann = stmt_ann (stmt);
+      VARRAY_POP (*worklist);
+      
+      /* visit_stmt can "cancel" reevaluation of some statements.
+	 If it does, then in_ccp_worklist will be zero.  */
+      if (ann->in_ccp_worklist)
+	{
+	  ann->in_ccp_worklist = 0;
+	  simulate_stmt (stmt);
+	}
+    } 
+}
+ 
 /* Main entry point for SSA Conditional Constant Propagation.  FNDECL is
    the declaration for the function to optimize.
    
@@ -148,7 +192,9 @@ tree_ssa_ccp (void)
   initialize ();
 
   /* Iterate until the worklists are empty.  */
-  while (!cfg_blocks_empty_p () || VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
+  while (!cfg_blocks_empty_p () 
+	 || VARRAY_ACTIVE_SIZE (ssa_edges) > 0
+	 || VARRAY_ACTIVE_SIZE (varying_ssa_edges) > 0)
     {
       if (!cfg_blocks_empty_p ())
 	{
@@ -157,23 +203,12 @@ tree_ssa_ccp (void)
 	  simulate_block (dest_block);
 	}
 
-      /* The SSA_EDGES worklist can get rather large.  Go ahead and
-         drain the entire worklist each iteration through this loop.  */
-      while (VARRAY_ACTIVE_SIZE (ssa_edges) > 0)
-	{
-	  /* Pull the statement to simulate off the worklist.  */
-	  tree stmt = VARRAY_TOP_TREE (ssa_edges);
-	  stmt_ann_t ann = stmt_ann (stmt);
-	  VARRAY_POP (ssa_edges);
+      /* In order to move things to varying as quickly as
+         possible,process the VARYING_SSA_EDGES worklist first.  */
+      process_ssa_edge_worklist (&varying_ssa_edges);
 
-	  /* visit_stmt can "cancel" reevaluation of some statements.
-	     If it does, then in_ccp_worklist will be zero.  */
-	  if (ann->in_ccp_worklist)
-	    {
-	      ann->in_ccp_worklist = 0;
-	      simulate_stmt (stmt);
-	    }
-	}
+      /* Now process the SSA_EDGES worklist.  */
+      process_ssa_edge_worklist (&ssa_edges);
     }
 
   /* Now perform substitutions based on the known constant values.  */
@@ -461,7 +496,7 @@ visit_phi_node (tree phi)
   else
     for (i = 0; i < PHI_NUM_ARGS (phi); i++)
       {
-	/* Compute the meet operator over all the PHI arguments. */
+	/* Compute the meet operator over all the PHI arguments.  */
 	edge e = PHI_ARG_EDGE (phi, i);
 
 	if (dump_file && (dump_flags & TDF_DETAILS))
@@ -575,7 +610,8 @@ visit_stmt (tree stmt)
   size_t i;
   stmt_ann_t ann;
   def_optype defs;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
 
   /* If the statement has already been deemed to be VARYING, don't simulate
      it again.  */
@@ -634,10 +670,15 @@ visit_stmt (tree stmt)
 	add_outgoing_control_edges (bb_for_stmt (stmt));
     }
 
-  /* Mark all VDEF operands VARYING.  */
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
-    def_to_varying (VDEF_RESULT (vdefs, i));
+  /* Mark all V_MAY_DEF operands VARYING.  */
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+    def_to_varying (V_MAY_DEF_RESULT (v_may_defs, i));
+    
+  /* Mark all V_MUST_DEF operands VARYING.  */
+  v_must_defs = V_MUST_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+    def_to_varying (V_MUST_DEF_OP (v_must_defs, i));
 }
 
 
@@ -883,7 +924,7 @@ ccp_fold (tree stmt)
     }
 
   /* We may be able to fold away calls to builtin functions if their
-     arguments are constants. */
+     arguments are constants.  */
   else if (code == CALL_EXPR
 	   && TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
 	   && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0))
@@ -918,7 +959,7 @@ ccp_fold (tree stmt)
   if (retval)
     {
       if (TREE_TYPE (retval) != TREE_TYPE (rhs))
-	retval = convert (TREE_TYPE (rhs), retval);
+	retval = fold_convert (TREE_TYPE (rhs), retval);
 
       if (TREE_TYPE (retval) == TREE_TYPE (rhs))
 	return retval;
@@ -1069,8 +1110,9 @@ initialize (void)
   basic_block bb;
   sbitmap virtual_var;
 
-  /* Worklist of SSA edges.  */
+  /* Worklists of SSA edges.  */
   VARRAY_TREE_INIT (ssa_edges, 20, "ssa_edges");
+  VARRAY_TREE_INIT (varying_ssa_edges, 20, "varying_ssa_edges");
 
   executable_blocks = sbitmap_alloc (last_basic_block);
   sbitmap_zero (executable_blocks);
@@ -1078,11 +1120,11 @@ initialize (void)
   bb_in_list = sbitmap_alloc (last_basic_block);
   sbitmap_zero (bb_in_list);
 
-  value_vector = (value *) xmalloc (highest_ssa_version * sizeof (value));
-  memset (value_vector, 0, highest_ssa_version * sizeof (value));
+  value_vector = (value *) xmalloc (num_ssa_names * sizeof (value));
+  memset (value_vector, 0, num_ssa_names * sizeof (value));
 
   /* 1 if ssa variable is used in a virtual variable context.  */
-  virtual_var = sbitmap_alloc (highest_ssa_version);
+  virtual_var = sbitmap_alloc (num_ssa_names);
   sbitmap_zero (virtual_var);
 
   /* Initialize default values and simulation flags for PHI nodes, statements 
@@ -1093,7 +1135,8 @@ initialize (void)
       tree stmt;
       stmt_ann_t ann;
       def_optype defs;
-      vdef_optype vdefs;
+      v_may_def_optype v_may_defs;
+      v_must_def_optype v_must_defs;
       size_t x;
       int vary;
 
@@ -1113,13 +1156,22 @@ initialize (void)
 	    }
 	  DONT_SIMULATE_AGAIN (stmt) = vary;
 
-	  /* Mark all VDEF operands VARYING.  */
-	  vdefs = VDEF_OPS (ann);
-	  for (x = 0; x < NUM_VDEFS (vdefs); x++)
+	  /* Mark all V_MAY_DEF operands VARYING.  */
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (x = 0; x < NUM_V_MAY_DEFS (v_may_defs); x++)
 	    {
-	      tree res = VDEF_RESULT (vdefs, x);
+	      tree res = V_MAY_DEF_RESULT (v_may_defs, x);
 	      get_value (res)->lattice_val = VARYING;
 	      SET_BIT (virtual_var, SSA_NAME_VERSION (res));
+	    }
+	    
+	  /* Mark all V_MUST_DEF operands VARYING.  */
+	  v_must_defs = V_MUST_DEF_OPS (ann);
+	  for (x = 0; x < NUM_V_MUST_DEFS (v_must_defs); x++)
+	    {
+	      tree v_must_def = V_MUST_DEF_OP (v_must_defs, x);
+	      get_value (v_must_def)->lattice_val = VARYING;
+	      SET_BIT (virtual_var, SSA_NAME_VERSION (v_must_def));
 	    }
 	}
 
@@ -1187,6 +1239,7 @@ static void
 finalize (void)
 {
   ssa_edges = NULL;
+  varying_ssa_edges = NULL;
   cfg_blocks = NULL;
   free (value_vector);
   sbitmap_free (bb_in_list);
@@ -1258,9 +1311,9 @@ cfg_blocks_get (void)
 }
 
 /* We have just defined a new value for VAR.  Add all immediate uses
-   of VAR to the ssa_edges worklist.  */
+   of VAR to the ssa_edges or varying_ssa_edges worklist.  */
 static void
-add_var_to_ssa_edges_worklist (tree var)
+add_var_to_ssa_edges_worklist (tree var, value val)
 {
   tree stmt = SSA_NAME_DEF_STMT (var);
   dataflow_t df = get_immediate_uses (stmt);
@@ -1277,7 +1330,10 @@ add_var_to_ssa_edges_worklist (tree var)
 	  if (ann->in_ccp_worklist == 0)
 	    {
 	      ann->in_ccp_worklist = 1;
-	      VARRAY_PUSH_TREE (ssa_edges, use);
+	      if (val.lattice_val == VARYING)
+		VARRAY_PUSH_TREE (varying_ssa_edges, use);
+	      else
+		VARRAY_PUSH_TREE (ssa_edges, use);
 	    }
 	}
     }
@@ -1341,7 +1397,7 @@ set_lattice_value (tree var, value val)
 	  fprintf (dump_file, ".  Adding definition to SSA edges.\n");
 	}
 
-      add_var_to_ssa_edges_worklist (var);
+      add_var_to_ssa_edges_worklist (var, val);
       *old = val;
     }
 }
@@ -1430,7 +1486,7 @@ likely_value (tree stmt)
 
 /* A subroutine of fold_stmt_r.  Attempts to fold *(A+O) to A[X].
    BASE is an array type.  OFFSET is a byte displacement.  ORIG_TYPE
-   is the desired result type.   */
+   is the desired result type.  */
 
 static tree
 maybe_fold_offset_to_array_ref (tree base, tree offset, tree orig_type)
@@ -1578,7 +1634,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 
  found:
   /* If we get here, we've got an aggregate field, and a possibly 
-     non-zero offset into them.  Recurse and hope for a valid match.  */
+     nonzero offset into them.  Recurse and hope for a valid match.  */
   if (base_is_ptr)
     base = build1 (INDIRECT_REF, record_type, base);
   base = build (COMPONENT_REF, field_type, base, f);
@@ -1884,7 +1940,7 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
                   break;
                 }
             }
-        /* Fall through is an error; it will be detected in tree-sra. */
+        /* Fall through is an error; it will be detected in tree-sra.  */
         }
       break;
 
@@ -2024,7 +2080,8 @@ set_rhs (tree *stmt_p, tree expr)
       if (TREE_SIDE_EFFECTS (expr))
 	{
 	  def_optype defs;
-	  vdef_optype vdefs;
+	  v_may_def_optype v_may_defs;
+	  v_must_def_optype v_must_defs;
 	  size_t i;
 
 	  /* Fix all the SSA_NAMEs created by *STMT_P to point to its new
@@ -2037,10 +2094,18 @@ set_rhs (tree *stmt_p, tree expr)
 		SSA_NAME_DEF_STMT (var) = *stmt_p;
 	    }
 
-	  vdefs = VDEF_OPS (ann);
-	  for (i = 0; i < NUM_VDEFS (vdefs); i++)
+	  v_may_defs = V_MAY_DEF_OPS (ann);
+	  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
 	    {
-	      tree var = VDEF_RESULT (vdefs, i);
+	      tree var = V_MAY_DEF_RESULT (v_may_defs, i);
+	      if (TREE_CODE (var) == SSA_NAME)
+		SSA_NAME_DEF_STMT (var) = *stmt_p;
+	    }
+	    
+	  v_must_defs = V_MUST_DEF_OPS (ann);
+	  for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+	    {
+	      tree var = V_MUST_DEF_OP (v_must_defs, i);
 	      if (TREE_CODE (var) == SSA_NAME)
 		SSA_NAME_DEF_STMT (var) = *stmt_p;
 	    }

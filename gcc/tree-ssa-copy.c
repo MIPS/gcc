@@ -180,7 +180,7 @@ cprop_operand (stmt_ann_t ann, tree *op_p, varray_type const_and_copies)
      if (!lang_hooks.types_compatible_p (op_type, val_type)
            && TREE_CODE (val) != SSA_NAME)
 	{
-	  val = convert (TREE_TYPE (*op_p), val);
+	  val = fold_convert (TREE_TYPE (*op_p), val);
 	  if (!is_gimple_min_invariant (val)
 	      && TREE_CODE (val) != SSA_NAME)
 	    return false;
@@ -225,16 +225,16 @@ cprop_operand (stmt_ann_t ann, tree *op_p, varray_type const_and_copies)
    known value for that SSA_NAME (or NULL if no value is known).  
 
    Propagate values from CONST_AND_COPIES into the uses, vuses and
-   vdef_ops of STMT.  */
+   v_may_def_ops of STMT.  */
 
 bool
 cprop_into_stmt (tree stmt, varray_type const_and_copies)
 {
   bool may_have_exposed_new_symbols = false;
   stmt_ann_t ann = stmt_ann (stmt);
-  size_t i, num_uses, num_vuses, num_vdefs;
+  size_t i, num_uses, num_vuses, num_v_may_defs;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   use_optype uses;
 
   uses = USE_OPS (ann);
@@ -257,11 +257,11 @@ cprop_into_stmt (tree stmt, varray_type const_and_copies)
 	  |= cprop_operand (ann, op_p, const_and_copies);
     }
 
-  vdefs = VDEF_OPS (ann);
-  num_vdefs = NUM_VDEFS (vdefs);
-  for (i = 0; i < num_vdefs; i++)
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  num_v_may_defs = NUM_V_MAY_DEFS (v_may_defs);
+  for (i = 0; i < num_v_may_defs; i++)
     {
-      tree *op_p = VDEF_OP_PTR (vdefs, i);
+      tree *op_p = V_MAY_DEF_OP_PTR (v_may_defs, i);
       if (TREE_CODE (*op_p) == SSA_NAME)
 	may_have_exposed_new_symbols
 	  |= cprop_operand (ann, op_p, const_and_copies);
@@ -350,7 +350,7 @@ cprop_into_successor_phis (basic_block bb,
 	  /* If the alternative is known to have a nonzero value, record
 	     that fact in the PHI node itself for future use.  */
 	  if (bitmap_bit_p (nonzero_vars, SSA_NAME_VERSION (*orig_p)))
-	    PHI_ARG_NONZERO (phi, i) = true;
+	    PHI_ARG_NONZERO (phi, hint) = true;
 
 	  /* If we have *ORIG_P in our constant/copy table, then replace
 	     ORIG_P with its value in our constant/copy table.  */

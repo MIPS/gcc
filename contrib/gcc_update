@@ -72,7 +72,7 @@ gcc/java/keyword.h: gcc/java/keyword.gperf
 # Without this, _Pragma3.c can have a false negative.
 gcc/testsuite/gcc.dg/cpp/_Pragma3.c: gcc/testsuite/gcc.dg/cpp/mi1c.h
 # And libraries, at last
-libbanshee/configure: libbanshee/configure.in
+libbanshee/configure: libbanshee/configure.ac
 libmudflap/configure: libmudflap/configure.in
 libobjc/configure: libobjc/configure.ac
 zlib/aclocal.m4: zlib/configure.ac zlib/acinclude.m4
@@ -89,6 +89,9 @@ libffi/aclocal.m4: libffi/configure.ac libffi/acinclude.m4
 libffi/Makefile.in: libffi/Makefile.am libffi/configure.ac libffi/aclocal.m4
 libffi/configure: libffi/configure.ac libffi/aclocal.m4
 libffi/fficonfig.h.in: libffi/configure.ac libffi/aclocal.m4
+libgfortran/aclocal.m4: libgfortran/configure.ac libgfortran/acinclude.m4
+libgfortran/Makefile.in: libgfortran/Makefile.am libgfortran/configure.ac libgfortran/aclocal.m4
+libgfortran/configure: libgfortran/configure.ac libgfortran/aclocal.m4
 libjava/aclocal.m4: libjava/configure.in libjava/acinclude.m4
 libjava/Makefile.in: libjava/Makefile.am libjava/configure.in libjava/aclocal.m4
 libjava/configure: libjava/configure.in libjava/aclocal.m4

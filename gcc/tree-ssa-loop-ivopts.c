@@ -917,7 +917,7 @@ tree_ssa_iv_optimize_init (struct loops *loops, struct ivopts_data *data)
 {
   unsigned i;
 
-  data->version_info_size = 2 * highest_ssa_version;
+  data->version_info_size = 2 * num_ssa_names;
   data->version_info = xcalloc (data->version_info_size,
 				sizeof (struct version_info));
   data->relevant = BITMAP_XMALLOC ();
@@ -4345,7 +4345,7 @@ protect_loop_closed_ssa_form (edge exit, tree stmt)
 {
   use_optype uses;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   unsigned i;
 
   get_stmt_operands (stmt);
@@ -4358,9 +4358,9 @@ protect_loop_closed_ssa_form (edge exit, tree stmt)
   for (i = 0; i < NUM_VUSES (vuses); i++)
     protect_loop_closed_ssa_form_use (exit, VUSE_OP_PTR (vuses, i));
 
-  vdefs = STMT_VDEF_OPS (stmt);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
-    protect_loop_closed_ssa_form_use (exit, VDEF_OP_PTR (vdefs, i));
+  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+    protect_loop_closed_ssa_form_use (exit, V_MAY_DEF_OP_PTR (v_may_defs, i));
 }
 
 /* STMTS compute a value of a phi argument OP on EXIT of a loop.  Arrange things
@@ -4584,9 +4584,9 @@ free_loop_data (struct ivopts_data *data)
     }
   VARRAY_POP_ALL (data->iv_candidates);
 
-  if (data->version_info_size < highest_ssa_version)
+  if (data->version_info_size < num_ssa_names)
     {
-      data->version_info_size = 2 * highest_ssa_version;
+      data->version_info_size = 2 * num_ssa_names;
       free (data->version_info);
       data->version_info = xcalloc (data->version_info_size,
 				    sizeof (struct version_info));

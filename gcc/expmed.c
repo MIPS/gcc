@@ -57,7 +57,8 @@ static void do_cmp_and_jump (rtx, rtx, enum rtx_code, enum machine_mode, rtx);
    Usually, this will mean that the MD file will emit non-branch
    sequences.  */
 
-static int sdiv_pow2_cheap, smod_pow2_cheap;
+static int sdiv_pow2_cheap[NUM_MACHINE_MODES];
+static int smod_pow2_cheap[NUM_MACHINE_MODES];
 
 #ifndef SLOW_UNALIGNED_ACCESS
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) STRICT_ALIGNMENT
@@ -90,7 +91,9 @@ static int sdiv_pow2_cheap, smod_pow2_cheap;
 
 /* Cost of various pieces of RTL.  Note that some of these are indexed by
    shift count and some by mode.  */
-static int add_cost, negate_cost, zero_cost;
+static int zero_cost;
+static int add_cost[NUM_MACHINE_MODES];
+static int neg_cost[NUM_MACHINE_MODES];
 static int shift_cost[MAX_BITS_PER_WORD];
 static int shiftadd_cost[MAX_BITS_PER_WORD];
 static int shiftsub_cost[MAX_BITS_PER_WORD];
@@ -114,7 +117,6 @@ init_expmed (void)
   reg = gen_rtx_REG (word_mode, 10000);
 
   zero_cost = rtx_cost (const0_rtx, 0);
-  add_cost = rtx_cost (gen_rtx_PLUS (word_mode, reg, reg), SET);
 
   shift_insn = emit_insn (gen_rtx_SET (VOIDmode, reg,
 				       gen_rtx_ASHIFT (word_mode, reg,
@@ -136,8 +138,48 @@ init_expmed (void)
 
   init_recog ();
 
+
+  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
+       mode != VOIDmode;
+       mode = GET_MODE_WIDER_MODE (mode))
+    {
+      reg = gen_rtx_REG (mode, 10000);
+      add_cost[mode] = rtx_cost (gen_rtx_PLUS (mode, reg, reg), SET);
+      neg_cost[mode] = rtx_cost (gen_rtx_NEG (mode, reg), SET);
+      div_cost[mode] = rtx_cost (gen_rtx_UDIV (mode, reg, reg), SET);
+      mul_cost[mode] = rtx_cost (gen_rtx_MULT (mode, reg, reg), SET);
+
+      sdiv_pow2_cheap[mode]
+	= (rtx_cost (gen_rtx_DIV (mode, reg, GEN_INT (32)), SET)
+	   <= 2 * add_cost[mode]);
+      smod_pow2_cheap[mode]
+	= (rtx_cost (gen_rtx_MOD (mode, reg, GEN_INT (32)), SET)
+	   <= 2 * add_cost[mode]);
+
+      wider_mode = GET_MODE_WIDER_MODE (mode);
+      if (wider_mode != VOIDmode)
+	{
+	  mul_widen_cost[wider_mode]
+	    = rtx_cost (gen_rtx_MULT (wider_mode,
+				      gen_rtx_ZERO_EXTEND (wider_mode, reg),
+				      gen_rtx_ZERO_EXTEND (wider_mode, reg)),
+			SET);
+	  mul_highpart_cost[mode]
+	    = rtx_cost (gen_rtx_TRUNCATE
+			(mode,
+			 gen_rtx_LSHIFTRT (wider_mode,
+					   gen_rtx_MULT (wider_mode,
+							 gen_rtx_ZERO_EXTEND
+							 (wider_mode, reg),
+							 gen_rtx_ZERO_EXTEND
+							 (wider_mode, reg)),
+					   GEN_INT (GET_MODE_BITSIZE (mode)))),
+			SET);
+	}
+    }
+
   shift_cost[0] = 0;
-  shiftadd_cost[0] = shiftsub_cost[0] = add_cost;
+  shiftadd_cost[0] = shiftsub_cost[0] = add_cost[word_mode];
 
   for (m = 1; m < MAX_BITS_PER_WORD; m++)
     {
@@ -155,44 +197,6 @@ init_expmed (void)
       XEXP (XEXP (SET_SRC (PATTERN (shiftsub_insn)), 0), 1) = c_int;
       if (recog (PATTERN (shiftsub_insn), shiftsub_insn, &dummy) >= 0)
 	shiftsub_cost[m] = rtx_cost (SET_SRC (PATTERN (shiftsub_insn)), SET);
-    }
-
-  negate_cost = rtx_cost (gen_rtx_NEG (word_mode, reg), SET);
-
-  sdiv_pow2_cheap
-    = (rtx_cost (gen_rtx_DIV (word_mode, reg, GEN_INT (32)), SET)
-       <= 2 * add_cost);
-  smod_pow2_cheap
-    = (rtx_cost (gen_rtx_MOD (word_mode, reg, GEN_INT (32)), SET)
-       <= 2 * add_cost);
-
-  for (mode = GET_CLASS_NARROWEST_MODE (MODE_INT);
-       mode != VOIDmode;
-       mode = GET_MODE_WIDER_MODE (mode))
-    {
-      reg = gen_rtx_REG (mode, 10000);
-      div_cost[(int) mode] = rtx_cost (gen_rtx_UDIV (mode, reg, reg), SET);
-      mul_cost[(int) mode] = rtx_cost (gen_rtx_MULT (mode, reg, reg), SET);
-      wider_mode = GET_MODE_WIDER_MODE (mode);
-      if (wider_mode != VOIDmode)
-	{
-	  mul_widen_cost[(int) wider_mode]
-	    = rtx_cost (gen_rtx_MULT (wider_mode,
-				      gen_rtx_ZERO_EXTEND (wider_mode, reg),
-				      gen_rtx_ZERO_EXTEND (wider_mode, reg)),
-			SET);
-	  mul_highpart_cost[(int) mode]
-	    = rtx_cost (gen_rtx_TRUNCATE
-			(mode,
-			 gen_rtx_LSHIFTRT (wider_mode,
-					   gen_rtx_MULT (wider_mode,
-							 gen_rtx_ZERO_EXTEND
-							 (wider_mode, reg),
-							 gen_rtx_ZERO_EXTEND
-							 (wider_mode, reg)),
-					   GEN_INT (GET_MODE_BITSIZE (mode)))),
-			SET);
-	}
     }
 
   end_sequence ();
@@ -317,7 +321,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      available.  */
   if (VECTOR_MODE_P (GET_MODE (op0))
       && GET_CODE (op0) != MEM
-      && (vec_set_optab->handlers[(int)GET_MODE (op0)].insn_code
+      && (vec_set_optab->handlers[GET_MODE (op0)].insn_code
 	  != CODE_FOR_nothing)
       && fieldmode == GET_MODE_INNER (GET_MODE (op0))
       && bitsize == GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))
@@ -325,7 +329,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
     {
       enum machine_mode outermode = GET_MODE (op0);
       enum machine_mode innermode = GET_MODE_INNER (outermode);
-      int icode = (int) vec_set_optab->handlers[(int) outermode].insn_code;
+      int icode = (int) vec_set_optab->handlers[outermode].insn_code;
       int pos = bitnum / GET_MODE_BITSIZE (innermode);
       rtx rtxpos = GEN_INT (pos);
       rtx src = value;
@@ -451,10 +455,10 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   if (GET_CODE (op0) != MEM
       && (BYTES_BIG_ENDIAN ? bitpos + bitsize == unit : bitpos == 0)
       && bitsize == GET_MODE_BITSIZE (fieldmode)
-      && (movstrict_optab->handlers[(int) fieldmode].insn_code
+      && (movstrict_optab->handlers[fieldmode].insn_code
 	  != CODE_FOR_nothing))
     {
-      int icode = movstrict_optab->handlers[(int) fieldmode].insn_code;
+      int icode = movstrict_optab->handlers[fieldmode].insn_code;
 
       /* Get appropriate low part of the value being stored.  */
       if (GET_CODE (value) == CONST_INT || GET_CODE (value) == REG)
@@ -1086,14 +1090,14 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      available.  */
   if (VECTOR_MODE_P (GET_MODE (op0))
       && GET_CODE (op0) != MEM
-      && (vec_extract_optab->handlers[(int)GET_MODE (op0)].insn_code
+      && (vec_extract_optab->handlers[GET_MODE (op0)].insn_code
 	  != CODE_FOR_nothing)
       && ((bitsize + bitnum) / GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))
 	  == bitsize / GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))))
     {
       enum machine_mode outermode = GET_MODE (op0);
       enum machine_mode innermode = GET_MODE_INNER (outermode);
-      int icode = (int) vec_extract_optab->handlers[(int) outermode].insn_code;
+      int icode = (int) vec_extract_optab->handlers[outermode].insn_code;
       int pos = bitnum / GET_MODE_BITSIZE (innermode);
       rtx rtxpos = GEN_INT (pos);
       rtx src = op0;
@@ -1125,6 +1129,7 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  || ! (*insn_data[icode].operand[1].predicate) (src, mode1)
 	  || ! (*insn_data[icode].operand[2].predicate) (rtxpos, mode2))
 	abort ();
+
       pat = GEN_FCN (icode) (dest, src, rtxpos);
       seq = get_insns ();
       end_sequence ();
@@ -1132,9 +1137,7 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	{
 	  emit_insn (seq);
 	  emit_insn (pat);
-	  return extract_bit_field (dest, bitsize,
-				    bitnum - pos * GET_MODE_BITSIZE (innermode),
-				    unsignedp, target, mode, tmode, total_size);
+	  return dest;
 	}
     }
 
@@ -2150,7 +2153,8 @@ struct algorithm
    multiplicand should be added to the result.  */
 enum mult_variant {basic_variant, negate_variant, add_variant};
 
-static void synth_mult (struct algorithm *, unsigned HOST_WIDE_INT, int);
+static void synth_mult (struct algorithm *, unsigned HOST_WIDE_INT,
+			int, enum machine_mode mode);
 static bool choose_mult_variant (enum machine_mode, HOST_WIDE_INT,
 				 struct algorithm *, enum mult_variant *, int);
 static rtx expand_mult_const (enum machine_mode, rtx, HOST_WIDE_INT, rtx,
@@ -2165,11 +2169,12 @@ static rtx expand_mult_highpart_optab (enum machine_mode, rtx, rtx, rtx,
 /* Compute and return the best algorithm for multiplying by T.
    The algorithm must cost less than cost_limit
    If retval.cost >= COST_LIMIT, no algorithm was found and all
-   other field of the returned struct are undefined.  */
+   other field of the returned struct are undefined.
+   MODE is the machine mode of the multiplication.  */
 
 static void
 synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
-	    int cost_limit)
+	    int cost_limit, enum machine_mode mode)
 {
   int m;
   struct algorithm *alg_in, *best_alg;
@@ -2222,7 +2227,7 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	{
 	  q = t >> m;
 	  cost = shift_cost[m];
-	  synth_mult (alg_in, q, cost_limit - cost);
+	  synth_mult (alg_in, q, cost_limit - cost, mode);
 
 	  cost += alg_in->cost;
 	  if (cost < cost_limit)
@@ -2256,8 +2261,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	{
 	  /* T ends with ...111.  Multiply by (T + 1) and subtract 1.  */
 
-	  cost = add_cost;
-	  synth_mult (alg_in, t + 1, cost_limit - cost);
+	  cost = add_cost[mode];
+	  synth_mult (alg_in, t + 1, cost_limit - cost, mode);
 
 	  cost += alg_in->cost;
 	  if (cost < cost_limit)
@@ -2273,8 +2278,8 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 	{
 	  /* T ends with ...01 or ...011.  Multiply by (T - 1) and add 1.  */
 
-	  cost = add_cost;
-	  synth_mult (alg_in, t - 1, cost_limit - cost);
+	  cost = add_cost[mode];
+	  synth_mult (alg_in, t - 1, cost_limit - cost, mode);
 
 	  cost += alg_in->cost;
 	  if (cost < cost_limit)
@@ -2305,8 +2310,10 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
       d = ((unsigned HOST_WIDE_INT) 1 << m) + 1;
       if (t % d == 0 && t > d && m < BITS_PER_WORD)
 	{
-	  cost = MIN (shiftadd_cost[m], add_cost + shift_cost[m]);
-	  synth_mult (alg_in, t / d, cost_limit - cost);
+	  cost = add_cost[mode] + shift_cost[m];
+	  if (shiftadd_cost[m] < cost)
+	    cost = shiftadd_cost[m];
+	  synth_mult (alg_in, t / d, cost_limit - cost, mode);
 
 	  cost += alg_in->cost;
 	  if (cost < cost_limit)
@@ -2324,8 +2331,10 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
       d = ((unsigned HOST_WIDE_INT) 1 << m) - 1;
       if (t % d == 0 && t > d && m < BITS_PER_WORD)
 	{
-	  cost = MIN (shiftsub_cost[m], add_cost + shift_cost[m]);
-	  synth_mult (alg_in, t / d, cost_limit - cost);
+	  cost = add_cost[mode] + shift_cost[m];
+	  if (shiftsub_cost[m] < cost)
+	    cost = shiftsub_cost[m];
+	  synth_mult (alg_in, t / d, cost_limit - cost, mode);
 
 	  cost += alg_in->cost;
 	  if (cost < cost_limit)
@@ -2350,7 +2359,7 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
       if (m >= 0 && m < BITS_PER_WORD)
 	{
 	  cost = shiftadd_cost[m];
-	  synth_mult (alg_in, (t - 1) >> m, cost_limit - cost);
+	  synth_mult (alg_in, (t - 1) >> m, cost_limit - cost, mode);
 
 	  cost += alg_in->cost;
 	  if (cost < cost_limit)
@@ -2369,7 +2378,7 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
       if (m >= 0 && m < BITS_PER_WORD)
 	{
 	  cost = shiftsub_cost[m];
-	  synth_mult (alg_in, (t + 1) >> m, cost_limit - cost);
+	  synth_mult (alg_in, (t + 1) >> m, cost_limit - cost, mode);
 
 	  cost += alg_in->cost;
 	  if (cost < cost_limit)
@@ -2422,21 +2431,23 @@ choose_mult_variant (enum machine_mode mode, HOST_WIDE_INT val,
   struct algorithm alg2;
 
   *variant = basic_variant;
-  synth_mult (alg, val, mult_cost);
+  synth_mult (alg, val, mult_cost, mode);
 
   /* This works only if the inverted value actually fits in an
      `unsigned int' */
   if (HOST_BITS_PER_INT >= GET_MODE_BITSIZE (mode))
     {
-      synth_mult (&alg2, -val, MIN (alg->cost, mult_cost) - negate_cost);
-      alg2.cost += negate_cost;
+      synth_mult (&alg2, -val, MIN (alg->cost, mult_cost) - neg_cost[mode],
+		  mode);
+      alg2.cost += neg_cost[mode];
       if (alg2.cost < alg->cost)
 	*alg = alg2, *variant = negate_variant;
     }
 
   /* This proves very useful for division-by-constant.  */
-  synth_mult (&alg2, val - 1, MIN (alg->cost, mult_cost) - add_cost);
-  alg2.cost += add_cost;
+  synth_mult (&alg2, val - 1, MIN (alg->cost, mult_cost) - add_cost[mode],
+	      mode);
+  alg2.cost += add_cost[mode];
   if (alg2.cost < alg->cost)
     *alg = alg2, *variant = add_variant;
 
@@ -2634,7 +2645,7 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
       && (unsignedp || !flag_trapv))
     {
       int mult_cost = rtx_cost (gen_rtx_MULT (mode, op0, op1), SET);
-      mult_cost = MIN (12 * add_cost, mult_cost);
+      mult_cost = MIN (12 * add_cost[mode], mult_cost);
 
       if (choose_mult_variant (mode, INTVAL (const_op1), &algorithm, &variant,
 			       mult_cost))
@@ -2888,7 +2899,7 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
 
   /* Firstly, try using a multiplication insn that only generates the needed
      high part of the product, and in the sign flavor of unsignedp.  */
-  if (mul_highpart_cost[(int) mode] < max_cost)
+  if (mul_highpart_cost[mode] < max_cost)
     {
       moptab = unsignedp ? umul_highpart_optab : smul_highpart_optab;
       tem = expand_binop (mode, moptab, op0, narrow_op1, target,
@@ -2900,8 +2911,8 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
   /* Secondly, same as above, but use sign flavor opposite of unsignedp.
      Need to adjust the result after the multiplication.  */
   if (size - 1 < BITS_PER_WORD
-      && (mul_highpart_cost[(int) mode] + 2 * shift_cost[size-1] + 4 * add_cost
-	  < max_cost))
+      && (mul_highpart_cost[mode] + 2 * shift_cost[size-1]
+	  + 4 * add_cost[mode] < max_cost))
     {
       moptab = unsignedp ? smul_highpart_optab : umul_highpart_optab;
       tem = expand_binop (mode, moptab, op0, narrow_op1, target,
@@ -2914,8 +2925,8 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
 
   /* Try widening multiplication.  */
   moptab = unsignedp ? umul_widen_optab : smul_widen_optab;
-  if (moptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing
-      && mul_widen_cost[(int) wider_mode] < max_cost)
+  if (moptab->handlers[wider_mode].insn_code != CODE_FOR_nothing
+      && mul_widen_cost[wider_mode] < max_cost)
     {
       tem = expand_binop (wider_mode, moptab, op0, narrow_op1, 0,
 			  unsignedp, OPTAB_WIDEN);
@@ -2925,9 +2936,9 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
 
   /* Try widening the mode and perform a non-widening multiplication.  */
   moptab = smul_optab;
-  if (smul_optab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing
+  if (smul_optab->handlers[wider_mode].insn_code != CODE_FOR_nothing
       && size - 1 < BITS_PER_WORD
-      && mul_cost[(int) wider_mode] + shift_cost[size-1] < max_cost)
+      && mul_cost[wider_mode] + shift_cost[size-1] < max_cost)
     {
       tem = expand_binop (wider_mode, moptab, op0, op1, 0,
 			  unsignedp, OPTAB_WIDEN);
@@ -2937,10 +2948,10 @@ expand_mult_highpart_optab (enum machine_mode mode, rtx op0, rtx op1,
 
   /* Try widening multiplication of opposite signedness, and adjust.  */
   moptab = unsignedp ? smul_widen_optab : umul_widen_optab;
-  if (moptab->handlers[(int) wider_mode].insn_code != CODE_FOR_nothing
+  if (moptab->handlers[wider_mode].insn_code != CODE_FOR_nothing
       && size - 1 < BITS_PER_WORD
-      && (mul_widen_cost[(int) wider_mode]
-	  + 2 * shift_cost[size-1] + 4 * add_cost < max_cost))
+      && (mul_widen_cost[wider_mode] + 2 * shift_cost[size-1]
+	  + 4 * add_cost[mode] < max_cost))
     {
       tem = expand_binop (wider_mode, moptab, op0, narrow_op1,
 			  NULL_RTX, ! unsignedp, OPTAB_WIDEN);
@@ -2999,7 +3010,7 @@ expand_mult_highpart (enum machine_mode mode, rtx op0,
   if (!unsignedp && ((cnst1 >> (GET_MODE_BITSIZE (mode) - 1)) & 1))
     {
       sign_adjust = true;
-      extra_cost += add_cost;
+      extra_cost += add_cost[mode];
     }
 
   /* See whether shift/add multiplication is cheap enough.  */
@@ -3017,7 +3028,7 @@ expand_mult_highpart (enum machine_mode mode, rtx op0,
       tem = expand_mult_const (wider_mode, tem, cnst1, 0, &alg, variant);
       tem = extract_high_half (mode, tem);
 
-      /* Adjust result for signedness. */
+      /* Adjust result for signedness.  */
       if (sign_adjust)
 	tem = force_operand (gen_rtx_MINUS (mode, tem, op0), tem);
 
@@ -3180,15 +3191,15 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 
   for (compute_mode = mode; compute_mode != VOIDmode;
        compute_mode = GET_MODE_WIDER_MODE (compute_mode))
-    if (optab1->handlers[(int) compute_mode].insn_code != CODE_FOR_nothing
-	|| optab2->handlers[(int) compute_mode].insn_code != CODE_FOR_nothing)
+    if (optab1->handlers[compute_mode].insn_code != CODE_FOR_nothing
+	|| optab2->handlers[compute_mode].insn_code != CODE_FOR_nothing)
       break;
 
   if (compute_mode == VOIDmode)
     for (compute_mode = mode; compute_mode != VOIDmode;
 	 compute_mode = GET_MODE_WIDER_MODE (compute_mode))
-      if (optab1->handlers[(int) compute_mode].libfunc
-	  || optab2->handlers[(int) compute_mode].libfunc)
+      if (optab1->handlers[compute_mode].libfunc
+	  || optab2->handlers[compute_mode].libfunc)
 	break;
 
   /* If we still couldn't find a mode, use MODE, but we'll probably abort
@@ -3212,10 +3223,11 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
   /* Only deduct something for a REM if the last divide done was
      for a different constant.   Then set the constant of the last
      divide.  */
-  max_cost = div_cost[(int) compute_mode]
+  max_cost = div_cost[compute_mode]
     - (rem_flag && ! (last_div_const != 0 && op1_is_constant
 		      && INTVAL (op1) == last_div_const)
-       ? mul_cost[(int) compute_mode] + add_cost : 0);
+       ? mul_cost[compute_mode] + add_cost[compute_mode]
+       : 0);
 
   last_div_const = ! rem_flag && op1_is_constant ? INTVAL (op1) : 0;
 
@@ -3333,7 +3345,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			      goto fail1;
 
 			    extra_cost = (shift_cost[post_shift - 1]
-					  + shift_cost[1] + 2 * add_cost);
+					  + shift_cost[1]
+					  + 2 * add_cost[compute_mode]);
 			    t1 = expand_mult_highpart (compute_mode, op0, ml,
 						       NULL_RTX, 1,
 						       max_cost - extra_cost);
@@ -3416,15 +3429,16 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 		      goto fail1;
 		  }
 		else if (EXACT_POWER_OF_2_OR_ZERO_P (d)
-			 && (rem_flag ? smod_pow2_cheap : sdiv_pow2_cheap)
+			 && (rem_flag ? smod_pow2_cheap[compute_mode]
+				      : sdiv_pow2_cheap[compute_mode])
 			 /* ??? The cheap metric is computed only for
 			    word_mode.  If this operation is wider, this may
 			    not be so.  Assume true if the optab has an
 			    expander for this mode.  */
 			 && (((rem_flag ? smod_optab : sdiv_optab)
-			      ->handlers[(int) compute_mode].insn_code
+			      ->handlers[compute_mode].insn_code
 			      != CODE_FOR_nothing)
-			     || (sdivmod_optab->handlers[(int) compute_mode]
+			     || (sdivmod_optab->handlers[compute_mode]
 				 .insn_code != CODE_FOR_nothing)))
 		  ;
 		else if (EXACT_POWER_OF_2_OR_ZERO_P (abs_d))
@@ -3498,7 +3512,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			  goto fail1;
 
 			extra_cost = (shift_cost[post_shift]
-				      + shift_cost[size - 1] + add_cost);
+				      + shift_cost[size - 1]
+				      + add_cost[compute_mode]);
 			t1 = expand_mult_highpart (compute_mode, op0, ml,
 						   NULL_RTX, 0,
 						   max_cost - extra_cost);
@@ -3529,7 +3544,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 
 			ml |= (~(unsigned HOST_WIDE_INT) 0) << (size - 1);
 			extra_cost = (shift_cost[post_shift]
-				      + shift_cost[size - 1] + 2 * add_cost);
+				      + shift_cost[size - 1]
+				      + 2 * add_cost[compute_mode]);
 			t1 = expand_mult_highpart (compute_mode, op0, ml,
 						   NULL_RTX, 0,
 						   max_cost - extra_cost);
@@ -3619,7 +3635,8 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 			t2 = expand_binop (compute_mode, xor_optab, op0, t1,
 					   NULL_RTX, 0, OPTAB_WIDEN);
 			extra_cost = (shift_cost[post_shift]
-				      + shift_cost[size - 1] + 2 * add_cost);
+				      + shift_cost[size - 1]
+				      + 2 * add_cost[compute_mode]);
 			t3 = expand_mult_highpart (compute_mode, t2, ml,
 						   NULL_RTX, 1,
 						   max_cost - extra_cost);
@@ -4080,7 +4097,7 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	    = sign_expand_binop (compute_mode, umod_optab, smod_optab,
 				 op0, op1, target,
 				 unsignedp,
-				 ((optab2->handlers[(int) compute_mode].insn_code
+				 ((optab2->handlers[compute_mode].insn_code
 				   != CODE_FOR_nothing)
 				  ? OPTAB_DIRECT : OPTAB_WIDEN));
 	  if (remainder == 0)
@@ -4108,7 +4125,7 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
 	= sign_expand_binop (compute_mode, udiv_optab, sdiv_optab,
 			     op0, op1, rem_flag ? NULL_RTX : target,
 			     unsignedp,
-			     ((optab2->handlers[(int) compute_mode].insn_code
+			     ((optab2->handlers[compute_mode].insn_code
 			       != CODE_FOR_nothing)
 			      ? OPTAB_DIRECT : OPTAB_WIDEN));
 
@@ -4544,11 +4561,28 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
       comparison
 	= compare_from_rtx (op0, op1, code, unsignedp, mode, NULL_RTX);
-      if (GET_CODE (comparison) == CONST_INT)
-	return (comparison == const0_rtx ? const0_rtx
-		: normalizep == 1 ? const1_rtx
-		: normalizep == -1 ? constm1_rtx
-		: const_true_rtx);
+      if (CONSTANT_P (comparison))
+	{
+	  if (GET_CODE (comparison) == CONST_INT)
+	    {
+	      if (comparison == const0_rtx)
+		return const0_rtx;
+	    }
+#ifdef FLOAT_STORE_FLAG_VALUE
+	  else if (GET_CODE (comparison) == CONST_DOUBLE)
+	    {
+	      if (comparison == CONST0_RTX (GET_MODE (comparison)))
+		return const0_rtx;
+	    }
+#endif
+	  else
+	    abort ();
+	  if (normalizep == 1)
+	    return const1_rtx;
+	  if (normalizep == -1)
+	    return constm1_rtx;
+	  return const_true_rtx;
+	}
 
       /* The code of COMPARISON may not match CODE if compare_from_rtx
 	 decided to swap its operands and reverse the original code.
@@ -4752,9 +4786,9 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 	 that is compensated by the subsequent overflow when subtracting
 	 one / negating.  */
 
-      if (abs_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+      if (abs_optab->handlers[mode].insn_code != CODE_FOR_nothing)
 	tem = expand_unop (mode, abs_optab, op0, subtarget, 1);
-      else if (ffs_optab->handlers[(int) mode].insn_code != CODE_FOR_nothing)
+      else if (ffs_optab->handlers[mode].insn_code != CODE_FOR_nothing)
 	tem = expand_unop (mode, ffs_optab, op0, subtarget, 1);
       else if (GET_MODE_SIZE (mode) < UNITS_PER_WORD)
 	{

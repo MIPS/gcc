@@ -20,6 +20,12 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
+#ifndef GCC_DF_H
+#define GCC_DF_H
+
+#include "bitmap.h"
+#include "basic-block.h"
+
 #define DF_RD		1	/* Reaching definitions.  */
 #define DF_RU		2	/* Reaching uses.  */
 #define DF_LR		4	/* Live registers.  */
@@ -158,9 +164,6 @@ struct df
   bitmap insns_modified;	/* Insns that (may) have changed.  */
   bitmap bbs_modified;		/* Blocks that (may) have changed.  */
   bitmap all_blocks;		/* All blocks in CFG.  */
-  /* The sbitmap vector of dominators or NULL if not computed.
-     Ideally, this should be a pointer to a CFG object.  */
-  sbitmap *dom;
   int *dfs_order;		/* DFS order -> block number.  */
   int *rc_order;		/* Reverse completion order -> block number.  */
   int *rts_order;		/* Reverse top sort order -> block number.  */
@@ -231,7 +234,7 @@ struct df_map
 #define DF_INSN_USES(DF, INSN) ((DF)->insns[INSN_UID (INSN)].uses)
 
 
-/* Functions to build and analyse dataflow information.  */
+/* Functions to build and analyze dataflow information.  */
 
 extern struct df *df_init (void);
 
@@ -304,8 +307,6 @@ extern struct ref *df_find_def (struct df *, rtx, rtx);
 
 extern int df_reg_used (struct df *, rtx, rtx);
 
-extern struct ref *df_find_def (struct df *, rtx, rtx);
-
 /* Functions for debugging from GDB.  */
 
 extern void debug_df_insn (rtx);
@@ -377,3 +378,5 @@ struct dataflow
 
 extern void iterative_dataflow (struct dataflow *);
 extern bool read_modify_subreg_p (rtx);
+
+#endif /* GCC_DF_H */

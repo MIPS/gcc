@@ -701,7 +701,9 @@ chain_of_csts_start (struct loop *loop, tree x)
   get_stmt_operands (stmt);
   if (NUM_VUSES (STMT_VUSE_OPS (stmt)) > 0)
     return NULL_TREE;
-  if (NUM_VDEFS (STMT_VDEF_OPS (stmt)) > 0)
+  if (NUM_V_MAY_DEFS (STMT_V_MAY_DEF_OPS (stmt)) > 0)
+    return NULL_TREE;
+  if (NUM_V_MUST_DEFS (STMT_V_MUST_DEF_OPS (stmt)) > 0)
     return NULL_TREE;
   if (NUM_DEFS (STMT_DEF_OPS (stmt)) > 1)
     return NULL_TREE;

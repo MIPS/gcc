@@ -425,8 +425,12 @@ if test x$ac_tree_checking != x ; then
   AC_DEFINE(ENABLE_TREE_CHECKING, 1,
 [Define if you want all operations on trees (the basic data
    structure of the front ends) to be checked for dynamic type safety
-   at runtime.  This is moderately expensive.])
+   at runtime.  This is moderately expensive.  The tree browser debugging
+   routines will also be enabled by this option.
+   ])
+  TREEBROWSER=tree-browser.o
 fi
+AC_SUBST(TREEBROWSER)
 if test x$ac_rtl_checking != x ; then
   AC_DEFINE(ENABLE_RTL_CHECKING, 1,
 [Define if you want all operations on RTL (the basic data structure
@@ -509,6 +513,15 @@ fi
 AC_SUBST(valgrind_path_defines)
 AC_SUBST(valgrind_command)
 
+AC_ARG_ENABLE(mapped-location,
+[  --enable-mapped-location   location_t is fileline integer cookie],,
+enable_mapped_location=no)
+
+if test "$enable_mapped_location" = yes ; then
+  AC_DEFINE(USE_MAPPED_LOCATION, 1,
+[Define if location_t is fileline integer cookie.])
+fi
+
 # Enable code coverage collection
 AC_ARG_ENABLE(coverage,
 [  --enable-coverage[=LEVEL]
@@ -542,14 +555,6 @@ if test x$enable_gather_detailed_mem_stats = xyes ; then
   AC_DEFINE(GATHER_STATISTICS, 1,
         [Define to enable detailed memory allocation stats gathering.])
 fi
-
-AC_ARG_ENABLE(tree-browser,
-[  --enable-tree-browser   enable the tree browsing routines for debugging], [],
-[enable_tree_browser=no])
-if test x$enable_tree_browser = xyes ; then
-  TREEBROWSER=tree-browser.o
-fi
-AC_SUBST(TREEBROWSER)
 
 # -------------------------------
 # Miscenalleous configure options
@@ -721,8 +726,8 @@ case ${AWK} in
   "") AC_MSG_ERROR([can't build without awk, bailing out]) ;;
 esac
 
-gcc_AC_PROG_LN
 gcc_AC_PROG_LN_S
+ACX_PROG_LN($LN_S)
 AC_PROG_RANLIB
 gcc_AC_PROG_INSTALL
 
@@ -805,7 +810,6 @@ AC_PROG_CPP_WERROR
 
 AC_HEADER_STDC
 AC_HEADER_TIME
-ACX_HEADER_STDBOOL
 ACX_HEADER_STRING
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \

@@ -3846,8 +3846,11 @@ iterative_hash_expr (tree t, hashval_t val)
 	  val = iterative_hash_object (TREE_INT_CST_HIGH (t), val);
 	}
       else if (code == REAL_CST)
-	val = iterative_hash (TREE_REAL_CST_PTR (t),
-			      sizeof (REAL_VALUE_TYPE), val);
+	{
+	  unsigned int val2 = real_hash (TREE_REAL_CST_PTR (t));
+
+	  val = iterative_hash (&val2, sizeof (unsigned int), val);
+	}
       else if (code == STRING_CST)
 	val = iterative_hash (TREE_STRING_POINTER (t),
 			      TREE_STRING_LENGTH (t), val);
@@ -5352,6 +5355,7 @@ build_common_tree_nodes_2 (int short_double)
   ptr_type_node = build_pointer_type (void_type_node);
   const_ptr_type_node
     = build_pointer_type (build_type_variant (void_type_node, 1, 0));
+  fileptr_type_node = ptr_type_node;
 
   float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (float_type_node) = FLOAT_TYPE_SIZE;

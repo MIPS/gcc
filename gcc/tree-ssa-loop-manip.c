@@ -115,7 +115,8 @@ collect_defs (struct loop *loop)
   tree phi, stmt;
   block_stmt_iterator bsi;
   def_optype defs;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   tree ret = NULL_TREE;
 
   for (i = 0; i < loop->num_nodes; i++)
@@ -130,9 +131,13 @@ collect_defs (struct loop *loop)
 	  for (j = 0; j < NUM_DEFS (defs); j++)
 	    ret = tree_cons (NULL, DEF_OP (defs, j), ret);
 
-	  vdefs = STMT_VDEF_OPS (stmt);
-	  for (j = 0; j < NUM_VDEFS (vdefs); j++)
-	    ret = tree_cons (NULL, VDEF_RESULT (vdefs, j), ret);
+	  v_may_defs = STMT_V_MAY_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_V_MAY_DEFS (v_may_defs); j++)
+	    ret = tree_cons (NULL, V_MAY_DEF_RESULT (v_may_defs, j), ret);
+
+	  v_must_defs = STMT_V_MUST_DEF_OPS (stmt);
+	  for (j = 0; j < NUM_V_MUST_DEFS (v_must_defs); j++)
+	    ret = tree_cons (NULL, V_MUST_DEF_OP (v_must_defs, j), ret);
 	}
 
       for (phi = phi_nodes (body[i]); phi; phi = TREE_CHAIN (phi))
@@ -156,16 +161,14 @@ allocate_new_names (tree definitions, unsigned ndupl, bool origin)
 {
   tree def;
   unsigned i;
-  ssa_name_ann_t ann;
   tree *new_names;
   bool abnormal;
 
   for (; definitions; definitions = TREE_CHAIN (definitions))
     {
       def = TREE_VALUE (definitions);
-      ann = get_ssa_name_ann (def);
       new_names = xmalloc (sizeof (tree) * (ndupl + (origin ? 1 : 0)));
-      ann->common.aux = new_names;
+      SSA_NAME_AUX (def) = new_names;
 
       abnormal = SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def);
       for (i = (origin ? 0 : 1); i <= ndupl; i++)
@@ -183,7 +186,6 @@ allocate_new_names (tree definitions, unsigned ndupl, bool origin)
 static void
 rename_op (tree *op_p, bool def, tree stmt, unsigned n_copy)
 {
-  ssa_name_ann_t ann;
   tree *new_names;
 
   if(!op_p)
@@ -192,8 +194,7 @@ rename_op (tree *op_p, bool def, tree stmt, unsigned n_copy)
   if (TREE_CODE (*op_p) != SSA_NAME)
     return;
 
-  ann = ssa_name_ann (*op_p);
-  new_names = ann ? ann->common.aux : NULL;
+  new_names = SSA_NAME_AUX (*op_p);
 
   /* Something defined outside of the loop.  */
   if (!new_names)
@@ -218,7 +219,8 @@ rename_variables_in_bb (basic_block bb)
   use_optype uses;
   vuse_optype vuses;
   def_optype defs;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
+  v_must_def_optype v_must_defs;
   unsigned i, nbb = bb->rbi->copy_number;
   edge e;
 
@@ -243,12 +245,17 @@ rename_variables_in_bb (basic_block bb)
       for (i = 0; i < NUM_VUSES (vuses); i++)
 	rename_op (VUSE_OP_PTR (vuses, i), false, stmt, nbb);
 
-      vdefs = VDEF_OPS (ann);
-      for (i = 0; i < NUM_VDEFS (vdefs); i++)
+      v_may_defs = V_MAY_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
 	{
-	  rename_op (VDEF_OP_PTR (vdefs, i), false, stmt, nbb);
-	  rename_op (VDEF_RESULT_PTR (vdefs, i), true, stmt, nbb);
+	  rename_op (V_MAY_DEF_OP_PTR (v_may_defs, i), false, stmt, nbb);
+	  rename_op (V_MAY_DEF_RESULT_PTR (v_may_defs, i), true, stmt, nbb);
 	}
+
+      v_must_defs = V_MUST_DEF_OPS (ann);
+      for (i = 0; i < NUM_V_MUST_DEFS (v_must_defs); i++)
+	rename_op (V_MUST_DEF_OP_PTR (v_must_defs, i), true, stmt, nbb);
+
     }
 
   for (e = bb->succ; e; e = e->succ_next)
@@ -284,15 +291,16 @@ static void
 free_new_names (tree definitions, bool origin)
 {
   tree def;
-  ssa_name_ann_t ann;
 
   for (; definitions; definitions = TREE_CHAIN (definitions))
     {
       def = TREE_VALUE (definitions);
-      ann = ssa_name_ann (def);
 
-      free (ann->common.aux);
-      ann->common.aux = NULL;
+      if (SSA_NAME_AUX (def))
+	{
+	  free (SSA_NAME_AUX (def));
+	  SSA_NAME_AUX (def) = NULL;
+	}
 
       if (origin)
 	 release_ssa_name (def);
@@ -710,18 +718,16 @@ add_exit_phis_var (tree var, bitmap livein, bitmap exits)
 
 /* Add exit phis for the names marked in NAMES_TO_RENAME.
    Exits of the loops are stored in EXITS.  Sets of blocks where the ssa
-   names are used are stored in USE_BLOCKS.  SSA_NAMES is the array of ssa
-   names indexed by their versions.  */
+   names are used are stored in USE_BLOCKS.  */
 
 static void
-add_exit_phis (bitmap names_to_rename, bitmap *use_blocks, bitmap loop_exits,
-	       tree *ssa_names)
+add_exit_phis (bitmap names_to_rename, bitmap *use_blocks, bitmap loop_exits)
 {
   unsigned i;
 
   EXECUTE_IF_SET_IN_BITMAP (names_to_rename, 0, i,
     {
-      add_exit_phis_var (ssa_names[i], use_blocks[i], loop_exits);
+      add_exit_phis_var (ssa_name (i), use_blocks[i], loop_exits);
     });
 }
 
@@ -750,11 +756,11 @@ get_loops_exits (void)
 
 /* For USE in BB, if it is used outside of the loop it is defined in,
    mark it in NAMES_TO_RENAME.  Record basic block BB where it is used
-   to USE_BLOCKS, and the ssa name itself to NAMES.  */
+   to USE_BLOCKS.  */
 
 static void
 find_uses_to_rename_use (basic_block bb, tree use, bitmap names_to_rename,
-			 bitmap *use_blocks, tree *names)
+			 bitmap *use_blocks)
 {
   unsigned ver;
   basic_block def_bb;
@@ -773,7 +779,6 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap names_to_rename,
   if (!def_loop->outer)
     return;
 
-  names[ver] = use;
   if (!use_blocks[ver])
     use_blocks[ver] = BITMAP_XMALLOC ();
   bitmap_set_bit (use_blocks[ver], bb->index);
@@ -784,15 +789,15 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap names_to_rename,
 
 /* For uses in STMT, mark names that are used outside of the loop they are
    defined in in NAMES_TO_RENAME.  Record the set of blocks in that the ssa
-   names are defined to USE_BLOCKS, and the names themselves to NAMES.  */
+   names are defined to USE_BLOCKS.  */
 
 static void
 find_uses_to_rename_stmt (tree stmt, bitmap names_to_rename,
-			  bitmap *use_blocks, tree *names)
+			  bitmap *use_blocks)
 {
   use_optype uses;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   stmt_ann_t ann;
   unsigned i;
   basic_block bb = bb_for_stmt (stmt);
@@ -803,25 +808,25 @@ find_uses_to_rename_stmt (tree stmt, bitmap names_to_rename,
   uses = USE_OPS (ann);
   for (i = 0; i < NUM_USES (uses); i++)
     find_uses_to_rename_use (bb, USE_OP (uses, i),
-			     names_to_rename, use_blocks, names);
+			     names_to_rename, use_blocks);
 
   vuses = VUSE_OPS (ann);
   for (i = 0; i < NUM_VUSES (vuses); i++)
     find_uses_to_rename_use (bb, VUSE_OP (vuses, i),
-			     names_to_rename, use_blocks, names);
+			     names_to_rename, use_blocks);
 
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
-    find_uses_to_rename_use (bb, VDEF_OP (vdefs, i),
-			     names_to_rename, use_blocks, names);
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+    find_uses_to_rename_use (bb, V_MAY_DEF_OP (v_may_defs, i),
+			     names_to_rename, use_blocks);
 }
 
 /* Marks names that are used outside of the loop they are defined in
    in NAMES_TO_RENAME.  Records the set of blocks in that the ssa
-   names are defined to USE_BLOCKS, and the names themselves to NAMES.  */
+   names are defined to USE_BLOCKS.  */
 
 static void
-find_uses_to_rename (bitmap names_to_rename, bitmap *use_blocks, tree *names)
+find_uses_to_rename (bitmap names_to_rename, bitmap *use_blocks)
 {
   basic_block bb;
   block_stmt_iterator bsi;
@@ -833,12 +838,12 @@ find_uses_to_rename (bitmap names_to_rename, bitmap *use_blocks, tree *names)
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
 	for (i = 0; i < (unsigned) PHI_NUM_ARGS (phi); i++)
 	  find_uses_to_rename_use (PHI_ARG_EDGE (phi, i)->src,
-				   PHI_ARG_DEF (phi, i),
-				   names_to_rename, use_blocks, names);
+				   PHI_ARG_DEF (phi, i), names_to_rename,
+				   use_blocks);
 
       for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
 	find_uses_to_rename_stmt (bsi_stmt (bsi),
-				  names_to_rename, use_blocks, names);
+				  names_to_rename, use_blocks);
     }
 }
 
@@ -874,31 +879,27 @@ rewrite_into_loop_closed_ssa (void)
   bitmap names_to_rename = BITMAP_XMALLOC ();
   bitmap loop_exits = get_loops_exits ();
   bitmap *use_blocks;
-  tree *ssa_names;
   unsigned i;
 
   tree_ssa_dce_no_cfg_changes ();
 
-  use_blocks = xcalloc (highest_ssa_version, sizeof (bitmap));
-  ssa_names = xcalloc (highest_ssa_version, sizeof (tree));
+  use_blocks = xcalloc (num_ssa_names, sizeof (bitmap));
 
   /* Find the uses outside loops.  */
-  find_uses_to_rename (names_to_rename, use_blocks, ssa_names);
+  find_uses_to_rename (names_to_rename, use_blocks);
 
   /* Add the phi nodes on exits of the loops for the names we need to
      rewrite.  */
-  add_exit_phis (names_to_rename, use_blocks, loop_exits, ssa_names);
+  add_exit_phis (names_to_rename, use_blocks, loop_exits);
 
-  for (i = 0; i < highest_ssa_version; i++)
+  for (i = 0; i < num_ssa_names; i++)
     BITMAP_XFREE (use_blocks[i]);
   free (use_blocks);
-  free (ssa_names);
   BITMAP_XFREE (loop_exits);
 
   /* Do the rewriting.  */
   rewrite_ssa_into_ssa (names_to_rename);
   BITMAP_XFREE (names_to_rename);
-  BITMAP_XFREE (loop_exits);
 }
 
 /* Check invariants of the loop closed ssa form for the USE in BB.  */
@@ -926,7 +927,7 @@ check_loop_closed_ssa_stmt (basic_block bb, tree stmt)
 {
   use_optype uses;
   vuse_optype vuses;
-  vdef_optype vdefs;
+  v_may_def_optype v_may_defs;
   stmt_ann_t ann;
   unsigned i;
 
@@ -941,9 +942,9 @@ check_loop_closed_ssa_stmt (basic_block bb, tree stmt)
   for (i = 0; i < NUM_VUSES (vuses); i++)
     check_loop_closed_ssa_use (bb, VUSE_OP (vuses, i));
 
-  vdefs = VDEF_OPS (ann);
-  for (i = 0; i < NUM_VDEFS (vdefs); i++)
-    check_loop_closed_ssa_use (bb, VDEF_OP (vdefs, i));
+  v_may_defs = V_MAY_DEF_OPS (ann);
+  for (i = 0; i < NUM_V_MAY_DEFS (v_may_defs); i++)
+    check_loop_closed_ssa_use (bb, V_MAY_DEF_OP (v_may_defs, i));
 }
 
 /* Checks that invariants of the loop closed ssa form are preserved.  */
@@ -1136,7 +1137,6 @@ tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops)
   tree *new_names, new_var;
   tree phi, def;
   unsigned first_new_block;
-  ssa_name_ann_t ann;
 
   definitions = collect_defs (loop);
 
@@ -1170,8 +1170,7 @@ tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops)
       if (TREE_CODE (def) != SSA_NAME)
 	continue;
 
-      ann = ssa_name_ann (def);
-      new_names = ann ? ann->common.aux : NULL;
+      new_names = SSA_NAME_AUX (def);
 
       /* Something defined outside of the loop.  */
       if (!new_names)
