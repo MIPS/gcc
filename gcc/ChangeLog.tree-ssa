@@ -1,5 +1,70 @@
 2003-07-29  Andrew MacLeod  <amacleod@redhat.com>
 
+	* common.opt (ftree-combine-temps): Add new option.
+	* flags.h (flag_tree_combine_temps): New flag.
+	* opts.c (decode_options): Initialize flag_tree_combine_temps.
+	(common_handle_option): Handle new flag.
+	* toplev.c (flag_tree_combine_temps): Declare.
+	(lang_independent_options f): Add tree-combine-temp.
+	* tree-ssa-live.c (var_union): When combining 2 root variables, choose 
+	the user variable over a temporary as the new variable.
+	(compact_var_map): Use renamed root_var routines.
+	(calculate_live_on_exit): Reformatting.
+	(tpa_init): Initialize a tpa object.
+	(tpa_remove_partition): Remove a partition from a tpa list.
+	(tpa_delete): Delete a tpa object.
+	(tpa_compact): Hide single elemenet lists.
+	(root_var_init): Split common part into tpa_init and rename.
+	(remove_root_var_partition, delete_root_va, dump_root_var): Delete.
+	(type_var_init): New. Initialize a type_var object.
+	(create_coalesce_list): New. Create a coalesce_list object.
+	(delete_coalesce_list): New. Free a coalesce list's memory.
+	(find_partition_pair): New. Find a coalesce pair in a coalesce list.
+	(add_coalesce): New. Add a coalesce between 2 partitions.
+	(sort_coalesce_list): New. Sort coalesce pairs by importance.
+	(pop_best_coalesce): New. Get best remaining pair to coalesce.
+	(add_conflicts_if_valid): Move from tree-ssa.c.
+	(build_tree_conflict_graph): Move from coalesce_ssa_name in tree-ssa.c.
+	Genericize to use tpa_p instead of root_var object. Don't add 
+	interferences between copies. Update coalesce list.
+	(coalesce_tpa_members): Move from coalesce_ssa_name in tree-ssa.c. Use
+	tpa_p instead of root_var. Use coalesce list if provided.
+	(dump_coalesce_list): New. Show debug info for a coalesce list.
+	(tpa_dump): Rename from dump_root_var and genericize to use tpa_p.
+	* tree-ssa-live.h (root_var_p): Rename structure type to tpa_p
+	(tpa_num_trees, tpa_tree, tpa_first_partition, tpa_next_partition, 
+	tpa_find_tree): New. Generic versions of existing root_var routines.
+	(tpa_decompact): New. Include single version lists.
+	(root_var_p): Declare as type tpa_p.
+	(root_var_num, root_var, root_var_first_partition, 
+	root_var_next_partition, root_var_dump, root_var_delete,
+	root_var_remove_partition, root_var_find , root_var_compac,
+	root_var_decompac): Rename and call generic versions.
+	(type_var_p): New. Use tpa_p structure for a type based association.
+	(type_var_num, type_var, type_var_first_partition, 
+	type_var_next_partition, type_var_dump, type_var_delete,
+	type_var_remove_partition, type_var_find, type_var_compact, 
+	type_var_decompact): New. Call generic versions of the routine.
+	(struct partition_pair_d): New. Represent a desired coalesce.
+	(struct coalesce_list_d): New. Organize lists of desired coalesces.
+	(NO_BEST_COALESCE): Define value.
+	* tree-ssa.c (set_if_valid): Remove.
+	(insert_copy_on_edge): Set variable as used when inserting a copy.
+	(add_conflicts_if_valid): Remove. Move to tree-ssa-live.c.
+	(print_exprs): New. Routine for commonly used output format.
+	(coalesce_abnormal_edges): New. Split from coalece_ssa_name. Force
+	partition coalesces across abnormal edges.
+	(coalesce_ssa_name): Split out build_tree_conflict_graph, 
+	coalesce_abnormal_edges, and coalesce_tpa_members. Return live
+	range info if required. Use renamed root_var routines.
+	(assign_vars): Use renamed root_var routines.
+	(replace_variable): Mark as inline.
+	(coalesce_vars): Coalesce variable memory storage.
+	(rewrite_out_of_ssa): Don't compact varmap anymore. Free live range
+	info if required. Call coalesce_vars if combining temps.
+
+2003-07-29  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree-cfg.c (handle_switch_fallthru): Use bsi_link_after if stmt is
 	in a basic block.
 

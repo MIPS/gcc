@@ -695,6 +695,10 @@ ftree-dce
 Common
 Enable SSA dead code elimination optimization on trees
 
+ftree-combine-temps
+Common
+Coalesce memory temporaries in the SSA->normal pass
+
 ftree-dominator-opts
 Common
 Enable dominator optimizations

@@ -1364,6 +1364,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_tree_dce = value;
       break;
 
+    case OPT_ftree_combine_temps:
+      flag_tree_combine_temps = value;
+      break;
+
     case OPT_ftree_dominator_opts:
       flag_tree_dom = value;
       break;

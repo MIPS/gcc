@@ -983,6 +983,9 @@ int flag_tree_dce = 0;
 /* Enable promotion of virtual to real operands in must-alias situations.  */
 int flag_tree_must_alias = 0;
 
+/* Enable SSA->normal pass memory location coalescing.  */
+int flag_tree_combine_temps = 0;
+
 /* Enable dominator optimizations while re-writing into SSA form.  */
 int flag_tree_dom = 0;
 
@@ -1216,6 +1219,7 @@ static const lang_independent_options f_options[] =
   { "tree-copyprop", &flag_tree_copyprop, 1 },
   { "tree-dce", &flag_tree_dce, 1 },
   { "tree-dominator-opts", &flag_tree_dom, 1 },
+  { "tree-combine-temps", &flag_tree_combine_temps, 1 },
   { "tree-must-alias", &flag_tree_must_alias, 1 }
 };
 

@@ -185,11 +185,12 @@ extern void delete_tree_live_info (tree_live_info_p);
 #define LIVEDUMP_ALL	(LIVEDUMP_ENTRY | LIVEDUMP_EXIT)
 extern void dump_live_info (FILE *, tree_live_info_p, int);
 
-
 static inline int partition_is_global (tree_live_info_p, int);
 static inline sbitmap live_entry_blocks (tree_live_info_p, int);
 static inline sbitmap live_on_exit (tree_live_info_p, basic_block);
-
+static inline var_map live_var_map (tree_live_info_p);
+static inline void live_merge_and_clear (tree_live_info_p, int, int);
+static inline void make_live_on_entry (tree_live_info_p, basic_block, int);
 
 static inline int
 partition_is_global (tree_live_info_p live, int p)
@@ -221,85 +222,359 @@ live_on_exit (tree_live_info_p live, basic_block bb)
   return live->liveout[bb->index];
 }
 
+static inline var_map 
+live_var_map (tree_live_info_p live)
+{
+  return live->map;
+}
+
+/* Merge the live on entry information for partitions p1 and p2, and put the
+   result into p1.  Clear p2. */
+static inline void 
+live_merge_and_clear (tree_live_info_p live, int p1, int p2)
+{
+  sbitmap_a_or_b (live->livein[p1], live->livein[p1], live->livein[p2]);
+  sbitmap_zero (live->livein[p2]);
+}
+
+static inline void 
+make_live_on_entry (tree_live_info_p live, basic_block bb , int p)
+{
+  SET_BIT (live->livein[p], bb->index);
+  SET_BIT (live->global, p);
+}
+
+/* A tree_partition_associator object is a base structure which allows
+   partitions to be associated with a tree object.
+
+   A varray of tree elements represent each distinct tree item.
+   A parallel int array represents the first partition number associated with 
+   the tree.
+   This partition number is then used as in index into the next_partition
+   array, which returns the index of the next partition which is associated
+   with the tree. TPA_NONE indicates the end of the list.  
+   A varray paralleling the partition list 'partition_to_tree_map' is used
+   to indicate which tree index the partition is in.  */
+
+typedef struct tree_partition_associator_d
+{
+  varray_type trees;
+  varray_type first_partition;
+  int *next_partition;
+  int *partition_to_tree_map;
+  int num_trees;
+  int uncompressed_num;
+  var_map map;
+} *tpa_p;
+
+/* Value returned when there are no more partitions associated with a tree.  */
+#define TPA_NONE		-1
+
+
+static inline tree tpa_tree (tpa_p, int);
+static inline int tpa_first_partition (tpa_p, int);
+static inline int tpa_next_partition (tpa_p, int);
+static inline int tpa_num_trees (tpa_p);
+static inline int tpa_find_tree (tpa_p, int);
+static inline void tpa_decompact (tpa_p);
+extern tpa_p tpa_init (var_map);
+extern void tpa_delete (tpa_p);
+extern void tpa_dump (FILE *, tpa_p);
+extern void tpa_remove_partition (tpa_p, int, int);
+extern int tpa_compact (tpa_p);
+
+
+/* Number of distinct tree nodes.  */
+static inline int
+tpa_num_trees (tpa_p tpa)
+{
+  return tpa->num_trees;
+}
+
+/* Retreive the tree node for a specified index.  */
+static inline tree
+tpa_tree (tpa_p tpa, int i)
+{
+  return VARRAY_TREE (tpa->trees, i);
+}
+
+/* Get the first partition associated with a tree.  */
+static inline int
+tpa_first_partition (tpa_p tpa, int i)
+{
+  return VARRAY_INT (tpa->first_partition, i);
+}
+
+/* Get the next partition in a list.  */
+static inline int
+tpa_next_partition (tpa_p tpa, int i)
+{
+  return tpa->next_partition[i];
+}
+
+/* Get the tree whose list a partition is a member of.  TPA_NONE is returned
+   if the partition is not associated with any list.  */
+static inline int 
+tpa_find_tree (tpa_p tpa, int i)
+{
+  return tpa->partition_to_tree_map[i];
+}
+
+/* Compacting removes lists with single elements. This routine puts them
+   back in again.  */
+static inline void 
+tpa_decompact(tpa_p tpa)
+{
+#ifdef ENABLE_CHECKING
+  if (tpa->uncompressed_num == -1)
+    abort ();
+#endif
+  tpa->num_trees = tpa->uncompressed_num;
+}
 
 /* Once a var_map has been created and compressed, a complimentary root_var
    object can be built.  This creates a list of all the root variables from
    which ssa version names are derived.  Each root variable has a list of 
    which partitions are versions of that root.  
 
-   A varray of tree elements represent each distinct root variable.
-   A parallel array of ints represent a partition number that is a version
-     of the root variable.
-   This partition number is then used as in index into the next_partition
-   array, which returns the index of the next partition which is a version
-   of the root var. ROOT_VAR_NONE indicates the end of the list.  
+   This is implemented using the tree_partition_associator.
 
-   ************************************************************************/
+   The tree vector is used to represent the root variable.
+   The list of partitions represent SSA versions of the root variable.  */
 
-
-typedef struct root_var_d
-{
-  varray_type root_var;
-  varray_type first_partition;
-  int *next_partition;
-  int num_root_vars;
-  var_map map;
-} *root_var_p;
+typedef tpa_p root_var_p;
 
 static inline tree root_var (root_var_p, int);
-static inline int first_root_var_partition (root_var_p, int);
-static inline int next_root_var_partition (root_var_p, int);
-static inline int num_root_vars (root_var_p);
-static inline int find_root_var (root_var_p, int);
-extern root_var_p init_root_var (var_map);
-extern void delete_root_var (root_var_p);
-extern void dump_root_var (FILE *, root_var_p);
-extern void remove_root_var_partition (root_var_p, int, int);
+static inline int root_var_first_partition (root_var_p, int);
+static inline int root_var_next_partition (root_var_p, int);
+static inline int root_var_num (root_var_p);
+static inline void root_var_dump (FILE *, root_var_p);
+static inline void root_var_remove_partition (root_var_p, int, int);
+static inline void root_var_delete (root_var_p);
+static inline int root_var_find (root_var_p, int);
+static inline int root_var_compact (root_var_p);
+static inline void root_var_decompact (tpa_p);
+
+extern root_var_p root_var_init (var_map);
 
 /* Value returned when there are no more partitions associated with a root
    variable.  */
-#define ROOT_VAR_NONE		-1
+#define ROOT_VAR_NONE		TPA_NONE
 
 /* Number of distinct root variables.  */
 static inline int 
-num_root_vars (root_var_p rv)
+root_var_num (root_var_p rv)
 {
-  return rv->num_root_vars;
+  return tpa_num_trees (rv);
 }
 
 /* A specific root variable.  */
 static inline tree
 root_var (root_var_p rv, int i)
 {
-  return VARRAY_TREE (rv->root_var, i);
+  return tpa_tree (rv, i);
 }
 
-/* First partition belonging to a root variable version.  */
+/* First partition belonging to a root variable list.  */
 static inline int
-first_root_var_partition (root_var_p rv, int i)
+root_var_first_partition (root_var_p rv, int i)
 {
-  return VARRAY_INT (rv->first_partition, i);
+  return tpa_first_partition (rv, i);
 }
 
 /* Next partition belonging to a root variable partition list.  */
 static inline int
-next_root_var_partition (root_var_p rv, int i)
+root_var_next_partition (root_var_p rv, int i)
 {
-  return rv->next_partition[i];
+  return tpa_next_partition (rv, i);
 }
 
-/* Find the root_var index for a specific partition.  */
+/* Show debug info for a root_var list.  */
+static inline void
+root_var_dump (FILE *f, root_var_p rv)
+{
+  fprintf (f, "\nRoot Var dump\n");
+  tpa_dump (f, rv);
+  fprintf (f, "\n");
+}
+
+/* destroy a root_var object.  */
+static inline void
+root_var_delete (root_var_p rv)
+{
+  tpa_delete (rv);
+}
+
+/* Remove a partition from a root_var list.  */
+static inline void
+root_var_remove_partition (root_var_p rv, int root_index, int partition_index)
+{
+  tpa_remove_partition (rv, root_index, partition_index);
+}
+
+/* Find the root_var list index for a specific partition.  */
 static inline int
-find_root_var (root_var_p rv, int i)
+root_var_find (root_var_p rv, int i)
 {
-  tree t;
-  var_ann_t ann;
-
-  t = partition_to_var (rv->map, i);
-  if (TREE_CODE (t) == SSA_NAME)
-    t = SSA_NAME_VAR (t);
-  ann = var_ann (t);
-  return (VAR_ANN_ROOT_INDEX (ann));
+  return tpa_find_tree (rv, i);
 }
+
+/* Hide single element lists in the object.  */
+static inline int 
+root_var_compact (root_var_p rv)
+{
+  return tpa_compact (rv);
+}
+
+/* Expose the single element lists in the object.  */
+static inline void
+root_var_decompact (root_var_p rv)
+{
+  tpa_decompact (rv);
+}
+
+/* This is similar to a root_var structure, except this associates partitions
+   with their type rather than their root variable. This is used to 
+   coalesce memory locations based on type.   */
+
+typedef tpa_p type_var_p;
+
+static inline tree type_var (type_var_p, int);
+static inline int type_var_first_partition (type_var_p, int);
+static inline int type_var_next_partition (type_var_p, int);
+static inline int type_var_num (type_var_p);
+static inline void type_var_dump (FILE *, type_var_p);
+static inline void type_var_remove_partition (type_var_p, int, int);
+static inline void type_var_delete (type_var_p);
+static inline int type_var_find (type_var_p, int);
+static inline int type_var_compact (type_var_p);
+static inline void type_var_decompact (type_var_p);
+
+extern type_var_p type_var_init (var_map);
+
+
+/* Value returned when there is no partitions associated with a list.  */
+#define TYPE_VAR_NONE		TPA_NONE
+
+/* Number of distinct type lists.  */
+static inline int 
+type_var_num (type_var_p tv)
+{
+  return tpa_num_trees (tv);
+}
+
+/* The type of a specific list.  */
+static inline tree
+type_var (type_var_p tv, int i)
+{
+  return tpa_tree (tv, i);
+}
+
+/* First partition belonging to a type list.  */
+static inline int
+type_var_first_partition (type_var_p tv, int i)
+{
+  return tpa_first_partition (tv, i);
+}
+
+/* Next partition belonging to a type list.  */
+static inline int
+type_var_next_partition (type_var_p tv, int i)
+{
+  return tpa_next_partition (tv, i);
+}
+
+/* Show debug info for a type_var object.  */
+static inline void
+type_var_dump (FILE *f, type_var_p tv)
+{
+  fprintf (f, "\nType Var dump\n");
+  tpa_dump (f, tv);
+  fprintf (f, "\n");
+}
+
+/* Delete a type_var object.  */
+static inline void
+type_var_delete (type_var_p tv)
+{
+  tpa_delete (tv);
+}
+
+/* Remove a partition from a specific list.  */
+static inline void
+type_var_remove_partition (type_var_p tv, int type_index, int partition_index)
+{
+  tpa_remove_partition (tv, type_index, partition_index);
+}
+
+/* Find the type index for the list a partition is in.  */
+static inline int
+type_var_find (type_var_p tv, int i)
+{
+  return tpa_find_tree (tv, i);
+}
+
+/* Hide single element lists.  */
+static inline int 
+type_var_compact (type_var_p tv)
+{
+  return tpa_compact (tv);
+}
+
+/* Expose single element lists.  */
+static inline void
+type_var_decompact (type_var_p tv)
+{
+  tpa_decompact (tv);
+}
+
+/* This set of routines implements a coalesce_list. This is an object which
+   is used to track pairs of partitions which are desireable to coalesce
+   together at some point.  Costs are associated with each pair, and when 
+   all desired information has been collected, the object can be used to 
+   order the pairs for processing.  */
+
+/* This structure defines a pair for coalescing.  */
+
+typedef struct partition_pair_d
+{
+  int first_partition;
+  int second_partition;
+  int cost;
+  struct partition_pair_d *next;
+} *partition_pair_p;
+
+/* This structure maintains the list of coalesce pairs.  
+   When add_mode is true, list is a triangular shaped list of coalesce pairs.
+   The smaller partition number is used to index the list, and the larger is
+   index is located in a partition_pair_p object. Each of these lists are sorted
+   from smallest to largest second_partition.  New coalesce pairs are allowed
+   to be added in this mode.
+   When add_mode is false, the lists have all been merged into list[0]. The
+   rest of the lists are not used. list[0] is ordered from most desirable
+   coalesce to least desirable. pop_best_coalesce() retreives the pairs
+   one at a time.  */
+
+typedef struct coalesce_list_d 
+{
+  var_map map;
+  partition_pair_p *list;
+  bool add_mode;
+} *coalesce_list_p;
+
+extern coalesce_list_p create_coalesce_list (var_map);
+extern void add_coalesce (coalesce_list_p, int, int, int);
+extern void sort_coalesce_list (coalesce_list_p);
+extern void dump_coalesce_list (FILE *, coalesce_list_p);
+extern void delete_coalesce_list (coalesce_list_p);
+
+#define NO_BEST_COALESCE	-1
+extern int pop_best_coalesce (coalesce_list_p, int *, int *);
+
+extern conflict_graph build_tree_conflict_graph (tree_live_info_p, tpa_p,
+						 coalesce_list_p);
+extern void coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map,
+				  coalesce_list_p cl, FILE *);
+
 
 #endif /* _TREE_SSA_LIVE_H  */

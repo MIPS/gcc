@@ -47,7 +47,9 @@ static inline void set_if_valid (var_map, sbitmap, tree);
 static inline void add_livein_if_notdef (tree_live_info_p, sbitmap,
 					 tree, basic_block);
 static inline void register_ssa_partition (var_map, tree);
-
+static inline void add_conflicts_if_valid (tpa_p, conflict_graph,
+					   var_map, sbitmap, tree);
+static partition_pair_p find_partition_pair (coalesce_list_p, int, int, bool);
 
 /* This is where the mapping from SSA version number to real storage variable
    is tracked.  
@@ -133,6 +135,7 @@ var_union (var_map map, tree var1, tree var2)
 {
   int p1, p2, p3;
   tree root_var = NULL_TREE;
+  tree other_var = NULL_TREE;
 
   /* This is independant of partition_to_compact. If partition_to_compact is 
      on, then whichever one of these partitions is absorbed will never have a
@@ -155,9 +158,16 @@ var_union (var_map map, tree var1, tree var2)
       p2 = var_to_partition (map, var2);
       if (map->compact_to_partition)
         p2 = map->compact_to_partition[p2];
-      if (root_var != NULL_TREE)
-        return -1;
-      root_var = var2;
+
+      /* If there is no root_var set, or its not a user variable, set the
+	 root_var to this one.  */
+      if (!root_var || is_gimple_tmp_var (root_var))
+        {
+	  other_var = root_var;
+	  root_var = var2;
+	}
+      else 
+	other_var = var2;
     }
 
   if (p1 == NO_PARTITION || p2 == NO_PARTITION)
@@ -173,6 +183,8 @@ var_union (var_map map, tree var1, tree var2)
 
   if (root_var)
     change_partition_var (map, root_var, p3);
+  if (other_var)
+    change_partition_var (map, other_var, p3);
 
   return p3;
 }
@@ -220,7 +232,7 @@ compact_var_map (var_map map, int flags)
     }
 
   if (flags & VARMAP_NO_SINGLE_DEFS)
-    rv = init_root_var (map);
+    rv = root_var_init (map);
 
   map->partition_to_compact = (int *)xmalloc (limit * sizeof (int));
   memset (map->partition_to_compact, 0xff, (limit * sizeof (int)));
@@ -236,10 +248,10 @@ compact_var_map (var_map map, int flags)
 	     in the root_var table, if one is available.  */
 	  if (rv)
 	    {
-	      root = find_root_var (rv, tmp);
-	      root_i = first_root_var_partition (rv, root);
+	      root = root_var_find (rv, tmp);
+	      root_i = root_var_first_partition (rv, root);
 	      /* If there is only one, don't include this in the compaction.  */
-	      if (next_root_var_partition (rv, root_i) == ROOT_VAR_NONE)
+	      if (root_var_next_partition (rv, root_i) == ROOT_VAR_NONE)
 	        continue;
 	    }
 	  SET_BIT (used, tmp);
@@ -272,7 +284,7 @@ compact_var_map (var_map map, int flags)
   map->num_partitions = count;
 
   if (rv)
-    delete_root_var (rv);
+    root_var_delete (rv);
   sbitmap_free (used);
 }
 
@@ -613,17 +625,14 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
   FOR_EACH_BB (bb)
     {
       for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
-        {
-	  for (i = 0; i < PHI_NUM_ARGS (phi); i++)
-	    { 
-	      t = PHI_ARG_DEF (phi, i);
-	      e = PHI_ARG_EDGE (phi, i);
-	      if (TREE_CONSTANT (t) || e->src == ENTRY_BLOCK_PTR)
-	        continue;
-	      set_if_valid (map, on_exit[e->src->index], t);
-	    }
-
-	}
+	for (i = 0; i < PHI_NUM_ARGS (phi); i++)
+	  { 
+	    t = PHI_ARG_DEF (phi, i);
+	    e = PHI_ARG_EDGE (phi, i);
+	    if (TREE_CONSTANT (t) || e->src == ENTRY_BLOCK_PTR)
+	      continue;
+	    set_if_valid (map, on_exit[e->src->index], t);
+	  }
     }
 
   /* Set live on exit for all predecessors of live on entry's.  */
@@ -642,29 +651,159 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
 }
 
 
-/* Initialize a root_var object.  */
+/* Initialize a tree_partition_associator object.  */
 
-root_var_p
-init_root_var (var_map map)
+tpa_p
+tpa_init (var_map map)
 {
-  root_var_p rv;
+  tpa_p tpa;
   int num_partitions = num_var_partitions (map);
   int x;
-  tree t;
-  var_ann_t ann;
 
   if (num_partitions == 0)
     return NULL;
 
-  rv = (root_var_p) xmalloc (sizeof (struct root_var_d));
-  rv->num_root_vars = 0;
-  rv->map = map;
-  rv->next_partition = (int *)xmalloc (num_partitions * sizeof (int));
-  memset (rv->next_partition, ROOT_VAR_NONE, num_partitions * sizeof (int));
+  tpa = (tpa_p) xmalloc (sizeof (struct tree_partition_associator_d));
+  tpa->num_trees = 0;
+  tpa->uncompressed_num = -1;
+  tpa->map = map;
+  tpa->next_partition = (int *)xmalloc (num_partitions * sizeof (int));
+  memset (tpa->next_partition, TPA_NONE, num_partitions * sizeof (int));
+
+  tpa->partition_to_tree_map = (int *)xmalloc (num_partitions * sizeof (int));
+  memset (tpa->partition_to_tree_map, TPA_NONE, num_partitions * sizeof (int));
 
   x = MAX (40, (num_partitions / 20));
-  VARRAY_TREE_INIT (rv->root_var, x, "root_var");
-  VARRAY_INT_INIT (rv->first_partition, x, "first_partition");
+  VARRAY_TREE_INIT (tpa->trees, x, "trees");
+  VARRAY_INT_INIT (tpa->first_partition, x, "first_partition");
+
+  return tpa;
+
+}
+
+/* Remove a partition from a TPA's list.  */
+
+void
+tpa_remove_partition (tpa_p tpa, int tree_index, int partition_index)
+{
+  int i;
+
+  i = tpa_first_partition (tpa, tree_index);
+  if (i == partition_index)
+    {
+      VARRAY_INT (tpa->first_partition, tree_index) = tpa->next_partition[i];
+    }
+  else
+    {
+      for ( ; i != TPA_NONE; i = tpa_next_partition (tpa, i))
+        {
+	  if (tpa->next_partition[i] == partition_index)
+	    {
+	      tpa->next_partition[i] = tpa->next_partition[partition_index];
+	      break;
+	    }
+	}
+    }
+}
+
+/* Free the memory used by a tree_partition_associator object.  */
+void
+tpa_delete (tpa_p tpa)
+{
+  if (!tpa)
+    return;
+
+  free (tpa->partition_to_tree_map);
+  free (tpa->next_partition);
+  free (tpa);
+}
+
+
+/* This routine will remove any tree entires which have only a single
+   element.  This will help keep the size of the conflict graph down.  
+   The function returns the number of remaining tree lists.  */
+
+int 
+tpa_compact (tpa_p tpa)
+{
+  int last, x, y, first, swap_i;
+  tree swap_t;
+
+  /* Find the last list which has more than 1 partition.  */
+  for (last = tpa->num_trees - 1; last > 0; last--)
+    {
+      first = tpa_first_partition (tpa, last);
+      if (tpa_next_partition (tpa, first) != NO_PARTITION)
+        break;
+    }
+
+  x = 0;
+  while (x < last)
+    {
+      first = tpa_first_partition (tpa, x);
+      /* If there is not more than one partition, swap with the current end
+	 of the tree list.  */
+      if (tpa_next_partition (tpa, first) == NO_PARTITION)
+        {
+	  swap_t = VARRAY_TREE (tpa->trees, last);
+	  swap_i = VARRAY_INT (tpa->first_partition, last);
+
+	  /* Update the last entry. Since it is known to only have one
+	     partition, there is nothing else to update.  */
+	  VARRAY_TREE (tpa->trees, last) = VARRAY_TREE (tpa->trees, x);
+	  VARRAY_INT (tpa->first_partition, last) 
+	    = VARRAY_INT (tpa->first_partition, x);
+	  tpa->partition_to_tree_map[tpa_first_partition (tpa, last)] = last;
+
+	  /* Since this list is known to have more than one partition, update
+	     the list owner entries.  */
+	  VARRAY_TREE (tpa->trees, x) = swap_t;
+	  VARRAY_INT (tpa->first_partition, x) = swap_i;
+	  for (y = tpa_first_partition (tpa, x); 
+	       y != NO_PARTITION; 
+	       y = tpa_next_partition (tpa, y))
+	    tpa->partition_to_tree_map[y] = x;
+
+	  /* Ensure last is a list with more than one partition.  */
+	  last--;
+	  for (; last > x; last--)
+	    {
+	      first = tpa_first_partition (tpa, last);
+	      if (tpa_next_partition (tpa, first) != NO_PARTITION)
+		break;
+	    }
+	}
+      x++;
+    }
+
+  first = tpa_first_partition (tpa, x);
+  if (tpa_next_partition (tpa, first) != NO_PARTITION)
+    x++;
+  tpa->uncompressed_num = tpa->num_trees;
+  tpa->num_trees = x;
+  return last;
+}
+
+
+/* Initialize a root_var object with SSA partitions which are based on each root
+   variable.  */
+
+root_var_p
+root_var_init (var_map map)
+{
+  root_var_p rv;
+  int num_partitions = num_var_partitions (map);
+  int x, p;
+  tree t;
+  var_ann_t ann;
+  sbitmap seen;
+
+  rv = tpa_init (map);
+  if (!rv)
+    return NULL;
+
+  seen = sbitmap_alloc (num_partitions);
+  sbitmap_zero (seen);
 
   /* Start at the end and work towards the front. This will provide a list
      that is ordered from smallest to largest.  */
@@ -674,98 +813,630 @@ init_root_var (var_map map)
       /* The var map may not be compacted yet, so check for NULL.  */
       if (!t) 
         continue;
+
+      p = var_to_partition (map, t);
+#ifdef ENABLE_CHECKING
+      if (p == NO_PARTITION)
+        abort ();
+#endif
+      /* Make sure we only put coalesced partitions into the list once.  */
+      if (TEST_BIT (seen, p))
+        continue;
+      SET_BIT (seen, p);
       if (TREE_CODE (t) == SSA_NAME)
 	t = SSA_NAME_VAR (t);
       ann = var_ann (t);
       if (ann->root_var_processed)
         {
-	  rv->next_partition[x] = VARRAY_INT (rv->first_partition, 
+	  rv->next_partition[p] = VARRAY_INT (rv->first_partition, 
 					      VAR_ANN_ROOT_INDEX (ann));
-	  VARRAY_INT (rv->first_partition, VAR_ANN_ROOT_INDEX (ann)) = x;
+	  VARRAY_INT (rv->first_partition, VAR_ANN_ROOT_INDEX (ann)) = p;
 	}
       else
         {
 	  ann->root_var_processed = 1;
-	  VAR_ANN_ROOT_INDEX (ann) = rv->num_root_vars++;
-	  VARRAY_PUSH_TREE (rv->root_var, t);
-	  VARRAY_PUSH_INT (rv->first_partition, x);
+	  VAR_ANN_ROOT_INDEX (ann) = rv->num_trees++;
+	  VARRAY_PUSH_TREE (rv->trees, t);
+	  VARRAY_PUSH_INT (rv->first_partition, p);
 	}
+      rv->partition_to_tree_map[p] = VAR_ANN_ROOT_INDEX (ann);
     }
 
   /* Reset the out_of_ssa_tag flag on each variable for later use.  */
-  for (x = 0; x < rv->num_root_vars; x++)
+  for (x = 0; x < rv->num_trees; x++)
     {
-      t = VARRAY_TREE (rv->root_var, x);
+      t = VARRAY_TREE (rv->trees, x);
       var_ann (t)->root_var_processed = 0;
     }
 
+  sbitmap_free (seen);
   return rv;
 }
 
-/* Remove a partition form a root_var's list.  */
 
-void
-remove_root_var_partition (root_var_p rv, int root_index, int partition_index)
+/* Initialize a type_var structure which associates all the partitions of the
+   same type to the type node. Volatiles are ignored.  */
+
+type_var_p
+type_var_init (var_map map)
 {
-  int i;
+  type_var_p tv;
+  int x, y, p;
+  int num_partitions = num_var_partitions (map);
+  tree t;
+  sbitmap seen;
 
-  i = first_root_var_partition (rv, root_index);
-  if (i == partition_index)
+  seen = sbitmap_alloc (num_partitions);
+  sbitmap_zero (seen);
+
+  tv = tpa_init (map);
+  if (!tv)
+    return NULL;
+
+  for (x = num_partitions - 1; x >= 0; x--)
     {
-      VARRAY_INT (rv->first_partition, root_index) = rv->next_partition[i];
+      t = partition_to_var (map, x);
+      /* Disallow coalescing of these types of variables.  */
+      if (!t || TREE_THIS_VOLATILE (t) || TREE_CODE (t) == RESULT_DECL
+      	  || TREE_CODE (t) == PARM_DECL 
+	  || (DECL_P (t) && (DECL_REGISTER (t) || !DECL_ARTIFICIAL (t)
+			     || DECL_RTL_SET_P (t) || has_hidden_use (t))))
+        continue;
+
+      p = var_to_partition (map, t);
+#ifdef ENABLE_CHECKING
+      if (p == NO_PARTITION)
+        abort ();
+#endif
+      /* If partitions have been coalesced, only add the representative for the
+	 partition to the list once.  */
+      if (TEST_BIT (seen, p))
+        continue;
+      SET_BIT (seen, p);
+      t = TREE_TYPE (t);
+
+      /* Find the list for this type.  */
+      for (y = 0; y < tv->num_trees; y++)
+        if (t == VARRAY_TREE (tv->trees, y))
+	  break;
+      if (y == tv->num_trees)
+        {
+	  tv->num_trees++;
+	  VARRAY_PUSH_TREE (tv->trees, t);
+	  VARRAY_PUSH_INT (tv->first_partition, p);
+	}
+      else
+        {
+	  tv->next_partition[p] = VARRAY_INT (tv->first_partition, y);
+	  VARRAY_INT (tv->first_partition, y) = p;
+	}
+      tv->partition_to_tree_map[p] = y;
+    }
+  sbitmap_free (seen);
+  return tv;
+}
+
+
+/* Create a coalesce list object that is empty.  */
+
+coalesce_list_p 
+create_coalesce_list (var_map map)
+{
+  coalesce_list_p list;
+
+  list = (coalesce_list_p) xmalloc (sizeof (struct coalesce_list_d));
+
+  list->map = map;
+  list->add_mode = true;
+  list->list = (partition_pair_p *) xcalloc (num_var_partitions (map),
+					     sizeof (struct partition_pair_d));
+  return list;
+}
+
+
+/* Delete a coalesce list.  */
+
+void 
+delete_coalesce_list (coalesce_list_p cl)
+{
+  free (cl->list);
+  free (cl);
+}
+
+/* Find a matching coalesce pair. If one isn't found, return NULL if 'create' 
+   is false, otherwise create a new coalesce object and return it.  */
+
+static partition_pair_p
+find_partition_pair (coalesce_list_p cl, int p1, int p2, bool create)
+{
+  partition_pair_p node, tmp;
+  int s;
+    
+  /* Normalize so that p1 is the smaller value.  */
+  if (p2 < p1)
+    {
+      s = p1;
+      p1 = p2;
+      p2 = s;
+    }
+  
+  tmp = NULL;
+
+  /* The list is sorted such that if we find a value greater than p2,
+     p2 is not in the list.  */
+  for (node = cl->list[p1]; node; node = node->next)
+    {
+      if (node->second_partition == p2)
+        return node;
+      else
+        if (node->second_partition > p2)
+	  break;
+     tmp = node;
+    }
+
+  if (!create)
+    return NULL;
+
+  node = (partition_pair_p) xmalloc (sizeof (struct partition_pair_d));
+  node->first_partition = p1;
+  node->second_partition = p2;
+  node->cost = 0;
+    
+  if (tmp != NULL)
+    {
+      node->next = tmp->next;
+      tmp->next = node;
     }
   else
     {
-      for ( ; i != ROOT_VAR_NONE; i = next_root_var_partition (rv, i))
+      /* This is now the first node in the list.  */
+      node->next = cl->list[p1];
+      cl->list[p1] = node;
+    }
+
+  return node;
+}
+
+/* Add a pair of partitions to the coalesce list with a specified cost.  */
+
+void 
+add_coalesce (coalesce_list_p cl, int p1, int p2, int value)
+{
+  partition_pair_p node;
+
+#ifdef ENABLE_CHECKING
+  if (!cl->add_mode)
+    abort();
+#endif
+
+  if (p1 == p2)
+    return;
+
+  node = find_partition_pair (cl, p1, p2, true);
+
+  node->cost += value;
+}
+
+
+/* Prepare the coalesce list for removal of preferred pairs.  When finished,
+   list element 0 has all the coalesce pairs, sorted in order from most
+   important coalesce to least important.  */
+
+void
+sort_coalesce_list (coalesce_list_p cl)
+{
+  int x, num, last, val, odd;
+  partition_pair_p n1, n1_prev ,n2, n2_end, n2_last;
+
+  if (!cl->add_mode)
+    abort();
+
+  cl->add_mode = false;
+  last = 0;
+
+  /* Compact the list so we know how many lists there are.  */
+  num = num_var_partitions (cl->map);
+  for (x = 0; x < num; x++)
+    if (cl->list[x] != NULL)
+      {
+        if (x != last)
+	  cl->list[last] = cl->list[x];
+	last++;
+      }
+
+  if (last == 0)
+    return;
+
+  num = last / 2;
+  odd = last % 2;
+
+  /* While there is more than one list, merge lists in pairs until only
+     1 list remains.  */
+  while (num >= 1)
+    {
+      last = 0;
+      for (x = 0; x < num; x++)
         {
-	  if (rv->next_partition[i] == partition_index)
+	  n1 = cl->list[x * 2];
+	  n2 = cl->list[x * 2 + 1];
+	  for (n1_prev = NULL; n1 && n2; n1 = n1->next)
 	    {
-	      rv->next_partition[i] = rv->next_partition[partition_index];
-	      break;
+	      val = n1->second_partition;
+	      if (n2->second_partition  <= val)
+		{
+		  n2_last = n2;
+		  /* Merge as many as will fit before n1.  */
+		  for (n2_end = n2; n2_end; n2_end = n2_end->next)
+		    {
+		      if (n2_end->second_partition > val)
+			break;
+		      n2_last = n2_end;
+		    }
+		  if (n1_prev)
+		    {
+		      n2_last->next = n1;
+		      n1_prev->next = n2;
+		    }
+		  else
+		    {
+		      n2_last->next = n1;
+		      cl->list[x * 2] = n2;
+		    }
+		  n2 = n2_end;
+		}
+	      n1_prev = n1;
+	    }
+	  /* Append anything left over should be appended to the end.  */
+	  if (n2)
+	    n1_prev->next = n2;
+	  cl->list[last++] = cl->list[x * 2];
+	}
+
+      /* If there were an odd number of lists, move the last one up as well.  */
+      if (odd)
+	cl->list[last++] = cl->list[num * 2];
+
+      num = last / 2;
+      odd = last % 2;
+    }
+}
+
+
+/* Retrieve the best remaining pair to coalesce.  Returns the 2 partitions
+   via parameters, and their calculated cost via the return value. The return
+   value is NO_BEST_COALESCE if the coalesce list is empty.  */
+
+int 
+pop_best_coalesce (coalesce_list_p cl, int *p1, int *p2)
+{
+  partition_pair_p node;
+  int ret;
+
+  if (cl->add_mode)
+    abort();
+
+  node = cl->list[0];
+  if (!node)
+    return NO_BEST_COALESCE;
+
+  cl->list[0] = node->next;
+
+  *p1 = node->first_partition;
+  *p2 = node->second_partition;
+  ret = node->cost;
+  free (node);
+
+  return ret;
+}
+
+/* If a variable is in a partition, and it's not already live, add a 
+   conflict between it and any other live partition.  Reset the live bit.  */
+
+static inline void 
+add_conflicts_if_valid (tpa_p tpa, conflict_graph graph,
+			var_map map, sbitmap vec, tree var)
+{ 
+  int p, y, first;
+  p = var_to_partition (map, var);
+  if (p != NO_PARTITION)
+    { 
+      RESET_BIT (vec, p);
+      first = tpa_find_tree (tpa, p);
+      /* If find returns nothing, this object isn't interesting.  */
+      if (first == TPA_NONE)
+        return;
+      /* Only add interferences between objects in the same list.  */
+      for (y = tpa_first_partition (tpa, first);
+	   y != TPA_NONE;
+	   y = tpa_next_partition (tpa, y))
+	{
+	  if (TEST_BIT (vec, y))
+	    conflict_graph_add (graph, p, y);
+	}
+    }
+}
+
+
+/* Build a conflict graph for the information contained in a live range
+   information structure.  If a coalesce list is passed in, any copies
+   discovered are added to the list.  */
+
+conflict_graph
+build_tree_conflict_graph (tree_live_info_p liveinfo, tpa_p tpa, 
+			   coalesce_list_p cl)
+{
+  conflict_graph graph;
+  var_map map;
+  sbitmap live;
+  int num, x, y, i;
+  basic_block bb;
+  varray_type stmt_stack, ops;
+  tree stmt, *var_p;
+
+  map = live_var_map (liveinfo);
+  graph = conflict_graph_new (num_var_partitions (map));
+
+  if (tpa_num_trees (tpa) == 0)
+    return graph;
+
+  live = sbitmap_alloc (num_var_partitions (map));
+
+  FOR_EACH_BB (bb)
+    {
+      /* Start with live on exit temporaries.  */
+      sbitmap_copy (live, live_on_exit (liveinfo, bb));
+
+      FOR_EACH_STMT_IN_REVERSE (stmt_stack, bb, stmt)
+        {
+	  tree important_copy_rhs_partition = NULL_TREE;
+
+	  get_stmt_operands (stmt);
+
+	  /* Copies between 2 partitions do not introduce an interference 
+	     by itself.  If they did, you would never be able to coalesce 
+	     two things which are copied. If the two variables really do 
+	     conflict, they will conflict elsewhere in the program.  
+	     
+	     This is handled specially here since we may also be interested 
+	     in copies between real variables and SSA_NAME variables. We may
+	     be interested in trying to coalesce SSA_NAME variables with
+	     root variables in some cases.   */
+
+	  if (TREE_CODE (stmt) == MODIFY_EXPR)
+	    {
+	      tree lhs = TREE_OPERAND (stmt, 0);
+	      tree rhs = TREE_OPERAND (stmt, 1);
+	      int p1, p2;
+	      int bit;
+
+	      if (DECL_P (lhs) || TREE_CODE (lhs) == SSA_NAME)
+		p1 = var_to_partition (map, lhs);
+	      else 
+		p1 = NO_PARTITION;
+
+	      if (DECL_P (rhs) || TREE_CODE (rhs) == SSA_NAME)
+		p2 = var_to_partition (map, rhs);
+	      else 
+		p2 = NO_PARTITION;
+
+	      if (p1 != NO_PARTITION && p2 != NO_PARTITION)
+		{
+		  important_copy_rhs_partition = rhs;
+		  bit = TEST_BIT (live, p2);
+		  /* If the RHS is live, make it not live while we add
+		     the conflicts, then make it live again.  */
+		  if (bit)
+		    RESET_BIT (live, p2);
+		  add_conflicts_if_valid (tpa, graph, map, live, lhs);
+		  if (bit)
+		    SET_BIT (live, p2);
+		  if (cl)
+		    add_coalesce (cl, p1, p2, 1);
+		  set_if_valid (map, live, important_copy_rhs_partition);
+		}
+	    }
+
+	  if (!important_copy_rhs_partition)
+	    {
+	      ops = def_ops (stmt);
+	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	      for (x = 0; x < num; x++)
+		{
+		  var_p = VARRAY_GENERIC_PTR (ops, x);
+		  add_conflicts_if_valid (tpa, graph, map, live, *var_p);
+		}
+
+	      ops = use_ops (stmt);
+	      num = ((ops) ? VARRAY_ACTIVE_SIZE (ops) : 0);
+	      for (x = 0; x < num; x++)
+		{
+		  var_p = VARRAY_GENERIC_PTR (ops, x);
+		  set_if_valid (map, live, *var_p);
+		}
+	    }
+	}
+
+      /* Anything which is still live at this point interferes.  */
+
+      EXECUTE_IF_SET_IN_SBITMAP (live, 0, x,
+        {
+	  i = tpa_find_tree (tpa, x);
+	  if (i == TPA_NONE)
+	    continue;
+	  for (y = tpa_first_partition (tpa, i);
+	       y != TPA_NONE;
+	       y = tpa_next_partition (tpa, y))
+	    {
+	      if (x != y && TEST_BIT (live, y))
+		conflict_graph_add (graph, x, y);
+	    }
+
+	});
+    }
+
+  sbitmap_free (live);
+  return graph;
+}
+
+
+/* This routine will attempt to coalesce the elements in a TPA list.
+   If a coalesce_list is provided, those coalesces are attempted first.
+   If a file pointer is provided, debug output will be sent there.  */
+
+void
+coalesce_tpa_members (tpa_p tpa, conflict_graph graph, var_map map, 
+		      coalesce_list_p cl, FILE *debug)
+{
+  int x, y, z;
+  tree var, tmp;
+
+  /* Attempt to coalesce any items in a coalesce list first.  */
+  if (cl)
+    {
+      while (pop_best_coalesce (cl, &x, &y) != NO_BEST_COALESCE)
+        {
+	  if (!conflict_graph_conflict_p (graph, x, y))
+	    {
+	      if (tpa_find_tree (tpa, x) == TPA_NONE 
+		  || tpa_find_tree (tpa, y) == TPA_NONE)
+		continue;
+	      conflict_graph_merge_regs (graph, x, y);
+	      var = partition_to_var (map, x);
+	      tmp = partition_to_var (map, y);
+	      z = var_union (map, var, tmp);
+	      /* z is the new combined partition. We need to remove the other
+	         partition from the list. Set x to be that other partition.  */
+	      if (z == x)
+	        x = y;
+	      z = tpa_find_tree (tpa, x);
+	      tpa_remove_partition (tpa, z, x);
+	      if (debug)
+	        {
+		  fprintf (debug, "Coalesce (list): ");
+		  print_generic_expr (debug, var, TDF_SLIM);
+		  fprintf (debug, " and ");
+		  print_generic_expr (debug, tmp, TDF_SLIM);
+		  fprintf (debug, "\n");
+		}
+	    }
+	}
+
+    }
+
+  for (x = 0; x < tpa_num_trees (tpa); x++)
+    {
+      while (tpa_first_partition (tpa, x) != TPA_NONE)
+        {
+	  /* Coalesce first partition with everything that doesn't conflict.  */
+	  y = tpa_first_partition (tpa, x);
+	  tpa_remove_partition (tpa, x, y);
+	  var = partition_to_var (map, y);
+	  for (z = tpa_next_partition (tpa, y); 
+	       z != TPA_NONE; 
+	       z = tpa_next_partition (tpa, z))
+	    {
+	      tmp = partition_to_var (map, z);
+	      /* If partitions are already merged, don't check for conflict.  */
+	      if (tmp == var)
+	        tpa_remove_partition (tpa, x, z);
+	      else if (!conflict_graph_conflict_p (graph, y, z))
+		{
+		  if (tpa_find_tree (tpa, y) == TPA_NONE 
+		      || tpa_find_tree (tpa, z) == TPA_NONE)
+		    continue;
+		  /* Var might change as a result of the var_union.  */
+		  var_union (map, var, tmp);
+		  tpa_remove_partition (tpa, x, z);
+		  conflict_graph_merge_regs (graph, y, z);
+		  if (debug)
+		    {
+		      fprintf (debug, "Coalesce : ");
+		      print_generic_expr (debug, var, TDF_SLIM);
+		      fprintf (debug, " and ");
+		      print_generic_expr (debug, tmp, TDF_SLIM);
+		      fprintf (debug, "\n");
+		    }
+		}
 	    }
 	}
     }
 }
 
-/* Free the memory used by a root_var object.  */
-void
-delete_root_var (root_var_p rv)
+/* Show debug info for a coalesce list.  */
+void 
+dump_coalesce_list (FILE *f, coalesce_list_p cl)
 {
-  if (!rv)
-    return;
+  partition_pair_p node;
+  int x, num;
+  tree var;
 
-  free (rv->next_partition);
-  free (rv);
+  if (cl->add_mode)
+    {
+      fprintf (f, "Coalesce List:\n");
+      num = num_var_partitions (cl->map);
+      for (x = 0; x < num; x++)
+        {
+	  node = cl->list[x];
+	  if (node)
+	    {
+	      fprintf (f, "[");
+	      print_generic_expr (f, partition_to_var (cl->map, x), TDF_SLIM);
+	      fprintf (f, "] - ");
+	      for ( ; node; node = node->next)
+	        {
+		  var = partition_to_var (cl->map, node->second_partition);
+		  print_generic_expr (f, var, TDF_SLIM);
+		  fprintf (f, "(%1d), ", node->cost);
+		}
+	      fprintf (f, "\n");
+	    }
+	}
+    }
+  else
+    {
+      fprintf (f, "Sorted Coalesce list:\n");
+      for (node = cl->list[0]; node; node = node->next)
+        {
+	  fprintf (f, "(%d) ", node->cost);
+	  var = partition_to_var (cl->map, node->first_partition);
+	  print_generic_expr (f, var, TDF_SLIM);
+	  fprintf (f, " : ");
+	  var = partition_to_var (cl->map, node->second_partition);
+	  print_generic_expr (f, var, TDF_SLIM);
+	  fprintf (f, "\n");
+	}
+    }
 }
 
 
-/* Output a root_var object.  */
+/* Output a tree_partition_associator object.  */
 void
-dump_root_var (FILE *f, root_var_p rv)
+tpa_dump (FILE *f, tpa_p tpa)
 {
   int x, i;
 
-  if (!rv)
+  if (!tpa)
     return;
 
-  fprintf (f, "Root Var dump\n");
-  for (x = 0; x < num_root_vars (rv); x++)
+  for (x = 0; x < tpa_num_trees (tpa); x++)
     {
-      print_generic_expr (f, root_var (rv, x), TDF_SLIM);
+      print_generic_expr (f, tpa_tree (tpa, x), TDF_SLIM);
       fprintf (f, " : (");
-      for (i = first_root_var_partition (rv, x); 
-	   i != ROOT_VAR_NONE;
-	   i = next_root_var_partition (rv, i))
+      for (i = tpa_first_partition (tpa, x); 
+	   i != TPA_NONE;
+	   i = tpa_next_partition (tpa, i))
 	{
-	  print_generic_expr (f, partition_to_var (rv->map, i), TDF_SLIM);
+	  print_generic_expr (f, partition_to_var (tpa->map, i), TDF_SLIM);
 	  fprintf (f, " ");
+#ifdef ENABLE_CHECKING
+	  if (tpa_find_tree (tpa, i) != x)
+	    fprintf (f, "**find tree incorrectly set** ");
+#endif
 	}
       fprintf (f, ")\n");
     }
-  fprintf (f, ")\n");
+  fflush (f);
 }
-
-
 
 /* Output a partition.  */
 

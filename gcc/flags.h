@@ -701,6 +701,9 @@ extern int flag_tree_copyprop;
 /* Enable SSA-DCE on trees.  */
 extern int flag_tree_dce;
 
+/* Enable SSA->normal pass memory location coalescing.  */
+extern int flag_tree_combine_temps;
+
 /* Enable dominator optimizations while re-writing into SSA form.  */
 extern int flag_tree_dom;
 
