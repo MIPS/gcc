@@ -1,6 +1,6 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -423,15 +423,17 @@ namespace std
       _M_last_overflowed = false;	
       return this; 
     }
-  
+
+  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+  // According to 27.8.1.4 p11 - 13 (for seekoff) and the resolution of
+  // DR 171 (for seekpos), both functions should ignore the last argument
+  // (of type openmode). 
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::pos_type
     basic_filebuf<_CharT, _Traits>::
-    seekoff(off_type __off, ios_base::seekdir __way, ios_base::openmode __mode)
+    seekoff(off_type __off, ios_base::seekdir __way, ios_base::openmode)
     {
       pos_type __ret =  pos_type(off_type(-1)); 
-      bool __testin = (ios_base::in & _M_mode & __mode) != 0;
-      bool __testout = (ios_base::out & _M_mode & __mode) != 0;
 
       int __width = 0;
       if (has_facet<__codecvt_type>(this->_M_buf_locale))
@@ -440,7 +442,7 @@ namespace std
 	__width = 0;
 
       bool __testfail = __off != 0 && __width <= 0;      
-      if (this->is_open() && !__testfail && (__testin || __testout)) 
+      if (this->is_open() && !__testfail) 
 	{
 	  // Ditch any pback buffers to avoid confusion.
 	  _M_pback_destroy();
@@ -464,8 +466,9 @@ namespace std
 	      else if (__testget && __way == ios_base::cur)
 		__computed_off += _M_in_cur - _M_filepos;
 
-	      // Return pos_type(off_type(-1)) in case of failure.	  
-	      __ret = _M_file.seekoff(__computed_off, __way, __mode);
+	      // Return pos_type(off_type(-1)) in case of failure.
+	      __ret = _M_file.seekoff(__computed_off, __way,
+				      ios_base::openmode());
 	      _M_set_indeterminate();
 	    }
 	  // NB: Need to do this in case _M_file in indeterminate
@@ -473,7 +476,7 @@ namespace std
 	  else
 	    {
  	      pos_type __tmp =
- 		_M_file.seekoff(__off, ios_base::cur, __mode);
+ 		_M_file.seekoff(__off, ios_base::cur, ios_base::openmode());
  	      if (__tmp >= 0)
 		{
 		  // Seek successful.
@@ -489,11 +492,12 @@ namespace std
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::pos_type
     basic_filebuf<_CharT, _Traits>::
-    seekpos(pos_type __pos, ios_base::openmode __mode)
+    seekpos(pos_type __pos, ios_base::openmode)
     {
 #ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
 // 171. Strange seekpos() semantics due to joint position
-      return this->seekoff(off_type(__pos), ios_base::beg, __mode);
+      return this->seekoff(off_type(__pos), ios_base::beg,
+			   ios_base::openmode());
 #endif
     }
 

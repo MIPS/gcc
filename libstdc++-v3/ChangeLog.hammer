@@ -1,3 +1,10 @@
+2004-08-06  Paolo Carlini  <pcarlini@suse.de>
+
+	PR libstdc++/12232
+	* include/bits/fstream.tcc (seekoff): Essentially ignore the
+	openmode argument (_M_file.seekoff already ignores it).
+	(seekpos): Likewise.
+
 2004-08-06  Petur Runolfsson  <peturr02@ru.is>
 	    Paolo Carlini  <pcarlini@unitus.it>
 
