@@ -3204,6 +3204,12 @@ s390_simplify_dwarf_addr (orig_x)
 {
   rtx x = orig_x, y;
 
+  if (GET_CODE (x) == UNSPEC
+      && XINT (x, 1) == 101
+      && GET_CODE (XVECEXP (x, 0, 0)) == REG
+      && REGNO (XVECEXP (x, 0, 0)) == BASE_REGISTER)
+    return gen_rtx_LABEL_REF (VOIDmode, cfun->machine->literal_pool_label);
+
   if (GET_CODE (x) != MEM)
     return orig_x;
 
