@@ -442,6 +442,71 @@ gcjx::finish ()
   our_compiler = NULL;
 }
 
+// Write out code to register classes we defined.
+// The preferred mechanism is through the .jcr section, which contain
+// a list of pointers to classes which get registered during constructor
+// invocation time.
+static void
+register_classes (tree classes)
+{
+  if (TARGET_USE_JCR_SECTION)
+    {
+#ifdef JCR_SECTION_NAME
+      int len = list_length (classes) + 1;
+      tree type = build_array_type (type_class_ptr,
+				    build_index_type (build_int_cst (type_jint,
+								     len)));
+      tree result = build_decl (VAR_DECL, get_identifier ("_jcr_list"), type);
+      DECL_SECTION_NAME (result) = build_string (strlen (JCR_SECTION_NAME),
+						 JCR_SECTION_NAME);
+
+      tree cons = NULL_TREE;
+      int i = 0;
+      for (tree iter = classes; iter != NULL_TREE; iter = TREE_CHAIN (iter))
+	{
+	  // Destructively modify the purpose field.
+	  TREE_PURPOSE (iter) = build_int_cst (type_jint, i);
+	  ++i;
+	}
+
+      classes = chainon (classes,
+			 tree_cons (build_int_cst (type_jint, i),
+				    null_pointer_node,
+				    NULL_TREE));
+
+      DECL_INITIAL (result) = build_constructor (type, classes);
+      TREE_STATIC (result) = 1;
+      DECL_ARTIFICIAL (result) = 1;
+      DECL_IGNORED_P (result) = 1;
+
+      rest_of_decl_compilation (result, 1, 0);
+#else
+      // A target has defined TARGET_USE_JCR_SECTION, but doesn't have
+      // a JCR_SECTION_NAME.
+      abort ();
+#endif
+    }
+  else
+    {
+      abort ();
+//       tree klass, t, register_class_fn;
+
+//       t = build_function_type_list (void_type_node, class_ptr_type, NULL);
+//       t = build_decl (FUNCTION_DECL, get_identifier ("_Jv_RegisterClass"), t);
+//       TREE_PUBLIC (t) = 1;
+//       DECL_EXTERNAL (t) = 1;
+//       register_class_fn = t;
+
+//       for (klass = registered_class; klass; klass = TREE_CHAIN (klass))
+// 	{
+// 	  t = build_fold_addr_expr (klass);
+// 	  t = tree_cons (NULL, t, NULL);
+// 	  t = build_function_call_expr (register_class_fn, t);
+// 	  append_to_statement_list (t, list_p);
+// 	}
+    }
+}
+
 // This handles the processing for a single file.  It feeds the
 // contents of the file to the compiler as appropriate.  For instance,
 // ".java" files are parsed and marked for code generation.
@@ -483,4 +548,9 @@ gcjx::parse_file (int)
   // Compile, then generate code if everything went ok.
   if (our_compiler->semantic_analysis ())
     our_compiler->generate_code ();
+
+  register_classes (class_list);
+
+  cgraph_finalize_compilation_unit ();
+  cgraph_optimize ();
 }

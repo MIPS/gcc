@@ -1,5 +1,12 @@
 2005-02-21  Tom Tromey  <tromey@redhat.com>
 
+	* driver.cc (parse_file): Finalize compilation unit.
+	* treegen.cc (generate): Update class_list.
+	* hooks.hh (class_list): Declare.
+	* decl.cc (class_list): New global.
+
+2005-02-21  Tom Tromey  <tromey@redhat.com>
+
 	* classobj.hh (class_object_creator::fill_in_vtable): Declare.
 	* abi.cc (get_vtable): Updated.
 	* abi.hh (gcj_abi::get_vtable): Removed 'lay_out' argument.

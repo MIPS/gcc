@@ -140,6 +140,10 @@ tree field_slot_o;
 // Version number.
 tree gcj_abi_version;
 
+// This holds the Class objects for all the classes we've compiled, as
+// a TREE_LIST.
+tree class_list;
+
 
 
 static void

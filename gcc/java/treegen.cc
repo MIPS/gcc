@@ -90,5 +90,5 @@ tree_code_generator::generate (model_class *the_class)
 
   class_object_creator creator (builtins, wrapper, TREE_TYPE (class_tree));
   tree class_obj = creator.get_class ();
-  // FIXME: do something with the class now.
+  class_list = tree_cons (NULL_TREE, class_obj, class_list);
 }

@@ -98,6 +98,7 @@ extern GTY (()) tree field_slot_f;
 extern GTY (()) tree field_slot_d;
 extern GTY (()) tree field_slot_o;
 extern GTY (()) tree gcj_abi_version;
+extern GTY (()) tree class_list;
 
 
 extern tree build_address_of (tree);
