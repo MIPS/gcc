@@ -85,7 +85,7 @@ import javax.swing.plaf.MenuItemUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision: 1.1.2.5 $
+ * @version $Revision: 1.1.2.6 $
  */
 public class BasicMenuItemUI extends MenuItemUI
 {
@@ -227,7 +227,8 @@ public class BasicMenuItemUI extends MenuItemUI
    */
   protected void doClick(MenuSelectionManager msm)
   {
-    // TODO
+    menuItem.doClick();
+    msm.clearSelectedPath();
   }
 
   /**
@@ -699,7 +700,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.5 $
+   * @version $Revision: 1.1.2.6 $
    */
   protected class MouseInputHandler implements MouseInputListener
   {
@@ -717,6 +718,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void mouseClicked(MouseEvent e)
     {
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.processMouseEvent(e);
     }
 
     /**
@@ -726,6 +729,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void mouseDragged(MouseEvent e)
     {
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.processMouseEvent(e);
     }
 
     /**
@@ -735,20 +740,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void mouseEntered(MouseEvent e)
     {
-      if (e.getSource() instanceof AbstractButton)
-        {
-	  AbstractButton button = (AbstractButton) e.getSource();
-	  ButtonModel model = button.getModel();
-
-	  if (button.isRolloverEnabled())
-	    model.setRollover(true);
-
-	  if (model.isPressed()
-	      && ((e.getModifiers() & InputEvent.BUTTON1_MASK) != 0))
-	    model.setArmed(true);
-	  else
-	    model.setArmed(false);
-        }
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.processMouseEvent(e);
     }
 
     /**
@@ -758,16 +751,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void mouseExited(MouseEvent e)
     {
-      if (e.getSource() instanceof AbstractButton)
-        {
-	  AbstractButton button = (AbstractButton) e.getSource();
-	  ButtonModel model = button.getModel();
-
-	  if (button.isRolloverEnabled())
-	    model.setRollover(false);
-
-	  model.setArmed(false);
-        }
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.processMouseEvent(e);
     }
 
     /**
@@ -777,6 +762,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void mouseMoved(MouseEvent e)
     {
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.processMouseEvent(e);
     }
 
     /**
@@ -786,18 +773,8 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void mousePressed(MouseEvent e)
     {
-      if (e.getSource() instanceof AbstractButton)
-        {
-	  AbstractButton button = (AbstractButton) e.getSource();
-	  ButtonModel model = button.getModel();
-
-	  if ((e.getModifiers() & InputEvent.BUTTON1_MASK) != 0)
-	    {
-	      // It is important that these transitions happen in this order.
-	      model.setArmed(true);
-	      model.setPressed(true);
-	    }
-        }
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.processMouseEvent(e);
     }
 
     /**
@@ -807,18 +784,12 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void mouseReleased(MouseEvent e)
     {
-      if (e.getSource() instanceof AbstractButton)
-        {
-	  AbstractButton button = (AbstractButton) e.getSource();
-	  ButtonModel model = button.getModel();
-
-	  if ((e.getModifiers() & InputEvent.BUTTON1_MASK) != 0)
-	    {
-	      // It is important that these transitions happen in this order.
-	      model.setPressed(false);
-	      model.setArmed(false);
-	    }
-        }
+      // FIXME: Should check if the mouse released while mouse cursor
+      // was indeed over the menu item. If this wasn't the case we probably 
+      // should sent this event to MenuSelectionManager. 
+      MenuSelectionManager manager = MenuSelectionManager.defaultManager();
+      manager.clearSelectedPath();
+      menuItem.doClick(0);
     }
   }
 
@@ -826,7 +797,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.5 $
+   * @version $Revision: 1.1.2.6 $
    */
   protected class MenuDragMouseHandler implements MenuDragMouseListener
   {
@@ -837,7 +808,6 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuDragMouseDragged(MenuDragMouseEvent e)
     {
-      // TODO        
     }
 
     /**
@@ -847,7 +817,6 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuDragMouseEntered(MenuDragMouseEvent e)
     {
-      // TODO        
     }
 
     /**
@@ -857,7 +826,6 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuDragMouseExited(MenuDragMouseEvent e)
     {
-      // TODO        
     }
 
     /**
@@ -867,7 +835,6 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuDragMouseReleased(MenuDragMouseEvent e)
     {
-      // TODO        
     }
   }
 
@@ -875,7 +842,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.5 $
+   * @version $Revision: 1.1.2.6 $
    */
   protected class MenuKeyHandler implements MenuKeyListener
   {
@@ -886,7 +853,6 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuKeyPressed(MenuKeyEvent e)
     {
-      // TODO        
     }
 
     /**
@@ -896,7 +862,6 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuKeyReleased(MenuKeyEvent e)
     {
-      // TODO        
     }
 
     /**
@@ -906,7 +871,6 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void menuKeyTyped(MenuKeyEvent e)
     {
-      // TODO    
     }
   }
 
@@ -914,7 +878,7 @@ public class BasicMenuItemUI extends MenuItemUI
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.1.2.5 $
+   * @version $Revision: 1.1.2.6 $
    */
   protected class PropertyChangeHandler
   {
@@ -925,7 +889,6 @@ public class BasicMenuItemUI extends MenuItemUI
      */
     public void propertyChange(PropertyChangeEvent evt)
     {
-      // TODO        
     }
   }
 }

@@ -1,3 +1,25 @@
+2004-04-27  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/JMenuItem.java
+	(createActionPropertyChangeListener): Implemented.
+	(processMouseEvent): Ditto.
+	(fireMenuDragMouseEntered): Ditto.
+	(fireMenuDragMouseExited): Ditto.
+	(fireMenuDragMouseDragged): Ditto.
+	(fireMenuDragMouseReleased): Ditto.
+	(menuSelectionChanged): Ditto.
+	(getSubElements): Ditto.
+	(getComponent): Ditto.
+	(addMenuDragMouseListener): Ditto.
+	(removeMenuDragMouseListener):Ditto.
+	(addMenuKeyListener): Ditto.
+	(removeMenuKeyListener): Ditto.
+	* javax/swing/plaf/basic/BasicMenuItemUI.java
+	(doClick): Imlemented.
+	* javax/swing/plaf/basic/BasicMenuItemUI.MouseInputHandler:
+	Don't handle mouse events here. Pass them to 
+	MenuSelectionManager.
+	
 2004-04-26  Olga Rodimina  <rodimina@redhat.com>
 	Used correct version of jalopy configuration
 	file to fix style in the files below.

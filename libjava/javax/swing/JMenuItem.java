@@ -38,6 +38,7 @@ exception statement from your version. */
 package javax.swing;
 
 import java.awt.Component;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
@@ -45,6 +46,7 @@ import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.EventListener;
 import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
 import javax.accessibility.AccessibleRole;
@@ -62,7 +64,7 @@ import javax.swing.plaf.MenuItemUI;
  * DOCUMENT ME!
  *
  * @author $author$
- * @version $Revision: 1.2.18.2 $
+ * @version $Revision: 1.2.18.3 $
  */
 public class JMenuItem extends AbstractButton implements Accessible,
                                                          MenuElement
@@ -267,7 +269,14 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   protected PropertyChangeListener createActionPropertyChangeListener(Action action)
   {
-    return null;
+    return new PropertyChangeListener()
+      {
+	public void propertyChange(PropertyChangeEvent e)
+	{
+	  Action act = (Action) (e.getSource());
+	  configurePropertiesFromAction(act);
+	}
+      };
   }
 
   /**
@@ -280,7 +289,76 @@ public class JMenuItem extends AbstractButton implements Accessible,
   public void processMouseEvent(MouseEvent event, MenuElement[] path,
                                 MenuSelectionManager manager)
   {
-    // TODO
+    switch (event.getID())
+      {
+      case MouseEvent.MOUSE_CLICKED:
+	doClick();
+	break;
+      case MouseEvent.MOUSE_ENTERED:
+	if (event.getSource() instanceof JMenuItem)
+	  {
+	    JMenuItem item = (JMenuItem) event.getSource();
+	    ButtonModel model = item.getModel();
+
+	    if (item.isRolloverEnabled())
+	      model.setRollover(true);
+
+	    if (model.isPressed()
+	        && (event.getModifiers() & InputEvent.BUTTON1_MASK) != 0)
+	      model.setArmed(true);
+	    else
+	      model.setArmed(false);
+	  }
+	break;
+      case MouseEvent.MOUSE_EXITED:
+	if (event.getSource() instanceof JMenuItem)
+	  {
+	    JMenuItem item = (JMenuItem) event.getSource();
+	    ButtonModel model = item.getModel();
+	    if (item.isRolloverEnabled())
+	      model.setRollover(false);
+	    model.setArmed(false);
+	  }
+	break;
+      case MouseEvent.MOUSE_PRESSED:
+	if (event.getSource() instanceof JMenuItem)
+	  {
+	    if ((event.getModifiers() & InputEvent.BUTTON1_MASK) != 0)
+	      {
+		model.setArmed(true);
+		model.setPressed(true);
+	      }
+	  }
+	break;
+      case MouseEvent.MOUSE_RELEASED:
+	if (event.getSource() instanceof JMenuItem)
+	  {
+	    JMenuItem item = (JMenuItem) event.getSource();
+	    ButtonModel model = item.getModel();
+	    if ((event.getModifiers() & InputEvent.BUTTON1_MASK) != 0)
+	      {
+		model.setPressed(false);
+		model.setArmed(false);
+		manager.clearSelectedPath();
+	      }
+	  }
+	break;
+      case MouseEvent.MOUSE_MOVED:
+	break;
+      case MouseEvent.MOUSE_DRAGGED:
+	MenuDragMouseEvent e = new MenuDragMouseEvent((Component) event
+	                                              .getSource(),
+	                                              event.getID(),
+	                                              event.getWhen(),
+	                                              event.getModifiers(),
+	                                              event.getX(),
+	                                              event.getY(),
+	                                              event.getClickCount(),
+	                                              event.isPopupTrigger(),
+	                                              path, manager);
+	processMenuDragMouseEvent(e);
+	break;
+      }
   }
 
   /**
@@ -303,7 +381,22 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   public void processMenuDragMouseEvent(MenuDragMouseEvent event)
   {
-  } // processMenuDragMouseEvent()
+    switch (event.getID())
+      {
+      case MouseEvent.MOUSE_ENTERED:
+	fireMenuDragMouseEntered(event);
+	break;
+      case MouseEvent.MOUSE_EXITED:
+	fireMenuDragMouseExited(event);
+	break;
+      case MouseEvent.MOUSE_DRAGGED:
+	fireMenuDragMouseDragged(event);
+	break;
+      case MouseEvent.MOUSE_RELEASED:
+	fireMenuDragMouseReleased(event);
+	break;
+      }
+  }
 
   /**
    * DOCUMENT ME!
@@ -322,7 +415,10 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   protected void fireMenuDragMouseEntered(MenuDragMouseEvent event)
   {
-    // TODO
+    EventListener[] ll = listenerList.getListeners(MenuDragMouseListener.class);
+
+    for (int i = 0; i < ll.length; i++)
+      ((MenuDragMouseListener) ll[i]).menuDragMouseEntered(event);
   }
 
   /**
@@ -332,7 +428,10 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   protected void fireMenuDragMouseExited(MenuDragMouseEvent event)
   {
-    // TODO
+    EventListener[] ll = listenerList.getListeners(MenuDragMouseListener.class);
+
+    for (int i = 0; i < ll.length; i++)
+      ((MenuDragMouseListener) ll[i]).menuDragMouseExited(event);
   }
 
   /**
@@ -342,7 +441,10 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   protected void fireMenuDragMouseDragged(MenuDragMouseEvent event)
   {
-    // TODO
+    EventListener[] ll = listenerList.getListeners(MenuDragMouseListener.class);
+
+    for (int i = 0; i < ll.length; i++)
+      ((MenuDragMouseListener) ll[i]).menuDragMouseDragged(event);
   }
 
   /**
@@ -352,7 +454,10 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   protected void fireMenuDragMouseReleased(MenuDragMouseEvent event)
   {
-    // TODO
+    EventListener[] ll = listenerList.getListeners(MenuDragMouseListener.class);
+
+    for (int i = 0; i < ll.length; i++)
+      ((MenuDragMouseListener) ll[i]).menuDragMouseReleased(event);
   }
 
   /**
@@ -392,7 +497,8 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   public void menuSelectionChanged(boolean changed)
   {
-    // TODO
+    if (changed)
+      model.setArmed(true);
   }
 
   /**
@@ -402,7 +508,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   public MenuElement[] getSubElements()
   {
-    return null; // TODO
+    return new MenuElement[0];
   }
 
   /**
@@ -412,7 +518,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   public Component getComponent()
   {
-    return null; // TODO
+    return this;
   }
 
   /**
@@ -422,7 +528,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   public void addMenuDragMouseListener(MenuDragMouseListener listener)
   {
-    // TODO
+    listenerList.add(MenuDragMouseListener.class, listener);
   }
 
   /**
@@ -432,6 +538,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   public void removeMenuDragMouseListener(MenuDragMouseListener listener)
   {
+    listenerList.remove(MenuDragMouseListener.class, listener);
   }
 
   /**
@@ -441,6 +548,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   public void addMenuKeyListener(MenuKeyListener listener)
   {
+    listenerList.add(MenuKeyListener.class, listener);
   }
 
   /**
@@ -450,6 +558,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    */
   public void removeMenuKeyListener(MenuKeyListener listener)
   {
+    listenerList.remove(MenuKeyListener.class, listener);
   }
 
   /**
@@ -479,7 +588,7 @@ public class JMenuItem extends AbstractButton implements Accessible,
    * DOCUMENT ME!
    *
    * @author $author$
-   * @version $Revision: 1.2.18.2 $
+   * @version $Revision: 1.2.18.3 $
    */
   protected class AccessibleJMenuItem extends AccessibleAbstractButton
     implements ChangeListener
