@@ -3214,6 +3214,8 @@ rest_of_compilation (decl)
 
      life_analyzis rarely eliminates modification of external memory.  */
   mark_constant_function ();
+  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
+    branch_prob ();
 
   if (optimize)
     {
@@ -3228,19 +3230,7 @@ rest_of_compilation (decl)
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
   timevar_pop (TV_FLOW);
 
-  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
-    {
-      timevar_push (TV_BRANCH_PROB);
-      open_dump_file (DFI_bp, decl);
-
-      branch_prob ();
-
-      if (rtl_dump_file)
-        dump_flow_info (rtl_dump_file);
-      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
-      timevar_pop (TV_BRANCH_PROB);
-    }
-  else if (flag_guess_branch_prob)
+  if (flag_guess_branch_prob)
     {
       timevar_push (TV_BRANCH_PROB);
       open_dump_file (DFI_bp, decl);
@@ -3249,7 +3239,7 @@ rest_of_compilation (decl)
       estimate_probability (&loops);
 
       if (rtl_dump_file)
-        dump_flow_info (rtl_dump_file);
+	dump_flow_info (rtl_dump_file);
       close_dump_file (DFI_bp, print_rtl_with_bb, insns);
       timevar_pop (TV_BRANCH_PROB);
     }
