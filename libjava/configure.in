@@ -941,7 +941,7 @@ case "${host}" in
  ia64-*-linux*)
     SIGNAL_HANDLER=include/dwarf2-signal.h
     ;;
- powerpc-*-linux*)
+ powerpc*-*-linux*)
     SIGNAL_HANDLER=include/powerpc-signal.h
     ;;
  alpha*-*-linux*)

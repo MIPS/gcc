@@ -1,3 +1,11 @@
+2004-02-11  Alan Modra  <amodra@bigpond.net.au>
+
+	* include/powerpc-signal.h (INIT_SEGV, INIT_FPE): Provide powerpc64
+	versions.  Check return from syscall for ppc32 versions.
+	* configure.host: Correct powerpc64 entry.
+	* configure.in: Use powerpc-signal.h for powerpc64.
+	* configure: Regenerate.
+
 2004-02-07  Andreas Jaeger  <aj@suse.de>
 
 	Backport from mainline:
@@ -15,7 +23,6 @@
 	Backport from mainline.
 
 	2003-08-06  Alan Modra  <amodra@bigpond.net.au>
-
 	* acinclude.m4 (LIBGCJ_CONFIGURE): Remove AC_CANONICAL_BUILD.
 	* configure.in: Compare with_cross_host to build_alias, not build.
 	* aclocal.m4: Regenerate.
