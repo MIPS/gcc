@@ -220,7 +220,7 @@ get_stmt_accessed_fields_1 (tree stmt, tree op, struct data_structure *ds,
   else if (TREE_CODE (struct_var) == INDIRECT_REF)
     struct_type = TREE_TYPE (TREE_TYPE (TREE_OPERAND (struct_var, 0)));
 
-  if (struct_type && ! similar_struct_decls_p (ds->decl, struct_type))
+  if (! struct_type || ! similar_struct_decls_p (ds->decl, struct_type))
     {
       
       if ( bitsize < 0 )
@@ -377,7 +377,7 @@ build_f_acc_list_for_bb (struct data_structure *ds, basic_block bb)
      in the basic block (or hold the distance accross the basic block
      if there is no fields accessed in it.  */
   crr = xcalloc (1, sizeof (struct bb_field_access));
-  crr->f_indx = -1;
+  crr->f_index = -1;
   head = crr;
 
   /* Go over the basic block statements and create a linked list of
@@ -395,10 +395,10 @@ build_f_acc_list_for_bb (struct data_structure *ds, basic_block bb)
 	   access is in the same statement it will not be advanced
 	   at all, and we will get a distance of zero.  */
 	crr->next = xcalloc (1, sizeof (struct bb_field_access));
-	crr->next->f_indx = i;
+	crr->next->f_index = i;
 	crr = crr->next;
 	/* Update the access count for a single field.  */
-	ds->fields[crr->f_indx].count += bb->count;
+	ds->fields[crr->f_index].count += bb->count;
       );
     }
   return head;
@@ -768,6 +768,10 @@ peel_structs (void)
   struct cgraph_node *c_node;
   bool reordering_only = false;
   bool success;
+  gcov_type hotest_struct_count = 0;
+  FILE *vcg_dump = NULL;
+   
+  vcg_dump = fopen (concat (dump_base_name, ".struct-reorg.vcg", NULL), "w");
 
   /* Verify that this compiler invocation was passed *all* the user-written
      code for this program.  */
@@ -791,7 +795,8 @@ peel_structs (void)
      one for each data structure of our interest, this is a gready
      algorithm, we should optimize this in the future. 
    */
-
+  if (vcg_dump)
+    fprintf (vcg_dump, "graph: {\n");
   for (current_struct = data_struct_list; current_struct; 
        current_struct = current_struct->next)
     {
@@ -810,13 +815,20 @@ peel_structs (void)
 	      /* Build the access sites list for fields and also the field
 		 access lists for basic blocks.  */
 	      build_bb_access_list_for_struct (crr_ds, func);
-	      update_cpg_for_structure (crr_ds, func);
+	      update_cpg_for_structure (vcg_dump, crr_ds, func);
 	      free_bb_access_list_for_struct (crr_ds, func);
 	    }
 	}
-      if (crr_ds->count < COLD_STRUCTURE_RATIO)
-	continue;
+      if (crr_ds->count > hotest_struct_count)
+	hotest_struct_count = crr_ds->count;
+    }
+  for (current_struct = data_struct_list; current_struct; 
+       current_struct = current_struct->next)
+    {
+      struct data_structure *crr_ds = current_struct->struct_data;
 
+      if (crr_ds->count < (hotest_struct_count / COLD_STRUCTURE_RATIO))
+	continue;
       success = cache_aware_data_reorganization (crr_ds, reordering_only);
       dump_cpg (stdout, crr_ds->cpg);
       printout_field_reordering_hints (crr_ds, stdout);
@@ -830,5 +842,10 @@ peel_structs (void)
       /* Free up the memory allocated for the CRR_DS.  */
       free_data_struct (crr_ds);
     }
+    if (vcg_dump)
+      {
+	fprintf (vcg_dump, "}\n");
+	fclose (vcg_dump);
+      }
 }
 

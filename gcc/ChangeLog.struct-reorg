@@ -1,3 +1,30 @@
+2004-12-06 Mostafa Hagog  <mustafa@il.ibm.com>
+	* params.def (PARAM_STRUCT_REORG_DISTANCE_THRESHOLD): New.
+	* params.h (STRUCT_REORG_DISTANCE_THRESHOLD): New.
+	* struct-reorg-cpg.c (struct faccg_arc, struct faccg_node):
+	New.
+	(create_bb_field_access, create_facc_node, copy_faccg_node,
+	remove_facc_node, create_facc_arc, remove_faccg_arc, 
+	get_faccg_arc, redirect_arc_src, redirect_arc_dest, 
+	successors_exist_p, add_to_collapsed_succs, 
+	add_cp_relation_for_collapsed_succs, 
+	update_cpg_for_faccg_loop, split_dest_predecessors,
+	collapse_successor, compact_faccg, dump_faccg_node,
+	dump_faccg, free_faccg, build_compact_field_access_graphs,
+	update_cpg_from_faccg): New.
+	(update_cpg_for_bb): New implementation.
+	(update_cpg_for_structure): Call the new CPG building Alg.
+	(struct field_order): Rename f_indx to f_index. 
+	(split_data_structure): Several fixes.
+	* struct-reorg.c (get_stmt_accessed_fields_1): Fix.
+	(vcg_dump): Open/Close.
+	(hotest_struct_count): New.
+	(peel_structs): Use hotest_struct_count to handle only "hot" 
+	structures.
+	* struct-reorg.h (struct bb_field_access): Rename f_indx
+	with f_index.
+	(update_cpg_for_structure): Additional parameter.
+
 2004-12-05 Mostafa Hagog  <mustafa@il.ibm.com>
 	* struct-reorg-cpg.c (field_wcp): Remove the use of pow.
 

@@ -60,7 +60,7 @@ struct data_field_entry {
   of the predecessor block to form the distance from accesses in the
   predecessor blocks.  */
 struct bb_field_access {
-  int f_indx;
+  int f_index;
   int bb_index;
   int distance_to_next;
   gcov_type count;
@@ -192,7 +192,7 @@ get_last_field_access (struct data_structure *ds, basic_block bb);
 
 void dump_cpg (FILE *, cpg_t *);
 void free_cpg (cpg_t *cpg);
-void update_cpg_for_structure (struct data_structure *, struct function *);
+void update_cpg_for_structure (FILE *, struct data_structure *, struct function *);
  
 /* Stage 2 (profile based clustering) API.  Detailed comment in
    struct-reorg-cpg.c  */

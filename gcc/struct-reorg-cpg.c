@@ -30,7 +30,47 @@
 #include "struct-reorg.h"
 #include "math.h"
 
-#define STRUCT_REORG_DISTANCE_THRESHOLD 256
+/* Different algorithm for calculating the CPG from the BB 
+   field accesses.  */
+/* An accurate and compile time efficient for the current 
+   profiling information.  */
+#define USE_COMPACT_FIELD_ACCESS_GRAPH 1
+/* A gready non accurate calculation, but with a very small 
+   compile time impact.  */
+#define CPG_WITH_ZERO_DEPTH_FIELD_ACCESS 0
+/* This is an addition to the compact field access graph 
+   algorithm which makes the calculation further efficient 
+   in case of loops, but still not fully functional.  */
+#define USE_SPLIT_PRED_EDGES_IN_FACCG 0
+
+
+/* This data structure holds the compact field accesses graph.  */
+typedef struct faccg_node faccg_node_t;
+typedef struct faccg_arc faccg_arc_t;
+
+struct faccg_arc {
+  int distance;
+  gcov_type count;
+  faccg_node_t *src, *dest;
+  faccg_arc_t *pred_next, *succ_next;
+  faccg_arc_t *collapsed_succs;
+};
+
+
+/* Index the FACCG nodes, for uniquenses in vcg dump.  */
+static int facc_node_index = 0;
+
+struct faccg_node {
+  /* The accessed field index (-1 if doesn't exits).  */
+  int f_index;
+  /* The basic block index where the access belongs.  */
+  int bb_index;
+  int visited;
+  int index;
+  /* the list of predecessors/successors.  */
+  faccg_arc_t *preds, *succs;
+  faccg_node_t *next, *prev;
+} ;
 
 static void reorder_fields_of_struct (struct data_structure *);
 static void split_data_structure (struct data_structure *ds);
@@ -42,7 +82,7 @@ add_cp_relation (cpg_t *cpg, int f1, int f2, gcov_type count, int dist)
   int i1, i2;
   struct cpg_cell *cell;
 
-  if (count == 0)
+  if (count == 0 || dist > STRUCT_REORG_DISTANCE_THRESHOLD)
     return;
 
   if (f1 < 0 || f2 < 0)
@@ -63,12 +103,596 @@ add_cp_relation (cpg_t *cpg, int f1, int f2, gcov_type count, int dist)
   cell->count += count;
 }
 
-/* Add CP relation between NEXT and all the fields in LAF (Lately Accessed Fields) 
-   until distance passes the threshold.  */
+/* Allocates and initializes a BB_FIELD_ACCESS element.  */
+static struct bb_field_access *
+create_bb_field_access (int f_index, int bb_index, int distance,
+			gcov_type count)
+{
+  struct bb_field_access *new
+    = (struct bb_field_access *)
+      xcalloc (1, sizeof (struct bb_field_access));
+
+  new->f_index = f_index;
+  new->distance_to_next = distance;
+  new->count = count;
+  new->bb_index = bb_index;
+  return new;
+}
+
+/* Allocates memory for a new field access graph node,
+   and initializes it.  */
+static faccg_node_t *
+create_facc_node (faccg_node_t **head_p, int f_index, int dist, 
+		  int bb_index)
+{
+  faccg_node_t *head = *head_p;
+
+  faccg_node_t *facc_node = xcalloc (1, sizeof (faccg_node_t));
+  facc_node->f_index = f_index;
+  facc_node->bb_index = bb_index;
+  facc_node->succs = (faccg_arc_t *)xcalloc (1, sizeof (faccg_arc_t));
+  facc_node->succs->distance = dist;
+  facc_node->succs->src = facc_node;
+  facc_node->next = head;
+  if (head)
+    head->prev = facc_node;
+  *head_p = facc_node;
+  return facc_node;
+}
+
+static faccg_node_t *
+copy_faccg_node (faccg_node_t **head_p, faccg_node_t *node)
+{
+  faccg_node_t *head = *head_p;
+
+  faccg_node_t *facc_node = xcalloc (1, sizeof (faccg_node_t));
+  facc_node->f_index = node->f_index;
+  facc_node->bb_index = node->bb_index;
+  facc_node->next = head;
+  head->prev = facc_node;
+  *head_p = head;
+  return facc_node;
+}
+
+static void 
+remove_facc_node (faccg_node_t **head_p, faccg_node_t *node)
+{
+  faccg_node_t *head = *head_p; 
+
+  if (node->prev)
+    node->prev->next = node->next;
+  if (node->next)
+    node->next->prev = node->prev;
+  if (head == node)
+    *head_p = node->next;
+  free (node);
+}
+
+/* Create an arc going out of SRC into DEST with COUNT and DISTANCE.  */
+static faccg_arc_t *
+create_facc_arc (faccg_node_t *src, faccg_node_t *dest, gcov_type count,
+		 int distance)
+{
+  faccg_arc_t *arc;
+
+  if (src->succs && ! src->succs->dest)
+    arc = src->succs;
+  else
+    {
+      arc = (faccg_arc_t *)xcalloc (1, sizeof (faccg_arc_t));
+      arc->succ_next = src->succs;
+      src->succs = arc;
+    }
+  arc->src = src;
+  arc->count = count;
+  arc->distance = distance;
+  arc->dest = dest;
+  arc->pred_next = dest->preds;
+  dest->preds = arc;
+
+  return arc;
+}
+
+/* Remove ARC from its source successors and its destination predecessors.  */
 static void
-update_cpg_for_lately_accessed_fields (cpg_t *cpg, struct bb_field_access *laf_start, 
-				       struct bb_field_access *laf_end, int f_indx, 
-				       gcov_type count)
+remove_faccg_arc (faccg_arc_t *arc, bool from_src, bool from_dest)
+{
+  faccg_arc_t *crr;
+  faccg_arc_t *prev = NULL;
+
+  /* Remove ARC from its source successors.  */
+  if (from_src && arc->src)
+    {
+      for (crr = arc->src->succs; crr && crr != arc; crr = crr->succ_next)
+	prev = crr;
+
+      if (! crr)
+	abort ();
+      if (prev)
+	prev->succ_next = crr->succ_next;
+      else
+	arc->src->succs = crr->succ_next;
+    }
+
+  /* Remove ARC from its destination predecessors.  */
+  if (from_dest && arc->dest)
+    {
+      prev = NULL;
+      for (crr = arc->dest->preds; crr && crr != arc; crr = crr->pred_next)
+	prev = crr;
+
+      if (! crr)
+	abort ();
+      if (prev)
+	prev->pred_next = crr->pred_next;
+      else
+	arc->dest->preds = crr->pred_next;
+    }
+}
+
+/* Given source and dest looks for an arc that connects them together.  
+   Returns the arc if found and NULL if not.  */
+static faccg_arc_t *
+get_faccg_arc (faccg_node_t *src, faccg_node_t *dest)
+{
+  faccg_arc_t *arc;
+  
+  for (arc = src->succs; arc; arc = arc->succ_next)
+    if (arc->dest == dest)
+      return arc;
+
+  return NULL;
+}
+
+/* Change the source of the ARC to be SRC and update its count and
+   distance.  */
+static void
+redirect_arc_src (faccg_arc_t *arc, faccg_node_t *src, gcov_type count,
+		   int dist)
+{
+  /* Remove the arc from its current pred list of its current src*/
+  remove_faccg_arc (arc, true, false);
+
+  arc->src = src;
+  arc->succ_next = src->succs;
+  src->succs = arc;
+  arc->count = count;
+  arc->distance = dist;
+}
+
+#if USE_SPLIT_PRED_EDGES_IN_FACCG
+static void
+redirect_arc_dest (faccg_arc_t *arc, faccg_node_t *dest)
+{
+  remove_faccg_arc (arc, false, true);
+  arc->dest = dest;
+  arc->pred_next = dest->preds;
+  dest->preds = arc;
+}
+
+/* Returns true if there is a successor node for NODE.  */
+static bool
+successors_exist_p (faccg_node_t *node)
+{
+  faccg_arc_t *crr;
+
+  for (crr = node->succs; crr; crr = crr->succ_next)
+    if (crr->dest)
+      return true;
+
+  return false;
+}
+#endif /* USE_SPLIT_PRED_EDGES_IN_FACCG.  */
+
+/* Add DEST to the collapsed successors of ARC.  */
+static void
+add_to_collapsed_succs (faccg_node_t **head_p, faccg_node_t *dest, 
+			faccg_arc_t *arc, gcov_type count, int dist)
+{
+  faccg_arc_t *new_arc = (faccg_arc_t *)xcalloc (1, sizeof (faccg_arc_t));
+
+  new_arc->dest = copy_faccg_node (head_p, dest);
+  new_arc->count = count;
+  new_arc->distance = dist;
+  new_arc->succ_next = arc->collapsed_succs;
+  arc->collapsed_succs = new_arc;
+}
+
+static void
+add_cp_relation_for_collapsed_succs (cpg_t *cpg, faccg_arc_t *arc, 
+				     int index)
+{
+  faccg_arc_t *crr;
+
+  for (crr = arc->collapsed_succs; crr; crr = crr->succ_next)
+    add_cp_relation (cpg, index, crr->dest->f_index, 
+		     MIN (arc->count, crr->count), 
+		     arc->distance + crr->distance);
+ 
+}
+
+/* ARC summarizes all the accessed field in the loop in its 
+   COLLAPSED_SUCCS list.  This function adds CP_RELATION for 
+   each couple of dields accessed inside the loop.  */
+static void
+update_cpg_for_faccg_loop (cpg_t *cpg, faccg_arc_t *arc) 
+{
+  faccg_arc_t *crr;
+
+  if (arc->src != arc->dest)
+    abort ();
+
+  add_cp_relation (cpg, arc->src->f_index, arc->dest->f_index, 
+		   arc->count, arc->distance);
+  add_cp_relation_for_collapsed_succs (cpg, arc, arc->src->f_index);
+  for (crr = arc->collapsed_succs; crr; crr = crr->succ_next)
+     add_cp_relation_for_collapsed_succs (cpg, arc, crr->dest->f_index);
+}
+
+#if USE_SPLIT_PRED_EDGES_IN_FACCG
+/* Foreach predecessor edge E of ARC->dest do the following: 
+     1) make a new copy of ARC->dest  
+     2) redirect E dest to the new copy
+     3) Add a successor edge to the new copy for each successor
+        of ARC->dest.  */
+static void 
+split_dest_predecessors (faccg_node_t **head_p, faccg_arc_t *arc)
+{
+  faccg_arc_t *crr, *crr2;
+  faccg_node_t *new_dest, *dest = arc->dest;
+
+  for (crr = dest->preds; crr; crr = crr->pred_next)
+    {
+      if (arc == crr)
+	continue;
+
+      new_dest = copy_faccg_node (head_p, dest); 
+      redirect_arc_dest (crr, new_dest);
+      for (crr2 = dest->succs; crr2; crr2 = crr2->succ_next)
+	if (crr2->dest)
+          create_facc_arc (new_dest, crr2->dest, crr2->count, crr2->distance);
+    }
+}
+#endif /* USE_SPLIT_PRED_EDGES_IN_FACCG.  */
+
+/* Knowing that ARC->dest->f_index == -1, and that ARC->dest has no other
+   predecessors than ARC->src, we make all the successors of ARC->dest
+   to be successors of ARC->src, remove ARC and ARC->dest.  In case of
+   sequential successor the disntaces are accumulated and a minimum is
+   taken on the counts.  In case of parallel successor the counts are
+   accumulated and a wieghted average is taken on the distances.  */
+static void
+collapse_successor (faccg_node_t **head_p, faccg_arc_t *arc, cpg_t *cpg)
+{
+  faccg_arc_t *succ, *succ_next;
+  faccg_node_t *dest = arc->dest;
+  faccg_node_t *src = arc->src;
+
+  if (dest->preds->pred_next) 
+    abort ();
+
+  /* Update the CPG with the ARC and add ARC->dest to the collapsed 
+     successors of ARC so we can update them later with relation to 
+     ARC->src predecessors.  */
+  if (dest->f_index >= 0 && src->f_index >= 0)
+    {
+      add_cp_relation (cpg, src->f_index, dest->f_index, arc->count, arc->distance);
+      add_to_collapsed_succs (head_p, dest, arc, arc->count, arc->distance);
+    }
+  
+  /* Do not process sucessors of dest in the following two cases.  */
+  if (! dest->succs || dest == src)
+    {
+      remove_faccg_arc (arc, false, true);
+      arc->dest = NULL;
+      if (dest->f_index < 0)
+	remove_facc_node (head_p, dest);
+      return;
+    }
+
+  /* Update the edges from ARC->src to ARC->dest successors.  */
+  for (succ = dest->succs; succ; succ = succ_next)
+    {
+      /* We handle two cases: 1. the SUCC->dest is not a successor
+	 of ARC->src.  2. the SUCC->dest is a successor of ARC->src.  */
+      faccg_arc_t *arc2 = get_faccg_arc (arc->src, succ->dest);
+      faccg_arc_t *c_arc;
+
+      succ_next = succ->succ_next;
+
+      if (! succ->dest)
+	continue;
+
+      /* Add CP_RELATION between SRC and the collapsed successors of SUCC.  
+	 and update their distance/count fields.  */
+      for (c_arc = succ->collapsed_succs; c_arc; c_arc = c_arc->succ_next)
+	{
+	  c_arc->count = MIN (c_arc->count, arc->count);
+	  c_arc->distance += arc->distance;
+	  if (arc->src->f_index >= 0)
+	    add_cp_relation (cpg, arc->src->f_index, c_arc->dest->f_index, 
+			     c_arc->count, c_arc->distance); 
+	}
+
+      /* Add the collapsed successors of ARC to SUCC.  */
+      
+      for ( c_arc = arc->collapsed_succs; c_arc; c_arc = c_arc->succ_next)
+        add_to_collapsed_succs (head_p, c_arc->dest, succ, c_arc->count, 
+				c_arc->distance);
+
+      if (! arc2)
+	/* SUCC->dest is not a successeor of ARC->src.  */
+	redirect_arc_src (succ, arc->src, MIN (arc->count, succ->count),
+			  arc->distance + succ->distance);
+      else
+	/* SUCC->dest is a successeor of ARC->src.  */
+        {
+          gcov_type new_count = arc2->count + succ->count;
+
+	  if (! arc->dest)
+	    abort ();
+
+          arc2->distance = (arc2->distance * arc2->count
+			    + (succ->distance + arc->distance) 
+			      * succ->count)/new_count;
+          arc2->count = new_count;
+	  /* Remove this edge only from its destination, there could be 
+	     a case where SUCC has collapsed successors and we want to 
+	     keep it so we can later update them.  */
+	  if (succ->collapsed_succs)
+	    {
+	      remove_faccg_arc (succ, false, true);
+	      succ->dest = NULL;
+	    }
+	  else
+	    {
+	      remove_faccg_arc (succ, true, true);
+	      free (succ);
+	    }
+        }
+    }
+  remove_faccg_arc (arc, true, true);
+  free (arc);
+  remove_facc_node (head_p, dest);
+}
+
+/* A kind of BFS traversal of the field access graph, to compact it
+   by replacing a sub-grapg of nodes that its f_index is -1 to one
+   keeping the incoming and outgoing arcs but with updates count and
+   distance according to collapse_successor.  */
+static bool 
+compact_faccg (faccg_node_t *root, faccg_node_t **head_p, cpg_t *cpg)
+{
+  bool change;
+  faccg_arc_t *crr, *succ_next;
+
+  if (root->visited)
+    return false;
+
+  root->visited = 1;
+
+  do
+    {
+      change = false;
+      for (crr = root->succs; crr; crr = succ_next)
+	{
+	  succ_next = crr->succ_next;
+	  if (! crr->dest)
+	    continue;
+	  else if (crr->src == crr->dest)
+	    {
+	      update_cpg_for_faccg_loop (cpg, crr);
+	      remove_faccg_arc (crr, false, true);
+	      crr->dest = NULL;
+	      change = true;
+	    }
+	  else if (crr->dest->preds 
+		   && ! crr->dest->preds->pred_next)
+	    {
+	      collapse_successor (head_p, crr, cpg);
+	      change = true;
+            }
+	}
+      for (crr = root->succs; crr; crr = crr->succ_next)
+	if (crr->dest && ! crr->dest->visited)
+	  change |= compact_faccg (crr->dest, head_p, cpg);
+
+      /* Try to split successors that have mupltiple predecessors
+	 to be able to collapse them.  */
+      if (! change)
+	for (crr = root->succs; crr; crr = crr->succ_next)
+	  if (crr->dest && crr->dest->preds 
+	      && crr->dest->preds->pred_next)
+	    {
+#if USE_SPLIT_PRED_EDGES_IN_FACCG
+	      split_dest_predecessors (head_p, crr);
+	      change = true;
+#endif /* USE_SPLIT_PRED_EDGES_IN_FACCG.  */
+	    }
+	  
+    } while (change 
+#if USE_SPLIT_PRED_EDGES_IN_FACCG
+	     || successors_exist_p (root)
+#endif /* USE_SPLIT_PRED_EDGES_IN_FACCG.  */
+	    );
+  return change;
+}
+
+static void
+dump_faccg_node (FILE *dump_file, faccg_node_t *node, struct data_structure *ds)
+{
+  const char *f_name;
+  faccg_arc_t *arc;
+
+  if (node->f_index >= 0)
+    f_name = IDENTIFIER_POINTER (DECL_NAME (ds->fields[node->f_index].decl));
+  else
+    f_name = "";
+
+  fprintf (dump_file, "node: {title: \"%s_%d\" }\n", f_name, node->index);
+
+  for (arc = node->succs; arc; arc = arc->succ_next)
+    {
+      const char *dest_name;
+
+      if (! arc->dest)
+	continue;
+
+      if (arc->dest->f_index >= 0)
+	dest_name = IDENTIFIER_POINTER (DECL_NAME (ds->fields[arc->dest->f_index].decl));
+      else
+	dest_name = "";
+
+      fprintf (dump_file, "edge: { ");
+      fprintf (dump_file, "sourcename: \"%s_%d\" ", f_name, node->index);
+      fprintf (dump_file, "targetname: \"%s_%d\" ", dest_name, arc->dest->index);
+      fprintf (dump_file, "label: \"%d_", arc->distance);
+      fprintf (dump_file, HOST_WIDEST_INT_PRINT_DEC, arc->count);
+      fprintf (dump_file, "\"}\n");
+    }
+}
+
+static void 
+dump_faccg (FILE *dump_file, faccg_node_t *head, struct data_structure *ds)
+{
+  faccg_node_t *node;
+
+  for (node = head; node; node = node->next)
+    dump_faccg_node (dump_file, node, ds);
+}
+
+static void
+free_faccg (faccg_node_t *head)
+{
+  faccg_node_t *node, *node_next;
+  faccg_arc_t *arc, *c_arc, *arc_next;
+
+  for (node = head; node; node = node->next)
+    {
+      for (arc = node->succs; arc; arc = arc_next)
+	{
+	  while (arc->collapsed_succs)
+	    {
+	      c_arc = arc->collapsed_succs;
+	      arc->collapsed_succs = c_arc->succ_next;
+	      free (c_arc);
+	    }
+	  arc_next = arc->succ_next; 
+	  remove_faccg_arc (arc, true, true);
+	  free (arc);
+	}
+    }
+  for (node = head; node; node = node_next)
+    {
+      node_next = node->next;
+      free (node);
+    }
+}
+/* Given the CFG of a function and the fields accesses in its BBs,
+   it builds a compacted field access graph that represents the control
+   flow of accesses to the fields of DS.  It traverses the CFG of F from
+   the entry block in a BFS traversal.  When the BB has accesses to fields
+   a node is created for each accesses and connected in the graph as it is
+   in the accesses list of the block.  the first and last accesses are
+   connected to the predecessors and successors respectively.  If a BB
+   doesn't have field accesses its distance is added to its predecessors
+   and edge with its count is aconsidered in calculating the minimum count
+   of the appropriate outgoing edges of its the predecessor.  */
+static faccg_node_t *
+build_compact_field_access_graph (FILE *dump_file, struct data_structure *ds,
+				  struct function *f, faccg_node_t **head_p)
+{
+  faccg_node_t **bb_faccg_nodes_first, **bb_faccg_nodes_last, 
+	       *root, *crr;
+  edge e;
+  edge_iterator ei;
+  basic_block bb;
+
+  bb_faccg_nodes_first = xcalloc (n_basic_blocks_for_function(f),
+				  sizeof (faccg_node_t *));
+  bb_faccg_nodes_last = xcalloc (n_basic_blocks_for_function(f),
+				 sizeof (faccg_node_t *));
+
+  /* First we build the graph to contain also nodes with no accesses
+     then we traverse it to compact it by removing these nodes.  */
+  FOR_EACH_BB_FN(bb, f)
+    {
+      faccg_node_t *last, *first;
+      struct bb_field_access *crr = ds->bbs_f_acc_lists[bb->index];
+
+      if (! crr)
+        abort ();
+
+      first = create_facc_node (head_p, crr->f_index, 
+				crr->distance_to_next, bb->index);
+      bb_faccg_nodes_first[bb->index] = first;
+      for (last = first, crr = crr->next; crr; crr = crr->next)
+	{
+          faccg_node_t *new = create_facc_node (head_p, crr->f_index, 
+						crr->distance_to_next, 
+						bb->index);
+
+	  create_facc_arc (last, new, bb->count, last->succs->distance); 
+	  last = new;
+	}
+      bb_faccg_nodes_last[bb->index] = last;
+      FOR_EACH_EDGE (e, ei, bb->succs)
+        if (e->dest != EXIT_BLOCK_PTR_FOR_FUNCTION (f)
+	    && bb_faccg_nodes_first [e->dest->index])
+            create_facc_arc (last, bb_faccg_nodes_first [e->dest->index],
+			     e->count, last->succs->distance);
+      FOR_EACH_EDGE (e, ei, bb->preds)
+        {
+          if (e->src != ENTRY_BLOCK_PTR_FOR_FUNCTION (f)
+              && bb_faccg_nodes_last [e->src->index])
+	    {
+              faccg_node_t *last2 = bb_faccg_nodes_last[e->src->index];
+	      create_facc_arc (last2, first, e->count,
+			       last2->succs->distance);
+	    }
+
+        }
+
+    }
+
+  /* Add the root of the graph, this is done by connected the root to
+     all the successors of the entry basic block field access nodes.  */
+  root = (faccg_node_t *)xcalloc (1, sizeof (faccg_node_t));
+  root->bb_index = ENTRY_BLOCK_PTR_FOR_FUNCTION (f)->index;
+  root->f_index = -1;
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FUNCTION (f)->succs) 
+    {
+      if (! bb_faccg_nodes_first[e->dest->index])
+        abort ();
+      create_facc_arc (root, bb_faccg_nodes_first[e->dest->index],
+                       e->count, 0);
+    }
+
+  free (bb_faccg_nodes_first);
+  free (bb_faccg_nodes_last);
+
+  for (crr = *head_p; crr; crr = crr->next)
+    crr->index = facc_node_index++;
+
+  /* Now compact the field access graph.  We look for a sub-graph in
+     which all the nodes has f_index of -1.  */
+  compact_faccg (root, head_p, ds->cpg);
+  /* Clear the visited field of the nodes.  */
+  for (crr = *head_p; crr; crr = crr->next)
+    crr->visited = 0;
+  if (dump_file)
+    dump_faccg (dump_file, *head_p, ds);
+  return root;
+}
+
+
+/* Add CP relation between NEXT and all the fields in LAF (Lately Accessed
+   Fields) until distance passes the threshold.  */
+static void
+update_cpg_for_lately_accessed_fields (cpg_t *cpg,
+				       struct bb_field_access *laf_start,
+				       struct bb_field_access *laf_end,
+				       int f_index, gcov_type count)
 {
   struct bb_field_access *laf;
   int distance_to_latest = 0;
@@ -76,22 +700,23 @@ update_cpg_for_lately_accessed_fields (cpg_t *cpg, struct bb_field_access *laf_s
   for (laf = laf_start; laf != laf_end; laf = laf->prev)
     {
       distance_to_latest += laf->distance_to_next;
-      /* We want the minimum count over the patch between 
+      /* We want the minimum count over the patch between
 	 the two accesses.  */
       if (count > laf->count)
 	count = laf->count;
       if (distance_to_latest > STRUCT_REORG_DISTANCE_THRESHOLD)
 	break;
-      add_cp_relation (cpg, laf->f_indx, f_indx,
+      add_cp_relation (cpg, laf->f_index, f_index,
            	       count, distance_to_latest);
     }
 }
 
-/* Given that BB_INDEX is the basic block index that closes a loop 
-   while traversing the CFG, add CP relations for all the lately 
+/* Given that BB_INDEX is the basic block index that closes a loop
+   while traversing the CFG, add CP relations for all the lately
    accessed fields that came after that block was traversed.  */
 static void
-update_cpg_for_loop (cpg_t *cpg, struct bb_field_access *laf, int  bb_index)
+update_cpg_for_loop (cpg_t *cpg, struct bb_field_access *laf,
+		     int  bb_index)
 {
   bool last_bb_found = false;
   struct bb_field_access *crr, *laf_last;
@@ -105,77 +730,11 @@ update_cpg_for_loop (cpg_t *cpg, struct bb_field_access *laf, int  bb_index)
     }
   laf_last = crr;
   for (crr = laf; crr != laf_last; crr = crr->prev)
-   update_cpg_for_lately_accessed_fields (cpg, crr, laf_last, crr->f_indx, crr->count);
+   update_cpg_for_lately_accessed_fields (cpg, crr, laf_last, crr->f_index,
+					  crr->count);
 }
 
-/* Go over the fields accesses inside the block BB (by traversing BBS_F_ACC_LISTS) of
-   the given block, add CP relations to the given CPG, and return an updated list
-   of lately accessed fields (creates a new one if its empty). The firs element 
-   of the list is the latest accessed one.  This function also removes fields from the
-   lately accessed list if their distance goes above the distance threshold.  */ 
-static void 
-update_cpg_for_bb (cpg_t *cpg, basic_block bb, sbitmap visited, 
-		   struct bb_field_access *lately_accessed_fields, struct function *f)
-{
-  struct bb_field_access *crr, *laf;
-  edge e;
-  edge_iterator ei;
-
-  if ( bb == ENTRY_BLOCK_PTR_FOR_FUNCTION (f)
-       || bb == EXIT_BLOCK_PTR_FOR_FUNCTION (f))
-    return;
-
-  if (TEST_BIT (visited, bb->index))
-    {
-      update_cpg_for_loop (cpg, lately_accessed_fields, bb->index);
-      return;
-    } 
-  SET_BIT (visited, bb->index);
-  laf = lately_accessed_fields;
-
-  for (crr = cpg->ds->bbs_f_acc_lists[bb->index]; crr; crr = crr->next)
-    {
-      struct bb_field_access *new = (struct bb_field_access *) 
-				    xcalloc (1, sizeof (struct bb_field_access));
-
-      new->f_indx = crr->f_indx;
-      new->distance_to_next = crr->distance_to_next;
-      new->count = bb->count;
-      new->bb_index = bb->index;
-      if (! laf) 
-	{
-	  laf = new; 
-	  continue;
-	}
-
-      if (new->f_indx >= 0)
-        update_cpg_for_lately_accessed_fields (cpg, laf, NULL, new->f_indx, bb->count); 
-
-      new->prev = laf;
-      laf->next = new;
-      laf = new;
-    } 
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    {
-      for (crr = laf; crr != lately_accessed_fields; crr = crr->prev)
-	crr->count = e->count;
-      update_cpg_for_bb (cpg, e->dest, visited, laf, f);
-    }
-  RESET_BIT (visited, bb->index);
-  
-  /* Remove the access of the block from the list of lately accessed
-     fields.  */
-  for (crr = laf; crr != lately_accessed_fields; )
-    {
-      laf = crr->prev;
-      free (crr);
-      if (laf)
-	laf->next = NULL;
-      crr = laf;
-    }
-}
-
-#if 0
+#if CPG_WITH_ZERO_DEPTH_FIELD_ACCESS
 /* Given a basic block we search for possibly immediate field accesses
    for each one of the outgoing arcs (on the CFG). Once an access is found
    we add a CP relation with the appropriate disntance and count.  The
@@ -210,23 +769,141 @@ update_cpg_for_bb (cpg_t *cpg, edge e, sbitmap visited, cpg_cell_t cp,
   SET_BIT (visited, e->dest->index);
   FOR_EACH_EDGE (succ, ei, e->dest->succs)
      update_cpg_for_bb (cpg, succ, visited, cp, f1_indx, f);
+
+}
+#endif
+
+#if USE_COMPACT_FIELD_ACCESS_GRAPH
+/* Traverse the field access graph to and update the CPG.  */
+static void
+update_cpg_from_faccg (cpg_t *cpg, faccg_node_t *root,
+		       struct bb_field_access *lately_accessed_fields,
+		       struct function *f)
+{
+  faccg_arc_t *arc;
+  basic_block bb;  
+  struct bb_field_access *laf;
+  
+  if (root->bb_index == ENTRY_BLOCK_PTR_FOR_FUNCTION (f)->index)
+    bb = ENTRY_BLOCK_PTR_FOR_FUNCTION (f);
+  else if (root->bb_index == EXIT_BLOCK_PTR_FOR_FUNCTION (f)->index)
+    bb = EXIT_BLOCK_PTR_FOR_FUNCTION (f);
+  else 
+    bb = BASIC_BLOCK_FOR_FUNCTION(f, root->bb_index);
+
+  if (root->visited)
+    {
+      update_cpg_for_loop (cpg, lately_accessed_fields, bb->index);
+      return;
+    }
+  
+  root->visited = 1;
+  laf = create_bb_field_access (root->f_index, bb->index, 0, bb->count);
+
+  if (lately_accessed_fields && laf->f_index >= 0)
+    update_cpg_for_lately_accessed_fields (cpg, laf, NULL, laf->f_index,
+                                           bb->count);
+  if (lately_accessed_fields)
+    lately_accessed_fields->next = laf;
+  laf->prev = lately_accessed_fields;
+
+  for (arc = root->succs; arc; arc = arc->succ_next)
+    {
+      laf->count = arc->count;
+      laf->distance_to_next = arc->distance;
+      update_cpg_from_faccg (cpg, arc->dest, laf, f);
+    }
+
+  root->visited = 0;
+  if (lately_accessed_fields)
+    lately_accessed_fields->next = NULL;
+  free (laf);
+}
+#else
+/* Go over the fields accesses inside the block BB (by traversing
+   BBS_F_ACC_LISTS) of the given block, add CP relations to the given CPG,
+   and return an updated list of lately accessed fields (creates a new one
+   if its empty). The firs element of the list is the latest accessed one.
+   This function also removes fields from the lately accessed list if
+   their distance goes above the distance threshold.  */
+static void
+update_cpg_for_bb (cpg_t *cpg, basic_block bb, sbitmap visited,
+		   struct bb_field_access *lately_accessed_fields,
+		   struct function *f)
+{
+  int static count = 0;
+  struct bb_field_access *crr, *laf;
+  edge e;
+  edge_iterator ei;
+
+  if ( bb == ENTRY_BLOCK_PTR_FOR_FUNCTION (f)
+       || bb == EXIT_BLOCK_PTR_FOR_FUNCTION (f))
+    return;
+
+  if (TEST_BIT (visited, bb->index))
+    {
+      update_cpg_for_loop (cpg, lately_accessed_fields, bb->index);
+      return;
+    }
+  SET_BIT (visited, bb->index);
+  laf = lately_accessed_fields;
+
+  for (crr = cpg->ds->bbs_f_acc_lists[bb->index]; crr; crr = crr->next)
+    {
+      new = create_bb_field_access (crr->f_index, bb->index,
+				    crr->distance_to_next, bb->count);
+      if (! laf)
+	{
+	  laf = new;
+	  continue;
+	}
+
+      if (new->f_index >= 0)
+        update_cpg_for_lately_accessed_fields (cpg, laf, NULL, new->f_index,
+					       bb->count);
+
+      new->prev = laf;
+      laf->next = new;
+      laf = new;
+    } 
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    {
+      for (crr = laf; crr != lately_accessed_fields; crr = crr->prev)
+	crr->count = e->count;
+      update_cpg_for_bb (cpg, e->dest, visited, laf, f);
+    }
+  RESET_BIT (visited, bb->index);
+
+  /* Remove the access of the block from the list of lately accessed
+     fields.  */
+  for (crr = laf; crr != lately_accessed_fields; )
+    {
+      laf = crr->prev;
+      free (crr);
+      if (laf)
+	laf->next = NULL;
+      crr = laf;
+    }
 }
 #endif
 
 /* Build the Close Proximity Graph for a given data structure.  */
 void
-update_cpg_for_structure (struct data_structure *ds, struct function *f)
+update_cpg_for_structure (FILE *dump_file, struct data_structure *ds, 
+			  struct function *f)
 {
+#if USE_COMPACT_FIELD_ACCESS_GRAPH
+  faccg_node_t *root, *head = NULL;
+#else
   edge e;
   sbitmap visited;
   edge_iterator ei;
+#endif
   cpg_t *cpg;
+  
 
   if (!f)
     return;
-
-  visited = sbitmap_alloc (n_basic_blocks_for_function (f));
-  sbitmap_zero (visited);
 
   if (! ds->cpg)
     {
@@ -239,12 +916,21 @@ update_cpg_for_structure (struct data_structure *ds, struct function *f)
     }
   else
     cpg = ds->cpg;
+#if USE_COMPACT_FIELD_ACCESS_GRAPH
+  root = build_compact_field_access_graph (dump_file, ds, f, &head),
+  update_cpg_from_faccg (cpg, root, NULL, f);
+  free_faccg (head);
+ 
+#else
+  visited = sbitmap_alloc (n_basic_blocks_for_function (f));
+  sbitmap_zero (visited);
 
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FUNCTION (f)->succs)
     {
       update_cpg_for_bb (cpg, e->dest, visited, NULL, f);
     }
   sbitmap_free (visited);
+#endif
 }
 
 /* Dump the Close Proximity Graph, we print the edges that connect the
@@ -372,7 +1058,7 @@ field_size_in_bytes (tree decl)
 }
 
 struct field_order {
-  int f_indx;
+  int f_index;
   struct field_order *next, *prev;
 };
 
@@ -407,7 +1093,7 @@ fields_layout_distance (struct data_structure *ds,
       if (! crr)
         break;
 
-      size += field_size_in_bytes (ds->fields[crr->f_indx].decl);
+      size += field_size_in_bytes (ds->fields[crr->f_index].decl);
     }
   return size;
 }
@@ -428,12 +1114,12 @@ field_wcp (struct data_structure *ds, struct field_order *first, int n,
       if (! crr)
 	break;
 
-      size *= field_size_in_bytes (ds->fields[crr->f_indx].decl);
+      size *= field_size_in_bytes (ds->fields[crr->f_index].decl);
     }
   if (! crr)
     return 0;
 
-  return cp_relation (ds, first->f_indx, crr->f_indx) / size;
+  return cp_relation (ds, first->f_index, crr->f_index) / size;
 }
 
 #if 0
@@ -462,7 +1148,7 @@ wcp_left_right_contribution (struct data_structure *ds, int num_ordered,
   struct field_order *new_f = xcalloc (1, sizeof (struct field_order));
   int i;
 
-  new_f->f_indx = f;
+  new_f->f_index = f;
 
   if (left)
     {
@@ -553,7 +1239,7 @@ reorder_fields_of_struct (struct data_structure *ds)
       RESET_BIT (not_ordered_fields, next_to_order);
       new_o = (struct field_order *)
 	      xcalloc (1, sizeof (struct field_order));
-      new_o->f_indx = next_to_order;
+      new_o->f_index = next_to_order;
       if (! order_left)
         order_left = order_right = new_o;
       else if (side)
@@ -619,7 +1305,7 @@ reorder_fields_of_struct (struct data_structure *ds)
     {
       if (i >= ds->num_fields)
 	abort ();
-      ds->struct_clustering->fields_order[i++] = crr->f_indx;
+      ds->struct_clustering->fields_order[i++] = crr->f_index;
       if (crr->next)
         {
 	  crr = crr->next;
@@ -718,22 +1404,7 @@ split_data_structure (struct data_structure *ds)
         cold_field_threshold = cp_relation (ds, i, j);
   cold_field_threshold /= COLD_FIELD_RATIO;
 
-  /* Build g[0] - cold group.  */
-  cold_cluster = (struct field_cluster *) xcalloc (1, sizeof (struct field_cluster));
-  ds->struct_clustering = cold_cluster;
-  cold_cluster->fields_in_cluster = sbitmap_alloc (ds->num_fields);
-
-  /* Add to the cold group all the fields that have access counts less than the threshold.  */
-#if 0
-  for (i = 0 ; i < ds->num_fields; i++)
-    if (ds->fields[i].count < cold_field_threshold)
-      {
-	SET_BIT (cold_cluster->fields_in_cluster, i);
-	RESET_BIT (remaining_fields, i);
-      }
-#endif 
-
-  crr_cluster = cold_cluster;
+  crr_cluster = NULL;
   while (sbitmap_first_set_bit (remaining_fields) >= 0)
     {
       gcov_type max_cp = 0;
@@ -764,10 +1435,8 @@ split_data_structure (struct data_structure *ds)
 	    break;
 	  cold_field_threshold = cold_field_threshold / COLD_FIELD_RATIO; 
 	}
-      if (max_cp < cold_field_threshold)
+      if (max_cp < cold_field_threshold || max_i < 0 || max_j < 0 || ! cold_field_threshold)
 	{
-	  sbitmap_a_or_b (cold_cluster->fields_in_cluster, cold_cluster->fields_in_cluster, 
-			  remaining_fields);
 	  break;
 	}
 
@@ -808,6 +1477,17 @@ split_data_structure (struct data_structure *ds)
 	  SET_BIT (crr_cluster->fields_in_cluster, max_i);
 	  RESET_BIT (remaining_fields, max_i);
 	}
-    } 
+    }
+  if (sbitmap_first_set_bit (remaining_fields) >= 0)
+    {
+      /* Build g[0] - cold group.  */
+      cold_cluster = (struct field_cluster *) xcalloc (1, sizeof (struct field_cluster));
+      cold_cluster->sibling = ds->struct_clustering;
+      ds->struct_clustering = cold_cluster;
+      cold_cluster->fields_in_cluster = remaining_fields;
+    }
+  else
+    sbitmap_free (remaining_fields);
+
 }
 
