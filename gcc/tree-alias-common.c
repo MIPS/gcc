@@ -105,14 +105,12 @@ static bool call_may_return (tree);
 static bool
 call_may_clobber (tree expr)
 {
-  tree callee;
   int flags;
 
   if (TREE_CODE (expr) != CALL_EXPR)
     return false;
 
-  callee = get_callee_fndecl (expr);
-  flags = (callee) ? flags_from_decl_or_type (callee) : 0;
+  flags = call_expr_flags (expr);
   return (! (flags & (ECF_CONST | ECF_PURE | ECF_NORETURN)));
 }
 
@@ -121,14 +119,12 @@ call_may_clobber (tree expr)
 static bool
 call_may_return (tree expr)
 {
-  tree callee;
   int flags;
   
   if (TREE_CODE (expr) != CALL_EXPR)
     return false;
 
-  callee = get_callee_fndecl (expr);
-  flags = (callee) ? flags_from_decl_or_type (callee) : 0;
+  flags = call_expr_flags (expr);
   return ! (flags & ECF_NORETURN);
 }
 

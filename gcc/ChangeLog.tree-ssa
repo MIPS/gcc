@@ -1,3 +1,10 @@
+2004-05-05  Richard Henderson  <rth@redhat.com>
+
+	* tree-ssa-operands.c (get_call_flags): Remove.
+	(get_expr_operands): Use call_expr_flags.
+	* tree-alias-common.c (call_may_clobber): Likewise.
+	(call_may_return): Likewise.
+
 2004-04-05  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR c/15062
