@@ -572,6 +572,12 @@ comptypes (type1, type2)
 	val = 1;
       break;
 
+    case VECTOR_TYPE:
+      /* The target might allow certain vector types to be compatible.  */
+      val = (*targetm.vector_opaque_p) (t1)
+	|| (*targetm.vector_opaque_p) (t2);
+      break;
+
     default:
       break;
     }
@@ -4088,6 +4094,11 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
       rhs = build1 (NOP_EXPR, type, rhs);
       return rhs;
     }
+  /* Some types can interconvert without explicit casts.  */
+  else if (codel == VECTOR_TYPE && coder == VECTOR_TYPE
+	   && ((*targetm.vector_opaque_p) (type)
+	       || (*targetm.vector_opaque_p) (rhstype)))
+    return convert (type, rhs);
   /* Arithmetic types all interconvert, and enum is treated like int.  */
   else if ((codel == INTEGER_TYPE || codel == REAL_TYPE 
 	    || codel == ENUMERAL_TYPE || codel == COMPLEX_TYPE
@@ -4196,12 +4207,20 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
     {
       tree ttl = TREE_TYPE (type);
       tree ttr = TREE_TYPE (rhstype);
+      bool is_opaque_pointer;
+
+      /* Opaque pointers are treated like void pointers.  */
+      is_opaque_pointer = ((*targetm.vector_opaque_p) (type)
+			   || (*targetm.vector_opaque_p) (rhstype))
+	&& TREE_CODE (ttl) == VECTOR_TYPE
+	&& TREE_CODE (ttr) == VECTOR_TYPE;
 
       /* Any non-function converts to a [const][volatile] void *
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
       if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
 	  || comp_target_types (type, rhstype, 0)
+	  || is_opaque_pointer
 	  || (c_common_unsigned_type (TYPE_MAIN_VARIANT (ttl))
 	      == c_common_unsigned_type (TYPE_MAIN_VARIANT (ttr))))
 	{
@@ -5197,6 +5216,9 @@ really_start_incremental_init (type)
 
   if (type == 0)
     type = TREE_TYPE (constructor_decl);
+
+  if ((*targetm.vector_opaque_p) (type))
+    error ("opaque vector types cannot be initialized");
 
   p->type = constructor_type;
   p->fields = constructor_fields;

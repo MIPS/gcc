@@ -116,8 +116,22 @@ hook_bool_tree_false (a)
 }
 
 bool
+hook_bool_tree_tree_false (tree a ATTRIBUTE_UNUSED, tree b ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+bool
 hook_bool_rtx_false (a)
      rtx a ATTRIBUTE_UNUSED;
 {
   return false;
+}
+
+/* Generic hook that takes an rtx and returns NULL_RTX.  */
+rtx
+hook_rtx_rtx_null (x)
+     rtx x ATTRIBUTE_UNUSED;
+{
+  return 0;
 }

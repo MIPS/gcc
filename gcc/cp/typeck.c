@@ -5934,6 +5934,11 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
   rhstype = TREE_TYPE (rhs);
   coder = TREE_CODE (rhstype);
 
+  if (TREE_CODE (type) == VECTOR_TYPE && coder == VECTOR_TYPE
+      && ((*targetm.vector_opaque_p) (type)
+	  || (*targetm.vector_opaque_p) (rhstype)))
+    return convert (type, rhs);
+
   if (rhs == error_mark_node || rhstype == error_mark_node)
     return error_mark_node;
   if (TREE_CODE (rhs) == TREE_LIST && TREE_VALUE (rhs) == error_mark_node)

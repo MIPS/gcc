@@ -301,6 +301,17 @@ struct gcc_target
   /* Undo the effects of encode_section_info on the symbol string.  */
   const char * (* strip_name_encoding) PARAMS ((const char *));
 
+  /* True if a vector is opaque.  */
+  bool (* vector_opaque_p) PARAMS ((tree));
+
+  /* Given a register, this hook should return a parallel of registers
+     to represent where to find the register pieces.  Define this hook
+     if the register and its mode are represented in Dwarf in
+     non-contiguous locations, or if the register should be
+     represented in more than one register in Dwarf.  Otherwise, this
+     hook should return NULL_RTX.  */
+  rtx (* dwarf_register_span) PARAMS ((rtx));
+
   /* Leave the boolean fields at the end.  */
 
   /* True if arbitrary sections are supported.  */

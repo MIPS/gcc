@@ -1,3 +1,48 @@
+2004-02-06  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+	2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
+	* c-typeck.c (convert_for_assignment): Opaque pointers can
+	interconvert.
+
+	2003-02-20  Aldy Hernandez  <aldyh@redhat.com>
+	* doc/tm.texi: Document Rename TARGET_VECTOR_TYPES_COMPATIBLE to
+	TARGET_VECTOR_OPAQUE_P.  Document accordingly.
+	* c-typeck.c (comptypes): Change call to vector_types_compatible
+	to vector_opaque_p.
+	(convert_for_assignment): Call vector_opaque_p instead of
+	vector_types_compatible.
+	(really_start_incremental_init): Disallow initialization of opaque
+	types.
+	* target-def.h: Remove TARGET_VECTOR_TYPES_COMPATIBLE.
+	Define TARGET_VECTOR_OPAQUE_P.
+	(TARGET_INITIALIZER): Same.
+	* target.h (struct gcc_target): Remove vector_types_compatible.
+	Add vector_opaque_p.
+
+	2003-02-18  Nick Clifton  <nickc@redhat.com>
+		    Aldy Hernandez  <aldyh@redhat.com>
+	* doc/tm.texi: Document TARGET_VECTOR_TYPES_COMPATIBLE.
+	* target-def.h (TARGET_INITIALIZER): Add
+	TARGET_VECTOR_TYPES_COMPATIBLE.
+	(TARGET_VECTOR_TYPES_COMPATIBLE): New macro.
+	* target.h (struct gcc_target): Add field vector_types_compatible.
+	* c-typeck.c (comptypes): Take into account
+	TARGET_VECTOR_TYPES_COMPATIBLE.
+	(convert_for_assignment): Same.
+
+	2003-03-05  Aldy Hernandez  <aldyh@redhat.com>
+	* doc/tm.texi: Document TARGET_DWARF_REGISTER_SPAN.
+	* hooks.c (hook_rtx_rtx_null): New.
+	* hooks.h (hook_rtx_rtx_null): Protoize.
+	* target-def.h (TARGET_DWARF_REGISTER_SPAN): New macro.
+	(TARGET_INITIALIZER): Add TARGET_DWARF_REGISTER_SPAN.
+	* target.h (struct gcc_target): Add dwarf_register_span.
+	* dwarf2out.c (multiple_reg_loc_descriptor): New.
+	(one_reg_loc_descriptor): New.
+	(reg_loc_descriptor): Add support for values that span more than
+	one register.
+
 2004-02-05  Alan Modra  <amodra@bigpond.net.au>
 
 	Backport from mainline

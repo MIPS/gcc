@@ -1,3 +1,27 @@
+2004-02-06  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+	2003-08-11  Aldy Hernandez  <aldyh@redhat.com>
+	* testsuite/g++.dg/other/opaque-3.C: New.
+
+	2003-08-07  Aldy Hernandez  <aldyh@redhat.com>
+	* g++.dg/other/opaque-1.C: New.
+	* g++.dg/other/opaque-2.C: New.
+
+	2003-07-28  Aldy Hernandez  <aldyh@redhat.com>
+	* gcc.dg/20030505.c: Only run for SPE.
+	Remove definition of opaque type.
+
+	2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
+	* gcc.dg/20030505.c: New.
+
+	2003-02-20  Aldy Hernandez  <aldyh@redhat.com>
+	* gcc.dg/20030218-1.c: Check that initialization of
+	opaque types fail.
+
+	2003-02-18  Aldy Hernandez  <aldyh@redhat.com>
+	* gcc.dg/20030218-1.c: New.
+
 2004-01-26  Hartmut Penner  <hpenner@de.ibm.com>
 
 	Backport from mainline.

@@ -1,0 +1,18 @@
+2004-02-06  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport from mainline.
+	2003-08-11  Aldy Hernandez  <aldyh@redhat.com>
+	* call.c (standard_conversion): Opaque pointers interconvert.
+	* testsuite/g++.dg/other/opaque-3.C: New.
+
+	2003-08-07  Aldy Hernandez  <aldyh@redhat.com>
+	* Make-lang.in (cp/call.o): Add dependency for target.h.
+	* call.c (standard_conversion): Support opaque types.
+	Include target.h.
+	(strip_top_quals): Use cp_build_qualified_type instead of
+	TYPE_MAIN_VARIANT.
+	* typeck.c (convert_for_assignment): Support opaque types.
+
+	2003-03-02  Aldy Hernandez  <aldyh@redhat.com>
+	* decl.c (check_initializer): Check for vector_opaque_p.
+

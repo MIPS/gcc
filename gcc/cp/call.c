@@ -35,6 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #include "expr.h"
 #include "ggc.h"
 #include "diagnostic.h"
+#include "target.h"
 
 extern int inhibit_warnings;
 
@@ -728,7 +729,7 @@ strip_top_quals (t)
 {
   if (TREE_CODE (t) == ARRAY_TYPE)
     return t;
-  return TYPE_MAIN_VARIANT (t);
+  return cp_build_qualified_type (t, 0);
 }
 
 /* Returns the standard conversion path (see [conv]) from type FROM to type
@@ -810,6 +811,12 @@ standard_conversion (to, from, expr)
     {
       conv = build_conv (STD_CONV, to, conv);
     }
+  else if (tcode == POINTER_TYPE && fcode == POINTER_TYPE
+	   && TREE_CODE (TREE_TYPE (to)) == VECTOR_TYPE
+	   && TREE_CODE (TREE_TYPE (from)) == VECTOR_TYPE
+	   && ((*targetm.vector_opaque_p) (TREE_TYPE (to))
+	       || (*targetm.vector_opaque_p) (TREE_TYPE (from))))
+    conv = build_conv (STD_CONV, to, conv);
   else if ((tcode == INTEGER_TYPE && fcode == POINTER_TYPE)
 	   || (tcode == POINTER_TYPE && fcode == INTEGER_TYPE))
     {
@@ -940,6 +947,10 @@ standard_conversion (to, from, expr)
 	  && ICS_STD_RANK (TREE_OPERAND (conv, 0)) <= PROMO_RANK)
 	ICS_STD_RANK (conv) = PROMO_RANK;
     }
+  else if (fcode == VECTOR_TYPE && tcode == VECTOR_TYPE
+      && ((*targetm.vector_opaque_p) (from)
+	  || (*targetm.vector_opaque_p) (to)))
+    return build_conv (STD_CONV, to, conv);
   else if (IS_AGGR_TYPE (to) && IS_AGGR_TYPE (from)
 	   && is_properly_derived_from (from, to))
     {
