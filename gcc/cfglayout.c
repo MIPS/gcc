@@ -944,6 +944,10 @@ cfg_layout_duplicate_bb (bb, e)
 	case NOTE:
 	  switch (NOTE_LINE_NUMBER (insn))
 	    {
+	      /* In case prologue is empty and function contain label
+	         in first BB, we may want to copy the block.  */
+	    case NOTE_INSN_PROLOGUE_END:
+
 	    case NOTE_INSN_LOOP_VTOP:
 	    case NOTE_INSN_LOOP_CONT:
 	    case NOTE_INSN_LOOP_BEG:
@@ -967,7 +971,6 @@ cfg_layout_duplicate_bb (bb, e)
 	      pre_head = get_last_insn ();
 	      break;
 
-	    case NOTE_INSN_PROLOGUE_END:
 	      /* There is no purpose to duplicate prologue.  */
 	    case NOTE_INSN_BLOCK_BEG:
 	    case NOTE_INSN_BLOCK_END:
