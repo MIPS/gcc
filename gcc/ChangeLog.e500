@@ -1,5 +1,12 @@
 2005-01-18  Aldy Hernandez  <aldyh@redhat.com>
 
+	* config/rs6000/rs6000.md ("sunordered"): Disable for e500.
+	("sordered"): Same.
+	(bunordered): Same.
+	(bordered): Same.
+
+2005-01-18  Aldy Hernandez  <aldyh@redhat.com>
+
 	* gcc.misc-tests/bprob.exp: Same.
 
 	* gcc.c-torture/execute/ieee/ieee.exp: Disable tests for SPE.
