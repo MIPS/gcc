@@ -40,6 +40,10 @@
 #define TARGET_AIX 0
 #endif
 
+/* Control whether function entry points use a "dot" symbol when
+   ABI_AIX.  */
+#define DOT_SYMBOLS 1
+
 /* Default string to use for cpu if not specified.  */
 #ifndef TARGET_CPU_DEFAULT
 #define TARGET_CPU_DEFAULT ((char *)0)
@@ -2352,9 +2356,9 @@ extern int toc_initialized;
   do									\
     {									\
       fputs ("\t.weak\t", (FILE));					\
-      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 			\
+      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 				\
       if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL			\
-	  && DEFAULT_ABI == ABI_AIX)					\
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	{								\
 	  if (TARGET_XCOFF)						\
 	    fputs ("[DS]", (FILE));					\
@@ -2366,7 +2370,7 @@ extern int toc_initialized;
 	{								\
 	  ASM_OUTPUT_DEF ((FILE), (NAME), (VAL));			\
 	  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL		\
-	      && DEFAULT_ABI == ABI_AIX)				\
+	      && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	    {								\
 	      fputs ("\t.set\t.", (FILE));				\
 	      RS6000_OUTPUT_BASENAME ((FILE), (NAME));			\
@@ -2387,7 +2391,7 @@ extern int toc_initialized;
       const char *alias = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		\
       const char *name = IDENTIFIER_POINTER (TARGET);			\
       if (TREE_CODE (DECL) == FUNCTION_DECL				\
-	  && DEFAULT_ABI == ABI_AIX)					\
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	{								\
 	  if (TREE_PUBLIC (DECL))					\
 	    {								\

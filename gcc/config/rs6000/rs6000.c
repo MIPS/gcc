@@ -210,6 +210,9 @@ enum rs6000_abi rs6000_current_abi;
 /* ABI string from -mabi= option.  */
 const char *rs6000_abi_string;
 
+/* Whether to use variant of AIX ABI for PowerPC64 Linux.  */
+int dot_symbols;
+
 /* Debug flags */
 const char *rs6000_debug_name;
 int rs6000_debug_stack;		/* debug stack applications */
@@ -9007,6 +9010,36 @@ rs6000_get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
   return 0;
 }
 
+/* Write out a function code label.  */
+
+void
+rs6000_output_function_entry (FILE *file, const char *fname)
+{
+  if (fname[0] != '.')
+    {
+      switch (DEFAULT_ABI)
+	{
+	default:
+	  abort ();
+
+	case ABI_AIX:
+	  if (DOT_SYMBOLS)
+	    putc ('.', file);
+	  else
+	    ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "L.");
+	  break;
+
+	case ABI_V4:
+	case ABI_DARWIN:
+	  break;
+	}
+    }
+  if (TARGET_AIX)
+    RS6000_OUTPUT_BASENAME (file, fname);
+  else
+    assemble_name (file, fname);
+}
+
 /* Print an operand.  Recognize special options, documented below.  */
 
 #if TARGET_ELF
@@ -9535,26 +9568,10 @@ print_operand (FILE *file, rtx x, int code)
       if (GET_CODE (x) != SYMBOL_REF)
 	abort ();
 
-      if (XSTR (x, 0)[0] != '.')
-	{
-	  switch (DEFAULT_ABI)
-	    {
-	    default:
-	      abort ();
-
-	    case ABI_AIX:
-	      putc ('.', file);
-	      break;
-
-	    case ABI_V4:
-	    case ABI_DARWIN:
-	      break;
-	    }
-	}
-      if (TARGET_AIX)
-	RS6000_OUTPUT_BASENAME (file, XSTR (x, 0));
-      else
+      if (!DOT_SYMBOLS)
 	assemble_name (file, XSTR (x, 0));
+      else
+	rs6000_output_function_entry (file, XSTR (x, 0));
       return;
 
     case 'Z':
@@ -9809,7 +9826,9 @@ rs6000_assemble_visibility (tree decl, int vis)
 {
   /* Functions need to have their entry point symbol visibility set as
      well as their descriptor symbol visibility.  */
-  if (DEFAULT_ABI == ABI_AIX && TREE_CODE (decl) == FUNCTION_DECL)
+  if (DEFAULT_ABI == ABI_AIX
+      && DOT_SYMBOLS
+      && TREE_CODE (decl) == FUNCTION_DECL)
     {
       static const char * const visibility_types[] = {
         NULL, "internal", "hidden", "protected"
@@ -13094,17 +13113,12 @@ rs6000_output_function_epilogue (FILE *file,
       /* Offset from start of code to tb table.  */
       fputs ("\t.long ", file);
       ASM_OUTPUT_INTERNAL_LABEL_PREFIX (file, "LT");
-#if TARGET_AIX
-      RS6000_OUTPUT_BASENAME (file, fname);
-#else
-      assemble_name (file, fname);
-#endif
-      fputs ("-.", file);
-#if TARGET_AIX
-      RS6000_OUTPUT_BASENAME (file, fname);
-#else
-      assemble_name (file, fname);
-#endif
+      if (TARGET_AIX)
+	RS6000_OUTPUT_BASENAME (file, fname);
+      else
+	assemble_name (file, fname);
+      putc ('-', file);
+      rs6000_output_function_entry (file, fname);
       putc ('\n', file);
 
       /* Interrupt handler mask.  */
@@ -15680,22 +15694,27 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
       fputs ("\t.section\t\".opd\",\"aw\"\n\t.align 3\n", file);
       ASM_OUTPUT_LABEL (file, name);
       fputs (DOUBLE_INT_ASM_OP, file);
-      putc ('.', file);
-      assemble_name (file, name);
-      fputs (",.TOC.@tocbase,0\n\t.previous\n\t.size\t", file);
-      assemble_name (file, name);
-      fputs (",24\n\t.type\t.", file);
-      assemble_name (file, name);
-      fputs (",@function\n", file);
-      if (TREE_PUBLIC (decl) && ! DECL_WEAK (decl))
+      rs6000_output_function_entry (file, name);
+      fputs (",.TOC.@tocbase,0\n\t.previous\n", file);
+      if (DOT_SYMBOLS)
 	{
-	  fputs ("\t.globl\t.", file);
+	  fputs ("\t.size\t", file);
 	  assemble_name (file, name);
-	  putc ('\n', file);
+	  fputs (",24\n\t.type\t.", file);
+	  assemble_name (file, name);
+	  fputs (",@function\n", file);
+	  if (TREE_PUBLIC (decl) && ! DECL_WEAK (decl))
+	    {
+	      fputs ("\t.globl\t.", file);
+	      assemble_name (file, name);
+	      putc ('\n', file);
+	    }
 	}
+      else
+	ASM_OUTPUT_TYPE_DIRECTIVE (file, name, "function");
       ASM_DECLARE_RESULT (file, DECL_RESULT (decl));
-      putc ('.', file);
-      ASM_OUTPUT_LABEL (file, name);
+      rs6000_output_function_entry (file, name);
+      fputs (":\n", file);
       return;
     }
 
