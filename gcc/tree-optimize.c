@@ -35,10 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tree-dchain.h"
 #include "timevar.h"
 
-/* Shared functions with tree-cfg.c and tree-ssa.c.  */
-extern void delete_tree_ssa		PARAMS ((tree));
-
-
 /* Main entry point to the tree SSA transformation routines.  FNDECL is
    the FUNCTION_DECL node for the function to optimize.  */
 
@@ -118,7 +114,7 @@ optimize_function_tree (fndecl)
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-	print_generic_tree (dump_file, fnbody);
+	print_generic_tree (dump_file, fnbody, 0);
       fprintf (dump_file, "\n");
 
       dump_end (TDI_optimized, dump_file);

@@ -632,8 +632,17 @@ static inline gimple_stmt_iterator
 gsi_start_bb (bb)
      basic_block bb;
 {
-  tree *tp = bb->head_tree_p;
-  return gsi_start (tp);
+  if (bb && bb->index != INVALID_BLOCK)
+    {
+      tree *tp = bb->head_tree_p;
+      return gsi_start (tp);
+    }
+  else
+    {
+      gimple_stmt_iterator i;
+      i.tp = NULL;
+      return i;
+    }
 }
 
 static inline bool
@@ -752,36 +761,6 @@ is_pure_use (ref)
 	 && ref_type (ref) == V_USE;
 }
 
-/* Start a new forward iterator on the first element of LIST.  */
-static inline ref_list_iterator
-rli_start (list)
-     ref_list list;
-{
-  ref_list_iterator i;
-  i.node = (list) ? list->first : NULL;
-  return i;
-}
-
-/* Start a new reverse iterator on the last element of LIST.  */
-static inline ref_list_iterator
-rli_start_rev (list)
-     ref_list list;
-{
-  ref_list_iterator i;
-  i.node = (list) ? list->last : NULL;
-  return i;
-}
-
-/* Start a new reverse iterator on a specific list node N.  */
-static inline ref_list_iterator
-rli_start_at (n)
-     struct ref_list_node *n;
-{
-  ref_list_iterator i;
-  i.node = n;
-  return i;
-}
-
 /* Return TRUE if we reached the end of the list with iterator I.  */
 static inline bool
 rli_after_end (i)
@@ -826,6 +805,17 @@ get_first_ref (list)
      ref_list list;
 {
   return list->first->ref;
+}
+
+static inline bool
+ref_list_is_empty (list)
+     ref_list list;
+{
+  return (list == NULL
+          || list->first == NULL
+	  || list->last == NULL
+	  /* rli_delete cannot remove list->first nor list->last.  */
+	  || (list->first->ref == NULL && list->last->ref == NULL));
 }
 
 #endif /* _TREE_FLOW_INLINE_H  */

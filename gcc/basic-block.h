@@ -252,8 +252,9 @@ typedef struct basic_block_def {
 /* Block contains a control flow expression for a loop.  */
 #define BB_LOOP_CONTROL_EXPR	32
 
-/* Block is the entry block to a control statement but contains no code.  */
-#define BB_CONTROL_ENTRY	64
+/* Block is the entry block to a compound statement (BIND_EXPR, LOOP_EXPR,
+   COND_EXPR, SWITCH_EXPR).  */
+#define BB_COMPOUND_ENTRY	64
 
 /* Number of basic blocks in the current function.  */
 

@@ -650,12 +650,12 @@ display_points_to_set_helper (tvar)
   tmp = alias_tvar_pointsto (tvar);
   if (VARRAY_ACTIVE_SIZE (tmp) <= 0)
     return;
-  print_generic_node (stderr, ALIAS_TVAR_DECL (tvar));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (tvar), 0);
   fprintf (stderr, " => { ");
   for (i = 0; i < VARRAY_ACTIVE_SIZE (tmp); i++)
     {
       alias_typevar tmpatv = (alias_typevar) VARRAY_GENERIC_PTR (tmp, i);
-      print_generic_node  (stderr, ALIAS_TVAR_DECL (tmpatv));
+      print_generic_node  (stderr, ALIAS_TVAR_DECL (tmpatv), 0);
       fprintf (stderr, ", ");
     }
   fprintf (stderr, " }\n");

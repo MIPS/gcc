@@ -84,13 +84,13 @@ mudflap_c_function (t)
 
   if (getenv ("UNPARSE"))  /* XXX */
     {
-      print_generic_tree (stderr, DECL_RESULT (t));
+      print_generic_tree (stderr, DECL_RESULT (t), 0);
       fprintf (stderr, " ");
-      print_generic_tree (stderr, DECL_NAME (t));
+      print_generic_tree (stderr, DECL_NAME (t), 0);
       fprintf (stderr, " (");
-      print_generic_tree (stderr, DECL_ARGUMENTS (t));
+      print_generic_tree (stderr, DECL_ARGUMENTS (t), 0);
       fprintf (stderr, " )\n");
-      print_generic_tree (stderr, DECL_SAVED_TREE (t));
+      print_generic_tree (stderr, DECL_SAVED_TREE (t), 0);
     }
 
   mf_init_extern_trees ();
@@ -101,7 +101,7 @@ mudflap_c_function (t)
   if (getenv ("UNPARSE"))  /* XXX */
     {
       fprintf (stderr, "/* after -fmudflap: */\n");
-      print_generic_tree (stderr, DECL_SAVED_TREE (t));
+      print_generic_tree (stderr, DECL_SAVED_TREE (t), 0);
     }
 }
 
@@ -137,7 +137,7 @@ mudflap_enqueue_decl (obj, label)
 
   /*
   fprintf (stderr, "enqueue_decl obj=`");
-  print_generic_tree (stderr, obj);
+  print_generic_tree (stderr, obj, 0);
   fprintf (stderr, "' label=`%s'\n", label);
   */
 
@@ -733,7 +733,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 
 #if 0
   fprintf (stderr, "expr=%s: ", tree_code_name [TREE_CODE (*t)]);
-  print_generic_tree (stderr, *t);
+  print_generic_tree (stderr, *t, 0);
   fprintf (stderr, "\n");
 #endif
 
@@ -830,7 +830,7 @@ mx_xfn_indirect_ref (t, continue_p, data)
 #if 0
 	    warning ("mudflap is omitting array bounds checks");
 	    fprintf (stderr, "  for expression: ");
-	    print_generic_tree (stderr, *t);
+	    print_generic_tree (stderr, *t, 0);
 	    fprintf (stderr, " array-size=%u", int_size_in_bytes (TREE_TYPE (base_array)));
 	    fprintf (stderr, " check-size=%u", TREE_INT_CST_LOW (check_size));
 	    fprintf (stderr, "\n");
@@ -1164,9 +1164,9 @@ mx_xfn_find_addrof (t, continue_p, data)
 	if (gotit != NULL)
 	  {
 	  fprintf (stderr, "matched decl=");
-	  print_generic_tree (stderr, decl);
+	  print_generic_tree (stderr, decl, 0);
 	  fprintf (stderr, " in tree=");
-	  print_generic_tree (stderr, gotit);
+	  print_generic_tree (stderr, gotit, 0);
 	  fprintf (stderr, "\n");
 	  }
 #endif

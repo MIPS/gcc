@@ -1428,7 +1428,7 @@ tree-nomudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
    $(C_TREE_H) $(C_COMMON_H) tree-simple.h diagnostic.h $(HASHTAB_H) \
    output.h varray.h langhooks.h tree-mudflap.h
 tree-pretty-print.o : tree-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
-   errors.h $(TREE_H) diagnostic.h real.h $(HASHTAB_H)
+   errors.h $(TREE_H) diagnostic.h real.h $(HASHTAB_H) $(TREE_FLOW_H)
 c-pretty-print.o : c-pretty-print.c $(CONFIG_H) $(SYSTEM_H) $(HASHTAB_H) \
    $(RTL_H) $(TREE_H) $(EXPR_H) $(C_COMMON_H) errors.h diagnostic.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \

@@ -1,3 +1,91 @@
+2002-10-26  Diego Novillo  <dnovillo@redhat.com>
+
+	* Makefile.in (tree-pretty-print.o): Depend on $(TREE_FLOW_H)
+	* basic-block.h (BB_COMPOUND_ENTRY): Rename from BB_CONTROL_ENTRY.
+	* diagnostic.h (dump_generic_tree): Remove extern declaration.
+	(print_generic_node_brief): Remove.  Update all users.
+	(PPF_BRIEF): Declare.
+	(PPF_BLOCK): Declare.
+	(PPF_LINENO): Declare.
+	(PPF_IS_STMT): Declare.
+	* tree-pretty-print.c (PPF_BRIEF): New constant.
+	(PPF_BLOCK): New constant.
+	(PPF_LINENO): New constant.
+	(PPF_IS_STMT): New constant.
+	(dump_block_info): New local function.
+	(last_bb): New local variable.
+	(dump_generic_tree): Remove unused function.
+	(print_generic_tree): Add third argument 'flags'.  Update all
+	users.
+	(print_generic_node_brief): Remove.  Update all users.
+	(print_generic_node): Add third argument 'flags'.  Update all
+	users.
+	(dump_generic_node): Add third argument 'flags'.  Update all users.
+	If PPF_BLOCK is set, display basic block information at basic block
+	boundaries.
+	If PPF_IS_STMT is set, change the way COMPOUND_EXPR nodes are
+	rendered.
+	If PPF_BRIEF is set, don't show the bodies of control statements.
+	(print_declaration):
+
+	* toplev.c (process_options): Update comment for -fdisable-simple.
+
+	* tree-cfg.c (remove_tree_bb): Rename from tree_delete_bb.
+	(latch_block): Move declaration to tree-flow.h.  Declare extern.
+	(make_blocks): Start a new block after finding a control flow
+	altering statement.
+	(make_loop_expr_blocks): Set the loop entry block to be the parent
+	block for the loop latch block.
+	(cleanup_tree_cfg): Rename from tree_cleanup_cfg.
+	Call compact_blocks.
+	(remove_tree_bb): Rename from tree_delete_bb.  Update all users.
+	(dump_tree_bb): Rename from dump_tree_bb.  Update all users.
+	Dump information about loop latch blocks.
+	(debug_tree_bb): Rename from tree_debug_bb.  Update all users.
+	(debug_tree_cfg): Rename from tree_debug_cfg.  Update all users.
+	(dump_tree_cfg): Rename from tree_dump_cfg.  Update all users.
+	By default, dump the function with markers for basic block
+	boundaries.
+	(successor_block): If we can't find a successor following the
+	parent chain, return the next block in the linked list of blocks.
+	Update documentation comments.
+	(stmt_starts_bb_p): Don't let RETURN_EXPR start a new block.
+	(is_latch_block): New function.
+	(first_exec_stmt): Don't treat BIND_EXPR nodes as a special case.
+	(first_stmt): Return NULL_TREE if the block does not exist.
+	(last_stmt): Likewise.
+
+	* tree-dfa.c (find_tree_refs): Rename from tree_find_refs.  Update
+	all users.
+	(find_refs_in_stmt): Handle BIND_EXPR nodes.
+	(rli_start): Move from tree-flow-inline.h
+	(rli_start_last): Likewise.
+	(rli_start_at): Likewise.
+	(rli_delete): Likewise.
+
+	* tree-flow-inline.h (gsi_start_bb): Handle NULL blocks.
+	(ref_list_is_empty): New function.
+	* tree-flow.h (rli_start): Change declaration to extern.
+	(rli_start_last): Likewise.
+	(rli_start_at): Likewise.
+	(rli_delete): Declare.
+	(latch_block): Declare.
+	(is_latch_block): Declare.
+	(get_last_ref): Change to inline declaration.
+	(get_first_ref): Likewise.
+	(ref_list_empty): Declare.
+	(remove_decl): Declare.
+	(find_decl_location): Declare.
+
+	* tree-optimize.c (delete_tree_ssa): Remove declaration.
+
+	* tree-ssa-dce.c (mark_control_parent_necessary): Call gsi_step_bb
+	instead of gsi_step.
+	(tree_ssa_eliminate_dead_code): Likewise.
+
+	* tree-ssa.c (compute_tree_rdefs): Rename from compute_tree_rdefs.
+	Update all users.
+
 2002-10-22  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (struct dfa_stats_d): Add field size_tree_refs.

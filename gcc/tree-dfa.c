@@ -128,7 +128,7 @@ const unsigned TRM_ADDRESSOF	= 1 << 7;
 /* Look for variable references in every block of the flowgraph.  */
 
 void
-tree_find_refs ()
+find_tree_refs ()
 {
   basic_block bb;
 
@@ -200,6 +200,7 @@ find_refs_in_stmt (stmt_p, bb)
 
       /* These nodes contain no variable references.  */
     case LOOP_EXPR:
+    case BIND_EXPR:
     case CASE_LABEL_EXPR:
       break;
 
@@ -498,6 +499,7 @@ create_ref_list ()
   return list;
 }
 
+
 /* Free the nodes in LIST, but keep the empty list around.  
    (i.e., empty the list).  */
 
@@ -510,6 +512,7 @@ empty_ref_list (list)
 
   list->first = list->last = NULL;
 }
+
 
 /* Remove REF from LIST.  */
 
@@ -636,6 +639,89 @@ find_list_node (list, ref)
     }
 
   return node;
+}
+
+/* Start a new forward iterator on the first element of LIST.  */
+
+ref_list_iterator
+rli_start (list)
+     ref_list list;
+{
+  ref_list_iterator i;
+
+  if (list)
+    {
+      /* rli_delete may have left list->first empty.  Reset it here.  */
+      while (list->first && list->first->ref == NULL)
+	list->first = list->first->next;
+
+      i.node = list->first;
+    }
+  else
+    i.node = NULL;
+
+  return i;
+}
+
+
+/* Start a new iterator on the last element of LIST.  */
+
+ref_list_iterator
+rli_start_last (list)
+     ref_list list;
+{
+  ref_list_iterator i;
+
+  if (list)
+    {
+      /* rli_delete may have left list->last empty.  Reset it here.  */
+      while (list->last && list->last->ref == NULL)
+	list->last = list->last->prev;
+
+      i.node = list->last;
+    }
+  else
+    i.node = NULL;
+
+  return i;
+}
+
+
+/* Start a new iterator on a specific list node N.  */
+
+ref_list_iterator
+rli_start_at (n)
+     struct ref_list_node *n;
+{
+  ref_list_iterator i;
+  i.node = n;
+  return i;
+}
+
+
+/* Delete the reference at the current position of iterator I.
+   
+   NOTE: This will not remove the first and last element of a list.  It
+   will merely nullify the reference that they are pointing to.  This will
+   be "corrected" the next time an iterator is started on the same list.
+
+   FIXME  This is a bit hackish, but otherwise we need to either keep
+          handles on ref_list nodes in the iterator or include the list in
+	  the structure.  */
+
+void
+rli_delete (i)
+     ref_list_iterator i;
+{
+  struct ref_list_node *n = i.node;
+
+  n->ref = NULL;
+
+  if (n->prev)
+    n->prev->next = n->next;
+
+  if (n->next)
+    n->next->prev = n->prev;
 }
 
 
@@ -834,11 +920,10 @@ create_ref (var, ref_type, ref_mod, bb, parent_stmt_p, parent_expr_p, operand_p,
       if (parent_expr)
 	add_tree_ref (parent_expr, ref);
 
-      /* In same cases the parent statement and parent expression are the
+      /* In some cases the parent statement and parent expression are the
 	 same tree node.  For instance 'a = 5;'.  Avoid adding the same
 	 reference twice to the same list in these cases.  */
-      if (parent_stmt
-	  && parent_stmt != parent_expr)
+      if (parent_stmt && parent_stmt != parent_expr)
 	add_tree_ref (parent_stmt, ref);
     }
 
@@ -1045,14 +1130,14 @@ dump_ref (outf, prefix, ref, indent, details)
   fprintf (outf, "%s%s%s(", s_indent, prefix, type);
 
   if (ref_var (ref))
-    print_generic_node (outf, ref_var (ref));
+    print_generic_node (outf, ref_var (ref), 0);
   else
     fprintf (outf, "nil");
 
   fprintf (outf, "): line %d, bb %d, id %lu, ", lineno, bbix, ref_id (ref));
 
   if (ref_expr (ref))
-    print_generic_node (outf, ref_expr (ref));
+    print_generic_node (outf, ref_expr (ref), 0);
   else
     fprintf (outf, "<nil>");
 
@@ -1229,7 +1314,7 @@ dump_variable (file, var)
   size_t num;
 
   fprintf (file, "Variable: ");
-  print_generic_node (file, var);
+  print_generic_node (file, var, 0);
   
   num = num_may_alias (var);
   if (num > 0)
@@ -1240,7 +1325,7 @@ dump_variable (file, var)
 
       for (i = 0; i < num; i++)
 	{
-	  print_generic_node (file, may_alias (var, i));
+	  print_generic_node (file, may_alias (var, i), 0);
 	  if (i < num - 1)
 	    fprintf (file, ", ");
 	}

@@ -66,7 +66,7 @@ Boston, MA 02111-1307, USA.  */
    (def-def link) between the current definition and the previous one.
 
    This is used to chain definitions to arrays and structures, so that all
-   possible reaching defs can be found later by tree_compute_rdefs.  For
+   possible reaching defs can be found later by compute_tree_rdefs.  For
    instance,
 
 	      1  A[i] = 5;
@@ -197,7 +197,7 @@ build_tree_ssa (fndecl)
     fprintf (tree_ssa_dump_file, "\nFunction %s\n\n", get_name (fndecl));
 
   /* Find variable references.  */
-  tree_find_refs ();
+  find_tree_refs ();
 
   /* Compute immediate dominators.  */
   idom = calculate_dominance_info (CDI_DOMINATORS);
@@ -214,7 +214,7 @@ build_tree_ssa (fndecl)
   free_dominance_info (idom);
 
   /* Compute reaching definitions.  */
-  tree_compute_rdefs ();    
+  compute_tree_rdefs ();    
 
   if (tree_ssa_dump_file)
     {
@@ -423,7 +423,7 @@ search_fud_chains (bb, idom)
 
   /* Restore the current reaching definition for each variable referenced
      in the block (in reverse order).  */
-  for (i = rli_start_rev (bb_refs (bb)); !rli_after_end (i); rli_step_rev (&i))
+  for (i = rli_start_last (bb_refs (bb)); !rli_after_end (i); rli_step_rev (&i))
     {
       tree_ref ref = rli_ref (i);
 
@@ -449,7 +449,7 @@ search_fud_chains (bb, idom)
    referenced in the current function.  */
 
 void
-tree_compute_rdefs ()
+compute_tree_rdefs ()
 {
   size_t i;
 
@@ -727,7 +727,7 @@ dump_tree_ssa (file)
 
   FOR_EACH_BB (bb)
     {
-      tree_dump_bb (file, "", bb, 0);
+      dump_tree_bb (file, "", bb, 0);
       dump_ref_list (file, "    ", bb_refs (bb), 0, 1);
       fputs ("\n\n", file);
     }

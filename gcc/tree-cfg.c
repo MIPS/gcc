@@ -52,7 +52,6 @@ static void make_switch_expr_blocks	PARAMS ((tree *, basic_block));
 static basic_block create_bb		PARAMS ((tree *, basic_block));
 static void set_bb_for_stmt		PARAMS ((tree, basic_block));
 static void remove_unreachable_blocks	PARAMS ((void));
-static void tree_delete_bb		PARAMS ((basic_block));
 
 /* Edges.  */
 static void make_edges PARAMS ((void));
@@ -65,11 +64,11 @@ static void make_case_label_edges	PARAMS ((basic_block));
 
 /* Various helpers.  */
 static basic_block successor_block	PARAMS ((basic_block));
-static basic_block latch_block		PARAMS ((basic_block));
 static basic_block first_exec_block	PARAMS ((tree *));
 static tree *first_exec_stmt		PARAMS ((tree *));
 static bool block_invalidates_loop	PARAMS ((basic_block, struct loop *));
 static basic_block switch_parent	PARAMS ((basic_block));
+static void remove_tree_bb		PARAMS ((basic_block));
 
 /* Remove any COMPOUND_EXPR and WFL container from NODE.  */
 #define STRIP_CONTAINERS(NODE)					\
@@ -141,7 +140,7 @@ build_tree_cfg (fnbody)
 	  dump_file = dump_begin (TDI_cfg, &dump_flags);
 	  if (dump_file)
 	    {
-	      tree_dump_cfg (dump_file);
+	      dump_tree_cfg (dump_file, dump_flags & TDF_DETAILS);
 	      dump_end (TDI_cfg, dump_file);
 	    }
 	}
@@ -221,6 +220,11 @@ make_blocks (first_p, parent_block)
 	      set_bb_for_stmt (*container, bb);
 	      bb->end_tree_p = container;
 	    }
+
+	  /* If STMT alters the flow of control, we need to start a new
+	     block on the next iteration.  */
+	  if (is_ctrl_altering_stmt (stmt))
+	    start_new_block = true;
 	}
     }
 }
@@ -238,7 +242,7 @@ make_bind_expr_blocks (bind_p, parent_block)
   tree bind = *bind_p;
 
   entry = create_bb (bind_p, parent_block);
-  entry->flags |= BB_CONTROL_ENTRY;
+  entry->flags |= BB_COMPOUND_ENTRY;
 
   STRIP_CONTAINERS (bind);
   make_blocks (&BIND_EXPR_BODY (bind), entry);
@@ -257,7 +261,7 @@ make_loop_expr_blocks (loop_p, parent_block)
   tree loop = *loop_p;
   
   entry = create_bb (loop_p, parent_block);
-  entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
+  entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
 
   /* Create an empty block to serve as latch to prevent flow_loops_find
      from finding multiple natural loops in the presence of multiple back
@@ -265,7 +269,7 @@ make_loop_expr_blocks (loop_p, parent_block)
      
      ??? Note that latch_block assumes that the latch block is the
 	 successor of the entry block in the linked list of blocks.  */
-  latch = create_bb (&empty_stmt_node, parent_block);
+  latch = create_bb (&empty_stmt_node, entry);
   latch->flags |= BB_CONTROL_EXPR | BB_LOOP_CONTROL_EXPR;
   
   STRIP_CONTAINERS (loop);
@@ -282,7 +286,7 @@ make_cond_expr_blocks (cond_p, parent_block)
 {
   tree cond = *cond_p;
   basic_block entry = create_bb (cond_p, parent_block);
-  entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
+  entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR;
 
   STRIP_CONTAINERS (cond);
   make_blocks (&COND_EXPR_THEN (cond), entry);
@@ -300,7 +304,7 @@ make_switch_expr_blocks (switch_e_p, parent_block)
 {
   tree switch_e = *switch_e_p;
   basic_block entry = create_bb (switch_e_p, parent_block);
-  entry->flags |= BB_CONTROL_ENTRY | BB_CONTROL_EXPR;
+  entry->flags |= BB_COMPOUND_ENTRY | BB_CONTROL_EXPR;
 
   STRIP_CONTAINERS (switch_e);
   make_blocks (&SWITCH_BODY (switch_e), entry);
@@ -449,7 +453,7 @@ make_edges ()
     }
 
   /* Clean up the graph and warn for unreachable code.  */
-  tree_cleanup_cfg ();
+  cleanup_tree_cfg ();
 }
 
 
@@ -694,9 +698,12 @@ make_case_label_edges (bb)
 /* Remove unreachable blocks and other miscellaneous clean up work.  */
 
 void
-tree_cleanup_cfg ()
+cleanup_tree_cfg ()
 {
   remove_unreachable_blocks ();
+  /*compact_blocks ();*/
+  /* FIXME  Optimize the CFG by stratightening out dead conditionals and
+	    whatnot.  */
 }
 
 
@@ -714,7 +721,7 @@ remove_unreachable_blocks ()
       next_bb = bb->next_bb;
 
       if (!(bb->flags & BB_REACHABLE))
-	tree_delete_bb (bb);
+	remove_tree_bb (bb);
     }
 }
 
@@ -722,7 +729,7 @@ remove_unreachable_blocks ()
 /* Remove a block from the flowgraph.  */
 
 static void
-tree_delete_bb (bb)
+remove_tree_bb (bb)
      basic_block bb;
 {
   gimple_stmt_iterator i;
@@ -731,7 +738,7 @@ tree_delete_bb (bb)
   if (dump_file)
     {
       fprintf (dump_file, "Removed unreachable basic block %d\n", bb->index);
-      tree_dump_bb (dump_file, "", bb, 0);
+      dump_tree_bb (dump_file, "", bb, 0);
       if (TREE_CODE (first_stmt (bb)) != BIND_EXPR)
 	fprintf (dump_file, "WARNING: Block %d has executable statements.\n",
 	         bb->index);
@@ -849,7 +856,7 @@ insert_bb_before (new_bb, bb)
 /* Dump a basic block to a file.  */
 
 void
-tree_dump_bb (outf, prefix, bb, indent)
+dump_tree_bb (outf, prefix, bb, indent)
      FILE *outf;
      const char *prefix;
      basic_block bb;
@@ -865,7 +872,12 @@ tree_dump_bb (outf, prefix, bb, indent)
   memset ((void *) s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
-  fprintf (outf, "%s%sBasic block %d\n", s_indent, prefix, bb->index);
+  fprintf (outf, "%s%sBasic block %d", s_indent, prefix, bb->index);
+
+  if (is_latch_block (bb))
+    fprintf (outf, " (latch for #%d)\n", bb->index - 1);
+  else
+    fprintf (outf, "\n");
 
   fprintf (outf, "%s%sPredecessors: ", s_indent, prefix);
   for (e = bb->pred; e; e = e->pred_next)
@@ -881,7 +893,7 @@ tree_dump_bb (outf, prefix, bb, indent)
   if (head)
     {
       lineno = get_lineno (head);
-      print_generic_node_brief (outf, head);
+      print_generic_node (outf, head, PPF_BRIEF|PPF_IS_STMT);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -891,7 +903,7 @@ tree_dump_bb (outf, prefix, bb, indent)
   if (end)
     {
       lineno = get_lineno (end);
-      print_generic_node_brief (outf, end);
+      print_generic_node (outf, end, PPF_BRIEF|PPF_IS_STMT);
       fprintf (outf, " (line: %d)\n", lineno);
     }
   else
@@ -922,40 +934,52 @@ tree_dump_bb (outf, prefix, bb, indent)
 /* Dump a basic block on stderr.  */
 
 void
-tree_debug_bb (bb)
+debug_tree_bb (bb)
      basic_block bb;
 {
-  tree_dump_bb (stderr, "", bb, 0);
+  dump_tree_bb (stderr, "", bb, 0);
 }
 
 
-/* Dump the CFG on stderr.  */
+/* Dump the CFG on stderr.  If DETAILS is nonzero, a textual representation
+   of each basic block is also produced.  */
 
 void
-tree_debug_cfg ()
+debug_tree_cfg (details)
+     int details;
 {
-  tree_dump_cfg (stderr);
+  dump_tree_cfg (stderr, details);
 }
 
 
-/* Dump the CFG on the given FILE.  */
+/* Dump the program showing basic block boundaries on the given FILE.  If
+   DETAILS is set, a textual representation of every basic block will also
+   be dumped.  */
 
 void
-tree_dump_cfg (file)
+dump_tree_cfg (file, details)
      FILE *file;
+     int details;
 {
   basic_block bb;
 
-  fputc ('\n', file);
-  fprintf (file, "Function %s\n\n", get_name (current_function_decl));
-
-  fprintf (file, "\n%d basic blocks, %d edges, last basic block %d.\n",
-           n_basic_blocks, n_edges, last_basic_block);
-  FOR_EACH_BB (bb)
+  if (details)
     {
-      tree_dump_bb (file, "", bb, 0);
       fputc ('\n', file);
+      fprintf (file, "Function %s\n\n", get_name (current_function_decl));
+      fprintf (file, "\n%d basic blocks, %d edges, last basic block %d.\n",
+	       n_basic_blocks, n_edges, last_basic_block);
+
+      FOR_EACH_BB (bb)
+	{
+	  dump_tree_bb (file, "", bb, 0);
+	  fputc ('\n', file);
+	}
     }
+
+  fprintf (file, "%s()\n", get_name (current_function_decl));
+  print_generic_tree (file, DECL_SAVED_TREE (current_function_decl), PPF_BLOCK);
+  fprintf (file, "\n");
 }
 
 
@@ -1045,36 +1069,7 @@ successor_block (bb)
 #endif
 
   /* By default, the successor block will be the block for the statement
-     following BB's last statement.  Note that this will skip over any
-     blocks created for BIND_EXPR nodes.
-     
-     This is intentional.  The only reason why we create basic blocks for
-     BIND_EXPR nodes is to be able to find the successor block in cases
-     like this:
-
-	    1	a = 10;
-	    2	b = 5;
-	    3	{
-	    4	  int j;
-	    5	  {
-	    6	    int k;
-	    7	    {
-	    8	      int l;
-	    9	
-	    10	      l = a + k;
-	    11	    }
-	    12	  }
-	    13	}
-	    14	b = a + b;
-
-     If we didn't create a basic block for the braces at lines 3, 5 and 7,
-     we would not realize that the successor block for line 10 is the block
-     at line 14.
-     
-     However, since blocks for BIND_EXPR nodes do not really contribute
-     anything to the flowgraph, we don't want to create edges to them,
-     leaving them unreachable.  The post-processing cleanup will remove
-     them from the graph.  */
+     following BB's last statement.  */
   i = gsi_start (bb->end_tree_p);
   gsi_step (&i);
   succ_bb = first_exec_block (gsi_container (i));
@@ -1082,7 +1077,7 @@ successor_block (bb)
     return succ_bb;
 
   /* We couldn't find a successor for BB.  Walk up the control structure to
-     see if our parent has a successor. Iterate until we find one or we
+     see if our parent has a successor.  Iterate until we find one or we
      reach nesting level 0.  */
   parent_bb = parent_block (bb);
   while (parent_bb)
@@ -1104,8 +1099,9 @@ successor_block (bb)
       parent_bb = parent_block (parent_bb);
     }
 
-  /* We reached nesting level 0.  Return the exit block.  */
-  return EXIT_BLOCK_PTR;
+  /* We reached nesting level 0.  Return the next block in the linked list
+     of blocks.  */
+  return bb->next_bb;
 }
 
 
@@ -1127,8 +1123,8 @@ is_ctrl_stmt (t)
 }
 
 
-/* Return true if T alters the flow of control (i.e., T is BREAK, GOTO,
-   CONTINUE or RETURN)  */
+/* Return true if T alters the flow of control (i.e., T is GOTO,
+   RETURN or a call to a non-returning function)  */
 
 bool
 is_ctrl_altering_stmt (t)
@@ -1196,7 +1192,6 @@ stmt_starts_bb_p (t)
   STRIP_WFL (t);
   return (TREE_CODE (t) == CASE_LABEL_EXPR
 	  || TREE_CODE (t) == LABEL_EXPR
-	  || TREE_CODE (t) == RETURN_EXPR
 	  || TREE_CODE (t) == BIND_EXPR
 	  || is_ctrl_stmt (t));
 }
@@ -1225,25 +1220,46 @@ delete_tree_cfg ()
 /* Returns the block marking the end of the loop body.  This is the block
    that contains the back edge to the start of the loop.  */
 
-static basic_block
+basic_block
 latch_block (loop_bb)
      basic_block loop_bb;
 {
+  int entry_ix, latch_ix;
+  basic_block latch_bb;
   tree loop = first_stmt (loop_bb);
 
-#if defined ENABLE_CHECKING
-  if (TREE_CODE (loop) != LOOP_EXPR)
-    abort ();
+  if (loop == NULL_TREE || TREE_CODE (loop) != LOOP_EXPR)
+    return NULL;
 
-  if (loop_bb->next_bb == NULL
-      || *(loop_bb->next_bb->head_tree_p) != empty_stmt_node
-      || *(loop_bb->next_bb->end_tree_p) != empty_stmt_node)
-    abort ();
-#endif
+  if (loop_bb->index == INVALID_BLOCK)
+    return NULL;
+
+  entry_ix = loop_bb->index;
+  latch_ix = entry_ix + 1;
+  latch_bb = BASIC_BLOCK (latch_ix);
 
   /* The latch block for a LOOP_EXPR is guaranteed to be the next block in
      the linked list (see make_loop_expr_blocks).  */
-  return loop_bb->next_bb;
+  return latch_bb;
+}
+
+
+/* Return true if BB is a latch block.  */
+
+bool
+is_latch_block (bb)
+     basic_block bb;
+{
+  if (bb->index > 0
+      && first_stmt (bb) == empty_stmt_node
+      && last_stmt (bb) == empty_stmt_node)
+    {
+      basic_block loop_bb = BASIC_BLOCK (bb->index - 1);
+      tree loop_t = first_stmt (loop_bb);
+      return (loop_t && TREE_CODE (loop_t) == LOOP_EXPR);
+    }
+
+  return false;
 }
 
 
@@ -1262,20 +1278,10 @@ first_exec_stmt (entry_p)
       STRIP_WFL (stmt);
       STRIP_NOPS (stmt);
 
-      /* Dive into BIND_EXPR bodies.  If the body is empty, keep going with
-	 the statement following the BIND_EXPR node.  */
-      if (TREE_CODE (stmt) == BIND_EXPR)
-	{
-	  tree *first = first_exec_stmt (&BIND_EXPR_BODY (stmt));
-	  if (first)
-	    return first;
-	}
-
-      /* Don't consider empty_stmt_node to be executable.  Note that we
-	 actually return the container for the executable statement, not
-	 the statement itself.  This is to allow the caller to start
-	 iterating from this point.  */
-      else if (is_exec_stmt (stmt))
+      /* Note that we actually return the container for the executable
+	 statement, not the statement itself.  This is to allow the caller to
+	 start iterating from this point.  */
+      if (is_exec_stmt (stmt))
 	return gsi_container (i);
     }
 
@@ -1325,6 +1331,9 @@ first_stmt (bb)
   gimple_stmt_iterator i;
   tree t;
 
+  if (bb == NULL || bb->index == INVALID_BLOCK)
+    return NULL_TREE;
+
   i = gsi_start_bb (bb);
   t = gsi_stmt (i);
   STRIP_WFL (t);
@@ -1343,6 +1352,9 @@ last_stmt (bb)
   gimple_stmt_iterator i;
   tree t;
   
+  if (bb == NULL || bb->index == INVALID_BLOCK)
+    return NULL_TREE;
+
   i = gsi_start (bb->end_tree_p);
   t = gsi_stmt (i);
   STRIP_WFL (t);

@@ -1490,11 +1490,12 @@ finalize_1 (ei, temp)
 		    {
 		      fprintf (dump_file, "In BB %d, insert save of ",
 			       ref_bb (X)->index);
-		      print_generic_tree (dump_file, ei->expr);
+		      print_generic_tree (dump_file, ei->expr, 0);
 		      fprintf (dump_file, " to ");
-		      print_generic_tree (dump_file, temp);
+		      print_generic_tree (dump_file, temp, 0);
 		      fprintf (dump_file, " after ");
-		      print_generic_node (dump_file, last_stmt (ref_bb (X)));
+		      print_generic_node (dump_file, last_stmt (ref_bb (X)),
+			                  PPF_IS_STMT);
 		      fprintf (dump_file, 
 			       " (at end of BB), because of ExprPhi");
 		      fprintf (dump_file, " in BB %d\n", 
@@ -1952,7 +1953,7 @@ calculate_increment (ei, expr)
   if (dump_file)
     {
       fprintf (dump_file, "Increment calculated to be: ");
-      print_generic_tree (dump_file, incr);
+      print_generic_tree (dump_file, incr, 0);
       fprintf (dump_file, "\n");
     }
 #endif
@@ -2021,7 +2022,7 @@ repair_injury (ei, use, temp, orig_euse)
 		  if (dump_file)
 		      {
 			fprintf (dump_file, "Injuring def to repair is: ");
-			print_generic_tree (dump_file, ref_expr (v));
+			print_generic_tree (dump_file, ref_expr (v), 0);
 			fprintf (dump_file, "\n");
 		      }
 #endif
@@ -2388,11 +2389,11 @@ code_motion (ei, temp)
 		{
 		  fprintf (dump_file, "In BB %d, insert save of ", 
 			   use_bb->index);
-		  print_generic_tree (dump_file, ei->expr);
+		  print_generic_tree (dump_file, ei->expr, 0);
 		  fprintf (dump_file, " to ");
-		  print_generic_tree (dump_file, temp);
+		  print_generic_tree (dump_file, temp, 0);
 		  fprintf (dump_file, " before statement ");
-		  print_generic_tree (dump_file,TREE_OPERAND (use_stmt, 0));
+		  print_generic_tree (dump_file,TREE_OPERAND (use_stmt, 0), 0);
 		  fprintf (dump_file, " on line %d\n", 
 			   EXPR_WFL_LINENO (use_expr));
 		}
@@ -2466,11 +2467,11 @@ code_motion (ei, temp)
                 {
 		  fprintf (dump_file, "In BB %d, insert reload of ", 
 			   use_bb->index);
-                  print_generic_tree (dump_file, ei->expr);
+                  print_generic_tree (dump_file, ei->expr, 0);
                   fprintf (dump_file, " from ");
-                  print_generic_tree (dump_file, temp);
+                  print_generic_tree (dump_file, temp, 0);
                   fprintf (dump_file, " in statement ");
-                  print_generic_tree (dump_file, TREE_OPERAND (use_stmt, 0));
+                  print_generic_tree (dump_file, TREE_OPERAND (use_stmt, 0), 0);
                   fprintf (dump_file, " on line %d\n", 
 			   EXPR_WFL_LINENO (use_stmt));
                 }
@@ -2647,7 +2648,7 @@ pre_part_1_trav (slot, data)
   if (dump_file)
     {
       fprintf (dump_file, "Occurrences for expression ");
-      print_generic_tree (dump_file, ei->expr);
+      print_generic_tree (dump_file, ei->expr, 0);
       fprintf (dump_file, "\n");
       dump_ref_array (dump_file, "", ei->refs, 0, 1);
     }
@@ -2656,7 +2657,7 @@ pre_part_1_trav (slot, data)
   if (dump_file)
     {
       fprintf (dump_file, "ExprPhi's for expression ");
-      print_generic_tree (dump_file, ei->expr);
+      print_generic_tree (dump_file, ei->expr, 0);
       fprintf (dump_file, "\n");
       dump_ref_array (dump_file, "", ei->phis, 0, 1);
     }
@@ -2864,7 +2865,7 @@ tree_perform_ssapre ()
       if (dump_flags & TDF_RAW)
         dump_node (fn, TDF_SLIM | dump_flags, dump_file);
       else
-        print_generic_tree (dump_file, fn);
+        print_generic_tree (dump_file, fn, 0);
 
       dump_end (TDI_pre, dump_file);
     }

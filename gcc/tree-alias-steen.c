@@ -149,7 +149,7 @@ steen_add_var (ops, decl)
 {
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: Adding variable " );
-  print_generic_node (stderr, decl);
+  print_generic_node (stderr, decl, 0);
   fprintf (stderr, "\n");
 #endif
   return alias_tvar_new (decl);
@@ -167,9 +167,9 @@ steen_add_var_same (ops, decl, tv)
 {
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: Adding variable " );
-  print_generic_node (stderr, decl);
+  print_generic_node (stderr, decl, 0);
   fprintf (stderr, " same as ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (tv));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (tv), 0);
   fprintf (stderr, "\n");
 #endif
   return alias_tvar_new_equiv_to (decl, tv);
@@ -187,9 +187,9 @@ steen_simple_assign (ops, lhs, rhs)
 
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: simple assignment ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs), 0);
   fprintf (stderr, " = ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (rhs));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (rhs), 0);
   fprintf (stderr, "\n");
 #endif
 
@@ -226,9 +226,9 @@ steen_addr_assign (ops, lhs, addr)
 
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: address assignment ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs), 0);
   fprintf (stderr, " = &");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (addr));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (addr), 0);
   fprintf (stderr, "\n");
 #endif
 
@@ -259,9 +259,9 @@ steen_ptr_assign (ops, lhs, ptr)
     return;
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: pointer assignment ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs), 0);
   fprintf (stderr, " = *");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (ptr));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (ptr), 0);
   fprintf (stderr, "\n");
 #endif
 
@@ -316,7 +316,7 @@ steen_op_assign (ops, lhs, operands)
 
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: op assignment ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (lhs), 0);
   fprintf (stderr, " = op(...)");
   fprintf (stderr, "\n");
 #endif
@@ -378,9 +378,9 @@ steen_assign_ptr (ops, ptr, rhs)
 
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: assignment to pointer  *");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (ptr));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (ptr), 0);
   fprintf (stderr, " = ");
-  print_generic_node (stderr, ALIAS_TVAR_DECL (rhs));
+  print_generic_node (stderr, ALIAS_TVAR_DECL (rhs), 0);
   fprintf (stderr, "\n");
 #endif
   type1 = ECR_get_type (alias_tvar_get_ECR (ptr));

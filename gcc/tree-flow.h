@@ -599,13 +599,14 @@ typedef struct {
   struct ref_list_node *node;
 } ref_list_iterator;
 
-static inline ref_list_iterator rli_start     PARAMS ((ref_list));
-static inline ref_list_iterator rli_start_rev PARAMS ((ref_list));
-static inline ref_list_iterator rli_start_at  PARAMS ((struct ref_list_node *));
+extern ref_list_iterator rli_start	PARAMS ((ref_list));
+extern ref_list_iterator rli_start_last	PARAMS ((ref_list));
+extern ref_list_iterator rli_start_at	PARAMS ((struct ref_list_node *));
 static inline bool rli_after_end	PARAMS ((ref_list_iterator));
 static inline void rli_step		PARAMS ((ref_list_iterator *));
 static inline void rli_step_rev		PARAMS ((ref_list_iterator *));
 static inline tree_ref rli_ref		PARAMS ((ref_list_iterator));
+extern void rli_delete			PARAMS ((ref_list_iterator));
 
 
 /* Global declarations.  */
@@ -645,21 +646,23 @@ extern tree loop_body			PARAMS ((tree));
 extern void set_loop_body		PARAMS ((tree, tree));
 extern bool stmt_starts_bb_p		PARAMS ((tree));
 extern bb_ann create_bb_ann 		PARAMS ((basic_block));
-extern void tree_dump_bb		PARAMS ((FILE *, const char *,
-						 basic_block, int));
-extern void tree_debug_bb		PARAMS ((basic_block));
-extern void tree_dump_cfg		PARAMS ((FILE *));
-extern void tree_debug_cfg		PARAMS ((void));
+extern void dump_tree_bb		PARAMS ((FILE *, const char *,
+	                			 basic_block, int));
+extern void debug_tree_bb		PARAMS ((basic_block));
+extern void dump_tree_cfg		PARAMS ((FILE *, int));
+extern void debug_tree_cfg		PARAMS ((int));
 extern void tree_cfg2dot		PARAMS ((FILE *));
 extern void validate_loops		PARAMS ((struct loops *));
 extern void insert_bb_before		PARAMS ((basic_block, basic_block));
-extern void tree_cleanup_cfg		PARAMS ((void));
+extern void cleanup_tree_cfg		PARAMS ((void));
 extern tree first_stmt			PARAMS ((basic_block));
 extern tree last_stmt			PARAMS ((basic_block));
+extern basic_block latch_block		PARAMS ((basic_block));
+extern bool is_latch_block		PARAMS ((basic_block));
 
 
 /* In tree-dfa.c  */
-extern void tree_find_refs		PARAMS ((void));
+extern void find_tree_refs		PARAMS ((void));
 extern void find_refs_in_stmt           PARAMS ((tree *, basic_block));
 extern tree_ann create_tree_ann 	PARAMS ((tree));
 extern tree_ref create_ref		PARAMS ((tree, enum tree_ref_type,
@@ -695,8 +698,9 @@ extern void add_list_to_list_end        PARAMS ((ref_list, ref_list));
 extern void add_list_to_list_begin      PARAMS ((ref_list, ref_list));
 extern void remove_ref_from_list	PARAMS ((ref_list, tree_ref));
 extern struct ref_list_node *find_list_node PARAMS ((ref_list, tree_ref));
-extern tree_ref get_last_ref		PARAMS ((ref_list));
-extern tree_ref get_first_ref		PARAMS ((ref_list));
+static inline tree_ref get_last_ref	PARAMS ((ref_list));
+static inline tree_ref get_first_ref	PARAMS ((ref_list));
+static inline bool ref_list_is_empty	PARAMS ((ref_list));
 extern const char *ref_type_name	PARAMS ((tree_ref));
 extern bool ref_defines			PARAMS ((tree_ref, tree));
 extern bool is_killing_def		PARAMS ((tree_ref, tree_ref));
@@ -707,7 +711,7 @@ extern enum tree_ref_structure_enum tree_ref_structure PARAMS ((tree_ref));
 /* In tree-ssa.c  */
 extern void build_tree_ssa		PARAMS ((tree));
 extern void delete_tree_ssa		PARAMS ((tree));
-extern void tree_compute_rdefs		PARAMS ((void));
+extern void compute_tree_rdefs		PARAMS ((void));
 extern void analyze_rdefs		PARAMS ((void));
 extern void tree_ssa_remove_phi_alternative PARAMS ((tree_ref, basic_block));
 extern void dump_reaching_defs		PARAMS ((FILE *));

@@ -5174,8 +5174,7 @@ process_options ()
     if (flag_signaling_nans)
       flag_trapping_math = 1;
 
-  /* -ftree-ssa and -fdisable-simple cannot be used together because the
-     tree SSA code can only use SIMPLE trees.  */
+  /* -fdisable-simple also disables the tree optimizers.  */
   if (optimize >= 1 && flag_disable_simple)
     warning ("-fdisable-simple also disables optimizations on trees");
 

@@ -96,7 +96,7 @@ mark_control_parent_necessary (bb)
   if (bb == NULL)
     return;
 
-  for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step (&i))
+  for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
     {
       tree t = gsi_stmt (i);
       mark_necessary (t);
@@ -152,7 +152,7 @@ tree_ssa_eliminate_dead_code (fndecl)
       if (dump_flags & TDF_RAW)
 	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-	print_generic_tree (dump_file, fnbody);
+	print_generic_tree (dump_file, fnbody, 0);
 
       fprintf (dump_file, "Finding obviously useful instructions:\n");
     }
@@ -166,7 +166,7 @@ tree_ssa_eliminate_dead_code (fndecl)
       if (bb_empty_p (bb))
 	continue;
 	  
-      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step (&i))
+      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
 	{
 	  ref_list_iterator j;
 	  t = gsi_stmt (i);
@@ -270,7 +270,7 @@ tree_ssa_eliminate_dead_code (fndecl)
 	continue;
 
       prev = NULL_TREE;
-      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step (&i))
+      for (i = gsi_start_bb (bb); !gsi_after_end (i); gsi_step_bb (&i))
 	{
 	  t = gsi_stmt (i);
 	  stats.total++;
@@ -282,12 +282,12 @@ tree_ssa_eliminate_dead_code (fndecl)
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		{
 		  fprintf (dump_file, "Warning: removing ");
-		  print_generic_node (dump_file, t);
+		  print_generic_node (dump_file, t, PPF_IS_STMT);
 		}
 	      stats.removed++;
 
 	      /* Unlink `i'. Head and tail are special cases.  */
-	      /* FIXME: Call gsi_delete_stmt()  */
+	      /* FIXME: Call gsi_remove ()  */
 #if 0
 	      if (t == bb->head_tree)
 		bb->head_tree = TREE_CHAIN (t);
@@ -312,7 +312,7 @@ tree_ssa_eliminate_dead_code (fndecl)
       if (dump_flags & TDF_RAW)
         dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
       else
-        print_generic_tree (dump_file, fnbody);
+        print_generic_tree (dump_file, fnbody, 0);
 
       print_stats ();
 
