@@ -438,8 +438,6 @@ done
 for t in $TARGETS ; do
     $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-gcc-$VERS                          \
 	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
-	$ORIG_SRC_DIR/gcc/config/darwin-driver-rs6000.c                        \
-	$ORIG_SRC_DIR/gcc/config/darwin-driver-i386.c                          \
 	-DPDN="\"-apple-darwin$DARWIN_VERS-gcc-$VERS\""                                    \
 	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
 	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \
@@ -449,8 +447,6 @@ for t in $TARGETS ; do
 
     $DEST_DIR$DEST_ROOT/bin/$t-apple-darwin$DARWIN_VERS-gcc-$VERS                          \
 	$ORIG_SRC_DIR/gcc/config/darwin-driver.c                               \
-	$ORIG_SRC_DIR/gcc/config/darwin-driver-rs6000.c                        \
-	$ORIG_SRC_DIR/gcc/config/darwin-driver-i386.c                          \
 	-DPDN="\"-apple-darwin$DARWIN_VERS-g++-$VERS\""                                    \
 	-DIL="\"$DEST_ROOT/bin/\"" -I  $ORIG_SRC_DIR/include                   \
 	-I  $ORIG_SRC_DIR/gcc -I  $ORIG_SRC_DIR/gcc/config                     \

@@ -48,20 +48,6 @@ typedef int tree;
 
 #include "gcc.h"
 
-#include "darwin-driver.h"
-
-extern target_switches i386_target_switches[];
-
-extern target_switches rs6000_target_switches[];
-
-char **ppc_specific_args;
-int ppc_specific_args_size;
-int ppc_specific_arg_count = 0;
-
-char **x86_specific_args;
-int x86_specific_args_size;
-int x86_specific_arg_count = 0;
-
 /* This program name.  */
 const char *progname;
 
@@ -175,104 +161,8 @@ static int do_compile (const char **, int);
 static int do_compile_separately (void);
 static int do_lipo_separately (void);
 static int add_arch_options (int, const char **, int);
-static int remove_arch_options (const char**, int, int);
+static int remove_arch_options (const char**, int);
 static void add_arch (const char *);
-static int is_ppc_specific_option (const char *);
-static int is_x86_specific_option (const char *);
-
-/* Return one if OPTION is a ppc specific option. Adds option into the list of ppc
-   specific options. Return zero otherwise.  */
-
-static int is_ppc_specific_option (const char *option)
-{
-  int i = 0;
-  int match = 0;
-
-  /* OPTION must start with "-m" */
-  if (!option && strlen (option) < 3)
-    return 0;
-
-  for (i=0; 
-       rs6000_target_switches[i].name && strcmp (rs6000_target_switches[i].name, ""); 
-       i++)
-    {
-      /* Skip "-m" at the beginning of option string.  */
-      if (!strcmp (option+2, rs6000_target_switches[i].name))
-	{
-	  match = 1;
-	  break;
-	}
-    }
-  if (match)
-    {
-      int i;
-      char *new_option = malloc (strlen (option)+1);
-      strcpy(new_option, option);
-
-#ifdef DEBUG
-      fprintf (stderr, "PPC specific new option : %s\n", new_option);
-#endif
-      
-      if (ppc_specific_arg_count == ppc_specific_args_size) 
-	{
-	  /* expand array */
-	  ppc_specific_args_size = ppc_specific_arg_count + 10;
-	  ppc_specific_args = (char**) realloc (ppc_specific_args, ppc_specific_args_size);
-	}
-
-      ppc_specific_args[ppc_specific_arg_count] = new_option;
-      ppc_specific_arg_count++;
-    }
-
-  return match;
-}
-
-/* Return one if OPTION is a x86 specific. Adds option into the list of x86
-   specific options. Return zero otherwise.  */
-
-static int is_x86_specific_option (const char *option)
-{
-  int i = 0;
-  int match = 0;
-
-  /* OPTION must start with "-m" */
-  if (!option && strlen (option) < 3)
-    return 0;
-
-  for (i = 0; 
-       i386_target_switches[i].name && strcmp(i386_target_switches[i].name, ""); 
-       i++)
-    {
-      /* Skip "-m" at the beginning of option.  */
-      if (!strcmp (option+2, i386_target_switches[i].name))
-	{
-	  match = 1;
-	  break;
-	}
-    }
-  if (match)
-    {
-      int i;
-      char *new_option = malloc (strlen (option)+1);
-      strcpy(new_option, option);
-
-#ifdef DEBUG
-      fprintf (stderr, "X86 specific new option : %s\n", new_option);
-#endif
-      
-      if (x86_specific_arg_count == x86_specific_args_size) 
-	{
-	  /* expand array */
-	  x86_specific_args_size = x86_specific_arg_count + 10;
-	  x86_specific_args = (char**) realloc (x86_specific_args, x86_specific_args_size);
-	}
-
-      x86_specific_args[x86_specific_arg_count] = new_option;
-      x86_specific_arg_count++;
-    }
-
-  return match;
-}
 
 /* Find arch name for the given input string. If input name is NULL then local 
    arch name is used.  */
@@ -418,7 +308,6 @@ debug_command_line (const char **debug_argv, int debug_argc)
 
   for (i = 0; debug_argv[i]; i++)
     fprintf (stderr,"%s: arg [%d] %s\n", progname, i, debug_argv[i]);    
-  fprintf (stderr, "------\n");
 }
 #endif
 
@@ -661,7 +550,7 @@ do_compile (const char **current_argv, int current_argc)
       
       /* Remove the last arch option added in the current_argv list.  */
       if (additional_arch_options)
-	argc_count -= remove_arch_options (current_argv, argc_count, additional_arch_options);
+	argc_count -= remove_arch_options (current_argv, argc_count);
       index++;
     }
 
@@ -753,107 +642,70 @@ do_lipo_separately (void)
 static int
 add_arch_options (int index, const char **current_argv, int arch_index)
 {
- 
-  int count = 0;
-  int add_ppc_options = 0;
-  int add_x86_options = 0;
+
+  int count;
 
   /* We are adding 1 argument for selected arches.  */
   count = 1;
 
 #ifdef DEBUG
-  fprintf (stderr, "%s: add_arch_options: %s %d\n", progname, arches[index], arch_index);
+  fprintf (stderr, "%s: add_arch_options: %s\n", progname, arches[index]);
 #endif
 
   if (!strcmp (arches[index], "ppc601"))
-    { current_argv[arch_index] = "-mcpu=601"; add_ppc_options = 1; }
+    current_argv[arch_index] = "-mcpu=601";
   else if (!strcmp (arches[index], "ppc603"))
-    { current_argv[arch_index] = "-mcpu=603"; add_ppc_options = 1; }
+    current_argv[arch_index] = "-mcpu=603";
   else if (!strcmp (arches[index], "ppc604"))
-    { current_argv[arch_index] = "-mcpu=604"; add_ppc_options = 1; }
+    current_argv[arch_index] = "-mcpu=604";
   else if (!strcmp (arches[index], "ppc604e"))
-    { current_argv[arch_index] = "-mcpu=604e"; add_ppc_options = 1; }
+    current_argv[arch_index] = "-mcpu=604e";
   else if (!strcmp (arches[index], "ppc750"))
-    { current_argv[arch_index] = "-mcpu=750"; add_ppc_options = 1; }
+    current_argv[arch_index] = "-mcpu=750";
   else if (!strcmp (arches[index], "ppc7400"))
-    { current_argv[arch_index] = "-mcpu=7400"; add_ppc_options = 1; }
+    current_argv[arch_index] = "-mcpu=7400";
   else if (!strcmp (arches[index], "ppc7450"))
-    { current_argv[arch_index] = "-mcpu=7450"; add_ppc_options = 1; }
+    current_argv[arch_index] = "-mcpu=7450";
   else if (!strcmp (arches[index], "ppc970"))
-    { current_argv[arch_index] = "-mcpu=970"; add_ppc_options = 1; }
+    current_argv[arch_index] = "-mcpu=970";
   else if (!strcmp (arches[index], "ppc64"))
-    { current_argv[arch_index] = "-m64"; add_ppc_options = 1; }
+    current_argv[arch_index] = "-m64";
   else if (!strcmp (arches[index], "i386"))
-    { current_argv[arch_index] = "-march=i386"; add_x86_options = 1; }
+    current_argv[arch_index] = "-march=i386";
   else if (!strcmp (arches[index], "i486"))
-    { current_argv[arch_index] = "-march=i486"; add_x86_options = 1; }
+    current_argv[arch_index] = "-march=i486";
   else if (!strcmp (arches[index], "i586"))
-    { current_argv[arch_index] = "-march=i586"; add_x86_options = 1; }
+    current_argv[arch_index] = "-march=i586";
   else if (!strcmp (arches[index], "i686"))
-    { current_argv[arch_index] = "-march=i686"; add_x86_options = 1; }
+    current_argv[arch_index] = "-march=i686";
   else if (!strcmp (arches[index], "pentium"))
-    { current_argv[arch_index] = "-march=pentium"; add_x86_options = 1; }
+    current_argv[arch_index] = "-march=pentium";
   else if (!strcmp (arches[index], "pentpro"))
-    { current_argv[arch_index] = "-march=pentiumpro"; add_x86_options = 1; }
+    current_argv[arch_index] = "-march=pentiumpro";
   else if (!strcmp (arches[index], "pentIIm3"))
-    { current_argv[arch_index] = "-march=pentium3"; add_x86_options = 1; }
+    current_argv[arch_index] = "-march=pentium3";
   else
     count = 0;
 
-  if ((add_ppc_options && ppc_specific_arg_count)
-      || !strcmp (arches[index], "ppc"))
-    {
-      int i;
-      /* current_argv has enough space to include arch specific options.  */
-      for (i=0; i < ppc_specific_arg_count; i++)
-	{
-	current_argv[arch_index + i + count] = ppc_specific_args[i];
-#ifdef DEBUG
-  	printf ("adding ... %s\n", ppc_specific_args[i]);
-#endif
-	}
-      count += i;
-    } 
-  else if (add_x86_options && x86_specific_arg_count)
-    {
-      int i;
-      /* current_argv has enough space to include arch specific options.  */
-      for (i=0; i < x86_specific_arg_count; i++)
-	{
-	current_argv[arch_index + i + count] = x86_specific_args[i];
-#ifdef DEBUG
-  	printf ("adding ... %s\n", x86_specific_args[i]);
-#endif
-	}
-      count += i;
-    }
-#ifdef DEBUG
-  debug_command_line (current_argv, count);
-#endif
   return count;
 }
 
-/* Remove number of arch specific COUNT options. All arch specific options
-   are at the and. ARCH_INDEX is an index for last option. Return count
-   of options actaully removed.  */
+/* Remove the last option, which is arch option, added by
+   add_arch_options.  Return how count of arguments removed.  */
 static int
-remove_arch_options (const char **current_argv, int arch_index, int count)
+remove_arch_options (const char **current_argv, int arch_index)
 {
-  int i;
 #ifdef DEBUG
-  fprintf (stderr, "%s: Removing %d arguments beginning at %d\n", 
-	   progname, count, arch_index-count);
-  debug_command_line (current_argv, arch_index);
+  fprintf (stderr, "%s: Removing argument no %d\n", progname, arch_index);
 #endif
 
-  for (i=0; i<count; i++)
-    current_argv[arch_index - count + i] = '\0';
+  current_argv[arch_index] = '\0';
 
 #ifdef DEBUG
       debug_command_line (current_argv, arch_index);
 #endif
   
-  return i;
+  return 1;
 }
 
 /* Add new arch request.  */
@@ -1373,44 +1225,33 @@ main (int argc, const char **argv)
 	{
 	  const char *p = &argv[i][1];
 	  int c = *p;
-	  int skip = 0;
 
-	  /* Interpret target specific options that start with "-m".  */
-	  if (argv[i][1] == 'm')
+	  /* First copy this flag itself.  */
+	  new_argv[new_argc++] = argv[i];
+
+	  /* Now copy this flag's arguments, if any, appropriately.  */
+	  if ((SWITCH_TAKES_ARG (c) > (p[1] != 0)) 
+	      || WORD_SWITCH_TAKES_ARG (p))
 	    {
-
-	      skip = is_ppc_specific_option (&argv[i][0]);
-	      skip |=  is_x86_specific_option (&argv[i][0]);
-	    }
-
-	  if (!skip)
-	    {
-	      /* First copy this flag itself.  */
-	      new_argv[new_argc++] = argv[i];
-	      
-	      /* Now copy this flag's arguments, if any, appropriately.  */
-	      if ((SWITCH_TAKES_ARG (c) > (p[1] != 0)) 
-		  || WORD_SWITCH_TAKES_ARG (p))
+	      int j = 0;
+	      int n_args = WORD_SWITCH_TAKES_ARG (p);
+	      if (n_args == 0)
 		{
-		  int j = 0;
-		  int n_args = WORD_SWITCH_TAKES_ARG (p);
-		  if (n_args == 0)
-		    {
-		      /* Count only the option arguments in separate argv elements.  */
-		      n_args = SWITCH_TAKES_ARG (c) - (p[1] != 0);
-		    }
-		  if (i + n_args >= argc)
-		    fatal ("argument to `-%s' is missing", p);
-		  
-		  
-		  while ( j < n_args)
-		    {
-		      i++;
-		      new_argv[new_argc++] = argv[i];
-		      j++;
-		    }
+		  /* Count only the option arguments in separate argv elements.  */
+		  n_args = SWITCH_TAKES_ARG (c) - (p[1] != 0);
+		}
+	      if (i + n_args >= argc)
+		fatal ("argument to `-%s' is missing", p);
+
+
+	      while ( j < n_args)
+		{
+		  i++;
+		  new_argv[new_argc++] = argv[i];
+		  j++;
 		}
 	    }
+	    
 	}
       else
 	{
