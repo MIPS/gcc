@@ -196,9 +196,16 @@ SYM (__\name):
 	bx	pc
 	nop
 	.arm
-_L__\name:		/* A hook to tell gdb that we've switched to ARM */
+/* A hook to tell gdb that we've switched to ARM mode.  Also used to call
+   directly from other local arm routines.  */
+_L__\name:		
 .endm
 #define EQUIV .thumb_set
+/* Branch directly to a function declared with ARM_FUNC_START.
+   Must be called in arm mode.  */
+.macro  ARM_CALL name
+	bl	_L__\name
+.endm
 #else
 .macro	ARM_FUNC_START name
 	.text
@@ -209,11 +216,17 @@ _L__\name:		/* A hook to tell gdb that we've switched to ARM */
 SYM (__\name):
 .endm
 #define EQUIV .set
+.macro  ARM_CALL name
+	bl	__\name
+.endm
 #endif
 
 .macro	ARM_FUNC_ALIAS new old
 	.globl	SYM (__\new)
 	EQUIV	SYM (__\new), SYM (__\old)
+#ifdef __thumb__
+	.set	SYM (_L__\new), SYM (_L__\old)
+#endif
 .endm
 
 #ifdef __thumb__
@@ -649,6 +662,24 @@ LSYM(Lgot_result):
 
 	DIV_FUNC_END udivsi3
 
+FUNC_START aeabi_uidivmod
+#ifdef __thumb__
+	push	{r0, r1, lr}
+	bl	SYM(__udivsi3)
+	POP	{r1, r2, r3}
+	mul	r2, r0
+	sub	r1, r1, r2
+	bx	r3
+#else
+	stmfd	sp!, { r0, r1, lr }
+	bl	SYM(__udivsi3)
+	ldmfd	sp!, { r1, r2, lr }
+	mul	r3, r2, r0
+	sub	r1, r1, r3
+	RET
+#endif
+	FUNC_END aeabi_uidivmod
+	
 #endif /* L_udivsi3 */
 /* ------------------------------------------------------------------------ */
 #ifdef L_umodsi3
@@ -769,6 +800,24 @@ LSYM(Lover12):
 	
 	DIV_FUNC_END divsi3
 
+FUNC_START aeabi_idivmod
+#ifdef __thumb__
+	push	{r0, r1, lr}
+	bl	SYM(__divsi3)
+	POP	{r1, r2, r3}
+	mul	r2, r0
+	sub	r1, r1, r2
+	bx	r3
+#else
+	stmfd	sp!, { r0, r1, lr }
+	bl	SYM(__divsi3)
+	ldmfd	sp!, { r1, r2, lr }
+	mul	r3, r2, r0
+	sub	r1, r1, r3
+	RET
+#endif
+	FUNC_END aeabi_idivmod
+	
 #endif /* L_divsi3 */
 /* ------------------------------------------------------------------------ */
 #ifdef L_modsi3
@@ -834,9 +883,13 @@ LSYM(Lover12):
 #ifdef L_dvmd_tls
 
 	FUNC_START div0
+	ARM_FUNC_ALIAS aeabi_idiv0 div0
+	ARM_FUNC_ALIAS aeabi_ldiv0 div0
 
 	RET
 
+	FUNC_END aeabi_ldiv0
+	FUNC_END aeabi_idiv0
 	FUNC_END div0
 	
 #endif /* L_divmodsi_tools */
@@ -994,4 +1047,4 @@ LSYM(Lchange_\register):
 
 #include "ieee754-df.S"
 #include "ieee754-sf.S"
-
+#include "bpabi.S"

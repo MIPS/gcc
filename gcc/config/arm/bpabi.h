@@ -81,3 +81,14 @@
 #define DECLARE_LIBRARY_RENAMES RENAME_LIBRARY (floatdisf, l2f)
 #endif
 
+/* On the mainline, these functions are provided in lib1funcs.asm; on
+   the csl-arm-branch we still use the libgcc2.c versions.  */
+#ifdef L_lshrdi3
+#define DECLARE_LIBRARY_RENAMES RENAME_LIBRARY (lshrdi3, llsr)
+#endif
+#ifdef L_ashrdi3
+#define DECLARE_LIBRARY_RENAMES RENAME_LIBRARY (ashrdi3, lasr)
+#endif
+#ifdef L_ashldi3
+#define DECLARE_LIBRARY_RENAMES RENAME_LIBRARY (ashldi3, llsl)
+#endif
