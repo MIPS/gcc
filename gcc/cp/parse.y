@@ -1277,16 +1277,20 @@ unary_expr:
 	/* Refer to the address of a label as a pointer.  */
 	| ANDAND identifier
 		{ $$ = finish_label_address_expr ($2); }
-	| SIZEOF unary_expr  %prec UNARY
-		{ $$ = finish_sizeof ($2); }
-	| SIZEOF '(' type_id ')'  %prec HYPERUNARY
+	| sizeof unary_expr  %prec UNARY
+		{ $$ = finish_sizeof ($2);
+		  skip_evaluation--; }
+	| sizeof '(' type_id ')'  %prec HYPERUNARY
 		{ $$ = finish_sizeof (groktypename ($3.t));
-		  check_for_new_type ("sizeof", $3); }
-	| ALIGNOF unary_expr  %prec UNARY
-		{ $$ = finish_alignof ($2); }
-	| ALIGNOF '(' type_id ')'  %prec HYPERUNARY
+		  check_for_new_type ("sizeof", $3);
+		  skip_evaluation--; }
+	| alignof unary_expr  %prec UNARY
+		{ $$ = finish_alignof ($2);
+		  skip_evaluation--; }
+	| alignof '(' type_id ')'  %prec HYPERUNARY
 		{ $$ = finish_alignof (groktypename ($3.t));
-		  check_for_new_type ("alignof", $3); }
+		  check_for_new_type ("alignof", $3);
+		  skip_evaluation--; }
 
 	/* The %prec EMPTY's here are required by the = init initializer
 	   syntax extension; see below.  */
@@ -2004,6 +2008,18 @@ reserved_typespecquals:
 		{ $$ = tree_cons ($1, NULL_TREE, NULL_TREE); }
 	;
 
+sizeof:
+	SIZEOF { skip_evaluation++; }
+	;
+
+alignof:
+	ALIGNOF { skip_evaluation++; }
+	;
+
+typeof:
+	TYPEOF { skip_evaluation++; }
+	;
+
 /* A typespec (but not a type qualifier).
    Once we have seen one of these in a declaration,
    if a typedef name appears then it is being redeclared.  */
@@ -2015,12 +2031,14 @@ typespec:
 		{ $$.t = $1; $$.new_type_flag = 0; $$.lookups = NULL_TREE; }
 	| complete_type_name
 		{ $$.t = $1; $$.new_type_flag = 0; $$.lookups = NULL_TREE; }
-	| TYPEOF '(' expr ')'
+	| typeof '(' expr ')'
 		{ $$.t = finish_typeof ($3);
-		  $$.new_type_flag = 0; $$.lookups = NULL_TREE; }
-	| TYPEOF '(' type_id ')'
+		  $$.new_type_flag = 0; $$.lookups = NULL_TREE;
+		  skip_evaluation--; }
+	| typeof '(' type_id ')'
 		{ $$.t = groktypename ($3.t);
-		  $$.new_type_flag = 0; $$.lookups = NULL_TREE; }
+		  $$.new_type_flag = 0; $$.lookups = NULL_TREE;
+		  skip_evaluation--; }
 	| SIGOF '(' expr ')'
 		{ tree type = TREE_TYPE ($3);
 
@@ -4133,14 +4151,23 @@ parse_finish_call_expr (tree fn, tree args, int koenig)
 	    fn = lookup_namespace_name (scope, name);
 	  else
 	    {
-	      if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
+	      if (!COMPLETE_TYPE_P (scope) && !TYPE_BEING_DEFINED (scope))
+		{
+		  error ("incomplete type '%T' cannot be used to name a scope",
+			 scope);
+		  return error_mark_node;
+		}
+	      else if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
 		{
 		  template_id = name;
 		  template_args = TREE_OPERAND (name, 1);
 		  name = TREE_OPERAND (name, 0);
 		}
 	      else 
-		template_id = NULL_TREE;
+	        {
+		  template_id = NULL_TREE;
+		  template_args = NULL_TREE;
+		}
 
 	      if (BASELINK_P (name))
 		fn = name;
@@ -4156,22 +4183,9 @@ parse_finish_call_expr (tree fn, tree args, int koenig)
 				  BASELINK_FUNCTIONS (fn),
 				  template_args);
 		}
-	      if (BASELINK_P (fn) 
-		  && current_class_type 
-		  && DERIVED_FROM_P (scope, current_class_type))
-		{
-		  scope = lookup_base (current_class_type, scope,
-				       ba_ignore | ba_quiet, NULL);
-		  if (scope)
-		    {
-		      BASELINK_ACCESS_BINFO (fn) = scope;
-		      BASELINK_BINFO (fn) 
-			= lookup_base (scope,
-				       BINFO_TYPE (BASELINK_BINFO (fn)),
-				       ba_ignore | ba_quiet,
-				       NULL);
-		    }
-		}
+	      if (current_class_type)
+		fn = (adjust_result_of_qualified_name_lookup 
+		      (fn, scope, current_class_type));
 	    }
 	}
       disallow_virtual = true;

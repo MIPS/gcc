@@ -253,6 +253,18 @@ struct spec_nodes
   cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
 };
 
+/* Encapsulates state used to convert a stream of tokens into a text
+   file.  */
+struct printer
+{
+  FILE *outf;			/* Stream to write to.  */
+  const struct line_map *map;	/* Logical to physical line mappings.  */
+  const cpp_token *prev;	/* Previous token.  */
+  const cpp_token *source;	/* Source token for spacing.  */
+  unsigned int line;		/* Line currently being written.  */
+  unsigned char printed;	/* Nonzero if something output at line.  */
+};
+
 /* Represents the contents of a file cpplib has read in.  */
 struct cpp_buffer
 {
@@ -388,7 +400,7 @@ struct cpp_reader
   cpp_token avoid_paste;
   cpp_token eof;
 
-  /* Opaque handle to the dependencies of mkdeps.c.  Used by -M etc.  */
+  /* Opaque handle to the dependencies of mkdeps.c.  */
   struct deps *deps;
 
   /* Obstack holding all macro hash nodes.  This never shrinks.
@@ -418,6 +430,9 @@ struct cpp_reader
   /* Special nodes - identifiers with predefined significance to the
      preprocessor.  */
   struct spec_nodes spec_nodes;
+
+  /* Used when doing preprocessed output.  */
+  struct printer print;
 
   /* Whether cpplib owns the hashtable.  */
   unsigned char our_hashtable;
@@ -465,7 +480,6 @@ extern unsigned char _cpp_trigraph_map[UCHAR_MAX + 1];
 
 /* Macros.  */
 
-#define CPP_PRINT_DEPS(PFILE) CPP_OPTION (PFILE, print_deps)
 #define CPP_IN_SYSTEM_HEADER(PFILE) ((PFILE)->map && (PFILE)->map->sysp)
 #define CPP_PEDANTIC(PF) CPP_OPTION (PF, pedantic)
 #define CPP_WTRADITIONAL(PF) CPP_OPTION (PF, warn_traditional)

@@ -25,7 +25,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "cpphash.h"
 #include "prefix.h"
 #include "intl.h"
-#include "version.h"
 #include "mkdeps.h"
 #include "cppdefault.h"
 
@@ -87,7 +86,6 @@ struct cpp_pending
   } while (0)
 #endif
 
-static void print_help                  PARAMS ((void));
 static void path_include		PARAMS ((cpp_reader *,
 						 char *, int));
 static void init_library		PARAMS ((void));
@@ -96,22 +94,24 @@ static void mark_named_operators	PARAMS ((cpp_reader *));
 static void append_include_chain	PARAMS ((cpp_reader *,
 						 char *, int, int));
 static struct search_path * remove_dup_dir	PARAMS ((cpp_reader *,
+						 struct search_path *,
+						 struct search_path **));
+static struct search_path * remove_dup_nonsys_dirs PARAMS ((cpp_reader *,
+						 struct search_path **,
 						 struct search_path *));
 static struct search_path * remove_dup_dirs PARAMS ((cpp_reader *,
-						 struct search_path *));
+						 struct search_path **));
 static void merge_include_chains	PARAMS ((cpp_reader *));
 static bool push_include		PARAMS ((cpp_reader *,
 						 struct pending_option *));
 static void free_chain			PARAMS ((struct pending_option *));
-static void set_lang			PARAMS ((cpp_reader *, enum c_lang));
-static void init_dependency_output	PARAMS ((cpp_reader *));
 static void init_standard_includes	PARAMS ((cpp_reader *));
 static void read_original_filename	PARAMS ((cpp_reader *));
 static void new_pending_directive	PARAMS ((struct cpp_pending *,
 						 const char *,
 						 cl_directive_handler));
-static void output_deps			PARAMS ((cpp_reader *));
 static int parse_option			PARAMS ((const char *));
+static void post_options		PARAMS ((cpp_reader *));
 
 /* Fourth argument to append_include_chain: chain to use.
    Note it's never asked to append to the quote chain.  */
@@ -182,7 +182,7 @@ path_include (pfile, list, path)
 	  name[q - p] = 0;
 	}
 
-      append_include_chain (pfile, name, path, 0);
+      append_include_chain (pfile, name, path, path == SYSTEM);
 
       /* Advance past this name.  */
       if (*q == 0)
@@ -261,21 +261,77 @@ append_include_chain (pfile, dir, path, cxx_aware)
 }
 
 /* Handle a duplicated include path.  PREV is the link in the chain
-   before the duplicate.  The duplicate is removed from the chain and
-   freed.  Returns PREV.  */
+   before the duplicate, or NULL if the duplicate is at the head of
+   the chain.  The duplicate is removed from the chain and freed.
+   Returns PREV.  */
 static struct search_path *
-remove_dup_dir (pfile, prev)
+remove_dup_dir (pfile, prev, head_ptr)
      cpp_reader *pfile;
      struct search_path *prev;
+     struct search_path **head_ptr;
 {
-  struct search_path *cur = prev->next;
+  struct search_path *cur;
+
+  if (prev != NULL)
+    {
+      cur = prev->next;
+      prev->next = cur->next;
+    }
+  else
+    {
+      cur = *head_ptr;
+      *head_ptr = cur->next;
+    }
 
   if (CPP_OPTION (pfile, verbose))
     fprintf (stderr, _("ignoring duplicate directory \"%s\"\n"), cur->name);
 
-  prev->next = cur->next;
   free ((PTR) cur->name);
   free (cur);
+
+  return prev;
+}
+
+/* Remove duplicate non-system directories for which there is an equivalent
+   system directory latter in the chain.  The range for removal is between
+   *HEAD_PTR and END.  Returns the directory before END, or NULL if none.
+   This algorithm is quadratic in the number system directories, which is
+   acceptable since there aren't usually that many of them.  */
+static struct search_path *
+remove_dup_nonsys_dirs (pfile, head_ptr, end)
+     cpp_reader *pfile;
+     struct search_path **head_ptr;
+     struct search_path *end;
+{
+  int sysdir = 0;
+  struct search_path *prev = NULL, *cur, *other;
+
+  for (cur = *head_ptr; cur; cur = cur->next)
+    {
+      if (cur->sysp)
+	{
+	  sysdir = 1;
+	  for (other = *head_ptr, prev = NULL;
+	       other != end;
+	       other = other ? other->next : *head_ptr)
+	    {
+	      if (!other->sysp
+		  && INO_T_EQ (cur->ino, other->ino)
+		  && cur->dev == other->dev)
+		{
+		  other = remove_dup_dir (pfile, prev, head_ptr);
+		  if (CPP_OPTION (pfile, verbose))
+		    fprintf (stderr,
+  _("  as it is a non-system directory that duplicates a system directory\n"));
+		}
+	      prev = other;
+	    }
+	}
+    }
+
+  if (!sysdir)
+    for (cur = *head_ptr; cur != end; cur = cur->next)
+      prev = cur;
 
   return prev;
 }
@@ -285,31 +341,18 @@ remove_dup_dir (pfile, prev)
    in the number of -I switches, which is acceptable since there
    aren't usually that many of them.  */
 static struct search_path *
-remove_dup_dirs (pfile, head)
+remove_dup_dirs (pfile, head_ptr)
      cpp_reader *pfile;
-     struct search_path *head;
+     struct search_path **head_ptr;
 {
   struct search_path *prev = NULL, *cur, *other;
 
-  for (cur = head; cur; cur = cur->next)
+  for (cur = *head_ptr; cur; cur = cur->next)
     {
-      for (other = head; other != cur; other = other->next)
+      for (other = *head_ptr; other != cur; other = other->next)
 	if (INO_T_EQ (cur->ino, other->ino) && cur->dev == other->dev)
 	  {
-	    if (cur->sysp && !other->sysp)
-	      {
-		cpp_error (pfile, DL_WARNING,
-			   "changing search order for system directory \"%s\"",
-			   cur->name);
-		if (strcmp (cur->name, other->name))
-		  cpp_error (pfile, DL_WARNING,
-			     "  as it is the same as non-system directory \"%s\"",
-			     other->name);
-		else
-		  cpp_error (pfile, DL_WARNING,
-			     "  as it has already been specified as a non-system directory");
-	      }
-	    cur = remove_dup_dir (pfile, prev);
+	    cur = remove_dup_dir (pfile, prev, head_ptr);
 	    break;
 	  }
       prev = cur;
@@ -347,28 +390,33 @@ merge_include_chains (pfile)
   else
     brack = systm;
 
-  /* This is a bit tricky.  First we drop dupes from the quote-include
-     list.  Then we drop dupes from the bracket-include list.
-     Finally, if qtail and brack are the same directory, we cut out
-     brack and move brack up to point to qtail.
+  /* This is a bit tricky.  First we drop non-system dupes of system
+     directories from the merged bracket-include list.  Next we drop
+     dupes from the bracket and quote include lists.  Then we drop
+     non-system dupes from the merged quote-include list.  Finally,
+     if qtail and brack are the same directory, we cut out brack and
+     move brack up to point to qtail.
 
      We can't just merge the lists and then uniquify them because
      then we may lose directories from the <> search path that should
-     be there; consider -Ifoo -Ibar -I- -Ifoo -Iquux. It is however
+     be there; consider -Ifoo -Ibar -I- -Ifoo -Iquux.  It is however
      safe to treat -Ibar -Ifoo -I- -Ifoo -Iquux as if written
      -Ibar -I- -Ifoo -Iquux.  */
 
-  remove_dup_dirs (pfile, brack);
-  qtail = remove_dup_dirs (pfile, quote);
+  remove_dup_nonsys_dirs (pfile, &brack, systm);
+  remove_dup_dirs (pfile, &brack);
 
   if (quote)
     {
+      qtail = remove_dup_dirs (pfile, &quote);
       qtail->next = brack;
 
+      qtail = remove_dup_nonsys_dirs (pfile, &quote, brack);
+
       /* If brack == qtail, remove brack as it's simpler.  */
-      if (brack && INO_T_EQ (qtail->ino, brack->ino)
+      if (qtail && brack && INO_T_EQ (qtail->ino, brack->ino)
 	  && qtail->dev == brack->dev)
-	brack = remove_dup_dir (pfile, qtail);
+	brack = remove_dup_dir (pfile, qtail, &quote);
     }
   else
     quote = brack;
@@ -404,8 +452,8 @@ static const struct lang_flags lang_defaults[] =
 };
 
 /* Sets internal flags correctly for a given language.  */
-static void
-set_lang (pfile, lang)
+void
+cpp_set_lang (pfile, lang)
      cpp_reader *pfile;
      enum c_lang lang;
 {
@@ -472,7 +520,7 @@ cpp_create_reader (lang)
 
   pfile = (cpp_reader *) xcalloc (1, sizeof (cpp_reader));
 
-  set_lang (pfile, lang);
+  cpp_set_lang (pfile, lang);
   CPP_OPTION (pfile, warn_import) = 1;
   CPP_OPTION (pfile, warn_multichar) = 1;
   CPP_OPTION (pfile, discard_comments) = 1;
@@ -481,6 +529,7 @@ cpp_create_reader (lang)
   CPP_OPTION (pfile, tabstop) = 8;
   CPP_OPTION (pfile, operator_names) = 1;
   CPP_OPTION (pfile, warn_endif_labels) = 1;
+  CPP_OPTION (pfile, warn_long_long) = !CPP_OPTION (pfile, c99);
 
   CPP_OPTION (pfile, pending) =
     (struct cpp_pending *) xcalloc (1, sizeof (struct cpp_pending));
@@ -493,10 +542,6 @@ cpp_create_reader (lang)
   CPP_OPTION (pfile, int_precision) = CHAR_BIT * sizeof (int);
   CPP_OPTION (pfile, unsigned_char) = 0;
   CPP_OPTION (pfile, unsigned_wchar) = 1;
-
-  /* It's simplest to just create this struct whether or not it will
-     be needed.  */
-  pfile->deps = deps_init ();
 
   /* Initialise the line map.  Start at logical line 1, so we can use
      a line number of zero for special states.  */
@@ -539,11 +584,10 @@ cpp_create_reader (lang)
 
 /* Free resources used by PFILE.  Accessing PFILE after this function
    returns leads to undefined behaviour.  Returns the error count.  */
-int
+void
 cpp_destroy (pfile)
      cpp_reader *pfile;
 {
-  int result;
   struct search_path *dir, *dirn;
   cpp_context *context, *contextn;
   tokenrun *run, *runn;
@@ -565,7 +609,8 @@ cpp_destroy (pfile)
       pfile->macro_buffer_len = 0;
     }
 
-  deps_free (pfile->deps);
+  if (pfile->deps)
+    deps_free (pfile->deps);
   obstack_free (&pfile->buffer_ob, 0);
 
   _cpp_destroy_hashtable (pfile);
@@ -597,11 +642,7 @@ cpp_destroy (pfile)
     }
 
   free_line_maps (&pfile->line_maps);
-
-  result = pfile->errors;
   free (pfile);
-
-  return result;
 }
 
 /* This structure defines one built-in identifier.  A node will be
@@ -695,15 +736,15 @@ init_builtins (pfile)
 
   if (CPP_OPTION (pfile, cplusplus))
     _cpp_define_builtin (pfile, "__cplusplus 1");
-  else if (CPP_OPTION (pfile, objc))
-    _cpp_define_builtin (pfile, "__OBJC__ 1");
   else if (CPP_OPTION (pfile, lang) == CLK_ASM)
     _cpp_define_builtin (pfile, "__ASSEMBLER__ 1");
-
-  if (CPP_OPTION (pfile, lang) == CLK_STDC94)
+  else if (CPP_OPTION (pfile, lang) == CLK_STDC94)
     _cpp_define_builtin (pfile, "__STDC_VERSION__ 199409L");
   else if (CPP_OPTION (pfile, c99))
     _cpp_define_builtin (pfile, "__STDC_VERSION__ 199901L");
+
+  if (CPP_OPTION (pfile, objc))
+    _cpp_define_builtin (pfile, "__OBJC__ 1");
 
   if (pfile->cb.register_builtins)
     (*pfile->cb.register_builtins) (pfile);
@@ -884,6 +925,21 @@ static void sanity_checks (pfile)
 # define sanity_checks(PFILE)
 #endif
 
+/* Add a dependency target.  Can be called any number of times before
+   cpp_read_main_file().  If no targets have been added before
+   cpp_read_main_file(), then the default target is used.  */
+void
+cpp_add_dependency_target (pfile, target, quote)
+     cpp_reader *pfile;
+     const char *target;
+     int quote;
+{
+  if (!pfile->deps)
+    pfile->deps = deps_init ();
+
+  deps_add_target (pfile->deps, target, quote);
+}
+
 /* This is called after options have been parsed, and partially
    processed.  Setup for processing input from the file named FNAME,
    or stdin if it is the empty string.  Return the original filename
@@ -895,6 +951,8 @@ cpp_read_main_file (pfile, fname, table)
      hash_table *table;
 {
   sanity_checks (pfile);
+
+  post_options (pfile);
 
   /* The front ends don't set up the hash table until they have
      finished processing the command line options, so initializing the
@@ -921,27 +979,28 @@ cpp_read_main_file (pfile, fname, table)
       fprintf (stderr, _("End of search list.\n"));
     }
 
-  if (CPP_OPTION (pfile, print_deps))
-    /* Set the default target (if there is none already).  */
-    deps_add_default_target (pfile->deps, fname);
+  if (CPP_OPTION (pfile, deps.style) != DEPS_NONE)
+    {
+      if (!pfile->deps)
+	pfile->deps = deps_init ();
+
+      /* Set the default target (if there is none already).  */
+      deps_add_default_target (pfile->deps, fname);
+    }
 
   /* Open the main input file.  */
   if (!_cpp_read_file (pfile, fname))
     return NULL;
 
-  /* Set this after cpp_post_options so the client can change the
-     option if it wishes, and after stacking the main file so we don't
-     trace the main file.  */
+  /* Set this here so the client can change the option if it wishes,
+     and after stacking the main file so we don't trace the main
+     file.  */
   pfile->line_maps.trace_includes = CPP_OPTION (pfile, print_include_names);
 
   /* For foo.i, read the original filename foo.c now, for the benefit
      of the front ends.  */
   if (CPP_OPTION (pfile, preprocessed))
     read_original_filename (pfile);
-  /* Overlay an empty buffer to seed traditional preprocessing.  */
-  else if (CPP_OPTION (pfile, traditional)
-	   && !CPP_OPTION (pfile, preprocess_only))
-    _cpp_overlay_buffer (pfile, U"", 0);
 
   return pfile->map->to_file;
 }
@@ -1042,48 +1101,16 @@ _cpp_maybe_push_include_file (pfile)
     }
 }
 
-/* Use mkdeps.c to output dependency information.  */
-static void
-output_deps (pfile)
+/* This is called at the end of preprocessing.  It pops the last
+   buffer and writes dependency output, and returns the number of
+   errors.
+ 
+   Maybe it should also reset state, such that you could call
+   cpp_start_read with a new filename to restart processing.  */
+int
+cpp_finish (pfile, deps_stream)
      cpp_reader *pfile;
-{
-  /* Stream on which to print the dependency information.  */
-  FILE *deps_stream = 0;
-  const char *const deps_mode =
-    CPP_OPTION (pfile, print_deps_append) ? "a" : "w";
-
-  if (CPP_OPTION (pfile, deps_file)[0] == '\0')
-    deps_stream = stdout;
-  else
-    {
-      deps_stream = fopen (CPP_OPTION (pfile, deps_file), deps_mode);
-      if (deps_stream == 0)
-	{
-	  cpp_errno (pfile, DL_ERROR, CPP_OPTION (pfile, deps_file));
-	  return;
-	}
-    }
-
-  deps_write (pfile->deps, deps_stream, 72);
-
-  if (CPP_OPTION (pfile, deps_phony_targets))
-    deps_phony_targets (pfile->deps, deps_stream);
-
-  /* Don't close stdout.  */
-  if (deps_stream != stdout)
-    {
-      if (ferror (deps_stream) || fclose (deps_stream) != 0)
-	cpp_error (pfile, DL_ERROR, "I/O error on output");
-    }
-}
-
-/* This is called at the end of preprocessing.  It pops the
-   last buffer and writes dependency output.  It should also
-   clear macro definitions, such that you could call cpp_start_read
-   with a new filename to restart processing.  */
-void
-cpp_finish (pfile)
-     cpp_reader *pfile;
+     FILE *deps_stream;
 {
   /* Warn about unused macros before popping the final buffer.  */
   if (CPP_OPTION (pfile, warn_unused_macros))
@@ -1097,13 +1124,21 @@ cpp_finish (pfile)
   while (pfile->buffer)
     _cpp_pop_buffer (pfile);
 
-  /* Don't write the deps file if preprocessing has failed.  */
-  if (CPP_OPTION (pfile, print_deps) && pfile->errors == 0)
-    output_deps (pfile);
+  /* Don't write the deps file if there are errors.  */
+  if (CPP_OPTION (pfile, deps.style) != DEPS_NONE
+      && deps_stream && pfile->errors == 0)
+    {
+      deps_write (pfile->deps, deps_stream, 72);
+
+      if (CPP_OPTION (pfile, deps.phony_targets))
+	deps_phony_targets (pfile->deps, deps_stream);
+    }
 
   /* Report on headers that could use multiple include guards.  */
   if (CPP_OPTION (pfile, print_include_names))
     _cpp_report_missing_guards (pfile);
+
+  return pfile->errors;
 }
 
 /* Add a directive to be handled later in the initialization phase.  */
@@ -1125,100 +1160,26 @@ new_pending_directive (pend, text, handler)
 /* Irix6 "cc -n32" and OSF4 cc have problems with char foo[] = ("string");
    I.e. a const string initializer with parens around it.  That is
    what N_("string") resolves to, so we make no_* be macros instead.  */
-#define no_arg N_("argument missing after %s")
 #define no_ass N_("assertion missing after %s")
 #define no_dir N_("directory name missing after %s")
 #define no_fil N_("file name missing after %s")
 #define no_mac N_("macro name missing after %s")
 #define no_pth N_("path name missing after %s")
-#define no_num N_("number missing after %s")
-#define no_tgt N_("target missing after %s")
 
 /* This is the list of all command line options, with the leading
    "-" removed.  It must be sorted in ASCII collating order.  */
 #define COMMAND_LINE_OPTIONS                                                  \
-  DEF_OPT("-help",                    0,      OPT__help)                      \
-  DEF_OPT("-target-help",             0,      OPT_target__help)               \
-  DEF_OPT("-version",                 0,      OPT__version)                   \
   DEF_OPT("A",                        no_ass, OPT_A)                          \
-  DEF_OPT("C",                        0,      OPT_C)                          \
-  DEF_OPT("CC",                       0,      OPT_CC)                         \
   DEF_OPT("D",                        no_mac, OPT_D)                          \
-  DEF_OPT("H",                        0,      OPT_H)                          \
   DEF_OPT("I",                        no_dir, OPT_I)                          \
-  DEF_OPT("M",                        0,      OPT_M)                          \
-  DEF_OPT("MD",                       no_fil, OPT_MD)                         \
-  DEF_OPT("MF",                       no_fil, OPT_MF)                         \
-  DEF_OPT("MG",                       0,      OPT_MG)                         \
-  DEF_OPT("MM",                       0,      OPT_MM)                         \
-  DEF_OPT("MMD",                      no_fil, OPT_MMD)                        \
-  DEF_OPT("MP",                       0,      OPT_MP)                         \
-  DEF_OPT("MQ",                       no_tgt, OPT_MQ)                         \
-  DEF_OPT("MT",                       no_tgt, OPT_MT)                         \
-  DEF_OPT("P",                        0,      OPT_P)                          \
   DEF_OPT("U",                        no_mac, OPT_U)                          \
-  DEF_OPT("Wall",                     0,      OPT_Wall)                       \
-  DEF_OPT("Wcomment",                 0,      OPT_Wcomment)                   \
-  DEF_OPT("Wcomments",                0,      OPT_Wcomments)                  \
-  DEF_OPT("Wendif-labels",            0,      OPT_Wendif_labels)              \
-  DEF_OPT("Werror",                   0,      OPT_Werror)                     \
-  DEF_OPT("Wimport",                  0,      OPT_Wimport)                    \
-  DEF_OPT("Wno-comment",              0,      OPT_Wno_comment)                \
-  DEF_OPT("Wno-comments",             0,      OPT_Wno_comments)               \
-  DEF_OPT("Wno-endif-labels",         0,      OPT_Wno_endif_labels)           \
-  DEF_OPT("Wno-error",                0,      OPT_Wno_error)                  \
-  DEF_OPT("Wno-import",               0,      OPT_Wno_import)                 \
-  DEF_OPT("Wno-system-headers",       0,      OPT_Wno_system_headers)         \
-  DEF_OPT("Wno-traditional",          0,      OPT_Wno_traditional)            \
-  DEF_OPT("Wno-trigraphs",            0,      OPT_Wno_trigraphs)              \
-  DEF_OPT("Wno-undef",                0,      OPT_Wno_undef)                  \
-  DEF_OPT("Wno-unused-macros",        0,      OPT_Wno_unused_macros)          \
-  DEF_OPT("Wsystem-headers",          0,      OPT_Wsystem_headers)            \
-  DEF_OPT("Wtraditional",             0,      OPT_Wtraditional)               \
-  DEF_OPT("Wtrigraphs",               0,      OPT_Wtrigraphs)                 \
-  DEF_OPT("Wundef",                   0,      OPT_Wundef)                     \
-  DEF_OPT("Wunused-macros",           0,      OPT_Wunused_macros)             \
-  DEF_OPT("d",                        no_arg, OPT_d)                          \
-  DEF_OPT("fno-operator-names",       0,      OPT_fno_operator_names)         \
-  DEF_OPT("fno-preprocessed",         0,      OPT_fno_preprocessed)           \
-  DEF_OPT("fno-show-column",          0,      OPT_fno_show_column)            \
-  DEF_OPT("fpreprocessed",            0,      OPT_fpreprocessed)              \
-  DEF_OPT("fshow-column",             0,      OPT_fshow_column)               \
-  DEF_OPT("ftabstop=",                no_num, OPT_ftabstop)                   \
-  DEF_OPT("h",                        0,      OPT_h)                          \
   DEF_OPT("idirafter",                no_dir, OPT_idirafter)                  \
   DEF_OPT("imacros",                  no_fil, OPT_imacros)                    \
   DEF_OPT("include",                  no_fil, OPT_include)                    \
   DEF_OPT("iprefix",                  no_pth, OPT_iprefix)                    \
   DEF_OPT("isystem",                  no_dir, OPT_isystem)                    \
   DEF_OPT("iwithprefix",              no_dir, OPT_iwithprefix)                \
-  DEF_OPT("iwithprefixbefore",        no_dir, OPT_iwithprefixbefore)          \
-  DEF_OPT("lang-asm",                 0,      OPT_lang_asm)                   \
-  DEF_OPT("lang-c",                   0,      OPT_lang_c)                     \
-  DEF_OPT("lang-c++",                 0,      OPT_lang_cplusplus)             \
-  DEF_OPT("lang-c89",                 0,      OPT_lang_c89)                   \
-  DEF_OPT("lang-objc",                0,      OPT_lang_objc)                  \
-  DEF_OPT("nostdinc",                 0,      OPT_nostdinc)                   \
-  DEF_OPT("nostdinc++",               0,      OPT_nostdincplusplus)           \
-  DEF_OPT("o",                        no_fil, OPT_o)                          \
-  DEF_OPT("pedantic",                 0,      OPT_pedantic)                   \
-  DEF_OPT("pedantic-errors",          0,      OPT_pedantic_errors)            \
-  DEF_OPT("remap",                    0,      OPT_remap)                      \
-  DEF_OPT("std=c++98",                0,      OPT_std_cplusplus98)            \
-  DEF_OPT("std=c89",                  0,      OPT_std_c89)                    \
-  DEF_OPT("std=c99",                  0,      OPT_std_c99)                    \
-  DEF_OPT("std=c9x",                  0,      OPT_std_c9x)                    \
-  DEF_OPT("std=gnu89",                0,      OPT_std_gnu89)                  \
-  DEF_OPT("std=gnu99",                0,      OPT_std_gnu99)                  \
-  DEF_OPT("std=gnu9x",                0,      OPT_std_gnu9x)                  \
-  DEF_OPT("std=iso9899:1990",         0,      OPT_std_iso9899_1990)           \
-  DEF_OPT("std=iso9899:199409",       0,      OPT_std_iso9899_199409)         \
-  DEF_OPT("std=iso9899:1999",         0,      OPT_std_iso9899_1999)           \
-  DEF_OPT("std=iso9899:199x",         0,      OPT_std_iso9899_199x)           \
-  DEF_OPT("traditional-cpp",	      0,      OPT_traditional_cpp)            \
-  DEF_OPT("trigraphs",                0,      OPT_trigraphs)                  \
-  DEF_OPT("v",                        0,      OPT_v)                          \
-  DEF_OPT("w",                        0,      OPT_w)
+  DEF_OPT("iwithprefixbefore",        no_dir, OPT_iwithprefixbefore)
 
 #define DEF_OPT(text, msg, code) code,
 enum opt_code
@@ -1321,19 +1282,6 @@ cpp_handle_option (pfile, argc, argv)
   int i = 0;
   struct cpp_pending *pend = CPP_OPTION (pfile, pending);
 
-  /* Interpret "-" or a non-option as a file name.  */
-  if (argv[i][0] != '-' || argv[i][1] == '\0')
-    {
-      if (CPP_OPTION (pfile, in_fname) == NULL)
-	CPP_OPTION (pfile, in_fname) = argv[i];
-      else if (CPP_OPTION (pfile, out_fname) == NULL)
-	CPP_OPTION (pfile, out_fname) = argv[i];
-      else
-	cpp_error (pfile, DL_ERROR,
-		   "too many filenames. Type %s --help for usage info",
-		   progname);
-    }
-  else
     {
       enum opt_code opt_code;
       int opt_index;
@@ -1364,200 +1312,13 @@ cpp_handle_option (pfile, argc, argv)
 	{
 	case N_OPTS: /* Shut GCC up.  */
 	  break;
-	case OPT_fno_operator_names:
-	  CPP_OPTION (pfile, operator_names) = 0;
-	  break;
-	case OPT_fpreprocessed:
-	  CPP_OPTION (pfile, preprocessed) = 1;
-	  break;
-	case OPT_fno_preprocessed:
-	  CPP_OPTION (pfile, preprocessed) = 0;
-	  break;
-	case OPT_fshow_column:
-	  CPP_OPTION (pfile, show_column) = 1;
-	  break;
-	case OPT_fno_show_column:
-	  CPP_OPTION (pfile, show_column) = 0;
-	  break;
-	case OPT_ftabstop:
-	  /* Silently ignore empty string, non-longs and silly values.  */
-	  if (arg[0] != '\0')
-	    {
-	      char *endptr;
-	      long tabstop = strtol (arg, &endptr, 10);
-	      if (*endptr == '\0' && tabstop >= 1 && tabstop <= 100)
-		CPP_OPTION (pfile, tabstop) = tabstop;
-	    }
-	  break;
-	case OPT_w:
-	  CPP_OPTION (pfile, inhibit_warnings) = 1;
-	  break;
-	case OPT_h:
-	case OPT__help:
-	  print_help ();
-	  /* fall through */
-	case OPT_target__help:
-	case OPT__version:
-	  /* Nothing to do for these cases, but we need to be sure
-	     help_only is set.  */
-	  CPP_OPTION (pfile, help_only) = 1;
-	  break;
-	case OPT_v:
-	  CPP_OPTION (pfile, verbose) = 1;
-	  break;
 
-	case OPT_C:
-	  CPP_OPTION (pfile, discard_comments) = 0;
-	  break;
-	case OPT_CC:
-	  CPP_OPTION (pfile, discard_comments) = 0;
-	  CPP_OPTION (pfile, discard_comments_in_macro_exp) = 0;
-	  break;
-	case OPT_P:
-	  CPP_OPTION (pfile, no_line_commands) = 1;
-	  break;
-	case OPT_H:
-	  CPP_OPTION (pfile, print_include_names) = 1;
-	  break;
 	case OPT_D:
 	  new_pending_directive (pend, arg, cpp_define);
-	  break;
-	case OPT_pedantic_errors:
-	  CPP_OPTION (pfile, pedantic_errors) = 1;
-	  /* fall through */
-	case OPT_pedantic:
-	  CPP_OPTION (pfile, pedantic) = 1;
-	  CPP_OPTION (pfile, warn_endif_labels) = 1;
-	  break;
-	case OPT_trigraphs:
-	  CPP_OPTION (pfile, trigraphs) = 1;
-	  break;
-	case OPT_remap:
-	  CPP_OPTION (pfile, remap) = 1;
-	  break;
-	case OPT_traditional_cpp:
-	  CPP_OPTION (pfile, traditional) = 1;
 	  break;
 	case OPT_iprefix:
 	  CPP_OPTION (pfile, include_prefix) = arg;
 	  CPP_OPTION (pfile, include_prefix_len) = strlen (arg);
-	  break;
-	case OPT_lang_c:
-	  set_lang (pfile, CLK_GNUC89);
-	  break;
-	case OPT_lang_cplusplus:
-	  set_lang (pfile, CLK_GNUCXX);
-	  break;
-	case OPT_lang_objc:
-	  CPP_OPTION (pfile, objc) = 1;
-	  break;
-	case OPT_lang_asm:
-	  set_lang (pfile, CLK_ASM);
-	  break;
-	case OPT_std_cplusplus98:
-	  set_lang (pfile, CLK_CXX98);
-	  break;
-	case OPT_std_gnu89:
-	  set_lang (pfile, CLK_GNUC89);
-	  break;
-	case OPT_std_gnu9x:
-	case OPT_std_gnu99:
-	  set_lang (pfile, CLK_GNUC99);
-	  break;
-	case OPT_std_iso9899_199409:
-	  set_lang (pfile, CLK_STDC94);
-	  break;
-	case OPT_std_iso9899_1990:
-	case OPT_std_c89:
-	case OPT_lang_c89:
-	  set_lang (pfile, CLK_STDC89);
-	  break;
-	case OPT_std_iso9899_199x:
-	case OPT_std_iso9899_1999:
-	case OPT_std_c9x:
-	case OPT_std_c99:
-	  set_lang (pfile, CLK_STDC99);
-	  break;
-	case OPT_nostdinc:
-	  /* -nostdinc causes no default include directories.
-	     You must specify all include-file directories with -I.  */
-	  CPP_OPTION (pfile, no_standard_includes) = 1;
-	  break;
-	case OPT_nostdincplusplus:
-	  /* -nostdinc++ causes no default C++-specific include directories.  */
-	  CPP_OPTION (pfile, no_standard_cplusplus_includes) = 1;
-	  break;
-	case OPT_o:
-	  if (CPP_OPTION (pfile, out_fname) == NULL)
-	    CPP_OPTION (pfile, out_fname) = arg;
-	  else
-	    {
-	      cpp_error (pfile, DL_ERROR, "output filename specified twice");
-	      return argc;
-	    }
-	  break;
-	case OPT_d:
-	  /* Args to -d specify what parts of macros to dump.
-	     Silently ignore unrecognised options; they may
-	     be aimed at the compiler proper.  */
-	  {
-	    char c;
-
-	    while ((c = *arg++) != '\0')
-	      switch (c)
-		{
-		case 'M':
-		  CPP_OPTION (pfile, dump_macros) = dump_only;
-		  break;
-		case 'N':
-		  CPP_OPTION (pfile, dump_macros) = dump_names;
-		  break;
-		case 'D':
-		  CPP_OPTION (pfile, dump_macros) = dump_definitions;
-		  break;
-		case 'I':
-		  CPP_OPTION (pfile, dump_includes) = 1;
-		  break;
-		}
-	  }
-	  break;
-
-	case OPT_MG:
-	  CPP_OPTION (pfile, print_deps_missing_files) = 1;
-	  break;
-	case OPT_M:
-	  /* When doing dependencies with -M or -MM, suppress normal
-	     preprocessed output, but still do -dM etc. as software
-	     depends on this.  Preprocessed output occurs if -MD, -MMD
-	     or environment var dependency generation is used.  */
-	  CPP_OPTION (pfile, print_deps) = 2;
-	  CPP_OPTION (pfile, no_output) = 1;
-	  CPP_OPTION (pfile, inhibit_warnings) = 1;
-	  break;
-	case OPT_MM:
-	  CPP_OPTION (pfile, print_deps) = 1;
-	  CPP_OPTION (pfile, no_output) = 1;
-	  CPP_OPTION (pfile, inhibit_warnings) = 1;
-	  break;
-	case OPT_MF:
-	  CPP_OPTION (pfile, deps_file) = arg;
-	  break;
-	case OPT_MP:
-	  CPP_OPTION (pfile, deps_phony_targets) = 1;
-	  break;
-	case OPT_MQ:
-	case OPT_MT:
-	  /* Add a target.  -MQ quotes for Make.  */
-	  deps_add_target (pfile->deps, arg, opt_code == OPT_MQ);
-	  break;
-
-	case OPT_MD:
-	  CPP_OPTION (pfile, print_deps) = 2;
-	  CPP_OPTION (pfile, deps_file) = arg;
-	  break;
-	case OPT_MMD:
-	  CPP_OPTION (pfile, print_deps) = 1;
-	  CPP_OPTION (pfile, deps_file) = arg;
 	  break;
 
 	case OPT_A:
@@ -1668,77 +1429,6 @@ cpp_handle_option (pfile, argc, argv)
 	  /* Add directory to end of path for includes.  */
 	  append_include_chain (pfile, xstrdup (arg), AFTER, 0);
 	  break;
-
-	case OPT_Wall:
-	  CPP_OPTION (pfile, warn_trigraphs) = 1;
-	  CPP_OPTION (pfile, warn_comments) = 1;
-	  CPP_OPTION (pfile, warn_num_sign_change) = 1;
-	  break;
-
-	case OPT_Wtraditional:
-	  CPP_OPTION (pfile, warn_traditional) = 1;
-	  break;
-	case OPT_Wno_traditional:
-	  CPP_OPTION (pfile, warn_traditional) = 0;
-	  break;
-
-	case OPT_Wtrigraphs:
-	  CPP_OPTION (pfile, warn_trigraphs) = 1;
-	  break;
-	case OPT_Wno_trigraphs:
-	  CPP_OPTION (pfile, warn_trigraphs) = 0;
-	  break;
-
-	case OPT_Wcomment:
-	case OPT_Wcomments:
-	  CPP_OPTION (pfile, warn_comments) = 1;
-	  break;
-	case OPT_Wno_comment:
-	case OPT_Wno_comments:
-	  CPP_OPTION (pfile, warn_comments) = 0;
-	  break;
-
-	case OPT_Wunused_macros:
-	  CPP_OPTION (pfile, warn_unused_macros) = 1;
-	  break;
-	case OPT_Wno_unused_macros:
-	  CPP_OPTION (pfile, warn_unused_macros) = 0;
-	  break;
-
-	case OPT_Wundef:
-	  CPP_OPTION (pfile, warn_undef) = 1;
-	  break;
-	case OPT_Wno_undef:
-	  CPP_OPTION (pfile, warn_undef) = 0;
-	  break;
-
-	case OPT_Wimport:
-	  CPP_OPTION (pfile, warn_import) = 1;
-	  break;
-	case OPT_Wno_import:
-	  CPP_OPTION (pfile, warn_import) = 0;
-	  break;
-
-	case OPT_Wendif_labels:
-	  CPP_OPTION (pfile, warn_endif_labels) = 1;
-	  break;
-	case OPT_Wno_endif_labels:
-	  CPP_OPTION (pfile, warn_endif_labels) = 0;
-	  break;
-
-	case OPT_Werror:
-	  CPP_OPTION (pfile, warnings_are_errors) = 1;
-	  break;
-	case OPT_Wno_error:
-	  CPP_OPTION (pfile, warnings_are_errors) = 0;
-	  break;
-
-	case OPT_Wsystem_headers:
-	  CPP_OPTION (pfile, warn_system_headers) = 1;
-	  break;
-	case OPT_Wno_system_headers:
-	  CPP_OPTION (pfile, warn_system_headers) = 0;
-	  break;
 	}
     }
   return i + 1;
@@ -1767,31 +1457,13 @@ cpp_handle_options (pfile, argc, argv)
   return i;
 }
 
-/* Extra processing when all options are parsed, after all calls to
-   cpp_handle_option[s].  Consistency checks etc.  */
-void
-cpp_post_options (pfile)
+static void
+post_options (pfile)
      cpp_reader *pfile;
 {
-  /* Canonicalize in_fname and out_fname.  We guarantee they are not
-     NULL, and that the empty string represents stdin / stdout.  */
-  if (CPP_OPTION (pfile, in_fname) == NULL
-      || !strcmp (CPP_OPTION (pfile, in_fname), "-"))
-    CPP_OPTION (pfile, in_fname) = "";
-
-  if (CPP_OPTION (pfile, out_fname) == NULL
-      || !strcmp (CPP_OPTION (pfile, out_fname), "-"))
-    CPP_OPTION (pfile, out_fname) = "";
-
   /* -Wtraditional is not useful in C++ mode.  */
   if (CPP_OPTION (pfile, cplusplus))
     CPP_OPTION (pfile, warn_traditional) = 0;
-
-  /* The compiler front ends override this, but I think this is the
-     appropriate setting for the library.  */
-  CPP_OPTION (pfile, warn_long_long)
-     = ((CPP_OPTION (pfile, pedantic) && !CPP_OPTION (pfile, c99))
-	|| CPP_OPTION (pfile, warn_traditional));
 
   /* Permanently disable macro expansion if we are rescanning
      preprocessed text.  Read preprocesed source in ISO mode.  */
@@ -1804,183 +1476,4 @@ cpp_post_options (pfile)
   /* Traditional CPP does not accurately track column information.  */
   if (CPP_OPTION (pfile, traditional))
     CPP_OPTION (pfile, show_column) = 0;
-
-  /* -dM and dependencies suppress normal output; do it here so that
-     the last -d[MDN] switch overrides earlier ones.  */
-  if (CPP_OPTION (pfile, dump_macros) == dump_only)
-    CPP_OPTION (pfile, no_output) = 1;
-
-  /* Disable -dD, -dN and -dI if normal output is suppressed.  Allow
-     -dM since at least glibc relies on -M -dM to work.  */
-  if (CPP_OPTION (pfile, no_output))
-    {
-      if (CPP_OPTION (pfile, dump_macros) != dump_only)
-	CPP_OPTION (pfile, dump_macros) = dump_none;
-      CPP_OPTION (pfile, dump_includes) = 0;
-    }
-
-  /* Intialize, and check environment variables for, dependency
-     output.  */
-  init_dependency_output (pfile);
-
-  /* If we're not outputting dependencies, complain if other -M
-     options have been given.  */
-  if (!CPP_OPTION (pfile, print_deps)
-      && (CPP_OPTION (pfile, print_deps_missing_files)
-	  || CPP_OPTION (pfile, deps_file)
-	  || CPP_OPTION (pfile, deps_phony_targets)))
-    cpp_error (pfile, DL_ERROR,
-	       "you must additionally specify either -M or -MM");
-}
-
-/* Set up dependency-file output.  On exit, if print_deps is non-zero
-   then deps_file is not NULL; stdout is the empty string.  */
-static void
-init_dependency_output (pfile)
-     cpp_reader *pfile;
-{
-  char *spec, *s, *output_file;
-
-  /* Either of two environment variables can specify output of deps.
-     Its value is either "OUTPUT_FILE" or "OUTPUT_FILE DEPS_TARGET",
-     where OUTPUT_FILE is the file to write deps info to
-     and DEPS_TARGET is the target to mention in the deps.  */
-
-  if (CPP_OPTION (pfile, print_deps) == 0)
-    {
-      spec = getenv ("DEPENDENCIES_OUTPUT");
-      if (spec)
-	CPP_OPTION (pfile, print_deps) = 1;
-      else
-	{
-	  spec = getenv ("SUNPRO_DEPENDENCIES");
-	  if (spec)
-	    CPP_OPTION (pfile, print_deps) = 2;
-	  else
-	    return;
-	}
-
-      /* Find the space before the DEPS_TARGET, if there is one.  */
-      s = strchr (spec, ' ');
-      if (s)
-	{
-	  /* Let the caller perform MAKE quoting.  */
-	  deps_add_target (pfile->deps, s + 1, 0);
-	  output_file = (char *) xmalloc (s - spec + 1);
-	  memcpy (output_file, spec, s - spec);
-	  output_file[s - spec] = 0;
-	}
-      else
-	output_file = spec;
-
-      /* Command line -MF overrides environment variables and default.  */
-      if (CPP_OPTION (pfile, deps_file) == 0)
-	CPP_OPTION (pfile, deps_file) = output_file;
-
-      CPP_OPTION (pfile, print_deps_append) = 1;
-    }
-  else if (CPP_OPTION (pfile, deps_file) == 0)
-    /* If -M or -MM was seen without -MF, default output to wherever
-       was specified with -o.  out_fname is non-NULL here.  */
-    CPP_OPTION (pfile, deps_file) = CPP_OPTION (pfile, out_fname);
-}
-
-/* Handle --help output.  */
-static void
-print_help ()
-{
-  /* To keep the lines from getting too long for some compilers, limit
-     to about 500 characters (6 lines) per chunk.  */
-  fputs (_("\
-Switches:\n\
-  -include <file>           Include the contents of <file> before other files\n\
-  -imacros <file>           Accept definition of macros in <file>\n\
-  -iprefix <path>           Specify <path> as a prefix for next two options\n\
-  -iwithprefix <dir>        Add <dir> to the end of the system include path\n\
-  -iwithprefixbefore <dir>  Add <dir> to the end of the main include path\n\
-  -isystem <dir>            Add <dir> to the start of the system include path\n\
-"), stdout);
-  fputs (_("\
-  -idirafter <dir>          Add <dir> to the end of the system include path\n\
-  -I <dir>                  Add <dir> to the end of the main include path\n\
-  -I-                       Fine-grained include path control; see info docs\n\
-  -nostdinc                 Do not search system include directories\n\
-                             (dirs specified with -isystem will still be used)\n\
-  -nostdinc++               Do not search system include directories for C++\n\
-  -o <file>                 Put output into <file>\n\
-"), stdout);
-  fputs (_("\
-  -pedantic                 Issue all warnings demanded by strict ISO C\n\
-  -pedantic-errors          Issue -pedantic warnings as errors instead\n\
-  -trigraphs                Support ISO C trigraphs\n\
-  -lang-c                   Assume that the input sources are in C\n\
-  -lang-c89                 Assume that the input sources are in C89\n\
-"), stdout);
-  fputs (_("\
-  -lang-c++                 Assume that the input sources are in C++\n\
-  -lang-objc                Assume that the input sources are in ObjectiveC\n\
-  -lang-asm                 Assume that the input sources are in assembler\n\
-"), stdout);
-  fputs (_("\
-  -std=<std name>           Specify the conformance standard; one of:\n\
-                            gnu89, gnu99, c89, c99, iso9899:1990,\n\
-                            iso9899:199409, iso9899:1999\n\
-  -w                        Inhibit warning messages\n\
-  -Wtrigraphs               Warn if trigraphs are encountered\n\
-  -Wno-trigraphs            Do not warn about trigraphs\n\
-  -Wcomment{s}              Warn if one comment starts inside another\n\
-"), stdout);
-  fputs (_("\
-  -Wno-comment{s}           Do not warn about comments\n\
-  -Wtraditional             Warn about features not present in traditional C\n\
-  -Wno-traditional          Do not warn about traditional C\n\
-  -Wundef                   Warn if an undefined macro is used by #if\n\
-  -Wno-undef                Do not warn about testing undefined macros\n\
-  -Wimport                  Warn about the use of the #import directive\n\
-"), stdout);
-  fputs (_("\
-  -Wno-import               Do not warn about the use of #import\n\
-  -Werror                   Treat all warnings as errors\n\
-  -Wno-error                Do not treat warnings as errors\n\
-  -Wsystem-headers          Do not suppress warnings from system headers\n\
-  -Wno-system-headers       Suppress warnings from system headers\n\
-  -Wall                     Enable all preprocessor warnings\n\
-"), stdout);
-  fputs (_("\
-  -M                        Generate make dependencies\n\
-  -MM                       As -M, but ignore system header files\n\
-  -MD                       Generate make dependencies and compile\n\
-  -MMD                      As -MD, but ignore system header files\n\
-  -MF <file>                Write dependency output to the given file\n\
-  -MG                       Treat missing header file as generated files\n\
-"), stdout);
-  fputs (_("\
-  -MP			    Generate phony targets for all headers\n\
-  -MQ <target>              Add a MAKE-quoted target\n\
-  -MT <target>              Add an unquoted target\n\
-"), stdout);
-  fputs (_("\
-  -D<macro>                 Define a <macro> with string '1' as its value\n\
-  -D<macro>=<val>           Define a <macro> with <val> as its value\n\
-  -A<question>=<answer>     Assert the <answer> to <question>\n\
-  -A-<question>=<answer>    Disable the <answer> to <question>\n\
-  -U<macro>                 Undefine <macro> \n\
-  -v                        Display the version number\n\
-"), stdout);
-  fputs (_("\
-  -H                        Print the name of header files as they are used\n\
-  -C                        Do not discard comments\n\
-  -dM                       Display a list of macro definitions active at end\n\
-  -dD                       Preserve macro definitions in output\n\
-  -dN                       As -dD except that only the names are preserved\n\
-  -dI                       Include #include directives in the output\n\
-"), stdout);
-  fputs (_("\
-  -fpreprocessed            Treat the input file as already preprocessed\n\
-  -ftabstop=<number>        Distance between tab stops for column reporting\n\
-  -P                        Do not generate #line directives\n\
-  -remap                    Remap file names when including files\n\
-  --version                 Display version information\n\
-  -h or --help              Display this information\n\
-"), stdout);
 }

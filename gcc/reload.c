@@ -826,7 +826,7 @@ reload_inner_reg_of_subreg (x, mode)
   return (GET_MODE_SIZE (mode) <= UNITS_PER_WORD
 	  && GET_MODE_SIZE (GET_MODE (inner)) > UNITS_PER_WORD
 	  && ((GET_MODE_SIZE (GET_MODE (inner)) / UNITS_PER_WORD)
-	      != HARD_REGNO_NREGS (REGNO (inner), GET_MODE (inner))));
+	      != (int) HARD_REGNO_NREGS (REGNO (inner), GET_MODE (inner))));
 }
 
 /* Record one reload that needs to be performed.
@@ -1003,8 +1003,8 @@ push_reload (in, out, inloc, outloc, class,
 		       > UNITS_PER_WORD)
 		   && ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (in)))
 			/ UNITS_PER_WORD)
-		       != HARD_REGNO_NREGS (REGNO (SUBREG_REG (in)),
-					    GET_MODE (SUBREG_REG (in)))))
+		       != (int) HARD_REGNO_NREGS (REGNO (SUBREG_REG (in)),
+						  GET_MODE (SUBREG_REG (in)))))
 		  || ! HARD_REGNO_MODE_OK (subreg_regno (in), inmode)))
 #ifdef SECONDARY_INPUT_RELOAD_CLASS
 	  || (SECONDARY_INPUT_RELOAD_CLASS (class, inmode, in) != NO_REGS
@@ -1105,8 +1105,8 @@ push_reload (in, out, inloc, outloc, class,
 		       > UNITS_PER_WORD)
 		   && ((GET_MODE_SIZE (GET_MODE (SUBREG_REG (out)))
 			/ UNITS_PER_WORD)
-		       != HARD_REGNO_NREGS (REGNO (SUBREG_REG (out)),
-					    GET_MODE (SUBREG_REG (out)))))
+		       != (int) HARD_REGNO_NREGS (REGNO (SUBREG_REG (out)),
+						  GET_MODE (SUBREG_REG (out)))))
 		  || ! HARD_REGNO_MODE_OK (subreg_regno (out), outmode)))
 #ifdef SECONDARY_OUTPUT_RELOAD_CLASS
 	  || (SECONDARY_OUTPUT_RELOAD_CLASS (class, outmode, out) != NO_REGS
@@ -2641,7 +2641,8 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
       if (*constraints[i] == 0)
 	/* Ignore things like match_operator operands.  */
 	;
-      else if (constraints[i][0] == 'p')
+      else if (constraints[i][0] == 'p'
+	       || EXTRA_ADDRESS_CONSTRAINT (constraints[i][0]))
 	{
 	  find_reloads_address (VOIDmode, (rtx*) 0,
 				recog_data.operand[i],
@@ -3222,6 +3223,49 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 		if (REG_CLASS_FROM_LETTER (c) == NO_REGS)
 		  {
 #ifdef EXTRA_CONSTRAINT
+		    if (EXTRA_MEMORY_CONSTRAINT (c))
+		      {
+			if (force_reload)
+			  break;
+		        if (EXTRA_CONSTRAINT (operand, c))
+		          win = 1;
+			/* If the address was already reloaded,
+			   we win as well.  */
+			if (GET_CODE (operand) == MEM && address_reloaded[i])
+			  win = 1;
+			/* Likewise if the address will be reloaded because
+			   reg_equiv_address is nonzero.  For reg_equiv_mem
+			   we have to check.  */
+		        if (GET_CODE (operand) == REG
+			    && REGNO (operand) >= FIRST_PSEUDO_REGISTER
+			    && reg_renumber[REGNO (operand)] < 0
+			    && ((reg_equiv_mem[REGNO (operand)] != 0
+			         && EXTRA_CONSTRAINT (reg_equiv_mem[REGNO (operand)], c))
+			        || (reg_equiv_address[REGNO (operand)] != 0)))
+			  win = 1;
+
+			/* If we didn't already win, we can reload
+			   constants via force_const_mem, and other
+			   MEMs by reloading the address like for 'o'.  */
+			if ((CONSTANT_P (operand) && GET_CODE (operand) != HIGH)
+			    || GET_CODE (operand) == MEM)
+			  badop = 0;
+			constmemok = 1;
+			offmemok = 1;
+			break;
+		      }
+		    if (EXTRA_ADDRESS_CONSTRAINT (c))
+		      {
+		        if (EXTRA_CONSTRAINT (operand, c))
+		          win = 1;
+
+			/* If we didn't already win, we can reload
+			   the address into a base register.  */
+			this_alternative[i] = (int) MODE_BASE_REG_CLASS (VOIDmode);
+			badop = 0;
+			break;
+		      }
+
 		    if (EXTRA_CONSTRAINT (operand, c))
 		      win = 1;
 #endif
@@ -4291,7 +4335,7 @@ alternative_allows_memconst (constraint, altnum)
   /* Scan the requested alternative for 'm' or 'o'.
      If one of them is present, this alternative accepts memory constants.  */
   while ((c = *constraint++) && c != ',' && c != '#')
-    if (c == 'm' || c == 'o')
+    if (c == 'm' || c == 'o' || EXTRA_MEMORY_CONSTRAINT (c))
       return 1;
   return 0;
 }
@@ -5595,7 +5639,7 @@ find_reloads_address_1 (mode, x, context, loc, opnum, type, ind_levels, insn)
 	    {
 	      enum reg_class class = (context ? INDEX_REG_CLASS
 				      : MODE_BASE_REG_CLASS (mode));
-	      if (CLASS_MAX_NREGS (class, GET_MODE (SUBREG_REG (x)))
+	      if ((unsigned) CLASS_MAX_NREGS (class, GET_MODE (SUBREG_REG (x)))
 		  > reg_class_size[class])
 		{
 		  x = find_reloads_subreg_address (x, 0, opnum, type,

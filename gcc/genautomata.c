@@ -4983,17 +4983,19 @@ transform_3 (regexp)
       max_seq_length = 0;
       if (regexp->mode == rm_allof)
 	for (i = 0; i < REGEXP_ALLOF (regexp)->regexps_num; i++)
-	  if (REGEXP_ALLOF (regexp)->regexps [i]->mode == rm_sequence)
-	    {
-	      seq = REGEXP_ALLOF (regexp)->regexps [i];
-	      if (max_seq_length < REGEXP_SEQUENCE (seq)->regexps_num)
-	      max_seq_length = REGEXP_SEQUENCE (seq)->regexps_num;
-	    }
-	  else if (REGEXP_ALLOF (regexp)->regexps [i]->mode != rm_unit)
-	    {
-	      max_seq_length = 0;
-	      break;
-	    }
+	  {
+	    if (REGEXP_ALLOF (regexp)->regexps [i]->mode == rm_sequence)
+	      {
+		seq = REGEXP_ALLOF (regexp)->regexps [i];
+		if (max_seq_length < REGEXP_SEQUENCE (seq)->regexps_num)
+		  max_seq_length = REGEXP_SEQUENCE (seq)->regexps_num;
+	      }
+	    else if (REGEXP_ALLOF (regexp)->regexps [i]->mode != rm_unit)
+	      {
+		max_seq_length = 0;
+		break;
+	      }
+	  }
       if (max_seq_length != 0)
 	{
 	  if (max_seq_length == 1 || REGEXP_ALLOF (regexp)->regexps_num <= 1)
@@ -6868,7 +6870,7 @@ process_state_longest_path_length (state)
 
 #define MAX_DFA_ISSUE_RATE_VAR_NAME "max_dfa_issue_rate"
 
-/* The following function calculates value of the the corresponding
+/* The following function calculates value of the corresponding
    global variable and outputs its declaration.  */
 
 static void
@@ -7276,7 +7278,7 @@ output_translate_vect (automaton)
   output_range_type (output_file, 0, automaton->insn_equiv_classes_num);
   fprintf (output_file, " ");
   output_translate_vect_name (output_file, automaton);
-  fprintf (output_file, "[] = {\n");
+  fprintf (output_file, "[] ATTRIBUTE_UNUSED = {\n");
   output_vect (VLA_HWINT_BEGIN (translate_vect),
 	       VLA_HWINT_LENGTH (translate_vect));
   fprintf (output_file, "};\n\n");
@@ -7347,7 +7349,7 @@ output_state_ainsn_table (tab, table_name, output_full_vect_name_func,
                          tab->max_comb_vect_el_value);
       fprintf (output_file, " ");
       (*output_full_vect_name_func) (output_file, tab->automaton);
-      fprintf (output_file, "[] = {\n");
+      fprintf (output_file, "[] ATTRIBUTE_UNUSED = {\n");
       output_vect (VLA_HWINT_BEGIN (tab->full_vect),
                    VLA_HWINT_LENGTH (tab->full_vect));
       fprintf (output_file, "};\n\n");
@@ -7360,7 +7362,7 @@ output_state_ainsn_table (tab, table_name, output_full_vect_name_func,
                          tab->max_comb_vect_el_value);
       fprintf (output_file, " ");
       (*output_comb_vect_name_func) (output_file, tab->automaton);
-      fprintf (output_file, "[] = {\n");
+      fprintf (output_file, "[] ATTRIBUTE_UNUSED = {\n");
       output_vect (VLA_HWINT_BEGIN (tab->comb_vect),
                    VLA_HWINT_LENGTH (tab->comb_vect));
       fprintf (output_file, "};\n\n");
@@ -7777,7 +7779,7 @@ output_min_issue_delay_table (automaton)
   output_range_type (output_file, 0, automaton->max_min_delay);
   fprintf (output_file, " ");
   output_min_issue_delay_vect_name (output_file, automaton);
-  fprintf (output_file, "[] = {\n");
+  fprintf (output_file, "[] ATTRIBUTE_UNUSED = {\n");
   /* Compress the vector */
   if (automaton->max_min_delay < 2)
     automaton->min_issue_delay_table_compression_factor = 8;
@@ -8089,7 +8091,7 @@ output_internal_min_issue_delay_func ()
 	   INTERNAL_MIN_ISSUE_DELAY_FUNC_NAME, INTERNAL_INSN_CODE_NAME,
 	   CHIP_PARAMETER_NAME, INTERNAL_INSN_CODE_NAME, CHIP_NAME,
 	   CHIP_PARAMETER_NAME);
-  fprintf (output_file, "{\n  int %s ATTRIBUTE_UNUSED;\n  int %s;\n",
+  fprintf (output_file, "{\n  int %s ATTRIBUTE_UNUSED;\n  int %s = -1;\n",
 	   TEMPORARY_VARIABLE_NAME, RESULT_VARIABLE_NAME);
   fprintf (output_file, "\n  switch (%s)\n    {\n", INTERNAL_INSN_CODE_NAME);
   output_insn_code_cases (output_automata_list_min_issue_delay_code);

@@ -1852,7 +1852,7 @@ extern char m32r_punct_chars[256];
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
   do								\
     {								\
-      ASM_GLOBALIZE_LABEL (FILE, NAME);				\
+      (*targetm.asm_out.globalize_label) (FILE, NAME);		\
       ASM_OUTPUT_ALIGNED_COMMON (FILE, NAME, SIZE, ALIGN);	\
     }								\
   while (0)
@@ -1860,13 +1860,9 @@ extern char m32r_punct_chars[256];
 /* Debugging information.  */
 
 /* Generate DBX and DWARF debugging information.  */
-#undef	DBX_DEBUGGING_INFO
-#undef	DWARF_DEBUGGING_INFO
-#undef	DWARF2_DEBUGGING_INFO
-
-#define DBX_DEBUGGING_INFO
-#define DWARF_DEBUGGING_INFO
-#define DWARF2_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
+#define DWARF_DEBUGGING_INFO 1
+#define DWARF2_DEBUGGING_INFO 1
 
 /* Prefer STABS (for now).  */
 #undef  PREFERRED_DEBUGGING_TYPE

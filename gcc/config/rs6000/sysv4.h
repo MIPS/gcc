@@ -380,6 +380,12 @@ do {									\
 /* Real stack boundary as mandated by the appropriate ABI.  */
 #define ABI_STACK_BOUNDARY ((TARGET_EABI && !TARGET_ALTIVEC_ABI) ? 64 : 128)
 
+/* An expression for the alignment of a structure field FIELD if the
+   alignment computed in the usual way is COMPUTED.  */
+#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED)				      \
+	((TARGET_ALTIVEC && TREE_CODE (TREE_TYPE (FIELD)) == VECTOR_TYPE)     \
+	 ? 128 : COMPUTED)
+
 /* Define this macro as an expression for the alignment of a type
    (given by TYPE as a tree node) if the alignment computed in the
    usual way is COMPUTED and the alignment explicitly specified was
@@ -710,7 +716,7 @@ do {									\
 /* Describe how to emit uninitialized external linkage items.  */
 #define	ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)		\
 do {									\
-  ASM_GLOBALIZE_LABEL (FILE, NAME);					\
+  (*targetm.asm_out.globalize_label) (FILE, NAME);			\
   ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);			\
 } while (0)
 
@@ -776,7 +782,7 @@ extern int fixuplabelno;
 #define	PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
 /* Historically we have also supported stabs debugging.  */
-#define	DBX_DEBUGGING_INFO
+#define	DBX_DEBUGGING_INFO 1
 
 #define	TARGET_ENCODE_SECTION_INFO  rs6000_elf_encode_section_info
 #define	TARGET_STRIP_NAME_ENCODING  rs6000_elf_strip_name_encoding

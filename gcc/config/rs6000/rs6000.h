@@ -522,7 +522,11 @@ extern int rs6000_default_long_calls;
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD (! TARGET_POWERPC64 ? 4 : 8)
+#ifdef IN_LIBGCC2
+#define MIN_UNITS_PER_WORD UNITS_PER_WORD
+#else
 #define MIN_UNITS_PER_WORD 4
+#endif
 #define UNITS_PER_FP_WORD 8
 #define UNITS_PER_ALTIVEC_WORD 16
 #define UNITS_PER_SPE_WORD 8
@@ -630,10 +634,6 @@ extern int rs6000_default_long_calls;
 
 /* A bitfield declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
-
-/* Most ABIs word-align FP doubles but doubleword-align 64-bit ints.  */
-#define ADJUST_FIELD_ALIGN(FIELD, COMPUTED) \
-  rs6000_field_alignment ((FIELD), (COMPUTED))
 
 /* Make strings word-aligned so strcpy from constants will be faster.
    Make vector constants quadword aligned.  */
@@ -1801,6 +1801,10 @@ typedef struct rs6000_args
 /* Define this macro to be a nonzero value if the location where a function
    argument is passed depends on whether or not it is a named argument.  */
 #define STRICT_ARGUMENT_NAMING 1
+
+/* We do not allow indirect calls to be optimized into sibling calls, nor
+   do we allow calls with vector parameters.  */
+#define FUNCTION_OK_FOR_SIBCALL(DECL) function_ok_for_sibcall ((DECL))
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */

@@ -1,3 +1,235 @@
+2002-09-01  Phil Edwards  <pme@gcc.gnu.org>
+
+	* testsuite/Makefile.am:  Use LD_RUN_PATH when linking abi_check.
+	Fix spelling in comment.
+	* testsuite/Makefile.in:  Regenerate.
+	* testsuite/abi_check.cc:  Use string literals to build 'cmd' rather
+	than 'quote' and 'bslash'.
+
+2002-08-31  Phil Edwards  <pme@gcc.gnu.org>
+
+	* acinclude.m4:  Minor comment tweaks.
+
+	* docs/html/makedoc.awk:  New file...
+	* docs/html/Makefile:  ...called from here...
+	* docs/html/documentation.html:  ...to help generate this.
+
+	* docs/html/21_strings/howto.html:  Prepare for new entry.
+	* include/bits/basic_string.h:  Initial basic_stirng hook for
+	doxygen.  Remove trailing whitespace.
+	* include/bits/char_traits.h:  Point to onlinedocs for new entry.
+	* include/bits/stringfwd.h:  Add doxygen hooks for string and
+	wstring typedefs.
+
+2002-08-29  Richard Earnshaw  <rearnshaw@arm.com>
+
+	* config/cpu/arm/cpu_limits.h: New file.
+	* configure.target: Use config/cpu/arm for XScale and StrongARM
+	configurations.
+
+2002-08-28  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/std/std_limits.h (__glibcpp_char_bits,
+	__glibcpp_short_bits, __glibcpp_int_bits, __glibcpp_long_bits,
+	__glibcpp_long_long_bits, __glibcpp_float_bits,
+	__glibcpp_double_bits, __glibcpp_long_double_bits): Remove.  Use
+	compiler predifined macros.
+	(__glibcpp_wchar_t_is_signed): Define based on compiler predefined
+	__WCHAR_UNSIGNED__. 
+
+2002-08-27  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/std/std_limits.h (__glibcpp_f32_infinity_bytes,
+	__glibcpp_f32_has_infinity, __glibcpp_f32_QNaN_bytes,
+	__glibcpp_f32_has_QNaN, __glibcpp_f32_SNaN_bytes,
+	__glibcpp_f32_has_SNaN, __glibcpp_f32_denorm_min_bytes,
+	__glibcpp_f32_has_denorm, __glibcpp_f32_is_iec559,
+	__glibcpp_f64_infinity_bytes,
+	__glibcpp_f64_has_infinity, __glibcpp_f64_QNaN_bytes,
+	__glibcpp_f64_has_QNaN, __glibcpp_f64_SNaN_bytes,
+	__glibcpp_f64_has_SNaN, __glibcpp_f64_denorm_min_bytes,
+	__glibcpp_f64_has_denorm, __glibcpp_f64_is_iec559,
+	__glibcpp_f80_infinity_bytes,
+	__glibcpp_f80_has_infinity, __glibcpp_f80_QNaN_bytes,
+	__glibcpp_f80_has_QNaN, __glibcpp_f80_SNaN_bytes,
+	__glibcpp_f80_has_SNaN, __glibcpp_f80_denorm_min_bytes,
+	__glibcpp_f80_has_denorm, __glibcpp_f80_is_iec559,
+	__glibcpp_f96_infinity_bytes,
+	__glibcpp_f96_has_infinity, __glibcpp_f96_QNaN_bytes,
+	__glibcpp_f96_has_QNaN, __glibcpp_f96_SNaN_bytes,
+	__glibcpp_f96_has_SNaN, __glibcpp_f96_denorm_min_bytes,
+	__glibcpp_f96_has_denorm, __glibcpp_f96_is_iec559,
+	__glibcpp_f128_infinity_bytes,
+	__glibcpp_f128_has_infinity, __glibcpp_f128_QNaN_bytes,
+	__glibcpp_f128_has_QNaN, __glibcpp_f128_SNaN_bytes,
+	__glibcpp_f128_has_SNaN, __glibcpp_f128_denorm_min_bytes,
+	__glibcpp_f128_has_denorm, __glibcpp_f128_is_iec559,
+	__glibcpp_float_infinity_bytes,
+	__glibcpp_float_has_infinity, __glibcpp_float_QNaN_bytes,
+	__glibcpp_float_has_QNaN, __glibcpp_float_SNaN_bytes,
+	__glibcpp_float_has_SNaN, __glibcpp_float_denorm_min_bytes,
+	__glibcpp_float_has_denorm, __glibcpp_float_is_iec559,
+	__glibcpp_double_infinity_bytes,
+	__glibcpp_double_has_infinity, __glibcpp_double_QNaN_bytes,
+	__glibcpp_double_has_QNaN, __glibcpp_double_SNaN_bytes,
+	__glibcpp_double_has_SNaN, __glibcpp_double_denorm_min_bytes,
+	__glibcpp_double_has_denorm, __glibcpp_double_is_iec559,
+	__glibcpp_long_double_infinity_bytes,
+	__glibcpp_long_double_has_infinity, __glibcpp_long_double_QNaN_bytes,
+	__glibcpp_long_double_has_QNaN, __glibcpp_long_double_SNaN_bytes,
+	__glibcpp_long_double_has_SNaN, __glibcpp_long_double_denorm_min_bytes,
+	__glibcpp_long_double_has_denorm, __glibcpp_long_double_is_iec559:
+	New macros.
+	(__glibcpp_word_bits, __glibcpp_word): Likewise.
+	(__glibcpp_byte): New typedef.
+	(__float_storage, __double_storage, __long_double_storage): New types.
+	(__glibcpp_float_infinity, __glibcpp_float_QNaN,
+	__glibcpp_float_SNaN, __glibcpp_float_denorm_min): Now
+	objects. Declare.
+	(__glibcpp_double_infinity, __glibcpp_double_QNaN,
+	__glibcpp_double_SNaN, __glibcpp_double_denorm_min): Likewise.
+	(__glibcpp_long_double_infinity, __glibcpp_long_double_QNaN,
+	__glibcpp_long_double_SNaN, __glibcpp_long_double_denorm_min):
+	Likewise.
+	
+	* src/limits.cc (__glibcpp_float_infinity, __glibcpp_float_QNaN,
+	__glibcpp_float_SNaN, __glibcpp_float_denorm_min): Define.
+	(__glibcpp_double_infinity, __glibcpp_double_QNaN,
+	__glibcpp_double_SNaN, __glibcpp_double_denorm_min): Likewise.
+	(__glibcpp_long_double_infinity, __glibcpp_long_double_QNaN,
+	__glibcpp_long_double_SNaN, __glibcpp_long_double_denorm_min):
+	Likewise.
+	
+2002-08-25  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* include/std/std_limits.h: Indent conditional macro definitions.
+
+2002-08-23  Phil Edwards  <pme@gcc.gnu.org>
+
+	* Makefile.am (check-abi):  Specify current directory.
+	* acinclude.m4 (GLIBCPP_CONFIGURE_TESTSUITE):  Fix shell syntax, use
+	abi_baseline_triplet in baseline_file.
+	* Makefile.in, aclocal.m4, configure:  Regenerate.
+	* configure.target:  Add abi_baseline_triplet with default.
+	* testsuite/abi_check.cc:  More error checking.
+
+2002-08-23  Phil Edwards  <pme@gcc.gnu.org>
+
+	* config/linker-map.gnu:  Verbose comments, clean up spacing.
+	* include/bits/stl_alloc.h:  Fix indentation of 'if' bodies, return
+	statements.
+	__allocator:  Change class declaration to struct.
+	* docs/html/17_intro/C++STYLE:  Fix typo.
+	* include/bits/stl_deque.h, include/bits/stl_list.h,
+	include/bits/stl_map.h, include/bits/stl_multimap.h,
+	include/bits/stl_vector.h:  Fix fallout from typo.
+
+2002-08-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCPP_CONFIGURE_TESTSUITE): Set
+	GLIBCPP_BUILD_ABI_CHECK based on cross compiling, build, host
+	variables.
+	* aclocal.m4: Regenerate.
+	* testsuite/Makefile.am (noinst_PROGRAMS): Make conditional on
+	native compiling.
+	* testsuite/Makefile.in: Regenerate.
+	
+2002-08-22  Loren J. Rittle <ljrittle@acm.org>
+
+	* testsuite/abi_check.cc: Enhance shell portability.
+	Support older binutils/readelf.
+	* config/abi/i386-unknown-freebsd4.6: Add.
+	* config/abi/i386-unknown-freebsd4.6/baseline_symbols.txt: New file.
+
+2002-08-22  Paolo Carlini  <pcarlini@unitus.it>
+
+	* docs/html/faq/index.html: Add Loren James Rittle and
+	Paolo Carlini to the list of v3 maintainers.
+	* docs/html/faq/index.txt: Ditto.
+	* docs/html/17_intro/RELEASE-NOTES: Ditto.
+
+2002-08-22  Benjamin Kosnik  <bkoz@redhat.com>
+	    Phil Edwards  <pme@gcc.gnu.org>
+	    Ulrich Drepper  <drepper@redhat.com>
+	
+	* Makefile.am (check-abi): New rule.
+	* Makefile.in: Regenerate.
+	* acinclude.m4 (GLIBCPP_CONFIGURE_TESTSUITE): Export baseline_file.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* testsuite/Makefile.am (noinst_PROGRAMS): Add abi_check.
+	(abi_check_SOURCES): Add.
+	* testsuite/Makefile.in: Regenerate.	
+	* testsuite/abi_check.cc: New file.
+	* config/abi: Add.
+	* config/abi/i686-pc-linux-gnu: Add.
+	* config/abi/i686-pc-linux-gnu/baseline_symbols.txt: New file.
+	
+2002-08-19  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* configure.in (libtool_VERSION): Update to 5:1:0.
+	* configure: Regenerate.
+	
+2002-08-19  Jonathan Wakely  <jw@kayari.org>
+
+	* docs/html/configopts.html, docs/html/documentation.html,
+	docs/html/install.html, docs/html/22_locale/codecvt.html,
+	docs/html/22_locale/ctype.html, docs/html/22_locale/howto.html,
+	docs/html/22_locale/locale.html,
+	docs/html/22_locale/messages.html: Conform to HTML 4.01 standard.
+
+2002-08-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/ext/stdio_filebuf.h (stdio_filebuf): Explicitly set
+	_M_buf_size_opt to zero when unbuffering.
+	* include/bits/fstream.tcc (filebuf::showmanyc): Simplify.
+	Consistency checks for _M_buf_size_opt.
+
+	Revert PR libstdc++/7445
+	* src/locale.cc (locale::classic): Revert.
+	
+	* docs/html/17_intro/TODO: Add.
+	
+2002-08-15  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/documentation.html:  Update doxygen links for 3.2.
+
+2002-08-15  Steve Ellcey  <sje@cup.hp.com>
+
+	* libsupc++/unwind-cxx.h (__cxa_exception): Change catchTemp
+	type from void* to _Unwind_Ptr.
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION):
+	Do not cast landing_pad or base_of_encoded_value to (void *).
+	* libsupc++/eh_throw.cc (__gxx_exception_cleanup):
+	Accept _URC_NO_REASON as a valid reason code.
+
+2002-08-14  Jonathan Wakely  <jw@kayari.org>
+
+	* docs/html/22_locale/messages.html:  Use HTML entities for
+	punctuation.
+
+2002-08-13  Jonathan Wakely  <jw@kayari.org>
+            Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/html/documentation.html:  Use HTML entities for punctuation.
+
+2002-08-09  Phil Edwards  <pme@gcc.gnu.org>
+
+	* include/bits/deque.tcc, include/bits/list.tcc,
+	include/bits/stl_deque.h, include/bits/stl_iterator_base_funcs.h,
+	include/bits/stl_list.h, include/bits/stl_map.h,
+	include/bits/stl_multimap.h, include/bits/stl_queue.h,
+	include/bits/stl_stack.h, include/bits/stl_vector.h,
+	include/bits/vector.tcc:  Re-indent contents of namespace std,
+	re-wrap comment lines as necessary.
+
+2002-08-08  Danny Smith  <dannysmith@users.sourceforge.net>
+            Benjamin Kosnik  <bkoz@redhat.com>
+	
+	* include/bits/istream.tcc (basic_istream::ignore): Use sbumpc,
+	not snextc.
+	* testsuite/27_io/narrow_stream_objects.cc (test10): Add.
+	
 2002-08-07  John David Anglin  <dave@hiauly1.hia.nrc.ca>
 
 	* libsupc++/Makefile.am (LTCOMPILE): Add LIBSUPCXX_PICFLAGS.

@@ -90,16 +90,6 @@
 extern int option_main;
 extern char **file_names;
 
-/* Flags etc required by c code.  */
-
-int warn_format = 0;
-int warn_format_y2k = 0;
-int warn_format_extra_args = 0;
-int warn_format_nonliteral = 0;
-int warn_format_security = 0;
-int warn_format_zero_length = 0;
-
-
 /* The front end language hooks (addresses of code for this front
    end).  Mostly just use the C routines.  */
 
@@ -259,7 +249,7 @@ tree_code_create_function_prototype (unsigned char* chars,
       type_node = get_type_for_numeric_type (parm->type);
       type_list = tree_cons (NULL_TREE, type_node, type_list);
     }
-  /* Last parm if null indicates fixed length list (as opposed to
+  /* Last parm if void indicates fixed length list (as opposed to
      printf style va_* list).  */
   type_list = tree_cons (NULL_TREE, void_type_node, type_list);
   /* The back end needs them in reverse order.  */
@@ -850,16 +840,6 @@ tree_ggc_storage_always_used (void * m)
 
 /* Following  from c-lang.c.  */
 
-/* Tell the c code we are not objective C.  */
-
-int
-maybe_objc_comptypes (tree lhs ATTRIBUTE_UNUSED,
-                      tree rhs ATTRIBUTE_UNUSED,
-                      int reflexive ATTRIBUTE_UNUSED)
-{
-  return -1;
-}
-
 /* Used by c-typeck.c (build_external_ref), but only for objc.  */
 
 tree
@@ -880,8 +860,10 @@ check_function_format (int *status ATTRIBUTE_UNUSED,
 
 /* Tell the c code we are not objective C.  */
 
-tree
-maybe_building_objc_message_expr ()
+int
+objc_comptypes (tree lhs ATTRIBUTE_UNUSED, 
+                tree rhs ATTRIBUTE_UNUSED, 
+                int reflexive ATTRIBUTE_UNUSED)
 {
   return 0;
 }
@@ -954,22 +936,6 @@ cpp_create_reader (enum c_lang lang ATTRIBUTE_UNUSED)
 
 /* Should not be called for treelang.   */
 
-void
-cpp_post_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
-{
-  abort ();
-}
-
-/* Should not be called for treelang.   */
-
-void
-cpp_preprocess_file (cpp_reader *pfile ATTRIBUTE_UNUSED)
-{
-  abort ();
-}
-
-/* Should not be called for treelang.   */
-
 const char *
 init_c_lex (const char *filename ATTRIBUTE_UNUSED)
 {
@@ -988,8 +954,8 @@ init_pragma ()
 
 /* Should not be called for treelang.   */
 
-void
-cpp_finish (cpp_reader *pfile ATTRIBUTE_UNUSED)
+int
+cpp_finish (cpp_reader *pfile ATTRIBUTE_UNUSED, FILE *f ATTRIBUTE_UNUSED)
 {
   abort ();
 }
@@ -1053,12 +1019,26 @@ set_Wformat (int setting ATTRIBUTE_UNUSED)
   abort ();
 }
 
-/* Should not be called for treelang.   */
+/* Used for objective C.  */
 
 void
-maybe_objc_check_decl (tree decl ATTRIBUTE_UNUSED)
+objc_check_decl (tree decl ATTRIBUTE_UNUSED);
+
+void
+objc_check_decl (tree decl ATTRIBUTE_UNUSED)
 {
   abort ();
+}
+
+/* Tell the c code we are not objective C.  */
+
+tree
+objc_message_selector (void);
+
+tree
+objc_message_selector ()
+{
+  return 0;
 }
 
 /* Should not be called for treelang.   */
@@ -1167,12 +1147,6 @@ cpp_get_callbacks (cpp_reader * cr ATTRIBUTE_UNUSED)
   /* `unsigned long' is the standard type for sizeof.
      Note that stddef.h uses `unsigned long',
      and this must agree, even if long and int are the same size.  */
-
-/* This variable keeps a table for types for each precision so that we
-   only allocate each of them once.  Signed and unsigned types are
-   kept separate.  */
-
-tree integer_types[itk_none] = { NULL_TREE};
 
 /* The reserved keyword table.  */
 struct resword

@@ -154,19 +154,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / UNITS_PER_WORD, TRUE), FILE); \
 #define ASM_OUTPUT_LABELREF(FILE,NAME)  asm_fprintf ((FILE), "%U%s", (NAME))
 #endif
 
-/* A C statement (sans semicolon) to output to the stdio stream FILE
-   some commands that will make the label NAME global; that is,
-   available for reference from other files.  */
-
-#if !defined(ASM_GLOBALIZE_LABEL) && defined(GLOBAL_ASM_OP)
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)		\
-  do {						\
-      fputs (GLOBAL_ASM_OP, (FILE));		\
-      assemble_name ((FILE), (NAME));		\
-      fputc ('\n', (FILE));			\
-  } while (0)
-#endif
-
 /* Allow target to print debug info labels specially.  This is useful for
    VLIW targets, since debug info labels should go into the middle of
    instruction bundles instead of breaking them.  */
@@ -588,6 +575,18 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
    register C++ destructors for local statics and global objects. */
 #ifndef DEFAULT_USE_CXA_ATEXIT
 #define DEFAULT_USE_CXA_ATEXIT 0
+#endif
+
+/* Determine whether extra constraint letter should be handled
+   via address reload (like 'o').  */
+#ifndef EXTRA_MEMORY_CONSTRAINT
+#define EXTRA_MEMORY_CONSTRAINT(C) 0
+#endif
+
+/* Determine whether extra constraint letter should be handled
+   as an address (like 'p').  */
+#ifndef EXTRA_ADDRESS_CONSTRAINT
+#define EXTRA_ADDRESS_CONSTRAINT(C) 0
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

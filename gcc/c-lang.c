@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "langhooks.h"
 #include "langhooks-def.h"
 
-static const char *c_init PARAMS ((const char *));
 static void c_init_options PARAMS ((void));
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
@@ -37,7 +36,7 @@ static void c_init_options PARAMS ((void));
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C"
 #undef LANG_HOOKS_INIT
-#define LANG_HOOKS_INIT c_init
+#define LANG_HOOKS_INIT c_objc_common_init
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
 #undef LANG_HOOKS_INIT_OPTIONS
@@ -159,13 +158,6 @@ c_init_options ()
   c_common_init_options (clk_c);
 }
 
-static const char *
-c_init (filename)
-     const char *filename;
-{
-  return c_objc_common_init (filename);
-}
-
 /* Used by c-lex.c, but only for objc.  */
 
 tree
@@ -183,13 +175,13 @@ is_class_name (arg)
 }
 
 void
-maybe_objc_check_decl (decl)
+objc_check_decl (decl)
      tree decl ATTRIBUTE_UNUSED;
 {
 }
 
 int
-maybe_objc_comptypes (lhs, rhs, reflexive)
+objc_comptypes (lhs, rhs, reflexive)
      tree lhs ATTRIBUTE_UNUSED;
      tree rhs ATTRIBUTE_UNUSED;
      int reflexive ATTRIBUTE_UNUSED;
@@ -198,7 +190,7 @@ maybe_objc_comptypes (lhs, rhs, reflexive)
 }
 
 tree
-maybe_building_objc_message_expr ()
+objc_message_selector ()
 {
   return 0;
 }

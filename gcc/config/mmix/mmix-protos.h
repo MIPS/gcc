@@ -40,7 +40,6 @@ extern void mmix_output_quoted_string PARAMS ((FILE *, const char *, int));
 extern void mmix_asm_output_source_line  PARAMS ((FILE *, int));
 extern void mmix_asm_output_ascii PARAMS ((FILE *, const char *, int));
 extern void mmix_asm_output_label PARAMS ((FILE *, const char *));
-extern void mmix_asm_globalize_label PARAMS ((FILE *, const char *));
 extern void mmix_asm_weaken_label PARAMS ((FILE *, const char *));
 extern void mmix_asm_output_labelref PARAMS ((FILE *, const char *));
 extern void mmix_asm_output_internal_label
@@ -57,6 +56,7 @@ extern void mmix_output_register_setting
 extern void mmix_conditional_register_usage PARAMS ((void));
 extern int mmix_local_regno PARAMS ((int));
 extern int mmix_dbx_register_number PARAMS ((int));
+extern int mmix_use_simple_return PARAMS ((void));
 
 /* Things that need rtl.h, tree.h or real.h included, or in combination.  */
 
@@ -81,7 +81,6 @@ extern void mmix_asm_output_aligned_local
 extern void mmix_asm_declare_register_global
   PARAMS ((FILE *, tree, int, const char *));
 extern void mmix_asm_output_mi_thunk PARAMS ((FILE *, tree, int, tree));
-extern int mmix_use_simple_return PARAMS ((void));
 
 /* Need tree.h and rtl.h */
 # ifdef RTX_CODE

@@ -26,8 +26,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* The rest must follow.  */
 
-#define DBX_DEBUGGING_INFO
-#define SDB_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
+#define SDB_DEBUGGING_INFO 1
 #define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define HANDLE_SYSV_PRAGMA
@@ -72,7 +72,7 @@ Boston, MA 02111-1307, USA.  */
 	     builtin_define_std ("LANGUAGE_C");				\
 	     if (c_language == clk_cplusplus)				\
 	       builtin_define_std ("LANGUAGE_C_PLUS_PLUS");		\
-	     else if (c_language == clk_objective_c)			\
+	     if (flag_objc)						\
 	       builtin_define_std ("LANGUAGE_OBJECTIVE_C");		\
 	  } 								\
     }									\

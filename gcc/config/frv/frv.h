@@ -1375,7 +1375,7 @@ extern enum reg_class regno_reg_class[];
 	'g', 'i', 'm', 'n', 'o', 'p', 'r', 's' */
 
 extern enum reg_class reg_class_from_letter[];
-#define REG_CLASS_FROM_LETTER(CHAR) reg_class_from_letter [CHAR]
+#define REG_CLASS_FROM_LETTER(CHAR) reg_class_from_letter [(unsigned char)(CHAR)]
 
 /* A C expression which is nonzero if register number NUM is suitable for use
    as a base register in operand addresses.  It may be either a suitable hard
@@ -2997,17 +2997,8 @@ do {									\
   fputs (":\n", STREAM);						\
 } while (0)
 
-/* A C statement (sans semicolon) to output to the stdio stream STREAM some
-   commands that will make the label NAME global; that is, available for
-   reference from other files.  Use the expression `assemble_name (STREAM,
-   NAME)' to output the name itself; before and after that, output the
-   additional assembler syntax for making that name global, and a newline.  */
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME)				\
-do {									\
-  fputs ("\t.globl ", STREAM);						\
-  assemble_name (STREAM, NAME);						\
-  fputs ("\n", STREAM);							\
-} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* A C statement (sans semicolon) to output to the stdio stream STREAM a
    reference in assembler syntax to a label named NAME.  This should add `_' to

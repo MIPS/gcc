@@ -57,7 +57,6 @@ static int comp_array_types PARAMS ((int (*) (tree, tree, int), tree,
 static tree common_base_type PARAMS ((tree, tree));
 static tree lookup_anon_field PARAMS ((tree, tree));
 static tree pointer_diff PARAMS ((tree, tree, tree));
-static tree build_component_addr PARAMS ((tree, tree));
 static tree qualify_type_recursive PARAMS ((tree, tree));
 static tree get_delta_difference PARAMS ((tree, tree, int));
 static int comp_cv_target_types PARAMS ((tree, tree, int));
@@ -204,28 +203,33 @@ qualify_type_recursive (t1, t2)
   if ((TYPE_PTR_P (t1) && TYPE_PTR_P (t2))
       || (TYPE_PTRMEM_P (t1) && TYPE_PTRMEM_P (t2)))
     {
-      tree tt1 = TREE_TYPE (t1);
-      tree tt2 = TREE_TYPE (t2);
+      tree tt1;
+      tree tt2;
       tree b1;
       int type_quals;
       tree tgt;
       tree attributes = (*targetm.merge_type_attributes) (t1, t2);
 
-      if (TREE_CODE (tt1) == OFFSET_TYPE)
+      if (TYPE_PTRMEM_P (t1))
 	{
-	  b1 = TYPE_OFFSET_BASETYPE (tt1);
-	  tt1 = TREE_TYPE (tt1);
-	  tt2 = TREE_TYPE (tt2);
+	  b1 = TYPE_PTRMEM_CLASS_TYPE (t1);
+	  tt1 = TYPE_PTRMEM_POINTED_TO_TYPE (t1);
+	  tt2 = TYPE_PTRMEM_POINTED_TO_TYPE (t2);
 	}
       else
-	b1 = NULL_TREE;
+	{
+	  b1 = NULL_TREE;
+	  tt1 = TREE_TYPE (t1);
+	  tt2 = TREE_TYPE (t2);
+	}
 
       type_quals = (cp_type_quals (tt1) | cp_type_quals (tt2));
       tgt = qualify_type_recursive (tt1, tt2);
       tgt = cp_build_qualified_type (tgt, type_quals);
       if (b1)
-	tgt = build_offset_type (b1, tgt);
-      t1 = build_pointer_type (tgt);
+	t1 = build_ptrmem_type (b1, tgt);
+      else
+	t1 = build_pointer_type (tgt);
       t1 = build_type_attribute_variant (t1, attributes);
     }
   return t1;
@@ -858,7 +862,7 @@ comp_array_types (cmp, t1, t2, strict)
     return 1;
 
   /* If one of the arrays is dimensionless, and the other has a
-     dimension, they are of different types.  However, it is legal to
+     dimension, they are of different types.  However, it is valid to
      write:
 
        extern int a[];
@@ -898,7 +902,7 @@ comptypes (t1, t2, strict)
        extern int (*i)[];
        int (*i)[8];
 
-     is not legal, for example.  */
+     is invalid, for example.  */
   strict &= ~COMPARE_REDECLARATION;
 
   /* Suppress errors caused by previously reported errors */
@@ -1544,7 +1548,7 @@ expr_sizeof (e)
       cxx_incomplete_type_error (e, TREE_TYPE (e));
       return c_sizeof (char_type_node);
     }
-  /* It's illegal to say `sizeof (X::i)' for `i' a non-static data
+  /* It's invalid to say `sizeof (X::i)' for `i' a non-static data
      member unless you're in a non-static member of X.  So hand off to
      resolve_offset_ref.  [expr.prim]  */
   else if (TREE_CODE (e) == OFFSET_REF)
@@ -1855,6 +1859,27 @@ build_class_member_access_expr (tree object, tree member,
   my_friendly_assert (DECL_P (member) || BASELINK_P (member),
 		      20020801);
 
+  /* Transform `(a, b).x' into `a, b.x' and `(a ? b : c).x' into 
+     `a ? b.x : c.x'.  These transformations should not really be
+     necessary, but they are.  */
+  if (TREE_CODE (object) == COMPOUND_EXPR)
+    {
+      result = build_class_member_access_expr (TREE_OPERAND (object, 1),
+					       member, access_path, 
+					       preserve_reference);
+      return build (COMPOUND_EXPR, TREE_TYPE (result), 
+		    TREE_OPERAND (object, 0), result);
+    }
+  else if (TREE_CODE (object) == COND_EXPR)
+    return (build_conditional_expr
+	    (TREE_OPERAND (object, 0),
+	     build_class_member_access_expr (TREE_OPERAND (object, 1),
+					     member, access_path,
+					     preserve_reference),
+	     build_class_member_access_expr (TREE_OPERAND (object, 2),
+					     member, access_path,
+					     preserve_reference)));
+
   /* [expr.ref]
 
      The type of the first expression shall be "class object" (of a
@@ -1951,7 +1976,6 @@ build_class_member_access_expr (tree object, tree member,
 	  warning ("invalid access to non-static data member `%D' of NULL object", 
 		   member);
 	  warning  ("(perhaps the `offsetof' macro was used incorrectly)");
-	  return error_mark_node;
 	}
 
       /* If MEMBER is from an anonymous aggregate, we have converted
@@ -2132,7 +2156,7 @@ finish_class_member_access_expr (tree object, tree name)
 	  if (TREE_CODE (scope) == NAMESPACE_DECL)
 	    {
 	      error ("`%D::%D' is not a member of `%T'", 
-		     scope, member, object_type);
+		     scope, name, object_type);
 	      return error_mark_node;
 	    }
 
@@ -2144,7 +2168,12 @@ finish_class_member_access_expr (tree object, tree name)
 	  /* Look up the member.  */
 	  member = lookup_member (access_path, name, /*protect=*/1, 
 				  /*want_type=*/0);
-	  if (member == error_mark_node)
+	  if (member == NULL_TREE)
+	    {
+	      error ("'%D' has no member named '%E'", object_type, name);
+	      return error_mark_node;
+	    }
+	  else if (member == error_mark_node)
 	    return error_mark_node;
 	}
       else if (TREE_CODE (name) == BIT_NOT_EXPR)
@@ -2168,7 +2197,12 @@ finish_class_member_access_expr (tree object, tree name)
 	  /* An unqualified name.  */
 	  member = lookup_member (object_type, name, /*protect=*/1, 
 				  /*want_type=*/0);
-	  if (member == error_mark_node)
+	  if (member == NULL_TREE)
+	    {
+	      error ("'%D' has no member named '%E'", object_type, name);
+	      return error_mark_node;
+	    }
+	  else if (member == error_mark_node)
 	    return error_mark_node;
 	}
       else
@@ -3620,7 +3654,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
       return error_mark_node;
     }
 
-  /* Issue warnings about peculiar, but legal, uses of NULL.  */
+  /* Issue warnings about peculiar, but valid, uses of NULL.  */
   if (/* It's reasonable to use pointer values as operands of &&
 	 and ||, so NULL is no exception.  */
       !(code == TRUTH_ANDIF_EXPR || code == TRUTH_ORIF_EXPR)
@@ -3741,50 +3775,6 @@ pointer_diff (op0, op1, ptrtype)
   return folded;
 }
 
-/* Handle the case of taking the address of a COMPONENT_REF.
-   Called by `build_unary_op'.
-
-   ARG is the COMPONENT_REF whose address we want.
-   ARGTYPE is the pointer type that this address should have. */
-
-static tree
-build_component_addr (arg, argtype)
-     tree arg, argtype;
-{
-  tree field = TREE_OPERAND (arg, 1);
-  tree basetype = decl_type_context (field);
-  tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
-
-  my_friendly_assert (TREE_CODE (field) == FIELD_DECL, 981018);
-
-  if (DECL_C_BIT_FIELD (field))
-    {
-      error ("attempt to take address of bit-field structure member `%D'",
-                field);
-      return error_mark_node;
-    }
-
-  if (TREE_CODE (field) == FIELD_DECL
-      && TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (basetype))
-    {
-      /* Can't convert directly to ARGTYPE, since that
-	 may have the same pointer type as one of our
-	 baseclasses.  */
-      tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)), basetype,
-				ba_check, NULL);
-
-      rval = build_base_path (PLUS_EXPR, rval, binfo, 1);
-      rval = build1 (NOP_EXPR, argtype, rval);
-      TREE_CONSTANT (rval) = TREE_CONSTANT (TREE_OPERAND (rval, 0));
-    }
-  else
-    /* This conversion is harmless.  */
-    rval = convert_force (argtype, rval, 0);
-
-  return fold (build (PLUS_EXPR, argtype, rval,
-		      cp_convert (argtype, byte_position (field))));
-}
-   
 /* Construct and perhaps optimize a tree representation
    for a unary operation.  CODE, a tree_code, specifies the operation
    and XARG is the operand.  */
@@ -4278,7 +4268,7 @@ build_unary_op (code, xarg, noconvert)
 	 is an error.  */
       else if (TREE_CODE (argtype) != FUNCTION_TYPE
 	       && TREE_CODE (argtype) != METHOD_TYPE
-	       && !lvalue_or_else (arg, "unary `&'"))
+	       && !non_cast_lvalue_or_else (arg, "unary `&'"))
 	return error_mark_node;
 
       if (argtype != error_mark_node)
@@ -4290,8 +4280,31 @@ build_unary_op (code, xarg, noconvert)
       {
 	tree addr;
 
-	if (TREE_CODE (arg) == COMPONENT_REF)
-	  addr = build_component_addr (arg, argtype);
+	if (TREE_CODE (arg) == COMPONENT_REF
+	    && DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
+	  {
+	    error ("attempt to take address of bit-field structure member `%D'",
+		   TREE_OPERAND (arg, 1));
+	    return error_mark_node;
+	  }
+	else if (TREE_CODE (arg) == COMPONENT_REF
+		 && TREE_CODE (TREE_OPERAND (arg, 0)) == INDIRECT_REF
+		 && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (arg, 0), 0))
+		     == INTEGER_CST))
+	  {
+	    /* offsetof idiom, fold it. */
+	    tree field = TREE_OPERAND (arg, 1);
+	    tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
+	    tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)),
+				      decl_type_context (field),
+				      ba_check, NULL);
+	    
+	    rval = build_base_path (PLUS_EXPR, rval, binfo, 1);
+	    rval = build1 (NOP_EXPR, argtype, rval);
+	    TREE_CONSTANT (rval) = TREE_CONSTANT (TREE_OPERAND (rval, 0));
+	    addr = fold (build (PLUS_EXPR, argtype, rval,
+				cp_convert (argtype, byte_position (field))));
+	  }
 	else
 	  addr = build1 (ADDR_EXPR, argtype, arg);
 
@@ -4431,9 +4444,7 @@ unary_complex_lvalue (code, arg)
 	      return error_mark_node;
 	    }
 
-	  type = build_offset_type (DECL_FIELD_CONTEXT (t), TREE_TYPE (t));
-	  type = build_pointer_type (type);
-
+	  type = build_ptrmem_type (DECL_FIELD_CONTEXT (t), TREE_TYPE (t));
 	  t = make_ptrmem_cst (type, TREE_OPERAND (arg, 1));
 	  return t;
 	}
@@ -5754,7 +5765,7 @@ dubious_conversion_warnings (type, expr, errtype, fndecl, parmnum)
   if (TREE_CODE (type) == REFERENCE_TYPE)
     type = TREE_TYPE (type);
   
-  /* Issue warnings about peculiar, but legal, uses of NULL.  */
+  /* Issue warnings about peculiar, but valid, uses of NULL.  */
   if (ARITHMETIC_TYPE_P (type) && expr == null_node)
     {
       if (fndecl)
@@ -6106,7 +6117,7 @@ maybe_warn_about_returning_address_of_local (retval)
     }
 }
 
-/* Check that returning RETVAL from the current function is legal.
+/* Check that returning RETVAL from the current function is valid.
    Return an expression explicitly showing all conversions required to
    change RETVAL into the function return type, and to assign it to
    the DECL_RESULT for the function.  */

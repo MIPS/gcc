@@ -1320,7 +1320,8 @@ need to define this macro when the format is IEEE@.
 
 @findex VAX_FLOAT_FORMAT
 @item VAX_FLOAT_FORMAT
-This code indicates the ``D float'' format used on the VAX@.
+This code indicates the ``F float'' (for @code{float}) and ``D float''
+or ``G float'' formats (for @code{double}) used on the VAX and PDP-11@.
 
 @findex IBM_FLOAT_FORMAT
 @item IBM_FLOAT_FORMAT
@@ -1335,14 +1336,19 @@ This code indicates the format used on the TMS320C3x/C4x.
 This code indicates any other format.
 @end table
 
-The value of this macro is compared with @code{HOST_FLOAT_FORMAT}, which
-is defined by the @command{configure} script, to determine whether the
-target machine has the same format as the host machine.  If any other
+If any other
 formats are actually in use on supported machines, new codes should be
 defined for them.
 
 The ordering of the component words of floating point values stored in
 memory is controlled by @code{FLOAT_WORDS_BIG_ENDIAN}.
+
+@findex VAX_HALFWORD_ORDER
+@item VAX_HALFWORD_ORDER
+This macro is only used if @code{TARGET_FLOAT_FORMAT} is
+@code{VAX_FLOAT_FORMAT}.  If defaulted or defined as 1, the halfwords of
+the generated floating point data are in the order used by the VAX.  If
+defined as 0, they are reversed, which is used by the PDP-11 target.
 
 @findex MODE_HAS_NANS
 @item MODE_HAS_NANS (@var{mode})
@@ -1422,8 +1428,7 @@ Not defining this macro is equivalent to returning zero.
 
 @findex LARGEST_EXPONENT_IS_NORMAL
 @item LARGEST_EXPONENT_IS_NORMAL (@var{size})
-This macro should only be defined when the target float format is
-described as IEEE@.  It should return true if floats with @var{size}
+This macro should return true if floats with @var{size}
 bits do not have a NaN or infinity representation, but use the largest
 exponent for normal numbers instead.
 
@@ -2614,6 +2619,44 @@ letter @samp{Q} is defined as representing a memory address that does
 a @samp{Q} constraint on the input and @samp{r} on the output.  The next
 alternative specifies @samp{m} on the input and a register class that
 does not include r0 on the output.
+
+@findex EXTRA_MEMORY_CONSTRAINT
+@item EXTRA_MEMORY_CONSTRAINT (@var{c})
+A C expression that defines the optional machine-dependent constraint
+letters, amongst those accepted by @code{EXTRA_CONSTRAINT}, that should
+be treated like memory constraints by the reload pass.
+
+It should return 1 if the operand type represented by the constraint 
+letter @var{c} comprises a subset of all memory references including
+all those whose address is simply a base register.  This allows the reload 
+pass to reload an operand, if it does not directly correspond to the operand 
+type of @var{c}, by copying its address into a base register.
+
+For example, on the S/390, some instructions do not accept arbitrary
+memory references, but only those that do not make use of an index
+register.  The constraint letter @samp{Q} is defined via
+@code{EXTRA_CONSTRAINT} as representing a memory address of this type.
+If the letter @samp{Q} is marked as @code{EXTRA_MEMORY_CONSTRAINT},
+a @samp{Q} constraint can handle any memory operand, because the
+reload pass knows it can be reloaded by copying the memory address
+into a base register if required.  This is analogous to the way
+a @samp{o} constraint can handle any memory operand.
+
+@findex EXTRA_ADDRESS_CONSTRAINT
+@item EXTRA_ADDRESS_CONSTRAINT (@var{c})
+A C expression that defines the optional machine-dependent constraint
+letters, amongst those accepted by @code{EXTRA_CONSTRAINT}, that should
+be treated like address constraints by the reload pass.
+
+It should return 1 if the operand type represented by the constraint 
+letter @var{c} comprises a subset of all memory addresses including
+all those that consist of just a base register.  This allows the reload 
+pass to reload an operand, if it does not directly correspond to the operand 
+type of @var{c}, by copying it into a base register.
+
+Any constraint marked as @code{EXTRA_ADDRESS_CONSTRAINT} can only
+be used with the @code{address_operand} predicate.  It is treated 
+analogously to the @samp{p} constraint.
 @end table
 
 @node Stack and Calling
@@ -5429,9 +5472,8 @@ This value must be constant over the entire compilation.  If you need
 it to vary depending on what the instructions are, you must use
 @samp{TARGET_SCHED_VARIABLE_ISSUE}.
 
-You could use the value of macro @samp{MAX_DFA_ISSUE_RATE} to return
-the value of the hook @samp{TARGET_SCHED_ISSUE_RATE} for the automaton
-based pipeline interface.
+For the automaton based pipeline interface, you could define this hook
+to return the value of the macro @code{MAX_DFA_ISSUE_RATE}.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_SCHED_VARIABLE_ISSUE (FILE *@var{file}, int @var{verbose}, rtx @var{insn}, int @var{more})
@@ -6543,19 +6585,18 @@ nothing.
 
 You may wish to use @code{ASM_OUTPUT_SIZE_DIRECTIVE} and/or
 @code{ASM_OUTPUT_MEASURED_SIZE} in the definition of this macro.
+@end table
 
-@findex ASM_GLOBALIZE_LABEL
-@item ASM_GLOBALIZE_LABEL (@var{stream}, @var{name})
-A C statement (sans semicolon) to output to the stdio stream
+@deftypefn {Target Hook} void TARGET_ASM_GLOBALIZE_LABEL (FILE *@var{stream}, const char *@var{name})
+This target hook is a function to output to the stdio stream
 @var{stream} some commands that will make the label @var{name} global;
-that is, available for reference from other files.  Use the expression
-@code{assemble_name (@var{stream}, @var{name})} to output the name
-itself; before and after that, output the additional assembler syntax
-for making that name global, and a newline.
+that is, available for reference from other files.
 
-If you define @code{GLOBAL_ASM_OP}, a default definition is provided
-which is correct for most systems.
+The default implementation relies on a proper definition of
+@code{GLOBAL_ASM_OP}.
+@end deftypefn
 
+@table @code
 @findex ASM_WEAKEN_LABEL
 @item ASM_WEAKEN_LABEL (@var{stream}, @var{name})
 A C statement (sans semicolon) to output to the stdio stream
@@ -6651,12 +6692,12 @@ encoded by @code{TARGET_ENCODE_SECTION_INFO}.
 @findex ASM_OUTPUT_LABEL_REF
 @item ASM_OUTPUT_LABEL_REF (@var{stream}, @var{buf})
 A C statement (sans semicolon) to output a reference to @var{buf}, the
-result of ASM_GENERATE_INTERNAL_LABEL.  If not defined,
+result of @code{ASM_GENERATE_INTERNAL_LABEL}.  If not defined,
 @code{assemble_name} will be used to output the name of the symbol.
 This macro is not used by @code{output_asm_label}, or the @code{%l}
 specifier that calls it; the intention is that this macro should be set
-when it is necessary to output a label differently when its address
-is being taken.
+when it is necessary to output a label differently when its address is
+being taken.
 
 @findex ASM_OUTPUT_INTERNAL_LABEL
 @item ASM_OUTPUT_INTERNAL_LABEL (@var{stream}, @var{prefix}, @var{num})
@@ -8402,7 +8443,7 @@ elements of a jump-table should have.
 Optional: return the preferred mode for an @code{addr_diff_vec}
 when the minimum and maximum offset are known.  If you define this,
 it enables extra code in branch shortening to deal with @code{addr_diff_vec}.
-To make this work, you also have to define INSN_ALIGN and
+To make this work, you also have to define @code{INSN_ALIGN} and
 make the alignment for @code{addr_diff_vec} explicit.
 The @var{body} argument is provided so that the offset_unsigned and scale
 flags can be updated.

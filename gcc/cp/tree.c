@@ -32,6 +32,7 @@ Boston, MA 02111-1307, USA.  */
 #include "insn-config.h"
 #include "integrate.h"
 #include "tree-inline.h"
+#include "target.h"
 
 static tree bot_manip PARAMS ((tree *, int *, void *));
 static tree bot_replace PARAMS ((tree *, int *, void *));
@@ -39,7 +40,7 @@ static tree build_cplus_array_type_1 PARAMS ((tree, tree));
 static int list_hash_eq PARAMS ((const void *, const void *));
 static hashval_t list_hash_pieces PARAMS ((tree, tree, tree));
 static hashval_t list_hash PARAMS ((const void *));
-static cp_lvalue_kind lvalue_p_1 PARAMS ((tree, int));
+static cp_lvalue_kind lvalue_p_1 PARAMS ((tree, int, int));
 static tree no_linkage_helper PARAMS ((tree *, int *, void *));
 static tree build_srcloc PARAMS ((const char *, int));
 static tree mark_local_for_remap_r PARAMS ((tree *, int *, void *));
@@ -59,9 +60,10 @@ static tree handle_init_priority_attribute PARAMS ((tree *, tree, tree, int, boo
    non-zero, rvalues of class type are considered lvalues.  */
 
 static cp_lvalue_kind
-lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
+lvalue_p_1 (ref, treat_class_rvalues_as_lvalues, allow_cast_as_lvalue)
      tree ref;
      int treat_class_rvalues_as_lvalues;
+     int allow_cast_as_lvalue;
 {
   cp_lvalue_kind op1_lvalue_kind = clk_none;
   cp_lvalue_kind op2_lvalue_kind = clk_none;
@@ -84,16 +86,28 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
     case WITH_CLEANUP_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
-      /* This shouldn't be here, but there are lots of places in the compiler
-         that are sloppy about tacking on NOP_EXPRs to the same type when
-	 no actual conversion is happening.  */
-    case NOP_EXPR:
       return lvalue_p_1 (TREE_OPERAND (ref, 0),
-			 treat_class_rvalues_as_lvalues);
+			 treat_class_rvalues_as_lvalues,
+			 allow_cast_as_lvalue);
+
+    case NOP_EXPR:
+      /* If expression doesn't change the type, we consider it as an
+	 lvalue even when cast_as_lvalue extension isn't selected.
+	 That's because parts of the compiler are alleged to be sloppy
+	 about sticking in NOP_EXPR node for no good reason. */
+      if (allow_cast_as_lvalue ||
+	  same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (ref)),
+		       TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (ref, 0)))))
+	return lvalue_p_1 (TREE_OPERAND (ref, 0),
+			   treat_class_rvalues_as_lvalues,
+			   allow_cast_as_lvalue);
+      else
+	return clk_none;
 
     case COMPONENT_REF:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       if (op1_lvalue_kind 
 	  /* The "field" can be a FUNCTION_DECL or an OVERLOAD in some
 	     situations.  */
@@ -134,16 +148,20 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
     case MAX_EXPR:
     case MIN_EXPR:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 0),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       op2_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       break;
 
     case COND_EXPR:
       op1_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 1),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       op2_lvalue_kind = lvalue_p_1 (TREE_OPERAND (ref, 2),
-				    treat_class_rvalues_as_lvalues);
+				    treat_class_rvalues_as_lvalues,
+				    allow_cast_as_lvalue);
       break;
 
     case MODIFY_EXPR:
@@ -151,7 +169,8 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
 
     case COMPOUND_EXPR:
       return lvalue_p_1 (TREE_OPERAND (ref, 1),
-			 treat_class_rvalues_as_lvalues);
+			 treat_class_rvalues_as_lvalues,
+			 allow_cast_as_lvalue);
 
     case TARGET_EXPR:
       return treat_class_rvalues_as_lvalues ? clk_class : clk_none;
@@ -196,7 +215,7 @@ cp_lvalue_kind
 real_lvalue_p (ref)
      tree ref;
 {
-  return lvalue_p_1 (ref, /*treat_class_rvalues_as_lvalues=*/0);
+  return lvalue_p_1 (ref, /*treat_class_rvalues_as_lvalues=*/ 0, /*cast*/ 1);
 }
 
 /* This differs from real_lvalue_p in that class rvalues are
@@ -207,7 +226,7 @@ lvalue_p (ref)
      tree ref;
 {
   return 
-    (lvalue_p_1 (ref, /*treat_class_rvalues_as_lvalues=*/1) != clk_none);
+    (lvalue_p_1 (ref, /*class rvalue ok*/ 1, /*cast*/ 1) != clk_none);
 }
 
 /* Return nonzero if REF is an lvalue valid for this language;
@@ -218,7 +237,20 @@ lvalue_or_else (ref, string)
      tree ref;
      const char *string;
 {
-  int win = lvalue_p (ref);
+  int ret = lvalue_p_1 (ref, /* class rvalue ok */ 1, /* cast ok */ 1);
+  int win = (ret != clk_none);
+  if (! win)
+    error ("non-lvalue in %s", string);
+  return win;
+}
+
+int
+non_cast_lvalue_or_else (ref, string)
+     tree ref;
+     const char *string;
+{
+  int ret = lvalue_p_1 (ref, /* class rvalue ok */ 1, /* cast ok */ 0);
+  int win = (ret != clk_none);
   if (! win)
     error ("non-lvalue in %s", string);
   return win;
@@ -1856,8 +1888,9 @@ maybe_dummy_object (type, binfop)
     *binfop = binfo;
   
   if (current_class_ref && context == current_class_type
-      // Kludge: Make sure that current_class_type is actually correct.
-      // It might not be if we're in the middle of tsubst_default_argument.
+      /* Kludge: Make sure that current_class_type is actually
+         correct.  It might not be if we're in the middle of
+         tsubst_default_argument. */
       && same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (current_class_ref)),
 		      current_class_type))
     decl = current_class_ref;
@@ -2179,6 +2212,14 @@ cp_cannot_inline_tree_fn (fnp)
 	return 1;
     }
 
+  /* Don't auto-inline anything that might not be bound within
+     this unit of translation.  */
+  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+    {
+      DECL_UNINLINABLE (fn) = 1;
+      return 1;
+    }
+
   if (varargs_function_p (fn))
     {
       DECL_UNINLINABLE (fn) = 1;
@@ -2288,8 +2329,7 @@ cp_copy_res_decl_for_inlining (result, fn, caller, decl_map_,
 	     position so we can get reasonable debugging information, and
 	     register the return variable as its equivalent.  */
 	  DECL_NAME (var) = DECL_NAME (nrv);
-	  DECL_SOURCE_FILE (var) = DECL_SOURCE_FILE (nrv);
-	  DECL_SOURCE_LINE (var) = DECL_SOURCE_LINE (nrv);
+	  DECL_SOURCE_LOCATION (var) = DECL_SOURCE_LOCATION (nrv);
 	  DECL_ABSTRACT_ORIGIN (var) = DECL_ORIGIN (nrv);
 	  /* Don't lose initialization info.  */
 	  DECL_INITIAL (var) = DECL_INITIAL (nrv);

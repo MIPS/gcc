@@ -568,7 +568,7 @@ comptypes (type1, type2)
       }
 
     case RECORD_TYPE:
-      if (maybe_objc_comptypes (t1, t2, 0) == 1)
+      if (flag_objc && objc_comptypes (t1, t2, 0) == 1)
 	val = 1;
       break;
 
@@ -588,7 +588,7 @@ comp_target_types (ttl, ttr)
   int val;
 
   /* Give maybe_objc_comptypes a crack at letting these types through.  */
-  if ((val = maybe_objc_comptypes (ttl, ttr, 1)) >= 0)
+  if ((val = objc_comptypes (ttl, ttr, 1)) >= 0)
     return val;
 
   val = comptypes (TYPE_MAIN_VARIANT (TREE_TYPE (ttl)),
@@ -1441,7 +1441,8 @@ build_external_ref (id, fun)
   if (TREE_TYPE (ref) == error_mark_node)
     return error_mark_node;
 
-  assemble_external (ref);
+  if (!skip_evaluation)
+    assemble_external (ref);
   TREE_USED (ref) = 1;
 
   if (TREE_CODE (ref) == CONST_DECL)
@@ -3985,7 +3986,8 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
       overflow_warning (rhs);
       /* Check for Objective-C protocols.  This will issue a warning if
 	 there are protocol violations.  No need to use the return value.  */
-      maybe_objc_comptypes (type, rhstype, 0);
+      if (flag_objc)
+	objc_comptypes (type, rhstype, 0);
       return rhs;
     }
 
@@ -4213,7 +4215,7 @@ convert_for_assignment (type, rhs, errtype, fundecl, funname, parmnum)
     {
       if (funname)
  	{
- 	  tree selector = maybe_building_objc_message_expr ();
+ 	  tree selector = objc_message_selector ();
  
  	  if (selector && parmnum > 2)
  	    error ("incompatible type for argument %d of `%s'",
@@ -4271,7 +4273,7 @@ warn_for_assignment (msgid, opname, function, argnum)
 {
   if (opname == 0)
     {
-      tree selector = maybe_building_objc_message_expr ();
+      tree selector = objc_message_selector ();
       char * new_opname;
       
       if (selector && argnum > 2)

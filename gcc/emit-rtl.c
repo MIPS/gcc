@@ -514,10 +514,12 @@ gen_rtx_REG (mode, regno)
 
   if (mode == Pmode && !reload_in_progress)
     {
-      if (regno == FRAME_POINTER_REGNUM)
+      if (regno == FRAME_POINTER_REGNUM
+	  && (!reload_completed || frame_pointer_needed))
 	return frame_pointer_rtx;
 #if FRAME_POINTER_REGNUM != HARD_FRAME_POINTER_REGNUM
-      if (regno == HARD_FRAME_POINTER_REGNUM)
+      if (regno == HARD_FRAME_POINTER_REGNUM
+	  && (!reload_completed || frame_pointer_needed))
 	return hard_frame_pointer_rtx;
 #endif
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM && HARD_FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
@@ -542,7 +544,11 @@ gen_rtx_REG (mode, regno)
      This code is disabled for now until we can fix the various backends
      which depend on having non-shared hard registers in some cases.   Long
      term we want to re-enable this code as it can significantly cut down
-     on the amount of useless RTL that gets generated.  */
+     on the amount of useless RTL that gets generated.
+
+     We'll also need to fix some code that runs after reload that wants to
+     set ORIGINAL_REGNO.  */
+
   if (cfun
       && cfun->emit
       && regno_reg_rtx
@@ -3968,7 +3974,7 @@ rtx
 emit_jump_insn_before (x, before)
      rtx x, before;
 {
-  rtx insn, last;
+  rtx insn, last = NULL_RTX;
 
 #ifdef ENABLE_RTL_CHECKING
   if (before == NULL_RTX)
@@ -4015,7 +4021,7 @@ rtx
 emit_call_insn_before (x, before)
      rtx x, before;
 {
-  rtx last, insn;
+  rtx last = NULL_RTX, insn;
 
 #ifdef ENABLE_RTL_CHECKING
   if (before == NULL_RTX)
@@ -4500,7 +4506,7 @@ rtx
 emit_jump_insn (x)
      rtx x;
 {
-  rtx last, insn;
+  rtx last = NULL_RTX, insn;
 
   switch (GET_CODE (x))
     {

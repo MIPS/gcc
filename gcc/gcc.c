@@ -670,7 +670,7 @@ static const char *trad_capable_cpp =
 static const char *cpp_unique_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
  %{CC:%{!E:%eGNU C does not support -CC without using -E}}\
- %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*} %{P} %{$} %I\
+ %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*} %{P} %I\
  %{MD:-MD %W{!o: %b.d}%W{o*:%.d%*}}\
  %{MMD:-MMD %W{!o: %b.d}%W{o*:%.d%*}}\
  %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*}\
@@ -829,24 +829,23 @@ static const struct compiler default_compilers[] =
   {"@c",
    /* cc1 has an integrated ISO C preprocessor.  We should invoke the
       external preprocessor if -save-temps is given.  */
-     "%{E|M|MM:%(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)\
-	  %(cpp_debug_options)}\
+     "%{E|M|MM:%(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)}\
       %{!E:%{!M:%{!MM:\
           %{traditional|ftraditional:\
 %eGNU C no longer supports -traditional without -E}\
 	  %{save-temps|traditional-cpp:%(trad_capable_cpp) \
-		%{ansi:-std=c89} %(cpp_options) %b.i \n\
+		%(cpp_options) %b.i \n\
 		    cc1 -fpreprocessed %b.i %(cc1_options)}\
 	  %{!save-temps:%{!traditional-cpp:\
-		cc1 %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}\
+		cc1 %(cpp_unique_options) %(cc1_options)}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
-    %(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options)", 0},
+    %(trad_capable_cpp) %(cpp_options)", 0},
   {".h", "@c-header", 0},
   {"@c-header",
    "%{!E:%ecompilation of header file requested} \
-    %(trad_capable_cpp) %{ansi:-std=c89} %(cpp_options) %(cpp_debug_options)",
+    %(trad_capable_cpp) %(cpp_options) %(cpp_debug_options)",
    0},
   {".i", "@cpp-output", 0},
   {"@cpp-output",

@@ -90,9 +90,6 @@ static void mdr_try_wreg_elim PARAMS ((rtx));
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
-/* Commands count in the compiled file.  */
-static int commands_in_file;
-
 /* Commands in the functions prologues in the compiled file.  */
 static int commands_in_prologues;
 
@@ -304,7 +301,6 @@ function_epilogue (file, size)
 {
   int leaf_func_p;
   int reg,savelimit;
-  int function_size;
   rtx operands[2];		/* Dummy used by OUT_ASn  */
   int need_ret = 1;
 
@@ -324,9 +320,6 @@ function_epilogue (file, size)
     }
 
   leaf_func_p = leaf_function_p ();
-  function_size = (INSN_ADDRESSES (INSN_UID (get_last_insn ()))
-		   - INSN_ADDRESSES (INSN_UID (get_insns ())));
-  
   epilogue_size = 0;
   fprintf (file, "/* epilogue: frame size=%d */\n", size);
 
@@ -508,9 +501,6 @@ function_epilogue (file, size)
     }
   
   fprintf (file, "/* epilogue end (size=%d) */\n", epilogue_size);
-  fprintf (file, "/* function %s size %d (%d) */\n", current_function_name,
-	   prologue_size + function_size + epilogue_size, function_size);
-  commands_in_file += prologue_size + function_size + epilogue_size;
   commands_in_prologues += prologue_size;
   commands_in_epilogues += epilogue_size;
 }
@@ -1070,7 +1060,7 @@ print_operand (file, x, code)
 
 	  REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
 	  REAL_VALUE_TO_TARGET_SINGLE (rv, value);
-	  asm_fprintf (file, "0x%x", value);
+	  fprintf (file, "0x%lx", value);
         }
       break;
 
@@ -1085,25 +1075,6 @@ ip2k_set_compare (x, y)
      rtx x;
      rtx y;
 {
-  /* If we're doing a DImode compare then force any CONST_INT second
-     operand to be CONST_DOUBLE.  */
-  if (GET_MODE (x) == DImode && GET_CODE (y) == CONST_INT)
-    {
-      rtx value;
-      int i;
-      
-      value = rtx_alloc (CONST_DOUBLE);
-      PUT_MODE (value, VOIDmode);
-
-      CONST_DOUBLE_LOW (value) = INTVAL (y);
-      CONST_DOUBLE_HIGH (value) = INTVAL (y) > 0 ? 0 : -1;
-
-      for (i = 2; i < (sizeof CONST_DOUBLE_FORMAT - 1); i++)
-	XWINT (value, i) = 0;
-      
-      y = lookup_const_double (value);
-    }
-  
   ip2k_compare_operands[0] = x;
   ip2k_compare_operands[1] = y;
   return "";
@@ -1685,6 +1656,8 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
   int imm_cmp = 0;
   int can_use_skip = 0;
   rtx ninsn;
+  HOST_WIDE_INT const_low;
+  HOST_WIDE_INT const_high;
 
   operands[2] = label;
 
@@ -2342,10 +2315,10 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	    {
 	      if (INTVAL (operands[0]) == 0)
 		{
-                  OUT_AS2 (mov, w, %A0);
-                  OUT_AS2 (or, w, %B0);
-                  OUT_AS2 (or, w, %C0);
-                  OUT_AS2 (or, w, %D0);
+                  OUT_AS2 (mov, w, %A1);
+                  OUT_AS2 (or, w, %B1);
+                  OUT_AS2 (or, w, %C1);
+                  OUT_AS2 (or, w, %D1);
 		  OUT_AS1 (snz,);
 	          OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
@@ -2387,10 +2360,10 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	    {
 	      if (INTVAL (operands[0]) == 0)
 	        {
-                  OUT_AS2 (mov, w, %A0);
-                  OUT_AS2 (or, w, %B0);
-                  OUT_AS2 (or, w, %C0);
-                  OUT_AS2 (or, w, %D0);
+                  OUT_AS2 (mov, w, %A1);
+                  OUT_AS2 (or, w, %B1);
+                  OUT_AS2 (or, w, %C1);
+                  OUT_AS2 (or, w, %D1);
 		  OUT_AS1 (sz,);
 	          OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
@@ -2475,6 +2448,16 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
       break;
 
     case DImode:
+      if (GET_CODE (operands[1]) == CONST_INT)
+	{
+	  const_low = INTVAL (operands[1]);
+	  const_high = (const_low >= 0) - 1;
+	}
+      else if (GET_CODE (operands[1]) == CONST_DOUBLE)
+	{
+	  const_low = CONST_DOUBLE_LOW (operands[1]);
+	  const_high = CONST_DOUBLE_HIGH (operands[1]);
+	}
       switch (code)
         {
 	case EQ:
@@ -2529,14 +2512,14 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	      {
 		if (imm_cmp)
 		  {
-		    s = (CONST_DOUBLE_HIGH (operands[1]) >> 24) & 0xff;
-		    t = (CONST_DOUBLE_HIGH (operands[1]) >> 16) & 0xff;
-		    u = (CONST_DOUBLE_HIGH (operands[1]) >> 8) & 0xff;
-		    v = CONST_DOUBLE_HIGH (operands[1]) & 0xff;
-		    w = (CONST_DOUBLE_LOW (operands[1]) >> 24) & 0xff;
-		    x = (CONST_DOUBLE_LOW (operands[1]) >> 16) & 0xff;
-		    y = (CONST_DOUBLE_LOW (operands[1]) >> 8) & 0xff;
-		    z = CONST_DOUBLE_LOW (operands[1]) & 0xff;
+		    s = (const_high >> 24) & 0xff;
+		    t = (const_high >> 16) & 0xff;
+		    u = (const_high >> 8) & 0xff;
+		    v = const_high & 0xff;
+		    w = (const_low >> 24) & 0xff;
+		    x = (const_low >> 16) & 0xff;
+		    y = (const_low >> 8) & 0xff;
+		    z = const_low & 0xff;
 		  }
 
 		OUT_AS2 (mov, w, %S1);
@@ -2658,14 +2641,14 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	      {
 		if (imm_cmp)
 		  {
-		    s = (CONST_DOUBLE_HIGH (operands[1]) >> 24) & 0xff;
-		    t = (CONST_DOUBLE_HIGH (operands[1]) >> 16) & 0xff;
-		    u = (CONST_DOUBLE_HIGH (operands[1]) >> 8) & 0xff;
-		    v = CONST_DOUBLE_HIGH (operands[1]) & 0xff;
-		    w = (CONST_DOUBLE_LOW (operands[1]) >> 24) & 0xff;
-		    x = (CONST_DOUBLE_LOW (operands[1]) >> 16) & 0xff;
-		    y = (CONST_DOUBLE_LOW (operands[1]) >> 8) & 0xff;
-		    z = CONST_DOUBLE_LOW (operands[1]) & 0xff;
+		    s = (const_high >> 24) & 0xff;
+		    t = (const_high >> 16) & 0xff;
+		    u = (const_high >> 8) & 0xff;
+		    v = const_high & 0xff;
+		    w = (const_low >> 24) & 0xff;
+		    x = (const_low >> 16) & 0xff;
+		    y = (const_low >> 8) & 0xff;
+		    z = const_low & 0xff;
 		  }
 
 		OUT_AS2 (mov, w, %S1);
@@ -2744,13 +2727,11 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	  if (imm_sub)
 	    {
 	      /* > 0xffffffffffffffff never suceeds!  */
-	      if (((CONST_DOUBLE_HIGH (operands[1]) & 0xffffffff)
-		   != 0xffffffff)
-		  || ((CONST_DOUBLE_LOW (operands[1]) & 0xffffffff)
-		      != 0xffffffff))
+	      if (((const_high & 0xffffffff) != 0xffffffff)
+		  || ((const_low & 0xffffffff) != 0xffffffff))
 		{
-	          operands[3] = GEN_INT (CONST_DOUBLE_LOW (operands[1]) + 1);
-		  operands[4] = GEN_INT (CONST_DOUBLE_HIGH (operands[1])
+	          operands[3] = GEN_INT (const_low + 1);
+		  operands[4] = GEN_INT (const_high
 					 + (INTVAL (operands[3]) ? 0 : 1));
 	          OUT_AS2 (mov, w, %D3);
 	          OUT_AS2 (sub, w, %Z0);
@@ -2800,27 +2781,38 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	case GEU:
 	  if (imm_sub)
 	    {
-	      if ((CONST_DOUBLE_HIGH (operands[0]) == 0)
-		  && (CONST_DOUBLE_LOW (operands[0]) == 0))
+	      HOST_WIDE_INT const_low0;
+	      HOST_WIDE_INT const_high0;
+	      
+	      if (GET_CODE (operands[0]) == CONST_INT)
 		{
-                  OUT_AS2 (mov, w, %S0);
-                  OUT_AS2 (or, w, %T0);
-                  OUT_AS2 (or, w, %U0);
-                  OUT_AS2 (or, w, %V0);
-                  OUT_AS2 (or, w, %W0);
-                  OUT_AS2 (or, w, %X0);
-                  OUT_AS2 (or, w, %Y0);
-                  OUT_AS2 (or, w, %Z0);
+		  const_low0 = INTVAL (operands[0]);
+		  const_high0 = (const_low >= 0) - 1;
+		}
+	      else if (GET_CODE (operands[0]) == CONST_DOUBLE)
+		{
+		  const_low0 = CONST_DOUBLE_LOW (operands[0]);
+		  const_high0 = CONST_DOUBLE_HIGH (operands[0]);
+		}
+	      
+	      if (const_high0 == 0 && const_low0 == 0)
+		{
+                  OUT_AS2 (mov, w, %S1);
+                  OUT_AS2 (or, w, %T1);
+                  OUT_AS2 (or, w, %U1);
+                  OUT_AS2 (or, w, %V1);
+                  OUT_AS2 (or, w, %W1);
+                  OUT_AS2 (or, w, %X1);
+                  OUT_AS2 (or, w, %Y1);
+                  OUT_AS2 (or, w, %Z1);
 		  OUT_AS1 (snz,);
 	          OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
 		}
 	      else
 	        {
-	          operands[3] = GEN_INT (CONST_DOUBLE_LOW (operands[0]) - 1);
-		  operands[4] = GEN_INT (CONST_DOUBLE_HIGH (operands[0])
-					 - (CONST_DOUBLE_LOW (operands[0])
-					    ? 1 : 0));
+	          operands[3] = GEN_INT (const_low0 - 1);
+		  operands[4] = GEN_INT (const_high0 - (const_low0 ? 1 : 0));
 	          OUT_AS2 (mov, w, %D3);
 	          OUT_AS2 (sub, w, %Z1);
 	          OUT_AS2 (mov, w, %C3);
@@ -2869,27 +2861,38 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	case LTU:
 	  if (imm_sub)
 	    {
-	      if ((CONST_DOUBLE_HIGH (operands[0]) == 0)
-		  && (CONST_DOUBLE_LOW (operands[0]) == 0))
+	      HOST_WIDE_INT const_low0;
+	      HOST_WIDE_INT const_high0;
+	      
+	      if (GET_CODE (operands[0]) == CONST_INT)
 		{
-                  OUT_AS2 (mov, w, %S0);
-                  OUT_AS2 (or, w, %T0);
-                  OUT_AS2 (or, w, %U0);
-                  OUT_AS2 (or, w, %V0);
-                  OUT_AS2 (or, w, %W0);
-                  OUT_AS2 (or, w, %X0);
-                  OUT_AS2 (or, w, %Y0);
-                  OUT_AS2 (or, w, %Z0);
+		  const_low0 = INTVAL (operands[0]);
+		  const_high0 = (const_low >= 0) - 1;
+		}
+	      else if (GET_CODE (operands[0]) == CONST_DOUBLE)
+		{
+		  const_low0 = CONST_DOUBLE_LOW (operands[0]);
+		  const_high0 = CONST_DOUBLE_HIGH (operands[0]);
+		}
+	      
+	      if (const_high0 == 0 && const_low0 == 0)
+		{
+                  OUT_AS2 (mov, w, %S1);
+                  OUT_AS2 (or, w, %T1);
+                  OUT_AS2 (or, w, %U1);
+                  OUT_AS2 (or, w, %V1);
+                  OUT_AS2 (or, w, %W1);
+                  OUT_AS2 (or, w, %X1);
+                  OUT_AS2 (or, w, %Y1);
+                  OUT_AS2 (or, w, %Z1);
 		  OUT_AS1 (sz,);
 	          OUT_AS1 (page, %2);
 	          OUT_AS1 (jmp, %2);
 		}
 	      else
 	        {
-	          operands[3] = GEN_INT (CONST_DOUBLE_LOW (operands[0]) - 1);
-		  operands[4] = GEN_INT (CONST_DOUBLE_HIGH (operands[0])
-					 - (CONST_DOUBLE_LOW (operands[0])
-					    ? 1 : 0));
+	          operands[3] = GEN_INT (const_low0 - 1);
+		  operands[4] = GEN_INT (const_high0 - (const_low0 ? 1 : 0));
 	          OUT_AS2 (mov, w, %D3);
 	          OUT_AS2 (sub, w, %Z1);
 	          OUT_AS2 (mov, w, %C3);
@@ -2938,10 +2941,8 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 	case LEU:
 	  if (imm_sub)
 	    {
-	      if (((CONST_DOUBLE_HIGH (operands[1]) & 0xffffffff)
-		   == 0xffffffff)
-		  && ((CONST_DOUBLE_LOW (operands[1]) & 0xffffffff)
-		      == 0xffffffff))
+	      if (((const_high & 0xffffffff) == 0xffffffff)
+		  && ((const_low & 0xffffffff) == 0xffffffff))
 	        {
 		  /* <= 0xffffffffffffffff always suceeds.  */
 		  OUT_AS1 (page, %2);
@@ -2949,8 +2950,8 @@ ip2k_gen_unsigned_comp_branch (insn, code, label)
 		}
 	      else
 		{
-	          operands[3] = GEN_INT (CONST_DOUBLE_LOW (operands[1]) + 1);
-		  operands[4] = GEN_INT (CONST_DOUBLE_HIGH (operands[1])
+	          operands[3] = GEN_INT (const_low + 1);
+		  operands[4] = GEN_INT (const_high
 					 + (INTVAL (operands[3]) ? 0 : 1));
 	          OUT_AS2 (mov, w, %D3);
 	          OUT_AS2 (sub, w, %Z0);
@@ -3196,7 +3197,6 @@ asm_file_start (file)
 {
   output_file_directive (file, main_input_filename);
   
-  commands_in_file = 0;
   commands_in_prologues = 0;
   commands_in_epilogues = 0;
 }
@@ -3210,12 +3210,8 @@ asm_file_end (file)
 {
   fprintf
     (file,
-     "/* File %s: code %4d = 0x%04x (%4d), prologues %3d, epilogues %3d */\n",
-     main_input_filename,
-     commands_in_file,
-     commands_in_file,
-     commands_in_file - commands_in_prologues - commands_in_epilogues,
-     commands_in_prologues, commands_in_epilogues);
+     "/* File %s: prologues %3d, epilogues %3d */\n",
+     main_input_filename, commands_in_prologues, commands_in_epilogues);
 }
 
 /* Cost functions.  */
@@ -3370,7 +3366,7 @@ ip2k_address_cost (x)
    much cheaper and the move from this to the original source operand will be
    no more expensive than the original move.  */
 
-void
+static void
 mdr_resequence_xy_yx (first_insn)
      rtx first_insn;
 {
@@ -3622,7 +3618,7 @@ mdr_propagate_reg_equivs_sequence (first_insn, orig, equiv)
    holds the same value and thus allow one or more register loads to
    be eliminated.  */
 
-void
+static void
 mdr_propagate_reg_equivs (first_insn)
      rtx first_insn;
 {
@@ -4028,7 +4024,7 @@ mdr_try_dp_reload_elim (first_insn)
    that we can move to earlier points within the file.
    Moving these out of the way allows more peepholes to match.  */
 
-void
+static void
 mdr_try_move_dp_reload (first_insn)
      rtx first_insn;
 {
@@ -4119,7 +4115,7 @@ mdr_try_move_dp_reload (first_insn)
 /* Look to see if the expression, x, can have any stack references offset by
    a fixed constant, offset.  If it definitely can then returns non-zero.  */
 
-int
+static int
 ip2k_check_can_adjust_stack_ref (x, offset)
      rtx x;
      int offset;
@@ -4167,7 +4163,7 @@ ip2k_check_can_adjust_stack_ref (x, offset)
 /* Adjusts all of the stack references in the expression pointed to by x by
    a fixed offset.  */
 
-void
+static void
 ip2k_adjust_stack_ref (x, offset)
      rtx *x;
      int offset;
@@ -4212,7 +4208,7 @@ ip2k_adjust_stack_ref (x, offset)
    to earlier points within the file.  Moving these out of the way allows more
    peepholes to match.  */
 
-void
+static void
 mdr_try_move_pushes (first_insn)
      rtx first_insn;
 {
@@ -4625,7 +4621,7 @@ mdr_try_propagate_clr_sequence (first_insn, regno)
    actually change some instruction patterns when we're doing this whereas
    move propagation is just about doing a search and replace.  */
 
-void
+static void
 mdr_try_propagate_clr (first_insn)
      rtx first_insn;
 {
@@ -4656,7 +4652,7 @@ mdr_try_propagate_clr (first_insn)
    via the specified register.  This is very conservative and only returns
    non-zero if we definitely don't have such a memory ref.  */
 
-int
+static int
 ip2k_xexp_not_uses_reg_for_mem (x, regno)
      rtx x;
      unsigned int regno;
@@ -4848,7 +4844,7 @@ mdr_try_propagate_move_sequence (first_insn, orig, equiv)
    holds the same value and thus allow one or more register loads to
    be eliminated.  */
 
-void
+static void
 mdr_try_propagate_move (first_insn)
      rtx first_insn;
 {
@@ -4897,7 +4893,7 @@ mdr_try_propagate_move (first_insn)
 
 /* Try to remove redundant instructions.  */
 
-void
+static void
 mdr_try_remove_redundant_insns (first_insn)
      rtx first_insn;
 {
@@ -4993,7 +4989,7 @@ struct we_jump_targets *ip2k_we_jump_targets;
 
 /* WREG equivalence tracking used within DP reload elimination.  */
 
-int
+static int
 track_w_reload (insn, w_current, w_current_ok, modifying)
      rtx insn;
      rtx *w_current;
@@ -5083,7 +5079,7 @@ track_w_reload (insn, w_current, w_current_ok, modifying)
 /* As part of the machine-dependent reorg we scan moves into w and track them
    to see where any are redundant.  */
 
-void
+static void
 mdr_try_wreg_elim (first_insn)
      rtx first_insn;
 {

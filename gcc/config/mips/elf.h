@@ -27,8 +27,8 @@ Boston, MA 02111-1307, USA.  */
 /* ??? Move all SDB stuff into separate header file.  */
 #undef  SDB_DEBUGGING_INFO
 
-#define DBX_DEBUGGING_INFO
-#define DWARF2_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
+#define DWARF2_DEBUGGING_INFO 1
 
 #undef  PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
@@ -106,7 +106,7 @@ do {						\
 #ifndef ASM_OUTPUT_ALIGNED_BSS
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
 do {									\
-  ASM_GLOBALIZE_LABEL (FILE, NAME);					\
+  (*targetm.asm_out.globalize_label) (FILE, NAME);			\
   if (SIZE > 0 && SIZE <= mips_section_threshold)			\
     sbss_section ();							\
   else									\
