@@ -4251,7 +4251,11 @@ compute_reachable_eh (tree stmt)
 	  reachable_handlers = tree_cons (void_type_node,
 					  handler,
 					  reachable_handlers);
+#if 0
+	  /* Actually, we can't.  At least not until we build edges from
+	     one cleanup to the next.  */
 	  skip_cleanups = 1;
+#endif
 	}
     }
 
