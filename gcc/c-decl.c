@@ -134,6 +134,11 @@ int current_function_returns_value;
 
 int current_function_returns_null;
 
+/* Set to 0 at beginning of a function definition, set to 1 if
+   a call to a noreturn function is seen.  */
+
+int current_function_returns_abnormally;
+
 /* Set to nonzero by `grokdeclarator' for a function
    whose return type is defaulted, if warnings for this are desired.  */
 
@@ -463,7 +468,7 @@ c_decode_option (argc, argv)
   int strings_processed;
   char *p = argv[0];
 
-  strings_processed = cpp_handle_option (parse_in, argc, argv);
+  strings_processed = cpp_handle_option (parse_in, argc, argv, 0);
 
   if (!strcmp (p, "-ftraditional") || !strcmp (p, "-traditional"))
     {
@@ -3214,6 +3219,10 @@ builtin_function (name, type, function_code, class, library_name)
   DECL_BUILT_IN_CLASS (decl) = class;
   DECL_FUNCTION_CODE (decl) = function_code;
 
+  /* The return builtins leave the current function.  */
+  if (function_code == BUILT_IN_RETURN || function_code == BUILT_IN_EH_RETURN)
+    TREE_THIS_VOLATILE (decl) = 1;
+
   /* Warn if a function in the namespace for users
      is used without an occasion to consider it declared.  */
   if (name[0] != '_' || name[1] != '_')
@@ -4153,9 +4162,14 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
       /* Actual typedefs come to us as TYPE_DECL nodes.  */
       else if (TREE_CODE (id) == TYPE_DECL)
 	{
-	  type = TREE_TYPE (id);
-	  decl_attr = DECL_ATTRIBUTES (id);
-	  typedef_decl = id;
+	  if (TREE_TYPE (id) == error_mark_node)
+	    ; /* Allow the type to default to int to avoid cascading errors.  */
+	  else
+	    {
+	      type = TREE_TYPE (id);
+	      decl_attr = DECL_ATTRIBUTES (id);
+	      typedef_decl = id;
+	    }
 	}
       /* Built-in types come as identifiers.  */
       else if (TREE_CODE (id) == IDENTIFIER_NODE)
@@ -5081,6 +5095,9 @@ grokdeclarator (declarator, declspecs, decl_context, initialized)
 	TREE_PUBLIC (decl)
 	  = !(specbits & ((1 << (int) RID_STATIC) | (1 << (int) RID_AUTO)));
 
+	if (defaulted_int)
+	  C_FUNCTION_IMPLICIT_INT (decl) = 1;
+
 	/* Record presence of `inline', if it is reasonable.  */
 	if (MAIN_NAME_P (declarator))
 	  {
@@ -5693,11 +5710,10 @@ finish_struct (t, fieldlist, attributes)
 	 field widths.  */
       if (DECL_INITIAL (x))
 	{
-	  int max_width;
-	  if (TYPE_MAIN_VARIANT (TREE_TYPE (x)) == c_bool_type_node)
-	    max_width = CHAR_TYPE_SIZE;
-	  else
-	    max_width = TYPE_PRECISION (TREE_TYPE (x));
+	  int max_width
+	    = (TYPE_MAIN_VARIANT (TREE_TYPE (x)) == c_bool_type_node
+	       ? CHAR_TYPE_SIZE : TYPE_PRECISION (TREE_TYPE (x)));
+
 	  if (tree_int_cst_sgn (DECL_INITIAL (x)) < 0)
 	    error_with_decl (x, "negative width in bit-field `%s'");
 	  else if (0 < compare_tree_int (DECL_INITIAL (x), max_width))
@@ -5708,7 +5724,7 @@ finish_struct (t, fieldlist, attributes)
 	    {
 	      /* The test above has assured us that TREE_INT_CST_HIGH is 0.  */
 	      unsigned HOST_WIDE_INT width
-		= TREE_INT_CST_LOW (DECL_INITIAL (x));
+		= tree_low_cst (DECL_INITIAL (x), 1);
 
 	      if (TREE_CODE (TREE_TYPE (x)) == ENUMERAL_TYPE
 		  && (width < min_precision (TYPE_MIN_VALUE (TREE_TYPE (x)),
@@ -5723,7 +5739,8 @@ finish_struct (t, fieldlist, attributes)
 	      DECL_BIT_FIELD (x) = 1;
 	      SET_DECL_C_BIT_FIELD (x);
 
-	      if (width == 0)
+	      if (width == 0
+		  && ! (* targetm.ms_bitfield_layout_p) (t))
 		{
 		  /* field size 0 => force desired amount of alignment.  */
 #ifdef EMPTY_FIELD_BOUNDARY
@@ -6170,6 +6187,7 @@ start_function (declspecs, declarator, attributes)
 
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
   current_function_returns_null = 0;
+  current_function_returns_abnormally = 0;
   warn_about_return_type = 0;
   current_extern_inline = 0;
   c_function_varargs = 0;
@@ -6899,6 +6917,21 @@ finish_function (nested)
 
   /* Tie off the statement tree for this function.  */
   finish_stmt_tree (&DECL_SAVED_TREE (fndecl));
+
+  /* Complain if there's just no return statement.  */
+  if (TREE_CODE (TREE_TYPE (TREE_TYPE (fndecl))) != VOID_TYPE
+      && !current_function_returns_value && !current_function_returns_null
+      /* Don't complain if we abort.  */
+      && !current_function_returns_abnormally
+      /* Don't warn for main().  */
+      && !MAIN_NAME_P (DECL_NAME (fndecl))
+      /* Or if they didn't actually specify a return type.  */
+      && !C_FUNCTION_IMPLICIT_INT (fndecl)
+      /* If we have -Wreturn-type, let flow complain.  Unless we're an
+	 inline function, as we might never be compiled separately.  */
+      && (!warn_return_type || DECL_INLINE (fndecl)))
+    warning ("no return statement in function returning non-void");
+
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
@@ -6987,6 +7020,7 @@ c_expand_body (fndecl, nested_p, can_defer_p)
 
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
+  input_filename = DECL_SOURCE_FILE (fndecl);
   init_function_start (fndecl, input_filename, DECL_SOURCE_LINE (fndecl));
 
   /* This function is being processed in whole-function mode.  */
@@ -7187,6 +7221,7 @@ struct c_language_function
   tree shadowed_labels;
   int returns_value;
   int returns_null;
+  int returns_abnormally;
   int warn_about_return_type;
   int extern_inline;
   struct binding_level *binding_level;
@@ -7210,6 +7245,7 @@ push_c_function_context (f)
   p->shadowed_labels = shadowed_labels;
   p->returns_value = current_function_returns_value;
   p->returns_null = current_function_returns_null;
+  p->returns_abnormally = current_function_returns_abnormally;
   p->warn_about_return_type = warn_about_return_type;
   p->extern_inline = current_extern_inline;
   p->binding_level = current_binding_level;
@@ -7247,6 +7283,7 @@ pop_c_function_context (f)
   shadowed_labels = p->shadowed_labels;
   current_function_returns_value = p->returns_value;
   current_function_returns_null = p->returns_null;
+  current_function_returns_abnormally = p->returns_abnormally;
   warn_about_return_type = p->warn_about_return_type;
   current_extern_inline = p->extern_inline;
   current_binding_level = p->binding_level;

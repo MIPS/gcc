@@ -18,12 +18,8 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "gofast.h"
-
-/* US Software GOFAST library support.  */
-#define INIT_SUBTARGET_OPTABS INIT_GOFAST_OPTABS
-
 #include "mips/mips.h"
+#include "mips/abi64.h"
 
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
@@ -225,6 +221,9 @@ void FN ()							\
 %{!fno-PIC:%{!fno-pic:-KPIC}} \
 %{fno-PIC:-non_shared} %{fno-pic:-non_shared}"
 
+#undef SUBTARGET_ASM_DEBUGGING_SPEC
+#define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
+
 /* The MIPS assembler has different syntax for .set. We set it to
    .dummy to trap any errors.  */
 #undef SET_ASM_OP
@@ -283,3 +282,9 @@ void FN ()							\
 /* Tell function_prologue in mips.c that we have already output the .ent/.end
    pseudo-ops.  */
 #define FUNCTION_NAME_ALREADY_DECLARED
+
+/* The glibc _mcount stub will save $v0 for us.  Don't mess with saving
+   it, since ASM_OUTPUT_REG_PUSH/ASM_OUTPUT_REG_POP do not work in the
+   presence of $gp-relative calls.  */
+#undef ASM_OUTPUT_REG_PUSH
+#undef ASM_OUTPUT_REG_POP

@@ -149,7 +149,7 @@ ZLIBINC = @zlibinc@
 TARGET_GETGROUPS_T = @TARGET_GETGROUPS_T@
 
 # Target to use when installing include directory.  Either
-# install-headers-tar or install-headers-cpio.
+# install-headers-tar, install-headers-cpio or install-headers-cp.
 INSTALL_HEADERS_DIR = @build_install_headers_dir@
 
 # Header files that are made available under the same name
@@ -370,6 +370,10 @@ LIBGCC2_INCLUDES =
 # Additional target-dependent options for compiling libgcc2.a.
 TARGET_LIBGCC2_CFLAGS =
 
+# Options to use when compiling crtbegin/end.
+CRTSTUFF_CFLAGS = -O2 $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
+  -finhibit-size-directive -fno-inline-functions -fno-exceptions
+
 # Additional sources to handle exceptions; overridden on ia64.
 LIB2ADDEH = $(srcdir)/unwind-dw2.c $(srcdir)/unwind-dw2-fde.c \
   $(srcdir)/unwind-sjlj.c
@@ -539,7 +543,8 @@ HCONFIG_H = hconfig.h $(build_xm_file_list)
 CONFIG_H = $(GCONFIG_H) insn-constants.h insn-flags.h
 TCONFIG_H = tconfig.h $(xm_file_list)
 TARGET_H = target.h
-TARGET_DEF_H = target-def.h
+HOOKS_H = hooks.h
+TARGET_DEF_H = target-def.h $(HOOKS_H)
 TM_P_H = tm_p.h $(tm_p_file_list) tm-preds.h
 
 MACHMODE_H = machmode.h machmode.def
@@ -714,7 +719,7 @@ OBJS = alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	\
  df.o diagnostic.o doloop.o dominance.o dwarf2asm.o dwarf2out.o dwarfout.o \
  emit-rtl.o except.o explow.o expmed.o expr.o final.o flow.o 		\
  fold-const.o function.o gcse.o genrtl.o ggc-common.o global.o graph.o	\
- haifa-sched.o hash.o hashtable.o ifcvt.o insn-attrtab.o insn-emit.o	\
+ haifa-sched.o hash.o hashtable.o hooks.o ifcvt.o insn-attrtab.o insn-emit.o \
  insn-extract.o insn-opinit.o insn-output.o insn-peep.o insn-recog.o	\
  integrate.o intl.o jump.o  langhooks.o lcm.o lists.o local-alloc.o 	\
  loop.o mbchar.o optabs.o params.o predict.o print-rtl.o print-tree.o	\
@@ -1067,42 +1072,34 @@ stmp-multilib: $(LIBGCC_DEPS)
 # constructors.
 $(T)crtbegin.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
   gbl-ctors.h stmp-int-hdrs tsystem.h
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
-	  -finhibit-size-directive -fno-inline-functions \
-	  -fno-exceptions $(CRTSTUFF_T_CFLAGS) @inhibit_libc@ \
-	  -c $(srcdir)/crtstuff.c -DCRT_BEGIN -o $(T)crtbegin$(objext)
+	$(GCC_FOR_TARGET) $(CRTSTUFF_CFLAGS) $(CRTSTUFF_T_CFLAGS) \
+	  @inhibit_libc@ -c $(srcdir)/crtstuff.c -DCRT_BEGIN \
+	  -o $(T)crtbegin$(objext)
 
 $(T)crtend.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
   gbl-ctors.h stmp-int-hdrs tsystem.h
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
-	  -finhibit-size-directive -fno-inline-functions \
-	  -fno-exceptions $(CRTSTUFF_T_CFLAGS) @inhibit_libc@ \
-	  -c $(srcdir)/crtstuff.c -DCRT_END -o $(T)crtend$(objext)
+	$(GCC_FOR_TARGET) $(CRTSTUFF_CFLAGS) $(CRTSTUFF_T_CFLAGS) \
+	  @inhibit_libc@ -c $(srcdir)/crtstuff.c -DCRT_END \
+	  -o $(T)crtend$(objext)
 
 # These are versions of crtbegin and crtend for shared libraries.
 $(T)crtbeginS.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
   gbl-ctors.h stmp-int-hdrs tsystem.h
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
-	  -finhibit-size-directive -fno-inline-functions \
-	  -fno-exceptions $(CRTSTUFF_T_CFLAGS_S) @inhibit_libc@ \
-	  -c $(srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFS_O \
+	$(GCC_FOR_TARGET) $(CRTSTUFF_CFLAGS) $(CRTSTUFF_T_CFLAGS_S) \
+	  @inhibit_libc@ -c $(srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFS_O \
 	  -o $(T)crtbeginS$(objext)
 
 $(T)crtendS.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
   gbl-ctors.h stmp-int-hdrs tsystem.h
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
-	  -finhibit-size-directive -fno-inline-functions \
-	  -fno-exceptions $(CRTSTUFF_T_CFLAGS_S) @inhibit_libc@ \
-	  -c $(srcdir)/crtstuff.c -DCRT_END -DCRTSTUFFS_O \
+	$(GCC_FOR_TARGET) $(CRTSTUFF_CFLAGS) $(CRTSTUFF_T_CFLAGS_S) \
+	  @inhibit_libc@ -c $(srcdir)/crtstuff.c -DCRT_END -DCRTSTUFFS_O \
 	  -o $(T)crtendS$(objext)
 
 # This is a version of crtbegin for -static links.
 $(T)crtbeginT.o: crtstuff.c $(GCC_PASSES) $(TCONFIG_H) auto-host.h \
   gbl-ctors.h stmp-int-hdrs tsystem.h
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -g0 \
-	  -finhibit-size-directive -fno-inline-functions \
-	  -fno-exceptions $(CRTSTUFF_T_CFLAGS) @inhibit_libc@ \
-	  -c $(srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFT_O \
+	$(GCC_FOR_TARGET) $(CRTSTUFF_CFLAGS) $(CRTSTUFF_T_CFLAGS) \
+	  @inhibit_libc@ -c $(srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFT_O \
 	  -o $(T)crtbeginT$(objext)
 
 # Compile the start modules crt0.o and mcrt0.o that are linked with
@@ -1132,8 +1129,15 @@ c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h $(GGC_H) intl.h \
 	       -c $(srcdir)/c-parse.c $(OUTPUT_OPTION)
 
 $(srcdir)/c-parse.c: $(srcdir)/c-parse.y
-	(cd $(srcdir) && $(BISON) $(BISONFLAGS) -o c-p$$$$.c c-parse.y && \
-	mv -f c-p$$$$.c c-parse.c)
+	cd $(srcdir) && \
+	if $(BISON) $(BISONFLAGS) -o c-p$$$$.c c-parse.y; then \
+	  test -f c-p$$$$.output && mv -f c-p$$$$.output c-parse.output ; \
+	  mv -f c-p$$$$.c c-parse.c ; \
+	else \
+	  rm -f c-p$$$$.* ; \
+	  false ; \
+	fi
+
 $(srcdir)/c-parse.y: c-parse.in
 	echo '/*WARNING: This file is automatically generated!*/' >tmp-c-parse.y
 	sed -e "/^ifobjc$$/,/^end ifobjc$$/d" \
@@ -1332,7 +1336,7 @@ tree-inline.o : tree-inline.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(RTL_H) \
 print-tree.o : print-tree.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GGC_H) \
    langhooks.h
 stor-layout.o : stor-layout.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
-   function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H) $(TM_P_H)
+   function.h $(EXPR_H) $(RTL_H) toplev.h $(GGC_H) $(TM_P_H) $(TARGET_H)
 fold-const.o : fold-const.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) flags.h \
    toplev.h $(HASHTAB_H) $(EXPR_H) $(RTL_H) $(GGC_H) $(TM_P_H)
 diagnostic.o : diagnostic.c diagnostic.h real.h diagnostic.def \
@@ -1470,7 +1474,7 @@ profile.o : profile.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 loop.o : loop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    insn-config.h $(REGS_H) hard-reg-set.h $(RECOG_H) $(EXPR_H) \
    real.h $(PREDICT_H) $(BASIC_BLOCK_H) function.h \
-   toplev.h varray.h except.h cselib.h $(TM_P_H)
+   toplev.h varray.h except.h cselib.h $(OPTABS_H) $(TM_P_H)
 doloop.o : doloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h $(LOOP_H) \
    $(EXPR_H) hard-reg-set.h $(BASIC_BLOCK_H) $(TM_P_H) toplev.h
 unroll.o : unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) insn-config.h function.h \
@@ -1485,14 +1489,14 @@ cfg.o : cfg.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h insn-config.h \
 cfgrtl.o : cfgrtl.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h insn-config.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(GGC_H) $(TM_P_H)
-cfganal.o : cfganal.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
-   $(BASIC_BLOCK_H) hard-reg-set.h $(GGC_H)
+cfganal.o : cfganal.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(BASIC_BLOCK_H) \
+   hard-reg-set.h insn-config.h $(RECOG_H) $(GGC_H) $(TM_P_H)
 cfgbuild.o : cfgbuild.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) flags.h insn-config.h \
    $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(GGC_H) 
 cfgcleanup.o : cfgcleanup.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TIMEVAR_H)\
    $(BASIC_BLOCK_H) hard-reg-set.h output.h flags.h $(RECOG_H) toplev.h \
-   $(GGC_H) insn-config.h cselib.h $(TM_P_H)
+   $(GGC_H) insn-config.h cselib.h $(TARGET_H) $(TM_P_H)
 cfgloop.o : cfgloop.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h
 dominance.o : dominance.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) hard-reg-set.h \
@@ -1561,8 +1565,8 @@ predict.o: predict.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h \
    $(RECOG_H) function.h except.h $(EXPR_H) $(TM_P_H) $(PREDICT_H)
 lists.o: lists.c $(CONFIG_H) $(SYSTEM_H) toplev.h $(RTL_H) $(GGC_H)
-bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
-   $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h
+bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
+   flags.h $(BASIC_BLOCK_H) hard-reg-set.h output.h cfglayout.h $(TARGET_H)
 cfglayout.o : cfglayout.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    insn-config.h $(BASIC_BLOCK_H) hard-reg-set.h output.h function.h \
    cfglayout.h
@@ -1576,6 +1580,7 @@ ifcvt.o : ifcvt.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(REGS_H) toplev.h \
 dependence.o : dependence.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) \
    $(C_COMMON_H) flags.h varray.h $(EXPR_H)
 params.o : params.c $(CONFIG_H) $(SYSTEM_H) $(PARAMS_H) toplev.h
+hooks.o: hooks.c $(CONFIG_H) $(SYSTEM_H) $(HOOKS_H)
 
 $(out_object_file): $(out_file) $(CONFIG_H) $(TREE_H) $(GGC_H) \
    $(RTL_H) $(REGS_H) hard-reg-set.h real.h insn-config.h conditions.h \
@@ -2785,6 +2790,10 @@ install-headers-cpio: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
 # See discussion about the use of `pwd` above
 	cd `pwd`/include ; \
 	find . -print | cpio -pdum $(libsubdir)/include
+
+# Install the include directory using cp.
+install-headers-cp: stmp-int-hdrs $(STMP_FIXPROTO) install-include-dir
+	cp -p -r include $(libsubdir)
 
 # Use this target to install the program `collect2' under the name `collect2'.
 install-collect2: collect2 installdirs

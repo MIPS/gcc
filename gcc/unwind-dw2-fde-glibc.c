@@ -29,11 +29,17 @@
    segment and dl_iterate_phdr to avoid register/deregister calls at
    DSO load/unload.  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+
 #include "auto-host.h" /* For HAVE_LD_EH_FRAME_HDR.  */
 #include "tconfig.h"
+#ifndef inhibit_libc
 #include <stddef.h>
 #include <stdlib.h>
 #include <link.h>
+#endif
 #include "tsystem.h"
 #include "dwarf2.h"
 #include "unwind.h"
@@ -42,7 +48,7 @@
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
 
-#if defined(HAVE_LD_EH_FRAME_HDR) \
+#if !defined(inhibit_libc) && defined(HAVE_LD_EH_FRAME_HDR) \
     && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2) \
 	|| (__GLIBC__ == 2 && __GLIBC_MINOR__ == 2 && defined(DT_CONFIG)))
 

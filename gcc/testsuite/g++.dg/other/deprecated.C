@@ -13,10 +13,10 @@ INT1 should_be_unavailable; 		/* { dg-warning "`INT1' is deprecated" "" } */
 INT1a should_not_be_deprecated;
 
 INT1 f1(void) __attribute__ ((deprecated)); 
-INT1 f2(void) {}			/* { dg-warning "`INT1' is deprecated" "" } */
+INT1 f2(void) { return 0; }		/* { dg-warning "`INT1' is deprecated" "" } */
 
 INT2 f3(void) __attribute__ ((__deprecated__)); 
-INT2 f4(void) {}			/* { dg-warning "`INT2' is deprecated" "" } */
+INT2 f4(void) { return 0; }		/* { dg-warning "`INT2' is deprecated" "" } */
 int f5(INT2 x);				/* { dg-warning "`INT2' is deprecated" "" } */
 int f6(INT2 x) __attribute__ ((__deprecated__));
 
@@ -93,7 +93,7 @@ struct SS2 *p2;				/* { dg-warning "`SS2' is deprecated" "" } */
 class T {
   public:
     void member1(int) __attribute__ ((deprecated));
-    void member2(INT1) __attribute__ ((__deprecated__));
+    void member2(INT1) __attribute__ ((__deprecated__)); /* { dg-warning "`INT1' is deprecated" "" } */
     int member3(T *);
     int x;
 } __attribute__ ((deprecated));

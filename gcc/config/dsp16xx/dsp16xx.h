@@ -251,23 +251,6 @@ extern int target_flags;
 #define TARGET_DEFAULT  MASK_REGPARM|MASK_YBASE_HIGH
 #endif
 
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable. 
-   The variable, type `char *', is set to the variable part of the
-   given option if the fixed part matches.  The actual option name
-   is made by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-	extern char *m88k_short_data;
-	#define TARGET_OPTIONS { { "short-data-", &m88k_short_data } }  */
-
 #define TARGET_OPTIONS						\
 {								\
   { "text=",	&text_seg_name,				        \
@@ -1565,10 +1548,6 @@ extern struct dsp16xx_frame_info current_frame_info;
    loads.  */
 #define SLOW_BYTE_ACCESS 1
 
-/* Define this macro if zero-extension (of a char or short to an int) can
-   be done faster if the destination is a register that is know to be zero.  */
-/* #define SLOW_ZERO_EXTEND */
-
 /* Define this macro if unaligned accesses have a cost many times greater than
    aligned accesses, for example if they are emulated in a trap handler */
 /* define SLOW_UNALIGNED_ACCESS(MODE, ALIGN) */
@@ -1619,9 +1598,6 @@ const_section ()                                                   \
 
 /* Output at beginning of assembler file.  */
 #define ASM_FILE_START(FILE) coff_dsp16xx_file_start (FILE) 
-
-/* Prevent output of .gcc_compiled */
-#define ASM_IDENTIFY_GCC(FILE)   
 
 /* A C string constant describing how to begin a comment in the target
    assembler language.  */

@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include "toplev.h"
 #include "ggc.h"
 #include "lex.h"
+#include "target.h"
 
 #include "obstack.h"
 #define obstack_chunk_alloc xmalloc
@@ -252,7 +253,7 @@ build_base_path (code, expr, binfo, nonnull)
      int nonnull;
 {
   tree v_binfo = NULL_TREE;
-  tree t;
+  tree d_binfo = NULL_TREE;
   tree probe;
   tree offset;
   tree target_type;
@@ -263,11 +264,13 @@ build_base_path (code, expr, binfo, nonnull)
 
   if (expr == error_mark_node || binfo == error_mark_node || !binfo)
     return error_mark_node;
-  
-  for (probe = binfo; probe;
-       t = probe, probe = BINFO_INHERITANCE_CHAIN (probe))
-    if (!v_binfo && TREE_VIA_VIRTUAL (probe))
-      v_binfo = probe;
+
+  for (probe = binfo; probe; probe = BINFO_INHERITANCE_CHAIN (probe))
+    {
+      d_binfo = probe;
+      if (!v_binfo && TREE_VIA_VIRTUAL (probe))
+	v_binfo = probe;
+    }
 
   probe = TYPE_MAIN_VARIANT (TREE_TYPE (expr));
   if (want_pointer)
@@ -276,13 +279,13 @@ build_base_path (code, expr, binfo, nonnull)
   my_friendly_assert (code == MINUS_EXPR
 		      ? same_type_p (BINFO_TYPE (binfo), probe)
 		      : code == PLUS_EXPR
-		      ? same_type_p (BINFO_TYPE (t), probe)
+		      ? same_type_p (BINFO_TYPE (d_binfo), probe)
 		      : false, 20010723);
   
   if (code == MINUS_EXPR && v_binfo)
     {
       error ("cannot convert from base `%T' to derived type `%T' via virtual base `%T'",
-		BINFO_TYPE (binfo), BINFO_TYPE (t), BINFO_TYPE (v_binfo));
+	     BINFO_TYPE (binfo), BINFO_TYPE (d_binfo), BINFO_TYPE (v_binfo));
       return error_mark_node;
     }
 
@@ -303,12 +306,12 @@ build_base_path (code, expr, binfo, nonnull)
   if (v_binfo && !fixed_type_p)
     {
       /* Going via virtual base V_BINFO.  We need the static offset
-         from V_BINFO to BINFO, and the dynamic offset from T to
-         V_BINFO.  That offset is an entry in T's vtable.  */
+         from V_BINFO to BINFO, and the dynamic offset from D_BINFO to
+         V_BINFO.  That offset is an entry in D_BINFO's vtable.  */
       tree v_offset = build_vfield_ref (build_indirect_ref (expr, NULL),
 					TREE_TYPE (TREE_TYPE (expr)));
       
-      v_binfo = binfo_for_vbase (BINFO_TYPE (v_binfo), BINFO_TYPE (t));
+      v_binfo = binfo_for_vbase (BINFO_TYPE (v_binfo), BINFO_TYPE (d_binfo));
       
       v_offset = build (PLUS_EXPR, TREE_TYPE (v_offset),
 			v_offset,  BINFO_VPTR_FIELD (v_binfo));
@@ -326,7 +329,7 @@ build_base_path (code, expr, binfo, nonnull)
 	offset = v_offset;
     }
 
-  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (t);
+  target_type = code == PLUS_EXPR ? BINFO_TYPE (binfo) : BINFO_TYPE (d_binfo);
   
   target_type = cp_build_qualified_type
     (target_type, cp_type_quals (TREE_TYPE (TREE_TYPE (expr))));
@@ -3104,7 +3107,8 @@ check_bitfield_decl (field)
       DECL_SIZE (field) = convert (bitsizetype, w);
       DECL_BIT_FIELD (field) = 1;
 
-      if (integer_zerop (w))
+      if (integer_zerop (w)
+	  && ! (* targetm.ms_bitfield_layout_p) (DECL_FIELD_CONTEXT (field)))
 	{
 #ifdef EMPTY_FIELD_BOUNDARY
 	  DECL_ALIGN (field) = MAX (DECL_ALIGN (field), 
@@ -3281,8 +3285,6 @@ check_field_decls (t, access_decls, empty_p,
     {
       tree x = *field;
       tree type = TREE_TYPE (x);
-
-      GNU_xref_member (current_class_name, x);
 
       next = &TREE_CHAIN (x);
 
@@ -3923,8 +3925,6 @@ check_methods (t)
 
   for (x = TYPE_METHODS (t); x; x = TREE_CHAIN (x))
     {
-      GNU_xref_member (current_class_name, x);
-
       /* If this was an evil function, don't keep it in class.  */
       if (DECL_ASSEMBLER_NAME_SET_P (x) 
 	  && IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (x)))
@@ -5042,12 +5042,10 @@ finish_struct_1 (t)
       if (IS_AGGR_TYPE (t))
 	error ("redefinition of `%#T'", t);
       else
-	my_friendly_abort (172);
+	abort ();
       popclass ();
       return;
     }
-
-  GNU_xref_decl (current_function_decl, t);
 
   /* If this type was previously laid out as a forward reference,
      make sure we lay it out again.  */
@@ -5316,7 +5314,7 @@ fixed_type_or_null (instance, nonnull, cdtorp)
   switch (TREE_CODE (instance))
     {
     case INDIRECT_REF:
-      if (POINTER_TYPE_P (instance))
+      if (POINTER_TYPE_P (TREE_TYPE (instance)))
 	return NULL_TREE;
       else
 	return fixed_type_or_null (TREE_OPERAND (instance, 0),
@@ -6045,14 +6043,14 @@ cannot resolve overloaded function `%D' based on conversion to type `%T'",
 tree
 instantiate_type (lhstype, rhs, flags)
      tree lhstype, rhs;
-     enum instantiate_type_flags flags;
+     tsubst_flags_t flags;
 {
-  int complain = (flags & itf_complain);
-  int strict = (flags & itf_no_attributes)
+  int complain = (flags & tf_error);
+  int strict = (flags & tf_no_attributes)
                ? COMPARE_NO_ATTRIBUTES : COMPARE_STRICT;
-  int allow_ptrmem = flags & itf_ptrmem_ok;
+  int allow_ptrmem = flags & tf_ptrmem_ok;
   
-  flags &= ~itf_ptrmem_ok;
+  flags &= ~tf_ptrmem_ok;
   
   if (TREE_CODE (lhstype) == UNKNOWN_TYPE)
     {
@@ -6088,7 +6086,7 @@ instantiate_type (lhstype, rhs, flags)
     case SAVE_EXPR:
     case CONSTRUCTOR:
     case BUFFER_REF:
-      my_friendly_abort (177);
+      abort ();
       return error_mark_node;
 
     case INDIRECT_REF:
@@ -6157,7 +6155,7 @@ instantiate_type (lhstype, rhs, flags)
 
     case CALL_EXPR:
       /* This is too hard for now.  */
-      my_friendly_abort (183);
+      abort ();
       return error_mark_node;
 
     case PLUS_EXPR:
@@ -6259,19 +6257,19 @@ instantiate_type (lhstype, rhs, flags)
     case ADDR_EXPR:
     {
       if (PTRMEM_OK_P (rhs))
-        flags |= itf_ptrmem_ok;
+        flags |= tf_ptrmem_ok;
       
       return instantiate_type (lhstype, TREE_OPERAND (rhs, 0), flags);
     }
     case ENTRY_VALUE_EXPR:
-      my_friendly_abort (184);
+      abort ();
       return error_mark_node;
 
     case ERROR_MARK:
       return error_mark_node;
 
     default:
-      my_friendly_abort (185);
+      abort ();
       return error_mark_node;
     }
 }
@@ -6384,7 +6382,7 @@ get_enclosing_class (type)
 	  break;
 
 	default:
-	  my_friendly_abort (0);
+	  abort ();
 	}
     }
   return NULL_TREE;
@@ -6548,7 +6546,7 @@ get_primary_binfo (binfo)
 	}
 
       /* We should always find the primary base.  */
-      my_friendly_abort (20000729);
+      abort ();
     }
 
   /* For a primary virtual base, we have to scan the entire hierarchy
@@ -6958,7 +6956,7 @@ get_original_base (base_binfo, binfo)
     if (same_type_p (BINFO_TYPE (base_binfo),
                      BINFO_TYPE (BINFO_BASETYPE (derived, ix))))
       return BINFO_BASETYPE (derived, ix);
-  my_friendly_abort (20010223);
+  abort ();
   return NULL;
 }
 
@@ -7716,7 +7714,7 @@ build_vbase_offset_vtbl_entries (binfo, vid)
 	  /* The vbase offset had better be the same.  */
 	  if (!tree_int_cst_equal (delta,
 				   BINFO_VPTR_FIELD (orig_vbase)))
-	    my_friendly_abort (20000403);
+	    abort ();
 	}
 
       /* The next vbase will come at a more negative offset.  */

@@ -123,16 +123,17 @@ javao_files = $(java_source_files:.java=.lo) \
 	$(built_java_source_files:.java=.lo)
 x_javao_files = $(x_java_source_files:.java=.lo)
 
-libgcj_la_SOURCES = prims.cc posix.cc jni.cc exception.cc \
+libgcj_la_SOURCES = prims.cc jni.cc exception.cc \
 	resolve.cc defineclass.cc interpret.cc name-finder.cc verify.cc \
 	$(nat_source_files)
 EXTRA_libgcj_la_SOURCES = boehm.cc nogc.cc posix-threads.cc no-threads.cc \
+	win32-threads.cc posix.cc win32.cc \
 	$(c_source_files) $(java_source_files) $(built_java_source_files)
 libgcj_la_DEPENDENCIES = libgcj.jar $(javao_files) \
-	$(c_files) $(GCOBJS) $(THREADOBJS) $(LIBLTDL)
+	$(c_files) $(GCOBJS) $(THREADOBJS) $(PLATFORMOBJS) $(LIBLTDL)
 
 libgcj_la_LIBADD = $(javao_files) $(c_files) $(GCOBJS) \
-	$(THREADOBJS)
+	$(THREADOBJS) $(PLATFORMOBJS)
 # Include THREADLIBS here to ensure that the correct version of
 # certain linuxthread functions get linked:
 libgcj_la_LDFLAGS = -rpath $(toolexeclibdir) $(THREADLIBS) $(LIBLTDL) \
@@ -202,6 +203,10 @@ CLEANFILES = tmp-list libgcj.jar
 clean-local:
 ## We just remove every .class file that was created.
 	find . -name '*.class' -print | xargs rm -f
+
+# Just remove the objects from C++ sources, for testing the C++ compiler.
+clean-nat:
+	rm -f $(nat_files) $(x_nat_files)
 
 SUFFIXES = .class .java .h
 
@@ -583,10 +588,10 @@ gnu/awt/j2d/DirectRasterGraphics.java \
 gnu/awt/j2d/Graphics2DImpl.java \
 gnu/awt/j2d/IntegerGraphicsState.java \
 gnu/awt/j2d/MappedRaster.java \
-gnu/gcj/awt/BitMaskExtent.java \
-gnu/gcj/awt/Buffers.java \
-gnu/gcj/awt/ComponentDataBlitOp.java \
-gnu/gcj/awt/GLightweightPeer.java \
+gnu/java/awt/BitMaskExtent.java \
+gnu/java/awt/Buffers.java \
+gnu/java/awt/ComponentDataBlitOp.java \
+gnu/java/awt/GLightweightPeer.java \
 gnu/java/beans/editors/ColorEditor.java	\
 gnu/java/beans/editors/FontEditor.java \
 gnu/java/beans/editors/NativeBooleanEditor.java	\
@@ -661,6 +666,8 @@ java/awt/Panel.java \
 java/awt/Point.java \
 java/awt/Polygon.java \
 java/awt/PopupMenu.java	\
+java/awt/PrintGraphics.java \
+java/awt/PrintJob.java \
 java/awt/Rectangle.java	\
 java/awt/RenderingHints.java \
 java/awt/ScrollPane.java \
@@ -677,6 +684,14 @@ java/awt/color/ColorSpace.java \
 java/awt/color/ICC_ColorSpace.java \
 java/awt/color/ICC_Profile.java	\
 java/awt/datatransfer/Clipboard.java \
+java/awt/datatransfer/ClipboardOwner.java \
+java/awt/datatransfer/DataFlavor.java \
+java/awt/datatransfer/FlavorMap.java \
+java/awt/datatransfer/MimeTypeParseException.java \
+java/awt/datatransfer/StringSelection.java \
+java/awt/datatransfer/SystemFlavorMap.java \
+java/awt/datatransfer/Transferable.java	\
+java/awt/datatransfer/UnsupportedFlavorException.java \
 java/awt/event/AWTEventListener.java \
 java/awt/event/ActionEvent.java	\
 java/awt/event/ActionListener.java \
@@ -726,22 +741,30 @@ java/awt/geom/Point2D.java \
 java/awt/geom/Rectangle2D.java \
 java/awt/geom/RectangularShape.java \
 java/awt/geom/RoundRectangle2D.java \
+java/awt/image/AreaAveragingScaleFilter.java \
 java/awt/image/BufferedImage.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java	\
 java/awt/image/ComponentSampleModel.java \
+java/awt/image/CropImageFilter.java \
 java/awt/image/DataBuffer.java \
 java/awt/image/DataBufferByte.java \
 java/awt/image/DataBufferInt.java \
 java/awt/image/DataBufferUShort.java \
 java/awt/image/DirectColorModel.java \
+java/awt/image/FilteredImageSource.java	\
 java/awt/image/ImageConsumer.java \
+java/awt/image/ImageFilter.java	\
 java/awt/image/ImageObserver.java \
 java/awt/image/ImageProducer.java \
 java/awt/image/IndexColorModel.java \
+java/awt/image/MemoryImageSource.java \
 java/awt/image/PackedColorModel.java \
+java/awt/image/PixelGrabber.java \
+java/awt/image/RGBImageFilter.java \
 java/awt/image/Raster.java \
 java/awt/image/RasterOp.java \
+java/awt/image/ReplicateScaleFilter.java \
 java/awt/image/SampleModel.java	\
 java/awt/image/SinglePixelPackedSampleModel.java \
 java/awt/image/WritableRaster.java \

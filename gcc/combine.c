@@ -1478,6 +1478,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 {
   /* New patterns for I3 and I2, respectively.  */
   rtx newpat, newi2pat = 0;
+  int substed_i2 = 0, substed_i1 = 0;
   /* Indicates need to preserve SET in I1 or I2 in I3 if it is not dead.  */
   int added_sets_1, added_sets_2;
   /* Total number of SETs to put into I3.  */
@@ -1939,6 +1940,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
       subst_low_cuid = INSN_CUID (i2);
       newpat = subst (PATTERN (i3), i2dest, i2src, 0,
 		      ! i1_feeds_i3 && i1dest_in_i1src);
+      substed_i2 = 1;
 
       /* Record whether i2's body now appears within i3's body.  */
       i2_is_used = n_occurrences;
@@ -1963,6 +1965,7 @@ try_combine (i3, i2, i1, new_direct_jump_p)
       n_occurrences = 0;
       subst_low_cuid = INSN_CUID (i1);
       newpat = subst (newpat, i1dest, i1src, 0, 0);
+      substed_i1 = 1;
     }
 
   /* Fail if an autoincrement side-effect has been duplicated.  Be careful
@@ -2534,6 +2537,23 @@ try_combine (i3, i2, i1, new_direct_jump_p)
 
     INSN_CODE (i3) = insn_code_number;
     PATTERN (i3) = newpat;
+
+    if (GET_CODE (i3) == CALL_INSN && CALL_INSN_FUNCTION_USAGE (i3))
+      {
+	rtx call_usage = CALL_INSN_FUNCTION_USAGE (i3);
+
+	reset_used_flags (call_usage);
+	call_usage = copy_rtx (call_usage);
+
+	if (substed_i2)
+	  replace_rtx (call_usage, i2dest, i2src);
+
+	if (substed_i1)
+	  replace_rtx (call_usage, i1dest, i1src);
+
+	CALL_INSN_FUNCTION_USAGE (i3) = call_usage;
+      }
+
     if (undobuf.other_insn)
       INSN_CODE (undobuf.other_insn) = other_code_number;
 
@@ -6701,7 +6721,8 @@ force_to_mode (x, mode, mask, reg, just_select)
 	     need it.  */
 
 	  if (GET_CODE (x) == AND && GET_CODE (XEXP (x, 1)) == CONST_INT
-	      && (unsigned HOST_WIDE_INT) INTVAL (XEXP (x, 1)) == mask)
+	      && ((INTVAL (XEXP (x, 1)) & GET_MODE_MASK (GET_MODE (x)))
+		  == (HOST_WIDE_INT) mask))
 	    x = XEXP (x, 0);
 
 	  /* If it remains an AND, try making another AND with the bits
@@ -6752,33 +6773,12 @@ force_to_mode (x, mode, mask, reg, just_select)
 	  smask |= (HOST_WIDE_INT) -1 << width;
 
 	if (GET_CODE (XEXP (x, 1)) == CONST_INT
-	    && exact_log2 (- smask) >= 0)
-	  {
-#ifdef STACK_BIAS
-	    if (STACK_BIAS
-	        && (XEXP (x, 0) == stack_pointer_rtx
-	            || XEXP (x, 0) == frame_pointer_rtx))
-	      {
-		int sp_alignment = STACK_BOUNDARY / BITS_PER_UNIT;
-		unsigned HOST_WIDE_INT sp_mask = GET_MODE_MASK (mode);
-
-		sp_mask &= ~(sp_alignment - 1);
-		if ((sp_mask & ~smask) == 0
-		    && ((INTVAL (XEXP (x, 1)) - STACK_BIAS) & ~smask) != 0)
-		  return force_to_mode (plus_constant (XEXP (x, 0),
-						       ((INTVAL (XEXP (x, 1)) -
-							 STACK_BIAS) & smask)
-						       + STACK_BIAS),
-					mode, smask, reg, next_select);
-	      }
-#endif
-	    if ((nonzero_bits (XEXP (x, 0), mode) & ~smask) == 0
-		&& (INTVAL (XEXP (x, 1)) & ~smask) != 0)
-	      return force_to_mode (plus_constant (XEXP (x, 0),
-						   (INTVAL (XEXP (x, 1))
-						    & smask)),
-				    mode, smask, reg, next_select);
-	  }
+	    && exact_log2 (- smask) >= 0
+	    && (nonzero_bits (XEXP (x, 0), mode) & ~smask) == 0
+	    && (INTVAL (XEXP (x, 1)) & ~smask) != 0)
+	  return force_to_mode (plus_constant (XEXP (x, 0),
+					       (INTVAL (XEXP (x, 1)) & smask)),
+				mode, smask, reg, next_select);
       }
 
       /* ... fall through ...  */
@@ -7057,7 +7057,7 @@ force_to_mode (x, mode, mask, reg, just_select)
 
     case NEG:
       /* If we just want the low-order bit, the NEG isn't needed since it
-	 won't change the low-order bit.    */
+	 won't change the low-order bit.  */
       if (mask == 1)
 	return force_to_mode (XEXP (x, 0), mode, mask, reg, just_select);
 
@@ -7755,7 +7755,6 @@ simplify_and_const_int (x, mode, varop, constop)
      MODE.  */
 
   nonzero = nonzero_bits (varop, mode) & GET_MODE_MASK (mode);
-  nonzero = trunc_int_for_mode (nonzero, mode);
 
   /* Turn off all bits in the constant that are known to already be zero.
      Thus, if the AND isn't needed at all, we will have CONSTOP == NONZERO_BITS
@@ -7823,18 +7822,22 @@ simplify_and_const_int (x, mode, varop, constop)
   /* If we are only masking insignificant bits, return VAROP.  */
   if (constop == nonzero)
     x = varop;
-
-  /* Otherwise, return an AND.  See how much, if any, of X we can use.  */
-  else if (x == 0 || GET_CODE (x) != AND || GET_MODE (x) != mode)
-    x = gen_binary (AND, mode, varop, GEN_INT (constop));
-
   else
     {
-      if (GET_CODE (XEXP (x, 1)) != CONST_INT
-	  || (unsigned HOST_WIDE_INT) INTVAL (XEXP (x, 1)) != constop)
-	SUBST (XEXP (x, 1), GEN_INT (constop));
+      /* Otherwise, return an AND.  */
+      constop = trunc_int_for_mode (constop, mode);
+      /* See how much, if any, of X we can use.  */
+      if (x == 0 || GET_CODE (x) != AND || GET_MODE (x) != mode)
+	x = gen_binary (AND, mode, varop, GEN_INT (constop));
 
-      SUBST (XEXP (x, 0), varop);
+      else
+	{
+	  if (GET_CODE (XEXP (x, 1)) != CONST_INT
+	      || (unsigned HOST_WIDE_INT) INTVAL (XEXP (x, 1)) != constop)
+	    SUBST (XEXP (x, 1), GEN_INT (constop));
+
+	  SUBST (XEXP (x, 0), varop);
+	}
     }
 
   return x;
@@ -7912,40 +7915,28 @@ nonzero_bits (x, mode)
 	nonzero &= GET_MODE_MASK (ptr_mode);
 #endif
 
-#ifdef STACK_BOUNDARY
-      /* If this is the stack pointer, we may know something about its
-	 alignment.  If PUSH_ROUNDING is defined, it is possible for the
-	 stack to be momentarily aligned only to that amount, so we pick
-	 the least alignment.  */
-
-      /* We can't check for arg_pointer_rtx here, because it is not
-	 guaranteed to have as much alignment as the stack pointer.
-	 In particular, in the Irix6 n64 ABI, the stack has 128 bit
-	 alignment but the argument pointer has only 64 bit alignment.  */
-
-      if ((x == frame_pointer_rtx
-	   || x == stack_pointer_rtx
-	   || x == hard_frame_pointer_rtx
-	   || (REGNO (x) >= FIRST_VIRTUAL_REGISTER
-	       && REGNO (x) <= LAST_VIRTUAL_REGISTER))
-#ifdef STACK_BIAS
-	  && !STACK_BIAS
-#endif
-	      )
+      /* Include declared information about alignment of pointers.  */
+      /* ??? We don't properly preserve REG_POINTER changes across
+	 pointer-to-integer casts, so we can't trust it except for
+	 things that we know must be pointers.  See execute/960116-1.c.  */
+      if ((x == stack_pointer_rtx
+	   || x == frame_pointer_rtx
+	   || x == arg_pointer_rtx)
+	  && REGNO_POINTER_ALIGN (REGNO (x)))
 	{
-	  int sp_alignment = STACK_BOUNDARY / BITS_PER_UNIT;
+	  unsigned HOST_WIDE_INT alignment
+	    = REGNO_POINTER_ALIGN (REGNO (x)) / BITS_PER_UNIT;
 
 #ifdef PUSH_ROUNDING
-	  if (REGNO (x) == STACK_POINTER_REGNUM && PUSH_ARGS)
-	    sp_alignment = MIN (PUSH_ROUNDING (1), sp_alignment);
+	  /* If PUSH_ROUNDING is defined, it is possible for the
+	     stack to be momentarily aligned only to that amount,
+	     so we pick the least alignment.  */
+	  if (x == stack_pointer_rtx && PUSH_ARGS)
+	    alignment = MIN (PUSH_ROUNDING (1), alignment);
 #endif
 
-	  /* We must return here, otherwise we may get a worse result from
-	     one of the choices below.  There is nothing useful below as
-	     far as the stack pointer is concerned.  */
-	  return nonzero &= ~(sp_alignment - 1);
+	  nonzero &= ~(alignment - 1);
 	}
-#endif
 
       /* If X is a register whose nonzero bits value is current, use it.
 	 Otherwise, if X is a register whose value we can find, use that
@@ -7960,7 +7951,7 @@ nonzero_bits (x, mode)
 		  && ! REGNO_REG_SET_P (BASIC_BLOCK (0)->global_live_at_start,
 					REGNO (x))))
 	  && INSN_CUID (reg_last_set[REGNO (x)]) < subst_low_cuid)
-	return reg_last_set_nonzero_bits[REGNO (x)];
+	return reg_last_set_nonzero_bits[REGNO (x)] & nonzero;
 
       tem = get_last_value (x);
 
@@ -7986,7 +7977,7 @@ nonzero_bits (x, mode)
 			   | ((HOST_WIDE_INT) (-1)
 			      << GET_MODE_BITSIZE (GET_MODE (x))));
 #endif
-	  return nonzero_bits (tem, mode);
+	  return nonzero_bits (tem, mode) & nonzero;
 	}
       else if (nonzero_sign_valid && reg_nonzero_bits[REGNO (x)])
 	{
@@ -8124,22 +8115,6 @@ nonzero_bits (x, mode)
 	switch (code)
 	  {
 	  case PLUS:
-#ifdef STACK_BIAS
-	    if (STACK_BIAS
-		&& (XEXP (x, 0) == stack_pointer_rtx
-		    || XEXP (x, 0) == frame_pointer_rtx)
-		&& GET_CODE (XEXP (x, 1)) == CONST_INT)
-	      {
-		int sp_alignment = STACK_BOUNDARY / BITS_PER_UNIT;
-
-		nz0 = (GET_MODE_MASK (mode) & ~(sp_alignment - 1));
-		nz1 = INTVAL (XEXP (x, 1)) - STACK_BIAS;
-		width0 = floor_log2 (nz0) + 1;
-		width1 = floor_log2 (nz1) + 1;
-		low0 = floor_log2 (nz0 & -nz0);
-		low1 = floor_log2 (nz1 & -nz1);
-	      }
-#endif
 	    result_width = MAX (width0, width1) + 1;
 	    result_low = MIN (low0, low1);
 	    break;
@@ -9586,7 +9561,7 @@ recog_for_combine (pnewpat, insn, pnotes)
   int num_clobbers_to_add = 0;
   int i;
   rtx notes = 0;
-  rtx old_notes;
+  rtx dummy_insn;
 
   /* If PAT is a PARALLEL, check to see if it contains the CLOBBER
      we use to indicate that something didn't match.  If we find such a
@@ -9597,11 +9572,13 @@ recog_for_combine (pnewpat, insn, pnotes)
 	  && XEXP (XVECEXP (pat, 0, i), 0) == const0_rtx)
 	return -1;
 
-  /* Remove the old notes prior to trying to recognize the new pattern.  */
-  old_notes = REG_NOTES (insn);
-  REG_NOTES (insn) = 0;
+  /* *pnewpat does not have to be actual PATTERN (insn), so make a dummy
+     instruction for pattern recognition.  */
+  dummy_insn = shallow_copy_rtx (insn);
+  PATTERN (dummy_insn) = pat;
+  REG_NOTES (dummy_insn) = 0;
 
-  insn_code_number = recog (pat, insn, &num_clobbers_to_add);
+  insn_code_number = recog (pat, dummy_insn, &num_clobbers_to_add);
 
   /* If it isn't, there is the possibility that we previously had an insn
      that clobbered some register as a side effect, but the combined
@@ -9626,14 +9603,13 @@ recog_for_combine (pnewpat, insn, pnotes)
       if (pos == 1)
 	pat = XVECEXP (pat, 0, 0);
 
-      insn_code_number = recog (pat, insn, &num_clobbers_to_add);
+      PATTERN (dummy_insn) = pat;
+      insn_code_number = recog (pat, dummy_insn, &num_clobbers_to_add);
     }
 
   /* Recognize all noop sets, these will be killed by followup pass.  */
   if (insn_code_number < 0 && GET_CODE (pat) == SET && set_noop_p (pat))
     insn_code_number = NOOP_MOVE_INSN_CODE, num_clobbers_to_add = 0;
-
-  REG_NOTES (insn) = old_notes;
 
   /* If we had any clobbers to add, make a new pattern than contains
      them.  Then check to make sure that all of them are dead.  */

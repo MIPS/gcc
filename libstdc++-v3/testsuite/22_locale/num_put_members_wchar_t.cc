@@ -1,6 +1,6 @@
 // 2001-11-19 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001 Free Software Foundation
+// Copyright (C) 2001, 2002 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -206,7 +206,7 @@ void test01()
 				   numpunct_de.decimal_point(), 
 				   result1.size()) );
   // Should contain an 'x'.
-  VERIFY( !char_traits<wchar_t>::find(result1.c_str(), L'x', result1.size()) );
+  VERIFY( result1.find(L'x') == 1 );
 
 #ifdef _GLIBCPP_USE_LONG_LONG
   long long ll1 = 9223372036854775807;
@@ -219,12 +219,104 @@ void test01()
   VERIFY( result1 == L"9.223.372.036.854.775.807" );
 #endif
 }
+void test02()
+{
+  using namespace std;
+  bool test = true;
+
+  // Check num_put works with other iterators besides streambuf
+  // output iterators. (As long as output_iterator requirements are met.)
+  typedef wstring::iterator iter_type;
+  typedef char_traits<wchar_t> traits;
+  typedef num_put<wchar_t, iter_type> num_put_type;
+  const ios_base::iostate goodbit = ios_base::goodbit;
+  const ios_base::iostate eofbit = ios_base::eofbit;
+  const locale loc_c = locale::classic();
+  const wstring str(L"1798 Lady Elgin");
+  const wstring str2(L"0 true 0xbffff74c Mary Nisbet");
+  const wstring x(15, L'x'); // have to have allocated string!
+  wstring res;
+
+  wostringstream oss; 
+  oss.imbue(locale(loc_c, new num_put_type));
+
+  // Iterator advanced, state, output.
+  const num_put_type& tp = use_facet<num_put_type>(oss.getloc());
+
+  // 01 put(long)
+  // 02 put(long double)
+  // 03 put(bool)
+  // 04 put(void*)
+
+  // 01 put(long)
+  const long l = 1798;
+  res = x;
+  iter_type ret1 = tp.put(res.begin(), oss, L' ', l);
+  wstring sanity1(res.begin(), ret1);
+  VERIFY( res == L"1798xxxxxxxxxxx" );
+  VERIFY( sanity1 == L"1798" );
+
+  // 02 put(long double)
+  const long double ld = 1798;
+  res = x;
+  iter_type ret2 = tp.put(res.begin(), oss, L' ', ld);
+  wstring sanity2(res.begin(), ret2);
+  VERIFY( res == L"1798xxxxxxxxxxx" );
+  VERIFY( sanity2 == L"1798" );
+
+  // 03 put(bool)
+  bool b = 1;
+  res = x;
+  iter_type ret3 = tp.put(res.begin(), oss, L' ', b);
+  wstring sanity3(res.begin(), ret3);
+  VERIFY( res == L"1xxxxxxxxxxxxxx" );
+  VERIFY( sanity3 == L"1" );
+
+  b = 0;
+  res = x;
+  oss.setf(ios_base::boolalpha);
+  iter_type ret4 = tp.put(res.begin(), oss, L' ', b);
+  wstring sanity4(res.begin(), ret4);
+  VERIFY( res == L"falsexxxxxxxxxx" );
+  VERIFY( sanity4 == L"false" );
+
+  // 04 put(void*)
+  oss.clear();
+  const void* cv = &ld;
+  res = x;
+  oss.setf(ios_base::fixed, ios_base::floatfield);
+  iter_type ret5 = tp.put(res.begin(), oss, L' ', cv);
+  wstring sanity5(res.begin(), ret5);
+  VERIFY( sanity5.size() );
+  VERIFY( sanity5[1] == L'x' );
+}
+
+// libstdc++/5280
+void test03()
+{
+#ifdef _GLIBCPP_HAVE_SETENV 
+  // Set the global locale to non-"C".
+  std::locale loc_de("de_DE");
+  std::locale::global(loc_de);
+
+  // Set LANG environment variable to de_DE.
+  const char* oldLANG = getenv("LANG");
+  if (!setenv("LANG", "de_DE", 1))
+    {
+      test01();
+      test02();
+      setenv("LANG", oldLANG ? oldLANG : "", 1);
+    }
+#endif
+}
 #endif
 
 int main()
 {
 #ifdef _GLIBCPP_USE_WCHAR_T
   test01();
+  test02();
+  test03();
 #endif
   return 0;
 }
@@ -232,3 +324,4 @@ int main()
 
 // Diana D. Brooks, former chief executive of Sotheby's
 // art-thief extraordinaire
+

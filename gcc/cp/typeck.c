@@ -585,7 +585,7 @@ common_type (t1, t2)
     case REAL_TYPE:
       /* We should have called type_after_usual_arithmetic_conversions
 	 above.  */
-      my_friendly_abort (19990725);
+      abort ();
       break;
 
     case POINTER_TYPE:
@@ -759,7 +759,7 @@ common_type (t1, t2)
     case OFFSET_TYPE:
       /* Pointers to members should now be handled by the POINTER_TYPE
 	 case above.  */
-      my_friendly_abort (990325);
+      abort ();
 
     default:
       return build_type_attribute_variant (t1, attributes);
@@ -1729,7 +1729,7 @@ decay_conversion (exp)
       return error_mark_node;
     }
   if (code == METHOD_TYPE)
-    my_friendly_abort (990506);
+    abort ();
   if (code == FUNCTION_TYPE || is_overloaded_fn (exp))
     return build_unary_op (ADDR_EXPR, exp, 0);
   if (code == ARRAY_TYPE)
@@ -1999,6 +1999,8 @@ build_component_ref (datum, component, basetype_path, protect)
   register tree ref;
   tree field_type;
   int type_quals;
+  tree old_datum;
+  tree old_basetype;
 
   if (processing_template_decl)
     return build_min_nt (COMPONENT_REF, datum, component);
@@ -2057,7 +2059,7 @@ build_component_ref (datum, component, basetype_path, protect)
   if (TREE_CODE (component) == TREE_LIST)
     {
       /* I could not trigger this code. MvL */
-      my_friendly_abort (980326);
+      abort ();
 #ifdef DEAD
       my_friendly_assert (!(TREE_CHAIN (component) == NULL_TREE
 		&& DECL_CHAIN (TREE_VALUE (component)) == NULL_TREE), 309);
@@ -2202,6 +2204,9 @@ build_component_ref (datum, component, basetype_path, protect)
   if (TREE_DEPRECATED (field))
     warn_deprecated_use (field);
 
+  old_datum = datum;
+  old_basetype = basetype;
+
   /* See if we have to do any conversions so that we pick up the field from the
      right context.  */
   if (DECL_FIELD_CONTEXT (field) != basetype)
@@ -2215,12 +2220,17 @@ build_component_ref (datum, component, basetype_path, protect)
       /* Handle base classes here...  */
       if (base != basetype && TYPE_BASE_CONVS_MAY_REQUIRE_CODE_P (basetype))
 	{
- 	  tree binfo = lookup_base (TREE_TYPE (datum), base, ba_check, NULL);
- 
+	  base_kind kind;
+ 	  tree binfo = lookup_base (TREE_TYPE (datum), base, ba_check, &kind);
+
+	  /* Complain about use of offsetof which will break.  */
 	  if (TREE_CODE (datum) == INDIRECT_REF
-	      && integer_zerop (TREE_OPERAND (datum, 0)))
+	      && integer_zerop (TREE_OPERAND (datum, 0))
+	      && kind == bk_via_virtual)
 	    {
-	      error ("invalid reference to NULL ptr, use ptr-to-member instead");
+	      error ("\
+invalid offsetof from non-POD type `%#T'; use pointer to member instead",
+		     basetype);
 	      return error_mark_node;
 	    }
  	  datum = build_base_path (PLUS_EXPR, datum, binfo, 1);
@@ -2238,6 +2248,18 @@ build_component_ref (datum, component, basetype_path, protect)
 	  return build_component_ref (subdatum, field, basetype_path, protect);
 	}
     }
+
+  /* Complain about other invalid uses of offsetof, even though they will
+     give the right answer.  Note that we complain whether or not they
+     actually used the offsetof macro, since there's no way to know at this
+     point.  So we just give a warning, instead of a pedwarn.  */
+  if (protect
+      && CLASSTYPE_NON_POD_P (old_basetype)
+      && TREE_CODE (old_datum) == INDIRECT_REF
+      && integer_zerop (TREE_OPERAND (old_datum, 0)))
+    warning ("\
+invalid offsetof from non-POD type `%#T'; use pointer to member instead",
+	     basetype);
 
   /* Compute the type of the field, as described in [expr.ref].  */
   type_quals = TYPE_UNQUALIFIED;
@@ -2811,7 +2833,7 @@ build_x_function_call (function, params, decl)
 	}
       /* Unexpected node type?  */
       else
-	my_friendly_abort (116);
+	abort ();
       if (decl == NULL_TREE)
 	{
 	  if (current_function_decl
@@ -2991,10 +3013,6 @@ build_function_call_real (function, params, require_complete, flags)
       name = DECL_NAME (function);
       assembler_name = DECL_ASSEMBLER_NAME (function);
 
-      GNU_xref_call (current_function_decl,
-		     IDENTIFIER_POINTER (name ? name
-					 : TYPE_IDENTIFIER (DECL_CLASS_CONTEXT
-							    (function))));
       mark_used (function);
       fndecl = function;
 
@@ -3396,7 +3414,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
   /* DTRT if one side is an overloaded function, but complain about it.  */
   if (type_unknown_p (op0))
     {
-      tree t = instantiate_type (TREE_TYPE (op1), op0, itf_none);
+      tree t = instantiate_type (TREE_TYPE (op1), op0, tf_none);
       if (t != error_mark_node)
 	{
 	  pedwarn ("assuming cast to type `%T' from overloaded function",
@@ -3406,7 +3424,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
     }
   if (type_unknown_p (op1))
     {
-      tree t = instantiate_type (TREE_TYPE (op0), op1, itf_none);
+      tree t = instantiate_type (TREE_TYPE (op0), op1, tf_none);
       if (t != error_mark_node)
 	{
 	  pedwarn ("assuming cast to type `%T' from overloaded function",
@@ -3705,7 +3723,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 		&& same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type0), type1))
 	       || (TYPE_PTRMEMFUNC_P (type1)
 		   && same_type_p (TYPE_PTRMEMFUNC_FN_TYPE (type1), type0)))
-	my_friendly_abort (20000221);
+	abort ();
       break;
 
     case MAX_EXPR:
@@ -4672,7 +4690,7 @@ build_unary_op (code, xarg, noconvert)
       if (TREE_CODE (arg) == IDENTIFIER_NODE
 	  && IDENTIFIER_OPNAME_P (arg))
 	{
-	  my_friendly_abort (117);
+	  abort ();
 	  /* We don't know the type yet, so just work around the problem.
 	     We know that this will resolve to an lvalue.  */
 	  return build1 (ADDR_EXPR, unknown_type_node, arg);
@@ -5726,8 +5744,6 @@ build_modify_expr (lhs, modifycode, rhs)
   if (!lvalue_or_else (lhs, "assignment"))
     return error_mark_node;
 
-  GNU_xref_assign (lhs);
-
   /* Warn about modifying something that is `const'.  Don't warn if
      this is initialization.  */
   if (modifycode != INIT_EXPR
@@ -6090,7 +6106,7 @@ build_ptrmemfunc (type, pfn, force)
     }
 
   if (type_unknown_p (pfn))
-    return instantiate_type (type, pfn, itf_complain);
+    return instantiate_type (type, pfn, tf_error | tf_warning);
 
   fn = TREE_OPERAND (pfn, 0);
   my_friendly_assert (TREE_CODE (fn) == FUNCTION_DECL, 0);
@@ -6263,7 +6279,7 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
   register enum tree_code coder;
 
   if (codel == OFFSET_TYPE)
-    my_friendly_abort (990505);
+    abort ();
 
   if (TREE_CODE (rhs) == OFFSET_REF)
     rhs = resolve_offset_ref (rhs);
@@ -6318,7 +6334,7 @@ convert_for_assignment (type, rhs, errtype, fndecl, parmnum)
 	     overloaded function.  Call instantiate_type to get error
 	     messages.  */
 	  if (rhstype == unknown_type_node)
-	    instantiate_type (type, rhs, itf_complain);
+	    instantiate_type (type, rhs, tf_error | tf_warning);
 	  else if (fndecl)
 	    error ("cannot convert `%T' to `%T' for argument `%P' to `%D'",
 		      rhstype, type, parmnum, fndecl);

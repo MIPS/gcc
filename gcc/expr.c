@@ -1575,9 +1575,11 @@ move_by_pieces_1 (genfun, mode, data)
 	from1 = adjust_address (data->from, mode, data->offset);
 
       if (HAVE_PRE_DECREMENT && data->explicit_inc_to < 0)
-	emit_insn (gen_add2_insn (data->to_addr, GEN_INT (-size)));
+	emit_insn (gen_add2_insn (data->to_addr,
+				  GEN_INT (-(HOST_WIDE_INT)size)));
       if (HAVE_PRE_DECREMENT && data->explicit_inc_from < 0)
-	emit_insn (gen_add2_insn (data->from_addr, GEN_INT (-size)));
+	emit_insn (gen_add2_insn (data->from_addr,
+				  GEN_INT (-(HOST_WIDE_INT)size)));
 
       if (data->to)
 	emit_insn ((*genfun) (to1, from1));
@@ -5391,8 +5393,7 @@ force_operand (value, target)
   rtx subtarget = get_subtarget (target);
 
   /* Check for a PIC address load.  */
-  if (flag_pic
-      && (GET_CODE (value) == PLUS || GET_CODE (value) == MINUS)
+  if ((GET_CODE (value) == PLUS || GET_CODE (value) == MINUS)
       && XEXP (value, 0) == pic_offset_table_rtx
       && (GET_CODE (XEXP (value, 1)) == SYMBOL_REF
 	  || GET_CODE (XEXP (value, 1)) == LABEL_REF
@@ -7273,15 +7274,24 @@ expand_expr (exp, target, tmode, modifier)
 	  return op0;
 	}
 
-      op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, mode, 0);
+      op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, mode, modifier);
       if (GET_MODE (op0) == mode)
 	return op0;
 
       /* If OP0 is a constant, just convert it into the proper mode.  */
       if (CONSTANT_P (op0))
-	return
-	  convert_modes (mode, TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0))),
-			 op0, TREE_UNSIGNED (TREE_TYPE (TREE_OPERAND (exp, 0))));
+	{
+	  tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
+	  enum machine_mode inner_mode = TYPE_MODE (inner_type);
+
+          if (modifier == EXPAND_INITIALIZER)
+	    return simplify_gen_subreg (mode, op0, inner_mode,
+					subreg_lowpart_offset (mode,
+							       inner_mode));
+	  else
+	    return convert_modes (mode, inner_mode, op0,
+				  TREE_UNSIGNED (inner_type));
+	}
 
       if (modifier == EXPAND_INITIALIZER)
 	return gen_rtx_fmt_e (unsignedp ? ZERO_EXTEND : SIGN_EXTEND, mode, op0);

@@ -663,7 +663,7 @@ shladd_operand (op, mode)
 	      || INTVAL (op) == 8 || INTVAL (op) == 16));
 }
 
-/* Return 1 if OP is a -16, -8, -4, -1, 1, 4, 8, or 16 immediate operand. */
+/* Return 1 if OP is a -16, -8, -4, -1, 1, 4, 8, or 16 immediate operand.  */
 
 int
 fetchadd_operand (op, mode)
@@ -2137,7 +2137,7 @@ ia64_expand_prologue ()
       /* Even if we're not going to generate an epilogue, we still
 	 need to save the register so that EH works.  */
       if (! epilogue_p && current_frame_info.reg_save_ar_unat)
-	emit_insn (gen_rtx_USE (VOIDmode, ar_unat_save_reg));
+	emit_insn (gen_prologue_use (ar_unat_save_reg));
     }
   else
     ar_unat_save_reg = NULL_RTX;
@@ -2178,7 +2178,7 @@ ia64_expand_prologue ()
 	  /* Even if we're not going to generate an epilogue, we still
 	     need to save the register so that EH works.  */
 	  if (! epilogue_p)
-	    emit_insn (gen_rtx_USE (VOIDmode, alt_reg));
+	    emit_insn (gen_prologue_use (alt_reg));
 	}
       else
 	{
@@ -2222,7 +2222,7 @@ ia64_expand_prologue ()
 	  /* Even if we're not going to generate an epilogue, we still
 	     need to save the register so that EH works.  */
 	  if (! epilogue_p)
-	    emit_insn (gen_rtx_USE (VOIDmode, alt_reg));
+	    emit_insn (gen_prologue_use (alt_reg));
 	}
       else
 	{
@@ -2262,7 +2262,7 @@ ia64_expand_prologue ()
 	  /* Even if we're not going to generate an epilogue, we still
 	     need to save the register so that EH works.  */
 	  if (! epilogue_p)
-	    emit_insn (gen_rtx_USE (VOIDmode, alt_reg));
+	    emit_insn (gen_prologue_use (alt_reg));
 	}
       else
 	{
@@ -3578,7 +3578,7 @@ ia64_print_operand (file, x, code)
     case POST_DEC:
     case POST_MODIFY:
       x = XEXP (x, 0);
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     case REG:
       fputs (reg_names [REGNO (x)], file);
@@ -4175,7 +4175,7 @@ rws_access_regno (regno, flags, pred)
 	      && ! rws_sum[regno].written_by_fp)
 	    /* The predicates of a branch are available within the
 	       same insn group as long as the predicate was written by
-	       something other than a floating-point instruction.   */
+	       something other than a floating-point instruction.  */
 	    return 0;
 	}
 
@@ -4292,7 +4292,7 @@ update_set_flags (x, pflags, ppred, pcond)
 	     type compares.  We do not generate such instructions
 	     currently.  */
 	}
-      /* ... fall through ... */
+      /* ... fall through ...  */
 
     default:
       if (GET_RTX_CLASS (GET_CODE (src)) == '<'
@@ -4776,6 +4776,7 @@ group_barrier_needed_p (insn)
 
 	  /* Doesn't generate code.  */
 	case CODE_FOR_pred_rel_mutex:
+	case CODE_FOR_prologue_use:
 	  return 0;
 
 	default:
@@ -6393,7 +6394,8 @@ ia64_sched_reorder2 (dump, sched_verbose, ready, pn_ready, clock_var)
 
 	  /* Ignore cycle displays and .pred.rel.mutex.  */
 	  if (insn_code == CODE_FOR_cycle_display
-	      || insn_code == CODE_FOR_pred_rel_mutex)
+	      || insn_code == CODE_FOR_pred_rel_mutex
+	      || insn_code == CODE_FOR_prologue_use)
 	    continue;
 
 	  if (insn_code == CODE_FOR_insn_group_barrier)
@@ -6940,7 +6942,7 @@ ia64_encode_section_info (decl)
   /* This decl is marked as being in small data/bss but it shouldn't
      be; one likely explanation for this is that the decl has been
      moved into a different section from the one it was in when
-     ENCODE_SECTION_INFO was first called.  Remove the '@'.*/
+     ENCODE_SECTION_INFO was first called.  Remove the '@'.  */
   else if (symbol_str[0] == SDATA_NAME_FLAG_CHAR)
     {
       XSTR (XEXP (DECL_RTL (decl), 0), 0)
@@ -7004,7 +7006,7 @@ process_set (asm_out_file, pat)
       return 1;
     }
 
-  /* Look for SP = .... */
+  /* Look for SP = ....  */
   if (GET_CODE (dest) == REG && REGNO (dest) == STACK_POINTER_REGNUM)
     {
       if (GET_CODE (src) == PLUS)
@@ -7801,14 +7803,14 @@ ia64_hpux_function_arg_padding (mode, type)
      enum machine_mode mode;
      tree type;
 {
-   /* Exception to normal case for structures/unions/etc. */
+   /* Exception to normal case for structures/unions/etc.  */
 
    if (type && AGGREGATE_TYPE_P (type)
        && int_size_in_bytes (type) < UNITS_PER_WORD)
      return upward;
 
    /* This is the standard FUNCTION_ARG_PADDING with !BYTES_BIG_ENDIAN
-      hardwired to be true. */
+      hardwired to be true.  */
 
    return((mode == BLKmode
        ? (type && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST

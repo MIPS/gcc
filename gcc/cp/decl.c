@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 #include "c-common.h"
+#include "diagnostic.h"
 
 extern const struct attribute_spec *lang_attribute_table;
 
@@ -133,7 +134,9 @@ static void mark_lang_function PARAMS ((struct cp_language_function *));
 static void save_function_data PARAMS ((tree));
 static void check_function_type PARAMS ((tree, tree));
 static void destroy_local_var PARAMS ((tree));
+static void begin_constructor_body PARAMS ((void));
 static void finish_constructor_body PARAMS ((void));
+static void begin_destructor_body PARAMS ((void));
 static void finish_destructor_body PARAMS ((void));
 static tree create_array_type_for_decl PARAMS ((tree, tree, tree));
 static tree get_atexit_node PARAMS ((void));
@@ -285,10 +288,6 @@ int flag_noniso_default_format_attributes = 1;
 extern int flag_conserve_space;
 
 /* C and C++ flags are in decl2.c.  */
-
-/* Flag used when debugging spew.c */
-
-extern int spew_debug;
 
 /* A expression of value 0 with the same precision as a sizetype
    node, but signed.  */
@@ -545,7 +544,7 @@ pop_binding_level ()
     {
       /* Cannot pop a level, if there are none left to pop.  */
       if (current_binding_level == global_binding_level)
-	my_friendly_abort (123);
+	abort ();
     }
   /* Pop the current level, and free the structure for reuse.  */
 #if defined(DEBUG_CP_BINDING_LEVELS)
@@ -584,7 +583,7 @@ suspend_binding_level ()
     {
       /* Cannot suspend a level, if there are none left to suspend.  */
       if (current_binding_level == global_binding_level)
-	my_friendly_abort (123);
+	abort ();
     }
   /* Suspend the current level.  */
 #if defined(DEBUG_CP_BINDING_LEVELS)
@@ -843,7 +842,6 @@ pushlevel (tag_transparent)
     newlevel = make_binding_level ();
 
   push_binding_level (newlevel, tag_transparent, keep_next_level_flag);
-  GNU_xref_start_scope ((size_t) newlevel);
   keep_next_level_flag = 0;
 }
 
@@ -885,7 +883,7 @@ begin_scope (sk)
       break;
 
     default:
-      my_friendly_abort (20000309);
+      abort ();
     }
 }
 
@@ -1185,7 +1183,7 @@ pop_binding (id, decl)
   else if (BINDING_TYPE (binding) == decl)
     BINDING_TYPE (binding) = NULL_TREE;
   else
-    my_friendly_abort (0);
+    abort ();
 
   if (!BINDING_VALUE (binding) && !BINDING_TYPE (binding))
     {
@@ -1301,11 +1299,6 @@ poplevel (keep, reverse, functionbody)
      at the beginning of the list of blocks at this binding level,
      rather than the end.  This hack is no longer used.  */
   my_friendly_assert (keep == 0 || keep == 1, 0);
-
-  GNU_xref_end_scope ((size_t) current_binding_level,
-		      (size_t) current_binding_level->level_chain,
-		      current_binding_level->parm_flag,
-		      current_binding_level->keep);
 
   if (current_binding_level->keep == 1)
     keep = 1;
@@ -1489,7 +1482,7 @@ poplevel (keep, reverse, functionbody)
 	  else if (TREE_CODE (decl) == OVERLOAD)
 	    pop_binding (DECL_NAME (OVL_FUNCTION (decl)), decl);
 	  else
-	    my_friendly_abort (0);
+	    abort ();
 	}
     }
 
@@ -1727,11 +1720,6 @@ poplevel_class ()
        shadowed;
        shadowed = TREE_CHAIN (shadowed))
     pop_binding (TREE_PURPOSE (shadowed), TREE_TYPE (shadowed));
-
-  GNU_xref_end_scope ((size_t) class_binding_level,
-		      (size_t) class_binding_level->level_chain,
-		      class_binding_level->parm_flag,
-		      class_binding_level->keep);
 
   /* Now, pop out of the binding level which we created up in the
      `pushlevel_class' routine.  */
@@ -4205,9 +4193,6 @@ pushdecl (x)
 		     them there.  */
 		  struct binding_level *b = current_binding_level->level_chain;
 
-		  /* Skip the ctor/dtor cleanup level.  */
-		  b = b->level_chain;
-
 		  /* ARM $8.3 */
 		  if (b->parm_flag == 1)
 		    {
@@ -4678,7 +4663,7 @@ push_overloaded_decl (decl, flags)
 	      }
 
 	  /* We should always find a previous binding in this case.  */
-	  my_friendly_abort (0);
+	  abort ();
 	}
 
       /* Install the new binding.  */
@@ -5506,7 +5491,7 @@ lookup_namespace_name (namespace, name)
 					 /*in_decl=*/NULL_TREE,
 					 /*context=*/NULL_TREE,
 					 /*entering_scope=*/0,
-	                                 /*complain=*/1);
+	                                 tf_error | tf_warning);
 	  else if (DECL_FUNCTION_TEMPLATE_P (val)
 		   || TREE_CODE (val) == OVERLOAD)
 	    val = lookup_template_function (val,
@@ -5663,7 +5648,7 @@ make_typename_type (context, name, complain)
       return error_mark_node;
     }
   if (TREE_CODE (name) != IDENTIFIER_NODE)
-    my_friendly_abort (2000);
+    abort ();
 
   if (TREE_CODE (context) == NAMESPACE_DECL)
     {
@@ -5695,7 +5680,7 @@ make_typename_type (context, name, complain)
 					TREE_OPERAND (fullname, 1),
 					NULL_TREE, context,
 					/*entering_scope=*/0,
-	                                /*complain=*/1);
+	                                tf_error | tf_warning);
 	}
       else
 	{
@@ -5744,7 +5729,7 @@ make_unbound_class_template (context, name, complain)
   else if (DECL_P (name))
     name = DECL_NAME (name);
   if (TREE_CODE (name) != IDENTIFIER_NODE)
-    my_friendly_abort (20010902);
+    abort ();
 
   if (!uses_template_parms (context)
       || currently_open_class (context))
@@ -7131,11 +7116,16 @@ tree
 groktypename (typename)
      tree typename;
 {
+  tree specs, attrs;
+  tree type;
   if (TREE_CODE (typename) != TREE_LIST)
     return typename;
-  return grokdeclarator (TREE_VALUE (typename),
-			 TREE_PURPOSE (typename),
-			 TYPENAME, 0, NULL);
+  split_specs_attrs (TREE_PURPOSE (typename), &specs, &attrs);
+  type = grokdeclarator (TREE_VALUE (typename), specs,
+			 TYPENAME, 0, &attrs);
+  if (attrs)
+    cplus_decl_attributes (&type, attrs, 0);
+  return type;
 }
 
 /* Decode a declarator in an ordinary declaration or data definition.
@@ -8129,7 +8119,6 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
 	  set_identifier_type_value (DECL_NAME (decl), type);
 	  CLASSTYPE_GOT_SEMICOLON (type) = 1;
 	}
-      GNU_xref_decl (current_function_decl, decl);
 
       /* If we have installed this as the canonical typedef for this
 	 type, and that type has not been defined yet, delay emitting
@@ -8169,8 +8158,6 @@ cp_finish_decl (decl, init, asmspec_tree, flags)
   /* Deduce size of array from initialization, if not already known.  */
   init = check_initializer (decl, init);
   maybe_deduce_size_from_array_init (decl, init);
-
-  GNU_xref_decl (current_function_decl, decl);
 
   /* Add this declaration to the statement-tree.  This needs to happen
      after the call to check_initializer so that the DECL_STMT for a
@@ -9535,7 +9522,7 @@ check_special_function_return_type (sfk, type, optype)
       break;
 
     default:
-      my_friendly_abort (20000408);
+      abort ();
       break;
     }
 
@@ -9625,6 +9612,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   int explicit_char = 0;
   int defaulted_int = 0;
   int extern_langp = 0;
+  tree dependant_name = NULL_TREE;
   
   tree typedef_decl = NULL_TREE;
   const char *name;
@@ -9866,11 +9854,10 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	      else if (TREE_CODE (cname) == TEMPLATE_TYPE_PARM
 		       || TREE_CODE (cname) == BOUND_TEMPLATE_TEMPLATE_PARM)
 		{
-		  error ("`%T::%D' is not a valid declarator", cname,
-			    TREE_OPERAND (decl, 1));
-		  error ("  perhaps you want `typename %T::%D' to make it a type",
-			    cname, TREE_OPERAND (decl, 1));
-		  return void_type_node;
+	  	  /* This might be declaring a member of a template
+		     parm to be a friend.  */
+		  ctype = cname;
+		  dependant_name = TREE_OPERAND (decl, 1);
 		}
 	      else if (ctype == NULL_TREE)
 		ctype = cname;
@@ -10149,7 +10136,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	 common.  With no options, it is allowed.  With -Wreturn-type,
 	 it is a warning.  It is only an error with -pedantic-errors.  */
       is_main = (funcdef_flag
-		 && MAIN_NAME_P (dname)
+		 && dname && MAIN_NAME_P (dname)
 		 && ctype == NULL_TREE
 		 && in_namespace == NULL_TREE
 		 && current_namespace == global_namespace);
@@ -10362,6 +10349,12 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
   friendp = RIDBIT_SETP (RID_FRIEND, specbits);
   RIDBIT_RESET (RID_FRIEND, specbits);
 
+  if (dependant_name && !friendp)
+    {
+      error ("`%T::%D' is not a valid declarator", ctype, dependant_name);
+      return void_type_node;
+    }
+  
   /* Warn if two storage classes are given. Default to `auto'.  */
 
   if (RIDBIT_ANY_SET (specbits))
@@ -10913,7 +10906,8 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		    && uses_template_parms (current_class_type))
 		  {
 		    tree args = current_template_args ();
-		    type = tsubst (type, args, /*complain=*/1, NULL_TREE);
+		    type = tsubst (type, args, tf_error | tf_warning,
+				   NULL_TREE);
 		  }
 
 		/* This pop_nested_class corresponds to the
@@ -10924,7 +10918,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		TREE_COMPLEXITY (declarator) = current_class_depth;
 	      }
 	    else
-	      my_friendly_abort (16);
+	      abort ();
 
 	    if (TREE_OPERAND (declarator, 0) == NULL_TREE)
 	      {
@@ -11017,7 +11011,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 		declarator = sname;
 	      }
 	    else if (TREE_CODE (sname) == SCOPE_REF)
-	      my_friendly_abort (17);
+	      abort ();
 	    else
 	      {
 	      done_scoping:
@@ -11052,7 +11046,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
 	  break;
 
 	default:
-	  my_friendly_abort (158);
+	  abort ();
 	}
     }
 
@@ -11129,7 +11123,7 @@ grokdeclarator (declarator, declspecs, decl_context, initialized, attrlist)
     }
   else
     /* Unexpected declarator format.  */
-    my_friendly_abort (990210);
+    abort ();
 
   /* If this is declaring a typedef name, return a TYPE_DECL.  */
 
@@ -11353,7 +11347,7 @@ friend declaration requires class-key, i.e. `friend %#T'",
       else if (TREE_CODE (declarator) == IDENTIFIER_NODE)
 	{
 	  if (IDENTIFIER_OPNAME_P (declarator))
-	    my_friendly_abort (356);
+	    abort ();
 	  else
 	    error ("variable or field `%s' declared void", name);
 	}
@@ -12001,8 +11995,9 @@ grokparms (first_parm)
   for (parm = first_parm; parm != NULL_TREE; parm = chain)
     {
       tree type = NULL_TREE;
-      register tree decl = TREE_VALUE (parm);
+      tree decl = TREE_VALUE (parm);
       tree init = TREE_PURPOSE (parm);
+      tree specs, attrs;
 
       chain = TREE_CHAIN (parm);
       /* @@ weak defense against parse errors.  */
@@ -12020,10 +12015,14 @@ grokparms (first_parm)
       if (parm == void_list_node)
         break;
 
-      decl = grokdeclarator (TREE_VALUE (decl), TREE_PURPOSE (decl),
-		     PARM, init != NULL_TREE, NULL);
+      split_specs_attrs (TREE_PURPOSE (decl), &specs, &attrs);
+      decl = grokdeclarator (TREE_VALUE (decl), specs,
+			     PARM, init != NULL_TREE, &attrs);
       if (! decl || TREE_TYPE (decl) == error_mark_node)
         continue;
+
+      if (attrs)
+	cplus_decl_attributes (&decl, attrs, 0);
 
       type = TREE_TYPE (decl);
       if (VOID_TYPE_P (type))
@@ -12323,7 +12322,7 @@ grok_op_properties (decl, friendp)
 #include "operators.def"
 #undef DEF_OPERATOR
 
-	my_friendly_abort (20000527);
+	abort ();
       }
     while (0);
   my_friendly_assert (operator_code != LAST_CPLUS_TREE_CODE, 20000526);
@@ -12496,7 +12495,7 @@ grok_op_properties (decl, friendp)
 		  break;
 
 		default:
-		  my_friendly_abort (20000527);
+		  abort ();
 		}
 
 	      SET_OVERLOADED_OPERATOR_CODE (decl, operator_code);
@@ -12624,7 +12623,7 @@ tag_name (code)
     case enum_type:
       return "enum";
     default:
-      my_friendly_abort (981122);
+      abort ();
     }
 }
 
@@ -12676,7 +12675,7 @@ xref_tag (code_type_node, name, globalize)
       code = ENUMERAL_TYPE;
       break;
     default:
-      my_friendly_abort (18);
+      abort ();
     }
 
   /* If a cross reference is requested, look up the type
@@ -12875,7 +12874,7 @@ xref_tag (code_type_node, name, globalize)
 	CLASSTYPE_DECLARED_CLASS (ref) = 0;
     }
 
-  TREE_TYPE (ref) = attributes;
+  TYPE_ATTRIBUTES (ref) = attributes;
 
   return ref;
 }
@@ -12908,7 +12907,8 @@ xref_tag_from_type (old, id, globalize)
 void
 xref_basetypes (code_type_node, name, ref, binfo)
      tree code_type_node;
-     tree name, ref;
+     tree name ATTRIBUTE_UNUSED;
+     tree ref;
      tree binfo;
 {
   /* In the declaration `A : X, Y, ... Z' we mark all the types
@@ -12978,8 +12978,6 @@ xref_basetypes (code_type_node, name, ref, binfo)
 		    TREE_VALUE (binfo));
 	  continue;
 	}
-
-      GNU_xref_hier (name, basetype, via_public, via_virtual, 0);
 
       /* This code replaces similar code in layout_basetypes.
          We put the complete_type first for implicit `typename'.  */
@@ -13121,7 +13119,6 @@ start_enum (name)
   if (current_class_type)
     TREE_ADDRESSABLE (b->tags) = 1;
 
-  GNU_xref_decl (current_function_decl, enumtype);
   return enumtype;
 }
 
@@ -13367,10 +13364,7 @@ build_enumerator (name, value, enumtype)
       things like `S::i' later.)  */
     finish_member_declaration (decl);
   else
-    {
-      pushdecl (decl);
-      GNU_xref_decl (current_function_decl, decl);
-    }
+    pushdecl (decl);
 
   /* Add this enumeration constant to the list for this type.  */
   TYPE_VALUES (enumtype) = tree_cons (name, decl, TYPE_VALUES (enumtype));
@@ -13494,7 +13488,10 @@ start_function (declspecs, declarator, attrs, flags)
       decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, NULL);
       /* If the declarator is not suitable for a function definition,
 	 cause a syntax error.  */
-      if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL) return 0;
+      if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL)
+	return 0;
+
+      cplus_decl_attributes (&decl1, attrs, 0);
 
       fntype = TREE_TYPE (decl1);
 
@@ -13608,19 +13605,16 @@ start_function (declspecs, declarator, attrs, flags)
 
   /* Build the return declaration for the function.  */
   restype = TREE_TYPE (fntype);
-  if (!processing_template_decl)
+  /* Promote the value to int before returning it.  */
+  if (c_promoting_integer_type_p (restype))
+    restype = type_promotes_to (restype);
+  if (DECL_RESULT (decl1) == NULL_TREE)
     {
-      if (!DECL_RESULT (decl1))
-	{
-	  DECL_RESULT (decl1)
-	    = build_decl (RESULT_DECL, 0, TYPE_MAIN_VARIANT (restype));
-	  c_apply_type_quals_to_decl (cp_type_quals (restype),
-				      DECL_RESULT (decl1));
-	}
+      DECL_RESULT (decl1)
+	= build_decl (RESULT_DECL, 0, TYPE_MAIN_VARIANT (restype));
+      c_apply_type_quals_to_decl (cp_type_quals (restype),
+				  DECL_RESULT (decl1));
     }
-  else
-    /* Just use `void'.  Nobody will ever look at this anyhow.  */
-    DECL_RESULT (decl1) = build_decl (RESULT_DECL, 0, void_type_node);
 
   /* Initialize RTL machinery.  We cannot do this until
      CURRENT_FUNCTION_DECL and DECL_RESULT are set up.  We do this
@@ -13781,20 +13775,6 @@ start_function (declspecs, declarator, attrs, flags)
   pushlevel (0);
   current_binding_level->parm_flag = 1;
 
-  cplus_decl_attributes (&decl1, attrs, 0);
-
-  /* Promote the value to int before returning it.  */
-  if (c_promoting_integer_type_p (restype))
-    restype = type_promotes_to (restype);
-
-  if (DECL_RESULT (decl1) == NULL_TREE)
-    {
-      DECL_RESULT (decl1)
-	= build_decl (RESULT_DECL, 0, TYPE_MAIN_VARIANT (restype));
-      TREE_READONLY (DECL_RESULT (decl1)) = CP_TYPE_CONST_P (restype);
-      TREE_THIS_VOLATILE (DECL_RESULT (decl1)) = CP_TYPE_VOLATILE_P (restype);
-    }
-
   ++function_depth;
 
   if (DECL_DESTRUCTOR_P (decl1))
@@ -13931,6 +13911,18 @@ save_function_data (decl)
     }
 }
 
+/* Add a note to mark the beginning of the main body of the constructor.
+   This is used to set up the data structures for the cleanup regions for
+   fully-constructed bases and members.  */
+
+static void
+begin_constructor_body ()
+{
+  tree ctor_stmt = build_stmt (CTOR_STMT);
+  CTOR_BEGIN_P (ctor_stmt) = 1;
+  add_stmt (ctor_stmt);
+}
+
 /* Add a note to mark the end of the main body of the constructor.  This is
    used to end the cleanup regions for fully-constructed bases and
    members.  */
@@ -13944,6 +13936,54 @@ finish_constructor_body ()
      as with the destructor cleanups; the only difference is that these are
      only run if an exception is thrown.  */
   add_stmt (build_stmt (CTOR_STMT));
+}
+
+/* Do all the processing for the beginning of a destructor; set up the
+   vtable pointers and cleanups for bases and members.  */
+
+static void
+begin_destructor_body ()
+{
+  tree if_stmt;
+  tree compound_stmt;
+
+  /* If the dtor is empty, and we know there is not any possible
+     way we could use any vtable entries, before they are possibly
+     set by a base class dtor, we don't have to setup the vtables,
+     as we know that any base class dtor will set up any vtables
+     it needs.  We avoid MI, because one base class dtor can do a
+     virtual dispatch to an overridden function that would need to
+     have a non-related vtable set up, we cannot avoid setting up
+     vtables in that case.  We could change this to see if there
+     is just one vtable.
+
+     ??? In the destructor for a class, the vtables are set
+     appropriately for that class.  There will be no non-related
+     vtables.  jason 2001-12-11.  */
+  if_stmt = begin_if_stmt ();
+
+  /* If it is not safe to avoid setting up the vtables, then
+     someone will change the condition to be boolean_true_node.  
+     (Actually, for now, we do not have code to set the condition
+     appropriately, so we just assume that we always need to
+     initialize the vtables.)  */
+  finish_if_stmt_cond (boolean_true_node, if_stmt);
+  current_vcalls_possible_p = &IF_COND (if_stmt);
+
+  compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
+
+  /* Make all virtual function table pointers in non-virtual base
+     classes point to CURRENT_CLASS_TYPE's virtual function
+     tables.  */
+  initialize_vtbl_ptrs (current_class_ptr);
+
+  finish_compound_stmt (/*has_no_scope=*/0, compound_stmt);
+  finish_then_clause (if_stmt);
+  finish_if_stmt ();
+
+  /* And insert cleanups for our bases and members so that they
+     will be properly destroyed if we throw.  */
+  push_base_cleanups ();
 }
 
 /* At the end of every destructor we generate code to delete the object if
@@ -13990,8 +14030,26 @@ finish_destructor_body ()
 tree
 begin_function_body ()
 {
-  tree stmt = begin_compound_stmt (0);
+  tree stmt;
+
+  if (processing_template_decl)
+    /* Do nothing now.  */;
+  else
+    /* Always keep the BLOCK node associated with the outermost pair of
+       curly braces of a function.  These are needed for correct
+       operation of dwarfout.c.  */
+    keep_next_level (1);
+
+  stmt = begin_compound_stmt (0);
   COMPOUND_STMT_BODY_BLOCK (stmt) = 1;
+
+  if (processing_template_decl)
+    /* Do nothing now.  */;
+  else if (DECL_CONSTRUCTOR_P (current_function_decl))
+    begin_constructor_body ();
+  else if (DECL_DESTRUCTOR_P (current_function_decl))
+    begin_destructor_body ();
+
   return stmt;
 }
 
@@ -14090,8 +14148,28 @@ finish_function (flags)
   /* This must come after expand_function_end because cleanups might
      have declarations (from inline functions) that need to go into
      this function's blocks.  */
+  
+  /* If the current binding level isn't the outermost binding level
+     for this function, either there is a bug, or we have experienced
+     syntax errors and the statement tree is malformed.  */
   if (current_binding_level->parm_flag != 1)
-    my_friendly_abort (122);
+    {
+      /* Make sure we have already experienced errors.  */
+      if (errorcount == 0)
+	abort ();
+
+      /* Throw away the broken statement tree and extra binding
+         levels.  */
+      DECL_SAVED_TREE (fndecl) = build_stmt (COMPOUND_STMT, NULL_TREE);
+
+      while (current_binding_level->parm_flag != 1)
+	{
+	  if (current_binding_level->parm_flag == 2)
+	    pop_nested_class ();
+	  else
+	    poplevel (0, 0, 0);
+	}
+    }
   poplevel (1, 0, 1);
 
   /* Set up the named return value optimization, if we can.  Here, we
@@ -14143,6 +14221,18 @@ finish_function (flags)
   if (!processing_template_decl && calls_setjmp_p (fndecl))
     DECL_UNINLINABLE (fndecl) = 1;
 
+  /* Complain if there's just no return statement.  */
+  if (!processing_template_decl
+      && TREE_CODE (TREE_TYPE (fntype)) != VOID_TYPE
+      && !current_function_returns_value
+      && !DECL_NAME (DECL_RESULT (fndecl))
+      /* Don't complain if we abort or throw.  */
+      && !current_function_returns_abnormally
+      /* If we have -Wreturn-type, let flow complain.  Unless we're an
+	 inline function, as we might never be compiled separately.  */
+      && (!warn_return_type || DECL_INLINE (fndecl)))
+    warning ("no return statement in function returning non-void");
+    
   /* Clear out memory we no longer need.  */
   free_after_parsing (cfun);
   /* Since we never call rest_of_compilation, we never clear
@@ -14302,11 +14392,6 @@ finish_method (decl)
       my_friendly_assert (TREE_CODE (link) != FUNCTION_DECL, 163);
       DECL_CONTEXT (link) = NULL_TREE;
     }
-
-  GNU_xref_end_scope ((size_t) current_binding_level,
-		      (size_t) current_binding_level->level_chain,
-		      current_binding_level->parm_flag,
-		      current_binding_level->keep);
 
   poplevel (0, 0, 0);
 
@@ -14530,6 +14615,7 @@ mark_lang_function (p)
 
   mark_named_label_lists (&p->x_named_labels, &p->x_named_label_uses);
   mark_binding_level (&p->bindings);
+  mark_pending_inlines (&p->unparsed_inlines);
 }
 
 /* Mark the language-specific data in F for GC.  */

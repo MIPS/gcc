@@ -366,9 +366,9 @@ static int (*offsets_at)[NUM_ELIMINABLE_REGS];
 
 static int num_labels;
 
-static void replace_pseudos_in_call_usage	PARAMS((rtx *,
-							enum machine_mode,
-							rtx));
+static void replace_pseudos_in_call_usage	PARAMS ((rtx *,
+							 enum machine_mode,
+							 rtx));
 static void maybe_fix_stack_asms	PARAMS ((void));
 static void copy_reloads		PARAMS ((struct insn_chain *));
 static void calculate_needs_all_insns	PARAMS ((int));
@@ -2932,38 +2932,32 @@ eliminate_regs_in_insn (insn, replace)
 	    if (ep->from == FRAME_POINTER_REGNUM
 		&& ep->to == HARD_FRAME_POINTER_REGNUM)
 	      {
-		rtx src = SET_SRC (old_set);
-		int offset = 0, ok = 0;
-		rtx prev_insn, prev_set;
+		rtx base = SET_SRC (old_set);
+		rtx base_insn = insn;
+		int offset = 0;
 
-		if (src == ep->to_rtx)
-		  offset = 0, ok = 1;
-		else if (GET_CODE (src) == PLUS
-			 && GET_CODE (XEXP (src, 0)) == CONST_INT
-			 && XEXP (src, 1) == ep->to_rtx)
-		  offset = INTVAL (XEXP (src, 0)), ok = 1;
-		else if (GET_CODE (src) == PLUS
-			 && GET_CODE (XEXP (src, 1)) == CONST_INT
-			 && XEXP (src, 0) == ep->to_rtx)
-		  offset = INTVAL (XEXP (src, 1)), ok = 1;
-		else if ((prev_insn = prev_nonnote_insn (insn)) != 0
-			 && (prev_set = single_set (prev_insn)) != 0
-			 && rtx_equal_p (SET_DEST (prev_set), src))
+		while (base != ep->to_rtx)
 		  {
-		    src = SET_SRC (prev_set);
-		    if (src == ep->to_rtx)
-		      offset = 0, ok = 1;
-		    else if (GET_CODE (src) == PLUS
-			     && GET_CODE (XEXP (src, 0)) == CONST_INT
-			     && XEXP (src, 1) == ep->to_rtx)
-		      offset = INTVAL (XEXP (src, 0)), ok = 1;
-		    else if (GET_CODE (src) == PLUS
-			     && GET_CODE (XEXP (src, 1)) == CONST_INT
-			     && XEXP (src, 0) == ep->to_rtx)
-		      offset = INTVAL (XEXP (src, 1)), ok = 1;
+		    rtx prev_insn, prev_set;
+
+		    if (GET_CODE (base) == PLUS
+		        && GET_CODE (XEXP (base, 1)) == CONST_INT)
+		      {
+		        offset += INTVAL (XEXP (base, 1));
+		        base = XEXP (base, 0);
+		      }
+		    else if ((prev_insn = prev_nonnote_insn (base_insn)) != 0
+			     && (prev_set = single_set (prev_insn)) != 0
+			     && rtx_equal_p (SET_DEST (prev_set), base))
+		      {
+		        base = SET_SRC (prev_set);
+		        base_insn = prev_insn;
+		      }
+		    else
+		      break;
 		  }
 
-		if (ok)
+		if (base == ep->to_rtx)
 		  {
 		    rtx src
 		      = plus_constant (ep->to_rtx, offset - ep->offset);
@@ -4058,7 +4052,7 @@ reload_as_needed (live_known)
       /* Don't assume a reload reg is still good after a call insn
 	 if it is a call-used reg.  */
       else if (GET_CODE (insn) == CALL_INSN)
-	AND_COMPL_HARD_REG_SET(reg_reloaded_valid, call_used_reg_set);
+	AND_COMPL_HARD_REG_SET (reg_reloaded_valid, call_used_reg_set);
     }
 
   /* Clean up.  */
@@ -5317,7 +5311,7 @@ choose_reload_regs (chain)
 	{
 	  max_group_size = MAX (rld[j].nregs, max_group_size);
 	  group_class
-	    = reg_class_superunion[(int) rld[j].class][(int)group_class];
+	    = reg_class_superunion[(int) rld[j].class][(int) group_class];
 	}
 
       save_reload_reg_rtx[j] = rld[j].reg_rtx;
@@ -8347,8 +8341,8 @@ reload_cse_simplify_operands (insn)
   alternative_reject = (int *) alloca (recog_data.n_alternatives * sizeof (int));
   alternative_nregs = (int *) alloca (recog_data.n_alternatives * sizeof (int));
   alternative_order = (int *) alloca (recog_data.n_alternatives * sizeof (int));
-  memset ((char *)alternative_reject, 0, recog_data.n_alternatives * sizeof (int));
-  memset ((char *)alternative_nregs, 0, recog_data.n_alternatives * sizeof (int));
+  memset ((char *) alternative_reject, 0, recog_data.n_alternatives * sizeof (int));
+  memset ((char *) alternative_nregs, 0, recog_data.n_alternatives * sizeof (int));
 
   /* For each operand, find out which regs are equivalent.  */
   for (i = 0; i < recog_data.n_operands; i++)
@@ -8451,7 +8445,7 @@ reload_cse_simplify_operands (insn)
 
 		default:
 		  class
-		    = reg_class_subunion[(int) class][(int) REG_CLASS_FROM_LETTER ((unsigned char)c)];
+		    = reg_class_subunion[(int) class][(int) REG_CLASS_FROM_LETTER ((unsigned char) c)];
 		  break;
 
 		case ',': case '\0':
@@ -8769,7 +8763,9 @@ reload_combine ()
 		   i < RELOAD_COMBINE_MAX_USES; i++)
 		validate_change (reg_state[regno].reg_use[i].insn,
 				 reg_state[regno].reg_use[i].usep,
-				 reg_sum, 1);
+				 /* Each change must have its own
+				    replacement.  */
+				 copy_rtx (reg_sum), 1);
 
 	      if (apply_change_group ())
 		{

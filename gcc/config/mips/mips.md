@@ -164,15 +164,28 @@
 		   (eq (symbol_ref "mips16") (const_int 0)))
   [(and (eq_attr "dslot" "no") (eq_attr "length" "4"))
    (nil)
-   (and (eq_attr "branch_likely" "yes") (and (eq_attr "dslot" "no") (eq_attr "length" "4")))])
+   (and (eq_attr "branch_likely" "yes")
+	(and (eq_attr "dslot" "no")
+	     (eq_attr "length" "4")))])
 
 (define_delay (eq_attr "type" "jump")
-  [(and (eq_attr "dslot" "no") (eq_attr "length" "4"))
+  [(and (eq_attr "dslot" "no")
+	;; ADJUST_INSN_LENGTH divides length by 2 on mips16, so cope
+	;; with it here.  It doesn't matter for branches above,
+	;; because mips16 branches don't have delay slots anyway.
+	(ior (and (eq (symbol_ref "mips16") (const_int 0))
+		  (eq_attr "length" "4"))
+	     (and (ne (symbol_ref "mips16") (const_int 0))
+		  (eq_attr "length" "2"))))
    (nil)
    (nil)])
 
 (define_delay (and (eq_attr "type" "call") (eq_attr "abicalls" "no"))
-  [(and (eq_attr "dslot" "no") (eq_attr "length" "4"))
+  [(and (eq_attr "dslot" "no")
+	(ior (and (eq (symbol_ref "mips16") (const_int 0))
+		  (eq_attr "length" "4"))
+	     (and (ne (symbol_ref "mips16") (const_int 0))
+		  (eq_attr "length" "2"))))
    (nil)
    (nil)])
 
@@ -9463,22 +9476,24 @@ move\\t%0,%z4\\n\\
    (clobber (reg:SI 31))]
   "TARGET_EMBEDDED_PIC"
   "%(bal\\t%S1\;sll\\t%2,%0,2\\n%~%S1:\;addu\\t%2,%2,$31%)\;\\
-lw\\t%2,%1-%S1(%2)\;addu\\t%2,%2,$31\;j\\t%2"
+lw\\t%2,%1-%S1(%2)\;addu\\t%2,%2,$31\\n\\t%*j\\t%2"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
    (set_attr "length"	"24")])
 
+;; This code assumes that the table index will never be >= 29 bits wide,
+;; which allows the 'sign extend' from SI to DI be a no-op.
 (define_insn "casesi_internal_di"
   [(set (pc)
 	(mem:DI (plus:DI (sign_extend:DI
 			  (mult:SI (match_operand:SI 0 "register_operand" "d")
-				  (const_int 4)))
+				  (const_int 8)))
 			 (label_ref (match_operand 1 "" "")))))
    (clobber (match_operand:DI 2 "register_operand" "=d"))
    (clobber (reg:DI 31))]
   "TARGET_EMBEDDED_PIC"
-  "%(bal\\t%S1\;sll\\t%2,%0,2\\n%~%S1:\;addu\\t%2,%2,$31%)\;\\
-ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\;j\\t%2"
+  "%(bal\\t%S1\;sll\\t%2,%0,3\\n%~%S1:\;daddu\\t%2,%2,$31%)\;\\
+ld\\t%2,%1-%S1(%2)\;daddu\\t%2,%2,$31\\n\\t%*j\\t%2"
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")
    (set_attr "length"	"24")])

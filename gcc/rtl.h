@@ -48,7 +48,7 @@ enum rtx_code  {
 				   NUM_RTX_CODE.
 				   Assumes default enum value assignment.  */
 
-#define NUM_RTX_CODE ((int)LAST_AND_UNUSED_RTX_CODE)
+#define NUM_RTX_CODE ((int) LAST_AND_UNUSED_RTX_CODE)
 				/* The cast here, saves many elsewhere.  */
 
 extern const unsigned char rtx_length[NUM_RTX_CODE];
@@ -682,6 +682,12 @@ enum insn_note
   /* Generated at the start of a duplicated exit test.  */
   NOTE_INSN_LOOP_VTOP,
 
+  /* Generated at the end of a conditional at the top of the loop.
+     This is used to perform a lame form of loop rotation in lieu
+     of actually understanding the loop structure.  The note is
+     discarded after rotation is complete.  */
+  NOTE_INSN_LOOP_END_TOP_COND,
+
   /* This kind of note is generated at the end of the function body,
      just before the return insn or return label.  In an optimizing
      compilation it is deleted by the first jump optimization, after
@@ -875,7 +881,7 @@ extern unsigned int subreg_regno 	PARAMS ((rtx));
 #define MEM_IN_STRUCT_P(RTX) ((RTX)->in_struct)
 
 /* For a MEM rtx, 1 if it refers to a scalar.  If zero, RTX may or may
-   not refer to a scalar.*/
+   not refer to a scalar.  */
 #define MEM_SCALAR_P(RTX) ((RTX)->frame_related)
 
 /* If VAL is non-zero, set MEM_IN_STRUCT_P and clear MEM_SCALAR_P in
@@ -926,12 +932,12 @@ do {						\
  : GET_MODE (RTX) != BLKmode ? GEN_INT (GET_MODE_SIZE (GET_MODE (RTX)))	\
  : 0)
 
-/* For a MEM rtx, the alignment in bits.  */
+/* For a MEM rtx, the alignment in bits.  We can use the alignment of the
+   mode as a default when STRICT_ALIGNMENT, but not if not.  */
 #define MEM_ALIGN(RTX)							\
 (MEM_ATTRS (RTX) != 0 ? MEM_ATTRS (RTX)->align				\
- : GET_MODE (RTX) != BLKmode ? GET_MODE_ALIGNMENT (GET_MODE (RTX))	\
- : BITS_PER_UNIT)
-
+ : (STRICT_ALIGNMENT && GET_MODE (RTX) != BLKmode			\
+    ? GET_MODE_ALIGNMENT (GET_MODE (RTX)) : BITS_PER_UNIT))
 
 /* Copy the attributes that apply to memory locations from RHS to LHS.  */
 #define MEM_COPY_ATTRIBUTES(LHS, RHS)				\
@@ -1706,7 +1712,7 @@ extern rtx gen_lowpart_SUBREG PARAMS ((enum machine_mode, rtx));
        && (REGNUM) <= LAST_VIRTUAL_REGISTER))
 
 /* REGNUM never really appearing in the INSN stream.  */
-#define INVALID_REGNUM			(~(unsigned int)0)
+#define INVALID_REGNUM			(~(unsigned int) 0)
 
 extern rtx find_next_ref		PARAMS ((rtx, rtx));
 

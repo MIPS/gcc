@@ -344,10 +344,10 @@ extern int target_flags;
 /*#define PC_REGNUM 15*/
 
 /* Register to use for pushing function arguments.  */
-#define STACK_POINTER_REGNUM 7
+#define STACK_POINTER_REGNUM SP_REG
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 6
+#define FRAME_POINTER_REGNUM FP_REG
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms
@@ -397,7 +397,7 @@ enum reg_class {
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
 { "NO_REGS", "GENERAL_REGS", "MAC_REGS", "ALL_REGS", "LIM_REGS" }
@@ -744,19 +744,21 @@ struct cum_arg
 	    ^^^^^^ function
 */
 
-#define TRAMPOLINE_TEMPLATE(FILE)			\
-  do {							\
-    if (TARGET_H8300)					\
-      {							\
-	fprintf (FILE, "\tmov.w	#0x1234,r3\n");		\
-	fprintf (FILE, "\tjmp	@0x1234\n");		\
-      }							\
-    else						\
-      {							\
-	fprintf (FILE, "\tmov.l	#0x12345678,er3\n");	\
-	fprintf (FILE, "\tjmp	@0x123456\n");		\
-      }							\
-  } while (0)
+#define TRAMPOLINE_TEMPLATE(FILE)				\
+  do								\
+    {								\
+      if (TARGET_H8300)						\
+	{							\
+	  fprintf (FILE, "\tmov.w	#0x1234,r3\n");		\
+	  fprintf (FILE, "\tjmp	@0x1234\n");			\
+	}							\
+      else							\
+	{							\
+	  fprintf (FILE, "\tmov.l	#0x12345678,er3\n");	\
+	  fprintf (FILE, "\tjmp	@0x123456\n");			\
+	}							\
+    }								\
+  while (0)
 
 /* Length in units of the trampoline for entering a nested function.  */
 
@@ -766,23 +768,19 @@ struct cum_arg
    FNADDR is an RTX for the address of the function's pure code.
    CXT is an RTX for the static chain value for the function.  */
 
-#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)				\
-{										\
-  enum machine_mode mode = TARGET_H8300H || TARGET_H8300S? SImode : HImode; \
-  emit_move_insn (gen_rtx_MEM (mode, plus_constant ((TRAMP), 2)), CXT);    \
-  emit_move_insn (gen_rtx_MEM (mode, plus_constant ((TRAMP), 6)), FNADDR); \
-  if (TARGET_H8300H || TARGET_H8300S)					   \
-    emit_move_insn (gen_rtx_MEM (QImode, plus_constant ((TRAMP), 6)),	   \
-		    GEN_INT (0x5A)); 					   \
+#define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			    \
+{									    \
+  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 2)), CXT);    \
+  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 6)), FNADDR); \
+  if (TARGET_H8300H || TARGET_H8300S)					    \
+    emit_move_insn (gen_rtx_MEM (QImode, plus_constant ((TRAMP), 6)),	    \
+		    GEN_INT (0x5A));					    \
 }
 
 /* Addressing modes, and classification of registers for them.  */
 
 #define HAVE_POST_INCREMENT 1
-/*#define HAVE_POST_DECREMENT 0 */
-
 #define HAVE_PRE_DECREMENT 1
-/*#define HAVE_PRE_INCREMENT 0 */
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -964,9 +962,6 @@ struct cum_arg
    in one reasonably fast instruction.  */
 #define MOVE_MAX	(TARGET_H8300H || TARGET_H8300S ? 4 : 2)
 #define MAX_MOVE_MAX	4
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-/* #define SLOW_ZERO_EXTEND */
 
 /* Nonzero if access to memory by bytes is slow and undesirable.  */
 #define SLOW_BYTE_ACCESS TARGET_SLOWBYTE
@@ -1220,7 +1215,7 @@ readonly_data ()							\
   while (0)
 
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL) \
-   ASM_OUTPUT_LABEL(FILE, NAME)
+   ASM_OUTPUT_LABEL (FILE, NAME)
 
 /* The prefix to add to user-visible assembler symbols.  */
 

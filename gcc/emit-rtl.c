@@ -292,7 +292,8 @@ get_mem_attrs (alias, expr, offset, size, align, mode)
       && (size == 0
 	  || (mode != BLKmode && GET_MODE_SIZE (mode) == INTVAL (size)))
       && (align == BITS_PER_UNIT
-	  || (mode != BLKmode && align == GET_MODE_ALIGNMENT (mode))))
+	  || (STRICT_ALIGNMENT
+	      && mode != BLKmode && align == GET_MODE_ALIGNMENT (mode))))
     return 0;
 
   attrs.alias = alias;
@@ -410,6 +411,9 @@ gen_rtx_REG (mode, regno)
       if (regno == RETURN_ADDRESS_POINTER_REGNUM)
 	return return_address_pointer_rtx;
 #endif
+      if (regno == PIC_OFFSET_TABLE_REGNUM
+	  && fixed_regs[PIC_OFFSET_TABLE_REGNUM])
+        return pic_offset_table_rtx;
       if (regno == STACK_POINTER_REGNUM)
 	return stack_pointer_rtx;
     }
@@ -919,13 +923,11 @@ gen_lowpart_common (mode, x)
 	low = INTVAL (x), high = low >> (HOST_BITS_PER_WIDE_INT -1);
       else
 	low = CONST_DOUBLE_LOW (x), high = CONST_DOUBLE_HIGH (x);
-
 #ifdef HOST_WORDS_BIG_ENDIAN
       u.i[0] = high, u.i[1] = low;
 #else
       u.i[0] = low, u.i[1] = high;
 #endif
-
       return CONST_DOUBLE_FROM_REAL_VALUE (u.d, mode);
     }
 
@@ -1009,12 +1011,16 @@ gen_lowpart_common (mode, x)
 	  high = CONST_DOUBLE_HIGH (x);
 	}
 
+#if HOST_BITS_PER_WIDE_INT == 32
       /* REAL_VALUE_TARGET_DOUBLE takes the addressing order of the
 	 target machine.  */
       if (WORDS_BIG_ENDIAN)
 	i[0] = high, i[1] = low;
       else
 	i[0] = low, i[1] = high;
+#else
+      i[0] = low;
+#endif
 
       r = REAL_VALUE_FROM_TARGET_DOUBLE (i);
       return CONST_DOUBLE_FROM_REAL_VALUE (r, mode);
@@ -3556,6 +3562,7 @@ remove_unnecessary_notes ()
       switch (NOTE_LINE_NUMBER (insn))
 	{
 	case NOTE_INSN_DELETED:
+	case NOTE_INSN_LOOP_END_TOP_COND:
 	  remove_insn (insn);
 	  break;
 
@@ -4972,7 +4979,7 @@ init_emit_once (line_numbers)
 #endif
 
   if (PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)
-    pic_offset_table_rtx = gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
+    pic_offset_table_rtx = gen_raw_REG (Pmode, PIC_OFFSET_TABLE_REGNUM);
 
   ggc_add_rtx_root (&pic_offset_table_rtx, 1);
   ggc_add_rtx_root (&struct_value_rtx, 1);

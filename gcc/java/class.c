@@ -773,7 +773,11 @@ add_field (class, name, field_type, flags)
       /* Always make field externally visible.  This is required so
 	 that native methods can always access the field.  */
       TREE_PUBLIC (field) = 1;
+      /* Considered external until we know what classes are being
+	 compiled into this object file.  */
+      DECL_EXTERNAL (field) = 1;
     }
+
   return field;
 }
 
@@ -996,6 +1000,23 @@ build_utf8_ref (name)
   TREE_READONLY (decl) = 1;
   TREE_THIS_VOLATILE (decl) = 0;
   DECL_INITIAL (decl) = cinit;
+#ifdef HAVE_GAS_SHF_MERGE
+  {
+    int decl_size;
+    /* Ensure decl_size is a multiple of utf8const_type's alignment. */
+    decl_size = (name_len + 5 + TYPE_ALIGN_UNIT (utf8const_type) - 1)
+	         & ~(TYPE_ALIGN_UNIT (utf8const_type) - 1);
+    if (flag_merge_constants && decl_size < 256)
+      {
+        char buf[32];
+        int flags = (SECTION_OVERRIDE
+        	   | SECTION_MERGE | (SECTION_ENTSIZE & decl_size));
+        sprintf (buf, ".rodata.jutf8.%d", decl_size);
+        named_section_flags (buf, flags);
+        DECL_SECTION_NAME (decl) = build_string (strlen (buf), buf);
+      }
+  }
+#endif
   TREE_CHAIN (decl) = utf8_decl_list;
   layout_decl (decl, 0);
   pushdecl (decl);
@@ -1095,8 +1116,6 @@ build_class_ref (type)
 	      DECL_EXTERNAL (decl) = 1;
 	      make_decl_rtl (decl, NULL);
 	      pushdecl_top_level (decl);
-	      if (is_compiled == 1)
-		DECL_EXTERNAL (decl) = 1;
 	    }
 	}
 

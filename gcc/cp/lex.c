@@ -263,8 +263,6 @@ cxx_init_options ()
 void
 cxx_finish ()
 {
-  if (flag_gnu_xref)
-    GNU_xref_end (errorcount + sorrycount);
   c_common_finish ();
 }
 
@@ -733,8 +731,6 @@ cxx_init (filename)
 
   init_cp_pragma ();
 
-  if (flag_gnu_xref)
-    GNU_xref_begin (filename);
   init_repo (filename);
 
   return filename;
@@ -780,7 +776,7 @@ yyprint (file, yychar, yylval)
       else if (yylval.ttype == enum_type_node)
 	fprintf (file, " `enum'");
       else
-	my_friendly_abort (80);
+	abort ();
       break;
 
     case CONSTANT:
@@ -931,9 +927,6 @@ extract_interface_info ()
 
   interface_only = finfo->interface_only;
   interface_unknown = finfo->interface_unknown;
-
-  /* This happens to be a convenient place to put this.  */
-  if (flag_gnu_xref) GNU_xref_file (input_filename);
 }
 
 /* Return nonzero if S is not considered part of an
@@ -1012,7 +1005,7 @@ note_got_semicolon (type)
      tree type;
 {
   if (!TYPE_P (type))
-    my_friendly_abort (60);
+    abort ();
   if (CLASS_TYPE_P (type))
     CLASSTYPE_GOT_SEMICOLON (type) = 1;
 }
@@ -1026,7 +1019,7 @@ note_list_got_semicolon (declspecs)
   for (link = declspecs; link; link = TREE_CHAIN (link))
     {
       tree type = TREE_VALUE (link);
-      if (TYPE_P (type))
+      if (type && TYPE_P (type))
 	note_got_semicolon (type);
     }
   clear_anon_tags ();
@@ -1514,7 +1507,7 @@ retrofit_lang_decl (t)
     SET_DECL_LANGUAGE (t, lang_c);
   else if (current_lang_name == lang_name_java)
     SET_DECL_LANGUAGE (t, lang_java);
-  else my_friendly_abort (64);
+  else abort ();
 
 #ifdef GATHER_STATISTICS
   tree_node_counts[(int)lang_decl] += 1;
@@ -1687,6 +1680,6 @@ cp_type_qual_from_rid (rid)
   else if (rid == ridpointers[(int) RID_RESTRICT])
     return TYPE_QUAL_RESTRICT;
 
-  my_friendly_abort (0);
+  abort ();
   return TYPE_UNQUALIFIED;
 }

@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -45,7 +46,7 @@
 #ifdef _GLIBCPP_USE_WCHAR_T
 # include <cwctype>	// For wctype_t
 #endif 
-#include <ios>	// For ios_base
+#include <ios>		// For ios_base
 
 namespace std
 {
@@ -53,7 +54,7 @@ namespace std
   // Include host and configuration specific ctype enums for ctype_base.
   #include <bits/ctype_base.h>
 
-  // __ctype_abstract_base is the common base for ctype<_CharT>.  
+  // Common base for ctype<_CharT>.  
   template<typename _CharT>
     class __ctype_abstract_base : public locale::facet, public ctype_base
     {
@@ -233,7 +234,6 @@ namespace std
       bool 		       	_M_del;
       __to_type 	       	_M_toupper;
       __to_type  	       	_M_tolower;
-      const mask*       	_M_ctable;
       const mask*              	_M_table;
       
     public:
@@ -264,9 +264,8 @@ namespace std
       table() const throw()
       { return _M_table; }
 
-      const mask* 
-      classic_table() throw()
-      { return _M_ctable; }
+      static const mask* 
+      classic_table() throw();
 
       virtual 
       ~ctype();
@@ -419,9 +418,9 @@ namespace std
 
 
   // 22.2.2  The numeric category.
-  class __num_base
+  class __num_base 
   {
-  public:
+  protected:
     // Used to establish gating factor for base 16 input.
     static const double _S_scale_hex;
     
@@ -440,6 +439,7 @@ namespace std
       _M_size = 21 + 1
     };
 
+    // num_put
     // Construct and return valid scanf format for floating point types.
     static bool
     _S_format_float(const ios_base& __io, char* __fptr, char __mod, 
@@ -449,6 +449,7 @@ namespace std
     static void
     _S_format_int(const ios_base& __io, char* __fptr, char __mod, char __modl);
   };
+
 
   template<typename _CharT>
     class numpunct : public locale::facet
@@ -527,12 +528,6 @@ namespace std
 
   template<typename _CharT>
     locale::id numpunct<_CharT>::id;
-
-  // NB: Cannot be made generic. 
-  template<typename _CharT>
-    void
-    numpunct<_CharT>::_M_initialize_numpunct(__c_locale)
-    { }
 
   template<> 
     void
@@ -647,7 +642,7 @@ namespace std
 
       iter_type 
       _M_extract_int(iter_type, iter_type, ios_base&, ios_base::iostate&, 
-		     char* __xtrc, int __max, int& __base) const;
+		     string& __xtrc, int& __base) const;
 
       virtual iter_type 
       do_get(iter_type, iter_type, ios_base&, ios_base::iostate&, bool&) const;
@@ -887,7 +882,7 @@ namespace std
 
   template<>
     size_t
-    collate<wchar_t>::_M_transform_helper(wchar_t*, const wchar_t*, 
+    collate<wchar_t>::_M_transform_helper(wchar_t*, const wchar_t*,
 					  size_t) const;
 #endif
 
@@ -1143,18 +1138,6 @@ namespace std
   template<typename _CharT>
     const _CharT* __timepunct<_CharT>::_S_timezones[14];
 
-  // NB: Cannot be made generic. 
-  template<typename _CharT>
-    void
-    __timepunct<_CharT>::_M_initialize_timepunct(__c_locale)
-    { }
-
-  // NB: Cannot be made generic.
-  template<typename _CharT>
-    void
-    __timepunct<_CharT>::_M_put_helper(_CharT*, size_t, const _CharT*, 
-				       const tm*) const
-    { }
 
   template<typename _CharT, typename _InIter>
     class time_get : public locale::facet, public time_base
@@ -1454,12 +1437,6 @@ namespace std
 
   template<typename _CharT, bool _Intl>
     const bool moneypunct<_CharT, _Intl>::intl;
-
-  // NB: Cannot be made generic. 
-  template<typename _CharT, bool _Intl>
-    void
-    moneypunct<_CharT, _Intl>::_M_initialize_moneypunct(__c_locale)
-    { }
 
   template<> 
     void

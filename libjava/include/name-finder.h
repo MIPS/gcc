@@ -1,6 +1,6 @@
 // name-finder.h - Convert addresses to names
 
-/* Copyright (C) 2000  Red Hat Inc
+/* Copyright (C) 2000, 2002  Free Software Foundation, Inc
 
    This file is part of libgcj.
 
@@ -17,7 +17,10 @@ details.  */
 #include <jvm.h>
 
 #include <sys/types.h>
+
+#ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
+#endif
 
 #include <string.h>
 #include <stdio.h>

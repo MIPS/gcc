@@ -14,7 +14,7 @@ details.  */
 #include <string.h>
 #include <stdlib.h>
 
-#include "posix.h"
+#include "platform.h"
 
 #ifdef HAVE_PWD_H
 #include <pwd.h>
@@ -159,7 +159,7 @@ jlong
 java::lang::System::currentTimeMillis (void)
 {
   struct timeval tv;
-  _Jv_gettimeofday (&tv);
+  _Jv_platform_gettimeofday (&tv);
   return (jlong) tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }
 
@@ -271,7 +271,9 @@ java::lang::System::getSystemTimeZone (void)
   tz1 = tzname[0];
   tz2 = strcmp (tzname[0], tzname[1]) ? tzname[1] : "";
 #else
-#error Neither tm_zone nor tzname defined
+  // Some targets have no concept of timezones.
+  tz1 = "???";
+  tz2 = tz1;
 #endif
 
   if ((tzoffset % 3600) == 0)
@@ -464,6 +466,7 @@ java::lang::System::init_properties (void)
     }
 
   // Set the system properties from the user's environment.
+#ifndef DISABLE_GETENV_PROPERTIES
   if (_Jv_Environment_Properties)
     {
       size_t i = 0;
@@ -475,6 +478,7 @@ java::lang::System::init_properties (void)
 	  i++;
 	}
     }
+#endif
 
   if (_Jv_Jar_Class_Path)
     newprops->put(JvNewStringLatin1 ("java.class.path"),

@@ -60,6 +60,7 @@ begin_stmt_tree (t)
   *t = build_nt (EXPR_STMT, void_zero_node);
   last_tree = *t;
   last_expr_type = NULL_TREE;
+  last_expr_filename = input_filename;
 }
 
 /* T is a statement.  Add it to the statement-tree.  */
@@ -68,6 +69,19 @@ tree
 add_stmt (t)
      tree t;
 {
+  if (input_filename != last_expr_filename)
+    {
+      /* If the filename has changed, also add in a FILE_STMT.  Do a string
+	 compare first, though, as it might be an equivalent string.  */
+      int add = (strcmp (input_filename, last_expr_filename) != 0);
+      last_expr_filename = input_filename;
+      if (add)
+	{
+	  tree pos = build_nt (FILE_STMT, get_identifier (input_filename));
+	  add_stmt (pos);
+	}
+    }
+
   /* Add T to the statement-tree.  */
   TREE_CHAIN (last_tree) = t;
   last_tree = t;
@@ -413,7 +427,7 @@ genrtl_while_stmt (t)
 
   cond = expand_cond (WHILE_COND (t));
   emit_line_note (input_filename, lineno);
-  expand_exit_loop_if_false (0, cond);
+  expand_exit_loop_top_cond (0, cond);
   genrtl_do_pushlevel ();
   
   expand_stmt (WHILE_BODY (t));
@@ -515,7 +529,7 @@ genrtl_for_stmt (t)
   /* Expand the condition.  */
   emit_line_note (input_filename, lineno);
   if (cond)
-    expand_exit_loop_if_false (0, cond);
+    expand_exit_loop_top_cond (0, cond);
 
   /* Expand the body.  */
   genrtl_do_pushlevel ();
@@ -630,7 +644,7 @@ genrtl_switch_stmt (t)
   emit_line_note (input_filename, lineno);
   expand_start_case (1, cond, TREE_TYPE (cond), "switch statement");
   expand_stmt (SWITCH_BODY (t));
-  expand_end_case (cond);
+  expand_end_case_type (cond, SWITCH_TYPE (t));
 }
 
 /* Create a CASE_LABEL tree node and return it.  */
@@ -686,7 +700,7 @@ genrtl_compound_stmt (t)
 
 #ifdef ENABLE_CHECKING
   /* Make sure that we've pushed and popped the same number of levels.  */
-  if (n != current_nesting_level ())
+  if (!COMPOUND_STMT_NO_SCOPE (t) && n != current_nesting_level ())
     abort ();
 #endif
 }
@@ -760,6 +774,10 @@ expand_stmt (t)
 
       switch (TREE_CODE (t))
 	{
+	case FILE_STMT:
+	  input_filename = FILE_STMT_FILENAME (t);
+	  break;
+
 	case RETURN_STMT:
 	  genrtl_return_stmt (t);
 	  break;
@@ -845,4 +863,3 @@ expand_stmt (t)
       t = TREE_CHAIN (t);
     }
 }
-

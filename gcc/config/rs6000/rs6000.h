@@ -417,23 +417,6 @@ extern enum processor_type rs6000_cpu;
    and the old mnemonics are dialect zero.  */
 #define ASSEMBLER_DIALECT (TARGET_NEW_MNEMONICS ? 1 : 0)
 
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable.
-   The variable, type `char *', is set to the variable part of the
-   given option if the fixed part matches.  The actual option name
-   is made by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-	extern char *m88k_short_data;
-	#define TARGET_OPTIONS { { "short-data-", &m88k_short_data } }  */
-
 /* This is meant to be overridden in target specific files.  */
 #define	SUBTARGET_OPTIONS
 
@@ -2732,6 +2715,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"cc_reg_not_cr0_operand", {SUBREG, REG}},				   \
   {"reg_or_short_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_neg_short_operand", {SUBREG, REG, CONST_INT}},		   \
+  {"reg_or_aligned_short_operand", {SUBREG, REG, CONST_INT}},		   \
   {"reg_or_u_short_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_cint_operand", {SUBREG, REG, CONST_INT}},			   \
   {"reg_or_arith_cint_operand", {SUBREG, REG, CONST_INT}},		   \
@@ -2955,19 +2939,6 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_VUPKLSB,
   ALTIVEC_BUILTIN_VUPKLPX,
   ALTIVEC_BUILTIN_VUPKLSH,
-  ALTIVEC_BUILTIN_VCMPBFP_P,
-  ALTIVEC_BUILTIN_VCMPEQFP_P,
-  ALTIVEC_BUILTIN_VCMPEQUB_P,
-  ALTIVEC_BUILTIN_VCMPEQUH_P,
-  ALTIVEC_BUILTIN_VCMPEQUW_P,
-  ALTIVEC_BUILTIN_VCMPGEFP_P,
-  ALTIVEC_BUILTIN_VCMPGTFP_P,
-  ALTIVEC_BUILTIN_VCMPGTSB_P,
-  ALTIVEC_BUILTIN_VCMPGTSH_P,
-  ALTIVEC_BUILTIN_VCMPGTSW_P,
-  ALTIVEC_BUILTIN_VCMPGTUB_P,
-  ALTIVEC_BUILTIN_VCMPGTUH_P,
-  ALTIVEC_BUILTIN_VCMPGTUW_P,
   ALTIVEC_BUILTIN_MTVSCR,
   ALTIVEC_BUILTIN_MFVSCR,
   ALTIVEC_BUILTIN_DSSALL,
@@ -2987,5 +2958,25 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_STVEBX,
   ALTIVEC_BUILTIN_STVEHX,
   ALTIVEC_BUILTIN_STVEWX,
-  ALTIVEC_BUILTIN_STVXL
+  ALTIVEC_BUILTIN_STVXL,
+  ALTIVEC_BUILTIN_VCMPBFP_P,
+  ALTIVEC_BUILTIN_VCMPEQFP_P,
+  ALTIVEC_BUILTIN_VCMPEQUB_P,
+  ALTIVEC_BUILTIN_VCMPEQUH_P,
+  ALTIVEC_BUILTIN_VCMPEQUW_P,
+  ALTIVEC_BUILTIN_VCMPGEFP_P,
+  ALTIVEC_BUILTIN_VCMPGTFP_P,
+  ALTIVEC_BUILTIN_VCMPGTSB_P,
+  ALTIVEC_BUILTIN_VCMPGTSH_P,
+  ALTIVEC_BUILTIN_VCMPGTSW_P,
+  ALTIVEC_BUILTIN_VCMPGTUB_P,
+  ALTIVEC_BUILTIN_VCMPGTUH_P,
+  ALTIVEC_BUILTIN_VCMPGTUW_P,
+  ALTIVEC_BUILTIN_ABSS_V4SI,
+  ALTIVEC_BUILTIN_ABSS_V8HI,
+  ALTIVEC_BUILTIN_ABSS_V16QI,
+  ALTIVEC_BUILTIN_ABS_V4SI,
+  ALTIVEC_BUILTIN_ABS_V4SF,
+  ALTIVEC_BUILTIN_ABS_V8HI,
+  ALTIVEC_BUILTIN_ABS_V16QI
 };

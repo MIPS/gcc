@@ -1212,6 +1212,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   [(parallel [(set (match_dup 0)
 		   (sign_extend:DI (match_dup 3)))
 	      (use (match_dup 0))
+	      (use (match_dup 4))
 	      (clobber (reg:DI 23))
 	      (clobber (reg:DI 28))])]
 {
@@ -1233,7 +1234,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
     default:
       abort ();
     }
-  emit_move_insn (operands[0], gen_rtx_SYMBOL_REF (DImode, str));
+  operands[4] = GEN_INT (alpha_next_sequence_number++);
+  emit_insn (gen_movdi_er_high_g (operands[0], pic_offset_table_rtx,
+				  gen_rtx_SYMBOL_REF (DImode, str),
+				  operands[4]));
 }
   [(set_attr "type" "jsr")
    (set_attr "length" "8")])
@@ -1244,10 +1248,11 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
                         [(match_operand:DI 1 "register_operand" "a")
                          (match_operand:DI 2 "register_operand" "b")])))
    (use (match_operand:DI 4 "register_operand" "c"))
+   (use (match_operand 5 "const_int_operand" ""))
    (clobber (reg:DI 23))
    (clobber (reg:DI 28))]
   "TARGET_EXPLICIT_RELOCS && ! TARGET_ABI_OPEN_VMS"
-  "jsr $23,($27),__%E3"
+  "jsr $23,($27),__%E3%J5"
   [(set_attr "type" "jsr")
    (set_attr "length" "4")])
 
@@ -1275,6 +1280,7 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   "&& reload_completed"
   [(parallel [(set (match_dup 0) (match_dup 3))
 	      (use (match_dup 0))
+	      (use (match_dup 4))
 	      (clobber (reg:DI 23))
 	      (clobber (reg:DI 28))])]
 {
@@ -1296,7 +1302,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
     default:
       abort ();
     }
-  emit_move_insn (operands[0], gen_rtx_SYMBOL_REF (DImode, str));
+  operands[4] = GEN_INT (alpha_next_sequence_number++);
+  emit_insn (gen_movdi_er_high_g (operands[0], pic_offset_table_rtx,
+				  gen_rtx_SYMBOL_REF (DImode, str),
+				  operands[4]));
 }
   [(set_attr "type" "jsr")
    (set_attr "length" "8")])
@@ -1307,10 +1316,11 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
                         [(match_operand:DI 1 "register_operand" "a")
                          (match_operand:DI 2 "register_operand" "b")]))
    (use (match_operand:DI 4 "register_operand" "c"))
+   (use (match_operand 5 "const_int_operand" ""))
    (clobber (reg:DI 23))
    (clobber (reg:DI 28))]
   "TARGET_EXPLICIT_RELOCS && ! TARGET_ABI_OPEN_VMS"
-  "jsr $23,($27),__%E3"
+  "jsr $23,($27),__%E3%J5"
   [(set_attr "type" "jsr")
    (set_attr "length" "4")])
 
@@ -5491,18 +5501,10 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
   "operands[2] = pic_offset_table_rtx;")
 
 (define_split
-  [(set (match_operand 0 "some_small_symbolic_mem_operand" "")
-	(match_operand 1 "" ""))]
+  [(match_operand 0 "some_small_symbolic_mem_operand" "")]
   "TARGET_EXPLICIT_RELOCS && reload_completed"
-  [(set (match_dup 0) (match_dup 1))]
+  [(match_dup 0)]
   "operands[0] = split_small_symbolic_mem_operand (operands[0]);")
-
-(define_split
-  [(set (match_operand 0 "" "")
-	(match_operand 1 "some_small_symbolic_mem_operand" ""))]
-  "TARGET_EXPLICIT_RELOCS && reload_completed"
-  [(set (match_dup 0) (match_dup 1))]
-  "operands[1] = split_small_symbolic_mem_operand (operands[1]);")
 
 (define_insn "movdi_er_high_g"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -6897,8 +6899,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 		         (match_operand 2 "" "")))
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
-  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF  && reload_completed
-   && ! current_file_function_operand (operands[0], Pmode)
+  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
+   && ! current_file_function_operand (operands[1], Pmode)
    && peep2_regno_dead_p (1, 29)"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))
@@ -6929,8 +6931,8 @@ fadd,fmul,fcpys,fdiv,fsqrt,misc,mvi,ftoi,itof,multi"
 		         (match_operand 2 "" "")))
 	      (use (reg:DI 29))
 	      (clobber (reg:DI 26))])]
-  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF  && reload_completed
-   && ! current_file_function_operand (operands[0], Pmode)
+  "TARGET_EXPLICIT_RELOCS && TARGET_ABI_OSF && reload_completed
+   && ! current_file_function_operand (operands[1], Pmode)
    && ! peep2_regno_dead_p (1, 29)"
   [(parallel [(set (match_dup 0)
 		   (call (mem:DI (match_dup 3))

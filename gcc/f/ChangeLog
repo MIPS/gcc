@@ -1,3 +1,96 @@
+2002-02-09  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* data.c (ffedata_eval_offset_): Convert non-default integer
+	constants to default integer kind if necessary.
+
+2002-02-09  Toon Moene  <toon@moene.indiv.nlug.nl>
+
+	* invoke.texi: Add a short debugging session
+	as an example to the documentation of -g.
+
+2002-02-06  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	PR fortran/4730 fortran/5473
+	* com.c (ffecom_expr_): Deal with %VAL constructs.
+	* intrin.c (ffeintrin_check_): Handle 'N' constraints for intrinsics,
+	to indicate "no larger than default kind" integers and logicals.
+	* intrin.def: Use 'N' constraints in table of intrinsics.
+	* intdoc.c: Document this constraint.
+	* intdoc.texi: Regenerated.
+	
+2002-02-04  Philipp Thomas  <pthomas@suse.de>
+
+	* implic.c lex.c stb.c ste.c stu.c: Update copyright dates.
+
+2002-02-04  Philipp Thomas  <pthomas@suse.de>
+
+	* bad.def com.c expr.c implic.c lex.c stb.c ste.c stu.c:
+	Insert comments to mark messages as not being printf style
+	where appropriate.
+
+2002-02-03  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* expr.c (ffeexpr_sym_impdoitem_): Allow other than
+	default INTEGER implied-do loop counts.
+
+2002-02-01  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* bad.def: Remove non-historical reference to version 0.6.
+	* bugs.texi: Ditto.
+	* com.c: Ditto.
+	* ffe.texi: Ditto.
+	* proj.h: Ditto.
+	* g77.texi: Ditto.
+
+2002-01-31  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* g77spec.c (lang_specific_driver): Follow GNU Coding Standards
+	for --version.
+
+2002-01-30  Richard Henderson  <rth@redhat.com>
+
+	* ste.c (ffeste_begin_iterdo_): Use expand_exit_loop_top_cond.
+	(ffeste_R819B): Likewise.
+
+2002-01-30  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* intrin.c (upcasecmp_): New function.
+	(ffeintrin_cmp_name_): Use it to correctly compare name
+	and table entry for bsearch.
+
+2002-01-26  Toon Moene  <toon@moene.indiv.nluug.nl>
+
+	* intrin.c (ffeintrin_cmp_name_): Correct comparison
+	for intrinsics in intrinsic table (intrin.def).
+
+2002-01-22  Zack Weinberg  <zack@codesourcery.com>
+
+	* bad.c: Include intl.h.
+	(FFEBAD_MSGS1, FFEBAD_MSGS2): Replace by FFEBAD_MSG, SHORT,
+	LONG.  Adjust definitions to work with exgettext.
+	(ffebad_start_): Translate all error messages.
+	(ffebad_finish): Mark constant strings for translation.
+	* bad.h: Use FFEBAD_MSG.  Adjust prototype of ffebad_start_
+	and definitions of ffebad_start_msg, ffebad_start_msg_lex to
+	work with exgettext.
+	* bad.def: Use FFEBAD_MSG, SHORT, LONG throughout.
+
+	* com.c: Include intl.h.
+	(lang_print_error_function): Always use ffeinfo_kind_message
+	to get the kind label for a non-nested construct.  Translate
+	it.  Translate constant strings.
+	* info.c (FFEINFO_KIND): Adjust definition to work with exgettext.
+	* info-k.def: Block xgettext from slurping copyright notice
+	into gcc.pot.  Adjust strings for their sole use, in com.c.
+
+	* Make-lang.in (f/bad.o, f/com.o): Depend on intl.h.
+
+2002-01-14  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	PR fortran/3807
+	* f/intrin.c (ffeintrin_check_):  Allow for case of intrinsic
+	control string have COL-spec an integer > 0.
+
 2002-01-08  Joseph S. Myers  <jsm28@cam.ac.uk>
 
 	* g77spec.c (lookup_option): Handle -fversion.
@@ -40,7 +133,7 @@ Sun Dec 16 16:08:57 2001  Joseph S. Myers  <jsm28@cam.ac.uk>
 Sun Dec 16 10:36:51 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
 	* Make-lang.in (f/version.o): Depend on f/version.h.
-	* version.c: Include ansidecl.h and f/version.h.	
+	* version.c: Include ansidecl.h and f/version.h.
 
 Sun Dec 16 08:52:48 2001  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 

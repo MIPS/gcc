@@ -43,12 +43,6 @@ Boston, MA 02111-1307, USA.  */
 #define CPP_SUBTARGET_SPEC ""
 #endif
 
-/* Set the spec to use for signed char.  The default tests the above macro
-   but DEC's compiler can't handle the conditional in a "constant"
-   operand.  */
-
-#define SIGNED_CHAR_SPEC "%{funsigned-char:-D__CHAR_UNSIGNED__}"
-
 #define WORD_SWITCH_TAKES_ARG(STR)		\
  (!strcmp (STR, "rpath") || DEFAULT_WORD_SWITCH_TAKES_ARG(STR))
 
@@ -267,23 +261,6 @@ extern enum alpha_fp_trap_mode alpha_fptm;
 #define TARGET_DEFAULT_EXPLICIT_RELOCS 0
 #endif
 #endif
-
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an initializer
-   with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the fixed
-   part of the option name, and the address of a variable.  The
-   variable, type `char *', is set to the variable part of the given
-   option if the fixed part matches.  The actual option name is made
-   by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-	extern char *m88k_short_data;
-	#define TARGET_OPTIONS { { "short-data-", &m88k_short_data } }  */
 
 extern const char *alpha_cpu_string;	/* For -mcpu= */
 extern const char *alpha_tune_string;	/* For -mtune= */
@@ -2096,8 +2073,7 @@ do {						\
   {"reg_no_subreg_operand", {REG}},					\
   {"addition_operation", {PLUS}},					\
   {"symbolic_operand", {SYMBOL_REF, LABEL_REF, CONST}},			\
-  {"some_small_symbolic_mem_operand", {MEM, SIGN_EXTEND, ZERO_EXTEND,	\
-				       FLOAT_EXTEND}},
+  {"some_small_symbolic_mem_operand", {SET, PARALLEL}},
 
 /* Define the `__builtin_va_list' type for the ABI.  */
 #define BUILD_VA_LIST_TYPE(VALIST) \
@@ -2260,3 +2236,8 @@ do {							\
 
 /* Generate calls to memcpy, etc., not bcopy, etc.  */
 #define TARGET_MEM_FUNCTIONS 1
+
+/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
+   Used for C++ multiple inheritance.  */
+#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
+  alpha_output_mi_thunk_osf (FILE, THUNK_FNDECL, DELTA, FUNCTION)

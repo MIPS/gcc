@@ -1,5 +1,5 @@
 /* intrin.c -- Recognize references to intrinsics
-   Copyright (C) 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 2002 Free Software Foundation, Inc.
    Contributed by James Craig Burley.
 
 This file is part of GNU Fortran.
@@ -414,6 +414,24 @@ ffeintrin_check_ (ffeintrinImp imp, ffebldOp op,
 		: firstarg_kt;
 	      break;
 
+	    case 'N':
+	      /* Accept integers and logicals not wider than the default integer/logical.  */
+	      if (ffeinfo_basictype (i) == FFEINFO_basictypeINTEGER)
+		{
+		  okay &= anynum || (ffeinfo_kindtype (i) == FFEINFO_kindtypeINTEGER1
+					|| ffeinfo_kindtype (i) == FFEINFO_kindtypeINTEGER2
+					|| ffeinfo_kindtype (i) == FFEINFO_kindtypeINTEGER3);
+		  akt = FFEINFO_kindtypeINTEGER1;	/* The default.  */
+		}
+	      else if (ffeinfo_basictype (i) == FFEINFO_basictypeLOGICAL)
+		{
+		  okay &= anynum || (ffeinfo_kindtype (i) == FFEINFO_kindtypeLOGICAL1
+					|| ffeinfo_kindtype (i) == FFEINFO_kindtypeLOGICAL2
+					|| ffeinfo_kindtype (i) == FFEINFO_kindtypeLOGICAL3);
+		  akt = FFEINFO_kindtypeLOGICAL1;	/* The default.  */
+		}
+	      break;
+
 	    case '*':
 	    default:
 	      break;
@@ -622,10 +640,11 @@ ffeintrin_check_ (ffeintrinImp imp, ffebldOp op,
     {
       bool okay = TRUE;
       bool have_anynum = FALSE;
+      int  arg_count=0;
 
-      for (arg = args;
+      for (arg = args, arg_count=0;
 	   arg != NULL;
-	   arg = (c[colon + 1] == '*') ? ffebld_trail (arg) : NULL)
+	   arg = ffebld_trail (arg), arg_count++ )
 	{
 	  ffebld a = ffebld_head (arg);
 	  ffeinfo i;
@@ -634,6 +653,9 @@ ffeintrin_check_ (ffeintrinImp imp, ffebldOp op,
 	  if (a == NULL)
 	    continue;
 	  i = ffebld_info (a);
+
+	  if ( c[colon+1] != '*' && (c[colon+1]-'0') != arg_count )
+	    continue;
 
 	  anynum = (ffeinfo_basictype (i) == FFEINFO_basictypeHOLLERITH)
 	    || (ffeinfo_basictype (i) == FFEINFO_basictypeTYPELESS);
@@ -1149,7 +1171,26 @@ ffeintrin_check_any_ (ffebld arglist)
   return FALSE;
 }
 
-/* Compare name to intrinsic's name.  Uses strcmp on arguments' names.	*/
+/* Compare a forced-to-uppercase name with a known-upper-case name.  */
+
+static int
+upcasecmp_ (const char *name, const char *ucname)
+{
+  for ( ; *name != 0 && *ucname != 0; name++, ucname++)
+    {
+      int i = TOUPPER(*name) - *ucname;
+
+      if (i != 0)
+        return i;
+    }
+
+  return *name - *ucname;
+}
+
+/* Compare name to intrinsic's name.
+   The intrinsics table is sorted on the upper case entries; so first
+   compare irrespective of case on the `uc' entry.  If it matches,
+   compare according to the setting of intrinsics case comparison mode.  */
 
 static int
 ffeintrin_cmp_name_ (const void *name, const void *intrinsic)
@@ -1157,8 +1198,22 @@ ffeintrin_cmp_name_ (const void *name, const void *intrinsic)
   const char *const uc = ((const struct _ffeintrin_name_ *) intrinsic)->name_uc;
   const char *const lc = ((const struct _ffeintrin_name_ *) intrinsic)->name_lc;
   const char *const ic = ((const struct _ffeintrin_name_ *) intrinsic)->name_ic;
+  int i;
 
-  return ffesrc_strcmp_2c (ffe_case_intrin (), name, uc, lc, ic);
+  if ((i = upcasecmp_ (name, uc)) == 0)
+    {
+      switch (ffe_case_intrin ())
+	{
+	case FFE_caseLOWER:
+	  return strcmp(name, lc);
+	case FFE_caseINITCAP:
+	  return strcmp(name, ic);
+	default:
+	  return 0;
+	}
+    }
+
+  return i;
 }
 
 /* Return basic type of intrinsic implementation, based on its

@@ -181,7 +181,8 @@ static int calls_function_1	PARAMS ((tree, int));
 
 static void emit_call_1		PARAMS ((rtx, tree, tree, HOST_WIDE_INT,
 					 HOST_WIDE_INT, HOST_WIDE_INT, rtx,
-					 rtx, int, rtx, int));
+					 rtx, int, rtx, int,
+					 CUMULATIVE_ARGS *));
 static void precompute_register_parameters	PARAMS ((int,
 							 struct arg_data *,
 							 int *));
@@ -444,7 +445,7 @@ prepare_call_address (funexp, fndecl, call_fusage, reg_parm_seen, sibcallp)
 static void
 emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
 	     struct_value_size, next_arg_reg, valreg, old_inhibit_defer_pop,
-	     call_fusage, ecf_flags)
+	     call_fusage, ecf_flags, args_so_far)
      rtx funexp;
      tree fndecl ATTRIBUTE_UNUSED;
      tree funtype ATTRIBUTE_UNUSED;
@@ -456,6 +457,7 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
      int old_inhibit_defer_pop;
      rtx call_fusage;
      int ecf_flags;
+     CUMULATIVE_ARGS *args_so_far ATTRIBUTE_UNUSED;
 {
   rtx rounded_stack_size_rtx = GEN_INT (rounded_stack_size);
   rtx call_insn;
@@ -466,6 +468,10 @@ emit_call_1 (funexp, fndecl, funtype, stack_size, rounded_stack_size,
   struct_value_size_rtx = GEN_INT (struct_value_size);
 #endif
 
+#ifdef CALL_POPS_ARGS
+  n_popped += CALL_POPS_ARGS (* args_so_far);
+#endif
+  
   /* Ensure address is valid.  SYMBOL_REF is already valid, so no need,
      and we don't want to load it into a register as an optimization,
      because prepare_call_address already did it if it should be done.  */
@@ -1822,7 +1828,7 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
   timevar_pop (TV_INTEGRATION);
 
   /* If inlining succeeded, return.  */
-  if (temp != (rtx) (HOST_WIDE_INT) - 1)
+  if (temp != (rtx) (size_t) - 1)
     {
       if (ACCUMULATE_OUTGOING_ARGS)
 	{
@@ -1902,7 +1908,7 @@ try_to_integrate (fndecl, actparms, target, ignore, type, structure_value_addr)
       warning ("called from here");
     }
   mark_addressable (fndecl);
-  return (rtx) (HOST_WIDE_INT) - 1;
+  return (rtx) (size_t) - 1;
 }
 
 /* We need to pop PENDING_STACK_ADJUST bytes.  But, if the arguments
@@ -2285,7 +2291,7 @@ expand_call (exp, target, ignore)
       rtx temp = try_to_integrate (fndecl, actparms, target,
 				   ignore, TREE_TYPE (exp),
 				   structure_value_addr);
-      if (temp != (rtx) (HOST_WIDE_INT) - 1)
+      if (temp != (rtx) (size_t) - 1)
 	return temp;
     }
 
@@ -3055,7 +3061,7 @@ expand_call (exp, target, ignore)
       emit_call_1 (funexp, fndecl, funtype, unadjusted_args_size,
 		   adjusted_args_size.constant, struct_value_size,
 		   next_arg_reg, valreg, old_inhibit_defer_pop, call_fusage,
-		   flags);
+		   flags, & args_so_far);
 
       /* Verify that we've deallocated all the stack we used.  */
       if (pass
@@ -4053,7 +4059,7 @@ emit_library_call_value_1 (retval, orgfun, value, fn_type, outmode, nargs, p)
 	       struct_value_size,
 	       FUNCTION_ARG (args_so_far, VOIDmode, void_type_node, 1),
 	       valreg,
-	       old_inhibit_defer_pop + 1, call_fusage, flags);
+	       old_inhibit_defer_pop + 1, call_fusage, flags, & args_so_far);
 
   /* For calls to `setjmp', etc., inform flow.c it should complain
      if nonvolatile values are live.  For functions that cannot return,
@@ -4459,6 +4465,11 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 		      partial, reg, used - size, argblock,
 		      ARGS_SIZE_RTX (arg->offset), reg_parm_stack_space,
 		      ARGS_SIZE_RTX (arg->alignment_pad));
+
+      /* Unless this is a partially-in-register argument, the argument is now
+	 in the stack.  */
+      if (partial == 0)
+	arg->value = arg->stack;
     }
   else
     {
@@ -4558,16 +4569,18 @@ store_one_arg (arg, argblock, flags, variable_size, reg_parm_stack_space)
 		      argblock, ARGS_SIZE_RTX (arg->offset),
 		      reg_parm_stack_space,
 		      ARGS_SIZE_RTX (arg->alignment_pad));
+
+      /* Unless this is a partially-in-register argument, the argument is now
+	 in the stack.
+
+	 ??? Unlike the case above, in which we want the actual
+	 address of the data, so that we can load it directly into a
+	 register, here we want the address of the stack slot, so that
+	 it's properly aligned for word-by-word copying or something
+	 like that.  It's not clear that this is always correct.  */
+      if (partial == 0)
+	arg->value = arg->stack_slot;
     }
-
-  /* Unless this is a partially-in-register argument, the argument is now
-     in the stack.
-
-     ??? Note that this can change arg->value from arg->stack to
-     arg->stack_slot and it matters when they are not the same.
-     It isn't totally clear that this is correct in all cases.  */
-  if (partial == 0)
-    arg->value = arg->stack_slot;
 
   /* Once we have pushed something, pops can't safely
      be deferred during the rest of the arguments.  */

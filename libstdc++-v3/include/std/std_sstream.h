@@ -1,6 +1,6 @@
 // String based streams -*- C++ -*-
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,9 +31,9 @@
 // ISO C++ 14882: 27.7  String-based streams
 //
 
-/** @file std_sstream.h
- *  This is an internal header file, included by other library headers.
- *  You should not attempt to use it directly.
+/** @file sstream
+ *  This is a Standard C++ Library header.  You should @c #include this header
+ *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
 #ifndef _CPP_SSTREAM
@@ -66,7 +66,7 @@ namespace std
       typedef basic_string<char_type, _Traits, _Alloc> 	__string_type;
       typedef typename __string_type::size_type		__size_type;
 
-    private:
+    protected:
       // Data Members:
       __string_type 		_M_string;
       
@@ -360,8 +360,6 @@ namespace std
     };
 } // namespace std
 
-
-
 #ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
 # define export
 #ifdef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
@@ -369,4 +367,4 @@ namespace std
 #endif
 #endif
 
-#endif	// _CPP_SSTREAM
+#endif

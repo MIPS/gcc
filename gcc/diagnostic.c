@@ -867,8 +867,8 @@ format_with_decl (buffer, decl)
   if (*p == '%')		/* Print the name.  */
     {
       const char *const n = (DECL_NAME (decl)
-		 ? (*decl_printable_name) (decl, 2)
-		 : _("((anonymous))"));
+			     ? (*decl_printable_name) (decl, 2)
+			     : _("((anonymous))"));
       output_add_string (buffer, n);
       while (*p)
 	{
@@ -1221,12 +1221,14 @@ internal_error VPARAMS ((const char *msgid, ...))
   if (diagnostic_lock)
     error_recursion ();
 
+#ifndef ENABLE_CHECKING
   if (errorcount > 0 || sorrycount > 0)
     {
       fnotice (stderr, "%s:%d: confused by earlier errors, bailing out\n",
 	       input_filename, lineno);
       exit (FATAL_EXIT_CODE);
     }
+#endif
 
   if (internal_error_function != 0)
     (*internal_error_function) (_(msgid), &ap);

@@ -1910,6 +1910,7 @@ enum tree_index
   TI_UV16QI_TYPE,
 
   TI_V4SF_TYPE,
+  TI_V16SF_TYPE,
   TI_V4SI_TYPE,
   TI_V8HI_TYPE,
   TI_V8QI_TYPE,
@@ -1992,6 +1993,7 @@ extern tree global_trees[TI_MAX];
 #define V4HI_type_node			global_trees[TI_V4HI_TYPE]
 #define V2SI_type_node			global_trees[TI_V2SI_TYPE]
 #define V2SF_type_node			global_trees[TI_V2SF_TYPE]
+#define V16SF_type_node			global_trees[TI_V16SF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones.  */
@@ -2234,6 +2236,7 @@ extern int default_comp_type_attributes PARAMS ((tree, tree));
 extern void default_set_default_type_attributes PARAMS ((tree));
 extern void default_insert_attributes PARAMS ((tree, tree *));
 extern bool default_function_attribute_inlinable_p PARAMS ((tree));
+extern bool default_ms_bitfield_layout_p PARAMS ((tree));
 
 /* Split a list of declspecs and attributes into two.  */
 
@@ -2323,6 +2326,8 @@ typedef struct record_layout_info_s
   /* The alignment of the record so far, allowing for the record to be
      padded only at the end, in bits.  */
   unsigned int unpadded_align;
+  /* The previous field layed out.  */
+  tree prev_field;
   /* The static variables (i.e., class variables, as opposed to
      instance variables) encountered in T.  */
   tree pending_statics;
@@ -2751,7 +2756,9 @@ extern void expand_end_null_loop		PARAMS ((void));
 extern int expand_continue_loop			PARAMS ((struct nesting *));
 extern int expand_exit_loop			PARAMS ((struct nesting *));
 extern int expand_exit_loop_if_false		PARAMS ((struct nesting *,
-						       tree));
+						         tree));
+extern int expand_exit_loop_top_cond		PARAMS ((struct nesting *,
+							 tree));
 extern int expand_exit_something		PARAMS ((void));
 
 extern void expand_return			PARAMS ((tree));
@@ -2770,7 +2777,8 @@ extern struct nesting * current_nesting_level	PARAMS ((void));
 extern tree last_cleanup_this_contour		PARAMS ((void));
 extern void expand_start_case			PARAMS ((int, tree, tree,
 						       const char *));
-extern void expand_end_case			PARAMS ((tree));
+extern void expand_end_case_type		PARAMS ((tree, tree));
+#define expand_end_case(cond) expand_end_case_type (cond, NULL)
 extern int add_case_node                        PARAMS ((tree, tree,
 							 tree, tree *));
 extern int pushcase				PARAMS ((tree,
@@ -2888,7 +2896,8 @@ extern void preserve_data		PARAMS ((void));
 extern int object_permanent_p		PARAMS ((tree));
 extern int type_precision		PARAMS ((tree));
 extern int simple_cst_equal		PARAMS ((tree, tree));
-extern int compare_tree_int		PARAMS ((tree, unsigned int));
+extern int compare_tree_int		PARAMS ((tree,
+						 unsigned HOST_WIDE_INT));
 extern int type_list_equal		PARAMS ((tree, tree));
 extern int chain_member			PARAMS ((tree, tree));
 extern int chain_member_purpose		PARAMS ((tree, tree));

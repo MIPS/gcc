@@ -127,7 +127,7 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
 
       /* A currently unresolved scope ref.  */
     case SCOPE_REF:
-      my_friendly_abort (103);
+      abort ();
     case OFFSET_REF:
       if (TREE_CODE (TREE_OPERAND (ref, 1)) == FUNCTION_DECL)
 	return clk_ordinary;
@@ -505,16 +505,15 @@ build_cplus_array_type (elt_type, index_type)
 
 /* Make a variant of TYPE, qualified with the TYPE_QUALS.  Handles
    arrays correctly.  In particular, if TYPE is an array of T's, and
-   TYPE_QUALS is non-empty, returns an array of qualified T's.  If
-   at attempt is made to qualify a type illegally, and COMPLAIN is
-   non-zero, an error is issued.  If COMPLAIN is zero, error_mark_node
-   is returned.  */
+   TYPE_QUALS is non-empty, returns an array of qualified T's.
+   Errors are emitted under control of COMPLAIN. If COMPLAIN is zero,
+   error_mark_node is returned for bad qualifiers.  */
 
 tree
 cp_build_qualified_type_real (type, type_quals, complain)
      tree type;
      int type_quals;
-     int complain;
+     tsubst_flags_t complain;
 {
   tree result;
 
@@ -532,7 +531,7 @@ cp_build_qualified_type_real (type, type_quals, complain)
 	  || TYPE_PTRMEM_P (type)
 	  || TREE_CODE (TREE_TYPE (type)) == FUNCTION_TYPE))
     {
-      if (complain)
+      if (complain & tf_error)
 	error ("`%T' cannot be `restrict'-qualified", type);
       else
 	return error_mark_node;
@@ -543,7 +542,7 @@ cp_build_qualified_type_real (type, type_quals, complain)
   if (type_quals != TYPE_UNQUALIFIED
       && TREE_CODE (type) == FUNCTION_TYPE)
     {
-      if (complain)
+      if (complain & tf_error)
 	error ("`%T' cannot be `const'-, `volatile'-, or `restrict'-qualified", type);
       else
 	return error_mark_node;
@@ -896,7 +895,7 @@ count_functions (t)
       return i;
     }
 
-  my_friendly_abort (359);
+  abort ();
   return 0;
 }
 
@@ -1049,7 +1048,7 @@ lang_printable_name (decl, v)
       if (ring_counter == PRINT_RING_SIZE)
 	ring_counter = 0;
       if (decl_ring[ring_counter] == current_function_decl)
-	my_friendly_abort (106);
+	abort ();
     }
 
   if (print_ring[ring_counter])
@@ -1155,7 +1154,7 @@ verify_stmt_tree_r (tp, walk_subtrees, data)
   /* If this statement is already present in the hash table, then
      there is a circularity in the statement tree.  */
   if (htab_find (*statements, t))
-    my_friendly_abort (20000727);
+    abort ();
   
   slot = htab_find_slot (*statements, t, INSERT);
   *slot = t;
@@ -1480,7 +1479,7 @@ get_type_decl (t)
   if (t == error_mark_node)
     return t;
   
-  my_friendly_abort (42);
+  abort ();
 
   /* Stop compiler from complaining control reaches end of non-void function.  */
   return 0;

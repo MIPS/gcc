@@ -1,6 +1,7 @@
 // File based streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -142,9 +143,7 @@ namespace std
     int
     basic_filebuf<_CharT, _Traits>::
     fd()
-    {
-      return _M_file->fd();
-    }
+    { return _M_file->fd(); }
 
   template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::__filebuf_type* 
@@ -181,31 +180,31 @@ namespace std
       __filebuf_type *__ret = NULL;
       if (this->is_open())
 	{
+	  const int_type __eof = traits_type::eof();
 	  bool __testput = _M_out_cur && _M_out_beg < _M_out_end;
-	  if (__testput
-	      && _M_really_overflow(traits_type::eof()) != traits_type::eof())
-	    {
-	      // NB: Do this here so that re-opened filebufs will be cool...
-	      _M_mode = ios_base::openmode(0);
-	      _M_destroy_internal_buffer();
-	      
-	      _M_pback_destroy();
-	      if (_M_pback)
-		{
-		  delete [] _M_pback;
-		  _M_pback = NULL;
-		}
+	  if (__testput && _M_really_overflow(__eof) == __eof)
+	    return __ret;
 
+	  // NB: Do this here so that re-opened filebufs will be cool...
+	  _M_mode = ios_base::openmode(0);
+	  _M_destroy_internal_buffer();
+	  
+	  _M_pback_destroy();
+	  if (_M_pback)
+	    {
+	      delete [] _M_pback;
+	      _M_pback = NULL;
+	    }
+	  
 #if 0
 	  // XXX not done
 	  if (_M_last_overflowed)
 	    {
 	      _M_output_unshift();
-	      _M_really_overflow(traits_type::eof());
+	      _M_really_overflow(__eof);
 	    }
 #endif
-	      __ret = this;
-	    }
+	  __ret = this;
 	}
 
       // Can actually allocate this file as part of an open and never
@@ -247,7 +246,6 @@ namespace std
       bool __testin = _M_mode & ios_base::in;
       bool __testout = _M_mode & ios_base::out;
 
-      // XXX Should re-enable codecvt bits disabled after 2.90.8.
       if (__testin)
 	{
 	  // Check for pback madness, and if so swich back to the
@@ -260,10 +258,10 @@ namespace std
 		return traits_type::to_int_type(*_M_in_cur);
 	    }
 
-	  bool __testget = _M_in_cur && _M_in_beg < _M_in_cur;
-	  bool __testinit = _M_is_indeterminate();
 	  // Sync internal and external buffers.
 	  // NB: __testget -> __testput as _M_buf_unified here.
+	  bool __testget = _M_in_cur && _M_in_beg < _M_in_cur;
+	  bool __testinit = _M_is_indeterminate();
 	  if (__testget)
 	    {
 	      if (__testout)
@@ -279,26 +277,50 @@ namespace std
 
 	  if (__testinit || __testget)
 	    {
-	      // Assume buffered case, need to refill internal buffers.
-	      streamsize __size = _M_file->xsgetn(_M_in_beg, _M_buf_size);
-	      if (0 < __size)
+	      const locale __loc = this->getloc();
+	      const __codecvt_type& __cvt = use_facet<__codecvt_type>(__loc); 
+
+	      streamsize __elen = 0;
+	      streamsize __ilen = 0;
+	      if (__cvt.always_noconv())
 		{
-		  _M_set_determinate(__size);
+		  __elen = _M_file->xsgetn(reinterpret_cast<char*>(_M_in_beg), 
+					   _M_buf_size);
+		  __ilen = __elen;
+		}
+	      else
+		{
+		  char* __buf = static_cast<char*>(__builtin_alloca(_M_buf_size));
+		  __elen = _M_file->xsgetn(__buf, _M_buf_size);
+
+		  const char* __eend;
+		  char_type* __iend;
+		  __res_type __r = __cvt.in(_M_state_cur, __buf, 
+					    __buf + __elen, __eend, _M_in_beg, 
+					    _M_in_beg + _M_buf_size, __iend);
+		  if (__r == codecvt_base::ok)
+		    __ilen = __iend - _M_in_beg;
+		  else 
+		    {
+		      // Unwind.
+		      __ilen = 0;
+		      _M_file->seekoff(-__elen, ios_base::cur, ios_base::in);
+		    }
+		}
+
+	      if (0 < __ilen)
+		{
+		  _M_set_determinate(__ilen);
 		  if (__testout)
 		    _M_out_cur = _M_in_cur;
 		  __ret = traits_type::to_int_type(*_M_in_cur);
 #if _GLIBCPP_AVOID_FSEEK
-		  if (__size == 1)
+		  if (__elen == 1)
 		    _M_file->sys_ungetc(*_M_in_cur);
 		  else
 		    {
 #endif
-		  streamoff __p = _M_file->seekoff(0 - __size, ios_base::cur, 
-						   ios_base::in);
-		  if (__p == -1)
-		    {
-		      // XXX Something is wrong, do error checking.
-		    }
+		      _M_file->seekoff(-__elen, ios_base::cur, ios_base::in);
 #if _GLIBCPP_AVOID_FSEEK
 		    }
 #endif
@@ -403,6 +425,65 @@ namespace std
     }
   
   template<typename _CharT, typename _Traits>
+    void
+    basic_filebuf<_CharT, _Traits>::
+    _M_convert_to_external(_CharT* __ibuf, streamsize __ilen,
+			   streamsize& __elen, streamsize& __plen)
+    {
+      const locale __loc = this->getloc();
+      const __codecvt_type& __cvt = use_facet<__codecvt_type>(__loc);
+      
+      if (__cvt.always_noconv() && __ilen)
+	{
+	  __elen += _M_file->xsputn(reinterpret_cast<char*>(__ibuf), __ilen);
+	  __plen += __ilen;
+	}
+      else
+	{
+	  // Worst-case number of external bytes needed.
+	  int __ext_multiplier = __cvt.encoding();
+	  if (__ext_multiplier ==  -1 || __ext_multiplier == 0)
+	    __ext_multiplier = sizeof(char_type);
+	  streamsize __blen = __ilen * __ext_multiplier;
+	  char* __buf = static_cast<char*>(__builtin_alloca(__blen));
+	  char* __bend;
+	  const char_type* __iend;
+	  __res_type __r = __cvt.out(_M_state_cur, __ibuf, __ibuf + __ilen, 
+		 		     __iend, __buf, __buf + __blen, __bend);
+	  // Result == ok, partial, noconv
+	  if (__r != codecvt_base::error)
+	    __blen = __bend - __buf;
+	  // Result == error
+	  else 
+	    __blen = 0;
+	  
+	  if (__blen)
+	    {
+	      __elen += _M_file->xsputn(__buf, __blen);
+	      __plen += __blen;
+	    }
+
+	  // Try once more for partial conversions.
+	  if (__r == codecvt_base::partial)
+	    {
+	      const char_type* __iresume = __iend;
+	      streamsize __rlen = _M_out_end - __iend;
+	      __r = __cvt.out(_M_state_cur, __iresume, __iresume + __rlen, 
+			      __iend, __buf, __buf + __blen, __bend);
+	      if (__r != codecvt_base::error)
+		__rlen = __bend - __buf;
+	      else 
+		__rlen = 0;
+	      if (__rlen)
+		{
+		  __elen += _M_file->xsputn(__buf, __rlen);
+		  __plen += __rlen;
+		}
+	    }
+	}
+    }
+
+  template<typename _CharT, typename _Traits>
     typename basic_filebuf<_CharT, _Traits>::int_type 
     basic_filebuf<_CharT, _Traits>::
     _M_really_overflow(int_type __c)
@@ -413,68 +494,31 @@ namespace std
 
       if (__testput || __testunbuffered)
 	{
-#if 1
-	  int __plen = _M_out_end - _M_out_beg;
-	  streamsize __len = 0;
+	  // Sizes of external and pending output.
+	  streamsize __elen = 0;
+	  streamsize __plen = 0;
 
-	  if (__plen)
-	    __len = _M_file->xsputn(_M_out_beg, __plen);
+	  // Convert internal buffer to external representation, output.
+	  // NB: In the unbuffered case, no internal buffer exists. 
+	  if (!__testunbuffered)
+	    _M_convert_to_external(_M_out_beg,  _M_out_end - _M_out_beg, 
+				   __elen, __plen);
 
-	  if (__c != traits_type::eof())
+	  // Convert pending sequence to external representation, output.
+	  if (!traits_type::eq_int_type(__c, traits_type::eof()))
 	    {
- 	      char_type __pending = traits_type::to_char_type(__c);
- 	      __len += _M_file->xsputn(&__pending, 1);
-  	      ++__plen;
+	      char_type __pending = traits_type::to_char_type(__c);
+	      _M_convert_to_external(&__pending, 1, __elen, __plen);
 	    }
 
+	  // Last, sync internal and external buffers.
 	  // NB: Need this so that external byte sequence reflects
-	  // internal buffer.
-	  if (__len == __plen)
-	    _M_set_indeterminate();
-
-	  if (!_M_file->sync())
-	    __ret = traits_type::not_eof(__c);
-#else
-	  // Part one: Allocate temporary conversion buffer on
-	  // stack. Convert internal buffer plus __c (ie,
-	  // "pending sequence") to temporary conversion buffer.
-	  int __plen = _M_out_end - _M_out_beg;
-	  char_type* __pbuf = static_cast<char_type*>(__builtin_alloca(sizeof(char_type) * __plen + 1));
-	  traits_type::copy(__pbuf, this->pbase(), __plen);
-	  if (!__testeof)
+	  // internal buffer plus pending sequence.
+	  if (__elen == __plen && !_M_file->sync())
 	    {
-	      __pbuf[__plen] = traits_type::to_char_type(__c);
-	      ++__plen;
+	      _M_set_indeterminate();
+	      __ret = traits_type::not_eof(__c);
 	    }
-
-	  char_type* __pend;
-	  char* __conv_buf = static_cast<char*>(__builtin_alloca(__plen));
-	  char* __conv_end;
-	  _M_state_beg = _M_state_cur;
-
-	  __res_type __r = _M_fcvt->out(_M_state_cur, 
-					__pbuf, __pbuf + __plen,
-					const_cast<const char_type*&>(__pend),
-					__conv_buf, __conv_buf + __plen,
-					__conv_end);
-	  
-	  // Part two: (Re)spill converted "pending sequence"
-	  // contents (now in temporary conversion buffer) to
-	  // external buffer (_M_file->_IO_*) using
-	  // _M_file->sys_write(), and do error (minimal) checking.
-	  if (__r != codecvt_base::error)
-	    {
-	      streamsize __len = _M_file->xsputn(__conv_buf, __plen);
-	      // NB: Need this so that external byte sequence reflects
-	      // internal buffer.
-	      _M_file->sync(); // XXX error check
-	      if (__len == __plen)
-		{
-		  _M_set_indeterminate();
-		  __ret = traits_type::not_eof(__c);
-		}
-	    }
-#endif
 	}	      
       _M_last_overflowed = true;	
       return __ret;
@@ -603,9 +647,6 @@ namespace std
       // XXX The part in the above comment is not done.
       _M_last_overflowed = false;	
     }
-  
 } // namespace std
 
-#endif // _CPP_BITS_FSTREAM_TCC
-
-
+#endif 

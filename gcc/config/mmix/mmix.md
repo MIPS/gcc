@@ -88,8 +88,8 @@
 
 ;; We assume all "s" are addresses.  Does that hold?
 (define_insn "movdi"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r ,r,x,r,m,r,m,r,??r")
-	(match_operand:DI 1 "general_operand"	    "r,LS,K,r,x,I,m,r,s,n"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,r ,r,x,r,m,r,m,r,r,??r")
+	(match_operand:DI 1 "general_operand"	    "r,LS,K,r,x,I,m,r,R,s,n"))]
   ""
   "@
    SET %0,%1
@@ -101,6 +101,7 @@
    LDO %0,%1
    STOU %1,%0
    GETA %0,%1
+   LDA %0,%1
    %r0%I1")
 
 ;; Note that we move around the float as a collection of bits; no
@@ -996,11 +997,6 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   if (operands[2] == NULL_RTX)
     operands[2] = const0_rtx;
 
-  /* FIXME: Documentation bug: operands[3] (operands[2] for 'call') is the
-     *next* argument register, not the number of arguments in registers.  */
-  cfun->machine->has_call_without_parameters
-    |= REG_P (operands[2]) && REGNO (operands[2]) == MMIX_FIRST_ARG_REGNUM;
-
   operands[4] = gen_rtx_REG (DImode, MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
 }")
 
@@ -1025,9 +1021,8 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
     operands[3] = const0_rtx;
 
   /* FIXME: Documentation bug: operands[3] (operands[2] for 'call') is the
-     *next* argument register, not the number of arguments in registers.  */
-  cfun->machine->has_call_without_parameters
-    |= REG_P (operands[3]) && REGNO (operands[3]) == MMIX_FIRST_ARG_REGNUM;
+     *next* argument register, not the number of arguments in registers.
+     (There used to be code here where that mattered.)  */
 
   operands[5] = gen_rtx_REG (DImode, MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
 }")

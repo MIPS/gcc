@@ -1711,7 +1711,7 @@ all-bash:
 all-bfd: all-libiberty all-intl
 all-binutils: all-libiberty all-opcodes all-bfd all-flex all-bison all-byacc all-intl
 all-bison: all-texinfo
-configure-target-boehm-gc: $(ALL_GCC_CXX) configure-target-qthreads
+configure-target-boehm-gc: $(ALL_GCC_C) configure-target-qthreads
 all-target-boehm-gc: configure-target-boehm-gc
 configure-target-bsp: $(ALL_GCC_C)
 all-target-bsp: configure-target-bsp
@@ -1767,7 +1767,7 @@ all-build-libiberty: configure-build-libiberty
 
 configure-target-libffi: $(ALL_GCC_C) 
 all-target-libffi: configure-target-libffi
-configure-target-libjava: $(ALL_GCC_CXX) configure-target-zlib configure-target-boehm-gc configure-target-qthreads configure-target-libffi
+configure-target-libjava: $(ALL_GCC_C) configure-target-zlib configure-target-boehm-gc configure-target-qthreads configure-target-libffi
 all-target-libjava: configure-target-libjava all-fastjar all-target-zlib all-target-boehm-gc all-target-qthreads all-target-libffi
 configure-target-librx: $(ALL_GCC_C)
 all-target-librx: configure-target-librx
@@ -1823,9 +1823,9 @@ all-zip:
 all-zlib:
 configure-target-zlib: $(ALL_GCC_C)
 all-target-zlib: configure-target-zlib
-all-fastjar: all-zlib
+all-fastjar: all-zlib all-libiberty
 configure-target-fastjar: configure-target-zlib
-all-target-fastjar: configure-target-fastjar all-target-zlib
+all-target-fastjar: configure-target-fastjar all-target-zlib all-target-libiberty
 configure-target-libiberty: $(ALL_GCC_C)
 all-target-libiberty: configure-target-libiberty
 all-target: $(ALL_TARGET_MODULES)

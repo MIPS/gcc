@@ -2507,6 +2507,12 @@ build1 (code, type, node)
       TREE_READONLY (t) = 0;
       break;
 
+    case INDIRECT_REF:
+      /* Whether a dereference is readonly has nothing to do with whether
+	 its operand is readonly.  */
+      TREE_READONLY (t) = 0;
+      break;
+
     default:
       if (TREE_CODE_CLASS (code) == '1' && node && TREE_CONSTANT (node))
 	TREE_CONSTANT (t) = 1;
@@ -2727,6 +2733,16 @@ default_function_attribute_inlinable_p (fndecl)
      tree fndecl ATTRIBUTE_UNUSED;
 {
   /* By default, functions with machine attributes cannot be inlined.  */
+  return false;
+}
+
+/* Default value of targetm.ms_bitfield_layout_p that always returns
+   false.  */
+bool
+default_ms_bitfield_layout_p (record)
+     tree record ATTRIBUTE_UNUSED;
+{
+  /* By default, GCC does not use the MS VC++ bitfield layout rules.  */
   return false;
 }
 
@@ -3627,7 +3643,7 @@ simple_cst_equal (t1, t2)
 int
 compare_tree_int (t, u)
      tree t;
-     unsigned int u;
+     unsigned HOST_WIDE_INT u;
 {
   if (tree_int_cst_sgn (t) < 0)
     return -1;
@@ -4245,7 +4261,8 @@ int_fits_type_p (c, type)
      tree c, type;
 {
   /* If the bounds of the type are integers, we can check ourselves.
-     Otherwise,. use force_fit_type, which checks against the precision.  */
+     If not, but this type is a subtype, try checking against that.
+     Otherwise, use force_fit_type, which checks against the precision.  */
   if (TYPE_MAX_VALUE (type) != NULL_TREE
       && TYPE_MIN_VALUE (type) != NULL_TREE
       && TREE_CODE (TYPE_MAX_VALUE (type)) == INTEGER_CST
@@ -4264,6 +4281,8 @@ int_fits_type_p (c, type)
 		&& ! (TREE_INT_CST_HIGH (c) < 0
 		      && TREE_UNSIGNED (TREE_TYPE (c))));
     }
+  else if (TREE_CODE (type) == INTEGER_TYPE && TREE_TYPE (type) != 0)
+    return int_fits_type_p (c, TREE_TYPE (type));
   else
     {
       c = copy_node (c);
@@ -4472,16 +4491,23 @@ append_random_chars (template)
 	 compiles since this can cause bootstrap comparison errors.  */
 
       if (stat (main_input_filename, &st) < 0)
-	abort ();
-
-      /* In VMS, ino is an array, so we have to use both values.  We
-	 conditionalize that.  */
+	{
+	  /* This can happen when preprocessed text is shipped between
+	     machines, e.g. with bug reports.  Assume that uniqueness
+	     isn't actually an issue.  */
+	  value = 1;
+	}
+      else
+	{
+	  /* In VMS, ino is an array, so we have to use both values.  We
+	     conditionalize that.  */
 #ifdef VMS
 #define INO_TO_INT(INO) ((int) (INO)[1] << 16 ^ (int) (INO)[2])
 #else
 #define INO_TO_INT(INO) INO
 #endif
-      value = st.st_dev ^ INO_TO_INT (st.st_ino) ^ st.st_mtime;
+	  value = st.st_dev ^ INO_TO_INT (st.st_ino) ^ st.st_mtime;
+	}
     }
 
   template += strlen (template);
@@ -4888,6 +4914,7 @@ build_common_tree_nodes_2 (short_double)
   unsigned_V16QI_type_node
     = make_vector (V16QImode, unsigned_intQI_type_node, 1);
 
+  V16SF_type_node = make_vector (V16SFmode, float_type_node, 0);
   V4SF_type_node = make_vector (V4SFmode, float_type_node, 0);
   V4SI_type_node = make_vector (V4SImode, intSI_type_node, 0);
   V2SI_type_node = make_vector (V2SImode, intSI_type_node, 0);

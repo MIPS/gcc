@@ -577,28 +577,11 @@ extern void		sbss_section PARAMS ((void));
 
 #ifndef ENDIAN_SPEC
 #if TARGET_ENDIAN_DEFAULT == 0
-#define ENDIAN_SPEC "%{!EB:%{!meb:-EL}} %{EL} %{EB}"
+#define ENDIAN_SPEC "%{!EB:%{!meb:-EL}} %{EB|meb:-EB}"
 #else
-#define ENDIAN_SPEC "%{!EL:%{!mel:-EB}} %{EB} %{EL}"
+#define ENDIAN_SPEC "%{!EL:%{!mel:-EB}} %{EL|mel:-EL}"
 #endif
 #endif
-
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable.
-   The variable, type `char *', is set to the variable part of the
-   given option if the fixed part matches.  The actual option name
-   is made by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-	extern char *m88k_short_data;
-	#define TARGET_OPTIONS { { "short-data-", &m88k_short_data } }  */
 
 #define TARGET_OPTIONS							\
 {									\
@@ -867,47 +850,14 @@ while (0)
 #define GAS_ASM_SPEC "%{march=*} %{mtune=*} %{mcpu=*} %{m4650} %{mmad:-m4650} %{m3900} %{v} %{mgp32} %{mgp64} %(abi_gas_asm_spec) %{mabi=32:%{!mips*:-mips1}}"
 
 
-/* We use the o32 abi as default for mips1 and mips2.  SGI uses n32/n64 for
-   mips3 and mips4 by default, however, this is unsupported at this point in
-   binutils so we use o64. This should change when n32/n64 is supported.  */
-
 extern int mips_abi;
 
 #ifndef MIPS_ABI_DEFAULT
 #define MIPS_ABI_DEFAULT ABI_32
 #endif
 
-#if MIPS_ABI_DEFAULT == ABI_32
-#define ABI_GAS_ASM_SPEC "%{mabi=*} \
-%{!mabi=*:%{mips3|mips4|mips5|mips64:-mabi=o64} %{!mips3:%{!mips4:%{!mips5:%{!mips64:-mabi=32}}}}}"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_N32
-#define ABI_GAS_ASM_SPEC "%{mabi=*} %{!mabi=*:-mabi=n32}"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_64
-#define ABI_GAS_ASM_SPEC "%{mabi=*} %{!mabi=*:-mabi=64}"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_EABI
-#define ABI_GAS_ASM_SPEC "%{mabi=*} %{!mabi=*:-mabi=eabi}"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_O64
-#define ABI_GAS_ASM_SPEC "\
-%{mabi=*} \
-%{!mabi=*:%{mips1|mips2|mips32:-mabi=32} %{!mips1:%{!mips2:%{!mips3:%{!mips32:-mabi=o64}}}}}"
-#endif
-
-#if MIPS_ABI_DEFAULT == ABI_MEABI
-#define ABI_GAS_ASM_SPEC "\
-%{mabi=*} \
-%{!mabi=*:-mabi=meabi }"
-#endif
-
 #ifndef ABI_GAS_ASM_SPEC
- #error "Unhandled MIPS_ABI_DEFAULT"
+#define ABI_GAS_ASM_SPEC ""
 #endif
 
 /* TARGET_ASM_SPEC is used to select either MIPS_AS_ASM_SPEC or
@@ -1070,9 +1020,171 @@ extern int mips_abi;
    be overridden by subtargets.  */
 
 #ifndef SUBTARGET_CPP_SIZE_SPEC
+
+#if MIPS_ISA_DEFAULT != 3 && MIPS_ISA_DEFAULT != 4 && MIPS_ISA_DEFAULT != 5 && MIPS_ISA_DEFAULT != 64
+
+/* 32-bit cases first.  */
+
+#if MIPS_ABI_DEFAULT == ABI_EABI
 #define SUBTARGET_CPP_SIZE_SPEC "\
-%{mlong64:%{!mips1:%{!mips2:%{!mips32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}} \
-%{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}"
+%{mabi=eabi|!mabi=*:\
+  %{mips1|mips2|mips32|mlong32|mgp32:%{!mips3:%{!mips4:%{!mips5:%{!mips64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}} \
+  %{mlong64:\
+    %{mgp64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+    %{!mgp64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}\
+  %{mips3|mips4|mips5|mips64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}} \
+  %{!mips1:%{!mips2:%{!mips3:%{!mips4:%{!mips5:%{!mips32:%{!mips64:%{!mlong32:%{!mlong64:%{!mgp32:%{!mgp64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}}}}}}}}\
+%{mabi=o64:\
+ %{mlong64:\
+   %{!mgp32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+   %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+ %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_O64
+#define SUBTARGET_CPP_SIZE_SPEC "\
+%{mabi=eabi:\
+  %{mips1|mips2|mips32|mlong32|mgp32:%{!mips3:%{!mips4:%{!mips5:%{!mips64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}} \
+  %{mlong64:\
+    %{mgp64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+    %{!mgp64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}\
+  %{mips3|mips4|mips5|mips64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}} \
+  %{!mips1:%{!mips2:%{!mips3:%{!mips4:%{!mips5:%{!mips32:%{!mips64:%{!mlong32:%{!mlong64:%{!mgp32:%{!mgp64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}}}}}}}}\
+%{mabi=o64|!mabi=*:\
+ %{mlong64:\
+   %{!mgp32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+   %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+ %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}\
+"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_32
+#define SUBTARGET_CPP_SIZE_SPEC "\
+%{mabi=eabi:\
+  %{mips1|mips2|mips32|mlong32|mgp32:%{!mips3:%{!mips4:%{!mips5:%{!mips64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}} \
+  %{mlong64:\
+    %{mgp64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+    %{!mgp64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}\
+  %{mips3|mips4|mips5|mips64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}} \
+  %{!mips1:%{!mips2:%{!mips3:%{!mips4:%{!mips5:%{!mips32:%{!mips64:%{!mlong32:%{!mlong64:%{!mgp32:%{!mgp64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}}}}}}}}\
+%{mabi=o64:\
+ %{mlong64:\
+   %{!mgp32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+   %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+ %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+%{mabi=32|!mabi=*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}\
+"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_MEABI
+#define SUBTARGET_CPP_SIZE_SPEC "\
+%{mabi=eabi:\
+  %{mips1|mips2|mips32|mlong32|mgp32:%{!mips3:%{!mips4:%{!mips5:%{!mips64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}} \
+  %{mlong64:\
+    %{mgp64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+    %{!mgp64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}\
+  %{mips3|mips4|mips5|mips64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}} \
+  %{!mips1:%{!mips2:%{!mips3:%{!mips4:%{!mips5:%{!mips32:%{!mips64:%{!mlong32:%{!mlong64:%{!mgp32:%{!mgp64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}}}}}}}}\
+%{mabi=o64:\
+ %{mlong64:\
+   %{!mgp32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+   %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+ %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}\
+%{mabi=meabi|!mabi=*:\
+  %{mips3|mips4|mips5|mips64|mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+  %{!mips3:%{!mips4:%{!mips5:%{!mips64:%{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}}}}}} \
+"
+#endif
+
+#else
+
+/* 64-bit default ISA.  */
+
+#if MIPS_ABI_DEFAULT == ABI_EABI
+#define SUBTARGET_CPP_SIZE_SPEC "\
+%{mabi=eabi|!mabi=*: \
+  %{mips1|mips2|mips32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mlong32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+  %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mips3|mips4|mips5|mips64:%{!mips1:%{!mips2:%{!mips32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}\
+  %{!mips1:%{!mips2:%{!mips3:%{!mips4:%{!mips5:%{!mips32:%{!mips64:%{!mlong32:%{!mlong64:%{!mgp32:%{!mgp64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}}}}}}}}\
+  %{mgp64:%{!mlong32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}\
+%{mabi=o64:\
+ %{mlong64:\
+   %{!mgp32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+   %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+ %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_O64
+#define SUBTARGET_CPP_SIZE_SPEC "\
+%{mabi=eabi: \
+  %{mips1|mips2|mips32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mlong32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+  %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mips3|mips4|mips5|mips64:%{!mips1:%{!mips2:%{!mips32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}\
+  %{!mips1:%{!mips2:%{!mips3:%{!mips4:%{!mips5:%{!mips32:%{!mips64:%{!mlong32:%{!mlong64:%{!mgp32:%{!mgp64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}}}}}}}}\
+  %{mgp64:%{!mlong32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}\
+%{mabi=o64|!mabi=*:\
+ %{mlong64:\
+   %{!mgp32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+   %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+ %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}\
+"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_32
+#define SUBTARGET_CPP_SIZE_SPEC "\
+%{mabi=eabi:\
+  %{mips1|mips2|mips32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mlong32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+  %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mips3|mips4|mips5|mips64:%{!mips1:%{!mips2:%{!mips32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}\
+  %{!mips1:%{!mips2:%{!mips3:%{!mips4:%{!mips5:%{!mips32:%{!mips64:%{!mlong32:%{!mlong64:%{!mgp32:%{!mgp64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}}}}}}}}\
+  %{mgp64:%{!mlong32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}\
+%{mabi=o64:\
+ %{mlong64:\
+   %{!mgp32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+   %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+ %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+%{mabi=32|!mabi=*:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}\
+"
+#endif
+
+#if MIPS_ABI_DEFAULT == ABI_MEABI
+#define SUBTARGET_CPP_SIZE_SPEC "\
+%{mabi=eabi:\
+  %{mips1|mips2|mips32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mlong32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mlong64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+  %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{mips3|mips4|mips5|mips64:%{!mips1:%{!mips2:%{!mips32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}\
+  %{!mips1:%{!mips2:%{!mips3:%{!mips4:%{!mips5:%{!mips32:%{!mips64:%{!mlong32:%{!mlong64:%{!mgp32:%{!mgp64:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}}}}}}}}\
+  %{mgp64:%{!mlong32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}\
+%{mabi=o64:\
+ %{mlong64:\
+   %{!mgp32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
+   %{mgp32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+ %{!mlong64:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}} \
+%{mabi=32:-D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}\
+%{mabi=meabi|!mabi=*:\
+  %{mips1|mips2|mips32|mlong32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
+  %{!mips1:%{!mips2:%{!mips32:%{!mlong32:-D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int}}}}} \
+"
+#endif
+
+#endif
+
 #endif
 
 /* SUBTARGET_CPP_SPEC is passed to the preprocessor.  It may be
@@ -1257,7 +1369,7 @@ extern int mips_abi;
 #define INCOMING_RETURN_ADDR_RTX  gen_rtx_REG (VOIDmode, GP_REG_FIRST + 31)
 
 /* Describe how we implement __builtin_eh_return.  */
-#define EH_RETURN_DATA_REGNO(N) ((N) < 4 ? (N) + GP_ARG_FIRST : INVALID_REGNUM)
+#define EH_RETURN_DATA_REGNO(N) ((N) < (TARGET_MIPS16 ? 2 : 4) ? (N) + GP_ARG_FIRST : INVALID_REGNUM)
 #define EH_RETURN_STACKADJ_RTX  gen_rtx_REG (Pmode, GP_REG_FIRST + 3)
 
 /* Offsets recorded in opcodes are a multiple of this alignment factor.
@@ -1534,7 +1646,9 @@ do {							\
 #define POINTER_BOUNDARY (Pmode == DImode ? 64 : 32)
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
-#define PARM_BOUNDARY (TARGET_64BIT ? 64 : 32)
+#define PARM_BOUNDARY ((mips_abi == ABI_O64 || mips_abi == ABI_N32 \
+			|| mips_abi == ABI_64 \
+			|| (mips_abi == ABI_EABI && TARGET_64BIT)) ? 64 : 32)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
@@ -1942,6 +2056,7 @@ enum reg_class
   HI_AND_GR_REGS,		/* union classes */
   LO_AND_GR_REGS,
   HILO_AND_GR_REGS,
+  HI_AND_FP_REGS,
   ST_REGS,			/* status registers (fp status) */
   ALL_REGS,			/* all registers */
   LIM_REG_CLASSES		/* max value + 1 */
@@ -1971,6 +2086,7 @@ enum reg_class
   "HI_AND_GR_REGS",							\
   "LO_AND_GR_REGS",							\
   "HILO_AND_GR_REGS",							\
+  "HI_AND_FP_REGS",							\
   "ST_REGS",								\
   "ALL_REGS"								\
 }
@@ -2002,6 +2118,7 @@ enum reg_class
   { 0xffffffff, 0x00000000, 0x00000001 },	/* union classes */     \
   { 0xffffffff, 0x00000000, 0x00000002 },				\
   { 0xffffffff, 0x00000000, 0x00000004 },				\
+  { 0x00000000, 0xffffffff, 0x00000001 },				\
   { 0x00000000, 0x00000000, 0x000007f8 },	/* status registers */	\
   { 0xffffffff, 0xffffffff, 0x000007ff }	/* all registers */	\
 }
@@ -2229,10 +2346,18 @@ extern enum reg_class mips_char_to_class[256];
    : CLASS_UNITS (MODE, UNITS_PER_WORD))
 
 /* If defined, gives a class of registers that cannot be used as the
-   operand of a SUBREG that changes the mode of the object illegally.  */
+   operand of a SUBREG that changes the mode of the object illegally.
+   When FP regs are larger than integer regs... Er, anyone remember what
+   goes wrong?
 
-#define CLASS_CANNOT_CHANGE_MODE \
-  (TARGET_FLOAT64 && ! TARGET_64BIT ? FP_REGS : NO_REGS)
+   In little-endian mode, the hi-lo registers are numbered backwards,
+   so (subreg:SI (reg:DI hi) 0) gets the high word instead of the low
+   word as intended.  */
+
+#define CLASS_CANNOT_CHANGE_MODE					\
+  (TARGET_BIG_ENDIAN							\
+   ? (TARGET_FLOAT64 && ! TARGET_64BIT ? FP_REGS : NO_REGS)		\
+   : (TARGET_FLOAT64 && ! TARGET_64BIT ? HI_AND_FP_REGS : HI_REG))
 
 /* Defines illegal mode changes for CLASS_CANNOT_CHANGE_MODE.  */
 
@@ -2621,9 +2746,6 @@ extern struct mips_frame_info current_frame_info;
 #define RETURN_IN_MEMORY(TYPE)	\
   (TYPE_MODE (TYPE) == BLKmode)
 
-/* A code distinguishing the floating point format of the target
-   machine.  There are three defined values: IEEE_FLOAT_FORMAT,
-   VAX_FLOAT_FORMAT, and UNKNOWN_FLOAT_FORMAT.  */
 
 #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT
 
@@ -2747,18 +2869,16 @@ typedef struct mips_args {
 {									\
   if (TARGET_MIPS16)							\
     sorry ("mips16 function profiling");				\
-  fprintf (FILE, "\t.set\tnoreorder\n");				\
   fprintf (FILE, "\t.set\tnoat\n");					\
   fprintf (FILE, "\tmove\t%s,%s\t\t# save current return address\n",	\
 	   reg_names[GP_REG_FIRST + 1], reg_names[GP_REG_FIRST + 31]);	\
-  fprintf (FILE, "\tjal\t_mcount\n");					\
   fprintf (FILE,							\
 	   "\t%s\t%s,%s,%d\t\t# _mcount pops 2 words from  stack\n",	\
 	   TARGET_64BIT ? "dsubu" : "subu",				\
 	   reg_names[STACK_POINTER_REGNUM],				\
 	   reg_names[STACK_POINTER_REGNUM],				\
 	   Pmode == DImode ? 16 : 8);					\
-  fprintf (FILE, "\t.set\treorder\n");					\
+  fprintf (FILE, "\tjal\t_mcount\n");                                   \
   fprintf (FILE, "\t.set\tat\n");					\
 }
 
@@ -3365,9 +3485,6 @@ while (0)
    and some other value for true.  This is the value stored for true.  */
 
 #define STORE_FLAG_VALUE 1
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-#define SLOW_ZERO_EXTEND
 
 /* Define this to be nonzero if shift instructions ignore all but the low-order
    few bits.  */

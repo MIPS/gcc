@@ -243,7 +243,7 @@ in the following sections.
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{
 -d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
--fdump-unnumbered 
+-fdump-unnumbered -fdump-translation-unit@r{[}-@var{n}@r{]} @gol
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
 -fdump-tree-original@r{[}-@var{n}@r{]} -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
 -fdump-tree-inlined@r{[}-@var{n}@r{]} @gol
@@ -435,7 +435,7 @@ in the following sections.
 -mpowerpc-gpopt  -mno-powerpc-gpopt @gol
 -mpowerpc-gfxopt  -mno-powerpc-gfxopt @gol
 -mnew-mnemonics  -mold-mnemonics @gol
--mfull-toc   -mminimal-toc  -mno-fop-in-toc  -mno-sum-in-toc @gol
+-mfull-toc   -mminimal-toc  -mno-fp-in-toc  -mno-sum-in-toc @gol
 -m64  -m32  -mxl-call  -mno-xl-call  -mpe @gol
 -msoft-float  -mhard-float  -mmultiple  -mno-multiple @gol
 -mstring  -mno-string  -mupdate  -mno-update @gol
@@ -540,6 +540,9 @@ in the following sections.
 @gccoptlist{
 -m1  -m2  -m3  -m3e @gol
 -m4-nofpu  -m4-single-only  -m4-single  -m4 @gol
+-m5-64media -m5-64media-nofpu @gol
+-m5-32media -m5-32media-nofpu @gol
+-m5-compact -m5-compact-nofpu @gol
 -mb  -ml  -mdalign  -mrelax @gol
 -mbigtable  -mfmovd  -mhitachi  -mnomacsave @gol
 -mieee  -misize  -mpadstruct  -mspace @gol
@@ -593,8 +596,8 @@ in the following sections.
 @gccoptlist{
 -mlibfuncs -mno-libfuncs -mepsilon -mno-epsilon -mabi=gnu @gol
 -mabi=mmixware -mzero-extend -mknuthdiv -mtoplevel-symbols @gol
--melf -mbranch-predict -mreg-stack-fill-bug-workaround @gol
--mno-branch-predict -mno-reg-stack-fill-bug-workaround}
+-melf -mbranch-predict -mno-branch-predict -mbase-addresses @gol
+-mno-base-addresses}
 
 @emph{IA-64 Options}
 @gccoptlist{
@@ -636,6 +639,24 @@ in the following sections.
 @emph{Xstormy16 Options}
 @gccoptlist{
 -msim}
+
+@emph{Xtensa Options}
+@gccoptlist{
+-mbig-endian -mlittle-endian @gol
+-mdensity -mno-density @gol
+-mmac16 -mno-mac16 @gol
+-mmul16 -mno-mul16 @gol
+-mmul32 -mno-mul32 @gol
+-mnsa -mno-nsa @gol
+-mminmax -mno-minmax @gol
+-msext -mno-sext @gol
+-mbooleans -mno-booleans @gol
+-mhard-float -msoft-float @gol
+-mfused-madd -mno-fused-madd @gol
+-mserialize-volatile -mno-serialize-volatile @gol
+-mtext-section-literals -mno-text-section-literals @gol
+-mtarget-align -mno-target-align @gol
+-mlongcalls -mno-longcalls}
 
 @item Code Generation Options
 @xref{Code Gen Options,,Options for Code Generation Conventions}.
@@ -2880,7 +2901,7 @@ Annotate the assembler output with miscellaneous debugging information.
 Dump after computing branch probabilities, to @file{@var{file}.14.bp}.
 @item B
 @opindex dB
-Dump after block reordering, to @file{@var{file}.28.bbro}.
+Dump after block reordering, to @file{@var{file}.29.bbro}.
 @item c
 @opindex dc
 Dump after instruction combination, to the file @file{@var{file}.16.combine}.
@@ -2913,6 +2934,9 @@ Dump after global register allocation, to @file{@var{file}.21.greg}.
 @item h
 @opindex dh
 Dump after finalization of EH handling code, to @file{@var{file}.02.eh}.
+@item k
+@opindex dk
+Dump after reg-to-stack conversion, to @file{@var{file}.28.stack}.
 @item o
 @opindex do
 Dump after post-reload optimizations, to @file{@var{file}.22.postreload}.
@@ -3006,6 +3030,15 @@ When doing debugging dumps (see @option{-d} option above), suppress instruction
 numbers and line number note output.  This makes it more feasible to
 use diff on debugging dumps for compiler invocations with different
 options, in particular with and without @option{-g}.
+
+@item -fdump-translation-unit @r{(C and C++ only)}
+@itemx -fdump-translation-unit-@var{options} @r{(C and C++ only)}
+@opindex fdump-translation-unit
+Dump a representation of the tree structure for the entire translation
+unit to a file.  The file name is made by appending @file{.tu} to the
+source file name.  If the @samp{-@var{options}} form is used, @var{options}
+controls the details of the dump as described for the
+@option{-fdump-tree} options.
 
 @item -fdump-class-hierarchy @r{(C++ only)}
 @itemx -fdump-class-hierarchy-@var{options} @r{(C++ only)}
@@ -5114,6 +5147,7 @@ that macro, which enables you to change the defaults.
 * MMIX Options::
 * PDP-11 Options::
 * Xstormy16 Options::
+* Xtensa Options::
 @end menu
 
 @node M680x0 Options
@@ -9484,14 +9518,18 @@ Generate an executable in the ELF format, rather than the default
 Use (do not use) the probable-branch instructions, when static branch
 prediction indicates a probable branch.
 
-@item -mreg-stack-fill-bug-workaround
-@itemx -mno-reg-stack-fill-bug-workaround
-@opindex mreg-stack-fill-bug-workaround
-@opindex mno-reg-stack-fill-bug-workaround
-Work around (do not work around) an inconsistency in the circular
-register stack mechanism in the @command{mmix} simulator, which
-causes entries in the register stack to not be flushed to memory if
-the instruction causing the fill-up is @code{PUSHJ} or @code{PUSHGO}.
+@item -mbase-addresses
+@itemx -mno-base-addresses
+@opindex mbase-addresses
+@opindex mno-base-addresses
+Generate (do not generate) code that uses @emph{base addresses}.  Using a
+base address automatically generates a request (handled by the assembler
+and the linker) for a constant to be set up in a global register.  The
+register is used for one or more base address requests within the range 0
+to 255 from the value held in the register.  The generally leads to short
+and fast code, but the number of different data items that can be
+addressed is limited.  This means that a program that uses lots of static
+data may require @option{-mno-base-addresses}.
 @end table
 
 @node PDP-11 Options
@@ -9609,6 +9647,179 @@ These options are defined for Xstormy16:
 @item -msim
 @opindex msim
 Choose startup files and linker script suitable for the simulator.
+@end table
+
+@node Xtensa Options
+@subsection Xtensa Options
+@cindex Xtensa Options
+
+The Xtensa architecture is designed to support many different
+configurations.  The compiler's default options can be set to match a
+particular Xtensa configuration by copying a configuration file into the
+GCC sources when building GCC@.  The options below may be used to
+override the default options.
+
+@table @gcctabopt
+@item -mbig-endian
+@itemx -mlittle-endian
+@opindex mbig-endian
+@opindex mlittle-endian
+Specify big-endian or little-endian byte ordering for the target Xtensa
+processor.
+
+@item -mdensity
+@itemx -mno-density
+@opindex mdensity
+@opindex mno-density
+Enable or disable use of the optional Xtensa code density instructions.
+
+@item -mmac16
+@itemx -mno-mac16
+@opindex mmac16
+@opindex mno-mac16
+Enable or disable use of the Xtensa MAC16 option.  When enabled, GCC
+will generate MAC16 instructions from standard C code, with the
+limitation that it will use neither the MR register file nor any
+instruction that operates on the MR registers.  When this option is
+disabled, GCC will translate 16-bit multiply/accumulate operations to a
+combination of core instructions and library calls, depending on whether
+any other multiplier options are enabled.
+
+@item -mmul16
+@itemx -mno-mul16
+@opindex mmul16
+@opindex mno-mul16
+Enable or disable use of the 16-bit integer multiplier option.  When
+enabled, the compiler will generate 16-bit multiply instructions for
+multiplications of 16 bits or smaller in standard C code.  When this
+option is disabled, the compiler will either use 32-bit multiply or
+MAC16 instructions if they are available or generate library calls to
+perform the multiply operations using shifts and adds.
+
+@item -mmul32
+@itemx -mno-mul32
+@opindex mmul32
+@opindex mno-mul32
+Enable or disable use of the 32-bit integer multiplier option.  When
+enabled, the compiler will generate 32-bit multiply instructions for
+multiplications of 32 bits or smaller in standard C code.  When this
+option is disabled, the compiler will generate library calls to perform
+the multiply operations using either shifts and adds or 16-bit multiply
+instructions if they are available.
+
+@item -mnsa
+@itemx -mno-nsa
+@opindex mnsa
+@opindex mno-nsa
+Enable or disable use of the optional normalization shift amount
+(@code{NSA}) instructions to implement the built-in @code{ffs} function.
+
+@item -mminmax
+@itemx -mno-minmax
+@opindex mminmax
+@opindex mno-minmax
+Enable or disable use of the optional minimum and maximum value
+instructions.
+
+@item -msext
+@itemx -mno-sext
+@opindex msext
+@opindex mno-sext
+Enable or disable use of the optional sign extend (@code{SEXT})
+instruction.
+
+@item -mbooleans
+@itemx -mno-booleans
+@opindex mbooleans
+@opindex mno-booleans
+Enable or disable support for the boolean register file used by Xtensa
+coprocessors.  This is not typically useful by itself but may be
+required for other options that make use of the boolean registers (e.g.,
+the floating-point option).
+
+@item -mhard-float
+@itemx -msoft-float
+@opindex mhard-float
+@opindex msoft-float
+Enable or disable use of the floating-point option.  When enabled, GCC
+generates floating-point instructions for 32-bit @code{float}
+operations.  When this option is disabled, GCC generates library calls
+to emulate 32-bit floating-point operations using integer instructions.
+Regardless of this option, 64-bit @code{double} operations are always
+emulated with calls to library functions.
+
+@item -mfused-madd
+@itemx -mno-fused-madd
+@opindex mfused-madd
+@opindex mno-fused-madd
+Enable or disable use of fused multiply/add and multiply/subtract
+instructions in the floating-point option.  This has no effect if the
+floating-point option is not also enabled.  Disabling fused multiply/add
+and multiply/subtract instructions forces the compiler to use separate
+instructions for the multiply and add/subtract operations.  This may be
+desirable in some cases where strict IEEE 754-compliant results are
+required: the fused multiply add/subtract instructions do not round the
+intermediate result, thereby producing results with @emph{more} bits of
+precision than specified by the IEEE standard.  Disabling fused multiply
+add/subtract instructions also ensures that the program output is not
+sensitive to the compiler's ability to combine multiply and add/subtract
+operations.
+
+@item -mserialize-volatile
+@itemx -mno-serialize-volatile
+@opindex mserialize-volatile
+@opindex mno-serialize-volatile
+When this option is enabled, GCC inserts @code{MEMW} instructions before
+@code{volatile} memory references to guarantee sequential consistency.
+The default is @option{-mserialize-volatile}.  Use
+@option{-mno-serialize-volatile} to omit the @code{MEMW} instructions.
+
+@item -mtext-section-literals
+@itemx -mno-text-section-literals
+@opindex mtext-section-literals
+@opindex mno-text-section-literals
+Control the treatment of literal pools.  The default is
+@option{-mno-text-section-literals}, which places literals in a separate
+section in the output file.  This allows the literal pool to be placed
+in a data RAM/ROM, and it also allows the linker to combine literal
+pools from separate object files to remove redundant literals and
+improve code size.  With @option{-mtext-section-literals}, the literals
+are interspersed in the text section in order to keep them as close as
+possible to their references.  This may be necessary for large assembly
+files.
+
+@item -mtarget-align
+@itemx -mno-target-align
+@opindex mtarget-align
+@opindex mno-target-align
+When this option is enabled, GCC instructs the assembler to
+automatically align instructions to reduce branch penalties at the
+expense of some code density.  The assembler attempts to widen density
+instructions to align branch targets and the instructions following call
+instructions.  If there are not enough preceding safe density
+instructions to align a target, no widening will be performed.  The
+default is @option{-mtarget-align}.  These options do not affect the
+treatment of auto-aligned instructions like @code{LOOP}, which the
+assembler will always align, either by widening density instructions or
+by inserting no-op instructions.
+
+@item -mlongcalls
+@itemx -mno-longcalls
+@opindex mlongcalls
+@opindex mno-longcalls
+When this option is enabled, GCC instructs the assembler to translate
+direct calls to indirect calls unless it can determine that the target
+of a direct call is in the range allowed by the call instruction.  This
+translation typically occurs for calls to functions in other source
+files.  Specifically, the assembler translates a direct @code{CALL}
+instruction into an @code{L32R} followed by a @code{CALLX} instruction.
+The default is @option{-mno-longcalls}.  This option should be used in
+programs where the call target can potentially be out of range.  This
+option is implemented in the assembler, not the compiler, so the
+assembly code generated by GCC will still show direct call
+instructions---look at the disassembled object code to see the actual
+instructions.  Note that the assembler will use an indirect call for
+every cross-file call, not just those that really will be out of range.
 @end table
 
 @node Code Gen Options

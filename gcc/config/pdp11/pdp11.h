@@ -888,9 +888,6 @@ extern int may_call_alloca;
 
 #define MOVE_MAX 2
 
-/* Zero extension is faster if the target is known to be zero */
-/* #define SLOW_ZERO_EXTEND */
-
 /* Nonzero if access to memory by byte is slow and undesirable. -
 */
 #define SLOW_BYTE_ACCESS 0
@@ -1200,7 +1197,7 @@ JMP	FUNCTION	0x0058  0x0000 <- FUNCTION
 }
 
 #define TRAMPOLINE_SIZE 8
-#define TRAMPOLINE_ALIGN 16
+#define TRAMPOLINE_ALIGNMENT 16
 
 /* Emit RTL insns to initialize the variable parts of a trampoline.
    FNADDR is an RTX for the address of the function's pure code.

@@ -1,3 +1,107 @@
+2002-02-12  David Billinghurst <Davod.Billinghurst@riotinto.com>
+
+	* class.c(build_utf8_ref): Move declaration of decl_size
+
+2002-02-07  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Input Options): --CLASSPATH does not suppress system
+	path.
+
+2002-02-04  Anthony Green  <green@redhat.com>
+
+	* class.c (build_utf8_ref): Put UTF-8 constants into merged
+	sections if available.
+
+2002-02-04  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* parse.y (java_expand_classes): Fix typo in static field loop.
+
+2002-02-02  Richard Henderson  <rth@redhat.com>
+
+	* class.c (add_field): Mark static fields external.
+	(build_class_ref): Remove redundant set.
+	* parse.y (java_expand_classes): Mark static fields of classes
+	to be compiled as local.
+	* jcf-parse.c (parse_class_file): Likewise.
+
+2002-02-02  Nic Ferrier  <nferrier@tapsellferrier.co.uk>
+
+	* gcj.texi (About CNI): New node.
+
+2002-02-01  Craig Rodrigues  <rodrigc@gcc.gnu.org>
+
+	PR java/5080
+	* jcf-parse.c : Check for HAVE_LOCALE_H before using
+	setlocale() with LC_CTYPE as a parameter.
+	* jv-scan.c: Same.
+
+2002-01-31  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gjavah.c (version), jcf-dump.c (version), jv-scan.c (version):
+	Follow GNU Coding Standards for --version.
+
+2002-01-28  Tom Tromey  <tromey@redhat.com>
+
+	* expr.c (build_jni_stub): Ensure storage for `meth' is
+	generated.
+	* parse.y (java_complete_expand_methods): Set
+	current_function_decl before building JNI stub.
+
+2002-01-26 Andreas Tobler <a.tobler@schweiz.ch>
+	
+	* gcc/java/builtins.c (sqrt_builtin): Use BUILT_IN_SQRT, not
+	BUILT_IN_SQRTF.
+
+2002-01-22  Tom Tromey  <tromey@redhat.com>
+
+	* decl.c (java_init_decl_processing): Use add_predefined_file.
+	Predefine RawData.java.
+	(predef_filenames): Removed.
+	(java_init_decl_processing): Don't register predef_filenames.
+	* jcf-parse.c (add_predefined_file): New function.
+	(predefined_filename_p): Rewrote.
+	(predefined_filename_p): No longer static.
+	* decl.c (java_init_decl_processing): Call initialize_builtins.
+	* Make-lang.in (JAVA_OBJS): Added builtins.o.
+	(java/builtins.o): New target.
+	* builtins.c: New file.
+	* parse.y (patch_invoke): Use build_call_or_builtin.
+	* java-tree.h (build_call_or_builtin): Declare.
+	(initialize_builtins): Declare.
+	(java_set_exception_lang_code): Removed unused declaration.
+	(PREDEF_FILENAMES_SIZE): Removed.
+	(java_tree_index): Added JTI_PREDEF_FILENAMES.
+	(predef_filenames): New define.
+	(add_predefined_file): Declare.
+	(predefined_filename_p): Declare.
+	* expr.c (expand_invoke): Use build_call_or_builtin.
+
+2002-01-22  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* parse.y (patch_switch_statement): Fix format specifier.
+
+2002-01-16  Tom Tromey  <tromey@redhat.com>
+
+	More for PR java/5365:
+	* gjavah.c (print_stub_or_jni): Cause exception to be thrown by
+	default.
+	(process_file): Generate include for
+	java.lang.UnsupportedOperationExceptions.
+
+2002-01-15  Andreas Jaeger  <aj@suse.de>
+
+	* .cvsignore: Add man pages.
+
+2002-01-15  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR java/5365:
+	* gjavah.c (process_file): Turn class name into a file name.
+
+2002-01-14  Matthias Klose  <doko@debian.org>
+
+	* gcj.texi: Fix whitespace and formatting errors in the
+	synopsis of the man pages. Update copyright.
+
 2002-01-14  Tom Tromey  <tromey@redhat.com>
 
 	For PR libgcj/5303:
@@ -11,22 +115,22 @@
 	(Invoking jv-convert): New node.
 
 2001-01-10  Jeff Sturm  <jsturm@one-point.com>
-            Martin Kahlert  <martin.kahlert@infineon.com>
+	    Martin Kahlert  <martin.kahlert@infineon.com>
 
 	* jcf-parse.c (get_constant): Don't swap lo/hi for big
 	endian targets when HOST_BITS_PER_WIDE_INT >= 64.
 
 2002-01-03  Graham Stott  <grahams@redhat.com>
 
-        * class.c (compile_resource_file): Update copyright date.
-        Constify filename parameter.
-        (java-tree.h): Update copyright date.
-        (compile_resource_file): Constify filename parameter.
+	* class.c (compile_resource_file): Update copyright date.
+	Constify filename parameter.
+	(java-tree.h): Update copyright date.
+	(compile_resource_file): Constify filename parameter.
 
 2002-01-03  Graham Stott  <grahams@redhat.com>
 
-        * gcc/jcf-parse.c: Update copyright date.
-        (yyparse): Constify resource_filename.
+	* gcc/jcf-parse.c: Update copyright date.
+	(yyparse): Constify resource_filename.
 
 2002-01-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
 
@@ -110,7 +214,7 @@
 
 2001-12-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
-	* decl.c (java_init_decl_processing): Don't initialize 
+	* decl.c (java_init_decl_processing): Don't initialize
 	finit_leg_identifier_node.
 	* java-tree.h (java_tree_index): Remove JTI_FINIT_LEG_IDENTIFIER_NODE.
 	(finit_leg_identifier_node): Remove.
@@ -118,7 +222,7 @@
 
 2001-12-20  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
-	* mangle.c (mangle_member_name): Don't special-case for 
+	* mangle.c (mangle_member_name): Don't special-case for
 	NO_DOLLAR_IN_LABEL.
 	* mangle_name.c (unicode_mangling_length): Likewise.
 	(append_unicode_mangled_name): Likewise.
@@ -174,11 +278,11 @@
 2001-12-15  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* java-tree.h (otable_methods, otable_decl, otable_syms_decl,
-	otable_type, otable_ptr_type, method_symbol_type, 
+	otable_type, otable_ptr_type, method_symbol_type,
 	method_symbols_array_type, method_symbols_array_ptr_type): New
 	field/global tree definitions.
 	(flag_indirect_dispatch): New flag.
-	* decl.c (java_init_decl_processing): Initialize new otable and 
+	* decl.c (java_init_decl_processing): Initialize new otable and
 	otable_syms type nodes and decls. Add new field "index" to
 	method_type_node.
 	* class.c (build_method_symbols_entry): New function.
@@ -190,12 +294,12 @@
 	(build_method_symbols_entry): New function.
 	(emit_offset_symbol_table): New function.
 	* expr.c (get_offset_table_index): New function.
-	(build_invokevirtual): Build array reference to otable at the index 
+	(build_invokevirtual): Build array reference to otable at the index
 	returned by get_offset_table_index, and use the result as the vtable
 	offset.
 	(build_invokeinterface): Similar.
-	* jcf-parse.c (yyparse): If indirect-dispatch, call 
-	emit_offset_symbol_table at the end of compilation, after all classes 
+	* jcf-parse.c (yyparse): If indirect-dispatch, call
+	emit_offset_symbol_table at the end of compilation, after all classes
 	have been generated.
 	* jvspec.c: Don't pass findirect-dispatch to jvgenmain.
 	* lang.c (flag_indirect_dispatch): Define.
@@ -220,7 +324,7 @@
 	(expand_java_NEW): Generate calls for finalizer-free allocation.
 	(build_invokevirtual): Fix java vtable layout for
 	TARGET_VTABLE_USES_DESCRIPTORS.
-	* java-tree.h (enum java_tree_index): New entries: 
+	* java-tree.h (enum java_tree_index): New entries:
 	JTI_ALLOC_NO_FINALIZER_NODE, JTI_FINALIZE_IDENTIFIER_NODE.
 	(alloc_no_finalizer_node, finalize_deintifier_node): New macros.
 	(class_has_finalize_method): declare.
@@ -366,7 +470,7 @@ Mon Dec 10 06:09:57 2001  Douglas B. Rupp  <rupp@gnat.com>
 	* check-init.c (final_assign_error):  New helper function.
 	(check_final_reassigned, check_init):  Use it.
 	(check_init):  Also check IS_ARRAY_LENGTH_ACCESS for ARRAY.length.
-	
+
 	* java-tree.h (struct lang_decl, struct lang_decl_var):  Change all
 	bit-fields to unsigned.
 
@@ -411,7 +515,7 @@ Mon Dec 10 06:09:57 2001  Douglas B. Rupp  <rupp@gnat.com>
 2001-12-02  Tang Ching-Hui  <nicholas@cs.nthu.edu.tw>
 	    Alexandre Petit-Bianco  <apbianco@redhat.com>
 
-	* expr.c (build_java_arrayaccess): Call save_expr on array for 
+	* expr.c (build_java_arrayaccess): Call save_expr on array for
 	correct evaluation order, modified comment, fixed indentation.
 	* parse.y: (patch_assignment): Correctly extract the array base
 	from the tree generate by build_java_arrayaccess, added comments.
@@ -493,7 +597,7 @@ Mon Dec 10 06:09:57 2001  Douglas B. Rupp  <rupp@gnat.com>
 
 2001-11-08  Andreas Franck  <afranck@gmx.de>
 
-	* Make-lang.in (JAVA_INSTALL_NAME, JAVA_CROSS_NAME): Handle 
+	* Make-lang.in (JAVA_INSTALL_NAME, JAVA_CROSS_NAME): Handle
 	program_transform_name the way suggested by autoconf.
 	(java.install-common): Also transform auxiliary program names with
 	program_transform_name.

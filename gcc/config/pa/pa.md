@@ -5877,8 +5877,6 @@
   "TARGET_64BIT"
   "*
 {
-  rtx xoperands[2];
-
   /* ??? Needs more work.  Length computation, split into multiple insns,
      do not use %r22 directly, expose delay slot.  */
   return \"ldd 16(%0),%%r2\;ldd 24(%0),%%r27\;bve,l (%%r2),%%r2\;nop\";
@@ -6589,7 +6587,7 @@
 	(if_then_else
 	  (match_operator 2 "comparison_operator"
 	   [(plus:SI
-	      (match_operand:SI 0 "reg_or_nonsymb_mem_operand" "+!r,!*f,!*m")
+	      (match_operand:SI 0 "reg_before_reload_operand" "+!r,!*f,*m")
 	      (match_operand:SI 1 "int5_operand" "L,L,L"))
 	    (const_int 0)])
 	  (label_ref (match_operand 3 "" ""))
@@ -6646,7 +6644,7 @@
 	   [(match_operand:SI 1 "register_operand" "r,r,r,r") (const_int 0)])
 	  (label_ref (match_operand 3 "" ""))
 	  (pc)))
-   (set (match_operand:SI 0 "register_operand" "=!r,!*f,!*m,!*q")
+   (set (match_operand:SI 0 "reg_before_reload_operand" "=!r,!*f,*m,!*q")
 	(match_dup 1))]
   ""
 "* return output_movb (operands, insn, which_alternative, 0); "
@@ -6692,7 +6690,7 @@
 	   [(match_operand:SI 1 "register_operand" "r,r,r,r") (const_int 0)])
 	  (pc)
 	  (label_ref (match_operand 3 "" ""))))
-   (set (match_operand:SI 0 "register_operand" "=!r,!*f,!*m,!*q")
+   (set (match_operand:SI 0 "reg_before_reload_operand" "=!r,!*f,*m,!*q")
 	(match_dup 1))]
   ""
 "* return output_movb (operands, insn, which_alternative, 1); "

@@ -158,24 +158,6 @@ enum small_memory_type {
 
 extern struct small_memory_info small_memory[(int)SMALL_MEMORY_max];
 
-/* This macro is similar to `TARGET_SWITCHES' but defines names of
-   command options that have values.  Its definition is an
-   initializer with a subgrouping for each command option.
-
-   Each subgrouping contains a string constant, that defines the
-   fixed part of the option name, and the address of a variable.  The
-   variable, type `char *', is set to the variable part of the given
-   option if the fixed part matches.  The actual option name is made
-   by appending `-m' to the specified name.
-
-   Here is an example which defines `-mshort-data-NUMBER'.  If the
-   given option is `-mshort-data-512', the variable `m88k_short_data'
-   will be set to the string `"512"'.
-
-          extern char *m88k_short_data;
-          #define TARGET_OPTIONS \
-           { { "short-data-", &m88k_short_data } } */
-
 #define TARGET_OPTIONS							\
 {									\
   { "tda=",	&small_memory[ (int)SMALL_MEMORY_TDA ].value,		\
@@ -1030,9 +1012,6 @@ do {									\
 /* Nonzero if access to memory by bytes or half words is no faster
    than accessing full words.  */
 #define SLOW_BYTE_ACCESS 1
-
-/* Define this if zero-extension is slow (more than one real instruction).  */
-#define SLOW_ZERO_EXTEND 
 
 /* According expr.c, a value of around 6 should minimize code size, and
    for the V850 series, that's our primary concern.  */

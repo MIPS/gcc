@@ -46,6 +46,7 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
+#include "debug.h"
 
 /* External data.  */
 extern int rtx_equal_function_value_matters;
@@ -116,6 +117,10 @@ int alpha_this_gpdisp_sequence_number;
 /* Declarations of static functions.  */
 static bool decl_in_text_section
   PARAMS ((tree));
+static int some_small_symbolic_mem_operand_1
+  PARAMS ((rtx *, void *));
+static int split_small_symbolic_mem_operand_1
+  PARAMS ((rtx *, void *));
 static bool local_symbol_p
   PARAMS ((rtx));
 static void alpha_set_memflags_1
@@ -1874,33 +1879,57 @@ some_small_symbolic_mem_operand (x, mode)
      rtx x;
      enum machine_mode mode ATTRIBUTE_UNUSED;
 {
-  /* Get rid of SIGN_EXTEND, etc.  */
-  while (GET_RTX_CLASS (GET_CODE (x)) == '1')
+  return for_each_rtx (&x, some_small_symbolic_mem_operand_1, NULL);
+}
+
+static int
+some_small_symbolic_mem_operand_1 (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *px;
+
+  if (GET_CODE (x) != MEM)
+    return 0;
+  x = XEXP (x, 0);
+
+  /* If this is an ldq_u type address, discard the outer AND.  */
+  if (GET_CODE (x) == AND)
     x = XEXP (x, 0);
 
-  return (GET_CODE (x) == MEM
-	  && small_symbolic_operand (XEXP (x, 0), Pmode));
+  return small_symbolic_operand (x, Pmode) ? 1 : -1;
 }
 
 rtx
 split_small_symbolic_mem_operand (x)
      rtx x;
 {
-  rtx *p;
+  x = copy_insn (x);
+  for_each_rtx (&x, split_small_symbolic_mem_operand_1, NULL);
+  return x;
+}
 
-  if (GET_CODE (x) == MEM)
+static int
+split_small_symbolic_mem_operand_1 (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *px;
+
+  if (GET_CODE (x) != MEM)
+    return 0;
+
+  px = &XEXP (x, 0), x = *px;
+  if (GET_CODE (x) == AND)
+    px = &XEXP (x, 0), x = *px;
+
+  if (small_symbolic_operand (x, Pmode))
     {
-      rtx tmp = gen_rtx_LO_SUM (DImode, pic_offset_table_rtx, XEXP (x, 0));
-      return replace_equiv_address (x, tmp);
+      x = gen_rtx_LO_SUM (Pmode, pic_offset_table_rtx, x);
+      *px = x;
     }
 
-  x = copy_rtx (x);
-  p = &x;
-  while (GET_RTX_CLASS (GET_CODE (*p)) == '1')
-    p = &XEXP (*p, 0);
-
-  *p = split_small_symbolic_mem_operand (*p);
-  return x;
+  return -1;
 }
 
 /* Try a machine-dependent way of reloading an illegitimate address
@@ -4965,10 +4994,6 @@ alpha_ra_ever_killed ()
 {
   rtx top;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (current_function_is_thunk)
-    return 0;
-#endif
   if (!has_hard_reg_initial_val (Pmode, REG_RA))
     return regs_ever_live[REG_RA];
 
@@ -5831,46 +5856,48 @@ alpha_sa_mask (imaskP, fmaskP)
   unsigned long fmask = 0;
   unsigned int i;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (!current_function_is_thunk)
-#endif
+  /* Irritatingly, there are two kinds of thunks -- those created with
+     ASM_OUTPUT_MI_THUNK and those with DECL_THUNK_P that go through
+     the regular part of the compiler.  In the ASM_OUTPUT_MI_THUNK case
+     we don't have valid register life info, but assemble_start_function
+     wants to output .frame and .mask directives.  */
+  if (current_function_is_thunk && rtx_equal_function_value_matters)
     {
-      if (TARGET_ABI_OPEN_VMS && alpha_is_stack_procedure)
-	imask |= (1L << HARD_FRAME_POINTER_REGNUM);
-
-      /* One for every register we have to save.  */
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (! fixed_regs[i] && ! call_used_regs[i]
-	    && regs_ever_live[i] && i != REG_RA
-	    && (!TARGET_ABI_UNICOSMK || i != HARD_FRAME_POINTER_REGNUM))
-	  {
-	    if (i < 32)
-	      imask |= (1L << i);
-	    else
-	      fmask |= (1L << (i - 32));
-	  }
-
-      /* We need to restore these for the handler.  */
-      if (current_function_calls_eh_return)
-	{
-	  for (i = 0; ; ++i)
-	    {
-	      unsigned regno = EH_RETURN_DATA_REGNO (i);
-	      if (regno == INVALID_REGNUM)
-		break;
-	      imask |= 1L << regno;
-	    }
-	}
-     
-      if (!TARGET_ABI_UNICOSMK)
-	{
-	  /* If any register spilled, then spill the return address also.  */
-	  /* ??? This is required by the Digital stack unwind specification
-	     and isn't needed if we're doing Dwarf2 unwinding.  */
-	  if (imask || fmask || alpha_ra_ever_killed ())
-	    imask |= (1L << REG_RA);
-	}
+      *imaskP = 0;
+      *fmaskP = 0;
+      return;
     }
+
+  if (TARGET_ABI_OPEN_VMS && alpha_is_stack_procedure)
+    imask |= (1L << HARD_FRAME_POINTER_REGNUM);
+
+  /* One for every register we have to save.  */
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (! fixed_regs[i] && ! call_used_regs[i]
+	&& regs_ever_live[i] && i != REG_RA
+	&& (!TARGET_ABI_UNICOSMK || i != HARD_FRAME_POINTER_REGNUM))
+      {
+	if (i < 32)
+	  imask |= (1L << i);
+	else
+	  fmask |= (1L << (i - 32));
+      }
+
+  /* We need to restore these for the handler.  */
+  if (current_function_calls_eh_return)
+    for (i = 0; ; ++i)
+      {
+	unsigned regno = EH_RETURN_DATA_REGNO (i);
+	if (regno == INVALID_REGNUM)
+	  break;
+	imask |= 1L << regno;
+      }
+     
+  /* If any register spilled, then spill the return address also.  */
+  /* ??? This is required by the Digital stack unwind specification
+     and isn't needed if we're doing Dwarf2 unwinding.  */
+  if (imask || fmask || alpha_ra_ever_killed ())
+    imask |= (1L << REG_RA);
 
   *imaskP = imask;
   *fmaskP = fmask;
@@ -5879,34 +5906,23 @@ alpha_sa_mask (imaskP, fmaskP)
 int
 alpha_sa_size ()
 {
+  unsigned long mask[2];
   int sa_size = 0;
-  int i;
+  int i, j;
 
-#ifdef ASM_OUTPUT_MI_THUNK
-  if (current_function_is_thunk)
-    sa_size = 0;
-  else
-#endif
+  alpha_sa_mask (&mask[0], &mask[1]);
+
+  if (TARGET_ABI_UNICOSMK)
     {
-      if (TARGET_ABI_UNICOSMK)
-	{
-	  for (i = 9; i < 15 && sa_size == 0; i++)
-	    if (! fixed_regs[i] && ! call_used_regs[i]
-		&& regs_ever_live[i])
-	      sa_size = 14;
-	  for (i = 32 + 2; i < 32 + 10 && sa_size == 0; i++)
-	    if (! fixed_regs[i] && ! call_used_regs[i]
-		&& regs_ever_live[i])
-	      sa_size = 14;
-	}
-      else
-	{
-	  /* One for every register we have to save.  */
-	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	    if (! fixed_regs[i] && ! call_used_regs[i]
-	        && regs_ever_live[i] && i != REG_RA)
-	      sa_size++;
-	}
+      if (mask[0] || mask[1])
+	sa_size = 14;
+    }
+  else
+    {
+      for (j = 0; j < 2; ++j)
+	for (i = 0; i < 32; ++i)
+	  if ((mask[j] >> i) & 1)
+	    sa_size++;
     }
 
   if (TARGET_ABI_UNICOSMK)
@@ -5917,14 +5933,13 @@ alpha_sa_size ()
 	 use alloca and have not determined that we need a frame for other
 	 reasons.  */
 
-      alpha_is_stack_procedure = sa_size != 0
-				|| alpha_ra_ever_killed ()
-				|| get_frame_size() != 0
-				|| current_function_outgoing_args_size
-				|| current_function_varargs
-				|| current_function_stdarg
-				|| current_function_calls_alloca
-				|| frame_pointer_needed;
+      alpha_is_stack_procedure = (sa_size
+				  || get_frame_size() != 0
+				  || current_function_outgoing_args_size
+				  || current_function_varargs
+				  || current_function_stdarg
+				  || current_function_calls_alloca
+				  || frame_pointer_needed);
 
       /* Always reserve space for saving callee-saved registers if we
 	 need a frame as required by the calling convention.  */
@@ -5936,7 +5951,12 @@ alpha_sa_size ()
       /* Start by assuming we can use a register procedure if we don't
 	 make any calls (REG_RA not used) or need to save any
 	 registers and a stack procedure if we do.  */
-      alpha_is_stack_procedure = sa_size != 0 || alpha_ra_ever_killed ();
+      alpha_is_stack_procedure = ((mask[0] >> REG_RA) & 1);
+
+      /* Don't reserve space for saving RA yet.  Do that later after we've
+	 made the final decision on stack procedure vs register procedure.  */
+      if (alpha_is_stack_procedure)
+	sa_size--;
 
       /* Decide whether to refer to objects off our PV via FP or PV.
 	 If we need FP for something else or if we receive a nonlocal
@@ -5970,11 +5990,6 @@ alpha_sa_size ()
     }
   else
     {
-      /* If some registers were saved but not RA, RA must also be saved,
-	 so leave space for it.  */
-      if (!TARGET_ABI_UNICOSMK && (sa_size != 0 || alpha_ra_ever_killed ()))
-	sa_size++;
-
       /* Our size must be even (multiple of 16 bytes).  */
       if (sa_size & 1)
 	sa_size++;
@@ -6030,10 +6045,8 @@ alpha_does_function_need_gp ()
   if (TARGET_PROFILING_NEEDS_GP && current_function_profile)
     return 1;
 
-#ifdef ASM_OUTPUT_MI_THUNK
   if (current_function_is_thunk)
     return 1;
-#endif
 
   /* If we need a GP (we have a LDSYM insn or a CALL_INSN), load it first. 
      Even if we are a static function, we still need to do this in case
@@ -6499,7 +6512,9 @@ alpha_start_function (file, fnname, decl)
 
       /* If the function needs GP, we'll write the "..ng" label there.
 	 Otherwise, do it here.  */
-      if (TARGET_ABI_OSF && ! alpha_function_needs_gp)
+      if (TARGET_ABI_OSF
+          && ! alpha_function_needs_gp
+	  && ! current_function_is_thunk)
 	{
 	  putc ('$', file);
 	  assemble_name (file, fnname);
@@ -6633,7 +6648,8 @@ alpha_output_function_end_prologue (file)
   else if (TARGET_ABI_WINDOWS_NT)
     fputs ("\t.prologue 0\n", file);
   else if (!flag_inhibit_size_directive)
-    fprintf (file, "\t.prologue %d\n", alpha_function_needs_gp);
+    fprintf (file, "\t.prologue %d\n",
+	     alpha_function_needs_gp || current_function_is_thunk);
 }
 
 /* Write function epilogue.  */
@@ -6932,6 +6948,76 @@ alpha_end_function (file, fnname, decl)
       unicosmk_output_ssib (file, fnname);
       unicosmk_output_deferred_case_vectors (file);
     }
+}
+
+/* Emit a tail call to FUNCTION after adjusting THIS by DELTA. 
+
+   In order to avoid the hordes of differences between generated code
+   with and without TARGET_EXPLICIT_RELOCS, and to avoid duplicating
+   lots of code loading up large constants, generate rtl and emit it
+   instead of going straight to text.
+
+   Not sure why this idea hasn't been explored before...  */
+
+void
+alpha_output_mi_thunk_osf (file, thunk_fndecl, delta, function)
+     FILE *file;
+     tree thunk_fndecl ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     tree function;
+{
+  HOST_WIDE_INT hi, lo;
+  rtx this, insn, funexp;
+
+  /* We always require a valid GP.  */
+  emit_insn (gen_prologue_ldgp ());
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+
+  /* Find the "this" pointer.  If the function returns a structure,
+     the structure return pointer is in $16.  */
+  if (aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    this = gen_rtx_REG (Pmode, 17);
+  else
+    this = gen_rtx_REG (Pmode, 16);
+
+  /* Add DELTA.  When possible we use ldah+lda.  Otherwise load the
+     entire constant for the add.  */
+  lo = ((delta & 0xffff) ^ 0x8000) - 0x8000;
+  hi = (((delta - lo) & 0xffffffff) ^ 0x80000000) - 0x80000000;
+  if (hi + lo == delta)
+    {
+      if (hi)
+	emit_insn (gen_adddi3 (this, this, GEN_INT (hi)));
+      if (lo)
+	emit_insn (gen_adddi3 (this, this, GEN_INT (lo)));
+    }
+  else
+    {
+      rtx tmp = alpha_emit_set_long_const (gen_rtx_REG (Pmode, 0),
+					   delta, -(delta < 0));
+      emit_insn (gen_adddi3 (this, this, tmp));
+    }
+
+  /* Generate a tail call to the target function.  */
+  if (! TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  insn = emit_call_insn (gen_sibcall (funexp, const0_rtx));
+  SIBLING_CALL_P (insn) = 1;
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1, 0);
+  final_end_function ();
 }
 
 /* Debugging support.  */

@@ -1,6 +1,5 @@
 /* PR c/5623 */
 /* { dg-do compile } */
-/* { dg-options "-std=iso9899:1999 -pedantic-errors" } */
 
 struct blah {
    int   number;

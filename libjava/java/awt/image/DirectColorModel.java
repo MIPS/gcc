@@ -1,23 +1,67 @@
-/* Copyright (C) 2000  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2002  Free Software Foundation
 
-   This file is part of libgcj.
+This file is part of GNU Classpath.
 
-This software is copyrighted work licensed under the terms of the
-Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
-details.  */
+GNU Classpath is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Classpath is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Classpath; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+02111-1307 USA.
+
+Linking this library statically or dynamically with other modules is
+making a combined work based on this library.  Thus, the terms and
+conditions of the GNU General Public License cover the whole
+combination.
+
+As a special exception, the copyright holders of this library give you
+permission to link this library with independent modules to produce an
+executable, regardless of the license terms of these independent
+modules, and to copy and distribute the resulting executable under
+terms of your choice, provided that you also meet, for each linked
+independent module, the terms and conditions of the license of that
+module.  An independent module is a module which is not derived from
+or based on this library.  If you modify this library, you may extend
+this exception to your version of the library, but you are not
+obligated to do so.  If you do not wish to do so, delete this
+exception statement from your version. */
+
 
 package java.awt.image;
 
 import java.awt.Point;
 import java.awt.Transparency;
 import java.awt.color.ColorSpace;
-import gnu.gcj.awt.Buffers;
+import gnu.java.awt.Buffers;
 
 /**
  * @author Rolf W. Rasmussen <rolfwr@ii.uib.no>
+ * @author C. Brian Jones (cbj@gnu.org)
+ * @author Mark Benvenuto (mcb54@columbia.edu)
  */
 public class DirectColorModel extends PackedColorModel
 {
+  /**
+   * For the color model created with this constructor the pixels
+   * will have fully opaque alpha components with a value of 255.
+   * Each mask should describe a fully contiguous set of bits in the
+   * most likely order of alpha, red, green, blue from the most significant
+   * byte to the least significant byte.
+   * 
+   * @param bits the number of bits wide used for bit size of pixel values
+   * @param rmask the bits describing the red component of a pixel
+   * @param gmask the bits describing the green component of a pixel
+   * @param bmask the bits describing the blue component of a pixel 
+   * @param amask the bits describing the alpha component of a pixel 
+   */
   public DirectColorModel(int pixelBits, int rmask, int gmask, int bmask)
   {
     this(ColorSpace.getInstance(ColorSpace.CS_sRGB), pixelBits,
@@ -27,6 +71,18 @@ public class DirectColorModel extends PackedColorModel
 	 );
   }
 
+  /**
+   * For the color model created with this constructor the pixels
+   * will have fully opaque alpha components with a value of 255.
+   * Each mask should describe a fully contiguous set of bits in the
+   * most likely order of red, green, blue from the most significant
+   * byte to the least significant byte.
+   * 
+   * @param bits the number of bits wide used for bit size of pixel values
+   * @param rmask the bits describing the red component of a pixel
+   * @param gmask the bits describing the green component of a pixel
+   * @param bmask the bits describing the blue component of a pixel 
+   */
   public DirectColorModel(int pixelBits,
 			  int rmask, int gmask, int bmask, int amask)
   {
@@ -68,24 +124,41 @@ public class DirectColorModel extends PackedColorModel
     return hasAlpha() ? getMask(3) : 0;
   }
 
+  /**
+   * Get the red component of the given pixel.
+   * <br>
+   */
   public final int getRed(int pixel)
   {
     return extractAndNormalizeSample(pixel, 0);
   }
 
+  /**
+   * Get the green component of the given pixel.
+   * <br>
+   */
   public final int getGreen(int pixel)
   {
     return extractAndNormalizeSample(pixel, 1);
   }
   
+  /**
+   * Get the blue component of the given pixel.
+   * <br>
+   */
   public final int getBlue(int pixel)
   {
     return extractAndNormalizeSample(pixel, 2);
   }
 
+  /**
+   * Get the alpha component of the given pixel.
+   * <br>
+   */
   public final int getAlpha(int pixel)
   {
-    if (!hasAlpha()) return 0;
+    if (!hasAlpha())
+      return 0;
     return extractAndScaleSample(pixel, 3);
   }
 
@@ -106,15 +179,22 @@ public class DirectColorModel extends PackedColorModel
       (field << to8BitShift) :
       (field >>> (-to8BitShift));
   }
-    
 
-  /* FIXME: The Sun docs show that this method is overridden, but I don't
-     see any way to improve on the superclass implementation. */
+  /**
+   * Get the RGB color value of the given pixel using the default
+   * RGB color model. 
+   * <br>
+   *
+   * @param pixel a pixel value
+   */
   public final int getRGB(int pixel) 
   {
+    /* FIXME: The Sun docs show that this method is overridden, but I
+       don't see any way to improve on the superclass
+       implementation. */
     return super.getRGB(pixel);
   }
-  
+
   public int getRed(Object inData)
   {
     return getRed(getPixelFromArray(inData));

@@ -445,7 +445,6 @@ or with constant text in a single argument.
 	if multilib_dir is not set or is ".", output "".
  %S     process STARTFILE_SPEC as a spec.  A capital S is actually used here.
  %E     process ENDFILE_SPEC as a spec.  A capital E is actually used here.
- %c	process SIGNED_CHAR_SPEC as a spec.
  %C     process CPP_SPEC as a spec.
  %1	process CC1_SPEC as a spec.
  %2	process CC1PLUS_SPEC as a spec.
@@ -511,7 +510,7 @@ CC also knows implicitly that arguments starting in `-l' are to be
 treated as compiler output files, and passed to the linker in their
 proper position among the other output files.  */
 
-/* Define the macros used for specs %a, %l, %L, %S, %c, %C, %1.  */
+/* Define the macros used for specs %a, %l, %L, %S, %C, %1.  */
 
 /* config.h can define ASM_SPEC to provide extra args to the assembler
    or extra switch-translations.  */
@@ -582,17 +581,6 @@ proper position among the other output files.  */
 #define ENDFILE_SPEC ""
 #endif
 
-/* This spec is used for telling cpp whether char is signed or not.  */
-#ifndef SIGNED_CHAR_SPEC
-/* Use #if rather than ?:
-   because MIPS C compiler rejects like ?: in initializers.  */
-#if DEFAULT_SIGNED_CHAR
-#define SIGNED_CHAR_SPEC "%{funsigned-char:-D__CHAR_UNSIGNED__}"
-#else
-#define SIGNED_CHAR_SPEC "%{!fsigned-char:-D__CHAR_UNSIGNED__}"
-#endif
-#endif
-
 #ifndef LINKER_NAME
 #define LINKER_NAME "collect2"
 #endif
@@ -651,7 +639,6 @@ static const char *cpp_spec = CPP_SPEC;
 static const char *cpp_predefines = CPP_PREDEFINES;
 static const char *cc1_spec = CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
-static const char *signed_char_spec = SIGNED_CHAR_SPEC;
 static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
@@ -673,25 +660,30 @@ static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *trad_capable_cpp =
 "%{traditional|ftraditional|traditional-cpp:trad}cpp0";
 
-static const char *cpp_options =
+static const char *cpp_unique_options =
 "%{C:%{!E:%eGNU C does not support -C without using -E}}\
- %{std*} %{nostdinc*}\
- %{C} %{v} %{I*} %{P} %{$} %I\
+ %{nostdinc*} %{C} %{v} %{I*} %{P} %{$} %I\
  %{MD:-M -MF %W{!o: %b.d}%W{o*:%.d%*}}\
  %{MMD:-MM -MF %W{!o: %b.d}%W{o*:%.d%*}}\
  %{M} %{MM} %W{MF*} %{MG} %{MP} %{MQ*} %{MT*} %{M|MD|MM|MMD:%{o*:-MQ %*}}\
  %{!no-gcc:-D__GNUC__=%v1 -D__GNUC_MINOR__=%v2 -D__GNUC_PATCHLEVEL__=%v3}\
  %{!undef:%{!ansi:%{!std=*:%p}%{std=gnu*:%p}} %P} %{trigraphs}\
- %c %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
+ %{Os:-D__OPTIMIZE_SIZE__} %{O*:%{!O0:-D__OPTIMIZE__}}\
  %{fno-inline|O0|!O*:-D__NO_INLINE__} %{ffast-math:-D__FAST_MATH__}\
  %{fshort-wchar:-U__WCHAR_TYPE__ -D__WCHAR_TYPE__=short\\ unsigned\\ int}\
  %{ffreestanding:-D__STDC_HOSTED__=0} %{fno-hosted:-D__STDC_HOSTED__=0}\
- %{!ffreestanding:%{!fno-hosted:-D__STDC_HOSTED__=1}}\
- %{fshow-column} %{fno-show-column}\
- %{fleading-underscore} %{fno-leading-underscore}\
- %{fno-operator-names} %{ftabstop=*} %{remap}\
- %{g3:-dD} %{W*} %{w} %{pedantic*} %{H} %{d*} %C %{D*&U*&A*} %{i*} %Z %i\
+ %{!ffreestanding:%{!fno-hosted:-D__STDC_HOSTED__=1}} %{remap}\
+ %{g3:-dD} %{H} %C %{D*&U*&A*} %{i*} %Z %i\
  %{E:%{!M*:%W{o*}}}";
+
+/* This contains cpp options which are common with cc1_options and are passed
+   only when preprocessing only to avoid duplication.  */
+static const char *cpp_options =
+"%(cpp_unique_options) %{std*} %{d*} %{W*} %{w} %{pedantic*}\
+ %{fshow-column} %{fno-show-column}\
+ %{fsigned-char&funsigned-char}\
+ %{fleading-underscore} %{fno-leading-underscore}\
+ %{fno-operator-names} %{ftabstop=*}";
 
 /* NB: This is shared amongst all front-ends.  */
 static const char *cc1_options =
@@ -840,7 +832,7 @@ static const struct compiler default_compilers[] =
 		tradcpp0 -lang-c %{ansi:-std=c89} %(cpp_options) %{!pipe:%g.i} |\n\
 		    cc1 -fpreprocessed %{!pipe:%g.i} %(cc1_options)}\
 	    %{!traditional:%{!ftraditional:%{!traditional-cpp:\
-		cc1 -lang-c %{ansi:-std=c89} %(cpp_options) %(cc1_options)}}}}\
+		cc1 -lang-c %{ansi:-std=c89} %(cpp_unique_options) %(cc1_options)}}}}\
         %{!fsyntax-only:%(invoke_as)}}}}", 0},
   {"-",
    "%{!E:%e-E required when input is from standard input}\
@@ -1367,6 +1359,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("invoke_as",		&invoke_as),
   INIT_STATIC_SPEC ("cpp",			&cpp_spec),
   INIT_STATIC_SPEC ("cpp_options",		&cpp_options),
+  INIT_STATIC_SPEC ("cpp_unique_options",	&cpp_unique_options),
   INIT_STATIC_SPEC ("trad_capable_cpp",		&trad_capable_cpp),
   INIT_STATIC_SPEC ("cc1",			&cc1_spec),
   INIT_STATIC_SPEC ("cc1_options",		&cc1_options),
@@ -1377,7 +1370,6 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
   INIT_STATIC_SPEC ("switches_need_spaces",	&switches_need_spaces),
-  INIT_STATIC_SPEC ("signed_char",		&signed_char_spec),
   INIT_STATIC_SPEC ("predefines",		&cpp_predefines),
   INIT_STATIC_SPEC ("cross_compile",		&cross_compile),
   INIT_STATIC_SPEC ("version",			&compiler_version),
@@ -1438,7 +1430,7 @@ init_gcc_specs (obstack, shared_name, static_name, eh_name)
 #ifdef LINK_EH_SPEC
   sprintf (buffer, "%s}}}", static_name);
 #else
-  sprintf (buffer, "%s}}}", shared_name);
+  sprintf (buffer, "%s %s}}}", shared_name, static_name);
 #endif
   obstack_grow (obstack, buffer, strlen (buffer));
   /* Otherwise, use the static version.  */
@@ -1780,7 +1772,7 @@ load_specs (filename)
 
    A suffix which starts with `*' is a definition for
    one of the machine-specific sub-specs.  The "suffix" should be
-   *asm, *cc1, *cpp, *link, *startfile, *signed_char, etc.
+   *asm, *cc1, *cpp, *link, *startfile, etc.
    The corresponding spec is stored in asm_spec, etc.,
    rather than in the `compilers' vector.
 
@@ -2110,9 +2102,7 @@ delete_if_ordinary (name)
 
   if (i == 'y' || i == 'Y')
 #endif /* DEBUG */
-    /* On VMS, more than one version of the temporary file may have been
-       created.  This ensures we delete all of them.  */
-    while (stat (name, &st) >= 0 && S_ISREG (st.st_mode))
+    if (stat (name, &st) >= 0 && S_ISREG (st.st_mode))
       if (unlink (name) < 0)
 	if (verbose_flag)
 	  perror_with_name (name);
@@ -4780,12 +4770,6 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	      return value;
 	    break;
 
-	  case 'c':
-	    value = do_spec_1 (signed_char_spec, 0, NULL);
-	    if (value != 0)
-	      return value;
-	    break;
-
 	  case 'C':
 	    {
 	      const char *const spec
@@ -6021,7 +6005,7 @@ main (argc, argv)
 
   if (target_help_flag)
    {
-      /* Print if any target specific options.*/
+      /* Print if any target specific options.  */
 
       /* We do not exit here. Instead we have created a fake input file
          called 'target-dummy' which needs to be compiled, and we pass this

@@ -1,6 +1,7 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -27,7 +28,7 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-// Warning: this file is not meant for user inclusion.  Use <locale>.
+// Warning: this file is not meant for user inclusion. Use <locale>.
 
 #ifndef _CPP_BITS_LOCFACETS_TCC
 #define _CPP_BITS_LOCFACETS_TCC 1
@@ -39,9 +40,9 @@
 #include <cctype>    // For isspace
 #include <limits>    // For numeric_limits
 #include <memory>    // For auto_ptr
-#include <bits/streambuf_iterator.h>     // For streambuf_iterators
-#include <typeinfo> 		// For bad_cast
+#include <bits/streambuf_iterator.h>
 #include <vector>	
+#include <typeinfo>  // For bad_cast.
 
 namespace std
 {
@@ -87,6 +88,7 @@ namespace std
     }
 
 
+  // Stage 1: Determine a conversion specifier.
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
@@ -97,7 +99,7 @@ namespace std
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
       const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
 
-      // Check first for sign.
+      // First check for sign.
       const char_type __plus = __ctype.widen('+');
       const char_type __minus = __ctype.widen('-');
       int __pos = 0;
@@ -216,18 +218,17 @@ namespace std
       return __beg;
     }
 
+  // Stage 1: Determine a conversion specifier.
   template<typename _CharT, typename _InIter>
     _InIter
     num_get<_CharT, _InIter>::
     _M_extract_int(_InIter __beg, _InIter __end, ios_base& __io,
-		   ios_base::iostate& __err, char* __xtrc, int __max, 
-		   int& __base) const
+		   ios_base::iostate& __err, string& __xtrc, int& __base) const
     {
       const locale __loc = __io.getloc();
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc);
       const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc);
  
-      // Stage 1: determine a conversion specifier.
       // NB: Iff __basefield == 0, this can change based on contents.
       ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
       if (__basefield == ios_base::oct)
@@ -237,13 +238,14 @@ namespace std
       else
 	__base = 10;
 
-     // Check first for sign.
+     // First check for sign.
       int __pos = 0;
       char_type  __c = *__beg;
       if ((__c == __ctype.widen('+') || __c == __ctype.widen('-'))
 	  && __beg != __end)
 	{
-	  __xtrc[__pos++] = __ctype.narrow(__c, char());
+	  __xtrc += __ctype.narrow(__c, char());
+	  ++__pos;
 	  __c = *(++__beg);
 	}
 
@@ -261,12 +263,14 @@ namespace std
 	    }
 	  if (__found_zero)
 	    {
-	      __xtrc[__pos++] = _S_atoms[_M_zero];
+	      __xtrc += _S_atoms[_M_zero];
+	      ++__pos;
 	      if (__basefield == 0)
 		{	      
 		  if ((__c == __x || __c == __X) && __beg != __end)
 		    {
-		      __xtrc[__pos++] = __ctype.narrow(__c, char());
+		      __xtrc += __ctype.narrow(__c, char());
+		      ++__pos;
 		      __c = *(++__beg);
 		      __base = 16;
 		    }
@@ -279,11 +283,13 @@ namespace std
 	{
 	  if (__c == __zero && __beg != __end)
 	    {
-	      __xtrc[__pos++] = _S_atoms[_M_zero];
+	      __xtrc += _S_atoms[_M_zero];
+	      ++__pos;
 	      __c = *(++__beg); 
 	      if  ((__c == __x || __c == __X) && __beg != __end)
 		{
-		  __xtrc[__pos++] = __ctype.narrow(__c, char());
+		  __xtrc += __ctype.narrow(__c, char());
+		  ++__pos;
 		  __c = *(++__beg);
 		}
 	    }
@@ -297,19 +303,6 @@ namespace std
       else
 	__len = __base;
 
-      // Figure out the maximum number of digits that can be extracted
-      // for the given type, using the determined base.
-      int __max_digits;
-      if (__base == 16)
-	__max_digits = static_cast<int>(ceil(__max * _S_scale_hex));
-      else if (__base == 8)
-	__max_digits = static_cast<int>(ceil(__max * _S_scale_oct));
-      else
-	__max_digits = __max;
-
-      // Add in what's already been extracted.
-      __max_digits += __pos;
-
       // Extract.
       char_type __watoms[_M_size];
       __ctype.widen(_S_atoms, _S_atoms + __len, __watoms);
@@ -318,7 +311,7 @@ namespace std
       bool __check_grouping = __grouping.size() && __base == 10;
       int __sep_pos = 0;
       const char_type __sep = __np.thousands_sep();
-      while (__beg != __end && __pos <= __max_digits)
+      while (__beg != __end)
         {
 	  typedef char_traits<_CharT> 	__traits_type;
           const char_type* __p = __traits_type::find(__watoms, __len,  __c);
@@ -327,7 +320,8 @@ namespace std
           if (__p && __c)
 	    {
 	      // Try first for acceptable digit; record it if found.
-	      __xtrc[__pos++] = _S_atoms[__p - __watoms];
+	      __xtrc += _S_atoms[__p - __watoms];
+	      ++__pos;
 	      ++__sep_pos;
 	      __c = *(++__beg);
 	    }
@@ -352,10 +346,6 @@ namespace std
 	    break;
         }
 
-      // If one more than the maximum number of digits is extracted.
-      if (__pos > __max_digits)
-	__err |= ios_base::failbit;
-
       // Digit grouping is checked. If grouping and found_grouping don't
       // match, then get very very upset, and set failbit.
       if (__check_grouping && __found_grouping.size())
@@ -366,8 +356,8 @@ namespace std
 	    __err |= ios_base::failbit;
         }
 
-      // Finish up
-      __xtrc[__pos] = char();
+      // Finish up.
+      __xtrc += char();
       if (__beg == __end)
         __err |= ios_base::eofbit;
       return __beg;
@@ -381,33 +371,20 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, bool& __v) const
     {
-      // Parse bool values as long
+      // Parse bool values as unsigned long
       if (!(__io.flags() & ios_base::boolalpha))
         {
           // NB: We can't just call do_get(long) here, as it might
           // refer to a derived class.
-
-          // Stage 1: extract and determine the conversion specifier.
-          // Assuming leading zeros eliminated, thus the size of 32 for
-          // integral types
-          char __xtrc[32];
+          string __xtrc;
           int __base;
-	  // According to 18.2.1.2.9, digits10 is "Number of base 10 digits
-	  // that can be represented without change" so we have to add 1 to it
-	  // in order to obtain the max number of digits. The same for the
-	  // other do_get for integral types below.
-          __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, 
-				 numeric_limits<bool>::digits10 + 1, __base);
+          __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
 
-          // Stage 2: convert and store results.
-          char* __sanity;
-          errno = 0;
-          long __l = strtol(__xtrc, &__sanity, __base);
-          if (!(__err & ios_base::failbit)
-              && __l <= 1
-              && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-            __v = __l;
-          else
+	  unsigned long __ul; 
+	  __convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+	  if (!(__err & ios_base::failbit) && __ul <= 1)
+	    __v = __ul;
+	  else 
             __err |= ios_base::failbit;
         }
 
@@ -415,7 +392,7 @@ namespace std
       else
         {
           locale __loc = __io.getloc();
-	  const numpunct<char_type>& __np = use_facet<numpunct<char_type> >(__loc); 
+	  const numpunct<_CharT>& __np = use_facet<numpunct<_CharT> >(__loc); 
           const char_type* __true = __np.truename().c_str();
           const char_type* __false = __np.falsename().c_str();
 
@@ -456,23 +433,10 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, long& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32];
+      string __xtrc;
       int __base;
-      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, 
-			     numeric_limits<long>::digits10 + 1, __base);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      long __l = strtol(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __l;
-      else
-        __err |= ios_base::failbit;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
       return __beg;
     }
 
@@ -482,25 +446,16 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, unsigned short& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32];
+      string __xtrc;
       int __base;
-      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, 
-			     numeric_limits<unsigned short>::digits10 + 1,
-			     __base);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      unsigned long __ul = strtoul(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0
-          && __ul <= USHRT_MAX)
-        __v = static_cast<unsigned short>(__ul);
-      else
-        __err |= ios_base::failbit;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      unsigned long __ul;
+      __convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+      if (!(__err & ios_base::failbit) 
+	  && __ul <= numeric_limits<unsigned short>::max())
+	__v = static_cast<unsigned short>(__ul);
+      else 
+	__err |= ios_base::failbit;
       return __beg;
     }
 
@@ -510,25 +465,16 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, unsigned int& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32];
+      string __xtrc;
       int __base;
-      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, 
-			     numeric_limits<unsigned int>::digits10 + 1,
-			     __base);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      unsigned long __ul = strtoul(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0
-          && __ul <= UINT_MAX)
-        __v = static_cast<unsigned int>(__ul);
-      else
-        __err |= ios_base::failbit;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      unsigned long __ul;
+      __convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+      if (!(__err & ios_base::failbit) 
+	  && __ul <= numeric_limits<unsigned int>::max())
+	__v = static_cast<unsigned int>(__ul);
+      else 
+	__err |= ios_base::failbit;
       return __beg;
     }
 
@@ -538,24 +484,10 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, unsigned long& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32];
+      string __xtrc;
       int __base;
-      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, 
-			     numeric_limits<unsigned long>::digits10 + 1,
-			     __base);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      unsigned long __ul = strtoul(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __ul;
-      else
-        __err |= ios_base::failbit;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
       return __beg;
     }
 
@@ -566,23 +498,10 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, long long& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32];
+      string __xtrc;
       int __base;
-      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, 
-			     numeric_limits<long long>::digits10 + 1, __base);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      long long __ll = strtoll(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __ll;
-      else
-        __err |= ios_base::failbit;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
       return __beg;
     }
 
@@ -592,24 +511,10 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, unsigned long long& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32];
+      string __xtrc;
       int __base;
-      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc,
-			     numeric_limits<unsigned long long>::digits10 + 1,
-			     __base);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      unsigned long long __ull = strtoull(__xtrc, &__sanity, __base);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __ull;
-      else
-        __err |= ios_base::failbit;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale, __base);
       return __beg;
     }
 #endif
@@ -620,24 +525,10 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io, 
 	   ios_base::iostate& __err, float& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
       string __xtrc;
       __xtrc.reserve(32);
       __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-#ifdef _GLIBCPP_USE_C99
-      float __f = strtof(__xtrc.c_str(), &__sanity);
-#else
-      float __f = static_cast<float>(strtod(__xtrc.c_str(), &__sanity));
-#endif
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc.c_str() && *__sanity == '\0' && errno == 0)
-        __v = __f;
-      else
-        __err |= ios_base::failbit;
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
       return __beg;
     }
 
@@ -647,20 +538,10 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, double& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
       string __xtrc;
       __xtrc.reserve(32);
       __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      double __d = strtod(__xtrc.c_str(), &__sanity);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc.c_str() && *__sanity == '\0' && errno == 0)
-        __v = __d;
-      else
-        __err |= ios_base::failbit;
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
       return __beg;
     }
 
@@ -670,42 +551,10 @@ namespace std
     do_get(iter_type __beg, iter_type __end, ios_base& __io,
            ios_base::iostate& __err, long double& __v) const
     {
-      // Stage 1: extract and determine the conversion specifier.
       string __xtrc;
       __xtrc.reserve(32);
       __beg = _M_extract_float(__beg, __end, __io, __err, __xtrc);
-
-#if defined(_GLIBCPP_USE_C99) && !defined(__hpux)
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      long double __ld = strtold(__xtrc.c_str(), &__sanity);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc.c_str() && *__sanity == '\0' && errno == 0)
-        __v = __ld;
-#else
-      // Stage 2: determine a conversion specifier.
-      ios_base::fmtflags __basefield = __io.flags() & ios_base::basefield;
-      const char* __conv;
-      if (__basefield == ios_base::oct)
-        __conv = "%Lo";
-      else if (__basefield == ios_base::hex)
-        __conv = "%LX";
-      else if (__basefield == 0)
-        __conv = "%Li";
-      else
-        __conv = "%Lf";
-
-      // Stage 3: store results.
-      typedef typename char_traits<_CharT>::int_type int_type;
-      long double __ld;
-      int __p = sscanf(__xtrc.c_str(), __conv, &__ld);
-      if (!(__err & ios_base::failbit) && __p 
-	  && static_cast<int_type>(__p) != char_traits<_CharT>::eof())
-        __v = __ld;
-#endif
-      else
-        __err |= ios_base::failbit;
+      __convert_to_v(__xtrc.c_str(), __v, __err, _S_c_locale);
       return __beg;
     }
 
@@ -722,27 +571,19 @@ namespace std
                              | ios_base::uppercase | ios_base::internal);
       __io.flags(__fmt & __fmtmask | (ios_base::hex | ios_base::showbase));
 
-      // Stage 1: extract and determine the conversion specifier.
-      // Assuming leading zeros eliminated, thus the size of 32 for
-      // integral types.
-      char __xtrc[32];
+      string __xtrc;
       int __base;
-      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, 
-			     numeric_limits<unsigned long>::digits10 + 1,
-			     __base);
-
-      // Stage 2: convert and store results.
-      char* __sanity;
-      errno = 0;
-      void* __vp = reinterpret_cast<void*>(strtoul(__xtrc, &__sanity, __base));
-      if (!(__err & ios_base::failbit)
-          && __sanity != __xtrc && *__sanity == '\0' && errno == 0)
-        __v = __vp;
-      else
-        __err |= ios_base::failbit;
+      __beg = _M_extract_int(__beg, __end, __io, __err, __xtrc, __base);
 
       // Reset from hex formatted input
       __io.flags(__fmt);
+
+      unsigned long __ul;
+      __convert_to_v(__xtrc.c_str(), __ul, __err, _S_c_locale, __base);
+      if (!(__err & ios_base::failbit))
+	__v = reinterpret_cast<void*>(__ul);
+      else 
+	__err |= ios_base::failbit;
       return __beg;
     }
 
@@ -787,9 +628,9 @@ namespace std
 	int __len;
 	// [22.2.2.2.2] Stage 1, numeric conversion to character.
 	if (_S_format_float(__io, __fbuf, __mod, __prec))
-	  __len = sprintf(__cs, __fbuf, __prec, __v);
+	  __len = __convert_from_v(__cs, __fbuf, __v, _S_c_locale, __prec);
 	else
-	  __len = sprintf(__cs, __fbuf, __v);
+	  __len = __convert_from_v(__cs, __fbuf, __v, _S_c_locale);
 	return _M_widen_float(__s, __io, __fill, __cs, __len);
       }
 
@@ -807,7 +648,7 @@ namespace std
 	// Long enough for the max format spec.
 	char __fbuf[16];
 	_S_format_int(__io, __fbuf, __mod, __modl);
-	int __len = sprintf(__cs, __fbuf, __v);
+	int __len = __convert_from_v(__cs, __fbuf, __v, _S_c_locale);
 	return _M_widen_int(__s, __io, __fill, __cs, __len);
       }
 
@@ -939,7 +780,7 @@ namespace std
       if ((__flags & ios_base::boolalpha) == 0)
         {
           unsigned long __uv = __v;
-          _M_convert_int(__s, __io, __fill, 'u', char_type(), __uv);
+          __s = _M_convert_int(__s, __io, __fill, 'u', char_type(), __uv);
         }
       else
         {
@@ -957,7 +798,7 @@ namespace std
               __ws = __np.falsename().c_str();
               __len = __np.falsename().size();
             }
-	  _M_insert(__s, __io, __fill, __ws, __len); 
+	  __s = _M_insert(__s, __io, __fill, __ws, __len); 
 	}
       return __s;
     }
@@ -1015,8 +856,8 @@ namespace std
       __io.flags(__flags & __fmt | (ios_base::hex | ios_base::showbase));
       try 
 	{
-	  _M_convert_int(__s, __io, __fill, 'u', char_type(),
-			 reinterpret_cast<unsigned long>(__v));
+	  __s = _M_convert_int(__s, __io, __fill, 'u', char_type(),
+			       reinterpret_cast<unsigned long>(__v));
 	  __io.flags(__flags);
 	}
       catch (...) 
@@ -1043,22 +884,7 @@ namespace std
       const ctype<_CharT>& __ctype = use_facet<ctype<_CharT> >(__loc); 
       const _CharT* __wcs = __str.c_str();
       __ctype.narrow(__wcs, __wcs + __str.size() + 1, char(), __cs);      
-
-#if defined(_GLIBCPP_USE_C99) && !defined(__hpux)
-      char* __sanity;
-      errno = 0;
-      long double __ld = strtold(__cs, &__sanity);
-      if (!(__err & ios_base::failbit)
-          && __sanity != __cs && *__sanity == '\0' && errno == 0)
-        __units = __ld;
-#else
-      typedef typename char_traits<_CharT>::int_type int_type;
-      long double __ld;
-      int __p = sscanf(__cs, "%Lf", &__ld);
-      if (!(__err & ios_base::failbit)
-	  && __p && static_cast<int_type>(__p) != char_traits<_CharT>::eof())
-        __units = __ld;
-#endif
+      __convert_to_v(__cs, __units, __err, _S_c_locale);
       return __beg;
     }
 
@@ -1104,6 +930,9 @@ namespace std
       // Flag marking when a decimal point is found.
       bool __testdecfound = false; 
 
+      // The tentative returned string is stored here.
+      string_type __temp_units;
+
       char_type __c = *__beg;
       char_type __eof = static_cast<char_type>(char_traits<char_type>::eof());
       for (int __i = 0; __beg != __end && __i < 4 && __testvalid; ++__i)
@@ -1112,20 +941,27 @@ namespace std
 	  switch (__which)
 		{
 		case money_base::symbol:
-		  if (__io.flags() & ios_base::showbase)
+		  if (__io.flags() & ios_base::showbase
+		      || __i < 2
+		      || (__i == 2 && static_cast<part>(__p.field[3]) != money_base::none)
+		      || __sign.size() > 1)
 		    {
-		      // Symbol is required.
+		      // According to 22.2.6.1.2.2, symbol is required if
+		      // (__io.flags() & ios_base::showbase), otherwise is optional
+		      // and consumed only if other characters are needed to complete
+		      // the format.
 		      const string_type __symbol = __intl ? __mpt.curr_symbol()
 						    	 : __mpf.curr_symbol();
 		      size_type __len = __symbol.size();
-		      size_type __i = 0;
+		      size_type __j = 0;
 		      while (__beg != __end 
-			     && __i < __len && __symbol[__i] == __c)
+			     && __j < __len && __symbol[__j] == __c)
 			{
 			  __c = *(++__beg);
-			  ++__i;
+			  ++__j;
 			}
-		      if (__i != __len)
+		      // When (__io.flags() & ios_base::showbase) symbol is required.
+		      if (__j != __len && (__io.flags() & ios_base::showbase))
 			__testvalid = false;
 		    }
 		  break;
@@ -1188,7 +1024,7 @@ namespace std
 			}
 		      else
 			{
-			  __units += __c;
+			  __temp_units += __c;
 			  ++__sep_pos;
 			}
 		      __c = *(++__beg);
@@ -1219,11 +1055,11 @@ namespace std
 	}
 
       // Strip leading zeros.
-      while (__units[0] == __ctype.widen('0'))
-	__units.erase(__units.begin());
+      while (__temp_units[0] == __ctype.widen('0'))
+	__temp_units.erase(__temp_units.begin());
 
       if (__sign.size() && __sign == __neg_sign)
-	__units.insert(__units.begin(), __ctype.widen('-'));
+	__temp_units.insert(__temp_units.begin(), __ctype.widen('-'));
 
       // Test for grouping fidelity.
       if (__grouping.size() && __grouping_tmp.size())
@@ -1237,8 +1073,12 @@ namespace std
 	__err |= ios_base::eofbit;
 
       // Iff valid sequence is not recognized.
-      if (!__testvalid || !__units.size())
+      if (!__testvalid || !__temp_units.size())
 	__err |= ios_base::failbit;
+      else
+	// Use the "swap trick" to copy __temp_units into __units.
+	__temp_units.swap(__units);
+
       return __beg; 
     }
 
@@ -1253,7 +1093,7 @@ namespace std
       const int __n = numeric_limits<long double>::digits10;
       char* __cs = static_cast<char*>(__builtin_alloca(sizeof(char) * __n));
       _CharT* __ws = static_cast<_CharT*>(__builtin_alloca(sizeof(_CharT) * __n));
-      int __len = sprintf(__cs, "%.01Lf", __units);
+      int __len = __convert_from_v(__cs, "%.01Lf", __units, _S_c_locale);
       __ctype.widen(__cs, __cs + __len, __ws);
       string_type __digits(__ws);
       return this->do_put(__s, __intl, __io, __fill, __digits); 
@@ -1516,13 +1356,13 @@ namespace std
 		  break;
 		case 'I':
 		  // Hour [01, 12]. [tm_hour]
-		  _M_extract_num(__beg, __end, __tm->tm_hour, 1, 12, 2,
+		  _M_extract_num(__beg, __end, __tm->tm_hour, 1, 12, 2, 
 				 __ctype, __err);
 		  break;
 		case 'm':
 		  // Month [01, 12]. [tm_mon]
-		  _M_extract_num(__beg, __end, __mem, 1, 12, 2,
-				 __ctype, __err);
+		  _M_extract_num(__beg, __end, __mem, 1, 12, 2, __ctype, 
+				 __err);
 		  if (!__err)
 		    __tm->tm_mon = __mem - 1;
 		  break;
@@ -1867,9 +1707,13 @@ namespace std
 	}
       if (__i == 2 || __i == 4)
 	{
-	  int __year = atoi(__digits.c_str());
-	  __year = __i == 2 ? __year : __year - 1900; 
-	  __tm->tm_year = __year;
+	  long __l;
+	  __convert_to_v(__digits.c_str(), __l, __err, _S_c_locale);
+	  if (!(__err & ios_base::failbit) && __l <= INT_MAX)
+	    {
+	      __l = __i == 2 ? __l : __l - 1900; 
+	      __tm->tm_year = static_cast<int>(__l);
+	    }
 	}
       else
 	__err |= ios_base::failbit;
@@ -1905,10 +1749,14 @@ namespace std
 		}
 	      else
 		__format = __c;
-	      this->do_put(__s, __io, char_type(), __tm, __format, __mod);
+	      __s = this->do_put(__s, __io, char_type(), __tm, __format, 
+				 __mod);
 	    }
 	  else
-	    __s = __c;
+	    {
+	      *__s = __c;
+	      ++__s;
+	    }
 	}
       return __s;
     }
@@ -1951,8 +1799,8 @@ namespace std
 
       // Write resulting, fully-formatted string to output iterator.
       size_t __len = char_traits<char_type>::length(__res);
-      for (size_t __i = 0; __i < __len; ++__i)
-	__s = __res[__i];
+      for (size_t __i = 0; __i < __len; ++__i, ++__s)
+	*__s = __res[__i];
       return __s;
     }
 
@@ -2007,8 +1855,32 @@ namespace std
       unsigned long __val = 0;
       for (; __lo < __hi; ++__lo)
 	__val = *__lo + ((__val << 7) | 
-		       (__val >> (numeric_limits<unsigned long>::digits - 1)));
+		       (__val >> (numeric_limits<unsigned long>::digits - 7)));
       return static_cast<long>(__val);
+    }
+
+  // Convert string to numeric value of type _Tv and store results.  
+  // NB: This is specialized for all required types, there is no
+  // generic definition.
+  template<typename _Tv>
+    void
+    __convert_to_v(const char* __in, _Tv& __out, ios_base::iostate& __err, 
+		   const __c_locale& __cloc, int __base = 10);
+
+  // Convert numeric value of type _Tv to string and return length of string.
+  template<typename _Tv>
+    int
+    __convert_from_v(char* __out, const char* __fmt, _Tv __v, 
+		     const __c_locale&, int __prec = -1)
+    {
+      int __ret;
+      const char* __old = setlocale(LC_ALL, "C");
+      if (__prec >= 0)
+	__ret = sprintf(__out, __fmt, __prec, __v);
+      else
+	__ret = sprintf(__out, __fmt, __v);
+      setlocale(LC_ALL, __old);
+      return __ret;
     }
 
   // Construct correctly padded string, as per 22.2.2.2.2
