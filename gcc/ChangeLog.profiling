@@ -1,3 +1,8 @@
+2005-01-25  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (cgraph_decide_inlining_of_small_functions): Kill bogus
+	assert check.
+
 2005-01-23  Daniel Berlin  <dberlin@dberlin.org>
 
 	* doc/c-tree.texi: Add cursory docs for MEM_REF.

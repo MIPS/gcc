@@ -707,7 +707,7 @@ cgraph_decide_inlining_of_small_functions (void)
     }
   while ((edge = fibheap_extract_min (heap)) != NULL)
     {
-      gcc_assert (edge->inline_failed && edge->aux);
+      gcc_assert (edge->aux);
       edge->aux = NULL;
       if (!edge->callee->local.disregard_inline_limits && edge->inline_failed
           && !cgraph_recursive_inlining_p (edge->caller, edge->callee,
