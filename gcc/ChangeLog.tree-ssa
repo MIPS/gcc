@@ -1,5 +1,8 @@
 2003-06-19  Jeff Law  <law@redhat.com>
 
+	* gimplify.c (gimplify_modify_expr): If the RHS of an MODIFY_EXPR
+	might throw, then make sure its result goes into a temporary.
+ 
 	* tree-cfg.c (handle_switch_split): Handle case where target
 	block has only one statement (the case label itself).
 

@@ -1881,6 +1881,25 @@ gimplify_modify_expr (expr_p, pre_p, post_p, want_value)
 
   gimplify_expr (from_p, pre_p, post_p, is_gimple_rhs, fb_rvalue);
 
+  /* If the RHS of the MODIFY_EXPR may throw and the LHS is a user
+     variable, then we need to introduce a temporary.
+     ie temp = RHS; LHS = temp.
+
+     This way the optimizers can determine that the user variable is
+     only modified if evaluation of the RHS does not throw.
+
+     FIXME.  What to do about cases where the LHS can throw?  */
+  if (flag_exceptions
+      && ! (DECL_P (*to_p) && DECL_ARTIFICIAL (*to_p))
+      && ((TREE_CODE (*from_p) == CALL_EXPR
+	   && ! (call_expr_flags (*from_p) & ECF_NOTHROW))
+	  || (flag_non_call_exceptions && could_trap_p (*from_p))))
+    {
+      tree tmp = get_initialized_tmp_var (*from_p, pre_p);
+      *expr_p = build (MODIFY_EXPR, TREE_TYPE (TREE_OPERAND (*expr_p, 0)),
+		       TREE_OPERAND (*expr_p, 0), tmp);
+    }
+
   if (want_value)
     {
       add_tree (*expr_p, pre_p);
