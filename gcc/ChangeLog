@@ -1,3 +1,10 @@
+Sun Nov 17 14:01:09 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (negsf2_ifs, negdf2_ifs, negdf2_ifs_rex64, abssf2_ifs,
+	absdf2_ifs, absdf2_ifs_rex64): Fix constraints.
+	(neg?f2_ifs, abs?f2_ifs splitters): Refuse memory operand; do not
+	generate unnecesary subregs.
+
 Sat Nov 16 16:49:58 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (truncdfsf2_1_sse, truncdfsf2_1_sse_nooverlap, truncdfsf2_2,
