@@ -3004,6 +3004,10 @@ assign_parms (tree fndecl)
   tree fnargs, parm;
   rtx internal_arg_pointer;
   int varargs_setup = 0;
+  /* APPLE LOCAL begin AltiVec */
+  int pass, last_pass;
+  /* APPLE LOCAL end AltiVec */
+
 
   /* If the reg that the virtual arg pointer will be translated into is
      not a fixed reg or is the stack pointer, make a copy of the virtual
@@ -3023,58 +3027,71 @@ assign_parms (tree fndecl)
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);
 
-  for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
+  /* APPLE LOCAL begin AltiVec */
+  last_pass = 1;
+
+  for (pass = 1; pass <= last_pass; pass++)
     {
-      struct assign_parm_data_one data;
+      for (parm = fnargs; parm; parm = TREE_CHAIN (parm))
+        {
+          struct assign_parm_data_one data;
 
-      /* Extract the type of PARM; adjust it according to ABI.  */
-      assign_parm_find_data_types (&all, parm, &data);
+          tree type = TREE_TYPE (parm);
+          /* In 1st iteration over actual arguments, only consider non-vectors.
+             During 2nd iteration, finish off with vector parameters. */
+          if (!current_function_stdarg && targetm.calls.skip_vec_args (type, pass, &last_pass))
+            continue;
 
-      /* Early out for errors and void parameters.  */
-      if (data.passed_mode == VOIDmode)
-	{
-	  SET_DECL_RTL (parm, const0_rtx);
-	  DECL_INCOMING_RTL (parm) = DECL_RTL (parm);
-	  continue;
-	}
+          /* Extract the type of PARM; adjust it according to ABI.  */
+          assign_parm_find_data_types (&all, parm, &data);
 
-      /* Handle stdargs.  LAST_NAMED is a slight mis-nomer; it's also true
-	 for the unnamed dummy argument following the last named argument.
-	 See ABI silliness wrt strict_argument_naming and NAMED_ARG.  So
-	 we only want to do this when we get to the actual last named
-	 argument, which will be the first time LAST_NAMED gets set.  */
-      if (data.last_named && !varargs_setup)
-	{
-	  varargs_setup = true;
-	  assign_parms_setup_varargs (&all, &data, false);
-	}
+          /* Early out for errors and void parameters.  */
+          if (data.passed_mode == VOIDmode)
+	    {
+	      SET_DECL_RTL (parm, const0_rtx);
+	      DECL_INCOMING_RTL (parm) = DECL_RTL (parm);
+	      continue;
+	    }
 
-      /* Find out where the parameter arrives in this function.  */
-      assign_parm_find_entry_rtl (&all, &data);
+          /* Handle stdargs.  LAST_NAMED is a slight mis-nomer; it's also true
+	     for the unnamed dummy argument following the last named argument.
+	     See ABI silliness wrt strict_argument_naming and NAMED_ARG.  So
+	     we only want to do this when we get to the actual last named
+	     argument, which will be the first time LAST_NAMED gets set.  */
+          if (data.last_named && !varargs_setup)
+    	    {
+	      varargs_setup = true;
+	      assign_parms_setup_varargs (&all, &data, false);
+	    }
 
-      /* Find out where stack space for this parameter might be.  */
-      if (assign_parm_is_stack_parm (&all, &data))
-	{
-	  assign_parm_find_stack_rtl (parm, &data);
-	  assign_parm_adjust_entry_rtl (&data);
-	}
+          /* Find out where the parameter arrives in this function.  */
+          assign_parm_find_entry_rtl (&all, &data);
 
-      /* Record permanently how this parm was passed.  */
-      set_decl_incoming_rtl (parm, data.entry_parm);
+          /* Find out where stack space for this parameter might be.  */
+          if (assign_parm_is_stack_parm (&all, &data))
+	    {
+	      assign_parm_find_stack_rtl (parm, &data);
+	      assign_parm_adjust_entry_rtl (&data);
+	    }
 
-      /* Update info on where next arg arrives in registers.  */
-      FUNCTION_ARG_ADVANCE (all.args_so_far, data.promoted_mode,
-			    data.passed_type, data.named_arg);
+          /* Record permanently how this parm was passed.  */
+          set_decl_incoming_rtl (parm, data.entry_parm);
 
-      assign_parm_adjust_stack_rtl (&data);
+          /* Update info on where next arg arrives in registers.  */
+          FUNCTION_ARG_ADVANCE (all.args_so_far, data.promoted_mode,
+			        data.passed_type, data.named_arg);
 
-      if (assign_parm_setup_block_p (&data))
-	assign_parm_setup_block (parm, &data);
-      else if (data.passed_pointer || use_register_for_decl (parm))
-	assign_parm_setup_reg (&all, parm, &data);
-      else
-	assign_parm_setup_stack (&all, parm, &data);
+          assign_parm_adjust_stack_rtl (&data);
+
+          if (assign_parm_setup_block_p (&data))
+	    assign_parm_setup_block (parm, &data);
+          else if (data.passed_pointer || use_register_for_decl (parm))
+	    assign_parm_setup_reg (&all, parm, &data);
+          else
+	    assign_parm_setup_stack (&all, parm, &data);
+        }
     }
+    /* APPLE LOCAL end AltiVec */
 
   if (targetm.calls.split_complex_arg && fnargs != all.orig_fnargs)
     assign_parms_unsplit_complex (all.orig_fnargs, fnargs);
