@@ -3136,7 +3136,10 @@ rest_of_compilation (decl)
     }
 
   /* Perform loop optimalizations.  */
-  if (optimize > 0)
+  if (optimize > 0
+      && (flag_unswitch_loops
+	  || flag_peel_loops
+	  || flag_unroll_loops))
     {
       struct loops *loops;
       timevar_push (TV_LOOP);
