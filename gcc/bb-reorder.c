@@ -69,16 +69,13 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
 #include "rtl.h"
-#include "hard-reg-set.h"
 #include "basic-block.h"
 #include "flags.h"
 #include "output.h"
 #include "cfglayout.h"
 #include "fibheap.h"
 #include "target.h"
-#include "profile.h"
 
 /* The number of rounds.  */
 #define N_ROUNDS 4
