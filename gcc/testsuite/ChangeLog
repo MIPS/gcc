@@ -1,3 +1,16 @@
+2003-02-21  Glen Nakamura  <glen@imodulo.com>
+
+	* gcc.c-torture/execute/20030221-1.c: New test.
+
+2003-02-20  Randolph Chung  <tausq@debian.org>
+
+	* gcc.c-torture/compile/20030220-1.c: New test.
+
+2003-02-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9459
+	* g++.dg/ext/typeof4.C: New test.
+
 2003-02-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/20030217-1.c: New test.
