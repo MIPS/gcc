@@ -319,6 +319,7 @@ static void dump_dataflow_set		PARAMS ((dataflow_set *));
 static void dump_dataflow_sets		PARAMS ((void));
 
 static void variable_was_changed	PARAMS ((variable, htab_t));
+static void set_frame_base_location	PARAMS ((dataflow_set *, rtx));
 static void set_variable_part		PARAMS ((dataflow_set *, rtx, tree,
 						 HOST_WIDE_INT));
 static void delete_variable_part	PARAMS ((dataflow_set *, rtx, tree,
@@ -1581,7 +1582,7 @@ compute_bb_dataflow (bb)
 	      base = gen_rtx_MEM (Pmode,
 				  gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 						GEN_INT (out->stack_adjust)));
-	      set_variable_part (out, base, frame_base_decl, 0);
+	      set_frame_base_location (out, base);
 	    }
 	    break;
 	}
@@ -1841,6 +1842,35 @@ variable_was_changed (var, htab)
 	    htab_clear_slot (htab, slot);
 	}
     }
+}
+
+/* Set the location of frame_base_decl to LOC in dataflow set SET.  This
+   function expects that
+   frame_base_decl has already one location for offset 0 in the variable table.
+ */
+
+static void
+set_frame_base_location (set, loc)
+     dataflow_set *set;
+     rtx loc;
+{
+  variable var;
+  
+  var = htab_find_with_hash (set->vars, frame_base_decl,
+			     VARIABLE_HASH_VAL (frame_base_decl));
+#ifdef ENABLE_CHECKING
+  if (!var)
+    abort ();
+  if (var->n_var_parts != 1)
+    abort ();
+  if (var->var_part[0].offset != 0)
+    abort ();
+  if (!var->var_part[0].loc_chain)
+    abort ();
+#endif
+
+  var->var_part[0].loc_chain->loc = loc;
+  variable_was_changed (var, set->vars);
 }
 
 /* Set the part of variable's location in the dataflow set SET.  The variable
@@ -2268,7 +2298,7 @@ emit_notes_in_bb (bb)
 	      base = gen_rtx_MEM (Pmode,
 				  gen_rtx_PLUS (Pmode, stack_pointer_rtx,
 						GEN_INT (set.stack_adjust)));
-	      set_variable_part (&set, base, frame_base_decl, 0);
+	      set_frame_base_location (&set, base);
 	      emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
 	    }
 	    break;

@@ -1,3 +1,9 @@
+2003-11-04  Josef Zlomek  <zlomekj@suse.cz>
+
+	* var-tracking.c (set_frame_base_location): New function.
+	(compute_bb_dataflow): Use set_frame_base_location.
+	(emit_notes_in_bb): Likewise.
+
 2003-11-03  Josef Zlomek  <zlomekj@suse.cz>
 
 	Speedup var-tracking similarly to VRP.
