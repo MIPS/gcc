@@ -1,5 +1,11 @@
 2005-03-05  Jan Hubicka  <jh@suse.cz>
 
+	* tree-flow.h (maybe_fold_stmt_indirect): Declare.
+	* tree-inline.c (copy_body_r): Declare.
+	(maybe_fold_stmt_indirect): Export.
+
+2005-03-05  Jan Hubicka  <jh@suse.cz>
+
 	* tree-inline.c (optimize_inline_calls): Fold conditionals before
 	cleaning up CFG; verify CFG and stmts.
 

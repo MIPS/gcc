@@ -625,6 +625,7 @@ tree duplicate_ssa_name (tree, tree);
 
 /* In tree-ssa-ccp.c  */
 bool fold_stmt (tree *);
+tree maybe_fold_stmt_indirect (tree, tree, tree);
 tree widen_bitfield (tree, tree, tree);
 
 /* In tree-ssa-dom.c  */

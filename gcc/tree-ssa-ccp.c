@@ -1518,7 +1518,7 @@ maybe_fold_offset_to_component_ref (tree record_type, tree base, tree offset,
 /* A subroutine of fold_stmt_r.  Attempt to simplify *(BASE+OFFSET).
    Return the simplified expression, or NULL if nothing could be done.  */
 
-static tree
+tree
 maybe_fold_stmt_indirect (tree expr, tree base, tree offset)
 {
   tree t;

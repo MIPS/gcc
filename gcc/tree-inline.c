@@ -691,15 +691,16 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	  n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
 	  if (n)
 	    {
+	      tree copy, folded;
 	      value = (tree) n->value;
 	      STRIP_NOPS (value);
-	      if (TREE_CODE (value) == ADDR_EXPR
-		  && (lang_hooks.types_compatible_p
-		      (TREE_TYPE (*tp), TREE_TYPE (TREE_OPERAND (value, 0)))))
-		{
-		  *tp = TREE_OPERAND (value, 0);
-		  return copy_body_r (tp, walk_subtrees, data);
-		}
+	      copy = build1 (INDIRECT_REF, TREE_TYPE (*tp), (tree) n->value);
+	      if ((folded = maybe_fold_stmt_indirect (copy, value, integer_zero_node)))
+		*tp = folded;
+	      else
+		*tp = copy;
+	      *walk_subtrees = 0;
+	      return NULL;
 	    }
 	}
 
