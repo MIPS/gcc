@@ -9636,8 +9636,14 @@ ix86_expand_fp_movcc (operands)
       if (rtx_equal_p (operands[2], op0) && rtx_equal_p (operands[3], op1))
 	{
 	  /* Check for min operation.  */
-	  if (code == LT)
+	  if (code == LT || code == UNLE)
 	    {
+	       if (code == UNLE)
+		{
+		  rtx tmp = op0;
+		  op0 = op1;
+		  op1 = tmp;
+		}
 	       operands[0] = force_reg (GET_MODE (operands[0]), operands[0]);
 	       if (memory_operand (op0, VOIDmode))
 		 op0 = force_reg (GET_MODE (operands[0]), op0);
@@ -9648,8 +9654,14 @@ ix86_expand_fp_movcc (operands)
 	       return 1;
 	    }
 	  /* Check for max operation.  */
-	  if (code == GT)
+	  if (code == GT || code == UNGE)
 	    {
+	       if (code == UNGE)
+		{
+		  rtx tmp = op0;
+		  op0 = op1;
+		  op1 = tmp;
+		}
 	       operands[0] = force_reg (GET_MODE (operands[0]), operands[0]);
 	       if (memory_operand (op0, VOIDmode))
 		 op0 = force_reg (GET_MODE (operands[0]), op0);

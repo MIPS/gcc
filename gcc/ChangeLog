@@ -1,3 +1,8 @@
+Thu Nov  7 21:54:22 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* i386.md (sse_movdfcc, sse_movsfcc): Avoid overactive matching.
+	* i386.c (ix86_expand_fp_movcc): Match the reversed cases.
+
 2002-11-06  Douglas B Rupp  <rupp@gnat.com>
 
 	* config/i386/i386-interix.h (TARGET_SUBTARGET_DEFAULT): Or
