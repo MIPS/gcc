@@ -99,8 +99,8 @@ public class Box extends JComponent implements Accessible
     
     public AccessibleContext getAccessibleContext()
     {
-      if (accessibleContext == null)
-        accessibleContext = new AccessibleBoxFiller();
+//      if (accessibleContext == null)
+//        accessibleContext = new AccessibleBoxFiller();
       return accessibleContext;
     }
     
