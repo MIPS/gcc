@@ -29,7 +29,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    variables.  In that case the created optimization possibilities are likely
    to pay up.
 
-   Additionally in case we detect that it is benefitial to unroll the
+   Additionally in case we detect that it is beneficial to unroll the
    loop completely, we do it right here to expose the optimization
    possibilities to the following passes.  */
 

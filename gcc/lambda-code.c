@@ -354,7 +354,7 @@ lambda_lattice_compute_base (lambda_loopnest nest)
 
 
 /* Compute the greatest common denominator of two numbers using
-   euclid's algorithm.  */
+   Euclid's algorithm.  */
 
 static int 
 gcd (int a, int b)
@@ -401,7 +401,7 @@ lcm (int a, int b)
   return (abs (a) * abs (b) / gcd (a, b) );  
 }
 
-/* Compute the loop bounds for the auxillary space.
+/* Compute the loop bounds for the auxiliary space.
    Input system is Ax <= b.  TRANS is the unimodular transformation
    matrix. Comments are transcribed from the equations in the paper.  */
 
@@ -516,10 +516,10 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
   lambda_matrix_add_mc (B, 1, B1, -1, B1, size, invariants);
   
 
-  /* Compute the auxillary space.
+  /* Compute the auxiliary space.
      Equations:
      given A1 * y <= b1 + B1
-     Compute the auxillary space for z1=HUy
+     Compute the auxiliary space for z1=HUy
      A1 * y <= a1 + B1.
      Let z be the target space.
      z = Tx = T(Ly+origin) = TLy + T*origin 
@@ -649,7 +649,7 @@ lambda_compute_auxillary_space (lambda_loopnest nest,
 
 
 /* Compute the loop bounds for the target space, using the bounds of
-   the auxillary nest.
+   the auxiliary nest.
    Output a new set of linear bounds and linear offsets.  */
 
 static lambda_loopnest 
@@ -936,12 +936,12 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
 		      LTM_MATRIX (trans1),
 		      depth, depth, depth);
 
-  /* Compute the hermite normal form for the new transformation matrix.  */
+  /* Compute the Hermite normal form for the new transformation matrix.  */
   H = lambda_trans_matrix_new (depth, depth);
   U = lambda_trans_matrix_new (depth, depth);
   lambda_matrix_hermite (LTM_MATRIX (trans1), depth, LTM_MATRIX (H), LTM_MATRIX (U));
   
-  /* Compute the auxillary loop nest's space from the unimodular
+  /* Compute the auxiliary loop nest's space from the unimodular
      portion.  */
   auxillary_nest = lambda_compute_auxillary_space (nest, U);
   
@@ -950,7 +950,7 @@ lambda_loopnest_transform (lambda_loopnest nest, lambda_trans_matrix trans)
      transformation matrix.  */
   stepsigns = lambda_compute_step_signs (trans1, stepsigns);
   
-  /* Compute the target loop nest space from the auxillary nest and
+  /* Compute the target loop nest space from the auxiliary nest and
      the lower triangular matrix H.  */
   target_nest = lambda_compute_target_space (auxillary_nest, H, stepsigns);  
   origin = lambda_vector_new (depth);

@@ -155,7 +155,7 @@ lambda_trans_matrix_base (lambda_trans_matrix mat)
 
       /* nextrow becomes row j+1 in the matrix, though not necessarily
 	 row j+1 in the array.  */
-      /* Apply elementary column oeprations to make the diagonal
+      /* Apply elementary column operations to make the diagonal
 	 element nonzero and the others zero.  */
       row = tempmatrix[j];
 
@@ -190,7 +190,7 @@ lambda_trans_matrix_base (lambda_trans_matrix mat)
   return base;
 }
 
-/* Pad the legal base matrix to an invertable matrix.  */
+/* Pad the legal base matrix to an invertible matrix.  */
 
 lambda_trans_matrix
 lambda_trans_matrix_padding (lambda_trans_matrix matrix)

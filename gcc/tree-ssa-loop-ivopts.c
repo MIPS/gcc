@@ -28,7 +28,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    1) The interesting uses of induction variables are found.  This includes
 
       -- uses of induction variables in non-linear expressions
-      -- adresses of arrays
+      -- addresses of arrays
       -- comparisons of induction variables
 
    2) Candidates for the induction variables are found.  This includes
@@ -41,12 +41,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
       cost function assigns a cost to sets of induction variables and consists
       of three parts:
 
-      -- The use costs.  Each of the interesting uses choses the best induction
+      -- The use costs.  Each of the interesting uses chooses the best induction
 	 variable in the set and adds its cost to the sum.  The cost reflects
 	 the time spent on modifying the induction variables value to be usable
 	 for the given purpose (adding base and offset for arrays, etc.).
       -- The variable costs.  Each of the variables has a cost assigned that
-	 reflects the costs assoctiated with incrementing the value of the
+	 reflects the costs associated with incrementing the value of the
 	 variable.  The original variables are somewhat preferred.
       -- The set cost.  Depending on the size of the set, extra cost may be
 	 added to reflect register pressure.
@@ -107,7 +107,7 @@ struct iv
   tree ssa_name;	/* The ssa name with the value.  */
   bool biv_p;		/* Is it a biv?  */
   bool have_use_for;	/* Do we already have a use for it?  */
-  unsigned use_id;	/* The identificator in the use if it is the case.  */
+  unsigned use_id;	/* The identifier in the use if it is the case.  */
 };
 
 /* Per-ssa version information (induction variable descriptions, etc.).  */
@@ -186,8 +186,8 @@ struct iv_cand
   enum iv_position pos;	/* Where it is computed.  */
   tree incremented_at;	/* For original biv, the statement where it is
 			   incremented.  */
-  tree var_before;	/* The variable used for it before incrementation.  */
-  tree var_after;	/* The variable used for it after incrementation.  */
+  tree var_before;	/* The variable used for it before increment.  */
+  tree var_after;	/* The variable used for it after increment.  */
   struct iv *iv;	/* The value of the candidate.  NULL for
 			   "pseudocandidate" used to indicate the possibility
 			   to replace the final value of an iv by direct
@@ -641,7 +641,7 @@ force_gimple_operand (tree expr, tree *stmts, bool simple, tree var)
   tree atmp;
 
   /* Throw away the useless type conversions, so that we do not create
-     unneccesary junk.  */
+     unnecessary junk.  */
   STRIP_TYPE_NOPS (expr);
   STRIP_USELESS_TYPE_CONVERSION (expr);
 
@@ -840,7 +840,7 @@ ip_normal_pos (struct loop *loop)
   return bb;
 }
 
-/* Returs true if STMT is after the place where the IP_NORMAL ivs will be
+/* Returns true if STMT is after the place where the IP_NORMAL ivs will be
    emitted in LOOP.  */
 
 static bool
@@ -1026,7 +1026,7 @@ determine_biv_step (tree phi)
   return step;
 }
 
-/* Retunrs false if INDEX is a ssa name that occurs in an
+/* Returns false if INDEX is a ssa name that occurs in an
    abnormal phi node.  Callback for for_each_index.  */
 
 static bool
@@ -3492,7 +3492,7 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
       return;
     }
 
-  /* There are two costs associated with the candidate -- its incrementation
+  /* There are two costs associated with the candidate -- its increment
      and its initialization.  The second is almost negligible for any loop
      that rolls enough, so we take it just very little into account.  */
 
@@ -3507,7 +3507,7 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
     cand->cost--;
   
   /* Prefer not to insert statements into latch unless there are some
-     already (so that we do not create unnecesary jumps).  */
+     already (so that we do not create unnecessary jumps).  */
   if (cand->pos == IP_END)
     {
       bb = ip_end_pos (data->current_loop);
@@ -3792,7 +3792,7 @@ set_cost (struct ivopts_data *data, bitmap sol, bitmap inv)
 }
 
 /* Finds an initial set of IVS and invariants INV.  We do this by simply
-   chosing the best candidate for each use.  */
+   choosing the best candidate for each use.  */
 
 static unsigned
 get_initial_solution (struct ivopts_data *data, bitmap ivs, bitmap inv)
@@ -4187,7 +4187,7 @@ rewrite_address_base (block_stmt_iterator *bsi, tree *op, tree with)
   /* We need to add a memory tag for the variable.  But we do not want
      to add it to the temporary used for the computations, since this leads
      to problems in redundancy elimination when there are common parts
-     in two computations refering to the different arrays.  So we copy
+     in two computations referring to the different arrays.  So we copy
      the variable to a new temporary.  */
   copy = build (MODIFY_EXPR, void_type_node, NULL_TREE, with);
   if (name)

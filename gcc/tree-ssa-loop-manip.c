@@ -490,7 +490,7 @@ lv_adjust_loop_entry_edge (basic_block first_head,
   edge e0, e1;
 
   /* Split edge 'e'. This will create a new basic block, where we can
-     insert conditioanl expr.  */
+     insert conditional expr.  */
   new_head = split_edge (e);
   set_immediate_dominator (CDI_DOMINATORS, new_head, orig_head);
 
@@ -552,7 +552,7 @@ lv_update_pending_stmts (edge e)
    of 'first'. Both of them are dominated by 'new_head' basic block. When
    'new_head' was created by 'second's incoming edge it received phi arguments
    on the edge by split_edge(). Later, additional edge 'e' was created to
-   connect 'new_head' and 'first'. Now this routnine adds phi args on this 
+   connect 'new_head' and 'first'. Now this routine adds phi args on this 
    additional edge 'e' that new_head to second edge received as part of edge 
    splitting.
 */
@@ -907,7 +907,7 @@ find_uses_to_rename (bitmap names_to_rename, bitmap *use_blocks, tree *names)
    phi nodes to ensure that no variable is used outside the loop it is
    defined in.
 
-   This strenghtening of the basic ssa form has several advantages:
+   This strengthening of the basic ssa form has several advantages:
 
    1) Updating it during unrolling/peeling/versioning is trivial, since
       we do not need to care about the uses outside of the loop.
@@ -1184,10 +1184,10 @@ tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
   return true;
 }
 
-/* This funtion generate pure copy of LOOP 
+/* This function generate pure copy of LOOP 
    and locate it immediately after given LOOP.
-   It fixes phis of copy loop so that they inherite 
-   one of thier values from exit edge of initil LOOP.  */
+   It fixes phis of copy loop so that they inherit 
+   one of their values from exit edge of initial LOOP.  */
 
 bool
 tree_duplicate_loop_to_exit (struct loop *loop, struct loops *loops)

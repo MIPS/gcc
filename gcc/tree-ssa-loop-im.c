@@ -548,7 +548,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
 	}
 
       /* We do not really want to move conditionals out of the loop; we just
-	 placed it here to force its operands to be moved if neccesary.  */
+	 placed it here to force its operands to be moved if necessary.  */
       if (TREE_CODE (stmt) == COND_EXPR)
 	continue;
 
@@ -564,7 +564,7 @@ move_computations_stmt (struct dom_walk_data *dw_data ATTRIBUTE_UNUSED,
     }
 }
 
-/* Moves the statements to the requiered level.  */
+/* Moves the statements to the required level.  */
 
 static void
 move_computations (void)
@@ -1071,7 +1071,7 @@ tree_ssa_lim_finalize (void)
 }
 
 /* Moves invariants from LOOPS.  Only "expensive" invariants are moved out --
-   i.e. those that are likely to be win regardless of the register presure.  */
+   i.e. those that are likely to be win regardless of the register pressure.  */
 
 void
 tree_ssa_lim (struct loops *loops)

@@ -338,7 +338,7 @@ do_while_loop_p (struct loop *loop)
 }
 
 /* For all loops, copy the condition at the end of the loop body in front
-   of the loop.  This is beneficial since it increases effectivity of
+   of the loop.  This is beneficial since it increases efficiency of
    code motion optimizations.  It also saves one jump on entry to the loop.  */
 
 static void
@@ -358,7 +358,7 @@ copy_loop_headers (void)
   /* We are not going to need or update dominators.  */
   free_dominance_info (CDI_DOMINATORS);
 
-  /* We do not try to keep the information about irreductible regions
+  /* We do not try to keep the information about irreducible regions
      up-to-date.  */
   loops->state &= ~LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS;
 

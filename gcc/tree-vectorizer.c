@@ -49,7 +49,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 	}
 
 	The main entry to this pass is vectorize_loops(), in which for each
-   the vectorizer applies a set of analyses on a given set of loops,
+   the vectorizer applies a set of analyzes on a given set of loops,
    followed by the actual vectorization transformation for the loops that
    had successfully passed the analysis phase.
 
@@ -63,7 +63,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    Analysis phase:
    ===============
 	The driver for the analysis phase is vect_analyze_loop_nest().
-   which applies a set of loop analyses. Some of the analyses rely on the
+   which applies a set of loop analyzes. Some of the analyzes rely on the
    monotonic evolution analyzer developed by Sebastian Pop.
 
 	During the analysis phase the vectorizer records some information
@@ -176,7 +176,7 @@ static tree vect_transform_assignment (tree, block_stmt_iterator *);
 static void vect_align_data_ref (tree, tree);
 static void vect_enhance_data_refs_alignment (loop_vec_info);
 
-/* Utility functions for the analyses.  */
+/* Utility functions for the analyzes.  */
 static bool vect_is_supportable_op (tree);
 static bool vect_is_supportable_store (tree);
 static bool vect_is_supportable_load (tree);
@@ -209,7 +209,7 @@ static tree vect_init_vector (tree, tree);
 static basic_block vect_tree_split_edge (edge);
 static void vect_update_initial_conditions_of_duplicated_loop (loop_vec_info, tree);
 
-/* General untility functions (CHECKME: where do they belong).  */
+/* General utility functions (CHECKME: where do they belong).  */
 static tree get_array_base (tree);
 
 /* Utilities for creation and deletion of vec_info structs.  */
@@ -591,9 +591,9 @@ vect_align_data_ref (tree ref, tree stmt)
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
 
   if (!aligned_access_p (dr))
-    abort (); /* FORNOW, can't handle misliagned accesses.  */
+    abort (); /* FORNOW, can't handle misaligned accesses.  */
 
-  /* The access is aligned, but some accesses are marked alignd under the
+  /* The access is aligned, but some accesses are marked aligned under the
      assumption that alignment of the base of the data structure will be 
      forced:  */ 
 
@@ -757,7 +757,7 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
 
 /* Function vect_init_vector.
 
-   Insert a new stmt (INIT_STMT) that initializes a new vector veriable with
+   Insert a new stmt (INIT_STMT) that initializes a new vector variable with
    the vector elements of VECTOR_VAR. Return the DEF of INIT_STMT. It will be
    used in the vectorization of STMT.  */
 
@@ -933,7 +933,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
 }
 
 
-/* Function vect_transfom_assignment.
+/* Function vect_transform_assignment.
 
    STMT performs an assignment (copy). Create a vectorized stmt to replace it,
    and insert it at BSI.  */
@@ -988,7 +988,7 @@ vect_transform_assignment (tree stmt, block_stmt_iterator *bsi)
 }
 
 
-/* Function vect_transfom_op.
+/* Function vect_transform_op.
 
    STMT performs a binary or unary operation. Create a vectorized stmt to
    replace it, and insert it at BSI.  */
@@ -1071,7 +1071,7 @@ vect_transform_op (tree stmt, block_stmt_iterator *bsi)
 }
 
 
-/* Function vect_transfom_store.
+/* Function vect_transform_store.
 
    STMT is a store to memory. Create a vectorized stmt to replace it,
    and insert it at BSI.  */
@@ -1282,11 +1282,11 @@ vect_transform_stmt (tree stmt, block_stmt_iterator *bsi)
   return is_store;
 }
 
-/* This funciton generates stmt 
+/* This function generates stmt 
    
    tmp = n / vf;
 
-   and attachs it to preheader of LOOP.  */
+   and attaches it to preheader of LOOP.  */
 
 static tree 
 vect_build_symbl_bound (tree n, int vf, struct loop * loop)
@@ -1296,7 +1296,7 @@ vect_build_symbl_bound (tree n, int vf, struct loop * loop)
   basic_block new_bb;
   int i = -1;
 
-  /* create tmporary variable */
+  /* create temporary variable */
   var = create_tmp_var (TREE_TYPE (n), "bnd");
   add_referenced_tmp_var (var);
 
@@ -1332,7 +1332,7 @@ vect_build_symbl_bound (tree n, int vf, struct loop * loop)
    NITERS is a variable that contains number of iteration loop executes 
    before vectorization.
 
-   When loop is vectorized, its IVs not always preseved so 
+   When loop is vectorized, its IVs not always preserved so 
    that to be used for initialization of loop copy (second loop). 
    Here we use access functions of IVs and number of iteration 
    loop executes in order to bring IVs to correct position.  */
@@ -1386,7 +1386,7 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
       step_expr = evolution_part;
       init_expr = initial_condition (access_fn);
 
-      /* create tmporary variable */
+      /* create temporary variable */
       var = create_tmp_var (TREE_TYPE (step_expr), "tmp1");
       add_referenced_tmp_var (var);
 
@@ -1611,7 +1611,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
       else
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
-	  fprintf (dump_file, "\nFailed to generate emply bb after loop.\n");
+	  fprintf (dump_file, "\nFailed to generate empty bb after loop.\n");
 	  abort ();
 	}
       /* Generate temporary variable that contains 
@@ -1706,7 +1706,7 @@ vect_transform_loop (loop_vec_info loop_vinfo, struct loops *loops)
 
 	  if (is_store)
 	    {
-	      /* free the attched stmt_vec_info and remove the stmt.  */
+	      /* free the attached stmt_vec_info and remove the stmt.  */
 	      stmt_ann_t ann = stmt_ann (stmt);
 	      free (stmt_info);
 	      set_stmt_info (ann, NULL);
@@ -2141,7 +2141,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	}
     }
 
-  /* TODO: Analayze cost. Decide if worth while to vectorize.  */
+  /* TODO: Analyze cost. Decide if worth while to vectorize.  */
 
   LOOP_VINFO_VECT_FACTOR (loop_vinfo) = vectorization_factor;
 
@@ -2563,9 +2563,9 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo)
    REF is an array reference. Find the lower bound of the array dimension and
    return it in ARRAY_FIRST_INDEX (e.g, 0 in C arrays, 1 in Fortran arrays 
    (unless defined otherwise). At the moment, gfortran arrays are represented
-   with a poiner which points to one element lower than the array base, so
+   with a pointer which points to one element lower than the array base, so
    ARRAY_FIRST_INDEX is currently 0 also for Fortran arrays).
-   Return TRUE if such lower bound was found, and FLASE otherwise.  */
+   Return TRUE if such lower bound was found, and FALSE otherwise.  */
 
 static bool
 vect_get_array_first_index (tree ref, int *array_first_index)
@@ -2618,7 +2618,7 @@ vect_get_array_first_index (tree ref, int *array_first_index)
 
 /* Function vect_compute_data_ref_alignment
 
-   Compute the mislignment of the data reference DR.
+   Compute the misalignment of the data reference DR.
 
    FOR NOW: No analysis is actually performed. Misalignment is calculated
    only for trivial cases. TODO.  */
@@ -2705,7 +2705,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr,
 
 /* Function vect_compute_data_refs_alignment
 
-   Compute the mislignment of data references in the loop.
+   Compute the misalignment of data references in the loop.
    This pass may take place at function granularity instead of at loop
    granularity.
 
@@ -2840,8 +2840,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo ATTRIBUTE_UNUSED)
 /* Function vect_analyze_data_refs_alignment
 
    Analyze the alignment of the data-references in the loop.
-   FOR NOW: Until support fot misliagned accesses is in place, only if all
-   accesses are aligned can the loop be vectorized. This restruction will be 
+   FOR NOW: Until support for misliagned accesses is in place, only if all
+   accesses are aligned can the loop be vectorized. This restriction will be 
    relaxed.  */ 
 
 static bool
@@ -2872,8 +2872,8 @@ vect_analyze_data_refs_alignment (loop_vec_info loop_vinfo)
 
 
   /* Finally, check that loop can be vectorized. 
-     FOR NOW: Until support fot misliagned accesses is in place, only if all
-     accesses are aligned can the loop be vectorized. This restruction will be 
+     FOR NOW: Until support for misaligned accesses is in place, only if all
+     accesses are aligned can the loop be vectorized. This restriction will be 
      relaxed.  */
 
   for (i = 0; i < VARRAY_ACTIVE_SIZE (loop_write_datarefs); i++)
@@ -3403,7 +3403,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 /* This function analyze number of iteration LOOP executes in case 
    the it is unknown number in compile time. 
    
-   The vectoririze solution in this case is to duplicate loop so that 
+   The vectorize solution in this case is to duplicate loop so that 
    first loop will be vectorized, while its copy (second loop) won't.
    Initial conditions of loop copy (second loop) need to be updated.
    
@@ -3433,7 +3433,7 @@ vect_analyze_loop_with_symbolic_num_of_iters (tree *symb_num_of_iters,
   if (!niters)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-          fprintf (dump_file, "\nniters is NULL poiter.\n");
+          fprintf (dump_file, "\nniters is NULL pointer.\n");
       return false;
     }
 
@@ -3619,8 +3619,8 @@ vect_analyze_loop_form (struct loop *loop)
 
 /* Function vect_analyze_loop.
 
-   Apply a set of analyses on LOOP, and create a loop_vec_info struct
-   for it. The different analyses will record information in the
+   Apply a set of analyzes on LOOP, and create a loop_vec_info struct
+   for it. The different analyzes will record information in the
    loop_vec_info struct.  */
 
 static loop_vec_info
@@ -3790,7 +3790,7 @@ vectorize_loops (struct loops *loops)
 
   /* If some loop was duplicated, it gets bigger number 
      than all previously defined loops. This fuct allows us to run 
-     only over intial loops skipping newly generated ones.  */
+     only over initial loops skipping newly generated ones.  */
   loops_num = loops->num;
   for (i = 1; i < loops_num; i++)
     {
@@ -3829,7 +3829,7 @@ vectorize_loops (struct loops *loops)
     fprintf (dump_file, "vectorized %u loops in function.\n",
 	     num_vectorized_loops);
 
-  /*  ----------- Finialize. -----------  */
+  /*  ----------- Finalize. -----------  */
 
   free_df ();
   for (i = 1; i < loops_num; i++)

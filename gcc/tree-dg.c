@@ -107,7 +107,7 @@ void dg_create_graph (struct loops *loops)
   /* Initialize.  */
   dg_init_graph ();
 
-  /* Using data refernces, populate graph.  */
+  /* Using data references, populate graph.  */
   for (i = 0; i < VARRAY_ACTIVE_SIZE (dependence_relations); i++)
     {
       dependence_edge connecting_edge;
@@ -534,7 +534,7 @@ dump_dg (FILE *file, int flags ATTRIBUTE_UNUSED)
 
       fprintf (file, "# Dependence Node %d\n", dg_node->node_id);
 
-      /* Print Predecssors */
+      /* Print Predecessors */
       fprintf (file, "# Pred :");
       for (e = dg_node->pred; e; e = e->pred_next)
 	if (e->dst == dg_node)

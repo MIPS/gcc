@@ -54,7 +54,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
    TODO: Determine reuse vectors/matrix and use it to determine optimal
    transform matrix for locality purposes.
-   TODO: Add dependence matrix collection and approriate matrix
+   TODO: Add dependence matrix collection and appropriate matrix
    calculations so we can determine if a given transformation matrix
    is legal for a loop. 
    TODO: Completion of partial transforms.

@@ -966,7 +966,7 @@ chrec_fold_plus (tree type,
   return chrec_fold_plus_1 (PLUS_EXPR, type, op0, op1);
 }
 
-/* Fold the substraction of two chrecs.  */
+/* Fold the subtraction of two chrecs.  */
 
 tree 
 chrec_fold_minus (tree type, 

@@ -1,3 +1,17 @@
+2004-05-29  Sebastian Pop  <pop@cri.ensmp.fr>
+
+	* lambda-code.c: Spell check.
+	* lambda-trans.c: Same.
+	* tree-chrec.c: Same.
+	* tree-dg.c: Same.
+	* tree-loop-linear.c: Same.
+	* tree-ssa-loop-im.c: Same.
+	* tree-ssa-loop-ivcanon.c: Same.
+	* tree-ssa-loop-ivopts.c: Same.
+	* tree-ssa-loop-manip.c: Same.
+	* tree-ssa-loop.c: Same.
+	* tree-vectorizer.c: Same.
+
 2004-05-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* tree-ssa-loop-niter.c (number_of_iterations_cond): Record correct
