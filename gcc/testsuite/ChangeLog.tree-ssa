@@ -1,5 +1,7 @@
 2004-02-16  Jeff Law  <law@redhat.com>
 
+	* gcc.dg/tree-ssa/20030807-4.c: Remove bogus test.
+
 	* gcc.dg/tree-ssa/20040216-1.c: New test.
 	* gcc.dg/tree-ssa/20040211-1.c: New test.
 
