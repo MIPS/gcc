@@ -7675,23 +7675,6 @@ fold (tree expr)
 	}
       return t;
 
-    case INDIRECT_REF:
-      {
-	tree exp1 = TREE_OPERAND (expr, 0);
-	tree index;
-	tree string = string_constant (exp1, &index);
-                                                                                
-	/* Try to optimize reads from const strings.  */
-	if (string
-	    && TREE_CODE (string) == STRING_CST
-	    && TREE_CODE (index) == INTEGER_CST
-	    && compare_tree_int (index, TREE_STRING_LENGTH (string)) < 0)
-	  return build_int_2 ((TREE_STRING_POINTER (string)
-			       [TREE_INT_CST_LOW (index)]), 0);
-	return t;
-      }
-
-
     default:
       return t;
     } /* switch (code) */
