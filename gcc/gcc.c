@@ -1,6 +1,6 @@
 /* Compiler driver program that can handle many languages.
    Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -954,11 +954,11 @@ static const struct compiler default_compilers[] =
 	  %{save-temps|traditional-cpp:%(trad_capable_cpp) \
 		%(cpp_options) %b.i \n\
 		    cc1 -fpreprocessed %b.i %(cc1_options)\
-                        -o %g.s %{!o*:--output-pch=%i.pch}\
+                        -o %g.s %{!o*:--output-pch=%i.gch}\
                         %W{o*:--output-pch=%*}%V}\
 	  %{!save-temps:%{!traditional-cpp:\
 		cc1 %(cpp_unique_options) %(cc1_options)\
-                    -o %g.s %{!o*:--output-pch=%i.pch}\
+                    -o %g.s %{!o*:--output-pch=%i.gch}\
                     %W{o*:--output-pch=%*}%V}}}}}", 0},
   {".i", "@cpp-output", 0},
   {"@cpp-output",
@@ -4733,7 +4733,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		for (t = temp_names; t; t = t->next)
 		  if (t->length == suffix_length
 		      && strncmp (t->suffix, suffix, suffix_length) == 0
-		      && t->unique == (c == 'u' || c == 'j'))
+		      && t->unique == (c == 'u' || c == 'U' || c == 'j'))
 		    break;
 
 		/* Make a new association if needed.  %u and %j
@@ -4754,7 +4754,7 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 		      }
 		    else
 		      t->suffix = save_string (suffix, suffix_length);
-		    t->unique = (c == 'u' || c == 'j');
+		    t->unique = (c == 'u' || c == 'U' || c == 'j');
 		    temp_filename = make_temp_file (t->suffix);
 		    temp_filename_length = strlen (temp_filename);
 		    t->filename = temp_filename;
@@ -5181,6 +5181,18 @@ do_spec_1 (spec, inswitch, soft_matched_part)
 	    p = handle_braces (p);
 	    if (p == 0)
 	      return -1;
+	    /* End any pending argument.  */
+	    if (arg_going)
+	      {
+		obstack_1grow (&obstack, 0);
+		string = obstack_finish (&obstack);
+		if (this_is_library_file)
+		  string = find_file (string);
+		store_arg (string, delete_this_arg, this_is_output_file);
+		if (this_is_output_file)
+		  outfiles[input_file_number] = string;
+		arg_going = 0;
+	      }
 	    break;
 
 	  case ':':

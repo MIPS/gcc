@@ -43,6 +43,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "output.h"
 #include "ggc.h"
+#include "timevar.h"
 
 #ifndef REGISTER_MOVE_COST
 #define REGISTER_MOVE_COST(m, x, y) 2
@@ -231,9 +232,9 @@ static char *in_inc_dec;
 #endif /* FORBIDDEN_INC_DEC_CLASSES */
 
 #ifdef CANNOT_CHANGE_MODE_CLASS
-/* All registers that have been subreged.  Indexed by mode, where each
-   entry is a regset of registers.  */
-regset_head subregs_of_mode [NUM_MACHINE_MODES];
+/* All registers that have been subreged.  Indexed by regno * MAX_MACHINE_MODE
+   + mode.  */
+bitmap_head subregs_of_mode;
 #endif
 
 /* Sample MEM values for use by memory_move_secondary_cost.  */
@@ -2338,6 +2339,8 @@ reg_scan (f, nregs, repeat)
   max_parallel = 3;
   max_set_parallel = 0;
 
+  timevar_push (TV_REG_SCAN);
+
   for (insn = f; insn; insn = NEXT_INSN (insn))
     if (GET_CODE (insn) == INSN
 	|| GET_CODE (insn) == CALL_INSN
@@ -2353,6 +2356,8 @@ reg_scan (f, nregs, repeat)
       }
 
   max_parallel += max_set_parallel;
+
+  timevar_pop (TV_REG_SCAN);
 }
 
 /* Update 'regscan' information by looking at the insns
@@ -2633,16 +2638,18 @@ cannot_change_mode_set_regs (used, from, regno)
      unsigned int regno;
 {
   enum machine_mode to;
+  int n, i;
+  int start = regno * MAX_MACHINE_MODE;
 
-  for (to = VOIDmode; to < MAX_MACHINE_MODE; ++to)
-    if (REGNO_REG_SET_P (&subregs_of_mode[to], regno))
-      {
-	int i;
-	for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-          if (! TEST_HARD_REG_BIT (*used, i)
-	      && REG_CANNOT_CHANGE_MODE_P (i, from, to))
-	    SET_HARD_REG_BIT (*used, i);
-      }
+  EXECUTE_IF_SET_IN_BITMAP (&subregs_of_mode, start, n,
+    if (n >= MAX_MACHINE_MODE + start)
+      return;
+    to = n - start;
+    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+      if (! TEST_HARD_REG_BIT (*used, i)
+	  && REG_CANNOT_CHANGE_MODE_P (i, from, to))
+	SET_HARD_REG_BIT (*used, i);
+  );
 }
 
 /* Return 1 if REGNO has had an invalid mode change in CLASS from FROM
@@ -2655,11 +2662,16 @@ invalid_mode_change_p (regno, class, from_mode)
      enum machine_mode from_mode;
 {
   enum machine_mode to_mode;
+  int n;
+  int start = regno * MAX_MACHINE_MODE;
 
-  for (to_mode = 0; to_mode < NUM_MACHINE_MODES; ++to_mode)
-    if (REGNO_REG_SET_P (&subregs_of_mode[(int) to_mode], regno)
-	&& CANNOT_CHANGE_MODE_CLASS (from_mode, to_mode, class))
+  EXECUTE_IF_SET_IN_BITMAP (&subregs_of_mode, start, n,
+    if (n >= MAX_MACHINE_MODE + start)
+      return 0;
+    to_mode = n - start;
+    if (CANNOT_CHANGE_MODE_CLASS (from_mode, to_mode, class))
       return 1;
+  );
   return 0;
 }
 #endif /* CANNOT_CHANGE_MODE_CLASS */

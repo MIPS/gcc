@@ -1,3 +1,358 @@
+2003-03-01  Jason Thorpe  <thorpej@wasabisystems.com>
+
+	* posix-threads.cc: Include <unistd.h> if HAVE_UNISTD_H is defined.
+	(_Jv_ThreadSetPriority): Test for _POSIX_THREAD_PRIORITY_SCHEDULING.
+
+2003-03-01  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/io/File.java (normalizePath): Remove trailing separator
+	on Windows only if path is not of the form "x:\".
+
+	* java/io/natFileWin32.cc (WIN32_EPOCH_MILLIS): New constant.
+	(java::io::File::attr): Change formatting a bit and use
+	WIN32_EPOCH_MILLIS instead of magic numbers.
+	(java::io::File::isAbsolute): Path must have at least 3 
+	characters for a UNC network path.
+	(java::io::File::init_native): Define.
+	(java::io::File::performCreate): Likewise.
+	(java::io::File::performSetReadOnly): Likewise.
+	(java::io::File::performSetLastModified): Likewise.
+	(java::io::File::performListRoots): Likewise.
+
+2003-03-01  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natObject.cc: Don't include assert.h.
+	(heavy_lock_obj_finalization_proc): Use JvAssert.
+	(remove_all_heavy): Likewise.
+	(_Jv_MonitorEnter): Likewise.
+	(_Jv_MonitorExit): Likewise.
+	(wait): Likewise.
+
+2003-03-01  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* java/io/File (getAbsolutePath): Prefix drive specifier on
+	Windows for paths starting with a '\'.
+	(toURL): Make URL more consistent with what Sun's JDK returns.
+
+	* java/io/natFileWin32.cc (java::io::File::isAbsolute): Return
+	true only if the path is a UNC network path or it starts with a
+	drive specifier.
+
+	* java/net/URLStreamHandler.java (parseURL): Correct minor typo.
+	Be prepared to handle either '/' or '\\' in the file path for
+	Windows if using the "file" protocol.
+	Canonicalise the file path if using a relative path in the given
+	context and the "file" protocol.
+
+2003-03-01  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* java/lang/natWin32Process.cc (startProcess): Double-quote each
+	program array element passed to CreateProcess.
+
+2003-03-01  Tom Tromey  <tromey@redhat.com>
+
+	* java/rmi/registry/RegistryHandler.java: Deprecate.
+
+2003-03-01  Tom Tromey  <tromey@redhat.com>
+
+	* javax/accessibility/AccessibleEditableText.java,
+	javax/accessibility/AccessibleHyperlink.java: New versions from
+	Classpath.
+
+	* gnu/java/locale/LocaleInformation_af_ZA.java,
+	gnu/java/locale/LocaleInformation_ar_AE.java,
+	gnu/java/locale/LocaleInformation_ar_BH.java,
+	gnu/java/locale/LocaleInformation_ar_DZ.java,
+	gnu/java/locale/LocaleInformation_ar_EG.java,
+	gnu/java/locale/LocaleInformation_ar_IN.java,
+	gnu/java/locale/LocaleInformation_ar_IQ.java,
+	gnu/java/locale/LocaleInformation_ar_JO.java,
+	gnu/java/locale/LocaleInformation_ar_KW.java,
+	gnu/java/locale/LocaleInformation_ar_LB.java,
+	gnu/java/locale/LocaleInformation_ar_LY.java,
+	gnu/java/locale/LocaleInformation_ar_MA.java,
+	gnu/java/locale/LocaleInformation_ar_OM.java,
+	gnu/java/locale/LocaleInformation_ar_QA.java,
+	gnu/java/locale/LocaleInformation_ar_SD.java,
+	gnu/java/locale/LocaleInformation_ar_SY.java,
+	gnu/java/locale/LocaleInformation_ar_TN.java,
+	gnu/java/locale/LocaleInformation_ar_YE.java,
+	gnu/java/locale/LocaleInformation_be_BY.java,
+	gnu/java/locale/LocaleInformation_bn_IN.java,
+	gnu/java/locale/LocaleInformation_br_FR.java,
+	gnu/java/locale/LocaleInformation_bs_BA.java,
+	gnu/java/locale/LocaleInformation_ca_ES.java,
+	gnu/java/locale/LocaleInformation_cs_CZ.java,
+	gnu/java/locale/LocaleInformation_cy_GB.java,
+	gnu/java/locale/LocaleInformation_da_DK.java,
+	gnu/java/locale/LocaleInformation_de_AT.java,
+	gnu/java/locale/LocaleInformation_de_BE.java,
+	gnu/java/locale/LocaleInformation_de_CH.java,
+	gnu/java/locale/LocaleInformation_de_DE.java,
+	gnu/java/locale/LocaleInformation_de_LU.java,
+	gnu/java/locale/LocaleInformation_el_GR.java,
+	gnu/java/locale/LocaleInformation_en_AU.java,
+	gnu/java/locale/LocaleInformation_en_BW.java,
+	gnu/java/locale/LocaleInformation_en_CA.java,
+	gnu/java/locale/LocaleInformation_en_DK.java,
+	gnu/java/locale/LocaleInformation_en_GB.java,
+	gnu/java/locale/LocaleInformation_en_HK.java,
+	gnu/java/locale/LocaleInformation_en_IE.java,
+	gnu/java/locale/LocaleInformation_en_IN.java,
+	gnu/java/locale/LocaleInformation_en_NZ.java,
+	gnu/java/locale/LocaleInformation_en_PH.java,
+	gnu/java/locale/LocaleInformation_en_SG.java,
+	gnu/java/locale/LocaleInformation_en_US.java,
+	gnu/java/locale/LocaleInformation_en_ZA.java,
+	gnu/java/locale/LocaleInformation_en_ZW.java,
+	gnu/java/locale/LocaleInformation_es_AR.java,
+	gnu/java/locale/LocaleInformation_es_BO.java,
+	gnu/java/locale/LocaleInformation_es_CL.java,
+	gnu/java/locale/LocaleInformation_es_CO.java,
+	gnu/java/locale/LocaleInformation_es_CR.java,
+	gnu/java/locale/LocaleInformation_es_DO.java,
+	gnu/java/locale/LocaleInformation_es_EC.java,
+	gnu/java/locale/LocaleInformation_es_ES.java,
+	gnu/java/locale/LocaleInformation_es_GT.java,
+	gnu/java/locale/LocaleInformation_es_HN.java,
+	gnu/java/locale/LocaleInformation_es_MX.java,
+	gnu/java/locale/LocaleInformation_es_NI.java,
+	gnu/java/locale/LocaleInformation_es_PA.java,
+	gnu/java/locale/LocaleInformation_es_PE.java,
+	gnu/java/locale/LocaleInformation_es_PR.java,
+	gnu/java/locale/LocaleInformation_es_PY.java,
+	gnu/java/locale/LocaleInformation_es_SV.java,
+	gnu/java/locale/LocaleInformation_es_US.java,
+	gnu/java/locale/LocaleInformation_es_UY.java,
+	gnu/java/locale/LocaleInformation_es_VE.java,
+	gnu/java/locale/LocaleInformation_et_EE.java,
+	gnu/java/locale/LocaleInformation_eu_ES.java,
+	gnu/java/locale/LocaleInformation_fa_IR.java,
+	gnu/java/locale/LocaleInformation_fi_FI.java,
+	gnu/java/locale/LocaleInformation_fo_FO.java,
+	gnu/java/locale/LocaleInformation_fr_BE.java,
+	gnu/java/locale/LocaleInformation_fr_CA.java,
+	gnu/java/locale/LocaleInformation_fr_CH.java,
+	gnu/java/locale/LocaleInformation_fr_FR.java,
+	gnu/java/locale/LocaleInformation_fr_LU.java,
+	gnu/java/locale/LocaleInformation_ga_IE.java,
+	gnu/java/locale/LocaleInformation_gd_GB.java,
+	gnu/java/locale/LocaleInformation_gl_ES.java,
+	gnu/java/locale/LocaleInformation_gv_GB.java,
+	gnu/java/locale/LocaleInformation_he_IL.java,
+	gnu/java/locale/LocaleInformation_hi_IN.java,
+	gnu/java/locale/LocaleInformation_hr_HR.java,
+	gnu/java/locale/LocaleInformation_hu_HU.java,
+	gnu/java/locale/LocaleInformation_id_ID.java,
+	gnu/java/locale/LocaleInformation_it_CH.java,
+	gnu/java/locale/LocaleInformation_it_IT.java,
+	gnu/java/locale/LocaleInformation_iw_IL.java,
+	gnu/java/locale/LocaleInformation_ja_JP.java,
+	gnu/java/locale/LocaleInformation_ka_GE.java,
+	gnu/java/locale/LocaleInformation_kl_GL.java,
+	gnu/java/locale/LocaleInformation_ko_KR.java,
+	gnu/java/locale/LocaleInformation_kw_GB.java,
+	gnu/java/locale/LocaleInformation_lt_LT.java,
+	gnu/java/locale/LocaleInformation_lv_LV.java,
+	gnu/java/locale/LocaleInformation_mi_NZ.java,
+	gnu/java/locale/LocaleInformation_mk_MK.java,
+	gnu/java/locale/LocaleInformation_mr_IN.java,
+	gnu/java/locale/LocaleInformation_mt_MT.java,
+	gnu/java/locale/LocaleInformation_nl_BE.java,
+	gnu/java/locale/LocaleInformation_nl_NL.java,
+	gnu/java/locale/LocaleInformation_nn_NO.java,
+	gnu/java/locale/LocaleInformation_no_NO.java,
+	gnu/java/locale/LocaleInformation_oc_FR.java,
+	gnu/java/locale/LocaleInformation_pl_PL.java,
+	gnu/java/locale/LocaleInformation_pt_BR.java,
+	gnu/java/locale/LocaleInformation_pt_PT.java,
+	gnu/java/locale/LocaleInformation_ro_RO.java,
+	gnu/java/locale/LocaleInformation_ru_RU.java,
+	gnu/java/locale/LocaleInformation_ru_UA.java,
+	gnu/java/locale/LocaleInformation_se_NO.java,
+	gnu/java/locale/LocaleInformation_sk_SK.java,
+	gnu/java/locale/LocaleInformation_sl_SI.java,
+	gnu/java/locale/LocaleInformation_sq_AL.java,
+	gnu/java/locale/LocaleInformation_sr_YU.java,
+	gnu/java/locale/LocaleInformation_sv_FI.java,
+	gnu/java/locale/LocaleInformation_sv_SE.java,
+	gnu/java/locale/LocaleInformation_ta_IN.java,
+	gnu/java/locale/LocaleInformation_te_IN.java,
+	gnu/java/locale/LocaleInformation_tg_TJ.java,
+	gnu/java/locale/LocaleInformation_tl_PH.java,
+	gnu/java/locale/LocaleInformation_tr_TR.java,
+	gnu/java/locale/LocaleInformation_uk_UA.java,
+	gnu/java/locale/LocaleInformation_ur_PK.java,
+	gnu/java/locale/LocaleInformation_uz_UZ.java,
+	gnu/java/locale/LocaleInformation_vi_VN.java,
+	gnu/java/locale/LocaleInformation_yi_US.java,
+	gnu/java/locale/LocaleInformation_zh_CN.java,
+	gnu/java/locale/LocaleInformation_zh_HK.java,
+	gnu/java/locale/LocaleInformation_zh_SG.java,
+	gnu/java/locale/LocaleInformation_zh_TW.java: Updated copyright
+	info; from Classpath.
+
+	* gnu/awt/xlib/XPanelPeer.java (beginLayout, endLayout,
+	isPaintPending): New methods.
+	* gnu/awt/xlib/XFramePeer.java (getState, setState,
+	setMaximizedBounds): New methods.
+	(beginLayout, endLayout, isPaintPending): Likewise.
+	* gnu/awt/xlib/XCanvasPeer.java (isFocusable): New method.
+	(requestFocus): Likewise.
+	(isObscured): Likewise.
+	(canDetermineObscurity): Likewise.
+	(coalescePaintEvent): Likewise.
+	(updateCursorImmediately): Likewise.
+	(createVolatileImage): Likewise.
+	(handlesWheelScrolling): Likewise.
+	(createBuffers): Likewise.
+	(getBackBuffer): Likewise.
+	(flip): Likewise.
+	(destroyBuffers): Likewise.
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (awt_java_source_files): Added DropTargetPeer.java,
+	RobotPeer.java.
+	* gnu/java/awt/GLightweightPeer.java,
+	gnu/java/awt/peer/gtk/GtkChoicePeer.java,
+	gnu/java/awt/peer/gtk/GtkComponentPeer.java,
+	gnu/java/awt/peer/gtk/GtkContainerPeer.java,
+	gnu/java/awt/peer/gtk/GtkFramePeer.java,
+	gnu/java/awt/peer/gtk/GtkPopupMenuPeer.java,
+	gnu/java/awt/peer/gtk/GtkTextComponentPeer.java,
+	java/awt/dnd/peer/DragSourceContextPeer.java,
+	java/awt/dnd/peer/DropTargetContextPeer.java,
+	java/awt/peer/ButtonPeer.java,
+	java/awt/peer/CheckboxMenuItemPeer.java,
+	java/awt/peer/CheckboxPeer.java, java/awt/peer/ChoicePeer.java,
+	java/awt/peer/ComponentPeer.java,
+	java/awt/peer/ContainerPeer.java, java/awt/peer/DialogPeer.java,
+	java/awt/peer/FileDialogPeer.java, java/awt/peer/FramePeer.java,
+	java/awt/peer/LabelPeer.java, java/awt/peer/ListPeer.java,
+	java/awt/peer/MenuBarPeer.java,
+	java/awt/peer/MenuComponentPeer.java,
+	java/awt/peer/MenuItemPeer.java, java/awt/peer/MenuPeer.java,
+	java/awt/peer/PopupMenuPeer.java,
+	java/awt/peer/ScrollPanePeer.java,
+	java/awt/peer/ScrollbarPeer.java, java/awt/peer/TextAreaPeer.java,
+	java/awt/peer/TextComponentPeer.java,
+	java/awt/peer/TextFieldPeer.java, java/awt/peer/WindowPeer.java:
+	New versions from Classpath.
+	* java/awt/dnd/peer/DropTargetPeer.java: New file from Classpath.
+	* java/awt/peer/RobotPeer.java: Likewise.
+
+2003-03-01  Mark Wielaard  <mark@klomp.org>
+
+	* java/io/ObjectInputStream.java: Reindent.
+	* java/io/ObjectOutputStream.java: Likewise.
+
+2003-02-28  Hans Boehm  <Hans.Boehm@hp.com>
+
+	* java/lang/reflect/natMethod.cc (_Jv_CallAnyMethodA): Allocate a full
+	jvalue for each argument. Simplify.
+	* testsuite/libjava.jni/calls.c (docall),
+	testsuite/libjava.jni/calls.java (longpb_f): check for argument
+	misalignment.
+
+2003-02-28  Mark Wielaard  <mark@klomp.org>
+
+	* Makefile.am (nat_source_files): Remove
+	java/io/natObjectOutputStream.cc.
+	* Makefile.in: Regenerated.
+	* mauve-libgcj: Don't exclude java.io.ObjectInputOutput tests.
+	* java/io/ObjectStreamField.java (typename): New field.
+	(ObjectStreamField(String, Class)): Initialize new field.
+	(ObjectStreamField(String, String)): New Constructor.
+	(getTypeCode): Use new field.
+	(getTypeString): Use new field.
+	* java/io/ObjectOutputStream.java (writeObject): Rethrow fatal
+	ObjectStreamExceptions. Remember and reset old BlockDataMode.
+	Handle reading of Proxy classes. Never drain(), just write
+	TC_ENDBLOCKDATA. Rethrow ObjectStreamExceptions.
+	(drain): Check writeDataAsBlocks before calling writeBlockDataHeader.
+	(flush): Call flush(), not just drain().
+	(writeBoolean): Always use blockDataOutput.
+	(writeByte): Likewise.
+	(writeShort): Likewise.
+	(writeChar): Likewise.
+	(writeInt): Likewise.
+	(writeLong): Likewise.
+	(writeFloat): Likewise.
+	(writeDouble): Likewise.
+	(writeBytes): Likewise.
+	(putfield (put(String,Object))): Throw IllegalArgumentException if
+	field cannot be found.
+	(putfield (write(ObjectOutput))): Remember old BlockDataMode.
+	(writeArraySizeAndElements): Write byte[] in one go.
+	(writeFields): Write TC_ENDBLOCKDATA when call_write_method, otherwise
+	set BlockDataMode to false.
+	(annotateProxyClass): New method.
+	(defaultProtocolVersion): Now defaults to PROTOCOL_VERSION_2
+	(getField): No longer native.
+	(getMethod): Likewise.
+	(setBlockDataMode): Always drain() on switch, return old mode.
+	(static): New static code block.
+	* java/io/natObjectOutputStream.cc: Removed.
+	* java/io/ObjectInputStream.java (getField): No longer native.
+	(getMethod): Likewise.
+	(readObject): Remember and reset old BlockDataMode. Track whether
+	object is consumed. Handle TC_ENDBLOCKDATA, TC_PROXYCLASSDESC and
+	TC_LONGSTRING.
+	(defaultReadObject): Set BlockDataMode to false during readFields.
+	(resolveClass): Create new SecurityManager if necessary.
+	Use Class.forName() if null ClassLoader found.
+	(read(byte[],int,int): Copy remaining bytes to data before calling
+	readNextBlock().
+	(readFields): Set and reset BlockDataMode on call_read_method.
+	Catch NoSuchFieldErrors.
+	(setBlockDataMode): Return old mode.
+	(static): New static code block.
+	* java/io/natObjectInputStream.cc (getField): Removed.
+	(getMethod): Likewise.
+
+2003-02-27  Michael Koch  <konqueror@gmx.de>
+
+	* java/beans/Beans.java,
+	java/beans/FeatureDescriptor.java
+	java/beans/PropertyEditorManager.java:
+	Reformated to GNU style.
+
+2003-02-25  Michael Koch  <konqueror@gmx.de>
+
+	* gnu/java/nio/MappedByteFileBuffer.java,
+	gnu/java/nio/natMappedByteFileBuffer.cc:
+	New files, both are not compiled yet to get not noncompiling CVS.
+
+2003-02-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/util/prefs/AbstractPreferences.java (isUserNode):
+	Implemented.
+
+2003-02-24  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/ClassLoader.java (defineClass(byte[],int,int)):
+	Deprecate.
+	* java/lang/Thread.java (resume): Deprecate.
+	* java/io/ByteArrayOutputStream.java (toString(int)): Fixed typo
+	in @deprecated.
+
+2003-02-23  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (JC1FLAGS): Added -Wno-deprecated.
+
+2003-02-23  Tom Tromey  <tromey@redhat.com>
+
+	* java/lang/natRuntime.cc (libraries_size, libraries_count,
+	libraries): Removed.
+	(add_library): Removed.
+	(_load): Don't call add_library.
+	(loadLibraryInternal): Likewise.
+	(init): Likewise.
+	(lookup_data): New struct.
+	(find_symbol): New function.
+	(_Jv_FindSymbolInExecutable): Use it.
+
 2002-02-21  Anthony Green  <green@redhat.com>
 
 	* java/lang/Thread.java (Thread): New constructor taking stack

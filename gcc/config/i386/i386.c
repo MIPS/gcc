@@ -689,18 +689,6 @@ struct stack_local_entry GTY(())
   struct stack_local_entry *next;
 };
 
-
-struct machine_function GTY(())
-{
-  struct stack_local_entry *stack_locals;
-  const char *some_ld_name;
-  int save_varrargs_registers;
-  int accesses_prev_frame;
-};
-
-#define ix86_stack_locals (cfun->machine->stack_locals)
-#define ix86_save_varrargs_registers (cfun->machine->save_varrargs_registers)
-
 /* Structure describing stack frame layout.
    Stack grows downward:
 
@@ -1027,6 +1015,12 @@ static void init_ext_80387_constants PARAMS ((void));
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* The svr4 ABI for the i386 says that records and unions are returned
+   in memory.  */
+#ifndef DEFAULT_PCC_STRUCT_RETURN
+#define DEFAULT_PCC_STRUCT_RETURN 1
+#endif
+
 /* Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
    `OVERRIDE_OPTIONS' to take account of this.  This macro, if
@@ -2480,6 +2474,9 @@ function_arg (cum, mode, type, named)
 	break;
 
       case BLKmode:
+	if (bytes < 0)
+	  break;
+	/* FALLTHRU */
       case DImode:
       case SImode:
       case HImode:

@@ -1,3 +1,90 @@
+2003-03-01  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* decl.c (duplicate_decls): Convert use of warning_with_decl() to
+	that of warning().
+	(start_decl): Likewise.
+	(start_function): Likewise.
+
+2003-03-01  Neil Booth  <neil@daikokuya.co.uk>
+
+	* Make-lang.in (CXX_C_OBJS): Update.
+
+2003-02-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9892
+	* pt.c (instantiate_decl): Clear DECL_RTL for a VAR_DECL when
+	instantiating it.
+
+2003-02-28  Aldy Hernandez  <aldyh@redhat.com>
+
+        * parser.c (cp_parser_init_declarator): Revert opaque
+        vector_opaque_p change.
+        Do not include target.h.
+
+2003-02-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9879
+	* cp-tree.h (build_zero_init): Add parameter.
+	* decl.c (cp_finish_decl): Adjust call.
+	* init.c (build_zero_init): Add nelts parameter.  Adjust recursive
+	calls.
+	(build_default_init): Add nelts parameter.  Adjust calls to
+	build_zero_init.
+	(build_new_1): Adjust call to build_default_init.
+	* typeck2.c (process_init_constructor): Adjust call to build_zero_init.
+	
+2003-02-26  Devang Patel  <dpatel@apple.com>
+
+	* decl.c (finish_enum): Merge two 'for' loops. Copy value node if required.
+	Postpone enum setting for template decls.
+	(build_enumerator): Delay copying value node until finish_enum (). Remove
+	#if 0'ed code.
+	* pt.c (tsubst_enum): Set TREE_TYPE and copy value node.
+	(tsubst_copy): Add check for enum type.
+	
+2003-02-25  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9683
+	* decl2.c (prune_vars_needing_no_initialization): Do not throw
+	away initializations for DECL_EXTERNAL VAR_DECLs.
+	(finish_file): Adjust accordingly.
+	* pt.c (instantiate_decl): Do not defer VAR_DECLs.
+
+2003-02-24 Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+      * decl.c (add_binding): Time TV_NAME_LOOKUP.
+      (push_class_binding): Likewise.
+      (set_namespace_binding): Likewise.
+
+2003-02-24  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/9836
+	* cp-tree.h (CLASSTYPE_PRIMARY_TEMPLATE): Do not skip from
+	specializations back to the main template.
+	* parser.c (cp_parser_diagnose_invalid_type_name):Adjust use.
+	* pt.c (resolve_typename_type): Likewise.
+
+2003-02-24  Jeffrey D. Oldham  <oldham@codesourcery.com>
+
+	PR c++/9778
+	* pt.c (tsubst_copy_and_build): For a templated function inside a
+	scope, process template arguments.
+
+2003-02-24  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/9602
+	* typeck2.c (abstract_virtuals_error): Don't check when
+	TYPE is still template parameter dependent.
+
+2003-02-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/5333
+	* cp-tree.h (CLASSTYPE_PRIMARY_TEMPLATE): New macro.
+	* parser.c (cp_parser_diagnose_invalid_type_name): Use it.
+	* pt.c (instantiate_class_template): Don't try to instantiate
+	dependent types.
+	(resolve_typename_type): Use CLASSTYPE_PRIMARY_TEMPLATE.
+	
 2003-02-21  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/9749

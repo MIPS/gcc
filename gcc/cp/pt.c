@@ -5153,7 +5153,9 @@ instantiate_class_template (type)
   if (type == error_mark_node)
     return error_mark_node;
 
-  if (TYPE_BEING_DEFINED (type) || COMPLETE_TYPE_P (type))
+  if (TYPE_BEING_DEFINED (type) 
+      || COMPLETE_TYPE_P (type)
+      || dependent_type_p (type))
     return type;
 
   /* Figure out which template is being instantiated.  */
@@ -7143,6 +7145,10 @@ tsubst_copy (t, args, complain, in_decl)
 	  = tsubst_aggr_type (TREE_TYPE (t), args, complain, in_decl, 
 			      /*entering_scope=*/0);
 
+	/* Not yet available.  */
+	if (!enum_type || enum_type == (TREE_TYPE (t)))
+	  return t;
+
 	for (v = TYPE_VALUES (enum_type); 
 	     v != NULL_TREE; 
 	     v = TREE_CHAIN (v))
@@ -8137,7 +8143,7 @@ tsubst_copy_and_build (t, args, complain, in_decl)
 	    if (TREE_CODE (name) == TEMPLATE_ID_EXPR)
 	      name = build_nt (TEMPLATE_ID_EXPR,
 			       TREE_OPERAND (name, 0),
-			       TREE_OPERAND (name, 1));
+			       build_expr_from_tree (TREE_OPERAND (name, 1)));
 	    
 	    function = resolve_scoped_fn_name (TREE_OPERAND (function, 0),
 					       name);
@@ -10647,6 +10653,14 @@ instantiate_decl (d, defer_ok)
   my_friendly_assert (TREE_CODE (d) == FUNCTION_DECL
 		      || TREE_CODE (d) == VAR_DECL, 0);
 
+  /* Variables are never deferred; if instantiation is required, they
+     are instantiated right away.  That allows for better code in the
+     case that an expression refers to the value of the variable --
+     if the variable has a constant value the referring expression can
+     take advantage of that fact.  */
+  if (TREE_CODE (d) == VAR_DECL)
+    defer_ok = 0;
+
   /* Don't instantiate cloned functions.  Instead, instantiate the
      functions they cloned.  */
   if (TREE_CODE (d) == FUNCTION_DECL && DECL_CLONED_FUNCTION_P (d))
@@ -10813,7 +10827,7 @@ instantiate_decl (d, defer_ok)
   /* Regenerate the declaration in case the template has been modified
      by a subsequent redeclaration.  */
   regenerate_decl_from_template (d, td);
-
+  
   /* We already set the file and line above.  Reset them now in case
      they changed as a result of calling regenerate_decl_from_template.  */
   lineno = TREE_LINENO (d);
@@ -10821,6 +10835,10 @@ instantiate_decl (d, defer_ok)
 
   if (TREE_CODE (d) == VAR_DECL)
     {
+      /* Clear out DECL_RTL; whatever was there before may not be right
+	 since we've reset the type of the declaration.  */
+      SET_DECL_RTL (d, NULL_RTX);
+
       DECL_IN_AGGR_P (d) = 0;
       if (DECL_INTERFACE_KNOWN (d))
 	DECL_EXTERNAL (d) = ! DECL_NOT_REALLY_EXTERN (d);
@@ -11057,7 +11075,12 @@ tsubst_enum (tag, newtag, args)
   for (e = TYPE_VALUES (tag); e; e = TREE_CHAIN (e))
     {
       tree value;
-      
+
+      /* Copy node and set type */
+      if (DECL_INITIAL (TREE_VALUE (e)))
+	DECL_INITIAL (TREE_VALUE (e)) = copy_node (DECL_INITIAL (TREE_VALUE (e)));
+      TREE_TYPE (TREE_VALUE (e)) = tag;
+	  
       /* Note that in a template enum, the TREE_VALUE is the
 	 CONST_DECL, not the corresponding INTEGER_CST.  */
       value = tsubst_expr (DECL_INITIAL (TREE_VALUE (e)), 
@@ -11528,6 +11551,9 @@ resolve_typename_type (tree type, bool only_current_p)
      to look inside it.  */
   if (only_current_p && !currently_open_class (scope))
     return error_mark_node;
+  /* If SCOPE is a partial instantiation, it will not have a valid
+     TYPE_FIELDS list, so use the original template.  */
+  scope = CLASSTYPE_PRIMARY_TEMPLATE_TYPE (scope);
   /* Enter the SCOPE so that name lookup will be resolved as if we
      were in the class definition.  In particular, SCOPE will no
      longer be considered a dependent type.  */

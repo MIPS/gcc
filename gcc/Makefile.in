@@ -774,6 +774,7 @@ CXX_TARGET_OBJS=@cxx_target_objs@
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = attribs.o c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
   c-convert.o c-aux-info.o c-common.o c-opts.o c-format.o c-semantics.o \
+  c-incpath.o cppdefault.o \
   c-objc-common.o c-dump.o c-pch.o libcpp.a $(C_TARGET_OBJS) \
   c-simplify.o c-call-graph.o tree-mudflap.o c-mudflap.o c-pretty-print.o
 
@@ -788,7 +789,7 @@ OBJS = tree-cfg.o tree-dfa.o tree-ssa.o tree-optimize.o tree-simple.o      \
  tree-ssa-pre.o tree-ssa-copyprop.o                                        \
  alias.o bb-reorder.o bitmap.o builtins.o caller-save.o calls.o	           \
  cfg.o cfganal.o cfgbuild.o cfgcleanup.o cfglayout.o cfgloop.o		   \
- cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o		   \
+ cfgloopanal.o cfgloopmanip.o loop-init.o loop-unswitch.o loop-unroll.o	   \
  cfgrtl.o combine.o conflict.o convert.o cse.o cselib.o dbxout.o	   \
  debug.o dependence.o df.o diagnostic.o doloop.o dominance.o		   \
  dwarf2asm.o dwarf2out.o dwarfout.o emit-rtl.o except.o explow.o	   \
@@ -1238,6 +1239,9 @@ $(parsedir)/c-parse.y: c-parse.in
 	  $(srcdir)/c-parse.in >>tmp-c-parse.y
 	$(SHELL) $(srcdir)/move-if-change tmp-c-parse.y $(parsedir)/c-parse.y
 
+c-incpath.o: c-incpath.c c-incpath.h $(CONFIG_H) $(SYSTEM_H) $(CPPLIB_H) \
+		intl.h prefix.h coretypes.h $(TM_H) cppdefault.h
+
 c-decl.o : c-decl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
     $(C_TREE_H) $(GGC_H) $(TARGET_H) flags.h function.h output.h $(EXPR_H) \
     debug.h toplev.h intl.h $(TM_P_H) tree-inline.h $(TIMEVAR_H) c-pragma.h \
@@ -1246,8 +1250,8 @@ c-typeck.o : c-typeck.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(
     $(TARGET_H) flags.h intl.h output.h $(EXPR_H) $(RTL_H) toplev.h $(TM_P_H)
 c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(C_TREE_H) \
     $(GGC_H) langhooks.h $(LANGHOOKS_DEF_H) c-common.h gtype-c.h
-c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_H) \
-    debug.h $(C_TREE_H) c-common.h real.h \
+c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
+    $(RTL_H) debug.h $(C_TREE_H) c-common.h real.h c-incpath.h cppdefault.h \
     c-pragma.h input.h intl.h flags.h toplev.h output.h \
     mbchar.h $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
 c-objc-common.o : c-objc-common.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
@@ -1611,7 +1615,7 @@ integrate.o : integrate.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $
    $(PARAMS_H) $(TM_P_H) $(TARGET_H) langhooks.h gt-integrate.h
 jump.o : jump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
    hard-reg-set.h $(REGS_H) insn-config.h $(RECOG_H) $(EXPR_H) real.h except.h function.h \
-   toplev.h $(INSN_ATTR_H) $(TM_P_H) reload.h $(PREDICT_H)
+   toplev.h $(INSN_ATTR_H) $(TM_P_H) reload.h $(PREDICT_H) $(TIMEVAR_H)
 
 simplify-rtx.o : simplify-rtx.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REGS_H) hard-reg-set.h flags.h real.h insn-config.h $(RECOG_H) $(EXPR_H) toplev.h \
@@ -1637,11 +1641,10 @@ resource.o : resource.c $(CONFIG_H) $(RTL_H) hard-reg-set.h $(SYSTEM_H) coretype
    $(INSN_ATTR_H) except.h $(PARAMS_H) $(TM_P_H)
 lcm.o : lcm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
    hard-reg-set.h flags.h real.h insn-config.h $(INSN_ATTR_H) $(RECOG_H) $(EXPR_H) \
-   $(BASIC_BLOCK_H) $(TM_P_H) df.h
-ssa.o : ssa.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) \
-   $(TREE_H) tree-flow.h  varray.h $(EXPR_H) hard-reg-set.h flags.h \
-   function.h real.h insn-config.h $(RECOG_H) $(BASIC_BLOCK_H) output.h \
-   ssa.h $(TIMEVAR_H)
+   $(BASIC_BLOCK_H) $(TM_P_H) df.h function.h
+ssa.o : ssa.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(REGS_H) varray.h \
+   $(EXPR_H) hard-reg-set.h flags.h function.h real.h insn-config.h $(RECOG_H) \
+   $(BASIC_BLOCK_H) output.h ssa.h tree-flow.h  $(TIMEVAR_H)
 ssa-dce.o : ssa-dce.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) hard-reg-set.h \
    $(BASIC_BLOCK_H) ssa.h insn-config.h $(RECOG_H) output.h
 tree-ssa-dce.o : tree-ssa-dce.c $(CONFIG_H) system.h errors.h $(TREE_H) \
@@ -1707,6 +1710,9 @@ loop-init.o : loop-init.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) gcov-io.h \
 loop-unswitch.o : loop-unswitch.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
    $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
    output.h $(EXPR_H) coretypes.h $(TM_H)
+loop-unroll.o: loop-unroll.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TM_H) \
+   $(BASIC_BLOCK_H) hard-reg-set.h cfgloop.h cfglayout.h params.h \
+   output.h $(EXPR_H) coretypes.h $(TM_H)
 dominance.o : dominance.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(BASIC_BLOCK_H) et-forest.h
 et-forest.o : et-forest.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) et-forest.h alloc-pool.h
@@ -1715,7 +1721,7 @@ combine.o : combine.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags
    $(BASIC_BLOCK_H) $(RECOG_H) real.h hard-reg-set.h toplev.h $(TM_P_H)
 regclass.o : regclass.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h flags.h $(BASIC_BLOCK_H) $(REGS_H) insn-config.h $(RECOG_H) reload.h \
-   real.h toplev.h function.h output.h $(GGC_H) $(TM_P_H) $(EXPR_H)
+   real.h toplev.h function.h output.h $(GGC_H) $(TM_P_H) $(EXPR_H) $(TIMEVAR_H)
 local-alloc.o : local-alloc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    flags.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h insn-config.h $(RECOG_H) \
    output.h function.h $(INSN_ATTR_H) toplev.h  except.h $(TM_P_H)
@@ -1756,7 +1762,7 @@ reorg.o : reorg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) condition
 alias.o : alias.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) flags.h \
    hard-reg-set.h $(BASIC_BLOCK_H) $(REGS_H) toplev.h output.h $(EXPR_H) \
    $(GGC_H) function.h cselib.h $(TREE_H) $(TM_P_H) langhooks.h $(TARGET_H) \
-   gt-alias.h
+   gt-alias.h $(TIMEVAR_H)
 regmove.o : regmove.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) insn-config.h \
    $(RECOG_H) output.h $(REGS_H) hard-reg-set.h flags.h function.h \
    $(EXPR_H) $(BASIC_BLOCK_H) toplev.h $(TM_P_H) except.h reload.h
@@ -2372,7 +2378,7 @@ PREPROCESSOR_DEFINES = \
   @TARGET_SYSTEM_ROOT_DEFINE@
 
 LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o cpptrad.o \
-		cpphash.o cpperror.o cppinit.o cppdefault.o cppmain.o \
+		cpphash.o cpperror.o cppinit.o cppmain.o \
 		hashtable.o line-map.o mkdeps.o prefix.o mbchar.o cpppch.o
 
 LIBCPP_DEPS =	$(CPPLIB_H) cpphash.h line-map.h hashtable.h intl.h \
@@ -2395,11 +2401,11 @@ cpplib.o:   cpplib.c   $(LIBCPP_DEPS)
 cpphash.o:  cpphash.c  $(LIBCPP_DEPS)
 cpptrad.o:  cpptrad.c  $(LIBCPP_DEPS)
 cppfiles.o: cppfiles.c $(LIBCPP_DEPS) $(SPLAY_TREE_H) mkdeps.h
-cppinit.o:  cppinit.c  $(LIBCPP_DEPS) cppdefault.h mkdeps.h prefix.h
+cppinit.o:  cppinit.c  $(LIBCPP_DEPS) mkdeps.h prefix.h
 cpppch.o:   cpppch.c   $(LIBCPP_DEPS) mkdeps.h
 
-cppdefault.o: cppdefault.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) cppdefault.h \
-	Makefile
+cppdefault.o: cppdefault.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+	cppdefault.h Makefile
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  $(PREPROCESSOR_DEFINES) \
 	  -c $(srcdir)/cppdefault.c $(OUTPUT_OPTION)
@@ -2613,9 +2619,9 @@ xsys-protos.h: $(GCC_PASSES) $(srcdir)/sys-protos.h deduced.h gen-protos$(build_
 # This is nominally a 'build' program, but it's run only when host==build,
 # so we can (indeed, must) use $(LIBDEPS) and $(LIBS).
 fix-header$(build_exeext): fix-header.o scan-decls.o scan.o xsys-protos.h \
-           $(LIBDEPS) libcpp.a
+           c-incpath.o cppdefault.o $(LIBDEPS) libcpp.a
 	$(BUILD_CC) $(BUILD_CFLAGS) $(BUILD_LDFLAGS) -o $@ fix-header.o \
-	   scan-decls.o scan.o libcpp.a $(LIBS)
+	   c-incpath.o cppdefault.o scan-decls.o scan.o libcpp.a $(LIBS)
 
 fix-header.o: fix-header.c $(OBSTACK_H) scan.h \
 	xsys-protos.h $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(GTM_H) $(CPPLIB_H)

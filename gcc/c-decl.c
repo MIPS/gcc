@@ -6430,7 +6430,7 @@ finish_function (nested, can_defer_p)
   lineno = saved_lineno;
   input_filename = saved_filename;
 
-  if (flag_unit_at_a_time)
+  if (flag_unit_at_a_time && can_defer_p)
     {
       cgraph_finalize_function (fndecl, DECL_SAVED_TREE (fndecl));
       current_function_decl = NULL;

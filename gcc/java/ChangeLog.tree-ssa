@@ -1,3 +1,8 @@
+2003-03-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* class.c: Replace DECL_SOURCE_FILE with TREE_FILENAME and
+	DECL_SOURCE_LINE with TREE_LINENO everywhere.
+
 2003-02-03  Diego Novillo  <dnovillo@redhat.com>
 
 	* parse.y (qualify_ambiguous_name): Initialize variable 'decl'.

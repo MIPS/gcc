@@ -1,3 +1,8 @@
+2003-03-02  Diego Novillo  <dnovillo@redhat.com>
+
+	* decl.c: Replace DECL_SOURCE_LOCATION with TREE_LOCUS
+	everywhere.
+
 2003-02-28  Frank Ch. Eigler  <fche@redhat.com>
 
 	* decl2.c (finish_file): Adjust timing of mudflap_finish_file call

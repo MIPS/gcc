@@ -264,6 +264,7 @@ in the following sections.
 -p  -pg  -print-file-name=@var{library}  -print-libgcc-file-name @gol
 -print-multi-directory  -print-multi-lib @gol
 -print-prog-name=@var{program}  -print-search-dirs  -Q @gol
+-feliminate-unused-debug-types @gol
 -save-temps  -time}
 
 @item Optimization Options
@@ -299,6 +300,7 @@ in the following sections.
 -fsingle-precision-constant  -fssa -fssa-ccp -fssa-dce @gol
 -fstrength-reduce  -fstrict-aliasing  -ftracer -fthread-jumps @gol
 -funit-at-a-time -funroll-all-loops  -funroll-loops  -funswitch-loops @gol
+-funroll-all-loops  -funroll-loops -fpeel-loops -funswitch-loops @gol
 -fdisable-simple  -funroll-all-loops  -funroll-loops  @gol
 -ftree-pre  -ftree-ccp  -ftree-dce  -ftree-copyprop  -fdisable-tree-ssa @gol
 --param @var{name}=@var{value}
@@ -3483,6 +3485,18 @@ anything else.
 @opindex dumpspecs
 Print the compiler's built-in specs---and don't do anything else.  (This
 is used when GCC itself is being built.)  @xref{Spec Files}.
+
+@item -feliminate-unused-debug-types
+@opindex feliminate-unused-debug-types
+Normally, when producing DWARF2 output, GCC will emit debugging
+information for all types declared in a compilation
+unit, regardless of whether or not they are actually used
+in that compilation unit.  Sometimes this is useful, such as
+if, in the debugger, you want to cast a value to a type that is
+not actually used in your program (but is declared).  More often,
+however, this results in a significant amount of wasted space.
+With this option, GCC will avoid producing debug symbol output
+for types that are nowhere used in the source file being compiled.
 @end table
 
 @node Optimize Options
@@ -4438,17 +4452,50 @@ extra optimizations to take place but consumes more memory.
 
 @item -funroll-loops
 @opindex funroll-loops
-Unroll loops whose number of iterations can be determined at compile
-time or upon entry to the loop.  @option{-funroll-loops} implies both
-@option{-fstrength-reduce} and @option{-frerun-cse-after-loop}.  This
-option makes code larger, and may or may not make it run faster.
+Unroll loops whose number of iterations can be determined at compile time or
+upon entry to the loop.  @option{-funroll-loops} implies
+@option{-frerun-cse-after-loop}.  It also turns on complete loop peeling
+(i.e. complete removal of loops with small constant number of iterations).
+This option makes code larger, and may or may not make it run faster.
 
 @item -funroll-all-loops
 @opindex funroll-all-loops
 Unroll all loops, even if their number of iterations is uncertain when
 the loop is entered.  This usually makes programs run more slowly.
 @option{-funroll-all-loops} implies the same options as
-@option{-funroll-loops},
+@option{-funroll-loops}.
+
+@item -fpeel-loops
+@opindex fpeel-loops
+Peels the loops for that there is enough information that they do not
+roll much (from profile feedback).  It also turns on complete loop peeling
+(i.e. complete removal of loops with small constant number of iterations).
+
+@item -funswitch-loops
+@opindex funswitch-loops
+Move branches with loop invariant conditions out of the loop, with duplicates
+of the loop on both branches (modified according to result of the condition).
+
+@item -fold-unroll-loops
+@opindex fold-unroll-loops
+Unroll loops whose number of iterations can be determined at compile
+time or upon entry to the loop, using the old loop unroller whose loop
+recognition is based on notes from frontend.  @option{-fold-unroll-loops} implies
+both @option{-fstrength-reduce} and @option{-frerun-cse-after-loop}.  This
+option makes code larger, and may or may not make it run faster.
+
+@item -fold-unroll-all-loops
+@opindex fold-unroll-all-loops
+Unroll all loops, even if their number of iterations is uncertain when
+the loop is entered. This is done using the old loop unroller whose loop
+recognition is based on notes from frontend.  This usually makes programs run more slowly.
+@option{-fold-unroll-all-loops} implies the same options as
+@option{-fold-unroll-loops}.
+ 
+@item -funswitch-loops
+@opindex funswitch-loops
+Move branches with loop invariant conditions out of the loop, with duplicates
+of the loop on both branches (modified according to result of the condition).
 
 @item -funswitch-loops
 @opindex funswitch-loops
@@ -4564,6 +4611,28 @@ The maximum number of instructions that a loop should have if that loop
 is unrolled, and if the loop is unrolled, it determines how many times
 the loop code is unrolled.
 
+@item max-average-unrolled-insns
+The maximum number of instructions biased by probabilities of their execution
+that a loop should have if that loop is unrolled, and if the loop is unrolled,
+it determines how many times the loop code is unrolled.
+
+@item max-unroll-times
+The maximum number of unrollings of a single loop.
+
+@item max-peeled-insns
+The maximum number of instructions that a loop should have if that loop
+is peeled, and if the loop is peeled, it determines how many times
+the loop code is peeled.
+
+@item max-peel-times
+The maximum number of peelings of a single loop.
+
+@item max-completely-peeled-insns
+The maximum number of insns of a completely peeled loop.
+
+@item max-completely-peel-times
+The maximum number of iterations of a loop to be suitable for complete peeling.
+
 @item max-unswitch-insns
 The maximum number of insns of an unswitched loop.
 
@@ -4620,8 +4689,10 @@ Tuning this may improve compilation speed; it has no effect on code
 generation.
 
 The default is 30% + 70% * (RAM/1GB) with an upper bound of 100% when
-RAM >= 1GB.  If GCC is not able to calculate RAM on a particular
-platform, the lower bound of 30% is used.  Setting this parameter and
+RAM >= 1GB.  If @code{getrlimit} is available, the notion of "RAM" is
+the smallest of actual RAM, RLIMIT_RSS, RLIMIT_DATA and RLIMIT_AS.  If
+GCC is not able to calculate RAM on a particular platform, the lower
+bound of 30% is used.  Setting this parameter and
 @option{ggc-min-heapsize} to zero causes a full collection to occur at
 every opportunity.  This is extremely slow, but can be useful for
 debugging.
@@ -4635,7 +4706,9 @@ tuning this may improve compilation speed, and has no effect on code
 generation.
 
 The default is RAM/8, with a lower bound of 4096 (four megabytes) and an
-upper bound of 131072 (128 megabytes).  If GCC is not able to calculate
+upper bound of 131072 (128 megabytes).  If @code{getrlimit} is
+available, the notion of "RAM" is the smallest of actual RAM,
+RLIMIT_RSS, RLIMIT_DATA and RLIMIT_AS.  If GCC is not able to calculate
 RAM on a particular platform, the lower bound is used.  Setting this
 parameter very large effectively disables garbage collection.  Setting
 this parameter and @option{ggc-min-expand} to zero causes a full
@@ -11337,11 +11410,11 @@ seen in the compilation.  As it searches for the included file
 (@pxref{Search Path,,Search Path,cpp.info,The C Preprocessor}) the
 compiler looks for a precompiled header in each directory just before it
 looks for the include file in that directory.  The name searched for is
-the name specified in the @code{#include} with @samp{.pch} appended.  If
+the name specified in the @code{#include} with @samp{.gch} appended.  If
 the precompiled header file can't be used, it is ignored.
 
 For instance, if you have @code{#include "all.h"}, and you have
-@file{all.h.pch} in the same directory as @file{all.h}, then the
+@file{all.h.gch} in the same directory as @file{all.h}, then the
 precompiled header file will be used if possible, and the original
 header will be used otherwise.
 
@@ -11362,7 +11435,7 @@ they've already been included (in the precompiled header).
 
 If you need to precompile the same header file for different
 languages, targets, or compiler options, you can instead make a
-@emph{directory} named like @file{all.h.pch}, and put each precompiled
+@emph{directory} named like @file{all.h.gch}, and put each precompiled
 header in the directory.  (It doesn't matter what you call the files
 in the directory, every precompiled header in the directory will be
 considered.)  The first precompiled header encountered in the

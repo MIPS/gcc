@@ -523,6 +523,22 @@ fix = {
 
 
 /*
+ *  Obey __PRAGMA_EXTERN_PREFIX for Tru64 UNIX V5 <sys/stat.h>.
+ */
+fix = {
+    hackname  = alpha___extern_prefix;
+    files     = sys/stat.h;
+    select    = "#[ \t]*if[ \t]*defined\\(__DECC\\)";
+
+    mach      = "alpha*-dec-osf5*";
+    c_fix     = format;
+    c_fix_arg = "%0 || defined(__PRAGMA_EXTERN_PREFIX)";
+
+    test_text = "#   if defined(__DECC)";
+};
+
+
+/*
  *  Fix assert macro in assert.h on Alpha OSF/1.
  *  The superfluous int cast breaks C++.
  */
@@ -1327,6 +1343,24 @@ fix = {
 
 
 /*
+ *  IRIX 6.5.1[89] <internal/sgimacros.h> unconditionally defines
+ *  __restrict as restrict iff __c99.  This is wrong for C++, which
+ *  needs many C99 features, but only supports __restrict.
+ */
+fix = {
+    hackname  = irix___restrict;
+    files     = internal/sgimacros.h;
+    select    = "(#ifdef __c99\n)(#[ \t]*define __restrict restrict)";
+
+    mach      = "mips-sgi-irix6.5";
+    c_fix     = format;
+    c_fix_arg = "%1"
+		"#  ifndef __cplusplus\n%2\n#  endif";
+
+    test_text = "#ifdef __c99\n#  define __restrict restrict";
+};
+
+/*
  *  IRIX 5.2's <sys/asm.h> contains an asm comment with a contraction
  *  that causes the assembly preprocessor to complain about an
  *  unterminated character constant.
@@ -1355,24 +1389,6 @@ fix = {
     test_text   = "extern const char limit; /* test limits */";
 };
 
-
-/*
- *  IRIX 6.5.1[89] <internal/sgimacros.h> unconditionally defines
- *  __restrict as restrict iff __c99.  This is wrong for C++, which
- *  needs many C99 features, but only supports __restrict.
- */
-fix = {
-    hackname  = irix___restrict;
-    files     = internal/sgimacros.h;
-    select    = "(#ifdef __c99\n)(#[ \t]*define __restrict restrict)";
-
-    mach      = "mips-sgi-irix6.5";
-    c_fix     = format;
-    c_fix_arg = "%1"
-		"#  ifndef __cplusplus\n%2\n#  endif";
-
-    test_text = "#ifdef __c99\n#  define __restrict restrict";
-};
 
 /*
  *  IRIX 6.5.1[78] <sys/socket.h> has a broken definition of socklen_t.

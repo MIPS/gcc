@@ -1,3 +1,177 @@
+2003-02-27  Jerry Quinn  <jlquinn@optonline.net>
+
+        * config/locale/generic/messages_members.h (messages::messages):
+	Remove name from unused parameter.
+
+2003-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/Makefile.am (sources): Add demangle.cc.
+	(demangle.o): Add.
+	(demangle.lo): Add.	
+	* src/Makefile.in: Regenerate.
+	* libsupc++/Makefile.am: Remove old __cxa_demangle bits.
+	* libsupc++/Makefile.in: Regenerate.
+
+	* testsuite/testsuite_hooks.h
+	(__gnu_cxx_test::verify_demangle): New.
+	* testsuite/testsuite_hooks.cc: Define.
+	
+2003-02-27  Carlo Wood  <carlo@alinoe.com>
+
+	* src/demangle.cc: New.
+	* libsupc++/demangle.h: New.
+
+2003-02-27  Benjamin Kosnik  <bkoz@redhat.com>
+            Carlo Wood  <carlo@alinoe.com>
+
+	* testsuite/demangle/abi_examples/01.cc: New.
+	* testsuite/demangle/abi_examples/02.cc: New.
+	* testsuite/demangle/abi_examples/03.cc: New.
+	* testsuite/demangle/abi_examples/04.cc: New.
+	* testsuite/demangle/abi_examples/05.cc: New.
+	* testsuite/demangle/abi_examples/06.cc: New.
+	* testsuite/demangle/abi_examples/07.cc: New.
+	* testsuite/demangle/abi_examples/08.cc: New.
+	* testsuite/demangle/abi_examples/09.cc: New.
+	* testsuite/demangle/abi_examples/10.cc: New.
+	* testsuite/demangle/abi_examples/11.cc: New.
+	* testsuite/demangle/abi_examples/12.cc: New.
+	* testsuite/demangle/abi_examples/13.cc: New.
+	* testsuite/demangle/abi_examples/14.cc: New.
+	* testsuite/demangle/abi_examples/15.cc: New.
+	* testsuite/demangle/abi_examples/16.cc: New.
+	* testsuite/demangle/abi_examples/17.cc: New.
+	* testsuite/demangle/abi_examples/18.cc: New.
+	* testsuite/demangle/abi_examples/19.cc: New.
+	* testsuite/demangle/abi_examples/20.cc: New.
+	* testsuite/demangle/abi_examples/21.cc: New.
+	* testsuite/demangle/abi_examples/22.cc: New.
+	* testsuite/demangle/abi_examples/23.cc: New.
+	* testsuite/demangle/abi_examples/24.cc: New.
+	* testsuite/demangle/abi_examples/25.cc: New.
+	* testsuite/demangle/abi_examples/26.cc: New.
+	* testsuite/demangle/abi_text/01.cc: New.
+	* testsuite/demangle/abi_text/02.cc: New.
+	* testsuite/demangle/abi_text/03.cc: New.
+	* testsuite/demangle/abi_text/04.cc: New.
+	* testsuite/demangle/abi_text/05.cc: New.
+	* testsuite/demangle/abi_text/06.cc: New.
+	* testsuite/demangle/abi_text/07.cc: New.
+	* testsuite/demangle/abi_text/08.cc: New.
+	* testsuite/demangle/abi_text/09.cc: New.
+	* testsuite/demangle/abi_text/10.cc: New.
+	* testsuite/demangle/abi_text/11.cc: New.
+	* testsuite/demangle/abi_text/12.cc: New.
+	* testsuite/demangle/abi_text/13.cc: New.
+	* testsuite/demangle/abi_text/14.cc: New.
+	* testsuite/demangle/regression/3111-1.cc: New.
+	* testsuite/demangle/regression/3111-2.cc: New.
+	* testsuite/demangle/regression/7986-01.cc: New.
+	* testsuite/demangle/regression/7986-02.cc: New.
+	* testsuite/demangle/regression/7986-03.cc: New.
+	* testsuite/demangle/regression/7986-04.cc: New.
+	* testsuite/demangle/regression/7986-05.cc: New.
+	* testsuite/demangle/regression/7986-06.cc: New.
+	* testsuite/demangle/regression/7986-07.cc: New.
+	* testsuite/demangle/regression/7986-08.cc: New.
+	* testsuite/demangle/regression/7986-09.cc: New.
+	* testsuite/demangle/regression/7986-10.cc: New.
+	* testsuite/demangle/regression/7986-11.cc: New.
+	* testsuite/demangle/regression/7986-12.cc: New.
+	* testsuite/demangle/regression/7986.cc: New.
+	* testsuite/demangle/regression/8897.cc: New.
+	* testsuite/demangle/regression/cw-01.cc: New.
+	* testsuite/demangle/regression/cw-02.cc: New.
+	* testsuite/demangle/regression/cw-03.cc: New.
+	* testsuite/demangle/regression/cw-04.cc: New.
+	* testsuite/demangle/regression/cw-05.cc: New.
+	* testsuite/demangle/regression/cw-06.cc: New.
+	* testsuite/demangle/regression/cw-07.cc: New.
+	* testsuite/demangle/regression/cw-08.cc: New.
+	* testsuite/demangle/regression/cw-09.cc: New.
+	* testsuite/demangle/regression/cw-10.cc: New.
+	* testsuite/demangle/regression/cw-11.cc: New.
+	* testsuite/demangle/regression/cw-12.cc: New.
+	* testsuite/demangle/regression/cw-13.cc: New.
+	* testsuite/demangle/regression/cw-14.cc: New.
+	* testsuite/demangle/regression/old.cc: New.
+
+2003-02-25  Phil Edwards  <pme@gcc.gnu.org>
+
+	* docs/doxygen/Intro.3:  Update with new (proper) names.
+	* docs/doxygen/TODO:  Update.
+	* docs/doxygen/run_doxygen:  More comments, fix up man pages.
+	Fake entries for standard typedefs.
+	* docs/doxygen/user.cfg.in:  Turn INLINE_INHERITED_MEMB back on.
+	* docs/html/documentation.html:  Top-level man page is now called
+	C++Intro.
+	* include/std/std_limits.h:  Doxygenate.
+
+2003-02-25  Scott Snyder  <snyder@fnal.gov>
+
+	PR libstdc++/9811
+	* include/bits/stl_map.h (lower_bound, upper_bound, equal_range):
+	Correct documentation.
+	* include/bits/stl_multimap.h (lower_bound, upper_bound,
+	equal_range): Likewise.
+
+2003-02-24  Paolo Carlini  <pcarlini@unitus.it>
+
+	PR libstdc++/9825
+	* src/fstream.cc
+	(basic_filebuf<char/wchar_t>::_M_underflow_common): When
+	__bump is true (uflow), always increment the read pointer
+	(_M_in_cur) before returning successfully.
+	* testsuite/27_io/filebuf_virtuals.cc (test12): Add.
+
+2003-02-24  Paolo Carlini <pcarlini@unitus.it>
+	    Nathan Myers <ncm@cantrip.org>
+
+	PR libstdc++/9404, PR libstdc++/9701 (partial)
+	(aka pptr == epptr implies overflow)
+	* include/bits/fstream.tcc (_M_allocate_internal_buffer):
+	Consistently, _M_out_end points to the end of the buffer just
+	created.
+	(overflow): Tweak to use _M_out_buf_size().
+	(_M_convert_to_external): The role of the old _M_out_end is
+	now played by _M_out_lim.
+	(_M_really_overflow): Likewise.
+	(seekoff): Likewise.
+	(setbuf): _M_out_end points to the end of the external buffer.
+	* include/bits/sstream.tcc (overflow): Rewrote, taking into
+	account the resolution of DR 169 (TC).
+	(seekoff): Use _M_string.capacity(); ios_base::end is now _M_out_lim.
+	(seekpos): Use _M_string.capacity(); tweak.
+	* include/bits/streambuf.tcc (sputc, xsputn): Remove comments.
+	* include/std/std_fstream.h (sync): The role of the old
+	_M_out_end is now played by _M_out_lim.
+	(_M_set_indeterminate): Use _M_set_determinate.
+	(_M_set_determinate): _M_out_end is now _M_out_lim.
+	(_M_is_indeterminate): Likewise.
+	* include/std/std_sstream.h (str()): _M_out_end is now _M_out_lim.
+	(_M_stringbuf_init): Don't set _M_buf_size, unused for sstreams,
+	which have the information readily available as _M_string.capacity();
+	for ate and app modes, pass the string size to _M_really_sync.
+	(_M_really_sync): Consistently set _M_out_end and _M_out_lim, to
+	point to the end of the buffer (i.e., epptr) and to the string end,
+	respectively.
+	* include/std/std_streambuf.h: tweak comments, add _M_out_lim,
+	which points to the right limit of the used put area.
+	(_M_out_cur_move): The role of the old _M_out_end is now played
+	by _M_out_lim.
+	(_M_out_buf_size): Simplify: now (when _M_out_cur) return simply
+	_M_out_end  - _M_out_cur (i.e., pptr), _very_ close to the letter
+	of the standard.
+	(basic_streambuf()): Initialize _M_out_lim too.
+	* testsuite/27_io/filebuf_virtuals.cc (test10): Trivial tweak.
+	* testsuite/27_io/filebuf_virtuals.cc (test11): Add.
+ 	* testsuite/27_io/stringbuf_virtuals.cc (test09): Add.
+
+2003-02-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/27_io/ios_base_storage.cc (main): Call
+	set_memory_limits.
+
 2003-02-21  Jerry Quinn  <jlquinn@optonline.net>
 
         * include/bits/locale_facets.tcc (_M_convert_float): Replace
