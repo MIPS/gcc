@@ -435,7 +435,7 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   size_t i;
   stmt_ann_t ann;
   tree stmt;
-  varray_type defs, uses, vuses, vdefs;
+  varray_type defs, uses, vuses, vdefs, operand_tables[4], *table;
   bool may_optimize_p;
 
   stmt = bsi_stmt (si);
@@ -457,57 +457,88 @@ optimize_stmt (block_stmt_iterator si, varray_type *block_avail_exprs_p)
   vuses = vuse_ops (stmt);
   vdefs = vdef_ops (stmt);
 
-  /* Const/copy propagate into USES.  */
-  for (i = 0; uses && i < VARRAY_ACTIVE_SIZE (uses); i++)
-    {
-      tree val;
-      tree *op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+  /* Const/copy propagate into USES, VUSES and the RHS of VDEFs.  */
+  operand_tables[0] = uses;
+  operand_tables[1] = vuses;
+  operand_tables[2] = vdefs;
+  operand_tables[3] = NULL;
+  for (table = operand_tables; *table; table++)
+    for (i = 0; *table && i < VARRAY_ACTIVE_SIZE (*table); i++)
+      {
+	tree val;
+	tree *op_p;
 
-      if (! SSA_VAR_P (*op_p))
-	continue;
+	/* Get a pointer to the operand we want to const/copy propagate
+	   into.  Each table has a slightly different structure.  */
+	if (*table == uses)
+	  op_p = (tree *) VARRAY_GENERIC_PTR (uses, i);
+	else if (*table == vuses)
+	  op_p = (tree *) &VARRAY_TREE (vuses, i);
+	else
+	  op_p = (tree *) &VDEF_OP (VARRAY_TREE (vdefs, i));
 
-      /* If the operand has a known constant value or it is known to be a
-	 copy of some other variable, use the value or copy stored in
-	 CONST_AND_COPIES.  */
-      opt_stats.num_exprs_considered++;
-      val = get_value_for (*op_p, const_and_copies);
-      if (val)
-	{
-	  /* Make sure that copy propagation can be done here.  */
-	  if (TREE_CODE (val) == SSA_NAME
-	      && !may_propagate_copy (*op_p, val))
-	    continue;
+	/* If the operand is not an ssa variable, then there is nothing
+	   to do.  */
+	if (! SSA_VAR_P (*op_p))
+	  continue;
 
-	  /* Gather statistics.  */
-	  if (is_unchanging_value (val)
-	      || is_optimizable_addr_expr (val))
-	    opt_stats.num_const_prop++;
-	  else
-	    opt_stats.num_copy_prop++;
+	/* If the operand has a known constant value or it is known to be a
+	   copy of some other variable, use the value or copy stored in
+	   CONST_AND_COPIES.  */
+	opt_stats.num_exprs_considered++;
+	val = get_value_for (*op_p, const_and_copies);
+	if (val)
+	  {
+	    /* Do not change the base variable in the virtual operand
+	       tables.  That would make it impossible to reconstruct
+	       the renamed virtual operand if we later modify this
+	       statement.  Also only allow the new value to be an SSA_NAME
+	       for propagation into virtual operands.  */
+	    if ((*table == vuses || *table == vdefs)
+		&& (get_virtual_var (val) != get_virtual_var (*op_p)
+		    || TREE_CODE (val) != SSA_NAME))
+	      continue;
 
-	  /* Replace the operand with its known constant value or copy.  */
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "  Replaced '");
-	      print_generic_expr (dump_file, *op_p, 0);
-	      fprintf (dump_file, "' with %s '",
-		       TREE_CODE (val) == SSA_NAME ? "constant" : "variable");
-	      print_generic_expr (dump_file, val, 0);
-	      fprintf (dump_file, "'\n");
-	    }
+	    /* Certain operands are not allowed to be copy propagated due
+	       to their interaction with exception handling and some
+	       GCC extensions.  */
+	    if (TREE_CODE (val) == SSA_NAME
+		&& !may_propagate_copy (*op_p, val))
+		continue;
 
-	  /* If VAL is an ADDR_EXPR, notify that we may need to have a
-	     second SSA pass to rename variables exposed by the folding of
-	     *&VAR expressions.  */
-	  if (TREE_CODE (val) == ADDR_EXPR)
-	    addr_expr_propagated_p = true;
+	    /* Gather statistics.  */
+	    if (is_unchanging_value (val) || is_optimizable_addr_expr (val))
+	      opt_stats.num_const_prop++;
+	    else
+	      opt_stats.num_copy_prop++;
 
-	  if (TREE_CODE (val) == SSA_NAME)
-	    propagate_copy (op_p, val);
-	  else
-	    *op_p = val;
+	    /* Dump details.  */
+	    if (dump_file && (dump_flags & TDF_DETAILS))
+	      {
+		fprintf (dump_file, "  Replaced '");
+		print_generic_expr (dump_file, *op_p, 0);
+		fprintf (dump_file, "' with %s '",
+			 (TREE_CODE (val) != SSA_NAME
+			    ? "constant" : "variable"));
+		print_generic_expr (dump_file, val, 0);
+		fprintf (dump_file, "'\n");
+	      }
 
-	  ann->modified = 1;
+	    /* If VAL is an ADDR_EXPR, note that we may need to have a
+	       second SSA pass to rename variables exposed by the folding of
+	       *&VAR expressions.  */
+	    if (TREE_CODE (val) == ADDR_EXPR)
+	      addr_expr_propagated_p = true;
+
+	    if (TREE_CODE (val) == SSA_NAME)
+	      propagate_copy (op_p, val);
+	    else
+	      *op_p = val;
+
+	    /* If we only update virtual operands, then we should not
+	       consider this statement as modified.  */
+	    if (*table != vuses && *table != vdefs)
+	      ann->modified = 1;
 	}
     }
 

@@ -1,3 +1,8 @@
+2003-07-29  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (optimize_stmt): Propagate copies into VUSEs and
+	the RHS of VDEFs.
+
 2003-07-29  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-ssa.c (insert_copy_on_edge): Only set used bit on DECL nodes.
