@@ -1027,12 +1027,13 @@ struct varray_head_tag;
 struct tree_eref_common GTY(())
 {
   struct tree_common common;
-
+  
   tree name;
   
-  tree * GTY((skip (""))) stmt;
-
- /* SSAPRE: True if expression needs to be saved to a temporary. */
+  /* SSAPRE: The statement associated with this expression reference.  */
+  tree stmt;
+  
+  /* SSAPRE: True if expression needs to be saved to a temporary. */
   unsigned int save:1;
   
   /* SSAPRE: True if expression needs to be reloaded from a temporary.  */
