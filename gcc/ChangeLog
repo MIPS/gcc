@@ -1,3 +1,7 @@
+2002-11-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/ia64/ia64.c (bundling): Use MFI template instead of MLX.
+
 2002-11-19  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* haifa-sched.c (choice_entry): New structure.

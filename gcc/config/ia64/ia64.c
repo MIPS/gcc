@@ -6623,11 +6623,15 @@ bundling (dump, verbose, prev_head_insn, tail)
 	      if (recog_memoized (last) == CODE_FOR_bundle_selector)
 		{
 		  template0 = XINT (XVECEXP (PATTERN (last), 0, 0), 0);
+		  if (template0 == 9)
+		    PATTERN (last)
+		      = gen_bundle_selector (GEN_INT (2)); /* -> MFI */
 		  break;
 		}
 	      else if (recog_memoized (last) != CODE_FOR_insn_group_barrier)
 		n++;
-	    if ((pred_stop_p && n == 0) || n > 2)
+	    if ((pred_stop_p && n == 0) || n > 2
+		|| (template0 == 9 && n != 0))
 	      abort ();
 	    for (j = 3 - n; j > 0; j --)
 	      ia64_emit_insn_before (gen_nop (), insn);
