@@ -636,7 +636,7 @@ follow_chain (d, u)
 /* {{{ is_upward_exposed()
 
    Return 1 if one or more uses of SYM in BB_SET have reaching definitions
-   coming from blocks outside BB_SET.  If EXCLUDE_INIT_DECL is non-zero,
+   coming from blocks outside BB_SET.  If EXCLUDE_INIT_DECL is nonzero,
    the initializer expression used in the declaration of SYM will always be
    considered external to BB_SET.  */
 

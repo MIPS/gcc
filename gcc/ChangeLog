@@ -1,5 +1,77 @@
 2002-04-22  Diego Novillo  <dnovillo@redhat.com>
 
+	* c-simplify.c (stmt_has_effect): New function.
+	(simplify_stmt): Fix example code in comment.
+	Use EXPR_STMT_EXPR to access the expression in an expression
+	statement.
+	Call debug_c_node to display unhandled statements.
+	Call stmt_has_effect to determine whether the statement has been
+	nullified by the simplification process.
+	(simplify_for_stmt): Do not simplify the initialization expression
+	if it's NULL.
+	Do not convert post_cond_s into a statement chain.
+	Do not simplify the expression if it's NULL.
+	(simplify_switch_stmt): initialize post_cond_s to NULL before
+	simplifying the expression.
+	(simplify_expr): Rename argument IS_LHS to NEEDS_LVALUE.  Update
+	all uses.
+	When simplifying assignments, return the LHS of the assignment if
+	the caller wants to use the assignment as an rvalue.
+	Do not simplify ADDR_EXPR nodes.
+	Handle NOP_EXPR, CONVERT_EXPR, FIX_TRUNC_EXPR, FIX_CEIL_EXPR,
+	FIX_ROUND_EXPR, INDIRECT_REF, NEGATE_EXPR, INTEGER_CST, STRING_CST,
+	COMPLEX_CST.
+	Abort if the expression has not been simplified and cannot be used
+	as an rvalue to assign it to a temporary.
+	When creating a new temporary to hold an lvalue, if the expression
+	is an indirect reference, use the address of the referenced object.
+	When creating an indirect reference, use the pointed-to type as the
+	type of the reference.
+	(simplify_self_mod_expr): If the LHS operand needs to be
+	simplified, simplify twice.  Once to produce an lvalue and another
+	to produce a simple value.
+	(simplify_modify_expr): Break assignment chains (a = b = c = ...)
+	into individual assignments.
+	(simplify_compound_expr):
+	(create_tmp_var): If the type is an array, use TYPE_POINTER_TO as
+	the pointer type.
+	(update_line_number): Fix typo in comment.
+	(is_unop): Ditto.
+	(convert_to_stmt_chain): Only add statements that comply with
+	stmt_has_effect().
+	* tree-dfa.c (find_declaration): Fix typo in comment.
+	(debug_varref): Ditto.
+	* tree-flow.h: Ditto.
+	* tree-simple.c (is_simple_stmt): New function.
+	(is_simple_compstmt): New function.
+	(is_simple_expr): Fix typo in comment.
+	(is_simple_rhs): Allow conditional expressions.
+	(is_simple_modify_expr): Fix typo in comment.
+	(is_simple_modify_expr_lhs): Ditto.
+	(is_simple_binary_expr): Ditto.
+	(is_simple_condexpr): Ditto.
+	(is_simple_relop): Ditto.
+	(is_simple_unary_expr): Ditto.
+	Allow taking the address of a constant (for strings).
+	(is_simple_call_expr): Fix typo in comment.
+	Call is_simple_id to determine if the first operand is a SIMPLE
+	function identifier.
+	(is_simple_arglist): Fix typo in comment.
+	(is_simple_varname): Ditto.
+	(is_simple_const): Don't accept casts of SIMPLE constants.
+	(is_simple_id): Don't accept casts of SIMPLE identifiers.
+	(is_simple_val): Fix typo in comment.
+	(is_simple_arrayref): Ditto.
+	(is_simple_compref): Ditto.
+	(is_simple_compref_lhs): Ditto.
+	(is_simple_cast_op): Ditto.
+	(is_simple_exprseq): Allow NULL expression sequences.
+	* tree-simple.h (is_simple_stmt): Declare
+	(is_simple_compstmt): Declare.
+	* tree-ssa.c (follow_chain): Fix typo in comment.
+
+2002-04-22  Diego Novillo  <dnovillo@redhat.com>
+
 	* c-pretty-print.c (dump_c_node): Don't print function
 	bodies of FUNCTION_DECL nodes.
 

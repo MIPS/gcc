@@ -714,7 +714,7 @@ find_declaration (decl)
 
    Display variable reference REF on stream OUTF. PREFIX is a string that
    is prefixed to every line of output, and INDENT is the amount of left
-   margin to leave.  If DETAILS is non-zero, the output is more verbose.  */
+   margin to leave.  If DETAILS is nonzero, the output is more verbose.  */
 
 void
 dump_varref (outf, prefix, ref, indent, details)
@@ -798,7 +798,7 @@ debug_varref (ref)
 
    Display a list of variable references on stream OUTF. PREFIX is a string
    that is prefixed to every line of output, and INDENT is the amount of
-   left margin to leave.  If DETAILS is non-zero, the output is more
+   left margin to leave.  If DETAILS is nonzero, the output is more
    verbose.  */
 
 void

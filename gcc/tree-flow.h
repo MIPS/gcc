@@ -117,11 +117,11 @@ typedef union varref_def *varref;
 #define VARREF_STMT(r) (r)->common.stmt
 #define VARREF_SYM(r) (r)->common.sym
 
-/* Return non-zero if R is a ghost definition.  */
+/* Return nonzero if R is a ghost definition.  */
 #define IS_GHOST_DEF(R)		\
     (R && VARREF_TYPE (R) == VARDEF && VARREF_BB (R) == ENTRY_BLOCK_PTR)
 
-/* Return non-zero if R is an artificial definition (currently, a PHI term
+/* Return nonzero if R is an artificial definition (currently, a PHI term
    or a ghost definition).  */
 #define IS_ARTIFICIAL_REF(R)	\
     (IS_GHOST_DEF (R) || VARREF_TYPE (R) == VARPHI)

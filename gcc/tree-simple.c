@@ -113,11 +113,20 @@ Boston, MA 02111-1307, USA.  */
       rhs
 	      : binary_expr
 	      | unary_expr
+	      | condexpr		=> Original grammar does not allow
+					   conditional expressions.
+					   Allowing them here, leads to
+					   less code being generated when
+					   simplifying IF/WHILE/DO
+					   conditionals.
 
       unary_expr
 	      : simp_expr
 	      | '*' ID
 	      | '&' varname
+	      | '&' CONST		=> Needed for constant strings.
+					   Not present in the original
+					   grammar.
 	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
@@ -166,11 +175,13 @@ Boston, MA 02111-1307, USA.  */
 
       arrayref
 	      : varname reflist		=> Original grammar only allowed
-	                                   'ID reflist'.  This causes weird
+	                                   'ID reflist'.  This causes
 					   splits like k.d[2][3] into
 					   
 					   	t1 = &(k.d[2])
   						t2 = *(&t1[3])
+
+					   which is invalid.
 
       reflist
 	      : '[' val ']'
@@ -188,9 +199,163 @@ Boston, MA 02111-1307, USA.  */
 
      ----------------------------------------------------------------------  */
 
+/* Validation of SIMPLE statements.  */
+
+/** {{{ is_simple_stmt ()
+
+    Return nonzero if T is a statement that complies with the SIMPLE
+    grammar.
+
+      stmt
+	      : compstmt
+	      | expr ';'
+	      | IF '(' condexpr ')' stmt
+	      | IF '(' condexpr ')' stmt ELSE stmt
+	      | WHILE '(' condexpr ')' stmt
+	      | DO stmt WHILE '(' condexpr ')'
+	      | FOR '('exprseq ';' condexpr ';'exprseq ')' stmt
+	      | SWITCH '(' val ')' casestmts
+	      | ';'
+
+      casestmts
+	      : '{' cases default'}'
+	      | ';'
+	      | '{' '}'
+
+      cases
+	      : cases case
+	      | case
+
+      case
+	      : CASE CONST':' stmtlist stop_stmt
+
+      default
+	      : DEFAULT ':' stmtlist stop_stmt
+
+      stop_stmt
+	      : BREAK ';'
+	      | CONTINUE ';'
+	      | RETURN ';'
+	      | RETURN val ';'
+	      | RETURN '(' val ')' ';'  */
+
+int
+is_simple_stmt (t)
+     tree t;
+{
+  if (t == NULL_TREE)
+    return 1;
+
+  switch (TREE_CODE (t))
+    {
+    case COMPOUND_STMT:
+      return is_simple_compstmt (t);
+
+    case EXPR_STMT:
+      return is_simple_expr (EXPR_STMT_EXPR (t));
+
+    case IF_STMT:
+      return (is_simple_condexpr (IF_COND (t))
+	      && is_simple_stmt (THEN_CLAUSE (t))
+	      && is_simple_stmt (ELSE_CLAUSE (t)));
+
+    case WHILE_STMT:
+      return (is_simple_condexpr (WHILE_COND (t))
+	      && is_simple_stmt (WHILE_BODY (t)));
+
+    case DO_STMT:
+      return (is_simple_condexpr (DO_COND (t))
+	      && is_simple_stmt (DO_BODY (t)));
+
+    case FOR_STMT:
+      return (is_simple_exprseq (EXPR_STMT_EXPR (FOR_INIT_STMT (t)))
+	      && is_simple_condexpr (FOR_COND (t))
+	      && is_simple_exprseq (FOR_EXPR (t))
+	      && is_simple_stmt (FOR_BODY (t)));
+
+    /* Note that we can assume that we don't need to special case the body
+       of the switch() statement.  If we got to this stage, we can assume
+       that the switch() is properly formed (i.e., it will be a compound
+       statement containing all the case labels).  */
+    case SWITCH_STMT:
+      return (is_simple_val (SWITCH_COND (t))
+	      && is_simple_stmt (SWITCH_BODY (t)));
+
+    case FILE_STMT:
+    case LABEL_STMT:
+    case GOTO_STMT:
+    case ASM_STMT:
+    case CASE_LABEL:
+    case CONTINUE_STMT:
+    case BREAK_STMT:
+      return 1;
+
+    case RETURN_STMT:
+      {
+	tree type = TREE_TYPE (TREE_TYPE (current_function_decl));
+	if (TREE_CODE (type) != VOID_TYPE
+	    && RETURN_EXPR (t))
+	  return is_simple_expr (TREE_OPERAND (RETURN_EXPR (t), 1));
+	else
+	  return 1;
+      }
+
+    default:
+      return 0;
+    }
+}
+
+/* }}} */
+
+/** {{{ is_simple_compstmt ()
+
+    Return nonzero if T is a SIMPLE compound statement.
+
+      compsmt
+	      : '{' all_stmts '}'
+	      | '{' '}'
+	      | '{' decls all_stmts '}'
+	      | '{' decls '}'  */
+
+int
+is_simple_compstmt (t)
+     tree t;
+{
+  if (TREE_CODE (t) != COMPOUND_STMT)
+    return 0;
+
+  /* Look for '{'.  */
+  t = COMPOUND_BODY (t);
+  if (TREE_CODE (t) != SCOPE_STMT
+      || !SCOPE_BEGIN_P (t))
+    return 0;
+
+  /* Test all the declarations.  */
+  for (t = TREE_CHAIN (t); t && TREE_CODE (t) == DECL_STMT; t = TREE_CHAIN (t))
+    if (DECL_INITIAL (DECL_STMT_DECL (t)))
+      return 0;
+
+  /* Test all the statements in the body.  */
+  for (t = TREE_CHAIN (t); t && TREE_CHAIN (t); t = TREE_CHAIN (t))
+    if (!is_simple_stmt (t))
+      return 0;
+
+  /* Look for '}'.  */
+  if (TREE_CODE (t) != SCOPE_STMT
+      || !SCOPE_END_P (t))
+    return 0;
+
+  return 1;
+}
+
+/* }}} */
+
+
+/* Validation of SIMPLE expressions.  */
+
 /** {{{ is_simple_expr ()
 
-    Return non-zero if T is an expression that complies with the SIMPLE
+    Return nonzero if T is an expression that complies with the SIMPLE
     grammar.
 
       expr
@@ -211,24 +376,31 @@ is_simple_expr (t)
 
 /** {{{ is_simple_rhs ()
 
-    Return non-zero if T is a SIMPLE RHS:
+    Return nonzero if T is a SIMPLE RHS:
 
       rhs
 	      : binary_expr
-	      | unary_expr  */
+	      | unary_expr
+	      | condexpr	=> Original grammar does not allow
+				   conditional expressions on RHS.
+				   However, allowing them lets us generate
+				   fewer code when simplifying IF/WHILE/DO
+				   structures.  */
 
 int
 is_simple_rhs (t)
      tree t;
 {
-  return (is_simple_binary_expr (t) || is_simple_unary_expr (t));
+  return (is_simple_binary_expr (t)
+          || is_simple_unary_expr (t)
+	  || is_simple_condexpr (t));
 }
 
 /* }}} */
 
 /** {{{ is_simple_modify_expr ()
 
-    Return non-zero if T is a SIMPLE assignment expression:
+    Return nonzero if T is a SIMPLE assignment expression:
 
       modify_expr
 	      : varname '=' rhs
@@ -247,7 +419,7 @@ is_simple_modify_expr (t)
 
 /** {{{ is_simple_modify_expr_lhs ()
 
-    Return non-zero if T is a valid LHS for a SIMPLE assignment expression.  */
+    Return nonzero if T is a valid LHS for a SIMPLE assignment expression.  */
 
 int
 is_simple_modify_expr_lhs (t)
@@ -262,7 +434,7 @@ is_simple_modify_expr_lhs (t)
 
 /** {{{ is_simple_binary_expr ()
 
-    Return non-zero if T is a SIMPLE binary expression:
+    Return nonzero if T is a SIMPLE binary expression:
 
       binary_expr
 	      : val binop val  */
@@ -280,7 +452,7 @@ is_simple_binary_expr (t)
 
 /** {{{ is_simple_condexpr ()
 
-    Return non-zero if T is a SIMPLE conditional expression:
+    Return nonzero if T is a SIMPLE conditional expression:
 
       condexpr
 	      : val
@@ -300,7 +472,7 @@ is_simple_condexpr (t)
 
 /** {{{ is_simple_binop ()
 
-    Return non-zero if T is a SIMPLE binary operator:
+    Return nonzero if T is a SIMPLE binary operator:
 
       binop
 	      : relop
@@ -320,7 +492,7 @@ is_simple_binop (t)
 
 /** {{{ is_simple_relop ()
 
-    Return non-zero if T is a SIMPLE relational operator:
+    Return nonzero if T is a SIMPLE relational operator:
 
       relop
 	      : '<'
@@ -338,13 +510,16 @@ is_simple_relop (t)
 
 /** {{{ is_simple_unary_expr ()
 
-    Return non-zero if T is a unary expression as defined by the SIMPLE
+    Return nonzero if T is a unary expression as defined by the SIMPLE
     grammar:
 
       unary_expr
 	      : simp_expr
 	      | '*' ID
 	      | '&' varname
+	      | '&' CONST		=> Needed for constant strings.
+					   Not present in the original
+					   grammar.
 	      | call_expr
 	      | unop val
 	      | '(' cast ')' varname
@@ -371,7 +546,8 @@ is_simple_unary_expr (t)
     return 1;
 
   if (TREE_CODE (t) == ADDR_EXPR
-      && is_simple_varname (TREE_OPERAND (t, 0)))
+      && (is_simple_varname (TREE_OPERAND (t, 0))
+	  || is_simple_const (TREE_OPERAND (t, 0))))
     return 1;
 
   if (is_simple_call_expr (t))
@@ -381,18 +557,22 @@ is_simple_unary_expr (t)
       && is_simple_val (TREE_OPERAND (t, 0)))
     return 1;
 
-  if (TREE_CODE (t) == STMT_EXPR
-      /* && is_simple_stmt (STMT_EXPR_STMT (t))  */)
+  if (is_simple_cast (t))
     return 1;
 
- return is_simple_cast (t);
+  /* Additions to the original grammar.  Allow statement-expressions.  */
+  if (TREE_CODE (t) == STMT_EXPR
+      && is_simple_stmt (STMT_EXPR_STMT (t)))
+    return 1;
+
+  return 0;
 }
 
 /* }}} */
 
 /** {{{ is_simple_call_expr ()
 
-    Return non-zero if T is a SIMPLE call expression:
+    Return nonzero if T is a SIMPLE call expression:
 
       call_expr
 	      : ID '(' arglist ')'
@@ -405,25 +585,18 @@ int
 is_simple_call_expr (t)
      tree t;
 {
-  tree addr, callee;
-
   if (TREE_CODE (t) != CALL_EXPR)
     return 0;
 
-  /* Check that the callee is a SIMPLE identifier.  */
-  addr = TREE_OPERAND (t, 0);
-  callee = (TREE_CODE (addr) == ADDR_EXPR) ? TREE_OPERAND (addr, 0) : addr;
-  if (! is_simple_id (callee))
-    return 0;
-
-  return (is_simple_arglist (TREE_OPERAND (t, 1)));
+  return (is_simple_id (TREE_OPERAND (t, 0))
+          && is_simple_arglist (TREE_OPERAND (t, 1)));
 }
 
 /* }}} */
 
 /** {{{ is_simple_arglist ()
 
-    Return non-zero if T is a SIMPLE argument list:
+    Return nonzero if T is a SIMPLE argument list:
 
       arglist
 	      : arglist ',' val
@@ -447,7 +620,7 @@ is_simple_arglist (t)
 
 /** {{{ is_simple_varname ()
 
-    Return non-zero if T is SIMPLE variable name:
+    Return nonzero if T is SIMPLE variable name:
 
       varname
 	      : arrayref
@@ -465,7 +638,7 @@ is_simple_varname (t)
 
 /** {{{ is_simple_const ()
 
-    Return non-zero if T is a constant.  */
+    Return nonzero if T is a constant.  */
 
 int
 is_simple_const (t)
@@ -476,21 +649,14 @@ is_simple_const (t)
 	  || TREE_CODE (t) == STRING_CST
 	  || TREE_CODE (t) == LABEL_DECL
 	  || TREE_CODE (t) == RESULT_DECL
-	  || TREE_CODE (t) == COMPLEX_CST
-	  /* Additions to original grammar.  Allow some common combinations
-	     of CONVERT_EXPR, SAVE_EXPR and ADDR_EXPR when they only wrap
-	     single constants.  */
-	  || (TREE_CODE (t) == ADDR_EXPR
-	      && is_simple_const (TREE_OPERAND (t, 0)))
-	  || (is_simple_cast_op (t)
-	      && is_simple_const (TREE_OPERAND (t, 0))));
+	  || TREE_CODE (t) == COMPLEX_CST);
 }
 
 /* }}} */
 
 /** {{{ is_simple_id ()
 
-    Return non-zero if T is a SIMPLE identifier.  */
+    Return nonzero if T is a SIMPLE identifier.  */
 
 int
 is_simple_id (t)
@@ -500,22 +666,19 @@ is_simple_id (t)
 	  || TREE_CODE (t) == FUNCTION_DECL
 	  || TREE_CODE (t) == PARM_DECL
 	  || TREE_CODE (t) == FIELD_DECL
-	  /* Additions to original grammar.  Allow some common combinations
-	     of CONVERT_EXPR, SAVE_EXPR and ADDR_EXPR when they only wrap
-	     single identifiers.  */
-	  || (TREE_CODE (t) == ADDR_EXPR
-	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
-	  || (is_simple_cast_op (t)
+	  /* Additions to original grammar.  Allow identifiers wrapped
+	     in NON_LVALUE_EXPR.  Allow the address of a function decl.  */
+	  || (TREE_CODE (t) == NON_LVALUE_EXPR
 	      && is_simple_id (TREE_OPERAND (t, 0)))
-	  || (TREE_CODE (t) == SAVE_EXPR
-	      && is_simple_id (TREE_OPERAND (t, 0))));
+	  || (TREE_CODE (t) == ADDR_EXPR
+	      && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL));
 }
 
 /* }}} */
 
 /** {{{ is_simple_val ()
 
-    Return non-zero if T is an identifier or a constant.  */
+    Return nonzero if T is an identifier or a constant.  */
 
 int
 is_simple_val (t)
@@ -528,7 +691,7 @@ is_simple_val (t)
 
 /** {{{ is_simple_arrayref ()
 
-    Return non-zero if T is an array reference of the form:
+    Return nonzero if T is an array reference of the form:
 
       arrayref
 	      : varname reflist
@@ -550,7 +713,7 @@ is_simple_arrayref (t)
 
 /** {{{ is_simple_compref ()
 
-    Return non-zero if T is a component reference of the form:
+    Return nonzero if T is a component reference of the form:
 
       compref
 	      : '(' '*' ID ')' '.' idlist
@@ -574,7 +737,7 @@ is_simple_compref (t)
 
 /** {{{ is_simple_compref_lhs ()
 
-    Return non-zero if T is allowed on the left side of a component
+    Return nonzero if T is allowed on the left side of a component
     reference.  */
 
 int
@@ -594,7 +757,7 @@ is_simple_compref_lhs (t)
 
 /** {{{ is_simple_cast ()
 
-   Return non-zero if T is a typecast operation of the form
+   Return nonzero if T is a typecast operation of the form
    '(' cast ')' varname.  */
 
 int
@@ -608,7 +771,7 @@ is_simple_cast (t)
 
 /** {{{ is_simple_cast_op ()
 
-    Return non-zero if T is a typecast operator.  */
+    Return nonzero if T is a typecast operator.  */
 
 int
 is_simple_cast_op (t)
@@ -636,6 +799,9 @@ int
 is_simple_exprseq (t)
      tree t;
 {
+  if (t == NULL_TREE)
+    return 1;
+
   return (is_simple_expr (t)
           || (TREE_CODE (t) == COMPOUND_EXPR
 	      && is_simple_expr (TREE_OPERAND (t, 0))
