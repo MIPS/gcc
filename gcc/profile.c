@@ -371,7 +371,7 @@ index_counts_file ()
 		    }
 		  (*slot)->n_offsets++;
 		  (*slot)->offsets = xrealloc ((*slot)->offsets,
-					       sizeof (long) * (*slot)->n_offsets);
+					       sizeof (struct section_reference) * (*slot)->n_offsets);
 		}
 	      else
 		{
@@ -380,7 +380,7 @@ index_counts_file ()
 		  (*slot)->section = tag;
 		  (*slot)->checksum = checksum;
 		  (*slot)->n_offsets = 1;
-		  (*slot)->offsets = xmalloc (sizeof (long));
+		  (*slot)->offsets = xmalloc (sizeof (struct section_reference));
 		}
 	      (*slot)->offsets[(*slot)->n_offsets - 1].offset = offset;
 	      if (summary)

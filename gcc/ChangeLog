@@ -1,5 +1,9 @@
 2002-11-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
+	* profile.c (index_counts_file): Fix obvious mistake.
+
+2002-11-19  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
 	* Makefile.in (profile.o): Add hashtab.h dependency.
 	* gcov-io.h (GCOV_SUMMARY_LENGTH): New.
 	* profile.c: Include hashtab.h.
