@@ -1,3 +1,13 @@
+2004-05-13  Caroline Tice  <ctice@apple.com>
+        
+        * c-common.c (builtin_function_disabled_p):  Remove "static" from
+	function declaration and definition.
+	* c-common.h (builtin_function_disabled_p):  Add extern function
+	definition.
+	* c-decl.c (merge_translation_unit_decls):  Add code to test
+	function decls to see if they are builtin and the builtin is
+	supposed to be disabled before attempting to merge the decls.
+
 2004-05-12  Devang Patel  <dpatel@apple.com>
 
 	* opts.c (common_handle_option): Handle OPT_arch.

@@ -3630,7 +3630,9 @@ typedef struct disabled_builtin
 } disabled_builtin;
 static disabled_builtin *disabled_builtins = NULL;
 
-static bool builtin_function_disabled_p (const char *);
+/* APPLE LOCAL begin fix radar 3645899, IMA problem  */
+bool builtin_function_disabled_p (const char *);
+/* APPLE LOCAL end fix radar 3645899, IMA problem  */
 
 /* Disable a built-in function specified by -fno-builtin-NAME.  If NAME
    begins with "__builtin_", give an error.  */
@@ -3652,8 +3654,9 @@ disable_builtin_function (const char *name)
 
 /* Return true if the built-in function NAME has been disabled, false
    otherwise.  */
-
-static bool
+/* APPLE LOCAL begin fix radar 3645899, IMA problem  */
+bool
+/* APPLE LOCAL end fix radar 3645899, IMA problem  */
 builtin_function_disabled_p (const char *name)
 {
   disabled_builtin *p;

@@ -6832,9 +6832,26 @@ merge_translation_unit_decls (void)
 	    make_decl_rtl (global_decl, 0);
 	  /* APPLE LOCAL end */
 
-	  /* Print any appropriate error messages, and partially merge
-	     the decls.  */
-	  (void) duplicate_decls (decl, global_decl);
+	  /* APPLE LOCAL begin fix radar 3645899, IMA problem  */
+	  /* Check to make sure that if either decl is a built-in function
+	     decl, it was not supposed to be disabled by a compiler flag.  If
+	     not, then print any appropriate error messages and partially
+	     merge the decls.  */
+
+	  if ((TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
+	      || (TREE_CODE (global_decl) == FUNCTION_DECL 
+		  && DECL_BUILT_IN (global_decl)))
+	    {
+	      const char *name1, *name2;
+	      name1 = IDENTIFIER_POINTER (DECL_NAME (decl));
+	      name2 = IDENTIFIER_POINTER (DECL_NAME (global_decl));
+	      if (!builtin_function_disabled_p (name1)
+		  && !builtin_function_disabled_p (name2))
+		(void) duplicate_decls (decl, global_decl);
+	    }
+	  else
+	  /* APPLE LOCAL end fix radar 3645899, IMA problem  */
+	    (void) duplicate_decls (decl, global_decl);
 	}
 
   htab_delete (link_hash_table);

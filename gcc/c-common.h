@@ -1037,6 +1037,10 @@ extern int self_promoting_args_p (tree);
 extern tree strip_array_types (tree);
 extern tree strip_pointer_operator (tree);
 
+/* APPLE LOCAL begin fix radar 3645899, IMA problem  */
+extern bool builtin_function_disabled_p (const char *);
+/* APPLE LOCAL end fix radar 3645899, IMA problem  */
+
 /* This function resets the parsers' state in preparation for parsing
    a new file.  */
 extern void c_reset_state (void);
