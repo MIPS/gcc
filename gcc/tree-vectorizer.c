@@ -195,6 +195,7 @@ static tree vect_create_index_for_array_ref (tree, block_stmt_iterator *);
 static tree get_vectype_for_scalar_type (tree);
 static tree vect_get_new_vect_var (tree, enum vect_var_kind, const char *);
 static tree vect_get_vec_def_for_operand (tree, tree);
+static tree vect_init_vector (tree, tree);
 
 /* General untility functions (CHECKME: where do they belong).  */
 static tree get_array_base (tree);
@@ -616,7 +617,7 @@ get_vectype_for_scalar_type (tree scalar_type)
   else
     vec_mode = MIN_MODE_VECTOR_INT;
 
-  /* CHECKME: This duplicates some of te functionality in build_vector_type;
+  /* CHECKME: This duplicates some of the functionality in build_vector_type;
      could have directly called build_vector_type_for_mode if exposed.  */
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -848,6 +849,54 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
 }
 
 
+/* Function vect_init_vector.  */
+
+static tree
+vect_init_vector (tree stmt, tree vector_var)
+{
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+  struct loop *loop = STMT_VINFO_LOOP (stmt_vinfo);
+  block_stmt_iterator pre_header_bsi;
+  tree new_var;
+  tree init_stmt;
+  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo); 
+  tree vec_oprnd;
+ 
+  new_var = vect_get_new_vect_var (vectype, vect_simple_var, "cst_");
+  add_referenced_tmp_var (new_var); 
+  bitmap_set_bit (vars_to_rename, var_ann (new_var)->uid);
+ 
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    {
+      print_generic_expr (tree_dump_file, vector_var, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
+    }
+
+  init_stmt = build (MODIFY_EXPR, vectype, new_var, vector_var);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    {
+      print_generic_expr (tree_dump_file, init_stmt, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
+    }
+
+  /* CHECKME: Is there a utility for inserting code at the end of a basic block?  */
+  pre_header_bsi = bsi_last (loop->pre_header);
+  if (!bsi_end_p (pre_header_bsi)
+      && is_ctrl_stmt (bsi_stmt (pre_header_bsi)))
+    bsi_insert_before (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
+  else
+    bsi_insert_after (&pre_header_bsi, init_stmt, BSI_NEW_STMT);
+
+  vec_oprnd = TREE_OPERAND (init_stmt, 0);
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    {
+      print_generic_expr (tree_dump_file, vec_oprnd, TDF_SLIM);
+      fprintf (tree_dump_file, "\n");
+    }
+ 
+  return vec_oprnd;
+}
+
 /* Function vect_get_vec_def_for_operand.  */
 
 static tree
@@ -861,16 +910,73 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
   if (TREE_CODE (op) == SSA_NAME)
     {
       tree vec_stmt;
-      stmt_vec_info stmt_info = NULL;
+      tree def_stmt;
+      stmt_vec_info def_stmt_info = NULL;
 
-       /* FORNOW - we assume that the defining stmt is not a PHI node. This
-          restriction will be relaxed in the future.  */
+      def_stmt = SSA_NAME_DEF_STMT (op);
+      def_stmt_info = vinfo_for_stmt (def_stmt);
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+        {
+	  fprintf (tree_dump_file, "vect_get_vec_def_for_operand: def_stmt:\n");
+	  print_generic_expr (tree_dump_file, def_stmt, TDF_SLIM);
+	}
 
-      stmt_info = vinfo_for_stmt (SSA_NAME_DEF_STMT (op));
-      if (!stmt_info)
-        abort ();
+      if (!def_stmt_info)
+	{
+	  /* op is defined outside the loop (it is loop invariant).
+	     Create 'vec_inv = {inv,inv,..,inv}'  */
+	  
+	  tree vec_inv;
+	  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+	  tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
+	  int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
+	  basic_block bb = bb_for_stmt (def_stmt);
+	  struct loop *loop = STMT_VINFO_LOOP (stmt_vinfo);
+	  tree t = NULL_TREE;
+	  tree def;
+	  int i;
 
-      vec_stmt = STMT_VINFO_VEC_STMT (stmt_info);
+	  /* Build a tree with vector elements.  */
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, "\nCreate vector_inv.\n");
+
+	  if (TREE_CODE (def_stmt) == PHI_NODE)
+	    {
+	      if (flow_bb_inside_loop_p (loop, bb))
+		{
+		  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+           	    fprintf (tree_dump_file, "\nUnsupported reduction.\n");
+		  abort ();
+		}
+	      def = PHI_RESULT (def_stmt);
+	    }
+	  else if (TREE_CODE (def_stmt) == NOP_EXPR)
+	    {
+	      tree arg = TREE_OPERAND (def_stmt, 0);	
+              if (TREE_CODE (arg) != INTEGER_CST && TREE_CODE (arg) != REAL_CST)
+		{
+		  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+           	    fprintf (tree_dump_file, "\nUnsupported NOP_EXPR.\n");
+		  abort ();
+		}
+              def = op;
+	    }
+	  else
+	    def = TREE_OPERAND (def_stmt, 0);
+
+	  for (i = nunits - 1; i >= 0; --i)
+	    {
+	      t = tree_cons (NULL_TREE, def, t);
+	    }
+
+	  vec_inv = build_constructor (vectype, t); /* CHECKME */
+	  return vect_init_vector (stmt, vec_inv);
+	}
+
+
+      /* op is defined inside the loop. Get the def from the vectorized stmt.
+       */
+      vec_stmt = STMT_VINFO_VEC_STMT (def_stmt_info);
 
       if (!vec_stmt)
         abort ();
@@ -881,25 +987,17 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
       return vec_oprnd;
     }
 
-  if (TREE_CODE (op) == INTEGER_CST ||
-      TREE_CODE (op) == REAL_CST)
+  if (TREE_CODE (op) == INTEGER_CST
+      || TREE_CODE (op) == REAL_CST)
     {
       /* Create 'vect_cst_ = {cst,cst,...,cst}'  */
 
-      stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
-      struct loop *loop = STMT_VINFO_LOOP (stmt_vinfo);
-      block_stmt_iterator pre_header_bsi;
-      tree new_var;
-      tree init_stmt;
       tree vec_cst;
+      stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
       tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
       int nunits = GET_MODE_NUNITS (TYPE_MODE (vectype));
       tree t = NULL_TREE; 
       int i;
-
-      new_var = vect_get_new_vect_var (vectype, vect_simple_var, "cst_");
-      add_referenced_tmp_var (new_var);
-      bitmap_set_bit (vars_to_rename, var_ann (new_var)->uid);
 
       /* Build a tree with vector elements.  */
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -909,34 +1007,7 @@ vect_get_vec_def_for_operand (tree op, tree stmt)
 	  t = tree_cons (NULL_TREE, op, t);
         }
       vec_cst = build_vector (vectype, t);
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-        {
-          print_generic_expr (tree_dump_file, vec_cst, TDF_SLIM);
-          fprintf (tree_dump_file, "\n");
- 	}
-
-      init_stmt = build (MODIFY_EXPR, vectype, new_var, vec_cst);
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-        {
-          print_generic_expr (tree_dump_file, init_stmt, TDF_SLIM);
-          fprintf (tree_dump_file, "\n");
-        }
-
-      pre_header_bsi = bsi_last (loop->pre_header);
-      if (!bsi_end_p (pre_header_bsi)
-          && is_ctrl_stmt (bsi_stmt (pre_header_bsi)))
-        bsi_insert_before (&pre_header_bsi, init_stmt, BSI_NEW_STMT); 
-      else 
-        bsi_insert_after (&pre_header_bsi, init_stmt, BSI_NEW_STMT); 
-
-      vec_oprnd = TREE_OPERAND (init_stmt, 0);
-      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-        {
-          print_generic_expr (tree_dump_file, vec_oprnd, TDF_SLIM);
-          fprintf (tree_dump_file, "\n");
-	}
-
-      return vec_oprnd;
+      return vect_init_vector (stmt, vec_cst);
     }
 
   return NULL_TREE;
@@ -1447,22 +1518,33 @@ vect_is_simple_use (tree operand, struct loop *loop)
     {
       def_stmt = SSA_NAME_DEF_STMT (operand);
 
-      if (def_stmt == NULL_TREE || TREE_CODE (def_stmt) == NOP_EXPR)
+      if (def_stmt == NULL_TREE)
         return false;
+
+      if (TREE_CODE (def_stmt) == NOP_EXPR)
+	{
+	  tree arg = TREE_OPERAND (def_stmt, 0);
+
+	  if (TREE_CODE (arg) == INTEGER_CST || TREE_CODE (arg) == REAL_CST)
+	    return true;
+
+	  return false;  
+	}
 
       bb = bb_for_stmt (def_stmt);
-
-      /* FORNOW: Support only operations which arguments are defined inside 
-         the loop. This is also verified by analyze_scalar_cycles.  */
-      if (TREE_CODE (def_stmt) == PHI_NODE
-          || !flow_bb_inside_loop_p (loop, bb))
-        return false;
+      if (TREE_CODE (def_stmt) == PHI_NODE && flow_bb_inside_loop_p (loop, bb))
+	{
+	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	    fprintf (tree_dump_file, 
+		"use defined in loop phi - some form of reduction.\n");
+	  return false;
+	}
 
       return true;  
     }
 
-  if (TREE_CODE (operand) == INTEGER_CST ||
-      TREE_CODE (operand) == REAL_CST)
+  if (TREE_CODE (operand) == INTEGER_CST
+      || TREE_CODE (operand) == REAL_CST)
     {
       return true;
     }
@@ -1538,8 +1620,7 @@ vect_is_supportable_op (tree stmt)
       if (!vect_is_simple_use (op, loop))
 	{
 	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-	    fprintf (tree_dump_file, 
-		     "use not simple (not SSA_NAME or defined out of loop).\n");
+	    fprintf (tree_dump_file, "use not simple.\n");
 	  return false;
 	}	
     } 
@@ -1594,8 +1675,7 @@ vect_is_supportable_store (tree stmt)
   if (!vect_is_simple_use (op, loop))
     {
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-        fprintf (tree_dump_file,
-		"use not simple (not SSA_NAME/cst or defined out of loop).\n");
+        fprintf (tree_dump_file, "use not simple.\n");
       return false;
     }
 
@@ -1679,8 +1759,7 @@ vect_is_supportable_assignment (tree stmt)
   if (!vect_is_simple_use (op, loop))
     {
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-        fprintf (tree_dump_file,
-                "use not simple (not SSA_NAME/cst or defined out of loop).\n");
+        fprintf (tree_dump_file, "use not simple.\n");
       return false;
     }
 
@@ -1720,6 +1799,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	  tree vectype;
 	  dataflow_t df;
 	  int j, num_uses;
+	  vdef_optype vdefs;
 
 	  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 	    {
@@ -1729,26 +1809,6 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
 	  if (!stmt_info)
 	    abort ();
-
-          /* FORNOW: Make sure that the def of this stmt is not used out
-             side the loop. This restriction will be relaxed in the future.  */
-
-          df = get_immediate_uses (stmt);
-          num_uses = num_immediate_uses (df);
-          for (j = 0; j < num_uses; j++)
-            {
-              tree use = immediate_use (df, j);
-              basic_block bb = bb_for_stmt (use);
-              if (!flow_bb_inside_loop_p (loop, bb))
-                {
-                  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-                    {
-                      fprintf (tree_dump_file, "def used out of loop:\n");
-                      print_generic_stmt (tree_dump_file, use, TDF_SLIM);
-                    }
-                  return false;
-                }
-            }
 
 	  /* skip stmts which do not need to be vectorized.
 	     this is expected to include:
@@ -1764,15 +1824,28 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 	      continue;
 	    }
 
-	  if (TREE_CODE (stmt) != MODIFY_EXPR)
-	    {
-	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
-		{
-		  fprintf (tree_dump_file, "not a MODIFY_EXPR\n");
-		  print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
-		}
-	      return false;
-	    }
+	  /* FORNOW: Make sure that the def of this stmt is not used out
+             side the loop. This restriction will be relaxed in the future.  */
+          vdefs = STMT_VDEF_OPS (stmt);
+          if (!vdefs)  /* CHECKME */
+            {
+              df = get_immediate_uses (stmt);
+              num_uses = num_immediate_uses (df);
+              for (j = 0; j < num_uses; j++)
+                {
+                  tree use = immediate_use (df, j);
+                  basic_block bb = bb_for_stmt (use);
+                  if (!flow_bb_inside_loop_p (loop, bb))
+                    {
+                      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+                        {
+                          fprintf (tree_dump_file, "def used out of loop:\n");
+                          print_generic_stmt (tree_dump_file, use, TDF_SLIM);
+                        }
+                      return false;
+                    }
+                }
+            }
 
 	  if (VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (stmt))))
 	    {
@@ -1866,7 +1939,7 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
 /* Function exist_non_indexing_operands_for_use_p 
 
-   USE is one of the uses attched to STMT. Check if USE is 
+   USE is one of the uses attached to STMT. Check if USE is 
    used in STMT for anything other than indexing an array.  */
 
 static bool
@@ -1875,20 +1948,26 @@ exist_non_indexing_operands_for_use_p (tree use, tree stmt)
   tree operand;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
  
-  /* USE corresponds to som operand in STMT. Since there is no
-     data reference in STMT, any operand that corresponds to USE
+  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+    {
+      fprintf (tree_dump_file, "exist_non_indexing_operands_for_use_p?:\n");
+      print_generic_stmt (tree_dump_file, stmt, TDF_SLIM);
+    }
+
+  /* USE corresponds to some operand in STMT. If there is no data
+     reference in STMT, then any operand that corresponds to USE
      is not indexing an array.  */
   if (!STMT_VINFO_DATA_REF (stmt_info))
     return true;
  
-  /* STMT had a data_ref. FORNOW this means that its of one of
+  /* STMT has a data_ref. FORNOW this means that its of one of
      the following forms:
      -1- ARRAY_REF = var
      -2- var = ARRAY_REF
      (This should have been verified in analyze_data_refs).
 
      'var' in the second case corresponds to a def, not a use,
-     so USE cannot corespond to any operands that are not used 
+     so USE cannot correspond to any operands that are not used 
      for array indexing.
 
      Therefore, all we need to check is if STMT falls into the
@@ -2010,8 +2089,6 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
   tree phi;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block bb = loop->header;
-  dataflow_t df;
-  int num_uses;
   tree dummy;
 
   if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -2019,7 +2096,11 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
   for (phi = phi_nodes (bb); phi; phi = TREE_CHAIN (phi))
     {
+#if 0
       int i;
+      int num_uses;
+      dataflow_t df;
+#endif
       tree access_fn = NULL;
 
       if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -2079,6 +2160,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 	  return false;
 	}
 
+#if 0 /* following check is now performed in "vect_is_simple_use" */
+
       /* 2. Verify that this variable is only used in stmts that do not need
          to be vectorized.  
 	 FIXME: the following checks should be applied to other defs in
@@ -2086,6 +2169,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
       df = get_immediate_uses (phi);
       num_uses = num_immediate_uses (df);
+      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+	fprintf (tree_dump_file, "num uses = %d\n", num_uses);
       for (i = 0; i < num_uses; i++)
 	{
 	  tree use = immediate_use (df, i);
@@ -2113,6 +2198,9 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 	      return false;
 	    }
 	}
+
+#endif
+
     }
 
   return true;
@@ -2635,7 +2723,6 @@ vect_stmt_relevant_p (tree stmt, loop_vec_info loop_vinfo)
     return true;
 
   /* changing memory.  */
-  get_stmt_operands (stmt);
   vdefs = STMT_VDEF_OPS (stmt);
   if (vdefs)
     {
@@ -2755,13 +2842,26 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 		  if (TREE_CODE (arg) == SSA_NAME)
 		    def_stmt = SSA_NAME_DEF_STMT (arg);
 
-		  if (def_stmt == NULL_TREE 
-		      || TREE_CODE (def_stmt) == NOP_EXPR)
+		  if (def_stmt == NULL_TREE )
 		    {
 		      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		        fprintf (tree_dump_file, "\nworklist: no def_stmt!\n");
 		      varray_clear (worklist);
 		      return false;
+		    }
+
+		  if (TREE_CODE (def_stmt) == NOP_EXPR)
+		    {
+          	      tree arg = TREE_OPERAND (def_stmt, 0);
+		      if (TREE_CODE (arg) != INTEGER_CST
+			  && TREE_CODE (arg) != REAL_CST)
+			{
+		          if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+		            fprintf (tree_dump_file, "\nworklist: NOP def_stmt?\n");
+		          varray_clear (worklist);
+		          return false;
+			}
+		      continue;	
 		    }
 
 		  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
@@ -2774,12 +2874,11 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 		  if (flow_bb_inside_loop_p (loop, bb))
 		    vect_mark_relevant (worklist, def_stmt);
 		}
-	    }
+	    } 
 
 	  continue;
-	}
+	} 
 
-      get_stmt_operands (stmt);
       ann = stmt_ann (stmt);
       use_ops = USE_OPS (ann);
 
@@ -2800,13 +2899,27 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	      if (TREE_CODE (use) == SSA_NAME)
 		def_stmt = SSA_NAME_DEF_STMT (use);
 
-	      if (def_stmt == NULL_TREE || TREE_CODE (def_stmt) == NOP_EXPR)
+	      if (def_stmt == NULL_TREE)
 		{
 		  if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
 		    fprintf (tree_dump_file, "\nworklist: no def_stmt!\n");
 		  varray_clear (worklist);
 		  return false;
 		}
+
+              if (TREE_CODE (def_stmt) == NOP_EXPR)
+                {
+                  tree arg = TREE_OPERAND (def_stmt, 0);
+                  if (TREE_CODE (arg) != INTEGER_CST
+                      && TREE_CODE (arg) != REAL_CST)
+                    {
+                      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))
+                        fprintf (tree_dump_file, "\nworklist: NOP def_stmt?\n");
+                      varray_clear (worklist);
+                      return false;
+                    }
+                  continue;
+                }
 
 	      if (tree_dump_file && (tree_dump_flags & TDF_DETAILS))	
 		{
@@ -3048,6 +3161,17 @@ vect_analyze_loop (struct loop *loop)
 }
 
 
+/* Function indicating whether we ought to include information for 'var'
+   when calculating immediate uses.  For this pass we only want use
+   information for non-virtual variables.  */
+
+static bool
+need_imm_uses_for (tree var)
+{
+  return is_gimple_reg (var);
+}
+
+
 /* Function vectorize_loops.
    Entry Point to loop vectorization phase.  */
 
@@ -3067,6 +3191,8 @@ vectorize_loops (struct loops *loops,
 		 "vectorizer: target vector size is not defined.\n");
       return;
     }
+
+  compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
 
   /*  ----------- Analyze loops. -----------  */
   /* CHECKME */
@@ -3109,6 +3235,7 @@ vectorize_loops (struct loops *loops,
 
   /*  ----------- Finialize. -----------  */
 
+  free_df ();
   for (i = 1; i < loops->num; i++)
     {
       struct loop *loop = loops->parray[i];
