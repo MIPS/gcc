@@ -2157,7 +2157,7 @@ dump_cfg_function_to_file (tree fn, FILE *file, int flags)
       for (si = bsi_start (bb); !bsi_end_p (si); bsi_next (&si))
 	{
 	  fprintf (file, "%d\t", get_lineno (bsi_stmt (si)));
-	  print_generic_stmt (file, bsi_stmt (si), flags & ~TDF_VOPS);
+	  print_generic_stmt (file, bsi_stmt (si), flags);
 	  fprintf (file, "\n");
 	}
 
