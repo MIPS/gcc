@@ -1,4 +1,13 @@
-2004-04-02  Jakub Jelinek  <jakuB@redhat.com>
+2004-03-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040304-1.c: New test.
+
+2004-04-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR optimization/13488
+	* gcc/testsuite/gcc.c-torture/execute/20040402-1.c: New test.
+
+2004-04-02  Jakub Jelinek  <jakub@redhat.com>
 	    Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	* gcc.dg/20040302-1.c: New test.
