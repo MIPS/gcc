@@ -2674,7 +2674,7 @@ d30v_split_double (value, p_high, p_low)
     case SUBREG:
       if (GET_CODE (SUBREG_REG (value)) != REG)
 	abort ();
-      offset = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (value)),
+      offset = subreg_regno_offset (REGNO (SUBREG_REG (value)),
 				    GET_MODE (SUBREG_REG (value)),
 				    SUBREG_BYTE (value),
 				    GET_MODE (value));
@@ -2803,7 +2803,7 @@ d30v_print_operand_memory_reference (stream, x)
 
       if (GET_CODE (x0) == SUBREG)
 	{
-	  offset0 = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x0)),
+	  offset0 = subreg_regno_offset (REGNO (SUBREG_REG (x0)),
 					 GET_MODE (SUBREG_REG (x0)),
 					 SUBREG_BYTE (x0),
 					 GET_MODE (x0));
@@ -2839,7 +2839,7 @@ d30v_print_operand_memory_reference (stream, x)
       switch (GET_CODE (x1))
 	{
 	case SUBREG:
-	  offset1 = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x1)),
+	  offset1 = subreg_regno_offset (REGNO (SUBREG_REG (x1)),
 					 GET_MODE (SUBREG_REG (x1)),
 					 SUBREG_BYTE (x1),
 					 GET_MODE (x1));

@@ -3414,7 +3414,7 @@ purge_single_hard_subreg_set (pattern)
   if (GET_CODE (reg) == SUBREG && GET_CODE (SUBREG_REG (reg)) == REG
       && REGNO (SUBREG_REG (reg)) < FIRST_PSEUDO_REGISTER)
     {
-      offset = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (reg)),
+      offset = subreg_regno_offset (REGNO (SUBREG_REG (reg)),
 				    GET_MODE (SUBREG_REG (reg)),
 				    SUBREG_BYTE (reg),
 				    GET_MODE (reg));

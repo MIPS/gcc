@@ -2472,7 +2472,7 @@
   if (GET_CODE (operands[0]) == REG)
     regno = REGNO (operands[0]);
   else if (GET_CODE (operands[0]) == SUBREG)
-    regno = SUBREG_REGNO (operands[0]);
+    regno = subreg_regno (operands[0]);
   else if (GET_CODE (operands[0]) == MEM)
     regno = -1;
 
@@ -2857,7 +2857,7 @@
   if (GET_CODE (operands[0]) == REG)
     regno = REGNO (operands[0]);
   else if (GET_CODE (operands[0]) == SUBREG)
-    regno = SUBREG_REGNO (operands[0]);
+    regno = subreg_regno (operands[0]);
   else if (GET_CODE (operands[0]) == MEM)
     regno = -1;
 

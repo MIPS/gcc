@@ -2347,7 +2347,7 @@ constrain_operands (strict)
 	    {
 	      if (GET_CODE (SUBREG_REG (op)) == REG
 		  && REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER)
-		offset = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op)),
+		offset = subreg_regno_offset (REGNO (SUBREG_REG (op)),
 					      GET_MODE (SUBREG_REG (op)),
 					      SUBREG_BYTE (op),
 					      GET_MODE (op));

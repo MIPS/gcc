@@ -1022,7 +1022,7 @@ refers_to_regno_p (regno, endregno, x, loc)
       if (GET_CODE (SUBREG_REG (x)) == REG
 	  && REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int inner_regno = SUBREG_REGNO (x);
+	  unsigned int inner_regno = subreg_regno (x);
 	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
 			     ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
@@ -1109,7 +1109,7 @@ reg_overlap_mentioned_p (x, in)
     case SUBREG:
       regno = REGNO (SUBREG_REG (x));
       if (regno < FIRST_PSEUDO_REGISTER)
-	regno = SUBREG_REGNO (x);
+	regno = subreg_regno (x);
       goto do_reg;
 
     case REG:
@@ -2506,4 +2506,66 @@ loc_mentioned_in_p (loc, in)
 	    return 1;
     }
   return 0;
+}
+
+/* This function returns the regno offset of a subreg expression.
+   xregno - A regno of an inner hard subreg_reg (or what will become one).
+   xmode  - The mode of xregno.
+   offset - The byte offset.
+   ymode  - The mode of a top level SUBREG (or what may become one).
+   RETURN - The regno offset which would be used.  
+   This function can be overridden by defining SUBREG_REGNO_OFFSET,
+   taking the same parameters.  */
+unsigned int
+subreg_regno_offset (xregno, xmode, offset, ymode)
+     unsigned int xregno;
+     enum machine_mode xmode;
+     unsigned int offset;
+     enum machine_mode ymode;
+{
+  unsigned ret;
+  int nregs_xmode, nregs_ymode;
+  int mode_multiple, nregs_multiple;
+  int y_offset;
+
+/* Check for an override, and use it instead.  */
+#ifdef SUBREG_REGNO_OFFSET
+  ret = SUBREG_REGNO_OFFSET (xregno, xmode, offset, ymode)
+#else
+  if (xregno >= FIRST_PSEUDO_REGISTER)
+    abort ();
+
+  nregs_xmode = HARD_REGNO_NREGS (xregno, xmode);
+  nregs_ymode = HARD_REGNO_NREGS (xregno, ymode);
+  if (offset == 0 || nregs_xmode == nregs_ymode)
+    return 0;
+  
+  /* size of ymode must not be greater than the size of xmode.  */
+  mode_multiple = GET_MODE_SIZE (xmode) / GET_MODE_SIZE (ymode);
+  if (mode_multiple == 0)
+    abort ();
+
+  y_offset = offset / GET_MODE_SIZE (ymode);
+  nregs_multiple =  nregs_xmode / nregs_ymode;
+  ret = (y_offset / (mode_multiple / nregs_multiple)) * nregs_ymode;
+#endif
+
+  return ret;
+}
+
+/* Return the final regno that a subreg expression refers to. */
+unsigned int 
+subreg_regno (x)
+     rtx x;
+{
+  unsigned int ret;
+  rtx subreg = SUBREG_REG (x);
+  int regno = REGNO (subreg);
+
+  ret = regno + subreg_regno_offset (regno, 
+				     GET_MODE (subreg), 
+				     SUBREG_BYTE (x),
+				     GET_MODE (x));
+  return ret;
+
 }

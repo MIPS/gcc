@@ -264,7 +264,7 @@ gpc_reg_operand (op, mode)
   else if (GET_CODE (op) == SUBREG && GET_CODE (SUBREG_REG (op)) == REG)
     {
       if (regno < FIRST_PSEUDO_REGISTER)
-	regno = SUBREG_REGNO (op);
+	regno = subreg_regno (op);
       else
 	regno = REGNO (SUBREG_REG (op));
     }

@@ -1842,7 +1842,7 @@ mips_move_1word (operands, insn, unsignedp)
 
   while (code0 == SUBREG)
     {
-      subreg_offset0 += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op0)),
+      subreg_offset0 += subreg_regno_offset (REGNO (SUBREG_REG (op0)),
 					     GET_MODE (SUBREG_REG (op0)),
 					     SUBREG_BYTE (op0),
 					     GET_MODE (op0));
@@ -1852,7 +1852,7 @@ mips_move_1word (operands, insn, unsignedp)
 
   while (code1 == SUBREG)
     {
-      subreg_offset1 += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op1)),
+      subreg_offset1 += subreg_regno_offset (REGNO (SUBREG_REG (op1)),
 					     GET_MODE (SUBREG_REG (op1)),
 					     SUBREG_BYTE (op1),
 					     GET_MODE (op1));
@@ -2240,7 +2240,7 @@ mips_move_2words (operands, insn)
 
   while (code0 == SUBREG)
     {
-      subreg_offset0 += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op0)),
+      subreg_offset0 += subreg_regno_offset (REGNO (SUBREG_REG (op0)),
 					     GET_MODE (SUBREG_REG (op0)),
 					     SUBREG_BYTE (op0),
 					     GET_MODE (op0));
@@ -2256,7 +2256,7 @@ mips_move_2words (operands, insn)
 
   while (code1 == SUBREG)
     {
-      subreg_offset1 += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op1)),
+      subreg_offset1 += subreg_regno_offset (REGNO (SUBREG_REG (op1)),
 					     GET_MODE (SUBREG_REG (op1)),
 					     SUBREG_BYTE (op1),
 					     GET_MODE (op1));
@@ -7924,7 +7924,7 @@ mips_secondary_reload_class (class, mode, x, in_p)
 	{
 	  while (GET_CODE (x) == SUBREG)
 	    {
-	      off += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x)),
+	      off += subreg_regno_offset (REGNO (SUBREG_REG (x)),
 					  GET_MODE (SUBREG_REG (x)),
 					  SUBREG_BYTE (x),
 					  GET_MODE (x));

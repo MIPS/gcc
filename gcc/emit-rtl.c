@@ -734,7 +734,7 @@ subreg_hard_regno (x, check_mode)
   if ((byte_offset % GET_MODE_SIZE (mode)) != 0)
     abort ();
 
-  final_regno = SUBREG_REGNO (x);
+  final_regno = subreg_regno (x);
 
   /* Punt if what we end up with is not a valid regno in
      the SUBREG's mode, or we went past the end of the inner
@@ -830,7 +830,7 @@ gen_lowpart_common (mode, x)
       if (REGNO (x) < FIRST_PSEUDO_REGISTER)
 	{
 	  int final_regno = REGNO (x) +
-	    SUBREG_REGNO_OFFSET (REGNO (x), GET_MODE (x), offset, mode);
+	    subreg_regno_offset (REGNO (x), GET_MODE (x), offset, mode);
 
 	  /* If the final regno is not valid for MODE, punt.  */
 	  /* ??? We do allow it if the current REG is not valid for
@@ -1266,7 +1266,7 @@ gen_highpart (mode, x)
       if (REGNO (x) < FIRST_PSEUDO_REGISTER)
 	{
 	  int final_regno = REGNO (x) +
-	    SUBREG_REGNO_OFFSET (REGNO (x), GET_MODE (x), offset, mode);
+	    subreg_regno_offset (REGNO (x), GET_MODE (x), offset, mode);
 
 	  /* integrate.c can't handle parts of a return value register.
 	     ??? Then integrate.c should be fixed!
@@ -1606,7 +1606,7 @@ operand_subword (op, offset, validate_address, mode)
       if (REGNO (op) < FIRST_PSEUDO_REGISTER)
 	{
 	  int final_regno = REGNO (op) +
-	    SUBREG_REGNO_OFFSET (REGNO (op), GET_MODE (op),
+	    subreg_regno_offset (REGNO (op), GET_MODE (op),
 				offset * UNITS_PER_WORD,
 				word_mode);
 

@@ -3985,10 +3985,10 @@ forget_old_reloads_1 (x, ignored, data)
   int offset = 0;
 
   /* note_stores does give us subregs of hard regs,
-     SUBREG_REGNO_OFFSET will abort if it is not a hard reg.  */
+     subreg_regno_offset will abort if it is not a hard reg.  */
   while (GET_CODE (x) == SUBREG)
     {
-      offset += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x)),
+      offset += subreg_regno_offset (REGNO (SUBREG_REG (x)),
 				     GET_MODE (SUBREG_REG (x)),
 				     SUBREG_BYTE (x),
 				     GET_MODE (x));
@@ -5273,7 +5273,7 @@ choose_reload_regs (chain)
 		  byte = SUBREG_BYTE (rld[r].in_reg);
 		  regno = REGNO (SUBREG_REG (rld[r].in_reg));
 		  if (regno < FIRST_PSEUDO_REGISTER)
-		    regno = SUBREG_REGNO (rld[r].in_reg);
+		    regno = subreg_regno (rld[r].in_reg);
 		  mode = GET_MODE (rld[r].in_reg);
 		}
 #ifdef AUTO_INC_DEC
@@ -5294,7 +5294,7 @@ choose_reload_regs (chain)
 		 that can invalidate an inherited reload of part of a pseudoreg.  */
 	      else if (GET_CODE (rld[r].in) == SUBREG
 		       && GET_CODE (SUBREG_REG (rld[r].in)) == REG)
-		regno = SUBREG_REGNO (rld[r].in);
+		regno = subreg_regno (rld[r].in);
 #endif
 
 	      if (regno >= 0 && reg_last_reload_reg[regno] != 0)
@@ -5304,7 +5304,7 @@ choose_reload_regs (chain)
 		  enum machine_mode need_mode;
 
 		  i = REGNO (last_reg);
-		  i += SUBREG_REGNO_OFFSET (i, GET_MODE (last_reg), byte, mode);
+		  i += subreg_regno_offset (i, GET_MODE (last_reg), byte, mode);
 		  last_class = REGNO_REG_CLASS (i);
 
 		  if (byte == 0)
@@ -5478,7 +5478,7 @@ choose_reload_regs (chain)
 			 Make a new REG since this might be used in an
 			 address and not all machines support SUBREGs
 			 there.  */
-		      regno = SUBREG_REGNO (equiv);
+		      regno = subreg_regno (equiv);
 		      equiv = gen_rtx_REG (rld[r].mode, regno);
 		    }
 		  else
@@ -8630,7 +8630,7 @@ reload_combine_note_store (dst, set, data)
 
   if (GET_CODE (dst) == SUBREG)
     {
-      regno = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (dst)),
+      regno = subreg_regno_offset (REGNO (SUBREG_REG (dst)),
 				   GET_MODE (SUBREG_REG (dst)),
 				   SUBREG_BYTE (dst),
 				   GET_MODE (dst));
@@ -9017,7 +9017,7 @@ move2add_note_store (dst, set, data)
 
   if (GET_CODE (dst) == SUBREG)
     {
-      regno = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (dst)),
+      regno = subreg_regno_offset (REGNO (SUBREG_REG (dst)),
 				   GET_MODE (SUBREG_REG (dst)),
 				   SUBREG_BYTE (dst),
 				   GET_MODE (dst));

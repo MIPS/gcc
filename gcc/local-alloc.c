@@ -1603,7 +1603,7 @@ combine_regs (usedreg, setreg, may_save_copy, insn_number, insn, already_dead)
       if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (usedreg))) > UNITS_PER_WORD)
 	may_save_copy = 0;
       if (REGNO (SUBREG_REG (usedreg)) < FIRST_PSEUDO_REGISTER)
-	offset += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (usedreg)),
+	offset += subreg_regno_offset (REGNO (SUBREG_REG (usedreg)),
 				       GET_MODE (SUBREG_REG (usedreg)),
 				       SUBREG_BYTE (usedreg),
 				       GET_MODE (usedreg));
@@ -1627,7 +1627,7 @@ combine_regs (usedreg, setreg, may_save_copy, insn_number, insn, already_dead)
       if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (setreg))) > UNITS_PER_WORD)
 	may_save_copy = 0;
       if (REGNO (SUBREG_REG (setreg)) < FIRST_PSEUDO_REGISTER)
-	offset -= SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (setreg)),
+	offset -= subreg_regno_offset (REGNO (SUBREG_REG (setreg)),
 				       GET_MODE (SUBREG_REG (setreg)),
 				       SUBREG_BYTE (setreg),
 				       GET_MODE (setreg));

@@ -1596,7 +1596,7 @@ set_preference (dest, src)
       src_regno = REGNO (SUBREG_REG (src));
 
       if (REGNO (SUBREG_REG (src)) < FIRST_PSEUDO_REGISTER)
-	offset += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (src)),
+	offset += subreg_regno_offset (REGNO (SUBREG_REG (src)),
 				       GET_MODE (SUBREG_REG (src)),
 				       SUBREG_BYTE (src),
 				       GET_MODE (src));
@@ -1614,7 +1614,7 @@ set_preference (dest, src)
       dest_regno = REGNO (SUBREG_REG (dest));
 
       if (REGNO (SUBREG_REG (dest)) < FIRST_PSEUDO_REGISTER)
-	offset -= SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (dest)),
+	offset -= subreg_regno_offset (REGNO (SUBREG_REG (dest)),
 				       GET_MODE (SUBREG_REG (dest)),
 				       SUBREG_BYTE (dest),
 				       GET_MODE (dest));

@@ -781,33 +781,12 @@ extern const char * const note_insn_name[NOTE_INSN_MAX - NOTE_INSN_BIAS];
 #define SUBREG_BYTE(RTX) XCUINT(RTX, 1, SUBREG)
 #define SUBREG_WORD(RTX) ((RTX)->fld[1].subreg_word_no_longer_exists_dummy)
 
-/* Given XREGNO, a REGNO of an inner hard SUBREG_REG (or what will become
-   one), XMODE the mode of that reg, OFFSET the byte offset, and YMODE
-   the mode of a top level SUBREG (or what may become one) return regno
-   offset which would be used.  */
-#define SUBREG_REGNO_OFFSET(XREGNO,XMODE,OFFSET,YMODE)		\
-  (XREGNO >= FIRST_PSEUDO_REGISTER ?				\
-    (abort (), 0) :						\
-    (((OFFSET) == 0						\
-      || (HARD_REGNO_NREGS (XREGNO, XMODE) ==			\
-	  HARD_REGNO_NREGS (XREGNO, YMODE))) ?			\
-     0 :							\
-     ((GET_MODE_SIZE (YMODE) > GET_MODE_SIZE (XMODE)) ?		\
-       (abort (), 0) :						\
-       (((OFFSET / GET_MODE_SIZE (YMODE)) /			\
-	 ((GET_MODE_SIZE (XMODE) / GET_MODE_SIZE (YMODE)) /	\
-	  (HARD_REGNO_NREGS (XREGNO, XMODE) /			\
-	   HARD_REGNO_NREGS (XREGNO, YMODE)))) *		\
-	HARD_REGNO_NREGS (XREGNO, YMODE)))))
-
-/* Given X, a SUBREG, with an inner SUBREG_REG which is
-   a hard REG, give the final regno it refers to.  */
-#define SUBREG_REGNO(X)						\
-  (REGNO (SUBREG_REG (X))					\
-   + (SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (X)),		\
-			   GET_MODE (SUBREG_REG (X)),		\
-			   SUBREG_BYTE (X),			\
-			   GET_MODE (X))))
+/* in rtlanal.c */
+extern unsigned int subreg_regno_offset 	PARAMS ((unsigned int, 
+							 enum machine_mode, 
+							 unsigned int, 
+							 enum machine_mode));
+extern unsigned int subreg_regno 	PARAMS ((rtx));
 
 /* 1 if the REG contained in SUBREG_REG is already known to be
    sign- or zero-extended from the mode of the SUBREG to the mode of

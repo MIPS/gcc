@@ -3532,7 +3532,7 @@ rtx_renumbered_equal_p (x, y)
 
 	  if (reg_renumber[reg_x] >= 0)
 	    {
-	      reg_x = SUBREG_REGNO_OFFSET (reg_renumber[reg_x],
+	      reg_x = subreg_regno_offset (reg_renumber[reg_x],
 					   GET_MODE (SUBREG_REG (x)),
 					   byte_x,
 					   GET_MODE (x));
@@ -3553,7 +3553,7 @@ rtx_renumbered_equal_p (x, y)
 
 	  if (reg_renumber[reg_y] >= 0)
 	    {
-	      reg_y = SUBREG_REGNO_OFFSET (reg_renumber[reg_y],
+	      reg_y = subreg_regno_offset (reg_renumber[reg_y],
 					   GET_MODE (SUBREG_REG (y)),
 					   byte_y,
 					   GET_MODE (y));
@@ -3698,7 +3698,7 @@ true_regnum (x)
     {
       int base = true_regnum (SUBREG_REG (x));
       if (base >= 0 && base < FIRST_PSEUDO_REGISTER)
-	return base + SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x)),
+	return base + subreg_regno_offset (REGNO (SUBREG_REG (x)),
 					   GET_MODE (SUBREG_REG (x)),
 					   SUBREG_BYTE (x), GET_MODE (x));
     }

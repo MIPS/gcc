@@ -1763,7 +1763,7 @@ nonlocal_reference_p (x)
 	{
 	  /* Global registers are not local.  */
 	  if (REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER
-	      && global_regs[SUBREG_REGNO (x)])
+	      && global_regs[subreg_regno (x)])
 	    return 1;
 	  return 0;
 	}

@@ -664,7 +664,7 @@ output_movedouble (insn, operands, mode)
       if (GET_CODE (inside) == REG)
 	ptrreg = REGNO (inside);
       else if (GET_CODE (inside) == SUBREG)
-	ptrreg = SUBREG_REGNO (inside);
+	ptrreg = subreg_regno (inside);
       else if (GET_CODE (inside) == PLUS)
 	{
 	  ptrreg = REGNO (XEXP (inside, 0));
@@ -2492,7 +2492,7 @@ regs_used (x, is_dest)
 	if (REGNO (y) < 16)
 	  return (((1 << HARD_REGNO_NREGS (0, GET_MODE (x))) - 1)
 		  << (REGNO (y) +
-		      SUBREG_REGNO_OFFSET (REGNO (y),
+		      subreg_regno_offset (REGNO (y),
 					   GET_MODE (y),
 					   SUBREG_BYTE (x),
 					   GET_MOD (x)) + is_dest));
@@ -3229,7 +3229,7 @@ machine_dependent_reorg (first)
 		      mode = HImode;
 		      while (GET_CODE (dst) == SUBREG)
 			{
-			  offset += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (dst)),
+			  offset += subreg_regno_offset (REGNO (SUBREG_REG (dst)),
 							 GET_MODE (SUBREG_REG (dst)),
 							 SUBREG_BYTE (dst),
 							 GET_MODE (dst));

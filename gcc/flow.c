@@ -4439,7 +4439,7 @@ mark_set_1 (pbi, code, reg, cond, insn, flags)
 	  regno_last = regno_first = REGNO (SUBREG_REG (reg));
 	  if (regno_first < FIRST_PSEUDO_REGISTER)
 	    {
-	      regno_first += SUBREG_REGNO_OFFSET (regno_first, inner_mode,
+	      regno_first += subreg_regno_offset (regno_first, inner_mode,
 	      					  SUBREG_BYTE (reg),
 	      					  outer_mode);
 	      regno_last = (regno_first

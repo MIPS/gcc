@@ -791,7 +791,7 @@ reload_inner_reg_of_subreg (x, mode)
     return 0;
 
   /* If INNER is not ok for MODE, then INNER will need reloading.  */
-  if (! HARD_REGNO_MODE_OK (SUBREG_REGNO (x), mode))
+  if (! HARD_REGNO_MODE_OK (subreg_regno (x), mode))
     return 1;
 
   /* If the outer part is a word or smaller, INNER larger than a
@@ -985,7 +985,7 @@ push_reload (in, out, inloc, outloc, class,
 			/ UNITS_PER_WORD)
 		       != HARD_REGNO_NREGS (REGNO (SUBREG_REG (in)),
 					    GET_MODE (SUBREG_REG (in)))))
-		  || ! HARD_REGNO_MODE_OK (SUBREG_REGNO (in), inmode)))
+		  || ! HARD_REGNO_MODE_OK (subreg_regno (in), inmode)))
 #ifdef SECONDARY_INPUT_RELOAD_CLASS
 	  || (SECONDARY_INPUT_RELOAD_CLASS (class, inmode, in) != NO_REGS
 	      && (SECONDARY_INPUT_RELOAD_CLASS (class,
@@ -1036,7 +1036,7 @@ push_reload (in, out, inloc, outloc, class,
 	 output before the outer reload.  */
       push_reload (SUBREG_REG (in), NULL_RTX, &SUBREG_REG (in), NULL_PTR,
 		   find_valid_class (inmode,
-				     SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (in)),
+				     subreg_regno_offset (REGNO (SUBREG_REG (in)),
 							  GET_MODE (SUBREG_REG (in)),
 							  SUBREG_BYTE (in),
 							  GET_MODE (in))),
@@ -1081,7 +1081,7 @@ push_reload (in, out, inloc, outloc, class,
 			/ UNITS_PER_WORD)
 		       != HARD_REGNO_NREGS (REGNO (SUBREG_REG (out)),
 					    GET_MODE (SUBREG_REG (out)))))
-		  || ! HARD_REGNO_MODE_OK (SUBREG_REGNO (out), outmode)))
+		  || ! HARD_REGNO_MODE_OK (subreg_regno (out), outmode)))
 #ifdef SECONDARY_OUTPUT_RELOAD_CLASS
 	  || (SECONDARY_OUTPUT_RELOAD_CLASS (class, outmode, out) != NO_REGS
 	      && (SECONDARY_OUTPUT_RELOAD_CLASS (class,
@@ -1129,7 +1129,7 @@ push_reload (in, out, inloc, outloc, class,
       push_reload (SUBREG_REG (out), SUBREG_REG (out), &SUBREG_REG (out),
 		   &SUBREG_REG (out),
 		   find_valid_class (outmode,
-				     SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (out)),
+				     subreg_regno_offset (REGNO (SUBREG_REG (out)),
 							  GET_MODE (SUBREG_REG (out)),
 							  SUBREG_BYTE (out),
 							  GET_MODE (out))),
@@ -1149,14 +1149,14 @@ push_reload (in, out, inloc, outloc, class,
   if (in != 0 && GET_CODE (in) == SUBREG && GET_CODE (SUBREG_REG (in)) == REG
       && REGNO (SUBREG_REG (in)) < FIRST_PSEUDO_REGISTER
       && ! dont_remove_subreg)
-    in = gen_rtx_REG (GET_MODE (in), SUBREG_REGNO (in));
+    in = gen_rtx_REG (GET_MODE (in), subreg_regno (in));
 
   /* Similarly for OUT.  */
   if (out != 0 && GET_CODE (out) == SUBREG
       && GET_CODE (SUBREG_REG (out)) == REG
       && REGNO (SUBREG_REG (out)) < FIRST_PSEUDO_REGISTER
       && ! dont_remove_subreg)
-    out = gen_rtx_REG (GET_MODE (out), SUBREG_REGNO (out));
+    out = gen_rtx_REG (GET_MODE (out), subreg_regno (out));
 
   /* Narrow down the class of register wanted if that is
      desirable on this machine for efficiency.  */
@@ -1815,7 +1815,7 @@ find_dummy_reload (real_in, real_out, inloc, outloc,
     {
       if (GET_CODE (SUBREG_REG (out)) == REG
 	  && REGNO (SUBREG_REG (out)) < FIRST_PSEUDO_REGISTER)
-	out_offset += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (out)),
+	out_offset += subreg_regno_offset (REGNO (SUBREG_REG (out)),
 					   GET_MODE (SUBREG_REG (out)),
 					   SUBREG_BYTE (out),
 					   GET_MODE (out));
@@ -1825,7 +1825,7 @@ find_dummy_reload (real_in, real_out, inloc, outloc,
     {
       if (GET_CODE (SUBREG_REG (in)) == REG
 	  && REGNO (SUBREG_REG (in)) < FIRST_PSEUDO_REGISTER)
-	in_offset += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (in)),
+	in_offset += subreg_regno_offset (REGNO (SUBREG_REG (in)),
 					  GET_MODE (SUBREG_REG (in)),
 					  SUBREG_BYTE (in),
 					  GET_MODE (in));
@@ -2045,7 +2045,7 @@ operands_match_p (x, y)
 	  i = REGNO (SUBREG_REG (x));
 	  if (i >= FIRST_PSEUDO_REGISTER)
 	    goto slow;
-	  i += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x)),
+	  i += subreg_regno_offset (REGNO (SUBREG_REG (x)),
 				    GET_MODE (SUBREG_REG (x)),
 				    SUBREG_BYTE (x),
 				    GET_MODE (x));
@@ -2058,7 +2058,7 @@ operands_match_p (x, y)
 	  j = REGNO (SUBREG_REG (y));
 	  if (j >= FIRST_PSEUDO_REGISTER)
 	    goto slow;
-	  j += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (y)),
+	  j += subreg_regno_offset (REGNO (SUBREG_REG (y)),
 				    GET_MODE (SUBREG_REG (y)),
 				    SUBREG_BYTE (y),
 				    GET_MODE (y));
@@ -2796,7 +2796,7 @@ find_reloads (insn, replace, ind_levels, live_known, reload_reg_p)
 	      if (GET_CODE (SUBREG_REG (operand)) == REG
 		  && REGNO (SUBREG_REG (operand)) < FIRST_PSEUDO_REGISTER)
 		{
-		  offset += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (operand)),
+		  offset += subreg_regno_offset (REGNO (SUBREG_REG (operand)),
 						 GET_MODE (SUBREG_REG (operand)),
 						 SUBREG_BYTE (operand),
 						 GET_MODE (operand));
@@ -4405,7 +4405,7 @@ find_reloads_toplev (x, opnum, type, ind_levels, is_set_dest, insn,
       if (is_set_dest)
 	push_reload (NULL_RTX, SUBREG_REG (x), NULL_PTR, &SUBREG_REG (x),
 		     find_valid_class (subreg_mode, 
-				SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x)),
+				subreg_regno_offset (REGNO (SUBREG_REG (x)),
 						     GET_MODE (SUBREG_REG (x)),
 						     SUBREG_BYTE (x),
 						     GET_MODE (x))),
@@ -4413,7 +4413,7 @@ find_reloads_toplev (x, opnum, type, ind_levels, is_set_dest, insn,
       else
 	push_reload (SUBREG_REG (x), NULL_RTX, &SUBREG_REG (x), NULL_PTR,
 		     find_valid_class (subreg_mode,
-				SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x)),
+				subreg_regno_offset (REGNO (SUBREG_REG (x)),
 						     GET_MODE (SUBREG_REG (x)),
 						     SUBREG_BYTE (x),
 						     GET_MODE (x))),
@@ -5073,7 +5073,7 @@ find_reloads_address_1 (mode, x, context, loc, opnum, type, ind_levels, insn)
 	    if (code0 == REG && REGNO (op0) < FIRST_PSEUDO_REGISTER)
 	      op0 = gen_rtx_REG (word_mode,
 				 (REGNO (op0) +
-				  SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (orig_op0)),
+				  subreg_regno_offset (REGNO (SUBREG_REG (orig_op0)),
 						       GET_MODE (SUBREG_REG (orig_op0)),
 						       SUBREG_BYTE (orig_op0),
 						       GET_MODE (orig_op0))));
@@ -5088,7 +5088,7 @@ find_reloads_address_1 (mode, x, context, loc, opnum, type, ind_levels, insn)
 		 ??? op0 SUBREGs we use word_mode?  */
 	      op1 = gen_rtx_REG (GET_MODE (op1),
 				 (REGNO (op1) +
-				  SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (orig_op1)),
+				  subreg_regno_offset (REGNO (SUBREG_REG (orig_op1)),
 						       GET_MODE (SUBREG_REG (orig_op1)),
 						       SUBREG_BYTE (orig_op1),
 						       GET_MODE (orig_op1))));
@@ -5501,7 +5501,7 @@ find_reloads_address_1 (mode, x, context, loc, opnum, type, ind_levels, insn)
 	     needless copies if SUBREG_REG is multi-word.  */
 	  if (REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER)
 	    {
-	      int regno = SUBREG_REGNO (x);
+	      int regno = subreg_regno (x);
 
 	      if (! (context ? REGNO_OK_FOR_INDEX_P (regno)
 		     : REGNO_MODE_OK_FOR_BASE_P (regno, mode)))
@@ -5839,7 +5839,7 @@ find_replacement (loc)
 	  if (GET_CODE (reloadreg) == REG)
 	    return gen_rtx_REG (GET_MODE (*loc),
 				(REGNO (reloadreg) +
-				 SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (*loc)),
+				 subreg_regno_offset (REGNO (SUBREG_REG (*loc)),
 						      GET_MODE (SUBREG_REG (*loc)),
 						      SUBREG_BYTE (*loc),
 						      GET_MODE (*loc))));
@@ -5932,7 +5932,7 @@ refers_to_regno_for_reload_p (regno, endregno, x, loc)
       if (GET_CODE (SUBREG_REG (x)) == REG
 	  && REGNO (SUBREG_REG (x)) < FIRST_PSEUDO_REGISTER)
 	{
-	  unsigned int inner_regno = SUBREG_REGNO (x);
+	  unsigned int inner_regno = subreg_regno (x);
 	  unsigned int inner_endregno
 	    = inner_regno + (inner_regno < FIRST_PSEUDO_REGISTER
 			     ? HARD_REGNO_NREGS (regno, GET_MODE (x)) : 1);
@@ -6027,7 +6027,7 @@ reg_overlap_mentioned_for_reload_p (x, in)
     {
       regno = REGNO (SUBREG_REG (x));
       if (regno < FIRST_PSEUDO_REGISTER)
-	regno += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (x)),
+	regno += subreg_regno_offset (REGNO (SUBREG_REG (x)),
 				      GET_MODE (SUBREG_REG (x)),
 				      SUBREG_BYTE (x),
 				      GET_MODE (x));

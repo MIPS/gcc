@@ -404,7 +404,7 @@ int
 subreg_overlap_mentioned_p (subreg, x)
      rtx subreg, x;
 {
-  int regno = SUBREG_REGNO (subreg);
+  int regno = subreg_regno (subreg);
   int endregno = regno + HARD_REGNO_NREGS (regno, GET_MODE (subreg));
   return refers_to_regno_p (regno, endregno, x, 0);
 }
@@ -431,7 +431,7 @@ consecutive_operands (op0, op1)
     {
       if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (op0))) <= UNITS_PER_WORD)
 	return 0;
-      regno_off0 = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op0)),
+      regno_off0 = subreg_regno_offset (REGNO (SUBREG_REG (op0)),
 					GET_MODE (SUBREG_REG (op0)),
 					SUBREG_BYTE (op0),
 					GET_MODE (op0));
@@ -444,7 +444,7 @@ consecutive_operands (op0, op1)
     {
       if (GET_MODE_SIZE (GET_MODE (SUBREG_REG (op1))) <= UNITS_PER_WORD)
 	return 0;
-      regno_off1 = SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (op1)),
+      regno_off1 = subreg_regno_offset (REGNO (SUBREG_REG (op1)),
 					GET_MODE (SUBREG_REG (op1)),
 					SUBREG_BYTE (op1),
 					GET_MODE (op1));

@@ -2628,7 +2628,7 @@ mark_stores (dest, x, data)
     {
       regno = REGNO (SUBREG_REG (dest));
       if (regno < FIRST_PSEUDO_REGISTER)
-	regno += SUBREG_REGNO_OFFSET (REGNO (SUBREG_REG (dest)),
+	regno += subreg_regno_offset (REGNO (SUBREG_REG (dest)),
 				      GET_MODE (SUBREG_REG (dest)),
 				      SUBREG_BYTE (dest),
 				      GET_MODE (dest));

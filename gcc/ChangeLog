@@ -1,3 +1,50 @@
+2000-11-17  Andrew Macleod  <amacleod@redhat.com>
+
+	* rtl.h (SUBREG_REGNO_OFFSET, SUBREG_REGNO): Remove macros.
+	(subreg_regno_offset, subreg_regno): Define prototypes.
+	* rtlanal.c (refers_to_regno_p, reg_overlap_mentioned_p): Use 
+	subreg_regno function.
+	(subreg_regno_offset): New function replaces SUBREG_REGNO_OFFSET macro.
+	(subreg_regno): New function to replace SUBREG_REGNO macro.
+	* alias.c (nonlocal_reference_p): Use subreg_regno function.
+	* caller-save.c (add_stored_regs): Use subreg_regno_offset function.
+	* emit-rtl.c (subreg_hard_regno, gen_lowpart_common, gen_highpart,
+	operand_subword): Use new subreg_regno_* functions.
+	* flow.c (mark_set_1): Use subreg_regno_offset function.
+	* function.c (purge_single_hard_subreg_set): Use subreg_regno_offset 
+	function.
+	* global.c (set_preference): Use subreg_regno_offset function.
+	* integrate.c (mark_stores): Use subreg_regno_offset function.
+	* jump.c (rtx_renumbered_equal_p, true_regnum): Use subreg_regno_offset
+	function.
+	* local-alloc.c (combine_regs): Use subreg_regno_offset function.
+	* recog.c (constrain_operands): Use subreg_regno_offset function.
+	* reg-stack.c (get_true_reg): Use subreg_regno_offset function.
+	* reload.c (reload_inner_reg_of_subreg, push_reload, find_dummy_reload,
+	operands_match_p, find_reloads, find_reloads_toplev, 
+	find_reloads_address_1, find_replacement, refers_to_regno_for_reload_p,
+	reg_overlap_mentioned_for_reload_p): Use new subreg_regno_* functions.
+	* reload1.c (forget_old_reloads_1, choose_reload_regs, 
+	reload_combine_note_store, move2add_note_store): Use new subreg_regno_*
+	functions.
+	* resource.c (update_live_status, mark_referenced_resources): Use 
+	subreg_regno function.
+	* tm.texi (SUBREG_REGNO_OFFSET): Document macro.
+	* config/a29k/a29k.c (gpc_reg_operand): Use subreg_regno function.
+	* config/d30v/d30v.c (d30v_split_double, 
+	d30v_print_operand_memory_reference): Use subreg_regno_offset function.
+	* config/mips/mips.c (mips_move_1word, mips_move_2words,
+	mips_secondary_reload_class): Use subreg_regno_offset function.
+	* config/mn10200/mn10200.c (print_operand): Use subreg_regno function.
+	* config/mn10300/mn10300.c (print_operand): Use subreg_regno function.
+	* config/pyr/pyr.c (subreg_overlap_mentioned_p, consecutive_operands):
+	Use subreg_regno_offset function.
+	* config/sh/sh.c (output_movedouble, regs_used, 
+	machine_dependent_reorg): Use new subreg_regno_* functions.
+	* config/sh/sh.md: Use subreg_regno function.
+	* config/v850/v850.c (print_operand, output_move_double): Use 
+	subreg_regno function.
+
 2000-11-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* expmed.c (store_bit_field): Set SUBREG_BYTE correctly on big

@@ -561,7 +561,7 @@ get_true_reg (pat)
 	  rtx subreg;
 	  if (FP_REG_P (subreg = SUBREG_REG (*pat)))
 	    {
-	      int regno_off = SUBREG_REGNO_OFFSET (REGNO (subreg),
+	      int regno_off = subreg_regno_offset (REGNO (subreg),
 						   GET_MODE (subreg),
 						   SUBREG_BYTE (*pat),
 						   GET_MODE (*pat));
