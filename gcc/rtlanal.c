@@ -3143,13 +3143,17 @@ parms_set (rtx x, rtx pat ATTRIBUTE_UNUSED, void *data)
     }
 }
 
+/* APPLE LOCAL begin 4045984 */
 /* Look backward for first parameter to be loaded.
+   Note that loads of all parameters will not necessarily be
+   found if CSE has eliminated some of them (e.g., an argument
+   to the outer function is passed down as a parameter).
    Do not skip BOUNDARY.  */
 rtx
 find_first_parameter_load (rtx call_insn, rtx boundary)
 {
   struct parms_set_data parm;
-  rtx p, before;
+  rtx p, before, first_set;
 
   /* Since different machines initialize their parameter registers
      in different orders, assume nothing.  Collect the set of all
@@ -3171,6 +3175,7 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 	parm.nregs++;
       }
   before = call_insn;
+  first_set = call_insn;
 
   /* Search backward for the first set of a register in this set.  */
   while (parm.nregs && before != boundary)
@@ -3193,11 +3198,16 @@ find_first_parameter_load (rtx call_insn, rtx boundary)
 	}
 
       if (INSN_P (before))
-	note_stores (PATTERN (before), parms_set, &parm);
+	{
+	  int nregs_old = parm.nregs;
+	  note_stores (PATTERN (before), parms_set, &parm);
+	  if (nregs_old != parm.nregs)
+	    first_set = before;
+	}
     }
-  return before;
+  return first_set;
 }
-
+/* APPLE LOCAL end 4045984 */
 /* Return true if we should avoid inserting code between INSN and preceding
    call instruction.  */
 

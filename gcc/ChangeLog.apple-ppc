@@ -1,3 +1,10 @@
+2005-03-11  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4045984
+	* rtlanal.c (find_first_parameter_load):  Rewrite to
+	return actual first param load or the call if none,
+	instead of first in block, when not all loads exist.
+
 2005-03-04  Devang Patel  <dpatel@apple.com>
 
 	Radar 4028625
