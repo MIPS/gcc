@@ -4,6 +4,9 @@
 
 2003-07-03  Jeff Law  <law@redhat.com>
 
+	* tree-nomudflap.c (mf_marked_p): Mark arguments as being unused.
+	(mf_mark): Likewise.
+
 	* c-decl.c (store_parm_decls): Strip away NOP_EXPRs when looking
 	for hidden use variables.
 

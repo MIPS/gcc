@@ -83,13 +83,13 @@ mudflap_finish_file ()
 
 
 int
-mf_marked_p (tree t)
+mf_marked_p (tree t ATTRIBUTE_UNUSED)
 {
   internal_error ("mudflap: this language is not supported");
 }
 
 tree
-mf_mark (tree t)
+mf_mark (tree t ATTRIBUTE_UNUSED)
 {
   internal_error ("mudflap: this language is not supported");
   return NULL;
