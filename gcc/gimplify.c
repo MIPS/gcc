@@ -2653,7 +2653,12 @@ gimplify_init_constructor (tree *expr_p, tree *pre_p,
     case VECTOR_TYPE:
       /* Go ahead and simplify constant constructors to VECTOR_CST.  */
       if (TREE_CONSTANT (ctor))
-	TREE_OPERAND (*expr_p, 1) = build_vector (type, elt_list);
+  	{
+	  TREE_OPERAND (*expr_p, 1) = build_vector (type, elt_list);
+	  /* APPLE LOCAL AltiVec construction. */
+	  /* Only RHS has been handled here. */
+	  return GS_UNHANDLED;
+	}
       else
 	{
 	  /* Vector types use CONSTRUCTOR all the way through gimple
