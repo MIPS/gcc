@@ -724,7 +724,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	      }
 	  break;
 
-	case STATEMENT_LIST:
+    	case STATEMENT_LIST:
 	  fprintf (file, " head " HOST_PTR_PRINTF " tail " HOST_PTR_PRINTF " stmts",
 		   (void *) node->stmt_list.head, (void *) node->stmt_list.tail);
 	  {
@@ -745,7 +745,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  }
 	  print_node (file, "chain", TREE_CHAIN (node), indent + 4);
 	  break;
-	  
+
 	case BLOCK:
 	  print_node (file, "vars", BLOCK_VARS (node), indent + 4);
 	  print_node (file, "supercontext", BLOCK_SUPERCONTEXT (node),

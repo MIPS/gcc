@@ -251,7 +251,7 @@ rest_of_decl_compilation (tree decl,
       timevar_pop (TV_SYMOUT);
     }
 
-  /* Let cgraph know about the existance of variables.  */
+  /* Let cgraph know about the existence of variables.  */
   if (TREE_CODE (decl) == VAR_DECL && !DECL_EXTERNAL (decl))
     cgraph_varpool_node (decl);
 }
@@ -293,7 +293,7 @@ rest_of_handle_final (void)
 
     assemble_start_function (current_function_decl, fnname);
     final_start_function (get_insns (), asm_out_file, optimize);
-    final (get_insns (), asm_out_file, optimize, 0);
+    final (get_insns (), asm_out_file, optimize);
     final_end_function ();
 
 #ifdef TARGET_UNWIND_INFO
@@ -331,6 +331,8 @@ rest_of_handle_final (void)
 
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (current_function_decl);
+  if (unlikely_text_section_name)
+    free (unlikely_text_section_name);
   timevar_pop (TV_SYMOUT);
 
   ggc_collect ();

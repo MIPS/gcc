@@ -227,7 +227,7 @@ const char *rs6000_debug_name;
 int rs6000_debug_stack;		/* debug stack applications */
 int rs6000_debug_arg;		/* debug argument handling */
 
-/* Value is TRUE if register/mode pair is accepatable.  */
+/* Value is TRUE if register/mode pair is acceptable.  */
 bool rs6000_hard_regno_mode_ok_p[NUM_MACHINE_MODES][FIRST_PSEUDO_REGISTER];
 
 /* Opaque types.  */
@@ -2276,27 +2276,6 @@ small_data_operand (rtx op ATTRIBUTE_UNUSED,
 #endif
 }
 
-/* Return true, if operand is a memory operand and has a
-   displacement divisible by 4.  */
-
-int
-word_offset_memref_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  rtx addr;
-  int off = 0;
-
-  if (!memory_operand (op, mode))
-    return 0;
-
-  addr = XEXP (op, 0);
-  if (GET_CODE (addr) == PLUS
-      && GET_CODE (XEXP (addr, 0)) == REG
-      && GET_CODE (XEXP (addr, 1)) == CONST_INT)
-    off = INTVAL (XEXP (addr, 1));
-
-  return (off % 4) == 0;
-}
-
 /* Return true if either operand is a general purpose register.  */
 
 bool
@@ -2790,21 +2769,16 @@ rs6000_legitimize_tls_address (rtx addr, enum tls_model model)
 		rs6000_emit_move (got, gsym, Pmode);
 	      else
 		{
-		  char buf[30];
-		  static int tls_got_labelno = 0;
-		  rtx tempLR, lab, tmp3, mem;
+		  rtx tempLR, tmp3, mem;
 		  rtx first, last;
 
-		  ASM_GENERATE_INTERNAL_LABEL (buf, "LTLS", tls_got_labelno++);
-		  lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
 		  tempLR = gen_reg_rtx (Pmode);
 		  tmp1 = gen_reg_rtx (Pmode);
 		  tmp2 = gen_reg_rtx (Pmode);
 		  tmp3 = gen_reg_rtx (Pmode);
 		  mem = gen_const_mem (Pmode, tmp1);
 
-		  first = emit_insn (gen_load_toc_v4_PIC_1b (tempLR, lab,
-							     gsym));
+		  first = emit_insn (gen_load_toc_v4_PIC_1b (tempLR, gsym));
 		  emit_move_insn (tmp1, tempLR);
 		  emit_move_insn (tmp2, mem);
 		  emit_insn (gen_addsi3 (tmp3, tmp1, tmp2));
@@ -4938,10 +4912,10 @@ function_arg (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 }
 
 /* For an arg passed partly in registers and partly in memory, this is
-   the number of registers used.  For args passed entirely in registers
-   or entirely in memory, zero.  When an arg is described by a PARALLEL,
-   perhaps using more than one register type, this function returns the
-   number of bytes of registers used by the PARALLEL.  */
+   the number of bytes passed in registers.  For args passed entirely in
+   registers or entirely in memory, zero.  When an arg is described by a
+   PARALLEL, perhaps using more than one register type, this function
+   returns the number of bytes used by the first element of the PARALLEL.  */
 
 static int
 rs6000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
@@ -4966,9 +4940,10 @@ rs6000_arg_partial_bytes (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   align_words = rs6000_parm_start (mode, type, cum->words);
 
   if (USE_FP_FOR_ARG_P (cum, mode, type)
-      /* If we are passing this arg in gprs as well, then this function
-	 should return the number of gprs (or memory) partially passed,
-	 *not* the number of fprs.  */
+      /* If we are passing this arg in the fixed parameter save area
+	 (gprs or memory) as well as fprs, then this function should
+	 return the number of bytes passed in the parameter save area
+	 rather than bytes passed in fprs.  */ 
       && !(type
 	   && (cum->nargs_prototype <= 0
 	       || (DEFAULT_ABI == ABI_AIX
@@ -7646,9 +7621,11 @@ altivec_init_builtins (void)
          targetm.vectorize.builtin_mask_for_load.  */
 
       decl = lang_hooks.builtin_function ("__builtin_altivec_mask_for_load",
-					  v16qi_ftype_long_pcvoid,
-					  ALTIVEC_BUILTIN_MASK_FOR_LOAD,
-					  BUILT_IN_MD, NULL, NULL_TREE);
+                               v16qi_ftype_long_pcvoid,
+                               ALTIVEC_BUILTIN_MASK_FOR_LOAD,
+                               BUILT_IN_MD, NULL,
+                               tree_cons (get_identifier ("const"),
+                                          NULL_TREE, NULL_TREE));
       /* Record the decl. Will be used by rs6000_builtin_mask_for_load.  */
       altivec_builtin_mask_for_load = decl;
     }
@@ -12002,11 +11979,10 @@ rs6000_emit_load_toc_table (int fromprolog)
       rtx temp0 = (fromprolog
 		   ? gen_rtx_REG (Pmode, 0)
 		   : gen_reg_rtx (Pmode));
-      rtx symF;
 
       if (fromprolog)
 	{
-	  rtx symL;
+	  rtx symF, symL;
 
 	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
 	  symF = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
@@ -12024,14 +12000,9 @@ rs6000_emit_load_toc_table (int fromprolog)
       else
 	{
 	  rtx tocsym;
-	  static int reload_toc_labelno = 0;
 
 	  tocsym = gen_rtx_SYMBOL_REF (Pmode, toc_label_name);
-
-	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCG", reload_toc_labelno++);
-	  symF = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
-
-	  emit_insn (gen_load_toc_v4_PIC_1b (tempLR, symF, tocsym));
+	  emit_insn (gen_load_toc_v4_PIC_1b (tempLR, tocsym));
 	  emit_move_insn (dest, tempLR);
 	  emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	}
@@ -13188,7 +13159,7 @@ rs6000_output_function_prologue (FILE *file,
 
       if (TARGET_DEBUG_STACK)
 	debug_rtx_list (get_insns (), 100);
-      final (get_insns (), file, FALSE, FALSE);
+      final (get_insns (), file, FALSE);
       end_sequence ();
     }
 
@@ -13718,7 +13689,7 @@ rs6000_output_function_epilogue (FILE *file,
 
 	  if (TARGET_DEBUG_STACK)
 	    debug_rtx_list (get_insns (), 100);
-	  final (get_insns (), file, FALSE, FALSE);
+	  final (get_insns (), file, FALSE);
 	  end_sequence ();
 	}
     }
@@ -14088,7 +14059,7 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   insn_locators_initialize ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
-  final (insn, file, 1, 0);
+  final (insn, file, 1);
   final_end_function ();
 
   reload_completed = 0;
@@ -15238,7 +15209,7 @@ static bool
 rs6000_is_costly_dependence (rtx insn, rtx next, rtx link, int cost,
 			     int distance)
 {
-  /* If the flag is not enbled - no dependence is considered costly;
+  /* If the flag is not enabled - no dependence is considered costly;
      allow all dependent insns in the same group.
      This is the most aggressive option.  */
   if (rs6000_sched_costly_dep == no_dep_costly)

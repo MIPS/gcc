@@ -529,7 +529,7 @@ c_finish_incomplete_decl (tree decl)
 	{
 	  warning ("%Jarray %qD assumed to have one element", decl, decl);
 
-	  complete_array_type (type, NULL_TREE, 1);
+	  complete_array_type (&TREE_TYPE (decl), NULL_TREE, true);
 
 	  layout_decl (decl, 0);
 	}
@@ -1043,8 +1043,7 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
   tree newargs, oldargs;
   int i;
 
-  /* ??? Elsewhere TYPE_MAIN_VARIANT is not used in this context.  */
-#define END_OF_ARGLIST(t) (TYPE_MAIN_VARIANT (t) == void_type_node)
+#define END_OF_ARGLIST(t) ((t) == void_type_node)
 
   oldargs = TYPE_ACTUAL_ARG_TYPES (oldtype);
   newargs = TYPE_ARG_TYPES (newtype);
@@ -1052,8 +1051,8 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
 
   for (;;)
     {
-      tree oldargtype = TREE_VALUE (oldargs);
-      tree newargtype = TREE_VALUE (newargs);
+      tree oldargtype = TYPE_MAIN_VARIANT (TREE_VALUE (oldargs));
+      tree newargtype = TYPE_MAIN_VARIANT (TREE_VALUE (newargs));
 
       if (END_OF_ARGLIST (oldargtype) && END_OF_ARGLIST (newargtype))
 	break;
@@ -2441,6 +2440,7 @@ define_label (location_t location, tree name)
      if there is a containing function with a declared label with
      the same name.  */
   tree label = I_LABEL_DECL (name);
+  struct c_label_list *nlist;
 
   if (label
       && ((DECL_CONTEXT (label) == current_function_decl
@@ -2457,6 +2457,8 @@ define_label (location_t location, tree name)
       /* The label has been used or declared already in this function,
 	 but not defined.  Update its location to point to this
 	 definition.  */
+      if (C_DECL_UNDEFINABLE_STMT_EXPR (label))
+	error ("%Jjump into statement expression", label);
       DECL_SOURCE_LOCATION (label) = location;
     }
   else
@@ -2472,6 +2474,11 @@ define_label (location_t location, tree name)
   if (warn_traditional && !in_system_header && lookup_name (name))
     warning ("%Htraditional C lacks a separate namespace for labels, "
              "identifier %qE conflicts", &location, name);
+
+  nlist = XOBNEW (&parser_obstack, struct c_label_list);
+  nlist->next = label_context_stack->labels_def;
+  nlist->label = label;
+  label_context_stack->labels_def = nlist;
 
   /* Mark label as having been defined.  */
   DECL_INITIAL (label) = error_mark_node;
@@ -3169,14 +3176,15 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
       && TYPE_DOMAIN (type) == 0
       && TREE_CODE (decl) != TYPE_DECL)
     {
-      int do_default
+      bool do_default
 	= (TREE_STATIC (decl)
 	   /* Even if pedantic, an external linkage array
 	      may have incomplete type at first.  */
 	   ? pedantic && !TREE_PUBLIC (decl)
 	   : !DECL_EXTERNAL (decl));
       int failure
-	= complete_array_type (type, DECL_INITIAL (decl), do_default);
+	= complete_array_type (&TREE_TYPE (decl), DECL_INITIAL (decl),
+			       do_default);
 
       /* Get the completed type made by complete_array_type.  */
       type = TREE_TYPE (decl);
@@ -3197,13 +3205,11 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  else if (!pedantic && TREE_STATIC (decl) && !TREE_PUBLIC (decl))
 	    DECL_EXTERNAL (decl) = 1;
 	}
-
-      /* TYPE_MAX_VALUE is always one less than the number of elements
-	 in the array, because we start counting at zero.  Therefore,
-	 warn only if the value is less than zero.  */
-      else if (pedantic && TYPE_DOMAIN (type) != 0
-	       && tree_int_cst_sgn (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) < 0)
+      else if (failure == 3)
 	error ("%Jzero or negative size array %qD", decl, decl);
+
+      if (DECL_INITIAL (decl))
+	TREE_TYPE (DECL_INITIAL (decl)) = type;
 
       layout_decl (decl, 0);
     }
@@ -3492,17 +3498,19 @@ build_compound_literal (tree type, tree init)
 
   if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
     {
-      int failure = complete_array_type (type, DECL_INITIAL (decl), 1);
-      
+      int failure = complete_array_type (&TREE_TYPE (decl),
+					 DECL_INITIAL (decl), true);
       gcc_assert (!failure);
+
+      type = TREE_TYPE (decl);
+      TREE_TYPE (DECL_INITIAL (decl)) = type;
     }
 
-  type = TREE_TYPE (decl);
   if (type == error_mark_node || !COMPLETE_TYPE_P (type))
     return error_mark_node;
 
   stmt = build_stmt (DECL_EXPR, decl);
-  complit = build1 (COMPOUND_LITERAL_EXPR, TREE_TYPE (decl), stmt);
+  complit = build1 (COMPOUND_LITERAL_EXPR, type, stmt);
   TREE_SIDE_EFFECTS (complit) = 1;
 
   layout_decl (decl, 0);
@@ -3526,73 +3534,6 @@ build_compound_literal (tree type, tree init)
     }
 
   return complit;
-}
-
-/* Make TYPE a complete type based on INITIAL_VALUE.
-   Return 0 if successful, 1 if INITIAL_VALUE can't be deciphered,
-   2 if there was no information (in which case assume 1 if DO_DEFAULT).  */
-
-int
-complete_array_type (tree type, tree initial_value, int do_default)
-{
-  tree maxindex = NULL_TREE;
-  int value = 0;
-
-  if (initial_value)
-    {
-      /* Note MAXINDEX  is really the maximum index,
-	 one less than the size.  */
-      if (TREE_CODE (initial_value) == STRING_CST)
-	{
-	  int eltsize
-	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
-	  maxindex = build_int_cst (NULL_TREE,
-				    (TREE_STRING_LENGTH (initial_value)
-				     / eltsize) - 1);
-	}
-      else if (TREE_CODE (initial_value) == CONSTRUCTOR)
-	{
-	  tree elts = CONSTRUCTOR_ELTS (initial_value);
-	  maxindex = build_int_cst (NULL_TREE, -1);
-	  for (; elts; elts = TREE_CHAIN (elts))
-	    {
-	      if (TREE_PURPOSE (elts))
-		maxindex = TREE_PURPOSE (elts);
-	      else
-		maxindex = fold (build2 (PLUS_EXPR, integer_type_node,
-					 maxindex, integer_one_node));
-	    }
-	}
-      else
-	{
-	  /* Make an error message unless that happened already.  */
-	  if (initial_value != error_mark_node)
-	    value = 1;
-
-	  /* Prevent further error messages.  */
-	  maxindex = build_int_cst (NULL_TREE, 0);
-	}
-    }
-
-  if (!maxindex)
-    {
-      if (do_default)
-	maxindex = build_int_cst (NULL_TREE, 0);
-      value = 2;
-    }
-
-  if (maxindex)
-    {
-      TYPE_DOMAIN (type) = build_index_type (maxindex);
-      
-      gcc_assert (TREE_TYPE (maxindex));
-    }
-
-  /* Lay out the type now that we can get the real answer.  */
-
-  layout_type (type);
-
-  return value;
 }
 
 /* Determine whether TYPE is a structure with a flexible array member,
@@ -5698,6 +5639,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 {
   tree decl1, old_decl;
   tree restype, resdecl;
+  struct c_label_context *nstack;
 
   current_function_returns_value = 0;  /* Assume, until we see it does.  */
   current_function_returns_null = 0;
@@ -5705,6 +5647,12 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   warn_about_return_type = 0;
   current_extern_inline = 0;
   c_switch_stack = NULL;
+
+  nstack = XOBNEW (&parser_obstack, struct c_label_context);
+  nstack->labels_def = NULL;
+  nstack->labels_used = NULL;
+  nstack->next = label_context_stack;
+  label_context_stack = nstack;
 
   /* Indicate no valid break/continue context by setting these variables
      to some non-null, non-label value.  We'll notice and emit the proper
@@ -5758,11 +5706,13 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 
   /* Optionally warn of old-fashioned def with no previous prototype.  */
   if (warn_strict_prototypes
+      && old_decl != error_mark_node
       && TYPE_ARG_TYPES (TREE_TYPE (decl1)) == 0
       && C_DECL_ISNT_PROTOTYPE (old_decl))
     warning ("function declaration isn%'t a prototype");
   /* Optionally warn of any global def with no previous prototype.  */
   else if (warn_missing_prototypes
+	   && old_decl != error_mark_node
 	   && TREE_PUBLIC (decl1)
 	   && !MAIN_NAME_P (DECL_NAME (decl1))
 	   && C_DECL_ISNT_PROTOTYPE (old_decl))
@@ -5770,7 +5720,9 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* Optionally warn of any def with no previous prototype
      if the function has already been used.  */
   else if (warn_missing_prototypes
-	   && old_decl != 0 && TREE_USED (old_decl)
+	   && old_decl != 0
+	   && old_decl != error_mark_node
+	   && TREE_USED (old_decl)
 	   && TYPE_ARG_TYPES (TREE_TYPE (old_decl)) == 0)
     warning ("%J%qD was used with no prototype before its definition",
 	     decl1, decl1);
@@ -5783,7 +5735,9 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
   /* Optionally warn of any def with no previous declaration
      if the function has already been used.  */
   else if (warn_missing_declarations
-	   && old_decl != 0 && TREE_USED (old_decl)
+	   && old_decl != 0
+	   && old_decl != error_mark_node
+	   && TREE_USED (old_decl)
 	   && C_DECL_IMPLICIT (old_decl))
     warning ("%J%qD was used with no declaration before its definition",
 	     decl1, decl1);
@@ -6280,6 +6234,8 @@ void
 finish_function (void)
 {
   tree fndecl = current_function_decl;
+
+  label_context_stack = label_context_stack->next;
 
   if (TREE_CODE (fndecl) == FUNCTION_DECL
       && targetm.calls.promote_prototypes (TREE_TYPE (fndecl)))

@@ -368,7 +368,7 @@ const char * structure_size_string = NULL;
 int    arm_structure_size_boundary = DEFAULT_STRUCTURE_SIZE_BOUNDARY;
 
 /* Used for Thumb call_via trampolines.  */
-rtx thumb_call_via_label[13];
+rtx thumb_call_via_label[14];
 static int thumb_call_reg_needed;
 
 /* Bit values used to identify processor capabilities.  */
@@ -5139,6 +5139,10 @@ minmax_code (rtx x)
 int
 adjacent_mem_locations (rtx a, rtx b)
 {
+  /* We don't guarantee to preserve the order of these memory refs.  */
+  if (volatile_refs_p (a) || volatile_refs_p (b))
+    return 0;
+
   if ((GET_CODE (XEXP (a, 0)) == REG
        || (GET_CODE (XEXP (a, 0)) == PLUS
 	   && GET_CODE (XEXP (XEXP (a, 0), 1)) == CONST_INT))
@@ -5178,6 +5182,17 @@ adjacent_mem_locations (rtx a, rtx b)
 	return 0;
 
       val_diff = val1 - val0;
+
+      if (arm_ld_sched)
+	{
+	  /* If the target has load delay slots, then there's no benefit
+	     to using an ldm instruction unless the offset is zero and
+	     we are optimizing for size.  */
+	  return (optimize_size && (REGNO (reg0) == REGNO (reg1))
+		  && (val0 == 0 || val1 == 0 || val0 == 4 || val1 == 4)
+		  && (val_diff == 4 || val_diff == -4));
+	}
+
       return ((REGNO (reg0) == REGNO (reg1))
 	      && (val_diff == 4 || val_diff == -4));
     }
@@ -9665,7 +9680,7 @@ arm_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 
       /* Emit any call-via-reg trampolines that are needed for v4t support
 	 of call_reg and call_value_reg type insns.  */
-      for (regno = 0; regno < SP_REGNUM; regno++)
+      for (regno = 0; regno < LR_REGNUM; regno++)
 	{
 	  rtx label = cfun->machine->call_via[regno];
 
@@ -13760,7 +13775,7 @@ thumb_call_via_reg (rtx reg)
   int regno = REGNO (reg);
   rtx *labelp;
 
-  gcc_assert (regno < SP_REGNUM);
+  gcc_assert (regno < LR_REGNUM);
 
   /* If we are in the normal text section we can use a single instance
      per compilation unit.  If we are doing function sections, then we need
@@ -13906,7 +13921,7 @@ arm_file_end (void)
   asm_fprintf (asm_out_file, "\t.code 16\n");
   ASM_OUTPUT_ALIGN (asm_out_file, 1);
 
-  for (regno = 0; regno < SP_REGNUM; regno++)
+  for (regno = 0; regno < LR_REGNUM; regno++)
     {
       rtx label = thumb_call_via_label[regno];
 
@@ -14641,3 +14656,30 @@ arm_shift_truncation_mask (enum machine_mode mode)
 {
   return mode == SImode ? 255 : 0;
 }
+
+
+/* Map internal gcc register numbers to DWARF2 register numbers.  */
+
+unsigned int
+arm_dbx_register_number (unsigned int regno)
+{
+  if (regno < 16)
+    return regno;
+
+  /* TODO: Legacy targets output FPA regs as registers 16-23 for backwards
+     compatibility.  The EABI defines them as registers 96-103.  */
+  if (IS_FPA_REGNUM (regno))
+    return (TARGET_AAPCS_BASED ? 96 : 16) + regno - FIRST_FPA_REGNUM;
+
+  if (IS_VFP_REGNUM (regno))
+    return 64 + regno - FIRST_VFP_REGNUM;
+
+  if (IS_IWMMXT_GR_REGNUM (regno))
+    return 104 + regno - FIRST_IWMMXT_GR_REGNUM;
+
+  if (IS_IWMMXT_REGNUM (regno))
+    return 112 + regno - FIRST_IWMMXT_REGNUM;
+
+  abort ();
+}
+

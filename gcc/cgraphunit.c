@@ -174,6 +174,7 @@ static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_call_1 (tree *, int *, void *);
 static void cgraph_analyze_function (struct cgraph_node *node);
+static void cgraph_create_edges (struct cgraph_node *, tree);
 
 /* Records tree nodes seen in cgraph_create_edges.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
@@ -264,6 +265,66 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
   return false;
 }
 
+/* Walk the decls we marked as necessary and see if they reference new
+   variables or functions and add them into the worklists.  */
+static bool
+cgraph_varpool_analyze_pending_decls (void)
+{
+  bool changed = false;
+  timevar_push (TV_CGRAPH);
+
+  while (cgraph_varpool_first_unanalyzed_node)
+    {
+      tree decl = cgraph_varpool_first_unanalyzed_node->decl;
+
+      cgraph_varpool_first_unanalyzed_node->analyzed = true;
+
+      cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
+
+      if (DECL_INITIAL (decl))
+	cgraph_create_edges (NULL, DECL_INITIAL (decl));
+      changed = true;
+    }
+  timevar_pop (TV_CGRAPH);
+  return changed;
+}
+
+/* Optimization of function bodies might've rendered some variables as
+   unnecessary so we want to avoid these from being compiled.
+
+   This is done by prunning the queue and keeping only the variables that
+   really appear needed (ie they are either externally visible or referenced
+   by compiled function). Re-doing the reachability analysis on variables
+   brings back the remaining variables referenced by these.  */
+static void
+cgraph_varpool_remove_unreferenced_decls (void)
+{
+  struct cgraph_varpool_node *next, *node = cgraph_varpool_nodes_queue;
+
+  cgraph_varpool_reset_queue ();
+
+  if (errorcount || sorrycount)
+    return;
+
+  while (node)
+    {
+      tree decl = node->decl;
+      next = node->next_needed;
+      node->needed = 0;
+
+      if (node->finalized
+	  && ((DECL_ASSEMBLER_NAME_SET_P (decl)
+	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+	      || node->force_output
+	      || decide_is_variable_needed (node, decl)))
+	cgraph_varpool_mark_needed_node (node);
+
+      node = next;
+    }
+  cgraph_varpool_analyze_pending_decls ();
+}
+
+
 /* When not doing unit-at-a-time, output all functions enqueued.
    Return true when such a functions were found.  */
 
@@ -281,7 +342,9 @@ cgraph_assemble_pending_functions (void)
 
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
       n->next_needed = NULL;
-      if (!n->global.inlined_to && !DECL_EXTERNAL (n->decl))
+      if (!n->global.inlined_to
+	  && !n->alias
+	  && !DECL_EXTERNAL (n->decl))
 	{
 	  cgraph_expand_function (n);
 	  output = true;
@@ -724,34 +787,6 @@ verify_cgraph (void)
     verify_cgraph_node (node);
 }
 
-/* Walk the decls we marked as neccesary and see if they reference new variables
-   or functions and add them into the worklists.  */
-static bool
-cgraph_varpool_analyze_pending_decls (void)
-{
-  bool changed = false;
-  timevar_push (TV_IPA_ANALYSIS);
-
-  while (cgraph_varpool_first_unanalyzed_node)
-    {
-      tree decl = cgraph_varpool_first_unanalyzed_node->decl;
-
-      cgraph_varpool_first_unanalyzed_node->analyzed = true;
-
-      /* Some datastructures (such as typeinfos for EH handling) can be output
-         late during the RTL compilation.  We need to make these invisible to
-	 IPA optimizers or we confuse them badly.  */
-      if (cgraph_global_info_ready)
-        cgraph_varpool_first_unanalyzed_node->non_ipa = true;
-      cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
-
-      if (DECL_INITIAL (decl))
-	cgraph_create_edges (NULL, DECL_INITIAL (decl));
-      changed = true;
-    }
-  timevar_pop (TV_IPA_ANALYSIS);
-  return changed;
-}
 
 /* Output all variables enqueued to be assembled.  */
 bool
@@ -773,10 +808,8 @@ cgraph_varpool_assemble_pending_decls (void)
       struct cgraph_varpool_node *node = cgraph_varpool_nodes_queue;
 
       cgraph_varpool_nodes_queue = cgraph_varpool_nodes_queue->next_needed;
-      if (!TREE_ASM_WRITTEN (decl) && !DECL_EXTERNAL (decl))
+      if (!TREE_ASM_WRITTEN (decl) && !node->alias && !DECL_EXTERNAL (decl))
 	{
-	  if (!node->non_ipa)
-            ipa_modify_variable (node);
 	  assemble_variable (decl, 0, 1, 0);
 	  changed = true;
 	}
@@ -833,7 +866,7 @@ cgraph_finalize_compilation_unit (void)
 {
   struct cgraph_node *node;
   /* Keep track of already processed nodes when called multiple times for
-     intermodule optmization.  */
+     intermodule optimization.  */
   static struct cgraph_node *first_analyzed;
 
   finish_aliases_1 ();
@@ -1170,6 +1203,10 @@ cgraph_optimize (void)
   timevar_push (TV_IPA_OPT);
 
   process_pending_assemble_externals ();
+  
+  /* Frontend may output common variables after the unit has been finalized.
+     It is safe to deal with them here as they are always zero initialized.  */
+  cgraph_varpool_analyze_pending_decls ();
 
   if (!quiet_flag)
     {
@@ -1226,8 +1263,10 @@ cgraph_optimize (void)
   
   cgraph_mark_functions_to_output ();
   cgraph_expand_all_functions ();
+  cgraph_varpool_remove_unreferenced_decls ();
 
   cgraph_varpool_assemble_pending_decls ();
+
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "\nFinal ");

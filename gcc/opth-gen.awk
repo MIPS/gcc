@@ -70,7 +70,7 @@ for (i = 0; i < n_opts; i++) {
 masknum = 0
 for (i = 0; i < n_opts; i++) {
 	name = opt_args("Mask", flags[i])
-	if (name != "")
+	if (name != "" && !flag_set_p("MaskExists", flags[i]))
 		print "#define MASK_" name " (1 << " masknum++ ")"
 }
 if (masknum > 31)
@@ -79,7 +79,7 @@ print ""
 
 for (i = 0; i < n_opts; i++) {
 	name = opt_args("Mask", flags[i])
-	if (name != "")
+	if (name != "" && !flag_set_p("MaskExists", flags[i]))
 		print "#define TARGET_" name \
 		      " ((target_flags & MASK_" name ") != 0)"
 }
@@ -127,7 +127,7 @@ for (i = 0; i < n_opts; i++)
 	# a later switch S is a longer prefix of a switch T, T
 	# will be back-chained to S in a later iteration of this
 	# for() loop, which is what we want.
-	if (flags[i] ~ "Joined") {
+	if (flag_set_p("Joined.*", flags[i])) {
 		for (j = i + 1; j < n_opts; j++) {
 			if (substr (opts[j], 1, len) != opts[i])
 				break;

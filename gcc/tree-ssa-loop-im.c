@@ -448,6 +448,7 @@ stmt_cost (tree stmt)
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
     case TRUNC_MOD_EXPR:
+    case RDIV_EXPR:
       /* Division and multiplication are usually expensive.  */
       cost += 20;
       break;

@@ -7727,7 +7727,6 @@ sparc_type_code (register tree type)
 	case VECTOR_TYPE:
 	case CHAR_TYPE:		/* GNU Pascal CHAR type.  Not used in C.  */
 	case BOOLEAN_TYPE:	/* GNU Fortran BOOLEAN type.  */
-	case FILE_TYPE:		/* GNU Pascal FILE type.  */
 	case LANG_TYPE:		/* ? */
 	  return qualifiers;
   
@@ -8202,7 +8201,7 @@ sparc_output_deferred_case_vectors (void)
     return;
 
   /* Align to cache line in the function's code section.  */
-  function_section (current_function_decl);
+  current_function_section (current_function_decl);
 
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
   if (align > 0)
@@ -9115,7 +9114,7 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   insn_locators_initialize ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
-  final (insn, file, 1, 0);
+  final (insn, file, 1);
   final_end_function ();
 
   reload_completed = 0;

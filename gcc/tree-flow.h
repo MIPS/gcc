@@ -802,9 +802,6 @@ extern bool expr_invariant_in_loop_p (struct loop *, tree);
 
 tree force_gimple_operand (tree, tree *, bool, tree);
 
-/* In tree-profile.c */
-extern bool do_tree_profiling (void);
-
 #include "tree-flow-inline.h"
 
 #endif /* _TREE_FLOW_H  */

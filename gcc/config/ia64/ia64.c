@@ -3348,7 +3348,7 @@ hfa_element_mode (tree type, bool nested)
     case VOID_TYPE:	case INTEGER_TYPE:	case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:	case CHAR_TYPE:		case POINTER_TYPE:
     case OFFSET_TYPE:	case REFERENCE_TYPE:	case METHOD_TYPE:
-    case FILE_TYPE:	case LANG_TYPE:		case FUNCTION_TYPE:
+    case LANG_TYPE:		case FUNCTION_TYPE:
       return VOIDmode;
 
       /* Fortran complex types are supposed to be HFAs, so we need to handle
@@ -6481,7 +6481,13 @@ get_max_pos (state_t state)
 
 /* The function returns code of a possible template for given position
    and state.  The function should be called only with 2 values of
-   position equal to 3 or 6.  */
+   position equal to 3 or 6.  We avoid generating F NOPs by putting
+   templates containing F insns at the end of the template search
+   because undocumented anomaly in McKinley derived cores which can
+   cause stalls if an F-unit insn (including a NOP) is issued within a
+   six-cycle window after reading certain application registers (such
+   as ar.bsp).  Furthermore, power-considerations also argue against
+   the use of F-unit instructions unless they're really needed.  */
 
 static int
 get_template (state_t state, int pos)
@@ -6489,22 +6495,22 @@ get_template (state_t state, int pos)
   switch (pos)
     {
     case 3:
-      if (cpu_unit_reservation_p (state, _0mii_))
-	return 0;
-      else if (cpu_unit_reservation_p (state, _0mmi_))
+      if (cpu_unit_reservation_p (state, _0mmi_))
 	return 1;
-      else if (cpu_unit_reservation_p (state, _0mfi_))
-	return 2;
-      else if (cpu_unit_reservation_p (state, _0mmf_))
-	return 3;
-      else if (cpu_unit_reservation_p (state, _0bbb_))
-	return 4;
-      else if (cpu_unit_reservation_p (state, _0mbb_))
-	return 5;
-      else if (cpu_unit_reservation_p (state, _0mib_))
-	return 6;
+      else if (cpu_unit_reservation_p (state, _0mii_))
+	return 0;
       else if (cpu_unit_reservation_p (state, _0mmb_))
 	return 7;
+      else if (cpu_unit_reservation_p (state, _0mib_))
+	return 6;
+      else if (cpu_unit_reservation_p (state, _0mbb_))
+	return 5;
+      else if (cpu_unit_reservation_p (state, _0bbb_))
+	return 4;
+      else if (cpu_unit_reservation_p (state, _0mmf_))
+	return 3;
+      else if (cpu_unit_reservation_p (state, _0mfi_))
+	return 2;
       else if (cpu_unit_reservation_p (state, _0mfb_))
 	return 8;
       else if (cpu_unit_reservation_p (state, _0mlx_))
@@ -6512,22 +6518,22 @@ get_template (state_t state, int pos)
       else
 	abort ();
     case 6:
-      if (cpu_unit_reservation_p (state, _1mii_))
-	return 0;
-      else if (cpu_unit_reservation_p (state, _1mmi_))
+      if (cpu_unit_reservation_p (state, _1mmi_))
 	return 1;
-      else if (cpu_unit_reservation_p (state, _1mfi_))
-	return 2;
-      else if (_1mmf_ >= 0 && cpu_unit_reservation_p (state, _1mmf_))
-	return 3;
-      else if (cpu_unit_reservation_p (state, _1bbb_))
-	return 4;
-      else if (cpu_unit_reservation_p (state, _1mbb_))
-	return 5;
-      else if (cpu_unit_reservation_p (state, _1mib_))
-	return 6;
+      else if (cpu_unit_reservation_p (state, _1mii_))
+	return 0;
       else if (cpu_unit_reservation_p (state, _1mmb_))
 	return 7;
+      else if (cpu_unit_reservation_p (state, _1mib_))
+	return 6;
+      else if (cpu_unit_reservation_p (state, _1mbb_))
+	return 5;
+      else if (cpu_unit_reservation_p (state, _1bbb_))
+	return 4;
+      else if (_1mmf_ >= 0 && cpu_unit_reservation_p (state, _1mmf_))
+	return 3;
+      else if (cpu_unit_reservation_p (state, _1mfi_))
+	return 2;
       else if (cpu_unit_reservation_p (state, _1mfb_))
 	return 8;
       else if (cpu_unit_reservation_p (state, _1mlx_))
@@ -8818,7 +8824,7 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
   insn = get_insns ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
-  final (insn, file, 1, 0);
+  final (insn, file, 1);
   final_end_function ();
 
   reload_completed = 0;

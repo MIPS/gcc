@@ -3973,7 +3973,8 @@ mips_gimplify_va_arg_expr (tree valist, tree type, tree *pre_p, tree *post_p)
 	}
 
       /* [2] Emit code to branch if off == 0.  */
-      t = lang_hooks.truthvalue_conversion (off);
+      t = build (NE_EXPR, boolean_type_node, off,
+		 build_int_cst (TREE_TYPE (off), 0));
       addr = build (COND_EXPR, ptr_type_node, t, NULL, NULL);
 
       /* [5] Emit code for: off -= rsize.  We do this as a form of
@@ -6718,7 +6719,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
     mips16_lay_out_constants ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
-  final (insn, file, 1, 0);
+  final (insn, file, 1);
   final_end_function ();
 
   /* Clean up the vars set above.  Note that final_end_function resets
@@ -8982,7 +8983,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
             final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 0, 1, NULL);
+                             optimize, 1, NULL);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	else
@@ -9001,7 +9002,7 @@ mips_output_conditional_branch (rtx insn, rtx *operands, int two_operands_p,
             /* Output delay slot instruction.  */
             rtx insn = final_sequence;
             final_scan_insn (XVECEXP (insn, 0, 1), asm_out_file,
-                             optimize, 0, 1, NULL);
+                             optimize, 1, NULL);
             INSN_DELETED_P (XVECEXP (insn, 0, 1)) = 1;
           }
 	else
@@ -9193,7 +9194,7 @@ mips_matching_cpu_name_p (const char *canonical, const char *given)
 
 
 /* Return the mips_cpu_info entry for the processor or ISA given
-   by CPU_STRING.  Return null if the string isn't recognised.
+   by CPU_STRING.  Return null if the string isn't recognized.
 
    A similar function exists in GAS.  */
 

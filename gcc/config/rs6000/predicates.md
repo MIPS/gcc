@@ -219,8 +219,15 @@
       long k[2];
       REAL_VALUE_TYPE rv;
 
-      if (TARGET_E500_DOUBLE)
-	return 0;
+      /* Force constants to memory before reload to utilize
+	 compress_float_constant.
+	 Avoid this when flag_unsafe_math_optimizations is enabled
+	 because RDIV division to reciprocal optimization is not able
+	 to regenerate the division.  */
+      if (TARGET_E500_DOUBLE
+          || (!reload_in_progress && !reload_completed
+	      && !flag_unsafe_math_optimizations))
+        return 0;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
@@ -233,6 +240,15 @@
     {
       long l;
       REAL_VALUE_TYPE rv;
+
+      /* Force constants to memory before reload to utilize
+	 compress_float_constant.
+	 Avoid this when flag_unsafe_math_optimizations is enabled
+	 because RDIV division to reciprocal optimization is not able
+	 to regenerate the division.  */
+      if (!reload_in_progress && !reload_completed
+          && !flag_unsafe_math_optimizations)
+	return 0;
 
       REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
       REAL_VALUE_TO_TARGET_SINGLE (rv, l);
@@ -341,6 +357,22 @@
        (match_test "offsettable_address_p (reload_completed
 					   || reload_in_progress,
 					   mode, XEXP (op, 0))")))
+
+;; Return 1 if the operand is an indexed or indirect memory operand.
+(define_predicate "indexed_or_indirect_operand"
+  (and (match_operand 0 "memory_operand")
+       (match_test "REG_P (XEXP (op, 0))
+		    || (GET_CODE (XEXP (op, 0)) == PLUS
+			&& REG_P (XEXP (XEXP (op, 0), 0)) 
+			&& REG_P (XEXP (XEXP (op, 0), 1)))")))
+
+;; Return 1 if the operand is a memory operand with an address divisible by 4
+(define_predicate "word_offset_memref_operand"
+  (and (match_operand 0 "memory_operand")
+       (match_test "GET_CODE (XEXP (op, 0)) != PLUS
+		    || ! REG_P (XEXP (XEXP (op, 0), 0)) 
+		    || GET_CODE (XEXP (XEXP (op, 0), 1)) != CONST_INT
+		    || INTVAL (XEXP (XEXP (op, 0), 1)) % 4 == 0")))
 
 ;; Return 1 if the operand is either a non-special register or can be used
 ;; as the operand of a `mode' add insn.
@@ -577,7 +609,7 @@
   (match_code "symbol_ref,const,label_ref"))
 
 ;; Return 1 if op is a simple reference that can be loaded via the GOT,
-;; exclusing labels involving addition.
+;; excluding labels involving addition.
 (define_predicate "got_no_const_operand"
   (match_code "symbol_ref,label_ref"))
 

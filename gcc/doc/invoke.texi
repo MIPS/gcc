@@ -188,7 +188,7 @@ in the following sections.
 -Weffc++  -Wno-deprecated @gol
 -Wno-non-template-friend  -Wold-style-cast @gol
 -Woverloaded-virtual  -Wno-pmf-conversions @gol
--Wsign-promo  -Wsynth}
+-Wsign-promo}
 
 @item Objective-C and Objective-C++ Language Options
 @xref{Objective-C and Objective-C++ Dialect Options,,Options Controlling
@@ -323,7 +323,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-linear -ftree-loop-im -ftree-loop-ivcanon -fivopts @gol
 -ftree-dominator-opts -ftree-dse -ftree-copyrename -ftree-sink @gol
 -ftree-ch -ftree-sra -ftree-ter -ftree-lrs -ftree-fre -ftree-vectorize @gol
--fwhole-program -ftree-salias @gol
+-ftree-salias @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os}
 
@@ -1793,13 +1793,6 @@ Warn when overload resolution chooses a promotion from unsigned or
 enumerated type to a signed type, over a conversion to an unsigned type of
 the same size.  Previous versions of G++ would try to preserve
 unsignedness, but the standard mandates the current behavior.
-
-@item -Wsynth @r{(C++ only)}
-@opindex Wsynth
-@cindex warning for synthesized methods
-@cindex synthesized methods, warning
-Warn when G++'s synthesis behavior does not match that of cfront.  For
-instance:
 
 @smallexample
 struct A @{
@@ -4199,7 +4192,6 @@ also turns on the following optimization flags:
 -fdelete-null-pointer-checks @gol
 -freorder-blocks  -freorder-functions @gol
 -funit-at-a-time @gol
--fipa-cp @gol
 -falign-functions  -falign-jumps @gol
 -falign-loops  -falign-labels @gol
 -ftree-pre}
@@ -4832,13 +4824,6 @@ Perform tail duplication to enlarge superblock size.  This transformation
 simplifies the control flow of the function allowing other optimizations to do
 better job.
 
-@item -fwhole-program
-@opindex fwhole-program
-Assume that the whole program is exposed in the current compialation unit.
-All public symbols defined by program with exception of function main and those
-marged by attribute @code{used} are assumed to be local and may be altered by
-compiler.
-
 @item -funroll-loops
 @opindex funroll-loops
 Unroll loops whose number of iterations can be determined at compile
@@ -5088,13 +5073,6 @@ attribute @code{used} will prevent this behavior.
 
 As a temporary workaround, @option{-fno-unit-at-a-time} can be used,
 but this scheme may not be supported by future releases of GCC@.
-
-Enabled at levels @option{-O2}, @option{-O3}.
-
-@item -fipa-cp
-@opindex fipa-cp
-Perform Interprocedural constant propagation.
-It is a part of the cgraph optimization (enabled with funit-at-a-time).
 
 Enabled at levels @option{-O2}, @option{-O3}.
 
@@ -5587,12 +5565,12 @@ default value is 450.
 
 @item inline-call-cost
 Specify cost of call instruction relative to simple arithmetics operations
-(having cost of 1).  Increasing this cost disqualify inlinining of non-leaf
-functions and at same time increase size of leaf function that is believed to
-reduce function size by being inlined.  In effect it increase amount of
+(having cost of 1).  Increasing this cost disqualifies inlining of non-leaf
+functions and at the same time increases size of leaf function that is believed to
+reduce function size by being inlined.  In effect it increases amount of
 inlining for code having large abstraction penalty (many functions that just
-pass the argumetns to other functions) and decrease inlining for code with low
-abstraction penalty.  Default value is 16.
+pass the arguments to other functions) and decrease inlining for code with low
+abstraction penalty.  The default value is 16.
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
@@ -7366,7 +7344,7 @@ The subtype of the file created (like @samp{ppc7400} or @samp{ppc970} or
 that GCC is targetting, like @option{-mcpu} or @option{-march}.  The
 @option{-force_cpusubtype_ALL} option can be used to override this.
 
-The Darwin tools vary in their behaviour when presented with an ISA
+The Darwin tools vary in their behavior when presented with an ISA
 mismatch.  The assembler, @file{as}, will only permit instructions to
 be used that are valid for the subtype of the file it is generating,
 so you cannot put 64-bit instructions in an @samp{ppc750} object file.
@@ -9801,7 +9779,7 @@ This option is only meaningful in conjunction with @option{-membedded-data}.
 @opindex msplit-addresses
 @opindex mno-split-addresses
 Enable (disable) use of the @code{%hi()} and @code{%lo()} assembler
-relocation operators.  This option has been superceded by
+relocation operators.  This option has been superseded by
 @option{-mexplicit-relocs} but is retained for backwards compatibility.
 
 @item -mexplicit-relocs

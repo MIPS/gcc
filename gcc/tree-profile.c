@@ -1,6 +1,6 @@
 /* Calculate branch probabilities, and basic block execution counts.
    Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004  Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004, 2005  Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -573,7 +573,7 @@ tree_gen_const_delta_profiler (histogram_value value ATTRIBUTE_UNUSED,
    If it is, set up hooks for tree-based profiling.
    Gate for pass_tree_profile.  */
 
-bool
+static bool
 do_tree_profiling (void)
 {
   if (flag_tree_based_profiling
@@ -592,7 +592,8 @@ static FILE *tree_profile_dump_file (void) {
   return dump_file;
 }
 
-static void tree_profiling (void)
+static void
+tree_profiling (void)
 {
   branch_prob ();
   if (flag_branch_probabilities

@@ -923,7 +923,7 @@ static tree ix86_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static int extended_reg_mentioned_1 (rtx *, void *);
 static bool ix86_rtx_costs (rtx, int, int, int *);
 static int min_insn_size (rtx);
-static tree ix86_md_asm_clobbers (tree clobbers);
+static tree ix86_md_asm_clobbers (tree outputs, tree inputs, tree clobbers);
 static bool ix86_must_pass_in_stack (enum machine_mode mode, tree type);
 static bool ix86_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
@@ -4112,7 +4112,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
 
   /* During reload iteration the amount of registers saved can change.
      Recompute the value as needed.  Do not recompute when amount of registers
-     didn't change as reload does mutiple calls to the function and does not
+     didn't change as reload does multiple calls to the function and does not
      expect the decision to change within single iteration.  */
   if (!optimize_size
       && cfun->machine->use_fast_prologue_epilogue_nregs != frame->nregs)
@@ -4663,9 +4663,8 @@ ix86_output_function_epilogue (FILE *file ATTRIBUTE_UNUSED,
 int
 ix86_decompose_address (rtx addr, struct ix86_address *out)
 {
-  rtx base = NULL_RTX;
-  rtx index = NULL_RTX;
-  rtx disp = NULL_RTX;
+  rtx base = NULL_RTX, index = NULL_RTX, disp = NULL_RTX;
+  rtx base_reg, index_reg;
   HOST_WIDE_INT scale = 1;
   rtx scale_rtx = NULL_RTX;
   int retval = 1;
@@ -4767,34 +4766,37 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
       scale = INTVAL (scale_rtx);
     }
 
+  base_reg = base && GET_CODE (base) == SUBREG ? SUBREG_REG (base) : base;
+  index_reg = index && GET_CODE (index) == SUBREG ? SUBREG_REG (index) : index;
+
   /* Allow arg pointer and stack pointer as index if there is not scaling.  */
-  if (base && index && scale == 1
-      && (index == arg_pointer_rtx
-	  || index == frame_pointer_rtx
-	  || (REG_P (index) && REGNO (index) == STACK_POINTER_REGNUM)))
+  if (base_reg && index_reg && scale == 1
+      && (index_reg == arg_pointer_rtx
+	  || index_reg == frame_pointer_rtx
+	  || (REG_P (index_reg) && REGNO (index_reg) == STACK_POINTER_REGNUM)))
     {
-      rtx tmp = base;
-      base = index;
-      index = tmp;
+      rtx tmp;
+      tmp = base, base = index, index = tmp;
+      tmp = base_reg, base_reg = index_reg, index_reg = tmp;
     }
 
   /* Special case: %ebp cannot be encoded as a base without a displacement.  */
-  if ((base == hard_frame_pointer_rtx
-       || base == frame_pointer_rtx
-       || base == arg_pointer_rtx) && !disp)
+  if ((base_reg == hard_frame_pointer_rtx
+       || base_reg == frame_pointer_rtx
+       || base_reg == arg_pointer_rtx) && !disp)
     disp = const0_rtx;
 
   /* Special case: on K6, [%esi] makes the instruction vector decoded.
      Avoid this by transforming to [%esi+0].  */
   if (ix86_tune == PROCESSOR_K6 && !optimize_size
-      && base && !index && !disp
-      && REG_P (base)
-      && REGNO_REG_CLASS (REGNO (base)) == SIREG)
+      && base_reg && !index_reg && !disp
+      && REG_P (base_reg)
+      && REGNO_REG_CLASS (REGNO (base_reg)) == SIREG)
     disp = const0_rtx;
 
   /* Special case: encode reg+reg instead of reg*2.  */
   if (!base && index && scale && scale == 2)
-    base = index, scale = 1;
+    base = index, base_reg = index_reg, scale = 1;
 
   /* Special case: scaling cannot be encoded without base or displacement.  */
   if (!base && !disp && index && scale != 1)
@@ -4822,6 +4824,11 @@ ix86_address_cost (rtx x)
 
   if (!ix86_decompose_address (x, &parts))
     abort ();
+
+  if (parts.base && GET_CODE (parts.base) == SUBREG)
+    parts.base = SUBREG_REG (parts.base);
+  if (parts.index && GET_CODE (parts.index) == SUBREG)
+    parts.index = SUBREG_REG (parts.index);
 
   /* More complex memory references are better.  */
   if (parts.disp && parts.disp != const0_rtx)
@@ -5172,15 +5179,23 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 
   /* Validate base register.
 
-     Don't allow SUBREG's here, it can lead to spill failures when the base
-     is one word out of a two word structure, which is represented internally
-     as a DImode int.  */
+     Don't allow SUBREG's that span more than a word here.  It can lead to spill
+     failures when the base is one word out of a two word structure, which is
+     represented internally as a DImode int.  */
 
   if (base)
     {
+      rtx reg;
       reason_rtx = base;
-
-      if (GET_CODE (base) != REG)
+  
+      if (REG_P (base))
+  	reg = base;
+      else if (GET_CODE (base) == SUBREG
+	       && REG_P (SUBREG_REG (base))
+	       && GET_MODE_SIZE (GET_MODE (SUBREG_REG (base)))
+		  <= UNITS_PER_WORD)
+  	reg = SUBREG_REG (base);
+      else
 	{
 	  reason = "base is not a register";
 	  goto report_error;
@@ -5192,8 +5207,8 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	  goto report_error;
 	}
 
-      if ((strict && ! REG_OK_FOR_BASE_STRICT_P (base))
-	  || (! strict && ! REG_OK_FOR_BASE_NONSTRICT_P (base)))
+      if ((strict && ! REG_OK_FOR_BASE_STRICT_P (reg))
+	  || (! strict && ! REG_OK_FOR_BASE_NONSTRICT_P (reg)))
 	{
 	  reason = "base is not valid";
 	  goto report_error;
@@ -5202,15 +5217,21 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 
   /* Validate index register.
 
-     Don't allow SUBREG's here, it can lead to spill failures when the index
-     is one word out of a two word structure, which is represented internally
-     as a DImode int.  */
+     Don't allow SUBREG's that span more than a word here -- same as above.  */
 
   if (index)
     {
+      rtx reg;
       reason_rtx = index;
 
-      if (GET_CODE (index) != REG)
+      if (REG_P (index))
+  	reg = index;
+      else if (GET_CODE (index) == SUBREG
+	       && REG_P (SUBREG_REG (index))
+	       && GET_MODE_SIZE (GET_MODE (SUBREG_REG (index)))
+		  <= UNITS_PER_WORD)
+  	reg = SUBREG_REG (index);
+      else
 	{
 	  reason = "index is not a register";
 	  goto report_error;
@@ -5222,8 +5243,8 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	  goto report_error;
 	}
 
-      if ((strict && ! REG_OK_FOR_INDEX_STRICT_P (index))
-	  || (! strict && ! REG_OK_FOR_INDEX_NONSTRICT_P (index)))
+      if ((strict && ! REG_OK_FOR_INDEX_STRICT_P (reg))
+	  || (! strict && ! REG_OK_FOR_INDEX_NONSTRICT_P (reg)))
 	{
 	  reason = "index is not valid";
 	  goto report_error;
@@ -6030,7 +6051,7 @@ i386_output_dwarf_dtprel (FILE *file, int size, rtx x)
 }
 
 /* In the name of slightly smaller debug output, and to cater to
-   general assembler losage, recognize PIC+GOTOFF and turn it back
+   general assembler lossage, recognize PIC+GOTOFF and turn it back
    into a direct symbol reference.  */
 
 static rtx
@@ -6137,8 +6158,8 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, int reverse,
       suffix = "g";
       break;
     case GTU:
-      /* ??? Use "nbe" instead of "a" for fcmov losage on some assemblers.
-	 Those same assemblers have the same but opposite losage on cmov.  */
+      /* ??? Use "nbe" instead of "a" for fcmov lossage on some assemblers.
+	 Those same assemblers have the same but opposite lossage on cmov.  */
       if (mode != CCmode)
 	abort ();
       suffix = fp ? "nbe" : "a";
@@ -7283,6 +7304,7 @@ output_fix_trunc (rtx insn, rtx *operands, int fisttp)
 {
   int stack_top_dies = find_regno_note (insn, REG_DEAD, FIRST_STACK_REG) != 0;
   int dimode_p = GET_MODE (operands[0]) == DImode;
+  int round_mode = get_attr_i387_cw (insn);
 
   /* Jump through a hoop or two for DImode, since the hardware has no
      non-popping instruction.  We used to do this a different way, but
@@ -7300,12 +7322,14 @@ output_fix_trunc (rtx insn, rtx *operands, int fisttp)
       output_asm_insn ("fisttp%z0\t%0", operands);
   else
     {
-      output_asm_insn ("fldcw\t%3", operands);
+      if (round_mode != I387_CW_ANY)
+	output_asm_insn ("fldcw\t%3", operands);
       if (stack_top_dies || dimode_p)
 	output_asm_insn ("fistp%z0\t%0", operands);
       else
 	output_asm_insn ("fist%z0\t%0", operands);
-      output_asm_insn ("fldcw\t%2", operands);
+      if (round_mode != I387_CW_ANY)
+	output_asm_insn ("fldcw\t%2", operands);
     }
 
   return "";
@@ -11830,6 +11854,11 @@ memory_address_length (rtx addr)
 
   if (! ix86_decompose_address (addr, &parts))
     abort ();
+
+  if (parts.base && GET_CODE (parts.base) == SUBREG)
+    parts.base = SUBREG_REG (parts.base);
+  if (parts.index && GET_CODE (parts.index) == SUBREG)
+    parts.index = SUBREG_REG (parts.index);
 
   base = parts.base;
   index = parts.index;
@@ -16876,7 +16905,9 @@ ix86_vector_mode_supported_p (enum machine_mode mode)
    with the old cc0-based compiler.  */
 
 static tree
-ix86_md_asm_clobbers (tree clobbers)
+ix86_md_asm_clobbers (tree outputs ATTRIBUTE_UNUSED,
+		      tree inputs ATTRIBUTE_UNUSED,
+		      tree clobbers)
 {
   clobbers = tree_cons (NULL_TREE, build_string (5, "flags"),
 			clobbers);

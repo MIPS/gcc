@@ -1,3 +1,87 @@
+2005-04-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* call.c (add_template_candidates_real): Remove length parameter
+	from fn_type_unification call.
+	* class.c (resolve_address_of_overloaded_function): Likewise
+	* cp-tree.h (fn_type_unification): Remove length parameter.
+	* pt.c (get_bindings_overload): Remove.
+	(get_bindings_real): Rename to ...
+	(get_bindings): ... here.  Remove length and strict
+	parameters. Change return type flag to boolean.  Remove original
+	forwarding function.
+	(determine_specialization): Adjust get_bindings call.
+	(fn_type_unification): Remove length parameter.  Adjust.
+	(type_unification_real): Remove length parameter.  Adjust.
+	(resolve_overloaded_unification): Adjust get_bindings call.
+	(try_one_overload): Simplify confusing cascaded if control flow.
+	(unify): Remove length paramter from type_unification_real call.
+	(most_specialized_instantiation): Adjust get_bindings calls.
+	(most_specialized): Likewise.
+
+2005-03-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/19203, implement DR 214
+	* call.c (joust): Use more_specialized_fn.
+	* cp-tree.h (DEDUCE_ORDER): Remove.
+	(more_specialized): Replace with ...
+	(more_specialized_fn): ... this.
+	* pt.c (maybe_adjust_types_for_deduction): Remove DEDUCE_ORDER
+	case.
+	(type_unification_real): Remove DEDUCE_ORDER case.
+	(more_specialized): Replace with ...
+	(more_specialized_fn): ... this.  Implement DR 214.
+	(most_specialized_instantiation): Use get_bindings_real directly.
+
+2005-03-31  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR c++/18644
+	* call.c (build_new_op): Remove check for -Wsynth.
+
+2005-03-31  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (finish_objects): Mark ctor as needed.
+	(cp_finish_file): Output variables only in nonunit-at-a-time.
+
+2005-03-29  Richard Henderson  <rth@redhat.com>
+
+	PR c/20519
+	* decl.c (cp_complete_array_type): Rename from complete_array_type.
+	Use the new complete_array_type in c-common.c.  Update all callers.
+	* cp-tree.h (cp_complete_array_type): Update to match.
+
+2005-03-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* typeck.c (build_static_cast_1): Allow scalar_cast between
+	any integral, floating, or enumeration type.
+
+2005-03-24  Steven Bosscher  <stevenb@suse.de>
+
+	* typeck.c (comptypes): First determine if the types are compatible
+	from a target-independent point of view.  Check target attributes
+	last.
+
+	* class.c (build_base_path):
+	(build_vbase_offset_vtbl_entries):
+	(add_vcall_offset): Replace fold (buildN (...)) with fold_buildN.
+	* error.c (dump_expr): Likewise.
+	* init.c (build_zero_init, expand_cleanup_for_base,
+	build_vec_delete_1): Likewise.
+	* mangle.c (write_integer_cst): Likewise.
+	* method.c (thunk_adjust): Likewise.
+	* pt.c (convert_nontype_argument, tsubst, unify): Likewise.
+	* tree.c (cxx_print_statistics, array_type_nelts_total): Likewise.
+	* typeck.c (build_ptrmemfunc_access_expr,
+	(get_member_function_from_ptrfunc): Likewise.
+
+2005-03-23  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* cp-objcp-common.h (LANG_HOOKS_TRUTHVALUE_CONVERSION): Remove.
+
+2005-03-23  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* cp-tree.h (perform_integral_promotions): Remove.
+	(default_conversion): Add.
+
 2005-03-22  Mark Mitchell  <mark@codesourcery.com>
 
 	* parser.c (cp_parser_warn_min_max): New function.
@@ -281,7 +365,7 @@
 	Add qualifiers when declaring a typedef of a function type.
 	Member function pointers pick up the qualifiers of the typedef
 	used to declare them.
-        Don't complain about creating cv-qualified function types.
+	Don't complain about creating cv-qualified function types.
 	Complain about qualified function typedefs that are used to
 	declare non-static member functions or free functions.
 	Use cp_apply_type_quals_to_decl.

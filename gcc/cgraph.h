@@ -160,6 +160,8 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool analyzed;
   /* Set when function is scheduled to be assembled.  */
   bool output;
+  /* Set for aliases once they got through assemble_alias.  */
+  bool alias;
 };
 
 struct cgraph_edge GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller")))
@@ -211,6 +213,8 @@ struct cgraph_varpool_node GTY(())
      late during the RTL compilation.  We need to make these invisible to
      IPA optimizers or we confuse them badly.  */
   bool non_ipa;
+  /* Set for aliases once they got through assemble_alias.  */
+  bool alias;
 };
 
 extern GTY(()) struct cgraph_node *cgraph_nodes;
@@ -249,7 +253,6 @@ struct cgraph_varpool_node *cgraph_varpool_node (tree);
 struct cgraph_varpool_node *cgraph_varpool_node_for_asm (tree asmname);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
-bool cgraph_varpool_assemble_pending_decls (void);
 void cgraph_redirect_edge_callee (struct cgraph_edge *, struct cgraph_node *);
 
 bool cgraph_function_possibly_inlined_p (tree);
@@ -265,9 +268,11 @@ void cgraph_varpool_reset_queue (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
 bool cgraph_inline_p (struct cgraph_edge *, const char **);
+bool decide_is_variable_needed (struct cgraph_varpool_node *, tree);
 
 /* In cgraphunit.c  */
 bool cgraph_assemble_pending_functions (void);
+bool cgraph_varpool_assemble_pending_decls (void);
 void cgraph_finalize_function (tree, bool);
 void cgraph_lower_function (struct cgraph_node *);
 void cgraph_finalize_compilation_unit (void);

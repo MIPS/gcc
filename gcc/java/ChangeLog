@@ -1,3 +1,54 @@
+2005-04-01  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* gcj.texi (Invoking gij): Add descriptions of new -X options.
+	Mention recognized-and-ignored compatibility options.
+	(Memory allocation): Add descriptions of JvMalloc, JvRealloc and
+	JvFree.
+	(About CNI): Add Memory allocation section.
+
+2005-04-01  Tom Tromey  <tromey@redhat.com>
+
+	* decl.c (java_init_decl_processing): Fix types of
+	_Jv_MonitorEnter, _Jv_MonitorExit, _Jv_AllocObject,
+	_Jv_AllocObjectNoFinalizer, _Jv_Throw, _Jv_NewPrimArray,
+	_Jv_JNI_PopSystemFrame, _Jv_divI, _Jv_remI, _Jv_divJ, _Jv_remJ.
+
+2005-03-31  Jan Hubicka  <jh@suse.cz>
+
+	* Make-lang.in (class.o, decl.o): Depend on cgraph.h.
+	* class.c: Include cgraph.h
+	(make_local_functoin_alias): Mark aslias as needed.
+	* resource.c: Include cgraph.h
+	(compile_resource_data): Go via cgraph interface.
+
+2005-03-30  Ian Lance Taylor  <ian@airs.com>
+
+	* parse.y (maybe_yank_clinit): Don't crash if bbody is NULL.
+
+2005-03-30  Tom Tromey  <tromey@redhat.com>
+
+	* jcf-dump.c (HANDLE_INNERCLASSES_ATTRIBUTE): Handle cases where
+	inner_class_info_index==0 or outer_class_info_index==0.
+
+2005-03-29  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (libgcj Runtime Properties): Document
+	gnu.gcj.runtime.endorsed.dirs.
+
+2005-03-24  Anthony Green  <green@redhat.com>
+
+	* gcj.texi (Invoking gcj-dbtool): Document new LIBDIR option to
+	'gcj-dbtool -p'.
+
+2005-03-23  Tom Tromey  <tromey@redhat.com>
+
+	* decl.c (GCJ_CURRENT_BC_ABI_VERSION): New define.
+	(parse_version): Use it.
+
+2005-03-23  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* lang.c (LANG_HOOKS_TRUTHVALUE_CONVERSION): Remove.
+
 2005-03-18  Andrew Haley  <aph@redhat.com>
 
 	PR java/20522

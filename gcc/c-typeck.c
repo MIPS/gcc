@@ -65,6 +65,8 @@ int in_sizeof;
 /* The level of nesting inside "typeof".  */
 int in_typeof;
 
+struct c_label_context *label_context_stack;
+
 /* Nonzero if we've already printed a "missing braces around initializer"
    message within this initializer.  */
 static int missing_braces_mentioned;
@@ -1456,6 +1458,55 @@ default_function_array_conversion (tree exp)
   return exp;
 }
 
+
+/* EXP is an expression of integer type.  Apply the integer promotions
+   to it and return the promoted value.  */
+
+tree
+perform_integral_promotions (tree exp)
+{
+  tree type = TREE_TYPE (exp);
+  enum tree_code code = TREE_CODE (type);
+
+  gcc_assert (INTEGRAL_TYPE_P (type));
+
+  /* Normally convert enums to int,
+     but convert wide enums to something wider.  */
+  if (code == ENUMERAL_TYPE)
+    {
+      type = c_common_type_for_size (MAX (TYPE_PRECISION (type),
+					  TYPE_PRECISION (integer_type_node)),
+				     ((TYPE_PRECISION (type)
+				       >= TYPE_PRECISION (integer_type_node))
+				      && TYPE_UNSIGNED (type)));
+
+      return convert (type, exp);
+    }
+
+  /* ??? This should no longer be needed now bit-fields have their
+     proper types.  */
+  if (TREE_CODE (exp) == COMPONENT_REF
+      && DECL_C_BIT_FIELD (TREE_OPERAND (exp, 1))
+      /* If it's thinner than an int, promote it like a
+	 c_promoting_integer_type_p, otherwise leave it alone.  */
+      && 0 > compare_tree_int (DECL_SIZE (TREE_OPERAND (exp, 1)),
+			       TYPE_PRECISION (integer_type_node)))
+    return convert (integer_type_node, exp);
+
+  if (c_promoting_integer_type_p (type))
+    {
+      /* Preserve unsignedness if not really getting any wider.  */
+      if (TYPE_UNSIGNED (type)
+	  && TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node))
+	return convert (unsigned_type_node, exp);
+
+      return convert (integer_type_node, exp);
+    }
+
+  return exp;
+}
+
+
 /* Perform default promotions for C data used in expressions.
    Arrays and functions are converted to pointers;
    enumeral types or short or char, to int.
@@ -1491,36 +1542,8 @@ default_conversion (tree exp)
   if (TREE_NO_WARNING (orig_exp))
     TREE_NO_WARNING (exp) = 1;
 
-  /* Normally convert enums to int,
-     but convert wide enums to something wider.  */
-  if (code == ENUMERAL_TYPE)
-    {
-      type = c_common_type_for_size (MAX (TYPE_PRECISION (type),
-					  TYPE_PRECISION (integer_type_node)),
-				     ((TYPE_PRECISION (type)
-				       >= TYPE_PRECISION (integer_type_node))
-				      && TYPE_UNSIGNED (type)));
-
-      return convert (type, exp);
-    }
-
-  if (TREE_CODE (exp) == COMPONENT_REF
-      && DECL_C_BIT_FIELD (TREE_OPERAND (exp, 1))
-      /* If it's thinner than an int, promote it like a
-	 c_promoting_integer_type_p, otherwise leave it alone.  */
-      && 0 > compare_tree_int (DECL_SIZE (TREE_OPERAND (exp, 1)),
-			       TYPE_PRECISION (integer_type_node)))
-    return convert (integer_type_node, exp);
-
-  if (c_promoting_integer_type_p (type))
-    {
-      /* Preserve unsignedness if not really getting any wider.  */
-      if (TYPE_UNSIGNED (type)
-	  && TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node))
-	return convert (unsigned_type_node, exp);
-
-      return convert (integer_type_node, exp);
-    }
+  if (INTEGRAL_TYPE_P (type))
+    return perform_integral_promotions (exp);
 
   if (code == VOID_TYPE)
     {
@@ -2672,6 +2695,8 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
       break;
 
     case TRUTH_NOT_EXPR:
+      /* ??? Why do most validation here but that for non-lvalue arrays
+	 in c_objc_common_truthvalue_conversion?  */
       if (typecode != INTEGER_TYPE
 	  && typecode != REAL_TYPE && typecode != POINTER_TYPE
 	  && typecode != COMPLEX_TYPE
@@ -2681,7 +2706,7 @@ build_unary_op (enum tree_code code, tree xarg, int flag)
 	  error ("wrong type argument to unary exclamation mark");
 	  return error_mark_node;
 	}
-      arg = lang_hooks.truthvalue_conversion (arg);
+      arg = c_objc_common_truthvalue_conversion (arg);
       return invert_truthvalue (arg);
 
     case NOP_EXPR:
@@ -3044,8 +3069,6 @@ build_conditional_expr (tree ifexp, tree op1, tree op2)
   enum tree_code code2;
   tree result_type = NULL;
   tree orig_op1 = op1, orig_op2 = op2;
-
-  ifexp = lang_hooks.truthvalue_conversion (default_conversion (ifexp));
 
   /* Promote both alternatives.  */
 
@@ -6597,6 +6620,23 @@ c_finish_goto_label (tree label)
   if (!decl)
     return NULL_TREE;
 
+  if (C_DECL_UNJUMPABLE_STMT_EXPR (decl))
+    {
+      error ("jump into statement expression");
+      return NULL_TREE;
+    }
+
+  if (!C_DECL_UNDEFINABLE_STMT_EXPR (decl))
+    {
+      /* No jump from outside this statement expression context, so
+	 record that there is a jump from within this context.  */
+      struct c_label_list *nlist;
+      nlist = XOBNEW (&parser_obstack, struct c_label_list);
+      nlist->next = label_context_stack->labels_used;
+      nlist->label = decl;
+      label_context_stack->labels_used = nlist;
+    }
+
   TREE_USED (decl) = 1;
   return add_stmt (build1 (GOTO_EXPR, void_type_node, decl));
 }
@@ -6723,6 +6763,11 @@ struct c_switch {
      of the GNU case range extension.  */
   splay_tree cases;
 
+  /* Number of nested statement expressions within this switch
+     statement; if nonzero, case and default labels may not
+     appear.  */
+  unsigned int blocked_stmt_expr;
+
   /* The next node on the stack.  */
   struct c_switch *next;
 };
@@ -6777,6 +6822,7 @@ c_start_case (tree exp)
   cs->switch_stmt = build_stmt (SWITCH_STMT, exp, NULL_TREE, orig_type);
   cs->orig_type = orig_type;
   cs->cases = splay_tree_new (case_compare, NULL, NULL);
+  cs->blocked_stmt_expr = 0;
   cs->next = c_switch_stack;
   c_switch_stack = cs;
 
@@ -6790,7 +6836,7 @@ do_case (tree low_value, tree high_value)
 {
   tree label = NULL_TREE;
 
-  if (c_switch_stack)
+  if (c_switch_stack && !c_switch_stack->blocked_stmt_expr)
     {
       label = c_add_case_label (c_switch_stack->cases,
 				SWITCH_STMT_COND (c_switch_stack->switch_stmt),
@@ -6798,6 +6844,15 @@ do_case (tree low_value, tree high_value)
 				low_value, high_value);
       if (label == error_mark_node)
 	label = NULL_TREE;
+    }
+  else if (c_switch_stack && c_switch_stack->blocked_stmt_expr)
+    {
+      if (low_value)
+	error ("case label in statement expression not containing "
+	       "enclosing switch statement");
+      else
+	error ("%<default%> label in statement expression not containing "
+	       "enclosing switch statement");
     }
   else if (low_value)
     error ("case label not within a switch statement");
@@ -6815,6 +6870,8 @@ c_finish_case (tree body)
   struct c_switch *cs = c_switch_stack;
 
   SWITCH_STMT_BODY (cs->switch_stmt) = body;
+
+  gcc_assert (!cs->blocked_stmt_expr);
 
   /* Emit warnings as needed.  */
   c_do_switch_warnings (cs->cases, cs->switch_stmt);
@@ -7082,12 +7139,30 @@ tree
 c_begin_stmt_expr (void)
 {
   tree ret;
+  struct c_label_context *nstack;
+  struct c_label_list *glist;
 
   /* We must force a BLOCK for this level so that, if it is not expanded
      later, there is a way to turn off the entire subtree of blocks that
      are contained in it.  */
   keep_next_level ();
   ret = c_begin_compound_stmt (true);
+  if (c_switch_stack)
+    {
+      c_switch_stack->blocked_stmt_expr++;
+      gcc_assert (c_switch_stack->blocked_stmt_expr != 0);
+    }
+  for (glist = label_context_stack->labels_used;
+       glist != NULL;
+       glist = glist->next)
+    {
+      C_DECL_UNDEFINABLE_STMT_EXPR (glist->label) = 1;
+    }
+  nstack = XOBNEW (&parser_obstack, struct c_label_context);
+  nstack->labels_def = NULL;
+  nstack->labels_used = NULL;
+  nstack->next = label_context_stack;
+  label_context_stack = nstack;
 
   /* Mark the current statement list as belonging to a statement list.  */
   STATEMENT_LIST_STMT_EXPR (ret) = 1;
@@ -7100,8 +7175,36 @@ c_finish_stmt_expr (tree body)
 {
   tree last, type, tmp, val;
   tree *last_p;
+  struct c_label_list *dlist, *glist, *glist_prev = NULL;
 
   body = c_end_compound_stmt (body, true);
+  if (c_switch_stack)
+    {
+      gcc_assert (c_switch_stack->blocked_stmt_expr != 0);
+      c_switch_stack->blocked_stmt_expr--;
+    }
+  /* It is no longer possible to jump to labels defined within this
+     statement expression.  */
+  for (dlist = label_context_stack->labels_def;
+       dlist != NULL;
+       dlist = dlist->next)
+    {
+      C_DECL_UNJUMPABLE_STMT_EXPR (dlist->label) = 1;
+    }
+  /* It is again possible to define labels with a goto just outside
+     this statement expression.  */
+  for (glist = label_context_stack->next->labels_used;
+       glist != NULL;
+       glist = glist->next)
+    {
+      C_DECL_UNDEFINABLE_STMT_EXPR (glist->label) = 0;
+      glist_prev = glist;
+    }
+  if (glist_prev != NULL)
+    glist_prev->next = label_context_stack->labels_used;
+  else
+    label_context_stack->next->labels_used = label_context_stack->labels_used;
+  label_context_stack = label_context_stack->next;
 
   /* Locate the last statement in BODY.  See c_end_compound_stmt
      about always returning a BIND_EXPR.  */
@@ -7435,8 +7538,8 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
 	     but that does not mean the operands should be
 	     converted to ints!  */
 	  result_type = integer_type_node;
-	  op0 = lang_hooks.truthvalue_conversion (op0);
-	  op1 = lang_hooks.truthvalue_conversion (op1);
+	  op0 = c_common_truthvalue_conversion (op0);
+	  op1 = c_common_truthvalue_conversion (op1);
 	  converted = 1;
 	}
       break;
@@ -7915,4 +8018,35 @@ build_binary_op (enum tree_code code, tree orig_op0, tree orig_op1,
       result = convert (final_type, result);
     return result;
   }
+}
+
+
+/* Convert EXPR to be a truth-value, validating its type for this
+   purpose.  Passes EXPR to default_function_array_conversion.  */
+
+tree
+c_objc_common_truthvalue_conversion (tree expr)
+{
+  expr = default_function_array_conversion (expr);
+  switch (TREE_CODE (TREE_TYPE (expr)))
+    {
+    case ARRAY_TYPE:
+      error ("used array that cannot be converted to pointer where scalar is required");
+      return error_mark_node;
+
+    case RECORD_TYPE:
+      error ("used struct type value where scalar is required");
+      return error_mark_node;
+
+    case UNION_TYPE:
+      error ("used union type value where scalar is required");
+      return error_mark_node;
+
+    default:
+      break;
+    }
+
+  /* ??? Should we also give an error for void and vectors rather than
+     leaving those to give errors later?  */
+  return c_common_truthvalue_conversion (expr);
 }

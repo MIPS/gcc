@@ -187,6 +187,29 @@ work with C++.  (Note that some versions of the GNU C Library contained
 header files using statement-expression that lead to precisely this
 bug.)
 
+Jumping into a statement expression with @code{goto} or using a
+@code{switch} statement outside the statement expression with a
+@code{case} or @code{default} label inside the statement expression is
+not permitted.  Jumping into a statement expression with a computed
+@code{goto} (@pxref{Labels as Values}) yields undefined behavior.
+Jumping out of a statement expression is permitted, but if the
+statement expression is part of a larger expression then it is
+unspecified which other subexpressions of that expression have been
+evaluated except where the language definition requires certain
+subexpressions to be evaluated before or after the statement
+expression.  In any case, as with a function call the evaluation of a
+statement expression is not interleaved with the evaluation of other
+parts of the containing expression.  For example,
+
+@smallexample
+  foo (), ((@{ bar1 (); goto a; 0; @}) + bar2 ()), baz();
+@end smallexample
+
+@noindent
+will call @code{foo} and @code{bar1} and will not call @code{baz} but
+may or may not call @code{bar2}.  If @code{bar2} is called, it will be
+called after @code{foo} and before @code{bar1}
+
 @node Local Labels
 @section Locally Declared Labels
 @cindex local labels
@@ -2976,6 +2999,26 @@ struct S  __attribute__ ((vector_size (16))) foo;
 @noindent
 is invalid even if the size of the structure is the same as the size of
 the @code{int}.
+
+@item selectany
+The @code{selectany} attribute causes an initialized global variable to
+have link-once semantics.  When multiple definitions of the variable are
+encountered by the linker, the first is selected and the remainder are
+discarded.  Following usage by the Microsoft compiler, the linker is told
+@emph{not} to warn about size or content differences of the multiple
+definitions.
+
+Although the primary usage of this attribute is for POD types, the
+attribute can also be applied to global C++ objects that are initialized
+by a constructor.  In this case, the static initialization and destruction
+code for the object is emitted in each translation defining the object,
+but the calls to the constructor and destructor are protected by a
+link-once guard variable. 
+
+The @code{selectany} attribute is only available on Microsoft Windows
+targets.  You can use @code{__declspec (selectany)} as a synonym for
+@code{__attribute__ ((selectany))} for compatibility with other
+compilers.
 
 @item weak
 The @code{weak} attribute is described in @xref{Function Attributes}.

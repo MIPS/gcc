@@ -1,3 +1,165 @@
+2005-04-02  Douglas Gregor  <doug.gregor@gmail.com>
+	
+	* include/tr1/tuple_iterate.h (tuple_element): Use new macro
+	_GLIBCXX_T_NUM_ARGS_PLUS_1 because _T is a macro on Darwin.
+	* include/tr1/repeat.h (_GLIBCXX_T_NUM_ARGS_PLUS_1): Define for
+	each iteration.
+	* scripts/gen_includers.h: Define _GLIBCXX_T_NUM_ARGS_PLUS_1 for
+	each iteration.
+	
+2005-04-01  Douglas Gregor  <doug.gregor@gmail.com>
+
+	* include/tr1/functional (_Maybe_wrap_member_pointer): Wrap up
+	member pointers in _Mem_fn but let other function objects pass
+	through unchanged.
+	* include/tr1/functional_iterator (bind): Reduce number of bind()
+	overloads to two to eliminate ambiguities. Use
+	_Maybe_wrap_member_pointer to handle member pointers gracefully.
+	
+2005-04-01  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/Makefile.am (noinst_PROGRAMS): Remove.
+	(site.exp): Write out the path to the baseline file.
+	(check-abi): Use DejaGNU.
+	(check-abi-verbose): Remove.
+	* testsuite/Makefile.in: Regenerated.
+	* testsuite/abi_check.cc (main): Check the return value from
+	compare_symbols.
+	* testsuite/testsuite_abi.cc (compare_symbols): Return a value.
+	* testsuite/testsuite_abi.h (compare_symbols): Adjust prototype.
+	* testsuite/libstdc++-abi/abi.exp: New file.
+
+2005-03-31  Chris Jefferson  <chris@bubblescope.net>
+
+        * include/tr1/tuple: Support iteration via tuple_iterate.h.
+        * include/tr1/tuple_iterate.h: Iteration file for tuple.
+
+2005-03-31  Douglas Gregor  <doug.gregor@gmail.com>
+
+        * include/Makefile.am (tr1_headers): Add bind and mu repetition
+        headers and reference_wrapper<> forwarding header.
+        * include/Makefile.in: Regenerate.
+        * include/tr1/bind_iterate.h: Implementation of function call
+        operators for the function object returned from tr1::bind().
+        * include/tr1/bind_repeat.h: Bind-specific repetition header,
+        akin to include/tr1/repeat.h.
+        * include/tr1/functional (_Mem_fn): Bug fix: declare result member
+        template for use with result_of.
+        (is_bind_expression): New.
+        (is_placeholder): New.
+        (_Placeholder): New. Placeholder type for bind.
+        (_Mu): New. Implementation detail of bind.
+        (_Bind, _Bind_result): New. Function objects returned by bind.
+        (_GLIBCXX_JOIN): New. Required to create bind placeholders.
+        * include/tr1/functional_iterate.h (_Bind, _Bind_result, bind):
+        New. Implementation of tr1::bind.
+        * include/tr1/mu_iterate.h (_Mu): result template and operator()
+        for the _Mu helper to bind.
+        * include/tr1/ref_fwd.h (reference_wrapper): Forward declaration
+        used by tuple header.
+        (ref): Ditto.
+        (cref): Ditto.
+        * include/tr1/repeat.h: Add bind-specific repetition macros.
+        * include/tr1/tuple: Use reference_wrapper forwarding header for
+        initial definitions, then include <tr1/functional> at the end, to
+        make the circular dependencies work.
+        (tie): Support zero-argument tie() function.
+        * testsuite/tr1/3_function_objects/bind/all_bound.cc: New test of
+        bind() functionality with parameters bound.
+        * testsuite/tr1/3_function_objects/bind/nested.cc: New test of
+        nested bind() expressions.
+        * testsuite/tr1/3_function_objects/bind/placeholders.cc: New test
+        of bind() placeholders.
+        * testsuite/tr1/3_function_objects/bind/ref.cc: New test of bind()
+        with arguments bound via reference_wrapper<>.
+        * scripts/gen_includers.pl: Generate the repetitive part of
+	include/tr1/repeat.h.
+	* scripts/gen_bind_includers.pl: Generate the repetitive part of
+	include/tr1/bind_repeat.h. 
+	
+2005-03-30  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* testsuite/Makefile.am (CXX): Use ${SHELL}.
+	(GLIBCXX_INCLUDES): Same.
+	(AM_CXXFLAGS): Same.
+	* testsuite/Makefile.in: Regenerate.
+
+2005-03-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Define LOCALEDIR
+	when testing an installed compiler.
+	
+	* testsuite/lib/libstdc++.exp (v3-build_support): Pass -w when
+	compiling support objects.
+
+2005-03-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/tr1/memory: Forward to...
+	* include/tr1/boost_shared_ptr.h: ...here. Add Boost Software License.
+	* include/Makefile.am (tr1_headers): Add boost_shared_ptr.h.
+	* include/Makefile.in: Regenerate.
+	* testsuite/tr1/2_general_utilities/memory/shared_ptr/cons/
+	auto_ptr_neg.cc: Adjust line numbers.
+
+2005-03-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/Makefile.am (all-local): Do not build testsuite_files.
+	* testsuite/Makefile.in: Regenerated. 
+
+2005-03-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4: Adjust so that _GLIBCXX_USE_C99 implies
+	using _GLIBCXX_USE_C99_COMPLEX, _GLIBCXX_USE_C99_MATH, and
+	_GLIBCXX_USE_C99_WCHAR.
+	Remove GLIBCXX_ENABLE_C_MBCHAR, consolidate in GLIBCXX_ENABLE_C99
+	and GLIBCXX_ENABLE_WCHAR_T.
+	Take C99 bits from GLIBCXX_CHECK_WCHAR_T_SUPPORT and put in 
+	GLIBCXX_ENABLE_C99.
+	Change remaining parts of GLIBCXX_CHECK_WCHAR_T_SUPPORT to
+	GLIBCXX_CHECK_ICONV_SUPPORT.
+	* configure.ac: Remove GLIBCXX_ENABLE_C_MBCHAR, use
+	GLIBCXX_CHECK_ICONV_SUPPORT and GLIBCXX_ENABLE_WCHAR_T.
+	* crossconfig.m4: Same.
+	* acconfig.h: Same, adjust comments.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* docs/html/configopts.html: Change --enable-c-mbchar to
+	--enable-wchar_t.
+
+	* config/locale/gnu/c++locale_internal.h: Guard wide functions
+	with _GLIBCXX_USE_WCHAR_T.
+	* include/c_std/std_cwctype.h: Alphabetize, remove duplicates.
+	* include/c_std/std_cstdio.h: Spacing.
+
+	* config/locale/gnu/c_locale.h: Tweaks for unused warnings.
+	* src/debug.cc: Same.
+
+2005-03-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/libstdc++-dg/normal.exp: Read testsuite_files, if it
+	exists.
+
+	* testsuite/lib/libstdc++.exp (libstdc++_wchar_t): Rename to ...
+	(v3-wchar_t): ... this.
+	(libstdc++_threads): Rename to ...
+	(v3-threads): ... this.
+	(libstdc++_test_objs): Rename to ...
+	(v3-test_objs): ... this.
+	(libstdc++_build_support): Rename to ...
+	(v3-build_support): ... this.
+	* testsuite/libstdc++-dg/normal.exp: Adjust to use new names.
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Improve handling
+	of compilers not in the build directory.
+	(libstdc++_wchar_t): New variable.
+	(libstdc++_threads): Likewise.
+	(libstdc++_test_objs): Likewise.
+	(v3_target_compile): Use libstdc++_test_objs.
+	(v3-list-tests): Remove.
+	(listdc++_build_support): New function.
+	* testsuite/libstdc++-dg/normal.exp: Rework to dynamically
+	generate list of tests.
+
 2005-03-21  Chris Jefferson  <chris@bubblescope.net>
 
 	PR libstdc++/20577

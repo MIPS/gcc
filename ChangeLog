@@ -1,3 +1,44 @@
+2005-03-31  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* MAINTAINERS: Remove 'loop unrolling' maintainer.
+
+2005-03-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* MAINTAINERS: Move John Carr to Write After Approval.
+
+2005-03-30  J"orn Rennecke <joern.rennecke@st.com>
+
+	* config/mh-mingw32: Delete.
+	* configure.in: Don't use it.
+	* configure: Regenerate.
+
+2005-03-31  Paolo Bonzini  <bonzini@gnu.org>
+
+	* Makefile.def (bfd, opcodes, libstdc++-v3, libmudflap): Set lib_path.
+	* Makefile.tpl (SET_LIB_PATH, REALLY_SET_LIB_PATH): Remove.
+	(HOST_EXPORTS, STAGE_HOST_EXPORTS, TARGET_EXPORTS): Set $(RPATH_ENVVAR).
+	(HOST_LIB_PATH): Generate from Makefile.def.
+	(TARGET_LIB_PATH): Likewise.
+	(Old bootstrap targets): Include TARGET_LIB_PATH into RPATH_ENVVAR.
+	* Makefile.in: Regenerate.
+	* configure.in (set_lib_path, SET_LIB_PATH, SET_GCC_LIB_PATH): Remove.
+	(RPATH_ENVVAR): Include Darwin case.
+	* configure: Regenerate.
+
+2005-03-29  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* MAINTAINERS (Various Maintainers): Remove self.
+	(Write After Approval): Add self.
+
+2005-03-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
+
+	* MAINTAINERS (Various Maintainers): Add self.
+
+2005-03-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in (RPATH_ENVVAR): Set to DYLD_LIBRARY_PATH on Darwin.
+	* configure: Regenerate.
+
 2005-03-21  Zack Weinberg  <zack@codesourcery.com>
 
 	* Makefile.def: Remove libstdcxx_incdir, libsubdir, gxx_include_dir,

@@ -3112,8 +3112,7 @@ extern int function_depth;
 typedef enum unification_kind_t {
   DEDUCE_CALL,
   DEDUCE_CONV,
-  DEDUCE_EXACT,
-  DEDUCE_ORDER
+  DEDUCE_EXACT
 } unification_kind_t;
 
 /* Macros for operating on a template instantiation level node.  */
@@ -3787,7 +3786,7 @@ extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, 
 extern void start_decl_1			(tree);
 extern void cp_finish_decl			(tree, tree, tree, int);
 extern void finish_decl				(tree, tree, tree);
-extern int complete_array_type			(tree, tree, int);
+extern int cp_complete_array_type		(tree *, tree, bool);
 extern tree build_ptrmemfunc_type		(tree);
 extern tree build_ptrmem_type                   (tree, tree);
 /* the grokdeclarator prototype is in decl.h */
@@ -3996,9 +3995,9 @@ extern int uses_template_parms			(tree);
 extern int uses_template_parms_level		(tree, int);
 extern tree instantiate_class_template		(tree);
 extern tree instantiate_template		(tree, tree, tsubst_flags_t);
-extern int fn_type_unification                  (tree, tree, tree, tree, tree, unification_kind_t, int);
+extern int fn_type_unification                  (tree, tree, tree, tree, tree, unification_kind_t);
 extern void mark_decl_instantiated		(tree, int);
-extern int more_specialized			(tree, tree, int, int);
+extern int more_specialized_fn			(tree, tree, int);
 extern void mark_class_instantiated		(tree, int);
 extern void do_decl_instantiation		(tree, tree);
 extern void do_type_instantiation		(tree, tree, tsubst_flags_t);
@@ -4284,7 +4283,7 @@ extern tree cxx_sizeof_or_alignof_type    (tree, enum tree_code, bool);
 #define cxx_sizeof_nowarn(T) cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, false)
 extern tree inline_conversion			(tree);
 extern tree decay_conversion			(tree);
-extern tree perform_integral_promotions         (tree);
+extern tree default_conversion                  (tree);
 extern tree build_class_member_access_expr      (tree, tree, tree, bool);
 extern tree finish_class_member_access_expr     (tree, tree);
 extern tree build_x_indirect_ref		(tree, const char *);

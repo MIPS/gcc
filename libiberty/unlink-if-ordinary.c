@@ -1,5 +1,5 @@
 /* unlink-if-ordinary.c - remove link to a file unless it is special
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2005 Free Software Foundation, Inc.
 
 This file is part of the libiberty library.  This library is free
 software; you can redistribute it and/or modify it under the
@@ -39,6 +39,8 @@ was made to unlink the file because it is special.
 #include "config.h"
 #endif
 
+#include <sys/types.h>
+
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -58,8 +60,7 @@ was made to unlink the file because it is special.
 #endif
 
 int
-unlink_if_ordinary (name)
-  const char *name;
+unlink_if_ordinary (const char *name)
 {
   struct stat st;
 

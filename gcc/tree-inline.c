@@ -237,6 +237,12 @@ remap_decl (tree decl, inline_data *id)
         t = copy_decl_for_dup (decl, fn, id->caller, false);
       else
         t = copy_decl_for_dup (decl, fn, id->caller, true);
+
+      /* Remember it, so that if we encounter this local entity again
+	 we can reuse this copy.  Do this early because remap_type may
+	 need this decl for TYPE_STUB_DECL.  */
+      insert_decl_map (id, decl, t);
+
       /* Remap types, if necessary.  */
       TREE_TYPE (t) = remap_type (TREE_TYPE (t), id);
       if (TREE_CODE (t) == TYPE_DECL)
@@ -358,6 +364,9 @@ remap_type (tree type, inline_data *id)
       TYPE_NEXT_VARIANT (new) = NULL;
     }
 
+  if (TYPE_STUB_DECL (type))
+    TYPE_STUB_DECL (new) = remap_decl (TYPE_STUB_DECL (type), id);
+
   /* Lazily create pointer and reference types.  */
   TYPE_POINTER_TO (new) = NULL;
   TYPE_REFERENCE_TO (new) = NULL;
@@ -407,7 +416,6 @@ remap_type (tree type, inline_data *id)
       walk_tree (&TYPE_FIELDS (new), copy_body_r, id, NULL);
       break;
 
-    case FILE_TYPE:
     case OFFSET_TYPE:
     default:
       /* Shouldn't have been thought variable sized.  */
@@ -631,7 +639,7 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 
   /* If this is a constant, we have to copy the node iff the type will be
      remapped.  copy_tree_r will not copy a constant.  */
-  else if (TREE_CODE_CLASS (TREE_CODE (*tp)) == tcc_constant)
+  else if (CONSTANT_CLASS_P (*tp))
     {
       tree new_type = remap_type (TREE_TYPE (*tp), id);
 
@@ -1983,9 +1991,18 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 	      break;
 	    }
 
-	arg = TREE_OPERAND (x, 1);
-	for (arg = TREE_OPERAND (x, 1); arg; arg = TREE_CHAIN (arg))
-	  *count += estimate_move_cost (TREE_TYPE (TREE_VALUE (arg)));
+	/* Our cost must be kept in sync with cgraph_estimate_size_after_inlining
+	   that does use function declaration to figure out the arguments.  */
+	if (!decl)
+	  {
+	    for (arg = TREE_OPERAND (x, 1); arg; arg = TREE_CHAIN (arg))
+	      *count += estimate_move_cost (TREE_TYPE (TREE_VALUE (arg)));
+	  }
+	else
+	  {
+	    for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
+	      *count += estimate_move_cost (TREE_TYPE (arg));
+	  }
 
 	*count += PARAM_VALUE (PARAM_INLINE_CALL_COST);
 	break;

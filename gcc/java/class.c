@@ -911,6 +911,7 @@ build_utf8_ref (tree name)
   layout_decl (decl, 0);
   pushdecl (decl);
   rest_of_decl_compilation (decl, global_bindings_p (), 0);
+  cgraph_varpool_mark_needed_node (cgraph_varpool_node (decl));
   utf8_decl_list = decl;
   make_decl_rtl (decl);
   ref = build1 (ADDR_EXPR, utf8const_ptr_type, decl);

@@ -3697,7 +3697,7 @@ output_function_exception_table (void)
     dw2_asm_output_data (1, VARRAY_UCHAR (cfun->eh->ehspec_data, i),
 			 (i ? NULL : "Exception specification table"));
 
-  function_section (current_function_decl);
+  current_function_section (current_function_decl);
 }
 
 void

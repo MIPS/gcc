@@ -826,7 +826,7 @@ cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *node)
    configury, or (if not doing unit-at-a-time) to something we haven't
    seen yet.  */
 
-static bool
+bool
 decide_is_variable_needed (struct cgraph_varpool_node *node, tree decl)
 {
   /* If the user told us it is used, then it must be so.  */
@@ -870,6 +870,7 @@ decide_is_variable_needed (struct cgraph_varpool_node *node, tree decl)
   return true;
 }
 
+
 void
 cgraph_varpool_finalize_decl (tree decl)
 {
@@ -894,7 +895,6 @@ cgraph_varpool_finalize_decl (tree decl)
   if (cgraph_global_info_ready || !flag_unit_at_a_time)
     cgraph_varpool_assemble_pending_decls ();
 }
-
 
 /* Return true when the DECL can possibly be inlined.  */
 bool
