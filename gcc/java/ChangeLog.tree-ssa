@@ -1,3 +1,34 @@
+2003-10-08  Jeff Sturm  <jsturm@one-point.com>
+
+	* decl.c (cgraph.h): Include.
+	(tree-inline.h, tree-dump.h, tree-flow.h): Remove includes.
+	(complete_start_java_method): Remove.
+	(start_java_method): Combine with complete_start_java_method.
+	Remove dead code.
+	(end_java_method): Don't patch or expand tree.
+	Use finish_method.
+	(finish_method): New function.
+	(java_expand_body): Use tree_rest_of_compilation.
+	(java_expand_stmt): New function.
+
+	* java-gimplify.c (tree-dump.h): Include.
+	(java_genericize): New function.
+	(dump_java_tree): Declare.  New function.
+
+	* java-tree.h (start_complete_expand_method): Remove declaration.
+	(complete_start_java_method): Remove declaration.
+	(finish_method, java_expand_stmt, java_genericize): Declare.
+
+	* lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Define.
+
+	* parse.y (tree-inline.h, tree-dump.h, tree-flow.h,
+	cgraph.h): Remove includes.
+	(start_complete_expand_method): Declare.
+	(source_end_java_method): Don't expand tree.  Use finish_method.
+	Reset current_function_decl.
+	(java_expand_method_bodies): Don't patch tree for class
+	initialization or method synchronization.
+
 2003-10-01  Richard Henderson  <rth@redhat.com>
 
         * decl.c (end_java_method): Invoke remove_useless_stmts_and_vars

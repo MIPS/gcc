@@ -44,9 +44,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "java-except.h"
 #include "ggc.h"
 #include "timevar.h"
-#include "tree-inline.h"
-#include "tree-dump.h"
-#include "tree-flow.h"
+#include "cgraph.h"
 
 #if defined (DEBUG_JAVA_BINDING_LEVELS)
 extern void indent (void);
@@ -1736,83 +1734,6 @@ build_result_decl (tree fndecl)
 }
 
 void
-complete_start_java_method (tree fndecl)
-{
-  if (! flag_emit_class_files)
-    {
-      /* Initialize the RTL code for the function.  */
-      init_function_start (fndecl);
-
-      /* Set up parameters and prepare for return, for the function.  */
-      expand_function_start (fndecl, 0);
-    }
-
-  /* Push local variables. Function compiled from source code are
-     using a different local variables management, and for them,
-     pushlevel shouldn't be called from here.  */
-  if (!CLASS_FROM_SOURCE_P (DECL_CONTEXT (fndecl)))
-    {
-      pushlevel (2);
-    }
-
-  if (flag_emit_class_files)
-    return;
-
-  if (CLASS_FROM_SOURCE_P (DECL_CONTEXT (fndecl)))
-    {
-      tree *saved_tree = &DECL_SAVED_TREE (fndecl);
-      if (METHOD_STATIC (fndecl)
-	  && ! flag_emit_class_files
-	  && ! DECL_CLINIT_P (fndecl)
-	  && ! CLASS_INTERFACE (TYPE_NAME (current_class)))
-	{
-	  tree function_body = DECL_FUNCTION_BODY (fndecl);
-	  tree body = BLOCK_EXPR_BODY (function_body);
-	  tree clas = DECL_CONTEXT (fndecl);
-	  tree init = build (CALL_EXPR, void_type_node,
-			     build_address_of (soft_initclass_node),
-			     build_tree_list (NULL_TREE, build_class_ref (clas)),
-			     NULL_TREE);
-	  TREE_SIDE_EFFECTS (init) = 1;
-	  init = build (COMPOUND_EXPR, void_type_node, init, body);
-	  TREE_SIDE_EFFECTS (init) = 1;
-	  BLOCK_EXPR_BODY (function_body) = init;
-	
-	  /* If we previously saved the tree for inlining,
-	     update that too.  */
-	  if (*saved_tree != NULL_TREE)
-	    *saved_tree = init;
-	}
-
-      if (METHOD_SYNCHRONIZED (fndecl))
-	{
-	  /* Wrap function body with a monitorenter plus monitorexit cleanup. */
-	  tree enter, exit, lock;
-	  if (METHOD_STATIC (fndecl))
-	    lock = build_class_ref (DECL_CONTEXT (fndecl));
-	  else
-	    lock = DECL_ARGUMENTS (fndecl);
-	  BUILD_MONITOR_ENTER (enter, lock);
-	  BUILD_MONITOR_EXIT (exit, lock);
-	  {
-	    tree function_body = DECL_FUNCTION_BODY (fndecl);
-	    tree body = BLOCK_EXPR_BODY (function_body);
-	    lock = build (COMPOUND_EXPR, void_type_node,
-			  enter,
-			  build (TRY_FINALLY_EXPR, void_type_node, body, exit));
-	    TREE_SIDE_EFFECTS (lock) = 1;
-	    BLOCK_EXPR_BODY (function_body) = lock;
-	
-	    /* If we previously saved the tree for inlining,
-	       update that too.  */
-	    if (*saved_tree != NULL_TREE)
-	      *saved_tree = lock;
-	  }
-	}
-    }
-}
-
-void
 start_java_method (tree fndecl)
 {
   tree tem, *ptr;
@@ -1868,52 +1789,21 @@ start_java_method (tree fndecl)
     type_map[i++] = NULL_TREE;
 
   build_result_decl (fndecl);
-  complete_start_java_method (fndecl);
+
+  /* Initialize the RTL code for the function.  */
+  init_function_start (fndecl);
+
+  /* Set up parameters and prepare for return, for the function.  */
+  expand_function_start (fndecl, 0);
+
+  /* Push local variables.  */
+  pushlevel (2);
 }
 
 void
 end_java_method (void)
 {
   tree fndecl = current_function_decl;
-
-  if (!CLASS_FROM_SOURCE_P (DECL_CONTEXT (fndecl))
-      && ! flag_emit_class_files)
-    {
-      if (METHOD_SYNCHRONIZED (fndecl))
-	{
-	  /* Wrap function body with a monitorenter plus monitorexit cleanup. */
-	  tree enter, exit, lock;
-	  if (METHOD_STATIC (fndecl))
-	    lock = build_class_ref (DECL_CONTEXT (fndecl));
-	  else
-	    lock = DECL_ARGUMENTS (fndecl);
-	  BUILD_MONITOR_ENTER (enter, lock);
-	  BUILD_MONITOR_EXIT (exit, lock);
-	  
-	  {
-	    tree lock = build (COMPOUND_EXPR, void_type_node,
-			       enter,
-			       build (TRY_FINALLY_EXPR, 
-				      void_type_node, *get_stmts (), exit));
-	    TREE_SIDE_EFFECTS (lock) = 1;
-	    *get_stmts () = lock;
-	  }
-	}
-
-      if (METHOD_STATIC (fndecl) && ! METHOD_PRIVATE (fndecl)
-	  && ! DECL_CLINIT_P (fndecl)
-	  && ! CLASS_INTERFACE (TYPE_NAME (current_class)))
-	{
-	  tree *stmts = get_stmts ();
-	  tree clas = DECL_CONTEXT (fndecl);
-	  tree init = build (CALL_EXPR, void_type_node,
-			     build_address_of (soft_initclass_node),
-			     build_tree_list (NULL_TREE, build_class_ref (clas)),
-			     NULL_TREE);
-	  TREE_SIDE_EFFECTS (init) = 1;
-	  *stmts = build (COMPOUND_EXPR, void_type_node, init, *stmts);
-	}
-    }
 
   /* pop out of function */
   poplevel (1, 1, 0);
@@ -1923,106 +1813,70 @@ end_java_method (void)
 
   BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
 
-  cfun->x_whole_function_mode_p = 1;
-
-  /* PLEASE PLEASE PLEASE WORK ON USING TREE_REST_OF_COMPILATION!  */
-
-  gimplify_function_tree (fndecl);
-  dump_function (TDI_gimple, fndecl);
-
-  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
-  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
-
-  if (optimize > 0 && !flag_disable_tree_ssa)
-    optimize_function_tree (fndecl);
-  
-  if (flag_inline_trees)
-    {
-      timevar_push (TV_INTEGRATION);
-      optimize_inline_calls (fndecl);
-      timevar_pop (TV_INTEGRATION);
-      dump_function (TDI_inlined, fndecl);
-    }
-
-  /* Generate function's code.  */
-  expand_expr_stmt (DECL_SAVED_TREE (fndecl));
-
-  /* Generate rtl for function exit.  */
-  expand_function_end ();
-
-  /* Run the optimizers and output assembler code for this function. */
-  rest_of_compilation (fndecl);
+  finish_method (fndecl);
 
   current_function_decl = NULL_TREE;
 }
 
-/* Expand a function's body.  */
+/* Prepare a method for expansion.  */
+
+void
+finish_method (tree fndecl)
+{
+  tree *tp = &DECL_SAVED_TREE (fndecl);
+
+  /* Wrap body of synchronized methods in a monitorenter,
+     plus monitorexit cleanup.  */
+  if (METHOD_SYNCHRONIZED (fndecl))
+    {
+      tree enter, exit, lock;
+      if (METHOD_STATIC (fndecl))
+	lock = build_class_ref (DECL_CONTEXT (fndecl));
+      else
+	lock = DECL_ARGUMENTS (fndecl);
+      BUILD_MONITOR_ENTER (enter, lock);
+      BUILD_MONITOR_EXIT (exit, lock);
+      *tp = build (COMPOUND_EXPR, void_type_node,
+		   enter,
+		   build (TRY_FINALLY_EXPR, void_type_node, *tp, exit));
+    }
+
+  /* Prepend class initialization for static methods reachable from
+     other classes.  */
+  if (METHOD_STATIC (fndecl) && ! METHOD_PRIVATE (fndecl)
+      && ! DECL_CLINIT_P (fndecl)
+      && ! CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (fndecl))))
+    {
+      tree clas = DECL_CONTEXT (fndecl);
+      tree init = build (CALL_EXPR, void_type_node,
+			 build_address_of (soft_initclass_node),
+			 build_tree_list (NULL_TREE, build_class_ref (clas)),
+			 NULL_TREE);
+      *tp = build (COMPOUND_EXPR, TREE_TYPE (*tp), init, *tp);
+    }
+
+  /* Convert function tree to GENERIC prior to inlining.  */
+  java_genericize (fndecl);
+
+  /* In unit-at-a-time mode, defer inlining, expansion to the
+     cgraph optimizers.  */
+  cgraph_finalize_function (fndecl, false);
+}
+
+/* Optimize and expand a function's entire body.  */
 
 void
 java_expand_body (tree fndecl)
 {
-  location_t saved_location = input_location;
-  tree saved_tree, saved_initial;
+  tree_rest_of_compilation (fndecl, 0);
+}
 
-  current_function_decl = fndecl;
-  input_location = DECL_SOURCE_LOCATION (fndecl);
+/* Expand a Java statement.  */
 
-  timevar_push (TV_EXPAND);
-
-  /* Prepare the function for tree completion.  */
-  start_complete_expand_method (fndecl);
-
-  if (! flag_emit_class_files && ! flag_emit_xref)
-    {
-      /* Initialize the RTL code for the function.  */
-      init_function_start (fndecl);
-
-      /* Set up parameters and prepare for return, for the function.  */
-      expand_function_start (fndecl, 0);
-
-      /* This function is being processed in whole-function mode.  */
-      cfun->x_whole_function_mode_p = 1;
-
-      if (! flag_disable_gimple)
-	{
-	  remove_useless_stmts_and_vars (&DECL_SAVED_TREE (fndecl), false);
-	  lower_eh_constructs (&DECL_SAVED_TREE (fndecl));
-
-	  /* Run SSA optimizers if gimplify succeeded.  */
-	  if (optimize > 0 && !flag_disable_tree_ssa)
-	    optimize_function_tree (fndecl);
-	}
-
-      /* Generate the RTL for this function.  */
-      expand_expr_stmt_value (DECL_SAVED_TREE (fndecl), 0, 1);
-    }
-
-  /* Pop out of its parameters.  FIXME: poplevel clobbers DECL_SAVED_TREE
-     and DECL_INITIAL.  Save/restore them so inlining works.  */
-  pushdecl_force_head (DECL_ARGUMENTS (fndecl));
-  saved_tree = DECL_SAVED_TREE (fndecl);
-  saved_initial = DECL_INITIAL (fndecl);
-  poplevel (1, 0, 1);
-  DECL_SAVED_TREE (fndecl) = saved_tree;
-  DECL_INITIAL (fndecl) = saved_initial;
-  BLOCK_SUPERCONTEXT (DECL_INITIAL (fndecl)) = fndecl;
-
-  if (! flag_emit_class_files && ! flag_emit_xref)
-    {
-      /* Generate RTL for function exit.  */
-      input_line = DECL_FUNCTION_LAST_LINE (fndecl);
-      expand_function_end ();
-
-      /* Run the optimizers and output the assembler code
-	 for this function.  */
-      rest_of_compilation (fndecl);
-    }
-
-  timevar_pop (TV_EXPAND);
-
-  input_location = saved_location;
-
-  current_function_decl = NULL_TREE;
+void
+java_expand_stmt (tree t)
+{
+  expand_expr_stmt_value (t, 0, 0);
 }
 
 /* We pessimistically marked all methods and fields external until we

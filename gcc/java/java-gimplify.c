@@ -29,6 +29,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "tm.h"
 #include "tree.h"
 #include "java-tree.h"
+#include "tree-dump.h"
 #include "tree-simple.h"
 #include "toplev.h"
 
@@ -40,6 +41,21 @@ static tree java_gimplify_try_expr (tree);
 
 static void cleanup_compound_expr (tree *);
 static void cleanup_try_finally_expr (tree *);
+
+static void dump_java_tree (enum tree_dump_index, tree);
+
+/* Convert a Java tree to GENERIC.  */
+
+void
+java_genericize (tree fndecl)
+{
+  dump_java_tree (TDI_original, fndecl);
+
+  /* Genericize with the gimplifier.  */
+  gimplify_function_tree (fndecl);
+
+  dump_function (TDI_generic, fndecl);
+}
 
 /* Gimplify a Java tree.  */
 
@@ -279,5 +295,22 @@ cleanup_try_finally_expr (tree *expr_p)
     {
       *expr_p = TREE_OPERAND (*expr_p, 0);
       return;
+    }
+}
+
+/* Dump a tree of some kind.  This is a convenience wrapper for the
+   dump_* functions in tree-dump.c.  */
+static void
+dump_java_tree (enum tree_dump_index phase, tree t)
+{
+  FILE *stream;
+  int flags;
+
+  stream = dump_begin (phase, &flags);
+  flags |= TDF_SLIM;
+  if (stream)
+    {
+      dump_node (t, flags, stream);
+      dump_end (phase, stream);
     }
 }

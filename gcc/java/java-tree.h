@@ -1207,7 +1207,6 @@ extern int interface_of_p (tree, tree);
 extern int inherits_from_p (tree, tree);
 extern int common_enclosing_context_p (tree, tree);
 extern int enclosing_context_p (tree, tree);
-extern void complete_start_java_method (tree);
 extern tree build_result_decl (tree);
 extern void emit_handlers (void);
 extern void init_outgoing_cpool (void);
@@ -1317,8 +1316,9 @@ extern tree java_add_stmt (tree);
 extern tree java_add_local_var (tree decl);
 extern tree *get_stmts (void);
 
-extern void start_complete_expand_method (tree);
+extern void finish_method (tree);
 extern void java_expand_body (tree);
+extern void java_expand_stmt (tree);
 
 extern int get_symbol_table_index (tree, tree *);
 
@@ -1795,6 +1795,7 @@ enum
 
 extern tree build_expr_wfl              PARAMS ((tree, const char *, int, int));
 
+extern void java_genericize		PARAMS ((tree));
 extern int java_gimplify_expr		PARAMS ((tree *, tree *, tree *));
 
 #endif /* ! GCC_JAVA_TREE_H */

@@ -70,10 +70,6 @@ definitions and other extensions.  */
 #include "except.h"
 #include "ggc.h"
 #include "debug.h"
-#include "tree-inline.h"
-#include "tree-dump.h"
-#include "tree-flow.h"
-#include "cgraph.h"
 
 /* Local function prototypes */
 static char *java_accstring_lookup (int);
@@ -144,6 +140,7 @@ static tree java_complete_tree (tree);
 static tree maybe_generate_pre_expand_clinit (tree);
 static int analyze_clinit_body (tree, tree);
 static int maybe_yank_clinit (tree);
+static void start_complete_expand_method (tree);
 static void java_complete_expand_method (tree);
 static void java_expand_method_bodies (tree);
 static int  unresolved_type_p (tree, tree *);
@@ -7479,53 +7476,14 @@ source_end_java_method (void)
   if (IS_EMPTY_STMT (BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl))))
     BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl)) = NULL_TREE;
 
-  /* We've generated all the trees for this function, and it has been
-     patched.  Dump it to a file if the user requested it.  */
-  dump_java_tree (TDI_original, fndecl);
-
   if (BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (fndecl))
       && ! flag_emit_class_files
       && ! flag_emit_xref)
-    {
-      /* PLEASE PLEASE PLEASE WORK ON USING TREE_REST_OF_COMPILATION!  */
-      /* Convert function tree to GIMPLE.  */
-      if (!flag_disable_gimple)
-	{
-	  /* Genericize with the gimplifier.  */
-	  gimplify_function_tree (fndecl);
-	  dump_function (TDI_generic, fndecl);
-
-	  /* In unit-at-a-time mode, defer expansion to the
-	     cgraph optimizers.  */
-	  if (DECL_SAVED_TREE (fndecl) && flag_unit_at_a_time)
-	    {
-	      cgraph_finalize_function (fndecl, false);
-	      current_function_decl = NULL_TREE;
-	      java_parser_context_restore_global ();
-	      return;
-	    }
-
-	  /* Inline suitable calls from this function.  */
-	  if (flag_inline_trees)
-	    {
-	      timevar_push (TV_INTEGRATION);
-	      optimize_inline_calls (fndecl);
-	      timevar_pop (TV_INTEGRATION);
-	      dump_function (TDI_inlined, fndecl);
-	      if (!keep_function_tree_in_gimple_form (fndecl))
-		gimplify_function_tree (fndecl);
-	    }
-
-	  /* Debugging dump after gimplification.  */
-	  dump_function (TDI_gimple, fndecl);
-	}
-
-      /* Expand the function's body.  */
-      java_expand_body (fndecl);
-    }
+    finish_method (fndecl);
 
   current_function_decl = NULL_TREE;
   java_parser_context_restore_global ();
+  current_function_decl = NULL_TREE;
 }
 
 /* Record EXPR in the current function block. Complements compound
@@ -8126,7 +8084,6 @@ java_expand_method_bodies (tree class)
   for (decl = TYPE_METHODS (class); decl; decl = TREE_CHAIN (decl))
     {
       tree block;
-      tree body;
 
       if (! DECL_FUNCTION_BODY (decl))
 	continue;
@@ -8135,16 +8092,8 @@ java_expand_method_bodies (tree class)
 
       block = BLOCK_EXPR_BODY (DECL_FUNCTION_BODY (decl));
 
-      if (TREE_CODE (block) != BLOCK)
-	abort ();
-
       /* Save the function body for gimplify and inlining.  */
       DECL_SAVED_TREE (decl) = block;
-
-      body = BLOCK_EXPR_BODY (block);
-
-      if (TREE_TYPE (body) == NULL_TREE)
-	abort ();
 
       /* It's time to assign the variable flagging static class
 	 initialization based on which classes invoked static methods
@@ -8177,41 +8126,7 @@ java_expand_method_bodies (tree class)
 	    }
 	}
 
-      /* Prepend class initialization to static methods.  */
-      if (METHOD_STATIC (decl) && ! METHOD_PRIVATE (decl)
-	  && ! flag_emit_class_files
-	  && ! DECL_CLINIT_P (decl)
-	  && ! CLASS_INTERFACE (TYPE_NAME (class)))
-	{
-	  tree init = build (CALL_EXPR, void_type_node,
-			     build_address_of (soft_initclass_node),
-			     build_tree_list (NULL_TREE,
-					      build_class_ref (class)),
-			     NULL_TREE);
-	  TREE_SIDE_EFFECTS (init) = 1;
-	  body = build (COMPOUND_EXPR, TREE_TYPE (body), init, body);
-	  BLOCK_EXPR_BODY (block) = body;
-	}
-
-      /* Wrap synchronized method bodies in a monitorenter
-	 plus monitorexit cleanup.  */
-      if (METHOD_SYNCHRONIZED (decl) && ! flag_emit_class_files)
-	{
-	  tree enter, exit, lock;
-	  if (METHOD_STATIC (decl))
-	    lock = build_class_ref (class);
-	  else
-	    lock = DECL_ARGUMENTS (decl);
-	  BUILD_MONITOR_ENTER (enter, lock);
-	  BUILD_MONITOR_EXIT (exit, lock);
-
-	  body = build (COMPOUND_EXPR, void_type_node,
-			enter,
-			build (TRY_FINALLY_EXPR, void_type_node, body, exit));
-	  BLOCK_EXPR_BODY (block) = body;
-	}
-
-      /* Expand the the function body.  */
+      /* Expand the function body.  */
       source_end_java_method ();
     }
 }
