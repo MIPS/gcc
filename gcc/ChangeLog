@@ -1,3 +1,13 @@
+2003-12-08  Per Bothner  <pbothner@apple.com>
+
+	* c-incpath.c (add_path):  Add final '/' if missing.
+	(add_dup_path):  New function - optimized xstrdup + add_path.
+	(add_env_var_paths):  Add final '/' after ".".
+	* c-incpath.h (add_dup_path):  New declaration.
+	* c-opts.c (c_common_handle_option):  Use add_dup_path.
+	(add_prefixed_path):  Add final '/' if missing.
+	* fix-header.c (read_scan_file):  Use add_dup_path.
+
 2003-12-06  Per Bothner  <pbothner@apple.com>
 
 	Implement a cache for linemap_lookup.

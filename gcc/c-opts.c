@@ -291,7 +291,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
 
     case OPT_I:
       if (strcmp (arg, "-"))
-	add_path (xstrdup (arg), BRACKET, 0);
+	add_dup_path (arg, BRACKET, 0);
       else
 	{
 	  if (quote_chain_split)
@@ -927,7 +927,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_idirafter:
-      add_path (xstrdup (arg), AFTER, 0);
+      add_dup_path (arg, AFTER, 0);
       break;
 
     case OPT_imacros:
@@ -944,7 +944,7 @@ c_common_handle_option (size_t scode, const char *arg, int value)
       break;
 
     case OPT_isystem:
-      add_path (xstrdup (arg), SYSTEM, 0);
+      add_dup_path (arg, SYSTEM, 0);
       break;
 
     case OPT_iwithprefix:
@@ -1386,15 +1386,19 @@ add_prefixed_path (const char *suffix, size_t chain)
   char *path;
   const char *prefix;
   size_t prefix_len, suffix_len;
+  int need_slash;
 
   suffix_len = strlen (suffix);
+  need_slash = suffix_len > 0 && suffix[suffix_len-1] != '/';
   prefix     = iprefix ? iprefix : cpp_GCC_INCLUDE_DIR;
   prefix_len = iprefix ? strlen (iprefix) : cpp_GCC_INCLUDE_DIR_len;
 
-  path = xmalloc (prefix_len + suffix_len + 1);
+  path = xmalloc (prefix_len + suffix_len + need_slash + 1);
   memcpy (path, prefix, prefix_len);
   memcpy (path + prefix_len, suffix, suffix_len);
-  path[prefix_len + suffix_len] = '\0';
+  if (need_slash)
+    path[prefix_len + suffix_len] = '/';
+  path[prefix_len + suffix_len + need_slash] = '\0';
 
   add_path (path, chain, 0);
 }

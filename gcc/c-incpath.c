@@ -106,7 +106,7 @@ add_env_var_paths (const char *env_var, int chain)
 	q++;
 
       if (p == q)
-	path = xstrdup (".");
+	path = xstrdup ("./");
       else
 	{
 	  path = xmalloc (q - p + 1);
@@ -300,12 +300,35 @@ split_quote_chain (void)
   quote_ignores_source_dir = true;
 }
 
+/* Add PATH to the include chain CHAIN. PATH is copied. */
+
+void
+add_dup_path (const char *path, int chain, int cxx_aware)
+{
+  size_t len = strlen (path);
+  char *p;
+
+  if (len > 0 && path[len-1] != '/')
+    p = concat (path, "/", NULL);
+  else
+    p = xstrdup (path);
+  add_path (p, chain, cxx_aware);
+}
+
 /* Add PATH to the include chain CHAIN. PATH must be malloc-ed and
    NUL-terminated.  */
 void
 add_path (char *path, int chain, int cxx_aware)
 {
   cpp_dir *p;
+  size_t len = strlen (path);
+
+  if (len > 0 && path[len-1] != '/')
+    {
+      char *path_slash = concat (path, "/", NULL);
+      free (path);
+      path = path_slash;
+    }
 
   p = xmalloc (sizeof (cpp_dir));
   p->next = NULL;
