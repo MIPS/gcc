@@ -748,15 +748,6 @@ make_exit_edges (bb)
 
     case RETURN_EXPR:
       make_edge (bb, EXIT_BLOCK_PTR, 0);
-
-      /* A RETURN_EXPR may contain a CALL_EXPR and the CALL_EXPR may
-	 have an abnormal edge.  Search the operand of the RETURN_EXPR
-	 for this case and create any required edges.  */
-      if (TREE_OPERAND (last, 0)
-	  && TREE_CODE (TREE_OPERAND (last, 0)) == MODIFY_EXPR
-	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (last, 0), 1)) == CALL_EXPR
-	  && FUNCTION_RECEIVES_NONLOCAL_GOTO (current_function_decl))
-	make_goto_expr_edges (bb);
       break;
 
     case MODIFY_EXPR:

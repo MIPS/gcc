@@ -1,3 +1,10 @@
+2003-03-19  Jeff Law  <law@redhat.com>
+
+	* gimplify.c (simplify_return_expr): Only allow simple values
+	on the RHS of a MODIFY_EXPR appearing in a RETURN_EXPR.
+	* tree-cfg.c (make_exit_edges): We no longer need to look for
+	CALL_EXPRs on the RHS of a MODIFY_EXPR inside RETURN_EXPRs.
+
 2003-03-18  Andrew Macleod  <amacleod@redhat.com>
 
 	* tree-cfg.c (make_blocks): Use append_stmt_to_bb. Check for NULL

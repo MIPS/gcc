@@ -864,9 +864,12 @@ simplify_return_expr (stmt, pre_p)
 	}
       else
 	{
-	  /* Make sure the RHS is really simple.  */
+	  /* We want the RHS to be a simple value as that makes conversion
+	     of TRY_FINALLY_EXPRs into TRY_CATCH_EXPRs much simpler as
+	     we do not have to worry about having a CALL_EXPR on the RHS
+	     of a MODIFY_EXPR which appears in a RETURN_EXPR.  */
 	  simplify_expr (&TREE_OPERAND (ret_expr, 1), pre_p, NULL,
-			 is_simple_rhs, fb_rvalue);
+			 is_simple_val, fb_rvalue);
 	  TREE_OPERAND (stmt, 0) = ret_expr;
 	}
     }
