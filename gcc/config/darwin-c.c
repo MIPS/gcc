@@ -180,7 +180,11 @@ darwin_pragma_options (cpp_reader *pfile ATTRIBUTE_UNUSED)
   arg = IDENTIFIER_POINTER (t);
 /* APPLE LOCAL begin Macintosh alignment 2002-1-22 --ff */
   if (!strcmp (arg, "mac68k"))
-    push_field_alignment (0, 1, 0);
+    {
+      if (POINTER_SIZE == 64)
+	warning ("mac68k alignment pragma is deprecated for 64-bit Darwin");
+      push_field_alignment (0, 1, 0);
+    }
   else if (!strcmp (arg, "native"))	/* equivalent to power on PowerPC */
     push_field_alignment (0, 0, 0);
   else if (!strcmp (arg, "natural"))

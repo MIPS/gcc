@@ -1,3 +1,8 @@
+2005-02-21  Stan Shebs  <shebs@apple.com>
+
+	* config/darwin-c.c (darwin_pragma_options): Warn about uses
+	of mac68k alignment pragma when 64-bit.
+
 2005-02-21  Devang Patel  <dpatel@apple.com>
 
 	Radar 3964387
