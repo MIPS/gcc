@@ -13,14 +13,7 @@ b
   ->  {2, +, 25}_1
 
 a
-  ->  {{3, +, {ParmN_12 * 5 + 27, +, 25}_1}_1, +, ParmN_12}_2
-
-
-
-  Scalar evolution functions: 
-
-ParmN
-  ->  not_analyzed_yet
+  ->  {{{3, +, ParmN_12 * 5 + 27}_1, +, 25}_1, +, ParmN_12}_2
 
 
 

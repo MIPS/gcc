@@ -16,17 +16,19 @@ int main ()
 	 (add_to_evolution 
 	   loop_num = 1
 	   chrec_before = 1
-	   to_add = {{2, +, {0, +, 10}_1}_1, +, {0, +, 1}_1}_2
-	   res = {1, +, {{2, +, {0, +, 10}_1}_1, +, {0, +, 1}_1}_2}_1
-	 ).  */
+	   to_add = {{2, +, 0}_1, +, 10}_1
+	   res = {{{1, +, 2}_1, +, 0}_1, +, 10}_1
+	 )
+	 Note that the evolution of B in the inner loop_2 is not
+	 relevant to the evolution of A in the loop_1.  */
       a += b; 
       
       /* And finally the following statement produces the expected scev:
 	 (add_to_evolution 
 	   loop_num = 1
-	   chrec_before = {1, +, {{2, +, {0, +, 10}_1}_1, +, {0, +, 1}_1}_2}_1
+	   chrec_before = {{{1, +, 2}_1, +, 0}_1, +, 10}_1
 	   to_add = {5, +, 9}_1
-	   res = {1, +, {{7, +, {9, +, 10}_1}_1, +, {0, +, 1}_1}_2}_1
+	   res = {{{1, +, 7}_1, +, 9}_1, +, 10}_1
 	 )
 	 That ends this not so formal proof ("CQFD" in french ;-).  */
       a += d;
@@ -39,7 +41,7 @@ int main ()
 	   loop_num = 1
 	   chrec_before = {2, +, {0, +, 1}_1}_2
 	   to_add = {0, +, 10}_1
-	   res = {{2, +, {0, +, 10}_1}_1, +, {0, +, 1}_1}_2
+	   res = {{{2, +, 0}_1, +, 10}_1, +, {0, +, 1}_1}_2
 	 ).
 	 Note that the variable c has not yet been updated in the loop, and thus its value 
 	 at this version is "{0, +, 1}_1".  Since the loop_2 runs exactly 10 times, the overall
@@ -54,9 +56,9 @@ int main ()
 /* 
    c  ->  {0, +, 1}_1
    e  ->  {0, +, 1}_2
-   b  ->  {{2, +, {0, +, 10}_1}_1, +, {0, +, 1}_1}_2
+   b  ->  {{2, +, 0, +, 10}_1, +, {0, +, 1}_1}_2
    d  ->  {5, +, 9}_1
-   a  ->  {1, +, {{7, +, {9, +, 10}_1}_1, +, {0, +, 1}_1}_2}_1
+   a  ->  {1, +, 7, +, 9, +, 10}_1
 */
 
 /* { dg-final { diff-tree-dumps "scev" } } */

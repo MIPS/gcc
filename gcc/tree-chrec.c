@@ -64,6 +64,10 @@ static inline tree chrec_fold_multiply_ival_ival (tree, tree);
 /* Operations.  */
 static tree chrec_evaluate (unsigned, tree, tree, tree);
 static tree chrec_merge_intervals (tree, tree);
+static tree remove_initial_condition (tree);
+static tree add_expr_to_loop_evolution_2 (tree, tree*);
+static tree add_expr_to_loop_evolution_1 (unsigned, tree, tree*);
+
 
 /* Observers.  */
 static bool is_multivariate_chrec_rec (tree, unsigned int);
@@ -2076,102 +2080,100 @@ chrec_merge (tree chrec1,
     }
 }
 
-/* The expression CHREC_BEFORE has no evolution part in LOOP_NUM.  
-   This function constructs a new polynomial evolution function for this 
-   loop.  The evolution part is TO_ADD.  */
+/* Returns a chrec for which the initial condition has been removed.
+   Example: {{1, +, 2}, +, 3} returns {2, +, 3}.  */
 
-tree
-build_polynomial_evolution_in_loop (unsigned loop_num, 
-				    tree chrec_before, 
-				    tree to_add)
+static tree
+remove_initial_condition (tree chrec)
 {
-#if defined ENABLE_CHECKING 
-  if (to_add == NULL_TREE
-      || chrec_before == NULL_TREE)
-    abort ();
-#endif
+  tree left;
   
-  switch (TREE_CODE (chrec_before))
+  if (chrec == NULL_TREE)
+    return NULL_TREE;
+  
+  if (TREE_CODE (chrec) != POLYNOMIAL_CHREC
+      && TREE_CODE (chrec) != EXPONENTIAL_CHREC)
+    return NULL_TREE;
+  
+  left = remove_initial_condition (CHREC_LEFT (chrec));
+  if (left == NULL_TREE)
+    return CHREC_RIGHT (chrec);
+  
+  if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
+    return build_polynomial_chrec 
+      (CHREC_VARIABLE (chrec), left, CHREC_RIGHT (chrec));
+  
+  else
+    return build_exponential_chrec
+      (CHREC_VARIABLE (chrec), left, CHREC_RIGHT (chrec));
+}
+
+/* Search for the leftmost evolution element from CHREC_BEFORE, then
+   begin the addition left to right from this locus.  */
+
+static tree 
+add_expr_to_loop_evolution_1 (unsigned loop_num, 
+			      tree chrec_before, 
+			      tree *to_add)
+{
+  if (*to_add == NULL_TREE)
+    return chrec_before;
+  
+  /* Search for the leftmost locus.  */
+  if (CHREC_VARIABLE (chrec_before) == loop_num
+      && ((TREE_CODE (CHREC_LEFT (chrec_before)) != POLYNOMIAL_CHREC
+	   && TREE_CODE (CHREC_LEFT (chrec_before)) != EXPONENTIAL_CHREC)
+	  || (CHREC_VARIABLE (CHREC_LEFT (chrec_before)) != loop_num)))
     {
-    case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) < loop_num)
-	return build_polynomial_chrec (loop_num, chrec_before, to_add);
-      else
-	return build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   build_polynomial_evolution_in_loop (loop_num, 
-					       CHREC_LEFT (chrec_before), 
-					       to_add),
-	   CHREC_RIGHT (chrec_before));
+      /* And from this point, start adding to the right.  */
+      tree init_cond = initial_condition (*to_add);
       
-    case EXPONENTIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) < loop_num)
-	return build_polynomial_chrec (loop_num, chrec_before, to_add);
-      else
-	return build_exponential_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   build_polynomial_evolution_in_loop (loop_num, 
-					       CHREC_LEFT (chrec_before), 
-					       to_add),
-	   CHREC_RIGHT (chrec_before));
+      *to_add = remove_initial_condition (*to_add);
+      return build_polynomial_chrec 
+	(CHREC_VARIABLE (chrec_before), CHREC_LEFT (chrec_before), 
+	 chrec_fold_plus (CHREC_RIGHT (chrec_before), init_cond));
+    }
+  
+  else
+    {
+      /* Search.  */
+      tree res = add_expr_to_loop_evolution_1 
+	(loop_num, CHREC_LEFT (chrec_before), to_add);
       
-    case VAR_DECL:
-    case PARM_DECL:
-    case INTEGER_CST:
-    case INTERVAL_CHREC:
-    default:
-      /* These nodes do not depend on a loop.  */
-      return build_polynomial_chrec (loop_num, chrec_before, to_add);
+      /* If there are elements to be added...  */
+      if (*to_add != NULL_TREE)
+	{
+	  tree init_cond = initial_condition (*to_add);
+	  *to_add = remove_initial_condition (*to_add);
+	  
+	  /* ...add the element.  */
+	  return build_polynomial_chrec 
+	    (CHREC_VARIABLE (chrec_before), res, 
+	     chrec_fold_plus (CHREC_RIGHT (chrec_before), init_cond));
+	}
+      
+      return build_polynomial_chrec 
+	(CHREC_VARIABLE (chrec_before), res, CHREC_RIGHT (chrec_before));
     }
 }
 
-/* The expression CHREC_BEFORE has no evolution part in LOOP_NUM.  
-   This function constructs a new exponential evolution function for this 
-   loop.  The evolution part is TO_MULT.  */
+/* Finish the copying of the evolution from TO_ADD into
+   CHREC_BEFORE.  */
 
-tree
-build_exponential_evolution_in_loop (unsigned loop_num, 
-				     tree chrec_before, 
-				     tree to_mult)
+static tree 
+add_expr_to_loop_evolution_2 (tree chrec_before, 
+			      tree *to_add)
 {
-#if defined ENABLE_CHECKING 
-  if (to_mult == NULL_TREE
-      || chrec_before == NULL_TREE)
-    abort ();
-#endif
+  tree init_cond;
   
-  switch (TREE_CODE (chrec_before))
-    {
-    case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) < loop_num)
-	return build_exponential_chrec (loop_num, chrec_before, to_mult);
-      else
-	return build_polynomial_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   build_exponential_evolution_in_loop (loop_num, 
-						CHREC_LEFT (chrec_before), 
-						to_mult),
-	   CHREC_RIGHT (chrec_before));
-      
-    case EXPONENTIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) < loop_num)
-	return build_exponential_chrec (loop_num, chrec_before, to_mult);
-      else
-	return build_exponential_chrec 
-	  (CHREC_VARIABLE (chrec_before),
-	   build_exponential_evolution_in_loop (loop_num, 
-						CHREC_LEFT (chrec_before), 
-						to_mult),
-	   CHREC_RIGHT (chrec_before));
-      
-    case VAR_DECL:
-    case PARM_DECL:
-    case INTEGER_CST:
-    case INTERVAL_CHREC:
-    default:
-      /* These nodes do not depend on a loop.  */
-      return build_exponential_chrec (loop_num, chrec_before, to_mult);
-    }
+  if (*to_add == NULL_TREE)
+    return chrec_before;
+  
+  init_cond = initial_condition (*to_add);
+  *to_add = remove_initial_condition (*to_add);
+  
+  return build_polynomial_chrec 
+    (CHREC_VARIABLE (chrec_before), chrec_before, init_cond);
 }
 
 /* The expression CHREC_BEFORE has an evolution part in LOOP_NUM.  
@@ -2193,17 +2195,25 @@ add_expr_to_loop_evolution (unsigned loop_num,
   switch (TREE_CODE (chrec_before))
     {
     case POLYNOMIAL_CHREC:
-      if (CHREC_VARIABLE (chrec_before) == loop_num
-	  /* The evolution has to be added on the leftmost position for 
-	     loop_num.  */
-	  && ((TREE_CODE (CHREC_LEFT (chrec_before)) != POLYNOMIAL_CHREC
-		&& TREE_CODE (CHREC_LEFT (chrec_before)) != EXPONENTIAL_CHREC)
-	      || (CHREC_VARIABLE (CHREC_LEFT (chrec_before)) != loop_num)))
-	return build_polynomial_chrec 
-	  (loop_num, 
-	   CHREC_LEFT (chrec_before),
-	   chrec_fold_plus (CHREC_RIGHT (chrec_before), to_add));
+      if (CHREC_VARIABLE (chrec_before) == loop_num)
+	{
+	  /* Add the polynomial TO_ADD to the evolution in LOOP_NUM of
+	     CHREC_BEFORE.  */
+	  tree res = add_expr_to_loop_evolution_1 
+	    (loop_num, chrec_before, &to_add);
+	  
+	  /* When the degree of TO_ADD is greater than the degree of
+	     CHREC_BEFORE in the LOOP_NUM dimension, build the new
+	     evolution.  */
+	  if (to_add != NULL_TREE)
+	    res = add_expr_to_loop_evolution_2
+	      (res, &to_add);
+	  
+	  return res;
+	}
+      
       else
+	/* Search the evolution in LOOP_NUM.  */
 	return build_polynomial_chrec 
 	  (CHREC_VARIABLE (chrec_before),
 	   add_expr_to_loop_evolution (loop_num, 

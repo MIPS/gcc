@@ -1,3 +1,10 @@
+2004-01-15  Sebastian Pop  <s.pop@laposte.net>
+
+	* ssa-chrec-{06, 38, 42, 43}.c: Modify comments.
+	* ssa-chrec-{06, 07, 08, 09, 11, 12, 13, 14, 16, 18, 20,
+	21, 37, 38, 39, 42, 43, 44, 45, 53}.c.scev: Adjusted.
+	* ssa-chrec-53.c.alldd: Adjusted.
+
 2004-01-12  Sebastian Pop  <s.pop@laposte.net>
 
 	* gcc.dg/tree-ssa-chrec/ssa-chrec-51.c.scev: Adjusted.

@@ -9,7 +9,7 @@ a
   ->  {-100, +, [MIN_EXPR <T.1_8, 3>, MAX_EXPR <T.1_8, 3>]}_1
 
 b
-  ->  {2, +, {[MIN_EXPR <T.1_8, 3> + -100, MAX_EXPR <T.1_8, 3> + -100], +, [MIN_EXPR <T.1_8, 3>, MAX_EXPR <T.1_8, 3>]}_1}_1
+  ->  {{2, +, [MIN_EXPR <T.1_8, 3> + -100, MAX_EXPR <T.1_8, 3> + -100]}_1, +, [MIN_EXPR <T.1_8, 3>, MAX_EXPR <T.1_8, 3>]}_1
 
 
 

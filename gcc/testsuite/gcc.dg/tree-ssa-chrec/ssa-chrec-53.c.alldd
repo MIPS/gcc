@@ -2,72 +2,72 @@
   stmt: T.1_522 = b[i_1];
   ref: b[i_1];
   base_name: b
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_1
 )
 (Data Ref 1: 
   stmt: a[i_1] = T.1_522;
   ref: a[i_1];
   base_name: a
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_1
 )
 (Data Ref 2: 
   stmt: T.1_519 = b[i_2];
   ref: b[i_2];
   base_name: b
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_2
 )
 (Data Ref 3: 
   stmt: a[i_2] = T.1_519;
   ref: a[i_2];
   base_name: a
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_2
 )
 (Data Ref 4: 
   stmt: T.2_516 = db[i_3];
   ref: db[i_3];
   base_name: db
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_3
 )
 (Data Ref 5: 
   stmt: da[i_3] = T.2_516;
   ref: da[i_3];
   base_name: da
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_3
 )
 (Data Ref 6: 
   stmt: a[i_4] = 5.0e+0;
   ref: a[i_4];
   base_name: a
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_4
 )
 (Data Ref 7: 
   stmt: T.1_507 = b[i_5];
   ref: b[i_5];
   base_name: b
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_5
 )
 (Data Ref 8: 
   stmt: T.3_508 = c[i_5];
   ref: c[i_5];
   base_name: c
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_5
 )
 (Data Ref 9: 
   stmt: T.5_510 = d[i_5];
   ref: d[i_5];
   base_name: d
-  Access function 0: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
+  Access function 0: {0, +, 1}_5
 )
 
 (Data Dep (A = 0, B = 0):
  (subscript 0:
   base_name_A: b
   base_name_B: b
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_1
+  access_fn_B: {0, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -86,19 +86,19 @@
  (subscript 0:
   base_name_A: b
   base_name_B: b
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_1
+  access_fn_B: {0, +, 1}_2
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -118,19 +118,19 @@
  (subscript 0:
   base_name_A: b
   base_name_B: b
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_1
+  access_fn_B: {0, +, 1}_5
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -147,11 +147,11 @@
  (subscript 0:
   base_name_A: a
   base_name_B: a
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_1
+  access_fn_B: {0, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -170,19 +170,19 @@
  (subscript 0:
   base_name_A: a
   base_name_B: a
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_1
+  access_fn_B: {0, +, 1}_2
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -196,19 +196,19 @@
  (subscript 0:
   base_name_A: a
   base_name_B: a
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_1
+  access_fn_B: {0, +, 1}_4
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_4
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -225,19 +225,19 @@
  (subscript 0:
   base_name_A: b
   base_name_B: b
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_2
+  access_fn_B: {0, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -248,11 +248,11 @@
  (subscript 0:
   base_name_A: b
   base_name_B: b
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_2
+  access_fn_B: {0, +, 1}_2
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -280,19 +280,19 @@
  (subscript 0:
   base_name_A: b
   base_name_B: b
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_2
+  access_fn_B: {0, +, 1}_5
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -309,19 +309,19 @@
  (subscript 0:
   base_name_A: a
   base_name_B: a
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_2
+  access_fn_B: {0, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -332,11 +332,11 @@
  (subscript 0:
   base_name_A: a
   base_name_B: a
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_2
+  access_fn_B: {0, +, 1}_2
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -358,19 +358,19 @@
  (subscript 0:
   base_name_A: a
   base_name_B: a
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_2
+  access_fn_B: {0, +, 1}_4
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_4
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -399,11 +399,11 @@
  (subscript 0:
   base_name_A: db
   base_name_B: db
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_3
+  access_fn_B: {0, +, 1}_3
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_3
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_3
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -449,11 +449,11 @@
  (subscript 0:
   base_name_A: da
   base_name_B: da
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_3
+  access_fn_B: {0, +, 1}_3
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_3
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_3
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -484,19 +484,19 @@
  (subscript 0:
   base_name_A: a
   base_name_B: a
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_4
+  access_fn_B: {0, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_4
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -507,19 +507,19 @@
  (subscript 0:
   base_name_A: a
   base_name_B: a
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_4
+  access_fn_B: {0, +, 1}_2
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_4
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -533,11 +533,11 @@
  (subscript 0:
   base_name_A: a
   base_name_B: a
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_4
+  access_fn_B: {0, +, 1}_4
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_4
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_4
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -562,19 +562,19 @@
  (subscript 0:
   base_name_A: b
   base_name_B: b
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_5
+  access_fn_B: {0, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -585,19 +585,19 @@
  (subscript 0:
   base_name_A: b
   base_name_B: b
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_5
+  access_fn_B: {0, +, 1}_2
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_2
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
-(0
+([-oo, +oo]
 )
  )
  (Direction Vector: 
-(=)
+(*)
  )
 
 )
@@ -617,11 +617,11 @@
  (subscript 0:
   base_name_A: b
   base_name_B: b
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_5
+  access_fn_B: {0, +, 1}_5
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -667,11 +667,11 @@
  (subscript 0:
   base_name_A: c
   base_name_B: c
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_5
+  access_fn_B: {0, +, 1}_5
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 
@@ -717,11 +717,11 @@
  (subscript 0:
   base_name_A: d
   base_name_B: d
-  access_fn_A: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  access_fn_B: {0, +, {{{{{{{{{{{{{1, +, 1}_1, +, 1}_2, +, 1}_3, +, 1}_4, +, 1}_5, +, 1}_6, +, 1}_7, +, 1}_8, +, 1}_9, +, 1}_10, +, 1}_11, +, 1}_12, +, 1}_13}_14
-  iterations_that_access_an_element_twice_in_A: 0
+  access_fn_A: {0, +, 1}_5
+  access_fn_B: {0, +, 1}_5
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
-  iterations_that_access_an_element_twice_in_B: 0
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_5
   last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
  )
  (Distance Vector: 

@@ -1,3 +1,22 @@
+2004-01-15  Sebastian Pop  <s.pop@laposte.net>
+
+	* tree-chrec.c (remove_initial_condition,
+	add_expr_to_loop_evolution_1, add_expr_to_loop_evolution_2): New functions.
+	(add_expr_to_loop_evolution): Use these functions.                        
+	(build_polynomial_evolution_in_loop,              
+	build_exponential_evolution_in_loop): Move from here...
+	* tree-chrec.h (build_polynomial_evolution_in_loop,
+	build_exponential_evolution_in_loop): Remove declarations.
+	* tree-scalar-evolution.c (build_polynomial_evolution_in_loop,
+	build_exponential_evolution_in_loop): ... to here.  Declare
+	these functions static.
+	(select_outer_and_current_evolutions): New function.
+	(matched_an_increment, scev_analyze_modify_expr,    
+	compute_overall_effect_of_inner_loop,           
+	analyze_scalar_evolution): Use this function.
+	(add_to_evolution, multiply_evolution): Construct canonical
+	chains of recurrences.
+
 2004-01-14  Dorit Naishlos <dorit@il.ibm.com>
             Sebastian Pop  <s.pop@laposte.net>
 
