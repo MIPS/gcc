@@ -80,12 +80,15 @@ extern enum rs6000_sdata_type rs6000_sdata;
 /* Strings provided by SUBTARGET_OPTIONS */
 extern const char *rs6000_abi_name;
 extern const char *rs6000_sdata_name;
+extern const char *rs6000_tls_size_string; /* For -mtls-size= */
 
 /* Override rs6000.h definition.  */
 #undef	SUBTARGET_OPTIONS
-#define	SUBTARGET_OPTIONS						\
-  { "call-",  &rs6000_abi_name, N_("Select ABI calling convention") },	\
-  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling") }
+#define	SUBTARGET_OPTIONS						    \
+  { "call-",  &rs6000_abi_name, N_("Select ABI calling convention") },      \
+  { "sdata=", &rs6000_sdata_name, N_("Select method for sdata handling") }, \
+  { "tls-size=", &rs6000_tls_size_string,				    \
+   N_("Specify bit size of immediate TLS offsets") }
 
 /* Max # of bytes for variables to automatically be put into the .sdata
    or .sdata2 sections.  */
@@ -248,8 +251,9 @@ do {									\
 	     rs6000_sdata_name);					\
     }									\
 									\
-  else if (flag_pic &&							\
-	   (rs6000_sdata == SDATA_EABI || rs6000_sdata == SDATA_SYSV))	\
+  else if (flag_pic && DEFAULT_ABI != ABI_AIX				\
+	   && (rs6000_sdata == SDATA_EABI				\
+	       || rs6000_sdata == SDATA_SYSV))				\
     {									\
       rs6000_sdata = SDATA_DATA;					\
       error ("-f%s and -msdata=%s are incompatible",			\
@@ -294,7 +298,7 @@ do {									\
     }									\
 									\
   /* Treat -fPIC the same as -mrelocatable.  */				\
-  if (flag_pic > 1)							\
+  if (flag_pic > 1 && DEFAULT_ABI != ABI_AIX)				\
     target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC; \
 									\
   else if (TARGET_RELOCATABLE)						\
@@ -438,7 +442,8 @@ do {									\
 
 /* Put PC relative got entries in .got2.  */
 #define	MINIMAL_TOC_SECTION_ASM_OP \
-  ((TARGET_RELOCATABLE || flag_pic) ? "\t.section\t\".got2\",\"aw\"" : "\t.section\t\".got1\",\"aw\"")
+  (TARGET_RELOCATABLE || (flag_pic && DEFAULT_ABI != ABI_AIX)		\
+   ? "\t.section\t\".got2\",\"aw\"" : "\t.section\t\".got1\",\"aw\"")
 
 #define	SDATA_SECTION_ASM_OP "\t.section\t\".sdata\",\"aw\""
 #define	SDATA2_SECTION_ASM_OP "\t.section\t\".sdata2\",\"a\""
@@ -790,9 +795,12 @@ extern int fixuplabelno;
 #define	ASM_OUTPUT_LABELREF(FILE,NAME)		\
 do {						\
   const char *_name = NAME;			\
-  if (*_name == '@')				\
+						\
+  if (*_name == '%')				\
+    _name+=2;					\
+  else if (*_name == '@')			\
     _name++;					\
- 						\
+						\
   if (*_name == '*')				\
     fprintf (FILE, "%s", _name + 1);		\
   else						\
@@ -1137,8 +1145,8 @@ do {						\
 %{!mnewlib: -lc }"
 #else
 #define LIB_LINUX_SPEC "%{mnewlib: --start-group -llinux -lc --end-group } \
-%{!mnewlib: %{shared:-lc} %{!shared: %{pthread:-lpthread } \
-%{profile:-lc_p} %{!profile:-lc}}}"
+%{!mnewlib: %{pthread:-lpthread} %{shared:-lc} \
+%{!shared: %{profile:-lc_p} %{!profile:-lc}}}"
 #endif
 
 #ifdef USE_GNULIBC_1

@@ -1,3 +1,107 @@
+2004-01-21  Alan Modra  <amodra@bigpond.net.au>
+
+	Backport powerpc tls support from mainline.
+	2003-09-17  Daniel Jacobowitz  <drow@mvista.com>
+	* config/rs6000/sysv4.h (LIB_LINUX_SPEC): Give -lpthread before -lc.
+	* config/rs6000/sysv4.h (LIB_LINUX_SPEC): Make -pthread apply
+	to shared libraries.
+
+	2003-05-12  Janis Johnson  <janis187@us.ibm.com>
+		    Alan Modra  <amodra@bigpond.net.au>
+		    Jakub Jelinek  <jakub@redhat.com>
+	* configure.in (HAVE_AS_TLS): Add powerpc and powerpc64 tests.
+	* configure: Rebuild.
+	* config/rs6000/rs6000-protos.h: Update.
+	* config/rs6000/rs6000.c (rs6000_tls_size): New.
+	(rs6000_tls_size_string): New.
+	(rs6000_parse_tls_size_option): New.
+	(rs6000_legitimize_tls_address): New.
+	(rs6000_tls_get_addr): New.
+	(rs6000_got_sym): New.
+	(rs6000_tls_symbol_ref): New.
+	(rs6000_tls_symbol_ref_1): New.
+	(rs6000_get_some_local_dynamic_name): New.
+	(rs6000_get_some_local_dynamic_name_1): New.
+	(TARGET_HAVE_TLS): New.
+	(TARGET_CANNOT_FORCE_CONST_MEM): New.
+	(rs6000_override_options): Handle -mtls-size option.
+	(constant_pool_expr_1): Handle TLS symbols.
+	(rs6000_legitimize_address): Handle TLS symbols.
+	(rs6000_tls_referenced_p): New.
+	(rs6000_legitimate_address): Handle TLS symbols.
+	(rs6000_emit_move): Handle TLS symbols.
+	(print_operand): Handle TLS symbols.
+	(uses_TOC): Handle TLS symbols.
+	(rs6000_emit_prologue): Use symbol for unspec constant.
+	* config/rs6000/rs6000.h (HAVE_AS_TLS): New.
+	(some_ld_name): New.
+	(LEGITIMATE_CONSTANT_P): Handle TLS symbols.
+	(PRINT_OPERAND_PUNCT_VALID_P): Handle TLS symbols.
+	(PREDICATE_CODES): Add rs6000_tls_symbol_ref.
+	* config/rs6000/rs6000.md (load_toc_v4_PIC_1, load_toc_v4_PIC_1b):
+	Support TLS.
+	(tls_gd_32, tls_gd_64, tls_ld_32, tls_ld_64, tls_dtprel_32,
+	tls_dtprel_64, tls_dtprel_ha_32, tls_dtprel_ha_64, tls_dtprel_lo_32,
+	tls_dtprel_lo_64, tls_got_dtprel_32, tls_got_dtprel_64, tls_tprel_32,
+	tls_tprel_64, tls_tprel_ha_32, tls_tprel_ha_64, tls_tprel_lo_32,
+	tls_tprel_lo_64, tls_got_tprel_32, tls_got_tprel_64, tls_tls_32,
+	tls_tls_64): New.
+	* config/rs6000/sysv4.h (SUBTARGET_OPTIONS): Add tls_size.
+
+	2003-04-14  Janis Johnson  <janis287@us.ibm.com>
+	* config/rs6000/rs6000.md (define_constants): Define constants for
+	all UNSPEC usage, including new values for TLS support.
+	(aux_truncdfsf2, fctiwz, movsi_got, movsi_got_internal,
+	load_toc_aix_si, load_toc_aix_di, load_toc_v4_pic_si,
+	load_toc_v4_PIC_1, load_toc_v4_PIC_1b, load_macho_picbase,
+	macho_correct_pic, blockage, move_from_CR_ov_bit, movesi_from_cr,
+	stack_tie, movsi_to_cr_one, movsi_to_cr, mtcrfsi, eh_set_lr_si,
+	eh_set_lr_di): Use them.
+	* rs6000.c: (mtcrf_operation, uses_TOC, rs6000_emit_prologue,
+	rs6000_emit_epilogue) Use them.
+
+	2003-03-19  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (rs6000_stack_info): Only require a frame
+	when debugging on XCOFF targets.  Delete "abi" temp.
+
+	2003-03-18  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/linux64.h (MASK_PROFILE_KERNEL): Define.
+	(TARGET_PROFILE_KERNEL): Define.
+	(SUBTARGET_SWITCHES): Handle -mprofile-kernel.
+	(PROFILE_BEFORE_PROLOGUE): Don't define.
+	(PROFILE_KERNEL): Remove hacks.
+	* config/rs6000/rs6000.c (TARGET_PROFILE_KERNEL): Define default.
+	(rs6000_stack_info): No need to save lr if just for profiling when
+	TARGET_KERNEL_PROFILE.
+	(output_profile_hook): Output nothing when TARGET_KERNEL_PROFILE.
+	(output_function_profiler): Localize label generation.  Emit code
+	for kernel profiling.
+
+	2003-03-17  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/linux64.h (TARGET_64BIT): Redefine.
+	(TARGET_RELOCATABLE, TARGET_EABI, TARGET_PROTOTYPE): Likewise.
+	(SUBTARGET_SWITCHES, SUBTARGET_OPTIONS): Likewise.
+	(SUBTARGET_OVERRIDE_OPTIONS, CPP_SYSV_SPEC): Likewise.
+
+	2003-03-13  Alan Modra  <amodra@bigpond.net.au>
+	* config/rs6000/rs6000.c (rs6000_flag_pic): Delete.
+	(rs6000_xcoff_encode_section_info): #ifdef TARGET_XCOFF.
+	(rs6000_binds_local_p, TARGET_BINDS_LOCAL_P): #if TARGET_MACHO.
+	(rs6000_override_options): Don't clear flag_pic for ABI_AIX.
+	(rs6000_legitimize_address): Formatting.
+	(rs6000_emit_move): Likewise.
+	(rs6000_return_addr): Test ABI_AIX as well as flag_pic.
+	(rs6000_emit_prologue <save_LR_around_toc_setup>): Likewise.
+	(rs6000_elf_select_section): Comment reason for shlib being
+	set for ABI_AIX.
+	(rs6000_elf_unique_section): Likewise.
+	(rs6000_elf_encode_section_info): Test !TARGET_AIX as well as ABI_AIX.
+	* config/rs6000/rs6000.h (LEGITIMATE_LO_SUM_ADDRESS_P): Test ABI_AIX
+	as well as flag_pic.
+	* config/rs6000/sysv4.h (SUBTARGET_OVERRIDE_OPTIONS): Likewise.
+	(MINIMAL_TOC_SECTION_ASM_OP): Likewise.
+	* config/rs6000/linux64.h (TARGET_ENCODE_SECTION_INFO): Don't define.
+
 2004-01-19  Michael Matz  <matz@suse.de>
 
 	* alpha/alpha.h (SETUP_INCOMING_VARARGS): Really adjust calls

@@ -95,9 +95,6 @@ const char *rs6000_isel_string;
 /* Set to nonzero once AIX common-mode calls have been defined.  */
 static int common_mode_defined;
 
-/* Private copy of original value of flag_pic for ABI_AIX.  */
-static int rs6000_flag_pic;
-
 /* Save information from a "cmpxx" operation until the branch or scc is
    emitted.  */
 rtx rs6000_compare_op0, rs6000_compare_op1;
@@ -120,6 +117,10 @@ const char *rs6000_sdata_name = (char *)0;
 /* Counter for labels which are to be placed in .fixup.  */
 int fixuplabelno = 0;
 #endif
+
+/* Bit size of immediate TLS offsets and string from which it is decoded.  */
+int rs6000_tls_size = 32;
+const char *rs6000_tls_size_string;
 
 /* ABI enumeration available for subtarget to use.  */
 enum rs6000_abi rs6000_current_abi;
@@ -204,7 +205,7 @@ static unsigned int rs6000_elf_section_type_flags PARAMS ((tree, const char *,
 static void rs6000_elf_asm_out_constructor PARAMS ((rtx, int));
 static void rs6000_elf_asm_out_destructor PARAMS ((rtx, int));
 static void rs6000_elf_select_section PARAMS ((tree, int,
-						 unsigned HOST_WIDE_INT));
+					       unsigned HOST_WIDE_INT));
 static void rs6000_elf_unique_section PARAMS ((tree, int));
 static void rs6000_elf_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						   unsigned HOST_WIDE_INT));
@@ -223,10 +224,12 @@ static void rs6000_xcoff_select_rtx_section PARAMS ((enum machine_mode, rtx,
 						     unsigned HOST_WIDE_INT));
 static const char * rs6000_xcoff_strip_name_encoding PARAMS ((const char *));
 static unsigned int rs6000_xcoff_section_type_flags PARAMS ((tree, const char *, int));
-#endif
 static void rs6000_xcoff_encode_section_info PARAMS ((tree, int))
      ATTRIBUTE_UNUSED;
+#endif
+#if TARGET_MACHO
 static bool rs6000_binds_local_p PARAMS ((tree));
+#endif
 static int rs6000_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int rs6000_adjust_priority PARAMS ((rtx, int));
 static int rs6000_issue_rate PARAMS ((void));
@@ -256,6 +259,7 @@ static rtx altivec_expand_abs_builtin PARAMS ((enum insn_code, tree, rtx));
 static rtx altivec_expand_predicate_builtin PARAMS ((enum insn_code, const char *, tree, rtx));
 static rtx altivec_expand_stv_builtin PARAMS ((enum insn_code, tree));
 static void rs6000_parse_abi_options PARAMS ((void));
+static void rs6000_parse_tls_size_option PARAMS ((void));
 static void rs6000_parse_vrsave_option PARAMS ((void));
 static void rs6000_parse_isel_option PARAMS ((void));
 static int first_altivec_reg_to_save PARAMS ((void));
@@ -264,6 +268,14 @@ static void is_altivec_return_reg PARAMS ((rtx, void *));
 static rtx generate_set_vrsave PARAMS ((rtx, rs6000_stack_t *, int));
 static void altivec_frame_fixup PARAMS ((rtx, rtx, HOST_WIDE_INT));
 static int easy_vector_constant PARAMS ((rtx));
+static rtx rs6000_legitimize_tls_address PARAMS ((rtx, enum tls_model));
+static rtx rs6000_tls_get_addr PARAMS ((void));
+static rtx rs6000_got_sym PARAMS ((void));
+static void encode_tls_info PARAMS ((tree));
+static enum tls_model tls_symbolic_operand_type PARAMS ((rtx));
+static int rs6000_tls_symbol_ref_1 PARAMS ((rtx *, void *));
+static const char *rs6000_get_some_local_dynamic_name PARAMS ((void));
+static int rs6000_get_some_local_dynamic_name_1 PARAMS ((rtx *, void *));
 
 /* Default register names.  */
 char rs6000_reg_names[][8] =
@@ -317,6 +329,9 @@ static const char alt_reg_names[][8] =
 #ifndef MASK_STRICT_ALIGN
 #define MASK_STRICT_ALIGN 0
 #endif
+#ifndef TARGET_PROFILE_KERNEL
+#define TARGET_PROFILE_KERNEL 0
+#endif
 
 /* The VRSAVE bitmask puts bit %v0 as the most significant bit.  */
 #define ALTIVEC_REG_BIT(REGNO) (0x80000000 >> ((REGNO) - FIRST_ALTIVEC_REGNO))
@@ -361,6 +376,12 @@ static const char alt_reg_names[][8] =
 #define TARGET_ASM_ASSEMBLE_VISIBILITY rs6000_assemble_visibility
 #endif
 
+#undef TARGET_HAVE_TLS
+#define TARGET_HAVE_TLS HAVE_AS_TLS
+
+#undef TARGET_CANNOT_FORCE_CONST_MEM
+#define TARGET_CANNOT_FORCE_CONST_MEM rs6000_tls_referenced_p
+
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE rs6000_output_function_prologue
 #undef TARGET_ASM_FUNCTION_EPILOGUE
@@ -379,8 +400,10 @@ static const char alt_reg_names[][8] =
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN rs6000_expand_builtin
 
+#if TARGET_MACHO
 #undef TARGET_BINDS_LOCAL_P
 #define TARGET_BINDS_LOCAL_P rs6000_binds_local_p
+#endif
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK rs6000_output_mi_thunk
@@ -600,12 +623,6 @@ rs6000_override_options (default_cpu)
 	}
     }
 
-  if (flag_pic != 0 && DEFAULT_ABI == ABI_AIX)
-    {
-      rs6000_flag_pic = flag_pic;
-      flag_pic = 0;
-    }
-
   /* For Darwin, always silently make -fpic and -fPIC identical.  */
   if (flag_pic == 1 && DEFAULT_ABI == ABI_DARWIN)
     flag_pic = 2;
@@ -657,6 +674,9 @@ rs6000_override_options (default_cpu)
 
   /* Handle -misel= option.  */
   rs6000_parse_isel_option ();
+
+  /* Handle -mtls-size option.  */
+  rs6000_parse_tls_size_option ();
 
 #ifdef SUBTARGET_OVERRIDE_OPTIONS
   SUBTARGET_OVERRIDE_OPTIONS;
@@ -770,6 +790,23 @@ rs6000_parse_abi_options ()
     rs6000_spe_abi = 0;
   else
     error ("unknown ABI specified: '%s'", rs6000_abi_string);
+}
+
+/* Validate and record the size specified with the -mtls-size option.  */
+
+static void
+rs6000_parse_tls_size_option ()
+{
+  if (rs6000_tls_size_string == 0)
+    return;
+  else if (strcmp (rs6000_tls_size_string, "16") == 0)
+    rs6000_tls_size = 16;
+  else if (strcmp (rs6000_tls_size_string, "32") == 0)
+    rs6000_tls_size = 32;
+  else if (strcmp (rs6000_tls_size_string, "64") == 0)
+    rs6000_tls_size = 64;
+  else
+    error ("bad value `%s' for -mtls-size switch", rs6000_tls_size_string);
 }
 
 void
@@ -2034,7 +2071,9 @@ constant_pool_expr_1 (op, have_sym, have_toc)
   switch (GET_CODE(op)) 
     {
     case SYMBOL_REF:
-      if (CONSTANT_POOL_ADDRESS_P (op))
+      if (tls_symbolic_operand_type (op))
+	return 0;
+      else if (CONSTANT_POOL_ADDRESS_P (op))
 	{
 	  if (ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (op), Pmode))
 	    {
@@ -2110,6 +2149,13 @@ rs6000_legitimize_address (x, oldx, mode)
      rtx oldx ATTRIBUTE_UNUSED;
      enum machine_mode mode;
 {
+  if (GET_CODE (x) == SYMBOL_REF)
+    {
+      enum tls_model model = tls_symbolic_operand_type (x);
+      if (model != 0)
+	return rs6000_legitimize_tls_address (x, model);
+    }
+
   if (GET_CODE (x) == PLUS 
       && GET_CODE (XEXP (x, 0)) == REG
       && GET_CODE (XEXP (x, 1)) == CONST_INT
@@ -2169,7 +2215,10 @@ rs6000_legitimize_address (x, oldx, mode)
 
       return force_reg (Pmode, x);
     }
-  else if (TARGET_ELF && TARGET_32BIT && TARGET_NO_TOC && ! flag_pic
+  else if (TARGET_ELF
+	   && TARGET_32BIT
+	   && TARGET_NO_TOC
+	   && ! flag_pic
 	   && GET_CODE (x) != CONST_INT
 	   && GET_CODE (x) != CONST_DOUBLE 
 	   && CONSTANT_P (x)
@@ -2202,6 +2251,288 @@ rs6000_legitimize_address (x, oldx, mode)
     }
   else
     return NULL_RTX;
+}
+
+/* Construct the SYMBOL_REF for the tls_get_addr function.  */
+
+static GTY(()) rtx rs6000_tls_symbol;
+static rtx
+rs6000_tls_get_addr ()
+{
+  if (!rs6000_tls_symbol)
+    rs6000_tls_symbol = init_one_libfunc ("__tls_get_addr");
+
+  return rs6000_tls_symbol;
+}
+
+/* Construct the SYMBOL_REF for TLS GOT references.  */
+
+static GTY(()) rtx rs6000_got_symbol;
+static rtx
+rs6000_got_sym ()
+{
+  if (!rs6000_got_symbol)
+    rs6000_got_symbol = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
+
+  return rs6000_got_symbol;
+}
+
+/* ADDR contains a thread-local SYMBOL_REF.  Generate code to compute
+   this (thread-local) address.  */
+
+static rtx
+rs6000_legitimize_tls_address (addr, model)
+     rtx addr;
+     enum tls_model model;
+{
+  rtx dest, insn;
+
+  dest = gen_reg_rtx (Pmode);
+  if (model == TLS_MODEL_LOCAL_EXEC && rs6000_tls_size == 16)
+    {
+      rtx tlsreg;
+
+      if (TARGET_64BIT)
+	{
+	  tlsreg = gen_rtx_REG (Pmode, 13);
+	  insn = gen_tls_tprel_64 (dest, tlsreg, addr);
+	}
+      else
+	{
+	  tlsreg = gen_rtx_REG (Pmode, 2);
+	  insn = gen_tls_tprel_32 (dest, tlsreg, addr);
+	}
+      emit_insn (insn);
+    }
+  else if (model == TLS_MODEL_LOCAL_EXEC && rs6000_tls_size == 32)
+    {
+      rtx tlsreg, tmp;
+
+      tmp = gen_reg_rtx (Pmode);
+      if (TARGET_64BIT)
+	{
+	  tlsreg = gen_rtx_REG (Pmode, 13);
+	  insn = gen_tls_tprel_ha_64 (tmp, tlsreg, addr);
+	}
+      else
+	{
+	  tlsreg = gen_rtx_REG (Pmode, 2);
+	  insn = gen_tls_tprel_ha_32 (tmp, tlsreg, addr);
+	}
+      emit_insn (insn);
+      if (TARGET_64BIT)
+	insn = gen_tls_tprel_lo_64 (dest, tmp, addr);
+      else
+	insn = gen_tls_tprel_lo_32 (dest, tmp, addr);
+      emit_insn (insn);
+    }
+  else
+    {
+      rtx r3, got, tga, tmp1, tmp2, eqv;
+
+      if (TARGET_64BIT)
+	got = gen_rtx_REG (Pmode, TOC_REGISTER);
+      else
+	{
+	  if (flag_pic == 1)
+	    got = gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
+	  else
+	    {
+	      rtx gsym = rs6000_got_sym ();
+	      got = gen_reg_rtx (Pmode);
+	      if (flag_pic == 0)
+		rs6000_emit_move (got, gsym, Pmode);
+	      else
+		{
+		  char buf[30];
+		  static int tls_got_labelno = 0;
+		  rtx tempLR, lab, tmp3, mem;
+		  rtx first, last;
+
+		  ASM_GENERATE_INTERNAL_LABEL (buf, "LTLS", tls_got_labelno++);
+		  lab = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (buf));
+		  tempLR = gen_reg_rtx (Pmode);
+		  tmp1 = gen_reg_rtx (Pmode);
+		  tmp2 = gen_reg_rtx (Pmode);
+		  tmp3 = gen_reg_rtx (Pmode);
+		  mem = gen_rtx_MEM (Pmode, tmp1);
+		  RTX_UNCHANGING_P (mem) = 1;
+
+		  first = emit_insn (gen_load_toc_v4_PIC_1b (tempLR, lab,
+							     gsym));
+		  emit_move_insn (tmp1, tempLR);
+		  emit_move_insn (tmp2, mem);
+		  emit_insn (gen_addsi3 (tmp3, tmp1, tmp2));
+		  last = emit_move_insn (got, tmp3);
+		  REG_NOTES (last) = gen_rtx_EXPR_LIST (REG_EQUAL, gsym,
+							REG_NOTES (last));
+		  REG_NOTES (first) = gen_rtx_INSN_LIST (REG_LIBCALL, last,
+							 REG_NOTES (first));
+		  REG_NOTES (last) = gen_rtx_INSN_LIST (REG_RETVAL, first,
+							REG_NOTES (last));
+		}
+	    }
+	}
+
+      if (model == TLS_MODEL_GLOBAL_DYNAMIC)
+	{
+	  r3 = gen_rtx_REG (Pmode, 3);
+	  if (TARGET_64BIT)
+	    insn = gen_tls_gd_64 (r3, got, addr);
+	  else
+	    insn = gen_tls_gd_32 (r3, got, addr);
+	  start_sequence ();
+	  emit_insn (insn);
+	  tga = gen_rtx_MEM (Pmode, rs6000_tls_get_addr ());
+	  insn = gen_call_value (r3, tga, const0_rtx, const0_rtx);
+	  insn = emit_call_insn (insn);
+	  CONST_OR_PURE_CALL_P (insn) = 1;
+	  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), r3);
+	  insn = get_insns ();
+	  end_sequence ();
+	  emit_libcall_block (insn, dest, r3, addr);
+	}
+      else if (model == TLS_MODEL_LOCAL_DYNAMIC)
+	{
+	  r3 = gen_rtx_REG (Pmode, 3);
+	  if (TARGET_64BIT)
+	    insn = gen_tls_ld_64 (r3, got);
+	  else
+	    insn = gen_tls_ld_32 (r3, got);
+	  start_sequence ();
+	  emit_insn (insn);
+	  tga = gen_rtx_MEM (Pmode, rs6000_tls_get_addr ());
+	  insn = gen_call_value (r3, tga, const0_rtx, const0_rtx);
+	  insn = emit_call_insn (insn);
+	  CONST_OR_PURE_CALL_P (insn) = 1;
+	  use_reg (&CALL_INSN_FUNCTION_USAGE (insn), r3);
+	  insn = get_insns ();
+	  end_sequence ();
+	  tmp1 = gen_reg_rtx (Pmode);
+	  eqv = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
+				UNSPEC_TLSLD);
+	  emit_libcall_block (insn, tmp1, r3, eqv);
+	  if (rs6000_tls_size == 16)
+	    {
+	      if (TARGET_64BIT)
+		insn = gen_tls_dtprel_64 (dest, tmp1, addr);
+	      else
+		insn = gen_tls_dtprel_32 (dest, tmp1, addr);
+	    }
+	  else if (rs6000_tls_size == 32)
+	    {
+	      tmp2 = gen_reg_rtx (Pmode);
+	      if (TARGET_64BIT)
+		insn = gen_tls_dtprel_ha_64 (tmp2, tmp1, addr);
+	      else
+		insn = gen_tls_dtprel_ha_32 (tmp2, tmp1, addr);
+	      emit_insn (insn);
+	      if (TARGET_64BIT)
+		insn = gen_tls_dtprel_lo_64 (dest, tmp2, addr);
+	      else
+		insn = gen_tls_dtprel_lo_32 (dest, tmp2, addr);
+	    }
+	  else
+	    {
+	      tmp2 = gen_reg_rtx (Pmode);
+	      if (TARGET_64BIT)
+		insn = gen_tls_got_dtprel_64 (tmp2, got, addr);
+	      else
+		insn = gen_tls_got_dtprel_32 (tmp2, got, addr);
+	      emit_insn (insn);
+	      insn = gen_rtx_SET (Pmode, dest,
+				  gen_rtx_PLUS (Pmode, tmp2, tmp1));
+	    }
+	  emit_insn (insn);
+	}
+      else
+	{
+	  /* IE, or 64 bit offset LE.  */
+	  tmp2 = gen_reg_rtx (Pmode);
+	  if (TARGET_64BIT)
+	    insn = gen_tls_got_tprel_64 (tmp2, got, addr);
+	  else
+	    insn = gen_tls_got_tprel_32 (tmp2, got, addr);
+	  emit_insn (insn);
+	  if (TARGET_64BIT)
+	    insn = gen_tls_tls_64 (dest, tmp2, addr);
+	  else
+	    insn = gen_tls_tls_32 (dest, tmp2, addr);
+	  emit_insn (insn);
+	}
+    }
+
+  return dest;
+}
+
+/* If OP is a SYMBOL_REF of a thread-local symbol, return its TLS type,
+   otherwise return 0.  */
+
+static enum tls_model
+tls_symbolic_operand_type (op)
+    rtx op;
+{
+  const char *str;
+
+  if (GET_CODE (op) != SYMBOL_REF)
+    return 0;
+
+  str = XSTR (op, 0);
+  if (str[0] != '%')
+    return 0;
+
+  switch (str[1])
+    {
+    case 'G':
+      return TLS_MODEL_GLOBAL_DYNAMIC;
+    case 'L':
+      /* Local dynamic is a waste if we're not going to combine
+	 the __tls_get_addr calls.  So avoid it if not optimizing.  */
+      if (optimize)
+	return TLS_MODEL_LOCAL_DYNAMIC;
+      else
+	return TLS_MODEL_GLOBAL_DYNAMIC;
+    case 'i':
+      return TLS_MODEL_INITIAL_EXEC;
+    case 'l':
+      return TLS_MODEL_LOCAL_EXEC;
+    }
+  return 0;
+}
+
+/* Return 1 if X is a SYMBOL_REF for a TLS symbol.  This is used in
+   instruction definitions.  */
+
+int
+rs6000_tls_symbol_ref (x, mode)
+     rtx x;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  if (GET_CODE (x) != SYMBOL_REF)
+    return 0;
+  return tls_symbolic_operand_type (x) != 0;
+}
+
+/* Return 1 if X contains a thread-local symbol.  */
+
+bool
+rs6000_tls_referenced_p (x)
+     rtx x;
+{
+  return for_each_rtx (&x, &rs6000_tls_symbol_ref_1, 0);
+}
+
+/* Return 1 if *X is a thread-local symbol.  This is the same as
+   rs6000_tls_symbol_ref except for the type of the unused argument.  */
+
+static int
+rs6000_tls_symbol_ref_1 (x, data)
+     rtx *x;
+     void *data ATTRIBUTE_UNUSED;
+{
+  if (GET_CODE (*x) != SYMBOL_REF)
+    return 0;
+  return tls_symbolic_operand_type (*x);
 }
 
 /* The convention appears to be to define this wherever it is used.
@@ -2358,6 +2689,8 @@ rs6000_legitimate_address (mode, x, reg_ok_strict)
     rtx x;
     int reg_ok_strict;
 {
+  if (GET_CODE (x) == SYMBOL_REF && tls_symbolic_operand_type (x) != 0)
+    return 0;
   if (LEGITIMATE_INDIRECT_ADDRESS_P (x, reg_ok_strict))
     return 1;
   if ((GET_CODE (x) == PRE_INC || GET_CODE (x) == PRE_DEC)
@@ -2640,6 +2973,15 @@ rs6000_emit_move (dest, source, mode)
 	}
     }
 
+  /* Recognize the case where operand[1] is a reference to thread-local
+     data and load its address to a register.  */
+  if (GET_CODE (operands[1]) == SYMBOL_REF)
+    {
+      enum tls_model model = tls_symbolic_operand_type (operands[1]);
+      if (model != 0)
+	operands[1] = rs6000_legitimize_tls_address (operands[1], model);
+    }
+
   /* Handle the case where reload calls us with an invalid address.  */
   if (reload_in_progress && mode == Pmode
       && (! general_operand (operands[1], mode)
@@ -2706,7 +3048,8 @@ rs6000_emit_move (dest, source, mode)
 	}
 
       if ((TARGET_ELF || DEFAULT_ABI == ABI_DARWIN)
-	  && TARGET_NO_TOC && ! flag_pic
+	  && TARGET_NO_TOC
+	  && ! flag_pic
 	  && mode == Pmode
 	  && CONSTANT_P (operands[1])
 	  && GET_CODE (operands[1]) != HIGH
@@ -6602,7 +6945,7 @@ mtcrf_operation (op, mode)
       maskval = 1 << (MAX_CR_REGNO - REGNO (SET_DEST (exp)));
       
       if (GET_CODE (unspec) != UNSPEC
-	  || XINT (unspec, 1) != 20
+	  || XINT (unspec, 1) != UNSPEC_MOVESI_TO_CR
 	  || XVECLEN (unspec, 0) != 2
 	  || XVECEXP (unspec, 0, 0) != src_reg
 	  || GET_CODE (XVECEXP (unspec, 0, 1)) != CONST_INT
@@ -7436,6 +7779,48 @@ extract_ME (op)
   return i;
 }
 
+/* Locate some local-dynamic symbol still in use by this function
+   so that we can print its name in some tls_ld pattern.  */
+
+static const char *
+rs6000_get_some_local_dynamic_name ()
+{
+  rtx insn;
+
+  if (cfun->machine->some_ld_name)
+    return cfun->machine->some_ld_name;
+
+  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
+    if (INSN_P (insn)
+	&& for_each_rtx (&PATTERN (insn),
+			 rs6000_get_some_local_dynamic_name_1, 0))
+      return cfun->machine->some_ld_name;
+
+  abort ();
+}
+
+/* Helper function for rs6000_get_some_local_dynamic_name.  */
+
+static int
+rs6000_get_some_local_dynamic_name_1 (px, data)
+     rtx *px;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *px;
+
+  if (GET_CODE (x) == SYMBOL_REF)
+    {
+      const char *str = XSTR (x, 0);
+      if (str[0] == '%' && str[1] == 'L')
+	{
+	  cfun->machine->some_ld_name = str;
+	  return 1;
+	}
+    }
+
+  return 0;
+}
+
 /* Print an operand.  Recognize special options, documented below.  */
 
 #if TARGET_ELF
@@ -8081,6 +8466,10 @@ print_operand (file, x, code)
 	}
       else
 	output_addr_const (file, x);
+      return;
+
+    case '&':
+      assemble_name (file, rs6000_get_some_local_dynamic_name ());
       return;
 
     default:
@@ -9121,7 +9510,6 @@ rs6000_stack_info ()
   static rs6000_stack_t info, zero_info;
   rs6000_stack_t *info_ptr = &info;
   int reg_size = TARGET_POWERPC64 ? 8 : 4;
-  enum rs6000_abi abi;
   int ehrd_size;
   int total_raw_size;
 
@@ -9129,15 +9517,15 @@ rs6000_stack_info ()
   info = zero_info;
 
   /* Select which calling sequence.  */
-  info_ptr->abi = abi = DEFAULT_ABI;
+  info_ptr->abi = DEFAULT_ABI;
 
   /* Calculate which registers need to be saved & save area size.  */
   info_ptr->first_gp_reg_save = first_reg_to_save ();
   /* Assume that we will have to save RS6000_PIC_OFFSET_TABLE_REGNUM, 
      even if it currently looks like we won't.  */
   if (((TARGET_TOC && TARGET_MINIMAL_TOC)
-       || (flag_pic == 1 && abi == ABI_V4)
-       || (flag_pic && abi == ABI_DARWIN))
+       || (flag_pic == 1 && DEFAULT_ABI == ABI_V4)
+       || (flag_pic && DEFAULT_ABI == ABI_DARWIN))
       && info_ptr->first_gp_reg_save > RS6000_PIC_OFFSET_TABLE_REGNUM)
     info_ptr->gp_size = reg_size * (32 - RS6000_PIC_OFFSET_TABLE_REGNUM);
   else
@@ -9170,14 +9558,16 @@ rs6000_stack_info ()
 
   /* Determine if we need to save the link register.  */
   if (rs6000_ra_ever_killed ()
-      || (DEFAULT_ABI == ABI_AIX && current_function_profile)
+      || (DEFAULT_ABI == ABI_AIX
+	  && current_function_profile
+	  && !TARGET_PROFILE_KERNEL)
 #ifdef TARGET_RELOCATABLE
       || (TARGET_RELOCATABLE && (get_pool_size () != 0))
 #endif
       || (info_ptr->first_fp_reg_save != 64
 	  && !FP_SAVE_INLINE (info_ptr->first_fp_reg_save))
       || info_ptr->first_altivec_reg_save <= LAST_ALTIVEC_REGNO
-      || (abi == ABI_V4 && current_function_calls_alloca)
+      || (DEFAULT_ABI == ABI_V4 && current_function_calls_alloca)
       || (DEFAULT_ABI == ABI_DARWIN
 	  && flag_pic
 	  && current_function_uses_pic_offset_table)
@@ -9193,7 +9583,7 @@ rs6000_stack_info ()
       || regs_ever_live[CR4_REGNO])
     {
       info_ptr->cr_save_p = 1;
-      if (abi == ABI_V4)
+      if (DEFAULT_ABI == ABI_V4)
 	info_ptr->cr_size = reg_size;
     }
 
@@ -9237,7 +9627,7 @@ rs6000_stack_info ()
     }
 
   /* Calculate the offsets.  */
-  switch (abi)
+  switch (DEFAULT_ABI)
     {
     case ABI_NONE:
     default:
@@ -9365,14 +9755,18 @@ rs6000_stack_info ()
   if (info_ptr->calls_p)
     info_ptr->push_p = 1;
 
-  else if (abi == ABI_V4)
+  else if (DEFAULT_ABI == ABI_V4)
     info_ptr->push_p = total_raw_size > info_ptr->fixed_size;
 
+  else if (frame_pointer_needed)
+    info_ptr->push_p = 1;
+
+  else if (TARGET_XCOFF && write_symbols != NO_DEBUG)
+    info_ptr->push_p = 1;
+
   else
-    info_ptr->push_p = (frame_pointer_needed
-			|| (abi != ABI_DARWIN && write_symbols != NO_DEBUG)
-			|| ((total_raw_size - info_ptr->fixed_size)
-			    > (TARGET_32BIT ? 220 : 288)));
+    info_ptr->push_p
+      = total_raw_size - info_ptr->fixed_size > (TARGET_32BIT ? 220 : 288);
 
   /* Zero offsets if we're not saving those registers.  */
   if (info_ptr->fp_size == 0)
@@ -9556,7 +9950,7 @@ rs6000_return_addr (count, frame)
   /* Currently we don't optimize very well between prolog and body
      code and for PIC code the code can be actually quite bad, so
      don't try to be too clever here.  */
-  if (count != 0 || flag_pic != 0)
+  if (count != 0 || (DEFAULT_ABI != ABI_AIX && flag_pic))
     {
       cfun->machine->ra_needs_full_frame = 1;
 
@@ -9779,35 +10173,44 @@ rs6000_emit_load_toc_table (fromprolog)
 int   
 get_TOC_alias_set ()
 {
-    static int set = -1;
-    if (set == -1)
-      set = new_alias_set ();
-    return set;
+  static int set = -1;
+  if (set == -1)
+    set = new_alias_set ();
+  return set;
 }   
 
+#if TARGET_ELF
 /* This retuns nonzero if the current function uses the TOC.  This is
-   determined by the presence of (unspec ... 7), which is generated by
-   the various load_toc_* patterns.  */
+   determined by the presence of (use (unspec ... UNSPEC_TOC)), which
+   is generated by the ABI_V4 load_toc_* patterns.  */
 
 int
 uses_TOC () 
 {
-    rtx insn;
+  rtx insn;
 
-    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-      if (INSN_P (insn))
-	{
-	  rtx pat = PATTERN (insn);
-	  int i;
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    if (INSN_P (insn))
+      {
+	rtx pat = PATTERN (insn);
+	int i;
 
-	  if (GET_CODE (pat) == PARALLEL) 
-	    for (i = 0; i < XVECLEN (PATTERN (insn), 0); i++)
-	      if (GET_CODE (XVECEXP (PATTERN (insn), 0, i)) == UNSPEC 
-		 && XINT (XVECEXP (PATTERN (insn), 0, i), 1) == 7)
-		  return 1;
-	}
-    return 0;
+	if (GET_CODE (pat) == PARALLEL) 
+	  for (i = 0; i < XVECLEN (pat, 0); i++)
+	    {
+	      rtx sub = XVECEXP (pat, 0, i);
+	      if (GET_CODE (sub) == USE)
+		{
+		  sub = XEXP (sub, 0);
+		  if (GET_CODE (sub) == UNSPEC
+		      && XINT (sub, 1) == UNSPEC_TOC)
+		    return 1;
+		}
+	    }
+      }
+  return 0;
 }
+#endif
 
 rtx
 create_TOC_reference (symbol) 
@@ -10603,9 +11006,9 @@ rs6000_emit_prologue ()
       insn = emit_move_insn (mem, cr_save_rtx);
 
       /* Now, there's no way that dwarf2out_frame_debug_expr is going
-	 to understand '(unspec:SI [(reg:CC 68) ...] 19)'.  But that's
-	 OK.  All we have to do is specify that _one_ condition code
-	 register is saved in this stack slot.  The thrower's epilogue
+	 to understand '(unspec:SI [(reg:CC 68) ...] UNSPEC_MOVESI_FROM_CR)'.
+	 But that's OK.  All we have to do is specify that _one_ condition
+	 code register is saved in this stack slot.  The thrower's epilogue
 	 will then restore all the call-saved registers.
 	 We use CR2_REGNO (70) to be compatible with gcc-2.95 on Linux.  */
       rs6000_frame_related (insn, frame_ptr_rtx, info->total_size, 
@@ -10631,21 +11034,23 @@ rs6000_emit_prologue ()
 	  && regs_ever_live[RS6000_PIC_OFFSET_TABLE_REGNUM]))
   {
     /* If emit_load_toc_table will use the link register, we need to save
-       it.  We use R11 for this purpose because emit_load_toc_table
+       it.  We use R12 for this purpose because emit_load_toc_table
        can use register 0.  This allows us to use a plain 'blr' to return
        from the procedure more often.  */
-    int save_LR_around_toc_setup = (TARGET_ELF && flag_pic != 0
+    int save_LR_around_toc_setup = (TARGET_ELF
+				    && DEFAULT_ABI != ABI_AIX
+				    && flag_pic
 				    && ! info->lr_save_p
 				    && EXIT_BLOCK_PTR->pred != NULL);
     if (save_LR_around_toc_setup)
-      emit_move_insn (gen_rtx_REG (Pmode, 11), 
-		      gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
-    
-    rs6000_emit_load_toc_table (TRUE);
-
-    if (save_LR_around_toc_setup)
-      emit_move_insn (gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM), 
-		      gen_rtx_REG (Pmode, 11));
+      {
+	rtx lr = gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM);
+	rs6000_maybe_dead (emit_move_insn (frame_ptr_rtx, lr));
+	rs6000_emit_load_toc_table (TRUE);
+	rs6000_maybe_dead (emit_move_insn (lr, frame_ptr_rtx));
+      }
+    else
+      rs6000_emit_load_toc_table (TRUE);
   }
 
 #if TARGET_MACHO
@@ -11002,7 +11407,7 @@ rs6000_emit_epilogue (sibcall)
 		RTVEC_ELT (r, 1) = GEN_INT (1 << (7-i));
 		RTVEC_ELT (p, ndx) =
 		  gen_rtx_SET (VOIDmode, gen_rtx_REG (CCmode, CR0_REGNO+i), 
-			       gen_rtx_UNSPEC (CCmode, r, 20));
+			       gen_rtx_UNSPEC (CCmode, r, UNSPEC_MOVESI_TO_CR));
 		ndx++;
 	      }
 	  emit_insn (gen_rtx_PARALLEL (VOIDmode, p));
@@ -12210,6 +12615,9 @@ void
 output_profile_hook (labelno)
      int labelno ATTRIBUTE_UNUSED;
 {
+  if (TARGET_PROFILE_KERNEL)
+    return;
+
   if (DEFAULT_ABI == ABI_AIX)
     {
 #ifdef NO_PROFILE_COUNTERS
@@ -12261,7 +12669,6 @@ output_function_profiler (file, labelno)
   char buf[100];
   int save_lr = 8;
 
-  ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
   switch (DEFAULT_ABI)
     {
     default:
@@ -12277,6 +12684,7 @@ output_function_profiler (file, labelno)
 	  warning ("no profiling of 64-bit code for this ABI");
 	  return;
 	}
+      ASM_GENERATE_INTERNAL_LABEL (buf, "LP", labelno);
       fprintf (file, "\tmflr %s\n", reg_names[0]);
       if (flag_pic == 1)
 	{
@@ -12331,7 +12739,29 @@ output_function_profiler (file, labelno)
 
     case ABI_AIX:
     case ABI_DARWIN:
-      /* Don't do anything, done in output_profile_hook ().  */
+      if (!TARGET_PROFILE_KERNEL)
+	{
+	  /* Don't do anything, done in output_profile_hook (). */
+	}
+      else
+	{
+	  if (TARGET_32BIT)
+	    abort ();
+
+	  asm_fprintf (file, "\tmflr %s\n", reg_names[0]);
+	  asm_fprintf (file, "\tstd %s,16(%s)\n", reg_names[0], reg_names[1]);
+
+	  if (current_function_needs_context)
+	    {
+	      asm_fprintf (file, "\tstd %s,24(%s)\n",
+			   reg_names[STATIC_CHAIN_REGNUM], reg_names[1]);
+	      fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
+	      asm_fprintf (file, "\tld %s,24(%s)\n",
+			   reg_names[STATIC_CHAIN_REGNUM], reg_names[1]);
+	    }
+	  else
+	    fprintf (file, "\tbl %s\n", RS6000_MCOUNT);
+	}
       break;
     }
 }
@@ -12619,6 +13049,52 @@ rs6000_longcall_ref (call_ref)
   return force_reg (Pmode, call_ref);
 }
 
+/* Encode the TLS model into the name of a thread-local variable.  */
+
+static void
+encode_tls_info (decl)
+     tree decl;
+{
+  /* Encode thread-local data with %[GLil] for the TLS model.  */
+  rtx sym_ref = XEXP (DECL_RTL (decl), 0);
+  const char *symbol_str = XSTR (sym_ref, 0);
+  char *newstr;
+  size_t len;
+  char encoding = 0;
+
+  switch (decl_tls_model (decl))
+    {
+    case TLS_MODEL_GLOBAL_DYNAMIC:
+      encoding = 'G';
+      break;
+    case TLS_MODEL_LOCAL_DYNAMIC:
+      encoding = 'L';
+      break;
+    case TLS_MODEL_INITIAL_EXEC:
+      encoding = 'i';
+      break;
+    case TLS_MODEL_LOCAL_EXEC:
+      encoding = 'l';
+      break;
+    }
+
+  /* Strip an existing TLS encoding, which might be there for aliases.  */
+  if (symbol_str[0] == '%')
+    {
+      if (symbol_str[1] == encoding)
+	return;
+      symbol_str += 2;
+    }
+
+  len = strlen (symbol_str) + 1;
+  newstr = alloca (len + 2);
+
+  newstr[0] = '%';
+  newstr[1] = encoding;      
+  memcpy (newstr + 2, symbol_str, len);
+
+  XSTR (sym_ref, 0) = ggc_alloc_string (newstr, len + 2 - 1);
+}
 
 #ifdef USING_ELFOS_H
 
@@ -12654,6 +13130,10 @@ rs6000_elf_select_section (decl, reloc, align)
      int reloc;
      unsigned HOST_WIDE_INT align;
 {
+  /* Pretend that we're always building for a shared library when
+     ABI_AIX, because otherwise we end up with dynamic relocations
+     in read-only sections.  This happens for function pointers,
+     references to vtables in typeinfo, and probably other cases.  */
   default_elf_select_section_1 (decl, reloc, align,
 				flag_pic || DEFAULT_ABI == ABI_AIX);
 }
@@ -12671,18 +13151,24 @@ rs6000_elf_unique_section (decl, reloc)
      tree decl;
      int reloc;
 {
+  /* As above, pretend that we're always building for a shared library
+     when ABI_AIX, to avoid dynamic relocations in read-only sections.  */
   default_unique_section_1 (decl, reloc,
 			    flag_pic || DEFAULT_ABI == ABI_AIX);
 }
-
 
-/* If we are referencing a function that is static or is known to be
+/* Encode symbol attributes of a SYMBOL_REF into its name and
+   SYMBOL_REF_FLAG.
+
+   If we are referencing a function that is static or is known to be
    in this file, make the SYMBOL_REF special.  We can use this to indicate
    that we can branch to this function without emitting a no-op after the
    call.  For real AIX calling sequences, we also replace the
    function name with the real name (1 or 2 leading .'s), rather than
    the function descriptor name.  This saves a lot of overriding code
-   to read the prefixes.  */
+   to read the prefixes.
+
+   For a TLS symbol we encode the TLS model.  */
 
 static void
 rs6000_elf_encode_section_info (decl, first)
@@ -12698,7 +13184,7 @@ rs6000_elf_encode_section_info (decl, first)
       if ((*targetm.binds_local_p) (decl))
 	SYMBOL_REF_FLAG (sym_ref) = 1;
 
-      if (DEFAULT_ABI == ABI_AIX)
+      if (!TARGET_AIX && DEFAULT_ABI == ABI_AIX)
 	{
 	  size_t len1 = (DEFAULT_ABI == ABI_AIX) ? 1 : 2;
 	  size_t len2 = strlen (XSTR (sym_ref, 0));
@@ -12710,6 +13196,8 @@ rs6000_elf_encode_section_info (decl, first)
 	  XSTR (sym_ref, 0) = ggc_alloc_string (str, len1 + len2);
 	}
     }
+  else if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    encode_tls_info (decl);
   else if (rs6000_sdata != SDATA_NONE
 	   && DEFAULT_ABI == ABI_V4
 	   && TREE_CODE (decl) == VAR_DECL)
@@ -12759,11 +13247,17 @@ rs6000_elf_encode_section_info (decl, first)
     }
 }
 
+/* Undo the effects of the above for printing symbol names.  */
+
 static const char *
 rs6000_elf_strip_name_encoding (str)
      const char *str;
 {
-  while (*str == '*' || *str == '@')
+  if (*str == '@')
+    str++;
+  else if (*str == '%')
+    str += 2;
+  if (*str == '*')
     str++;
   return str;
 }
@@ -13378,10 +13872,6 @@ rs6000_xcoff_section_type_flags (decl, name, reloc)
   return flags | (exact_log2 (align) & SECTION_ENTSIZE);
 }
 
-#endif /* TARGET_XCOFF */
-
-/* Note that this is also used for PPC64 Linux.  */
-
 static void
 rs6000_xcoff_encode_section_info (decl, first)
      tree decl;
@@ -13391,16 +13881,19 @@ rs6000_xcoff_encode_section_info (decl, first)
       && (*targetm.binds_local_p) (decl))
     SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
 }
+#endif /* TARGET_XCOFF */
 
-/* Cross-module name binding.  For AIX and PPC64 Linux, which always are
-   PIC, use private copy of flag_pic.  */
+#if TARGET_MACHO
+/* Cross-module name binding.  Darwin does not support overriding
+   functions at dynamic-link time.  */
 
 static bool
 rs6000_binds_local_p (decl)
      tree decl;
 {
-  return default_binds_local_p_1 (decl, flag_pic || rs6000_flag_pic);
+  return default_binds_local_p_1 (decl, 0);
 }
+#endif
 
 /* A C expression returning the cost of moving data from a register of class
    CLASS1 to one of CLASS2.  */
@@ -13459,3 +13952,4 @@ rs6000_memory_move_cost (mode, class, in)
     return 4 + rs6000_register_move_cost (mode, class, GENERAL_REGS);
 }
 
+#include "gt-rs6000.h"
