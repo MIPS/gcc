@@ -6140,7 +6140,13 @@ store_parm_decls ()
       for (t = DECL_LANG_SPECIFIC (fndecl)->pending_sizes;
 	   t;
 	   t = TREE_CHAIN (t))
-	SAVE_EXPR_CONTEXT (TREE_VALUE (t)) = context;
+	{
+	  /* We will have a nonlocal use of this variable.  */
+	  if (TREE_CODE (TREE_OPERAND (TREE_VALUE (t), 0)) == VAR_DECL
+	      || TREE_CODE (TREE_OPERAND (TREE_VALUE (t), 0)) == PARM_DECL)
+	    DECL_NONLOCAL (TREE_OPERAND (TREE_VALUE (t), 0)) = 1;
+	  SAVE_EXPR_CONTEXT (TREE_VALUE (t)) = context;
+	}
     }
 
   /* This function is being processed in whole-function mode.  */

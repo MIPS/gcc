@@ -1,3 +1,8 @@
+2003-06-24  Jeff Law  <law@redhat.com>
+
+	* c-decl.c (store_parm_decls): Variables and parameters on the
+	pending_sizes chain have nonlocal uses.
+
 2003-06-25  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-ssa-pre.c: Convert to ISO C.
