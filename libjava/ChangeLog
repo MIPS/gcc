@@ -1,3 +1,23 @@
+2005-01-04  Olga Rodimina  <rodimina@redhat.com>
+
+	* javax/swing/JTable.java
+	(columnAtPoint): New Method. Implemented.
+	(rowAtPoint): Likewise.
+	(countSelections): Fixed few small count errors.
+	(getSelections): Likewise.
+	(setSelectionMode): Set selection mode for column 
+	selection model in addition to row selection model.
+	* javax/swing/plaf/basic/BasicTableUI.java:
+	(getRowForPoint): Removed. Replaced by
+	JTable.rowAtPoint().
+	(getColForPoint): Removed. Replaced by 
+	JTable.columnAtPoint().
+	(updateSelection): Updated to call JTable.columnAtPoint 
+	and JTable.rowAtPoint.
+	* javax/swing/table/DefaultTableColumnModel.java:
+	(getSelectedColumns): Implemented.
+	(getSelectedColumnCount): Implemented.		
+
 2005-01-04  Graydon Hoare  <graydon@redhat.com>
 
 	* Makefile.am 
