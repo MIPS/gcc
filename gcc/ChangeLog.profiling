@@ -1,3 +1,7 @@
+2004-03-14  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (decode_options): Disable flag_loop_optimize.
+
 2004-03-07  Jan Hubicka  <jh@suse.cz>
 
 	* except.c (emit_to_new_bb_before):  Break fallthru edges.
