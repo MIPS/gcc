@@ -1,4 +1,9 @@
 2003-12-31  Sebastian Pop  <s.pop@laposte.net>
+
+	* version.c (version_string): Change the identifier for the
+	sub-branch.
+
+2003-12-31  Sebastian Pop  <s.pop@laposte.net>
             Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-phinodes.c (create_phi_node): Initialise PHI_MARKED to 0.
