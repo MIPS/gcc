@@ -530,7 +530,7 @@ compute_branch_probabilities (void)
 	    e->probability = (e->count * REG_BR_PROB_BASE + bb->count / 2) / bb->count;
 	  if (bb->index >= 0
 	      && block_ends_with_condjump_p (bb)
-	      && EDGE_SUCC_COUNT (bb) >= 2)
+	      && EDGE_COUNT (bb->succs) >= 2)
 	    {
 	      int prob;
 	      edge e;
@@ -587,13 +587,13 @@ compute_branch_probabilities (void)
 	    }
 	  else
 	    {
-	      total += EDGE_SUCC_COUNT (bb);
+	      total += EDGE_COUNT (bb->succs);
 	      FOR_EACH_SUCC_EDGE (e, bb, ix)
 		e->probability = REG_BR_PROB_BASE / total;
 	    }
 	  if (bb->index >= 0
 	      && block_ends_with_condjump_p (bb)
-	      && EDGE_SUCC_COUNT (bb) >= 2)
+	      && EDGE_COUNT (bb->succs) >= 2)
 	    num_branches++, num_never_executed;
 	}
     }

@@ -641,7 +641,7 @@ compute_outgoing_frequencies (basic_block b)
 {
   edge e, f;
 
-  if (EDGE_SUCC_COUNT (b) == 2)
+  if (EDGE_COUNT (b->succs) == 2)
     {
       rtx note = find_reg_note (BB_END (b), REG_BR_PROB, NULL);
       int probability;
@@ -659,7 +659,7 @@ compute_outgoing_frequencies (basic_block b)
       f->count = b->count - e->count;
     }
 
-  if (EDGE_SUCC_COUNT (b) == 1)
+  if (EDGE_COUNT (b->succs) == 1)
     {
       e = EDGE_SUCC (b, 0);
       e->probability = REG_BR_PROB_BASE;

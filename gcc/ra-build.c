@@ -942,7 +942,7 @@ live_in (struct df *df, struct curr_use *use, rtx insn)
 	  edge e = NULL;
 	  unsigned HOST_WIDE_INT undef = use->undefined;
 	  struct ra_bb_info *info = (struct ra_bb_info *) bb->aux;
-	  if (EDGE_PRED_COUNT (bb) == 0)
+	  if (EDGE_COUNT (bb->preds) == 0)
 	    return;
 	  /* We now check, if we already traversed the predecessors of this
 	     block for the current pass and the current set of undefined
@@ -954,7 +954,7 @@ live_in (struct df *df, struct curr_use *use, rtx insn)
 	  info->pass = loc_vpass;
 	  info->undefined = undef;
 	  /* All but the last predecessor are handled recursively.  */
-	  for (i = 0; i < EDGE_PRED_COUNT (bb) - 1; i++)
+	  for (i = 0; i < EDGE_COUNT (bb->preds) - 1; i++)
 	    {
 	      e = EDGE_PRED (bb, i);
 	      insn = live_in_edge (df, use, e);

@@ -98,7 +98,7 @@ remove_bbs (basic_block *bbs, int nbbs)
 static int
 find_path (edge e, basic_block **bbs)
 {
-  if (EDGE_PRED_COUNT (e->dest) > 1)
+  if (EDGE_COUNT (e->dest->preds) > 1)
     abort ();
 
   /* Find bbs in the path.  */
@@ -282,7 +282,7 @@ fix_irreducible_loops (basic_block from)
 	edges = get_loop_exit_edges (bb->loop_father, &n_edges);
       else
 	{
-	  n_edges = EDGE_SUCC_COUNT (bb);
+	  n_edges = EDGE_COUNT (bb->succs);
 	  edges = xmalloc (n_edges * sizeof (edge));
 	  FOR_EACH_SUCC_EDGE (e, bb, ix)
 	    edges[ix] = e;
@@ -332,7 +332,7 @@ remove_path (struct loops *loops, edge e)
      e, but we only have basic block dominators.  This is easy to
      fix -- when e->dest has exactly one predecessor, this corresponds
      to blocks dominated by e->dest, if not, split the edge.  */
-  if (EDGE_PRED_COUNT (e->dest) > 1)
+  if (EDGE_COUNT (e->dest->preds) > 1)
     e = EDGE_PRED (loop_split_edge_with (e, NULL_RTX), 0);
 
   /* It may happen that by removing path we remove one or more loops
@@ -771,12 +771,12 @@ loop_delete_branch_edge (edge e, int really_delete)
   int irr;
   edge snd;
 
-  if (EDGE_SUCC_COUNT (src) > 1)
+  if (EDGE_COUNT (src->succs) > 1)
     {
       basic_block newdest;
 
       /* Cannot handle more than two exit edges.  */
-      if (EDGE_SUCC_COUNT (src) > 2)
+      if (EDGE_COUNT (src->succs) > 2)
 	return false;
       /* And it must be just a simple branch.  */
       if (!any_condjump_p (BB_END (src)))
@@ -1138,7 +1138,7 @@ create_preheader (struct loop *loop, int flags)
 	if (e->src != loop->latch)
 	  break;
 
-      if (!(flags & CP_SIMPLE_PREHEADERS) || EDGE_SUCC_COUNT (e->src) == 1)
+      if (!(flags & CP_SIMPLE_PREHEADERS) || EDGE_COUNT (e->src->succs) == 1)
 	return NULL;
     }
 
@@ -1200,7 +1200,7 @@ force_single_succ_latches (struct loops *loops)
   for (i = 1; i < loops->num; i++)
     {
       loop = loops->parray[i];
-      if (loop->latch != loop->header && EDGE_SUCC_COUNT (loop->latch) == 1)
+      if (loop->latch != loop->header && EDGE_COUNT (loop->latch->succs) == 1)
 	continue;
 
       FOR_EACH_PRED_EDGE (e, loop->header, ix)
@@ -1313,7 +1313,7 @@ create_loop_notes (void)
 		      && onlyjump_p (insn))
 		    {
 		      pbb = BLOCK_FOR_INSN (insn);
-		      if (!pbb || EDGE_SUCC_COUNT (pbb) != 1)
+		      if (!pbb || EDGE_COUNT (pbb->succs) != 1)
 			abort ();
 
 		      if (!flow_bb_inside_loop_p (loop, EDGE_SUCC (pbb, 0)->dest))

@@ -363,9 +363,9 @@ delete_basic_block (basic_block bb)
 
   /* Remove the edges into and out of this block.  Note that there may
      indeed be edges in, if we are removing an unreachable loop.  */
-  while (EDGE_PRED_COUNT (bb) != 0)
+  while (EDGE_COUNT (bb->preds) != 0)
     remove_edge (EDGE_PRED (bb, 0));
-  while (EDGE_SUCC_COUNT (bb) != 0)
+  while (EDGE_COUNT (bb->succs) != 0)
     remove_edge (EDGE_SUCC (bb, 0));
 
   VEC_truncate (edge, bb->preds, 0);
@@ -516,7 +516,7 @@ merge_blocks (basic_block a, basic_block b)
      be merging a TEST block with THEN and ELSE successors.  Free the
      whole lot of them and hope the caller knows what they're doing.  */
 
-  while (EDGE_SUCC_COUNT (a) != 0)
+  while (EDGE_COUNT (a->succs) != 0)
    remove_edge (EDGE_SUCC (a, 0));
 
   /* Adjust the edges out of B for the new owner.  */
@@ -636,7 +636,7 @@ tidy_fallthru_edges (void)
 	 merge the flags for the duplicate edges.  So we do not want to
 	 check that the edge is not a FALLTHRU edge.  */
 
-      if (EDGE_SUCC_COUNT (b) == 1)
+      if (EDGE_COUNT (b->succs) == 1)
 	{
 	  s = EDGE_SUCC (b, 0);
 	  if (! (s->flags & EDGE_COMPLEX)
@@ -688,7 +688,7 @@ duplicate_block (basic_block bb, edge e)
 
   if (bb->count < new_count)
     new_count = bb->count;
-  if (EDGE_PRED_COUNT (bb) == 0)
+  if (EDGE_COUNT (bb->preds) == 0)
     abort ();
 #ifdef ENABLE_CHECKING
   if (!can_duplicate_block_p (bb))

@@ -367,7 +367,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   basic_block abb;
   stmt_ann_t ann;
 
-  if (EDGE_SUCC_COUNT (bb) > 1)
+  if (EDGE_COUNT (bb->succs) > 1)
     return;
 
   for (bsi = bsi_last (bb); !bsi_end_p (bsi); bsi_prev (&bsi))
@@ -742,7 +742,7 @@ eliminate_tail_call (struct tailcall *t)
 	  /* For all calls the same set of variables should be clobbered.  This
 	     means that there always should be the appropriate phi node except
 	     for the first time we eliminate the call.  */
-	  if (EDGE_PRED_COUNT (first) > 2)
+	  if (EDGE_COUNT (first->preds) > 2)
 	    abort ();
 	}
 
@@ -834,7 +834,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
       if (!phis_constructed)
 	{
 	  /* Ensure that there is only one predecessor of the block.  */
-	  if (EDGE_PRED_COUNT (first) > 1)
+	  if (EDGE_COUNT (first->preds) > 1)
 	    first = split_edge (EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
 
 	  /* Copy the args if needed.  */

@@ -561,7 +561,7 @@ vt_stack_adjustments (void)
 	  VTI (dest)->in.stack_adjust = VTI (src)->out.stack_adjust;
 	  bb_stack_adjust_offset (dest);
 
-	  if (EDGE_SUCC_COUNT (dest) > 0)
+	  if (EDGE_COUNT (dest->succs) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 		 time, check its successors.  */

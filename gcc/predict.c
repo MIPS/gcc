@@ -247,7 +247,7 @@ can_predict_insn_p (rtx insn)
 {
   return (JUMP_P (insn)
 	  && any_condjump_p (insn)
-	  && EDGE_SUCC_COUNT (BLOCK_FOR_INSN (insn)) >= 2);
+	  && EDGE_COUNT (BLOCK_FOR_INSN (insn)->succs) >= 2);
 }
 
 /* Predict edge E by given predictor if possible.  */
@@ -405,7 +405,7 @@ combine_predictions_for_insn (rtx insn, basic_block bb)
 
       /* Save the prediction into CFG in case we are seeing non-degenerated
 	 conditional jump.  */
-      if (EDGE_SUCC_COUNT (bb) > 1)
+      if (EDGE_COUNT (bb->succs) > 1)
 	{
 	  BRANCH_EDGE (bb)->probability = combined_probability;
 	  FALLTHRU_EDGE (bb)->probability
@@ -653,7 +653,7 @@ estimate_probability (struct loops *loops_info)
 	     care for error returns and other are often used for fast paths
 	     trought function.  */
 	  if ((e->dest == EXIT_BLOCK_PTR
-	       || (EDGE_SUCC_COUNT (e->dest) == 1
+	       || (EDGE_COUNT (e->dest->succs) == 1
 		   && EDGE_SUCC (e->dest, 0)->dest == EXIT_BLOCK_PTR))
 	       && !predicted_by_p (bb, PRED_NULL_RETURN)
 	       && !predicted_by_p (bb, PRED_CONST_RETURN)
@@ -779,7 +779,7 @@ estimate_probability (struct loops *loops_info)
   FOR_EACH_BB (bb)
     if (JUMP_P (BB_END (bb))
 	&& any_condjump_p (BB_END (bb))
-	&& EDGE_SUCC_COUNT (bb) >= 2)
+	&& EDGE_COUNT (bb->succs) >= 2)
       combine_predictions_for_insn (BB_END (bb), bb);
 
   remove_fake_exit_edges ();
@@ -948,7 +948,7 @@ tree_estimate_probability (void)
 	     care for error returns and other are often used for fast paths
 	     trought function.  */
 	  if ((e->dest == EXIT_BLOCK_PTR
-	       || (EDGE_SUCC_COUNT (e->dest) == 1
+	       || (EDGE_COUNT (e->dest->succs) == 1
 		   && EDGE_SUCC (e->dest, 0)->dest == EXIT_BLOCK_PTR))
 	       && !predicted_by_p (bb, PRED_NULL_RETURN)
 	       && !predicted_by_p (bb, PRED_CONST_RETURN)
@@ -1082,7 +1082,7 @@ last_basic_block_p (basic_block bb)
 
   return (bb->next_bb == EXIT_BLOCK_PTR
 	  || (bb->next_bb->next_bb == EXIT_BLOCK_PTR
-	      && EDGE_SUCC_COUNT (bb) == 1
+	      && EDGE_COUNT (bb->succs) == 1
 	      && EDGE_SUCC (bb, 0)->dest->next_bb == EXIT_BLOCK_PTR));
 }
 
@@ -1267,7 +1267,7 @@ estimate_loops_at_level (struct loop *first_loop)
       estimate_loops_at_level (loop->inner);
 
       /* Do not do this for dummy function loop.  */
-      if (EDGE_SUCC_COUNT (loop->latch) > 0)
+      if (EDGE_COUNT (loop->latch->succs) > 0)
 	{
 	  /* Find current loop back edge and mark it.  */
 	  e = loop_latch_edge (loop);

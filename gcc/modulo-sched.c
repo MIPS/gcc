@@ -849,7 +849,7 @@ sms_schedule (FILE *dump_file)
 	continue;
 
       /* Check if bb has two successors, one being itself.  */
-      if (EDGE_SUCC_COUNT (bb) != 2)
+      if (EDGE_COUNT (bb->succs) != 2)
 	continue;
 
       if (EDGE_SUCC (bb, 0)->dest != bb && EDGE_SUCC (bb, 1)->dest != bb)
@@ -861,7 +861,7 @@ sms_schedule (FILE *dump_file)
 
       /* Check if bb has two predecessors, one being itself.  */
       /* In view of above tests, suffices to check e->pred_next->pred_next?  */
-      if (EDGE_PRED_COUNT (bb) != 2)
+      if (EDGE_COUNT (bb->preds) != 2)
 	continue;
 
       if (EDGE_PRED (bb, 0)->src != bb && EDGE_PRED (bb, 1)->src != bb)

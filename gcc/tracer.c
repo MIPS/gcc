@@ -272,7 +272,7 @@ tail_duplicate (void)
 	      blocks[bb2->index] = NULL;
 	    }
 	  traced_insns += bb2->frequency * counts [bb2->index];
-	  if (EDGE_PRED_COUNT (bb2) > 1
+	  if (EDGE_COUNT (bb2->preds) > 1
 	      && can_duplicate_block_p (bb2))
 	    {
 	      edge e;

@@ -124,7 +124,7 @@ try_simplify_condjump (basic_block cbranch_block)
   rtx cbranch_insn;
 
   /* Verify that there are exactly two successors.  */
-  if (EDGE_SUCC_COUNT (cbranch_block) != 2)
+  if (EDGE_COUNT (cbranch_block->succs) != 2)
     return false;
 
   /* Verify that we've got a normal conditional branch at the end
@@ -140,7 +140,7 @@ try_simplify_condjump (basic_block cbranch_block)
      be the last block in the function, and must contain just the
      unconditional jump.  */
   jump_block = cbranch_fallthru_edge->dest;
-  if (EDGE_PRED_COUNT (jump_block) >= 2
+  if (EDGE_COUNT (jump_block->preds) >= 2
       || jump_block->next_bb == EXIT_BLOCK_PTR
       || !FORWARDER_BLOCK_P (jump_block))
     return false;
@@ -282,9 +282,9 @@ thread_jump (int mode, edge e, basic_block b)
 
   /* At the moment, we do handle only conditional jumps, but later we may
      want to extend this code to tablejumps and others.  */
-  if (EDGE_SUCC_COUNT (e->src) != 2)
+  if (EDGE_COUNT (e->src->succs) != 2)
     return NULL;
-  if (EDGE_SUCC_COUNT (b) != 2)
+  if (EDGE_COUNT (b->succs) != 2)
     {
       BB_SET_FLAG (b, BB_NONTHREADABLE_BLOCK);
       return NULL;
@@ -591,7 +591,7 @@ try_forward_edges (int mode, basic_block b)
 	      first->frequency -= edge_frequency;
 	      if (first->frequency < 0)
 		first->frequency = 0;
-	      if (EDGE_SUCC_COUNT (first) > 1)
+	      if (EDGE_COUNT (first->succs) > 1)
 		{
 		  edge e;
 		  int prob;
@@ -1191,16 +1191,16 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 
   /* If BB1 has only one successor, we may be looking at either an
      unconditional jump, or a fake edge to exit.  */
-  if (EDGE_SUCC_COUNT (bb1) == 1
+  if (EDGE_COUNT (bb1->succs) == 1
       && (EDGE_SUCC (bb1, 0)->flags & (EDGE_COMPLEX | EDGE_FAKE)) == 0
       && (!JUMP_P (BB_END (bb1)) || simplejump_p (BB_END (bb1))))
-    return (EDGE_SUCC_COUNT (bb2) == 1
+    return (EDGE_COUNT (bb2->succs) == 1
 	    && (EDGE_SUCC (bb2, 0)->flags & (EDGE_COMPLEX | EDGE_FAKE)) == 0
 	    && (!JUMP_P (BB_END (bb2)) || simplejump_p (BB_END (bb2))));
 
   /* Match conditional jumps - this may get tricky when fallthru and branch
      edges are crossed.  */
-  if (EDGE_SUCC_COUNT (bb1) == 2
+  if (EDGE_COUNT (bb1->succs) == 2
       && any_condjump_p (BB_END (bb1))
       && onlyjump_p (BB_END (bb1)))
     {
@@ -1209,7 +1209,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
       rtx set1, set2, cond1, cond2;
       enum rtx_code code1, code2;
 
-      if (EDGE_SUCC_COUNT (bb2) != 2
+      if (EDGE_COUNT (bb2->succs) != 2
 	  || !any_condjump_p (BB_END (bb2))
 	  || !onlyjump_p (BB_END (bb2)))
 	return false;
@@ -1395,7 +1395,7 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   /* Search the outgoing edges, ensure that the counts do match, find possible
      fallthru and exception handling edges since these needs more
      validation.  */
-  if (EDGE_SUCC_COUNT (bb1) != EDGE_SUCC_COUNT (bb2))
+  if (EDGE_COUNT (bb1->succs) != EDGE_COUNT (bb2->succs))
     return false;
 
   FOR_EACH_SUCC_EDGE (e1, bb1, ix)
@@ -1474,11 +1474,11 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
      about multiple entry or chained forwarders, as they will be optimized
      away.  We do this to look past the unconditional jump following a
      conditional jump that is required due to the current CFG shape.  */
-  if (EDGE_PRED_COUNT (src1) == 1
+  if (EDGE_COUNT (src1->preds) == 1
       && FORWARDER_BLOCK_P (src1))
     e1 = EDGE_PRED (src1, 0), src1 = e1->src;
 
-  if (EDGE_PRED_COUNT (src2) == 1
+  if (EDGE_COUNT (src2->preds) == 1
       && FORWARDER_BLOCK_P (src2))
     e2 = EDGE_PRED (src2, 0), src2 = e2->src;
 
@@ -1499,7 +1499,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2)
 
   /* Likewise with dead code (possibly newly created by the other optimizations
      of cfg_cleanup).  */
-  if (EDGE_PRED_COUNT (src1) == 0 || EDGE_PRED_COUNT (src2) == 0)
+  if (EDGE_COUNT (src1->preds) == 0 || EDGE_COUNT (src2->preds) == 0)
     return false;
 
   /* Look for the common insn sequence, part the first ...  */
@@ -1653,7 +1653,7 @@ try_crossjump_bb (int mode, basic_block bb)
   basic_block ev, ev2;
 
   /* Nothing to do if there is not at least two incoming edges.  */
-  if (EDGE_PRED_COUNT (bb) < 2)
+  if (EDGE_COUNT (bb->preds) < 2)
     return false;
 
   /* If we are partitioning hot/cold basic blocks, we don't want to
@@ -1671,7 +1671,7 @@ try_crossjump_bb (int mode, basic_block bb)
   fallthru = NULL;
   max = PARAM_VALUE (PARAM_MAX_CROSSJUMP_EDGES);
 
-  if (EDGE_PRED_COUNT (bb) > max)
+  if (EDGE_COUNT (bb->preds) > max)
     return false;
 
   FOR_EACH_PRED_EDGE (e, bb, n)
@@ -1681,7 +1681,7 @@ try_crossjump_bb (int mode, basic_block bb)
     }
 
   changed = false;
-  for (ix = 0, ev = bb; ix < EDGE_PRED_COUNT (ev); )
+  for (ix = 0, ev = bb; ix < EDGE_COUNT (ev->preds); )
     {
       e = EDGE_PRED (ev, ix);
       ix++;
@@ -1724,7 +1724,7 @@ try_crossjump_bb (int mode, basic_block bb)
       if (EDGE_SUCC (e->src, 0) != e)
 	continue;
 
-      for (ix2 = 0, ev2 = bb; ix2 < EDGE_PRED_COUNT (ev2); )
+      for (ix2 = 0, ev2 = bb; ix2 < EDGE_COUNT (ev2->preds); )
 	{
 	  e2 = EDGE_PRED (ev2, ix2);
 	  ix2++;
@@ -1806,7 +1806,7 @@ try_optimize_cfg (int mode)
 	      bool changed_here = false;
 
 	      /* Delete trivially dead basic blocks.  */
-	      while (EDGE_PRED_COUNT (b) == 0)
+	      while (EDGE_COUNT (b->preds) == 0)
 		{
 		  c = b->prev_bb;
 		  if (dump_file)
@@ -1820,7 +1820,7 @@ try_optimize_cfg (int mode)
 		}
 
 	      /* Remove code labels no longer used.  */
-	      if (EDGE_PRED_COUNT (b) == 1
+	      if (EDGE_COUNT (b->preds) == 1
 		  && (EDGE_PRED (b, 0)->flags & EDGE_FALLTHRU)
 		  && !(EDGE_PRED (b, 0)->flags & EDGE_COMPLEX)
 		  && LABEL_P (BB_HEAD (b))
@@ -1854,7 +1854,7 @@ try_optimize_cfg (int mode)
 
 	      /* If we fall through an empty block, we can remove it.  */
 	      if (!(mode & CLEANUP_CFGLAYOUT)
-		  && EDGE_PRED_COUNT (b) == 1
+		  && EDGE_COUNT (b->preds) == 1
 		  && (EDGE_PRED (b, 0)->flags & EDGE_FALLTHRU)
 		  && !LABEL_P (BB_HEAD (b))
 		  && FORWARDER_BLOCK_P (b)
@@ -1875,11 +1875,11 @@ try_optimize_cfg (int mode)
 		  b = c;
 		}
 
-	      if (EDGE_SUCC_COUNT (b) == 1
+	      if (EDGE_COUNT (b->succs) == 1
 		  && (s = EDGE_SUCC (b, 0))
 		  && !(s->flags & EDGE_COMPLEX)
 		  && (c = s->dest) != EXIT_BLOCK_PTR
-		  && EDGE_PRED_COUNT (c) == 1
+		  && EDGE_COUNT (c->preds) == 1
 		  && b != c)
 		{
 		  /* When not in cfg_layout mode use code aware of reordering
@@ -1921,7 +1921,7 @@ try_optimize_cfg (int mode)
 		 non-trivial jump instruction without side-effects, we
 		 can either delete the jump entirely, or replace it
 		 with a simple unconditional jump.  */
-	      if (EDGE_SUCC_COUNT (b) == 1
+	      if (EDGE_COUNT (b->succs) == 1
 		  && EDGE_SUCC (b, 0)->dest != EXIT_BLOCK_PTR
 		  && onlyjump_p (BB_END (b))
 		  && !find_reg_note (BB_END (b), REG_CROSSING_JUMP, NULL_RTX)
@@ -2010,7 +2010,7 @@ merge_seq_blocks (void)
 
   for (bb = ENTRY_BLOCK_PTR->next_bb; bb != EXIT_BLOCK_PTR; )
     {
-      if (EDGE_SUCC_COUNT (bb) == 1
+      if (EDGE_COUNT (bb->succs) == 1
 	  && can_merge_blocks_p (bb, EDGE_SUCC (bb, 0)->dest))
 	{
 	  /* Merge the blocks and retry.  */

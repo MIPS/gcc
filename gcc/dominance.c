@@ -349,7 +349,7 @@ calc_dfs_tree (struct dom_info *di, enum cdi_direction reverse)
 
       FOR_EACH_BB_REVERSE (b)
 	{
-	  if (EDGE_SUCC_COUNT (b) > 0)
+	  if (EDGE_COUNT (b->succs) > 0)
 	    {
 	      if (di->dfs_order[b->index] == 0)
 		saw_unconnected = true;

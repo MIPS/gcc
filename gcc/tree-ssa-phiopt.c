@@ -203,7 +203,7 @@ candidate_bb_for_phi_optimization (basic_block bb,
   
   /* COND_BLOCK must have precisely two successors.  We indirectly
      verify that those successors are BB and OTHER_BLOCK.  */
-  if (EDGE_SUCC_COUNT (cond_block) != 2
+  if (EDGE_COUNT (cond_block->succs) != 2
       || (EDGE_SUCC (cond_block, 0)->flags & EDGE_ABNORMAL) != 0
       || (EDGE_SUCC (cond_block, 1)->flags & EDGE_ABNORMAL) != 0)
     return false;
@@ -211,9 +211,9 @@ candidate_bb_for_phi_optimization (basic_block bb,
   /* OTHER_BLOCK must have a single predecessor which is COND_BLOCK,
      OTHER_BLOCK must have a single successor which is BB and
      OTHER_BLOCK must have no PHI nodes.  */
-  if (EDGE_PRED_COUNT (other_block) != 1
+  if (EDGE_COUNT (other_block->preds) != 1
       || EDGE_PRED (other_block, 0)->src != cond_block
-      || EDGE_SUCC_COUNT (other_block) != 1
+      || EDGE_COUNT (other_block->succs) != 1
       || EDGE_SUCC (other_block, 0)->dest != bb
       || phi_nodes (other_block))
     return false;

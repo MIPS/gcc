@@ -3739,7 +3739,7 @@ find_implicit_sets (void)
   count = 0;
   FOR_EACH_BB (bb)
     /* Check for more than one successor.  */
-    if (EDGE_SUCC_COUNT (bb) > 1)
+    if (EDGE_COUNT (bb->succs) > 1)
       {
 	cond = fis_get_condition (BB_END (bb));
 
@@ -3752,7 +3752,7 @@ find_implicit_sets (void)
 	    dest = GET_CODE (cond) == EQ ? BRANCH_EDGE (bb)->dest
 					 : FALLTHRU_EDGE (bb)->dest;
 
-	    if (dest && EDGE_PRED_COUNT (dest) == 1
+	    if (dest && EDGE_COUNT (dest->preds) == 1
 		&& dest != EXIT_BLOCK_PTR)
 	      {
 		new = gen_rtx_SET (VOIDmode, XEXP (cond, 0),
@@ -4079,7 +4079,7 @@ bypass_conditional_jumps (void)
 		  EXIT_BLOCK_PTR, next_bb)
     {
       /* Check for more than one predecessor.  */
-      if (EDGE_PRED_COUNT (bb) > 1)
+      if (EDGE_COUNT (bb->preds) > 1)
 	{
 	  setcc = NULL_RTX;
 	  for (insn = BB_HEAD (bb);
@@ -4388,7 +4388,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
 
   if (JUMP_P (insn)
       || (NONJUMP_INSN_P (insn)
-	  && (EDGE_SUCC_COUNT (bb) > 1
+	  && (EDGE_COUNT (bb->succs) > 1
 	      || EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL)))
     {
 #ifdef HAVE_cc0
@@ -4431,7 +4431,7 @@ insert_insn_end_bb (struct expr *expr, basic_block bb, int pre)
   /* Likewise if the last insn is a call, as will happen in the presence
      of exception handling.  */
   else if (CALL_P (insn)
-	   && (EDGE_SUCC_COUNT (bb) > 1 || EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL))
+	   && (EDGE_COUNT (bb->succs) > 1 || EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL))
     {
       /* Keeping in mind SMALL_REGISTER_CLASSES and parameters in registers,
 	 we search backward and place the instructions before the first
@@ -6605,7 +6605,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
   unsigned ix = 0;
 
   sbitmap_zero (visited);
-  act = (EDGE_SUCC_COUNT (bb) > 0) ? EDGE_SUCC (bb, 0) : NULL;
+  act = (EDGE_COUNT (bb->succs) > 0) ? EDGE_SUCC (bb, 0) : NULL;
 
   while (1)
     {
@@ -6625,7 +6625,7 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	  || TEST_BIT (visited, bb->index))
 	{
 	  ix++;
-	  act = (ix >= EDGE_SUCC_COUNT (bb)) ? NULL : EDGE_SUCC (bb, ix);
+	  act = (ix >= EDGE_COUNT (bb->succs)) ? NULL : EDGE_SUCC (bb, ix);
 	  continue;
 	}
       SET_BIT (visited, bb->index);
@@ -6654,8 +6654,8 @@ remove_reachable_equiv_notes (basic_block bb, struct ls_expr *smexpr)
 	    remove_note (insn, note);
 	  }
       ix++;
-      act = (ix >= EDGE_SUCC_COUNT (bb)) ? NULL : EDGE_SUCC (bb, ix);
-      if (EDGE_SUCC_COUNT (bb) > 0)
+      act = (ix >= EDGE_COUNT (bb->succs)) ? NULL : EDGE_SUCC (bb, ix);
+      if (EDGE_COUNT (bb->succs) > 0)
 	{
 	  if (act)
 	    stack[stack_top++] = act;
@@ -7089,7 +7089,7 @@ bb_has_well_behaved_predecessors (basic_block bb)
   edge pred;
   unsigned ix;
 
-  if (EDGE_PRED_COUNT (bb) == 0)
+  if (EDGE_COUNT (bb->preds) == 0)
     return false;
   FOR_EACH_PRED_EDGE (pred, bb, ix)
     if (((pred->flags & EDGE_ABNORMAL) && EDGE_CRITICAL_P (pred))

@@ -1644,7 +1644,7 @@ rewrite_into_ssa (bool all)
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     {
-      bb_ann (bb)->num_preds = EDGE_PRED_COUNT (bb);
+      bb_ann (bb)->num_preds = EDGE_COUNT (bb->preds);
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
 
@@ -1768,7 +1768,7 @@ rewrite_ssa_into_ssa (bitmap names_to_rename)
   dfs = (bitmap *) xmalloc (last_basic_block * sizeof (bitmap *));
   FOR_EACH_BB (bb)
     {
-      bb_ann (bb)->num_preds = EDGE_PRED_COUNT (bb);
+      bb_ann (bb)->num_preds = EDGE_COUNT (bb->preds);
       dfs[bb->index] = BITMAP_XMALLOC ();
     }
 

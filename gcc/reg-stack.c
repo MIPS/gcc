@@ -2745,7 +2745,7 @@ compensate_edge (edge e, FILE *file)
      instead of to the edge, because emit_swap can do minimal
      insn scheduling.  We can do this when there is only one
      edge out, and it is not abnormal.  */
-  else if (EDGE_SUCC_COUNT (block) == 1 && !(e->flags & EDGE_ABNORMAL))
+  else if (EDGE_COUNT (block->succs) == 1 && !(e->flags & EDGE_ABNORMAL))
     {
       /* change_stack kills values in regstack.  */
       tmpstack = regstack;

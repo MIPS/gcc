@@ -180,7 +180,7 @@ may_unswitch_on (basic_block bb, struct loop *loop, rtx *cinsn)
   enum machine_mode mode;
 
   /* BB must end in a simple conditional jump.  */
-  if (EDGE_SUCC_COUNT (bb) != 2)
+  if (EDGE_COUNT (bb->succs) != 2)
     return NULL_RTX;
   if (!any_condjump_p (BB_END (bb)))
     return NULL_RTX;
@@ -414,7 +414,7 @@ unswitch_loop (struct loops *loops, struct loop *loop, basic_block unswitch_on,
   /* Some sanity checking.  */
   if (!flow_bb_inside_loop_p (loop, unswitch_on))
     abort ();
-  if (EDGE_SUCC_COUNT (unswitch_on) != 2)
+  if (EDGE_COUNT (unswitch_on->succs) != 2)
     abort ();
   if (!just_once_each_iteration_p (loop, unswitch_on))
     abort ();

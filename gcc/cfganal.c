@@ -84,7 +84,7 @@ forwarder_block_p (basic_block bb)
   rtx insn;
 
   if (bb == EXIT_BLOCK_PTR || bb == ENTRY_BLOCK_PTR
-      || EDGE_SUCC_COUNT (bb) != 1)
+      || EDGE_COUNT (bb->succs) != 1)
     return false;
 
   for (insn = BB_HEAD (bb); insn != BB_END (bb); insn = NEXT_INSN (insn))
@@ -200,7 +200,7 @@ mark_dfs_back_edges (void)
 	  SET_BIT (visited, dest->index);
 
 	  pre[dest->index] = prenum++;
-	  if (EDGE_SUCC_COUNT (dest) > 0)
+	  if (EDGE_COUNT (dest->succs) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 		 time, check its successors.  */
@@ -258,7 +258,7 @@ set_edge_can_fallthru_flag (void)
 
       /* If the BB ends with an invertible condjump all (2) edges are
 	 CAN_FALLTHRU edges.  */
-      if (EDGE_SUCC_COUNT (bb) != 2)
+      if (EDGE_COUNT (bb->succs) != 2)
 	continue;
       if (!any_condjump_p (BB_END (bb)))
 	continue;
@@ -348,7 +348,7 @@ create_edge_list (void)
      edges on each basic block.  */
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
     {
-      num_edges += EDGE_SUCC_COUNT (bb);
+      num_edges += EDGE_COUNT (bb->succs);
     }
 
   elist = xmalloc (sizeof (struct edge_list));
@@ -588,7 +588,7 @@ add_noreturn_fake_exit_edges (void)
   basic_block bb;
 
   FOR_EACH_BB (bb)
-    if (EDGE_SUCC_COUNT (bb) == 0)
+    if (EDGE_COUNT (bb->succs) == 0)
       make_single_succ_edge (bb, EXIT_BLOCK_PTR, EDGE_FAKE);
 }
 
@@ -672,7 +672,7 @@ flow_reverse_top_sort_order_compute (int *rts_order)
 	  /* Mark that we have visited the destination.  */
 	  SET_BIT (visited, dest->index);
 
-	  if (EDGE_SUCC_COUNT (dest) > 0)
+	  if (EDGE_COUNT (dest->succs) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
@@ -752,7 +752,7 @@ flow_depth_first_order_compute (int *dfs_order, int *rc_order)
 
 	  dfsnum++;
 
-	  if (EDGE_SUCC_COUNT (dest) > 0)
+	  if (EDGE_COUNT (dest->succs) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */
@@ -834,7 +834,7 @@ flow_preorder_transversal_compute (int *pot_order)
 
   FOR_EACH_BB (bb)
     {
-      max_successors = EDGE_SUCC_COUNT (bb);
+      max_successors = EDGE_COUNT (bb->succs);
       dfst[bb->index].node
 	= (max_successors
 	   ? xcalloc (max_successors, sizeof (struct dfst_node *)) : NULL);
@@ -875,7 +875,7 @@ flow_preorder_transversal_compute (int *pot_order)
 	      dfst[dest->index].up = &dfst[src->index];
 	    }
 
-	  if (EDGE_SUCC_COUNT (dest) > 0)
+	  if (EDGE_COUNT (dest->succs) > 0)
 	    {
 	      /* Since the DEST node has been visited for the first
 	         time, check its successors.  */

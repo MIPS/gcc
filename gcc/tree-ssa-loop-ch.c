@@ -59,9 +59,9 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
   if (header->aux)
     return false;
 
-  if (EDGE_SUCC_COUNT (header) == 0)
+  if (EDGE_COUNT (header->succs) == 0)
     abort ();
-  if (EDGE_SUCC_COUNT (header) != 2)
+  if (EDGE_COUNT (header->succs) != 2)
     return false;
   if (flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 0)->dest)
       && flow_bb_inside_loop_p (loop, EDGE_SUCC (header, 1)->dest))
@@ -69,7 +69,7 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
 
   /* If this is not the original loop header, we want it to have just
      one predecessor in order to match the && pattern.  */
-  if (header != loop->header && EDGE_PRED_COUNT (header) >= 2)
+  if (header != loop->header && EDGE_COUNT (header->preds) >= 2)
     return false;
 
   last = last_stmt (header);
@@ -200,7 +200,7 @@ duplicate_blocks (varray_type bbs_to_duplicate)
 	  FOR_EACH_SUCC_EDGE (e1, new_header, ix1)
 	    if (e1->dest == e->dest)
 	      break;
-	  if (e1 == NULL || ix1 > EDGE_SUCC_COUNT (new_header))
+	  if (e1 == NULL || ix1 > EDGE_COUNT (new_header->succs))
 	    abort ();
 
 	  for (phi = phi_nodes (e->dest); phi; phi = TREE_CHAIN (phi))

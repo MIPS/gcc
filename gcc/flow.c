@@ -1106,7 +1106,7 @@ calculate_global_regs_live (sbitmap blocks_in, sbitmap blocks_out, int flags)
       /* Begin by propagating live_at_start from the successor blocks.  */
       CLEAR_REG_SET (new_live_at_end);
 
-      if (EDGE_SUCC_COUNT (bb) > 0)
+      if (EDGE_COUNT (bb->succs) > 0)
 	FOR_EACH_SUCC_EDGE (e, bb, ix)
 	  {
 	    basic_block sb = e->dest;
@@ -1927,8 +1927,8 @@ init_propagate_block_info (basic_block bb, regset live, regset local_set,
 	    && (TYPE_RETURNS_STACK_DEPRESSED
 		(TREE_TYPE (current_function_decl))))
       && (flags & PROP_SCAN_DEAD_STORES)
-      && (EDGE_SUCC_COUNT (bb) == 0
-	  || (EDGE_SUCC_COUNT (bb) == 1
+      && (EDGE_COUNT (bb->succs) == 0
+	  || (EDGE_COUNT (bb->succs) == 1
 	      && EDGE_SUCC (bb, 0)->dest == EXIT_BLOCK_PTR
 	      && ! current_function_calls_eh_return)))
     {

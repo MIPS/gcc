@@ -1629,7 +1629,7 @@ connect_post_landing_pads (void)
 	  emit_jump (outer->post_landing_pad);
 	  src = BLOCK_FOR_INSN (region->resume);
 	  dest = BLOCK_FOR_INSN (outer->post_landing_pad);
-	  while (EDGE_SUCC_COUNT (src) > 0)
+	  while (EDGE_COUNT (src->succs) > 0)
 	    remove_edge (EDGE_SUCC (src, 0));
 	  e = make_edge (src, dest, 0);
 	  e->probability = REG_BR_PROB_BASE;

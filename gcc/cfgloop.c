@@ -396,7 +396,7 @@ flow_loop_pre_header_scan (struct loop *loop)
      root of pre-header extended basic block.  Usually this is
      only one or two edges.  */
   for (num = 1;
-       EDGE_PRED (ebb, 0)->src != ENTRY_BLOCK_PTR && EDGE_PRED_COUNT (ebb) == 1;
+       EDGE_PRED (ebb, 0)->src != ENTRY_BLOCK_PTR && EDGE_COUNT (ebb->preds) == 1;
        num++)
     ebb = EDGE_PRED (ebb, 0)->src;
 
@@ -1082,7 +1082,7 @@ num_loop_branches (const struct loop *loop)
   body = get_loop_body (loop);
   n = 0;
   for (i = 0; i < loop->num_nodes; i++)
-    if (EDGE_SUCC_COUNT (body[i]) >= 2)
+    if (EDGE_COUNT (body[i]->succs) >= 2)
       n++;
   free (body);
 
@@ -1237,14 +1237,14 @@ verify_loop_structure (struct loops *loops)
 	continue;
 
       if ((loops->state & LOOPS_HAVE_PREHEADERS)
-	  && EDGE_PRED_COUNT (loop->header) != 2)
+	  && EDGE_COUNT (loop->header->preds) != 2)
 	{
 	  error ("Loop %d's header does not have exactly 2 entries.", i);
 	  err = 1;
 	}
       if (loops->state & LOOPS_HAVE_SIMPLE_LATCHES)
 	{
-	  if (EDGE_SUCC_COUNT (loop->latch) != 1)
+	  if (EDGE_COUNT (loop->latch->succs) != 1)
 	    {
 	      error ("Loop %d's latch does not have exactly 1 successor.", i);
 	      err = 1;

@@ -4977,7 +4977,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
       /* Can't deal with multiple successors of the entry block
          at the moment.  Function should always have at least one
          entry point.  */
-      if (EDGE_SUCC_COUNT (ENTRY_BLOCK_PTR) != 1)
+      if (EDGE_COUNT (ENTRY_BLOCK_PTR->succs) != 1)
 	abort ();
 
       insert_insn_on_edge (seq, EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
@@ -5066,7 +5066,7 @@ thread_prologue_and_epilogue_insns (rtx f ATTRIBUTE_UNUSED)
 		  /* If this block has only one successor, it both jumps
 		     and falls through to the fallthru block, so we can't
 		     delete the edge.  */
-		  if (EDGE_SUCC_COUNT (bb) == 1)
+		  if (EDGE_COUNT (bb->succs) == 1)
 		    continue;
 		}
 	      else

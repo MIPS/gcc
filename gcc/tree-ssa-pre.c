@@ -1155,11 +1155,11 @@ compute_antic_aux (basic_block block)
 
   /* If the block has no successors, ANTIC_OUT is empty, because it is
      the exit block.  */
-  if (EDGE_SUCC_COUNT (block) == 0);
+  if (EDGE_COUNT (block->succs) == 0);
 
   /* If we have one successor, we could have some phi nodes to
      translate through.  */
-  else if (EDGE_SUCC_COUNT (block) == 1)
+  else if (EDGE_COUNT (block->succs) == 1)
     {
       phi_translate_set (ANTIC_OUT, ANTIC_IN(EDGE_SUCC (block, 0)->dest),
 			 block, EDGE_SUCC (block, 0)->dest);
@@ -1423,7 +1423,7 @@ insert_aux (basic_block block)
 	    bitmap_insert_into_set (NEW_SETS (block), ssa_name (i));
 	    bitmap_value_replace_in_set (AVAIL_OUT (block), ssa_name (i));
 	  });
-	  if (EDGE_PRED_COUNT (block) >= 2)
+	  if (EDGE_COUNT (block->preds) >= 2)
 	    {
 	      value_set_node_t node;
 	      for (node = ANTIC_IN (block)->head;
@@ -1927,7 +1927,7 @@ init_pre (void)
      ENTRY_BLOCK_PTR (FIXME, if ENTRY_BLOCK_PTR had an index number
      different than -1 we wouldn't have to hack this.  tree-ssa-dce.c
      needs a similar change).  */
-  if (EDGE_PRED_COUNT (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest) > 1)
+  if (EDGE_COUNT (EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->dest->preds) > 1)
     if (!(EDGE_SUCC (ENTRY_BLOCK_PTR, 0)->flags & EDGE_ABNORMAL))
       split_edge (EDGE_SUCC (ENTRY_BLOCK_PTR, 0));
 

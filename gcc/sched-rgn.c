@@ -389,9 +389,9 @@ build_control_flow (struct edge_list *edge_list)
   unreachable = 0;
   FOR_EACH_BB (b)
     {
-      if (EDGE_PRED_COUNT (b) == 0
+      if (EDGE_COUNT (b->preds) == 0
 	  || (EDGE_PRED (b, 0)->src == b
-	      && EDGE_PRED_COUNT (b) == 1))
+	      && EDGE_COUNT (b->preds) == 1))
 	unreachable = 1;
     }
 
@@ -863,7 +863,7 @@ find_rgns (struct edge_list *edge_list)
 		  FOR_EACH_BB (jbb)
 		    /* Leaf nodes have only a single successor which must
 		       be EXIT_BLOCK.  */
-		    if (EDGE_SUCC_COUNT (jbb) == 1
+		    if (EDGE_COUNT (jbb->succs) == 1
 			&& EDGE_SUCC (jbb, 0)->dest == EXIT_BLOCK_PTR)
 		      {
 			queue[++tail] = jbb->index;

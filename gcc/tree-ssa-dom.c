@@ -426,7 +426,7 @@ redirect_edges_and_update_ssa_graph (varray_type redirection_edges)
 #ifdef ENABLE_CHECKING
 	  /* There should only be a single successor if the
 	     original edge was split.  */
-	  if (EDGE_SUCC_COUNT (e->dest) != 1)
+	  if (EDGE_COUNT (e->dest->succs) != 1)
 	    abort ();
 #endif
 	  e = EDGE_SUCC (e->dest, 0);
@@ -1193,7 +1193,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
      the edge from BB through its successor.
 
      Do this before we remove entries from our equivalence tables.  */
-  if (EDGE_SUCC_COUNT (bb) == 1
+  if (EDGE_COUNT (bb->succs) == 1
       && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
       && (get_immediate_dominator (CDI_DOMINATORS, EDGE_SUCC (bb, 0)->dest) != bb
 	  || phi_nodes (EDGE_SUCC (bb, 0)->dest)))
@@ -1205,7 +1205,7 @@ dom_opt_finalize_block (struct dom_walk_data *walk_data, basic_block bb)
 	   && TREE_CODE (last) == COND_EXPR
 	   && (TREE_CODE_CLASS (TREE_CODE (COND_EXPR_COND (last))) == '<'
 	       || TREE_CODE (COND_EXPR_COND (last)) == SSA_NAME)
-	   && EDGE_SUCC_COUNT (bb) == 2
+	   && EDGE_COUNT (bb->succs) == 2
 	   && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
 	   && (EDGE_SUCC (bb, 1)->flags & EDGE_ABNORMAL) == 0)
     {
@@ -1470,7 +1470,7 @@ record_equivalences_from_incoming_edge (struct dom_walk_data *walk_data,
   /* If we have a single predecessor (ignoring loop backedges), then extract
      EDGE_FLAGS from the single incoming edge.  Otherwise just return as
      there is nothing to do.  */
-  if (EDGE_PRED_COUNT (bb) == 1
+  if (EDGE_COUNT (bb->preds) == 1
       && parent_block_last_stmt)
     {
       edge e = single_incoming_edge_ignoring_loop_edges (bb);

@@ -574,7 +574,7 @@ dump_flow_info (FILE *file)
       sum = 0;
       FOR_EACH_SUCC_EDGE (e, bb, ix)
 	sum += e->probability;
-      if (EDGE_SUCC_COUNT (bb) > 0 && abs (sum - REG_BR_PROB_BASE) > 100)
+      if (EDGE_COUNT (bb->succs) > 0 && abs (sum - REG_BR_PROB_BASE) > 100)
 	fprintf (file, "Invalid sum of outgoing probabilities %.1f%%\n",
 		 sum * 100.0 / REG_BR_PROB_BASE);
       sum = 0;
@@ -593,7 +593,7 @@ dump_flow_info (FILE *file)
       lsum = 0;
       FOR_EACH_SUCC_EDGE (e, bb, ix)
 	lsum += e->count;
-      if (EDGE_SUCC_COUNT (bb) > 0
+      if (EDGE_COUNT (bb->succs) > 0
 	&& (lsum - bb->count > 100 || lsum - bb->count < -100))
 	fprintf (file, "Invalid sum of incomming counts %i, should be %i\n",
 		 (int)lsum, (int)bb->count);

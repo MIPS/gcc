@@ -514,8 +514,8 @@ struct edge_list
 					 / REG_BR_PROB_BASE)
 
 /* Return nonzero if edge is critical.  */
-#define EDGE_CRITICAL_P(e)		(EDGE_SUCC_COUNT ((e)->src) >= 2 \
-					 && EDGE_PRED_COUNT ((e)->dest) >= 2)
+#define EDGE_CRITICAL_P(e)		(EDGE_COUNT ((e)->src->succs) >= 2 \
+					 && EDGE_COUNT ((e)->dest->preds) >= 2)
 
 #define FOR_EACH_EDGE(e, vec, iter) \
   for ((iter) = 0; VEC_iterate (edge, (vec), (iter), (e)); (iter)++)
@@ -527,8 +527,6 @@ struct edge_list
   for ((iter) = 0; VEC_iterate (edge, (vec)->succs, (iter), (e)); (iter)++)
 
 #define EDGE_COUNT(ev)			VEC_length (edge, (ev))
-#define EDGE_PRED_COUNT(bb)		VEC_length (edge, (bb)->preds)
-#define EDGE_SUCC_COUNT(bb)		VEC_length (edge, (bb)->succs)
 
 #define EDGE_I(ev,i)			(VEC_index(edge, (ev), (i)))
 #define EDGE_PRED(bb,i)			(VEC_index(edge, (bb)->preds, (i)))

@@ -576,7 +576,7 @@ simplify_using_initial_conditions (struct loop *loop, tree expr,
        bb = get_immediate_dominator (CDI_DOMINATORS, bb))
     {
       e = EDGE_PRED (bb, 0);
-      if (EDGE_PRED_COUNT (bb) > 1)
+      if (EDGE_COUNT (bb->preds) > 1)
 	continue;
 
       if (!(e->flags & (EDGE_TRUE_VALUE | EDGE_FALSE_VALUE)))

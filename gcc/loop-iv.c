@@ -1766,7 +1766,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	}
 
       e = EDGE_PRED (e->src, 0);
-      if (EDGE_PRED_COUNT (e->src) > 1
+      if (EDGE_COUNT (e->src->preds) > 1
 	  || e->src == ENTRY_BLOCK_PTR)
 	break;
     }
