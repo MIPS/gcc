@@ -1105,6 +1105,10 @@ common_handle_option (size_t scode, const char *arg,
       flag_loop_optimize = value;
       break;
 
+    case OPT_floop_optimize2:
+      flag_loop_optimize2 = value;
+      break;
+
     case OPT_fmath_errno:
       flag_errno_math = value;
       break;
@@ -1139,14 +1143,6 @@ common_handle_option (size_t scode, const char *arg,
 
     case OPT_fnon_call_exceptions:
       flag_non_call_exceptions = value;
-      break;
-
-    case OPT_fold_unroll_all_loops:
-      flag_old_unroll_all_loops = value;
-      break;
-
-    case OPT_fold_unroll_loops:
-      flag_old_unroll_loops = value;
       break;
 
     case OPT_fomit_frame_pointer:

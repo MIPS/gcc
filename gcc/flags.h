@@ -277,18 +277,6 @@ extern int flag_float_store;
 
 extern int flag_strength_reduce;
 
-/* Nonzero enables loop unrolling in unroll.c.  Only loops for which the
-   number of iterations can be calculated at compile-time (UNROLL_COMPLETELY,
-   UNROLL_MODULO) or at run-time (preconditioned to be UNROLL_MODULO) are
-   unrolled.  */
-
-extern int flag_old_unroll_loops;
-
-/* Nonzero enables loop unrolling in unroll.c.  All loops are unrolled.
-   This is generally not a win.  */
-
-extern int flag_old_unroll_all_loops;
-
 /* Nonzero forces all invariant computations in loops to be moved
    outside the loop.  */
 

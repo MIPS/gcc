@@ -528,22 +528,10 @@ int flag_thread_jumps;
 
 int flag_strength_reduce = 0;
 
-/* Nonzero enables loop unrolling in unroll.c.  Only loops for which the
-   number of iterations can be calculated at compile-time (UNROLL_COMPLETELY,
-   UNROLL_MODULO) or at run-time (preconditioned to be UNROLL_MODULO) are
-   unrolled.  */
-
-int flag_old_unroll_loops;
-
-/* Nonzero enables loop unrolling in unroll.c.  All loops are unrolled.
-   This is generally not a win.  */
-
-int flag_old_unroll_all_loops;
-
-/* Enables unrolling of simple loops in loop-unroll.c.  */
+/* Enables unrolling of simple loops.  */
 int flag_unroll_loops;
 
-/* Enables unrolling of all loops in loop-unroll.c.  */
+/* Enables unrolling of all loops.  */
 int flag_unroll_all_loops;
 
 /* Nonzero enables loop peeling.  */
@@ -656,6 +644,10 @@ int flag_web;
 /* Nonzero means perform loop optimizer.  */
 
 int flag_loop_optimize;
+
+/* Nonzero means perform second pass of the loop optimizer.  */
+
+int flag_loop_optimize2;
 
 /* Nonzero means perform crossjumping.  */
 
@@ -1073,8 +1065,6 @@ static const lang_independent_options f_options[] =
   {"strength-reduce", &flag_strength_reduce, 1 },
   {"unroll-loops", &flag_unroll_loops, 1 },
   {"unroll-all-loops", &flag_unroll_all_loops, 1 },
-  {"old-unroll-loops", &flag_old_unroll_loops, 1 },
-  {"old-unroll-all-loops", &flag_old_unroll_all_loops, 1 },
   {"peel-loops", &flag_peel_loops, 1 },
   {"unswitch-loops", &flag_unswitch_loops, 1 },
   {"prefetch-loop-arrays", &flag_prefetch_loop_arrays, 1 },
@@ -3016,7 +3006,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
   if (flag_unroll_loops)
     do_unroll = LOOP_AUTO_UNROLL;	/* Having two unrollers is useless.  */
   else
-    do_unroll = flag_old_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
+    do_unroll = flag_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
   do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
 
   if (flag_rerun_loop_opt)
@@ -3052,6 +3042,7 @@ rest_of_handle_loop_optimize (tree decl, rtx insns)
 /* Perform loop optimizations.  It might be better to do them a bit
    sooner, but we want the profile feedback to work more
    efficiently.  */
+
 static void
 rest_of_handle_loop2 (tree decl, rtx insns)
 {
@@ -3079,6 +3070,11 @@ rest_of_handle_loop2 (tree decl, rtx insns)
 			       (flag_peel_loops ? UAP_PEEL : 0) |
 			       (flag_unroll_loops ? UAP_UNROLL : 0) |
 			       (flag_unroll_all_loops ? UAP_UNROLL_ALL : 0));
+
+#ifdef HAVE_doloop_end
+      if (flag_branch_on_count_reg && HAVE_doloop_end)
+	doloop_optimize_loops (loops);
+#endif /* HAVE_doloop_end */
 
       loop_optimizer_finalize (loops, rtl_dump_file);
     }
@@ -3363,9 +3359,7 @@ rest_of_compilation (tree decl)
     rest_of_handle_tracer (decl, insns);
 
   if (optimize > 0
-      && (flag_unswitch_loops
-	  || flag_peel_loops
-	  || flag_unroll_loops))
+      && flag_loop_optimize2)
     rest_of_handle_loop2 (decl, insns);
 
   if (flag_web)
@@ -4304,25 +4298,19 @@ process_options (void)
   if (flag_unroll_all_loops)
     flag_unroll_loops = 1;
 
-  if (flag_unroll_loops)
-    {
-      flag_old_unroll_loops = 0;
-      flag_old_unroll_all_loops = 0;
-    }
-
-  if (flag_old_unroll_all_loops)
-    flag_old_unroll_loops = 1;
+  if (flag_loop_optimize2)
+    flag_loop_optimize = 0;
 
   /* Old loop unrolling requires that strength_reduction be on also.  Silently
      turn on strength reduction here if it isn't already on.  Also, the loop
      unrolling code assumes that cse will be run after loop, so that must
      be turned on also.  */
-  if (flag_old_unroll_loops)
+  if (flag_unroll_loops)
     {
       flag_strength_reduce = 1;
       flag_rerun_cse_after_loop = 1;
     }
-  if (flag_unroll_loops || flag_peel_loops)
+  if (flag_peel_loops)
     flag_rerun_cse_after_loop = 1;
 
   if (flag_non_call_exceptions)

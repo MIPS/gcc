@@ -2324,4 +2324,13 @@ extern bool expensive_function_p (int);
 /* In tracer.c */
 extern void tracer (void);
 
+/* In stor-layout.c.  */
+extern void get_mode_bounds (enum machine_mode, int, rtx *, rtx *);
+
+/* In doloop.c.  */
+extern rtx doloop_condition_get (rtx);
+
+/* In loop-unswitch.c  */
+extern rtx reversed_condition (rtx);
+
 #endif /* ! GCC_RTL_H */

@@ -1,3 +1,42 @@
+2004-01-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
+
+	* loop-iv.c: New.
+	* loop-doloop.c: New.
+	* Makefile.in (loop-doloop.o, loop-iv.o): Add.
+	* alias.c (init_alias_analysis): Test flag_unroll_loops instead of
+	flag_old_unroll_loops.
+	* cfgloop.h (struct rtx_iv, struct niter_desc): New.
+	(get_loop_level, iv_analysis_loop_init, iv_get_reaching_def,
+	iv_analyse, find_simple_exit, iv_number_of_iterations,
+	iv_analysis_done, doloop_optimize_loops): Declare.
+	* cfgloopanal.c (get_loop_level): New.
+	* common.opt (floop-optimize2): New.
+	(fold-unroll-loops, fold-unroll-all-loops): Remove.
+	* doloop.c (doloop_condition_get): Export.
+	* flags.h (flag_old_unroll_loops, flag_old_unroll_all_loops):
+	Declaration removed.
+	* loop-unswitch.c (reversed_condition): Export.
+	* loop.c (loop_invariant_p): Use flag_unroll_loops instead
+	of flag_old_unroll_loops.
+	* opts.c (common_handle_option): Handle -floop-optimize2,
+	do not handle -fold-unroll-loops and -fold-unroll-all-loops.
+	* params.def (PARAM_MAX_DOLOOP_INSNS): New.
+	* rtl.h (get_mode_bounds, doloop_condition_get,
+	reversed_condition): Declare.
+	* stor-layout.c (get_mode_bounds): New function.
+	* toplev.c (flag_old_unroll_loops, flag_old_unroll_all_loops):
+	Remove.
+	(flag_loop_optimize2): New.
+	(rest_of_handle_loop_optimize): Use flag_unroll_loops instead
+	of flag_old_unroll_loops.
+	(rest_of_handle_loop2): Call doloop_optimize_loops.
+	(rest_of_compilation): Use flag_loop_optimize2.
+	(process_options): Remove flag_old_unroll_loops handling, add
+	flag_loop_optimize2 handling.
+	* toplev.h (flag_loop_optimize2): Declare.
+	* unroll.c (unroll_loop): Use flag_unroll_all_loops instead of
+	flag_old_unroll_all_loops.
+
 2004-01-26  Dorit Naishlos <dorit@il.ibm.com>
 
 	* Makefile.in: (tree-vectorizer.o): Remove dependency on real.h.

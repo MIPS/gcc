@@ -281,6 +281,7 @@ extern struct loop * find_common_loop (struct loop *, struct loop *);
 struct loop *superloop_at_depth (struct loop *, unsigned);
 extern int num_loop_insns (struct loop *);
 extern int average_num_loop_insns (struct loop *);
+extern unsigned get_loop_level (const struct loop *);
 
 /* Loops & cfg manipulation.  */
 extern basic_block *get_loop_body (const struct loop *);
@@ -329,6 +330,69 @@ extern void unloop (struct loops *, struct loop *);
 extern bool remove_path (struct loops *, edge);
 extern edge split_loop_bb (basic_block, rtx);
 
+/* Induction variable analysis.  */
+
+struct rtx_iv
+{
+  bool analysed;
+
+  enum machine_mode mode;
+  rtx base, step;
+};
+
+/* This should replace struct loop_desc.  We need to handle this in unrolling,
+   so leave it this way for now.  */
+
+struct niter_desc
+{
+  /* The edge out of the loop.  */
+  edge out_edge;
+
+  /* The other edge leading from the condition.  */
+  edge in_edge;
+
+  /* True if we are able to say anything about number of iterations of the
+     loop.  */
+  bool simple_p;
+
+  /* True if the loop iterates the constant number of times.  */
+  bool const_iter;
+
+  /* Number of iterations if constant.  */
+  unsigned HOST_WIDEST_INT niter;
+
+  /* Upper bound on the number of iterations.  */
+  unsigned HOST_WIDEST_INT niter_max;
+
+  /* Assumptions under that the rest of the information is valid.  */
+  rtx assumptions;
+
+  /* Assumptions under that the loop ends before reaching the latch,
+     even if value of niter_expr says otherwise.  */
+
+  rtx noloop_assumptions;
+
+  /* Condition under that the loop is infinite.  */
+  rtx infinite;
+
+  /* Whether the comparison is signed.  */
+  bool signed_p;
+
+  /* The mode in that niter_expr should be computed.  */
+  enum machine_mode mode;
+
+  /* The number of iterations of the loop.  */
+  rtx niter_expr;
+};
+
+extern void iv_analysis_loop_init (struct loop *);
+extern rtx iv_get_reaching_def (rtx, rtx);
+extern bool iv_analyse (rtx, rtx, struct rtx_iv *);
+extern void find_simple_exit (struct loop *, struct niter_desc *);
+extern void iv_number_of_iterations (struct loop *, rtx, rtx,
+				     struct niter_desc *);
+extern void iv_analysis_done (void);
+
 /* Loop optimizer initialization.  */
 extern struct loops *loop_optimizer_init (FILE *);
 extern void loop_optimizer_finalize (struct loops *, FILE *);
@@ -344,6 +408,7 @@ enum
 };
 
 extern void unroll_and_peel_loops (struct loops *, int);
+extern void doloop_optimize_loops (struct loops *);
 
 static inline struct loop *loop_from_num (struct loops *, unsigned);
 static inline struct loop *outer_loop (struct loop *);

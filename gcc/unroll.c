@@ -1120,7 +1120,7 @@ unroll_loop (struct loop *loop, int insn_count, int strength_reduce_p)
 
   /* If reach here, and the loop type is UNROLL_NAIVE, then don't unroll
      the loop unless all loops are being unrolled.  */
-  if (unroll_type == UNROLL_NAIVE && ! flag_old_unroll_all_loops)
+  if (unroll_type == UNROLL_NAIVE && ! flag_unroll_all_loops)
     {
       if (loop_dump_stream)
 	fprintf (loop_dump_stream,

@@ -83,7 +83,6 @@ static struct loop *unswitch_loop (struct loops *, struct loop *,
 static void unswitch_single_loop (struct loops *, struct loop *, rtx, int);
 static bool may_unswitch_on_p (basic_block, struct loop *,
 			       basic_block *);
-static rtx reversed_condition (rtx);
 
 /* Main entry point.  Perform loop unswitching on all suitable LOOPS.  */
 void
@@ -152,7 +151,7 @@ may_unswitch_on_p (basic_block bb, struct loop *loop, basic_block *body)
 }
 
 /* Reverses CONDition; returns NULL if we cannot.  */
-static rtx
+rtx
 reversed_condition (rtx cond)
 {
   enum rtx_code reversed;

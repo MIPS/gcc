@@ -433,6 +433,10 @@ floop-optimize
 Common
 Perform loop optimizations
 
+floop-optimize2
+Common
+Perform loop optimizations, new passes
+
 fmath-errno
 Common
 Set errno after built-in math functions
@@ -468,14 +472,6 @@ Use graph-coloring register allocation
 fnon-call-exceptions
 Common
 Support synchronous non-call exceptions
-
-fold-unroll-loops
-Common
-Perform loop unrolling when iteration count is known
-
-fold-unroll-all-loops
-Common
-Perform loop unrolling for all loops
 
 fomit-frame-pointer
 Common
