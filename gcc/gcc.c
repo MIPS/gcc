@@ -4060,10 +4060,11 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	  switches[n_switches].live_cond = SWITCH_OK;
 	  switches[n_switches].validated = 0;
 	  switches[n_switches].ordering = 0;
-	  /* These are always valid, since gcc.c itself understands it.  */
+	  /* These are always valid, since gcc.c itself understands them.  */
 	  if (!strcmp (p, "save-temps")
 	      || !strcmp (p, "static-libgcc")
-	      || !strcmp (p, "shared-libgcc"))
+	      || !strcmp (p, "shared-libgcc")
+	      || !strcmp (p, "pipe"))
 	    switches[n_switches].validated = 1;
 	  else
 	    {

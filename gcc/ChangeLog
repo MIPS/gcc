@@ -1,3 +1,8 @@
+2002-10-04  Zack Weinberg  <zack@codesourcery.com>
+
+	* gcc.c (process_command): Set .validated for -pipe.  Correct
+	grammar in comment.
+
 2002-10-03  Andreas Bauer  <baueran@in.tum.de>
 
 	* doc/tm.texi (FUNCTION_OK_FOR_SIBCALL): Remove.
