@@ -1,3 +1,8 @@
+2004-10-26  Aldy Hernandez  <aldyh@redhat.com>
+
+        * expr.c (emit_group_load): Handle floats.
+        (emit_group_store): Same.
+
 2004-10-22  Aldy Hernandez  <aldyh@redhat.com>
 
 	* config/rs6000/spe.md (spe_extendsfdf2): New.
