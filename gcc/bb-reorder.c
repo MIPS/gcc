@@ -82,10 +82,10 @@
 #define N_ROUNDS 4
 
 /* Branch thresholds in thousandths (per mille) of the REG_BR_PROB_BASE.  */
-static int branch_threshold[N_ROUNDS] = {400, 200, 100, 0};
+static int branch_threshold[N_ROUNDS] = {280, 280, 280, 280};
 
 /* Exec thresholds in thousandths (per mille) of the frequency of bb 0.  */
-static int exec_threshold[N_ROUNDS] = {500, 200, 50, 0};
+static int exec_threshold[N_ROUNDS] = {0, 0, 0, 0};
 
 /* If edge frequency is lower than DUPLICATION_THRESHOLD per mille of entry
    block the edge destination is not duplicated while connecting traces.  */
