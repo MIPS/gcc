@@ -1,3 +1,8 @@
+Mon Mar 10 15:40:33 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (min_insn_size, k8_avoid_jump_misspredicts): New function
+	(machine_dependent_reorg): Use it.
+
 Fri Mar  7 12:38:44 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* i386.md (cvtts?2si peep2): New.

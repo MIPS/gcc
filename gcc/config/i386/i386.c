@@ -886,6 +886,8 @@ static bool ix86_ms_bitfield_layout_p PARAMS ((tree));
 static tree ix86_handle_struct_attribute PARAMS ((tree *, tree, tree, int, bool *));
 static int extended_reg_mentioned_1 PARAMS ((rtx *, void *));
 static bool ix86_rtx_costs PARAMS ((rtx, int, int, int *));
+static int min_insn_size PARAMS ((rtx));
+static void k8_avoid_jump_misspredicts PARAMS ((rtx));
 
 #if defined (DO_GLOBAL_CTORS_BODY) && defined (HAS_INIT_SECTION)
 static void ix86_svr3_asm_out_constructor PARAMS ((rtx, int));
@@ -15553,6 +15555,69 @@ x86_function_profiler (file, labelno)
     }
 }
 
+/* We don't have exact information about the insn sizes, but we may assume
+   quite safely that we are informed about all 1 byte insns.  */
+static int
+min_insn_size (insn)
+     rtx insn;
+{
+  if (!INSN_P (insn) && !active_insn_p (insn))
+    return 0;
+  /* Important case - calls are always 5 bytes.
+     It is common to have many calls in the row.  */
+  if (GET_CODE (insn) == CALL_INSN
+      && !SIBLING_CALL_P (insn))
+    return 5;
+  if (get_attr_length (insn) <= 1)
+    return 1;
+  return 2;
+}
+
+/* AMD K8 core misspredicts jumps when there are more than 3 jumps in 16 byte
+   window.  */
+static void
+k8_avoid_jump_misspredicts (first)
+     rtx first;
+{
+  rtx insn, start = first;
+  int nbytes = 0, njumps = 0;
+
+  for (insn = first; insn; insn = NEXT_INSN (insn))
+    {
+      int size;
+
+      if (GET_CODE (insn) == JUMP_INSN || GET_CODE (insn) == CALL_INSN)
+	njumps++;
+      nbytes += min_insn_size (insn);
+      while (nbytes - (size = min_insn_size (start)) >= 16)
+	{
+	  nbytes -= size;
+	  if (GET_CODE (start) == JUMP_INSN || GET_CODE (start) == CALL_INSN)
+	    njumps--;
+	  start = NEXT_INSN (start);
+	}
+      if (njumps > 3)
+	{
+	  int padsize = 0;
+	  while (njumps > 3)
+	    {
+	      padsize += size;
+	      if (GET_CODE (start) == JUMP_INSN || GET_CODE (start) == CALL_INSN)
+		njumps--;
+	      start = NEXT_INSN (start);
+	    }
+	  nbytes += padsize;
+	  if (rtl_dump_file)
+	    fprintf (rtl_dump_file, "Padding insn %i by %i bytes!\n", INSN_UID (insn), padsize);
+	  while (padsize)
+	    {
+	      emit_insn_before (gen_nop (), insn);
+	      padsize--;
+	    }
+	}
+    }
+}
+
 /* Implement machine specific optimizations.  
    At the moment we implement single transformation: AMD Athlon works faster
    when RET is not destination of conditional jump or directly preceded
@@ -15600,6 +15665,8 @@ x86_machine_dependent_reorg (first)
     if (insert)
       emit_insn_before (gen_nop (), ret);
   }
+  if (TARGET_K8)
+    k8_avoid_jump_misspredicts (first);
 }
 
 /* Return nonzero when QImode register that must be represented via REX prefix
