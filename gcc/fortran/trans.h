@@ -438,6 +438,8 @@ extern GTY(()) tree gfor_fndecl_math_sign4;
 extern GTY(()) tree gfor_fndecl_math_sign8;
 extern GTY(()) tree gfor_fndecl_math_ishftc4;
 extern GTY(()) tree gfor_fndecl_math_ishftc8;
+extern GTY(()) tree gfor_fndecl_math_exponent4;
+extern GTY(()) tree gfor_fndecl_math_exponent8;
 
 /* String functions.  */
 extern GTY(()) tree gfor_fndecl_copy_string;

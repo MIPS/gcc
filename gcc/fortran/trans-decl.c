@@ -105,6 +105,8 @@ tree gfor_fndecl_math_sign4;
 tree gfor_fndecl_math_sign8;
 tree gfor_fndecl_math_ishftc4;
 tree gfor_fndecl_math_ishftc8;
+tree gfor_fndecl_math_exponent4;
+tree gfor_fndecl_math_exponent8;
 
 
 /* String functions.  */
@@ -1381,6 +1383,15 @@ gfc_build_intrinsic_function_decls (void)
 				     gfc_int8_type_node,
 				     3, gfc_int8_type_node,
 				     gfc_int8_type_node, gfc_int8_type_node);
+  gfor_fndecl_math_exponent4 =
+    gfc_build_library_function_decl (get_identifier (PREFIX("exponent_r4")),
+				     gfc_int4_type_node,
+				     1, gfc_real4_type_node);
+  gfor_fndecl_math_exponent8 =
+    gfc_build_library_function_decl (get_identifier (PREFIX("exponent_r8")),
+				     gfc_int4_type_node,
+				     1, gfc_real8_type_node);
+
   /* Other functions.  */
   gfor_fndecl_size0 =
     gfc_build_library_function_decl (get_identifier (PREFIX("size0")),

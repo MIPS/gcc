@@ -51,39 +51,74 @@ typedef struct gfc_intrinsic_map_t	GTY(())
 {
   /* The explicit enum is required to work around inadequacies in the
      garbage collection/gengtype parsing mechanism.  */
-  const enum gfc_generic_isym_id id;
+  enum gfc_generic_isym_id id;
+
+  /* Enum value from the "language-independent", aka C-centric, part
+     of gcc, or END_BUILTINS of no such value set.  */
+  /* ??? There are now complex variants in builtins.def, though we
+     don't currently do anything with them.  */
+  enum built_in_function code4;
+  enum built_in_function code8;
+
+  /* True if the naming pattern is to prepend "c" for complex and
+     append "f" for kind=4.  False if the naming pattern is to
+     prepend "_gfortran_" and append "[rc][48]".  */
+  bool libm_name;
+
+  /* True if a complex version of the function exists.  */
+  bool complex_available;
+
+  /* True if the function should be marked const.  */
+  bool is_constant;
+
+  /* The base library name of this function.  */
   const char *name;
-  const int code4;
-  const int code8;
-  tree GTY(()) real4_decl;
-  tree GTY(()) real8_decl;
-  tree GTY(()) complex4_decl;
-  tree GTY(()) complex8_decl;
+
+  /* Cache decls created for the various operand types.  */
+  tree real4_decl;
+  tree real8_decl;
+  tree complex4_decl;
+  tree complex8_decl;
 }
 gfc_intrinsic_map_t;
 
-#define I_LIB(id, name) {GFC_ISYM_ ## id, name, \
-    END_BUILTINS, END_BUILTINS, \
-    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
-#define DEFINE_MATH_BUILTIN(id, name, nargs) {GFC_ISYM_ ## id, name, \
-    BUILT_IN_ ## id ## F, BUILT_IN_ ## id, \
-    NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
+/* ??? The NARGS==1 hack here is based on the fact that (c99 at least)
+   defines complex variants of all of the entries in mathbuiltins.def
+   except for atan2.  */
+#define DEFINE_MATH_BUILTIN(ID, NAME, NARGS) \
+  { GFC_ISYM_ ## ID, BUILT_IN_ ## ID ## F, BUILT_IN_ ## ID, true, \
+    NARGS == 1, true, NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE},
+
+#define LIBM_FUNCTION(ID, NAME, HAVE_COMPLEX) \
+  { GFC_ISYM_ ## ID, END_BUILTINS, END_BUILTINS, true, HAVE_COMPLEX, true, \
+    NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE }
+
+#define LIBF_FUNCTION(ID, NAME, HAVE_COMPLEX) \
+  { GFC_ISYM_ ## ID, END_BUILTINS, END_BUILTINS, false, HAVE_COMPLEX, true, \
+    NAME, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE }
+
 static GTY(()) gfc_intrinsic_map_t gfc_intrinsic_map[] =
 {
-  /* Math functions.  These are in libm.  */
-  I_LIB	    (ACOS,  "acos")
-  I_LIB	    (ASIN,  "asin")
-  I_LIB	    (COSH,  "cosh")
-  I_LIB	    (LOG10, "log10")
-  I_LIB	    (SINH,  "sinh")
-  I_LIB	    (TANH,  "tanh")
-  /* Also the builtin math functions.  */
+  /* Functions built into gcc itself.  */
 #include "mathbuiltins.def"
 
-  I_LIB (NONE, NULL)
+  /* Functions in libm.  */
+  /* ??? This does exist as BUILT_IN_SCALBN, but doesn't quite fit the
+     pattern for other mathbuiltins.def entries.  At present we have no
+     optimizations for this in the common sources.  */
+  LIBM_FUNCTION (SCALE, "scalbn", false),
+
+  /* Functions in libgfortran.  */
+  LIBF_FUNCTION (FRACTION, "fraction", false),
+  LIBF_FUNCTION (NEAREST, "nearest", false),
+  LIBF_FUNCTION (SET_EXPONENT, "set_exponent", false),
+
+  /* End the list.  */
+  LIBF_FUNCTION (NONE, NULL, false)
 };
-#undef I_LIB
-#undef I_BUILTIN
+#undef DEFINE_MATH_BUILTIN
+#undef LIBM_FUNCTION
+#undef LIBF_FUNCTION
 
 /* Structure for storing components of a floating number to be used by
    elemental functions to manipulate reals.  */
@@ -441,7 +476,6 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
   char name[GFC_MAX_SYMBOL_LEN + 3];
 
   ts = &expr->ts;
-  name[0] = 0;
   if (ts->type == BT_REAL)
     {
       switch (ts->kind)
@@ -458,8 +492,9 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
     }
   else if (ts->type == BT_COMPLEX)
     {
-      name[0] = 'c';
-      name[1] = 0;
+      if (!m->complex_available)
+	abort ();
+
       switch (ts->kind)
 	{
 	case 4:
@@ -478,32 +513,38 @@ gfc_get_intrinsic_lib_fndecl (gfc_intrinsic_map_t * m, gfc_expr * expr)
   if (*pdecl)
     return *pdecl;
 
-  type = gfc_typenode_for_spec (ts);
-  argtypes = NULL_TREE;
-
-  for (actual = expr->value.function.actual; actual; actual = actual->next)
+  if (m->libm_name)
     {
-      if (!gfc_compare_types (&actual->expr->ts, ts))
-	{
-	  internal_error ("arg types for intrinsic %s do not match",
-			  expr->value.function.name);
-	}
-      argtypes = gfc_chainon_list (argtypes, type);
+      if (ts->kind != 4 && ts->kind != 8)
+	abort ();
+      snprintf (name, sizeof (name), "%s%s%s", 
+		ts->type == BT_COMPLEX ? "c" : "",
+		m->name,
+		ts->kind == 4 ? "f" : "");
+    }
+  else
+    {
+      snprintf (name, sizeof (name), PREFIX ("%s_%c%d"), m->name,
+		ts->type == BT_COMPLEX ? 'c' : 'r',
+		ts->kind);
     }
 
-  strcat (name, m->name);
-  if (ts->kind == 4)
-    strcat (name, "f");
-  else
-    assert (ts->kind == 8);
-
+  argtypes = NULL_TREE;
+  for (actual = expr->value.function.actual; actual; actual = actual->next)
+    {
+      type = gfc_typenode_for_spec (&actual->expr->ts);
+      argtypes = gfc_chainon_list (argtypes, type);
+    }
   argtypes = gfc_chainon_list (argtypes, void_type_node);
-  type = build_function_type (type, argtypes);
+  type = build_function_type (gfc_typenode_for_spec (ts), argtypes);
   fndecl = build_decl (FUNCTION_DECL, get_identifier (name), type);
 
   /* Mark the decl as external.  */
   DECL_EXTERNAL (fndecl) = 1;
   TREE_PUBLIC (fndecl) = 1;
+
+  /* Mark it __attribute__((const)), if possible.  */
+  TREE_READONLY (fndecl) = m->is_constant;
 
   rest_of_decl_compilation (fndecl, NULL, 1, 0);
 
@@ -542,6 +583,31 @@ gfc_conv_intrinsic_lib_function (gfc_se * se, gfc_expr * expr)
   se->expr = gfc_build_function_call (fndecl, args);
 }
 
+/* Generate code for EXPONENT(X) intrinsic function.  */
+
+static void
+gfc_conv_intrinsic_exponent (gfc_se * se, gfc_expr * expr)
+{
+  tree args, fndecl;
+  gfc_expr *a1;
+
+  args = gfc_conv_intrinsic_function_args (se, expr);
+
+  a1 = expr->value.function.actual->expr;
+  switch (a1->ts.kind)
+    {
+    case 4:
+      fndecl = gfor_fndecl_math_exponent4;
+      break;
+    case 8:
+      fndecl = gfor_fndecl_math_exponent8;
+      break;
+    default:
+      abort ();
+    }
+
+  se->expr = gfc_build_function_call (fndecl, args);
+}
 
 /* Evaluate a single upper or lower bound.  */
 /* TODO: bound intrinsic generates way too much unneccessary code.  */
@@ -2286,580 +2352,6 @@ call_builtin_clz (tree result_type, tree op0)
   return convert (result_type, call);
 }
 
-
-/*  Generate code for the SET_EXPONENT intrinsic.
-    SET_EXPONENT (s, i) = s * 2^(i-e).
-    We generate:
-    bias = bias - 1;
-    full_1_expn = emask >> BITS_OF_FRACTION_OF(s)
-    if (s == 0 || expn == full_1_expn) // s is a NaN or Inf or Zero
-    {
-      res = s
-      goto exit
-    }
-    if (expn != 0)  // s is normalized
-    {
-      expn = arg2 + bias
-      if (expn <= 0)
-      {
-        frac = frac | (1 <<  (BITS_OF_FRACTION_OF));
-        frac = frac >>(-expn + 1);
-        expn = 0;
-      } 
-      if (expn >= full_1_expn)
-        expn = full_1_expn
-    }
-    else  // s is denormalized 
-    { 
-      expn = arg2 + bias
-      t1 = frac << PRECISION_OF_TYPE(s) - BITS_OF_FRACTION_OF(s);
-      lz = leadzero(t1)
-      if (expn > 0)
-        frac = frac << (lz + 1)
-      else
-      {
-        diff = expn + lz
-        frac = (diff >= 0) ? frac << diff : frac >> (-diff)
-        expn = 0
-      }
-    }
-    res = sign | expn | frac    
-    exit :  
-
- */
- 
-static void
-gfc_conv_intrinsic_set_exponent (gfc_se * se, gfc_expr * expr)
-{
-   tree arg, args;
-   tree arg2;
-   tree masktype;
-   tree tmp, t1, t2;
-   tree leadzero, one, diff, zero, bias;
-   tree sign, exponent, fraction, full_1_expn;
-   tree cond, cond1, res, exit_label;
-   tree norm_case, nnorm_case, nnorm_case_1, nnorm_case_2;
-   stmtblock_t block, block1;
-   real_compnt_info rcs;
-   
-   arg = gfc_conv_intrinsic_function_args (se, expr);
-   args = TREE_VALUE (arg);
-   arg2 = TREE_VALUE (TREE_CHAIN (arg));
-
-   prepare_arg_info (se, expr, &rcs, 1);
-   arg = rcs.arg;
-   masktype = rcs.mtype;
-   exponent = rcs.expn;
-   fraction = rcs.frac;
-
-   arg2 = convert (masktype, arg2);
-   one = gfc_build_const (masktype, integer_one_node);
-   zero = gfc_build_const (masktype, integer_zero_node);
-
-   full_1_expn = fold (build (RSHIFT_EXPR, masktype, rcs.emask, rcs.fdigits));
-   
-   /* Creat variables for the result and tmporarilly using.  */
-   res = gfc_create_var (rcs.type, "set_exponent");
-   leadzero = gfc_create_var (masktype, "LZ");
-   diff = gfc_create_var (masktype, "diff");
-
-   bias = fold (build (MINUS_EXPR, masktype, rcs.bias, one));
-
-   exit_label = gfc_build_label_decl (NULL_TREE);
-   TREE_USED (exit_label) = 1;
- 
-   /* Code for s being Zero or NaN or Inf  */
-   gfc_start_block (&block);
-   gfc_add_modify_expr (&block, res, args);
-   tmp = build_v (GOTO_EXPR, exit_label);
-   gfc_add_expr_to_block (&block, tmp);
-   t1 = gfc_finish_block (&block);
-   cond = build (EQ_EXPR, boolean_type_node, exponent, full_1_expn);
-   tmp = build (EQ_EXPR, boolean_type_node, arg, zero);
-   cond = build (TRUTH_OR_EXPR, boolean_type_node, tmp, cond);
-   tmp = build_v (COND_EXPR, cond, t1, build_empty_stmt ());
-   gfc_add_expr_to_block (&se->pre, tmp);
-
-   /* Generate code for normalized case */ 
-   gfc_start_block (&block);
-   tmp = build (PLUS_EXPR, masktype, bias, arg2); 
-   gfc_add_modify_expr(&block, exponent, tmp);
-
-   cond = build (LE_EXPR, boolean_type_node, exponent, zero);
-
-   gfc_start_block (&block1);
-   t1 = build (BIT_IOR_EXPR, masktype, fraction, rcs.f1);
-   tmp = build1 (NEGATE_EXPR, masktype, exponent);
-   tmp = build (PLUS_EXPR, masktype, tmp, one);
-   tmp = build (RSHIFT_EXPR, masktype, t1, tmp);
-   gfc_add_modify_expr (&block1, fraction, tmp);
-   gfc_add_modify_expr (&block1, exponent, zero);
-   t1 = gfc_finish_block (&block1);
-
-   cond1 = build (GE_EXPR, boolean_type_node, exponent, full_1_expn);
-   tmp = build (MODIFY_EXPR, masktype, exponent, full_1_expn);
-   t2 = build (COND_EXPR, masktype, cond1, tmp, build_empty_stmt ());
-
-   tmp = build_v (COND_EXPR, cond, t1, t2);
-   gfc_add_expr_to_block (&block, tmp);
-
-   norm_case = gfc_finish_block (&block);
- 
-   /* Denormalized case  */
-   gfc_start_block(&block); 
-   tmp = build (PLUS_EXPR, masktype, bias, arg2); 
-   gfc_add_modify_expr(&block, exponent, tmp);
-     
-   t2 = fold (build (PLUS_EXPR, masktype, rcs.edigits, one));
-   t1 = build (LSHIFT_EXPR, masktype, fraction, t2);
-   tmp = call_builtin_clz (masktype, t1);
-   gfc_add_modify_expr (&block, leadzero, tmp); 
-
-   /* expn > 0  */
-   gfc_start_block (&block1);
-   t1 = build (PLUS_EXPR, masktype, leadzero, one);
-   t1 = build (LSHIFT_EXPR, masktype, fraction, t1);
-   tmp = build (BIT_AND_EXPR, masktype, t1, rcs.fmask);
-   gfc_add_modify_expr (&block1, fraction, tmp);
-   nnorm_case_1 = gfc_finish_block (&block1);
- 
-   /* expn <= 0 */
-   gfc_start_block (&block1);
-   t1 = build (PLUS_EXPR, masktype, exponent, leadzero);
-   gfc_add_modify_expr(&block1, diff, t1);
-
-   t1 = build (LSHIFT_EXPR, masktype, fraction, diff);
-   t2 = build1 (NEGATE_EXPR, masktype, diff);
-   t2 = build (RSHIFT_EXPR, masktype, fraction, t2);
-   cond1 = build (GT_EXPR, boolean_type_node, diff, integer_zero_node);
-   tmp = build (COND_EXPR, masktype, cond1, t1, t2);
-   gfc_add_modify_expr (&block1, fraction, tmp);
-   nnorm_case_2 = gfc_finish_block (&block1);
-        
-   cond = build (GT_EXPR, boolean_type_node, exponent, zero);
-                                                                              
-   tmp = build_v (COND_EXPR, cond, nnorm_case_1, nnorm_case_2);
- 
-   gfc_add_expr_to_block (&block, tmp);
-   nnorm_case = gfc_finish_block (&block);
-  
-   cond =  build (NE_EXPR, boolean_type_node, exponent, integer_zero_node);
-   tmp = build_v (COND_EXPR, cond, norm_case, nnorm_case);
-   gfc_add_expr_to_block (&se->pre, tmp);
-
-   sign = build (BIT_AND_EXPR, masktype, arg, rcs.smask);
-   t1 = build (LSHIFT_EXPR, masktype, exponent, rcs.fdigits);
-   t2 = build (BIT_IOR_EXPR,  masktype, sign, t1);
-   tmp = build (BIT_IOR_EXPR, masktype, t2, fraction);
-   tmp = build1 (VIEW_CONVERT_EXPR, rcs.type, tmp);
-   gfc_add_modify_expr (&se->pre, res, tmp);
- 
-   /* add the exit label  */
-   tmp = build1_v (LABEL_EXPR, exit_label);
-   gfc_add_expr_to_block (&se->pre, tmp);
- 
-   se->expr = res;
-}  
-
-
-/*  Generate code for the SCALE intrinsic. SCALE (s, i) = s * 2^i.
-    We generate:
-
-    full_1_expn = emask >> BITS_OF_FRACTION_OF(s)
-
-    if (expn == full_1_expn) // s is a NaN or Inf
-    {
-      res = s
-      goto exit
-    }
-    if (expn != 0)  // s is normalized
-    {
-      expn = i
-      if (expn < 0)
-      {
-        frac = frac | (1 <<  (BITS_OF_FRACTION_OF));
-        frac = frac >>(-expn + 1);
-        expn = 0;
-      } 
-      if (expn >= full_1_expn)
-        expn = full_1_expn
-    }
-    else  // s is denormalized 
-    { 
-      t1 = frac << PRECISION_OF_TYPE(s) - BITS_OF_FRACTION_OF(s);
-      lz = leadzero(t1)
-      diff = i - lz
-      if (diff > 0) 
-      {
-        frac = frac << (lz + 1)
-        expn = expn + diff
-      }
-      else
-      {
-        frac = (i >= 0) ? frac << i : frac >> (-i)
-      }
-    }
-    res = sign | expn | frac    
-    exit :  
-
- */
- 
-static void
-gfc_conv_intrinsic_scale (gfc_se * se, gfc_expr * expr)
-{
-   tree arg, args;
-   tree arg2;
-   tree masktype;
-   tree tmp, t1, t2;
-   tree leadzero, one, diff, zero;
-   tree sign, exponent, fraction, full_1_expn;
-   tree cond, cond1, res, exit_label;
-   tree norm_case, nnorm_case, nnorm_case_1, nnorm_case_2;
-   stmtblock_t block, block1;
-   real_compnt_info rcs;
-   
-   arg = gfc_conv_intrinsic_function_args (se, expr);
-   arg2 = TREE_VALUE (TREE_CHAIN (arg));
-   args = TREE_VALUE (arg);
-
-   prepare_arg_info (se, expr, &rcs, 1);
-   arg = rcs.arg;
-   masktype = rcs.mtype;
-   exponent = rcs.expn;
-   fraction = rcs.frac;
-
-   arg2 = convert (masktype, arg2);
-   one = gfc_build_const (masktype, integer_one_node);
-   zero = gfc_build_const (masktype, integer_zero_node);
-
-   full_1_expn = fold (build (RSHIFT_EXPR, masktype, rcs.emask, rcs.fdigits));
-   
-   /* Creat variables for the result and tmporarilly using.  */
-   res = gfc_create_var (rcs.type, "scale");
-   leadzero = gfc_create_var (masktype, "LZ");
-   diff = gfc_create_var (masktype, "diff");
-
-   /* Code for s being NaN or Inf  */
-   gfc_start_block (&block);
-   exit_label = gfc_build_label_decl (NULL_TREE);
-   TREE_USED (exit_label) = 1;
-   gfc_add_modify_expr (&block, res, args);
-   tmp = build_v (GOTO_EXPR, exit_label);
-   gfc_add_expr_to_block (&block, tmp);
-   tmp = gfc_finish_block (&block);
-   cond = build (EQ_EXPR, boolean_type_node, exponent, full_1_expn);
-   tmp = build_v (COND_EXPR, cond, tmp, build_empty_stmt ());
-   gfc_add_expr_to_block (&se->pre, tmp);
-
-   /* Generate code for normalized case */ 
-   gfc_start_block (&block);
-   tmp = build (PLUS_EXPR, masktype, exponent, arg2); 
-   gfc_add_modify_expr(&block, exponent, tmp);
-   cond = build (LT_EXPR, boolean_type_node, exponent, zero);
-
-   gfc_start_block (&block1);
-   t1 = build (BIT_IOR_EXPR, masktype, fraction, rcs.f1);
-   tmp = build1 (NEGATE_EXPR, masktype, exponent);
-   tmp = build (PLUS_EXPR, masktype, tmp, one);
-   tmp = build (RSHIFT_EXPR, masktype, t1, tmp);
-   gfc_add_modify_expr (&block1, fraction, tmp);
-   gfc_add_modify_expr (&block1, exponent, zero);
-   t1 = gfc_finish_block (&block1);
-
-   gfc_start_block (&block1);
-   cond1 = build (GE_EXPR, boolean_type_node, exponent, full_1_expn);
-   tmp = build (MODIFY_EXPR, masktype, exponent, full_1_expn);
-   tmp = build (COND_EXPR, masktype, cond1, tmp, build_empty_stmt ());
-   gfc_add_expr_to_block (&block1, tmp);
-   t2 = gfc_finish_block (&block1);
-
-   tmp = build_v (COND_EXPR, cond, t1, t2);
-   gfc_add_expr_to_block (&block, tmp);
-
-   norm_case = gfc_finish_block (&block);
- 
-   /* Denormalized case  */
-   gfc_start_block(&block); 
-
-   t2 = fold (build (PLUS_EXPR, masktype, rcs.edigits, one));
-   t1 = build (LSHIFT_EXPR, masktype, fraction, t2);
-   tmp = call_builtin_clz (masktype, t1);
-   gfc_add_modify_expr (&block, leadzero, tmp); 
-   t1 = build (MINUS_EXPR, masktype, arg2, leadzero);
-   gfc_add_modify_expr(&block, diff, t1);
-
-   /* diff > 0  */
-   gfc_start_block (&block1);
-   t1 = build (PLUS_EXPR, masktype, leadzero, one);
-   t1 = build (LSHIFT_EXPR, masktype, fraction, t1);
-   tmp = build (BIT_AND_EXPR, masktype, t1, rcs.fmask);
-   gfc_add_modify_expr (&block1, fraction, tmp);
-   t1 = build (PLUS_EXPR, masktype, exponent, diff);
-   gfc_add_modify_expr(&block1, exponent, t1);
-   nnorm_case_1 = gfc_finish_block (&block1);
- 
-   /* diff <= 0 */
-   gfc_start_block (&block1);
-   t1 = build (LSHIFT_EXPR, masktype, fraction, arg2);
-   t2 = build1 (NEGATE_EXPR, masktype, arg2);
-   t2 = build (RSHIFT_EXPR, masktype, fraction, t2);
-   cond1 = build (GE_EXPR, boolean_type_node, arg2, integer_zero_node);
-   tmp = build (COND_EXPR, masktype, cond1, t1, t2);
-   gfc_add_modify_expr (&block1, fraction, tmp);
-   nnorm_case_2 = gfc_finish_block (&block1);
-        
-   cond = build (GT_EXPR, boolean_type_node, diff, zero);
-                                                                              
-   tmp = build_v (COND_EXPR, cond, nnorm_case_1, nnorm_case_2);
- 
-   gfc_add_expr_to_block (&block, tmp);
-   nnorm_case = gfc_finish_block (&block);
-  
-   cond =  build (NE_EXPR, boolean_type_node, exponent, integer_zero_node);
-   tmp = build_v (COND_EXPR, cond, norm_case, nnorm_case);
-   gfc_add_expr_to_block (&se->pre, tmp);
-
-   sign = build (BIT_AND_EXPR, masktype, arg, rcs.smask);
-   t1 = build (LSHIFT_EXPR, masktype, exponent, rcs.fdigits);
-   t2 = build (BIT_IOR_EXPR,  masktype, sign, t1);
-   tmp = build (BIT_IOR_EXPR, masktype, t2, fraction);
-   tmp = build1 (VIEW_CONVERT_EXPR, rcs.type, tmp);
-   gfc_add_modify_expr (&se->pre, res, tmp);
- 
-   /* add the exit label  */
-   tmp = build1_v (LABEL_EXPR, exit_label);
-   gfc_add_expr_to_block (&se->pre, tmp);
- 
-   se->expr = res;
-}  
-
-
-/*  Generate code for the NEAREST intrinsic.
-    We generate:
-  {
-                                                                               
-    if (expn == full_1_expn) // s is a NaN or Inf
-    {
-      res = s;
-    }
-    else if ((s<<1) == 0)
-    {
-      res = 1 << (BITS_OF_FRACTION_OF);
-      if (r < 0)
-        res = res | (1 <<  (PRECISION_OF_TYPE-1));
-    }
-    else
-    {
-      if (r >= 0)
-        delta = 1;
-      else
-        delta = -1;
-                                                                                
-      if (s < 0) delta = -delta;
-                                                                                
-      res = s + delta;
-    }
-  }
-*/
-
-static void
-gfc_conv_intrinsic_nearest (gfc_se * se, gfc_expr * expr)
-{
-   tree arg, args;
-   tree arg1;
-   tree masktype;
-   tree tmp, t1;
-   tree one, zero;
-   tree cond, cond1, cond2;
-   tree res, delta;
-   tree case1, case2, case3;
-   stmtblock_t block;
-   real_compnt_info rcs;
-
-   arg = gfc_conv_intrinsic_function_args (se, expr);
-   arg1 = TREE_VALUE (TREE_CHAIN (arg));
-   args = TREE_VALUE (arg);
-
-   prepare_arg_info (se, expr, &rcs, 0);
-   arg = rcs.arg;
-   masktype = rcs.mtype;
-
-   one = gfc_build_const (masktype, integer_one_node);
-   zero = gfc_build_const (masktype, integer_zero_node);
-
-   arg1 = build1 (VIEW_CONVERT_EXPR, masktype, arg1);
-   /* Creat variables for the result and temporarilly using.  */
-   res = gfc_create_var (masktype, "res");
-   delta = gfc_create_var (masktype, "delta");
-
-   tmp = build (BIT_AND_EXPR, masktype, arg, rcs.emask);
-   tmp = build (BIT_XOR_EXPR, masktype, tmp, rcs.emask);
-   cond1 = build (EQ_EXPR, boolean_type_node, tmp, zero);
-
-   /* Code for S being NaN or Inf  */
-   gfc_start_block (&block);
-   gfc_add_modify_expr (&block, res, arg);
-   case1 = gfc_finish_block (&block);
-
-   tmp = build (LSHIFT_EXPR, masktype, arg, one);
-   cond2 = build (EQ_EXPR, boolean_type_node, tmp, zero);
-
-   /* Code for S == 0  */
-
-   gfc_start_block (&block);
-   t1 = fold (build (PLUS_EXPR, masktype, rcs.edigits, rcs.fdigits));
-   t1 = fold (build (LSHIFT_EXPR, masktype, one, t1));
-   tmp = build (GT_EXPR, boolean_type_node, arg1, integer_zero_node);
-   t1 = build (COND_EXPR, masktype, tmp, zero, t1);
-   tmp = build (BIT_IOR_EXPR, masktype, rcs.f1, t1);
-   tmp = build (MODIFY_EXPR, masktype, res, tmp);
-   gfc_add_expr_to_block (&block, tmp);
-   case2 = gfc_finish_block (&block);
-
-   /* Code for S !=0 && S != Inf/NaN  */
-   gfc_start_block (&block);
-   cond = build (GE_EXPR, boolean_type_node, arg1, integer_zero_node);
-   tmp = build (COND_EXPR, masktype, cond, one, integer_minus_one_node);
-   gfc_add_modify_expr (&block, delta, tmp);
-
-   cond = build (LT_EXPR, boolean_type_node, arg, zero);
-   tmp = build1 (NEGATE_EXPR, masktype, delta);
-   tmp = build (MODIFY_EXPR, masktype, delta, tmp);
-   tmp = build_v (COND_EXPR, cond, tmp, build_empty_stmt ()); 
-   gfc_add_expr_to_block (&block, tmp);
-   
-   tmp = build (PLUS_EXPR, masktype, arg, delta);
-   gfc_add_modify_expr (&block, res, tmp);
-   case3 = gfc_finish_block (&block);                                      
-
-   tmp = build_v (COND_EXPR, cond2, case2, case3);
-   tmp = build_v (COND_EXPR, cond1, case1, tmp);
-   gfc_add_expr_to_block (&se->pre, tmp);
-
-   /* Force the result's type back to its original type  */
-   tmp = build1 (VIEW_CONVERT_EXPR, rcs.type, res);
-   se->expr = tmp;
-}
-
-
-/* Generate code for FRACTION(X) intrinsic function. We generate:
-
-  if (X = 0)
-    result = X
-  else
-  {
-    if (expn == 0) // X is denormalized.
-    {
-      sedigits = (PRECISION_OF_TYPE (X) - BITS_OF_FRACTION (X) + 1)
-      frac = frac << sedigits
-      t1 = leadzero(frac) + 1
-      frac = frac << t1
-      frac = frac >> sedigits
-    }
-    result = sign | bias-1 | frac
-  }
-*/
-
-static void
-gfc_conv_intrinsic_fraction (gfc_se * se, gfc_expr * expr)
-{
-   tree arg;
-   tree masktype;
-   tree tmp, t1, t2;
-   tree sedigits;
-   tree one, zero;
-   tree sign, fraction;
-   tree cond;
-   real_compnt_info rcs;
-
-   prepare_arg_info (se, expr, &rcs, 1);
-   arg = rcs.arg;
-   masktype = rcs.mtype;
-   fraction = rcs.frac;
-
-   one = gfc_build_const (masktype, integer_one_node);
-   sedigits = fold (build (PLUS_EXPR, masktype, rcs.edigits, one));
-   /* arg != 0.  */
-   /* Caculate denormalized fraction.  */
-   t2 = build_int_2 (2, 0);
-   t2 = convert (masktype, t2);
-   t1 = call_builtin_clz (masktype, fraction);
-   t1 = build (PLUS_EXPR, masktype, t1, one);
-   tmp = build (LSHIFT_EXPR, masktype, fraction, t1);
-   tmp = build (RSHIFT_EXPR, masktype, tmp, sedigits);
-
-   zero = gfc_build_const (masktype, integer_zero_node);
-   cond = build (EQ_EXPR, boolean_type_node, rcs.expn, zero);
-   fraction = build (COND_EXPR, masktype, cond, tmp, fraction);
-
-   /* Form exponent.  */
-   tmp = fold(build (MINUS_EXPR, masktype, rcs.bias, one));
-   tmp = fold(build (LSHIFT_EXPR, masktype, tmp, rcs.fdigits));
-
-   sign = build (BIT_AND_EXPR, masktype, arg, rcs.smask);
-   tmp = build (BIT_IOR_EXPR, masktype, sign, tmp);
-   tmp = build (BIT_IOR_EXPR, masktype, tmp, fraction);
-
-   cond = build (EQ_EXPR, boolean_type_node, arg, zero);
-   tmp = build (COND_EXPR, masktype, cond, arg, tmp);
-   se->expr = build1 (VIEW_CONVERT_EXPR, rcs.type, tmp);
-}
-
-
-/* Generate code for EXPONENT(X) intrinsic function. We generate:
-                                                              
-    if (s == 0)
-      res = 0
-    else
-    if (expn == 0)
-    {
-      t = leadzero(frac)
-      res = - (t - edigits - 1) - bias + 1 // -t + edigits - bias + 2
-    }
-    else
-      res = expn - bias + 1
-*/
-
-static void
-gfc_conv_intrinsic_exponent (gfc_se * se, gfc_expr * expr)
-{
-   tree arg;
-   tree type, masktype;
-   tree tmp, t1, t2;
-   tree exponent;
-   tree one, zero;
-   tree cond;
-   real_compnt_info rcs;
-
-   prepare_arg_info (se, expr, &rcs, 1);
-   arg = rcs.arg;
-   masktype = rcs.mtype;
-   exponent = rcs.expn;
-
-   one = gfc_build_const (masktype, integer_one_node);
-   zero = gfc_build_const (masktype, integer_zero_node);
-
-   /* arg != 0.  */
-   /* exponent == 0  */
-   t2 = fold (build (PLUS_EXPR, masktype, rcs.edigits, one));
-   t2 = fold (build (MINUS_EXPR, masktype, t2, rcs.bias));
-   t2 = fold (build (PLUS_EXPR, masktype, t2, one));
-   t1 = call_builtin_clz (masktype, rcs.frac);
-   t1 = build (MINUS_EXPR, masktype, t2, t1);
-   /* exponent != 0  */
-   t2 = fold (build (MINUS_EXPR, masktype, rcs.bias, one));
-   t2 = build (MINUS_EXPR, masktype, exponent, t2);
-
-   cond = build (EQ_EXPR, boolean_type_node, exponent, zero);
-   t1 = build (COND_EXPR, masktype, cond, t1, t2);
-
-   cond = build (EQ_EXPR, boolean_type_node, arg, zero);
-   exponent = build (COND_EXPR, masktype, cond, zero, t1);
-   type = gfc_typenode_for_spec (&expr->ts);
-   tmp = convert (type, exponent); 
-   se->expr = tmp;
-}
-
 /* Generate code for SPACING (X) intrinsic function. We generate:
                                                                                 
     t = expn - (BITS_OF_FRACTION)
@@ -3106,22 +2598,6 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
     case GFC_ISYM_EXPONENT:
       gfc_conv_intrinsic_exponent (se, expr);
-      break;
-
-    case GFC_ISYM_FRACTION:
-      gfc_conv_intrinsic_fraction(se, expr);
-      break;
-                                                                                
-    case GFC_ISYM_NEAREST:
-      gfc_conv_intrinsic_nearest(se, expr);
-      break;
-
-    case GFC_ISYM_SCALE:
-      gfc_conv_intrinsic_scale (se, expr);
-      break;
-
-    case GFC_ISYM_SET_EXPONENT:
-      gfc_conv_intrinsic_set_exponent (se, expr);
       break;
 
     case GFC_ISYM_SPACING:
