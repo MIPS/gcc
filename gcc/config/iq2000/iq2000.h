@@ -307,16 +307,16 @@ enum reg_class
    `I'	is used for the range of constants an arithmetic insn can
 	actually contain (16 bits signed integers).
 
-   `J'	is used for the range which is just zero (ie, $r0).
+   `J'	is used for the range which is just zero (i.e., $r0).
 
    `K'	is used for the range of constants a logical insn can actually
 	contain (16 bit zero-extended integers).
 
    `L'	is used for the range of constants that be loaded with lui
-	(ie, the bottom 16 bits are zero).
+	(i.e., the bottom 16 bits are zero).
 
    `M'	is used for the range of constants that take two words to load
-	(ie, not matched by `I', `K', and `L').
+	(i.e., not matched by `I', `K', and `L').
 
    `N'	is used for constants 0xffffnnnn or 0xnnnnffff
 
@@ -441,12 +441,6 @@ enum reg_class
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
   function_arg_partial_nregs (& CUM, MODE, TYPE, NAMED)
 
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED)		\
-  function_arg_pass_by_reference (& CUM, MODE, TYPE, NAMED)
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED)		\
-  ((NAMED) && FUNCTION_ARG_PASS_BY_REFERENCE (CUM, MODE, TYPE, NAMED))
-
 #define MAX_ARGS_IN_REGISTERS 8
 
 typedef struct iq2000_args
@@ -543,10 +537,6 @@ typedef struct iq2000_args
 
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   iq2000_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  iq2000_va_arg (valist, type)
 
 
 /* Trampolines for Nested Functions.  */
@@ -698,8 +688,6 @@ typedef struct iq2000_args
 #define SLOW_BYTE_ACCESS 1
 
 #define NO_FUNCTION_CSE 1
-
-#define NO_RECURSIVE_FUNCTION_CSE 1
 
 #define ADJUST_COST(INSN,LINK,DEP_INSN,COST)				\
   if (REG_NOTE_KIND (LINK) != 0)					\

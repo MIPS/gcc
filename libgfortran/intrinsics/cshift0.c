@@ -25,25 +25,61 @@ Boston, MA 02111-1307, USA.  */
 #include <string.h>
 #include "libgfortran.h"
 
-/* TODO: make this work for large shifts when
-   sizeof(int) < sizeof (index_type).  */
+
+/* "Templatized" helper function for the inner shift loop.  */
+
+#define DEF_COPY_LOOP(NAME, TYPE)					\
+static inline void							\
+copy_loop_##NAME (void *xdest, const void *xsrc,			\
+		  size_t roff, size_t soff,				\
+		  index_type len, index_type shift)			\
+{									\
+  TYPE *dest = xdest;							\
+  const TYPE *src;							\
+  index_type i;								\
+									\
+  roff /= sizeof (TYPE);						\
+  soff /= sizeof (TYPE);						\
+									\
+  src = xsrc;								\
+  src += shift * soff;							\
+  for (i = 0; i < len - shift; ++i)					\
+    {									\
+      *dest = *src;							\
+      dest += roff;							\
+      src += soff;							\
+    }									\
+									\
+  src = xsrc;								\
+  for (i = 0; i < shift; ++i)						\
+    {									\
+      *dest = *src;							\
+      dest += roff;							\
+      src += soff;							\
+    }									\
+}
+
+DEF_COPY_LOOP(int, int)
+DEF_COPY_LOOP(long, long)
+DEF_COPY_LOOP(double, double)
+DEF_COPY_LOOP(ldouble, long double)
+
 
 static void
-__cshift0 (const gfc_array_char * ret, const gfc_array_char * array,
-    int shift, int which)
+__cshift0 (gfc_array_char * ret, const gfc_array_char * array,
+	   ssize_t shift, int which)
 {
   /* r.* indicates the return array.  */
   index_type rstride[GFC_MAX_DIMENSIONS - 1];
   index_type rstride0;
   index_type roffset;
   char *rptr;
-  char *dest;
+
   /* s.* indicates the source array.  */
   index_type sstride[GFC_MAX_DIMENSIONS - 1];
   index_type sstride0;
   index_type soffset;
   const char *sptr;
-  const char *src;
 
   index_type count[GFC_MAX_DIMENSIONS - 1];
   index_type extent[GFC_MAX_DIMENSIONS - 1];
@@ -64,10 +100,29 @@ __cshift0 (const gfc_array_char * ret, const gfc_array_char * array,
   size = GFC_DESCRIPTOR_SIZE (array);
   n = 0;
 
-/* Initialized for avoiding compiler warnings.  */
+  /* Initialized for avoiding compiler warnings.  */
   roffset = size;
   soffset = size;
   len = 0;
+
+  if (ret->data == NULL)
+    {
+      int i;
+
+      ret->data = internal_malloc (size * size0 ((array_t *)array));
+      ret->base = 0;
+      ret->dtype = array->dtype;
+      for (i = 0; i < GFC_DESCRIPTOR_RANK (array); i++)
+        {
+          ret->dim[i].lbound = 0;
+          ret->dim[i].ubound = array->dim[i].ubound - array->dim[i].lbound;
+
+          if (i == 0)
+            ret->dim[i].stride = 1;
+          else
+            ret->dim[i].stride = (ret->dim[i-1].ubound + 1) * ret->dim[i-1].stride;
+        }
+    }
 
   for (dim = 0; dim < GFC_DESCRIPTOR_RANK (array); dim++)
     {
@@ -101,24 +156,55 @@ __cshift0 (const gfc_array_char * ret, const gfc_array_char * array,
   rptr = ret->data;
   sptr = array->data;
 
-  shift = (div (shift, len)).rem;
+  shift = shift % (ssize_t)len;
   if (shift < 0)
     shift += len;
 
   while (rptr)
     {
       /* Do the shift for this dimension.  */
-      src = &sptr[shift * soffset];
-      dest = rptr;
-      for (n = 0; n < len; n++)
-        {
-          memcpy (dest, src, size);
-          dest += roffset;
-          if (n == len - shift - 1)
-            src = sptr;
-          else
-            src += soffset;
-        }
+
+      /* If elements are contiguous, perform the operation
+	 in two block moves.  */
+      if (soffset == size && roffset == size)
+	{
+	  size_t len1 = shift * size;
+	  size_t len2 = (len - shift) * size;
+	  memcpy (rptr, sptr + len1, len2);
+	  memcpy (rptr + len2, sptr, len1);
+	}
+      else
+	{
+	  /* Otherwise, we'll have to perform the copy one element at
+	     a time.  We can speed this up a tad for common cases of 
+	     fundamental types.  */
+	  if (size == sizeof(int))
+	    copy_loop_int (rptr, sptr, roffset, soffset, len, shift);
+	  else if (size == sizeof(long))
+	    copy_loop_long (rptr, sptr, roffset, soffset, len, shift);
+	  else if (size == sizeof(double))
+	    copy_loop_double (rptr, sptr, roffset, soffset, len, shift);
+	  else if (size == sizeof(long double))
+	    copy_loop_ldouble (rptr, sptr, roffset, soffset, len, shift);
+	  else
+	    {
+	      char *dest = rptr;
+	      const char *src = &sptr[shift * soffset];
+
+	      for (n = 0; n < len - shift; n++)
+		{
+		  memcpy (dest, src, size);
+		  dest += roffset;
+		  src += soffset;
+		}
+	      for (src = sptr, n = 0; n < shift; n++)
+		{
+		  memcpy (dest, src, size);
+		  dest += roffset;
+		  src += soffset;
+		}
+	    }
+	}
 
       /* Advance to the next section.  */
       rptr += rstride0;
@@ -153,7 +239,7 @@ __cshift0 (const gfc_array_char * ret, const gfc_array_char * array,
 
 
 void
-__cshift0_4 (const gfc_array_char * ret, const gfc_array_char * array,
+__cshift0_4 (gfc_array_char * ret, const gfc_array_char * array,
     const GFC_INTEGER_4 * pshift, const GFC_INTEGER_4 * pdim)
 {
   __cshift0 (ret, array, *pshift, pdim ? *pdim : 1);
@@ -161,9 +247,8 @@ __cshift0_4 (const gfc_array_char * ret, const gfc_array_char * array,
 
 
 void
-__cshift0_8 (const gfc_array_char * ret, const gfc_array_char * array,
+__cshift0_8 (gfc_array_char * ret, const gfc_array_char * array,
     const GFC_INTEGER_8 * pshift, const GFC_INTEGER_8 * pdim)
 {
   __cshift0 (ret, array, *pshift, pdim ? *pdim : 1);
 }
-

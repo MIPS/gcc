@@ -42,7 +42,10 @@ extern int frv_sched_lookahead;			/* value -msched-lookahead= */
 typedef enum frv_cpu
 {
   FRV_CPU_GENERIC,
+  FRV_CPU_FR550,
   FRV_CPU_FR500,
+  FRV_CPU_FR450,
+  FRV_CPU_FR405,
   FRV_CPU_FR400,
   FRV_CPU_FR300,
   FRV_CPU_SIMPLE,
@@ -53,7 +56,7 @@ extern frv_cpu_t frv_cpu_type;			/* value of -mcpu= */
 
 /* Define functions defined in frv.c */
 extern void frv_expand_prologue			(void);
-extern void frv_expand_epilogue			(int);
+extern void frv_expand_epilogue			(bool);
 extern void frv_override_options		(void);
 extern void frv_optimization_options		(int, int);
 extern void frv_conditional_register_usage	(void);
@@ -65,6 +68,7 @@ extern int frv_initial_elimination_offset	(int, int);
 #ifdef RTX_CODE
 extern int frv_legitimate_address_p		(enum machine_mode, rtx,
 						 int, int, int);
+extern rtx frv_legitimize_address		(rtx, rtx, enum machine_mode);
 extern rtx frv_find_base_term			(rtx);
 
 #ifdef TREE_CODE
@@ -84,16 +88,7 @@ extern int frv_function_arg_partial_nregs	(CUMULATIVE_ARGS *,
 						 enum machine_mode,
 						 tree, int);
 
-extern int frv_function_arg_pass_by_reference	(CUMULATIVE_ARGS *,
-						 enum machine_mode,
-						 tree, int);
-
-extern int frv_function_arg_callee_copies	(CUMULATIVE_ARGS *,
-						 enum machine_mode,
-						 tree, int);
-
 extern void frv_expand_builtin_va_start		(tree, rtx);
-extern rtx frv_expand_builtin_va_arg		(tree, tree);
 #endif /* TREE_CODE */
 
 extern int frv_expand_block_move		(rtx *);
@@ -106,6 +101,7 @@ extern const char *frv_asm_output_opcode
 extern void frv_final_prescan_insn	(rtx, rtx *, int);
 extern void frv_print_operand		(FILE *, rtx, int);
 extern void frv_print_operand_address	(FILE *, rtx);
+extern void frv_emit_move		(enum machine_mode, rtx, rtx);
 extern int frv_emit_movsi		(rtx, rtx);
 extern const char *output_move_single	(rtx *, rtx);
 extern const char *output_move_double	(rtx *, rtx);
@@ -146,6 +142,8 @@ extern int frv_legitimate_constant_p	(rtx);
 
 extern int direct_return_p		(void);
 extern int frv_register_move_cost	(enum reg_class, enum reg_class);
+extern int frv_issue_rate		(void);
+extern int frv_acc_group		(rtx);
 
 #ifdef TREE_CODE
 extern int frv_adjust_field_align	(tree, int);
@@ -225,7 +223,7 @@ extern int even_acc_operand		(rtx, enum machine_mode);
 extern int quad_acc_operand		(rtx, enum machine_mode);
 extern int accg_operand			(rtx, enum machine_mode);
 extern rtx frv_matching_accg_for_acc	(rtx);
-extern void frv_expand_fdpic_call	(rtx *, int);
+extern void frv_expand_fdpic_call	(rtx *, bool, bool);
 extern rtx frv_gen_GPsym2reg		(rtx, rtx);
 #endif
 

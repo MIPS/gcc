@@ -68,7 +68,7 @@ public final class NumberUp extends IntegerSyntax
    *
    * @param obj the object to test
    *
-   * @returns true if both objects are equal, false otherwise.
+   * @return true if both objects are equal, false otherwise.
    */
   public boolean equals(Object obj)
   {
@@ -83,7 +83,7 @@ public final class NumberUp extends IntegerSyntax
    *
    * @return the class <code>NumberUp</code> itself
    */
-  public final Class getCategory()
+  public Class getCategory()
   {
     return NumberUp.class;
   }
@@ -93,7 +93,7 @@ public final class NumberUp extends IntegerSyntax
    *
    * @return the string "number-up"
    */
-  public final String getName()
+  public String getName()
   {
     return "number-up";
   }

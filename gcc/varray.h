@@ -109,7 +109,7 @@ typedef union varray_data_tag GTY (()) {
 				tag ("VARRAY_DATA_HINT")))	hint[1];
   unsigned HOST_WIDE_INT  GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_UHINT")))	uhint[1];
-  PTR			  GTY ((length ("%0.num_elements"), use_param (""),
+  PTR			  GTY ((length ("%0.num_elements"), use_param,
 				tag ("VARRAY_DATA_GENERIC")))	generic[1];
   PTR			  GTY ((length ("%0.num_elements"), skip (""),
 				tag ("VARRAY_DATA_GENERIC_NOGC")))	generic_nogc[1];
@@ -123,11 +123,11 @@ typedef union varray_data_tag GTY (()) {
 				tag ("VARRAY_DATA_TREE")))	tree[1];
   struct bitmap_head_def *GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_BITMAP")))	bitmap[1];
-  struct reg_info_def	 *GTY ((length ("%0.num_elements"), skip (""),
+  struct reg_info_def	 *GTY ((length ("%0.num_elements"), skip,
 				tag ("VARRAY_DATA_REG")))	reg[1];
   struct const_equiv_data GTY ((length ("%0.num_elements"),
 			tag ("VARRAY_DATA_CONST_EQUIV")))	const_equiv[1];
-  struct basic_block_def *GTY ((length ("%0.num_elements"),
+  struct basic_block_def *GTY ((length ("%0.num_elements"), skip,
 				tag ("VARRAY_DATA_BB")))	bb[1];
   struct elt_list	 *GTY ((length ("%0.num_elements"),
 				tag ("VARRAY_DATA_TE")))	te[1];
@@ -219,6 +219,11 @@ extern varray_type varray_init (size_t, enum varray_data_enum, const char *);
 #define VARRAY_EDGE_INIT(va, num, name) \
   va = varray_init (num, VARRAY_DATA_EDGE, name)
 
+/* APPLE LOCAL begin lno */
+#define VARRAY_DG_INIT(va, num, name) \
+  va = varray_init (num, VARRAY_DATA_DG, name)
+/* APPLE LOCAL end lno */
+
 #define VARRAY_TREE_PTR_INIT(va, num, name) \
   va = varray_init (num, VARRAY_DATA_TREE_PTR, name)
 
@@ -304,6 +309,8 @@ extern void varray_underflow (varray_type, const char *, int, const char *)
 #define VARRAY_BB(VA, N)		VARRAY_CHECK (VA, N, bb)
 #define VARRAY_ELT_LIST(VA, N)		VARRAY_CHECK (VA, N, te)
 #define VARRAY_EDGE(VA, N)		VARRAY_CHECK (VA, N, e)
+/* APPLE LOCAL lno */
+#define VARRAY_DG(VA, N)		VARRAY_CHECK (VA, N, dg)
 #define VARRAY_TREE_PTR(VA, N)		VARRAY_CHECK (VA, N, tp)
 
 /* Push a new element on the end of VA, extending it if necessary.  */
@@ -328,6 +335,8 @@ extern void varray_underflow (varray_type, const char *, int, const char *)
 #define VARRAY_PUSH_CONST_EQUIV(VA, X)	VARRAY_PUSH (VA, const_equiv, X)
 #define VARRAY_PUSH_BB(VA, X)		VARRAY_PUSH (VA, bb, X)
 #define VARRAY_PUSH_EDGE(VA, X)		VARRAY_PUSH (VA, e, X)
+/* APPLE LOCAL lno */
+#define VARRAY_PUSH_DG(VA, X)		VARRAY_PUSH (VA, dg, X)
 #define VARRAY_PUSH_TREE_PTR(VA, X)	VARRAY_PUSH (VA, tp, X)
 
 /* Return the last element of VA.  */
@@ -355,5 +364,63 @@ extern void varray_underflow (varray_type, const char *, int, const char *)
 #define VARRAY_TOP_BB(VA)		VARRAY_TOP (VA, bb)
 #define VARRAY_TOP_EDGE(VA)		VARRAY_TOP (VA, e)
 #define VARRAY_TOP_TREE_PTR(VA)		VARRAY_TOP (VA, tp)
+
+/* APPLE LOCAL begin lno */
+
+
+static inline int index_in_varray_tree (tree, varray_type);
+static inline bool tree_is_in_varray_tree_p (tree, varray_type);
+
+static inline int index_in_varray_int (int, varray_type);
+static inline bool int_is_in_varray_int_p (int, varray_type);
+
+/* Determines the index of T in the varray_tree VT.  */
+
+static inline int
+index_in_varray_tree (tree t, 
+		      varray_type vt)
+{
+  unsigned int i;
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (vt); i++)
+    if (t == VARRAY_TREE (vt, i))
+      return i;
+  
+  return -1;
+}
+
+/* Determines whether T is in the varray_tree VT.  */
+
+static inline bool
+tree_is_in_varray_tree_p (tree t, 
+			  varray_type vt)
+{
+  return index_in_varray_tree (t, vt) != -1;
+}
+
+/* Determines the index of T in the varray_int VT.  */
+
+static inline int
+index_in_varray_int (int t, 
+		     varray_type vt)
+{
+  unsigned int i;
+  
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (vt); i++)
+    if (t == VARRAY_INT (vt, i))
+      return i;
+  
+  return -1;
+}
+
+/* Determines whether T is in the varray_int VT.  */
+
+static inline bool
+int_is_in_varray_int_p (int t, 
+			varray_type vt)
+{
+  return index_in_varray_int (t, vt) != -1;
+}
+/* APPLE LOCAL end lno */
 
 #endif /* ! GCC_VARRAY_H */

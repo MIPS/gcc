@@ -36,6 +36,11 @@ pragma Elaborate (GNAT.OS_Lib);
 
 package Osint is
 
+   Multi_Unit_Index_Character : Character := '~';
+   --  The character before the index of the unit in a multi-unit source,
+   --  in ALI and object file names. This is not a constant, because it is
+   --  changed to '$' on VMS.
+
    Ada_Include_Path          : constant String := "ADA_INCLUDE_PATH";
    Ada_Objects_Path          : constant String := "ADA_OBJECTS_PATH";
    Project_Include_Path_File : constant String := "ADA_PRJ_INCLUDE_FILE";
@@ -87,9 +92,15 @@ package Osint is
    function Number_Of_Files return Int;
    --  gives the total number of filenames found on the command line.
 
-   procedure Add_File (File_Name : String);
+   No_Index : constant := -1;
+   --  Value used in Add_File to indicate that no index is specified
+   --  for a main.
+
+   procedure Add_File (File_Name : String; Index : Int := No_Index);
    --  Called by the subprogram processing the command line for each
-   --  file name found.
+   --  file name found. The index, when not defaulted to No_Index
+   --  is the index of the subprogram in its source, zero indicating
+   --  that the source is not multi-unit.
 
    procedure Find_Program_Name;
    --  Put simple name of current program being run (excluding the directory
@@ -235,7 +246,7 @@ package Osint is
 
    procedure Get_Next_Dir_In_Path_Init
      (Search_Path : String_Access);
-   function  Get_Next_Dir_In_Path
+   function Get_Next_Dir_In_Path
      (Search_Path : String_Access) return String_Access;
    --  These subprograms are used to parse out the directory names in a
    --  search path specified by a Search_Path argument. The procedure
@@ -271,11 +282,14 @@ package Osint is
    --  directories. These files, located in Sdefault.Search_Dir_Prefix, do
    --  not necessarily exist.
 
+   Exec_Name : String_Ptr;
+   --  Executable name as typed by the user (used to compute the
+   --  executable prefix).
+
    function Read_Default_Search_Dirs
      (Search_Dir_Prefix       : String_Access;
       Search_File             : String_Access;
-      Search_Dir_Default_Name : String_Access)
-      return                    String_Access;
+      Search_Dir_Default_Name : String_Access) return String_Access;
    --  Read and return the default search directories from the file located
    --  in Search_Dir_Prefix (as modified by update_path) and named Search_File.
    --  If no such file exists or an error occurs then instead return the
@@ -370,6 +384,9 @@ package Osint is
    --  information. The source file directory lookup penalty is incurred
    --  every single time the routines are called unless you have previously
    --  called Source_File_Data (Cache => True). See below.
+
+   function Current_File_Index return Int;
+   --  Return the index in its source file of the current main unit
 
    function Matching_Full_Source_Name
      (N : File_Name_Type;
@@ -480,11 +497,15 @@ package Osint is
    --  file directory lookup penalty is incurred every single time this
    --  routine is called.
 
-   function Lib_File_Name (Source_File : File_Name_Type) return File_Name_Type;
+   function Lib_File_Name
+     (Source_File : File_Name_Type;
+      Munit_Index : Nat := 0) return File_Name_Type;
    --  Given the name of a source file, returns the name of the corresponding
    --  library information file. This may be the name of the object file, or
    --  of a separate file used to store the library information. In either case
    --  the returned result is suitable for use in a call to Read_Library_Info.
+   --  The Munit_Index is the unit index in multiple unit per file mode, or
+   --  zero in normal single unit per file mode (used to add ~nnn suffix).
    --  Note: this subprogram is in this section because it is used by the
    --  compiler to determine the proper library information names to be placed
    --  in the generated library information file.
@@ -560,6 +581,11 @@ private
    --  The strings do not have terminating NUL files. The array is
    --  extensible, because when using project files, there may be
    --  more files than arguments on the command line.
+
+   type File_Index_Array is array (Int range <>) of Int;
+   type File_Index_Array_Ptr is access File_Index_Array;
+   File_Indexes : File_Index_Array_Ptr :=
+                    new File_Index_Array (1 .. Int (Argument_Count) + 2);
 
    Current_File_Name_Index : Int := 0;
    --  The index in File_Names of the last file opened by Next_Main_Source

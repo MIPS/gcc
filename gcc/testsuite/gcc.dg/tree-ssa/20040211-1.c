@@ -35,6 +35,6 @@ com (rtx insn, int blah)
     foo ();
 }
 
-/* After cddce we should have no IF statements remaining since this
-   whole function collapses down to a simple return.  */
-/* { dg-final { scan-tree-dump-times "if " 0 "cddce"} } */
+/* Cddce cannot remove possibly infinite loops and there is no way how to
+   determine whether the loop in can_move_up ends.  */
+/* { dg-final { scan-tree-dump "if " "cddce"} } */

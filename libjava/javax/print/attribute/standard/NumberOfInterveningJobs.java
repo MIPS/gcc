@@ -1,5 +1,5 @@
 /* NumberOfInterveningJobs.java -- 
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -49,7 +49,7 @@ public final class NumberOfInterveningJobs extends IntegerSyntax
   private static final long serialVersionUID = 2568141124844982746L;
   
   /**
-   * Creates a <code>QueuedJobCount</code> object.
+   * Creates a <code>NumberOfInterveningJobs</code> object.
    *
    * @param value the number of intervening jobs
    *
@@ -68,7 +68,7 @@ public final class NumberOfInterveningJobs extends IntegerSyntax
    *
    * @param obj the object to test
    *
-   * @returns true if both objects are equal, false otherwise.
+   * @return true if both objects are equal, false otherwise.
    */
   public boolean equals(Object obj)
   {
@@ -83,7 +83,7 @@ public final class NumberOfInterveningJobs extends IntegerSyntax
    *
    * @return the class <code>NumberOfInterveningJobs</code> itself
    */
-  public final Class getCategory()
+  public Class getCategory()
   {
     return NumberOfInterveningJobs.class;
   }
@@ -93,7 +93,7 @@ public final class NumberOfInterveningJobs extends IntegerSyntax
    *
    * @return the string "number-of-intervening-jobs"
    */
-  public final String getName()
+  public String getName()
   {
     return "number-of-intervening-jobs";
   }

@@ -1,5 +1,5 @@
-/* java.util.Calendar
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+/* Calendar.java --
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,11 +38,12 @@ exception statement from your version. */
 
 package java.util;
 
-import java.lang.reflect.InvocationTargetException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 /**
  * This class is an abstract base class for Calendars, which can be
@@ -376,7 +377,8 @@ public abstract class Calendar implements Serializable, Cloneable
    */
   private static ResourceBundle getBundle(Locale locale) 
   {
-    return ResourceBundle.getBundle(bundleName, locale);
+    return ResourceBundle.getBundle(bundleName, locale,
+      ClassLoader.getSystemClassLoader());
   }
 
   /**
@@ -435,6 +437,16 @@ public abstract class Calendar implements Serializable, Cloneable
     return getInstance(TimeZone.getDefault(), locale);
   }
 
+  /** 
+   * Cache of locale->calendar-class mappings. This avoids having to do a ResourceBundle
+   * lookup for every getInstance call.  
+   */
+  private static HashMap cache = new HashMap();
+
+  /** Preset argument types for calendar-class constructor lookup.  */
+  private static Class[] ctorArgTypes
+    = new Class[] {TimeZone.class, Locale.class};
+
   /**
    * Creates a calendar representing the actual time, using the given
    * time zone and locale.
@@ -443,29 +455,58 @@ public abstract class Calendar implements Serializable, Cloneable
    */
   public static synchronized Calendar getInstance(TimeZone zone, Locale locale)
   {
-    String calendarClassName = null;
-    ResourceBundle rb = getBundle(locale);
-    calendarClassName = rb.getString("calendarClass");
-    if (calendarClassName != null)
+    Class calendarClass = (Class) cache.get(locale);
+    Throwable exception = null;
+
+    try
       {
-	try
+	if (calendarClass == null)
 	  {
-	    Class calendarClass = Class.forName(calendarClassName);
-	    if (Calendar.class.isAssignableFrom(calendarClass))
+	    ResourceBundle rb = getBundle(locale);
+	    String calendarClassName = rb.getString("calendarClass");
+
+	    if (calendarClassName != null)
 	      {
-		return (Calendar) calendarClass.getConstructor(
-		  new Class[] { TimeZone.class, Locale.class}
-		).newInstance(new Object[] {zone, locale} );
+		calendarClass = Class.forName(calendarClassName);
+		if (Calendar.class.isAssignableFrom(calendarClass))
+		  cache.put(locale, calendarClass);
 	      }
 	  }
-	catch (ClassNotFoundException ex) {}
-	catch (IllegalAccessException ex) {}
-	catch (NoSuchMethodException ex) {}
-	catch (InstantiationException ex) {}
-	catch (InvocationTargetException ex) {}
-	// XXX should we ignore these errors or throw an exception ?
+
+        // GregorianCalendar is by far the most common case. Optimize by 
+	// avoiding reflection.
+	if (calendarClass == GregorianCalendar.class)
+	  return new GregorianCalendar(zone, locale);
+
+	if (Calendar.class.isAssignableFrom(calendarClass))
+	  {
+	    Constructor ctor = calendarClass.getConstructor(ctorArgTypes);
+	    return (Calendar) ctor.newInstance(new Object[] {zone, locale});
+	  }
       }
-    return new GregorianCalendar(zone, locale);
+    catch (ClassNotFoundException ex)
+      {
+	exception = ex;
+      }
+    catch (IllegalAccessException ex)
+      {
+	exception = ex;
+      }
+    catch (NoSuchMethodException ex)
+      {
+	exception = ex;
+      }
+    catch (InstantiationException ex)
+      {
+	exception = ex;
+      }
+    catch (InvocationTargetException ex)
+      {
+	exception = ex;
+      }
+    
+    throw new RuntimeException("Error instantiating calendar for locale " +
+			       locale, exception);
   }
 
   /**
@@ -544,7 +585,9 @@ public abstract class Calendar implements Serializable, Cloneable
    * if they are invalid.
    * @param field the time field. One of the time field constants.
    * @return the value of the specified field
-   *
+   * @throws ArrayIndexOutOfBoundsException if the field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    * @specnote Not final since JDK 1.4
    */
   public int get(int field)
@@ -562,6 +605,9 @@ public abstract class Calendar implements Serializable, Cloneable
    * @param field the time field. One of the time field constants.
    * @return the value of the specified field, undefined if
    * <code>areFieldsSet</code> or <code>isSet[field]</code> is false.
+   * @throws ArrayIndexOutOfBoundsException if the field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    */
   protected final int internalGet(int field)
   {
@@ -573,7 +619,9 @@ public abstract class Calendar implements Serializable, Cloneable
    * the time in milliseconds.
    * @param field the time field. One of the time field constants
    * @param value the value to be set.
-   *
+   * @throws ArrayIndexOutOfBoundsException if field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    * @specnote Not final since JDK 1.4
    */
   public void set(int field, int value)
@@ -603,6 +651,10 @@ public abstract class Calendar implements Serializable, Cloneable
 	isSet[HOUR_OF_DAY] = false;
 	break;
       }
+
+    // May have crossed over a DST boundary.
+    if (field != DST_OFFSET && field != ZONE_OFFSET)
+      isSet[DST_OFFSET] = false;
   }
 
   /**
@@ -623,6 +675,8 @@ public abstract class Calendar implements Serializable, Cloneable
     isSet[WEEK_OF_MONTH] = false;
     isSet[DAY_OF_WEEK] = false;
     isSet[DAY_OF_WEEK_IN_MONTH] = false;
+
+    isSet[DST_OFFSET] = false;  // May have crossed a DST boundary.
   }
 
   /**
@@ -677,6 +731,9 @@ public abstract class Calendar implements Serializable, Cloneable
   /**
    * Clears the values of the specified time field.
    * @param field the time field. One of the time field constants.
+   * @throws ArrayIndexOutOfBoundsException if field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    */
   public final void clear(int field)
   {
@@ -689,6 +746,9 @@ public abstract class Calendar implements Serializable, Cloneable
   /**
    * Determines if the specified field has a valid value.
    * @return true if the specified field has a value.
+   * @throws ArrayIndexOutOfBoundsException if the field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    */
   public final boolean isSet(int field)
   {
@@ -762,6 +822,9 @@ public abstract class Calendar implements Serializable, Cloneable
    * it does what you expect: Jan, 25 + 10 Days is Feb, 4.
    * @param field the time field. One of the time field constants.
    * @param amount the amount of time.
+   * @throws ArrayIndexOutOfBoundsException if the field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    */
   public abstract void add(int field, int amount);
 
@@ -776,6 +839,9 @@ public abstract class Calendar implements Serializable, Cloneable
    * The date June, 31 is automatically converted to July, 1.
    * @param field the time field. One of the time field constants.
    * @param up the direction, true for up, false for down.
+   * @throws ArrayIndexOutOfBoundsException if the field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    */
   public abstract void roll(int field, boolean up);
 
@@ -789,6 +855,9 @@ public abstract class Calendar implements Serializable, Cloneable
    * @param field the time field. One of the time field constants.
    * @param amount the amount to roll by, positive for rolling up,
    * negative for rolling down.  
+   * @throws ArrayIndexOutOfBoundsException if the field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    * @since JDK1.2
    */
   public void roll(int field, int amount)
@@ -924,20 +993,51 @@ public abstract class Calendar implements Serializable, Cloneable
    * This value is dependent on the values of the other fields.
    * @param field the time field. One of the time field constants.
    * @return the actual minimum value.
+   * @throws ArrayIndexOutOfBoundsException if the field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    * @since jdk1.2
    */
-  // FIXME: XXX: Not abstract in JDK 1.2.
-  public abstract int getActualMinimum(int field);
+  public int getActualMinimum(int field)
+  {
+    Calendar tmp = (Calendar)clone();	// To avoid restoring state
+    int min = tmp.getGreatestMinimum(field);
+    int end = tmp.getMinimum(field);
+    tmp.set(field, min);
+    for (; min > end; min--)
+      {
+	tmp.add(field, -1);	// Try to get smaller
+	if (tmp.get(field) != min - 1)
+	  break;		// Done if not successful
+
+      }
+    return min;
+  }
 
   /**
    * Gets the actual maximum value that is allowed for the specified field.
    * This value is dependent on the values of the other fields.
    * @param field the time field. One of the time field constants.
    * @return the actual maximum value.  
+   * @throws ArrayIndexOutOfBoundsException if the field is outside
+   *         the valid range.  The value of field must be >= 0 and
+   *         <= <code>FIELD_COUNT</code>.
    * @since jdk1.2
    */
-  // FIXME: XXX: Not abstract in JDK 1.2.
-  public abstract int getActualMaximum(int field);
+  public int getActualMaximum(int field)
+  {
+    Calendar tmp = (Calendar)clone();	// To avoid restoring state
+    int max = tmp.getLeastMaximum(field);
+    int end = tmp.getMaximum(field);
+    tmp.set(field, max);
+    for (; max < end; max++)
+      {
+	tmp.add(field, 1);
+	if (tmp.get(field) != max + 1)
+	  break;
+      }
+    return max;
+  }
 
   /**
    * Return a clone of this object.
@@ -957,7 +1057,7 @@ public abstract class Calendar implements Serializable, Cloneable
       }
   }
 
-  private final static String[] fieldNames = {
+  private static final String[] fieldNames = {
     ",ERA=", ",YEAR=", ",MONTH=",
     ",WEEK_OF_YEAR=", ",WEEK_OF_MONTH=",
     ",DAY_OF_MONTH=", ",DAY_OF_YEAR=", ",DAY_OF_WEEK=",

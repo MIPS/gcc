@@ -1,5 +1,5 @@
 /* Simple bitmaps.
-   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -103,7 +103,7 @@ sbitmap_resize (sbitmap bmap, unsigned int n_elms, int def)
   return bmap;
 }
 
-/* Re-allocate a simple bitmap of N_ELMS bits. New storage is uninitialized.   */
+/* Re-allocate a simple bitmap of N_ELMS bits. New storage is uninitialized.  */
 
 sbitmap
 sbitmap_realloc (sbitmap src, unsigned int n_elms)
@@ -301,8 +301,7 @@ sbitmap_difference (sbitmap dst, sbitmap a, sbitmap b)
   sbitmap_ptr bp = b->elms;
 
   /* A should be at least as large as DEST, to have a defined source.  */
-  if (a->size < dst_size)
-    abort ();
+  gcc_assert (a->size >= dst_size);
   /* If minuend is smaller, we simply pretend it to be zero bits, i.e.
      only copy the subtrahend into dest.  */
   if (b->size < min_size)
@@ -515,12 +514,14 @@ sbitmap_intersection_of_succs (sbitmap dst, sbitmap *src, int bb)
   basic_block b = BASIC_BLOCK (bb);
   unsigned int set_size = dst->size;
   edge e;
+  unsigned ix;
 
-  for (e = b->succ; e != 0; e = e->succ_next)
+  for (e = NULL, ix = 0; ix < EDGE_COUNT (b->succs); ix++)
     {
+      e = EDGE_SUCC (b, ix);
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
-
+      
       sbitmap_copy (dst, src[e->dest->index]);
       break;
     }
@@ -528,11 +529,12 @@ sbitmap_intersection_of_succs (sbitmap dst, sbitmap *src, int bb)
   if (e == 0)
     sbitmap_ones (dst);
   else
-    for (e = e->succ_next; e != 0; e = e->succ_next)
+    for (++ix; ix < EDGE_COUNT (b->succs); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
 
+	e = EDGE_SUCC (b, ix);
 	if (e->dest == EXIT_BLOCK_PTR)
 	  continue;
 
@@ -552,9 +554,11 @@ sbitmap_intersection_of_preds (sbitmap dst, sbitmap *src, int bb)
   basic_block b = BASIC_BLOCK (bb);
   unsigned int set_size = dst->size;
   edge e;
+  unsigned ix;
 
-  for (e = b->pred; e != 0; e = e->pred_next)
+  for (e = NULL, ix = 0; ix < EDGE_COUNT (b->preds); ix++)
     {
+      e = EDGE_PRED (b, ix);
       if (e->src == ENTRY_BLOCK_PTR)
 	continue;
 
@@ -565,11 +569,12 @@ sbitmap_intersection_of_preds (sbitmap dst, sbitmap *src, int bb)
   if (e == 0)
     sbitmap_ones (dst);
   else
-    for (e = e->pred_next; e != 0; e = e->pred_next)
+    for (++ix; ix < EDGE_COUNT (b->preds); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
 
+	e = EDGE_PRED (b, ix);
 	if (e->src == ENTRY_BLOCK_PTR)
 	  continue;
 
@@ -589,9 +594,11 @@ sbitmap_union_of_succs (sbitmap dst, sbitmap *src, int bb)
   basic_block b = BASIC_BLOCK (bb);
   unsigned int set_size = dst->size;
   edge e;
+  unsigned ix;
 
-  for (e = b->succ; e != 0; e = e->succ_next)
+  for (ix = 0; ix < EDGE_COUNT (b->succs); ix++)
     {
+      e = EDGE_SUCC (b, ix);
       if (e->dest == EXIT_BLOCK_PTR)
 	continue;
 
@@ -599,14 +606,15 @@ sbitmap_union_of_succs (sbitmap dst, sbitmap *src, int bb)
       break;
     }
 
-  if (e == 0)
+  if (ix == EDGE_COUNT (b->succs))
     sbitmap_zero (dst);
   else
-    for (e = e->succ_next; e != 0; e = e->succ_next)
+    for (ix++; ix < EDGE_COUNT (b->succs); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
 
+	e = EDGE_SUCC (b, ix);
 	if (e->dest == EXIT_BLOCK_PTR)
 	  continue;
 
@@ -626,8 +634,9 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
   basic_block b = BASIC_BLOCK (bb);
   unsigned int set_size = dst->size;
   edge e;
+  unsigned ix;
 
-  for (e = b->pred; e != 0; e = e->pred_next)
+  for (e = NULL, ix = 0; ix < EDGE_COUNT (b->preds); ix++)
     {
       if (e->src== ENTRY_BLOCK_PTR)
 	continue;
@@ -636,14 +645,15 @@ sbitmap_union_of_preds (sbitmap dst, sbitmap *src, int bb)
       break;
     }
 
-  if (e == 0)
+  if (ix == EDGE_COUNT (b->preds))
     sbitmap_zero (dst);
   else
-    for (e = e->pred_next; e != 0; e = e->pred_next)
+    for (ix++; ix < EDGE_COUNT (b->preds); ix++)
       {
 	unsigned int i;
 	sbitmap_ptr p, r;
 
+	e = EDGE_PRED (b, ix);
 	if (e->src == ENTRY_BLOCK_PTR)
 	  continue;
 

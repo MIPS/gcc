@@ -1,5 +1,5 @@
 /* Definitions for Intel 386 running FreeBSD with ELF format
-   Copyright (C) 1996, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1996, 2000, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
    Adapted from GNU/Linux version by John Polstra.
@@ -142,8 +142,6 @@ Boston, MA 02111-1307, USA.  */
   do {							\
     if (!TARGET_64BIT) {				\
       REAL_MODE_FORMAT (XFmode)				\
-	= &ieee_extended_intel_96_round_53_format;	\
-      REAL_MODE_FORMAT (TFmode)				\
 	= &ieee_extended_intel_96_round_53_format;	\
     }							\
   } while (0)

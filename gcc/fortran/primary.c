@@ -1,26 +1,29 @@
 /* Primary expression subroutines
-   Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 
 #include "config.h"
+#include "system.h"
+#include "flags.h"
+
 #include <string.h>
 #include <stdlib.h>
 #include "gfortran.h"
@@ -125,9 +128,10 @@ check_digit (int c, int radix)
 }
 
 
-/* Match the digit string part of an integer.  If the buffer is NULL,
-   we just count characters for the resolution pass.  Returns the
-   number of characters matched, -1 for no match.  */
+/* Match the digit string part of an integer if signflag is not set,
+   the signed digit string part if signflag is set.  If the buffer 
+   is NULL, we just count characters for the resolution pass.  Returns 
+   the number of characters matched, -1 for no match.  */
 
 static int
 match_digits (int signflag, int radix, char *buffer)
@@ -155,7 +159,7 @@ match_digits (int signflag, int radix, char *buffer)
 
   for (;;)
     {
-      old_loc = *gfc_current_locus ();
+      old_loc = gfc_current_locus;
       c = gfc_next_char ();
 
       if (!check_digit (c, radix))
@@ -166,13 +170,14 @@ match_digits (int signflag, int radix, char *buffer)
       length++;
     }
 
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
 
   return length;
 }
 
 
-/* Match an integer (digit string and optional kind).  */
+/* Match an integer (digit string and optional kind).  
+   A sign will be accepted if signflag is set.  */
 
 static match
 match_integer_constant (gfc_expr ** result, int signflag)
@@ -182,11 +187,11 @@ match_integer_constant (gfc_expr ** result, int signflag)
   char *buffer;
   gfc_expr *e;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
 
   length = match_digits (signflag, 10, NULL);
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   if (length == -1)
     return MATCH_NO;
 
@@ -199,17 +204,17 @@ match_integer_constant (gfc_expr ** result, int signflag)
 
   kind = get_kind ();
   if (kind == -2)
-    kind = gfc_default_integer_kind ();
+    kind = gfc_default_integer_kind;
   if (kind == -1)
     return MATCH_ERROR;
 
-  if (gfc_validate_kind (BT_INTEGER, kind) == -1)
+  if (gfc_validate_kind (BT_INTEGER, kind, true) < 0)
     {
       gfc_error ("Integer kind %d at %C not available", kind);
       return MATCH_ERROR;
     }
 
-  e = gfc_convert_integer (buffer, kind, 10, gfc_current_locus ());
+  e = gfc_convert_integer (buffer, kind, 10, &gfc_current_locus);
 
   if (gfc_range_check (e) != ARITH_OK)
     {
@@ -230,15 +235,16 @@ match_integer_constant (gfc_expr ** result, int signflag)
 static match
 match_boz_constant (gfc_expr ** result)
 {
-  int radix, delim, length;
+  int radix, delim, length, x_hex, kind;
   locus old_loc;
   char *buffer;
   gfc_expr *e;
   const char *rname;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
 
+  x_hex = 0;
   switch (gfc_next_char ())
     {
     case 'b':
@@ -249,6 +255,9 @@ match_boz_constant (gfc_expr ** result)
       radix = 8;
       rname = "octal";
       break;
+    case 'x':
+      x_hex = 1;
+      /* Fall through.  */
     case 'z':
       radix = 16;
       rname = "hexadecimal";
@@ -263,7 +272,13 @@ match_boz_constant (gfc_expr ** result)
   if (delim != '\'' && delim != '\"')
     goto backup;
 
-  old_loc = *gfc_current_locus ();
+  if (x_hex && pedantic
+      && (gfc_notify_std (GFC_STD_GNU, "Extension: Hexadecimal "
+			  "constant at %C uses non-standard syntax.")
+	  == FAILURE))
+      return MATCH_ERROR;
+
+  old_loc = gfc_current_locus;
 
   length = match_digits (0, radix, NULL);
   if (length == -1)
@@ -278,20 +293,30 @@ match_boz_constant (gfc_expr ** result)
       return MATCH_ERROR;
     }
 
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
 
   buffer = alloca (length + 1);
   memset (buffer, '\0', length + 1);
 
   match_digits (0, radix, buffer);
-  gfc_next_char ();
+  gfc_next_char ();  /* Eat delimiter.  */
 
-  e = gfc_convert_integer (buffer, gfc_default_integer_kind (), radix,
-			   gfc_current_locus ());
+  kind = get_kind ();
+  if (kind == -1)
+    return MATCH_ERROR;
+  if (kind == -2)
+    kind = gfc_default_integer_kind;
+  else if (pedantic 
+	   && (gfc_notify_std (GFC_STD_GNU, "Extension: Kind parameter "
+			       "suffix to boz literal constant at %C.")
+	       == FAILURE))
+    return MATCH_ERROR;
+
+  e = gfc_convert_integer (buffer, kind, radix, &gfc_current_locus);
 
   if (gfc_range_check (e) != ARITH_OK)
     {
-      gfc_error ("Integer too big for default integer kind at %C");
+      gfc_error ("Integer too big for integer kind %i at %C", kind);
 
       gfc_free_expr (e);
       return MATCH_ERROR;
@@ -301,7 +326,7 @@ match_boz_constant (gfc_expr ** result)
   return MATCH_YES;
 
 backup:
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return MATCH_NO;
 }
 
@@ -316,7 +341,7 @@ match_real_constant (gfc_expr ** result, int signflag)
   char *p, *buffer;
   gfc_expr *e;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
 
   e = NULL;
@@ -342,7 +367,7 @@ match_real_constant (gfc_expr ** result, int signflag)
 	    goto done;
 
 	  /* Check to see if "." goes with a following operator like ".eq.".  */
-	  temp_loc = *gfc_current_locus ();
+	  temp_loc = gfc_current_locus;
 	  c = gfc_next_char ();
 
 	  if (c == 'e' || c == 'd' || c == 'q')
@@ -355,7 +380,7 @@ match_real_constant (gfc_expr ** result, int signflag)
 	  if (ISALPHA (c))
 	    goto done;		/* Distinguish 1.e9 from 1.eq.2 */
 
-	  gfc_set_locus (&temp_loc);
+	  gfc_current_locus = temp_loc;
 	  seen_dp = 1;
 	  continue;
 	}
@@ -388,7 +413,7 @@ match_real_constant (gfc_expr ** result, int signflag)
       /* TODO: seen_digits is always true at this point */
       if (!seen_digits)
 	{
-	  gfc_set_locus (&old_loc);
+	  gfc_current_locus = old_loc;
 	  return MATCH_NO;	/* ".e" can be something else */
 	}
 
@@ -406,18 +431,18 @@ done:
   /* See what we've got!  */
   if (!seen_digits || (!seen_dp && exp_char == ' '))
     {
-      gfc_set_locus (&old_loc);
+      gfc_current_locus = old_loc;
       return MATCH_NO;
     }
 
   /* Convert the number.  */
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   gfc_gobble_whitespace ();
 
   buffer = alloca (count + 1);
   memset (buffer, '\0', count + 1);
 
-  /* Hack for mpf_init_set_str().  */
+  /* Hack for mpfr_set_str().  */
   p = buffer;
   while (count > 0)
     {
@@ -441,7 +466,7 @@ done:
 	    ("Real number at %C has a 'd' exponent and an explicit kind");
 	  goto cleanup;
 	}
-      kind = gfc_default_double_kind ();
+      kind = gfc_default_double_kind;
       break;
 
     case 'q':
@@ -456,16 +481,16 @@ done:
 
     default:
       if (kind == -2)
-	kind = gfc_default_real_kind ();
+	kind = gfc_default_real_kind;
 
-      if (gfc_validate_kind (BT_REAL, kind) == -1)
+      if (gfc_validate_kind (BT_REAL, kind, true) < 0)
 	{
 	  gfc_error ("Invalid real kind %d at %C", kind);
 	  goto cleanup;
 	}
     }
 
-  e = gfc_convert_real (buffer, kind, gfc_current_locus ());
+  e = gfc_convert_real (buffer, kind, &gfc_current_locus);
 
   switch (gfc_range_check (e))
     {
@@ -476,8 +501,10 @@ done:
       goto cleanup;
 
     case ARITH_UNDERFLOW:
-      gfc_error ("Real constant underflows its kind at %C");
-      goto cleanup;
+      if (gfc_option.warn_underflow)
+        gfc_warning ("Real constant underflows its kind at %C");
+      mpfr_set_ui (e->value.real, 0, GFC_RND_MODE);
+      break;
 
     default:
       gfc_internal_error ("gfc_range_check() returned bad value");
@@ -505,7 +532,7 @@ match_substring (gfc_charlen * cl, int init, gfc_ref ** result)
   start = NULL;
   end = NULL;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
 
   m = gfc_match_char ('(');
   if (m != MATCH_YES)
@@ -574,7 +601,7 @@ cleanup:
   gfc_free_expr (start);
   gfc_free_expr (end);
 
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return m;
 }
 
@@ -602,7 +629,7 @@ next_string_char (char delimiter)
 
   if (c == '\\')
     {
-      old_locus = *gfc_current_locus ();
+      old_locus = gfc_current_locus;
 
       switch (gfc_next_char_literal (1))
 	{
@@ -633,7 +660,7 @@ next_string_char (char delimiter)
 
 	default:
 	  /* Unknown backslash codes are simply not expanded */
-	  gfc_set_locus (&old_locus);
+	  gfc_current_locus = old_locus;
 	  break;
 	}
     }
@@ -641,12 +668,12 @@ next_string_char (char delimiter)
   if (c != delimiter)
     return c;
 
-  old_locus = *gfc_current_locus ();
+  old_locus = gfc_current_locus;
   c = gfc_next_char_literal (1);
 
   if (c == delimiter)
     return c;
-  gfc_set_locus (&old_locus);
+  gfc_current_locus = old_locus;
 
   return -1;
 }
@@ -681,7 +708,7 @@ match_charkind_name (char *name)
 
   for (;;)
     {
-      old_loc = *gfc_current_locus ();
+      old_loc = gfc_current_locus;
       c = gfc_next_char ();
 
       if (c == '_')
@@ -690,7 +717,7 @@ match_charkind_name (char *name)
 
 	  if (peek == '\'' || peek == '\"')
 	    {
-	      gfc_set_locus (&old_loc);
+	      gfc_current_locus = old_loc;
 	      *name = '\0';
 	      return MATCH_YES;
 	    }
@@ -728,16 +755,16 @@ match_string_constant (gfc_expr ** result)
   const char *q;
   match m;
 
-  old_locus = *gfc_current_locus ();
+  old_locus = gfc_current_locus;
 
   gfc_gobble_whitespace ();
 
-  start_locus = *gfc_current_locus ();
+  start_locus = gfc_current_locus;
 
   c = gfc_next_char ();
   if (c == '\'' || c == '"')
     {
-      kind = gfc_default_character_kind ();
+      kind = gfc_default_character_kind;
       goto got_delim;
     }
 
@@ -756,7 +783,7 @@ match_string_constant (gfc_expr ** result)
     }
   else
     {
-      gfc_set_locus (&old_locus);
+      gfc_current_locus = old_locus;
 
       m = match_charkind_name (name);
       if (m != MATCH_YES)
@@ -781,7 +808,7 @@ match_string_constant (gfc_expr ** result)
     goto no_match;
 
   gfc_gobble_whitespace ();
-  start_locus = *gfc_current_locus ();
+  start_locus = gfc_current_locus;
 
   c = gfc_next_char ();
   if (c != '\'' && c != '"')
@@ -797,7 +824,7 @@ match_string_constant (gfc_expr ** result)
 	}
     }
 
-  if (gfc_validate_kind (BT_CHARACTER, kind) == -1)
+  if (gfc_validate_kind (BT_CHARACTER, kind, true) < 0)
     {
       gfc_error ("Invalid kind %d for CHARACTER constant at %C", kind);
       return MATCH_ERROR;
@@ -819,7 +846,7 @@ got_delim:
 	break;
       if (c == -2)
 	{
-	  gfc_set_locus (&start_locus);
+	  gfc_current_locus = start_locus;
 	  gfc_error ("Unterminated character constant beginning at %C");
 	  return MATCH_ERROR;
 	}
@@ -838,7 +865,7 @@ got_delim:
   e->value.character.string = p = gfc_getmem (length + 1);
   e->value.character.length = length;
 
-  gfc_set_locus (&start_locus);
+  gfc_current_locus = start_locus;
   gfc_next_char ();		/* Skip delimiter */
 
   for (i = 0; i < length; i++)
@@ -857,7 +884,7 @@ got_delim:
   return MATCH_YES;
 
 no_match:
-  gfc_set_locus (&old_locus);
+  gfc_current_locus = old_locus;
   return MATCH_NO;
 }
 
@@ -884,9 +911,9 @@ match_logical_constant (gfc_expr ** result)
   if (kind == -1)
     return MATCH_ERROR;
   if (kind == -2)
-    kind = gfc_default_logical_kind ();
+    kind = gfc_default_logical_kind;
 
-  if (gfc_validate_kind (BT_LOGICAL, kind) == -1)
+  if (gfc_validate_kind (BT_LOGICAL, kind, true) < 0)
     gfc_error ("Bad kind for logical constant at %C");
 
   e = gfc_get_expr ();
@@ -895,7 +922,7 @@ match_logical_constant (gfc_expr ** result)
   e->value.logical = i;
   e->ts.type = BT_LOGICAL;
   e->ts.kind = kind;
-  e->where = *gfc_current_locus ();
+  e->where = gfc_current_locus;
 
   *result = e;
   return MATCH_YES;
@@ -951,7 +978,7 @@ match_sym_complex_part (gfc_expr ** result)
       break;
 
     case BT_INTEGER:
-      e = gfc_int2real (sym->value, gfc_default_real_kind ());
+      e = gfc_int2real (sym->value, gfc_default_real_kind);
       if (e == NULL)
 	goto error;
       break;
@@ -984,7 +1011,7 @@ match_const_complex_part (gfc_expr ** result)
   char *p, c, exp_char, *buffer;
   locus old_loc;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
   gfc_gobble_whitespace ();
 
   seen_dp = 0;
@@ -1049,18 +1076,18 @@ done:
     goto no_match;
 
   /* Convert the number.  */
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   gfc_gobble_whitespace ();
 
   buffer = alloca (count + 1);
   memset (buffer, '\0', count + 1);
 
-  /* Hack for mpf_init_set_str().  */
+  /* Hack for mpfr_set_str().  */
   p = buffer;
   while (count > 0)
     {
       c = gfc_next_char ();
-      if (c == 'd')
+      if (c == 'd' || c == 'q')
 	c = 'e';
       *p++ = c;
       count--;
@@ -1077,7 +1104,7 @@ done:
   if (seen_dp == 0 && exp_char == ' ')
     {
       if (kind == -2)
-	kind = gfc_default_integer_kind ();
+	kind = gfc_default_integer_kind;
 
     }
   else
@@ -1090,27 +1117,27 @@ done:
 		("Real number at %C has a 'd' exponent and an explicit kind");
 	      return MATCH_ERROR;
 	    }
-	  kind = gfc_default_double_kind ();
+	  kind = gfc_default_double_kind;
 
 	}
       else
 	{
 	  if (kind == -2)
-	    kind = gfc_default_real_kind ();
+	    kind = gfc_default_real_kind;
 	}
 
-      if (gfc_validate_kind (BT_REAL, kind) == -1)
+      if (gfc_validate_kind (BT_REAL, kind, true) < 0)
 	{
 	  gfc_error ("Invalid real kind %d at %C", kind);
 	  return MATCH_ERROR;
 	}
     }
 
-  *result = gfc_convert_real (buffer, kind, gfc_current_locus ());
+  *result = gfc_convert_real (buffer, kind, &gfc_current_locus);
   return MATCH_YES;
 
 no_match:
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
   return MATCH_NO;
 }
 
@@ -1142,7 +1169,7 @@ match_complex_constant (gfc_expr ** result)
   int kind;
   match m;
 
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
   real = imag = e = NULL;
 
   m = gfc_match_char ('(');
@@ -1195,7 +1222,7 @@ match_complex_constant (gfc_expr ** result)
     gfc_convert_type (imag, &target, 2);
 
   e = gfc_convert_complex (real, imag, kind);
-  e->where = *gfc_current_locus ();
+  e->where = gfc_current_locus;
 
   gfc_free_expr (real);
   gfc_free_expr (imag);
@@ -1211,7 +1238,7 @@ cleanup:
   gfc_free_expr (e);
   gfc_free_expr (real);
   gfc_free_expr (imag);
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
 
   return m;
 }
@@ -1269,7 +1296,7 @@ match_actual_arg (gfc_expr ** result)
   gfc_expr *e;
   int c;
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   switch (gfc_match_name (name))
     {
@@ -1280,10 +1307,10 @@ match_actual_arg (gfc_expr ** result)
       break;
 
     case MATCH_YES:
-      w = *gfc_current_locus ();
+      w = gfc_current_locus;
       gfc_gobble_whitespace ();
       c = gfc_next_char ();
-      gfc_set_locus (&w);
+      gfc_current_locus = w;
 
       if (c != ',' && c != ')')
 	break;
@@ -1328,7 +1355,7 @@ match_actual_arg (gfc_expr ** result)
       return MATCH_YES;
     }
 
-  gfc_set_locus (&where);
+  gfc_current_locus = where;
   return gfc_match_expr (result);
 }
 
@@ -1343,7 +1370,7 @@ match_keyword_arg (gfc_actual_arglist * actual, gfc_actual_arglist * base)
   locus name_locus;
   match m;
 
-  name_locus = *gfc_current_locus ();
+  name_locus = gfc_current_locus;
   m = gfc_match_name (name);
 
   if (m != MATCH_YES)
@@ -1376,7 +1403,7 @@ match_keyword_arg (gfc_actual_arglist * actual, gfc_actual_arglist * base)
   return MATCH_YES;
 
 cleanup:
-  gfc_set_locus (&name_locus);
+  gfc_current_locus = name_locus;
   return m;
 }
 
@@ -1385,7 +1412,8 @@ cleanup:
    the opening parenthesis to the closing parenthesis.  The argument
    list is assumed to allow keyword arguments because we don't know if
    the symbol associated with the procedure has an implicit interface
-   or not.  We make sure keywords are unique.  */
+   or not.  We make sure keywords are unique. If SUB_FLAG is set,
+   we're matching the argument list of a subroutine.  */
 
 match
 gfc_match_actual_arglist (int sub_flag, gfc_actual_arglist ** argp)
@@ -1397,7 +1425,7 @@ gfc_match_actual_arglist (int sub_flag, gfc_actual_arglist ** argp)
   match m;
 
   *argp = tail = NULL;
-  old_loc = *gfc_current_locus ();
+  old_loc = gfc_current_locus;
 
   seen_keyword = 0;
 
@@ -1481,7 +1509,7 @@ syntax:
 
 cleanup:
   gfc_free_actual_arglist (head);
-  gfc_set_locus (&old_loc);
+  gfc_current_locus = old_loc;
 
   return MATCH_ERROR;
 }
@@ -1509,7 +1537,9 @@ extend_ref (gfc_expr * primary, gfc_ref * tail)
 
 
 /* Match any additional specifications associated with the current
-   variable like member references or substrings.  */
+   variable like member references or substrings.  If equiv_flag is
+   set we only match stuff that is allowed inside an EQUIVALENCE
+   statement.  */
 
 static match
 match_varspec (gfc_expr * primary, int equiv_flag)
@@ -1735,8 +1765,8 @@ gfc_expr_attr (gfc_expr * e)
 /* Match a structure constructor.  The initial symbol has already been
    seen.  */
 
-static match
-match_structure_constructor (gfc_symbol * sym, gfc_expr ** result)
+match
+gfc_match_structure_constructor (gfc_symbol * sym, gfc_expr ** result)
 {
   gfc_constructor *head, *tail;
   gfc_component *comp;
@@ -1749,7 +1779,7 @@ match_structure_constructor (gfc_symbol * sym, gfc_expr ** result)
   if (gfc_match_char ('(') != MATCH_YES)
     goto syntax;
 
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   gfc_find_component (sym, NULL);
 
@@ -1822,13 +1852,13 @@ match
 gfc_match_rvalue (gfc_expr ** result)
 {
   gfc_actual_arglist *actual_arglist;
-  char name[GFC_MAX_SYMBOL_LEN + 1];
+  char name[GFC_MAX_SYMBOL_LEN + 1], argname[GFC_MAX_SYMBOL_LEN + 1];
   gfc_state_data *st;
   gfc_symbol *sym;
   gfc_symtree *symtree;
-  locus where;
+  locus where, old_loc;
   gfc_expr *e;
-  match m;
+  match m, m2;
   int i;
 
   m = gfc_match_name (name);
@@ -1845,7 +1875,7 @@ gfc_match_rvalue (gfc_expr ** result)
 
   sym = symtree->n.sym;
   e = NULL;
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   gfc_set_sym_referenced (sym);
 
@@ -1896,7 +1926,7 @@ gfc_match_rvalue (gfc_expr ** result)
       if (sym == NULL)
 	m = MATCH_ERROR;
       else
-        m = match_structure_constructor (sym, &e);
+        m = gfc_match_structure_constructor (sym, &e);
       break;
 
     /* If we're here, then the name is known to be the name of a
@@ -1958,7 +1988,7 @@ gfc_match_rvalue (gfc_expr ** result)
       e->symtree = symtree;
       e->expr_type = EXPR_FUNCTION;
       e->value.function.actual = actual_arglist;
-      e->where = *gfc_current_locus ();
+      e->where = gfc_current_locus;
 
       if (sym->as != NULL)
 	e->rank = sym->as->rank;
@@ -2027,35 +2057,46 @@ gfc_match_rvalue (gfc_expr ** result)
 	  break;
 	}
 
-      /* See if this could possibly be a substring reference of a name
-         that we're not sure is a variable yet.  */
+      /* See if this is a function reference with a keyword argument
+	 as first argument. We do this because otherwise a spurious
+	 symbol would end up in the symbol table.  */
+
+      old_loc = gfc_current_locus;
+      m2 = gfc_match (" ( %n =", argname);
+      gfc_current_locus = old_loc;
 
       e = gfc_get_expr ();
       e->symtree = symtree;
 
-      if ((sym->ts.type == BT_UNKNOWN || sym->ts.type == BT_CHARACTER)
-	  && match_substring (sym->ts.cl, 0, &e->ref) == MATCH_YES)
+      if (m2 != MATCH_YES)
 	{
+	  /* See if this could possibly be a substring reference of a name
+	     that we're not sure is a variable yet.  */
 
-	  e->expr_type = EXPR_VARIABLE;
-
-	  if (sym->attr.flavor != FL_VARIABLE
-	      && gfc_add_flavor (&sym->attr, FL_VARIABLE, NULL) == FAILURE)
+	  if ((sym->ts.type == BT_UNKNOWN || sym->ts.type == BT_CHARACTER)
+	      && match_substring (sym->ts.cl, 0, &e->ref) == MATCH_YES)
 	    {
-	      m = MATCH_ERROR;
+
+	      e->expr_type = EXPR_VARIABLE;
+
+	      if (sym->attr.flavor != FL_VARIABLE
+		  && gfc_add_flavor (&sym->attr, FL_VARIABLE, NULL) == FAILURE)
+		{
+		  m = MATCH_ERROR;
+		  break;
+		}
+
+	      if (sym->ts.type == BT_UNKNOWN
+		  && gfc_set_default_type (sym, 1, NULL) == FAILURE)
+		{
+		  m = MATCH_ERROR;
+		  break;
+		}
+
+	      e->ts = sym->ts;
+	      m = MATCH_YES;
 	      break;
 	    }
-
-	  if (sym->ts.type == BT_UNKNOWN
-	      && gfc_set_default_type (sym, 1, NULL) == FAILURE)
-	    {
-	      m = MATCH_ERROR;
-	      break;
-	    }
-
-	  e->ts = sym->ts;
-	  m = MATCH_YES;
-	  break;
 	}
 
       /* Give up, assume we have a function.  */
@@ -2137,7 +2178,7 @@ gfc_match_variable (gfc_expr ** result, int equiv_flag)
   m = gfc_match_sym_tree (&st, 1);
   if (m != MATCH_YES)
     return m;
-  where = *gfc_current_locus ();
+  where = gfc_current_locus;
 
   sym = st->n.sym;
   gfc_set_sym_referenced (sym);

@@ -175,7 +175,9 @@ compute_jump_reg_dependencies (rtx insn, regset cond_set, regset used,
 {
   basic_block b = BLOCK_FOR_INSN (insn);
   edge e;
-  for (e = b->succ; e; e = e->succ_next)
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, b->succs)
     if (e->flags & EDGE_FALLTHRU)
       /* The jump may be a by-product of a branch that has been merged
 	 in the main codepath after being conditionalized.  Therefore
@@ -240,8 +242,7 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 
   for (; insn != aftertail; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) == CODE_LABEL)
-	abort ();
+      gcc_assert (!LABEL_P (insn));
       /* Create new basic blocks just before first insn.  */
       if (inside_basic_block_p (insn))
 	{
@@ -250,7 +251,7 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 	      rtx note;
 
 	      /* Re-emit the basic block note for newly found BB header.  */
-	      if (GET_CODE (insn) == CODE_LABEL)
+	      if (LABEL_P (insn))
 		{
 		  note = emit_note_after (NOTE_INSN_BASIC_BLOCK, insn);
 		  head = insn;
@@ -281,6 +282,7 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 	    {
 	      edge f;
 	      rtx h;
+	      edge_iterator ei;
 
 	      /* An obscure special case, where we do have partially dead
 	         instruction scheduled after last control flow instruction.
@@ -292,9 +294,10 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 	         A safer solution can be to bring the code into sequence,
 	         do the split and re-emit it back in case this will ever
 	         trigger problem.  */
-	      f = bb->prev_bb->succ;
-	      while (f && !(f->flags & EDGE_FALLTHRU))
-		f = f->succ_next;
+
+	      FOR_EACH_EDGE (f, ei, bb->prev_bb->succs)
+		if (f->flags & EDGE_FALLTHRU)
+		  break;
 
 	      if (f)
 		{
@@ -314,7 +317,7 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 		  delete_insn_chain (head, insn);
 		  /* We keep some notes in the way that may split barrier from the
 		     jump.  */
-		  if (GET_CODE (next) == BARRIER)
+		  if (BARRIER_P (next))
 		     {
 		       emit_barrier_after (prev_nonnote_insn (head));
 		       delete_insn (next);
@@ -328,7 +331,7 @@ fix_basic_block_boundaries (basic_block bb, basic_block last, rtx head,
 	      BB_END (curr_bb) = insn;
 	      add_missing_bbs (BB_HEAD (curr_bb), bb, curr_bb->prev_bb);
 	    }
-	  note = GET_CODE (head) == CODE_LABEL ? NEXT_INSN (head) : head;
+	  note = LABEL_P (head) ? NEXT_INSN (head) : head;
 	  NOTE_BASIC_BLOCK (note) = curr_bb;
 	  update_bb_for_insn (curr_bb);
 	  bb = curr_bb->next_bb;
@@ -420,7 +423,7 @@ add_deps_for_risky_insns (rtx head, rtx tail)
   basic_block last_block = NULL, bb;
 
   for (insn = head; insn != next_tail; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == JUMP_INSN)
+    if (JUMP_P (insn))
       {
 	bb = BLOCK_FOR_INSN (insn);
 	bb->aux = last_block;
@@ -542,8 +545,7 @@ schedule_ebb (rtx head, rtx tail)
   schedule_block (-1, n_insns);
 
   /* Sanity check: verify that all region insns were scheduled.  */
-  if (sched_n_insns != n_insns)
-    abort ();
+  gcc_assert (sched_n_insns == n_insns);
   head = current_sched_info->head;
   tail = current_sched_info->tail;
 
@@ -590,11 +592,12 @@ schedule_ebbs (FILE *dump_file)
       for (;;)
 	{
 	  edge e;
+	  edge_iterator ei;
 	  tail = BB_END (bb);
 	  if (bb->next_bb == EXIT_BLOCK_PTR
-	      || GET_CODE (BB_HEAD (bb->next_bb)) == CODE_LABEL)
+	      || LABEL_P (BB_HEAD (bb->next_bb)))
 	    break;
-	  for (e = bb->succ; e; e = e->succ_next)
+	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if ((e->flags & EDGE_FALLTHRU) != 0)
 	      break;
 	  if (! e)
@@ -608,11 +611,11 @@ schedule_ebbs (FILE *dump_file)
 	 a note or two.  */
       while (head != tail)
 	{
-	  if (GET_CODE (head) == NOTE)
+	  if (NOTE_P (head))
 	    head = NEXT_INSN (head);
-	  else if (GET_CODE (tail) == NOTE)
+	  else if (NOTE_P (tail))
 	    tail = PREV_INSN (tail);
-	  else if (GET_CODE (head) == CODE_LABEL)
+	  else if (LABEL_P (head))
 	    head = NEXT_INSN (head);
 	  else
 	    break;

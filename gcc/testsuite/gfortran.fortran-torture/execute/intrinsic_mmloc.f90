@@ -1,5 +1,5 @@
-! Program to test the MINVAL and MAXVAL intrinsics
-program testmmval
+! Program to test the MINLOC and MAXLOC intrinsics
+program testmmloc
    implicit none
    integer, dimension (3, 3) :: a
    integer, dimension (3) :: b

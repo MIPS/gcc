@@ -1,5 +1,5 @@
 /* AlgorithmParameterGenerator.java --- Algorithm Parameter Generator
-   Copyright (C) 1999, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,11 +35,12 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.security;
 
-import java.security.spec.AlgorithmParameterSpec;
-
 import gnu.java.security.Engine;
+
+import java.security.spec.AlgorithmParameterSpec;
 
 /**
  * <p>The <code>AlgorithmParameterGenerator</code> class is used to generate a
@@ -67,7 +68,7 @@ import gnu.java.security.Engine;
  *  system parameters, for example, the parameter generation values usually
  *  consist of the size of the prime modulus and the size of the random
  *  exponent, both specified in number of bits.</li>
- * <ul>
+ * </ul>
  *
  * <p>In case the client does not explicitly initialize the
  * <code>AlgorithmParameterGenerator</code> (via a call to an <code>init()</code>
@@ -140,7 +141,10 @@ public class AlgorithmParameterGenerator
         {
           return getInstance(algorithm, p[i]);
         }
-      catch (NoSuchAlgorithmException ignored) {}
+      catch (NoSuchAlgorithmException e)
+	{
+	  // Ignore.
+	}
 
     throw new NoSuchAlgorithmException(algorithm);
   }

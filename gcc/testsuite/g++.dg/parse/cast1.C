@@ -4,7 +4,7 @@
 #include <typeinfo>
 
 void f() {
-  (int((char*)0));
-  sizeof ((int((char*)0)));
-  typeid ((int((char*)0)));
+  (long((char*)0));
+  sizeof ((long((char*)0)));
+  typeid ((long((char*)0)));
 }

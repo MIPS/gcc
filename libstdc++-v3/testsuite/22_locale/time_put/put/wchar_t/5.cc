@@ -1,6 +1,6 @@
 // 2001-09-17 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002, 2003 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003, 2004 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,15 +37,8 @@ void test05()
   const wchar_t* date = L"%A, the second of %B";
   const wchar_t* date_ex = L"%Ex";
 
-  // basic construction and sanity checks.
+  // basic construction
   locale loc_c = locale::classic();
-  locale loc_hk = __gnu_test::try_named_locale("en_HK");
-  locale loc_fr = __gnu_test::try_named_locale("fr_FR@euro");
-  locale loc_de = __gnu_test::try_named_locale("de_DE");
-  VERIFY( loc_hk != loc_c );
-  VERIFY( loc_hk != loc_fr );
-  VERIFY( loc_hk != loc_de );
-  VERIFY( loc_de != loc_fr );
 
   // create an ostream-derived object, cache the time_put facet
   const wstring empty;
@@ -55,11 +48,11 @@ void test05()
 
   // 2
   oss.str(empty);
-  iterator_type os_it05 = tim_put.put(oss.rdbuf(), oss, '*', &time1, 
+  iterator_type os_it05 = tim_put.put(oss.rdbuf(), oss, L'*', &time1, 
 				      date, date + traits::length(date));
   wstring result5 = oss.str();
   VERIFY( result5 == L"Sunday, the second of April");
-  iterator_type os_it06 = tim_put.put(oss.rdbuf(), oss, '*', &time1, 
+  iterator_type os_it06 = tim_put.put(oss.rdbuf(), oss, L'*', &time1, 
 				      date_ex, date_ex + traits::length(date));
   wstring result6 = oss.str();
   VERIFY( result6 != result5 );

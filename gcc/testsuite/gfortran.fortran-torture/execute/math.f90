@@ -9,11 +9,22 @@ subroutine dotest (n, val4, val8, known)
    if (abs (real (val8, kind=4) - known) .gt. 0.001) call abort
 end subroutine
 
+subroutine dotestc (n, val4, val8, known)
+   implicit none
+   complex(kind=4) val4, known
+   complex(kind=8) val8
+   integer n
+   if (abs (val4 - known) .gt. 0.001) call abort
+   if (abs (cmplx (val8, kind=4) - known) .gt. 0.001) call abort
+end subroutine
+
 program testmath
    implicit none
    real(kind=4) r, two4, half4
    real(kind=8) q, two8, half8
-   external dotest
+   complex(kind=4) cr
+   complex(kind=8) cq
+   external dotest, dotest2
 
    two4 = 2.0
    two8 = 2.0_8
@@ -61,5 +72,29 @@ program testmath
    r = sqrt (two4)
    q = sqrt (two8)
    call dotest (14, r, q, 1.4142)
+
+   r = atan2 (0.0, 1.0)
+   q = atan2 (0.0_8, 1.0_8)
+   call dotest (15, r, q, 0.0)
+   r = atan2 (-1.0, 1.0)
+   q = atan2 (-1.0_8, 1.0_8)
+   call dotest (16, r, q, -0.7854)
+   r = atan2 (0.0, -1.0)
+   q = atan2 (0.0_8, -1.0_8)
+   call dotest (17, r, q, 3.1416)
+   r = atan2 (-1.0, -1.0)
+   q = atan2 (-1.0_8, -1.0_8)
+   call dotest (18, r, q, -2.3562)
+   r = atan2 (1.0, 0.0)
+   q = atan2 (1.0_8, 0.0_8)
+   call dotest (19, r, q, 1.5708)
+   r = atan2 (-1.0, 0.0)
+   q = atan2 (-1.0_8, 0.0_8)
+   call dotest (20, r, q, -1.5708)
+
+   cr = log ((-1.0, -1.0))
+   cq = log ((-1.0_8, -1.0_8))
+   call dotestc (21, cr, cq, (0.3466, -2.3562))
+
 end program
 

@@ -68,7 +68,7 @@ public final class NumberOfDocuments extends IntegerSyntax
    *
    * @param obj the object to test
    *
-   * @returns true if both objects are equal, false otherwise.
+   * @return true if both objects are equal, false otherwise.
    */
   public boolean equals(Object obj)
   {
@@ -83,7 +83,7 @@ public final class NumberOfDocuments extends IntegerSyntax
    *
    * @return the class <code>NumberOfDocuments</code> itself
    */
-  public final Class getCategory()
+  public Class getCategory()
   {
     return NumberOfDocuments.class;
   }
@@ -93,7 +93,7 @@ public final class NumberOfDocuments extends IntegerSyntax
    *
    * @return the string "number-of-documents"
    */
-  public final String getName()
+  public String getName()
   {
     return "number-of-documents";
   }

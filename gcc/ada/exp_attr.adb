@@ -27,6 +27,7 @@
 with Atree;    use Atree;
 with Checks;   use Checks;
 with Einfo;    use Einfo;
+with Elists;   use Elists;
 with Exp_Ch2;  use Exp_Ch2;
 with Exp_Ch9;  use Exp_Ch9;
 with Exp_Imgv; use Exp_Imgv;
@@ -1012,7 +1013,7 @@ package body Exp_Attr is
       --  Task_Entry_Caller or the Protected_Entry_Caller function.
 
       when Attribute_Caller => Caller : declare
-         Id_Kind    : constant Entity_Id := RTE (RO_AT_Task_ID);
+         Id_Kind    : constant Entity_Id := RTE (RO_AT_Task_Id);
          Ent        : constant Entity_Id := Entity (Pref);
          Conctype   : constant Entity_Id := Scope (Ent);
          Nest_Depth : Integer := 0;
@@ -1182,13 +1183,8 @@ package body Exp_Attr is
                   Res := Is_Constrained (Etype (Ent));
                end if;
 
-               if Res then
-                  Rewrite (N,
-                    New_Reference_To (Standard_True, Loc));
-               else
-                  Rewrite (N,
-                    New_Reference_To (Standard_False, Loc));
-               end if;
+               Rewrite (N,
+                 New_Reference_To (Boolean_Literals (Res), Loc));
             end;
 
          --  Prefix is not an entity name. These are also cases where
@@ -1196,16 +1192,13 @@ package body Exp_Attr is
          --  and type of the prefix.
 
          else
-            if not Is_Variable (Pref)
-              or else Nkind (Pref) = N_Explicit_Dereference
-              or else Is_Constrained (Etype (Pref))
-            then
-               Rewrite (N,
-                 New_Reference_To (Standard_True, Loc));
-            else
-               Rewrite (N,
-                 New_Reference_To (Standard_False, Loc));
-            end if;
+            Rewrite (N,
+              New_Reference_To (
+                Boolean_Literals (
+                  not Is_Variable (Pref)
+                    or else Nkind (Pref) = N_Explicit_Dereference
+                    or else Is_Constrained (Etype (Pref))),
+                Loc));
          end if;
 
          Analyze_And_Resolve (N, Standard_Boolean);
@@ -1670,7 +1663,7 @@ package body Exp_Attr is
       --  For a task it returns a reference to the _task_id component of
       --  corresponding record:
 
-      --    taskV!(Prefix)._Task_Id, converted to the type Task_ID defined
+      --    taskV!(Prefix)._Task_Id, converted to the type Task_Id defined
 
       --  in Ada.Task_Identification.
 
@@ -1688,7 +1681,7 @@ package body Exp_Attr is
             Rewrite (N,
               Unchecked_Convert_To (Id_Kind, Make_Reference (Loc, Pref)));
          else
-            Id_Kind := RTE (RO_AT_Task_ID);
+            Id_Kind := RTE (RO_AT_Task_Id);
 
             Rewrite (N,
               Unchecked_Convert_To (Id_Kind, Concurrent_Ref (Pref)));
@@ -1743,6 +1736,44 @@ package body Exp_Attr is
          --  Value for controlling argument in call. Always Empty except in
          --  the dispatching (class-wide type) case, where it is a reference
          --  to the dummy object initialized to the right internal tag.
+
+         procedure Freeze_Stream_Subprogram (F : Entity_Id);
+         --  The expansion of the attribute reference may generate a call to
+         --  a user-defined stream subprogram that is frozen by the call. This
+         --  can lead to access-before-elaboration problem if the reference
+         --  appears in an object declaration and the subprogram body has not
+         --  been seen. The freezing of the subprogram requires special code
+         --  because it appears in an expanded context where expressions do
+         --  not freeze their constituents.
+
+         ------------------------------
+         -- Freeze_Stream_Subprogram --
+         ------------------------------
+
+         procedure Freeze_Stream_Subprogram (F : Entity_Id) is
+            Decl : constant Node_Id := Unit_Declaration_Node (F);
+            Bod  : Node_Id;
+
+         begin
+            --  If this is user-defined subprogram, the corresponding
+            --  stream function appears as a renaming-as-body, and the
+            --  user subprogram must be retrieved by tree traversal.
+
+            if Present (Decl)
+              and then Nkind (Decl) = N_Subprogram_Declaration
+              and then Present (Corresponding_Body (Decl))
+            then
+               Bod := Corresponding_Body (Decl);
+
+               if Nkind (Unit_Declaration_Node (Bod)) =
+                 N_Subprogram_Renaming_Declaration
+               then
+                  Set_Is_Frozen (Entity (Name (Unit_Declaration_Node (Bod))));
+               end if;
+            end if;
+         end Freeze_Stream_Subprogram;
+
+      --  Start of processing for Input
 
       begin
          --  If no underlying type, we have an error that will be diagnosed
@@ -1891,9 +1922,50 @@ package body Exp_Attr is
                pragma Assert
                  (Is_Record_Type (U_Type) or else Is_Protected_Type (U_Type));
 
+               --  Ada 2005 (AI-216): Program_Error is raised when executing
+               --  the default implementation of the Input attribute of an
+               --  unchecked union type if the type lacks default discriminant
+               --  values.
+
+               if Is_Unchecked_Union (Base_Type (U_Type))
+                 and then not Present (Discriminant_Constraint (U_Type))
+               then
+                  Insert_Action (N,
+                    Make_Raise_Program_Error (Loc,
+                      Reason => PE_Unchecked_Union_Restriction));
+
+                  return;
+               end if;
+
                Build_Record_Or_Elementary_Input_Function
                  (Loc, Base_Type (U_Type), Decl, Fname);
                Insert_Action (N, Decl);
+
+               if Nkind (Parent (N)) = N_Object_Declaration
+                 and then Is_Record_Type (U_Type)
+               then
+                  --  The stream function may contain calls to user-defined
+                  --  Read procedures for individual components.
+
+                  declare
+                     Comp : Entity_Id;
+                     Func : Entity_Id;
+
+                  begin
+                     Comp := First_Component (U_Type);
+                     while Present (Comp) loop
+                        Func :=
+                          Find_Stream_Subprogram
+                            (Etype (Comp), TSS_Stream_Read);
+
+                        if Present (Func) then
+                           Freeze_Stream_Subprogram (Func);
+                        end if;
+
+                        Next_Component (Comp);
+                     end loop;
+                  end;
+               end if;
             end if;
          end if;
 
@@ -1910,6 +1982,10 @@ package body Exp_Attr is
          Set_Controlling_Argument (Call, Cntrl);
          Rewrite (N, Unchecked_Convert_To (P_Type, Call));
          Analyze_And_Resolve (N, P_Type);
+
+         if Nkind (Parent (N)) = N_Object_Declaration then
+            Freeze_Stream_Subprogram (Fname);
+         end if;
       end Input;
 
       -------------------
@@ -2401,6 +2477,21 @@ package body Exp_Attr is
                pragma Assert
                  (Is_Record_Type (U_Type) or else Is_Protected_Type (U_Type));
 
+               --  Ada 2005 (AI-216): Program_Error is raised when executing
+               --  the default implementation of the Output attribute of an
+               --  unchecked union type if the type lacks default discriminant
+               --  values.
+
+               if Is_Unchecked_Union (Base_Type (U_Type))
+                 and then not Present (Discriminant_Constraint (U_Type))
+               then
+                  Insert_Action (N,
+                    Make_Raise_Program_Error (Loc,
+                      Reason => PE_Unchecked_Union_Restriction));
+
+                  return;
+               end if;
+
                Build_Record_Or_Elementary_Output_Procedure
                  (Loc, Base_Type (U_Type), Decl, Pname);
                Insert_Action (N, Decl);
@@ -2787,13 +2878,22 @@ package body Exp_Attr is
                pragma Assert
                  (Is_Record_Type (U_Type) or else Is_Protected_Type (U_Type));
 
+               --  Ada 2005 (AI-216): Program_Error is raised when executing
+               --  the default implementation of the Read attribute of an
+               --  Unchecked_Union type.
+
+               if Is_Unchecked_Union (Base_Type (U_Type)) then
+                  Insert_Action (N,
+                    Make_Raise_Program_Error (Loc,
+                      Reason => PE_Unchecked_Union_Restriction));
+               end if;
+
                if Has_Discriminants (U_Type)
                  and then Present
                    (Discriminant_Default_Value (First_Discriminant (U_Type)))
                then
                   Build_Mutable_Record_Read_Procedure
                     (Loc, Base_Type (U_Type), Decl, Pname);
-
                else
                   Build_Record_Read_Procedure
                     (Loc, Base_Type (U_Type), Decl, Pname);
@@ -3625,8 +3725,8 @@ package body Exp_Attr is
          --     type(X)'Pos (X) >= 0
 
          --  We can't quite generate it that way because of the requirement
-         --  for the non-standard second argument of False, so we have to
-         --  explicitly create:
+         --  for the non-standard second argument of False in the resulting
+         --  rep_to_pos call, so we have to explicitly create:
 
          --     _rep_to_pos (X, False) >= 0
 
@@ -3635,7 +3735,7 @@ package body Exp_Attr is
 
          --    _rep_to_pos (X, False) >= 0
          --      and then
-         --     (X >= type(X)'First and then type(X)'Last <= X)
+         --       (X >= type(X)'First and then type(X)'Last <= X)
 
          elsif Is_Enumeration_Type (Ptyp)
            and then Present (Enum_Pos_To_Rep (Base_Type (Ptyp)))
@@ -3710,7 +3810,7 @@ package body Exp_Attr is
 
          --  But that's precisely what won't work because of possible
          --  unwanted optimization (and indeed the basic motivation for
-         --  the Valid attribute -is exactly that this test does not work.
+         --  the Valid attribute is exactly that this test does not work!)
          --  What will work is:
 
          --     Btyp!(X) >= Btyp!(type(X)'First)
@@ -3968,13 +4068,22 @@ package body Exp_Attr is
                pragma Assert
                  (Is_Record_Type (U_Type) or else Is_Protected_Type (U_Type));
 
+               --  Ada 2005 (AI-216): Program_Error is raised when executing
+               --  the default implementation of the Write attribute of an
+               --  Unchecked_Union type.
+
+               if Is_Unchecked_Union (Base_Type (U_Type)) then
+                  Insert_Action (N,
+                    Make_Raise_Program_Error (Loc,
+                      Reason => PE_Unchecked_Union_Restriction));
+               end if;
+
                if Has_Discriminants (U_Type)
                  and then Present
                    (Discriminant_Default_Value (First_Discriminant (U_Type)))
                then
                   Build_Mutable_Record_Write_Procedure
                     (Loc, Base_Type (U_Type), Decl, Pname);
-
                else
                   Build_Record_Write_Procedure
                     (Loc, Base_Type (U_Type), Decl, Pname);
@@ -4043,6 +4152,7 @@ package body Exp_Attr is
            Attribute_Digits                       |
            Attribute_Emax                         |
            Attribute_Epsilon                      |
+           Attribute_Has_Access_Values            |
            Attribute_Has_Discriminants            |
            Attribute_Large                        |
            Attribute_Machine_Emax                 |

@@ -1,24 +1,24 @@
 /* gfortran header file
-   Copyright (C) 2000, 2001, 2002, 2003
-   Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation,
+   Inc.
    Contributed by Andy Vaught
 
-This file is part of GNU G95.
+This file is part of GCC.
 
-GNU G95 is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 2, or (at your option) any later
+version.
 
-GNU G95 is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU G95; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+along with GCC; see the file COPYING.  If not, write to the Free
+Software Foundation, 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #ifndef GCC_GFORTRAN_H
 #define GCC_GFORTRAN_H
@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
    seem to be sufficient on some systems.  */
 #include "system.h"
 #include "coretypes.h"
+#include "input.h"
 
 /* The following ifdefs are recommended by the autoconf documentation
    for any code using alloca.  */
@@ -58,9 +59,7 @@ char *alloca ();
 
 /* Major control parameters.  */
 
-#define GFC_VERSION "0.23"
 #define GFC_MAX_SYMBOL_LEN 63
-#define GFC_REAL_BITS 100	/* Number of bits in g95's floating point numbers.  */
 #define GFC_MAX_LINE 132	/* Characters beyond this are not seen.  */
 #define GFC_MAX_DIMENSIONS 7	/* Maximum dimensions in an array.  */
 #define GFC_LETTERS 26		/* Number of letters in the alphabet.  */
@@ -82,6 +81,7 @@ char *alloca ();
    ugly to look at and a pain to type when you add the prefix by hand,
    so we hide it behind a macro.  */
 #define PREFIX(x) "_gfortran_" x
+#define PREFIX_LEN 10
 
 /* Macro to initialize an mstring structure.  */
 #define minit(s, t) { s, NULL, t }
@@ -184,7 +184,7 @@ extern mstring intrinsic_operators[];
 
 /* Arithmetic results.  */
 typedef enum
-{ ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW,
+{ ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
   ARITH_DIV0, ARITH_0TO0, ARITH_INCOMMENSURATE
 }
 arith;
@@ -244,7 +244,7 @@ sym_intent;
 
 /* Access types.  */
 typedef enum
-{ ACCESS_PUBLIC = 1, ACCESS_PRIVATE, ACCESS_UNKNOWN
+{ ACCESS_UNKNOWN = 0, ACCESS_PUBLIC, ACCESS_PRIVATE, 
 }
 gfc_access;
 
@@ -287,10 +287,17 @@ enum gfc_generic_isym_id
   GFC_ISYM_ASSOCIATED,
   GFC_ISYM_ATAN,
   GFC_ISYM_ATAN2,
+  GFC_ISYM_J0,
+  GFC_ISYM_J1,
+  GFC_ISYM_JN,
+  GFC_ISYM_Y0,
+  GFC_ISYM_Y1,
+  GFC_ISYM_YN,
   GFC_ISYM_BTEST,
   GFC_ISYM_CEILING,
   GFC_ISYM_CHAR,
   GFC_ISYM_CMPLX,
+  GFC_ISYM_COMMAND_ARGUMENT_COUNT,
   GFC_ISYM_CONJG,
   GFC_ISYM_COS,
   GFC_ISYM_COSH,
@@ -301,12 +308,20 @@ enum gfc_generic_isym_id
   GFC_ISYM_DOT_PRODUCT,
   GFC_ISYM_DPROD,
   GFC_ISYM_EOSHIFT,
+  GFC_ISYM_ERF,
+  GFC_ISYM_ERFC,
+  GFC_ISYM_ETIME,
   GFC_ISYM_EXP,
   GFC_ISYM_EXPONENT,
   GFC_ISYM_FLOOR,
   GFC_ISYM_FRACTION,
+  GFC_ISYM_GETCWD,
+  GFC_ISYM_GETGID,
+  GFC_ISYM_GETPID,
+  GFC_ISYM_GETUID,
   GFC_ISYM_IACHAR,
   GFC_ISYM_IAND,
+  GFC_ISYM_IARGC,
   GFC_ISYM_IBCLR,
   GFC_ISYM_IBITS,
   GFC_ISYM_IBSET,
@@ -315,6 +330,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_INDEX,
   GFC_ISYM_INT,
   GFC_ISYM_IOR,
+  GFC_ISYM_IRAND,
   GFC_ISYM_ISHFT,
   GFC_ISYM_ISHFTC,
   GFC_ISYM_LBOUND,
@@ -343,12 +359,14 @@ enum gfc_generic_isym_id
   GFC_ISYM_PACK,
   GFC_ISYM_PRESENT,
   GFC_ISYM_PRODUCT,
+  GFC_ISYM_RAND,
   GFC_ISYM_REAL,
   GFC_ISYM_REPEAT,
   GFC_ISYM_RESHAPE,
   GFC_ISYM_RRSPACING,
   GFC_ISYM_SCALE,
   GFC_ISYM_SCAN,
+  GFC_ISYM_SECOND,
   GFC_ISYM_SET_EXPONENT,
   GFC_ISYM_SHAPE,
   GFC_ISYM_SI_KIND,
@@ -361,6 +379,7 @@ enum gfc_generic_isym_id
   GFC_ISYM_SQRT,
   GFC_ISYM_SR_KIND,
   GFC_ISYM_SUM,
+  GFC_ISYM_SYSTEM,
   GFC_ISYM_TAN,
   GFC_ISYM_TANH,
   GFC_ISYM_TRANSFER,
@@ -381,18 +400,26 @@ typedef struct
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
     optional:1, pointer:1, save:1, target:1,
-    dummy:1, common:1, result:1, entry:1, assign:1;
+    dummy:1, result:1, assign:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
     use_assoc:1;		/* Symbol has been use-associated.  */
 
-  unsigned in_namelist:1, in_common:1, saved_common:1;
+  unsigned in_namelist:1, in_common:1;
   unsigned function:1, subroutine:1, generic:1;
   unsigned implicit_type:1;	/* Type defined via implicit rules */
 
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
   unsigned unmaskable:1, masked:1, contained:1;
+
+  /* Set if this procedure is an alternate entry point.  These procedures
+     don't have any code associated, and the backend will turn them into
+     thunks to the master function.  */
+  unsigned entry:1;
+  /* Set if this is the master function for a procedure with multiple
+     entry points.  */
+  unsigned entry_master:1;
 
   /* Set if a function must always be referenced by an explicit interface.  */
   unsigned always_explicit:1;
@@ -413,35 +440,46 @@ typedef struct
 symbol_attribute;
 
 
-typedef struct
+/* The following three structures are used to identify a location in
+   the sources. 
+   
+   gfc_file is used to maintain a tree of the source files and how
+   they include each other
+
+   gfc_linebuf holds a single line of source code and information
+   which file it resides in
+
+   locus point to the sourceline and the character in the source
+   line.  
+*/
+
+typedef struct gfc_file 
+{
+  struct gfc_file *included_by, *next, *up;
+  int inclusion_line, line;
+  char *filename;
+} gfc_file;
+
+typedef struct gfc_linebuf 
+{
+#ifdef USE_MAPPED_LOCATION
+  source_location location;
+#else
+  int linenum;
+#endif
+  struct gfc_file *file;
+  struct gfc_linebuf *next;
+
+  char line[1];
+} gfc_linebuf;
+
+#define gfc_linebuf_header_size (offsetof (gfc_linebuf, line))
+
+typedef struct 
 {
   char *nextc;
-  int line;			/* line within the lp structure */
-  struct linebuf *lp;
-  struct gfc_file *file;
-}
-locus;
-
-/* The linebuf structure deserves some explanation.  This is the
-   primary structure for holding lines.  A source file is stored in a
-   singly linked list of these structures.  Each structure holds an
-   integer number of lines.  The line[] member is actually an array of
-   pointers that point to the NULL-terminated lines.  This list grows
-   upwards, and the actual lines are stored at the top of the
-   structure and grow downward.  Each structure is packed with as many
-   lines as it can hold, then another linebuf is allocated.  */
-
-/* Chosen so that sizeof(linebuf) = 4096 on most machines */
-#define LINEBUF_SIZE 4080
-
-typedef struct linebuf
-{
-  int start_line, lines;
-  struct linebuf *next;
-  char *line[1];
-  char buf[LINEBUF_SIZE];
-}
-linebuf;
+  gfc_linebuf *lb;
+} locus;
 
 
 #include <limits.h>
@@ -449,17 +487,6 @@ linebuf;
 # include <sys/param.h>
 # define PATH_MAX MAXPATHLEN
 #endif
-
-
-typedef struct gfc_file
-{
-  char filename[PATH_MAX + 1];
-  gfc_source_form form;
-  struct gfc_file *included_by, *next;
-  locus loc;
-  struct linebuf *start;
-}
-gfc_file;
 
 
 extern int gfc_suppress_error;
@@ -480,6 +507,7 @@ typedef struct gfc_charlen
 {
   struct gfc_expr *length;
   struct gfc_charlen *next;
+  tree backend_decl;
 }
 gfc_charlen;
 
@@ -528,7 +556,9 @@ gfc_component;
 /* Formal argument lists are lists of symbols.  */
 typedef struct gfc_formal_arglist
 {
+  /* Symbol representing the argument at this position in the arglist.  */
   struct gfc_symbol *sym;
+  /* Points to the next formal argument.  */
   struct gfc_formal_arglist *next;
 }
 gfc_formal_arglist;
@@ -542,6 +572,11 @@ typedef struct gfc_actual_arglist
   char name[GFC_MAX_SYMBOL_LEN + 1];
   /* Alternate return label when the expr member is null.  */
   struct gfc_st_label *label;
+
+  /* This is set to the type of an eventual omitted optional
+     argument. This is used to determine if a hidden string length
+     argument has to be added to a function call.  */
+  bt missing_arg_type;
 
   struct gfc_expr *expr;
   struct gfc_actual_arglist *next;
@@ -638,8 +673,7 @@ typedef struct gfc_symbol
   struct gfc_symbol *result;	/* function result symbol */
   gfc_component *components;	/* Derived type components */
 
-  /* TODO: These three fields are mutually exclusive.  */
-  struct gfc_symbol *common_head, *common_next;	/* Links for COMMON syms */
+  struct gfc_symbol *common_next;	/* Links for COMMON syms */
   /* Make sure setup code for dummy arguments is generated in the correct
      order.  */
   int dummy_order;
@@ -655,14 +689,48 @@ typedef struct gfc_symbol
 
   struct gfc_symbol *old_symbol, *tlink;
   unsigned mark:1, new:1;
+  /* Nonzero if all equivalences associated with this symbol have been
+     processed.  */
+  unsigned equiv_built:1;
   int refs;
   struct gfc_namespace *ns;	/* namespace containing this symbol */
 
   tree backend_decl;
-
 }
 gfc_symbol;
 
+
+/* This structure is used to keep track of symbols in common blocks.  */
+
+typedef struct
+{
+  locus where;
+  int use_assoc, saved;
+  char name[GFC_MAX_SYMBOL_LEN + 1];
+  gfc_symbol *head;
+} 
+gfc_common_head;
+
+#define gfc_get_common_head() gfc_getmem(sizeof(gfc_common_head))
+
+
+/* A list of all the alternate entry points for a procedure.  */
+
+typedef struct gfc_entry_list
+{
+  /* The symbol for this entry point.  */
+  gfc_symbol *sym;
+  /* The zero-based id of this entry point.  */
+  int id;
+  /* The LABEL_EXPR marking this entry point.  */
+  tree label;
+  /* The nest item in the list.  */
+  struct gfc_entry_list *next;
+}
+gfc_entry_list;
+
+#define gfc_get_entry_list() \
+  (gfc_entry_list *) gfc_getmem(sizeof(gfc_entry_list))
 
 /* Within a namespace, symbols are pointed to by symtree nodes that
    are linked together in a balanced binary tree.  There can be
@@ -680,6 +748,7 @@ typedef struct gfc_symtree
   {
     gfc_symbol *sym;		/* Symbol associated with this node */
     gfc_user_op *uop;
+    gfc_common_head *common;
   }
   n;
 
@@ -687,32 +756,89 @@ typedef struct gfc_symtree
 gfc_symtree;
 
 
+/* A namespace describes the contents of procedure, module or
+   interface block.  */
+/* ??? Anything else use these?  */
+
 typedef struct gfc_namespace
 {
-  gfc_symtree *sym_root, *uop_root;	/* Roots of the red/black symbol trees */
+  /* Tree containing all the symbols in this namespace.  */
+  gfc_symtree *sym_root;
+  /* Tree containing all the user-defined operators in the namespace.  */
+  gfc_symtree *uop_root;
+  /* Tree containing all the common blocks.  */
+  gfc_symtree *common_root;	
 
+  /* If set_flag[letter] is set, an implicit type has been set for letter.  */
   int set_flag[GFC_LETTERS];
-  gfc_typespec default_type[GFC_LETTERS];	/* IMPLICIT typespecs */
+  /* Keeps track of the implicit types associated with the letters.  */
+  gfc_typespec default_type[GFC_LETTERS];
 
+  /* If this is a namespace of a procedure, this points to the procedure.  */
   struct gfc_symbol *proc_name;
-  gfc_interface *operator[GFC_INTRINSIC_OPS];
-  struct gfc_namespace *parent, *contained, *sibling;
+  /* If this is the namespace of a unit which contains executable
+     code, this points to it.  */
   struct gfc_code *code;
-  gfc_symbol *blank_common;
+
+  /* Points to the equivalences set up in this namespace.  */
   struct gfc_equiv *equiv;
+  gfc_interface *operator[GFC_INTRINSIC_OPS];
+
+  /* Points to the parent namespace, i.e. the namespace of a module or
+     procedure in which the procedure belonging to this namespace is
+     contained. The parent namespace points to this namespace either
+     directly via CONTAINED, or indirectly via the chain built by
+     SIBLING.  */
+  struct gfc_namespace *parent;
+  /* CONTAINED points to the first contained namespace. Sibling
+     namespaces are chained via SIBLING.  */
+  struct gfc_namespace  *contained, *sibling;
+
+  gfc_common_head blank_common;
   gfc_access default_access, operator_access[GFC_INTRINSIC_OPS];
 
   gfc_st_label *st_labels;
+  /* This list holds information about all the data initializers in
+     this namespace.  */
   struct gfc_data *data;
 
   gfc_charlen *cl_list;
 
   int save_all, seen_save;
+
+  /* Normally we don't need to refcount namespaces.  However when we read
+     a module containing a function with multiple entry points, this
+     will appear as several functions with the same formal namespace.  */
+  int refs;
+
+  /* A list of all alternate entry points to this procedure (or NULL).  */
+  gfc_entry_list *entries;
+
+  /* Set to 1 if namespace is a BLOCK DATA program unit.  */
+  int is_block_data;
 }
 gfc_namespace;
 
 extern gfc_namespace *gfc_current_ns;
 
+/* Global symbols are symbols of global scope. Currently we only use
+   this to detect collisions already when parsing.
+   TODO: Extend to verify procedure calls.  */
+
+typedef struct gfc_gsymbol
+{
+  BBT_HEADER(gfc_gsymbol);
+
+  char name[GFC_MAX_SYMBOL_LEN+1];
+  enum { GSYM_UNKNOWN=1, GSYM_PROGRAM, GSYM_FUNCTION, GSYM_SUBROUTINE,
+        GSYM_MODULE, GSYM_COMMON, GSYM_BLOCK_DATA } type;
+
+  int defined, used;
+  locus where;
+}
+gfc_gsymbol;
+
+extern gfc_gsymbol *gfc_gsym_root;
 
 /* Information on interfaces being built.  */
 typedef struct
@@ -808,12 +934,22 @@ typedef struct gfc_intrinsic_arg
 gfc_intrinsic_arg;
 
 
+/* Specifies the various kinds of check functions used to verify the
+   argument lists of intrinsic functions. fX with X an integer refer
+   to check functions of intrinsics with X arguments. f1m is used for
+   the MAX and MIN intrinsics which can have an arbitrary number of
+   arguments, f3ml is used for the MINLOC and MAXLOC intrinsics as
+   these have special semantics.  */
+
 typedef union
 {
+  try (*f0)(void);
   try (*f1)(struct gfc_expr *);
   try (*f1m)(gfc_actual_arglist *);
   try (*f2)(struct gfc_expr *, struct gfc_expr *);
   try (*f3)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *);
+  try (*f3ml)(gfc_actual_arglist *);
+  try (*f3red)(gfc_actual_arglist *);
   try (*f4)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *,
 	    struct gfc_expr *);
   try (*f5)(struct gfc_expr *, struct gfc_expr *, struct gfc_expr *,
@@ -821,9 +957,13 @@ typedef union
 }
 gfc_check_f;
 
+/* Like gfc_check_f, these specify the type of the simplification
+   function associated with an intrinsic. The fX are just like in
+   gfc_check_f. cc is used for type conversion functions.  */
 
 typedef union
 {
+  struct gfc_expr *(*f0)(void);
   struct gfc_expr *(*f1)(struct gfc_expr *);
   struct gfc_expr *(*f2)(struct gfc_expr *, struct gfc_expr *);
   struct gfc_expr *(*f3)(struct gfc_expr *, struct gfc_expr *,
@@ -837,6 +977,10 @@ typedef union
 }
 gfc_simplify_f;
 
+/* Again like gfc_check_f, these specify the type of the resolution
+   function associated with an intrinsic. The fX are just like in
+   gfc_check_f. f1m is used for MIN and MAX, s1 is used for abort().
+   */
 
 typedef union
 {
@@ -886,6 +1030,8 @@ gfc_intrinsic_sym;
    EXPR_ARRAY      An array constructor.  */
 
 #include <gmp.h>
+#include <mpfr.h>
+#define GFC_RND_MODE GMP_RNDN
 
 typedef struct gfc_expr
 {
@@ -909,13 +1055,14 @@ typedef struct gfc_expr
 
   union
   {
-    mpz_t integer;
-    mpf_t real;
     int logical;
+    mpz_t integer;
+
+    mpfr_t real;
 
     struct
     {
-      mpf_t r, i;
+      mpfr_t r, i;
     }
     complex;
 
@@ -943,7 +1090,7 @@ typedef struct gfc_expr
 gfc_expr;
 
 
-#define gfc_get_shape(rank) ((mpz_t *) gfc_getmem(rank*sizeof(mpz_t)))
+#define gfc_get_shape(rank) ((mpz_t *) gfc_getmem((rank)*sizeof(mpz_t)))
 
 /* Structures for information associated with different kinds of
    numbers.  The first set of integer parameters define all there is
@@ -952,12 +1099,18 @@ gfc_expr;
 
 typedef struct
 {
-  int kind, radix, digits, bit_size;
+  /* Values really representable by the target.  */
+  mpz_t huge, min_int, max_int;
 
-  int range;
-  mpz_t huge;
+  int kind, radix, digits, bit_size, range;
 
-  mpz_t min_int, max_int;	/* Values really representable by the target */
+  /* True if the C type of the given name maps to this precision.
+     Note that more than one bit can be set.  */
+  unsigned int c_char : 1;
+  unsigned int c_short : 1;
+  unsigned int c_int : 1;
+  unsigned int c_long : 1;
+  unsigned int c_long_long : 1;
 }
 gfc_integer_info;
 
@@ -968,6 +1121,8 @@ typedef struct
 {
   int kind, bit_size;
 
+  /* True if the C++ type bool, C99 type _Bool, maps to this precision.  */
+  unsigned int c_bool : 1;
 }
 gfc_logical_info;
 
@@ -976,10 +1131,18 @@ extern gfc_logical_info gfc_logical_kinds[];
 
 typedef struct
 {
+  mpfr_t epsilon, huge, tiny;
   int kind, radix, digits, min_exponent, max_exponent;
-
   int range, precision;
-  mpf_t epsilon, huge, tiny;
+
+  /* The precision of the type as reported by GET_MODE_PRECISION.  */
+  int mode_precision;
+
+  /* True if the C type of the given name maps to this precision.
+     Note that more than one bit can be set.  */
+  unsigned int c_float : 1;
+  unsigned int c_double : 1;
+  unsigned int c_long_double : 1;
 }
 gfc_real_info;
 
@@ -1121,7 +1284,8 @@ gfc_forall_iterator;
 typedef enum
 {
   EXEC_NOP = 1, EXEC_ASSIGN, EXEC_LABEL_ASSIGN, EXEC_POINTER_ASSIGN,
-  EXEC_GOTO, EXEC_CALL, EXEC_RETURN, EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE,
+  EXEC_GOTO, EXEC_CALL, EXEC_RETURN, EXEC_ENTRY,
+  EXEC_PAUSE, EXEC_STOP, EXEC_CONTINUE,
   EXEC_IF, EXEC_ARITHMETIC_IF, EXEC_DO, EXEC_DO_WHILE, EXEC_SELECT,
   EXEC_FORALL, EXEC_WHERE, EXEC_CYCLE, EXEC_EXIT,
   EXEC_ALLOCATE, EXEC_DEALLOCATE,
@@ -1160,6 +1324,7 @@ typedef struct gfc_code
     gfc_forall_iterator *forall_iterator;
     struct gfc_code *whichloop;
     int stop_code;
+    gfc_entry_list *entry;
   }
   ext;		/* Points to additional structures required by statement */
 
@@ -1182,9 +1347,8 @@ gfc_data_variable;
 
 typedef struct gfc_data_value
 {
-  int repeat;
+  unsigned int repeat;
   gfc_expr *expr;
-
   struct gfc_data_value *next;
 }
 gfc_data_value;
@@ -1219,11 +1383,11 @@ typedef struct
   int warn_conversion;
   int warn_implicit_interface;
   int warn_line_truncation;
+  int warn_underflow;
   int warn_surprising;
   int warn_unused_labels;
 
   int flag_dollar_ok;
-  int flag_g77_calls;
   int flag_underscoring;
   int flag_second_underscore;
   int flag_implicit_none;
@@ -1280,6 +1444,7 @@ extern iterator_stack *iter_stack;
 void gfc_formalize_init_value (gfc_symbol *);
 void gfc_get_section_index (gfc_array_ref *, mpz_t *, mpz_t *);
 void gfc_assign_data_value (gfc_expr *, gfc_expr *, mpz_t);
+void gfc_assign_data_value_range (gfc_expr *, gfc_expr *, mpz_t, mpz_t);
 void gfc_advance_section (mpz_t *, gfc_array_ref *, mpz_t *);
 
 /* scanner.c */
@@ -1289,9 +1454,6 @@ void gfc_scanner_init_1 (void);
 void gfc_add_include_path (const char *);
 void gfc_release_include_path (void);
 FILE *gfc_open_included_file (const char *);
-
-locus *gfc_current_locus (void);
-void gfc_set_locus (locus *);
 
 int gfc_at_end (void);
 int gfc_at_eof (void);
@@ -1308,7 +1470,9 @@ void gfc_error_recovery (void);
 void gfc_gobble_whitespace (void);
 try gfc_new_file (const char *, gfc_source_form);
 
-extern gfc_file *gfc_current_file;
+extern gfc_source_form gfc_current_form;
+extern char *gfc_source_file;
+extern locus gfc_current_locus;
 
 /* misc.c */
 void *gfc_getmem (size_t) ATTRIBUTE_MALLOC;
@@ -1383,22 +1547,22 @@ void gfc_get_errors (int *, int *);
 void gfc_arith_init_1 (void);
 void gfc_arith_done_1 (void);
 
-/* FIXME: These should go to symbol.c, really...  */
-int gfc_default_integer_kind (void);
-int gfc_default_real_kind (void);
-int gfc_default_double_kind (void);
-int gfc_default_character_kind (void);
-int gfc_default_logical_kind (void);
-int gfc_default_complex_kind (void);
-int gfc_validate_kind (bt, int);
+/* trans-types.c */
+int gfc_validate_kind (bt, int, bool);
 extern int gfc_index_integer_kind;
+extern int gfc_default_integer_kind;
+extern int gfc_default_real_kind;
+extern int gfc_default_double_kind;
+extern int gfc_default_character_kind;
+extern int gfc_default_logical_kind;
+extern int gfc_default_complex_kind;
+extern int gfc_c_int_kind;
 
 /* symbol.c */
 void gfc_clear_new_implicit (void);
-try gfc_add_new_implicit_range (int, int, gfc_typespec *);
-try gfc_merge_new_implicit (void);
+try gfc_add_new_implicit_range (int, int);
+try gfc_merge_new_implicit (gfc_typespec *);
 void gfc_set_implicit_none (void);
-void gfc_set_implicit (void);
 
 gfc_typespec *gfc_get_default_type (gfc_symbol *, gfc_namespace *);
 try gfc_set_default_type (gfc_symbol *, int, gfc_namespace *);
@@ -1422,6 +1586,7 @@ try gfc_add_dummy (symbol_attribute *, locus *);
 try gfc_add_generic (symbol_attribute *, locus *);
 try gfc_add_common (symbol_attribute *, locus *);
 try gfc_add_in_common (symbol_attribute *, locus *);
+try gfc_add_data (symbol_attribute *, locus *);
 try gfc_add_in_namelist (symbol_attribute *, locus *);
 try gfc_add_sequence (symbol_attribute *, locus *);
 try gfc_add_elemental (symbol_attribute *, locus *);
@@ -1476,12 +1641,15 @@ void gfc_free_namespace (gfc_namespace *);
 void gfc_symbol_init_2 (void);
 void gfc_symbol_done_2 (void);
 
-void gfc_traverse_symtree (gfc_namespace *, void (*)(gfc_symtree *));
+void gfc_traverse_symtree (gfc_symtree *, void (*)(gfc_symtree *));
 void gfc_traverse_ns (gfc_namespace *, void (*)(gfc_symbol *));
 void gfc_traverse_user_op (gfc_namespace *, void (*)(gfc_user_op *));
 void gfc_save_all (gfc_namespace *);
 
 void gfc_symbol_state (void);
+
+gfc_gsymbol *gfc_get_gsymbol (char *);
+gfc_gsymbol *gfc_find_gsymbol (gfc_gsymbol *, char *);
 
 /* intrinsic.c */
 extern int gfc_init_expr;
@@ -1509,7 +1677,6 @@ match gfc_intrinsic_sub_interface (gfc_code *, int);
 
 /* simplify.c */
 void gfc_simplify_init_1 (void);
-void gfc_simplify_done_1 (void);
 
 /* match.c -- FIXME */
 void gfc_free_iterator (gfc_iterator *, int);
@@ -1537,6 +1704,7 @@ void gfc_replace_expr (gfc_expr *, gfc_expr *);
 gfc_expr *gfc_int_expr (int);
 gfc_expr *gfc_logical_expr (int, locus *);
 mpz_t *gfc_copy_shape (mpz_t *, int);
+mpz_t *gfc_copy_shape_excluding (mpz_t *, int, gfc_expr *);
 gfc_expr *gfc_copy_expr (gfc_expr *);
 
 try gfc_specification_expr (gfc_expr *);
@@ -1548,6 +1716,10 @@ try gfc_check_conformance (const char *, gfc_expr *, gfc_expr *);
 try gfc_check_assign (gfc_expr *, gfc_expr *, int);
 try gfc_check_pointer_assign (gfc_expr *, gfc_expr *);
 try gfc_check_assign_symbol (gfc_symbol *, gfc_expr *);
+
+gfc_expr *gfc_default_initializer (gfc_typespec *);
+gfc_expr *gfc_get_variable_expr (gfc_symtree *);
+
 
 /* st.c */
 extern gfc_code new_st;
@@ -1598,6 +1770,7 @@ void gfc_insert_constructor (gfc_expr *, gfc_constructor *);
 gfc_constructor *gfc_get_constructor (void);
 tree gfc_conv_array_initializer (tree type, gfc_expr * expr);
 try spec_size (gfc_array_spec *, mpz_t *);
+int gfc_is_compile_time_shape (gfc_array_spec *);
 
 /* interface.c -- FIXME: some of these should be in symbol.c */
 void gfc_free_interface (gfc_interface *);
@@ -1649,4 +1822,4 @@ void gfc_show_namespace (gfc_namespace *);
 /* parse.c */
 try gfc_parse_file (void);
 
-#endif /* GFC_GFC_H  */
+#endif /* GCC_GFORTRAN_H  */

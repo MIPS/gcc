@@ -1,5 +1,5 @@
 /* Definitions for branch prediction routines in the GNU compiler.
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -41,5 +41,6 @@ enum prediction
 
 extern void predict_insn_def (rtx, enum br_predictor, enum prediction);
 extern void predict_insn (rtx, enum br_predictor, int);
+extern int counts_to_freqs (void);
 
 #endif  /* GCC_PREDICT_H */

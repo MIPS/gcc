@@ -47,7 +47,6 @@ Boston, MA 02111-1307, USA.  */
 #include "tm.h"
 #include "intl.h"
 #include "version.h"
-#undef abort
 
 #include <getopt.h>
 
@@ -372,17 +371,6 @@ fnotice (FILE *file, const char *msgid, ...)
   va_start (ap, msgid);
   vfprintf (file, _(msgid), ap);
   va_end (ap);
-}
-
-/* More 'friendly' abort that prints the line and file.
-   config.h can #define abort fancy_abort if you like that sort of thing.  */
-extern void fancy_abort (void) ATTRIBUTE_NORETURN;
-
-void
-fancy_abort (void)
-{
-  fnotice (stderr, "Internal gcov abort.\n");
-  exit (FATAL_EXIT_CODE);
 }
 
 /* Print a usage message and exit.  If ERROR_P is nonzero, this is an error,
@@ -896,14 +884,12 @@ read_graph_file (void)
 	}
       gcov_sync (base, length);
       if (gcov_is_error ())
-	break;
-    }
-  if (!gcov_is_eof ())
-    {
-    corrupt:;
-      fnotice (stderr, "%s:corrupted\n", bbg_file_name);
-      gcov_close ();
-      return 1;
+	{
+	corrupt:;
+	  fnotice (stderr, "%s:corrupted\n", bbg_file_name);
+	  gcov_close ();
+	  return 1;
+	}
     }
   gcov_close ();
 
@@ -1055,14 +1041,11 @@ read_count_file (void)
 	}
       gcov_sync (base, length);
       if ((error = gcov_is_error ()))
-	break;
-    }
-
-  if (!gcov_is_eof ())
-    {
-      fnotice (stderr, error < 0 ? "%s:overflowed\n" : "%s:corrupted\n",
-	       da_file_name);
-      goto cleanup;
+	{
+	  fnotice (stderr, error < 0 ? "%s:overflowed\n" : "%s:corrupted\n",
+		   da_file_name);
+	  goto cleanup;
+	}
     }
 
   gcov_close ();
@@ -1391,7 +1374,7 @@ function_summary (const coverage_t *coverage, const char *title)
 	     format_gcov (coverage->lines_executed, coverage->lines, 2),
 	     coverage->lines);
   else
-    fnotice (stdout, "No executable lines");
+    fnotice (stdout, "No executable lines\n");
 
   if (flag_branches)
     {
@@ -1738,7 +1721,7 @@ accumulate_line_counts (source_t *src)
     }
 }
 
-/* Ouput information about ARC number IX.  Returns nonzero if
+/* Output information about ARC number IX.  Returns nonzero if
    anything is output.  */
 
 static int

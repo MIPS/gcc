@@ -96,11 +96,14 @@ basic_file.cc: ${glibcxx_srcdir}/$(BASIC_FILE_CC)
 
 # Sources present in the src directory.
 sources = \
-	allocator.cc \
+	bitmap_allocator.cc \
+	pool_allocator.cc \
+	mt_allocator.cc \
 	codecvt.cc \
 	complex_io.cc \
 	ctype.cc \
 	debug.cc \
+	debug_list.cc \
 	functexcept.cc \
 	globals_locale.cc \
 	globals_io.cc \

@@ -1,6 +1,6 @@
 /* Protoize program - Original version by Ron Guilmette (rfg@segfault.us.com).
    Copyright (C) 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -75,7 +75,6 @@ static void usage (void) ATTRIBUTE_NORETURN;
 static void aux_info_corrupted (void) ATTRIBUTE_NORETURN;
 static void declare_source_confusing (const char *) ATTRIBUTE_NORETURN;
 static const char *shortpath (const char *, const char *);
-extern void fancy_abort  (void) ATTRIBUTE_NORETURN;
 static void notice (const char *, ...) ATTRIBUTE_PRINTF_1;
 static char *savestring (const char *, unsigned int);
 static char *dupnstr (const char *, size_t);
@@ -525,15 +524,6 @@ savestring (const char *input, unsigned int size)
   return output;
 }
 
-/* More 'friendly' abort that prints the line and file.
-   config.h can #define abort fancy_abort if you like that sort of thing.  */
-
-void
-fancy_abort (void)
-{
-  notice ("%s: internal abort\n", pname);
-  exit (FATAL_EXIT_CODE);
-}
 
 /* Make a duplicate of the first N bytes of a given string in a newly
    allocated area.  */
@@ -980,7 +970,7 @@ free_def_dec (def_dec_info *p)
   free (p);
 }
 
-/* Unexpand as many macro symbol as we can find.
+/* Unexpand as many macro symbols as we can find.
 
    If the given line must be unexpanded, make a copy of it in the heap and
    return a pointer to the unexpanded copy.  Otherwise return NULL.  */

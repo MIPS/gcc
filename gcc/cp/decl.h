@@ -1,5 +1,5 @@
 /* Variables and structures for declaration processing.
-   Copyright (C) 1993, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1993, 2000, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,11 +31,9 @@ enum decl_context
 };
 
 /* We need this in here to get the decl_context definition.  */
-extern tree grokdeclarator (tree, tree, enum decl_context, int, tree*);
-
-/* Parsing a function declarator leaves a list of parameter names
-   or a chain or parameter decls here.  */
-extern GTY(()) tree last_function_parms;
+extern tree grokdeclarator (const cp_declarator *, 
+			    const cp_decl_specifier_seq *, 
+			    enum decl_context, int, tree*);
 
 #ifdef DEBUG_CP_BINDING_LEVELS
 /* Purely for debugging purposes.  */

@@ -23,6 +23,9 @@
 /* Note that some other tm.h files include this one and then override
    many of the definitions.  */
 
+/* APPLE LOCAL fat builds */
+#define DEFAULT_TARGET_ARCH "ppc"
+
 /* Definitions for the object file format.  These are set at
    compile-time.  */
 
@@ -40,6 +43,10 @@
 #define TARGET_AIX 0
 #endif
 
+/* Control whether function entry points use a "dot" symbol when
+   ABI_AIX.  */
+#define DOT_SYMBOLS 1
+
 /* Default string to use for cpu if not specified.  */
 #ifndef TARGET_CPU_DEFAULT
 #define TARGET_CPU_DEFAULT ((char *)0)
@@ -51,20 +58,23 @@
 "%{!mcpu*: \
   %{mpower: %{!mpower2: -mpwr}} \
   %{mpower2: -mpwrx} \
-  %{mpowerpc*: -mppc} \
+  %{mpowerpc64*: -mppc64} \
+  %{!mpowerpc64*: %{mpowerpc*: -mppc}} \
   %{mno-power: %{!mpowerpc*: -mcom}} \
-  %{!mno-power: %{!mpower2: %(asm_default)}}} \
+  %{!mno-power: %{!mpower*: %(asm_default)}}} \
 %{mcpu=common: -mcom} \
 %{mcpu=power: -mpwr} \
 %{mcpu=power2: -mpwrx} \
-%{mcpu=power3: -m604} \
+%{mcpu=power3: -mppc64} \
 %{mcpu=power4: -mpower4} \
+%{mcpu=power5: -mpower4} \
 %{mcpu=powerpc: -mppc} \
 %{mcpu=rios: -mpwr} \
 %{mcpu=rios1: -mpwr} \
 %{mcpu=rios2: -mpwrx} \
 %{mcpu=rsc: -mpwr} \
 %{mcpu=rsc1: -mpwr} \
+%{mcpu=rs64a: -mppc64} \
 %{mcpu=401: -mppc} \
 %{mcpu=403: -m403} \
 %{mcpu=405: -m405} \
@@ -79,22 +89,23 @@
 %{mcpu=ec603e: -mppc} \
 %{mcpu=604: -mppc} \
 %{mcpu=604e: -mppc} \
-%{mcpu=620: -mppc} \
-%{mcpu=630: -m604} \
+%{mcpu=620: -mppc64} \
+%{mcpu=630: -mppc64} \
 %{mcpu=740: -mppc} \
-%{mcpu=7400: -mppc} \
-%{mcpu=7450: -mppc} \
-%{mcpu=G4: -mppc} \
 %{mcpu=750: -mppc} \
 %{mcpu=G3: -mppc} \
+%{mcpu=7400: -mppc -maltivec} \
+%{mcpu=7450: -mppc -maltivec} \
+%{mcpu=G4: -mppc -maltivec} \
 %{mcpu=801: -mppc} \
 %{mcpu=821: -mppc} \
 %{mcpu=823: -mppc} \
 %{mcpu=860: -mppc} \
-%{mcpu=970: -mpower4} \
-%{mcpu=G5: -mpower4} \
+%{mcpu=970: -mpower4 -maltivec} \
+%{mcpu=G5: -mpower4 -maltivec} \
 %{mcpu=8540: -me500} \
-%{maltivec: -maltivec}"
+%{maltivec: -maltivec} \
+-many"
 
 #define CPP_DEFAULT_SPEC ""
 
@@ -110,7 +121,11 @@
 
    Do not define this macro if it does not need to do anything.  */
 
+/* APPLE LOCAL begin mainline */
+#ifndef SUBTARGET_EXTRA_SPECS
 #define SUBTARGET_EXTRA_SPECS
+#endif
+/* APPLE LOCAL end mainline */
 
 #define EXTRA_SPECS							\
   { "cpp_default",		CPP_DEFAULT_SPEC },			\
@@ -197,6 +212,10 @@ extern int target_flags;
    0x00100000, and sysv4.h uses 0x00800000 -> 0x40000000.
    0x80000000 is not available because target_flags is signed.  */
 
+/* APPLE LOCAL long-branch  */
+/* gen call addr in register for >64M range */
+#define MASK_LONG_BRANCH	0x00200000
+
 #define TARGET_POWER		(target_flags & MASK_POWER)
 #define TARGET_POWER2		(target_flags & MASK_POWER2)
 #define TARGET_POWERPC		(target_flags & MASK_POWERPC)
@@ -215,6 +234,8 @@ extern int target_flags;
 #define TARGET_SCHED_PROLOG	(target_flags & MASK_SCHED_PROLOG)
 #define TARGET_ALTIVEC		(target_flags & MASK_ALTIVEC)
 #define TARGET_AIX_STRUCT_RET	(target_flags & MASK_AIX_STRUCT_RET)
+/* APPLE LOCAL long-branch  */
+#define TARGET_LONG_BRANCH	(target_flags & MASK_LONG_BRANCH)
 
 /* Define TARGET_MFCRF if the target assembler supports the optional
    field operand for mfcr and the target processor supports the
@@ -226,11 +247,17 @@ extern int target_flags;
 #define TARGET_MFCRF 0
 #endif
 
-
 #define TARGET_32BIT		(! TARGET_64BIT)
 #define TARGET_HARD_FLOAT	(! TARGET_SOFT_FLOAT)
 #define TARGET_UPDATE		(! TARGET_NO_UPDATE)
 #define TARGET_FUSED_MADD	(! TARGET_NO_FUSED_MADD)
+
+/* Emit a dtp-relative reference to a TLS variable.  */
+
+#ifdef HAVE_AS_TLS
+#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
+  rs6000_output_dwarf_dtprel (FILE, SIZE, X)
+#endif
 
 #ifndef HAVE_AS_TLS
 #define HAVE_AS_TLS 0
@@ -247,7 +274,7 @@ extern int target_flags;
 #define TARGET_POWERPC64	(target_flags & MASK_POWERPC64)
 #endif
 
-#define TARGET_XL_CALL 0
+#define TARGET_XL_COMPAT 0
 
 /* Run-time compilation parameters selecting different hardware subsets.
 
@@ -289,6 +316,7 @@ extern int target_flags;
 			N_("Use AltiVec instructions")},		\
   {"no-altivec",	- MASK_ALTIVEC ,					\
 			N_("Do not use AltiVec instructions")},	\
+  /* '-m(no-)altivec' handling moved to rs6000c:rs6000_override_options(). */	\
   {"new-mnemonics",	MASK_NEW_MNEMONICS,				\
 			N_("Use new mnemonics for PowerPC architecture")},\
   {"old-mnemonics",	-MASK_NEW_MNEMONICS,				\
@@ -379,7 +407,8 @@ enum processor_type
    PROCESSOR_PPC7400,
    PROCESSOR_PPC7450,
    PROCESSOR_PPC8540,
-   PROCESSOR_POWER4
+   PROCESSOR_POWER4,
+   PROCESSOR_POWER5
 };
 
 extern enum processor_type rs6000_cpu;
@@ -452,6 +481,11 @@ enum group_termination
    {"longcall", &rs6000_longcall_switch,				\
     N_("Avoid all range limits on call instructions"), 0},		\
    {"no-longcall", &rs6000_longcall_switch, "", 0},			\
+   /* APPLE LOCAL begin long-branch  */					\
+   {"long-branch", &rs6000_longcall_switch,				\
+    N_("Avoid all range limits on call instructions"), 0},		\
+   {"no-long-branch", &rs6000_longcall_switch, "", 0},			\
+   /* APPLE LOCAL end long-branch  */					\
    {"warn-altivec-long", &rs6000_warn_altivec_long_switch, \
     N_("Warn about deprecated 'vector long ...' AltiVec type usage"), 0}, \
    {"no-warn-altivec-long", &rs6000_warn_altivec_long_switch, "", 0}, \
@@ -463,6 +497,11 @@ enum group_termination
     N_("Specify alignment of structure fields default/natural"), 0},	\
    {"prioritize-restricted-insns=", &rs6000_sched_restricted_insns_priority_str, \
     N_("Specify scheduling priority for dispatch slot restricted insns"), 0}, \
+   /* APPLE LOCAL begin AltiVec */					\
+   {"pim-altivec", &rs6000_altivec_pim_switch, \
+    N_("Enable use of Motorola AltiVec PIM operations and predicates"), 0}, \
+   {"no-pim-altivec", &rs6000_altivec_pim_switch, "", 0}, \
+   /* APPLE LOCAL end AltiVec */					\
    SUBTARGET_OPTIONS							\
 }
 
@@ -525,6 +564,10 @@ extern enum rs6000_nop_insertion rs6000_sched_insert_nops;
 
 extern int rs6000_warn_altivec_long;
 extern const char *rs6000_warn_altivec_long_switch;
+/* APPLE LOCAL begin AltiVec */
+extern int rs6000_altivec_pim;
+extern const char *rs6000_altivec_pim_switch;
+/* APPLE LOCAL end AltiVec */
 
 /* Alignment options for fields in structures for sub-targets following
    AIX-like ABI.
@@ -534,27 +577,18 @@ extern const char *rs6000_warn_altivec_long_switch;
    Override the macro definitions when compiling libobjc to avoid undefined
    reference to rs6000_alignment_flags due to library's use of GCC alignment
    macros which use the macros below.  */
-   
+
 #ifndef IN_TARGET_LIBS
 #define MASK_ALIGN_POWER   0x00000000
 #define MASK_ALIGN_NATURAL 0x00000001
 #define TARGET_ALIGN_NATURAL (rs6000_alignment_flags & MASK_ALIGN_NATURAL)
+/* APPLE LOCAL begin Macintosh alignment 2002-2-26 --ff */
+#define MASK_ALIGN_MAC68K  0x00000002
+#define TARGET_ALIGN_MAC68K (rs6000_alignment_flags & MASK_ALIGN_MAC68K)
+/* APPLE LOCAL end Macintosh alignment 2002-2-26 --ff */
 #else
 #define TARGET_ALIGN_NATURAL 0
 #endif
-
-/* Set a default value for DEFAULT_SCHED_COSTLY_DEP used by target hook
-   is_costly_dependence.  */ 
-#define DEFAULT_SCHED_COSTLY_DEP                           \
-  (rs6000_cpu == PROCESSOR_POWER4 ? store_to_load_dep_costly : no_dep_costly)
-
-/* Define if the target has restricted dispatch slot instructions.  */
-#define DEFAULT_RESTRICTED_INSNS_PRIORITY (rs6000_cpu == PROCESSOR_POWER4 ? 1 : 0)
-
-/* Set a default value for post scheduling nop insertion scheme
-   (used by taget hook sched_finish).  */
-#define DEFAULT_SCHED_FINISH_NOP_INSERTION_SCHEME          \
-  (rs6000_cpu == PROCESSOR_POWER4 ? sched_finish_regroup_exact : sched_finish_none)
 
 #define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
@@ -565,6 +599,8 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define TARGET_E500 0
 #define TARGET_ISEL 0
 #define TARGET_FPRS 1
+#define TARGET_E500_SINGLE 0
+#define TARGET_E500_DOUBLE 0
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -723,10 +759,18 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define PARM_BOUNDARY (TARGET_32BIT ? 32 : 64)
 
 /* Boundary (in *bits*) on which stack pointer should be aligned.  */
-#define STACK_BOUNDARY ((TARGET_32BIT && !TARGET_ALTIVEC_ABI) ? 64 : 128)
+#define STACK_BOUNDARY \
+  ((TARGET_32BIT && !TARGET_ALTIVEC && !TARGET_ALTIVEC_ABI) ? 64 : 128)
 
 /* Allocation boundary (in *bits*) for the code of a function.  */
 #define FUNCTION_BOUNDARY 32
+
+/* Constants for alignment macros below.  */
+/* APPLE LOCAL begin Macintosh alignment */
+#define RS6000_DOUBLE_ALIGNMENT 64
+#define RS6000_LONGLONG_ALIGNMENT 64
+#define RS6000_VECTOR_ALIGNMENT 128
+/* APPLE LOCAL end Macintosh alignment */
 
 /* No data type wants to be aligned rounder than this.  */
 #define BIGGEST_ALIGNMENT 128
@@ -831,7 +875,7 @@ extern const char *rs6000_warn_altivec_long_switch;
    avoid invalidating older SPE eh_frame info.
 
    We must map them here to avoid huge unwinder tables mostly consisting
-   of unused space.  */ 
+   of unused space.  */
 #define DWARF_REG_TO_UNWIND_COLUMN(r) \
   ((r) > 1200 ? ((r) - 1200 + FIRST_PSEUDO_REGISTER) : (r))
 
@@ -886,7 +930,7 @@ extern const char *rs6000_warn_altivec_long_switch;
    (`CALL_USED_REGISTERS' must be a superset of `FIXED_REGISTERS').
    This macro is optional.  If not specified, it defaults to the value
    of `CALL_USED_REGISTERS'.  */
-		       
+
 #define CALL_REALLY_USED_REGISTERS  \
   {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, FIXED_R13, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
@@ -915,6 +959,10 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define VSCR_REGNO		110
 #define SPE_ACC_REGNO		111
 #define SPEFSCR_REGNO		112
+
+#define FIRST_SAVED_ALTIVEC_REGNO (FIRST_ALTIVEC_REGNO+20)
+#define FIRST_SAVED_FP_REGNO    (14+32)
+#define FIRST_SAVED_GP_REGNO 13
 
 /* List the order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.
@@ -947,7 +995,7 @@ extern const char *rs6000_warn_altivec_long_switch;
 	v19 - v14       (not saved or used for anything)
 	v31 - v20       (saved; order given to save least number)
 */
-						
+
 #if FIXED_R2 == 1
 #define MAYBE_R2_AVAILABLE
 #define MAYBE_R2_FIXED 2,
@@ -1002,29 +1050,13 @@ extern const char *rs6000_warn_altivec_long_switch;
 #define ALTIVEC_REGNO_P(N) ((N) >= FIRST_ALTIVEC_REGNO && (N) <= LAST_ALTIVEC_REGNO)
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
-   to hold something of mode MODE.
-   This is ordinarily the length in words of a value of mode MODE
-   but can be less for certain modes in special long registers.
+   to hold something of mode MODE.  */
 
-   For the SPE, GPRs are 64 bits but only 32 bits are visible in
-   scalar instructions.  The upper 32 bits are only available to the
-   SIMD instructions.
-
-   POWER and PowerPC GPRs hold 32 bits worth;
-   PowerPC64 GPRs and FPRs point register holds 64 bits worth.  */
-
-#define HARD_REGNO_NREGS(REGNO, MODE)					\
-  (FP_REGNO_P (REGNO)							\
-   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_FP_WORD - 1) / UNITS_PER_FP_WORD) \
-   : (SPE_SIMD_REGNO_P (REGNO) && TARGET_SPE && SPE_VECTOR_MODE (MODE))   \
-   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_SPE_WORD - 1) / UNITS_PER_SPE_WORD) \
-   : ALTIVEC_REGNO_P (REGNO)						\
-   ? ((GET_MODE_SIZE (MODE) + UNITS_PER_ALTIVEC_WORD - 1) / UNITS_PER_ALTIVEC_WORD) \
-   : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
+#define HARD_REGNO_NREGS(REGNO, MODE) rs6000_hard_regno_nregs ((REGNO), (MODE))
 
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
   ((TARGET_32BIT && TARGET_POWERPC64			\
-    && (MODE == DImode || MODE == DFmode)		\
+    && (GET_MODE_SIZE (MODE) > 4)  \
     && INT_REGNO_P (REGNO)) ? 1 : 0)
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
@@ -1039,33 +1071,13 @@ extern const char *rs6000_warn_altivec_long_switch;
          || (MODE) == V1DImode          \
          || (MODE) == V2SImode)
 
-/* Define this macro to be nonzero if the port is prepared to handle
-   insns involving vector mode MODE.  At the very least, it must have
-   move patterns for this mode.  */
+#define UNITS_PER_SIMD_WORD     \
+        (TARGET_ALTIVEC ? 16 : (TARGET_SPE ? 8 : 0) )
 
-#define VECTOR_MODE_SUPPORTED_P(MODE)			\
-        ((TARGET_SPE && SPE_VECTOR_MODE (MODE))		\
-	 || (TARGET_ALTIVEC && ALTIVEC_VECTOR_MODE (MODE)))
-
-/* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
-   For POWER and PowerPC, the GPRs can hold any mode, but values bigger
-   than one register cannot go past R31.  The float
-   registers only can hold floating modes and DImode, and CR register only
-   can hold CC modes.  We cannot put TImode anywhere except general
-   register and it must be able to fit within the register set.  */
-
-#define HARD_REGNO_MODE_OK(REGNO, MODE)					\
-  (INT_REGNO_P (REGNO) ?						\
-     INT_REGNO_P (REGNO + HARD_REGNO_NREGS (REGNO, MODE) - 1)	        \
-   : FP_REGNO_P (REGNO) ?						\
-     (GET_MODE_CLASS (MODE) == MODE_FLOAT				\
-      || (GET_MODE_CLASS (MODE) == MODE_INT				\
-	  && GET_MODE_SIZE (MODE) == UNITS_PER_FP_WORD))		\
-   : ALTIVEC_REGNO_P (REGNO) ? ALTIVEC_VECTOR_MODE (MODE)		\
-   : SPE_SIMD_REGNO_P (REGNO) && TARGET_SPE && SPE_VECTOR_MODE (MODE) ? 1 \
-   : CR_REGNO_P (REGNO) ? GET_MODE_CLASS (MODE) == MODE_CC		\
-   : XER_REGNO_P (REGNO) ? (MODE) == PSImode				\
-   : GET_MODE_SIZE (MODE) <= UNITS_PER_WORD)
+/* Value is TRUE if hard register REGNO can hold a value of
+   machine-mode MODE.  */
+#define HARD_REGNO_MODE_OK(REGNO, MODE) \
+  rs6000_hard_regno_mode_ok_p[(int)(MODE)][REGNO]
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -1132,59 +1144,10 @@ extern const char *rs6000_warn_altivec_long_switch;
 
 #define FIXED_SCRATCH (TARGET_SPE ? 14 : 11)
 
-/* Define this macro to change register usage conditional on target flags.
-   Set MQ register fixed (already call_used) if not POWER architecture
-   (RIOS1, RIOS2, RSC, and PPC601) so that it will not be allocated.
-   64-bit AIX reserves GPR13 for thread-private data.
-   Conditionally disable FPRs.  */
+/* Define this macro to change register usage conditional on target
+   flags.  */
 
-#define CONDITIONAL_REGISTER_USAGE					\
-{									\
-  int i;								\
-  if (! TARGET_POWER)							\
-    fixed_regs[64] = 1;							\
-  if (TARGET_64BIT)							\
-    fixed_regs[13] = call_used_regs[13]					\
-      = call_really_used_regs[13] = 1; 					\
-  if (TARGET_SOFT_FLOAT || !TARGET_FPRS)				\
-    for (i = 32; i < 64; i++)						\
-      fixed_regs[i] = call_used_regs[i]					\
-        = call_really_used_regs[i] = 1;					\
-  if (DEFAULT_ABI == ABI_V4						\
-      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM			\
-      && flag_pic == 2)							\
-    fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;			\
-  if (DEFAULT_ABI == ABI_V4						\
-      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM			\
-      && flag_pic == 1)							\
-    fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]				\
-      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
-      = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
-  if (DEFAULT_ABI == ABI_DARWIN						\
-      && PIC_OFFSET_TABLE_REGNUM != INVALID_REGNUM)			\
-    global_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]				\
-      = fixed_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
-      = call_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM]			\
-      = call_really_used_regs[RS6000_PIC_OFFSET_TABLE_REGNUM] = 1;	\
-  if (TARGET_ALTIVEC)                                                   \
-    global_regs[VSCR_REGNO] = 1;                                        \
-  if (TARGET_SPE)							\
-    {                                                                   \
-      global_regs[SPEFSCR_REGNO] = 1;					\
-      fixed_regs[FIXED_SCRATCH]						\
-        = call_used_regs[FIXED_SCRATCH]					\
-	= call_really_used_regs[FIXED_SCRATCH] = 1; 			\
-    }                                                                   \
-  if (! TARGET_ALTIVEC)							\
-    {									\
-      for (i = FIRST_ALTIVEC_REGNO; i <= LAST_ALTIVEC_REGNO; ++i)	\
-	fixed_regs[i] = call_used_regs[i] = call_really_used_regs[i] = 1; \
-      call_really_used_regs[VRSAVE_REGNO] = 1;				\
-    }									\
-  if (TARGET_ALTIVEC_ABI)						\
-    for (i = FIRST_ALTIVEC_REGNO; i < FIRST_ALTIVEC_REGNO + 20; ++i)	\
-      call_used_regs[i] = call_really_used_regs[i] = 1;			\
-}
+#define CONDITIONAL_REGISTER_USAGE rs6000_conditional_register_usage ()
 
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
@@ -1360,7 +1323,7 @@ enum reg_class
 /* Get reg_class from a letter such as appears in the machine description.  */
 
 #define REG_CLASS_FROM_LETTER(C) \
-  ((C) == 'f' ? FLOAT_REGS	\
+  ((C) == 'f' ? ((TARGET_HARD_FLOAT && TARGET_FPRS) ? FLOAT_REGS : NO_REGS) \
    : (C) == 'b' ? BASE_REGS	\
    : (C) == 'h' ? SPECIAL_REGS	\
    : (C) == 'q' ? MQ_REGS	\
@@ -1421,7 +1384,7 @@ enum reg_class
    'T' is a constant that can be placed into a 32-bit mask operand
    'U' is for V.4 small data references.
    'W' is a vector constant that can be easily generated (no mem refs).
-   'Y' is a indexed or word-aligned displacement memory operand. 
+   'Y' is a indexed or word-aligned displacement memory operand.
    't' is for AND masks that can be performed by two rldic{l,r} insns.  */
 
 #define EXTRA_CONSTRAINT(OP, C)						\
@@ -1440,7 +1403,7 @@ enum reg_class
    : 0)
 
 /* Define which constraints are memory constraints.  Tell reload
-   that any memory address can be reloaded by copying the 
+   that any memory address can be reloaded by copying the
    memory address into a base register if required.  */
 
 #define EXTRA_MEMORY_CONSTRAINT(C, STR)				\
@@ -1452,7 +1415,7 @@ enum reg_class
    in some cases it is preferable to use a more restrictive class.
 
    On the RS/6000, we have to return NO_REGS when we want to reload a
-   floating-point CONST_DOUBLE to force it to be copied to memory.  
+   floating-point CONST_DOUBLE to force it to be copied to memory.
 
    We also don't want to reload integer values into floating-point
    registers if we can at all help it.  In fact, this can
@@ -1465,8 +1428,8 @@ enum reg_class
  */
 
 #define PREFERRED_RELOAD_CLASS(X,CLASS)			\
-  (((GET_CODE (X) == CONST_DOUBLE			\
-     && GET_MODE_CLASS (GET_MODE (X)) == MODE_FLOAT)	\
+   (((CONSTANT_P (X)                                   \
+      && reg_classes_intersect_p ((CLASS), FLOAT_REGS))        \
     ? NO_REGS 						\
     : (GET_MODE_CLASS (GET_MODE (X)) == MODE_INT 	\
        && (CLASS) == NON_SPECIAL_REGS)			\
@@ -1527,6 +1490,9 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 /* Define this if pushing a word on the stack
    makes the stack pointer a smaller address.  */
 #define STACK_GROWS_DOWNWARD
+
+/* Offsets recorded in opcodes are a multiple of this alignment factor.  */
+#define DWARF_CIE_DATA_ALIGNMENT (-((int) (TARGET_32BIT ? 4 : 8)))
 
 /* Define this if the nominal address of the stack frame
    is at the high-address end of the local variables;
@@ -1696,8 +1662,8 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
    On RS/6000, this is r3, fp1, and v2 (for AltiVec).  */
 #define FUNCTION_VALUE_REGNO_P(N)					\
   ((N) == GP_ARG_RETURN							\
-   || ((N) == FP_ARG_RETURN && TARGET_HARD_FLOAT)			\
-   || ((N) == ALTIVEC_ARG_RETURN && TARGET_ALTIVEC))
+   || ((N) == FP_ARG_RETURN && TARGET_HARD_FLOAT && TARGET_FPRS)	\
+   || ((N) == ALTIVEC_ARG_RETURN && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI))
 
 /* 1 if N is a possible register number for function argument passing.
    On RS/6000, these are r3-r10 and fp1-fp13.
@@ -1705,18 +1671,19 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 #define FUNCTION_ARG_REGNO_P(N)						\
   ((unsigned) (N) - GP_ARG_MIN_REG < GP_ARG_NUM_REG			\
    || ((unsigned) (N) - ALTIVEC_ARG_MIN_REG < ALTIVEC_ARG_NUM_REG	\
-       && TARGET_ALTIVEC)						\
+       && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI)				\
    || ((unsigned) (N) - FP_ARG_MIN_REG < FP_ARG_NUM_REG			\
-       && TARGET_HARD_FLOAT))
+       && TARGET_HARD_FLOAT && TARGET_FPRS))
 
 /* A C structure for machine-specific, per-function data.
    This is added to the cfun structure.  */
 typedef struct machine_function GTY(())
 {
-  /* Whether a System V.4 varargs area was created.  */
-  int sysv_varargs_p;
   /* Flags if __builtin_return_address (n) with n >= 1 was used.  */
   int ra_needs_full_frame;
+  /* APPLE LOCAL volatile pic base reg in leaves */
+  /* Substitute PIC register in leaf functions */
+  unsigned int substitute_pic_base_reg;
   /* Some local-dynamic symbol.  */
   const char *some_ld_name;
   /* Whether the instruction chain has been scanned already.  */
@@ -1753,17 +1720,10 @@ typedef struct rs6000_args
   int stdarg;			/* Whether function is a stdarg function.  */
   int call_cookie;		/* Do special things for this call */
   int sysv_gregno;		/* next available GP register */
+  int intoffset;		/* running offset in struct (darwin64) */
+  int use_stack;		/* any part of struct on stack (darwin64) */
+  int named;			/* false for varargs params */
 } CUMULATIVE_ARGS;
-
-/* Define intermediate macro to compute the size (in registers) of an argument
-   for the RS/6000.  */
-
-#define UNITS_PER_ARG (TARGET_32BIT ? 4 : 8)
-
-#define RS6000_ARG_SIZE(MODE, TYPE)					\
-((MODE) != BLKmode							\
- ? (GET_MODE_SIZE (MODE) + (UNITS_PER_ARG - 1)) / UNITS_PER_ARG		\
- : (int_size_in_bytes (TYPE) + (UNITS_PER_ARG - 1)) / UNITS_PER_ARG)
 
 /* Initialize a variable CUM of type CUMULATIVE_ARGS
    for a call to a function whose data type is FNTYPE.
@@ -1788,7 +1748,7 @@ typedef struct rs6000_args
    (TYPE is null for libcalls where that information may not be available.)  */
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
-  function_arg_advance (&CUM, MODE, TYPE, NAMED)
+  function_arg_advance (&CUM, MODE, TYPE, NAMED, 0)
 
 /* Determine where to put an argument to a function.
    Value is zero to push the argument on the stack,
@@ -1822,15 +1782,6 @@ typedef struct rs6000_args
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
   function_arg_partial_nregs (&CUM, MODE, TYPE, NAMED)
 
-/* A C expression that indicates when an argument must be passed by
-   reference.  If nonzero for an argument, a copy of that argument is
-   made in memory and a pointer to the argument is passed instead of
-   the argument itself.  The pointer is passed in whatever way is
-   appropriate for passing a pointer to that type.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) \
-  function_arg_pass_by_reference(&CUM, MODE, TYPE, NAMED)
-
 /* If defined, a C expression which determines whether, and in which
    direction, to pad out an argument with extra space.  The value
    should be of type `enum direction': either `upward' to pad above
@@ -1846,20 +1797,9 @@ typedef struct rs6000_args
 #define FUNCTION_ARG_BOUNDARY(MODE, TYPE) \
   function_arg_boundary (MODE, TYPE)
 
-/* Define to nonzero if complex arguments should be split into their
-   corresponding components.
-
-   This should be set for Linux and Darwin as well, but we can't break
-   the ABIs at the moment.  For now, only AIX gets fixed.  */
-#define SPLIT_COMPLEX_ARGS (DEFAULT_ABI == ABI_AIX)
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   rs6000_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  rs6000_va_arg (valist, type)
 
 #define PAD_VARARGS_DOWN \
    (FUNCTION_ARG_PADDING (TYPE_MODE (type), type) == downward)
@@ -2015,7 +1955,6 @@ typedef struct rs6000_args
    On the RS/6000, all integer constants are acceptable, most won't be valid
    for particular insns, though.  Only easy FP constants are
    acceptable.  */
-
 #define LEGITIMATE_CONSTANT_P(X)				\
   (((GET_CODE (X) != CONST_DOUBLE				\
      && GET_CODE (X) != CONST_VECTOR)				\
@@ -2120,13 +2059,14 @@ typedef struct rs6000_args
    operand.  If we find one, push the reload and jump to WIN.  This
    macro is used in only one place: `find_reloads_address' in reload.c.
 
-   Implemented on rs6000 by rs6000_legitimize_reload_address.  
+   Implemented on rs6000 by rs6000_legitimize_reload_address.
    Note that (X) is evaluated twice; this is safe in current usage.  */
-   
+
 #define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_LEVELS,WIN)	     \
 do {									     \
   int win;								     \
-  (X) = rs6000_legitimize_reload_address ((X), (MODE), (OPNUM),		     \
+  /* APPLE LOCAL pass reload addr by address */				     \
+  (X) = rs6000_legitimize_reload_address (&(X), (MODE), (OPNUM),	     \
 			(int)(TYPE), (IND_LEVELS), &win);		     \
   if ( win )								     \
     goto WIN;								     \
@@ -2210,6 +2150,12 @@ do {								\
 
 /* #define FIXUNS_TRUNC_LIKE_FIX_TRUNC */
 
+/* An integer expression for the size in bits of the largest integer machine
+   mode that should actually be used.  */
+
+/* Allow pairs of registers to be used, which is the intent of the default.  */
+#define MAX_FIXED_MODE_SIZE GET_MODE_BITSIZE (TARGET_POWERPC64 ? TImode : DImode)
+
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
 #define MOVE_MAX (! TARGET_POWERPC64 ? 4 : 8)
@@ -2227,7 +2173,7 @@ do {								\
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Define if loading short immediate values into registers sign extends.  */
@@ -2312,10 +2258,6 @@ extern int rs6000_compare_fp_p;
    the end of the line.  */
 #define ASM_COMMENT_START " #"
 
-/* Implicit library calls should use memcpy, not bcopy, etc.  */
-
-#define TARGET_MEM_FUNCTIONS
-
 /* Flag to say the TOC is initialized */
 extern int toc_initialized;
 
@@ -2344,9 +2286,9 @@ extern int toc_initialized;
   do									\
     {									\
       fputs ("\t.weak\t", (FILE));					\
-      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 			\
+      RS6000_OUTPUT_BASENAME ((FILE), (NAME)); 				\
       if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL			\
-	  && DEFAULT_ABI == ABI_AIX)					\
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	{								\
 	  if (TARGET_XCOFF)						\
 	    fputs ("[DS]", (FILE));					\
@@ -2358,7 +2300,7 @@ extern int toc_initialized;
 	{								\
 	  ASM_OUTPUT_DEF ((FILE), (NAME), (VAL));			\
 	  if ((DECL) && TREE_CODE (DECL) == FUNCTION_DECL		\
-	      && DEFAULT_ABI == ABI_AIX)				\
+	      && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	    {								\
 	      fputs ("\t.set\t.", (FILE));				\
 	      RS6000_OUTPUT_BASENAME ((FILE), (NAME));			\
@@ -2379,7 +2321,7 @@ extern int toc_initialized;
       const char *alias = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		\
       const char *name = IDENTIFIER_POINTER (TARGET);			\
       if (TREE_CODE (DECL) == FUNCTION_DECL				\
-	  && DEFAULT_ABI == ABI_AIX)					\
+	  && DEFAULT_ABI == ABI_AIX && DOT_SYMBOLS)			\
 	{								\
 	  if (TREE_PUBLIC (DECL))					\
 	    {								\
@@ -2604,6 +2546,9 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   if ((LOG) != 0)			\
     fprintf (FILE, "\t.align %d\n", (LOG))
 
+/* APPLE LOCAL CW asm blocks */
+#define CW_ASM_REGISTER_NAME(STR, BUF) rs6000_cw_asm_register_name (STR, BUF)
+
 /* Pick up the return address upon entry to a procedure. Used for
    dwarf2 unwind information.  This also enables the table driven
    mechanism.  */
@@ -2634,7 +2579,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 
 #define PREDICATE_CODES							   \
   {"any_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,		   \
-		   LABEL_REF, SUBREG, REG, MEM, PARALLEL}},		   \
+		   LABEL_REF, SUBREG, REG, MEM}},			   \
+  {"any_parallel_operand", {PARALLEL}},					   \
   {"zero_constant", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	   \
 		    LABEL_REF, SUBREG, REG, MEM}},			   \
   {"short_cint_operand", {CONST_INT}},					   \
@@ -2685,7 +2631,13 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
 		     CONST_DOUBLE, SYMBOL_REF}},			   \
   {"load_multiple_operation", {PARALLEL}},				   \
   {"store_multiple_operation", {PARALLEL}},				   \
+  {"lmw_operation", {PARALLEL}},					   \
+  {"stmw_operation", {PARALLEL}},					   \
   {"vrsave_operation", {PARALLEL}},					   \
+  {"save_world_operation", {PARALLEL}},                                    \
+  {"restore_world_operation", {PARALLEL}},                                 \
+  {"mfcr_operation", {PARALLEL}},					   \
+  {"mtcrf_operation", {PARALLEL}},					   \
   {"branch_comparison_operator", {EQ, NE, LE, LT, GE,			   \
 				  GT, LEU, LTU, GEU, GTU,		   \
 				  UNORDERED, ORDERED,			   \
@@ -2919,6 +2871,8 @@ enum rs6000_builtins
   ALTIVEC_BUILTIN_ABS_V8HI,
   ALTIVEC_BUILTIN_ABS_V16QI,
   ALTIVEC_BUILTIN_COMPILETIME_ERROR,
+  ALTIVEC_BUILTIN_MASK_FOR_LOAD,
+  ALTIVEC_BUILTIN_MASK_FOR_STORE,
 
   /* SPE builtins.  */
   SPE_BUILTIN_EVADDW,
@@ -3153,5 +3107,442 @@ enum rs6000_builtins
   SPE_BUILTIN_EVMWHGUMIAN,
   SPE_BUILTIN_MTSPEFSCR,
   SPE_BUILTIN_MFSPEFSCR,
-  SPE_BUILTIN_BRINC
+  /* APPLE LOCAL begin AltiVec */
+  SPE_BUILTIN_BRINC,
+
+  /* AltiVec PIM functions, used in Apple AltiVec mode.  */
+  ALTIVEC_PIM__FIRST,
+
+  /* PIM Operations.  */
+  ALTIVEC_PIM_VEC_ABS = ALTIVEC_PIM__FIRST,
+  ALTIVEC_PIM_VEC_ABS_2,
+  ALTIVEC_PIM_VEC_ABS_3,
+  ALTIVEC_PIM_VEC_ABS_4,
+  ALTIVEC_PIM_VEC_ABSS,
+  ALTIVEC_PIM_VEC_ABSS_2,
+  ALTIVEC_PIM_VEC_ABSS_3,
+  ALTIVEC_PIM_VEC_ADD,
+  ALTIVEC_PIM_VEC_ADD_2,
+  ALTIVEC_PIM_VEC_ADD_3,
+  ALTIVEC_PIM_VEC_ADD_4,
+  ALTIVEC_PIM_VEC_ADDC,
+  ALTIVEC_PIM_VEC_ADDS,
+  ALTIVEC_PIM_VEC_ADDS_2,
+  ALTIVEC_PIM_VEC_ADDS_3,
+  ALTIVEC_PIM_VEC_ADDS_4,
+  ALTIVEC_PIM_VEC_ADDS_5,
+  ALTIVEC_PIM_VEC_ADDS_6,
+  ALTIVEC_PIM_VEC_AND,
+  ALTIVEC_PIM_VEC_ANDC,
+  ALTIVEC_PIM_VEC_AVG,
+  ALTIVEC_PIM_VEC_AVG_2,
+  ALTIVEC_PIM_VEC_AVG_3,
+  ALTIVEC_PIM_VEC_AVG_4,
+  ALTIVEC_PIM_VEC_AVG_5,
+  ALTIVEC_PIM_VEC_AVG_6,
+  ALTIVEC_PIM_VEC_CEIL,
+  ALTIVEC_PIM_VEC_CMPB,
+  ALTIVEC_PIM_VEC_CMPEQ,
+  ALTIVEC_PIM_VEC_CMPEQ_2,
+  ALTIVEC_PIM_VEC_CMPEQ_3,
+  ALTIVEC_PIM_VEC_CMPEQ_4,
+  ALTIVEC_PIM_VEC_CMPGE,
+  ALTIVEC_PIM_VEC_CMPGT,
+  ALTIVEC_PIM_VEC_CMPGT_2,
+  ALTIVEC_PIM_VEC_CMPGT_3,
+  ALTIVEC_PIM_VEC_CMPGT_4,
+  ALTIVEC_PIM_VEC_CMPGT_5,
+  ALTIVEC_PIM_VEC_CMPGT_6,
+  ALTIVEC_PIM_VEC_CMPGT_7,
+  ALTIVEC_PIM_VEC_CMPLE,
+  ALTIVEC_PIM_VEC_CMPLT,
+  ALTIVEC_PIM_VEC_CMPLT_2,
+  ALTIVEC_PIM_VEC_CMPLT_3,
+  ALTIVEC_PIM_VEC_CMPLT_4,
+  ALTIVEC_PIM_VEC_CMPLT_5,
+  ALTIVEC_PIM_VEC_CMPLT_6,
+  ALTIVEC_PIM_VEC_CMPLT_7,
+  ALTIVEC_PIM_VEC_CTF,
+  ALTIVEC_PIM_VEC_CTF_2,
+  ALTIVEC_PIM_VEC_CTS,
+  ALTIVEC_PIM_VEC_CTU,
+  ALTIVEC_PIM_VEC_DSS,
+  ALTIVEC_PIM_VEC_DSSALL,
+  ALTIVEC_PIM_VEC_DST,
+  ALTIVEC_PIM_VEC_DSTST,
+  ALTIVEC_PIM_VEC_DSTSTT,
+  ALTIVEC_PIM_VEC_DSTT,
+  ALTIVEC_PIM_VEC_EXPTE,
+  ALTIVEC_PIM_VEC_FLOOR,
+  ALTIVEC_PIM_VEC_LD,
+  ALTIVEC_PIM_VEC_LDE,
+  ALTIVEC_PIM_VEC_LDE_2,
+  ALTIVEC_PIM_VEC_LDE_3,
+  ALTIVEC_PIM_VEC_LDL,
+  ALTIVEC_PIM_VEC_LOGE,
+  ALTIVEC_PIM_VEC_LVEBX,
+  ALTIVEC_PIM_VEC_LVEHX,
+  ALTIVEC_PIM_VEC_LVEWX,
+  ALTIVEC_PIM_VEC_LVSL,
+  ALTIVEC_PIM_VEC_LVSR,
+  ALTIVEC_PIM_VEC_LVX,
+  ALTIVEC_PIM_VEC_LVXL,
+  ALTIVEC_PIM_VEC_MADD,
+  ALTIVEC_PIM_VEC_MADDS,
+  ALTIVEC_PIM_VEC_MAX,
+  ALTIVEC_PIM_VEC_MAX_2,
+  ALTIVEC_PIM_VEC_MAX_3,
+  ALTIVEC_PIM_VEC_MAX_4,
+  ALTIVEC_PIM_VEC_MAX_5,
+  ALTIVEC_PIM_VEC_MAX_6,
+  ALTIVEC_PIM_VEC_MAX_7,
+  ALTIVEC_PIM_VEC_MERGEH,
+  ALTIVEC_PIM_VEC_MERGEH_2,
+  ALTIVEC_PIM_VEC_MERGEH_3,
+  ALTIVEC_PIM_VEC_MERGEL,
+  ALTIVEC_PIM_VEC_MERGEL_2,
+  ALTIVEC_PIM_VEC_MERGEL_3,
+  ALTIVEC_PIM_VEC_MFVSCR,
+  ALTIVEC_PIM_VEC_MIN,
+  ALTIVEC_PIM_VEC_MIN_2,
+  ALTIVEC_PIM_VEC_MIN_3,
+  ALTIVEC_PIM_VEC_MIN_4,
+  ALTIVEC_PIM_VEC_MIN_5,
+  ALTIVEC_PIM_VEC_MIN_6,
+  ALTIVEC_PIM_VEC_MIN_7,
+  ALTIVEC_PIM_VEC_MLADD,
+  ALTIVEC_PIM_VEC_MLADD_2,
+  ALTIVEC_PIM_VEC_MRADDS,
+  ALTIVEC_PIM_VEC_MSUM,
+  ALTIVEC_PIM_VEC_MSUM_2,
+  ALTIVEC_PIM_VEC_MSUM_3,
+  ALTIVEC_PIM_VEC_MSUM_4,
+  ALTIVEC_PIM_VEC_MSUMS,
+  ALTIVEC_PIM_VEC_MSUMS_2,
+  ALTIVEC_PIM_VEC_MTVSCR,
+  ALTIVEC_PIM_VEC_MULE,
+  ALTIVEC_PIM_VEC_MULE_2,
+  ALTIVEC_PIM_VEC_MULE_3,
+  ALTIVEC_PIM_VEC_MULE_4,
+  ALTIVEC_PIM_VEC_MULO,
+  ALTIVEC_PIM_VEC_MULO_2,
+  ALTIVEC_PIM_VEC_MULO_3,
+  ALTIVEC_PIM_VEC_MULO_4,
+  ALTIVEC_PIM_VEC_NMSUB,
+  ALTIVEC_PIM_VEC_NOR,
+  ALTIVEC_PIM_VEC_OR,
+  ALTIVEC_PIM_VEC_PACK,
+  ALTIVEC_PIM_VEC_PACK_2,
+  ALTIVEC_PIM_VEC_PACKPX,
+  ALTIVEC_PIM_VEC_PACKS,
+  ALTIVEC_PIM_VEC_PACKS_2,
+  ALTIVEC_PIM_VEC_PACKS_3,
+  ALTIVEC_PIM_VEC_PACKS_4,
+  ALTIVEC_PIM_VEC_PACKSU,
+  ALTIVEC_PIM_VEC_PACKSU_2,
+  ALTIVEC_PIM_VEC_PACKSU_3,
+  ALTIVEC_PIM_VEC_PACKSU_4,
+  ALTIVEC_PIM_VEC_PERM,
+  ALTIVEC_PIM_VEC_RE,
+  ALTIVEC_PIM_VEC_RL,
+  ALTIVEC_PIM_VEC_RL_2,
+  ALTIVEC_PIM_VEC_RL_3,
+  ALTIVEC_PIM_VEC_ROUND,
+  ALTIVEC_PIM_VEC_RSQRTE,
+  ALTIVEC_PIM_VEC_SEL,
+  ALTIVEC_PIM_VEC_SL,
+  ALTIVEC_PIM_VEC_SL_2,
+  ALTIVEC_PIM_VEC_SL_3,
+  ALTIVEC_PIM_VEC_SLD,
+  ALTIVEC_PIM_VEC_SLL,
+  ALTIVEC_PIM_VEC_SLO,
+  ALTIVEC_PIM_VEC_SPLAT,
+  ALTIVEC_PIM_VEC_SPLAT_2,
+  ALTIVEC_PIM_VEC_SPLAT_3,
+  ALTIVEC_PIM_VEC_SPLAT_S8,
+  ALTIVEC_PIM_VEC_SPLAT_S16,
+  ALTIVEC_PIM_VEC_SPLAT_S32,
+  ALTIVEC_PIM_VEC_SPLAT_U8,
+  ALTIVEC_PIM_VEC_SPLAT_U16,
+  ALTIVEC_PIM_VEC_SPLAT_U32,
+  ALTIVEC_PIM_VEC_SR,
+  ALTIVEC_PIM_VEC_SR_2,
+  ALTIVEC_PIM_VEC_SR_3,
+  ALTIVEC_PIM_VEC_SRA,
+  ALTIVEC_PIM_VEC_SRA_2,
+  ALTIVEC_PIM_VEC_SRA_3,
+  ALTIVEC_PIM_VEC_SRL,
+  ALTIVEC_PIM_VEC_SRO,
+  ALTIVEC_PIM_VEC_ST,
+  ALTIVEC_PIM_VEC_STE,
+  ALTIVEC_PIM_VEC_STE_2,
+  ALTIVEC_PIM_VEC_STE_3,
+  ALTIVEC_PIM_VEC_STL,
+  ALTIVEC_PIM_VEC_STVEBX,
+  ALTIVEC_PIM_VEC_STVEHX,
+  ALTIVEC_PIM_VEC_STVEWX,
+  ALTIVEC_PIM_VEC_STVX,
+  ALTIVEC_PIM_VEC_STVXL,
+  ALTIVEC_PIM_VEC_SUB,
+  ALTIVEC_PIM_VEC_SUB_2,
+  ALTIVEC_PIM_VEC_SUB_3,
+  ALTIVEC_PIM_VEC_SUB_4,
+  ALTIVEC_PIM_VEC_SUBC,
+  ALTIVEC_PIM_VEC_SUBS,
+  ALTIVEC_PIM_VEC_SUBS_2,
+  ALTIVEC_PIM_VEC_SUBS_3,
+  ALTIVEC_PIM_VEC_SUBS_4,
+  ALTIVEC_PIM_VEC_SUBS_5,
+  ALTIVEC_PIM_VEC_SUBS_6,
+  ALTIVEC_PIM_VEC_SUM4S,
+  ALTIVEC_PIM_VEC_SUM4S_2,
+  ALTIVEC_PIM_VEC_SUM4S_3,
+  ALTIVEC_PIM_VEC_SUM2S,
+  ALTIVEC_PIM_VEC_SUMS,
+  ALTIVEC_PIM_VEC_TRUNC,
+  ALTIVEC_PIM_VEC_UNPACKH,
+  ALTIVEC_PIM_VEC_UNPACKH_2,
+  ALTIVEC_PIM_VEC_UNPACKH_3,
+  ALTIVEC_PIM_VEC_UNPACKL,
+  ALTIVEC_PIM_VEC_UNPACKL_2,
+  ALTIVEC_PIM_VEC_UNPACKL_3,
+  ALTIVEC_PIM_VEC_VADDCUW,
+  ALTIVEC_PIM_VEC_VADDFP,
+  ALTIVEC_PIM_VEC_VADDSBS,
+  ALTIVEC_PIM_VEC_VADDSHS,
+  ALTIVEC_PIM_VEC_VADDSWS,
+  ALTIVEC_PIM_VEC_VADDUBM,
+  ALTIVEC_PIM_VEC_VADDUBS,
+  ALTIVEC_PIM_VEC_VADDUHM,
+  ALTIVEC_PIM_VEC_VADDUHS,
+  ALTIVEC_PIM_VEC_VADDUWM,
+  ALTIVEC_PIM_VEC_VADDUWS,
+  ALTIVEC_PIM_VEC_VAND,
+  ALTIVEC_PIM_VEC_VANDC,
+  ALTIVEC_PIM_VEC_VAVGSB,
+  ALTIVEC_PIM_VEC_VAVGSH,
+  ALTIVEC_PIM_VEC_VAVGSW,
+  ALTIVEC_PIM_VEC_VAVGUB,
+  ALTIVEC_PIM_VEC_VAVGUH,
+  ALTIVEC_PIM_VEC_VAVGUW,
+  ALTIVEC_PIM_VEC_VCFSX,
+  ALTIVEC_PIM_VEC_VCFUX,
+  ALTIVEC_PIM_VEC_VCMPBFP,
+  ALTIVEC_PIM_VEC_VCMPEQFP,
+  ALTIVEC_PIM_VEC_VCMPEQUB,
+  ALTIVEC_PIM_VEC_VCMPEQUH,
+  ALTIVEC_PIM_VEC_VCMPEQUW,
+  ALTIVEC_PIM_VEC_VCMPGEFP,
+  ALTIVEC_PIM_VEC_VCMPGTFP,
+  ALTIVEC_PIM_VEC_VCMPGTSB,
+  ALTIVEC_PIM_VEC_VCMPGTSH,
+  ALTIVEC_PIM_VEC_VCMPGTSW,
+  ALTIVEC_PIM_VEC_VCMPGTUB,
+  ALTIVEC_PIM_VEC_VCMPGTUH,
+  ALTIVEC_PIM_VEC_VCMPGTUW,
+  ALTIVEC_PIM_VEC_VCTSXS,
+  ALTIVEC_PIM_VEC_VCTUXS,
+  ALTIVEC_PIM_VEC_VEXPTEFP,
+  ALTIVEC_PIM_VEC_VLOGEFP,
+  ALTIVEC_PIM_VEC_VMADDFP,
+  ALTIVEC_PIM_VEC_VMAXFP,
+  ALTIVEC_PIM_VEC_VMAXSB,
+  ALTIVEC_PIM_VEC_VMAXSH,
+  ALTIVEC_PIM_VEC_VMAXSW,
+  ALTIVEC_PIM_VEC_VMAXUB,
+  ALTIVEC_PIM_VEC_VMAXUH,
+  ALTIVEC_PIM_VEC_VMAXUW,
+  ALTIVEC_PIM_VEC_VMHADDSHS,
+  ALTIVEC_PIM_VEC_VMHRADDSHS,
+  ALTIVEC_PIM_VEC_VMINFP,
+  ALTIVEC_PIM_VEC_VMINSB,
+  ALTIVEC_PIM_VEC_VMINSH,
+  ALTIVEC_PIM_VEC_VMINSW,
+  ALTIVEC_PIM_VEC_VMINUB,
+  ALTIVEC_PIM_VEC_VMINUH,
+  ALTIVEC_PIM_VEC_VMINUW,
+  ALTIVEC_PIM_VEC_VMLADDUHM,
+  ALTIVEC_PIM_VEC_VMRGHB,
+  ALTIVEC_PIM_VEC_VMRGHH,
+  ALTIVEC_PIM_VEC_VMRGHW,
+  ALTIVEC_PIM_VEC_VMRGLB,
+  ALTIVEC_PIM_VEC_VMRGLH,
+  ALTIVEC_PIM_VEC_VMRGLW,
+  ALTIVEC_PIM_VEC_VMSUMMBM,
+  ALTIVEC_PIM_VEC_VMSUMSHM,
+  ALTIVEC_PIM_VEC_VMSUMSHS,
+  ALTIVEC_PIM_VEC_VMSUMUBM,
+  ALTIVEC_PIM_VEC_VMSUMUHM,
+  ALTIVEC_PIM_VEC_VMSUMUHS,
+  ALTIVEC_PIM_VEC_VMULESB,
+  ALTIVEC_PIM_VEC_VMULESH,
+  ALTIVEC_PIM_VEC_VMULEUB,
+  ALTIVEC_PIM_VEC_VMULEUH,
+  ALTIVEC_PIM_VEC_VMULOSB,
+  ALTIVEC_PIM_VEC_VMULOSH,
+  ALTIVEC_PIM_VEC_VMULOUB,
+  ALTIVEC_PIM_VEC_VMULOUH,
+  ALTIVEC_PIM_VEC_VNMSUBFP,
+  ALTIVEC_PIM_VEC_VNOR,
+  ALTIVEC_PIM_VEC_VOR,
+  ALTIVEC_PIM_VEC_VPERM,
+  ALTIVEC_PIM_VEC_VPKPX,
+  ALTIVEC_PIM_VEC_VPKSHSS,
+  ALTIVEC_PIM_VEC_VPKSHUS,
+  ALTIVEC_PIM_VEC_VPKSWSS,
+  ALTIVEC_PIM_VEC_VPKSWUS,
+  ALTIVEC_PIM_VEC_VPKUHUM,
+  ALTIVEC_PIM_VEC_VPKUHUS,
+  ALTIVEC_PIM_VEC_VPKUWUM,
+  ALTIVEC_PIM_VEC_VPKUWUS,
+  ALTIVEC_PIM_VEC_VREFP,
+  ALTIVEC_PIM_VEC_VRFIM,
+  ALTIVEC_PIM_VEC_VRFIN,
+  ALTIVEC_PIM_VEC_VRFIP,
+  ALTIVEC_PIM_VEC_VRFIZ,
+  ALTIVEC_PIM_VEC_VRLB,
+  ALTIVEC_PIM_VEC_VRLH,
+  ALTIVEC_PIM_VEC_VRLW,
+  ALTIVEC_PIM_VEC_VRSQRTEFP,
+  ALTIVEC_PIM_VEC_VSEL,
+  ALTIVEC_PIM_VEC_VSL,
+  ALTIVEC_PIM_VEC_VSLB,
+  ALTIVEC_PIM_VEC_VSLDOI,
+  ALTIVEC_PIM_VEC_VSLH,
+  ALTIVEC_PIM_VEC_VSLO,
+  ALTIVEC_PIM_VEC_VSLW,
+  ALTIVEC_PIM_VEC_VSPLTB,
+  ALTIVEC_PIM_VEC_VSPLTH,
+  ALTIVEC_PIM_VEC_VSPLTISB,
+  ALTIVEC_PIM_VEC_VSPLTISH,
+  ALTIVEC_PIM_VEC_VSPLTISW,
+  ALTIVEC_PIM_VEC_VSPLTW,
+  ALTIVEC_PIM_VEC_VSR,
+  ALTIVEC_PIM_VEC_VSRAB,
+  ALTIVEC_PIM_VEC_VSRAH,
+  ALTIVEC_PIM_VEC_VSRAW,
+  ALTIVEC_PIM_VEC_VSRB,
+  ALTIVEC_PIM_VEC_VSRH,
+  ALTIVEC_PIM_VEC_VSRO,
+  ALTIVEC_PIM_VEC_VSRW,
+  ALTIVEC_PIM_VEC_VSUBCUW,
+  ALTIVEC_PIM_VEC_VSUBFP,
+  ALTIVEC_PIM_VEC_VSUBSBS,
+  ALTIVEC_PIM_VEC_VSUBSHS,
+  ALTIVEC_PIM_VEC_VSUBSWS,
+  ALTIVEC_PIM_VEC_VSUBUBM,
+  ALTIVEC_PIM_VEC_VSUBUBS,
+  ALTIVEC_PIM_VEC_VSUBUHM,
+  ALTIVEC_PIM_VEC_VSUBUHS,
+  ALTIVEC_PIM_VEC_VSUBUWM,
+  ALTIVEC_PIM_VEC_VSUBUWS,
+  ALTIVEC_PIM_VEC_VSUM4SBS,
+  ALTIVEC_PIM_VEC_VSUM4SHS,
+  ALTIVEC_PIM_VEC_VSUM4UBS,
+  ALTIVEC_PIM_VEC_VSUM2SWS,
+  ALTIVEC_PIM_VEC_VSUMSWS,
+  ALTIVEC_PIM_VEC_VUPKHPX,
+  ALTIVEC_PIM_VEC_VUPKHSB,
+  ALTIVEC_PIM_VEC_VUPKHSH,
+  ALTIVEC_PIM_VEC_VUPKLPX,
+  ALTIVEC_PIM_VEC_VUPKLSB,
+  ALTIVEC_PIM_VEC_VUPKLSH,
+  ALTIVEC_PIM_VEC_VXOR,
+  ALTIVEC_PIM_VEC_XOR,
+
+  /* PIM Predicates.  */
+  ALTIVEC_PIM_VEC_ALL_EQ,
+  ALTIVEC_PIM_VEC_ALL_EQ_2,
+  ALTIVEC_PIM_VEC_ALL_EQ_3,
+  ALTIVEC_PIM_VEC_ALL_EQ_4,
+  ALTIVEC_PIM_VEC_ALL_GE,
+  ALTIVEC_PIM_VEC_ALL_GE_2,
+  ALTIVEC_PIM_VEC_ALL_GE_3,
+  ALTIVEC_PIM_VEC_ALL_GE_4,
+  ALTIVEC_PIM_VEC_ALL_GE_5,
+  ALTIVEC_PIM_VEC_ALL_GE_6,
+  ALTIVEC_PIM_VEC_ALL_GE_7,
+  ALTIVEC_PIM_VEC_ALL_GT,
+  ALTIVEC_PIM_VEC_ALL_GT_2,
+  ALTIVEC_PIM_VEC_ALL_GT_3,
+  ALTIVEC_PIM_VEC_ALL_GT_4,
+  ALTIVEC_PIM_VEC_ALL_GT_5,
+  ALTIVEC_PIM_VEC_ALL_GT_6,
+  ALTIVEC_PIM_VEC_ALL_GT_7,
+  ALTIVEC_PIM_VEC_ALL_IN,
+  ALTIVEC_PIM_VEC_ALL_LE,
+  ALTIVEC_PIM_VEC_ALL_LE_2,
+  ALTIVEC_PIM_VEC_ALL_LE_3,
+  ALTIVEC_PIM_VEC_ALL_LE_4,
+  ALTIVEC_PIM_VEC_ALL_LE_5,
+  ALTIVEC_PIM_VEC_ALL_LE_6,
+  ALTIVEC_PIM_VEC_ALL_LE_7,
+  ALTIVEC_PIM_VEC_ALL_LT,
+  ALTIVEC_PIM_VEC_ALL_LT_2,
+  ALTIVEC_PIM_VEC_ALL_LT_3,
+  ALTIVEC_PIM_VEC_ALL_LT_4,
+  ALTIVEC_PIM_VEC_ALL_LT_5,
+  ALTIVEC_PIM_VEC_ALL_LT_6,
+  ALTIVEC_PIM_VEC_ALL_LT_7,
+  ALTIVEC_PIM_VEC_ALL_NAN,
+  ALTIVEC_PIM_VEC_ALL_NE,
+  ALTIVEC_PIM_VEC_ALL_NE_2,
+  ALTIVEC_PIM_VEC_ALL_NE_3,
+  ALTIVEC_PIM_VEC_ALL_NE_4,
+  ALTIVEC_PIM_VEC_ALL_NGE,
+  ALTIVEC_PIM_VEC_ALL_NGT,
+  ALTIVEC_PIM_VEC_ALL_NLE,
+  ALTIVEC_PIM_VEC_ALL_NLT,
+  ALTIVEC_PIM_VEC_ALL_NUMERIC,
+  ALTIVEC_PIM_VEC_ANY_EQ,
+  ALTIVEC_PIM_VEC_ANY_EQ_2,
+  ALTIVEC_PIM_VEC_ANY_EQ_3,
+  ALTIVEC_PIM_VEC_ANY_EQ_4,
+  ALTIVEC_PIM_VEC_ANY_GE,
+  ALTIVEC_PIM_VEC_ANY_GE_2,
+  ALTIVEC_PIM_VEC_ANY_GE_3,
+  ALTIVEC_PIM_VEC_ANY_GE_4,
+  ALTIVEC_PIM_VEC_ANY_GE_5,
+  ALTIVEC_PIM_VEC_ANY_GE_6,
+  ALTIVEC_PIM_VEC_ANY_GE_7,
+  ALTIVEC_PIM_VEC_ANY_GT,
+  ALTIVEC_PIM_VEC_ANY_GT_2,
+  ALTIVEC_PIM_VEC_ANY_GT_3,
+  ALTIVEC_PIM_VEC_ANY_GT_4,
+  ALTIVEC_PIM_VEC_ANY_GT_5,
+  ALTIVEC_PIM_VEC_ANY_GT_6,
+  ALTIVEC_PIM_VEC_ANY_GT_7,
+  ALTIVEC_PIM_VEC_ANY_LE,
+  ALTIVEC_PIM_VEC_ANY_LE_2,
+  ALTIVEC_PIM_VEC_ANY_LE_3,
+  ALTIVEC_PIM_VEC_ANY_LE_4,
+  ALTIVEC_PIM_VEC_ANY_LE_5,
+  ALTIVEC_PIM_VEC_ANY_LE_6,
+  ALTIVEC_PIM_VEC_ANY_LE_7,
+  ALTIVEC_PIM_VEC_ANY_LT,
+  ALTIVEC_PIM_VEC_ANY_LT_2,
+  ALTIVEC_PIM_VEC_ANY_LT_3,
+  ALTIVEC_PIM_VEC_ANY_LT_4,
+  ALTIVEC_PIM_VEC_ANY_LT_5,
+  ALTIVEC_PIM_VEC_ANY_LT_6,
+  ALTIVEC_PIM_VEC_ANY_LT_7,
+  ALTIVEC_PIM_VEC_ANY_NAN,
+  ALTIVEC_PIM_VEC_ANY_NE,
+  ALTIVEC_PIM_VEC_ANY_NE_2,
+  ALTIVEC_PIM_VEC_ANY_NE_3,
+  ALTIVEC_PIM_VEC_ANY_NE_4,
+  ALTIVEC_PIM_VEC_ANY_NGE,
+  ALTIVEC_PIM_VEC_ANY_NGT,
+  ALTIVEC_PIM_VEC_ANY_NLE,
+  ALTIVEC_PIM_VEC_ANY_NLT,
+  ALTIVEC_PIM_VEC_ANY_NUMERIC,
+  ALTIVEC_PIM_VEC_ANY_OUT,
+
+  ALTIVEC_PIM__LAST = ALTIVEC_PIM_VEC_ANY_OUT,
+  /* APPLE LOCAL end AltiVec */
+
+  /* APPLE LOCAL begin constant cfstrings */
+  RS6000_BUILTIN_MAX,
+  TARGET_BUILTIN_MAX = RS6000_BUILTIN_MAX
+  /* APPLE LOCAL end constant cfstrings */
 };

@@ -69,7 +69,7 @@ public final class JobImpressions extends IntegerSyntax
    *
    * @param obj the object to test
    *
-   * @returns true if both objects are equal, false otherwise.
+   * @return true if both objects are equal, false otherwise.
    */
   public boolean equals(Object obj)
   {
@@ -84,7 +84,7 @@ public final class JobImpressions extends IntegerSyntax
    *
    * @return the class <code>JobImpressions</code> itself
    */
-  public final Class getCategory()
+  public Class getCategory()
   {
     return JobImpressions.class;
   }
@@ -94,7 +94,7 @@ public final class JobImpressions extends IntegerSyntax
    *
    * @return the string "job-impressions"
    */
-  public final String getName()
+  public String getName()
   {
     return "job-impressions";
   }

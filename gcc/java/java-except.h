@@ -1,6 +1,6 @@
 /* Definitions for exception handling for use by the GNU compiler
    for the Java(TM) language compiler.
-   Copyright (C) 1997, 1998, 1999, 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -68,3 +68,4 @@ extern void maybe_end_try (int, int);
 extern void add_handler (int, int, tree, tree);
 extern void handle_nested_ranges (void);
 extern void expand_resume_after_catch (void);
+extern void expand_end_java_handler (struct eh_range *);

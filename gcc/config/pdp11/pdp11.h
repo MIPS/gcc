@@ -71,7 +71,7 @@ extern int target_flags;
     { "no-45", -8, "" },						\
 /* is 11/10 */								\
     { "10", -12, N_("Generate code for an 11/10") },			\
-/* use movstrhi for bcopy */						\
+/* use movmemhi for bcopy */						\
     { "bcopy", 16, NULL },						\
     { "bcopy-builtin", -16, NULL },					\
 /* use 32 bit for int */						\
@@ -390,7 +390,7 @@ enum reg_class { NO_REGS, MUL_REGS, GENERAL_REGS, LOAD_FPU_REGS, NO_LOAD_FPU_REG
 
 /* #define GENERAL_REGS ALL_REGS */
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES {"NO_REGS", "MUL_REGS", "GENERAL_REGS", "LOAD_FPU_REGS", "NO_LOAD_FPU_REGS", "FPU_REGS", "ALL_REGS" }
 

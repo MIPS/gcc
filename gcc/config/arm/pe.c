@@ -1,5 +1,6 @@
 /* Routines for GCC for ARM/pe.
-   Copyright (C) 1995, 1996, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 2000, 2001, 2002, 2004
+   Free Software Foundation, Inc.
    Contributed by Doug Evans (dje@cygnus.com).
 
    This file is part of GCC.
@@ -95,7 +96,7 @@ arm_dllimport_name_p (symbol)
 }
 
 /* Mark a DECL as being dllexport'd.
-   Note that we override the previous setting (eg: dllimport).  */
+   Note that we override the previous setting (e.g.: dllimport).  */
 
 void
 arm_mark_dllexport (decl)

@@ -57,7 +57,7 @@ namespace std
 	  setlocale(LC_ALL, "C");
 	  char* __sanity;
 	  errno = 0;
-#if defined(_GLIBCXX_USE_C99)
+#if defined(_GLIBCXX_HAVE_STRTOF)
 	  float __f = strtof(__s, &__sanity);
 #else
 	  double __d = strtod(__s, &__sanity);
@@ -117,7 +117,7 @@ namespace std
 	  // Assumes __s formatted for "C" locale.
 	  char* __old = strdup(setlocale(LC_ALL, NULL));
 	  setlocale(LC_ALL, "C");
-#if defined(_GLIBCXX_USE_C99)
+#if defined(_GLIBCXX_HAVE_STRTOLD)
 	  char* __sanity;
 	  errno = 0;
 	  long double __ld = strtold(__s, &__sanity);
@@ -128,13 +128,8 @@ namespace std
 	  long double __ld;
 	  errno = 0;
 	  int __p = sscanf(__s, "%Lf", &__ld);
-	  if (errno == ERANGE)
-	    __p = 0;
-#ifdef _GLIBCXX_HAVE_FINITEL
-	  if ((__p == 1) && !finitel (__ld))
-	    __p = 0;
-#endif
-	  if (__p && static_cast<int_type>(__p) != char_traits<char>::eof())
+	  if (__p && static_cast<int_type>(__p) != char_traits<char>::eof()
+	      && errno != ERANGE)
 	    __v = __ld;
 #endif
 	  else

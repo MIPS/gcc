@@ -1,7 +1,5 @@
-/* SocketHandler.java
-   -- a class for publishing log messages to network sockets
-
-Copyright (C) 2002 Free Software Foundation, Inc.
+/* SocketHandler.java -- a class for publishing log messages to network sockets
+   Copyright (C) 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,9 +33,7 @@ module.  An independent module is a module which is not derived from
 or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
-exception statement from your version.
-
-*/
+exception statement from your version. */
 
 
 package java.util.logging;
@@ -68,7 +64,7 @@ package java.util.logging;
  *
  * <li><code>java.util.SocketHandler.encoding</code> - specifies
  *     the name of the character encoding. Default value:
- *     the default platform encoding.
+ *     the default platform encoding.</li>
  *
  * <li><code>java.util.SocketHandler.host</code> - specifies
  *     the name of the host to which records are published.

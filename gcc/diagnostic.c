@@ -31,6 +31,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "version.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "input.h"
@@ -50,7 +51,6 @@ static void default_diagnostic_finalizer (diagnostic_context *,
 					  diagnostic_info *);
 
 static void error_recursion (diagnostic_context *) ATTRIBUTE_NORETURN;
-static bool text_specifies_location (text_info *, location_t *);
 static bool diagnostic_count_diagnostic (diagnostic_context *,
 					 diagnostic_info *);
 static void diagnostic_action_after_output (diagnostic_context *,
@@ -61,12 +61,13 @@ static void real_abort (void) ATTRIBUTE_NORETURN;
 static diagnostic_context global_diagnostic_context;
 diagnostic_context *global_dc = &global_diagnostic_context;
 
-/* Boilerplate text used in two locations.  */
-#define bug_report_request \
-"Please submit a full bug report,\n\
-with preprocessed source if appropriate.\n\
-See %s for instructions.\n"
+/* APPLE LOCAL error-colon */
+static int gcc_error_colon = 0;
 
+/* APPLE LOCAL insert assembly ".abort" directive on fatal error   */
+#ifdef EXIT_FROM_FATAL_DIAGNOSTIC
+#define exit(status)	EXIT_FROM_FATAL_DIAGNOSTIC (status)
+#endif
 
 /* Return a malloc'd string containing MSG formatted a la printf.  The
    caller is responsible for freeing the memory.  */
@@ -87,6 +88,11 @@ build_message_string (const char *msg, ...)
 char *
 file_name_as_prefix (const char *f)
 {
+  /* APPLE LOCAL begin error-colon */
+  if (gcc_error_colon)
+    return build_message_string ("%s: error: ", f);
+  else
+  /* APPLE LOCAL end error-colon */
   return build_message_string ("%s: ", f);
 }
 
@@ -106,7 +112,8 @@ diagnostic_initialize (diagnostic_context *context)
   context->printer->prefixing_rule = DIAGNOSTICS_SHOW_PREFIX_ONCE;
 
   memset (context->diagnostic_count, 0, sizeof context->diagnostic_count);
-  context->warnings_are_errors_message = warnings_are_errors;
+  context->issue_warnings_are_errors_message = true;
+  context->warning_as_error_requested = false;
   context->abort_on_error = false;
   context->internal_error = NULL;
   diagnostic_starter (context) = default_diagnostic_starter;
@@ -114,36 +121,6 @@ diagnostic_initialize (diagnostic_context *context)
   context->last_module = 0;
   context->last_function = NULL;
   context->lock = 0;
-  context->x_data = NULL;
-}
-
-/* Returns true if the next format specifier in TEXT is a format specifier
-   for a location_t.  If so, update the object pointed by LOCUS to reflect
-   the specified location in *TEXT->args_ptr.  */
-static bool
-text_specifies_location (text_info *text, location_t *locus)
-{
-  const char *p;
-  /* Skip any leading text.  */
-  for (p = text->format_spec; *p && *p != '%'; ++p)
-    ;
-
-  /* Extract the location information if any.  */
-  if (p[0] == '%' && p[1] == 'H')
-    {
-      *locus = *va_arg (*text->args_ptr, location_t *);
-      text->format_spec = p + 2;
-      return true;
-    }
-  else if (p[0] == '%' && p[1] == 'J')
-    {
-      tree t = va_arg (*text->args_ptr, tree);
-      *locus = DECL_SOURCE_LOCATION (t);
-      text->format_spec = p + 2;
-      return true;
-    }
-
-  return false;
 }
 
 void
@@ -154,10 +131,7 @@ diagnostic_set_info (diagnostic_info *diagnostic, const char *msgid,
   diagnostic->message.err_no = errno;
   diagnostic->message.args_ptr = args;
   diagnostic->message.format_spec = _(msgid);
-  /* If the diagnostic message doesn't specify a location,
-     use LOCATION.  */
-  if (!text_specifies_location (&diagnostic->message, &diagnostic->location))
-    diagnostic->location = location;
+  diagnostic->location = location;
   diagnostic->kind = kind;
 }
 
@@ -172,13 +146,12 @@ diagnostic_build_prefix (diagnostic_info *diagnostic)
 #undef DEFINE_DIAGNOSTIC_KIND
     "must-not-happen"
   };
-   if (diagnostic->kind >= DK_LAST_DIAGNOSTIC_KIND)
-     abort();
+  expanded_location s = expand_location (diagnostic->location);
+  gcc_assert (diagnostic->kind < DK_LAST_DIAGNOSTIC_KIND);
 
-  return diagnostic->location.file
+  return s.file
     ? build_message_string ("%s:%d: %s",
-                            diagnostic->location.file,
-                            diagnostic->location.line,
+                            s.file, s.line,
                             _(diagnostic_kind_text[diagnostic->kind]))
     : build_message_string ("%s: %s", progname,
                             _(diagnostic_kind_text[diagnostic->kind]));
@@ -190,11 +163,27 @@ diagnostic_count_diagnostic (diagnostic_context *context,
 			     diagnostic_info *diagnostic)
 {
   diagnostic_t kind = diagnostic->kind;
+
+  /* APPLE LOCAL begin error-colon */
+  /* Here so it gets executed early on.  */
+  {
+    static int done = 0;
+    if (!done)
+      {
+	done = 1;	/* Do this only once.  */
+	/* Pretend we saw "-w" on commandline.  */
+	if (getenv ("GCC_DASH_W"))
+	  inhibit_warnings = 1;	/* referenced by diagnostic.h:diagnostic_report_warnings() */
+	if (getenv ("GCC_ERROR_COLON"))
+	  gcc_error_colon = 1;
+      }
+  }
+  /* APPLE LOCAL end error-colon */
+
   switch (kind)
     {
     default:
-      abort();
-      break;
+      gcc_unreachable ();
 
     case DK_ICE:
 #ifndef ENABLE_CHECKING
@@ -205,8 +194,9 @@ diagnostic_count_diagnostic (diagnostic_context *context,
 	   || diagnostic_kind_count (context, DK_SORRY) > 0)
 	  && !context->abort_on_error)
 	{
+	  expanded_location s = expand_location (diagnostic->location);
 	  fnotice (stderr, "%s:%d: confused by earlier errors, bailing out\n",
-		   diagnostic->location.file, diagnostic->location.line);
+		   s.file, s.line);
 	  exit (FATAL_EXIT_CODE);
 	}
 #endif
@@ -224,17 +214,16 @@ diagnostic_count_diagnostic (diagnostic_context *context,
       if (!diagnostic_report_warnings_p ())
         return false;
 
-      if (!warnings_are_errors)
+      if (!context->warning_as_error_requested)
         {
           ++diagnostic_kind_count (context, DK_WARNING);
           break;
         }
-
-      if (context->warnings_are_errors_message)
+      else if (context->issue_warnings_are_errors_message)
         {
 	  pp_verbatim (context->printer,
                        "%s: warnings being treated as errors\n", progname);
-          context->warnings_are_errors_message = false;
+          context->issue_warnings_are_errors_message = false;
         }
 
       /* And fall through.  */
@@ -264,13 +253,20 @@ diagnostic_action_after_output (diagnostic_context *context,
     case DK_SORRY:
       if (context->abort_on_error)
 	real_abort ();
+      if (flag_fatal_errors)
+	{
+	  fnotice (stderr, "compilation terminated due to -Wfatal-errors.\n");
+	  exit (FATAL_EXIT_CODE);
+	}
       break;
 
     case DK_ICE:
       if (context->abort_on_error)
 	real_abort ();
 
-      fnotice (stderr, bug_report_request, bug_report_url);
+      fnotice (stderr, "Please submit a full bug report,\n"
+	       "with preprocessed source if appropriate.\n"
+	       "See %s for instructions.\n", bug_report_url);
       exit (FATAL_EXIT_CODE);
 
     case DK_FATAL:
@@ -281,19 +277,17 @@ diagnostic_action_after_output (diagnostic_context *context,
       exit (FATAL_EXIT_CODE);
 
     default:
-      real_abort ();
+      gcc_unreachable ();
     }
 }
 
 /* Prints out, if necessary, the name of the current function
-  that caused an error.  Called from all error and warning functions.
-  We ignore the FILE parameter, as it cannot be relied upon.  */
-
+   that caused an error.  Called from all error and warning functions.  */
 void
 diagnostic_report_current_function (diagnostic_context *context)
 {
   diagnostic_report_current_module (context);
-  (*lang_hooks.print_error_function) (context, input_filename);
+  lang_hooks.print_error_function (context, input_filename);
 }
 
 void
@@ -307,16 +301,20 @@ diagnostic_report_current_module (diagnostic_context *context)
       pp_needs_newline (context->printer) = false;
     }
 
-  if (input_file_stack && diagnostic_last_module_changed (context))
+  p = input_file_stack;
+  if (p && diagnostic_last_module_changed (context))
     {
-      p = input_file_stack;
+      expanded_location xloc = expand_location (p->location);
       pp_verbatim (context->printer,
                    "In file included from %s:%d",
-                   p->location.file, p->location.line);
+		   xloc.file, xloc.line);
       while ((p = p->next) != NULL)
-	pp_verbatim (context->printer,
-                     ",\n                 from %s:%d",
-                     p->location.file, p->location.line);
+	{
+	  xloc = expand_location (p->location);
+	  pp_verbatim (context->printer,
+		       ",\n                 from %s:%d",
+		       xloc.file, xloc.line);
+	}
       pp_verbatim (context->printer, ":\n");
       diagnostic_set_last_module (context);
     }
@@ -347,11 +345,23 @@ void
 diagnostic_report_diagnostic (diagnostic_context *context,
 			      diagnostic_info *diagnostic)
 {
-  if (context->lock++ && diagnostic->kind < DK_SORRY)
-    error_recursion (context);
+  if (context->lock > 0)
+    {
+      /* If we're reporting an ICE in the middle of some other error,
+	 try to flush out the previous error, then let this one
+	 through.  Don't do this more than once.  */
+      if (diagnostic->kind == DK_ICE && context->lock == 1)
+	pp_flush (context->printer);
+      else
+	error_recursion (context);
+    }
+
+  context->lock++;
 
   if (diagnostic_count_diagnostic (context, diagnostic))
     {
+      pp_prepare_to_format (context->printer, &diagnostic->message,
+			    &diagnostic->location);
       (*diagnostic_starter (context)) (context, diagnostic);
       pp_format_text (context->printer, &diagnostic->message);
       (*diagnostic_finalizer (context)) (context, diagnostic);
@@ -375,20 +385,10 @@ trim_filename (const char *name)
 
   /* First skip any "../" in each filename.  This allows us to give a proper
      reference to a file in a subdirectory.  */
-  while (p[0] == '.' && p[1] == '.'
-	 && (p[2] == DIR_SEPARATOR
-#ifdef DIR_SEPARATOR_2
-	     || p[2] == DIR_SEPARATOR_2
-#endif
-	     ))
+  while (p[0] == '.' && p[1] == '.' && IS_DIR_SEPARATOR (p[2]))
     p += 3;
 
-  while (q[0] == '.' && q[1] == '.'
-	 && (q[2] == DIR_SEPARATOR
-#ifdef DIR_SEPARATOR_2
-	     || p[2] == DIR_SEPARATOR_2
-#endif
-	     ))
+  while (q[0] == '.' && q[1] == '.' && IS_DIR_SEPARATOR (q[2]))
     q += 3;
 
   /* Now skip any parts the two filenames have in common.  */
@@ -396,11 +396,7 @@ trim_filename (const char *name)
     p++, q++;
 
   /* Now go backwards until the previous directory separator.  */
-  while (p > name && p[-1] != DIR_SEPARATOR
-#ifdef DIR_SEPARATOR_2
-	 && p[-1] != DIR_SEPARATOR_2
-#endif
-	 )
+  while (p > name && !IS_DIR_SEPARATOR (p[-1]))
     p--;
 
   return p;
@@ -518,8 +514,7 @@ fatal_error (const char *msgid, ...)
   report_diagnostic (&diagnostic);
   va_end (ap);
 
-  /* NOTREACHED */
-  real_abort ();
+  gcc_unreachable ();
 }
 
 /* An internal consistency check has failed.  We make no attempt to
@@ -537,8 +532,7 @@ internal_error (const char *msgid, ...)
   report_diagnostic (&diagnostic);
   va_end (ap);
 
-  /* NOTREACHED */
-  real_abort ();
+  gcc_unreachable ();
 }
 
 /* Special case error functions.  Most are implemented in terms of the
@@ -564,13 +558,22 @@ fnotice (FILE *file, const char *msgid, ...)
 static void
 error_recursion (diagnostic_context *context)
 {
+  diagnostic_info diagnostic;
+
   if (context->lock < 3)
     pp_flush (context->printer);
 
   fnotice (stderr,
 	   "Internal compiler error: Error reporting routines re-entered.\n");
-  fnotice (stderr, bug_report_request, bug_report_url);
-  exit (FATAL_EXIT_CODE);
+
+  /* Call diagnostic_action_after_output to get the "please submit a bug
+     report" message.  It only looks at the kind field of diagnostic_info.  */
+  diagnostic.kind = DK_ICE;
+  diagnostic_action_after_output (context, &diagnostic);
+
+  /* Do not use gcc_unreachable here; that goes through internal_error
+     and therefore would cause infinite recursion.  */
+  real_abort ();
 }
 
 /* Report an internal compiler error in a friendly manner.  This is

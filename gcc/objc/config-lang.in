@@ -1,5 +1,5 @@
 # Top level configure fragment for GNU Objective-C
-#   Copyright (C) 1997, 1998, 2000, 2001, 2002, 2003
+#   Copyright (C) 1997, 1998, 2000, 2001, 2002, 2003, 2004
 #   Free Software Foundation, Inc.
 
 #This file is part of GCC.
@@ -32,6 +32,13 @@ compilers="cc1obj\$(exeext)"
 
 stagestuff="cc1obj\$(exeext)"
 
-target_libs=target-libobjc
+# APPLE LOCAL begin libobjc
+# We use libobjc4 instead.  To build libobjc anyway, add
+# '--enable-libobjc' to the 'configure' command line.
+# target_libs=target-libobjc
+# APPLE LOCAL end libobjc
+
+# Most of the object files for cc1obj actually come from C.
+lang_requires="c"
 
 gtfiles="\$(srcdir)/objc/objc-act.h \$(srcdir)/c-parse.in \$(srcdir)/c-tree.h \$(srcdir)/c-decl.c \$(srcdir)/c-objc-common.c \$(srcdir)/c-common.c \$(srcdir)/c-common.h \$(srcdir)/c-pragma.c \$(srcdir)/objc/objc-act.c"

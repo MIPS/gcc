@@ -84,6 +84,7 @@
    * use the constraints from asms
   */
 
+static int first_hard_reg (HARD_REG_SET);
 static struct obstack ra_obstack;
 static void create_insn_info (struct df *);
 static void free_insn_info (void);
@@ -147,6 +148,7 @@ int orig_max_uid;
 HARD_REG_SET never_use_colors;
 HARD_REG_SET usable_regs[N_REG_CLASSES];
 unsigned int num_free_regs[N_REG_CLASSES];
+int single_reg_in_regclass[N_REG_CLASSES];
 HARD_REG_SET hardregs_for_mode[NUM_MACHINE_MODES];
 HARD_REG_SET invalid_mode_change_regs;
 unsigned char byte2bitcount[256];
@@ -210,6 +212,21 @@ hard_regs_count (HARD_REG_SET rs)
     }
 #endif
   return count;
+}
+
+/* Returns the first hardreg in HARD_REG_SET RS. Assumes there is at
+   least one reg in the set.  */
+
+static int
+first_hard_reg (HARD_REG_SET rs)
+{
+  int c;
+  
+  for (c = 0; c < FIRST_PSEUDO_REGISTER; c++)
+    if (TEST_HARD_REG_BIT (rs, c))
+      break;
+  gcc_assert (c < FIRST_PSEUDO_REGISTER);
+  return c;
 }
 
 /* Basically like emit_move_insn (i.e. validifies constants and such),
@@ -276,8 +293,7 @@ create_insn_info (struct df *df)
       act_refs += n;
       insn_df[uid].num_uses = n;
     }
-  if (refs_for_insn_df + (df->def_id + df->use_id) < act_refs)
-    abort ();
+  gcc_assert (refs_for_insn_df + (df->def_id + df->use_id) >= act_refs);
 }
 
 /* Free the insn_df structures.  */
@@ -300,8 +316,7 @@ struct web *
 find_subweb (struct web *web, rtx reg)
 {
   struct web *w;
-  if (GET_CODE (reg) != SUBREG)
-    abort ();
+  gcc_assert (GET_CODE (reg) == SUBREG);
   for (w = web->subreg_next; w; w = w->subreg_next)
     if (GET_MODE (w->orig_x) == GET_MODE (reg)
 	&& SUBREG_BYTE (w->orig_x) == SUBREG_BYTE (reg))
@@ -515,6 +530,10 @@ init_ra (void)
       size = hard_regs_count (rs);
       num_free_regs[i] = size;
       COPY_HARD_REG_SET (usable_regs[i], rs);
+      if (size == 1)
+	single_reg_in_regclass[i] = first_hard_reg (rs);
+      else
+	single_reg_in_regclass[i] = -1;
     }
 
   /* Setup hardregs_for_mode[].
@@ -558,8 +577,7 @@ init_ra (void)
        an_unusable_color++)
     if (TEST_HARD_REG_BIT (never_use_colors, an_unusable_color))
       break;
-  if (an_unusable_color == FIRST_PSEUDO_REGISTER)
-    abort ();
+  gcc_assert (an_unusable_color != FIRST_PSEUDO_REGISTER);
 
   orig_max_uid = get_max_uid ();
   compute_bb_for_insn ();
@@ -570,7 +588,7 @@ init_ra (void)
   gcc_obstack_init (&ra_obstack);
 }
 
-/* Check the consistency of DF.  This aborts if it violates some
+/* Check the consistency of DF.  This asserts if it violates some
    invariances we expect.  */
 
 static void
@@ -601,19 +619,21 @@ check_df (struct df *df)
       {
 	bitmap_clear (b);
 	for (link = DF_INSN_DEFS (df, insn); link; link = link->next)
-	  if (!link->ref || bitmap_bit_p (empty_defs, DF_REF_ID (link->ref))
-	      || bitmap_bit_p (b, DF_REF_ID (link->ref)))
-	    abort ();
-	  else
+	  {
+	    gcc_assert (link->ref);
+	    gcc_assert (!bitmap_bit_p (empty_defs, DF_REF_ID (link->ref)));
+	    gcc_assert (!bitmap_bit_p (b, DF_REF_ID (link->ref)));
 	    bitmap_set_bit (b, DF_REF_ID (link->ref));
+	  }
 
 	bitmap_clear (b);
 	for (link = DF_INSN_USES (df, insn); link; link = link->next)
-	  if (!link->ref || bitmap_bit_p (empty_uses, DF_REF_ID (link->ref))
-	      || bitmap_bit_p (b, DF_REF_ID (link->ref)))
-	    abort ();
-	  else
+	  {
+	    gcc_assert (link->ref);
+	    gcc_assert (!bitmap_bit_p (empty_uses, DF_REF_ID (link->ref)));
+	    gcc_assert (!bitmap_bit_p (b, DF_REF_ID (link->ref)));
 	    bitmap_set_bit (b, DF_REF_ID (link->ref));
+	  }
       }
 
   /* Now the same for the chains per register number.  */
@@ -621,19 +641,21 @@ check_df (struct df *df)
     {
       bitmap_clear (b);
       for (link = df->regs[regno].defs; link; link = link->next)
-	if (!link->ref || bitmap_bit_p (empty_defs, DF_REF_ID (link->ref))
-	    || bitmap_bit_p (b, DF_REF_ID (link->ref)))
-	  abort ();
-	else
+	{
+	  gcc_assert (link->ref);
+	  gcc_assert (!bitmap_bit_p (empty_defs, DF_REF_ID (link->ref)));
+	  gcc_assert (!bitmap_bit_p (b, DF_REF_ID (link->ref)));
 	  bitmap_set_bit (b, DF_REF_ID (link->ref));
+	}
 
       bitmap_clear (b);
       for (link = df->regs[regno].uses; link; link = link->next)
-	if (!link->ref || bitmap_bit_p (empty_uses, DF_REF_ID (link->ref))
-	    || bitmap_bit_p (b, DF_REF_ID (link->ref)))
-	  abort ();
-	else
+	{
+	  gcc_assert (link->ref);
+	  gcc_assert (!bitmap_bit_p (empty_uses, DF_REF_ID (link->ref)));
+	  gcc_assert (!bitmap_bit_p (b, DF_REF_ID (link->ref)));
 	  bitmap_set_bit (b, DF_REF_ID (link->ref));
+	}
     }
 
   BITMAP_XFREE (empty_uses);
@@ -660,7 +682,9 @@ reg_alloc (void)
   if (last)
     {
       edge e;
-      for (e = EXIT_BLOCK_PTR->pred; e; e = e->pred_next)
+      edge_iterator ei;
+
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
 	{
 	  basic_block bb = e->src;
 	  last = BB_END (bb);
@@ -856,7 +880,7 @@ reg_alloc (void)
   /* Cleanup the flow graph.  */
   if ((debug_new_regalloc & DUMP_LAST_FLOW) == 0)
     dump_file = NULL;
-  life_analysis (get_insns (), dump_file,
+  life_analysis (dump_file,
 		 PROP_DEATH_NOTES | PROP_LOG_LINKS  | PROP_REG_INFO);
   cleanup_cfg (CLEANUP_EXPENSIVE);
   recompute_reg_usage (get_insns (), TRUE);
@@ -887,7 +911,8 @@ reg_alloc (void)
 			 "after allocation/spilling, before reload", NULL);
 
   /* Allocate the reg_equiv_memory_loc array for reload.  */
-  reg_equiv_memory_loc = xcalloc (max_regno, sizeof (rtx));
+  VARRAY_GROW (reg_equiv_memory_loc_varray, max_regno);
+  reg_equiv_memory_loc = &VARRAY_RTX (reg_equiv_memory_loc_varray, 0);
   /* And possibly initialize it.  */
   allocate_initial_values (reg_equiv_memory_loc);
   /* And one last regclass pass just before reload.  */

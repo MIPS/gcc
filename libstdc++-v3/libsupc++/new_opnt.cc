@@ -30,13 +30,19 @@
 #include "new"
 #include <exception_defines.h>
 
+/* APPLE LOCAL begin keymgr */
+#if defined APPLE_KEYMGR && ! defined(LIBCC_KEXT) && ! defined(APPLE_KERNEL_EXTENSION)
+#include "bits/os_defines.h"
+#endif	/* APPLE_KEYMGR */
+/* APPLE LOCAL end keymgr */
+
 using std::new_handler;
 using std::bad_alloc;
 
 extern "C" void *malloc (std::size_t);
 extern new_handler __new_handler;
 
-void *
+__attribute__((weak)) void *
 operator new (std::size_t sz, const std::nothrow_t&) throw()
 {
   void *p;
@@ -47,7 +53,14 @@ operator new (std::size_t sz, const std::nothrow_t&) throw()
   p = (void *) malloc (sz);
   while (p == 0)
     {
+      /* APPLE LOCAL begin keymgr */
+#if defined(APPLE_KEYMGR) && ! defined(APPLE_KERNEL_EXTENSION) && ! defined(LIBCC_KEXT)
+      new_handler handler = 
+	(new_handler) _keymgr_get_per_thread_data (KEYMGR_NEW_HANLDER_KEY);
+#else	/* ! APPLE_KEYMGR */
       new_handler handler = __new_handler;
+#endif	/* APPLE_KEYMGR */
+      /* APPLE LOCAL end keymgr */
       if (! handler)
 	return 0;
       try

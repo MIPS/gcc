@@ -1130,10 +1130,6 @@ CUMULATIVE_ARGS;
 
 #define CALLER_SAVE_PROFITABLE(REFS,CALLS) 0
 
-/* Never pass data by reference.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) 0
-
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
 /* 1 if N is a possible register number for function argument passing.  */
@@ -1162,11 +1158,6 @@ CUMULATIVE_ARGS;
 
 #define DEFAULT_PCC_STRUCT_RETURN	0
 
-/* Varargs handling.  */
-
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  c4x_va_arg (valist, type)
-
 /* Generating Code for Profiling.  */
 
 /* Note that the generated assembly uses the ^ operator to load the 16
@@ -1192,10 +1183,6 @@ CUMULATIVE_ARGS;
 	fprintf (FILE, "\tcall\tmcount\n");			\
 	fprintf (FILE, "\tpop\tar2\n");				\
      }
-
-/* Implicit Calls to Library Routines.  */
-
-#define TARGET_MEM_FUNCTIONS
 
 /* CC_NOOVmode should be used when the first operand is a PLUS, MINUS, NEG
    or MULT.
@@ -1385,7 +1372,7 @@ CUMULATIVE_ARGS;
 
 #define LEGITIMATE_DISPLACEMENT_P(X) IS_DISP8_CONST (INTVAL (X))
 
-/* Descripting Relative Cost of Operations.  */
+/* Describing Relative Cost of Operations.  */
 
 #define	CANONICALIZE_COMPARISON(CODE, OP0, OP1)		\
 if (REG_P (OP1) && ! REG_P (OP0))			\
@@ -1464,8 +1451,6 @@ fini_section ()							\
       in_section = in_fini;					\
     }								\
 }
-
-#define ASM_STABS_OP "\t.stabs\t"
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION c4x_asm_named_section
@@ -1778,26 +1763,26 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
 			   GEN_INT (0x5069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
       emit_move_insn (gen_rtx_MEM (QImode,				\
-			       plus_constant (tramp, 0)), tmp1);	\
+			       plus_constant (TRAMP, 0)), tmp1);	\
       tmp1 = expand_and (QImode, FNADDR, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x1069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
       emit_move_insn (gen_rtx_MEM (QImode,				\
-			       plus_constant (tramp, 2)), tmp1);	\
+			       plus_constant (TRAMP, 2)), tmp1);	\
       tmp1 = expand_shift (RSHIFT_EXPR, QImode, CXT,			\
 			   size_int (16), 0, 1);			\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x5068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
       emit_move_insn (gen_rtx_MEM (QImode,				\
-			       plus_constant (tramp, 3)), tmp1);	\
+			       plus_constant (TRAMP, 3)), tmp1);	\
       tmp1 = expand_and (QImode, CXT, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x1068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
       emit_move_insn (gen_rtx_MEM (QImode,				\
-			       plus_constant (tramp, 6)), tmp1);	\
+			       plus_constant (TRAMP, 6)), tmp1);	\
     }									\
   else									\
     {									\

@@ -1,3 +1,21 @@
+2004-05-10  Andrew Haley  <aph@redhat.com>
+
+	* java-gimplify.c (java_gimplify_expr): Copy the LHS of a binary
+	expression into a temporary variable.
+
+	(java_gimplify_new_array_init): Set the DECL_CONTEXT of array and
+	tmp to current_function_decl.
+	
+2004-04-13  Diego Novillo  <dnovillo@redhat.com>
+
+	* expr.c (build_expr_wfl): Don't check type nodes for
+	side effects.
+
+2004-04-12  Diego Novillo  <dnovillo@redhat.com>
+
+	* decl.c (java_expand_stmt): Remove.
+	* lang.c (LANG_HOOKS_RTL_EXPAND_STMT): Remove.
+
 2004-02-24  Richard Henderson  <rth@redhat.com>
 
 	* java-gimplify.c (java_gimplify_new_array_init): Remove extra

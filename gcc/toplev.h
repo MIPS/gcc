@@ -45,31 +45,39 @@ extern void _fatal_insn (const char *, rtx, const char *, int, const char *)
    style, use the generic one.  */
 #ifndef GCC_DIAG_STYLE
 #define GCC_DIAG_STYLE __gcc_diag__
+#define NO_FRONT_END_DIAG
 #endif
 /* None of these functions are suitable for ATTRIBUTE_PRINTF, because
    each language front end can extend them with its own set of format
-   specifiers.  We must use custom format checks.  */
-#if GCC_VERSION >= 3004
+   specifiers.  We must use custom format checks.  Note that at present
+   the front-end %D specifier is used in non-front-end code with some
+   functions, and those formats can only be checked in front-end code.  */
+#if GCC_VERSION >= 3005
 #define ATTRIBUTE_GCC_DIAG(m, n) __attribute__ ((__format__ (GCC_DIAG_STYLE, m, n))) ATTRIBUTE_NONNULL(m)
+#ifdef NO_FRONT_END_DIAG
+#define ATTRIBUTE_GCC_FE_DIAG(m, n) ATTRIBUTE_NONNULL(m)
+#else
+#define ATTRIBUTE_GCC_FE_DIAG(m, n) __attribute__ ((__format__ (GCC_DIAG_STYLE, m, n))) ATTRIBUTE_NONNULL(m)
+#endif
 #else
 #define ATTRIBUTE_GCC_DIAG(m, n) ATTRIBUTE_NONNULL(m)
+#define ATTRIBUTE_GCC_FE_DIAG(m, n) ATTRIBUTE_NONNULL(m)
 #endif
 extern void internal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void warning (const char *, ...);
-extern void error (const char *, ...);
+extern void warning (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
+extern void error (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
 extern void fatal_error (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2)
      ATTRIBUTE_NORETURN;
-extern void pedwarn (const char *, ...);
-extern void sorry (const char *, ...);
+extern void pedwarn (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
+extern void sorry (const char *, ...) ATTRIBUTE_GCC_FE_DIAG(1,2);
 extern void inform (const char *, ...) ATTRIBUTE_GCC_DIAG(1,2);
 
-extern void rest_of_decl_compilation (tree, const char *, int, int);
+extern void rest_of_decl_compilation (tree, int, int);
 extern void rest_of_type_compilation (tree, int);
-extern void rest_of_compilation (tree);
-extern void tree_rest_of_compilation (tree, bool);
+extern void rest_of_compilation (void);
+extern void tree_rest_of_compilation (tree);
 extern void init_tree_optimization_passes (void);
-extern void init_optimization_passes (void);
 extern void finish_optimization_passes (void);
 extern bool enable_rtl_dump_file (int);
 
@@ -78,6 +86,8 @@ extern void announce_function (tree);
 extern void error_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warning_for_asm (rtx, const char *, ...) ATTRIBUTE_GCC_DIAG(2,3);
 extern void warn_deprecated_use (tree);
+/* APPLE LOCAL "unavailable" attribute (radar 2809697) */
+extern void warn_unavailable_use (tree);
 
 #ifdef BUFSIZ
 extern void output_quoted_string	(FILE *, const char *);
@@ -104,24 +114,31 @@ extern const char *aux_base_name;
 extern const char *aux_info_file_name;
 extern const char *asm_file_name;
 extern bool exit_after_options;
-extern bool version_flag;
 
 extern int target_flags_explicit;
 
+/* True if the user has tagged the function with the 'section'
+   attribute.  */
+
+extern bool user_defined_section_attribute;
+
 /* See toplev.c.  */
 extern int flag_loop_optimize;
+/* APPLE LOCAL lno */
+extern int flag_loop_optimize2;
 extern int flag_crossjumping;
 extern int flag_if_conversion;
 extern int flag_if_conversion2;
-extern int flag_delete_null_pointer_checks;
 extern int flag_keep_static_consts;
 extern int flag_peel_loops;
 extern int flag_rerun_cse_after_loop;
 extern int flag_thread_jumps;
 extern int flag_tracer;
-extern int flag_unroll_loops;
+/* APPLE LOCAL lno */
+/* extern int flag_unroll_loops; */
 extern int flag_unroll_all_loops;
-extern int flag_unswitch_loops;
+/* APPLE LOCAL lno */
+/* extern int flag_unswitch_loops; */
 extern int flag_cprop_registers;
 extern int time_report;
 extern int flag_new_regalloc;
@@ -153,7 +170,30 @@ extern bool fast_math_flags_set_p	(void);
 
 #ifndef exact_log2
 #define exact_log2(N) exact_log2_wide ((unsigned HOST_WIDE_INT) (N))
+
+#if (__GNUC__ * 1000 + __GNUC_MINOR__) >= 3004
+#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONGLONG
+#define FL2T__ HOST_WIDE_INT
+#define FL2T_CLZ__ __builtin_clzll
+#else
+#if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
+#define FL2T__ HOST_WIDE_INT
+#define FL2T_CLZ__ __builtin_clzl
+#else
+#define FL2T__ int
+#define FL2T_CLZ__ __builtin_clz
+#endif
+#endif
+static inline int floor_log2(FL2T__ n)
+{
+  if (n)
+    return (sizeof(FL2T__)*8-1) - (int)FL2T_CLZ__(n);
+  return -1;
+}
+#else
 #define floor_log2(N) floor_log2_wide ((unsigned HOST_WIDE_INT) (N))
+#endif
+
 #endif
 extern int exact_log2_wide             (unsigned HOST_WIDE_INT);
 extern int floor_log2_wide             (unsigned HOST_WIDE_INT);

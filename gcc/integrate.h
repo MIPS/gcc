@@ -1,5 +1,5 @@
 /* Function integration definitions for GCC
-   Copyright (C) 1990, 1995, 1998, 1999, 2000, 2001, 2003
+   Copyright (C) 1990, 1995, 1998, 1999, 2000, 2001, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -141,8 +141,6 @@ extern tree copy_decl_for_inlining (tree, tree, tree);
    makes the function uninlinable.  Returns false if it finds any,
    true otherwise.  */
 extern bool function_attribute_inlinable_p (tree);
-
-extern void try_constants (rtx, struct inline_remap *);
 
 /* Return the label indicated.  */
 extern rtx get_label_from_map (struct inline_remap *, int);

@@ -1,5 +1,5 @@
 /* Configuration for GNU C-compiler for the M32R processor.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -30,7 +30,7 @@
 #define HOST_WORDS_BIG_ENDIAN    1
 
 /* target machine dependencies.
-   tm.h is a symbolic link to the actual target specific file.   */
+   tm.h is a symbolic link to the actual target specific file.  */
 #include "tm.h"
 
 /* Arguments to use with `exit'.  */

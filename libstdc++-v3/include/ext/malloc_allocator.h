@@ -31,6 +31,7 @@
 #define _MALLOC_ALLOCATOR_H 1
 
 #include <new>
+#include <bits/functexcept.h>
 
 namespace __gnu_cxx
 {
@@ -78,7 +79,15 @@ namespace __gnu_cxx
       // about what the return value is when __n == 0.
       pointer
       allocate(size_type __n, const void* = 0)
-      { return static_cast<_Tp*>(malloc(__n * sizeof(_Tp))); }
+      {
+	if (__builtin_expect(__n > this->max_size(), false))
+	  std::__throw_bad_alloc();
+
+	pointer __ret = static_cast<_Tp*>(malloc(__n * sizeof(_Tp)));
+	if (!__ret)
+	  std::__throw_bad_alloc();
+	return __ret;
+      }
 
       // __p is not permitted to be a null pointer.
       void
@@ -93,7 +102,7 @@ namespace __gnu_cxx
       // 402. wrong new expression in [some_] allocator::construct
       void 
       construct(pointer __p, const _Tp& __val) 
-      { *__p = __val; }
+      { ::new(__p) value_type(__val); }
 
       void 
       destroy(pointer __p) { __p->~_Tp(); }

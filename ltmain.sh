@@ -495,11 +495,34 @@ if test -z "$show_help"; then
     # Only attempt this if the compiler in the base compile
     # command doesn't match the default compiler.
     if test -n "$available_tags" && test -z "$tagname"; then
+      # APPLE LOCAL begin handle ~ in pathnames 2002-01-14 --sts
+      # Since CC may have args with shell metachars in them, add
+      # doublequotes to args so it looks the same as $base_compile.
+      qCC=
+      for argu in $CC; do
+	case $argu in
+	# Double-quote args containing other shell metacharacters.
+	# Many Bourne shells cannot handle close brackets correctly
+	# in scan sets, so we specify it separately.
+	*[\[\~\#\^\&\*\(\)\{\}\|\;\<\>\?\'\ \	]*|*]*|"")
+	  argu="\"$argu\""
+	  ;;
+	esac
+        # Add the previous argument to qCC.
+        if test -z "$qCC"; then
+	  qCC="$argu"
+        else
+	  qCC="$qCC $argu"
+        fi
+      done
+      # APPLE LOCAL end handle ~ in pathnames 2002-01-14 --sts 
       case $base_compile in
-      "$CC "*) ;;
+      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts 
+      "$qCC "*) ;;
       # Blanks in the command may have been stripped by the calling shell,
       # but not from the CC environment variable when ltconfig was run.
-      "`$echo $CC` "*) ;;
+      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts 
+      "`$echo $qCC` "*) ;;
       *)
         for z in $available_tags; do
           if grep "^### BEGIN LIBTOOL TAG CONFIG: $z$" < "$0" > /dev/null; then
@@ -1041,6 +1064,11 @@ EOF
                   if test -z "$pic_object" || test "$pic_object" = none ; then
                     arg="$non_pic_object"
                   fi
+		else
+		  # If the PIC object exists, use it instead.
+		  # $xdir was prepended to $pic_object above.
+		  non_pic_object="$pic_object"
+		  non_pic_objects="$non_pic_objects $non_pic_object"
                 fi
               else
                 # Only an error if not doing a dry-run.
@@ -1466,6 +1494,11 @@ EOF
             if test -z "$pic_object" || test "$pic_object" = none ; then
               arg="$non_pic_object"
             fi
+	  else
+	    # If the PIC object exists, use it instead.
+	    # $xdir was prepended to $pic_object above.
+	    non_pic_object="$pic_object"
+	    non_pic_objects="$non_pic_objects $non_pic_object"
           fi
         else
           # Only an error if not doing a dry-run.
@@ -4913,7 +4946,8 @@ relink_command=\"$relink_command\""
 
       # Do each command in the postinstall commands.
       eval cmds=\"$old_postinstall_cmds\"
-      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='~'
+      # APPLE LOCAL handle ~ in pathnames 2002-01-14 --sts
+      IFS="${IFS= 	}"; save_ifs="$IFS"; IFS='@'
       for cmd in $cmds; do
 	IFS="$save_ifs"
 	$show "$cmd"

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for ARM with a.out
-   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2004
    Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (rearnsha@armltd.co.uk).
    
@@ -193,19 +193,6 @@
 #define DBX_CONTIN_LENGTH  0
 #endif
 
-/* Output a source filename for the debugger. RISCiX dbx insists that the
-   ``desc'' field is set to compiler version number >= 315 (sic).  */
-#define DBX_OUTPUT_MAIN_SOURCE_FILENAME(STREAM, NAME)			\
-  do									\
-    {									\
-      fprintf (STREAM, ".stabs ");					\
-      output_quoted_string (STREAM, NAME);				\
-      fprintf (STREAM, ",%d,0,315,%s\n", N_SO, &ltext_label_name[1]);	\
-      text_section ();							\
-      (*targetm.asm_out.internal_label) (STREAM, "Ltext", 0);			\
-    }									\
-  while (0)
-  
 /* Output a function label definition.  */
 #ifndef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(STREAM, NAME, DECL)	\

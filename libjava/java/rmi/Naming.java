@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* Naming.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,23 +35,26 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.rmi;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 
 public final class Naming {
 
-/** <pre>
+/**
  * Looks for the remote object that is associated with the named service.
  * Name and location is given in form of a URL without a scheme:
- * 
- *   //host:port/service-name
+ *
+ * <pre>
+ * //host:port/service-name
+ * </pre>
  *  
  * The port is optional.
- * </pre>
+ * 
  * @param name the service name and location
  * @return Remote-object that implements the named service
  * @throws NotBoundException if no object implements the service

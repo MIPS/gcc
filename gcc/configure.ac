@@ -25,10 +25,13 @@
 # Initialization and sanity checks
 # --------------------------------
 
-AC_PREREQ(2.57)
+AC_PREREQ(2.59)
 AC_INIT
 AC_CONFIG_SRCDIR(tree.c)
 AC_CONFIG_HEADER(auto-host.h:config.in)
+
+#Set to 1 on a release branch
+is_release=
 
 # Determine the host, build, and target systems
 AC_CANONICAL_BUILD
@@ -36,7 +39,7 @@ AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
 # Determine the noncanonical target name, for directory use.
-_GCC_TOPLEV_NONCANONICAL_TARGET
+ACX_NONCANONICAL_TARGET
 
 # Determine the target- and build-specific subdirectories
 GCC_TOPLEV_SUBDIRS
@@ -192,7 +195,7 @@ AC_ARG_WITH(ld,
 DEFAULT_LINKER="$with_ld")
 if test x"${DEFAULT_LINKER+set}" = x"set"; then
   if test ! -x "$DEFAULT_LINKER"; then
-    AC_MSG_WARN([cannot execute: $DEFAULT_LINKER: check --with-ld or env. var. DEFAULT_LINKER])
+    AC_MSG_ERROR([cannot execute: $DEFAULT_LINKER: check --with-ld or env. var. DEFAULT_LINKER])
   elif $DEFAULT_LINKER -v < /dev/null 2>&1 | grep GNU > /dev/null; then
     gnu_ld_flag=yes
   fi
@@ -211,6 +214,12 @@ else
   AC_MSG_RESULT(no)
 fi
 
+# With demangler in GNU ld
+AC_ARG_WITH(demangler-in-ld,
+[  --with-demangler-in-ld  try to use demangler in GNU ld.],
+demangler_in_ld="$with_demangler_in_ld",
+demangler_in_ld=no)
+
 # ----------------------
 # Find default assembler
 # ----------------------
@@ -226,7 +235,7 @@ AC_ARG_WITH(as,
 DEFAULT_ASSEMBLER="$with_as")
 if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
   if test ! -x "$DEFAULT_ASSEMBLER"; then
-    AC_MSG_WARN([cannot execute: $DEFAULT_ASSEMBLER: check --with-as or env. var. DEFAULT_ASSEMBLER])
+    AC_MSG_ERROR([cannot execute: $DEFAULT_ASSEMBLER: check --with-as or env. var. DEFAULT_ASSEMBLER])
   elif $DEFAULT_ASSEMBLER -v < /dev/null 2>&1 | grep GNU > /dev/null; then
     gas_flag=yes
   fi
@@ -260,7 +269,7 @@ rm -f a.out a.exe b.out
 
 # Find the native compiler
 AC_PROG_CC
-AC_PROG_CC_C_O
+AM_PROG_CC_C_O
 # autoconf is lame and doesn't give us any substitution variable for this.
 if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
   NO_MINUS_C_MINUS_O=yes
@@ -274,48 +283,85 @@ AC_SUBST(OUTPUT_OPTION)
 # Check C compiler features
 # -------------------------
 
-AC_CACHE_CHECK(whether ${CC-cc} accepts -Wno-long-long,
-ac_cv_prog_cc_no_long_long,
-[save_CFLAGS="$CFLAGS"
-CFLAGS="-Wno-long-long"
-AC_TRY_COMPILE(,,ac_cv_prog_cc_no_long_long=yes,
-	       ac_cv_prog_cc_no_long_long=no)
-CFLAGS="$save_CFLAGS"])
-
 AC_PROG_CPP
 AC_C_INLINE
 
 gcc_AC_C_LONG_LONG
-gcc_AC_C__BOOL
 
 # sizeof(char) is 1 by definition.
-AC_COMPILE_CHECK_SIZEOF(void *)
-AC_COMPILE_CHECK_SIZEOF(short)
-AC_COMPILE_CHECK_SIZEOF(int)
-AC_COMPILE_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(short)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
 if test $ac_cv_c_long_long = yes; then
-  AC_COMPILE_CHECK_SIZEOF(long long)
+  AC_CHECK_SIZEOF(long long)
 fi
 if test $ac_cv_c___int64 = yes; then
-  AC_COMPILE_CHECK_SIZEOF(__int64)
+  AC_CHECK_SIZEOF(__int64)
 fi
-
-# -----------------
-# Find Ada compiler
-# -----------------
-
-# See if GNAT has been installed
-gcc_AC_PROG_GNAT
 
 # ---------------------
 # Warnings and checking
 # ---------------------
 
+# Check $CC warning features (if it's GCC).
+# We want to use -pedantic, but we don't want warnings about
+# * 'long long'
+# * variadic macros
+# So, we only use -pedantic if we can disable those warnings.
+
+AC_CACHE_CHECK(
+  [whether ${CC} accepts -Wno-long-long],
+  [ac_cv_prog_cc_w_no_long_long],
+  [save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wno-long-long"
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
+                    [ac_cv_prog_cc_w_no_long_long=yes],
+                    [ac_cv_prog_cc_w_no_long_long=no])
+  CFLAGS="$save_CFLAGS"
+  ])
+
+AC_CACHE_CHECK(
+  [whether ${CC} accepts -Wno-variadic-macros],
+  [ac_cv_prog_cc_w_no_variadic_macros],
+  [save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wno-variadic-macros"
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
+                    [ac_cv_prog_cc_w_no_variadic_macros=yes],
+                    [ac_cv_prog_cc_w_no_variadic_macros=no])
+  CFLAGS="$save_CFLAGS"
+  ])
+
 strict1_warn=
-if test $ac_cv_prog_cc_no_long_long = yes ; then
-  strict1_warn="-pedantic -Wno-long-long"
+if test $ac_cv_prog_cc_w_no_long_long = yes \
+   && test $ac_cv_prog_cc_w_no_variadic_macros = yes ; then
+  strict1_warn="-pedantic -Wno-long-long -Wno-variadic-macros"
 fi
 AC_SUBST(strict1_warn)
+
+# Add -Wold-style-definition if it's accepted
+AC_CACHE_CHECK(
+  [whether ${CC} accepts -Wold-style-definition],
+  [ac_cv_prog_cc_w_old_style_definition],
+  [save_CFLAGS="$CFLAGS"
+  CFLAGS="-Wold-style-definition"
+  AC_COMPILE_IFELSE([AC_LANG_SOURCE([[]])],
+                    [ac_cv_prog_cc_w_old_style_definition=yes],
+                    [ac_cv_prog_cc_w_old_style_definition=no])
+  CFLAGS="$save_CFLAGS"
+  ])
+if test $ac_cv_prog_cc_w_old_style_definition = yes ; then
+  strict1_warn="${strict1_warn} -Wold-style-definition"
+fi
+
+# Enable -Werror, period.
+AC_ARG_ENABLE(werror_always, 
+[  --enable-werror-always         enable -Werror always], [],
+[enable_werror_always=no])
+if test x${enable_werror_always} = xyes ; then
+  strict1_warn="${strict1_warn} -Werror"
+  WERROR=-Werror
+fi
 
 # If the native compiler is GCC, we can enable warnings even in stage1.  
 # That's useful for people building cross-compilers, or just running a
@@ -327,10 +373,15 @@ fi
 AC_SUBST(warn_cflags)
 
 # Enable -Werror in bootstrap stage2 and later.
-# Change the default to "no" on release branches.
 AC_ARG_ENABLE(werror, 
 [  --enable-werror         enable -Werror in bootstrap stage2 and later], [],
-[enable_werror=yes])
+[if test x$is_release = x ; then
+  # Default to "yes" on development branches.
+  enable_werror=yes
+else
+  # Default to "no" on release branches.
+  enable_werror=no
+fi])
 if test x$enable_werror = xyes ; then
   WERROR=-Werror
 fi
@@ -341,41 +392,53 @@ AC_ARG_ENABLE(checking,
 [  --enable-checking[=LIST]
 			  enable expensive run-time checks.  With LIST,
 			  enable only specific categories of checks.
-			  Categories are: misc,tree,rtl,rtlflag,gc,gcac,fold;
-			  default is misc,tree,gc,rtlflag],
-[ac_checking=
+			  Categories are: assert,fold,gc,gcac,misc,
+			  rtlflag,rtl,tree,valgrind,release,yes,all;],
+[ac_checking_flags="${enableval}"],[
+# Determine the default checks.
+if test x$is_release = x ; then
+  ac_checking_flags=yes
+else
+  ac_checking_flags=release
+fi])
+ac_assert_checking=1
+ac_checking=
 ac_tree_checking=
 ac_rtl_checking=
 ac_rtlflag_checking=
 ac_gc_checking=
 ac_gc_always_collect=
 ac_fold_checking=
-case "${enableval}" in
-yes)	ac_checking=1 ; ac_tree_checking=1 ; ac_gc_checking=1 ;
-	ac_rtlflag_checking=1 ;;
-no)	;;
-*)	IFS="${IFS= 	}"; ac_save_IFS="$IFS"; IFS="$IFS,"
-	set fnord $enableval; shift
-	IFS="$ac_save_IFS"
-	for check
-	do
-		case $check in
-		misc)	ac_checking=1 ;;
-		tree)	ac_tree_checking=1 ;;
-		rtlflag)	ac_rtlflag_checking=1 ;;
-		rtl)	ac_rtl_checking=1 ;;
-		gc)	ac_gc_checking=1 ;;
-		gcac)	ac_gc_always_collect=1 ;;
-		fold)	ac_fold_checking=1 ;;
-		valgrind)	ac_checking_valgrind=1 ;;
-		*)	AC_MSG_ERROR(unknown check category $check) ;;
-		esac
-	done
-	;;
-esac
-], 
-# Enable some checks by default for development versions of GCC
-[ac_checking=1; ac_tree_checking=1; ac_gc_checking=1; ac_rtlflag_checking=1;])
+IFS="${IFS= 	}"; ac_save_IFS="$IFS"; IFS="$IFS,"
+for check in $ac_checking_flags
+do
+	case $check in
+	yes)		ac_assert_checking=1 ; ac_checking=1 ;
+			ac_tree_checking=1 ; ac_gc_checking=1 ;
+			ac_rtlflag_checking=1 ;;
+	no)		ac_assert_checking= ; ac_checking= ;
+			ac_tree_checking= ; ac_rtl_checking= ;
+			ac_rtlflag_checking= ; ac_gc_checking= ;
+			ac_gc_always_collect= ; ac_fold_checking= ;;
+	all)		ac_assert_checking=1 ; ac_checking=1 ;
+			ac_tree_checking=1 ; ac_rtl_checking=1 ;
+			ac_rtlflag_checking=1 ; ac_gc_checking=1 ;
+			ac_gc_always_collect=1 ; ac_fold_checking=1 ;;
+        release)	ac_assert_checking=1 ;;
+	assert) 	ac_assert_checking=1 ;;
+	fold)		ac_fold_checking=1 ;;
+	gc)		ac_gc_checking=1 ;;
+	gcac)		ac_gc_always_collect=1 ;;
+	misc)		ac_checking=1 ;;
+	rtlflag)	ac_rtlflag_checking=1 ;;
+	rtl)		ac_rtl_checking=1 ;;
+	tree)		ac_tree_checking=1 ;;
+	valgrind)	ac_checking_valgrind=1 ;;
+	*)	AC_MSG_ERROR(unknown check category $check) ;;
+	esac
+done
+IFS="$ac_save_IFS"
+
 nocommon_flag=""
 if test x$ac_checking != x ; then
   AC_DEFINE(ENABLE_CHECKING, 1,
@@ -384,12 +447,20 @@ if test x$ac_checking != x ; then
   nocommon_flag=-fno-common
 fi
 AC_SUBST(nocommon_flag)
+if test x$ac_assert_checking != x ; then
+  AC_DEFINE(ENABLE_ASSERT_CHECKING, 1,
+[Define if you want assertions enabled.  This is a cheap check.])
+fi
 if test x$ac_tree_checking != x ; then
   AC_DEFINE(ENABLE_TREE_CHECKING, 1,
 [Define if you want all operations on trees (the basic data
    structure of the front ends) to be checked for dynamic type safety
-   at runtime.  This is moderately expensive.])
+   at runtime.  This is moderately expensive.  The tree browser debugging
+   routines will also be enabled by this option.
+   ])
+  TREEBROWSER=tree-browser.o
 fi
+AC_SUBST(TREEBROWSER)
 if test x$ac_rtl_checking != x ; then
   AC_DEFINE(ENABLE_RTL_CHECKING, 1,
 [Define if you want all operations on RTL (the basic data structure
@@ -472,24 +543,37 @@ fi
 AC_SUBST(valgrind_path_defines)
 AC_SUBST(valgrind_command)
 
+AC_ARG_ENABLE(mapped-location,
+[  --enable-mapped-location   location_t is fileline integer cookie],,
+enable_mapped_location=no)
+
+if test "$enable_mapped_location" = yes ; then
+  AC_DEFINE(USE_MAPPED_LOCATION, 1,
+[Define if location_t is fileline integer cookie.])
+fi
+
 # Enable code coverage collection
 AC_ARG_ENABLE(coverage,
 [  --enable-coverage[=LEVEL]
-			  enable compiler\'s code coverage collection.
+			  enable compiler's code coverage collection.
 			  Use to measure compiler performance and locate
 			  unused parts of the compiler. With LEVEL, specify
 			  optimization. Values are opt, noopt,
 			  default is noopt],
 [case "${enableval}" in
-yes|noopt)
-	coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O0"
-	;;
-opt)
-	coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O2"
-	;;
-*)
-	AC_MSG_ERROR(unknown coverage setting $enableval)
-	;;
+  yes|noopt)
+    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O0"
+    ;;
+  opt)
+    coverage_flags="-fprofile-arcs -ftest-coverage -frandom-seed=\$@ -O2"
+    ;;
+  no)
+    # a.k.a. --disable-coverage
+    coverage_flags=""
+    ;;
+  *)
+    AC_MSG_ERROR(unknown coverage setting $enableval)
+    ;;
 esac],
 [coverage_flags=""])
 AC_SUBST(coverage_flags)
@@ -529,9 +613,7 @@ AC_ARG_ENABLE(__cxa_atexit,
 AC_ARG_ENABLE(threads,
 [  --enable-threads        enable thread usage for target GCC
   --enable-threads=LIB    use LIB thread package for target GCC],,
-enable_threads='')
-# Save in case it gets overwritten in config.gcc
-enable_threads_flag=$enable_threads
+[enable_threads=''])
 
 AC_ARG_ENABLE(objc-gc,
 [  --enable-objc-gc	  enable the use of Boehm's garbage collector with
@@ -613,6 +695,53 @@ esac],
 [onestep=""])
 AC_SUBST(onestep)
 
+# Sanity check enable_languages in case someone does not run the toplevel
+# configure # script.
+AC_ARG_ENABLE(languages,
+[  --enable-languages=LIST specify which front-ends to build],
+[case ,${enable_languages}, in
+       ,,|,yes,)
+		# go safe -- we cannot be much sure without the toplevel
+		# configure's
+		# analysis of which target libs are present and usable
+		enable_languages=c
+		;;
+	 *,all,*)
+		AC_MSG_ERROR([only the toplevel supports --enable-languages=all])
+		;;
+	*,c,*)
+		;;
+        *)
+		enable_languages=c,${enable_languages}
+		;;
+esac],
+[enable_languages=c])
+
+subdirs=
+for lang in ${srcdir}/*/config-lang.in
+do
+	case $lang in
+	# The odd quoting in the next line works around
+	# an apparent bug in bash 1.12 on linux.
+changequote(,)dnl
+	${srcdir}/[*]/config-lang.in) ;;
+	*)
+	  lang_alias=`sed -n -e 's,^language=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^language=\([^   ]*\).*$,\1,p' $lang`
+	  if test "x$lang_alias" = x
+	  then
+	        echo "$lang doesn't set \$language." 1>&2
+	        exit 1
+	  fi
+	  case ",$enable_languages," in
+	  *,$lang_alias,*)
+	    subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`" ;;
+	  esac
+	  ;;
+changequote([,])dnl
+	esac
+done
+
+
 # -------------------------
 # Checks for other programs
 # -------------------------
@@ -621,16 +750,32 @@ AC_PROG_MAKE_SET
 
 # Find some useful tools
 AC_PROG_AWK
-# We need awk to run opts.sh (to create options.c and options.h).
+# We need awk to create options.c and options.h.
 # Bail out if it's missing.
 case ${AWK} in
   "") AC_MSG_ERROR([can't build without awk, bailing out]) ;;
 esac
 
-gcc_AC_PROG_LN
 gcc_AC_PROG_LN_S
+ACX_PROG_LN($LN_S)
 AC_PROG_RANLIB
+case "${host}" in
+*-*-darwin*)
+  # By default, the Darwin ranlib will not treat common symbols as
+  # definitions when  building the archive table of contents.  Other 
+  # ranlibs do that; pass an option to the Darwin ranlib that makes
+  # it behave similarly.
+  ranlib_flags="-c" 
+  ;;
+*)
+  ranlib_flags=""
+esac
+AC_SUBST(ranlib_flags)
+     
 gcc_AC_PROG_INSTALL
+
+# APPLE LOCAL Mach time
+AC_CHECK_HEADERS(mach/mach_time.h)
 
 # See if cmp has --ignore-initial.
 gcc_AC_PROG_CMP_IGNORE_INITIAL
@@ -638,54 +783,62 @@ gcc_AC_PROG_CMP_IGNORE_INITIAL
 # See if we have the mktemp command.
 AC_CHECK_PROG(have_mktemp_command, mktemp, yes, no)
 
-# Do we have a single-tree copy of texinfo?
-if test -f $srcdir/../texinfo/Makefile.in; then
-  MAKEINFO='$(objdir)/../texinfo/makeinfo/makeinfo'
-  gcc_cv_prog_makeinfo_modern=yes
-  AC_MSG_RESULT([Using makeinfo from the unified source tree.])
-else
-  # See if makeinfo has been installed and is modern enough
-  # that we can use it.
-  gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
+MISSING="${CONFIG_SHELL-/bin/sh} $srcdir/../missing"
+
+# See if makeinfo has been installed and is modern enough
+# that we can use it.
+gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
   [4.[2-9]*])
-fi
-
 if test $gcc_cv_prog_makeinfo_modern = no; then
+  MAKEINFO="$MISSING makeinfo"
   AC_MSG_WARN([
 *** Makeinfo is missing or too old.
 *** Info documentation will not be built.])
   BUILD_INFO=
 else
-  BUILD_INFO=info		AC_SUBST(BUILD_INFO)
+  BUILD_INFO=info
 fi
+AC_SUBST(BUILD_INFO)
 
 # Is pod2man recent enough to regenerate manpages?
 AC_MSG_CHECKING([for recent Pod::Man])
 if (perl -e 'use 1.10 Pod::Man') >/dev/null 2>&1; then
   AC_MSG_RESULT(yes)
-  GENERATED_MANPAGES=generated-manpages		AC_SUBST(GENERATED_MANPAGES)
+  GENERATED_MANPAGES=generated-manpages
 else
   AC_MSG_RESULT(no)
   GENERATED_MANPAGES=
 fi
+AC_SUBST(GENERATED_MANPAGES)
 
 # How about lex?
 dnl Don't use AC_PROG_LEX; we insist on flex.
 dnl LEXLIB is not useful in gcc.
-if test -f $srcdir/../flex/skel.c; then
-  FLEX='$(objdir)/../flex/flex'
-else
-  AC_CHECK_PROG(FLEX, flex, flex, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing flex)
-fi
+AC_CHECK_PROGS([FLEX], flex, [$MISSING flex])
 
 # Bison?
-# The -L switch is so bison can find its skeleton file.
-if test -f $srcdir/../bison/bison.simple; then
-  BISON='$(objdir)/../bison/bison -L $(srcdir)/../bison/'
+AC_CHECK_PROGS([BISON], bison, [$MISSING bison])
+
+# Binutils are not build modules, unlike bison/flex/makeinfo.  So we
+# check for build == host before using them.
+
+# NM
+if test x${build} = x${host} && test -f $srcdir/../binutils/nm.c \
+  && test -d ../binutils ; then
+  NM='$(objdir)/../binutils/nm-new'
 else
-  AC_CHECK_PROG(BISON, bison, bison, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing bison)
+  AC_CHECK_PROG(NM, nm, nm, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing nm)
 fi
+
+# AR
+if test x${build} = x${host} && test -f $srcdir/../binutils/ar.c \
+  && test -d ../binutils ; then
+  AR='$(objdir)/../binutils/ar'
+else
+  AC_CHECK_PROG(AR, ar, ar, ${CONFIG_SHELL-/bin/sh} ${srcdir}/../missing ar)
+fi
+
 
 # --------------------
 # Checks for C headers
@@ -711,10 +864,9 @@ AC_PROG_CPP_WERROR
 
 AC_HEADER_STDC
 AC_HEADER_TIME
-gcc_AC_HEADER_STDBOOL
-gcc_AC_HEADER_STRING
+ACX_HEADER_STRING
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h \
+AC_CHECK_HEADERS(limits.h stddef.h string.h strings.h stdlib.h time.h iconv.h \
 		 fcntl.h unistd.h sys/file.h sys/time.h sys/mman.h \
 		 sys/resource.h sys/param.h sys/times.h sys/stat.h \
 		 direct.h malloc.h langinfo.h ldfcn.h locale.h wchar.h)
@@ -875,13 +1027,15 @@ AC_SUBST(LIBICONV_DEP)
 
 AM_LC_MESSAGES
 
+AM_LANGINFO_CODESET
+
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
 gcc_AC_CHECK_DECLS(getenv atol sbrk abort atof getcwd getwd \
 	strsignal putc_unlocked fputs_unlocked fwrite_unlocked \
         fprintf_unlocked strstr errno snprintf vasprintf \
-	malloc realloc calloc free basename getopt clock, , ,[
+	malloc realloc calloc free basename getopt clock getpagesize, , ,[
 #include "ansidecl.h"
 #include "system.h"])
 
@@ -944,19 +1098,6 @@ if test $gcc_cv_type_clock_t = yes; then
   [Define if <time.h> defines clock_t.])
 fi
 
-AC_CACHE_CHECK(for uchar, gcc_cv_type_uchar,
-[AC_TRY_COMPILE([
-#include "ansidecl.h"
-#include "system.h"
-], 
-[if ((uchar *)0) return 0;
- if (sizeof(uchar)) return 0;],
-ac_cv_type_uchar=yes, ac_cv_type_uchar=no)])
-if test $ac_cv_type_uchar = yes; then
-  AC_DEFINE(HAVE_UCHAR, 1,
-  [Define if <sys/types.h> defines \`uchar'.])
-fi
-
 # Restore CFLAGS from before the gcc_AC_NEED_DECLARATIONS tests.
 CFLAGS="$saved_CFLAGS"
 
@@ -979,20 +1120,10 @@ AC_ARG_ENABLE(sjlj-exceptions,
 AC_DEFINE_UNQUOTED(CONFIG_SJLJ_EXCEPTIONS, $sjlj,
   [Define 0/1 to force the choice for exception handling model.])])
 
-if test x$host = x$target; then
-   AC_CHECK_LIB(unwind, main, use_libunwind_default=yes, use_libunwind_default=no)
-else
-   use_libunwind_default=no
-fi
-# Use libunwind based exception handling.
-AC_ARG_ENABLE(libunwind-exceptions,
-[  --enable-libunwind-exceptions  force use libunwind for exceptions],
-use_libunwind_exceptions=$enableval,
-use_libunwind_exceptions=$use_libunwind_default)
-if test x"$use_libunwind_exceptions" = xyes; then
-   AC_DEFINE(USE_LIBUNWIND_EXCEPTIONS, 1,
-	[Define if gcc should use -lunwind.])
-fi
+# For platforms with the unwind ABI which includes an unwind library,
+# libunwind, we can choose to use the system libunwind.
+AC_ARG_WITH(system-libunwind,
+[  --with-system-libunwind use installed libunwind])
 
 # --------------------------------------------------------
 # Build, host, and target specific configuration fragments
@@ -1085,6 +1216,12 @@ if test x$need_64bit_hwint = xyes; then
 [Define to 1 if HOST_WIDE_INT must be 64 bits wide (see hwint.h).])
 fi
 
+if test x$use_long_long_for_widest_fast_int = xyes; then
+	AC_DEFINE(USE_LONG_LONG_FOR_WIDEST_FAST_INT, 1,
+[Define to 1 if the 'long long' (or '__int64') is wider than 'long' but still
+efficiently supported by the host hardware.])
+fi
+
 count=a
 for f in $host_xm_file; do
 	count=${count}x
@@ -1123,7 +1260,7 @@ fi
 # ---------
 
 # Check if a valid thread package
-case ${enable_threads_flag} in
+case ${enable_threads} in
   "" | no)
     # No threads
     target_thread_file='single'
@@ -1134,10 +1271,10 @@ case ${enable_threads_flag} in
     ;;
   aix | dce | gnat | irix | posix | rtems | \
   single | solaris | vxworks | win32 )
-    target_thread_file=${enable_threads_flag}
+    target_thread_file=${enable_threads}
     ;;
   *)
-    echo "${enable_threads_flag} is an unknown thread package" 1>&2
+    echo "${enable_threads} is an unknown thread package" 1>&2
     exit 1
     ;;
 esac
@@ -1189,7 +1326,6 @@ fi
 if test x$host = x$build
 then
 	build_auto=auto-host.h
-	FORBUILD=..
 else
 	# We create a subdir, then run autoconf in the subdir.
 	# To prevent recursion we set host and build for the new
@@ -1216,9 +1352,8 @@ else
 	cd ..
 	rm -rf $tempdir
 	build_auto=auto-build.h
-	FORBUILD=../${build_subdir}
 fi
-AC_SUBST(FORBUILD)
+AC_SUBST(build_subdir)
 
 tm_file="${tm_file} defaults.h"
 tm_p_file="${tm_p_file} tm-preds.h"
@@ -1273,6 +1408,8 @@ changequote([,])dnl
 # Internationalization
 PACKAGE=gcc
 VERSION="$gcc_version"
+AC_DEFINE_UNQUOTED(PACKAGE, "$PACKAGE",
+  [The name of this program for internationalization purposes.])
 AC_SUBST(PACKAGE)
 AC_SUBST(VERSION)
 
@@ -1358,32 +1495,24 @@ do
 done
 tmake_file="${tmake_file_}"
 
-symbolic_link='ln -s'
-
 # If the host doesn't support symlinks, modify CC in
 # FLAGS_TO_PASS so CC="stage1/xgcc -Bstage1/" works.
 # Otherwise, we can use "CC=$(CC)".
 rm -f symtest.tem
-if $symbolic_link $srcdir/gcc.c symtest.tem 2>/dev/null
-then
-	cc_set_by_configure="\$(CC)"
-	quoted_cc_set_by_configure="\$(CC)"
-	stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
-	quoted_stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
-else
-	rm -f symtest.tem
-	if cp -p $srcdir/gcc.c symtest.tem 2>/dev/null
-	then
-		symbolic_link="cp -p"
-	else
-		symbolic_link="cp"
-	fi
-	cc_set_by_configure="\`case '\$(CC)' in stage*) echo '\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\$(CC)';; esac\`"
-	quoted_cc_set_by_configure="\\\`case '\\\$(CC)' in stage*) echo '\\\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(CC)';; esac\\\`"
-	stage_prefix_set_by_configure="\`case '\$(STAGE_PREFIX)' in stage*) echo '\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\$(STAGE_PREFIX)';; esac\`"
-	quoted_stage_prefix_set_by_configure="\\\`case '\\\$(STAGE_PREFIX)' in stage*) echo '\\\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(STAGE_PREFIX)';; esac\\\`"
-fi
-rm -f symtest.tem
+case "$LN_S" in
+	*-s*)
+		cc_set_by_configure="\$(CC)"
+		quoted_cc_set_by_configure="\$(CC)"
+		stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
+		quoted_stage_prefix_set_by_configure="\$(STAGE_PREFIX)"
+		;;
+	*)
+		cc_set_by_configure="\`case '\$(CC)' in stage*) echo '\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\$(CC)';; esac\`"
+		quoted_cc_set_by_configure="\\\`case '\\\$(CC)' in stage*) echo '\\\$(CC)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(CC)';; esac\\\`"
+		stage_prefix_set_by_configure="\`case '\$(STAGE_PREFIX)' in stage*) echo '\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\$(STAGE_PREFIX)';; esac\`"
+		quoted_stage_prefix_set_by_configure="\\\`case '\\\$(STAGE_PREFIX)' in stage*) echo '\\\$(STAGE_PREFIX)' | sed -e 's|stage|../stage|g';; *) echo '\\\$(STAGE_PREFIX)';; esac\\\`"
+		;;
+esac
 
 out_object_file=`basename $out_file .c`.o
 
@@ -1528,11 +1657,8 @@ AC_SUBST(inhibit_libc)
 # Also, we cannot run fixincludes or fix-header.
 
 # These are the normal (build=host) settings:
-BUILD_PREFIX=			AC_SUBST(BUILD_PREFIX)
-BUILD_PREFIX_1=ignore-		AC_SUBST(BUILD_PREFIX_1)
 CC_FOR_BUILD='$(CC)'		AC_SUBST(CC_FOR_BUILD)
 BUILD_CFLAGS='$(ALL_CFLAGS)'	AC_SUBST(BUILD_CFLAGS)
-
 STMP_FIXINC=stmp-fixinc		AC_SUBST(STMP_FIXINC)
 
 # Possibly disable fixproto, on a per-target basis.
@@ -1549,13 +1675,12 @@ AC_SUBST(STMP_FIXPROTO)
 # And these apply if build != host, or we are generating coverage data
 if test x$build != x$host || test "x$coverage_flags" != x
 then
-    BUILD_PREFIX=build-
-    BUILD_PREFIX_1=build-
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
 
     if test "x$TARGET_SYSTEM_ROOT" = x; then
-	STMP_FIXINC=
-	STMP_FIXPROTO=
+	if [ "x$STMP_FIXPROTO" != x ] ; then
+	  STMP_FIXPROTO=stmp-install-fixproto
+	fi
     fi
 fi
 
@@ -1567,6 +1692,13 @@ for file in ${extra_headers} ; do
   extra_headers_list="${extra_headers_list} \$(srcdir)/config/${cpu_type}/${file}"
 done
 
+# Define collect2 in Makefile.
+case $host_can_use_collect2 in
+  no) collect2= ;;
+  *) collect2='collect2$(exeext)' ;;
+esac
+AC_SUBST([collect2])
+
 # Add a definition of USE_COLLECT2 if system wants one.
 case $use_collect2 in
   no) use_collect2= ;;
@@ -1574,6 +1706,11 @@ case $use_collect2 in
   *) 
     host_xm_defines="${host_xm_defines} USE_COLLECT2"
     xm_defines="${xm_defines} USE_COLLECT2"
+    case $host_can_use_collect2 in
+      no)
+        AC_MSG_ERROR([collect2 is required but cannot be built on this system])
+        ;;
+    esac
     ;;
 esac
 
@@ -1596,18 +1733,19 @@ gcc_cv_gas_minor_version=
 gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
 if test -x "$DEFAULT_ASSEMBLER"; then
 	gcc_cv_as="$DEFAULT_ASSEMBLER"
-elif test -x "$AS"; then
-	gcc_cv_as="$AS"
 elif test -x as$host_exeext; then
 	# Build using assembler in the current directory.
 	gcc_cv_as=./as$host_exeext
 elif test -f $gcc_cv_as_gas_srcdir/configure.in \
-     && test -f ../gas/Makefile; then
-  # Single tree build which includes gas.
+     && test -f ../gas/Makefile \
+     && test x$build = x$host; then
+  # Single tree build which includes gas.  We want to prefer it
+  # over whatever linker top-level may have detected, since
+  # we'll use what we're building after installation anyway.
   in_tree_gas=yes
   _gcc_COMPUTE_GAS_VERSION
   rm -f as$host_exeext
-  $symbolic_link ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
+  $LN_S ../gas/as-new$host_exeext as$host_exeext 2>/dev/null
   in_tree_gas_is_elf=no
   if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
      || (grep 'obj_format = multi' ../gas/Makefile \
@@ -1615,6 +1753,11 @@ elif test -f $gcc_cv_as_gas_srcdir/configure.in \
   then
     in_tree_gas_is_elf=yes
   fi
+m4_pattern_allow([AS_FOR_TARGET])dnl
+elif test -x "$AS_FOR_TARGET"; then
+        gcc_cv_as="$AS_FOR_TARGET"
+elif test -x "$AS" && test x$host = x$target; then
+	gcc_cv_as="$AS"
 fi
 
 if test "x$gcc_cv_as" = x; then
@@ -1648,12 +1791,16 @@ if test "x$gcc_cv_as" = x; then
 		gcc_cv_as=`echo as | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
-		   $test_prefix/libexec/gcc/$target_noncanonical \
-		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
-		   /usr/lib/gcc/$target_noncanonical \
-		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
-		   $test_prefix/$target_noncanonical/bin"
+	if test x$host = x$build; then
+	    test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		       $test_prefix/libexec/gcc/$target_noncanonical \
+		       /usr/lib/gcc/$target_noncanonical/$gcc_version \
+		       /usr/lib/gcc/$target_noncanonical \
+		       $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
+		       $test_prefix/$target_noncanonical/bin"
+	else
+	    test_dirs=
+	fi
 
 	if test x$host = x$target; then
 	    test_dirs="$test_dirs \
@@ -1701,26 +1848,26 @@ gcc_cv_ld_gld_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/ld
 gcc_cv_ld_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
 if test -x "$DEFAULT_LINKER"; then
 	gcc_cv_ld="$DEFAULT_LINKER"
-elif test -x "$LD_FOR_TARGET"; then
-        gcc_cv_ld="$LD_FOR_TARGET"
-elif test -x "$LD" && test x$host = x$target; then
-	gcc_cv_ld="$LD"
 elif test -x collect-ld$host_exeext; then
 	# Build using linker in the current directory.
 	gcc_cv_ld=./collect-ld$host_exeext
 elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
-     && test -f ../ld/Makefile; then
-	# Single tree build which includes ld.
+     && test -f ../ld/Makefile \
+     && test x$build = x$host; then
+	# Single tree build which includes ld.  We want to prefer it
+	# over whatever linker top-level may have detected, since
+	# we'll use what we're building after installation anyway.
 	in_tree_ld=yes
 	in_tree_ld_is_elf=no
 	if (grep 'EMUL = .*elf' ../ld/Makefile \
-	    || grep 'EMUL = .*linux' ../ld/Makefile) > /dev/null; then
+	    || grep 'EMUL = .*linux' ../ld/Makefile \
+	    || grep 'EMUL = .*lynx' ../ld/Makefile) > /dev/null; then
 	  in_tree_ld_is_elf=yes
 	fi
 	for f in $gcc_cv_ld_bfd_srcdir/configure $gcc_cv_ld_gld_srcdir/configure $gcc_cv_ld_gld_srcdir/configure.in $gcc_cv_ld_gld_srcdir/Makefile.in
 	do
 changequote(,)dnl
-		gcc_cv_gld_version=`grep '^VERSION=[0-9]*\.[0-9]*' $f`
+		gcc_cv_gld_version=`sed -n -e 's/^[ 	]*\(VERSION=[0-9]*\.[0-9]*.*\)/\1/p' < $f`
 changequote([,])dnl
 		if test x$gcc_cv_gld_version != x; then
 			break
@@ -1731,8 +1878,11 @@ changequote(,)dnl
 	gcc_cv_gld_minor_version=`expr "$gcc_cv_gld_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
 changequote([,])dnl
 	rm -f collect-ld$host_exeext
-	$symbolic_link ../ld/ld-new$host_exeext collect-ld$host_exeext \
-		2>/dev/null
+	$LN_S ../ld/ld-new$host_exeext collect-ld$host_exeext 2>/dev/null
+elif test -x "$LD_FOR_TARGET"; then
+        gcc_cv_ld="$LD_FOR_TARGET"
+elif test -x "$LD" && test x$host = x$target; then
+	gcc_cv_ld="$LD"
 fi
 
 if test "x$gcc_cv_ld" = x; then
@@ -1766,12 +1916,16 @@ if test "x$gcc_cv_ld" = x; then
 		gcc_cv_ld=`echo ld | sed "${program_transform_name}"`$host_exeext
 	fi
 
-	test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
-		   $test_prefix/libexec/gcc/$target_noncanonical \
-		   /usr/lib/gcc/$target_noncanonical/$gcc_version \
-		   /usr/lib/gcc/$target_noncanonical \
-		   $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
-		   $test_prefix/$target_noncanonical/bin"
+	if test x$host = x$build; then
+	    test_dirs="$test_prefix/libexec/gcc/$target_noncanonical/$gcc_version \
+		       $test_prefix/libexec/gcc/$target_noncanonical \
+		       /usr/lib/gcc/$target_noncanonical/$gcc_version \
+		       /usr/lib/gcc/$target_noncanonical \
+		       $test_prefix/$target_noncanonical/bin/$target_noncanonical/$gcc_version \
+		       $test_prefix/$target_noncanonical/bin"
+	else
+	    test_dirs=
+	fi
 
 	if test x$host = x$target; then
 	    test_dirs="$test_dirs \
@@ -1815,7 +1969,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	in_tree_nm=yes
 	gcc_cv_nm=./nm$host_exeext
 	rm -f nm$host_exeext
-	$symbolic_link ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
+	$LN_S ../binutils/nm-new$host_exeext nm$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_nm=${program_prefix}nm$host_exeext
 else
@@ -1837,8 +1991,7 @@ elif test -f $gcc_cv_binutils_srcdir/configure.in \
 	in_tree_objdump=yes
 	gcc_cv_objdump=./objdump$host_exeext
 	rm -f objdump$host_exeext
-	$symbolic_link ../binutils/objdump$host_exeext \
-		objdump$host_exeext 2>/dev/null
+	$LN_S ../binutils/objdump$host_exeext objdump$host_exeext 2>/dev/null
 elif test "x$program_prefix" != xNONE; then
 	gcc_cv_objdump=${program_prefix}objdump$host_exeext
 else
@@ -2062,9 +2215,28 @@ fi
 gcc_GAS_CHECK_FEATURE(section merging support, gcc_cv_as_shf_merge,
  [elf,2,12,0], [--fatal-warnings],
  [.section .rodata.str, "aMS", @progbits, 1])
+if test $gcc_cv_as_shf_merge = no; then
+  gcc_GAS_CHECK_FEATURE(section merging support, gcc_cv_as_shf_merge,
+    [elf,2,12,0], [--fatal-warnings],
+    [.section .rodata.str, "aMS", %progbits, 1])
+fi
 AC_DEFINE_UNQUOTED(HAVE_GAS_SHF_MERGE,
   [`if test $gcc_cv_as_shf_merge = yes; then echo 1; else echo 0; fi`],
 [Define 0/1 if your assembler supports marking sections with SHF_MERGE flag.])
+
+gcc_GAS_CHECK_FEATURE(COMDAT group support, gcc_cv_as_comdat_group,
+ [elf,2,15,91], [--fatal-warnings],
+ [.section .text,"axG",@progbits,.foo,comdat])
+if test $gcc_cv_as_comdat_group = yes; then
+  gcc_cv_as_comdat_group_percent=no
+else
+ gcc_GAS_CHECK_FEATURE(COMDAT group support, gcc_cv_as_comdat_group_percent,
+   [elf,2,15,91], [--fatal-warnings],
+   [.section .text,"axG",%progbits,.foo,comdat])
+fi
+AC_DEFINE_UNQUOTED(HAVE_GAS_COMDAT_GROUP,
+  [`if test $gcc_cv_as_comdat_group = yes || test $gcc_cv_as_comdat_group_percent = yes; then echo 1; else echo 0; fi`],
+[Define 0/1 if your assembler supports COMDAT group.])
 
 # Thread-local storage - the check is heavily parametrized.
 conftest_s=
@@ -2335,6 +2507,26 @@ fi
 
 # Target-specific assembler checks.
 
+if test x"$demangler_in_ld" = xyes; then
+  AC_MSG_CHECKING(linker --demangle support)
+  gcc_cv_ld_demangle=no
+  if test $in_tree_ld = yes; then
+    if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 14 -o "$gcc_cv_gld_major_version" -gt 2; then \
+      gcc_cv_ld_demangle=yes
+    fi
+  elif test x$gcc_cv_ld != x -a x"$gnu_ld" = xyes; then
+    # Check if the GNU linker supports --demangle option
+    if $gcc_cv_ld --help 2>/dev/null | grep no-demangle > /dev/null; then
+      gcc_cv_ld_demangle=yes
+    fi
+  fi
+  if test x"$gcc_cv_ld_demangle" = xyes; then
+    AC_DEFINE(HAVE_LD_DEMANGLE, 1,
+[Define if your linker supports --demangle option.])
+  fi
+  AC_MSG_RESULT($gcc_cv_ld_demangle)
+fi
+
 case "$target" in
   # All TARGET_ABI_OSF targets.
   alpha*-*-osf* | alpha*-*-linux* | alpha*-*-*bsd*)
@@ -2429,7 +2621,7 @@ foo:
 	or %g1, %lo(ab) + 12, %g1
 	or %g1, %lo(ab + 12), %g1],
       [if test x$gcc_cv_objdump != x \
-       && %gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
+       && $gcc_cv_objdump -s -j .text conftest.o 2> /dev/null \
           | grep ' 82106000 82106000' > /dev/null 2>&1; then
 	 gcc_cv_as_offsetable_lo10=yes
        fi],
@@ -2440,6 +2632,26 @@ foo:
 changequote(,)dnl
   i[34567]86-*-* | x86_64-*-*)
 changequote([,])dnl
+    case $target_os in
+      cygwin* | pe | mingw32*)
+	# Used for DWARF 2 in PE
+	gcc_GAS_CHECK_FEATURE([.secrel32 relocs],
+	  gcc_cv_as_ix86_pe_secrel32,
+	  [2,15,91],,
+[.text
+foo:	nop
+.data
+	.secrel32 foo],
+	  [if test x$gcc_cv_ld != x \
+	   && $gcc_cv_ld -o conftest conftest.o > /dev/null 2>&1; then
+	     gcc_cv_as_ix86_pe_secrel32=yes
+	   fi
+	   rm -f conftest],
+	  [AC_DEFINE(HAVE_GAS_PE_SECREL32_RELOC, 1,
+	    [Define if your assembler and linker support 32-bit section relative relocs via '.secrel32 label'.])])
+	;;
+    esac
+
     gcc_GAS_CHECK_FEATURE([filds and fists mnemonics],
        gcc_cv_as_ix86_filds_fists,
       [2,9,0],, [filds mem; fists mem],,
@@ -2484,7 +2696,8 @@ changequote([,])dnl
 	mfcr 3,128';;
       *-*-darwin*) conftest_s='	.text
 	mfcr r3,128';;
-      *)       conftest_s='	.text
+      *) conftest_s='	.machine power4
+	.text
 	mfcr 3,128';;
     esac
 
@@ -2504,6 +2717,15 @@ changequote([,])dnl
        else target_cpu_default="($target_cpu_default)|MASK_EXPLICIT_RELOCS"
        fi])
 
+    if test x$gas_flag = xyes \
+       || test x"$host" != x"$build" \
+       || test ! -x "$gcc_cv_as" \
+       || "$gcc_cv_as" -v < /dev/null 2>&1 | grep GNU > /dev/null; then
+      :
+    else
+      echo "*** This configuration requires the GNU assembler" >&2
+      exit 1
+    fi
     ;;
 esac
 # ??? Not all targets support dwarf2 debug_line, even within a version
@@ -2655,135 +2877,71 @@ AC_MSG_RESULT($gcc_cv_ld_pie)
 # UNSORTED
 # --------
 
+AC_CACHE_CHECK(linker --as-needed support,
+gcc_cv_ld_as_needed,
+[gcc_cv_ld_as_needed=no
+if test $in_tree_ld = yes ; then
+  if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2 \
+     && test $in_tree_ld_is_elf = yes; then
+    gcc_cv_ld_as_needed=yes
+  fi
+elif test x$gcc_cv_ld != x; then
+	# Check if linker supports --as-needed and --no-as-needed options
+	if $gcc_cv_ld --help 2>/dev/null | grep as-needed > /dev/null; then
+		gcc_cv_ld_as_needed=yes
+	fi
+fi
+])
+if test x"$gcc_cv_ld_as_needed" = xyes; then
+	AC_DEFINE(HAVE_LD_AS_NEEDED, 1,
+[Define if your linker supports --as-needed and --no-as-needed options.])
+fi
+
+case "$target" in
+  powerpc64*-*-linux*)
+    AC_CACHE_CHECK(linker support for omitting dot symbols,
+    gcc_cv_ld_no_dot_syms,
+    [gcc_cv_ld_no_dot_syms=no
+    if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2; then
+        gcc_cv_ld_no_dot_syms=yes
+      fi
+    elif test x$gcc_cv_as != x -a x$gcc_cv_ld != x ; then
+      cat > conftest1.s <<EOF
+	.text
+	bl .foo
+EOF
+      cat > conftest2.s <<EOF
+	.section ".opd","aw"
+	.align 3
+	.globl foo
+	.type foo,@function
+foo:
+	.quad .LEfoo,.TOC.@tocbase,0
+	.text
+.LEfoo:
+	blr
+	.size foo,.-.LEfoo
+EOF
+      if $gcc_cv_as -a64 -o conftest1.o conftest1.s > /dev/null 2>&1 \
+         && $gcc_cv_as -a64 -o conftest2.o conftest2.s > /dev/null 2>&1 \
+         && $gcc_cv_ld -melf64ppc -o conftest conftest1.o conftest2.o > /dev/null 2>&1; then
+        gcc_cv_ld_no_dot_syms=yes
+      fi
+      rm -f conftest conftest1.o conftest2.o conftest1.s conftest2.s
+    fi
+    ])
+    if test x"$gcc_cv_ld_no_dot_syms" = xyes; then
+      AC_DEFINE(HAVE_LD_NO_DOT_SYMS, 1,
+    [Define if your PowerPC64 linker only needs function descriptor syms.])
+    fi
+    ;;
+esac
+
 if test x$with_sysroot = x && test x$host = x$target \
    && test "$prefix" != "/usr" && test "x$prefix" != "x$local_prefix" ; then
   AC_DEFINE_UNQUOTED(PREFIX_INCLUDE_DIR, "$prefix/include",
 [Define to PREFIX/include if cpp should also search that directory.])
-fi
-
-# Figure out what language subdirectories are present.
-# Look if the user specified --enable-languages="..."; if not, use
-# the environment variable $LANGUAGES if defined. $LANGUAGES might
-# go away some day.
-# NB:  embedded tabs in this IF block -- do not untabify
-if test x"${enable_languages+set}" != xset; then
-	if test x"${LANGUAGES+set}" = xset; then
-		enable_languages="${LANGUAGES}"
-		AC_MSG_WARN([setting LANGUAGES is deprecated, use --enable-languages instead])
-
-	else
-		enable_languages=all
-	fi
-else
-	if test x"${enable_languages}" = x \
-        || test x"${enable_languages}" = xyes;
-	then
-		AC_MSG_ERROR([--enable-languages needs at least one language argument])
-	fi
-fi
-enable_languages=`echo "${enable_languages}" | sed -e 's/[[ 	,]][[ 	,]]*/,/g' -e 's/,$//'`
-
-# First scan to see if an enabled language requires some other language.
-# We assume that a given config-lang.in will list all the language
-# front ends it requires, even if some are required indirectly.
-for lang in ${srcdir}/*/config-lang.in
-do
-   case $lang in
-    # The odd quoting in the next line works around
-    # an apparent bug in bash 1.12 on linux.
-changequote(,)dnl
-    ${srcdir}/[*]/config-lang.in)
-       ;;
-    *)
-       lang_alias=`sed -n -e 's,^language=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^language=\([^ 	]*\).*$,\1,p' $lang`
-       this_lang_requires=`sed -n -e 's,^lang_requires=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^lang_requires=\([^ 	]*\).*$,\1,p' $lang`
-       for other in $this_lang_requires
-       do
-	  case ,${enable_languages}, in
-	   *,$other,*)
-	      ;;
-	   *,all,*)
-	      ;;
-	   *,$lang_alias,*)
-	      enable_languages="$enable_languages,$other"
-	      ;;
-	  esac
-       done
-       ;;
-changequote([,])dnl
-   esac
-done
-
-expected_languages=`echo ,${enable_languages}, | sed -e 's:,: :g' -e 's:  *: :g' -e 's:  *: :g' -e 's:^ ::' -e 's: $::'`
-found_languages=
-subdirs=
-for lang in ${srcdir}/*/config-lang.in
-do
-	case $lang in
-	# The odd quoting in the next line works around
-	# an apparent bug in bash 1.12 on linux.
-changequote(,)dnl
-	${srcdir}/[*]/config-lang.in) ;;
-	*)
-	  lang_alias=`sed -n -e 's,^language=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^language=\([^ 	]*\).*$,\1,p' $lang`
-	  this_lang_libs=`sed -n -e 's,^target_libs=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^target_libs=\([^ 	]*\).*$,\1,p' $lang`
-	  build_by_default=`sed -n -e 's,^build_by_default=['"'"'"'"]\(.*\)["'"'"'"'].*$,\1,p' -e 's,^build_by_default=\([^ 	]*\).*$,\1,p' $lang`
-	  if test "x$lang_alias" = x
-	  then
-		echo "$lang doesn't set \$language." 1>&2
-		exit 1
-	  fi
-	  case ${build_by_default},${enable_languages}, in
-	  *,$lang_alias,*) add_this_lang=yes ;;
-	  no,*) add_this_lang=no ;;
-	  *,all,*) add_this_lang=yes ;;
-	  *) add_this_lang=no ;;
-	  esac
-          found_languages="${found_languages} ${lang_alias}"
-	  if test x"${add_this_lang}" = xyes; then
-		case $lang in
-		    ${srcdir}/ada/config-lang.in)
-			if test x$have_gnat = xyes ; then
-				subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
-			fi
-			;;
-		    *)
-			subdirs="$subdirs `echo $lang | sed -e 's,^.*/\([^/]*\)/config-lang.in$,\1,'`"
-			;;
-		esac
-	  fi
-	  ;;
-changequote([,])dnl
-	esac
-done
-
-missing_languages=
-for expected_language in ${expected_languages} ..
-do 
-    if test "${expected_language}" != ..; then
-        missing_language="${expected_language}"
-        if test "${expected_language}" = "c" \
-           || test "${expected_language}" = "all"; then
-                missing_language=
-        fi
-        for found_language in ${found_languages} ..
-        do 
-            if test "${found_language}" != ..; then
-                if test "${expected_language}" = "${found_language}"; then
-                    missing_language=
-                fi
-            fi
-        done
-        if test "x${missing_language}" != x; then
-           missing_languages="${missing_languages} ${missing_language}"
-        fi
-    fi
-done
-
-if test "x$missing_languages" != x; then
-  AC_MSG_ERROR([
-The following requested languages were not found:${missing_languages}
-The following languages were available: c${found_languages}])
 fi
 
 # Find out what GC implementation we want, or may, use.
@@ -2832,32 +2990,6 @@ else
   MAINT='#'
 fi
 AC_SUBST(MAINT)dnl
-AC_ARG_WITH(libbanshee,
-[  --with-libbanshee	  enable libbanshee],
-libbanshee="$with_libbanshee",
-libbanshee=no)
-
-if test x"$libbanshee" = xyes; then
-	BANSHEELIB="../libbanshee/points-to/libandersen.a ../libbanshee/engine/libbansheeengine.a ../libbanshee/libcompat/libbansheecompat.a "
-	BANSHEEINC="-I\$(srcdir)/../libbanshee/libcompat -I\$(srcdir)/../libbanshee -I\$(srcdir)/../libbanshee/points-to"
-	ANDER="tree-alias-ander.o"
-	if test x$rebuild_banshee = xyes; then
-		BANSHEEREBUILD="s=\${PWD}; export s && cd ../libbanshee && echo \${PWD} && \$(MAKE) clean && \$(MAKE) CC=\"\$(STAGE_CC_WRAPPER) \$\$s/stage1/xgcc\$(exeext) -B\$\$s/stage1/ -B\$(build_tooldir)/bin/\" \$(STAGE2_FLAGS_TO_PASS) && cd ../gcc"
-	else
-		BANSHEEREBUILD=""
-	fi
-	AC_DEFINE(HAVE_BANSHEE, 1, [Define if BANSHEE is available])
-else
-	BANSHEELIB=""
-	BANSHEEINC=""
-	BANSHEEREBUILD=""
-	ANDER=""
-fi
-
-AC_SUBST(ANDER)
-AC_SUBST(BANSHEEINC)
-AC_SUBST(BANSHEELIB)
-AC_SUBST(BANSHEEREBUILD)
 
 # --------------
 # Language hooks
@@ -2888,7 +3020,7 @@ all_languages=
 all_boot_languages=
 all_compilers=
 all_stagestuff=
-all_outputs='Makefile fixinc/Makefile gccbug mklibgcc mkheaders'
+all_outputs='Makefile gccbug mklibgcc libada-mk'
 # List of language makefile fragments.
 all_lang_makefrags=
 # List of language subdirectory makefiles.  Deprecated.
@@ -2898,7 +3030,6 @@ all_gtfiles="$target_gtfiles"
 # Files for gengtype with language
 all_gtfiles_files_langs=
 all_gtfiles_files_files=
-all_need_gmp="no"
 
 # Add the language fragments.
 # Languages are added via two mechanisms.  Some information must be
@@ -2917,7 +3048,6 @@ do
 		stagestuff=
 		outputs=
 		gtfiles=
-		need_gmp=
 		. ${srcdir}/$s/config-lang.in
 		if test "x$language" = x
 		then
@@ -2942,10 +3072,6 @@ do
                          all_gtfiles_files_langs="$all_gtfiles_files_langs ${s} "
                          all_gtfiles_files_files="$all_gtfiles_files_files ${f} "
                 done
-		if test "x$need_gmp" = xyes
-		then
-			all_need_gmp="yes"
-		fi
 done
 
 # Pick up gtfiles for c
@@ -3044,59 +3170,6 @@ fi
 AC_SUBST(gcc_tooldir)
 AC_SUBST(dollar)
 
-gmplibs=
-gmpinc=
-# Only check for GMP if one of the frontends needs it.
-if test "x$all_need_gmp" = xyes; then
-  # Specify a location for gmp
-  AC_ARG_WITH(gmp-dir, [  --with-gmp-dir=PATH     Specify source directory for GMP library])
-
-  if test "x$with_gmp_dir" != x && test -f "$with_gmp_dir/gmp.h"; then
-    gmpinc="-I$with_gmp_dir"
-    if test -f "$with_gmp_dir/.libs/libgmp.a"; then
-      gmplibs="$with_gmp_dir/.libs/libgmp.a"
-    elif test -f "$with_gmp_dir/_libs/libgmp.a"; then
-      gmplibs="$with_gmp_dir/_libs/libgmp.a"
-    fi
-    # One of the later tests will catch the error if neither library is present.
-  fi
-
-  AC_ARG_WITH(gmp, [  --with-gmp=PATH         Specify directory for installed GMP library])
-
-  if test "x$with_gmp" != x && test -d "$with_gmp"; then
-    gmplibs="-L$with_gmp/lib -lgmp"
-    gmpinc="-I$with_gmp/include"
-  fi
-
-  # Use system gmp if nothing else specified
-  if test "x$gmplibs" = x; then
-    gmplibs="-lgmp"
-  fi
-
-  save_CFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS $gmpinc"
-  # Check GMP actually works
-  AC_MSG_CHECKING([for correct version of gmp.h])
-  AC_TRY_COMPILE([#include "gmp.h"],[
-#if __GNU_MP_VERSION < 3
-  choke me
-#endif
-], [AC_MSG_RESULT([yes])],
-    [AC_MSG_ERROR([gmp version 3.0 or later is required])])
-
-  AC_MSG_CHECKING([for mpf_init in -lgmp])
-
-  saved_LIBS="$LIBS"
-  LIBS="$LIBS $gmplibs"
-  AC_TRY_LINK([#include <gmp.h>], [mpf_t n; mpf_init(n);],
-    [AC_MSG_RESULT([yes])],  [AC_MSG_ERROR([could not link with libgmp])])
-  LIBS="$saved_LIBS"
-  CFLAGS="$saved_CFLAGS"
-fi
-
-AC_SUBST(gmplibs)
-AC_SUBST(gmpinc)
-
 # Find a directory in which to install a shared libgcc.
 
 AC_ARG_ENABLE(version-specific-runtime-libs,
@@ -3171,7 +3244,6 @@ AC_SUBST(out_file)
 AC_SUBST(out_object_file)
 AC_SUBST(stage_prefix_set_by_configure)
 AC_SUBST(quoted_stage_prefix_set_by_configure)
-AC_SUBST(symbolic_link)
 AC_SUBST(thread_file)
 AC_SUBST(tm_file_list)
 AC_SUBST(tm_include_list)
@@ -3181,20 +3253,13 @@ AC_SUBST(tm_p_include_list)
 AC_SUBST(xm_file_list)
 AC_SUBST(xm_include_list)
 AC_SUBST(xm_defines)
-AC_SUBST(target_noncanonical)
 AC_SUBST(c_target_objs)
 AC_SUBST(cxx_target_objs)
 AC_SUBST(target_cpu_default)
 
 AC_SUBST_FILE(language_hooks)
 
-# If it doesn't already exist, create document directory
-echo "checking for the document directory." 1>&2
-if test -d doc ; then
-  true
-else
-  mkdir doc 
-fi
+TL_AC_GNU_MAKE_GCC_LIB_PATH
 
 # Echo link setup.
 if test x${build} = x${host} ; then
@@ -3214,6 +3279,9 @@ else
   fi
 fi
 
+AC_ARG_VAR(GMPLIBS,[How to link GMP])
+AC_ARG_VAR(GMPINC,[How to find GMP include files])
+
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)
 
@@ -3228,7 +3296,7 @@ case ${CONFIG_HEADERS} in
   echo > cstamp-h ;;
 esac
 # Make sure all the subdirs exist.
-for d in $subdirs
+for d in $subdirs doc build
 do
     test -d $d || mkdir $d
 done
@@ -3238,20 +3306,20 @@ done
 # FLAGS_TO_PASS has been modified to solve the problem there.
 # This is virtually a duplicate of what happens in configure.lang; we do
 # an extra check to make sure this only happens if ln -s can be used.
-if test "$symbolic_link" = "ln -s"; then
- for d in ${subdirs} fixinc ; do
+case "$LN_S" in
+  *-s*)
+    for d in ${subdirs} ; do
 	STARTDIR=`${PWDCMD-pwd}`
 	cd $d
 	for t in stage1 stage2 stage3 stage4 stageprofile stagefeedback include
 	do
 		rm -f $t
-		$symbolic_link ../$t $t 2>/dev/null
+		$LN_S ../$t $t 2>/dev/null
 	done
 	cd $STARTDIR
- done
-else true ; fi
+    done
+  ;;
+esac
 ], 
-[subdirs='$subdirs'
-symbolic_link='$symbolic_link'
-])
+[subdirs='$subdirs'])
 AC_OUTPUT

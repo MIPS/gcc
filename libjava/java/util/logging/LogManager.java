@@ -1,8 +1,6 @@
-/* LogManager.java
-   -- a class for maintaining Loggers and managing configuration
-      properties
-
-Copyright (C) 2002 Free Software Foundation, Inc.
+/* LogManager.java -- a class for maintaining Loggers and managing
+   configuration properties
+   Copyright (C) 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -36,9 +34,8 @@ module.  An independent module is a module which is not derived from
 or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
-exception statement from your version.
+exception statement from your version. */
 
-*/
 
 package java.util.logging;
 
@@ -46,14 +43,14 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.WeakReference;
 import java.net.URL;
 import java.util.Collections;
-import java.util.Properties;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Properties;
 import java.util.StringTokenizer;
-import java.lang.ref.WeakReference;
 
 /**
  * The <code>LogManager</code> maintains a hierarchical namespace
@@ -67,13 +64,12 @@ import java.lang.ref.WeakReference;
  * <code>java.util.logging.LogManager</code> is initialized.
  * The configuration process includes the subsequent steps:
  *
- * <ol>
+ * <ul>
  * <li>If the system property <code>java.util.logging.manager</code>
  *     is set to the name of a subclass of
  *     <code>java.util.logging.LogManager</code>, an instance of
  *     that subclass is created and becomes the global LogManager.
  *     Otherwise, a new instance of LogManager is created.</li>
- *     
  * <li>The <code>LogManager</code> constructor tries to create
  *     a new instance of the class specified by the system
  *     property <code>java.util.logging.config.class</code>.
@@ -91,14 +87,13 @@ import java.lang.ref.WeakReference;
  *     {@link #readConfiguration(java.io.InputStream)}.
  *     The name and location of this file are specified by the system
  *     property <code>java.util.logging.config.file</code>.</li>
- *
  * <li>If the system property <code>java.util.logging.config.file</code>
  *     is not set, however, the contents of the URL
  *     "{gnu.classpath.home.url}/logging.properties" are passed to
  *     {@link #readConfiguration(java.io.InputStream)}.
  *     Here, "{gnu.classpath.home.url}" stands for the value of
  *     the system property <code>gnu.classpath.home.url</code>.</li>
- * </ol>
+ * </ul>
  *
  * @author Sascha Brawer (brawer@acm.org)
  */
@@ -259,10 +254,10 @@ public class LogManager
    *
    * @param logger the logger to be added.
    *
-   * @return <code>true<code>if <code>logger</code> was added,
+   * @return <code>true</code>if <code>logger</code> was added,
    *         <code>false</code> otherwise.
    *
-   * @throws NullPointerException if <code>name<code> is
+   * @throws NullPointerException if <code>name</code> is
    *         <code>null</code>.
    */
   public synchronized boolean addLogger(Logger logger)
@@ -353,6 +348,7 @@ public class LogManager
   private synchronized Logger findAncestor(Logger child)
   {
     String childName = child.getName();
+    int    childNameLength = childName.length();
     Logger best = rootLogger;
     int    bestNameLength = 0;
 
@@ -368,9 +364,10 @@ public class LogManager
       candName = (String) iter.next();
       candNameLength = candName.length();
 
-      if ((candNameLength > bestNameLength)
+      if (candNameLength > bestNameLength
+	  && childNameLength > candNameLength
 	  && childName.startsWith(candName)
-	  && (childName.charAt(candNameLength) == '.'))
+	  && childName.charAt(candNameLength) == '.')
       {
         cand = (Logger) ((WeakReference) loggers.get(candName)).get();
 	if ((cand == null) || (cand == child))

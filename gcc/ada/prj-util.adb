@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---             Copyright (C) 2001-2003 Free Software Foundation, Inc.       --
+--             Copyright (C) 2001-2004 Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -74,7 +74,10 @@ package body Prj.Util is
    -------------------
 
    function Executable_Of
-     (Project : Project_Id; Main : Name_Id) return Name_Id
+     (Project  : Project_Id;
+      Main     : Name_Id;
+      Index    : Int;
+      Ada_Main : Boolean := True) return Name_Id
    is
       pragma Assert (Project /= No_Project);
 
@@ -89,12 +92,14 @@ package body Prj.Util is
       Executable : Variable_Value :=
                      Prj.Util.Value_Of
                        (Name                    => Main,
+                        Index                   => Index,
                         Attribute_Or_Array_Name => Name_Executable,
                         In_Package              => Builder_Package);
 
       Executable_Suffix : constant Variable_Value :=
                             Prj.Util.Value_Of
                               (Name                    => Main,
+                               Index                   => 0,
                                Attribute_Or_Array_Name =>
                                  Name_Executable_Suffix,
                                In_Package              => Builder_Package);
@@ -111,7 +116,7 @@ package body Prj.Util is
 
    begin
       if Builder_Package /= No_Package then
-         if Executable = Nil_Variable_Value then
+         if Executable = Nil_Variable_Value and Ada_Main then
             Get_Name_String (Main);
 
             --  Try as index the name minus the implementation suffix or minus
@@ -156,6 +161,7 @@ package body Prj.Util is
                   Executable :=
                     Prj.Util.Value_Of
                       (Name                    => Name_Find,
+                       Index                   => 0,
                        Attribute_Or_Array_Name => Name_Executable,
                        In_Package              => Builder_Package);
                end if;
@@ -212,7 +218,7 @@ package body Prj.Util is
       --  otherwise remove any suffix ('.' followed by other characters), if
       --  there is one.
 
-      if Name_Len > Body_Append'Length
+      if Ada_Main and then Name_Len > Body_Append'Length
          and then Name_Buffer (Name_Len - Body_Append'Length + 1 .. Name_Len) =
                     Body_Append
       then
@@ -220,7 +226,7 @@ package body Prj.Util is
 
          Name_Len := Name_Len - Body_Append'Length;
 
-      elsif Name_Len > Spec_Append'Length
+      elsif Ada_Main and then Name_Len > Spec_Append'Length
          and then Name_Buffer (Name_Len - Spec_Append'Length + 1 .. Name_Len) =
                     Spec_Append
       then
@@ -379,8 +385,7 @@ package body Prj.Util is
 
    function Value_Of
      (Variable : Variable_Value;
-      Default  : String)
-      return     String
+      Default  : String) return String
    is
    begin
       if Variable.Kind /= Single
@@ -394,9 +399,8 @@ package body Prj.Util is
    end Value_Of;
 
    function Value_Of
-     (Index    : Name_Id;
-      In_Array : Array_Element_Id)
-      return     Name_Id
+     (Index     : Name_Id;
+      In_Array  : Array_Element_Id) return Name_Id
    is
       Current    : Array_Element_Id := In_Array;
       Element    : Array_Element;
@@ -431,9 +435,9 @@ package body Prj.Util is
    end Value_Of;
 
    function Value_Of
-     (Index    : Name_Id;
-      In_Array : Array_Element_Id)
-      return     Variable_Value
+     (Index     : Name_Id;
+      Src_Index : Int := 0;
+      In_Array  : Array_Element_Id) return Variable_Value
    is
       Current : Array_Element_Id := In_Array;
       Element : Array_Element;
@@ -455,7 +459,9 @@ package body Prj.Util is
       while Current /= No_Array_Element loop
          Element := Array_Elements.Table (Current);
 
-         if Real_Index = Element.Index then
+         if Real_Index = Element.Index and then
+           Src_Index = Element.Src_Index
+         then
             return Element.Value;
          else
             Current := Element.Next;
@@ -467,9 +473,9 @@ package body Prj.Util is
 
    function Value_Of
      (Name                    : Name_Id;
+      Index                   : Int := 0;
       Attribute_Or_Array_Name : Name_Id;
-      In_Package              : Package_Id)
-      return                    Variable_Value
+      In_Package              : Package_Id) return Variable_Value
    is
       The_Array     : Array_Element_Id;
       The_Attribute : Variable_Value := Nil_Variable_Value;
@@ -485,8 +491,9 @@ package body Prj.Util is
               In_Arrays => Packages.Table (In_Package).Decl.Arrays);
          The_Attribute :=
            Value_Of
-             (Index    => Name,
-              In_Array => The_Array);
+             (Index     => Name,
+              Src_Index => Index,
+              In_Array  => The_Array);
 
          --  If there is no array element, look for a variable
 
@@ -504,8 +511,7 @@ package body Prj.Util is
    function Value_Of
      (Index     : Name_Id;
       In_Array  : Name_Id;
-      In_Arrays : Array_Id)
-      return      Name_Id
+      In_Arrays : Array_Id) return Name_Id
    is
       Current : Array_Id := In_Arrays;
       The_Array : Array_Data;
@@ -525,8 +531,7 @@ package body Prj.Util is
 
    function Value_Of
      (Name      : Name_Id;
-      In_Arrays : Array_Id)
-      return      Array_Element_Id
+      In_Arrays : Array_Id) return Array_Element_Id
    is
       Current    : Array_Id := In_Arrays;
       The_Array  : Array_Data;
@@ -547,8 +552,7 @@ package body Prj.Util is
 
    function Value_Of
      (Name        : Name_Id;
-      In_Packages : Package_Id)
-      return        Package_Id
+      In_Packages : Package_Id) return Package_Id
    is
       Current : Package_Id := In_Packages;
       The_Package : Package_Element;
@@ -566,8 +570,7 @@ package body Prj.Util is
 
    function Value_Of
      (Variable_Name : Name_Id;
-      In_Variables  : Variable_Id)
-      return          Variable_Value
+      In_Variables  : Variable_Id) return Variable_Value
    is
       Current      : Variable_Id := In_Variables;
       The_Variable : Variable;

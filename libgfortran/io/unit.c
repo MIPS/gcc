@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2003 Free Software Foundation, Inc.
+/* Copyright (C) 2002, 2003 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -29,7 +29,7 @@ Boston, MA 02111-1307, USA.  */
 
 
 #define CACHE_SIZE 3
-static unit_t internal_unit, *unit_cache[CACHE_SIZE];
+static gfc_unit internal_unit, *unit_cache[CACHE_SIZE];
 
 
 /* This implementation is based on Stefan Nilsson's article in the
@@ -51,10 +51,10 @@ pseudo_random (void)
 
 /* rotate_left()-- Rotate the treap left */
 
-static unit_t *
-rotate_left (unit_t * t)
+static gfc_unit *
+rotate_left (gfc_unit * t)
 {
-  unit_t *temp;
+  gfc_unit *temp;
 
   temp = t->right;
   t->right = t->right->left;
@@ -66,10 +66,10 @@ rotate_left (unit_t * t)
 
 /* rotate_right()-- Rotate the treap right */
 
-static unit_t *
-rotate_right (unit_t * t)
+static gfc_unit *
+rotate_right (gfc_unit * t)
 {
-  unit_t *temp;
+  gfc_unit *temp;
 
   temp = t->left;
   t->left = t->left->right;
@@ -83,7 +83,6 @@ rotate_right (unit_t * t)
 static int
 compare (int a, int b)
 {
-
   if (a < b)
     return -1;
   if (a > b)
@@ -95,8 +94,8 @@ compare (int a, int b)
 
 /* insert()-- Recursive insertion function.  Returns the updated treap. */
 
-static unit_t *
-insert (unit_t * new, unit_t * t)
+static gfc_unit *
+insert (gfc_unit * new, gfc_unit * t)
 {
   int c;
 
@@ -130,18 +129,17 @@ insert (unit_t * new, unit_t * t)
  * an error to insert a key that already exists. */
 
 void
-insert_unit (unit_t * new)
+insert_unit (gfc_unit * new)
 {
-
   new->priority = pseudo_random ();
   g.unit_root = insert (new, g.unit_root);
 }
 
 
-static unit_t *
-delete_root (unit_t * t)
+static gfc_unit *
+delete_root (gfc_unit * t)
 {
-  unit_t *temp;
+  gfc_unit *temp;
 
   if (t->left == NULL)
     return t->right;
@@ -168,8 +166,8 @@ delete_root (unit_t * t)
  * must just point to a treap structure with the key to be deleted.
  * Returns the new root node of the tree. */
 
-static unit_t *
-delete_treap (unit_t * old, unit_t * t)
+static gfc_unit *
+delete_treap (gfc_unit * old, gfc_unit * t)
 {
   int c;
 
@@ -192,9 +190,8 @@ delete_treap (unit_t * old, unit_t * t)
 /* delete_unit()-- Delete a unit from a tree */
 
 static void
-delete_unit (unit_t * old)
+delete_unit (gfc_unit * old)
 {
-
   g.unit_root = delete_treap (old, g.unit_root);
 }
 
@@ -202,10 +199,10 @@ delete_unit (unit_t * old)
 /* find_unit()-- Given an integer, return a pointer to the unit
  * structure.  Returns NULL if the unit does not exist. */
 
-unit_t *
+gfc_unit *
 find_unit (int n)
 {
-  unit_t *p;
+  gfc_unit *p;
   int c;
 
   for (c = 0; c < CACHE_SIZE; c++)
@@ -241,11 +238,9 @@ find_unit (int n)
 /* get_unit()-- Returns the unit structure associated with the integer
  * unit or the internal file. */
 
-unit_t *
+gfc_unit *
 get_unit (int read_flag)
 {
-  unit_t *u;
-
   if (ioparm.internal_unit != NULL)
     {
       internal_unit.s =
@@ -263,11 +258,7 @@ get_unit (int read_flag)
 
   /* Has to be an external unit */
 
-  u = find_unit (ioparm.unit);
-  if (u != NULL)
-    return u;
-
-  return NULL;
+  return find_unit (ioparm.unit);
 }
 
 
@@ -277,7 +268,6 @@ get_unit (int read_flag)
 int
 is_internal_unit ()
 {
-
   return current_unit == &internal_unit;
 }
 
@@ -289,12 +279,13 @@ is_internal_unit ()
 void
 init_units (void)
 {
-  offset_t m, n;
-  unit_t *u;
+  gfc_offset m, n;
+  gfc_unit *u;
+  int i;
 
   if (options.stdin_unit >= 0)
     {				/* STDIN */
-      u = get_mem (sizeof (unit_t));
+      u = get_mem (sizeof (gfc_unit));
 
       u->unit_number = options.stdin_unit;
       u->s = input_stream ();
@@ -315,7 +306,7 @@ init_units (void)
 
   if (options.stdout_unit >= 0)
     {				/* STDOUT */
-      u = get_mem (sizeof (unit_t));
+      u = get_mem (sizeof (gfc_unit));
 
       u->unit_number = options.stdout_unit;
       u->s = output_stream ();
@@ -334,20 +325,15 @@ init_units (void)
       insert_unit (u);
     }
 
-  /* Calculate the maximum file offset in a portable manner.  It is
-   * assumed to be a power of two minus 1. */
+  /* Calculate the maximum file offset in a portable manner.
+   * max will be the largest signed number for the type gfc_offset.
+   *
+   * set a 1 in the LSB and keep a running sum, stopping at MSB-1 bit. */
 
-  /* TODO: this looks really broken. glibc info pages say 2^31 or 2^63.  */
-  m = 1;
-  n = 3;
+  g.max_offset = 0;
+  for (i=0; i < sizeof(g.max_offset) * 8 - 1; i++)
+    g.max_offset = g.max_offset + ((gfc_offset) 1 << i);
 
-  while (n > m)
-    {
-      m = (m << 1) | 1;
-      n = (n << 1) | 1;
-    }
-
-  g.max_offset = (m - 1) + m;
 }
 
 
@@ -355,7 +341,7 @@ init_units (void)
  * associated with the stream is freed.  Returns nonzero on I/O error. */
 
 int
-close_unit (unit_t * u)
+close_unit (gfc_unit * u)
 {
   int i, rc;
 
@@ -378,7 +364,6 @@ close_unit (unit_t * u)
 void
 close_units (void)
 {
-
   while (g.unit_root != NULL)
     close_unit (g.unit_root);
 }

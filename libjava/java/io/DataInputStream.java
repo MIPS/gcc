@@ -277,16 +277,19 @@ public class DataInputStream extends FilterInputStream implements DataInput
    * buffer
    * @exception IOException If any other error occurs
    */
-  public final void readFully (byte[] b, int off, int len) throws IOException
+  public final void readFully (byte[] buf, int offset, int len) throws IOException
   {
+    if (len < 0)
+      throw new IndexOutOfBoundsException("Negative length: " + len);
+    
     while (len > 0)
       {
 	// in.read will block until some data is available.
-	int numread = in.read (b, off, len);
+	int numread = in.read (buf, offset, len);
 	if (numread < 0)
 	  throw new EOFException ();
 	len -= numread;
-	off += numread;
+	offset += numread;
       }
   }
 
@@ -648,7 +651,7 @@ public class DataInputStream extends FilterInputStream implements DataInput
    *
    * @see DataInput#readUTF
    */
-  public final static String readUTF (DataInput in) throws IOException
+  public static final String readUTF(DataInput in) throws IOException
   {
     final int UTFlen = in.readUnsignedShort ();
     byte[] buf = new byte [UTFlen];

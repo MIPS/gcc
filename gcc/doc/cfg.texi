@@ -47,7 +47,8 @@ underlying instruction stream.  The chain of basic blocks is updated
 transparently by the provided API for manipulating the CFG.  The macro
 @code{FOR_EACH_BB} can be used to visit all the basic blocks in
 lexicographical order.  Dominator traversals are also possible using
-@code{walk_dominator_tree}.
+@code{walk_dominator_tree}.  Given two basic blocks A and B, block A
+dominates block B if A is @emph{always} executed before B.
 
 @findex BASIC_BLOCK
 The @code{BASIC_BLOCK} array contains all basic blocks in an
@@ -119,7 +120,7 @@ in the various @file{tree-*} files.
 The following snippet will pretty-print all the statements of the
 program in the GIMPLE representation.
 
-@example
+@smallexample
 FOR_EACH_BB (bb)
   @{
      block_stmt_iterator si;
@@ -130,7 +131,7 @@ FOR_EACH_BB (bb)
           print_generic_stmt (stderr, stmt, 0);
        @}
   @}
-@end example
+@end smallexample
 
 
 @node Edges
@@ -145,8 +146,8 @@ in GCC with the @code{edge} data type.  Each @code{edge} acts as a
 link between two basic blocks: the @code{src} member of an edge
 points to the predecessor basic block of the @code{dest} basic block.
 The members @code{pred} and @code{succ} of the @code{basic_block} data
-type point to single linked lists of edges to the predecessors and
-successorts of the block.  The edges are linked via the
+type point to singly linked lists of edges to the predecessors and
+successors of the block.  The edges are linked via the
 @code{succ_next} and @code{pred_next} members of the @code{edge} data
 type.
 
@@ -230,7 +231,7 @@ stages of the compilation process, GCC tries to avoid such dense flow
 graphs by factoring computed jumps.  For example, given the following
 series of jumps, 
 
-@example
+@smallexample
   goto *x;
   [ ... ]
 
@@ -239,13 +240,13 @@ series of jumps,
 
   goto *x;
   [ ... ]
-@end example
+@end smallexample
 
 @noindent
 factoring the computed jumps results in the following code sequence
 which has a much simpler flow graph:
 
-@example
+@smallexample
   goto y;
   [ ... ]
 
@@ -257,7 +258,7 @@ which has a much simpler flow graph:
 
 y:
   goto *x;
-@end example
+@end smallexample
 
 However, the classic problem with this transformation is that it has a
 runtime cost in there resulting code: An extra jump.  Therefore, the
@@ -363,7 +364,7 @@ accumulate into quite large errors.
 Each edge also contains a branch probability field: an integer in the
 range from 0 to @code{REG_BR_PROB_BASE}.  It represents probability of
 passing control from the end of the @code{src} basic block to the
-@code{dest} basic block, i.e. the probability that control will flow
+@code{dest} basic block, i.e.@: the probability that control will flow
 along this edge.   The @code{EDGE_FREQUENCY} macro is available to
 compute how frequently a given edge is taken. There is a @code{count}
 field for each edge as well, representing same information as for a
@@ -532,7 +533,7 @@ the complete API required for manipulating and maintaining the CFG.
 It is also possible that a pass has to insert control flow instruction
 into the middle of a basic block, thus creating an entry point in the
 middle of the basic block, which is impossible by definition: The
-block must be split to make sure it only has one entry point, i.e. the
+block must be split to make sure it only has one entry point, i.e.@: the
 head of the basic block.  In the RTL representation, the
 @code{find_sub_basic_blocks} may be used to split existing basic block
 and add necessary edges.  The CFG hook @code{split_block} may be used
@@ -569,7 +570,7 @@ RTL representation along with the function @code{tree} itself.
 @section Liveness information
 @cindex Liveness representation
 Liveness information is useful to determine whether some register is
-``live'' at given point of program, i.e. that it contains a value that
+``live'' at given point of program, i.e.@: that it contains a value that
 may be used at a later point in the program.  This information is
 used, for instance, during register allocation, as the pseudo
 registers only need to be assigned to a unique hard register or to a

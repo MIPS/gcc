@@ -70,12 +70,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* Define our own finish symbol function, since xcoff stabs have their
    own different format.  */
 
-#define DBX_FINISH_SYMBOL(SYM)					\
+#define DBX_FINISH_SYMBOL(ASMFILE,SYM)				\
 {								\
   if (current_sym_addr && current_sym_code == N_FUN)		\
-    fprintf (asmfile, "\",.");					\
+    fprintf ((ASMFILE), "\",.");				\
   else								\
-    fprintf (asmfile, "\",");					\
+    fprintf ((ASMFILE), "\",");					\
   /* If we are writing a function name, we must ensure that	\
      there is no storage-class suffix on the name.  */		\
   if (current_sym_addr && current_sym_code == N_FUN		\
@@ -83,18 +83,18 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
     {								\
       const char *_p = XSTR (current_sym_addr, 0);		\
       if (*_p == '*')						\
-	fprintf (asmfile, "%s", _p+1);				\
+	fprintf ((ASMFILE), "%s", _p+1);			\
       else							\
 	for (; *_p != '[' && *_p; _p++)				\
-	  fprintf (asmfile, "%c", *_p);				\
+	  fprintf ((ASMFILE), "%c", *_p);			\
     }								\
   else if (current_sym_addr)					\
-    output_addr_const (asmfile, current_sym_addr);		\
+    output_addr_const ((ASMFILE), current_sym_addr);		\
   else if (current_sym_code == N_GSYM)				\
-    assemble_name (asmfile, XSTR (XEXP (DECL_RTL (sym), 0), 0)); \
+    assemble_name ((ASMFILE), XSTR (XEXP (DECL_RTL (SYM), 0), 0)); \
   else								\
-    fprintf (asmfile, "%d", current_sym_value);			\
-  fprintf (asmfile, ",%d,0\n", stab_to_sclass (current_sym_code)); \
+    fprintf ((ASMFILE), "%d", current_sym_value);		\
+  fprintf ((ASMFILE), ",%d,0\n", stab_to_sclass (current_sym_code)); \
 }
 
 /* These are IBM XCOFF extensions we need to reference in dbxout.c
@@ -153,7 +153,7 @@ extern const char *xcoff_lastfile;
 /* .stabx has the type in a different place.  */
 #if 0  /* Do not emit any marker for XCOFF until assembler allows XFT_CV.  */
 #define DBX_OUTPUT_GCC_MARKER(FILE) \
-  fprintf ((FILE), "%s\"%s\",0,%d,0\n", ASM_STABS_OP, STABS_GCC_MARKER, \
+  fprintf ((FILE), "%s\"gcc2_compiled.\",0,%d,0\n", ASM_STABS_OP, \
 	   stab_to_sclass (N_GSYM))
 #else
 #define DBX_OUTPUT_GCC_MARKER(FILE)

@@ -179,21 +179,27 @@ package body Exp_Ch3 is
    --  Check if E is defined in the RTL (in a child of Ada or System). Used
    --  to avoid to bring in the overhead of _Input, _Output for tagged types.
 
-   function Make_Eq_Case (Node : Node_Id; CL : Node_Id) return List_Id;
+   function Make_Eq_Case
+     (E     : Entity_Id;
+      CL    : Node_Id;
+      Discr : Entity_Id := Empty) return List_Id;
    --  Building block for variant record equality. Defined to share the
    --  code between the tagged and non-tagged case. Given a Component_List
    --  node CL, it generates an 'if' followed by a 'case' statement that
    --  compares all components of local temporaries named X and Y (that
-   --  are declared as formals at some upper level). Node provides the
-   --  Sloc to be used for the generated code.
+   --  are declared as formals at some upper level). E provides the Sloc to be
+   --  used for the generated code. Discr is used as the case statement switch
+   --  in the case of Unchecked_Union equality.
 
-   function Make_Eq_If (Node : Node_Id; L : List_Id) return Node_Id;
+   function Make_Eq_If
+     (E : Entity_Id;
+      L : List_Id) return Node_Id;
    --  Building block for variant record equality. Defined to share the
    --  code between the tagged and non-tagged case. Given the list of
    --  components (or discriminants) L, it generates a return statement
    --  that compares all components of local temporaries named X and Y
-   --  (that are declared as formals at some upper level). Node provides
-   --  the Sloc to be used for the generated code.
+   --  (that are declared as formals at some upper level). E provides the Sloc
+   --  to be used for the generated code.
 
    procedure Make_Predefined_Primitive_Specs
      (Tag_Typ     : Entity_Id;
@@ -1052,7 +1058,7 @@ package body Exp_Ch3 is
       Controller_Typ : Entity_Id;
 
    begin
-      --  Nothing to do if the Init_Proc is null, unless Initialize_Sclalars
+      --  Nothing to do if the Init_Proc is null, unless Initialize_Scalars
       --  is active (in which case we make the call anyway, since in the
       --  actual compiled client it may be non null).
 
@@ -1107,7 +1113,7 @@ package body Exp_Ch3 is
 
          Append_To (Args, Make_Identifier (Loc, Name_uChain));
 
-         --  Ada 0Y (AI-287): In case of default initialized components
+         --  Ada 2005 (AI-287): In case of default initialized components
          --  with tasks, we generate a null string actual parameter.
          --  This is just a workaround that must be improved later???
 
@@ -1215,8 +1221,8 @@ package body Exp_Ch3 is
                end if;
             end if;
 
-            --  Ada 0Y (AI-287) In case of default initialized components, we
-            --  need to generate the corresponding selected component node
+            --  Ada 2005 (AI-287) In case of default initialized components,
+            --  we need to generate the corresponding selected component node
             --  to access the discriminant value. In other cases this is not
             --  required because we are inside the init proc and we use the
             --  corresponding formal.
@@ -1394,17 +1400,10 @@ package body Exp_Ch3 is
         (T : Entity_Id) return Boolean;
       --  Determines if a component needs simple initialization, given its
       --  type T. This is the same as Needs_Simple_Initialization except
-      --  for the following differences. The types Tag and Vtable_Ptr,
-      --  which are access types which would normally require simple
-      --  initialization to null, do not require initialization as
-      --  components, since they are explicitly initialized by other
-      --  means. The other relaxation is for packed bit arrays that are
-      --  associated with a modular type, which in some cases require
-      --  zero initialization to properly support comparisons, except
-      --  that comparison of such components always involves an explicit
-      --  selection of only the component's specific bits (whether or not
-      --  there are adjacent components or gaps), so zero initialization
-      --  is never needed for components.
+      --  for the following difference: the types Tag and Vtable_Ptr, which
+      --  are access types which would normally require simple initialization
+      --  to null, do not require initialization as components, since they
+      --  are explicitly initialized by other means.
 
       procedure Constrain_Array
         (SI         : Node_Id;
@@ -1451,16 +1450,14 @@ package body Exp_Ch3 is
              Selector_Name => New_Occurrence_Of (Id, Loc));
          Set_Assignment_OK (Lhs);
 
-         --  Case of an access attribute applied to the current
-         --  instance. Replace the reference to the type by a
-         --  reference to the actual object. (Note that this
-         --  handles the case of the top level of the expression
-         --  being given by such an attribute, but doesn't cover
-         --  uses nested within an initial value expression.
-         --  Nested uses are unlikely to occur in practice,
-         --  but theoretically possible. It's not clear how
-         --  to handle them without fully traversing the
-         --  expression. ???)
+         --  Case of an access attribute applied to the current instance.
+         --  Replace the reference to the type by a reference to the actual
+         --  object. (Note that this handles the case of the top level of
+         --  the expression being given by such an attribute, but does not
+         --  cover uses nested within an initial value expression. Nested
+         --  uses are unlikely to occur in practice, but are theoretically
+         --  possible. It is not clear how to handle them without fully
+         --  traversing the expression. ???
 
          if Kind = N_Attribute_Reference
            and then (Attribute_Name (N) = Name_Unchecked_Access
@@ -1476,20 +1473,23 @@ package body Exp_Ch3 is
                 Attribute_Name => Name_Unrestricted_Access);
          end if;
 
-         --  For a derived type the default value is copied from the component
-         --  declaration of the parent. In the analysis of the init_proc for
-         --  the parent the default value may have been expanded into a local
-         --  variable, which is of course not usable here. We must copy the
-         --  original expression and reanalyze.
+         --  Ada 2005 (AI-231): Generate conversion to the null-excluding
+         --  type to force the corresponding run-time check.
 
-         if Nkind (Exp) = N_Identifier
-           and then not Comes_From_Source (Exp)
-           and then Analyzed (Exp)
-           and then not In_Open_Scopes (Scope (Entity (Exp)))
-           and then Nkind (Original_Node (Exp)) = N_Aggregate
+         if Ada_Version >= Ada_05
+           and then Can_Never_Be_Null (Etype (Id))  -- Lhs
+           and then Present (Etype (Exp))
+           and then not Can_Never_Be_Null (Etype (Exp))
          then
-            Exp := New_Copy_Tree (Original_Node (Exp));
+            Rewrite (Exp, Convert_To (Etype (Id), Relocate_Node (Exp)));
+            Analyze_And_Resolve (Exp, Etype (Id));
          end if;
+
+         --  Take a copy of Exp to ensure that later copies of this
+         --  component_declaration in derived types see the original tree,
+         --  not a node rewritten during expansion of the init_proc.
+
+         Exp := New_Copy_Tree (Exp);
 
          Res := New_List (
            Make_Assignment_Statement (Loc,
@@ -1908,6 +1908,39 @@ package body Exp_Ch3 is
          Id  : Entity_Id;
          Typ : Entity_Id;
 
+         function Has_Access_Constraint (E : Entity_Id) return Boolean;
+         --  Components with access discriminants that depend on the current
+         --  instance must be initialized after all other components.
+
+         ---------------------------
+         -- Has_Access_Constraint --
+         ---------------------------
+
+         function Has_Access_Constraint (E : Entity_Id) return Boolean is
+            Disc : Entity_Id;
+            T    : constant Entity_Id := Etype (E);
+
+         begin
+            if Has_Per_Object_Constraint (E)
+              and then Has_Discriminants (T)
+            then
+               Disc := First_Discriminant (T);
+               while Present (Disc) loop
+                  if Is_Access_Type (Etype (Disc)) then
+                     return True;
+                  end if;
+
+                  Next_Discriminant (Disc);
+               end loop;
+
+               return False;
+            else
+               return False;
+            end if;
+         end Has_Access_Constraint;
+
+      --  Start of processing for Build_Init_Statements
+
       begin
          if Null_Present (Comp_List) then
             return New_List (Make_Null_Statement (Loc));
@@ -1922,7 +1955,7 @@ package body Exp_Ch3 is
 
          Per_Object_Constraint_Components := False;
 
-         --  First step : regular components.
+         --  First step : regular components
 
          Decl := First_Non_Pragma (Component_Items (Comp_List));
          while Present (Decl) loop
@@ -1933,7 +1966,7 @@ package body Exp_Ch3 is
             Id := Defining_Identifier (Decl);
             Typ := Etype (Id);
 
-            if Has_Per_Object_Constraint (Id)
+            if Has_Access_Constraint (Id)
               and then No (Expression (Decl))
             then
                --  Skip processing for now and ask for a second pass
@@ -2013,7 +2046,7 @@ package body Exp_Ch3 is
                Id := Defining_Identifier (Decl);
                Typ := Etype (Id);
 
-               if Has_Per_Object_Constraint (Id)
+               if Has_Access_Constraint (Id)
                  and then No (Expression (Decl))
                then
                   if Has_Non_Null_Base_Init_Proc (Typ) then
@@ -2068,6 +2101,25 @@ package body Exp_Ch3 is
          --  to bind any interrupt (signal) entries.
 
          if Is_Task_Record_Type (Rec_Type) then
+
+            --  In the case of the restricted run time the ATCB has already
+            --  been preallocated.
+
+            if Restricted_Profile then
+               Append_To (Statement_List,
+                 Make_Assignment_Statement (Loc,
+                   Name => Make_Selected_Component (Loc,
+                     Prefix => Make_Identifier (Loc, Name_uInit),
+                     Selector_Name => Make_Identifier (Loc, Name_uTask_Id)),
+                   Expression => Make_Attribute_Reference (Loc,
+                     Prefix =>
+                       Make_Selected_Component (Loc,
+                         Prefix => Make_Identifier (Loc, Name_uInit),
+                         Selector_Name =>
+                           Make_Identifier (Loc, Name_uATCB)),
+                     Attribute_Name => Name_Unchecked_Access)));
+            end if;
+
             Append_To (Statement_List, Make_Task_Create_Call (Rec_Type));
 
             declare
@@ -2173,8 +2225,7 @@ package body Exp_Ch3 is
          return
            Needs_Simple_Initialization (T)
              and then not Is_RTE (T, RE_Tag)
-             and then not Is_RTE (T, RE_Vtable_Ptr)
-             and then not Is_Bit_Packed_Array (T);
+             and then not Is_RTE (T, RE_Vtable_Ptr);
       end Component_Needs_Simple_Initialization;
 
       ---------------------
@@ -2426,6 +2477,7 @@ package body Exp_Ch3 is
 
       if Is_Derived_Type (Rec_Type)
         and then not Is_Tagged_Type (Rec_Type)
+        and then not Is_Unchecked_Union (Rec_Type)
         and then not Has_New_Non_Standard_Rep (Rec_Type)
         and then not Parent_Subtype_Renaming_Discrims
         and then Has_Non_Null_Base_Init_Proc (Etype (Rec_Type))
@@ -2435,7 +2487,9 @@ package body Exp_Ch3 is
       --  Otherwise if we need an initialization procedure, then build one,
       --  mark it as public and inlinable and as having a completion.
 
-      elsif Requires_Init_Proc (Rec_Type) then
+      elsif Requires_Init_Proc (Rec_Type)
+        or else Is_Unchecked_Union (Rec_Type)
+      then
          Build_Init_Procedure;
          Set_Is_Public (Proc_Id, Is_Public (Pe));
 
@@ -2818,9 +2872,14 @@ package body Exp_Ch3 is
       Def   : constant Node_Id := Parent (Typ);
       Comps : constant Node_Id := Component_List (Type_Definition (Def));
       Stmts : constant List_Id := New_List;
+      Pspecs : constant List_Id := New_List;
 
    begin
+      --  Derived Unchecked_Union types no longer inherit the equality function
+      --  of their parent.
+
       if Is_Derived_Type (Typ)
+        and then not Is_Unchecked_Union (Typ)
         and then not Has_New_Non_Standard_Rep (Typ)
       then
          declare
@@ -2840,34 +2899,86 @@ package body Exp_Ch3 is
           Specification =>
             Make_Function_Specification (Loc,
               Defining_Unit_Name       => F,
-              Parameter_Specifications => New_List (
-                Make_Parameter_Specification (Loc,
-                  Defining_Identifier => X,
-                  Parameter_Type      => New_Reference_To (Typ, Loc)),
-
-                Make_Parameter_Specification (Loc,
-                  Defining_Identifier => Y,
-                  Parameter_Type      => New_Reference_To (Typ, Loc))),
-
+              Parameter_Specifications => Pspecs,
               Subtype_Mark => New_Reference_To (Standard_Boolean, Loc)),
-
           Declarations               => New_List,
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc,
               Statements => Stmts)));
 
-      --  For unchecked union case, raise program error. This will only
-      --  happen in the case of dynamic dispatching for a tagged type,
-      --  since in the static cases it is a compile time error.
+      Append_To (Pspecs,
+        Make_Parameter_Specification (Loc,
+          Defining_Identifier => X,
+          Parameter_Type      => New_Reference_To (Typ, Loc)));
 
-      if Has_Unchecked_Union (Typ) then
-         Append_To (Stmts,
-           Make_Raise_Program_Error (Loc,
-             Reason => PE_Unchecked_Union_Restriction));
+      Append_To (Pspecs,
+        Make_Parameter_Specification (Loc,
+          Defining_Identifier => Y,
+          Parameter_Type      => New_Reference_To (Typ, Loc)));
+
+      --  Unchecked_Unions require additional machinery to support equality.
+      --  Two extra parameters (A and B) are added to the equality function
+      --  parameter list in order to capture the inferred values of the
+      --  discriminants in later calls.
+
+      if Is_Unchecked_Union (Typ) then
+         declare
+            Discr_Type : constant Node_Id := Etype (First_Discriminant (Typ));
+
+            A : constant Node_Id :=
+                  Make_Defining_Identifier (Loc,
+                    Chars => Name_A);
+
+            B : constant Node_Id :=
+                  Make_Defining_Identifier (Loc,
+                    Chars => Name_B);
+
+         begin
+            --  Add A and B to the parameter list
+
+            Append_To (Pspecs,
+              Make_Parameter_Specification (Loc,
+                Defining_Identifier => A,
+                Parameter_Type => New_Reference_To (Discr_Type, Loc)));
+
+            Append_To (Pspecs,
+              Make_Parameter_Specification (Loc,
+                Defining_Identifier => B,
+                Parameter_Type => New_Reference_To (Discr_Type, Loc)));
+
+            --  Generate the following header code to compare the inferred
+            --  discriminants:
+
+            --  if a /= b then
+            --     return False;
+            --  end if;
+
+            Append_To (Stmts,
+              Make_If_Statement (Loc,
+                Condition =>
+                  Make_Op_Ne (Loc,
+                    Left_Opnd => New_Reference_To (A, Loc),
+                    Right_Opnd => New_Reference_To (B, Loc)),
+                Then_Statements => New_List (
+                  Make_Return_Statement (Loc,
+                    Expression => New_Occurrence_Of (Standard_False, Loc)))));
+
+            --  Generate component-by-component comparison. Note that we must
+            --  propagate one of the inferred discriminant formals to act as
+            --  the case statement switch.
+
+            Append_List_To (Stmts,
+              Make_Eq_Case (Typ, Comps, A));
+
+         end;
+
+      --  Normal case (not unchecked union)
+
       else
          Append_To (Stmts,
            Make_Eq_If (Typ,
              Discriminant_Specifications (Def)));
+
          Append_List_To (Stmts,
            Make_Eq_Case (Typ, Comps));
       end if;
@@ -2919,9 +3030,9 @@ package body Exp_Ch3 is
       end if;
    end Check_Stream_Attributes;
 
-   ---------------------------
-   -- Expand_Derived_Record --
-   ---------------------------
+   -----------------------------
+   -- Expand_Record_Extension --
+   -----------------------------
 
    --  Add a field _parent at the beginning of the record extension. This is
    --  used to implement inheritance. Here are some examples of expansion:
@@ -2945,7 +3056,7 @@ package body Exp_Ch3 is
    --       D : Int;
    --    end;
 
-   procedure Expand_Derived_Record (T : Entity_Id; Def : Node_Id) is
+   procedure Expand_Record_Extension (T : Entity_Id; Def : Node_Id) is
       Indic        : constant Node_Id    := Subtype_Indication (Def);
       Loc          : constant Source_Ptr := Sloc (Def);
       Rec_Ext_Part : Node_Id             := Record_Extension_Part (Def);
@@ -2957,7 +3068,7 @@ package body Exp_Ch3 is
       List_Constr  : constant List_Id    := New_List;
 
    begin
-      --  Expand_Tagged_Extension is called directly from the semantics, so
+      --  Expand_Record_Extension is called directly from the semantics, so
       --  we must check to see whether expansion is active before proceeding
 
       if not Expander_Active then
@@ -3040,7 +3151,7 @@ package body Exp_Ch3 is
       end if;
 
       Analyze (Comp_Decl);
-   end Expand_Derived_Record;
+   end Expand_Record_Extension;
 
    ------------------------------------
    -- Expand_N_Full_Type_Declaration --
@@ -3421,17 +3532,31 @@ package body Exp_Ch3 is
             then
                Set_Is_Known_Valid (Def_Id);
 
-            --  For access types set the Is_Known_Non_Null flag if the
-            --  initializing value is known to be non-null. We can also
-            --  set Can_Never_Be_Null if this is a constant.
+            elsif Is_Access_Type (Typ) then
 
-            elsif Is_Access_Type (Typ)
-              and then Known_Non_Null (Expr)
-            then
-               Set_Is_Known_Non_Null (Def_Id);
+               --  Ada 2005 (AI-231): Generate conversion to the null-excluding
+               --  type to force the corresponding run-time check
 
-               if Constant_Present (N) then
-                  Set_Can_Never_Be_Null (Def_Id);
+               if Ada_Version >= Ada_05
+                 and then (Can_Never_Be_Null (Def_Id)
+                             or else Can_Never_Be_Null (Typ))
+               then
+                  Rewrite
+                    (Expr_Q,
+                     Convert_To (Etype (Def_Id), Relocate_Node (Expr_Q)));
+                  Analyze_And_Resolve (Expr_Q, Etype (Def_Id));
+               end if;
+
+               --  For access types set the Is_Known_Non_Null flag if the
+               --  initializing value is known to be non-null. We can also
+               --  set Can_Never_Be_Null if this is a constant.
+
+               if Known_Non_Null (Expr) then
+                  Set_Is_Known_Non_Null (Def_Id);
+
+                  if Constant_Present (N) then
+                     Set_Can_Never_Be_Null (Def_Id);
+                  end if;
                end if;
             end if;
 
@@ -4115,6 +4240,12 @@ package body Exp_Ch3 is
 
       elsif Is_Derived_Type (Def_Id)
         and then not Is_Tagged_Type (Def_Id)
+
+         --  If we have a derived Unchecked_Union, we do not inherit the
+         --  discriminant checking functions from the parent type since the
+         --  discriminants are non existent.
+
+        and then not Is_Unchecked_Union (Def_Id)
         and then Has_Discriminants (Def_Id)
       then
          declare
@@ -4184,23 +4315,35 @@ package body Exp_Ch3 is
             --  (usually the inherited primitive address is inserted in the
             --  DT by Inherit_DT)
 
-            if Is_CPP_Class (Etype (Def_Id)) then
-               declare
-                  Elmt : Elmt_Id := First_Elmt (Primitive_Operations (Def_Id));
-                  Subp : Entity_Id;
+            --  Similarly, if this is an inherited operation whose parent
+            --  is not frozen yet, it is not in the DT of the parent, and
+            --  we generate an explicit freeze node for the inherited
+            --  operation, so that it is properly inserted in the DT of the
+            --  current type.
 
-               begin
-                  while Present (Elmt) loop
-                     Subp := Node (Elmt);
+            declare
+               Elmt : Elmt_Id := First_Elmt (Primitive_Operations (Def_Id));
+               Subp : Entity_Id;
 
-                     if Present (Alias (Subp)) then
+            begin
+               while Present (Elmt) loop
+                  Subp := Node (Elmt);
+
+                  if Present (Alias (Subp)) then
+                     if Is_CPP_Class (Etype (Def_Id)) then
+                        Set_Has_Delayed_Freeze (Subp);
+
+                     elsif Has_Delayed_Freeze (Alias (Subp))
+                       and then not Is_Frozen (Alias (Subp))
+                     then
+                        Set_Is_Frozen (Subp, False);
                         Set_Has_Delayed_Freeze (Subp);
                      end if;
+                  end if;
 
-                     Next_Elmt (Elmt);
-                  end loop;
-               end;
-            end if;
+                  Next_Elmt (Elmt);
+               end loop;
+            end;
 
             if Underlying_Type (Etype (Def_Id)) = Def_Id then
                Expand_Tagged_Root (Def_Id);
@@ -4272,7 +4415,6 @@ package body Exp_Ch3 is
          begin
             if Present (Comps)
               and then Present (Variant_Part (Comps))
-              and then not Is_Unchecked_Union (Def_Id)
             then
                Build_Variant_Record_Equality (Def_Id);
             end if;
@@ -4904,29 +5046,6 @@ package body Exp_Ch3 is
          return
            Make_Null (Loc);
 
-      --  We initialize modular packed bit arrays to zero, to make sure that
-      --  unused bits are zero, as required (see spec of Exp_Pakd). Also note
-      --  that this improves gigi code, since the value tracing knows that
-      --  all bits of the variable start out at zero. The value of zero has
-      --  to be unchecked converted to the proper array type.
-
-      elsif Is_Bit_Packed_Array (T) then
-         declare
-            PAT : constant Entity_Id := Packed_Array_Type (T);
-            Nod : Node_Id;
-
-         begin
-            pragma Assert (Is_Modular_Integer_Type (PAT));
-
-            Nod :=
-              Make_Unchecked_Type_Conversion (Loc,
-                Subtype_Mark => New_Occurrence_Of (T, Loc),
-                Expression   => Make_Integer_Literal (Loc, 0));
-
-            Set_Etype (Expression (Nod), PAT);
-            return Nod;
-         end;
-
       --  No other possibilities should arise, since we should only be
       --  calling Get_Simple_Init_Val if Needs_Simple_Initialization
       --  returned True, indicating one of the above cases held.
@@ -5051,14 +5170,18 @@ package body Exp_Ch3 is
    --     when Vn => <Make_Eq_Case> on subcomponents
    --  end case;
 
-   function Make_Eq_Case (Node : Node_Id; CL : Node_Id) return List_Id is
-      Loc      : constant Source_Ptr := Sloc (Node);
+   function Make_Eq_Case
+     (E     : Entity_Id;
+      CL    : Node_Id;
+      Discr : Entity_Id := Empty) return List_Id
+   is
+      Loc      : constant Source_Ptr := Sloc (E);
       Result   : constant List_Id    := New_List;
       Variant  : Node_Id;
       Alt_List : List_Id;
 
    begin
-      Append_To (Result, Make_Eq_If (Node, Component_Items (CL)));
+      Append_To (Result, Make_Eq_If (E, Component_Items (CL)));
 
       if No (Variant_Part (CL)) then
          return Result;
@@ -5076,18 +5199,29 @@ package body Exp_Ch3 is
          Append_To (Alt_List,
            Make_Case_Statement_Alternative (Loc,
              Discrete_Choices => New_Copy_List (Discrete_Choices (Variant)),
-             Statements => Make_Eq_Case (Node, Component_List (Variant))));
+             Statements => Make_Eq_Case (E, Component_List (Variant))));
 
          Next_Non_Pragma (Variant);
       end loop;
 
-      Append_To (Result,
-        Make_Case_Statement (Loc,
-          Expression =>
-            Make_Selected_Component (Loc,
-              Prefix => Make_Identifier (Loc, Name_X),
-              Selector_Name => New_Copy (Name (Variant_Part (CL)))),
-          Alternatives => Alt_List));
+      --  If we have an Unchecked_Union, use one of the parameters that
+      --  captures the discriminants.
+
+      if Is_Unchecked_Union (E) then
+         Append_To (Result,
+           Make_Case_Statement (Loc,
+             Expression => New_Reference_To (Discr, Loc),
+             Alternatives => Alt_List));
+
+      else
+         Append_To (Result,
+           Make_Case_Statement (Loc,
+             Expression =>
+               Make_Selected_Component (Loc,
+                 Prefix => Make_Identifier (Loc, Name_X),
+                 Selector_Name => New_Copy (Name (Variant_Part (CL)))),
+             Alternatives => Alt_List));
+      end if;
 
       return Result;
    end Make_Eq_Case;
@@ -5109,8 +5243,11 @@ package body Exp_Ch3 is
 
    --  or a null statement if the list L is empty
 
-   function Make_Eq_If (Node : Node_Id; L : List_Id) return Node_Id is
-      Loc        : constant Source_Ptr := Sloc (Node);
+   function Make_Eq_If
+     (E : Entity_Id;
+      L : List_Id) return Node_Id
+   is
+      Loc        : constant Source_Ptr := Sloc (E);
       C          : Node_Id;
       Field_Name : Name_Id;
       Cond       : Node_Id;
@@ -5156,7 +5293,7 @@ package body Exp_Ch3 is
 
          else
             return
-              Make_Implicit_If_Statement (Node,
+              Make_Implicit_If_Statement (E,
                 Condition => Cond,
                 Then_Statements => New_List (
                   Make_Return_Statement (Loc,
@@ -5275,6 +5412,7 @@ package body Exp_Ch3 is
                                             N_Subprogram_Renaming_Declaration)
               and then Etype (First_Formal (Node (Prim))) =
                          Etype (Next_Formal (First_Formal (Node (Prim))))
+              and then Base_Type (Etype (Node (Prim))) = Standard_Boolean
 
             then
                Eq_Needed := False;
@@ -5425,9 +5563,6 @@ package body Exp_Ch3 is
 
       elsif Is_Access_Type (T)
         or else (Init_Or_Norm_Scalars and then (Is_Scalar_Type (T)))
-
-        or else (Is_Bit_Packed_Array (T)
-                   and then Is_Modular_Integer_Type (Packed_Array_Type (T)))
       then
          return True;
 

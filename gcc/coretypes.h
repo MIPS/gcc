@@ -1,5 +1,5 @@
 /* GCC core type declarations.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -49,6 +49,18 @@ typedef union tree_node *tree;
    Note that the cpp_reader typedef remains part of cpplib.h.  */
 
 struct cpp_reader;
+/* APPLE LOCAL AltiVec */
+struct cpp_token;
+
+/* The thread-local storage model associated with a given VAR_DECL
+   or SYMBOL_REF.  This isn't used much, but both trees and RTL refer
+   to it, so it's here.  */
+enum tls_model {
+  TLS_MODEL_GLOBAL_DYNAMIC = 1,
+  TLS_MODEL_LOCAL_DYNAMIC,
+  TLS_MODEL_INITIAL_EXEC,
+  TLS_MODEL_LOCAL_EXEC
+};
 
 #else
 

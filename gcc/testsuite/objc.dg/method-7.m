@@ -25,3 +25,6 @@ id foo(void) {
 
   return obj;
 }
+
+/* APPLE LOCAL Objective-C */
+/* { dg-options "-Wstrict-selector-match" } */

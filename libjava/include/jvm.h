@@ -79,12 +79,6 @@ struct _Jv_VTable
 // to keep this up to date by hand.
 #define NUM_OBJECT_METHODS 5
 
-// This structure is the type of an array's vtable.
-struct _Jv_ArrayVTable : public _Jv_VTable
-{
-  vtable_elt extra_method[NUM_OBJECT_METHODS - 1];
-};
-
 union _Jv_word
 {
   jobject o;
@@ -113,6 +107,18 @@ union _Jv_word2
   jlong l;
   jdouble d;
 };                              
+
+union _Jv_value
+{
+  jbyte byte_value;
+  jshort short_value;
+  jchar char_value;
+  jint int_value;
+  jlong long_value;
+  jfloat float_value;
+  jdouble double_value;
+  jobject object_value;
+};
 
 // An instance of this type is used to represent a single frame in a
 // backtrace.  If the interpreter has been built, we also include
@@ -238,6 +244,9 @@ namespace gcj
   
   /* Set to true by _Jv_CreateJavaVM. */
   extern bool runtimeInitialized;
+
+  /* Print out class names as they are initialized. */
+  extern bool verbose_class_flag;
 }
 
 /* Type of pointer used as finalizer.  */
@@ -343,7 +352,7 @@ static inline jboolean _Jv_isVirtualMethod (_Jv_Method *meth)
 {
   using namespace java::lang::reflect;
   return (((meth->accflags & (Modifier::STATIC | Modifier::PRIVATE)) == 0)
-          && meth->name->data[0] != '<');
+          && meth->name->first() != '<');
 }
 
 // This function is used to determine the hash code of an object.
@@ -402,7 +411,9 @@ extern "C" void *_Jv_LookupInterfaceMethodIdx (jclass klass, jclass iface,
                                                int meth_idx);
 extern "C" void _Jv_CheckArrayStore (jobject array, jobject obj);
 extern "C" void _Jv_RegisterClass (jclass klass);
-extern "C" void _Jv_RegisterClasses (jclass *classes);
+extern "C" void _Jv_RegisterClasses (const jclass *classes);
+extern "C" void _Jv_RegisterClasses_Counted (const jclass *classes,
+					     size_t count);
 extern "C" void _Jv_RegisterResource (void *vptr);
 extern void _Jv_UnregisterClass (_Jv_Utf8Const*, java::lang::ClassLoader*);
 extern void _Jv_ResolveField (_Jv_Field *, java::lang::ClassLoader*);
@@ -422,7 +433,8 @@ extern jboolean _Jv_CheckAccess (jclass self_klass, jclass other_klass,
 extern jobject _Jv_CallAnyMethodA (jobject obj, jclass return_type,
 				   jmethodID meth, jboolean is_constructor,
 				   JArray<jclass> *parameter_types,
-				   jobjectArray args);
+				   jobjectArray args,
+				   jclass iface = NULL);
 
 union jvalue;
 extern void _Jv_CallAnyMethodA (jobject obj,
@@ -433,7 +445,8 @@ extern void _Jv_CallAnyMethodA (jobject obj,
 				JArray<jclass> *parameter_types,
 				jvalue *args,
 				jvalue *result,
-				jboolean is_jni_call = true);
+				jboolean is_jni_call = true,
+				jclass iface = NULL);
 
 extern jobject _Jv_NewMultiArray (jclass, jint ndims, jint* dims)
   __attribute__((__malloc__));

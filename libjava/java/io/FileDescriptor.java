@@ -39,9 +39,10 @@ exception statement from your version. */
 
 package java.io;
 
+import gnu.java.nio.channels.FileChannelImpl;
+
 import java.nio.channels.ByteChannel;
 import java.nio.channels.FileChannel;
-import gnu.java.nio.channels.FileChannelImpl;
 
 /**
  * This class represents an opaque file handle as a Java class.  It should
@@ -82,6 +83,14 @@ public final class FileDescriptor
 
   /**
    * This method is used to initialize an invalid FileDescriptor object.
+   */
+  public FileDescriptor()
+  {
+    channel = null;
+  }
+
+  /**
+   * This method is used to initialize a FileDescriptor object.
    */
   FileDescriptor(ByteChannel channel)
   {
@@ -125,6 +134,6 @@ public final class FileDescriptor
    */
   public boolean valid ()
   {
-    return channel.isOpen();
+    return channel != null && channel.isOpen();
   }
 }

@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 2003 Free Software Foundation, Inc.
+/* Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -28,6 +28,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_GTHR_GNAT_H
 #define GCC_GTHR_GNAT_H
 
+#pragma GCC visibility push(default)
+
 /* Just provide compatibility for mutex handling.  */
 
 typedef int __gthread_mutex_t;
@@ -38,6 +40,8 @@ extern void __gnat_install_locks (void (*lock) (void), void (*unlock) (void));
 extern int __gthread_active_p (void);
 extern int __gthread_mutex_lock (__gthread_mutex_t *);
 extern int __gthread_mutex_unlock (__gthread_mutex_t *);
+
+#pragma GCC visibility pop
 
 #endif /* ! GCC_GTHR_GNAT_H */
 

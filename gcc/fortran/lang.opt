@@ -1,5 +1,5 @@
 ; Options for the Fortran 95 front end.
-; Copyright (C) 2003 Free Software Foundation, Inc.
+; Copyright (C) 2003, 2004 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -57,6 +57,10 @@ Wsurprising
 F95
 Warn about \"suspicious\" constructs
 
+Wunderflow
+F95
+Warn about underflow of numerical constant expressions
+
 Wunused-labels
 F95
 Warn when a label is unused
@@ -81,10 +85,6 @@ ffree-form
 F95
 Assume that the source file is free form
 
-fg77-calls
-F95
-Generate g77-compatible calls
-
 funderscoring
 F95
 Append underscores to externally visible names
@@ -97,13 +97,13 @@ fimplicit-none
 F95
 Specify that no implicit typing is allowed, unless overridden by explicit IMPLICIT statements
 
-ffixed-line-length-80
+ffixed-line-length-none
 F95 RejectNegative
-Use 80 character line width in fixed mode
+Allow arbitrary character line width in fixed mode
 
-ffixed-line-length-132
-F95 RejectNegative
-Use 132 character line width in fixed mode
+ffixed-line-length-
+F95 RejectNegative Joined UInteger
+-ffixed-line-length-<n>		Use n as character line width in fixed mode
 
 fmax-identifier-length=
 F95 RejectNegative Joined UInteger

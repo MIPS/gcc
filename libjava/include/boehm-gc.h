@@ -26,12 +26,16 @@ extern "C"
 #include <java/lang/Class.h>
 #include <string.h>
 
+#include <gc_config.h>
+
 extern "C" void * GC_gcj_malloc(size_t, void *);
 extern "C" void * GC_malloc_atomic(size_t);
 #ifdef THREAD_LOCAL_ALLOC
 extern "C" void * GC_local_gcj_malloc(size_t, void *);
 extern "C" void * GC_local_malloc_atomic(size_t);
 #endif
+
+#ifndef LIBGCJ_GC_DEBUG
 
 inline void *
 _Jv_AllocObj (jsize size, jclass klass)
@@ -64,6 +68,16 @@ _Jv_AllocPtrFreeObj (jsize size, jclass klass)
 #endif
   return obj;
 }
+
+#else /* LIBGCJ_GC_DEBUG */
+
+void *
+_Jv_AllocObj (jsize size, jclass klass);
+
+void *
+_Jv_AllocPtrFreeObj (jsize size, jclass klass);
+
+#endif /* LIBGCJ_GC_DEBUG */
 
 // _Jv_AllocBytes (jsize size) should go here, too.  But clients don't
 // usually include this header.

@@ -4,7 +4,7 @@
    PR:		PR13221.
    Originator:	<hos@tamanegi.org> 20031129  */
 
-/* { dg-do run { xfail mips*-*-* arm*-*-* strongarm*-*-* xscale*-*-* } } */
+/* { dg-do run { xfail mips64*-*-* arm*-*-* strongarm*-*-* xscale*-*-* } } */
 #include "ffitest.h"
 
 signed char test_func_fn(signed char a1, signed char a2)
@@ -55,7 +55,7 @@ int main (void)
 
   args_dbl[0] = &a;
   args_dbl[1] = &b;
-  args_dbl[3] = NULL;
+  args_dbl[2] = NULL;
 
   cl_arg_types[0] = &ffi_type_schar;
   cl_arg_types[1] = &ffi_type_schar;

@@ -39,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 
    Right now we only bother forward propagating into COND_EXPRs since those
    are relatively common cases where forward propagation creates valid
-   gimple code without the expression needing to fold.  ie
+   gimple code without the expression needing to fold.  i.e.
 
      bb0:
        x = a COND b;
@@ -65,9 +65,47 @@ Boston, MA 02111-1307, USA.  */
 
    Similarly for x = a - c1.
     
+   Or
+
+     bb0:
+       x = !a
+       if (x) goto ... else goto ...
+
+   Will be transformed into:
+
+     bb0:
+        if (a == 0) goto ... else goto ...
+
+   Similarly for the tests (x == 0), (x != 0), (x == 1) and (x != 1).
+   For these cases, we propagate A into all, possibly more than one,
+   COND_EXPRs that use X.
+
+   Or
+
+     bb0:
+       x = (typecast) a
+       if (x) goto ... else goto ...
+
+   Will be transformed into:
+
+     bb0:
+        if (a != 0) goto ... else goto ...
+
+   (Assuming a is an integral type and x is a boolean or x is an
+    integral and a is a boolean.)
+
+   Similarly for the tests (x == 0), (x != 0), (x == 1) and (x != 1).
+   For these cases, we propagate A into all, possibly more than one,
+   COND_EXPRs that use X.
+
    In addition to eliminating the variable and the statement which assigns
    a value to the variable, we may be able to later thread the jump without
    adding insane complexity in the dominator optimizer. 
+
+   Also note these transformations can cascade.  We handle this by having
+   a worklist of COND_EXPR statements to examine.  As we make a change to
+   a statement, we put it back on the worklist to examine on the next
+   iteration of the main loop.
 
    This will (of course) be extended as other needs arise.  */
 
@@ -77,8 +115,10 @@ static bitmap vars;
 
 static bool need_imm_uses_for (tree);
 static void tree_ssa_forward_propagate_single_use_vars (void);
-static varray_type record_single_argument_cond_exprs (void);
-static void substitute_single_use_vars (varray_type);
+static void record_single_argument_cond_exprs (varray_type,
+					       varray_type *,
+					       bitmap);
+static void substitute_single_use_vars (varray_type *, varray_type);
 
 /* Function indicating whether we ought to include information for 'var'
    when calculating immediate uses.  */
@@ -100,24 +140,22 @@ need_imm_uses_for (tree var)
    filter out here, the faster this pass will run since its runtime is
    dominated by the time to build immediate uses.  */
 
-static varray_type
-record_single_argument_cond_exprs (void)
+static void
+record_single_argument_cond_exprs (varray_type cond_worklist,
+				   varray_type *vars_worklist,
+				   bitmap vars)
+
 {
-  basic_block bb;
-  varray_type retval;
-
-  vars = BITMAP_XMALLOC ();
-
-  VARRAY_TREE_INIT (retval, 10, "forward propagation vars");
-
   /* The first pass over the blocks gathers the set of variables we need
      immediate uses for as well as the set of interesting COND_EXPRs.
 
      A simpler implementation may be appropriate if/when we have a lower
      overhead means of getting immediate use information.  */
-  FOR_EACH_BB (bb)
+  while (VARRAY_ACTIVE_SIZE (cond_worklist) > 0)
     {
-      tree last = last_stmt (bb);
+      tree last = VARRAY_TOP_TREE (cond_worklist);
+
+      VARRAY_POP (cond_worklist);
 
       /* See if this block ends in a COND_EXPR.  */
       if (last && TREE_CODE (last) == COND_EXPR)
@@ -134,7 +172,7 @@ record_single_argument_cond_exprs (void)
 	  if (cond_code == SSA_NAME
 	      || ((cond_code == EQ_EXPR || cond_code == NE_EXPR)
 		  && TREE_CODE (TREE_OPERAND (cond, 0)) == SSA_NAME
-		  && TREE_CODE_CLASS (TREE_CODE (TREE_OPERAND (cond, 1))) == 'c'
+		  && CONSTANT_CLASS_P (TREE_OPERAND (cond, 1))
 		  && INTEGRAL_TYPE_P (TREE_TYPE (TREE_OPERAND (cond, 1)))))
 	    {
 	      tree def;
@@ -171,9 +209,14 @@ record_single_argument_cond_exprs (void)
 		      /* The first operand must be an SSA_NAME and the second
 			 operand must be a constant.  */
 		      if (TREE_CODE (op0) != SSA_NAME
-			  || TREE_CODE_CLASS (TREE_CODE (op1)) != 'c'
+			  || !CONSTANT_CLASS_P (op1)
 			  || !INTEGRAL_TYPE_P (TREE_TYPE (op1)))
 			continue;
+		      
+		      /* Don't propagate if the first operand occurs in
+		         an abnormal PHI.  */
+		      if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op0))
+		        continue;
 		    }
 
 		  /* These cases require comparisons of a naked SSA_NAME or
@@ -185,7 +228,7 @@ record_single_argument_cond_exprs (void)
 		      /* If TEST_VAR is set from a relational operation
 			 between two SSA_NAMEs or a combination of an SSA_NAME
 			 and a constant, then it is interesting.  */
-		      if (TREE_CODE_CLASS (TREE_CODE (def_rhs)) == '<')
+		      if (COMPARISON_CLASS_P (def_rhs))
 			{
 			  tree op0 = TREE_OPERAND (def_rhs, 0);
 			  tree op1 = TREE_OPERAND (def_rhs, 1);
@@ -196,6 +239,18 @@ record_single_argument_cond_exprs (void)
 			       && !is_gimple_min_invariant (op0))
 			      || (TREE_CODE (op1) != SSA_NAME
 				  && !is_gimple_min_invariant (op1)))
+			    continue;
+		      
+			  /* Don't propagate if the first operand occurs in
+			     an abnormal PHI.  */
+			  if (TREE_CODE (op0) == SSA_NAME
+			      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op0))
+			    continue;
+		      
+			  /* Don't propagate if the second operand occurs in
+			     an abnormal PHI.  */
+			  if (TREE_CODE (op1) == SSA_NAME
+			      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (op1))
 			    continue;
 		        }
 
@@ -209,6 +264,40 @@ record_single_argument_cond_exprs (void)
 			  if (TREE_CODE (def_rhs) != SSA_NAME
 			      && !is_gimple_min_invariant (def_rhs))
 			    continue;
+		      
+			  /* Don't propagate if the operand occurs in
+			     an abnormal PHI.  */
+			  if (TREE_CODE (def_rhs) == SSA_NAME
+			      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def_rhs))
+			    continue;
+			}
+
+		      /* If TEST_VAR was set from a cast of an integer type
+			 to a boolean type or a cast of a boolean to an
+			 integral, then it is interesting.  */
+		      else if (TREE_CODE (def_rhs) == NOP_EXPR
+			       || TREE_CODE (def_rhs) == CONVERT_EXPR)
+			{
+			  tree outer_type;
+			  tree inner_type;
+
+			  outer_type = TREE_TYPE (def_rhs);
+			  inner_type = TREE_TYPE (TREE_OPERAND (def_rhs, 0));
+
+			  if ((TREE_CODE (outer_type) == BOOLEAN_TYPE
+			       && INTEGRAL_TYPE_P (inner_type))
+			      || (TREE_CODE (inner_type) == BOOLEAN_TYPE
+				  && INTEGRAL_TYPE_P (outer_type)))
+			    ;
+			  else
+			    continue;
+		      
+			  /* Don't propagate if the operand occurs in
+			     an abnormal PHI.  */
+			  if (TREE_CODE (TREE_OPERAND (def_rhs, 0)) == SSA_NAME
+			      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (TREE_OPERAND
+					                          (def_rhs, 0)))
+			    continue;
 			}
 		      else
 			continue;
@@ -217,13 +306,12 @@ record_single_argument_cond_exprs (void)
 		    continue;
 
 		  /* All the tests passed, record TEST_VAR as interesting.  */
-		  VARRAY_PUSH_TREE (retval, test_var);
+		  VARRAY_PUSH_TREE (*vars_worklist, test_var);
 		  bitmap_set_bit (vars, SSA_NAME_VERSION (test_var));
 		}
 	    }
 	}
     }
-  return retval;
 }
 
 /* Given FORWPROP_DATA containing SSA_NAMEs which are used in COND_EXPRs
@@ -232,17 +320,18 @@ record_single_argument_cond_exprs (void)
    SSA_NAME used in the COND_EXPR.  */
   
 static void
-substitute_single_use_vars (varray_type forwprop_data)
+substitute_single_use_vars (varray_type *cond_worklist,
+			    varray_type vars_worklist)
 {
-  unsigned int i;
-
-  for (i = 0; i < VARRAY_ACTIVE_SIZE (forwprop_data); i++)
+  while (VARRAY_ACTIVE_SIZE (vars_worklist) > 0)
     {
-      tree test_var = VARRAY_TREE (forwprop_data, i);
+      tree test_var = VARRAY_TOP_TREE (vars_worklist);
       tree def = SSA_NAME_DEF_STMT (test_var);
       dataflow_t df;
       int j, num_uses, propagated_uses;
       block_stmt_iterator bsi;
+
+      VARRAY_POP (vars_worklist);
 
       /* Now compute the immediate uses of TEST_VAR.  */
       df = get_immediate_uses (def);
@@ -305,7 +394,7 @@ substitute_single_use_vars (varray_type forwprop_data)
 	      new_cond = build (cond_code, boolean_type_node, op0, t);
 	    }
 	  /* If the variable is defined by a conditional expression... */
-	  else if (TREE_CODE_CLASS (def_rhs_code) == '<')
+	  else if (TREE_CODE_CLASS (def_rhs_code) == tcc_comparison)
 	    {
 	      /* TEST_VAR was set from a relational operator.  */
 	      tree op0 = TREE_OPERAND (def_rhs, 0);
@@ -323,28 +412,37 @@ substitute_single_use_vars (varray_type forwprop_data)
 
 		  /* If we did not get a simple relational expression or
 		     bare SSA_NAME, then we can not optimize this case.  */
-		  if (TREE_CODE_CLASS (TREE_CODE (new_cond)) != '<'
+		  if (!COMPARISON_CLASS_P (new_cond)
 		      && TREE_CODE (new_cond) != SSA_NAME)
 		    continue;
 		}
 	    }
 	  else
 	    {
-	      /* TEST_VAR was set from a TRUTH_NOT_EXPR.  */
+	      bool invert = false;
+	      enum tree_code new_code;
+	      tree new_arg;
+
+	      /* TEST_VAR was set from a TRUTH_NOT_EXPR or a NOP_EXPR.  */
+	      if (def_rhs_code == TRUTH_NOT_EXPR)
+		invert = true;
+		
 	      if (cond_code == SSA_NAME
 		  || (cond_code == NE_EXPR
 		      && integer_zerop (TREE_OPERAND (cond, 1)))
 		  || (cond_code == EQ_EXPR
 		      && integer_onep (TREE_OPERAND (cond, 1))))
-		new_cond = build (EQ_EXPR, boolean_type_node,
-				  TREE_OPERAND (def_rhs, 0),
-				  convert (TREE_TYPE (def_rhs),
-					   integer_zero_node));
+		new_code = NE_EXPR;
 	      else
-		new_cond = build (NE_EXPR, boolean_type_node,
-				  TREE_OPERAND (def_rhs, 0),
-				  convert (TREE_TYPE (def_rhs),
-					   integer_zero_node));
+		new_code = EQ_EXPR;
+
+	      if (invert)
+		new_code = (new_code == EQ_EXPR ? NE_EXPR  : EQ_EXPR);
+
+	      new_arg = TREE_OPERAND (def_rhs, 0);
+	      new_cond = build2 (new_code, boolean_type_node, new_arg,
+				 fold_convert (TREE_TYPE (new_arg),
+					       integer_zero_node));
 	    }
 
 	  /* Dump details.  */
@@ -361,6 +459,7 @@ substitute_single_use_vars (varray_type forwprop_data)
 	  COND_EXPR_COND (cond_stmt) = new_cond;
 	  modify_stmt (cond_stmt);
 	  propagated_uses++;
+	  VARRAY_PUSH_TREE (*cond_worklist, cond_stmt);
 	}
 
       /* If we propagated into all the uses, then we can delete DEF.
@@ -380,30 +479,287 @@ substitute_single_use_vars (varray_type forwprop_data)
     }
 }
 
+/* APPLE LOCAL begin  cast removal.  */
+
+/* Return TRUE iff STMT is a MODIFY_EXPR of the form
+   x = (cast) y;
+*/
+static bool cast_conversion_assignment_p (tree stmt)
+{
+  tree lhs, rhs;
+
+  gcc_assert (stmt);
+
+  if (TREE_CODE (stmt) != MODIFY_EXPR)
+    return false;
+  
+  lhs = TREE_OPERAND (stmt, 0);
+  rhs = TREE_OPERAND (stmt, 1);
+  if ((TREE_CODE (rhs) == NOP_EXPR 
+       || TREE_CODE (rhs) == CONVERT_EXPR)
+      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME
+      && TREE_CODE (lhs) == SSA_NAME)
+    return true;
+
+  return false;
+}
+
+/* STMT is a comparision and it uses DEF_STMT.
+   DEF_STMT is a modify expression that applys cast.  
+   Return TRUE iff, it is OK to replace use of DEF_STMT by LHS's
+   inner type.  If NEW_STMT is not NULL then */
+static bool
+replacable_use_in_cond_expr (tree stmt, tree def_stmt, tree *new_stmt)
+{
+  tree op0, op1, candidate_op, other_op, temp, def_rhs, def_rhs_inner_type;
+
+  gcc_assert (stmt);
+  gcc_assert (def_stmt);
+  gcc_assert (COMPARISON_CLASS_P (stmt));
+  gcc_assert (TREE_CODE (def_stmt) == MODIFY_EXPR);
+
+  candidate_op = NULL_TREE;
+  other_op = NULL_TREE;
+    
+  op0 = TREE_OPERAND (stmt, 0);
+  op1 = TREE_OPERAND (stmt, 1);
+
+  if (TREE_CODE (op0) == SSA_NAME
+      && SSA_NAME_DEF_STMT (op0) == def_stmt
+      && is_gimple_min_invariant (op1))
+    {
+      candidate_op = op0;
+      other_op = op1;
+    }
+  else if (TREE_CODE (op1) == SSA_NAME
+	   && SSA_NAME_DEF_STMT (op1) == def_stmt
+	   && is_gimple_min_invariant (op0))
+    {
+      candidate_op = op1;
+      other_op = op0;
+    }
+  else 
+    return false;
+
+  if (!cast_conversion_assignment_p (def_stmt))
+    return false;
+
+  /* What we want to prove is that if we convert CANDIDATE_OP to
+     the type of the object inside the NOP_EXPR that the
+     result is still equivalent to SRC.  */
+  def_rhs = TREE_OPERAND (def_stmt, 1);
+  def_rhs_inner_type = TREE_TYPE (TREE_OPERAND (def_rhs, 0));
+  temp = build1 (TREE_CODE (def_rhs), def_rhs_inner_type, other_op);
+  temp = fold (temp);
+  if (is_gimple_val (temp) && tree_int_cst_equal (temp, other_op))
+    {
+      if (new_stmt)
+	*new_stmt = build (TREE_CODE (stmt), TREE_TYPE (stmt),
+			   TREE_OPERAND (def_rhs, 0), temp);
+
+      return true;
+    }
+  return false;
+}
+
+/* Return TRUE iff all uses of STMT are candidate for replacement.  */
+static bool
+all_uses_are_replacable (tree stmt, bool replace)
+{
+  dataflow_t df;
+  int j, num_uses;
+  bool replacable = true;
+
+  /* Now compute the immediate uses of TEST_VAR.  */
+  df = get_immediate_uses (stmt);
+  num_uses = num_immediate_uses (df);
+  
+  for (j = 0; j < num_uses && replacable; j++)
+    {
+      tree use = immediate_use (df, j);
+
+      if (replace && dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "  Removing casts");
+	  print_generic_expr (dump_file, use, dump_flags);
+	  fprintf (dump_file, "\n");
+	}
+      
+      if (TREE_CODE (use) == MODIFY_EXPR)
+	{
+	  replacable = cast_conversion_assignment_p (use);
+	  if (replace)
+	    {
+	      /* Before
+
+		 STMT: a = (cast) b;
+		 USE: c = (undo_cast) a;
+
+		 After
+
+		 USE: c = b;
+	      */
+	      tree def_rhs = TREE_OPERAND (stmt, 1);
+	      tree def_rhs_inner = TREE_OPERAND (def_rhs, 0);
+	      tree use_lhs = TREE_OPERAND (use, 0);
+
+	      tree def_rhs_inner_type = TREE_TYPE (def_rhs_inner);
+	      tree use_lhs_type = TREE_TYPE (use_lhs);
+
+	      if ((TYPE_PRECISION (def_rhs_inner_type) 
+		   == TYPE_PRECISION (use_lhs_type))
+		   && (TYPE_MAIN_VARIANT (def_rhs_inner_type)
+		       == TYPE_MAIN_VARIANT (use_lhs_type)))
+	      {
+		TREE_OPERAND (use, 1) = TREE_OPERAND (def_rhs, 0);
+		modify_stmt (use);
+	      }
+	    }
+	}
+      else if (TREE_CODE (use) == COND_EXPR
+	       && COMPARISON_CLASS_P (COND_EXPR_COND (use)))
+	{
+	  if (replace)
+	    {
+	      tree new_cond = NULL_TREE;
+	      replacable = replacable_use_in_cond_expr (COND_EXPR_COND (use), 
+							stmt, &new_cond);
+	      if (new_cond)
+		{
+		  COND_EXPR_COND (use) = new_cond;
+		  modify_stmt (use);
+		}
+	      else
+		abort ();
+	    }
+	  else
+	    replacable = replacable_use_in_cond_expr (COND_EXPR_COND (use), 
+						      stmt, NULL);
+	}
+      else
+	replacable = false;
+    }
+
+  return  replacable;
+}
+
+static void
+eliminate_unnecessary_casts (void)
+{
+  basic_block bb;
+  block_stmt_iterator bsi;
+  varray_type worklist;
+
+  /* Memory allocation.  */
+  vars = BITMAP_XMALLOC ();
+  VARRAY_TREE_INIT (worklist, 10, "worklist");
+  FOR_EACH_BB (bb)
+    {
+      for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+	{
+	  tree stmt = bsi_stmt (bsi);
+
+	  /* If stmt is of the form
+	       x = (cast) y; 
+	     then make x candidate.  */
+
+	  if (cast_conversion_assignment_p (stmt))
+	    {
+	      tree lhs = TREE_OPERAND (stmt, 0);
+	      tree rhs = TREE_OPERAND (stmt, 1);
+	      tree rhs_inner = TREE_OPERAND (rhs, 0);
+	      tree rhs_type = TREE_TYPE (rhs);
+	      tree rhs_inner_type = TREE_TYPE (rhs_inner);
+
+	      if ((TYPE_PRECISION (rhs_inner_type) <= TYPE_PRECISION (rhs_type))
+		  && (TYPE_UNSIGNED (rhs_inner_type) == TYPE_UNSIGNED (rhs_type)))
+		{
+		  bitmap_set_bit (vars, SSA_NAME_VERSION (lhs));
+		  VARRAY_PUSH_TREE (worklist, stmt);
+		}
+	    }
+	}
+    }
+
+  /* Now compute immidiate uses for candidates.  */
+  compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
+  while (VARRAY_ACTIVE_SIZE (worklist) > 0)
+    {
+      tree stmt = VARRAY_TOP_TREE (worklist);
+      VARRAY_POP (worklist);
+
+      if (all_uses_are_replacable (stmt, false /* Do not replace */))
+        {
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+            {
+	    fprintf (dump_file,"File name = %s\n", __FILE__);
+	    fprintf (dump_file,"Input name = %s\n", main_input_filename);
+            }
+	  all_uses_are_replacable (stmt, true /* Replace */);
+        }
+
+    }
+  /* Cleanup */
+  free_df ();
+  BITMAP_XFREE (vars);
+}
+
+/* APPLE LOCAL end cast removal.  */
+
 /* Main entry point for the forward propagation optimizer.  */
 
 static void
 tree_ssa_forward_propagate_single_use_vars (void)
 {
-  varray_type forwprop_data;
+  basic_block bb;
+  varray_type vars_worklist, cond_worklist;
 
-  /* First get a list of all the interesting COND_EXPRs and potential single
-     use variables which feed those COND_EXPRs.  */
-  forwprop_data = record_single_argument_cond_exprs ();
+  /* APPLE LOCAL cast removal.  */
+  eliminate_unnecessary_casts ();
 
-  /* Now compute immediate uses for all the variables we care about.  */
-  compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
+  vars = BITMAP_XMALLOC ();
+  VARRAY_TREE_INIT (vars_worklist, 10, "VARS worklist");
+  VARRAY_TREE_INIT (cond_worklist, 10, "COND worklist");
 
-  /* We are done with the VARS bitmap and other dataflow information.  */
-  BITMAP_XFREE (vars);
-  vars = NULL;
+  /* Prime the COND_EXPR worklist by placing all the COND_EXPRs on the
+     worklist.  */
+  FOR_EACH_BB (bb)
+    {
+      tree last = last_stmt (bb);
+      if (last && TREE_CODE (last) == COND_EXPR)
+	VARRAY_PUSH_TREE (cond_worklist, last);
+    }
 
-  /* And optimize.  */
-  substitute_single_use_vars (forwprop_data);
+  while (VARRAY_ACTIVE_SIZE (cond_worklist) > 0)
+    {
+      /* First get a list of all the interesting COND_EXPRs and potential
+	 single use variables which feed those COND_EXPRs.  This will drain
+	 COND_WORKLIST and initialize VARS_WORKLIST.  */
+      record_single_argument_cond_exprs (cond_worklist, &vars_worklist, vars);
+
+      if (VARRAY_ACTIVE_SIZE (vars_worklist) > 0)
+	{
+	  /* Now compute immediate uses for all the variables we care about.  */
+	  compute_immediate_uses (TDFA_USE_OPS, need_imm_uses_for);
+
+	  /* We've computed immediate uses, so we can/must clear the VARS
+	     bitmap for the next iteration.  */
+	  bitmap_clear (vars);
+
+	  /* And optimize.  This will drain VARS_WORKLIST and initialize
+	     COND_WORKLIST for the next iteration.  */
+	  substitute_single_use_vars (&cond_worklist, vars_worklist);
+
+	  /* We do not incrementally update the dataflow information
+	     so we must free it here and recompute the necessary bits
+	     on the next iteration.  If this turns out to be expensive,
+	     methods for incrementally updating the dataflow are known.  */
+	  free_df ();
+	}
+    }
 
   /* All done.  Clean up.  */
-  free_df ();
-  VARRAY_CLEAR (forwprop_data);
+  BITMAP_XFREE (vars);
 }
 
 
@@ -421,10 +777,12 @@ struct tree_opt_pass pass_forwprop = {
   NULL,				/* next */
   0,				/* static_pass_number */
   TV_TREE_FORWPROP,		/* tv_id */
-  PROP_cfg | PROP_ssa,		/* properties_required */
+  PROP_cfg | PROP_ssa
+    | PROP_alias,		/* properties_required */
   0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
   TODO_dump_func | TODO_ggc_collect	/* todo_flags_finish */
-  | TODO_verify_ssa
+  | TODO_verify_ssa,
+  0					/* letter */
 };

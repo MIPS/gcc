@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 2000, 2001, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,8 +32,8 @@ Boston, MA 02111-1307, USA.  */
 
 #if __SHMEDIA__
 #if ! __SH4_NO_FPU
-typedef float __GCC_FV __attribute__ ((mode (V4SF)));
-typedef float __GCC_MTRX __attribute__ ((mode (V16SF)));
+typedef float __GCC_FV __attribute__ ((vector_size (4 * sizeof (float))));
+typedef float __GCC_MTRX __attribute__ ((vector_size (16 * sizeof (float))));
 #endif
 
 __inline__ static

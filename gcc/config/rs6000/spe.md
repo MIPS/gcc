@@ -21,7 +21,15 @@
 
 (define_constants
   [(SPE_ACC_REGNO	111)
-   (SPEFSCR_REGNO	112)])
+   (SPEFSCR_REGNO	112)
+
+   (CMPDFEQ_GPR		1006)
+   (TSTDFEQ_GPR		1007)
+   (CMPDFGT_GPR		1008)
+   (TSTDFGT_GPR		1009)
+   (CMPDFLT_GPR		1010)
+   (TSTDFLT_GPR		1011)
+   ])
 
 (define_insn "*negsf2_gpr"
   [(set (match_operand:SF 0 "gpc_reg_operand" "=r")
@@ -76,6 +84,23 @@
   "efsdiv %0,%1,%2"
   [(set_attr "type" "vecfdiv")])
 
+;; Floating point conversion instructions.
+
+(define_insn "fixuns_truncdfsi2"
+  [(set (match_operand:SI 0 "gpc_reg_operand" "=r")
+	(unsigned_fix:SI (match_operand:DF 1 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdctuiz %0,%1"
+  [(set_attr "type" "fp")])
+
+;; FIXME: fix expander.
+(define_insn "spe_extendsfdf2"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+	(float_extend:DF (match_operand:SF 1 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdcfs %0,%1"
+  [(set_attr "type" "fp")])
+
 (define_insn "spe_fixuns_truncsfsi2"
   [(set (match_operand:SI 0 "gpc_reg_operand" "=r")
 	(unsigned_fix:SI (match_operand:SF 1 "gpc_reg_operand" "r")))]
@@ -90,11 +115,27 @@
   "efsctsiz %0,%1"
   [(set_attr "type" "fp")])
 
+;; FIXME: fix expander.
+(define_insn "spe_fix_truncdfsi2"
+  [(set (match_operand:SI 0 "gpc_reg_operand" "=r")
+	(fix:SI (match_operand:DF 1 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdctsiz %0,%1"
+  [(set_attr "type" "fp")])
+
 (define_insn "spe_floatunssisf2"
   [(set (match_operand:SF 0 "gpc_reg_operand" "=r")
         (unsigned_float:SF (match_operand:SI 1 "gpc_reg_operand" "r")))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS"
   "efscfui %0,%1"
+  [(set_attr "type" "fp")])
+
+;; FIXME: fix expander.
+(define_insn "spe_floatunssidf2"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+        (unsigned_float:DF (match_operand:SI 1 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdcfui %0,%1"
   [(set_attr "type" "fp")])
 
 (define_insn "spe_floatsisf2"
@@ -104,6 +145,13 @@
   "efscfsi %0,%1"
   [(set_attr "type" "fp")])
 
+;; FIXME: fix expander.
+(define_insn "spe_floatsidf2"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+	(float:DF (match_operand:SI 1 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdcfsi %0,%1"
+  [(set_attr "type" "fp")])
 
 ;; SPE SIMD instructions
 
@@ -443,7 +491,7 @@
   [(set_attr "type" "vecsimple")
    (set_attr  "length" "4")])
 
-(define_insn "spe_evneg"
+(define_insn "negv2si2"
   [(set (match_operand:V2SI 0 "gpc_reg_operand" "=r")
         (neg:V2SI (match_operand:V2SI 1 "gpc_reg_operand" "r")))]
   "TARGET_SPE"
@@ -2147,6 +2195,82 @@
   [(set_attr "type" "vecstore")
    (set_attr  "length" "4")])
 
+;; Double-precision floating point instructions.
+(define_insn "*movdf_e500_double"
+  [(set (match_operand:DF 0 "nonimmediate_operand" "=r,r,m")
+	(match_operand:DF 1 "input_operand" "r,m,r"))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE
+    && (gpc_reg_operand (operands[0], DFmode)
+        || gpc_reg_operand (operands[1], DFmode))"
+  "*
+ {
+   switch (which_alternative)
+     {
+     case 0:
+       return \"evor %0,%1,%1\";
+     case 1:
+       return \"evldd%X1 %0,%y1\";
+     case 2:
+       return \"evstdd%X0 %1,%y0\";
+     default:
+       abort ();
+     }
+ }"
+  [(set_attr "type" "*,vecload,vecstore")
+   (set_attr "length" "*,*,*")])
+
+(define_insn "spe_truncdfsf2"
+  [(set (match_operand:SF 0 "gpc_reg_operand" "=r")
+	(float_truncate:SF (match_operand:DF 1 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efscfd %0,%1")
+
+(define_insn "spe_absdf2"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+	(abs:DF (match_operand:DF 1 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdabs %0,%1")
+
+(define_insn "spe_nabsdf2"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+	(neg:DF (abs:DF (match_operand:DF 1 "gpc_reg_operand" "r"))))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdnabs %0,%1")
+
+(define_insn "spe_negdf2"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+	(neg:DF (match_operand:DF 1 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdneg %0,%1")
+
+(define_insn "spe_adddf3"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+	(plus:DF (match_operand:DF 1 "gpc_reg_operand" "r")
+		 (match_operand:DF 2 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdadd %0,%1,%2")
+
+(define_insn "spe_subdf3"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+	(minus:DF (match_operand:DF 1 "gpc_reg_operand" "r")
+		  (match_operand:DF 2 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdsub %0,%1,%2")
+
+(define_insn "spe_muldf3"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+	(mult:DF (match_operand:DF 1 "gpc_reg_operand" "r")
+		 (match_operand:DF 2 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efdmul %0,%1,%2")
+
+(define_insn "spe_divdf3"
+  [(set (match_operand:DF 0 "gpc_reg_operand" "=r")
+	(div:DF (match_operand:DF 1 "gpc_reg_operand" "r")
+		(match_operand:DF 2 "gpc_reg_operand" "r")))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE"
+  "efddiv %0,%1,%2")
+
 ;; Vector move instructions.
 
 (define_expand "movv2si"
@@ -2455,55 +2579,142 @@
   "mfspefscr %0"
   [(set_attr "type" "vecsimple")])
 
+;; FP comparison stuff.
+
+;; Flip the GT bit.
+(define_insn "e500_flip_eq_bit"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP
+	 [(match_operand:CCFP 1 "cc_reg_operand" "y")] 999))]
+  "!TARGET_FPRS && TARGET_HARD_FLOAT"
+  "*
+{
+  return output_e500_flip_eq_bit (operands[0], operands[1]);
+}"
+  [(set_attr "type" "cr_logical")])
+
 ;; MPC8540 single-precision FP instructions on GPRs.
 ;; We have 2 variants for each.  One for IEEE compliant math and one
 ;; for non IEEE compliant math.
 
 (define_insn "cmpsfeq_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(eq:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1000))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && !flag_unsafe_math_optimizations"
   "efscmpeq %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
 (define_insn "tstsfeq_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(eq:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1001))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && flag_unsafe_math_optimizations"
   "efststeq %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
 (define_insn "cmpsfgt_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(gt:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1002))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && !flag_unsafe_math_optimizations"
   "efscmpgt %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
 (define_insn "tstsfgt_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(gt:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1003))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && flag_unsafe_math_optimizations"
   "efststgt %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
 (define_insn "cmpsflt_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(lt:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1004))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && !flag_unsafe_math_optimizations"
   "efscmplt %0,%1,%2"
   [(set_attr "type" "veccmp")])
 
 (define_insn "tstsflt_gpr"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
-	(lt:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
-		 (match_operand:SF 2 "gpc_reg_operand" "r")))]
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:SF 1 "gpc_reg_operand" "r")
+			(match_operand:SF 2 "gpc_reg_operand" "r"))]
+	 1005))]
   "TARGET_HARD_FLOAT && !TARGET_FPRS && flag_unsafe_math_optimizations"
   "efststlt %0,%1,%2"
   [(set_attr "type" "veccmpsimple")])
 
+;; Same thing, but for double-precision.
+
+(define_insn "cmpdfeq_gpr"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
+			(match_operand:DF 2 "gpc_reg_operand" "r"))]
+	 CMPDFEQ_GPR))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && !flag_unsafe_math_optimizations"
+  "efdcmpeq %0,%1,%2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "tstdfeq_gpr"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
+			(match_operand:DF 2 "gpc_reg_operand" "r"))]
+	 TSTDFEQ_GPR))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && flag_unsafe_math_optimizations"
+  "efdtsteq %0,%1,%2"
+  [(set_attr "type" "veccmpsimple")])
+
+(define_insn "cmpdfgt_gpr"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
+			(match_operand:DF 2 "gpc_reg_operand" "r"))]
+	 CMPDFGT_GPR))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && !flag_unsafe_math_optimizations"
+  "efdcmpgt %0,%1,%2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "tstdfgt_gpr"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
+			(match_operand:DF 2 "gpc_reg_operand" "r"))]
+	 TSTDFGT_GPR))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && flag_unsafe_math_optimizations"
+  "efdtstgt %0,%1,%2"
+  [(set_attr "type" "veccmpsimple")])
+
+(define_insn "cmpdflt_gpr"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
+			(match_operand:DF 2 "gpc_reg_operand" "r"))]
+	 CMPDFLT_GPR))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && !flag_unsafe_math_optimizations"
+  "efdcmplt %0,%1,%2"
+  [(set_attr "type" "veccmp")])
+
+(define_insn "tstdflt_gpr"
+  [(set (match_operand:CCFP 0 "cc_reg_operand" "=y")
+	(unspec:CCFP
+	 [(compare:CCFP (match_operand:DF 1 "gpc_reg_operand" "r")
+			(match_operand:DF 2 "gpc_reg_operand" "r"))]
+	 TSTDFLT_GPR))]
+  "TARGET_HARD_FLOAT && TARGET_E500_DOUBLE && flag_unsafe_math_optimizations"
+  "efdtstlt %0,%1,%2"
+  [(set_attr "type" "veccmpsimple")])

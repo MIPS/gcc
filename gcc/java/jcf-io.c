@@ -1,5 +1,5 @@
 /* Utility routines for finding and reading Java(TM) .class files.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -120,7 +120,6 @@ opendir_in_zip (const char *zipfile, int is_system)
   zipf->next = SeenZipFiles;
   zipf->name = (char*)(zipf+1);
   strcpy (zipf->name, zipfile);
-  SeenZipFiles = zipf;
   fd = open (zipfile, O_RDONLY | O_BINARY);
   zipf->fd = fd;
   if (fd < 0)
@@ -140,6 +139,8 @@ opendir_in_zip (const char *zipfile, int is_system)
       if (read_zip_archive (zipf) != 0)
 	return NULL;
     }
+
+  SeenZipFiles = zipf;  
   return zipf;
 }
 
@@ -214,7 +215,7 @@ read_zip_member (JCF *jcf,  ZipDirectory *zipd, ZipFile *zipf)
       jcf->read_ptr = jcf->buffer;
       jcf->read_end = jcf->buffer_end;
       buffer = ALLOC (zipd->size);
-      d_stream.next_in = buffer;
+      d_stream.next_in = (unsigned char *) buffer;
       d_stream.avail_in = zipd->size;
       if (lseek (zipf->fd, zipd->filestart, 0) < 0
 	  || read (zipf->fd, buffer, zipd->size) != (long) zipd->size)
@@ -375,7 +376,8 @@ caching_stat (char *filename, struct stat *buf)
 	 particular, the type of the function pointer passed as the
 	 third argument sometimes takes a "const struct dirent *"
 	 parameter, and sometimes just a "struct dirent *".  We cast
-	 to (void *) so that either way it is quietly accepted.  */
+	 to (void *) so that either way it is quietly accepted.
+	 FIXME: scandir is not in POSIX.  */
       dent->num_files = scandir (filename, &dent->files, 
 				 (void *) java_or_class_file, 
 				 alphasort);
@@ -531,7 +533,7 @@ find_class (const char *classname, int classname_length, JCF *jcf,
   if (! java && ! class && java_buf.st_mtime > class_buf.st_mtime)
     {
       if (flag_newer)
-	warning ("source file for class `%s' is newer than its matching class file.  Source file `%s' used instead", classname, java_buffer);
+	warning ("source file for class %qs is newer than its matching class file.  Source file %qs used instead", classname, java_buffer);
       class = -1;
     }
 

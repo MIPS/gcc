@@ -39,12 +39,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef TARGET_BELL
 #  define TARGET_BELL 007
 #  define TARGET_BS 010
-#  define TARGET_TAB 011
-#  define TARGET_NEWLINE 012
-#  define TARGET_VT 013
-#  define TARGET_FF 014
 #  define TARGET_CR 015
+#  define TARGET_DIGIT0 060
 #  define TARGET_ESC 033
+#  define TARGET_FF 014
+#  define TARGET_NEWLINE 012
+#  define TARGET_TAB 011
+#  define TARGET_VT 013
 #endif
 
 /* Store in OUTPUT a string (made with alloca) containing an
@@ -66,7 +67,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef ASM_FORMAT_PRIVATE_NAME
 # define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO) \
   do { const char *const name_ = (NAME); \
-       char *const output_ = (OUTPUT) = alloca (strlen (name_) + 32);\
+       char *const output_ = (OUTPUT) = \
+	 (char *) alloca (strlen (name_) + 32); \
        sprintf (output_, ASM_PN_FORMAT, name_, (unsigned long)(LABELNO)); \
   } while (0)
 #endif
@@ -237,13 +239,27 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 #endif
 
+/* This determines whether weak symbols must be left out of a static
+   archive's table of contents.  Defining this macro to be nonzero has
+   the consequence that certain symbols will not be made weak that
+   otherwise would be.  The C++ ABI requires this macro to be zero;
+   see the documentation.  */
+#ifndef TARGET_WEAK_NOT_IN_ARCHIVE_TOC
+#define TARGET_WEAK_NOT_IN_ARCHIVE_TOC 0
+#endif
+
+/* This determines whether or not we need linkonce unwind information.  */
+#ifndef TARGET_USES_WEAK_UNWIND_INFO
+#define TARGET_USES_WEAK_UNWIND_INFO 0
+#endif
+
 /* By default, there is no prefix on user-defined symbols.  */
 #ifndef USER_LABEL_PREFIX
 #define USER_LABEL_PREFIX ""
 #endif
 
 /* If the target supports weak symbols, define TARGET_ATTRIBUTE_WEAK to
-   provide a weak attribute.  Else define it to nothing. 
+   provide a weak attribute.  Else define it to nothing.
 
    This would normally belong in ansidecl.h, but SUPPORTS_WEAK is
    not available at that time.
@@ -256,6 +272,29 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 # else
 #  define TARGET_ATTRIBUTE_WEAK
 # endif
+#endif
+
+/* This determines whether this target supports hidden visibility.
+   This is a weaker condition than HAVE_GAS_HIDDEN, which probes for
+   specific assembler syntax.  */
+#ifndef TARGET_SUPPORTS_HIDDEN
+# ifdef HAVE_GAS_HIDDEN
+#  define TARGET_SUPPORTS_HIDDEN 1
+# else
+#  define TARGET_SUPPORTS_HIDDEN 0
+# endif
+#endif
+
+/* Determines whether we may use common symbols to represent one-only
+   semantics (a.k.a. "vague linkage").  */
+#ifndef USE_COMMON_FOR_ONE_ONLY
+# define USE_COMMON_FOR_ONE_ONLY 1
+#endif
+
+/* By default we can assume that all global symbols are in one namespace,
+   across all shared libraries.  */
+#ifndef MULTIPLE_SYMBOL_SPACES
+# define MULTIPLE_SYMBOL_SPACES 0
 #endif
 
 /* If the target supports init_priority C++ attribute, give
@@ -293,16 +332,6 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #ifndef JCR_SECTION_NAME
 #define JCR_SECTION_NAME ".jcr"
 #endif
-#endif
-
-/* By default, we generate a label at the beginning and end of the
-   text section, and compute the size of the text section by
-   subtracting the two.  However, on some platforms that doesn't 
-   work, and we use the section itself, rather than a label at the
-   beginning of it, to indicate the start of the section.  On such
-   platforms, define this to zero.  */
-#ifndef DWARF2_GENERATE_TEXT_SECTION_LABEL
-#define DWARF2_GENERATE_TEXT_SECTION_LABEL 1
 #endif
 
 /* Number of hardware registers that go into the DWARF-2 unwind info.
@@ -381,6 +410,20 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define PIC_OFFSET_TABLE_REGNUM INVALID_REGNUM
 #endif
 
+#ifndef TARGET_DLLIMPORT_DECL_ATTRIBUTES
+#define TARGET_DLLIMPORT_DECL_ATTRIBUTES 0
+#endif
+
+#ifndef TARGET_DECLSPEC
+#if TARGET_DLLIMPORT_DECL_ATTRIBUTES
+/* If the target supports the "dllimport" attribute, users are
+   probably used to the "__declspec" syntax.  */
+#define TARGET_DECLSPEC 1
+#else
+#define TARGET_DECLSPEC 0
+#endif
+#endif
+
 /* By default, the preprocessor should be invoked the same way in C++
    as in C.  */
 #ifndef CPLUSPLUS_CPP_SPEC
@@ -428,10 +471,14 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #define PREFERRED_STACK_BOUNDARY STACK_BOUNDARY
 #endif
 
+#ifndef TARGET_DEFAULT_PACK_STRUCT
+#define TARGET_DEFAULT_PACK_STRUCT 0
+#endif
+
 /* By default, the C++ compiler will use function addresses in the
    vtable entries.  Setting this nonzero tells the compiler to use
    function descriptors instead.  The value of this macro says how
-   many words wide the descriptor is (normally 2).  It is assumed 
+   many words wide the descriptor is (normally 2).  It is assumed
    that the address of a function descriptor may be treated as a
    pointer to a function.  */
 #ifndef TARGET_VTABLE_USES_DESCRIPTORS
@@ -452,6 +499,16 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
    words in each data entry.  */
 #ifndef TARGET_VTABLE_DATA_ENTRY_DISTANCE
 #define TARGET_VTABLE_DATA_ENTRY_DISTANCE 1
+#endif
+
+/* Decide whether it is safe to use a local alias for a virtual function
+   when constructing thunks.  */
+#ifndef TARGET_USE_LOCAL_THUNK_ALIAS_P
+#ifdef ASM_OUTPUT_DEF
+#define TARGET_USE_LOCAL_THUNK_ALIAS_P(DECL) 1
+#else
+#define TARGET_USE_LOCAL_THUNK_ALIAS_P(DECL) 0
+#endif
 #endif
 
 /* Select a format to encode pointers in exception handling data.  We
@@ -477,38 +534,34 @@ do { fputs (integer_asm_op (POINTER_SIZE / BITS_PER_UNIT, TRUE), FILE); \
 #endif
 
 /* If more than one debugging type is supported, you must define
-   PREFERRED_DEBUGGING_TYPE to choose a format in a system-dependent way.
+   PREFERRED_DEBUGGING_TYPE to choose the default.  */
 
-   This is one long line cause VAXC can't handle a \-newline.  */
-#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO) + defined (VMS_DEBUGGING_INFO))
+#if 1 < (defined (DBX_DEBUGGING_INFO) + defined (SDB_DEBUGGING_INFO) \
+         + defined (DWARF2_DEBUGGING_INFO) + defined (XCOFF_DEBUGGING_INFO) \
+         + defined (VMS_DEBUGGING_INFO))
 #ifndef PREFERRED_DEBUGGING_TYPE
-You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
+#error You must define PREFERRED_DEBUGGING_TYPE
 #endif /* no PREFERRED_DEBUGGING_TYPE */
-#else /* Only one debugging format supported.  Define PREFERRED_DEBUGGING_TYPE
-	 so other code needn't care.  */
-#ifdef DBX_DEBUGGING_INFO
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
-#endif
-#ifdef SDB_DEBUGGING_INFO
-#define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
-#endif
-#ifdef DWARF_DEBUGGING_INFO
-#define PREFERRED_DEBUGGING_TYPE DWARF_DEBUG
-#endif
-#ifdef DWARF2_DEBUGGING_INFO
-#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
-#endif
-#ifdef VMS_DEBUGGING_INFO
-#define PREFERRED_DEBUGGING_TYPE VMS_AND_DWARF2_DEBUG
-#endif
-#ifdef XCOFF_DEBUGGING_INFO
-#define PREFERRED_DEBUGGING_TYPE XCOFF_DEBUG
-#endif
-#endif /* More than one debugger format enabled.  */
 
-/* If still not defined, must have been because no debugging formats
-   are supported.  */
-#ifndef PREFERRED_DEBUGGING_TYPE
+/* If only one debugging format is supported, define PREFERRED_DEBUGGING_TYPE
+   here so other code needn't care.  */
+#elif defined DBX_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+
+#elif defined SDB_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
+
+#elif defined DWARF2_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
+
+#elif defined VMS_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE VMS_AND_DWARF2_DEBUG
+
+#elif defined XCOFF_DEBUGGING_INFO
+#define PREFERRED_DEBUGGING_TYPE XCOFF_DEBUG
+
+#else
+/* No debugging format is supported by this target.  */
 #define PREFERRED_DEBUGGING_TYPE NO_DEBUG
 #endif
 
@@ -524,11 +577,38 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define	TARGET_FLOAT_FORMAT	IEEE_FLOAT_FORMAT
 #endif
 
+/* Some macros can be defined by the backend in either a mode-dependent
+   or mode-independent form.  The compiler proper should only use the
+   mode-dependent form, providing VOIDmode when the mode is unknown.
+   We can't poison the macros because the backend may reference them.  */
+
+#ifndef REGNO_MODE_OK_FOR_BASE_P
+#define REGNO_MODE_OK_FOR_BASE_P(REGNO, MODE) REGNO_OK_FOR_BASE_P (REGNO)
+#endif
+
+#ifndef REG_MODE_OK_FOR_BASE_P
+#define REG_MODE_OK_FOR_BASE_P(REG, MODE) REG_OK_FOR_BASE_P (REG)
+#endif
+
 /* Determine the register class for registers suitable to be the base
    address register in a MEM.  Allow the choice to be dependent upon
    the mode of the memory access.  */
 #ifndef MODE_BASE_REG_CLASS
 #define MODE_BASE_REG_CLASS(MODE) BASE_REG_CLASS
+#endif
+
+/* Some machines require a different base register class if the index
+   is a register.  By default, assume that a base register is acceptable.  */
+#ifndef MODE_BASE_REG_REG_CLASS
+#define MODE_BASE_REG_REG_CLASS(MODE) MODE_BASE_REG_CLASS(MODE)
+#endif
+
+#ifndef REGNO_MODE_OK_FOR_REG_BASE_P
+#define REGNO_MODE_OK_FOR_REG_BASE_P(REGNO, MODE) REGNO_MODE_OK_FOR_BASE_P (REGNO, MODE)
+#endif
+
+#ifndef REG_MODE_OK_FOR_REG_BASE_P
+#define REG_MODE_OK_FOR_REG_BASE_P(REGNO, MODE) REG_MODE_OK_FOR_BASE_P (REGNO, MODE)
 #endif
 
 #ifndef LARGEST_EXPONENT_IS_NORMAL
@@ -569,6 +649,13 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) false
 #endif
 
+/* True if the targets integer-comparison functions return { 0, 1, 2
+   } to indicate { <, ==, > }.  False if { -1, 0, 1 } is used
+   instead.  The libgcc routines are biased.  */
+#ifndef TARGET_LIB_INT_CMP_BIASED
+#define TARGET_LIB_INT_CMP_BIASED (true)
+#endif
+
 /* If FLOAT_WORDS_BIG_ENDIAN is not defined in the header files,
    then the word-endianness is the same as for integers.  */
 #ifndef FLOAT_WORDS_BIG_ENDIAN
@@ -580,15 +667,23 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif
 
 #ifndef HOT_TEXT_SECTION_NAME
-#define HOT_TEXT_SECTION_NAME "text.hot"
+#define HOT_TEXT_SECTION_NAME ".text.hot"
 #endif
 
 #ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
-#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME "text.unlikely"
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME ".text.unlikely"
 #endif
 
-#ifndef VECTOR_MODE_SUPPORTED_P
-#define VECTOR_MODE_SUPPORTED_P(MODE) 0
+#ifndef HAS_LONG_COND_BRANCH
+#define HAS_LONG_COND_BRANCH 0
+#endif
+
+#ifndef HAS_LONG_UNCOND_BRANCH
+#define HAS_LONG_UNCOND_BRANCH 0
+#endif
+
+#ifndef UNITS_PER_SIMD_WORD
+#define UNITS_PER_SIMD_WORD 0
 #endif
 
 /* Determine whether __cxa_atexit, rather than atexit, is used to
@@ -647,10 +742,10 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 #endif
 
 /* Indicate that CLZ and CTZ are undefined at zero.  */
-#ifndef CLZ_DEFINED_VALUE_AT_ZERO 
+#ifndef CLZ_DEFINED_VALUE_AT_ZERO
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  0
 #endif
-#ifndef CTZ_DEFINED_VALUE_AT_ZERO 
+#ifndef CTZ_DEFINED_VALUE_AT_ZERO
 #define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE)  0
 #endif
 
@@ -710,6 +805,19 @@ You Lose!  You must define PREFERRED_DEBUGGING_TYPE!
 
 #ifndef LEGITIMIZE_ADDRESS
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
+#endif
+
+#ifndef LEGITIMATE_PIC_OPERAND_P
+#define LEGITIMATE_PIC_OPERAND_P(X) 1
+#endif
+
+#ifndef REVERSIBLE_CC_MODE
+#define REVERSIBLE_CC_MODE(MODE) 0
+#endif
+
+/* Biggest alignment supported by the object file format of this machine.  */
+#ifndef MAX_OFILE_ALIGNMENT
+#define MAX_OFILE_ALIGNMENT BIGGEST_ALIGNMENT
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Hartmut Penner (hpenner@de.ibm.com) and
                   Ulrich Weigand (uweigand@de.ibm.com).
 
@@ -32,6 +32,7 @@ CC_MODE (CCAN);
 CC_MODE (CCL);
 CC_MODE (CCL1);
 CC_MODE (CCL2);
+CC_MODE (CCL3);
 CC_MODE (CCU);
 CC_MODE (CCUR);
 CC_MODE (CCS);

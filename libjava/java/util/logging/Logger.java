@@ -1,7 +1,5 @@
-/* Logger.java
-   -- a class for logging messages
-
-Copyright (C) 2002 Free Software Foundation, Inc.
+/* Logger.java -- a class for logging messages
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,16 +33,14 @@ module.  An independent module is a module which is not derived from
 or based on this library.  If you modify this library, you may extend
 this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
-exception statement from your version.
-
-*/
+exception statement from your version. */
 
 
 package java.util.logging;
 
-import java.util.ResourceBundle;
-import java.util.MissingResourceException;
 import java.util.List;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 /**
  * A Logger is used for logging information about events. Usually, there

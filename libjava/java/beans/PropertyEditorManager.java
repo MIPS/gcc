@@ -38,7 +38,6 @@ exception statement from your version. */
 
 package java.beans;
 
-import gnu.java.lang.ClassHelper;
 import gnu.java.beans.editors.ColorEditor;
 import gnu.java.beans.editors.FontEditor;
 import gnu.java.beans.editors.NativeBooleanEditor;
@@ -49,6 +48,8 @@ import gnu.java.beans.editors.NativeIntEditor;
 import gnu.java.beans.editors.NativeLongEditor;
 import gnu.java.beans.editors.NativeShortEditor;
 import gnu.java.beans.editors.StringEditor;
+import gnu.java.lang.ClassHelper;
+
 import java.awt.Color;
 import java.awt.Font;
 
@@ -60,19 +61,20 @@ import java.awt.Font;
  * already registered; if it is, that property editor is
  * used.  Next it takes the type's classname and appends
  * "Editor" to it, and searches first in the class's
- * package and then in the property editor search path.<P>
+ * package and then in the property editor search path.
  *
- * Default property editors are provided for:<P>
- * <OL>
- * <LI>boolean, byte, short, int, long, float, and double</LI>
- * <LI>java.lang.String</LI>
- * <LI>java.awt.Color</LI>
- * <LI>java.awt.Font</LI>
- * <OL>
+ * <p>Default property editors are provided for:</p>
+ * 
+ * <ol>
+ * <li>boolean, byte, short, int, long, float, and double</li>
+ * <li>java.lang.String</li>
+ * <li>java.awt.Color</li>
+ * <li>java.awt.Font</li>
+ * </ol>
  *
- * <STRONG>Spec Suggestion:</STRONG> Perhaps an editor for
+ * <p><strong>Spec Suggestion:</strong> Perhaps an editor for
  * Filename or something like it should be provided.  As well
- * as char.
+ * as char.</p>
  *
  * @author John Keiser
  * @since 1.1

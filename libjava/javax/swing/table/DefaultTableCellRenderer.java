@@ -54,7 +54,7 @@ public class DefaultTableCellRenderer extends JLabel
 {
   static final long serialVersionUID = 7878911414715528324L;
 
-  protected static Border noFocusBorder;
+  protected static Border noFocusBorder = new EmptyBorder(0, 0, 0, 0);
 
   public static class UIResource extends DefaultTableCellRenderer
     implements javax.swing.plaf.UIResource
@@ -70,7 +70,6 @@ public class DefaultTableCellRenderer extends JLabel
   public DefaultTableCellRenderer()
   {
     super();
-    this.noFocusBorder = new EmptyBorder(0, 0, 0, 0);
   }
 
   /**
@@ -123,8 +122,22 @@ public class DefaultTableCellRenderer extends JLabel
   {
     if (value!=null)
       super.setText(value.toString());
-    
-    return this;
+
+    setOpaque(true);
+    if (isSelected)
+      {
+        setBackground(table.getSelectionBackground());
+        setForeground(table.getSelectionForeground());
+      }
+    else
+      {
+        setBackground(table.getBackground());
+        setForeground(table.getForeground());
+      }
+
+    setEnabled(table.isEnabled());
+    setFont(table.getFont());
+    return this;    
   }
 
   /**
@@ -147,6 +160,11 @@ public class DefaultTableCellRenderer extends JLabel
    * do something.</p>
    */
   public void validate()
+  {
+    // Does nothing.
+  }
+
+  public void revalidate()
   {
     // Does nothing.
   }

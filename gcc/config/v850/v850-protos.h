@@ -1,5 +1,5 @@
 /* Prototypes for v850.c functions used in the md file & elsewhere.
-   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -70,7 +70,6 @@ extern int    pattern_is_ok_for_epilogue    (rtx, Mmode);
 extern int    register_is_ok_for_epilogue   (rtx, Mmode);
 #ifdef TREE_CODE
 extern rtx    function_arg                  (CUMULATIVE_ARGS *, Mmode, tree, int);
-extern rtx    v850_va_arg                   (tree, tree);
 #endif
 #endif
 #endif /* TREE_CODE */

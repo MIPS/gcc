@@ -1,5 +1,6 @@
 /* java.util.GregorianCalendar
-   Copyright (C) 1998, 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -89,7 +90,8 @@ public class GregorianCalendar extends Calendar
    */
   private static ResourceBundle getBundle(Locale locale) 
   {
-    return ResourceBundle.getBundle(bundleName, locale);
+    return ResourceBundle.getBundle(bundleName, locale,
+      ClassLoader.getSystemClassLoader());
   }
 
   /**
@@ -441,8 +443,15 @@ public class GregorianCalendar extends Calendar
       ? fields[ZONE_OFFSET] : zone.getRawOffset();
 
     int dayOfYear = daysOfYear[0] + daysOfYear[1];
-    int month = (dayOfYear * 5 + 3) / (31 + 30 + 31 + 30 + 31);
-    int day = (6 + (dayOfYear * 5 + 3) % (31 + 30 + 31 + 30 + 31)) / 5;
+    // This formula isn't right, so check for month as a quick fix.
+    // It doesn't compensate for leap years and puts day 30 in month 1
+    // instead of month 0.
+    int month = isSet[MONTH]
+	? fields[MONTH] : (dayOfYear * 5 + 3) / (31 + 30 + 31 + 30 + 31);
+    // This formula isn't right, so check for day as a quick fix.  It
+    // doesn't compensate for leap years, either.
+    int day = isSet[DAY_OF_MONTH] ? fields[DAY_OF_MONTH]
+	: (6 + (dayOfYear * 5 + 3) % (31 + 30 + 31 + 30 + 31)) / 5;
     int weekday = ((int) (time / (24 * 60 * 60 * 1000L)) + THURSDAY) % 7;
     if (weekday <= 0)
       weekday += 7;
@@ -531,7 +540,7 @@ public class GregorianCalendar extends Calendar
     fields[DAY_OF_WEEK] = weekday;
 
     // get a first approximation of the year.  This may be one 
-    // year to big.
+    // year too big.
     int year = 1970 + (gregorian
 		       ? ((day - 100) * 400) / (365 * 400 + 100 - 4 + 1)
 		       : ((day - 100) * 4) / (365 * 4 + 1));
@@ -700,6 +709,10 @@ public class GregorianCalendar extends Calendar
    * it does what you expect: Jan, 25 + 10 Days is Feb, 4.
    * @param field the time field. One of the time field constants.
    * @param amount the amount of time.
+   * @exception IllegalArgumentException if <code>field</code> is 
+   *   <code>ZONE_OFFSET</code>, <code>DST_OFFSET</code>, or invalid; or
+   *   if <code>amount</code> contains an out-of-range value and the calendar
+   *   is not in lenient mode.
    */
   public void add(int field, int amount)
   {
@@ -776,18 +789,9 @@ public class GregorianCalendar extends Calendar
 	areFieldsSet = false;
 	break;
       case ZONE_OFFSET:
-	complete();
-	fields[ZONE_OFFSET] += amount;
-	time -= amount;
-	break;
       case DST_OFFSET:
-	complete();
-	fields[DST_OFFSET] += amount;
-	isTimeSet = false;
-	break;
       default:
-	throw new IllegalArgumentException
-	  ("Unknown Calendar field: " + field);
+	throw new IllegalArgumentException("Invalid or unknown field");
       }
   }
 

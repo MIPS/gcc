@@ -264,9 +264,6 @@ main (int argc, char **argv)
 
   progname = "genconfig";
 
-  if (argc <= 1)
-    fatal ("no input file name");
-
   if (init_md_reader_args (argc, argv) != SUCCESS_EXIT_CODE)
     return (FATAL_EXIT_CODE);
 
@@ -369,7 +366,7 @@ main (int argc, char **argv)
 
 /* Define this so we can link with print-rtl.o to get debug_rtx function.  */
 const char *
-get_insn_name (int code ATTRIBUTE_UNUSED)
+get_insn_name (int ARG_UNUSED (code))
 {
   return NULL;
 }
