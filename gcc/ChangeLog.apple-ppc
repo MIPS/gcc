@@ -1,3 +1,9 @@
+2005-02-11  Devang Patel  <dpatel@apple.com>
+
+	Radar 3996800
+        * gcc.c (cpp_uniq_options): Emit '-mconstant-cfstrings' option, 
+        if needed.
+
 2005-02-09  Dale Johannesen  <dalej@apple.com>
 
 	Radar 3985162

@@ -1,3 +1,8 @@
+2005-02-11  Devang Patel  <dpatel@apple.com>
+
+	Radar 3996800
+        * gcc.dg/pch/pch.exp: Test MACOSX_DEPLOYMENT_TARGET and -save-temps.
+
 2005-02-10  Ziemowit Laski  <zlaski@apple.com>
 
 	Radar 3993052

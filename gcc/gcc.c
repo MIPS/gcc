@@ -807,6 +807,8 @@ static const char *pch =
    therefore no dependency entry, confuses make into thinking a .o
    file that happens to exist is up-to-date.  */
 static const char *cpp_unique_options =
+/* APPLE LOCAL constant cfstrings */
+"%yC"
 "%{C|CC:%{!E:%eGCC does not support -C or -CC without -E}}\
  %{!traditional:%{!ftraditional:%{!traditional-cpp:%Q}}}\
  %{!Q:-quiet} %{nostdinc*} %{C} %{CC} %{v} %{I*&F*} %{P} %I\
