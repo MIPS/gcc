@@ -831,15 +831,9 @@ copy_bb_p (bb, size_can_grow)
     return false;
 
   if (maybe_hot_bb_p (bb))
-    {
-      max_size = 16 * uncond_jump_length;
-    }
+    max_size = 8 * uncond_jump_length;
   else
-    {
-      max_size = 8 * uncond_jump_length;
-      if (probably_never_executed_bb_p (bb))
-	size_can_grow = false;
-    }
+    size_can_grow = false;
 
   for (insn = bb->head; insn != NEXT_INSN (bb->end);
        insn = NEXT_INSN (insn))

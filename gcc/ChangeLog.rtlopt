@@ -1,3 +1,8 @@
+Sat Nov 23 02:24:39 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	* bb-reorder.c (copy_bb_p): Limit expansion only to hot basic block;
+	set thresold to 8 * uncond_jump_length.
+
 Fri Nov 22 13:16:16 CET 2002  Jan Hubicka  <jh@suse.cz>
 
 	* bb-reorder.c (connect_traces): Never connect something before trace 0.
