@@ -1867,7 +1867,6 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
     {
       lambda_loop newloop;
       basic_block bb;
-      /* APPLE LOCAL Berlin's patch for swim */
       edge exit;
       tree ivvar, ivvarinced, exitcond, stmts;
       enum tree_code testtype;
@@ -1910,7 +1909,6 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
 					     type,
 					     new_ivs,
 					     invariants, MIN_EXPR, &stmts);
-      /* APPLE LOCAL Berlin's patch for swim */
       exit = temp->single_exit;
       exitcond = get_loop_exit_condition (temp);
       bb = bb_for_stmt (exitcond);
@@ -1932,17 +1930,16 @@ lambda_loopnest_to_gcc_loopnest (struct loop *old_loopnest,
       
       testtype = LL_STEP (newloop) >= 0 ? LE_EXPR : GE_EXPR;
       
-      /* APPLE LOCAL begin Berlin's patch for swim */
       /* We want to build a conditional where true means exit the loop, and
 	 false means continue the loop.
 	 So swap the testtype if this isn't the way things are.*/
+
       if (exit->flags & EDGE_FALSE_VALUE)
 	testtype = swap_tree_comparison (testtype);
+
       COND_EXPR_COND (exitcond) = build (testtype,
 					 boolean_type_node,
 					 newupperbound, ivvarinced);
-      /* APPLE LOCAL end Berlin's patch for swim */
-
       modify_stmt (exitcond);
       VEC_replace (tree, new_ivs, i, ivvar);
 

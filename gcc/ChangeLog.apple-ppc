@@ -1,3 +1,7 @@
+2004-11-18  Dale Johannese  <dalej@apple.com>
+
+	* lambda-code.c:  cosmetic changes to match mainline.
+
 2004-11-17  Stuart Hastings <stuart@apple.com>
 
 	Radar 3837835
