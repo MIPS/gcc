@@ -1,6 +1,6 @@
 // The template and inlines for the -*- C++ -*- valarray class.
 
-// Copyright (C) 1997-1999 Free Software Foundation, Inc.
+// Copyright (C) 1997-1999, 2000 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -259,78 +259,61 @@ namespace std {
 
   template<typename _Tp>
   inline valarray<_Tp>::valarray (size_t __n) 
-      : _M_size(__n),
-        _M_data(static_cast<_Tp*__restrict__>
-                (__valarray_get_memory(__n * sizeof (_Tp))))
+      : _M_size(__n), _M_data(__valarray_get_storage<_Tp>(__n))
   { __valarray_default_construct(_M_data, _M_data + __n); }
 
   template<typename _Tp>
   inline valarray<_Tp>::valarray (const _Tp& __t, size_t __n)
-      : _M_size(__n),
-        _M_data(static_cast<_Tp*__restrict__>
-                (__valarray_get_memory(__n * sizeof (_Tp))))
+    : _M_size(__n), _M_data(__valarray_get_storage<_Tp>(__n))
   { __valarray_fill_construct (_M_data, _M_data + __n, __t); }
 
   template<typename _Tp>
   inline valarray<_Tp>::valarray (const _Tp* __restrict__ __p, size_t __n)
-      : _M_size(__n),
-        _M_data(static_cast<_Tp*__restrict__>
-                (__valarray_get_memory(__n * sizeof (_Tp))))
+    : _M_size(__n), _M_data(__valarray_get_storage<_Tp>(__n))
   { __valarray_copy_construct (__p, __p + __n, _M_data); }
 
   template<typename _Tp>
   inline valarray<_Tp>::valarray (const valarray<_Tp>& __v)
-      : _M_size(__v._M_size),
-        _M_data(static_cast<_Tp*__restrict__>
-                (__valarray_get_memory(__v._M_size * sizeof (_Tp))))
+    : _M_size(__v._M_size), _M_data(__valarray_get_storage<_Tp>(__v._M_size))
   { __valarray_copy_construct (__v._M_data, __v._M_data + _M_size, _M_data); }
 
   template<typename _Tp>
   inline valarray<_Tp>::valarray (const slice_array<_Tp>& __sa)
-      : _M_size(__sa._M_sz),
-        _M_data(static_cast<_Tp*__restrict__>
-                (__valarray_get_memory(__sa._M_sz * sizeof (_Tp))))
+    : _M_size(__sa._M_sz), _M_data(__valarray_get_storage<_Tp>(__sa._M_sz))
   {
-      __valarray_copy_construct
-          (__sa._M_array, __sa._M_sz, __sa._M_stride, _Array<_Tp>(_M_data));
+    __valarray_copy_construct
+      (__sa._M_array, __sa._M_sz, __sa._M_stride, _Array<_Tp>(_M_data));
   }
 
   template<typename _Tp>
   inline valarray<_Tp>::valarray (const gslice_array<_Tp>& __ga)
-      : _M_size(__ga._M_index.size()),
-        _M_data(static_cast<_Tp*__restrict__>
-                (__valarray_get_memory(_M_size * sizeof (_Tp))))
+    : _M_size(__ga._M_index.size()),
+      _M_data(__valarray_get_storage<_Tp>(_M_size))
   {
-      __valarray_copy_construct
-          (__ga._M_array, _Array<size_t>(__ga._M_index),
-           _Array<_Tp>(_M_data), _M_size);
+    __valarray_copy_construct
+      (__ga._M_array, _Array<size_t>(__ga._M_index),
+       _Array<_Tp>(_M_data), _M_size);
   }
 
   template<typename _Tp>
   inline valarray<_Tp>::valarray (const mask_array<_Tp>& __ma)
-      : _M_size(__ma._M_sz),
-        _M_data(static_cast<_Tp*__restrict__>
-                (__valarray_get_memory(__ma._M_sz * sizeof (_Tp))))
+    : _M_size(__ma._M_sz), _M_data(__valarray_get_storage<_Tp>(__ma._M_sz))
   {
-      __valarray_copy_construct
-          (__ma._M_array, __ma._M_mask, _Array<_Tp>(_M_data), _M_size);
+    __valarray_copy_construct
+      (__ma._M_array, __ma._M_mask, _Array<_Tp>(_M_data), _M_size);
   }
 
   template<typename _Tp>
   inline valarray<_Tp>::valarray (const indirect_array<_Tp>& __ia)
-      : _M_size(__ia._M_sz),
-        _M_data(static_cast<_Tp*__restrict__>
-                (__valarray_get_memory(__ia._M_sz * sizeof (_Tp))))
+    : _M_size(__ia._M_sz), _M_data(__valarray_get_storage<_Tp>(__ia._M_sz))
   {
-      __valarray_copy_construct
-          (__ia._M_array, __ia._M_index, _Array<_Tp>(_M_data), _M_size);
+    __valarray_copy_construct
+      (__ia._M_array, __ia._M_index, _Array<_Tp>(_M_data), _M_size);
   }
 
   template<typename _Tp> template<class _Dom>
   inline valarray<_Tp>::valarray (const _Expr<_Dom, _Tp>& __e)
-      : _M_size(__e.size ()),
-        _M_data(static_cast<_Tp*__restrict__>
-                (__valarray_copy_construct(_M_size * sizeof (_Tp))))
+    : _M_size(__e.size ()), _M_data(__valarray_get_storage<_Tp>(_M_size))
   { __valarray_copy_construct (__e, _M_size, _Array<_Tp>(_M_data)); }
 
   template<typename _Tp>
@@ -536,20 +519,17 @@ namespace std {
   inline void
   valarray<_Tp>::resize (size_t __n, _Tp __c)
   {
-      if (_M_size != __n) {
-          __valarray_destroy_elements(_M_data, _M_data + _M_size);
-          __valarray_release_memory(_M_data);
-          _M_size = __n;
-          _M_data = static_cast<_Tp*__restrict__>
-              (__valarray_get_memory(__n * sizeof (_Tp)));
-          __valarray_fill_construct(_M_data, _M_data + __n, __c);
+    // This complication is so to make valarray<valarray<T> > work
+    // even though it is not required by the standard.  Nobody should
+    // be saying valarray<valarray<T> > anyway.  See the specs.
+    __valarray_destroy_elements(_M_data, _M_data + _M_size);
+    if (_M_size != __n)
+      {
+        __valarray_release_memory(_M_data);
+        _M_size = __n;
+        _M_data = __valarray_get_storage<_Tp>(__n);
       }
-      else {
-          // this is so to make valarray<valarray<T> > work
-          // even though it is not required by the standard.
-          __valarray_destroy_elements(_M_data, _M_data + _M_size);
-          __valarray_fill_construct(_M_data, _M_data + _M_size, __c);
-      }
+    __valarray_fill_construct(_M_data, _M_data + __n, __c);
   }
     
   template<typename _Tp>
@@ -585,7 +565,7 @@ namespace std {
 #define _DEFINE_VALARRAY_UNARY_OPERATOR(_Op, _Name)                     \
   template<typename _Tp>						\
   inline _Expr<_UnClos<_Name,_ValArray,_Tp>, _Tp>               	\
-  valarray<_Tp>::operator##_Op() const					\
+  valarray<_Tp>::operator _Op() const					\
   {									\
       typedef _UnClos<_Name,_ValArray,_Tp> _Closure;	                \
       return _Expr<_Closure, _Tp> (_Closure (*this));			\
@@ -608,7 +588,7 @@ namespace std {
 #define _DEFINE_VALARRAY_AUGMENTED_ASSIGNMENT(_Op, _Name)               \
   template<class _Tp>							\
   inline valarray<_Tp> &						\
-  valarray<_Tp>::operator##_Op##= (const _Tp &__t)			\
+  valarray<_Tp>::operator _Op##= (const _Tp &__t)			\
   {									\
       _Array_augmented_##_Name (_Array<_Tp>(_M_data), _M_size, __t);	\
       return *this;							\
@@ -616,7 +596,7 @@ namespace std {
 									\
   template<class _Tp>							\
   inline valarray<_Tp> &						\
-  valarray<_Tp>::operator##_Op##= (const valarray<_Tp> &__v)		\
+  valarray<_Tp>::operator _Op##= (const valarray<_Tp> &__v)		\
   {									\
       _Array_augmented_##_Name (_Array<_Tp>(_M_data), _M_size, 		\
                                _Array<_Tp>(__v._M_data));		\
@@ -645,7 +625,7 @@ namespace std {
 #define _DEFINE_VALARRAY_EXPR_AUGMENTED_ASSIGNMENT(_Op, _Name)          \
   template<class _Tp> template<class _Dom>				\
   inline valarray<_Tp> &						\
-  valarray<_Tp>::operator##_Op##= (const _Expr<_Dom,_Tp> &__e)		\
+  valarray<_Tp>::operator _Op##= (const _Expr<_Dom,_Tp> &__e)		\
   {									\
       _Array_augmented_##_Name (_Array<_Tp>(_M_data), __e, _M_size);	\
       return *this;							\
@@ -668,7 +648,7 @@ _DEFINE_VALARRAY_EXPR_AUGMENTED_ASSIGNMENT(>>, shift_right)
 #define _DEFINE_BINARY_OPERATOR(_Op, _Name)				\
   template<typename _Tp>						\
   inline _Expr<_BinClos<_Name,_ValArray,_ValArray,_Tp,_Tp>, _Tp>        \
-  operator##_Op (const valarray<_Tp> &__v, const valarray<_Tp> &__w)	\
+  operator _Op (const valarray<_Tp> &__v, const valarray<_Tp> &__w)	\
   {									\
       typedef _BinClos<_Name,_ValArray,_ValArray,_Tp,_Tp> _Closure;     \
       return _Expr<_Closure, _Tp> (_Closure (__v, __w));		\
@@ -676,7 +656,7 @@ _DEFINE_VALARRAY_EXPR_AUGMENTED_ASSIGNMENT(>>, shift_right)
 									\
   template<typename _Tp>						\
   inline _Expr<_BinClos<_Name,_ValArray,_Constant,_Tp,_Tp>,_Tp>         \
-  operator##_Op (const valarray<_Tp> &__v, const _Tp &__t)		\
+  operator _Op (const valarray<_Tp> &__v, const _Tp &__t)		\
   {									\
       typedef _BinClos<_Name,_ValArray,_Constant,_Tp,_Tp> _Closure;	\
       return _Expr<_Closure, _Tp> (_Closure (__v, __t));	        \
@@ -684,7 +664,7 @@ _DEFINE_VALARRAY_EXPR_AUGMENTED_ASSIGNMENT(>>, shift_right)
 									\
   template<typename _Tp>						\
   inline _Expr<_BinClos<_Name,_Constant,_ValArray,_Tp,_Tp>,_Tp>         \
-  operator##_Op (const _Tp &__t, const valarray<_Tp> &__v)		\
+  operator _Op (const _Tp &__t, const valarray<_Tp> &__v)		\
   {									\
       typedef _BinClos<_Name,_Constant,_ValArray,_Tp,_Tp> _Closure;     \
       return _Expr<_Closure, _Tp> (_Closure (__t, __v));        	\
@@ -706,7 +686,7 @@ _DEFINE_BINARY_OPERATOR(>>, _Shift_right)
 #define _DEFINE_LOGICAL_OPERATOR(_Op, _Name)				\
   template<typename _Tp>						\
   inline _Expr<_BinClos<_Name,_ValArray,_ValArray,_Tp,_Tp>,bool>        \
-  operator##_Op (const valarray<_Tp> &__v, const valarray<_Tp> &__w)	\
+  operator _Op (const valarray<_Tp> &__v, const valarray<_Tp> &__w)	\
   {									\
       typedef _BinClos<_Name,_ValArray,_ValArray,_Tp,_Tp> _Closure;     \
       return _Expr<_Closure, bool> (_Closure (__v, __w));               \
@@ -714,7 +694,7 @@ _DEFINE_BINARY_OPERATOR(>>, _Shift_right)
 									\
   template<class _Tp>							\
   inline _Expr<_BinClos<_Name,_ValArray,_Constant,_Tp,_Tp>,bool>        \
-  operator##_Op (const valarray<_Tp> &__v, const _Tp &__t)		\
+  operator _Op (const valarray<_Tp> &__v, const _Tp &__t)		\
   {									\
       typedef _BinClos<_Name,_ValArray,_Constant,_Tp,_Tp> _Closure;     \
       return _Expr<_Closure, bool> (_Closure (__v, __t));       	\
@@ -722,7 +702,7 @@ _DEFINE_BINARY_OPERATOR(>>, _Shift_right)
 									\
   template<class _Tp>							\
   inline _Expr<_BinClos<_Name,_Constant,_ValArray,_Tp,_Tp>,bool>        \
-  operator##_Op (const _Tp &__t, const valarray<_Tp> &__v)		\
+  operator _Op (const _Tp &__t, const valarray<_Tp> &__v)		\
   {									\
       typedef _BinClos<_Name,_Constant,_ValArray,_Tp,_Tp> _Closure;     \
       return _Expr<_Closure, bool> (_Closure (__t, __v));	        \

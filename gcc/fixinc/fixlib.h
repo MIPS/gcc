@@ -31,6 +31,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include "regex.h"
 #include "machname.h"
+#include "libiberty.h"
 
 #ifndef STDIN_FILENO
 # define STDIN_FILENO   0
@@ -68,6 +69,8 @@ typedef int t_success;
 #ifndef EXIT_FAILURE
 # define EXIT_FAILURE 1
 #endif
+
+#define EXIT_BROKEN  3
 
 #define NUL             '\0'
 
@@ -148,14 +151,28 @@ struct fix_desc
   long        unused;
 };
 
+typedef struct {
+  int         type_name_len;
+  tCC*        pz_type;
+  tCC*        pz_TYPE;
+  tCC*        pz_gtype;
+  tCC*        pz_cxx_guard;
+} t_gnu_type_map;
+
+extern int gnu_type_map_ct;
+
 /*
  *  Exported procedures
  */
 char * load_file_data _P_(( FILE* fp ));
+#ifdef IS_CXX_HEADER_NEEDED
 t_bool is_cxx_header  _P_(( tCC* filename, tCC* filetext ));
+#endif /* IS_CXX_HEADER_NEEDED */
+#ifdef SKIP_QUOTE_NEEDED
+tCC*   skip_quote  _P_(( char  q, char* text ));
+#endif
 void   compile_re     _P_(( tCC* pat, regex_t* re, int match,
 			    tCC *e1, tCC *e2 ));
-void*  must_malloc    _P_(( size_t ));
 
 void apply_fix _P_(( tFixDesc* p_fixd, tCC* filname ));
 apply_fix_p_t run_test _P_((tCC* t_name, tCC* f_name, tCC* text ));

@@ -1176,6 +1176,8 @@ parse_float (data)
   else
     {
       errno = 0;
+      if (flag_single_precision_constant)
+        args->type = float_type_node;
       if (args->base == 16)
 	args->value = REAL_VALUE_HTOF (copy, TYPE_MODE (args->type));
       else
@@ -1566,7 +1568,7 @@ yylex ()
 	  {
 	    if (c == '.')
 	      {
-		if (base == 16 && pedantic)
+		if (base == 16 && pedantic && !flag_isoc99)
 		  pedwarn ("floating constant may not be in radix 16");
 		if (floatflag == TOO_MANY_POINTS)
 		  /* We have already emitted an error.  Don't need another.  */
@@ -2383,17 +2385,20 @@ yylex ()
 
 	      /* digraphs */
 	    case ':':
-	      if (c1 == '>')
+	      if (c1 == '>' && flag_digraphs)
 		{ value = ']'; goto done; }
 	      break;
 	    case '<':
-	      if (c1 == '%')
-		{ value = '{'; indent_level++; goto done; }
-	      if (c1 == ':')
-		{ value = '['; goto done; }
+	      if (flag_digraphs)
+		{
+		  if (c1 == '%')
+		    { value = '{'; indent_level++; goto done; }
+		  if (c1 == ':')
+		    { value = '['; goto done; }
+		}
 	      break;
 	    case '%':
-	      if (c1 == '>')
+	      if (c1 == '>' && flag_digraphs)
 		{ value = '}'; indent_level--; goto done; }
 	      break;
 	    }

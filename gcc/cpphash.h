@@ -25,11 +25,61 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 typedef unsigned char U_CHAR;
 #define U (const U_CHAR *)  /* Intended use: U"string" */
 
-/* Structure used for assertion predicates.  */
-struct predicate
+/* Tokens with SPELL_STRING store their spelling in the token list,
+   and it's length in the token->val.name.len.  */
+enum spell_type
 {
-  struct predicate *next;
-  struct cpp_toklist answer;
+  SPELL_OPERATOR = 0,
+  SPELL_CHAR,
+  SPELL_IDENT,
+  SPELL_STRING,
+  SPELL_NONE
+};
+
+struct token_spelling
+{
+  ENUM_BITFIELD(spell_type) type : CHAR_BIT;
+  const U_CHAR *spelling;
+};
+
+extern const struct token_spelling token_spellings[];
+#define TOKEN_SPELL(token) (token_spellings[(token)->type].type)
+
+/* Chained list of answers to an assertion.  */
+struct answer
+{
+  struct answer *next;
+  cpp_toklist list;
+};
+#define FREE_ANSWER(answer) do {_cpp_free_toklist (&answer->list); \
+				free (answer); } while (0)
+
+/* Values for the origin field of struct directive.  KANDR directives
+   come from traditional (K&R) C.  STDC89 directives come from the
+   1989 C standard.  EXTENSION directives are extensions.  */
+#define KANDR		0
+#define STDC89		1
+#define EXTENSION	2
+
+/* Values for the flags field of struct directive.  COND indicates a
+   conditional.  EXPAND means that macros are to be expanded on the
+   directive line.  INCL means to treat "..." and <...> as
+   q-char-sequence and h-char-sequence respectively.  COMMENTS means
+   preserve comments in the directive if -C.  */
+#define COND		(1 << 0)
+#define EXPAND   	(1 << 1)
+#define INCL		(1 << 2)
+#define COMMENTS	(1 << 3)
+
+/* Defines one #-directive, including how to handle it.  */
+typedef void (*directive_handler) PARAMS ((cpp_reader *));
+struct directive
+{
+  directive_handler handler;	/* Function to handle directive.  */
+  const U_CHAR *name;		/* Name of directive.  */
+  unsigned short length;	/* Length of name.  */
+  unsigned char origin;		/* Origin of directive.  */
+  unsigned char flags;	        /* Flags describing this directive.  */
 };
 
 /* List of directories to look for include files in. */
@@ -67,6 +117,20 @@ struct include_file
   time_t  date;                 /* modification date of file, if known */
 };
 
+/* Special nodes - identifiers with predefined significance.
+   Note that the array length of dirs[] must be kept in sync with
+   cpplib.c's dtable[].  */
+struct spec_nodes
+{
+  cpp_hashnode *n_L;			/* L"str" */
+  cpp_hashnode *n_defined;		/* #if defined */
+  cpp_hashnode *n__STRICT_ANSI__;	/* STDC_0_IN_SYSTEM_HEADERS */
+  cpp_hashnode *n__CHAR_UNSIGNED__;	/* plain char is unsigned */
+  cpp_hashnode *n__VA_ARGS__;		/* C99 vararg macros */
+  cpp_hashnode *dirs[19];		/* 19 directives counting #sccs */
+};
+
+
 /* The cmacro works like this: If it's NULL, the file is to be
    included again.  If it's NEVER_REREAD, the file is never to be
    included again.  Otherwise it is a macro hashnode, and the file is
@@ -78,12 +142,17 @@ struct include_file
 
 /* Character classes.
    If the definition of `numchar' looks odd to you, please look up the
-   definition of a pp-number in the C standard [section 6.4.8 of C99] */
+   definition of a pp-number in the C standard [section 6.4.8 of C99].
+
+   In the unlikely event that characters other than \r and \n enter
+   the set is_vspace, the macro handle_newline() in cpplex.c must be
+   updated.  */
 #define ISidnum		0x01	/* a-zA-Z0-9_ */
 #define ISidstart	0x02	/* _a-zA-Z */
 #define ISnumstart	0x04	/* 0-9 */
-#define IShspace	0x08	/* ' ' \t \f \v */
-#define ISspace		0x10	/* ' ' \t \f \v \n */
+#define IShspace	0x08	/* ' ' \t */
+#define ISvspace	0x10	/* \r \n */
+#define ISspace		0x20	/* ' ' \t \r \n \f \v \0 */
 
 #define _dollar_ok(x)	((x) == '$' && CPP_OPTION (pfile, dollars_in_ident))
 
@@ -92,6 +161,8 @@ struct include_file
 #define is_numchar(x)	(_cpp_IStable[x] & ISidnum)
 #define is_numstart(x)	(_cpp_IStable[x] & ISnumstart)
 #define is_hspace(x)	(_cpp_IStable[x] & IShspace)
+#define is_vspace(x)	(_cpp_IStable[x] & ISvspace)
+#define is_nvspace(x)	((_cpp_IStable[x] & (ISspace | ISvspace)) == ISspace)
 #define is_space(x)	(_cpp_IStable[x] & ISspace)
 
 /* This table is constant if it can be initialized at compile time,
@@ -104,12 +175,6 @@ extern unsigned char _cpp_IStable[256];
 #endif
 
 /* Macros.  */
-
-/* One character lookahead in the input buffer.  Note that if this
-   returns EOF, it does *not* necessarily mean the file's end has been
-   reached.  */
-#define CPP_BUF_PEEK(BUFFER) \
-  ((BUFFER)->cur < (BUFFER)->rlimit ? *(BUFFER)->cur : EOF)
 
 /* Make sure PFILE->token_buffer has space for at least N more characters. */
 #define CPP_RESERVE(PFILE, N) \
@@ -127,121 +192,100 @@ extern unsigned char _cpp_IStable[256];
 /* Append character CH to PFILE's output buffer.  Make space if need be. */
 #define CPP_PUTC(PFILE, CH) (CPP_RESERVE (PFILE, 1), CPP_PUTC_Q (PFILE, CH))
 
-/* Advance the current line by one. */
-#define CPP_BUMP_BUFFER_LINE(PBUF) ((PBUF)->lineno++,\
-				    (PBUF)->line_base = (PBUF)->cur)
-#define CPP_BUMP_LINE(PFILE) CPP_BUMP_BUFFER_LINE(CPP_BUFFER(PFILE))
-#define CPP_BUMP_BUFFER_LINE_CUR(PBUF, CUR) ((PBUF)->lineno++,\
-				             (PBUF)->line_base = CUR)
-#define CPP_BUMP_LINE_CUR(PFILE, CUR) \
-                            CPP_BUMP_BUFFER_LINE_CUR(CPP_BUFFER(PFILE), CUR)
 #define CPP_PREV_BUFFER(BUFFER) ((BUFFER)->prev)
-
-/* Are we in column 1 right now?  Used mainly for -traditional handling
-   of directives.  */
-#define CPP_IN_COLUMN_1(PFILE) \
-(CPP_BUFFER (PFILE)->cur - CPP_BUFFER (PFILE)->line_base == 1)
-
 #define CPP_PRINT_DEPS(PFILE) CPP_OPTION (PFILE, print_deps)
-#define CPP_TRADITIONAL(PFILE) CPP_OPTION (PFILE, traditional)
-#define CPP_IN_SYSTEM_HEADER(PFILE) (cpp_file_buffer (PFILE)->inc->sysp)
+#define CPP_IN_SYSTEM_HEADER(PFILE) \
+  (CPP_BUFFER (PFILE) && CPP_BUFFER (PFILE)->inc \
+   && CPP_BUFFER (PFILE)->inc->sysp)
 #define CPP_PEDANTIC(PF) \
   (CPP_OPTION (PF, pedantic) && !CPP_IN_SYSTEM_HEADER (PF))
 #define CPP_WTRADITIONAL(PF) \
   (CPP_OPTION (PF, warn_traditional) && !CPP_IN_SYSTEM_HEADER (PF))
 
-/* CPP_IS_MACRO_BUFFER is true if the buffer contains macro expansion.
-   (Note that it is false while we're expanding macro *arguments*.) */
-#define CPP_IS_MACRO_BUFFER(PBUF) ((PBUF)->macro != NULL)
-
-/* Remember the current position of PFILE so it may be returned to
-   after looking ahead a bit.
-
-   Note that when you set a mark, you _must_ return to that mark.  You
-   may not forget about it and continue parsing.  You may not pop a
-   buffer with an active mark.  You may not call CPP_BUMP_LINE while a
-   mark is active.  */
-#define CPP_SET_BUF_MARK(IP)   ((IP)->mark = (IP)->cur)
-#define CPP_GOTO_BUF_MARK(IP)  ((IP)->cur = (IP)->mark,	(IP)->mark = 0)
-#define CPP_SET_MARK(PFILE)  CPP_SET_BUF_MARK(CPP_BUFFER(PFILE))
-#define CPP_GOTO_MARK(PFILE) CPP_GOTO_BUF_MARK(CPP_BUFFER(PFILE))
-
-/* ACTIVE_MARK_P is true if there's a live mark in the buffer.  */
-#define ACTIVE_MARK_P(PFILE) (CPP_BUFFER (PFILE)->mark != 0)
-
-/* Are mark and point adjacent characters?  Used mostly to deal with
-   the somewhat annoying semantic of #define.  */
-#define ADJACENT_TO_MARK(PFILE) \
- (CPP_BUFFER(PFILE)->cur - CPP_BUFFER(PFILE)->mark == 1)
+/* Hash step.  The hash calculation is duplicated in cpp_lookup and
+   parse_name.  */
+#define HASHSTEP(r, str) ((r) * 67 + (*str - 113));
 
 /* Flags for _cpp_init_toklist.  */
 #define DUMMY_TOKEN     0
 #define NO_DUMMY_TOKEN	1
 
-/* In cpphash.c */
-extern unsigned int _cpp_calc_hash	PARAMS ((const U_CHAR *, size_t));
+/* In cppmacro.c */
 extern void _cpp_free_definition	PARAMS ((cpp_hashnode *));
-extern int _cpp_create_definition	PARAMS ((cpp_reader *, cpp_toklist *,
-						 cpp_hashnode *));
+extern int _cpp_create_definition	PARAMS ((cpp_reader *, cpp_hashnode *));
 extern void _cpp_dump_definition	PARAMS ((cpp_reader *, cpp_hashnode *));
-extern void _cpp_quote_string		PARAMS ((cpp_reader *, const U_CHAR *));
-extern void _cpp_macroexpand		PARAMS ((cpp_reader *, cpp_hashnode *));
-extern void _cpp_init_macro_hash	PARAMS ((cpp_reader *));
-extern void _cpp_dump_macro_hash	PARAMS ((cpp_reader *));
+
+/* In cpphash.c */
+extern void _cpp_init_macros		PARAMS ((cpp_reader *));
+extern void _cpp_cleanup_macros		PARAMS ((cpp_reader *));
+extern cpp_hashnode *_cpp_lookup_with_hash PARAMS ((cpp_reader*, const U_CHAR *,
+						    size_t, unsigned int));
 
 /* In cppfiles.c */
 extern void _cpp_simplify_pathname	PARAMS ((char *));
-extern void _cpp_execute_include	PARAMS ((cpp_reader *, U_CHAR *,
+extern void _cpp_execute_include	PARAMS ((cpp_reader *, const U_CHAR *,
 						 unsigned int, int,
-						 struct file_name_list *));
-extern int _cpp_compare_file_date       PARAMS ((cpp_reader *, U_CHAR *,
-                                                 unsigned int,
-                                                 struct file_name_list *));
-extern void _cpp_init_include_table	PARAMS ((cpp_reader *));
+						 struct file_name_list *,
+						 int));
+extern int _cpp_compare_file_date       PARAMS ((cpp_reader *, const U_CHAR *,
+                                                 unsigned int, int));
+extern void _cpp_report_missing_guards	PARAMS ((cpp_reader *));
+extern void _cpp_init_includes		PARAMS ((cpp_reader *));
+extern void _cpp_cleanup_includes	PARAMS ((cpp_reader *));
 extern const char *_cpp_fake_include	PARAMS ((cpp_reader *, const char *));
+extern void _cpp_pop_file_buffer	PARAMS ((cpp_reader *, cpp_buffer *));
 
 /* In cppexp.c */
 extern int _cpp_parse_expr		PARAMS ((cpp_reader *));
 
 /* In cpplex.c */
-extern void _cpp_parse_name		PARAMS ((cpp_reader *, int));
 extern void _cpp_skip_rest_of_line	PARAMS ((cpp_reader *));
-extern void _cpp_skip_hspace		PARAMS ((cpp_reader *));
-extern void _cpp_expand_to_buffer	PARAMS ((cpp_reader *,
-						 const unsigned char *, int));
-extern int _cpp_parse_assertion		PARAMS ((cpp_reader *));
-extern enum cpp_ttype _cpp_lex_token	PARAMS ((cpp_reader *));
-extern ssize_t _cpp_prescan		PARAMS ((cpp_reader *, cpp_buffer *,
-						 ssize_t));
+extern void _cpp_free_temp_tokens	PARAMS ((cpp_reader *));
 extern void _cpp_init_input_buffer	PARAMS ((cpp_reader *));
 extern void _cpp_grow_token_buffer	PARAMS ((cpp_reader *, long));
-extern enum cpp_ttype _cpp_get_directive_token
-					PARAMS ((cpp_reader *));
-extern enum cpp_ttype _cpp_get_define_token
-					PARAMS ((cpp_reader *));
-extern enum cpp_ttype _cpp_scan_until	PARAMS ((cpp_reader *, cpp_toklist *,
-						 enum cpp_ttype));
 extern void _cpp_init_toklist		PARAMS ((cpp_toklist *, int));
 extern void _cpp_clear_toklist		PARAMS ((cpp_toklist *));
-extern void _cpp_free_toklist		PARAMS ((cpp_toklist *));
-extern void _cpp_slice_toklist		PARAMS ((cpp_toklist *,
-						 const cpp_token *,
-						 const cpp_token *));
-extern void _cpp_squeeze_toklist	PARAMS ((cpp_toklist *));
+extern void _cpp_free_toklist		PARAMS ((const cpp_toklist *));
 extern int _cpp_equiv_tokens		PARAMS ((const cpp_token *,
 						 const cpp_token *));
 extern int _cpp_equiv_toklists		PARAMS ((const cpp_toklist *,
 						 const cpp_toklist *));
 extern void _cpp_expand_token_space	PARAMS ((cpp_toklist *, unsigned int));
+extern void _cpp_reserve_name_space	PARAMS ((cpp_toklist *, unsigned int));
+extern void _cpp_expand_name_space	PARAMS ((cpp_toklist *, unsigned int));
+extern void _cpp_dump_list		PARAMS ((cpp_reader *,
+						 const cpp_toklist *,
+						 const cpp_token *, int));
+extern int _cpp_equiv_tokens		PARAMS ((const cpp_token *,
+						 const cpp_token *));
+extern void _cpp_run_directive		PARAMS ((cpp_reader *,
+						 const struct directive *,
+						 const char *, size_t));
+extern unsigned int _cpp_get_line	PARAMS ((cpp_reader *,
+						 unsigned int *));
+extern const cpp_token *_cpp_get_token PARAMS ((cpp_reader *));
+extern const cpp_token *_cpp_get_raw_token PARAMS ((cpp_reader *));
+extern void _cpp_push_token PARAMS ((cpp_reader *, const cpp_token*));
+extern const cpp_token *_cpp_glue_header_name PARAMS ((cpp_reader *));
+extern const U_CHAR *_cpp_spell_operator PARAMS ((enum cpp_ttype));
 
 /* In cpplib.c */
-extern int _cpp_handle_directive	PARAMS ((cpp_reader *));
-extern void _cpp_unwind_if_stack	PARAMS ((cpp_reader *, cpp_buffer *));
-extern void _cpp_check_directive        PARAMS ((cpp_toklist *, cpp_token *));
+extern const struct directive *_cpp_check_directive
+			PARAMS ((cpp_reader *, const cpp_token *, int));
+extern const struct directive *_cpp_check_linemarker
+			PARAMS ((cpp_reader *, const cpp_token *, int));
+extern cpp_hashnode *_cpp_parse_assertion PARAMS ((cpp_reader *,
+						    struct answer **));
+extern struct answer **_cpp_find_answer	PARAMS ((cpp_hashnode *,
+						 const cpp_toklist *));
+extern void _cpp_init_stacks	PARAMS ((cpp_reader *));
+extern void _cpp_cleanup_stacks	PARAMS ((cpp_reader *));
 
 /* Utility routines and macros.  */
 #define xnew(T)		(T *) xmalloc (sizeof(T))
 #define xnewvec(T, N)	(T *) xmalloc (sizeof(T) * (N))
+#define xcnewvec(T, N)	(T *) xcalloc (N, sizeof(T))
+#define xobnew(O, T)	(T *) obstack_alloc (O, sizeof(T))
 
 /* These are inline functions instead of macros so we can get type
    checking.  */

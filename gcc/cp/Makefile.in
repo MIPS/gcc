@@ -179,8 +179,8 @@ CXX_OBJS = call.o decl.o errfn.o expr.o pt.o typeck2.o \
  repo.o dump.o optimize.o mangle.o @extra_cxx_objs@
 
 # Language-independent object files.
-OBJS = `cat ../stamp-objlist` ../c-common.o ../c-pragma.o
-OBJDEPS = ../stamp-objlist ../c-common.o ../c-pragma.o
+OBJS = `cat ../stamp-objlist` ../c-common.o ../c-pragma.o ../c-semantics.o
+OBJDEPS = ../stamp-objlist ../c-common.o ../c-pragma.o ../c-semantics.o
 
 compiler: ../cc1plus$(exeext)
 ../cc1plus$(exeext): $(P) $(OBJDEPS) $(CXX_OBJS) $(LIBDEPS)
@@ -220,8 +220,7 @@ parse.o : $(PARSE_C) $(CXX_TREE_H) $(srcdir)/../flags.h lex.h \
   `echo $(PARSE_C) | sed 's,^\./,,'`
 
 CONFLICTS = expect 33 shift/reduce conflicts and 58 reduce/reduce conflicts.
-$(PARSE_H) : $(PARSE_C)
-$(PARSE_C) : $(srcdir)/parse.y
+$(PARSE_H) $(PARSE_C) : $(srcdir)/parse.y
 	@echo $(CONFLICTS)
 	cd $(srcdir); $(BISON) $(BISONFLAGS) -d -o parse.c parse.y
 	cd $(srcdir); grep '^#define[ 	]*YYEMPTY' parse.c >>parse.h

@@ -333,6 +333,10 @@ int flag_traditional;
 
 int flag_isoc99 = 0;
 
+/* Nonzero means accept digraphs.  */
+
+int flag_digraphs = 1;
+
 /* Nonzero means that we have builtin functions, and main is an int */
 
 int flag_hosted = 1;
@@ -458,6 +462,10 @@ int warn_float_equal = 0;
 
 int warn_multichar = 1;
 
+/* Wrapper since C and C++ expand_expr_stmt are different. */
+
+expand_expr_stmt_fn lang_expand_expr_stmt = c_expand_expr_stmt;
+
 /* The variant of the C language being processed.  */
 
 c_language_kind c_language = clk_c;
@@ -490,6 +498,7 @@ c_decode_option (argc, argv)
     {
       flag_traditional = 1;
       flag_writable_strings = 1;
+      flag_digraphs = 0;
     }
   else if (!strcmp (p, "-fallow-single-precision"))
     flag_allow_single_precision = 1;
@@ -510,6 +519,7 @@ c_decode_option (argc, argv)
     {
       flag_traditional = 0;
       flag_writable_strings = 0;
+      flag_digraphs = 1;
     }
   else if (!strncmp (p, "-std=", 5))
     {
@@ -529,6 +539,8 @@ c_decode_option (argc, argv)
 	  || !strcmp (argstart, "c89"))
 	{
 	iso_1990:
+	  flag_digraphs = 0;
+	iso_1990_digraphs:
 	  flag_traditional = 0;
 	  flag_writable_strings = 0;
 	  flag_no_asm = 1;
@@ -537,8 +549,9 @@ c_decode_option (argc, argv)
 	}
       else if (!strcmp (argstart, "iso9899:199409"))
 	{
-	  /* ??? The changes since ISO C 1990 are not supported.  */
-	  goto iso_1990;
+	  flag_digraphs = 1;
+	  /* ??? The other changes since ISO C 1990 are not supported.  */
+	  goto iso_1990_digraphs;
 	}
       else if (!strcmp (argstart, "iso9899:199x")
 	       || !strcmp (argstart, "iso9899:1999")
@@ -550,6 +563,7 @@ c_decode_option (argc, argv)
 	  flag_no_asm = 1;
 	  flag_no_nonansi_builtin = 1;
 	  flag_isoc99 = 1;
+	  flag_digraphs = 1;
 	}
       else if (!strcmp (argstart, "gnu89"))
 	{
@@ -558,6 +572,7 @@ c_decode_option (argc, argv)
 	  flag_no_asm = 0;
 	  flag_no_nonansi_builtin = 0;
 	  flag_isoc99 = 0;
+	  flag_digraphs = 1;
 	}
       else if (!strcmp (argstart, "gnu9x") || !strcmp (argstart, "gnu99"))
 	{
@@ -566,6 +581,7 @@ c_decode_option (argc, argv)
 	  flag_no_asm = 0;
 	  flag_no_nonansi_builtin = 0;
 	  flag_isoc99 = 1;
+	  flag_digraphs = 1;
 	}
       else
 	error ("unknown C standard `%s'", argstart);
@@ -1847,7 +1863,14 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
       if (TREE_THIS_VOLATILE (newdecl))
 	{
 	  TREE_THIS_VOLATILE (write_olddecl) = 1;
-	  if (TREE_CODE (newdecl) == VAR_DECL)
+	  if (TREE_CODE (newdecl) == VAR_DECL
+	      /* If an automatic variable is re-declared in the same
+		 function scope, but the old declaration was not
+		 volatile, make_var_volatile() would crash because the
+		 variable would have been assigned to a pseudo, not a
+		 MEM.  Since this duplicate declaration is invalid
+		 anyway, we just skip the call.  */
+	      && errmsg == 0)
 	    make_var_volatile (newdecl);
 	}
 
@@ -1981,7 +2004,7 @@ duplicate_decls (newdecl, olddecl, different_binding_level)
 	  DECL_SAVED_INSNS (newdecl) = DECL_SAVED_INSNS (olddecl);
 	  DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
 	  if (DECL_INLINE (newdecl))
-	    DECL_ABSTRACT_ORIGIN (newdecl) = DECL_ORIGIN (olddecl);
+	    DECL_ABSTRACT_ORIGIN (newdecl) = DECL_ABSTRACT_ORIGIN (olddecl);
 	}
     }
   if (different_binding_level)
@@ -2738,6 +2761,10 @@ define_label (filename, line, name)
       decl = lookup_label (name);
     }
 
+  if (warn_traditional && lookup_name (name))
+    warning ("traditional C lacks a separate namespace for labels, identifier `%s' conflicts",
+	     IDENTIFIER_POINTER (name));
+  
   if (DECL_INITIAL (decl) != 0)
     {
       error ("duplicate label `%s'", IDENTIFIER_POINTER (name));
@@ -6955,6 +6982,127 @@ lang_mark_tree (t)
     }
   else if (TYPE_P (t) && TYPE_LANG_SPECIFIC (t))
     ggc_mark (TYPE_LANG_SPECIFIC (t));
+}
+
+/* The functions below are required for functionality of doing
+   function at once processing in the C front end. Currently these
+   functions are not called from anywhere in the C front end, but as
+   these changes continue, that will change. */
+
+/* Returns non-zero if the current statement is a full expression,
+   i.e. temporaries created during that statement should be destroyed
+   at the end of the statement.  */
+
+int
+stmts_are_full_exprs_p ()
+{
+  return 0;
+}
+
+/* Nonzero if TYPE is an anonymous union or struct type.  Always 0 in
+   C. */
+
+int 
+anon_aggr_type_p (node)
+     tree node ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
+/* One if we have already declared __FUNCTION__ (and related
+   variables) in the current function.  Two if we are in the process
+   of doing so.  */
+
+int
+current_function_name_declared ()
+{
+  abort ();
+  return 0;
+}
+
+/* Code to generate the RTL for a case label in C. */
+
+void
+do_case (low_value, high_value)
+     tree low_value;
+     tree high_value;
+{
+  tree value1 = NULL_TREE, value2 = NULL_TREE, label;
+
+  if (low_value != NULL_TREE)
+    value1 = check_case_value (low_value);
+  if (high_value != NULL_TREE)
+    value2 = check_case_value (high_value);
+
+  label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
+  
+  if (pedantic && (high_value != NULL_TREE))
+    pedwarn ("ANSI C forbids case ranges");
+
+  if (value1 != error_mark_node && value2 != error_mark_node)
+    {
+      tree duplicate;
+      int success;
+      
+      if (high_value == NULL_TREE && value1 != NULL_TREE &&
+	  pedantic && ! INTEGRAL_TYPE_P (TREE_TYPE (value1)))
+	pedwarn ("label must have integral type in ANSI C");
+      
+      if (low_value == NULL_TREE)
+	success = pushcase (NULL_TREE, 0, label, &duplicate);
+      else if (high_value == NULL_TREE)
+	success = pushcase (value1, convert_and_check, label,
+			    &duplicate);
+      else
+	success = pushcase_range (value1, value2, convert_and_check,
+				  label, &duplicate);
+      
+      if (success == 1)
+	{
+	  if (low_value == NULL_TREE)
+	    error ("default label not within a switch statement");
+	  else
+	    error ("case label not within a switch statement");
+	}
+      else if (success == 2) {
+	if (low_value == NULL_TREE) 
+	  {
+	    error ("multiple default labels in one switch");
+	    error_with_decl (duplicate, "this is the first default label");
+	  }
+	else
+	  error ("dupicate case value");
+	if (high_value != NULL_TREE)
+	  error_with_decl (duplicate, "this is the first entry for that value");
+      }
+      else if (low_value != NULL_TREE) 
+	{
+	  if (success == 3)
+	    warning ("case value out of range");
+	  else if (success == 5)
+	    error ("case label within scope of cleanup or variable array");
+	}
+    }
+}
+
+/* Language specific handler of tree nodes used when generating RTL
+   from a tree. */
+
+tree
+lang_expand_stmt (t)
+     tree t ATTRIBUTE_UNUSED;
+{
+  abort ();
+  return NULL_TREE;
+}
+
+/* Accessor to set the 'current_function_name_declared' flag. */
+
+void
+set_current_function_name_declared (i)
+     int i ATTRIBUTE_UNUSED;
+{
+  abort ();
 }
 
 /* BP_FUNC is a FUNCTION_DECL node that has simple (depth=1) pointer

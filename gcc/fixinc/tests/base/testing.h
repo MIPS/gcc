@@ -22,6 +22,13 @@ BSD43__IOWR('T', 1) /* Some are multi-line */
 #endif  /* IO_QUOTES_USE_CHECK */
 
 
+#if defined( LIBC1_IFDEFD_MEMX_CHECK )
+/* Copy N bytes of SRC to DEST.  */
+extern __ptr_t memcpy __P ((__ptr_t __dest, __const __ptr_t __src,
+                         size_t __n));
+#endif  /* LIBC1_IFDEFD_MEMX_CHECK */
+
+
 #if defined( MACHINE_NAME_CHECK )
 /* MACH_DIFF: */
 #if defined( __i386__ ) || defined( sparc ) || defined( vax )
@@ -34,6 +41,22 @@ BSD43__IOWR('T', 1) /* Some are multi-line */
 int foo;
 #endif
 #endif  /* SCO_STRICT_ANSI_CHECK */
+
+
+#if defined( SYSV68_STRING_CHECK )
+extern unsigned int strlen();
+extern int ffs(int);
+extern void
+	*memccpy(),
+	memcpy();
+extern int
+	strncmp();
+extern unsigned int
+	strlen(),
+	strspn();
+extern size_t
+	strlen(), strspn();
+#endif  /* SYSV68_STRING_CHECK */
 
 
 #if defined( UNDEFINE_NULL_CHECK )

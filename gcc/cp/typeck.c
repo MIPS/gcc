@@ -46,7 +46,7 @@ static tree convert_for_assignment PARAMS ((tree, tree, const char *, tree,
 					  int));
 static tree pointer_int_sum PARAMS ((enum tree_code, tree, tree));
 static tree rationalize_conditional_expr PARAMS ((enum tree_code, tree));
-static int comp_target_parms PARAMS ((tree, tree, int));
+static int comp_target_parms PARAMS ((tree, tree));
 static int comp_ptr_ttypes_real PARAMS ((tree, tree, int));
 static int comp_ptr_ttypes_const PARAMS ((tree, tree));
 static int comp_ptr_ttypes_reinterpret PARAMS ((tree, tree));
@@ -61,6 +61,7 @@ static tree lookup_anon_field PARAMS ((tree, tree));
 static tree pointer_diff PARAMS ((tree, tree, tree));
 static tree build_component_addr PARAMS ((tree, tree));
 static tree qualify_type PARAMS ((tree, tree));
+static tree qualify_type_recursive PARAMS ((tree, tree));
 static tree get_delta_difference PARAMS ((tree, tree, int));
 static int comp_cv_target_types PARAMS ((tree, tree, int));
 static void casts_away_constness_r PARAMS ((tree *, tree *));
@@ -209,6 +210,44 @@ qualify_type (type, like)
   return cp_build_qualified_type (type, (CP_TYPE_QUALS (type) 
 					 | CP_TYPE_QUALS (like)));
 }
+
+/* Return a pointer or pointer to member type similar to T1, with a
+   cv-qualification signature that is the union of the cv-qualification
+   signatures of T1 and T2: [expr.rel], [expr.eq].  */
+
+static tree
+qualify_type_recursive (t1, t2)
+     tree t1, t2;
+{
+  if ((TYPE_PTR_P (t1) && TYPE_PTR_P (t2))
+      || (TYPE_PTRMEM_P (t1) && TYPE_PTRMEM_P (t2)))
+    {
+      tree tt1 = TREE_TYPE (t1);
+      tree tt2 = TREE_TYPE (t2);
+      tree b1;
+      int type_quals;
+      tree target;
+      tree attributes = merge_machine_type_attributes (t1, t2);
+
+      if (TREE_CODE (tt1) == OFFSET_TYPE)
+	{
+	  b1 = TYPE_OFFSET_BASETYPE (tt1);
+	  tt1 = TREE_TYPE (tt1);
+	  tt2 = TREE_TYPE (tt2);
+	}
+      else
+	b1 = NULL_TREE;
+
+      type_quals = (CP_TYPE_QUALS (tt1) | CP_TYPE_QUALS (tt2));
+      target = qualify_type_recursive (tt1, tt2);
+      target = cp_build_qualified_type (target, type_quals);
+      if (b1)
+	target = build_offset_type (b1, target);
+      t1 = build_pointer_type (target);
+      t1 = build_type_attribute_variant (t1, attributes);
+    }
+  return t1;
+}
 
 /* Return the common type of two parameter lists.
    We assume that comptypes has already been done and returned 1;
@@ -224,7 +263,6 @@ commonparms (p1, p2)
   tree oldargs = p1, newargs, n;
   int i, len;
   int any_change = 0;
-  char *first_obj = (char *) oballoc (0);
 
   len = list_length (p1);
   newargs = tree_last (p1);
@@ -273,10 +311,7 @@ commonparms (p1, p2)
 	TREE_VALUE (n) = TREE_VALUE (p1);
     }
   if (! any_change)
-    {
-      obfree (first_obj);
-      return oldargs;
-    }
+    return oldargs;
 
   return newargs;
 }
@@ -441,49 +476,35 @@ composite_pointer_type (t1, t2, arg1, arg2, location)
   if (TYPE_PTRMEMFUNC_P (t2))
     t2 = TYPE_PTRMEMFUNC_FN_TYPE (t2);
   
-  if (comp_target_types (t1, t2, 1))
-    result_type = common_type (t1, t2);
-  else if (VOID_TYPE_P (TREE_TYPE (t1)))
+  if (VOID_TYPE_P (TREE_TYPE (t1)))
     {
-      if (pedantic && TREE_CODE (t2) == FUNCTION_TYPE)
+      if (pedantic && TYPE_PTRFN_P (t2))
 	pedwarn ("ISO C++ forbids %s between pointer of type `void *' and pointer-to-function", location);
       result_type = qualify_type (t1, t2);
     }
   else if (VOID_TYPE_P (TREE_TYPE (t2)))
     {
-      if (pedantic && TREE_CODE (t1) == FUNCTION_TYPE)
+      if (pedantic && TYPE_PTRFN_P (t1))
 	pedwarn ("ISO C++ forbids %s between pointer of type `void *' and pointer-to-function", location);
       result_type = qualify_type (t2, t1);
     }
-  /* C++ */
-  else if (same_or_base_type_p (t2, t1))
-    result_type = t2;
-  else if (IS_AGGR_TYPE (TREE_TYPE (t1))
-	   && IS_AGGR_TYPE (TREE_TYPE (t2))
-	   && (result_type = common_base_type (TREE_TYPE (t1),
-					       TREE_TYPE (t2))))
-    {
-      if (result_type == error_mark_node)
-	{
-	  cp_error ("common base type of types `%T' and `%T' is ambiguous",
-		    TREE_TYPE (t1), TREE_TYPE (t2));
-	  result_type = ptr_type_node;
-	}
-      else
-	{
-	  if (pedantic
-	      && result_type != TREE_TYPE (t1)
-	      && result_type != TREE_TYPE (t2))
-	    cp_pedwarn ("types `%T' and `%T' converted to `%T *' in %s",
-			t1, t2, result_type, location);
-	  
-	  result_type = build_pointer_type (result_type);
-	}
-    }
   else
     {
-      cp_pedwarn ("pointer type mismatch in %s", location);
-      result_type = ptr_type_node;
+      tree full1 = qualify_type_recursive (t1, t2);
+      tree full2 = qualify_type_recursive (t2, t1);
+
+      int val = comp_target_types (full1, full2, 1);
+
+      if (val > 0)
+	result_type = full1;
+      else if (val < 0)
+	result_type = full2;
+      else
+	{
+	  cp_pedwarn ("%s between distinct pointer types `%T' and `%T' lacks a cast",
+		      location, t1, t2);
+	  result_type = ptr_type_node;
+	}
     }
 
   return result_type;
@@ -1230,7 +1251,7 @@ comp_target_types (ttl, ttr, nptrs)
 	  argsr = TREE_CHAIN (argsr);
 	}
 
-	switch (comp_target_parms (argsl, argsr, 1))
+	switch (comp_target_parms (argsl, argsr))
 	  {
 	  case 0:
 	    return 0;
@@ -1451,9 +1472,8 @@ compparms (parms1, parms2)
    (jason 17 Apr 1997)  */
 
 static int
-comp_target_parms (parms1, parms2, strict)
+comp_target_parms (parms1, parms2)
      tree parms1, parms2;
-     int strict;
 {
   register tree t1 = parms1, t2 = parms2;
   int warn_contravariance = 0;
@@ -1483,13 +1503,7 @@ comp_target_parms (parms1, parms2, strict)
       /* If one parmlist is shorter than the other,
 	 they fail to match, unless STRICT is <= 0.  */
       if (t1 == 0 || t2 == 0)
-	{
-	  if (strict > 0)
-	    return 0;
-	  if (strict < 0)
-	    return 1 + warn_contravariance;
-	  return ((t1 && TREE_PURPOSE (t1)) + warn_contravariance);
-	}
+	return 0;
       p1 = TREE_VALUE (t1);
       p2 = TREE_VALUE (t2);
       if (same_type_p (p1, p2))
@@ -1502,11 +1516,6 @@ comp_target_parms (parms1, parms2, strict)
 	  || (TREE_CODE (p1) == REFERENCE_TYPE
 	      && TREE_CODE (p2) == REFERENCE_TYPE))
 	{
-	  if (strict <= 0
-	      && (TYPE_MAIN_VARIANT (TREE_TYPE (p1))
-		  == TYPE_MAIN_VARIANT (TREE_TYPE (p2))))
-	    continue;
-
 	  /* The following is wrong for contravariance,
 	     but many programs depend on it.  */
 	  if (TREE_TYPE (p1) == void_type_node)
@@ -1529,8 +1538,7 @@ comp_target_parms (parms1, parms2, strict)
 	      warn_contravariance = 1;
 	      continue;
 	    }
-	  if (strict != 0)
-	    return 0;
+	  return 0;
 	}
     }
   return warn_contravariance ? -1 : 1;
@@ -3596,33 +3604,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	      || code1 == COMPLEX_TYPE))
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
-	{
-	  register tree tt0 = TYPE_MAIN_VARIANT (TREE_TYPE (type0));
-	  register tree tt1 = TYPE_MAIN_VARIANT (TREE_TYPE (type1));
-
-	  if (comp_target_types (type0, type1, 1))
-	    result_type = common_type (type0, type1);
-	  else if (VOID_TYPE_P (tt0))
-	    {
-	      if (pedantic && TREE_CODE (tt1) == FUNCTION_TYPE
-		  && tree_int_cst_lt (TYPE_SIZE (type0), TYPE_SIZE (type1)))
-		pedwarn ("ISO C++ forbids comparison of `void *' with function pointer");
-	      else if (TREE_CODE (tt1) == OFFSET_TYPE)
-		pedwarn ("ISO C++ forbids conversion of a pointer to member to `void *'");
-	    }
-	  else if (VOID_TYPE_P (tt1))
-	    {
-	      if (pedantic && TREE_CODE (tt0) == FUNCTION_TYPE
-		  && tree_int_cst_lt (TYPE_SIZE (type1), TYPE_SIZE (type0)))
-		pedwarn ("ISO C++ forbids comparison of `void *' with function pointer");
-	    }
-	  else
-	    cp_pedwarn ("comparison of distinct pointer types `%T' and `%T' lacks a cast",
-			type0, type1);
-
-	  if (result_type == NULL_TREE)
-	    result_type = ptr_type_node;
-	}
+	result_type = composite_pointer_type (type0, type1, op0, op1,
+					      "comparison");
       else if (code0 == POINTER_TYPE && null_ptr_cst_p (op1))
 	result_type = type0;
       else if (code1 == POINTER_TYPE && null_ptr_cst_p (op0))
@@ -3741,16 +3724,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	   && (code1 == INTEGER_TYPE || code1 == REAL_TYPE))
 	shorten = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
-	{
-	  if (comp_target_types (type0, type1, 1))
-	    result_type = common_type (type0, type1);
-	  else
-	    {
-	      cp_pedwarn ("comparison of distinct pointer types `%T' and `%T' lacks a cast",
-			  type0, type1);
-	      result_type = ptr_type_node;
-	    }
-	}
+	result_type = composite_pointer_type (type0, type1, op0, op1,
+					      "comparison");
       break;
 
     case LE_EXPR:
@@ -3762,16 +3737,8 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 	   && (code1 == INTEGER_TYPE || code1 == REAL_TYPE))
 	short_compare = 1;
       else if (code0 == POINTER_TYPE && code1 == POINTER_TYPE)
-	{
-	  if (comp_target_types (type0, type1, 1))
-	    result_type = common_type (type0, type1);
-	  else
-	    {
-	      cp_pedwarn ("comparison of distinct pointer types `%T' and `%T' lacks a cast",
-			  type0, type1);
-	      result_type = ptr_type_node;
-	    }
-	}
+	result_type = composite_pointer_type (type0, type1, op0, op1,
+					      "comparison");
       else if (code0 == POINTER_TYPE && TREE_CODE (op1) == INTEGER_CST
 	       && integer_zerop (op1))
 	result_type = type0;
@@ -4001,7 +3968,7 @@ build_binary_op (code, orig_op0, orig_op1, convert_p)
 						signed_type (result_type)))))
 	    /* OK */;
 	  else
-	    warning ("comparison between a signed and an unsigned integer expressions");
+	    warning ("comparison between signed and unsigned integer expressions");
 
 	  /* Warn if two unsigned values are being compared in a size
 	     larger than their original size, and one (and only one) is the
@@ -5040,21 +5007,12 @@ mark_addressable (exp)
 	  cp_warning ("address requested for `%D', which is declared `register'",
 		      x);
 	TREE_ADDRESSABLE (x) = 1;
-	TREE_USED (x) = 1;
 	if (cfun && expanding_p)
 	  put_var_into_stack (x);
 	return 1;
 
       case FUNCTION_DECL:
-	/* We have to test both conditions here.  The first may be
-	   non-zero in the case of processing a default function.  The
-	   second may be non-zero in the case of a template function.  */
-	if (DECL_LANG_SPECIFIC (x)
-	    && DECL_TEMPLATE_INFO (x) 
-	    && !DECL_TEMPLATE_SPECIALIZATION (x))
-	  mark_used (x);
 	TREE_ADDRESSABLE (x) = 1;
-	TREE_USED (x) = 1;
 	TREE_ADDRESSABLE (DECL_ASSEMBLER_NAME (x)) = 1;
 	return 1;
 
@@ -6821,29 +6779,23 @@ check_return_expr (retval)
     warning ("function declared `noreturn' has a `return' statement");
 
   /* Check for various simple errors.  */
-  if (retval == error_mark_node)
-    {
-      /* If an error occurred, there's nothing to do.  */
-      current_function_returns_null = 1;
-      return error_mark_node;
-    }
-  else if (dtor_label)
+  if (dtor_label)
     {
       if (retval)
 	error ("returning a value from a destructor");
       return NULL_TREE;
     }
-  else if (in_function_try_handler
-	   && DECL_CONSTRUCTOR_P (current_function_decl))
+  else if (DECL_CONSTRUCTOR_P (current_function_decl))
     {
-      /* If a return statement appears in a handler of the
-         function-try-block of a constructor, the program is ill-formed. */
-      error ("cannot return from a handler of a function-try-block of a constructor");
-      return error_mark_node;
+      if (in_function_try_handler)
+	/* If a return statement appears in a handler of the
+	   function-try-block of a constructor, the program is ill-formed. */
+	error ("cannot return from a handler of a function-try-block of a constructor");
+      else if (retval)
+	/* You can't return a value from a constructor.  */
+	error ("returning a value from a constructor");
+      return NULL_TREE;
     }
-  else if (retval && DECL_CONSTRUCTOR_P (current_function_decl))
-    /* You can't return a value from a constructor.  */
-    error ("returning a value from a constructor");
 
   /* Under the old ABI, constructors actually always return `this',
      even though in C++ you can't return a value from a constructor.  */
@@ -6890,13 +6842,17 @@ check_return_expr (retval)
     /* Remember that this function can sometimes return without a
        value.  */
     current_function_returns_null = 1;
+  else
+    /* Remember that this function did return a value.  */
+    current_function_returns_value = 1;
 
   /* Only operator new(...) throw(), can return NULL [expr.new/13].  */
   if ((DECL_OVERLOADED_OPERATOR_P (current_function_decl) == NEW_EXPR
        || DECL_OVERLOADED_OPERATOR_P (current_function_decl) == VEC_NEW_EXPR)
       && !TYPE_NOTHROW_P (TREE_TYPE (current_function_decl))
+      && ! flag_check_new
       && null_ptr_cst_p (retval))
-    cp_warning ("`operator new' should throw an exception, not return NULL");
+    cp_warning ("`operator new' must not return NULL unless it is declared `throw()' (or -fcheck-new is in effect)");
 
   /* Effective C++ rule 15.  See also start_function.  */
   if (warn_ecpp
@@ -6906,8 +6862,8 @@ check_return_expr (retval)
 
   /* We don't need to do any conversions when there's nothing being
      returned.  */
-  if (!retval)
-    return NULL_TREE;
+  if (!retval || retval == error_mark_node)
+    return retval;
 
   /* Do any required conversions.  */
   if (retval == result || DECL_CONSTRUCTOR_P (current_function_decl))
@@ -6928,7 +6884,7 @@ check_return_expr (retval)
 
       /* If the conversion failed, treat this just like `return;'.  */
       if (retval == error_mark_node)
-	return NULL_TREE;
+	return retval;
       /* We can't initialize a register from a AGGR_INIT_EXPR.  */
       else if (! current_function_returns_struct
 	       && TREE_CODE (retval) == TARGET_EXPR
@@ -6943,8 +6899,6 @@ check_return_expr (retval)
   if (retval && retval != result)
     retval = build (INIT_EXPR, TREE_TYPE (result), result, retval);
 
-  /* All done.  Remember that this function did return a value.  */
-  current_function_returns_value = 1;
   return retval;
 }
 
@@ -6980,7 +6934,20 @@ tree
 c_expand_start_case (exp)
      tree exp;
 {
-  expand_start_case (1, exp, TREE_TYPE (exp), "switch statement");
+  tree type;
+  tree index;
+
+  type = TREE_TYPE (exp);
+  index = get_unwidened (exp, NULL_TREE);
+  /* We can't strip a conversion from a signed type to an unsigned,
+     because if we did, int_fits_type_p would do the wrong thing
+     when checking case values for being in range,
+     and it's too hard to do the right thing.  */
+  if (TREE_UNSIGNED (TREE_TYPE (exp))
+      == TREE_UNSIGNED (TREE_TYPE (index)))
+    exp = index;
+
+  expand_start_case (1, exp, type, "switch statement");
 
   return exp;
 }

@@ -4841,6 +4841,8 @@ instantiate_class_template (type)
       TYPE_FIELDS (type) = TYPE_FIELDS (pattern);
       TYPE_METHODS (type) = TYPE_METHODS (pattern);
       CLASSTYPE_TAGS (type) = CLASSTYPE_TAGS (pattern);
+      CLASSTYPE_VBASECLASSES (type) = CLASSTYPE_VBASECLASSES (pattern);
+      
       /* Pretend that the type is complete, so that we will look
 	 inside it during name lookup and such.  */
       TYPE_SIZE (type) = bitsize_zero_node;
@@ -6513,8 +6515,10 @@ tsubst (t, args, complain, in_decl)
 	  r = build_reference_type (type);
 	r = cp_build_qualified_type_real (r, TYPE_QUALS (t), complain);
 
-	/* Will this ever be needed for TYPE_..._TO values?  */
-	layout_type (r);
+	if (r != error_mark_node)
+	  /* Will this ever be needed for TYPE_..._TO values?  */
+	  layout_type (r);
+	
 	return r;
       }
     case OFFSET_TYPE:
@@ -9712,7 +9716,7 @@ instantiate_decl (d, defer_ok)
 
       /* We already set up __FUNCTION__, etc., so we don't want to do
 	 it again now.  */
-      current_function_name_declared = 1;
+      cp_function_chain->name_declared = 1;
 
       /* Substitute into the body of the function.  */
       tsubst_expr (DECL_SAVED_TREE (code_pattern), args,
@@ -9811,6 +9815,8 @@ instantiate_pending_templates ()
 	      else 
 		t = &TREE_CHAIN (*t);
 	    }
+	  tinst_depth = 0;
+	  current_tinst_level = NULL_TREE;
 	}
       template_tail = t;
 

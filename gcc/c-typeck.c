@@ -1418,12 +1418,12 @@ build_indirect_ref (ptr, errorstring)
 	  tree ref = build1 (INDIRECT_REF,
 			     TYPE_MAIN_PHYSICAL_VARIANT (t), pointer);
 
-	  if (!COMPLETE_TYPE_P (t) && TREE_CODE (t) != ARRAY_TYPE)
+	  if (!COMPLETE_OR_VOID_TYPE_P (t) && TREE_CODE (t) != ARRAY_TYPE)
 	    {
 	      error ("dereferencing pointer to incomplete type");
 	      return error_mark_node;
 	    }
-	  if (TREE_CODE (t) == VOID_TYPE && skip_evaluation == 0)
+	  if (VOID_TYPE_P (t) && skip_evaluation == 0)
 	    warning ("dereferencing `void *' pointer");
 
 	  /* We *must* set TREE_READONLY when dereferencing a pointer to const,
@@ -5102,6 +5102,10 @@ store_init_value (decl, init)
     }
 #endif
 
+  if (warn_traditional
+      && AGGREGATE_TYPE_P (TREE_TYPE (decl)) && ! TREE_STATIC (decl))
+    warning ("traditional C rejects automatic aggregate initialization");
+
   DECL_INITIAL (decl) = value;
 
   /* ANSI wants warnings about out-of-range constant initializers.  */
@@ -7512,28 +7516,4 @@ c_expand_start_case (exp)
   expand_start_case (1, exp, type, "switch statement");
 
   return exp;
-}
-
-/* Issue an ISO C99 pedantic warning MSGID.  */
-
-void
-pedwarn_c99 VPARAMS ((const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  const char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, const char *);
-#endif
-
-  if (flag_isoc99)
-    vpedwarn (msgid, ap);
-  else
-    vwarning (msgid, ap);
-
-  va_end (ap);
 }

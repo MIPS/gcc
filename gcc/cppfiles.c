@@ -43,6 +43,10 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 # define O_BINARY 0
 #endif
 
+/* Suppress warning about function macros used w/o arguments in traditional
+   C.  It is unlikely that glibc's strcmp macro helps this file at all.  */
+#undef strcmp
+
 static struct file_name_map *read_name_map
 				PARAMS ((cpp_reader *, const char *));
 static char *read_filename_string PARAMS ((int, FILE *));
@@ -60,7 +64,8 @@ static ssize_t read_with_read	PARAMS ((cpp_buffer *, int, ssize_t));
 static ssize_t read_file	PARAMS ((cpp_buffer *, int, ssize_t));
 
 static void destroy_include_file_node	PARAMS ((splay_tree_value));
-static int close_cached_fd	PARAMS ((splay_tree_node, void *));
+static int close_cached_fd		PARAMS ((splay_tree_node, void *));
+static int report_missing_guard		PARAMS ((splay_tree_node, void *));
 
 #if 0
 static void hack_vms_include_specification PARAMS ((char *));
@@ -103,13 +108,20 @@ close_cached_fd (n, dummy)
 }
 
 void
-_cpp_init_include_table (pfile)
+_cpp_init_includes (pfile)
      cpp_reader *pfile;
 {
   pfile->all_include_files
     = splay_tree_new ((splay_tree_compare_fn) strcmp,
 		      (splay_tree_delete_key_fn) free,
 		      destroy_include_file_node);
+}
+
+void
+_cpp_cleanup_includes (pfile)
+     cpp_reader *pfile;
+{
+  splay_tree_delete (pfile->all_include_files);
 }
 
 /* Given a filename, look it up and possibly open it.  If the file
@@ -180,7 +192,7 @@ open_include_file (pfile, filename)
 #ifdef EACCES
       if (errno == EACCES)
 	{
-	  cpp_error (pfile, "included file `%s' exists but is not readable",
+	  cpp_error (pfile, "included file \"%s\" exists but is not readable",
 		     filename);
 	}
 #endif
@@ -358,18 +370,50 @@ cpp_make_system_header (pfile, pbuf, flag)
     pbuf->inc->sysp = flag;
 }
 
+/* Report on all files that might benefit from a multiple include guard.
+   Triggered by -H.  */
+void
+_cpp_report_missing_guards (pfile)
+     cpp_reader *pfile;
+{
+  int banner = 0;
+  splay_tree_foreach (pfile->all_include_files, report_missing_guard,
+		      (PTR) &banner);
+}
+
+static int
+report_missing_guard (n, b)
+     splay_tree_node n;
+     void *b;
+{
+  struct include_file *f = (struct include_file *) n->value;
+  int *bannerp = (int *)b;
+
+  if (f && f->cmacro == 0 && f->include_count == 1)
+    {
+      if (*bannerp == 0)
+	{
+	  fputs (_("Multiple include guards may be useful for:\n"), stderr);
+	  *bannerp = 1;
+	}
+      fputs (f->name, stderr);
+      putc ('\n', stderr);
+    }
+  return 0;
+}
+
 #define PRINT_THIS_DEP(p, b) (CPP_PRINT_DEPS(p) > (b||p->system_include_depth))
 void
-_cpp_execute_include (pfile, f, len, no_reinclude, search_start)
+_cpp_execute_include (pfile, f, len, no_reinclude, search_start, angle_brackets)
      cpp_reader *pfile;
-     U_CHAR *f;
+     const U_CHAR *f;
      unsigned int len;
      int no_reinclude;
      struct file_name_list *search_start;
+     int angle_brackets;
 {
   struct include_file *inc;
-  char *fname = (char *)f;
-  int angle_brackets = fname[0] == '<';
+  char *fname;
 
   if (!search_start)
     {
@@ -383,13 +427,12 @@ _cpp_execute_include (pfile, f, len, no_reinclude, search_start)
 
   if (!search_start)
     {
-      cpp_error (pfile, "No include path in which to find %s", fname);
+      cpp_error (pfile, "No include path in which to find %s", f);
       return;
     }
 
-  /* Remove quote marks.  */
-  fname++;
-  len -= 2;
+  fname = alloca (len + 1);
+  memcpy (fname, f, len);
   fname[len] = '\0';
 
   inc = find_include_file (pfile, fname, search_start);
@@ -470,32 +513,27 @@ _cpp_execute_include (pfile, f, len, no_reinclude, search_start)
    if F cannot be located or dated, 1, if it is newer and 0 if older.  */
 
 int
-_cpp_compare_file_date (pfile, f, len, search_start)
+_cpp_compare_file_date (pfile, f, len, angle_brackets)
      cpp_reader *pfile;
-     U_CHAR *f;
+     const U_CHAR *f;
      unsigned int len;
-     struct file_name_list *search_start;
+     int angle_brackets;
 {
-  char *fname = (char *)f;
-  int angle_brackets = fname[0] == '<';
+  char *fname;
+  struct file_name_list *search_start;
   struct include_file *inc;
-  struct include_file *current_include = cpp_file_buffer (pfile)->inc;
+  struct include_file *current_include = CPP_BUFFER (pfile)->inc;
 
-  if (!search_start)
-    {
-      if (angle_brackets)
-	search_start = CPP_OPTION (pfile, bracket_include);
-      else if (CPP_OPTION (pfile, ignore_srcdir))
-	search_start = CPP_OPTION (pfile, quote_include);
-      else
-	search_start = CPP_BUFFER (pfile)->actual_dir;
-    }
+  if (angle_brackets)
+    search_start = CPP_OPTION (pfile, bracket_include);
+  else if (CPP_OPTION (pfile, ignore_srcdir))
+    search_start = CPP_OPTION (pfile, quote_include);
+  else
+    search_start = CPP_BUFFER (pfile)->actual_dir;
 
-  /* Remove quote marks.  */
-  fname++;
-  len -= 2;
+  fname = alloca (len + 1);
+  memcpy (fname, f, len);
   fname[len] = '\0';
-  
   inc = find_include_file (pfile, fname, search_start);
   
   if (!inc)
@@ -534,6 +572,12 @@ cpp_read_file (pfile, fname)
 
   f = open_include_file (pfile, fname);
 
+  if (f == NULL)
+    {
+      cpp_error_from_errno (pfile, fname);
+      return 0;
+    }
+
   return read_include_file (pfile, f);
 }
 
@@ -550,12 +594,17 @@ read_include_file (pfile, inc)
   cpp_buffer *fp;
   int fd = inc->fd;
 
+  /* Ensures we dump our current line before entering an include file.  */
+  if (CPP_BUFFER (pfile) && pfile->printer)
+    cpp_output_tokens (pfile, pfile->printer,
+		       CPP_BUF_LINE (CPP_BUFFER (pfile)));
+
   fp = cpp_push_buffer (pfile, NULL, 0);
 
   if (fp == 0)
     goto push_fail;
 
-  if (fstat (fd, &st) < 0)
+  if (fd < 0 || fstat (fd, &st) < 0)
     goto perror_fail;
   
   inc->date = st.st_mtime;
@@ -618,12 +667,10 @@ read_include_file (pfile, inc)
   /* These must be set before prescan.  */
   fp->inc = inc;
   fp->nominal_fname = inc->name;
+  pfile->include_depth++;
   
   if (length == 0)
     inc->cmacro = NEVER_REREAD;
-  else
-    /* Temporary - I hope.  */
-    length = _cpp_prescan (pfile, fp, length);
 
   fp->rlimit = fp->buf + length;
   fp->cur = fp->buf;
@@ -636,13 +683,13 @@ read_include_file (pfile, inc)
     fp->actual_dir = actual_directory (pfile, inc->name);
 
   pfile->input_stack_listing_current = 0;
-  pfile->only_seen_white = 2;
   return 1;
 
  perror_fail:
   cpp_error_from_errno (pfile, inc->name);
   /* Do not try to read this file again.  */
-  close (fd);
+  if (fd != -1)
+    close (fd);
   inc->fd = -1;
   inc->cmacro = NEVER_REREAD;
  fail:
@@ -717,6 +764,44 @@ read_with_read (fp, fd, size)
   fp->buf = buf;
   fp->mapped = 0;
   return offset;
+}
+
+/* Do appropriate cleanup when a file buffer is popped off the input
+   stack.  */
+void
+_cpp_pop_file_buffer (pfile, buf)
+     cpp_reader *pfile;
+     cpp_buffer *buf;
+{
+  struct include_file *inc = buf->inc;
+
+  if (pfile->system_include_depth)
+    pfile->system_include_depth--;
+  if (pfile->include_depth)
+    pfile->include_depth--;
+  if (pfile->potential_control_macro)
+    {
+      if (inc->cmacro != NEVER_REREAD)
+	inc->cmacro = pfile->potential_control_macro;
+      pfile->potential_control_macro = 0;
+    }
+  pfile->input_stack_listing_current = 0;
+
+  /* Discard file buffer.  XXX Would be better to cache these instead
+     of the file descriptors.  */
+#ifdef HAVE_MMAP_FILE
+  if (buf->mapped)
+    munmap ((caddr_t) buf->buf, buf->rlimit - buf->buf);
+  else
+#endif
+    free ((PTR) buf->buf);
+
+  /* If the file will not be included again, close it.  */
+  if (DO_NOT_REREAD (inc))
+    {
+      close (inc->fd);
+      inc->fd = -1;
+    }
 }
 
 /* The file_name_map structure holds a mapping of file names for a
@@ -796,6 +881,7 @@ read_name_map (pfile, dirname)
   map_list_ptr = ((struct file_name_map_list *)
 		  xmalloc (sizeof (struct file_name_map_list)));
   map_list_ptr->map_list_name = xstrdup (dirname);
+  map_list_ptr->map_list_map = NULL;
 
   name = (char *) alloca (strlen (dirname) + strlen (FILE_NAME_MAP_FILE) + 2);
   strcpy (name, dirname);

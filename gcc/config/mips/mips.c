@@ -729,7 +729,7 @@ simple_memory_operand (op, mode)
     case CONST_INT:
       if (TARGET_MIPS16)
 	return 0;
-      return SMALL_INT (op);
+      return SMALL_INT (addr);
 
     case PLUS:
       plus0 = XEXP (addr, 0);
@@ -6960,6 +6960,8 @@ mips_expand_prologue ()
   tree cur_arg;
   CUMULATIVE_ARGS args_so_far;
   rtx reg_18_save = NULL_RTX;
+  int store_args_on_stack = (mips_abi == ABI_32 || mips_abi == ABI_O64)
+                            && (! mips_entry || mips_can_use_return_insn ());
 
   /* If struct value address is treated as the first argument, make it so.  */
   if (aggregate_value_p (DECL_RESULT (fndecl))
@@ -6978,7 +6980,9 @@ mips_expand_prologue ()
      of the first argument in the variable part of the argument list,
      otherwise GP_ARG_LAST+1.  Note also if the last argument is 
      the varargs special argument, and treat it as part of the
-     variable arguments. */
+     variable arguments. 
+     
+     This is only needed if store_args_on_stack is true. */
 
   INIT_CUMULATIVE_ARGS (args_so_far, fntype, NULL_RTX, 0);
   regno = GP_ARG_FIRST;
@@ -7000,7 +7004,7 @@ mips_expand_prologue ()
       FUNCTION_ARG_ADVANCE (args_so_far, passed_mode, passed_type, 1);
       next_arg = TREE_CHAIN (cur_arg);
 
-      if (entry_parm)
+      if (entry_parm && store_args_on_stack)
 	{
 	  if (next_arg == 0
 	      && DECL_NAME (cur_arg)
@@ -7015,7 +7019,10 @@ mips_expand_prologue ()
 	  else
 	    {
 	      int words;
-	  
+
+	      if (GET_CODE (entry_parm) != REG)
+	        abort ();
+
 	      /* passed in a register, so will get homed automatically */
 	      if (GET_MODE (entry_parm) == BLKmode)
 		words = (int_size_in_bytes (passed_type) + 3) / 4;
@@ -7060,8 +7067,7 @@ mips_expand_prologue ()
 
   /* If this function is a varargs function, store any registers that
      would normally hold arguments ($4 - $7) on the stack.  */
-  if ((mips_abi == ABI_32 || mips_abi == ABI_O64)
-      && (! mips_entry || mips_can_use_return_insn ())
+  if (store_args_on_stack
       && ((TYPE_ARG_TYPES (fntype) != 0
 	   && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (fntype)))
 	       != void_type_node))
@@ -7802,7 +7808,8 @@ function_arg_pass_by_reference (cum, mode, type, named)
         /* Don't pass the actual CUM to FUNCTION_ARG, because we would 
            get double copies of any offsets generated for small structs 
            passed in registers. */
-        CUMULATIVE_ARGS temp = *cum;
+        CUMULATIVE_ARGS temp;
+        temp = *cum;
         if (FUNCTION_ARG (temp, mode, type, named) != 0)
            return 1;
      }
@@ -9115,7 +9122,7 @@ machine_dependent_reorg (first)
 	  && GET_CODE (PATTERN (insn)) == SET)
 	{
 	  rtx val, src;
-	  enum machine_mode mode;
+	  enum machine_mode mode = VOIDmode;
 
 	  val = NULL_RTX;
 	  src = mips_find_symbol (SET_SRC (PATTERN (insn)));

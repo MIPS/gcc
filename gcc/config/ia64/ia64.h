@@ -812,7 +812,9 @@ while (0)
    that one).  */
 /* ??? movxf_internal does not support XFmode values in integer registers.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) \
-  (PR_REGNO_P (REGNO) ? (MODE) == CCmode : 1)
+  (FR_REGNO_P (REGNO) ? (MODE) != CCmode				\
+   : PR_REGNO_P (REGNO) ? (MODE) == CCmode				\
+   : 1)
 
 /* A C expression that is nonzero if it is desirable to choose register
    allocation so as to avoid move instructions between a value of mode MODE1
@@ -2703,6 +2705,7 @@ do {									\
 
 #define PREDICATE_CODES \
 { "call_operand", {SUBREG, REG, SYMBOL_REF}},				\
+{ "got_symbolic_operand", {SYMBOL_REF, CONST, LABEL_REF}},		\
 { "sdata_symbolic_operand", {SYMBOL_REF, CONST}},			\
 { "symbolic_operand", {SYMBOL_REF, CONST, LABEL_REF}},			\
 { "function_operand", {SYMBOL_REF}},					\

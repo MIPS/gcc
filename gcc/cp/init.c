@@ -58,7 +58,7 @@ static tree build_vtbl_address PARAMS ((tree));
 /* Set up local variable for this file.  MUST BE CALLED AFTER
    INIT_DECL_PROCESSING.  */
 
-static tree BI_header_type, BI_header_size;
+static tree BI_header_type;
 
 void init_init_processing ()
 {
@@ -71,16 +71,10 @@ void init_init_processing ()
   BI_header_type = make_aggr_type (RECORD_TYPE);
   fields[0] = build_decl (FIELD_DECL, nelts_identifier, sizetype);
 
-  /* Use the biggest alignment supported by the target to prevent operator
-     new from returning misaligned pointers. */
-  TYPE_ALIGN (BI_header_type) = BIGGEST_ALIGNMENT;
-  TYPE_USER_ALIGN (BI_header_type) = 0;
   finish_builtin_type (BI_header_type, "__new_cookie", fields,
-		       0, BI_header_type);
-  BI_header_size = size_in_bytes (BI_header_type);
+		       0, double_type_node);
 
   ggc_add_tree_root (&BI_header_type, 1);
-  ggc_add_tree_root (&BI_header_size, 1);
 }
 
 /* We are about to generate some complex initialization code.
@@ -104,8 +98,8 @@ begin_init_stmts (stmt_expr_p, compound_stmt_p)
   
   if (building_stmt_tree ())
     *compound_stmt_p = begin_compound_stmt (/*has_no_scope=*/1);
-  else
-    *compound_stmt_p = genrtl_begin_compound_stmt (/*has_no_scope=*/1);
+  //  else
+  //    *compound_stmt_p = genrtl_begin_compound_stmt (has_no_scope=1);
 }
 
 /* Finish out the statement-expression begun by the previous call to
@@ -119,8 +113,6 @@ finish_init_stmts (stmt_expr, compound_stmt)
 {  
   if (building_stmt_tree ())
     finish_compound_stmt (/*has_no_scope=*/1, compound_stmt);
-  else
-    genrtl_finish_compound_stmt (/*has_no_scope=*/1);
   
   if (building_stmt_tree ())
     stmt_expr = finish_stmt_expr (stmt_expr);
@@ -1051,7 +1043,12 @@ expand_member_init (exp, name, init)
 
   type = TYPE_MAIN_VARIANT (TREE_TYPE (exp));
 
-  if (name && TREE_CODE (name) == TYPE_DECL)
+  if (name && TYPE_P (name))
+    {
+      basetype = name;
+      name = TYPE_IDENTIFIER (name);
+    }
+  else if (name && TREE_CODE (name) == TYPE_DECL)
     {
       basetype = TYPE_MAIN_VARIANT (TREE_TYPE (name));
       name = DECL_NAME (name);
@@ -1229,12 +1226,12 @@ build_aggr_init (exp, init, flags)
 
   TREE_TYPE (exp) = TYPE_MAIN_VARIANT (type);
   begin_init_stmts (&stmt_expr, &compound_stmt);
-  destroy_temps = stmts_are_full_exprs_p;
-  stmts_are_full_exprs_p = 0;
+  destroy_temps = stmts_are_full_exprs_p ();
+  current_stmt_tree->stmts_are_full_exprs_p = 0;
   expand_aggr_init_1 (TYPE_BINFO (type), exp, exp,
 		      init, LOOKUP_NORMAL|flags);
   stmt_expr = finish_init_stmts (stmt_expr, compound_stmt);
-  stmts_are_full_exprs_p = destroy_temps;
+  current_stmt_tree->stmts_are_full_exprs_p = destroy_temps;
   TREE_TYPE (exp) = type;
   TREE_READONLY (exp) = was_const;
   TREE_THIS_VOLATILE (exp) = was_volatile;
@@ -1975,8 +1972,6 @@ build_builtin_delete_call (addr)
 
    PLACEMENT is the `placement' list for user-defined operator new ().  */
 
-extern int flag_check_new;
-
 tree
 build_new (placement, decl, init, use_global_new)
      tree placement;
@@ -2205,7 +2200,12 @@ get_cookie_size (type)
 	cookie_size = type_align;
     }
   else
-    cookie_size = BI_header_size;
+    {
+      if (TYPE_ALIGN (type) > TYPE_ALIGN (BI_header_type))
+	return size_int (TYPE_ALIGN_UNIT (type));
+      else
+	return size_in_bytes (BI_header_type);
+    }
 
   return cookie_size;
 }
@@ -2356,6 +2356,9 @@ build_new_1 (exp)
       rval = cp_convert (build_pointer_type (true_type), rval);
     }
 
+  if (rval == error_mark_node)
+    return error_mark_node;
+
   /*        unless an allocation function is declared with an empty  excep-
      tion-specification  (_except.spec_),  throw(), it indicates failure to
      allocate storage by throwing a bad_alloc exception  (clause  _except_,
@@ -2385,8 +2388,8 @@ build_new_1 (exp)
   else
     alloc_expr = NULL_TREE;
 
-  /* if rval is NULL_TREE I don't have to allocate it, but are we totally
-     sure we have some extra bytes in that case for the BI_header_size
+  /* if rval is NULL_TREE I don't have to allocate it, but are we
+     totally sure we have some extra bytes in that case for the
      cookies? And how does that interact with the code below? (mrs) */
   /* Finish up some magic for new'ed arrays */
   if (use_cookie && rval != NULL_TREE)
@@ -2633,7 +2636,7 @@ build_vec_delete_1 (base, maxindex, type, auto_delete_vec, use_global_delete)
       goto no_destructor;
     }
 
-  /* The below is short by BI_header_size */
+  /* The below is short by the cookie size.  */
   virtual_size = size_binop (MULT_EXPR, size_exp,
 			     convert (sizetype, maxindex));
 
@@ -2676,7 +2679,7 @@ build_vec_delete_1 (base, maxindex, type, auto_delete_vec, use_global_delete)
     {
       tree base_tbd;
 
-      /* The below is short by BI_header_size */
+      /* The below is short by the cookie size.  */
       virtual_size = size_binop (MULT_EXPR, size_exp,
 				 convert (sizetype, maxindex));
 
@@ -2853,8 +2856,8 @@ build_vec_init (decl, base, maxindex, init, from_array)
      of blocks of memory.  */
 
   begin_init_stmts (&stmt_expr, &compound_stmt);
-  destroy_temps = stmts_are_full_exprs_p;
-  stmts_are_full_exprs_p = 0;
+  destroy_temps = stmts_are_full_exprs_p ();
+  current_stmt_tree->stmts_are_full_exprs_p = 0;
   rval = get_temp_regvar (ptype, 
 			  cp_convert (ptype, default_conversion (base)));
   base = get_temp_regvar (ptype, rval);
@@ -3016,9 +3019,9 @@ build_vec_init (decl, base, maxindex, init, from_array)
 	}
       else
 	{
-	  stmts_are_full_exprs_p = 1;
+	  current_stmt_tree->stmts_are_full_exprs_p = 1;
 	  finish_expr_stmt (elt_init);
-	  stmts_are_full_exprs_p = 0;
+	  current_stmt_tree->stmts_are_full_exprs_p = 0;
 	}
 
       finish_expr_stmt (build_modify_expr
@@ -3068,7 +3071,7 @@ build_vec_init (decl, base, maxindex, init, from_array)
   finish_expr_stmt (rval);
 
   stmt_expr = finish_init_stmts (stmt_expr, compound_stmt);
-  stmts_are_full_exprs_p = destroy_temps;
+  current_stmt_tree->stmts_are_full_exprs_p = destroy_temps;
   return stmt_expr;
 }
 
@@ -3378,6 +3381,7 @@ build_vec_delete (base, maxindex, auto_delete_vec, use_global_delete)
       /* Step back one from start of vector, and read dimension.  */
       tree cookie_addr;
 
+      type = strip_array_types (TREE_TYPE (type));
       if (flag_new_abi)
 	{
 	  cookie_addr = build (MINUS_EXPR,
@@ -3391,13 +3395,11 @@ build_vec_delete (base, maxindex, auto_delete_vec, use_global_delete)
 	  tree cookie;
 
 	  cookie_addr = build (MINUS_EXPR, build_pointer_type (BI_header_type),
-			       base, BI_header_size);
+			       base, get_cookie_size (type));
 	  cookie = build_indirect_ref (cookie_addr, NULL_PTR);
 	  maxindex = build_component_ref (cookie, nelts_identifier, 
 					  NULL_TREE, 0);
 	}
-
-      type = strip_array_types (TREE_TYPE (type));
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {

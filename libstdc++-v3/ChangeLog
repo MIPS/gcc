@@ -1,3 +1,132 @@
+2000-07-17  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* acinclude.m4:  Import CHECK_GNU_MAKE from autoconf macro archive.
+	* configure.in:  Use it.  Also print reminders one time.
+	* aclocal.m4:  Regenerate.
+	* configure:  Regenerate.
+
+2000-07-15  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+	* bits/valarray_array.h (__valarray_get_storage): New function.
+	(_Array<>::Array): Use it.
+	* bits/std_valarray.h (valarray<>::valarray): Likewise.
+	(valarray<>::resize): Likewise.  Tweak.
+	* src/valarray-inst.cc (__valarray_product): Tweak.
+
+2000-07-11  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* docs:  Update sourceware->sources in every HTML file.  Minor updates.
+
+2000-07-07  Benjamin Kosnik  <bkoz@soma.redhat.com>
+
+	Clean up configure/build longstanding issues.
+	* src/Makefile.am (AC_CXXFLAGS): Don't set @SECTION_LDFLAGS@ here.
+	(CXXLINK): Add here, instead.
+
+	* Makefile.am (check-install): Make sure mkcheck has execute privs.
+	(check): Same here.
+	* configure.in (AC_OUTPUT_COMMANDS): Remove hacks here.
+
+	* configure.in (AC_OUTPUT_COMMANDS): Link c_io_libio.h and
+	c_io_libio.cc instead of copying.
+	* acinclude.m4 (GLIBCPP_ENABLE_CSTDIO): Do link here.
+
+	* configure.in (AC_OUTPUT_COMMANDS): Link $THREADS.h and
+	c++threads.h instead of copying.
+	* acinclude.m4 (GLIBCPP_ENABLE_THREADS): Do link here.
+	Tweaks.
+	
+	* config/c_io_libio.cc (__basic_file::_M_open_mode): Consolidate.
+	* bits/basic_file.h: Declare.
+
+	* mkcheck.in (TESTS_FILE): Use -v instead of --version.
+
+2000-07-07   brent verner  <brent@rcfile.org> 
+
+	* testsuite/27_io/istream_unformatted.cc (test05): New test.
+
+2000-07-07  Benjamin Kosnik  <bkoz@gnu.org>
+
+	* bits/istream.tcc (istream::getline): Minor tweaks.
+
+2000-07-07  Phil Edwards  <pme@sourceware.cygnus.com>
+
+	* docs/download.html:  Mention gcc_update.
+	* docs/configopts.html:  Minor updates.
+	* docs/gccrebuild.html:  Ditto.
+	* docs/18_support/howto.html:  More tips, explanations, and reminders.
+	* docs/19_diagnostics/howto.html:  Ditto.
+	* docs/21_strings/howto.html:  Ditto.
+	* docs/24_iterators/howto.html:  Ditto.
+	* docs/25_algorithms/howto.html:  Ditto.
+	* docs/26_numerics/howto.html:  Ditto.
+
+2000-07-05  brent verner  <brent@rcfile.org> 
+
+	* testsuite/27_io/ifstream_members.cc (test01): Add tests.
+	* testsuite/27_io/ofstream_members.cc (test01): Add tests.
+	* config/c_io_libio.cc (__basic_file::open): Unset
+	~_IO_DELETE_DONT_CLOSE.
+
+2000-07-05  Zack Weinberg  <zack@wolery.cumb.org>
+	
+        * bits/gslice_array.h, bits/indirect_array.h, bits/mask_array.h,
+        bits/slice_array.h, bits/std_valarray.h, bits/valarray_meta.h:
+        Do not paste anything after 'operator' keyword.
+
+2000-07-03  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+
+	* bits/std_memory.h: Revert.
+
+2000-07-03  Brendan Kehoe  <brendan@zen.org>
+
+	* bits/std_complex.h: Fix parens. Format.
+	
+2000-07-03  scott snyder  <snyder@fnal.gov>
+
+        * bits/locale_facets.tcc (_M_extract): Only figure out the base
+        from the input if base == 0.
+        * testsuite/27_io/istream_extractor_arith.cc: Test reading a
+        number with a leading `0' in hex mode.
+
+	* shadow/bits/std_cmath.h: Fix typo in _GLIBCPP_HAVE_CEILL test.
+
+        * mkinclosure: Change `==' to `=' in test.
+
+2000-07-03  Chip Salzenberg  <chip@valinux.com>
+
+        * src/Makefile.am (libio_headers): _G_config.h is found in srcdir,
+        not builddir.
+        * src/Makefile.in: Regenerate.
+
+2000-07-01  Benjamin Kosnik  <bkoz@purist.soma.redhat.com>
+	    Ulrich Drepper  <drepper@purist.soma.redhat.com>
+
+	Sync libio to glibc-2.2 current CVS. 
+	* libio/_G_config.h: New file.
+	* libio/wfileops.c: New file.
+	* libio/wfiledoalloc.c: New file.
+	* libio/wgenops.c: New file.
+	* libio/iofwide.c: New file.
+	* libio/Makefile.am: Tweaks.
+	* libio/Makefile.in: Regenerate.
+	* libio/gen-params: Remove. Generic replacement for this yet undone.
+	* libio/[filedoalloc.c, fileops.c, genops.c, iolibio.h, libio.h,
+	libioP.h, stdfiles.c]: Update.
+	* config/c_io_libio.cc: Tweaks.
+	* acinclude.m4: Complete hacks to test wide io.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* src/Makefile.am: Update.
+	* src/Makefile.in: Regenerate.
+
+	* math/cargl.c: Remove underscores.
+	
+	* bits/locale_facets.h: Tweaks. Start adding iconv details
+	and notes.
+	* bits/locale_facets.tcc: Tweaks.
+	* bits/std_cwchar.h: Tweaks.
+	
 2000-06-29  scott snyder  <snyder@fnal.gov>
 
         * bits/concept_checks.h
@@ -18,7 +147,7 @@
 	function, uglify to __eos. Return char_type().
 	* bits/std_ostream.h: Change.
 
-	* testsuite/27_io/ostream_seeks.cc (test01): New file.
+	* testsuite/27_io/ostream_seeks.cc: New file.
 	* testsuite/27_io/ostream_seeks-1.tst: New file.
 	* testsuite/27_io/istream_unformatted.cc (main): Move test04 and
 	test05 to...

@@ -1705,7 +1705,9 @@ static void
 profile_function (file)
      FILE *file;
 {
+#ifndef NO_PROFILE_COUNTERS
   int align = MIN (BIGGEST_ALIGNMENT, LONG_TYPE_SIZE);
+#endif
 #if defined(ASM_OUTPUT_REG_PUSH)
 #if defined(STRUCT_VALUE_INCOMING_REGNUM) || defined(STRUCT_VALUE_REGNUM)
   int sval = current_function_returns_struct;
@@ -1715,10 +1717,12 @@ profile_function (file)
 #endif
 #endif /* ASM_OUTPUT_REG_PUSH */
 
+#ifndef NO_PROFILE_COUNTERS
   data_section ();
   ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
   ASM_OUTPUT_INTERNAL_LABEL (file, "LP", profile_label_no);
   assemble_integer (const0_rtx, LONG_TYPE_SIZE / BITS_PER_UNIT, 1);
+#endif
 
   function_section (current_function_decl);
 
@@ -2014,9 +2018,23 @@ final (first, file, optimize, prescan)
   for (insn = NEXT_INSN (first); insn;)
     {
 #ifdef HAVE_ATTR_length
-      insn_current_address = (INSN_UID (insn) < insn_lengths_max_uid
-			      ? insn_addresses[INSN_UID (insn)] : 0);
+      if (INSN_UID (insn) >= insn_lengths_max_uid)
+	{
+#ifdef STACK_REGS
+	  /* Irritatingly, the reg-stack pass is creating new instructions
+	     and because of REG_DEAD note abuse it has to run after
+	     shorten_branches.  Fake address of -1 then.  */
+	  insn_current_address = -1;
+#else
+	  /* This can be triggered by bugs elsewhere in the compiler if
+	     new insns are created after init_insn_lengths is called.  */
+	  abort ();
 #endif
+	}
+      else
+	insn_current_address = insn_addresses[INSN_UID (insn)];
+#endif /* HAVE_ATTR_length */
+
       insn = final_scan_insn (insn, file, optimize, prescan, 0);
     }
 

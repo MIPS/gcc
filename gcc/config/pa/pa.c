@@ -4346,11 +4346,12 @@ emit_hpdiv_const (operands, unsignedp)
       emit
 	(gen_rtx
 	 (PARALLEL, VOIDmode,
-	  gen_rtvec (5, gen_rtx_SET (VOIDmode, gen_rtx_REG (SImode, 29),
+	  gen_rtvec (6, gen_rtx_SET (VOIDmode, gen_rtx_REG (SImode, 29),
 				     gen_rtx_fmt_ee (unsignedp ? UDIV : DIV,
 						     SImode,
 						     gen_rtx_REG (SImode, 26),
 						     operands[2])),
+		     gen_rtx_CLOBBER (VOIDmode, operands[4]),
 		     gen_rtx_CLOBBER (VOIDmode, operands[3]),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, 26)),
 		     gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, 25)),
@@ -5951,9 +5952,9 @@ output_call (insn, call_dest, sibcall)
    space), and special magic is needed to construct their address.
 
    For reasons too disgusting to describe storage for the new name
-   is allocated either on the saveable_obstack (released at function
-   exit) or on the permanent_obstack for things that can never change
-   (libcall names for example). */
+   is allocated as a ggc string, or as a string on the saveable_obstack
+   (released at function exit) or on the permanent_obstack for things
+   that can never change (libcall names for example). */
 
 void
 hppa_encode_label (sym, permanent)
@@ -5964,7 +5965,10 @@ hppa_encode_label (sym, permanent)
   int len = strlen (str);
   char *newstr;
 
-  newstr = obstack_alloc ((permanent ? &permanent_obstack : saveable_obstack),
+  if (ggc_p)
+    newstr = ggc_alloc_string (NULL, len + 1);
+  else
+    newstr = obstack_alloc ((permanent ? &permanent_obstack : saveable_obstack),
 			  len + 2);
 
   if (str[0] == '*')

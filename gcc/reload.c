@@ -524,7 +524,13 @@ push_secondary_reload (in_p, x, opnum, optional, reload_class, reload_mode,
 
       if (in_p && icode == CODE_FOR_nothing
 	  && SECONDARY_MEMORY_NEEDED (class, reload_class, mode))
-	get_secondary_mem (x, reload_mode, opnum, type);
+	{
+	  get_secondary_mem (x, reload_mode, opnum, type);
+
+	  /* We may have just added new reloads.  Make sure we add
+	     the new reload at the end.  */
+	  s_reload = n_reloads;
+	}
 #endif
 
       /* We need to make a new secondary reload for this register class.  */
@@ -1470,8 +1476,10 @@ push_reload (in, out, inloc, outloc, class,
 	    && GET_MODE_SIZE (outmode) <= GET_MODE_SIZE (GET_MODE (XEXP (note, 0)))
 	    && HARD_REGNO_MODE_OK (regno, outmode))
 	  {
-	    int offs;
-	    int nregs = HARD_REGNO_NREGS (regno, inmode);
+	    unsigned int offs;
+	    unsigned int nregs = MAX (HARD_REGNO_NREGS (regno, inmode),
+				      HARD_REGNO_NREGS (regno, outmode));
+
 	    for (offs = 0; offs < nregs; offs++)
 	      if (fixed_regs[regno + offs]
 		  || ! TEST_HARD_REG_BIT (reg_class_contents[(int) class],

@@ -29,6 +29,7 @@ extern rtx ia64_compare_op0, ia64_compare_op1;
 #ifdef RTX_CODE
 extern int call_operand PARAMS((rtx, enum machine_mode));
 extern int sdata_symbolic_operand PARAMS((rtx, enum machine_mode));
+extern int got_symbolic_operand PARAMS((rtx, enum machine_mode));
 extern int symbolic_operand PARAMS((rtx, enum machine_mode));
 extern int function_operand PARAMS((rtx, enum machine_mode));
 extern int setjmp_operand PARAMS((rtx, enum machine_mode));
@@ -49,7 +50,9 @@ extern int normal_comparison_operator PARAMS((rtx, enum machine_mode));
 extern int adjusted_comparison_operator PARAMS((rtx, enum machine_mode));
 extern int call_multiple_values_operation PARAMS((rtx, enum machine_mode));
 extern int predicate_operator PARAMS((rtx, enum machine_mode));
+extern int ia64_move_ok PARAMS((rtx, rtx));
 
+extern void ia64_expand_load_address PARAMS((rtx, rtx));
 extern void ia64_expand_fetch_and_op PARAMS ((enum fetchop_code,
 					      enum machine_mode, rtx []));
 extern void ia64_expand_op_and_fetch PARAMS ((enum fetchop_code,

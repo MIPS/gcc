@@ -176,6 +176,51 @@ sdata_symbolic_operand (op, mode)
   return 0;
 }
 
+/* Return 1 if OP refers to a symbol, and is appropriate for a GOT load.  */
+
+int
+got_symbolic_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  switch (GET_CODE (op))
+    {
+    case CONST:
+      op = XEXP (op, 0);
+      if (GET_CODE (op) != PLUS)
+	return 0;
+      if (GET_CODE (XEXP (op, 0)) != SYMBOL_REF)
+	return 0;
+      op = XEXP (op, 1);
+      if (GET_CODE (op) != CONST_INT)
+	return 0;
+
+	return 1;
+
+      /* Ok if we're not using GOT entries at all.  */
+      if (TARGET_NO_PIC || TARGET_AUTO_PIC)
+	return 1;
+
+      /* "Ok" while emitting rtl, since otherwise we won't be provided
+	 with the entire offset during emission, which makes it very
+	 hard to split the offset into high and low parts.  */
+      if (rtx_equal_function_value_matters)
+	return 1;
+
+      /* Force the low 14 bits of the constant to zero so that we do not
+	 use up so many GOT entries.  */
+      return (INTVAL (op) & 0x3fff) == 0;
+
+    case SYMBOL_REF:
+    case LABEL_REF:
+      return 1;
+
+    default:
+      break;
+    }
+  return 0;
+}
+
 /* Return 1 if OP refers to a symbol.  */
 
 int
@@ -496,6 +541,77 @@ predicate_operator (op, mode)
   enum rtx_code code = GET_CODE (op);
   return ((GET_MODE (op) == mode || mode == VOIDmode)
 	  && (code == EQ || code == NE));
+}
+
+/* Return 1 if the operands of a move are ok.  */
+
+int
+ia64_move_ok (dst, src)
+     rtx dst, src;
+{
+  /* If we're under init_recog_no_volatile, we'll not be able to use
+     memory_operand.  So check the code directly and don't worry about
+     the validity of the underlying address, which should have been
+     checked elsewhere anyway.  */
+  if (GET_CODE (dst) != MEM)
+    return 1;
+  if (GET_CODE (src) == MEM)
+    return 0;
+  if (register_operand (src, VOIDmode))
+    return 1;
+
+  /* Otherwise, this must be a constant, and that either 0 or 0.0 or 1.0.  */
+  if (INTEGRAL_MODE_P (GET_MODE (dst)))
+    return src == const0_rtx;
+  else
+    return GET_CODE (src) == CONST_DOUBLE && CONST_DOUBLE_OK_FOR_G (src);
+}
+
+/* Expand a symbolic constant load.  */
+/* ??? Should generalize this, so that we can also support 32 bit pointers.  */
+
+void
+ia64_expand_load_address (dest, src)
+      rtx dest, src;
+{
+  rtx temp;
+
+  /* The destination could be a MEM during initial rtl generation,
+     which isn't a valid destination for the PIC load address patterns.  */
+  if (! register_operand (dest, DImode))
+    temp = gen_reg_rtx (DImode);
+  else
+    temp = dest;
+
+  if (TARGET_AUTO_PIC)
+    emit_insn (gen_load_gprel64 (temp, src));
+  else if (GET_CODE (src) == SYMBOL_REF && SYMBOL_REF_FLAG (src))
+    emit_insn (gen_load_fptr (temp, src));
+  else if (sdata_symbolic_operand (src, DImode))
+    emit_insn (gen_load_gprel (temp, src));
+  else if (GET_CODE (src) == CONST
+	   && GET_CODE (XEXP (src, 0)) == PLUS
+	   && GET_CODE (XEXP (XEXP (src, 0), 1)) == CONST_INT
+	   && (INTVAL (XEXP (XEXP (src, 0), 1)) & 0x1fff) != 0)
+    {
+      rtx subtarget = no_new_pseudos ? temp : gen_reg_rtx (DImode);
+      rtx sym = XEXP (XEXP (src, 0), 0);
+      HOST_WIDE_INT ofs, hi, lo;
+
+      /* Split the offset into a sign extended 14-bit low part
+	 and a complementary high part.  */
+      ofs = INTVAL (XEXP (XEXP (src, 0), 1));
+      lo = ((ofs & 0x3fff) ^ 0x2000) - 0x2000;
+      hi = ofs - lo;
+
+      emit_insn (gen_load_symptr (subtarget, plus_constant (sym, hi)));
+      emit_insn (gen_adddi3 (temp, subtarget, GEN_INT (lo)));
+    }
+  else
+    emit_insn (gen_load_symptr (temp, src));
+
+  if (temp != dest)
+    emit_move_insn (dest, temp);
 }
 
 /* Begin the assembly file.  */
@@ -2296,6 +2412,8 @@ rws_access_reg (regno, flags, pred)
 
   if (flags.is_write)
     {
+      int write_count;
+
       /* One insn writes same reg multiple times?  */
       if (rws_insn[regno].write_count > 0)
 	abort ();
@@ -2311,7 +2429,12 @@ rws_access_reg (regno, flags, pred)
       if (is_predicate_reg)
 	rws_update (rws_insn, regno + 1, flags, pred);
 
-      switch (rws_sum[regno].write_count)
+      /* ??? Likewise.  */
+      write_count = rws_sum[regno].write_count;
+      if (is_predicate_reg)
+	write_count = MAX (write_count, rws_sum[regno + 1].write_count);
+
+      switch (write_count)
 	{
 	case 0:
 	  /* The register has not been written yet.  */
@@ -2940,6 +3063,10 @@ void
 ia64_reorg (insns)
      rtx insns;
 {
+  /* If optimizing, we'll have split before scheduling.  */
+  if (optimize == 0)
+    split_all_insns (0);
+
   emit_predicate_relation_info (insns);
   emit_insn_group_barriers (insns);
 }

@@ -3206,7 +3206,7 @@ simple_operand_p (exp)
    try to change a logical combination of comparisons into a range test.
 
    For example, both
-   	X == 2 && X == 3 && X == 4 && X == 5
+   	X == 2 || X == 3 || X == 4 || X == 5
    and
    	X >= 2 && X <= 5
    are converted to
@@ -3301,7 +3301,7 @@ range_binop (code, type, arg0, upper0_p, arg1, upper1_p)
       
 /* Given EXP, a logical expression, set the range it is testing into
    variables denoted by PIN_P, PLOW, and PHIGH.  Return the expression
-   actually being tested.  *PLOW and *PHIGH will have be made the same type
+   actually being tested.  *PLOW and *PHIGH will be made of the same type
    as the returned expression.  If EXP is not a comparison, we will most
    likely not be returning a useful value and range.  */
 
@@ -3896,7 +3896,7 @@ fold_truthop (code, truth_type, lhs, rhs)
      enum tree_code code;
      tree truth_type, lhs, rhs;
 {
-  /* If this is the "or" of two comparisons, we can do something if we
+  /* If this is the "or" of two comparisons, we can do something if
      the comparisons are NE_EXPR.  If this is the "and", we can do something
      if the comparisons are EQ_EXPR.  I.e., 
      	(a->b == 2 && a->c == 4) can become (a->new == NEW).
@@ -4402,6 +4402,18 @@ extract_muldiv (t, c, code, wide_type)
       break;
 
     case CONVERT_EXPR:  case NON_LVALUE_EXPR:  case NOP_EXPR:
+      /* If op0 is an expression, and is unsigned, and the type is
+	 smaller than ctype, then we cannot widen the expression.  */
+      if ((TREE_CODE_CLASS (TREE_CODE (op0)) == '<'
+	   || TREE_CODE_CLASS (TREE_CODE (op0)) == '1'
+	   || TREE_CODE_CLASS (TREE_CODE (op0)) == '2'
+	   || TREE_CODE_CLASS (TREE_CODE (op0)) == 'e')
+	  && TREE_UNSIGNED (TREE_TYPE (op0))
+	  && ! TYPE_IS_SIZETYPE (TREE_TYPE (op0))
+	  && (GET_MODE_SIZE (TYPE_MODE (ctype))
+              > GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (op0)))))
+	break;
+
       /* Pass the constant down and see if we can make a simplification.  If
 	 we can, replace this expression with the inner simplification for
 	 possible later conversion to our or some other type.  */
@@ -4418,7 +4430,7 @@ extract_muldiv (t, c, code, wide_type)
     case MIN_EXPR:  case MAX_EXPR:
       /* If widening the type changes the signedness, then we can't perform
 	 this optimization as that changes the result.  */
-      if (ctype != type && TREE_UNSIGNED (ctype) != TREE_UNSIGNED (type))
+      if (TREE_UNSIGNED (ctype) != TREE_UNSIGNED (type))
 	break;
 
       /* MIN (a, b) / 5 -> MIN (a / 5, b / 5)  */
@@ -4506,10 +4518,17 @@ extract_muldiv (t, c, code, wide_type)
 	    break;
 	}
 
-      /* Now do the operation and verify it doesn't overflow.  */
-      op1 = const_binop (code, convert (ctype, op1), convert (ctype, c), 0);
-      if (op1 == 0 || TREE_OVERFLOW (op1))
-	break;
+      /* If it's a multiply or a division/modulus operation of a multiple
+         of our constant, do the operation and verify it doesn't overflow.  */
+      if (code == MULT_EXPR
+	  || integer_zerop (const_binop (TRUNC_MOD_EXPR, op1, c, 0)))
+        {
+          op1 = const_binop (code, convert (ctype, op1), convert (ctype, c), 0);
+          if (op1 == 0 || TREE_OVERFLOW (op1))
+            break;
+        }
+      else
+        break;
 
       /* If we have an unsigned type is not a sizetype, we cannot widen
 	 the operation since it will change the result if the original
@@ -4579,8 +4598,7 @@ extract_muldiv (t, c, code, wide_type)
 	 this since it will change the result if the original computation
 	 overflowed.  */
       if ((! TREE_UNSIGNED (ctype)
-	   || (TREE_CODE (ctype) == INTEGER_TYPE
-	       && TYPE_IS_SIZETYPE (ctype)))
+	   || TYPE_IS_SIZETYPE (ctype))
 	  && ((code == MULT_EXPR && tcode == EXACT_DIV_EXPR)
 	      || (tcode == MULT_EXPR
 		  && code != TRUNC_MOD_EXPR && code != CEIL_MOD_EXPR
@@ -4863,7 +4881,7 @@ fold (expr)
      The also optimizes non-constant cases that used to be done in
      expand_expr.
 
-     Before we do that, see if this is a BIT_AND_EXPR or a BIT_OR_EXPR,
+     Before we do that, see if this is a BIT_AND_EXPR or a BIT_IOR_EXPR,
      one of the operands is a comparison and the other is a comparison, a
      BIT_AND_EXPR with the constant 1, or a truth value.  In that case, the
      code below would make the expression more complex.  Change it to a
@@ -6215,7 +6233,15 @@ fold (expr)
 		tree newconst
 		  = fold (build (PLUS_EXPR, TREE_TYPE (varop),
 				 constop, TREE_OPERAND (varop, 1)));
-		TREE_SET_CODE (varop, PREINCREMENT_EXPR);
+
+		/* Do not overwrite the current varop to be a preincrement,
+		   create a new node so that we won't confuse our caller who
+		   might create trees and throw them away, reusing the
+		   arguments that they passed to build.  This shows up in
+		   the THEN or ELSE parts of ?: being postincrements.  */
+		varop = build (PREINCREMENT_EXPR, TREE_TYPE (varop),
+			       TREE_OPERAND (varop, 0),
+			       TREE_OPERAND (varop, 1));
 
 		/* If VAROP is a reference to a bitfield, we must mask
 		   the constant by the width of the field.  */
@@ -6259,9 +6285,9 @@ fold (expr)
 		  }
 							 
 
-		t = build (code, type, TREE_OPERAND (t, 0),
-			   TREE_OPERAND (t, 1));
-		TREE_OPERAND (t, constopnum) = newconst;
+		t = build (code, type,
+			   (constopnum == 0) ? newconst : varop,
+			   (constopnum == 1) ? newconst : varop);
 		return t;
 	      }
 	  }
@@ -6274,7 +6300,15 @@ fold (expr)
 		tree newconst
 		  = fold (build (MINUS_EXPR, TREE_TYPE (varop),
 				 constop, TREE_OPERAND (varop, 1)));
-		TREE_SET_CODE (varop, PREDECREMENT_EXPR);
+
+		/* Do not overwrite the current varop to be a predecrement,
+		   create a new node so that we won't confuse our caller who
+		   might create trees and throw them away, reusing the
+		   arguments that they passed to build.  This shows up in
+		   the THEN or ELSE parts of ?: being postdecrements.  */
+		varop = build (PREDECREMENT_EXPR, TREE_TYPE (varop),
+			       TREE_OPERAND (varop, 0),
+			       TREE_OPERAND (varop, 1));
 
 		if (TREE_CODE (TREE_OPERAND (varop, 0)) == COMPONENT_REF
 		    && DECL_BIT_FIELD(TREE_OPERAND
@@ -6313,9 +6347,9 @@ fold (expr)
 		  }
 							 
 
-		t = build (code, type, TREE_OPERAND (t, 0),
-			   TREE_OPERAND (t, 1));
-		TREE_OPERAND (t, constopnum) = newconst;
+		t = build (code, type,
+			   (constopnum == 0) ? newconst : varop,
+			   (constopnum == 1) ? newconst : varop);
 		return t;
 	      }
 	  }
@@ -7007,11 +7041,11 @@ fold (expr)
 		     so that we can convert this back to the 
 		     corresponding COND_EXPR.  */
 		  return pedantic_non_lvalue
-		    (convert (type, (fold (build (MIN_EXPR, comp_type,
-						  (comp_code == LE_EXPR
-						   ? comp_op0 : comp_op1),
-						  (comp_code == LE_EXPR
-						   ? comp_op1 : comp_op0))))));
+		    (convert (type, fold (build (MIN_EXPR, comp_type,
+						 (comp_code == LE_EXPR
+						  ? comp_op0 : comp_op1),
+						 (comp_code == LE_EXPR
+						  ? comp_op1 : comp_op0)))));
 		  break;
 		case GE_EXPR:
 		case GT_EXPR:

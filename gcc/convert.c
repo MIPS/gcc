@@ -488,8 +488,6 @@ tree
 convert_to_vector (type, expr)
      tree type, expr;
 {
-  tree subtype = TREE_TYPE (type);
-  
   switch (TREE_CODE (TREE_TYPE (expr)))
     {
     case INTEGER_TYPE:

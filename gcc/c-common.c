@@ -296,6 +296,7 @@ combine_strings (strings)
   int wide_flag = 0;
   int wchar_bytes = TYPE_PRECISION (wchar_type_node) / BITS_PER_UNIT;
   int nchars;
+  const int nchars_max = flag_isoc99 ? 4095 : 509;
 
   if (TREE_CHAIN (strings))
     {
@@ -374,6 +375,10 @@ combine_strings (strings)
 
   /* Compute the number of elements, for the array type.  */
   nchars = wide_flag ? length / wchar_bytes : length;
+
+  if (pedantic && nchars > nchars_max)
+    pedwarn ("string length `%d' is greater than the minimum length `%d' ANSI C is required to support",
+	     nchars, nchars_max);
 
   /* Create the array type for the string constant.
      -Wwrite-strings says make the string constant an array of const char
@@ -1407,8 +1412,8 @@ static format_char_info print_char_table[] = {
 };
 
 static format_char_info scan_char_table[] = {
-  { "di",	1,	T_I,	T_C,	T_S,	T_L,	T_LL,	T_LL,	NULL,	"*"	},
-  { "ouxX",	1,	T_UI,	T_UC,	T_US,	T_UL,	T_ULL,	T_ULL,	NULL,	"*"	},
+  { "di",	1,	T_I,	T_C,	T_S,	T_L,	T_LL,	T_LL,	T_ST,	"*"	},
+  { "ouxX",	1,	T_UI,	T_UC,	T_US,	T_UL,	T_ULL,	T_ULL,	T_ST,	"*"	},
   { "efgEGaA",	1,	T_F,	NULL,	NULL,	T_D,	NULL,	T_LD,	NULL,	"*"	},
   { "c",	1,	T_C,	NULL,	NULL,	T_W,	NULL,	NULL,	NULL,	"*"	},
   { "s",	1,	T_C,	NULL,	NULL,	T_W,	NULL,	NULL,	NULL,	"*a"	},
@@ -1416,7 +1421,7 @@ static format_char_info scan_char_table[] = {
   { "C",	1,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*"	},
   { "S",	1,	T_W,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*a"	},
   { "p",	2,	T_V,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	"*"	},
-  { "n",	1,	T_I,	T_C,	T_S,	T_L,	T_LL,	NULL,	NULL,	""	},
+  { "n",	1,	T_I,	T_C,	T_S,	T_L,	T_LL,	NULL,	T_ST,	""	},
   { NULL,	0,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL,	NULL	}
 };
 
@@ -1952,7 +1957,7 @@ check_format_info (info, params)
 	  else if (*format_chars == 'q' || *format_chars == 'L')
 	    {
 	      length_char = *format_chars++;
-	      if (pedantic)
+	      if (length_char == 'q' && pedantic)
 		warning ("ANSI C does not support the `%c' length modifier",
 			 length_char);
 	    }
@@ -2103,11 +2108,22 @@ check_format_info (info, params)
 	case 'l': wanted_type = fci->llen ? *(fci->llen) : 0; break;
 	case 'q': wanted_type = fci->qlen ? *(fci->qlen) : 0; break;
 	case 'L': wanted_type = fci->bigllen ? *(fci->bigllen) : 0; break;
-	case 'z': case 'Z': wanted_type = fci->zlen ? *fci->zlen : 0; break;
+	case 'z': case 'Z': wanted_type = (fci->zlen
+					   ? (TYPE_DOMAIN (*fci->zlen)
+					      ? TYPE_DOMAIN (*fci->zlen)
+					      : *fci->zlen)
+					   : 0); break;
 	}
       if (wanted_type == 0)
 	warning ("use of `%c' length character with `%c' type character",
 		 length_char, format_char);
+      else if (length_char == 'L' && pedantic
+	       && !(format_char == 'a' || format_char == 'A'
+		    || format_char == 'e' || format_char == 'E'
+		    || format_char == 'f' || format_char == 'F'
+		    || format_char == 'g' || format_char == 'G'))
+	warning ("ANSI C does not support the `L' length modifier with the `%c' type character",
+		 format_char);
 
       /* Finally. . .check type of argument against desired type!  */
       if (info->first_arg_num == 0)
@@ -2998,7 +3014,7 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
 		 are requested.  However, if OP0 is a constant that is
 		 >= 0, the signedness of the comparison isn't an issue,
 		 so suppress the warning.  */
-	      if (extra_warnings
+	      if (extra_warnings && !in_system_header
 		  && ! (TREE_CODE (primop0) == INTEGER_CST
 			&& ! TREE_OVERFLOW (convert (signed_type (type),
 						     primop0))))
@@ -3007,7 +3023,7 @@ shorten_compare (op0_ptr, op1_ptr, restype_ptr, rescode_ptr)
 	      break;
 
 	    case LT_EXPR:
-	      if (extra_warnings
+	      if (extra_warnings && !in_system_header
 		  && ! (TREE_CODE (primop0) == INTEGER_CST
 			&& ! TREE_OVERFLOW (convert (signed_type (type),
 						     primop0))))

@@ -1,3 +1,188 @@
+2000-07-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20000717-5.c: New test.
+	* gcc.c-torture/execute/20000717-1.x: Removed.
+
+2000-07-17  Richard Henderson  <rth@cygnus.com>
+
+	* gcc.c-torture/execute/20000717-4.c: New test.
+
+2000-07-17  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp/syshdr.c: New test.
+	* gcc.dg/cpp/syshdr1.h, gcc.dg/cpp/syshdr2.h: New files.
+
+2000-07-17  Neil Booth  <neilb@earthling.net>
+
+	* gcc.dg/cpp/cmdlne-dM.c: New test.
+	* gcc.dg/cpp/cmdlne-dD.c: New test.
+
+Mon Jul 17 03:13:12 2000  Jeffrey A Law  (law@cygnus.com)
+
+	* gcc.c-torture/execute/20000717-3.c: New test.
+
+	* gcc.c-torture/compile/20000717-1.c: New test.
+
+2000-07-17  Geoffrey Keating  <geoffk@cygnus.com>
+
+	* gcc.c-torture/execute/20000717-2.c: New test.
+
+2000-07-17  Joseph S. Myers  <jsm28@cam.ac.uk>
+
+	* gcc.dg/formatz-1.c: New test.
+
+	* gcc.dg/c90-digraph-1.c, gcc.dg/c94-digraph.c,
+	* gcc.dg/c99-digraph.c: New tests.
+
+	* gcc.dg/c90-hexfloat-1.c, gcc.dg/c90-hexfloat-2.c,
+	* gcc.dg/c99-hexfloat-1.c, gcc.dg/c99-hexfloat-2.c: New tests.
+
+	* gcc.dg/c90-enum-comma-1.c, gcc.dg/c90-idem-qual-1.c,
+	* gcc.dg/c90-impl-decl-1.c, gcc.dg/c90-impl-int-1.c,
+	* gcc.dg/c90-longlong.c, gcc.dg/c90-restrict-1.c,
+	* gcc.dg/c90-return-1.c, gcc.dg/c99-enum-comma-1.c,
+	* gcc.dg/c99-idem-qual-1.c, gcc.dg/c99-impl-decl-1.c,
+	* gcc.dg/c99-impl-int-1.c, gcc.dg/c99-longlong-1.c,
+	* gcc.dg/c99-restrict-1.c, gcc.dg/c99-return-1.c: New tests.
+
+Mon Jul 17 00:41:57 2000   Greg McGary <greg@mcgary.org>
+
+	* gcc.c-torture/execute/20000717-1.c: New test.
+	* gcc.c-torture/execute/20000717-1.x: Expected to fail.
+
+2000-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20000715-2.c: New test.
+	* gcc.dg/20000715-1.c: New test.
+
+2000-07-15  Michael Meissner  <meissner@redhat.com>
+
+	* gcc.c-torture/execute/20000715-1.c: New test.
+
+2000-07-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20000707-1.c: New test.
+
+2000-07-13  Neil Booth  <NeilB@earthling.net>
+
+	* testsuite/gcc.dg/cpp/digraph1.c,
+	testsuite/gcc.dg/cpp/digraph2.c,
+	testsuite/gcc.dg/cpp/digraphs.c: New tests.
+
+2000-07-12  David Billinghurst  <David Billinghurst@riotinto.com.au>
+
+	* g77.f-torture/compile/20000630-2.f:  New test.
+	* g77.f-torture/compile/20000630-2.x
+
+2000-07-11  David Billinghurst  <David.Billinghurst@riotinto.com.au>
+
+	* g77.f-torture/execute/20000503-1.x: Delete.  Test now passes.
+
+2000-07-11  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/cmdlne-C.c: Fix typo.
+
+2000-07-11  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/cmdlne-C.c: New.
+
+2000-07-09  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/directiv.c: New tests.
+	* gcc.dg/cpp/undef1.c: Update.
+
+2000-07-08  Angela Marie Thomas <angela@cygnus.com>
+
+	* lib/c-torture.exp: Make compiler_conditional_xfail_data global.
+
+2000-07-09  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/macsyntx.c: Add test for #define defined.
+
+2000-07-07  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp/19951227-1.c, gcc.dg/cpp/assert2.c,
+	gcc.dg/cpp/if-1.c, gcc.dg/cpp/if-4.c: Tweak error regexps.
+
+2000-07-08  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/macsyntx.c: New tests.
+
+2000-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/20000707-1.c: New test.
+
+2000-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20000706-1.c: New test.
+	* gcc.c-torture/execute/20000706-2.c: New test.
+	* gcc.c-torture/execute/20000706-3.c: New test.
+	* gcc.c-torture/execute/20000706-4.c: New test.
+	* gcc.c-torture/execute/20000706-5.c: New test.
+
+2000-07-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt/instantiate7.C: New test.
+
+2000-07-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.mike/thunk2.C: Add return 0.
+	* g++.old-deja/g++.mike/thunk3.C: Likewise.
+	* g++.old-deja/g++.other/rtti3.C: Likewise.
+	* g++.old-deja/g++.other/rttid3.C: Likewise.
+
+2000-06-30  David Billinghurst  <David Billinghurst@riotinto.com.au>
+
+	*  g77.f-torture/compile/20000630-1.x: Fix typo
+
+2000-07-05  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp/ident.c: Don't expect #ident strings in the
+	assembly output.
+
+2000-07-04  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* gcc.dg/cpp/ident.c: New test.
+
+2000-07-05  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/lexident.c, gcc.dg/cpp/lexnum.c,
+	  gcc.dg/cpp/lexstrng.c: New tests.
+
+2000-07-04  Neil Booth  <NeilB@earthling.net>
+
+	* gcc.dg/cpp/macro1.c: Add more macro expansion tests.
+	* gcc.dg/cpp/strify2.c: Same.
+
+2000-07-03  Zack Weinberg  <zack@wolery.cumb.org>
+
+	* testsuite/gcc.dg/cpp/19951025-1.c: Adjust regexps.
+	* testsuite/gcc.dg/cpp/19990703-1.c: Likewise.
+	* testsuite/gcc.dg/cpp/20000625-1.c: Likewise.
+	* testsuite/gcc.dg/cpp/20000625-2.c: Likewise.
+
+	* testsuite/gcc.dg/cpp/macro1.c,
+	testsuite/gcc.dg/cpp/paste1.c, testsuite/gcc.dg/cpp/paste2.c,
+	testsuite/gcc.dg/cpp/paste3.c, testsuite/gcc.dg/cpp/paste4.c,
+	testsuite/gcc.dg/cpp/strify1.c,
+	testsuite/gcc.dg/cpp/strify2.c: New tests.
+
+2000-07-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/20000703-1.c: New test.
+
+2000-07-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt (lookup10.C): New test.
+
+2000-07-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.old-deja/g++.pt (typename25.C): New test.
+
+2000-07-02  Zack Weinberg  <zack@wolery.cumb.org
+
+	* gcc.c-torture/compile/20000701-1.c: New test.
+
 2000-06-30  Nick Clifton  <nickc@cygnus.com>
 
 	* gcc.c-torture/compile/20000629-1.c: Add second, reversed, loop

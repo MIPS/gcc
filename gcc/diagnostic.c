@@ -1,5 +1,6 @@
 /* Language-independent diagnostic subroutines for the GNU C compiler
    Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Contributed by Gabriel Dos Reis <gdr@codesourcery.com>
 
 This file is part of GNU CC.
 
@@ -42,40 +43,58 @@ Boston, MA 02111-1307, USA.  */
 #define obstack_chunk_alloc xmalloc
 #define obstack_chunk_free  free
 
+#define output_formatted_integer(BUFFER, FORMAT, INTEGER) \
+  do {                                                    \
+    sprintf (digit_buffer, FORMAT, INTEGER);              \
+    output_add_string (BUFFER, digit_buffer);             \
+  } while (0)
+
+#define output_text_length(BUFFER) (BUFFER)->line_length
+#define is_starting_newline(BUFFER) (output_text_length (BUFFER) == 0)
+#define output_prefix(BUFFER) (BUFFER)->state.prefix
+#define line_wrap_cutoff(BUFFER) (BUFFER)->state.maximum_length
+#define ideal_line_wrap_cutoff(BUFFER) (BUFFER)->state.ideal_maximum_length
+#define prefix_was_emitted_for(BUFFER) (BUFFER)->state.emitted_prefix_p
+#define prefixing_policy(BUFFER) (BUFFER)->state.prefixing_rule
+#define output_buffer_ptr_to_format_args(BUFFER) (BUFFER)->state.format_args
+
+#define diagnostic_args output_buffer_ptr_to_format_args (diagnostic_buffer)
+#define diagnostic_msg output_buffer_text_cursor (diagnostic_buffer)
+
 /* Prototypes. */
-static int doing_line_wrapping PARAMS ((void));
+static void finish_diagnostic PARAMS ((void));
+static void output_do_verbatim PARAMS ((output_buffer *,
+                                        const char *, va_list *));
+static void output_to_stream PARAMS ((output_buffer *, FILE *));
+static void output_format PARAMS ((output_buffer *));
 
 static char *vbuild_message_string PARAMS ((const char *, va_list));
 static char *build_message_string PARAMS ((const char *, ...))
      ATTRIBUTE_PRINTF_1;
-static char *build_location_prefix PARAMS ((const char *, int, int));
-static void output_notice PARAMS ((output_buffer *, const char *));
-static void line_wrapper_printf PARAMS ((FILE *, const char *, ...))
-     ATTRIBUTE_PRINTF_2;
-static void vline_wrapper_message_with_location PARAMS ((const char *, int,
-							 int, const char *,
-							 va_list));
-static void notice PARAMS ((const char *s, ...)) ATTRIBUTE_PRINTF_1;
-static void v_message_with_file_and_line PARAMS ((const char *, int, int,
-						  const char *, va_list));
-static void v_message_with_decl PARAMS ((tree, int, const char *, va_list));
+static char *context_as_prefix PARAMS ((const char *, int, int));
+static void output_do_printf PARAMS ((output_buffer *, const char *));
+static void format_with_decl PARAMS ((output_buffer *, tree));
 static void file_and_line_for_asm PARAMS ((rtx, const char **, int *));
-static void v_error_with_file_and_line PARAMS ((const char *, int,
-						const char *, va_list));
-static void v_error_with_decl PARAMS ((tree, const char *, va_list));
-static void v_error_for_asm PARAMS ((rtx, const char *, va_list));
-static void vfatal PARAMS ((const char *, va_list)) ATTRIBUTE_NORETURN;
-static void v_warning_with_file_and_line PARAMS ((const char *, int,
-						  const char *, va_list));
-static void v_warning_with_decl PARAMS ((tree, const char *, va_list));
-static void v_warning_for_asm PARAMS ((rtx, const char *, va_list));
-static void v_pedwarn_with_decl PARAMS ((tree, const char *, va_list));
-static void v_pedwarn_with_file_and_line PARAMS ((const char *, int,
-						  const char *, va_list));
-static void vsorry PARAMS ((const char *, va_list));
-static void report_file_and_line PARAMS ((const char *, int, int));
+static void diagnostic_for_asm PARAMS ((rtx, const char *, va_list *, int));
+static void diagnostic_for_decl PARAMS ((tree, const char *, va_list *, int));
 static void vnotice PARAMS ((FILE *, const char *, va_list));
 static void set_real_maximum_length PARAMS ((output_buffer *));
+                                          
+static void output_unsigned_decimal PARAMS ((output_buffer *, unsigned int));
+static void output_long_decimal PARAMS ((output_buffer *, long int));
+static void output_long_unsigned_decimal PARAMS ((output_buffer *,
+                                                  long unsigned int));
+static void output_octal PARAMS ((output_buffer *, unsigned int));
+static void output_long_octal PARAMS ((output_buffer *, unsigned long int));
+static void output_hexadecimal PARAMS ((output_buffer *, unsigned int));
+static void output_long_hexadecimal PARAMS ((output_buffer *,
+                                             unsigned long int));
+static void output_append_r PARAMS ((output_buffer *, const char *, int));
+static void wrap_text PARAMS ((output_buffer *, const char *, const char *));
+static void maybe_wrap_text PARAMS ((output_buffer *, const char *,
+                                     const char *));
+static void clear_text_info PARAMS ((output_buffer *));
+static void clear_diagnostic_info PARAMS ((output_buffer *));
 
 extern int rtl_dump_and_exit;
 extern int inhibit_warnings;
@@ -85,6 +104,10 @@ extern int errorcount;
 
 /* Front-end specific tree formatter, if non-NULL.  */
 printer_fn lang_printer = NULL;
+
+/* This must be large enough to hold any printed integer or
+   floating-point value.  */
+static char digit_buffer[128];
 
 /* An output_buffer surrogate for stderr.  */
 static output_buffer global_output_buffer;
@@ -127,14 +150,6 @@ initialize_diagnostics ()
   default_initialize_buffer (diagnostic_buffer);
 }
 
-/* Predicate. Return 1 if we're in automatic line wrapping mode.  */
-
-static int
-doing_line_wrapping ()
-{
-  return diagnostic_message_length_per_line > 0;
-}
-
 void
 set_message_prefixing_rule (rule)
      int rule;
@@ -147,7 +162,7 @@ int
 output_is_line_wrapping (buffer)
      output_buffer *buffer;
 {
-  return buffer->ideal_maximum_length > 0;
+  return ideal_line_wrap_cutoff (buffer) > 0;
 }
 
 /* Return BUFFER's prefix.  */
@@ -155,7 +170,7 @@ const char *
 output_get_prefix (buffer)
      const output_buffer *buffer;
 {
-  return buffer->prefix;
+  return output_prefix (buffer);
 }
 
 /* Subroutine of output_set_maximum_length.  Set up BUFFER's
@@ -166,16 +181,17 @@ set_real_maximum_length (buffer)
 {
   /* If we're told not to wrap lines then do the obvious thing.  */
   if (! output_is_line_wrapping (buffer))
-    buffer->maximum_length = buffer->ideal_maximum_length;
+    line_wrap_cutoff (buffer) = ideal_line_wrap_cutoff (buffer);
   else
     {
-      int prefix_length = buffer->prefix ? strlen (buffer->prefix) : 0;
+      int prefix_length =
+        output_prefix (buffer) ? strlen (output_prefix (buffer)) : 0;
       /* If the prefix is ridiculously too long, output at least
          32 characters.  */
-      if (buffer->ideal_maximum_length - prefix_length < 32)
-        buffer->maximum_length = buffer->ideal_maximum_length + 32;
+      if (ideal_line_wrap_cutoff (buffer) - prefix_length < 32)
+        line_wrap_cutoff (buffer) = ideal_line_wrap_cutoff (buffer) + 32;
       else
-        buffer->maximum_length = buffer->ideal_maximum_length;
+        line_wrap_cutoff (buffer) = ideal_line_wrap_cutoff (buffer);
     }
 }
 
@@ -186,7 +202,7 @@ output_set_maximum_length (buffer, length)
      output_buffer *buffer;
      int length;
 {
-  buffer->ideal_maximum_length = length;
+ ideal_line_wrap_cutoff (buffer) = length;
   set_real_maximum_length (buffer);
 }
 
@@ -196,9 +212,9 @@ output_set_prefix (buffer, prefix)
      output_buffer *buffer;
      const char *prefix;
 {
-  buffer->prefix = prefix;
+  output_prefix (buffer) = prefix;
   set_real_maximum_length (buffer);
-  buffer->emitted_prefix_p = 0;
+  prefix_was_emitted_for (buffer) = 0;
 }
 
 /* Free BUFFER's prefix, a previously malloc()'d string.  */
@@ -207,11 +223,30 @@ void
 output_destroy_prefix (buffer)
      output_buffer *buffer;
 {
-  if (buffer->prefix)
+  if (output_prefix (buffer) != NULL)
     {
-      free ((char *) buffer->prefix);
-      buffer->prefix = NULL;
+      free ((char *) output_prefix (buffer));
+      output_prefix (buffer) = NULL;
     }
+}
+
+/* Zero out any text output so far in BUFFER.  */
+static void
+clear_text_info (buffer)
+     output_buffer *buffer;
+{
+  obstack_free (&buffer->obstack, obstack_base (&buffer->obstack));
+  output_text_length (buffer) = 0;
+}
+
+/* Zero out any diagnostic data used so far by BUFFER.  */
+static void
+clear_diagnostic_info (buffer)
+     output_buffer *buffer;
+{
+  output_buffer_text_cursor (buffer) = NULL;
+  output_buffer_ptr_to_format_args (buffer) = NULL;
+  prefix_was_emitted_for (buffer) = 0;
 }
 
 /* Construct an output BUFFER with PREFIX and of MAXIMUM_LENGTH
@@ -223,13 +258,11 @@ init_output_buffer (buffer, prefix, maximum_length)
      int maximum_length;
 {
   obstack_init (&buffer->obstack);
-  buffer->ideal_maximum_length = maximum_length;
-  buffer->line_length = 0;
+  ideal_line_wrap_cutoff (buffer) = maximum_length;
+  prefixing_policy (buffer) = current_prefixing_rule;
   output_set_prefix (buffer, prefix);
-  buffer->emitted_prefix_p = 0;
-  buffer->prefixing_rule = current_prefixing_rule;
-  
-  buffer->cursor = NULL;
+  output_text_length (buffer) = 0;
+  clear_diagnostic_info (buffer);  
 }
 
 /* Initialize BUFFER with a NULL prefix and current diagnostic message
@@ -246,8 +279,9 @@ default_initialize_buffer (buffer)
 void
 reshape_diagnostic_buffer ()
 {
-  diagnostic_buffer->ideal_maximum_length = diagnostic_message_length_per_line;
-  diagnostic_buffer->prefixing_rule = current_prefixing_rule;
+  ideal_line_wrap_cutoff (diagnostic_buffer) =
+    diagnostic_message_length_per_line;
+  prefixing_policy (diagnostic_buffer) = current_prefixing_rule;
   set_real_maximum_length (diagnostic_buffer);
 }
 
@@ -256,10 +290,8 @@ void
 output_clear (buffer)
      output_buffer *buffer;
 {
-  obstack_free (&buffer->obstack, obstack_base (&buffer->obstack));
-  buffer->line_length = 0;
-  buffer->cursor = NULL;
-  buffer->emitted_prefix_p = 0;
+  clear_text_info (buffer);
+  clear_diagnostic_info (buffer);
 }
 
 /* Finishes to construct a NULL-terminated character string representing
@@ -278,7 +310,7 @@ int
 output_space_left (buffer)
      const output_buffer *buffer;
 {
-  return buffer->maximum_length - buffer->line_length;
+  return line_wrap_cutoff (buffer) - output_text_length (buffer);
 }
 
 /* Write out BUFFER's prefix.  */
@@ -286,25 +318,25 @@ void
 output_emit_prefix (buffer)
      output_buffer *buffer;
 {
-  if (buffer->prefix)
+  if (output_prefix (buffer) != NULL)
     {
-      switch (buffer->prefixing_rule)
+      switch (prefixing_policy (buffer))
         {
         default:
         case DIAGNOSTICS_SHOW_PREFIX_NEVER:
           break;
 
         case DIAGNOSTICS_SHOW_PREFIX_ONCE:
-          if (buffer->emitted_prefix_p)
+          if (prefix_was_emitted_for (buffer))
             break;
-          else
-            buffer->emitted_prefix_p = 1;
-          /* Fall through.  */
+          /* Else fall through.  */
 
         case DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE:
-          buffer->line_length += strlen (buffer->prefix);
-          obstack_grow
-            (&buffer->obstack, buffer->prefix, buffer->line_length);
+          {
+            int prefix_length = strlen (output_prefix (buffer));
+            output_append_r (buffer, output_prefix (buffer), prefix_length);
+            prefix_was_emitted_for (buffer) = 1;
+          }
           break;
         }
     }
@@ -316,7 +348,7 @@ output_add_newline (buffer)
      output_buffer *buffer;
 {
   obstack_1grow (&buffer->obstack, '\n');
-  buffer->line_length = 0;
+  output_text_length (buffer) = 0;
 }
 
 /* Appends a character to BUFFER.  */
@@ -328,7 +360,7 @@ output_add_character (buffer, c)
   if (output_is_line_wrapping (buffer) && output_space_left (buffer) <= 0)
     output_add_newline (buffer);
   obstack_1grow (&buffer->obstack, c);
-  ++buffer->line_length;
+  ++output_text_length (buffer);
 }
 
 /* Adds a space to BUFFER.  */
@@ -342,128 +374,303 @@ output_add_space (buffer)
       return;
     }
   obstack_1grow (&buffer->obstack, ' ');
-  ++buffer->line_length;
+  ++output_text_length (buffer);
 }
 
-/* Add the stringified version of an integer to BUFFER.  */
+/* These functions format an INTEGER into BUFFER as suggested by their
+   names.  */
 void
-output_add_integer (buffer, i)
+output_decimal (buffer, i)
      output_buffer *buffer;
-     HOST_WIDE_INT i;
+     int i;
 {
-  /* This must be large enough to hold any printed integer or
-     floating-point value.  */
-  static char digit_buffer[128];
+  output_formatted_integer (buffer, "%d", i);
+}
 
-  sprintf (digit_buffer, HOST_WIDE_INT_PRINT_DEC, i);
-  output_add_string (buffer, digit_buffer);
+static void
+output_long_decimal (buffer, i)
+     output_buffer *buffer;
+     long int i;
+{
+  output_formatted_integer (buffer, "%ld", i);
+}
+
+static void
+output_unsigned_decimal (buffer, i)
+     output_buffer *buffer;
+     unsigned int i;
+{
+  output_formatted_integer (buffer, "%u", i);
+}
+
+static void
+output_long_unsigned_decimal (buffer, i)
+     output_buffer *buffer;
+     long unsigned int i;
+{
+  output_formatted_integer (buffer, "%lu", i);
+}
+
+static void
+output_octal (buffer, i)
+     output_buffer *buffer;
+     unsigned int i;
+{
+  output_formatted_integer (buffer, "%o", i);
+}
+
+static void
+output_long_octal (buffer, i)
+     output_buffer *buffer;
+     unsigned long int i;
+{
+  output_formatted_integer (buffer, "%lo", i);
+}
+
+static void
+output_hexadecimal (buffer, i)
+     output_buffer *buffer;
+     unsigned int i;
+{
+  output_formatted_integer (buffer, "%x", i);
+}
+
+static void
+output_long_hexadecimal (buffer, i)
+     output_buffer *buffer;
+     unsigned long int i;
+{
+  output_formatted_integer (buffer, "%lx", i);
+}
+
+/* Append to BUFFER a string specified by its STARTING character
+   and LENGTH.  */
+static void
+output_append_r (buffer, start, length)
+     output_buffer *buffer;
+     const char *start;
+     int length;
+{
+  obstack_grow (&buffer->obstack, start, length);
+  output_text_length (buffer) += length;
 }
 
 /* Append a string deliminated by START and END to BUFFER.  No wrapping is
-   done.  The caller must ensure that it is safe to do so.  */
-
+   done.  However, if beginning a new line then emit output_prefix (BUFFER)
+   and skip any leading whitespace if appropriate.  The caller must ensure
+   that it is safe to do so.  */
 void
 output_append (buffer, start, end)
      output_buffer *buffer;
      const char *start;
      const char *end;
 {
-  int n;
-
   /* Emit prefix and skip whitespace if we're starting a new line.  */
-  if (buffer->line_length == 0)
+  if (is_starting_newline (buffer))
     {
       output_emit_prefix (buffer);
-      while (start != end && *start == ' ')
-        ++start;
+      if (output_is_line_wrapping (buffer))
+        while (start != end && *start == ' ')
+          ++start;
     }
-  n = end - start;
-  obstack_grow (&buffer->obstack, start, n);
-  buffer->line_length += n;
+  output_append_r (buffer, start, end - start);
 }
 
-/* Wrap a STRing into BUFFER.  */
+/* Wrap a text delimited by START and END into BUFFER.  */
+static void
+wrap_text (buffer, start, end)
+     output_buffer *buffer;
+     const char *start;
+     const char *end;
+{
+  while (start != end)
+    {
+      /* Dump anything bodered by whitespaces.  */ 
+      {
+        const char *p = start;
+        while (p != end && *p != ' ' && *p != '\n')
+          ++p;
+        if (p - start >= output_space_left (buffer))
+          output_add_newline (buffer);
+        output_append (buffer, start, p);
+        start = p;
+      }
+
+      if (start != end && *start == ' ')
+        {
+          output_add_space (buffer);
+          ++start;
+        }
+      if (start != end && *start == '\n')
+        {
+          output_add_newline (buffer);
+          ++start;
+        }
+    }
+}
+
+/* Same as wrap_text but wrap text only when in line-wrapping mode.  */
+static void
+maybe_wrap_text (buffer, start, end)
+     output_buffer *buffer;
+     const char *start;
+     const char *end;
+{
+  if (output_is_line_wrapping (buffer))
+    wrap_text (buffer, start, end);
+  else
+    output_append (buffer, start, end);
+}
+
+
+/* Append a STRING to BUFFER; the STRING maybe be line-wrapped if in
+   appropriate mode.  */
 
 void
 output_add_string (buffer, str)
      output_buffer *buffer;
      const char *str;
 {
-  const char *p = str;
-
-  if (!output_is_line_wrapping (buffer))
-    output_append (buffer, str, str + strlen (str));
-  else while (*str)
-    {
-      while (*p && *p != ' ' && *p != '\n')
-        ++p;
-      
-      if (p - str < output_space_left (buffer))
-        output_append (buffer, str, p);
-      else
-        {
-          output_add_newline (buffer);
-          output_append (buffer, str, p);
-        }
-      
-      while (*p && *p == '\n')
-        {
-          output_add_newline (buffer);
-          ++p;
-        }
-
-      str = p++;
-    }
+  maybe_wrap_text (buffer, str, str + (str ? strlen (str) : 0));
 }
 
 /* Flush the content of BUFFER onto FILE and reinitialize BUFFER.  */
 
-void
-output_flush_on (buffer, file)
+static void
+output_to_stream (buffer, file)
      output_buffer *buffer;
      FILE *file;
 {
   const char *text = output_finish (buffer);
   fputs (text, file);
-  output_clear (buffer);
+  clear_text_info (buffer);
 }
 
-/* Format MESSAGE into BUFFER.  */
-void
-output_format (buffer, msg)
+/* Format a message pointed to by output_buffer_text_cursor (BUFFER) using
+   output_buffer_format_args (BUFFER) as appropriate.  The following format
+   specifiers are recognized as  being language independent:
+   %d, %i: (signed) integer in base ten.
+   %u: unsigned integer in base ten.
+   %o: unsigned integer in base eight.
+   %x: unsigned integer in base sixteen.
+   %ld, %li, %lo, %lu, %lx: long versions of the above.
+   %c: character.
+   %s: string.
+   %%: `%'.
+   %*.s: a substring the length of which is specified by an integer.  */
+static void
+output_format (buffer)
      output_buffer *buffer;
-     const char *msg;
 {
-  for (buffer->cursor = msg; *buffer->cursor; ++buffer->cursor)
+  for (; *output_buffer_text_cursor (buffer);
+       ++output_buffer_text_cursor (buffer))
     {
+      int long_integer = 0;
       /* Ignore text.  */
-      if (*buffer->cursor != '%')
+      {
+        const char *p = output_buffer_text_cursor (buffer);
+        while (*p && *p != '%')
+          ++p;
+        maybe_wrap_text (buffer, output_buffer_text_cursor (buffer), p);
+        output_buffer_text_cursor (buffer) = p;
+      }
+      if (!*output_buffer_text_cursor (buffer))
+        break;
+
+      /* We got a '%'.  Let's see what happens. Record whether we're
+         parsing a long integer format specifier.  */
+      if (*++output_buffer_text_cursor (buffer) == 'l')
         {
-          output_add_character (buffer, *buffer->cursor);
-          continue;
+          long_integer = 1;
+          ++output_buffer_text_cursor (buffer);
         }
 
-      /* We got a '%'.  Let's see what happens.  */
-      ++buffer->cursor;
-
-      /* Let's handle the traditional cases.  */
-      if (*buffer->cursor == 's')
-        output_add_string (buffer, va_arg (buffer->format_args, const char *));
-      else if (*buffer->cursor == 'd')
-        output_add_integer (buffer, va_arg (buffer->format_args, int));
-      else if (*buffer->cursor == '%')
-        /* It was a '%%'.  Just output a '%'.  */
-        output_add_character (buffer, '%');
-      else if (lang_printer)
-        (*lang_printer) (buffer);
-      else
+      /* Handle %c, %d, %i, %ld, %li, %lo, %lu, %lx, %o, %s, %u,
+         %x, %.*s; %%.  And nothing else.  Front-ends should install
+         printers to grok language specific format specifiers.  */
+      switch (*output_buffer_text_cursor (buffer))
         {
-          /* Hmmm.  The front-end failed to install a format translator
-             but called us with an unrecognized format.  Sorry.  */
-          abort();
+        case 'c':
+          output_add_character
+            (buffer, va_arg (output_buffer_format_args (buffer), int));
+          break;
+          
+        case 'd':
+        case 'i':
+          if (long_integer)
+            output_long_decimal
+              (buffer, va_arg (output_buffer_format_args (buffer), long int));
+          else
+            output_decimal
+              (buffer, va_arg (output_buffer_format_args (buffer), int));
+          break;
+
+        case 'o':
+          if (long_integer)
+            output_long_octal (buffer,
+                               va_arg (output_buffer_format_args (buffer),
+                                       unsigned long int));
+          else
+            output_octal (buffer,
+                          va_arg (output_buffer_format_args (buffer),
+                                  unsigned int));
+          break;
+
+        case 's':
+          output_add_string (buffer,
+                             va_arg (output_buffer_format_args (buffer),
+                                     const char *));
+          break;
+
+        case 'u':
+          if (long_integer)
+            output_long_unsigned_decimal
+              (buffer, va_arg (output_buffer_format_args (buffer),
+                               long unsigned int));
+          else
+            output_unsigned_decimal
+              (buffer, va_arg (output_buffer_format_args (buffer),
+                               unsigned int));
+          
+        case 'x':
+          if (long_integer)
+            output_long_hexadecimal
+              (buffer, va_arg (output_buffer_format_args (buffer),
+                               unsigned long int));
+          else
+            output_hexadecimal
+              (buffer, va_arg (output_buffer_format_args (buffer),
+                               unsigned int));
+          break;
+
+        case '%':
+          output_add_character (buffer, '%');
+          break;
+
+        case '.':
+          {
+            int n;
+            const char *s;
+            /* We handle no precision specifier but `%.*s'.  */
+            if (*++output_buffer_text_cursor (buffer) != '*')
+              abort ();
+            else if (*++output_buffer_text_cursor (buffer) != 's')
+              abort();
+            n = va_arg (output_buffer_format_args (buffer), int);
+            s = va_arg (output_buffer_format_args (buffer), const char *);
+            output_append (buffer, s, s + n);
+          }
+          break;
+
+        default:
+          if (!lang_printer || !(*lang_printer) (buffer))
+            {
+              /* Hmmm.  The front-end failed to install a format translator
+                 but called us with an unrecognized format.  Sorry.  */
+              abort();
+            }
         }
     }
-  output_finish (buffer);
 }
 
 static char *
@@ -507,7 +714,7 @@ build_message_string VPARAMS ((const char *msgid, ...))
    responsible for freeing the memory.  */
 
 static char *
-build_location_prefix (file, line, warn)
+context_as_prefix (file, line, warn)
      const char *file;
      int line;
      int warn;
@@ -531,11 +738,12 @@ build_location_prefix (file, line, warn)
 /* Format a MESSAGE into BUFFER.  Automatically wrap lines.  */
 
 static void
-output_notice (buffer, msgid)
+output_do_printf (buffer, msgid)
      output_buffer *buffer;
      const char *msgid;
 {
-  char *message = vbuild_message_string (msgid, buffer->format_args);
+  char *message = vbuild_message_string (msgid,
+                                         output_buffer_format_args (buffer));
 
   output_add_string (buffer, message);
   free (message);
@@ -552,67 +760,19 @@ output_printf VPARAMS ((struct output_buffer *buffer, const char *msgid, ...))
   const char *msgid;
 #endif
   va_list ap;
+  va_list *old_args;
 
   VA_START (ap, msgid);
-
 #ifndef ANSI_PROTOTYPES
-  buffer = va_arg (ap, struct output_buffer *);
+  buffer = va_arg (ap, output_buffer *);
   msgid = va_arg (ap, const char *);
 #endif
-
-  va_copy (buffer->format_args, ap);
-  output_notice (buffer, msgid);
-  va_end (buffer->format_args);
+  old_args = output_buffer_ptr_to_format_args (buffer);
+  output_buffer_ptr_to_format_args (buffer) = &ap;
+  output_do_printf (buffer, msgid);
+  output_buffer_ptr_to_format_args (buffer) = old_args;
+  va_end (ap);
 }
-
-
-/* Format a MESSAGE into FILE.  Do line wrapping, starting new lines
-   with PREFIX.  */
-
-static void
-line_wrapper_printf VPARAMS ((FILE *file, const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  FILE *file;
-  const char *msgid;
-#endif
-  output_buffer buffer;
-  
-  init_output_buffer (&buffer, NULL, diagnostic_message_length_per_line);
-  VA_START (buffer.format_args, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  file = va_arg (buffer.format_args, FILE *);
-  msgid = va_arg (buffer.format_args, const char *);
-#endif  
-
-  output_notice (&buffer, msgid);
-  output_flush_on (&buffer, file);
-
-  va_end (buffer.format_args);
-}
-
-
-static void
-vline_wrapper_message_with_location (file, line, warn, msgid, ap)
-     const char *file;
-     int line;
-     int warn;
-     const char *msgid;
-     va_list ap;
-{
-  output_buffer buffer;
-  
-  init_output_buffer (&buffer, build_location_prefix (file, line, warn),
-		      diagnostic_message_length_per_line);
-  va_copy (buffer.format_args, ap);
-  output_notice (&buffer, msgid);
-  output_flush_on (&buffer, stderr);
-
-  output_destroy_prefix (&buffer);
-  fputc ('\n', stderr);
-}
-
 
 /* Print the message MSGID in FILE.  */
 
@@ -625,86 +785,19 @@ vnotice (file, msgid, ap)
   vfprintf (file, _(msgid), ap);
 }
 
-/* Print MSGID on stderr.  */
-
-static void
-notice VPARAMS ((const char *msgid, ...))
-{
-#ifndef ANSI_PROTOTYPES
-  char *msgid;
-#endif
-  va_list ap;
-
-  VA_START (ap, msgid);
-
-#ifndef ANSI_PROTOTYPES
-  msgid = va_arg (ap, char *);
-#endif
-
-  vnotice (stderr, msgid, ap);
-  va_end (ap);
-}
-
-/* Report FILE and LINE (or program name), and optionally just WARN.  */
-
-static void
-report_file_and_line (file, line, warn)
-     const char *file;
-     int line;
-     int warn;
-{
-  if (file)
-    fprintf (stderr, "%s:%d: ", file, line);
-  else
-    fprintf (stderr, "%s: ", progname);
-
-  if (warn)
-    notice ("warning: ");
-}
-
-/* Print a message relevant to line LINE of file FILE.  */
-
-static void
-v_message_with_file_and_line (file, line, warn, msgid, ap)
-     const char *file;
-     int line;
-     int warn;
-     const char *msgid;
-     va_list ap;
-{
-  report_file_and_line (file, line, warn);
-  vnotice (stderr, msgid, ap);
-  fputc ('\n', stderr);
-}
-
 /* Print a message relevant to the given DECL.  */
 
 static void
-v_message_with_decl (decl, warn, msgid, ap)
+format_with_decl (buffer, decl)
+     output_buffer *buffer;
      tree decl;
-     int warn;
-     const char *msgid;
-     va_list ap;
 {
   const char *p;
-  output_buffer buffer;
-
-  if (doing_line_wrapping ())
-    {
-      init_output_buffer
-        (&buffer, build_location_prefix
-         (DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl), warn),
-         diagnostic_message_length_per_line);
-    }
-  else
-    report_file_and_line (DECL_SOURCE_FILE (decl),
-                          DECL_SOURCE_LINE (decl), warn);
-
+  
   /* Do magic to get around lack of varargs support for insertion
      of arguments into existing list.  We know that the decl is first;
      we ass_u_me that it will be printed with "%s".  */
-
-  for (p = _(msgid); *p; ++p)
+  for (p = output_buffer_text_cursor (buffer); *p; ++p)
     {
       if (*p == '%')
 	{
@@ -717,23 +810,15 @@ v_message_with_decl (decl, warn, msgid, ap)
 	}
     }
 
-  if (p > _(msgid))			/* Print the left-hand substring.  */
-    {
-      if (doing_line_wrapping ())
-        output_printf (&buffer, "%.*s", (int)(p - _(msgid)), _(msgid));
-      else
-        fprintf (stderr, "%.*s", (int)(p - _(msgid)), _(msgid));
-    }
-
+  /* Print the left-hand substring.  */
+  maybe_wrap_text (buffer, output_buffer_text_cursor (buffer), p);
+  
   if (*p == '%')		/* Print the name.  */
     {
       const char *n = (DECL_NAME (decl)
 		 ? (*decl_printable_name) (decl, 2)
 		 : _("((anonymous))"));
-      if (doing_line_wrapping ())
-        output_add_string (&buffer, n);
-      else
-        fputs (n, stderr);
+      output_add_string (buffer, n);
       while (*p)
 	{
 	  ++p;
@@ -744,23 +829,9 @@ v_message_with_decl (decl, warn, msgid, ap)
 
   if (*p)			/* Print the rest of the message.  */
     {
-      if (doing_line_wrapping ())
-        {
-	  va_copy (buffer.format_args, ap);
-          output_notice (&buffer, p);
-          va_copy (ap, buffer.format_args);
-        }
-      else
-        vfprintf (stderr, p, ap);
+      output_buffer_text_cursor (buffer) = p;
+      output_format (buffer);
     }
-
-  if (doing_line_wrapping())
-    {
-      output_flush_on (&buffer, stderr);
-      output_destroy_prefix (&buffer);
-    }
-  
-  fputc ('\n', stderr);
 }
 
 /* Figure file and line of the given INSN.  */
@@ -800,224 +871,49 @@ file_and_line_for_asm (insn, pfile, pline)
     }
 }
 
-/* Report an error at line LINE of file FILE.  */
-
-static void
-v_error_with_file_and_line (file, line, msgid, ap)
-     const char *file;
-     int line;
-     const char *msgid;
-     va_list ap;
-{
-  count_error (0);
-  report_error_function (file);
-  if (doing_line_wrapping ())
-    vline_wrapper_message_with_location (file, line, 0, msgid, ap);
-  else
-    v_message_with_file_and_line (file, line, 0, msgid, ap);
-}
-
-/* Report an error at the declaration DECL.
-   MSGID is a format string which uses %s to substitute the declaration
-   name; subsequent substitutions are a la printf.  */
-
-static void
-v_error_with_decl (decl, msgid, ap)
-     tree decl;
-     const char *msgid;
-     va_list ap;
-{
-  count_error (0);
-  report_error_function (DECL_SOURCE_FILE (decl));
-  v_message_with_decl (decl, 0, msgid, ap);
-}
-
-
-/* Report an error at the line number of the insn INSN.
-   This is used only when INSN is an `asm' with operands,
+/* Report a diagnostic MESSAGE (an errror or a WARNING) at the line number
+   of the insn INSN.  This is used only when INSN is an `asm' with operands,
    and each ASM_OPERANDS records its own source file and line.  */
-
 static void
-v_error_for_asm (insn, msgid, ap)
+diagnostic_for_asm (insn, msg, args_ptr, warn)
      rtx insn;
-     const char *msgid;
-     va_list ap;
+     const char *msg;
+     va_list *args_ptr;
+     int warn;
 {
   const char *file;
   int line;
 
-  count_error (0);
   file_and_line_for_asm (insn, &file, &line);
-  report_error_function (file);
-  v_message_with_file_and_line (file, line, 0, msgid, ap);
+  report_diagnostic (msg, args_ptr, file, line, warn);
 }
 
-
-/* Report an error at the current line number.  */
-
-void
-verror (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-  v_error_with_file_and_line (input_filename, lineno, msgid, ap);
-}
-
-
-/* Report a fatal error at the current line number.  Allow a front end to
-   intercept the message.  */
-
-static void (*fatal_function) PARAMS ((const char *, va_list));
-
+/* Report a diagnostic MESSAGE at the declaration DECL.
+   MSG is a format string which uses %s to substitute the declaration
+   name; subsequent substitutions are a la output_format.  */
 static void
-vfatal (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-   if (fatal_function != 0)
-     (*fatal_function) (_(msgid), ap);
-
-  verror (msgid, ap);
-  exit (FATAL_EXIT_CODE);
-}
-
-/* Report a warning at line LINE of file FILE.  */
-
-static void
-v_warning_with_file_and_line (file, line, msgid, ap)
-     const char *file;
-     int line;
-     const char *msgid;
-     va_list ap;
-{
-  if (count_error (1))
-    {
-      report_error_function (file);
-      if (doing_line_wrapping ())
-        vline_wrapper_message_with_location (file, line, 1, msgid, ap);
-      else
-        v_message_with_file_and_line (file, line, 1, msgid, ap);
-    }
-}
-
-
-/* Report a warning at the declaration DECL.
-   MSGID is a format string which uses %s to substitute the declaration
-   name; subsequent substitutions are a la printf.  */
-
-static void
-v_warning_with_decl (decl, msgid, ap)
+diagnostic_for_decl (decl, msg, args_ptr, warn)
      tree decl;
-     const char *msgid;
-     va_list ap;
+     const char *msg;
+     va_list *args_ptr;
+     int warn;
 {
-  if (count_error (1))
-    {
-      report_error_function (DECL_SOURCE_FILE (decl));
-      v_message_with_decl (decl, 1, msgid, ap);
-    }
-}
+  output_state os;
 
-
-/* Report a warning at the line number of the insn INSN.
-   This is used only when INSN is an `asm' with operands,
-   and each ASM_OPERANDS records its own source file and line.  */
-
-static void
-v_warning_for_asm (insn, msgid, ap)
-     rtx insn;
-     const char *msgid;
-     va_list ap;
-{
-  if (count_error (1))
-    {
-      const char *file;
-      int line;
-
-      file_and_line_for_asm (insn, &file, &line);
-      report_error_function (file);
-      v_message_with_file_and_line (file, line, 1, msgid, ap);
-    }
-}
-
-
-/* Report a warning at the current line number.  */
-
-void
-vwarning (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-  v_warning_with_file_and_line (input_filename, lineno, msgid, ap);
-}
-
-/* These functions issue either warnings or errors depending on
-   -pedantic-errors.  */
-
-void
-vpedwarn (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-  if (flag_pedantic_errors)
-    verror (msgid, ap);
-  else
-    vwarning (msgid, ap);
-}
-
-
-static void
-v_pedwarn_with_decl (decl, msgid, ap)
-     tree decl;
-     const char *msgid;
-     va_list ap;
-{
-  /* We don't want -pedantic-errors to cause the compilation to fail from
-     "errors" in system header files.  Sometimes fixincludes can't fix what's
-     broken (eg: unsigned char bitfields - fixing it may change the alignment
-     which will cause programs to mysteriously fail because the C library
-     or kernel uses the original layout).  There's no point in issuing a
-     warning either, it's just unnecessary noise.  */
-
-  if (! DECL_IN_SYSTEM_HEADER (decl))
-    {
-      if (flag_pedantic_errors)
-	v_error_with_decl (decl, msgid, ap);
-      else
-	v_warning_with_decl (decl, msgid, ap);
-    }
-}
-
-
-static void
-v_pedwarn_with_file_and_line (file, line, msgid, ap)
-     const char *file;
-     int line;
-     const char *msgid;
-     va_list ap;
-{
-  if (flag_pedantic_errors)
-    v_error_with_file_and_line (file, line, msgid, ap);
-  else
-    v_warning_with_file_and_line (file, line, msgid, ap);
-}
-
-
-/* Apologize for not implementing some feature.  */
-
-static void
-vsorry (msgid, ap)
-     const char *msgid;
-     va_list ap;
-{
-  sorrycount++;
-  if (input_filename)
-    fprintf (stderr, "%s:%d: ", input_filename, lineno);
-  else
-    fprintf (stderr, "%s: ", progname);
-  notice ("sorry, not implemented: ");
-  vnotice (stderr, msgid, ap);
-  fputc ('\n', stderr);
+  if (!count_error (warn))
+    return;
+  os = diagnostic_buffer->state;
+  report_error_function (DECL_SOURCE_FILE (decl));
+  output_set_prefix
+    (diagnostic_buffer, context_as_prefix
+     (DECL_SOURCE_FILE (decl), DECL_SOURCE_LINE (decl), warn));
+  output_buffer_ptr_to_format_args (diagnostic_buffer) = args_ptr;
+  output_buffer_text_cursor (diagnostic_buffer) = msg;
+  format_with_decl (diagnostic_buffer, decl);
+  finish_diagnostic ();
+  output_destroy_prefix (diagnostic_buffer);
+  
+  diagnostic_buffer->state = os;
 }
 
 
@@ -1038,7 +934,7 @@ count_error (warningp)
 
       if (warningp && !warning_message)
 	{
-	  notice ("%s: warnings being treated as errors\n", progname);
+	  verbatim ("%s: warnings being treated as errors\n", progname);
 	  warning_message = 1;
 	}
       errorcount++;
@@ -1085,7 +981,7 @@ void
 fatal_io_error (name)
   const char *name;
 {
-  notice ("%s: %s: I/O error\n", progname, name);
+  verbatim ("%s: %s: I/O error\n", progname, name);
   exit (FATAL_EXIT_CODE);
 }
 
@@ -1104,7 +1000,8 @@ pedwarn VPARAMS ((const char *msgid, ...))
   msgid = va_arg (ap, const char *);
 #endif
 
-  vpedwarn (msgid, ap);
+  report_diagnostic (msgid, &ap, input_filename, lineno,
+                     !flag_pedantic_errors);
   va_end (ap);
 }
 
@@ -1124,8 +1021,14 @@ pedwarn_with_decl VPARAMS ((tree decl, const char *msgid, ...))
   decl = va_arg (ap, tree);
   msgid = va_arg (ap, const char *);
 #endif
-
-  v_pedwarn_with_decl (decl, msgid, ap);
+  /* We don't want -pedantic-errors to cause the compilation to fail from
+     "errors" in system header files.  Sometimes fixincludes can't fix what's
+     broken (eg: unsigned char bitfields - fixing it may change the alignment
+     which will cause programs to mysteriously fail because the C library
+     or kernel uses the original layout).  There's no point in issuing a
+     warning either, it's just unnecessary noise.  */
+  if (!DECL_IN_SYSTEM_HEADER (decl))
+    diagnostic_for_decl (decl, msgid, &ap, !flag_pedantic_errors);
   va_end (ap);
 }
 
@@ -1149,7 +1052,7 @@ pedwarn_with_file_and_line VPARAMS ((const char *file, int line,
   msgid = va_arg (ap, const char *);
 #endif
 
-  v_pedwarn_with_file_and_line (file, line, msgid, ap);
+  report_diagnostic (msgid, &ap, file, line, !flag_pedantic_errors);
   va_end (ap);
 }
 
@@ -1161,14 +1064,23 @@ sorry VPARAMS ((const char *msgid, ...))
   const char *msgid;
 #endif
   va_list ap;
+  output_state os;
 
+  os = diagnostic_buffer->state;
   VA_START (ap, msgid);
 
 #ifndef ANSI_PROTOTYPES
   msgid = va_arg (ap, const char *);
 #endif
-
-  vsorry (msgid, ap);
+  ++sorrycount;
+  output_set_prefix
+    (diagnostic_buffer, context_as_prefix (input_filename, lineno, 0));
+  output_printf (diagnostic_buffer, "sorry, not implemented: ");
+  output_buffer_ptr_to_format_args (diagnostic_buffer) = &ap;
+  output_buffer_text_cursor (diagnostic_buffer) = msgid;
+  output_format (diagnostic_buffer);
+  finish_diagnostic ();
+  diagnostic_buffer->state = os;
   va_end (ap);
 }
 
@@ -1182,15 +1094,9 @@ announce_function (decl)
   if (! quiet_flag)
     {
       if (rtl_dump_and_exit)
-	fprintf (stderr, "%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
+	verbatim ("%s ", IDENTIFIER_POINTER (DECL_NAME (decl)));
       else
-        {
-          if (doing_line_wrapping ())
-            line_wrapper_printf
-              (stderr, " %s", (*decl_printable_name) (decl, 2));
-          else
-            fprintf (stderr, " %s", (*decl_printable_name) (decl, 2));
-        }
+        verbatim (" %s", (*decl_printable_name) (decl, 2));
       fflush (stderr);
       need_error_newline = 1;
       last_error_function = current_function_decl;
@@ -1206,57 +1112,32 @@ default_print_error_function (file)
 {
   if (last_error_function != current_function_decl)
     {
-      char *prefix = NULL;
-      output_buffer buffer;
-      
-      if (file)
-        prefix = build_message_string ("%s: ", file);
+      char *prefix = file ? build_message_string ("%s: ", file) : NULL;
+      output_state os;
 
-      if (doing_line_wrapping ())
-        init_output_buffer
-          (&buffer, prefix, diagnostic_message_length_per_line);
-      else
-        {
-          if (file)
-            fprintf (stderr, "%s: ", file);
-        }
+      os = diagnostic_buffer->state;
+      output_set_prefix (diagnostic_buffer, prefix);
       
       if (current_function_decl == NULL)
         {
-          if (doing_line_wrapping ())
-            output_printf (&buffer, "At top level:\n");
-          else
-            notice ("At top level:\n");
+          output_add_string (diagnostic_buffer, "At top level:");
+          output_add_newline (diagnostic_buffer);
         }
       else
 	{
 	  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE)
-            {
-              if (doing_line_wrapping ())
-                output_printf
-                  (&buffer, "In method `%s':\n",
-                   (*decl_printable_name) (current_function_decl, 2));
-              else
-                notice ("In method `%s':\n",
-                        (*decl_printable_name) (current_function_decl, 2));
-            }
+            output_printf
+              (diagnostic_buffer, "In method `%s':\n",
+               (*decl_printable_name) (current_function_decl, 2));
 	  else
-            {
-              if (doing_line_wrapping ())
-                output_printf
-                  (&buffer, "In function `%s':\n",
-                   (*decl_printable_name) (current_function_decl, 2));
-              else
-                notice ("In function `%s':\n",
-                        (*decl_printable_name) (current_function_decl, 2));
-            }
+            output_printf
+              (diagnostic_buffer, "In function `%s':\n",
+               (*decl_printable_name) (current_function_decl, 2));
 	}
 
       last_error_function = current_function_decl;
-
-      if (doing_line_wrapping ())
-        output_flush_on (&buffer, stderr);
-      
+      output_to_stream (diagnostic_buffer, stderr);
+      diagnostic_buffer->state = os;
       free ((char*) prefix);
     }
 }
@@ -1273,7 +1154,7 @@ report_error_function (file)
 
   if (need_error_newline)
     {
-      fprintf (stderr, "\n");
+      verbatim ("\n");
       need_error_newline = 0;
     }
 
@@ -1282,10 +1163,10 @@ report_error_function (file)
     {
       for (p = input_file_stack->next; p; p = p->next)
 	if (p == input_file_stack->next)
-	  notice ("In file included from %s:%d", p->name, p->line);
+	  verbatim ("In file included from %s:%d", p->name, p->line);
 	else
-	  notice (",\n                 from %s:%d", p->name, p->line);
-      fprintf (stderr, ":\n");
+	  verbatim (",\n                 from %s:%d", p->name, p->line);
+      verbatim (":\n");
       last_error_tick = input_file_stack_tick;
     }
 
@@ -1311,7 +1192,7 @@ error_with_file_and_line VPARAMS ((const char *file, int line,
   msgid = va_arg (ap, const char *);
 #endif
 
-  v_error_with_file_and_line (file, line, msgid, ap);
+  report_diagnostic (msgid, &ap, file, line, /* warn = */ 0);
   va_end (ap);
 }
 
@@ -1331,7 +1212,7 @@ error_with_decl VPARAMS ((tree decl, const char *msgid, ...))
   msgid = va_arg (ap, const char *);
 #endif
 
-  v_error_with_decl (decl, msgid, ap);
+  diagnostic_for_decl (decl, msgid, &ap, /* warn = */ 0);
   va_end (ap);
 }
 
@@ -1351,7 +1232,7 @@ error_for_asm VPARAMS ((rtx insn, const char *msgid, ...))
   msgid = va_arg (ap, const char *);
 #endif
 
-  v_error_for_asm (insn, msgid, ap);
+  diagnostic_for_asm (insn, msgid, &ap, /* warn = */ 0);
   va_end (ap);
 }
 
@@ -1369,11 +1250,13 @@ error VPARAMS ((const char *msgid, ...))
   msgid = va_arg (ap, const char *);
 #endif
 
-  verror (msgid, ap);
+  report_diagnostic (msgid, &ap, input_filename, lineno, /* warn = */ 0);
   va_end (ap);
 }
 
 /* Set the function to call when a fatal error occurs.  */
+
+static void (*fatal_function) PARAMS ((const char *, va_list));
 
 void
 set_fatal_function (f)
@@ -1382,6 +1265,8 @@ set_fatal_function (f)
   fatal_function = f;
 }
 
+/* Report a fatal error at the current line number.  Allow a front end to
+   intercept the message.  */
 void
 fatal VPARAMS ((const char *msgid, ...))
 {
@@ -1389,15 +1274,21 @@ fatal VPARAMS ((const char *msgid, ...))
   const char *msgid;
 #endif
   va_list ap;
+  va_list args_for_fatal_msg;
 
   VA_START (ap, msgid);
 
 #ifndef ANSI_PROTOTYPES
   msgid = va_arg (ap, const char *);
 #endif
+  va_copy (args_for_fatal_msg, ap);
 
-  vfatal (msgid, ap);
+  if (fatal_function != NULL)
+    (*fatal_function) (_(msgid), args_for_fatal_msg);
+  va_end (args_for_fatal_msg);
+  report_diagnostic (msgid, &ap, input_filename, lineno, 0);
   va_end (ap);
+  exit (FATAL_EXIT_CODE);
 }
 
 void
@@ -1446,7 +1337,7 @@ warning_with_file_and_line VPARAMS ((const char *file, int line,
   msgid = va_arg (ap, const char *);
 #endif
 
-  v_warning_with_file_and_line (file, line, msgid, ap);
+  report_diagnostic (msgid, &ap, file, line, /* warn = */ 1);
   va_end (ap);
 }
 
@@ -1466,7 +1357,7 @@ warning_with_decl VPARAMS ((tree decl, const char *msgid, ...))
   msgid = va_arg (ap, const char *);
 #endif
 
-  v_warning_with_decl (decl, msgid, ap);
+  diagnostic_for_decl (decl, msgid, &ap, /* warn = */ 1);
   va_end (ap);
 }
 
@@ -1486,7 +1377,7 @@ warning_for_asm VPARAMS ((rtx insn, const char *msgid, ...))
   msgid = va_arg (ap, const char *);
 #endif
 
-  v_warning_for_asm (insn, msgid, ap);
+  diagnostic_for_asm (insn, msgid, &ap, /* warn = */ 1);
   va_end (ap);
 }
 
@@ -1504,7 +1395,103 @@ warning VPARAMS ((const char *msgid, ...))
   msgid = va_arg (ap, const char *);
 #endif
 
-  vwarning (msgid, ap);
+  report_diagnostic (msgid, &ap, input_filename, lineno, /* warn = */ 1);
   va_end (ap);
 }
 
+/* Flush diagnostic_buffer content on stderr.  */
+static void
+finish_diagnostic ()
+{
+  output_to_stream (diagnostic_buffer, stderr);
+  clear_diagnostic_info (diagnostic_buffer);
+  fputc ('\n', stderr);
+  fflush (stderr);
+}
+
+/* Helper subroutine of output_verbatim and verbatim. Do the approriate
+   settings needed by BUFFER for a verbatim formatting.  */
+static void
+output_do_verbatim (buffer, msg, args_ptr)
+     output_buffer *buffer;
+     const char *msg;
+     va_list *args_ptr;
+{
+  output_state os;
+
+  os = buffer->state;
+  output_prefix (buffer) = NULL;
+  prefixing_policy (buffer) = DIAGNOSTICS_SHOW_PREFIX_NEVER;
+  output_buffer_text_cursor (buffer) = msg;
+  output_buffer_ptr_to_format_args (buffer) = args_ptr;
+  output_set_maximum_length (buffer, 0);
+  output_format (buffer);
+  buffer->state = os;
+}
+
+/* Output MESSAGE verbatim into BUFFER.  */
+void
+output_verbatim VPARAMS ((output_buffer *buffer, const char *msg, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  output_buffer *buffer;
+  const char *msg;
+#endif
+  va_list ap;
+
+  VA_START (ap, msg);
+#ifndef ANSI_PROTOTYPES
+  buffer = va_arg (ap, output_buffer *);
+  msg = va_arg (ap, const char *);
+#endif
+  output_do_verbatim (buffer, msg, &ap);
+  va_end (ap);
+}
+
+/* Same as above but use diagnostic_buffer.  */
+void
+verbatim VPARAMS ((const char *msg, ...))
+{
+#ifndef ANSI_PROTOTYPES
+  const char *msg;
+#endif
+  va_list ap;
+
+  VA_START (ap, msg);
+#ifndef ANSI_PROTOTYPES
+  msg = va_arg (ap, const char *);
+#endif
+  output_do_verbatim (diagnostic_buffer, msg, &ap);
+  output_to_stream (diagnostic_buffer, stderr);
+  va_end (ap);
+}
+
+/* Report a diagnostic MESSAGE (an error or a WARNING) involving
+   entities in ARGUMENTS.  FILE and LINE indicate where the diagnostic
+   occurs.  This function is *the* subroutine in terms of which front-ends
+   should implement their specific diagnostic handling modules.
+   The front-end independent format specifiers are exactly those described
+   in the documentation of output_format.  */
+void
+report_diagnostic (msg, args_ptr, file, line, warn)
+     const char *msg;
+     va_list *args_ptr;
+     const char *file;
+     int line;
+     int warn;
+{
+  output_state os;
+
+  if (!count_error (warn))
+    return;
+  os = diagnostic_buffer->state;
+  diagnostic_msg = msg;
+  diagnostic_args = args_ptr;
+  report_error_function (file);
+  output_set_prefix
+    (diagnostic_buffer, context_as_prefix (file, line, warn));
+  output_format (diagnostic_buffer);
+  finish_diagnostic ();
+  output_destroy_prefix (diagnostic_buffer);
+  diagnostic_buffer->state = os;
+}

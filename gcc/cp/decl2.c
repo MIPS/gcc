@@ -2874,6 +2874,7 @@ get_guard (decl)
     {
       guard = get_temp_name (integer_type_node);
       rest_of_decl_compilation (guard, NULL_PTR, 0, 0);
+      return guard;
     }
 
   if (!flag_new_abi)
@@ -4309,6 +4310,8 @@ finish_decl_parsing (decl)
       /* For attribute handling.  */
       TREE_VALUE (decl) = finish_decl_parsing (TREE_VALUE (decl));
       return decl;
+    case TEMPLATE_ID_EXPR:
+      return decl;
     default:
       my_friendly_abort (5);
       return NULL_TREE;
@@ -4703,7 +4706,8 @@ push_decl_namespace (decl)
 {
   if (TREE_CODE (decl) != NAMESPACE_DECL)
     decl = decl_namespace (decl);
-  decl_namespace_list = tree_cons (decl, NULL_TREE, decl_namespace_list);
+  decl_namespace_list = tree_cons (ORIGINAL_NAMESPACE (decl),
+                                   NULL_TREE, decl_namespace_list);
 }
 
 void

@@ -130,6 +130,9 @@ RANLIB_TEST = \
   [ -f $(RANLIB) ] \
   || [ -f /usr/bin/ranlib -o -f /bin/ranlib ]
 
+# Substitution type for target's getgroups 2nd arg.
+TARGET_GETGROUPS_T = @TARGET_GETGROUPS_T@
+
 # Compiler to use for compiling libgcc1.a.
 # OLDCC should not be the GNU C compiler,
 # since that would compile typical libgcc1.a functions such as mulsi3
@@ -674,8 +677,8 @@ LANG_FLAGS_TO_PASS = $(SUBDIR_FLAGS_TO_PASS) \
 # Lists of files for various purposes.
 
 # Language-specific object files for C and Objective C.
-C_AND_OBJC_OBJS = c-lex.o c-pragma.o c-decl.o c-typeck.o c-convert.o \
-  c-aux-info.o c-common.o c-iterate.o @extra_c_objs@
+C_AND_OBJC_OBJS = c-errors.o c-lex.o c-pragma.o c-decl.o c-typeck.o \
+  c-convert.o c-aux-info.o c-common.o c-iterate.o c-semantics.o @extra_c_objs@
 
 # Language-specific object files for C.
 C_OBJS = c-parse.o c-lang.o $(C_AND_OBJC_OBJS)
@@ -716,7 +719,7 @@ STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  xgcc$(exeext) xcpp$(exeext) cc1$(exeext) cpp$(exeext) $(EXTRA_PASSES) \
  $(EXTRA_PARTS) $(EXTRA_PROGRAMS) gcc-cross$(exeext) cc1obj$(exeext) \
  enquire$(exeext) protoize$(exeext) unprotoize$(exeext) \
- specs collect2$(exeext) $(USE_COLLECT2) underscore.c \
+ specs collect2$(exeext) $(USE_COLLECT2) underscore.c tradcpp$(exeext) \
  gcov$(exeext) *.[0-9][0-9].* *.[si] libcpp.a libgcc libgcc.mk \
  $(LANG_STAGESTUFF)
 
@@ -869,7 +872,7 @@ native: config.status auto-host.h cpp$(exeext) intl.all $(LANGUAGES) \
 	$(EXTRA_PASSES) $(EXTRA_PROGRAMS) $(USE_COLLECT2)
 
 # Define the names for selecting languages in LANGUAGES.
-C c: cc1$(exeext)
+C c: cc1$(exeext) tradcpp$(exeext)
 PROTO: proto
 
 # Tell GNU make these are phony targets.
@@ -1067,6 +1070,8 @@ s-crt0:	$(CRT0_S) $(MCRT0_S) $(GCC_PASSES) $(CONFIG_H)
 
 # C language specific files.
 
+c-errors.o: c-errors.c $(CONFIG_H) system.h $(TREE_H) c-tree.h flags.h \
+    diagnostic.h
 c-parse.o : $(srcdir)/c-parse.c $(CONFIG_H) $(TREE_H) c-lex.h $(GGC_H) \
     $(srcdir)/c-parse.h c-tree.h c-common.h input.h flags.h system.h \
     toplev.h output.h
@@ -1156,6 +1161,10 @@ s-under: $(GCC_PASSES)
 # A file used by all variants of C.
 
 c-common.o : c-common.c $(CONFIG_H) system.h $(TREE_H) \
+	c-common.h flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
+	$(EXPR_H)
+
+c-semantics.o : c-semantics.c $(CONFIG_H) system.h $(TREE_H) c-tree.h c-lex.h \
 	c-common.h flags.h toplev.h output.h c-pragma.h $(RTL_H) $(GGC_H) \
 	$(EXPR_H)
 
@@ -1774,9 +1783,9 @@ PREPROCESSOR_DEFINES = \
   -DCROSS_INCLUDE_DIR=\"$(gcc_tooldir)/sys-include\" \
   -DTOOL_INCLUDE_DIR=\"$(gcc_tooldir)/include\"
 
-LIBCPP_OBJS =	cpplib.o cpphash.o cpperror.o cppexp.o cppfiles.o \
-		cppinit.o cppulp.o cpplex.o mkdeps.o \
-		prefix.o version.o mbchar.o @extra_cpp_objs@
+LIBCPP_OBJS =	cpplib.o cpplex.o cppmacro.o cppexp.o cppfiles.o \
+		cpphash.o cpperror.o cppinit.o cppulp.o cppdefault.o \
+		mkdeps.o prefix.o version.o mbchar.o @extra_cpp_objs@
 
 LIBCPP_DEPS =	cpplib.h cpphash.h intl.h system.h
 
@@ -1798,17 +1807,31 @@ cppulp.o:   cppulp.c   $(CONFIG_H) system.h output.h
 cpperror.o: cpperror.c $(CONFIG_H) $(LIBCPP_DEPS)
 cppexp.o:   cppexp.c   $(CONFIG_H) $(LIBCPP_DEPS)
 cpplex.o:   cpplex.c   $(CONFIG_H) $(LIBCPP_DEPS)
-cpplib.o:   cpplib.c   $(CONFIG_H) $(LIBCPP_DEPS)
-cpphash.o:  cpphash.c  $(CONFIG_H) $(LIBCPP_DEPS) $(HASHTAB_H)
+cppmacro.o: cppmacro.c $(CONFIG_H) $(LIBCPP_DEPS)
+cpplib.o:   cpplib.c   $(CONFIG_H) $(LIBCPP_DEPS) $(OBSTACK_H)
+cpphash.o:  cpphash.c  $(CONFIG_H) $(LIBCPP_DEPS) $(OBSTACK_H)
 cppfiles.o: cppfiles.c $(CONFIG_H) $(LIBCPP_DEPS) $(SPLAY_TREE_H) mkdeps.h
+cppinit.o:  cppinit.c  $(CONFIG_H) $(LIBCPP_DEPS) cppdefault.h \
+		mkdeps.h prefix.h output.h version.h
 
-cppinit.o: cppinit.c $(CONFIG_H) $(LIBCPP_DEPS) $(HASHTAB_H) $(SPLAY_TREE_H) \
-		mkdeps.h prefix.h output.h Makefile version.h
+cppdefault.o: cppdefault.c $(CONFIG_H) system.h cppdefault.h Makefile
 	$(CC) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  $(PREPROCESSOR_DEFINES) \
-	  -c `echo $(srcdir)/cppinit.c | sed 's,^\./,,'`
+	  -c `echo $(srcdir)/cppdefault.c | sed 's,^\./,,'`
 
 mkdeps.o: mkdeps.c $(CONFIG_H) system.h mkdeps.h
+
+# The traditional mode preprocessor, a separate program for ease of
+# maintenance.  Some code is shared with the ISO-C cpp.
+tradcpp$(exeext): tradcpp.o tradcif.o cppdefault.o $(LIBDEPS)
+	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o tradcpp$(exeext) \
+	tradcpp.o tradcif.o cppdefault.o version.o intl.o $(LIBS)
+
+tradcpp.o: tradcpp.c $(CONFIG_H) system.h version.h cppdefault.h
+tradcif.o: tradcif.c $(CONFIG_H) system.h
+
+$(srcdir)/tradcif.c: $(srcdir)/tradcif.y
+	cd $(srcdir); $(BISON) $(BISONFLAGS) -o tradcif.c tradcif.y
 
 # Note for the stamp targets, we run the program `true' instead of
 # having an empty command (nothing following the semicolon).
@@ -1839,7 +1862,8 @@ unprotoize.o: unprotoize.c protoize.c $(srcdir)/../include/getopt.h \
 SYSCALLS.c.X: $(srcdir)/sys-types.h $(srcdir)/sys-protos.h $(GCC_PASSES) \
    stmp-int-hdrs
 	-rm -f SYSCALLS.c tmp-SYSCALLS.s
-	cat $(srcdir)/sys-types.h $(srcdir)/sys-protos.h > SYSCALLS.c
+	sed -e s/TARGET_GETGROUPS_T/$(TARGET_GETGROUPS_T)/ \
+	  $(srcdir)/sys-types.h $(srcdir)/sys-protos.h > SYSCALLS.c
 	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
 	  -aux-info $@ -S -o tmp-SYSCALLS.s SYSCALLS.c
 	-rm -f SYSCALLS.c tmp-SYSCALLS.s
@@ -1996,7 +2020,8 @@ scan.o: scan.c scan.h $(build_xm_file) system.h
 	$(HOST_CC) -c $(HOST_CFLAGS) $(HOST_CPPFLAGS) $(INCLUDES) $(srcdir)/scan.c
 
 xsys-protos.h: $(GCC_PASSES) $(srcdir)/sys-protos.h deduced.h gen-protos Makefile
-	cat deduced.h $(srcdir)/sys-protos.h > tmp-fixtmp.c
+	sed -e s/TARGET_GETGROUPS_T/$(TARGET_GETGROUPS_T)/ \
+	  deduced.h $(srcdir)/sys-protos.h > tmp-fixtmp.c
 	mv tmp-fixtmp.c fixtmp.c
 	$(GCC_FOR_TARGET) fixtmp.c -w -U__SIZE_TYPE__ -U__PTRDIFF_TYPE__ -U__WCHAR_TYPE__ -E \
 	  | sed -e 's/	/ /g' -e 's/ *(/ (/g' -e 's/ [ ]*/ /g' -e 's/( )/()/' \
@@ -2132,6 +2157,7 @@ mostlyclean: $(INTL_MOSTLYCLEAN) lang.mostlyclean
 INTL_CLEAN = intl.clean
 clean: mostlyclean $(INTL_CLEAN) lang.clean
 	-rm -f libgcc.a
+	-rm -rf libgcc
 	-rm -f *.dvi
 	-rm -f */*.dvi
 	-if [ -f md.pre-cpp ]; then \
@@ -2335,6 +2361,8 @@ install-common: native installdirs $(EXTRA_PARTS) lang.install-common
 	fi
 	-rm -f $(libsubdir)/cpp$(exeext)
 	$(INSTALL_PROGRAM) cpp$(exeext) $(libsubdir)/cpp$(exeext)
+	-rm -f $(libsubdir)/tradcpp$(exeext)
+	$(INSTALL_PROGRAM) tradcpp$(exeext) $(libsubdir)/tradcpp$(exeext)
 # Install gcov if it was compiled.
 	-if [ -f gcov$(exeext) ]; \
 	then \

@@ -174,6 +174,7 @@ process_rtx (desc, lineno)
       {
 	const char *split_cond;
 	rtx split;
+	rtvec attr;
 	int i;
 
 	/* Create a split with values from the insn_and_split. */
@@ -208,8 +209,9 @@ process_rtx (desc, lineno)
 	XSTR (split, 3) = XSTR (desc, 6);
 
 	/* Fix up the DEFINE_INSN.  */
+	attr = XVEC (desc, 7);
 	PUT_CODE (desc, DEFINE_INSN);
-	XVEC (desc, 4) = XVEC (desc, 7);
+	XVEC (desc, 4) = attr;
 
 	/* Queue them.  */
 	queue_pattern (desc, &define_insn_tail, lineno);

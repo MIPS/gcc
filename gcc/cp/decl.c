@@ -2899,7 +2899,8 @@ pushtag (name, type, globalize)
 	     way.  (It's otherwise tricky to find a member function definition
 	     it's only pointed to from within a local class.)  */
 	  if (TYPE_CONTEXT (type) 
-	      && TREE_CODE (TYPE_CONTEXT (type)) == FUNCTION_DECL)
+	      && TREE_CODE (TYPE_CONTEXT (type)) == FUNCTION_DECL
+	      && !processing_template_decl)
 	    VARRAY_PUSH_TREE (local_classes, type);
 
 	  if (!uses_template_parms (type)) 
@@ -3047,6 +3048,10 @@ decls_match (newdecl, olddecl)
     {
       if (!comp_template_parms (DECL_TEMPLATE_PARMS (newdecl),
 				DECL_TEMPLATE_PARMS (olddecl)))
+	return 0;
+
+      if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl))
+	  != TREE_CODE (DECL_TEMPLATE_RESULT (olddecl)))
 	return 0;
 
       if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL)
@@ -3487,6 +3492,8 @@ duplicate_decls (newdecl, olddecl)
 	  CLASSTYPE_FRIEND_CLASSES (newtype)
 	    = CLASSTYPE_FRIEND_CLASSES (oldtype);
 	}
+
+      DECL_ORIGINAL_TYPE (newdecl) = DECL_ORIGINAL_TYPE (olddecl);
     }
 
   /* Copy all the DECL_... slots specified in the new decl
@@ -3496,9 +3503,6 @@ duplicate_decls (newdecl, olddecl)
 
   if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
-      if (! duplicate_decls (DECL_TEMPLATE_RESULT (newdecl),
-			     DECL_TEMPLATE_RESULT (olddecl)))
-	cp_error ("invalid redeclaration of %D", newdecl);
       TREE_TYPE (olddecl) = TREE_TYPE (DECL_TEMPLATE_RESULT (olddecl));
       DECL_TEMPLATE_SPECIALIZATIONS (olddecl)
 	= chainon (DECL_TEMPLATE_SPECIALIZATIONS (olddecl),
@@ -4015,15 +4019,12 @@ pushdecl (x)
 	{
 	  tree decl;
 
-	  if (IDENTIFIER_NAMESPACE_VALUE (name) != NULL_TREE
-	      && IDENTIFIER_NAMESPACE_VALUE (name) != error_mark_node
-	      && (DECL_EXTERNAL (IDENTIFIER_NAMESPACE_VALUE (name))
-		  || TREE_PUBLIC (IDENTIFIER_NAMESPACE_VALUE (name))))
-	    decl = IDENTIFIER_NAMESPACE_VALUE (name);
-	  else
-	    decl = NULL_TREE;
+	  decl = IDENTIFIER_NAMESPACE_VALUE (name);
+	  if (decl && TREE_CODE (decl) == OVERLOAD)
+	    decl = OVL_FUNCTION (decl);
 
-	  if (decl
+	  if (decl && decl != error_mark_node
+	      && (DECL_EXTERNAL (decl) || TREE_PUBLIC (decl))
 	      /* If different sort of thing, we already gave an error.  */
 	      && TREE_CODE (decl) == TREE_CODE (x)
 	      && !same_type_p (TREE_TYPE (x), TREE_TYPE (decl)))
@@ -6547,12 +6548,10 @@ init_decl_processing ()
 				    : WCHAR_TYPE);
   wchar_type_node = TREE_TYPE (IDENTIFIER_GLOBAL_VALUE (wchar_type_node));
   wchar_type_size = TYPE_PRECISION (wchar_type_node);
-  signed_wchar_type_node = make_signed_type (wchar_type_size);
-  unsigned_wchar_type_node = make_unsigned_type (wchar_type_size);
-  wchar_type_node
-    = TREE_UNSIGNED (wchar_type_node)
-      ? unsigned_wchar_type_node
-      : signed_wchar_type_node;
+  if (TREE_UNSIGNED (wchar_type_node))
+    wchar_type_node = make_signed_type (wchar_type_size);
+  else
+    wchar_type_node = make_unsigned_type (wchar_type_size);
   record_builtin_type (RID_WCHAR, "__wchar_t", wchar_type_node);
 
   /* Artificial declaration of wchar_t -- can be bashed */
@@ -7887,31 +7886,6 @@ make_rtl_for_nonlocal_decl (decl, init, asmspec)
     rest_of_decl_compilation (decl, asmspec, toplev, at_eof);
 }
 
-/* Create RTL for the local static variable DECL.  */
-
-void
-make_rtl_for_local_static (decl)
-     tree decl;
-{
-  const char *asmspec = NULL;
-
-  /* If we inlined this variable, we could see it's declaration
-     again.  */
-  if (DECL_RTL (decl))
-    return;
-
-  if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
-    {
-      /* The only way this situaton can occur is if the
-	 user specified a name for this DECL using the
-	 `attribute' syntax.  */
-      asmspec = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-      DECL_ASSEMBLER_NAME (decl) = DECL_NAME (decl);
-    }
-
-  rest_of_decl_compilation (decl, asmspec, /*top_level=*/0, /*at_end=*/0);
-}
-
 /* The old ARM scoping rules injected variables declared in the
    initialization statement of a for-statement into the surrounding
    scope.  We support this usage, in order to be backward-compatible.
@@ -7997,13 +7971,13 @@ initialize_local_var (decl, init, flags)
 
 	  emit_line_note (DECL_SOURCE_FILE (decl),
 			  DECL_SOURCE_LINE (decl));
-	  saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p;
-	  stmts_are_full_exprs_p = 1;
+	  saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();
+	  current_stmt_tree->stmts_are_full_exprs_p = 1;
 	  if (building_stmt_tree ())
 	    finish_expr_stmt (build_aggr_init (decl, init, flags));
 	  else
 	    genrtl_expr_stmt (build_aggr_init (decl, init, flags));
-	  stmts_are_full_exprs_p = saved_stmts_are_full_exprs_p;
+	  current_stmt_tree->stmts_are_full_exprs_p = saved_stmts_are_full_exprs_p;
 	}
 
       /* Set this to 0 so we can tell whether an aggregate which was
@@ -8054,40 +8028,6 @@ destroy_local_var (decl)
   if (DECL_SIZE (decl) && TREE_TYPE (decl) != error_mark_node
       && cleanup)
     finish_decl_cleanup (decl, cleanup);
-}
-
-/* Let the back-end know about DECL.  */
-
-void
-emit_local_var (decl)
-     tree decl;
-{
-  /* Create RTL for this variable.  */
-  if (DECL_RTL (decl))
-    /* Only a RESULT_DECL should have non-NULL RTL when arriving here.
-       All other local variables are assigned RTL in this function.  */
-    my_friendly_assert (TREE_CODE (decl) == RESULT_DECL,
-			19990828);
-  else
-    {
-      if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl))
-	/* The user must have specified an assembler name for this
-	   variable.  Set that up now.  */
-	rest_of_decl_compilation
-	  (decl, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
-	   /*top_level=*/0, /*at_end=*/0);
-      else
-	expand_decl (decl);
-    }
-
-  /* Actually do the initialization.  */
-  if (stmts_are_full_exprs_p)
-    expand_start_target_temps ();
-
-  expand_decl_init (decl);
-
-  if (stmts_are_full_exprs_p)
-    expand_end_target_temps ();
 }
 
 /* Finish processing of a declaration;
@@ -8694,8 +8634,18 @@ complete_array_type (type, initial_value, do_default)
 
   if (initial_value)
     {
-      /* Note MAXINDEX  is really the maximum index,
-	 one less than the size.  */
+      /* An array of character type can be initialized from a
+	 brace-enclosed string constant.  */
+      if (char_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (type)))
+	  && TREE_CODE (initial_value) == CONSTRUCTOR
+	  && CONSTRUCTOR_ELTS (initial_value)
+	  && (TREE_CODE (TREE_VALUE (CONSTRUCTOR_ELTS (initial_value)))
+	      == STRING_CST)
+	  && TREE_CHAIN (CONSTRUCTOR_ELTS (initial_value)) == NULL_TREE)
+	initial_value = TREE_VALUE (CONSTRUCTOR_ELTS (initial_value));
+
+      /* Note MAXINDEX is really the maximum index, one less than the
+	 size.  */
       if (TREE_CODE (initial_value) == STRING_CST)
 	{
 	  int eltsize
@@ -9389,7 +9339,7 @@ compute_array_index_type (name, size)
     }
 
   /* Normally, the array-bound will be a constant.  */
-  if (TREE_CONSTANT (size))
+  if (TREE_CODE (size) == INTEGER_CST)
     {
       /* Check to see if the array bound overflowed.  Make that an
 	 error, no matter how generous we're being.  */
@@ -9419,6 +9369,15 @@ compute_array_index_type (name, size)
 	  else
 	    cp_pedwarn ("ISO C++ forbids zero-size array");
 	}
+    }
+  else if (TREE_CONSTANT (size))
+    {
+      /* `(int) &fn' is not a valid array bound.  */
+      if (name)
+	cp_error ("size of array `%D' is not an integral constant-expression",
+		  name);
+      else
+	cp_error ("size of array is not an integral constant-expression");
     }
 
   /* Compute the index of the largest element in the array.  It is
@@ -14173,7 +14132,7 @@ finish_constructor_body ()
 {
   /* Any return from a constructor will end up here.  */
   if (ctor_label)
-    add_tree (build_min_nt (LABEL_STMT, ctor_label));
+    add_tree (build_stmt (LABEL_STMT, ctor_label));
 
   /* Clear CTOR_LABEL so that finish_return_stmt knows to really
      generate the return, rather than a goto to CTOR_LABEL.  */
@@ -14182,7 +14141,7 @@ finish_constructor_body ()
      constructor to a return of `this'.  */
   finish_return_stmt (NULL_TREE);
   /* Mark the end of the constructor.  */
-  add_tree (build_min_nt (CTOR_STMT));
+  add_tree (build_stmt (CTOR_STMT));
 }
 
 /* At the end of every destructor we generate code to restore virtual
@@ -14201,7 +14160,7 @@ finish_destructor_body ()
   compound_stmt = begin_compound_stmt (/*has_no_scope=*/0);
 
   /* Any return from a destructor will end up here.  */
-  add_tree (build_min_nt (LABEL_STMT, dtor_label));
+  add_tree (build_stmt (LABEL_STMT, dtor_label));
 
   /* Generate the code to call destructor on base class.  If this
      destructor belongs to a class with virtual functions, then set
@@ -14577,30 +14536,24 @@ finish_function (flags)
 	note_debug_info_needed (ctype);
 #endif
 
-      returns_null |= can_reach_end;
-
-      /* Since we don't normally go through c_expand_return for constructors,
-	 this normally gets the wrong value.
-	 Also, named return values have their return codes emitted after
-	 NOTE_INSN_FUNCTION_END, confusing jump.c.  */
-      if (DECL_CONSTRUCTOR_P (fndecl)
-	  || DECL_NAME (DECL_RESULT (fndecl)) != NULL_TREE)
-	returns_null = 0;
+      if (DECL_NAME (DECL_RESULT (fndecl)))
+	returns_value |= can_reach_end;
+      else
+	returns_null |= can_reach_end;
 
       if (TREE_THIS_VOLATILE (fndecl) && returns_null)
-	cp_warning ("`noreturn' function `%D' does return", fndecl);
-      else if ((warn_return_type || pedantic)
-	       && returns_null
+	warning ("`noreturn' function does return");
+      else if (returns_null
 	       && TREE_CODE (TREE_TYPE (fntype)) != VOID_TYPE)
 	{
-	  /* If this function returns non-void and control can drop through,
-	     complain.  */
-	  cp_warning ("control reaches end of non-void function `%D'", fndecl);
+	  /* Always complain if there's just no return statement.  */
+	  if (!returns_value)
+	    warning ("no return statement in function returning non-void");
+	  else if (warn_return_type || pedantic)
+	    /* If this function returns non-void and control can drop through,
+	       complain.  */
+	    warning ("control reaches end of non-void function");
 	}
-      /* With just -W, complain only if function returns both with
-	 and without a value.  */
-      else if (extra_warnings && returns_value && returns_null)
-	warning ("this function may return with or without a value");
     }
   else
     {
@@ -15004,7 +14957,7 @@ push_cp_function_context (f)
 
   /* Whenever we start a new function, we destroy temporaries in the
      usual way.  */
-  stmts_are_full_exprs_p = 1;
+  current_stmt_tree->stmts_are_full_exprs_p = 1;
 }
 
 /* Free the language-specific parts of F, now that we've finished
