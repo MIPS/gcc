@@ -1,3 +1,7 @@
+Sat Feb 22 20:12:57 CET 2003  Jan Hubicka  <jh@suse.cz>
+
+	* expmed.c (expand_divmod): Undo sign extensions for unsigned operands
+
 Fri Feb 21 23:42:59 CET 2003  Jan Hubicka  <jh@suse.cz>
 
 	* fold-const.c (fold): Fix typo.
