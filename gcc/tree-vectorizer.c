@@ -2988,7 +2988,9 @@ vect_analyze_operations (loop_vec_info loop_vinfo)
 
           if (STMT_VINFO_DATA_REF (stmt_info))
             scalar_type = TREE_TYPE (DR_REF (STMT_VINFO_DATA_REF (stmt_info)));    
-          else
+          else if (TREE_CODE (stmt) == MODIFY_EXPR)
+	    scalar_type = TREE_TYPE (TREE_OPERAND (stmt, 0));
+	  else
 	    scalar_type = TREE_TYPE (stmt);
 	  vectype = get_vectype_for_scalar_type (scalar_type);
 	  if (!vectype)

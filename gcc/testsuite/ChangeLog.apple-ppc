@@ -1,3 +1,7 @@
+2004-06-22  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/tree-ssa-vect/pr16105.c: New test.
+
 2004-06-15  Dorit Naishlos  <DORIT@il.ibm.com>
 
 	* gcc.dg/tree-ssa-vect/tree-ssa-vect-30.c: New test.
