@@ -81,9 +81,11 @@ public class MediaTracker implements java.io.Serializable
         status = ERRORED | COMPLETE;
       else if ((flags & ALLBITS) != 0)
         status = COMPLETE;
-      else
+      else if ((flags & SOMEBITS) != 0)
         status = LOADING;
-      
+      else
+        status = 0;
+
       synchronized (MediaTracker.this)
       {
 	MediaTracker.this.notifyAll();

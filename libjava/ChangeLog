@@ -1,3 +1,8 @@
+2004-06-07  Bernd Schmidt  <bernds@btinternet.com>
+
+	* java/awt/MediaTracker.java (imageUpdate): Only set status to
+	LOADING if flags has SOMEBITS set.
+
 2004-06-07  Michael Koch  <konqueror@gmx.de>
 
 	* javax/swing/AbstractButton.java: Reorganized imports.
