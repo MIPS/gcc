@@ -40,13 +40,9 @@ exception statement from your version. */
 #include "gnu_java_awt_peer_gtk_GtkComponentPeer.h"
 #include "gnu_java_awt_peer_gtk_GtkFileDialogPeer.h"
 
-static void window_closed (GtkDialog *dialog,
-                           gint responseId,
-                           jobject peer_obj);
-static void ok_clicked (GtkButton *button,
-	                jobject peer_obj);
-static void cancel_clicked (GtkButton *button,
-	                    jobject peer_obj);
+static void handle_response (GtkDialog *dialog,
+                             gint responseId,
+                             jobject peer_obj);
 
 /*
  * Make a new file selection dialog
@@ -54,16 +50,25 @@ static void cancel_clicked (GtkButton *button,
 
 JNIEXPORT void JNICALL 
 Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_create 
-  (JNIEnv *env, jobject obj)
+  (JNIEnv *env, jobject obj, jobject parent)
 {
+  void *parentp;
   gpointer widget;
 
   /* Create global reference and save it for future use */
   NSA_SET_GLOBAL_REF (env, obj);
 
+  parentp = NSA_GET_PTR(env, parent);
+
   gdk_threads_enter ();
   
-  widget = gtk_file_selection_new ("");
+  widget = gtk_file_chooser_dialog_new("",
+                                       GTK_WINDOW(parentp),
+                                       GTK_FILE_CHOOSER_ACTION_OPEN,
+                                       GTK_STOCK_OK, GTK_RESPONSE_OK,
+                                       GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+                                       NULL);
+
   /* GtkFileSelect is not modal by default */
   gtk_window_set_modal (GTK_WINDOW (widget), TRUE);
 
@@ -103,24 +108,32 @@ Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_connectSignals
 
   gtk_widget_realize (GTK_WIDGET (ptr));
 
-  /* connect buttons to handlers */
-
   g_signal_connect (G_OBJECT (GTK_DIALOG (ptr)),
                     "response", 
-		    GTK_SIGNAL_FUNC (window_closed), *gref);
+		    GTK_SIGNAL_FUNC (handle_response), *gref);
 
-  g_signal_connect (G_OBJECT (GTK_FILE_SELECTION (ptr)->ok_button),
-                    "clicked", 
-		    GTK_SIGNAL_FUNC (ok_clicked), *gref);
-
-  g_signal_connect (G_OBJECT (GTK_FILE_SELECTION (ptr)->cancel_button),
-                    "clicked", 
-		    GTK_SIGNAL_FUNC (cancel_clicked), *gref);
-		    
   gdk_threads_leave ();
 
   /* Connect the superclass signals.  */
   Java_gnu_java_awt_peer_gtk_GtkComponentPeer_connectSignals (env, obj);
+}
+
+JNIEXPORT jstring JNICALL 
+Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeGetDirectory
+    (JNIEnv *env, jobject obj)
+{
+  void *ptr;
+  const char *str;
+
+  ptr = NSA_GET_PTR (env, obj);
+
+  gdk_threads_enter ();
+
+  str = gtk_file_chooser_get_current_folder (GTK_FILE_CHOOSER(ptr));
+
+  gdk_threads_leave ();
+
+  return (*env)->NewStringUTF(env, str);
 }
 
 /*
@@ -139,60 +152,60 @@ Java_gnu_java_awt_peer_gtk_GtkFileDialogPeer_nativeSetFile
   str = (*env)->GetStringUTFChars (env, filename, 0);
      
   gdk_threads_enter ();
-
-  gtk_file_selection_set_filename (GTK_FILE_SELECTION (ptr), str);
-
+  gtk_file_chooser_set_filename (GTK_FILE_CHOOSER (ptr), str);
   gdk_threads_leave ();
 
   (*env)->ReleaseStringUTFChars (env, filename, str);
 }
 
 static void
-window_closed (GtkDialog *dialog __attribute__((unused)),
-               gint responseId,
-               jobject peer_obj)
+handle_response (GtkDialog *dialog __attribute__((unused)),
+                 gint responseId,
+                 jobject peer_obj)
 {
-  static int isIDSet = 0;
-  static jmethodID disposeID;
-  void *ptr;
-
-  /* We only need this for the case when the user closed the window. */
-  if (responseId != GTK_RESPONSE_DELETE_EVENT)
-    return;
-
-  ptr = NSA_GET_PTR (gdk_env, peer_obj);
-  
-  if (!isIDSet)
-    {
-      jclass cx = (*gdk_env)->GetObjectClass (gdk_env, peer_obj);
-      disposeID = (*gdk_env)->GetMethodID (gdk_env, cx, "gtkDisposeFileDialog", "()V");
-      isIDSet = 1;
-    }
-    
-  gdk_threads_leave ();
-
-  /* We can dispose of the dialog now (and unblock show) */
-  (*gdk_env)->CallVoidMethod (gdk_env, peer_obj, disposeID);
-
-  gdk_threads_enter ();
-}
-
-static void
-ok_clicked (GtkButton *button __attribute__((unused)),
-	                jobject peer_obj)
-{
+  static int isDisposeIDSet = 0;
   static int isIDSet = 0;
   static jmethodID gtkSetFilenameID;
   static jmethodID hideID;
+  static jmethodID disposeID;
   void *ptr;
   G_CONST_RETURN gchar *fileName;
   jstring str_fileName;
 
+  /* We only need this for the case when the user closed the window,
+     or clicked ok or cancel. */
+  if (responseId != GTK_RESPONSE_DELETE_EVENT
+      && responseId != GTK_RESPONSE_OK
+      && responseId != GTK_RESPONSE_CANCEL)
+    return;
+
   ptr = NSA_GET_PTR (gdk_env, peer_obj);
+
+  if (responseId == GTK_RESPONSE_DELETE_EVENT)
+  {
+    if (!isDisposeIDSet)
+      {
+        jclass cx = (*gdk_env)->GetObjectClass (gdk_env, peer_obj);
+        disposeID = (*gdk_env)->GetMethodID (gdk_env, cx, "gtkDisposeFileDialog", "()V");
+        isDisposeIDSet = 1;
+      }
   
-  fileName = gtk_file_selection_get_filename (
-               GTK_FILE_SELECTION (GTK_WIDGET (ptr)));
-  
+    gdk_threads_leave ();
+
+    /* We can dispose of the dialog now (and unblock show) */
+    (*gdk_env)->CallVoidMethod (gdk_env, peer_obj, disposeID);
+
+    gdk_threads_enter ();
+    return;
+  }
+
+  if (responseId == GTK_RESPONSE_OK) {
+    fileName = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (GTK_WIDGET (ptr)));
+    str_fileName = (*gdk_env)->NewStringUTF (gdk_env, fileName);
+  } else if (responseId == GTK_RESPONSE_CANCEL) {
+    str_fileName = NULL;
+  }
+
   if (!isIDSet)
     {
       jclass cx = (*gdk_env)->GetObjectClass (gdk_env, peer_obj);
@@ -205,7 +218,6 @@ ok_clicked (GtkButton *button __attribute__((unused)),
   gdk_threads_leave ();
   
   /* Set the Java object field 'file' with this value. */
-  str_fileName = (*gdk_env)->NewStringUTF (gdk_env, fileName);
   (*gdk_env)->CallVoidMethod (gdk_env, peer_obj, gtkSetFilenameID, str_fileName);
 
   /* We can hide the dialog now (and unblock show) */
@@ -213,36 +225,4 @@ ok_clicked (GtkButton *button __attribute__((unused)),
 
   gdk_threads_enter ();
 }
-
-static void
-cancel_clicked (GtkButton *button __attribute__((unused)),
-	                    jobject peer_obj)
-{
-  static int isIDSet = 0;
-  static jmethodID gtkSetFilenameID;
-  static jmethodID hideID;
-  void *ptr;
-
-  ptr = NSA_GET_PTR (gdk_env, peer_obj);
-  
-  if (!isIDSet)
-    {
-      jclass cx = (*gdk_env)->GetObjectClass (gdk_env, peer_obj);
-      hideID = (*gdk_env)->GetMethodID (gdk_env, cx, "gtkHideFileDialog", "()V");
-      gtkSetFilenameID = (*gdk_env)->GetMethodID (gdk_env, cx,
-                                   "gtkSetFilename", "(Ljava.lang.String;)V");
-      isIDSet = 1;
-    }
-    
-  gdk_threads_leave ();
-
-  /* Set the Java object field 'file' with the null value. */
-  (*gdk_env)->CallVoidMethod (gdk_env, peer_obj, gtkSetFilenameID, NULL);
-
-  /* We can hide the dialog now (and unblock show) */
-  (*gdk_env)->CallVoidMethod (gdk_env, peer_obj, hideID);
-
-  gdk_threads_enter ();
-}
-
 

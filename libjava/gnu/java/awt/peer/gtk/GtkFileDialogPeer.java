@@ -53,7 +53,13 @@ public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
   private String currentFile = null;
   private String currentDirectory = null;
 
-  native void create ();
+  native void create (GtkContainerPeer parent);
+
+  public void create() {
+    create((GtkContainerPeer) awtComponent.getParent().getPeer());
+    setDirectory(((FileDialog) awtComponent).getDirectory());
+    setFile(((FileDialog) awtComponent).getFile());
+  }
 
   public GtkFileDialogPeer (FileDialog fd)
   {
@@ -80,28 +86,20 @@ public class GtkFileDialogPeer extends GtkDialogPeer implements FileDialogPeer
         return;
       }
 
-    // Remove any directory path from the filename
-    int sepIndex = fileName.lastIndexOf (FS);
-    if (sepIndex < 0)
+    // GtkFileChooser requires absolute filenames. If the given filename
+    // is not absolute, let's construct it based on current directory.
+    currentFile = fileName;
+    if (fileName.indexOf(FS) == 0)
       {
-        currentFile = fileName;
         nativeSetFile (fileName);
       }
     else
       {
-        if (fileName.length() > (sepIndex + 1))
-	  {
-	    String fn = fileName.substring (sepIndex + 1);
-            currentFile = fn;
-            nativeSetFile (fn);
-	  }
-	else
-	  {
-            currentFile = "";
-            nativeSetFile ("");
-	  }
+        nativeSetFile (nativeGetDirectory() + FS + fileName);
       }
   }
+
+  native public String nativeGetDirectory();
 
   public void setDirectory (String directory)
   {

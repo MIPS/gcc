@@ -1,3 +1,22 @@
+2004-07-15  David Jee  <djee@redhat.com>
+
+	* gnu/java/awt/peer/gtk/GtkFileDialogPeer.java
+	(create(GtkContainerPeer)): New native method.
+	(create()): Call native create(), passing in the parent frame
+	as the paramter. Natively set the current file and directory.
+	(setFile): Construct an absolute filename before passing it to
+	the native peer.
+	(nativeGetDirectory): New method.
+	* jni/gtk-peer/gnu_java_awt_peer_gtk_GtkFileDialogPeer.c
+	(window_closed): Removed.
+	(ok_clicked): Likewise.
+	(cancel_clicked): Likewise.
+	(handle_response): New method.
+	(create): Use GtkFileChooserDialog.
+	(connectSignals): Connect to handle_response.
+	(nativeGetDirectory): New method.
+	(nativeSetFile): Use GtkFileChooserDialog.
+
 2004-07-15  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/awt/image/ShortLookupTable.java: New file.
