@@ -87,6 +87,10 @@ Free Documentation License}''.
 @ifinfo
 @insertcopying
 @end ifinfo
+@dircategory Programming
+@direntry
+* gccinstall: (gccinstall).    Installing the GNU Compiler Collection.
+@end direntry
 
 @c Part 3 Titlepage and Copyright
 @titlepage
@@ -287,14 +291,14 @@ systems' @command{tar} programs will also work, only try GNU
 @heading Tools/packages necessary for modifying GCC
 @table @asis
 
-@item autoconf versions 2.13 and 2.57
+@item autoconf versions 2.13 and 2.59
 @itemx GNU m4 version 1.4 (or later)
 
-Necessary when modifying @file{configure.in}, @file{aclocal.m4}, etc.@:
+Necessary when modifying @file{configure.ac}, @file{aclocal.m4}, etc.@:
 to regenerate @file{configure} and @file{config.in} files.  Most
-directories require autoconf 2.13 (exactly), but @file{libiberty},
-@file{fastjar}, @file{libstdc++-v3}, @file{libjava/libltdl}, @file{boehm-gc},
-@file{intl}, @file{libada}, and @file{gcc} require autoconf 2.57 (exactly).
+directories require autoconf 2.59 (exactly), but the toplevel, @file{libf2c},
+@file{libobjc}, @file{zlib}, and @file{libjava} (except for 
+@file{libjava/libltdl}) still require autoconf 2.13 (exactly).
 
 @item automake versions 1.4-gcj and 1.7.9
 
@@ -306,9 +310,9 @@ file.  Specifically this applies to the @file{gcc}, @file{intl},
 @file{libf2c}, @file{libiberty}, @file{libobjc} directories as well as any
 of their subdirectories.
 
-The @file{libstdc++-v3}, @file{libjava/libltdl}, and @file{fastjar}
-directories require automake 1.7.9.  However, the Java directories, which
-include @file{boehm-gc}, @file{libffi}, @file{libjava}, and @file{zlib},
+The @file{libstdc++-v3}, @file{libjava/libltdl}, @file{fastjar} and
+@file{libffi} directories require automake 1.7.9. However, the Java
+directories, which include @file{boehm-gc}, @file{libjava}, and @file{zlib},
 require a modified version of automake 1.4 downloadable from
 @uref{ftp://gcc.gnu.org/pub/java/automake-gcj-1.4.tar.gz}.
 
@@ -884,7 +888,7 @@ On some systems, this is the default.
 
 In general, the best (and, in many cases, the only known) threading
 model available will be configured for use.  Beware that on some
-systems, gcc has not been taught what threading models are generally
+systems, GCC has not been taught what threading models are generally
 available for the system.  In this case, @option{--enable-threads} is an
 alias for @option{--enable-threads=single}.
 
@@ -1172,7 +1176,7 @@ will be run on these files to make them compatible with GCC.
 
 @item --without-headers
 Tells GCC not use any target headers from a libc when building a cross
-compiler.  When crossing to GNU/Linux, you need the headers so gcc
+compiler.  When crossing to GNU/Linux, you need the headers so GCC
 can build the exception handling for libgcc.
 See @uref{http://www.objsw.com/CrossGCC/,,CrossGCC} for more information
 on this option.
@@ -1908,7 +1912,7 @@ Output from running @file{@var{srcdir}/config.guess}.  Do not send us
 that file itself, just the one-line output from running it.
 
 @item
-The output of @samp{gcc -v} for your newly installed gcc.
+The output of @samp{gcc -v} for your newly installed @command{gcc}.
 This tells us which version of GCC you built and the options you passed to
 configure.
 
@@ -2906,35 +2910,38 @@ Assembler and Linker do not support AIX 5L sufficiently to bootstrap GCC.
 The native AIX tools do interoperate with GCC@.
 
 Building @file{libstdc++.a} requires a fix for an AIX Assembler bug
-APAR IY26685 (AIX 4.3) or APAR IY25528 (AIX 5.1).
+APAR IY26685 (AIX 4.3) or APAR IY25528 (AIX 5.1).  It also requires a
+fix for another AIX Assembler bug and a co-dependent AIX Archiver fix
+referenced as APAR IY53606 (AIX 5.2) or a APAR TBD (AIX 5.1)
 
-@samp{libstdc++} in GCC 3.2 increments the major version number of the
+@samp{libstdc++} in GCC 3.4 increments the major version number of the
 shared object and GCC installation places the @file{libstdc++.a}
-shared library in a common location which will overwrite the GCC 3.1
-version of the shared library.  Applications either need to be
-re-linked against the new shared library or the GCC 3.1 version of the
-@samp{libstdc++} shared object needs to be available to the AIX
-runtime loader.  The GCC 3.1 @samp{libstdc++.so.4} shared object can
-be installed for runtime dynamic loading using the following steps to
-set the @samp{F_LOADONLY} flag in the shared object for @emph{each}
+shared library in a common location which will overwrite the and GCC
+3.3 version of the shared library.  Applications either need to be
+re-linked against the new shared library or the GCC 3.1 and GCC 3.3
+versions of the @samp{libstdc++} shared object needs to be available
+to the AIX runtime loader.  The GCC 3.1 @samp{libstdc++.so.4}, if
+present, and GCC 3.3 @samp{libstdc++.so.5} shared objects can be
+installed for runtime dynamic loading using the following steps to set
+the @samp{F_LOADONLY} flag in the shared object for @emph{each}
 multilib @file{libstdc++.a} installed:
 
-Extract the shared object from each the GCC 3.1 @file{libstdc++.a}
-archive:
+Extract the shared objects from the currently installed
+@file{libstdc++.a} archive:
 @smallexample
-   % ar -x libstdc++.a libstdc++.so.4
+   % ar -x libstdc++.a libstdc++.so.4 libstdc++.so.5
 @end smallexample
 
 Enable the @samp{F_LOADONLY} flag so that the shared object will be
 available for runtime dynamic loading, but not linking:
 @smallexample
-   % strip -e libstdc++.so.4
+   % strip -e libstdc++.so.4 libstdc++.so.5
 @end smallexample
 
-Archive the runtime-only shared object in the GCC 3.2
+Archive the runtime-only shared object in the GCC 3.4
 @file{libstdc++.a} archive:
 @smallexample
-   % ar -q libstdc++.a libstdc++.so.4
+   % ar -q libstdc++.a libstdc++.so.4 libstdc++.so.5
 @end smallexample
 
 Linking executables and shared libraries may produce warnings of

@@ -1414,13 +1414,11 @@ mips64-*-elf* | mips64el-*-elf*)
 	;;
 mips64vr-*-elf* | mips64vrel-*-elf*)
         tm_file="mips/vr.h ${tm_file} mips/elf64.h"
-        tm_defines="MIPS_ABI_DEFAULT=ABI_O64 MIPS_MARCH_CONTROLS_SOFT_FLOAT=1"
         tmake_file=mips/t-vr
 	use_fixproto=yes
         ;;
 mips64orion-*-elf* | mips64orionel-*-elf*)
 	tm_file="${tm_file} mips/elforion.h mips/elf64.h"
-	tmake_file=mips/t-elf
 	tmake_file=mips/t-elf
 	target_cpu_default="MASK_64BIT|MASK_FLOAT64|MASK_GAS"
 	tm_defines="MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_O64"
@@ -1554,7 +1552,7 @@ powerpc-*-eabi*)
 	;;
 powerpc-*-rtems*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/eabi.h rs6000/rtems.h rtems.h"
-	tmake_file="rs6000/t-fprules t-rtems rs6000/t-ppccomm"
+	tmake_file="rs6000/t-fprules rs6000/t-rtems t-rtems rs6000/t-ppccomm"
 	;;
 powerpc-*-linux*altivec*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h freebsd-spec.h rs6000/sysv4.h rs6000/linux.h rs6000/linuxaltivec.h"
@@ -1707,13 +1705,13 @@ sh-*-elf* | sh[2346l]*-*-elf* | sh*-*-kaos*)
 	esac
 	use_fixproto=yes
 	;;
-sh-*-rtemself*)
-	tmake_file="sh/t-sh sh/t-elf t-rtems"
-	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/embed-elf.h sh/rtemself.h rtems.h"
-	;;
-sh-*-rtems*)
+sh-*-rtemscoff*)
 	tmake_file="sh/t-sh t-rtems"
 	tm_file="${tm_file} dbxcoff.h sh/coff.h sh/rtems.h rtems.h"
+	;;
+sh-*-rtems*)
+	tmake_file="sh/t-sh sh/t-elf t-rtems"
+	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sh/elf.h sh/embed-elf.h sh/rtemself.h rtems.h"
 	;;
 sh-*-linux* | sh[2346lbe]*-*-linux*)
 	tmake_file="sh/t-sh sh/t-elf ${tmake_file}"
@@ -1814,7 +1812,7 @@ sparc-*-elf*)
 	;;
 sparc-*-linux*)		# SPARC's running GNU/Linux, libc6
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sparc/linux.h"
-	tmake_file="${tmake_file} sparc/t-crtfm"
+	tmake_file="${tmake_file} sparc/t-linux sparc/t-crtfm"
 	;;
 sparc-*-rtems*)
 	tm_file="${tm_file} dbxelf.h elfos.h svr4.h sparc/sysv4.h sol2.h sparc/sol2.h sparc/elf.h sparc/rtemself.h rtems.h"
@@ -2228,7 +2226,7 @@ fi
 		;;
 
 	arm*-*-*)
-		supported_defaults="arch cpu float tune fpu"
+		supported_defaults="arch cpu float tune fpu abi"
 		for which in cpu tune; do
 			eval "val=\$with_$which"
 			case "$val" in
@@ -2282,13 +2280,24 @@ fi
 			# OK
 			;;
 		*)
-			echo "Unknown fpu used in --with-fpu=$fpu" 2>&1
+			echo "Unknown fpu used in --with-fpu=$with_fpu" 2>&1
+			exit 1
+			;;
+		esac
+
+		case "$with_abi" in
+		"" \
+		| apcs-gnu | atpcs | aapcs | iwmmxt )
+			#OK
+			;;
+		*)
+			echo "Unknown ABI used in --with-abi=$with_abi"
 			exit 1
 			;;
 		esac
 
 		if test "x$with_arch" != x && test "x$with_cpu" != x; then
-			echo "Warning: --with-arch overrides --with-cpu" 1>&2
+			echo "Warning: --with-arch overrides --with-cpu=$with_cpu" 1>&2
 		fi
 		;;
 
@@ -2298,6 +2307,20 @@ fi
 		fr400) ;;
 		*)
 			echo "Unknown cpu used in --with-cpu=$with_cpu" 1>&2
+			exit 1
+			;;
+		esac
+		;;
+
+	m68k*-linux*)
+		supported_defaults="cpu"
+		case "$with_cpu" in
+		"" | "m68020" | "m68030" | "m68040" | "m68060" | "m68020-40" | "m68020-60")
+			# OK
+			;;
+		*)
+			echo "Unknown CPU used in --with-cpu=$with_cpu, known values:"  1>&2
+			echo "m68020 m68030 m68040 m68060 m68020-40 m68020-60" 1>&2
 			exit 1
 			;;
 		esac
@@ -2491,6 +2514,37 @@ fi
 
 		*)
 			target_cpu_default2="TARGET_CPU_$with_cpu"
+			;;
+		esac
+		;;
+
+	m68k*-linux*)
+		case "x$with_cpu" in
+		x)
+			# The most generic
+			target_cpu_default2="(MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68020)
+			target_cpu_default2="(MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68030)
+			target_cpu_default2="(MASK_68030|MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68040)
+			target_cpu_default2="(MASK_68040|MASK_68040_ONLY|MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68060)
+			target_cpu_default2="(MASK_68060|MASK_68040_ONLY|MASK_68020|MASK_68881|MASK_BITFIELD)"
+			;;
+		xm68020-40)
+			target_cpu_default2="(MASK_BITFIELD|MASK_68881|MASK_68020|MASK_68040)"
+			;;
+		xm68020-60)
+			target_cpu_default2="(MASK_BITFIELD|MASK_68881|MASK_68020|MASK_68040|MASK_68060)"
+			;;
+		*)
+			echo "Unknown CPU used in --with-cpu=$with_cpu"  1>&2
+			exit 1
 			;;
 		esac
 		;;

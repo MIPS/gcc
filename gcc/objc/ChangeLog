@@ -1,3 +1,22 @@
+2004-04-01  Ziemowit Laski  <zlaski@apple.com>
+
+	* objc-act.c (synth_module_prologue): Mark UOBJC_SYMBOLS_decl
+	as referenced.
+	(build_module_descriptor): Mark UOBJC_MODULES_decl as
+	referenced.
+	(build_selector_table_decl): Construct UOBJC_SELECTOR_TABLE_decl,
+	the same way as L_OBJC_SELECTOR_REFRENCE_n.
+	(objc_is_object_ptr): Rewrite using POINTER_TYPE_P() and
+	IS_CLASS() macros.
+	(receiver_is_class_object, finish_message_expr): Use new
+	IS_CLASS() macro.
+	* objc-act.h (IS_CLASS): New macro.
+	(IS_ID, IS_SUPER): Robustify.
+
+2004-04-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Sync up with HEAD:2004-03-26T0130+0000.
+
 2004-03-16  Ziemowit Laski  <zlaski@apple.com>
 
 	* objc-act.c (build_module_descriptor): Use '__objc_gnu_init'

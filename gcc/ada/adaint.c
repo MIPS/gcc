@@ -616,6 +616,21 @@ __gnat_open_create (char *path, int fmode)
 }
 
 int
+__gnat_create_output_file (char *path)
+{
+  int fd;
+#if defined (VMS)
+  fd = open (path, O_WRONLY | O_CREAT | O_TRUNC | O_TEXT, PERM,
+             "rfm=stmlf", "ctx=rec", "rat=none", "rop=nlk",
+             "shr=del,get,put,upd");
+#else
+  fd = open (path, O_WRONLY | O_CREAT | O_TRUNC | O_TEXT, PERM);
+#endif
+
+  return fd < 0 ? -1 : fd;
+}
+
+int
 __gnat_open_append (char *path, int fmode)
 {
   int fd;
@@ -2375,6 +2390,7 @@ _flush_cache()
 #if defined (CROSS_COMPILE)  \
   || (! (defined (sparc) && defined (sun) && defined (__SVR4)) \
       && ! (defined (linux) && defined (i386)) \
+      && ! defined (__FreeBSD__) \
       && ! defined (hpux) \
       && ! defined (_AIX) \
       && ! (defined (__alpha__)  && defined (__osf__)) \

@@ -1647,8 +1647,6 @@ tree
 lvalue_type (tree arg)
 {
   tree type = TREE_TYPE (arg);
-  if (TREE_CODE (arg) == OVERLOAD)
-    type = unknown_type_node;
   return type;
 }
 

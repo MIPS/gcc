@@ -88,7 +88,7 @@ c_cannot_inline_tree_fn (tree *fnp)
 
   /* Don't auto-inline anything that might not be bound within
      this unit of translation.  */
-  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+  if (!DECL_DECLARED_INLINE_P (fn) && !targetm.binds_local_p (fn))
     {
       if (do_warning)
 	warning ("%Jfunction '%F' can never be inlined because it might not "
@@ -208,7 +208,7 @@ start_cdtor (int method_type)
 
   body = c_begin_compound_stmt ();
 
-  pushlevel (0);
+  push_scope ();
   clear_last_expr ();
   add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 
@@ -222,7 +222,7 @@ finish_cdtor (tree body)
   tree block;
 
   scope = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-  block = poplevel (0, 0, 0);
+  block = pop_scope ();
   SCOPE_STMT_BLOCK (TREE_PURPOSE (scope)) = block;
   SCOPE_STMT_BLOCK (TREE_VALUE (scope)) = block;
 
@@ -238,10 +238,6 @@ c_objc_common_finish_file (void)
 {
   if (pch_file)
     c_common_write_pch ();
-
-  /* If multiple translation units were built, copy information between
-     them based on linkage rules.  */
-  merge_translation_unit_decls ();
 
   cgraph_finalize_compilation_unit ();
   cgraph_optimize ();
@@ -292,14 +288,14 @@ c_tree_printer (pretty_printer *pp, text_info *text)
     case 'D':
     case 'F':
       if (DECL_NAME (t))
-	n = (*lang_hooks.decl_printable_name) (t, 2);
+	n = lang_hooks.decl_printable_name (t, 2);
       break;
 
     case 'T':
       if (TREE_CODE (t) == TYPE_DECL)
 	{
 	  if (DECL_NAME (t))
-	    n = (*lang_hooks.decl_printable_name) (t, 2);
+	    n = lang_hooks.decl_printable_name (t, 2);
 	}
       else
 	{

@@ -1,3 +1,76 @@
+2004-03-25  Marcus Meissner  <meissner@suse.de>
+
+	PR java/14689:
+	* jcf-path.c (jcf_path_extdirs_arg): Add missing closedir.
+
+2004-03-23  Tom Tromey  <tromey@redhat.com>
+
+	PR java/14315:
+	* jcf-write.c (make_class_file_name): Don't report if mkdir
+	failed with EEXIST.
+
+2004-03-23  Tom Tromey  <tromey@redhat.com>
+
+	* gcj.texi (Extensions): Document GCJ_PROPERTIES.
+
+2004-03-20  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* class.c, gjavah.c, lang.c: Fix comment typos.
+	* gcj.texi: Fix typos.
+
+2004-03-19  Per Bothner  <per@bothner.com>
+
+	* gcj.texi (Code Generation):  Document new flags and assert defaults.
+
+	* class.c (assume_compiled_node_struct):  Rename type to
+	class_flag_node_struct, as it is now also used for enable_assertions.
+	Rename assume_compiled_node typedef.  Rename excludep field to value.
+	(find_assume_compiled_node):  Rename function to find_class_flag_node.
+	Minor optimization - avoid needless strlen.
+	(add_assume_compiled):  Some tweaking and optimization.
+	Rename and generalize to add_class_flag takem an extra parameter.
+	(add_assume_compled):  New just calls add_class_flag.
+	(add_enable_assert, enable_assertions):  New functions.
+	(enable_assert_tree):  New static.
+	* java-tree.h (add_enable_assert, enable_assertions): New declarations.
+	* lang.opt (fenable-assertions, fenable-assertions=,
+	fdisable-assertions, fdisable-assertions=):  New options.
+	* lang.c (java_handle_option):  Handle new options.
+	* parse.y (build_incomplete_class_ref):  Handle class$ in an inner
+	class in an interface - create helper class nested in outer interface.
+        (build_assertion):  Short-circuit if enable_assertions is false.
+
+2004-03-18  Richard Kenner <kenner@vlsi1.ultra.nyu.edu>
+
+	* java-tree.h: Changes throughout to add checking to macros
+	and numerous whitespace changes.
+	(VAR_OR_FIELD_CHECK): New macro.
+	* jcf-write.c (get_access_flags): Use FIELD_PUBLIC, METHOD_PUBLIC,
+	FIELD_FINAL, and METHOD_FINAL instead of CLASS_PUBLIC and CLASS_FINAL.
+
+2004-03-16  Per Bothner  <per@bothner.com>
+
+	* jcf-jump.c (options):  New --print-constants option.
+	* gcj.texi (Invoking jcf-dump):  Document --print-constants.
+
+	* jcf-dump.c (flag_print_constant_pool):  Default to off.
+	(print_constant_terse_with_index):  New helper function.
+	(various places):  Check flag_print_constant_pool where missing.
+	(main):  If verbose set flag_print_constant_pool.
+	(HANDLE_INNERCLASSES_ATTRIBUTE):  Null inner class name is anonymous.
+
+2004-03-15  Andrew Haley  <aph@redhat.com>
+
+	PR java/14581
+	* parse.y (java_complete_lhs): Check that final variable has an
+	initializer.
+
+2004-03-12  Andrew Haley  <aph@redhat.com>
+
+	PR java/14551
+	* typeck.c (convert): Clear TREE_OVERFLOW after an integer
+	conversion.
+
 2004-02-29  Roger Sayle  <roger@eyesopen.com>
 
 	* jcf-parse.c (java_parse_file): Handle the case that input_filename

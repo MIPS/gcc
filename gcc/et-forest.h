@@ -1,5 +1,5 @@
 /* Et-forest data structure implementation.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -67,8 +67,8 @@ struct et_node
   struct et_node *left;
   struct et_node *right;	/* The brothers of the node.  */
 
-  struct et_occ *rightmost_occ;	/* The rightmost occurence.  */
-  struct et_occ *parent_occ;	/* The occurence of the parent node.  */
+  struct et_occ *rightmost_occ;	/* The rightmost occurrence.  */
+  struct et_occ *parent_occ;	/* The occurrence of the parent node.  */
 };
 
 struct et_node *et_new_tree (void *data);

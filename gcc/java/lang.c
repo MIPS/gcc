@@ -354,6 +354,22 @@ java_handle_option (size_t scode, const char *arg, int value)
       flag_assert = value;
       break;
 
+    case OPT_fenable_assertions_:
+      add_enable_assert (arg, value);
+      break;
+
+    case OPT_fenable_assertions:
+      add_enable_assert ("", value);
+      break;
+
+    case OPT_fdisable_assertions_:
+      add_enable_assert (arg, !value);
+      break;
+
+    case OPT_fdisable_assertions:
+      add_enable_assert ("", !value);
+      break;
+
     case OPT_fassume_compiled_:
       add_assume_compiled (arg, !value);
       break;
@@ -933,7 +949,7 @@ merge_init_test_initialization (void **entry, void *x)
   
   However, what if the method that is suppoed to do the initialization
   is itself inlined in the caller?  When expanding the called method
-  we'll assume that the class initalization has already been done,
+  we'll assume that the class initialization has already been done,
   because the DECL_INITIAL of the init_test_decl is set.
   
   To fix this we remove the DECL_INITIAL (in the caller scope) of all

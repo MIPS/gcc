@@ -345,7 +345,7 @@ push_function_context_to (tree context)
   outer_function_chain = p;
   p->fixup_var_refs_queue = 0;
 
-  (*lang_hooks.function.enter_nested) (p);
+  lang_hooks.function.enter_nested (p);
 
   cfun = 0;
 }
@@ -373,7 +373,7 @@ pop_function_context_from (tree context ATTRIBUTE_UNUSED)
 
   restore_emit_status (p);
 
-  (*lang_hooks.function.leave_nested) (p);
+  lang_hooks.function.leave_nested (p);
 
   /* Finish doing put_var_into_stack for any of our variables which became
      addressable during the nested function.  If only one entry has to be
@@ -425,7 +425,7 @@ free_after_parsing (struct function *f)
   /* f->varasm is used by code generation.  */
   /* f->eh->eh_return_stub_label is used by code generation.  */
 
-  (*lang_hooks.function.final) (f);
+  lang_hooks.function.final (f);
   f->stmt = NULL;
 }
 
@@ -532,7 +532,7 @@ assign_stack_local_1 (enum machine_mode mode, HOST_WIDE_INT size, int align,
 
       /* Allow the target to (possibly) increase the alignment of this
 	 stack slot.  */
-      type = (*lang_hooks.types.type_for_mode) (mode, 0);
+      type = lang_hooks.types.type_for_mode (mode, 0);
       if (type)
 	alignment = LOCAL_ALIGNMENT (type, alignment);
 
@@ -660,7 +660,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size, int keep
     align = GET_MODE_ALIGNMENT (mode);
 
   if (! type)
-    type = (*lang_hooks.types.type_for_mode) (mode, 0);
+    type = lang_hooks.types.type_for_mode (mode, 0);
 
   if (type)
     align = LOCAL_ALIGNMENT (type, align);
@@ -1375,7 +1375,7 @@ put_var_into_stack (tree decl, int rescan)
 	 to the whole CONCAT, lest we do double fixups for the latter
 	 references.  */
       enum machine_mode part_mode = GET_MODE (XEXP (reg, 0));
-      tree part_type = (*lang_hooks.types.type_for_mode) (part_mode, 0);
+      tree part_type = lang_hooks.types.type_for_mode (part_mode, 0);
       rtx lopart = XEXP (reg, 0);
       rtx hipart = XEXP (reg, 1);
 #ifdef FRAME_GROWS_DOWNWARD
@@ -1430,8 +1430,9 @@ put_var_into_stack (tree decl, int rescan)
 
 static void
 put_reg_into_stack (struct function *function, rtx reg, tree type,
-		    enum machine_mode promoted_mode, enum machine_mode decl_mode,
-		    int volatile_p, unsigned int original_regno, int used_p, htab_t ht)
+		    enum machine_mode promoted_mode,
+		    enum machine_mode decl_mode, int volatile_p,
+		    unsigned int original_regno, int used_p, htab_t ht)
 {
   struct function *func = function ? function : cfun;
   rtx new = 0;
@@ -1441,7 +1442,11 @@ put_reg_into_stack (struct function *function, rtx reg, tree type,
     regno = REGNO (reg);
 
   if (regno < func->x_max_parm_reg)
-    new = func->x_parm_reg_stack_loc[regno];
+    {
+      if (!func->x_parm_reg_stack_loc)
+	abort ();
+      new = func->x_parm_reg_stack_loc[regno];
+    }
 
   if (new == 0)
     new = assign_stack_local_1 (decl_mode, GET_MODE_SIZE (decl_mode), 0, func);
@@ -4344,7 +4349,8 @@ assign_parms (tree fndecl)
   max_parm_reg = LAST_VIRTUAL_REGISTER + 1;
   parm_reg_stack_loc = ggc_alloc_cleared (max_parm_reg * sizeof (rtx));
 
-  if (SPLIT_COMPLEX_ARGS)
+  /* If the target wants to split complex arguments into scalars, do so.  */
+  if (targetm.calls.split_complex_arg)
     fnargs = split_complex_args (fnargs);
 
 #ifdef REG_PARM_STACK_SPACE
@@ -5220,11 +5226,12 @@ assign_parms (tree fndecl)
 	}
     }
 
-  if (SPLIT_COMPLEX_ARGS && fnargs != orig_fnargs)
+  if (targetm.calls.split_complex_arg && fnargs != orig_fnargs)
     {
       for (parm = orig_fnargs; parm; parm = TREE_CHAIN (parm))
 	{
-	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE)
+	  if (TREE_CODE (TREE_TYPE (parm)) == COMPLEX_TYPE
+	      && targetm.calls.split_complex_arg (TREE_TYPE (parm)))
 	    {
 	      rtx tmp, real, imag;
 	      enum machine_mode inner = GET_MODE_INNER (DECL_MODE (parm));
@@ -5368,8 +5375,12 @@ split_complex_args (tree args)
 
   /* Before allocating memory, check for the common case of no complex.  */
   for (p = args; p; p = TREE_CHAIN (p))
-    if (TREE_CODE (TREE_TYPE (p)) == COMPLEX_TYPE)
-      goto found;
+    {
+      tree type = TREE_TYPE (p);
+      if (TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
+        goto found;
+    }
   return args;
 
  found:
@@ -5378,7 +5389,8 @@ split_complex_args (tree args)
   for (p = args; p; p = TREE_CHAIN (p))
     {
       tree type = TREE_TYPE (p);
-      if (TREE_CODE (type) == COMPLEX_TYPE)
+      if (TREE_CODE (type) == COMPLEX_TYPE
+	  && targetm.calls.split_complex_arg (type))
 	{
 	  tree decl;
 	  tree subtype = TREE_TYPE (type);
@@ -6410,7 +6422,7 @@ allocate_struct_function (tree fndecl)
   init_stmt_for_function ();
   init_eh_for_function ();
 
-  (*lang_hooks.function.init) (cfun);
+  lang_hooks.function.init (cfun);
   if (init_machine_status)
     cfun->machine = (*init_machine_status) ();
 
@@ -7010,6 +7022,14 @@ expand_function_end (void)
 
   clear_pending_stack_adjust ();
   do_pending_stack_adjust ();
+
+  /* @@@ This is a kludge.  We want to ensure that instructions that
+     may trap are not moved into the epilogue by scheduling, because
+     we don't always emit unwind information for the epilogue.
+     However, not all machine descriptions define a blockage insn, so
+     emit an ASM_INPUT to act as one.  */
+  if (flag_non_call_exceptions)
+    emit_insn (gen_rtx_ASM_INPUT (VOIDmode, ""));
 
   /* Mark the end of the function body.
      If control reaches this insn, the function can drop through
@@ -8111,7 +8131,7 @@ init_function_once (void)
 const char *
 current_function_name (void)
 {
-  return (*lang_hooks.decl_printable_name) (cfun->decl, 2);
+  return lang_hooks.decl_printable_name (cfun->decl, 2);
 }
 
 #include "gt-function.h"

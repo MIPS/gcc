@@ -101,6 +101,24 @@ enum built_in_function
 /* Names for the above.  */
 extern const char *const built_in_names[(int) END_BUILTINS];
 
+/* Helper macros for math builtins.  */
+
+#define BUILTIN_EXP10_P(FN) \
+ ((FN) == BUILT_IN_EXP10 || (FN) == BUILT_IN_EXP10F || (FN) == BUILT_IN_EXP10L \
+  || (FN) == BUILT_IN_POW10 || (FN) == BUILT_IN_POW10F || (FN) == BUILT_IN_POW10L)
+
+#define BUILTIN_EXPONENT_P(FN) (BUILTIN_EXP10_P (FN) \
+  || (FN) == BUILT_IN_EXP || (FN) == BUILT_IN_EXPF || (FN) == BUILT_IN_EXPL \
+  || (FN) == BUILT_IN_EXP2 || (FN) == BUILT_IN_EXP2F || (FN) == BUILT_IN_EXP2L)
+
+#define BUILTIN_SQRT_P(FN) \
+ ((FN) == BUILT_IN_SQRT || (FN) == BUILT_IN_SQRTF || (FN) == BUILT_IN_SQRTL)
+
+#define BUILTIN_CBRT_P(FN) \
+ ((FN) == BUILT_IN_CBRT || (FN) == BUILT_IN_CBRTF || (FN) == BUILT_IN_CBRTL)
+
+#define BUILTIN_ROOT_P(FN) (BUILTIN_SQRT_P (FN) || BUILTIN_CBRT_P (FN))
+
 /* An array of _DECL trees for the above.  */
 extern GTY(()) tree built_in_decls[(int) END_BUILTINS];
 extern GTY(()) tree implicit_built_in_decls[(int) END_BUILTINS];
@@ -179,7 +197,8 @@ struct tree_common GTY(())
        TREE_STATIC in
            VAR_DECL, FUNCTION_DECL, CONSTRUCTOR, ADDR_EXPR
        TREE_NO_UNUSED_WARNING in
-           CONVERT_EXPR, NOP_EXPR, COMPOUND_EXPR
+           CONVERT_EXPR, NOP_EXPR, COMPOUND_EXPR, NON_LVALUE_EXPR
+	   ??? plus other expressions, apparently (e.g. MODIFY_EXPR).
        TREE_VIA_VIRTUAL in
            TREE_LIST or TREE_VEC
        TREE_CONSTANT_OVERFLOW in
@@ -189,11 +208,14 @@ struct tree_common GTY(())
        CLEANUP_EH_ONLY in
            TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT,
 	   TREE_LIST elements of a block's cleanup list.
+       TYPE_REF_CAN_ALIAS_ALL in
+           POINTER_TYPE, REFERENCE_TYPE
 
    public_flag:
 
        TREE_OVERFLOW in
            INTEGER_CST, REAL_CST, COMPLEX_CST, VECTOR_CST
+	   ??? and other expressions?
        TREE_PUBLIC in
            VAR_DECL or FUNCTION_DECL or IDENTIFIER_NODE
        EXPR_WFL_EMIT_LINE_NOTE in
@@ -289,6 +311,44 @@ struct tree_common GTY(())
       tree_check_failed (__t, (CODE), __FILE__, __LINE__, __FUNCTION__); \
     __t; })
 
+#define TREE_CHECK2(T, CODE1, CODE2) __extension__			\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != (CODE1)					\
+	&& TREE_CODE (__t) != (CODE2))					\
+      tree_check2_failed (__t, (CODE1), (CODE2), __FILE__, __LINE__,	\
+			  __FUNCTION__);				\
+    __t; })
+
+#define TREE_CHECK3(T, CODE1, CODE2, CODE3) __extension__		\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != (CODE1)					\
+	&& TREE_CODE (__t) != (CODE2)					\
+	&& TREE_CODE (__t) != (CODE3))					\
+      tree_check3_failed (__t, (CODE1), (CODE2), (CODE3), __FILE__,	\
+			  __LINE__, __FUNCTION__);			\
+    __t; })
+
+#define TREE_CHECK4(T, CODE1, CODE2, CODE3, CODE4) __extension__	\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != (CODE1)					\
+	&& TREE_CODE (__t) != (CODE2)					\
+	&& TREE_CODE (__t) != (CODE3)					\
+	&& TREE_CODE (__t) != (CODE4))					\
+      tree_check4_failed (__t, (CODE1), (CODE2), (CODE3), (CODE4),	\
+			   __FILE__, __LINE__, __FUNCTION__);		\
+    __t; })
+
+#define TREE_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) __extension__	\
+({  const tree __t = (T);						\
+    if (TREE_CODE (__t) != (CODE1)					\
+	&& TREE_CODE (__t) != (CODE2)					\
+	&& TREE_CODE (__t) != (CODE3)					\
+	&& TREE_CODE (__t) != (CODE4)					\
+	&& TREE_CODE (__t) != (CODE5))					\
+      tree_check5_failed (__t, (CODE1), (CODE2), (CODE3), (CODE4),	\
+			  (CODE5), __FILE__, __LINE__, __FUNCTION__);	\
+    __t; })
+
 #define TREE_CLASS_CHECK(T, CLASS) __extension__			\
 ({  const tree __t = (T);						\
     if (TREE_CODE_CLASS (TREE_CODE(__t)) != (CLASS))			\
@@ -349,6 +409,21 @@ struct tree_common GTY(())
 extern void tree_check_failed (const tree, enum tree_code,
 			       const char *, int, const char *)
     ATTRIBUTE_NORETURN;
+extern void tree_check2_failed (const tree, enum tree_code, enum tree_code,
+			       const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
+extern void tree_check3_failed (const tree, enum tree_code, enum tree_code,
+				enum tree_code, const char *, int,
+				const char *)
+    ATTRIBUTE_NORETURN;
+extern void tree_check4_failed (const tree, enum tree_code, enum tree_code,
+				enum tree_code, enum tree_code,
+				const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
+extern void tree_check5_failed (const tree, enum tree_code, enum tree_code,
+				enum tree_code, enum tree_code, enum tree_code,
+				const char *, int, const char *)
+    ATTRIBUTE_NORETURN;
 extern void tree_class_check_failed (const tree, int,
 				     const char *, int, const char *)
     ATTRIBUTE_NORETURN;
@@ -362,12 +437,16 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 #else /* not ENABLE_TREE_CHECKING, or not gcc */
 
-#define TREE_CHECK(T, CODE)		(T)
-#define TREE_CLASS_CHECK(T, CODE)	(T)
-#define EXPR_CHECK(T)			(T)
-#define TREE_VEC_ELT_CHECK(T, I)	((T)->vec.a[I])
-#define TREE_OPERAND_CHECK(T, I)	((T)->exp.operands[I])
-#define TREE_OPERAND_CHECK_CODE(T, CODE, I) ((T)->exp.operands[I])
+#define TREE_CHECK(T, CODE)			(T)
+#define TREE_CHECK2(T, CODE1, CODE2)		(T)
+#define TREE_CHECK3(T, CODE1, CODE2, CODE3)	(T)
+#define TREE_CHECK4(T, CODE1, CODE2, CODE3, CODE4) (T)
+#define TREE_CHECK5(T, CODE1, CODE2, CODE3, CODE4, CODE5) (T)
+#define TREE_CLASS_CHECK(T, CODE)		(T)
+#define EXPR_CHECK(T)				(T)
+#define TREE_VEC_ELT_CHECK(T, I)		((T)->vec.a[I])
+#define TREE_OPERAND_CHECK(T, I)		((T)->exp.operands[I])
+#define TREE_OPERAND_CHECK_CODE(T, CODE, I)	((T)->exp.operands[I])
 #define TREE_RTL_OPERAND_CHECK(T, CODE, I)  (*(rtx *) &((T)->exp.operands[I]))
 
 #endif
@@ -378,6 +457,18 @@ extern void tree_operand_check_failed (int, enum tree_code,
 #define DECL_CHECK(T)		TREE_CLASS_CHECK (T, 'd')
 #define CST_CHECK(T)		TREE_CLASS_CHECK (T, 'c')
 #define STMT_CHECK(T)		TREE_CLASS_CHECK (T, 's')
+#define FUNC_OR_METHOD_CHECK(T)	TREE_CHECK2 (T, FUNCTION_TYPE, METHOD_TYPE)
+#define PTR_OR_REF_CHECK(T)	TREE_CHECK2 (T, POINTER_TYPE, REFERENCE_TYPE)
+
+#define SET_ARRAY_OR_VECTOR_CHECK(T) \
+  TREE_CHECK3 (T, ARRAY_TYPE, SET_TYPE, VECTOR_TYPE)
+
+#define REC_OR_UNION_CHECK(T)	\
+  TREE_CHECK3 (T, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE)
+
+#define NUMERICAL_TYPE_CHECK(T)					\
+  TREE_CHECK5 (T, INTEGER_TYPE, ENUMERAL_TYPE, BOOLEAN_TYPE,	\
+	       CHAR_TYPE, REAL_TYPE)
 
 /* In all nodes that are expressions, this is the data type of the expression.
    In POINTER_TYPE nodes, this is the type that the pointer points to.
@@ -526,7 +617,10 @@ extern void tree_operand_check_failed (int, enum tree_code,
 
 /* In a VAR_DECL, nonzero means allocate static storage.
    In a FUNCTION_DECL, nonzero if function has been defined.
-   In a CONSTRUCTOR, nonzero means allocate static storage.  */
+   In a CONSTRUCTOR, nonzero means allocate static storage.
+
+   ??? This is also used in lots of other nodes in unclear ways which
+   should be cleaned up some day.  */
 #define TREE_STATIC(NODE) ((NODE)->common.static_flag)
 
 /* In a TARGET_EXPR, WITH_CLEANUP_EXPR, CLEANUP_STMT, or element of a
@@ -534,29 +628,42 @@ extern void tree_operand_check_failed (int, enum tree_code,
    executed if an exception is thrown, not on normal exit of its scope.  */
 #define CLEANUP_EH_ONLY(NODE) ((NODE)->common.static_flag)
 
-/* In a CONVERT_EXPR, NOP_EXPR or COMPOUND_EXPR, this means the node was
-   made implicitly and should not lead to an "unused value" warning.  */
-#define TREE_NO_UNUSED_WARNING(NODE) ((NODE)->common.static_flag)
+/* In a CONVERT_EXPR, NOP_EXPR, NON_LVALUE_EXPR or COMPOUND_EXPR, this means
+   the node was made implicitly and should not lead to an "unused value"
+   warning. 
+
+   ??? Apparently this is also used on other expression types (such as
+   MODIFY_EXPR.  This needs to be cleaned up sometime.  */
+#define TREE_NO_UNUSED_WARNING(NODE) (EXPR_CHECK (NODE)->common.static_flag)
 
 /* Nonzero for a TREE_LIST or TREE_VEC node means that the derivation
    chain is via a `virtual' declaration.  */
-#define TREE_VIA_VIRTUAL(NODE) ((NODE)->common.static_flag)
+#define TREE_VIA_VIRTUAL(NODE) \
+  (TREE_CHECK2 (NODE, TREE_LIST, TREE_VEC)->common.static_flag)
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST this means
    there was an overflow in folding.  This is distinct from
    TREE_OVERFLOW because ANSI C requires a diagnostic when overflows
    occur in constant expressions.  */
-#define TREE_CONSTANT_OVERFLOW(NODE) ((NODE)->common.static_flag)
+#define TREE_CONSTANT_OVERFLOW(NODE) (CST_CHECK (NODE)->common.static_flag)
 
 /* In an IDENTIFIER_NODE, this means that assemble_name was called with
    this string as an argument.  */
 #define TREE_SYMBOL_REFERENCED(NODE) \
   (IDENTIFIER_NODE_CHECK (NODE)->common.static_flag)
 
+/* Nonzero in a pointer or reference type means the data pointed to
+   by this type can alias anything.  */
+#define TYPE_REF_CAN_ALIAS_ALL(NODE) \
+  (PTR_OR_REF_CHECK (NODE)->common.static_flag)
+
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding, and no warning has been issued
-   for this subexpression.  TREE_OVERFLOW implies
-   TREE_CONSTANT_OVERFLOW, but not vice versa.  */
+   for this subexpression.  TREE_OVERFLOW implies TREE_CONSTANT_OVERFLOW,
+   but not vice versa. 
+
+   ??? Apparently, lots of code assumes this is defined in all
+   expressions.  */
 #define TREE_OVERFLOW(NODE) ((NODE)->common.public_flag)
 
 /* In a VAR_DECL or FUNCTION_DECL,
@@ -927,24 +1034,33 @@ struct tree_block GTY(())
 /* Define fields and accessors for nodes representing data types.  */
 
 /* See tree.def for documentation of the use of these fields.
-   Look at the documentation of the various ..._TYPE tree codes.  */
+   Look at the documentation of the various ..._TYPE tree codes.
+
+   Note that the type.values, type.minval, and type.maxval fields are
+   overloaded and used for different macros in different kinds of types.
+   Each macro must check to ensure the tree node is of the proper kind of
+   type.  Note also that some of the front-ends also overload these fields,
+   so they must be checked as well.  */
 
 #define TYPE_UID(NODE) (TYPE_CHECK (NODE)->type.uid)
 #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->type.size)
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->type.size_unit)
 #define TYPE_MODE(NODE) (TYPE_CHECK (NODE)->type.mode)
-#define TYPE_VALUES(NODE) (TYPE_CHECK (NODE)->type.values)
-#define TYPE_DOMAIN(NODE) (TYPE_CHECK (NODE)->type.values)
-#define TYPE_FIELDS(NODE) (TYPE_CHECK (NODE)->type.values)
-#define TYPE_METHODS(NODE) (TYPE_CHECK (NODE)->type.maxval)
-#define TYPE_VFIELD(NODE) (TYPE_CHECK (NODE)->type.minval)
-#define TYPE_ARG_TYPES(NODE) (TYPE_CHECK (NODE)->type.values)
-#define TYPE_METHOD_BASETYPE(NODE) (TYPE_CHECK (NODE)->type.maxval)
-#define TYPE_OFFSET_BASETYPE(NODE) (TYPE_CHECK (NODE)->type.maxval)
+#define TYPE_ORIG_SIZE_TYPE(NODE) (INTEGER_TYPE_CHECK (NODE)->type.values)
+#define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->type.values)
+#define TYPE_DOMAIN(NODE) (SET_ARRAY_OR_VECTOR_CHECK (NODE)->type.values)
+#define TYPE_FIELDS(NODE) (REC_OR_UNION_CHECK (NODE)->type.values)
+#define TYPE_METHODS(NODE) (REC_OR_UNION_CHECK (NODE)->type.maxval)
+#define TYPE_VFIELD(NODE) (REC_OR_UNION_CHECK (NODE)->type.minval)
+#define TYPE_ARG_TYPES(NODE) (FUNC_OR_METHOD_CHECK (NODE)->type.values)
+#define TYPE_METHOD_BASETYPE(NODE) (FUNC_OR_METHOD_CHECK (NODE)->type.maxval)
+#define TYPE_OFFSET_BASETYPE(NODE) (OFFSET_TYPE_CHECK (NODE)->type.maxval)
 #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->type.pointer_to)
 #define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->type.reference_to)
-#define TYPE_MIN_VALUE(NODE) (TYPE_CHECK (NODE)->type.minval)
-#define TYPE_MAX_VALUE(NODE) (TYPE_CHECK (NODE)->type.maxval)
+#define TYPE_NEXT_PTR_TO(NODE) (POINTER_TYPE_CHECK (NODE)->type.minval)
+#define TYPE_NEXT_REF_TO(NODE) (REFERENCE_TYPE_CHECK (NODE)->type.minval)
+#define TYPE_MIN_VALUE(NODE) (NUMERICAL_TYPE_CHECK (NODE)->type.minval)
+#define TYPE_MAX_VALUE(NODE) (NUMERICAL_TYPE_CHECK (NODE)->type.maxval)
 #define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->type.precision)
 #define TYPE_SYMTAB_ADDRESS(NODE) (TYPE_CHECK (NODE)->type.symtab.address)
 #define TYPE_SYMTAB_POINTER(NODE) (TYPE_CHECK (NODE)->type.symtab.pointer)
@@ -1064,7 +1180,7 @@ struct tree_block GTY(())
    object of the given ARRAY_TYPE.  This allows temporaries to be
    allocated.  */
 #define TYPE_ARRAY_MAX_SIZE(ARRAY_TYPE) \
-  TYPE_MAX_VALUE (ARRAY_TYPE_CHECK (ARRAY_TYPE))
+  (ARRAY_TYPE_CHECK (ARRAY_TYPE)->type.maxval)
 
 /* For a VECTOR_TYPE, this is the number of sub-parts of the vector.  */
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
@@ -1853,33 +1969,6 @@ enum tree_index
 
   TI_VOID_LIST_NODE,
 
-  TI_UV4SF_TYPE,
-  TI_UV4SI_TYPE,
-  TI_UV8HI_TYPE,
-  TI_UV8QI_TYPE,
-  TI_UV4HI_TYPE,
-  TI_UV2HI_TYPE,
-  TI_UV2SI_TYPE,
-  TI_UV2SF_TYPE,
-  TI_UV2DI_TYPE,
-  TI_UV1DI_TYPE,
-  TI_UV16QI_TYPE,
-
-  TI_V4SF_TYPE,
-  TI_V16SF_TYPE,
-  TI_V4SI_TYPE,
-  TI_V8HI_TYPE,
-  TI_V8QI_TYPE,
-  TI_V4HI_TYPE,
-  TI_V2HI_TYPE,
-  TI_V2SI_TYPE,
-  TI_V2SF_TYPE,
-  TI_V2DF_TYPE,
-  TI_V2DI_TYPE,
-  TI_V1DI_TYPE,
-  TI_V16QI_TYPE,
-  TI_V4DF_TYPE,
-
   TI_MAIN_IDENTIFIER,
 
   TI_MAX
@@ -1954,31 +2043,6 @@ extern GTY(()) tree global_trees[TI_MAX];
 
 #define main_identifier_node		global_trees[TI_MAIN_IDENTIFIER]
 #define MAIN_NAME_P(NODE) (IDENTIFIER_NODE_CHECK (NODE) == main_identifier_node)
-
-#define unsigned_V16QI_type_node	global_trees[TI_UV16QI_TYPE]
-#define unsigned_V4SI_type_node		global_trees[TI_UV4SI_TYPE]
-#define unsigned_V8QI_type_node		global_trees[TI_UV8QI_TYPE]
-#define unsigned_V8HI_type_node		global_trees[TI_UV8HI_TYPE]
-#define unsigned_V4HI_type_node		global_trees[TI_UV4HI_TYPE]
-#define unsigned_V2HI_type_node		global_trees[TI_UV2HI_TYPE]
-#define unsigned_V2SI_type_node		global_trees[TI_UV2SI_TYPE]
-#define unsigned_V2DI_type_node		global_trees[TI_UV2DI_TYPE]
-#define unsigned_V1DI_type_node		global_trees[TI_UV1DI_TYPE]
-
-#define V16QI_type_node			global_trees[TI_V16QI_TYPE]
-#define V4SF_type_node			global_trees[TI_V4SF_TYPE]
-#define V4SI_type_node			global_trees[TI_V4SI_TYPE]
-#define V8QI_type_node			global_trees[TI_V8QI_TYPE]
-#define V8HI_type_node			global_trees[TI_V8HI_TYPE]
-#define V4HI_type_node			global_trees[TI_V4HI_TYPE]
-#define V2HI_type_node			global_trees[TI_V2HI_TYPE]
-#define V2SI_type_node			global_trees[TI_V2SI_TYPE]
-#define V2SF_type_node			global_trees[TI_V2SF_TYPE]
-#define V2DI_type_node			global_trees[TI_V2DI_TYPE]
-#define V2DF_type_node			global_trees[TI_V2DF_TYPE]
-#define V16SF_type_node			global_trees[TI_V16SF_TYPE]
-#define V1DI_type_node			global_trees[TI_V1DI_TYPE]
-#define V4DF_type_node			global_trees[TI_V4DF_TYPE]
 
 /* An enumeration of the standard C integer types.  These must be
    ordered so that shorter types appear before longer ones, and so
@@ -2164,10 +2228,12 @@ extern tree make_unsigned_type (int);
 extern void initialize_sizetypes (void);
 extern void set_sizetype (tree);
 extern void fixup_unsigned_type (tree);
-extern tree build_pointer_type_for_mode (tree, enum machine_mode);
+extern tree build_pointer_type_for_mode (tree, enum machine_mode, bool);
 extern tree build_pointer_type (tree);
-extern tree build_reference_type_for_mode (tree, enum machine_mode);
+extern tree build_reference_type_for_mode (tree, enum machine_mode, bool);
 extern tree build_reference_type (tree);
+extern tree build_vector_type_for_mode (tree, enum machine_mode);
+extern tree build_vector_type (tree innertype, int nunits);
 extern tree build_type_no_quals (tree);
 extern tree build_index_type (tree);
 extern tree build_index_2_type (tree, tree);
@@ -2647,6 +2713,24 @@ extern int has_cleanups (tree);
 
 extern tree substitute_in_expr (tree, tree, tree);
 
+/* This macro calls the above function but short-circuits the common
+   case of a constant to save time and also checks for NULL.  */
+
+#define SUBSTITUTE_IN_EXPR(EXP, F, R) \
+  ((EXP) == 0 || TREE_CONSTANT (EXP) ? (EXP) : substitute_in_expr (EXP, F, R))
+
+/* Similar, but look for a PLACEHOLDER_EXPR in EXP and find a replacement
+   for it within OBJ, a tree that is an object or a chain of references.  */
+
+extern tree substitute_placeholder_in_expr (tree, tree);
+
+/* This macro calls the above function but short-circuits the common
+   case of a constant to save time and also checks for NULL.  */
+
+#define SUBSTITUTE_PLACEHOLDER_IN_EXPR(EXP, OBJ) \
+  ((EXP) == 0 || TREE_CONSTANT (EXP) ? (EXP)	\
+   : substitute_placeholder_in_expr (EXP, OBJ))
+
 /* variable_size (EXP) is like save_expr (EXP) except that it
    is for the special case of something that is part of a
    variable size for a data type.  It makes special arrangements
@@ -2869,6 +2953,7 @@ extern tree strip_float_extensions (tree);
 extern void record_component_aliases (tree);
 extern HOST_WIDE_INT get_alias_set (tree);
 extern int alias_sets_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
+extern int alias_sets_might_conflict_p (HOST_WIDE_INT, HOST_WIDE_INT);
 extern int readonly_fields_p (tree);
 extern int objects_must_conflict_p (tree, tree);
 
@@ -2890,7 +2975,6 @@ extern void dump_tree_statistics (void);
 extern void expand_function_end (void);
 extern void expand_function_start (tree, int);
 extern void expand_pending_sizes (tree);
-extern tree make_vector (enum machine_mode, tree, int);
 extern tree reconstruct_complex_type (tree, tree);
 
 extern int real_onep (tree);

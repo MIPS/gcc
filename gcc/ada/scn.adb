@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -134,8 +134,15 @@ package body Scn is
          SS : Source_Ptr;
 
       begin
+         --  Loop to check characters. This loop is terminated by end of
+         --  line, and also we need to check for the EOF case, to take
+         --  care of files containing only comments.
+
          SP := Scan_Ptr;
-         while Source (SP) /= CR and then Source (SP) /= LF loop
+         while Source (SP) /= CR and then
+               Source (SP) /= LF and then
+               Source (SP) /= EOF
+         loop
             if Source (SP) = S (S'First) then
                SS := SP;
                CP := S'First;
@@ -170,6 +177,7 @@ package body Scn is
       begin
          while Source (Scan_Ptr) /= CR
            and then Source (Scan_Ptr) /= LF
+           and then Source (Scan_Ptr) /= EOF
          loop
             Scan_Ptr := Scan_Ptr + 1;
          end loop;
@@ -210,21 +218,27 @@ package body Scn is
 
          Check_End_Of_Line;
 
-         declare
-            Physical : Boolean;
+         if Source (Scan_Ptr) /= EOF then
 
-         begin
-            Skip_Line_Terminators (Scan_Ptr, Physical);
+            --  We have to take into account a degenerate case when the source
+            --  file contains only comments and no Ada code.
 
-            --  If we are at start of physical line, update scan pointers
-            --  to reflect the start of the new line.
+            declare
+               Physical : Boolean;
 
-            if Physical then
-               Current_Line_Start       := Scan_Ptr;
-               Start_Column             := Scanner.Set_Start_Column;
-               First_Non_Blank_Location := Scan_Ptr;
-            end if;
-         end;
+            begin
+               Skip_Line_Terminators (Scan_Ptr, Physical);
+
+               --  If we are at start of physical line, update scan pointers
+               --  to reflect the start of the new line.
+
+               if Physical then
+                  Current_Line_Start       := Scan_Ptr;
+                  Start_Column             := Scanner.Set_Start_Column;
+                  First_Non_Blank_Location := Scan_Ptr;
+               end if;
+            end;
+         end if;
       end loop;
    end Determine_License;
 

@@ -293,7 +293,7 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 	}
 
       if ((unsigned int) TREE_CODE (t) >= LAST_AND_UNUSED_TREE_CODE)
-	return (*lang_hooks.callgraph.analyze_expr) (tp, walk_subtrees, data);
+	return lang_hooks.callgraph.analyze_expr (tp, walk_subtrees, data);
       break;
     }
 
@@ -329,10 +329,10 @@ cgraph_analyze_function (struct cgraph_node *node)
   node->local.inlinable = tree_inlinable_function_p (decl);
   if (!node->local.self_insns)
     node->local.self_insns
-      = (*lang_hooks.tree_inlining.estimate_num_insns) (decl);
+      = lang_hooks.tree_inlining.estimate_num_insns (decl);
   if (node->local.inlinable)
     node->local.disregard_inline_limits
-      = (*lang_hooks.tree_inlining.disregard_inline_limits) (decl);
+      = lang_hooks.tree_inlining.disregard_inline_limits (decl);
   for (e = node->callers; e; e = e->next_caller)
     if (e->inline_failed)
       {
@@ -398,7 +398,7 @@ cgraph_finalize_compilation_unit (void)
       cgraph_nodes_queue = cgraph_nodes_queue->next_needed;
 
       /* ??? It is possible to create extern inline function and later using
-	 weak alas attribute to kill it's body. See
+	 weak alas attribute to kill its body. See
 	 gcc.c-torture/compile/20011119-1.c  */
       if (!DECL_SAVED_TREE (decl))
 	continue;
@@ -530,7 +530,7 @@ cgraph_expand_function (struct cgraph_node *node)
 
   /* Generate RTL for the body of DECL.  Nested functions are expanded
      via lang_expand_decl_stmt.  */
-  (*lang_hooks.callgraph.expand_function) (decl);
+  lang_hooks.callgraph.expand_function (decl);
   if (DECL_DEFER_OUTPUT (decl))
     abort ();
 
@@ -1508,7 +1508,7 @@ cgraph_inline_p (tree caller_decl, tree callee_decl, const char **reason)
    Attempt to topologically sort the nodes so function is output when
    all called functions are already assembled to allow data to be
    propagated across the callgraph.  Use a stack to get smaller distance
-   between a function and it's callees (later we may choose to use a more
+   between a function and its callees (later we may choose to use a more
    sophisticated algorithm for function reordering; we will likely want
    to use subsections to make the output functions appear in top-down
    order).  */
@@ -1543,7 +1543,7 @@ cgraph_expand_all_functions (void)
 /* Mark all local functions.
 
    A local function is one whose calls can occur only in the
-   current compilation unit and all it's calls are explicit,
+   current compilation unit and all its calls are explicit,
    so we can change its calling convention.
    We simply mark all static functions whose address is not taken
    as local.  */

@@ -338,8 +338,12 @@ rtl_create_basic_block (void *headp, void *endp, basic_block after)
   rtx head = headp, end = endp;
   basic_block bb;
 
-  /* Place the new block just after the end.  */
-  VARRAY_GROW (basic_block_info, last_basic_block + 1);
+  /* Grow the basic block array if needed.  */
+  if ((size_t) last_basic_block >= VARRAY_SIZE (basic_block_info))
+    {
+      size_t new_size = last_basic_block + (last_basic_block + 3) / 4;
+      VARRAY_GROW (basic_block_info, new_size);
+    }
 
   n_basic_blocks++;
 
@@ -1661,8 +1665,8 @@ rtl_dump_bb (basic_block bb, FILE *outf, int indent)
   rtx last;
   char *s_indent;
 
-  s_indent = (char *) alloca ((size_t) indent + 1);
-  memset ((void *) s_indent, ' ', (size_t) indent);
+  s_indent = alloca ((size_t) indent + 1);
+  memset (s_indent, ' ', (size_t) indent);
   s_indent[indent] = '\0';
 
   fprintf (outf, ";;%s Registers live at start: ", s_indent);
@@ -2101,7 +2105,7 @@ rtl_verify_flow_info (void)
 	      break;
 
 	    case CODE_LABEL:
-	      /* An addr_vec is placed outside any block block.  */
+	      /* An addr_vec is placed outside any basic block.  */
 	      if (NEXT_INSN (x)
 		  && GET_CODE (NEXT_INSN (x)) == JUMP_INSN
 		  && (GET_CODE (PATTERN (NEXT_INSN (x))) == ADDR_DIFF_VEC
@@ -2435,10 +2439,11 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	      && onlyjump_p (BB_END (src)))
 	    delete_insn (BB_END (src));
 	}
-      redirect_edge_succ_nodup (e, dest);
+
       if (dump_file)
 	fprintf (dump_file, "Fallthru edge %i->%i redirected to %i\n",
 		 e->src->index, e->dest->index, dest->index);
+      redirect_edge_succ_nodup (e, dest);
 
       ret = true;
     }

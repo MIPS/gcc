@@ -52,7 +52,7 @@ Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 #include "timevar.h"
 
-static tree grokparms (tree);
+static tree grokparms (tree, tree *);
 static const char *redeclaration_error_message (tree, tree);
 
 static int decl_jump_unsafe (tree);
@@ -61,7 +61,7 @@ static int ambi_op_p (enum tree_code);
 static int unary_op_p (enum tree_code);
 static void push_local_name (tree);
 static tree grok_reference_init (tree, tree, tree, tree *);
-static tree grokfndecl (tree, tree, tree, tree, int,
+static tree grokfndecl (tree, tree, tree, tree, tree, int,
 			enum overload_flags, tree,
 			tree, int, int, int, int, int, int, tree);
 static tree grokvardecl (tree, tree, RID_BIT_TYPE *, int, int, tree);
@@ -206,9 +206,6 @@ tree static_aggregates;
 /* A node for the integer constants 2, and 3.  */
 
 tree integer_two_node, integer_three_node;
-
-/* Similar, for last_function_parm_tags.  */
-tree last_function_parms;
 
 /* A list of all LABEL_DECLs in the function that have names.  Here so
    we can clear out their names' definitions at the end of the
@@ -1125,11 +1122,6 @@ decls_match (tree newdecl, tree olddecl)
 void
 warn_extern_redeclared_static (tree newdecl, tree olddecl)
 {
-  static const char *const explicit_extern_static_warning
-    = "`%D' was declared `extern' and later `static'";
-  static const char *const implicit_extern_static_warning
-    = "`%D' was declared implicitly `extern' and later `static'";
-
   tree name;
 
   if (TREE_CODE (newdecl) == TYPE_DECL
@@ -1155,9 +1147,7 @@ warn_extern_redeclared_static (tree newdecl, tree olddecl)
     return;
 
   name = DECL_ASSEMBLER_NAME (newdecl);
-  pedwarn (IDENTIFIER_IMPLICIT_DECL (name)
-	      ? implicit_extern_static_warning
-	      : explicit_extern_static_warning, newdecl);
+  pedwarn ("`%D' was declared `extern' and later `static'", newdecl);
   cp_pedwarn_at ("previous declaration of `%D'", olddecl);
 }
 
@@ -1401,10 +1391,7 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  else
 	    return NULL_TREE;
 	}
-
-      /* Already complained about this, so don't do so again.  */
-      else if (current_class_type == NULL_TREE
-	  || IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (newdecl)) != current_class_type)
+      else
 	{
 	  error ("conflicting declaration '%#D'", newdecl);
 	  cp_error_at ("'%D' has a previous declaration as `%#D'",
@@ -1619,6 +1606,9 @@ duplicate_decls (tree newdecl, tree olddecl)
 	  DECL_SOURCE_LOCATION (olddecl) 
 	    = DECL_SOURCE_LOCATION (DECL_TEMPLATE_RESULT (olddecl))
 	    = DECL_SOURCE_LOCATION (newdecl);
+	  if (DECL_FUNCTION_TEMPLATE_P (newdecl))
+	    DECL_ARGUMENTS (DECL_TEMPLATE_RESULT (olddecl))
+	      = DECL_ARGUMENTS (DECL_TEMPLATE_RESULT (newdecl));
 	}
 
       if (DECL_FUNCTION_TEMPLATE_P (newdecl))
@@ -1971,39 +1961,6 @@ duplicate_decls (tree newdecl, tree olddecl)
   return olddecl;
 }
 
-/* Generate an implicit declaration for identifier FUNCTIONID
-   as a function of type int ().  Print a warning if appropriate.  */
-
-tree
-implicitly_declare (tree functionid)
-{
-  tree decl;
-
-  /* We used to reuse an old implicit decl here,
-     but this loses with inline functions because it can clobber
-     the saved decl chains.  */
-  decl = build_lang_decl (FUNCTION_DECL, functionid, default_function_type);
-
-  DECL_EXTERNAL (decl) = 1;
-  TREE_PUBLIC (decl) = 1;
-
-  /* ISO standard says implicit declarations are in the innermost block.
-     So we record the decl in the standard fashion.  */
-  pushdecl (decl);
-  rest_of_decl_compilation (decl, NULL, 0, 0);
-
-  if (warn_implicit
-      /* Only one warning per identifier.  */
-      && IDENTIFIER_IMPLICIT_DECL (functionid) == NULL_TREE)
-    {
-      pedwarn ("implicit declaration of function `%#D'", decl);
-    }
-
-  SET_IDENTIFIER_IMPLICIT_DECL (functionid, decl);
-
-  return decl;
-}
-
 /* Return zero if the declaration NEWDECL is valid
    when the declaration OLDDECL (assumed to be for the same name)
    has already been seen.
@@ -4782,6 +4739,10 @@ cp_finish_decl (tree decl, tree init, tree asmspec_tree, int flags)
 
       if (init && DECL_INITIAL (decl))
 	DECL_INITIAL (decl) = init;
+      if (TREE_CODE (decl) == VAR_DECL
+	  && !DECL_PRETTY_FUNCTION_P (decl)
+	  && !dependent_type_p (TREE_TYPE (decl)))
+	maybe_deduce_size_from_array_init (decl, init);
       goto finish_end0;
     }
 
@@ -5487,6 +5448,7 @@ bad_specifiers (tree object,
    TYPE is type this FUNCTION_DECL should have, either FUNCTION_TYPE
    or METHOD_TYPE.
    DECLARATOR is the function's name.
+   PARMS is a chain of PARM_DECLs for the function.
    VIRTUALP is truthvalue of whether the function is virtual or not.
    FLAGS are to be passed through to `grokclassfn'.
    QUALS are qualifiers indicating whether the function is `const'
@@ -5502,6 +5464,7 @@ static tree
 grokfndecl (tree ctype, 
             tree type,
             tree declarator,
+	    tree parms,
             tree orig_declarator,
             int virtualp,
             enum overload_flags flags,
@@ -5524,6 +5487,7 @@ grokfndecl (tree ctype,
     type = build_exception_variant (type, raises);
 
   decl = build_lang_decl (FUNCTION_DECL, declarator, type);
+  DECL_ARGUMENTS (decl) = parms;
   /* Propagate volatile out from type to decl.  */
   if (TYPE_VOLATILE (type))
     TREE_THIS_VOLATILE (decl) = 1;
@@ -5748,12 +5712,9 @@ grokfndecl (tree ctype,
 
       if (old_decl && DECL_STATIC_FUNCTION_P (old_decl)
 	  && TREE_CODE (TREE_TYPE (decl)) == METHOD_TYPE)
-	{
-	  /* Remove the `this' parm added by grokclassfn.
-	     XXX Isn't this done in start_function, too?  */
-	  revert_static_member_fn (decl);
-	  last_function_parms = TREE_CHAIN (last_function_parms);
-	}
+	/* Remove the `this' parm added by grokclassfn.
+	   XXX Isn't this done in start_function, too?  */
+	revert_static_member_fn (decl);
       if (old_decl && DECL_ARTIFICIAL (old_decl))
 	error ("definition of implicitly-declared `%D'", old_decl);
 
@@ -6407,6 +6368,7 @@ grokdeclarator (tree declarator,
   tree in_namespace = NULL_TREE;
   tree returned_attrs = NULL_TREE;
   tree scope = NULL_TREE;
+  tree parms = NULL_TREE;
 
   RIDBIT_RESET_ALL (specbits);
   if (decl_context == FUNCDEF)
@@ -7479,7 +7441,7 @@ grokdeclarator (tree declarator,
 
 	    declarator = TREE_OPERAND (declarator, 0);
 
-	    arg_types = grokparms (inner_parms);
+	    arg_types = grokparms (inner_parms, &parms);
 
 	    if (declarator && flags == DTOR_FLAG)
 	      {
@@ -7493,7 +7455,7 @@ grokdeclarator (tree declarator,
 		  {
 		    error ("destructors may not have parameters");
 		    arg_types = void_list_node;
-		    last_function_parms = NULL_TREE;
+		    parms = NULL_TREE;
 		  }
 	      }
 
@@ -7660,7 +7622,11 @@ grokdeclarator (tree declarator,
 		  }
 		else if (TREE_CODE (type) == FUNCTION_TYPE)
 		  {
-		    if (current_class_type == NULL_TREE || friendp)
+		    if (NEW_DELETE_OPNAME_P (sname))
+		      /* Overloaded operator new and operator delete
+			 are always static functions.  */
+		      ;
+		    else if (current_class_type == NULL_TREE || friendp)
 		      type 
 			= build_method_type_directly (ctype, 
 						      TREE_TYPE (type),
@@ -7919,8 +7885,7 @@ grokdeclarator (tree declarator,
     type = build_cplus_array_type (TREE_TYPE (type), NULL_TREE);
 
   /* Detect where we're using a typedef of function type to declare a
-     function. last_function_parms will not be set, so we must create
-     it now.  */
+     function. PARMS will not be set, so we must create it now.  */
   
   if (type == typedef_type && TREE_CODE (type) == FUNCTION_TYPE)
     {
@@ -7935,7 +7900,7 @@ grokdeclarator (tree declarator,
 	  decls = decl;
 	}
       
-      last_function_parms = nreverse (decls);
+      parms = nreverse (decls);
     }
 
   /* If this is a type name (such as, in a cast or sizeof),
@@ -8129,10 +8094,7 @@ grokdeclarator (tree declarator,
 		    return void_type_node;
 		  }
 
-		if (declarator == ansi_opname (NEW_EXPR)
-		    || declarator == ansi_opname (VEC_NEW_EXPR)
-		    || declarator == ansi_opname (DELETE_EXPR)
-		    || declarator == ansi_opname (VEC_DELETE_EXPR))
+		if (NEW_DELETE_OPNAME_P (declarator))
 		  {
 		    if (virtualp)
 		      {
@@ -8155,6 +8117,7 @@ grokdeclarator (tree declarator,
 	    decl = grokfndecl (ctype, type,
 			       TREE_CODE (declarator) != TEMPLATE_ID_EXPR
 			       ? declarator : dname,
+			       parms,
 			       declarator,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, publicp, inlinep,
@@ -8201,6 +8164,7 @@ grokdeclarator (tree declarator,
 	    decl = grokfndecl (ctype, type,
 			       TREE_CODE (declarator) != TEMPLATE_ID_EXPR
 			       ? declarator : dname,
+			       parms,
 			       declarator,
 			       virtualp, flags, quals, raises,
 			       friendp ? -1 : 0, friendp, 1, 0, funcdef_flag,
@@ -8258,8 +8222,7 @@ grokdeclarator (tree declarator,
 		  }
 		
 		decl = do_friend (ctype, declarator, decl,
-				  last_function_parms, *attrlist,
-				  flags, quals, funcdef_flag);
+				  *attrlist, flags, quals, funcdef_flag);
 		return decl;
 	      }
 	    else
@@ -8372,7 +8335,8 @@ grokdeclarator (tree declarator,
 		virtualp = 0;
 	      }
 	  }
-	else if (TREE_CODE (type) == FUNCTION_TYPE && staticp < 2)
+	else if (TREE_CODE (type) == FUNCTION_TYPE && staticp < 2
+		 && !NEW_DELETE_OPNAME_P (original_name))
 	  type = build_method_type_directly (ctype, 
 					     TREE_TYPE (type),
 					     TYPE_ARG_TYPES (type));
@@ -8382,7 +8346,7 @@ grokdeclarator (tree declarator,
 		   || RIDBIT_SETP (RID_EXTERN, specbits)
 		   || !RIDBIT_SETP (RID_STATIC, specbits));
 
-	decl = grokfndecl (ctype, type, original_name, declarator,
+	decl = grokfndecl (ctype, type, original_name, parms, declarator,
 			   virtualp, flags, quals, raises,
 			   1, friendp,
 			   publicp, inlinep, funcdef_flag,
@@ -8620,10 +8584,10 @@ check_default_argument (tree decl, tree arg)
    flag. If unset, we append void_list_node. A parmlist declared
    as `(void)' is accepted as the empty parmlist.
 
-   Also set last_function_parms to the chain of PARM_DECLs.  */
+   *PARMS is set to the chain of PARM_DECLs created.  */
 
 static tree
-grokparms (tree first_parm)
+grokparms (tree first_parm, tree *parms)
 {
   tree result = NULL_TREE;
   tree decls = NULL_TREE;
@@ -8729,7 +8693,7 @@ grokparms (tree first_parm)
   result = nreverse (result);
   if (!ellipsis)
     result = chainon (result, void_list_node);
-  last_function_parms = decls;
+  *parms = decls;
 
   return result;
 }
@@ -8872,7 +8836,6 @@ grok_ctor_properties (tree ctype, tree decl)
      	 instantiated, but that's hard to forestall.  */
       error ("invalid constructor; you probably meant `%T (const %T&)'",
 		ctype, ctype);
-      SET_IDENTIFIER_ERROR_LOCUS (DECL_NAME (decl), ctype);
       return 0;
     }
   
@@ -8983,21 +8946,9 @@ grok_op_properties (tree decl, int friendp, bool complain)
     }
 
   if (operator_code == NEW_EXPR || operator_code == VEC_NEW_EXPR)
-    {
-      /* When the compiler encounters the definition of A::operator new, it
-	 doesn't look at the class declaration to find out if it's static.  */
-      if (methodp)
-	revert_static_member_fn (decl);
-
-      TREE_TYPE (decl) = coerce_new_type (TREE_TYPE (decl));
-    }
+    TREE_TYPE (decl) = coerce_new_type (TREE_TYPE (decl));
   else if (operator_code == DELETE_EXPR || operator_code == VEC_DELETE_EXPR)
-    {
-      if (methodp)
-	revert_static_member_fn (decl);
-
-      TREE_TYPE (decl) = coerce_delete_type (TREE_TYPE (decl));
-    }
+    TREE_TYPE (decl) = coerce_delete_type (TREE_TYPE (decl));
   else
     {
       /* An operator function must either be a non-static member function
@@ -9331,8 +9282,7 @@ check_elaborated_type_specifier (enum tag_types tag_code,
    Define the tag as a forward-reference if it is not defined.
 
    If a declaration is given, process it here, and report an error if
-   multiple declarations are not identical.  ATTRIBUTE is the attribute
-   appeared in this declaration.
+   multiple declarations are not identical.
 
    GLOBALIZE is false when this is also a definition.  Only look in
    the current frame for the name (since C++ allows new names in any
@@ -9342,7 +9292,7 @@ check_elaborated_type_specifier (enum tag_types tag_code,
    a set of template parameters.  */
 
 tree
-xref_tag (enum tag_types tag_code, tree name, tree attributes, 
+xref_tag (enum tag_types tag_code, tree name,
 	  bool globalize, bool template_header_p)
 {
   enum tree_code code;
@@ -9378,7 +9328,7 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
     }
   else
     {
-      tree decl = lookup_name (name, 1);
+      tree decl = lookup_name (name, 2);
 
       if (decl && DECL_CLASS_TEMPLATE_P (decl))
 	decl = DECL_TEMPLATE_RESULT (decl);
@@ -9465,25 +9415,7 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
       if (code == ENUMERAL_TYPE)
 	{
 	  error ("use of enum `%#D' without previous declaration", name);
-
-	  t = make_node (ENUMERAL_TYPE);
-
-	  /* Give the type a default layout like unsigned int
-	     to avoid crashing if it does not get defined.  */
-	  TYPE_MODE (t) = TYPE_MODE (unsigned_type_node);
-	  TYPE_ALIGN (t) = TYPE_ALIGN (unsigned_type_node);
-	  TYPE_USER_ALIGN (t) = 0;
-	  TREE_UNSIGNED (t) = 1;
-	  TYPE_PRECISION (t) = TYPE_PRECISION (unsigned_type_node);
-	  TYPE_MIN_VALUE (t) = TYPE_MIN_VALUE (unsigned_type_node);
-	  TYPE_MAX_VALUE (t) = TYPE_MAX_VALUE (unsigned_type_node);
-
-	  /* Enable us to recognize when a type is created in class context.
-	     To do nested classes correctly, this should probably be cleared
-	     out when we leave this classes scope.  Currently this in only
-	     done in `start_enum'.  */
-
-	  pushtag (name, t, globalize);
+	  POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, error_mark_node);
 	}
       else
 	{
@@ -9496,16 +9428,6 @@ xref_tag (enum tag_types tag_code, tree name, tree attributes,
     {
       if (!globalize && processing_template_decl && IS_AGGR_TYPE (t))
 	redeclare_class_template (t, current_template_parms);
-    }
-
-  /* Add attributes only when defining a class. */
-  if (attributes)
-    {
-      /* The only place that xref_tag is called with non-null
-	 attributes is in cp_parser_class_head(), when defining a
-	 class.  */ 
-      my_friendly_assert (TYPE_ATTRIBUTES (t) == NULL_TREE, 20040113);
-      TYPE_ATTRIBUTES (t) = attributes;
     }
 
   POP_TIMEVAR_AND_RETURN (TV_NAME_LOOKUP, t);
@@ -9524,7 +9446,7 @@ xref_tag_from_type (tree old, tree id, int globalize)
   if (id == NULL_TREE)
     id = TYPE_IDENTIFIER (old);
 
-  return xref_tag (tag_kind, id, /*attributes=*/NULL_TREE, globalize, false);
+  return xref_tag (tag_kind, id, globalize, false);
 }
 
 /* REF is a type (named NAME), for which we have just seen some
@@ -10137,8 +10059,6 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 	  else
 	    doing_friend = 1;
 	}
-
-      last_function_parms = DECL_ARGUMENTS (decl1);
     }
   else
     {
@@ -10189,15 +10109,8 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
       && TREE_CODE (TREE_TYPE (decl1)) == METHOD_TYPE)
     {
       revert_static_member_fn (decl1);
-      last_function_parms = TREE_CHAIN (last_function_parms);
       ctype = NULL_TREE;
     }
-
-  /* Warn if function was previously implicitly declared
-     (but not if we warned then).  */
-  if (! warn_implicit
-      && IDENTIFIER_IMPLICIT_DECL (DECL_NAME (decl1)) != NULL_TREE)
-    cp_warning_at ("`%D' implicitly declared before its definition", IDENTIFIER_IMPLICIT_DECL (DECL_NAME (decl1)));
 
   /* Set up current_class_type, and enter the scope of the class, if
      appropriate.  */
@@ -10242,7 +10155,7 @@ start_function (tree declspecs, tree declarator, tree attrs, int flags)
 
   /* Save the parm names or decls from this function's declarator
      where store_parm_decls will find them.  */
-  current_function_parms = last_function_parms;
+  current_function_parms = DECL_ARGUMENTS (decl1);
 
   /* Make sure the parameter and return types are reasonable.  When
      you declare a function, these types can be incomplete, but they
@@ -10968,13 +10881,10 @@ start_method (tree declspecs, tree declarator, tree attrlist)
 
   if (DECL_IN_AGGR_P (fndecl))
     {
-      if (IDENTIFIER_ERROR_LOCUS (DECL_ASSEMBLER_NAME (fndecl)) != current_class_type)
-	{
-	  if (DECL_CONTEXT (fndecl)
-	      && TREE_CODE( DECL_CONTEXT (fndecl)) != NAMESPACE_DECL)
-	    error ("`%D' is already defined in class `%T'", fndecl,
-	              DECL_CONTEXT (fndecl));
-	}
+      if (DECL_CONTEXT (fndecl)
+	  && TREE_CODE( DECL_CONTEXT (fndecl)) != NAMESPACE_DECL)
+	error ("`%D' is already defined in class `%T'", fndecl,
+	       DECL_CONTEXT (fndecl));
       return void_type_node;
     }
 

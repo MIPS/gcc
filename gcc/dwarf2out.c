@@ -149,7 +149,7 @@ collect2_eh_frame_section (void)
 
   data_section ();
   ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
-  (*targetm.asm_out.globalize_label) (asm_out_file, IDENTIFIER_POINTER (label));
+  targetm.asm_out.globalize_label (asm_out_file, IDENTIFIER_POINTER (label));
   ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
 }
 
@@ -243,6 +243,7 @@ typedef struct cfa_loc GTY(())
 
 typedef struct dw_fde_struct GTY(())
 {
+  tree decl;
   const char *dw_fde_begin;
   const char *dw_fde_current_label;
   const char *dw_fde_end;
@@ -391,7 +392,9 @@ static void def_cfa_1 (const char *, dw_cfa_location *);
 #define FUNC_END_LABEL		"LFE"
 #endif
 
+#ifndef FRAME_BEGIN_LABEL
 #define FRAME_BEGIN_LABEL	"Lframe"
+#endif
 #define CIE_AFTER_SIZE_LABEL	"LSCIE"
 #define CIE_END_LABEL		"LECIE"
 #define FDE_LABEL		"LSFDE"
@@ -1942,6 +1945,22 @@ output_call_frame_info (int for_eh)
   if (fde_table_in_use == 0)
     return;
 
+  /* If we make FDEs linkonce, we may have to emit an empty label for
+     an FDE that wouldn't otherwise be emitted.  We want to avoid
+     having an FDE kept around when the function it refers to is
+     discarded. (Example where this matters: a primary function
+     template in C++ requires EH information, but an explicit
+     specialization doesn't. */
+  if (TARGET_USES_WEAK_UNWIND_INFO
+      && ! flag_asynchronous_unwind_tables
+      && for_eh)
+    for (i = 0; i < fde_table_in_use; i++)
+      if ((fde_table[i].nothrow || fde_table[i].all_throwers_are_sibcalls)
+          && !fde_table[i].uses_eh_lsda
+	  && ! DECL_ONE_ONLY (fde_table[i].decl))
+	targetm.asm_out.unwind_label (asm_out_file, fde_table[i].decl,
+					 /* empty */ 1);
+
   /* If we don't have any functions we'll want to unwind out of, don't
      emit any EH unwind information.  Note that if exceptions aren't
      enabled, we won't have collected nothrow information, and if we
@@ -1953,6 +1972,9 @@ output_call_frame_info (int for_eh)
       for (i = 0; i < fde_table_in_use; i++)
 	if (fde_table[i].uses_eh_lsda)
 	  any_eh_needed = any_lsda_needed = true;
+        else if (TARGET_USES_WEAK_UNWIND_INFO
+		 && DECL_ONE_ONLY (fde_table[i].decl))
+	  any_eh_needed = 1;
 	else if (! fde_table[i].nothrow
 		 && ! fde_table[i].all_throwers_are_sibcalls)
 	  any_eh_needed = true;
@@ -1966,7 +1988,7 @@ output_call_frame_info (int for_eh)
     app_enable ();
 
   if (for_eh)
-    (*targetm.asm_out.eh_frame_section) ();
+    targetm.asm_out.eh_frame_section ();
   else
     named_section_flags (DEBUG_FRAME_SECTION, SECTION_DEBUG);
 
@@ -2004,7 +2026,9 @@ output_call_frame_info (int for_eh)
 	 P	Indicates the presence of an encoding + language
 		personality routine in the CIE augmentation.  */
 
-      fde_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
+      fde_encoding = TARGET_USES_WEAK_UNWIND_INFO
+	? ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1)
+	: ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/1, /*global=*/0);
       per_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/2, /*global=*/1);
       lsda_encoding = ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/0);
 
@@ -2095,10 +2119,12 @@ output_call_frame_info (int for_eh)
       /* Don't emit EH unwind info for leaf functions that don't need it.  */
       if (for_eh && !flag_asynchronous_unwind_tables && flag_exceptions
 	  && (fde->nothrow || fde->all_throwers_are_sibcalls)
+	  && (! TARGET_USES_WEAK_UNWIND_INFO || ! DECL_ONE_ONLY (fde->decl))
 	  && !fde->uses_eh_lsda)
 	continue;
 
-      (*targetm.asm_out.internal_label) (asm_out_file, FDE_LABEL, for_eh + i * 2);
+      targetm.asm_out.unwind_label (asm_out_file, fde->decl, /* empty */ 0);
+      targetm.asm_out.internal_label (asm_out_file, FDE_LABEL, for_eh + i * 2);
       ASM_GENERATE_INTERNAL_LABEL (l1, FDE_AFTER_SIZE_LABEL, for_eh + i * 2);
       ASM_GENERATE_INTERNAL_LABEL (l2, FDE_END_LABEL, for_eh + i * 2);
       dw2_asm_output_delta (for_eh ? 4 : DWARF_OFFSET_SIZE, l2, l1,
@@ -2113,9 +2139,16 @@ output_call_frame_info (int for_eh)
 
       if (for_eh)
 	{
-	  dw2_asm_output_encoded_addr_rtx (fde_encoding,
-		   gen_rtx_SYMBOL_REF (Pmode, fde->dw_fde_begin),
-		   "FDE initial location");
+	  if (TARGET_USES_WEAK_UNWIND_INFO
+	      && DECL_ONE_ONLY (fde->decl))
+	    dw2_asm_output_encoded_addr_rtx (fde_encoding,
+		     gen_rtx_SYMBOL_REF (Pmode, IDENTIFIER_POINTER
+					          (DECL_ASSEMBLER_NAME (fde->decl))),
+		     "FDE initial location");
+	  else
+	    dw2_asm_output_encoded_addr_rtx (fde_encoding,
+		     gen_rtx_SYMBOL_REF (Pmode, fde->dw_fde_begin),
+		     "FDE initial location");
 	  dw2_asm_output_delta (size_of_encoded_value (fde_encoding),
 				fde->dw_fde_end, fde->dw_fde_begin,
 				"FDE address range");
@@ -2248,6 +2281,7 @@ dwarf2out_begin_prologue (unsigned int line ATTRIBUTE_UNUSED,
 
   /* Add the new FDE at the end of the fde_table.  */
   fde = &fde_table[fde_table_in_use++];
+  fde->decl = current_function_decl;
   fde->dw_fde_begin = xstrdup (label);
   fde->dw_fde_current_label = NULL;
   fde->dw_fde_end = NULL;
@@ -2344,7 +2378,7 @@ enum dw_val_class
   dw_val_class_const,
   dw_val_class_unsigned_const,
   dw_val_class_long_long,
-  dw_val_class_float,
+  dw_val_class_vec,
   dw_val_class_flag,
   dw_val_class_die_ref,
   dw_val_class_fde_ref,
@@ -2363,14 +2397,15 @@ typedef struct dw_long_long_struct GTY(())
 }
 dw_long_long_const;
 
-/* Describe a floating point constant value.  */
+/* Describe a floating point constant value, or a vector constant value.  */
 
-typedef struct dw_fp_struct GTY(())
+typedef struct dw_vec_struct GTY(())
 {
-  long * GTY((length ("%h.length"))) array;
+  unsigned char * GTY((length ("%h.length"))) array;
   unsigned length;
+  unsigned elt_size;
 }
-dw_float_const;
+dw_vec_const;
 
 /* The dw_val_node describes an attribute's value, as it is
    represented internally.  */
@@ -2387,7 +2422,7 @@ typedef struct dw_val_struct GTY(())
       HOST_WIDE_INT GTY ((default (""))) val_int;
       unsigned HOST_WIDE_INT GTY ((tag ("dw_val_class_unsigned_const"))) val_unsigned;
       dw_long_long_const GTY ((tag ("dw_val_class_long_long"))) val_long_long;
-      dw_float_const GTY ((tag ("dw_val_class_float"))) val_float;
+      dw_vec_const GTY ((tag ("dw_val_class_vec"))) val_vec;
       struct dw_val_die_union
 	{
 	  dw_die_ref die;
@@ -3635,7 +3670,8 @@ static void add_AT_unsigned (dw_die_ref, enum dwarf_attribute, unsigned HOST_WID
 static inline unsigned HOST_WIDE_INT AT_unsigned (dw_attr_ref);
 static void add_AT_long_long (dw_die_ref, enum dwarf_attribute, unsigned long,
 			      unsigned long);
-static void add_AT_float (dw_die_ref, enum dwarf_attribute, unsigned, long *);
+static inline void add_AT_vec (dw_die_ref, enum dwarf_attribute, unsigned int,
+			       unsigned int, unsigned char *);
 static hashval_t debug_str_do_hash (const void *);
 static int debug_str_eq (const void *, const void *);
 static void add_AT_string (dw_die_ref, enum dwarf_attribute, const char *);
@@ -3770,6 +3806,9 @@ static void add_AT_location_description	(dw_die_ref, enum dwarf_attribute,
 					 dw_loc_descr_ref);
 static void add_data_member_location_attribute (dw_die_ref, tree);
 static void add_const_value_attribute (dw_die_ref, rtx);
+static void insert_int (HOST_WIDE_INT, unsigned, unsigned char *);
+static HOST_WIDE_INT extract_int (const unsigned char *, unsigned);
+static void insert_float (rtx, unsigned char *);
 static rtx rtl_for_decl_location (tree);
 static void add_location_or_const_value_attribute (dw_die_ref, tree,
 						   enum dwarf_attribute);
@@ -4605,16 +4644,17 @@ add_AT_long_long (dw_die_ref die, enum dwarf_attribute attr_kind,
 /* Add a floating point attribute value to a DIE and return it.  */
 
 static inline void
-add_AT_float (dw_die_ref die, enum dwarf_attribute attr_kind,
-	      unsigned int length, long int *array)
+add_AT_vec (dw_die_ref die, enum dwarf_attribute attr_kind,
+	    unsigned int length, unsigned int elt_size, unsigned char *array)
 {
   dw_attr_ref attr = ggc_alloc (sizeof (dw_attr_node));
 
   attr->dw_attr_next = NULL;
   attr->dw_attr = attr_kind;
-  attr->dw_attr_val.val_class = dw_val_class_float;
-  attr->dw_attr_val.v.val_float.length = length;
-  attr->dw_attr_val.v.val_float.array = array;
+  attr->dw_attr_val.val_class = dw_val_class_vec;
+  attr->dw_attr_val.v.val_vec.length = length;
+  attr->dw_attr_val.v.val_vec.elt_size = elt_size;
+  attr->dw_attr_val.v.val_vec.array = array;
   add_dwarf_attr (die, attr);
 }
 
@@ -5407,8 +5447,8 @@ print_die (dw_die_ref die, FILE *outfile)
 		   a->dw_attr_val.v.val_long_long.hi,
 		   a->dw_attr_val.v.val_long_long.low);
 	  break;
-	case dw_val_class_float:
-	  fprintf (outfile, "floating-point constant");
+	case dw_val_class_vec:
+	  fprintf (outfile, "floating-point or vector constant");
 	  break;
 	case dw_val_class_flag:
 	  fprintf (outfile, "%u", AT_flag (a));
@@ -5608,8 +5648,8 @@ attr_checksum (dw_attr_ref at, struct md5_ctx *ctx, int *mark)
     case dw_val_class_long_long:
       CHECKSUM (at->dw_attr_val.v.val_long_long);
       break;
-    case dw_val_class_float:
-      CHECKSUM (at->dw_attr_val.v.val_float);
+    case dw_val_class_vec:
+      CHECKSUM (at->dw_attr_val.v.val_vec);
       break;
     case dw_val_class_flag:
       CHECKSUM (at->dw_attr_val.v.val_flag);
@@ -5697,7 +5737,6 @@ same_dw_val_p (dw_val_node *v1, dw_val_node *v2, int *mark)
 {
   dw_loc_descr_ref loc1, loc2;
   rtx r1, r2;
-  unsigned i;
 
   if (v1->val_class != v2->val_class)
     return 0;
@@ -5711,12 +5750,13 @@ same_dw_val_p (dw_val_node *v1, dw_val_node *v2, int *mark)
     case dw_val_class_long_long:
       return v1->v.val_long_long.hi == v2->v.val_long_long.hi
 	     && v1->v.val_long_long.low == v2->v.val_long_long.low;
-    case dw_val_class_float:
-      if (v1->v.val_float.length != v2->v.val_float.length)
+    case dw_val_class_vec:
+      if (v1->v.val_vec.length != v2->v.val_vec.length
+	  || v1->v.val_vec.elt_size != v2->v.val_vec.elt_size)
 	return 0;
-      for (i = 0; i < v1->v.val_float.length; i++)
-	if (v1->v.val_float.array[i] != v2->v.val_float.array[i])
-	  return 0;
+      if (memcmp (v1->v.val_vec.array, v2->v.val_vec.array,
+		  v1->v.val_vec.length * v1->v.val_vec.elt_size))
+	return 0;
       return 1;
     case dw_val_class_flag:
       return v1->v.val_flag == v2->v.val_flag;
@@ -6310,8 +6350,9 @@ size_of_die (dw_die_ref die)
 	case dw_val_class_long_long:
 	  size += 1 + 2*HOST_BITS_PER_LONG/HOST_BITS_PER_CHAR; /* block */
 	  break;
-	case dw_val_class_float:
-	  size += 1 + a->dw_attr_val.v.val_float.length * 4; /* block */
+	case dw_val_class_vec:
+	  size += 1 + (a->dw_attr_val.v.val_vec.length
+		       * a->dw_attr_val.v.val_vec.elt_size); /* block */
 	  break;
 	case dw_val_class_flag:
 	  size += 1;
@@ -6505,7 +6546,7 @@ value_format (dw_attr_ref a)
 	}
     case dw_val_class_long_long:
       return DW_FORM_block1;
-    case dw_val_class_float:
+    case dw_val_class_vec:
       return DW_FORM_block1;
     case dw_val_class_flag:
       return DW_FORM_flag;
@@ -6591,7 +6632,7 @@ output_die_symbol (dw_die_ref die)
     /* We make these global, not weak; if the target doesn't support
        .linkonce, it doesn't support combining the sections, so debugging
        will break.  */
-    (*targetm.asm_out.globalize_label) (asm_out_file, sym);
+    targetm.asm_out.globalize_label (asm_out_file, sym);
 
   ASM_OUTPUT_LABEL (asm_out_file, sym);
 }
@@ -6774,16 +6815,24 @@ output_die (dw_die_ref die)
 	  }
 	  break;
 
-	case dw_val_class_float:
+	case dw_val_class_vec:
 	  {
+	    unsigned int elt_size = a->dw_attr_val.v.val_vec.elt_size;
+	    unsigned int len = a->dw_attr_val.v.val_vec.length;
 	    unsigned int i;
+	    unsigned char *p;
 
-	    dw2_asm_output_data (1, a->dw_attr_val.v.val_float.length * 4,
-				 "%s", name);
-
-	    for (i = 0; i < a->dw_attr_val.v.val_float.length; i++)
-	      dw2_asm_output_data (4, a->dw_attr_val.v.val_float.array[i],
-				   "fp constant word %u", i);
+	    dw2_asm_output_data (1, len * elt_size, "%s", name);
+	    if (elt_size > sizeof (HOST_WIDE_INT))
+	      {
+		elt_size /= 2;
+		len *= 2;
+	      }
+	    for (i = 0, p = a->dw_attr_val.v.val_vec.array;
+		 i < len;
+		 i++, p += elt_size)
+	      dw2_asm_output_data (elt_size, extract_int (p, elt_size),
+				   "fp or vector constant word %u", i);
 	    break;
 	  }
 
@@ -6934,7 +6983,7 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
 static const char *
 dwarf2_name (tree decl, int scope)
 {
-  return (*lang_hooks.decl_printable_name) (decl, scope ? 1 : 0);
+  return lang_hooks.decl_printable_name (decl, scope ? 1 : 0);
 }
 
 /* Add a new entry to .debug_pubnames if appropriate.  */
@@ -7951,15 +8000,51 @@ is_subrange_type (tree type)
 {
   tree subtype = TREE_TYPE (type);
 
-  if (TREE_CODE (type) == INTEGER_TYPE
-      && subtype != NULL_TREE)
+  /* Subrange types are identified by the fact that they are integer
+     types, and that they have a subtype which is either an integer type
+     or an enumeral type.  */
+
+  if (TREE_CODE (type) != INTEGER_TYPE
+      || subtype == NULL_TREE)
+    return false;
+
+  if (TREE_CODE (subtype) != INTEGER_TYPE
+      && TREE_CODE (subtype) != ENUMERAL_TYPE)
+    return false;
+
+  if (TREE_CODE (type) == TREE_CODE (subtype)
+      && int_size_in_bytes (type) == int_size_in_bytes (subtype)
+      && TYPE_MIN_VALUE (type) != NULL
+      && TYPE_MIN_VALUE (subtype) != NULL
+      && tree_int_cst_equal (TYPE_MIN_VALUE (type), TYPE_MIN_VALUE (subtype))
+      && TYPE_MAX_VALUE (type) != NULL
+      && TYPE_MAX_VALUE (subtype) != NULL
+      && tree_int_cst_equal (TYPE_MAX_VALUE (type), TYPE_MAX_VALUE (subtype)))
     {
-      if (TREE_CODE (subtype) == INTEGER_TYPE)
-        return true;
-      if (TREE_CODE (subtype) == ENUMERAL_TYPE)
-        return true;
+      /* The type and its subtype have the same representation.  If in
+         addition the two types also have the same name, then the given
+         type is not a subrange type, but rather a plain base type.  */
+      /* FIXME: brobecker/2004-03-22:
+         Sizetype INTEGER_CSTs nodes are canonicalized.  It should
+         therefore be sufficient to check the TYPE_SIZE node pointers
+         rather than checking the actual size.  Unfortunately, we have
+         found some cases, such as in the Ada "integer" type, where
+         this is not the case.  Until this problem is solved, we need to
+         keep checking the actual size.  */
+      tree type_name = TYPE_NAME (type);
+      tree subtype_name = TYPE_NAME (subtype);
+
+      if (type_name != NULL && TREE_CODE (type_name) == TYPE_DECL)
+        type_name = DECL_NAME (type_name);
+
+      if (subtype_name != NULL && TREE_CODE (subtype_name) == TYPE_DECL)
+        subtype_name = DECL_NAME (subtype_name);
+
+      if (type_name == subtype_name)
+        return false;
     }
-  return false;
+
+  return true;
 }
 
 /*  Given a pointer to a tree node for a subrange type, return a pointer
@@ -7972,14 +8057,15 @@ subrange_type_die (tree type, dw_die_ref context_die)
   dw_die_ref subrange_die;
   tree name = TYPE_NAME (type);
   const HOST_WIDE_INT size_in_bytes = int_size_in_bytes (type);
+  tree subtype = TREE_TYPE (type);
 
   if (context_die == NULL)
     context_die = comp_unit_die;
 
-  if (TREE_CODE (TREE_TYPE (type)) == ENUMERAL_TYPE)
-    subtype_die = gen_enumeration_type_die (TREE_TYPE (type), context_die);
+  if (TREE_CODE (subtype) == ENUMERAL_TYPE)
+    subtype_die = gen_enumeration_type_die (subtype, context_die);
   else
-    subtype_die = base_type_die (TREE_TYPE (type));
+    subtype_die = base_type_die (subtype);
 
   subrange_die = new_die (DW_TAG_subrange_type, context_die, type);
 
@@ -7990,7 +8076,7 @@ subrange_type_die (tree type, dw_die_ref context_die)
       add_name_attribute (subrange_die, IDENTIFIER_POINTER (name));
     }
 
-  if (int_size_in_bytes (TREE_TYPE (type)) != size_in_bytes)
+  if (int_size_in_bytes (subtype) != size_in_bytes)
     {
       /* The size of the subrange type and its base type do not match,
          so we need to generate a size attribute for the subrange type.  */
@@ -8180,7 +8266,7 @@ reg_loc_descriptor (rtx rtl)
     return 0;
 
   reg = reg_number (rtl);
-  regs = (*targetm.dwarf_register_span) (rtl);
+  regs = targetm.dwarf_register_span (rtl);
 
   if (hard_regno_nregs[reg][GET_MODE (rtl)] > 1
       || regs)
@@ -8355,7 +8441,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode, bool can_use_fbreg)
      actually within the array.  That's *not* necessarily the same as the
      zeroth element of the array.  */
 
-  rtl = (*targetm.delegitimize_address) (rtl);
+  rtl = targetm.delegitimize_address (rtl);
 
   switch (GET_CODE (rtl))
     {
@@ -8655,7 +8741,6 @@ loc_descriptor_from_tree (tree loc, int addressp)
     case ERROR_MARK:
       return 0;
 
-    case WITH_RECORD_EXPR:
     case PLACEHOLDER_EXPR:
       /* This case involves extracting fields from an object to determine the
 	 position of other fields.  We don't try to encode this here.  The
@@ -8664,6 +8749,13 @@ loc_descriptor_from_tree (tree loc, int addressp)
       return 0;
 
     case CALL_EXPR:
+      return 0;
+
+    case PREINCREMENT_EXPR:
+    case PREDECREMENT_EXPR:
+    case POSTINCREMENT_EXPR:
+    case POSTDECREMENT_EXPR:
+      /* There are no opcodes for these operations.  */
       return 0;
 
     case ADDR_EXPR:
@@ -8822,7 +8914,7 @@ loc_descriptor_from_tree (tree loc, int addressp)
 	mode = GET_MODE (rtl);
 	rtl = XEXP (rtl, 0);
 
-	rtl = (*targetm.delegitimize_address) (rtl);
+	rtl = targetm.delegitimize_address (rtl);
 
 	indirect_p = 1;
 	ret = mem_loc_descriptor (rtl, mode, true);
@@ -8962,11 +9054,17 @@ loc_descriptor_from_tree (tree loc, int addressp)
       add_loc_descr (&ret, new_loc_descr (op, 0, 0));
       break;
 
+    case MIN_EXPR:
     case MAX_EXPR:
-      loc = build (COND_EXPR, TREE_TYPE (loc),
-		   build (LT_EXPR, integer_type_node,
-			  TREE_OPERAND (loc, 0), TREE_OPERAND (loc, 1)),
-		   TREE_OPERAND (loc, 1), TREE_OPERAND (loc, 0));
+      {
+        const enum tree_code code =
+          TREE_CODE (loc) == MIN_EXPR ? GT_EXPR : LT_EXPR;
+
+        loc = build (COND_EXPR, TREE_TYPE (loc),
+                     build (code, integer_type_node,
+                            TREE_OPERAND (loc, 0), TREE_OPERAND (loc, 1)),
+                     TREE_OPERAND (loc, 1), TREE_OPERAND (loc, 0));
+      }
 
       /* ... fall through ...  */
 
@@ -9313,6 +9411,56 @@ add_data_member_location_attribute (dw_die_ref die, tree decl)
   add_AT_loc (die, DW_AT_data_member_location, loc_descr);
 }
 
+/* Writes integer values to dw_vec_const array.  */
+
+static void
+insert_int (HOST_WIDE_INT val, unsigned int size, unsigned char *dest)
+{
+  while (size != 0)
+    {
+      *dest++ = val & 0xff;
+      val >>= 8;
+      --size;
+    }
+}
+
+/* Reads integers from dw_vec_const array.  Inverse of insert_int.  */
+
+static HOST_WIDE_INT
+extract_int (const unsigned char *src, unsigned int size)
+{
+  HOST_WIDE_INT val = 0;
+
+  src += size;
+  while (size != 0)
+    {
+      val <<= 8;
+      val |= *--src & 0xff;
+      --size;
+    }
+  return val;
+}
+
+/* Writes floating point values to dw_vec_const array.  */
+
+static void
+insert_float (rtx rtl, unsigned char *array)
+{
+  REAL_VALUE_TYPE rv;
+  long val[4];
+  int i;
+
+  REAL_VALUE_FROM_CONST_DOUBLE (rv, rtl);
+  real_to_target (val, &rv, GET_MODE (rtl));
+
+  /* real_to_target puts 32-bit pieces in each long.  Pack them.  */
+  for (i = 0; i < GET_MODE_SIZE (GET_MODE (rtl)) / 4; i++)
+    {
+      insert_int (val[i], 4, array);
+      array += 4;
+    }
+}
+
 /* Attach a DW_AT_const_value attribute for a variable or a parameter which
    does not have a "location" either in memory or in a register.  These
    things can arise in GNU C when a constant is passed as an actual parameter
@@ -9345,14 +9493,11 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 
 	if (GET_MODE_CLASS (mode) == MODE_FLOAT)
 	  {
-	    unsigned length = GET_MODE_SIZE (mode) / 4;
-	    long *array = ggc_alloc (sizeof (long) * length);
-	    REAL_VALUE_TYPE rv;
+	    unsigned int length = GET_MODE_SIZE (mode);
+	    unsigned char *array = ggc_alloc (length);
 
-	    REAL_VALUE_FROM_CONST_DOUBLE (rv, rtl);
-	    real_to_target (array, &rv, mode);
-
-	    add_AT_float (die, DW_AT_const_value, length, array);
+	    insert_float (rtl, array);
+	    add_AT_vec (die, DW_AT_const_value, length / 4, 4, array);
 	  }
 	else
 	  {
@@ -9363,6 +9508,68 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
 	    add_AT_long_long (die, DW_AT_const_value,
 			      CONST_DOUBLE_HIGH (rtl), CONST_DOUBLE_LOW (rtl));
 	  }
+      }
+      break;
+
+    case CONST_VECTOR:
+      {
+	enum machine_mode mode = GET_MODE (rtl);
+	unsigned int elt_size = GET_MODE_UNIT_SIZE (mode);
+	unsigned int length = CONST_VECTOR_NUNITS (rtl);
+	unsigned char *array = ggc_alloc (length * elt_size);
+	unsigned int i;
+	unsigned char *p;
+
+	if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+	  {
+	    for (i = 0, p = array; i < length; i++, p += elt_size)
+	      {
+		rtx elt = CONST_VECTOR_ELT (rtl, i);
+		HOST_WIDE_INT lo, hi;
+		if (GET_CODE (elt) == CONST_INT)
+		  {
+		    lo = INTVAL (elt);
+		    hi = -(lo < 0);
+		  }
+		else if (GET_CODE (elt) == CONST_DOUBLE)
+		  {
+		    lo = CONST_DOUBLE_LOW (elt);
+		    hi = CONST_DOUBLE_HIGH (elt);
+		  }
+		else
+		  abort ();
+
+		if (elt_size <= sizeof (HOST_WIDE_INT))
+		  insert_int (lo, elt_size, p);
+		else if (elt_size == 2 * sizeof (HOST_WIDE_INT))
+		  {
+		    unsigned char *p0 = p;
+		    unsigned char *p1 = p + sizeof (HOST_WIDE_INT);
+
+		    if (WORDS_BIG_ENDIAN)
+		      {
+			p0 = p1;
+			p1 = p;
+		      }
+		    insert_int (lo, sizeof (HOST_WIDE_INT), p0);
+		    insert_int (hi, sizeof (HOST_WIDE_INT), p1);
+		  }
+		else
+		  abort ();
+	      }
+	  }
+	else if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+	  {
+	    for (i = 0, p = array; i < length; i++, p += elt_size)
+	      {
+		rtx elt = CONST_VECTOR_ELT (rtl, i);
+		insert_float (elt, p);
+	      }
+	  }
+	else
+	  abort ();
+
+	add_AT_vec (die, DW_AT_const_value, length, elt_size, array);
       }
       break;
 
@@ -9492,7 +9699,7 @@ rtl_for_decl_location (tree decl)
 	          && TREE_CODE (decl) == VAR_DECL
 		  && TREE_STATIC (decl))))
 	{
-	  rtl = (*targetm.delegitimize_address) (rtl);
+	  rtl = targetm.delegitimize_address (rtl);
 	  return rtl;
 	}
       rtl = NULL_RTX;
@@ -9599,7 +9806,7 @@ rtl_for_decl_location (tree decl)
     }
 
   if (rtl)
-    rtl = (*targetm.delegitimize_address) (rtl);
+    rtl = targetm.delegitimize_address (rtl);
 
   /* If we don't look past the constant pool, we risk emitting a
      reference to a constant pool entry that isn't referenced from
@@ -9739,6 +9946,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl,
 
     case CONST_INT:
     case CONST_DOUBLE:
+    case CONST_VECTOR:
     case CONST_STRING:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -10687,7 +10895,7 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
       if (type_die->die_parent == NULL)
 	add_child_die (scope_die_for (type, context_die), type_die);
 
-      for (link = TYPE_FIELDS (type);
+      for (link = TYPE_VALUES (type);
 	   link != NULL; link = TREE_CHAIN (link))
 	{
 	  dw_die_ref enum_die = new_die (DW_TAG_enumerator, type_die, link);
@@ -12879,7 +13087,7 @@ dwarf2out_source_line (unsigned int line, const char *filename)
       else if (DECL_SECTION_NAME (current_function_decl))
 	{
 	  dw_separate_line_info_ref line_info;
-	  (*targetm.asm_out.internal_label) (asm_out_file, SEPARATE_LINE_CODE_LABEL,
+	  targetm.asm_out.internal_label (asm_out_file, SEPARATE_LINE_CODE_LABEL,
 				     separate_line_info_table_in_use);
 
 	  /* Expand the line info table if necessary.  */
@@ -12909,7 +13117,7 @@ dwarf2out_source_line (unsigned int line, const char *filename)
 	{
 	  dw_line_info_ref line_info;
 
-	  (*targetm.asm_out.internal_label) (asm_out_file, LINE_CODE_LABEL,
+	  targetm.asm_out.internal_label (asm_out_file, LINE_CODE_LABEL,
 				     line_info_table_in_use);
 
 	  /* Expand the line info table if necessary.  */
@@ -13417,7 +13625,7 @@ dwarf2out_finish (const char *filename)
 
   /* Output a terminator label for the .text section.  */
   text_section ();
-  (*targetm.asm_out.internal_label) (asm_out_file, TEXT_END_LABEL, 0);
+  targetm.asm_out.internal_label (asm_out_file, TEXT_END_LABEL, 0);
 
   /* Output the source line correspondence table.  We must do this
      even if there is no line information.  Otherwise, on an empty

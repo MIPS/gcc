@@ -1,5 +1,6 @@
 /* Definitions of target machine GNU compiler.  IA-64 version.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Steve Ellcey <sje@cup.hp.com> and
                   Reva Cuthbertson <reva@cup.hp.com>
 
@@ -86,7 +87,7 @@ do {							\
 #ifndef CROSS_COMPILE
 #undef LIBGCC_SPEC
 #define LIBGCC_SPEC \
-  "%{shared-libgcc:%{!mlp64:-lgcc_s_hpux32}%{mlp64:-lgcc_s_hpux64} -lgcc} \
+  "%{shared-libgcc:%{!mlp64:-lgcc_s}%{mlp64:-lgcc_s_hpux64} -lgcc} \
    %{!shared-libgcc:-lgcc}"
 #endif
 
@@ -94,6 +95,8 @@ do {							\
 #define SUBTARGET_SWITCHES \
   { "ilp32",    MASK_ILP32,     "Generate ILP32 code" }, \
   { "lp64",    -MASK_ILP32,     "Generate LP64 code" },
+
+#define MULTILIB_DEFAULTS { "milp32" }
 
 /* A C expression whose value is zero if pointers that need to be extended
    from being `POINTER_SIZE' bits wide to `Pmode' are sign-extended and
@@ -200,6 +203,7 @@ do {								\
 #undef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS  1
 
+#undef TARGET_INIT_LIBFUNCS
 #define TARGET_INIT_LIBFUNCS ia64_hpux_init_libfuncs
 
 #define FLOAT_LIB_COMPARE_RETURNS_BOOL(MODE, COMPARISON) ((MODE) == TFmode)

@@ -1630,13 +1630,6 @@ do {									\
 
 #define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_BASE_P (X)
 
-/* A C compound statement that attempts to replace X with a valid memory
-   address for an operand of mode MODE.
-
-   This must be present, but there is nothing useful to be done here.  */
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)
-
 /* A C statement or compound statement with a conditional `goto LABEL;'
    executed if memory address X (an RTX) can have different meanings depending
    on the machine mode of the memory reference it is used for or if the address
@@ -2387,6 +2380,10 @@ enum fetchop_code {
 
 #undef  PROFILE_BEFORE_PROLOGUE
 #define PROFILE_BEFORE_PROLOGUE 1
+
+/* Initialize library function table. */
+#undef TARGET_INIT_LIBFUNCS
+#define TARGET_INIT_LIBFUNCS ia64_init_libfuncs
 
 
 

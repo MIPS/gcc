@@ -1267,7 +1267,7 @@ migrate_btr_def (btr_def def, int min_cost)
   bitmap_copy (live_range, def->live_range);
 
 #ifdef INSN_SCHEDULING
-  if ((*targetm.sched.use_dfa_pipeline_interface) ())
+  if (targetm.sched.use_dfa_pipeline_interface ())
     def_latency = insn_default_latency (def->insn);
   else
     def_latency = result_ready_cost (def->insn);
@@ -1385,8 +1385,7 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
 
   while (!fibheap_empty (all_btr_defs))
     {
-      btr_def def =
-	(btr_def) fibheap_extract_min (all_btr_defs);
+      btr_def def = fibheap_extract_min (all_btr_defs);
       int min_cost = -fibheap_min_key (all_btr_defs);
       if (migrate_btr_def (def, min_cost))
 	{
@@ -1414,12 +1413,12 @@ migrate_btr_defs (enum reg_class btr_class, int allow_callee_save)
 void
 branch_target_load_optimize (rtx insns, bool after_prologue_epilogue_gen)
 {
-  enum reg_class class = (*targetm.branch_target_register_class) ();
+  enum reg_class class = targetm.branch_target_register_class ();
   if (class != NO_REGS)
     {
       /* Initialize issue_rate.  */
       if (targetm.sched.issue_rate)
-	issue_rate = (*targetm.sched.issue_rate) ();
+	issue_rate = targetm.sched.issue_rate ();
       else
 	issue_rate = 1;
 
@@ -1435,7 +1434,7 @@ branch_target_load_optimize (rtx insns, bool after_prologue_epilogue_gen)
       /* Dominator info is also needed for migrate_btr_def.  */
       calculate_dominance_info (CDI_DOMINATORS);
       migrate_btr_defs (class,
-		       ((*targetm.branch_target_register_callee_saved)
+		       (targetm.branch_target_register_callee_saved
 			(after_prologue_epilogue_gen)));
 
       free_dominance_info (CDI_DOMINATORS);

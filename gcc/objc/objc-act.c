@@ -71,7 +71,7 @@ Boston, MA 02111-1307, USA.  */
 #include "diagnostic.h"
 #include "cgraph.h"
 
-#define OBJC_VOID_AT_END	build_tree_list (NULL_TREE, void_type_node)
+#define OBJC_VOID_AT_END	void_list_node
 
 /* When building Objective-C++, we are not linking against the C front-end
    and so need to replicate the C tree-construction functions in some way.  */
@@ -191,7 +191,6 @@ static void generate_ivar_lists (void);
 static void generate_dispatch_tables (void);
 static void generate_shared_structures (void);
 static tree generate_protocol_list (tree);
-static void generate_forward_declaration_to_string_table (void);
 static void build_protocol_reference (tree);
 
 static tree build_keyword_selector (tree);
@@ -1100,6 +1099,11 @@ objc_comptypes (tree lhs, tree rhs, int reflexive)
 	       && OBJC_TYPE_NAME (rhs) == objc_object_id))
     return 1;
 
+  /* `Class' != `<class> *' && `<class> *' != `Class'!  */
+  else if ((OBJC_TYPE_NAME (lhs) == objc_class_id && TYPED_OBJECT (rhs))
+	   || (OBJC_TYPE_NAME (rhs) == objc_class_id && TYPED_OBJECT (lhs)))
+    return 0;
+
   /* `<class> *' = `<class> *' */
 
   else if (TYPED_OBJECT (lhs) && TYPED_OBJECT (rhs))
@@ -1482,8 +1486,6 @@ synth_module_prologue (void)
 
   if (! flag_next_runtime)
     build_selector_table_decl ();
-
-  generate_forward_declaration_to_string_table ();
 
   /* Forward declare constant_string_id and constant_string_type.  */
   if (!constant_string_class_name)
@@ -1944,6 +1946,8 @@ generate_objc_symtab_decl (void)
   finish_decl (UOBJC_SYMBOLS_decl,
 	       init_objc_symtab (TREE_TYPE (UOBJC_SYMBOLS_decl)),
 	       NULL_TREE);
+  /* Ensure that the variable actually gets output.  */
+  mark_referenced (DECL_ASSEMBLER_NAME (UOBJC_SYMBOLS_decl));
 }
 
 static tree
@@ -2040,6 +2044,8 @@ build_module_descriptor (void)
   finish_decl (UOBJC_MODULES_decl,
 	       init_module_descriptor (TREE_TYPE (UOBJC_MODULES_decl)),
 	       NULL_TREE);
+  /* Ensure that the variable actually gets output.  */
+  mark_referenced (DECL_ASSEMBLER_NAME (UOBJC_MODULES_decl));
 
   if (flag_next_runtime)
     /* Mark the decl to avoid "defined but not used" warning.  */
@@ -2082,22 +2088,6 @@ build_module_descriptor (void)
 #ifdef OBJCPLUS
     pop_lang_context ();
 #endif
-}
-
-/* extern const char _OBJC_STRINGS[]; */
-
-static void
-generate_forward_declaration_to_string_table (void)
-{
-  tree sc_spec, decl_specs, expr_decl;
-
-  sc_spec = tree_cons (NULL_TREE, ridpointers[(int) RID_EXTERN], NULL_TREE);
-  decl_specs = tree_cons (NULL_TREE, ridpointers[(int) RID_CHAR], sc_spec);
-
-  expr_decl
-    = build_nt (ARRAY_REF, get_identifier ("_OBJC_STRINGS"), NULL_TREE);
-
-  UOBJC_STRINGS_decl = define_decl (expr_decl, decl_specs);
 }
 
 /* Return the DECL of the string IDENT in the SECTION.  */
@@ -2297,18 +2287,20 @@ build_selector_table_decl (void)
   else
     temp = build_array_type (selector_type, NULL_TREE);
 
-  temp = tree_cons (NULL_TREE, temp,
-		    build_tree_list (NULL_TREE,
-				     ridpointers[(int) RID_EXTERN]));
   UOBJC_SELECTOR_TABLE_decl
-   = define_decl (get_identifier ("_OBJC_SELECTOR_TABLE"), temp);
+   = build_decl (VAR_DECL,
+		 get_identifier ("_OBJC_SELECTOR_TABLE"), temp);
 
+  DECL_EXTERNAL (UOBJC_SELECTOR_TABLE_decl) = 1;
   TREE_USED (UOBJC_SELECTOR_TABLE_decl) = 1;
   DECL_ARTIFICIAL (UOBJC_SELECTOR_TABLE_decl) = 1;
   TREE_PUBLIC (UOBJC_SELECTOR_TABLE_decl) = 0;
 #ifdef OBJCPLUS
   DECL_THIS_STATIC (UOBJC_SELECTOR_TABLE_decl) = 1; /* squash redeclaration errors */
 #endif  
+
+  make_decl_rtl (UOBJC_SELECTOR_TABLE_decl, 0);
+  pushdecl_top_level (UOBJC_SELECTOR_TABLE_decl);
 }
 
 /* Just a handy wrapper for add_objc_string.  */
@@ -2402,7 +2394,8 @@ build_selector_translation_table (void)
 
   if (! flag_next_runtime)
     {
-      /* Cause the selector table to be actually output.  */
+      /* Cause the selector table (previously forward-declared)
+	 to be actually output.  */
       tree sc_spec = tree_cons (NULL_TREE, ridpointers[(int) RID_STATIC],
 				NULL_TREE);
       tree decl_specs = tree_cons (NULL_TREE,
@@ -2786,14 +2779,14 @@ tree
 objc_is_object_ptr (tree type)
 {
   type = TYPE_MAIN_VARIANT (type);
-  if (!type || TREE_CODE (type) != POINTER_TYPE)
+  if (!POINTER_TYPE_P (type))
     return 0;
+
   /* NB: This function may be called before the ObjC front-end has
      been initialized, in which case ID_TYPE will be NULL.  */
-  if (id_type && type && TYPE_P (type)
-      && (IS_ID (type)
-	  || TREE_TYPE (type) == TREE_TYPE (objc_class_type)))
+  if (id_type && type && (IS_ID (type) || IS_CLASS (type))) 
     return type;
+
   return objc_is_class_name (OBJC_TYPE_NAME (TREE_TYPE (type)));
 }
 
@@ -2913,7 +2906,7 @@ objc_begin_compound_stmt (void)
   block = begin_compound_stmt (0);
 #else
   block = c_begin_compound_stmt ();
-  pushlevel (0);
+  push_scope ();
   clear_last_expr ();
   add_scope_stmt (/*begin_p=*/1, /*partial_p=*/0);
 #endif
@@ -2928,7 +2921,7 @@ objc_finish_compound_stmt (tree block)
   finish_compound_stmt (block);
 #else
   tree scope_stmt = add_scope_stmt (/*begin_p=*/0, /*partial_p=*/0);
-  tree inner = poplevel (KEEP_MAYBE, 1, 0);
+  tree inner = pop_scope ();
   
   SCOPE_STMT_BLOCK (TREE_PURPOSE (scope_stmt))
         = SCOPE_STMT_BLOCK (TREE_VALUE (scope_stmt))
@@ -3536,7 +3529,7 @@ build_objc_exception_stuff (void)
   finish_struct (objc_exception_data_template, field_decl_chain, NULL_TREE);
 
   /* int _setjmp(...); */
-  /* If the user includes <setjmp.h>, this shall be superceded by
+  /* If the user includes <setjmp.h>, this shall be superseded by
      'int _setjmp(jmp_buf);' */
   temp_type = build_function_type (integer_type_node, NULL_TREE);
   objc_setjmp_decl
@@ -5666,7 +5659,7 @@ get_arg_type_list (tree meth, int context, int superflag)
 
   if (METHOD_ADD_ARGS (meth) == objc_ellipsis_node)
     /* We have a `, ...' immediately following the selector,
-       finalize the arglist...simulate get_parm_info (0).  */
+       finalize the arglist...simulate get_parm_info (true).  */
     ;
   else if (METHOD_ADD_ARGS (meth))
     {
@@ -5687,7 +5680,7 @@ get_arg_type_list (tree meth, int context, int superflag)
 #endif
     }
   else
-    /* finalize the arglist...simulate get_parm_info (1) */
+    /* finalize the arglist...simulate get_parm_info (false) */
     chainon (arglist, OBJC_VOID_AT_END);
 
   return arglist;
@@ -5751,8 +5744,7 @@ receiver_is_class_object (tree receiver, int self, int super)
     {
       /* The receiver is a variable created by
          build_class_reference_decl.  */
-      if (TREE_CODE (receiver) == VAR_DECL
-	  && TREE_TYPE (TREE_TYPE (receiver)) == TREE_TYPE (objc_class_type))
+      if (TREE_CODE (receiver) == VAR_DECL && IS_CLASS (TREE_TYPE (receiver)))
         /* Look up the identifier.  */
 	for (chain = cls_ref_chain; chain; chain = TREE_CHAIN (chain))
 	  if (TREE_PURPOSE (chain) == receiver)
@@ -5767,7 +5759,7 @@ receiver_is_class_object (tree receiver, int self, int super)
       && (exp = TREE_OPERAND (exp, 0))
       && TREE_CODE (exp) == FUNCTION_DECL
       /* For some reason, we sometimes wind up with multiple FUNCTION_DECL
-	 prototypes for objc_get_class().  Thankfuly, they seem to share the
+	 prototypes for objc_get_class().  Thankfully, they seem to share the
 	 same function type.  */
       && TREE_TYPE (exp) == TREE_TYPE (objc_get_class_decl)
       && !strcmp (IDENTIFIER_POINTER (DECL_NAME (exp)), TAG_GETCLASS)
@@ -5946,8 +5938,7 @@ objc_finish_message_expr (tree receiver, tree sel_name, tree method_params)
   /* If receiver is of type `id' or `Class' (or if the @interface for a
      class is not visible), we shall be satisfied with the existence of
      any instance or class method. */
-  if (!rtype || IS_ID (rtype)
-	|| TREE_TYPE (rtype) == TREE_TYPE (objc_class_type))
+  if (!rtype || IS_ID (rtype) || IS_CLASS (rtype))
     {
       if (!rtype)
 	rtype = xref_tag (RECORD_TYPE, is_class);
@@ -7777,7 +7768,8 @@ start_method_def (tree method)
 
 #ifndef OBJCPLUS
   /* Must be called BEFORE start_function.  */
-  pushlevel (0);
+  push_scope ();
+  declare_parm_level ();
 #endif
 
   /* Generate prototype declarations for arguments..."new-style".  */
@@ -8064,15 +8056,15 @@ objc_continue_method_definition (void)
 
   if (METHOD_ADD_ARGS (objc_method_context) == objc_ellipsis_node)
     /* We have a `, ...' immediately following the selector.  */
-    parmlist = get_parm_info (0);
+    parmlist = get_parm_info (/*ellipsis=*/true);
   else
-    parmlist = get_parm_info (1); /* place a `void_at_end' */
+    parmlist = get_parm_info (/*ellipsis=*/false);
 
 #ifndef OBJCPLUS
   /* Set self_decl from the first argument...this global is used by
      build_ivar_reference calling build_indirect_ref.  */
   self_decl = TREE_PURPOSE (parmlist);
-  poplevel (0, 0, 0);
+  pop_scope ();
 #endif /* !OBJCPLUS */
 
   really_start_method (objc_method_context, parmlist);
@@ -9036,8 +9028,6 @@ finish_objc (void)
       objc_implementation_context = NULL_TREE;
     }
 
-  generate_forward_declaration_to_string_table ();
-
   /* Process the static instances here because initialization of objc_symtab
      depends on them.  */
   if (objc_static_instances)
@@ -9263,7 +9253,7 @@ handle_impent (struct imp_entry *impent)
     }
 }
 
-/* The Fix-and-Countinue functionality available in Mac OS X 10.3 and
+/* The Fix-and-Continue functionality available in Mac OS X 10.3 and
    later requires that ObjC translation units participating in F&C be
    specially marked.  The following routine accomplishes this.  */
 

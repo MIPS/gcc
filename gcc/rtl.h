@@ -243,14 +243,14 @@ struct rtx_def GTY((chain_next ("RTX_NEXT (&%h)"),
   /* Nonzero if this rtx came from procedure integration.
      1 in a REG or PARALLEL means this rtx refers to the return value
      of the current function.
-     1 in a SYMBOL_REF if the symbol is weak.  */
+     1 in a SYMBOL_REF if the symbol is weak.
+     1 in a MEM if the MEM refers to a scalar, rather than a member of
+     an aggregate.  */
   unsigned integrated : 1;
   /* 1 in an INSN or a SET if this rtx is related to the call frame,
      either changing how we compute the frame address or saving and
      restoring registers in the prologue and epilogue.
-     1 in a MEM if the MEM refers to a scalar, rather than a member of
-     an aggregate.
-     1 in a REG if the register is a pointer.
+     1 in a REG or MEM if it is a pointer.
      1 in a SYMBOL_REF if it addresses something in the per-function
      constant string pool.  */
   unsigned frame_related : 1;
@@ -1136,6 +1136,10 @@ enum label_kind
 #define REG_POINTER(RTX)						\
   (RTL_FLAG_CHECK1("REG_POINTER", (RTX), REG)->frame_related)
 
+/* 1 if RTX is a mem that holds a pointer value.  */
+#define MEM_POINTER(RTX)						\
+  (RTL_FLAG_CHECK1("MEM_POINTER", (RTX), MEM)->frame_related)
+
 /* 1 if the given register REG corresponds to a hard register.  */
 #define HARD_REGISTER_P(REG) (HARD_REGISTER_NUM_P (REGNO (REG)))
 
@@ -1251,7 +1255,7 @@ do {									\
 /* 1 if RTX is a mem that refers to a scalar.  If zero, RTX may or may
    not refer to a scalar.  */
 #define MEM_SCALAR_P(RTX)						\
-  (RTL_FLAG_CHECK1("MEM_SCALAR_P", (RTX), MEM)->frame_related)
+  (RTL_FLAG_CHECK1("MEM_SCALAR_P", (RTX), MEM)->integrated)
 
 /* 1 if RTX is a mem that cannot trap.  */
 #define MEM_NOTRAP_P(RTX) \
@@ -1569,6 +1573,7 @@ extern void set_reg_attrs_from_mem (rtx, rtx);
 extern void set_mem_attrs_from_reg (rtx, rtx);
 extern void set_reg_attrs_for_parm (rtx, rtx);
 extern void set_reg_pointer_align (rtx, unsigned int);
+extern int mem_expr_equal_p (tree, tree);
 
 /* In rtl.c */
 extern rtx rtx_alloc_stat (RTX_CODE MEM_STAT_DECL);
@@ -1750,8 +1755,10 @@ extern rtx simplify_binary_operation (enum rtx_code, enum machine_mode, rtx,
 				      rtx);
 extern rtx simplify_ternary_operation (enum rtx_code, enum machine_mode,
 				       enum machine_mode, rtx, rtx, rtx);
+extern rtx simplify_const_relational_operation (enum rtx_code,
+						enum machine_mode, rtx, rtx);
 extern rtx simplify_relational_operation (enum rtx_code, enum machine_mode,
-					  rtx, rtx);
+					  enum machine_mode, rtx, rtx);
 extern rtx simplify_gen_binary (enum rtx_code, enum machine_mode, rtx, rtx);
 extern rtx simplify_gen_unary (enum rtx_code, enum machine_mode, rtx,
 			       enum machine_mode);
@@ -2416,6 +2423,8 @@ extern rtx addr_side_effect_eval (rtx, int, int);
 extern bool memory_modified_in_insn_p (rtx, rtx);
 extern rtx find_base_term (rtx);
 extern rtx gen_hard_reg_clobber (enum machine_mode, unsigned int);
+extern rtx get_reg_known_value (unsigned int);
+extern bool get_reg_known_equiv_p (unsigned int);
 
 /* In sibcall.c */
 typedef enum {

@@ -56,7 +56,7 @@ objcp_start_struct (enum tree_code code ATTRIBUTE_UNUSED, tree name)
   push_lang_context (lang_name_c);
   if (!name)
     name = make_anon_name ();
-  s = xref_tag (record_type, name, NULL_TREE, true, 0);
+  s = xref_tag (record_type, name, true, false);
   CLASSTYPE_DECLARED_CLASS (s) = 0;  /* this is a 'struct', not a 'class' */
 
   return begin_class_definition (s);
@@ -160,7 +160,7 @@ objcp_build_function_call (tree function, tree args)
 tree
 objcp_xref_tag (enum tree_code code ATTRIBUTE_UNUSED, tree name)
 {
-  return xref_tag (record_type, name, NULL_TREE, true, 0);
+  return xref_tag (record_type, name, true, false);
 }
 
 tree

@@ -1,6 +1,11 @@
-/* $Id: zipfile.h,v 1.1.1.1 1999/12/06 03:09:11 toast Exp $
+/* $Id: zipfile.h,v 1.1 2000/12/09 03:08:23 apbianco Exp $
 
    $Log: zipfile.h,v $
+   Revision 1.1  2000/12/09 03:08:23  apbianco
+   2000-12-08  Alexandre Petit-Bianco  <apbianco@cygnus.com>
+
+           * fastjar: Imported.
+
    Revision 1.1.1.1  1999/12/06 03:09:11  toast
    initial checkin..
 

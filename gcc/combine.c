@@ -348,10 +348,10 @@ static void undo_all (void);
 static void undo_commit (void);
 static rtx *find_split_point (rtx *, rtx);
 static rtx subst (rtx, rtx, rtx, int, int);
-static rtx combine_simplify_rtx (rtx, enum machine_mode, int, int);
+static rtx combine_simplify_rtx (rtx, enum machine_mode, int);
 static rtx simplify_if_then_else (rtx);
 static rtx simplify_set (rtx);
-static rtx simplify_logical (rtx, int);
+static rtx simplify_logical (rtx);
 static rtx expand_compound_operation (rtx);
 static rtx expand_field_assignment (rtx);
 static rtx make_extraction (enum machine_mode, rtx, HOST_WIDE_INT,
@@ -407,6 +407,8 @@ static int insn_cuid (rtx);
 static void record_promoted_value (rtx, rtx);
 static rtx reversed_comparison (rtx, enum machine_mode, rtx, rtx);
 static enum rtx_code combine_reversed_comparison_code (rtx);
+static int unmentioned_reg_p_1 (rtx *, void *);
+static bool unmentioned_reg_p (rtx, rtx);
 
 /* Substitute NEWVAL, an rtx expression, into INTO, a place in some
    insn.  The substitution can be undone by undo_all.  If INTO is already
@@ -719,6 +721,31 @@ combine_instructions (rtx f, unsigned int nregs)
 					   XEXP (nextlinks, 0),
 					   &new_direct_jump_p)) != 0)
 		    goto retry;
+
+	      /* Try this insn with each REG_EQUAL note it links back to.  */
+	      for (links = LOG_LINKS (insn); links; links = XEXP (links, 1))
+		{
+		  rtx set, note;
+		  rtx temp = XEXP (links, 0);
+		  if ((set = single_set (temp)) != 0
+		      && (note = find_reg_equal_equiv_note (temp)) != 0
+		      && GET_CODE (XEXP (note, 0)) != EXPR_LIST
+		      /* Avoid using a register that may already been marked
+			 dead by an earlier instruction.  */
+		      && ! unmentioned_reg_p (XEXP (note, 0), SET_SRC (set)))
+		    {
+		      /* Temporarily replace the set's source with the
+			 contents of the REG_EQUAL note.  The insn will
+			 be deleted or recognized by try_combine.  */
+		      rtx orig = SET_SRC (set);
+		      SET_SRC (set) = XEXP (note, 0);
+		      next = try_combine (insn, temp, NULL_RTX,
+					  &new_direct_jump_p);
+		      if (next)
+			goto retry;
+		      SET_SRC (set) = orig;
+		    }
+		}
 
 	      if (GET_CODE (insn) != NOTE)
 		record_dead_and_set_regs (insn);
@@ -3516,7 +3543,7 @@ subst (rtx x, rtx from, rtx to, int in_dest, int unique_copy)
       /* If X is sufficiently simple, don't bother trying to do anything
 	 with it.  */
       if (code != CONST_INT && code != REG && code != CLOBBER)
-	x = combine_simplify_rtx (x, op0_mode, i == 3, in_dest);
+	x = combine_simplify_rtx (x, op0_mode, in_dest);
 
       if (GET_CODE (x) == code)
 	break;
@@ -3535,13 +3562,11 @@ subst (rtx x, rtx from, rtx to, int in_dest, int unique_copy)
    outer level; call `subst' to simplify recursively.  Return the new
    expression.
 
-   OP0_MODE is the original mode of XEXP (x, 0); LAST is nonzero if this
-   will be the iteration even if an expression with a code different from
-   X is returned; IN_DEST is nonzero if we are inside a SET_DEST.  */
+   OP0_MODE is the original mode of XEXP (x, 0).  IN_DEST is nonzero
+   if we are inside a SET_DEST.  */
 
 static rtx
-combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
-		      int in_dest)
+combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest)
 {
   enum rtx_code code = GET_CODE (x);
   enum machine_mode mode = GET_MODE (x);
@@ -3712,19 +3737,9 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
 	    if (cmp_mode == VOIDmode)
 	      cmp_mode = op0_mode;
 	  }
-	temp = simplify_relational_operation (code, cmp_mode,
+	temp = simplify_relational_operation (code, mode, cmp_mode,
 					      XEXP (x, 0), XEXP (x, 1));
       }
-#ifdef FLOAT_STORE_FLAG_VALUE
-      if (temp != 0 && GET_MODE_CLASS (mode) == MODE_FLOAT)
-	{
-	  if (temp == const0_rtx)
-	    temp = CONST0_RTX (mode);
-	  else
-	    temp = CONST_DOUBLE_FROM_REAL_VALUE (FLOAT_STORE_FLAG_VALUE (mode),
-						 mode);
-	}
-#endif
       break;
     case RTX_COMM_ARITH:
     case RTX_BIN_ARITH:
@@ -4206,7 +4221,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
 	{
 	  /* Try to simplify the expression further.  */
 	  rtx tor = gen_binary (IOR, mode, XEXP (x, 0), XEXP (x, 1));
-	  temp = combine_simplify_rtx (tor, mode, last, in_dest);
+	  temp = combine_simplify_rtx (tor, mode, in_dest);
 
 	  /* If we could, great.  If not, do not go ahead with the IOR
 	     replacement, since PLUS appears in many special purpose
@@ -4491,7 +4506,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int last,
     case AND:
     case IOR:
     case XOR:
-      return simplify_logical (x, last);
+      return simplify_logical (x);
 
     case ABS:
       /* (abs (neg <foo>)) -> (abs <foo>) */
@@ -4993,7 +5008,8 @@ simplify_set (rtx x)
 	tmp_mode = GET_MODE (op1);
       else
 	tmp_mode = compare_mode;
-      tmp = simplify_relational_operation (old_code, tmp_mode, op0, op1);
+      tmp = simplify_const_relational_operation (old_code, tmp_mode,
+						 op0, op1);
       if (tmp != NULL_RTX)
 	{
 	  rtx pat = PATTERN (other_insn);
@@ -5272,10 +5288,10 @@ simplify_set (rtx x)
 }
 
 /* Simplify, X, and AND, IOR, or XOR operation, and return the simplified
-   result.  LAST is nonzero if this is the last retry.  */
+   result.  */
 
 static rtx
-simplify_logical (rtx x, int last)
+simplify_logical (rtx x)
 {
   enum machine_mode mode = GET_MODE (x);
   rtx op0 = XEXP (x, 0);
@@ -5325,11 +5341,13 @@ simplify_logical (rtx x, int last)
 
 	  /* If we have (ior (and (X C1) C2)) and the next restart would be
 	     the last, simplify this by making C1 as small as possible
-	     and then exit.  */
-	  if (last
-	      && GET_CODE (x) == IOR && GET_CODE (op0) == AND
+	     and then exit.  Only do this if C1 actually changes: for now
+	     this only saves memory but, should this transformation be
+	     moved to simplify-rtx.c, we'd risk unbounded recursion there.  */
+	  if (GET_CODE (x) == IOR && GET_CODE (op0) == AND
 	      && GET_CODE (XEXP (op0, 1)) == CONST_INT
-	      && GET_CODE (op1) == CONST_INT)
+	      && GET_CODE (op1) == CONST_INT
+	      && (INTVAL (XEXP (op0, 1)) & INTVAL (op1)) != 0)
 	    return gen_binary (IOR, mode,
 			       gen_binary (AND, mode, XEXP (op0, 0),
 					   GEN_INT (INTVAL (XEXP (op0, 1))
@@ -6852,7 +6870,7 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
 	      int width = GET_MODE_BITSIZE (GET_MODE (x));
 	      rtx y;
 
-	      /* If MODE is narrower that HOST_WIDE_INT and CVAL is a negative
+	      /* If MODE is narrower than HOST_WIDE_INT and CVAL is a negative
 		 number, sign extend it.  */
 	      if (width > 0 && width < HOST_BITS_PER_WIDE_INT
 		  && (cval & ((HOST_WIDE_INT) 1 << (width - 1))) != 0)
@@ -7387,12 +7405,16 @@ if_then_else_cond (rtx x, rtx *ptrue, rtx *pfalse)
 	   && 0 != (cond0 = if_then_else_cond (SUBREG_REG (x),
 					       &true0, &false0)))
     {
-      *ptrue = simplify_gen_subreg (mode, true0,
+      true0 = simplify_gen_subreg (mode, true0,
+				   GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
+      false0 = simplify_gen_subreg (mode, false0,
 				    GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
-      *pfalse = simplify_gen_subreg (mode, false0,
-				     GET_MODE (SUBREG_REG (x)), SUBREG_BYTE (x));
-
-      return cond0;
+      if (true0 && false0)
+	{
+	  *ptrue = true0;
+	  *pfalse = false0;
+	  return cond0;
+	}
     }
 
   /* If X is a constant, this isn't special and will cause confusions
@@ -10108,7 +10130,7 @@ gen_binary (enum rtx_code code, enum machine_mode mode, rtx op0, rtx op1)
 
       if (op_mode == VOIDmode)
 	op_mode = GET_MODE (op1);
-      result = simplify_relational_operation (code, op_mode, op0, op1);
+      result = simplify_relational_operation (code, mode, op_mode, op0, op1);
     }
   else
     result = simplify_binary_operation (code, mode, op0, op1);
@@ -12982,6 +13004,33 @@ distribute_links (rtx links)
 	    }
 	}
     }
+}
+
+/* Subroutine of unmentioned_reg_p and callback from for_each_rtx.
+   Check whether the expression pointer to by LOC is a register or
+   memory, and if so return 1 if it isn't mentioned in the rtx EXPR.
+   Otherwise return zero.  */
+
+static int
+unmentioned_reg_p_1 (rtx *loc, void *expr)
+{
+  rtx x = *loc;
+
+  if (x != NULL_RTX
+      && (GET_CODE (x) == REG || GET_CODE (x) == MEM)
+      && ! reg_mentioned_p (x, (rtx) expr))
+    return 1;
+  return 0;
+}
+
+/* Check for any register or memory mentioned in EQUIV that is not
+   mentioned in EXPR.  This is used to restrict EQUIV to "specializations"
+   of EXPR where some registers may have been replaced by constants.  */
+
+static bool
+unmentioned_reg_p (rtx equiv, rtx expr)
+{
+  return for_each_rtx (&equiv, unmentioned_reg_p_1, expr);
 }
 
 /* Compute INSN_CUID for INSN, which is an insn made by combine.  */

@@ -3662,6 +3662,23 @@ fold_rtx (rtx x, rtx insn)
 		|| (new_cost == old_cost && CONSTANT_P (XEXP (x, i))))
 	      break;
 
+	    /* It's not safe to substitute the operand of a conversion
+	       operator with a constant, as the conversion's identity
+	       depends upon the mode of it's operand.  This optimization
+	       is handled by the call to simplify_unary_operation.  */
+	    if (GET_RTX_CLASS (code) == RTX_UNARY
+		&& GET_MODE (replacements[j]) != mode_arg0
+		&& (code == ZERO_EXTEND
+		    || code == SIGN_EXTEND
+		    || code == TRUNCATE
+		    || code == FLOAT_TRUNCATE
+		    || code == FLOAT_EXTEND
+		    || code == FLOAT
+		    || code == FIX
+		    || code == UNSIGNED_FLOAT
+		    || code == UNSIGNED_FIX))
+	      continue;
+
 	    if (validate_change (insn, &XEXP (x, i), replacements[j], 0))
 	      break;
 
@@ -3907,7 +3924,7 @@ fold_rtx (rtx x, rtx insn)
 	    }
 	}
 
-      new = simplify_relational_operation (code,
+      new = simplify_relational_operation (code, mode,
 					   (mode_arg0 != VOIDmode
 					    ? mode_arg0
 					    : (GET_MODE (const_arg0
@@ -3922,16 +3939,6 @@ fold_rtx (rtx x, rtx insn)
 							: folded_arg1)),
 					   const_arg0 ? const_arg0 : folded_arg0,
 					   const_arg1 ? const_arg1 : folded_arg1);
-#ifdef FLOAT_STORE_FLAG_VALUE
-      if (new != 0 && GET_MODE_CLASS (mode) == MODE_FLOAT)
-	{
-	  if (new == const0_rtx)
-	    new = CONST0_RTX (mode);
-	  else
-	    new = (CONST_DOUBLE_FROM_REAL_VALUE
-		   (FLOAT_STORE_FLAG_VALUE (mode), mode));
-	}
-#endif
       break;
 
     case RTX_BIN_ARITH:
@@ -5128,7 +5135,7 @@ cse_insn (rtx insn, rtx libcall_insn)
       /* See if a MEM has already been loaded with a widening operation;
 	 if it has, we can use a subreg of that.  Many CISC machines
 	 also have such operations, but this is only likely to be
-	 beneficial these machines.  */
+	 beneficial on these machines.  */
 
       if (flag_expensive_optimizations && src_related == 0
 	  && (GET_MODE_SIZE (mode) < UNITS_PER_WORD)
@@ -7707,7 +7714,7 @@ cse_cc_succs (basic_block bb, rtx cc_reg, rtx cc_src, bool can_change_mode)
 				       XEXP (SET_SRC (set), 1)))
 			   
 		{
-		  comp_mode = (*targetm.cc_modes_compatible) (mode, set_mode);
+		  comp_mode = targetm.cc_modes_compatible (mode, set_mode);
 		  if (comp_mode != VOIDmode
 		      && (can_change_mode || comp_mode == mode))
 		    found = true;
@@ -7825,7 +7832,7 @@ cse_condition_code_reg (void)
   rtx cc_reg_2;
   basic_block bb;
 
-  if (! (*targetm.fixed_condition_code_regs) (&cc_regno_1, &cc_regno_2))
+  if (! targetm.fixed_condition_code_regs (&cc_regno_1, &cc_regno_2))
     return;
 
   cc_reg_1 = gen_rtx_REG (CCmode, cc_regno_1);

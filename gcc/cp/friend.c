@@ -1,5 +1,5 @@
 /* Help friends in C++.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -314,17 +314,13 @@ make_friend_class (tree type, tree friend_type, bool complain)
 
    DECL is the FUNCTION_DECL that the friend is.
 
-   In case we are parsing a friend which is part of an inline
-   definition, we will need to store PARM_DECL chain that comes
-   with it into the DECL_ARGUMENTS slot of the FUNCTION_DECL.
-
    FLAGS is just used for `grokclassfn'.
 
    QUALS say what special qualifies should apply to the object
    pointed to by `this'.  */
 
 tree
-do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
+do_friend (tree ctype, tree declarator, tree decl,
 	   tree attrlist, enum overload_flags flags, tree quals,
 	   int funcdef_flag)
 {
@@ -424,7 +420,6 @@ do_friend (tree ctype, tree declarator, tree decl, tree parmdecls,
 
 	 Note that because classes all wind up being top-level
 	 in their scope, their friend wind up in top-level scope as well.  */
-      DECL_ARGUMENTS (decl) = parmdecls;
       if (funcdef_flag)
 	SET_DECL_FRIEND_CONTEXT (decl, current_class_type);
 

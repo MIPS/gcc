@@ -130,7 +130,7 @@ function_attribute_inlinable_p (tree fndecl)
 
 	  for (i = 0; targetm.attribute_table[i].name != NULL; i++)
 	    if (is_attribute_p (targetm.attribute_table[i].name, name))
-	      return (*targetm.function_attribute_inlinable_p) (fndecl);
+	      return targetm.function_attribute_inlinable_p (fndecl);
 	}
     }
 
@@ -373,7 +373,7 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
       copy = copy_node (decl);
       /* The COPY is not abstract; it will be generated in TO_FN.  */
       DECL_ABSTRACT (copy) = 0;
-      (*lang_hooks.dup_lang_specific_decl) (copy);
+      lang_hooks.dup_lang_specific_decl (copy);
 
       /* TREE_ADDRESSABLE isn't used to indicate that a label's
 	 address has been taken; it's for internal bookkeeping in
@@ -1256,7 +1256,7 @@ expand_inline_function (tree fndecl, tree parms, rtx target, int ignore,
        this block to the list of blocks at this binding level.  We
        can't do it the way it's done for function-at-a-time mode the
        superblocks have not been created yet.  */
-    (*lang_hooks.decls.insert_block) (block);
+    lang_hooks.decls.insert_block (block);
   else
     {
       BLOCK_CHAIN (block)
@@ -1667,11 +1667,11 @@ copy_insn_list (rtx insns, struct inline_remap *map, rtx static_chain_value)
 		  tree *mapped_block_p;
 
 		  mapped_block_p
-		    = (tree *) bsearch (NOTE_BLOCK (insn),
-					&VARRAY_TREE (map->block_map, 0),
-					map->block_map->elements_used,
-					sizeof (tree),
-					find_block);
+		    = bsearch (NOTE_BLOCK (insn),
+			       &VARRAY_TREE (map->block_map, 0),
+			       map->block_map->elements_used,
+			       sizeof (tree),
+			       find_block);
 
 		  if (!mapped_block_p)
 		    abort ();
@@ -2738,24 +2738,8 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
 
 	  if (op_mode == VOIDmode)
 	    op_mode = GET_MODE (XEXP (x, 1));
-	  new = simplify_relational_operation (code, op_mode,
+	  new = simplify_relational_operation (code, GET_MODE (x), op_mode,
 					       XEXP (x, 0), XEXP (x, 1));
-#ifdef FLOAT_STORE_FLAG_VALUE
-	  if (new != 0 && GET_MODE_CLASS (GET_MODE (x)) == MODE_FLOAT)
-	    {
-	      enum machine_mode mode = GET_MODE (x);
-	      if (new == const0_rtx)
-		new = CONST0_RTX (mode);
-	      else
-		{
-		  REAL_VALUE_TYPE val;
-
-		  /* Avoid automatic aggregate initialization.  */
-		  val = FLOAT_STORE_FLAG_VALUE (mode);
-		  new = CONST_DOUBLE_FROM_REAL_VALUE (val, mode);
-		}
-	    }
-#endif
 	  break;
 	}
 
@@ -2783,10 +2767,10 @@ subst_constants (rtx *loc, rtx insn, struct inline_remap *map, int memonly)
 		/* We have compare of two VOIDmode constants for which
 		   we recorded the comparison mode.  */
 		rtx temp =
-		  simplify_relational_operation (GET_CODE (op0),
-						 map->compare_mode,
-						 XEXP (op0, 0),
-						 XEXP (op0, 1));
+		  simplify_const_relational_operation (GET_CODE (op0),
+						       map->compare_mode,
+						       XEXP (op0, 0),
+						       XEXP (op0, 1));
 
 		if (temp == const0_rtx)
 		  new = XEXP (x, 2);

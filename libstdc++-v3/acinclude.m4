@@ -336,6 +336,8 @@ dnl
 dnl Defines:
 dnl  HAVE_MBSTATE_T if mbstate_t is not in wchar.h
 dnl  _GLIBCXX_USE_WCHAR_T if all the bits are found.
+dnl Substs:
+dnl  LIBICONV to a -l string containing the iconv library, if needed.
 dnl
 AC_DEFUN([GLIBCXX_CHECK_WCHAR_T_SUPPORT], [
   # Test wchar.h for mbstate_t, which is needed for char_traits and
@@ -412,9 +414,10 @@ AC_DEFUN([GLIBCXX_CHECK_WCHAR_T_SUPPORT], [
     AC_CHECK_HEADER(langinfo.h, ac_has_langinfo_h=yes, ac_has_langinfo_h=no)
 
     # Check for existence of libiconv.a providing XPG2 wchar_t support.
-    AC_CHECK_LIB(iconv, iconv, libiconv="-liconv")
+    AC_CHECK_LIB(iconv, iconv, LIBICONV="-liconv")
     ac_save_LIBS="$LIBS"
-    LIBS="$LIBS $libiconv"
+    LIBS="$LIBS $LIBICONV"
+    AC_SUBST(LIBICONV)
 
     AC_CHECK_FUNCS([iconv_open iconv_close iconv nl_langinfo],
     [ac_XPG2funcs=yes], [ac_XPG2funcs=no])
@@ -1167,6 +1170,68 @@ AC_DEFUN([GLIBCXX_ENABLE_CLOCALE], [
   AC_SUBST(CTIME_CC)
   AC_SUBST(CLOCALE_CC)
   AC_SUBST(CLOCALE_INTERNAL_H)
+])
+
+
+dnl
+dnl Check for which std::allocator base class to use.  The choice is
+dnl mapped from a subdirectory of include/ext.
+dnl
+dnl Default is new.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_ALLOCATOR], [
+  AC_MSG_CHECKING([for std::allocator base class to use])
+  GLIBCXX_ENABLE(libstdcxx-allocator,auto,[=KIND],
+    [use KIND for target std::allocator base],
+    [permit new|malloc|mt|bitmap|pool|yes|no|auto])
+  # If they didn't use this option switch, or if they specified --enable
+  # with no specific model, we'll have to look for one.  If they
+  # specified --disable (???), do likewise.
+  if test $enable_libstdcxx_allocator = no || test $enable_libstdcxx_allocator = yes; then
+     enable_libstdcxx_allocator=auto
+  fi
+
+  # Either a known package, or "auto"
+  enable_libstdcxx_allocator_flag=$enable_libstdcxx_allocator
+
+  # Probe for host-specific support if no specific model is specified.
+  # Default to "new".
+  if test $enable_libstdcxx_allocator_flag = auto; then
+    case ${target_os} in
+      *)
+        enable_libstdcxx_allocator_flag=new
+        ;;
+    esac
+  fi
+  AC_MSG_RESULT($enable_libstdcxx_allocator_flag)
+  
+
+  # Set configure bits for specified locale package
+  case ${enable_libstdcxx_allocator_flag} in
+    bitmap)
+      ALLOCATOR_H=config/allocator/bitmap_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::bitmap_allocator
+      ;;
+    malloc)
+      ALLOCATOR_H=config/allocator/malloc_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::malloc_allocator
+      ;;
+    mt)
+      ALLOCATOR_H=config/allocator/mt_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::__mt_alloc
+      ;;
+    new)
+      ALLOCATOR_H=config/allocator/new_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::new_allocator
+      ;;
+    pool)
+      ALLOCATOR_H=config/allocator/pool_allocator_base.h
+      ALLOCATOR_NAME=__gnu_cxx::__pool_alloc
+      ;;	
+  esac
+
+  AC_SUBST(ALLOCATOR_H)
+  AC_SUBST(ALLOCATOR_NAME)
 ])
 
 
