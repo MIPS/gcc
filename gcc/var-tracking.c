@@ -605,6 +605,9 @@ adjust_stack_reference (mem, adjustment)
   rtx adjusted_mem;
   rtx tmp;
 
+  if (adjustment == 0)
+    return mem;
+
   adjusted_mem = copy_rtx (mem);
   XEXP (adjusted_mem, 0) = replace_rtx (XEXP (adjusted_mem, 0),
 					stack_pointer_rtx,
@@ -1716,9 +1719,8 @@ compute_bb_dataflow (bb)
 	      rtx base;
 
 	      out->stack_adjust += VTI (bb)->mos[i].u.adjust;
-	      base = gen_rtx_MEM (Pmode,
-				  gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-						GEN_INT (out->stack_adjust)));
+	      base = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
+							out->stack_adjust));
 	      set_frame_base_location (out, base);
 	    }
 	    break;
@@ -2498,9 +2500,8 @@ emit_notes_in_bb (bb)
 	      rtx base;
 
 	      set.stack_adjust += VTI (bb)->mos[i].u.adjust;
-	      base = gen_rtx_MEM (Pmode,
-				  gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-						GEN_INT (set.stack_adjust)));
+	      base = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
+							set.stack_adjust));
 	      set_frame_base_location (&set, base);
 	      emit_notes_for_changes (insn, EMIT_NOTE_AFTER_INSN);
 	    }
@@ -2782,8 +2783,6 @@ vt_initialize ()
     {
       rtx base;
 
-      frame_stack_adjust = -prologue_stack_adjust ();
-
       /* Create fake variable for tracking stack pointer changes.  */
       frame_base_decl = make_node (VAR_DECL);
       DECL_NAME (frame_base_decl) = get_identifier ("___frame_base_decl");
@@ -2791,9 +2790,9 @@ vt_initialize ()
       DECL_ARTIFICIAL (frame_base_decl) = 1;
 
       /* Set its initial "location".  */
-      base = gen_rtx_MEM (Pmode,
-			  gen_rtx_PLUS (Pmode, stack_pointer_rtx,
-					GEN_INT (frame_stack_adjust)));
+      frame_stack_adjust = -prologue_stack_adjust ();
+      base = gen_rtx_MEM (Pmode, plus_constant (stack_pointer_rtx,
+						frame_stack_adjust));
       set_variable_part (&VTI (ENTRY_BLOCK_PTR)->out, base, frame_base_decl, 0);
     }
   else
