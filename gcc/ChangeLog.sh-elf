@@ -1,3 +1,8 @@
+2004-06-17  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/t-linux64: New file.
+	* config.gcc: Add it to tmake_file for sh64*-*-linux*.
+
 2004-06-17  J"orn Rennecke <joern.rennecke@superh.com>
 
 	* config.gcc: Properly set sh_multilibs for sh64*.  Merge

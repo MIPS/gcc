@@ -1733,6 +1733,11 @@ sh-*-elf* | sh[12346l]*-*-elf* | sh*-*-kaos* | \
 	*-*-netbsd)
                 tmake_file="${tmake_file} sh/t-netbsd"
 		;;
+	sh64*-*-linux*)
+		tmake_file="${tmake_file} sh/t-sh64 sh/t-linux64"
+		tm_file="${tm_file} sh/sh64.h"
+		extra_headers="shmedia.h ushmedia.h sshmedia.h"
+		;;
 	sh64*)
 		tmake_file="${tmake_file} sh/t-sh64"
 		tm_file="${tm_file} sh/sh64.h"
