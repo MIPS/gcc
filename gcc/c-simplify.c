@@ -2648,7 +2648,10 @@ expr_has_effect (expr)
 }
 
 
-/*  Similar to copy_tree_r() but do not copy SAVE_EXPR nor STMT_EXPR nodes.  */
+/* Similar to copy_tree_r() but do not copy SAVE_EXPR nodes.  These nodes
+   model computations that should only be done once.  If we were to unshare
+   something like SAVE_EXPR(i++), the simplification process would create
+   wrong code.  */
 
 static tree
 mostly_copy_tree_r (tp, walk_subtrees, data)
@@ -2656,14 +2659,14 @@ mostly_copy_tree_r (tp, walk_subtrees, data)
      int *walk_subtrees;
      void *data;
 {
-  if (TREE_CODE (*tp) == SAVE_EXPR
-      || TREE_CODE (*tp) == STMT_EXPR)
+  if (TREE_CODE (*tp) == SAVE_EXPR)
     *walk_subtrees = 0;
   else
     copy_tree_r (tp, walk_subtrees, data);
 
   return NULL_TREE;
 }
+
 
 /* Strip off a legitimate source ending from the input string NAME of
    length LEN.  Rather than having to know the names used by all of
