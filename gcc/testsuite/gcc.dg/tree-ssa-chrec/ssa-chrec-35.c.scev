@@ -1,4 +1,7 @@
 
+;; Function foo (foo)
+
+
 
   Scalar evolution functions: 
 
@@ -18,6 +21,4 @@ j
 
 i
   ->  {0, +, 1}_1
-
-
 
