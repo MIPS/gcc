@@ -5,6 +5,7 @@
 	* config/ia64/itanium2.md: New file.
 
 	* config/ia64/ia64.md: Move DFA descriptions into the new files.
+	Remove the old pipeline description.
 	
 	* config/ia64/ia64.c (ia64_override_options): Add aliases of
 	itanium processor names.
