@@ -1,8 +1,315 @@
+2004-03-05  Paul Brook  <paul@codesourcery.com>
+
+	* arm.h (ARM_FLAG_VFP): Remove.
+	(ARM_FLAG_ATPCS, CIRRUS_FIX_INVALID_INSNS): Renumber.
+	* netbsd-elf.h (ARM_FLAG_VFP): Remove.
+
+2004-03-05  Paul Brook  <paul@codesourcery.com>
+
+	* function.c (assign_parms): Include pretend alignment offset.
+
+2004-03-05  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* stor-layout.c (layout_type, case FUNCTION_TYPE): Make size
+	FUNCTION_BOUNDARY, not POINTER_SIZE * 2.
+
+2004-03-05  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* configure.ac: When passing --enable-languages to subdir
+	configure when host != build, make sure we don't pass an empty
+	value.
+	* configure: Regenerate.
+
+2004-03-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR 13577
+	* gcc.c (cc1_options): Robustify -auxbase-strip from multiple -o
+	options.
+
+2004-03-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* simplify-rtx.c (simplify_relational_operation): If
+	flag_wrapv is set, do not move terms between the two
+	side of a relational operator.
+
+2004-03-05  Paolo Bonzini  <bonzini@gnu.org>
+
+	* rtlanal.c: Include target.h and output.h
+	(rtx_cost, address_cost, default_address_cost): Move from...
+	* cse.c (rtx_cost, address_cost, default_address_cost):
+	... this file.
+	* rtl.h (rtx_cost, address_cost): Move under rtlanal.c.
+	* Makefile.in: Adjust dependencies.
+
+2004-03-05  Paolo Bonzini <bonzini@gnu.org>
+
+	* cse.c (cse_end_of_basic_block): Make static.
+	* local-alloc.c (function_invariant_p): Move to
+	reload1.c.
+	* loop.c (libcall_other_reg, record_excess_regs):
+	Make static.
+	* reload1.c (function_invariant_p): Moved here
+	from local-alloc.c, made static.
+	* rtl.h (cse_end_of_basic_block, function_invariant_p,
+	libcall_other_reg, record_excess_regs): Remove
+	declarations.
+
+2004-03-05  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/m32r/m32r.c (signed_comparison_operator): Add a
+	missing parenthesis.
+
+2004-03-04  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* ggc-common.c (gt_pch_restore): Don't unmap addr unless we are
+	going to call mmap again.  Read the file into the right place.
+	Give a fatal error if we have to relocate.
+
+2004-03-04  Bob Wilson  <bob.wilson@acm.org>
+
+	* config/xtensa/xtensa.c (xtensa_return_in_msb): New function.
+	(TARGET_RETURN_IN_MSB): Define to xtensa_return_in_msb.
+
+2004-03-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR other/14354
+	* config/fp-bit.c (_fpdiv_parts): Do not round when pack_d would
+	round the same.  When rounding, clear bits that would cause a
+	second rounding in pack_d.
+	(_fpmul_parts): Ditto.  Remove #if 0:d code.
+
+2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+	PR c++/14425, c++/14426
+	* config/rs6000/altivec.h (vec_splat_s8, vec_splat_s16,
+	vec_splat_s32, vec_splat_u8, vec_splat_u16, vec_splat_u32):
+	Change C++ definitions to accept a 'const int' argument;
+	the prototypes already do.
+	* config/rs6000/rs6000.c (rs6000_common_init_builtins):
+	Rename v4si_ftype_char, v8hi_ftype_char, v16qi_ftype_char,
+	v4sf_ftype_v4si_char, v4si_ftype_v4sf_char, v4si_ftype_v4si_char,
+	v8hi_ftype_v8hi_char, v16qi_ftype_v16qi_char,
+	v16qi_ftype_v16qi_v16qi_char, v8hi_ftype_v8hi_v8hi_char,
+	v4si_ftype_v4si_v4si_char and v4sf_ftype_v4sf_v4sf_char to
+	end in ..._int; change them to accept an int instead of a char
+	as the last parameter.
+
+2004-03-04  Phil Edwards  <phil@codesourcery.com>
+
+	* genmultilib:  Change '=' to '-' when translating option names
+	to directory names.
+
+2004-03-04  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* expr.c (expand_expr_real, case COMPONENT_REF): Get proper type of
+	stack slot for temp used for result of BLKmode but in integral mode.
+
+2004-03-04  Jan Hubicka  <jh@suse.cz>
+
+	* reload.c (find_reloads): Reorganize if seqeunce to switch.
+
+	* cfgrtl.c (rtl_redirect_edge_and_branch):  Set the source BB as dirty.
+	(cfglayout_redirect_edge_and_branch):  Set the source BB as dirty.
+
+2004-03-04  Steve Ellcey  <sje@cup.hp.com>
+
+	* config/ia64/ia64.md (divdf3_internal_thr): Fix algorithm.
+	* testsuite/gcc.dg/20040303-1.c: New test.
+
+2004-03-04  Steven Bosscher  <stevenb@suse.de>
+
+	* ppro.md: Rewrite as a DFA pipeline description.
+	* i386.md: Remove all uses of the ppro_uops attribute.
+	* i386.c: (ix86_safe_ppro_uops, ix86_dump_ppro_packet,
+	ix86_reorder_insn, ix86_sched_reorder_ppro, ix86_sched_init,
+	ix86_sched_reorder, ix86_variable_issue,
+	struct ix86_sched_data, TARGET_SCHED_VARIABLE_ISSUE,
+	TARGET_SCHED_INIT, TARGET_SCHED_REORDER): Remove.
+	(ia32_use_dfa_pipeline_interface): Add TARGET_PENTIUMPRO.
+	(ia32_multipass_dfa_lookahead): Add TARGET_PENTIUMPRO.
+	* athlon.md (athlon_ssecmp_load): Fix comment
+
+2004-03-04  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/doc/invoke.texi: Document -mlongcall for Darwin/PPC.
+
+2004-03-04  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/config/i386/darwin.h: Darwin/x86 doesn't support CPUs before
+	686, tell Darwin assembler to allow prefetch insns, non-empty def
+	of SUBTARGET_OPTION_TRANSLATE_TABLE.
+
+2004-03-04  DJ Delorie  <dj@redhat.com>
+
+	PR optimization/14282
+	* sched-deps.c (sched_analyze_insn): Allow a stack adjustment
+	between a call and the assignment of its return value.
+
+2004-03-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.c: Put a comment for every function.
+
+2004-03-04  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* config/h8300/h8300.md: Add comments about peephole2's.
+
+2004-03-04  Steven Bosscher  <stevenb@suse.de>
+
+	* i386.h (TARGET_CPU_DEFAULT_nocona): Fix value.
+
+2004-03-04  Jan Hubicka  <jh@suse.cz>
+
+	* cfgcleanup.c (thread_jump): Update call of cselib_init.
+	* cselib.c (cselib_record_memory): New static variable.
+	(cselib_lookup_mem, cselib_record_set, cselib_record_sets):
+	Give up on memories when asked for.
+	(cselib_init): Accept new argument.
+	* cselib.h (cselib_init): Update prototype.
+	* gcse.c (local_cprop_pass): Update call of cselib_init.
+	* loop.c (load_mems): Update call of cselib_init.
+	* postreload.c (reload_cse_regs_1): Update call of cselib_init.
+	* sched-deps.c (sched_analyze): Update call of cselib_init.
+
+2004-03-04  David Edelsohn  <edelsohn@gnu.org>
+	    GP <gp@qnx.com>
+
+	* config/rs6000/rs6000.c (output_function_profiler): Append @plt
+	when compiling PIC.
+
 2004-03-04  Josef Zlomek  <zlomekj@suse.cz>
 
 	PR/14362
 	* var-tracking.c (track_expr_p): Do not track variables which
 	should be ignored for debugging purposes.
+
+2004-03-04  Alan Modra  <amodra@bigpond.net.au>
+
+	* real.c (encode_ibm_extended): Don't bother rounding low double.
+	* c-cppbuiltin.c (builtin_define_float_constants): Tweak MAX
+	when fmt->pnan < fmt->p.
+
+2004-03-04  Eric Christopher  <echristo@redhat.com>
+
+	* config/mips/mips.h (FUNCTION_ARG_REGNO_P): Fix to check
+	only range of valid arg registers and fixed_regs.
+
+2004-03-04  Alan Modra  <amodra@bigpond.net.au>
+
+	PR target/14406
+	* config/rs6000/rs6000.md (abstf2, abstf2+1): Delete define_insn.
+	(abstf2, abstf2_internal): New define_expand.
+
+2004-03-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/14235
+	* expr.c (convert_move): Copy the source to a new pseudo
+	when converting from a sub-word source to a larger-than-word
+	register which conflicts with the source.
+
+2004-03-03  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 13728
+	* c-decl.c (diagnose_mismatched_decls): Issue an error for two
+	parameters with the same name, unless one is a forward decl.
+	Do not issue a redundant-redeclaration warning for forward
+	decls of parameters.
+
+2004-03-04  David Edelsohn  <edelsohn@gnu.org>
+
+	* doc/install.texi (*-ibm-aix*): Document use of Bash to speed up
+	configuration.
+
+2004-03-03  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* ggc-zone.c (ggc_pch_write_object): Don't align file pointer.
+
+2004-03-04  Alan Modra  <amodra@bigpond.net.au>
+
+	* target-def.h (TARGET_OPTF): Delete.
+	* c-opts.c (TARGET_OPTF): Define.
+
+2004-03-04  Jan Hubicka  <jh@suse.cz>
+
+	* cselib.c (cselib_finish): Fix another miss-application of my previous
+	patch.
+
+2004-03-03  Mike Stump  <mrs@apple.com>
+
+	Add framework support for darwin.
+
+	* c-incpath.c: Include target.h and machmode.h.
+	(add_path): Use a consistent style for cpp_dir.  Initialize
+	p->construct to 0.
+	(add_cpp_dir_path): New.
+	(register_include_chains): Add use of extra_includes callback.
+	(hook_void_int): Add.
+	(target_c_incpath): Add.
+	* c-incpath.h (add_cpp_dir_path): New.
+	(target_c_incpath_s): Add.
+	(target_c_incpath): Add.
+	(C_INCPATH_INIT): Add.
+	* c-opts.c (c_common_missing_argument,
+	c_common_handle_option): Add -F argument processing.
+	* c.opt: Add -F argument processing.
+	* gcc.c (trad_capable_cpp): Add -F argument processing.
+	* cppfiles.c (find_file_in_dir): Update to use construct
+	callback.
+	(search_path_exhausted, cpp_get_path, cpp_get_buffer,
+	cpp_get_prev): New.
+	(_cpp_find_file): Use search_path_exhausted.
+	(make_cpp_dir): Initialize construct to 0.
+	* cpplib.h (missing_header_cb
+	cpp_get_path, cpp_get_buffer, cpp_get_file, cpp_get_prev): New.
+	(cpp_callbacks): Add missing_header
+	(cpp_dir): Add construct.
+	* target-def.h: (TARGET_OPTF): New.
+	* hooks.c (hook_void_int, hook_void_charptr): Add.
+	* hooks.h (hook_void_int, hook_void_charptr): Add.
+	* Makefile.in (c-incpath.o) : Add $(TARGET_H) and
+	$(MACHMODE_H) dependencies.
+	* doc/invoke.texi (Darwin Options): Document -F.
+	* doc/tm.texi (TARGET_EXTRA_INCLUDES): Add.
+	(TARGET_OPTF): Add.
+	* fix-header.c (target_c_incpath): Add.
+
+	* config/darwin-c.c: Add c-incpath.h include.
+	(using_frameworks, find_subframework_file,
+	find_subframework_header, add_system_framework_path,
+	frameworks_in_use, num_frameworks, max_frameworks,
+	add_framework, find_framework, struct framework_header,
+	framework_header_dirs, framework_construct_pathname,
+	find_subframework_file, add_system_framework_path,
+	add_framework_path, framework_defaults,
+	darwin_register_frameworks, find_subframework_header): Add.
+	* config/darwin.h (TARGET_EXTRA_INCLUDES, TARGET_OPTF): New.
+	(TARGET_OPTION_TRANSLATE_TABLE): Add -framework support.
+	(CPP_SPEC): Add __APPLE_CC__ support.
+	* t-darwin (darwin-c.o): Add c-incpath.h dependency.
+
+2004-03-04  Jan Hubicka  <jh@suse.cz>
+
+	* cselib.c (cselib_finish): Fix miss-application of my previous
+	patch.
+
+2004-03-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* hooks.c (hook_tree_tree_identity): New.
+	* hooks.h: Add a prototype for hook_tree_tree_identity.
+	* stmt.c (expand_asm_operands): Use targetm.md_asm_clobbers
+	instead of MD_ASM_CLOBBERS.
+	* system.h (MD_ASM_CLOBBERS): Poison.
+	* target-def.h (TARGET_MD_ASM_CLOBBERS): New.
+	(TARGET_INITIALIZER): Add TARGET_MD_ASM_CLOBBERS.
+	* target.h (gcc_target): Add md_asm_clobbers.
+	* config/i386/i386.c (TARGET_MD_ASM_CLOBBERS): New.
+	(ix86_md_asm_clobbers): New.
+	* config/i386/i386.h (MD_ASM_CLOBBERS): Remove.
+	* doc/tm.texi (MD_ASM_CLOBBERS): Change to
+	TARGET_MD_ASM_CLOBBERS.
+
+2004-03-03  Stuart Hastings  <stuart@apple.com>
+
+	* gcc/config.gcc: Arrange for Darwin/x86 to build libgcc_eh.a.
 
 2004-03-03  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
@@ -298,10 +605,10 @@
 
 2004-03-02  Richard Henderson  <rth@redhat.com>
 
-        PR middle-end/11767
-        * coverage.c (coverage_counter_ref): Set MEM_NOTRAP_P.
-        * optabs.c (prepare_cmp_insn): Force trapping memories to registers
-        before the compare, if flag_non_call_exceptions.
+	PR middle-end/11767
+	* coverage.c (coverage_counter_ref): Set MEM_NOTRAP_P.
+	* optabs.c (prepare_cmp_insn): Force trapping memories to registers
+	before the compare, if flag_non_call_exceptions.
 
 2004-03-02  Richard Henderson  <rth@redhat.com>
 
@@ -787,7 +1094,7 @@
 	enable_rtl_dump_file): Declare.
 
 2004-02-27  Eric Botcazou  <ebotcazou@act-europe.fr>
-            Roger Sayle  <roger@eyesopen.com>
+	    Roger Sayle  <roger@eyesopen.com>
 
 	* fold-const.c (fold): Revert 2004-02-25 change.  Use the original
 	operands to build a tree with swapped operands.
@@ -998,11 +1305,11 @@
 
 2004-02-24  Aldy Hernandez  <aldyh@redhat.com>
 
-        * config/rs6000/spe.md (spe_fix_truncsfsi2): Delete.
-        (spe_fixuns_truncsfsi2): Delete.
+	* config/rs6000/spe.md (spe_fix_truncsfsi2): Delete.
+	(spe_fixuns_truncsfsi2): Delete.
 
-        * config/rs6000/rs6000.md (fix_truncsfsi2): Delete.
-        (fixuns_truncsfsi2): Delete.
+	* config/rs6000/rs6000.md (fix_truncsfsi2): Delete.
+	(fixuns_truncsfsi2): Delete.
 
 2004-02-24  Josef Zlomek  <zlomekj@suse.cz>
 
@@ -1492,7 +1799,7 @@
 
 	* config/i386/i386.c: Rename pni to sse3.
 	* config/i386/i386.h: Likewise.
-        * config/i386/i386.md: Likewise.
+	* config/i386/i386.md: Likewise.
 	* config/i386/pmmintrin.h: Likewise.
 	* doc/extend.texi: Likewise.
 	* doc/invoke.texi: Likewise.
@@ -1542,7 +1849,7 @@
 	(movdf_softfloat64):  Ditto.
 
 2004-02-23  Fariborz Jahanian <fjahanian@apple.com>
-        * config/rs6000/rs6000.c (function_arg): call to
+	* config/rs6000/rs6000.c (function_arg): call to
 	rs6000_mixed_function_arg for DFmode moved to allow
 	normal DFmode incoming register assignment.
 
@@ -1582,7 +1889,7 @@
 	TARGET_DEFAULT_SHORT_ENUMS.  Update the description.
 
 2004-02-23  Eric Botcazou  <ebotcazou@libertysurf.fr>
-            Falk Hueffner  <falk@debian.org>
+	    Falk Hueffner  <falk@debian.org>
 
 	PR c/14188
 	* builtins.c (expand_builtin_va_arg): Emit an informative message
@@ -1724,7 +2031,7 @@
 
 2004-02-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
-        PR c++/12007
+	PR c++/12007
 	* dbxout.c (dbxout_parms): Check that DECL_RTL and DECL_INCOMING_RTL
 	are set for parameters before outputing debugging information.
 
@@ -1774,7 +2081,7 @@
 2004-02-20  Matt Kraai  <kraai@alumni.cmu.edu>
 
 	* doc/install.texi (Building the Ada compiler): Remove
-        example.
+	example.
 
 2004-02-20  James E Wilson  <wilson@specifixinc.com>
 

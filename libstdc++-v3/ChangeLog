@@ -1,3 +1,153 @@
+2004-03-05  Paolo Carlini  <pcarlini@suse.de>
+
+	* testsuite/27_io/fpos/14320-2.cc: Remove xfail.
+
+2004-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/23_containers/multiset/insert/1.cc: Test result string.
+
+	* testsuite/23_containers/bitset/invalidation/1.cc: Main always
+	returns 0.	
+	* testsuite/23_containers/deque/invalidation/4.cc: Same.
+	* testsuite/23_containers/list/invalidation/1.cc: Same.
+	* testsuite/23_containers/list/invalidation/2.cc: Same.
+	* testsuite/23_containers/list/invalidation/3.cc: Same.
+	* testsuite/23_containers/list/invalidation/4.cc: Same.
+	* testsuite/23_containers/map/invalidation/2.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/1.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/1.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.
+	* testsuite/23_containers/set/invalidation/1.cc: Same.
+	* testsuite/23_containers/set/invalidation/2.cc: Same.
+	* testsuite/23_containers/vector/invalidation/1.cc: Same.
+	* testsuite/23_containers/vector/invalidation/2.cc: Same.
+	* testsuite/23_containers/vector/invalidation/3.cc: Same.
+	* testsuite/23_containers/vector/invalidation/4.cc: Same.
+
+2004-03-04  Paolo Carlini  <pcarlini@suse.de>
+
+	* scripts/testsuite_flags.in: Add "-D_GLIBCXX_ASSERT" to
+	CXXFLAGS_save.
+	* testsuite/lib/libstdc++.exp: Don't add it conditionally to
+	DEFAULT_CXXFLAGS. 
+	* testsuite/18_support/numeric_limits.cc: Remove "-D_GLIBCXX_ASSERT"
+	from the dg-options.
+	* testsuite/23_containers/vector/invalidation/1.cc: Likewise.
+	* testsuite/23_containers/vector/invalidation/2.cc: Likewise.
+	* testsuite/23_containers/vector/invalidation/3.cc: Likewise.
+	* testsuite/23_containers/vector/invalidation/4.cc: Likewise.
+	* testsuite/23_containers/vector/resize/1.cc: Likewise.
+	* testsuite/26_numerics/complex_value.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/1.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/2.cc: Likewise.
+	* testsuite/27_io/ios_base/storage/3.cc: Likewise.
+	* testsuite/27_io/manipulators/standard/char/2.cc: Likewise.
+	* testsuite/27_io/objects/char/5.cc: Likewise.
+	* testsuite/27_io/objects/wchar_t/5.cc: Likewise.
+	* testsuite/backward/11460.cc: Likewise.
+	* testsuite/thread/pthread7-rope.cc: Likewise.
+
+	* testsuite/21_strings/basic_string/compare/char/1.cc: Add
+	missing test variable.
+	* testsuite/21_strings/basic_string/compare/wchar_t/1.cc: Add
+	missing test variable.
+
+2004-03-04  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/20_util/allocator/1.cc: Provide explicit
+	instantiations for non-weak systems.
+	* testsuite/20_util/binders.cc: Same.
+	* testsuite/20_util/allocator/8230.cc: Same.
+	* testsuite/20_util/allocator/10378.cc: Same.
+	* testsuite/22_locale/ctype/is/wchar_t/2.cc: Same.
+	* testsuite/22_locale/ctype/is/char/2.cc: Same.
+	* testsuite/thread/pthread7-rope.cc: Same.
+	* testsuite/thread/pthread6.cc: Same.	
+	* testsuite/thread/pthread5.cc: Same.		
+	* testsuite/thread/pthread4.cc: Same.	
+	* testsuite/thread/pthread1.cc: Same.
+	* testsuite/ext/rope.cc: Same.
+	* testsuite/ext/hash_set.cc: Same.
+	* testsuite/ext/hash_map.cc: Same.	
+	* testsuite/ext/concept_checks.cc: Same.
+	* testsuite/27_io/basic_filebuf/seekpos/wchar_t/9874.cc: Same.
+	* testsuite/25_algorithms/unique/2.cc: Same.
+	* testsuite/25_algorithms/unique/1.cc: Same.
+	* testsuite/25_algorithms/rotate.cc: Same.
+	* testsuite/25_algorithms/min_max.cc: Same.
+	* testsuite/25_algorithms/equal.cc: Same.	
+	* testsuite/24_iterators/rel_ops.cc: Same.
+	* testsuite/24_iterators/iterator.cc: Same.
+	* testsuite/24_iterators/insert_iterator.cc: Same.
+	* testsuite/24_iterators/front_insert_iterator.cc: Same.
+	* testsuite/24_iterators/back_insert_iterator.cc: Same.
+	* testsuite/23_containers/vector/resize/1.cc: Same.
+	* testsuite/23_containers/vector/modifiers/2.cc: Same.
+	* testsuite/23_containers/vector/modifiers/1.cc: Same.
+	* testsuite/23_containers/vector/invalidation/4.cc: Same.
+	* testsuite/23_containers/vector/invalidation/3.cc: Same.
+	* testsuite/23_containers/vector/invalidation/2.cc: Same.	
+	* testsuite/23_containers/vector/invalidation/1.cc: Same.
+	* testsuite/23_containers/vector/element_access/1.cc: Same.
+	* testsuite/23_containers/vector/cons/6513.cc: Same.
+	* testsuite/23_containers/vector/cons/3.cc: Same.
+	* testsuite/23_containers/vector/cons/2.cc: Same.
+	* testsuite/23_containers/vector/cons/1.cc: Same.
+	* testsuite/23_containers/vector/capacity/8230.cc: Same.
+	* testsuite/23_containers/vector/capacity/1.cc: Same.
+	* testsuite/23_containers/vector/bool/6886.cc: Same.
+	* testsuite/23_containers/stack/members/7158.cc: Same.
+	* testsuite/23_containers/set/invalidation/2.cc: Same.
+	* testsuite/23_containers/set/invalidation/1.cc: Same.
+	* testsuite/23_containers/queue/members/7157.cc: Same.
+	* testsuite/23_containers/priority_queue/members/7161.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.
+	* testsuite/23_containers/multiset/invalidation/2.cc: Same.	
+	* testsuite/23_containers/multiset/insert/1.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/multimap/invalidation/2.cc: Same.
+	* testsuite/23_containers/map/operators/1.cc: Same.
+	* testsuite/23_containers/map/invalidation/2.cc: Same.
+	* testsuite/23_containers/map/invalidation/1.cc: Same.
+	* testsuite/23_containers/map/insert/1.cc: Same.
+	* testsuite/23_containers/list/operators/4.cc: Same.
+	* testsuite/23_containers/list/operators/3.cc: Same.
+	* testsuite/23_containers/list/operators/2.cc: Same.
+	* testsuite/23_containers/list/operators/1.cc: Same.
+	* testsuite/23_containers/list/modifiers/3.cc: Same.
+	* testsuite/23_containers/list/modifiers/2.cc: Same.
+	* testsuite/23_containers/list/modifiers/1.cc: Same.
+	* testsuite/23_containers/list/invalidation/4.cc: Same.
+	* testsuite/23_containers/list/invalidation/3.cc: Same.
+	* testsuite/23_containers/list/invalidation/2.cc: Same.
+	* testsuite/23_containers/list/invalidation/1.cc: Same.	
+	* testsuite/23_containers/list/cons/9.cc: Same.
+	* testsuite/23_containers/list/cons/8.cc: Same.
+	* testsuite/23_containers/list/cons/7.cc: Same.
+	* testsuite/23_containers/list/cons/6.cc: Same.
+	* testsuite/23_containers/list/cons/5.cc: Same.
+	* testsuite/23_containers/list/cons/4.cc: Same.
+	* testsuite/23_containers/list/cons/3.cc: Same.
+	* testsuite/23_containers/list/cons/2.cc: Same.
+	* testsuite/23_containers/list/cons/1.cc: Same.
+	* testsuite/23_containers/list/capacity/1.cc: Same.
+	* testsuite/23_containers/deque/operators/1.cc: Same.
+	* testsuite/23_containers/deque/invalidation/4.cc: Same.
+	* testsuite/23_containers/deque/invalidation/3.cc: Same.
+	* testsuite/23_containers/deque/invalidation/2.cc: Same.
+	* testsuite/23_containers/deque/invalidation/1.cc: Same.
+	* testsuite/23_containers/deque/cons/2.cc: Same.
+	* testsuite/23_containers/deque/cons/1.cc: Same.
+
+	* src/allocator.cc: Add char, wchar_t instantiations
+	to match extern template declarations in memory.h.
+
+2004-03-03  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/locale_facets.tcc (money_put<>::_M_insert):
+	Fix warning regression.
+
 2004-03-03  Paolo Carlini  <pcarlini@suse.de>
 
 	* include/bits/locale_facets.tcc (money_put<>::_M_insert):

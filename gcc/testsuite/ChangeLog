@@ -1,3 +1,54 @@
+2004-03-05  Hans-Peter Nilsson  <hp@axis.com>
+
+	PR other/14354
+	* gcc.c-torture/execute/ieee/mul-subnormal-single-1.c: New test.
+
+2004-03-04  Ziemowit Laski  <zlaski@apple.com>
+
+	PR c++/14425, c++/14426
+	* g++.dg/ext/altivec-4.C: New test.
+	* g++.dg/ext/altivec-5.C: New test.
+
+2004-03-04  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.old-deja/g++.other/linkage1.C: Expect errors about
+	global variables of a type with no linkage.
+	* g++.old-deja/g++.other/qual1.C: Name class for 'action'.
+	* g++.old-deja/g++.mike/misc13.C: Name enum for 'want'.
+	* g++.old-deja/g++.bugs/900210_01.C: Name enum for 'ep'.
+	* g++.old-deja/g++.bugs/900210_02.C: Likewise.
+	* g++.old-deja/g++.bugs/900210_03.C: Likewise.
+	* g++.old-deja/g++.brendan/bit-fields2.C: Name structure for 's'.
+	* g++.old-deja/g++.brendan/init10.C: Name structure for 'a'.
+	* g++.dg/warn/deprecated.C: Name enum Color.
+	* g++.dg/overload/VLA.C: Name structure for 'b'.
+	* g++.dg/lookup/anon2.C: Expect diagnostic about type linkage.
+
+2004-03-04  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20040304-1.c: New test.
+
+2004-03-03  Zack Weinberg  <zack@codesourcery.com>
+
+	PR 13728
+	* gcc.dg/decl-4.c: New testcase.
+
+2004-03-03  Kazu Hirata  <kazu@cs.umass.edu>
+
+	* gcc.dg/torture/builtin-explog-1.c (PREC): Make it the same
+	as PRECF if sizeof (float) > sizeof (double).
+	(PRECL): Make it the same as PRECF if
+	sizeof (float) > sizeof (long double).
+
+2004-03-03  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* gcc.dg/builtins-config.h: Use underscore macro style for __sun
+	system type.  Add check for irix6 which doesn't have c99 runtime.
+
+2004-03-03  Bob Wilson  <bob.wilson@acm.org>
+
+	* gcc.dg/const-elim-1.c: xfail for xtensa.
+
 2004-03-01  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/14369
@@ -7,7 +58,7 @@
 
 	PR c++/14360
 	* g++.old-deja/g++.ns/koenig5.C: Remove some error markers.
-	
+
 	PR c++/14361
 	* g++.dg/parse/defarg7.C: New test.
 
@@ -76,8 +127,8 @@
 
 2004-02-26  Richard Henderson  <rth@redhat.com>
 
-        * g++.dg/ext/attrib10.C: Mark for warning.
-        * gcc.dg/attr-alias-1.c: New.
+	* g++.dg/ext/attrib10.C: Mark for warning.
+	* gcc.dg/attr-alias-1.c: New.
 
 2004-02-26  Richard Henderson  <rth@redhat.com>
 
@@ -89,28 +140,28 @@
 	* lib/target-supports.exp (check-iconv-available): New function.
 	* lib/gcc-dg.exp (dg-require-iconv): New function.
 	Use above.
-        * gcc.dg/charset: New directory.
-        * gcc.dg/charset/charset.exp: New file.
-        * gcc.dg/charset/asm1.c: Ditto.
-        * gcc.dg/charset/asm2.c: Ditto.
-        * gcc.dg/charset/asm3.c: Ditto.
-        * gcc.dg/charset/asm4.c: Ditto.
-        * gcc.dg/charset/asm5.c: Ditto.
-        * gcc.dg/charset/attribute1.c: Ditto.
-        * gcc.dg/charset/attribute2.c: Ditto.
-        * gcc.dg/charset/string1.c: Ditto.
-        * g++.dg/charset: New directory.
-        * g++.dg/dg.exp: Add here. Special options.
-        * g++.dg/charset/charset.exp: New file.
-        * g++.dg/charset/asm1.c: Ditto.
-        * g++.dg/charset/asm2.c: Ditto.
-        * g++.dg/charset/asm3.c: Ditto.
-        * g++.dg/charset/asm4.c: Ditto.
-        * g++.dg/charset/attribute1.c: Ditto.
-        * g++.dg/charset/attribute2.c: Ditto.
-        * g++.dg/charset/extern1.cc: Ditto.
-        * g++.dg/charset/extern2.cc: Ditto.
-        * g++.dg/charset/string1.c: Ditto.
+	* gcc.dg/charset: New directory.
+	* gcc.dg/charset/charset.exp: New file.
+	* gcc.dg/charset/asm1.c: Ditto.
+	* gcc.dg/charset/asm2.c: Ditto.
+	* gcc.dg/charset/asm3.c: Ditto.
+	* gcc.dg/charset/asm4.c: Ditto.
+	* gcc.dg/charset/asm5.c: Ditto.
+	* gcc.dg/charset/attribute1.c: Ditto.
+	* gcc.dg/charset/attribute2.c: Ditto.
+	* gcc.dg/charset/string1.c: Ditto.
+	* g++.dg/charset: New directory.
+	* g++.dg/dg.exp: Add here. Special options.
+	* g++.dg/charset/charset.exp: New file.
+	* g++.dg/charset/asm1.c: Ditto.
+	* g++.dg/charset/asm2.c: Ditto.
+	* g++.dg/charset/asm3.c: Ditto.
+	* g++.dg/charset/asm4.c: Ditto.
+	* g++.dg/charset/attribute1.c: Ditto.
+	* g++.dg/charset/attribute2.c: Ditto.
+	* g++.dg/charset/extern1.cc: Ditto.
+	* g++.dg/charset/extern2.cc: Ditto.
+	* g++.dg/charset/string1.c: Ditto.
 
 2004-02-26  Mark Mitchell  <mark@codesourcery.com>
 

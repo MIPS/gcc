@@ -933,6 +933,8 @@ static edge
 rtl_redirect_edge_and_branch (edge e, basic_block target)
 {
   edge ret;
+  basic_block src = e->src;
+
   if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
     return NULL;
 
@@ -940,9 +942,17 @@ rtl_redirect_edge_and_branch (edge e, basic_block target)
     return e;
 
   if ((ret = try_redirect_by_replacing_jump (e, target, false)) != NULL)
-    return ret;
+    {
+      src->flags |= BB_DIRTY;
+      return ret;
+    }
 
-  return redirect_branch_edge (e, target);
+  ret = redirect_branch_edge (e, target);
+  if (!ret)
+    return NULL;
+
+  src->flags |= BB_DIRTY;
+  return ret;
 }
 
 /* Like force_nonfallthru below, but additionally performs redirection
@@ -2376,7 +2386,10 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 
   if (e->src != ENTRY_BLOCK_PTR
       && (ret = try_redirect_by_replacing_jump (e, dest, true)))
-    return ret;
+    {
+      src->flags |= BB_DIRTY;
+      return ret;
+    }
 
   if (e->src == ENTRY_BLOCK_PTR
       && (e->flags & EDGE_FALLTHRU) && !(e->flags & EDGE_COMPLEX))
@@ -2385,6 +2398,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	fprintf (dump_file, "Redirecting entry edge from bb %i to %i\n",
 		 e->src->index, dest->index);
 
+      e->src->flags |= BB_DIRTY;
       redirect_edge_succ (e, dest);
       return e;
     }
@@ -2408,6 +2422,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
 	  if (!redirect_branch_edge (e, dest))
 	    abort ();
 	  e->flags |= EDGE_FALLTHRU;
+          e->src->flags |= BB_DIRTY;
 	  return e;
 	}
       /* In case we are redirecting fallthru edge to the branch edge
@@ -2433,6 +2448,7 @@ cfg_layout_redirect_edge_and_branch (edge e, basic_block dest)
   if (simplejump_p (BB_END (src)))
     abort ();
 
+  src->flags |= BB_DIRTY;
   return ret;
 }
 
@@ -2887,3 +2903,4 @@ struct cfg_hooks cfg_layout_rtl_cfg_hooks = {
   rtl_block_ends_with_condjump_p,
   rtl_flow_call_edges_add
 };
+
