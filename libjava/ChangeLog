@@ -1,3 +1,34 @@
+2003-04-15  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* include/win32.h: added dummy ECONNREFUSED define and
+	_Jv_select() declaration
+	* win32.cc (_Jv_select): placeholder implementation
+	(_Jv_platform_initProperties): Fix by Ranjit
+	Mathew (rmathew@hotmail.com): use generic names
+	like "x86" for the "os.arch" property to be consistent with
+	what Sun's JDK produces. Use the wProcessorArchitecture
+	member of the Win32 SYSTEM_INFO structure, filled in a call 
+	to GetSystemInfo( ), instead of dwProcessorType
+	* gnu/java/nio/natSocketChannelImpl.cc (SocketRead): use
+	elements(data) and explicitly cast to char* on platforms
+	where jbyte is not signed char
+	(SocketWrite): idem
+
+2003-03-29  Mohan Embar  <gnustuff@thisiscool.com>
+
+	* include/jvm.h: (_Jv_GetNbArgs) added
+	(_Jv_GetSafeArg) added
+	(_Jv_SetArgs) added
+	* prims.cc: (_Jv_GetNbArgs) implemented
+	(_Jv_GetSafeArg) implemented
+	(_Jv_SetArgs) implemented
+	(_Jv_RunMain) use _Jv_SetArgs() instead of explicitly
+	setting _Jv_argc and _Jv_argv
+	* posix.cc: (_Jv_ThisExecutable) use _Jv_GetSafeArg()
+	instead of _Jv_argv
+	* java/lang/natRuntime.cc: (insertSystemProperties) use
+	_Jv_GetSafeArg() instead of _Jv_argv
+
 2003-04-19  Jerry Quinn  <jlquinn@optonline.net>
 
 	* java/math/BigInteger.java (probablePrime): New.

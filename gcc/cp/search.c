@@ -80,7 +80,6 @@ struct vbase_info
   tree inits;
 };
 
-static tree lookup_field_1 PARAMS ((tree, tree, bool));
 static int is_subobject_of_p PARAMS ((tree, tree, tree));
 static int is_subobject_of_p_1 PARAMS ((tree, tree, tree));
 static tree dfs_check_overlap PARAMS ((tree, void *));
@@ -453,7 +452,7 @@ get_dynamic_cast_base_type (subtype, target)
    figure out whether it can access this field.  (Since it is only one
    level, this is reasonable.)  */
 
-static tree
+tree
 lookup_field_1 (tree type, tree name, bool want_type)
 {
   register tree field;
@@ -1718,9 +1717,14 @@ lookup_fnfields_1 (type, name)
 		  n_outer_fields_searched++;
 #endif /* GATHER_STATISTICS */
 
-		  tmp = DECL_NAME (OVL_CURRENT (methods[i]));
-
-		  if (tmp > name)
+		  tmp = methods[i];
+		  /* This slot may be empty; we allocate more slots
+		     than we need.  In that case, the entry we're
+		     looking for is closer to the beginning of the
+		     list. */
+		  if (tmp)
+		    tmp = DECL_NAME (OVL_CURRENT (tmp));
+		  if (!tmp || tmp > name)
 		    hi = i;
 		  else if (tmp < name)
 		    lo = i + 1;

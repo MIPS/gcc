@@ -9361,11 +9361,6 @@ mark_decl_instantiated (result, extern_p)
      tree result;
      int extern_p;
 {
-  if (TREE_CODE (result) != FUNCTION_DECL)
-    /* The TREE_PUBLIC flag for function declarations will have been
-       set correctly by tsubst.  */
-    TREE_PUBLIC (result) = 1;
-
   /* We used to set this unconditionally; we moved that to
      do_decl_instantiation so it wouldn't get set on members of
      explicit class template instantiations.  But we still need to set
@@ -9373,6 +9368,16 @@ mark_decl_instantiated (result, extern_p)
      implicit instantiations.  */
   if (extern_p)
     SET_DECL_EXPLICIT_INSTANTIATION (result);
+
+  /* If this entity has already been written out, it's too late to
+     make any modifications.  */
+  if (TREE_ASM_WRITTEN (result))
+    return;
+
+  if (TREE_CODE (result) != FUNCTION_DECL)
+    /* The TREE_PUBLIC flag for function declarations will have been
+       set correctly by tsubst.  */
+    TREE_PUBLIC (result) = 1;
 
   if (! extern_p)
     {
@@ -9387,7 +9392,8 @@ mark_decl_instantiated (result, extern_p)
       else if (TREE_PUBLIC (result))
 	maybe_make_one_only (result);
     }
-  else if (TREE_CODE (result) == FUNCTION_DECL)
+
+  if (TREE_CODE (result) == FUNCTION_DECL)
     defer_fn (result);
 }
 
@@ -10356,11 +10362,6 @@ instantiate_decl (d, defer_ok)
   if (need_push)
     push_to_top_level ();
 
-  /* We're now committed to instantiating this template.  Mark it as
-     instantiated so that recursive calls to instantiate_decl do not
-     try to instantiate it again.  */
-  DECL_TEMPLATE_INSTANTIATED (d) = 1;
-
   /* Regenerate the declaration in case the template has been modified
      by a subsequent redeclaration.  */
   regenerate_decl_from_template (d, td);
@@ -10377,21 +10378,46 @@ instantiate_decl (d, defer_ok)
       SET_DECL_RTL (d, NULL_RTX);
 
       DECL_IN_AGGR_P (d) = 0;
-      if (DECL_INTERFACE_KNOWN (d))
-	DECL_EXTERNAL (d) = ! DECL_NOT_REALLY_EXTERN (d);
+      import_export_decl (d);
+      DECL_EXTERNAL (d) = ! DECL_NOT_REALLY_EXTERN (d);
+
+      if (DECL_EXTERNAL (d))
+	{
+	  /* The fact that this code is executing indicates that:
+	     
+	     (1) D is a template static data member, for which a
+	         definition is available.
+
+	     (2) An implicit or explicit instantiation has occured.
+
+	     (3) We are not going to emit a definition of the static
+	         data member at this time.
+
+	     This situation is peculiar, but it occurs on platforms
+	     without weak symbols when performing an implicit
+	     instantiation.  There, we cannot implicitly instantiate a
+	     defined static data member in more than one translation
+	     unit, so import_export_decl marks the declaration as
+	     external; we must rely on explicit instantiation.  */
+	}
       else
 	{
-	  DECL_EXTERNAL (d) = 1;
-	  DECL_NOT_REALLY_EXTERN (d) = 1;
+	  /* Mark D as instantiated so that recursive calls to
+	     instantiate_decl do not try to instantiate it again.  */
+	  DECL_TEMPLATE_INSTANTIATED (d) = 1;
+	  cp_finish_decl (d, 
+			  (!DECL_INITIALIZED_IN_CLASS_P (d) 
+			   ? DECL_INITIAL (d) : NULL_TREE),
+			  NULL_TREE, 0);
 	}
-      cp_finish_decl (d, 
-		      (!DECL_INITIALIZED_IN_CLASS_P (d) 
-		       ? DECL_INITIAL (d) : NULL_TREE),
-		      NULL_TREE, 0);
     }
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
       htab_t saved_local_specializations;
+
+      /* Mark D as instantiated so that recursive calls to
+	 instantiate_decl do not try to instantiate it again.  */
+      DECL_TEMPLATE_INSTANTIATED (d) = 1;
 
       /* Save away the current list, in case we are instantiating one
 	 template from within the body of another.  */
@@ -10404,6 +10430,7 @@ instantiate_decl (d, defer_ok)
 					   NULL);
 
       /* Set up context.  */
+      import_export_decl (d);
       start_function (NULL_TREE, d, NULL_TREE, SF_PRE_PARSED);
 
       /* Substitute into the body of the function.  */
@@ -10415,7 +10442,8 @@ instantiate_decl (d, defer_ok)
       local_specializations = saved_local_specializations;
 
       /* Finish the function.  */
-      expand_body (finish_function (0));
+      d = finish_function (0);
+      expand_body (d);
     }
 
   /* We're not deferring instantiation any more.  */

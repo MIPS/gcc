@@ -1176,7 +1176,7 @@ static const lang_independent_options f_options[] =
   {"data-sections", &flag_data_sections, 1,
    N_("place data items into their own section") },
   {"verbose-asm", &flag_verbose_asm, 1,
-   N_("Add extra commentry to assembler output") },
+   N_("Add extra commentary to assembler output") },
   {"gnu-linker", &flag_gnu_linker, 1,
    N_("Output GNU ld formatted global initializers") },
   {"regmove", &flag_regmove, 1,
@@ -1204,7 +1204,7 @@ static const lang_independent_options f_options[] =
   {"align-functions", &align_functions, 0,
    N_("Align the start of functions") },
   {"merge-constants", &flag_merge_constants, 1,
-   N_("Attempt to merge identical constants accross compilation units") },
+   N_("Attempt to merge identical constants across compilation units") },
   {"merge-all-constants", &flag_merge_constants, 2,
    N_("Attempt to merge identical constants and constant variables") },
   {"dump-unnumbered", &flag_dump_unnumbered, 1,
@@ -3237,8 +3237,6 @@ rest_of_compilation (decl)
 		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
-  no_new_pseudos = 1;
-
   if (warn_uninitialized || extra_warnings)
     {
       uninitialized_vars_warning (DECL_INITIAL (decl));
@@ -3248,16 +3246,18 @@ rest_of_compilation (decl)
 
   if (optimize)
     {
-      clear_bb_flags ();
       if (!flag_new_regalloc && initialize_uninitialized_subregs ())
 	{
-	  /* Insns were inserted, so things might look a bit different.  */
+	  /* Insns were inserted, and possibly pseudos created, so
+	     things might look a bit different.  */
 	  insns = get_insns ();
-	  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
-					    PROP_LOG_LINKS | PROP_REG_INFO
-					    | PROP_DEATH_NOTES);
+	  allocate_reg_life_data ();
+	  update_life_info (NULL, UPDATE_LIFE_GLOBAL_RM_NOTES,
+			    PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES);
 	}
     }
+
+  no_new_pseudos = 1;
 
   close_dump_file (DFI_life, print_rtl_with_bb, insns);
 

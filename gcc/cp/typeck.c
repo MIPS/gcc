@@ -2646,7 +2646,6 @@ build_function_call_real (function, params, require_complete, flags)
      int require_complete, flags;
 {
   register tree fntype, fndecl;
-  register tree value_type;
   register tree coerced_params;
   tree result;
   tree name = NULL_TREE, assembler_name = NULL_TREE;
@@ -2751,20 +2750,7 @@ build_function_call_real (function, params, require_complete, flags)
 	return result;
     }
 
-  /* Some built-in function calls will be evaluated at
-     compile-time in fold ().  */
-  result = fold (build_call (function, coerced_params));
-  value_type = TREE_TYPE (result);
-
-  if (require_complete)
-    {
-      if (TREE_CODE (value_type) == VOID_TYPE)
-	return result;
-      result = require_complete_type (result);
-    }
-  if (IS_AGGR_TYPE (value_type))
-    result = build_cplus_new (value_type, result);
-  return convert_from_reference (result);
+  return build_cxx_call (function, params, coerced_params);
 }
 
 tree
@@ -4328,19 +4314,19 @@ build_unary_op (code, xarg, noconvert)
       {
 	tree addr;
 
-	if (TREE_CODE (arg) == COMPONENT_REF
-	    && DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
+	if (TREE_CODE (arg) != COMPONENT_REF)
+	  addr = build_address (arg);
+	else if (DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
 	  {
 	    error ("attempt to take address of bit-field structure member `%D'",
 		   TREE_OPERAND (arg, 1));
 	    return error_mark_node;
 	  }
-	else if (TREE_CODE (arg) == COMPONENT_REF
-		 && TREE_CODE (TREE_OPERAND (arg, 0)) == INDIRECT_REF
-		 && (TREE_CODE (TREE_OPERAND (TREE_OPERAND (arg, 0), 0))
-		     == INTEGER_CST))
+	else
 	  {
-	    /* offsetof idiom, fold it.  */
+	    /* Unfortunately we cannot just build an address
+	       expression here, because we would not handle
+	       address-constant-expressions or offsetof correctly.  */
 	    tree field = TREE_OPERAND (arg, 1);
 	    tree rval = build_unary_op (ADDR_EXPR, TREE_OPERAND (arg, 0), 0);
 	    tree binfo = lookup_base (TREE_TYPE (TREE_TYPE (rval)),
@@ -4353,8 +4339,6 @@ build_unary_op (code, xarg, noconvert)
 	    addr = fold (build (PLUS_EXPR, argtype, rval,
 				cp_convert (argtype, byte_position (field))));
 	  }
-	else
-	  addr = build_address (arg);
 
 	if (TREE_CODE (argtype) == POINTER_TYPE
 	    && TREE_CODE (TREE_TYPE (argtype)) == METHOD_TYPE)

@@ -5006,12 +5006,19 @@ layout_class_type (tree t, tree *virtuals_p)
 	  DECL_SIZE (field) = TYPE_SIZE (integer_type);
 	  DECL_ALIGN (field) = TYPE_ALIGN (integer_type);
 	  DECL_USER_ALIGN (field) = TYPE_USER_ALIGN (integer_type);
+	  layout_nonempty_base_or_field (rli, field, NULL_TREE,
+					 empty_base_offsets);
+	  /* Now that layout has been performed, set the size of the
+	     field to the size of its declared type; the rest of the
+	     field is effectively invisible.  */
+	  DECL_SIZE (field) = TYPE_SIZE (type);
 	}
       else
-	padding = NULL_TREE;
-
-      layout_nonempty_base_or_field (rli, field, NULL_TREE,
-				     empty_base_offsets);
+	{
+	  padding = NULL_TREE;
+	  layout_nonempty_base_or_field (rli, field, NULL_TREE,
+					 empty_base_offsets);
+	}
 
       /* Remember the location of any empty classes in FIELD.  */
       if (abi_version_at_least (2))
@@ -5581,11 +5588,21 @@ fixed_type_or_null (instance, nonnull, cdtorp)
           /* Reference variables should be references to objects.  */
           if (nonnull)
 	    *nonnull = 1;
-
-	  if (TREE_CODE (instance) == VAR_DECL
-	      && DECL_INITIAL (instance))
-	    return fixed_type_or_null (DECL_INITIAL (instance),
-				       nonnull, cdtorp);
+	  
+	  /* DECL_VAR_MARKED_P is used to prevent recursion; a
+	     variable's initializer may refer to the variable
+	     itself.  */
+	  if (TREE_CODE (instance) == VAR_DECL 
+	      && DECL_INITIAL (instance)
+	      && !DECL_VAR_MARKED_P (instance))
+	    {
+	      tree type;
+	      DECL_VAR_MARKED_P (instance) = 1;
+	      type = fixed_type_or_null (DECL_INITIAL (instance),
+					 nonnull, cdtorp);
+	      DECL_VAR_MARKED_P (instance) = 0;
+	      return type;
+	    }
 	}
       return NULL_TREE;
 

@@ -97,7 +97,7 @@ struct diagnostic_context;
       DECL_IMPLICIT_TYPEDEF_P (in a TYPE_DECL)
    3: DECL_IN_AGGR_P.
    4: DECL_C_BIT_FIELD (in a FIELD_DECL)
-      DECL_MAYBE_TEMPLATE (in a FUNCTION_DECL)
+      DECL_VAR_MARKED_P (in a VAR_DECL)
    5: DECL_INTERFACE_KNOWN.
    6: DECL_THIS_STATIC (in VAR_DECL or FUNCTION_DECL).
    7: DECL_DEAD_FOR_LOCAL (in VAR_DECL).
@@ -870,6 +870,9 @@ struct language_function GTY(())
   int in_function_try_handler;
   int in_base_initializer;
   int x_expanding_p;
+
+  /* True if this function can throw an exception.  */
+  bool can_throw : 1;
 
   struct named_label_use_list *x_named_label_uses;
   struct named_label_list *x_named_labels;
@@ -2233,6 +2236,12 @@ struct lang_decl GTY(())
   (DECL_LANG_SPECIFIC (VAR_TEMPL_TYPE_OR_FUNCTION_DECL_CHECK (NODE)) \
    ->decl_flags.u.template_info)
 
+/* For a VAR_DECL, indicates that the variable has been processed.
+   This flag is set and unset throughout the code; it is always
+   used for a temporary purpose.  */
+#define DECL_VAR_MARKED_P(NODE) \
+  (DECL_LANG_FLAG_4 (VAR_DECL_CHECK (NODE)))
+
 /* Template information for a RECORD_TYPE or UNION_TYPE.  */
 #define CLASSTYPE_TEMPLATE_INFO(NODE) \
   (LANG_TYPE_CLASS_CHECK (RECORD_OR_UNION_TYPE_CHECK (NODE))->template_info)
@@ -2919,9 +2928,6 @@ struct lang_decl GTY(())
    full specialization.  */
 #define PROCESSING_REAL_TEMPLATE_DECL_P() \
   (processing_template_decl > template_class_depth (current_class_type))
-
-/* This function may be a guiding decl for a template.  */
-#define DECL_MAYBE_TEMPLATE(NODE) DECL_LANG_FLAG_4 (NODE)
 
 /* Nonzero if this VAR_DECL or FUNCTION_DECL has already been
    instantiated, i.e. its definition has been generated from the
@@ -3625,6 +3631,7 @@ extern void maybe_note_name_used_in_class       PARAMS ((tree, tree));
 extern void note_name_declared_in_class         PARAMS ((tree, tree));
 extern tree get_vtbl_decl_for_binfo             PARAMS ((tree));
 extern tree in_charge_arg_for_name              PARAMS ((tree));
+extern tree build_cxx_call                      PARAMS ((tree, tree, tree));
 extern tree get_vtt_name                        PARAMS ((tree));
 extern tree get_primary_binfo                   PARAMS ((tree));
 
@@ -4078,6 +4085,7 @@ extern tree get_vbase				PARAMS ((tree, tree));
 extern tree get_dynamic_cast_base_type          PARAMS ((tree, tree));
 extern void type_access_control			PARAMS ((tree, tree));
 extern int accessible_p                         PARAMS ((tree, tree));
+extern tree lookup_field_1                      (tree, tree, bool);
 extern tree lookup_field			PARAMS ((tree, tree, int, int));
 extern tree lookup_nested_field			PARAMS ((tree, int));
 extern int lookup_fnfields_1                    PARAMS ((tree, tree));

@@ -141,6 +141,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    typedefed to something suitable (unsigned HOST_WIDEST_INT is
    usually what you want).  */
 
+/* As a special exception, if you link this library with other files,
+   some of which are compiled with GCC, to produce an executable,
+   this library does not by itself cause the resulting executable
+   to be covered by the GNU General Public License.
+   This exception does not however invalidate any other reasons why
+   the executable file might be covered by the GNU General Public
+   License.  */
+
 #ifndef GCC_GCOV_IO_H
 #define GCC_GCOV_IO_H
 

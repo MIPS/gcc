@@ -2900,9 +2900,7 @@ finish_file ()
       for (i = 0; i < deferred_fns_used; ++i)
 	{
 	  tree decl = VARRAY_TREE (deferred_fns, i);
-	  
-	  import_export_decl (decl);
-	  
+
 	  /* Does it need synthesizing?  */
 	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
 	      && TREE_USED (decl)
@@ -2919,6 +2917,17 @@ finish_file ()
 	      reconsider = 1;
 	    }
 
+	  /* If the function has no body, avoid calling
+	     import_export_decl.  On a system without weak symbols,
+	     calling import_export_decl will make an inline template
+	     instantiation "static", which will result in errors about
+	     the use of undefined functions if there is no body for
+	     the function.  */
+	  if (!DECL_SAVED_TREE (decl))
+	    continue;
+
+	  import_export_decl (decl);
+	  
 	  /* We lie to the back-end, pretending that some functions
 	     are not defined when they really are.  This keeps these
 	     functions from being put out unnecessarily.  But, we must
@@ -4843,7 +4852,33 @@ mark_used (decl)
       && DECL_LANG_SPECIFIC (decl) && DECL_TEMPLATE_INFO (decl)
       && (!DECL_EXPLICIT_INSTANTIATION (decl)
 	  || (TREE_CODE (decl) == FUNCTION_DECL && DECL_INLINE (decl))))
-    instantiate_decl (decl, /*defer_ok=*/1);
+    {
+      bool defer;
+
+      /* Normally, we put off instantiating functions in order to
+	 improve compile times.  Maintaining a stack of active
+	 functions is expensive, and the inliner knows to
+	 instantiate any functions it might need.
+
+	 However, if instantiating this function might help us mark
+	 the current function TREE_NOTHROW, we go ahead and
+	 instantiate it now.  */
+      defer = (!flag_exceptions
+	       || TREE_CODE (decl) != FUNCTION_DECL
+	       /* If the called function can't throw, we don't need to
+		  generate its body to find that out.  */
+	       || TREE_NOTHROW (decl)
+	       || !cfun
+	       /* If we already know the current function can't throw,
+		  then we don't need to work hard to prove it.  */
+	       || TREE_NOTHROW (current_function_decl)
+	       /* If we already know that the current function *can*
+		  throw, there's no point in gathering more
+		  information.  */
+	       || cp_function_chain->can_throw);
+
+      instantiate_decl (decl, defer);
+    }
 }
 
 /* Helper function for class_head_decl and class_head_defn
@@ -4908,7 +4943,10 @@ handle_class_head (tag_kind, scope, id, attributes, defn_p, new_type_p)
   
   if (!decl)
     {
-      decl = TYPE_MAIN_DECL (xref_tag (tag_kind, id, attributes, !defn_p));
+      decl = xref_tag (tag_kind, id, attributes, !defn_p);
+      if (decl == error_mark_node)
+	return error_mark_node;
+      decl = TYPE_MAIN_DECL (decl);
       xrefd_p = true;
     }
 

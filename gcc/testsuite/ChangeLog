@@ -1,3 +1,94 @@
+2003-04-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10551
+	* g++.dg/template/explicit1.C: New test.
+
+	PR c++/10549
+	* g++.dg/other/bitfield1.C: New test.
+
+2003-04-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10527
+	* g++.dg/init/new7.C: New test.
+
+	PR c++/10515
+	* g++.dg/ext/desig1.C: New test.
+	* g++.dg/ext/init1.C: Likewise.
+
+2003-04-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.pt/deduct5.C: Remove unnecessary initializer.
+
+2003-04-28  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10180
+	* g++.dg/warn/Winline-1.C: New test.
+
+2003-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10506
+	* g++.dg/init/new6.C: New test.
+
+	PR c++/10503
+	* g++.dg/init/ref6.C: New test.
+
+2003-04-26  David Edelsohn  <edelsohn@gnu.org>
+
+	* g++.dg/warn/weak1.C: XFAIL on AIX4.
+
+2003-04-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.old-deja/g++.pt/instantiate12.C: Explicit instantiate
+	initialized static data members.
+
+2003-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10471
+	* g++.dg/template/defarg2.C: New test.
+
+2003-04-23  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* g++.dg/other/packed1.C: XFAIL hppa*-*-*.
+
+2003-04-23  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/parse/typedef1.C: Tweak after fix for PR 10428.
+
+	PR c++/10451
+	* g++.dg/parse/crash4.C: New test.
+
+2003-04-23  Andreas Tobler <a.tobler@schweiz.ch>
+
+        * g++.dg/other/packed1.C: Append the missing brace.
+
+2003-04-22  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/cpp/trad/funlike-5.c: New test.
+	
+2003-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10446
+	* g++.dg/parse/crash3.C: New test.
+
+2003-04-22  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10428
+	* g++.dg/parse/elab1.C: New test.
+
+2003-04-22  Andreas Tobler <a.tobler@schweiz.ch>
+
+        * g++.dg/other/packed1.C: Fix dg options.
+
+2003-04-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/template/recurse.C: Adjust location of error messages.
+
+2003-04-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/9881
+	* g++.dg/init/addr-const1.C: New test.
+	* g++.dg/other/packed1.C: XFAIL on aligned architectures.
+
 2003-04-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	PR c++/10405
