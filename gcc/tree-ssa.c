@@ -477,8 +477,13 @@ analyze_rdefs ()
 {
   size_t i;
 
+#if 0
   if (tree_warn_uninitialized == 0)
     return;
+#else
+  /* FIXME Disable these warnings for now.  Too many false positives.  */
+  return;
+#endif
 
   for (i = 0; i < num_referenced_vars; i++)
     {
