@@ -1,3 +1,9 @@
+2005-02-27  Dale Johannesen  <dalej@apple.com>
+
+	Radar 4015911
+	* config/i386/i386.c (ix86_binds_local_p):  New.
+	(TARGET_BINDS_LOCAL_P):  Use it.
+
 2005-02-26  Dale Johanensen  <dalej@apple.com>
 
 	Radar 3988125

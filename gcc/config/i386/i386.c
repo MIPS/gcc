@@ -949,6 +949,9 @@ static rtx ix86_struct_value_rtx (tree, int);
 static bool ix86_ms_bitfield_layout_p (tree);
 static tree ix86_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static int extended_reg_mentioned_1 (rtx *, void *);
+#if TARGET_MACHO
+static bool ix86_binds_local_p (tree);
+#endif
 static bool ix86_rtx_costs (rtx, int, int, int *);
 static int min_insn_size (rtx);
 static tree ix86_md_asm_clobbers (tree clobbers);
@@ -1065,6 +1068,11 @@ static void init_ext_80387_constants (void);
 
 #undef TARGET_MS_BITFIELD_LAYOUT_P
 #define TARGET_MS_BITFIELD_LAYOUT_P ix86_ms_bitfield_layout_p
+
+#if TARGET_MACHO
+#undef TARGET_BINDS_LOCAL_P
+#define TARGET_BINDS_LOCAL_P ix86_binds_local_p
+#endif
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK x86_output_mi_thunk
@@ -14148,6 +14156,19 @@ ix86_memory_move_cost (enum machine_mode mode, enum reg_class class, int in)
 		    + UNITS_PER_WORD - 1) / UNITS_PER_WORD));
     }
 }
+
+#if TARGET_MACHO
+/* Cross-module name binding.  Darwin does not support overriding
+   functions at dynamic-link time.  */
+
+static bool
+ix86_binds_local_p (tree decl)
+{
+  /* APPLE LOCAL kext treat vtables as overridable  */
+  return default_binds_local_p_1 (decl, 
+	flag_apple_kext && lang_hooks.vtable_p (decl));
+}
+#endif
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
