@@ -491,8 +491,9 @@ gfc_build_qualified_array (tree decl, gfc_symbol * sym)
   if (GFC_DESCRIPTOR_TYPE_P (type))
     return;
 
-  nest = (sym->ns->proc_name->backend_decl != current_function_decl);
   assert (GFC_ARRAY_TYPE_P (type));
+  nest = (sym->ns->proc_name->backend_decl != current_function_decl)
+	 && !sym->attr.contained;
 
   for (dim = 0; dim < GFC_TYPE_ARRAY_RANK (type); dim++)
     {
@@ -610,7 +611,8 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   GFC_DECL_SAVED_DESCRIPTOR (decl) = dummy;
   GFC_DECL_STRING (decl) = GFC_DECL_STRING (dummy);
 
-  if (sym->ns->proc_name->backend_decl == current_function_decl)
+  if (sym->ns->proc_name->backend_decl == current_function_decl
+      || sym->attr.contained)
     gfc_add_decl_to_function (decl);
   else
     gfc_add_decl_to_parent_function (decl);

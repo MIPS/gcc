@@ -1,3 +1,9 @@
+2003-08-15  Paul Brook  <paul@nowt.org>
+
+	* trans-decl.c (gfc_build_qualified_array): Don't add symbols for
+	return values to parent scope.
+	(gfc_build_dummy_array_decl): Ditto.
+
 2003-08-14  Paul Brook  <paul@nowt.org>
 
 	* trans-stmt.c (gfc_trans_allocate): Handle NULL refs. Allocate the
