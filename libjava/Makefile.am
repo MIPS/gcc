@@ -1134,6 +1134,7 @@ java/awt/image/BandedSampleModel.java \
 java/awt/image/BufferedImage.java \
 java/awt/image/BufferedImageFilter.java \
 java/awt/image/ByteLookupTable.java \
+java/awt/image/ColorConvertOp.java \
 java/awt/image/ColorModel.java \
 java/awt/image/ComponentColorModel.java \
 java/awt/image/ComponentSampleModel.java \
