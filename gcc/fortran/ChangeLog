@@ -1,5 +1,9 @@
 2004-01-10  Huang Chun  <chunhuang73@hotmail.com>
 
+	* iresolve.c: Use correct kind.
+
+2004-01-10  Huang Chun  <chunhuang73@hotmail.com>
+
 	PR fortran/13467
 	* trans-decl.c (gfc_create_module_variable):  Output array valued
 	parameters.

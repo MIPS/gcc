@@ -1268,7 +1268,7 @@ gfc_resolve_transpose (gfc_expr * f, gfc_expr * matrix)
     case 8:
     /* case 16: */
       f->value.function.name =
-        gfc_get_string ("__transpose_%d", matrix->ts.kind);
+        gfc_get_string ("__transpose_%d", kind);
       break;
 
     default:

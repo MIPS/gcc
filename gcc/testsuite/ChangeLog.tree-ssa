@@ -1,3 +1,8 @@
+2004-01-10  Paul Brook  <paul@codesourcery.com>
+
+	* gfortran.fortran-torture/execute/intrinsic_transpose.f90: Test
+	complex variables.
+
 2004-01-09  Steven Bosscher  <stevenb@suse.de>
 
 	* gcc.dg/tree-ssa/useless-1.c: New test.
