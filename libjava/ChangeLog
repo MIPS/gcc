@@ -1,5 +1,7 @@
 2004-04-23  Thomas Fitzsimmons  <fitzsim@redhat.com>
 
+	* gnu_java_awt_peer_gtk_GtkWindowPeer.c: Add FIXME comment.
+
 	* java/awt/ContainerOrderFocusTraversalPolicy.java
 	(getComponentAfter): Start from current component and work up
 	the component hierarchy until an acceptable component is found.
