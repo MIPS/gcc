@@ -1166,7 +1166,7 @@ likely_value (stmt)
 	found_constant = 1;
     }
 
-  return (found_constant || ! uses ? CONSTANT : VARYING);
+  return (found_constant || (!uses && !vuse_ops (stmt)) ? CONSTANT : VARYING);
 }
 
 

@@ -1,3 +1,8 @@
+2003-03-06  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-ssa-ccp.c (likely_value): Don't assume CONSTANT if the
+	statement has virtual uses.
+
 2003-03-05  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dfa.c (opf_none, opf_is_def, opf_force_vop, opf_ignore_bp):
