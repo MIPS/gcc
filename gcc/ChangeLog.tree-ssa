@@ -1,3 +1,10 @@
+2003-11-06  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.c (expand_builtin_strstr, expand_builtin_strchr,
+	expand_builtin_strrchr, expand_builtin_strpbrk,
+	simplify_builtin_strstr, simplify_builtin_strrchr,
+	simplify_builtin_strpbrk): Add missing casts.
+
 2003-11-05  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	* diagnostic.h (print_generic_decl): Declare.

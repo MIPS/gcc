@@ -2278,7 +2278,8 @@ expand_builtin_strstr (tree arglist, rtx target, enum machine_mode mode)
 
 	  /* Return an offset into the constant string argument.  */
 	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
+					   s1, convert (TREE_TYPE (s1),
+							ssize_int (r - p1)))),
 			      target, mode, EXPAND_NORMAL);
 	}
 
@@ -2335,7 +2336,8 @@ expand_builtin_strchr (tree arglist, rtx target, enum machine_mode mode)
 
 	  /* Return an offset into the constant string argument.  */
 	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
+					   s1, convert (TREE_TYPE (s1),
+							ssize_int (r - p1)))),
 			      target, mode, EXPAND_NORMAL);
 	}
 
@@ -2379,7 +2381,8 @@ expand_builtin_strrchr (tree arglist, rtx target, enum machine_mode mode)
 
 	  /* Return an offset into the constant string argument.  */
 	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
+					   s1, convert (TREE_TYPE (s1),
+							ssize_int (r - p1)))),
 			      target, mode, EXPAND_NORMAL);
 	}
 
@@ -2425,7 +2428,8 @@ expand_builtin_strpbrk (tree arglist, rtx target, enum machine_mode mode)
 
 	  /* Return an offset into the constant string argument.  */
 	  return expand_expr (fold (build (PLUS_EXPR, TREE_TYPE (s1),
-					   s1, ssize_int (r - p1))),
+					   s1, convert (TREE_TYPE (s1),
+							ssize_int (r - p1)))),
 			      target, mode, EXPAND_NORMAL);
 	}
 
@@ -7165,7 +7169,8 @@ simplify_builtin_strstr (tree arglist)
 	    return integer_zero_node;
 	  else
 	    return fold (build (PLUS_EXPR, TREE_TYPE (s1),
-				s1, ssize_int (r - p1)));
+				s1, convert (TREE_TYPE (s1),
+					     ssize_int (r - p1))));
 	}
 
       if (p2[0] == '\0')
@@ -7232,7 +7237,8 @@ simplify_builtin_strchr (tree arglist)
 
 	  /* Return an offset into the constant string argument.  */
 	  return fold (build (PLUS_EXPR, TREE_TYPE (s1),
-			      s1, ssize_int (r - p1)));
+			      s1, convert (TREE_TYPE (s1),
+					   ssize_int (r - p1))));
 	}
 
       /* FIXME: Should use here strchrM optab so that ports can optimize
@@ -7288,7 +7294,8 @@ simplify_builtin_strrchr (tree arglist)
 
 	  /* Return an offset into the constant string argument.  */
 	  return fold (build (PLUS_EXPR, TREE_TYPE (s1),
-			      s1, ssize_int (r - p1)));
+			      s1, convert (TREE_TYPE (s1),
+					   ssize_int (r - p1))));
 	}
 
       if (! integer_zerop (s2))
@@ -7345,7 +7352,8 @@ simplify_builtin_strpbrk (tree arglist)
 
 	  /* Return an offset into the constant string argument.  */
 	  return fold (build (PLUS_EXPR, TREE_TYPE (s1),
-			      s1, ssize_int (r - p1)));
+			      s1, convert (TREE_TYPE (s1),
+					   ssize_int (r - p1))));
 	}
 
       if (p2[0] == '\0')
