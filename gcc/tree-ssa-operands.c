@@ -570,6 +570,14 @@ append_vdef (tree var, tree stmt, voperands_t prev_vops)
   VARRAY_PUSH_TREE (build_vdefs, source);
 }
 
+/* APPLE LOCAL begin AV if-conversion -dpatel  */
+/* External entry point which by-passes the previous vops mechanism.  */
+void
+add_vdef (tree var, tree stmt)
+{
+  append_vdef (var, stmt, NULL);
+}
+/* APPLE LOCAL end AV if-conversion -dpatel  */
 
 /* Add VAR to the list of virtual uses for STMT.  If PREV_VOPS
    is not NULL, the existing entries are preserved and no new entries are

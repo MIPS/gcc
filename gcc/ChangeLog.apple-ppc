@@ -1,3 +1,17 @@
+2004-06-28  Devang Patel  <dpatel@apple.com>
+
+	* tree-if-conv.c (make_ifcvt_temp_variable): Add new parameter for 
+	original stmt. Update new statement's vuse approritatly based on 
+	original stmt.
+	(make_cond_modify_expr): Supply current statement as additional
+	parameter to make_ifcvt_temp_variable call.
+	(tree_if_convert_stmt): Same.
+	(replace_phi_with_cond_modify_expr): Update vuse and vdefs.
+	(is_appropriate_for_if_conv): Lift, first phi node needs to be constant
+	node, restriction.
+	* tree-ssa-operands.c (add_vdef): New function.
+	* tree-ssa-operands.h (add_vdef): Same.
+
 2004-06-25  Mike Stump  <mrs@apple.com>
 
 	* objcp/Make-lang.in (objcp/objcp-parse.y): Update to use

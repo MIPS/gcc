@@ -55,7 +55,7 @@ static tree tree_if_convert_stmt (tree, tree, block_stmt_iterator *);
 static void add_to_predicate_list (basic_block, tree);
 static void clean_predicate_lists (struct loop *loop, basic_block *);
 static bool is_appropriate_for_if_conv (struct loop *, bool);
-static tree make_ifcvt_temp_variable (tree, tree, block_stmt_iterator *, bool);
+static tree make_ifcvt_temp_variable (tree, tree, tree, block_stmt_iterator *, bool);
 static bool bb_with_exit_edge (basic_block);
 static void collapse_blocks (struct loop *, basic_block *);
 static void make_cond_modify_expr (tree, block_stmt_iterator *);
@@ -64,7 +64,7 @@ static void make_cond_modify_expr (tree, block_stmt_iterator *);
    to the variable.  */
 
 static tree
-make_ifcvt_temp_variable (tree type, tree exp, block_stmt_iterator *bsi, bool before)
+make_ifcvt_temp_variable (tree type, tree exp, tree orig_stmt, block_stmt_iterator *bsi, bool before)
 {
   const char *name = "__ifcvt";
   tree var, stmt, new_name;
@@ -92,6 +92,22 @@ make_ifcvt_temp_variable (tree type, tree exp, block_stmt_iterator *bsi, bool be
     bsi_insert_before (bsi, stmt, BSI_SAME_STMT);
   else
     bsi_insert_after (bsi, stmt, BSI_SAME_STMT);
+
+  if ((is_gimple_variable(exp) || is_gimple_addr_expr_arg (exp))
+      && !is_gimple_reg (exp) 
+      && orig_stmt)
+    {
+      /* Set vuse manuually.  */
+      vuse_optype vuses;
+      stmt_ann_t ann = stmt_ann (orig_stmt);
+      unsigned int i;
+
+      start_ssa_stmt_operands (stmt);
+      vuses = VUSE_OPS (ann);
+      for (i = 0; i < NUM_VUSES (vuses); i++)
+	add_vuse (VUSE_OP (vuses, i), stmt);
+      finalize_ssa_stmt_operands (stmt);
+    }
 
   return new_name;
 }
@@ -170,7 +186,7 @@ make_cond_modify_expr (tree t, block_stmt_iterator *bsi)
     return;
 
   /* Create temporary for B in < A1 = COND_EXPR < C, B>>.  */
-  new_op1 = make_ifcvt_temp_variable (TREE_TYPE (op1), op1, bsi, true);
+  new_op1 = make_ifcvt_temp_variable (TREE_TYPE (op1), op1, t, bsi, true);
 
   /* If condition is TRUTH_NOT_EXPR than switch 'if' and 'else' args.  */
   if (TREE_CODE (cond) == TRUTH_NOT_EXPR) 
@@ -188,7 +204,7 @@ make_cond_modify_expr (tree t, block_stmt_iterator *bsi)
   /* Create temporary for C in < A = COND_EXPR < C, B>>.  */
   new_cond = make_ifcvt_temp_variable (boolean_type_node, 
 				       unshare_expr (cond),
-				       bsi, true);
+				       t, bsi, true);
 
   /* Replace RHS with new conditional expression.  */
   TREE_OPERAND (t, 1) = build (COND_EXPR, TREE_TYPE (op0),
@@ -258,7 +274,7 @@ replace_phi_with_cond_modify_expr (tree phi)
       abort ();
     }
 
-  cond = make_ifcvt_temp_variable (TREE_TYPE (cond), unshare_expr (cond), &bsi, false);
+  cond = make_ifcvt_temp_variable (TREE_TYPE (cond), unshare_expr (cond), NULL, &bsi, false);
 
   if (TREE_CODE (cond) == VAR_DECL)
     bitmap_set_bit (vars_to_rename, var_ann (cond)->uid);
@@ -279,7 +295,18 @@ replace_phi_with_cond_modify_expr (tree phi)
   set_bb_for_stmt (new_stmt, bb);
 
   bsi_insert_after (&bsi, new_stmt, BSI_SAME_STMT);
-  modify_stmt (new_stmt);
+
+  if (!is_gimple_reg (SSA_NAME_VAR (PHI_RESULT (phi))))
+    {
+      /* Set vuse and vdefs manuually.  */
+      start_ssa_stmt_operands (new_stmt);
+      add_vdef (PHI_RESULT (phi), new_stmt);
+      add_vuse (arg_0, new_stmt);
+      add_vuse (arg_1, new_stmt);
+      finalize_ssa_stmt_operands (new_stmt);
+    }
+  else
+    modify_stmt (new_stmt);
 
 }
 
@@ -326,7 +353,7 @@ tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
 	dst1 = TREE_OPERAND (t, 1);
 	dst2 = TREE_OPERAND (t, 2);
 
-	c = make_ifcvt_temp_variable (TREE_TYPE (c), unshare_expr (c), bsi, true);
+	c = make_ifcvt_temp_variable (TREE_TYPE (c), unshare_expr (c), t, bsi, true);
 	/* Add new condition into destination's predicate list.  */
 	if (dst1)
 	  {
@@ -339,7 +366,7 @@ tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
 		make_ifcvt_temp_variable (boolean_type_node, 
 					  build (TRUTH_AND_EXPR, boolean_type_node,
 						 unshare_expr (cond), c),
-					  bsi, true);
+					  t, bsi, true);
 	    add_to_dst_predicate_list (dst1, new_cond);
 	  }
 	
@@ -357,7 +384,7 @@ tree_if_convert_stmt (tree t, tree cond, block_stmt_iterator *bsi)
 		make_ifcvt_temp_variable (boolean_type_node, 
 					  build (TRUTH_AND_EXPR, boolean_type_node,
 						 unshare_expr (cond), c2),
-					  bsi, true);
+					  t, bsi, true);
 	    
 	    add_to_dst_predicate_list (dst2, new_cond);
 	  }
@@ -577,20 +604,12 @@ is_appropriate_for_if_conv (struct loop *loop, bool for_vectorizer)
 	     tree result = SSA_NAME_VAR (PHI_RESULT (phi));
 	    var_ann_t ann = var_ann (result);
 
-	    if (bb_with_exit_edge (bb))
+	    if (dump_file && (dump_flags & TDF_DETAILS))
 	      {
-		tree d = PHI_ARG_DEF (phi, 0);
-		if (TREE_CODE (d) == SSA_NAME)
-		  {
-		    if (dump_file && (dump_flags & TDF_DETAILS))
-		      {
-			fprintf (dump_file,  "phi node where 1st argument is not constant,");
-			fprintf (dump_file,  "in Exit block. Enough!\n");
-		      }
-		    free_dominance_info (CDI_POST_DOMINATORS);
-		    return false;
-		  }
+		fprintf (dump_file, "-------------------------\n");
+		print_generic_stmt (dump_file, phi, TDF_SLIM);
 	      }
+
 	    if (ann 
 		&& (ann->mem_tag_kind == TYPE_TAG || ann->mem_tag_kind == NAME_TAG))
 	      {

@@ -1,3 +1,8 @@
+2006-06-28  Devang Patel  <dpatel@apple.com>
+
+	* gcc.dg/tree-ssa-vect/ifc-02.c: New test.
+	* gcc.dg/tree-ssa-vect/ifc-03.c: New test.
+
 2006-06-22  Andrew Pinski  <apinski@apple.com>
 
 	* gcc.dg/pch/struct-1.c: New.
