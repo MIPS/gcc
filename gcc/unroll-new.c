@@ -619,6 +619,18 @@ unroll_loop_runtime_iterations (loops, loop, max_unroll, desc)
   edge e;
   sbitmap wont_exit;
   int may_exit_copy, n_peel;
+  int expected_niter;
+
+  expected_niter = expected_loop_iterations (loop);
+  if (expected_niter < max_unroll && flag_branch_probabilities)
+    max_unroll = expected_niter;
+
+  if (max_unroll <= 1)
+    {
+      if (rtl_dump_file)
+	fprintf (rtl_dump_file, ";; Not unrolling loop, expected number of iteration is low\n");
+      return 0;
+    }
 
   /* Force max_unroll + 1 to be power of 2.  */
   for (i = 1; 2 * i <= max_unroll + 1; i *= 2);
@@ -854,15 +866,6 @@ peel_loop (loops, loop, will_unroll)
     {
       if (rtl_dump_file)
 	fprintf (rtl_dump_file, ";; Not peeling loop, is too big\n");
-      return 1;
-    }
-
-  /* Do not peel simple loops if also unrolling will be done, not to
-     interfere with it.  */
-  if (will_unroll && simple_loop_p (loops, loop, &desc))
-    {
-      if (rtl_dump_file)
-	fprintf (rtl_dump_file, ";; Not peeling loop, loop will be unrolled\n");
       return 1;
     }
 

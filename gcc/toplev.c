@@ -221,6 +221,7 @@ enum dump_file_index
   DFI_loop,
   DFI_cfg,
   DFI_bp,
+  DFI_loop2,
   DFI_tracer,
   DFI_gcse2,
   DFI_cse2,
@@ -273,6 +274,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "loop",	'L', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
+  { "loop2",	'L', 1, 0, 0 },
   { "tracer",	'T', 1, 0, 0 },
   { "gcse2",	'G', 1, 0, 0 },
   { "cse2",	't', 1, 0, 0 },
@@ -3004,7 +3006,9 @@ rest_of_compilation (decl)
     {
       struct loops *loops;
       timevar_push (TV_LOOP);
-      open_dump_file (DFI_loop, decl);
+      open_dump_file (DFI_loop2, decl);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
 
       loops = loop_optimizer_init (rtl_dump_file);
 
@@ -3023,34 +3027,40 @@ rest_of_compilation (decl)
 	  loop_optimizer_finalize (loops, rtl_dump_file);
 	}
 
-      close_dump_file (DFI_loop, print_rtl, get_insns ());
-      timevar_pop (TV_LOOP);
       
       cleanup_cfg (CLEANUP_EXPENSIVE);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+      close_dump_file (DFI_loop2, print_rtl_with_bb, get_insns ());
+      timevar_pop (TV_LOOP);
       ggc_collect ();
     }
 
+  timevar_push (TV_TRACER);
+  open_dump_file (DFI_tracer, decl);
   if (flag_tracer)
     {
-      timevar_push (TV_TRACER);
       if (rtl_dump_file)
 	dump_flow_info (rtl_dump_file);
-      open_dump_file (DFI_tracer, decl);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       tracer ();
-      if (flag_web)
-	{
-	  web_main ();
-	  delete_trivially_dead_insns (get_insns (), max_reg_num ());
-	}
-      cleanup_cfg (CLEANUP_EXPENSIVE
-		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-      close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
-      timevar_pop (TV_TRACER);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
 #ifdef ENABLE_CHECKING
       verify_flow_info ();
 #endif
     }
+  if (flag_web)
+    {
+      timevar_push (TV_WEB);
+      web_main ();
+      delete_trivially_dead_insns (get_insns (), max_reg_num ());
+      cleanup_cfg (CLEANUP_EXPENSIVE
+		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
+
+      timevar_pop (TV_WEB);
+    }
+  close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
+  timevar_pop (TV_TRACER);
 
   /* Lower into lowlevel RTL now.  */
   if (flag_midlevel_rtl)
@@ -4868,7 +4878,7 @@ parse_options_and_default_flags (argc, argv)
       flag_strict_aliasing = 1;
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
-      flag_tracer = 1;
+      flag_tracer = 2;
       flag_new_unroll_loops = 2;
       flag_unswitch_loops = 2;
       flag_peel_loops = 2;
@@ -4879,8 +4889,10 @@ parse_options_and_default_flags (argc, argv)
     {
       flag_inline_functions = 1;
       flag_new_unroll_loops = 1;
+      flag_new_unroll_all_loops = 1;
       flag_unswitch_loops = 1;
       flag_peel_loops = 1;
+      flag_tracer = 1;
     }
 
   if (optimize < 2 || optimize_size)
@@ -4980,10 +4992,14 @@ parse_options_and_default_flags (argc, argv)
     }
   if (!flag_branch_probabilities && flag_new_unroll_loops == 2)
     flag_new_unroll_loops = 0;
+  if (!flag_branch_probabilities && flag_new_unroll_all_loops == 2)
+    flag_new_unroll_all_loops = 0;
   if (!flag_branch_probabilities && flag_unswitch_loops == 2)
     flag_unswitch_loops = 0;
   if (!flag_branch_probabilities && flag_peel_loops == 2)
     flag_peel_loops = 0;
+  if (!flag_branch_probabilities && flag_tracer == 2)
+    flag_tracer = 0;
 
   /* Set flag_no_inline before the post_options () hook.  The C front
      ends use it to determine tree inlining defaults.  FIXME: such
