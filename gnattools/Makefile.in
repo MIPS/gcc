@@ -171,7 +171,7 @@ gnattools: @default_gnattools_target@
 
 # Build directory for the tools. Let's copy the target-dependent
 # sources using the same mechanism as for gnatlib. The other sources are
-# accessed using the vpath directive in ada/Makefile.in
+# accessed using the vpath directive in ada/Make-tools.in
 
 $(GCC_DIR)/stamp-tools:
 	-rm -rf $(GCC_DIR)/ada/tools
@@ -191,11 +191,11 @@ $(GCC_DIR)/stamp-tools:
 # (see target regnattools) 
 gnattools-native: $(GCC_DIR)/stamp-tools
 	# gnattools1
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_1) \
 	  ../../gnatmake$(exeext) ../../gnatlink$(exeext) ../../gnatbl$(exeext)
 	# gnattools2
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_NATIVE) \
 	  $(GNATTOOLS2_FILES)
 
@@ -204,11 +204,11 @@ gnattools-native: $(GCC_DIR)/stamp-tools
 # the tools when the original bootstrap has already be done.
 regnattools:
 	# gnattools1-re
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_1re) \
 	  gnatmake-re gnatlink-re
 	# gnattools2
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_NATIVE) \
 	  $(GNATTOOLS2_FILES)
 
@@ -219,15 +219,15 @@ regnattools:
 RTS_DIR:=$(strip $(subst \,/,$(shell gnatls -v | grep adalib )))
 gnattools-cross: $(GCC_DIR)/stamp-tools
 	# gnattools1-re
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_CROSS) INCLUDES="" \
 	  gnatmake-re gnatlink-re
 	# gnattools2
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_CROSS) \
 	  $(GNATTOOLS2_FILES)
 	# gnattools4 (cross only)
-	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Makefile \
+	$(MAKE) -C $(GCC_DIR)/ada/tools -f ../Make-tools \
 	  $(TOOLS_FLAGS_TO_PASS_CROSS) \
 	  top_buildir=../../.. \
            ../../vxaddr2line$(exeext)

@@ -1,3 +1,10 @@
+2004-12-12  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Make-tools.in: New file, cloned from Makefile.in.  Delete everything
+	not relevant to gnattools and clean up comments.
+	* configure.ac: Generate Make-tools.
+	* configure: Rebuild.
+
 2004-12-04  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.in: Correct rule for rebuilding Makefile.  Remove obsolete,
