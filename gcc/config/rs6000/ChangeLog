@@ -1,3 +1,11 @@
+2000-01-27  Clinton Popetz  <cpopetz@cygnus.com>
+
+        * rs6000.c (rs6000_emit_load_toc_table): Use "LCG" and
+        reload_toc_labelno for non-prologue TOC reloads.  Also, don't
+        increment rs6000_pic_labelno here.
+        (rs6000_emit_prologue): Pass TRUE to rs6000_emit_load_toc_table,
+        and increment rs6000_pic_labelno here.
+
 2000-01-24  Geoffrey Keating  <geoffk@cygnus.com>
 
 	* rs6000.md (fctiwz): Use (set (reg) (unspec:DI [(fix:SI ...)]))

@@ -4313,9 +4313,6 @@ rs6000_emit_load_toc_table (fromprolog)
 			? gen_rtx_REG (Pmode, 0)
 			: gen_reg_rtx (Pmode));
 	  rtx symF;
-	  
-	  ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
-	  symF = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (buf, -1));
 
 	  /* possibly create the toc section */
 	  if (! toc_initialized)
@@ -4327,6 +4324,10 @@ rs6000_emit_load_toc_table (fromprolog)
 	  if (fromprolog)
 	    {
 	      rtx symL;
+	  
+	      ASM_GENERATE_INTERNAL_LABEL (buf, "LCF", rs6000_pic_labelno);
+	      symF = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (buf, -1));
+
 	      ASM_GENERATE_INTERNAL_LABEL (buf, "LCL", rs6000_pic_labelno);
 	      symL = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (buf, -1));
 
@@ -4337,15 +4338,19 @@ rs6000_emit_load_toc_table (fromprolog)
 	  else
 	    {
 	      rtx tocsym;
+	      static int reload_toc_labelno = 0;
+
 	      ASM_GENERATE_INTERNAL_LABEL (buf, "LCTOC", 1);
 	      tocsym = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (buf, -1));
+
+	      ASM_GENERATE_INTERNAL_LABEL (buf, "LCG", reload_toc_labelno++);
+	      symF = gen_rtx_SYMBOL_REF (Pmode, ggc_alloc_string (buf, -1));
 
 	      emit_insn (gen_load_toc_v4_PIC_1b (tempLR, symF, tocsym));
 	      emit_move_insn (dest, tempLR);
 	      emit_move_insn (temp0, gen_rtx_MEM (Pmode, dest));
 	    }
 	  emit_insn (gen_addsi3 (dest, temp0, dest));
-	  rs6000_pic_labelno++;
 	}
       else if (flag_pic == 0 && TARGET_MINIMAL_TOC)
         {
@@ -4666,7 +4671,7 @@ rs6000_emit_prologue()
       emit_move_insn (gen_rtx_REG (Pmode, 11), 
 		      gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM));
     
-    rs6000_emit_load_toc_table (gen_rtx_REG (Pmode, PIC_OFFSET_TABLE_REGNUM));
+    rs6000_emit_load_toc_table (TRUE);
 
     if (save_LR_around_toc_setup)
       emit_move_insn (gen_rtx_REG (Pmode, LINK_REGISTER_REGNUM), 
@@ -4728,6 +4733,8 @@ output_prolog (file, size)
       final (get_insns(), file, FALSE, FALSE);
       end_sequence ();
     }
+
+  rs6000_pic_labelno++;
 }
   
 /* Emit function epilogue as insns.  */
