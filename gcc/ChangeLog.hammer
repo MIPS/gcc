@@ -1,3 +1,7 @@
+Thu Nov 28 23:50:23 CET 2002  Jan Hubicka  <jh@suse.cz>
+
+	bb-reorder.c:  Merge from rtlopt-branch.
+
 2002-11-27  Andreas Jaeger  <aj@suse.de>
 
 	* version.c: Add -hammer to version_string.
