@@ -1,3 +1,8 @@
+2003-10-20  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-cfg.c (bsi_prev): Also copy the context from the previous
+	iterator.
+
 2003-10-18  Richard Henderson  <rth@redhat.com>
 
 	* builtins.c (simplify_builtin): Handle BUILT_IN_CONSTANT_P.

@@ -3403,6 +3403,7 @@ bsi_prev (block_stmt_iterator *i)
 	  if (next.tp == i->tp)
 	    {
 	      i->tp = bi.tp;
+	      i->context = bi.context;
 	      return;
 	    }
 	}
