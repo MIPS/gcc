@@ -1706,7 +1706,8 @@ dwarf2out_frame_debug (insn)
 /* Describe for the GTY machinery what parts of dw_cfi_oprnd1 are used.  */
 
 static enum dw_cfi_oprnd_type
-dw_cfi_oprnd1_desc PARAMS ((enum dwarf_call_frame_info cfi))
+dw_cfi_oprnd1_desc (cfi)
+     enum dwarf_call_frame_info cfi;
 {
   switch (cfi)
     {
@@ -1750,7 +1751,8 @@ dw_cfi_oprnd1_desc PARAMS ((enum dwarf_call_frame_info cfi))
 /* Describe for the GTY machinery what parts of dw_cfi_oprnd2 are used.  */
 
 static enum dw_cfi_oprnd_type
-dw_cfi_oprnd2_desc PARAMS ((enum dwarf_call_frame_info cfi))
+dw_cfi_oprnd2_desc (cfi)
+     enum dwarf_call_frame_info cfi;
 {
   switch (cfi)
     {

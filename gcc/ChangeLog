@@ -1,5 +1,8 @@
 2002-07-25  Geoffrey Keating  <geoffk@redhat.com>
 
+	* dwarf2out.c (dw_cfi_oprnd2_desc): Fix ISO-only function definition.
+	(dw_cfi_oprnd1_desc): Likewise.
+
 	* config/rs6000/t-rs6000: Move contents to t-fprules,
 	add new rules for dependencies of rs6000.o.
 	* config/rs6000/t-fprules: New file from t-rs6000.
