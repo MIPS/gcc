@@ -1,24 +1,28 @@
-/* { dg-do compile { target powerpc-*-* } } */
-/* { dg-xfail-if "" { "powerpc-ibm-aix*" } { "-maltivec" } { "" } } */
+/* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-maltivec" } */
 
 #include <altivec.h>
 
-vector bool long vbl;		/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-vector signed long vsl;		/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-vector unsigned long vul;	/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-vector bool long *pvbl;		/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-vector signed long *pvsl;	/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-vector unsigned long *pvul;	/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
+/* Test whether the C front-end is not excessively picky about
+   the integral types and literals that AltiVec instrinsics will
+   accept.  */
 
-void fvbl (vector bool long v) { }	/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-void fvsl (vector signed long v) { }	/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-void fvul (vector unsigned long v) { }	/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
+vector int vi = { 1, 2, 3, 4 };
 
-int main ()
+int
+main (void)
 {
-  vector bool long lvbl;	/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-  vector signed long lvsl;	/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-  vector unsigned long lvul;	/* { dg-warning "use of .long. in AltiVec types is deprecated; use .int." } */
-  return 0;
+    unsigned long ul = 2;
+    signed long sl = 2;
+    unsigned int ui = 2;
+    signed int si = 2;
+    float fl = 2.0;
+
+    vec_dst (&vi, ul, '\0');
+    vec_dst (&vi, sl, 0);
+    vec_dst (&vi, ui, '\0');
+    vec_dst (&vi, si, 0);
+    vec_dstst (&vi, (short)fl, '\0');
+
+    return 0;
 }

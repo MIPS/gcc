@@ -1,3 +1,7 @@
+2004-06-09  Michael Matz  <matz@suse.de>
+
+	* gcc.dg/altivec-14.c: Backport from mainline.
+
 2004-06-02  Josef Zlomek  <zlomekj@suse.cz>
 
 	PR c/15549
