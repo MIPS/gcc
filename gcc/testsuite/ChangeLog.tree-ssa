@@ -1,3 +1,12 @@
+2003-09-10  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+
+	* gfortran.fortran-torture/intrinsic_fraction_exponent.f90: New test.
+	* gfortran.fortran-torture/intrinsic_nearest.f90: New test.
+	* gfortran.fortran-torture/intrinsic_rrspacing.f90: New test.
+	* gfortran.fortran-torture/intrinsic_scale.f90: New test.
+	* gfortran.fortran-torture/intrinsic_set_exponent.f90: New test
+	* gfortran.fortran-torture/intrinsic_spacing.f90: New test.
+
 2003-09-10  Paul Brook  <paul@nowt.org>
 
 	* gcc.c-torture/execute/20030910-1.c: New test.

@@ -1,3 +1,16 @@
+2003-09-10  Kejia Zhao  <kejia_zh@yahoo.com.cn>
+
+	* trans-intrinsic.c (real_compnt_info): New struct.
+	(prepare_arg_info): New function.
+	(gfc_conv_intrinsic_set_exponent): New function.
+	(gfc_conv_intrinsic_scale): New function.
+	(gfc_conv_intrinsic_nearest): New function.
+	(gfc_conv_intrinsic_fraction): New function.
+	(gfc_conv_intrinsic_exponent): New function.
+	(gfc_conv_intrinsic_spacing): New function.
+	(gfc_conv_intrinsic_rrspacing): New function.
+	(gfc_conv_intrinsic_function): Use them.
+
 2003-08-24 XiaoQiang Zhang  (zhangapache@yahoo.com>
 
 	* trans-const.c (gfc_conv_mpz_to_tree): Fix bug, parameter for 
