@@ -1,3 +1,8 @@
+2003-05-09  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-pretty-print.c (dump_generic_node): CONSTRUCTOR
+	nodes have only one operand now.
+
 2003-05-08  Andrew MacLeod  <amacleod@redhat.com>
 
 	* tree-cfg.c (pdom_info): New file level static.
