@@ -1421,7 +1421,7 @@
 
 (define_insn "pre_ldwm"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "=r")
+	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "+r")
 			 (match_operand:SI 2 "pre_cint_operand" ""))))
    (set (match_dup 1)
 	(plus:SI (match_dup 1) (match_dup 2)))]
@@ -1436,7 +1436,7 @@
    (set_attr "length" "4")])
 
 (define_insn "pre_stwm"
-  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "=r")
+  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "+r")
 			 (match_operand:SI 1 "pre_cint_operand" "")))
 	(match_operand:SI 2 "reg_or_0_operand" "rM"))
    (set (match_dup 0)
@@ -1453,7 +1453,7 @@
 
 (define_insn "post_ldwm"
   [(set (match_operand:SI 0 "register_operand" "=r")
-	(mem:SI (match_operand:SI 1 "register_operand" "=r")))
+	(mem:SI (match_operand:SI 1 "register_operand" "+r")))
    (set (match_dup 1)
 	(plus:SI (match_dup 1)
 		 (match_operand:SI 2 "post_cint_operand" "")))]
@@ -1468,7 +1468,7 @@
    (set_attr "length" "4")])
 
 (define_insn "post_stwm"
-  [(set (mem:SI (match_operand:SI 0 "register_operand" "=r"))
+  [(set (mem:SI (match_operand:SI 0 "register_operand" "+r"))
 	(match_operand:SI 1 "reg_or_0_operand" "rM"))
    (set (match_dup 0)
 	(plus:SI (match_dup 0)
@@ -1797,7 +1797,7 @@
 
 (define_insn ""
   [(set (match_operand:HI 0 "register_operand" "=r")
-	(mem:HI (plus:SI (match_operand:SI 1 "register_operand" "=r")
+	(mem:HI (plus:SI (match_operand:SI 1 "register_operand" "+r")
 			 (match_operand:SI 2 "int5_operand" "L"))))
    (set (match_dup 1)
 	(plus:SI (match_dup 1) (match_dup 2)))]
@@ -1811,7 +1811,7 @@
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(zero_extend:SI (mem:HI
 			  (plus:SI
-			    (match_operand:SI 1 "register_operand" "=r")
+			    (match_operand:SI 1 "register_operand" "+r")
 			    (match_operand:SI 2 "int5_operand" "L")))))
    (set (match_dup 1)
 	(plus:SI (match_dup 1) (match_dup 2)))]
@@ -1821,7 +1821,7 @@
    (set_attr "length" "4")])
 
 (define_insn ""
-  [(set (mem:HI (plus:SI (match_operand:SI 0 "register_operand" "=r")
+  [(set (mem:HI (plus:SI (match_operand:SI 0 "register_operand" "+r")
 			 (match_operand:SI 1 "int5_operand" "L")))
 	(match_operand:HI 2 "reg_or_0_operand" "rM"))
    (set (match_dup 0)
@@ -2001,7 +2001,7 @@
 
 (define_insn ""
   [(set (match_operand:QI 0 "register_operand" "=r")
-	(mem:QI (plus:SI (match_operand:SI 1 "register_operand" "=r")
+	(mem:QI (plus:SI (match_operand:SI 1 "register_operand" "+r")
 			 (match_operand:SI 2 "int5_operand" "L"))))
    (set (match_dup 1) (plus:SI (match_dup 1) (match_dup 2)))]
   ""
@@ -2013,7 +2013,7 @@
 (define_insn ""
   [(set (match_operand:SI 0 "register_operand" "=r")
 	(zero_extend:SI (mem:QI (plus:SI
-				  (match_operand:SI 1 "register_operand" "=r")
+				  (match_operand:SI 1 "register_operand" "+r")
 				  (match_operand:SI 2 "int5_operand" "L")))))
    (set (match_dup 1) (plus:SI (match_dup 1) (match_dup 2)))]
   ""
@@ -2024,7 +2024,7 @@
 (define_insn ""
   [(set (match_operand:HI 0 "register_operand" "=r")
 	(zero_extend:HI (mem:QI (plus:SI
-				  (match_operand:SI 1 "register_operand" "=r")
+				  (match_operand:SI 1 "register_operand" "+r")
 				  (match_operand:SI 2 "int5_operand" "L")))))
    (set (match_dup 1) (plus:SI (match_dup 1) (match_dup 2)))]
   ""
@@ -2033,7 +2033,7 @@
    (set_attr "length" "4")])
 
 (define_insn ""
-  [(set (mem:QI (plus:SI (match_operand:SI 0 "register_operand" "=r")
+  [(set (mem:QI (plus:SI (match_operand:SI 0 "register_operand" "+r")
 			 (match_operand:SI 1 "int5_operand" "L")))
 	(match_operand:QI 2 "reg_or_0_operand" "rM"))
    (set (match_dup 0)
@@ -4497,7 +4497,7 @@
 ;; This insn is used for some loop tests, typically loops reversed when
 ;; strength reduction is used.  It is actually created when the instruction
 ;; combination phase combines the special loop test.  Since this insn
-;; is both a jump insn and has an output, it must deal with it's own
+;; is both a jump insn and has an output, it must deal with its own
 ;; reloads, hence the `m' constraints.  The `!' constraints direct reload
 ;; to not choose the register alternatives in the event a reload is needed.
 (define_insn "decrement_and_branch_until_zero"

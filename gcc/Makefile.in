@@ -573,7 +573,7 @@ OBJS = toplev.o version.o tree.o print-tree.o stor-layout.o fold-const.o \
  varasm.o rtl.o print-rtl.o rtlanal.o emit-rtl.o real.o \
  dbxout.o sdbout.o dwarfout.o dwarf2out.o xcoffout.o bitmap.o \
  integrate.o jump.o cse.o loop.o unroll.o flow.o stupid.o combine.o \
- regclass.o local-alloc.o global.o reload.o reload1.o caller-save.o \
+ regclass.o regmove.o local-alloc.o global.o reload.o reload1.o caller-save.o \
  insn-peep.o reorg.o sched.o final.o recog.o reg-stack.o \
  insn-opinit.o insn-recog.o insn-extract.o insn-output.o insn-emit.o \
  profile.o insn-attrtab.o $(out_object_file) getpwd.o convert.o $(EXTRA_OBJS)
@@ -591,8 +591,8 @@ CCCP=cccp
 STAGESTUFF = *$(objext) insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
  insn-attr.h insn-attrtab.c insn-opinit.c \
- s-flags s-config s-codes s-mlib \
- s-output s-recog s-emit s-extract s-peep \
+ s-flags s-config s-codes s-mlib s-under\
+ s-output s-recog s-emit s-extract s-peep s-check \
  s-attr s-attrtab s-opinit s-proto s-crt s-crtS s-crt0 \
  genemit$(exeext) genoutput$(exeext) genrecog$(exeext) genextract$(exeext) \
  genflags$(exeext) gencodes$(exeext) genconfig$(exeext) genpeep$(exeext) \
@@ -640,7 +640,7 @@ LIB2FUNCS = _muldi3 _divdi3 _moddi3 _udivdi3 _umoddi3 _negdi2 \
 # CONFIG_H = $(host_xm_file) $(tm_file)
 CONFIG_H =
 RTL_H = rtl.h rtl.def gansidecl.h machmode.h machmode.def
-TREE_H = tree.h real.h tree.def gansidecl.h machmode.h machmode.def
+TREE_H = tree.h real.h tree.def gansidecl.h machmode.h machmode.def tree-check.h
 BYTECODE_H = bytecode.h bc-emit.h bc-optab.h
 BASIC_BLOCK_H = basic-block.h bitmap.h
 DEMANGLE_H = demangle.h gansidecl.h
@@ -1260,6 +1260,16 @@ gcc.o: gcc.c $(CONFIG_H) gansidecl.h multilib.h Makefile $(lang_specs_files)
   $(DRIVER_DEFINES) \
   -c `echo $(srcdir)/gcc.c | sed 's,^\./,,'`
 
+tree-check.h: s-check ; @true
+s-check : tree.def gencheck $(srcdir)/move-if-change
+	./gencheck > tmp-check.h
+	$(srcdir)/move-if-change tmp-check.h tree-check.h
+	touch s-check
+
+gencheck : gencheck.o tree.h tree.def
+	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ \
+	 gencheck.o $(HOST_LIBS)
+
 dumpvers: dumpvers.c
 
 version.o: version.c
@@ -1372,6 +1382,9 @@ caller-save.o : caller-save.c $(CONFIG_H) $(RTL_H) flags.h \
 reorg.o : reorg.c $(CONFIG_H) $(RTL_H) conditions.h hard-reg-set.h \
    $(BASIC_BLOCK_H) regs.h insn-config.h insn-attr.h insn-flags.h $(RECOG_H) \
    flags.h output.h
+regmove.o : regmove.c $(CONFIG_H) $(RTL_H) insn-config.h \
+   insn-codes.h recog.h output.h reload.h regs.h hard-reg-set.h flags.h \
+   expr.h insn-flags.h
 sched.o : $(SCHED_PREFIX)sched.c $(CONFIG_H) $(RTL_H) $(BASIC_BLOCK_H) regs.h hard-reg-set.h \
    flags.h insn-config.h insn-attr.h
 final.o : final.c $(CONFIG_H) $(RTL_H) $(TREE_H) flags.h regs.h \
@@ -2054,10 +2067,10 @@ mostlyclean: bytecode.mostlyclean lang.mostlyclean
 	-rm -f */stamp-* */tmp-*
 # Delete debugging dump files.
 	-rm -f *.greg *.lreg *.combine *.flow *.cse *.jump *.rtl *.tree *.loop
-	-rm -f *.dbr *.jump2 *.sched *.cse2 *.sched2 *.stack *.addressof
+	-rm -f *.dbr *.jump2 *.sched *.cse2 *.sched2 *.stack *.addressof *.regmove
 	-rm -f */*.greg */*.lreg */*.combine */*.flow */*.cse */*.jump */*.rtl
 	-rm -f */*.tree */*.loop */*.dbr */*.jump2 */*.sched */*.cse2
-	-rm -f */*.sched2 */*.stack
+	-rm -f */*.sched2 */*.stack */*.regmove
 # Delete some files made during installation.
 	-rm -f specs gfloat.h float.h-* enquire SYSCALLS.c.X SYSCALLS.c
 	-rm -f collect collect2 mips-tfile mips-tdump alloca.s
@@ -2386,11 +2399,13 @@ uninstall: lang.uninstall
 	-rm -rf $(bindir)/$(GCC_CROSS_NAME)$(exeext)
 	-rm -rf $(bindir)/protoize$(exeext)
 	-rm -rf $(bindir)/unprotoize$(exeext)
+	-rm -rf $(bindir)/gcov$(exeext)
 	-rm -rf $(mandir)/$(GCC_INSTALL_NAME)$(manext)
 	-rm -rf $(mandir)/$(GCC_CROSS_NAME)$(manext)
 	-rm -rf $(mandir)/cccp$(manext)
 	-rm -rf $(mandir)/protoize$(manext)
 	-rm -rf $(mandir)/unprotoize$(manext)
+	-rm -f $(infodir)/cpp.info* $(infodir)/gcc.info*
 #
 # These exist for maintenance purposes.
 

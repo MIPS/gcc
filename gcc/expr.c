@@ -290,13 +290,22 @@ init_expr_once ()
 {
   rtx insn, pat;
   enum machine_mode mode;
+  rtx mem, mem1;
+  char *free_point;
+
+  start_sequence ();
+
+  /* Since we are on the permanent obstack, we must be sure we save this
+     spot AFTER we call start_sequence, since it will reuse the rtl it
+     makes.  */
+  free_point = (char *) oballoc (0);
+
   /* Try indexing by frame ptr and try by stack ptr.
      It is known that on the Convex the stack ptr isn't a valid index.
      With luck, one or the other is valid on any machine.  */
-  rtx mem = gen_rtx (MEM, VOIDmode, stack_pointer_rtx);
-  rtx mem1 = gen_rtx (MEM, VOIDmode, frame_pointer_rtx);
+  mem = gen_rtx (MEM, VOIDmode, stack_pointer_rtx);
+  mem1 = gen_rtx (MEM, VOIDmode, frame_pointer_rtx);
 
-  start_sequence ();
   insn = emit_insn (gen_rtx (SET, 0, NULL_RTX, NULL_RTX));
   pat = PATTERN (insn);
 
@@ -347,6 +356,7 @@ init_expr_once ()
     }
 
   end_sequence ();
+  obfree (free_point);
 }
       
 /* This is run at the start of compiling a function.  */
@@ -5555,13 +5565,26 @@ expand_expr (exp, target, tmode, modifier)
 	temp = gen_rtx (MEM, mode, op0);
 	/* If address was computed by addition,
 	   mark this as an element of an aggregate.  */
-	if (TREE_CODE (TREE_OPERAND (exp, 0)) == PLUS_EXPR
-	    || (TREE_CODE (TREE_OPERAND (exp, 0)) == SAVE_EXPR
-		&& TREE_CODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)) == PLUS_EXPR)
+	if (TREE_CODE (exp1) == PLUS_EXPR
+	    || (TREE_CODE (exp1) == SAVE_EXPR
+		&& TREE_CODE (TREE_OPERAND (exp1, 0)) == PLUS_EXPR)
 	    || AGGREGATE_TYPE_P (TREE_TYPE (exp))
+	    /* If the pointer is actually a REFERENCE_TYPE, this could
+	       be pointing into some aggregate too.  */
+	    || TREE_CODE (TREE_TYPE (exp1)) == REFERENCE_TYPE
 	    || (TREE_CODE (exp1) == ADDR_EXPR
 		&& (exp2 = TREE_OPERAND (exp1, 0))
-		&& AGGREGATE_TYPE_P (TREE_TYPE (exp2))))
+		&& AGGREGATE_TYPE_P (TREE_TYPE (exp2)))
+	    /* This may have been an array reference to the first element
+	       that was optimized away from being an addition.  */
+	    || (TREE_CODE (exp1) == NOP_EXPR
+		&& ((TREE_CODE (TREE_TYPE (TREE_OPERAND (exp1, 0)))
+		     == REFERENCE_TYPE)
+		    || ((TREE_CODE (TREE_TYPE (TREE_OPERAND (exp1, 0)))
+			 == POINTER_TYPE)
+			&& (AGGREGATE_TYPE_P
+			    (TREE_TYPE (TREE_TYPE
+					(TREE_OPERAND (exp1, 0)))))))))
 	  MEM_IN_STRUCT_P (temp) = 1;
 	MEM_VOLATILE_P (temp) = TREE_THIS_VOLATILE (exp) | flag_volatile;
 
@@ -8248,8 +8271,13 @@ expand_builtin_setjmp (buf_addr, target)
   /* We store the frame pointer and the address of lab1 in the buffer
      and use the rest of it for the stack save area, which is
      machine-dependent.  */
-  emit_move_insn (gen_rtx (MEM, Pmode, buf_addr),
-		  virtual_stack_vars_rtx);
+
+#ifndef BUILTIN_SETJMP_FRAME_VALUE
+#define BUILTIN_SETJMP_FRAME_VALUE virtual_stack_vars_rtx
+#endif
+
+  emit_move_insn (gen_rtx (MEM, Pmode, buf_addr), BUILTIN_SETJMP_FRAME_VALUE);
+
   emit_move_insn
     (validize_mem (gen_rtx (MEM, Pmode,
 			    plus_constant (buf_addr,
@@ -10446,10 +10474,8 @@ do_jump (exp, if_false_label, if_true_label)
       {
 	tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
 
-	if (integer_zerop (TREE_OPERAND (exp, 1)))
-	  do_jump (TREE_OPERAND (exp, 0), if_true_label, if_false_label);
-	else if (GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_FLOAT
-		 || GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_INT)
+	if (GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_FLOAT
+	    || GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_INT)
 	  do_jump
 	    (fold
 	     (build (TRUTH_ANDIF_EXPR, TREE_TYPE (exp),
@@ -10468,6 +10494,10 @@ do_jump (exp, if_false_label, if_true_label)
 						TREE_TYPE (inner_type),
 						TREE_OPERAND (exp, 1))))))),
 	     if_false_label, if_true_label);
+
+	else if (integer_zerop (TREE_OPERAND (exp, 1)))
+	  do_jump (TREE_OPERAND (exp, 0), if_true_label, if_false_label);
+
 	else if (GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_INT
 		 && !can_compare_p (TYPE_MODE (inner_type)))
 	  do_jump_by_parts_equality (exp, if_false_label, if_true_label);
@@ -10480,10 +10510,8 @@ do_jump (exp, if_false_label, if_true_label)
       {
 	tree inner_type = TREE_TYPE (TREE_OPERAND (exp, 0));
 
-	if (integer_zerop (TREE_OPERAND (exp, 1)))
-	  do_jump (TREE_OPERAND (exp, 0), if_false_label, if_true_label);
-	else if (GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_FLOAT
-		 || GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_INT)
+	if (GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_FLOAT
+	    || GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_COMPLEX_INT)
 	  do_jump
 	    (fold
 	     (build (TRUTH_ORIF_EXPR, TREE_TYPE (exp),
@@ -10502,6 +10530,10 @@ do_jump (exp, if_false_label, if_true_label)
 						TREE_TYPE (inner_type),
 						TREE_OPERAND (exp, 1))))))),
 	     if_false_label, if_true_label);
+
+	else if (integer_zerop (TREE_OPERAND (exp, 1)))
+	  do_jump (TREE_OPERAND (exp, 0), if_false_label, if_true_label);
+
 	else if (GET_MODE_CLASS (TYPE_MODE (inner_type)) == MODE_INT
 		 && !can_compare_p (TYPE_MODE (inner_type)))
 	  do_jump_by_parts_equality (exp, if_true_label, if_false_label);

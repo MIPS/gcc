@@ -344,7 +344,7 @@ or with constant text in a single argument.
         This allows config.h to specify part of the spec for running as.
  %A	process ASM_FINAL_SPEC as a spec.  A capital A is actually
 	used here.  This can be used to run a post-processor after the
-	assembler has done it's job.
+	assembler has done its job.
  %D	Dump out a -L option for each directory in startfile_prefixes.
 	If multilib_dir is set, extra entries are generated with it affixed.
  %l     process LINK_SPEC as a spec.
@@ -588,7 +588,8 @@ static struct compiler default_compilers[] =
      and be given a more meaningful error than "file not used since
      linking is not done".  */
   {".cc", "#C++"}, {".cxx", "#C++"}, {".cpp", "#C++"}, {".c++", "#C++"},
-  {".C", "#C++"}, {".ads", "#Ada"}, {".adb", "#Ada"}, {".ada", "#Ada"},
+  {".C", "#C++"},
+  {".ads", "#Ada"}, {".adb", "#Ada"},
   {".f", "#Fortran"}, {".for", "#Fortran"}, {".F", "#Fortran"},
   {".fpp", "#Fortran"},
   {".p", "#Pascal"}, {".pas", "#Pascal"},
@@ -710,6 +711,12 @@ static int n_default_compilers
 /* We want %{T*} after %{L*} and %D so that it can be used to specify linker
    scripts which exist in user specified directories, or in standard
    directories.  */
+#ifdef LINK_COMMAND_SPEC
+/* Provide option to override link_command_spec from machine specific
+   configuration files.  */
+static char *link_command_spec = 
+	LINK_COMMAND_SPEC;
+#else
 #ifdef LINK_LIBGCC_SPECIAL
 /* Don't generate -L options.  */
 static char *link_command_spec = "\
@@ -734,6 +741,7 @@ static char *link_command_spec = "\
 			%{!A:%{!nostdlib:%{!nostartfiles:%E}}}\
 			%{T*}\
 			\n }}}}}}";
+#endif
 #endif
 
 /* A vector of options to give to the linker.

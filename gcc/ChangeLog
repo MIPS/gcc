@@ -1,3 +1,262 @@
+Tue Jun  9 07:24:01 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* regmove.c ({next,prev}_insn_for_regmove): Properly handle end of
+ 	function.
+
+Mon Jun  8 15:26:49 1998  Juha Sarlin <juha@c3l.tyreso.se>
+
+	* h8300.c (get_shift_alg): Add special cases for shifts of 8 and 24.
+
+Mon Jun  8 14:40:02 1998  John Wehle  (john@feith.com)
+
+	* i386.md (movsf_push, movsf_mem): Remove.
+	(movsf_push): Rename from movsf_push_nomove and move in front of
+	movsf; allow memory operands during and after reload.
+	(movsf_push_memory): New pattern.
+	(movsf): Don't bother checking for push_operand.  If TARGET_MOVE and
+	both operands refer to memory then force operand[1] into a register.
+	(movsf_normal): Change to unnamed pattern.
+	Likewise for movdf, movxf, and friends.
+
+Mon Jun  8 13:18:04 1998  Martin v. Loewis  <loewis@informatik.hu-berlin.de>
+
+	* Makefile.in (TREE_H): Add tree-check.h.
+	(tree-check.h, s-check, gencheck): New targets.
+	(STAGESTUFF): Add s-check.
+	* gencheck.c: New file.
+	* tree.c (tree_check, tree_class_check, expr_check): New functions.
+	* tree.h (TREE_CHECK, TREE_CLASS_CHECK): Define.
+	(TYPE_CHECK, DECL_CHECK): Define.
+	Modify all access macros to use generated checking macros.
+	* acconfig.h (ENABLE_CHECKING): Undefine.
+	* configure.in (--enable-checking): New option.
+
+Mon Jun  8 12:13:25 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.ed>
+
+	* regmove.c: Remove include for varargs or stdarg.
+
+Mon Jun  8 07:49:41 1998  Andris Pavenis   <pavenis@lanet.lv>
+
+	* gcc.c (link_command_spec): Support LINK_COMMAND_SPEC.
+
+Sun Jun  7 18:00:28 1998  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* fold-const.c (fold, case EQ_EXPR): When folding VAR++ == CONST
+	or VAR-- == CONST construct a proper mask if VAR is a bitfield.
+	Cope with CONST being out of range for the bitfield.
+
+Sun Jun  7 17:19:35 1998  Tom Quiggle  <quiggle@sgi.com>
+
+	* mips/iris6.h (DWARF2_FRAME_INFO): Define.
+	* dwarf2out.c (dwarf2out_do_frame): Do something if DWARF2_FRAME_INFO.
+
+Sun Jun  7 15:29:04 1998  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* regmove.c: New file.
+	* Makefile.in (OBJS): Add regmove.o.
+	(regmove.o): New rules.
+	(mostlyclean): Remove regmove dumps.
+	* toplev.c (regmove_{dump,dump_file,time}, flag_regmove): New vars.
+	(f_options): Add -foptimize-register-move.
+	(compile_file): Run regmove pass after combine pass and do its dump.
+	(main): Enable regmove dump when -dN or -da.
+	(fatal_insn): Flush regmove dump file.
+	* flags.h (flag_regmove): Declare.
+	* flow.c (find_use_as_address): Export.
+	* rtl.h (find_use_as_address): Declare.
+	* local-alloc.c (optimize_reg_copy_{1,2}): Removed, all calls deleted.
+	* reload1.c (count_occurrences): Export.
+	* reload.h (count_occurrences): Declare.
+
+Sun Jun  7 09:30:31 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* Makefile.in (uninstall): Uninstall gcov.
+
+	* alpha.h (ASM_COMMENT_START): Define.
+
+	* alpha.h (EXTRA_CONSTRAINT, case 'S'): New case.
+	* alpha.md ({ashl,ashr,lshr}di3): Use 'S' for constraint.
+
+	* i386.md (cmpxf): Add missing extend pattern from SFmode and fix
+	operand numbers in one extend pattern from DFmode.
+
+	* pa.md ({pre,post}_{ld,st}wm and similar): When operand is being
+	incremented, use '+', not '=', for constraint.
+
+	* reload.c (find_reloads): Give preference to pseudo that was the
+ 	reloaded output of previous insn.
+
+	* emit-rtl.c (init_emit_once): Provide default for DOUBLE_TYPE_SIZE.
+
+	* expr.c (init_expr_once): Free all RTL we generate here.
+	* expmed.c (init_expmed): Allocate all RTX in memory we'll free.
+
+	* genemit.c (main): Generate #include "reload.h".
+
+	* expr.c (expand_expr, case INDIRECT_EXPR): A dereference of
+	a REFERENCE_TYPE is always considered in a structure.  Likewise for
+	a dereference of a NOP_EXPR whose input is a pointer to aggregate.
+
+Sat Jun  6 17:25:14 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* mips.md (reload_{in,out}di): Allow other operand to be invalid
+	MEM and get any reload replacement before using address.
+
+Tue May 26 18:52:23 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* reload1.c (reload): Get MEM_IN_STRUCT_P and RTX_UNCHANGING_P
+	from reg_equiv_memory_loc; set the latter when changing REG to MEM.
+	(alter_reg): Don't set RTX_UNCHANGING_P for shared slots.
+
+Mon May 25 12:07:12 1998  Hans-Peter Nilsson  <hp@axis.se>
+
+	* cplus-dem.c (MBUF_SIZE): Bumped from 512 to 32767.
+
+Sun May 24 21:50:12 1998  Alan Modra <alan@spri.levels.unisa.edu.au>
+
+	* i386/linux{,-aout,oldld}.h (ASM_COMMENT_START): Define.
+
+Sun May 24 11:58:37 1998  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* m68k.md (adddi3, subdi3): Properly negate the DImode constant.
+
+Sun May 24 11:30:08 1998  Torbjorn Granlund  <tege@matematik.su.se>
+
+	* m68k/lb1sf68.asm (__addsf3): Fix typo in exg on coldfire.
+
+Sun May 24 09:38:17 1998  John Wehle  (john@feith.com)
+
+	* i386.md (movsi): Remove redundant integer push patterns.
+	Don't check for TARGET_PUSH_MEMORY when pushing constants or registers.
+
+Sun May 24 08:59:27 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* fold-const.c (fold, case EQ_EXPR): Split COMPLEX_TYPE operands
+	if either is COMPLEX_CST in addition to COMPLEX_EXPR.
+
+	* expr.c (do_jump, case EQ_EXPR, case NE_EXPR): Check for COMPLEX
+	before testing for operand 1 being zero.
+
+	* genattrtab.c (optimize): Define.
+
+	* configure.lang: Fix substitution of target_alias.
+
+Sat May 23 22:31:17 1998  Michael P. Hayes  <michaelh@ongaonga.chch.cri.nz>
+
+	* emit_rtl.c (double_mode): New variable.  
+	(init_emit_once): Set and use it.
+	* real.c (ereal_atof, real_value_truncate): Handle double_mode not
+	being DFmode for C4x.
+	
+Sat May 23 22:19:55 1998  Mike Stump  <mrs@wrs.com>
+
+	* expr.c (expand_builtin_setjmp): Handle BUILTIN_SETJMP_FRAME_VALUE.
+	* i960.h (SETUP_FRAME_ADDRESSES, BUILTIN_SETJMP_FRAME_VALUE): Define.
+	* i960.md (ret, flush_register_windows): Define.
+	(nonlocal_goto): Likewise.  Nested function nonlocal gotos don't
+	work yet.
+
+Sat May 23 18:45:59 1998  Andreas Schwab  <schwab@issan.informatik.uni-dortmund.de>
+
+	* m68k/t-linux: Remove stuff already included in config/t-linux.
+
+Sat May 23 18:35:07 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* final.c: Select <stab.h> and "gstab.h" with NO_STAB_H.
+
+	* gcc.c (default_compilers): Remove ".ada" extension.
+
+	* combine.c (rtx_equal_for_field_assignment): Remove code that
+	checks get_last_value.
+
+	* Makefile.in (uninstall): Delete info files.
+
+Sat May 23 18:28:27 1998  Herman A.J. ten Brugge <Haj.Ten.Brugge@net.HCC.nl>
+
+	* c-decl.c (start_decl): Use new macro SET_DEFAULT_DECL_ATTRIBUTES.
+	* c-lex.c (check_newline): Put last read character back on input
+	stream.
+
+Sat May 23 18:13:53 1998  David Edelsohn  <edelsohn@mhpcc.edu>
+
+	* rs6000.md (floatsidf2_loadaddr): rs6000_fpmem_offset will be
+	negative in a stackless frame.
+	* rs6000.c (rs6000_stack_info): Don't include fixed-size link area
+	in stackless frame size.  Support 64-bit stackless frame size.
+	Combine fpmem offset calculations and don't add total_size to
+	offset if not pushing a stack frame.
+
+	* tree.c (get_inner_array_type): New function.
+	* tree.h (get_inner_array_type): Likewise.
+
+Wed May 20 15:42:22 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* expmed.c (expand_divmod): Save last divison constant and
+	if rem is same as div, don't adjust rem cost.
+
+Thu May 14 14:11:37 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* alpha/vxworks.h: New file.
+	* configure.in (alpha*-*-vxworks*): New target.
+
+	* alpha.c (tree.h): Include earlier.
+	(alpha_initialize_trampoline): New function.
+	* alpha.h (INITIALIZE_TRAMPOLINE): Call it.
+	* alpha/linux.h (INITIALIZE_TRAMPOLINE): Don't redefine.
+
+Thu May 14 13:35:53 1998  Cyrille Comar  <comar@gnat.com>
+
+	* Makefile.in (STAGESTUFF): Add s-under.
+
+Wed May 13 17:38:35 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* combine.c (simplify_comparison, case AND): Don't commute AND
+	with SUBREG if constant is whole mode and don't do if lowpart
+	and not WORD_REGISTER_OPERATIONS.
+
+	* expmed.c (expand_mult): Use 0 as add_target if should preserve
+	subexpressions.
+
+Mon May 11 17:26:06 1998  Paul Eggert  <eggert@twinsun.com>
+
+	* dwarf2out.c: Undo most recent change.
+
+Sun May 10 17:09:20 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* fold-const.c (fold_range_test, fold): If need to make SAVE_EXPR
+	to do optimization, suppress if contains_placeholder_p.
+
+Thu May  7 18:14:31  Paul Eggert  <eggert@twinsun.com>
+
+	* dwarf2out.c: Don't assume `.section ".text"' causes assembler to
+	treat .text as label for start of section; instead, output
+	`.section ".text"; .LLtext0:' and use .LLtext0 in label contexts.
+	(ABBREV_LABEL, DEBUG_INFO_LABEL, DEBUG_LINE_LABEL, TEXT_LABEL): New.
+	(abbrev_label, debug_info_label, debug_line_label, text_label): New.
+	(dwarf2out_init): Initialize the vars.  Output defn for text_label.
+	(dwarf2out_finish): Output defns for the other 3 vars.
+	(dw_val_node): Rename val_section to val_section_label, as it's
+	now a label, not a section.
+	(add_AT_section_offset): Arg is now a label, not a section.
+	(print_die): In label contexts, output section label, not section.
+	(output_die, output_compilation_unit_header): Likewise.
+	(output_{pubnames,aranges,line_info}, dwarf2out_finish): Likewise.
+
+	* fixinc.wrap: Renamed from fixinc.math.  Put wrapper around
+	curses.h if it contains `typedef char bool;'.
+
+	* configure.in (arm-*-netbsd*): Rename fixinc.math to fixinc.wrap.
+	(i[34567]86-*-freebsdelf*, i[34567]86-*-freebsd*): Likewise.
+	(i[34567]86-*-netbsd*, i[34567]86-*-solaris2*): Likewise.
+	(m68k-*-netbsd*, mips-dec-netbsd*, ns32k-pc532-netbsd*): Likewise.
+	(powerpcle-*-solaris2*, sparc-*-netbsd*, sparc-*-solaris2*): Likewise.
+	(vax-*-netbsd*): Likewie.
+
+Wed May  6 06:44:28 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
+
+	* combine.c (simplify_rtx, case TRUNCATE): Reflect that it sign-extends
+	instead of zero-extending.
+
 Sat May  2 20:39:22 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 
 	* fold-const.c (fold): When commutting COND_EXPR and binary operation,
@@ -8,7 +267,7 @@ Tue Apr 28 17:30:05 1998  Richard Kenner  <kenner@vlsi1.ultra.nyu.edu>
 	* mips.h (HOST_WIDE_INT): Define if not already.
 	(compute_frame_size, mips_debugger_offset): Return HOST_WIDE_INT.
 	(DEBUGGER_{AUTO,ARG}_OFFSET): Cast second arg to HOST_WIDE_INT.
-	* /mips.c (mips_debugger_offset): Now returns HOST_WIDE_INT.
+	* mips.c (mips_debugger_offset): Now returns HOST_WIDE_INT.
 	Likewise for internal variable frame_size.
 
 	* final.c (alter_subreg): Make new SUBREG if reload replacement
@@ -276,7 +535,7 @@ Wed Mar 25 16:09:01 1998  Michael Meissner  <meissner@cygnus.com>
  
 Wed Mar 25 02:39:01 1998  Paul Eggert  <eggert@twinsun.com>
 
-	* configure.in (i[[34567]]86-*-solaris2*, powerpcle-*-solaris2*,
+	* configure.in (i[34567]86-*-solaris2*, powerpcle-*-solaris2*,
 	sparc-*-solaris2*): Use fixinc.svr4 if Solaris 2.0 through 2.4.
 
 Mon Mar 23 07:27:19 1998  Philippe De Muyter  <phdm@macqel.be>
