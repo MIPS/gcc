@@ -20,7 +20,161 @@ along with GCC; see the file COPYING.  If not, write to the Free
 Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 02111-1307, USA.  */
 
-/* Conditional constant propagation.
+/* Conditional constant propagation (CCP) is based on the SSA
+   propagation engine (tree-ssa-propagate.c).  Constant assignments of
+   the form VAR = CST are propagated from the assignments into uses of
+   VAR, which in turn may generate new constants.  The simulation uses
+   a four level lattice to keep track of constant values associated
+   with SSA names.  Given an SSA name V_i, it may take one of the
+   following values:
+
+   	UNINITIALIZED	->  This is the default starting value.  V_i
+			    has not been processed yet.
+
+	UNDEFINED	->  V_i is a local variable whose definition
+			    has not been processed yet.  Therefore we
+			    don't yet know if its value is a constant
+			    or not.
+
+	CONSTANT	->  V_i has been found to hold a constant
+			    value C.
+
+	VARYING		->  V_i cannot take a constant value, or if it
+			    does, it is not possible to determine it
+			    at compile time.
+
+   The core of SSA-CCP is in ccp_visit_stmt and ccp_visit_phi_node:
+
+   1- In ccp_visit_stmt, we are interested in assignments whose RHS
+      evaluates into a constant and conditional jumps whose predicate
+      evaluates into a boolean true or false.  When an assignment of
+      the form V_i = CONST is found, V_i's lattice value is set to
+      CONSTANT and CONST is associated with it.  This causes the
+      propagation engine to add all the SSA edges coming out the
+      assignment into the worklists, so that statements that use V_i
+      can be visited.
+
+      If the statement is a conditional with a constant predicate, we
+      mark the outgoing edges as executable or not executable
+      depending on the predicate's value.  This is then used when
+      visiting PHI nodes to know when a PHI argument can be ignored.
+      
+
+   2- In ccp_visit_phi_node, if all the PHI arguments evaluate to the
+      same constant C, then the LHS of the PHI is set to C.  This
+      evaluation is known as the "meet operation".  Since one of the
+      goals of this evaluation is to optimistically return constant
+      values as often as possible, it uses two main short cuts:
+
+      - If an argument is flowing in through a non-executable edge, it
+	is ignored.  This is useful in cases like this:
+
+			if (PRED)
+			  a_9 = 3;
+			else
+			  a_10 = 100;
+			a_11 = PHI (a_9, a_10)
+
+	If PRED is known to always evaluate to false, then we can
+	assume that a_11 will always take its value from a_10, meaning
+	that instead of consider it VARYING (a_9 and a_10 have
+	different values), we can consider it CONSTANT 100.
+
+      - If an argument has an UNDEFINED value, then it does not affect
+	the outcome of the meet operation.  If a variable V_i has an
+	UNDEFINED value, it means that either its defining statement
+	hasn't been visited yet or V_i has no defining statement, in
+	which case the original symbol 'V' is being used
+	uninitialized.  Since 'V' is a local variable, the compiler
+	may assume any initial value for it.
+
+
+   After propagation, every variable V_i that ends up with a lattice
+   value of CONSTANT will have the associated constant value in the
+   array CONST_VAL[i].VALUE.  That is fed into substitute_and_fold for
+   final substitution and folding.
+
+
+   Constant propagation in stores and loads (STORE-CCP)
+   ----------------------------------------------------
+
+   While CCP has all the logic to propagate constants in GIMPLE
+   registers, it is missing the ability to associate constants with
+   stores and loads (i.e., pointer dereferences, structures and
+   global/aliased variables).  We don't keep loads and stores in
+   SSA, but we do build a factored use-def web for them (in the
+   virtual operands).
+
+   For instance, consider the following code fragment:
+
+	  struct A a;
+	  const int B = 42;
+
+	  void foo (int i)
+	  {
+	    if (i > 10)
+	      a.a = 42;
+	    else
+	      {
+		a.b = 21;
+		a.a = a.b + 21;
+	      }
+
+	    if (a.a != B)
+	      never_executed ();
+	  }
+
+   We should be able to deduce that the predicate 'a.a != B' is always
+   false.  To achieve this, we associate constant values to the SSA
+   names in the V_MAY_DEF and V_MUST_DEF operands for each store.
+   Additionally, since we also glob partial loads/stores with the base
+   symbol, we also keep track of the memory reference where the
+   constant value was stored (in the MEM_REF field of PROP_VALUE_T).
+   For instance,
+
+        # a_5 = V_MAY_DEF <a_4>
+        a.a = 2;
+
+        # VUSE <a_5>
+        x_3 = a.b;
+
+   In the example above, CCP will associate value '2' with 'a_5', but
+   it would be wrong to replace the load from 'a.b' with '2', because
+   '2' had been stored into a.a.
+
+   To support STORE-CCP, it is necessary to add a new value to the
+   constant propagation lattice.  When evaluating a load for a memory
+   reference we can no longer assume a value of UNDEFINED if we
+   haven't seen a preceding store to the same memory location.
+   Consider, for instance global variables:
+
+   	int A;
+
+   	foo (int i)
+  	{
+	  if (i_3 > 10)
+	    A_4 = 3;
+          # A_5 = PHI (A_4, A_2);
+
+	  # VUSE <A_5>
+	  A.0_6 = A;
+
+	  return A.0_6;
+	}
+
+   The value of A_2 cannot be assumed to be UNDEFINED, as it may have
+   been defined outside of foo.  If we were to assume it UNDEFINED, we
+   would erroneously optimize the above into 'return 3;'.  Therefore,
+   when doing STORE-CCP, we introduce a fifth lattice value
+   (UNKNOWN_VAL), which overrides any other value when computing the
+   meet operation in PHI nodes.
+
+   Though STORE-CCP is not too expensive, it does have to do more work
+   than regular CCP, so it is only enabled at -O2.  Both regular CCP
+   and STORE-CCP use the exact same algorithm.  The only distinction
+   is that when doing STORE-CCP, the boolean variable DO_STORE_CCP is
+   set to true.  This affects the evaluation of statements and PHI
+   nodes.
 
    References:
 
@@ -1405,9 +1559,7 @@ ccp_visit_stmt (tree stmt, edge *taken_edge_p, tree *output_p)
 }
 
 
-/* Main entry point for SSA Conditional Constant Propagation.
-
-   [ DESCRIBE MAIN ALGORITHM HERE ]  */
+/* Main entry point for SSA Conditional Constant Propagation.  */
 
 void
 execute_ssa_ccp (bool store_ccp)
