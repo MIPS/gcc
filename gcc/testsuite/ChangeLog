@@ -1,3 +1,25 @@
+2003-10-16  Release Manager
+
+	* GCC 3.3.2 Released.
+
+2003-10-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12369
+	* g++.dg/template/friend25.C: New test.
+
+2003-10-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7939
+	* g++.dg/template/crash11.C: New test.
+
+2003-10-14  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* g++.dg/tls/init-2.C: Fix. Expect two warnings.
+
+2003-10-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.c-torture/compile/20031011-1.c: New test.
+
 2003-10-09  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* gcc.dg/20031009-1.c: New test.

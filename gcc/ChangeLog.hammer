@@ -1,3 +1,7 @@
+2003-10-19  Jan Hubicka  <jh@suse.cz>
+
+	* Mege from 3.3 branch (gcc_3_3_2_release)
+
 2003-10-19  Josef Zlomek  <zlomekj@suse.cz>
 
 	* var-tracking.c (contains_symbol_ref): New function.

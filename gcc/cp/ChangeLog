@@ -1,3 +1,31 @@
+2003-10-16  Release Manager
+
+	* GCC 3.3.2 Released.
+
+2003-10-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/12369
+	* decl.c (grokdeclarator): Handle TEMPLATE_ID_EXPR if friend
+	is a member of other class.
+	* friend.c (do_friend): Don't build TEMPLATE_DECL if friend
+	is a specialization of function template.
+
+2003-10-15  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/7939
+	* typeck.c (comptypes): Don't ICE when its first argument is
+	error_mark_node.
+	(compparms): Reverse the arguments of same_type_p.
+
+2003-10-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/11878
+	* tree.c (build_target_expr_with_type): Call force_rvalue for
+	classes with non-trivial copy ctors.
+
+	PR c++/11063
+	* typeck.c (build_modify_expr): Call convert rather than abort.
+
 2003-10-06  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/10147

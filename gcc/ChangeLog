@@ -1,3 +1,47 @@
+2003-10-16  Release Manager
+
+	* GCC 3.3.2 Released.
+
+2003-10-14  Jason Merrill  <jason@redhat.com>
+
+	PR c/11885
+	* stor-layout.c (update_alignment_for_field): Packed non-bit-fields 
+	get byte alignment.
+
+2003-10-14  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* fixinc/inclhack.def (alpha_pthread_gcc): New fix.
+	* fixinc/fixincl.x: Regenerate.
+	* fixinc/tests/base/pthread.h [ALPHA_PTHREAD_GCC_CHECK]: New
+	testcase. 
+	Fixes PR bootstrap/9330.
+
+2003-10-14  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR target/11087
+	Backport from gcc-3_3-rhl-branch and mainline.
+
+	2003-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* loop.c (basic_induction_var): Check if convert_modes
+	emitted any instructions. Remove them and return 0 if so.
+
+2003-10-13  Matt Kraai <kraai@alumni.cmu.edu>
+
+	PR target/11949
+	Backport from mainline:
+
+	2003-05-05  Aldy Hernandez  <aldyh@redhat.com>
+
+	* testsuite/gcc.c-torture/compile/simd-6.c: New.
+	* c-typeck.c (digest_init): Handle arrays of vector constants.
+
+2003-10-11  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR optimization/12544
+	* function.c (put_var_into_stack): Don't generate ADDRESSOFs
+	for DECL_NONLOCAL decls.
+
 2003-10-09  Eric Botcazou  <ebotcazou@libertysurf.fr>
 
 	PR optimization/12510

@@ -1,14 +1,6 @@
-2003-10-05  Josef Zlomek  <zlomekj@suse.cz>
+2003-10-16  Release Manager
 
-	Jan Hubicka <jh@suse.cz>
-	* vasprintf.c (int_vasprintf): Pass va_list by value.
-	Use va_copy for copying va_list.
-	(vasprintf): Pass va_list by value.
-
-2003-09-06  Josef Zlomek  <zlomekj@suse.cz>
-
-	* fibheap.c (fibheap_replace_key_data): Change type of OKEY to
-	FIBHEAPKEY_T.
+	* GCC 3.3.2 Released.
 
 2003-08-04  Release Manager
 
