@@ -1523,6 +1523,9 @@ finish_stmt_expr_expr (tree expr, tree stmt_expr)
 {
   tree result = NULL_TREE;
 
+  if (error_operand_p (expr))
+    return error_mark_node;
+  
   if (expr)
     {
       if (!processing_template_decl && !VOID_TYPE_P (TREE_TYPE (expr)))
@@ -1993,7 +1996,8 @@ finish_compound_literal (tree type, tree initializer_list)
 
 	 implies that the array has two elements.  */
       if (TREE_CODE (type) == ARRAY_TYPE && !COMPLETE_TYPE_P (type))
-	complete_array_type (type, compound_literal, 1);
+	cp_complete_array_type (&TREE_TYPE (compound_literal),
+				compound_literal, 1);
     }
 
   return compound_literal;

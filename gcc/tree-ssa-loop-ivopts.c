@@ -88,6 +88,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-scalar-evolution.h"
 #include "cfgloop.h"
 #include "params.h"
+#include "langhooks.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -1980,23 +1981,28 @@ add_candidate (struct ivopts_data *data,
     add_candidate_1 (data, base, step, important, IP_END, use, NULL_TREE);
 }
 
+/* Add a standard "0 + 1 * iteration" iv candidate for a
+   type with SIZE bits.  */
+
+static void
+add_standard_iv_candidates_for_size (struct ivopts_data *data,
+				     unsigned int size)
+{
+  tree type = lang_hooks.types.type_for_size (size, true);
+  add_candidate (data, build_int_cst (type, 0), build_int_cst (type, 1),
+		 true, NULL);
+}
+
 /* Adds standard iv candidates.  */
 
 static void
 add_standard_iv_candidates (struct ivopts_data *data)
 {
-  /* Add 0 + 1 * iteration candidate.  */
-  add_candidate (data,
-		 build_int_cst (unsigned_intSI_type_node, 0),
-      		 build_int_cst (unsigned_intSI_type_node, 1),
-		 true, NULL);
+  add_standard_iv_candidates_for_size (data, INT_TYPE_SIZE);
 
-  /* The same for a long type if it is still fast enough.  */
-  if (BITS_PER_WORD > 32)
-    add_candidate (data,
-		   build_int_cst (unsigned_intDI_type_node, 0),
-		   build_int_cst (unsigned_intDI_type_node, 1),
-		   true, NULL);
+  /* The same for a double-integer type if it is still fast enough.  */
+  if (BITS_PER_WORD >= INT_TYPE_SIZE * 2)
+    add_standard_iv_candidates_for_size (data, INT_TYPE_SIZE * 2);
 }
 
 
@@ -4878,15 +4884,17 @@ rewrite_use_compare (struct ivopts_data *data,
   
   if (may_eliminate_iv (data, use, cand, &compare, &bound))
     {
+      tree var = var_at_stmt (data->current_loop, cand, use->stmt);
+      tree var_type = TREE_TYPE (var);
+
+      bound = fold_convert (var_type, bound);
       op = force_gimple_operand (unshare_expr (bound), &stmts,
 				 true, NULL_TREE);
 
       if (stmts)
 	bsi_insert_before (&bsi, stmts, BSI_SAME_STMT);
 
-      *use->op_p = build2 (compare, boolean_type_node,
-			  var_at_stmt (data->current_loop,
-				       cand, use->stmt), op);
+      *use->op_p = build2 (compare, boolean_type_node, var, op);
       modify_stmt (use->stmt);
       return;
     }

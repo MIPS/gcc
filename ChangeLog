@@ -1,3 +1,22 @@
+2005-03-25  Paolo Bonzini  <bonzini@gnu.org>
+
+	* configure.in (RPATH_ENVVAR): Set to DYLD_LIBRARY_PATH on Darwin.
+	* configure: Regenerate.
+
+2005-03-14  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-03-03  David Ayers  <d.ayers@inode.at>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2005-03-01  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR libgcj/20160
+	* ltmain.sh: Avoid creating archives with components that have
+	duplicate basenames.
+
 2005-02-24  James A. Morrison  <phython@gcc.gnu.org>
 
 	* MAINTAINERS (Language Front Ends Maintainers): Add myself as

@@ -3915,6 +3915,10 @@ ia64_function_value (tree valtype, tree func ATTRIBUTE_UNUSED)
 
 	  offset = 0;
 	  bytesize = int_size_in_bytes (valtype);
+	  /* An empty PARALLEL is invalid here, but the return value
+	     doesn't matter for empty structs.  */
+	  if (bytesize == 0)
+	    return gen_rtx_REG (mode, GR_RET_FIRST);
 	  for (i = 0; offset < bytesize; i++)
 	    {
 	      loc[i] = gen_rtx_EXPR_LIST (VOIDmode,
@@ -6429,6 +6433,17 @@ issue_nops_and_insn (struct bundle_state *originator, int before_nops_num,
     }
   else
     {
+      /* If this is an insn that must be first in a group, then don't allow
+	 nops to be emitted before it.  Currently, alloc is the only such
+	 supported instruction.  */
+      /* ??? The bundling automatons should handle this for us, but they do
+	 not yet have support for the first_insn attribute.  */
+      if (before_nops_num > 0 && get_attr_first_insn (insn) == FIRST_INSN_YES)
+	{
+	  free_bundle_state (curr_state);
+	  return;
+	}
+
       state_transition (curr_state->dfa_state, dfa_pre_cycle_insn);
       state_transition (curr_state->dfa_state, NULL);
       curr_state->cost++;

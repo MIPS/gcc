@@ -2048,14 +2048,15 @@ duplicate_computed_gotos (void)
 	  int size = 0;
 
 	  FOR_BB_INSNS (bb, insn)
-	    {
-	      if (INSN_P (insn))
-	        size += get_attr_length (insn);
-	      if (size > max_size)
-		break;
-	    }
+	    if (INSN_P (insn))
+	      {
+		size += get_attr_length (insn);
+		if (size > max_size)
+		  break;
+	      }
 
-	  if (size <= max_size)
+	  if (size <= max_size
+	      && can_duplicate_block_p (bb))
 	    bitmap_set_bit (candidates, bb->index);
 	}
     }

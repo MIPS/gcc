@@ -1507,6 +1507,34 @@ fix = {
 
 
 /*
+ *  Fix hpux broken #ifndef _XOPEN_SOURCE_EXTENDED conditional on htonl etc.
+ */
+fix = {
+    hackname = hpux_htonl;
+    files    = netinet/in.h;
+    select   = "#ifndef _XOPEN_SOURCE_EXTENDED\n"
+               "(/\\*\n"
+               " \\* Macros for number representation conversion\\.\n"
+               " \\*/\n"
+               "#ifndef ntohl)";
+    c_fix     = format;
+    c_fix_arg = "#if 1\n%1";
+
+    test_text = "#ifndef _XOPEN_SOURCE_EXTENDED\n"
+                "/*\n"
+                " * Macros for number representation conversion.\n"
+                " */\n"
+                "#ifndef ntohl\n"
+                "#define ntohl(x)        (x)\n"
+                "#define ntohs(x)        (x)\n"
+                "#define htonl(x)        (x)\n"
+                "#define htons(x)        (x)\n"
+                "#endif\n"
+                "#endif  /* ! _XOPEN_SOURCE_EXTENDED */";
+};
+
+
+/*
  * HP-UX long_double
  */
 fix = {
@@ -2287,6 +2315,19 @@ fix = {
     test_text = "int __page_size;";
 };
 
+/*
+ * On broken glibc-2.3.3 systems an array of incomplete structures is
+ * passed to __sigsetjmp.  Fix that to take a pointer instead.
+ */
+fix = {
+    hackname  = pthread_incomplete_struct_argument;
+    files     = pthread.h;
+    select    = "struct __jmp_buf_tag";
+    c_fix     = format;
+    c_fix_arg = "%1 *%2%3";
+    c_fix_arg = "^(extern int __sigsetjmp \\(struct __jmp_buf_tag) (__env)\\[1\\](.*)$";
+    test_text = "extern int __sigsetjmp (struct __jmp_buf_tag __env[1], int __savemask);";
+};
 
 /*
  * On DYNIX/ptx, sys/mc_param.h has an embedded asm for the cpuid instruction

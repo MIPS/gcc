@@ -1353,8 +1353,8 @@ determine_specialization (tree template_id,
   /* Count the number of template headers specified for this
      specialization.  */
   header_count = 0;
-  for (b = current_binding_level;
-       b->kind == sk_template_parms || b->kind == sk_template_spec;
+  for (b = current_binding_level; 
+       b->kind == sk_template_parms;
        b = b->level_chain)
     ++header_count;
 
@@ -1423,6 +1423,14 @@ determine_specialization (tree template_id,
 	  if (header_count && header_count != template_count + 1)
 	    continue;
 
+	  /* Check that the number of template arguments at the
+	     innermost level for DECL is the same as for FN.  */
+	  if (current_binding_level->kind == sk_template_parms
+	      && !current_binding_level->explicit_spec_p
+	      && (TREE_VEC_LENGTH (DECL_INNERMOST_TEMPLATE_PARMS (fn))
+		  != TREE_VEC_LENGTH (TREE_VALUE (current_template_parms))))
+	    continue;
+ 
 	  /* See whether this function might be a specialization of this
 	     template.  */
 	  targs = get_bindings (fn, decl, explicit_targs);
@@ -6468,6 +6476,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	  SET_DECL_TEMPLATE_PARM_P (r);
 
 	type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	type = type_decays_to (type);
 	TREE_TYPE (r) = type;
 	cp_apply_type_quals_to_decl (cp_type_quals (type), r);
 
@@ -11089,6 +11098,7 @@ regenerate_decl_from_template (tree decl, tree tmpl)
 	    DECL_NAME (decl_parm) = DECL_NAME (pattern_parm);
 	  parm_type = tsubst (TREE_TYPE (pattern_parm), args, tf_error,
 			      NULL_TREE);
+	  parm_type = type_decays_to (parm_type);
 	  if (!same_type_p (TREE_TYPE (decl_parm), parm_type))
 	    TREE_TYPE (decl_parm) = parm_type;
 	  decl_parm = TREE_CHAIN (decl_parm);
@@ -12033,6 +12043,7 @@ value_dependent_expression_p (tree expression)
     {
       switch (TREE_CODE_CLASS (TREE_CODE (expression)))
 	{
+	case tcc_reference:
 	case tcc_unary:
 	  return (value_dependent_expression_p 
 		  (TREE_OPERAND (expression, 0)));
@@ -12056,7 +12067,6 @@ value_dependent_expression_p (tree expression)
 		return true;
 	    return false;
 	  }
-	case tcc_reference:
 	case tcc_statement:
 	  /* These cannot be value dependent.  */
 	  return false;
@@ -12376,7 +12386,8 @@ build_non_dependent_expr (tree expr)
   if (TREE_CODE (inner_expr) == OVERLOAD 
       || TREE_CODE (inner_expr) == FUNCTION_DECL
       || TREE_CODE (inner_expr) == TEMPLATE_DECL
-      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR)
+      || TREE_CODE (inner_expr) == TEMPLATE_ID_EXPR
+      || TREE_CODE (inner_expr) == OFFSET_REF)
     return expr;
   /* There is no need to return a proxy for a variable.  */
   if (TREE_CODE (expr) == VAR_DECL)

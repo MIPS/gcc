@@ -900,7 +900,7 @@ extern const char * structure_size_string;
          scratch registers.  */					\
       for (regno = FIRST_IWMMXT_GR_REGNUM;			\
 	   regno <= LAST_IWMMXT_GR_REGNUM; ++ regno)		\
-	fixed_regs[regno] = call_used_regs[regno] = 0;		\
+	fixed_regs[regno] = 0;					\
       /* The XScale ABI has wR0 - wR9 as scratch registers,     \
 	 the rest as call-preserved registers.  */		\
       for (regno = FIRST_IWMMXT_REGNUM;				\
@@ -1708,14 +1708,15 @@ typedef struct machine_function GTY(())
      register is needed to preserve stack alignment.  */
   int sibcall_blocked;
   /* Labels for per-function Thumb call-via stubs.  One per potential calling
-     register.  We can never call via SP, LR or PC.  */
-  rtx call_via[13];
+     register.  We can never call via LR or PC.  We can call via SP if a
+     trampoline happens to be on the top of the stack.  */
+  rtx call_via[14];
 }
 machine_function;
 
 /* As in the machine_function, a global set of call-via labels, for code 
    that is in text_section().  */
-extern GTY(()) rtx thumb_call_via_label[13];
+extern GTY(()) rtx thumb_call_via_label[14];
 
 /* A C type for declaring a variable that is used as the first argument of
    `FUNCTION_ARG' and other related values.  For some target machines, the

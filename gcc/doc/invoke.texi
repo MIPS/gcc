@@ -188,7 +188,7 @@ in the following sections.
 -Weffc++  -Wno-deprecated @gol
 -Wno-non-template-friend  -Wold-style-cast @gol
 -Woverloaded-virtual  -Wno-pmf-conversions @gol
--Wsign-promo  -Wsynth}
+-Wsign-promo}
 
 @item Objective-C and Objective-C++ Language Options
 @xref{Objective-C and Objective-C++ Dialect Options,,Options Controlling
@@ -547,7 +547,7 @@ Objective-C and Objective-C++ Dialects}.
 -mxgot  -mno-xgot  -mgp32  -mgp64  -mfp32  -mfp64 @gol
 -mhard-float  -msoft-float  -msingle-float  -mdouble-float @gol
 -mpaired-single  -mips3d @gol
--mint64  -mlong64  -mlong32 @gol
+-mint64  -mlong64  -mlong32  -msym32  -mno-sym32 @gol
 -G@var{num}  -membedded-data  -mno-embedded-data @gol
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
 -msplit-addresses  -mno-split-addresses  @gol
@@ -557,7 +557,8 @@ Objective-C and Objective-C++ Dialects}.
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
 -mmad  -mno-mad  -mfused-madd  -mno-fused-madd  -nocpp @gol
 -mfix-r4000  -mno-fix-r4000  -mfix-r4400  -mno-fix-r4400 @gol
--mfix-vr4120  -mno-fix-vr4120  -mfix-sb1  -mno-fix-sb1 @gol
+-mfix-vr4120  -mno-fix-vr4120  -mfix-vr4130 @gol
+-mfix-sb1  -mno-fix-sb1 @gol
 -mflush-func=@var{func}  -mno-flush-func @gol
 -mbranch-likely  -mno-branch-likely @gol
 -mfp-exceptions -mno-fp-exceptions @gol
@@ -1102,7 +1103,7 @@ ISO C90 as modified in amendment 1.
 @itemx iso9899:1999
 @itemx iso9899:199x
 ISO C99.  Note that this standard is not yet fully supported; see
-@w{@uref{http://gcc.gnu.org/c99status.html}} for more information.  The
+@w{@uref{http://gcc.gnu.org/gcc-4.0/c99status.html}} for more information.  The
 names @samp{c9x} and @samp{iso9899:199x} are deprecated.
 
 @item gnu89
@@ -1789,13 +1790,6 @@ Warn when overload resolution chooses a promotion from unsigned or
 enumerated type to a signed type, over a conversion to an unsigned type of
 the same size.  Previous versions of G++ would try to preserve
 unsignedness, but the standard mandates the current behavior.
-
-@item -Wsynth @r{(C++ only)}
-@opindex Wsynth
-@cindex warning for synthesized methods
-@cindex synthesized methods, warning
-Warn when G++'s synthesis behavior does not match that of cfront.  For
-instance:
 
 @smallexample
 struct A @{
@@ -5442,7 +5436,7 @@ This number sets the maximum number of instructions (counted in GCC's
 internal representation) in a single function that the tree inliner
 will consider for inlining.  This only affects functions declared
 inline and methods implemented in a class declaration (C++).
-The default value is 500.
+The default value is 450.
 
 @item max-inline-insns-auto
 When you use @option{-finline-functions} (included in @option{-O3}),
@@ -5450,7 +5444,7 @@ a lot of functions that would otherwise not be considered for inlining
 by the compiler will be investigated.  To those functions, a different
 (more restrictive) limit compared to functions declared inline can
 be applied.
-The default value is 120.
+The default value is 90.
 
 @item large-function-insns
 The limit specifying really large functions.  For functions larger than this
@@ -5459,7 +5453,7 @@ limit after inlining inlining is constrained by
 to avoid extreme compilation time caused by non-linear algorithms used by the
 backend.
 This parameter is ignored when @option{-funit-at-a-time} is not used.
-The default value is 3000.
+The default value is 2700.
 
 @item large-function-growth
 Specifies maximal growth of large function caused by inlining in percents.
@@ -5482,7 +5476,7 @@ For functions declared inline @option{--param max-inline-insns-recursive} is
 taken into acount.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-insns-recursive-auto} is used.  The
-default value is 500.
+default value is 450.
 
 @item max-inline-recursive-depth
 @itemx max-inline-recursive-depth-auto
@@ -5492,7 +5486,16 @@ For functions declared inline @option{--param max-inline-recursive-depth} is
 taken into acount.  For function not declared inline, recursive inlining
 happens only when @option{-finline-functions} (included in @option{-O3}) is
 enabled and @option{--param max-inline-recursive-depth-auto} is used.  The
-default value is 500.
+default value is 450.
+
+@item inline-call-cost
+Specify cost of call instruction relative to simple arithmetics operations
+(having cost of 1).  Increasing this cost disqualify inlinining of non-leaf
+functions and at same time increase size of leaf function that is believed to
+reduce function size by being inlined.  In effect it increase amount of
+inlining for code having large abstraction penalty (many functions that just
+pass the argumetns to other functions) and decrease inlining for code with low
+abstraction penalty.  Default value is 16.
 
 @item max-unrolled-insns
 The maximum number of instructions that a loop should have if that loop
@@ -7266,7 +7269,7 @@ The subtype of the file created (like @samp{ppc7400} or @samp{ppc970} or
 that GCC is targetting, like @option{-mcpu} or @option{-march}.  The
 @option{-force_cpusubtype_ALL} option can be used to override this.
 
-The Darwin tools vary in their behaviour when presented with an ISA
+The Darwin tools vary in their behavior when presented with an ISA
 mismatch.  The assembler, @file{as}, will only permit instructions to
 be used that are valid for the subtype of the file it is generating,
 so you cannot put 64-bit instructions in an @samp{ppc750} object file.
@@ -9660,6 +9663,15 @@ uses 64-bit @code{long}s, as does the 64-bit EABI; the others use
 32-bit @code{long}s.  Pointers are the same size as @code{long}s,
 or the same size as integer registers, whichever is smaller.
 
+@item -msym32
+@itemx -mno-sym32
+@opindex msym32
+@opindex mno-sym32
+Assume (do not assume) that all symbols have 32-bit values, regardless
+of the selected ABI@.  This option is useful in combination with
+@option{-mabi=64} and @option{-mno-abicalls} because it allows GCC
+to generate shorter and faster references to symbolic addresses.
+
 @item -G @var{num}
 @opindex G
 @cindex smaller data references (MIPS)
@@ -9692,7 +9704,7 @@ This option is only meaningful in conjunction with @option{-membedded-data}.
 @opindex msplit-addresses
 @opindex mno-split-addresses
 Enable (disable) use of the @code{%hi()} and @code{%lo()} assembler
-relocation operators.  This option has been superceded by
+relocation operators.  This option has been superseded by
 @option{-mexplicit-relocs} but is retained for backwards compatibility.
 
 @item -mexplicit-relocs
@@ -9819,6 +9831,14 @@ the @code{mips64vr*-elf} configurations.
 
 Other VR4120 errata require a nop to be inserted between certain pairs of
 instructions.  These errata are handled by the assembler, not by GCC itself.
+
+@item -mfix-vr4130
+@opindex mfix-vr4130
+Work around the VR4130 @code{mflo}/@code{mfhi} errata.  The
+workarounds are implemented by the assembler rather than by GCC,
+although GCC will avoid using @code{mflo} and @code{mfhi} if the
+VR4130 @code{macc}, @code{macchi}, @code{dmacc} and @code{dmacchi}
+instructions are available instead.
 
 @item -mfix-sb1
 @itemx -mno-fix-sb1
@@ -10354,7 +10374,7 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{601}, @samp{602}, @samp{603}, @samp{603e}, @samp{604},
 @samp{604e}, @samp{620}, @samp{630}, @samp{740}, @samp{7400},
 @samp{7450}, @samp{750}, @samp{801}, @samp{821}, @samp{823},
-@samp{860}, @samp{970}, @samp{common}, @samp{ec603e}, @samp{G3},
+@samp{860}, @samp{970}, @samp{8540}, @samp{common}, @samp{ec603e}, @samp{G3},
 @samp{G4}, @samp{G5}, @samp{power}, @samp{power2}, @samp{power3},
 @samp{power4}, @samp{power5}, @samp{powerpc}, @samp{powerpc64},
 @samp{rios}, @samp{rios1}, @samp{rios2}, @samp{rsc}, and @samp{rs64a}.
@@ -11451,7 +11471,7 @@ on SPARC-V9 processors in 64-bit environments:
 @item -mlittle-endian
 @opindex mlittle-endian
 Generate code for a processor running in little-endian mode.  It is only
-available for a few configurations and most notably not on Solaris.
+available for a few configurations and most notably not on Solaris and Linux.
 
 @item -m32
 @itemx -m64

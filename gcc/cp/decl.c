@@ -948,6 +948,12 @@ decls_match (tree newdecl, tree olddecl)
     }
   else
     {
+      /* Need to check scope for variable declaration (VAR_DECL).
+	 For typedef (TYPE_DECL), scope is ignored.  */
+      if (TREE_CODE (newdecl) == VAR_DECL
+	  && CP_DECL_CONTEXT (newdecl) != CP_DECL_CONTEXT (olddecl))
+	return 0;
+
       if (TREE_TYPE (newdecl) == error_mark_node)
 	types_match = TREE_TYPE (olddecl) == error_mark_node;
       else if (TREE_TYPE (olddecl) == NULL_TREE)
@@ -1920,7 +1926,8 @@ redeclaration_error_message (tree newdecl, tree olddecl)
       /* If both functions come from different namespaces, this is not
 	 a redeclaration - this is a conflict with a used function.  */
       if (DECL_NAMESPACE_SCOPE_P (olddecl)
-	  && DECL_CONTEXT (olddecl) != DECL_CONTEXT (newdecl))
+	  && DECL_CONTEXT (olddecl) != DECL_CONTEXT (newdecl)
+	  && ! decls_match (olddecl, newdecl))
 	return "%qD conflicts with used function";
 
       /* We'll complain about linkage mismatches in
@@ -3906,7 +3913,8 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	 But let's leave it here to ease the eventual merge.  */
       int do_default = !DECL_EXTERNAL (decl);
       tree initializer = init ? init : DECL_INITIAL (decl);
-      int failure = complete_array_type (type, initializer, do_default);
+      int failure = cp_complete_array_type (&TREE_TYPE (decl), initializer,
+					    do_default);
 
       if (failure == 1)
 	error ("initializer fails to determine size of %qD", decl);
@@ -3923,9 +3931,7 @@ maybe_deduce_size_from_array_init (tree decl, tree init)
 	    DECL_EXTERNAL (decl) = 1;
 	}
 
-      if (pedantic && TYPE_DOMAIN (type) != NULL_TREE
-	  && tree_int_cst_lt (TYPE_MAX_VALUE (TYPE_DOMAIN (type)),
-			      integer_zero_node))
+      if (failure == 3)
 	error ("zero-size array %qD", decl);
 
       layout_decl (decl, 0);
@@ -4103,13 +4109,18 @@ reshape_init_array (tree elt_type, tree max_index,
 		    tree *initp, tree new_init)
 {
   bool sized_array_p = (max_index != NULL_TREE);
-  HOST_WIDE_INT max_index_cst = 0;
-  HOST_WIDE_INT index;
+  unsigned HOST_WIDE_INT max_index_cst = 0;
+  unsigned HOST_WIDE_INT index;
 
   if (sized_array_p)
-    /* HWI is either 32bit or 64bit, so it must be enough to represent the
-	array size.  */
-    max_index_cst = tree_low_cst (max_index, 1);
+    {
+      if (host_integerp (max_index, 1))
+	max_index_cst = tree_low_cst (max_index, 1);
+      /* sizetype is sign extended, not zero extended.  */
+      else
+	max_index_cst = tree_low_cst (fold_convert (size_type_node, max_index),
+				      1);
+    }
 
   /* Loop until there are no more initializers.  */
   for (index = 0;
@@ -4126,27 +4137,16 @@ reshape_init_array (tree elt_type, tree max_index,
       CONSTRUCTOR_ELTS (new_init) = element_init;
       designated_index = TREE_PURPOSE (element_init);
       if (designated_index)
-      {
+	{
 	  /* Handle array designated initializers (GNU extension).  */
 	  if (TREE_CODE (designated_index) == IDENTIFIER_NODE)
 	    {
 	      error ("name %qD used in a GNU-style designated "
-                     "initializer for an array", designated_index);
+		     "initializer for an array", designated_index);
 	      TREE_PURPOSE (element_init) = NULL_TREE;
 	    }
 	  else
-	    {
-	      gcc_assert (TREE_CODE (designated_index) == INTEGER_CST);
-	      if (sized_array_p
-		  && tree_int_cst_lt (max_index, designated_index))
-		{
-		  error ("Designated initializer %qE larger than array "
-			 "size", designated_index);
-		  TREE_PURPOSE (element_init) = NULL_TREE;
-		}
-	      else
-		index = tree_low_cst (designated_index, 1);
-	    }
+	    gcc_unreachable ();
 	}
     }
 
@@ -5339,99 +5339,41 @@ expand_static_init (tree decl, tree init)
    2 if there was no information (in which case assume 0 if DO_DEFAULT).  */
 
 int
-complete_array_type (tree type, tree initial_value, int do_default)
+cp_complete_array_type (tree *ptype, tree initial_value, bool do_default)
 {
-  tree maxindex = NULL_TREE;
-  int value = 0;
+  int failure;
+  tree type, elt_type;
 
   if (initial_value)
     {
       /* An array of character type can be initialized from a
 	 brace-enclosed string constant.  */
-      if (char_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (type)))
+      if (char_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (*ptype)))
 	  && TREE_CODE (initial_value) == CONSTRUCTOR
 	  && CONSTRUCTOR_ELTS (initial_value)
 	  && (TREE_CODE (TREE_VALUE (CONSTRUCTOR_ELTS (initial_value)))
 	      == STRING_CST)
 	  && TREE_CHAIN (CONSTRUCTOR_ELTS (initial_value)) == NULL_TREE)
 	initial_value = TREE_VALUE (CONSTRUCTOR_ELTS (initial_value));
-
-      /* Note MAXINDEX is really the maximum index, one less than the
-	 size.  */
-      if (TREE_CODE (initial_value) == STRING_CST)
-	{
-	  int eltsize
-	    = int_size_in_bytes (TREE_TYPE (TREE_TYPE (initial_value)));
-	  maxindex = build_int_cst (NULL_TREE,
-				    (TREE_STRING_LENGTH (initial_value)
-				     / eltsize) - 1);
-	}
-      else if (TREE_CODE (initial_value) == CONSTRUCTOR)
-	{
-	  tree elts = CONSTRUCTOR_ELTS (initial_value);
-
-	  maxindex = ssize_int (-1);
-	  for (; elts; elts = TREE_CHAIN (elts))
-	    {
-	      if (TREE_PURPOSE (elts))
-		maxindex = TREE_PURPOSE (elts);
-	      else
-		maxindex = size_binop (PLUS_EXPR, maxindex, ssize_int (1));
-	    }
-	}
-      else
-	{
-	  /* Make an error message unless that happened already.  */
-	  if (initial_value != error_mark_node)
-	    value = 1;
-	  else
-	    initial_value = NULL_TREE;
-
-	  /* Prevent further error messages.  */
-	  maxindex = build_int_cst (NULL_TREE, 0);
-	}
     }
-
-  if (!maxindex)
+  
+  failure = complete_array_type (ptype, initial_value, do_default);
+  
+  /* We can create the array before the element type is complete, which
+     means that we didn't have these two bits set in the original type
+     either.  In completing the type, we are expected to propagate these
+     bits.  See also complete_type which does the same thing for arrays
+     of fixed size.  */
+  type = *ptype;
+  if (TYPE_DOMAIN (type))
     {
-      if (do_default)
-	maxindex = build_int_cst (NULL_TREE, 0);
-      value = 2;
-    }
-
-  if (maxindex)
-    {
-      tree itype;
-      tree domain;
-      tree elt_type;
-
-      domain = build_index_type (maxindex);
-      TYPE_DOMAIN (type) = domain;
-
-      if (initial_value)
-        itype = TREE_TYPE (initial_value);
-      else
-	itype = NULL;
-      if (itype && !TYPE_DOMAIN (itype))
-	TYPE_DOMAIN (itype) = domain;
-      /* The type of the main variant should never be used for arrays
-	 of different sizes.  It should only ever be completed with the
-	 size of the array.  */
-      if (! TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)))
-	TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)) = domain;
-
       elt_type = TREE_TYPE (type);
-      TYPE_NEEDS_CONSTRUCTING (type)
-	= TYPE_NEEDS_CONSTRUCTING (TYPE_MAIN_VARIANT (elt_type));
+      TYPE_NEEDS_CONSTRUCTING (type) = TYPE_NEEDS_CONSTRUCTING (elt_type);
       TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
-	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TYPE_MAIN_VARIANT (elt_type));
+	= TYPE_HAS_NONTRIVIAL_DESTRUCTOR (elt_type);
     }
 
-  /* Lay out the type now that we can get the real answer.  */
-
-  layout_type (type);
-
-  return value;
+  return failure;
 }
 
 /* Return zero if something is declared to be a member of type
@@ -9991,7 +9933,12 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      class scope, current_class_type will be NULL_TREE until set above
      by push_nested_class.)  */
   if (processing_template_decl)
-    decl1 = push_template_decl (decl1);
+    {
+      /* FIXME: Handle error_mark_node more gracefully.  */
+      tree newdecl1 = push_template_decl (decl1);
+      if (newdecl1 != error_mark_node)
+        decl1 = newdecl1;
+    }
 
   /* We are now in the scope of the function being defined.  */
   current_function_decl = decl1;
@@ -11115,7 +11062,22 @@ cxx_comdat_group (tree decl)
   /* For all other DECLs, the COMDAT group is the mangled name of the
      declaration itself.  */
   else
-    name = DECL_ASSEMBLER_NAME (decl);
+    {
+      while (DECL_THUNK_P (decl))
+	{
+	  /* If TARGET_USE_LOCAL_THUNK_ALIAS_P, use_thunk puts the thunk
+	     into the same section as the target function.  In that case
+	     we must return target's name.  */
+	  tree target = THUNK_TARGET (decl);
+	  if (TARGET_USE_LOCAL_THUNK_ALIAS_P (target)
+	      && DECL_SECTION_NAME (target) != NULL
+	      && DECL_ONE_ONLY (target))
+	    decl = target;
+	  else
+	    break;
+	}
+      name = DECL_ASSEMBLER_NAME (decl);
+    }
 
   return IDENTIFIER_POINTER (name);
 }

@@ -1089,7 +1089,7 @@ case "${which_gcj}" in
       else
          GCJ="${target_noncanonical}-gcj -B`${PWDCMD-pwd}`/"
       fi
-      ZIP=jar
+      ZIP='$(target_noncanonical)-fastjar'
       GCJH='$(target_noncanonical)-gcjh'
    ;;
    path)
@@ -1206,6 +1206,9 @@ gcjversion=`$GCJ -v 2>&1 | sed -n 's/^.*version \([[^ ]]*\).*$/\1/p'`
 GCJVERSION=$gcjversion
 AC_SUBST(GCJVERSION)
 AC_DEFINE_UNQUOTED(GCJVERSION, "$GCJVERSION", [Short GCJ version ID])
+
+AC_DEFINE(JV_VERSION, "1.4.2", [Compatibility version string])
+AC_DEFINE(JV_API_VERSION, "1.4", [API compatibility version string])
 
 TL_AC_GXX_INCLUDE_DIR
 

@@ -1,7 +1,7 @@
 // TR1 functional -*- C++ -*-
 
 // Copyright (C) 2005 Free Software Foundation, Inc.
-// Writtten by Douglas Gregor <dgregor@cs.indiana.edu>
+// Written by Douglas Gregor <doug.gregor -at- gmail.com>
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -28,10 +28,149 @@
 // invalidate any other reasons why the executable file might be covered by
 // the GNU General Public License.
 
-/** @file function_iterate.h
+/** @file functional_iterate.h
  *  This is an internal header file, included by other library headers.
  *  You should not attempt to use it directly.
  */
+
+template<typename _Res _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+  struct _Weak_result_type_impl<_Res(_GLIBCXX_TEMPLATE_ARGS)>
+  {
+    typedef _Res result_type;
+  };
+
+template<typename _Res _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+  struct _Weak_result_type_impl<_Res (&)(_GLIBCXX_TEMPLATE_ARGS)>
+  {
+    typedef _Res result_type;
+  };
+
+template<typename _Res _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+  struct _Weak_result_type_impl<_Res (*)(_GLIBCXX_TEMPLATE_ARGS)>
+  {
+    typedef _Res result_type;
+  };
+
+#if _GLIBCXX_NUM_ARGS > 0
+template<typename _Res, typename _Class _GLIBCXX_COMMA_SHIFTED
+         _GLIBCXX_TEMPLATE_PARAMS_SHIFTED>
+  struct _Weak_result_type_impl<
+           _Res (_Class::*)(_GLIBCXX_TEMPLATE_ARGS_SHIFTED)>
+  {
+    typedef _Res result_type;
+  };
+
+template<typename _Res, typename _Class _GLIBCXX_COMMA_SHIFTED
+         _GLIBCXX_TEMPLATE_PARAMS_SHIFTED>
+  struct _Weak_result_type_impl<
+           _Res (_Class::*)(_GLIBCXX_TEMPLATE_ARGS_SHIFTED) const>
+  {
+    typedef _Res result_type;
+  };
+
+template<typename _Res, typename _Class _GLIBCXX_COMMA_SHIFTED
+         _GLIBCXX_TEMPLATE_PARAMS_SHIFTED>
+  struct _Weak_result_type_impl<
+           _Res (_Class::*)(_GLIBCXX_TEMPLATE_ARGS_SHIFTED) volatile>
+  {
+    typedef _Res result_type;
+  };
+
+template<typename _Res, typename _Class _GLIBCXX_COMMA_SHIFTED
+         _GLIBCXX_TEMPLATE_PARAMS_SHIFTED>
+  struct _Weak_result_type_impl<
+           _Res (_Class::*)(_GLIBCXX_TEMPLATE_ARGS_SHIFTED) const volatile>
+  {
+    typedef _Res result_type;
+  };
+#endif
+
+template<typename _Functor _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+  class result_of<_Functor(_GLIBCXX_TEMPLATE_ARGS)>
+    : public _Result_of_impl<
+               _Has_result_type<_Weak_result_type<_Functor> >::value,
+             _Functor(_GLIBCXX_TEMPLATE_ARGS)>
+  { };
+
+template<typename _Functor _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+  struct _Result_of_impl<true, _Functor(_GLIBCXX_TEMPLATE_ARGS)>
+  {
+    typedef typename _Weak_result_type<_Functor>::result_type type;
+  };
+
+template<typename _Functor _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+  struct _Result_of_impl<false, _Functor(_GLIBCXX_TEMPLATE_ARGS)>
+  {
+#if _GLIBCXX_NUM_ARGS > 0
+    typedef typename _Functor
+              ::template result<_Functor(_GLIBCXX_TEMPLATE_ARGS)>::type type;
+#else
+    typedef void type;
+#endif
+  };
+
+/**
+ * @if maint
+ * Invoke a function object, which may be either a member pointer or a
+ * function object. The first parameter will tell which.
+ * @endif
+ */
+template<typename _Functor _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+  inline
+  typename __enable_if<
+             typename result_of<_Functor(_GLIBCXX_TEMPLATE_ARGS)>::type,
+             (!is_member_pointer<_Functor>::value
+              && !is_function<_Functor>::value
+              && !is_function<typename remove_pointer<_Functor>::type>::value)
+           >::__type
+  __invoke(_Functor& __f _GLIBCXX_COMMA _GLIBCXX_REF_PARAMS)
+  {
+    return __f(_GLIBCXX_ARGS);
+  }
+
+#if _GLIBCXX_NUM_ARGS > 0
+template<typename _Functor _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+  inline
+  typename __enable_if<
+             typename result_of<_Functor(_GLIBCXX_TEMPLATE_ARGS)>::type,
+             (is_member_pointer<_Functor>::value
+              && !is_function<_Functor>::value
+              && !is_function<typename remove_pointer<_Functor>::type>::value)
+           >::__type
+  __invoke(_Functor& __f _GLIBCXX_COMMA _GLIBCXX_REF_PARAMS)
+  {
+    return mem_fn(__f)(_GLIBCXX_ARGS);
+  }
+#endif
+
+// To pick up function references (that will become function pointers)
+template<typename _Functor _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+  inline
+  typename __enable_if<
+             typename result_of<_Functor(_GLIBCXX_TEMPLATE_ARGS)>::type,
+             (is_pointer<_Functor>::value
+              && is_function<typename remove_pointer<_Functor>::type>::value)
+           >::__type
+  __invoke(_Functor __f _GLIBCXX_COMMA _GLIBCXX_REF_PARAMS)
+  {
+    return __f(_GLIBCXX_ARGS);
+  }
+
+/**
+ * @if maint
+ * Implementation of reference_wrapper::operator()
+ * @endif
+*/
+#if _GLIBCXX_NUM_ARGS > 0
+template<typename _Tp>
+template<_GLIBCXX_TEMPLATE_PARAMS>
+  typename result_of<
+   typename reference_wrapper<_Tp>::_M_func_type(_GLIBCXX_TEMPLATE_ARGS)>::type
+  reference_wrapper<_Tp>::operator()(_GLIBCXX_REF_PARAMS) const
+  {
+    return __invoke(get(), _GLIBCXX_ARGS);
+  }
+#endif
 
 #if _GLIBCXX_NUM_ARGS > 0
 template<typename _Res, typename _Class _GLIBCXX_COMMA_SHIFTED
@@ -197,7 +336,7 @@ template<typename _Res, typename _Class _GLIBCXX_COMMA_SHIFTED
 
 template<typename _Res, typename _Class _GLIBCXX_COMMA_SHIFTED
          _GLIBCXX_TEMPLATE_PARAMS_SHIFTED>
-  class _Mem_fn<_Res (_Class::*)(_GLIBCXX_TEMPLATE_ARGS_SHIFTED) const volatile>
+  class _Mem_fn<_Res(_Class::*)(_GLIBCXX_TEMPLATE_ARGS_SHIFTED) const volatile>
 #if _GLIBCXX_NUM_ARGS == 1
   : public unary_function<const volatile _Class*, _Res>
 #elif _GLIBCXX_NUM_ARGS == 2
@@ -251,7 +390,89 @@ template<typename _Res, typename _Class _GLIBCXX_COMMA_SHIFTED
   };
 #endif
 
-template<typename _Signature, typename _Functor> class _Function_handler;
+#if _GLIBCXX_NUM_ARGS > 0
+namespace placeholders
+{
+namespace
+{
+   _Placeholder<_GLIBCXX_NUM_ARGS> _GLIBCXX_JOIN(_,_GLIBCXX_NUM_ARGS);
+}
+}
+#endif
+
+template<typename _Functor _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+class _Bind<_Functor(_GLIBCXX_TEMPLATE_ARGS)>
+  : public _Weak_result_type<_Functor>
+{
+  typedef _Bind __self_type;
+
+  _Functor _M_f;
+  _GLIBCXX_BIND_MEMBERS
+
+ public:
+#if _GLIBCXX_NUM_ARGS == 0
+  explicit
+#endif
+  _Bind(_Functor __f _GLIBCXX_COMMA _GLIBCXX_PARAMS)
+    : _M_f(__f) _GLIBCXX_COMMA _GLIBCXX_BIND_MEMBERS_INIT { }
+
+#define _GLIBCXX_BIND_REPEAT_HEADER <tr1/bind_iterate.h>
+#include <tr1/bind_repeat.h>
+#undef _GLIBCXX_BIND_REPEAT_HEADER
+};
+
+template<typename _Result, typename _Functor
+         _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+class _Bind_result<_Result, _Functor(_GLIBCXX_TEMPLATE_ARGS)>
+{
+  _Functor _M_f;
+  _GLIBCXX_BIND_MEMBERS
+
+ public:
+  typedef _Result result_type;
+
+#if _GLIBCXX_NUM_ARGS == 0
+  explicit
+#endif
+  _Bind_result(_Functor __f _GLIBCXX_COMMA _GLIBCXX_PARAMS)
+    : _M_f(__f) _GLIBCXX_COMMA _GLIBCXX_BIND_MEMBERS_INIT { }
+
+#define _GLIBCXX_BIND_REPEAT_HEADER <tr1/bind_iterate.h>
+#define _GLIBCXX_BIND_HAS_RESULT_TYPE
+#include <tr1/bind_repeat.h>
+#undef _GLIBCXX_BIND_HAS_RESULT_TYPE
+#undef _GLIBCXX_BIND_REPEAT_HEADER
+};
+
+// Handle arbitrary function objects
+template<typename _Functor _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+inline
+_Bind<typename _Maybe_wrap_member_pointer<_Functor>::type
+        (_GLIBCXX_TEMPLATE_ARGS)>
+bind(_Functor __f _GLIBCXX_COMMA _GLIBCXX_PARAMS)
+{
+  typedef _Maybe_wrap_member_pointer<_Functor> __maybe_type;
+  typedef typename __maybe_type::type __functor_type;
+  typedef _Bind<__functor_type(_GLIBCXX_TEMPLATE_ARGS)> __result_type;
+  return __result_type(__maybe_type::__do_wrap(__f)
+                       _GLIBCXX_COMMA _GLIBCXX_ARGS);
+}
+
+template<typename _Result, typename _Functor
+         _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
+inline
+_Bind_result<_Result,
+             typename _Maybe_wrap_member_pointer<_Functor>::type
+               (_GLIBCXX_TEMPLATE_ARGS)>
+bind(_Functor __f _GLIBCXX_COMMA _GLIBCXX_PARAMS)
+{
+  typedef _Maybe_wrap_member_pointer<_Functor> __maybe_type;
+  typedef typename __maybe_type::type __functor_type;
+  typedef _Bind_result<_Result, __functor_type(_GLIBCXX_TEMPLATE_ARGS)>
+    __result_type;
+  return __result_type(__maybe_type::__do_wrap(__f)
+                       _GLIBCXX_COMMA _GLIBCXX_ARGS);
+}
 
 template<typename _Res, typename _Functor _GLIBCXX_COMMA
          _GLIBCXX_TEMPLATE_PARAMS>
@@ -600,7 +821,8 @@ class function<_Res(_GLIBCXX_TEMPLATE_ARGS)>
   template<typename _Function>
     void operator!=(const function<_Function>&) const;
 
-  typedef _Res (*_Invoker_type)(const _Any_data& _GLIBCXX_COMMA _GLIBCXX_PARAMS);
+  typedef _Res (*_Invoker_type)(const _Any_data& _GLIBCXX_COMMA
+                                _GLIBCXX_PARAMS);
   _Invoker_type _M_invoker;
 };
 
@@ -632,7 +854,8 @@ template<typename _Functor>
 }
 
 template<typename _Res _GLIBCXX_COMMA _GLIBCXX_TEMPLATE_PARAMS>
-  _Res function<_Res(_GLIBCXX_TEMPLATE_ARGS)>::operator()(_GLIBCXX_PARAMS) const
+  _Res
+  function<_Res(_GLIBCXX_TEMPLATE_ARGS)>::operator()(_GLIBCXX_PARAMS) const
   {
     if (_M_empty())
       {

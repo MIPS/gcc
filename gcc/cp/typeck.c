@@ -3530,23 +3530,6 @@ build_x_unary_op (enum tree_code code, tree xarg)
       if (type_dependent_expression_p (xarg))
 	return build_min_nt (code, xarg, NULL_TREE);
 
-      /* For non-dependent pointer-to-member, the SCOPE_REF will be
-	 processed during template substitution.  Just compute the
-	 right type here and build an ADDR_EXPR around it for
-	 diagnostics.  */
-      if (code == ADDR_EXPR && TREE_CODE (xarg) == SCOPE_REF)
-	{
-	  tree type;
-	  if (TREE_TYPE (xarg) == unknown_type_node)
-	    type = unknown_type_node;
-	  else if (TREE_CODE (TREE_TYPE (xarg)) == FUNCTION_TYPE)
-	    type = build_pointer_type (TREE_TYPE (xarg));
-	  else
-	    type = build_ptrmem_type (TREE_OPERAND (xarg, 0),
-				      TREE_TYPE (xarg));
-	  return build_min (code, type, xarg, NULL_TREE);
-	}
-
       xarg = build_non_dependent_expr (xarg);
     }
 
@@ -3610,13 +3593,13 @@ build_x_unary_op (enum tree_code code, tree xarg)
       else if (TREE_CODE (xarg) == TARGET_EXPR)
 	warning ("taking address of temporary");
       exp = build_unary_op (ADDR_EXPR, xarg, 0);
-      if (TREE_CODE (exp) == ADDR_EXPR)
-	PTRMEM_OK_P (exp) = ptrmem;
     }
 
   if (processing_template_decl && exp != error_mark_node)
-    return build_min_non_dep (code, exp, orig_expr,
-			      /*For {PRE,POST}{INC,DEC}REMENT_EXPR*/NULL_TREE);
+    exp = build_min_non_dep (code, exp, orig_expr,
+			     /*For {PRE,POST}{INC,DEC}REMENT_EXPR*/NULL_TREE);
+  if (TREE_CODE (exp) == ADDR_EXPR)
+    PTRMEM_OK_P (exp) = ptrmem;
   return exp;
 }
 
@@ -4056,6 +4039,7 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	 is an error.  */
       else if (TREE_CODE (argtype) != FUNCTION_TYPE
 	       && TREE_CODE (argtype) != METHOD_TYPE
+	       && TREE_CODE (arg) != OFFSET_REF
 	       && !lvalue_or_else (arg, lv_addressof))
 	return error_mark_node;
 
@@ -4070,7 +4054,11 @@ build_unary_op (enum tree_code code, tree xarg, int noconvert)
 	       expression so we can just form an ADDR_EXPR with the
 	       correct type.  */
 	    || processing_template_decl)
-	  addr = build_address (arg);
+	  {
+	    addr = build_address (arg);
+	    if (TREE_CODE (arg) == OFFSET_REF)
+	      PTRMEM_OK_P (addr) = PTRMEM_OK_P (arg);
+	  }
 	else if (TREE_CODE (TREE_OPERAND (arg, 1)) == BASELINK)
 	  {
 	    tree fn = BASELINK_FUNCTIONS (TREE_OPERAND (arg, 1));
@@ -4636,13 +4624,15 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
      promotions, floating point promotion, integral conversions,
      floating point conversions, floating-integral conversions,
      pointer conversions, and pointer to member conversions.  */
-  if ((ARITHMETIC_TYPE_P (type) && ARITHMETIC_TYPE_P (intype))
-      /* DR 128
-
-         A value of integral _or enumeration_ type can be explicitly
-	 converted to an enumeration type.  */
-      || (INTEGRAL_OR_ENUMERATION_TYPE_P (type)
-	  && INTEGRAL_OR_ENUMERATION_TYPE_P (intype)))
+  /* DR 128
+     
+     A value of integral _or enumeration_ type can be explicitly
+     converted to an enumeration type.  */
+  /* The effect of all that is that any conversion between any two
+     types which are integral, floating, or enumeration types can be
+     performed.  */
+  if ((INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type))
+      && (INTEGRAL_TYPE_P (intype) || SCALAR_FLOAT_TYPE_P (intype)))
     {
       expr = ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL);
 
@@ -5711,7 +5701,10 @@ build_ptrmemfunc (tree type, tree pfn, int force, bool c_cast_p)
     return instantiate_type (type, pfn, tf_error | tf_warning);
 
   fn = TREE_OPERAND (pfn, 0);
-  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
+  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL
+	      /* In a template, we will have preserved the
+		 OFFSET_REF.  */
+	      || (processing_template_decl && TREE_CODE (fn) == OFFSET_REF));
   return make_ptrmem_cst (to_type, fn);
 }
 

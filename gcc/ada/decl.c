@@ -390,11 +390,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   stored discriminant.  Also use Original_Record_Component
 	   if the record has a private extension.  */
 
-	if ((Base_Type (gnat_record) == gnat_record
-             || Ekind (Scope (gnat_entity)) == E_Private_Subtype
-	     || Ekind (Scope (gnat_entity)) == E_Record_Subtype_With_Private
-	     || Ekind (Scope (gnat_entity)) == E_Record_Type_With_Private)
-	    && Present (Original_Record_Component (gnat_entity))
+	if (Present (Original_Record_Component (gnat_entity))
 	    && Original_Record_Component (gnat_entity) != gnat_entity)
 	  {
 	    gnu_decl
@@ -1011,6 +1007,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    const_flag = true;
 	  }
 
+	if (const_flag)
+	  gnu_type = build_qualified_type (gnu_type, (TYPE_QUALS (gnu_type)
+						      | TYPE_QUAL_CONST));
+
 	/* Convert the expression to the type of the object except in the
 	   case where the object's type is unconstrained or the object's type
 	   is a padded record whose field is of self-referential size.  In
@@ -1037,14 +1037,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		    && (!Is_Imported (gnat_entity)
 			|| Is_Exported (gnat_entity)))))
 	  gnu_ext_name = create_concat_name (gnat_entity, 0);
-
-	if (const_flag)
-	  {
-	    gnu_type = build_qualified_type (gnu_type, (TYPE_QUALS (gnu_type)
-							| TYPE_QUAL_CONST));
-	    if (gnu_expr)
-	      gnu_expr = convert (gnu_type, gnu_expr);
-	  }
 
 	/* If this is constant initialized to a static constant and the
 	   object has an aggregrate type, force it to be statically
@@ -1113,7 +1105,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* Back-annotate the Alignment of the object if not already in the
 	   tree.  Likewise for Esize if the object is of a constant size.
 	   But if the "object" is actually a pointer to an object, the
-	   alignment and size are the same as teh type, so don't back-annotate
+	   alignment and size are the same as the type, so don't back-annotate
 	   the values for the pointer.  */
 	if (!used_by_ref && Unknown_Alignment (gnat_entity))
 	  Set_Alignment (gnat_entity,
@@ -2221,6 +2213,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	gnu_type
 	  = build_array_type (gnat_to_gnu_type (Component_Type (gnat_entity)),
 			      gnu_index_type);
+	copy_alias_set (gnu_type,  gnu_string_type);
       }
       break;
 
@@ -2387,9 +2380,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		     build3 (COMPONENT_REF,
 			     get_unpadded_type (Etype (gnat_field)),
 			     gnu_get_parent,
-			     gnat_to_gnu_entity (Corresponding_Discriminant
-						 (gnat_field),
-						NULL_TREE, 0),
+			     gnat_to_gnu_field_decl (Corresponding_Discriminant
+						     (gnat_field)),
 			     NULL_TREE),
 		     true);
 
@@ -2449,29 +2441,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			      gnu_field_list, packed, definition, NULL,
 			      false, all_rep);
 
+	/* We used to remove the associations of the discriminants and
+	   _Parent for validity checking, but we may need them if there's
+	   Freeze_Node for a subtype used in this record.  */
+
 	TYPE_VOLATILE (gnu_type) = Treat_As_Volatile (gnat_entity);
 	TYPE_BY_REFERENCE_P (gnu_type) = Is_By_Reference_Type (gnat_entity);
-
-	/* If this is an extension type, reset the tree for any
-	   inherited discriminants.  Also remove the PLACEHOLDER_EXPR
-	   for non-inherited discriminants.  */
-	if (!Is_Unchecked_Union (gnat_entity)
-	    && Has_Discriminants (gnat_entity))
-	  for (gnat_field = First_Stored_Discriminant (gnat_entity);
-	       Present (gnat_field);
-	       gnat_field = Next_Stored_Discriminant (gnat_field))
-	    {
-	      if (Present (Parent_Subtype (gnat_entity))
-		  && Present (Corresponding_Discriminant (gnat_field)))
-		save_gnu_tree (gnat_field, NULL_TREE, false);
-	      else
-		{
-		  gnu_field = get_gnu_tree (gnat_field);
-		  save_gnu_tree (gnat_field, NULL_TREE, false);
-		  save_gnu_tree (gnat_field, TREE_OPERAND (gnu_field, 1),
-				 false);
-		}
-	    }
 
 	/* If it is a tagged record force the type to BLKmode to insure
 	   that these objects will always be placed in memory. Do the
@@ -2581,7 +2556,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      && Present (Discriminant_Constraint (gnat_entity)))
 	    {
 	      Entity_Id gnat_field;
-	      Entity_Id gnat_root_type;
 	      tree gnu_field_list = 0;
 	      tree gnu_pos_list
 		= compute_field_positions (gnu_orig_type, NULL_TREE,
@@ -2590,41 +2564,9 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      tree gnu_subst_list
 		= substitution_list (gnat_entity, gnat_base_type, NULL_TREE,
 				     definition);
-	      bool possibly_overlapping_fields = false;
 	      tree gnu_temp;
 
-	      /* If this is a derived type, we may be seeing fields from any
-		 original records, so add those positions and discriminant
-		 substitutions to our lists.  */
-	      for (gnat_root_type = gnat_base_type;
-		   Underlying_Type (Etype (gnat_root_type)) != gnat_root_type;
-		   gnat_root_type = Underlying_Type (Etype (gnat_root_type)))
-		{
-		  gnu_pos_list
-		    = compute_field_positions
-		      (gnat_to_gnu_type (Etype (gnat_root_type)),
-		       gnu_pos_list, size_zero_node, bitsize_zero_node,
-		       BIGGEST_ALIGNMENT);
-
-		  if (Present (Parent_Subtype (gnat_root_type)))
-		    {
-		      gnu_subst_list
-			= substitution_list (Parent_Subtype (gnat_root_type),
-					     Empty, gnu_subst_list,
-					     definition);
-
-		      /* If there's a _Parent field, it may overlap the
-			 fields we have that appear to be in this record but
-			 actually are from the parent.  So make note of that
-			 fact and later we'll make a UNION_TYPE instead of
-			 a RECORD_TYPE, since the latter may not have
-			 overlapping fields.  */
-		      possibly_overlapping_fields = true;
-		    }
-		}
-
-	      gnu_type = make_node (possibly_overlapping_fields
-				    ? UNION_TYPE : RECORD_TYPE);
+	      gnu_type = make_node (RECORD_TYPE);
 	      TYPE_NAME (gnu_type) = gnu_entity_id;
 	      TYPE_STUB_DECL (gnu_type)
 		= create_type_decl (NULL_TREE, gnu_type, NULL, false, false,
@@ -2633,12 +2575,17 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	      for (gnat_field = First_Entity (gnat_entity);
 		   Present (gnat_field); gnat_field = Next_Entity (gnat_field))
-		if (Ekind (gnat_field) == E_Component
-		    || Ekind (gnat_field) == E_Discriminant)
+		if ((Ekind (gnat_field) == E_Component
+		     || Ekind (gnat_field) == E_Discriminant)
+		    && (Underlying_Type (Scope (Original_Record_Component
+						(gnat_field)))
+			== gnat_base_type)
+		    && (No (Corresponding_Discriminant (gnat_field))
+			|| !Is_Tagged_Type (gnat_base_type)))
 		  {
 		    tree gnu_old_field
-		      = gnat_to_gnu_entity
-			(Original_Record_Component (gnat_field), NULL_TREE, 0);
+		      = gnat_to_gnu_field_decl (Original_Record_Component
+						(gnat_field));
 		    tree gnu_offset
 		      = TREE_VALUE (purpose_member (gnu_old_field,
 						    gnu_pos_list));
@@ -2728,6 +2675,16 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		    save_gnu_tree (gnat_field, gnu_field, false);
 		  }
 
+	      /* Now go through the entities again looking for Itypes that
+		 we have not elaborated but should (e.g., Etypes of fields
+		 that have Original_Components).  */
+	      for (gnat_field = First_Entity (gnat_entity);
+		   Present (gnat_field); gnat_field = Next_Entity (gnat_field))
+		if ((Ekind (gnat_field) == E_Discriminant
+		     || Ekind (gnat_field) == E_Component)
+		    && !present_gnu_tree (Etype (gnat_field)))
+		  gnat_to_gnu_entity (Etype (gnat_field), NULL_TREE, 0);
+
 	      finish_record_type (gnu_type, nreverse (gnu_field_list),
 				  true, false);
 
@@ -2812,7 +2769,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		   && !Is_Unchecked_Union (gnat_base_type))
 		  || Ekind (gnat_temp) == E_Component)
 		save_gnu_tree (gnat_temp,
-			       get_gnu_tree
+			       gnat_to_gnu_field_decl
 			       (Original_Record_Component (gnat_temp)), false);
 	}
       break;
@@ -4176,6 +4133,20 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
   return gnu_decl;
 }
+
+/* Similar, but if the returned value is a COMPONENT_REF, return the
+   FIELD_DECL.  */
+
+tree
+gnat_to_gnu_field_decl (Entity_Id gnat_entity)
+{
+  tree gnu_field = gnat_to_gnu_entity (gnat_entity, NULL_TREE, 0);
+
+  if (TREE_CODE (gnu_field) == COMPONENT_REF)
+    gnu_field = TREE_OPERAND (gnu_field, 1);
+
+  return gnu_field;
+}
 
 /* Given GNAT_ENTITY, elaborate all expressions that are required to
    be elaborated at the point of its definition, but do nothing else.  */
@@ -4292,19 +4263,26 @@ mark_out_of_scope (Entity_Id gnat_entity)
 static void
 copy_alias_set (tree gnu_new_type, tree gnu_old_type)
 {
+  /* Remove any padding from GNU_OLD_TYPE.  It doesn't matter in the case
+     of a one-dimensional array, since the padding has the same alias set
+     as the field type, but if it's a multi-dimensional array, we need to
+     see the inner types.  */
+  while (TREE_CODE (gnu_old_type) == RECORD_TYPE
+	 && (TYPE_JUSTIFIED_MODULAR_P (gnu_old_type)
+	     || TYPE_IS_PADDING_P (gnu_old_type)))
+    gnu_old_type = TREE_TYPE (TYPE_FIELDS (gnu_old_type));
+
+  /* We need to be careful here in case GNU_OLD_TYPE is an unconstrained
+     array.  In that case, it doesn't have the same shape as GNU_NEW_TYPE,
+     so we need to go down to what does.  */
+  if (TREE_CODE (gnu_old_type) == UNCONSTRAINED_ARRAY_TYPE)
+    gnu_old_type
+      = TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_old_type))));
+
   if (TREE_CODE (gnu_new_type) == ARRAY_TYPE
       && TREE_CODE (TREE_TYPE (gnu_new_type)) == ARRAY_TYPE
       && TYPE_MULTI_ARRAY_P (TREE_TYPE (gnu_new_type)))
-    {
-      /* We need to be careful here in case GNU_OLD_TYPE is an unconstrained
-	 array.  In that case, it doesn't have the same shape as GNU_NEW_TYPE,
-	 so we need to go down to what does.  */
-      if (TREE_CODE (gnu_old_type) == UNCONSTRAINED_ARRAY_TYPE)
-	gnu_old_type
-	  = TREE_TYPE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_old_type))));
-
-      copy_alias_set (TREE_TYPE (gnu_new_type), TREE_TYPE (gnu_old_type));
-    }
+    copy_alias_set (TREE_TYPE (gnu_new_type), TREE_TYPE (gnu_old_type));
 
   TYPE_ALIAS_SET (gnu_new_type) = get_alias_set (gnu_old_type);
   record_component_aliases (gnu_new_type);
@@ -4336,8 +4314,8 @@ substitution_list (Entity_Id gnat_subtype, Entity_Id gnat_type,
 	 gnat_value = Next_Elmt (gnat_value))
       /* Ignore access discriminants.  */
       if (!Is_Access_Type (Etype (Node (gnat_value))))
-	gnu_list = tree_cons (gnat_to_gnu_entity (gnat_discrim, NULL_TREE, 0),
-			    elaborate_expression
+	gnu_list = tree_cons (gnat_to_gnu_field_decl (gnat_discrim),
+			      elaborate_expression
 			      (Node (gnat_value), gnat_subtype,
 			       get_entity_name (gnat_discrim), definition,
 			       1, 0),
@@ -5781,7 +5759,7 @@ annotate_rep (Entity_Id gnat_entity, tree gnu_type)
   tree gnu_entry;
   Entity_Id gnat_field;
 
-  /* We operate by first making a list of all field and their positions
+  /* We operate by first making a list of all fields and their positions
      (we can get the sizes easily at any time) by a recursive call
      and then update all the sizes into the tree.  */
   gnu_list = compute_field_positions (gnu_type, NULL_TREE,
@@ -5796,9 +5774,8 @@ annotate_rep (Entity_Id gnat_entity, tree gnu_type)
       {
 	tree parent_offset = bitsize_zero_node;
 
-	gnu_entry
-	  = purpose_member (gnat_to_gnu_entity (gnat_field, NULL_TREE, 0),
-			    gnu_list);
+	gnu_entry = purpose_member (gnat_to_gnu_field_decl (gnat_field),
+				    gnu_list);
 
         if (gnu_entry)
 	  {

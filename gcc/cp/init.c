@@ -655,6 +655,11 @@ sort_mem_initializers (tree t, tree mem_inits)
 void
 emit_mem_initializers (tree mem_inits)
 {
+  /* We will already have issued an error message about the fact that
+     the type is incomplete.  */
+  if (!COMPLETE_TYPE_P (current_class_type))
+    return;
+  
   /* Sort the mem-initializers into the order in which the
      initializations should be performed.  */
   mem_inits = sort_mem_initializers (current_class_type, mem_inits);
@@ -1415,14 +1420,6 @@ build_offset_ref (tree type, tree name, bool address_p)
     {
       error ("%qD is not a member of type %qT", name, type);
       return error_mark_node;
-    }
-
-  if (processing_template_decl)
-    {
-      if (TREE_CODE (orig_name) == TEMPLATE_ID_EXPR)
-	return build_min (SCOPE_REF, TREE_TYPE (member), type, orig_name);
-      else
-	return build_min (SCOPE_REF, TREE_TYPE (member), type, name);
     }
 
   if (TREE_CODE (member) == TYPE_DECL)
@@ -2396,6 +2393,9 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
   tree atype = TREE_TYPE (base);
   /* The type of an element in the array.  */
   tree type = TREE_TYPE (atype);
+  /* The element type reached after removing all outer array 
+     types.  */
+  tree inner_elt_type;
   /* The type of a pointer to an element in the array.  */
   tree ptype;
   tree stmt_expr;
@@ -2411,15 +2411,17 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
   if (maxindex == NULL_TREE || maxindex == error_mark_node)
     return error_mark_node;
 
+  inner_elt_type = strip_array_types (atype);
   if (init
       && (from_array == 2
-	  ? (!CLASS_TYPE_P (type) || !TYPE_HAS_COMPLEX_ASSIGN_REF (type))
+	  ? (!CLASS_TYPE_P (inner_elt_type) 
+	     || !TYPE_HAS_COMPLEX_ASSIGN_REF (inner_elt_type))
 	  : !TYPE_NEEDS_CONSTRUCTING (type))
       && ((TREE_CODE (init) == CONSTRUCTOR
 	   /* Don't do this if the CONSTRUCTOR might contain something
 	      that might throw and require us to clean up.  */
 	   && (CONSTRUCTOR_ELTS (init) == NULL_TREE
-	       || ! TYPE_HAS_NONTRIVIAL_DESTRUCTOR (target_type (type))))
+	       || ! TYPE_HAS_NONTRIVIAL_DESTRUCTOR (inner_elt_type)))
 	  || from_array))
     {
       /* Do non-default initialization of POD arrays resulting from
@@ -2610,14 +2612,12 @@ build_vec_init (tree base, tree maxindex, tree init, int from_array)
       /* Flatten multi-dimensional array since build_vec_delete only
 	 expects one-dimensional array.  */
       if (TREE_CODE (type) == ARRAY_TYPE)
-	{
-	  m = cp_build_binary_op (MULT_EXPR, m,
-				  array_type_nelts_total (type));
-	  type = strip_array_types (type);
-	}
+	m = cp_build_binary_op (MULT_EXPR, m,
+				array_type_nelts_total (type));
 
       finish_cleanup_try_block (try_block);
-      e = build_vec_delete_1 (rval, m, type, sfk_base_destructor,
+      e = build_vec_delete_1 (rval, m, 
+			      inner_elt_type, sfk_base_destructor,
 			      /*use_global_delete=*/0);
       finish_cleanup (e, try_block);
     }

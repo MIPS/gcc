@@ -123,9 +123,20 @@ secdir = $(libdir)/security
 ## Where to install default logging property file.
 propdir = $(libdir)
 
+## Where the standard .db file is found.
+dbexecdir = $(libdir)/gcj-@gcc_version@
+## Name of the default .db.
+db_name = classmap.db
+## Compiler specific component of the .db file
+db_pathtail = gcj-@gcc_version@/$(db_name)
+
 ## For now, only on native systems.  FIXME.
 if NATIVE
 bin_PROGRAMS = jv-convert gij grmic grmiregistry gcj-dbtool
+
+## It is convenient to actually build and install the default database
+## when gcj-dbtool is available.
+dbexec_DATA = $(db_name)
 endif
 
 bin_SCRIPTS = addr2name.awk
@@ -171,7 +182,9 @@ AM_CXXFLAGS = \
 	-DPREFIX="\"$(prefix)\"" \
 	-DLIBDIR="\"$(libdir)\"" \
 	-DBOOT_CLASS_PATH="\"$(jardir)/$(jar_DATA)\"" \
-	-DJAVA_EXT_DIRS="\"$(jardir)/ext\""
+	-DJAVA_EXT_DIRS="\"$(jardir)/ext\"" \
+	-DLIBGCJ_DEFAULT_DATABASE="\"$(dbexecdir)/$(db_name)\"" \
+	-DLIBGCJ_DEFAULT_DATABASE_PATH_TAIL="\"$(db_pathtail)\""
 
 AM_GCJFLAGS = \
 	@LIBGCJ_JAVAFLAGS@ \
@@ -250,6 +263,17 @@ libgcj_la_DEPENDENCIES = libgcj-@gcc_version@.jar \
 	$(libgcj_la_LIBADD)
 libgcj_la_LINK = $(LIBLINK)
 
+
+## The .db file.  This rule is only used for native builds, so it is
+## safe to invoke gcj-dbtool.
+$(db_name): gcj-dbtool$(EXEEXT)
+## In case it exists already.
+	@rm -f $(db_name)
+## We don't actually care if it fails -- if it does, just make an
+## empty file.  This is simpler than trying to discover when mmap is
+## not available.
+	./gcj-dbtool -n $(db_name) || touch $(db_name)
+
 # Gtk/Cairo JNI sources.
 if GTK_CAIRO
 gtk_cairo_c_source_files = \
@@ -299,10 +323,7 @@ jni/gtk-peer/gnu_java_awt_peer_gtk_GtkWindowPeer.c \
 jni/gtk-peer/gnu_java_awt_peer_gtk_GThreadNativeMethodRunner.c \
 jni/gtk-peer/gthread-jni.c \
 jni/gtk-peer/gtk_jawt.c \
-jni/classpath/jcl.c \
-jni/classpath/jnilink.c	\
-jni/classpath/native_state.c \
-jni/classpath/primlib.c
+jni/classpath/native_state.c
 
 ## Java sources for Gtk peers.
 gtk_awt_peer_sources = \
@@ -448,10 +469,7 @@ $(gtk_awt_peer_sources) \
 $(gtk_c_source_files) \
 jni/gtk-peer/gthread-jni.h \
 jni/gtk-peer/gtkpeer.h \
-jni/classpath/jcl.h \
-jni/classpath/jnilink.h	\
-jni/classpath/native_state.h \
-jni/classpath/primlib.h
+jni/classpath/native_state.h
 
 lib_gnu_java_awt_peer_gtk_la_CFLAGS = \
 	-Ijniinclude -I$(srcdir)/jni/classpath \
@@ -467,7 +485,8 @@ lib_gnu_java_awt_peer_gtk_la_LINK = $(LIBLINK)
 
 libjawt_la_SOURCES = jawt.c
 libjawt_la_CFLAGS = -I$(srcdir)/jni/classpath $(PEDANTIC_CFLAGS) $(X_CFLAGS)
-libjawt_la_LIBADD = lib-gnu-java-awt-peer-gtk.la
+## See jv_convert_LDADD.
+libjawt_la_LIBADD = -L$(here)/.libs lib-gnu-java-awt-peer-gtk.la
 libjawt_la_LDFLAGS = \
 	-version-info `grep -v '^\#' $(srcdir)/libtool-version` \
 	$(LIBGCJ_LD_SYMBOLIC)
@@ -509,7 +528,7 @@ gnu/regexp/MessagesBundle.properties \
 gnu/regexp/MessagesBundle_fr.properties \
 org/ietf/jgss/MessagesBundle.properties
 
-propertyo_files = $(property_files:.properties=.properties.lo) 
+propertyo_files = $(property_files:.properties=.properties.lo)
 
 %.properties.lo: %.properties
 	$(LTGCJCOMPILE) -o $@ -c $< -Wc,--resource,`echo $@ | sed "s/\.lo$$//"`
@@ -518,7 +537,7 @@ if ONESTEP
 
 # Compile all classfiles in one go.
 
-classes.stamp: $(all_java_source_files)
+classes.stamp: $(all_java_source_files) gnu/gcj/tools/gcj_dbtool/Main.java
 	@echo Compiling Java sourcefiles...
 	@: $(call write_entries_to_file,$?,libgcj.sourcelist)
 	$(JAVAC) $(JCFLAGS) -classpath '' -bootclasspath $(BOOTCLASSPATH) -d $(here) @libgcj.sourcelist
@@ -527,7 +546,7 @@ classes.stamp: $(all_java_source_files)
 # classfiles are compiled in one go when classes.stamp is built and 2)
 # anything which depends on a particular .class file must wait until
 # this file is built.
-$(all_java_class_files): classes.stamp
+$(all_java_class_files) gnu/gcj/tools/gcj_dbtool/Main.class: classes.stamp
 
 else # !ONESTEP
 
@@ -644,7 +663,7 @@ inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	gnu/java/nio/PipeImpl$$SourceChannelImpl.h \
 	$(PLATFORM_INNER_NAT_HDRS)
 
-nat_headers = $(ordinary_nat_headers) $(inner_nat_headers)
+nat_headers = $(ordinary_nat_headers) $(inner_nat_headers) gnu/gcj/tools/gcj_dbtool/Main.h
 nat_headers_install = $(ordinary_nat_headers)
 
 xlib_nat_headers = $(xlib_java_source_files:.java=.h)
@@ -957,7 +976,8 @@ jv_convert_LDADD = -L$(here)/.libs libgcj.la
 ## linking this program.
 jv_convert_DEPENDENCIES = libgcj.la libgcj.spec
 
-gcj_dbtool_SOURCES = gnu/gcj/tools/gcj_dbtool/Main.java
+gcj_dbtool_SOURCES = gnu/gcj/tools/gcj_dbtool/Main.java \
+	gnu/gcj/tools/gcj_dbtool/natMain.cc
 ## We need -nodefaultlibs because we want to avoid gcj's `-lgcj'.  We
 ## need this because we are explicitly using libtool to link using the
 ## `.la' file.

@@ -1,3 +1,159 @@
+2005-04-04  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20679
+	* parser.c (cp_parser_template_name): Fix thinko.
+
+2005-04-03  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+        PR c++/18644
+        * call.c (build_new_op): Remove check for -Wsynth.
+	
+2005-03-29  Richard Henderson  <rth@redhat.com>
+
+	PR c/20519
+	* decl.c (cp_complete_array_type): Rename from complete_array_type.
+	Use the new complete_array_type in c-common.c.  Update all callers.
+	* cp-tree.h (cp_complete_array_type): Update to match.
+
+2005-03-24  Geoffrey Keating  <geoffk@apple.com>
+
+	* typeck.c (build_static_cast_1): Allow scalar_cast between
+	any integral, floating, or enumeration type.
+
+2005-03-22  Mark Mitchell  <mark@codesourcery.com>
+
+	* parser.c (cp_parser_warn_min_max): New function.
+	(cp_parser_binary_expression): Use it.
+	(cp_parser_assignment_operator_opt): Likewise.
+	(cp_parser_operator): Likewise.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/19980
+	* decl.c (start_preparsed_function): Robustify.
+
+2005-03-22  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
+
+	PR c++/20499
+	* parser.c (cp_parser_class_head): Return NULL_TREE when
+	encountering a redefinition.
+
+2005-03-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20465
+	PR c++/20381
+	* typeck.c (build_ptrmemfunc): Allow OFFSET_REF when processing a
+	template.
+
+2005-03-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20461
+	PR c++/20536
+	* init.c (emit_mem_initializers): Don't crash on undefined
+	types.
+
+2005-03-22  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20463
+	* parser.c (cp_parser_diagnose_invalid_type_name):
+	Check TYPE_BINFO (current_class_type) before attempting
+	to emit inform messages.
+
+2005-03-21  Paolo Carlini  <pcarlini@suse.de>
+
+	PR c++/20147
+	* semantics.c (finish_stmt_expr_expr): Return immediately
+	if error_operand_p (expr).
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20240
+	* decl.c (decls_match): Compare context of VAR_DECL.
+
+2005-03-19  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/20333
+	* parser.c (cp_parser_postfix_expression) <case RID_TYPENAME>:
+	Check the return value of cp_parser_nested_name_specifier.
+
+2005-03-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20186
+	* pt.c (contains_dependent_cast_p): Remove.
+	(fold_non_dependent_expr): Don't use it.
+	(value_dependent_expression_p): Reference_exprs can be dependent.
+
+2005-03-13  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20157
+	* pt.c (determine_specialization): Reject non-specializations. 
+
+2005-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/18384, c++/18327
+	* decl.c (reshape_init_array): Use UHWI type for max_index_cst
+	and index.  Convert max_index to size_type_node if it isn't
+	host_integerp (, 1).
+
+2005-03-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20208
+	* pt.c (tsubst_decl): Apply array-to-pointer and
+	function-to-pointer conversions to function arguments.
+	(regenerate_decl_from_template): Likewise.
+
+2005-03-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20186
+	* pt.c (contains_dependent_cast_p): New.
+	(fold_non_dependent_expr): Call it.
+
+2005-03-08  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/20142
+	* init.c (build_vec_init): When determining whether or not the
+	element type has an asignment operator, look through all array
+	dimensions. 
+
+2005-03-07  Mark Mitchell  <mark@codesourcery.com>
+
+	* class.c (finish_struct_1): Do not warn about non-virtual
+	destructors in Java classes.
+
+2005-03-06  Kriang Lerdsuwanakij  <lerdsuwa@users.sourceforge.net>
+
+	PR c++/19311
+	* init.c (build_offset_ref): Don't build non-dependent SCOPE_REF.
+	* pt.c (build_non_dependent_expr): Don't build NON_DEPENDENT_EXPR
+	for OFFSET_TYPE.
+	* typeck.c (build_x_unary_op): Don't build non-dependent SCOPE_REF.
+	Also set PTRMEM_OK_P for NON_DEPENDENT_EXPR.
+	(build_unary_op): Handle building ADDR_EXPR of OFFSET_REF inside
+	template.
+
+2005-03-02  Alexandre Oliva  <aoliva@redhat.com>
+
+	* name-lookup.c (push_overloaded_decl): Don't error if the new
+	decl matches the old one.
+	* decl.c (redeclaration_error_message): Likewise.
+
+2005-03-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/20232
+	* class.c (update_vtable_entry_for_fn): Don't crash on invalid
+	covariancy. 
+
+	* cp-tree.g (THUNK_TARGET): Expand comment.
+	* method.c (use_thunk): Make sure we also use the target, if that
+	is a thunk.
+
+2005-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/20206
+	* decl.c (cxx_comdat_group): Put thunks for
+	TARGET_USE_LOCAL_THUNK_ALIAS_P (function) functions into the same
+	comdat group as the thunk target.
+
 2005-02-24  Volker Reichelt  <reichelt@igpm.rwth-aachen.de>
 
 	* call.c, class.c, cp-tree.h, decl2.c, error.c, init.c, mangle.c,
@@ -65,7 +221,7 @@
 	Add qualifiers when declaring a typedef of a function type.
 	Member function pointers pick up the qualifiers of the typedef
 	used to declare them.
-        Don't complain about creating cv-qualified function types.
+	Don't complain about creating cv-qualified function types.
 	Complain about qualified function typedefs that are used to
 	declare non-static member functions or free functions.
 	Use cp_apply_type_quals_to_decl.

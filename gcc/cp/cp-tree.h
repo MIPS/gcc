@@ -2913,7 +2913,8 @@ struct lang_decl GTY(())
 #define THUNK_ALIAS(DECL) \
   (DECL_LANG_SPECIFIC (FUNCTION_DECL_CHECK (DECL))->decl_flags.u.template_info)
 
-/* For thunk NODE, this is the FUNCTION_DECL thunked to.  */
+/* For thunk NODE, this is the FUNCTION_DECL thunked to.  It is
+   possible for the target to be a thunk too.  */
 #define THUNK_TARGET(NODE)				\
   (DECL_LANG_SPECIFIC (NODE)->u.f.befriending_classes)
 
@@ -3785,7 +3786,7 @@ extern tree start_decl				(const cp_declarator *, cp_decl_specifier_seq *, int, 
 extern void start_decl_1			(tree);
 extern void cp_finish_decl			(tree, tree, tree, int);
 extern void finish_decl				(tree, tree, tree);
-extern int complete_array_type			(tree, tree, int);
+extern int cp_complete_array_type		(tree *, tree, bool);
 extern tree build_ptrmemfunc_type		(tree);
 extern tree build_ptrmem_type                   (tree, tree);
 /* the grokdeclarator prototype is in decl.h */

@@ -781,6 +781,8 @@ wrapup_global_declarations (tree *vec, int len)
 
 	      if (flag_unit_at_a_time && node->finalized)
 		needed = 0;
+	      else if (node->alias)
+		needed = 0;
 	      else if ((flag_unit_at_a_time && !cgraph_global_info_ready)
 		       && (TREE_USED (decl)
 			   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
@@ -1007,8 +1009,8 @@ compile_file (void)
     return;
 
   lang_hooks.decls.final_write_globals ();
-
   cgraph_varpool_assemble_pending_decls ();
+  finish_aliases_2 ();
 
   /* This must occur after the loop to output deferred functions.
      Else the coverage initializer would not be emitted if all the
@@ -1042,9 +1044,6 @@ compile_file (void)
      assemble_external calls from the front end, but the RTL
      expander can also generate them.  */
   process_pending_assemble_externals ();
-
-  /* Flush any pending equate directives.  */
-  process_pending_assemble_output_defs ();
 
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
