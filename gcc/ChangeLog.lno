@@ -1,3 +1,13 @@
+2004-06-09  Olga Golovanevsky  <olga@il.ibm.com>
+            Dorit Naishlos <dorit@il.ibm.com> 
+
+	* tree-vctorizer.c 
+	(vect_update_initial_conditions_of_duplicated_loop): 
+	Handle general form of "init" and "step" of access function. 
+	* tree-ssa-loop-manip.c (tree_duplicate_loop_to_exit_cfg): 
+	The exit from loop is taken from bb previous to latch instead 
+	of latch itself.
+
 2004-06-08  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	PR tree-opt/15881

@@ -1357,7 +1357,7 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
       tree evolution_part;
       tree init_expr;
       tree step_expr;
-      tree var, stmt, var_name1, var_name2;
+      tree var, stmt, ni, ni_name;
       basic_block new_bb;
       int i, num_elem1, num_elem2;
       tree phi1;
@@ -1386,33 +1386,14 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
       step_expr = evolution_part;
       init_expr = initial_condition (access_fn);
 
-      /* create temporary variable */
-      var = create_tmp_var (TREE_TYPE (step_expr), "tmp1");
+      ni = build (PLUS_EXPR, TREE_TYPE (init_expr),
+		  build (MULT_EXPR, TREE_TYPE (niters),
+		       niters, step_expr), init_expr);
+
+      var = create_tmp_var (TREE_TYPE (init_expr), "tmp");
       add_referenced_tmp_var (var);
 
-      var_name1 = make_ssa_name (var, NULL_TREE);
-
-      stmt = build (MODIFY_EXPR, void_type_node, var_name1,
-		build (MULT_EXPR, TREE_TYPE (niters),
-		       niters, step_expr));
-
-      SSA_NAME_DEF_STMT (var_name1) = stmt;
-      new_bb = bsi_insert_on_edge_immediate (pe, stmt);
-
-      /* We should not generate new bb here, only use already existing one.  */
-      if (new_bb)
-	abort ();            
-            
-      var = create_tmp_var (TREE_TYPE (init_expr), "tmp2");
-      add_referenced_tmp_var (var);
-
-      var_name2 = make_ssa_name (var, NULL_TREE);
-
-      stmt = build (MODIFY_EXPR, void_type_node, var_name2,
-		build (PLUS_EXPR, TREE_TYPE (init_expr),
-		       init_expr, var_name1));
-      
-      SSA_NAME_DEF_STMT (var_name2) = stmt;
+      ni_name = force_gimple_operand (ni, &stmt, false, var);
       new_bb = bsi_insert_on_edge_immediate (pe, stmt);
 
       /* We should not generate new bb here, only use already existing one.  */
@@ -1433,7 +1414,7 @@ vect_update_initial_conditions_of_duplicated_loop (loop_vec_info loop_vinfo,
 		for (i = 0; i < num_elem2; i++)
 		  if (PHI_ARG_DEF (phi1, i) == def)
 		    {
-		      PHI_ARG_DEF (phi1, i) = var_name2;
+		      PHI_ARG_DEF (phi1, i) = ni_name;
 		      PHI_ARG_EDGE (phi1, i) = pe;
 		      break;
  		    }		    

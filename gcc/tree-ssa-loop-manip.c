@@ -1092,7 +1092,6 @@ tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
 				 struct loop **new_loop_p)
 {
   struct loop *target;
-  basic_block latch = loop->latch; 
   basic_block *new_bbs, *bbs;
   edge latch_edge;
 
@@ -1173,8 +1172,8 @@ tree_duplicate_loop_to_exit_cfg (struct loop *loop, struct loops *loops,
   
   redirect_edge_and_branch_force (loop->exit_edges[0],
 				  new_bbs[0]);
-  set_immediate_dominator (CDI_DOMINATORS, new_bbs[0], latch);
-  set_immediate_dominator (CDI_DOMINATORS, exit_dest, new_loop->latch);
+  set_immediate_dominator (CDI_DOMINATORS, new_bbs[0], loop->exit_edges[0]->src); 
+  set_immediate_dominator (CDI_DOMINATORS, exit_dest, new_loop->header);
   
   free (new_bbs);
   free (bbs);
