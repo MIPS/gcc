@@ -1155,6 +1155,8 @@ struct rusv_data
 {
   bool repeat;
   bool remove_unused_vars;
+  bool may_throw;
+  bool may_branch;
 };
 
 static void remove_useless_stmts_and_vars_1 (tree *, struct rusv_data *);
@@ -1228,7 +1230,22 @@ remove_useless_stmts_and_vars_cond (tree *stmt_p, struct rusv_data *data)
 static void
 remove_useless_stmts_and_vars_tf (tree *stmt_p, struct rusv_data *data)
 {
+  bool save_may_branch, save_may_throw;
+  bool this_may_branch, this_may_throw;
+
+  /* Collect may_branch and may_throw information for the body only.  */
+  save_may_branch = data->may_branch;
+  save_may_throw = data->may_throw;
+  data->may_branch = false;
+  data->may_throw = false;
+
   remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 0), data);
+
+  this_may_branch = data->may_branch;
+  this_may_throw = data->may_throw;
+  data->may_branch |= save_may_branch;
+  data->may_throw |= save_may_throw;
+
   remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
 
   /* If the body is empty, then we can emit the FINALLY block without
@@ -1246,31 +1263,81 @@ remove_useless_stmts_and_vars_tf (tree *stmt_p, struct rusv_data *data)
       *stmt_p = TREE_OPERAND (*stmt_p, 0);
       data->repeat = true;
     }
+
+  /* If the body neither throws, nor branches, then we can safely string
+     the TRY and FINALLY blocks together.  We'll reassociate this in the
+     main body of remove_useless_stmts_and_vars.  */
+  else if (!this_may_branch && !this_may_throw)
+    TREE_SET_CODE (*stmt_p, COMPOUND_EXPR);
 }
 
 static void
 remove_useless_stmts_and_vars_tc (tree *stmt_p, struct rusv_data *data)
 {
+  bool save_may_throw, this_may_throw;
+  tree_stmt_iterator i;
+  tree stmt;
+
+  /* Collect may_throw information for the body only.  */
+  save_may_throw = data->may_throw;
+  data->may_throw = false;
+
   remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 0), data);
 
-  /* If the body is empty, then we can throw away the
-     entire TRY_CATCH_EXPR.  */
-  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
+  this_may_throw = data->may_throw;
+  data->may_throw = save_may_throw;
+
+  /* If the body cannot throw, then we can drop the entire TRY_CATCH_EXPR.  */
+  if (!this_may_throw)
     {
-      *stmt_p = build_empty_stmt ();
+      *stmt_p = TREE_OPERAND (*stmt_p, 0);
       data->repeat = true;
       return;
     }
 
-  remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
+  /* Process the catch clause specially.  We may be able to tell that
+     no exceptions propagate past this point.  */
 
-  /* If the handler is empty, then we can emit the TRY block without
-     the enclosing TRY_CATCH_EXPR.  */
-  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
+  this_may_throw = true;
+  i = tsi_start (&TREE_OPERAND (*stmt_p, 1));
+  stmt = tsi_stmt (i);
+
+  switch (TREE_CODE (stmt))
     {
-      *stmt_p = TREE_OPERAND (*stmt_p, 0);
-      data->repeat = true;
+    case CATCH_EXPR:
+      for (; !tsi_end_p (i); tsi_next (&i))
+	{
+	  stmt = tsi_stmt (i);
+	  /* If we catch all exceptions, then the body does not
+	     propagate exceptions past this point.  */
+	  if (CATCH_TYPES (stmt) == NULL)
+	    this_may_throw = false;
+	  remove_useless_stmts_and_vars_1 (&CATCH_BODY (stmt), data);
+	}
+      break;
+
+    case EH_FILTER_EXPR:
+      if (EH_FILTER_MUST_NOT_THROW (stmt))
+	this_may_throw = false;
+      else if (EH_FILTER_TYPES (stmt) == NULL)
+	this_may_throw = false;
+      remove_useless_stmts_and_vars_1 (&EH_FILTER_FAILURE (stmt), data);
+      break;
+
+    default:
+      /* Otherwise this is a cleanup.  */
+      remove_useless_stmts_and_vars_1 (&TREE_OPERAND (*stmt_p, 1), data);
+
+      /* If the cleanup is empty, then we can emit the TRY block without
+	 the enclosing TRY_CATCH_EXPR.  */
+      if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
+	{
+	  *stmt_p = TREE_OPERAND (*stmt_p, 0);
+	  data->repeat = true;
+	}
+      break;
     }
+  data->may_throw |= this_may_throw;
 }
 
 static void
@@ -1386,6 +1453,7 @@ remove_useless_stmts_and_vars_goto (tree_stmt_iterator i, tree *stmt_p,
 	{
 	  data->repeat = true;
 	  *stmt_p = build_empty_stmt ();
+	  return;
 	}
     }
   else
@@ -1409,9 +1477,12 @@ remove_useless_stmts_and_vars_goto (tree_stmt_iterator i, tree *stmt_p,
 	    {
 	      data->repeat = true;
 	      *stmt_p = build_empty_stmt ();
+	      return;
 	    }
 	}
     }
+
+  data->may_branch = true;
 }
 
 static void
@@ -1448,12 +1519,6 @@ remove_useless_stmts_and_vars_1 (tree *first_p, struct rusv_data *data)
 	case SWITCH_EXPR:
 	  remove_useless_stmts_and_vars_1 (&SWITCH_BODY (*stmt_p), data);
 	  break;
-	case CATCH_EXPR:
-	  remove_useless_stmts_and_vars_1 (&CATCH_BODY (*stmt_p), data);
-	  break;
-	case EH_FILTER_EXPR:
-	  remove_useless_stmts_and_vars_1 (&EH_FILTER_FAILURE (*stmt_p), data);
-	  break;
 	case TRY_FINALLY_EXPR:
 	  remove_useless_stmts_and_vars_tf (stmt_p, data);
 	  break;
@@ -1465,6 +1530,14 @@ remove_useless_stmts_and_vars_1 (tree *first_p, struct rusv_data *data)
 	  break;
 	case GOTO_EXPR:
 	  remove_useless_stmts_and_vars_goto (i, stmt_p, data);
+	  break;
+	case RETURN_EXPR:
+	  data->may_branch = true;
+	  break;
+	case MODIFY_EXPR:
+	case CALL_EXPR:
+	  if (tree_could_throw_p (*stmt_p))
+	    data->may_throw = true;
 	  break;
 	default:
 	  break;
@@ -1484,9 +1557,10 @@ remove_useless_stmts_and_vars (tree *first_p, bool remove_unused_vars)
   struct rusv_data data;
   do
     {
-      data.repeat = false;
+      memset (&data, 0, sizeof (data));
       data.remove_unused_vars = remove_unused_vars;
       remove_unused_vars = false;
+
       remove_useless_stmts_and_vars_1 (first_p, &data);
     }
   while (data.repeat);

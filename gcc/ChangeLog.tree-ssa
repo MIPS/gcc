@@ -1,5 +1,16 @@
 2003-09-18  Richard Henderson  <rth@redhat.com>
 
+	* tree-cfg.c (struct rusv_data): Add may_throw, may_branch.
+	(remove_useless_stmts_and_vars_1): Set them.
+	(remove_useless_stmts_and_vars_goto): Likewise.
+	(remove_useless_stmts_and_vars_tf): Transform to compound_expr
+	if only fallthrough.
+	(remove_useless_stmts_and_vars_tc): Kill region if nothrow.
+	Detect catch regions that don't propagate exceptions.
+	(remove_useless_stmts_and_vars): Zero entire data struct.
+
+2003-09-18  Richard Henderson  <rth@redhat.com>
+
 	* tree-eh.c (lower_try_finally_dup_block): New.
 	(honor_protect_cleanup_actions, lower_try_finally_copy): Use it.
 
