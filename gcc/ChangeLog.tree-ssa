@@ -1,3 +1,9 @@
+2002-09-25  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* Makefile.in (tree): Add dependency on c-tree.h
+	* tree-optimize.c: Include c-tree.h
+	(optimize_function_tree): React to -fdump-tree-optimized.
+
 2002-09-25  Daniel Berlin  <dberlin@dberlin.org>
 
 	* tree-dfa.c (add_list_to_ref_list_end): New function.

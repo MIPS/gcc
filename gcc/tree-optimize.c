@@ -33,6 +33,7 @@ Boston, MA 02111-1307, USA.  */
 /* This should be eventually be generalized to other languages, but
    this would require a shared function-as-trees infrastructure.  */
 #include "c-common.h"
+#include "c-tree.h"
 
 #include "basic-block.h"
 #include "flags.h"
@@ -49,6 +50,9 @@ optimize_function_tree (fndecl)
      tree fndecl;
 {
   tree fnbody;
+  FILE *dump_file;
+  int dump_flags;
+
 
   /* Don't bother doing anything if the program has errors.  */
   if (errorcount || sorrycount)
@@ -90,6 +94,26 @@ optimize_function_tree (fndecl)
   /* Flush out flow graph and SSA data.  */
   delete_cfg ();
   delete_tree_ssa ();
+
+  /* Debugging dump after optimization.  */
+  dump_file = dump_begin (TDI_optimized, &dump_flags);
+  if (dump_file)
+    {
+      tree fnbody;
+
+      /* We never get here if the function body is empty,
+	 see simplify_function_tree().  */ 
+      fnbody = COMPOUND_BODY (DECL_SAVED_TREE (fndecl)); 
+      fprintf (dump_file, "%s()\n", IDENTIFIER_POINTER (DECL_NAME (fndecl)));
+
+      if (dump_flags & TDF_RAW)
+	dump_node (fnbody, TDF_SLIM | dump_flags, dump_file);
+      else
+	print_c_tree (dump_file, fnbody);
+      fprintf (dump_file, "\n");
+
+      dump_end (TDI_optimized, dump_file);
+    }
 }
 
 
