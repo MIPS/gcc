@@ -532,7 +532,7 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
   struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
   tree expr = DR_REF (dr);
   tree access_fn;
-  int init_val, step_val;
+  int init_val;
   tree init, step;
   loop_vec_info loop_info = loop->aux;
   int vectorization_factor = LOOP_VINFO_VECT_FACTOR (loop_info);
@@ -578,7 +578,6 @@ vect_create_index_for_array_ref (tree stmt, block_stmt_iterator *bsi)
 
   /* Calculate the 'step' of the new index.
      FORNOW: always 1.  */
-  step_val = TREE_INT_CST_LOW (step);
   step = integer_one_node;
 
   create_iv (init, step, NULL_TREE, loop, bsi, false, 
@@ -875,11 +874,14 @@ vect_init_vector (tree stmt, tree vector_var)
   tree vec_oprnd;
   edge pe;
   basic_block new_bb;
+  tree new_temp;
  
   new_var = vect_get_new_vect_var (vectype, vect_simple_var, "cst_");
   add_referenced_tmp_var (new_var); 
  
   init_stmt = build2 (MODIFY_EXPR, vectype, new_var, vector_var);
+  new_temp = make_ssa_name (new_var, init_stmt);
+  TREE_OPERAND (init_stmt, 0) = new_temp;
 
   pe = loop_preheader_edge (loop);
   new_bb = bsi_insert_on_edge_immediate (pe, init_stmt);
@@ -4119,6 +4121,9 @@ vectorize_loops (struct loops *loops)
       loop_vec_info loop_vinfo;
       struct loop *loop = loops->parray[i];
 
+      if (!loop)
+	continue;
+
       flow_loop_scan (loop, LOOP_ALL);
 
       loop_vinfo = vect_analyze_loop (loop);
@@ -4157,7 +4162,10 @@ vectorize_loops (struct loops *loops)
   for (i = 1; i < loops_num; i++)
     {
       struct loop *loop = loops->parray[i];
-      loop_vec_info loop_vinfo = loop->aux;
+      loop_vec_info loop_vinfo;
+      if (!loop)
+	continue;
+      loop_vinfo = loop->aux;
       destroy_loop_vec_info (loop_vinfo);
       loop->aux = NULL;
     }
