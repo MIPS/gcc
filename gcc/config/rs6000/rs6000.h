@@ -1368,9 +1368,6 @@ extern int rs6000_sysv_varargs_p;
 #define CALL_V4_SET_FP_ARGS	0x00000004	/* V.4, FP args were passed */
 #define CALL_LONG		0x00000008	/* always call indirect */
 
-/* Define cutoff for using external functions to save floating point */
-#define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) == 62 || (FIRST_REG) == 63)
-
 /* 1 if N is a possible register number for a function value
    as seen by the caller.
 
@@ -2429,17 +2426,6 @@ do {							\
 
 #define ASM_APP_OFF ""
 
-/* Output before instructions.
-   Text section for 64-bit target may contain 64-bit address jump table.  */
-
-#define TEXT_SECTION_ASM_OP (TARGET_32BIT \
-			     ? "\t.csect .text[PR]" : "\t.csect .text[PR],3")
-
-/* Output before writable data.
-   Align entire section to BIGGEST_ALIGNMENT.  */
-
-#define DATA_SECTION_ASM_OP "\t.csect .data[RW],3"
-
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
@@ -2580,12 +2566,6 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0). */
 /* Text to write out after a CALL that may be replaced by glue code by
    the loader.  This depends on the AIX version.  */
 #define RS6000_CALL_GLUE "cror 31,31,31"
-
-/* This is how to output an internal label prefix.  rs6000.c uses this
-   when generating traceback tables.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
-  fprintf (FILE, "%s..", PREFIX)
 
 /* This is how to output an assembler line defining a `double' constant.  */
 

@@ -96,6 +96,7 @@ extern int lmw_operation PARAMS ((rtx, enum machine_mode));
 extern struct rtx_def *create_TOC_reference PARAMS ((rtx));
 extern void rs6000_emit_eh_toc_restore PARAMS ((rtx));
 extern rtx rs6000_legitimize_address PARAMS ((rtx, rtx, enum machine_mode));
+extern void rs6000_select_rtx_section PARAMS ((enum machine_mode, rtx));
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
@@ -118,6 +119,8 @@ extern int rs6000_comp_type_attributes PARAMS ((tree, tree));
 extern int rs6000_valid_decl_attribute_p PARAMS ((tree, tree, tree, tree));
 extern int rs6000_valid_type_attribute_p PARAMS ((tree, tree, tree, tree));
 extern void rs6000_set_default_type_attributes PARAMS ((tree));
+extern void rs6000_encode_section_info PARAMS ((tree));
+extern void rs6000_select_section PARAMS ((tree, int));
 #ifdef ARGS_SIZE_RTX
 /* expr.h defines ARGS_SIZE_RTX and `enum direction' */
 extern enum direction function_arg_padding PARAMS ((enum machine_mode, tree));
@@ -146,6 +149,9 @@ extern void rs6000_gen_section_name PARAMS ((char **, const char *,
 extern void output_function_profiler PARAMS ((FILE *, int));
 extern int rs6000_trampoline_size PARAMS ((void));
 extern void toc_section PARAMS ((void));
+extern void sdata_section PARAMS ((void));
+extern void sdata2_section PARAMS ((void));
+extern void sbss_section PARAMS ((void));
 extern void private_data_section PARAMS ((void));
 extern int get_TOC_alias_set PARAMS ((void));
 extern int uses_TOC PARAMS ((void));

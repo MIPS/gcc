@@ -28,45 +28,45 @@ Boston, MA 02111-1307, USA.  */
 /* Yes!  We are ELF.  */
 #define	TARGET_OBJECT_FORMAT OBJECT_ELF
 
-/* Default ABI to compile code for */
+/* Default ABI to compile code for.  */
 #define DEFAULT_ABI rs6000_current_abi
 
-/* Default ABI to use */
+/* Default ABI to use.  */
 #define RS6000_ABI_NAME "sysv"
 
-/* override rs6000.h definition */
-#undef ASM_DEFAULT_SPEC
-#define ASM_DEFAULT_SPEC "-mppc"
+/* Override rs6000.h definition.  */
+#undef	ASM_DEFAULT_SPEC
+#define	ASM_DEFAULT_SPEC "-mppc"
 
-/* override rs6000.h definition */
-#undef CPP_DEFAULT_SPEC
-#define CPP_DEFAULT_SPEC "-D_ARCH_PPC"
+/* Override rs6000.h definition.  */
+#undef	CPP_DEFAULT_SPEC
+#define	CPP_DEFAULT_SPEC "-D_ARCH_PPC"
 
-/* Small data support types */
+/* Small data support types.  */
 enum rs6000_sdata_type {
-  SDATA_NONE,			/* no small data support */
-  SDATA_DATA,			/* just put data in .sbss/.sdata, don't use relocs */
-  SDATA_SYSV,			/* Use r13 to point to .sdata/.sbss */
-  SDATA_EABI			/* Use r13 like above, r2 points to .sdata2/.sbss2 */
+  SDATA_NONE,			/* No small data support.  */
+  SDATA_DATA,			/* Just put data in .sbss/.sdata, don't use relocs.  */
+  SDATA_SYSV,			/* Use r13 to point to .sdata/.sbss.  */
+  SDATA_EABI			/* Use r13 like above, r2 points to .sdata2/.sbss2.  */
 };
 
 extern enum rs6000_sdata_type rs6000_sdata;
 
-/* V.4/eabi switches */
-#define	MASK_NO_BITFIELD_TYPE	0x40000000	/* Set PCC_BITFIELD_TYPE_MATTERS to 0 */
+/* V.4/eabi switches.  */
+#define	MASK_NO_BITFIELD_TYPE	0x40000000	/* Set PCC_BITFIELD_TYPE_MATTERS to 0.  */
 #define	MASK_STRICT_ALIGN	0x20000000	/* Set STRICT_ALIGNMENT to 1.  */
-#define MASK_RELOCATABLE	0x10000000	/* GOT pointers are PC relative */
-#define	MASK_EABI		0x08000000	/* Adhere to eabi, not System V spec */
-#define MASK_LITTLE_ENDIAN	0x04000000	/* target is little endian */
-#define MASK_REGNAMES		0x02000000	/* use alternate register names.  */
-#define MASK_PROTOTYPE		0x01000000	/* Only prototyped fcns pass variable args */
+#define	MASK_RELOCATABLE	0x10000000	/* GOT pointers are PC relative.  */
+#define	MASK_EABI		0x08000000	/* Adhere to eabi, not System V spec.  */
+#define	MASK_LITTLE_ENDIAN	0x04000000	/* Target is little endian.  */
+#define	MASK_REGNAMES		0x02000000	/* Use alternate register names.  */
+#define	MASK_PROTOTYPE		0x01000000	/* Only prototyped fcns pass variable args.  */
 
 #define	TARGET_NO_BITFIELD_TYPE	(target_flags & MASK_NO_BITFIELD_TYPE)
-#define TARGET_STRICT_ALIGN	(target_flags & MASK_STRICT_ALIGN)
-#define TARGET_RELOCATABLE	(target_flags & MASK_RELOCATABLE)
-#define TARGET_EABI		(target_flags & MASK_EABI)
-#define TARGET_LITTLE_ENDIAN	(target_flags & MASK_LITTLE_ENDIAN)
-#define TARGET_REGNAMES		(target_flags & MASK_REGNAMES)
+#define	TARGET_STRICT_ALIGN	(target_flags & MASK_STRICT_ALIGN)
+#define	TARGET_RELOCATABLE	(target_flags & MASK_RELOCATABLE)
+#define	TARGET_EABI		(target_flags & MASK_EABI)
+#define	TARGET_LITTLE_ENDIAN	(target_flags & MASK_LITTLE_ENDIAN)
+#define	TARGET_REGNAMES		(target_flags & MASK_REGNAMES)
 #define	TARGET_PROTOTYPE	(target_flags & MASK_PROTOTYPE)
 #define	TARGET_TOC		((target_flags & MASK_64BIT)		\
 				 || ((target_flags & (MASK_RELOCATABLE	\
@@ -75,30 +75,31 @@ extern enum rs6000_sdata_type rs6000_sdata;
 				 || DEFAULT_ABI == ABI_AIX)
 
 #define	TARGET_BITFIELD_TYPE	(! TARGET_NO_BITFIELD_TYPE)
-#define TARGET_BIG_ENDIAN	(! TARGET_LITTLE_ENDIAN)
+#define	TARGET_BIG_ENDIAN	(! TARGET_LITTLE_ENDIAN)
 #define	TARGET_NO_PROTOTYPE	(! TARGET_PROTOTYPE)
 #define	TARGET_NO_TOC		(! TARGET_TOC)
-#define TARGET_NO_EABI		(! TARGET_EABI)
+#define	TARGET_NO_EABI		(! TARGET_EABI)
 
 /* Strings provided by SUBTARGET_OPTIONS */
 extern const char *rs6000_abi_name;
 extern const char *rs6000_sdata_name;
 
-/* override rs6000.h definition */
-#undef SUBTARGET_OPTIONS
-#define SUBTARGET_OPTIONS						\
+/* Override rs6000.h definition.  */
+#undef	SUBTARGET_OPTIONS
+#define	SUBTARGET_OPTIONS						\
   { "call-",  &rs6000_abi_name, "Select ABI calling convention." },			\
   { "sdata=", &rs6000_sdata_name, "Select method for sdata handling." }
 
 /* Max # of bytes for variables to automatically be put into the .sdata
    or .sdata2 sections.  */
-extern int g_switch_value;		/* value of the -G xx switch */
-extern int g_switch_set;		/* whether -G xx was passed.  */
+extern int g_switch_value;		/* Value of the -G xx switch.  */
+extern int g_switch_set;		/* Whether -G xx was passed.  */
 
 #define SDATA_DEFAULT_SIZE 8
 
 /* Note, V.4 no longer uses a normal TOC, so make -mfull-toc, be just
    the same as -mminimal-toc.  */
+/* Override rs6000.h definition.  */
 #undef	SUBTARGET_SWITCHES
 #define SUBTARGET_SWITCHES						\
   { "bit-align",	-MASK_NO_BITFIELD_TYPE, "Align to the base type of the bitfield." },\
@@ -136,7 +137,7 @@ extern int g_switch_set;		/* whether -G xx was passed.  */
   EXTRA_SUBTARGET_SWITCHES							\
   { "newlib",		 0, "no description yet" },
 
-/* This is meant to be redefined in the host dependent files */
+/* This is meant to be redefined in the host dependent files.  */
 #define EXTRA_SUBTARGET_SWITCHES
 
 /* Sometimes certain combinations of command options do not make sense
@@ -260,7 +261,7 @@ do {									\
       error ("-mcall-aixdesc must be big endian");			\
     }									\
 									\
-  /* Treat -fPIC the same as -mrelocatable */				\
+  /* Treat -fPIC the same as -mrelocatable.  */				\
   if (flag_pic > 1)							\
     target_flags |= MASK_RELOCATABLE | MASK_MINIMAL_TOC | MASK_NO_FP_IN_TOC; \
 									\
@@ -269,26 +270,30 @@ do {									\
 									\
 } while (0)
 
-#undef TARGET_DEFAULT
-#define TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS)
 
-#undef PROCESSOR_DEFAULT
-#define PROCESSOR_DEFAULT PROCESSOR_PPC750
+/* Override rs6000.h definition.  */
+#undef	TARGET_DEFAULT
+#define	TARGET_DEFAULT (MASK_POWERPC | MASK_NEW_MNEMONICS)
+
+/* Override rs6000.h definition.  */
+#undef	PROCESSOR_DEFAULT
+#define	PROCESSOR_DEFAULT PROCESSOR_PPC750
 
 /* System V.4 uses register 13 as a pointer to the small data area,
    so it is not available to the normal user.  */
 
 #define FIXED_R13 1
 
-/* Size of the V.4 varargs area if needed */
+/* Size of the V.4 varargs area if needed.  */
+/* Override rs6000.h definition.  */
 #undef	RS6000_VARARGS_AREA
 #define RS6000_VARARGS_AREA ((rs6000_sysv_varargs_p) ? RS6000_VARARGS_SIZE : 0)
 
-/* Override default big endianism */
-#undef  BYTES_BIG_ENDIAN
-#undef  WORDS_BIG_ENDIAN
-#define BYTES_BIG_ENDIAN (TARGET_BIG_ENDIAN)
-#define WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN)
+/* Override default big endianism definitions in rs6000.h.  */
+#undef	BYTES_BIG_ENDIAN
+#undef	WORDS_BIG_ENDIAN
+#define	BYTES_BIG_ENDIAN (TARGET_BIG_ENDIAN)
+#define	WORDS_BIG_ENDIAN (TARGET_BIG_ENDIAN)
 
 /* Define this to set the endianness to use in libgcc2.c, which can
    not depend on target_flags.  */
@@ -298,43 +303,36 @@ do {									\
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
 #endif
 
-/* Size of the outgoing register save area */
-#undef	RS6000_REG_SAVE
-#define RS6000_REG_SAVE ((DEFAULT_ABI == ABI_AIX			\
-			  || DEFAULT_ABI == ABI_AIX_NODESC)		\
-			 ? (TARGET_64BIT ? 64 : 32)			\
-			 : 0)
-
 /* Define cutoff for using external functions to save floating point.
-   Currently on V.4, always use inline stores */
-#undef	FP_SAVE_INLINE
+   Currently on V.4, always use inline stores.  */
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) < 64)
 
 /* Put jump tables in read-only memory, rather than in .text.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 0
 
-/* Prefix and suffix to use to saving floating point */
+/* Prefix and suffix to use to saving floating point.  */
 #define	SAVE_FP_PREFIX "_savefpr_"
 #define SAVE_FP_SUFFIX "_l"
 
-/* Prefix and suffix to use to restoring floating point */
+/* Prefix and suffix to use to restoring floating point.  */
 #define	RESTORE_FP_PREFIX "_restfpr_"
 #define RESTORE_FP_SUFFIX "_l"
 
 /* Type used for ptrdiff_t, as a string used in a declaration.  */
-#undef	PTRDIFF_TYPE
 #define PTRDIFF_TYPE "int"
 
 /* Type used for wchar_t, as a string used in a declaration.  */
+/* Override svr4.h definition.  */
 #undef	WCHAR_TYPE
 #define WCHAR_TYPE "long int"
 
 /* Width of wchar_t in bits.  */
+/* Override svr4.h definition.  */
 #undef	WCHAR_TYPE_SIZE
 #define WCHAR_TYPE_SIZE 32
 
-/* Make int foo : 8 not cause structures to be aligned to an int boundary */
-
+/* Make int foo : 8 not cause structures to be aligned to an int boundary.  */
+/* Override elfos.h definition.  */
 #undef	PCC_BITFIELD_TYPE_MATTERS
 #define	PCC_BITFIELD_TYPE_MATTERS (TARGET_BITFIELD_TYPE)
 
@@ -350,7 +348,7 @@ do {									\
 #undef	STACK_BOUNDARY
 #define	STACK_BOUNDARY	64
 
-/* Real stack boundary as mandated by the appropriate ABI */
+/* Real stack boundary as mandated by the appropriate ABI.  */
 #define ABI_STACK_BOUNDARY ((TARGET_EABI) ? 64 : 128)
 
 /* No data type wants to be aligned rounder than this.  */
@@ -363,45 +361,47 @@ do {									\
 
 /* Use ELF style section commands.  */
 
-#undef TEXT_SECTION_ASM_OP
-#define TEXT_SECTION_ASM_OP	"\t.section\t\".text\""
+#define	TEXT_SECTION_ASM_OP	"\t.section\t\".text\""
 
-#undef DATA_SECTION_ASM_OP
-#define DATA_SECTION_ASM_OP	"\t.section\t\".data\""
+#define	DATA_SECTION_ASM_OP	"\t.section\t\".data\""
 
-#undef BSS_SECTION_ASM_OP
-#define BSS_SECTION_ASM_OP	"\t.section\t\".bss\""
+#define	BSS_SECTION_ASM_OP	"\t.section\t\".bss\""
 
-#undef INIT_SECTION_ASM_OP
-#define INIT_SECTION_ASM_OP "\t.section\t\".init\",\"ax\""
+/* Override elfos.h definition.  */
+#undef	INIT_SECTION_ASM_OP
+#define	INIT_SECTION_ASM_OP "\t.section\t\".init\",\"ax\""
 
-#undef FINI_SECTION_ASM_OP
-#define FINI_SECTION_ASM_OP "\t.section\t\".fini\",\"ax\""
+/* Override elfos.h definition.  */
+#undef	FINI_SECTION_ASM_OP
+#define	FINI_SECTION_ASM_OP "\t.section\t\".fini\",\"ax\""
 
-#define TOC_SECTION_ASM_OP "\t.section\t\".got\",\"aw\""
+#define	TOC_SECTION_ASM_OP "\t.section\t\".got\",\"aw\""
 
-/* Put PC relative got entries in .got2 */
-#define MINIMAL_TOC_SECTION_ASM_OP \
+/* Put PC relative got entries in .got2.  */
+#define	MINIMAL_TOC_SECTION_ASM_OP \
   ((TARGET_RELOCATABLE || flag_pic) ? "\t.section\t\".got2\",\"aw\"" : "\t.section\t\".got1\",\"aw\"")
 
-/* Put relocatable data in .data, not .rodata so initialized pointers can be updated */
+/* Put relocatable data in .data, not .rodata so initialized pointers can be updated.  */
+/* Override elfos.h definition.  */
 #undef	CONST_SECTION_ASM_OP
-#define CONST_SECTION_ASM_OP \
+#define	CONST_SECTION_ASM_OP \
   ((TARGET_RELOCATABLE || flag_pic) ? "\t.section\t\".data\"\t# .rodata" : "\t.section\t\".rodata\"")
 
 
-#define SDATA_SECTION_ASM_OP "\t.section\t\".sdata\",\"aw\""
-#define SDATA2_SECTION_ASM_OP "\t.section\t\".sdata2\",\"a\""
-#define SBSS_SECTION_ASM_OP \
+#define	SDATA_SECTION_ASM_OP "\t.section\t\".sdata\",\"aw\""
+#define	SDATA2_SECTION_ASM_OP "\t.section\t\".sdata2\",\"a\""
+#define	SBSS_SECTION_ASM_OP \
   ((DEFAULT_ABI == ABI_SOLARIS) ? "\t.section\t\".sbss\",\"aw\"" : "\t.section\t\".sbss\",\"aw\",@nobits")
 
 
 /* Besides the usual ELF sections, we need a toc section.  */
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_ctors, in_dtors, in_toc, in_sdata, in_sdata2, in_sbss, in_init, in_fini
+/* Override elfos.h definition.  */
+#undef	EXTRA_SECTIONS
+#define	EXTRA_SECTIONS in_const, in_ctors, in_dtors, in_toc, in_sdata, in_sdata2, in_sbss, in_init, in_fini
 
-#undef EXTRA_SECTION_FUNCTIONS
-#define EXTRA_SECTION_FUNCTIONS						\
+/* Override elfos.h definition.  */
+#undef	EXTRA_SECTION_FUNCTIONS
+#define	EXTRA_SECTION_FUNCTIONS						\
   CONST_SECTION_FUNCTION						\
   CTORS_SECTION_FUNCTION						\
   DTORS_SECTION_FUNCTION						\
@@ -412,10 +412,7 @@ do {									\
   INIT_SECTION_FUNCTION							\
   FINI_SECTION_FUNCTION
 
-extern void toc_section (), sdata_section (), sdata2_section ();
-extern void sbss_section ();
-
-#define TOC_SECTION_FUNCTION						\
+#define	TOC_SECTION_FUNCTION						\
 void									\
 toc_section ()								\
 {									\
@@ -458,7 +455,7 @@ toc_section ()								\
     }									\
 }
 
-#define SDATA_SECTION_FUNCTION						\
+#define	SDATA_SECTION_FUNCTION						\
 void									\
 sdata_section ()							\
 {									\
@@ -469,7 +466,7 @@ sdata_section ()							\
     }									\
 }
 
-#define SDATA2_SECTION_FUNCTION						\
+#define	SDATA2_SECTION_FUNCTION						\
 void									\
 sdata2_section ()							\
 {									\
@@ -480,7 +477,7 @@ sdata2_section ()							\
     }									\
 }
 
-#define SBSS_SECTION_FUNCTION						\
+#define	SBSS_SECTION_FUNCTION						\
 void									\
 sbss_section ()								\
 {									\
@@ -491,7 +488,7 @@ sbss_section ()								\
     }									\
 }
 
-#define INIT_SECTION_FUNCTION						\
+#define	INIT_SECTION_FUNCTION						\
 void									\
 init_section ()								\
 {									\
@@ -502,7 +499,7 @@ init_section ()								\
     }									\
 }
 
-#define FINI_SECTION_FUNCTION						\
+#define	FINI_SECTION_FUNCTION						\
 void									\
 fini_section ()								\
 {									\
@@ -522,18 +519,18 @@ fini_section ()								\
    Do not define this macro if you put all constants in the read-only
    data section.  */
 
-extern void rs6000_select_rtx_section (), rs6000_select_section ();
-
-#undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, X) rs6000_select_rtx_section (MODE, X)
+/* Override elfos.h definition.  */
+#undef	SELECT_RTX_SECTION
+#define	SELECT_RTX_SECTION(MODE, X) rs6000_select_rtx_section (MODE, X)
 
 /* A C statement or statements to switch to the appropriate
    section for output of DECL.  DECL is either a `VAR_DECL' node
    or a constant of some sort.  RELOC indicates whether forming
    the initial value of DECL requires link-time relocations.  */
 
-#undef SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC) rs6000_select_section (DECL, RELOC)
+/* Override elfos.h definition.  */
+#undef	SELECT_SECTION
+#define	SELECT_SECTION(DECL,RELOC) rs6000_select_section (DECL, RELOC)
 
 /* Return non-zero if this entry is to be written into the constant pool
    in a special way.  We do so if this is a SYMBOL_REF, LABEL_REF or a CONST
@@ -547,7 +544,7 @@ extern void rs6000_select_rtx_section (), rs6000_select_section ();
    allow floating point constants in the TOC if -mrelocatable.  */
 
 #undef	ASM_OUTPUT_SPECIAL_POOL_ENTRY_P
-#define ASM_OUTPUT_SPECIAL_POOL_ENTRY_P(X)				\
+#define	ASM_OUTPUT_SPECIAL_POOL_ENTRY_P(X)				\
   (TARGET_TOC								\
    && (GET_CODE (X) == SYMBOL_REF					\
        || (GET_CODE (X) == CONST && GET_CODE (XEXP (X, 0)) == PLUS	\
@@ -570,6 +567,7 @@ extern void rs6000_select_rtx_section (), rs6000_select_section ();
 
 extern int rs6000_pic_labelno;
 
+/* Override elfos.h definition.  */
 #undef	ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
   do {									\
@@ -652,32 +650,31 @@ extern int rs6000_pic_labelno;
     FUNCTION instead of jumping to it.  The generic approach does not support
     varargs.  */
 
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
+#define	ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
   output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
 
 /* How to renumber registers for dbx and gdb.  */
 
-#define DBX_REGISTER_NUMBER(REGNO) (REGNO)
+#define	DBX_REGISTER_NUMBER(REGNO) (REGNO)
 
 /* The USER_LABEL_PREFIX stuff is affected by the -fleading-underscore
    flag.  The LOCAL_LABEL_PREFIX variable is used by dbxelf.h.  */
 
-#define LOCAL_LABEL_PREFIX "."
-#define USER_LABEL_PREFIX ""
+#define	LOCAL_LABEL_PREFIX "."
+#define	USER_LABEL_PREFIX ""
 
 /* svr4.h overrides ASM_OUTPUT_INTERNAL_LABEL.  */
 
-#undef ASM_OUTPUT_INTERNAL_LABEL_PREFIX
-#define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
+#define	ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)	\
   asm_fprintf (FILE, "%L%s", PREFIX)
 
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
+#define	ASM_OUTPUT_LABEL(FILE,NAME)	\
   (assemble_name (FILE, NAME), fputs (":\n", FILE))
 
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.  */
 
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
+#define	ASM_GLOBALIZE_LABEL(FILE,NAME)	\
   do { fputs ("\t.globl ", FILE);	\
        assemble_name (FILE, NAME); putc ('\n', FILE);} while (0)
 
@@ -685,6 +682,7 @@ extern int rs6000_pic_labelno;
    instead of .zero because the Solaris PowerPC assembler doesn't
    like it, and gas accepts either syntax.  */
 
+/* Override elfos.h definition.  */
 #undef	SKIP_ASM_OP
 #define SKIP_ASM_OP	".space"
 
@@ -693,12 +691,13 @@ extern int rs6000_pic_labelno;
    the linker seems to want the alignment of data objects
    to depend on their types.  We do exactly that here.  */
 
-#define LOCAL_ASM_OP	".local"
+#define	LOCAL_ASM_OP	".local"
 
-#define LCOMM_ASM_OP	".lcomm"
+#define	LCOMM_ASM_OP	".lcomm"
 
-#undef ASM_OUTPUT_ALIGNED_LOCAL
-#define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
+/* Override elfos.h definition.  */
+#undef	ASM_OUTPUT_ALIGNED_LOCAL
+#define	ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
 do {									\
   if (rs6000_sdata != SDATA_NONE && (SIZE) > 0				\
       && (SIZE) <= g_switch_value)					\
@@ -722,17 +721,18 @@ do {									\
     }									\
 } while (0)
 
-/* Describe how to emit uninitialized external linkage items  */
-#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)		\
+/* Describe how to emit uninitialized external linkage items.  */
+#define	ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)		\
 do {									\
   ASM_GLOBALIZE_LABEL (FILE, NAME);					\
   ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);			\
 } while (0)
 
-/* Switch  Recognition by gcc.c.  Add -G xx support */
+/* Switch  Recognition by gcc.c.  Add -G xx support.  */
 
-#undef SWITCH_TAKES_ARG
-#define SWITCH_TAKES_ARG(CHAR)						\
+/* Override svr4.h definition.  */
+#undef	SWITCH_TAKES_ARG
+#define	SWITCH_TAKES_ARG(CHAR)						\
   ((CHAR) == 'D' || (CHAR) == 'U' || (CHAR) == 'o'			\
    || (CHAR) == 'e' || (CHAR) == 'T' || (CHAR) == 'u'			\
    || (CHAR) == 'I' || (CHAR) == 'm' || (CHAR) == 'x'			\
@@ -740,8 +740,9 @@ do {									\
    || (CHAR) == 'B' || (CHAR) == 'b' || (CHAR) == 'G')
 
 /* Output .file.  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)						\
+/* Override elfos.h definition.  */
+#undef	ASM_FILE_START
+#define	ASM_FILE_START(FILE)						\
 do {									\
   output_file_directive ((FILE), main_input_filename);			\
   rs6000_file_start (FILE, TARGET_CPU_DEFAULT);				\
@@ -753,6 +754,7 @@ extern int fixuplabelno;
 /* This is how to output an assembler line defining an `int' constant.
    For -mrelocatable, we mark all addresses that need to be fixed up
    in the .fixup section.  */
+/* Override rs6000.h definition.  */
 #undef	ASM_OUTPUT_INT
 #define ASM_OUTPUT_INT(FILE,VALUE)					\
 do {									\
@@ -809,7 +811,7 @@ do {									\
    For -mrelocatable, we mark all addresses that need to be fixed up
    in the .fixup section.  */
 
-#define ASM_OUTPUT_DWARF_ADDR(FILE,LABEL)				\
+#define	ASM_OUTPUT_DWARF_ADDR(FILE,LABEL)				\
 do {									\
   if (TARGET_RELOCATABLE)						\
     {									\
@@ -838,9 +840,9 @@ do {									\
 /* This is the end of what might become sysv4.h.  */
 
 /* Allow stabs and dwarf, for now, make stabs the default debugging type,
-   not dwarf since G++ doesn't support dwarf. */
+   not dwarf since G++ doesn't support dwarf.  */
 #undef	PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
+#define	PREFERRED_DEBUGGING_TYPE DBX_DEBUG
 
 #define	DBX_DEBUGGING_INFO
 
@@ -853,20 +855,17 @@ do {									\
    to read the prefixes.  */
 
 #undef	ENCODE_SECTION_INFO
-#define ENCODE_SECTION_INFO(DECL) rs6000_encode_section_info (DECL)
+#define	ENCODE_SECTION_INFO(DECL) rs6000_encode_section_info (DECL)
 
-extern void rs6000_encode_section_info ();
+/* The ELF version doesn't encode [DS] or whatever at the end of symbols.  */
 
-
-/* The ELF version doesn't encode [DS] or whatever at the end of symbols. */
-
-#define RS6000_OUTPUT_BASENAME(FILE, NAME)	\
+#define	RS6000_OUTPUT_BASENAME(FILE, NAME)	\
     assemble_name (FILE, NAME)
 
 /* This macro gets just the user-specified name
    out of the string in a SYMBOL_REF.  Discard
-   a leading * or @. */
-#define STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
+   a leading * or @.  */
+#define	STRIP_NAME_ENCODING(VAR,SYMBOL_NAME)				\
 do {									\
   const char *_name = SYMBOL_NAME;					\
   while (*_name == '*' || *_name == '@')				\
@@ -877,8 +876,9 @@ do {									\
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 
-#undef ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE,NAME)		\
+/* Override elfos.h definition.  */
+#undef	ASM_OUTPUT_LABELREF
+#define	ASM_OUTPUT_LABELREF(FILE,NAME)		\
 do {						\
   const char *_name = NAME;			\
   if (*_name == '@')				\
@@ -890,23 +890,22 @@ do {						\
     asm_fprintf (FILE, "%U%s", _name);		\
 } while (0)
 
-/*
- * Switch into a generic section.
- *
- * We make the section read-only and executable for a function decl,
- * read-only for a const data decl, and writable for a non-const data decl.
- *
- * If the section has already been defined, we must not
- * emit the attributes here. The SVR4 assembler does not
- * recognize section redefinitions.
- * If DECL is NULL, no attributes are emitted.
- *
- * Note, Solaris as doesn't like @nobits, and gas can handle .sbss without
- * needing @nobits.
- */
+/* Switch into a generic section.
 
+   We make the section read-only and executable for a function decl,
+   read-only for a const data decl, and writable for a non-const data decl.
+
+   If the section has already been defined, we must not
+   emit the attributes here. The SVR4 assembler does not
+   recognize section redefinitions.
+   If DECL is NULL, no attributes are emitted.
+
+   Note, Solaris as doesn't like @nobits, and gas can handle .sbss without
+   needing @nobits.  */
+
+/* Override elfos.h definition.  */
 #undef	ASM_OUTPUT_SECTION_NAME
-#define ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC)		\
+#define	ASM_OUTPUT_SECTION_NAME(FILE, DECL, NAME, RELOC)		\
 do {									\
   static struct section_info						\
     {									\
@@ -948,8 +947,9 @@ do {									\
     }									\
 } while (0)
 
-#undef ASM_OUTPUT_CONSTRUCTOR
-#define ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
+/* Override elfos.h definition.  */
+#undef	ASM_OUTPUT_CONSTRUCTOR
+#define	ASM_OUTPUT_CONSTRUCTOR(FILE,NAME)				\
   do {									\
     if (DEFAULT_ABI != ABI_SOLARIS)					\
       {									\
@@ -968,8 +968,9 @@ do {									\
 
 /* A C statement (sans semicolon) to output an element in the table of
    global destructors.  */
-#undef ASM_OUTPUT_DESTRUCTOR
-#define ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
+/* Override elfos.h definition.  */
+#undef	ASM_OUTPUT_DESTRUCTOR
+#define	ASM_OUTPUT_DESTRUCTOR(FILE,NAME)       				\
   do {									\
     if (DEFAULT_ABI != ABI_SOLARIS)					\
       {									\
@@ -993,16 +994,17 @@ do {									\
 
 /* This is the end of what might become sysv4dbx.h.  */
 
-#undef TARGET_VERSION
-#define TARGET_VERSION fprintf (stderr, " (PowerPC System V.4)");
+/* Override rs6000.h definition.  */
+#undef	TARGET_VERSION
+#define	TARGET_VERSION fprintf (stderr, " (PowerPC System V.4)");
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES \
+#define	CPP_PREDEFINES \
   "-DPPC -Dunix -D__svr4__ -Asystem(unix) -Asystem(svr4) -Acpu(powerpc) -Amachine(powerpc)"
 
-/* Pass various options to the assembler */
-#undef ASM_SPEC
-#define ASM_SPEC "%(asm_cpu) \
+/* Pass various options to the assembler.  */
+/* Override svr4.h definition.  */
+#undef	ASM_SPEC
+#define	ASM_SPEC "%(asm_cpu) \
 %{.s: %{mregnames} %{mno-regnames}} %{.S: %{mregnames} %{mno-regnames}} \
 %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*} \
 %{mrelocatable} %{mrelocatable-lib} %{fpic:-K PIC} %{fPIC:-K PIC} \
@@ -1012,18 +1014,17 @@ do {									\
     %{mcall-solaris: -mlittle -msolaris} \
     %{mcall-linux: -mbig} }}}}"
 
-#define CC1_ENDIAN_BIG_SPEC ""
+#define	CC1_ENDIAN_BIG_SPEC ""
 
-#define CC1_ENDIAN_LITTLE_SPEC "\
+#define	CC1_ENDIAN_LITTLE_SPEC "\
 %{!mstrict-align: %{!mno-strict-align: \
 	-mstrict-align \
 }}"
 
-#define CC1_ENDIAN_DEFAULT_SPEC "%(cc1_endian_big_spec)"
+#define	CC1_ENDIAN_DEFAULT_SPEC "%(cc1_endian_big_spec)"
 
-#undef CC1_SPEC
-/* Pass -G xxx to the compiler and set correct endian mode */
-#define CC1_SPEC "%{G*} \
+/* Pass -G xxx to the compiler and set correct endian mode.  */
+#define	CC1_SPEC "%{G*} \
 %{mlittle: %(cc1_endian_little)} %{!mlittle: %{mlittle-endian: %(cc1_endian_little)}} \
 %{mbig: %(cc1_endian_big)} %{!mbig: %{mbig-endian: %(cc1_endian_big)}} \
 %{!mlittle: %{!mlittle-endian: %{!mbig: %{!mbig-endian: \
@@ -1045,8 +1046,7 @@ do {									\
 %{mno-sdata: -msdata=none} \
 %{profile: -p}"
 
-/* Don't put -Y P,<path> for cross compilers */
-#undef LINK_PATH_SPEC
+/* Don't put -Y P,<path> for cross compilers.  */
 #ifndef CROSS_COMPILE
 #define LINK_PATH_SPEC "\
 %{!R*:%{L*:-R %*}} \
@@ -1063,7 +1063,7 @@ do {									\
 #define LINK_PATH_SPEC ""
 #endif
 
-/* Default starting address if specified */
+/* Default starting address if specified.  */
 #define LINK_START_SPEC "\
 %{mads: %(link_start_ads) } \
 %{myellowknife: %(link_start_yellowknife) } \
@@ -1075,9 +1075,9 @@ do {									\
 
 #define LINK_START_DEFAULT_SPEC ""
 
-/* override svr4.h definition */
-#undef LINK_SPEC
-#define LINK_SPEC "\
+/* Override svr4.h definition.  */
+#undef	LINK_SPEC
+#define	LINK_SPEC "\
 %{h*} %{v:-V} %{G*} \
 %{Wl,*:%*} %{YP,*} %{R*} \
 %{Qy:} %{!Qn:-Qy} \
@@ -1117,7 +1117,7 @@ do {									\
     %{mcall-solaris: -oformat elf32-powerpcle} \
   }}}}"
 
-/* Any specific OS flags */
+/* Any specific OS flags.  */
 #define LINK_OS_SPEC "\
 %{mads: %(link_os_ads) } \
 %{myellowknife: %(link_os_yellowknife) } \
@@ -1147,7 +1147,7 @@ do {									\
     %{mcpu=860: -D_SOFT_FLOAT} \
     %{!mcpu*: %(cpp_float_default) }}}"
 
-/* Whether floating point is disabled by default */
+/* Whether floating point is disabled by default.  */
 #define	CPP_FLOAT_DEFAULT_SPEC ""
 
 #define	CPP_SYSV_DEFAULT_SPEC "-D_CALL_SYSV"
@@ -1172,9 +1172,9 @@ do {									\
 
 #define	CPP_ENDIAN_DEFAULT_SPEC "%(cpp_endian_big)"
 
-/* override rs6000.h definition */
-#undef CPP_SPEC
-#define CPP_SPEC "%{posix: -D_POSIX_SOURCE} %(cpp_sysv) %(cpp_endian) %(cpp_cpu) \
+/* Override rs6000.h definition.  */
+#undef	CPP_SPEC
+#define	CPP_SPEC "%{posix: -D_POSIX_SOURCE} %(cpp_sysv) %(cpp_endian) %(cpp_cpu) \
 %{mads: %(cpp_os_ads) } \
 %{myellowknife: %(cpp_os_yellowknife) } \
 %{mmvme: %(cpp_os_mvme) } \
@@ -1183,10 +1183,10 @@ do {									\
 %{mcall-solaris: %(cpp_os_solaris) } \
 %{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(cpp_os_default) }}}}}}"
 
-#define CPP_OS_DEFAULT_SPEC ""
+#define	CPP_OS_DEFAULT_SPEC ""
 
-/* override svr4.h definition */
-#undef  STARTFILE_SPEC
+/* Override svr4.h definition.  */
+#undef	STARTFILE_SPEC
 #define	STARTFILE_SPEC "\
 %{mads: %(startfile_ads) } \
 %{myellowknife: %(startfile_yellowknife) } \
@@ -1198,7 +1198,7 @@ do {									\
 
 #define	STARTFILE_DEFAULT_SPEC ""
 
-/* override svr4.h definition */
+/* Override svr4.h definition.  */
 #undef	LIB_SPEC
 #define	LIB_SPEC "\
 %{mads: %(lib_ads) } \
@@ -1209,13 +1209,13 @@ do {									\
 %{mcall-solaris: %(lib_solaris) } \
 %{!mads: %{!myellowknife: %{!mmvme: %{!msim: %{!mcall-linux: %{!mcall-solaris: %(lib_default) }}}}}}"
 
-/* override rs6000.h definition */
+/* Override rs6000.h definition.  */
 #undef	LIBGCC_SPEC
 #define	LIBGCC_SPEC "libgcc.a%s"
 
 #define LIB_DEFAULT_SPEC ""
 
-/* override svr4.h definition */
+/* Override svr4.h definition.  */
 #undef	ENDFILE_SPEC
 #define	ENDFILE_SPEC "\
 %{mads: ecrtn.o%s} \
@@ -1399,8 +1399,9 @@ do {									\
 %{mcpu=860: -DCPU=PPC603}"
 
 /* Define any extra SPECS that the compiler needs to generate.  */
+/* Override rs6000.h definition.  */
 #undef	SUBTARGET_EXTRA_SPECS
-#define SUBTARGET_EXTRA_SPECS						\
+#define	SUBTARGET_EXTRA_SPECS						\
   { "cpp_sysv",			CPP_SYSV_SPEC },			\
   { "cpp_sysv_default",		CPP_SYSV_DEFAULT_SPEC },		\
   { "cpp_endian_default",	CPP_ENDIAN_DEFAULT_SPEC },		\

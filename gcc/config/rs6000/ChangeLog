@@ -1,3 +1,27 @@
+2000-02-29  Franz Sirl  <Franz.Sirl-kernel@lauterbach.com>
+
+	* aix.h (FP_SAVE_INLINE, ASM_OUTPUT_INTERNAL_LABEL_PREFIX,
+	TEXT_SECTION_ASM_OP, DATA_SECTION_ASM_OP): Move here...
+	* rs6000.h: from here.
+
+	* rs6000-protos.h (rs6000_select_section): Provide prototype.
+	(rs6000_select_rtx_section): Likewise.
+	(rs6000_encode_section_info): Likewise.
+	(sdata_section): Likewise.
+	(sdata2_section): Likewise.
+	(sbss_section): Likewise.
+	* sysv4.h (rs6000_select_section): Delete prototype.
+	(rs6000_select_rtx_section): Likewise.
+	(rs6000_encode_section_info): Likewise.
+	(sdata_section): Likewise.
+	(sdata2_section): Likewise.
+	(sbss_section): Likewise.
+	(REG_SAVE_AREA): Delete definition duplicated in rs6000.h.
+
+	* sysv4.h: Delete various unnecessary #undef's and put a comment
+	on the remaining ones.
+	Change various comments according to coding standard.
+
 2000-02-29  Clinton Popetz  <cpopetz@cygnus.com>
 
 	* config/rs6000/rs6000.h (MQ_REGNO, CR0_REGNO, CR1_REGNO, CR2_REGNO, 

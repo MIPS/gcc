@@ -262,6 +262,9 @@ toc_section ()						\
 #define	RESTORE_FP_PREFIX "._restf"
 #define RESTORE_FP_SUFFIX ""
 
+/* Define cutoff for using external functions to save floating point.  */
+#define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) == 62 || (FIRST_REG) == 63)
+
 /* Function name to call to do profiling.  */
 #define RS6000_MCOUNT ".__mcount"
 
@@ -433,6 +436,12 @@ toc_section ()						\
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE,PREFIX,NUM)	\
   fprintf (FILE, "%s..%d:\n", PREFIX, NUM)
 
+/* This is how to output an internal label prefix.  rs6000.c uses this
+   when generating traceback tables.  */
+
+#define ASM_OUTPUT_INTERNAL_LABEL_PREFIX(FILE,PREFIX)   \
+  fprintf (FILE, "%s..", PREFIX)
+
 /* This is how to output a label for a jump table.  Arguments are the same as
    for ASM_OUTPUT_INTERNAL_LABEL, except the insn for the jump table is
    passed. */
@@ -516,6 +525,15 @@ toc_section ()						\
 
 /* dwarf2out keys off this, but we don't have to have a real definition.  */
 #define UNALIGNED_INT_ASM_OP bite_me
+
+/* Output before instructions.
+   Text section for 64-bit target may contain 64-bit address jump table.  */
+#define TEXT_SECTION_ASM_OP (TARGET_32BIT \
+                             ? "\t.csect .text[PR]" : "\t.csect .text[PR],3")
+
+/* Output before writable data.
+   Align entire section to BIGGEST_ALIGNMENT.  */
+#define DATA_SECTION_ASM_OP "\t.csect .data[RW],3"
 
 /* __throw will restore its own return address to be the same as the
    return address of the function that the throw is being made to.
