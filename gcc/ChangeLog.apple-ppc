@@ -1,3 +1,7 @@
+2004-09-22  Stan Shebs  <shebs@apple.com>
+
+	* config/darwin.h (STARTFILE_SPEC): Don't link in crt2.o if -m64.
+
 2003-09-21  Matt Austern  <austern@apple.com>
 
 	Radar 3807942, backported from FSF mainline

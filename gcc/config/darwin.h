@@ -432,17 +432,18 @@ do {					\
 /* We specify crt0.o as -lcrt0.o so that ld will search the library path.  */
 
 /* APPLE LOCAL IN FSF 2004-04-27 */
+/* APPLE LOCAL 64-bit bringup */
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC  \
   "%{!Zdynamiclib:%{Zbundle:%{!static:-lbundle1.o}} \
      %{!Zbundle:%{pg:%{static:-lgcrt0.o} \
                      %{!static:%{object:-lgcrt0.o} \
                                %{!object:%{preload:-lgcrt0.o} \
-                                 %{!preload:-lgcrt1.o crt2.o%s}}}} \
+                                 %{!preload:-lgcrt1.o %{!m64: crt2.o%s}}}}} \
                 %{!pg:%{static:-lcrt0.o} \
                       %{!static:%{object:-lcrt0.o} \
                                 %{!object:%{preload:-lcrt0.o} \
-                                  %{!preload:-lcrt1.o crt2.o%s}}}}}}"
+                                  %{!preload:-lcrt1.o %{!m64: crt2.o%s}}}}}}}"
 
 /* The native Darwin linker doesn't necessarily place files in the order
    that they're specified on the link line.  Thus, it is pointless
