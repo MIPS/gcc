@@ -522,18 +522,6 @@ EXTRA_GCC_FLAGS = \
 
 GCC_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS)
 
-# This is a list of the targets for all of the modules which are compiled
-# using the build machine's native compiler.  Configure edits the second
-# macro for build!=host builds.
-ALL_BUILD_MODULES_LIST = \
-	all-build-libiberty
-ALL_BUILD_MODULES = @all_build_modules@
-
-# This is a list of the configure targets for all of the modules which
-# are compiled using the native tools.
-CONFIGURE_BUILD_MODULES = \
-	configure-build-libiberty
-
 # This is a list of the configure targets for all of the modules which
 # are compiled using the target tools.
 CONFIGURE_TARGET_MODULES =[+
@@ -802,7 +790,8 @@ gcc-no-fixedincludes:
 # These rules are used to build the modules which are built with the
 # build machine's native compiler.
 [+ FOR build_modules +]
-.PHONY: all-build-[+module+]
+.PHONY: all-build-[+module+] maybe-all-build-[+module+]
+maybe-all-build-[+module+]:
 all-build-[+module+]:
 	@if [ -f ./[+module+]/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
@@ -812,7 +801,8 @@ all-build-[+module+]:
 	  true; \
 	fi
 
-.PHONY: configure-build-[+module+]
+.PHONY: configure-build-[+module+] maybe-configure-build-[+module+]
+maybe-configure-build-[+module+]:
 configure-build-[+module+]:
 	@if [ ! -d $(BUILD_SUBDIR) ]; then \
 	  true; \
@@ -900,7 +890,8 @@ configure-build-[+module+]:
 # These rules are used to build the modules which use FLAGS_TO_PASS.  To
 # build a target all-X means to cd to X and make all.
 [+ FOR host_modules +]
-.PHONY: all-[+module+]
+.PHONY: all-[+module+] maybe-all-[+module+]
+maybe-all-[+module+]:
 all-[+module+]:
 	@dir=[+module+]; \
 	if [ -f ./[+module+]/Makefile ] ; then \
@@ -954,10 +945,12 @@ check-[+module+]:
 [+ ENDIF no_check +]
 
 [+ IF no_install +]
-.PHONY: install-[+module+]
+.PHONY: install-[+module+] maybe-install-[+module+]
+maybe-install-[+module+]:
 install-[+module+]:
 [+ ELSE install +]
-.PHONY: install-[+module+]
+.PHONY: install-[+module+] maybe-install-[+module+]
+maybe-install-[+module+]:
 install-[+module+]: installdirs
 	@dir=[+module+]; \
 	if [ -f ./[+module+]/Makefile ] ; then \
@@ -977,7 +970,8 @@ install-[+module+]: installdirs
 # These rules are used to build the modules which are built with the target
 # tools.  To make foo-X means to cd to X and make foo.
 [+ FOR target_modules +]
-.PHONY: configure-target-[+module+]
+.PHONY: configure-target-[+module+] maybe-configure-target-[+module+]
+maybe-configure-target-[+module+]:
 configure-target-[+module+]:
 	@if [ -d $(TARGET_SUBDIR)/[+module+] ]; then \
 	  r=`${PWD}`; export r; \
@@ -1080,7 +1074,8 @@ configure-target-[+module+]:
 	  true; \
 	fi
 
-.PHONY: all-target-[+module+]
+.PHONY: all-target-[+module+] maybe-all-target-[+module+]
+maybe-all-target-[+module+]:
 all-target-[+module+]:
 	@dir=[+module+] ; \
 	if [ -f $(TARGET_SUBDIR)/[+module+]/Makefile ] ; then \
@@ -1110,8 +1105,14 @@ check-target-[+module+]:
 	  true; \
 	fi
 [+ ENDIF no_check +]
-[+ IF no_install +][+ ELSE install +]\
-.PHONY: install-target-[+module+]
+[+ IF no_install +]
+.PHONY: install-target-[+module+] maybe-install-target-[+module+]
+maybe-install-target-[+module+]:
+# Dummy target for uninstallable.
+install-target-[+module+]:
+[+ ELSE install +]
+.PHONY: install-target-[+module+] maybe-install-target-[+module+]
+maybe-install-target-[+module+]:
 install-target-[+module+]: installdirs
 	@dir=[+module+] ; \
 	if [ -f $(TARGET_SUBDIR)/[+module+]/Makefile ] ; then \
@@ -1127,7 +1128,8 @@ install-target-[+module+]: installdirs
 [+ ENDFOR target_modules +]
 
 # gcc is the only module which uses GCC_FLAGS_TO_PASS.
-.PHONY: all-gcc
+.PHONY: all-gcc maybe-all-gcc
+maybe-all-gcc:
 all-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
@@ -1214,7 +1216,8 @@ check-c++:
 	  true; \
 	fi 
 
-.PHONY: install-gcc
+.PHONY: install-gcc maybe-install-gcc
+maybe-install-gcc:
 install-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
@@ -1225,97 +1228,102 @@ install-gcc:
 	  true; \
 	fi
 
-ALL_GCC = all-gcc
-ALL_GCC_C = $(ALL_GCC) all-target-newlib all-target-libgloss
-ALL_GCC_CXX = $(ALL_GCC_C) all-target-libstdc++-v3
+ALL_GCC = maybe-all-gcc
+ALL_GCC_C = $(ALL_GCC) maybe-all-target-newlib maybe-all-target-libgloss
+ALL_GCC_CXX = $(ALL_GCC_C) maybe-all-target-libstdc++-v3
 
 # This is a list of inter-dependencies among modules.
-all-autoconf: all-m4 all-texinfo
-all-automake: all-m4 all-texinfo
-all-bfd: all-libiberty all-intl
-all-binutils: all-libiberty all-opcodes all-bfd all-flex all-bison all-byacc all-intl
-all-bison: all-texinfo
-configure-target-boehm-gc: $(ALL_GCC_C) configure-target-qthreads
-all-dejagnu: all-tcl all-expect all-tk
-all-diff: all-libiberty
+all-autoconf: maybe-all-m4 maybe-all-texinfo
+all-automake: maybe-all-m4 maybe-all-texinfo
+all-bfd: maybe-all-libiberty maybe-all-intl
+all-binutils: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-flex maybe-all-bison maybe-all-byacc maybe-all-intl
+all-bison: maybe-all-texinfo
+configure-target-boehm-gc: $(ALL_GCC_C) maybe-configure-target-qthreads
+all-dejagnu: maybe-all-tcl maybe-all-expect maybe-all-tk
+all-diff: maybe-all-libiberty
 configure-target-examples: $(ALL_GCC_C)
-all-expect: all-tcl all-tk
-all-fileutils: all-libiberty
-all-flex: all-libiberty all-bison all-byacc
-all-gas: all-libiberty all-opcodes all-bfd all-intl
-all-gcc: all-libiberty all-bison all-byacc all-binutils all-gas all-ld all-zlib
-all-bootstrap: all-libiberty all-texinfo all-bison all-byacc all-binutils all-gas all-ld all-zlib
+all-expect: maybe-all-tcl maybe-all-tk
+all-fileutils: maybe-all-libiberty
+all-flex: maybe-all-libiberty maybe-all-bison maybe-all-byacc
+all-gas: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-intl
+all-gcc: maybe-all-libiberty maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib
+all-bootstrap: maybe-all-libiberty maybe-all-texinfo maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib
 GDB_TK = @GDB_TK@
-all-gdb: all-libiberty all-opcodes all-bfd all-mmalloc all-readline all-bison all-byacc all-sim $(gdbnlmrequirements) $(GDB_TK)
+all-gdb: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-mmalloc maybe-all-readline maybe-all-bison maybe-all-byacc maybe-all-sim $(gdbnlmrequirements) $(GDB_TK)
 configure-target-gperf: $(ALL_GCC_CXX)
-all-target-gperf: all-target-libiberty all-target-libstdc++-v3
-all-gprof: all-libiberty all-bfd all-opcodes all-intl
-all-grep: all-libiberty
-all-gzip: all-libiberty
-all-hello: all-libiberty
-all-itcl: all-tcl all-tk
-all-ld: all-libiberty all-bfd all-opcodes all-bison all-byacc all-flex all-intl
+all-target-gperf: maybe-all-target-libiberty maybe-all-target-libstdc++-v3
+all-gprof: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-intl
+all-grep: maybe-all-libiberty
+all-gzip: maybe-all-libiberty
+all-hello: maybe-all-libiberty
+all-itcl: maybe-all-tcl maybe-all-tk
+all-ld: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-bison maybe-all-byacc maybe-all-flex maybe-all-intl
 configure-target-libgloss: $(ALL_GCC)
-all-target-libgloss: configure-target-newlib
-all-libgui: all-tcl all-tk all-itcl
+all-target-libgloss: maybe-configure-target-newlib
+all-libgui: maybe-all-tcl maybe-all-tk maybe-all-itcl
 configure-target-libffi: $(ALL_GCC_C) 
-configure-target-libjava: $(ALL_GCC_C) configure-target-zlib configure-target-boehm-gc configure-target-qthreads configure-target-libffi
-all-target-libjava: all-fastjar all-target-zlib all-target-boehm-gc all-target-qthreads all-target-libffi
+configure-target-libjava: $(ALL_GCC_C) maybe-configure-target-zlib maybe-configure-target-boehm-gc maybe-configure-target-qthreads maybe-configure-target-libffi
+all-target-libjava: maybe-all-fastjar maybe-all-target-zlib maybe-all-target-boehm-gc maybe-all-target-qthreads maybe-all-target-libffi
 configure-target-libstdc++-v3: $(ALL_GCC_C)
-all-target-libstdc++-v3: all-target-libiberty
+all-target-libstdc++-v3: maybe-all-target-libiberty
 configure-target-libf2c: $(ALL_GCC_C)
-all-target-libf2c: all-target-libiberty
+all-target-libf2c: maybe-all-target-libiberty
 configure-target-libobjc: $(ALL_GCC_C)
-all-target-libobjc: all-target-libiberty
-all-m4: all-libiberty all-texinfo
-all-make: all-libiberty
+all-target-libobjc: maybe-all-target-libiberty
+all-m4: maybe-all-libiberty maybe-all-texinfo
+all-make: maybe-all-libiberty
 configure-target-newlib: $(ALL_GCC)
 configure-target-libtermcap: $(ALL_GCC_C)
-all-opcodes: all-bfd all-libiberty
-all-patch: all-libiberty
-all-prms: all-libiberty
+all-opcodes: maybe-all-bfd maybe-all-libiberty
+all-patch: maybe-all-libiberty
+all-prms: maybe-all-libiberty
 configure-target-qthreads: $(ALL_GCC_C)
-all-recode: all-libiberty
-all-sed: all-libiberty
-all-send-pr: all-prms
-all-sid: all-tcl all-tk
-all-sim: all-libiberty all-bfd all-opcodes all-readline
-all-snavigator: all-tcl all-tk all-itcl all-tix all-db all-grep all-libgui
-all-tar: all-libiberty
-all-tclX: all-tcl all-tk
-all-tk: all-tcl
-all-texinfo: all-libiberty
-all-tix: all-tcl all-tk
+all-recode: maybe-all-libiberty
+all-sed: maybe-all-libiberty
+all-send-pr: maybe-all-prms
+all-sid: maybe-all-tcl maybe-all-tk
+all-sim: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-readline
+all-snavigator: maybe-all-tcl maybe-all-tk maybe-all-itcl maybe-all-tix maybe-all-db maybe-all-grep maybe-all-libgui
+all-tar: maybe-all-libiberty
+all-tclX: maybe-all-tcl maybe-all-tk
+all-tk: maybe-all-tcl
+all-texinfo: maybe-all-libiberty
+all-tix: maybe-all-tcl maybe-all-tk
 configure-target-winsup: $(ALL_GCC_C)
-all-target-winsup: all-target-libiberty all-target-libtermcap
-all-uudecode: all-libiberty
+all-target-winsup: maybe-all-target-libiberty maybe-all-target-libtermcap
+all-uudecode: maybe-all-libiberty
 configure-target-zlib: $(ALL_GCC_C)
-all-fastjar: all-zlib all-libiberty
-configure-target-fastjar: configure-target-zlib
-all-target-fastjar: all-target-zlib all-target-libiberty
+all-fastjar: maybe-all-zlib maybe-all-libiberty
+configure-target-fastjar: maybe-configure-target-zlib
+all-target-fastjar: maybe-all-target-zlib maybe-all-target-libiberty
 configure-target-libiberty: $(ALL_GCC_C)
-install-gdb: install-tcl install-tk install-itcl install-tix install-libgui
-install-sid: install-tcl install-tk
+install-gdb: maybe-install-tcl maybe-install-tk maybe-install-itcl maybe-install-tix maybe-install-libgui
+install-sid: maybe-install-tcl maybe-install-tk
 
 # We put install-opcodes before install-binutils because the installed
 # binutils might be on PATH, and they might need the shared opcodes
 # library.
-install-binutils: install-opcodes
+install-binutils: maybe-install-opcodes
 
 # We put install-tcl before install-itcl because itcl wants to run a
 # program on installation which uses the Tcl libraries.
-install-itcl: install-tcl
+install-itcl: maybe-install-tcl
 
 # This is a slightly kludgy method of getting dependencies on 
 # all-build-libiberty correct; it would be better to build it every time.
-all-gcc: @all_build_modules@
+all-gcc: maybe-all-build-libiberty
 
 # Dependencies of all-build-foo on configure-build-foo.
-all-build-libiberty: configure-build-libiberty
+[+ FOR build_modules +]all-build-[+module+]: configure-build-[+module+]
+[+ ENDFOR build_modules +]
 
 # Dependencies of all-target-foo on configure-target-foo.
 [+ FOR target_modules +]all-target-[+module+]: configure-target-[+module+]
 [+ ENDFOR target_modules +]
+
+# Dependencies of maybe-foo on foo.  These are used because, for example,
+# all-gcc only depends on all-gas if gas is present and being configured.
+@maybe_dependencies@
 
 ### other supporting targets
 

@@ -1,3 +1,14 @@
+2002-11-21  Nathanael Nerode  <neroden@gcc.gnu.org>
+
+	* Makefile.tpl: Implement soft dependency machinery.  Maybe-ize 
+	dependencies.  Maybe-ize build-libiberty.  Create dummy install
+	targets for 'no_install' modules.
+	* configure: Move GDB_TK substitution to configure.in.  Move 
+	build_modules stuff to configure.in.
+	* configure.in: Implement soft dependency machinery.  Maybe-ize 
+	GDB_TK, rearrange slightly.  Move build_modules stuff from configure.
+	* Makefile.in: Regenerate.
+
 2002-11-19  Nathanael Nerode  <neroden@gcc.gnu.org>
 
 	* Makefile.tpl: Make all-target, install-target behave similarly

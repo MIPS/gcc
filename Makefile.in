@@ -519,18 +519,6 @@ EXTRA_GCC_FLAGS = \
 
 GCC_FLAGS_TO_PASS = $(BASE_FLAGS_TO_PASS) $(EXTRA_GCC_FLAGS)
 
-# This is a list of the targets for all of the modules which are compiled
-# using the build machine's native compiler.  Configure edits the second
-# macro for build!=host builds.
-ALL_BUILD_MODULES_LIST = \
-	all-build-libiberty
-ALL_BUILD_MODULES = @all_build_modules@
-
-# This is a list of the configure targets for all of the modules which
-# are compiled using the native tools.
-CONFIGURE_BUILD_MODULES = \
-	configure-build-libiberty
-
 # This is a list of the configure targets for all of the modules which
 # are compiled using the target tools.
 CONFIGURE_TARGET_MODULES = \
@@ -1259,7 +1247,8 @@ gcc-no-fixedincludes:
 # These rules are used to build the modules which are built with the
 # build machine's native compiler.
 
-.PHONY: all-build-libiberty
+.PHONY: all-build-libiberty maybe-all-build-libiberty
+maybe-all-build-libiberty:
 all-build-libiberty:
 	@if [ -f ./libiberty/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
@@ -1269,7 +1258,8 @@ all-build-libiberty:
 	  true; \
 	fi
 
-.PHONY: configure-build-libiberty
+.PHONY: configure-build-libiberty maybe-configure-build-libiberty
+maybe-configure-build-libiberty:
 configure-build-libiberty:
 	@if [ ! -d $(BUILD_SUBDIR) ]; then \
 	  true; \
@@ -1357,7 +1347,8 @@ configure-build-libiberty:
 # These rules are used to build the modules which use FLAGS_TO_PASS.  To
 # build a target all-X means to cd to X and make all.
 
-.PHONY: all-ash
+.PHONY: all-ash maybe-all-ash
+maybe-all-ash:
 all-ash:
 	@dir=ash; \
 	if [ -f ./ash/Makefile ] ; then \
@@ -1384,7 +1375,8 @@ check-ash:
 
 
 
-.PHONY: install-ash
+.PHONY: install-ash maybe-install-ash
+maybe-install-ash:
 install-ash: installdirs
 	@dir=ash; \
 	if [ -f ./ash/Makefile ] ; then \
@@ -1397,7 +1389,8 @@ install-ash: installdirs
 	fi
 
 
-.PHONY: all-autoconf
+.PHONY: all-autoconf maybe-all-autoconf
+maybe-all-autoconf:
 all-autoconf:
 	@dir=autoconf; \
 	if [ -f ./autoconf/Makefile ] ; then \
@@ -1424,7 +1417,8 @@ check-autoconf:
 
 
 
-.PHONY: install-autoconf
+.PHONY: install-autoconf maybe-install-autoconf
+maybe-install-autoconf:
 install-autoconf: installdirs
 	@dir=autoconf; \
 	if [ -f ./autoconf/Makefile ] ; then \
@@ -1437,7 +1431,8 @@ install-autoconf: installdirs
 	fi
 
 
-.PHONY: all-automake
+.PHONY: all-automake maybe-all-automake
+maybe-all-automake:
 all-automake:
 	@dir=automake; \
 	if [ -f ./automake/Makefile ] ; then \
@@ -1464,7 +1459,8 @@ check-automake:
 
 
 
-.PHONY: install-automake
+.PHONY: install-automake maybe-install-automake
+maybe-install-automake:
 install-automake: installdirs
 	@dir=automake; \
 	if [ -f ./automake/Makefile ] ; then \
@@ -1477,7 +1473,8 @@ install-automake: installdirs
 	fi
 
 
-.PHONY: all-bash
+.PHONY: all-bash maybe-all-bash
+maybe-all-bash:
 all-bash:
 	@dir=bash; \
 	if [ -f ./bash/Makefile ] ; then \
@@ -1504,7 +1501,8 @@ check-bash:
 
 
 
-.PHONY: install-bash
+.PHONY: install-bash maybe-install-bash
+maybe-install-bash:
 install-bash: installdirs
 	@dir=bash; \
 	if [ -f ./bash/Makefile ] ; then \
@@ -1517,7 +1515,8 @@ install-bash: installdirs
 	fi
 
 
-.PHONY: all-bfd
+.PHONY: all-bfd maybe-all-bfd
+maybe-all-bfd:
 all-bfd:
 	@dir=bfd; \
 	if [ -f ./bfd/Makefile ] ; then \
@@ -1544,7 +1543,8 @@ check-bfd:
 
 
 
-.PHONY: install-bfd
+.PHONY: install-bfd maybe-install-bfd
+maybe-install-bfd:
 install-bfd: installdirs
 	@dir=bfd; \
 	if [ -f ./bfd/Makefile ] ; then \
@@ -1557,7 +1557,8 @@ install-bfd: installdirs
 	fi
 
 
-.PHONY: all-opcodes
+.PHONY: all-opcodes maybe-all-opcodes
+maybe-all-opcodes:
 all-opcodes:
 	@dir=opcodes; \
 	if [ -f ./opcodes/Makefile ] ; then \
@@ -1584,7 +1585,8 @@ check-opcodes:
 
 
 
-.PHONY: install-opcodes
+.PHONY: install-opcodes maybe-install-opcodes
+maybe-install-opcodes:
 install-opcodes: installdirs
 	@dir=opcodes; \
 	if [ -f ./opcodes/Makefile ] ; then \
@@ -1597,7 +1599,8 @@ install-opcodes: installdirs
 	fi
 
 
-.PHONY: all-binutils
+.PHONY: all-binutils maybe-all-binutils
+maybe-all-binutils:
 all-binutils:
 	@dir=binutils; \
 	if [ -f ./binutils/Makefile ] ; then \
@@ -1624,7 +1627,8 @@ check-binutils:
 
 
 
-.PHONY: install-binutils
+.PHONY: install-binutils maybe-install-binutils
+maybe-install-binutils:
 install-binutils: installdirs
 	@dir=binutils; \
 	if [ -f ./binutils/Makefile ] ; then \
@@ -1637,7 +1641,8 @@ install-binutils: installdirs
 	fi
 
 
-.PHONY: all-bison
+.PHONY: all-bison maybe-all-bison
+maybe-all-bison:
 all-bison:
 	@dir=bison; \
 	if [ -f ./bison/Makefile ] ; then \
@@ -1667,7 +1672,8 @@ check-bison:
 
 
 
-.PHONY: install-bison
+.PHONY: install-bison maybe-install-bison
+maybe-install-bison:
 install-bison: installdirs
 	@dir=bison; \
 	if [ -f ./bison/Makefile ] ; then \
@@ -1680,7 +1686,8 @@ install-bison: installdirs
 	fi
 
 
-.PHONY: all-byacc
+.PHONY: all-byacc maybe-all-byacc
+maybe-all-byacc:
 all-byacc:
 	@dir=byacc; \
 	if [ -f ./byacc/Makefile ] ; then \
@@ -1710,7 +1717,8 @@ check-byacc:
 
 
 
-.PHONY: install-byacc
+.PHONY: install-byacc maybe-install-byacc
+maybe-install-byacc:
 install-byacc: installdirs
 	@dir=byacc; \
 	if [ -f ./byacc/Makefile ] ; then \
@@ -1723,7 +1731,8 @@ install-byacc: installdirs
 	fi
 
 
-.PHONY: all-bzip2
+.PHONY: all-bzip2 maybe-all-bzip2
+maybe-all-bzip2:
 all-bzip2:
 	@dir=bzip2; \
 	if [ -f ./bzip2/Makefile ] ; then \
@@ -1750,7 +1759,8 @@ check-bzip2:
 
 
 
-.PHONY: install-bzip2
+.PHONY: install-bzip2 maybe-install-bzip2
+maybe-install-bzip2:
 install-bzip2: installdirs
 	@dir=bzip2; \
 	if [ -f ./bzip2/Makefile ] ; then \
@@ -1763,7 +1773,8 @@ install-bzip2: installdirs
 	fi
 
 
-.PHONY: all-db
+.PHONY: all-db maybe-all-db
+maybe-all-db:
 all-db:
 	@dir=db; \
 	if [ -f ./db/Makefile ] ; then \
@@ -1790,7 +1801,8 @@ check-db:
 
 
 
-.PHONY: install-db
+.PHONY: install-db maybe-install-db
+maybe-install-db:
 install-db: installdirs
 	@dir=db; \
 	if [ -f ./db/Makefile ] ; then \
@@ -1803,7 +1815,8 @@ install-db: installdirs
 	fi
 
 
-.PHONY: all-dejagnu
+.PHONY: all-dejagnu maybe-all-dejagnu
+maybe-all-dejagnu:
 all-dejagnu:
 	@dir=dejagnu; \
 	if [ -f ./dejagnu/Makefile ] ; then \
@@ -1830,7 +1843,8 @@ check-dejagnu:
 
 
 
-.PHONY: install-dejagnu
+.PHONY: install-dejagnu maybe-install-dejagnu
+maybe-install-dejagnu:
 install-dejagnu: installdirs
 	@dir=dejagnu; \
 	if [ -f ./dejagnu/Makefile ] ; then \
@@ -1843,7 +1857,8 @@ install-dejagnu: installdirs
 	fi
 
 
-.PHONY: all-diff
+.PHONY: all-diff maybe-all-diff
+maybe-all-diff:
 all-diff:
 	@dir=diff; \
 	if [ -f ./diff/Makefile ] ; then \
@@ -1870,7 +1885,8 @@ check-diff:
 
 
 
-.PHONY: install-diff
+.PHONY: install-diff maybe-install-diff
+maybe-install-diff:
 install-diff: installdirs
 	@dir=diff; \
 	if [ -f ./diff/Makefile ] ; then \
@@ -1883,7 +1899,8 @@ install-diff: installdirs
 	fi
 
 
-.PHONY: all-dosutils
+.PHONY: all-dosutils maybe-all-dosutils
+maybe-all-dosutils:
 all-dosutils:
 	@dir=dosutils; \
 	if [ -f ./dosutils/Makefile ] ; then \
@@ -1901,7 +1918,8 @@ check-dosutils:
 
 
 
-.PHONY: install-dosutils
+.PHONY: install-dosutils maybe-install-dosutils
+maybe-install-dosutils:
 install-dosutils: installdirs
 	@dir=dosutils; \
 	if [ -f ./dosutils/Makefile ] ; then \
@@ -1914,7 +1932,8 @@ install-dosutils: installdirs
 	fi
 
 
-.PHONY: all-etc
+.PHONY: all-etc maybe-all-etc
+maybe-all-etc:
 all-etc:
 	@dir=etc; \
 	if [ -f ./etc/Makefile ] ; then \
@@ -1941,7 +1960,8 @@ check-etc:
 
 
 
-.PHONY: install-etc
+.PHONY: install-etc maybe-install-etc
+maybe-install-etc:
 install-etc: installdirs
 	@dir=etc; \
 	if [ -f ./etc/Makefile ] ; then \
@@ -1954,7 +1974,8 @@ install-etc: installdirs
 	fi
 
 
-.PHONY: all-fastjar
+.PHONY: all-fastjar maybe-all-fastjar
+maybe-all-fastjar:
 all-fastjar:
 	@dir=fastjar; \
 	if [ -f ./fastjar/Makefile ] ; then \
@@ -1984,7 +2005,8 @@ check-fastjar:
 
 
 
-.PHONY: install-fastjar
+.PHONY: install-fastjar maybe-install-fastjar
+maybe-install-fastjar:
 install-fastjar: installdirs
 	@dir=fastjar; \
 	if [ -f ./fastjar/Makefile ] ; then \
@@ -1997,7 +2019,8 @@ install-fastjar: installdirs
 	fi
 
 
-.PHONY: all-fileutils
+.PHONY: all-fileutils maybe-all-fileutils
+maybe-all-fileutils:
 all-fileutils:
 	@dir=fileutils; \
 	if [ -f ./fileutils/Makefile ] ; then \
@@ -2024,7 +2047,8 @@ check-fileutils:
 
 
 
-.PHONY: install-fileutils
+.PHONY: install-fileutils maybe-install-fileutils
+maybe-install-fileutils:
 install-fileutils: installdirs
 	@dir=fileutils; \
 	if [ -f ./fileutils/Makefile ] ; then \
@@ -2037,7 +2061,8 @@ install-fileutils: installdirs
 	fi
 
 
-.PHONY: all-findutils
+.PHONY: all-findutils maybe-all-findutils
+maybe-all-findutils:
 all-findutils:
 	@dir=findutils; \
 	if [ -f ./findutils/Makefile ] ; then \
@@ -2064,7 +2089,8 @@ check-findutils:
 
 
 
-.PHONY: install-findutils
+.PHONY: install-findutils maybe-install-findutils
+maybe-install-findutils:
 install-findutils: installdirs
 	@dir=findutils; \
 	if [ -f ./findutils/Makefile ] ; then \
@@ -2077,7 +2103,8 @@ install-findutils: installdirs
 	fi
 
 
-.PHONY: all-find
+.PHONY: all-find maybe-all-find
+maybe-all-find:
 all-find:
 	@dir=find; \
 	if [ -f ./find/Makefile ] ; then \
@@ -2104,7 +2131,8 @@ check-find:
 
 
 
-.PHONY: install-find
+.PHONY: install-find maybe-install-find
+maybe-install-find:
 install-find: installdirs
 	@dir=find; \
 	if [ -f ./find/Makefile ] ; then \
@@ -2117,7 +2145,8 @@ install-find: installdirs
 	fi
 
 
-.PHONY: all-flex
+.PHONY: all-flex maybe-all-flex
+maybe-all-flex:
 all-flex:
 	@dir=flex; \
 	if [ -f ./flex/Makefile ] ; then \
@@ -2147,7 +2176,8 @@ check-flex:
 
 
 
-.PHONY: install-flex
+.PHONY: install-flex maybe-install-flex
+maybe-install-flex:
 install-flex: installdirs
 	@dir=flex; \
 	if [ -f ./flex/Makefile ] ; then \
@@ -2160,7 +2190,8 @@ install-flex: installdirs
 	fi
 
 
-.PHONY: all-gas
+.PHONY: all-gas maybe-all-gas
+maybe-all-gas:
 all-gas:
 	@dir=gas; \
 	if [ -f ./gas/Makefile ] ; then \
@@ -2187,7 +2218,8 @@ check-gas:
 
 
 
-.PHONY: install-gas
+.PHONY: install-gas maybe-install-gas
+maybe-install-gas:
 install-gas: installdirs
 	@dir=gas; \
 	if [ -f ./gas/Makefile ] ; then \
@@ -2200,7 +2232,8 @@ install-gas: installdirs
 	fi
 
 
-.PHONY: all-gawk
+.PHONY: all-gawk maybe-all-gawk
+maybe-all-gawk:
 all-gawk:
 	@dir=gawk; \
 	if [ -f ./gawk/Makefile ] ; then \
@@ -2227,7 +2260,8 @@ check-gawk:
 
 
 
-.PHONY: install-gawk
+.PHONY: install-gawk maybe-install-gawk
+maybe-install-gawk:
 install-gawk: installdirs
 	@dir=gawk; \
 	if [ -f ./gawk/Makefile ] ; then \
@@ -2240,7 +2274,8 @@ install-gawk: installdirs
 	fi
 
 
-.PHONY: all-gettext
+.PHONY: all-gettext maybe-all-gettext
+maybe-all-gettext:
 all-gettext:
 	@dir=gettext; \
 	if [ -f ./gettext/Makefile ] ; then \
@@ -2267,7 +2302,8 @@ check-gettext:
 
 
 
-.PHONY: install-gettext
+.PHONY: install-gettext maybe-install-gettext
+maybe-install-gettext:
 install-gettext: installdirs
 	@dir=gettext; \
 	if [ -f ./gettext/Makefile ] ; then \
@@ -2280,7 +2316,8 @@ install-gettext: installdirs
 	fi
 
 
-.PHONY: all-gnuserv
+.PHONY: all-gnuserv maybe-all-gnuserv
+maybe-all-gnuserv:
 all-gnuserv:
 	@dir=gnuserv; \
 	if [ -f ./gnuserv/Makefile ] ; then \
@@ -2307,7 +2344,8 @@ check-gnuserv:
 
 
 
-.PHONY: install-gnuserv
+.PHONY: install-gnuserv maybe-install-gnuserv
+maybe-install-gnuserv:
 install-gnuserv: installdirs
 	@dir=gnuserv; \
 	if [ -f ./gnuserv/Makefile ] ; then \
@@ -2320,7 +2358,8 @@ install-gnuserv: installdirs
 	fi
 
 
-.PHONY: all-gprof
+.PHONY: all-gprof maybe-all-gprof
+maybe-all-gprof:
 all-gprof:
 	@dir=gprof; \
 	if [ -f ./gprof/Makefile ] ; then \
@@ -2347,7 +2386,8 @@ check-gprof:
 
 
 
-.PHONY: install-gprof
+.PHONY: install-gprof maybe-install-gprof
+maybe-install-gprof:
 install-gprof: installdirs
 	@dir=gprof; \
 	if [ -f ./gprof/Makefile ] ; then \
@@ -2360,7 +2400,8 @@ install-gprof: installdirs
 	fi
 
 
-.PHONY: all-grep
+.PHONY: all-grep maybe-all-grep
+maybe-all-grep:
 all-grep:
 	@dir=grep; \
 	if [ -f ./grep/Makefile ] ; then \
@@ -2387,7 +2428,8 @@ check-grep:
 
 
 
-.PHONY: install-grep
+.PHONY: install-grep maybe-install-grep
+maybe-install-grep:
 install-grep: installdirs
 	@dir=grep; \
 	if [ -f ./grep/Makefile ] ; then \
@@ -2400,7 +2442,8 @@ install-grep: installdirs
 	fi
 
 
-.PHONY: all-gzip
+.PHONY: all-gzip maybe-all-gzip
+maybe-all-gzip:
 all-gzip:
 	@dir=gzip; \
 	if [ -f ./gzip/Makefile ] ; then \
@@ -2427,7 +2470,8 @@ check-gzip:
 
 
 
-.PHONY: install-gzip
+.PHONY: install-gzip maybe-install-gzip
+maybe-install-gzip:
 install-gzip: installdirs
 	@dir=gzip; \
 	if [ -f ./gzip/Makefile ] ; then \
@@ -2440,7 +2484,8 @@ install-gzip: installdirs
 	fi
 
 
-.PHONY: all-hello
+.PHONY: all-hello maybe-all-hello
+maybe-all-hello:
 all-hello:
 	@dir=hello; \
 	if [ -f ./hello/Makefile ] ; then \
@@ -2467,7 +2512,8 @@ check-hello:
 
 
 
-.PHONY: install-hello
+.PHONY: install-hello maybe-install-hello
+maybe-install-hello:
 install-hello: installdirs
 	@dir=hello; \
 	if [ -f ./hello/Makefile ] ; then \
@@ -2480,7 +2526,8 @@ install-hello: installdirs
 	fi
 
 
-.PHONY: all-indent
+.PHONY: all-indent maybe-all-indent
+maybe-all-indent:
 all-indent:
 	@dir=indent; \
 	if [ -f ./indent/Makefile ] ; then \
@@ -2507,7 +2554,8 @@ check-indent:
 
 
 
-.PHONY: install-indent
+.PHONY: install-indent maybe-install-indent
+maybe-install-indent:
 install-indent: installdirs
 	@dir=indent; \
 	if [ -f ./indent/Makefile ] ; then \
@@ -2520,7 +2568,8 @@ install-indent: installdirs
 	fi
 
 
-.PHONY: all-intl
+.PHONY: all-intl maybe-all-intl
+maybe-all-intl:
 all-intl:
 	@dir=intl; \
 	if [ -f ./intl/Makefile ] ; then \
@@ -2547,7 +2596,8 @@ check-intl:
 
 
 
-.PHONY: install-intl
+.PHONY: install-intl maybe-install-intl
+maybe-install-intl:
 install-intl: installdirs
 	@dir=intl; \
 	if [ -f ./intl/Makefile ] ; then \
@@ -2560,7 +2610,8 @@ install-intl: installdirs
 	fi
 
 
-.PHONY: all-tcl
+.PHONY: all-tcl maybe-all-tcl
+maybe-all-tcl:
 all-tcl:
 	@dir=tcl; \
 	if [ -f ./tcl/Makefile ] ; then \
@@ -2587,7 +2638,8 @@ check-tcl:
 
 
 
-.PHONY: install-tcl
+.PHONY: install-tcl maybe-install-tcl
+maybe-install-tcl:
 install-tcl: installdirs
 	@dir=tcl; \
 	if [ -f ./tcl/Makefile ] ; then \
@@ -2600,7 +2652,8 @@ install-tcl: installdirs
 	fi
 
 
-.PHONY: all-itcl
+.PHONY: all-itcl maybe-all-itcl
+maybe-all-itcl:
 all-itcl:
 	@dir=itcl; \
 	if [ -f ./itcl/Makefile ] ; then \
@@ -2627,7 +2680,8 @@ check-itcl:
 
 
 
-.PHONY: install-itcl
+.PHONY: install-itcl maybe-install-itcl
+maybe-install-itcl:
 install-itcl: installdirs
 	@dir=itcl; \
 	if [ -f ./itcl/Makefile ] ; then \
@@ -2640,7 +2694,8 @@ install-itcl: installdirs
 	fi
 
 
-.PHONY: all-ld
+.PHONY: all-ld maybe-all-ld
+maybe-all-ld:
 all-ld:
 	@dir=ld; \
 	if [ -f ./ld/Makefile ] ; then \
@@ -2667,7 +2722,8 @@ check-ld:
 
 
 
-.PHONY: install-ld
+.PHONY: install-ld maybe-install-ld
+maybe-install-ld:
 install-ld: installdirs
 	@dir=ld; \
 	if [ -f ./ld/Makefile ] ; then \
@@ -2680,7 +2736,8 @@ install-ld: installdirs
 	fi
 
 
-.PHONY: all-libgui
+.PHONY: all-libgui maybe-all-libgui
+maybe-all-libgui:
 all-libgui:
 	@dir=libgui; \
 	if [ -f ./libgui/Makefile ] ; then \
@@ -2707,7 +2764,8 @@ check-libgui:
 
 
 
-.PHONY: install-libgui
+.PHONY: install-libgui maybe-install-libgui
+maybe-install-libgui:
 install-libgui: installdirs
 	@dir=libgui; \
 	if [ -f ./libgui/Makefile ] ; then \
@@ -2720,7 +2778,8 @@ install-libgui: installdirs
 	fi
 
 
-.PHONY: all-libiberty
+.PHONY: all-libiberty maybe-all-libiberty
+maybe-all-libiberty:
 all-libiberty:
 	@dir=libiberty; \
 	if [ -f ./libiberty/Makefile ] ; then \
@@ -2747,7 +2806,8 @@ check-libiberty:
 
 
 
-.PHONY: install-libiberty
+.PHONY: install-libiberty maybe-install-libiberty
+maybe-install-libiberty:
 install-libiberty: installdirs
 	@dir=libiberty; \
 	if [ -f ./libiberty/Makefile ] ; then \
@@ -2760,7 +2820,8 @@ install-libiberty: installdirs
 	fi
 
 
-.PHONY: all-libtool
+.PHONY: all-libtool maybe-all-libtool
+maybe-all-libtool:
 all-libtool:
 	@dir=libtool; \
 	if [ -f ./libtool/Makefile ] ; then \
@@ -2787,7 +2848,8 @@ check-libtool:
 
 
 
-.PHONY: install-libtool
+.PHONY: install-libtool maybe-install-libtool
+maybe-install-libtool:
 install-libtool: installdirs
 	@dir=libtool; \
 	if [ -f ./libtool/Makefile ] ; then \
@@ -2800,7 +2862,8 @@ install-libtool: installdirs
 	fi
 
 
-.PHONY: all-m4
+.PHONY: all-m4 maybe-all-m4
+maybe-all-m4:
 all-m4:
 	@dir=m4; \
 	if [ -f ./m4/Makefile ] ; then \
@@ -2827,7 +2890,8 @@ check-m4:
 
 
 
-.PHONY: install-m4
+.PHONY: install-m4 maybe-install-m4
+maybe-install-m4:
 install-m4: installdirs
 	@dir=m4; \
 	if [ -f ./m4/Makefile ] ; then \
@@ -2840,7 +2904,8 @@ install-m4: installdirs
 	fi
 
 
-.PHONY: all-make
+.PHONY: all-make maybe-all-make
+maybe-all-make:
 all-make:
 	@dir=make; \
 	if [ -f ./make/Makefile ] ; then \
@@ -2867,7 +2932,8 @@ check-make:
 
 
 
-.PHONY: install-make
+.PHONY: install-make maybe-install-make
+maybe-install-make:
 install-make: installdirs
 	@dir=make; \
 	if [ -f ./make/Makefile ] ; then \
@@ -2880,7 +2946,8 @@ install-make: installdirs
 	fi
 
 
-.PHONY: all-mmalloc
+.PHONY: all-mmalloc maybe-all-mmalloc
+maybe-all-mmalloc:
 all-mmalloc:
 	@dir=mmalloc; \
 	if [ -f ./mmalloc/Makefile ] ; then \
@@ -2898,7 +2965,8 @@ check-mmalloc:
 
 
 
-.PHONY: install-mmalloc
+.PHONY: install-mmalloc maybe-install-mmalloc
+maybe-install-mmalloc:
 install-mmalloc: installdirs
 	@dir=mmalloc; \
 	if [ -f ./mmalloc/Makefile ] ; then \
@@ -2911,7 +2979,8 @@ install-mmalloc: installdirs
 	fi
 
 
-.PHONY: all-patch
+.PHONY: all-patch maybe-all-patch
+maybe-all-patch:
 all-patch:
 	@dir=patch; \
 	if [ -f ./patch/Makefile ] ; then \
@@ -2938,7 +3007,8 @@ check-patch:
 
 
 
-.PHONY: install-patch
+.PHONY: install-patch maybe-install-patch
+maybe-install-patch:
 install-patch: installdirs
 	@dir=patch; \
 	if [ -f ./patch/Makefile ] ; then \
@@ -2951,7 +3021,8 @@ install-patch: installdirs
 	fi
 
 
-.PHONY: all-perl
+.PHONY: all-perl maybe-all-perl
+maybe-all-perl:
 all-perl:
 	@dir=perl; \
 	if [ -f ./perl/Makefile ] ; then \
@@ -2978,7 +3049,8 @@ check-perl:
 
 
 
-.PHONY: install-perl
+.PHONY: install-perl maybe-install-perl
+maybe-install-perl:
 install-perl: installdirs
 	@dir=perl; \
 	if [ -f ./perl/Makefile ] ; then \
@@ -2991,7 +3063,8 @@ install-perl: installdirs
 	fi
 
 
-.PHONY: all-prms
+.PHONY: all-prms maybe-all-prms
+maybe-all-prms:
 all-prms:
 	@dir=prms; \
 	if [ -f ./prms/Makefile ] ; then \
@@ -3018,7 +3091,8 @@ check-prms:
 
 
 
-.PHONY: install-prms
+.PHONY: install-prms maybe-install-prms
+maybe-install-prms:
 install-prms: installdirs
 	@dir=prms; \
 	if [ -f ./prms/Makefile ] ; then \
@@ -3031,7 +3105,8 @@ install-prms: installdirs
 	fi
 
 
-.PHONY: all-rcs
+.PHONY: all-rcs maybe-all-rcs
+maybe-all-rcs:
 all-rcs:
 	@dir=rcs; \
 	if [ -f ./rcs/Makefile ] ; then \
@@ -3058,7 +3133,8 @@ check-rcs:
 
 
 
-.PHONY: install-rcs
+.PHONY: install-rcs maybe-install-rcs
+maybe-install-rcs:
 install-rcs: installdirs
 	@dir=rcs; \
 	if [ -f ./rcs/Makefile ] ; then \
@@ -3071,7 +3147,8 @@ install-rcs: installdirs
 	fi
 
 
-.PHONY: all-readline
+.PHONY: all-readline maybe-all-readline
+maybe-all-readline:
 all-readline:
 	@dir=readline; \
 	if [ -f ./readline/Makefile ] ; then \
@@ -3098,7 +3175,8 @@ check-readline:
 
 
 
-.PHONY: install-readline
+.PHONY: install-readline maybe-install-readline
+maybe-install-readline:
 install-readline: installdirs
 	@dir=readline; \
 	if [ -f ./readline/Makefile ] ; then \
@@ -3111,7 +3189,8 @@ install-readline: installdirs
 	fi
 
 
-.PHONY: all-release
+.PHONY: all-release maybe-all-release
+maybe-all-release:
 all-release:
 	@dir=release; \
 	if [ -f ./release/Makefile ] ; then \
@@ -3129,11 +3208,13 @@ check-release:
 
 
 
-.PHONY: install-release
+.PHONY: install-release maybe-install-release
+maybe-install-release:
 install-release:
 
 
-.PHONY: all-recode
+.PHONY: all-recode maybe-all-recode
+maybe-all-recode:
 all-recode:
 	@dir=recode; \
 	if [ -f ./recode/Makefile ] ; then \
@@ -3160,7 +3241,8 @@ check-recode:
 
 
 
-.PHONY: install-recode
+.PHONY: install-recode maybe-install-recode
+maybe-install-recode:
 install-recode: installdirs
 	@dir=recode; \
 	if [ -f ./recode/Makefile ] ; then \
@@ -3173,7 +3255,8 @@ install-recode: installdirs
 	fi
 
 
-.PHONY: all-sed
+.PHONY: all-sed maybe-all-sed
+maybe-all-sed:
 all-sed:
 	@dir=sed; \
 	if [ -f ./sed/Makefile ] ; then \
@@ -3200,7 +3283,8 @@ check-sed:
 
 
 
-.PHONY: install-sed
+.PHONY: install-sed maybe-install-sed
+maybe-install-sed:
 install-sed: installdirs
 	@dir=sed; \
 	if [ -f ./sed/Makefile ] ; then \
@@ -3213,7 +3297,8 @@ install-sed: installdirs
 	fi
 
 
-.PHONY: all-send-pr
+.PHONY: all-send-pr maybe-all-send-pr
+maybe-all-send-pr:
 all-send-pr:
 	@dir=send-pr; \
 	if [ -f ./send-pr/Makefile ] ; then \
@@ -3240,7 +3325,8 @@ check-send-pr:
 
 
 
-.PHONY: install-send-pr
+.PHONY: install-send-pr maybe-install-send-pr
+maybe-install-send-pr:
 install-send-pr: installdirs
 	@dir=send-pr; \
 	if [ -f ./send-pr/Makefile ] ; then \
@@ -3253,7 +3339,8 @@ install-send-pr: installdirs
 	fi
 
 
-.PHONY: all-shellutils
+.PHONY: all-shellutils maybe-all-shellutils
+maybe-all-shellutils:
 all-shellutils:
 	@dir=shellutils; \
 	if [ -f ./shellutils/Makefile ] ; then \
@@ -3280,7 +3367,8 @@ check-shellutils:
 
 
 
-.PHONY: install-shellutils
+.PHONY: install-shellutils maybe-install-shellutils
+maybe-install-shellutils:
 install-shellutils: installdirs
 	@dir=shellutils; \
 	if [ -f ./shellutils/Makefile ] ; then \
@@ -3293,7 +3381,8 @@ install-shellutils: installdirs
 	fi
 
 
-.PHONY: all-sid
+.PHONY: all-sid maybe-all-sid
+maybe-all-sid:
 all-sid:
 	@dir=sid; \
 	if [ -f ./sid/Makefile ] ; then \
@@ -3320,7 +3409,8 @@ check-sid:
 
 
 
-.PHONY: install-sid
+.PHONY: install-sid maybe-install-sid
+maybe-install-sid:
 install-sid: installdirs
 	@dir=sid; \
 	if [ -f ./sid/Makefile ] ; then \
@@ -3333,7 +3423,8 @@ install-sid: installdirs
 	fi
 
 
-.PHONY: all-sim
+.PHONY: all-sim maybe-all-sim
+maybe-all-sim:
 all-sim:
 	@dir=sim; \
 	if [ -f ./sim/Makefile ] ; then \
@@ -3360,7 +3451,8 @@ check-sim:
 
 
 
-.PHONY: install-sim
+.PHONY: install-sim maybe-install-sim
+maybe-install-sim:
 install-sim: installdirs
 	@dir=sim; \
 	if [ -f ./sim/Makefile ] ; then \
@@ -3373,7 +3465,8 @@ install-sim: installdirs
 	fi
 
 
-.PHONY: all-snavigator
+.PHONY: all-snavigator maybe-all-snavigator
+maybe-all-snavigator:
 all-snavigator:
 	@dir=snavigator; \
 	if [ -f ./snavigator/Makefile ] ; then \
@@ -3400,7 +3493,8 @@ check-snavigator:
 
 
 
-.PHONY: install-snavigator
+.PHONY: install-snavigator maybe-install-snavigator
+maybe-install-snavigator:
 install-snavigator: installdirs
 	@dir=snavigator; \
 	if [ -f ./snavigator/Makefile ] ; then \
@@ -3413,7 +3507,8 @@ install-snavigator: installdirs
 	fi
 
 
-.PHONY: all-tar
+.PHONY: all-tar maybe-all-tar
+maybe-all-tar:
 all-tar:
 	@dir=tar; \
 	if [ -f ./tar/Makefile ] ; then \
@@ -3440,7 +3535,8 @@ check-tar:
 
 
 
-.PHONY: install-tar
+.PHONY: install-tar maybe-install-tar
+maybe-install-tar:
 install-tar: installdirs
 	@dir=tar; \
 	if [ -f ./tar/Makefile ] ; then \
@@ -3453,7 +3549,8 @@ install-tar: installdirs
 	fi
 
 
-.PHONY: all-texinfo
+.PHONY: all-texinfo maybe-all-texinfo
+maybe-all-texinfo:
 all-texinfo:
 	@dir=texinfo; \
 	if [ -f ./texinfo/Makefile ] ; then \
@@ -3480,11 +3577,13 @@ check-texinfo:
 
 
 
-.PHONY: install-texinfo
+.PHONY: install-texinfo maybe-install-texinfo
+maybe-install-texinfo:
 install-texinfo:
 
 
-.PHONY: all-textutils
+.PHONY: all-textutils maybe-all-textutils
+maybe-all-textutils:
 all-textutils:
 	@dir=textutils; \
 	if [ -f ./textutils/Makefile ] ; then \
@@ -3511,7 +3610,8 @@ check-textutils:
 
 
 
-.PHONY: install-textutils
+.PHONY: install-textutils maybe-install-textutils
+maybe-install-textutils:
 install-textutils: installdirs
 	@dir=textutils; \
 	if [ -f ./textutils/Makefile ] ; then \
@@ -3524,7 +3624,8 @@ install-textutils: installdirs
 	fi
 
 
-.PHONY: all-time
+.PHONY: all-time maybe-all-time
+maybe-all-time:
 all-time:
 	@dir=time; \
 	if [ -f ./time/Makefile ] ; then \
@@ -3551,7 +3652,8 @@ check-time:
 
 
 
-.PHONY: install-time
+.PHONY: install-time maybe-install-time
+maybe-install-time:
 install-time: installdirs
 	@dir=time; \
 	if [ -f ./time/Makefile ] ; then \
@@ -3564,7 +3666,8 @@ install-time: installdirs
 	fi
 
 
-.PHONY: all-uudecode
+.PHONY: all-uudecode maybe-all-uudecode
+maybe-all-uudecode:
 all-uudecode:
 	@dir=uudecode; \
 	if [ -f ./uudecode/Makefile ] ; then \
@@ -3591,7 +3694,8 @@ check-uudecode:
 
 
 
-.PHONY: install-uudecode
+.PHONY: install-uudecode maybe-install-uudecode
+maybe-install-uudecode:
 install-uudecode: installdirs
 	@dir=uudecode; \
 	if [ -f ./uudecode/Makefile ] ; then \
@@ -3604,7 +3708,8 @@ install-uudecode: installdirs
 	fi
 
 
-.PHONY: all-wdiff
+.PHONY: all-wdiff maybe-all-wdiff
+maybe-all-wdiff:
 all-wdiff:
 	@dir=wdiff; \
 	if [ -f ./wdiff/Makefile ] ; then \
@@ -3631,7 +3736,8 @@ check-wdiff:
 
 
 
-.PHONY: install-wdiff
+.PHONY: install-wdiff maybe-install-wdiff
+maybe-install-wdiff:
 install-wdiff: installdirs
 	@dir=wdiff; \
 	if [ -f ./wdiff/Makefile ] ; then \
@@ -3644,7 +3750,8 @@ install-wdiff: installdirs
 	fi
 
 
-.PHONY: all-zip
+.PHONY: all-zip maybe-all-zip
+maybe-all-zip:
 all-zip:
 	@dir=zip; \
 	if [ -f ./zip/Makefile ] ; then \
@@ -3674,7 +3781,8 @@ check-zip:
 
 
 
-.PHONY: install-zip
+.PHONY: install-zip maybe-install-zip
+maybe-install-zip:
 install-zip: installdirs
 	@dir=zip; \
 	if [ -f ./zip/Makefile ] ; then \
@@ -3687,7 +3795,8 @@ install-zip: installdirs
 	fi
 
 
-.PHONY: all-zlib
+.PHONY: all-zlib maybe-all-zlib
+maybe-all-zlib:
 all-zlib:
 	@dir=zlib; \
 	if [ -f ./zlib/Makefile ] ; then \
@@ -3705,11 +3814,13 @@ check-zlib:
 
 
 
-.PHONY: install-zlib
+.PHONY: install-zlib maybe-install-zlib
+maybe-install-zlib:
 install-zlib:
 
 
-.PHONY: all-gdb
+.PHONY: all-gdb maybe-all-gdb
+maybe-all-gdb:
 all-gdb:
 	@dir=gdb; \
 	if [ -f ./gdb/Makefile ] ; then \
@@ -3736,7 +3847,8 @@ check-gdb:
 
 
 
-.PHONY: install-gdb
+.PHONY: install-gdb maybe-install-gdb
+maybe-install-gdb:
 install-gdb: installdirs
 	@dir=gdb; \
 	if [ -f ./gdb/Makefile ] ; then \
@@ -3749,7 +3861,8 @@ install-gdb: installdirs
 	fi
 
 
-.PHONY: all-expect
+.PHONY: all-expect maybe-all-expect
+maybe-all-expect:
 all-expect:
 	@dir=expect; \
 	if [ -f ./expect/Makefile ] ; then \
@@ -3776,7 +3889,8 @@ check-expect:
 
 
 
-.PHONY: install-expect
+.PHONY: install-expect maybe-install-expect
+maybe-install-expect:
 install-expect: installdirs
 	@dir=expect; \
 	if [ -f ./expect/Makefile ] ; then \
@@ -3789,7 +3903,8 @@ install-expect: installdirs
 	fi
 
 
-.PHONY: all-guile
+.PHONY: all-guile maybe-all-guile
+maybe-all-guile:
 all-guile:
 	@dir=guile; \
 	if [ -f ./guile/Makefile ] ; then \
@@ -3816,7 +3931,8 @@ check-guile:
 
 
 
-.PHONY: install-guile
+.PHONY: install-guile maybe-install-guile
+maybe-install-guile:
 install-guile: installdirs
 	@dir=guile; \
 	if [ -f ./guile/Makefile ] ; then \
@@ -3829,7 +3945,8 @@ install-guile: installdirs
 	fi
 
 
-.PHONY: all-tclX
+.PHONY: all-tclX maybe-all-tclX
+maybe-all-tclX:
 all-tclX:
 	@dir=tclX; \
 	if [ -f ./tclX/Makefile ] ; then \
@@ -3856,7 +3973,8 @@ check-tclX:
 
 
 
-.PHONY: install-tclX
+.PHONY: install-tclX maybe-install-tclX
+maybe-install-tclX:
 install-tclX: installdirs
 	@dir=tclX; \
 	if [ -f ./tclX/Makefile ] ; then \
@@ -3869,7 +3987,8 @@ install-tclX: installdirs
 	fi
 
 
-.PHONY: all-tk
+.PHONY: all-tk maybe-all-tk
+maybe-all-tk:
 all-tk:
 	@dir=tk; \
 	if [ -f ./tk/Makefile ] ; then \
@@ -3896,7 +4015,8 @@ check-tk:
 
 
 
-.PHONY: install-tk
+.PHONY: install-tk maybe-install-tk
+maybe-install-tk:
 install-tk: installdirs
 	@dir=tk; \
 	if [ -f ./tk/Makefile ] ; then \
@@ -3909,7 +4029,8 @@ install-tk: installdirs
 	fi
 
 
-.PHONY: all-tix
+.PHONY: all-tix maybe-all-tix
+maybe-all-tix:
 all-tix:
 	@dir=tix; \
 	if [ -f ./tix/Makefile ] ; then \
@@ -3936,7 +4057,8 @@ check-tix:
 
 
 
-.PHONY: install-tix
+.PHONY: install-tix maybe-install-tix
+maybe-install-tix:
 install-tix: installdirs
 	@dir=tix; \
 	if [ -f ./tix/Makefile ] ; then \
@@ -3949,7 +4071,8 @@ install-tix: installdirs
 	fi
 
 
-.PHONY: all-libtermcap
+.PHONY: all-libtermcap maybe-all-libtermcap
+maybe-all-libtermcap:
 all-libtermcap:
 	@dir=libtermcap; \
 	if [ -f ./libtermcap/Makefile ] ; then \
@@ -3967,7 +4090,8 @@ check-libtermcap:
 
 
 
-.PHONY: install-libtermcap
+.PHONY: install-libtermcap maybe-install-libtermcap
+maybe-install-libtermcap:
 install-libtermcap: installdirs
 	@dir=libtermcap; \
 	if [ -f ./libtermcap/Makefile ] ; then \
@@ -3980,7 +4104,8 @@ install-libtermcap: installdirs
 	fi
 
 
-.PHONY: all-utils
+.PHONY: all-utils maybe-all-utils
+maybe-all-utils:
 all-utils:
 	@dir=utils; \
 	if [ -f ./utils/Makefile ] ; then \
@@ -3998,7 +4123,8 @@ check-utils:
 
 
 
-.PHONY: install-utils
+.PHONY: install-utils maybe-install-utils
+maybe-install-utils:
 install-utils: installdirs
 	@dir=utils; \
 	if [ -f ./utils/Makefile ] ; then \
@@ -4015,7 +4141,8 @@ install-utils: installdirs
 # These rules are used to build the modules which are built with the target
 # tools.  To make foo-X means to cd to X and make foo.
 
-.PHONY: configure-target-libstdc++-v3
+.PHONY: configure-target-libstdc++-v3 maybe-configure-target-libstdc++-v3
+maybe-configure-target-libstdc++-v3:
 configure-target-libstdc++-v3:
 	@if [ -d $(TARGET_SUBDIR)/libstdc++-v3 ]; then \
 	  r=`${PWD}`; export r; \
@@ -4118,7 +4245,8 @@ configure-target-libstdc++-v3:
 	  true; \
 	fi
 
-.PHONY: all-target-libstdc++-v3
+.PHONY: all-target-libstdc++-v3 maybe-all-target-libstdc++-v3
+maybe-all-target-libstdc++-v3:
 all-target-libstdc++-v3:
 	@dir=libstdc++-v3 ; \
 	if [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] ; then \
@@ -4144,8 +4272,9 @@ check-target-libstdc++-v3:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-libstdc++-v3
+
+.PHONY: install-target-libstdc++-v3 maybe-install-target-libstdc++-v3
+maybe-install-target-libstdc++-v3:
 install-target-libstdc++-v3: installdirs
 	@dir=libstdc++-v3 ; \
 	if [ -f $(TARGET_SUBDIR)/libstdc++-v3/Makefile ] ; then \
@@ -4159,7 +4288,8 @@ install-target-libstdc++-v3: installdirs
 	fi
 
 
-.PHONY: configure-target-newlib
+.PHONY: configure-target-newlib maybe-configure-target-newlib
+maybe-configure-target-newlib:
 configure-target-newlib:
 	@if [ -d $(TARGET_SUBDIR)/newlib ]; then \
 	  r=`${PWD}`; export r; \
@@ -4262,7 +4392,8 @@ configure-target-newlib:
 	  true; \
 	fi
 
-.PHONY: all-target-newlib
+.PHONY: all-target-newlib maybe-all-target-newlib
+maybe-all-target-newlib:
 all-target-newlib:
 	@dir=newlib ; \
 	if [ -f $(TARGET_SUBDIR)/newlib/Makefile ] ; then \
@@ -4288,8 +4419,9 @@ check-target-newlib:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-newlib
+
+.PHONY: install-target-newlib maybe-install-target-newlib
+maybe-install-target-newlib:
 install-target-newlib: installdirs
 	@dir=newlib ; \
 	if [ -f $(TARGET_SUBDIR)/newlib/Makefile ] ; then \
@@ -4303,7 +4435,8 @@ install-target-newlib: installdirs
 	fi
 
 
-.PHONY: configure-target-libf2c
+.PHONY: configure-target-libf2c maybe-configure-target-libf2c
+maybe-configure-target-libf2c:
 configure-target-libf2c:
 	@if [ -d $(TARGET_SUBDIR)/libf2c ]; then \
 	  r=`${PWD}`; export r; \
@@ -4406,7 +4539,8 @@ configure-target-libf2c:
 	  true; \
 	fi
 
-.PHONY: all-target-libf2c
+.PHONY: all-target-libf2c maybe-all-target-libf2c
+maybe-all-target-libf2c:
 all-target-libf2c:
 	@dir=libf2c ; \
 	if [ -f $(TARGET_SUBDIR)/libf2c/Makefile ] ; then \
@@ -4432,8 +4566,9 @@ check-target-libf2c:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-libf2c
+
+.PHONY: install-target-libf2c maybe-install-target-libf2c
+maybe-install-target-libf2c:
 install-target-libf2c: installdirs
 	@dir=libf2c ; \
 	if [ -f $(TARGET_SUBDIR)/libf2c/Makefile ] ; then \
@@ -4447,7 +4582,8 @@ install-target-libf2c: installdirs
 	fi
 
 
-.PHONY: configure-target-libobjc
+.PHONY: configure-target-libobjc maybe-configure-target-libobjc
+maybe-configure-target-libobjc:
 configure-target-libobjc:
 	@if [ -d $(TARGET_SUBDIR)/libobjc ]; then \
 	  r=`${PWD}`; export r; \
@@ -4550,7 +4686,8 @@ configure-target-libobjc:
 	  true; \
 	fi
 
-.PHONY: all-target-libobjc
+.PHONY: all-target-libobjc maybe-all-target-libobjc
+maybe-all-target-libobjc:
 all-target-libobjc:
 	@dir=libobjc ; \
 	if [ -f $(TARGET_SUBDIR)/libobjc/Makefile ] ; then \
@@ -4576,8 +4713,9 @@ check-target-libobjc:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-libobjc
+
+.PHONY: install-target-libobjc maybe-install-target-libobjc
+maybe-install-target-libobjc:
 install-target-libobjc: installdirs
 	@dir=libobjc ; \
 	if [ -f $(TARGET_SUBDIR)/libobjc/Makefile ] ; then \
@@ -4591,7 +4729,8 @@ install-target-libobjc: installdirs
 	fi
 
 
-.PHONY: configure-target-libtermcap
+.PHONY: configure-target-libtermcap maybe-configure-target-libtermcap
+maybe-configure-target-libtermcap:
 configure-target-libtermcap:
 	@if [ -d $(TARGET_SUBDIR)/libtermcap ]; then \
 	  r=`${PWD}`; export r; \
@@ -4694,7 +4833,8 @@ configure-target-libtermcap:
 	  true; \
 	fi
 
-.PHONY: all-target-libtermcap
+.PHONY: all-target-libtermcap maybe-all-target-libtermcap
+maybe-all-target-libtermcap:
 all-target-libtermcap:
 	@dir=libtermcap ; \
 	if [ -f $(TARGET_SUBDIR)/libtermcap/Makefile ] ; then \
@@ -4711,8 +4851,9 @@ all-target-libtermcap:
 .PHONY: check-target-libtermcap
 check-target-libtermcap:
 
-\
-.PHONY: install-target-libtermcap
+
+.PHONY: install-target-libtermcap maybe-install-target-libtermcap
+maybe-install-target-libtermcap:
 install-target-libtermcap: installdirs
 	@dir=libtermcap ; \
 	if [ -f $(TARGET_SUBDIR)/libtermcap/Makefile ] ; then \
@@ -4726,7 +4867,8 @@ install-target-libtermcap: installdirs
 	fi
 
 
-.PHONY: configure-target-winsup
+.PHONY: configure-target-winsup maybe-configure-target-winsup
+maybe-configure-target-winsup:
 configure-target-winsup:
 	@if [ -d $(TARGET_SUBDIR)/winsup ]; then \
 	  r=`${PWD}`; export r; \
@@ -4829,7 +4971,8 @@ configure-target-winsup:
 	  true; \
 	fi
 
-.PHONY: all-target-winsup
+.PHONY: all-target-winsup maybe-all-target-winsup
+maybe-all-target-winsup:
 all-target-winsup:
 	@dir=winsup ; \
 	if [ -f $(TARGET_SUBDIR)/winsup/Makefile ] ; then \
@@ -4855,8 +4998,9 @@ check-target-winsup:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-winsup
+
+.PHONY: install-target-winsup maybe-install-target-winsup
+maybe-install-target-winsup:
 install-target-winsup: installdirs
 	@dir=winsup ; \
 	if [ -f $(TARGET_SUBDIR)/winsup/Makefile ] ; then \
@@ -4870,7 +5014,8 @@ install-target-winsup: installdirs
 	fi
 
 
-.PHONY: configure-target-libgloss
+.PHONY: configure-target-libgloss maybe-configure-target-libgloss
+maybe-configure-target-libgloss:
 configure-target-libgloss:
 	@if [ -d $(TARGET_SUBDIR)/libgloss ]; then \
 	  r=`${PWD}`; export r; \
@@ -4973,7 +5118,8 @@ configure-target-libgloss:
 	  true; \
 	fi
 
-.PHONY: all-target-libgloss
+.PHONY: all-target-libgloss maybe-all-target-libgloss
+maybe-all-target-libgloss:
 all-target-libgloss:
 	@dir=libgloss ; \
 	if [ -f $(TARGET_SUBDIR)/libgloss/Makefile ] ; then \
@@ -4990,8 +5136,9 @@ all-target-libgloss:
 .PHONY: check-target-libgloss
 check-target-libgloss:
 
-\
-.PHONY: install-target-libgloss
+
+.PHONY: install-target-libgloss maybe-install-target-libgloss
+maybe-install-target-libgloss:
 install-target-libgloss: installdirs
 	@dir=libgloss ; \
 	if [ -f $(TARGET_SUBDIR)/libgloss/Makefile ] ; then \
@@ -5005,7 +5152,8 @@ install-target-libgloss: installdirs
 	fi
 
 
-.PHONY: configure-target-libiberty
+.PHONY: configure-target-libiberty maybe-configure-target-libiberty
+maybe-configure-target-libiberty:
 configure-target-libiberty:
 	@if [ -d $(TARGET_SUBDIR)/libiberty ]; then \
 	  r=`${PWD}`; export r; \
@@ -5108,7 +5256,8 @@ configure-target-libiberty:
 	  true; \
 	fi
 
-.PHONY: all-target-libiberty
+.PHONY: all-target-libiberty maybe-all-target-libiberty
+maybe-all-target-libiberty:
 all-target-libiberty:
 	@dir=libiberty ; \
 	if [ -f $(TARGET_SUBDIR)/libiberty/Makefile ] ; then \
@@ -5134,8 +5283,9 @@ check-target-libiberty:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-libiberty
+
+.PHONY: install-target-libiberty maybe-install-target-libiberty
+maybe-install-target-libiberty:
 install-target-libiberty: installdirs
 	@dir=libiberty ; \
 	if [ -f $(TARGET_SUBDIR)/libiberty/Makefile ] ; then \
@@ -5149,7 +5299,8 @@ install-target-libiberty: installdirs
 	fi
 
 
-.PHONY: configure-target-gperf
+.PHONY: configure-target-gperf maybe-configure-target-gperf
+maybe-configure-target-gperf:
 configure-target-gperf:
 	@if [ -d $(TARGET_SUBDIR)/gperf ]; then \
 	  r=`${PWD}`; export r; \
@@ -5252,7 +5403,8 @@ configure-target-gperf:
 	  true; \
 	fi
 
-.PHONY: all-target-gperf
+.PHONY: all-target-gperf maybe-all-target-gperf
+maybe-all-target-gperf:
 all-target-gperf:
 	@dir=gperf ; \
 	if [ -f $(TARGET_SUBDIR)/gperf/Makefile ] ; then \
@@ -5278,8 +5430,9 @@ check-target-gperf:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-gperf
+
+.PHONY: install-target-gperf maybe-install-target-gperf
+maybe-install-target-gperf:
 install-target-gperf: installdirs
 	@dir=gperf ; \
 	if [ -f $(TARGET_SUBDIR)/gperf/Makefile ] ; then \
@@ -5293,7 +5446,8 @@ install-target-gperf: installdirs
 	fi
 
 
-.PHONY: configure-target-examples
+.PHONY: configure-target-examples maybe-configure-target-examples
+maybe-configure-target-examples:
 configure-target-examples:
 	@if [ -d $(TARGET_SUBDIR)/examples ]; then \
 	  r=`${PWD}`; export r; \
@@ -5396,7 +5550,8 @@ configure-target-examples:
 	  true; \
 	fi
 
-.PHONY: all-target-examples
+.PHONY: all-target-examples maybe-all-target-examples
+maybe-all-target-examples:
 all-target-examples:
 	@dir=examples ; \
 	if [ -f $(TARGET_SUBDIR)/examples/Makefile ] ; then \
@@ -5414,8 +5569,14 @@ all-target-examples:
 check-target-examples:
 
 
+.PHONY: install-target-examples maybe-install-target-examples
+maybe-install-target-examples:
+# Dummy target for uninstallable.
+install-target-examples:
 
-.PHONY: configure-target-libffi
+
+.PHONY: configure-target-libffi maybe-configure-target-libffi
+maybe-configure-target-libffi:
 configure-target-libffi:
 	@if [ -d $(TARGET_SUBDIR)/libffi ]; then \
 	  r=`${PWD}`; export r; \
@@ -5518,7 +5679,8 @@ configure-target-libffi:
 	  true; \
 	fi
 
-.PHONY: all-target-libffi
+.PHONY: all-target-libffi maybe-all-target-libffi
+maybe-all-target-libffi:
 all-target-libffi:
 	@dir=libffi ; \
 	if [ -f $(TARGET_SUBDIR)/libffi/Makefile ] ; then \
@@ -5545,8 +5707,14 @@ check-target-libffi:
 	fi
 
 
+.PHONY: install-target-libffi maybe-install-target-libffi
+maybe-install-target-libffi:
+# Dummy target for uninstallable.
+install-target-libffi:
 
-.PHONY: configure-target-libjava
+
+.PHONY: configure-target-libjava maybe-configure-target-libjava
+maybe-configure-target-libjava:
 configure-target-libjava:
 	@if [ -d $(TARGET_SUBDIR)/libjava ]; then \
 	  r=`${PWD}`; export r; \
@@ -5649,7 +5817,8 @@ configure-target-libjava:
 	  true; \
 	fi
 
-.PHONY: all-target-libjava
+.PHONY: all-target-libjava maybe-all-target-libjava
+maybe-all-target-libjava:
 all-target-libjava:
 	@dir=libjava ; \
 	if [ -f $(TARGET_SUBDIR)/libjava/Makefile ] ; then \
@@ -5675,8 +5844,9 @@ check-target-libjava:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-libjava
+
+.PHONY: install-target-libjava maybe-install-target-libjava
+maybe-install-target-libjava:
 install-target-libjava: installdirs
 	@dir=libjava ; \
 	if [ -f $(TARGET_SUBDIR)/libjava/Makefile ] ; then \
@@ -5690,7 +5860,8 @@ install-target-libjava: installdirs
 	fi
 
 
-.PHONY: configure-target-zlib
+.PHONY: configure-target-zlib maybe-configure-target-zlib
+maybe-configure-target-zlib:
 configure-target-zlib:
 	@if [ -d $(TARGET_SUBDIR)/zlib ]; then \
 	  r=`${PWD}`; export r; \
@@ -5793,7 +5964,8 @@ configure-target-zlib:
 	  true; \
 	fi
 
-.PHONY: all-target-zlib
+.PHONY: all-target-zlib maybe-all-target-zlib
+maybe-all-target-zlib:
 all-target-zlib:
 	@dir=zlib ; \
 	if [ -f $(TARGET_SUBDIR)/zlib/Makefile ] ; then \
@@ -5819,8 +5991,9 @@ check-target-zlib:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-zlib
+
+.PHONY: install-target-zlib maybe-install-target-zlib
+maybe-install-target-zlib:
 install-target-zlib: installdirs
 	@dir=zlib ; \
 	if [ -f $(TARGET_SUBDIR)/zlib/Makefile ] ; then \
@@ -5834,7 +6007,8 @@ install-target-zlib: installdirs
 	fi
 
 
-.PHONY: configure-target-boehm-gc
+.PHONY: configure-target-boehm-gc maybe-configure-target-boehm-gc
+maybe-configure-target-boehm-gc:
 configure-target-boehm-gc:
 	@if [ -d $(TARGET_SUBDIR)/boehm-gc ]; then \
 	  r=`${PWD}`; export r; \
@@ -5937,7 +6111,8 @@ configure-target-boehm-gc:
 	  true; \
 	fi
 
-.PHONY: all-target-boehm-gc
+.PHONY: all-target-boehm-gc maybe-all-target-boehm-gc
+maybe-all-target-boehm-gc:
 all-target-boehm-gc:
 	@dir=boehm-gc ; \
 	if [ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] ; then \
@@ -5963,8 +6138,9 @@ check-target-boehm-gc:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-boehm-gc
+
+.PHONY: install-target-boehm-gc maybe-install-target-boehm-gc
+maybe-install-target-boehm-gc:
 install-target-boehm-gc: installdirs
 	@dir=boehm-gc ; \
 	if [ -f $(TARGET_SUBDIR)/boehm-gc/Makefile ] ; then \
@@ -5978,7 +6154,8 @@ install-target-boehm-gc: installdirs
 	fi
 
 
-.PHONY: configure-target-qthreads
+.PHONY: configure-target-qthreads maybe-configure-target-qthreads
+maybe-configure-target-qthreads:
 configure-target-qthreads:
 	@if [ -d $(TARGET_SUBDIR)/qthreads ]; then \
 	  r=`${PWD}`; export r; \
@@ -6081,7 +6258,8 @@ configure-target-qthreads:
 	  true; \
 	fi
 
-.PHONY: all-target-qthreads
+.PHONY: all-target-qthreads maybe-all-target-qthreads
+maybe-all-target-qthreads:
 all-target-qthreads:
 	@dir=qthreads ; \
 	if [ -f $(TARGET_SUBDIR)/qthreads/Makefile ] ; then \
@@ -6107,8 +6285,9 @@ check-target-qthreads:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-qthreads
+
+.PHONY: install-target-qthreads maybe-install-target-qthreads
+maybe-install-target-qthreads:
 install-target-qthreads: installdirs
 	@dir=qthreads ; \
 	if [ -f $(TARGET_SUBDIR)/qthreads/Makefile ] ; then \
@@ -6122,7 +6301,8 @@ install-target-qthreads: installdirs
 	fi
 
 
-.PHONY: configure-target-rda
+.PHONY: configure-target-rda maybe-configure-target-rda
+maybe-configure-target-rda:
 configure-target-rda:
 	@if [ -d $(TARGET_SUBDIR)/rda ]; then \
 	  r=`${PWD}`; export r; \
@@ -6225,7 +6405,8 @@ configure-target-rda:
 	  true; \
 	fi
 
-.PHONY: all-target-rda
+.PHONY: all-target-rda maybe-all-target-rda
+maybe-all-target-rda:
 all-target-rda:
 	@dir=rda ; \
 	if [ -f $(TARGET_SUBDIR)/rda/Makefile ] ; then \
@@ -6251,8 +6432,9 @@ check-target-rda:
 	  true; \
 	fi
 
-\
-.PHONY: install-target-rda
+
+.PHONY: install-target-rda maybe-install-target-rda
+maybe-install-target-rda:
 install-target-rda: installdirs
 	@dir=rda ; \
 	if [ -f $(TARGET_SUBDIR)/rda/Makefile ] ; then \
@@ -6268,7 +6450,8 @@ install-target-rda: installdirs
 
 
 # gcc is the only module which uses GCC_FLAGS_TO_PASS.
-.PHONY: all-gcc
+.PHONY: all-gcc maybe-all-gcc
+maybe-all-gcc:
 all-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
@@ -6355,7 +6538,8 @@ check-c++:
 	  true; \
 	fi 
 
-.PHONY: install-gcc
+.PHONY: install-gcc maybe-install-gcc
+maybe-install-gcc:
 install-gcc:
 	@if [ -f ./gcc/Makefile ] ; then \
 	  r=`${PWD}`; export r; \
@@ -6366,93 +6550,94 @@ install-gcc:
 	  true; \
 	fi
 
-ALL_GCC = all-gcc
-ALL_GCC_C = $(ALL_GCC) all-target-newlib all-target-libgloss
-ALL_GCC_CXX = $(ALL_GCC_C) all-target-libstdc++-v3
+ALL_GCC = maybe-all-gcc
+ALL_GCC_C = $(ALL_GCC) maybe-all-target-newlib maybe-all-target-libgloss
+ALL_GCC_CXX = $(ALL_GCC_C) maybe-all-target-libstdc++-v3
 
 # This is a list of inter-dependencies among modules.
-all-autoconf: all-m4 all-texinfo
-all-automake: all-m4 all-texinfo
-all-bfd: all-libiberty all-intl
-all-binutils: all-libiberty all-opcodes all-bfd all-flex all-bison all-byacc all-intl
-all-bison: all-texinfo
-configure-target-boehm-gc: $(ALL_GCC_C) configure-target-qthreads
-all-dejagnu: all-tcl all-expect all-tk
-all-diff: all-libiberty
+all-autoconf: maybe-all-m4 maybe-all-texinfo
+all-automake: maybe-all-m4 maybe-all-texinfo
+all-bfd: maybe-all-libiberty maybe-all-intl
+all-binutils: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-flex maybe-all-bison maybe-all-byacc maybe-all-intl
+all-bison: maybe-all-texinfo
+configure-target-boehm-gc: $(ALL_GCC_C) maybe-configure-target-qthreads
+all-dejagnu: maybe-all-tcl maybe-all-expect maybe-all-tk
+all-diff: maybe-all-libiberty
 configure-target-examples: $(ALL_GCC_C)
-all-expect: all-tcl all-tk
-all-fileutils: all-libiberty
-all-flex: all-libiberty all-bison all-byacc
-all-gas: all-libiberty all-opcodes all-bfd all-intl
-all-gcc: all-libiberty all-bison all-byacc all-binutils all-gas all-ld all-zlib
-all-bootstrap: all-libiberty all-texinfo all-bison all-byacc all-binutils all-gas all-ld all-zlib
+all-expect: maybe-all-tcl maybe-all-tk
+all-fileutils: maybe-all-libiberty
+all-flex: maybe-all-libiberty maybe-all-bison maybe-all-byacc
+all-gas: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-intl
+all-gcc: maybe-all-libiberty maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib
+all-bootstrap: maybe-all-libiberty maybe-all-texinfo maybe-all-bison maybe-all-byacc maybe-all-binutils maybe-all-gas maybe-all-ld maybe-all-zlib
 GDB_TK = @GDB_TK@
-all-gdb: all-libiberty all-opcodes all-bfd all-mmalloc all-readline all-bison all-byacc all-sim $(gdbnlmrequirements) $(GDB_TK)
+all-gdb: maybe-all-libiberty maybe-all-opcodes maybe-all-bfd maybe-all-mmalloc maybe-all-readline maybe-all-bison maybe-all-byacc maybe-all-sim $(gdbnlmrequirements) $(GDB_TK)
 configure-target-gperf: $(ALL_GCC_CXX)
-all-target-gperf: all-target-libiberty all-target-libstdc++-v3
-all-gprof: all-libiberty all-bfd all-opcodes all-intl
-all-grep: all-libiberty
-all-gzip: all-libiberty
-all-hello: all-libiberty
-all-itcl: all-tcl all-tk
-all-ld: all-libiberty all-bfd all-opcodes all-bison all-byacc all-flex all-intl
+all-target-gperf: maybe-all-target-libiberty maybe-all-target-libstdc++-v3
+all-gprof: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-intl
+all-grep: maybe-all-libiberty
+all-gzip: maybe-all-libiberty
+all-hello: maybe-all-libiberty
+all-itcl: maybe-all-tcl maybe-all-tk
+all-ld: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-bison maybe-all-byacc maybe-all-flex maybe-all-intl
 configure-target-libgloss: $(ALL_GCC)
-all-target-libgloss: configure-target-newlib
-all-libgui: all-tcl all-tk all-itcl
+all-target-libgloss: maybe-configure-target-newlib
+all-libgui: maybe-all-tcl maybe-all-tk maybe-all-itcl
 configure-target-libffi: $(ALL_GCC_C) 
-configure-target-libjava: $(ALL_GCC_C) configure-target-zlib configure-target-boehm-gc configure-target-qthreads configure-target-libffi
-all-target-libjava: all-fastjar all-target-zlib all-target-boehm-gc all-target-qthreads all-target-libffi
+configure-target-libjava: $(ALL_GCC_C) maybe-configure-target-zlib maybe-configure-target-boehm-gc maybe-configure-target-qthreads maybe-configure-target-libffi
+all-target-libjava: maybe-all-fastjar maybe-all-target-zlib maybe-all-target-boehm-gc maybe-all-target-qthreads maybe-all-target-libffi
 configure-target-libstdc++-v3: $(ALL_GCC_C)
-all-target-libstdc++-v3: all-target-libiberty
+all-target-libstdc++-v3: maybe-all-target-libiberty
 configure-target-libf2c: $(ALL_GCC_C)
-all-target-libf2c: all-target-libiberty
+all-target-libf2c: maybe-all-target-libiberty
 configure-target-libobjc: $(ALL_GCC_C)
-all-target-libobjc: all-target-libiberty
-all-m4: all-libiberty all-texinfo
-all-make: all-libiberty
+all-target-libobjc: maybe-all-target-libiberty
+all-m4: maybe-all-libiberty maybe-all-texinfo
+all-make: maybe-all-libiberty
 configure-target-newlib: $(ALL_GCC)
 configure-target-libtermcap: $(ALL_GCC_C)
-all-opcodes: all-bfd all-libiberty
-all-patch: all-libiberty
-all-prms: all-libiberty
+all-opcodes: maybe-all-bfd maybe-all-libiberty
+all-patch: maybe-all-libiberty
+all-prms: maybe-all-libiberty
 configure-target-qthreads: $(ALL_GCC_C)
-all-recode: all-libiberty
-all-sed: all-libiberty
-all-send-pr: all-prms
-all-sid: all-tcl all-tk
-all-sim: all-libiberty all-bfd all-opcodes all-readline
-all-snavigator: all-tcl all-tk all-itcl all-tix all-db all-grep all-libgui
-all-tar: all-libiberty
-all-tclX: all-tcl all-tk
-all-tk: all-tcl
-all-texinfo: all-libiberty
-all-tix: all-tcl all-tk
+all-recode: maybe-all-libiberty
+all-sed: maybe-all-libiberty
+all-send-pr: maybe-all-prms
+all-sid: maybe-all-tcl maybe-all-tk
+all-sim: maybe-all-libiberty maybe-all-bfd maybe-all-opcodes maybe-all-readline
+all-snavigator: maybe-all-tcl maybe-all-tk maybe-all-itcl maybe-all-tix maybe-all-db maybe-all-grep maybe-all-libgui
+all-tar: maybe-all-libiberty
+all-tclX: maybe-all-tcl maybe-all-tk
+all-tk: maybe-all-tcl
+all-texinfo: maybe-all-libiberty
+all-tix: maybe-all-tcl maybe-all-tk
 configure-target-winsup: $(ALL_GCC_C)
-all-target-winsup: all-target-libiberty all-target-libtermcap
-all-uudecode: all-libiberty
+all-target-winsup: maybe-all-target-libiberty maybe-all-target-libtermcap
+all-uudecode: maybe-all-libiberty
 configure-target-zlib: $(ALL_GCC_C)
-all-fastjar: all-zlib all-libiberty
-configure-target-fastjar: configure-target-zlib
-all-target-fastjar: all-target-zlib all-target-libiberty
+all-fastjar: maybe-all-zlib maybe-all-libiberty
+configure-target-fastjar: maybe-configure-target-zlib
+all-target-fastjar: maybe-all-target-zlib maybe-all-target-libiberty
 configure-target-libiberty: $(ALL_GCC_C)
-install-gdb: install-tcl install-tk install-itcl install-tix install-libgui
-install-sid: install-tcl install-tk
+install-gdb: maybe-install-tcl maybe-install-tk maybe-install-itcl maybe-install-tix maybe-install-libgui
+install-sid: maybe-install-tcl maybe-install-tk
 
 # We put install-opcodes before install-binutils because the installed
 # binutils might be on PATH, and they might need the shared opcodes
 # library.
-install-binutils: install-opcodes
+install-binutils: maybe-install-opcodes
 
 # We put install-tcl before install-itcl because itcl wants to run a
 # program on installation which uses the Tcl libraries.
-install-itcl: install-tcl
+install-itcl: maybe-install-tcl
 
 # This is a slightly kludgy method of getting dependencies on 
 # all-build-libiberty correct; it would be better to build it every time.
-all-gcc: @all_build_modules@
+all-gcc: maybe-all-build-libiberty
 
 # Dependencies of all-build-foo on configure-build-foo.
 all-build-libiberty: configure-build-libiberty
+
 
 # Dependencies of all-target-foo on configure-target-foo.
 all-target-libstdc++-v3: configure-target-libstdc++-v3
@@ -6472,6 +6657,10 @@ all-target-boehm-gc: configure-target-boehm-gc
 all-target-qthreads: configure-target-qthreads
 all-target-rda: configure-target-rda
 
+
+# Dependencies of maybe-foo on foo.  These are used because, for example,
+# all-gcc only depends on all-gas if gas is present and being configured.
+@maybe_dependencies@
 
 ### other supporting targets
 
