@@ -244,10 +244,21 @@ check_local_unnamed_variable (tree best, tree decl, tree type)
       || (INTEGRAL_TYPE_P (decl_type)
 	  && INTEGRAL_TYPE_P (type)
 	  && TYPE_PRECISION (decl_type) <= 32
-	    && TYPE_PRECISION (type) <= 32
+	  && TYPE_PRECISION (type) <= 32
 	  && TYPE_PRECISION (decl_type) >= TYPE_PRECISION (type))      
-	|| (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE
-	    && type == ptr_type_node))
+      /*  ptr_type_node is used for null pointers, which are
+	 assignment compatible with everything.  */
+      || (TREE_CODE (decl_type) == POINTER_TYPE
+	  && type == ptr_type_node)
+      /* Whenever anyone wants to use a slot that is initially
+	 occupied by a PARM_DECL of pointer type they must get that
+	 decl, even if they asked for a pointer to a different type.
+	 However, if someone wants a scalar variable in a slot that
+	 initially held a pointer arg -- or vice versa -- we create a
+	 new VAR_DECL.  */
+      || (TREE_CODE (decl_type) == POINTER_TYPE
+	  && TREE_CODE (decl) == PARM_DECL
+	  && TREE_CODE (type) == POINTER_TYPE))
       {
 	if (best == NULL_TREE
 	  || (decl_type == type && TREE_TYPE (best) != type))
