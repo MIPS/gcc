@@ -1,3 +1,20 @@
+2002-10-12  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-alias-type.h  (alias_typevar_def): Add struct aterm
+	as a temporary hack for andersen's analysis.
+	* tree-alias-common.c (current_alias_ops): New, use it
+	instead of referring to steen_alias_ops everywhere.
+	(get_alias_var): Use STRIP_WFL.
+	(find_func_aliases): Ditto.
+	(create_alias_vars): Call init function, move deletion to
+	delete_alias_vars.
+	(delete_alias_vars): New function, move deletion code to here.
+	(get_virtual_var): Removed.
+	(ptr_may_alias_var): New function.
+	* tree-alias-common.h (struct tree_alias_ops): Add may_alias
+	function.
+	* tree-alias-steen.c (steen_may_alias): New function.
+
 2002-10-10  Falk Hueffner  <falk.hueffner@student.uni-tuebingen.de>
 
 	* diagnostic.h (dump_c_tree, dump_c_node,

@@ -3,11 +3,13 @@
 
 struct ECR_def;
 typedef struct ECR_def *ECR;
-
+struct alias_typevar_def;
+struct aterm_;
 struct alias_typevar_def  GTY (())
 {
   tree decl;
   ECR ecr;
+  struct aterm_ * GTY((skip (""))) data;
 };
 
 typedef struct alias_typevar_def *alias_typevar;
@@ -63,7 +65,7 @@ struct alias_value_type  GTY (())
    the alpha type's fields directly.
 */
 
-
+union alias_type_def;
 struct alias_location_type  GTY (())
 {
   struct alias_type_common common;

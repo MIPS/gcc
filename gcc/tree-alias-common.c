@@ -26,7 +26,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "tree-alias-ecr.h"
 #include "tree-alias-common.h"
 #include "tree-alias-steen.h"
-
+/* I'll explain in a bit. */
+#ifdef HAVE_BANSHEE
+#include "tree-alias-ander.h"
+#endif
 #include "flags.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -48,6 +51,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "splay-tree.h"
 static splay_tree alias_annot;
 static GTY ((param_is (struct alias_typevar_def))) varray_type alias_vars = NULL;
+struct tree_alias_ops *current_alias_ops;
 static splay_tree varmap; 
 static varray_type local_alias_vars;
 static varray_type local_alias_varnums;
@@ -76,11 +80,6 @@ get_alias_var_decl (decl)
   newvar = create_alias_var (decl);
   if (!TREE_PUBLIC (decl))
     {
-#if STEEN_DEBUG
-      fprintf (stderr, "adding ");
-      print_c_node (stderr, decl);
-      fprintf (stderr, " to list of local alias vars.\n");
-#endif
       VARRAY_PUSH_INT (local_alias_varnums, VARRAY_ACTIVE_SIZE (alias_vars) - 1);
       VARRAY_PUSH_GENERIC_PTR (local_alias_vars, decl);
     }
@@ -95,6 +94,7 @@ get_alias_var (expr)
   alias_typevar tvar;
   splay_tree_node node;
   
+  STRIP_WFL (expr);
   node = splay_tree_lookup (alias_annot, (splay_tree_key) expr);
   
 
@@ -167,7 +167,7 @@ get_alias_var (expr)
 	/* Otherwise, we need a new temporary alias variable for this
 	   expression. */
 	alias_typevar tempvar 
-	  = steen_alias_ops->add_var (steen_alias_ops,
+	  = current_alias_ops->add_var (current_alias_ops,
 				      create_tmp_alias_var
 				      (void_type_node,
 				       "aliastmp"));
@@ -197,7 +197,7 @@ intra_function_call (args)
 		 restricted pointers. */	      
 	      if (!TYPE_RESTRICT (TREE_TYPE (argav->decl)) 
 		  || !TYPE_RESTRICT (TREE_TYPE (av->decl)))
-		steen_alias_ops->addr_assign (steen_alias_ops, argav, av);
+		current_alias_ops->addr_assign (current_alias_ops, argav, av);
 	    }
 	}
       globvar = TREE_CHAIN (globvar);
@@ -219,7 +219,7 @@ intra_function_call (args)
 	     restricted pointers. */
 	  if (!TYPE_RESTRICT (TREE_TYPE (argi->decl)) 
 	      || !TYPE_RESTRICT (TREE_TYPE (argj->decl)))
-	    steen_alias_ops->simple_assign (steen_alias_ops, argi, argj);
+	    current_alias_ops->simple_assign (current_alias_ops, argi, argj);
 	}
     }
 }
@@ -229,21 +229,23 @@ find_func_aliases (tp, walk_subtrees, data)
      int *walk_subtrees ATTRIBUTE_UNUSED;
      void *data ATTRIBUTE_UNUSED;
 {
-  if (TREE_CODE (*tp) == SCOPE_STMT)
+  tree stp = *tp;
+  STRIP_WFL (stp);
+  if (TREE_CODE (stp) == SCOPE_STMT)
     {
       *walk_subtrees = 0;
       return NULL_TREE;
     }
 
-  if (is_simple_modify_expr (*tp))
+  if (is_simple_modify_expr (stp))
     {
       tree op0, op1;
       alias_typevar lhsAV = NULL;
       alias_typevar rhsAV = NULL;
 
       *walk_subtrees = 0;
-      op0 = TREE_OPERAND (*tp, 0);
-      op1 = TREE_OPERAND (*tp, 1);
+      op0 = TREE_OPERAND (stp, 0);
+      op1 = TREE_OPERAND (stp, 1);
 
       /* lhsAV should always have an alias variable */
       lhsAV = get_alias_var (op0);
@@ -265,7 +267,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	  if (is_simple_varname (op1))
 	    {
 	      if (rhsAV != NULL)
-		steen_alias_ops->simple_assign (steen_alias_ops, lhsAV,
+		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
 						rhsAV);
 	    }
 	  /* x = *y or x = foo->y */
@@ -273,7 +275,7 @@ find_func_aliases (tp, walk_subtrees, data)
 		   && is_simple_varname (TREE_OPERAND (op1, 0)))
 	    {
 	      if (rhsAV != NULL)
-		steen_alias_ops->ptr_assign (steen_alias_ops, lhsAV, 
+		current_alias_ops->ptr_assign (current_alias_ops, lhsAV, 
 					     rhsAV);
 	    }
 	  /* x = &y = x = &foo.y */
@@ -281,7 +283,7 @@ find_func_aliases (tp, walk_subtrees, data)
 		   && is_simple_varname (TREE_OPERAND (op1, 0)))
 	    {
 	      if (rhsAV != NULL)
-		steen_alias_ops->addr_assign (steen_alias_ops, lhsAV, 
+		current_alias_ops->addr_assign (current_alias_ops, lhsAV, 
 					      rhsAV);
 	    }
 	  /* x = func(...) */
@@ -310,10 +312,10 @@ find_func_aliases (tp, walk_subtrees, data)
 
 		    }
 		  create_fun_alias_var (TREE_OPERAND (callop0, 0), 0);
-		  steen_alias_ops->function_call (steen_alias_ops, lhsAV, 
+		  current_alias_ops->function_call (current_alias_ops, lhsAV, 
 						  get_alias_var (callop0),
 						  args);		  
-		  if (!steen_alias_ops->ip)
+		  if (!current_alias_ops->ip)
 		    intra_function_call (args);
 		}
 
@@ -342,7 +344,7 @@ find_func_aliases (tp, walk_subtrees, data)
 			if (aav)
 			  VARRAY_PUSH_GENERIC_PTR (ops, aav);
 		      }
-		    steen_alias_ops->op_assign (steen_alias_ops, lhsAV, 
+		    current_alias_ops->op_assign (current_alias_ops, lhsAV, 
 						ops);
 		  }
 		  break;
@@ -358,7 +360,7 @@ find_func_aliases (tp, walk_subtrees, data)
 	  if (TREE_CODE (op0) == COMPONENT_REF)
 	    {
 	      if (rhsAV != NULL)
-		steen_alias_ops->simple_assign (steen_alias_ops, lhsAV,
+		current_alias_ops->simple_assign (current_alias_ops, lhsAV,
 						rhsAV);
 	    }
 	  /* *x.f = y or *x->f = y */
@@ -366,7 +368,7 @@ find_func_aliases (tp, walk_subtrees, data)
 		   && TREE_CODE (TREE_OPERAND (op0, 0)) == COMPONENT_REF)
 	    {
 	      if (rhsAV != NULL)
-		steen_alias_ops->assign_ptr (steen_alias_ops, lhsAV, 
+		current_alias_ops->assign_ptr (current_alias_ops, lhsAV, 
 					     rhsAV);
 	    }
 	  /* *x = &y */
@@ -374,12 +376,13 @@ find_func_aliases (tp, walk_subtrees, data)
 		   && TREE_CODE (op1) == ADDR_EXPR)
 	    {
 	      /* This becomes temp = &y and *x = temp . */
-	      alias_typevar tempvar = steen_alias_ops->add_var (steen_alias_ops,
+	      alias_typevar tempvar;
+	      tempvar = current_alias_ops->add_var (current_alias_ops,
 								create_tmp_alias_var
 								(void_type_node,
 								 "aliastmp"));   
-	      steen_alias_ops->addr_assign (steen_alias_ops, tempvar, rhsAV);
-	      steen_alias_ops->assign_ptr (steen_alias_ops, lhsAV, tempvar);
+	      current_alias_ops->addr_assign (current_alias_ops, tempvar, rhsAV);
+	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, tempvar);
 	    }
 	  
 	  /* *x = *y */
@@ -387,12 +390,13 @@ find_func_aliases (tp, walk_subtrees, data)
 		   && TREE_CODE (op1) == INDIRECT_REF)
 	    {
 	      /* This becomes temp = *y and *x = temp . */
-	      alias_typevar tempvar = steen_alias_ops->add_var (steen_alias_ops,
+	      alias_typevar tempvar;
+	      tempvar = current_alias_ops->add_var (current_alias_ops,
 								create_tmp_alias_var
 								(void_type_node,
 								 "aliastmp"));   
-	      steen_alias_ops->ptr_assign (steen_alias_ops, tempvar, rhsAV);
-	      steen_alias_ops->assign_ptr (steen_alias_ops, lhsAV, tempvar);
+	      current_alias_ops->ptr_assign (current_alias_ops, tempvar, rhsAV);
+	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, tempvar);
 	    }
 	  
 	  /* *x = (cast) y */
@@ -400,40 +404,41 @@ find_func_aliases (tp, walk_subtrees, data)
 		   && is_simple_cast (op1))
 	    {
 	      /* This becomes temp = (cast) y and  *x = temp. */
-	      alias_typevar tempvar = steen_alias_ops->add_var (steen_alias_ops,
+	      alias_typevar tempvar;
+	      tempvar = current_alias_ops->add_var (current_alias_ops,
 								create_tmp_alias_var
 								(void_type_node,
 								 "aliastmp"));
 	      
-	      steen_alias_ops->simple_assign (steen_alias_ops, tempvar, rhsAV);
-	      steen_alias_ops->assign_ptr (steen_alias_ops, lhsAV, tempvar);
+	      current_alias_ops->simple_assign (current_alias_ops, tempvar, rhsAV);
+	      current_alias_ops->assign_ptr (current_alias_ops, lhsAV, tempvar);
 	    }
 	  /* *x = <something else */
 	  else
 	    {
 	      if (rhsAV != NULL)
-		steen_alias_ops->assign_ptr (steen_alias_ops, lhsAV,
+		current_alias_ops->assign_ptr (current_alias_ops, lhsAV,
 					     rhsAV);
 	    }
 	}
     }
   /* Calls without return values. */
-  else if (is_simple_call_expr (*tp))
+  else if (is_simple_call_expr (stp))
     {
       varray_type args;
       tree arg;
       VARRAY_GENERIC_PTR_INIT (args, 1, "Arguments");
-      for (arg = TREE_OPERAND (*tp, 1); arg; arg = TREE_CHAIN (arg))
+      for (arg = TREE_OPERAND (stp, 1); arg; arg = TREE_CHAIN (arg))
 	{
 	  alias_typevar aav = get_alias_var (TREE_VALUE (arg));
 	  if (aav)
 	    VARRAY_PUSH_GENERIC_PTR (args, aav);
 	}
-      create_fun_alias_var (TREE_OPERAND (TREE_OPERAND (*tp, 0), 0), 0);
-      steen_alias_ops->function_call (steen_alias_ops, NULL, 
-				      get_alias_var (TREE_OPERAND (*tp, 0)),
+      create_fun_alias_var (TREE_OPERAND (TREE_OPERAND (stp, 0), 0), 0);
+      current_alias_ops->function_call (current_alias_ops, NULL, 
+				      get_alias_var (TREE_OPERAND (stp, 0)),
 				      args);
-      if (!steen_alias_ops->ip)
+      if (!current_alias_ops->ip)
 	intra_function_call (args);
     }
       
@@ -451,11 +456,6 @@ find_func_decls (tp, walk_subtrees, data)
     {
       create_alias_var (DECL_STMT_DECL (*tp));
       VARRAY_PUSH_INT (local_alias_varnums, VARRAY_ACTIVE_SIZE (alias_vars) - 1);
-#if STEEN_DEBUG
-      fprintf (stderr, "adding ");
-      print_c_node (stderr, DECL_STMT_DECL (*tp));
-      fprintf (stderr, " to list of local alias vars.\n");
-#endif
       VARRAY_PUSH_GENERIC_PTR (local_alias_vars, DECL_STMT_DECL (*tp));
     }
   return NULL_TREE;
@@ -527,12 +527,12 @@ create_fun_alias_var (decl, force)
     }
 
   rdecl = create_tmp_alias_var (TREE_TYPE (TREE_TYPE (decl)), "_rv_");
-  retvar = steen_alias_ops->add_var (steen_alias_ops, rdecl);
+  retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
-  avar = steen_alias_ops->add_var (steen_alias_ops, decl);
+  avar = current_alias_ops->add_var (current_alias_ops, decl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
 
-  steen_alias_ops->function_def (steen_alias_ops, avar, params, retvar);
+  current_alias_ops->function_def (current_alias_ops, avar, params, retvar);
   splay_tree_insert (alias_annot, (splay_tree_key) decl, 
 		     (splay_tree_value) avar);
   /* FIXME: Also, if this is a defining declaration then add the annotation
@@ -590,13 +590,13 @@ create_fun_alias_var_ptf (decl, type)
     }
 
   rdecl = create_tmp_alias_var (TREE_TYPE (type), "_rv_");
-  retvar = steen_alias_ops->add_var (steen_alias_ops, rdecl);
+  retvar = current_alias_ops->add_var (current_alias_ops, rdecl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, retvar);
 
-  avar = steen_alias_ops->add_var (steen_alias_ops, decl);
+  avar = current_alias_ops->add_var (current_alias_ops, decl);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
 
-  steen_alias_ops->function_def (steen_alias_ops, avar, params, retvar);
+  current_alias_ops->function_def (current_alias_ops, avar, params, retvar);
   splay_tree_insert (alias_annot, (splay_tree_key) decl, 
 		     (splay_tree_value) avar);
 
@@ -610,7 +610,6 @@ create_alias_var (decl)
   splay_tree_node node;
   alias_typevar avar;
   
- 
   node = splay_tree_lookup (alias_annot, (splay_tree_key)decl);
 
   if (node != NULL && node->value != 0)
@@ -627,7 +626,7 @@ create_alias_var (decl)
     if (TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == FUNCTION_TYPE)
       create_fun_alias_var_ptf (decl, TREE_TYPE (TREE_TYPE (decl)));
 
-  avar = steen_alias_ops->add_var (steen_alias_ops, decl);
+  avar = current_alias_ops->add_var (current_alias_ops, decl);
   splay_tree_insert (alias_annot, (splay_tree_key)decl, 
 		     (splay_tree_value) avar);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
@@ -697,10 +696,16 @@ splay_tree_size (st)
 void
 create_alias_vars ()
 {
-  size_t i;
   tree currdecl = getdecls ();
-  init_alias_vars ();
+  size_t i;
 
+  /* FIXME: Either selectable or choose heuristically. */
+#if HAVE_BANSHEE
+  current_alias_ops = andersen_alias_ops; 
+#else
+  current_alias_ops = steen_alias_ops;
+#endif
+  init_alias_vars ();
   while (currdecl)
     {
       if (TREE_CODE (currdecl) == VAR_DECL)
@@ -714,15 +719,23 @@ create_alias_vars ()
       find_func_decls, NULL);*/
   walk_tree_without_duplicates (&DECL_SAVED_TREE (current_function_decl),
 				find_func_aliases, NULL);
-  fprintf (stderr, "\nPoints to sets for function %s:\n",
+#if 1
+  fprintf (stderr, "\nOriginal points to sets for function %s:\n",
 	   IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
   for (i = 0; i < VARRAY_ACTIVE_SIZE (alias_vars); i++)
      display_points_to_set_helper (VARRAY_GENERIC_PTR (alias_vars, i));
+#endif
+}
+
+void
+delete_alias_vars ()
+{
+  size_t i;
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_vars); i++)
      splay_tree_remove (alias_annot, (splay_tree_key) VARRAY_GENERIC_PTR (local_alias_vars, i));
   for (i = 0; i < VARRAY_ACTIVE_SIZE (local_alias_varnums); i ++)
     VARRAY_GENERIC_PTR (alias_vars, VARRAY_INT (local_alias_varnums, i)) = NULL;
-  if (!steen_alias_ops->ip)
+  if (!current_alias_ops->ip)
     {
       splay_tree_delete (alias_annot);
       VARRAY_CLEAR (alias_vars);
@@ -730,38 +743,44 @@ create_alias_vars ()
       VARRAY_CLEAR (local_alias_varnums);
     }
   splay_tree_delete (varmap);
+  current_alias_ops->cleanup (current_alias_ops);
 }
 void
 init_alias_vars ()
 {
   init_alias_type ();
+  current_alias_ops->init (current_alias_ops);
   VARRAY_GENERIC_PTR_INIT (local_alias_vars, 10, "Local alias vars");
   VARRAY_INT_INIT (local_alias_varnums, 10, "Local alias varnums");
-  if (!steen_alias_ops->ip || alias_vars == NULL)
+  if (!current_alias_ops->ip || alias_vars == NULL)
     VARRAY_GENERIC_PTR_INIT (alias_vars, 10, "Alias vars");
-  if (!steen_alias_ops->ip || alias_annot == NULL)
+  if (!current_alias_ops->ip || alias_annot == NULL)
     alias_annot = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
-  if (!steen_alias_ops->ip || varmap == NULL)
+  if (!current_alias_ops->ip || varmap == NULL)
     varmap = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
 
 }
 
-tree
-get_virtual_var (ECR ecr)
-{
-  splay_tree_node result = splay_tree_lookup (varmap, (splay_tree_key) ecr);
+bool
+ptr_may_alias_var (ptr, var)
+     tree ptr;
   tree var;
-  var = (tree) result->value;
-  if (!result->value)
     {
-      char id[500];
-      sprintf (id, "ecr%d", ECR_get_setid (ecr));
-      var = create_tmp_alias_var (void_type_node, id);
-      splay_tree_insert (varmap, (splay_tree_key) ecr, (splay_tree_value) var);
-    }
-  return var;
-}
+  splay_tree_node result;
+  alias_typevar ptrtv, vartv;
+
+  result = splay_tree_lookup (alias_annot, (splay_tree_key) ptr);
+  if (!result)
+    abort ();
+  ptrtv = (alias_typevar) result->value;
 			    
+  result = splay_tree_lookup (alias_annot, (splay_tree_key) var);
+  if (!result)
+    abort ();
+  vartv = (alias_typevar) result->value;
+  return current_alias_ops->may_alias (current_alias_ops, ptrtv, vartv);
+  
+}
 	    
 	     
 #include "gt-tree-alias-common.h"

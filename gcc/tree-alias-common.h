@@ -20,12 +20,14 @@ struct tree_alias_ops
 			varray_type, alias_typevar);
   void (*function_call) (struct tree_alias_ops *, alias_typevar,
 			 alias_typevar, varray_type);
+  bool (*may_alias) (struct tree_alias_ops *, alias_typevar, alias_typevar);
   void *data;
   int ip:1; /*Interprocedural */
 };
+extern struct tree_alias_ops *current_alias_ops;
 extern void create_alias_vars PARAMS ((void));
+extern void delete_alias_vars PARAMS ((void));
 extern void init_alias_vars PARAMS ((void));
-extern tree get_virtual_var PARAMS ((ECR));
-
+extern bool ptr_may_alias_var PARAMS ((tree, tree));
 
 #endif

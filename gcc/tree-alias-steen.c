@@ -69,7 +69,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 */
 
 /* Todo list:
-   * Create SSA may/must def variables.
    * Reduce memory usage (mainly due to fragmentation, not leakage).
    * Don't pass alias ops as first argument, just have a global 
      "current_alias_ops".
@@ -99,6 +98,7 @@ static void steen_function_call PARAMS ((struct tree_alias_ops *,
 					 varray_type));
 static void steen_init PARAMS ((struct tree_alias_ops *));
 static void steen_cleanup PARAMS ((struct tree_alias_ops *));
+static bool steen_may_alias PARAMS ((struct tree_alias_ops *, alias_typevar, alias_typevar));
 static alias_typevar steen_add_var PARAMS ((struct tree_alias_ops *, tree));
 static alias_typevar steen_add_var_same PARAMS ((struct tree_alias_ops *,
 						 tree, alias_typevar));
@@ -116,6 +116,7 @@ static struct tree_alias_ops steen_ops = {
   steen_assign_ptr,
   steen_function_def,
   steen_function_call,
+  steen_may_alias,
   0, /* data */
   0 /* Currently non-interprocedural */
 };
@@ -578,11 +579,11 @@ steen_function_call (ops, lhs, func, args)
 }
 
 extern int next_color;
-void test_assign PARAMS((void));
+static void test_assign PARAMS((void));
 
 /* Test Steensgaard points-to alias through a series of simple
    assignments.  */
-void
+static void
 test_assign ()
 {
   alias_typevar a, b, c, d;
@@ -626,3 +627,17 @@ test_assign ()
   alias_tvar_allpointsto (a, &temp);
 }
 
+static bool
+steen_may_alias (ops, ptrtv, vartv)
+	struct tree_alias_ops *ops ATTRIBUTE_UNUSED;
+	alias_typevar ptrtv;
+	alias_typevar vartv;
+{
+  ECR ptrecr, varecr;
+  ptrecr = alias_tvar_get_ECR (ptrtv);
+  ptrecr = alias_ltype_loc (ECR_get_type (ptrecr));
+
+  varecr = alias_tvar_get_ECR (vartv);
+  
+  return ECR_equiv (ptrecr, varecr);
+}
