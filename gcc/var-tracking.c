@@ -222,11 +222,11 @@ typedef struct variable_def
 /* The hash table of STRUCT VARIABLE_DEF.  */
 static htab_t variable_htab;
 
-/* Hash function for MEM_IN and MEM_OUT.  */
-#define MEM_HASH_VAL(mem) ((size_t) DECL_RTL ((tree) MEM_EXPR (mem)))
+/* Hash function for DECL for MEM_IN and MEM_OUT sets.  */
+#define MEM_HASH_VAL(decl) ((size_t) (decl))
 
-/* Hash function for VARIABLE_HTAB.  */
-#define VARIABLE_HASH_VAL(decl) ((size_t) decl)
+/* Hash function for DECL for VARIABLE_HTAB.  */
+#define VARIABLE_HASH_VAL(decl) ((size_t) (decl))
 
 /* Get the pointer to the BB's information specific to var-tracking pass.  */
 #define VTI(BB) ((var_tracking_info) (BB)->aux)
@@ -255,8 +255,9 @@ static void attrs_list_copy		PARAMS ((attrs *, attrs));
 static void attrs_list_union		PARAMS ((attrs *, attrs));
 static bool attrs_list_different	PARAMS ((attrs, attrs));
 
-static void attrs_htab_insert		PARAMS ((htab_t, rtx));
-static void attrs_htab_delete		PARAMS ((htab_t, rtx));
+static void attrs_htab_insert		PARAMS ((htab_t, tree, HOST_WIDE_INT,
+						 rtx));
+static void attrs_htab_delete		PARAMS ((htab_t, tree, HOST_WIDE_INT));
 static int attrs_htab_different_1	PARAMS ((void **, void *));
 static bool attrs_htab_different	PARAMS ((htab_t, htab_t));
 static int attrs_htab_copy_1		PARAMS ((void **, void *));
@@ -288,7 +289,7 @@ static void delete_location_part	PARAMS ((tree, HOST_WIDE_INT, rtx,
 static int process_location_parts	PARAMS ((void **, void *));
 static void emit_note_if_var_changed	PARAMS ((void **, void *));
 static inline void process_bb_delete	PARAMS ((attrs *, htab_t, int,
-						 rtx, rtx,
+						 tree, HOST_WIDE_INT, rtx,
 						 enum where_emit_note));
 static void process_bb			PARAMS ((basic_block));
 static int mark_variables_for_deletion	PARAMS ((void **, void *));
@@ -306,7 +307,7 @@ mem_htab_hash (x)
 {
   const attrs list = (const attrs) x;
 
-  return (MEM_HASH_VAL (list->loc));
+  return (MEM_HASH_VAL (list->decl));
 }
 
 /* Shall memory references X and Y go to the same hash slot?  */
@@ -317,9 +318,9 @@ mem_htab_eq (x, y)
      const void *y;
 {
   const attrs list = (const attrs) x;
-  const rtx mem = (const rtx) y;
+  const tree decl = (const tree) y;
 
-  return (MEM_HASH_VAL (list->loc) == MEM_HASH_VAL (mem));
+  return (MEM_HASH_VAL (list->decl) == MEM_HASH_VAL (decl));
 }
 
 /* The hash function for variable_htab, computes the hash value
@@ -499,53 +500,51 @@ attrs_list_different (a, b)
   return false;
 }
 
-/* Insert MEM attributes to appropriate list in HTAB.  */
+/* Insert the triplet DECL, OFFSET, LOC to appropriate list in HTAB.  */
 
 static void
-attrs_htab_insert (htab, mem)
+attrs_htab_insert (htab, decl, offset, loc)
      htab_t htab;
-     rtx mem;
+     tree decl;
+     HOST_WIDE_INT offset;
+     rtx loc;
 {
-  attrs list, *listp;
+  attrs node, *listp;
 
-  listp = (attrs *) htab_find_slot_with_hash (htab, mem, MEM_HASH_VAL (mem),
+  listp = (attrs *) htab_find_slot_with_hash (htab, decl, MEM_HASH_VAL (decl),
 					      NO_INSERT);
   if (!listp)
     {
-      listp = (attrs *) htab_find_slot_with_hash (htab, mem,
-						  MEM_HASH_VAL (mem), INSERT);
+      listp = (attrs *) htab_find_slot_with_hash (htab, decl,
+						  MEM_HASH_VAL (decl), INSERT);
     }
 
-  list = pool_alloc (attrs_pool);
-  list->loc = mem;
-  list->decl = MEM_EXPR (mem);
-  list->offset = MEM_OFFSET (mem) ? INTVAL (MEM_OFFSET (mem)) : 0;
-  list->next = *listp;
-  *listp = list;
+  node = pool_alloc (attrs_pool);
+  node->loc = loc;
+  node->decl = decl;
+  node->offset = offset;
+  node->next = *listp;
+  *listp = node;
 }
 
-/* Delete MEM attributes from HTAB.  */
+/* Delete all occurrences of the pairs DECL and OFFSET from HTAB.  */
 
 static void
-attrs_htab_delete (htab, mem)
+attrs_htab_delete (htab, decl, offset)
      htab_t htab;
-     rtx mem;
+     tree decl;
+     HOST_WIDE_INT offset;
 {
   attrs list, next, prev;
   attrs *listp;
-  HOST_WIDE_INT offset;
-  tree decl;
 
-  listp = (attrs *) htab_find_slot_with_hash (htab, mem, MEM_HASH_VAL (mem),
+  listp = (attrs *) htab_find_slot_with_hash (htab, decl, MEM_HASH_VAL (decl),
 					      NO_INSERT);
   if (!listp)
     return;
 
-  offset = MEM_OFFSET (mem) ? INTVAL (MEM_OFFSET (mem)) : 0;
-  decl = MEM_EXPR (mem);
-
   for (list = *listp; list; list = list->next)
-    if (list->decl != decl || list->offset != offset)
+    if (list->offset != offset)
       break;
 
   if (list)	/* There is at least 1 node that will not be deleted.  */
@@ -554,7 +553,7 @@ attrs_htab_delete (htab, mem)
       for (list = *listp; list; list = next)
 	{
 	  next = list->next;
-	  if (list->decl == decl && list->offset == offset)
+	  if (list->offset == offset)
 	    {
 	      if (prev)
 		prev->next = next;
@@ -587,8 +586,8 @@ attrs_htab_different_1 (slot, data)
   attrs list1, list2, list;
 
   list1 = *(attrs *) slot;
-  list2 = (attrs) htab_find_with_hash (htab, list1->loc,
-					    MEM_HASH_VAL (list1->loc));
+  list2 = (attrs) htab_find_with_hash (htab, list1->decl,
+				       MEM_HASH_VAL (list1->decl));
 
 #ifdef ENABLE_CHECKING
   if (!list1)
@@ -597,7 +596,7 @@ attrs_htab_different_1 (slot, data)
   for (; list1; list1 = list1->next)
     {
       for (list = list2; list; list = list->next)
-	if (list->decl == list1->decl && list->offset == list1->offset)
+	if (list->offset == list1->offset)
 	  break;
       if (!list)
 	{
@@ -634,8 +633,8 @@ attrs_htab_copy_1 (slot, data)
   attrs src, *dstp, list;
 
   src = *(attrs *) slot;
-  dstp = (attrs *) htab_find_slot_with_hash (dst, src->loc,
-					     MEM_HASH_VAL (src->loc), INSERT);
+  dstp = (attrs *) htab_find_slot_with_hash (dst, src->decl,
+					     MEM_HASH_VAL (src->decl), INSERT);
   for (; src; src = src->next)
     {
       list = pool_alloc (attrs_pool);
@@ -670,19 +669,19 @@ attrs_htab_union_1 (slot, data)
   attrs src, *dstp, list;
 
   src = *(attrs *) slot;
-  dstp = (attrs *) htab_find_slot_with_hash (htab, src->loc,
-					     MEM_HASH_VAL (src->loc),
+  dstp = (attrs *) htab_find_slot_with_hash (htab, src->decl,
+					     MEM_HASH_VAL (src->decl),
 					     NO_INSERT);
   if (!dstp)
     {
-      dstp = (attrs *) htab_find_slot_with_hash (htab, src->loc,
-						 MEM_HASH_VAL (src->loc),
+      dstp = (attrs *) htab_find_slot_with_hash (htab, src->decl,
+						 MEM_HASH_VAL (src->decl),
 						 INSERT);
     }
   for (; src; src = src->next)
     {
       for (list = *dstp; list; list = list->next)
-	if (list->decl == src->decl && list->offset == src->offset)
+	if (list->offset == src->offset)
 	  break;
       if (!list)
 	{
@@ -898,7 +897,7 @@ compute_bb_dataflow (bb)
 	  tree decl = MEM_EXPR (loc);
 	  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 
-	  attrs_htab_delete (VTI (bb)->mem_out, loc);
+	  attrs_htab_delete (VTI (bb)->mem_out, decl, offset);
 	  if (VTI (bb)->locs[i].type == LT_USE
 	      || VTI (bb)->locs[i].type == LT_SET)
 	    {
@@ -908,7 +907,7 @@ compute_bb_dataflow (bb)
 	       */
 	      for (j = 0; j < FIRST_PSEUDO_REGISTER; j++)
 		attrs_list_delete (&out[j], decl, offset);
-	      attrs_htab_insert (VTI (bb)->mem_out, loc);
+	      attrs_htab_insert (VTI (bb)->mem_out, decl, offset, loc);
 	    }
 	}
     }
@@ -1048,9 +1047,8 @@ dump_attrs_list (list)
   for (; list; list = list->next)
     {
       print_mem_expr (rtl_dump_file, list->decl);
-      fprintf (rtl_dump_file, "[");
+      fprintf (rtl_dump_file, "+");
       fprintf (rtl_dump_file, HOST_WIDE_INT_PRINT_DEC, list->offset);
-      fprintf (rtl_dump_file, "], ");
     }
 }
 
@@ -1314,26 +1312,24 @@ emit_note_if_var_changed (slot, aux)
     htab_clear_slot (variable_htab, slot);
 }
 
-/* Delete the location part of variable corresponding to LOC from all
-   register locations (in LISTS) and memory locations (in HTAB) and emit
+/* Delete the location part of variable corresponding to DECL and OFFSET from
+   all register locations (in LISTS) and memory locations (in HTAB) and emit
    notes before/after (parameter WHERE) INSN.  The location part which
    has the same decl and offset as LOC is deleted from HTAB only when
    DELETE_LOC_FROM_HTAB is true.  */
 
 static inline void
-process_bb_delete (lists, htab, delete_loc_from_htab, loc, insn, where)
+process_bb_delete (lists, htab, delete_loc_from_htab, decl, offset, insn, where)
      attrs *lists;
      htab_t htab;
      int delete_loc_from_htab;
-     rtx loc;
+     tree decl;
+     HOST_WIDE_INT offset;
      rtx insn;
      enum where_emit_note where;
 {
   attrs list;
   int i;
-
-  tree decl = MEM_EXPR (loc);
-  HOST_WIDE_INT offset = MEM_OFFSET (loc) ? INTVAL (MEM_OFFSET (loc)) : 0;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
@@ -1345,11 +1341,11 @@ process_bb_delete (lists, htab, delete_loc_from_htab, loc, insn, where)
 
   if (delete_loc_from_htab)
     {
-      list = (attrs) htab_find_with_hash (htab, loc, MEM_HASH_VAL (loc));
+      list = (attrs) htab_find_with_hash (htab, decl, MEM_HASH_VAL (decl));
       for (; list; list = list->next)
-	if (list->offset == offset && list->decl == decl)
+	if (list->offset == offset)
 	  delete_location_part (list->decl, list->offset, insn, where);
-      attrs_htab_delete (htab, loc);
+      attrs_htab_delete (htab, decl, offset);
     }
 }
 
@@ -1431,13 +1427,13 @@ process_bb (bb)
 		   has several equivalent locations keep only the memory
 		   location.  So remove variable's occurrences from registers.
 		 */
-		process_bb_delete (reg, mem, false, loc, insn, where);
+		process_bb_delete (reg, mem, false, decl, offset, insn, where);
 		set_location_part (decl, offset, loc, insn, where);
-		attrs_htab_insert (mem, loc);
+		attrs_htab_insert (mem, decl, offset, loc);
 		break;
 
 	      case LT_CLOBBER:
-		process_bb_delete (reg, mem, true, loc, insn,
+		process_bb_delete (reg, mem, true, decl, offset, insn,
 				   EMIT_NOTE_AFTER_INSN);
 		break;
 	    }

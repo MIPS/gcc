@@ -1,5 +1,20 @@
 2003-02-05  Josef Zlomek  <zlomekj@suse.cz>
 
+	* var-tracking.c (MEM_HASH_VAL): Argument is DECL, not MEM.
+	(VARIABLE_HASH_VAL): Added parenthesis around decl.
+	(attrs_htab_insert): Added decl and offset arguments.
+	(attrs_htab_delete): Use decl and offset instead of mem in arguments.
+	(process_bb_delete): Likewise.
+	(mem_htab_hash, mem_htab_eq, attrs_htab_different_1,
+	attrs_htab_copy_1, attrs_htab_union_1): Argument of hash function is
+	decl.
+	(compute_bb_dataflow): Use appropriate parameters of
+	attrs_htab_insert and attrs_htab_delete.
+	(process_bb): Likewise.
+	(dump_attrs_list): Display the variable as name+offset.
+
+2003-02-05  Josef Zlomek  <zlomekj@suse.cz>
+
 	* var-tracking.c: More detailed overall comment.
 
 2003-02-04  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
