@@ -1,3 +1,55 @@
+Wed Nov 18 16:31:28 1998  Jim Wilson  <wilson@cygnus.com>
+
+	* reload.c (find_reloads_address_part): If have a CONST_INT, create
+	a new one before passing it to force_const_mem.
+
+	* reload.c (find_reloads_toplev): Pass &x instead of NULL_PTR in
+	find_reloads_address call.
+
+Wed Nov 18 22:13:00 1998  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* expr.c (store_expr): Don't generate load-store pair
+	if TEMP is identical (according to ==) with TARGET.
+
+Tue Nov 17 22:25:16 1998  J"orn Rennecke <amylaar@cygnus.co.uk>
+
+	* reload1.c (reload_reg_free_for_value_p): When considered reload
+	has an output, matching inputs are not sufficient to avoid conflict.
+
+Tue Nov 17 11:51:16 1998  Mark Mitchell  <mark@markmitchell.com>
+
+	* hash.h (hash_table_key): New type.
+	(hash_entry): Change `string' field to generic `key'.
+	(hash_table): Add `comp' and `hash' functions.
+	(hash_table_init): Take them as input.
+	(hash_table_init_n): Likewise.
+	(hash_lookup): Modify for generic keys.
+	(hash_newfunc): Likewise.
+	(hash_traverse): Likewise.
+	(string_hash): New function.
+	(string_compare): Likewise.
+	(string_copy): Likewise.
+	* hash.c (hash_table_init_n): Modify for generic keys.
+	(hash_table_init): Likewise.
+	(hash_lookup): Likewise.
+	(hash_newfunc): Likewise.
+	(hash_traverse): Likewise.
+	(string_hash): Split out from hash_lookup.
+	(string_compare): New function.
+	(string_copy): Split out from hash_lookup.
+	* tlink.c (symbol_hash_newfunc): Modify for new interfaces to hash
+	tables.
+	(symbol_hash_lookup): Likewise.
+	(file_hash_newfunc): Likewise.
+	(file_hash_lookup): Likewise.
+	(demangled_hash_newfunc): Likewise.
+	(demangled_hash_lookup): Likewise.
+	(tlink_int): Likewise.
+	(read_repo_file): Likewise.
+	(recompile_files): Likewise.
+	(demangle_new_symbols): Likewise.
+	(scan_linker_output): Likewise.
+	
 Tue Nov 17 17:13:53 1998  J"orn Rennecke <amylaar@cygnus.co.uk>
 
 	* flow.c (insn_dead_p): New argument NOTES.  Changed all callers.

@@ -1281,7 +1281,8 @@ static int
 lookup_fnfields_1 (type, name)
      tree type, name;
 {
-  register tree method_vec = CLASSTYPE_METHOD_VEC (type);
+  register tree method_vec 
+    = CLASS_TYPE_P (type) ? CLASSTYPE_METHOD_VEC (type) : NULL_TREE;
 
   if (method_vec != 0)
     {
@@ -1962,7 +1963,9 @@ get_abstract_virtuals (type)
 	{
 	  tree base_pfn = FNADDR_FROM_VTABLE_ENTRY (TREE_VALUE (virtuals));
 	  tree base_fndecl = TREE_OPERAND (base_pfn, 0);
-	  if (DECL_ABSTRACT_VIRTUAL_P (base_fndecl))
+	  if (DECL_NEEDS_FINAL_OVERRIDER_P (base_fndecl))
+	    cp_error ("`%#D' needs a final overrider", base_fndecl);
+	  else if (DECL_ABSTRACT_VIRTUAL_P (base_fndecl))
 	    abstract_virtuals = tree_cons (NULL_TREE, base_fndecl, abstract_virtuals);
 	  virtuals = TREE_CHAIN (virtuals);
 	}
@@ -3006,6 +3009,7 @@ dfs_pushdecls (binfo)
 
 	  /* If the class value is not an envelope of the kind described in
 	     the comment above, we create a new envelope.  */
+	  maybe_push_cache_obstack ();
 	  if (class_value == NULL_TREE || TREE_CODE (class_value) != TREE_LIST
 	      || TREE_PURPOSE (class_value) == NULL_TREE
 	      || TREE_CODE (TREE_PURPOSE (class_value)) == IDENTIFIER_NODE)
@@ -3018,10 +3022,11 @@ dfs_pushdecls (binfo)
 	    }
 
 	  envelope_add_decl (type, fields, &TREE_PURPOSE (class_value));
+	  pop_obstacks ();
 	}
     }
 
-  method_vec = CLASSTYPE_METHOD_VEC (type);
+  method_vec = CLASS_TYPE_P (type) ? CLASSTYPE_METHOD_VEC (type) : NULL_TREE;
   if (method_vec && ! dummy)
     {
       tree *methods;
@@ -3043,6 +3048,8 @@ dfs_pushdecls (binfo)
 	  name = DECL_NAME (OVL_CURRENT (*methods));
 	  class_value = IDENTIFIER_CLASS_VALUE (name);
 
+	  maybe_push_cache_obstack ();
+
 	  /* If the class value is not an envelope of the kind described in
 	     the comment above, we create a new envelope.  */
 	  if (class_value == NULL_TREE || TREE_CODE (class_value) != TREE_LIST
@@ -3059,7 +3066,6 @@ dfs_pushdecls (binfo)
 	  /* Here we try to rule out possible ambiguities.
 	     If we can't do that, keep a TREE_LIST with possibly ambiguous
 	     decls in there.  */
-	  maybe_push_cache_obstack ();
 	  /* Arbitrarily choose the first function in the list.  This is OK
 	     because this is only used for initial lookup; anything that
 	     actually uses the function will look it up again.  */
@@ -3081,7 +3087,8 @@ dfs_compress_decls (binfo)
      tree binfo;
 {
   tree type = BINFO_TYPE (binfo);
-  tree method_vec = CLASSTYPE_METHOD_VEC (type);
+  tree method_vec 
+    = CLASS_TYPE_P (type) ? CLASSTYPE_METHOD_VEC (type) : NULL_TREE;
 
   if (processing_template_decl && type != current_class_type
       && dependent_base_p (binfo))
@@ -3130,6 +3137,11 @@ push_class_decls (type)
 {
   struct obstack *ambient_obstack = current_obstack;
   search_stack = push_search_level (search_stack, &search_obstack);
+
+  /* Build up all the relevant bindings and such on the cache
+     obstack.  That way no memory is wasted when we throw away the
+     cache later.  */
+  maybe_push_cache_obstack ();
 
   /* Push class fields into CLASS_VALUE scope, and mark.  */
   dfs_walk (TYPE_BINFO (type), dfs_pushdecls, unmarked_pushdecls_p);
@@ -3198,6 +3210,10 @@ push_class_decls (type)
 	pushdecl_class_level (new);
       closed_envelopes = TREE_CHAIN (closed_envelopes);
     }
+  
+  /* Undo the call to maybe_push_cache_obstack above.  */
+  pop_obstacks ();
+
   current_obstack = ambient_obstack;
 }
 
@@ -3281,6 +3297,7 @@ add_conversions (binfo)
 {
   int i;
   tree method_vec = CLASSTYPE_METHOD_VEC (BINFO_TYPE (binfo));
+  tree name = NULL_TREE;
 
   for (i = 2; i < TREE_VEC_LENGTH (method_vec); ++i)
     {
@@ -3289,13 +3306,25 @@ add_conversions (binfo)
       if (!tmp || ! DECL_CONV_FN_P (OVL_CURRENT (tmp)))
 	break;
 
+      /* We don't want to mark 'name' until we've seen all the overloads
+	 in this class; we could be overloading on the quals of 'this'.  */
+      if (name && name != DECL_NAME (tmp))
+	{
+	  IDENTIFIER_MARKED (name) = 1;
+	  name = NULL_TREE;
+	}
+
       /* Make sure we don't already have this conversion.  */
       if (! IDENTIFIER_MARKED (DECL_NAME (tmp)))
 	{
 	  conversions = scratch_tree_cons (binfo, tmp, conversions);
-	  IDENTIFIER_MARKED (DECL_NAME (tmp)) = 1;
+	  name = DECL_NAME (tmp);
 	}
     }
+
+  if (name)
+     IDENTIFIER_MARKED (name) = 1;
+
   return NULL_TREE;
 }
 

@@ -87,8 +87,7 @@ lvalue_p_1 (ref, treat_class_rvalues_as_lvalues)
     case ARRAY_REF:
     case PARM_DECL:
     case RESULT_DECL:
-      if (TREE_CODE (TREE_TYPE (ref)) != FUNCTION_TYPE
-	  && TREE_CODE (TREE_TYPE (ref)) != METHOD_TYPE)
+      if (TREE_CODE (TREE_TYPE (ref)) != METHOD_TYPE)
 	return 1;
       break;
 
@@ -1169,7 +1168,7 @@ make_binfo (offset, binfo, vtable, virtuals)
   else
     {
       type = binfo;
-      binfo = TYPE_BINFO (binfo);
+      binfo = CLASS_TYPE_P (type) ? TYPE_BINFO (binfo) : NULL_TREE;
     }
 
   TREE_TYPE (new_binfo) = TYPE_MAIN_VARIANT (type);
@@ -1506,7 +1505,8 @@ copy_template_template_parm (t)
 
   /* No need to copy these */
   TYPE_FIELDS (t2) = TYPE_FIELDS (t);
-  CLASSTYPE_TEMPLATE_INFO (t2) = CLASSTYPE_TEMPLATE_INFO (t);
+  TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t2) 
+    = TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (t);
   return t2;
 }
 
@@ -1935,6 +1935,7 @@ mapcar (t, func)
     case COMPONENT_REF:
     case CLEANUP_POINT_EXPR:
       t = copy_node (t);
+      TREE_TYPE (t) = mapcar (TREE_TYPE (t), func);
       TREE_OPERAND (t, 0) = mapcar (TREE_OPERAND (t, 0), func);
       return t;
 
@@ -2490,17 +2491,17 @@ cp_tree_equal (t1, t2)
   return -1;
 }
 
-/* Similar to make_tree_vec, but build on a temporary obstack.  */
+/* Similar to make_tree_vec, but build on the momentary_obstack.
+   Thus, these vectors are really and truly temporary.  */
 
 tree
 make_temp_vec (len)
      int len;
 {
   register tree node;
-  register struct obstack *ambient_obstack = current_obstack;
-  current_obstack = expression_obstack;
+  push_expression_obstack ();
   node = make_tree_vec (len);
-  current_obstack = ambient_obstack;
+  pop_obstacks ();
   return node;
 }
 

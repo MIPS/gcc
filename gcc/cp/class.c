@@ -82,6 +82,12 @@ tree previous_class_type;	/* _TYPE: the previous type that was a class */
 tree previous_class_values;	/* TREE_LIST: copy of the class_shadowed list
 				   when leaving an outermost class scope.  */
 
+/* The obstack on which the cached class declarations are kept.  */
+static struct obstack class_cache_obstack;
+/* The first object allocated on that obstack.  We can use
+   obstack_free with tis value to free the entire obstack.  */
+static char *class_cache_firstobj;
+
 struct base_info;
 
 static tree get_vfield_name PROTO((tree));
@@ -2852,13 +2858,11 @@ override_one_vtable (binfo, old, t)
 	    }
 	  {
 	    /* This MUST be overridden, or the class is ill-formed.  */
-	    /* For now, we just make it abstract.  */
 	    tree fndecl = TREE_OPERAND (FNADDR_FROM_VTABLE_ENTRY (TREE_VALUE (virtuals)), 0);
 	    tree vfn;
 
 	    fndecl = copy_node (fndecl);
 	    copy_lang_decl (fndecl);
-	    DECL_ABSTRACT_VIRTUAL_P (fndecl) = 1;
 	    DECL_NEEDS_FINAL_OVERRIDER_P (fndecl) = 1;
 	    /* Make sure we search for it later.  */
 	    if (! CLASSTYPE_ABSTRACT_VIRTUALS (t))
@@ -3136,8 +3140,19 @@ finish_struct_anon (t)
 	  tree* uelt = &TYPE_FIELDS (TREE_TYPE (field));
 	  for (; *uelt; uelt = &TREE_CHAIN (*uelt))
 	    {
-	      if (TREE_CODE (*uelt) != FIELD_DECL)
+	      if (DECL_ARTIFICIAL (*uelt))
 		continue;
+
+	      if (DECL_NAME (*uelt) == TYPE_IDENTIFIER (t))
+		cp_pedwarn_at ("ANSI C++ forbids member `%D' with same name as enclosing class",
+			       *uelt);
+
+	      if (TREE_CODE (*uelt) != FIELD_DECL)
+		{
+		  cp_pedwarn_at ("`%#D' invalid; an anonymous union can only have non-static data members",
+				 *uelt);
+		  continue;
+		}
 
 	      if (TREE_PRIVATE (*uelt))
 		cp_pedwarn_at ("private member `%#D' in anonymous union",
@@ -3879,23 +3894,9 @@ finish_struct_1 (t, warn_anon)
     }
 
   /* Now DECL_INITIAL is null on all members except for zero-width bit-fields.
-     And they have already done their work.
 
      C++: maybe we will support default field initialization some day...  */
 
-  /* Delete all zero-width bit-fields from the front of the fieldlist */
-  while (fields && DECL_C_BIT_FIELD (fields)
-	 && DECL_INITIAL (fields))
-    fields = TREE_CHAIN (fields);
-  /* Delete all such fields from the rest of the fields.  */
-  for (x = fields; x;)
-    {
-      if (TREE_CHAIN (x) && DECL_C_BIT_FIELD (TREE_CHAIN (x))
-	  && DECL_INITIAL (TREE_CHAIN (x)))
-	TREE_CHAIN (x) = TREE_CHAIN (TREE_CHAIN (x));
-      else
-	x = TREE_CHAIN (x);
-    }
   /* Delete all duplicate fields from the fields */
   delete_duplicate_fields (fields);
 
@@ -3925,7 +3926,7 @@ finish_struct_1 (t, warn_anon)
 	}
     }
 
-  /* Now we have the final fieldlist for the data fields.  Record it,
+  /* Now we have the nearly final fieldlist for the data fields.  Record it,
      then lay out the structure or union (including the fields).  */
 
   TYPE_FIELDS (t) = fields;
@@ -3981,6 +3982,23 @@ finish_struct_1 (t, warn_anon)
     max_has_virtual = layout_basetypes (t, max_has_virtual);
   else if (empty)
     TYPE_FIELDS (t) = fields;
+
+  my_friendly_assert (TYPE_FIELDS (t) == fields, 981117);
+
+  /* Delete all zero-width bit-fields from the front of the fieldlist */
+  while (fields && DECL_C_BIT_FIELD (fields)
+	 && DECL_INITIAL (fields))
+    fields = TREE_CHAIN (fields);
+  /* Delete all such fields from the rest of the fields.  */
+  for (x = fields; x;)
+    {
+      if (TREE_CHAIN (x) && DECL_C_BIT_FIELD (TREE_CHAIN (x))
+	  && DECL_INITIAL (TREE_CHAIN (x)))
+	TREE_CHAIN (x) = TREE_CHAIN (TREE_CHAIN (x));
+      else
+	x = TREE_CHAIN (x);
+    }
+  TYPE_FIELDS (t) = fields;
 
   if (TYPE_USES_VIRTUAL_BASECLASSES (t))
     {
@@ -4404,7 +4422,6 @@ finish_struct (t, attributes, warn_anon)
 	 will fill in the right line number.  (mrs) */
       if (DECL_SOURCE_LINE (name))
 	DECL_SOURCE_LINE (name) = lineno;
-      CLASSTYPE_SOURCE_LINE (t) = lineno;
       name = DECL_NAME (name);
     }
 
@@ -4701,6 +4718,11 @@ pushclass (type, modify)
       /* Forcibly remove any old class remnants.  */
       popclass (-1);
       previous_class_type = NULL_TREE;
+
+      /* Now, free the obstack on which we cached all the values.  */
+      obstack_free (&class_cache_obstack, class_cache_firstobj);
+      class_cache_firstobj 
+	= (char*) obstack_finish (&class_cache_obstack);
     }
 
   pushlevel_class ();
@@ -4794,7 +4816,8 @@ popclass (modify)
 	  TREE_NONLOCAL_FLAG (TREE_VALUE (tags)) = 0;
 	  tags = TREE_CHAIN (tags);
 	}
-      goto ret;
+
+      return;
     }
 
   if (modify)
@@ -4824,9 +4847,6 @@ popclass (modify)
   current_class_name = current_class_stack[current_class_depth].name;
   current_class_type = current_class_stack[current_class_depth].type;
   current_access_specifier = current_class_stack[current_class_depth].access;
-
- ret:
-  ;
 }
 
 /* Returns 1 if current_class_type is either T or a nested type of T.  */
@@ -5443,16 +5463,24 @@ print_class_statistics ()
 }
 
 /* Push an obstack which is sufficiently long-lived to hold such class
-   decls that may be cached in the previous_class_values list.  For now, let's
-   use the permanent obstack, later we may create a dedicated obstack just
-   for this purpose.  The effect is undone by pop_obstacks.  */
+   decls that may be cached in the previous_class_values list. The
+   effect is undone by pop_obstacks.  */
 
 void
 maybe_push_cache_obstack ()
 {
+  static int cache_obstack_initialized;
+
+  if (!cache_obstack_initialized)
+    {
+      gcc_obstack_init (&class_cache_obstack);
+      class_cache_firstobj 
+	= (char*) obstack_finish (&class_cache_obstack);
+      cache_obstack_initialized = 1;
+    }
+
   push_obstacks_nochange ();
-  if (current_class_depth == 1)
-    current_obstack = &permanent_obstack;
+  current_obstack = &class_cache_obstack;
 }
 
 /* Build a dummy reference to ourselves so Derived::Base (and A::A) works,
