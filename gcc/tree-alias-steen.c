@@ -169,7 +169,7 @@ steen_add_var_same (ops, decl, tv)
   fprintf (stderr, "Steen: Adding variable " );
   print_c_node (stderr, decl);
   fprintf (stderr, " same as ");
-  print_c_node (stderr, tv->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (tv));
   fprintf (stderr, "\n");
 #endif
   return alias_tvar_new_equiv_to (decl, tv);
@@ -187,9 +187,9 @@ steen_simple_assign (ops, lhs, rhs)
 
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: simple assignment ");
-  print_c_node (stderr, lhs->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (lhs));
   fprintf (stderr, " = ");
-  print_c_node (stderr, rhs->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (rhs));
   fprintf (stderr, "\n");
 #endif
 
@@ -226,9 +226,9 @@ steen_addr_assign (ops, lhs, addr)
 
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: address assignment ");
-  print_c_node (stderr, lhs->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (lhs));
   fprintf (stderr, " = &");
-  print_c_node (stderr, addr->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (addr));
   fprintf (stderr, "\n");
 #endif
 
@@ -259,9 +259,9 @@ steen_ptr_assign (ops, lhs, ptr)
     return;
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: pointer assignment ");
-  print_c_node (stderr, lhs->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (lhs));
   fprintf (stderr, " = *");
-  print_c_node (stderr, ptr->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (ptr));
   fprintf (stderr, "\n");
 #endif
 
@@ -316,7 +316,7 @@ steen_op_assign (ops, lhs, operands)
 
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: op assignment ");
-  print_c_node (stderr, lhs->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (lhs));
   fprintf (stderr, " = op(...)");
   fprintf (stderr, "\n");
 #endif
@@ -378,9 +378,9 @@ steen_assign_ptr (ops, ptr, rhs)
 
 #if STEEN_DEBUG
   fprintf (stderr, "Steen: assignment to pointer  *");
-  print_c_node (stderr, ptr->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (ptr));
   fprintf (stderr, " = ");
-  print_c_node (stderr, rhs->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (rhs));
   fprintf (stderr, "\n");
 #endif
   type1 = ECR_get_type (alias_tvar_get_ECR (ptr));

@@ -1,3 +1,20 @@
+2002-10-16  Daniel Berlin  <dberlin@dberlin.org>
+	
+	* tree-alias-type.c (alias_tvar_new_with_aterm): New function.
+	Update all allocations to allocate right type, rather than the union.
+	Update to use macros to access members of alias_typevar.
+
+	* tree-alias-type.h: Split alias_typevar into a common, an ECR, and
+	an aterm, update all users.
+	Add macros to access members of union.
+	
+	* tree-alias-common.c (create_alias_var): Handle function_decl's 
+	properly (needed for proper handling of function pointers).
+	Updates for macros to access typevars.
+	Fix some indentation.
+	
+	* tree-alias-steen.c: Updates for macros to access typevars.
+
 2002-10-16  Frank Ch. Eigler  <fche@redhat.com>
 
 	* c-decl.c (c_expand_body): Enable mudflap, only for gimple.

@@ -183,15 +183,27 @@ location_pointsto (t)
   return ret;
 }
 
+alias_typevar
+alias_tvar_new_with_aterm (decl, term)
+     tree decl;
+     struct aterm_ *term;
+{
+  alias_typevar ret = ggc_alloc (sizeof (struct alias_typevar_aterm));
+  ALIAS_TVAR_KIND (ret) = ATERM_ATVAR;
+  ALIAS_TVAR_DECL (ret) = decl;
+  ALIAS_TVAR_ATERM (ret) = term;
+  return ret;
+}
 
 alias_typevar
 alias_tvar_new_with_at (decl, type)
      tree decl;
      alias_type type;
 {
-  alias_typevar ret = ggc_alloc (sizeof (struct alias_typevar_def));
-  ret->decl = decl;
-  ret->ecr = ECR_new_with_type (type, ret);
+  alias_typevar ret = ggc_alloc (sizeof (struct alias_typevar_ecr));
+  ALIAS_TVAR_KIND (ret) = ECR_ATVAR;
+  ALIAS_TVAR_DECL (ret) = decl;
+  ALIAS_TVAR_ECR (ret) = ECR_new_with_type (type, ret);
   return ret;
 }
 
@@ -207,10 +219,11 @@ alias_tvar_new_equiv_to (decl, var)
      tree decl;
      alias_typevar var;
 {
-  alias_typevar ret = ggc_alloc (sizeof (struct alias_typevar_def));
-  ret->decl = decl;
-  ret->ecr = ECR_new_with_type (ECR_get_type (alias_tvar_get_ECR (var)), ret);
-  ECR_union (ret->ecr, alias_tvar_get_ECR (var));
+  alias_typevar ret = ggc_alloc (sizeof (struct alias_typevar_ecr));
+  ALIAS_TVAR_KIND (ret) = ECR_ATVAR;
+  ALIAS_TVAR_DECL (ret) = decl;
+  ALIAS_TVAR_ECR (ret) = ECR_new_with_type (ECR_get_type (alias_tvar_get_ECR (var)), ret);
+  ECR_union (ALIAS_TVAR_ECR (ret), alias_tvar_get_ECR (var));
   return ret;
 }
 
@@ -218,28 +231,28 @@ ECR
 alias_tvar_get_ECR (var)
      alias_typevar var;
 {
-  return ECR_find (var->ecr);
+  return ECR_find (ALIAS_TVAR_ECR (var));
 }
 
 ECR
 alias_tvar_get_orig_ECR (var)
      alias_typevar var;
 {
-  return var->ecr;
+  return ALIAS_TVAR_ECR (var);
 }
 
 bool
 alias_tvar_is_alias (var)
      alias_typevar var;
 {
-  return ECR_size (var->ecr) > 1;
+  return ECR_size (ALIAS_TVAR_ECR (var)) > 1;
 }
 
 varray_type
 alias_tvar_pointsto (var)
      alias_typevar var;
 {
-  varray_type v = ALIAS_TYPE_POINTSTO (ECR_get_type (var->ecr));
+  varray_type v = ALIAS_TYPE_POINTSTO (ECR_get_type (ALIAS_TVAR_ECR (var)));
   varray_type p;
   size_t i, l;
 
@@ -270,9 +283,9 @@ alias_tvar_allpointsto (var, tv)
      varray_type *tv;
 {
   ECR e;
-  if (ECR_get_type (var->ecr) == alias_bottom)
+  if (ECR_get_type (ALIAS_TVAR_ECR (var)) == alias_bottom)
     return;
-  e = alias_ltype_loc (ECR_get_type (var->ecr));
+  e = alias_ltype_loc (ECR_get_type (ALIAS_TVAR_ECR (var)));
 
   if (e->color == next_color)
     return;

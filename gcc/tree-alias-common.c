@@ -50,7 +50,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "hashtab.h"
 #include "splay-tree.h"
 static splay_tree alias_annot;
-static GTY ((param_is (struct alias_typevar_def))) varray_type alias_vars = NULL;
+static GTY ((param_is (union alias_typevar_def))) varray_type alias_vars = NULL;
 struct tree_alias_ops *current_alias_ops;
 static splay_tree varmap; 
 static varray_type local_alias_vars;
@@ -76,15 +76,20 @@ get_alias_var_decl (decl)
   node = splay_tree_lookup (alias_annot, (splay_tree_key) decl);
   if (node != NULL && node->value != 0)
     return (alias_typevar) node->value; 
-/* For debugging, remove this, and re-enable the find_func_decls call. */
+  /* For debugging, remove this whole if block, and re-enable the 
+     find_func_decls call. */
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    newvar = create_fun_alias_var  (decl, 0);
+  else
   newvar = create_alias_var (decl);
+  
   if (!TREE_PUBLIC (decl))
     {
-      VARRAY_PUSH_INT (local_alias_varnums, VARRAY_ACTIVE_SIZE (alias_vars) - 1);
+      VARRAY_PUSH_INT (local_alias_varnums, 
+		       VARRAY_ACTIVE_SIZE (alias_vars) - 1);
       VARRAY_PUSH_GENERIC_PTR (local_alias_vars, decl);
     }
   return newvar;
-										    abort ();
 }
 
 static alias_typevar
@@ -181,27 +186,19 @@ intra_function_call (args)
 {
   size_t l = VARRAY_ACTIVE_SIZE (args);
   size_t i;
-  tree globvar = getdecls();
+  alias_typevar av = get_alias_var (global_var);
 
   /* We assume that an actual parameter can point to any global. */
-  while (globvar)
-    {
-      if (TREE_CODE (globvar) == VAR_DECL)
-	{
-	  alias_typevar av = get_alias_var (globvar);
 	  for (i = 0; i < l; i++)
 	    {
 	      alias_typevar argav = VARRAY_GENERIC_PTR (args, i);
 	      
 	      /* Restricted pointers can't be aliased with other
 		 restricted pointers. */	      
-	      if (!TYPE_RESTRICT (TREE_TYPE (argav->decl)) 
-		  || !TYPE_RESTRICT (TREE_TYPE (av->decl)))
+      if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argav))) 
+	  || !TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (av))))
 		current_alias_ops->addr_assign (current_alias_ops, argav, av);
 	    }
-	}
-      globvar = TREE_CHAIN (globvar);
-    }
 
   /* We assume assignments among the actual parameters. */
   for (i = 0; i < l; i++) 
@@ -217,8 +214,8 @@ intra_function_call (args)
 
 	  /* Restricted pointers can't be aliased with other
 	     restricted pointers. */
-	  if (!TYPE_RESTRICT (TREE_TYPE (argi->decl)) 
-	      || !TYPE_RESTRICT (TREE_TYPE (argj->decl)))
+	  if (!TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argi))) 
+	      || !TYPE_RESTRICT (TREE_TYPE (ALIAS_TVAR_DECL (argj))))
 	    current_alias_ops->simple_assign (current_alias_ops, argi, argj);
 	}
     }
@@ -455,7 +452,8 @@ find_func_decls (tp, walk_subtrees, data)
   if (TREE_CODE (*tp) == DECL_STMT)
     {
       create_alias_var (DECL_STMT_DECL (*tp));
-      VARRAY_PUSH_INT (local_alias_varnums, VARRAY_ACTIVE_SIZE (alias_vars) - 1);
+      VARRAY_PUSH_INT (local_alias_varnums,
+		       VARRAY_ACTIVE_SIZE (alias_vars) - 1);
       VARRAY_PUSH_GENERIC_PTR (local_alias_vars, DECL_STMT_DECL (*tp));
     }
   return NULL_TREE;
@@ -498,7 +496,8 @@ create_fun_alias_var (decl, force)
       for (arg = DECL_ARGUMENTS (decl); arg; arg = TREE_CHAIN (arg))
 	{
 	  alias_typevar tvar = create_alias_var (arg);
-	  splay_tree_insert (alias_annot, (splay_tree_key) arg, (splay_tree_value) tvar); 
+	  splay_tree_insert (alias_annot, (splay_tree_key) arg, 
+			     (splay_tree_value) tvar); 
 	  VARRAY_PUSH_GENERIC_PTR (params, tvar);
 	}
     }
@@ -615,18 +614,16 @@ create_alias_var (decl)
   if (node != NULL && node->value != 0)
     return (alias_typevar) node->value;
 
-  /* FIXME: Need to handle creating alias variables for PTF's.  The
-     cleanest way is to make create_fun_alias_var take 2 arguments:
-     1. The function variable decl (IE the name in the case of normal
-     function, the PTF variable's name in the case of PTF's)
-     2. The function type.
-
-   */
-  if (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE)
-    if (TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == FUNCTION_TYPE)
-      create_fun_alias_var_ptf (decl, TREE_TYPE (TREE_TYPE (decl)));
-
+  if (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE 
+      && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == FUNCTION_TYPE)
+    {
+      avar = create_fun_alias_var_ptf (decl, TREE_TYPE (TREE_TYPE (decl)));
+    }
+  else
+    {
   avar = current_alias_ops->add_var (current_alias_ops, decl);
+    }
+  
   splay_tree_insert (alias_annot, (splay_tree_key)decl, 
 		     (splay_tree_value) avar);
   VARRAY_PUSH_GENERIC_PTR (alias_vars, avar);
@@ -648,15 +645,17 @@ display_points_to_set_helper (tvar)
 {
   size_t i;
   varray_type tmp;
+  if (ALIAS_TVAR_KIND (tvar) != ECR_ATVAR)
+	  return;
   tmp = alias_tvar_pointsto (tvar);
   if (VARRAY_ACTIVE_SIZE (tmp) <= 0)
     return;
-  print_c_node (stderr, tvar->decl);
+  print_c_node (stderr, ALIAS_TVAR_DECL (tvar));
   fprintf (stderr, " => { ");
   for (i = 0; i < VARRAY_ACTIVE_SIZE (tmp); i++)
     {
       alias_typevar tmpatv = (alias_typevar) VARRAY_GENERIC_PTR (tmp, i);
-      print_c_node  (stderr, tmpatv->decl);
+      print_c_node  (stderr, ALIAS_TVAR_DECL (tmpatv));
       fprintf (stderr, ", ");
     }
   fprintf (stderr, " }\n");
@@ -706,12 +705,6 @@ create_alias_vars ()
   current_alias_ops = steen_alias_ops;
 #endif
   init_alias_vars ();
-  while (currdecl)
-    {
-      if (TREE_CODE (currdecl) == VAR_DECL)
-	create_alias_var (currdecl);
-      currdecl = TREE_CHAIN (currdecl);
-    }
   create_fun_alias_var (current_function_decl, 1);
   /* For debugging, disable the on-the-fly variable creation, 
      and reenable this. */
@@ -770,17 +763,19 @@ ptr_may_alias_var (ptr, var)
   alias_typevar ptrtv, vartv;
 
   result = splay_tree_lookup (alias_annot, (splay_tree_key) ptr);
+ 
   if (!result)
     abort ();
-  ptrtv = (alias_typevar) result->value;
 			    
+  ptrtv = (alias_typevar) result->value;  
   result = splay_tree_lookup (alias_annot, (splay_tree_key) var);
+  
   if (!result)
     abort ();
+  
   vartv = (alias_typevar) result->value;
   return current_alias_ops->may_alias (current_alias_ops, ptrtv, vartv);
   
 }
-	    
 	     
 #include "gt-tree-alias-common.h"

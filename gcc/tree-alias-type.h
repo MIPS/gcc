@@ -3,20 +3,45 @@
 
 struct ECR_def;
 typedef struct ECR_def *ECR;
-struct alias_typevar_def;
+union alias_typevar_def;
 struct aterm_;
-struct alias_typevar_def  GTY (())
+enum alias_typevar_kind
 {
+  ECR_ATVAR,
+  ATERM_ATVAR
+};
+struct alias_typevar_common  GTY (())
+{
+  enum alias_typevar_kind kind;
   tree decl;
+};
+struct alias_typevar_ecr GTY (())
+{
+  struct alias_typevar_common common;
   ECR ecr;
   struct aterm_ * GTY((skip (""))) data;
 };
+struct alias_typevar_aterm GTY (())
+{
+  struct alias_typevar_common common;
+  struct aterm_ * GTY((skip (""))) term;
+};
+union alias_typevar_def GTY ((desc ("%0.common.kind")))
+{
+  struct alias_typevar_common GTY ((tag ("-1"))) common;
+  struct alias_typevar_ecr GTY ((tag ("ECR_ATVAR"))) ecr;
+  struct alias_typevar_aterm GTY ((tag ("ATERM_ATVAR"))) aterm;
+};
+typedef union alias_typevar_def *alias_typevar;
 
-typedef struct alias_typevar_def *alias_typevar;
-
+#define ALIAS_TVAR_KIND(x) ((x)->common.kind)
+#define ALIAS_TVAR_DECL(x) ((x)->common.decl)
+#define ALIAS_TVAR_ECR(x) ((x)->ecr.ecr)
+#define ALIAS_TVAR_ATERM(x) ((x)->aterm.term)
 union alias_type_def;
 typedef union alias_type_def *alias_type;
 
+alias_typevar alias_tvar_new_with_aterm PARAMS ((tree, struct aterm_ *));
 alias_typevar alias_tvar_new_with_at PARAMS ((tree, alias_type));
 alias_typevar alias_tvar_new PARAMS ((tree));
 alias_typevar alias_tvar_new_equiv_to PARAMS ((tree, alias_typevar));
