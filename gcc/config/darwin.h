@@ -1173,9 +1173,6 @@ enum machopic_addr_class {
 	goto DONE;									\
       }
 
-
-#define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
-
 /* APPLE LOCAL OS pragma hook */
 #define REGISTER_OS_PRAGMAS(PFILE)			\
   do {								\
@@ -1201,6 +1198,8 @@ extern int flag_export_coalesced;
 
 #define COALESCING_TEMPLATES_P(DECL)				\
         (COALESCING_ENABLED_P () && flag_coalesce_templates)
+
+#define JUMP_TABLES_IN_TEXT_SECTION 1
 
 #define TARGET_TERMINATE_DW2_EH_FRAME_INFO false
 
