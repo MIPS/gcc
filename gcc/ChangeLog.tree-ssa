@@ -1,3 +1,8 @@
+2004-04-21  Jeff Law  <law@redhat.com>
+
+	* tree-dfa.c (free_df_for_stmt): Release memory back to the GC
+	system immediately.
+
 2004-04-21  Ben Elliston  <bje@au.ibm.com>
 
 	PR middle-end/14730

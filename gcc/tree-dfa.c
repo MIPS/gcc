@@ -200,8 +200,17 @@ free_df_for_stmt (tree stmt)
 {
   stmt_ann_t ann = stmt_ann (stmt);
 
-  if (ann)
-    ann->df = NULL;
+  if (ann && ann->df)
+    {
+      /* If we have a varray of immediate uses, then go ahead and release
+	 it for re-use.  */
+      if (ann->df->immediate_uses)
+	ggc_free (ann->df->immediate_uses);
+
+      /* Similarly for the main dataflow structure.  */
+      ggc_free (ann->df);
+      ann->df = NULL;
+    }
 }
 
 
