@@ -1382,14 +1382,18 @@ cleanup_tree_cfg ()
 
      * Empty statement nodes are removed
 
+     * Unnecessary TRY_FINALLY and TRY_CATCH blocks are removed
+
+     * Unnecessary COND_EXPRs are removed
+
      * Some unnecessary BIND_EXPRs are removed
 
    Clearly more work could be done.  The trick is doing the analysis
    and removal fast enough to be a net improvement in compile times. 
 
    Note that when we remove a control structure such as a COND_EXPR
-   or BIND_EXPR, we will need to repeat this optimization pass to
-   ensure we eliminate all the useless code.  */
+   BIND_EXPR, or TRY block, we will need to repeat this optimization pass
+   to ensure we eliminate all the useless code.  */
   
 int
 remove_useless_stmts_and_vars (first_p)
@@ -1436,16 +1440,18 @@ remove_useless_stmts_and_vars (first_p)
 	     label in one arm.  If the label has since become unreachable
 	     then we may be able to zap the entire conditional here.
 
-	     If this causes us to replace the COND_EXPR with an
-	     empty statement, then we will need to repeat this pass.  */
+	     If so, replace the COND_EXPR and set up to repeat this
+	     optimization pass.  */
 	  if (integer_nonzerop (cond) && IS_EMPTY_STMT (else_clause))
-	    *stmt_p = then_clause;
+	    {
+	      *stmt_p = then_clause;
+	       repeat = 1;
+	    }
 	  if (integer_zerop (cond) && IS_EMPTY_STMT (then_clause))
-	    *stmt_p = else_clause;
-
-	  /* This can happen if both arms were ultimately empty.  */
-	  if (IS_EMPTY_STMT (*stmt_p))
-	    repeat = 1;
+	    {
+	      *stmt_p = else_clause;
+	       repeat = 1;
+	    }
 	}
       else if (code == SWITCH_EXPR)
 	repeat |= remove_useless_stmts_and_vars (&SWITCH_BODY (*stmt_p));
@@ -1463,17 +1469,18 @@ remove_useless_stmts_and_vars (first_p)
                                                                                 
 	     If the body of a TRY_CATCH is empty and the handler is
 	     empty (it had no reachable code either), then we can
-	     emit an empty statement without the enclosing TRY_CATCH.  */
+	     emit an empty statement without the enclosing TRY_CATCH.
+
+	     In both cases we want to apply this optimization pass
+	     again.  */
 	  if (IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 0)))
 	    {
 	      if (code == TRY_FINALLY_EXPR
 		  || IS_EMPTY_STMT (TREE_OPERAND (*stmt_p, 1)))
-		*stmt_p = TREE_OPERAND (*stmt_p, 1);
-
-	      /* If we replaced this statement with an empty statement,
-		 then we'll need to repeat this optimization.  */
-	      if (IS_EMPTY_STMT (*stmt_p))
-		repeat = 1;
+		{
+		  *stmt_p = TREE_OPERAND (*stmt_p, 1);
+		  repeat = 1;
+		}
 	    }
 	}
       else if (code == BIND_EXPR)
@@ -1485,7 +1492,10 @@ remove_useless_stmts_and_vars (first_p)
 	  /* If the BIND_EXPR has no variables, then we can pull everything
 	     up one level and remove the BIND_EXPR, unless this is the
 	     toplevel BIND_EXPR for the current function or an inlined
-	     function.  */
+	     function. 
+
+	     When this situation occurs we will want to apply this
+	     optimization again.  */
 	  block = BIND_EXPR_BLOCK (*stmt_p);
   	  if (BIND_EXPR_VARS (*stmt_p) == NULL_TREE
 	      && *stmt_p != DECL_SAVED_TREE (current_function_decl)
@@ -1493,13 +1503,10 @@ remove_useless_stmts_and_vars (first_p)
 		  || ! BLOCK_ABSTRACT_ORIGIN (block)
 		  || (TREE_CODE (BLOCK_ABSTRACT_ORIGIN (block))
 		      != FUNCTION_DECL)))
-	    *stmt_p = BIND_EXPR_BODY (*stmt_p);
-
-	  /* If we removed the BIND_EXPR completely and were left with
-	     an empty statement, then we'll need to repeat this
-	     optimization.  */
-	  if (IS_EMPTY_STMT (*stmt_p))
-	    repeat = 1;
+	    {
+	      *stmt_p = BIND_EXPR_BODY (*stmt_p);
+	      repeat = 1;
+	    }
 	}
       else if (code == GOTO_EXPR)
 	{

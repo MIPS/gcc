@@ -6,6 +6,9 @@
 
 2003-05-13  Jeff Law  <law@redhat.com>
 
+	* tree-cfg.c (cleanup_tree_cfg): Update comments.   Set repeat
+	anytime we remove a control structure.
+ 
 	* tree-flow.h (struct var_ann_d): New field occurs_in_abnormal_phi.
 	* tree-ssa.c (MAY_COPYPROP_P): Do not allow copy propagations
 	if either argument occurs in an abnormal phi.
