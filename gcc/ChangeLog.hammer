@@ -1,3 +1,7 @@
+Mon Jul 28 21:30:30 CEST 2003  Jan Hubicka  <jh@suse.cz>
+
+	* method.c (use_thunk): Fix.
+
 2003-07-28  Zdenek Dvorak  <rakdver@atrey.karlin.mff.cuni.cz>
 
 	PR optimization/11631

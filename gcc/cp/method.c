@@ -383,7 +383,7 @@ use_thunk (thunk_fndecl, emit_p)
   function = TREE_OPERAND (fnaddr, 0);
   TREE_ADDRESSABLE (function) = 1;
   mark_used (function);
-  TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (function)) = 1;
+  mark_referenced (DECL_ASSEMBLER_NAME (function));
   if (!emit_p)
     return;
 
