@@ -452,15 +452,9 @@ public abstract class AbstractDocument
   }
 
   public void insertString(int offs, String str, AttributeSet a)
+    throws BadLocationException
   {
-    try
-      {
-	content.insertString(offs, str);
-      }
-    catch (Exception e)
-      {
-	System.err.println("FAILED TO INSERT-STRING: " + e + ", at:" + offs);
-      }
+    content.insertString(offs, str);
   }
 
   protected void insertUpdate(DefaultDocumentEvent chng, AttributeSet attr)

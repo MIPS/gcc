@@ -1,5 +1,14 @@
 2004-06-16  Michael Koch  <konqueror@gmx.de>
 
+	* javax/swing/text/AbstractDocument.java
+	(insertString): Throws BadLocationException.
+	* javax/swing/text/Document.java
+	(insertString): Likewise.
+	* javax/swing/text/JTextComponent.java:
+	Javadocs and comments cleaned up.
+
+2004-06-16  Michael Koch  <konqueror@gmx.de>
+
 	* javax/swing/event/UndoableEditListener.java: Reformatted.
 	* javax/swing/text/AbstractDocument.java
 	(AbstractDocument): Implements java.io.Serializable.

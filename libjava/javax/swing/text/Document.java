@@ -68,7 +68,8 @@ public interface Document
 
   void getText(int offset, int length, Segment txt);
 
-  void insertString(int offset, String str, AttributeSet a);
+  void insertString(int offset, String str, AttributeSet a)
+    throws BadLocationException;
 
   void putProperty(Object key, Object value);
 
