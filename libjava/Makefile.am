@@ -41,6 +41,8 @@ cond_gtk_ltlibrary =
 endif
 
 toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la \
+    lib-java-awt.la lib-java-applet.la lib-javax-swing.la lib-java-beans.la \
+    lib-java-util-logging.la lib-javax-naming.la lib-javax-accessibility.la \
     $(cond_gtk_ltlibrary) $(cond_x_ltlibrary)
 toolexecmainlib_DATA = libgcj.spec
 
@@ -354,6 +356,14 @@ lib_org_xml_sax_la_LDFLAGS = -rpath $(toolexeclibdir) \
 ## The mysterious backslash is consumed by make.
         -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
+lib_java_applet_la_SOURCES = $(applet_java_source_files)
+lib_java_awt_la_SOURCES = $(awt_java_source_files)
+lib_javax_swing_la_SOURCES = $(swing_java_source_files)
+lib_javax_accessibility_la_SOURCES = $(accessibility_java_source_files)
+lib_java_beans_la_SOURCES = $(beans_java_source_files)
+lib_java_util_logging_la_SOURCES = $(logging_java_source_files)
+lib_javax_naming_la_SOURCES = $(naming_java_source_files)
+
 lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
 EXTRA_lib_gnu_awt_xlib_la_SOURCES = $(x_java_source_files)
 lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(x_javao_files)
@@ -370,6 +380,13 @@ all_java_source_files = \
     $(built_java_source_files) \
     $(lib_org_xml_sax_la_SOURCES) \
     $(lib_org_w3c_dom_la_SOURCES) \
+    $(lib_java_applet_la_SOURCES) \
+    $(lib_java_awt_la_SOURCES) \
+    $(lib_java_beans_la_SOURCES) \
+    $(lib_javax_swing_la_SOURCES) \
+    $(lib_javax_accessibility_la_SOURCES) \
+    $(lib_javax_naming_la_SOURCES) \
+    $(lib_java_util_logging_la_SOURCES) \
     $(gtk_awt_peer_sources) \
     $(x_java_source_files)
 
@@ -466,11 +483,24 @@ $(gtk_c_files): %.lo: %.c
 
 $(gtk_c_files): $(gtk_c_headers)
 
-## FIXME: see above.
 
+## FIXME: see above.
+all_java_object_files = \
 ## Note: we omit StackTrace here, since it has an explicit rule a bit
 ## later, and GNU make will warn in this case.
-$(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
+    $(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files))	\
+    $(x_javao_files) \
+    $(lib_org_w3c_dom_la_OBJECTS) \
+    $(lib_org_xml_sax_la_OBJECTS) \
+    $(lib_java_beans_la_OBJECTS) \
+    $(lib_java_applet_la_OBJECTS) \
+    $(lib_java_awt_la_OBJECTS) \
+    $(lib_javax_swing_la_OBJECTS) \
+    $(lib_javax_accessibility_la_OBJECTS) \
+    $(lib_javax_naming_la_OBJECTS) \
+    $(lib_java_util_logging_la_OBJECTS)
+
+$(all_java_object_files): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
 $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
@@ -508,7 +538,14 @@ lib-gnu-awt-xlib.la: $(lib_gnu_awt_xlib_la_OBJECTS) $(lib_gnu_awt_xlib_la_DEPEND
 
 ## Header files used when compiling some of the nat* files.
 ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
-	$(built_java_source_files:.java=.h)
+	$(built_java_source_files:.java=.h) \
+	$(applet_java_source_files:.java=.h) \
+	$(awt_java_source_files:.java=.h) \
+	$(swing_java_source_files:.java=.h) \
+	$(accessibility_java_source_files:.java=.h) \
+	$(beans_java_source_files:.java=.h) \
+	$(logging_java_source_files:.java=.h) \
+	$(naming_java_source_files:.java=.h)
 
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
 	java/io/ObjectInputStream$$GetField.h \
@@ -863,6 +900,8 @@ gnu/gcj/convert/UnicodeToBytes.java
 ## hand.
 special_java_source_files = java/lang/Class.java java/lang/Object.java
 
+## Things in AWT and implementation classes for the
+## platform-independent part of AWT (not the peers).
 awt_java_source_files =	\
 gnu/awt/LightweightRedirector.java \
 gnu/awt/j2d/AbstractGraphicsState.java \
@@ -883,37 +922,10 @@ gnu/java/awt/image/XBMDecoder.java \
 gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
 gnu/java/awt/peer/ClasspathFontPeer.java \
-gnu/java/beans/editors/ColorEditor.java	\
-gnu/java/beans/editors/FontEditor.java \
-gnu/java/beans/editors/NativeBooleanEditor.java	\
-gnu/java/beans/editors/NativeByteEditor.java \
-gnu/java/beans/editors/NativeDoubleEditor.java \
-gnu/java/beans/editors/NativeFloatEditor.java \
-gnu/java/beans/editors/NativeIntEditor.java \
-gnu/java/beans/editors/NativeLongEditor.java \
-gnu/java/beans/editors/NativeShortEditor.java \
-gnu/java/beans/editors/StringEditor.java \
-gnu/java/beans/info/ComponentBeanInfo.java \
-gnu/java/beans/BeanInfoEmbryo.java \
-gnu/java/beans/EmptyBeanInfo.java \
-gnu/java/beans/ExplicitBeanInfo.java \
-gnu/java/beans/IntrospectionIncubator.java \
-gnu/javax/rmi/CORBA/DelegateFactory.java \
-gnu/javax/rmi/CORBA/GetDelegateInstanceException.java \
-gnu/javax/rmi/CORBA/PortableRemoteObjectDelegateImpl.java \
-gnu/javax/rmi/CORBA/StubDelegateImpl.java \
-gnu/javax/rmi/CORBA/UtilDelegateImpl.java \
-gnu/javax/rmi/CORBA/ValueHandlerImpl.java \
-gnu/javax/rmi/PortableServer.java \
-java/applet/Applet.java \
-java/applet/AppletStub.java \
-java/applet/AppletContext.java \
-java/applet/AudioClip.java \
 java/awt/AWTError.java \
 java/awt/AWTEvent.java \
 java/awt/AWTEventMulticaster.java \
 java/awt/AWTException.java \
-java/awt/AWTPermission.java \
 java/awt/ActiveEvent.java \
 java/awt/Adjustable.java \
 java/awt/BorderLayout.java \
@@ -1216,66 +1228,9 @@ java/awt/print/PrinterAbortException.java \
 java/awt/print/PrinterException.java \
 java/awt/print/PrinterGraphics.java \
 java/awt/print/PrinterIOException.java \
-java/awt/print/PrinterJob.java \
-java/beans/beancontext/BeanContext.java \
-java/beans/beancontext/BeanContextChild.java \
-java/beans/beancontext/BeanContextChildComponentProxy.java \
-java/beans/beancontext/BeanContextChildSupport.java \
-java/beans/beancontext/BeanContextContainerProxy.java \
-java/beans/beancontext/BeanContextEvent.java \
-java/beans/beancontext/BeanContextMembershipEvent.java \
-java/beans/beancontext/BeanContextMembershipListener.java \
-java/beans/beancontext/BeanContextProxy.java \
-java/beans/beancontext/BeanContextServiceAvailableEvent.java \
-java/beans/beancontext/BeanContextServiceProvider.java \
-java/beans/beancontext/BeanContextServiceProviderBeanInfo.java \
-java/beans/beancontext/BeanContextServiceRevokedEvent.java \
-java/beans/beancontext/BeanContextServiceRevokedListener.java \
-java/beans/beancontext/BeanContextServices.java \
-java/beans/beancontext/BeanContextServicesListener.java \
-java/beans/beancontext/BeanContextServicesSupport.java \
-java/beans/beancontext/BeanContextSupport.java \
-java/beans/BeanDescriptor.java \
-java/beans/BeanInfo.java \
-java/beans/Beans.java \
-java/beans/Customizer.java \
-java/beans/DesignMode.java \
-java/beans/EventSetDescriptor.java \
-java/beans/ExceptionListener.java \
-java/beans/FeatureDescriptor.java \
-java/beans/IndexedPropertyDescriptor.java \
-java/beans/IntrospectionException.java \
-java/beans/Introspector.java \
-java/beans/MethodDescriptor.java \
-java/beans/ParameterDescriptor.java \
-java/beans/PropertyChangeEvent.java \
-java/beans/PropertyChangeListener.java \
-java/beans/PropertyChangeListenerProxy.java \
-java/beans/PropertyChangeSupport.java \
-java/beans/PropertyDescriptor.java \
-java/beans/PropertyEditor.java \
-java/beans/PropertyEditorManager.java \
-java/beans/PropertyEditorSupport.java \
-java/beans/PropertyVetoException.java \
-java/beans/SimpleBeanInfo.java \
-java/beans/VetoableChangeListener.java \
-java/beans/VetoableChangeListenerProxy.java \
-java/beans/VetoableChangeSupport.java \
-java/beans/Visibility.java \
-java/beans/AppletInitializer.java \
-javax/rmi/BAD_OPERATION.java \
-javax/rmi/ORB.java \
-javax/rmi/PortableRemoteObject.java \
-javax/rmi/CORBA/ClassDesc.java \
-javax/rmi/CORBA/ObjectImpl.java	\
-javax/rmi/CORBA/PortableRemoteObjectDelegate.java \
-javax/rmi/CORBA/StubDelegate.java \
-javax/rmi/CORBA/Stub.java \
-javax/rmi/CORBA/SystemException.java \
-javax/rmi/CORBA/Tie.java \
-javax/rmi/CORBA/UtilDelegate.java \
-javax/rmi/CORBA/Util.java \
-javax/rmi/CORBA/ValueHandler.java \
+java/awt/print/PrinterJob.java
+
+swing_java_source_files = \
 javax/swing/border/AbstractBorder.java \
 javax/swing/border/BevelBorder.java \
 javax/swing/border/Border.java \
@@ -1580,6 +1535,234 @@ javax/swing/ScrollPaneLayout.java \
 javax/swing/ToolTipManager.java \
 javax/swing/ViewportLayout.java
 
+accessibility_java_source_files = \
+javax/accessibility/Accessible.java \
+javax/accessibility/AccessibleAction.java \
+javax/accessibility/AccessibleBundle.java \
+javax/accessibility/AccessibleComponent.java \
+javax/accessibility/AccessibleContext.java \
+javax/accessibility/AccessibleEditableText.java \
+javax/accessibility/AccessibleExtendedComponent.java \
+javax/accessibility/AccessibleExtendedTable.java \
+javax/accessibility/AccessibleHyperlink.java \
+javax/accessibility/AccessibleHypertext.java \
+javax/accessibility/AccessibleIcon.java \
+javax/accessibility/AccessibleKeyBinding.java \
+javax/accessibility/AccessibleRelation.java \
+javax/accessibility/AccessibleRelationSet.java \
+javax/accessibility/AccessibleResourceBundle.java \
+javax/accessibility/AccessibleRole.java \
+javax/accessibility/AccessibleSelection.java \
+javax/accessibility/AccessibleState.java \
+javax/accessibility/AccessibleStateSet.java \
+javax/accessibility/AccessibleTable.java \
+javax/accessibility/AccessibleTableModelChange.java \
+javax/accessibility/AccessibleText.java \
+javax/accessibility/AccessibleValue.java
+
+applet_java_source_files = \
+java/applet/Applet.java \
+java/applet/AppletStub.java \
+java/applet/AppletContext.java \
+java/applet/AudioClip.java
+
+beans_java_source_files = \
+gnu/java/beans/editors/ColorEditor.java	\
+gnu/java/beans/editors/FontEditor.java \
+gnu/java/beans/editors/NativeBooleanEditor.java	\
+gnu/java/beans/editors/NativeByteEditor.java \
+gnu/java/beans/editors/NativeDoubleEditor.java \
+gnu/java/beans/editors/NativeFloatEditor.java \
+gnu/java/beans/editors/NativeIntEditor.java \
+gnu/java/beans/editors/NativeLongEditor.java \
+gnu/java/beans/editors/NativeShortEditor.java \
+gnu/java/beans/editors/StringEditor.java \
+gnu/java/beans/info/ComponentBeanInfo.java \
+gnu/java/beans/BeanInfoEmbryo.java \
+gnu/java/beans/EmptyBeanInfo.java \
+gnu/java/beans/ExplicitBeanInfo.java \
+gnu/java/beans/IntrospectionIncubator.java \
+java/beans/beancontext/BeanContext.java \
+java/beans/beancontext/BeanContextChild.java \
+java/beans/beancontext/BeanContextChildComponentProxy.java \
+java/beans/beancontext/BeanContextChildSupport.java \
+java/beans/beancontext/BeanContextContainerProxy.java \
+java/beans/beancontext/BeanContextEvent.java \
+java/beans/beancontext/BeanContextMembershipEvent.java \
+java/beans/beancontext/BeanContextMembershipListener.java \
+java/beans/beancontext/BeanContextProxy.java \
+java/beans/beancontext/BeanContextServiceAvailableEvent.java \
+java/beans/beancontext/BeanContextServiceProvider.java \
+java/beans/beancontext/BeanContextServiceProviderBeanInfo.java \
+java/beans/beancontext/BeanContextServiceRevokedEvent.java \
+java/beans/beancontext/BeanContextServiceRevokedListener.java \
+java/beans/beancontext/BeanContextServices.java \
+java/beans/beancontext/BeanContextServicesListener.java \
+java/beans/beancontext/BeanContextServicesSupport.java \
+java/beans/beancontext/BeanContextSupport.java \
+java/beans/BeanDescriptor.java \
+java/beans/BeanInfo.java \
+java/beans/Beans.java \
+java/beans/Customizer.java \
+java/beans/DesignMode.java \
+java/beans/EventSetDescriptor.java \
+java/beans/ExceptionListener.java \
+java/beans/FeatureDescriptor.java \
+java/beans/IndexedPropertyDescriptor.java \
+java/beans/IntrospectionException.java \
+java/beans/Introspector.java \
+java/beans/MethodDescriptor.java \
+java/beans/ParameterDescriptor.java \
+java/beans/PropertyChangeEvent.java \
+java/beans/PropertyChangeListener.java \
+java/beans/PropertyChangeListenerProxy.java \
+java/beans/PropertyChangeSupport.java \
+java/beans/PropertyDescriptor.java \
+java/beans/PropertyEditor.java \
+java/beans/PropertyEditorManager.java \
+java/beans/PropertyEditorSupport.java \
+java/beans/PropertyVetoException.java \
+java/beans/SimpleBeanInfo.java \
+java/beans/VetoableChangeListener.java \
+java/beans/VetoableChangeListenerProxy.java \
+java/beans/VetoableChangeSupport.java \
+java/beans/Visibility.java \
+java/beans/AppletInitializer.java
+
+naming_java_source_files = \
+javax/naming/directory/Attribute.java \
+javax/naming/directory/AttributeInUseException.java \
+javax/naming/directory/AttributeModificationException.java \
+javax/naming/directory/Attributes.java \
+javax/naming/directory/DirContext.java \
+javax/naming/directory/InvalidAttributeIdentifierException.java	\
+javax/naming/directory/InvalidAttributeValueException.java \
+javax/naming/directory/InvalidAttributesException.java \
+javax/naming/directory/InvalidSearchControlsException.java \
+javax/naming/directory/InvalidSearchFilterException.java \
+javax/naming/directory/NoSuchAttributeException.java \
+javax/naming/directory/SchemaViolationException.java \
+javax/naming/directory/BasicAttribute.java \
+javax/naming/directory/BasicAttributes.java \
+javax/naming/directory/ModificationItem.java \
+javax/naming/directory/SearchControls.java \
+javax/naming/directory/SearchResult.java \
+javax/naming/directory/InitialDirContext.java \
+javax/naming/AuthenticationException.java \
+javax/naming/AuthenticationNotSupportedException.java \
+javax/naming/CannotProceedException.java \
+javax/naming/CommunicationException.java \
+javax/naming/ConfigurationException.java \
+javax/naming/Context.java \
+javax/naming/ContextNotEmptyException.java \
+javax/naming/InsufficientResourcesException.java \
+javax/naming/InterruptedNamingException.java \
+javax/naming/BinaryRefAddr.java	\
+javax/naming/LimitExceededException.java \
+javax/naming/LinkException.java	\
+javax/naming/LinkLoopException.java \
+javax/naming/MalformedLinkException.java \
+javax/naming/Name.java \
+javax/naming/NameAlreadyBoundException.java \
+javax/naming/NameNotFoundException.java	\
+javax/naming/NameParser.java \
+javax/naming/NamingEnumeration.java \
+javax/naming/InitialContext.java \
+javax/naming/NamingSecurityException.java \
+javax/naming/NoInitialContextException.java \
+javax/naming/NoPermissionException.java	\
+javax/naming/NotContextException.java \
+javax/naming/NamingException.java \
+javax/naming/PartialResultException.java \
+javax/naming/event/EventContext.java \
+javax/naming/event/EventDirContext.java	\
+javax/naming/event/NamespaceChangeListener.java	\
+javax/naming/event/NamingEvent.java \
+javax/naming/event/NamingExceptionEvent.java \
+javax/naming/event/NamingListener.java \
+javax/naming/event/ObjectChangeListener.java \
+javax/naming/RefAddr.java \
+javax/naming/Reference.java \
+javax/naming/Referenceable.java	\
+javax/naming/ReferralException.java \
+javax/naming/ServiceUnavailableException.java \
+javax/naming/SizeLimitExceededException.java \
+javax/naming/StringRefAddr.java	\
+javax/naming/TimeLimitExceededException.java \
+javax/naming/spi/InitialContextFactory.java \
+javax/naming/spi/InitialContextFactoryBuilder.java \
+javax/naming/spi/NamingManager.java \
+javax/naming/spi/ObjectFactory.java \
+javax/naming/spi/Resolver.java \
+javax/naming/spi/DirObjectFactory.java \
+javax/naming/spi/DirStateFactory.java \
+javax/naming/spi/DirectoryManager.java \
+javax/naming/spi/ObjectFactoryBuilder.java \
+javax/naming/spi/ResolveResult.java \
+javax/naming/spi/StateFactory.java \
+javax/naming/InvalidNameException.java \
+javax/naming/Binding.java \
+javax/naming/CompositeName.java	\
+javax/naming/CompoundName.java \
+javax/naming/LinkRef.java \
+javax/naming/NameClassPair.java	\
+javax/naming/ldap/Control.java \
+javax/naming/ldap/ControlFactory.java \
+javax/naming/ldap/ExtendedRequest.java \
+javax/naming/ldap/ExtendedResponse.java	\
+javax/naming/ldap/HasControls.java \
+javax/naming/ldap/InitialLdapContext.java \
+javax/naming/ldap/LdapContext.java \
+javax/naming/ldap/LdapReferralException.java \
+javax/naming/ldap/UnsolicitedNotification.java \
+javax/naming/ldap/UnsolicitedNotificationEvent.java \
+javax/naming/ldap/UnsolicitedNotificationListener.java \
+javax/naming/OperationNotSupportedException.java
+
+logging_java_source_files = \
+java/util/logging/ConsoleHandler.java \
+java/util/logging/ErrorManager.java \
+java/util/logging/FileHandler.java \
+java/util/logging/Filter.java \
+java/util/logging/Formatter.java \
+java/util/logging/Handler.java \
+java/util/logging/Level.java \
+java/util/logging/Logger.java \
+java/util/logging/LoggingPermission.java \
+java/util/logging/LogManager.java \
+java/util/logging/LogRecord.java \
+java/util/logging/MemoryHandler.java \
+java/util/logging/SimpleFormatter.java \
+java/util/logging/SocketHandler.java \
+java/util/logging/StreamHandler.java \
+java/util/logging/XMLFormatter.java
+
+## Miscellaneous things which didn't really belong anywhere else.
+misc_java_source_files = \
+## This one is here and not in AWT.  If it were in AWT we'd have a
+## circularity problem since SecurityManager depends on AWTPermission.
+java/awt/AWTPermission.java \
+gnu/javax/rmi/CORBA/DelegateFactory.java \
+gnu/javax/rmi/CORBA/GetDelegateInstanceException.java \
+gnu/javax/rmi/CORBA/PortableRemoteObjectDelegateImpl.java \
+gnu/javax/rmi/CORBA/StubDelegateImpl.java \
+gnu/javax/rmi/CORBA/UtilDelegateImpl.java \
+gnu/javax/rmi/CORBA/ValueHandlerImpl.java \
+gnu/javax/rmi/PortableServer.java \
+javax/rmi/BAD_OPERATION.java \
+javax/rmi/ORB.java \
+javax/rmi/PortableRemoteObject.java \
+javax/rmi/CORBA/ClassDesc.java \
+javax/rmi/CORBA/ObjectImpl.java	\
+javax/rmi/CORBA/PortableRemoteObjectDelegate.java \
+javax/rmi/CORBA/StubDelegate.java \
+javax/rmi/CORBA/Stub.java \
+javax/rmi/CORBA/SystemException.java \
+javax/rmi/CORBA/Tie.java \
+javax/rmi/CORBA/UtilDelegate.java \
+javax/rmi/CORBA/Util.java \
+javax/rmi/CORBA/ValueHandler.java
+
 rmi_java_source_files =	\
 java/rmi/activation/Activatable.java \
 java/rmi/activation/ActivateFailedException.java \
@@ -1679,117 +1862,6 @@ gnu/java/rmi/server/UnicastServer.java \
 gnu/java/rmi/server/UnicastServerRef.java
 
 javax_source_files = \
-javax/accessibility/Accessible.java \
-javax/accessibility/AccessibleAction.java \
-javax/accessibility/AccessibleBundle.java \
-javax/accessibility/AccessibleComponent.java \
-javax/accessibility/AccessibleContext.java \
-javax/accessibility/AccessibleEditableText.java \
-javax/accessibility/AccessibleExtendedComponent.java \
-javax/accessibility/AccessibleExtendedTable.java \
-javax/accessibility/AccessibleHyperlink.java \
-javax/accessibility/AccessibleHypertext.java \
-javax/accessibility/AccessibleIcon.java \
-javax/accessibility/AccessibleKeyBinding.java \
-javax/accessibility/AccessibleRelation.java \
-javax/accessibility/AccessibleRelationSet.java \
-javax/accessibility/AccessibleResourceBundle.java \
-javax/accessibility/AccessibleRole.java \
-javax/accessibility/AccessibleSelection.java \
-javax/accessibility/AccessibleState.java \
-javax/accessibility/AccessibleStateSet.java \
-javax/accessibility/AccessibleTable.java \
-javax/accessibility/AccessibleTableModelChange.java \
-javax/accessibility/AccessibleText.java \
-javax/accessibility/AccessibleValue.java \
-javax/naming/directory/Attribute.java \
-javax/naming/directory/AttributeInUseException.java \
-javax/naming/directory/AttributeModificationException.java \
-javax/naming/directory/Attributes.java \
-javax/naming/directory/DirContext.java \
-javax/naming/directory/InvalidAttributeIdentifierException.java	\
-javax/naming/directory/InvalidAttributeValueException.java \
-javax/naming/directory/InvalidAttributesException.java \
-javax/naming/directory/InvalidSearchControlsException.java \
-javax/naming/directory/InvalidSearchFilterException.java \
-javax/naming/directory/NoSuchAttributeException.java \
-javax/naming/directory/SchemaViolationException.java \
-javax/naming/directory/BasicAttribute.java \
-javax/naming/directory/BasicAttributes.java \
-javax/naming/directory/ModificationItem.java \
-javax/naming/directory/SearchControls.java \
-javax/naming/directory/SearchResult.java \
-javax/naming/directory/InitialDirContext.java \
-javax/naming/AuthenticationException.java \
-javax/naming/AuthenticationNotSupportedException.java \
-javax/naming/CannotProceedException.java \
-javax/naming/CommunicationException.java \
-javax/naming/ConfigurationException.java \
-javax/naming/Context.java \
-javax/naming/ContextNotEmptyException.java \
-javax/naming/InsufficientResourcesException.java \
-javax/naming/InterruptedNamingException.java \
-javax/naming/BinaryRefAddr.java	\
-javax/naming/LimitExceededException.java \
-javax/naming/LinkException.java	\
-javax/naming/LinkLoopException.java \
-javax/naming/MalformedLinkException.java \
-javax/naming/Name.java \
-javax/naming/NameAlreadyBoundException.java \
-javax/naming/NameNotFoundException.java	\
-javax/naming/NameParser.java \
-javax/naming/NamingEnumeration.java \
-javax/naming/InitialContext.java \
-javax/naming/NamingSecurityException.java \
-javax/naming/NoInitialContextException.java \
-javax/naming/NoPermissionException.java	\
-javax/naming/NotContextException.java \
-javax/naming/NamingException.java \
-javax/naming/PartialResultException.java \
-javax/naming/event/EventContext.java \
-javax/naming/event/EventDirContext.java	\
-javax/naming/event/NamespaceChangeListener.java	\
-javax/naming/event/NamingEvent.java \
-javax/naming/event/NamingExceptionEvent.java \
-javax/naming/event/NamingListener.java \
-javax/naming/event/ObjectChangeListener.java \
-javax/naming/RefAddr.java \
-javax/naming/Reference.java \
-javax/naming/Referenceable.java	\
-javax/naming/ReferralException.java \
-javax/naming/ServiceUnavailableException.java \
-javax/naming/SizeLimitExceededException.java \
-javax/naming/StringRefAddr.java	\
-javax/naming/TimeLimitExceededException.java \
-javax/naming/spi/InitialContextFactory.java \
-javax/naming/spi/InitialContextFactoryBuilder.java \
-javax/naming/spi/NamingManager.java \
-javax/naming/spi/ObjectFactory.java \
-javax/naming/spi/Resolver.java \
-javax/naming/spi/DirObjectFactory.java \
-javax/naming/spi/DirStateFactory.java \
-javax/naming/spi/DirectoryManager.java \
-javax/naming/spi/ObjectFactoryBuilder.java \
-javax/naming/spi/ResolveResult.java \
-javax/naming/spi/StateFactory.java \
-javax/naming/InvalidNameException.java \
-javax/naming/Binding.java \
-javax/naming/CompositeName.java	\
-javax/naming/CompoundName.java \
-javax/naming/LinkRef.java \
-javax/naming/NameClassPair.java	\
-javax/naming/ldap/Control.java \
-javax/naming/ldap/ControlFactory.java \
-javax/naming/ldap/ExtendedRequest.java \
-javax/naming/ldap/ExtendedResponse.java	\
-javax/naming/ldap/HasControls.java \
-javax/naming/ldap/InitialLdapContext.java \
-javax/naming/ldap/LdapContext.java \
-javax/naming/ldap/LdapReferralException.java \
-javax/naming/ldap/UnsolicitedNotification.java \
-javax/naming/ldap/UnsolicitedNotificationEvent.java \
-javax/naming/ldap/UnsolicitedNotificationListener.java \
-javax/naming/OperationNotSupportedException.java \
 javax/print/attribute/Attribute.java \
 javax/print/attribute/AttributeSet.java \
 javax/print/attribute/AttributeSetUtilities.java \
@@ -2105,22 +2177,6 @@ java/util/TreeSet.java \
 java/util/TooManyListenersException.java \
 java/util/Vector.java \
 java/util/WeakHashMap.java \
-java/util/logging/ConsoleHandler.java \
-java/util/logging/ErrorManager.java \
-java/util/logging/FileHandler.java \
-java/util/logging/Filter.java \
-java/util/logging/Formatter.java \
-java/util/logging/Handler.java \
-java/util/logging/Level.java \
-java/util/logging/Logger.java \
-java/util/logging/LoggingPermission.java \
-java/util/logging/LogManager.java \
-java/util/logging/LogRecord.java \
-java/util/logging/MemoryHandler.java \
-java/util/logging/SimpleFormatter.java \
-java/util/logging/SocketHandler.java \
-java/util/logging/StreamHandler.java \
-java/util/logging/XMLFormatter.java \
 java/util/prefs/NodeChangeListener.java \
 java/util/prefs/Preferences.java \
 java/util/prefs/PreferenceChangeListener.java \
@@ -2753,10 +2809,9 @@ java/util/zip/ZipFile.java \
 java/util/zip/ZipInputStream.java \
 java/util/zip/ZipOutputStream.java \
 $(rmi_java_source_files) \
-$(awt_java_source_files) \
 $(convert_source_files) \
-$(javax_source_files)
-
+$(javax_source_files) \
+$(misc_java_source_files)
 
 java_source_files = $(special_java_source_files) $(ordinary_java_source_files)
 

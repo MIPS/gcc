@@ -257,14 +257,14 @@ proc libjava_find_lib {dir name} {
 		if {[file exists $gp/$dir/$sub/lib${name}.${extension}]} then {
 		    # Just return the `-L' option.  The library itself
 		    # will be picked up via the spec file.
-		    return "-L$gp/$dir/$sub"
+		    return "-L$gp/$dir"
 		}
 	    }
 	    # Just return the `-L' option.  The library itself will be
 	    # picked up via the spec file.
 	    set lib [findfile \
 		       $base_dir/../../$dir/$sub/lib${name}.${extension} \
-		       "-L$base_dir/../../$dir/$sub" \
+		       "-L$base_dir/../../$dir" \
 		       ""]
 	    if {$lib != ""} {
 		return $lib
@@ -380,6 +380,11 @@ proc libjava_arguments {{mode compile}} {
 	lappend args "additional_flags=$wrap_compile_flags"
 	lappend args "libs=$wrapper_file"
 	lappend args "libs=$libjava"
+	lappend args "libs=-l-java-awt"
+	lappend args "libs=-l-javax-swing"
+	lappend args "libs=-l-javax-accessibility"
+	lappend args "libs=-l-java-beans"
+	lappend args "libs=-l-java-applet"
 	lappend args debug
     }
 

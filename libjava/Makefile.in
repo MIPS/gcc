@@ -176,6 +176,8 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) $(foreach o
 @GTK_AWT_FALSE@cond_gtk_ltlibrary = 
 
 toolexeclib_LTLIBRARIES = libgcj.la lib-org-xml-sax.la lib-org-w3c-dom.la \
+    lib-java-awt.la lib-java-applet.la lib-javax-swing.la lib-java-beans.la \
+    lib-java-util-logging.la lib-javax-naming.la lib-javax-accessibility.la \
     $(cond_gtk_ltlibrary) $(cond_x_ltlibrary)
 
 toolexecmainlib_DATA = libgcj.spec
@@ -443,6 +445,14 @@ lib_org_xml_sax_la_LDFLAGS = -rpath $(toolexeclibdir) \
         -version-info `grep -v '^\#' $(srcdir)/libtool-version`
 
 
+lib_java_applet_la_SOURCES = $(applet_java_source_files)
+lib_java_awt_la_SOURCES = $(awt_java_source_files)
+lib_javax_swing_la_SOURCES = $(swing_java_source_files)
+lib_javax_accessibility_la_SOURCES = $(accessibility_java_source_files)
+lib_java_beans_la_SOURCES = $(beans_java_source_files)
+lib_java_util_logging_la_SOURCES = $(logging_java_source_files)
+lib_javax_naming_la_SOURCES = $(naming_java_source_files)
+
 lib_gnu_awt_xlib_la_SOURCES = $(x_nat_source_files)
 EXTRA_lib_gnu_awt_xlib_la_SOURCES = $(x_java_source_files)
 lib_gnu_awt_xlib_la_DEPENDENCIES = libgcj-@gcc_version@.jar $(x_javao_files)
@@ -459,6 +469,13 @@ all_java_source_files = \
     $(built_java_source_files) \
     $(lib_org_xml_sax_la_SOURCES) \
     $(lib_org_w3c_dom_la_SOURCES) \
+    $(lib_java_applet_la_SOURCES) \
+    $(lib_java_awt_la_SOURCES) \
+    $(lib_java_beans_la_SOURCES) \
+    $(lib_javax_swing_la_SOURCES) \
+    $(lib_javax_accessibility_la_SOURCES) \
+    $(lib_javax_naming_la_SOURCES) \
+    $(lib_java_util_logging_la_SOURCES) \
     $(gtk_awt_peer_sources) \
     $(x_java_source_files)
 
@@ -473,8 +490,29 @@ CLEANFILES = libgcj-@gcc_version@.jar
 
 SUFFIXES = .class .java .h
 
+all_java_object_files = \
+    $(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files))	\
+    $(x_javao_files) \
+    $(lib_org_w3c_dom_la_OBJECTS) \
+    $(lib_org_xml_sax_la_OBJECTS) \
+    $(lib_java_beans_la_OBJECTS) \
+    $(lib_java_applet_la_OBJECTS) \
+    $(lib_java_awt_la_OBJECTS) \
+    $(lib_javax_swing_la_OBJECTS) \
+    $(lib_javax_accessibility_la_OBJECTS) \
+    $(lib_javax_naming_la_OBJECTS) \
+    $(lib_java_util_logging_la_OBJECTS)
+
+
 ordinary_nat_headers = $(ordinary_java_source_files:.java=.h) \
-	$(built_java_source_files:.java=.h)
+	$(built_java_source_files:.java=.h) \
+	$(applet_java_source_files:.java=.h) \
+	$(awt_java_source_files:.java=.h) \
+	$(swing_java_source_files:.java=.h) \
+	$(accessibility_java_source_files:.java=.h) \
+	$(beans_java_source_files:.java=.h) \
+	$(logging_java_source_files:.java=.h) \
+	$(naming_java_source_files:.java=.h)
 
 
 inner_nat_headers = java/io/ObjectOutputStream$$PutField.h \
@@ -588,37 +626,10 @@ gnu/java/awt/image/XBMDecoder.java \
 gnu/java/awt/peer/EmbeddedWindowPeer.java \
 gnu/java/awt/peer/GLightweightPeer.java \
 gnu/java/awt/peer/ClasspathFontPeer.java \
-gnu/java/beans/editors/ColorEditor.java	\
-gnu/java/beans/editors/FontEditor.java \
-gnu/java/beans/editors/NativeBooleanEditor.java	\
-gnu/java/beans/editors/NativeByteEditor.java \
-gnu/java/beans/editors/NativeDoubleEditor.java \
-gnu/java/beans/editors/NativeFloatEditor.java \
-gnu/java/beans/editors/NativeIntEditor.java \
-gnu/java/beans/editors/NativeLongEditor.java \
-gnu/java/beans/editors/NativeShortEditor.java \
-gnu/java/beans/editors/StringEditor.java \
-gnu/java/beans/info/ComponentBeanInfo.java \
-gnu/java/beans/BeanInfoEmbryo.java \
-gnu/java/beans/EmptyBeanInfo.java \
-gnu/java/beans/ExplicitBeanInfo.java \
-gnu/java/beans/IntrospectionIncubator.java \
-gnu/javax/rmi/CORBA/DelegateFactory.java \
-gnu/javax/rmi/CORBA/GetDelegateInstanceException.java \
-gnu/javax/rmi/CORBA/PortableRemoteObjectDelegateImpl.java \
-gnu/javax/rmi/CORBA/StubDelegateImpl.java \
-gnu/javax/rmi/CORBA/UtilDelegateImpl.java \
-gnu/javax/rmi/CORBA/ValueHandlerImpl.java \
-gnu/javax/rmi/PortableServer.java \
-java/applet/Applet.java \
-java/applet/AppletStub.java \
-java/applet/AppletContext.java \
-java/applet/AudioClip.java \
 java/awt/AWTError.java \
 java/awt/AWTEvent.java \
 java/awt/AWTEventMulticaster.java \
 java/awt/AWTException.java \
-java/awt/AWTPermission.java \
 java/awt/ActiveEvent.java \
 java/awt/Adjustable.java \
 java/awt/BorderLayout.java \
@@ -921,66 +932,10 @@ java/awt/print/PrinterAbortException.java \
 java/awt/print/PrinterException.java \
 java/awt/print/PrinterGraphics.java \
 java/awt/print/PrinterIOException.java \
-java/awt/print/PrinterJob.java \
-java/beans/beancontext/BeanContext.java \
-java/beans/beancontext/BeanContextChild.java \
-java/beans/beancontext/BeanContextChildComponentProxy.java \
-java/beans/beancontext/BeanContextChildSupport.java \
-java/beans/beancontext/BeanContextContainerProxy.java \
-java/beans/beancontext/BeanContextEvent.java \
-java/beans/beancontext/BeanContextMembershipEvent.java \
-java/beans/beancontext/BeanContextMembershipListener.java \
-java/beans/beancontext/BeanContextProxy.java \
-java/beans/beancontext/BeanContextServiceAvailableEvent.java \
-java/beans/beancontext/BeanContextServiceProvider.java \
-java/beans/beancontext/BeanContextServiceProviderBeanInfo.java \
-java/beans/beancontext/BeanContextServiceRevokedEvent.java \
-java/beans/beancontext/BeanContextServiceRevokedListener.java \
-java/beans/beancontext/BeanContextServices.java \
-java/beans/beancontext/BeanContextServicesListener.java \
-java/beans/beancontext/BeanContextServicesSupport.java \
-java/beans/beancontext/BeanContextSupport.java \
-java/beans/BeanDescriptor.java \
-java/beans/BeanInfo.java \
-java/beans/Beans.java \
-java/beans/Customizer.java \
-java/beans/DesignMode.java \
-java/beans/EventSetDescriptor.java \
-java/beans/ExceptionListener.java \
-java/beans/FeatureDescriptor.java \
-java/beans/IndexedPropertyDescriptor.java \
-java/beans/IntrospectionException.java \
-java/beans/Introspector.java \
-java/beans/MethodDescriptor.java \
-java/beans/ParameterDescriptor.java \
-java/beans/PropertyChangeEvent.java \
-java/beans/PropertyChangeListener.java \
-java/beans/PropertyChangeListenerProxy.java \
-java/beans/PropertyChangeSupport.java \
-java/beans/PropertyDescriptor.java \
-java/beans/PropertyEditor.java \
-java/beans/PropertyEditorManager.java \
-java/beans/PropertyEditorSupport.java \
-java/beans/PropertyVetoException.java \
-java/beans/SimpleBeanInfo.java \
-java/beans/VetoableChangeListener.java \
-java/beans/VetoableChangeListenerProxy.java \
-java/beans/VetoableChangeSupport.java \
-java/beans/Visibility.java \
-java/beans/AppletInitializer.java \
-javax/rmi/BAD_OPERATION.java \
-javax/rmi/ORB.java \
-javax/rmi/PortableRemoteObject.java \
-javax/rmi/CORBA/ClassDesc.java \
-javax/rmi/CORBA/ObjectImpl.java	\
-javax/rmi/CORBA/PortableRemoteObjectDelegate.java \
-javax/rmi/CORBA/StubDelegate.java \
-javax/rmi/CORBA/Stub.java \
-javax/rmi/CORBA/SystemException.java \
-javax/rmi/CORBA/Tie.java \
-javax/rmi/CORBA/UtilDelegate.java \
-javax/rmi/CORBA/Util.java \
-javax/rmi/CORBA/ValueHandler.java \
+java/awt/print/PrinterJob.java
+
+
+swing_java_source_files = \
 javax/swing/border/AbstractBorder.java \
 javax/swing/border/BevelBorder.java \
 javax/swing/border/Border.java \
@@ -1286,6 +1241,237 @@ javax/swing/ToolTipManager.java \
 javax/swing/ViewportLayout.java
 
 
+accessibility_java_source_files = \
+javax/accessibility/Accessible.java \
+javax/accessibility/AccessibleAction.java \
+javax/accessibility/AccessibleBundle.java \
+javax/accessibility/AccessibleComponent.java \
+javax/accessibility/AccessibleContext.java \
+javax/accessibility/AccessibleEditableText.java \
+javax/accessibility/AccessibleExtendedComponent.java \
+javax/accessibility/AccessibleExtendedTable.java \
+javax/accessibility/AccessibleHyperlink.java \
+javax/accessibility/AccessibleHypertext.java \
+javax/accessibility/AccessibleIcon.java \
+javax/accessibility/AccessibleKeyBinding.java \
+javax/accessibility/AccessibleRelation.java \
+javax/accessibility/AccessibleRelationSet.java \
+javax/accessibility/AccessibleResourceBundle.java \
+javax/accessibility/AccessibleRole.java \
+javax/accessibility/AccessibleSelection.java \
+javax/accessibility/AccessibleState.java \
+javax/accessibility/AccessibleStateSet.java \
+javax/accessibility/AccessibleTable.java \
+javax/accessibility/AccessibleTableModelChange.java \
+javax/accessibility/AccessibleText.java \
+javax/accessibility/AccessibleValue.java
+
+
+applet_java_source_files = \
+java/applet/Applet.java \
+java/applet/AppletStub.java \
+java/applet/AppletContext.java \
+java/applet/AudioClip.java
+
+
+beans_java_source_files = \
+gnu/java/beans/editors/ColorEditor.java	\
+gnu/java/beans/editors/FontEditor.java \
+gnu/java/beans/editors/NativeBooleanEditor.java	\
+gnu/java/beans/editors/NativeByteEditor.java \
+gnu/java/beans/editors/NativeDoubleEditor.java \
+gnu/java/beans/editors/NativeFloatEditor.java \
+gnu/java/beans/editors/NativeIntEditor.java \
+gnu/java/beans/editors/NativeLongEditor.java \
+gnu/java/beans/editors/NativeShortEditor.java \
+gnu/java/beans/editors/StringEditor.java \
+gnu/java/beans/info/ComponentBeanInfo.java \
+gnu/java/beans/BeanInfoEmbryo.java \
+gnu/java/beans/EmptyBeanInfo.java \
+gnu/java/beans/ExplicitBeanInfo.java \
+gnu/java/beans/IntrospectionIncubator.java \
+java/beans/beancontext/BeanContext.java \
+java/beans/beancontext/BeanContextChild.java \
+java/beans/beancontext/BeanContextChildComponentProxy.java \
+java/beans/beancontext/BeanContextChildSupport.java \
+java/beans/beancontext/BeanContextContainerProxy.java \
+java/beans/beancontext/BeanContextEvent.java \
+java/beans/beancontext/BeanContextMembershipEvent.java \
+java/beans/beancontext/BeanContextMembershipListener.java \
+java/beans/beancontext/BeanContextProxy.java \
+java/beans/beancontext/BeanContextServiceAvailableEvent.java \
+java/beans/beancontext/BeanContextServiceProvider.java \
+java/beans/beancontext/BeanContextServiceProviderBeanInfo.java \
+java/beans/beancontext/BeanContextServiceRevokedEvent.java \
+java/beans/beancontext/BeanContextServiceRevokedListener.java \
+java/beans/beancontext/BeanContextServices.java \
+java/beans/beancontext/BeanContextServicesListener.java \
+java/beans/beancontext/BeanContextServicesSupport.java \
+java/beans/beancontext/BeanContextSupport.java \
+java/beans/BeanDescriptor.java \
+java/beans/BeanInfo.java \
+java/beans/Beans.java \
+java/beans/Customizer.java \
+java/beans/DesignMode.java \
+java/beans/EventSetDescriptor.java \
+java/beans/ExceptionListener.java \
+java/beans/FeatureDescriptor.java \
+java/beans/IndexedPropertyDescriptor.java \
+java/beans/IntrospectionException.java \
+java/beans/Introspector.java \
+java/beans/MethodDescriptor.java \
+java/beans/ParameterDescriptor.java \
+java/beans/PropertyChangeEvent.java \
+java/beans/PropertyChangeListener.java \
+java/beans/PropertyChangeListenerProxy.java \
+java/beans/PropertyChangeSupport.java \
+java/beans/PropertyDescriptor.java \
+java/beans/PropertyEditor.java \
+java/beans/PropertyEditorManager.java \
+java/beans/PropertyEditorSupport.java \
+java/beans/PropertyVetoException.java \
+java/beans/SimpleBeanInfo.java \
+java/beans/VetoableChangeListener.java \
+java/beans/VetoableChangeListenerProxy.java \
+java/beans/VetoableChangeSupport.java \
+java/beans/Visibility.java \
+java/beans/AppletInitializer.java
+
+
+naming_java_source_files = \
+javax/naming/directory/Attribute.java \
+javax/naming/directory/AttributeInUseException.java \
+javax/naming/directory/AttributeModificationException.java \
+javax/naming/directory/Attributes.java \
+javax/naming/directory/DirContext.java \
+javax/naming/directory/InvalidAttributeIdentifierException.java	\
+javax/naming/directory/InvalidAttributeValueException.java \
+javax/naming/directory/InvalidAttributesException.java \
+javax/naming/directory/InvalidSearchControlsException.java \
+javax/naming/directory/InvalidSearchFilterException.java \
+javax/naming/directory/NoSuchAttributeException.java \
+javax/naming/directory/SchemaViolationException.java \
+javax/naming/directory/BasicAttribute.java \
+javax/naming/directory/BasicAttributes.java \
+javax/naming/directory/ModificationItem.java \
+javax/naming/directory/SearchControls.java \
+javax/naming/directory/SearchResult.java \
+javax/naming/directory/InitialDirContext.java \
+javax/naming/AuthenticationException.java \
+javax/naming/AuthenticationNotSupportedException.java \
+javax/naming/CannotProceedException.java \
+javax/naming/CommunicationException.java \
+javax/naming/ConfigurationException.java \
+javax/naming/Context.java \
+javax/naming/ContextNotEmptyException.java \
+javax/naming/InsufficientResourcesException.java \
+javax/naming/InterruptedNamingException.java \
+javax/naming/BinaryRefAddr.java	\
+javax/naming/LimitExceededException.java \
+javax/naming/LinkException.java	\
+javax/naming/LinkLoopException.java \
+javax/naming/MalformedLinkException.java \
+javax/naming/Name.java \
+javax/naming/NameAlreadyBoundException.java \
+javax/naming/NameNotFoundException.java	\
+javax/naming/NameParser.java \
+javax/naming/NamingEnumeration.java \
+javax/naming/InitialContext.java \
+javax/naming/NamingSecurityException.java \
+javax/naming/NoInitialContextException.java \
+javax/naming/NoPermissionException.java	\
+javax/naming/NotContextException.java \
+javax/naming/NamingException.java \
+javax/naming/PartialResultException.java \
+javax/naming/event/EventContext.java \
+javax/naming/event/EventDirContext.java	\
+javax/naming/event/NamespaceChangeListener.java	\
+javax/naming/event/NamingEvent.java \
+javax/naming/event/NamingExceptionEvent.java \
+javax/naming/event/NamingListener.java \
+javax/naming/event/ObjectChangeListener.java \
+javax/naming/RefAddr.java \
+javax/naming/Reference.java \
+javax/naming/Referenceable.java	\
+javax/naming/ReferralException.java \
+javax/naming/ServiceUnavailableException.java \
+javax/naming/SizeLimitExceededException.java \
+javax/naming/StringRefAddr.java	\
+javax/naming/TimeLimitExceededException.java \
+javax/naming/spi/InitialContextFactory.java \
+javax/naming/spi/InitialContextFactoryBuilder.java \
+javax/naming/spi/NamingManager.java \
+javax/naming/spi/ObjectFactory.java \
+javax/naming/spi/Resolver.java \
+javax/naming/spi/DirObjectFactory.java \
+javax/naming/spi/DirStateFactory.java \
+javax/naming/spi/DirectoryManager.java \
+javax/naming/spi/ObjectFactoryBuilder.java \
+javax/naming/spi/ResolveResult.java \
+javax/naming/spi/StateFactory.java \
+javax/naming/InvalidNameException.java \
+javax/naming/Binding.java \
+javax/naming/CompositeName.java	\
+javax/naming/CompoundName.java \
+javax/naming/LinkRef.java \
+javax/naming/NameClassPair.java	\
+javax/naming/ldap/Control.java \
+javax/naming/ldap/ControlFactory.java \
+javax/naming/ldap/ExtendedRequest.java \
+javax/naming/ldap/ExtendedResponse.java	\
+javax/naming/ldap/HasControls.java \
+javax/naming/ldap/InitialLdapContext.java \
+javax/naming/ldap/LdapContext.java \
+javax/naming/ldap/LdapReferralException.java \
+javax/naming/ldap/UnsolicitedNotification.java \
+javax/naming/ldap/UnsolicitedNotificationEvent.java \
+javax/naming/ldap/UnsolicitedNotificationListener.java \
+javax/naming/OperationNotSupportedException.java
+
+
+logging_java_source_files = \
+java/util/logging/ConsoleHandler.java \
+java/util/logging/ErrorManager.java \
+java/util/logging/FileHandler.java \
+java/util/logging/Filter.java \
+java/util/logging/Formatter.java \
+java/util/logging/Handler.java \
+java/util/logging/Level.java \
+java/util/logging/Logger.java \
+java/util/logging/LoggingPermission.java \
+java/util/logging/LogManager.java \
+java/util/logging/LogRecord.java \
+java/util/logging/MemoryHandler.java \
+java/util/logging/SimpleFormatter.java \
+java/util/logging/SocketHandler.java \
+java/util/logging/StreamHandler.java \
+java/util/logging/XMLFormatter.java
+
+
+misc_java_source_files = \
+java/awt/AWTPermission.java \
+gnu/javax/rmi/CORBA/DelegateFactory.java \
+gnu/javax/rmi/CORBA/GetDelegateInstanceException.java \
+gnu/javax/rmi/CORBA/PortableRemoteObjectDelegateImpl.java \
+gnu/javax/rmi/CORBA/StubDelegateImpl.java \
+gnu/javax/rmi/CORBA/UtilDelegateImpl.java \
+gnu/javax/rmi/CORBA/ValueHandlerImpl.java \
+gnu/javax/rmi/PortableServer.java \
+javax/rmi/BAD_OPERATION.java \
+javax/rmi/ORB.java \
+javax/rmi/PortableRemoteObject.java \
+javax/rmi/CORBA/ClassDesc.java \
+javax/rmi/CORBA/ObjectImpl.java	\
+javax/rmi/CORBA/PortableRemoteObjectDelegate.java \
+javax/rmi/CORBA/StubDelegate.java \
+javax/rmi/CORBA/Stub.java \
+javax/rmi/CORBA/SystemException.java \
+javax/rmi/CORBA/Tie.java \
+javax/rmi/CORBA/UtilDelegate.java \
+javax/rmi/CORBA/Util.java \
+javax/rmi/CORBA/ValueHandler.java
+
+
 rmi_java_source_files = \
 java/rmi/activation/Activatable.java \
 java/rmi/activation/ActivateFailedException.java \
@@ -1386,117 +1572,6 @@ gnu/java/rmi/server/UnicastServerRef.java
 
 
 javax_source_files = \
-javax/accessibility/Accessible.java \
-javax/accessibility/AccessibleAction.java \
-javax/accessibility/AccessibleBundle.java \
-javax/accessibility/AccessibleComponent.java \
-javax/accessibility/AccessibleContext.java \
-javax/accessibility/AccessibleEditableText.java \
-javax/accessibility/AccessibleExtendedComponent.java \
-javax/accessibility/AccessibleExtendedTable.java \
-javax/accessibility/AccessibleHyperlink.java \
-javax/accessibility/AccessibleHypertext.java \
-javax/accessibility/AccessibleIcon.java \
-javax/accessibility/AccessibleKeyBinding.java \
-javax/accessibility/AccessibleRelation.java \
-javax/accessibility/AccessibleRelationSet.java \
-javax/accessibility/AccessibleResourceBundle.java \
-javax/accessibility/AccessibleRole.java \
-javax/accessibility/AccessibleSelection.java \
-javax/accessibility/AccessibleState.java \
-javax/accessibility/AccessibleStateSet.java \
-javax/accessibility/AccessibleTable.java \
-javax/accessibility/AccessibleTableModelChange.java \
-javax/accessibility/AccessibleText.java \
-javax/accessibility/AccessibleValue.java \
-javax/naming/directory/Attribute.java \
-javax/naming/directory/AttributeInUseException.java \
-javax/naming/directory/AttributeModificationException.java \
-javax/naming/directory/Attributes.java \
-javax/naming/directory/DirContext.java \
-javax/naming/directory/InvalidAttributeIdentifierException.java	\
-javax/naming/directory/InvalidAttributeValueException.java \
-javax/naming/directory/InvalidAttributesException.java \
-javax/naming/directory/InvalidSearchControlsException.java \
-javax/naming/directory/InvalidSearchFilterException.java \
-javax/naming/directory/NoSuchAttributeException.java \
-javax/naming/directory/SchemaViolationException.java \
-javax/naming/directory/BasicAttribute.java \
-javax/naming/directory/BasicAttributes.java \
-javax/naming/directory/ModificationItem.java \
-javax/naming/directory/SearchControls.java \
-javax/naming/directory/SearchResult.java \
-javax/naming/directory/InitialDirContext.java \
-javax/naming/AuthenticationException.java \
-javax/naming/AuthenticationNotSupportedException.java \
-javax/naming/CannotProceedException.java \
-javax/naming/CommunicationException.java \
-javax/naming/ConfigurationException.java \
-javax/naming/Context.java \
-javax/naming/ContextNotEmptyException.java \
-javax/naming/InsufficientResourcesException.java \
-javax/naming/InterruptedNamingException.java \
-javax/naming/BinaryRefAddr.java	\
-javax/naming/LimitExceededException.java \
-javax/naming/LinkException.java	\
-javax/naming/LinkLoopException.java \
-javax/naming/MalformedLinkException.java \
-javax/naming/Name.java \
-javax/naming/NameAlreadyBoundException.java \
-javax/naming/NameNotFoundException.java	\
-javax/naming/NameParser.java \
-javax/naming/NamingEnumeration.java \
-javax/naming/InitialContext.java \
-javax/naming/NamingSecurityException.java \
-javax/naming/NoInitialContextException.java \
-javax/naming/NoPermissionException.java	\
-javax/naming/NotContextException.java \
-javax/naming/NamingException.java \
-javax/naming/PartialResultException.java \
-javax/naming/event/EventContext.java \
-javax/naming/event/EventDirContext.java	\
-javax/naming/event/NamespaceChangeListener.java	\
-javax/naming/event/NamingEvent.java \
-javax/naming/event/NamingExceptionEvent.java \
-javax/naming/event/NamingListener.java \
-javax/naming/event/ObjectChangeListener.java \
-javax/naming/RefAddr.java \
-javax/naming/Reference.java \
-javax/naming/Referenceable.java	\
-javax/naming/ReferralException.java \
-javax/naming/ServiceUnavailableException.java \
-javax/naming/SizeLimitExceededException.java \
-javax/naming/StringRefAddr.java	\
-javax/naming/TimeLimitExceededException.java \
-javax/naming/spi/InitialContextFactory.java \
-javax/naming/spi/InitialContextFactoryBuilder.java \
-javax/naming/spi/NamingManager.java \
-javax/naming/spi/ObjectFactory.java \
-javax/naming/spi/Resolver.java \
-javax/naming/spi/DirObjectFactory.java \
-javax/naming/spi/DirStateFactory.java \
-javax/naming/spi/DirectoryManager.java \
-javax/naming/spi/ObjectFactoryBuilder.java \
-javax/naming/spi/ResolveResult.java \
-javax/naming/spi/StateFactory.java \
-javax/naming/InvalidNameException.java \
-javax/naming/Binding.java \
-javax/naming/CompositeName.java	\
-javax/naming/CompoundName.java \
-javax/naming/LinkRef.java \
-javax/naming/NameClassPair.java	\
-javax/naming/ldap/Control.java \
-javax/naming/ldap/ControlFactory.java \
-javax/naming/ldap/ExtendedRequest.java \
-javax/naming/ldap/ExtendedResponse.java	\
-javax/naming/ldap/HasControls.java \
-javax/naming/ldap/InitialLdapContext.java \
-javax/naming/ldap/LdapContext.java \
-javax/naming/ldap/LdapReferralException.java \
-javax/naming/ldap/UnsolicitedNotification.java \
-javax/naming/ldap/UnsolicitedNotificationEvent.java \
-javax/naming/ldap/UnsolicitedNotificationListener.java \
-javax/naming/OperationNotSupportedException.java \
 javax/print/attribute/Attribute.java \
 javax/print/attribute/AttributeSet.java \
 javax/print/attribute/AttributeSetUtilities.java \
@@ -1808,22 +1883,6 @@ java/util/TreeSet.java \
 java/util/TooManyListenersException.java \
 java/util/Vector.java \
 java/util/WeakHashMap.java \
-java/util/logging/ConsoleHandler.java \
-java/util/logging/ErrorManager.java \
-java/util/logging/FileHandler.java \
-java/util/logging/Filter.java \
-java/util/logging/Formatter.java \
-java/util/logging/Handler.java \
-java/util/logging/Level.java \
-java/util/logging/Logger.java \
-java/util/logging/LoggingPermission.java \
-java/util/logging/LogManager.java \
-java/util/logging/LogRecord.java \
-java/util/logging/MemoryHandler.java \
-java/util/logging/SimpleFormatter.java \
-java/util/logging/SocketHandler.java \
-java/util/logging/StreamHandler.java \
-java/util/logging/XMLFormatter.java \
 java/util/prefs/NodeChangeListener.java \
 java/util/prefs/Preferences.java \
 java/util/prefs/PreferenceChangeListener.java \
@@ -2451,9 +2510,9 @@ java/util/zip/ZipFile.java \
 java/util/zip/ZipInputStream.java \
 java/util/zip/ZipOutputStream.java \
 $(rmi_java_source_files) \
-$(awt_java_source_files) \
 $(convert_source_files) \
-$(javax_source_files)
+$(javax_source_files) \
+$(misc_java_source_files)
 
 
 java_source_files = $(special_java_source_files) $(ordinary_java_source_files)
@@ -2739,6 +2798,548 @@ org/w3c/dom/traversal/DocumentTraversal.lo \
 org/w3c/dom/traversal/NodeFilter.lo \
 org/w3c/dom/traversal/NodeIterator.lo \
 org/w3c/dom/traversal/TreeWalker.lo
+lib_java_awt_la_LDFLAGS = 
+lib_java_awt_la_LIBADD = 
+lib_java_awt_la_OBJECTS =  gnu/awt/LightweightRedirector.lo \
+gnu/awt/j2d/AbstractGraphicsState.lo \
+gnu/awt/j2d/DirectRasterGraphics.lo gnu/awt/j2d/Graphics2DImpl.lo \
+gnu/awt/j2d/IntegerGraphicsState.lo gnu/awt/j2d/MappedRaster.lo \
+gnu/java/awt/BitMaskExtent.lo gnu/java/awt/Buffers.lo \
+gnu/java/awt/BitwiseXORComposite.lo gnu/java/awt/ComponentDataBlitOp.lo \
+gnu/java/awt/ClasspathToolkit.lo gnu/java/awt/EmbeddedWindow.lo \
+gnu/java/awt/EmbeddedWindowSupport.lo gnu/java/awt/EventModifier.lo \
+gnu/java/awt/image/ImageDecoder.lo gnu/java/awt/image/XBMDecoder.lo \
+gnu/java/awt/peer/EmbeddedWindowPeer.lo \
+gnu/java/awt/peer/GLightweightPeer.lo \
+gnu/java/awt/peer/ClasspathFontPeer.lo java/awt/AWTError.lo \
+java/awt/AWTEvent.lo java/awt/AWTEventMulticaster.lo \
+java/awt/AWTException.lo java/awt/ActiveEvent.lo java/awt/Adjustable.lo \
+java/awt/BorderLayout.lo java/awt/Button.lo java/awt/Canvas.lo \
+java/awt/CardLayout.lo java/awt/Checkbox.lo java/awt/CheckboxGroup.lo \
+java/awt/CheckboxMenuItem.lo java/awt/Choice.lo java/awt/Color.lo \
+java/awt/Component.lo java/awt/ComponentOrientation.lo \
+java/awt/Container.lo java/awt/Cursor.lo java/awt/Dialog.lo \
+java/awt/Dimension.lo java/awt/Event.lo java/awt/EventDispatchThread.lo \
+java/awt/EventQueue.lo java/awt/FileDialog.lo java/awt/FlowLayout.lo \
+java/awt/Font.lo java/awt/FontMetrics.lo java/awt/Frame.lo \
+java/awt/Graphics.lo java/awt/Graphics2D.lo \
+java/awt/GraphicsConfiguration.lo java/awt/GridBagConstraints.lo \
+java/awt/GridBagLayout.lo java/awt/GridBagLayoutInfo.lo \
+java/awt/GridLayout.lo java/awt/IllegalComponentStateException.lo \
+java/awt/Image.lo java/awt/Insets.lo java/awt/ItemSelectable.lo \
+java/awt/Label.lo java/awt/LayoutManager.lo java/awt/LayoutManager2.lo \
+java/awt/List.lo java/awt/Menu.lo java/awt/MenuBar.lo \
+java/awt/MenuComponent.lo java/awt/MenuContainer.lo \
+java/awt/MenuItem.lo java/awt/MenuShortcut.lo java/awt/Paint.lo \
+java/awt/PaintContext.lo java/awt/Panel.lo java/awt/Point.lo \
+java/awt/PopupMenu.lo java/awt/Rectangle.lo java/awt/RenderingHints.lo \
+java/awt/ScrollPane.lo java/awt/Scrollbar.lo java/awt/Shape.lo \
+java/awt/TextArea.lo java/awt/TextComponent.lo java/awt/TextField.lo \
+java/awt/Toolkit.lo java/awt/Transparency.lo java/awt/Window.lo \
+java/awt/color/ColorSpace.lo java/awt/color/ICC_ColorSpace.lo \
+java/awt/color/ICC_Profile.lo java/awt/color/ICC_ProfileGray.lo \
+java/awt/color/ICC_ProfileRGB.lo java/awt/color/CMMException.lo \
+java/awt/color/ProfileDataException.lo \
+java/awt/datatransfer/Clipboard.lo \
+java/awt/datatransfer/ClipboardOwner.lo \
+java/awt/datatransfer/DataFlavor.lo java/awt/datatransfer/FlavorMap.lo \
+java/awt/datatransfer/MimeTypeParseException.lo \
+java/awt/datatransfer/StringSelection.lo \
+java/awt/datatransfer/SystemFlavorMap.lo \
+java/awt/datatransfer/Transferable.lo \
+java/awt/datatransfer/UnsupportedFlavorException.lo \
+java/awt/datatransfer/FlavorTable.lo java/awt/event/AWTEventListener.lo \
+java/awt/event/ActionEvent.lo java/awt/event/ActionListener.lo \
+java/awt/event/AdjustmentEvent.lo java/awt/event/AdjustmentListener.lo \
+java/awt/event/ComponentAdapter.lo java/awt/event/ComponentEvent.lo \
+java/awt/event/ComponentListener.lo java/awt/event/ContainerAdapter.lo \
+java/awt/event/ContainerEvent.lo java/awt/event/ContainerListener.lo \
+java/awt/event/FocusAdapter.lo java/awt/event/FocusEvent.lo \
+java/awt/event/FocusListener.lo \
+java/awt/event/HierarchyBoundsAdapter.lo \
+java/awt/event/HierarchyBoundsListener.lo \
+java/awt/event/HierarchyEvent.lo java/awt/event/HierarchyListener.lo \
+java/awt/event/InputEvent.lo java/awt/event/InputMethodEvent.lo \
+java/awt/event/InputMethodListener.lo java/awt/event/InvocationEvent.lo \
+java/awt/event/ItemEvent.lo java/awt/event/ItemListener.lo \
+java/awt/event/KeyAdapter.lo java/awt/event/KeyEvent.lo \
+java/awt/event/KeyListener.lo java/awt/event/MouseAdapter.lo \
+java/awt/event/MouseEvent.lo java/awt/event/MouseListener.lo \
+java/awt/event/MouseMotionAdapter.lo \
+java/awt/event/MouseMotionListener.lo java/awt/event/PaintEvent.lo \
+java/awt/event/TextEvent.lo java/awt/event/TextListener.lo \
+java/awt/event/WindowAdapter.lo java/awt/event/WindowEvent.lo \
+java/awt/event/WindowListener.lo \
+java/awt/event/AWTEventListenerProxy.lo \
+java/awt/event/MouseWheelEvent.lo java/awt/event/MouseWheelListener.lo \
+java/awt/event/WindowFocusListener.lo \
+java/awt/event/WindowStateListener.lo \
+java/awt/font/FontRenderContext.lo \
+java/awt/font/ShapeGraphicAttribute.lo java/awt/font/MultipleMaster.lo \
+java/awt/font/TransformAttribute.lo \
+java/awt/font/GlyphJustificationInfo.lo \
+java/awt/font/LineBreakMeasurer.lo java/awt/font/TextMeasurer.lo \
+java/awt/font/TextLayout.lo java/awt/font/LineMetrics.lo \
+java/awt/font/TextAttribute.lo java/awt/font/GlyphMetrics.lo \
+java/awt/font/OpenType.lo java/awt/font/GlyphVector.lo \
+java/awt/font/GraphicAttribute.lo \
+java/awt/font/ImageGraphicAttribute.lo java/awt/font/NumericShaper.lo \
+java/awt/geom/AffineTransform.lo java/awt/geom/Dimension2D.lo \
+java/awt/geom/Ellipse2D.lo java/awt/geom/IllegalPathStateException.lo \
+java/awt/geom/NoninvertibleTransformException.lo \
+java/awt/geom/PathIterator.lo java/awt/geom/Point2D.lo \
+java/awt/geom/Rectangle2D.lo java/awt/geom/RectangularShape.lo \
+java/awt/geom/RoundRectangle2D.lo java/awt/geom/Line2D.lo \
+java/awt/geom/Arc2D.lo java/awt/geom/Area.lo \
+java/awt/geom/CubicCurve2D.lo java/awt/geom/FlatteningPathIterator.lo \
+java/awt/geom/GeneralPath.lo java/awt/geom/QuadCurve2D.lo \
+java/awt/image/BufferedImage.lo java/awt/image/ColorModel.lo \
+java/awt/image/ComponentColorModel.lo \
+java/awt/image/ComponentSampleModel.lo java/awt/image/DataBuffer.lo \
+java/awt/image/DataBufferByte.lo java/awt/image/DataBufferInt.lo \
+java/awt/image/DataBufferUShort.lo java/awt/image/DirectColorModel.lo \
+java/awt/image/ImageConsumer.lo java/awt/image/ImageObserver.lo \
+java/awt/image/ImageProducer.lo java/awt/image/IndexColorModel.lo \
+java/awt/image/PackedColorModel.lo java/awt/image/Raster.lo \
+java/awt/image/RasterOp.lo java/awt/image/SampleModel.lo \
+java/awt/image/SinglePixelPackedSampleModel.lo \
+java/awt/image/WritableRaster.lo \
+java/awt/image/AreaAveragingScaleFilter.lo \
+java/awt/image/CropImageFilter.lo java/awt/image/FilteredImageSource.lo \
+java/awt/image/ImageFilter.lo java/awt/image/MemoryImageSource.lo \
+java/awt/image/PixelGrabber.lo java/awt/image/RGBImageFilter.lo \
+java/awt/image/ReplicateScaleFilter.lo java/awt/image/BufferStrategy.lo \
+java/awt/image/BufferedImageOp.lo java/awt/image/ImagingOpException.lo \
+java/awt/image/RasterFormatException.lo java/awt/image/RenderedImage.lo \
+java/awt/image/TileObserver.lo java/awt/image/VolatileImage.lo \
+java/awt/image/WritableRenderedImage.lo \
+java/awt/image/AffineTransformOp.lo \
+java/awt/image/renderable/ContextualRenderedImageFactory.lo \
+java/awt/image/renderable/ParameterBlock.lo \
+java/awt/image/renderable/RenderContext.lo \
+java/awt/image/renderable/RenderableImage.lo \
+java/awt/image/renderable/RenderableImageOp.lo \
+java/awt/image/renderable/RenderableImageProducer.lo \
+java/awt/image/renderable/RenderedImageFactory.lo \
+java/awt/peer/ButtonPeer.lo java/awt/peer/CanvasPeer.lo \
+java/awt/peer/CheckboxMenuItemPeer.lo java/awt/peer/CheckboxPeer.lo \
+java/awt/peer/ChoicePeer.lo java/awt/peer/ComponentPeer.lo \
+java/awt/peer/ContainerPeer.lo java/awt/peer/DialogPeer.lo \
+java/awt/peer/FileDialogPeer.lo java/awt/peer/FontPeer.lo \
+java/awt/peer/FramePeer.lo java/awt/peer/LabelPeer.lo \
+java/awt/peer/LightweightPeer.lo java/awt/peer/ListPeer.lo \
+java/awt/peer/MenuBarPeer.lo java/awt/peer/MenuComponentPeer.lo \
+java/awt/peer/MenuItemPeer.lo java/awt/peer/MenuPeer.lo \
+java/awt/peer/PanelPeer.lo java/awt/peer/PopupMenuPeer.lo \
+java/awt/peer/RobotPeer.lo java/awt/peer/ScrollPanePeer.lo \
+java/awt/peer/ScrollbarPeer.lo java/awt/peer/TextAreaPeer.lo \
+java/awt/peer/TextComponentPeer.lo java/awt/peer/TextFieldPeer.lo \
+java/awt/peer/WindowPeer.lo java/awt/SystemColor.lo java/awt/Polygon.lo \
+java/awt/MediaTracker.lo java/awt/PrintGraphics.lo java/awt/PrintJob.lo \
+java/awt/AWTKeyStroke.lo java/awt/AlphaComposite.lo \
+java/awt/AttributeValue.lo java/awt/BasicStroke.lo \
+java/awt/BufferCapabilities.lo java/awt/ColorPaintContext.lo \
+java/awt/Composite.lo java/awt/CompositeContext.lo \
+java/awt/ContainerOrderFocusTraversalPolicy.lo \
+java/awt/DefaultFocusTraversalPolicy.lo \
+java/awt/DefaultKeyboardFocusManager.lo java/awt/DisplayMode.lo \
+java/awt/FocusTraversalPolicy.lo java/awt/FontFormatException.lo \
+java/awt/GradientPaint.lo java/awt/GraphicsConfigTemplate.lo \
+java/awt/GraphicsDevice.lo java/awt/GraphicsEnvironment.lo \
+java/awt/HeadlessException.lo java/awt/ImageCapabilities.lo \
+java/awt/JobAttributes.lo java/awt/KeyEventDispatcher.lo \
+java/awt/KeyEventPostProcessor.lo java/awt/KeyboardFocusManager.lo \
+java/awt/PageAttributes.lo java/awt/Robot.lo \
+java/awt/ScrollPaneAdjustable.lo java/awt/Stroke.lo \
+java/awt/TexturePaint.lo java/awt/dnd/peer/DragSourceContextPeer.lo \
+java/awt/dnd/peer/DropTargetContextPeer.lo \
+java/awt/dnd/peer/DropTargetPeer.lo java/awt/dnd/DnDConstants.lo \
+java/awt/dnd/DnDEventMulticaster.lo java/awt/dnd/DragGestureEvent.lo \
+java/awt/dnd/DragGestureListener.lo \
+java/awt/dnd/DragGestureRecognizer.lo java/awt/dnd/DragSource.lo \
+java/awt/dnd/DragSourceAdapter.lo java/awt/dnd/DragSourceContext.lo \
+java/awt/dnd/DragSourceDragEvent.lo java/awt/dnd/DragSourceEvent.lo \
+java/awt/dnd/DragSourceListener.lo \
+java/awt/dnd/DragSourceMotionListener.lo java/awt/dnd/DropTarget.lo \
+java/awt/dnd/InvalidDnDOperationException.lo java/awt/dnd/Autoscroll.lo \
+java/awt/dnd/DragSourceDropEvent.lo java/awt/dnd/DropTargetAdapter.lo \
+java/awt/dnd/DropTargetContext.lo java/awt/dnd/DropTargetDragEvent.lo \
+java/awt/dnd/DropTargetDropEvent.lo java/awt/dnd/DropTargetEvent.lo \
+java/awt/dnd/DropTargetListener.lo \
+java/awt/dnd/MouseDragGestureRecognizer.lo java/awt/font/TextHitInfo.lo \
+java/awt/im/spi/InputMethod.lo java/awt/im/spi/InputMethodContext.lo \
+java/awt/im/spi/InputMethodDescriptor.lo java/awt/im/InputContext.lo \
+java/awt/im/InputMethodHighlight.lo java/awt/im/InputMethodRequests.lo \
+java/awt/im/InputSubset.lo java/awt/print/Book.lo \
+java/awt/print/PageFormat.lo java/awt/print/Pageable.lo \
+java/awt/print/Paper.lo java/awt/print/Printable.lo \
+java/awt/print/PrinterAbortException.lo \
+java/awt/print/PrinterException.lo java/awt/print/PrinterGraphics.lo \
+java/awt/print/PrinterIOException.lo java/awt/print/PrinterJob.lo
+lib_java_applet_la_LDFLAGS = 
+lib_java_applet_la_LIBADD = 
+lib_java_applet_la_OBJECTS =  java/applet/Applet.lo \
+java/applet/AppletStub.lo java/applet/AppletContext.lo \
+java/applet/AudioClip.lo
+lib_javax_swing_la_LDFLAGS = 
+lib_javax_swing_la_LIBADD = 
+lib_javax_swing_la_OBJECTS =  javax/swing/border/AbstractBorder.lo \
+javax/swing/border/BevelBorder.lo javax/swing/border/Border.lo \
+javax/swing/border/CompoundBorder.lo javax/swing/border/EmptyBorder.lo \
+javax/swing/border/EtchedBorder.lo javax/swing/border/LineBorder.lo \
+javax/swing/border/MatteBorder.lo javax/swing/border/SoftBevelBorder.lo \
+javax/swing/border/TitledBorder.lo javax/swing/GrayFilter.lo \
+javax/swing/AbstractAction.lo javax/swing/AbstractButton.lo \
+javax/swing/plaf/basic/BasicButtonListener.lo \
+javax/swing/plaf/basic/BasicButtonUI.lo \
+javax/swing/plaf/basic/BasicCheckBoxUI.lo \
+javax/swing/plaf/basic/BasicGraphicsUtils.lo \
+javax/swing/plaf/basic/BasicLabelUI.lo \
+javax/swing/plaf/basic/BasicListUI.lo \
+javax/swing/plaf/basic/BasicOptionPaneUI.lo \
+javax/swing/plaf/basic/BasicPanelUI.lo \
+javax/swing/plaf/basic/BasicProgressBarUI.lo \
+javax/swing/plaf/basic/BasicRootPaneUI.lo \
+javax/swing/plaf/basic/BasicRadioButtonUI.lo \
+javax/swing/plaf/basic/BasicScrollBarUI.lo \
+javax/swing/plaf/basic/BasicScrollPaneUI.lo \
+javax/swing/plaf/basic/BasicSeparatorUI.lo \
+javax/swing/plaf/basic/BasicSliderUI.lo \
+javax/swing/plaf/basic/BasicSplitPaneDivider.lo \
+javax/swing/plaf/basic/BasicSplitPaneUI.lo \
+javax/swing/plaf/basic/BasicTabbedPaneUI.lo \
+javax/swing/plaf/basic/BasicTextUI.lo \
+javax/swing/plaf/basic/BasicToggleButtonUI.lo \
+javax/swing/plaf/basic/BasicTreeUI.lo \
+javax/swing/plaf/basic/BasicViewportUI.lo \
+javax/swing/plaf/basic/BasicLookAndFeel.lo \
+javax/swing/plaf/basic/BasicBorders.lo \
+javax/swing/plaf/basic/BasicIconFactory.lo \
+javax/swing/plaf/BorderUIResource.lo javax/swing/plaf/UIResource.lo \
+javax/swing/plaf/ButtonUI.lo javax/swing/plaf/ComponentUI.lo \
+javax/swing/plaf/LabelUI.lo javax/swing/plaf/ListUI.lo \
+javax/swing/plaf/OptionPaneUI.lo javax/swing/plaf/PanelUI.lo \
+javax/swing/plaf/ScrollPaneUI.lo javax/swing/plaf/TabbedPaneUI.lo \
+javax/swing/plaf/TextUI.lo javax/swing/plaf/TreeUI.lo \
+javax/swing/plaf/ViewportUI.lo \
+javax/swing/plaf/metal/MetalLookAndFeel.lo \
+javax/swing/plaf/ColorUIResource.lo \
+javax/swing/plaf/DimensionUIResource.lo \
+javax/swing/plaf/FontUIResource.lo javax/swing/plaf/IconUIResource.lo \
+javax/swing/plaf/InsetsUIResource.lo \
+javax/swing/plaf/ActionMapUIResource.lo \
+javax/swing/plaf/ColorChooserUI.lo javax/swing/plaf/ComboBoxUI.lo \
+javax/swing/plaf/ComponentInputMapUIResource.lo \
+javax/swing/plaf/DesktopIconUI.lo javax/swing/plaf/DesktopPaneUI.lo \
+javax/swing/plaf/FileChooserUI.lo \
+javax/swing/plaf/InputMapUIResource.lo \
+javax/swing/plaf/InternalFrameUI.lo javax/swing/plaf/MenuBarUI.lo \
+javax/swing/plaf/MenuItemUI.lo javax/swing/plaf/PopupMenuUI.lo \
+javax/swing/plaf/ProgressBarUI.lo javax/swing/plaf/RootPaneUI.lo \
+javax/swing/plaf/ScrollBarUI.lo javax/swing/plaf/SeparatorUI.lo \
+javax/swing/plaf/SliderUI.lo javax/swing/plaf/SpinnerUI.lo \
+javax/swing/plaf/SplitPaneUI.lo javax/swing/plaf/TableHeaderUI.lo \
+javax/swing/plaf/TableUI.lo javax/swing/plaf/ToolBarUI.lo \
+javax/swing/plaf/ToolTipUI.lo javax/swing/AbstractListModel.lo \
+javax/swing/AbstractSet.lo \
+javax/swing/colorchooser/AbstractColorChooserPanel.lo \
+javax/swing/colorchooser/ColorChooserComponentFactory.lo \
+javax/swing/colorchooser/ColorSelectionModel.lo \
+javax/swing/colorchooser/DefaultColorSelectionModel.lo \
+javax/swing/filechooser/FileFilter.lo \
+javax/swing/filechooser/FileSystemView.lo \
+javax/swing/filechooser/FileView.lo \
+javax/swing/table/AbstractTableModel.lo \
+javax/swing/table/DefaultTableColumnModel.lo \
+javax/swing/table/DefaultTableModel.lo \
+javax/swing/table/JTableHeader.lo javax/swing/table/TableCellEditor.lo \
+javax/swing/table/TableCellRenderer.lo javax/swing/table/TableColumn.lo \
+javax/swing/table/TableColumnModel.lo javax/swing/table/TableModel.lo \
+javax/swing/table/DefaultTableCellRenderer.lo javax/swing/Action.lo \
+javax/swing/BorderFactory.lo javax/swing/Box.lo \
+javax/swing/BoxLayout.lo javax/swing/ButtonGroup.lo \
+javax/swing/ButtonModel.lo javax/swing/ComponentInputMap.lo \
+javax/swing/DefaultButtonModel.lo javax/swing/DefaultCellRenderer.lo \
+javax/swing/DefaultListModel.lo \
+javax/swing/DefaultListSelectionModel.lo javax/swing/Icon.lo \
+javax/swing/ImageIcon.lo javax/swing/InputMap.lo javax/swing/JApplet.lo \
+javax/swing/JButton.lo javax/swing/JCheckBox.lo \
+javax/swing/JComponent.lo javax/swing/JDialog.lo \
+javax/swing/JEditorPane.lo javax/swing/JFormattedTextField.lo \
+javax/swing/JFrame.lo javax/swing/JLabel.lo javax/swing/JLayeredPane.lo \
+javax/swing/JList.lo javax/swing/JMenuBar.lo javax/swing/JOptionPane.lo \
+javax/swing/JPanel.lo javax/swing/JRadioButton.lo \
+javax/swing/JRootPane.lo javax/swing/JScrollBar.lo \
+javax/swing/JScrollPane.lo javax/swing/JTabbedPane.lo \
+javax/swing/JTextField.lo javax/swing/JToggleButton.lo \
+javax/swing/JToolTip.lo javax/swing/JTree.lo javax/swing/JViewport.lo \
+javax/swing/JWindow.lo javax/swing/KeyStroke.lo \
+javax/swing/ListCellRenderer.lo javax/swing/ListModel.lo \
+javax/swing/ListSelectionModel.lo javax/swing/LookAndFeel.lo \
+javax/swing/Scrollable.lo javax/swing/SwingConstants.lo \
+javax/swing/SwingUtilities.lo javax/swing/Timer.lo \
+javax/swing/UIDefaults.lo javax/swing/UIManager.lo \
+javax/swing/UnsupportedLookAndFeelException.lo \
+javax/swing/event/AncestorEvent.lo \
+javax/swing/event/AncestorListener.lo javax/swing/event/ChangeEvent.lo \
+javax/swing/event/ChangeListener.lo javax/swing/event/DocumentEvent.lo \
+javax/swing/event/DocumentListener.lo \
+javax/swing/event/HyperlinkEvent.lo \
+javax/swing/event/HyperlinkListener.lo \
+javax/swing/event/ListDataEvent.lo \
+javax/swing/event/ListDataListener.lo \
+javax/swing/event/ListSelectionEvent.lo \
+javax/swing/event/ListSelectionListener.lo \
+javax/swing/event/MenuEvent.lo javax/swing/event/UndoableEditEvent.lo \
+javax/swing/event/UndoableEditListener.lo \
+javax/swing/event/CaretEvent.lo javax/swing/event/CaretListener.lo \
+javax/swing/event/CellEditorListener.lo \
+javax/swing/event/EventListenerList.lo \
+javax/swing/event/InternalFrameAdapter.lo \
+javax/swing/event/InternalFrameEvent.lo \
+javax/swing/event/InternalFrameListener.lo \
+javax/swing/event/MenuDragMouseEvent.lo \
+javax/swing/event/MenuDragMouseListener.lo \
+javax/swing/event/MenuKeyEvent.lo javax/swing/event/MenuKeyListener.lo \
+javax/swing/event/MenuListener.lo \
+javax/swing/event/MouseInputAdapter.lo \
+javax/swing/event/MouseInputListener.lo \
+javax/swing/event/PopupMenuEvent.lo \
+javax/swing/event/PopupMenuListener.lo \
+javax/swing/event/SwingPropertyChangeSupport.lo \
+javax/swing/event/TableColumnModelEvent.lo \
+javax/swing/event/TableColumnModelListener.lo \
+javax/swing/event/TableModelEvent.lo \
+javax/swing/event/TableModelListener.lo \
+javax/swing/event/TreeExpansionEvent.lo \
+javax/swing/event/TreeExpansionListener.lo \
+javax/swing/event/TreeModelEvent.lo \
+javax/swing/event/TreeModelListener.lo \
+javax/swing/event/TreeSelectionEvent.lo \
+javax/swing/event/TreeSelectionListener.lo \
+javax/swing/event/TreeWillExpandListener.lo javax/swing/ActionMap.lo \
+javax/swing/text/AbstractDocument.lo javax/swing/text/AttributeSet.lo \
+javax/swing/text/BadLocationException.lo javax/swing/text/Caret.lo \
+javax/swing/text/CharacterIterator.lo javax/swing/text/ComponentView.lo \
+javax/swing/text/DefaultCaret.lo javax/swing/text/DefaultEditorKit.lo \
+javax/swing/text/Document.lo javax/swing/text/DocumentFilter.lo \
+javax/swing/text/EditorKit.lo javax/swing/text/Element.lo \
+javax/swing/text/GapContent.lo javax/swing/text/JTextComponent.lo \
+javax/swing/text/Keymap.lo javax/swing/text/PlainDocument.lo \
+javax/swing/text/PlainEditorKit.lo javax/swing/text/Position.lo \
+javax/swing/text/Segment.lo javax/swing/text/Style.lo \
+javax/swing/text/View.lo javax/swing/text/ViewFactory.lo \
+javax/swing/text/MutableAttributeSet.lo \
+javax/swing/text/NavigationFilter.lo javax/swing/text/StyledDocument.lo \
+javax/swing/text/StyledEditorKit.lo javax/swing/text/TextAction.lo \
+javax/swing/text/html/HTML.lo \
+javax/swing/text/html/parser/ParserDelegator.lo \
+javax/swing/tree/TreeNode.lo javax/swing/tree/AbstractLayoutCache.lo \
+javax/swing/tree/DefaultMutableTreeNode.lo \
+javax/swing/tree/DefaultTreeCellEditor.lo \
+javax/swing/tree/DefaultTreeCellRenderer.lo \
+javax/swing/tree/DefaultTreeModel.lo \
+javax/swing/tree/DefaultTreeSelectionModel.lo \
+javax/swing/tree/ExpandVetoException.lo \
+javax/swing/tree/FixedHeightLayoutCache.lo \
+javax/swing/tree/MutableTreeNode.lo javax/swing/tree/RowMapper.lo \
+javax/swing/tree/TreeCellEditor.lo javax/swing/tree/TreeCellRenderer.lo \
+javax/swing/tree/TreeModel.lo javax/swing/tree/TreePath.lo \
+javax/swing/tree/TreeSelectionModel.lo \
+javax/swing/tree/VariableHeightLayoutCache.lo \
+javax/swing/undo/UndoableEdit.lo \
+javax/swing/undo/AbstractUndoableEdit.lo \
+javax/swing/undo/CannotRedoException.lo \
+javax/swing/undo/CannotUndoException.lo \
+javax/swing/undo/CompoundEdit.lo javax/swing/undo/StateEdit.lo \
+javax/swing/undo/StateEditable.lo javax/swing/undo/UndoManager.lo \
+javax/swing/undo/UndoableEditSupport.lo \
+javax/swing/BoundedRangeModel.lo javax/swing/CellEditor.lo \
+javax/swing/ComboBoxEditor.lo javax/swing/ComboBoxModel.lo \
+javax/swing/DefaultBoundedRangeModel.lo javax/swing/DesktopManager.lo \
+javax/swing/InputVerifier.lo javax/swing/JInternalFrame.lo \
+javax/swing/JTable.lo javax/swing/MenuElement.lo \
+javax/swing/MenuSelectionManager.lo javax/swing/MutableComboBoxModel.lo \
+javax/swing/Renderer.lo javax/swing/RootPaneContainer.lo \
+javax/swing/ScrollPaneConstants.lo javax/swing/SingleSelectionModel.lo \
+javax/swing/SizeRequirements.lo javax/swing/SizeSequence.lo \
+javax/swing/WindowConstants.lo javax/swing/AbstractCellEditor.lo \
+javax/swing/CellRendererPane.lo javax/swing/DebugGraphics.lo \
+javax/swing/DefaultCellEditor.lo javax/swing/DefaultComboBoxModel.lo \
+javax/swing/DefaultDesktopManager.lo javax/swing/DefaultFocusManager.lo \
+javax/swing/DefaultListCellRenderer.lo \
+javax/swing/DefaultSingleSelectionModel.lo javax/swing/FocusManager.lo \
+javax/swing/JCheckBoxMenuItem.lo javax/swing/JColorChooser.lo \
+javax/swing/JComboBox.lo javax/swing/JDesktopPane.lo \
+javax/swing/JFileChooser.lo javax/swing/JMenu.lo \
+javax/swing/JMenuItem.lo javax/swing/JPasswordField.lo \
+javax/swing/JPopupMenu.lo javax/swing/JProgressBar.lo \
+javax/swing/JRadioButtonMenuItem.lo javax/swing/JSeparator.lo \
+javax/swing/JSlider.lo javax/swing/JSplitPane.lo \
+javax/swing/JTextPane.lo javax/swing/JToolBar.lo \
+javax/swing/OverlayLayout.lo javax/swing/Popup.lo \
+javax/swing/PopupFactory.lo javax/swing/ProgressMonitor.lo \
+javax/swing/ProgressMonitorInputStream.lo javax/swing/RepaintManager.lo \
+javax/swing/ScrollPaneLayout.lo javax/swing/ToolTipManager.lo \
+javax/swing/ViewportLayout.lo
+lib_java_beans_la_LDFLAGS = 
+lib_java_beans_la_LIBADD = 
+lib_java_beans_la_OBJECTS =  gnu/java/beans/editors/ColorEditor.lo \
+gnu/java/beans/editors/FontEditor.lo \
+gnu/java/beans/editors/NativeBooleanEditor.lo \
+gnu/java/beans/editors/NativeByteEditor.lo \
+gnu/java/beans/editors/NativeDoubleEditor.lo \
+gnu/java/beans/editors/NativeFloatEditor.lo \
+gnu/java/beans/editors/NativeIntEditor.lo \
+gnu/java/beans/editors/NativeLongEditor.lo \
+gnu/java/beans/editors/NativeShortEditor.lo \
+gnu/java/beans/editors/StringEditor.lo \
+gnu/java/beans/info/ComponentBeanInfo.lo \
+gnu/java/beans/BeanInfoEmbryo.lo gnu/java/beans/EmptyBeanInfo.lo \
+gnu/java/beans/ExplicitBeanInfo.lo \
+gnu/java/beans/IntrospectionIncubator.lo \
+java/beans/beancontext/BeanContext.lo \
+java/beans/beancontext/BeanContextChild.lo \
+java/beans/beancontext/BeanContextChildComponentProxy.lo \
+java/beans/beancontext/BeanContextChildSupport.lo \
+java/beans/beancontext/BeanContextContainerProxy.lo \
+java/beans/beancontext/BeanContextEvent.lo \
+java/beans/beancontext/BeanContextMembershipEvent.lo \
+java/beans/beancontext/BeanContextMembershipListener.lo \
+java/beans/beancontext/BeanContextProxy.lo \
+java/beans/beancontext/BeanContextServiceAvailableEvent.lo \
+java/beans/beancontext/BeanContextServiceProvider.lo \
+java/beans/beancontext/BeanContextServiceProviderBeanInfo.lo \
+java/beans/beancontext/BeanContextServiceRevokedEvent.lo \
+java/beans/beancontext/BeanContextServiceRevokedListener.lo \
+java/beans/beancontext/BeanContextServices.lo \
+java/beans/beancontext/BeanContextServicesListener.lo \
+java/beans/beancontext/BeanContextServicesSupport.lo \
+java/beans/beancontext/BeanContextSupport.lo \
+java/beans/BeanDescriptor.lo java/beans/BeanInfo.lo java/beans/Beans.lo \
+java/beans/Customizer.lo java/beans/DesignMode.lo \
+java/beans/EventSetDescriptor.lo java/beans/ExceptionListener.lo \
+java/beans/FeatureDescriptor.lo java/beans/IndexedPropertyDescriptor.lo \
+java/beans/IntrospectionException.lo java/beans/Introspector.lo \
+java/beans/MethodDescriptor.lo java/beans/ParameterDescriptor.lo \
+java/beans/PropertyChangeEvent.lo java/beans/PropertyChangeListener.lo \
+java/beans/PropertyChangeListenerProxy.lo \
+java/beans/PropertyChangeSupport.lo java/beans/PropertyDescriptor.lo \
+java/beans/PropertyEditor.lo java/beans/PropertyEditorManager.lo \
+java/beans/PropertyEditorSupport.lo java/beans/PropertyVetoException.lo \
+java/beans/SimpleBeanInfo.lo java/beans/VetoableChangeListener.lo \
+java/beans/VetoableChangeListenerProxy.lo \
+java/beans/VetoableChangeSupport.lo java/beans/Visibility.lo \
+java/beans/AppletInitializer.lo
+lib_java_util_logging_la_LDFLAGS = 
+lib_java_util_logging_la_LIBADD = 
+lib_java_util_logging_la_OBJECTS =  java/util/logging/ConsoleHandler.lo \
+java/util/logging/ErrorManager.lo java/util/logging/FileHandler.lo \
+java/util/logging/Filter.lo java/util/logging/Formatter.lo \
+java/util/logging/Handler.lo java/util/logging/Level.lo \
+java/util/logging/Logger.lo java/util/logging/LoggingPermission.lo \
+java/util/logging/LogManager.lo java/util/logging/LogRecord.lo \
+java/util/logging/MemoryHandler.lo java/util/logging/SimpleFormatter.lo \
+java/util/logging/SocketHandler.lo java/util/logging/StreamHandler.lo \
+java/util/logging/XMLFormatter.lo
+lib_javax_naming_la_LDFLAGS = 
+lib_javax_naming_la_LIBADD = 
+lib_javax_naming_la_OBJECTS =  javax/naming/directory/Attribute.lo \
+javax/naming/directory/AttributeInUseException.lo \
+javax/naming/directory/AttributeModificationException.lo \
+javax/naming/directory/Attributes.lo \
+javax/naming/directory/DirContext.lo \
+javax/naming/directory/InvalidAttributeIdentifierException.lo \
+javax/naming/directory/InvalidAttributeValueException.lo \
+javax/naming/directory/InvalidAttributesException.lo \
+javax/naming/directory/InvalidSearchControlsException.lo \
+javax/naming/directory/InvalidSearchFilterException.lo \
+javax/naming/directory/NoSuchAttributeException.lo \
+javax/naming/directory/SchemaViolationException.lo \
+javax/naming/directory/BasicAttribute.lo \
+javax/naming/directory/BasicAttributes.lo \
+javax/naming/directory/ModificationItem.lo \
+javax/naming/directory/SearchControls.lo \
+javax/naming/directory/SearchResult.lo \
+javax/naming/directory/InitialDirContext.lo \
+javax/naming/AuthenticationException.lo \
+javax/naming/AuthenticationNotSupportedException.lo \
+javax/naming/CannotProceedException.lo \
+javax/naming/CommunicationException.lo \
+javax/naming/ConfigurationException.lo javax/naming/Context.lo \
+javax/naming/ContextNotEmptyException.lo \
+javax/naming/InsufficientResourcesException.lo \
+javax/naming/InterruptedNamingException.lo \
+javax/naming/BinaryRefAddr.lo javax/naming/LimitExceededException.lo \
+javax/naming/LinkException.lo javax/naming/LinkLoopException.lo \
+javax/naming/MalformedLinkException.lo javax/naming/Name.lo \
+javax/naming/NameAlreadyBoundException.lo \
+javax/naming/NameNotFoundException.lo javax/naming/NameParser.lo \
+javax/naming/NamingEnumeration.lo javax/naming/InitialContext.lo \
+javax/naming/NamingSecurityException.lo \
+javax/naming/NoInitialContextException.lo \
+javax/naming/NoPermissionException.lo \
+javax/naming/NotContextException.lo javax/naming/NamingException.lo \
+javax/naming/PartialResultException.lo \
+javax/naming/event/EventContext.lo \
+javax/naming/event/EventDirContext.lo \
+javax/naming/event/NamespaceChangeListener.lo \
+javax/naming/event/NamingEvent.lo \
+javax/naming/event/NamingExceptionEvent.lo \
+javax/naming/event/NamingListener.lo \
+javax/naming/event/ObjectChangeListener.lo javax/naming/RefAddr.lo \
+javax/naming/Reference.lo javax/naming/Referenceable.lo \
+javax/naming/ReferralException.lo \
+javax/naming/ServiceUnavailableException.lo \
+javax/naming/SizeLimitExceededException.lo \
+javax/naming/StringRefAddr.lo \
+javax/naming/TimeLimitExceededException.lo \
+javax/naming/spi/InitialContextFactory.lo \
+javax/naming/spi/InitialContextFactoryBuilder.lo \
+javax/naming/spi/NamingManager.lo javax/naming/spi/ObjectFactory.lo \
+javax/naming/spi/Resolver.lo javax/naming/spi/DirObjectFactory.lo \
+javax/naming/spi/DirStateFactory.lo \
+javax/naming/spi/DirectoryManager.lo \
+javax/naming/spi/ObjectFactoryBuilder.lo \
+javax/naming/spi/ResolveResult.lo javax/naming/spi/StateFactory.lo \
+javax/naming/InvalidNameException.lo javax/naming/Binding.lo \
+javax/naming/CompositeName.lo javax/naming/CompoundName.lo \
+javax/naming/LinkRef.lo javax/naming/NameClassPair.lo \
+javax/naming/ldap/Control.lo javax/naming/ldap/ControlFactory.lo \
+javax/naming/ldap/ExtendedRequest.lo \
+javax/naming/ldap/ExtendedResponse.lo javax/naming/ldap/HasControls.lo \
+javax/naming/ldap/InitialLdapContext.lo \
+javax/naming/ldap/LdapContext.lo \
+javax/naming/ldap/LdapReferralException.lo \
+javax/naming/ldap/UnsolicitedNotification.lo \
+javax/naming/ldap/UnsolicitedNotificationEvent.lo \
+javax/naming/ldap/UnsolicitedNotificationListener.lo \
+javax/naming/OperationNotSupportedException.lo
+lib_javax_accessibility_la_LDFLAGS = 
+lib_javax_accessibility_la_LIBADD = 
+lib_javax_accessibility_la_OBJECTS =  javax/accessibility/Accessible.lo \
+javax/accessibility/AccessibleAction.lo \
+javax/accessibility/AccessibleBundle.lo \
+javax/accessibility/AccessibleComponent.lo \
+javax/accessibility/AccessibleContext.lo \
+javax/accessibility/AccessibleEditableText.lo \
+javax/accessibility/AccessibleExtendedComponent.lo \
+javax/accessibility/AccessibleExtendedTable.lo \
+javax/accessibility/AccessibleHyperlink.lo \
+javax/accessibility/AccessibleHypertext.lo \
+javax/accessibility/AccessibleIcon.lo \
+javax/accessibility/AccessibleKeyBinding.lo \
+javax/accessibility/AccessibleRelation.lo \
+javax/accessibility/AccessibleRelationSet.lo \
+javax/accessibility/AccessibleResourceBundle.lo \
+javax/accessibility/AccessibleRole.lo \
+javax/accessibility/AccessibleSelection.lo \
+javax/accessibility/AccessibleState.lo \
+javax/accessibility/AccessibleStateSet.lo \
+javax/accessibility/AccessibleTable.lo \
+javax/accessibility/AccessibleTableModelChange.lo \
+javax/accessibility/AccessibleText.lo \
+javax/accessibility/AccessibleValue.lo
 lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES = 
 @GTK_CAIRO_FALSE@lib_gnu_java_awt_peer_gtk_la_OBJECTS =  \
 @GTK_CAIRO_FALSE@gnu/java/awt/peer/gtk/GdkClasspathFontPeer.lo \
@@ -4652,8 +5253,8 @@ DEP_FILES =  .deps/$(srcdir)/$(CONVERT_DIR)/gen-from-JIS.P \
 .deps/org/xml/sax/helpers/XMLReaderFactory.P .deps/posix-threads.P \
 .deps/posix.P .deps/prims.P .deps/resolve.P .deps/verify.P \
 .deps/win32-threads.P .deps/win32.P
-SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(lib_org_xml_sax_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) $(lib_gnu_java_awt_peer_gtk_la_SOURCES) $(lib_gnu_awt_xlib_la_SOURCES) $(EXTRA_lib_gnu_awt_xlib_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(rmic_SOURCES) $(EXTRA_rmic_SOURCES) $(rmiregistry_SOURCES) $(EXTRA_rmiregistry_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
-OBJECTS = $(libgcj_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_awt_xlib_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(rmic_OBJECTS) $(rmiregistry_OBJECTS) $(gen_from_JIS_OBJECTS)
+SOURCES = $(libgcj_la_SOURCES) $(EXTRA_libgcj_la_SOURCES) $(lib_org_xml_sax_la_SOURCES) $(lib_org_w3c_dom_la_SOURCES) $(lib_java_awt_la_SOURCES) $(lib_java_applet_la_SOURCES) $(lib_javax_swing_la_SOURCES) $(lib_java_beans_la_SOURCES) $(lib_java_util_logging_la_SOURCES) $(lib_javax_naming_la_SOURCES) $(lib_javax_accessibility_la_SOURCES) $(lib_gnu_java_awt_peer_gtk_la_SOURCES) $(lib_gnu_awt_xlib_la_SOURCES) $(EXTRA_lib_gnu_awt_xlib_la_SOURCES) $(jv_convert_SOURCES) $(EXTRA_jv_convert_SOURCES) $(gij_SOURCES) $(rmic_SOURCES) $(EXTRA_rmic_SOURCES) $(rmiregistry_SOURCES) $(EXTRA_rmiregistry_SOURCES) $(gen_from_JIS_SOURCES) $(EXTRA_gen_from_JIS_SOURCES)
+OBJECTS = $(libgcj_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_java_awt_la_OBJECTS) $(lib_java_applet_la_OBJECTS) $(lib_javax_swing_la_OBJECTS) $(lib_java_beans_la_OBJECTS) $(lib_java_util_logging_la_OBJECTS) $(lib_javax_naming_la_OBJECTS) $(lib_javax_accessibility_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_awt_xlib_la_OBJECTS) $(jv_convert_OBJECTS) $(gij_OBJECTS) $(rmic_OBJECTS) $(rmiregistry_OBJECTS) $(gen_from_JIS_OBJECTS)
 
 all: all-redirect
 .SUFFIXES:
@@ -4748,6 +5349,27 @@ lib-org-xml-sax.la: $(lib_org_xml_sax_la_OBJECTS) $(lib_org_xml_sax_la_DEPENDENC
 
 lib-org-w3c-dom.la: $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_w3c_dom_la_DEPENDENCIES)
 	$(LINK) -rpath $(toolexeclibdir) $(lib_org_w3c_dom_la_LDFLAGS) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_w3c_dom_la_LIBADD) $(LIBS)
+
+lib-java-awt.la: $(lib_java_awt_la_OBJECTS) $(lib_java_awt_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_java_awt_la_LDFLAGS) $(lib_java_awt_la_OBJECTS) $(lib_java_awt_la_LIBADD) $(LIBS)
+
+lib-java-applet.la: $(lib_java_applet_la_OBJECTS) $(lib_java_applet_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_java_applet_la_LDFLAGS) $(lib_java_applet_la_OBJECTS) $(lib_java_applet_la_LIBADD) $(LIBS)
+
+lib-javax-swing.la: $(lib_javax_swing_la_OBJECTS) $(lib_javax_swing_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_javax_swing_la_LDFLAGS) $(lib_javax_swing_la_OBJECTS) $(lib_javax_swing_la_LIBADD) $(LIBS)
+
+lib-java-beans.la: $(lib_java_beans_la_OBJECTS) $(lib_java_beans_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_java_beans_la_LDFLAGS) $(lib_java_beans_la_OBJECTS) $(lib_java_beans_la_LIBADD) $(LIBS)
+
+lib-java-util-logging.la: $(lib_java_util_logging_la_OBJECTS) $(lib_java_util_logging_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_java_util_logging_la_LDFLAGS) $(lib_java_util_logging_la_OBJECTS) $(lib_java_util_logging_la_LIBADD) $(LIBS)
+
+lib-javax-naming.la: $(lib_javax_naming_la_OBJECTS) $(lib_javax_naming_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_javax_naming_la_LDFLAGS) $(lib_javax_naming_la_OBJECTS) $(lib_javax_naming_la_LIBADD) $(LIBS)
+
+lib-javax-accessibility.la: $(lib_javax_accessibility_la_OBJECTS) $(lib_javax_accessibility_la_DEPENDENCIES)
+	$(LINK) -rpath $(toolexeclibdir) $(lib_javax_accessibility_la_LDFLAGS) $(lib_javax_accessibility_la_OBJECTS) $(lib_javax_accessibility_la_LIBADD) $(LIBS)
 
 lib-gnu-java-awt-peer-gtk.la: $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_DEPENDENCIES)
 	$(LINK) -rpath $(toolexeclibdir) $(lib_gnu_java_awt_peer_gtk_la_LDFLAGS) $(lib_gnu_java_awt_peer_gtk_la_OBJECTS) $(lib_gnu_java_awt_peer_gtk_la_LIBADD) $(LIBS)
@@ -5274,7 +5896,7 @@ $(gtk_c_files): %.lo: %.c
 
 $(gtk_c_files): $(gtk_c_headers)
 
-$(filter-out gnu/gcj/runtime/StackTrace.lo, $(javao_files)) $(x_javao_files) $(lib_org_w3c_dom_la_OBJECTS) $(lib_org_xml_sax_la_OBJECTS): %.lo: %.java
+$(all_java_object_files): %.lo: %.java
 	$(GCJCOMPILE) -o $@ $<
 
 $(gtk_awt_peer_sources:.java=.lo): %.lo: %.java
