@@ -584,8 +584,11 @@ darwin_register_objc_includes (const char *sysroot, const char *iprefix,
    the missing_header callback for subframework searching if any
    frameworks had been registered.  */
 
+/* APPLE LOCAL begin SDK 3886137 */ 
+/* Patch is waiting FSF review. Use sysroot value. */ 
+
 void
-darwin_register_frameworks (const char *sysroot ATTRIBUTE_UNUSED,
+darwin_register_frameworks (const char *sysroot,
 			    const char *iprefix ATTRIBUTE_UNUSED, int stdinc)
 {
   if (stdinc)
@@ -595,14 +598,20 @@ darwin_register_frameworks (const char *sysroot ATTRIBUTE_UNUSED,
       /* Setup default search path for frameworks.  */
       for (i=0; i<sizeof (framework_defaults)/sizeof(const char *); ++i)
 	{
+	  char *str;
+	  if (sysroot)
+	    str = concat (sysroot, xstrdup (framework_defaults[i]), NULL);
+	  else
+	    str = xstrdup (framework_defaults[i]);
 	  /* System Framework headers are cxx aware.  */
-	  add_system_framework_path (xstrdup (framework_defaults[i]));
+	  add_system_framework_path (str);
 	}
     }
 
   if (using_frameworks)
     cpp_get_callbacks (parse_in)->missing_header = find_subframework_header;
 }
+/* APPLE LOCAL end SDK 3886137 */ 
 
 /* Search for HEADER in context dependent way.  The return value is
    the malloced name of a header to try and open, if any, or NULL

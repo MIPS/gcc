@@ -53,6 +53,9 @@ struct spec_function
   || !strcmp (STR, "idirafter") || !strcmp (STR, "iprefix") \
   || !strcmp (STR, "iwithprefix") || !strcmp (STR, "iwithprefixbefore") \
   || !strcmp (STR, "iquote") || !strcmp (STR, "isystem") \
+  /* APPLE LOCAL SDK 3886137 */ \
+  /* Patch is waiting FSF review.  */ \
+  || !strcmp (STR, "isysroot") \
   || !strcmp (STR, "-param") || !strcmp (STR, "specs") \
   || !strcmp (STR, "save-repository") \
   || !strcmp (STR, "MF") || !strcmp (STR, "MT") || !strcmp (STR, "MQ"))
