@@ -71,7 +71,6 @@ struct clobber_data_d
    ALIAS_SETS represents a unique tag that represents a group of variables
    with conflicting alias types.  This is only used when points-to analysis
    is disabled (-ftree-points-to).  */
-
 struct alias_set_d
 {
   tree tag;
@@ -81,6 +80,19 @@ struct alias_set_d
 };
 
 static varray_type alias_sets;
+
+
+/* Flags to describe operand properties in get_stmt_operands and helpers.  */
+static const int opf_none	= 0;
+
+/* Operand is the target of an assignment expression.  */
+static const int opf_is_def 	= 1 << 0;
+
+/* Consider the operand virtual, regardlessof aliasing information.  */
+static const int opf_force_vop	= 1 << 1;
+
+/* For an INDIRECT_REF operand, don't add a VUSE for its base pointer.  */
+static const int opf_ignore_bp	= 1 << 2;
 
 
 /* Data and functions shared with tree-ssa.c.  */
@@ -104,7 +116,7 @@ static bool may_access_global_mem_p 	PARAMS ((tree, tree));
 static void set_def			PARAMS ((tree *, tree));
 static void add_use			PARAMS ((tree *, tree));
 static void add_vdef			PARAMS ((tree, tree, voperands_t));
-static void add_stmt_operand		PARAMS ((tree *, tree, int, int,
+static void add_stmt_operand		PARAMS ((tree *, tree, int,
       						 voperands_t));
 static void add_immediate_use		PARAMS ((tree, tree));
 static tree find_vars_r			PARAMS ((tree *, int *, void *));
@@ -195,34 +207,34 @@ get_stmt_operands (stmt)
   switch (code)
     {
     case MODIFY_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), false, prev_vops);
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), true, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 1), opf_none, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_is_def, prev_vops);
       break;
 
     case COND_EXPR:
-      get_expr_operands (stmt, &COND_EXPR_COND (stmt), false, prev_vops);
+      get_expr_operands (stmt, &COND_EXPR_COND (stmt), opf_none, prev_vops);
       break;
 
     case SWITCH_EXPR:
-      get_expr_operands (stmt, &SWITCH_COND (stmt), false, prev_vops);
+      get_expr_operands (stmt, &SWITCH_COND (stmt), opf_none, prev_vops);
       break;
 
     case ASM_EXPR:
-      get_expr_operands (stmt, &ASM_INPUTS (stmt), false, prev_vops);
-      get_expr_operands (stmt, &ASM_OUTPUTS (stmt), true, prev_vops);
-      get_expr_operands (stmt, &ASM_CLOBBERS (stmt), true, prev_vops);
+      get_expr_operands (stmt, &ASM_INPUTS (stmt), opf_none, prev_vops);
+      get_expr_operands (stmt, &ASM_OUTPUTS (stmt), opf_is_def, prev_vops);
+      get_expr_operands (stmt, &ASM_CLOBBERS (stmt), opf_is_def, prev_vops);
       break;
 
     case RETURN_EXPR:
-      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), false, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (stmt, 0), opf_none, prev_vops);
       break;
 
     case GOTO_EXPR:
-      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), false, prev_vops);
+      get_expr_operands (stmt, &GOTO_DESTINATION (stmt), opf_none, prev_vops);
       break;
 
     case LABEL_EXPR:
-      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), false, prev_vops);
+      get_expr_operands (stmt, &LABEL_EXPR_LABEL (stmt), opf_none, prev_vops);
       break;
 
       /* These nodes contain no variable references.  */
@@ -237,7 +249,7 @@ get_stmt_operands (stmt)
 	 add_use.  This default will handle statements like CALL_EXPRs or
 	 VA_ARG_EXPRs that may appear on the RHS of a statement or as
 	 statements themselves.  */
-      get_expr_operands (stmt, &stmt, false, prev_vops);
+      get_expr_operands (stmt, &stmt, opf_none, prev_vops);
       break;
     }
 
@@ -264,14 +276,14 @@ get_stmt_operands (stmt)
 
 
 /* Recursively scan the expression pointed by EXPR_P in statement STMT.
-   IS_DEF is nonzero if the expression is expected to define the
-   referenced variables.  PREV_VOPS is as in add_vdef and add_vuse.  */
+   FLAGS is one of the OPF_* constants modifying how to interpret the
+   operands found.  PREV_VOPS is as in add_vdef and add_vuse.  */
 
 static void
-get_expr_operands (stmt, expr_p, is_def, prev_vops)
+get_expr_operands (stmt, expr_p, flags, prev_vops)
      tree stmt;
      tree *expr_p;
-     int is_def;
+     int flags;
      voperands_t prev_vops;
 {
   enum tree_code code;
@@ -315,10 +327,10 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
     return;
 
   /* If we found a variable, add it to DEFS or USES depending on the
-     IS_DEF flag.  */
+     operand flags.  */
   if (SSA_VAR_P (expr))
     {
-      add_stmt_operand (expr_p, stmt, is_def, false, prev_vops);
+      add_stmt_operand (expr_p, stmt, flags, prev_vops);
       return;
     }
 
@@ -331,11 +343,11 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
 	 according to the value of IS_DEF.  Recurse if the LHS of the
 	 ARRAY_REF node is not a regular variable.  */
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
-	add_stmt_operand (expr_p, stmt, is_def, false, prev_vops);
+	add_stmt_operand (expr_p, stmt, flags, prev_vops);
       else
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), is_def, prev_vops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
 
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), false, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, prev_vops);
       return;
     }
 
@@ -355,9 +367,9 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
       /* If the LHS of the compound reference is not a regular variable,
 	 recurse to keep looking for more operands in the subexpression.  */
       if (SSA_VAR_P (TREE_OPERAND (expr, 0)))
-	add_stmt_operand (expr_p, stmt, is_def, false, prev_vops);
+	add_stmt_operand (expr_p, stmt, flags, prev_vops);
       else
-	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), is_def, prev_vops);
+	get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
 
       return;
     }
@@ -371,14 +383,14 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
       bool may_clobber = call_may_clobber (expr);
 
       /* Find uses in the called function.  */
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), false, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_none, prev_vops);
 
       if (may_clobber)
 	{
 	  /* If the called function is neither pure nor const, we create a
 	     clobbering definition of *GLOBAL_VAR.  */
 	  tree v = indirect_ref (global_var);
-	  add_stmt_operand (&v, stmt, true, true, prev_vops);
+	  add_stmt_operand (&v, stmt, opf_is_def|opf_force_vop, prev_vops);
 	}
 
       /* Add all the arguments to the function.  If the function will not
@@ -408,7 +420,7 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
 	{
 	  tree arg = TREE_VALUE (op);
 
-	  add_stmt_operand (&TREE_VALUE (op), stmt, false, false, prev_vops);
+	  add_stmt_operand (&TREE_VALUE (op), stmt, opf_none, prev_vops);
 
 	  /* If the function may not clobber locals, add a VUSE<*p> for
 	     every pointer p passed in the argument list (see note above).  */
@@ -417,7 +429,10 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
 	      && POINTER_TYPE_P (TREE_TYPE (arg)))
 	    {
 	      tree deref = indirect_ref (arg);
-	      add_stmt_operand (&deref, stmt, false, true, prev_vops);
+	      /* We have already added a real USE for the pointer.  We
+		 don't need to add a VUSE for it as well.  */
+	      add_stmt_operand (&deref, stmt, opf_force_vop|opf_ignore_bp,
+				prev_vops);
 	    }
 	}
 
@@ -430,7 +445,7 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
       tree op;
 
       for (op = expr; op; op = TREE_CHAIN (op))
-	add_stmt_operand (&TREE_VALUE (op), stmt, is_def, false, prev_vops);
+	add_stmt_operand (&TREE_VALUE (op), stmt, flags, prev_vops);
 
       return;
     }
@@ -438,8 +453,8 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
   /* Assignments.  */
   if (code == MODIFY_EXPR)
     {
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), false, prev_vops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), true, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), opf_none, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), opf_is_def, prev_vops);
       return;
     }
 
@@ -447,7 +462,8 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
      VOPS to avoid optimizations messing it up.  */
   if (code == VA_ARG_EXPR)
     {
-      add_stmt_operand (&TREE_OPERAND (expr, 0), stmt, true, true, prev_vops);
+      add_stmt_operand (&TREE_OPERAND (expr, 0), stmt, opf_is_def|opf_force_vop,
+			prev_vops);
       return;
     }
 
@@ -455,7 +471,7 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
   if (class == '1'
       || code == BIT_FIELD_REF)
     {
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), is_def, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
       return;
     }
 
@@ -468,8 +484,8 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
       || code == COMPOUND_EXPR
       || code == CONSTRUCTOR)
     {
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), is_def, prev_vops);
-      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), is_def, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 0), flags, prev_vops);
+      get_expr_operands (stmt, &TREE_OPERAND (expr, 1), flags, prev_vops);
       return;
     }
 
@@ -481,8 +497,8 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
 }
 
 
-/* Add *VAR_P to the appropriate operand array of STMT.  IS_DEF is nonzero
-   if *VAR_P is being defined.  The following are the rules used to decide
+/* Add *VAR_P to the appropriate operand array of STMT.  FLAGS is as in
+   get_expr_operands.  The following are the rules used to decide
    whether an operand belongs in OPS or VOPS:
 
    1- Non-aliased scalar and pointer variables are real operands.
@@ -494,18 +510,14 @@ get_expr_operands (stmt, expr_p, is_def, prev_vops)
       types), their virtual variable (see get_virtual_var) is added to the
       virtual operands.
 
-   The caller may force a variable to be added as a virtual operand by
-   setting the FORCE_VOP flag.
-
    PREV_VOPS is used when adding virtual operands to statements that
       already had them (See add_vdef and add_vuse).  */
 
 static void
-add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
+add_stmt_operand (var_p, stmt, flags, prev_vops)
      tree *var_p;
      tree stmt;
-     int is_def;
-     int force_vop;
+     int flags;
      voperands_t prev_vops;
 {
   bool is_scalar;
@@ -541,16 +553,20 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
 		(execute/20020107-1.c).  Do we really need to be this
 		drastic?  Or should each optimization take care when
 		dealing with ASM_EXPRs?  */
-      if (is_def)
+      if (flags & opf_is_def)
 	{
-	  if (is_scalar && !force_vop && TREE_CODE (stmt) == MODIFY_EXPR)
+	  if (is_scalar
+	      && !(flags & opf_force_vop)
+	      && TREE_CODE (stmt) == MODIFY_EXPR)
 	    set_def (var_p, stmt);
 	  else
 	    add_vdef (var, stmt, prev_vops);
 	}
       else
 	{
-	  if (is_scalar && !force_vop && TREE_CODE (stmt) != ASM_EXPR)
+	  if (is_scalar
+	      && !(flags & opf_force_vop)
+	      && TREE_CODE (stmt) != ASM_EXPR)
 	    add_use (var_p, stmt);
 	  else
 	    add_vuse (var, stmt, prev_vops);
@@ -559,7 +575,7 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
   else
     {
       /* The variable is aliased.  Add its aliases to the virtual operands.  */
-      if (is_def)
+      if (flags & opf_is_def)
 	{
 	  for (i = 0; i < VARRAY_ACTIVE_SIZE (aliases); i++)
 	    add_vdef (VARRAY_TREE (aliases, i), stmt, prev_vops);
@@ -574,7 +590,7 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
   /* An assignment to a pointer variable 'p' may make 'p' point to memory
      outside of the current scope.  Therefore, dereferences of 'p' should be
      treated as references to global variables.  */
-  if (is_def
+  if ((flags & opf_is_def)
       && SSA_DECL_P (var)
       && POINTER_TYPE_P (TREE_TYPE (var)))
     {
@@ -615,7 +631,7 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
 	    }
 	}
     }
-  else
+  else if (!(flags & opf_ignore_bp))
     {
       /* If VAR is a pointer dereference, we need to add a VUSE for its
 	 base pointer.  If needed, strip its SSA version, to access the
@@ -627,7 +643,8 @@ add_stmt_operand (var_p, stmt, is_def, force_vop, prev_vops)
 	var = SSA_NAME_VAR (var);
 
       if (TREE_CODE (var) == INDIRECT_REF)
-	add_stmt_operand (&TREE_OPERAND (var, 0), stmt, false, true, prev_vops);
+	add_stmt_operand (&TREE_OPERAND (var, 0), stmt, opf_force_vop,
+			  prev_vops);
     }
 }
 

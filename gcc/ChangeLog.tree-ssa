@@ -1,3 +1,14 @@
+2003-03-05  Diego Novillo  <dnovillo@redhat.com>
+
+	* tree-dfa.c (opf_none, opf_is_def, opf_force_vop, opf_ignore_bp):
+	New flags to alter the behavior of add_stmt_operand.
+	(get_expr_operands): Change operand IS_DEF with FLAGS.  Update all
+	users.
+	When adding a VUSE for pointer dereferences in function arguments,
+	don't add a superfluous VUSE for the base pointer.
+	(add_stmt_operand): Remove operands IS_DEF and FORCE_VOP.  Add
+	operand FLAGS.  Update all users.
+
 2003-03-05  Jason Merrill  <jason@redhat.com>
 
 	* c-pretty-print.c (do_niy): Only print operands of expressions.
