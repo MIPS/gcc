@@ -412,6 +412,8 @@ rebuild_scope_notes (root)
     {
       if (active_insn_p (insn)
 	  && INSN_UID (insn) < insn_scope->num_elements
+	  && GET_CODE (PATTERN (insn)) != ADDR_VEC
+	  && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC
 	  && INSN_SCOPE (insn)
 	  && INSN_SCOPE (insn) != scope)
 	{
@@ -847,6 +849,7 @@ cfg_layout_duplicate_bb (bb, e)
 {
   rtx last = get_last_insn ();
   rtx insn, new = NULL_RTX;
+  rtx note1, note2;
   rtx pre_head = NULL_RTX, end = NULL_RTX;
   edge s, n;
   basic_block new_bb;
@@ -863,6 +866,7 @@ cfg_layout_duplicate_bb (bb, e)
   for (insn = RBI (bb)->eff_head; insn != NEXT_INSN (RBI (bb)->eff_end);
        insn = NEXT_INSN (insn))
     {
+      new = NULL;
       switch (GET_CODE (insn))
 	{
 	case INSN:
@@ -966,8 +970,22 @@ cfg_layout_duplicate_bb (bb, e)
 	default:
 	  abort ();
 	}
+      /* Fix the libcall sequences.  */
+      if (new && INSN_P (new)
+	  && (note1 = find_reg_note (new, REG_RETVAL, NULL_RTX)) != NULL)
+	{
+	  rtx p = new;
+	  while ((note2 = find_reg_note (p, REG_LIBCALL, NULL_RTX)) == NULL)
+	    {
+	      p = PREV_INSN (p);
+	      if (p == pre_head)
+		abort ();
+	    }
+	  XEXP (note1, 0) = p;
+	  XEXP (note2, 0) = new;
+	}
       if (bb->end == insn)
-	end = new;
+	end = get_last_insn ();
     }
 
   new_bb = create_basic_block (n_basic_blocks, NEXT_INSN (pre_head), end);
