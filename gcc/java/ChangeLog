@@ -1,5 +1,9 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* builtins.cc (map_utf8const): Call pushdecl.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* tree.cc (wrap_synchronized): Don't put a type on a
 	TRY_FINALLY_EXPR.
 

@@ -498,6 +498,7 @@ tree_builtins::map_utf8const (const std::string &value)
       make_decl_rtl (decl);
 
       utf8map[value] = build_address_of (decl);
+      pushdecl (utf8map[value]);
     }
   return utf8map[value];
 }
