@@ -3668,7 +3668,8 @@ build_high_bound (addr)
       if (TREE_CODE (datum) == FUNCTION_DECL)
 	return build_high_bound_ref (permissive_null_bounded_ptr_node);
       if (TREE_CODE (datum) == VAR_DECL && DECL_EXTERNAL (datum)
-	  && variable_high_bound_p (TREE_TYPE (datum)))
+	  && (! COMPLETE_TYPE_P (TREE_TYPE (datum))
+	      || variable_high_bound_p (TREE_TYPE (datum))))
 	{
 	  tree high_bound = get_high_bound_decl (datum);
 	  TREE_USED (high_bound) = 1;
@@ -5105,7 +5106,8 @@ store_init_value (decl, init)
 #endif
 
   if (warn_traditional
-      && AGGREGATE_TYPE_P (TREE_TYPE (decl)) && ! TREE_STATIC (decl))
+      && AGGREGATE_TYPE_P (TREE_TYPE (decl))
+      && ! BOUNDED_POINTER_TYPE_P (TREE_TYPE (decl)) && ! TREE_STATIC (decl))
     warning ("traditional C rejects automatic aggregate initialization");
 
   DECL_INITIAL (decl) = value;
