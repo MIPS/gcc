@@ -1293,6 +1293,13 @@ extern struct rtx_def *s390_compare_op0, *s390_compare_op1;
 #define ASM_SIMPLIFY_DWARF_ADDR(X) \
   s390_simplify_dwarf_addr (X)
 
+/* Emit a dtp-relative reference to a TLS variable.  */
+
+#ifdef HAVE_AS_TLS
+#define ASM_OUTPUT_DWARF_DTPREL(FILE, SIZE, X) \
+  s390_output_dwarf_dtprel (FILE, SIZE, X)
+#endif
+
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
    For `%' followed by punctuation, CODE is the punctuation and X is null.  */
