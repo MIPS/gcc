@@ -1,3 +1,7 @@
+2004-07-19  Paul Brook  <paul@codesourcery.com>
+
+	* target.h (struct gcc_target): Put unwind_emit in the right place.
+
 2004-07-15  Paul Brook  <paul@codesourcery.com>
 
 	* dwarf2out.c (dwarf2out_begin_prologue): Rename IA64_UNWIND_INFO

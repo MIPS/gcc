@@ -74,11 +74,11 @@ struct gcc_target
     /* Output code that will globalize a label.  */
     void (* globalize_label) (FILE *, const char *);
 
-    /* Emit any directives required to unwind this instruction.  */
-    void (* unwind_emit) (FILE *, rtx);
-
     /* Output an internal label.  */
     void (* internal_label) (FILE *, const char *, unsigned long);
+
+    /* Emit any directives required to unwind this instruction.  */
+    void (* unwind_emit) (FILE *, rtx);
 
     /* Emit an assembler directive to set visibility for the symbol
        associated with the tree decl.  */
