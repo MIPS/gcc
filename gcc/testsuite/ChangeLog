@@ -2,6 +2,90 @@
 
 	* gcc.c-torture/compile/20041018-1.c: New test.
 
+2004-10-17  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c++/16301
+	* g++.dg/lookup/strong-using-4.C: New test.
+
+2004-10-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/i386-sse-4.c: Use 'float' as the base type for FP types.
+	* gcc.dg/i386-sse-5.c: Likewise.
+
+2004-10-16  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* gcc.dg/bf-spl1.c: Use 'float' as the base type for FP types.
+
+2004-10-15  Mark Mitchell  <mark@codesourcery.com>
+
+	* g++.dg/parse/error18.C: Remove.
+
+2004-10-14  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17976
+	* g++.dg/init/dtor3.C: New test.
+
+2004-10-13  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/parse/error18.C: Allow multiple errors on the line.
+
+2004-10-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* g++.dg/inherit/thunk1.C: Run on the SPARC.
+
+2004-10-11  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/15876
+	* g++.dg/parse/error22.C: New test.
+
+2004-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17393
+	* g++.dg/parse/error21.C: New test.
+
+2004-10-10  Stuart Hastings  <stuart@apple.com>
+	    Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/17853
+	* gcc.dg/i386-mmx-5.c: New testcase.
+
+2004-10-09  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/17821
+	* g++.dg/parse/error20.C: New test.
+
+	PR c++/17826
+	* g++.dg/template/crash24.C: New test.
+
+	PR c++/17524
+	* g++.dg/template/static9.C: New test.
+
+	PR c++/17685
+	* g++.dg/parse/operator5.C: New test.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/16999
+	* gcc.dg/cpp/ident-1.c: New test.
+
+2004-10-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	PR c++/17829
+	* g++.dg/lookup/koenig4.C: New.
+
+2004-10-08  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	* gcc.dg/ultrasp11.c: New test.
+
+2004-10-07  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/17115
+	* g++.dg/warn/Winline-4.C: New test.
+
+2004-10-07  Christian Ehrhardt  <ehrhardt@mathematik.uni-ulm.de>
+
+	* gcc.c-torture/compile/20041007-1.c: New test.
+
 2004-09-27  Mark Mitchell  <mark@codesourcery.com>
 
 	PR c++/17585
@@ -27,10 +111,10 @@
 	gcc.c-torture/compile/pr16566-3.c: New tests.
 
 2004-09-21  Bud Davis  <bdavis9659@comcast.net>
- 
-        PR fortran/17541
+
+	PR fortran/17541
 	* g77.f-torture/execute/pr17541.f: New test.
- 
+
 2004-09-20  Richard Sandiford  <rsandifo@redhat.com>
 
 	* gcc.dg/mips-asm-1.c: New test.

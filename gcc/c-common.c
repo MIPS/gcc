@@ -4647,7 +4647,10 @@ handle_mode_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
       else
 	for (j = 0; j < NUM_MACHINE_MODES; j++)
 	  if (!strcmp (p, GET_MODE_NAME (j)))
-	    mode = (enum machine_mode) j;
+	    {
+	      mode = (enum machine_mode) j;
+	      break;
+	    }
 
       if (mode == VOIDmode)
 	error ("unknown machine mode `%s'", p);
@@ -4680,8 +4683,17 @@ handle_mode_attribute (tree *node, tree name, tree args ATTRIBUTE_UNUSED,
 							mode);
 	      *node = ptr_type;
 	    }
+	  else if (VECTOR_MODE_P (mode)
+		   ? TREE_CODE (type) != TREE_CODE (TREE_TYPE (typefm))
+		   : TREE_CODE (type) != TREE_CODE (typefm))
+		   
+	    {
+	      error ("mode `%s' applied to inappropriate type", p);
+	      return NULL_TREE;
+	    }
 	  else
-	  *node = typefm;
+	    *node = typefm;
+
 	  /* No need to layout the type here.  The caller should do this.  */
 	}
     }

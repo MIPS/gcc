@@ -3,6 +3,139 @@
 	* config/i386/i386.md (addqi_1_slp): Test for incdec_operand
 	operand 1 instead of 2
 
+2004-10-14  Richard Henderson  <rth@redhat.com>
+
+	PR debug/14492
+	* dwarf2out.c (loc_descriptor_from_tree): Handle FIX_*_EXPR.
+
+2004-10-14  Richard Henderson  <rth@redhat.com>
+
+	PR c/17023
+	* c-parse.in (compstmt_primary_start): Check last_tree non-null,
+	not current_function_decl non-null.
+
+2004-10-14  Roger Sayle  <roger@eyesopen.com>
+
+	PR other/17361
+	* c-opts.c (c_common_init_options): Scan command line options for
+	"-lang-asm" and if found allow any of the C-family front-end options.
+	Likewise, scan all command line options for g77's -traditional-cpp.
+
+2004-10-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* doc/install.texi (*-*-solaris2*): Update with info about kernel
+	patches to solve spurious testsuite failures.
+
+2004-10-13  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* dwarf2out.c (rtl_for_decl_location): Do not use MEM_P but use
+	GET_CODE == MEM.
+
+2004-10-13  Richard Henderson  <rth@redhat.com>
+
+        PR debug/15860
+        * dwarf2out.c (rtl_for_decl_location): Apply big-endian correction
+        for DECL_INCOMING_RTL.
+
+2004-10-13  Richard Henderson  <rth@redhat.com>
+
+	PR c/17384
+	* c-common.c (handle_mode_attribute): Disallow mode changes that
+	alter the CODE of the top-level type.
+
+	* crtstuff.c (__FRAME_END__): Remove mode attribute.  Find 32-bit
+	integer from internal limits macros.
+	* config/i386/emmintrin.h (__v2df): Fix base type.
+	* config/i386/xmmintrin.h (__m128, __v4sf): Likewise.
+
+2004-10-13  Richard Henderson  <rth@redhat.com>
+
+	PR debug/13841
+	* function.c (instantiate_decl): Recurse for CONCAT.
+
+2004-10-13  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/14454
+	* config/sparc/sparc.c (TARGET_ASM_CAN_OUTPUT_MI_THUNK): Set to
+	sparc_can_output_mi_thunk.
+	(sparc_output_mi_thunk): Simplify handling of delta offset.  Add
+	handling of vcall offset.
+	(sparc_can_output_mi_thunk): New predicate.
+	* doc/tm.texi (TARGET_ASM_OUTPUT_MI_THUNK): Document VCALL_OFFSET.
+	(TARGET_ASM_OUTPUT_MI_VCALL_THUNK): Delete.
+	(TARGET_ASM_CAN_OUTPUT_MI_THUNK): New target hook.
+
+	* config/sparc/sparc.md (movdi): Remove redundant test.
+
+2004-10-12  Richard Henderson  <rth@redhat.com>
+
+	PR rtl-opt/17503
+	* regclass.c (subregs_of_mode): Turn into an htab.  Make static.
+	(som_hash, som_eq): New.
+	(init_subregs_of_mode, record_subregs_of_mode): New.
+	(cannot_change_mode_set_regs): Rewrite for htab implementation.
+	(invalid_mode_change_p): Likewise.
+	* combine.c (gen_lowpart_for_combine): Use record_subregs_of_mode.
+	* flow.c (mark_used_regs): Likewise.
+	(life_analysis): Use init_subregs_of_mode.
+	* regs.h (subregs_of_mode): Remove.
+	* rtl.h (init_subregs_of_mode, record_subregs_of_mode): Declare.
+
+2004-10-10  Roger Sayle  <roger@eyesopen.com>
+
+	PR rtl-optimization/17853
+	* combine.c (combine_simplify_rtx): Don't attempt any simplifications
+	of vector mode comparison operators.
+	* cse.c (fold_rtx): Likewise.
+	* simplify-rtx.c (simplify_gen_relational):  Avoid calling
+	simplify_relational_operation with vector mode comparison operators.
+	(simplify_rtx): Likewise.
+
+2004-10-09  Joseph S. Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/spe.h (atosfix16, atosfix32, atosfix64, atoufix16,
+	atoufix32, atoufix64, strtosfix16, strtosfix32, strtosfix64,
+	strtoufix16, strtoufix32, strtoufix64): Declare.
+
+2004-10-08  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR c/16999
+	* c-ppoutput.c (cb_ident): Don't quote string as it is already
+	quoted.
+
+2004-10-08  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR target/17245
+	* config/sparc/sparc.c (input_operand): Remove redundant code
+	for handling LO_SUM.
+	(legitimate_address_p) <REG+REG>: Do not recheck TARGET_V9.
+	<LO_SUM>: If LO_SUM is offsettable, accept it for TFmode on V9.
+	Otherwise only accept it for TFmode if quad move insns are available.
+
+2004-10-07  Giovanni Bajo  <giovannibajo@gcc.gnu.org>
+
+	PR c++/17115
+	* tree-inline.c (expand_call_inline): Do not warn for functions
+	marked with attribute noinline.
+
+2004-10-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	* doc/install.texi (*-*-solaris2*): Fix marker for URL.
+
+2004-10-07  Richard Sandiford  <rsandifo@redhat.com>
+
+	PR target/17770
+	* config/mips/mips.md (mov_lwl): Remove hazard=none attribute.
+
+2004-10-07  Eric Botcazou  <ebotcazou@libertysurf.fr>
+
+	PR rtl-optimization/17027
+	Backport from mainline:
+	* cfglayout.c (fixup_fallthru_exit_predecessor): If the first block
+	falls through to exit, split it.
+	* cfgrtl.c (rtl_split_block): If no insn is specified, split on the
+	first insn in the basic block.
+
 2004-10-08  Andreas Krebbel  <krebbel1@de.ibm.com>
 
 	* config/s390/s390.c (s390_register_info): Don't save fprs for
@@ -172,12 +305,12 @@
 
 2004-09-30  Richard Henderson  <rth@redhat.com>
  
-        * unwind-dw2.c (_Unwind_GetGR): Honor DWARF_ZERO_REG.
-        * doc/tm.texi (DWARF_ZERO_REG): New.
+	* unwind-dw2.c (_Unwind_GetGR): Honor DWARF_ZERO_REG.
+	* doc/tm.texi (DWARF_ZERO_REG): New.
  
-        * config/alpha/alpha.c (alpha_sa_mask, alpha_expand_prologue,
-        alpha_expand_epilogue): Revert 2003-09-30 change to store zero.
-        * config/alpha/alpha.h (DWARF_ZERO_REG): New.
+	* config/alpha/alpha.c (alpha_sa_mask, alpha_expand_prologue,
+	alpha_expand_epilogue): Revert 2003-09-30 change to store zero.
+	* config/alpha/alpha.h (DWARF_ZERO_REG): New.
 
 2004-09-29  David Edelsohn  <edelsohn@gnu.org>
 
