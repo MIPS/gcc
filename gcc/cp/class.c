@@ -7814,7 +7814,7 @@ has_apple_kext_compatibility_attr_p (tree class)
       if (lookup_attribute ("apple_kext_compatibility",
 			    TYPE_ATTRIBUTES (class)))
 	return 1;
-      base_binfo = CLASSTYPE_PRIMARY_BINFO (class);
+      base_binfo = BINFO_BASE_BINFO (TYPE_BINFO (class), 0);
       if (base_binfo
 	  && ! BINFO_VIRTUAL_P (base_binfo))
 	class = BINFO_TYPE (base_binfo);
