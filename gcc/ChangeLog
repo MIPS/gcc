@@ -1,3 +1,19 @@
+2002-06-20  Jason Merrill  <jason@redhat.com>
+
+	* c-simplify.c (simplify_expr_wfl): Bracket substatements with
+	FILE_STMTs rather than wrapping them in EXPR_WITH_FILE_LOCATION.
+	(simplify_stmt): Update lineno and input_filename from stmts.
+	(simplify_expr et al): Don't copy lineno between stmts.  Don't pass 
+	enclosing stmt down.
+	(update_line_number): Remove.
+	
+	* c-simplify.c (simplify_expr_stmt): Don't check
+	is_last_stmt_of_scope.
+	(simplify_stmt_expr): Check it here.  Set *expr_p to void_zero_node
+	instead of NULL_TREE.
+	(expr_has_effect): No need to deal with NULL exprs now.
+	(simplify_expr_wfl): Likewise.
+
 2002-06-19  Jason Merrill  <jason@redhat.com>
 
 	* c-simplify.c (simplify_stmt_expr): New fn.

@@ -23,11 +23,11 @@ Boston, MA 02111-1307, USA.  */
 #define _TREE_SIMPLE_H 1
 
 /* Interface used in [break/goto]-elimination: to be declared in a .h file. */
-extern void insert_before_continue_end PARAMS ((tree, tree, int));
+extern void insert_before_continue_end PARAMS ((tree, tree));
 extern void tree_build_scope           PARAMS ((tree *));
 extern tree create_tmp_var             PARAMS ((tree, const char *));
 extern bool is_simple_tmp_var	       PARAMS ((tree));
-extern tree get_initialized_tmp_var    PARAMS ((tree, tree *, tree));
+extern tree get_initialized_tmp_var    PARAMS ((tree, tree *));
 extern tree declare_tmp_vars           PARAMS ((tree, tree));
 extern tree deep_copy_list             PARAMS ((tree));
 extern tree deep_copy_node             PARAMS ((tree));
