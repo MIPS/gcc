@@ -53,7 +53,7 @@ static void gimplify_save_expr (tree *, tree *, tree *);
 static void gimplify_addr_expr (tree *, tree *, tree *);
 static void gimplify_self_mod_expr (tree *, tree *, tree *, int);
 static void gimplify_cond_expr (tree *, tree *, tree);
-static void gimplify_boolean_expr (tree *);
+static void gimplify_boolean_expr (tree *, tree *);
 static void gimplify_return_expr (tree, tree *);
 static tree build_addr_expr (tree);
 static tree build_addr_expr_with_type (tree, tree);
@@ -444,7 +444,7 @@ gimplify_expr (tree *expr_p, tree *pre_p, tree *post_p,
 
 	case TRUTH_ANDIF_EXPR:
 	case TRUTH_ORIF_EXPR:
-	  gimplify_boolean_expr (expr_p);
+	  gimplify_boolean_expr (expr_p, pre_p);
 	  break;
 
 	case TRUTH_NOT_EXPR:
@@ -2027,21 +2027,69 @@ gimplify_modify_expr (tree *expr_p, tree *pre_p, tree *post_p, int want_value)
 
     Expressions of the form 'a && b' are gimplified to:
 
-        a && b ? true : false
+	T = a;
+	if (T)
+	  T = b;
 
-    gimplify_cond_expr will do the rest.
+    Expressions of the form 'a || b' are gimplified to:
+
+	T = a;
+	if (!T)
+	  T = b;
+
+    In both cases, the expression is re-written as 'T != 0'.
 
     PRE_P points to the list where side effects that must happen before
+	*EXPR_P should be stored.
+
+    POST_P points to the list where side effects that must happen after
         *EXPR_P should be stored.  */
 
 static void
-gimplify_boolean_expr (tree *expr_p)
+gimplify_boolean_expr (tree *expr_p, tree *pre_p)
 {
-  /* Preserve the original type of the expression.  */
-  tree type = TREE_TYPE (*expr_p);
-  *expr_p = build (COND_EXPR, type, *expr_p,
-		   convert (type, boolean_true_node),
-		   convert (type, boolean_false_node));
+  tree t, lhs, rhs, if_body, if_cond, if_stmt;
+
+  enum tree_code code = TREE_CODE (*expr_p);
+
+#if defined ENABLE_CHECKING
+  if (code != TRUTH_ANDIF_EXPR && code != TRUTH_ORIF_EXPR)
+    abort ();
+#endif
+
+  /* Make this expression right-associative so that gimplification will
+     produce nested ifs.  */
+  *expr_p = right_assocify_expr (*expr_p);
+
+  /* First, make sure that our operands have boolean type.  */
+  lhs = gimple_boolify (TREE_OPERAND (*expr_p, 0));
+  rhs = gimple_boolify (TREE_OPERAND (*expr_p, 1));
+
+  /* Build 'T = a'  */
+  t = get_initialized_tmp_var (lhs, pre_p);
+
+  /* Build the body for the if() statement that conditionally evaluates the
+     RHS of the expression.  */
+  if_body = build (MODIFY_EXPR, TREE_TYPE (t), t, rhs);
+
+  /* Build the condition.  */
+  if (code == TRUTH_ANDIF_EXPR)
+    if_cond = t;
+  else
+    if_cond = build1 (TRUTH_NOT_EXPR, TREE_TYPE (t), t);
+
+  if_stmt = build (COND_EXPR, void_type_node, if_cond, if_body,
+		   build_empty_stmt ());
+  /* Gimplify the IF_STMT and insert it in the PRE_P chain.  */
+  gimplify_stmt (&if_stmt);
+  add_tree (if_stmt, pre_p);
+
+  /* If we're not actually looking for a boolean result, convert now.  */
+  if (TREE_TYPE (t) != TREE_TYPE (*expr_p))
+    t = convert (TREE_TYPE (*expr_p), t);
+
+  /* Re-write the original expression to use T.  */
+  *expr_p = t;
 }
 
 
