@@ -3793,7 +3793,10 @@
         }
     }
     
-  if (CONSTANT_P (operands[1]) && flag_pic)
+  if (flag_pic
+      && (CONSTANT_P (operands[1])
+	 || symbol_mentioned_p (operands[1])
+	 || label_mentioned_p (operands[1])))
     operands[1] = legitimize_pic_address
       (operands[1], SImode, ((reload_in_progress || reload_completed)
 			     ? operands[0] : 0));
