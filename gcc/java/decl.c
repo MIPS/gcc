@@ -262,7 +262,17 @@ check_local_unnamed_variable (tree best, tree decl, tree type)
       */
       || (TREE_CODE (decl_type) == POINTER_TYPE
 	  && TREE_CODE (decl) == PARM_DECL
-	  && TREE_CODE (type) == POINTER_TYPE))
+	  && TREE_CODE (type) == POINTER_TYPE)
+
+      /* The new verifier requires a similar treatment in the
+	 situation where the parameter has an integral type which
+	 promotes to `int'.  */
+      || (flag_new_verifier
+	  && TREE_CODE (decl) == PARM_DECL
+	  && INTEGRAL_TYPE_P (decl_type)
+	  && TYPE_PRECISION (decl_type) <= 32
+	  && INTEGRAL_TYPE_P (type)
+	  && TYPE_PRECISION (type) <= 32))
     {
       if (best == NULL_TREE
 	  || (decl_type == type && TREE_TYPE (best) != type))

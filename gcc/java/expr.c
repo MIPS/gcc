@@ -341,20 +341,32 @@ pop_type_0 (tree type, char **messagep)
     }
   if (INTEGRAL_TYPE_P (type) && INTEGRAL_TYPE_P (t)
       && TYPE_PRECISION (type) <= 32 && TYPE_PRECISION (t) <= 32)
-      return t;
+    return t;
   if (TREE_CODE (type) == POINTER_TYPE && TREE_CODE (t) == POINTER_TYPE)
     {
-      if (type == ptr_type_node || type == object_ptr_type_node)
-	return t;
-      else if (t == ptr_type_node)  /* Special case for null reference. */
-	return type;
-      /* This is a kludge, but matches what Sun's verifier does.
-	 It can be tricked, but is safe as long as type errors
-	 (i.e. interface method calls) are caught at run-time. */
-      else if (CLASS_INTERFACE (TYPE_NAME (TREE_TYPE (type))))
-	return object_ptr_type_node;
-      else if (can_widen_reference_to (t, type))
-	return t;
+      if (flag_new_verifier)
+	{
+	  /* Since the verifier has already run, we know that any
+	     types we see will be compatible.  In BC mode, this fact
+	     may be checked at runtime, but if that is so then we can
+	     assume its truth here as well.  So, we always succeed
+	     here, with the expected type.  */
+	  return type;
+	}
+      else
+	{
+	  if (type == ptr_type_node || type == object_ptr_type_node)
+	    return t;
+	  else if (t == ptr_type_node)  /* Special case for null reference. */
+	    return type;
+	  /* This is a kludge, but matches what Sun's verifier does.
+	     It can be tricked, but is safe as long as type errors
+	     (i.e. interface method calls) are caught at run-time. */
+	  else if (CLASS_INTERFACE (TYPE_NAME (TREE_TYPE (type))))
+	    return object_ptr_type_node;
+	  else if (can_widen_reference_to (t, type))
+	    return t;
+	}
     }
 
   if (! flag_verify_invocations && flag_indirect_dispatch
@@ -387,7 +399,7 @@ tree
 pop_type (tree type)
 {
   char *message = NULL;
-   type = pop_type_0 (type, &message);
+  type = pop_type_0 (type, &message);
   if (message != NULL)
     {
       error ("%s", message);
@@ -867,13 +879,18 @@ build_java_array_length_access (tree node)
      throws a NullPointerException.  The only way we could get a node
      of type ptr_type_node at this point is `aconst_null; arraylength'
      or something equivalent.  */
-  if (type == ptr_type_node)
+  if (!flag_new_verifier && type == ptr_type_node)
     return build3 (CALL_EXPR, int_type_node, 
 		   build_address_of (soft_nullpointer_node),
 		   NULL_TREE, NULL_TREE);
 
   if (!is_array_type_p (type))
-    abort ();
+    {
+      /* With the new verifier, we will see an ordinary pointer type
+	 here.  In this case, we just use an arbitrary array type.  */
+      array_type = build_java_array_type (object_ptr_type_node, -1);
+      type = promote_type (array_type);
+    }
 
   length = java_array_type_length (type);
   if (length >= 0)
@@ -934,6 +951,13 @@ build_java_arrayaccess (tree array, tree type, tree index)
   tree ref;
   tree array_type = TREE_TYPE (TREE_TYPE (array));
 
+  if (!is_array_type_p (TREE_TYPE (array)))
+    {
+      /* With the new verifier, we will see an ordinary pointer type
+	 here.  In this case, we just use the correct array type.  */
+      array_type = build_java_array_type (type, -1);
+    }
+
   if (flag_bounds_check)
     {
       /* Generate:
@@ -983,11 +1007,21 @@ build_java_arraystore_check (tree array, tree object)
   tree array_type_p = TREE_TYPE (array);
   tree object_type = TYPE_NAME (TREE_TYPE (TREE_TYPE (object)));
 
-  if (! is_array_type_p (array_type_p))
-    abort ();
+  if (! flag_verify_invocations)
+    {
+      /* With the new verifier, we don't track precise types.  FIXME:
+	 performance regression here.  */
+      element_type = TYPE_NAME (object_type_node);
+    }
+  else
+    {
+      if (! is_array_type_p (array_type_p))
+	abort ();
 
-  /* Get the TYPE_DECL for ARRAY's element type. */
-  element_type = TYPE_NAME (TREE_TYPE (TREE_TYPE (TREE_TYPE (array_type_p))));
+      /* Get the TYPE_DECL for ARRAY's element type. */
+      element_type
+	= TYPE_NAME (TREE_TYPE (TREE_TYPE (TREE_TYPE (array_type_p))));
+    }
 
   if (TREE_CODE (element_type) != TYPE_DECL   
       || TREE_CODE (object_type) != TYPE_DECL)
@@ -999,10 +1033,11 @@ build_java_arraystore_check (tree array, tree object)
   /* No check is needed if the element type is final or is itself an array.  
      Also check that element_type matches object_type, since in the bytecode 
      compilation case element_type may be the actual element type of the array
-     rather than its declared type. */
+     rather than its declared type.  However, if we're doing indirect
+     dispatch, we can't do the `final' optimization.  */
   if (element_type == object_type
       && (TYPE_ARRAY_P (TREE_TYPE (element_type))
-	  || CLASS_FINAL (element_type)))
+	  || (! flag_indirect_dispatch && CLASS_FINAL (element_type))))
     return build1 (NOP_EXPR, array_type_p, array);
   
   /* OBJECT might be wrapped by a SAVE_EXPR. */
@@ -1044,24 +1079,30 @@ build_java_arraystore_check (tree array, tree object)
    ARRAY_NODE. This function is used to retrieve something less vague than
    a pointer type when indexing the first dimension of something like [[<t>.
    May return a corrected type, if necessary, otherwise INDEXED_TYPE is
-   return unchanged.
-   As a side effect, it also makes sure that ARRAY_NODE is an array.  */
+   return unchanged.  */
 
 static tree
 build_java_check_indexed_type (tree array_node, tree indexed_type)
 {
   tree elt_type;
 
+  /* We used to check to see if ARRAY_NODE really had array type.
+     However, with the new verifier, this is not necessary, as we know
+     that the object will be an array of the appropriate type.  */
+
+  if (flag_new_verifier)
+    return indexed_type;
+
   if (!is_array_type_p (TREE_TYPE (array_node)))
     abort ();
 
   elt_type = (TYPE_ARRAY_ELEMENT (TREE_TYPE (TREE_TYPE (array_node))));
 
-  if (indexed_type == ptr_type_node )
-      return promote_type (elt_type);
+  if (indexed_type == ptr_type_node)
+    return promote_type (elt_type);
 
   /* BYTE/BOOLEAN store and load are used for both type */
-  if (indexed_type == byte_type_node && elt_type == boolean_type_node )
+  if (indexed_type == byte_type_node && elt_type == boolean_type_node)
     return boolean_type_node;
 
   if (indexed_type != elt_type )
@@ -1172,7 +1213,22 @@ expand_java_arraystore (tree rhs_type_node)
 				 && TYPE_PRECISION (rhs_type_node) <= 32) ? 
 				 int_type_node : rhs_type_node);
   tree index = pop_value (int_type_node);
-  tree array = pop_value (ptr_type_node);
+  tree array_type, array;
+
+  if (flag_new_verifier)
+    {
+      /* If we're processing an `aaload' we might as well just pick
+	 `Object'.  */
+      if (TREE_CODE (rhs_type_node) == POINTER_TYPE)
+	array_type = build_java_array_type (object_ptr_type_node, -1);
+      else
+	array_type = build_java_array_type (rhs_type_node, -1);
+    }
+  else
+    array_type = ptr_type_node;
+  array = pop_value (array_type);
+  if (flag_new_verifier)
+    array = build1 (NOP_EXPR, promote_type (array_type), array);
 
   rhs_type_node    = build_java_check_indexed_type (array, rhs_type_node);
 
@@ -1199,25 +1255,42 @@ expand_java_arraystore (tree rhs_type_node)
 */
 
 static void
-expand_java_arrayload (tree lhs_type_node )
+expand_java_arrayload (tree lhs_type_node)
 {
   tree load_node;
   tree index_node = pop_value (int_type_node);
-  tree array_node = pop_value (ptr_type_node);
+  tree array_type;
+  tree array_node;
+
+  if (flag_new_verifier)
+    {
+      /* If we're processing an `aaload' we might as well just pick
+	 `Object'.  */
+      if (TREE_CODE (lhs_type_node) == POINTER_TYPE)
+	array_type = build_java_array_type (object_ptr_type_node, -1);
+      else
+	array_type = build_java_array_type (lhs_type_node, -1);
+    }
+  else
+    array_type = ptr_type_node;
+  array_node = pop_value (array_type);
+  if (flag_new_verifier)
+    array_node = build1 (NOP_EXPR, promote_type (array_type), array_node);
 
   index_node = save_expr (index_node);
   array_node = save_expr (array_node);
-  
+
   if (TREE_TYPE (array_node) == ptr_type_node)
     /* The only way we could get a node of type ptr_type_node at this
-       point is `aconst_null; arraylength' or something equivalent, so
-       unconditionally throw NullPointerException.  */    
+      point is `aconst_null; arraylength' or something equivalent, so
+       unconditionally throw NullPointerException.  */
     load_node = build3 (CALL_EXPR, lhs_type_node, 
 			build_address_of (soft_nullpointer_node),
 			NULL_TREE, NULL_TREE);
   else
     {
-      lhs_type_node = build_java_check_indexed_type (array_node, lhs_type_node);
+      lhs_type_node = build_java_check_indexed_type (array_node,
+						     lhs_type_node);
       load_node = build_java_arrayaccess (array_node,
 					  lhs_type_node,
 					  index_node);
@@ -1901,9 +1974,17 @@ pop_arguments (tree arg_types)
       tree tail = pop_arguments (TREE_CHAIN (arg_types));
       tree type = TREE_VALUE (arg_types);
       tree arg = pop_value (type);
-      if (targetm.calls.promote_prototypes (type)
-	  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
-	  && INTEGRAL_TYPE_P (type))
+
+      /* With the new verifier we simply cast each argument to its
+	 proper type.  This is needed since we lose type information
+	 coming out of the verifier.  We also have to do this with the
+	 old verifier when we pop an integer type that must be
+	 promoted for the function call.  */
+      if (flag_new_verifier && TREE_CODE (type) == POINTER_TYPE)
+	arg = build1 (NOP_EXPR, type, arg);
+      else if (targetm.calls.promote_prototypes (type)
+	       && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node)
+	       && INTEGRAL_TYPE_P (type))
 	arg = convert (integer_type_node, arg);
       return tree_cons (NULL_TREE, arg, tail);
     }
@@ -2075,9 +2156,9 @@ invoke_build_dtable (int is_invoke_interface, tree arg_list)
      argument is an array then get the dispatch table of the class
      Object rather than the one from the objectref.  */
   objectref = (is_invoke_interface 
-	       && is_array_type_p (TREE_TYPE (TREE_VALUE (arg_list))) ?
-	       object_type_node : TREE_VALUE (arg_list));
-  
+	       && is_array_type_p (TREE_TYPE (TREE_VALUE (arg_list)))
+	       ? build_class_ref (object_type_node) : TREE_VALUE (arg_list));
+
   if (dtable_ident == NULL_TREE)
     dtable_ident = get_identifier ("vtable");
   dtable = build_java_indirect_ref (object_type_node, objectref, 
@@ -2238,7 +2319,8 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
 {
   tree method_signature
     = COMPONENT_REF_SIGNATURE(&current_jcf->cpool, method_ref_index);
-  tree method_name = COMPONENT_REF_NAME (&current_jcf->cpool, method_ref_index);
+  tree method_name = COMPONENT_REF_NAME (&current_jcf->cpool,
+					 method_ref_index);
   tree self_type
     = get_class_constant (current_jcf,
                           COMPONENT_REF_CLASS_INDEX(&current_jcf->cpool,
@@ -2262,10 +2344,20 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
   else
     method = lookup_java_method (self_type, method_name, method_signature);
 
-  /* We've found a method in an interface, but this isn't an interface call.  */
+  /* We've found a method in an interface, but this isn't an interface
+     call.  */
   if (opcode != OPCODE_invokeinterface
       && method
       && (CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method)))))
+    method = NULL_TREE;
+
+  /* We've found a non-interface method but we are making an
+     interface call.  This can happen if the interface overrides a
+     method in Object.  */
+  if (! flag_verify_invocations
+      && opcode == OPCODE_invokeinterface
+      && method
+      && ! CLASS_INTERFACE (TYPE_NAME (DECL_CONTEXT (method))))
     method = NULL_TREE;
 
   if (method == NULL_TREE)
@@ -2287,7 +2379,8 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
 	      flags |= ACC_INTERFACE;
 	      CLASS_INTERFACE (TYPE_NAME (self_type)) = 1;
 	    }
-	  method = add_method (self_type, flags, method_name, method_signature);
+	  method = add_method (self_type, flags, method_name,
+			       method_signature);
 	  DECL_ARTIFICIAL (method) = 1;
 	  METHOD_DUMMY (method) = 1;
 	  layout_class_method (self_type, NULL,
@@ -2323,6 +2416,9 @@ expand_invoke (int opcode, int method_ref_index, int nargs ATTRIBUTE_UNUSED)
 
   if (method == NULL_TREE)
     {
+      /* If we got here, we emitted an error message above.  So we
+	 just pop the arguments, push a properly-typed zero, and
+	 continue.  */
       method_type = get_type_from_signature (method_signature);
       pop_arguments (TYPE_ARG_TYPES (method_type));
       if (opcode != OPCODE_invokestatic) 
@@ -2992,8 +3088,14 @@ process_jvm_instruction (int PC, const unsigned char* byte_ops,
      replace the top of the stack with the thrown object reference */
   if (instruction_bits [PC] & BCODE_EXCEPTION_TARGET)
     {
-      tree type = pop_type (promote_type (throwable_type_node));
-      push_value (build_exception_object_ref (type));
+      /* Note that the new verifier will not emit a type map at all
+	 for dead exception handlers.  In this case we just ignore
+	 the situation.  */
+      if (! flag_new_verifier || (instruction_bits[PC] & BCODE_VERIFIED) != 0)
+	{
+	  tree type = pop_type (promote_type (throwable_type_node));
+	  push_value (build_exception_object_ref (type));
+	}
     }
 
   switch (byte_ops[PC++])

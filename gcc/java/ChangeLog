@@ -1,3 +1,23 @@
+2004-11-01  Tom Tromey  <tromey@redhat.com>
+
+	* decl.c (check_local_unnamed_variable): Recognize
+	promoted-to-int parameters when using the new verifier.
+	* expr.c (expand_java_arraystore): Explicitly request array type
+	when using new verifier.
+	(expand_java_arrayload): Likewise.
+	(invoke_build_dtable): Don't pass object_type_node as
+	expression argument to build_java_indirect_ref.
+	(build_java_check_indexed_type): Do nothing.
+	(build_java_arraystore_check): Handle case where array doesn't
+	have array type.
+	(build_java_array_length_access): Likewise.
+	(expand_invoke): Handle case where interface overrides a method
+	from Object.
+	(pop_type_0): Always succeed for reference types.
+	(process_jvm_instruction): Don't pop a value in a dead
+	exception handler.
+	(pop_arguments): Convert arguments to correct types.
+
 2004-10-29  Andrew Haley  <aph@redhat.com>
 
 	* jcf-parse.c (give_name_to_class): Remove line that was
