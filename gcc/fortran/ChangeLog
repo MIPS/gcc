@@ -1,3 +1,7 @@
+2003-12-01  Feng Wang  <fengwang@nudt.edu.cn>
+
+	* io.c (gfc_match_format): Check for missing format label.
+
 2003-11-30 Huang Chun <chunhuang73@hotmail.com>
 
 	PR fortran/13155

@@ -771,6 +771,11 @@ gfc_match_format (void)
   gfc_expr *e;
   locus start;
 
+  if (gfc_statement_label == NULL)
+    {
+      gfc_error ("Missing format label at %C");
+      return MATCH_ERROR;
+    }
   gfc_gobble_whitespace ();
 
   mode = MODE_FORMAT;
