@@ -197,7 +197,14 @@ _Jv_ResolvePoolEntry (jclass klass, int index)
 		}
 	      else
 		{
-		  throw new java::lang::IllegalAccessError;
+		  java::lang::StringBuffer *sb = new java::lang::StringBuffer();
+		  sb->append(JvNewStringLatin1("class "));
+		  sb->append(klass->getName());
+		  sb->append(JvNewStringLatin1(" trying to access field "));
+		  sb->append(owner->getName());
+		  sb->append(JvNewStringLatin1("."));
+		  sb->append(_Jv_NewStringUTF(field_name->data));
+		  throw new java::lang::IllegalAccessError (sb->toString());
 		}
 	    }
 	}
@@ -364,7 +371,14 @@ _Jv_SearchMethodInClass (jclass cls, jclass klass,
 	}
       else
 	{
-	  throw new java::lang::IllegalAccessError;
+	  java::lang::StringBuffer *sb = new java::lang::StringBuffer();
+	  sb->append(JvNewStringLatin1("class "));
+	  sb->append(klass->getName());
+	  sb->append(JvNewStringLatin1(" trying to access method "));
+	  sb->append(cls->getName());
+	  sb->append(JvNewStringLatin1("."));
+	  sb->append(_Jv_NewStringUTF(method_name->data));
+  	  throw new java::lang::IllegalAccessError (sb->toString());
 	}
     }
   return 0;
