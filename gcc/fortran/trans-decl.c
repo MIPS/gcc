@@ -794,7 +794,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       break;
 
     case BT_DERIVED:
-      if (sym->value)
+      if (sym->value && ! (sym->attr.use_assoc || sym->attr.dimension))
         {
           gfc_init_se (&se, NULL);
           gfc_conv_expr (&se, sym->value);

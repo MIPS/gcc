@@ -1,3 +1,8 @@
+2003-09-14  Paul Brook  <paul@nowt.org>
+
+	* trans-array.c (gfc_conv_array_initializer): Handle derived types.
+	* trans-decl.c (gfc_get_symbol_decl): Only do local scalar values.
+
 2003-09-12  Paul Brook  <paul@nowt.org>
 
 	* trans-intrinsic.c (gfc_conv_intrinsic_sign): Call fold.

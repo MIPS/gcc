@@ -2677,12 +2677,14 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
   unsigned HOST_WIDE_INT lo;
 
   list = NULL_TREE;
-  /* TODO: Initialization of derived type arrays.  */
-  if (expr->expr_type == EXPR_CONSTANT)
+  switch (expr->expr_type)
     {
-      /* A single scalar value.  */
+    case EXPR_CONSTANT:
+    case EXPR_STRUCTURE:
+      /* A single scalar or derived type value.  Create an array with all
+         elements equal to that value.  */
       gfc_init_se (&se, NULL);
-      gfc_conv_constant (&se, expr);
+      gfc_conv_expr (&se, expr);
 
       tmp = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
       assert (tmp && INTEGER_CST_P (tmp));
@@ -2699,9 +2701,9 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
             hi--;
           lo--;
         }
-    }
-  else if (expr->expr_type == EXPR_ARRAY)
-    {
+      break;
+
+    case EXPR_ARRAY:
       /* Create a list of all the elements.  */
       for (c = expr->value.constructor; c; c = c->next)
         {
@@ -2713,17 +2715,30 @@ gfc_conv_array_initializer (tree type, gfc_expr * expr)
               internal_error
                 ("Possible frontend bug: array constructor not expanded");
             }
-          assert (c->expr->expr_type == EXPR_CONSTANT);
 
           gfc_init_se (&se, NULL);
-          gfc_conv_constant (&se, c->expr);
+	  switch (c->expr->expr_type)
+	    {
+	    case EXPR_CONSTANT:
+	      gfc_conv_constant (&se, c->expr);
+	      break;
+
+	    case EXPR_STRUCTURE:
+	      gfc_conv_expr (&se, c->expr);
+	      break;
+
+	    default:
+	      abort();
+	    }
           list = tree_cons (NULL_TREE, se.expr, list);
         }
       /* We created the list in reverse order.  */
       list = nreverse (list);
+      break;
+
+    default:
+      abort();
     }
-  else
-    abort();
 
   /* Create a constructor from the list of elements.  */
   tmp = build1 (CONSTRUCTOR, type, list);
