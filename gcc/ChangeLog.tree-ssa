@@ -1,3 +1,8 @@
+2003-01-07  Steven Bosscher  <s.bosscher@student.tudelft.nl>
+
+	* Makefile.in (check-g95): New test target.
+	(check-f95): Alias for check-g95.
+
 2003-01-07  Diego Novillo  <dnovillo@redhat.com>
 
 	* tree-dump.c (dump_function_to_file): New function.
