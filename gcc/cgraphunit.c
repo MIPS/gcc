@@ -180,6 +180,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "ggc.h"
 #include "debug.h"
 #include "target.h"
+#include "basic-block.h"
+#include "tree-iterator.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "timevar.h"
@@ -188,6 +190,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "c-common.h"
 #include "intl.h"
 #include "function.h"
+#include "tree-flow.h"
+#include "value-prof.h"
+#include "coverage.h"
+#include "except.h"
 #include "ipa_prop.h"
 #include "tree-gimple.h"
 #include "output.h"
@@ -208,6 +214,7 @@ static int ncalls_inlined;
 static int nfunctions_inlined;
 static int initial_insns;
 static int overall_insns;
+static HOST_WIDEST_INT max_insns;
 
 /* Records tree nodes seen in cgraph_create_edges.  Simply using
    walk_tree_without_duplicates doesn't guarantee each node is visited
@@ -296,6 +303,37 @@ decide_is_function_needed (struct cgraph_node *node, tree decl)
     return true;
 
   return false;
+}
+
+/* If the compilation has progressed this far for function FN,
+   it's time to build the CFG for it.
+   FIXME: this function causes a lot of includes to be needed.
+   Is there a better place for it?  */
+
+void 
+cgraph_build_cfg (tree fn)
+{
+  if (!DECL_STRUCT_FUNCTION (fn)->cfg->x_entry_block_ptr)
+    {
+      tree saved_current_function_decl = current_function_decl;
+      current_function_decl = fn;
+      push_cfun (DECL_STRUCT_FUNCTION (fn));
+      lower_function_body ();
+      lower_eh_constructs ();
+      build_tree_cfg (&DECL_SAVED_TREE (fn));
+      if (flag_tree_based_profiling
+	  && (profile_arc_flag || flag_test_coverage 
+	      || flag_branch_probabilities))
+	{
+	  tree_register_profile_hooks ();
+	  branch_prob ();
+	  coverage_end_function ();
+	}
+      current_function_decl = saved_current_function_decl;
+      pop_cfun ();
+    }
+  else
+    gcc_unreachable ();
 }
 
 /* When not doing unit-at-a-time, output all functions enqueued.
@@ -505,6 +543,18 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
         if (flag_ipa_cp && decl == NULL_TREE)
           flag_ipa_cp = 0;
 	break;
+
+      case STATEMENT_LIST:
+	{
+	  tree_stmt_iterator tsi;
+	  /* Track current statement while finding CALL_EXPRs.  */
+	  for (tsi = tsi_start (*tp); !tsi_end_p (tsi); tsi_next (&tsi))
+	    {
+	      walk_tree (tsi_stmt_ptr (tsi), record_call_1, data,
+			 visited_nodes);
+	    }
+	}
+	break;
       }
 
     default:
@@ -529,10 +579,50 @@ record_call_1 (tree *tp, int *walk_subtrees, void *data)
 void
 cgraph_create_edges (struct cgraph_node *node, tree body)
 {
+
   /* The nodes we're interested in are never shared, so walk
      the tree ignoring duplicates.  */
   visited_nodes = pointer_set_create ();
-  walk_tree (&body, record_call_1, node, visited_nodes);
+
+  if (TREE_CODE (body) == FUNCTION_DECL)
+    {
+      struct function *this_cfun = DECL_STRUCT_FUNCTION (body);
+      basic_block this_block;
+      tree step;
+
+      /* Reach the trees by walking over the CFG, and note the 
+	 enclosing basic-blocks in the call edges.  */
+      FOR_EACH_BB_FN (this_block, this_cfun)
+	{
+	  node->current_basic_block = this_block;
+	  walk_tree (&this_block->stmt_list, record_call_1, node, visited_nodes);
+	}
+      node->current_basic_block = (basic_block)0;
+
+      /* Walk over any private statics that may take addresses of functions.  */
+      if (TREE_CODE (DECL_INITIAL (body)) == BLOCK)
+	{
+	  for (step = BLOCK_VARS (DECL_INITIAL (body));
+	       step;
+	       step = TREE_CHAIN (step))
+	    if (DECL_INITIAL (step))
+	      walk_tree (&DECL_INITIAL (step), record_call_1, node, visited_nodes);
+	}
+
+      /* Also look here for private statics.  */
+      if (DECL_STRUCT_FUNCTION (body))
+	for (step = DECL_STRUCT_FUNCTION (body)->unexpanded_var_list;
+	     step;
+	     step = TREE_CHAIN (step))
+	  {
+	    tree decl = TREE_VALUE (step);
+	    if (DECL_INITIAL (decl) && TREE_STATIC (decl))
+	      walk_tree (&DECL_INITIAL (decl), record_call_1, node, visited_nodes);
+	  }
+    }
+  else
+    walk_tree (&body, record_call_1, node, visited_nodes);
+    
   pointer_set_destroy (visited_nodes);
   visited_nodes = NULL;
 }
@@ -590,6 +680,9 @@ verify_cgraph_node (struct cgraph_node *node)
 {
   struct cgraph_edge *e;
   struct cgraph_node *main_clone;
+  tree decl = node->decl;
+  struct function *this_cfun = DECL_STRUCT_FUNCTION (decl);
+  basic_block this_block;
 
   timevar_push (TV_CGRAPH_VERIFY);
   error_found = false;
@@ -649,8 +742,24 @@ verify_cgraph_node (struct cgraph_node *node)
       && DECL_SAVED_TREE (node->decl) && !TREE_ASM_WRITTEN (node->decl)
       && (!DECL_EXTERNAL (node->decl) || node->global.inlined_to))
     {
-      walk_tree_without_duplicates (&DECL_SAVED_TREE (node->decl),
-				    verify_cgraph_node_1, node);
+      if (this_cfun->cfg->x_entry_block_ptr)
+	{
+	  /* The nodes we're interested in are never shared, so walk
+	     the tree ignoring duplicates.  */
+	  visited_nodes = pointer_set_create ();
+	  /* Reach the trees by walking over the CFG, and note the
+	     enclosing basic-blocks in the call edges.  */
+	  FOR_EACH_BB_FN (this_block, this_cfun)
+	    {
+	      walk_tree (&this_block->stmt_list, verify_cgraph_node_1, node, visited_nodes);
+	    }
+	  pointer_set_destroy (visited_nodes);
+	  visited_nodes = NULL;
+	}
+      else
+	/* No CFG available?!  */
+	gcc_unreachable ();
+
       for (e = node->callees; e; e = e->next_callee)
 	{
 	  if (!e->aux)
@@ -698,7 +807,8 @@ cgraph_varpool_analyze_pending_decls (void)
       cgraph_varpool_first_unanalyzed_node->analyzed = true;
       ipa_analyze_variable (cgraph_varpool_first_unanalyzed_node);
       cgraph_varpool_first_unanalyzed_node = cgraph_varpool_first_unanalyzed_node->next_needed;
-      cgraph_create_edges (NULL, DECL_INITIAL (decl));
+      if (DECL_INITIAL (decl))
+	cgraph_create_edges (NULL, DECL_INITIAL (decl));
       changed = true;
     }
   return changed;
@@ -743,8 +853,10 @@ cgraph_analyze_function (struct cgraph_node *node)
 
   current_function_decl = decl;
 
+  cgraph_build_cfg (decl);
+
   /* First kill forward declaration so reverse inlining works properly.  */
-  cgraph_create_edges (node, DECL_SAVED_TREE (decl));
+  cgraph_create_edges (node, decl);
 
   /* Only optimization we do in non-unit-at-a-time mode is inlining.  We don't
      use the passmanager then and instead call it directly.  Since we probably
@@ -924,6 +1036,9 @@ cgraph_expand_function (struct cgraph_node *node)
 
   if (flag_unit_at_a_time)
     announce_function (decl);
+
+  /* Must have a CFG here at this point.  */
+  gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (node->decl)));
 
   /* Generate RTL for the body of DECL.  */
   lang_hooks.callgraph.expand_function (decl);
@@ -1132,7 +1247,9 @@ static int
 cgraph_estimate_size_after_inlining (int times, struct cgraph_node *to,
 				     struct cgraph_node *what)
 {
-  return (what->global.insns - INSNS_PER_CALL) * times + to->global.insns;
+  /* Avoid negative size estimates when (what->global_insns < INSNS_PER_CALL).  */
+  /* ??? FIXME: This should never happen, add gcc_abort here.  */
+  return MAX (what->global.insns - INSNS_PER_CALL, 0) * times + to->global.insns;
 }
 
 /* Estimate the growth caused by inlining NODE into all callees.  */
@@ -1157,15 +1274,21 @@ cgraph_estimate_growth (struct cgraph_node *node)
   return growth;
 }
 
+static struct cgraph_node *already_cloned;
+
 /* E is expected to be an edge being inlined.  Clone destination node of
    the edge and redirect it to the new clone.
    DUPLICATE is used for bookkeeping on whether we are actually creating new
    clones or re-using node originally representing out-of-line function call.
    */
-void
-cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
+static void
+cgraph_clone_inlined_nodes_1 (struct cgraph_edge *e, bool duplicate)
 {
-  struct cgraph_node *n;
+  struct cgraph_node *n = e->callee;
+  struct cgraph_edge *step_edge;
+
+  if (e->callee->aux)
+    abort();
 
   /* We may eliminate the need for out-of-line copy to be output.  In that
      case just go ahead and re-use it.  */
@@ -1181,19 +1304,45 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
     }
    else if (duplicate)
     {
+      e->callee->aux = already_cloned;
+      already_cloned = e->callee;
       n = cgraph_clone_node (e->callee);
       cgraph_redirect_edge_callee (e, n);
     }
 
   if (e->caller->global.inlined_to)
-    e->callee->global.inlined_to = e->caller->global.inlined_to;
+    n->global.inlined_to = e->caller->global.inlined_to;
   else
-    e->callee->global.inlined_to = e->caller;
+    n->global.inlined_to = e->caller;
 
-  /* Recursively clone all bodies.  */
-  for (e = e->callee->callees; e; e = e->next_callee)
-    if (!e->inline_failed)
-      cgraph_clone_inlined_nodes (e, duplicate);
+  /* Recursively clone all bodies.  Non-zero aux means we've handled
+     this edge already; skip it to avoid confusing ourselves.  */
+  for (step_edge = n->callees; step_edge; step_edge = step_edge->next_callee)
+    if (!step_edge->inline_failed && !step_edge->callee->aux)
+      cgraph_clone_inlined_nodes_1 (step_edge, duplicate);
+}
+
+/* E is expected to be an edge being inlined.  Clone destination node of
+   the edge and redirect it to the new clone.
+   DUPLICATE is used for bookeeping on whether we are actually creating new
+   clones or re-using node originally representing out-of-line function call.
+   */
+void
+cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate)
+{
+  struct cgraph_node *next_node;
+  struct cgraph_node *step_node;
+  struct cgraph_node end_node;        /* A non-NULL end-of-chain marker.  */
+  
+  end_node.aux = (struct cgraph_node *)0;
+  already_cloned = &end_node;
+  cgraph_clone_inlined_nodes_1 (e, duplicate);
+  for (step_node = already_cloned; step_node != &end_node; step_node = next_node)
+    {
+      next_node = step_node->aux;
+      step_node->aux = (struct cgraph_node *)0;
+    }
+  already_cloned = (struct cgraph_node *)0;
 }
 
 /* Mark edge E as inlined and update callgraph accordingly.  */
@@ -1203,6 +1352,7 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
 {
   int old_insns = 0, new_insns = 0;
   struct cgraph_node *to = NULL, *what;
+  bool simple_recursion = (e->callee == e->caller);
 
   gcc_assert (e->inline_failed);
   e->inline_failed = NULL;
@@ -1214,6 +1364,19 @@ cgraph_mark_inline_edge (struct cgraph_edge *e)
   cgraph_clone_inlined_nodes (e, true);
 
   what = e->callee;
+  if (simple_recursion)
+    {
+      struct cgraph_edge* e2;
+      /* New edge from original to copy should be marked !inline_failed, but
+	 edge(s) back from copy to original (which we just created by
+	 cloning the original->copy edge) should not be.  Indirect
+	 recursion doesn't have the problem. */
+      for (e2 = what->callees; e2; e2 = e2->next_callee)
+	if (e2->callee == e->caller)
+	  e2->inline_failed = N_("function not considered for inlining");
+    }
+
+  /* Install the just-cloned cgraph_node on the list.  */
 
   /* Now update size of caller and all functions caller is inlined into.  */
   for (;e && !e->inline_failed; e = e->caller->callers)
@@ -1466,6 +1629,125 @@ cgraph_set_inline_failed (struct cgraph_node *node, const char *reason)
       e->inline_failed = reason;
 }
 
+/* Given a call graph edge EDGE, return the "desirability" for inlining
+   the callee into the caller.
+   The desirability of a function body or a CALL_EXPR is a unit-less
+   measure of how beneficial it would be to inline.  Generally, smaller
+   bodies are more desirable, and CALL_EXPRs with higher block-counts are
+   more desirable.  This function computes the "desirability" of a
+   function body.  */
+
+static gcov_type
+cgraph_desirability (struct cgraph_edge *edge)
+{
+  HOST_WIDEST_INT desire;
+  HOST_WIDEST_INT denominator;
+  struct cgraph_node *callee = edge->callee;
+  
+  if (!callee->local.inlinable)
+    return 0;
+  
+  if (callee->local.disregard_inline_limits)
+    return BB_FREQ_MAX;
+  
+  /* FIXME: Ideally we'd replace this with a more sophisticated
+     "temperature" sort of metric.  */
+  denominator = callee->local.self_insns + callee->insn_growth;
+  if (denominator)
+    desire = edge->count / denominator;
+  else
+    desire = 0;
+  return desire;
+}
+
+/* Given a caller represented by NODE, find the edge that points to the
+   callee that is the most desirable to inline in the caller.  */
+
+static struct cgraph_edge *
+cgraph_pick_most_desirable_edge (struct cgraph_node *node)
+{
+  struct cgraph_edge *step_edge;
+  struct cgraph_edge *most_desirable_edge;
+  HOST_WIDEST_INT highest_desire;
+  
+  highest_desire = 0;
+  most_desirable_edge = (struct cgraph_edge *)0;
+  for (step_edge = node->callees;
+       step_edge;
+       step_edge = step_edge->next_callee)
+    {
+      if (step_edge->inline_failed
+	  && (step_edge->desirability > highest_desire))
+	{
+	  highest_desire = step_edge->desirability;
+	  most_desirable_edge = step_edge;
+	}
+    }
+  return most_desirable_edge;
+}
+
+/* Decide what to inline using profile information.
+   ???  Needs more explaining, htf does this work?!
+   ???  This algorithm i *way* too expensive, can be done
+	much cheaper, no doubt.  */
+
+static void
+cgraph_profile_driven_inlining (void)
+{
+  struct cgraph_node *step_node;
+  struct cgraph_edge *step_edge;
+  HOST_WIDEST_INT highest_desire;
+  struct cgraph_edge *most_desirable_edge;
+  struct cgraph_node *most_desirable_node;
+  
+  /* Pass 1: compute desirability of all CALL_EXPRs.  */
+  for (step_node = cgraph_nodes;
+       step_node;
+       step_node = step_node->next)
+    {
+      highest_desire = 0;
+      most_desirable_edge = (struct cgraph_edge *)0;
+      for (step_edge = step_node->callees;
+	   step_edge;
+	   step_edge = step_edge->next_callee)
+	{
+	  step_edge->desirability = cgraph_desirability (step_edge);
+	  if (step_edge->desirability > highest_desire)
+	    {
+	      highest_desire = step_edge->desirability;
+	      most_desirable_edge = step_edge;
+	    }
+	}
+      step_node->most_desirable = most_desirable_edge;
+    }
+  /* Pass 2: pick edges to inline.  */
+  while (overall_insns <= max_insns)
+    {
+      highest_desire = 0;
+      most_desirable_node = (struct cgraph_node *)0;
+      for (step_node = cgraph_nodes;
+	   step_node;
+	   step_node = step_node->next)
+	{
+	  if (step_node->most_desirable
+	      && (step_node->most_desirable->desirability > highest_desire))
+	    {
+	      highest_desire = step_node->most_desirable->desirability;
+	      most_desirable_node = step_node;
+	    }
+	}
+      /* If we found a suitable CALL_EXPR, record our choice, else
+	 abandon the search.  */
+      if (most_desirable_node)
+	{
+	  cgraph_mark_inline_edge (most_desirable_node->most_desirable);
+	  most_desirable_node->most_desirable = cgraph_pick_most_desirable_edge (most_desirable_node);
+	}
+      else
+        break;
+    }
+}
+
 /* We use greedy algorithm for inlining of small functions:
    All inline candidates are put into prioritized heap based on estimated
    growth of the overall number of instructions and then update the estimates.
@@ -1480,8 +1762,6 @@ cgraph_decide_inlining_of_small_functions (void)
   fibheap_t heap = fibheap_new ();
   struct fibnode **heap_node =
     xcalloc (cgraph_max_uid, sizeof (struct fibnode *));
-  int max_insns = ((HOST_WIDEST_INT) initial_insns
-		   * (100 + PARAM_VALUE (PARAM_INLINE_UNIT_GROWTH)) / 100);
 
   /* Put all inline candidates into the heap.  */
 
@@ -1590,6 +1870,9 @@ cgraph_decide_inlining (void)
     initial_insns += node->local.self_insns;
   overall_insns = initial_insns;
 
+  max_insns = ((HOST_WIDEST_INT) overall_insns
+	       * (100 + PARAM_VALUE (PARAM_INLINE_UNIT_GROWTH)) / 100);
+
   nnodes = cgraph_postorder (order);
 
   if (dump_file)
@@ -1641,7 +1924,11 @@ cgraph_decide_inlining (void)
 
   if (!flag_really_no_inline)
     {
-      cgraph_decide_inlining_of_small_functions ();
+      /* If we have profiling information, use it to choose inlining candidates.  */
+      if (profile_info)
+	cgraph_profile_driven_inlining ();
+      else
+	cgraph_decide_inlining_of_small_functions ();
 
       if (dump_file)
 	fprintf (dump_file, "\nDeciding on functions called once:\n");
@@ -2084,7 +2371,10 @@ cgraph_build_static_cdtor (char which, tree body, int priority)
 
   /* ??? We will get called LATE in the compilation process.  */
   if (cgraph_global_info_ready)
-    tree_rest_of_compilation (decl);
+    {
+      cgraph_build_cfg (decl);
+      tree_rest_of_compilation (decl);
+    }
   else
     cgraph_finalize_function (decl, 0);
   

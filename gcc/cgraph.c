@@ -92,6 +92,7 @@ The varpool data structure:
 #include "ggc.h"
 #include "debug.h"
 #include "target.h"
+#include "basic-block.h"
 #include "cgraph.h"
 #include "varray.h"
 #include "output.h"
@@ -258,6 +259,8 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
   edge->next_callee = caller->callees;
   caller->callees = edge;
   callee->callers = edge;
+  edge->count = caller->current_basic_block
+    ? caller->current_basic_block->count : 0;
   return edge;
 }
 
@@ -305,13 +308,23 @@ cgraph_remove_node (struct cgraph_node *node)
 {
   void **slot;
   bool check_dead = 1;
+  struct cgraph_node *node2, *node2_next;
 
   while (node->callers)
     cgraph_remove_edge (node->callers);
   while (node->callees)
     cgraph_remove_edge (node->callees);
-  while (node->nested)
-    cgraph_remove_node (node->nested);
+  /* Nested functions can be removed now, provided they are inlined into
+     this function, or are not inlined and do not have their address taken.  */
+  for (node2 = node->nested; node2; )
+    {
+      node2_next = node2->next_nested;
+      if (node2 
+	  && ((!node2->global.inlined_to && !TREE_ADDRESSABLE (node2->decl))
+	      || node2->global.inlined_to == node))
+	cgraph_remove_node (node2);
+      node2 = node2_next;
+    }
   if (node->origin)
     {
       struct cgraph_node **node2 = &node->origin->nested;
@@ -943,4 +956,5 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
     return AVAIL_OVERWRITTABLE;
   return AVAIL_AVAILABLE;
 }
+
 #include "gt-cgraph.h"

@@ -4213,9 +4213,10 @@ extern linkage_kind decl_linkage                (tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
 				      void*, struct pointer_set_t*);
 extern int cp_cannot_inline_tree_fn (tree*);
-extern tree cp_add_pending_fn_decls (void*,tree);
 extern int cp_is_overload_p (tree);
 extern int cp_auto_var_in_fn_p (tree,tree);
+extern tree cp_copy_res_decl_for_inlining (tree, tree, tree, void *,
+					   int *, tree);
 extern void cp_update_decl_after_saving (tree, void *);
 extern tree fold_if_not_in_template             (tree);
 

@@ -2062,26 +2062,6 @@ cp_cannot_inline_tree_fn (tree* fnp)
   return 0;
 }
 
-/* Add any pending functions other than the current function (already
-   handled by the caller), that thus cannot be inlined, to FNS_P, then
-   return the latest function added to the array, PREV_FN.  */
-
-tree
-cp_add_pending_fn_decls (void* fns_p, tree prev_fn)
-{
-  varray_type *fnsp = (varray_type *)fns_p;
-  struct saved_scope *s;
-
-  for (s = scope_chain; s; s = s->prev)
-    if (s->function_decl && s->function_decl != prev_fn)
-      {
-	VARRAY_PUSH_TREE (*fnsp, s->function_decl);
-	prev_fn = s->function_decl;
-      }
-
-  return prev_fn;
-}
-
 /* Determine whether a tree node is an OVERLOAD node.  Used to decide
    whether to copy a node or to preserve its chain when inlining a
    function.  */
@@ -2100,6 +2080,48 @@ cp_auto_var_in_fn_p (tree var, tree fn)
 {
   return (DECL_P (var) && DECL_CONTEXT (var) == fn
 	  && nonstatic_local_decl_p (var));
+}
+
+/* Tell whether a declaration is needed for the RESULT of a function
+   FN being inlined into CALLER or if the top node of target_exprs is
+   to be used.  */
+
+tree
+cp_copy_res_decl_for_inlining (tree result,
+                               tree fn,
+                               tree caller,
+                               void* decl_map_ ATTRIBUTE_UNUSED,
+                               int* need_decl,
+                               tree return_slot_addr)
+{
+  tree var;
+
+  /* If FN returns an aggregate then the caller will always pass the
+     address of the return slot explicitly.  If we were just to
+     create a new VAR_DECL here, then the result of this function
+     would be copied (bitwise) into the variable initialized by the
+     TARGET_EXPR.  That's incorrect, so we must transform any
+     references to the RESULT into references to the target.  */
+
+  /* We should have an explicit return slot iff the return type is
+     TREE_ADDRESSABLE.  See gimplify_aggr_init_expr.  */
+  if (TREE_ADDRESSABLE (TREE_TYPE (result))
+      != (return_slot_addr != NULL_TREE))
+    abort ();
+
+  *need_decl = !return_slot_addr;
+  if (return_slot_addr)
+    {
+      var = build_indirect_ref (return_slot_addr, "");
+      if (! same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (var),
+                                                       TREE_TYPE (result)))
+        abort ();
+    }
+  /* Otherwise, make an appropriate copy.  */
+  else
+    var = copy_decl_for_inlining (result, fn, caller);
+
+  return var;
 }
 
 /* FN body has been duplicated.  Update language specific fields.  */

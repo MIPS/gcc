@@ -57,27 +57,6 @@ bool in_gimple_form;
 /* The root of the compilation pass tree, once constructed.  */
 static struct tree_opt_pass *all_passes, *all_ipa_passes;
 
-/* Pass: dump the gimplified, inlined, functions.  */
-
-static struct tree_opt_pass pass_gimple = 
-{
-  "gimple",				/* name */
-  NULL,					/* gate */
-  NULL, NULL,				/* IPA analysis */
-  NULL,					/* execute */
-  NULL, NULL,				/* IPA modification */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  0,					/* tv_id */
-  0,					/* properties_required */
-  PROP_gimple_any,			/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_dump_func,			/* todo_flags_finish */
-  0					/* letter */
-};
-
 /* Do cleanup_cfg explicitely for first time.  */
 static void 
 execute_cleanup_cfg_pre_optimizing (void)
@@ -372,14 +351,14 @@ init_tree_optimization_passes (void)
 #define NEXT_PASS(PASS)  (p = next_pass_1 (p, &PASS))
 
   p = &all_passes;
-  NEXT_PASS (pass_gimple);
+/*  NEXT_PASS (pass_gimple); */
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
-  NEXT_PASS (pass_lower_cf);
-  NEXT_PASS (pass_lower_eh);
-  NEXT_PASS (pass_build_cfg);
+/*  NEXT_PASS (pass_lower_cf); */
+/*  NEXT_PASS (pass_lower_eh); */
+/*  NEXT_PASS (pass_build_cfg); */
   NEXT_PASS (pass_pre_expand);
-  NEXT_PASS (pass_tree_profile);
+/*  NEXT_PASS (pass_tree_profile); */
   NEXT_PASS (pass_cleanup_cfg);
   NEXT_PASS (pass_init_datastructures);
   NEXT_PASS (pass_all_optimizations);
@@ -405,7 +384,7 @@ init_tree_optimization_passes (void)
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_tail_recursion);
   NEXT_PASS (pass_ch);
-  NEXT_PASS (pass_profile);
+/*  NEXT_PASS (pass_profile); */
   NEXT_PASS (pass_sra);
   NEXT_PASS (pass_rename_ssa_copies);
   NEXT_PASS (pass_dominator);
@@ -451,14 +430,22 @@ init_tree_optimization_passes (void)
 
   p = &all_ipa_passes;
   NEXT_PASS (pass_ipa_inline);
-  NEXT_PASS (pass_ipa_static);
+/* Disabled until this pass can work on low GIMPLE and use the CFG.
+  NEXT_PASS (pass_ipa_static);  */
   *p = NULL;
 
 #undef NEXT_PASS
 
   /* Register the passes with the tree dump code.  */
-  register_dump_files (all_passes, false, 0);
-  register_dump_files (all_ipa_passes, true, 0);
+  /* HACK, PROP_* should go away.  */
+  register_dump_files (all_passes, false, PROP_gimple_any
+					  | PROP_gimple_lcf
+					  | PROP_gimple_leh
+					  | PROP_cfg);
+  register_dump_files (all_ipa_passes, true, PROP_gimple_any
+					     | PROP_gimple_lcf
+					     | PROP_gimple_leh
+					     | PROP_cfg);
 }
 
 static unsigned int last_verified;
@@ -698,6 +685,8 @@ tree_rest_of_compilation (tree fndecl)
 
   gcc_assert (!flag_unit_at_a_time || cgraph_global_info_ready);
 
+  tree_register_cfg_hooks ();
+
   /* Initialize the RTL code for the function.  */
   current_function_decl = fndecl;
   saved_loc = input_location;
@@ -730,7 +719,6 @@ tree_rest_of_compilation (tree fndecl)
 				    &cfun->saved_static_chain_decl);
     }
 
-
   if (!vars_to_rename)
     vars_to_rename = BITMAP_XMALLOC ();
 
@@ -743,8 +731,12 @@ tree_rest_of_compilation (tree fndecl)
     {
       DECL_SAVED_TREE (fndecl) = cfun->saved_tree;
       DECL_ARGUMENTS (fndecl) = cfun->saved_args;
+      cfun->cfg = DECL_STRUCT_FUNCTION (cfun->saved_tree)->cfg;
+      cfun->eh = DECL_STRUCT_FUNCTION (cfun->saved_tree)->eh;
+      cfun->saved_cfg = (struct control_flow_graph *) 0;
+      cfun->saved_tree = NULL_TREE;
+      cfun->saved_args = NULL_TREE;
       cfun->static_chain_decl = cfun->saved_static_chain_decl;
-
       /* When not in unit-at-a-time mode, we must preserve out of line copy
 	 representing node before inlining.  Restore original outgoing edges
 	 using clone we created earlier.  */

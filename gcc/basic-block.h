@@ -402,11 +402,15 @@ struct control_flow_graph GTY(())
 #define FOR_BB_BETWEEN(BB, FROM, TO, DIR) \
   for (BB = FROM; BB != TO; BB = BB->DIR)
 
-#define FOR_EACH_BB(BB) \
-  FOR_BB_BETWEEN (BB, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR, next_bb)
+#define FOR_EACH_BB_FN(BB, FN) \
+  FOR_BB_BETWEEN (BB, (FN)->cfg->x_entry_block_ptr->next_bb, (FN)->cfg->x_exit_block_ptr, next_bb)
 
-#define FOR_EACH_BB_REVERSE(BB) \
-  FOR_BB_BETWEEN (BB, EXIT_BLOCK_PTR->prev_bb, ENTRY_BLOCK_PTR, prev_bb)
+#define FOR_EACH_BB(BB) FOR_EACH_BB_FN (BB, cfun)
+
+#define FOR_EACH_BB_REVERSE_FN(BB, FN) \
+  FOR_BB_BETWEEN (BB, (FN)->cfg->x_exit_block_ptr->prev_bb, (FN)->cfg->x_entry_block_ptr, prev_bb)
+
+#define FOR_EACH_BB_REVERSE(BB) FOR_EACH_BB_REVERSE_FN(BB, cfun)
 
 /* For iterating over insns in basic block.  */
 #define FOR_BB_INSNS(BB, INSN)			\
@@ -433,6 +437,8 @@ extern regset regs_live_at_setjmp;
 
 extern GTY(()) rtx label_value_list;
 
+/* The contents of the current function definition are allocated
+   in this obstack, and all are freed at the end of the function.  */
 extern struct obstack flow_obstack;
 
 /* Indexed by n, gives number of basic block that  (REG n) is used in.

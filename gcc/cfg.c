@@ -79,8 +79,6 @@ init_flow (void)
 {
   static int initialized;
 
-  n_edges = 0;
-
   if (!initialized)
     {
       gcc_obstack_init (&flow_obstack);

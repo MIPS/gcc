@@ -467,6 +467,7 @@ bool sra_type_can_be_decomposed_p (tree);
 /* Location to track pending stmt for edge insertion.  */
 #define PENDING_STMT(e)	((e)->insns.t)
 
+extern void build_tree_cfg (tree *);
 extern void delete_tree_cfg_annotations (void);
 extern void disband_implicit_edges (void);
 extern bool stmt_ends_bb_p (tree);
@@ -493,7 +494,8 @@ extern tree last_and_only_stmt (basic_block);
 extern edge find_taken_edge (basic_block, tree);
 extern void cfg_remove_useless_stmts (void);
 extern edge thread_edge (edge, basic_block);
-extern basic_block label_to_block (tree);
+extern basic_block label_to_block_fn (struct function *, tree);
+#define label_to_block(t) (label_to_block_fn (cfun, t))
 extern void tree_optimize_tail_calls (bool, enum tree_dump_index);
 extern void bsi_insert_on_edge (edge, tree);
 extern basic_block bsi_insert_on_edge_immediate (edge, tree);
@@ -759,6 +761,9 @@ extern bool expr_invariant_in_loop_p (struct loop *loop, tree expr);
 /* In gimplify.c  */
 
 tree force_gimple_operand (tree, tree *, bool, tree);
+
+/* In tree-profile.c */
+extern bool do_tree_profiling (void);
 
 #include "tree-flow-inline.h"
 

@@ -6136,7 +6136,9 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
       return ret ? ret : const0_rtx;
     }
 
-  if (flag_non_call_exceptions)
+  if (flag_non_call_exceptions 
+      || TREE_CODE (exp) == MODIFY_EXPR
+      || TREE_CODE (exp) == RETURN_EXPR)
     {
       rn = lookup_stmt_eh_region (exp);
       /* If rn < 0, then either (1) tree-ssa not used or (2) doesn't throw.  */
@@ -6172,7 +6174,9 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 
   /* If using non-call exceptions, mark all insns that may trap.
      expand_call() will mark CALL_INSNs before we get to this code,
-     but it doesn't handle libcalls, and these may trap.  */
+     but it doesn't handle libcalls, and these may trap.  It will not
+     have marked CALL_INSNs that are under a MODIFY or RETURN, as
+     the hash table entry is based on the outermost stmt not the call.  */
   if (rn >= 0)
     {
       rtx insn;
@@ -6184,7 +6188,8 @@ expand_expr_real (tree exp, rtx target, enum machine_mode tmode,
 		 may_trap_p instruction may throw.  */
 	      && GET_CODE (PATTERN (insn)) != CLOBBER
 	      && GET_CODE (PATTERN (insn)) != USE
-	      && (CALL_P (insn) || may_trap_p (PATTERN (insn))))
+	      && (CALL_P (insn) || 
+		  (flag_non_call_exceptions && may_trap_p (PATTERN (insn)))))
 	    {
 	      REG_NOTES (insn) = alloc_EXPR_LIST (REG_EH_REGION, GEN_INT (rn),
 						  REG_NOTES (insn));

@@ -1146,6 +1146,13 @@ struct tree_vec GTY(())
 				 && VOID_TYPE_P (TREE_TYPE (NODE)) \
 				 && integer_zerop (TREE_OPERAND (NODE, 0)))
 
+/* IN a SAVE_EXPR node.  */
+#define SAVE_EXPR_CONTEXT(NODE) TREE_OPERAND_CHECK_CODE (NODE, SAVE_EXPR, 1)
+#define SAVE_EXPR_RTL(NODE) TREE_RTL_OPERAND_CHECK (NODE, SAVE_EXPR, 2)
+
+#define SAVE_EXPR_NOPLACEHOLDER(NODE) \
+  (SAVE_EXPR_CHECK (NODE)->common.unsigned_flag)
+
 /* In a CONSTRUCTOR node.  */
 #define CONSTRUCTOR_ELTS(NODE) TREE_OPERAND_CHECK_CODE (NODE, CONSTRUCTOR, 0)
 
@@ -2895,6 +2902,7 @@ extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
 extern tree build_complex_type (tree);
+extern tree build_resx (int);
 extern tree array_type_nelts (tree);
 extern bool in_array_bounds_p (tree);
 
@@ -3752,6 +3760,14 @@ extern void gimplify_function_tree (tree);
 extern const char *get_name (tree);
 extern tree unshare_expr (tree);
 extern void sort_case_labels (tree);
+
+/* In gimple-low.c  */
+void lower_function_body (void);
+
+/* In tree-eh.c */
+void duplicate_stmt_eh_region_mapping (struct function *, 
+			    struct function *, tree, tree, bool);
+void lower_eh_constructs (void);
 
 /* If KIND=='I', return a suitable global initializer (constructor) name.
    If KIND=='D', return a suitable global clean-up (destructor) name.  */

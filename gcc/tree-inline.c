@@ -38,16 +38,50 @@ Boston, MA 02111-1307, USA.  */
 #include "pointer-set.h"
 #include "splay-tree.h"
 #include "langhooks.h"
+#include "basic-block.h"
+#include "tree-iterator.h"
 #include "cgraph.h"
 #include "intl.h"
 #include "tree-mudflap.h"
 #include "function.h"
+#include "ggc.h"
+#include "tree-flow.h"
 #include "diagnostic.h"
+#include "except.h"
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
-#include "tree-iterator.h"
 #include "tree-gimple.h"
+
+/* Inlining, Saving, Cloning
+ *
+ * Inlining: a function body is duplicated, but the PARM_DECLs are
+ * remapped into VAR_DECLs, and non-void RETURN_EXPRs become
+ * MODIFY_EXPRs that store to a dedicated returned-value variable.
+ * The duplicated eh_region info of the copy will later be appended 
+ * to the info for the caller; the eh_region info in copied throwing 
+ * statements and RESX_EXPRs is adjusted accordingly.
+ *
+ * Saving: make a semantically-identical copy of the function body.
+ * Necessary when we want to generate code for the body (a destructive
+ * operation), but we expect to need this body in the future (e.g. for
+ * inlining into another function).
+ *
+ * Cloning: (only in C++) We have one body for a con/de/structor, and
+ * multiple function decls, each with a unique parameter list.
+ * Duplicate the body, using the given splay tree; some parameters
+ * will become constants (like 0 or 1).
+ *
+ * All of these will simultaneously lookup any callgraph edges.  If
+ * we're going to inline the duplicated function body, and the given
+ * function has some cloned callgraph nodes (one for each place this
+ * function will be inlined) those callgraph edges will be duplicated.
+ * If we're saving or cloning the body, those callgraph edges will be
+ * updated to point into the new body.  (Note that the original
+ * callgraph node and edge list will not be altered.)
+ *
+ * See the CALL_EXPR handling case in copy_body_r ().
+ */
 
 /* 0 if we should not perform inlining.
    1 if we should expand functions calls inline at the tree level.
@@ -72,30 +106,21 @@ int flag_inline_trees = 0;
 
 typedef struct inline_data
 {
-  /* A stack of the functions we are inlining.  For example, if we are
-     compiling `f', which calls `g', which calls `h', and we are
-     inlining the body of `h', the stack will contain, `h', followed
-     by `g', followed by `f'.  The first few elements of the stack may
-     contain other functions that we know we should not recurse into,
-     even though they are not directly being inlined.  */
-  varray_type fns;
-  /* The index of the first element of FNS that really represents an
-     inlined function.  */
-  unsigned first_inlined_fn;
+  /* FUNCTION_DECL for function being inlined.  */
+  tree callee;
+  /* FUNCTION_DECL for function being inlined into.  */
+  tree caller;
   /* The label to jump to when a return statement is encountered.  If
      this value is NULL, then return statements will simply be
      remapped as return statements, rather than as jumps.  */
   tree ret_label;
   /* The VAR_DECL for the return value.  */
   tree retvar;
+  /* The number of RETURN_EXPRs encountered.  */
+  unsigned int ret_count;
   /* The map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined.  */
   splay_tree decl_map;
-  /* Nonzero if we are currently within the cleanup for a
-     TARGET_EXPR.  */
-  int in_target_cleanup_p;
-  /* A list of the functions current function has inlined.  */
-  varray_type inlined_fns;
   /* We use the same mechanism to build clones that we do to perform
      inlining.  However, there are a few places where we need to
      distinguish between those two situations.  This flag is true if
@@ -103,9 +128,6 @@ typedef struct inline_data
   bool cloning_p;
   /* Similarly for saving function body.  */
   bool saving_p;
-  /* Hash table used to prevent walk_tree from visiting the same node
-     umpteen million times.  */
-  htab_t tree_pruner;
   /* Callgraph node of function we are inlining into.  */
   struct cgraph_node *node;
   /* Callgraph node of currently inlined function.  */
@@ -113,32 +135,50 @@ typedef struct inline_data
   /* Statement iterator.  We need this so we can keep the tree in
      gimple form when we insert the inlined function.   It is not
      used when we are not dealing with gimple trees.  */
-  tree_stmt_iterator tsi;
+  tree_stmt_iterator original_tsi;
+  /* Iterator for walking over a copied function body.  When one
+     statement is rewritten in place (e.g. when a RETURN_EXPR becomes
+     a MODIFY followed by a GOTO), this iterator facilitates
+     modifications on the copied function body.  */
+  tree_stmt_iterator copy_tsi;
+  /* Current BIND_EXPR.  */
+  tree bind_expr;
+  /* copy_body/copy_body_r use this to walk over the blocks of the
+     original callee function body.  */
+  basic_block copy_basic_block;
+  /* optimize_inline_calls() uses this to walks through the basic
+     blocks of the outermost caller function, discovering CALL_EXPRs
+     and replacing them with callee bodies.  */
+  basic_block oic_basic_block;
+  /* Inlined RETURN_EXPRs become GOTOs to this basic_block.  */
+  basic_block return_block;
 } inline_data;
+
+static GTY (()) varray_type eh_dst;
 
 /* Prototypes.  */
 
-/* The approximate number of instructions per statement.  This number
-   need not be particularly accurate; it is used only to make
-   decisions about when a function is too big to inline.  */
-#define INSNS_PER_STMT (10)
-
+static tree declare_return_variable (inline_data *, tree, tree, tree *);
 static tree copy_body_r (tree *, int *, void *);
+static tree copy_cfg_body (inline_data *);
+static tree copy_generic_body (inline_data *);
 static tree copy_body (inline_data *);
-static tree expand_call_inline (tree *, int *, void *);
-static void expand_calls_inline (tree *, inline_data *);
+static bool expand_call_inline (tree *, int *, void *);
+static bool gimple_expand_calls_inline (tree *, inline_data *);
 static bool inlinable_function_p (tree);
 static tree remap_decl (tree, inline_data *);
 static tree remap_type (tree, inline_data *);
 static tree initialize_inlined_parameters (inline_data *, tree,
 					   tree, tree, tree);
 static void remap_block (tree *, inline_data *);
+static tree remap_decl (tree, inline_data *);
 static tree remap_decls (tree, inline_data *);
 static void copy_bind_expr (tree *, int *, inline_data *);
 static tree mark_local_for_remap_r (tree *, int *, void *);
 static void unsave_expr_1 (tree);
 static tree unsave_r (tree *, int *, void *);
 static void declare_inline_vars (tree bind_expr, tree vars);
+static void add_lexical_block (tree, tree);
 
 /* Insert a tree->tree mapping for ID.  Despite the name suggests
    that the trees should be variables, it is used for more than that.  */
@@ -156,21 +196,27 @@ insert_decl_map (inline_data *id, tree key, tree value)
 		       (splay_tree_value) value);
 }
 
-/* Remap DECL during the copying of the BLOCK tree for the function.
-   We are only called to remap local variables in the current function.  */
+/* Remap DECL during the copying of the BLOCK tree for the function.  */
 
 static tree
 remap_decl (tree decl, inline_data *id)
 {
-  splay_tree_node n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
-  tree fn = VARRAY_TOP_TREE (id->fns);
+  splay_tree_node n;
+  tree fn;
 
-  /* See if we have remapped this declaration.  If we didn't already have an
-     equivalent for this declaration, create one now.  */
+  /* We only remap local variables in the current function.  */
+  fn = id->callee;
+
+  /* See if we have remapped this declaration.  */
+
+  n = splay_tree_lookup (id->decl_map, (splay_tree_key) decl);
+
+  /* If we didn't already have an equivalent for this declaration, 
+     create one now.  */
   if (!n)
     {
       /* Make a copy of the variable or label.  */
-      tree t = copy_decl_for_inlining (decl, fn, VARRAY_TREE (id->fns, 0));
+      tree t = copy_decl_for_inlining (decl, fn, id->caller);
 
       /* Remap types, if necessary.  */
       TREE_TYPE (t) = remap_type (TREE_TYPE (t), id);
@@ -183,14 +229,6 @@ remap_decl (tree decl, inline_data *id)
       /* Remap sizes as necessary.  */
       walk_tree (&DECL_SIZE (t), copy_body_r, id, NULL);
       walk_tree (&DECL_SIZE_UNIT (t), copy_body_r, id, NULL);
-
-      /* If fields, do likewise for offset and qualifier.  */
-      if (TREE_CODE (t) == FIELD_DECL)
-	{
-	  walk_tree (&DECL_FIELD_OFFSET (t), copy_body_r, id, NULL);
-	  if (TREE_CODE (DECL_CONTEXT (t)) == QUAL_UNION_TYPE)
-	    walk_tree (&DECL_QUALIFIER (t), copy_body_r, id, NULL);
-	}
 
 #if 0
       /* FIXME handle anon aggrs.  */
@@ -214,6 +252,14 @@ remap_decl (tree decl, inline_data *id)
 	}
 #endif
 
+      /* If we're not saving and we're not cloning, we must be
+	 inlining; if this is a variable (not a label), declare the
+	 remapped variable in the callers' body.  */
+      if (!id->saving_p
+	  && !id->cloning_p
+	  && (TREE_CODE (t) == VAR_DECL
+	      || TREE_CODE (t) == PARM_DECL))
+	declare_inline_vars (id->bind_expr, t);
       /* Remember it, so that if we encounter this local entity
 	 again we can reuse this copy.  */
       insert_decl_map (id, decl, t);
@@ -221,6 +267,13 @@ remap_decl (tree decl, inline_data *id)
     }
 
   return unshare_expr ((tree) n->value);
+}
+
+/* External access for remap_decl ().  */
+tree
+remap_decl_v (tree decl, void *id)
+{
+  return remap_decl (decl, (inline_data *) id);
 }
 
 static tree
@@ -237,9 +290,8 @@ remap_type (tree type, inline_data *id)
   if (node)
     return (tree) node->value;
 
-  /* The type only needs remapping if it's variably modified by a variable
-     in the function we are inlining.  */
-  if (! variably_modified_type_p (type, VARRAY_TOP_TREE (id->fns)))
+  /* The type only needs remapping if it's variably modified.  */
+  if (! variably_modified_type_p (type, id->callee))
     {
       insert_decl_map (id, type, type);
       return type;
@@ -305,6 +357,19 @@ remap_type (tree type, inline_data *id)
         walk_tree (&TYPE_MAX_VALUE (new), copy_body_r, id, NULL);
       return new;
 
+    case POINTER_TYPE:
+      TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
+      TYPE_NEXT_PTR_TO (new) = TYPE_POINTER_TO (t);
+      TYPE_POINTER_TO (t) = new;
+      return new;
+      
+    case REFERENCE_TYPE:
+      TREE_TYPE (new) = t = remap_type (TREE_TYPE (new), id);
+      TYPE_NEXT_REF_TO (new) = TYPE_REFERENCE_TO (t);
+      TYPE_REFERENCE_TO (t) = new;
+      return new;
+
+    case METHOD_TYPE:
     case FUNCTION_TYPE:
       TREE_TYPE (new) = remap_type (TREE_TYPE (new), id);
       walk_tree (&TYPE_ARG_TYPES (new), copy_body_r, id, NULL);
@@ -385,7 +450,7 @@ remap_block (tree *block, inline_data *id)
   /* Remap its variables.  */
   BLOCK_VARS (new_block) = remap_decls (BLOCK_VARS (old_block), id);
 
-  fn = VARRAY_TREE (id->fns, 0);
+  fn = id->caller;
 #if 1
   /* FIXME!  It shouldn't be so hard to manage blocks.  Rebuilding them in
      rest_of_compilation is a good start.  */
@@ -416,15 +481,14 @@ static void
 copy_statement_list (tree *tp)
 {
   tree_stmt_iterator oi, ni;
-  tree new;
+  tree newlist;
 
-  new = alloc_stmt_list ();
-  ni = tsi_start (new);
-  oi = tsi_start (*tp);
-  *tp = new;
-
-  for (; !tsi_end_p (oi); tsi_next (&oi))
+  newlist = alloc_stmt_list ();
+  ni = tsi_start (newlist);
+  for (oi = tsi_start (*tp); !tsi_end_p (oi); tsi_next (&oi))
     tsi_link_after (&ni, tsi_stmt (oi), TSI_NEW_STMT);
+
+  *tp = newlist;
 }
 
 static void
@@ -445,50 +509,54 @@ copy_bind_expr (tree *tp, int *walk_subtrees, inline_data *id)
     BIND_EXPR_VARS (*tp) = remap_decls (BIND_EXPR_VARS (*tp), id);
 }
 
-/* Called from copy_body via walk_tree.  DATA is really an `inline_data *'.  */
+/* Called from copy_body_id via walk_tree.  DATA is really an 
+   `inline_data *'.  */
 
 static tree
 copy_body_r (tree *tp, int *walk_subtrees, void *data)
 {
   inline_data *id = (inline_data *) data;
-  tree fn = VARRAY_TOP_TREE (id->fns);
+  tree fn = id->callee;
 
-#if 0
-  /* All automatic variables should have a DECL_CONTEXT indicating
-     what function they come from.  */
-  if ((TREE_CODE (*tp) == VAR_DECL || TREE_CODE (*tp) == LABEL_DECL)
-      && DECL_NAMESPACE_SCOPE_P (*tp))
-    gcc_assert (DECL_EXTERNAL (*tp) || TREE_STATIC (*tp));
-#endif
+  /* Begin by recognizing trees that we'll completely rewrite for the
+     inlining context.  Our output for these trees is completely
+     different from out input (e.g. RETURN_EXPR is deleted, and morphs
+     into an edge).  Further down, we'll handle trees that get
+     duplicated and/or tweaked.  */
 
   /* If this is a RETURN_EXPR, change it into a MODIFY_EXPR and a
      GOTO_EXPR with the RET_LABEL as its target.  */
   if (TREE_CODE (*tp) == RETURN_EXPR && id->ret_label)
     {
-      tree return_stmt = *tp;
-      tree goto_stmt;
+      tree assignment = TREE_OPERAND (*tp, 0);
 
-      /* Build the GOTO_EXPR.  */
-      tree assignment = TREE_OPERAND (return_stmt, 0);
-      goto_stmt = build1 (GOTO_EXPR, void_type_node, id->ret_label);
       TREE_USED (id->ret_label) = 1;
+      id->ret_count++;
 
       /* If we're returning something, just turn that into an
 	 assignment into the equivalent of the original
-	 RESULT_DECL.  */
-      if (assignment)
+	 RESULT_DECL.  If the "assignment" is just the result decl, 
+	 the result decl has already been set (e.g. a recent "foo (&result_decl,
+	 ...)"); just toss the entire RETURN_EXPR.  */
+      if (assignment && TREE_CODE (assignment) == MODIFY_EXPR)
         {
-	  /* Do not create a statement containing a naked RESULT_DECL.  */
-	  if (TREE_CODE (assignment) == RESULT_DECL)
-	    gimplify_stmt (&assignment);
-
-	  *tp = build (BIND_EXPR, void_type_node, NULL, NULL, NULL);
-	  append_to_statement_list (assignment, &BIND_EXPR_BODY (*tp));
-	  append_to_statement_list (goto_stmt, &BIND_EXPR_BODY (*tp));
-        }
-      /* If we're not returning anything just do the jump.  */
-      else
-	*tp = goto_stmt;
+	      /* Replace the RETURN_EXPR with (a copy of) the
+		 MODIFY_EXPR hangning underneath.  */
+	      *tp = copy_node (assignment);
+	    }
+      else /* Else the RETURN_EXPR returns no value.  */
+	{
+	      /* Since we're not returning anything, just delete the
+		 RETURN_EXPR.  This is spooky, as we're altering a
+		 tree_stmt_iterator owned by our caller, who is using
+		 it to iterate through the statemetns of this
+		 block.  */
+	      tsi_delink (&id->copy_tsi);
+	    }
+      /* If we're working on CFGs, add an outgoing CFG edge to the
+	 return block.  */
+	make_edge (id->copy_basic_block, id->return_block,
+		   EDGE_FALLTHRU);
     }
   /* Local variables and labels need to be replaced by equivalent
      variables.  We don't want to copy static variables; there's only
@@ -506,9 +574,16 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
       *tp = new_decl;
     }
   else if (TREE_CODE (*tp) == STATEMENT_LIST)
-    copy_statement_list (tp);
+    {
+      tree *step_p = tp;
+      for (step_p = tp; step_p && *step_p; step_p = &TREE_CHAIN (*step_p))
+	copy_statement_list (step_p);
+    }
   else if (TREE_CODE (*tp) == SAVE_EXPR)
-    remap_save_expr (tp, id->decl_map, walk_subtrees);
+    remap_save_expr (tp, id->decl_map, id->caller, walk_subtrees);
+  else if (TREE_CODE (*tp) == LABEL_DECL)
+    /* These may need to be remapped for EH handling.  */
+    remap_decl (*tp, id);
   else if (TREE_CODE (*tp) == BIND_EXPR)
     copy_bind_expr (tp, walk_subtrees, id);
   else if (TREE_CODE (*tp) == LABELED_BLOCK_EXPR)
@@ -540,6 +615,9 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
     {
       tree old_node = *tp;
 
+      /* Here we handle trees that are not completely rewritten.
+	 First we detect some inlining-induced bogosities for
+	 discarding.  */
       if (TREE_CODE (*tp) == MODIFY_EXPR
 	  && TREE_OPERAND (*tp, 0) == TREE_OPERAND (*tp, 1)
 	  && (lang_hooks.tree_inlining.auto_var_in_fn_p
@@ -585,8 +663,15 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    }
 	}
 
+      /* Here is the "usual case".  Copy this tree node, and then
+	 tweak some special cases.  */
       copy_tree_r (tp, walk_subtrees, NULL);
+      if (id->bind_expr 
+	  && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (TREE_CODE (*tp))))
+	TREE_BLOCK (*tp) = BIND_EXPR_BLOCK (id->bind_expr);
 
+      /* We're duplicationg a CALL_EXPR.  Find any corresponding
+	 callgraph edges and update or duplicate them.  */
       if (TREE_CODE (*tp) == CALL_EXPR && id->node && get_callee_fndecl (*tp))
 	{
 	  if (id->saving_p)
@@ -594,6 +679,10 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	      struct cgraph_node *node;
               struct cgraph_edge *edge;
 
+	      /* We're saving a copy of the body, so we'll update the
+		 callgraph nodes in place.  Note that we avoid
+		 altering the original callgraph node; we begin with
+		 the first clone.  */
 	      for (node = id->node->next_clone; node; node = node->next_clone)
 		{
 		  edge = cgraph_edge (node, old_node);
@@ -603,14 +692,49 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 	    }
 	  else
 	    {
-              struct cgraph_edge *edge
-		= cgraph_edge (id->current_node, old_node);
+              struct cgraph_edge *edge;
+
+	      /* We're cloning or inlining this body; duplicate the
+		 associate callgraph nodes.  */
+	      edge = cgraph_edge (id->current_node, old_node);
 
 	      if (edge)
 	        cgraph_clone_edge (edge, id->node, *tp);
 	    }
 	}
+      else if (TREE_CODE (*tp) == RESX_EXPR)
+	{
+	  /* If we're inlining (e.g. not saving and not cloning),
+	     adjust the region number of this resume expression.  */
+	  if (!id->saving_p && !id->cloning_p)
+	    {
+	      struct function *outermost_function
+		    = DECL_STRUCT_FUNCTION (id->node->decl);
+	      TREE_OPERAND (*tp, 0) = build_int_cst
+		    (NULL_TREE,
+		     get_eh_last_region_number (outermost_function)
+		     + TREE_INT_CST_LOW (TREE_OPERAND (*tp, 0)));
+	    }
+	}
 
+      if (tree_could_throw_p (*tp))
+	{
+	  /* Add an entry for the copied tree in the EH hashtable.
+	     When saving or cloning, use the hashtable in cfun,
+	     and just copy the EH number.  When inlining, use the
+	     hashtable in the caller, and adjust the region number.
+	     (Note that the EH region table hasn't yet been updated
+	     to reflect the callee's region, so don't look at that.)  */
+	  if (id->saving_p || id->cloning_p)
+	    duplicate_stmt_eh_region_mapping (
+			DECL_STRUCT_FUNCTION (id->callee), cfun,
+			old_node, *tp, 0);
+	  else
+	    duplicate_stmt_eh_region_mapping (
+			DECL_STRUCT_FUNCTION (id->callee),
+			DECL_STRUCT_FUNCTION (id->caller),
+			old_node, *tp, 1);
+	}
       TREE_TYPE (*tp) = remap_type (TREE_TYPE (*tp), id);
 
       /* The copied TARGET_EXPR has never been expanded, even if the
@@ -637,13 +761,284 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
 }
 
 /* Make a copy of the body of FN so that it can be inserted inline in
+   another function.  Walks FN via CFG, returns new fndecl.  */
+
+static tree
+copy_cfg_body (inline_data *id)
+{
+  tree callee_fndecl = id->callee;
+  tree caller_fndecl = id->caller;
+  struct function *caller_cfun = DECL_STRUCT_FUNCTION (caller_fndecl);
+  /* Original cfun for the callee, doesn't change.  */
+  struct function *callee_cfun = DECL_STRUCT_FUNCTION (callee_fndecl);
+   /*	(struct function *)ggc_alloc_cleared (sizeof (struct function)); */
+  /* Copy, built by this function.  */
+  struct function *new_cfun = 
+	(struct function *)ggc_alloc_cleared (sizeof (struct function));
+  /* Place to copy from; when a copy of the function was saved off earlier,
+     use that instead of the main copy.  */
+  struct function *cfun_to_copy = 
+	(struct function *)ggc_alloc_cleared (sizeof (struct function));
+  struct control_flow_graph *new_cfg;
+  basic_block bb;
+  edge old_edge;
+  varray_type new_bb_info;
+  int old_src_index;
+  int old_dest_index;
+  tree new_fndecl;
+  bool saving_or_cloning;
+  tree copy_stmt;
+  tree orig_stmt;
+  tree_stmt_iterator tsi, tsi_copy, tsi_end;
+  int current_bb_index = 0;
+
+  /* Register specific tree functions.  */
+  tree_register_cfg_hooks ();
+
+  /* Must have a CFG here at this point.  */
+  gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (callee_fndecl)));
+
+  *new_cfun = *DECL_STRUCT_FUNCTION (callee_fndecl);
+  *cfun_to_copy = *DECL_STRUCT_FUNCTION (callee_fndecl);
+  new_cfun->decl = new_fndecl = copy_node (callee_fndecl);
+  new_cfg = (struct control_flow_graph *)
+		ggc_alloc_cleared (sizeof (struct control_flow_graph));
+  *new_cfg = *DECL_STRUCT_FUNCTION (callee_fndecl)->cfg;
+  new_cfun->cfg = new_cfg;
+  new_cfun->ib_boundaries_block = (varray_type)0;
+
+  /* If there is a saved_cfg+saved_tree+saved_args lurking in the
+     struct function, a copy of the callee body was saved there, and
+     the 'struct cgraph edge' nodes have been fudged to point into the
+     saved body.  Accordingly, we want to copy that saved body so the
+     callgraph edges will be recognized and cloned properly.  */     
+  if (cfun_to_copy->saved_cfg)
+    {
+      cfun_to_copy->cfg = cfun_to_copy->saved_cfg;
+      cfun_to_copy->eh = cfun_to_copy->saved_eh;
+      DECL_SAVED_TREE (new_fndecl) = cfun_to_copy->saved_tree;
+      DECL_ARGUMENTS (new_fndecl) = cfun_to_copy->saved_args;
+    }
+  DECL_STRUCT_FUNCTION (new_fndecl) = new_cfun;
+  push_cfun (new_cfun);
+
+  /* If saving or cloning a function body, create new basic_block_info
+     and label_to_block_maps.  Otherwise, we're duplicaing a function
+     body for inlining; insert our new blocks and labels into the
+     existing varrays.  */
+  saving_or_cloning = (id->saving_p || id->cloning_p);
+  if (saving_or_cloning)
+    {
+      VARRAY_BB_INIT (basic_block_info, 
+		      VARRAY_SIZE (basic_block_info_for_function (callee_cfun)),
+		      "basic_block_info (copy_body)");
+      VARRAY_BB_INIT (label_to_block_map, 
+		      VARRAY_SIZE (label_to_block_map_for_function (callee_cfun)),
+		      "label_to_block_map (copy_body)");
+      new_bb_info = basic_block_info;
+      last_basic_block = n_basic_blocks = 0;
+    }
+  else	/* Else we're inlining normally.  */
+    {
+      /* create_block() will append new blocks onto the ends of the
+       * callers basic_block_info/label_to_block_map varrays.
+       * basic_block_info will be re-written by compact_blocks() when
+       * we're done inlining into this caller.  */
+      basic_block_info = basic_block_info_for_function (caller_cfun);
+      label_to_block_map = label_to_block_map_for_function (caller_cfun);
+      last_basic_block = last_basic_block_for_function (caller_cfun);
+      n_basic_blocks = n_basic_blocks_for_function (caller_cfun);
+      VARRAY_GENERIC_PTR_NOGC_INIT (new_bb_info,
+		    VARRAY_SIZE (basic_block_info_for_function (callee_cfun)),
+		    "temporary basic_block_info (copy_body)");
+      new_cfun->last_label_uid = caller_cfun->last_label_uid;
+    }
+  /* Duplicate any exception-handling regions.  */
+  if (cfun->eh)
+    {
+      init_eh_for_function ();
+      duplicate_eh_regions (cfun_to_copy, id, true);
+    }
+  n_edges = 0;
+  ENTRY_BLOCK_PTR = ggc_alloc_cleared (sizeof (*ENTRY_BLOCK_PTR));
+  ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
+  EXIT_BLOCK_PTR = ggc_alloc_cleared (sizeof (*EXIT_BLOCK_PTR));
+  EXIT_BLOCK_PTR->index = EXIT_BLOCK;
+  ENTRY_BLOCK_PTR->next_bb = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR->prev_bb = ENTRY_BLOCK_PTR;
+  id->copy_basic_block = ENTRY_BLOCK_PTR;
+
+  /* Standard tree walk doesn't iterate over CFG-built basic_blocks
+     yet.  */
+  FOR_EACH_BB_FN (bb, cfun_to_copy)
+    {
+      /* create_basic_block() will append every new block to
+	 basic_block_info automatically.  */
+      id->copy_basic_block = create_basic_block (bb->stmt_list, 
+			    (void*)0, id->copy_basic_block);
+      /* Number the blocks.  When we duplicate the edges of this
+	 funciton body, we need an easy way to map edges
+	 from the original body into our newly-copied body.  We could
+	 use a hashtable, but unique block indicies are much simpler.
+	 Alas, we cannot expect the blocks to arrive here with
+	 rational indicies.  */
+      /* Note this is a counter-intuitive side effect: making a copy
+	 of a function body will alter the basic-block indices of the
+	 copied body.  */
+      id->copy_basic_block->index = bb->index = current_bb_index;
+      /* If we're saving or cloning, we'll use the basic_block_info
+	 varray.  Otherwise, create a parallel varray here for edge
+	 creation.  */
+      if (!saving_or_cloning)
+	VARRAY_BB (new_bb_info, current_bb_index) = id->copy_basic_block;
+      current_bb_index++;
+      /* We could invoke walk_tree() and have it copy everything below
+	 here, but RETURN_EXPR processing often requires tsi_delink(),
+	 requiring access to the associated active tree_stmt_iterator.
+	 Since the generic tree walk cannot pass down its own
+	 tree_stmt_iterator, we run iteration from here, and pass our
+	 own tree_stmt_iterator down.  See copy_body_r():RETURN_EXPR
+	 processing for the rest of the story.  */
+      copy_statement_list (&id->copy_basic_block->stmt_list);
+      for (id->copy_tsi = tsi_start (id->copy_basic_block->stmt_list);
+	   !tsi_end_p (id->copy_tsi); tsi_next (&id->copy_tsi))
+	{
+	  walk_tree (tsi_stmt_ptr (id->copy_tsi), copy_body_r, id, NULL);
+	  /* A RETURN_EXPR that returns no value will be deleted;
+	     detect this occurance and exit this loop early.  */
+	  if (tsi_end_p (id->copy_tsi))
+	    break;
+	}
+      tsi = tsi_start (id->copy_basic_block->stmt_list);
+      /* If non-empty block, fixup the statement->block uplinks.  */
+      if (!tsi_end_p (tsi))
+	set_bb_for_stmt (id->copy_basic_block->stmt_list, id->copy_basic_block);
+      /* Insure prompt crash if this is used out-of-context.  */
+      id->copy_tsi.container = NULL_TREE;
+    }
+
+  /* Now that we've duplicated the blocks, duplicate their edges.  */
+  FOR_EACH_BB_FN (bb, cfun_to_copy)
+    {
+      basic_block new_bb = VARRAY_BB (new_bb_info, bb->index);
+      edge_iterator ei;
+
+      /* Use the indices from the original blocks to create edges for the
+	 new ones.  */
+      old_src_index = bb->index;
+      FOR_EACH_EDGE (old_edge, ei, bb->succs)
+	{
+	  old_dest_index = old_edge->dest->index;
+	  /* Ignore edges that reach ENTRY and EXIT blocks
+	     (bb->index < 0).  The first non-ENTRY block will be spliced
+	     and handled specially; RETURN_EXPRs have been discarded,
+	     and they have created their own edges already (a
+	     side-effect of copying the callee body).  Abnormal edges
+	     (e.g. noreturn functions) should be redirected to the
+	     next exit block.  */
+	  if (old_src_index >= 0 && old_dest_index >= 0)
+	    make_edge (new_bb,
+		       VARRAY_BB (new_bb_info, old_dest_index),
+		       old_edge->flags);
+	}
+      tsi_end = tsi_last (bb->stmt_list);
+      for (tsi = tsi_start (bb->stmt_list)
+	   , tsi_copy = tsi_start (new_bb->stmt_list);
+	   !tsi_end_p (tsi_copy);
+	   tsi_next (&tsi))
+	{
+	  orig_stmt = tsi_stmt (tsi);
+	  copy_stmt = tsi_stmt (tsi_copy);
+	  /* Do this before the possible split_block.  */
+	  tsi_next (&tsi_copy);
+	  /* If this tree could throw an exception, there are two
+	     cases where we need to add abnormal edge(s): the
+	     tree wasn't in a region and there is a "current
+	     region" in the caller; or the original tree had
+	     EH edges.  In both cases split the block after the tree,
+	     and add abnormal edge(s) as needed; we need both
+	     those from the callee and the caller.
+	     We check whether the copy can throw, because the const
+	     propagation can change an INDIRECT_REF which throws
+	     into a COMPONENT_REF which doesn't.  If the copy
+	     can throw, the original could also throw.  */
+	  if (tree_could_throw_p (copy_stmt)
+	      && ((lookup_stmt_eh_region_fn (
+			    DECL_STRUCT_FUNCTION (id->callee),
+			    orig_stmt) <= 0
+	      && get_eh_cur_region (caller_cfun) > 0)
+		|| (eh_dst
+		   && tree_could_throw_p (copy_stmt)
+		   && VARRAY_ACTIVE_SIZE (eh_dst) > 0)))
+	    {
+	      unsigned int i;
+	      basic_block copied_call_bb = new_bb;
+	      if (tsi_stmt (tsi_end) != tsi_stmt (tsi))
+		/* Note that bb's predecessor edges aren't necessarily
+		   right at this point; split_block doesn't care.  */
+		{
+		  edge e = split_block (new_bb, copy_stmt);
+		  new_bb = e->dest;
+		}
+	      /* If this tree doesn't have a region associated with it,
+		 and there is a "current region,"
+		 then associate this tree with the current region
+		 and add edges associated with this region.  */
+	      if (lookup_stmt_eh_region_fn (
+			    DECL_STRUCT_FUNCTION (id->callee),
+			    orig_stmt) <= 0
+		  && get_eh_cur_region (caller_cfun) > 0)
+		{
+		  struct eh_status *saved_eh = cfun->eh;
+		  cfun->eh = caller_cfun->eh;
+		  add_stmt_to_eh_region (copy_stmt,
+					 get_eh_cur_region (caller_cfun));
+	      make_eh_edges (copy_stmt);
+	      cfun->eh = saved_eh;
+	    }
+	      /* If the original call that we're inlining had EH
+	     edges, attach EH edges with the same destination
+		 to this block.  */
+	      if (eh_dst)
+	      for (i = 0; i < VARRAY_ACTIVE_SIZE (eh_dst); i++)
+	        make_edge (copied_call_bb, VARRAY_BB (eh_dst, i), 
+			    EDGE_EH | EDGE_ABNORMAL);
+	    }
+	}
+    }
+  if (saving_or_cloning)
+    {
+  make_edge (ENTRY_BLOCK_PTR, BASIC_BLOCK (0), EDGE_FALLTHRU);
+  make_edge (BASIC_BLOCK (last_basic_block-1), EXIT_BLOCK_PTR,
+		    EDGE_FALLTHRU);
+    }
+  id->copy_basic_block = (basic_block)0;
+  if (!saving_or_cloning)
+    VARRAY_FREE (new_bb_info);
+
+  DECL_SAVED_TREE (new_fndecl) = ENTRY_BLOCK_PTR->next_bb->stmt_list;
+
+  pop_cfun ();
+  /* These varrays have grown, and probably have been realloced.  */
+  if (!saving_or_cloning)
+    {
+      caller_cfun->last_label_uid = new_cfun->last_label_uid;
+      basic_block_info = basic_block_info_for_function (new_cfun);
+      label_to_block_map = label_to_block_map_for_function (new_cfun);
+      n_basic_blocks = n_basic_blocks_for_function (new_cfun);
+      last_basic_block = last_basic_block_for_function (new_cfun);
+    }
+  return new_fndecl;
+}
+
+/* Make a copy of the body of FN so that it can be inserted inline in
    another function.  */
 
 static tree
-copy_body (inline_data *id)
+copy_generic_body (inline_data *id)
 {
   tree body;
-  tree fndecl = VARRAY_TOP_TREE (id->fns);
+  tree fndecl = id->callee;
 
   if (fndecl == current_function_decl
       && cfun->saved_tree)
@@ -655,16 +1050,33 @@ copy_body (inline_data *id)
   return body;
 }
 
+static tree
+copy_body (inline_data *id)
+{
+  tree fndecl = id->callee;
+  tree body;
+
+  /* If this body has a CFG, walk CFG and copy.  */
+  gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION (DECL_STRUCT_FUNCTION (fndecl)));
+  body = copy_cfg_body (id);
+
+  return body;
+}
+
 static void
 setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 		     tree *init_stmts, tree *vars, bool *gimplify_init_stmts_p)
 {
   tree init_stmt;
   tree var;
+  tree var_sub;
 
   /* If the parameter is never assigned to, we may not need to
      create a new variable here at all.  Instead, we may be able
      to just use the argument value.  */
+  /* In theory this should not be necessary for correctness, but
+     in practice there are a lot of dejagnu failures (especially
+     in C++ library) if it is removed...  */
   if (TREE_READONLY (p)
       && !TREE_ADDRESSABLE (p)
       && value && !TREE_SIDE_EFFECTS (value))
@@ -674,13 +1086,28 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
 	 Theoretically, we could check the expression to see if
 	 all of the variables that determine its value are
 	 read-only, but we don't bother.  */
-      /* We may produce non-gimple trees by adding NOPs or introduce
-	 invalid sharing when operand is not really constant.
-	 It is not big deal to prohibit constant propagation here as
-	 we will constant propagate in DOM1 pass anyway.  */
-      if (is_gimple_min_invariant (value)
-	  && lang_hooks.types_compatible_p (TREE_TYPE (value), TREE_TYPE (p)))
+      if ((TREE_CONSTANT (value) || TREE_READONLY_DECL_P (value)
+	  || TREE_INVARIANT (value))
+	  /* We may produce non-gimple trees by adding NOPs or introduce
+	     invalid sharing when operand is not really constant.
+	     It is not big deal to prohibit constant propagation here as
+	     we will constant propagate in DOM1 pass anyway.  */
+	  && (is_gimple_min_invariant (value)
+		&& lang_hooks.types_compatible_p (TREE_TYPE (value), 
+						  TREE_TYPE (p))))
 	{
+	  /* If this is a declaration, wrap it in a NOP_EXPR so that 
+	     we don't try to put the VALUE on the list of BLOCK_VARS.  */
+	  if (DECL_P (value))
+	    value = build1 (NOP_EXPR, TREE_TYPE (value), value);
+
+	  /* If this is a constant, make sure it has the right type. 
+	     Failure to do so causes problems when hanging a NOP_EXPR 
+	     of pointer type over an ADDR_EXPR, because the NOP_EXPR 
+	     is pointer-to-constant.  */
+	  else if (TREE_CODE_CLASS (TREE_CODE (value)) == 'c')
+	    value = fold (build1 (NOP_EXPR, TREE_TYPE (p), value));
+
 	  insert_decl_map (id, p, value);
 	  return;
 	}
@@ -689,12 +1116,25 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
   /* Make an equivalent VAR_DECL.  Note that we must NOT remap the type
      here since the type of this decl must be visible to the calling
      function.  */
-  var = copy_decl_for_inlining (p, fn, VARRAY_TREE (id->fns, 0));
+  var = copy_decl_for_inlining (p, fn, id->caller);
 
+  /* See if the frontend wants to pass this by invisible reference.  If
+     so, our new VAR_DECL will have REFERENCE_TYPE, and we need to
+     replace uses of the PARM_DECL with dereferences.  */
+  if (TREE_TYPE (var) != TREE_TYPE (p)
+      && POINTER_TYPE_P (TREE_TYPE (var))
+      && TREE_TYPE (TREE_TYPE (var)) == TREE_TYPE (p))
+    {
+      insert_decl_map (id, var, var);
+      var_sub = build1 (INDIRECT_REF, TREE_TYPE (p), var);
+    }
+  else
+    var_sub = var;
+  
   /* Register the VAR_DECL as the equivalent for the PARM_DECL;
      that way, when the PARM_DECL is encountered, it will be
      automatically replaced by the VAR_DECL.  */
-  insert_decl_map (id, p, var);
+  insert_decl_map (id, p, var_sub);
 
   /* Declare this new variable.  */
   TREE_CHAIN (var) = *vars;
@@ -797,14 +1237,22 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
     }
 
   if (gimplify_init_stmts_p)
-    gimplify_body (&init_stmts, current_function_decl);
+    {
+      gimplify_body (&init_stmts, fn);
+      /* Remove BIND_EXPR added by gimplify_body.  */
+      init_stmts = BIND_EXPR_BODY (init_stmts);
+    }
 
   declare_inline_vars (bind_expr, vars);
   return init_stmts;
 }
 
-/* Declare a return variable to replace the RESULT_DECL for the function we
-   are calling.  RETURN_SLOT_ADDR, if non-null, was a fake parameter that
+/* Declare a return variable to replace the RESULT_DECL for the 
+   function we are calling.  An appropriate DECL_STMT is returned.
+   The USE_STMT is filled to contain a use of the declaration to
+   indicate the return value of the function.
+
+   RETURN_SLOT_ADDR, if non-null, was a fake parameter that
    took the address of the result.  MODIFY_DEST, if non-null, was the LHS of
    the MODIFY_EXPR to which this call is the RHS.
 
@@ -816,12 +1264,13 @@ static tree
 declare_return_variable (inline_data *id, tree return_slot_addr,
 			 tree modify_dest, tree *use_p)
 {
-  tree callee = VARRAY_TOP_TREE (id->fns);
-  tree caller = VARRAY_TREE (id->fns, 0);
+  tree callee = id->callee;
+  tree caller = id->caller;
   tree result = DECL_RESULT (callee);
   tree callee_type = TREE_TYPE (result);
   tree caller_type = TREE_TYPE (TREE_TYPE (callee));
   tree var, use;
+  int need_return_decl = 1;  
 
   /* We don't need to do anything for functions that don't return
      anything.  */
@@ -882,7 +1331,10 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
 
   gcc_assert (TREE_CODE (TYPE_SIZE_UNIT (callee_type)) == INTEGER_CST);
 
-  var = copy_decl_for_inlining (result, callee, caller);
+  var = (lang_hooks.tree_inlining.copy_res_decl_for_inlining
+	 (result, callee, id->caller, id->decl_map,
+	  &need_return_decl, return_slot_addr));
+  /* var = copy_decl_for_inlining (result, callee, caller); */
   DECL_SEEN_IN_BIND_EXPR_P (var) = 1;
   DECL_STRUCT_FUNCTION (caller)->unexpanded_var_list
     = tree_cons (NULL_TREE, var,
@@ -1057,9 +1509,22 @@ static tree
 inline_forbidden_p (tree fndecl)
 {
   location_t saved_loc = input_location;
-  tree ret = walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
-					   inline_forbidden_p_1, fndecl);
+  block_stmt_iterator bsi;
+  basic_block bb;
+  tree ret = NULL_TREE;
+  /* We should always be called after the CFG is built. */
+  if (basic_block_info_for_function (DECL_STRUCT_FUNCTION (fndecl))== (varray_type) 0)
+    abort ();
 
+  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (fndecl))
+    for (bsi = bsi_start (bb); !bsi_end_p (bsi); bsi_next (&bsi))
+      {
+	ret = walk_tree_without_duplicates (bsi_stmt_ptr (bsi), 
+				    inline_forbidden_p_1, fndecl);
+	if (ret)
+	  goto egress;
+      }
+egress:
   input_location = saved_loc;
   return ret;
 }
@@ -1107,6 +1572,12 @@ inlinable_function_p (tree fn)
 	    here should be redundant.  */
   else if (!DECL_INLINE (fn) && !flag_unit_at_a_time)
     inlinable = false;
+
+#ifdef INLINER_FOR_JAVA
+  /* Synchronized methods can't be inlined.  This is a bug.  */
+  else if (METHOD_SYNCHRONIZED (fn))
+    inlinable = false;
+#endif /* INLINER_FOR_JAVA */
 
   else if (inline_forbidden_p (fn))
     {
@@ -1180,6 +1651,8 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case SAVE_EXPR:
     case ADDR_EXPR:
     case COMPLEX_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
     case EXIT_BLOCK_EXPR:
     case CASE_LABEL_EXPR:
     case SSA_NAME:
@@ -1348,31 +1821,108 @@ int
 estimate_num_insns (tree expr)
 {
   int num = 0;
-  walk_tree_without_duplicates (&expr, estimate_num_insns_1, &num);
+  struct pointer_set_t *visited_nodes;
+  basic_block bb;
+  block_stmt_iterator bsi;
+  struct function *my_function;
+
+  /* If we're given an entire function, walk the CFG.  */
+  if (TREE_CODE (expr) == FUNCTION_DECL)
+    {
+      my_function = DECL_STRUCT_FUNCTION (expr);
+      if (!my_function || !my_function->cfg || !ENTRY_BLOCK_PTR_FOR_FUNCTION (my_function))
+	abort ();
+      visited_nodes = pointer_set_create ();
+      FOR_EACH_BB_FN (bb, my_function)
+	{
+	  for (bsi = bsi_start (bb);
+	       !bsi_end_p (bsi);
+	       bsi_next (&bsi))
+	    {
+	      (void)walk_tree (bsi_stmt_ptr (bsi), estimate_num_insns_1, &num, visited_nodes);
+	    }
+	}
+      pointer_set_destroy (visited_nodes);
+    }
+  else
+    walk_tree_without_duplicates (&expr, estimate_num_insns_1, &num);
   return num;
+}
+
+/* Initialized with NOGC, making this poisonous to the garbage collector.  */
+static varray_type cfun_stack;
+
+void
+push_cfun (struct function *new_cfun)
+{
+  static bool initialized = false;
+  
+  if (!initialized)
+    {
+      VARRAY_GENERIC_PTR_NOGC_INIT (cfun_stack, 20, "cfun_stack");
+      initialized = true;
+    }
+  VARRAY_PUSH_GENERIC_PTR (cfun_stack, cfun);
+  cfun = new_cfun;
+}
+
+void
+pop_cfun (void)
+{
+  cfun = (struct function *)VARRAY_TOP_GENERIC_PTR (cfun_stack);
+  VARRAY_POP (cfun_stack);
+}
+
+/* Install new lexical TREE_BLOCK underneath 'current_block'.  */
+static void
+add_lexical_block (tree current_block, tree new_block)
+{
+  tree *blk_p;
+  
+  /* Walk to the last sub-block.  */
+  for (blk_p = &BLOCK_SUBBLOCKS (current_block);
+       *blk_p;
+       blk_p = &TREE_CHAIN (*blk_p))
+    ;
+  *blk_p = new_block;
+  BLOCK_SUPERCONTEXT (new_block) = current_block;
+  BLOCK_SUBBLOCKS (new_block) = NULL_TREE;
 }
 
 /* If *TP is a CALL_EXPR, replace it with its inline expansion.  */
 
-static tree
+static bool
 expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 {
   inline_data *id;
   tree t;
-  tree expr;
-  tree stmt;
   tree use_retvar;
   tree decl;
   tree fn;
   tree arg_inits;
-  tree *inlined_body;
   splay_tree st;
   tree args;
   tree return_slot_addr;
   tree modify_dest;
   location_t saved_location;
-  struct cgraph_edge *edge;
+  struct cgraph_edge *cg_edge;
   const char *reason;
+  basic_block head_copied_body;
+  basic_block tail_copied_body;
+  basic_block first_half_bb;
+  basic_block second_half_bb;
+  basic_block orig_next_bb;
+  struct function *my_cfun;
+  edge e_step;
+  edge_iterator ei;
+  tree_stmt_iterator test_iter;
+  block_stmt_iterator bsi;
+  tree tmp_stmt_list;
+  tree dup_fndecl;
+  bool successfully_inlined = FALSE;
+  tree t_step;
+  tree var;
+  struct cgraph_node *old_node;
 
   /* See what we've got.  */
   id = (inline_data *) data;
@@ -1383,33 +1933,6 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   saved_location = input_location;
   if (EXPR_HAS_LOCATION (t))
     input_location = EXPR_LOCATION (t);
-
-  /* Recurse, but letting recursive invocations know that we are
-     inside the body of a TARGET_EXPR.  */
-  if (TREE_CODE (*tp) == TARGET_EXPR)
-    {
-#if 0
-      int i, len = first_rtl_op (TARGET_EXPR);
-
-      /* We're walking our own subtrees.  */
-      *walk_subtrees = 0;
-
-      /* Actually walk over them.  This loop is the body of
-	 walk_trees, omitting the case where the TARGET_EXPR
-	 itself is handled.  */
-      for (i = 0; i < len; ++i)
-	{
-	  if (i == 2)
-	    ++id->in_target_cleanup_p;
-	  walk_tree (&TREE_OPERAND (*tp, i), expand_call_inline, data,
-		     id->tree_pruner);
-	  if (i == 2)
-	    --id->in_target_cleanup_p;
-	}
-
-      goto egress;
-#endif
-    }
 
   if (TYPE_P (t))
     /* Because types were not copied in copy_body, CALL_EXPRs beneath
@@ -1447,11 +1970,11 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
   if (!id->current_node->analyzed)
     goto egress;
 
-  edge = cgraph_edge (id->current_node, t);
+  cg_edge = cgraph_edge (id->current_node, t);
 
   /* Constant propagation on argument done during previous inlining
      may create new direct call.  Produce an edge for it.  */
-  if (!edge)
+  if (!cg_edge)
     {
       struct cgraph_node *dest = cgraph_node (fn);
 
@@ -1467,7 +1990,7 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
   /* Don't try to inline functions that are not well-suited to
      inlining.  */
-  if (!cgraph_inline_p (edge, &reason))
+  if (!cgraph_inline_p (cg_edge, &reason))
     {
       if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)))
 	{
@@ -1486,21 +2009,28 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     }
 
 #ifdef ENABLE_CHECKING
-  if (edge->callee->decl != id->node->decl)
-    verify_cgraph_node (edge->callee);
+  if (cg_edge->callee->decl != id->node->decl)
+    verify_cgraph_node (cg_edge->callee);
 #endif
 
-  if (! lang_hooks.tree_inlining.start_inlining (fn))
-    goto egress;
+  /* We will be inlining this callee.  */
+
+  /* Register specific tree functions.  */
+  tree_register_cfg_hooks ();
 
   /* Build a block containing code to initialize the arguments, the
      actual inline expansion of the body, and a label for the return
      statements within the function to jump to.  The type of the
      statement expression is the return type of the function call.  */
-  stmt = NULL;
-  expr = build (BIND_EXPR, void_type_node, NULL_TREE,
-		stmt, make_node (BLOCK));
-  BLOCK_ABSTRACT_ORIGIN (BIND_EXPR_BLOCK (expr)) = fn;
+  id->bind_expr = build (BIND_EXPR, TREE_TYPE (TREE_TYPE (fn)), NULL_TREE,
+		alloc_stmt_list (), make_node (BLOCK));
+  BLOCK_ABSTRACT_ORIGIN (BIND_EXPR_BLOCK (id->bind_expr)) = fn;
+  {
+    tree tmp;
+    test_iter = id->original_tsi;
+    tmp = tsi_stmt (test_iter);
+    add_lexical_block (TREE_BLOCK (tmp), BIND_EXPR_BLOCK (id->bind_expr));
+  }
 
   /* Local declarations will be replaced by their equivalents in this
      map.  */
@@ -1510,207 +2040,326 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
 
   /* Initialize the parameters.  */
   args = TREE_OPERAND (t, 1);
-  return_slot_addr = NULL_TREE;
   if (CALL_EXPR_HAS_RETURN_SLOT_ADDR (t))
     {
       return_slot_addr = TREE_VALUE (args);
       args = TREE_CHAIN (args);
-      TREE_TYPE (expr) = void_type_node;
+      TREE_TYPE (id->bind_expr) = void_type_node;
     }
+  else
+    return_slot_addr = NULL_TREE;
 
   arg_inits = initialize_inlined_parameters (id, args, TREE_OPERAND (t, 2),
-					     fn, expr);
-  if (arg_inits)
-    {
-      /* Expand any inlined calls in the initializers.  Do this before we
-	 push FN on the stack of functions we are inlining; we want to
-	 inline calls to FN that appear in the initializers for the
-	 parameters.
-
-	 Note we need to save and restore the saved tree statement iterator
-	 to avoid having it clobbered by expand_calls_inline.  */
-      tree_stmt_iterator save_tsi;
-
-      save_tsi = id->tsi;
-      expand_calls_inline (&arg_inits, id);
-      id->tsi = save_tsi;
-
-      /* And add them to the tree.  */
-      append_to_statement_list (arg_inits, &BIND_EXPR_BODY (expr));
-    }
-
-  /* Record the function we are about to inline so that we can avoid
-     recursing into it.  */
-  VARRAY_PUSH_TREE (id->fns, fn);
-
-  /* Record the function we are about to inline if optimize_function
-     has not been called on it yet and we don't have it in the list.  */
-  if (! DECL_INLINED_FNS (fn))
-    {
-      int i;
-
-      for (i = VARRAY_ACTIVE_SIZE (id->inlined_fns) - 1; i >= 0; i--)
-	if (VARRAY_TREE (id->inlined_fns, i) == fn)
-	  break;
-      if (i < 0)
-	VARRAY_PUSH_TREE (id->inlined_fns, fn);
-    }
+					     fn, id->bind_expr);
+  /* Record the function we are about to inline.  */
+  id->callee = fn;
 
   /* Return statements in the function body will be replaced by jumps
      to the RET_LABEL.  */
   id->ret_label = build_decl (LABEL_DECL, NULL_TREE, NULL_TREE);
   DECL_ARTIFICIAL (id->ret_label) = 1;
-  DECL_CONTEXT (id->ret_label) = VARRAY_TREE (id->fns, 0);
+  DECL_CONTEXT (id->ret_label) = id->caller;
   insert_decl_map (id, id->ret_label, id->ret_label);
 
   gcc_assert (DECL_INITIAL (fn));
   gcc_assert (TREE_CODE (DECL_INITIAL (fn)) == BLOCK);
 
   /* Find the lhs to which the result of this call is assigned.  */
-  modify_dest = tsi_stmt (id->tsi);
+  modify_dest = tsi_stmt (id->original_tsi);
   if (TREE_CODE (modify_dest) == MODIFY_EXPR)
     modify_dest = TREE_OPERAND (modify_dest, 0);
+  else if (TREE_CODE (modify_dest) == RETURN_EXPR
+	   && TREE_CODE (TREE_OPERAND (modify_dest, 0)) == MODIFY_EXPR)
+    modify_dest = TREE_OPERAND (TREE_OPERAND (modify_dest, 0), 0);
   else
     modify_dest = NULL;
 
   /* Declare the return variable for the function.  */
   decl = declare_return_variable (id, return_slot_addr,
 				  modify_dest, &use_retvar);
+  /* Do this only if declare_return_variable created a new one.  */
+  if (decl && !return_slot_addr && decl != modify_dest)
+    declare_inline_vars (id->bind_expr, decl);
+
+  /* RETURN_EXPRs will morph into fallthrough edges to this block.  */
+  id->return_block = alloc_block ();
 
   /* After we've initialized the parameters, we insert the body of the
      function itself.  */
-  {
-    struct cgraph_node *old_node = id->current_node;
+  old_node = id->current_node;
 
-    id->current_node = edge->callee;
-    append_to_statement_list (copy_body (id), &BIND_EXPR_BODY (expr));
-    id->current_node = old_node;
-  }
-  inlined_body = &BIND_EXPR_BODY (expr);
+  /* Anoint the callee-to-be-duplicated as the "current_node."  When
+     CALL_EXPRs within callee are duplicated, the edges from callee to
+     callee's callees (caller's grandchildren) will be cloned.  */
+  id->current_node = cg_edge->callee;
 
-  /* After the body of the function comes the RET_LABEL.  This must come
-     before we evaluate the returned value below, because that evaluation
-     may cause RTL to be generated.  */
-  if (TREE_USED (id->ret_label))
+  /* Record the EH edges leaving the caller's bb. */
+  if (!eh_dst)
+    VARRAY_BB_INIT (eh_dst, 10, "exception handling destination blocks");
+  FOR_EACH_EDGE (e_step, ei, id->oic_basic_block->succs)
+    if (e_step->flags & EDGE_EH)
+      VARRAY_PUSH_BB (eh_dst, e_step->dest);
+
+  /* This is it.  Duplicate the callee body.  Assume callee is
+     pre-gimplified.  Note that we must not alter the caller
+     function in any way before this point, as this CALL_EXPR may be
+     a self-referential call; if we're calling ourselves, we need to
+     duplicate our body before altering anything.  */
+  dup_fndecl = copy_body (id);
+  id->current_node = old_node;
+  my_cfun = DECL_STRUCT_FUNCTION (dup_fndecl);
+  /* Append copied EH information to that of current function.  */
+  duplicate_eh_regions (my_cfun, id, false);
+
+  if (arg_inits)
+    {
+      head_copied_body = create_basic_block (arg_inits, (void*)0, ENTRY_BLOCK_PTR_FOR_FUNCTION (my_cfun));
+      set_bb_for_stmt (arg_inits, head_copied_body);
+      make_edge (head_copied_body, head_copied_body->next_bb, EDGE_FALLTHRU);
+    }
+  else
+    head_copied_body = ENTRY_BLOCK_PTR_FOR_FUNCTION (my_cfun)->next_bb;
+  /* Backup from exit block.  */
+  tail_copied_body = EXIT_BLOCK_PTR_FOR_FUNCTION (my_cfun)->prev_bb;
+
+  /* FIXME this should be using split_block; however getting it to work
+     that way is not that easy...  */
+  /* Split the block holding the CALL_EXPR.  */
+
+  first_half_bb = id->oic_basic_block;
+  orig_next_bb = first_half_bb->next_bb;
+  test_iter = id->original_tsi;
+  tsi_prev (&test_iter);
+  /* Split the block holding the CALL_EXPR.  Everything up to the
+     CALL_EXPR goes into the first_half_bb; the CALL_EXPR itself and
+     everything else goes to the second_half_bb.  The duplicated
+     callee body will be inserted between these, and the CALL_EXPR
+     will be replaced with a reference to the return variable (if
+     any).  tsi_split_statement_list_before() loses if the CALL_EXPR
+     is the first statement.  */
+  if (!tsi_end_p (test_iter))
+    {
+      second_half_bb
+	= create_basic_block (tsi_split_statement_list_before (&id->original_tsi),
+			      (void*)0, first_half_bb);
+    }
+  else
+    {
+      /* No predecessor statement; create new block after current block,
+	 move statement list into new block.  */
+      second_half_bb = create_basic_block ((void*)0, (void*)0, first_half_bb);
+      tmp_stmt_list = second_half_bb->stmt_list;
+      second_half_bb->stmt_list = first_half_bb->stmt_list;
+      first_half_bb->stmt_list = tmp_stmt_list;
+      set_bb_for_stmt (first_half_bb->stmt_list, first_half_bb);
+    }
+
+  /* The existing id->return_block is a just a place to collect the
+     edges created from RETURN_EXPRs.  Move those edges, if any, to
+     the real basic block where they should go, and abandon the
+     id->return_block.  */
+  second_half_bb->preds = id->return_block->preds;
+  FOR_EACH_EDGE (e_step, ei, id->return_block->preds)
+    e_step->dest = second_half_bb;
+
+  /* Can we free this?  */
+  id->return_block = (basic_block)0;
+
+  /* If we found one or more RETURN_EXPRs that have become edges,
+     create, hang, and bless the label.  */
+  if (TREE_USED (id->ret_label) && id->ret_count)
     {
       tree label = build1 (LABEL_EXPR, void_type_node, id->ret_label);
-      append_to_statement_list (label, &BIND_EXPR_BODY (expr));
+      tree_stmt_iterator tsi = tsi_start (second_half_bb->stmt_list);
+      tsi_link_before (&tsi, label, TSI_NEW_STMT);
     }
+  else	/* We didn't need this label after all.  */
+    TREE_USED (id->ret_label) = 0;
+
+  set_bb_for_stmt (second_half_bb->stmt_list, second_half_bb);
+
+  /* Fudge successor edges leaving "first_half_bb"; make them leave
+     "second_half_bb" instead.  Edges entering first_half_bb are
+     correct as-is.  If there are exception-handling edge(s),
+     remove them; those are handled separately elsewhere.  */
+  second_half_bb->succs = first_half_bb->succs;
+  for (ei = ei_start (second_half_bb->succs);
+       (e_step = ei_safe_edge (ei)); )
+    {
+      e_step->src = second_half_bb;
+      if (e_step->flags & EDGE_EH)
+	remove_edge (e_step);
+      else
+	ei_next (&ei);
+    }
+
+  /* We'll fix this when we splice in the new body.  */
+  first_half_bb->succs = NULL;
+
+  make_edge (first_half_bb, head_copied_body, EDGE_FALLTHRU);
+
+  n_edges += n_edges_for_function (my_cfun);
 
   /* Clean up.  */
   splay_tree_delete (id->decl_map);
   id->decl_map = st;
+  set_eh_cur_region (cfun, 0);
 
   /* The new expression has side-effects if the old one did.  */
-  TREE_SIDE_EFFECTS (expr) = TREE_SIDE_EFFECTS (t);
+  TREE_SIDE_EFFECTS (id->bind_expr) = TREE_SIDE_EFFECTS (t);
 
-  tsi_link_before (&id->tsi, expr, TSI_SAME_STMT);
+  /* Splice the duplicated callee body into the caller.  */
+  first_half_bb->next_bb = head_copied_body;
+  head_copied_body->prev_bb = first_half_bb;
+  tail_copied_body->next_bb = second_half_bb;
+  second_half_bb->prev_bb = tail_copied_body;
 
   /* If the inlined function returns a result that we care about,
-     then we're going to need to splice in a MODIFY_EXPR.  Otherwise
-     the call was a standalone statement and we can just replace it
-     with the BIND_EXPR inline representation of the called function.  */
-  if (!use_retvar || !modify_dest)
-    *tsi_stmt_ptr (id->tsi) = build_empty_stmt ();
-  else
+     clobber the CALL_EXPR with a reference to the return variable.  */
+  if (use_retvar && (TREE_CODE (tsi_stmt (id->original_tsi)) != CALL_EXPR))
     *tp = use_retvar;
+  else
+    /* We're modifying a TSI owned by gimple_expand_calls_inline();
+       tsi_delink() will leave the iterator in a sane state.  */
+    tsi_delink (&id->original_tsi);
 
-  /* When we gimplify a function call, we may clear TREE_SIDE_EFFECTS on
-     the call if it is to a "const" function.  Thus the copy of
-     TREE_SIDE_EFFECTS from the CALL_EXPR to the BIND_EXPR above with
-     result in TREE_SIDE_EFFECTS not being set for the inlined copy of a
-     "const" function.
+  /* If this block had an AB,EH (abnormal, exception-handling) edge,
+     scan the first & second half blocks to see if either one still
+     needs such an edge.  If this block had no such edge, neither of
+     the first/second blocks will; this is the "usual case."  */
+  if (VARRAY_ACTIVE_SIZE (eh_dst) > 0)
+  {
+    int eh_dst_index;
+    for (bsi = bsi_start (first_half_bb) ; !bsi_end_p (bsi) ; bsi_next (&bsi))
+      {
+	if (tree_could_throw_p (bsi_stmt (bsi)))
+	  {
+	    for (eh_dst_index = VARRAY_ACTIVE_SIZE (eh_dst); eh_dst_index; )
+	      {
+		eh_dst_index--;
+		make_edge (first_half_bb, VARRAY_BB (eh_dst, eh_dst_index),
+			   EDGE_ABNORMAL | EDGE_EH);
+	      }
+	    break;
+	  }
+      }
 
-     Unfortunately, that is wrong as inlining the function can create/expose
-     interesting side effects (such as setting of a return value).
+    for (bsi = bsi_start (second_half_bb) ; !bsi_end_p (bsi) ; bsi_next (&bsi))
+      {
+	if (tree_could_throw_p (bsi_stmt (bsi)) || TREE_CODE (bsi_stmt (bsi)) == RESX_EXPR)
+	  {
+	    for (eh_dst_index = VARRAY_ACTIVE_SIZE (eh_dst); eh_dst_index; )
+	      {
+		eh_dst_index--;
+		make_edge (second_half_bb, VARRAY_BB (eh_dst, eh_dst_index),
+			   EDGE_ABNORMAL | EDGE_EH);
+	      }
+	    break;
+	  }
+      }
+  }
+  VARRAY_CLEAR (eh_dst);
 
-     The easiest solution is to simply recalculate TREE_SIDE_EFFECTS for
-     the toplevel expression.  */
-  recalculate_side_effects (expr);
+  /* If the value of the new expression is ignored, that's OK.  We
+     don't warn about this for CALL_EXPRs, so we shouldn't warn about
+     the equivalent inlined version either.  */
+  TREE_USED (*tp) = 1;
 
   /* Update callgraph if needed.  */
-  cgraph_remove_node (edge->callee);
-
-  /* Recurse into the body of the just inlined function.  */
-  expand_calls_inline (inlined_body, id);
-  VARRAY_POP (id->fns);
+  cgraph_remove_node (cg_edge->callee);
 
   /* Don't walk into subtrees.  We've already handled them above.  */
   *walk_subtrees = 0;
 
-  lang_hooks.tree_inlining.end_inlining (fn);
+  /* Declare the 'auto' variables added with this inlined body.  */
+  record_vars (BIND_EXPR_VARS (id->bind_expr));
+  id->bind_expr = NULL_TREE;
 
-  /* Keep iterating.  */
+  /* Add local static vars in this inlined callee to caller.  */
+  for (t_step = my_cfun->unexpanded_var_list;
+       t_step;
+       t_step = TREE_CHAIN (t_step))
+    {
+      var = TREE_VALUE (t_step);
+      if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
+	record_vars (var);
+    }
+
+  successfully_inlined = TRUE;
+
  egress:
   input_location = saved_location;
-  return NULL_TREE;
+  return successfully_inlined;
 }
 
-static void
-expand_calls_inline (tree *stmt_p, inline_data *id)
+/* Expand call statements reachable from STMT_P.
+   We can only have CALL_EXPRs as the "toplevel" tree code or nested
+   in a MODIFY_EXPR.  See tree-gimple.c:get_call_expr_in().  We can
+   unfortunately not use that function here because we need a pointer
+   to the CALL_EXPR, not the tree itself.  */
+
+static bool
+gimple_expand_calls_inline (tree *stmt_p, inline_data *id)
 {
-  tree stmt = *stmt_p;
+  tree stmt = *stmt_p, orig_stmt = stmt;
   enum tree_code code = TREE_CODE (stmt);
   int dummy;
+  bool successful_inline = FALSE;
+  bool inline_status_a = FALSE;
+  bool inline_status_b = FALSE;
 
   switch (code)
     {
     case STATEMENT_LIST:
       {
-	tree_stmt_iterator i;
+	/* tree_stmt_iterator i; */
 	tree new;
+	tree_stmt_iterator preserved_tsi;
+	bool restore_original_tsi;
 
-	for (i = tsi_start (stmt); !tsi_end_p (i); )
+	/* If we discover a nested STATEMENT_LIST, preserve the current one.  */
+	restore_original_tsi = !tsi_end_p (id->original_tsi);
+	preserved_tsi = id->original_tsi;
+	/* for (i = tsi_start (stmt); !tsi_end_p (i); )  */
+	for (id->original_tsi = tsi_start (stmt); !tsi_end_p (id->original_tsi);)
 	  {
-	    id->tsi = i;
-	    expand_calls_inline (tsi_stmt_ptr (i), id);
-
-	    new = tsi_stmt (i);
-	    if (TREE_CODE (new) == STATEMENT_LIST)
+	    /* After any successful inlining operation,
+	       id->original_tsi will wind up in the block *after* the
+	       newly-inlined body; since our caller is trudging
+	       *forwards* through the blocks, the next block it visits 
+	       will be the first newly-inlined block, and when it's 
+	       done with those, it will finally re-visit the block
+	       where our id->original_tsi lives.  The current block
+	       will be split at the stastement owning the CALL that got
+	       inlined, so there won't be any more CALL_EXPRs to
+	       discover in this block.  */
+	    tree original_stmt = tsi_stmt (id->original_tsi);
+	    successful_inline = gimple_expand_calls_inline 
+		    (tsi_stmt_ptr (id->original_tsi), id);
+	    if (successful_inline)
 	      {
-		tsi_link_before (&i, new, TSI_SAME_STMT);
-		tsi_delink (&i);
+	        if (lookup_stmt_eh_region (original_stmt) >= 0)
+		  remove_stmt_from_eh_region (original_stmt);
+	        return TRUE;
 	      }
-	    else
-	      tsi_next (&i);
+
+	    new = tsi_stmt (id->original_tsi);
+	    gcc_assert (TREE_CODE (new) != STATEMENT_LIST);
+	    tsi_next (&id->original_tsi);
 	  }
+	if (restore_original_tsi)
+	  id->original_tsi = preserved_tsi;
       }
       break;
 
-    case COND_EXPR:
-      expand_calls_inline (&COND_EXPR_THEN (stmt), id);
-      expand_calls_inline (&COND_EXPR_ELSE (stmt), id);
-      break;
-
+    case BIND_EXPR:
+    case COMPOUND_EXPR:
     case CATCH_EXPR:
-      expand_calls_inline (&CATCH_BODY (stmt), id);
-      break;
-
     case EH_FILTER_EXPR:
-      expand_calls_inline (&EH_FILTER_FAILURE (stmt), id);
-      break;
-
     case TRY_CATCH_EXPR:
     case TRY_FINALLY_EXPR:
-      expand_calls_inline (&TREE_OPERAND (stmt, 0), id);
-      expand_calls_inline (&TREE_OPERAND (stmt, 1), id);
-      break;
-
-    case BIND_EXPR:
-      expand_calls_inline (&BIND_EXPR_BODY (stmt), id);
-      break;
-
-    case COMPOUND_EXPR:
       /* We're gimple.  We should have gotten rid of all these.  */
       gcc_unreachable ();
-
-    case RETURN_EXPR:
-      stmt_p = &TREE_OPERAND (stmt, 0);
-      stmt = *stmt_p;
-      if (!stmt || TREE_CODE (stmt) != MODIFY_EXPR)
-	break;
-
-      /* FALLTHRU */
 
     case MODIFY_EXPR:
       stmt_p = &TREE_OPERAND (stmt, 1);
@@ -1726,12 +2375,23 @@ expand_calls_inline (tree *stmt_p, inline_data *id)
       /* FALLTHRU */
 
     case CALL_EXPR:
-      expand_call_inline (stmt_p, &dummy, id);
+      /* Declare the current region, if any, so statements from callee
+	 that throw will be caught by the current handler.  */
+      set_eh_cur_region (cfun, lookup_stmt_eh_region (orig_stmt));
+      successful_inline = expand_call_inline (stmt_p, &dummy, id);
+      /* If call was in an EH region but could not throw, fix 
+	 EH data structs.  */
+      if (lookup_stmt_eh_region (orig_stmt) >= 0 
+	  && !tree_could_throw_p (orig_stmt))
+	remove_stmt_from_eh_region (orig_stmt);
+      return successful_inline;
       break;
 
     default:
       break;
     }
+
+  return (inline_status_a || inline_status_b || successful_inline) ? TRUE: FALSE;
 }
 
 /* Expand calls to inline functions in the body of FN.  */
@@ -1741,8 +2401,6 @@ optimize_inline_calls (tree fn)
 {
   inline_data id;
   tree prev_fn;
-  tree ifn;
-
   /* There is no point in performing inlining if errors have already
      occurred -- and we might crash if we try to inline invalid
      code.  */
@@ -1753,38 +2411,32 @@ optimize_inline_calls (tree fn)
   memset (&id, 0, sizeof (id));
 
   id.current_node = id.node = cgraph_node (fn);
-  /* Don't allow recursion into FN.  */
-  VARRAY_TREE_INIT (id.fns, 32, "fns");
-  VARRAY_PUSH_TREE (id.fns, fn);
+  id.caller = fn;
   /* Or any functions that aren't finished yet.  */
   prev_fn = NULL_TREE;
   if (current_function_decl)
     {
-      VARRAY_PUSH_TREE (id.fns, current_function_decl);
+      id.caller = current_function_decl;
       prev_fn = current_function_decl;
     }
 
-  prev_fn = lang_hooks.tree_inlining.add_pending_fn_decls (&id.fns, prev_fn);
+  /* Reach the trees by walking over the CFG, and note the
+     enclosing basic-blocks in the call edges.  */
+  /* We walk the blocks going forward, because inlined function bodies
+     will split id->current_basic_block, and the new blocks will
+     follow it; we'll trudge through them, processing their CALL_EXPRs
+     along the way.  */
+  FOR_EACH_BB (id.oic_basic_block)
+    {
+      if (id.oic_basic_block->stmt_list)
+	(void) gimple_expand_calls_inline (&id.oic_basic_block->stmt_list,
+					   &id);
+    }
 
-  /* Create the list of functions this call will inline.  */
-  VARRAY_TREE_INIT (id.inlined_fns, 32, "inlined_fns");
-
-  /* Keep track of the low-water mark, i.e., the point where the first
-     real inlining is represented in ID.FNS.  */
-  id.first_inlined_fn = VARRAY_ACTIVE_SIZE (id.fns);
-
-  /* Replace all calls to inline functions with the bodies of those
-     functions.  */
-  id.tree_pruner = htab_create (37, htab_hash_pointer, htab_eq_pointer, NULL);
-  expand_calls_inline (&DECL_SAVED_TREE (fn), &id);
-
-  /* Clean up.  */
-  htab_delete (id.tree_pruner);
-  ifn = make_tree_vec (VARRAY_ACTIVE_SIZE (id.inlined_fns));
-  if (VARRAY_ACTIVE_SIZE (id.inlined_fns))
-    memcpy (&TREE_VEC_ELT (ifn, 0), &VARRAY_TREE (id.inlined_fns, 0),
-	    VARRAY_ACTIVE_SIZE (id.inlined_fns) * sizeof (tree));
-  DECL_INLINED_FNS (fn) = ifn;
+  /* Renumber the (code) basic_blocks consecutively.  */
+  compact_blocks ();
+  /* Renumber the lexical scoping (non-code) blocks consecutively.  */
+  number_blocks (fn);
 
 #ifdef ENABLE_CHECKING
     {
@@ -1797,6 +2449,14 @@ optimize_inline_calls (tree fn)
 	gcc_assert (e->inline_failed);
     }
 #endif
+  /* Inlining a function body that contains a call to abort() can
+     render some caller code "unreachable", as the CFG-builder knows
+     that abort() never returns.  Such unreachable code will cause
+     great distress in the early phases of the SSA optimizer, so we
+     discard it here.  Of course, deleting blocks can delete calls,
+     and this will cause great distress in verify_cgraph_node(), so we
+     do that first.  */
+  cleanup_tree_cfg ();
 }
 
 /* FN is a function that has a complete body, and CLONE is a function whose
@@ -1809,21 +2469,25 @@ clone_body (tree clone, tree fn, void *arg_map)
   inline_data id;
 
   /* Clone the body, as if we were making an inline call.  But, remap the
-     parameters in the callee to the parameters of caller.  If there's an
-     in-charge parameter, map it to an appropriate constant.  */
+     parameters in the callee to the parameters of caller.  */
   memset (&id, 0, sizeof (id));
-  VARRAY_TREE_INIT (id.fns, 2, "fns");
-  VARRAY_PUSH_TREE (id.fns, clone);
-  VARRAY_PUSH_TREE (id.fns, fn);
+  id.caller = clone;
+  id.callee = fn;
   id.decl_map = (splay_tree)arg_map;
 
   /* Cloning is treated slightly differently from inlining.  Set
      CLONING_P so that it's clear which operation we're performing.  */
   id.cloning_p = true;
 
+  /* We're not inside any EH region.  */
+  set_eh_cur_region (cfun, -1);
+
   /* Actually copy the body.  */
-  append_to_statement_list_force (copy_body (&id), &DECL_SAVED_TREE (clone));
+  append_to_statement_list_force (copy_generic_body (&id), &DECL_SAVED_TREE (clone));
 }
+
+/* Save duplicate body in FN.  MAP is used to pass around splay tree
+   used to update argments in restore_body.  */
 
 /* Make and return duplicate of body in FN.  Put copies of DECL_ARGUMENTS
    in *arg_copy and of the static chain, if any, in *sc_copy.  */
@@ -1835,8 +2499,8 @@ save_body (tree fn, tree *arg_copy, tree *sc_copy)
   tree body, *parg;
 
   memset (&id, 0, sizeof (id));
-  VARRAY_TREE_INIT (id.fns, 1, "fns");
-  VARRAY_PUSH_TREE (id.fns, fn);
+  id.callee = fn;
+  id.caller = fn;
   id.node = cgraph_node (fn);
   id.saving_p = true;
   id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
@@ -1865,10 +2529,17 @@ save_body (tree fn, tree *arg_copy, tree *sc_copy)
       *sc_copy = new;
     }
 
+  /* We're not inside any EH region.  */
+  set_eh_cur_region (cfun, -1);
+
   insert_decl_map (&id, DECL_RESULT (fn), DECL_RESULT (fn));
 
-  /* Actually copy the body.  */
+  /* Actually copy the body, including a new (struct function *) and CFG.
+     EH info is also duplicated so its labels point into the copied
+     CFG, not the original.  */
   body = copy_body (&id);
+  DECL_STRUCT_FUNCTION (fn)->saved_cfg = DECL_STRUCT_FUNCTION (body)->cfg;
+  DECL_STRUCT_FUNCTION (fn)->saved_eh = DECL_STRUCT_FUNCTION (body)->eh;
 
   /* Clean up.  */
   splay_tree_delete (id.decl_map);
@@ -2113,6 +2784,9 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	    WALK_SUBTREE (TREE_OPERAND (*tp, len - 1));
 	}
 #endif
+      
+	/* Check our siblings.  */
+      /* 	WALK_SUBTREE_TAIL (TREE_TYPE (*tp)); */
     }
 
   /* If this is a type, walk the needed fields in the type.  */
@@ -2124,6 +2798,14 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
     }
   else
     {
+
+      if (TREE_CODE_CLASS (code) == 't')
+	{
+	  WALK_SUBTREE (TYPE_SIZE (*tp));
+	  WALK_SUBTREE (TYPE_SIZE_UNIT (*tp));
+	  /* Also examine variaous special fields, below.  */
+	}
+
       /* Not one of the easy cases.  We must explicitly go through the
 	 children.  */
       switch (code)
@@ -2134,6 +2816,14 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	case REAL_CST:
 	case VECTOR_CST:
 	case STRING_CST:
+	case REAL_TYPE:
+	case COMPLEX_TYPE:
+	case VECTOR_TYPE:
+	case VOID_TYPE:
+	case BOOLEAN_TYPE:
+	case UNION_TYPE:
+	case ENUMERAL_TYPE:
+	case RECORD_TYPE:
 	case BLOCK:
 	case PLACEHOLDER_EXPR:
 	case SSA_NAME:
@@ -2141,6 +2831,11 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	case RESULT_DECL:
 	  /* None of thse have subtrees other than those already walked
 	     above.  */
+	  break;
+
+	case POINTER_TYPE:
+	case REFERENCE_TYPE:
+	  WALK_SUBTREE_TAIL (TREE_TYPE (*tp));
 	  break;
 
 	case TREE_LIST:
@@ -2170,6 +2865,34 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 	case CONSTRUCTOR:
 	  WALK_SUBTREE_TAIL (CONSTRUCTOR_ELTS (*tp));
 
+      case METHOD_TYPE:
+        WALK_SUBTREE (TYPE_METHOD_BASETYPE (*tp));
+         /* Fall through.  */
+
+      case FUNCTION_TYPE:
+        WALK_SUBTREE (TREE_TYPE (*tp));
+        {
+          tree arg = TYPE_ARG_TYPES (*tp);
+
+          /* We never want to walk into default arguments.  */
+          for (; arg; arg = TREE_CHAIN (arg))
+            WALK_SUBTREE (TREE_VALUE (arg));
+        }
+        break;
+
+      case ARRAY_TYPE:
+        WALK_SUBTREE (TREE_TYPE (*tp));
+        WALK_SUBTREE_TAIL (TYPE_DOMAIN (*tp));
+
+      case INTEGER_TYPE:
+      case CHAR_TYPE:
+      WALK_SUBTREE (TYPE_MIN_VALUE (*tp));
+        WALK_SUBTREE_TAIL (TYPE_MAX_VALUE (*tp));
+
+      case OFFSET_TYPE:
+        WALK_SUBTREE (TREE_TYPE (*tp));
+        WALK_SUBTREE_TAIL (TYPE_OFFSET_BASETYPE (*tp));
+
 	case EXIT_BLOCK_EXPR:
 	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 1));
 
@@ -2189,6 +2912,7 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
 		WALK_SUBTREE (DECL_INITIAL (decl));
 		WALK_SUBTREE (DECL_SIZE (decl));
 		WALK_SUBTREE (DECL_SIZE_UNIT (decl));
+		WALK_SUBTREE (TREE_TYPE (decl));
 	      }
 	    WALK_SUBTREE_TAIL (BIND_EXPR_BODY (*tp));
 	  }
@@ -2280,10 +3004,11 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
 /* The SAVE_EXPR pointed to by TP is being copied.  If ST contains
    information indicating to what new SAVE_EXPR this one should be mapped,
-   use that one.  Otherwise, create a new node and enter it in ST.  */
+   use that one.  Otherwise, create a new node and enter it in ST.  FN is
+   the function into which the copy will be placed.  */
 
 void
-remap_save_expr (tree *tp, void *st_, int *walk_subtrees)
+remap_save_expr (tree *tp, void *st_, tree fn ATTRIBUTE_UNUSED, int *walk_subtrees)
 {
   splay_tree st = (splay_tree) st_;
   splay_tree_node n;
@@ -2321,15 +3046,20 @@ static tree
 mark_local_for_remap_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 			void *data)
 {
+  tree t = *tp;
   inline_data *id = (inline_data *) data;
+  tree decl;
 
   /* Don't walk into types.  */
-  if (TYPE_P (*tp))
-    *walk_subtrees = 0;
-
-  else if (TREE_CODE (*tp) == LABEL_EXPR)
+  if (TYPE_P (t))
     {
-      tree decl = TREE_OPERAND (*tp, 0);
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+
+  else if (TREE_CODE (t) == LABEL_EXPR)
+    {
+      decl = TREE_OPERAND (*tp, 0);
 
       /* Copy the decl and remember the copy.  */
       insert_decl_map (id, decl,
@@ -2393,7 +3123,7 @@ unsave_r (tree *tp, int *walk_subtrees, void *data)
   else if (TREE_CODE (*tp) == BIND_EXPR)
     copy_bind_expr (tp, walk_subtrees, id);
   else if (TREE_CODE (*tp) == SAVE_EXPR)
-    remap_save_expr (tp, st, walk_subtrees);
+    remap_save_expr (tp, st, current_function_decl, walk_subtrees);
   else
     {
       copy_tree_r (tp, walk_subtrees, NULL);
@@ -2420,8 +3150,8 @@ unsave_expr_now (tree expr)
 
   /* Set up ID.  */
   memset (&id, 0, sizeof (id));
-  VARRAY_TREE_INIT (id.fns, 1, "fns");
-  VARRAY_PUSH_TREE (id.fns, current_function_decl);
+  id.callee = current_function_decl;
+  id.caller = current_function_decl;
   id.decl_map = splay_tree_new (splay_tree_compare_pointers, NULL, NULL);
 
   /* Walk the tree once to find local labels.  */
@@ -2447,6 +3177,8 @@ debug_find_tree_1 (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED, void *data)
     return NULL;
 }
 
+extern bool debug_find_tree (tree top, tree search);
+
 bool
 debug_find_tree (tree top, tree search)
 {
@@ -2460,8 +3192,12 @@ static void
 declare_inline_vars (tree bind_expr, tree vars)
 {
   tree t;
+
   for (t = vars; t; t = TREE_CHAIN (t))
     DECL_SEEN_IN_BIND_EXPR_P (t) = 1;
 
   add_var_to_bind_expr (bind_expr, vars);
 }
+
+#include "gt-tree-inline.h"
+

@@ -21,6 +21,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #ifndef GCC_CGRAPH_H
 #define GCC_CGRAPH_H
+
+#include "tree.h"
+#include "basic-block.h"
 #include "ipa-static.h"
 
 enum availability
@@ -160,6 +163,14 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   bool analyzed;
   /* Set when function is scheduled to be assembled.  */
   bool output;
+  /* Used only while constructing the callgraph.  */
+  basic_block current_basic_block;
+  /* Estimated size of this function, with no inlining, in insns.  */
+  gcov_type insn_size;
+  /* Estimated growth of this function due to inlining, in insns.  */
+  gcov_type insn_growth;
+  /* The CALL within this function that we'd like to inline next.  */
+  struct cgraph_edge *most_desirable;
 };
 
 struct cgraph_edge GTY((chain_next ("%h.next_caller")))
@@ -173,6 +184,11 @@ struct cgraph_edge GTY((chain_next ("%h.next_caller")))
   /* When NULL, inline this call.  When non-NULL, points to the explanation
      why function was not inlined.  */
   const char *inline_failed;
+  /* Expected number of executions: calculated in profile.c.  */
+  gcov_type count;
+  /* Desirability of this edge for inlining.  Higher numbers are more
+     likely to be inlined.  */
+  gcov_type desirability;
 };
 
 /* The cgraph_varpool data structure.
@@ -218,8 +234,8 @@ void cgraph_remove_node (struct cgraph_node *);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
 				        tree);
-struct cgraph_node *cgraph_node (tree decl);
-struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree call_expr);
+struct cgraph_node *cgraph_node (tree);
+struct cgraph_edge *cgraph_edge (struct cgraph_node *, tree);
 bool cgraph_calls_p (tree, tree);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
@@ -228,7 +244,7 @@ const char * cgraph_node_name (struct cgraph_node *);
 struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *, struct cgraph_node *, tree);
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *);
 
-struct cgraph_varpool_node *cgraph_varpool_node (tree decl);
+struct cgraph_varpool_node *cgraph_varpool_node (tree);
 void cgraph_varpool_mark_needed_node (struct cgraph_varpool_node *);
 void cgraph_varpool_finalize_decl (tree);
 bool cgraph_varpool_assemble_pending_decls (void);
@@ -244,6 +260,7 @@ struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_immortal_master_clone (struct cgraph_node *);
 
 /* In cgraphunit.c  */
+void cgraph_build_cfg (tree);
 bool cgraph_assemble_pending_functions (void);
 void cgraph_finalize_function (tree, bool);
 void cgraph_finalize_compilation_unit (void);
@@ -251,14 +268,13 @@ void cgraph_create_edges (struct cgraph_node *, tree);
 void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
 void cgraph_mark_reachable_node (struct cgraph_node *);
-bool cgraph_inline_p (struct cgraph_edge *, const char **reason);
+bool cgraph_inline_p (struct cgraph_edge *, const char **);
 bool cgraph_preserve_function_body_p (tree);
 void verify_cgraph (void);
 void verify_cgraph_node (struct cgraph_node *);
-void cgraph_mark_inline_edge (struct cgraph_edge *e);
-void cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate);
-void cgraph_build_static_cdtor (char which, tree body, int priority);
-void cgraph_reset_static_var_maps (void);
+void cgraph_mark_inline_edge (struct cgraph_edge *);
+void cgraph_clone_inlined_nodes (struct cgraph_edge *, bool);
+void cgraph_build_static_cdtor (char, tree, int);
 void init_cgraph (void);
 
 #endif  /* GCC_CGRAPH_H  */

@@ -60,7 +60,7 @@ static bool expand_var_p (tree);
 
 /* Lowers the body of current_function_decl.  */
 
-static void
+void
 lower_function_body (void)
 {
   struct lower_data data;
@@ -68,6 +68,10 @@ lower_function_body (void)
   tree bind = *body_p;
   tree_stmt_iterator i;
   tree t, x;
+
+  /* If already lowered, do nothing.  */
+  if (TREE_CODE (bind) == STATEMENT_LIST)
+    return;
 
   gcc_assert (TREE_CODE (bind) == BIND_EXPR);
 
