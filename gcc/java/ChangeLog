@@ -1,5 +1,24 @@
 2005-03-26  Tom Tromey  <tromey@redhat.com>
 
+	* tree.hh (tree_generator::wrap_label): Declare.
+	* tree.cc (visit_do): Put 'test' label before EXIT_EXPR.  Call
+	fold() on exit expression.
+	(visit_for): Call fold() on exit expression.
+	(visit_while): Call fold() on exit expression.
+	(wrap_label): New method.
+	(visit_do): Use it.
+	(visit_for): Likewise.
+	(visit_label): Likewise.
+	(visit_switch): Likewise.
+	(visit_switch_block): Likewise.
+	(visit_while): Likewise.
+	(visit_switch_block): Create new label for each switch
+	expression.  Don't create a LABEL_EXPR.
+	(visit_switch): Don't create LABEL_EXPR for default case.  Set
+	type on SWITCH_EXPR.
+
+2005-03-26  Tom Tromey  <tromey@redhat.com>
+
 	* Make-lang.in (gt-java-decl.h): New target.
 	* lower.cc (visit_bytecode_block): Use built_in_decls.
 	* tree.cc (build_mod): Use built_in_decls to find fmod and fmodf.

@@ -91,6 +91,14 @@ tree_generator::emit_type_assertion (model_type *to_type,
 {
 }
 
+tree
+tree_generator::wrap_label (tree label_decl, model_element *request)
+{
+  tree result = build1 (LABEL_EXPR, void_type_node, label_decl);
+  annotate (result, request);
+  return result;
+}
+
 
 
 void
@@ -524,14 +532,12 @@ tree_generator::visit_do (model_do *dstmt,
 
   // Set up the loop body and arrange to exit once the condition has
   // changed.
-  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, test),
-		  TSI_CONTINUE_LINKING);
   tsi_link_after (&out, stmt_tree, TSI_CONTINUE_LINKING);
+  tsi_link_after (&out, wrap_label (test, expr.get ()), TSI_CONTINUE_LINKING);
   tsi_link_after (&out, build1 (EXIT_EXPR,
 				void_type_node,
-				build1 (TRUTH_NOT_EXPR,
-					type_jboolean,
-					expr_tree)),
+				fold (build1 (TRUTH_NOT_EXPR, type_jboolean,
+					      expr_tree))),
 		  TSI_CONTINUE_LINKING);
 
   // Wrap the body in a loop.
@@ -542,8 +548,8 @@ tree_generator::visit_do (model_do *dstmt,
   tree outer = alloc_stmt_list ();
   out = tsi_start (outer);
   tsi_link_after (&out, body_tree, TSI_CONTINUE_LINKING);
-  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, done),
-		  TSI_CONTINUE_LINKING);
+  // FIXME: location should be end of do statement, not beginning.
+  tsi_link_after (&out, wrap_label (done, dstmt), TSI_CONTINUE_LINKING);
   current = outer;
 }
 
@@ -619,15 +625,15 @@ tree_generator::visit_for (model_for *fstmt,
     {
       cond->visit (this);
       tsi_link_after (&body_out, build1 (EXIT_EXPR, void_type_node,
-					 build1 (TRUTH_NOT_EXPR,
-						 type_jboolean,
-						 current)),
+					 fold (build1 (TRUTH_NOT_EXPR,
+						       type_jboolean,
+						       current))),
 		      TSI_CONTINUE_LINKING);
     }
   body->visit (this);
   tsi_link_after (&body_out, current, TSI_CONTINUE_LINKING);
 
-  tsi_link_after (&body_out, build1 (LABEL_EXPR, void_type_node, update_tree),
+  tsi_link_after (&body_out, wrap_label (update_tree, fstmt),
 		  TSI_CONTINUE_LINKING);
   if (update)
     {
@@ -641,7 +647,7 @@ tree_generator::visit_for (model_for *fstmt,
   annotate (body_tree, fstmt);
   tsi_link_after (&result_out, body_tree, TSI_CONTINUE_LINKING);
 
-  tsi_link_after (&result_out, build1 (LABEL_EXPR, void_type_node, done_tree),
+  tsi_link_after (&result_out, wrap_label (done_tree, fstmt),
 		  TSI_CONTINUE_LINKING);
 
   current = build3 (BIND_EXPR, void_type_node, BLOCK_VARS (current_block),
@@ -691,9 +697,7 @@ tree_generator::visit_label (model_label *label, const ref_stmt &stmt)
 
       stmt->visit (this);
       tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
-      tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node,
-				    brk),
-		      TSI_CONTINUE_LINKING);
+      tsi_link_after (&out, wrap_label (brk, label), TSI_CONTINUE_LINKING);
 
       current = body_tree;
     }
@@ -743,8 +747,6 @@ tree_generator::visit_switch (model_switch *swstmt,
 	{
 	  tree label = build0 (LABEL_DECL, NULL_TREE);
 	  DECL_CONTEXT (label) = current_block;
-	  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, label),
-			  TSI_CONTINUE_LINKING);
 
 	  tree case_label = build3 (CASE_LABEL_EXPR, NULL_TREE, NULL_TREE,
 				    NULL_TREE, label);
@@ -755,14 +757,14 @@ tree_generator::visit_switch (model_switch *swstmt,
       tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
     }
 
-  current = build3 (SWITCH_EXPR, NULL_TREE, expr_tree, body_tree, NULL_TREE);
+  current = build3 (SWITCH_EXPR, TREE_TYPE (expr_tree), expr_tree,
+		    body_tree, NULL_TREE);
   annotate (current, swstmt);
 
   body_tree = alloc_stmt_list ();
   out = tsi_start (body_tree);
   tsi_link_after (&out, current, TSI_CONTINUE_LINKING);
-  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, done),
-		  TSI_CONTINUE_LINKING);
+  tsi_link_after (&out, wrap_label (done, swstmt), TSI_CONTINUE_LINKING);
   current = body_tree;
 }
 
@@ -778,15 +780,14 @@ tree_generator::visit_switch_block (model_switch_block *swblock,
   tree body_tree = alloc_stmt_list ();
   tree_stmt_iterator out = tsi_start (body_tree);
 
-  // Multiple switch labels point at the same label in the code.
-  tree label = build0 (LABEL_DECL, NULL_TREE);
-  DECL_CONTEXT (label) = current_block;
-
   std::list<ref_expression> labels = swblock->get_labels ();
   for (std::list<ref_expression>::const_iterator i = labels.begin ();
        i != labels.end ();
        ++i)
     {
+      tree label = build0 (LABEL_DECL, NULL_TREE);
+      DECL_CONTEXT (label) = current_block;
+
       jint value = jint (intb->convert ((*i)->type (), (*i)->value ()));
       tree new_label = build3 (CASE_LABEL_EXPR, NULL_TREE, build_int (value),
 			       NULL_TREE, label);
@@ -794,8 +795,6 @@ tree_generator::visit_switch_block (model_switch_block *swblock,
       tsi_link_after (&out, new_label, TSI_CONTINUE_LINKING);
     }
 
-  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, label),
-		  TSI_CONTINUE_LINKING);
   tree stmt_tree = transform_list (statements);
   tsi_link_after (&out, stmt_tree, TSI_CONTINUE_LINKING);
 
@@ -942,14 +941,12 @@ tree_generator::visit_while (model_while *wstmt,
   // exit expression, then the actual body.
   tree body_tree = alloc_stmt_list ();
   tree_stmt_iterator out = tsi_start (body_tree);
-  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, again),
-		  TSI_CONTINUE_LINKING);
+  tsi_link_after (&out, wrap_label (again, wstmt), TSI_CONTINUE_LINKING);
 
   cond->visit (this);
   tsi_link_after (&out, build1 (EXIT_EXPR, void_type_node,
-				build1 (TRUTH_NOT_EXPR,
-					type_jboolean,
-					current)),
+				fold (build1 (TRUTH_NOT_EXPR, type_jboolean,
+					      current))),
 		  TSI_CONTINUE_LINKING);
 
   body->visit (this);
@@ -962,8 +959,7 @@ tree_generator::visit_while (model_while *wstmt,
   current = alloc_stmt_list ();
   out = tsi_start (current);
   tsi_link_after (&out, body_tree, TSI_CONTINUE_LINKING);
-  tsi_link_after (&out, build1 (LABEL_EXPR, void_type_node, done),
-		  TSI_CONTINUE_LINKING);
+  tsi_link_after (&out, wrap_label (done, wstmt), TSI_CONTINUE_LINKING);
 }
 
 
