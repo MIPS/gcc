@@ -1,3 +1,14 @@
+2004-01-25  Adam Fedor  <fedor@gnu.org>
+            Nicola Pero  <n.pero@mi.flashnet.it>
+            Andrew Pinski  <pinskia@physics.uc.edu>
+
+	* objc/objc-decls.h: New file.
+	* objc/objc-api.h (_objc_lookup_class): Mark as export.
+	(_objc_load_callback): Likewise.
+	(_objc_object_alloc): Likewise.
+	(_objc_object_copy): Likewise.
+	(_objc_object_dispose): Likewise.
+
 2004-01-25  Andrew Pinski  <pinskia@physics.uc.edu>
 
 	* archive.c: s/__inline__/inline
