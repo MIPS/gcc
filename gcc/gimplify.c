@@ -1190,7 +1190,26 @@ simplify_modify_expr (expr_p, pre_p, post_p)
   simplify_expr (&TREE_OPERAND (*expr_p, 1), pre_p, post_p, is_simple_rhs,
                  fb_rvalue);
 
-  add_tree (*expr_p, pre_p);
+  /* Break out non-static constructors into multiple assignments. */
+  if (TREE_CODE (TREE_OPERAND (*expr_p, 1)) == CONSTRUCTOR
+      && !TREE_STATIC (TREE_OPERAND (*expr_p, 0)))
+    {
+      tree elt_list;
+      for (elt_list = CONSTRUCTOR_ELTS (TREE_OPERAND (*expr_p, 1)); elt_list;
+	   elt_list = TREE_CHAIN (elt_list))
+	{
+	  tree purpose = TREE_PURPOSE (elt_list);
+	  tree value = TREE_VALUE (elt_list);
+	  tree init;
+	  tree cref;
+	  cref = build (COMPONENT_REF, TREE_TYPE (purpose), 
+			TREE_OPERAND (*expr_p, 0), purpose);
+	  init = build (MODIFY_EXPR, TREE_TYPE (purpose), cref, value);
+	  add_tree (init, pre_p);
+	}
+    }
+  else
+    add_tree (*expr_p, pre_p);
   *expr_p = TREE_OPERAND (*expr_p, 0);
 }
 
