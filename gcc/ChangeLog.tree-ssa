@@ -5,7 +5,8 @@
 	correctly set.
 	(avail_expr_hash): Do not use iterative_hash_object or deal with
 	SSA names for real operands.  Instead use iterative_hash_expr
-	which handles both.  Use operand_equal_p to test for equality.
+	which handles both.
+	(avail_expr_eq): Use operand_equal_p to test for equality.
 
 2003-06-11  Steven Bosscher  <steven@gcc.gnu.org>
 
